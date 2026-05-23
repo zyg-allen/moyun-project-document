@@ -12,6 +12,7 @@
 - [标签模块](#标签模块)
 - [搜索模块](#搜索模块)
 - [通知模块](#通知模块)
+- [友情链接模块](#友情链接模块)
 - [订单模块](#订单模块)
 - [VIP模块](#vip模块)
 - [钱包模块](#钱包模块)
@@ -1073,6 +1074,89 @@ Authorization: Bearer {token}
 
 ---
 
+### 4. 搜索标签
+
+**接口地址**: `GET /tag/search`
+
+**需要认证**: 否
+
+**请求参数**:
+
+| 参数名 | 类型 | 必填 | 说明 |
+|--------|------|------|------|
+| keyword | string | 是 | 搜索关键词 |
+
+**响应数据**:
+
+```json
+[
+  {
+    "id": "1",
+    "name": "Vue3",
+    "slug": "vue3",
+    "articleCount": 50,
+    "createdAt": "2024-01-01T00:00:00Z"
+  }
+]
+```
+
+---
+
+### 5. 创建新标签
+
+**接口地址**: `POST /tag/create`
+
+**需要认证**: 是
+
+**请求参数**:
+
+| 参数名 | 类型 | 必填 | 说明 |
+|--------|------|------|------|
+| name | string | 是 | 标签名称 |
+
+**响应数据**:
+
+```json
+{
+  "id": "1",
+  "name": "新标签",
+  "slug": "xin-biao-qian",
+  "articleCount": 0,
+  "createdAt": "2024-01-01T00:00:00Z"
+}
+```
+
+---
+
+### 6. 获取标签推荐
+
+**接口地址**: `GET /tag/recommend`
+
+**需要认证**: 否
+
+**请求参数**:
+
+| 参数名 | 类型 | 必填 | 说明 |
+|--------|------|------|------|
+| title | string | 是 | 文章标题 |
+| category | string | 否 | 文章分类 |
+
+**响应数据**:
+
+```json
+[
+  {
+    "id": "1",
+    "name": "Vue3",
+    "slug": "vue3",
+    "articleCount": 50,
+    "createdAt": "2024-01-01T00:00:00Z"
+  }
+]
+```
+
+---
+
 ## 搜索模块
 
 ### 1. 搜索
@@ -1115,7 +1199,7 @@ Authorization: Bearer {token}
 
 ### 1. 获取通知列表
 
-**接口地址**: `GET /notification/list`
+**接口地址**: `GET /notifications`
 
 **需要认证**: 是
 
@@ -1126,7 +1210,7 @@ Authorization: Bearer {token}
 | page | number | 否 | 页码 |
 | pageSize | number | 否 | 每页数量 |
 | type | string | 否 | 类型：comment/like/follow/system/order |
-| unreadOnly | boolean | 否 | 是否只看未读 |
+| isRead | boolean | 否 | 是否只看已读 |
 
 **响应数据**:
 
@@ -1155,26 +1239,9 @@ Authorization: Bearer {token}
 
 ---
 
-### 2. 标记已读
+### 2. 获取未读数量
 
-**接口地址**: `PUT /notification/read`
-
-**需要认证**: 是
-
-**请求参数**:
-
-| 参数名 | 类型 | 必填 | 说明 |
-|--------|------|------|------|
-| id | string | 否 | 通知ID，不传则标记全部 |
-| all | boolean | 否 | 是否标记全部为已读 |
-
-**响应数据**: 无
-
----
-
-### 3. 获取通知统计
-
-**接口地址**: `GET /notification/stats`
+**接口地址**: `GET /notifications/unread-count`
 
 **需要认证**: 是
 
@@ -1184,9 +1251,74 @@ Authorization: Bearer {token}
 
 ```json
 {
-  "total": 50,
-  "unread": 10
+  "count": 10
 }
+```
+
+---
+
+### 3. 标记已读
+
+**接口地址**: `POST /notifications/mark-all-read` 或 `POST /notifications/{id}/read`
+
+**需要认证**: 是
+
+**请求参数**:
+
+| 参数名 | 类型 | 必填 | 说明 |
+|--------|------|------|------|
+| id | string | 否 | 通知ID（路径参数） |
+
+**请求方式说明**:
+- 标记全部已读: `POST /notifications/mark-all-read`
+- 标记单个已读: `POST /notifications/{id}/read`
+
+**响应数据**: 无
+
+---
+
+### 4. 删除通知
+
+**接口地址**: `DELETE /notifications/{id}`
+
+**需要认证**: 是
+
+**路径参数**:
+
+| 参数名 | 类型 | 必填 | 说明 |
+|--------|------|------|------|
+| id | string | 是 | 通知ID |
+
+**响应数据**: 无
+
+---
+
+## 友情链接模块
+
+### 1. 获取友情链接列表
+
+**接口地址**: `GET /friend-links`
+
+**需要认证**: 否
+
+**请求参数**: 无
+
+**响应数据**:
+
+```json
+[
+  {
+    "id": "1",
+    "name": "中国作家网",
+    "url": "https://www.chinawriter.com.cn",
+    "description": "中国作家协会官方网站",
+    "logo": "https://example.com/logo.png",
+    "sort": 1,
+    "status": "active",
+    "createdAt": "2024-01-01T00:00:00Z",
+    "updatedAt": "2024-01-01T00:00:00Z"
+  }
+]
 ```
 
 ---
@@ -1479,6 +1611,6 @@ TypeScript类型定义在 `src/types/api.ts`。
 
 ---
 
-**文档版本**: v1.0  
-**最后更新**: 2024-05-21  
+**文档版本**: v1.1  
+**最后更新**: 2024-05-23  
 **维护团队**: 墨韵智库后端团队

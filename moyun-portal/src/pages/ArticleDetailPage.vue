@@ -8,11 +8,13 @@ import ArticleCard from '@/components/ArticleCard.vue';
 import LazyImage from '@/components/LazyImage.vue';
 import Breadcrumb from '@/components/Breadcrumb.vue';
 import SiteFooter from '@/components/SiteFooter.vue';
+import MarkdownRenderer from '@/components/MarkdownRenderer.vue';
 import { getArticleById, getCommentsByArticleId, addComment, getCurrentUser, setCurrentUser, toggleCommentLike } from '@/data/mockData';
 import { useArticleStore } from '@/stores/article';
 import { useUserStore } from '@/stores/user';
 import { generateSeo } from '@/utils/seo';
 import { sanitizeHTML } from '@/utils/security';
+import { formatShortDate } from '@/utils/date';
 import type { Article, Comment, User } from '@/types';
 import * as articleApi from '@/api/article';
 import * as commentApi from '@/api/comment';
@@ -45,6 +47,14 @@ const breadcrumbs = computed(() => {
 
 const sanitizedContent = computed(() => 
   article.value ? sanitizeHTML(article.value.content) : ''
+);
+
+const articleDate = computed(() => 
+  article.value ? formatShortDate(article.value.createdAt) : ''
+);
+
+const articleUpdateDate = computed(() => 
+  article.value ? formatShortDate(article.value.updatedAt || article.value.createdAt) : ''
 );
 
 const displayedComments = computed(() => comments.value.slice(0, displayedCount.value));
@@ -225,10 +235,6 @@ function loadMoreComments() {
   displayedCount.value += 10;
 }
 
-function formatDate(dateStr: string) {
-  return dateStr;
-}
-
 function getLikeButtonStyle() {
   if (isLiked.value) {
     return { backgroundColor: 'var(--theme-accent)', color: 'var(--theme-primary)' };
@@ -331,7 +337,7 @@ const head = useHead(
               </Link>
               
               <div class="flex items-center gap-3 text-sm flex-shrink-0" style="color: var(--theme-text-secondary);">
-                <span>{{ article.createdAt }}</span>
+                <span>{{ articleDate }}</span>
                 <span>·</span>
                 <span>{{ article.views }} 阅读</span>
               </div>
@@ -349,10 +355,10 @@ const head = useHead(
               </div>
             </div>
 
-            <div 
-              class="prose prose-base md:prose-lg max-w-none leading-relaxed space-y-4 break-words overflow-wrap-break-word [&_img]:max-w-full [&_img]:h-auto [&_a]:break-all"
-              style="color: var(--theme-text-secondary); word-wrap: break-word; overflow-wrap: break-word;"
-              v-html="sanitizedContent"
+            <MarkdownRenderer
+              :content="article.content"
+              :content-markdown="article.contentMarkdown"
+              :editor-mode="article.editorMode"
             />
 
             <div class="flex items-center justify-between pt-6 mt-6 border-t gap-3" style="border-color: var(--theme-border);">
@@ -388,7 +394,7 @@ const head = useHead(
                 </button>
               </div>
               <div class="text-sm" style="color: var(--theme-text-secondary);">
-                {{ article.updatedAt }}
+                {{ articleUpdateDate }}
               </div>
             </div>
           </div>

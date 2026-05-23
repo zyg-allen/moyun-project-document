@@ -136,8 +136,8 @@ export const useArticleStore = defineStore('article', () => {
     return getArticleById(id)
   }
 
-  function addArticle(article: Omit<Article, 'id' | 'views' | 'likes' | 'commentCount' | 'createdAt' | 'updatedAt' | 'isFeatured' | 'shareCount'>) {
-    const newArticle = addMockArticle(article)
+  function addArticle(article: Partial<Article>) {
+    const newArticle = addMockArticle(article as any)
     articles.value.unshift(newArticle)
     return newArticle
   }

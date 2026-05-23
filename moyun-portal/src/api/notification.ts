@@ -1,28 +1,40 @@
-import { httpGet, httpPost, httpPut } from './client';
-import type {
-  Notification,
-  NotificationListParams,
-  MarkNotificationReadParams,
-  NotificationStats,
-  PaginationResponse,
-} from '@/types/api';
+import { httpGet, httpPost, httpDelete } from './client'
+import type { ApiResponse } from '@/types/api'
+import type { Notification, NotificationType } from '@/types'
 
-// 获取通知列表
-export const getNotificationList = (params?: NotificationListParams) => {
-  return httpGet<PaginationResponse<Notification>>('/notification/list', params);
-};
+export interface GetNotificationListParams {
+  page?: number
+  pageSize?: number
+  type?: NotificationType
+  isRead?: boolean
+}
 
-// 标记已读
-export const markNotificationRead = (params: MarkNotificationReadParams) => {
-  return httpPut('/notification/read', params);
-};
+export interface MarkAsReadParams {
+  id?: string
+  all?: boolean
+}
 
-// 获取通知统计
-export const getNotificationStats = () => {
-  return httpGet<NotificationStats>('/notification/stats');
-};
+export async function getNotificationList(
+  params?: GetNotificationListParams
+): Promise<ApiResponse<{ list: Notification[]; total: number }>> {
+  return httpGet('/notifications', params)
+}
 
-// 别名函数
-export const markAsRead = (id: string) => {
-  return markNotificationRead({ id });
-};
+export async function getUnreadCount(): Promise<ApiResponse<{ count: number }>> {
+  return httpGet('/notifications/unread-count')
+}
+
+export async function markAsRead(
+  params: MarkAsReadParams
+): Promise<ApiResponse<void>> {
+  if (params.all) {
+    return httpPost('/notifications/mark-all-read')
+  }
+  return httpPost(`/notifications/${params.id}/read`)
+}
+
+export async function deleteNotification(
+  id: string
+): Promise<ApiResponse<void>> {
+  return httpDelete(`/notifications/${id}`)
+}

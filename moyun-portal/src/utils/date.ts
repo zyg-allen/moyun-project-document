@@ -1,0 +1,99 @@
+import dayjs from 'dayjs';
+import 'dayjs/locale/zh-cn';
+import relativeTime from 'dayjs/plugin/relativeTime';
+
+// 配置 dayjs
+dayjs.locale('zh-cn');
+dayjs.extend(relativeTime);
+
+/**
+ * 格式化日期
+ * @param date 日期字符串或 Date 对象
+ * @param format 格式化模板，默认为 'YYYY-MM-DD HH:mm:ss'
+ * @returns 格式化后的日期字符串
+ */
+export function formatDate(
+  date: string | Date,
+  format: string = 'YYYY-MM-DD HH:mm:ss'
+): string {
+  if (!date) return '';
+  return dayjs(date).format(format);
+}
+
+/**
+ * 相对时间格式化（比如：3分钟前，1小时前）
+ * @param date 日期字符串或 Date 对象
+ * @returns 相对时间字符串
+ */
+export function formatRelativeTime(date: string | Date): string {
+  if (!date) return '';
+  return dayjs(date).fromNow();
+}
+
+/**
+ * 格式化为简短日期
+ * @param date 日期字符串或 Date 对象
+ * @returns 简短日期字符串
+ */
+export function formatShortDate(date: string | Date): string {
+  if (!date) return '';
+  const d = dayjs(date);
+  const now = dayjs();
+  
+  // 如果是今天
+  if (d.isSame(now, 'day')) {
+    return '今天 ' + d.format('HH:mm');
+  }
+  
+  // 如果是昨天
+  if (d.isSame(now.subtract(1, 'day'), 'day')) {
+    return '昨天 ' + d.format('HH:mm');
+  }
+  
+  // 如果是今年
+  if (d.isSame(now, 'year')) {
+    return d.format('MM-DD HH:mm');
+  }
+  
+  // 其他情况
+  return d.format('YYYY-MM-DD');
+}
+
+/**
+ * 获取两个日期之间的天数差
+ * @param date1 日期1
+ * @param date2 日期2，默认为今天
+ * @returns 天数差
+ */
+export function getDaysDiff(date1: string | Date, date2: string | Date = new Date()): number {
+  return dayjs(date2).diff(dayjs(date1), 'day');
+}
+
+/**
+ * 检查日期是否是今天
+ * @param date 日期
+ * @returns 是否是今天
+ */
+export function isToday(date: string | Date): boolean {
+  return dayjs(date).isSame(dayjs(), 'day');
+}
+
+/**
+ * 检查日期是否是本周
+ * @param date 日期
+ * @returns 是否是本周
+ */
+export function isThisWeek(date: string | Date): boolean {
+  return dayjs(date).isSame(dayjs(), 'week');
+}
+
+/**
+ * 检查日期是否是本月
+ * @param date 日期
+ * @returns 是否是本月
+ */
+export function isThisMonth(date: string | Date): boolean {
+  return dayjs(date).isSame(dayjs(), 'month');
+}
+
+export default dayjs;

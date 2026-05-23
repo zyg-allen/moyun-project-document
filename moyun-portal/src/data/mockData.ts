@@ -761,14 +761,22 @@ export function toggleCommentLike(commentId: string): void {
   }
 }
 
-export function addArticle(article: Omit<Article, 'id' | 'views' | 'likes' | 'createdAt' | 'updatedAt'>): Article {
+export function addArticle(article: Partial<Article>): Article {
   const newArticle: Article = {
-    ...article,
     id: Date.now().toString(),
+    title: article.title || '',
+    content: article.content || '',
+    excerpt: article.excerpt || '',
+    cover: article.cover || '',
+    author: article.author || mockUsers[0],
+    category: article.category || '技术栈手册',
+    tags: article.tags || [],
     views: 0,
     likes: 0,
     createdAt: new Date().toISOString().split('T')[0],
-    updatedAt: new Date().toISOString().split('T')[0]
+    updatedAt: new Date().toISOString().split('T')[0],
+    editorMode: article.editorMode || 'richtext',
+    contentMarkdown: article.contentMarkdown || undefined
   };
   mockArticles.unshift(newArticle);
   return newArticle;

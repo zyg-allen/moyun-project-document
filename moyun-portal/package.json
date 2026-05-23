@@ -12,10 +12,16 @@
     "lint:fix": "eslint . --ext .ts,.vue --fix"
   },
   "dependencies": {
+    "@vueup/vue-quill": "^1.2.0",
+    "@vueuse/core": "^10.9.0",
     "@vueuse/head": "^2.0.0",
     "clsx": "^2.1.1",
+    "dayjs": "^1.11.10",
+    "highlight.js": "^11.9.0",
     "lucide-vue-next": "^0.511.0",
+    "marked": "^12.0.0",
     "pinia": "^3.0.4",
+    "quill": "^2.0.2",
     "tailwind-merge": "^3.3.0",
     "vue": "^3.4.15",
     "vue-router": "^4.2.5",

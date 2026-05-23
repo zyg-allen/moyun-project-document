@@ -92,6 +92,7 @@ export interface Article {
   id: string;
   title: string;
   content: string;
+  contentMarkdown?: string;
   excerpt: string;
   cover?: string;
   author: User;
@@ -107,6 +108,7 @@ export interface Article {
   isFeatured?: boolean;
   isTop?: boolean;
   status: 'draft' | 'published' | 'archived';
+  editorMode: 'richtext' | 'markdown';
   createdAt: string;
   updatedAt?: string;
   publishedAt?: string;
@@ -133,24 +135,28 @@ export interface ArticleDetailParams {
 export interface CreateArticleParams {
   title: string;
   content: string;
+  contentMarkdown?: string;
   excerpt?: string;
   cover?: string;
   category?: string;
   categoryId?: string;
   tags?: string[];
   status?: 'draft' | 'published';
+  editorMode?: 'richtext' | 'markdown';
 }
 
 export interface UpdateArticleParams {
   id: string;
   title?: string;
   content?: string;
+  contentMarkdown?: string;
   excerpt?: string;
   cover?: string;
   category?: string;
   categoryId?: string;
   tags?: string[];
   status?: 'draft' | 'published';
+  editorMode?: 'richtext' | 'markdown';
 }
 
 // 评论相关类型

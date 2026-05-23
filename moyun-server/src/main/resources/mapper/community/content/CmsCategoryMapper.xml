@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.moyun.community.content.mapper.CmsCategoryMapper">
+
+    <resultMap type="com.moyun.community.content.entity.CmsCategory" id="CmsCategoryResult">
+        <id property="categoryId" column="category_id" />
+        <result property="parentId" column="parent_id" />
+        <result property="ancestors" column="ancestors" />
+        <result property="categoryName" column="category_name" />
+        <result property="categoryCode" column="category_code" />
+        <result property="categoryType" column="category_type" />
+        <result property="icon" column="icon" />
+        <result property="coverImage" column="cover_image" />
+        <result property="description" column="description" />
+        <result property="sort" column="sort" />
+        <result property="status" column="status" />
+        <result property="isShow" column="is_show" />
+        <result property="isRecommend" column="is_recommend" />
+        <result property="seoTitle" column="seo_title" />
+        <result property="seoKeywords" column="seo_keywords" />
+        <result property="seoDescription" column="seo_description" />
+        <result property="createBy" column="create_by" />
+        <result property="createTime" column="create_time" />
+        <result property="updateBy" column="update_by" />
+        <result property="updateTime" column="update_time" />
+        <result property="remark" column="remark" />
+    </resultMap>
+
+    <sql id="selectCategoryVo">
+        select category_id, parent_id, ancestors, category_name, category_code, category_type, icon,
+               cover_image, description, sort, status, is_show, is_recommend, seo_title, seo_keywords,
+               seo_description, create_by, create_time, update_by, update_time, remark
+        from cms_category
+    </sql>
+
+</mapper>

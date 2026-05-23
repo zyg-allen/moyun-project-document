@@ -1,0 +1,231 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* 默认日间主题变量 */
+  --theme-primary: #DC2626;
+  --theme-bg: #FFFFFF;
+  --theme-text: #111827;
+  --theme-text-secondary: #4B5563;
+  --theme-border: #E5E7EB;
+  --theme-surface: #F9FAFB;
+  --theme-accent: #FEE2E2;
+  
+  font-family:
+    -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica,
+    Arial, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji';
+  line-height: 1.5;
+  font-weight: 400;
+
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* 夜间主题 */
+.dark {
+  --theme-primary: #EF4444;
+  --theme-bg: #0F172A;
+  --theme-text: #F3F4F6;
+  --theme-text-secondary: #94A3B8;
+  --theme-border: #1E293B;
+  --theme-surface: #1E293B;
+  --theme-accent: #1E293B;
+}
+
+/* 护眼主题 */
+.eye {
+  --theme-primary: #065F46;
+  --theme-bg: #F7F3E3;
+  --theme-text: #1F2937;
+  --theme-text-secondary: #4B5563;
+  --theme-border: #D1D5DB;
+  --theme-surface: #FAF8F0;
+  --theme-accent: #D1FAE5;
+}
+
+/* 基础样式 */
+body {
+  margin: 0;
+  min-height: 100vh;
+  background-color: var(--theme-bg);
+  color: var(--theme-text);
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+/* 通用组件样式支持主题 */
+.theme-bg {
+  background-color: var(--theme-bg);
+}
+
+.theme-surface {
+  background-color: var(--theme-surface);
+}
+
+.theme-text {
+  color: var(--theme-text);
+}
+
+.theme-text-secondary {
+  color: var(--theme-text-secondary);
+}
+
+.theme-border {
+  border-color: var(--theme-border);
+}
+
+.theme-primary {
+  color: var(--theme-primary);
+}
+
+.theme-primary-bg {
+  background-color: var(--theme-primary);
+}
+
+/* 富文本内容样式 - 参考 Medium、知乎等平台 */
+.prose {
+  font-size: 0.95rem;
+  line-height: 1.8;
+  color: var(--theme-text-secondary);
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+}
+
+.prose h1,
+.prose h2,
+.prose h3,
+.prose h4,
+.prose h5,
+.prose h6 {
+  font-weight: 600;
+  line-height: 1.4;
+  margin-top: 1.5em;
+  margin-bottom: 0.75em;
+  color: var(--theme-text);
+}
+
+.prose h1 { font-size: 1.5rem; }
+.prose h2 { font-size: 1.3rem; }
+.prose h3 { font-size: 1.15rem; }
+.prose h4 { font-size: 1rem; }
+
+.prose p {
+  margin-bottom: 1.25em;
+  line-height: 1.8;
+}
+
+.prose a {
+  color: var(--theme-primary);
+  text-decoration: none;
+  transition: opacity 0.2s;
+}
+
+.prose a:hover {
+  opacity: 0.8;
+  text-decoration: underline;
+}
+
+.prose strong {
+  font-weight: 600;
+  color: var(--theme-text);
+}
+
+.prose em {
+  font-style: italic;
+}
+
+.prose blockquote {
+  border-left: 3px solid var(--theme-primary);
+  padding-left: 1rem;
+  margin: 1.5em 0;
+  font-style: italic;
+  opacity: 0.9;
+}
+
+.prose ul,
+.prose ol {
+  padding-left: 1.5rem;
+  margin: 1em 0;
+}
+
+.prose li {
+  margin-bottom: 0.5em;
+  line-height: 1.7;
+}
+
+.prose li::marker {
+  color: var(--theme-primary);
+}
+
+.prose code {
+  background-color: var(--theme-surface);
+  padding: 0.2em 0.4em;
+  border-radius: 0.25rem;
+  font-size: 0.875em;
+  font-family: 'Fira Code', Consolas, Monaco, 'Andale Mono', monospace;
+  color: var(--theme-primary);
+}
+
+.prose pre {
+  background-color: var(--theme-surface);
+  padding: 1rem;
+  border-radius: 0.5rem;
+  overflow-x: auto;
+  margin: 1.5em 0;
+  font-size: 0.875rem;
+  line-height: 1.6;
+  border: 1px solid var(--theme-border);
+}
+
+.prose pre code {
+  background-color: transparent;
+  padding: 0;
+  font-size: inherit;
+  color: var(--theme-text);
+  border-radius: 0;
+}
+
+.prose img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 0.5rem;
+  margin: 1.5em 0;
+}
+
+.prose hr {
+  border: none;
+  border-top: 1px solid var(--theme-border);
+  margin: 2em 0;
+}
+
+.prose table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1.5em 0;
+  font-size: 0.9rem;
+}
+
+.prose table th,
+.prose table td {
+  border: 1px solid var(--theme-border);
+  padding: 0.75rem;
+  text-align: left;
+}
+
+.prose table th {
+  background-color: var(--theme-surface);
+  font-weight: 600;
+  color: var(--theme-text);
+}
+
+/* 隐藏滚动条但保持滚动功能 */
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}

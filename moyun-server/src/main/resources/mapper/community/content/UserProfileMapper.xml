@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.moyun.community.content.mapper.UserProfileMapper">
+
+    <resultMap type="com.moyun.community.content.entity.UserProfile" id="UserProfileResult">
+        <id property="userId" column="user_id" />
+        <result property="nickname" column="nickname" />
+        <result property="avatar" column="avatar" />
+        <result property="bio" column="bio" />
+        <result property="gender" column="gender" />
+        <result property="birthday" column="birthday" />
+        <result property="location" column="location" />
+        <result property="website" column="website" />
+        <result property="socialLinks" column="social_links" />
+        <result property="points" column="points" />
+        <result property="level" column="level" />
+        <result property="inkBalance" column="ink_balance" />
+        <result property="totalReadTime" column="total_read_time" />
+        <result property="totalWordCount" column="total_word_count" />
+        <result property="articleCount" column="article_count" />
+        <result property="followerCount" column="follower_count" />
+        <result property="followingCount" column="following_count" />
+        <result property="likeCount" column="like_count" />
+        <result property="articleViewCount" column="article_view_count" />
+        <result property="isAuthor" column="is_author" />
+        <result property="authorLevel" column="author_level" />
+        <result property="createTime" column="create_time" />
+        <result property="updateTime" column="update_time" />
+    </resultMap>
+
+    <sql id="selectUserProfileVo">
+        select user_id, nickname, avatar, bio, gender, birthday, location, website, social_links,
+               points, level, ink_balance, total_read_time, total_word_count, article_count,
+               follower_count, following_count, like_count, article_view_count, is_author, author_level,
+               create_time, update_time
+        from sys_user_profile
+    </sql>
+
+</mapper>

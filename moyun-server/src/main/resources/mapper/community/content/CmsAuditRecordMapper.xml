@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.moyun.community.content.mapper.CmsAuditRecordMapper">
+
+    <resultMap type="com.moyun.community.content.entity.CmsAuditRecord" id="CmsAuditRecordResult">
+        <id property="auditId" column="audit_id" />
+        <result property="articleId" column="article_id" />
+        <result property="submitUserId" column="submit_user_id" />
+        <result property="auditorId" column="auditor_id" />
+        <result property="auditStatus" column="audit_status" />
+        <result property="auditType" column="audit_type" />
+        <result property="aiResult" column="ai_result" />
+        <result property="aiScore" column="ai_score" />
+        <result property="auditReason" column="audit_reason" />
+        <result property="auditRemark" column="audit_remark" />
+        <result property="submitTime" column="submit_time" />
+        <result property="auditTime" column="audit_time" />
+        <result property="createBy" column="create_by" />
+        <result property="createTime" column="create_time" />
+        <result property="updateBy" column="update_by" />
+        <result property="updateTime" column="update_time" />
+    </resultMap>
+
+    <sql id="selectAuditRecordVo">
+        select audit_id, article_id, submit_user_id, auditor_id, audit_status, audit_type, ai_result,
+               ai_score, audit_reason, audit_remark, submit_time, audit_time, create_by, create_time,
+               update_by, update_time
+        from cms_audit_record
+    </sql>
+
+</mapper>

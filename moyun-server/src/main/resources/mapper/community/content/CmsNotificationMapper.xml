@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.moyun.community.content.mapper.CmsNotificationMapper">
+
+    <resultMap type="com.moyun.community.content.entity.CmsNotification" id="CmsNotificationResult">
+        <id property="notificationId" column="notification_id" />
+        <result property="userId" column="user_id" />
+        <result property="type" column="type" />
+        <result property="title" column="title" />
+        <result property="content" column="content" />
+        <result property="sourceType" column="source_type" />
+        <result property="sourceId" column="source_id" />
+        <result property="fromUserId" column="from_user_id" />
+        <result property="isRead" column="is_read" />
+        <result property="readTime" column="read_time" />
+        <result property="createBy" column="create_by" />
+        <result property="createTime" column="create_time" />
+        <result property="updateBy" column="update_by" />
+        <result property="updateTime" column="update_time" />
+    </resultMap>
+
+    <sql id="selectNotificationVo">
+        select notification_id, user_id, type, title, content, source_type, source_id, from_user_id,
+               is_read, read_time, create_by, create_time, update_by, update_time
+        from cms_notification
+    </sql>
+
+    <select id="selectNotificationList" parameterType="Long" resultMap="CmsNotificationResult">
+        <include refid="selectNotificationVo" />
+        where user_id = #{userId}
+        order by create_time desc
+    </select>
+
+    <select id="selectUnreadNotificationList" parameterType="Long" resultMap="CmsNotificationResult">
+        <include refid="selectNotificationVo" />
+        where user_id = #{userId} and is_read = 0
+        order by create_time desc
+    </select>
+
+    <update id="markAsRead">
+        update cms_notification
+        set is_read = 1, read_time = sysdate()
+        where notification_id = #{notificationId}
+    </update>
+
+    <update id="markAllAsRead">
+        update cms_notification
+        set is_read = 1, read_time = sysdate()
+        where user_id = #{userId} and is_read = 0
+    </update>
+
+    <select id="getUnreadCount" parameterType="Long" resultType="int">
+        select count(*) from cms_notification
+        where user_id = #{userId} and is_read = 0
+    </select>
+
+</mapper>

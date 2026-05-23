@@ -1,0 +1,164 @@
+server:
+  port: 8080
+
+spring:
+  # 资源信息
+  messages:
+    # 国际化资源文件路径
+    basename: i18n/messages
+  application:
+    name: moyun-server
+  profiles:
+    active: local
+  # 文件上传配置
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 20MB
+  # Jackson 配置 - 完整支持 Java8 日期时间
+  jackson:
+    serialization:
+      # 关键：禁止写成时间戳数组，改为字符串
+      write-dates-as-timestamps: false
+      # 格式化输出
+      indent-output: true
+    time-zone: Asia/Shanghai
+    date-format: yyyy-MM-dd HH:mm:ss
+    # 反序列化时允许接受多种格式
+    deserialization:
+      # 忽略未知字段
+      fail-on-unknown-properties: false
+
+
+# 日志配置
+logging:
+  level:
+    com.moyun: debug
+    org.springframework: info
+  pattern:
+    console: '%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{50} - %msg%n'
+
+# 墨韵框架配置
+moyun:
+  name: moyun
+  version: 4.x
+  copyrightYear: 2024
+  # 实例演示开关
+  demoEnabled: false
+  # 文件路径 示例（ Windows配置D:/moyun/uploadPath，Linux配置 /home/moyun/uploadPath）
+  profile: D:/moyun/uploadPath
+  # 获取ip地址开关
+  addressEnabled: false
+
+# Token 配置
+token:
+  header: Authorization
+  # 密钥必须至少 512 位 (64 字节) 用于 HS512 算法
+  # 生产环境必须通过环境变量 TOKEN_SECRET 配置强随机密钥
+  secret: ${TOKEN_SECRET:}
+  expireTime: 30
+
+# 验证码配置
+captcha:
+  enabled: true
+  type: math
+  # 验证码字符长度
+  length: 2
+  # 验证码宽度
+  width: 160
+  # 验证码高度
+  height: 60
+
+# 用户配置
+user:
+  password:
+    # 密码最大错误次数
+    maxRetryCount: 5
+    # 密码锁定时间（默认10分钟）
+    lockTime: 10
+
+# Flowable工作流配置
+flowable:
+  # 异步执行器（开发环境建议关闭，生产环境根据需要开启）
+  async-executor-activate: false
+  
+  # 自动部署验证设置（关闭classpath下的BPMN文件自动部署）
+  check-process-definitions: false
+  
+  # 数据库表更新策略
+  # true = 检查并更新表结构（推荐，首次启动会自动建表）
+  # false = 不自动处理表结构（手动建表后使用）
+  # create-drop = 启动时创建，关闭时删除（仅测试用）
+  # drop-create = 先删除再创建（版本升级时用，会清空数据！）
+  # ⚠️ 注意：如果已手动执行建表脚本，请设置为 false
+  database-schema-update: true
+  
+  # 历史记录级别
+  # none = 不记录历史（最快）
+  # activity = 仅记录活动实例
+  # audit = 审计级别（默认，推荐生产环境）
+  # full = 完整历史（最慢，但信息最全，包含变量详情）
+  history-level: audit
+  
+  # 数据库类型（可选，Flowable会自动检测）
+  database-type: mysql
+  
+  # 事件注册器配置（如需使用事件功能）
+  eventregistry:
+    enabled: false
+  
+  # CMMN案例管理配置（如需使用案例管理功能）
+  cmmn:
+    enabled: false
+  
+  # DMN决策引擎配置（如需使用决策表功能）
+  dmn:
+    enabled: false
+  
+  # App应用引擎配置（如需使用应用管理功能）
+  app:
+    enabled: false
+
+
+
+# MyBatis-Plus 配置
+mybatis-plus:
+  # Mapper XML 文件位置
+  mapper-locations: classpath*:/mapper/**/*.xml
+  # 实体类包路径（类型别名扫描包）
+  type-aliases-package: com.moyun.**.domain,com.moyun.**.entity
+  # 配置
+  configuration:
+    # 驼峰转下划线
+    map-underscore-to-camel-case: true
+    # 日志实现：生产环境建议使用 Slf4jImpl 或在 profile 中覆盖
+    log-impl: org.apache.ibatis.logging.slf4j.Slf4jImpl
+  # 全局配置
+  global-config:
+    # 数据库配置
+    db-config:
+      # 主键类型（AUTO 自增）
+      id-type: auto
+      # 逻辑删除字段
+      logic-delete-field: deleted
+      # 逻辑删除值
+      logic-delete-value: 1
+      # 逻辑未删除值
+      logic-not-delete-value: 0
+# 防止XSS攻击
+xss:
+  # 过滤开关
+  enabled: true
+  # 排除链接（多个用逗号分隔）
+  excludes: /system/notice
+  # 匹配链接
+  urlPatterns: /system/*,/monitor/*,/tool/*
+
+
+
+# knife4j的增强配置，不需要增强可以不配
+knife4j:
+  enable: true
+  setting:
+    language: zh_cn
+

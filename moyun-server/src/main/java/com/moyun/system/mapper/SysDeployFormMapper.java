@@ -1,0 +1,72 @@
+
+// ... existing code ...
+package com.moyun.system.mapper;
+
+import java.util.List;
+import com.moyun.system.domain.SysForm;
+import com.moyun.system.domain.SysDeployForm;
+
+/**
+ * 流程部署关联表单Mapper接口
+ * 
+ * @author Tony
+ * @date 2021-03-30
+ */
+public interface SysDeployFormMapper 
+{
+    /**
+     * 查询流程实例关联表单
+     * 
+     * @param id 流程实例关联表单ID
+     * @return 流程实例关联表单
+     */
+    public SysDeployForm selectSysDeployFormById(Long id);
+
+    /**
+     * 查询流程实例关联表单列表
+     * 
+     * @param sysDeployForm 流程实例关联表单
+     * @return 流程实例关联表单集合
+     */
+    public List<SysDeployForm> selectSysDeployFormList(SysDeployForm sysDeployForm);
+
+    /**
+     * 新增流程实例关联表单
+     * 
+     * @param sysDeployForm 流程实例关联表单
+     * @return 结果
+     */
+    public int insertSysDeployForm(SysDeployForm sysDeployForm);
+
+    /**
+     * 修改流程实例关联表单
+     * 
+     * @param sysDeployForm 流程实例关联表单
+     * @return 结果
+     */
+    public int updateSysDeployForm(SysDeployForm sysDeployForm);
+
+    /**
+     * 批量删除流程实例关联表单
+     * 
+     * @param ids 需要删除的流程实例关联表单ID
+     * @return 结果
+     */
+    public int deleteSysDeployFormByIds(Long[] ids);
+
+    /**
+     * 删除流程实例关联表单
+     * 
+     * @param id 流程实例关联表单ID
+     * @return 结果
+     */
+    public int deleteSysDeployFormById(Long id);
+
+    /**
+     * 查询流程挂着的表单
+     *
+     * @param deployId 部署ID
+     * @return 表单
+     */
+    public SysForm selectSysDeployFormByDeployId(String deployId);
+}

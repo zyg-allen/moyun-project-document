@@ -10,6 +10,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.Date;
 
 @Service
@@ -27,8 +28,8 @@ public class CmsAuditServiceImpl extends ServiceImpl<CmsAuditRecordMapper, CmsAu
         }
 
         article.setStatus("published");
-        article.setPublishTime(new Date());
-        article.setAuditTime(new Date());
+        article.setPublishTime(LocalDateTime.now());
+        article.setAuditTime(LocalDateTime.now());
         article.setAuditReason(reason);
         articleService.updateById(article);
 
@@ -52,7 +53,7 @@ public class CmsAuditServiceImpl extends ServiceImpl<CmsAuditRecordMapper, CmsAu
         }
 
         article.setStatus("rejected");
-        article.setAuditTime(new Date());
+        article.setAuditTime(LocalDateTime.now());
         article.setAuditReason(reason);
         articleService.updateById(article);
 

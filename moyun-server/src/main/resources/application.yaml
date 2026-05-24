@@ -119,10 +119,10 @@ user:
 flowable:
   # 异步执行器（开发环境建议关闭，生产环境根据需要开启）
   async-executor-activate: false
-  
+
   # 自动部署验证设置（关闭classpath下的BPMN文件自动部署）
   check-process-definitions: false
-  
+
   # 数据库表更新策略
   # true = 检查并更新表结构（推荐，首次启动会自动建表）
   # false = 不自动处理表结构（手动建表后使用）
@@ -130,29 +130,29 @@ flowable:
   # drop-create = 先删除再创建（版本升级时用，会清空数据！）
   # ⚠️ 注意：如果已手动执行建表脚本，请设置为 false
   database-schema-update: true
-  
+
   # 历史记录级别
   # none = 不记录历史（最快）
   # activity = 仅记录活动实例
   # audit = 审计级别（默认，推荐生产环境）
   # full = 完整历史（最慢，但信息最全，包含变量详情）
   history-level: audit
-  
+
   # 数据库类型（可选，Flowable会自动检测）
   database-type: mysql
-  
+
   # 事件注册器配置（如需使用事件功能）
   eventregistry:
     enabled: false
-  
+
   # CMMN案例管理配置（如需使用案例管理功能）
   cmmn:
     enabled: false
-  
+
   # DMN决策引擎配置（如需使用决策表功能）
   dmn:
     enabled: false
-  
+
   # App应用引擎配置（如需使用应用管理功能）
   app:
     enabled: false

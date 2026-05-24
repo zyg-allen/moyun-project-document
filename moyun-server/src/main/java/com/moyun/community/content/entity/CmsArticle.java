@@ -6,6 +6,8 @@ import com.baomidou.mybatisplus.annotation.TableName;
 import com.moyun.common.core.domain.BaseEntity;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
+
+import java.time.LocalDateTime;
 import java.util.Date;
 
 @Data
@@ -27,6 +29,7 @@ public class CmsArticle extends BaseEntity {
     private String coverUrl;
 
     private String content;
+    private String contentMarkdown;
 
     private String contentType;
 
@@ -62,9 +65,9 @@ public class CmsArticle extends BaseEntity {
 
     private Integer allowComment;
 
-    private Date publishTime;
+    private LocalDateTime publishTime;
 
-    private Date auditTime;
+    private LocalDateTime auditTime;
 
     private String auditReason;
 }

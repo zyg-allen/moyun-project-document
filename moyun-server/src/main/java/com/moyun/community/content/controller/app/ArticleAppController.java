@@ -12,6 +12,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDateTime;
 import java.util.Date;
 
 /**
@@ -102,7 +103,7 @@ public class ArticleAppController extends BaseController {
             return error("文章不存在");
         }
         article.setStatus("pending");
-        article.setPublishTime(new Date());
+        article.setPublishTime(LocalDateTime.now());
         return toAjax(articleService.updateById(article));
     }
 

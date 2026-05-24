@@ -47,7 +47,7 @@ public class PortalTagController {
             wrapper.like(CmsTag::getTagName, keyword);
         }
         
-        wrapper.orderByDesc(CmsTag::getSortOrder);
+        wrapper.orderByDesc(CmsTag::getTagId);
         Page<CmsTag> resultPage = tagMapper.selectPage(pageObj, wrapper);
         List<PortalTagVo> voList = resultPage.getRecords().stream()
                 .map(this::convertToPortalTagVo)
@@ -72,7 +72,7 @@ public class PortalTagController {
             @Parameter(description = "数量") @RequestParam(defaultValue = "10") Integer limit) {
         Page<CmsTag> pageObj = new Page<>(1, limit);
         LambdaQueryWrapper<CmsTag> wrapper = new LambdaQueryWrapper<>();
-        wrapper.orderByDesc(CmsTag::getSortOrder);
+        wrapper.orderByDesc(CmsTag::getCreateTime);
         Page<CmsTag> resultPage = tagMapper.selectPage(pageObj, wrapper);
         List<PortalTagVo> voList = resultPage.getRecords().stream()
                 .map(this::convertToPortalTagVo)

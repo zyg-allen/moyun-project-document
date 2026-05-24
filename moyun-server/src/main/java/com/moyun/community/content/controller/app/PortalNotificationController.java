@@ -54,12 +54,12 @@ public class PortalNotificationController {
         List<PortalNotificationVo> voList = new ArrayList<>();
         for (CmsNotification notification : resultPage.getRecords()) {
             PortalNotificationVo vo = new PortalNotificationVo();
-            vo.setId(notification.getId());
+            vo.setId(notification.getNotificationId());
             vo.setUserId(notification.getUserId());
             vo.setType(notification.getType());
             vo.setTitle(notification.getTitle());
             vo.setContent(notification.getContent());
-            vo.setIsRead(notification.getIsRead() != null && notification.getIsRead());
+            vo.setIsRead(notification.getIsRead() != null);
             vo.setRelatedId(notification.getRelatedId());
             vo.setCreatedAt(notification.getCreateTime() != null 
                     ? notification.getCreateTime().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME) 
@@ -116,7 +116,7 @@ public class PortalNotificationController {
         // 实际项目中应该批量更新，这里简化处理
         List<CmsNotification> notifications = notificationMapper.selectList(wrapper);
         for (CmsNotification notification : notifications) {
-            notification.setIsRead(true);
+            notification.setIsRead(1);
             notificationMapper.updateById(notification);
         }
 
@@ -143,7 +143,7 @@ public class PortalNotificationController {
             return ApiResponse.error(403, "无权操作此通知");
         }
 
-        notification.setIsRead(true);
+        notification.setIsRead(1);
         notificationMapper.updateById(notification);
 
         return ApiResponse.success();

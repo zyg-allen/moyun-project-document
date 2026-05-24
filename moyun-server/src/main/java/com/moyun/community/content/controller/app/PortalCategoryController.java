@@ -35,7 +35,7 @@ public class PortalCategoryController {
     @GetMapping("/list")
     public ApiResponse<List<PortalCategoryVo>> getCategoryList() {
         LambdaQueryWrapper<CmsCategory> wrapper = new LambdaQueryWrapper<>();
-        wrapper.orderByAsc(CmsCategory::getSortOrder);
+        wrapper.orderByAsc(CmsCategory::getSort);
         List<CmsCategory> categories = categoryMapper.selectList(wrapper);
         List<PortalCategoryVo> voList = categories.stream()
                 .map(this::convertToPortalCategoryVo)
@@ -72,7 +72,7 @@ public class PortalCategoryController {
         vo.setId(String.valueOf(category.getCategoryId()));
         vo.setName(category.getCategoryName());
         vo.setDescription(category.getDescription());
-        vo.setSortOrder(category.getSortOrder());
+        vo.setSortOrder(category.getSort());
         if (category.getCreateTime() != null) {
             vo.setCreatedAt(category.getCreateTime().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME));
         }

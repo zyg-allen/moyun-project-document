@@ -32,4 +32,6 @@ public class CmsNotification extends BaseEntity {
     private Integer isRead;
 
     private String readTime;
+    private String relatedId;
+
 }

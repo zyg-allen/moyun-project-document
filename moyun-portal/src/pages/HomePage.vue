@@ -10,12 +10,34 @@ import {
 import ArticleCard from '@/components/ArticleCard.vue';
 import LazyImage from '@/components/LazyImage.vue';
 import SiteFooter from '@/components/SiteFooter.vue';
-import { getArticles } from '@/data/mockData';
 import { generateSeo } from '@/utils/seo';
 import { categories } from '@/data/categories';
 import { getFriendLinks } from '@/api/friendLink';
-import type { Article } from '@/types';
+import { getArticleList, getHotArticles, getFeaturedArticles } from '@/api/article';
+import type { Article as ApiArticle } from '@/types/api';
 import type { FriendLink } from '@/api/friendLink';
+
+// 前台类型
+interface User {
+  id: string;
+  username: string;
+  avatar: string;
+  bio?: string;
+}
+
+interface Article {
+  id: string;
+  title: string;
+  content: string;
+  excerpt: string;
+  cover?: string;
+  author: User;
+  category: string;
+  tags: string[];
+  views: number;
+  likes: number;
+  createdAt: string;
+}
 
 const router = useRouter();
 
@@ -26,6 +48,8 @@ const openPublishPage = () => {
 const articles = ref<Article[]>([]);
 const currentHeroIndex = ref(0);
 const friendLinks = ref<FriendLink[]>([]);
+const loading = ref(true);
+const error = ref<string | null>(null);
 
 // 加载友情链接
 const loadFriendLinks = async () => {
@@ -36,6 +60,192 @@ const loadFriendLinks = async () => {
     }
   } catch (error) {
     console.error('加载友情链接失败:', error);
+  }
+};
+
+// 模拟用户数据
+const mockUser = (id: string, name: string): User => ({
+  id,
+  username: name,
+  avatar: name.charAt(0),
+  bio: '热爱写作，分享生活'
+});
+
+// 转换API文章为前台格式
+const transformArticle = (apiArticle: any): Article => {
+  return {
+    id: String(apiArticle.id),
+    title: apiArticle.title,
+    content: apiArticle.content || '',
+    excerpt: apiArticle.excerpt || '',
+    cover: apiArticle.cover,
+    author: mockUser(String(apiArticle.authorId || 1), '作者'),
+    category: '技术',
+    tags: [],
+    views: Number(apiArticle.views || 0),
+    likes: Number(apiArticle.likes || 0),
+    createdAt: apiArticle.createTime || new Date().toISOString().split('T')[0]
+  };
+};
+
+// 加载文章
+const loadArticles = async () => {
+  try {
+    loading.value = true;
+    const [listResponse, hotResponse, featuredResponse] = await Promise.all([
+      getArticleList({ pageSize: 20 }),
+      getHotArticles(8),
+      getFeaturedArticles(6)
+    ]);
+    
+    // 先使用mock数据，待API完善后切换
+    const mockArticles = [
+      {
+        id: '1',
+        title: 'Vue 3 组合式 API 完全指南',
+        content: '<p>Vue 3 的组合式 API 为我们提供了一种全新的方式来组织和复用代码...</p>',
+        excerpt: 'Vue 3 的组合式 API 为我们提供了一种全新的方式来组织和复用代码。在这篇文章中，我们将深入探讨如何使用组合式 API 来构建更好的 Vue 应用。',
+        cover: 'https://images.unsplash.com/photo-1555066931-4365d14bab8c?w=800&h=400&fit=crop',
+        author: mockUser('1', '张三'),
+        category: '技术栈手册',
+        tags: ['Vue', 'JavaScript', '前端'],
+        views: 1256,
+        likes: 89,
+        createdAt: '2024-01-10'
+      },
+      {
+        id: '2',
+        title: 'Tailwind CSS 3.0 新特性详解',
+        content: '<p>Tailwind CSS 3.0 带来了许多令人兴奋的新特性...</p>',
+        excerpt: 'Tailwind CSS 3.0 带来了许多令人兴奋的新特性。让我们一起来看看这些新特性吧。',
+        cover: 'https://images.unsplash.com/photo-1507721999472-8ed4421c4af2?w=800&h=400&fit=crop',
+        author: mockUser('2', '李四'),
+        category: '技术栈手册',
+        tags: ['CSS', 'Tailwind', '前端'],
+        views: 892,
+        likes: 56,
+        createdAt: '2024-01-12'
+      },
+      {
+        id: '3',
+        title: 'Vite 5.0 快速上手教程',
+        content: '<p>Vite 是新一代的前端构建工具，它提供了极快的开发体验...</p>',
+        excerpt: 'Vite 是新一代的前端构建工具，提供了极快的开发体验。让我们一起来学习吧。',
+        cover: 'https://images.unsplash.com/photo-1498050108023-c5249f4df085?w=800&h=400&fit=crop',
+        author: mockUser('3', '王五'),
+        category: '技术栈手册',
+        tags: ['Vite', 'JavaScript', '工具'],
+        views: 743,
+        likes: 42,
+        createdAt: '2024-01-15'
+      },
+      {
+        id: '4',
+        title: '深入理解 JavaScript 闭包',
+        content: '<p>闭包是 JavaScript 中一个非常重要的概念...</p>',
+        excerpt: '闭包是 JavaScript 中一个非常重要的概念。让我们深入理解它的工作原理。',
+        cover: 'https://images.unsplash.com/photo-1516116216624-53e697fedbea?w=800&h=400&fit=crop',
+        author: mockUser('1', '张三'),
+        category: '技术栈手册',
+        tags: ['JavaScript', '编程', '前端'],
+        views: 1520,
+        likes: 115,
+        createdAt: '2024-01-18'
+      },
+      {
+        id: '5',
+        title: '2024 年前端技术趋势展望',
+        content: '<p>新的一年已经到来，让我们一起展望 2024 年前端技术的发展趋势...</p>',
+        excerpt: '新的一年已经到来，让我们一起展望 2024 年前端技术的发展趋势。',
+        cover: 'https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=800&h=400&fit=crop',
+        author: mockUser('2', '李四'),
+        category: '技术栈手册',
+        tags: ['前端', '趋势', '技术'],
+        views: 2341,
+        likes: 178,
+        createdAt: '2024-01-20'
+      },
+      {
+        id: '6',
+        title: '响应式设计最佳实践',
+        content: '<p>响应式设计是现代 Web 开发的必备技能...</p>',
+        excerpt: '响应式设计是现代 Web 开发的必备技能。让我们分享一些最佳实践。',
+        cover: 'https://images.unsplash.com/photo-1512941937669-90a1b58e7e9c?w=800&h=400&fit=crop',
+        author: mockUser('3', '王五'),
+        category: '技术栈手册',
+        tags: ['设计', '响应式', 'CSS'],
+        views: 987,
+        likes: 67,
+        createdAt: '2024-01-22'
+      },
+      {
+        id: '7',
+        title: 'TypeScript 高级类型体操',
+        content: '<p>TypeScript 的类型系统非常强大，本文将带你深入了解高级类型技巧...</p>',
+        excerpt: '深入探索 TypeScript 的高级类型系统，掌握类型编程的精髓。',
+        author: mockUser('1', '张三'),
+        category: '技术栈手册',
+        tags: ['TypeScript', 'JavaScript', '类型系统'],
+        views: 856,
+        likes: 73,
+        createdAt: '2024-01-25'
+      },
+      {
+        id: '8',
+        title: 'Node.js 性能优化实战',
+        content: '<p>Node.js 应用性能优化是后端开发中的重要课题...</p>',
+        excerpt: '掌握 Node.js 性能优化的核心技巧，提升应用响应速度。',
+        author: mockUser('2', '李四'),
+        category: '架构札记',
+        tags: ['Node.js', '性能', '后端'],
+        views: 1123,
+        likes: 92,
+        createdAt: '2024-01-28'
+      }
+    ];
+    
+    articles.value = mockArticles;
+    
+    // 如果API返回了数据，尝试使用
+    if (listResponse.code === 200 && listResponse.data.list.length > 0) {
+      articles.value = listResponse.data.list.map(transformArticle);
+    }
+    
+  } catch (err) {
+    console.error('加载文章失败:', err);
+    error.value = '加载文章失败';
+    
+    // 使用备用数据
+    articles.value = [
+      {
+        id: '1',
+        title: 'Vue 3 组合式 API 完全指南',
+        content: '<p>Vue 3 的组合式 API 为我们提供了一种全新的方式来组织和复用代码...</p>',
+        excerpt: 'Vue 3 的组合式 API 为我们提供了一种全新的方式来组织和复用代码。',
+        cover: 'https://images.unsplash.com/photo-1555066931-4365d14bab8c?w=800&h=400&fit=crop',
+        author: mockUser('1', '张三'),
+        category: '技术栈手册',
+        tags: ['Vue', 'JavaScript', '前端'],
+        views: 1256,
+        likes: 89,
+        createdAt: '2024-01-10'
+      },
+      {
+        id: '2',
+        title: 'Tailwind CSS 3.0 新特性详解',
+        content: '<p>Tailwind CSS 3.0 带来了许多令人兴奋的新特性...</p>',
+        excerpt: 'Tailwind CSS 3.0 带来了许多令人兴奋的新特性。',
+        cover: 'https://images.unsplash.com/photo-1507721999472-8ed4421c4af2?w=800&h=400&fit=crop',
+        author: mockUser('2', '李四'),
+        category: '技术栈手册',
+        tags: ['CSS', 'Tailwind', '前端'],
+        views: 892,
+        likes: 56,
+        createdAt: '2024-01-12'
+      }
+    ];
+  } finally {
+    loading.value = false;
   }
 };
 
@@ -92,7 +302,7 @@ const authors = [
 const themeArticles: Record<string, Article[]> = {};
 
 onMounted(() => {
-  articles.value = getArticles();
+  loadArticles();
   themes.forEach(theme => {
     themeArticles[theme.id] = articles.value.filter((_, index) => index % 8 === themes.indexOf(theme)).slice(0, 8);
   });

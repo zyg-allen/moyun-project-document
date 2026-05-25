@@ -1,0 +1,77 @@
+package com.moyun.portal.service.impl;
+
+import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.moyun.portal.domain.PortalBookmark;
+import com.moyun.portal.mapper.PortalBookmarkMapper;
+import com.moyun.portal.service.IPortalBookmarkService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
+import java.util.List;
+
+/**
+ * 门户收藏 业务层处理
+ *
+ * @author moyun
+ */
+@Service
+public class PortalBookmarkServiceImpl extends ServiceImpl<PortalBookmarkMapper, PortalBookmark> implements IPortalBookmarkService {
+
+    @Autowired
+    private PortalBookmarkMapper portalBookmarkMapper;
+
+    /**
+     * 根据条件分页查询收藏列表
+     *
+     * @param portalBookmark 收藏信息
+     * @return 收藏信息集合信息
+     */
+    @Override
+    public List<PortalBookmark> selectPortalBookmarkList(PortalBookmark portalBookmark) {
+        return portalBookmarkMapper.selectPortalBookmarkList(portalBookmark);
+    }
+
+    /**
+     * 通过收藏ID查询收藏
+     *
+     * @param id 收藏ID
+     * @return 收藏对象信息
+     */
+    @Override
+    public PortalBookmark selectPortalBookmarkById(Long id) {
+        return portalBookmarkMapper.selectPortalBookmarkById(id);
+    }
+
+    /**
+     * 新增收藏信息
+     *
+     * @param portalBookmark 收藏信息
+     * @return 结果
+     */
+    @Override
+    public int insertPortalBookmark(PortalBookmark portalBookmark) {
+        return portalBookmarkMapper.insertPortalBookmark(portalBookmark);
+    }
+
+    /**
+     * 通过收藏ID删除收藏
+     *
+     * @param id 收藏ID
+     * @return 结果
+     */
+    @Override
+    public int deletePortalBookmarkById(Long id) {
+        return portalBookmarkMapper.deletePortalBookmarkById(id);
+    }
+
+    /**
+     * 批量删除收藏信息
+     *
+     * @param ids 需要删除的收藏ID
+     * @return 结果
+     */
+    @Override
+    public int deletePortalBookmarkByIds(Long[] ids) {
+        return portalBookmarkMapper.deletePortalBookmarkByIds(ids);
+    }
+}

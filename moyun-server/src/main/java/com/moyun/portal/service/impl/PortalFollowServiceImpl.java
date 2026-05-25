@@ -1,0 +1,77 @@
+package com.moyun.portal.service.impl;
+
+import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.moyun.portal.domain.PortalFollow;
+import com.moyun.portal.mapper.PortalFollowMapper;
+import com.moyun.portal.service.IPortalFollowService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
+import java.util.List;
+
+/**
+ * 门户关注 业务层处理
+ *
+ * @author moyun
+ */
+@Service
+public class PortalFollowServiceImpl extends ServiceImpl<PortalFollowMapper, PortalFollow> implements IPortalFollowService {
+
+    @Autowired
+    private PortalFollowMapper portalFollowMapper;
+
+    /**
+     * 根据条件分页查询关注列表
+     *
+     * @param portalFollow 关注信息
+     * @return 关注信息集合信息
+     */
+    @Override
+    public List<PortalFollow> selectPortalFollowList(PortalFollow portalFollow) {
+        return portalFollowMapper.selectPortalFollowList(portalFollow);
+    }
+
+    /**
+     * 通过关注ID查询关注
+     *
+     * @param id 关注ID
+     * @return 关注对象信息
+     */
+    @Override
+    public PortalFollow selectPortalFollowById(Long id) {
+        return portalFollowMapper.selectPortalFollowById(id);
+    }
+
+    /**
+     * 新增关注信息
+     *
+     * @param portalFollow 关注信息
+     * @return 结果
+     */
+    @Override
+    public int insertPortalFollow(PortalFollow portalFollow) {
+        return portalFollowMapper.insertPortalFollow(portalFollow);
+    }
+
+    /**
+     * 通过关注ID删除关注
+     *
+     * @param id 关注ID
+     * @return 结果
+     */
+    @Override
+    public int deletePortalFollowById(Long id) {
+        return portalFollowMapper.deletePortalFollowById(id);
+    }
+
+    /**
+     * 批量删除关注信息
+     *
+     * @param ids 需要删除的关注ID
+     * @return 结果
+     */
+    @Override
+    public int deletePortalFollowByIds(Long[] ids) {
+        return portalFollowMapper.deletePortalFollowByIds(ids);
+    }
+}

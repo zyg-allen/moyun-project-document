@@ -1,0 +1,88 @@
+package com.moyun.portal.service.impl;
+
+import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.moyun.portal.domain.PortalOrder;
+import com.moyun.portal.mapper.PortalOrderMapper;
+import com.moyun.portal.service.IPortalOrderService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
+import java.util.List;
+
+/**
+ * 门户订单 业务层处理
+ *
+ * @author moyun
+ */
+@Service
+public class PortalOrderServiceImpl extends ServiceImpl<PortalOrderMapper, PortalOrder> implements IPortalOrderService {
+
+    @Autowired
+    private PortalOrderMapper portalOrderMapper;
+
+    /**
+     * 根据条件分页查询订单列表
+     *
+     * @param portalOrder 订单信息
+     * @return 订单信息集合信息
+     */
+    @Override
+    public List<PortalOrder> selectPortalOrderList(PortalOrder portalOrder) {
+        return portalOrderMapper.selectPortalOrderList(portalOrder);
+    }
+
+    /**
+     * 通过订单ID查询订单
+     *
+     * @param id 订单ID
+     * @return 订单对象信息
+     */
+    @Override
+    public PortalOrder selectPortalOrderById(Long id) {
+        return portalOrderMapper.selectPortalOrderById(id);
+    }
+
+    /**
+     * 新增订单信息
+     *
+     * @param portalOrder 订单信息
+     * @return 结果
+     */
+    @Override
+    public int insertPortalOrder(PortalOrder portalOrder) {
+        return portalOrderMapper.insertPortalOrder(portalOrder);
+    }
+
+    /**
+     * 修改订单信息
+     *
+     * @param portalOrder 订单信息
+     * @return 结果
+     */
+    @Override
+    public int updatePortalOrder(PortalOrder portalOrder) {
+        return portalOrderMapper.updatePortalOrder(portalOrder);
+    }
+
+    /**
+     * 通过订单ID删除订单
+     *
+     * @param id 订单ID
+     * @return 结果
+     */
+    @Override
+    public int deletePortalOrderById(Long id) {
+        return portalOrderMapper.deletePortalOrderById(id);
+    }
+
+    /**
+     * 批量删除订单信息
+     *
+     * @param ids 需要删除的订单ID
+     * @return 结果
+     */
+    @Override
+    public int deletePortalOrderByIds(Long[] ids) {
+        return portalOrderMapper.deletePortalOrderByIds(ids);
+    }
+}

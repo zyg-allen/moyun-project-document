@@ -1,4 +1,4 @@
-import { httpGet, httpPost, httpPut, httpDelete } from './client';
+import { httpGet, httpGetList, httpPost, httpPut, httpDelete } from './client';
 import type {
   Article,
   ArticleListParams,
@@ -10,7 +10,7 @@ import type {
 
 // 获取文章列表
 export const getArticleList = (params?: ArticleListParams) => {
-  return httpGet<PaginationResponse<Article>>('/article/list', params);
+  return httpGetList<Article>('/article/list', params);
 };
 
 // 获取文章详情
@@ -50,17 +50,17 @@ export const incrementView = (articleId: string) => {
 
 // 获取推荐文章
 export const getRelatedArticles = (articleId: string, limit = 5) => {
-  return httpGet<PaginationResponse<Article>>(`/article/${articleId}/related`, { limit });
+  return httpGetList<Article>(`/article/${articleId}/related`, { limit });
 };
 
 // 获取热门文章
 export const getHotArticles = (limit = 10) => {
-  return httpGet<PaginationResponse<Article>>('/article/hot', { limit });
+  return httpGetList<Article>('/article/hot', { limit });
 };
 
 // 获取精选文章
 export const getFeaturedArticles = (limit = 10) => {
-  return httpGet<PaginationResponse<Article>>('/article/featured', { limit });
+  return httpGetList<Article>('/article/featured', { limit });
 };
 
 // 获取轮播文章

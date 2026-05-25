@@ -1,4 +1,17 @@
-import type { ApiResponse } from '@/types/api';
+// 后台响应类型
+interface BackendResponse<T = any> {
+  code: number;
+  msg: string;
+  data?: T;
+  rows?: T[];
+  total?: number;
+}
+
+export interface ApiResponse<T = any> {
+  code: number;
+  message: string;
+  data: T;
+}
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api';
 
@@ -50,14 +63,27 @@ const request = async <T>(
     headers,
   });
 
-  const data: ApiResponse<T> = await response.json();
+  const data: BackendResponse<T> = await response.json();
 
+  // 转换响应格式：msg -> message
   if (!response.ok || data.code !== 200) {
-    throw new Error(data.message || '请求失败');
+    throw new Error(data.msg || '请求失败');
   }
 
-  return data;
+  return {
+    code: data.code,
+    message: data.msg,
+    data: data.data as T,
+  };
 };
+
+// 分页响应格式
+export interface PaginationResponse<T> {
+  list: T[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
 
 // HTTP方法
 export const httpGet = <T>(
@@ -76,6 +102,63 @@ export const httpGet = <T>(
   }
   return request<T>(`${url}${query}`, {
     method: 'GET',
+  });
+};
+
+// 获取分页数据的专用方法
+export const httpGetList = <T>(
+  url: string,
+  params?: Record<string, any>
+): Promise<ApiResponse<PaginationResponse<T>>> => {
+  let query = '';
+  if (params) {
+    const searchParams = new URLSearchParams();
+    Object.entries(params).forEach(([key, value]) => {
+      if (value !== undefined && value !== null) {
+        searchParams.append(key, String(value));
+      }
+    });
+    query = `?${searchParams.toString()}`;
+  }
+  
+  // 这里直接处理分页响应
+  return new Promise(async (resolve, reject) => {
+    try {
+      const token = getToken();
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+      };
+
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+
+      const response = await fetch(`${API_BASE_URL}${url}${query}`, {
+        method: 'GET',
+        headers,
+      });
+
+      const data: BackendResponse<T> = await response.json();
+
+      if (!response.ok || data.code !== 200) {
+        reject(new Error(data.msg || '请求失败'));
+        return;
+      }
+
+      // 转换分页响应
+      resolve({
+        code: data.code,
+        message: data.msg,
+        data: {
+          list: (data.rows || []) as T[],
+          total: data.total || 0,
+          page: params?.page || 1,
+          pageSize: params?.pageSize || 10,
+        },
+      });
+    } catch (error) {
+      reject(error);
+    }
   });
 };
 

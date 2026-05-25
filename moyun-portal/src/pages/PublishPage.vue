@@ -10,9 +10,20 @@ import {
   History, RotateCcw, Undo2, Redo2, Type, Plus, ChevronRight
 } from 'lucide-vue-next';
 import { getCurrentUser, addArticle } from '@/data/mockData';
-import { categories, getParentCategoryNames, getSubCategories, type SubCategory } from '@/data/categories';
-import { mockGetHotTags, mockSearchTags, mockCreateTag, mockGetRecommendTags } from '@/api/tag';
-import type { Tag } from '@/types/api';
+import { categories as mockCategories, getParentCategoryNames, getSubCategories, type SubCategory } from '@/data/categories';
+import { 
+  getHotTags, 
+  searchTagList, 
+  createNewTag, 
+  getRecommendTags, 
+  mockGetHotTags, 
+  mockSearchTags, 
+  mockCreateTag, 
+  mockGetRecommendTags 
+} from '@/api/tag';
+import { getCategoryList } from '@/api/category';
+import { createArticle } from '@/api/article';
+import type { Tag, Category } from '@/types/api';
 import SiteFooter from '@/components/SiteFooter.vue';
 import QuillEditor from '@/components/QuillEditor.vue';
 import { extractExcerpt } from '@/utils/excerpt';
@@ -33,16 +44,10 @@ const tagInput = ref('');
 const excerpt = ref('');
 const coverImage = ref('');
 
-// 分类选择（二级联动）
-const selectedParentCategory = ref('');
-const selectedSubCategory = ref('');
-const availableSubCategories = ref<SubCategory[]>([]);
-
-// 监听父分类变化，更新子分类选项
-watch(selectedParentCategory, (newVal) => {
-  availableSubCategories.value = getSubCategories(newVal);
-  selectedSubCategory.value = '';
-});
+// 分类
+const categories = ref<Category[]>([]);
+const selectedCategory = ref('');
+const loadingCategories = ref(false);
 
 // 元信息
 const articleStatus = ref<'draft' | 'published' | 'review'>('draft');
@@ -132,24 +137,58 @@ onMounted(() => {
   authorName.value = currentUser.value.username;
   publishTime.value = new Date().toISOString().slice(0, 16);
   
-  // 初始化父分类为第一个选项
-  if (categories.length > 0) {
-    selectedParentCategory.value = categories[0].name;
-  }
+  // 加载分类
+  loadCategories();
   
   // 加载热门标签
   loadHotTags();
 });
 
+// 加载分类
+async function loadCategories() {
+  loadingCategories.value = true;
+  try {
+    const response = await getCategoryList();
+    if (response.code === 200 && response.data) {
+      categories.value = response.data;
+    }
+  } catch (error) {
+    console.error('Failed to load categories:', error);
+    // 降级到mock数据
+    categories.value = mockCategories.map(cat => ({
+      id: cat.id,
+      name: cat.name,
+      description: cat.description,
+      icon: cat.icon,
+      articleCount: cat.articleCount,
+      status: '0',
+      createTime: new Date().toISOString(),
+      updateTime: new Date().toISOString()
+    }));
+  } finally {
+    loadingCategories.value = false;
+  }
+}
+
 // 加载热门标签
 async function loadHotTags() {
   try {
-    const response = await mockGetHotTags(30);
-    if (response.code === 200) {
+    const response = await getHotTags(30);
+    if (response.code === 200 && response.data) {
       hotTags.value = response.data;
+    } else {
+      throw new Error('API returned error');
     }
   } catch (error) {
-    console.error('Failed to load hot tags:', error);
+    console.error('Failed to load hot tags, falling back to mock:', error);
+    try {
+      const mockResponse = await mockGetHotTags(30);
+      if (mockResponse.code === 200) {
+        hotTags.value = mockResponse.data;
+      }
+    } catch (mockError) {
+      console.error('Failed to load mock hot tags:', mockError);
+    }
   }
 }
 
@@ -163,12 +202,22 @@ async function searchForTags(keyword: string) {
   
   isSearchingTags.value = true;
   try {
-    const response = await mockSearchTags(keyword);
-    if (response.code === 200) {
+    const response = await searchTagList(keyword);
+    if (response.code === 200 && response.data) {
       tagSearchResults.value = response.data;
+    } else {
+      throw new Error('API returned error');
     }
   } catch (error) {
-    console.error('Failed to search tags:', error);
+    console.error('Failed to search tags, falling back to mock:', error);
+    try {
+      const mockResponse = await mockSearchTags(keyword);
+      if (mockResponse.code === 200) {
+        tagSearchResults.value = mockResponse.data;
+      }
+    } catch (mockError) {
+      console.error('Failed to search mock tags:', mockError);
+    }
   } finally {
     isSearchingTags.value = false;
   }
@@ -176,17 +225,27 @@ async function searchForTags(keyword: string) {
 
 // 获取标签建议
 async function loadTagSuggestions() {
-  if (!title.value.trim() && !selectedSubCategory.value) {
+  if (!title.value.trim() && !selectedCategory.value) {
     return;
   }
   
   try {
-    const response = await mockGetRecommendTags(title.value, selectedSubCategory.value);
-    if (response.code === 200) {
+    const response = await getRecommendTags(title.value, selectedCategory.value);
+    if (response.code === 200 && response.data) {
       tagSuggestions.value = response.data;
+    } else {
+      throw new Error('API returned error');
     }
   } catch (error) {
-    console.error('Failed to load tag suggestions:', error);
+    console.error('Failed to load tag suggestions, falling back to mock:', error);
+    try {
+      const mockResponse = await mockGetRecommendTags(title.value, selectedCategory.value);
+      if (mockResponse.code === 200) {
+        tagSuggestions.value = mockResponse.data;
+      }
+    } catch (mockError) {
+      console.error('Failed to load mock tag suggestions:', mockError);
+    }
   }
 }
 
@@ -205,18 +264,30 @@ async function createAndAddTag(tagName: string) {
   }
   
   try {
-    const response = await mockCreateTag(tagName.trim());
-    if (response.code === 200) {
+    const response = await createNewTag(tagName.trim());
+    if (response.code === 200 && response.data) {
       addTag(response.data.name);
+    } else {
+      throw new Error('API returned error');
     }
   } catch (error) {
-    console.error('Failed to create tag:', error);
+    console.error('Failed to create tag, falling back to mock:', error);
+    try {
+      const mockResponse = await mockCreateTag(tagName.trim());
+      if (mockResponse.code === 200) {
+        addTag(mockResponse.data.name);
+      }
+    } catch (mockError) {
+      console.error('Failed to create mock tag:', mockError);
+      // 直接添加标签名
+      addTag(tagName.trim());
+    }
   }
 }
 
 // 监听标题和分类变化，更新标签建议
-watch([title, selectedSubCategory], () => {
-  if (title.value.trim().length > 2 || selectedSubCategory.value) {
+watch([title, selectedCategory], () => {
+  if (title.value.trim().length > 2 || selectedCategory.value) {
     loadTagSuggestions();
   }
 });
@@ -282,7 +353,7 @@ function closePreview() {
 }
 
 // 发布文章
-function handlePublish() {
+async function handlePublish() {
   if (!title.value.trim()) {
     alert('请输入文章标题');
     return;
@@ -299,35 +370,68 @@ function handlePublish() {
     alert('内容至少50个字符');
     return;
   }
-  if (!selectedSubCategory.value) {
+  if (!selectedCategory.value) {
     alert('请选择文章分类');
     return;
   }
 
   isPublishing.value = true;
 
-  setTimeout(() => {
-    const user = currentUser.value;
-    if (user) {
-      const finalContent = editorMode.value === 'markdown' 
-        ? markdownPreview.value
-        : content.value;
-        
-      addArticle({
-        title: title.value,
-        content: finalContent,
-        contentMarkdown: editorMode.value === 'markdown' ? content.value : undefined,
-        editorMode: editorMode.value,
-        excerpt: excerpt.value || content.value.substring(0, 200) + '...',
-        cover: coverImage.value || '',
-        author: user,
-        category: selectedSubCategory.value,
-        tags: tags.value
-      });
+  try {
+    const finalContent = editorMode.value === 'markdown' 
+      ? markdownPreview.value
+      : content.value;
+      
+    const response = await createArticle({
+      title: title.value,
+      content: finalContent,
+      contentMarkdown: editorMode.value === 'markdown' ? content.value : undefined,
+      excerpt: excerpt.value || content.value.substring(0, 200) + '...',
+      coverImage: coverImage.value || '',
+      categoryId: selectedCategory.value,
+      tagNames: tags.value,
+      status: '1' // 已发布
+    });
+    
+    if (response.code === 200) {
+      articleStatus.value = 'published';
+      alert('发布成功！');
+      router.push('/');
+    } else {
+      alert('发布失败：' + (response.msg || '未知错误'));
     }
-    articleStatus.value = 'published';
-    router.push('/');
-  }, 1000);
+  } catch (error) {
+    console.error('Failed to publish article:', error);
+    // 降级使用mock
+    try {
+      const user = currentUser.value;
+      if (user) {
+        const finalContent = editorMode.value === 'markdown' 
+          ? markdownPreview.value
+          : content.value;
+          
+        addArticle({
+          title: title.value,
+          content: finalContent,
+          contentMarkdown: editorMode.value === 'markdown' ? content.value : undefined,
+          editorMode: editorMode.value,
+          excerpt: excerpt.value || content.value.substring(0, 200) + '...',
+          cover: coverImage.value || '',
+          author: user,
+          category: selectedCategory.value,
+          tags: tags.value
+        });
+      }
+      articleStatus.value = 'published';
+      alert('发布成功！（使用mock数据）');
+      router.push('/');
+    } catch (mockError) {
+      console.error('Failed to publish with mock:', mockError);
+      alert('发布失败，请稍后重试');
+    }
+  } finally {
+    isPublishing.value = false;
+  }
 }
 
 // 返回列表
@@ -798,36 +902,26 @@ const titleLength = computed(() => title.value.length);
 
           <!-- 右侧边栏 -->
           <div class="lg:col-span-1 space-y-4">
-            <!-- 分类选择（二级联动） -->
+            <!-- 分类选择 -->
             <div class="rounded-lg border p-3 sm:p-4" style="background-color: var(--theme-surface); border-color: var(--theme-border);">
               <h3 class="font-semibold mb-3 flex items-center gap-2" style="color: var(--theme-text);">
                 <List class="w-4 h-4" />
                 分类
               </h3>
               
-              <!-- 一级分类选择 -->
-              <div class="mb-2.5">
-                <label class="block text-xs mb-1.5" style="color: var(--theme-text-secondary);">一级分类</label>
-                <select 
-                  v-model="selectedParentCategory"
-                  class="w-full px-3 py-2 text-sm rounded-lg border focus:outline-none focus:ring-2"
-                  style="background-color: var(--theme-bg); border-color: var(--theme-border); color: var(--theme-text);"
-                >
-                  <option v-for="cat in categories" :key="cat.id" :value="cat.name">{{ cat.name }}</option>
-                </select>
-              </div>
-              
-              <!-- 二级分类选择 -->
               <div>
-                <label class="block text-xs mb-1.5" style="color: var(--theme-text-secondary);">二级分类</label>
+                <label class="block text-xs mb-1.5" style="color: var(--theme-text-secondary);">选择分类</label>
                 <select 
-                  v-model="selectedSubCategory"
+                  v-model="selectedCategory"
                   class="w-full px-3 py-2 text-sm rounded-lg border focus:outline-none focus:ring-2"
                   style="background-color: var(--theme-bg); border-color: var(--theme-border); color: var(--theme-text);"
                 >
-                  <option value="">请选择二级分类</option>
-                  <option v-for="sub in availableSubCategories" :key="sub.id" :value="sub.name">{{ sub.name }}</option>
+                  <option value="">请选择分类</option>
+                  <option v-for="cat in categories" :key="cat.id" :value="cat.id">{{ cat.name }}</option>
                 </select>
+                <div v-if="loadingCategories" class="mt-2 text-xs" style="color: var(--theme-text-secondary);">
+                  加载中...
+                </div>
               </div>
             </div>
 

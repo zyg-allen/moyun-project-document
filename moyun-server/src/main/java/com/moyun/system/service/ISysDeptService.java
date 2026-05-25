@@ -1,7 +1,7 @@
 package com.moyun.system.service;
 
-import com.moyun.common.core.domain.TreeSelect;
-import com.moyun.common.core.domain.entity.SysDept;
+import com.moyun.core.base.TreeSelect;
+import com.moyun.core.base.entity.SysDept;
 
 import java.util.List;
 

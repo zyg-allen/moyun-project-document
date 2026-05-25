@@ -14,10 +14,10 @@ import org.springframework.web.bind.annotation.RestController;
 import com.google.code.kaptcha.Producer;
 import com.moyun.common.config.RuoYiConfig;
 import com.moyun.common.constant.CacheConstants;
-import com.moyun.common.core.domain.AjaxResult;
-import com.moyun.common.core.redis.RedisCache;
-import com.moyun.common.utils.sign.Base64;
-import com.moyun.common.utils.uuid.IdUtils;
+import com.moyun.core.base.AjaxResult;
+import com.moyun.core.config.redis.RedisCache;
+import com.moyun.util.crypto.Base64;
+import com.moyun.util.uuid.IdUtils;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 

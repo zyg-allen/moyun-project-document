@@ -1,6 +1,6 @@
 package com.moyun.system.service;
 
-import com.moyun.common.core.domain.entity.SysRole;
+import com.moyun.core.base.entity.SysRole;
 import com.moyun.system.domain.SysUserRole;
 
 import java.util.List;

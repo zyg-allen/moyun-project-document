@@ -1,6 +1,6 @@
 package com.moyun.portal.service;
 
-import com.moyun.portal.domain.PortalBookmark;
+import com.moyun.portal.domain.entity.PortalBookmark;
 
 import java.util.List;
 
@@ -34,6 +34,14 @@ public interface IPortalBookmarkService {
      * @return 结果
      */
     public int insertPortalBookmark(PortalBookmark portalBookmark);
+
+    /**
+     * 修改收藏信息
+     *
+     * @param portalBookmark 收藏信息
+     * @return 结果
+     */
+    public int updatePortalBookmark(PortalBookmark portalBookmark);
 
     /**
      * 通过收藏ID删除收藏

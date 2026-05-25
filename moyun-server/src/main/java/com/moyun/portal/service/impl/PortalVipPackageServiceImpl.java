@@ -1,7 +1,7 @@
 package com.moyun.portal.service.impl;
 
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
-import com.moyun.portal.domain.PortalVipPackage;
+import com.moyun.portal.domain.entity.PortalVipPackage;
 import com.moyun.portal.mapper.PortalVipPackageMapper;
 import com.moyun.portal.service.IPortalVipPackageService;
 import org.springframework.beans.factory.annotation.Autowired;

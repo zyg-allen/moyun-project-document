@@ -1,6 +1,6 @@
 package com.moyun.portal.service;
 
-import com.moyun.portal.domain.PortalVipPackage;
+import com.moyun.portal.domain.entity.PortalVipPackage;
 
 import java.util.List;
 

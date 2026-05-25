@@ -2,7 +2,7 @@ package com.moyun.system.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
-import com.moyun.common.utils.StringUtils;
+import com.moyun.util.string.StringUtils;
 import com.moyun.system.domain.SysConfig;
 import com.moyun.system.mapper.SysConfigMapper;
 import com.moyun.system.service.ISysConfigService;

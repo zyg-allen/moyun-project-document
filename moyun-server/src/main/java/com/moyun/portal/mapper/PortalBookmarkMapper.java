@@ -1,7 +1,7 @@
 package com.moyun.portal.mapper;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
-import com.moyun.portal.domain.PortalBookmark;
+import com.moyun.portal.domain.entity.PortalBookmark;
 import org.apache.ibatis.annotations.Mapper;
 
 import java.util.List;
@@ -37,6 +37,14 @@ public interface PortalBookmarkMapper extends BaseMapper<PortalBookmark> {
      * @return 结果
      */
     public int insertPortalBookmark(PortalBookmark portalBookmark);
+
+    /**
+     * 修改收藏信息
+     *
+     * @param portalBookmark 收藏信息
+     * @return 结果
+     */
+    public int updatePortalBookmark(PortalBookmark portalBookmark);
 
     /**
      * 通过收藏ID删除收藏

@@ -1,12 +1,12 @@
 package com.moyun.portal.controller;
 
 import com.moyun.common.annotation.Log;
-import com.moyun.common.core.controller.BaseController;
-import com.moyun.common.core.domain.AjaxResult;
-import com.moyun.common.core.page.TableDataInfo;
+import com.moyun.core.base.BaseController;
+import com.moyun.core.base.AjaxResult;
+import com.moyun.core.base.TableDataInfo;
 import com.moyun.common.enums.BusinessType;
-import com.moyun.common.utils.poi.ExcelUtil;
-import com.moyun.portal.domain.PortalComment;
+import com.moyun.util.file.ExcelUtil;
+import com.moyun.portal.domain.entity.PortalComment;
 import com.moyun.portal.service.IPortalCommentService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;

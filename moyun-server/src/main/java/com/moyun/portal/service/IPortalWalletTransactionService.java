@@ -1,6 +1,6 @@
 package com.moyun.portal.service;
 
-import com.moyun.portal.domain.PortalWalletTransaction;
+import com.moyun.portal.domain.entity.PortalWalletTransaction;
 
 import java.util.List;
 

@@ -1,6 +1,6 @@
 package com.moyun.system.mapper;
 
-import com.moyun.common.core.domain.entity.SysDictType;
+import com.moyun.core.base.entity.SysDictType;
 
 import java.util.List;
 

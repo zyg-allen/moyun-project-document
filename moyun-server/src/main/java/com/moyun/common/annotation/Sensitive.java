@@ -3,7 +3,7 @@ package com.moyun.common.annotation;
 import com.fasterxml.jackson.annotation.JacksonAnnotationsInside;
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import com.moyun.common.enums.DesensitizedType;
-import com.moyun.framework.config.SensitiveJsonSerializer;
+import com.moyun.core.config.SensitiveJsonSerializer;
 
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;

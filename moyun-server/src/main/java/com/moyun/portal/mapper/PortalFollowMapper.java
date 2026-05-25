@@ -1,7 +1,7 @@
 package com.moyun.portal.mapper;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
-import com.moyun.portal.domain.PortalFollow;
+import com.moyun.portal.domain.entity.PortalFollow;
 import org.apache.ibatis.annotations.Mapper;
 
 import java.util.List;
@@ -37,6 +37,14 @@ public interface PortalFollowMapper extends BaseMapper<PortalFollow> {
      * @return 结果
      */
     public int insertPortalFollow(PortalFollow portalFollow);
+
+    /**
+     * 修改关注信息
+     *
+     * @param portalFollow 关注信息
+     * @return 结果
+     */
+    public int updatePortalFollow(PortalFollow portalFollow);
 
     /**
      * 通过关注ID删除关注

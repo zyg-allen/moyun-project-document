@@ -1,6 +1,6 @@
 package com.moyun.portal.service;
 
-import com.moyun.portal.domain.PortalFriendLink;
+import com.moyun.portal.domain.entity.PortalFriendLink;
 
 import java.util.List;
 

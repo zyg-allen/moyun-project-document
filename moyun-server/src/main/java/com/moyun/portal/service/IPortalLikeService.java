@@ -1,6 +1,6 @@
 package com.moyun.portal.service;
 
-import com.moyun.portal.domain.PortalLike;
+import com.moyun.portal.domain.entity.PortalLike;
 
 import java.util.List;
 
@@ -34,6 +34,14 @@ public interface IPortalLikeService {
      * @return 结果
      */
     public int insertPortalLike(PortalLike portalLike);
+
+    /**
+     * 修改点赞信息
+     *
+     * @param portalLike 点赞信息
+     * @return 结果
+     */
+    public int updatePortalLike(PortalLike portalLike);
 
     /**
      * 通过点赞ID删除点赞

@@ -1,6 +1,6 @@
 package com.moyun.system.service;
 
-import com.moyun.common.core.domain.entity.SysDictData;
+import com.moyun.core.base.entity.SysDictData;
 
 import java.util.List;
 

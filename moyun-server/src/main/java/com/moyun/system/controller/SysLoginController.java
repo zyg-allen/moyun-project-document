@@ -1,16 +1,16 @@
 package com.moyun.system.controller;
 
 import com.moyun.common.constant.Constants;
-import com.moyun.common.core.domain.AjaxResult;
-import com.moyun.common.core.domain.entity.SysMenu;
-import com.moyun.common.core.domain.entity.SysUser;
-import com.moyun.common.core.domain.model.LoginBody;
-import com.moyun.common.core.domain.model.LoginUser;
-import com.moyun.common.utils.SecurityUtils;
-import com.moyun.common.utils.StringUtils;
-import com.moyun.framework.web.service.SysLoginService;
-import com.moyun.framework.web.service.SysPermissionService;
-import com.moyun.framework.web.service.TokenService;
+import com.moyun.core.base.AjaxResult;
+import com.moyun.core.base.entity.SysMenu;
+import com.moyun.core.base.entity.SysUser;
+import com.moyun.core.base.model.LoginBody;
+import com.moyun.core.base.model.LoginUser;
+import com.moyun.util.security.SecurityUtils;
+import com.moyun.util.string.StringUtils;
+import com.moyun.core.security.auth.SysLoginService;
+import com.moyun.core.security.auth.SysPermissionService;
+import com.moyun.core.security.auth.TokenService;
 import com.moyun.system.service.ISysConfigService;
 import com.moyun.system.service.ISysMenuService;
 import io.swagger.v3.oas.annotations.Operation;

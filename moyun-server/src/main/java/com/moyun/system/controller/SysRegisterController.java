@@ -1,10 +1,10 @@
 package com.moyun.system.controller;
 
-import com.moyun.common.core.controller.BaseController;
-import com.moyun.common.core.domain.AjaxResult;
-import com.moyun.common.core.domain.model.RegisterBody;
-import com.moyun.common.utils.StringUtils;
-import com.moyun.framework.web.service.SysRegisterService;
+import com.moyun.core.base.BaseController;
+import com.moyun.core.base.AjaxResult;
+import com.moyun.core.base.model.RegisterBody;
+import com.moyun.util.string.StringUtils;
+import com.moyun.core.security.auth.SysRegisterService;
 import com.moyun.system.service.ISysConfigService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;

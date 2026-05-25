@@ -1,10 +1,10 @@
 package com.moyun.system.service.impl;
 
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
-import com.moyun.common.core.domain.TreeSelect;
-import com.moyun.common.core.domain.entity.SysMenu;
-import com.moyun.common.core.domain.entity.SysUser;
-import com.moyun.common.utils.StringUtils;
+import com.moyun.core.base.TreeSelect;
+import com.moyun.core.base.entity.SysMenu;
+import com.moyun.core.base.entity.SysUser;
+import com.moyun.util.string.StringUtils;
 import com.moyun.system.domain.vo.RouterVo;
 import com.moyun.system.domain.vo.MetaVo;
 import com.moyun.system.mapper.SysMenuMapper;

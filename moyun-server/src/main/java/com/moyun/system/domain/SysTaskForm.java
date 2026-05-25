@@ -1,7 +1,7 @@
 package com.moyun.system.domain;
 
 import com.moyun.common.annotation.Excel;
-import com.moyun.common.core.domain.BaseEntity;
+import com.moyun.core.base.BaseEntity;
 
 /**
  * 流程任务关联单对象 sys_task_form

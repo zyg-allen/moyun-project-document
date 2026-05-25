@@ -1,6 +1,6 @@
 package com.moyun.system.service;
 
-import com.moyun.common.core.domain.entity.SysUser;
+import com.moyun.core.base.entity.SysUser;
 
 import java.util.List;
 

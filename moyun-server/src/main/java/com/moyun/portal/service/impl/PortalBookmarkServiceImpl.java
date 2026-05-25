@@ -1,7 +1,7 @@
 package com.moyun.portal.service.impl;
 
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
-import com.moyun.portal.domain.PortalBookmark;
+import com.moyun.portal.domain.entity.PortalBookmark;
 import com.moyun.portal.mapper.PortalBookmarkMapper;
 import com.moyun.portal.service.IPortalBookmarkService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -51,6 +51,17 @@ public class PortalBookmarkServiceImpl extends ServiceImpl<PortalBookmarkMapper,
     @Override
     public int insertPortalBookmark(PortalBookmark portalBookmark) {
         return portalBookmarkMapper.insertPortalBookmark(portalBookmark);
+    }
+
+    /**
+     * 修改收藏信息
+     *
+     * @param portalBookmark 收藏信息
+     * @return 结果
+     */
+    @Override
+    public int updatePortalBookmark(PortalBookmark portalBookmark) {
+        return portalBookmarkMapper.updatePortalBookmark(portalBookmark);
     }
 
     /**

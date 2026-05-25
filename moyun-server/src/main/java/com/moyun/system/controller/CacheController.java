@@ -1,8 +1,8 @@
 package com.moyun.system.controller;
 
 import com.moyun.common.constant.CacheConstants;
-import com.moyun.common.core.domain.AjaxResult;
-import com.moyun.common.utils.StringUtils;
+import com.moyun.core.base.AjaxResult;
+import com.moyun.util.string.StringUtils;
 import com.moyun.system.domain.SysCache;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.RedisCallback;

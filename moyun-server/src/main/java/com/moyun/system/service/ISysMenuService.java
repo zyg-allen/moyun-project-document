@@ -1,7 +1,7 @@
 package com.moyun.system.service;
 
-import com.moyun.common.core.domain.TreeSelect;
-import com.moyun.common.core.domain.entity.SysMenu;
+import com.moyun.core.base.TreeSelect;
+import com.moyun.core.base.entity.SysMenu;
 import com.moyun.system.domain.vo.RouterVo;
 
 import java.util.List;

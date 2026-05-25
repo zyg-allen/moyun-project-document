@@ -1,7 +1,7 @@
 package com.moyun.system.domain;
 
 
-import com.moyun.common.utils.StringUtils;
+import com.moyun.util.string.StringUtils;
 
 /**
  * 缓存信息

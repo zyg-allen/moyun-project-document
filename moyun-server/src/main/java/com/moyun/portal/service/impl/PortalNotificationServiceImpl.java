@@ -1,7 +1,7 @@
 package com.moyun.portal.service.impl;
 
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
-import com.moyun.portal.domain.PortalNotification;
+import com.moyun.portal.domain.entity.PortalNotification;
 import com.moyun.portal.mapper.PortalNotificationMapper;
 import com.moyun.portal.service.IPortalNotificationService;
 import org.springframework.beans.factory.annotation.Autowired;

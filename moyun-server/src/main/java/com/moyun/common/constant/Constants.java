@@ -166,13 +166,13 @@ public class Constants {
     public static final String[] JSON_WHITELIST_STR = {"org.springframework", "com.ruoyi"};
 
     /**
-     * 定时任务白名单配置（仅允许访问的包名，如其他需要可以自行添加）
+     * 定时任务白名单包路径
      */
-    public static final String[] JOB_WHITELIST_STR = {"com.moyun.system.quartz.task"};
+    public static final String[] JOB_WHITELIST_STR = {"com.moyun.ext.job.task"};
 
     /**
      * 定时任务违规的字符
      */
     public static final String[] JOB_ERROR_STR = {"java.net.URL", "javax.naming.InitialContext", "org.yaml.snakeyaml",
-            "org.springframework", "org.apache", "com.moyun.common.utils.file", "com.moyun.common.config", "com.moyun.system.generator"};
+            "org.springframework", "org.apache", "com.moyun.util.file", "com.moyun.core.config", "com.moyun.ext.generator"};
 }

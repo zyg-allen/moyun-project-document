@@ -1,11 +1,11 @@
 package com.moyun.system.service.impl;
 
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
-import com.moyun.common.core.domain.entity.SysRole;
-import com.moyun.common.core.domain.entity.SysUser;
-import com.moyun.common.utils.SecurityUtils;
-import com.moyun.common.utils.StringUtils;
-import com.moyun.framework.web.exception.BusinessException;
+import com.moyun.core.base.entity.SysRole;
+import com.moyun.core.base.entity.SysUser;
+import com.moyun.util.security.SecurityUtils;
+import com.moyun.util.string.StringUtils;
+import com.moyun.core.mvc.handler.BusinessException;
 import com.moyun.system.domain.SysPost;
 import com.moyun.system.domain.SysUserPost;
 import com.moyun.system.domain.SysUserRole;

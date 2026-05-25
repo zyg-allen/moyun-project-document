@@ -1,6 +1,6 @@
 package com.moyun.portal.service;
 
-import com.moyun.portal.domain.PortalFollow;
+import com.moyun.portal.domain.entity.PortalFollow;
 
 import java.util.List;
 
@@ -42,6 +42,14 @@ public interface IPortalFollowService {
      * @return 结果
      */
     public int deletePortalFollowById(Long id);
+
+    /**
+     * 修改关注信息
+     *
+     * @param portalFollow 关注信息
+     * @return 结果
+     */
+    public int updatePortalFollow(PortalFollow portalFollow);
 
     /**
      * 批量删除关注信息

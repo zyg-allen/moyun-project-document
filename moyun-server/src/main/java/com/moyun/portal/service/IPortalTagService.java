@@ -1,6 +1,6 @@
 package com.moyun.portal.service;
 
-import com.moyun.portal.domain.PortalTag;
+import com.moyun.portal.domain.entity.PortalTag;
 
 import java.util.List;
 

@@ -1,7 +1,7 @@
 package com.moyun.portal.service.impl;
 
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
-import com.moyun.portal.domain.PortalLike;
+import com.moyun.portal.domain.entity.PortalLike;
 import com.moyun.portal.mapper.PortalLikeMapper;
 import com.moyun.portal.service.IPortalLikeService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -51,6 +51,17 @@ public class PortalLikeServiceImpl extends ServiceImpl<PortalLikeMapper, PortalL
     @Override
     public int insertPortalLike(PortalLike portalLike) {
         return portalLikeMapper.insertPortalLike(portalLike);
+    }
+
+    /**
+     * 修改点赞信息
+     *
+     * @param portalLike 点赞信息
+     * @return 结果
+     */
+    @Override
+    public int updatePortalLike(PortalLike portalLike) {
+        return portalLikeMapper.updatePortalLike(portalLike);
     }
 
     /**

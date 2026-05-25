@@ -1,7 +1,7 @@
 package com.moyun.portal.mapper;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
-import com.moyun.portal.domain.PortalComment;
+import com.moyun.portal.domain.entity.PortalComment;
 import org.apache.ibatis.annotations.Mapper;
 
 import java.util.List;

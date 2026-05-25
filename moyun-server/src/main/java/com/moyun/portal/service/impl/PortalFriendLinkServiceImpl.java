@@ -1,7 +1,7 @@
 package com.moyun.portal.service.impl;
 
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
-import com.moyun.portal.domain.PortalFriendLink;
+import com.moyun.portal.domain.entity.PortalFriendLink;
 import com.moyun.portal.mapper.PortalFriendLinkMapper;
 import com.moyun.portal.service.IPortalFriendLinkService;
 import org.springframework.beans.factory.annotation.Autowired;

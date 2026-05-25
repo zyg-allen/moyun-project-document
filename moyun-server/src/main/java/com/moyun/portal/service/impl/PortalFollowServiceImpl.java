@@ -1,7 +1,7 @@
 package com.moyun.portal.service.impl;
 
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
-import com.moyun.portal.domain.PortalFollow;
+import com.moyun.portal.domain.entity.PortalFollow;
 import com.moyun.portal.mapper.PortalFollowMapper;
 import com.moyun.portal.service.IPortalFollowService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -51,6 +51,17 @@ public class PortalFollowServiceImpl extends ServiceImpl<PortalFollowMapper, Por
     @Override
     public int insertPortalFollow(PortalFollow portalFollow) {
         return portalFollowMapper.insertPortalFollow(portalFollow);
+    }
+
+    /**
+     * 修改关注信息
+     *
+     * @param portalFollow 关注信息
+     * @return 结果
+     */
+    @Override
+    public int updatePortalFollow(PortalFollow portalFollow) {
+        return portalFollowMapper.updatePortalFollow(portalFollow);
     }
 
     /**

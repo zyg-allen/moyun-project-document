@@ -1,6 +1,6 @@
 package com.moyun.system.mapper;
 
-import com.moyun.common.core.domain.entity.SysDictData;
+import com.moyun.core.base.entity.SysDictData;
 import org.apache.ibatis.annotations.Param;
 
 import java.util.List;

@@ -1,6 +1,6 @@
 package com.moyun.system.service.impl;
 
-import com.moyun.common.utils.StringUtils;
+import com.moyun.util.string.StringUtils;
 import com.moyun.system.domain.SysLogininfor;
 import com.moyun.system.mapper.SysLogininforMapper;
 import com.moyun.system.service.ISysLogininforService;

@@ -1,6 +1,6 @@
 package com.moyun.system.service;
 
-import com.moyun.common.core.domain.model.LoginUser;
+import com.moyun.core.base.model.LoginUser;
 import com.moyun.system.domain.SysUserOnline;
 
 /**

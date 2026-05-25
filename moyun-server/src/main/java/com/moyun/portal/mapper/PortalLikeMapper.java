@@ -1,7 +1,7 @@
 package com.moyun.portal.mapper;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
-import com.moyun.portal.domain.PortalLike;
+import com.moyun.portal.domain.entity.PortalLike;
 import org.apache.ibatis.annotations.Mapper;
 
 import java.util.List;
@@ -37,6 +37,14 @@ public interface PortalLikeMapper extends BaseMapper<PortalLike> {
      * @return 结果
      */
     public int insertPortalLike(PortalLike portalLike);
+
+    /**
+     * 修改点赞信息
+     *
+     * @param portalLike 点赞信息
+     * @return 结果
+     */
+    public int updatePortalLike(PortalLike portalLike);
 
     /**
      * 通过点赞ID删除点赞

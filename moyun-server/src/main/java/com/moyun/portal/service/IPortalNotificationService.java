@@ -1,6 +1,6 @@
 package com.moyun.portal.service;
 
-import com.moyun.portal.domain.PortalNotification;
+import com.moyun.portal.domain.entity.PortalNotification;
 
 import java.util.List;
 

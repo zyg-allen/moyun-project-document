@@ -1,8 +1,8 @@
 package com.moyun.system.service.impl;
 
 import com.moyun.common.constant.UserConstants;
-import com.moyun.common.exception.ServiceException;
-import com.moyun.common.utils.StringUtils;
+import com.moyun.common.exception.system.ServiceException;
+import com.moyun.util.string.StringUtils;
 import com.moyun.system.domain.SysPost;
 import com.moyun.system.mapper.SysPostMapper;
 import com.moyun.system.mapper.SysUserPostMapper;

@@ -1,6 +1,6 @@
 package com.moyun.portal.service;
 
-import com.moyun.portal.domain.PortalCategory;
+import com.moyun.portal.domain.entity.PortalCategory;
 
 import java.util.List;
 

@@ -1,8 +1,8 @@
 package com.moyun.portal.service.impl;
 
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
-import com.moyun.common.utils.StringUtils;
-import com.moyun.portal.domain.PortalUser;
+import com.moyun.util.string.StringUtils;
+import com.moyun.portal.domain.entity.PortalUser;
 import com.moyun.portal.mapper.PortalUserMapper;
 import com.moyun.portal.service.IPortalUserService;
 import org.springframework.beans.factory.annotation.Autowired;

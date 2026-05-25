@@ -1,7 +1,7 @@
 package com.moyun.common.filter;
 
 import com.moyun.common.constant.Constants;
-import com.moyun.common.utils.http.HttpHelper;
+import com.moyun.util.http.HttpHelper;
 
 import  jakarta.servlet.ReadListener;
 import  jakarta.servlet.ServletInputStream;

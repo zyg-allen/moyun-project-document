@@ -7,9 +7,9 @@ import com.fasterxml.jackson.databind.JsonSerializer;
 import com.fasterxml.jackson.databind.SerializerProvider;
 import com.fasterxml.jackson.databind.ser.ContextualSerializer;
 import com.moyun.common.annotation.Sensitive;
-import com.moyun.common.core.domain.model.LoginUser;
+import com.moyun.core.base.model.LoginUser;
 import com.moyun.common.enums.DesensitizedType;
-import com.moyun.common.utils.SecurityUtils;
+import com.moyun.util.security.SecurityUtils;
 
 import java.io.IOException;
 import java.util.Objects;

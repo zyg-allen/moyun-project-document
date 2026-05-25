@@ -1,6 +1,6 @@
 package com.moyun.common.annotation;
 
-import com.moyun.common.utils.poi.ExcelHandlerAdapter;
+import com.moyun.util.file.ExcelHandlerAdapter;
 import org.apache.poi.ss.usermodel.HorizontalAlignment;
 import org.apache.poi.ss.usermodel.IndexedColors;
 

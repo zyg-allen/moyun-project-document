@@ -1,6 +1,6 @@
 package com.moyun.portal.service;
 
-import com.moyun.portal.domain.PortalComment;
+import com.moyun.portal.domain.entity.PortalComment;
 
 import java.util.List;
 

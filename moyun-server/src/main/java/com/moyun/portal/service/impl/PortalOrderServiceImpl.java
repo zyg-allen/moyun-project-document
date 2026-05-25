@@ -1,7 +1,7 @@
 package com.moyun.portal.service.impl;
 
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
-import com.moyun.portal.domain.PortalOrder;
+import com.moyun.portal.domain.entity.PortalOrder;
 import com.moyun.portal.mapper.PortalOrderMapper;
 import com.moyun.portal.service.IPortalOrderService;
 import org.springframework.beans.factory.annotation.Autowired;

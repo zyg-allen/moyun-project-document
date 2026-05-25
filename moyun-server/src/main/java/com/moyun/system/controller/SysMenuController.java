@@ -2,11 +2,11 @@ package com.moyun.system.controller;
 
 import com.moyun.common.annotation.Log;
 import com.moyun.common.constant.UserConstants;
-import com.moyun.common.core.controller.BaseController;
-import com.moyun.common.core.domain.AjaxResult;
-import com.moyun.common.core.domain.entity.SysMenu;
+import com.moyun.core.base.BaseController;
+import com.moyun.core.base.AjaxResult;
+import com.moyun.core.base.entity.SysMenu;
 import com.moyun.common.enums.BusinessType;
-import com.moyun.common.utils.StringUtils;
+import com.moyun.util.string.StringUtils;
 import com.moyun.system.service.ISysMenuService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;

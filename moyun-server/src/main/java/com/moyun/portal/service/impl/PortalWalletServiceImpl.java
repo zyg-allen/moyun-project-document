@@ -1,7 +1,7 @@
 package com.moyun.portal.service.impl;
 
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
-import com.moyun.portal.domain.PortalWallet;
+import com.moyun.portal.domain.entity.PortalWallet;
 import com.moyun.portal.mapper.PortalWalletMapper;
 import com.moyun.portal.service.IPortalWalletService;
 import org.springframework.beans.factory.annotation.Autowired;

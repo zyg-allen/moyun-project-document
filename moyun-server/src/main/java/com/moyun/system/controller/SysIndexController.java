@@ -1,7 +1,7 @@
 package com.moyun.system.controller;
 
 import com.moyun.common.config.RuoYiConfig;
-import com.moyun.common.utils.StringUtils;
+import com.moyun.util.string.StringUtils;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.beans.factory.annotation.Autowired;

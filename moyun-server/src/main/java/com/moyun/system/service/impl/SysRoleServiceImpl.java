@@ -2,12 +2,12 @@ package com.moyun.system.service.impl;
 
 import com.moyun.common.annotation.DataScope;
 import com.moyun.common.constant.UserConstants;
-import com.moyun.common.core.domain.entity.SysRole;
-import com.moyun.common.core.domain.entity.SysUser;
-import com.moyun.common.exception.ServiceException;
-import com.moyun.common.utils.SecurityUtils;
-import com.moyun.common.utils.StringUtils;
-import com.moyun.common.utils.spring.SpringUtils;
+import com.moyun.core.base.entity.SysRole;
+import com.moyun.core.base.entity.SysUser;
+import com.moyun.common.exception.system.ServiceException;
+import com.moyun.util.security.SecurityUtils;
+import com.moyun.util.string.StringUtils;
+import com.moyun.util.spring.SpringUtils;
 import com.moyun.system.domain.SysRoleDept;
 import com.moyun.system.domain.SysRoleMenu;
 import com.moyun.system.domain.SysUserRole;

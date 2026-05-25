@@ -1,39 +1,90 @@
 package com.moyun.ext.flowable.service.impl;
 
-import com.moyun.ext.flowable.domain.entity.SysExpression;
-import com.moyun.ext.flowable.mapper.SysExpressionMapper;
 import com.moyun.ext.flowable.service.ISysExpressionService;
+import com.moyun.system.domain.entity.SysExpression;
+import com.moyun.system.mapper.SysExpressionMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDateTime;
+import java.util.List;
+
 /**
- * 流程表达式配置 服务实现
+ * 流程达式Service业务层处理
  *
  * @author ruoyi
+ * @date 2022-12-12
  */
 @Service
 public class SysExpressionServiceImpl implements ISysExpressionService {
-
     @Autowired
     private SysExpressionMapper sysExpressionMapper;
 
+    /**
+     * 查询流程达式
+     *
+     * @param id 流程达式主键
+     * @return 流程达式
+     */
     @Override
-    public SysExpression selectExpressionById(Long id) {
-        return sysExpressionMapper.selectById(id);
+    public SysExpression selectSysExpressionById(Long id) {
+        return sysExpressionMapper.selectSysExpressionById(id);
     }
 
+    /**
+     * 查询流程达式列表
+     *
+     * @param sysExpression 流程达式
+     * @return 流程达式
+     */
     @Override
-    public int insertExpression(SysExpression sysExpression) {
-        return sysExpressionMapper.insert(sysExpression);
+    public List<SysExpression> selectSysExpressionList(SysExpression sysExpression) {
+        return sysExpressionMapper.selectSysExpressionList(sysExpression);
     }
 
+    /**
+     * 新增流程达式
+     *
+     * @param sysExpression 流程达式
+     * @return 结果
+     */
     @Override
-    public int updateExpression(SysExpression sysExpression) {
-        return sysExpressionMapper.update(sysExpression);
+    public int insertSysExpression(SysExpression sysExpression) {
+        sysExpression.setCreateTime(LocalDateTime.now());
+        return sysExpressionMapper.insertSysExpression(sysExpression);
     }
 
+    /**
+     * 修改流程达式
+     *
+     * @param sysExpression 流程达式
+     * @return 结果
+     */
     @Override
-    public int deleteExpressionById(Long id) {
-        return sysExpressionMapper.deleteById(id);
+    public int updateSysExpression(SysExpression sysExpression) {
+        sysExpression.setUpdateTime(LocalDateTime.now());
+        return sysExpressionMapper.updateSysExpression(sysExpression);
+    }
+
+    /**
+     * 批量删除流程达式
+     *
+     * @param ids 需要删除的流程达式主键
+     * @return 结果
+     */
+    @Override
+    public int deleteSysExpressionByIds(Long[] ids) {
+        return sysExpressionMapper.deleteSysExpressionByIds(ids);
+    }
+
+    /**
+     * 删除流程达式信息
+     *
+     * @param id 流程达式主键
+     * @return 结果
+     */
+    @Override
+    public int deleteSysExpressionById(Long id) {
+        return sysExpressionMapper.deleteSysExpressionById(id);
     }
 }

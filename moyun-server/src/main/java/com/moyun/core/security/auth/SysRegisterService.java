@@ -3,22 +3,20 @@ package com.moyun.core.security.auth;
 import com.moyun.common.constant.CacheConstants;
 import com.moyun.common.constant.Constants;
 import com.moyun.common.constant.UserConstants;
+import com.moyun.common.exception.business.user.CaptchaException;
+import com.moyun.common.exception.business.user.CaptchaExpireException;
 import com.moyun.core.base.entity.SysUser;
 import com.moyun.core.base.model.RegisterBody;
 import com.moyun.core.config.redis.RedisCache;
-import com.moyun.common.exception.business.user.CaptchaException;
-import com.moyun.common.exception.business.user.CaptchaExpireException;
-import com.moyun.util.string.MessageUtils;
-import com.moyun.util.security.SecurityUtils;
-import com.moyun.util.string.StringUtils;
 import com.moyun.core.manager.AsyncManager;
 import com.moyun.core.manager.factory.AsyncFactory;
 import com.moyun.system.service.ISysConfigService;
 import com.moyun.system.service.ISysUserService;
+import com.moyun.util.security.SecurityUtils;
+import com.moyun.util.string.MessageUtils;
+import com.moyun.util.string.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
-
-import java.time.LocalDateTime;
 
 /**
  * 注册校验方法
@@ -65,7 +63,7 @@ public class SysRegisterService {
         } else {
             sysUser.setNickName(username);
             sysUser.setPassword(SecurityUtils.encryptPassword(password));
-           // sysUser.setPwdUpdateDate(LocalDateTime.now());
+            // sysUser.setPwdUpdateDate(LocalDateTime.now());
             boolean regFlag = userService.registerUser(sysUser);
             if (!regFlag) {
                 msg = "注册失败,请联系系统管理人员";

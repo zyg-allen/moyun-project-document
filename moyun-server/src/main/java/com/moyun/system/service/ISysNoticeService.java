@@ -1,6 +1,6 @@
 package com.moyun.system.service;
 
-import com.moyun.system.domain.SysNotice;
+import com.moyun.system.domain.entity.SysNotice;
 
 import java.util.List;
 
@@ -70,7 +70,7 @@ public interface ISysNoticeService {
      * 标记公告已读
      *
      * @param noticeId 公告ID
-     * @param userId 用户ID
+     * @param userId   用户ID
      * @return 结果
      */
     int markNoticeRead(Long noticeId, Long userId);
@@ -78,7 +78,7 @@ public interface ISysNoticeService {
     /**
      * 批量标记公告已读
      *
-     * @param ids 公告ID数组
+     * @param ids    公告ID数组
      * @param userId 用户ID
      * @return 结果
      */

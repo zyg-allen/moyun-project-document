@@ -1,6 +1,6 @@
 package com.moyun.system.service;
 
-import com.moyun.system.domain.SysConfig;
+import com.moyun.system.domain.entity.SysConfig;
 
 import java.util.List;
 

@@ -2,17 +2,14 @@ package com.moyun.util.html;
 
 import com.moyun.util.string.StringUtils;
 
-public class EscapeUtil
-{
+public class EscapeUtil {
     public static final String RE_HTML_MARK = "(<[^<]*?>)|(<[\\s]*?/[^<]*?>)|(<[^<]*?/[\\s]*?>)";
 
     private static final char[][] TEXT = new char[64][];
 
-    static
-    {
-        for (int i = 0; i < 64; i++)
-        {
-            TEXT[i] = new char[] { (char) i };
+    static {
+        for (int i = 0; i < 64; i++) {
+            TEXT[i] = new char[]{(char) i};
         }
 
         TEXT['\''] = "&#039;".toCharArray();
@@ -22,47 +19,36 @@ public class EscapeUtil
         TEXT['>'] = "&#62;".toCharArray();
     }
 
-    public static String escape(String text)
-    {
+    public static String escape(String text) {
         return encode(text);
     }
 
-    public static String unescape(String content)
-    {
+    public static String unescape(String content) {
         return decode(content);
     }
 
-    public static String clean(String content)
-    {
+    public static String clean(String content) {
         return new HTMLFilter().filter(content);
     }
 
-    private static String encode(String text)
-    {
-        if (StringUtils.isEmpty(text))
-        {
+    private static String encode(String text) {
+        if (StringUtils.isEmpty(text)) {
             return StringUtils.EMPTY;
         }
 
         final StringBuilder tmp = new StringBuilder(text.length() * 6);
         char c;
-        for (int i = 0; i < text.length(); i++)
-        {
+        for (int i = 0; i < text.length(); i++) {
             c = text.charAt(i);
-            if (c < 256)
-            {
+            if (c < 256) {
                 tmp.append("%");
-                if (c < 16)
-                {
+                if (c < 16) {
                     tmp.append("0");
                 }
                 tmp.append(Integer.toString(c, 16));
-            }
-            else
-            {
+            } else {
                 tmp.append("%u");
-                if (c <= 0xfff)
-                {
+                if (c <= 0xfff) {
                     tmp.append("0");
                 }
                 tmp.append(Integer.toString(c, 16));
@@ -71,43 +57,31 @@ public class EscapeUtil
         return tmp.toString();
     }
 
-    public static String decode(String content)
-    {
-        if (StringUtils.isEmpty(content))
-        {
+    public static String decode(String content) {
+        if (StringUtils.isEmpty(content)) {
             return content;
         }
 
         StringBuilder tmp = new StringBuilder(content.length());
         int lastPos = 0, pos = 0;
         char ch;
-        while (lastPos < content.length())
-        {
+        while (lastPos < content.length()) {
             pos = content.indexOf("%", lastPos);
-            if (pos == lastPos)
-            {
-                if (content.charAt(pos + 1) == 'u')
-                {
+            if (pos == lastPos) {
+                if (content.charAt(pos + 1) == 'u') {
                     ch = (char) Integer.parseInt(content.substring(pos + 2, pos + 6), 16);
                     tmp.append(ch);
                     lastPos = pos + 6;
-                }
-                else
-                {
+                } else {
                     ch = (char) Integer.parseInt(content.substring(pos + 1, pos + 3), 16);
                     tmp.append(ch);
                     lastPos = pos + 3;
                 }
-            }
-            else
-            {
-                if (pos == -1)
-                {
+            } else {
+                if (pos == -1) {
                     tmp.append(content.substring(lastPos));
                     lastPos = content.length();
-                }
-                else
-                {
+                } else {
                     tmp.append(content.substring(lastPos, pos));
                     lastPos = pos;
                 }
@@ -116,8 +90,7 @@ public class EscapeUtil
         return tmp.toString();
     }
 
-    public static void main(String[] args)
-    {
+    public static void main(String[] args) {
         String html = "<script>alert(1);</script>";
         String escape = EscapeUtil.escape(html);
         System.out.println("clean: " + EscapeUtil.clean(html));

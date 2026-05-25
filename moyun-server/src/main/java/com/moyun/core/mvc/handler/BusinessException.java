@@ -4,8 +4,9 @@ import lombok.Getter;
 
 /**
  * <p>
- *   自定义业务异常类
+ * 自定义业务异常类
  * </p>
+ *
  * @author Lenovo
  */
 @Getter
@@ -21,12 +22,12 @@ public class BusinessException extends RuntimeException {
     /**
      * 错误描述信息
      */
-    private  String errorMessage;
+    private String errorMessage;
 
     /**
      * 错误码
      */
-    private  String errorCode;
+    private String errorCode;
 
     /**
      * 错误信息
@@ -35,7 +36,8 @@ public class BusinessException extends RuntimeException {
 
     /**
      * 构造函数
-     * @param code 错误码
+     *
+     * @param code    错误码
      * @param message 错误消息
      */
     public BusinessException(String code, String message) {
@@ -46,6 +48,7 @@ public class BusinessException extends RuntimeException {
 
     /**
      * 构造函数（默认错误码000001）
+     *
      * @param message 错误消息
      */
     public BusinessException(String message) {

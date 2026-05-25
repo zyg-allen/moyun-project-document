@@ -1,34 +1,91 @@
 package com.moyun.ext.generator.mapper;
 
-import com.moyun.ext.generator.domain.entity.GenTable;
-import org.apache.ibatis.annotations.Mapper;
-import org.apache.ibatis.annotations.Param;
+import com.moyun.ext.generator.domain.GenTable;
 
 import java.util.List;
 
 /**
- * 代码生成Mapper接口
+ * 业务 数据层
  *
  * @author ruoyi
  */
-@Mapper
 public interface GenTableMapper {
+    /**
+     * 查询业务列表
+     *
+     * @param genTable 业务信息
+     * @return 业务集合
+     */
+    public List<GenTable> selectGenTableList(GenTable genTable);
 
-    List<GenTable> selectGenTableList(GenTable genTable);
+    /**
+     * 查询据库列表
+     *
+     * @param genTable 业务信息
+     * @return 数据库表集合
+     */
+    public List<GenTable> selectDbTableList(GenTable genTable);
 
-    GenTable selectGenTableById(Long id);
+    /**
+     * 查询据库列表
+     *
+     * @param tableNames 表名称组
+     * @return 数据库表集合
+     */
+    public List<GenTable> selectDbTableListByNames(String[] tableNames);
 
-    GenTable selectGenTableByName(String tableName);
+    /**
+     * 查询所有表信息
+     *
+     * @return 表信息集合
+     */
+    public List<GenTable> selectGenTableAll();
 
-    List<GenTable> selectGenTableListByIds(Long[] ids);
+    /**
+     * 查询表ID业务信息
+     *
+     * @param id 业务ID
+     * @return 业务信息
+     */
+    public GenTable selectGenTableById(Long id);
 
-    int deleteGenTableByIds(Long[] ids);
+    /**
+     * 查询表名称业务信息
+     *
+     * @param tableName 表名称
+     * @return 业务信息
+     */
+    public GenTable selectGenTableByName(String tableName);
 
-    int deleteGenTableById(Long id);
+    /**
+     * 新增业务
+     *
+     * @param genTable 业务信息
+     * @return 结果
+     */
+    public int insertGenTable(GenTable genTable);
 
-    int updateGenTable(GenTable genTable);
+    /**
+     * 修改业务
+     *
+     * @param genTable 业务信息
+     * @return 结果
+     */
+    public int updateGenTable(GenTable genTable);
 
-    int insertGenTable(GenTable genTable);
+    /**
+     * 批量删除业务
+     *
+     * @param ids 需要删除的数据ID
+     * @return 结果
+     */
+    public int deleteGenTableByIds(Long[] ids);
 
-    List<String> selectDatatableList();
+    /**
+     * 创建表
+     *
+     * @param sql 表结构
+     * @return 结果
+     */
+    public int createTable(String sql);
 }

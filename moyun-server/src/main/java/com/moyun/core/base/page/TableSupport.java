@@ -106,7 +106,7 @@ public class TableSupport {
             return "";
         }
         // 防止SQL注入
-        String orderBy = StringUtils.camelToUnderline(pageDomain.getOrderByColumn());
+        String orderBy = com.baomidou.mybatisplus.core.toolkit.StringUtils.camelToUnderline(pageDomain.getOrderByColumn());
         // 拼接排序语句
         return orderBy + " " + pageDomain.getIsAsc();
     }

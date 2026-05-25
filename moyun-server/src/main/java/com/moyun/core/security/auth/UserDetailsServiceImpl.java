@@ -2,13 +2,13 @@ package com.moyun.core.security.auth;
 
 import com.moyun.core.base.entity.SysUser;
 import com.moyun.core.base.model.LoginUser;
-import com.moyun.util.string.StringUtils;
 import com.moyun.system.service.ISysMenuService;
 import com.moyun.system.service.ISysUserService;
-import org.springframework.beans.factory.annotation.Qualifier;
+import com.moyun.util.string.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;

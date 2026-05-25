@@ -2,6 +2,7 @@ package com.moyun.util.http;
 
 import com.moyun.common.constant.Constants;
 import com.moyun.core.base.text.Convert;
+import com.moyun.util.string.StringUtils;
 import org.springframework.web.context.request.RequestAttributes;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;

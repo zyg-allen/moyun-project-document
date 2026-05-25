@@ -6,21 +6,19 @@ import com.moyun.core.base.entity.SysMenu;
 import com.moyun.core.base.entity.SysUser;
 import com.moyun.core.base.model.LoginBody;
 import com.moyun.core.base.model.LoginUser;
-import com.moyun.util.security.SecurityUtils;
-import com.moyun.util.string.StringUtils;
 import com.moyun.core.security.auth.SysLoginService;
-import com.moyun.core.security.auth.SysPermissionService;
 import com.moyun.core.security.auth.TokenService;
+import com.moyun.core.security.permission.SysPermissionService;
 import com.moyun.system.service.ISysConfigService;
 import com.moyun.system.service.ISysMenuService;
+import com.moyun.util.security.SecurityUtils;
+import com.moyun.util.string.StringUtils;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
-import io.swagger.v3.oas.annotations.tags.Tag;
-import io.swagger.v3.oas.annotations.media.Content;
-import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -68,7 +66,7 @@ public class SysLoginController {
     })
     @PostMapping("/login")
     public AjaxResult login(
-            @Parameter(description = "登录信息", required = true) 
+            @Parameter(description = "登录信息", required = true)
             @RequestBody LoginBody loginBody) {
         AjaxResult ajax = AjaxResult.success();
         // 生成令牌

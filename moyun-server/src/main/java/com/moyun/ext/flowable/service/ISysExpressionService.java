@@ -1,19 +1,61 @@
 package com.moyun.ext.flowable.service;
 
-import com.moyun.ext.flowable.domain.entity.SysExpression;
+import com.moyun.system.domain.entity.SysExpression;
+
+import java.util.List;
 
 /**
- * 流程表达式配置 服务层
+ * 流程达式Service接口
  *
  * @author ruoyi
+ * @date 2022-12-12
  */
 public interface ISysExpressionService {
+    /**
+     * 查询流程达式
+     *
+     * @param id 流程达式主键
+     * @return 流程达式
+     */
+    public SysExpression selectSysExpressionById(Long id);
 
-    SysExpression selectExpressionById(Long id);
+    /**
+     * 查询流程达式列表
+     *
+     * @param sysExpression 流程达式
+     * @return 流程达式集合
+     */
+    public List<SysExpression> selectSysExpressionList(SysExpression sysExpression);
 
-    int insertExpression(SysExpression sysExpression);
+    /**
+     * 新增流程达式
+     *
+     * @param sysExpression 流程达式
+     * @return 结果
+     */
+    public int insertSysExpression(SysExpression sysExpression);
 
-    int updateExpression(SysExpression sysExpression);
+    /**
+     * 修改流程达式
+     *
+     * @param sysExpression 流程达式
+     * @return 结果
+     */
+    public int updateSysExpression(SysExpression sysExpression);
 
-    int deleteExpressionById(Long id);
+    /**
+     * 批量删除流程达式
+     *
+     * @param ids 需要删除的流程达式主键集合
+     * @return 结果
+     */
+    public int deleteSysExpressionByIds(Long[] ids);
+
+    /**
+     * 删除流程达式信息
+     *
+     * @param id 流程达式主键
+     * @return 结果
+     */
+    public int deleteSysExpressionById(Long id);
 }

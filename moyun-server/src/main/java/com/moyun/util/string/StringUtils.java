@@ -5,251 +5,197 @@ import org.springframework.util.AntPathMatcher;
 
 import java.util.*;
 
-public class StringUtils extends org.apache.commons.lang3.StringUtils
-{
+public class StringUtils extends org.apache.commons.lang3.StringUtils {
     private static final String NULLSTR = "";
 
     private static final char SEPARATOR = '_';
 
     private static final char ASTERISK = '*';
 
-    public static <T> T nvl(T value, T defaultValue)
-    {
+    public static <T> T nvl(T value, T defaultValue) {
         return value != null ? value : defaultValue;
     }
 
-    public static boolean isEmpty(Collection<?> coll)
-    {
+    public static boolean isEmpty(Collection<?> coll) {
         return isNull(coll) || coll.isEmpty();
     }
 
-    public static boolean isNotEmpty(Collection<?> coll)
-    {
+    public static boolean isNotEmpty(Collection<?> coll) {
         return !isEmpty(coll);
     }
 
-    public static boolean isEmpty(Object[] objects)
-    {
+    public static boolean isEmpty(Object[] objects) {
         return isNull(objects) || (objects.length == 0);
     }
 
-    public static boolean isNotEmpty(Object[] objects)
-    {
+    public static boolean isNotEmpty(Object[] objects) {
         return !isEmpty(objects);
     }
 
-    public static boolean isEmpty(Map<?, ?> map)
-    {
+    public static boolean isEmpty(Map<?, ?> map) {
         return isNull(map) || map.isEmpty();
     }
 
-    public static boolean isNotEmpty(Map<?, ?> map)
-    {
+    public static boolean isNotEmpty(Map<?, ?> map) {
         return !isEmpty(map);
     }
 
-    public static boolean isEmpty(String str)
-    {
+    public static boolean isEmpty(String str) {
         return isNull(str) || NULLSTR.equals(str.trim());
     }
 
-    public static boolean isNotEmpty(String str)
-    {
+    public static boolean isNotEmpty(String str) {
         return !isEmpty(str);
     }
 
-    public static boolean isNull(Object object)
-    {
+    public static boolean isNull(Object object) {
         return object == null;
     }
 
-    public static boolean isNotNull(Object object)
-    {
+    public static boolean isNotNull(Object object) {
         return !isNull(object);
     }
 
-    public static boolean isArray(Object object)
-    {
+    public static boolean isArray(Object object) {
         return isNotNull(object) && object.getClass().isArray();
     }
 
-    public static String trim(String str)
-    {
+    public static String trim(String str) {
         return (str == null ? "" : str.trim());
     }
 
-    public static String hide(CharSequence str, int startInclude, int endExclude)
-    {
-        if (isEmpty(str))
-        {
+    public static String hide(CharSequence str, int startInclude, int endExclude) {
+        if (isEmpty(str)) {
             return NULLSTR;
         }
         final int strLength = str.length();
-        if (startInclude > strLength)
-        {
+        if (startInclude > strLength) {
             return NULLSTR;
         }
-        if (endExclude > strLength)
-        {
+        if (endExclude > strLength) {
             endExclude = strLength;
         }
-        if (startInclude > endExclude)
-        {
+        if (startInclude > endExclude) {
             return NULLSTR;
         }
         final char[] chars = new char[strLength];
-        for (int i = 0; i < strLength; i++)
-        {
-            if (i >= startInclude && i < endExclude)
-            {
+        for (int i = 0; i < strLength; i++) {
+            if (i >= startInclude && i < endExclude) {
                 chars[i] = ASTERISK;
-            }
-            else
-            {
+            } else {
                 chars[i] = str.charAt(i);
             }
         }
         return new String(chars);
     }
 
-    public static String substring(final String str, int start)
-    {
-        if (str == null)
-        {
+    public static String substring(final String str, int start) {
+        if (str == null) {
             return NULLSTR;
         }
 
-        if (start < 0)
-        {
+        if (start < 0) {
             start = str.length() + start;
         }
 
-        if (start < 0)
-        {
+        if (start < 0) {
             start = 0;
         }
-        if (start > str.length())
-        {
+        if (start > str.length()) {
             return NULLSTR;
         }
 
         return str.substring(start);
     }
 
-    public static String substring(final String str, int start, int end)
-    {
-        if (str == null)
-        {
+    public static String substring(final String str, int start, int end) {
+        if (str == null) {
             return NULLSTR;
         }
 
-        if (end < 0)
-        {
+        if (end < 0) {
             end = str.length() + end;
         }
-        if (start < 0)
-        {
+        if (start < 0) {
             start = str.length() + start;
         }
 
-        if (end > str.length())
-        {
+        if (end > str.length()) {
             end = str.length();
         }
 
-        if (start > end)
-        {
+        if (start > end) {
             return NULLSTR;
         }
 
-        if (start < 0)
-        {
+        if (start < 0) {
             start = 0;
         }
-        if (end < 0)
-        {
+        if (end < 0) {
             end = 0;
         }
 
         return str.substring(start, end);
     }
 
-    public static String substringBetweenLast(final String str, final String open, final String close)
-    {
-        if (isEmpty(str) || isEmpty(open) || isEmpty(close))
-        {
+    public static String substringBetweenLast(final String str, final String open, final String close) {
+        if (isEmpty(str) || isEmpty(open) || isEmpty(close)) {
             return NULLSTR;
         }
         final int start = str.indexOf(open);
-        if (start != INDEX_NOT_FOUND)
-        {
+        if (start != INDEX_NOT_FOUND) {
             final int end = str.lastIndexOf(close);
-            if (end != INDEX_NOT_FOUND)
-            {
+            if (end != INDEX_NOT_FOUND) {
                 return str.substring(start + open.length(), end);
             }
         }
         return NULLSTR;
     }
 
-    public static boolean hasText(String str)
-    {
+    public static boolean hasText(String str) {
         return (str != null && !str.isEmpty() && containsText(str));
     }
 
-    private static boolean containsText(CharSequence str)
-    {
+    private static boolean containsText(CharSequence str) {
         int strLen = str.length();
-        for (int i = 0; i < strLen; i++)
-        {
-            if (!Character.isWhitespace(str.charAt(i)))
-            {
+        for (int i = 0; i < strLen; i++) {
+            if (!Character.isWhitespace(str.charAt(i))) {
                 return true;
             }
         }
         return false;
     }
 
-    public static String format(String template, Object... params)
-    {
-        if (isEmpty(params) || isEmpty(template))
-        {
+    public static String format(String template, Object... params) {
+        if (isEmpty(params) || isEmpty(template)) {
             return template;
         }
         return StrFormatter.format(template, params);
     }
 
-    public static boolean ishttp(String link)
-    {
+    public static boolean ishttp(String link) {
         return StringUtils.startsWithAny(link, Constants.HTTP, Constants.HTTPS);
     }
 
-    public static final Set<String> str2Set(String str, String sep)
-    {
+    public static final Set<String> str2Set(String str, String sep) {
         return new HashSet<String>(str2List(str, sep, true, false));
     }
 
-    public static final List<String> str2List(String str, String sep, boolean filterBlank, boolean trim)
-    {
+    public static final List<String> str2List(String str, String sep, boolean filterBlank, boolean trim) {
         List<String> list = new ArrayList<String>();
-        if (StringUtils.isEmpty(str))
-        {
+        if (StringUtils.isEmpty(str)) {
             return list;
         }
 
-        if (filterBlank && StringUtils.isBlank(str))
-        {
+        if (filterBlank && StringUtils.isBlank(str)) {
             return list;
         }
         String[] split = str.split(sep);
-        for (String string : split)
-        {
-            if (filterBlank && StringUtils.isBlank(string))
-            {
+        for (String string : split) {
+            if (filterBlank && StringUtils.isBlank(string)) {
                 continue;
             }
-            if (trim)
-            {
+            if (trim) {
                 string = string.trim();
             }
             list.add(string);
@@ -258,18 +204,12 @@ public class StringUtils extends org.apache.commons.lang3.StringUtils
         return list;
     }
 
-    public static boolean containsAny(Collection<String> collection, String... array)
-    {
-        if (isEmpty(collection) || isEmpty(array))
-        {
+    public static boolean containsAny(Collection<String> collection, String... array) {
+        if (isEmpty(collection) || isEmpty(array)) {
             return false;
-        }
-        else
-        {
-            for (String str : array)
-            {
-                if (collection.contains(str))
-                {
+        } else {
+            for (String str : array) {
+                if (collection.contains(str)) {
                     return true;
                 }
             }
@@ -277,57 +217,43 @@ public class StringUtils extends org.apache.commons.lang3.StringUtils
         }
     }
 
-    public static boolean containsAnyIgnoreCase(CharSequence cs, CharSequence... searchCharSequences)
-    {
-        if (isEmpty(cs) || isEmpty(searchCharSequences))
-        {
+    public static boolean containsAnyIgnoreCase(CharSequence cs, CharSequence... searchCharSequences) {
+        if (isEmpty(cs) || isEmpty(searchCharSequences)) {
             return false;
         }
-        for (CharSequence testStr : searchCharSequences)
-        {
-            if (containsIgnoreCase(cs, testStr))
-            {
+        for (CharSequence testStr : searchCharSequences) {
+            if (containsIgnoreCase(cs, testStr)) {
                 return true;
             }
         }
         return false;
     }
 
-    public static String toUnderScoreCase(String str)
-    {
-        if (str == null)
-        {
+    public static String toUnderScoreCase(String str) {
+        if (str == null) {
             return null;
         }
         StringBuilder sb = new StringBuilder();
         boolean preCharIsUpperCase = true;
         boolean curreCharIsUpperCase = true;
         boolean nexteCharIsUpperCase = true;
-        for (int i = 0; i < str.length(); i++)
-        {
+        for (int i = 0; i < str.length(); i++) {
             char c = str.charAt(i);
-            if (i > 0)
-            {
+            if (i > 0) {
                 preCharIsUpperCase = Character.isUpperCase(str.charAt(i - 1));
-            }
-            else
-            {
+            } else {
                 preCharIsUpperCase = false;
             }
 
             curreCharIsUpperCase = Character.isUpperCase(c);
 
-            if (i < (str.length() - 1))
-            {
+            if (i < (str.length() - 1)) {
                 nexteCharIsUpperCase = Character.isUpperCase(str.charAt(i + 1));
             }
 
-            if (preCharIsUpperCase && curreCharIsUpperCase && !nexteCharIsUpperCase)
-            {
+            if (preCharIsUpperCase && curreCharIsUpperCase && !nexteCharIsUpperCase) {
                 sb.append(SEPARATOR);
-            }
-            else if ((i != 0 && !preCharIsUpperCase) && curreCharIsUpperCase)
-            {
+            } else if ((i != 0 && !preCharIsUpperCase) && curreCharIsUpperCase) {
                 sb.append(SEPARATOR);
             }
             sb.append(Character.toLowerCase(c));
@@ -336,14 +262,10 @@ public class StringUtils extends org.apache.commons.lang3.StringUtils
         return sb.toString();
     }
 
-    public static boolean inStringIgnoreCase(String str, String... strs)
-    {
-        if (str != null && strs != null)
-        {
-            for (String s : strs)
-            {
-                if (str.equalsIgnoreCase(trim(s)))
-                {
+    public static boolean inStringIgnoreCase(String str, String... strs) {
+        if (str != null && strs != null) {
+            for (String s : strs) {
+                if (str.equalsIgnoreCase(trim(s))) {
                     return true;
                 }
             }
@@ -351,22 +273,16 @@ public class StringUtils extends org.apache.commons.lang3.StringUtils
         return false;
     }
 
-    public static String convertToCamelCase(String name)
-    {
+    public static String convertToCamelCase(String name) {
         StringBuilder result = new StringBuilder();
-        if (name == null || name.isEmpty())
-        {
+        if (name == null || name.isEmpty()) {
             return "";
-        }
-        else if (!name.contains("_"))
-        {
+        } else if (!name.contains("_")) {
             return name.substring(0, 1).toUpperCase() + name.substring(1);
         }
         String[] camels = name.split("_");
-        for (String camel : camels)
-        {
-            if (camel.isEmpty())
-            {
+        for (String camel : camels) {
+            if (camel.isEmpty()) {
                 continue;
             }
             result.append(camel.substring(0, 1).toUpperCase());
@@ -375,96 +291,71 @@ public class StringUtils extends org.apache.commons.lang3.StringUtils
         return result.toString();
     }
 
-    public static String toCamelCase(String s)
-    {
-        if (s == null)
-        {
+    public static String toCamelCase(String s) {
+        if (s == null) {
             return null;
         }
-        if (s.indexOf(SEPARATOR) == -1)
-        {
+        if (s.indexOf(SEPARATOR) == -1) {
             return s;
         }
         s = s.toLowerCase();
         StringBuilder sb = new StringBuilder(s.length());
         boolean upperCase = false;
-        for (int i = 0; i < s.length(); i++)
-        {
+        for (int i = 0; i < s.length(); i++) {
             char c = s.charAt(i);
 
-            if (c == SEPARATOR)
-            {
+            if (c == SEPARATOR) {
                 upperCase = true;
-            }
-            else if (upperCase)
-            {
+            } else if (upperCase) {
                 sb.append(Character.toUpperCase(c));
                 upperCase = false;
-            }
-            else
-            {
+            } else {
                 sb.append(c);
             }
         }
         return sb.toString();
     }
 
-    public static boolean matches(String str, List<String> strs)
-    {
-        if (isEmpty(str) || isEmpty(strs))
-        {
+    public static boolean matches(String str, List<String> strs) {
+        if (isEmpty(str) || isEmpty(strs)) {
             return false;
         }
-        for (String pattern : strs)
-        {
-            if (isMatch(pattern, str))
-            {
+        for (String pattern : strs) {
+            if (isMatch(pattern, str)) {
                 return true;
             }
         }
         return false;
     }
 
-    public static boolean isMatch(String pattern, String url)
-    {
+    public static boolean isMatch(String pattern, String url) {
         AntPathMatcher matcher = new AntPathMatcher();
         return matcher.match(pattern, url);
     }
 
     @SuppressWarnings("unchecked")
-    public static <T> T cast(Object obj)
-    {
+    public static <T> T cast(Object obj) {
         return (T) obj;
     }
 
-    public static final String padl(final Number num, final int size)
-    {
+    public static final String padl(final Number num, final int size) {
         return padl(num.toString(), size, '0');
     }
 
-    public static final String padl(final String s, final int size, final char c)
-    {
+    public static final String padl(final String s, final int size, final char c) {
         final StringBuilder sb = new StringBuilder(size);
-        if (s != null)
-        {
+        if (s != null) {
             final int len = s.length();
-            if (s.length() <= size)
-            {
-                for (int i = size - len; i > 0; i--)
-                {
+            if (s.length() <= size) {
+                for (int i = size - len; i > 0; i--) {
                     sb.append(c);
                 }
                 sb.append(s);
-            }
-            else
-            {
+            } else {
                 return s.substring(len - size, len);
             }
-        }
-        else
-        {
-            for (int i = size; i > 0; i--)
-            {
+        } else {
+            for (int i = size; i > 0; i--) {
                 sb.append(c);
             }
         }

@@ -4,8 +4,7 @@ import org.apache.commons.lang3.StringUtils;
 
 import java.io.File;
 
-public class FileTypeUtils
-{
+public class FileTypeUtils {
     public static String getFileType(File file)
     {
         if (null == file)

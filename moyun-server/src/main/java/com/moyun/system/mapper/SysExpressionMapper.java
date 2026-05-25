@@ -1,6 +1,6 @@
 package com.moyun.system.mapper;
 
-import com.moyun.system.domain.SysExpression;
+import com.moyun.system.domain.entity.SysExpression;
 
 import java.util.List;
 

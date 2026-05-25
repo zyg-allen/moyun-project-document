@@ -1,29 +1,27 @@
 package com.moyun.system.controller;
 
-import java.awt.image.BufferedImage;
-import java.io.IOException;
-import java.util.concurrent.TimeUnit;
-import javax.imageio.ImageIO;
-
-import com.moyun.common.constant.Constants;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.util.FastByteArrayOutputStream;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RestController;
 import com.google.code.kaptcha.Producer;
-import com.moyun.common.config.RuoYiConfig;
-import com.moyun.common.constant.CacheConstants;
+import com.moyun.common.constant.Constants;
 import com.moyun.core.base.AjaxResult;
 import com.moyun.core.config.redis.RedisCache;
 import com.moyun.util.crypto.Base64;
 import com.moyun.util.uuid.IdUtils;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.util.FastByteArrayOutputStream;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+import javax.imageio.ImageIO;
+import java.awt.image.BufferedImage;
+import java.io.IOException;
+import java.util.concurrent.TimeUnit;
 
 /**
  * 验证码操作处理
- * 
+ *
  * @author ruoyi
  */
 @Tag(name = "验证码管理", description = "验证码生成和获取接口")

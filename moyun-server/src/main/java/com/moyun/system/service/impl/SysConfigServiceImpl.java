@@ -2,10 +2,10 @@ package com.moyun.system.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
-import com.moyun.util.string.StringUtils;
-import com.moyun.system.domain.SysConfig;
+import com.moyun.system.domain.entity.SysConfig;
 import com.moyun.system.mapper.SysConfigMapper;
 import com.moyun.system.service.ISysConfigService;
+import com.moyun.util.string.StringUtils;
 import org.springframework.stereotype.Service;
 
 import java.util.List;

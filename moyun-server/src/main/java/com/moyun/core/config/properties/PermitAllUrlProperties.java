@@ -64,7 +64,7 @@ public class PermitAllUrlProperties implements InitializingBean, ApplicationCont
                 // 直接使用原始模式，因为 @Anonymous 标注的接口应该允许匿名访问
                 urls.add(patternString);
             });
-        }   else {
+        } else {
             var directPaths = info.getDirectPaths();
             for (String directPath : directPaths) {
                 urls.add(directPath);

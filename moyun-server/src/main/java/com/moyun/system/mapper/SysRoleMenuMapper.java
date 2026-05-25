@@ -1,6 +1,6 @@
 package com.moyun.system.mapper;
 
-import com.moyun.system.domain.SysRoleMenu;
+import com.moyun.system.domain.entity.SysRoleMenu;
 
 import java.util.List;
 

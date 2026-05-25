@@ -1,6 +1,6 @@
 package com.moyun.system.mapper;
 
-import com.moyun.system.domain.SysUserRole;
+import com.moyun.system.domain.entity.SysUserRole;
 import org.apache.ibatis.annotations.Param;
 
 import java.util.List;

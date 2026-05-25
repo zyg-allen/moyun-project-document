@@ -1,6 +1,6 @@
 package com.moyun.system.service.impl;
 
-import com.moyun.system.domain.SysOperLog;
+import com.moyun.system.domain.entity.SysOperLog;
 import com.moyun.system.mapper.SysOperLogMapper;
 import com.moyun.system.service.ISysOperLogService;
 import org.springframework.beans.factory.annotation.Autowired;

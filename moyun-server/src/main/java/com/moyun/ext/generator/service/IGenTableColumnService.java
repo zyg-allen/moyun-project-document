@@ -1,25 +1,44 @@
 package com.moyun.ext.generator.service;
 
-import com.moyun.ext.generator.domain.entity.GenTableColumn;
+import com.moyun.ext.generator.domain.GenTableColumn;
 
 import java.util.List;
 
 /**
- * 代码生成 服务层
+ * 业务字段 服务层
  *
  * @author ruoyi
  */
 public interface IGenTableColumnService {
+    /**
+     * 查询业务字段列表
+     *
+     * @param tableId 业务字段编号
+     * @return 业务字段集合
+     */
+    public List<GenTableColumn> selectGenTableColumnListByTableId(Long tableId);
 
-    List<GenTableColumn> selectGenTableColumnListByTableId(Long tableId);
+    /**
+     * 新增业务字段
+     *
+     * @param genTableColumn 业务字段信息
+     * @return 结果
+     */
+    public int insertGenTableColumn(GenTableColumn genTableColumn);
 
-    GenTableColumn selectGenTableColumnById(Long id);
+    /**
+     * 修改业务字段
+     *
+     * @param genTableColumn 业务字段信息
+     * @return 结果
+     */
+    public int updateGenTableColumn(GenTableColumn genTableColumn);
 
-    int deleteGenTableColumnByIds(Long[] ids);
-
-    void updateGenTableColumn(GenTableColumn genTableColumn);
-
-    void insertGenTableColumn(GenTableColumn genTableColumn);
-
-    void updateGenTableColumnByTable(GenTableColumn[] genTableColumns);
+    /**
+     * 删除业务字段信息
+     *
+     * @param ids 需要删除的数据ID
+     * @return 结果
+     */
+    public int deleteGenTableColumnByIds(String ids);
 }

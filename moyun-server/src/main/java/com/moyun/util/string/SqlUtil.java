@@ -1,6 +1,7 @@
 package com.moyun.util.string;
 
-import com.moyun.common.exception.UtilException;
+
+import com.moyun.common.exception.system.UtilException;
 
 public class SqlUtil {
     public static String SQL_REGEX = "\u000B|and |extractvalue|updatexml|sleep|exec |insert |select |delete |update |drop |count |chr |mid |master |truncate |char |declare |or |union |like |+|/*|user()";

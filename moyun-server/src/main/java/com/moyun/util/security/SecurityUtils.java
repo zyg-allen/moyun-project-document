@@ -3,6 +3,7 @@ package com.moyun.util.security;
 import com.moyun.common.constant.Constants;
 import com.moyun.core.base.entity.SysRole;
 import com.moyun.core.base.model.LoginUser;
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;

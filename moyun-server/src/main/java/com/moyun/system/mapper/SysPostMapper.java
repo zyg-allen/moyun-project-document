@@ -1,6 +1,6 @@
 package com.moyun.system.mapper;
 
-import com.moyun.system.domain.SysPost;
+import com.moyun.system.domain.entity.SysPost;
 
 import java.util.List;
 

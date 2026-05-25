@@ -1,6 +1,6 @@
 package com.moyun.system.mapper;
 
-import com.moyun.system.domain.SysTaskForm;
+import com.moyun.system.domain.entity.SysTaskForm;
 
 import java.util.List;
 

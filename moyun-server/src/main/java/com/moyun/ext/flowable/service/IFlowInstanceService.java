@@ -1,28 +1,56 @@
 package com.moyun.ext.flowable.service;
 
-import com.moyun.ext.flowable.domain.entity.FlowProcDefDto;
+import com.moyun.core.base.AjaxResult;
+import com.moyun.ext.flowable.domain.vo.FlowTaskVo;
+import org.flowable.engine.history.HistoricProcessInstance;
 
-import java.io.InputStream;
 import java.util.Map;
 
 /**
- * 流程实例 服务层
+ * 流程实例Service接口
  *
- * @author ruoyi
+ * @author Tony
+ * @date 2021-04-03
  */
 public interface IFlowInstanceService {
 
-    Map<String, Object> selectProcessInstanceById(String processInstanceId);
+    /**
+     * 结束流程实例
+     *
+     * @param vo 流程任务信息
+     */
+    void stopProcessInstance(FlowTaskVo vo);
 
-    Map<String, Object> selectProcessInstanceByProcInsId(String processInstanceId);
+    /**
+     * 激活或挂起流程实例
+     *
+     * @param state      状态（1:激活,2:挂起）
+     * @param instanceId 流程实例ID
+     */
+    void updateState(Integer state, String instanceId);
 
-    void deleteProcessInstanceByIds(String[] ids);
+    /**
+     * 删除流程实例
+     *
+     * @param instanceId   流程实例ID
+     * @param deleteReason 删除原因
+     */
+    void delete(String instanceId, String deleteReason);
 
-    void deleteProcessInstanceById(String processInstanceId, String deleteReason);
+    /**
+     * 根据实例ID查询历史实例数据
+     *
+     * @param processInstanceId 流程实例ID
+     * @return 历史流程实例
+     */
+    HistoricProcessInstance getHistoricProcessInstanceById(String processInstanceId);
 
-    Map<String, Object> startProcessInstanceByKey(String processDefinitionKey, Map<String, Object> variables);
-
-    Map<String, Object> startProcessInstanceById(String processDefinitionId, Map<String, Object> variables);
-
-    void completeTask(String taskId, Map<String, Object> variables);
+    /**
+     * 根据流程定义ID启动流程实例
+     *
+     * @param procDefId 流程定义Id
+     * @param variables 流程变量
+     * @return 结果
+     */
+    AjaxResult startProcessInstanceById(String procDefId, Map<String, Object> variables);
 }

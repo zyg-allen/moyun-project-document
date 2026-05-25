@@ -1,6 +1,7 @@
 package com.moyun.system.domain.query;
 
-import com.moyun.core.base.PageDomain;
+
+import com.moyun.core.base.page.PageDomain;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
 import lombok.EqualsAndHashCode;

@@ -9,10 +9,8 @@ import org.springframework.web.context.request.ServletRequestAttributes;
 
 public class LogUtils {
 
-    public static String getBlock(Object msg)
-    {
-        if (msg == null)
-        {
+    public static String getBlock(Object msg) {
+        if (msg == null) {
             msg = "";
         }
         return "[" + msg.toString() + "]";

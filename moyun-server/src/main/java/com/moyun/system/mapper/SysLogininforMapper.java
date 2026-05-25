@@ -1,7 +1,7 @@
 package com.moyun.system.mapper;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
-import com.moyun.system.domain.SysLogininfor;
+import com.moyun.system.domain.entity.SysLogininfor;
 import org.apache.ibatis.annotations.Mapper;
 
 import java.util.List;

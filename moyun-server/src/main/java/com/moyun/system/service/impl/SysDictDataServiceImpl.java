@@ -1,9 +1,9 @@
 package com.moyun.system.service.impl;
 
 import com.moyun.core.base.entity.SysDictData;
-import com.moyun.util.cache.DictUtils;
 import com.moyun.system.mapper.SysDictDataMapper;
 import com.moyun.system.service.ISysDictDataService;
+import com.moyun.util.cache.DictUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 

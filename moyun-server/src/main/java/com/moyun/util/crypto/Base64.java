@@ -177,8 +177,7 @@ public final class Base64 {
         d4 = base64Data[dataIndex++];
         if (!isData((d3)) || !isData((d4))) {
             if (isPad(d3) && isPad(d4)) {
-                if ((b2 & 0xf) != 0)
-                {
+                if ((b2 & 0xf) != 0) {
                     return null;
                 }
                 byte[] tmp = new byte[i * 3 + 1];
@@ -187,8 +186,7 @@ public final class Base64 {
                 return tmp;
             } else if (!isPad(d3) && isPad(d4)) {
                 b3 = base64Alphabet[d3];
-                if ((b3 & 0x3) != 0)
-                {
+                if ((b3 & 0x3) != 0) {
                     return null;
                 }
                 byte[] tmp = new byte[i * 3 + 2];

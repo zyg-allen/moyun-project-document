@@ -1,11 +1,10 @@
 package com.moyun.core.manager.factory;
 
-import com.moyun.core.base.entity.SysUser;
+import com.moyun.system.domain.entity.SysLogininfor;
+import com.moyun.system.domain.entity.SysOperLog;
 import com.moyun.util.http.ServletUtils;
 import com.moyun.util.ip.AddressUtils;
 import com.moyun.util.ip.IpUtils;
-import com.moyun.system.domain.SysLogininfor;
-import com.moyun.system.domain.SysOperLog;
 import jakarta.servlet.http.HttpServletRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

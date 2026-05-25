@@ -43,7 +43,7 @@ public class SysJobServiceImpl implements ISysJobService {
     public int pauseJob(SysJob job) throws SchedulerException {
         Long jobId = job.getJobId();
         String jobGroup = job.getJobGroup();
-        job.setStatus(ScheduleConstants.Status.PAUSE.getValue());
+        job.setStatus(ScheduleConstants.STATUS_PAUSE);
         int rows = jobMapper.updateJob(job);
         if (rows > 0) {
             scheduler.pauseJob(ScheduleUtils.getJobKey(jobId, jobGroup));
@@ -55,7 +55,7 @@ public class SysJobServiceImpl implements ISysJobService {
     public int resumeJob(SysJob job) throws SchedulerException {
         Long jobId = job.getJobId();
         String jobGroup = job.getJobGroup();
-        job.setStatus(ScheduleConstants.Status.NORMAL.getValue());
+        job.setStatus(ScheduleConstants.STATUS_NORMAL);
         int rows = jobMapper.updateJob(job);
         if (rows > 0) {
             scheduler.resumeJob(ScheduleUtils.getJobKey(jobId, jobGroup));
@@ -88,9 +88,9 @@ public class SysJobServiceImpl implements ISysJobService {
     public int changeStatus(SysJob job) throws SchedulerException {
         int rows = 0;
         String status = job.getStatus();
-        if (ScheduleConstants.Status.NORMAL.getValue().equals(status)) {
+        if (ScheduleConstants.STATUS_NORMAL.equals(status)) {
             rows = resumeJob(job);
-        } else if (ScheduleConstants.Status.PAUSE.getValue().equals(status)) {
+        } else if (ScheduleConstants.STATUS_PAUSE.equals(status)) {
             rows = pauseJob(job);
         }
         return rows;

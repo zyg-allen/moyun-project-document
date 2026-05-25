@@ -1,6 +1,6 @@
 package com.moyun.system.mapper;
 
-import com.moyun.system.domain.SysOperLog;
+import com.moyun.system.domain.entity.SysOperLog;
 
 import java.util.List;
 

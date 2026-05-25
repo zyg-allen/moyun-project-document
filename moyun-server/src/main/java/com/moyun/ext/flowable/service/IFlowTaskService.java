@@ -1,28 +1,231 @@
 package com.moyun.ext.flowable.service;
 
-import java.util.List;
-import java.util.Map;
+import com.moyun.core.base.AjaxResult;
+import com.moyun.ext.flowable.domain.vo.FlowQueryVo;
+import com.moyun.ext.flowable.domain.vo.FlowTaskVo;
+
+import java.io.InputStream;
 
 /**
- * 流程任务 服务层
+ * 流程任务Service接口
  *
- * @author ruoyi
+ * @author Tony
+ * @date 2021-04-03
  */
 public interface IFlowTaskService {
 
-    List<Map<String, Object>> selectTodoTaskList(Map<String, Object> params);
+    /**
+     * 完成任务
+     *
+     * @param flowTaskVo 请求实体参数
+     */
+    AjaxResult complete(FlowTaskVo flowTaskVo);
 
-    List<Map<String, Object>> selectFinishedTaskList(Map<String, Object> params);
+    /**
+     * 驳回任务
+     *
+     * @param flowTaskVo 请求实体参数
+     */
+    void taskReject(FlowTaskVo flowTaskVo);
 
-    Map<String, Object> selectTaskById(String taskId);
+    /**
+     * 退回任务
+     *
+     * @param flowTaskVo 请求实体参数
+     */
+    void taskReturn(FlowTaskVo flowTaskVo);
 
-    Map<String, Object> selectTaskByProcInsId(String processInstanceId);
+    /**
+     * 获取所有可回退的节点
+     *
+     * @param flowTaskVo 请求实体参数
+     * @return
+     */
+    AjaxResult findReturnTaskList(FlowTaskVo flowTaskVo);
 
-    void completeTask(String taskId, Map<String, Object> variables);
+    /**
+     * 删除任务
+     *
+     * @param flowTaskVo 请求实体参数
+     */
+    void deleteTask(FlowTaskVo flowTaskVo);
 
-    void delegateTask(String taskId, String userId);
+    /**
+     * 认领/签收任务
+     *
+     * @param flowTaskVo 请求实体参数
+     */
+    void claim(FlowTaskVo flowTaskVo);
 
-    void assigneeTask(String taskId, String userId);
+    /**
+     * 取消认领/签收任务
+     *
+     * @param flowTaskVo 请求实体参数
+     */
+    void unClaim(FlowTaskVo flowTaskVo);
 
-    Map<String, Object> getProcessDiagram(String processInstanceId);
+    /**
+     * 委派任务
+     *
+     * @param flowTaskVo 请求实体参数
+     */
+    void delegateTask(FlowTaskVo flowTaskVo);
+
+    /**
+     * 任务归还
+     *
+     * @param flowTaskVo 请求实体参数
+     */
+    void resolveTask(FlowTaskVo flowTaskVo);
+
+    /**
+     * 转办任务
+     *
+     * @param flowTaskVo 请求实体参数
+     */
+    void assignTask(FlowTaskVo flowTaskVo);
+
+    /**
+     * 多实例加签
+     *
+     * @param flowTaskVo
+     */
+    void addMultiInstanceExecution(FlowTaskVo flowTaskVo);
+
+    /**
+     * 多实例减签
+     *
+     * @param flowTaskVo
+     */
+    void deleteMultiInstanceExecution(FlowTaskVo flowTaskVo);
+
+    /**
+     * 我发起的流程
+     *
+     * @param queryVo 请求参数
+     * @return
+     */
+    AjaxResult myProcess(FlowQueryVo queryVo);
+
+    /**
+     * 取消申请
+     * 目前实现方式: 直接将当前流程变更为已完成
+     *
+     * @param flowTaskVo
+     * @return
+     */
+    AjaxResult stopProcess(FlowTaskVo flowTaskVo);
+
+    /**
+     * 撤回流程
+     *
+     * @param flowTaskVo
+     * @return
+     */
+    AjaxResult revokeProcess(FlowTaskVo flowTaskVo);
+
+    /**
+     * 代办任务列表
+     *
+     * @param queryVo 请求参数
+     * @return
+     */
+    AjaxResult todoList(FlowQueryVo queryVo);
+
+    /**
+     * 已办任务列表
+     *
+     * @param queryVo 请求参数
+     * @return
+     */
+    AjaxResult finishedList(FlowQueryVo queryVo);
+
+    /**
+     * 流程历史流转记录
+     *
+     * @param procInsId 流程实例Id
+     * @return
+     */
+    AjaxResult flowRecord(String procInsId, String deployId);
+
+    /**
+     * 根据任务ID查询挂载的表单信息
+     *
+     * @param taskId 任务Id
+     * @return
+     */
+    AjaxResult getTaskForm(String taskId);
+
+    /**
+     * 获取流程过程图
+     *
+     * @param processId
+     * @return
+     */
+    InputStream diagram(String processId);
+
+    /**
+     * 获取流程执行节点
+     *
+     * @param procInsId
+     * @return
+     */
+    AjaxResult getFlowViewer(String procInsId, String executionId);
+
+    /**
+     * 获取流程变量
+     *
+     * @param taskId
+     * @return
+     */
+    AjaxResult processVariables(String taskId);
+
+    /**
+     * 获取下一节点
+     *
+     * @param flowTaskVo 任务
+     * @return
+     */
+    AjaxResult getNextFlowNode(FlowTaskVo flowTaskVo);
+
+    /**
+     * 流程发起时获取下一节点
+     *
+     * @param flowTaskVo
+     * @return
+     */
+    AjaxResult getNextFlowNodeByStart(FlowTaskVo flowTaskVo);
+
+    /**
+     * 流程初始化表单
+     *
+     * @param deployId
+     * @return
+     */
+    AjaxResult flowFormData(String deployId);
+
+    /**
+     * 流程节点信息
+     *
+     * @param procInsId
+     * @return
+     */
+    AjaxResult flowXmlAndNode(String procInsId, String deployId);
+
+    /**
+     * 流程节点表单
+     *
+     * @param taskId 流程任务编号
+     * @return
+     */
+    AjaxResult flowTaskForm(String taskId) throws Exception;
+
+    /**
+     * 流程节点信息
+     *
+     * @param procInsId
+     * @param elementId
+     * @return
+     */
+    AjaxResult flowTaskInfo(String procInsId, String elementId);
 }

@@ -1,6 +1,6 @@
 package com.moyun.system.service.impl;
 
-import com.moyun.system.domain.SysNotice;
+import com.moyun.system.domain.entity.SysNotice;
 import com.moyun.system.mapper.SysNoticeMapper;
 import com.moyun.system.service.ISysNoticeService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -100,7 +100,7 @@ public class SysNoticeServiceImpl implements ISysNoticeService {
      * 标记公告已读
      *
      * @param noticeId 公告ID
-     * @param userId 用户ID
+     * @param userId   用户ID
      * @return 结果
      */
     @Override
@@ -112,7 +112,7 @@ public class SysNoticeServiceImpl implements ISysNoticeService {
     /**
      * 批量标记公告已读
      *
-     * @param ids 公告ID数组
+     * @param ids    公告ID数组
      * @param userId 用户ID
      * @return 结果
      */

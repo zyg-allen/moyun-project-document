@@ -1,7 +1,7 @@
 package com.moyun.system.service.impl;
 
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
-import com.moyun.system.domain.SysListener;
+import com.moyun.system.domain.entity.SysListener;
 import com.moyun.system.mapper.SysListenerMapper;
 import com.moyun.system.service.ISysListenerService;
 import org.springframework.stereotype.Service;

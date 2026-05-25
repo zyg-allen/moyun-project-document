@@ -732,7 +732,7 @@ public class Convert {
     /**
      * 将数字转换为格式化的字符串
      *
-     * @param number    数字
+     * @param number            数字
      * @param minFractionDigits 最小小数位数
      * @param maxFractionDigits 最大小数位数
      * @return 格式化的字符串

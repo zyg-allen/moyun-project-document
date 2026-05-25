@@ -1,6 +1,6 @@
 package com.moyun.system.service;
 
-import com.moyun.system.domain.SysLogininfor;
+import com.moyun.system.domain.entity.SysLogininfor;
 
 import java.util.List;
 

@@ -1,7 +1,7 @@
 package com.moyun.core.config;
 
 import com.moyun.common.filter.RepeatableFilter;
-import com.moyun.common.filter.XssFilter;
+import com.moyun.util.html.XssFilter;
 import com.moyun.util.string.StringUtils;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;

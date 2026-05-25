@@ -1,13 +1,13 @@
-package com.moyun.core.web.common;    
+package com.moyun.core.web.common;
 
 import com.moyun.common.annotation.Anonymous;
 import com.moyun.common.config.RuoYiConfig;
-import com.moyun.core.base.AjaxResult;
 import com.moyun.common.exception.system.NonCaptureException;
-import com.moyun.util.string.StringUtils;
+import com.moyun.core.base.AjaxResult;
+import com.moyun.core.config.ServerConfig;
 import com.moyun.util.file.FileUploadUtils;
 import com.moyun.util.file.FileUtils;
-import com.moyun.core.config.ServerConfig;
+import com.moyun.util.string.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;

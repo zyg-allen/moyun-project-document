@@ -4,12 +4,12 @@ import com.moyun.common.constant.CacheConstants;
 import com.moyun.core.base.entity.SysDictData;
 import com.moyun.core.base.entity.SysDictType;
 import com.moyun.core.config.redis.RedisCache;
-import com.moyun.util.cache.DictUtils;
-import com.moyun.util.string.StringUtils;
 import com.moyun.core.mvc.handler.BusinessException;
 import com.moyun.system.mapper.SysDictDataMapper;
 import com.moyun.system.mapper.SysDictTypeMapper;
 import com.moyun.system.service.ISysDictTypeService;
+import com.moyun.util.cache.DictUtils;
+import com.moyun.util.string.StringUtils;
 import jakarta.annotation.PostConstruct;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -190,11 +190,11 @@ public class SysDictTypeServiceImpl implements ISysDictTypeService {
         }
         String oldDictType = oldDict.getDictType();
         String newDictType = dict.getDictType();
-        
+
         // 更新字典数据中的字典类型字段
         dictDataMapper.updateDictDataType(oldDictType, newDictType);
         int row = dictTypeMapper.updateDictType(dict);
-        
+
         if (row > 0) {
             // 清除旧缓存
             DictUtils.removeDictCache(oldDictType);

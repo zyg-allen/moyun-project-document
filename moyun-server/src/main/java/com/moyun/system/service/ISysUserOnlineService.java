@@ -1,7 +1,7 @@
 package com.moyun.system.service;
 
 import com.moyun.core.base.model.LoginUser;
-import com.moyun.system.domain.SysUserOnline;
+import com.moyun.system.domain.entity.SysUserOnline;
 
 /**
  * 在线用户 服务层

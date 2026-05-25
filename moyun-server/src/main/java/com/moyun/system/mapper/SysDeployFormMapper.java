@@ -2,9 +2,10 @@
 // ... existing code ...
 package com.moyun.system.mapper;
 
+import com.moyun.system.domain.entity.SysDeployForm;
+import com.moyun.system.domain.entity.SysForm;
+
 import java.util.List;
-import com.moyun.system.domain.SysForm;
-import com.moyun.system.domain.SysDeployForm;
 
 /**
  * 流程部署关联表单Mapper接口

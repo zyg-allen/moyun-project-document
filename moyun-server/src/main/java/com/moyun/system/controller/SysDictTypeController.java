@@ -1,42 +1,40 @@
 package com.moyun.system.controller;
 
 import com.moyun.common.annotation.Log;
-import com.moyun.core.base.BaseController;
-import com.moyun.core.base.AjaxResult;
-import com.moyun.core.base.entity.SysDictType;
-import com.moyun.core.base.TableDataInfo;
 import com.moyun.common.enums.BusinessType;
-import com.moyun.util.file.ExcelUtil;
+import com.moyun.core.base.AjaxResult;
+import com.moyun.core.base.BaseController;
+import com.moyun.core.base.TableDataInfo;
+import com.moyun.core.base.entity.SysDictType;
 import com.moyun.system.service.ISysDictTypeService;
+import com.moyun.util.file.ExcelUtil;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
-import  jakarta.servlet.http.HttpServletResponse;
 import java.util.List;
 
 /**
  * 数据字典信息
- * 
+ *
  * @author ruoyi
  */
 @Tag(name = "字典类型管理", description = "字典类型的增删改查、导出、缓存刷新等操作接口")
 @RestController
 @RequestMapping("/system/dict/type")
-public class SysDictTypeController extends BaseController
-{
+public class SysDictTypeController extends BaseController {
     @Autowired
     private ISysDictTypeService dictTypeService;
 
     @Operation(summary = "获取字典类型列表", description = "分页查询字典类型列表")
     @PreAuthorize("@ss.hasPermi('system:dict:list')")
     @GetMapping("/list")
-    public TableDataInfo list(SysDictType dictType)
-    {
+    public TableDataInfo list(SysDictType dictType) {
         startPage();
         List<SysDictType> list = dictTypeService.selectDictTypeList(dictType);
         return getDataTable(list);
@@ -46,8 +44,7 @@ public class SysDictTypeController extends BaseController
     @Log(title = "字典类型", businessType = BusinessType.EXPORT)
     @PreAuthorize("@ss.hasPermi('system:dict:export')")
     @PostMapping("/export")
-    public void export(HttpServletResponse response, SysDictType dictType)
-    {
+    public void export(HttpServletResponse response, SysDictType dictType) {
         List<SysDictType> list = dictTypeService.selectDictTypeList(dictType);
         ExcelUtil<SysDictType> util = new ExcelUtil<SysDictType>(SysDictType.class);
         util.exportExcel(response, list, "字典类型");
@@ -59,8 +56,7 @@ public class SysDictTypeController extends BaseController
     @Operation(summary = "获取字典类型详情", description = "根据字典ID获取字典类型详细信息")
     @PreAuthorize("@ss.hasPermi('system:dict:query')")
     @GetMapping(value = "/{dictId}")
-    public AjaxResult getInfo(@Parameter(description = "字典ID") @PathVariable Long dictId)
-    {
+    public AjaxResult getInfo(@Parameter(description = "字典ID") @PathVariable Long dictId) {
         return success(dictTypeService.selectDictTypeById(dictId));
     }
 
@@ -71,10 +67,8 @@ public class SysDictTypeController extends BaseController
     @PreAuthorize("@ss.hasPermi('system:dict:add')")
     @Log(title = "字典类型", businessType = BusinessType.INSERT)
     @PostMapping
-    public AjaxResult add(@Validated @RequestBody SysDictType dict)
-    {
-        if (!dictTypeService.checkDictTypeUnique(dict))
-        {
+    public AjaxResult add(@Validated @RequestBody SysDictType dict) {
+        if (!dictTypeService.checkDictTypeUnique(dict)) {
             return error("新增字典'" + dict.getDictName() + "'失败，字典类型已存在");
         }
         dict.setCreateBy(getUsername());
@@ -88,10 +82,8 @@ public class SysDictTypeController extends BaseController
     @PreAuthorize("@ss.hasPermi('system:dict:edit')")
     @Log(title = "字典类型", businessType = BusinessType.UPDATE)
     @PutMapping
-    public AjaxResult edit(@Validated @RequestBody SysDictType dict)
-    {
-        if (!dictTypeService.checkDictTypeUnique(dict))
-        {
+    public AjaxResult edit(@Validated @RequestBody SysDictType dict) {
+        if (!dictTypeService.checkDictTypeUnique(dict)) {
             return error("修改字典'" + dict.getDictName() + "'失败，字典类型已存在");
         }
         dict.setUpdateBy(getUsername());
@@ -105,8 +97,7 @@ public class SysDictTypeController extends BaseController
     @PreAuthorize("@ss.hasPermi('system:dict:remove')")
     @Log(title = "字典类型", businessType = BusinessType.DELETE)
     @DeleteMapping("/{dictIds}")
-    public AjaxResult remove(@Parameter(description = "字典ID数组") @PathVariable Long[] dictIds)
-    {
+    public AjaxResult remove(@Parameter(description = "字典ID数组") @PathVariable Long[] dictIds) {
         dictTypeService.deleteDictTypeByIds(dictIds);
         return success();
     }
@@ -118,8 +109,7 @@ public class SysDictTypeController extends BaseController
     @PreAuthorize("@ss.hasPermi('system:dict:remove')")
     @Log(title = "字典类型", businessType = BusinessType.CLEAN)
     @DeleteMapping("/refreshCache")
-    public AjaxResult refreshCache()
-    {
+    public AjaxResult refreshCache() {
         dictTypeService.resetDictCache();
         return success();
     }
@@ -129,8 +119,7 @@ public class SysDictTypeController extends BaseController
      */
     @Operation(summary = "获取字典选择框列表", description = "获取所有字典类型用于下拉选择")
     @GetMapping("/optionselect")
-    public AjaxResult optionselect()
-    {
+    public AjaxResult optionselect() {
         List<SysDictType> dictTypes = dictTypeService.selectDictTypeAll();
         return success(dictTypes);
     }

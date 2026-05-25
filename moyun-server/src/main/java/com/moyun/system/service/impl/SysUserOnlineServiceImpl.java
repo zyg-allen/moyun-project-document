@@ -1,8 +1,8 @@
 package com.moyun.system.service.impl;
 
 import com.moyun.core.base.model.LoginUser;
+import com.moyun.system.domain.entity.SysUserOnline;
 import com.moyun.util.string.StringUtils;
-import com.moyun.system.domain.SysUserOnline;
 import com.moyun.system.service.ISysUserOnlineService;
 import org.springframework.stereotype.Service;
 

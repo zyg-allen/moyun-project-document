@@ -4,7 +4,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
 "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.moyun.system.generator.mapper.GenTableMapper">
 
-	<resultMap type="com.moyun.system.generator.domain.GenTable" id="GenTableResult">
+	<resultMap type="com.moyun.ext.generator.domain.GenTable" id="GenTableResult">
 	    <id     property="tableId"        column="table_id"          />
 		<result property="tableName"      column="table_name"        />
 		<result property="tableComment"   column="table_comment"     />
@@ -29,7 +29,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
 		<collection  property="columns"   javaType="java.util.List"  resultMap="GenTableColumnResult" />
 	</resultMap>
 	
-	<resultMap type="com.moyun.system.generator.domain.GenTableColumn" id="GenTableColumnResult">
+	<resultMap type="com.moyun.ext.generator.domain.GenTableColumn" id="GenTableColumnResult">
         <id     property="columnId"       column="column_id"      />
         <result property="tableId"        column="table_id"       />
         <result property="columnName"     column="column_name"    />
@@ -58,7 +58,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         select table_id, table_name, table_comment, sub_table_name, sub_table_fk_name, class_name, tpl_category, tpl_web_type, package_name, module_name, business_name, function_name, function_author, gen_type, gen_path, options, create_by, create_time, update_by, update_time, remark from gen_table
     </sql>
     
-    <select id="selectGenTableList" parameterType="com.moyun.system.generator.domain.GenTable" resultMap="GenTableResult">
+    <select id="selectGenTableList" parameterType="com.moyun.ext.generator.domain.GenTable" resultMap="GenTableResult">
 		<include refid="selectGenTableVo"/>
 		<where>
 			<if test="tableName != null and tableName != ''">
@@ -76,7 +76,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
 		</where>
 	</select>
 
-	<select id="selectDbTableList" parameterType="com.moyun.system.generator.domain.GenTable" resultMap="GenTableResult">
+	<select id="selectDbTableList" parameterType="com.moyun.ext.generator.domain.GenTable" resultMap="GenTableResult">
 		select table_name, table_comment, create_time, update_time from information_schema.tables
 		where table_schema = (select database())
 		AND table_name NOT LIKE 'qrtz\_%' AND table_name NOT LIKE 'gen\_%'
@@ -135,7 +135,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
 		order by c.sort
 	</select>
 	
-	<insert id="insertGenTable" parameterType="com.moyun.system.generator.domain.GenTable" useGeneratedKeys="true" keyProperty="tableId">
+	<insert id="insertGenTable" parameterType="com.moyun.ext.generator.domain.GenTable" useGeneratedKeys="true" keyProperty="tableId">
         insert into gen_table (
 			<if test="tableName != null">table_name,</if>
 			<if test="tableComment != null and tableComment != ''">table_comment,</if>
@@ -175,7 +175,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         ${sql}
     </update>
     
-    <update id="updateGenTable" parameterType="com.moyun.system.generator.domain.GenTable">
+    <update id="updateGenTable" parameterType="com.moyun.ext.generator.domain.GenTable">
         update gen_table
         <set>
             <if test="tableName != null">table_name = #{tableName},</if>

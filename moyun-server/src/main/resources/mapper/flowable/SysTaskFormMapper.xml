@@ -4,7 +4,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
 "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.moyun.system.mapper.SysTaskFormMapper">
     
-    <resultMap type="com.moyun.system.domain.SysTaskForm" id="SysTaskFormResult">
+    <resultMap type="com.moyun.system.domain.entity.SysTaskForm" id="SysTaskFormResult">
         <result property="id"    column="id"    />
         <result property="formId"    column="form_id"    />
         <result property="taskId"    column="task_id"    />
@@ -14,7 +14,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         select id, form_id, task_id from sys_task_form
     </sql>
 
-    <select id="selectSysTaskFormList" parameterType="com.moyun.system.domain.SysTaskForm" resultMap="SysTaskFormResult">
+    <select id="selectSysTaskFormList" parameterType="com.moyun.system.domain.entity.SysTaskForm" resultMap="SysTaskFormResult">
         <include refid="selectSysTaskFormVo"/>
         <where>  
             <if test="formId != null "> and form_id = #{formId}</if>
@@ -27,7 +27,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         where id = #{id}
     </select>
         
-    <insert id="insertSysTaskForm" parameterType="com.moyun.system.domain.SysTaskForm" useGeneratedKeys="true" keyProperty="id">
+    <insert id="insertSysTaskForm" parameterType="com.moyun.system.domain.entity.SysTaskForm" useGeneratedKeys="true" keyProperty="id">
         insert into sys_task_form
         <trim prefix="(" suffix=")" suffixOverrides=",">
             <if test="formId != null">form_id,</if>
@@ -39,7 +39,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
          </trim>
     </insert>
 
-    <update id="updateSysTaskForm" parameterType="com.moyun.system.domain.SysTaskForm">
+    <update id="updateSysTaskForm" parameterType="com.moyun.system.domain.entity.SysTaskForm">
         update sys_task_form
         <trim prefix="SET" suffixOverrides=",">
             <if test="formId != null">form_id = #{formId},</if>

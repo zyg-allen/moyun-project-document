@@ -137,9 +137,8 @@
 </template>
 
 <script setup name="CmsArticle">
-import { listArticle, delArticle, auditArticle, changeArticleStatus } from "@/api/cms/article";
+import { listArticle, delArticle, auditArticle } from "@/api/cms/article";
 import { listCategory } from "@/api/cms/category";
-import { listTag } from "@/api/cms/tag";
 
 const { proxy } = getCurrentInstance();
 const router = useRouter();
@@ -147,7 +146,6 @@ const router = useRouter();
 // 表格数据
 const articleList = ref([]);
 const categoryOptions = ref([]);
-const tagOptions = ref([]);
 const loading = ref(true);
 const showSearch = ref(true);
 const ids = ref([]);
@@ -173,7 +171,6 @@ const queryParams = reactive({
   pageSize: 10,
   title: undefined,
   categoryId: undefined,
-  auditStatus: undefined,
   status: undefined
 });
 
@@ -201,8 +198,8 @@ function getStatusText(status) {
 function getList() {
   loading.value = true;
   listArticle(queryParams).then(response => {
-    articleList.value = response.rows;
-    total.value = response.total;
+    articleList.value = response.rows || [];
+    total.value = response.total || 0;
     loading.value = false;
   });
 }
@@ -210,14 +207,7 @@ function getList() {
 // 查询分类列表
 function getCategoryList() {
   listCategory({ pageNum: 1, pageSize: 100 }).then(response => {
-    categoryOptions.value = response.rows;
-  });
-}
-
-// 查询标签列表
-function getTagList() {
-  listTag({ pageNum: 1, pageSize: 100 }).then(response => {
-    tagOptions.value = response.rows;
+    categoryOptions.value = response.rows || [];
   });
 }
 
@@ -275,6 +265,5 @@ function handleAudit(row, status) {
 
 // 初始化查询
 getCategoryList();
-getTagList();
 getList();
 </script>

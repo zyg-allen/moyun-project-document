@@ -107,6 +107,9 @@ CREATE TABLE `portal_article` (
   `share_count` bigint DEFAULT '0' COMMENT '分享数',
   `bookmark_count` bigint DEFAULT '0' COMMENT '收藏数',
   `published_at` datetime DEFAULT NULL COMMENT '发布时间',
+  `link` varchar(500) DEFAULT NULL COMMENT '外部链接',
+  `editor_mode` varchar(20) DEFAULT 'richtext' COMMENT '编辑器模式：richtext/markdown',
+  `content_markdown` text COMMENT 'Markdown 原始内容',
   `create_by` varchar(64) DEFAULT '' COMMENT '创建者',
   `create_time` datetime DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
   `update_by` varchar(64) DEFAULT '' COMMENT '更新者',
@@ -347,29 +350,6 @@ CREATE TABLE `portal_wallet_transaction` (
   KEY `idx_user_id` (`user_id`),
   KEY `idx_type` (`type`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='门户钱包交易记录表';
-
--- ----------------------------
--- 初始化数据 - 分类
--- ----------------------------
-INSERT INTO `portal_category` (`name`, `slug`, `description`, `sort`, `parent_id`, `status`, `create_by`) VALUES
-('技术', 'tech', '技术类文章', 1, 0, '0', 'admin'),
-('文学', 'literature', '文学类文章', 2, 0, '0', 'admin'),
-('生活', 'life', '生活类文章', 3, 0, '0', 'admin'),
-('前端', 'frontend', '前端开发', 1, 1, '0', 'admin'),
-('后端', 'backend', '后端开发', 2, 1, '0', 'admin');
-
--- ----------------------------
--- 初始化数据 - 标签
--- ----------------------------
-INSERT INTO `portal_tag` (`name`, `slug`, `sort`, `status`, `create_by`) VALUES
-('Vue3', 'vue3', 1, '0', 'admin'),
-('React', 'react', 2, '0', 'admin'),
-('Java', 'java', 3, '0', 'admin'),
-('Python', 'python', 4, '0', 'admin'),
-('JavaScript', 'javascript', 5, '0', 'admin'),
-('Spring Boot', 'spring-boot', 6, '0', 'admin'),
-('MySQL', 'mysql', 7, '0', 'admin'),
-('算法', 'algorithm', 8, '0', 'admin');
 
 -- ----------------------------
 -- 初始化数据 - VIP套餐

@@ -100,13 +100,19 @@ public class PortalSecurityConfig {
                 .authorizeHttpRequests(authorizeRequests -> authorizeRequests
                         // 门户登录、注册、验证码允许匿名访问
                         .requestMatchers("/portal/login", "/portal/register", "/portal/captchaImage").permitAll()
-                        // 门户公开资源允许匿名访问
+                        // 门户公开资源允许匿名访问（GET请求）
                         .requestMatchers(HttpMethod.GET,
-                                "/portal/articles", "/portal/articles/**",
-                                "/portal/categories", "/portal/categories/**",
-                                "/portal/tags", "/portal/tags/**",
-                                "/portal/comments", "/portal/comments/**",
-                                "/portal/user/**"
+                                "/portal/article/list",
+                                "/portal/article/hot",
+                                "/portal/article/featured",
+                                "/portal/article/carousel",
+                                "/portal/article/**",
+                                "/portal/category/**",
+                                "/portal/tag/**",
+                                "/portal/comment/**",
+                                "/portal/friendLink/**",
+                                "/portal/vipPackage/**",
+                                "/portal/user/profile/**"
                         ).permitAll()
                         // 其他门户请求需要认证
                         .anyRequest().authenticated()

@@ -2,13 +2,13 @@
   <div class="app-container">
     <!-- 搜索表单 -->
     <el-form :model="queryParams" ref="queryRef" :inline="true" v-show="showSearch" label-width="68px">
-      <el-form-item label="分类名称" prop="categoryName">
+      <el-form-item label="分类名称" prop="name">
         <el-input
-          v-model="queryParams.categoryName"
-          placeholder="请输入分类名称"
-          clearable
-          style="width: 200px"
-          @keyup.enter="handleQuery"
+            v-model="queryParams.name"
+            placeholder="请输入分类名称"
+            clearable
+            style="width: 200px"
+            @keyup.enter="handleQuery"
         />
       </el-form-item>
       <el-form-item label="状态" prop="status">
@@ -27,31 +27,31 @@
     <el-row :gutter="10" class="mb8">
       <el-col :span="1.5">
         <el-button
-          type="primary"
-          plain
-          icon="Plus"
-          @click="handleAdd"
-          v-hasPermi="['cms:category:add']"
+            type="primary"
+            plain
+            icon="Plus"
+            @click="handleAdd"
+            v-hasPermi="['cms:category:add']"
         >新增</el-button>
       </el-col>
       <el-col :span="1.5">
         <el-button
-          type="success"
-          plain
-          icon="Edit"
-          :disabled="single"
-          @click="handleUpdate"
-          v-hasPermi="['cms:category:edit']"
+            type="success"
+            plain
+            icon="Edit"
+            :disabled="single"
+            @click="handleUpdate"
+            v-hasPermi="['cms:category:edit']"
         >修改</el-button>
       </el-col>
       <el-col :span="1.5">
         <el-button
-          type="danger"
-          plain
-          icon="Delete"
-          :disabled="multiple"
-          @click="handleDelete"
-          v-hasPermi="['cms:category:remove']"
+            type="danger"
+            plain
+            icon="Delete"
+            :disabled="multiple"
+            @click="handleDelete"
+            v-hasPermi="['cms:category:remove']"
         >删除</el-button>
       </el-col>
       <right-toolbar v-model:showSearch="showSearch" @queryTable="getList" :columns="columns"></right-toolbar>
@@ -60,7 +60,7 @@
     <!-- 数据表格 -->
     <el-table v-loading="loading" :data="categoryList" @selection-change="handleSelectionChange" row-key="id" :tree-props="{children: 'children', hasChildren: 'hasChildren'}">
       <el-table-column type="selection" width="55" align="center" />
-      <el-table-column label="分类编号" align="center" prop="id" width="80" />
+      <el-table-column label="分类编号" align="center" prop="categoryId" width="80" />
       <el-table-column label="分类名称" align="center" prop="name" :show-overflow-tooltip="true" />
       <el-table-column label="分类图标" align="center" prop="icon" width="100">
         <template #default="scope">
@@ -71,10 +71,10 @@
       <el-table-column label="状态" align="center" prop="status" width="80">
         <template #default="scope">
           <el-switch
-            v-model="scope.row.status"
-            active-value="0"
-            inactive-value="1"
-            @change="handleStatusChange(scope.row)"
+              v-model="scope.row.status"
+              active-value="0"
+              inactive-value="1"
+              @change="handleStatusChange(scope.row)"
           />
         </template>
       </el-table-column>
@@ -86,25 +86,25 @@
       <el-table-column label="操作" align="center" class-name="small-padding fixed-width" width="180">
         <template #default="scope">
           <el-button
-            link
-            type="primary"
-            icon="Plus"
-            @click="handleAddChild(scope.row)"
-            v-hasPermi="['cms:category:add']"
+              link
+              type="primary"
+              icon="Plus"
+              @click="handleAddChild(scope.row)"
+              v-hasPermi="['cms:category:add']"
           >新增子分类</el-button>
           <el-button
-            link
-            type="primary"
-            icon="Edit"
-            @click="handleUpdate(scope.row)"
-            v-hasPermi="['cms:category:edit']"
+              link
+              type="primary"
+              icon="Edit"
+              @click="handleUpdate(scope.row)"
+              v-hasPermi="['cms:category:edit']"
           >修改</el-button>
           <el-button
-            link
-            type="primary"
-            icon="Delete"
-            @click="handleDelete(scope.row)"
-            v-hasPermi="['cms:category:remove']"
+              link
+              type="primary"
+              icon="Delete"
+              @click="handleDelete(scope.row)"
+              v-hasPermi="['cms:category:remove']"
           >删除</el-button>
         </template>
       </el-table-column>
@@ -112,11 +112,11 @@
 
     <!-- 分页 -->
     <pagination
-      v-show="total > 0"
-      :total="total"
-      v-model:page="queryParams.pageNum"
-      v-model:limit="queryParams.pageSize"
-      @pagination="getList"
+        v-show="total > 0"
+        :total="total"
+        v-model:page="queryParams.pageNum"
+        v-model:limit="queryParams.pageSize"
+        @pagination="getList"
     />
 
     <!-- 添加或修改分类对话框 -->
@@ -124,18 +124,18 @@
       <el-form ref="categoryRef" :model="form" :rules="rules" label-width="80px">
         <el-form-item label="父分类" prop="parentId">
           <el-tree-select
-            v-model="form.parentId"
-            :data="categoryTree"
-            :props="{ value: 'categoryId', label: 'categoryName', children: 'children' }"
-            value-key="categoryId"
-            placeholder="请选择父分类"
-            check-strictly
-            clearable
-            style="width: 100%"
+              v-model="form.parentId"
+              :data="categoryTree"
+              :props="{ value: 'categoryId', label: 'name', children: 'children' }"
+              value-key="categoryId"
+              placeholder="请选择父分类"
+              check-strictly
+              clearable
+              style="width: 100%"
           />
         </el-form-item>
-        <el-form-item label="分类名称" prop="categoryName">
-          <el-input v-model="form.categoryName" placeholder="请输入分类名称" />
+        <el-form-item label="分类名称" prop="name">
+          <el-input v-model="form.name" placeholder="请输入分类名称" />
         </el-form-item>
         <el-form-item label="分类图标" prop="icon">
           <el-input v-model="form.icon" placeholder="请输入分类图标" />
@@ -196,11 +196,11 @@ const data = reactive({
   queryParams: {
     pageNum: 1,
     pageSize: 10,
-    categoryName: undefined,
+    name: undefined,
     status: undefined
   },
   rules: {
-    categoryName: [{ required: true, message: "分类名称不能为空", trigger: "blur" }]
+    name: [{ required: true, message: "分类名称不能为空", trigger: "blur" }]
   }
 });
 
@@ -210,9 +210,47 @@ const { queryParams, form, rules } = toRefs(data);
 function getList() {
   loading.value = true;
   listCategory(queryParams.value).then(response => {
-    categoryList.value = response.rows;
-    categoryTree.value = response.rows;
-    total.value = response.total;
+    // 🔥 关键修复：处理两种返回格式
+    let dataList = [];
+    if (Array.isArray(response.data)) {
+      // 后端直接返回数组格式
+      dataList = response.data;
+    } else if (response.data && Array.isArray(response.data.rows)) {
+      // 若依标准分页格式
+      dataList = response.data.rows;
+      total.value = response.data.total || 0;
+    } else if (Array.isArray(response.rows)) {
+      // 兼容其他格式
+      dataList = response.rows;
+      total.value = response.total || 0;
+    } else {
+      dataList = [];
+    }
+
+    // 🔥 字段名映射：将后端字段转换为前端期望的字段
+    categoryList.value = dataList.map(item => ({
+      categoryId: item.id,
+      name: item.name,
+      slug: item.slug,
+      description: item.description,
+      icon: item.icon,
+      sort: item.sort,
+      parentId: item.parentId,
+      status: item.status,
+      createTime: item.createTime,
+      remark: item.remark,
+      children: item.children
+    }));
+
+    categoryTree.value = categoryList.value;
+    // 如果没有返回total，使用数组长度
+    if (!total.value || total.value === 0) {
+      total.value = categoryList.value.length;
+    }
+
+    loading.value = false;
+  }).catch(error => {
+    console.error('获取分类列表失败:', error);
     loading.value = false;
   });
 }
@@ -228,7 +266,7 @@ function reset() {
   form.value = {
     categoryId: undefined,
     parentId: undefined,
-    categoryName: undefined,
+    name: undefined,
     icon: undefined,
     sort: 0,
     status: "0",
@@ -276,7 +314,17 @@ function handleUpdate(row) {
   reset();
   const categoryId = row.categoryId || ids.value[0];
   getCategory(categoryId).then(response => {
-    form.value = response.data;
+    // 🔥 字段映射：后端字段 -> 前端字段
+    const data = response.data;
+    form.value = {
+      categoryId: data.id,
+      name: data.name,
+      icon: data.icon,
+      sort: data.sort,
+      parentId: data.parentId,
+      status: data.status,
+      remark: data.remark
+    };
     open.value = true;
     title.value = "修改分类";
   });
@@ -286,14 +334,25 @@ function handleUpdate(row) {
 function submitForm() {
   proxy.$refs["categoryRef"].validate(valid => {
     if (valid) {
+      // 🔥 字段映射：前端字段 -> 后端字段
+      const submitData = {
+        id: form.value.categoryId,
+        name: form.value.name,
+        icon: form.value.icon,
+        sort: form.value.sort,
+        parentId: form.value.parentId,
+        status: form.value.status,
+        remark: form.value.remark
+      };
+
       if (form.value.categoryId !== undefined) {
-        updateCategory(form.value).then(response => {
+        updateCategory(submitData).then(response => {
           proxy.$modal.msgSuccess("修改成功");
           open.value = false;
           getList();
         });
       } else {
-        addCategory(form.value).then(response => {
+        addCategory(submitData).then(response => {
           proxy.$modal.msgSuccess("新增成功");
           open.value = false;
           getList();
@@ -317,7 +376,7 @@ function handleDelete(row) {
 // 分类状态修改
 function handleStatusChange(row) {
   let text = row.status === "0" ? "启用" : "停用";
-  proxy.$modal.confirm('确认要"' + text + '""' + row.categoryName + '"分类吗？').then(function () {
+  proxy.$modal.confirm('确认要"' + text + '""' + row.name + '"分类吗？').then(function () {
     return changeCategoryStatus(row.categoryId, row.status);
   }).then(() => {
     proxy.$modal.msgSuccess(text + "成功");

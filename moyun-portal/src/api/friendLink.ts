@@ -1,5 +1,5 @@
-import { httpGet } from './client';
-import type { ApiResponse } from '@/types/api';
+import { httpGetList } from './client';
+import type { ApiResponse, PaginationResponse } from '@/types/api';
 
 // 友情链接类型
 export interface FriendLink {
@@ -15,6 +15,6 @@ export interface FriendLink {
 }
 
 // 获取友情链接列表
-export const getFriendLinks = async (): Promise<ApiResponse<FriendLink[]>> => {
-    return httpGet<FriendLink[]>('/portal/friend-link/list');
+export const getFriendLinks = async (): Promise<ApiResponse<PaginationResponse<FriendLink>>> => {
+    return httpGetList<FriendLink>('/portal/friend-link/list');
 };

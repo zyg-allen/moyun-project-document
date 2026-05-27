@@ -1,5 +1,7 @@
 package com.moyun.portal.controller;
 
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.moyun.common.annotation.Log;
 import com.moyun.core.base.BaseController;
 import com.moyun.core.base.AjaxResult;
@@ -7,7 +9,10 @@ import com.moyun.core.base.TableDataInfo;
 import com.moyun.common.enums.BusinessType;
 import com.moyun.util.file.ExcelUtil;
 import com.moyun.portal.domain.entity.PortalArticle;
+import com.moyun.portal.domain.vo.ArticleVO;
+import com.moyun.portal.mapper.PortalArticleMapper;
 import com.moyun.portal.service.IPortalArticleService;
+import com.moyun.portal.util.ArticleConvertUtil;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -26,12 +31,15 @@ public class PortalArticleController extends BaseController {
     @Autowired
     private IPortalArticleService portalArticleService;
 
+    @Autowired
+    private PortalArticleMapper portalArticleMapper;
+
     @Operation(summary = "获取文章列表", description = "根据条件分页查询文章列表")
     @GetMapping("/list")
     public TableDataInfo list(PortalArticle portalArticle) {
         startPage();
         List<PortalArticle> list = portalArticleService.selectPortalArticleList(portalArticle);
-        return getDataTable(list);
+        return getDataTable(ArticleConvertUtil.toArticleVOList(list));
     }
 
     @Operation(summary = "导出文章", description = "导出文章数据到Excel文件")
@@ -46,7 +54,8 @@ public class PortalArticleController extends BaseController {
     @Operation(summary = "获取文章详情", description = "根据文章ID获取文章详细信息")
     @GetMapping(value = "/{id}")
     public AjaxResult getInfo(@Parameter(description = "文章ID") @PathVariable Long id) {
-        return success(portalArticleService.selectPortalArticleById(id));
+        PortalArticle article = portalArticleService.selectPortalArticleById(id);
+        return success(ArticleConvertUtil.toArticleVO(article));
     }
 
     @Operation(summary = "新增文章", description = "创建新文章")
@@ -103,40 +112,55 @@ public class PortalArticleController extends BaseController {
         return success();
     }
 
-    @Operation(summary = "获取热门文章", description = "获取热门文章列表")
+    @Operation(summary = "获取热门文章", description = "获取热门文章列表，按浏览量排序")
     @GetMapping("/hot")
     public TableDataInfo getHotArticles(@RequestParam(defaultValue = "10") Integer limit) {
-        PortalArticle query = new PortalArticle();
-        startPage();
-        List<PortalArticle> list = portalArticleService.selectPortalArticleList(query);
-        return getDataTable(list);
+        Page<PortalArticle> page = new Page<>(1, limit);
+        LambdaQueryWrapper<PortalArticle> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(PortalArticle::getStatus, "published")
+               .orderByDesc(PortalArticle::getViews)
+               .orderByDesc(PortalArticle::getCreateTime);
+        Page<PortalArticle> resultPage = portalArticleMapper.selectPage(page, wrapper);
+        return getDataTable(ArticleConvertUtil.toArticleVOList(resultPage.getRecords()), resultPage.getTotal());
     }
 
     @Operation(summary = "获取精选文章", description = "获取精选文章列表")
     @GetMapping("/featured")
     public TableDataInfo getFeaturedArticles(@RequestParam(defaultValue = "10") Integer limit) {
-        PortalArticle query = new PortalArticle();
-        query.setIsFeatured(true);
-        startPage();
-        List<PortalArticle> list = portalArticleService.selectPortalArticleList(query);
-        return getDataTable(list);
+        Page<PortalArticle> page = new Page<>(1, limit);
+        LambdaQueryWrapper<PortalArticle> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(PortalArticle::getStatus, "published")
+               .eq(PortalArticle::getIsFeatured, true)
+               .orderByDesc(PortalArticle::getIsTop)
+               .orderByDesc(PortalArticle::getCreateTime);
+        Page<PortalArticle> resultPage = portalArticleMapper.selectPage(page, wrapper);
+        return getDataTable(ArticleConvertUtil.toArticleVOList(resultPage.getRecords()), resultPage.getTotal());
     }
 
     @Operation(summary = "获取轮播文章", description = "获取轮播文章列表")
     @GetMapping("/carousel")
     public AjaxResult getCarouselArticles() {
-        PortalArticle query = new PortalArticle();
-        query.setIsCarousel(true);
-        List<PortalArticle> list = portalArticleService.selectPortalArticleList(query);
-        return success(list);
+        LambdaQueryWrapper<PortalArticle> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(PortalArticle::getStatus, "published")
+               .eq(PortalArticle::getIsCarousel, true)
+               .orderByDesc(PortalArticle::getCreateTime);
+        List<PortalArticle> list = portalArticleMapper.selectList(wrapper);
+        return success(ArticleConvertUtil.toArticleVOList(list));
     }
 
     @Operation(summary = "获取相关文章", description = "获取相关推荐文章")
     @GetMapping("/{id}/related")
     public TableDataInfo getRelatedArticles(@PathVariable Long id, @RequestParam(defaultValue = "5") Integer limit) {
-        PortalArticle query = new PortalArticle();
-        startPage();
-        List<PortalArticle> list = portalArticleService.selectPortalArticleList(query);
-        return getDataTable(list);
+        Page<PortalArticle> page = new Page<>(1, limit);
+        PortalArticle currentArticle = portalArticleService.selectPortalArticleById(id);
+        LambdaQueryWrapper<PortalArticle> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(PortalArticle::getStatus, "published")
+               .ne(PortalArticle::getId, id);
+        if (currentArticle != null && currentArticle.getCategoryId() != null) {
+            wrapper.eq(PortalArticle::getCategoryId, currentArticle.getCategoryId());
+        }
+        wrapper.orderByDesc(PortalArticle::getCreateTime);
+        Page<PortalArticle> resultPage = portalArticleMapper.selectPage(page, wrapper);
+        return getDataTable(ArticleConvertUtil.toArticleVOList(resultPage.getRecords()), resultPage.getTotal());
     }
 }

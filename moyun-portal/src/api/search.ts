@@ -1,10 +1,10 @@
 import { httpGet } from './client';
 import type {
-  SearchParams,
-  SearchResponse,
+    SearchParams,
+    SearchResponse,
 } from '@/types/api';
 
 // 搜索
 export const search = (params: SearchParams) => {
-  return httpGet<SearchResponse>('/search', params);
+    return httpGet<SearchResponse>('/portal/search', params);
 };

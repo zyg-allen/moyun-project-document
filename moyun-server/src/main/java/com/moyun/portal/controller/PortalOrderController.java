@@ -20,7 +20,7 @@ import java.util.List;
 
 @Tag(name = "门户订单", description = "门户订单的增删改查操作接口")
 @RestController
-@RequestMapping("/api/order")
+@RequestMapping("/portal/order")
 public class PortalOrderController extends BaseController {
 
     @Autowired

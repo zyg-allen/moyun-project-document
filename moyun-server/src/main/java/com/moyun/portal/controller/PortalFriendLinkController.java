@@ -20,7 +20,7 @@ import java.util.List;
 
 @Tag(name = "门户友情链接", description = "门户友情链接的增删改查操作接口")
 @RestController
-@RequestMapping("/api/friend-link")
+@RequestMapping("/portal/friend-link")
 public class PortalFriendLinkController extends BaseController {
 
     @Autowired

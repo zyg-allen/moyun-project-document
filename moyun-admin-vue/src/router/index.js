@@ -249,6 +249,26 @@ export const dynamicRoutes = [
         meta: { title: '修改生成配置', activeMenu: '/tool/gen' }
       }
     ]
+  },
+  {
+    path: '/cms',
+    component: Layout,
+    hidden: true,
+    permissions: ['cms:article:list'],
+    children: [
+      {
+        path: 'article/edit',
+        component: () => import('@/views/cms/article/edit'),
+        name: 'ArticleEdit',
+        meta: { title: '编辑文章', activeMenu: '/cms/article' }
+      },
+      {
+        path: 'article/edit/:id(\\d+)',
+        component: () => import('@/views/cms/article/edit'),
+        name: 'ArticleEditWithId',
+        meta: { title: '编辑文章', activeMenu: '/cms/article' }
+      }
+    ]
   }
 ]
 

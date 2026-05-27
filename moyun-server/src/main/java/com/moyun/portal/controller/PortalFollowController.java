@@ -20,7 +20,7 @@ import java.util.List;
 
 @Tag(name = "门户关注", description = "门户关注的增删改查操作接口")
 @RestController
-@RequestMapping("/api/follow")
+@RequestMapping("/portal/follow")
 public class PortalFollowController extends BaseController {
 
     @Autowired

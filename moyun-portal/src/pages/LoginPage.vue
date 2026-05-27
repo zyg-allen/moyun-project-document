@@ -1,9 +1,8 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue';
+import { ref } from 'vue';
 import { RouterLink as Link, useRouter } from 'vue-router';
 import { Eye, EyeOff, Mail, Lock, ArrowRight, AlertCircle } from 'lucide-vue-next';
 import SiteFooter from '@/components/SiteFooter.vue';
-import { mockUsers } from '@/data/mockData';
 import { useUserStore } from '@/stores/user';
 import { loginSchema, validateForm } from '@/utils/validation';
 
@@ -33,19 +32,19 @@ async function handleLogin() {
 
   isLoading.value = true;
 
-  setTimeout(() => {
-    const user = mockUsers.find(u => u.email === form.value.username);
-    
-    if (user) {
-      userStore.login(user);
+  try {
+    const { success, message } = await userStore.loginWithApi(form.value);
+    if (success) {
       router.push('/');
     } else {
-      userStore.login(mockUsers[0]);
-      router.push('/');
+      serverError.value = message || '登录失败，请检查用户名和密码';
     }
-    
+  } catch (error) {
+    console.error('登录失败:', error);
+    serverError.value = '登录失败，请稍后重试';
+  } finally {
     isLoading.value = false;
-  }, 800);
+  }
 }
 
 function clearError(field: string) {

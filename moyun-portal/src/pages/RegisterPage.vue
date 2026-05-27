@@ -3,10 +3,11 @@ import { ref } from 'vue';
 import { RouterLink as Link, useRouter } from 'vue-router';
 import { Eye, EyeOff, Mail, Lock, User, ArrowRight, AlertCircle } from 'lucide-vue-next';
 import SiteFooter from '@/components/SiteFooter.vue';
-import { setCurrentUser, mockUsers } from '@/data/mockData';
+import { useUserStore } from '@/stores/user';
 import { registerSchema, validateForm } from '@/utils/validation';
 
 const router = useRouter();
+const userStore = useUserStore();
 const form = ref({
   username: '',
   email: '',
@@ -39,20 +40,23 @@ async function handleRegister() {
 
   isLoading.value = true;
 
-  setTimeout(() => {
-    const newUser = {
-      id: Date.now().toString(),
+  try {
+    const { success, message } = await userStore.registerWithApi({
       username: form.value.username,
       email: form.value.email,
-      avatar: `https://images.unsplash.com/photo-${1500000000000 + Math.random() * 1000000000000}?w=150&h=150&fit=crop&crop=faces`,
-      bio: '新用户，欢迎关注',
-      createdAt: new Date().toISOString().split('T')[0]
-    };
-    
-    setCurrentUser(newUser);
-    router.push('/');
+      password: form.value.password
+    });
+    if (success) {
+      router.push('/');
+    } else {
+      serverError.value = message || '注册失败，请稍后重试';
+    }
+  } catch (error) {
+    console.error('注册失败:', error);
+    serverError.value = '注册失败，请稍后重试';
+  } finally {
     isLoading.value = false;
-  }, 1000);
+  }
 }
 
 function clearError(field: string) {

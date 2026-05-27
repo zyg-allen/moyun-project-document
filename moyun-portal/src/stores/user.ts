@@ -1,13 +1,12 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import type { User } from '@/types'
-import { getCurrentUser as getMockCurrentUser, setCurrentUser as setMockCurrentUser } from '@/data/mockData'
 import * as userApi from '@/api/user'
 import { getToken, setToken, removeToken } from '@/api/client'
 
 export const useUserStore = defineStore('user', () => {
   // State
-  const user = ref<User | null>(getMockCurrentUser())
+  const user = ref<User | null>(null)
   const isAuthenticated = computed(() => user.value !== null)
   const loading = ref(false)
 
@@ -26,7 +25,6 @@ export const useUserStore = defineStore('user', () => {
       const response = await userApi.getCurrentUser()
       if (response.code === 200) {
         user.value = response.data as User
-        setMockCurrentUser(response.data as any)
         return response.data
       }
       return null
@@ -45,13 +43,30 @@ export const useUserStore = defineStore('user', () => {
       if (response.code === 200) {
         setToken(response.data.token)
         user.value = response.data.user as User
-        setMockCurrentUser(response.data.user as any)
         return { success: true }
       }
       return { success: false, message: response.message }
     } catch (error) {
       console.error('登录失败:', error)
       return { success: false, message: '登录失败，请重试' }
+    } finally {
+      loading.value = false
+    }
+  }
+
+  async function registerWithApi(params: { username: string; email: string; password: string }) {
+    loading.value = true
+    try {
+      const response = await userApi.register(params)
+      if (response.code === 200) {
+        setToken(response.data.token)
+        user.value = response.data.user as User
+        return { success: true }
+      }
+      return { success: false, message: response.message }
+    } catch (error) {
+      console.error('注册失败:', error)
+      return { success: false, message: '注册失败，请重试' }
     } finally {
       loading.value = false
     }
@@ -65,18 +80,7 @@ export const useUserStore = defineStore('user', () => {
     } finally {
       user.value = null
       removeToken()
-      setMockCurrentUser(null)
     }
-  }
-
-  function login(userData: User) {
-    user.value = userData
-    setMockCurrentUser(userData)
-  }
-
-  function logout() {
-    user.value = null
-    setMockCurrentUser(null)
   }
 
   async function updateUserWithApi(updates: Partial<User>) {
@@ -85,7 +89,6 @@ export const useUserStore = defineStore('user', () => {
       const response = await userApi.updateUserProfile(updates as any)
       if (response.code === 200) {
         user.value = response.data as User
-        setMockCurrentUser(response.data as any)
         return { success: true }
       }
       return { success: false, message: response.message }
@@ -94,13 +97,6 @@ export const useUserStore = defineStore('user', () => {
       return { success: false, message: '更新失败，请重试' }
     } finally {
       loading.value = false
-    }
-  }
-
-  function updateUser(updates: Partial<User>) {
-    if (user.value) {
-      user.value = { ...user.value, ...updates }
-      setMockCurrentUser(user.value)
     }
   }
 
@@ -113,11 +109,9 @@ export const useUserStore = defineStore('user', () => {
     username,
     avatar,
     // Actions
-    login,
-    logout,
-    updateUser,
     fetchCurrentUser,
     loginWithApi,
+    registerWithApi,
     logoutWithApi,
     updateUserWithApi
   }

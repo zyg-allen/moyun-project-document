@@ -20,7 +20,7 @@ import java.util.List;
 
 @Tag(name = "门户评论", description = "门户评论的增删改查操作接口")
 @RestController
-@RequestMapping("/api/comment")
+@RequestMapping("/portal/comment")
 public class PortalCommentController extends BaseController {
 
     @Autowired

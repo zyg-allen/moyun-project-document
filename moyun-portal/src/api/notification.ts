@@ -17,24 +17,24 @@ export interface MarkAsReadParams {
 export async function getNotificationList(
   params?: GetNotificationListParams
 ): Promise<ApiResponse<{ list: Notification[]; total: number }>> {
-  return httpGet('/notifications', params)
+  return httpGet('/portal/notification/list', params)
 }
 
 export async function getUnreadCount(): Promise<ApiResponse<{ count: number }>> {
-  return httpGet('/notifications/unread-count')
+  return httpGet('/portal/notification/unread-count')
 }
 
 export async function markAsRead(
   params: MarkAsReadParams
 ): Promise<ApiResponse<void>> {
   if (params.all) {
-    return httpPost('/notifications/mark-all-read')
+    return httpPost('/portal/notification/mark-all-read')
   }
-  return httpPost(`/notifications/${params.id}/read`)
+  return httpPost(`/portal/notification/${params.id}/read`)
 }
 
 export async function deleteNotification(
   id: string
 ): Promise<ApiResponse<void>> {
-  return httpDelete(`/notifications/${id}`)
+  return httpDelete(`/portal/notification/${id}`)
 }

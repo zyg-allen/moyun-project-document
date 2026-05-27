@@ -6,10 +6,10 @@ import type {
 
 // 获取分类列表
 export const getCategoryList = (params?: CategoryListParams) => {
-  return httpGet<Category[]>('/category/list', params);
+  return httpGet<Category[]>('/portal/category/list', params);
 };
 
 // 获取分类详情
 export const getCategoryById = (id: string) => {
-  return httpGet<Category>(`/category/${id}`);
+  return httpGet<Category>(`/portal/category/${id}`);
 };

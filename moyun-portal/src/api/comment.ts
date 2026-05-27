@@ -9,27 +9,27 @@ import type {
 
 // 获取评论列表
 export const getCommentList = (params: CommentListParams) => {
-  return httpGet<PaginationResponse<Comment>>('/comment/list', params);
+  return httpGet<PaginationResponse<Comment>>('/portal/comment/list', params);
 };
 
 // 创建评论
 export const createComment = (params: CreateCommentParams) => {
-  return httpPost<Comment>('/comment', params);
+  return httpPost<Comment>('/portal/comment', params);
 };
 
 // 删除评论
 export const deleteComment = (params: DeleteCommentParams) => {
-  return httpDelete(`/comment/${params.id}`);
+  return httpDelete(`/portal/comment/${params.id}`);
 };
 
 // 评论点赞
 export const likeComment = (commentId: string) => {
-  return httpPost(`/comment/${commentId}/like`);
+  return httpPost(`/portal/comment/${commentId}/like`);
 };
 
 // 取消评论点赞
 export const unlikeComment = (commentId: string) => {
-  return httpDelete(`/comment/${commentId}/like`);
+  return httpDelete(`/portal/comment/${commentId}/like`);
 };
 
 // 别名函数

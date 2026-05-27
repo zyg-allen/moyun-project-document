@@ -20,7 +20,7 @@ import java.util.List;
 
 @Tag(name = "门户VIP套餐", description = "门户VIP套餐的增删改查操作接口")
 @RestController
-@RequestMapping("/api/vip-package")
+@RequestMapping("/portal/vip-package")
 public class PortalVipPackageController extends BaseController {
 
     @Autowired

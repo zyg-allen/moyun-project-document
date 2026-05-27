@@ -20,7 +20,7 @@ import java.util.List;
 
 @Tag(name = "门户点赞", description = "门户点赞的增删改查操作接口")
 @RestController
-@RequestMapping("/api/like")
+@RequestMapping("/portal/like")
 public class PortalLikeController extends BaseController {
 
     @Autowired

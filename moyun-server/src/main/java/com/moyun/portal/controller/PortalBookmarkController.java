@@ -20,7 +20,7 @@ import java.util.List;
 
 @Tag(name = "门户收藏", description = "门户收藏的增删改查操作接口")
 @RestController
-@RequestMapping("/api/bookmark")
+@RequestMapping("/portal/bookmark")
 public class PortalBookmarkController extends BaseController {
 
     @Autowired

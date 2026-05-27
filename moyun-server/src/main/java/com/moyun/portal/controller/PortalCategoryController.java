@@ -20,7 +20,7 @@ import java.util.List;
 
 @Tag(name = "门户分类", description = "门户分类的增删改查操作接口")
 @RestController
-@RequestMapping("/api/category")
+@RequestMapping("/portal/category")
 public class PortalCategoryController extends BaseController {
 
     @Autowired

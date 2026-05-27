@@ -60,6 +60,14 @@ public class PortalArticle extends BaseEntity
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime publishedAt;
 
+    @Size(min = 0, max = 500, message = "外部链接长度不能超过500个字符")
+    private String link;
+
+    @Size(min = 0, max = 20, message = "编辑器模式长度不能超过20个字符")
+    private String editorMode;
+
+    private String contentMarkdown;
+
     public PortalArticle()
     {
     }
@@ -239,6 +247,36 @@ public class PortalArticle extends BaseEntity
         this.publishedAt = publishedAt;
     }
 
+    public String getLink()
+    {
+        return link;
+    }
+
+    public void setLink(String link)
+    {
+        this.link = link;
+    }
+
+    public String getEditorMode()
+    {
+        return editorMode;
+    }
+
+    public void setEditorMode(String editorMode)
+    {
+        this.editorMode = editorMode;
+    }
+
+    public String getContentMarkdown()
+    {
+        return contentMarkdown;
+    }
+
+    public void setContentMarkdown(String contentMarkdown)
+    {
+        this.contentMarkdown = contentMarkdown;
+    }
+
     @Override
     public String toString() {
         return new ToStringBuilder(this,ToStringStyle.MULTI_LINE_STYLE)
@@ -259,6 +297,9 @@ public class PortalArticle extends BaseEntity
             .append("shareCount", getShareCount())
             .append("bookmarkCount", getBookmarkCount())
             .append("publishedAt", getPublishedAt())
+            .append("link", getLink())
+            .append("editorMode", getEditorMode())
+            .append("contentMarkdown", getContentMarkdown())
             .append("createBy", getCreateBy())
             .append("createTime", getCreateTime())
             .append("updateBy", getUpdateBy())

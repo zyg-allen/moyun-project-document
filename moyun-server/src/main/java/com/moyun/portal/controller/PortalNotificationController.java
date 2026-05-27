@@ -20,7 +20,7 @@ import java.util.List;
 
 @Tag(name = "门户通知", description = "门户通知的增删改查操作接口")
 @RestController
-@RequestMapping("/api/notification")
+@RequestMapping("/portal/notification")
 public class PortalNotificationController extends BaseController {
 
     @Autowired

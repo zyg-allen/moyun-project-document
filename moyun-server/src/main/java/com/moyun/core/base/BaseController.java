@@ -74,10 +74,27 @@ public class BaseController {
             Page<?> page = (Page<?>) list;
             rspData.setTotal(page.getTotal());
         } else {
-            rspData.setTotal((long) list.size());
+            rspData.setTotal(list.size());
         }
         return rspData;
     }
+
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    protected TableDataInfo getDataTable(List<?> list,long total) {
+        TableDataInfo rspData = new TableDataInfo();
+        rspData.setCode(HttpStatus.SUCCESS);
+        rspData.setMsg("查询成功");
+        rspData.setRows(list);
+        // 如果是 MyBatis-Plus 的 Page 对象，获取总数
+        if (list instanceof Page) {
+            Page<?> page = (Page<?>) list;
+            rspData.setTotal(total);
+        } else {
+            rspData.setTotal(list.size());
+        }
+        return rspData;
+    }
+
 
     /**
      * 返回成功

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, computed, watch, nextTick } from 'vue';
+import { ref, onMounted, computed } from 'vue';
 import { useRoute, RouterLink as Link, useRouter } from 'vue-router';
 import { useHead } from '@vueuse/head';
 import { ArrowLeft, Heart, Share2, MessageSquare, Eye, Clock, User as UserIcon, Tag, Send, Bookmark, MoreHorizontal, Reply } from 'lucide-vue-next';
@@ -9,7 +9,6 @@ import LazyImage from '@/components/LazyImage.vue';
 import Breadcrumb from '@/components/Breadcrumb.vue';
 import SiteFooter from '@/components/SiteFooter.vue';
 import MarkdownRenderer from '@/components/MarkdownRenderer.vue';
-import { getArticleById, getCommentsByArticleId, addComment, getCurrentUser, setCurrentUser, toggleCommentLike } from '@/data/mockData';
 import { useArticleStore } from '@/stores/article';
 import { useUserStore } from '@/stores/user';
 import { generateSeo } from '@/utils/seo';
@@ -26,13 +25,14 @@ const userStore = useUserStore();
 const article = ref<Article | null>(null);
 const comments = ref<Comment[]>([]);
 const newComment = ref('');
-const currentUser = ref<User | null>(null);
+const currentUser = computed(() => userStore.user);
 const replyingTo = ref<Comment | null>(null);
 const replyContent = ref('');
 const displayedCount = ref(3);
 const expandedReplies = ref<Set<string>>(new Set());
 const loading = ref(false);
 const submitting = ref(false);
+const error = ref<string | null>(null);
 
 const isLiked = computed(() => article.value ? articleStore.likedArticleIds.includes(article.value.id) : false);
 const isBookmarked = computed(() => article.value ? articleStore.bookmarkedArticleIds.includes(article.value.id) : false);
@@ -73,30 +73,27 @@ const totalCommentsCount = computed(() => {
 
 onMounted(async () => {
   await loadArticle();
-  currentUser.value = getCurrentUser();
 });
 
 async function loadArticle() {
   loading.value = true;
+  error.value = null;
   try {
     const articleId = route.params.id as string;
     
-    // 尝试从API获取
     const response = await articleApi.getArticleDetail({ id: articleId });
     if (response.code === 200) {
       article.value = response.data as Article;
     } else {
-      article.value = getArticleById(articleId);
+      error.value = response.message || '加载文章失败';
     }
     
     await loadComments(articleId);
     
-    // 增加浏览量
     await articleApi.incrementView(articleId);
-  } catch (error) {
-    console.error('加载文章失败:', error);
-    article.value = getArticleById(route.params.id as string);
-    comments.value = getCommentsByArticleId(route.params.id as string);
+  } catch (err) {
+    console.error('加载文章失败:', err);
+    error.value = '加载文章失败，请稍后重试';
   } finally {
     loading.value = false;
   }
@@ -107,12 +104,9 @@ async function loadComments(articleId: string) {
     const response = await commentApi.getCommentList({ articleId });
     if (response.code === 200) {
       comments.value = response.data.list as Comment[];
-    } else {
-      comments.value = getCommentsByArticleId(articleId);
     }
   } catch (error) {
     console.error('加载评论失败:', error);
-    comments.value = getCommentsByArticleId(articleId);
   }
 }
 
@@ -154,16 +148,10 @@ async function handleSubmitComment() {
     
     if (response.code === 200) {
       comments.value.unshift(response.data as Comment);
-    } else {
-      const comment = addComment(article.value.id, currentUser.value, newComment.value);
-      comments.value.unshift(comment);
     }
     newComment.value = '';
   } catch (error) {
     console.error('发表评论失败:', error);
-    const comment = addComment(article.value.id, currentUser.value, newComment.value);
-    comments.value.unshift(comment);
-    newComment.value = '';
   } finally {
     submitting.value = false;
   }
@@ -194,20 +182,11 @@ async function handleSubmitReply() {
     if (response.code === 200) {
       if (!replyingTo.value.replies) replyingTo.value.replies = [];
       replyingTo.value.replies.push(response.data as Comment);
-    } else {
-      const newReply = addComment(article.value.id, currentUser.value, replyContent.value, replyingTo.value.id);
-      if (!replyingTo.value.replies) replyingTo.value.replies = [];
-      replyingTo.value.replies.push(newReply);
     }
     replyingTo.value = null;
     replyContent.value = '';
   } catch (error) {
     console.error('发表回复失败:', error);
-    const newReply = addComment(article.value.id, currentUser.value, replyContent.value, replyingTo.value.id);
-    if (!replyingTo.value.replies) replyingTo.value.replies = [];
-    replyingTo.value.replies.push(newReply);
-    replyingTo.value = null;
-    replyContent.value = '';
   } finally {
     submitting.value = false;
   }
@@ -216,10 +195,8 @@ async function handleSubmitReply() {
 async function handleLikeComment(commentId: string) {
   try {
     await commentApi.likeComment(commentId);
-    toggleCommentLike(commentId);
   } catch (error) {
     console.error('点赞评论失败:', error);
-    toggleCommentLike(commentId);
   }
 }
 

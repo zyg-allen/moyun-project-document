@@ -4,36 +4,35 @@ import type {
   TagListParams,
   PaginationResponse,
 } from '@/types/api';
-import { getTags, getHotTags as getMockHotTags, searchTags, createTag as createMockTag, getTagSuggestions } from '@/data/mockData';
 
 // 获取标签列表
 export const getTagList = (params?: TagListParams) => {
-  return httpGet<PaginationResponse<Tag>>('/tag/list', params);
+  return httpGet<PaginationResponse<Tag>>('/portal/tag/list', params);
 };
 
 // 获取热门标签
 export const getHotTags = (limit = 20) => {
-  return httpGet<Tag[]>('/tag/hot', { limit });
+  return httpGet<Tag[]>('/portal/tag/hot', { limit });
 };
 
 // 获取标签详情
 export const getTagById = (id: string) => {
-  return httpGet<Tag>(`/tag/${id}`);
+  return httpGet<Tag>(`/portal/tag/${id}`);
 };
 
 // 搜索标签
 export const searchTagList = (keyword: string) => {
-  return httpGet<Tag[]>('/tag/search', { keyword });
+  return httpGet<Tag[]>('/portal/tag/search', { keyword });
 };
 
 // 创建新标签
 export const createNewTag = (name: string) => {
-  return httpPost<Tag>('/tag/create', { name });
+  return httpPost<Tag>('/portal/tag/create', { name });
 };
 
 // 获取标签建议
 export const getRecommendTags = (title: string, category: string) => {
-  return httpGet<Tag[]>('/tag/recommend', { title, category });
+  return httpGet<Tag[]>('/portal/tag/recommend', { title, category });
 };
 
 // ================== 模拟API实现 ==================

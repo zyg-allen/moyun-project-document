@@ -1,0 +1,124 @@
+
+spring:
+  datasource:
+    # 使用 Druid 数据源
+    type: com.alibaba.druid.pool.DruidDataSource
+    driver-class-name: com.mysql.cj.jdbc.Driver  #ecom_publish
+    url: jdbc:mysql://localhost:3306/ecom_publish?useUnicode=true&characterEncoding=utf-8&useSSL=false&serverTimezone=Asia/Shanghai
+    username: root
+    password: 123456
+    # Druid 连接池配置
+    druid:
+      # 初始连接数
+      initial-size: 5
+      # 最小连接池数量
+      min-idle: 10
+      # 最大连接池数量
+      max-active: 20
+      # 配置获取连接等待超时的时间
+      max-wait: 60000
+      # 配置连接超时时间
+      connect-timeout: 3000
+      # 配置网络超时时间
+      socket-timeout: 12000
+      # 配置间隔多久才进行一次检测，检测需要关闭的空闲连接，单位是毫秒
+      time-between-eviction-runs-millis: 60000
+      # 配置一个连接在池中最小生存的时间，单位是毫秒
+      min-evictable-idle-time-millis: 300000
+      # 配置一个连接在池中最大生存的时间，单位是毫秒
+      max-evictable-idle-time-millis: 900000
+      # 配置检测连接是否有效
+      validation-query: SELECT 1
+      # 申请连接时执行validationQuery检测连接是否有效
+      test-while-idle: true
+      # 申请连接时执行validationQuery检测连接是否有效
+      test-on-borrow: false
+      # 归还连接时执行validationQuery检测连接是否有效
+      test-on-return: false
+      # 是否缓存preparedStatement
+      pool-prepared-statements: true
+      # 配置监控统计拦截的filters，去掉后监控界面sql无法统计
+      filters: stat,wall,slf4j
+      # 初始连接数
+      initialSize: 5
+      # 最小连接池数量
+      minIdle: 10
+      # 最大连接池数量
+      maxActive: 20
+      # 配置获取连接等待超时的时间
+      maxWait: 60000
+      # 配置连接超时时间
+      connectTimeout: 30000
+      # 配置网络超时时间
+      socketTimeout: 60000
+      # 配置间隔多久才进行一次检测，检测需要关闭的空闲连接，单位是毫秒
+      timeBetweenEvictionRunsMillis: 60000
+      # 配置一个连接在池中最小生存的时间，单位是毫秒
+      minEvictableIdleTimeMillis: 300000
+      # 配置一个连接在池中最大生存的时间，单位是毫秒
+      maxEvictableIdleTimeMillis: 900000
+      # 配置检测连接是否有效
+      validationQuery: SELECT 1 FROM DUAL
+      # 建议配置为true，不影响性能，并且保证安全性
+      testWhileIdle: true
+      # 申请连接时执行validationQuery检测连接是否有效，做了这个配置会降低性能
+      testOnBorrow: false
+      # 归还连接时执行validationQuery检测连接是否有效，做了这个配置会降低性能
+      testOnReturn: false
+      # 开启mergeSql功能；慢SQL记录
+      filter:
+        stat:
+          merge-sql: true
+          slow-sql-millis: 5000
+          log-slow-sql: true
+        wall:
+          config:
+            multi-statement-allow: true
+      # Web 监控配置
+      web-stat-filter:
+        enabled: true
+        url-pattern: /*
+        exclusions: "*.js,*.gif,*.jpg,*.png,*.css,*.ico,/druid/*"
+      # StatViewServlet 配置
+      stat-view-servlet:
+        enabled: true
+        # 访问内置监控页面的路径，内置监控页面的首页是/druid/index.html
+        url-pattern: /druid/*
+        # 不允许清空统计数据
+        reset-enable: false
+        # 监控页面登录用户名
+        login-username: admin
+        # 监控页面登录密码
+        login-password: admin
+        # 允许访问的IP地址(为空表示允许所有)
+        allow: ""
+        # 禁止访问的IP地址
+        deny: ""
+      # 开启 Spring 监控
+      aop-patterns: com.zyg.bootv3.service.*
+  data:
+    redis:
+      host: localhost
+      port: 6379
+    # MongoDB 配置（辅助中间件）
+    mongodb:
+      uri: mongodb://localhost:27017/bootv3
+      # 连接池配置
+      options:
+        # 最大连接数
+        max-connection-per-host: 20
+        # 最小连接数
+        min-connections-per-host: 5
+        # 连接超时时间
+        connect-timeout: 10000
+        # 读取超时时间
+        read-timeout: 10000
+
+# MyBatis-Plus 配置（与 application.yaml 中的配置保持一致）
+# 注意：这里仅作为本地环境的覆盖配置，主配置在 application.yaml 中
+langchain4j:
+  community:
+    dashscope:
+      chat-model:
+        model-name: qwen-max
+        api-key: sk-c760a4e037ee492fbff0f18e35cb6167

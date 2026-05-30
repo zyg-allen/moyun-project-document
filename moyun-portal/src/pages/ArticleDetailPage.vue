@@ -14,7 +14,7 @@ import { useUserStore } from '@/stores/user';
 import { generateSeo } from '@/utils/seo';
 import { sanitizeHTML } from '@/utils/security';
 import { formatShortDate } from '@/utils/date';
-import type { Article, Comment, User } from '@/types';
+import type { Article, Comment, User } from '@/types/api';
 import * as articleApi from '@/api/article';
 import * as commentApi from '@/api/comment';
 
@@ -37,10 +37,59 @@ const error = ref<string | null>(null);
 const isLiked = computed(() => article.value ? articleStore.likedArticleIds.includes(article.value.id) : false);
 const isBookmarked = computed(() => article.value ? articleStore.bookmarkedArticleIds.includes(article.value.id) : false);
 
+// 获取文章作者信息
+const articleAuthor = computed(() => {
+  if (!article.value) return null;
+  if (article.value.author) return article.value.author;
+  // 如果没有 author 对象，从其他字段构造
+  return {
+    id: article.value.authorId || '',
+    username: article.value.authorUsername || '',
+    nickname: article.value.authorNickname || article.value.authorUsername || '',
+    avatar: article.value.authorAvatar || '',
+    bio: article.value.authorBio || '',
+    createdAt: ''
+  } as User;
+});
+
+// 获取文章分类
+const articleCategory = computed(() => {
+  if (!article.value) return '';
+  return article.value.category || article.value.categoryName || '';
+});
+
+// 获取文章标签
+const articleTags = computed(() => {
+  if (!article.value) return [];
+  if (Array.isArray(article.value.tags)) return article.value.tags;
+  if ('tagNames' in article.value && Array.isArray(article.value.tagNames)) return article.value.tagNames;
+  return [];
+});
+
+// 获取文章阅读量
+const articleViews = computed(() => {
+  return article.value ? article.value.views || 0 : 0;
+});
+
+// 获取文章点赞数
+const articleLikes = computed(() => {
+  return article.value ? article.value.likes || 0 : 0;
+});
+
+// 获取文章分享数
+const articleShareCount = computed(() => {
+  return article.value ? article.value.shareCount || 0 : 0;
+});
+
+// 获取文章摘要
+const articleExcerpt = computed(() => {
+  return article.value ? article.value.excerpt || '' : '';
+});
+
 const breadcrumbs = computed(() => {
   if (!article.value) return [];
   return [
-    { label: article.value.category, path: `/list?category=${article.value.category}` },
+    { label: articleCategory.value, path: `/list?category=${articleCategory.value}` },
     { label: article.value.title }
   ];
 });
@@ -49,13 +98,17 @@ const sanitizedContent = computed(() =>
   article.value ? sanitizeHTML(article.value.content) : ''
 );
 
-const articleDate = computed(() => 
-  article.value ? formatShortDate(article.value.createdAt) : ''
-);
+const articleDate = computed(() => {
+  if (!article.value) return '';
+  const dateStr = article.value.createdAt || article.value.createTime;
+  return dateStr ? formatShortDate(dateStr) : '';
+});
 
-const articleUpdateDate = computed(() => 
-  article.value ? formatShortDate(article.value.updatedAt || article.value.createdAt) : ''
-);
+const articleUpdateDate = computed(() => {
+  if (!article.value) return '';
+  const dateStr = article.value.updatedAt || article.value.createTime;
+  return dateStr ? formatShortDate(dateStr) : '';
+});
 
 const displayedComments = computed(() => comments.value.slice(0, displayedCount.value));
 const hasMoreComments = computed(() => displayedCount.value < comments.value.length);
@@ -127,7 +180,7 @@ function handleShare() {
   if (navigator.share) {
     navigator.share({
       title: article.value.title,
-      text: article.value.excerpt,
+      text: articleExcerpt.value,
       url: window.location.href,
     }).catch(console.error);
   } else {
@@ -301,27 +354,28 @@ const head = useHead(
 
             <div class="flex items-center gap-4 py-4 border-b mb-6 overflow-x-auto justify-end" style="border-color: var(--theme-border);">
               <Link 
-                :to="`/author/${article.author.id}`"
+                v-if="articleAuthor"
+                :to="`/author/${articleAuthor.id || article?.authorId}`"
                 class="flex items-center gap-3 hover:opacity-80 transition-opacity flex-shrink-0"
               >
                 <img 
-                  :src="article.author.avatar" 
-                  :alt="article.author.username"
+                  :src="articleAuthor.avatar" 
+                  :alt="articleAuthor.username"
                   class="w-10 h-10 rounded-full"
                   loading="lazy"
                 />
-                <span class="font-medium text-base whitespace-nowrap" style="color: var(--theme-text);">{{ article.author.username }}</span>
+                <span class="font-medium text-base whitespace-nowrap" style="color: var(--theme-text);">{{ articleAuthor.nickname || articleAuthor.username }}</span>
               </Link>
               
               <div class="flex items-center gap-3 text-sm flex-shrink-0" style="color: var(--theme-text-secondary);">
                 <span>{{ articleDate }}</span>
                 <span>·</span>
-                <span>{{ article.views }} 阅读</span>
+                <span>{{ articleViews }} 阅读</span>
               </div>
               
-              <div v-if="article.tags && article.tags.length > 0" class="flex items-center gap-2 flex-1 min-w-0 justify-end" role="list" aria-label="文章标签">
+              <div v-if="articleTags.length > 0" class="flex items-center gap-2 flex-1 min-w-0 justify-end" role="list" aria-label="文章标签">
                 <span 
-                  v-for="tag in article.tags" 
+                  v-for="tag in articleTags" 
                   :key="tag"
                   class="inline-flex px-3 py-1 text-sm rounded-full whitespace-nowrap"
                   style="background-color: var(--theme-accent); color: var(--theme-primary);"
@@ -348,7 +402,7 @@ const head = useHead(
                   :aria-label="isLiked ? '取消点赞' : '点赞文章'"
                 >
                   <Heart class="w-5 h-5" :class="{ 'fill-current': isLiked }" aria-hidden="true" />
-                  <span class="font-medium">{{ article.likes }}</span>
+                  <span class="font-medium">{{ articleLikes }}</span>
                 </button>
                 <button 
                   @click="handleBookmark"
@@ -367,7 +421,7 @@ const head = useHead(
                   :aria-label="'分享文章'"
                 >
                   <Share2 class="w-5 h-5" aria-hidden="true" />
-                  <span class="font-medium">{{ article.shareCount || 0 }}</span>
+                  <span class="font-medium">{{ articleShareCount }}</span>
                 </button>
               </div>
               <div class="text-sm" style="color: var(--theme-text-secondary);">

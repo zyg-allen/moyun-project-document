@@ -6,12 +6,6 @@
         <el-tag :type="isEdit ? 'primary' : 'success'" size="small">
           {{ isEdit ? '编辑文章' : '新增文章' }}
         </el-tag>
-        <el-tag v-if="form.editorMode === 'richtext'" type="info" size="small">
-          富文本编辑器
-        </el-tag>
-        <el-tag v-else type="info" size="small">
-          Markdown 编辑器
-        </el-tag>
       </div>
       <div class="editor-actions">
         <el-button @click="goBack">取消</el-button>
@@ -88,7 +82,7 @@
         <template #header>
           <div class="section-header">
             <span>文章内容</span>
-            <el-radio-group v-model="form.editorMode" size="small">
+            <el-radio-group v-model="form.editorMode" size="small" @change="handleEditorModeChange">
               <el-radio-button value="richtext">富文本</el-radio-button>
               <el-radio-button value="markdown">Markdown</el-radio-button>
             </el-radio-group>
@@ -97,12 +91,12 @@
         
         <el-form-item prop="content" class="content-item">
           <!-- 富文本编辑器 -->
-          <Editor v-if="form.editorMode === 'richtext'" v-model="form.content" />
+          <Editor v-if="form.editorMode === 'richtext'" v-model="form.content" class="editor-wrapper" />
           
           <!-- Markdown 编辑器 - 左右布局 -->
           <div v-else class="markdown-editor-wrapper">
-            <div class="markdown-container" :style="{ width: editorWidth + '%' }">
-              <div class="markdown-editor-pane">
+            <div class="markdown-container">
+              <div class="markdown-editor-pane" :style="{ width: editorWidth + '%' }">
                 <div class="pane-header">
                   <span class="pane-title">编辑</span>
                   <span class="pane-hint">拖拽边缘调整宽度</span>
@@ -340,6 +334,38 @@ function stopResize() {
   document.removeEventListener('mouseup', stopResize);
 }
 
+// 编辑器模式切换
+function handleEditorModeChange(newMode) {
+  const oldMode = newMode === 'richtext' ? 'markdown' : 'richtext';
+  
+  // 检查是否有内容需要同步
+  let hasContent = false;
+  if (oldMode === 'richtext' && form.value.content) {
+    hasContent = true;
+  } else if (oldMode === 'markdown' && form.value.contentMarkdown) {
+    hasContent = true;
+  }
+  
+  if (hasContent) {
+    proxy.$modal.confirm(`切换到${newMode === 'richtext' ? '富文本' : 'Markdown'}编辑器，当前内容将自动同步，是否继续？`).then(() => {
+      // 同步内容
+      if (oldMode === 'richtext' && newMode === 'markdown') {
+        // 从富文本切换到 Markdown：将 HTML 内容同步到 Markdown
+        form.value.contentMarkdown = form.value.content || '';
+      } else if (oldMode === 'markdown' && newMode === 'richtext') {
+        // 从 Markdown 切换到富文本：将 Markdown 预览同步到富文本
+        if (form.value.contentMarkdown) {
+          form.value.content = markdownPreview.value;
+        }
+      }
+      proxy.$modal.msgSuccess(`已切换到${newMode === 'richtext' ? '富文本' : 'Markdown'}编辑器`);
+    }).catch(() => {
+      // 用户取消，恢复原来的模式
+      form.value.editorMode = oldMode;
+    });
+  }
+}
+
 // 提交按钮
 function submitForm() {
   articleRef.value.validate(valid => {
@@ -458,10 +484,12 @@ init();
 .markdown-editor-wrapper {
   border: none;
   background: var(--el-fill-color-lighter);
+  width: 100%;
 }
 
 .markdown-container {
   display: flex;
+  width: 100%;
   min-height: 500px;
   background: var(--el-fill-color-lighter);
   
@@ -492,8 +520,6 @@ init();
   }
   
   .markdown-editor-pane {
-    flex: 1;
-    
     .markdown-input {
       flex: 1;
       
@@ -517,6 +543,7 @@ init();
     background: var(--el-border-color-lighter);
     cursor: col-resize;
     transition: background-color 0.2s;
+    flex-shrink: 0;
     
     &:hover {
       background: var(--el-color-primary);
@@ -524,7 +551,6 @@ init();
   }
   
   .markdown-preview-pane {
-    flex: 1;
     border-left: none;
     
     .preview-content {
@@ -533,6 +559,7 @@ init();
       overflow-y: auto;
       background: var(--el-fill-color-lighter);
       line-height: 1.8;
+      word-wrap: break-word;
       
       :deep(.empty-tip) {
         color: var(--el-text-color-placeholder);
@@ -599,6 +626,10 @@ init();
       }
     }
   }
+}
+
+.editor-wrapper {
+  width: 100%;
 }
 
 :deep(.el-row) {

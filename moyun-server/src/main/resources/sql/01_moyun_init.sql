@@ -523,15 +523,15 @@ INSERT INTO sys_dict_data VALUES(26, 8,  '生成代码', '8',       'sys_oper_ty
 INSERT INTO sys_dict_data VALUES(27, 9,  '清空数据', '9',       'sys_oper_type',       '',   'danger',  'N', '0', 'admin', NOW(), '', NULL, '清空操作');
 INSERT INTO sys_dict_data VALUES(28, 1,  '成功',     '0',       'sys_common_status',   '',   'primary', 'N', '0', 'admin', NOW(), '', NULL, '正常状态');
 INSERT INTO sys_dict_data VALUES(29, 2,  '失败',     '1',       'sys_common_status',   '',   'danger',  'N', '0', 'admin', NOW(), '', NULL, '停用状态');
-INSERT INTO sys_dict_data VALUES(30, 0,  '系统指定', 'fixed',    'exp_data_type',       NULL, 'default', 'N', '0', 'admin', NOW(), '', NULL, '表达式类型');
-INSERT INTO sys_dict_data VALUES(31, 1,  '动态选择', 'dynamic',  'exp_data_type',       NULL, 'default', 'N', '0', 'admin', NOW(), '', NULL, '表达式类型');
-INSERT INTO sys_dict_data VALUES(32, 0,  '任务监听', '1',        'sys_listener_type',   NULL, 'default', 'N', '0', 'admin', NOW(), '', NULL, '监听类型');
-INSERT INTO sys_dict_data VALUES(33, 2,  '执行监听', '2',        'sys_listener_type',   NULL, 'default', 'N', '0', 'admin', NOW(), '', NULL, '监听类型');
-INSERT INTO sys_dict_data VALUES(34, 0,  'JAVA类',  'classListener',     'sys_listener_value_type', NULL, 'default', 'N', '0', 'admin', NOW(), '', NULL, '监听值类型');
-INSERT INTO sys_dict_data VALUES(35, 1,  '表达式',  'expressionListener','sys_listener_value_type', NULL, 'default', 'N', '0', 'admin', NOW(), '', NULL, '监听值类型');
-INSERT INTO sys_dict_data VALUES(36, 2,  '代理表达式', 'delegateExpressionListener','sys_listener_value_type', NULL, 'default', 'N', '0', 'admin', NOW(), '', NULL, '监听值类型');
-INSERT INTO sys_dict_data VALUES(37, 0,  '请假',     'leave',    'sys_process_category', NULL, 'default', 'N', '0', 'admin', NOW(), '', NULL, '流程分类');
-INSERT INTO sys_dict_data VALUES(38, 1,  '报销',     'expense',  'sys_process_category', NULL, 'default', 'N', '0', 'admin', NOW(), '', NULL, '流程分类');
+INSERT INTO sys_dict_data VALUES(30, 0,  '系统指定', 'fixed',    'exp_data_type',       NULL, 'default', 'N', '0', 'admin', NOW(), '', NULL);
+INSERT INTO sys_dict_data VALUES(31, 1,  '动态选择', 'dynamic',  'exp_data_type',       NULL, 'default', 'N', '0', 'admin', NOW(), '', NULL);
+INSERT INTO sys_dict_data VALUES(32, 0,  '任务监听', '1',        'sys_listener_type',   NULL, 'default', 'N', '0', 'admin', NOW(), '', NULL);
+INSERT INTO sys_dict_data VALUES(33, 2,  '执行监听', '2',        'sys_listener_type',   NULL, 'default', 'N', '0', 'admin', NOW(), '', NULL);
+INSERT INTO sys_dict_data VALUES(34, 0,  'JAVA类',  'classListener',     'sys_listener_value_type', NULL, 'default', 'N', '0', 'admin', NOW(), '', NULL);
+INSERT INTO sys_dict_data VALUES(35, 1,  '表达式',  'expressionListener','sys_listener_value_type', NULL, 'default', 'N', '0', 'admin', NOW(), '', NULL);
+INSERT INTO sys_dict_data VALUES(36, 2,  '代理表达式', 'delegateExpressionListener','sys_listener_value_type', NULL, 'default', 'N', '0', 'admin', NOW(), '', NULL);
+INSERT INTO sys_dict_data VALUES(37, 0,  '请假',     'leave',    'sys_process_category', NULL, 'default', 'N', '0', 'admin', NOW(), '', NULL);
+INSERT INTO sys_dict_data VALUES(38, 1,  '报销',     'expense',  'sys_process_category', NULL, 'default', 'N', '0', 'admin', NOW(), '', NULL);
 
 
 -- ============================================

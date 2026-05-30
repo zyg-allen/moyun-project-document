@@ -36,39 +36,32 @@
       </el-col>
       <el-col :span="1.5">
         <el-button
-            type="success"
+            type="info"
             plain
-            icon="Edit"
-            :disabled="single"
-            @click="handleUpdate"
-            v-hasPermi="['cms:category:edit']"
-        >修改</el-button>
-      </el-col>
-      <el-col :span="1.5">
-        <el-button
-            type="danger"
-            plain
-            icon="Delete"
-            :disabled="multiple"
-            @click="handleDelete"
-            v-hasPermi="['cms:category:remove']"
-        >删除</el-button>
+            icon="Sort"
+            @click="toggleExpandAll"
+        >展开/折叠</el-button>
       </el-col>
       <right-toolbar v-model:showSearch="showSearch" @queryTable="getList" :columns="columns"></right-toolbar>
     </el-row>
 
     <!-- 数据表格 -->
-    <el-table v-loading="loading" :data="categoryList" @selection-change="handleSelectionChange" row-key="id" :tree-props="{children: 'children', hasChildren: 'hasChildren'}">
-      <el-table-column type="selection" width="55" align="center" />
-      <el-table-column label="分类编号" align="center" prop="categoryId" width="80" />
-      <el-table-column label="分类名称" align="center" prop="name" :show-overflow-tooltip="true" />
-      <el-table-column label="分类图标" align="center" prop="icon" width="100">
+    <el-table
+        v-if="refreshTable"
+        v-loading="loading"
+        :data="categoryList"
+        row-key="categoryId"
+        :default-expand-all="isExpandAll"
+        :tree-props="{ children: 'children', hasChildren: 'hasChildren' }"
+    >
+      <el-table-column label="分类名称" :show-overflow-tooltip="true" width="160">
         <template #default="scope">
-          <el-icon v-if="scope.row.icon" :size="30"><component :is="scope.row.icon" /></el-icon>
+          <el-icon v-if="scope.row.icon" :size="18" class="mr-2"><component :is="scope.row.icon" /></el-icon>
+          <span>{{ scope.row.name }}</span>
         </template>
       </el-table-column>
-      <el-table-column label="排序" align="center" prop="sort" width="80" />
-      <el-table-column label="状态" align="center" prop="status" width="80">
+      <el-table-column label="排序" width="60">{{ scope.row.sort }}</el-table-column>
+      <el-table-column label="状态" width="80">
         <template #default="scope">
           <el-switch
               v-model="scope.row.status"
@@ -78,34 +71,16 @@
           />
         </template>
       </el-table-column>
-      <el-table-column label="创建时间" align="center" prop="createTime" width="160">
+      <el-table-column label="创建时间" align="center" width="160" prop="createTime">
         <template #default="scope">
           <span>{{ parseTime(scope.row.createTime) }}</span>
         </template>
       </el-table-column>
-      <el-table-column label="操作" align="center" class-name="small-padding fixed-width" width="180">
+      <el-table-column label="操作" align="center" width="210" class-name="small-padding fixed-width">
         <template #default="scope">
-          <el-button
-              link
-              type="primary"
-              icon="Plus"
-              @click="handleAddChild(scope.row)"
-              v-hasPermi="['cms:category:add']"
-          >新增子分类</el-button>
-          <el-button
-              link
-              type="primary"
-              icon="Edit"
-              @click="handleUpdate(scope.row)"
-              v-hasPermi="['cms:category:edit']"
-          >修改</el-button>
-          <el-button
-              link
-              type="primary"
-              icon="Delete"
-              @click="handleDelete(scope.row)"
-              v-hasPermi="['cms:category:remove']"
-          >删除</el-button>
+          <el-button link type="primary" icon="Edit" @click="handleUpdate(scope.row)" v-hasPermi="['cms:category:edit']">修改</el-button>
+          <el-button link type="primary" icon="Plus" @click="handleAdd(scope.row)" v-hasPermi="['cms:category:add']">新增子分类</el-button>
+          <el-button link type="primary" icon="Delete" @click="handleDelete(scope.row)" v-hasPermi="['cms:category:remove']">删除</el-button>
         </template>
       </el-table-column>
     </el-table>
@@ -174,20 +149,17 @@ const categoryTree = ref([]);
 const open = ref(false);
 const loading = ref(true);
 const showSearch = ref(true);
-const ids = ref([]);
-const single = ref(true);
-const multiple = ref(true);
 const total = ref(0);
 const title = ref("");
+const refreshTable = ref(true);
+const isExpandAll = ref(true);
 
 // 列显隐信息
 const columns = ref([
-  { key: 0, label: `分类编号`, visible: true },
-  { key: 1, label: `分类名称`, visible: true },
-  { key: 2, label: `分类图标`, visible: true },
-  { key: 3, label: `排序`, visible: true },
-  { key: 4, label: `状态`, visible: true },
-  { key: 5, label: `创建时间`, visible: true }
+  { key: 0, label: `分类名称`, visible: true },
+  { key: 1, label: `排序`, visible: true },
+  { key: 2, label: `状态`, visible: true },
+  { key: 3, label: `创建时间`, visible: true }
 ]);
 
 // 查询参数
@@ -210,40 +182,39 @@ const { queryParams, form, rules } = toRefs(data);
 function getList() {
   loading.value = true;
   listCategory(queryParams.value).then(response => {
-    // 🔥 关键修复：处理两种返回格式
+    // 处理两种返回格式
     let dataList = [];
     if (Array.isArray(response.data)) {
-      // 后端直接返回数组格式
       dataList = response.data;
     } else if (response.data && Array.isArray(response.data.rows)) {
-      // 若依标准分页格式
       dataList = response.data.rows;
       total.value = response.data.total || 0;
     } else if (Array.isArray(response.rows)) {
-      // 兼容其他格式
       dataList = response.rows;
       total.value = response.total || 0;
     } else {
       dataList = [];
     }
 
-    // 🔥 字段名映射：将后端字段转换为前端期望的字段
-    categoryList.value = dataList.map(item => ({
+    // 字段名映射：将后端字段转换为前端期望的字段
+    const mappedList = dataList.map(item => ({
       categoryId: item.id,
       name: item.name,
       slug: item.slug,
       description: item.description,
       icon: item.icon,
       sort: item.sort,
-      parentId: item.parentId,
+      parentId: item.parentId || 0,
       status: item.status,
       createTime: item.createTime,
       remark: item.remark,
-      children: item.children
+      children: []
     }));
 
+    // 构建树形结构
+    categoryList.value = buildTree(mappedList);
     categoryTree.value = categoryList.value;
-    // 如果没有返回total，使用数组长度
+    
     if (!total.value || total.value === 0) {
       total.value = categoryList.value.length;
     }
@@ -253,6 +224,51 @@ function getList() {
     console.error('获取分类列表失败:', error);
     loading.value = false;
   });
+}
+
+// 构建树形结构
+function buildTree(list) {
+  const map = new Map();
+  const roots = [];
+  
+  // 将 parentId 为 null 或 undefined 的转换为 0
+  list.forEach(item => {
+    if (item.parentId === null || item.parentId === undefined) {
+      item.parentId = 0;
+    }
+    map.set(item.categoryId, item);
+  });
+  
+  list.forEach(item => {
+    const parent = map.get(item.parentId);
+    if (parent && item.categoryId !== item.parentId) {
+      if (!parent.children) {
+        parent.children = [];
+      }
+      parent.children.push(item);
+      parent.hasChildren = true;
+    } else if (item.parentId === 0) {
+      roots.push(item);
+    }
+  });
+  
+  // 按排序字段排序
+  const sortChildren = (nodes) => {
+    nodes.forEach(node => {
+      if (node.children && node.children.length > 0) {
+        node.children.sort((a, b) => (a.sort || 0) - (b.sort || 0));
+        sortChildren(node.children);
+      }
+    });
+    return nodes.sort((a, b) => (a.sort || 0) - (b.sort || 0));
+  };
+  
+  return sortChildren(roots);
+}
+
+// 展开/折叠
+function toggleExpandAll() {
+  isExpandAll.value = !isExpandAll.value;
 }
 
 // 取消按钮
@@ -287,32 +303,22 @@ function resetQuery() {
   handleQuery();
 }
 
-// 表格多选
-function handleSelectionChange(selection) {
-  ids.value = selection.map(item => item.categoryId);
-  single.value = selection.length !== 1;
-  multiple.value = !selection.length;
-}
-
 // 新增按钮操作
-function handleAdd() {
+function handleAdd(row) {
   reset();
+  if (row && row.categoryId) {
+    form.value.parentId = row.categoryId;
+    title.value = "添加子分类";
+  } else {
+    title.value = "添加分类";
+  }
   open.value = true;
-  title.value = "添加分类";
-}
-
-// 新增子分类操作
-function handleAddChild(row) {
-  reset();
-  form.value.parentId = row.categoryId;
-  open.value = true;
-  title.value = "添加子分类";
 }
 
 // 修改按钮操作
 function handleUpdate(row) {
   reset();
-  const categoryId = row.categoryId || ids.value[0];
+  const categoryId = row.categoryId;
   getCategory(categoryId).then(response => {
     // 🔥 字段映射：后端字段 -> 前端字段
     const data = response.data;
@@ -364,9 +370,9 @@ function submitForm() {
 
 // 删除按钮操作
 function handleDelete(row) {
-  const categoryIds = row.categoryId || ids.value;
-  proxy.$modal.confirm('是否确认删除分类编号为"' + categoryIds + '"的数据项？').then(function () {
-    return delCategory(categoryIds);
+  const categoryId = row.categoryId;
+  proxy.$modal.confirm('是否确认删除分类"' + row.name + '"？').then(function () {
+    return delCategory(categoryId);
   }).then(() => {
     getList();
     proxy.$modal.msgSuccess("删除成功");

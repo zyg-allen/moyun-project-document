@@ -6,7 +6,7 @@ import {
   Search, ChevronRight, ChevronLeft, Star, Flame,
   User, Heart, Eye, Clock, Tag, BookOpen, Calendar,
   MessageSquare, Quote, MoreHorizontal, ArrowRight, Sparkles, ChevronDown,
-  Microphone, Code, Book, Briefcase, Users, Pen, Chat, Upload, CheckCircle
+  Mic, Code, Book, Briefcase, Users, Pen, MessageCircle, Upload, CheckCircle
 } from 'lucide-vue-next'
 import ArticleCard from '@/components/ArticleCard.vue'
 import LazyImage from '@/components/LazyImage.vue'
@@ -315,6 +315,26 @@ const getThemeTabStyle = (themeName: string) => {
   }
 }
 
+// 获取文章作者名称
+const getArticleAuthorName = (article: any): string => {
+  if (article.author?.nickname) return article.author.nickname;
+  if (article.author?.username) return article.author.username;
+  if (article.authorNickname) return article.authorNickname;
+  if (article.authorUsername) return article.authorUsername;
+  return '';
+}
+
+// 格式化文章日期
+const formatArticleDate = (article: any): string => {
+  const dateStr = article.createdAt || article.createTime;
+  if (!dateStr) return '';
+  const date = new Date(dateStr);
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
 useHead(
   generateSeo({
     title: '首页 - 墨韵智库',
@@ -341,7 +361,7 @@ useHead(
           />
           <div class="absolute inset-0 z-20 flex flex-col justify-end p-6 sm:p-8">
             <div class="inline-flex items-center space-x-2 bg-gradient-to-r from-red-600 to-red-500 text-white px-3 py-1 rounded-full text-xs font-medium mb-3 sm:mb-4 w-fit">
-              <Microphone class="w-3 h-3" />
+              <Mic class="w-3 h-3" />
               <span>{{ proseCarouselItems[currentProseIndex].tag }}</span>
             </div>
             <h2 class="text-xl sm:text-2xl lg:text-3xl font-bold text-white mb-2 sm:mb-3 leading-tight">
@@ -537,22 +557,22 @@ useHead(
                       {{ article.title }}
                     </h3>
                     <p class="text-xs line-clamp-1" style="color: var(--theme-text-secondary);">
-                      {{ article.excerpt }}
+                      {{ article.excerpt || '' }}
                     </p>
                   </div>
                   <div class="flex items-center justify-between gap-2 mt-2">
                     <div class="flex items-center gap-2">
-                      <span class="text-xs" style="color: var(--theme-text-secondary);">{{ article.author.nickname }}</span>
-                      <span class="text-xs" style="color: var(--theme-text-secondary);">{{ article.createdAt }}</span>
+                      <span class="text-xs" style="color: var(--theme-text-secondary);">{{ getArticleAuthorName(article) }}</span>
+                      <span class="text-xs" style="color: var(--theme-text-secondary);">{{ formatArticleDate(article) }}</span>
                     </div>
                     <div class="flex items-center gap-3">
                       <span class="flex items-center gap-1 text-xs" style="color: var(--theme-text-secondary);">
                         <Eye class="w-3 h-3" />
-                        {{ article.views }}
+                        {{ article.views || 0 }}
                       </span>
                       <span class="flex items-center gap-1 text-xs" style="color: var(--theme-text-secondary);">
                         <Heart class="w-3 h-3" />
-                        {{ article.likes }}
+                        {{ article.likes || 0 }}
                       </span>
                     </div>
                   </div>
@@ -594,11 +614,11 @@ useHead(
                     <div class="flex items-center gap-3">
                       <span class="flex items-center gap-1 text-xs" style="color: var(--theme-text-secondary);">
                         <Eye class="w-3 h-3" />
-                        {{ article.views }}
+                        {{ article.views || 0 }}
                       </span>
                       <span class="flex items-center gap-1 text-xs" style="color: var(--theme-text-secondary);">
                         <Heart class="w-3 h-3" />
-                        {{ article.likes }}
+                        {{ article.likes || 0 }}
                       </span>
                     </div>
                   </div>
@@ -894,7 +914,7 @@ useHead(
           <div class="p-4 sm:p-5 rounded-2xl" style="background-color: var(--theme-bg);">
             <div class="flex items-center gap-2 sm:gap-3 mb-4">
               <div class="w-10 h-10 sm:w-11 sm:h-11 bg-gradient-to-br from-pink-100 to-rose-100 rounded-xl flex items-center justify-center">
-                <Chat class="w-5 h-5 sm:w-5.5 sm:h-5.5 text-rose-600" />
+                <MessageCircle class="w-5 h-5 sm:w-5.5 sm:h-5.5 text-rose-600" />
               </div>
               <div>
                 <h3 class="font-semibold text-sm sm:text-base" style="color: var(--theme-text);">话题讨论</h3>

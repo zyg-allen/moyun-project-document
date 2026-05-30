@@ -1,24 +1,8 @@
-# Build and Release Folders
-bin-debug/
-bin-release/
-[Oo]bj/
-# 注意：只忽略根目录和Java项目的bin，不排除前端项目的bin
-[Bb]in/
-!moyun-admin-vue/bin/
-
-# Other files and folders
-.settings/
-
-# Executables
-*.swf
-*.air
-*.ipa
-*.apk
-
+HELP.md
 
 # 环境配置文件（包含敏感信息）
 application-local.yaml
-
+application-dev.yaml
 application-prod.yaml
 application-test.yaml
 
@@ -54,28 +38,6 @@ build/
 
 ### VS Code ###
 .vscode/
-
-### Node.js ###
-# 忽略所有 node_modules 目录（包括子目录）
-node_modules/
-**/node_modules/
-
-# npm 日志
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-pnpm-debug.log*
-
-# 本地环境文件
-.env.local
-.env.*.local
-
-# 缓存文件
-.cache/
-.parcel-cache/
-.eslintcache
-
-# 构建输出
-dist/
-build/
-*.log
+/node_modules/
+/moyun-portal/node_modules/
+/moyun-admin-vue/node_modules/

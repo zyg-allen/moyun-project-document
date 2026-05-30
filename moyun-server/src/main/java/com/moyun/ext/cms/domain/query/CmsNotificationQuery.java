@@ -2,20 +2,14 @@ package com.moyun.ext.cms.domain.query;
 
 import com.moyun.core.base.page.PageDomain;
 import lombok.Data;
-import lombok.EqualsAndHashCode;
-
-import java.io.Serial;
-import java.io.Serializable;
 
 /**
  * 通知查询对象
  *
  * @author moyun
  */
-@EqualsAndHashCode(callSuper = true)
 @Data
-public class CmsNotificationQuery extends PageDomain implements Serializable {
-    @Serial
+public class CmsNotificationQuery extends PageDomain {
     private static final long serialVersionUID = 1L;
 
     /**

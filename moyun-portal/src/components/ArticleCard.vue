@@ -4,7 +4,7 @@ import { RouterLink as Link } from 'vue-router';
 import { Clock, Tag, User } from 'lucide-vue-next';
 import { useArticleStore } from '@/stores/article';
 import LazyImage from '@/components/LazyImage.vue';
-import type { Article } from '@/types';
+import type { Article } from '@/types/api';
 
 interface Props {
   article: Article;
@@ -17,7 +17,8 @@ const isLiked = computed(() => articleStore.likedArticleIds.includes(props.artic
 const isBookmarked = computed(() => articleStore.bookmarkedArticleIds.includes(props.article.id));
 
 // 截断文本最多50字符
-function truncateText(text: string, maxLength: number = 50): string {
+function truncateText(text: string | undefined, maxLength: number = 50): string {
+  if (!text) return '';
   if (text.length <= maxLength) return text;
   return text.substring(0, maxLength) + '...';
 }
@@ -39,7 +40,7 @@ function handleShare(event: Event) {
   if (navigator.share) {
     navigator.share({
       title: props.article.title,
-      text: props.article.excerpt,
+      text: props.article.excerpt || '',
       url: window.location.origin + '/article/' + props.article.id,
     }).catch(console.error);
   } else {
@@ -48,7 +49,8 @@ function handleShare(event: Event) {
   }
 }
 
-function formatDateTime(dateStr: string) {
+function formatDateTime(dateStr: string | undefined) {
+  if (!dateStr) return '';
   const date = new Date(dateStr);
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, '0');
@@ -56,6 +58,27 @@ function formatDateTime(dateStr: string) {
   const hours = String(date.getHours()).padStart(2, '0');
   const minutes = String(date.getMinutes()).padStart(2, '0');
   return `${year}-${month}-${day} ${hours}:${minutes}`;
+}
+
+// 获取作者用户名
+function getAuthorUsername(article: Article): string {
+  if (article.author?.username) return article.author.username;
+  if ('authorUsername' in article) return article.authorUsername as string;
+  return '';
+}
+
+// 获取作者头像
+function getAuthorAvatar(article: Article): string {
+  if (article.author?.avatar) return article.author.avatar;
+  if ('authorAvatar' in article) return article.authorAvatar as string;
+  return '';
+}
+
+// 获取标签列表
+function getTags(article: Article): string[] {
+  if (Array.isArray(article.tags)) return article.tags;
+  if ('tagNames' in article && Array.isArray(article.tagNames)) return article.tagNames as string[];
+  return [];
 }
 </script>
 
@@ -102,19 +125,19 @@ function formatDateTime(dateStr: string) {
             </Link>
             <!-- 作者信息 -->
             <Link 
-              :to="'/author/' + article.author.id"
+              :to="'/author/' + article.authorId"
               @click.stop
               class="flex items-center gap-1.5 mt-1 text-xs transition-colors hover:opacity-80"
               style="color: var(--theme-text-secondary);"
             >
               <div class="w-4 h-4 rounded-full overflow-hidden flex-shrink-0">
                 <img 
-                  :src="article.author.avatar" 
-                  :alt="article.author.username"
+                  :src="getAuthorAvatar(article)" 
+                  :alt="getAuthorUsername(article)"
                   class="w-full h-full object-cover"
                 />
               </div>
-              <span>{{ article.author.username }}</span>
+              <span>{{ getAuthorUsername(article) }}</span>
             </Link>
             <!-- 简介 -->
             <p class="text-xs mt-1 line-clamp-1" style="color: var(--theme-text-secondary);">
@@ -127,7 +150,7 @@ function formatDateTime(dateStr: string) {
             <!-- 标签 -->
             <div class="flex flex-wrap gap-1.5">
               <span 
-                v-for="tag in article.tags.slice(0, 2)" 
+                v-for="tag in getTags(article).slice(0, 2)" 
                 :key="tag"
                 class="inline-flex items-center px-2 py-0.5 text-xs rounded-full"
                 style="background-color: var(--theme-surface); color: var(--theme-text-secondary);"

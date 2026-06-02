@@ -6,6 +6,7 @@ import com.moyun.core.security.handle.AuthenticationEntryPointImpl;
 import com.moyun.core.security.handle.LogoutSuccessHandlerImpl;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
@@ -21,7 +22,10 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.security.web.authentication.logout.LogoutFilter;
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.web.filter.CorsFilter;
+
+import java.util.List;
 
 /**
  * spring security配置
@@ -69,6 +73,12 @@ public class SecurityConfig {
     private PermitAllUrlProperties permitAllUrl;
 
     /**
+     * 安全模块排除路径配置
+     */
+    @Value("${security.exclude-modules:#{null}}")
+    private List<String> excludeModules;
+
+    /**
      * 身份验证实现（核心模块，设为@Primary）
      */
     @Bean
@@ -78,6 +88,24 @@ public class SecurityConfig {
         daoAuthenticationProvider.setUserDetailsService(userDetailsService);
         daoAuthenticationProvider.setPasswordEncoder(bCryptPasswordEncoder());
         return new ProviderManager(daoAuthenticationProvider);
+    }
+
+    /**
+     * 判断请求路径是否应该被当前 SecurityFilterChain 处理
+     */
+    private boolean shouldApplyTo(HttpServletRequest request) {
+        String uri = request.getRequestURI();
+        if (excludeModules == null || excludeModules.isEmpty()) {
+            return true;
+        }
+        for (String module : excludeModules) {
+            // 处理通配符模式，如 /portal/** -> /portal/
+            String pattern = module.replace("/**", "/");
+            if (uri.startsWith(pattern)) {
+                return false;
+            }
+        }
+        return true;
     }
 
     /**
@@ -99,6 +127,8 @@ public class SecurityConfig {
     @Primary
     protected SecurityFilterChain filterChain(HttpSecurity httpSecurity) throws Exception {
         return httpSecurity
+                // 排除配置的模块路径，这些路径使用独立的认证配置
+                .securityMatcher(this::shouldApplyTo)
                 // CSRF禁用，因为不使用session
                 .csrf(csrf -> csrf.disable())
                 // 禁用HTTP响应标头

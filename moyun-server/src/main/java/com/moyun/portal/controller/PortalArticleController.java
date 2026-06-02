@@ -7,6 +7,7 @@ import com.moyun.core.base.BaseController;
 import com.moyun.core.base.AjaxResult;
 import com.moyun.core.base.TableDataInfo;
 import com.moyun.common.enums.BusinessType;
+import com.moyun.portal.domain.entity.PortalComment;
 import com.moyun.util.file.ExcelUtil;
 import com.moyun.portal.domain.entity.PortalArticle;
 import com.moyun.portal.domain.vo.ArticleVO;
@@ -162,5 +163,90 @@ public class PortalArticleController extends BaseController {
         wrapper.orderByDesc(PortalArticle::getCreateTime);
         Page<PortalArticle> resultPage = portalArticleMapper.selectPage(page, wrapper);
         return getDataTable(ArticleConvertUtil.toArticleVOList(resultPage.getRecords()), resultPage.getTotal());
+    }
+
+    @Operation(summary = "按分类获取文章列表", description = "根据分类ID或名称获取文章列表")
+    @GetMapping("/byCategory")
+    public TableDataInfo getArticlesByCategory(
+            @Parameter(description = "分类ID") @RequestParam(required = false) Long categoryId,
+            @Parameter(description = "分类名称") @RequestParam(required = false) String categoryName,
+            @Parameter(description = "每页数量") @RequestParam(defaultValue = "10") Integer pageSize,
+            @Parameter(description = "页码") @RequestParam(defaultValue = "10") Integer pageNub) {
+        startPage();
+        LambdaQueryWrapper<PortalArticle> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(PortalArticle::getStatus, "published");
+        
+        if (categoryId != null) {
+            wrapper.eq(PortalArticle::getCategoryId, categoryId);
+        }
+        if (categoryName != null && !categoryName.isEmpty()) {
+            wrapper.like(PortalArticle::getTitle ,categoryName);
+        }
+        wrapper.orderByDesc(PortalArticle::getIsTop)
+               .orderByDesc(PortalArticle::getCreateTime);
+        Page<PortalArticle> page = new Page<>(pageNub, pageSize);
+
+        Page<PortalArticle> resultPage = portalArticleMapper.selectPage(page, wrapper);
+        return getDataTable(ArticleConvertUtil.toArticleVOList(resultPage.getRecords()), resultPage.getTotal());
+    }
+
+    @Operation(summary = "获取首页数据汇总", description = "获取首页所需的全部数据")
+    @GetMapping("/home")
+    public AjaxResult getHomeData() {
+        LambdaQueryWrapper<PortalArticle> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(PortalArticle::getStatus, "published");
+        
+        // 获取轮播文章（最多5篇）
+        wrapper.eq(PortalArticle::getIsCarousel, true);
+        List<PortalArticle> carouselArticles = portalArticleMapper.selectList(wrapper.clone());
+        
+        // 获取精选文章（最多8篇）
+        wrapper.eq(PortalArticle::getIsFeatured, true);
+        wrapper.orderByDesc(PortalArticle::getIsTop);
+        List<PortalArticle> featuredArticles = portalArticleMapper.selectList(wrapper.clone());
+        
+        // 获取热门文章（最多10篇）
+        wrapper.clear();
+        wrapper.eq(PortalArticle::getStatus, "published");
+        wrapper.orderByDesc(PortalArticle::getViews);
+        Page<PortalArticle> hotPage = new Page<>(1, 10);
+        List<PortalArticle> hotArticles = portalArticleMapper.selectPage(hotPage, wrapper).getRecords();
+        
+        // 获取最新文章（最多12篇，用于按主题探索）
+        wrapper.clear();
+        wrapper.eq(PortalArticle::getStatus, "published");
+        wrapper.orderByDesc(PortalArticle::getCreateTime);
+        Page<PortalArticle> latestPage = new Page<>(1, 20);
+        List<PortalArticle> latestArticles = portalArticleMapper.selectPage(latestPage, wrapper).getRecords();
+        
+        return success(new HomeDataVO(
+            ArticleConvertUtil.toArticleVOList(carouselArticles),
+            ArticleConvertUtil.toArticleVOList(featuredArticles),
+            ArticleConvertUtil.toArticleVOList(hotArticles),
+            ArticleConvertUtil.toArticleVOList(latestArticles)
+        ));
+    }
+
+    /**
+     * 首页数据VO
+     */
+    public static class HomeDataVO {
+        private List<ArticleVO> carouselArticles;
+        private List<ArticleVO> featuredArticles;
+        private List<ArticleVO> hotArticles;
+        private List<ArticleVO> latestArticles;
+        
+        public HomeDataVO(List<ArticleVO> carouselArticles, List<ArticleVO> featuredArticles, 
+                         List<ArticleVO> hotArticles, List<ArticleVO> latestArticles) {
+            this.carouselArticles = carouselArticles;
+            this.featuredArticles = featuredArticles;
+            this.hotArticles = hotArticles;
+            this.latestArticles = latestArticles;
+        }
+        
+        public List<ArticleVO> getCarouselArticles() { return carouselArticles; }
+        public List<ArticleVO> getFeaturedArticles() { return featuredArticles; }
+        public List<ArticleVO> getHotArticles() { return hotArticles; }
+        public List<ArticleVO> getLatestArticles() { return latestArticles; }
     }
 }

@@ -506,3 +506,125 @@ export interface TodayVisitorStats {
   total: number;
   list: Visitor[];
 }
+
+// 读书空间相关类型
+export interface Book {
+  id: string;
+  title: string;
+  author: string;
+  cover: string;
+  description: string;
+  isbn?: string;
+  publisher?: string;
+  publishDate?: string;
+  pageCount?: number;
+  categoryId?: string;
+  tags?: string[];
+  rating: number;
+  readingCount: number;
+  status: string;
+  createTime?: string;
+  updateTime?: string;
+}
+
+export interface BookList {
+  id: string;
+  title: string;
+  description: string;
+  cover: string;
+  bookCount: number;
+  viewCount: number;
+  likeCount: number;
+  createTime?: string;
+}
+
+export interface Quote {
+  id: string;
+  content: string;
+  page?: string;
+  chapter?: string;
+  likeCount: number;
+  book?: Book;
+  createTime?: string;
+}
+
+export interface ReadingHomeResponse {
+  bookLists: BookList[];
+  books: Book[];
+  quotes: Quote[];
+}
+
+export interface BookListParams {
+  page?: number;
+  pageSize?: number;
+  categoryId?: string;
+}
+
+// 面试指南相关类型
+export interface InterviewCategory {
+  id: string;
+  name: string;
+  slug: string;
+  description: string;
+  icon: string;
+  sort: number;
+  questionCount: number;
+  status: string;
+}
+
+export interface InterviewQuestion {
+  id: string;
+  title: string;
+  description: string;
+  difficulty: 'easy' | 'medium' | 'hard';
+  categoryId: string;
+  tags: string[];
+  companies: string[];
+  acceptanceRate: number;
+  submissionCount: number;
+  likeCount: number;
+  hint?: string;
+  solution?: string;
+  sort: number;
+  status: string;
+  createTime?: string;
+}
+
+export interface InterviewExperience {
+  id: string;
+  title: string;
+  company: string;
+  position: string;
+  year: number;
+  month: number;
+  content: string;
+  viewCount: number;
+  likeCount: number;
+  commentCount: number;
+  user: User;
+  createTime?: string;
+}
+
+export interface ResumeTemplate {
+  id: string;
+  title: string;
+  description: string;
+  cover: string;
+  category: string;
+  likeCount: number;
+  downloadCount: number;
+}
+
+export interface InterviewHomeResponse {
+  categories: InterviewCategory[];
+  hotQuestions: InterviewQuestion[];
+  experiences: InterviewExperience[];
+  resumeTemplates: ResumeTemplate[];
+}
+
+export interface QuestionListParams {
+  page?: number;
+  pageSize?: number;
+  categoryId?: string;
+  difficulty?: string;
+}

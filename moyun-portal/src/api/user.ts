@@ -71,3 +71,8 @@ export const getUserById = (userId: string) => {
 export const getUserList = (params: { page: number; pageSize: number; [key: string]: any }) => {
   return httpGet<any>('/portal/user/list', params);
 };
+
+// 获取名家列表
+export const getAuthors = (limit = 10) => {
+  return httpGet<any[]>('/portal/user/authors', { limit });
+};

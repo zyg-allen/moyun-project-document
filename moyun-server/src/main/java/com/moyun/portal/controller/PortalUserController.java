@@ -81,4 +81,13 @@ public class PortalUserController extends BaseController {
     public AjaxResult remove(@Parameter(description = "用户ID数组") @PathVariable Long[] ids) {
         return toAjax(portalUserService.deletePortalUserByIds(ids));
     }
+
+    @Operation(summary = "获取名家列表", description = "获取首页展示的名家列表")
+    @GetMapping("/authors")
+    public AjaxResult getAuthors(@Parameter(description = "每页数量") @RequestParam(defaultValue = "10") Integer limit) {
+        PortalUser query = new PortalUser();
+        query.setStatus("0"); // 正常状态
+        List<PortalUser> list = portalUserService.selectPortalUserList(query);
+        return success(list.stream().limit(limit).toList());
+    }
 }

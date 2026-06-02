@@ -76,6 +76,11 @@ logging:
   pattern:
     console: '%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{50} - %msg%n'
 
+# 安全配置
+security:
+  # 后台管理需要排除的路径模块（这些路径使用独立的认证配置）
+  exclude-modules:  /portal/**,/external/**,/doc.html,/swagger-ui.html
+
 # 墨韵框架配置
 moyun:
   name: moyun

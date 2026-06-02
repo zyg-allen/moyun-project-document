@@ -15,6 +15,8 @@ const LoginPage = () => import('@/pages/LoginPage.vue')
 const RegisterPage = () => import('@/pages/RegisterPage.vue')
 const PublishPage = () => import('@/pages/PublishPage.vue')
 const NotFoundPage = () => import('@/pages/NotFoundPage.vue')
+const ReadingPage = () => import('@/pages/ReadingPage.vue')
+const InterviewPage = () => import('@/pages/InterviewPage.vue')
 
 // 定义路由配置
 const routes = [
@@ -22,6 +24,16 @@ const routes = [
     path: '/',
     name: 'home',
     component: HomePage,
+  },
+  {
+    path: '/reading',
+    name: 'reading',
+    component: ReadingPage,
+  },
+  {
+    path: '/interview',
+    name: 'interview',
+    component: InterviewPage,
   },
   {
     path: '/article/:id',

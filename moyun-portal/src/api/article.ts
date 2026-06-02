@@ -8,6 +8,11 @@ import type {
   PaginationResponse,
 } from '@/types/api';
 
+// 获取标签列表
+export const getTagList = () => {
+  return httpGet<{ list: any[] }>('/portal/tag/list');
+};
+
 // 获取文章列表
 export const getArticleList = (params?: ArticleListParams) => {
   return httpGetList<Article>('/portal/article/list', params);
@@ -66,4 +71,19 @@ export const getFeaturedArticles = (limit = 10) => {
 // 获取轮播文章
 export const getCarouselArticles = () => {
   return httpGet<Article[]>('/portal/article/carousel');
+};
+
+// 获取首页数据汇总
+export const getHomeData = () => {
+  return httpGet<{
+    carouselArticles: Article[];
+    featuredArticles: Article[];
+    hotArticles: Article[];
+    latestArticles: Article[];
+  }>('/portal/article/home');
+};
+
+// 按分类获取文章列表
+export const getArticlesByCategory = (categoryId?: string, categoryName?: string, pageSize = 10) => {
+  return httpGetList<Article>('/portal/article/byCategory', { categoryId, categoryName, pageSize });
 };

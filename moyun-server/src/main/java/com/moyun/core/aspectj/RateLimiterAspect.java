@@ -3,8 +3,8 @@ package com.moyun.core.aspectj;
 import com.moyun.common.annotation.RateLimiter;
 import com.moyun.common.enums.LimitType;
 import com.moyun.common.exception.system.ServiceException;
-import com.moyun.util.string.StringUtils;
 import com.moyun.util.ip.IpUtils;
+import com.moyun.util.string.StringUtils;
 import org.aspectj.lang.JoinPoint;
 import org.aspectj.lang.annotation.Aspect;
 import org.aspectj.lang.annotation.Before;
@@ -27,8 +27,7 @@ import java.util.List;
  */
 @Aspect
 @Component
-public class RateLimiterAspect
-{
+public class RateLimiterAspect {
     private static final Logger log = LoggerFactory.getLogger(RateLimiterAspect.class);
 
     private RedisTemplate<String, Object> redisTemplate;
@@ -36,49 +35,38 @@ public class RateLimiterAspect
     private RedisScript<Long> limitScript;
 
     @Autowired
-    public void setRedisTemplate(RedisTemplate<String, Object> redisTemplate)
-    {
+    public void setRedisTemplate(RedisTemplate<String, Object> redisTemplate) {
         this.redisTemplate = redisTemplate;
     }
 
     @Autowired
-    public void setLimitScript(RedisScript<Long> limitScript)
-    {
+    public void setLimitScript(RedisScript<Long> limitScript) {
         this.limitScript = limitScript;
     }
 
     @Before("@annotation(rateLimiter)")
-    public void doBefore(JoinPoint point, RateLimiter rateLimiter) throws Throwable
-    {
+    public void doBefore(JoinPoint point, RateLimiter rateLimiter) throws Throwable {
         int time = rateLimiter.time();
         int count = rateLimiter.count();
 
         String combineKey = getCombineKey(rateLimiter, point);
         List<String> keys = Collections.singletonList(combineKey);
-        try
-        {
+        try {
             Long number = redisTemplate.execute(limitScript, keys, count, time);
-            if (StringUtils.isNull(number) || number.intValue() > count)
-            {
+            if (StringUtils.isNull(number) || number.intValue() > count) {
                 throw new ServiceException("访问过于频繁，请稍候再试");
             }
             log.debug("限制请求'{}',当前请求'{}',缓存key'{}'", count, number.intValue(), combineKey);
-        }
-        catch (ServiceException e)
-        {
+        } catch (ServiceException e) {
             throw e;
-        }
-        catch (Exception e)
-        {
+        } catch (Exception e) {
             throw new RuntimeException("服务器限流异常，请稍候再试");
         }
     }
 
-    public String getCombineKey(RateLimiter rateLimiter, JoinPoint point)
-    {
+    public String getCombineKey(RateLimiter rateLimiter, JoinPoint point) {
         StringBuilder stringBuilder = new StringBuilder(rateLimiter.key());
-        if (rateLimiter.limitType() == LimitType.IP)
-        {
+        if (rateLimiter.limitType() == LimitType.IP) {
             stringBuilder.append(IpUtils.getIpAddr()).append("-");
         }
         MethodSignature signature = (MethodSignature) point.getSignature();

@@ -1,0 +1,131 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.moyun.portal.mapper.PortalBookMapper">
+    
+    <resultMap type="com.moyun.portal.domain.entity.PortalBook" id="PortalBookResult">
+        <id     property="id"        column="id"        />
+        <result property="title"     column="title"     />
+        <result property="author"    column="author"    />
+        <result property="cover"     column="cover"     />
+        <result property="description" column="description" />
+        <result property="isbn"      column="isbn"      />
+        <result property="publisher" column="publisher" />
+        <result property="publishDate" column="publish_date" />
+        <result property="pageCount" column="page_count" />
+        <result property="categoryId" column="category_id" />
+        <result property="tags"      column="tags"      />
+        <result property="rating"    column="rating"    />
+        <result property="readingCount" column="reading_count" />
+        <result property="status"    column="status"    />
+        <result property="createBy"  column="create_by"  />
+        <result property="createTime" column="create_time" />
+        <result property="updateBy"  column="update_by"  />
+        <result property="updateTime" column="update_time" />
+        <result property="remark"    column="remark"    />
+    </resultMap>
+
+    <sql id="selectPortalBookVo">
+        select id, title, author, cover, description, isbn, publisher, publish_date, page_count, category_id, tags, rating, reading_count, status, create_by, create_time, update_by, update_time, remark 
+        from portal_book
+    </sql>
+
+    <select id="selectPortalBookList" parameterType="com.moyun.portal.domain.entity.PortalBook" resultMap="PortalBookResult">
+        <include refid="selectPortalBookVo"/>
+        <where>  
+            <if test="title != null and title != ''">
+                AND title like concat('%', #{title}, '%')
+            </if>
+            <if test="author != null and author != ''">
+                AND author like concat('%', #{author}, '%')
+            </if>
+            <if test="categoryId != null">
+                AND category_id = #{categoryId}
+            </if>
+            <if test="status != null and status != ''">
+                AND status = #{status}
+            </if>
+        </where>
+        order by reading_count desc
+    </select>
+    
+    <select id="selectPortalBookById" parameterType="Long" resultMap="PortalBookResult">
+        <include refid="selectPortalBookVo"/>
+        where id = #{id}
+    </select>
+        
+    <insert id="insertPortalBook" parameterType="com.moyun.portal.domain.entity.PortalBook" useGeneratedKeys="true" keyProperty="id">
+        insert into portal_book
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="title != null and title != ''">title,</if>
+            <if test="author != null and author != ''">author,</if>
+            <if test="cover != null and cover != ''">cover,</if>
+            <if test="description != null">description,</if>
+            <if test="isbn != null and isbn != ''">isbn,</if>
+            <if test="publisher != null and publisher != ''">publisher,</if>
+            <if test="publishDate != null">publish_date,</if>
+            <if test="pageCount != null">page_count,</if>
+            <if test="categoryId != null">category_id,</if>
+            <if test="tags != null and tags != ''">tags,</if>
+            <if test="rating != null">rating,</if>
+            <if test="readingCount != null">reading_count,</if>
+            <if test="status != null and status != ''">status,</if>
+            <if test="createBy != null and createBy != ''">create_by,</if>
+            <if test="createTime != null">create_time,</if>
+            <if test="remark != null and remark != ''">remark,</if>
+         </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="title != null and title != ''">#{title},</if>
+            <if test="author != null and author != ''">#{author},</if>
+            <if test="cover != null and cover != ''">#{cover},</if>
+            <if test="description != null">#{description},</if>
+            <if test="isbn != null and isbn != ''">#{isbn},</if>
+            <if test="publisher != null and publisher != ''">#{publisher},</if>
+            <if test="publishDate != null">#{publishDate},</if>
+            <if test="pageCount != null">#{pageCount},</if>
+            <if test="categoryId != null">#{categoryId},</if>
+            <if test="tags != null and tags != ''">#{tags},</if>
+            <if test="rating != null">#{rating},</if>
+            <if test="readingCount != null">#{readingCount},</if>
+            <if test="status != null and status != ''">#{status},</if>
+            <if test="createBy != null and createBy != ''">#{createBy},</if>
+            <if test="createTime != null">#{createTime},</if>
+            <if test="remark != null and remark != ''">#{remark},</if>
+         </trim>
+    </insert>
+
+    <update id="updatePortalBook" parameterType="com.moyun.portal.domain.entity.PortalBook">
+        update portal_book
+        <trim prefix="SET" suffixOverrides=",">
+            <if test="title != null and title != ''">title = #{title},</if>
+            <if test="author != null and author != ''">author = #{author},</if>
+            <if test="cover != null and cover != ''">cover = #{cover},</if>
+            <if test="description != null">description = #{description},</if>
+            <if test="isbn != null and isbn != ''">isbn = #{isbn},</if>
+            <if test="publisher != null and publisher != ''">publisher = #{publisher},</if>
+            <if test="publishDate != null">publish_date = #{publishDate},</if>
+            <if test="pageCount != null">page_count = #{pageCount},</if>
+            <if test="categoryId != null">category_id = #{categoryId},</if>
+            <if test="tags != null and tags != ''">tags = #{tags},</if>
+            <if test="rating != null">rating = #{rating},</if>
+            <if test="readingCount != null">reading_count = #{readingCount},</if>
+            <if test="status != null and status != ''">status = #{status},</if>
+            <if test="updateBy != null and updateBy != ''">update_by = #{updateBy},</if>
+            <if test="updateTime != null">update_time = #{updateTime},</if>
+            <if test="remark != null">remark = #{remark},</if>
+        </trim>
+        where id = #{id}
+    </update>
+
+    <delete id="deletePortalBookById" parameterType="Long">
+        delete from portal_book where id = #{id}
+    </delete>
+
+    <delete id="deletePortalBookByIds" parameterType="Long">
+        delete from portal_book where id in 
+        <foreach item="id" collection="array" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </delete>
+</mapper>

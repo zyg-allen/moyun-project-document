@@ -1,0 +1,113 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.moyun.portal.mapper.PortalArticleMapper">
+
+    <resultMap type="com.moyun.portal.domain.entity.PortalArticle" id="PortalArticleResult">
+        <id property="id" column="id"/>
+        <result property="title" column="title"/>
+        <result property="content" column="content"/>
+        <result property="excerpt" column="excerpt"/>
+        <result property="cover" column="cover"/>
+        <result property="authorId" column="author_id"/>
+        <result property="categoryId" column="category_id"/>
+        <result property="status" column="status"/>
+        <result property="isFeatured" column="is_featured"/>
+        <result property="isTop" column="is_top"/>
+        <result property="isCarousel" column="is_carousel"/>
+        <result property="views" column="views"/>
+        <result property="likes" column="likes"/>
+        <result property="comments" column="comments"/>
+        <result property="shareCount" column="share_count"/>
+        <result property="bookmarkCount" column="bookmark_count"/>
+        <result property="publishedAt" column="published_at"/>
+        <result property="link" column="link"/>
+        <result property="editorMode" column="editor_mode"/>
+        <result property="contentMarkdown" column="content_markdown"/>
+        <result property="createBy" column="create_by"/>
+        <result property="createTime" column="create_time"/>
+        <result property="updateBy" column="update_by"/>
+        <result property="updateTime" column="update_time"/>
+        <result property="remark" column="remark"/>
+    </resultMap>
+
+    <sql id="selectPortalArticleVo">
+        select id, title, content, excerpt, cover, author_id, category_id, status, 
+               is_featured, is_top, is_carousel, views, likes, comments, share_count, 
+               bookmark_count, published_at, link, editor_mode, content_markdown,
+               create_by, create_time, update_by, update_time, remark
+        from portal_article
+    </sql>
+
+    <select id="selectPortalArticleList" parameterType="com.moyun.portal.domain.entity.PortalArticle" resultMap="PortalArticleResult">
+        <include refid="selectPortalArticleVo"/>
+        <where>
+            <if test="title != null and title != ''">AND title like concat('%', #{title}, '%')</if>
+            <if test="authorId != null">AND author_id = #{authorId}</if>
+            <if test="categoryId != null">AND category_id = #{categoryId}</if>
+            <if test="status != null and status != ''">AND status = #{status}</if>
+            <if test="isTop != null">AND is_top = #{isTop}</if>
+            <if test="isFeatured != null">AND is_featured = #{isFeatured}</if>
+            <if test="isCarousel != null">AND is_carousel = #{isCarousel}</if>
+        </where>
+        order by is_top desc, published_at desc
+    </select>
+
+    <select id="selectPortalArticleById" parameterType="Long" resultMap="PortalArticleResult">
+        <include refid="selectPortalArticleVo"/>
+        where id = #{id}
+    </select>
+
+    <insert id="insertPortalArticle" parameterType="com.moyun.portal.domain.entity.PortalArticle">
+        insert into portal_article(title, content, excerpt, cover, author_id, category_id, status,
+                                   is_featured, is_top, is_carousel, views, likes, comments, 
+                                   share_count, bookmark_count, published_at, link, editor_mode, 
+                                   content_markdown, create_by, create_time, update_by, update_time, remark)
+        values(#{title}, #{content}, #{excerpt}, #{cover}, #{authorId}, #{categoryId}, #{status},
+               #{isFeatured}, #{isTop}, #{isCarousel}, #{views}, #{likes}, #{comments},
+               #{shareCount}, #{bookmarkCount}, #{publishedAt}, #{link}, #{editorMode},
+               #{contentMarkdown}, #{createBy}, #{createTime}, #{updateBy}, #{updateTime}, #{remark})
+    </insert>
+
+    <update id="updatePortalArticle" parameterType="com.moyun.portal.domain.entity.PortalArticle">
+        update portal_article
+        <set>
+            <if test="title != null and title != ''">title = #{title},</if>
+            <if test="content != null">content = #{content},</if>
+            <if test="excerpt != null">excerpt = #{excerpt},</if>
+            <if test="cover != null">cover = #{cover},</if>
+            <if test="authorId != null">author_id = #{authorId},</if>
+            <if test="categoryId != null">category_id = #{categoryId},</if>
+            <if test="status != null">status = #{status},</if>
+            <if test="isFeatured != null">is_featured = #{isFeatured},</if>
+            <if test="isTop != null">is_top = #{isTop},</if>
+            <if test="isCarousel != null">is_carousel = #{isCarousel},</if>
+            <if test="views != null">views = #{views},</if>
+            <if test="likes != null">likes = #{likes},</if>
+            <if test="comments != null">comments = #{comments},</if>
+            <if test="shareCount != null">share_count = #{shareCount},</if>
+            <if test="bookmarkCount != null">bookmark_count = #{bookmarkCount},</if>
+            <if test="publishedAt != null">published_at = #{publishedAt},</if>
+            <if test="link != null">link = #{link},</if>
+            <if test="editorMode != null">editor_mode = #{editorMode},</if>
+            <if test="contentMarkdown != null">content_markdown = #{contentMarkdown},</if>
+            <if test="updateBy != null">update_by = #{updateBy},</if>
+            <if test="updateTime != null">update_time = #{updateTime},</if>
+            <if test="remark != null">remark = #{remark},</if>
+        </set>
+        where id = #{id}
+    </update>
+
+    <delete id="deletePortalArticleById" parameterType="Long">
+        delete from portal_article where id = #{id}
+    </delete>
+
+    <delete id="deletePortalArticleByIds" parameterType="Long">
+        delete from portal_article where id in 
+        <foreach item="item" collection="array" open="(" separator="," close=")">
+            #{item}
+        </foreach>
+    </delete>
+
+</mapper>

@@ -1,4 +1,4 @@
-import { httpGet, httpPost, httpDelete } from './client';
+import { httpGetList, httpPost, httpDelete } from './client';
 import type {
   Comment,
   CommentListParams,
@@ -9,7 +9,7 @@ import type {
 
 // 获取评论列表
 export const getCommentList = (params: CommentListParams) => {
-  return httpGet<PaginationResponse<Comment>>('/portal/comment/list', params);
+  return httpGetList<Comment>('/portal/comment/list', params);
 };
 
 // 创建评论

@@ -15,6 +15,7 @@ import org.springframework.security.authentication.dao.DaoAuthenticationProvider
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
@@ -86,7 +87,7 @@ public class PortalSecurityConfig {
     protected SecurityFilterChain portalSecurityFilterChain(HttpSecurity httpSecurity) throws Exception {
         return httpSecurity
                 .securityMatcher("/portal/**") // 只匹配门户路径
-                .csrf(csrf -> csrf.disable())
+                .csrf(AbstractHttpConfigurer::disable)
                 .headers(headers -> headers
                         .cacheControl(cache -> cache.disable())
                         .frameOptions(frameOptions -> frameOptions.sameOrigin())
@@ -99,21 +100,38 @@ public class PortalSecurityConfig {
                 )
                 .authorizeHttpRequests(authorizeRequests -> authorizeRequests
                         // 门户登录、注册、验证码允许匿名访问
-                        .requestMatchers("/portal/login", "/portal/register", "/portal/captchaImage").permitAll()
-                        // 门户公开资源允许匿名访问（GET请求）
-                        .requestMatchers(HttpMethod.GET,
+                        .requestMatchers("/portal/login", "/portal/register", "/portal/captchaImage", "/portal/debug/**").permitAll()
+                        // 门户公开资源允许匿名访问（所有HTTP方法）
+                        .requestMatchers(
                                 "/portal/article/list",
                                 "/portal/article/hot",
                                 "/portal/article/featured",
                                 "/portal/article/carousel",
-                                "/portal/article/**",
-                                "/portal/category/**",
-                                "/portal/tag/**",
-                                "/portal/comment/**",
-                                "/portal/friendLink/**",
-                                "/portal/vipPackage/**",
-                                "/portal/user/profile/**"
+                                "/portal/article/home",
+                                "/portal/article/byCategory"
                         ).permitAll()
+                        // 文章相关操作允许所有人访问（查看、点赞、浏览等）
+                        .requestMatchers(HttpMethod.GET, "/portal/article/**").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/portal/article/*/view").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/portal/article/*/like").permitAll()
+                        .requestMatchers(HttpMethod.DELETE, "/portal/article/*/like").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/portal/comment/**").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/portal/comment/**").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/portal/comment/*/like").permitAll()
+                        .requestMatchers(HttpMethod.DELETE, "/portal/comment/*/like").permitAll()
+                        .requestMatchers("/portal/category/**").permitAll()
+                        .requestMatchers("/portal/tag/**").permitAll()
+                        .requestMatchers("/portal/friendLink/**").permitAll()
+                        .requestMatchers("/portal/vipPackage/**").permitAll()
+                        .requestMatchers("/portal/user/profile/**").permitAll()
+                        // 面试指南和读书空间公开接口
+                        .requestMatchers("/portal/book/**").permitAll()
+                        .requestMatchers("/portal/bookList/**").permitAll()
+                        .requestMatchers("/portal/bookQuote/**").permitAll()
+                        .requestMatchers("/portal/interviewCategory/**").permitAll()
+                        .requestMatchers("/portal/interviewQuestion/**").permitAll()
+                        .requestMatchers("/portal/interviewExperience/**").permitAll()
+                        .requestMatchers("/portal/interviewResumeTemplate/**").permitAll()
                         // 其他门户请求需要认证
                         .anyRequest().authenticated()
                 )

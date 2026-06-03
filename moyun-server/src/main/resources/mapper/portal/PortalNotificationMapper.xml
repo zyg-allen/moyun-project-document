@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.moyun.portal.mapper.PortalNotificationMapper">
+
+    <resultMap type="com.moyun.portal.domain.entity.PortalNotification" id="PortalNotificationResult">
+        <id property="id" column="id"/>
+        <result property="userId" column="user_id"/>
+        <result property="type" column="type"/>
+        <result property="title" column="title"/>
+        <result property="content" column="content"/>
+        <result property="data" column="data"/>
+        <result property="isRead" column="is_read"/>
+        <result property="createTime" column="create_time"/>
+    </resultMap>
+
+    <sql id="selectPortalNotificationVo">
+        select id, user_id, type, title, content, data, is_read, create_time from portal_notification
+    </sql>
+
+    <select id="selectPortalNotificationList" parameterType="com.moyun.portal.domain.entity.PortalNotification" resultMap="PortalNotificationResult">
+        <include refid="selectPortalNotificationVo"/>
+        <where>
+            <if test="userId != null">and user_id = #{userId}</if>
+            <if test="type != null and type != ''">and type = #{type}</if>
+            <if test="isRead != null">and is_read = #{isRead}</if>
+        </where>
+        order by create_time desc
+    </select>
+
+    <select id="selectPortalNotificationById" parameterType="Long" resultMap="PortalNotificationResult">
+        <include refid="selectPortalNotificationVo"/>
+        where id = #{id}
+    </select>
+
+    <insert id="insertPortalNotification" parameterType="com.moyun.portal.domain.entity.PortalNotification" useGeneratedKeys="true" keyProperty="id">
+        insert into portal_notification
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="userId != null">user_id,</if>
+            <if test="type != null">type,</if>
+            <if test="title != null">title,</if>
+            <if test="content != null">content,</if>
+            <if test="data != null">data,</if>
+            <if test="isRead != null">is_read,</if>
+            <if test="createTime != null">create_time,</if>
+        </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="userId != null">#{userId},</if>
+            <if test="type != null">#{type},</if>
+            <if test="title != null">#{title},</if>
+            <if test="content != null">#{content},</if>
+            <if test="data != null">#{data},</if>
+            <if test="isRead != null">#{isRead},</if>
+            <if test="createTime != null">#{createTime},</if>
+        </trim>
+    </insert>
+
+    <update id="updatePortalNotification" parameterType="com.moyun.portal.domain.entity.PortalNotification">
+        update portal_notification
+        <trim prefix="SET" suffixOverrides=",">
+            <if test="userId != null">user_id = #{userId},</if>
+            <if test="type != null and type != ''">type = #{type},</if>
+            <if test="title != null">title = #{title},</if>
+            <if test="content != null">content = #{content},</if>
+            <if test="data != null">data = #{data},</if>
+            <if test="isRead != null">is_read = #{isRead},</if>
+        </trim>
+        where id = #{id}
+    </update>
+
+    <delete id="deletePortalNotificationById" parameterType="Long">
+        delete from portal_notification where id = #{id}
+    </delete>
+
+    <delete id="deletePortalNotificationByIds" parameterType="Long">
+        delete from portal_notification where id in
+        <foreach item="id" collection="array" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </delete>
+</mapper>

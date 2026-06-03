@@ -1,0 +1,172 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.moyun.portal.mapper.PortalUserMapper">
+
+    <resultMap type="com.moyun.portal.domain.entity.PortalUser" id="PortalUserResult">
+        <id property="id" column="id"/>
+        <result property="userId" column="user_id"/>
+        <result property="username" column="username"/>
+        <result property="nickname" column="nickname"/>
+        <result property="email" column="email"/>
+        <result property="phone" column="phone"/>
+        <result property="password" column="password"/>
+        <result property="avatar" column="avatar"/>
+        <result property="bio" column="bio"/>
+        <result property="position" column="position"/>
+        <result property="wechat" column="wechat"/>
+        <result property="role" column="role"/>
+        <result property="vipExpireAt" column="vip_expire_at"/>
+        <result property="isPhoneVerified" column="is_phone_verified"/>
+        <result property="isWechatVerified" column="is_wechat_verified"/>
+        <result property="twoFactorEnabled" column="two_factor_enabled"/>
+        <result property="status" column="status"/>
+        <result property="delFlag" column="del_flag"/>
+        <result property="loginIp" column="login_ip"/>
+        <result property="loginDate" column="login_date"/>
+        <result property="createBy" column="create_by"/>
+        <result property="createTime" column="create_time"/>
+        <result property="updateBy" column="update_by"/>
+        <result property="updateTime" column="update_time"/>
+        <result property="remark" column="remark"/>
+    </resultMap>
+
+    <sql id="selectPortalUserVo">
+        select id, user_id, username, nickname, email, phone, password, avatar, bio, position, wechat, role, vip_expire_at, is_phone_verified, is_wechat_verified, two_factor_enabled, status, del_flag, login_ip, login_date, create_by, create_time, update_by, update_time, remark from portal_user
+    </sql>
+
+    <select id="selectPortalUserList" parameterType="com.moyun.portal.domain.entity.PortalUser" resultMap="PortalUserResult">
+        <include refid="selectPortalUserVo"/>
+        <where>
+            <if test="username != null and username != ''">and username like concat('%', #{username}, '%')</if>
+            <if test="nickname != null and nickname != ''">and nickname like concat('%', #{nickname}, '%')</if>
+            <if test="email != null and email != ''">and email like concat('%', #{email}, '%')</if>
+            <if test="phone != null and phone != ''">and phone like concat('%', #{phone}, '%')</if>
+            <if test="role != null and role != ''">and role = #{role}</if>
+            <if test="status != null and status != ''">and status = #{status}</if>
+            <if test="delFlag != null and delFlag != ''">and del_flag = #{delFlag}</if>
+        </where>
+        order by create_time desc
+    </select>
+
+    <select id="selectPortalUserByUsername" parameterType="String" resultMap="PortalUserResult">
+        <include refid="selectPortalUserVo"/>
+        where username = #{username}
+    </select>
+
+    <select id="selectPortalUserById" parameterType="Long" resultMap="PortalUserResult">
+        <include refid="selectPortalUserVo"/>
+        where id = #{id}
+    </select>
+
+    <select id="checkPortalUserNameUnique" parameterType="String" resultMap="PortalUserResult">
+        <include refid="selectPortalUserVo"/>
+        where username = #{username} limit 1
+    </select>
+
+    <select id="checkPortalEmailUnique" parameterType="String" resultMap="PortalUserResult">
+        <include refid="selectPortalUserVo"/>
+        where email = #{email} limit 1
+    </select>
+
+    <insert id="insertPortalUser" parameterType="com.moyun.portal.domain.entity.PortalUser" useGeneratedKeys="true" keyProperty="id">
+        insert into portal_user
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="userId != null">user_id,</if>
+            <if test="username != null">username,</if>
+            <if test="nickname != null">nickname,</if>
+            <if test="email != null">email,</if>
+            <if test="phone != null">phone,</if>
+            <if test="password != null">password,</if>
+            <if test="avatar != null">avatar,</if>
+            <if test="bio != null">bio,</if>
+            <if test="position != null">position,</if>
+            <if test="wechat != null">wechat,</if>
+            <if test="role != null">role,</if>
+            <if test="vipExpireAt != null">vip_expire_at,</if>
+            <if test="isPhoneVerified != null">is_phone_verified,</if>
+            <if test="isWechatVerified != null">is_wechat_verified,</if>
+            <if test="twoFactorEnabled != null">two_factor_enabled,</if>
+            <if test="status != null">status,</if>
+            <if test="delFlag != null">del_flag,</if>
+            <if test="loginIp != null">login_ip,</if>
+            <if test="loginDate != null">login_date,</if>
+            <if test="createBy != null">create_by,</if>
+            <if test="createTime != null">create_time,</if>
+            <if test="remark != null">remark,</if>
+        </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="userId != null">#{userId},</if>
+            <if test="username != null">#{username},</if>
+            <if test="nickname != null">#{nickname},</if>
+            <if test="email != null">#{email},</if>
+            <if test="phone != null">#{phone},</if>
+            <if test="password != null">#{password},</if>
+            <if test="avatar != null">#{avatar},</if>
+            <if test="bio != null">#{bio},</if>
+            <if test="position != null">#{position},</if>
+            <if test="wechat != null">#{wechat},</if>
+            <if test="role != null">#{role},</if>
+            <if test="vipExpireAt != null">#{vipExpireAt},</if>
+            <if test="isPhoneVerified != null">#{isPhoneVerified},</if>
+            <if test="isWechatVerified != null">#{isWechatVerified},</if>
+            <if test="twoFactorEnabled != null">#{twoFactorEnabled},</if>
+            <if test="status != null">#{status},</if>
+            <if test="delFlag != null">#{delFlag},</if>
+            <if test="loginIp != null">#{loginIp},</if>
+            <if test="loginDate != null">#{loginDate},</if>
+            <if test="createBy != null">#{createBy},</if>
+            <if test="createTime != null">#{createTime},</if>
+            <if test="remark != null">#{remark},</if>
+        </trim>
+    </insert>
+
+    <update id="updatePortalUser" parameterType="com.moyun.portal.domain.entity.PortalUser">
+        update portal_user
+        <trim prefix="SET" suffixOverrides=",">
+            <if test="userId != null">user_id = #{userId},</if>
+            <if test="username != null and username != ''">username = #{username},</if>
+            <if test="nickname != null">nickname = #{nickname},</if>
+            <if test="email != null">email = #{email},</if>
+            <if test="phone != null">phone = #{phone},</if>
+            <if test="password != null">password = #{password},</if>
+            <if test="avatar != null">avatar = #{avatar},</if>
+            <if test="bio != null">bio = #{bio},</if>
+            <if test="position != null">position = #{position},</if>
+            <if test="wechat != null">wechat = #{wechat},</if>
+            <if test="role != null">role = #{role},</if>
+            <if test="vipExpireAt != null">vip_expire_at = #{vipExpireAt},</if>
+            <if test="isPhoneVerified != null">is_phone_verified = #{isPhoneVerified},</if>
+            <if test="isWechatVerified != null">is_wechat_verified = #{isWechatVerified},</if>
+            <if test="twoFactorEnabled != null">two_factor_enabled = #{twoFactorEnabled},</if>
+            <if test="status != null">status = #{status},</if>
+            <if test="delFlag != null">del_flag = #{delFlag},</if>
+            <if test="loginIp != null">login_ip = #{loginIp},</if>
+            <if test="loginDate != null">login_date = #{loginDate},</if>
+            <if test="updateBy != null">update_by = #{updateBy},</if>
+            <if test="updateTime != null">update_time = #{updateTime},</if>
+            <if test="remark != null">remark = #{remark},</if>
+        </trim>
+        where id = #{id}
+    </update>
+
+    <update id="updatePortalUserAvatar">
+        update portal_user set avatar = #{avatar} where username = #{username}
+    </update>
+
+    <update id="resetPortalUserPwd">
+        update portal_user set password = #{password} where username = #{username}
+    </update>
+
+    <delete id="deletePortalUserById" parameterType="Long">
+        delete from portal_user where id = #{id}
+    </delete>
+
+    <delete id="deletePortalUserByIds" parameterType="Long">
+        delete from portal_user where id in
+        <foreach item="id" collection="array" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </delete>
+</mapper>

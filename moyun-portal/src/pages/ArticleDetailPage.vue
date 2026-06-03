@@ -301,7 +301,7 @@ const head = useHead(
         image: article.value.cover,
         type: 'article',
         keywords: article.value.tags,
-        author: article.value.author.username,
+        author: article.value.author?.username || article.value.authorUsername || '',
         publishedTime: article.value.createdAt,
         modifiedTime: article.value.updatedAt
       })
@@ -454,8 +454,8 @@ const head = useHead(
             <div v-if="currentUser" class="mb-6">
               <div class="flex gap-3">
                 <img
-                    :src="currentUser.avatar"
-                    :alt="currentUser.username"
+                    :src="currentUser?.avatar"
+                    :alt="currentUser?.username"
                     class="w-10 h-10 rounded-full flex-shrink-0"
                     loading="lazy"
                 />
@@ -500,14 +500,14 @@ const head = useHead(
                   role="listitem"
               >
                 <img
-                    :src="comment.author.avatar"
-                    :alt="comment.author.username"
+                    :src="comment.author?.avatar"
+                    :alt="comment.author?.username"
                     class="w-10 h-10 rounded-full flex-shrink-0"
                     loading="lazy"
                 />
                 <div class="flex-1 min-w-0">
                   <div class="flex items-center gap-3 mb-2">
-                    <span class="font-medium text-base" style="color: var(--theme-text);">{{ comment.author.username }}</span>
+                    <span class="font-medium text-base" style="color: var(--theme-text);">{{ comment.author?.username || '匿名用户' }}</span>
                     <span class="text-sm" style="color: var(--theme-text-secondary);">{{ comment.createdAt }}</span>
                   </div>
                   <p class="text-base mb-3" style="color: var(--theme-text-secondary);">{{ comment.content }}</p>
@@ -549,7 +549,7 @@ const head = useHead(
                           loading="lazy"
                       />
                       <div class="flex-1">
-                        <div class="text-sm mb-2" style="color: var(--theme-text-secondary);">回复 {{ comment.author.username }}</div>
+                        <div class="text-sm mb-2" style="color: var(--theme-text-secondary);">回复 {{ comment.author?.username || '匿名用户' }}</div>
                         <textarea
                             v-model="replyContent"
                             placeholder="写回复..."
@@ -586,14 +586,14 @@ const head = useHead(
                     >
                       <div class="w-1 rounded-full ml-5 mt-2" style="background-color: var(--theme-border);"></div>
                       <img
-                          :src="reply.author.avatar"
-                          :alt="reply.author.username"
+                          :src="reply.author?.avatar"
+                          :alt="reply.author?.username"
                           class="w-8 h-8 rounded-full flex-shrink-0"
                           loading="lazy"
                       />
                       <div class="flex-1 min-w-0">
                         <div class="flex items-center gap-3 mb-2">
-                          <span class="font-medium text-sm" style="color: var(--theme-text);">{{ reply.author.username }}</span>
+                          <span class="font-medium text-sm" style="color: var(--theme-text);">{{ reply.author?.username || '匿名用户' }}</span>
                           <span class="text-sm" style="color: var(--theme-text-secondary);">{{ reply.createdAt }}</span>
                         </div>
                         <p class="text-sm mb-3" style="color: var(--theme-text-secondary);">{{ reply.content }}</p>

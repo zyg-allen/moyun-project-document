@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.moyun.portal.mapper.PortalWalletTransactionMapper">
+
+    <resultMap type="com.moyun.portal.domain.entity.PortalWalletTransaction" id="PortalWalletTransactionResult">
+        <id property="id" column="id"/>
+        <result property="userId" column="user_id"/>
+        <result property="type" column="type"/>
+        <result property="amount" column="amount"/>
+        <result property="balanceBefore" column="balance_before"/>
+        <result property="balanceAfter" column="balance_after"/>
+        <result property="description" column="description"/>
+        <result property="orderId" column="order_id"/>
+        <result property="createTime" column="create_time"/>
+    </resultMap>
+
+    <sql id="selectPortalWalletTransactionVo">
+        select id, user_id, type, amount, balance_before, balance_after, description, order_id, create_time from portal_wallet_transaction
+    </sql>
+
+    <select id="selectPortalWalletTransactionList" parameterType="com.moyun.portal.domain.entity.PortalWalletTransaction" resultMap="PortalWalletTransactionResult">
+        <include refid="selectPortalWalletTransactionVo"/>
+        <where>
+            <if test="userId != null">and user_id = #{userId}</if>
+            <if test="type != null and type != ''">and type = #{type}</if>
+            <if test="orderId != null">and order_id = #{orderId}</if>
+        </where>
+        order by create_time desc
+    </select>
+
+    <select id="selectPortalWalletTransactionById" parameterType="Long" resultMap="PortalWalletTransactionResult">
+        <include refid="selectPortalWalletTransactionVo"/>
+        where id = #{id}
+    </select>
+
+    <insert id="insertPortalWalletTransaction" parameterType="com.moyun.portal.domain.entity.PortalWalletTransaction" useGeneratedKeys="true" keyProperty="id">
+        insert into portal_wallet_transaction
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="userId != null">user_id,</if>
+            <if test="type != null">type,</if>
+            <if test="amount != null">amount,</if>
+            <if test="balanceBefore != null">balance_before,</if>
+            <if test="balanceAfter != null">balance_after,</if>
+            <if test="description != null">description,</if>
+            <if test="orderId != null">order_id,</if>
+            <if test="createTime != null">create_time,</if>
+        </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="userId != null">#{userId},</if>
+            <if test="type != null">#{type},</if>
+            <if test="amount != null">#{amount},</if>
+            <if test="balanceBefore != null">#{balanceBefore},</if>
+            <if test="balanceAfter != null">#{balanceAfter},</if>
+            <if test="description != null">#{description},</if>
+            <if test="orderId != null">#{orderId},</if>
+            <if test="createTime != null">#{createTime},</if>
+        </trim>
+    </insert>
+
+    <delete id="deletePortalWalletTransactionById" parameterType="Long">
+        delete from portal_wallet_transaction where id = #{id}
+    </delete>
+
+    <delete id="deletePortalWalletTransactionByIds" parameterType="Long">
+        delete from portal_wallet_transaction where id in
+        <foreach item="id" collection="array" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </delete>
+</mapper>

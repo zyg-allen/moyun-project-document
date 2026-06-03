@@ -75,8 +75,18 @@ public class SecurityConfig {
     /**
      * 安全模块排除路径配置
      */
-    @Value("${security.exclude-modules:#{null}}")
-    private List<String> excludeModules;
+    @Value("${security.exclude-modules:}")
+    private String excludeModulesStr;
+
+    /**
+     * 获取排除模块列表
+     */
+    private List<String> getExcludeModules() {
+        if (excludeModulesStr == null || excludeModulesStr.trim().isEmpty()) {
+            return List.of();
+        }
+        return List.of(excludeModulesStr.split(","));
+    }
 
     /**
      * 身份验证实现（核心模块，设为@Primary）
@@ -95,7 +105,8 @@ public class SecurityConfig {
      */
     private boolean shouldApplyTo(HttpServletRequest request) {
         String uri = request.getRequestURI();
-        if (excludeModules == null || excludeModules.isEmpty()) {
+        List<String> excludeModules = getExcludeModules();
+        if (excludeModules.isEmpty()) {
             return true;
         }
         for (String module : excludeModules) {

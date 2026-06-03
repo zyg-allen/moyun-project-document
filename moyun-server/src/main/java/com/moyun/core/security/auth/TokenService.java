@@ -62,32 +62,33 @@ public class TokenService {
 
     /**
      * 获取用户身份信息
+     * <p>
+     * 设计原则：透明处理token
+     * - 没有token → 返回null → SecurityConfig决定是否允许访问
+     * - 有无效token → 返回null → SecurityConfig决定是否允许访问
+     * - 有有效token → 返回LoginUser → 设置认证信息
+     * </p>
      *
      * @return 用户信息
      */
     public LoginUser getLoginUser(HttpServletRequest request) {
         // 获取请求携带的令牌
         String token = getToken(request);
-        log.debug("获取登录用户，Token: {}", token);
         if (StringUtils.isNotEmpty(token)) {
             try {
                 Claims claims = parseToken(token);
                 // 解析对应的权限以及用户信息
                 String uuid = (String) claims.get(Constants.LOGIN_USER_KEY);
                 String userKey = getTokenKey(uuid);
-                log.debug("解析Token成功，UUID: {}, UserKey: {}", uuid, userKey);
                 LoginUser user = redisCache.getCacheObject(userKey);
                 if (user == null) {
-                    log.warn("Redis中未找到用户信息，UserKey: {}，Token可能已过期或Redis数据已清除", userKey);
-                } else {
-                    log.debug("从Redis获取用户成功: {}", user.getUsername());
+                    log.debug("Redis中未找到用户信息，Token可能已过期或Redis数据已清除");
                 }
                 return user;
             } catch (Exception e) {
-                log.error("获取用户信息异常'{}'", e.getMessage(), e);
+                // 透明处理：token无效视为未登录，由SecurityConfig决定是否允许访问
+                log.debug("Token解析失败，将视为未登录: {}", e.getMessage());
             }
-        } else {
-            log.debug("请求中未找到Token");
         }
         return null;
     }

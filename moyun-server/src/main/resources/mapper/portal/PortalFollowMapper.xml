@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.moyun.portal.mapper.PortalFollowMapper">
+
+    <resultMap type="com.moyun.portal.domain.entity.PortalFollow" id="PortalFollowResult">
+        <id property="id" column="id"/>
+        <result property="followerId" column="follower_id"/>
+        <result property="followingId" column="following_id"/>
+        <result property="createTime" column="create_time"/>
+    </resultMap>
+
+    <sql id="selectPortalFollowVo">
+        select id, follower_id, following_id, create_time from portal_follow
+    </sql>
+
+    <select id="selectPortalFollowList" parameterType="com.moyun.portal.domain.entity.PortalFollow" resultMap="PortalFollowResult">
+        <include refid="selectPortalFollowVo"/>
+        <where>
+            <if test="followerId != null">and follower_id = #{followerId}</if>
+            <if test="followingId != null">and following_id = #{followingId}</if>
+        </where>
+        order by create_time desc
+    </select>
+
+    <select id="selectPortalFollowById" parameterType="Long" resultMap="PortalFollowResult">
+        <include refid="selectPortalFollowVo"/>
+        where id = #{id}
+    </select>
+
+    <insert id="insertPortalFollow" parameterType="com.moyun.portal.domain.entity.PortalFollow" useGeneratedKeys="true" keyProperty="id">
+        insert into portal_follow
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="followerId != null">follower_id,</if>
+            <if test="followingId != null">following_id,</if>
+            <if test="createTime != null">create_time,</if>
+        </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="followerId != null">#{followerId},</if>
+            <if test="followingId != null">#{followingId},</if>
+            <if test="createTime != null">#{createTime},</if>
+        </trim>
+    </insert>
+
+    <update id="updatePortalFollow" parameterType="com.moyun.portal.domain.entity.PortalFollow">
+        update portal_follow
+        <trim prefix="SET" suffixOverrides=",">
+            <if test="followerId != null">follower_id = #{followerId},</if>
+            <if test="followingId != null">following_id = #{followingId},</if>
+            <if test="createTime != null">create_time = #{createTime},</if>
+        </trim>
+        where id = #{id}
+    </update>
+
+    <delete id="deletePortalFollowById" parameterType="Long">
+        delete from portal_follow where id = #{id}
+    </delete>
+
+    <delete id="deletePortalFollowByIds" parameterType="Long">
+        delete from portal_follow where id in
+        <foreach item="id" collection="array" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </delete>
+</mapper>

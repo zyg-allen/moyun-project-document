@@ -8,6 +8,7 @@ import com.moyun.core.base.AjaxResult;
 import com.moyun.core.base.TableDataInfo;
 import com.moyun.common.enums.BusinessType;
 import com.moyun.portal.domain.entity.PortalComment;
+import com.moyun.portal.domain.query.ArticleQuery;
 import com.moyun.util.file.ExcelUtil;
 import com.moyun.portal.domain.entity.PortalArticle;
 import com.moyun.portal.domain.vo.ArticleVO;
@@ -37,7 +38,7 @@ public class PortalArticleController extends BaseController {
 
     @Operation(summary = "获取文章列表", description = "根据条件分页查询文章列表")
     @GetMapping("/list")
-    public TableDataInfo list(PortalArticle portalArticle) {
+    public TableDataInfo list(ArticleQuery portalArticle) {
         startPage();
         List<PortalArticle> list = portalArticleService.selectPortalArticleList(portalArticle);
         return getDataTable(ArticleConvertUtil.toArticleVOList(list));
@@ -46,7 +47,7 @@ public class PortalArticleController extends BaseController {
     @Operation(summary = "导出文章", description = "导出文章数据到Excel文件")
     @Log(title = "门户文章", businessType = BusinessType.EXPORT)
     @PostMapping("/export")
-    public void export(HttpServletResponse response, PortalArticle portalArticle) {
+    public void export(HttpServletResponse response, ArticleQuery portalArticle) {
         List<PortalArticle> list = portalArticleService.selectPortalArticleList(portalArticle);
         ExcelUtil<PortalArticle> util = new ExcelUtil<PortalArticle>(PortalArticle.class);
         util.exportExcel(response, list, "门户文章数据");

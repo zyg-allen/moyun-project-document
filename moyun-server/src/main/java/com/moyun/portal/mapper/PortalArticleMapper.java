@@ -2,6 +2,7 @@ package com.moyun.portal.mapper;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.moyun.portal.domain.entity.PortalArticle;
+import com.moyun.portal.domain.query.ArticleQuery;
 import org.apache.ibatis.annotations.Mapper;
 
 import java.util.List;
@@ -20,7 +21,7 @@ public interface PortalArticleMapper extends BaseMapper<PortalArticle> {
      * @param portalArticle 文章信息
      * @return 文章信息集合信息
      */
-    public List<PortalArticle> selectPortalArticleList(PortalArticle portalArticle);
+    public List<PortalArticle> selectPortalArticleList(ArticleQuery portalArticle);
 
     /**
      * 通过文章ID查询文章

@@ -2,6 +2,7 @@ package com.moyun.portal.service.impl;
 
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.moyun.portal.domain.entity.PortalArticle;
+import com.moyun.portal.domain.query.ArticleQuery;
 import com.moyun.portal.mapper.PortalArticleMapper;
 import com.moyun.portal.service.IPortalArticleService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -27,7 +28,7 @@ public class PortalArticleServiceImpl extends ServiceImpl<PortalArticleMapper, P
      * @return 文章信息集合信息
      */
     @Override
-    public List<PortalArticle> selectPortalArticleList(PortalArticle portalArticle) {
+    public List<PortalArticle> selectPortalArticleList(ArticleQuery portalArticle) {
         return portalArticleMapper.selectPortalArticleList(portalArticle);
     }
 

@@ -41,7 +41,7 @@ public class PortalJwtAuthenticationTokenFilter extends OncePerRequestFilter {
             "/portal/login",
             "/portal/register",
             "/portal/captchaImage",
-            "/portal/article/list",
+            "/portallist",
             "/portal/article/hot",
             "/portal/article/featured",
             "/portal/article/carousel",

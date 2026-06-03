@@ -1,6 +1,7 @@
 package com.moyun.portal.service;
 
 import com.moyun.portal.domain.entity.PortalArticle;
+import com.moyun.portal.domain.query.ArticleQuery;
 
 import java.util.List;
 
@@ -17,7 +18,7 @@ public interface IPortalArticleService {
      * @param portalArticle 文章信息
      * @return 文章信息集合信息
      */
-    public List<PortalArticle> selectPortalArticleList(PortalArticle portalArticle);
+    public List<PortalArticle> selectPortalArticleList(ArticleQuery portalArticle);
 
     /**
      * 通过文章ID查询文章

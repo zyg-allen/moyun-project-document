@@ -40,7 +40,7 @@
         from portal_article
     </sql>
 
-    <select id="selectPortalArticleList" parameterType="com.moyun.portal.domain.entity.PortalArticle" resultMap="PortalArticleResult">
+    <select id="selectPortalArticleList" parameterType="com.moyun.portal.domain.query.ArticleQuery" resultMap="PortalArticleResult">
         <include refid="selectPortalArticleVo"/>
         <where>
             <if test="title != null and title != ''">AND title like concat('%', #{title}, '%')</if>

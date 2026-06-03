@@ -15,9 +15,11 @@ import { getHomeData, getTagList } from '@/api/article'
 import { getFriendLinks } from '@/api/friendLink'
 import { getAuthors } from '@/api/user'
 import { getCategoryList } from '@/api/category'
+import { useUserStore } from '@/stores/user'
 import type { FriendLink } from '@/api/friendLink'
 
 const router = useRouter()
+const userStore = useUserStore()
 
 interface HeroItem {
   id: string
@@ -75,7 +77,7 @@ const loadHomeData = async () => {
       featuredArticles.value = homeResponse.data.featuredArticles?.map(transformArticle) || []
       hotArticles.value = homeResponse.data.hotArticles?.map(transformArticle) || []
       latestArticles.value = homeResponse.data.latestArticles?.map(transformArticle) || []
-      
+
       if (carouselArticles.value.length > 0) {
         heroImages.value = carouselArticles.value.map((article, index) => ({
           id: String(article.id),
@@ -179,7 +181,7 @@ onMounted(async () => {
     activeTheme.value = '散文'
   }
   loading.value = false
-  
+
   if (heroImages.value.length === 0) {
     setInterval(() => {
       nextHero()
@@ -236,6 +238,14 @@ const getThemeCode = (themeName: string) => {
   return themeName.substring(0, 2)
 }
 
+const handleWrite = () => {
+  if (!userStore.isAuthenticated) {
+    router.push('/login')
+    return
+  }
+  router.push('/publish')
+}
+
 useHead(
     generateSeo({
       title: '首页 - 一纸墨',
@@ -260,7 +270,7 @@ useHead(
             我有一纸墨，足以慰风尘。让生活更有趣味。
           </p>
         </div>
-        
+
         <div class="relative h-[280px] sm:h-[320px] md:h-[380px] overflow-hidden rounded-xl shadow-lg">
           <div v-if="heroImages.length > 0">
             <div class="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-black/70"></div>
@@ -339,7 +349,7 @@ useHead(
         <div class="grid grid-cols-1 md:grid-cols-2 gap-0">
           <div class="py-3 sm:py-4 px-4" style="background-color: var(--theme-surface);">
             <div class="flex items-start gap-2 sm:gap-3">
-              <Quote class="w-5 h-5 sm:w-6 sm:h-6 opacity-30 flex-shrink-0 mt-0.5" style="color: var(--theme-primary)" />
+              <Quote class="w-5 h-5 sm:w-6 sm:h-6 opacity-30 flex-shrink-0 mt-0.5" style="color: var(--theme-primary);" />
               <div>
                 <p class="text-sm sm:text-base italic" style="color: var(--theme-text);">
                   "世间所有的相遇，都是久别重逢。"
@@ -349,7 +359,7 @@ useHead(
             </div>
           </div>
           <button
-              @click="router.push('/publish')"
+              @click="handleWrite"
               class="flex items-center justify-between py-3 sm:py-4 px-4 text-left hover:opacity-90 transition-opacity"
               style="background-color: #dc2626;"
           >
@@ -460,7 +470,7 @@ useHead(
                   class="p-4 rounded-xl flex flex-col items-center justify-center gap-2 text-center transition-all hover:scale-105"
                   style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);"
               >
-                <BookOpen class="w-6 h-6 text-white"/>
+                <BookOpen class="w-6 h-6 text-white" />
                 <span class="text-white text-sm font-medium">读书空间</span>
                 <span class="text-white/80 text-xs">共读计划</span>
               </button>
@@ -469,7 +479,7 @@ useHead(
                   class="p-4 rounded-xl flex flex-col items-center justify-center gap-2 text-center transition-all hover:scale-105"
                   style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);"
               >
-                <Briefcase class="w-6 h-6 text-white"/>
+                <Briefcase class="w-6 h-6 text-white" />
                 <span class="text-white text-sm font-medium">面试指南</span>
                 <span class="text-white/80 text-xs">大厂面经</span>
               </button>
@@ -592,7 +602,7 @@ useHead(
               <div class="space-y-2.5">
                 <div class="flex items-center justify-between">
                   <span class="text-xs" style="color: var(--theme-text-secondary);">算法精选</span>
-                  <span class="text-xs" style="color: var(--theme-text-secondary);">1280道</span>
+                  <span class="text-xs" style="color: var(--theme-text-secondary);">1,280道</span>
                 </div>
                 <div class="flex items-center justify-between">
                   <span class="text-xs" style="color: var(--theme-text-secondary);">系统设计题</span>

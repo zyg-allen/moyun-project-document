@@ -1,6 +1,8 @@
 package com.moyun.portal.service;
 
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.moyun.portal.domain.entity.PortalTag;
+import com.moyun.portal.domain.query.TagQuery;
 
 import java.util.List;
 
@@ -14,10 +16,19 @@ public interface IPortalTagService {
     /**
      * 根据条件分页查询标签列表
      *
-     * @param portalTag 标签信息
-     * @return 标签信息集合信息
+     * @param page 分页参数
+     * @param query 查询条件
+     * @return 分页结果
      */
-    public List<PortalTag> selectPortalTagList(PortalTag portalTag);
+    Page<PortalTag> selectPortalTagPage(Page<PortalTag> page, TagQuery query);
+
+    /**
+     * 根据条件查询标签列表（不分页，用于导出等场景）
+     *
+     * @param query 查询条件
+     * @return 标签信息集合
+     */
+    List<PortalTag> selectPortalTagList(TagQuery query);
 
     /**
      * 通过标签ID查询标签

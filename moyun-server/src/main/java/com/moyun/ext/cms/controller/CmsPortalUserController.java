@@ -5,11 +5,11 @@ import com.moyun.common.annotation.Log;
 import com.moyun.common.enums.BusinessType;
 import com.moyun.core.base.AjaxResult;
 import com.moyun.core.base.BaseController;
-import com.moyun.core.base.TableDataInfo;
 import com.moyun.ext.cms.domain.query.CmsPortalUserQuery;
 import com.moyun.ext.cms.domain.vo.CmsPortalUserVO;
 import com.moyun.ext.cms.service.ICmsPortalUserService;
 import com.moyun.portal.domain.entity.PortalUser;
+import com.moyun.util.bean.PageUtils;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -36,10 +36,10 @@ public class CmsPortalUserController extends BaseController {
     @Operation(summary = "获取门户用户列表", description = "根据条件分页查询门户用户列表")
     @PreAuthorize("@ss.hasPermi('cms:user:list')")
     @GetMapping("/list")
-    public TableDataInfo list(CmsPortalUserQuery query) {
-        startPage();
-        Page<CmsPortalUserVO> page = cmsPortalUserService.selectUserPage(query);
-        return getDataTable(page.getRecords(), page.getTotal());
+    public AjaxResult list(CmsPortalUserQuery query) {
+        Page<CmsPortalUserVO> page = PageUtils.buildPage(query);
+        page = cmsPortalUserService.selectUserPage(page, query);
+        return success(page);
     }
 
     /**

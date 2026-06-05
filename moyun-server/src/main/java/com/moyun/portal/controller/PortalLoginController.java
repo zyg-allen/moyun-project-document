@@ -8,6 +8,7 @@ import com.moyun.portal.domain.entity.PortalUser;
 import com.moyun.portal.domain.model.PortalLoginUser;
 import com.moyun.portal.security.auth.PortalTokenService;
 import com.moyun.portal.service.IPortalUserService;
+import com.moyun.portal.service.impl.PortalLoginServiceImpl;
 
 import com.moyun.util.string.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -38,6 +39,9 @@ public class PortalLoginController {
     @Autowired
     private IPortalUserService portalUserService;
 
+    @Autowired
+    private PortalLoginServiceImpl portalLoginService;
+
     /**
      * 登录方法
      *
@@ -46,18 +50,7 @@ public class PortalLoginController {
      */
     @PostMapping("/login")
     public AjaxResult login(@RequestBody LoginBody loginBody) {
-        // 用户验证
-        Authentication authentication = authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(loginBody.getUsername(), loginBody.getPassword()));
-
-        // 生成token
-        PortalLoginUser loginUser = (PortalLoginUser) authentication.getPrincipal();
-        String token = portalTokenService.createToken(loginUser);
-
-        AjaxResult ajax = AjaxResult.success();
-        ajax.put(Constants.TOKEN, token);
-        ajax.put("user", toUserVo(loginUser.getUser()));
-        return ajax;
+        return portalLoginService.login(loginBody);
     }
 
     /**
@@ -71,29 +64,31 @@ public class PortalLoginController {
         if (StringUtils.isEmpty(portalUser.getUsername()) || StringUtils.isEmpty(portalUser.getPassword())) {
             return AjaxResult.error("用户名或密码不能为空");
         }
-        
+
         // 设置默认角色
         if (StringUtils.isEmpty(portalUser.getRole())) {
             portalUser.setRole("user");
         }
-        
+
         // 设置默认状态
         portalUser.setStatus("0");
-        
+
         boolean success = portalUserService.registerPortalUser(portalUser);
         if (success) {
             // 注册成功后，直接登录并返回 token
             Authentication authentication = authenticationManager.authenticate(
                     new UsernamePasswordAuthenticationToken(portalUser.getUsername(), portalUser.getPassword()));
-            
+
             // 生成token
             PortalLoginUser loginUser = (PortalLoginUser) authentication.getPrincipal();
             String token = portalTokenService.createToken(loginUser);
-            
-            AjaxResult ajax = AjaxResult.success("注册成功");
-            ajax.put(Constants.TOKEN, token);
-            ajax.put("user", toUserVo(loginUser.getUser()));
-            return ajax;
+
+            // 构建响应数据
+            java.util.Map<String, Object> data = new java.util.HashMap<>();
+            data.put(Constants.TOKEN, token);
+            data.put("user", toUserVo(loginUser.getUser()));
+
+            return AjaxResult.success("注册成功", data);
         } else {
             return AjaxResult.error("注册失败");
         }
@@ -170,25 +165,25 @@ public class PortalLoginController {
         // Getters and Setters
         public Long getId() { return id; }
         public void setId(Long id) { this.id = id; }
-        
+
         public String getUsername() { return username; }
         public void setUsername(String username) { this.username = username; }
-        
+
         public String getNickname() { return nickname; }
         public void setNickname(String nickname) { this.nickname = nickname; }
-        
+
         public String getAvatar() { return avatar; }
         public void setAvatar(String avatar) { this.avatar = avatar; }
-        
+
         public String getEmail() { return email; }
         public void setEmail(String email) { this.email = email; }
-        
+
         public String getPhone() { return phone; }
         public void setPhone(String phone) { this.phone = phone; }
-        
+
         public String getRole() { return role; }
         public void setRole(String role) { this.role = role; }
-        
+
         public LocalDateTime getCreateTime() { return createTime; }
         public void setCreateTime(LocalDateTime createTime) { this.createTime = createTime; }
     }

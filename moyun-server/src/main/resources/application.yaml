@@ -76,6 +76,11 @@ logging:
   pattern:
     console: '%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{50} - %msg%n'
 
+# 安全配置
+security:
+  # 后台管理需要排除的路径模块（这些路径使用独立的认证配置）
+  exclude-modules:  /portal/**,/external/**,/doc.html,/swagger-ui.html
+
 # 墨韵框架配置
 moyun:
   name: moyun
@@ -161,8 +166,8 @@ flowable:
 mybatis-plus:
   # Mapper XML 文件位置
   mapper-locations: classpath*:/mapper/**/*.xml
-  # 实体类包路径（类型别名扫描包）
-  type-aliases-package: com.moyun.**.domain,com.moyun.**.entity
+  # 实体类包路径（类型别名扫描包） - 只扫描真正的实体包，避免query/dto/vo冲突
+  type-aliases-package: com.moyun.core.base.entity,com.moyun.system.domain.entity,com.moyun.portal.domain.entity,com.moyun.ext.cms.domain.entity,com.moyun.ext.job.domain.entity
   # 配置
   configuration:
     # 驼峰转下划线

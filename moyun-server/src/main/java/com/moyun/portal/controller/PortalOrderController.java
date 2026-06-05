@@ -1,12 +1,14 @@
 package com.moyun.portal.controller;
 
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.moyun.common.annotation.Log;
 import com.moyun.core.base.BaseController;
 import com.moyun.core.base.AjaxResult;
-import com.moyun.core.base.TableDataInfo;
 import com.moyun.common.enums.BusinessType;
+import com.moyun.util.bean.PageUtils;
 import com.moyun.util.file.ExcelUtil;
 import com.moyun.portal.domain.entity.PortalOrder;
+import com.moyun.portal.domain.query.OrderQuery;
 import com.moyun.portal.service.IPortalOrderService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -28,17 +30,17 @@ public class PortalOrderController extends BaseController {
 
     @Operation(summary = "获取订单列表", description = "根据条件分页查询订单列表")
     @GetMapping("/list")
-    public TableDataInfo list(PortalOrder portalOrder) {
-        startPage();
-        List<PortalOrder> list = portalOrderService.selectPortalOrderList(portalOrder);
-        return getDataTable(list);
+    public AjaxResult list(OrderQuery query) {
+        Page<PortalOrder> page = PageUtils.buildPage(query);
+        Page<PortalOrder> resultPage = portalOrderService.selectPortalOrderPage(page, query);
+        return success(resultPage);
     }
 
     @Operation(summary = "导出订单", description = "导出订单数据到Excel文件")
     @Log(title = "门户订单", businessType = BusinessType.EXPORT)
     @PostMapping("/export")
-    public void export(HttpServletResponse response, PortalOrder portalOrder) {
-        List<PortalOrder> list = portalOrderService.selectPortalOrderList(portalOrder);
+    public void export(HttpServletResponse response, OrderQuery query) {
+        List<PortalOrder> list = portalOrderService.selectPortalOrderList(query);
         ExcelUtil<PortalOrder> util = new ExcelUtil<PortalOrder>(PortalOrder.class);
         util.exportExcel(response, list, "门户订单数据");
     }

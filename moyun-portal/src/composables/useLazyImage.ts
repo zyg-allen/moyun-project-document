@@ -1,4 +1,4 @@
-import { ref, onMounted, onUnmounted, watch } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 
 export function useLazyImage() {
   const imageRefs = ref<(HTMLImageElement | null)[]>([])

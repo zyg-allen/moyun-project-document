@@ -9,7 +9,7 @@ import java.util.List;
 
 public interface ICmsFriendLinkService
 {
-    Page<CmsFriendLinkVO> selectFriendLinkPage(CmsFriendLinkQuery query);
+    Page<CmsFriendLinkVO> selectFriendLinkPage(Page<CmsFriendLinkVO> page, CmsFriendLinkQuery query);
     List<CmsFriendLinkVO> selectFriendLinkList(CmsFriendLinkQuery query);
     CmsFriendLinkVO selectFriendLinkById(Long id);
     int insertFriendLink(PortalFriendLink friendLink);

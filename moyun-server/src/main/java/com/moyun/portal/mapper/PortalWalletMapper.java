@@ -1,8 +1,10 @@
 package com.moyun.portal.mapper;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.moyun.portal.domain.entity.PortalWallet;
 import org.apache.ibatis.annotations.Mapper;
+import org.apache.ibatis.annotations.Param;
 
 import java.util.List;
 
@@ -17,10 +19,19 @@ public interface PortalWalletMapper extends BaseMapper<PortalWallet> {
     /**
      * 根据条件分页查询钱包列表
      *
+     * @param page 分页参数
      * @param portalWallet 钱包信息
      * @return 钱包信息集合信息
      */
-    public List<PortalWallet> selectPortalWalletList(PortalWallet portalWallet);
+    Page<PortalWallet> selectPortalWalletPage(Page<PortalWallet> page, @Param("params") PortalWallet portalWallet);
+
+    /**
+     * 根据条件查询钱包列表（不分页，用于导出等场景）
+     *
+     * @param portalWallet 钱包信息
+     * @return 钱包信息集合信息
+     */
+    List<PortalWallet> selectPortalWalletList(@Param("params") PortalWallet portalWallet);
 
     /**
      * 通过钱包ID查询钱包

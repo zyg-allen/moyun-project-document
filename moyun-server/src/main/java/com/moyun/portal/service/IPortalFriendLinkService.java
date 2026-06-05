@@ -1,6 +1,8 @@
 package com.moyun.portal.service;
 
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.moyun.portal.domain.entity.PortalFriendLink;
+import com.moyun.portal.domain.query.FriendLinkQuery;
 
 import java.util.List;
 
@@ -14,10 +16,19 @@ public interface IPortalFriendLinkService {
     /**
      * 根据条件分页查询友情链接列表
      *
-     * @param portalFriendLink 友情链接信息
-     * @return 友情链接信息集合信息
+     * @param page 分页参数
+     * @param query 查询条件
+     * @return 分页结果
      */
-    public List<PortalFriendLink> selectPortalFriendLinkList(PortalFriendLink portalFriendLink);
+    Page<PortalFriendLink> selectPortalFriendLinkPage(Page<PortalFriendLink> page, FriendLinkQuery query);
+
+    /**
+     * 根据条件查询友情链接列表（不分页，用于导出等场景）
+     *
+     * @param query 查询条件
+     * @return 友情链接信息集合
+     */
+    List<PortalFriendLink> selectPortalFriendLinkList(FriendLinkQuery query);
 
     /**
      * 通过友情链接ID查询友情链接

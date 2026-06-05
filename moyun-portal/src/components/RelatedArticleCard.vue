@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { RouterLink as Link } from 'vue-router';
-import { Eye, Heart, Clock, Tag } from 'lucide-vue-next';
+import { Eye, Heart, Tag } from 'lucide-vue-next';
 import LazyImage from './LazyImage.vue';
 import type { Article } from '@/types/api';
 

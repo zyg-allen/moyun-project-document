@@ -1,12 +1,14 @@
 package com.moyun.portal.controller;
 
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.moyun.common.annotation.Log;
 import com.moyun.core.base.BaseController;
 import com.moyun.core.base.AjaxResult;
-import com.moyun.core.base.TableDataInfo;
 import com.moyun.common.enums.BusinessType;
+import com.moyun.util.bean.PageUtils;
 import com.moyun.util.file.ExcelUtil;
 import com.moyun.portal.domain.entity.PortalFollow;
+import com.moyun.portal.domain.query.FollowQuery;
 import com.moyun.portal.service.IPortalFollowService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -28,17 +30,17 @@ public class PortalFollowController extends BaseController {
 
     @Operation(summary = "获取关注列表", description = "根据条件分页查询关注列表")
     @GetMapping("/list")
-    public TableDataInfo list(PortalFollow portalFollow) {
-        startPage();
-        List<PortalFollow> list = portalFollowService.selectPortalFollowList(portalFollow);
-        return getDataTable(list);
+    public AjaxResult list(FollowQuery query) {
+        Page<PortalFollow> page = PageUtils.buildPage(query);
+        Page<PortalFollow> resultPage = portalFollowService.selectPortalFollowPage(page, query);
+        return success(resultPage);
     }
 
     @Operation(summary = "导出关注", description = "导出关注数据到Excel文件")
     @Log(title = "门户关注", businessType = BusinessType.EXPORT)
     @PostMapping("/export")
-    public void export(HttpServletResponse response, PortalFollow portalFollow) {
-        List<PortalFollow> list = portalFollowService.selectPortalFollowList(portalFollow);
+    public void export(HttpServletResponse response, FollowQuery query) {
+        List<PortalFollow> list = portalFollowService.selectPortalFollowList(query);
         ExcelUtil<PortalFollow> util = new ExcelUtil<PortalFollow>(PortalFollow.class);
         util.exportExcel(response, list, "门户关注数据");
     }

@@ -1,8 +1,10 @@
 package com.moyun.portal.service.impl;
 
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.moyun.util.string.StringUtils;
 import com.moyun.portal.domain.entity.PortalUser;
+import com.moyun.portal.domain.query.UserQuery;
 import com.moyun.portal.mapper.PortalUserMapper;
 import com.moyun.portal.service.IPortalUserService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -24,12 +26,24 @@ public class PortalUserServiceImpl extends ServiceImpl<PortalUserMapper, PortalU
     /**
      * 根据条件分页查询用户列表
      *
-     * @param portalUser 用户信息
-     * @return 用户信息集合信息
+     * @param page 分页参数
+     * @param query 查询条件
+     * @return 分页结果
      */
     @Override
-    public List<PortalUser> selectPortalUserList(PortalUser portalUser) {
-        return portalUserMapper.selectPortalUserList(portalUser);
+    public Page<PortalUser> selectPortalUserPage(Page<PortalUser> page, UserQuery query) {
+        return baseMapper.selectPortalUserPage(page, query);
+    }
+
+    /**
+     * 根据条件查询用户列表（不分页，用于导出等场景）
+     *
+     * @param query 查询条件
+     * @return 用户信息集合
+     */
+    @Override
+    public List<PortalUser> selectPortalUserList(UserQuery query) {
+        return baseMapper.selectPortalUserList(query);
     }
 
     /**

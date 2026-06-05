@@ -4,7 +4,7 @@ spring:
     # 使用 Druid 数据源
     type: com.alibaba.druid.pool.DruidDataSource
     driver-class-name: com.mysql.cj.jdbc.Driver  #ecom_publish
-    url: jdbc:mysql://localhost:3306/ecom_publish?useUnicode=true&characterEncoding=utf-8&useSSL=false&serverTimezone=Asia/Shanghai
+    url: jdbc:mysql://localhost:3306/moyun-db?useUnicode=true&characterEncoding=utf-8&useSSL=false&serverTimezone=Asia/Shanghai
     username: root
     password: 123456
     # Druid 连接池配置

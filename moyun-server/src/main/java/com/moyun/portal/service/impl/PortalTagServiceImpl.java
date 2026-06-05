@@ -1,7 +1,9 @@
 package com.moyun.portal.service.impl;
 
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.moyun.portal.domain.entity.PortalTag;
+import com.moyun.portal.domain.query.TagQuery;
 import com.moyun.portal.mapper.PortalTagMapper;
 import com.moyun.portal.service.IPortalTagService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -23,12 +25,24 @@ public class PortalTagServiceImpl extends ServiceImpl<PortalTagMapper, PortalTag
     /**
      * 根据条件分页查询标签列表
      *
-     * @param portalTag 标签信息
-     * @return 标签信息集合信息
+     * @param page 分页参数
+     * @param query 查询条件
+     * @return 分页结果
      */
     @Override
-    public List<PortalTag> selectPortalTagList(PortalTag portalTag) {
-        return portalTagMapper.selectPortalTagList(portalTag);
+    public Page<PortalTag> selectPortalTagPage(Page<PortalTag> page, TagQuery query) {
+        return baseMapper.selectPortalTagPage(page, query);
+    }
+
+    /**
+     * 根据条件查询标签列表（不分页，用于导出等场景）
+     *
+     * @param query 查询条件
+     * @return 标签信息集合
+     */
+    @Override
+    public List<PortalTag> selectPortalTagList(TagQuery query) {
+        return baseMapper.selectPortalTagList(query);
     }
 
     /**

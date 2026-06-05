@@ -1,6 +1,8 @@
 package com.moyun.portal.service;
 
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.moyun.portal.domain.entity.PortalUser;
+import com.moyun.portal.domain.query.UserQuery;
 
 import java.util.List;
 
@@ -14,10 +16,19 @@ public interface IPortalUserService {
     /**
      * 根据条件分页查询用户列表
      *
-     * @param portalUser 用户信息
-     * @return 用户信息集合信息
+     * @param page 分页参数
+     * @param query 查询条件
+     * @return 分页结果
      */
-    public List<PortalUser> selectPortalUserList(PortalUser portalUser);
+    Page<PortalUser> selectPortalUserPage(Page<PortalUser> page, UserQuery query);
+
+    /**
+     * 根据条件查询用户列表（不分页，用于导出等场景）
+     *
+     * @param query 查询条件
+     * @return 用户信息集合
+     */
+    List<PortalUser> selectPortalUserList(UserQuery query);
 
     /**
      * 通过用户名查询用户

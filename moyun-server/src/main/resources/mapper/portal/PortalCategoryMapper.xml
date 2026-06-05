@@ -1,0 +1,134 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.moyun.portal.mapper.PortalCategoryMapper">
+
+    <resultMap type="com.moyun.portal.domain.entity.PortalCategory" id="PortalCategoryResult">
+        <id property="id" column="id"/>
+        <result property="name" column="name"/>
+        <result property="slug" column="slug"/>
+        <result property="description" column="description"/>
+        <result property="icon" column="icon"/>
+        <result property="sort" column="sort"/>
+        <result property="parentId" column="parent_id"/>
+        <result property="status" column="status"/>
+        <result property="createBy" column="create_by"/>
+        <result property="createTime" column="create_time"/>
+        <result property="updateBy" column="update_by"/>
+        <result property="updateTime" column="update_time"/>
+        <result property="remark" column="remark"/>
+    </resultMap>
+
+    <sql id="selectPortalCategoryVo">
+        select id, name, slug, description, icon, sort, parent_id, status, create_by, create_time, update_by, update_time, remark from portal_category
+    </sql>
+
+    <!-- 通用查询条件片段 -->
+    <sql id="queryWhere">
+        <where>
+            <if test="params.name != null and params.name != ''">
+                AND name like concat('%', #{params.name}, '%')
+            </if>
+            <if test="params.parentId != null">
+                AND parent_id = #{params.parentId}
+            </if>
+            <if test="params.status != null and params.status != ''">
+                AND status = #{params.status}
+            </if>
+        </where>
+    </sql>
+
+    <!-- 通用排序片段（默认排序） -->
+    <sql id="defaultOrderBy">
+        order by sort asc, id asc
+    </sql>
+
+    <!-- 动态排序片段 -->
+    <sql id="dynamicOrderBy">
+        <if test="params.orderByColumn != null and params.orderByColumn != ''">
+            order by ${params.orderByColumn}
+            <if test="params.isAsc != null and params.isAsc != ''">
+                ${params.isAsc}
+            </if>
+        </if>
+        <if test="params.orderByColumn == null or params.orderByColumn == ''">
+            <include refid="defaultOrderBy"/>
+        </if>
+    </sql>
+
+    <!-- 分页查询 -->
+    <select id="selectPortalCategoryPage" resultMap="PortalCategoryResult">
+        <include refid="selectPortalCategoryVo"/>
+        <include refid="queryWhere"/>
+        <include refid="dynamicOrderBy"/>
+    </select>
+
+    <!-- 不分页查询（用于导出等场景） -->
+    <select id="selectPortalCategoryList" resultMap="PortalCategoryResult">
+        <include refid="selectPortalCategoryVo"/>
+        <include refid="queryWhere"/>
+        <include refid="defaultOrderBy"/>
+    </select>
+
+    <select id="selectPortalCategoryById" parameterType="Long" resultMap="PortalCategoryResult">
+        <include refid="selectPortalCategoryVo"/>
+        where id = #{id}
+    </select>
+
+    <insert id="insertPortalCategory" parameterType="com.moyun.portal.domain.entity.PortalCategory" useGeneratedKeys="true" keyProperty="id">
+        insert into portal_category
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="name != null">name,</if>
+            <if test="slug != null">slug,</if>
+            <if test="description != null">description,</if>
+            <if test="icon != null">icon,</if>
+            <if test="sort != null">sort,</if>
+            <if test="parentId != null">parent_id,</if>
+            <if test="status != null">status,</if>
+            <if test="createBy != null">create_by,</if>
+            <if test="createTime != null">create_time,</if>
+            <if test="remark != null">remark,</if>
+        </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="name != null">#{name},</if>
+            <if test="slug != null">#{slug},</if>
+            <if test="description != null">#{description},</if>
+            <if test="icon != null">#{icon},</if>
+            <if test="sort != null">#{sort},</if>
+            <if test="parentId != null">#{parentId},</if>
+            <if test="status != null">#{status},</if>
+            <if test="createBy != null">#{createBy},</if>
+            <if test="createTime != null">#{createTime},</if>
+            <if test="remark != null">#{remark},</if>
+        </trim>
+    </insert>
+
+    <update id="updatePortalCategory" parameterType="com.moyun.portal.domain.entity.PortalCategory">
+        update portal_category
+        <trim prefix="SET" suffixOverrides=",">
+            <if test="name != null and name != ''">name = #{name},</if>
+            <if test="slug != null">slug = #{slug},</if>
+            <if test="description != null">description = #{description},</if>
+            <if test="icon != null">icon = #{icon},</if>
+            <if test="sort != null">sort = #{sort},</if>
+            <if test="parentId != null">parent_id = #{parentId},</if>
+            <if test="status != null">status = #{status},</if>
+            <if test="updateBy != null">update_by = #{updateBy},</if>
+            <if test="updateTime != null">update_time = #{updateTime},</if>
+            <if test="remark != null">remark = #{remark},</if>
+        </trim>
+        where id = #{id}
+    </update>
+
+    <delete id="deletePortalCategoryById" parameterType="Long">
+        delete from portal_category where id = #{id}
+    </delete>
+
+    <delete id="deletePortalCategoryByIds" parameterType="Long">
+        delete from portal_category where id in
+        <foreach item="id" collection="array" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </delete>
+</mapper>

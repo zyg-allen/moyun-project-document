@@ -104,6 +104,11 @@ service.interceptors.response.use(res => {
       ElNotification.error({ title: msg })
       return Promise.reject('error')
     } else {
+      // 兼容 MyBatis-Plus Page 对象格式
+      if (res.data.data && res.data.data.records !== undefined) {
+        // 如果是 Page 对象，转换为原来的 rows/total 格式
+        res.data.data.rows = res.data.data.records;
+      }
       return  Promise.resolve(res.data)
     }
   },

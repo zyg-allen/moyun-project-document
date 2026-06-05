@@ -1,0 +1,124 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.moyun.portal.mapper.PortalOrderMapper">
+
+    <resultMap type="com.moyun.portal.domain.entity.PortalOrder" id="PortalOrderResult">
+        <id property="id" column="id"/>
+        <result property="orderNo" column="order_no"/>
+        <result property="userId" column="user_id"/>
+        <result property="type" column="type"/>
+        <result property="productId" column="product_id"/>
+        <result property="amount" column="amount"/>
+        <result property="status" column="status"/>
+        <result property="payMethod" column="pay_method"/>
+        <result property="paidAt" column="paid_at"/>
+        <result property="createBy" column="create_by"/>
+        <result property="createTime" column="create_time"/>
+        <result property="updateBy" column="update_by"/>
+        <result property="updateTime" column="update_time"/>
+        <result property="remark" column="remark"/>
+    </resultMap>
+
+    <sql id="selectPortalOrderVo">
+        select id, order_no, user_id, type, product_id, amount, status, pay_method, paid_at, create_by, create_time, update_by, update_time, remark from portal_order
+    </sql>
+
+    <!-- 分页查询 -->
+    <select id="selectPortalOrderPage" resultMap="PortalOrderResult">
+        <include refid="selectPortalOrderVo"/>
+        <where>
+            <if test="params.orderNo != null and params.orderNo != ''">and order_no like concat('%', #{params.orderNo}, '%')</if>
+            <if test="params.userId != null">and user_id = #{params.userId}</if>
+            <if test="params.type != null and params.type != ''">and type = #{params.type}</if>
+            <if test="params.productId != null">and product_id = #{params.productId}</if>
+            <if test="params.status != null and params.status != ''">and status = #{params.status}</if>
+            <if test="params.payMethod != null and params.payMethod != ''">and pay_method = #{params.payMethod}</if>
+        </where>
+        order by create_time desc
+    </select>
+
+    <!-- 不分页查询（用于导出等场景） -->
+    <select id="selectPortalOrderList" resultMap="PortalOrderResult">
+        <include refid="selectPortalOrderVo"/>
+        <where>
+            <if test="params.orderNo != null and params.orderNo != ''">and order_no like concat('%', #{params.orderNo}, '%')</if>
+            <if test="params.userId != null">and user_id = #{params.userId}</if>
+            <if test="params.type != null and params.type != ''">and type = #{params.type}</if>
+            <if test="params.productId != null">and product_id = #{params.productId}</if>
+            <if test="params.status != null and params.status != ''">and status = #{params.status}</if>
+            <if test="params.payMethod != null and params.payMethod != ''">and pay_method = #{params.payMethod}</if>
+        </where>
+        order by create_time desc
+    </select>
+
+    <select id="selectPortalOrderById" parameterType="Long" resultMap="PortalOrderResult">
+        <include refid="selectPortalOrderVo"/>
+        where id = #{id}
+    </select>
+
+    <select id="selectPortalOrderByOrderNo" parameterType="String" resultMap="PortalOrderResult">
+        <include refid="selectPortalOrderVo"/>
+        where order_no = #{orderNo}
+    </select>
+
+    <insert id="insertPortalOrder" parameterType="com.moyun.portal.domain.entity.PortalOrder" useGeneratedKeys="true" keyProperty="id">
+        insert into portal_order
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="orderNo != null">order_no,</if>
+            <if test="userId != null">user_id,</if>
+            <if test="type != null">type,</if>
+            <if test="productId != null">product_id,</if>
+            <if test="amount != null">amount,</if>
+            <if test="status != null">status,</if>
+            <if test="payMethod != null">pay_method,</if>
+            <if test="paidAt != null">paid_at,</if>
+            <if test="createBy != null">create_by,</if>
+            <if test="createTime != null">create_time,</if>
+            <if test="remark != null">remark,</if>
+        </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="orderNo != null">#{orderNo},</if>
+            <if test="userId != null">#{userId},</if>
+            <if test="type != null">#{type},</if>
+            <if test="productId != null">#{productId},</if>
+            <if test="amount != null">#{amount},</if>
+            <if test="status != null">#{status},</if>
+            <if test="payMethod != null">#{payMethod},</if>
+            <if test="paidAt != null">#{paidAt},</if>
+            <if test="createBy != null">#{createBy},</if>
+            <if test="createTime != null">#{createTime},</if>
+            <if test="remark != null">#{remark},</if>
+        </trim>
+    </insert>
+
+    <update id="updatePortalOrder" parameterType="com.moyun.portal.domain.entity.PortalOrder">
+        update portal_order
+        <trim prefix="SET" suffixOverrides=",">
+            <if test="orderNo != null and orderNo != ''">order_no = #{orderNo},</if>
+            <if test="userId != null">user_id = #{userId},</if>
+            <if test="type != null and type != ''">type = #{type},</if>
+            <if test="productId != null">product_id = #{productId},</if>
+            <if test="amount != null">amount = #{amount},</if>
+            <if test="status != null">status = #{status},</if>
+            <if test="payMethod != null">pay_method = #{payMethod},</if>
+            <if test="paidAt != null">paid_at = #{paidAt},</if>
+            <if test="updateBy != null">update_by = #{updateBy},</if>
+            <if test="updateTime != null">update_time = #{updateTime},</if>
+            <if test="remark != null">remark = #{remark},</if>
+        </trim>
+        where id = #{id}
+    </update>
+
+    <delete id="deletePortalOrderById" parameterType="Long">
+        delete from portal_order where id = #{id}
+    </delete>
+
+    <delete id="deletePortalOrderByIds" parameterType="Long">
+        delete from portal_order where id in
+        <foreach item="id" collection="array" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </delete>
+</mapper>

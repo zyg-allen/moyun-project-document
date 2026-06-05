@@ -1,8 +1,11 @@
 package com.moyun.portal.mapper;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.moyun.portal.domain.entity.PortalOrder;
+import com.moyun.portal.domain.query.OrderQuery;
 import org.apache.ibatis.annotations.Mapper;
+import org.apache.ibatis.annotations.Param;
 
 import java.util.List;
 
@@ -17,10 +20,19 @@ public interface PortalOrderMapper extends BaseMapper<PortalOrder> {
     /**
      * 根据条件分页查询订单列表
      *
-     * @param portalOrder 订单信息
+     * @param page 分页参数
+     * @param query 查询条件
      * @return 订单信息集合信息
      */
-    public List<PortalOrder> selectPortalOrderList(PortalOrder portalOrder);
+    Page<PortalOrder> selectPortalOrderPage(Page<PortalOrder> page, @Param("params") OrderQuery query);
+
+    /**
+     * 根据条件查询订单列表（不分页，用于导出等场景）
+     *
+     * @param query 查询条件
+     * @return 订单信息集合信息
+     */
+    List<PortalOrder> selectPortalOrderList(@Param("params") OrderQuery query);
 
     /**
      * 通过订单ID查询订单

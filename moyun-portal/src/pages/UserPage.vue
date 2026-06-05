@@ -28,8 +28,10 @@ import {
   Zap,
   Flame
 } from 'lucide-vue-next';
-import { getCurrentUser, setCurrentUser, getArticles } from '@/data/mockData';
+import { getArticles } from '@/data/mockData';
 import { useArticleStore } from '@/stores/article';
+import { useUserStore } from '@/stores/user';
+import { useAuth } from '@/composables/useAuth';
 import { generateSeo } from '@/utils/seo';
 import ArticleCard from '@/components/ArticleCard.vue';
 import SiteFooter from '@/components/SiteFooter.vue';
@@ -39,6 +41,8 @@ import type { Article, User as UserType } from '@/types';
 
 const router = useRouter();
 const articleStore = useArticleStore();
+const userStore = useUserStore();
+const { requireAuth } = useAuth();
 
 // 数据
 const currentUser = ref<UserType | null>(null);
@@ -128,20 +132,29 @@ watch(() => activeTab.value, () => {
   currentPage.value = 1;
 });
 
-onMounted(() => {
-  const user = getCurrentUser();
-  if (!user) {
-    router.push('/login');
+onMounted(async () => {
+  // 等待用户状态初始化
+  if (!userStore.isUserInitialized) {
+    await userStore.initializeUser();
+  }
+
+  // 检查是否登录
+  if (!userStore.isAuthenticated) {
+    requireAuth();
     return;
   }
 
-  currentUser.value = user;
-  editProfileForm.value = {
-    username: user.username,
-    bio: user.bio || '',
-    email: user.email,
-    position: '高级前端工程师'
-  };
+  // 使用 store 中的用户数据
+  const user = userStore.user;
+  if (user) {
+    currentUser.value = user;
+    editProfileForm.value = {
+      username: user.username,
+      bio: user.bio || '',
+      email: user.email,
+      position: '高级前端工程师'
+    };
+  }
 
   // 获取用户文章
   const allArticles = getArticles();
@@ -190,13 +203,13 @@ function showToastMessage(message: string) {
 }
 
 // 退出登录
-function handleLogout() {
-  setCurrentUser(null);
-  router.push('/');
+async function handleLogout() {
+  await userStore.logoutWithApi()
+  router.push('/')
 }
 
 // 保存个人资料
-function saveProfile() {
+async function saveProfile() {
   if (!editProfileForm.value.username.trim()) {
     showToastMessage('请输入用户名');
     return;
@@ -204,17 +217,19 @@ function saveProfile() {
 
   isLoading.value = true;
 
-  setTimeout(() => {
-    if (currentUser.value) {
-      currentUser.value.username = editProfileForm.value.username;
-      currentUser.value.bio = editProfileForm.value.bio;
-      currentUser.value.email = editProfileForm.value.email;
-      setCurrentUser(currentUser.value);
+  try {
+    const result = await userStore.updateUserWithApi(editProfileForm.value);
+    if (result.success) {
+      showEditModal.value = false;
+      showToastMessage('资料更新成功！');
+    } else {
+      showToastMessage(result.message || '更新失败');
     }
-    showEditModal.value = false;
-    showToastMessage('资料更新成功！');
+  } catch (error) {
+    showToastMessage('更新失败，请稍后重试');
+  } finally {
     isLoading.value = false;
-  }, 800);
+  }
 }
 
 // 充值

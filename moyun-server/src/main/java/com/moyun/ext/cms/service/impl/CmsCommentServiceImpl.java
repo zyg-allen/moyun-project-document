@@ -27,13 +27,13 @@ public class CmsCommentServiceImpl implements ICmsCommentService
     private PortalCommentMapper portalCommentMapper;
 
     @Override
-    public Page<CmsCommentVO> selectCommentPage(CmsCommentQuery query)
+    public Page<CmsCommentVO> selectCommentPage(Page<CmsCommentVO> page, CmsCommentQuery query)
     {
-        Page<PortalComment> page = new Page<>(query.getPageNum(), query.getPageSize());
-        page = portalCommentMapper.selectPage(page, buildQueryWrapper(query));
+        Page<PortalComment> entityPage = new Page<>(page.getCurrent(), page.getSize());
+        entityPage = portalCommentMapper.selectPage(entityPage, buildQueryWrapper(query));
         
-        Page<CmsCommentVO> voPage = new Page<>(page.getCurrent(), page.getSize(), page.getTotal());
-        List<CmsCommentVO> voList = BeanUtil.copyToList(page.getRecords(), CmsCommentVO.class);
+        Page<CmsCommentVO> voPage = new Page<>(entityPage.getCurrent(), entityPage.getSize(), entityPage.getTotal());
+        List<CmsCommentVO> voList = BeanUtil.copyToList(entityPage.getRecords(), CmsCommentVO.class);
         voPage.setRecords(voList);
         return voPage;
     }

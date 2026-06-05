@@ -138,29 +138,29 @@ class LocalExcerptStrategy implements ExcerptStrategy {
   }
 }
 
-/**
- * AI 策略（预留，未来实现）
- */
-class AIExcerptStrategy implements ExcerptStrategy {
-  name = 'ai';
-  
-  // 预留 API 配置
-  private apiConfig = {
-    endpoint: '',
-    apiKey: '',
-    model: ''
-  };
-
-  async extract(
-    content: string,
-    editorMode: 'richtext' | 'markdown' = 'richtext',
-    maxLength: number = 200
-  ): Promise<string> {
-    // 未来实现 AI 摘要提取
-    // 这里可以调用 OpenAI、Claude 或其他 AI 服务
-    throw new Error('AI 策略尚未实现，请配置 API');
-  }
-}
+// /**
+//  * AI 策略（预留，未来实现）
+//  */
+// class AIExcerptStrategy implements ExcerptStrategy {
+//   name = 'ai';
+//   
+//   // 预留 API 配置
+//   private apiConfig = {
+//     endpoint: '',
+//     apiKey: '',
+//     model: ''
+//   };
+// 
+//   async extract(
+//     content: string,
+//     editorMode: 'richtext' | 'markdown' = 'richtext',
+//     maxLength: number = 200
+//   ): Promise<string> {
+//     // 未来实现 AI 摘要提取
+//     // 这里可以调用 OpenAI、Claude 或其他 AI 服务
+//     throw new Error('AI 策略尚未实现，请配置 API');
+//   }
+// }
 
 /**
  * 摘要提取管理器
@@ -188,28 +188,28 @@ class ExcerptExtractor {
   /**
    * 切换策略
    */
-  useStrategy(strategyName: string): boolean {
-    const strategy = this.strategies.get(strategyName);
-    if (strategy) {
-      this.currentStrategy = strategy;
-      return true;
-    }
-    return false;
-  }
+  // useStrategy(strategyName: string): boolean {
+  //   const strategy = this.strategies.get(strategyName);
+  //   if (strategy) {
+  //     this.currentStrategy = strategy;
+  //     return true;
+  //   }
+  //   return false;
+  // }
 
   /**
    * 注册新策略（用于未来扩展）
    */
-  registerStrategy(strategy: ExcerptStrategy): void {
-    this.strategies.set(strategy.name, strategy);
-  }
+  // registerStrategy(strategy: ExcerptStrategy): void {
+  //   this.strategies.set(strategy.name, strategy);
+  // }
 
   /**
    * 获取可用策略列表
    */
-  getAvailableStrategies(): string[] {
-    return Array.from(this.strategies.keys());
-  }
+  // getAvailableStrategies(): string[] {
+  //   return Array.from(this.strategies.keys());
+  // }
 
   /**
    * 提取摘要
@@ -240,16 +240,16 @@ export async function extractExcerpt(
 /**
  * 切换摘要提取策略
  */
-export function useExcerptStrategy(strategyName: string): boolean {
-  return excerptExtractor.useStrategy(strategyName);
-}
+// export function useExcerptStrategy(strategyName: string): boolean {
+//   return excerptExtractor.useStrategy(strategyName);
+// }
 
 /**
  * 获取可用策略列表
  */
-export function getExcerptStrategies(): string[] {
-  return excerptExtractor.getAvailableStrategies();
-}
+// export function getExcerptStrategies(): string[] {
+//   return excerptExtractor.getAvailableStrategies();
+// }
 
 /**
  * 导出管理器（用于高级用途）

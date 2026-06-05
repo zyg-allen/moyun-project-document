@@ -1,8 +1,6 @@
 <script setup lang="ts">
-import { computed } from 'vue';
 import { RouterLink as Link } from 'vue-router';
-import { Clock, Tag, User } from 'lucide-vue-next';
-import { useArticleStore } from '@/stores/article';
+import { Clock, Tag } from 'lucide-vue-next';
 import LazyImage from '@/components/LazyImage.vue';
 import type { Article } from '@/types/api';
 
@@ -11,42 +9,12 @@ interface Props {
 }
 
 const props = defineProps<Props>();
-const articleStore = useArticleStore();
-
-const isLiked = computed(() => articleStore.likedArticleIds.includes(props.article.id));
-const isBookmarked = computed(() => articleStore.bookmarkedArticleIds.includes(props.article.id));
 
 // 截断文本最多50字符
 function truncateText(text: string | undefined, maxLength: number = 50): string {
   if (!text) return '';
   if (text.length <= maxLength) return text;
   return text.substring(0, maxLength) + '...';
-}
-
-function handleLike(event: Event) {
-  event.stopPropagation();
-  articleStore.likeArticle(props.article.id);
-}
-
-function handleBookmark(event: Event) {
-  event.stopPropagation();
-  articleStore.bookmarkArticle(props.article.id);
-}
-
-function handleShare(event: Event) {
-  event.stopPropagation();
-  articleStore.shareArticle(props.article.id);
-  
-  if (navigator.share) {
-    navigator.share({
-      title: props.article.title,
-      text: props.article.excerpt || '',
-      url: window.location.origin + '/article/' + props.article.id,
-    }).catch(console.error);
-  } else {
-    navigator.clipboard.writeText(window.location.origin + '/article/' + props.article.id);
-    alert('链接已复制到剪贴板');
-  }
 }
 
 function formatDateTime(dateStr: string | undefined) {

@@ -1,8 +1,11 @@
 package com.moyun.portal.mapper;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.moyun.portal.domain.entity.PortalFollow;
+import com.moyun.portal.domain.query.FollowQuery;
 import org.apache.ibatis.annotations.Mapper;
+import org.apache.ibatis.annotations.Param;
 
 import java.util.List;
 
@@ -17,10 +20,19 @@ public interface PortalFollowMapper extends BaseMapper<PortalFollow> {
     /**
      * 根据条件分页查询关注列表
      *
-     * @param portalFollow 关注信息
+     * @param page 分页参数
+     * @param query 查询条件
      * @return 关注信息集合信息
      */
-    public List<PortalFollow> selectPortalFollowList(PortalFollow portalFollow);
+    Page<PortalFollow> selectPortalFollowPage(Page<PortalFollow> page, @Param("params") FollowQuery query);
+
+    /**
+     * 根据条件查询关注列表（不分页，用于导出等场景）
+     *
+     * @param query 查询条件
+     * @return 关注信息集合信息
+     */
+    List<PortalFollow> selectPortalFollowList(@Param("params") FollowQuery query);
 
     /**
      * 通过关注ID查询关注

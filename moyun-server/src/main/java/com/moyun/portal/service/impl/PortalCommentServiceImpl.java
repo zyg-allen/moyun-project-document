@@ -1,7 +1,9 @@
 package com.moyun.portal.service.impl;
 
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.moyun.portal.domain.entity.PortalComment;
+import com.moyun.portal.domain.query.CommentQuery;
 import com.moyun.portal.mapper.PortalCommentMapper;
 import com.moyun.portal.service.IPortalCommentService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -23,12 +25,24 @@ public class PortalCommentServiceImpl extends ServiceImpl<PortalCommentMapper, P
     /**
      * 根据条件分页查询评论列表
      *
-     * @param portalComment 评论信息
-     * @return 评论信息集合信息
+     * @param page 分页参数
+     * @param query 查询条件
+     * @return 分页结果
      */
     @Override
-    public List<PortalComment> selectPortalCommentList(PortalComment portalComment) {
-        return portalCommentMapper.selectPortalCommentList(portalComment);
+    public Page<PortalComment> selectPortalCommentPage(Page<PortalComment> page, CommentQuery query) {
+        return baseMapper.selectPortalCommentPage(page, query);
+    }
+
+    /**
+     * 根据条件查询评论列表（不分页，用于导出等场景）
+     *
+     * @param query 查询条件
+     * @return 评论信息集合
+     */
+    @Override
+    public List<PortalComment> selectPortalCommentList(CommentQuery query) {
+        return baseMapper.selectPortalCommentList(query);
     }
 
     /**

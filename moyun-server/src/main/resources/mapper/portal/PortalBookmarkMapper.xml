@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.moyun.portal.mapper.PortalBookmarkMapper">
+
+    <resultMap type="com.moyun.portal.domain.entity.PortalBookmark" id="PortalBookmarkResult">
+        <id property="id" column="id"/>
+        <result property="userId" column="user_id"/>
+        <result property="articleId" column="article_id"/>
+        <result property="createTime" column="create_time"/>
+    </resultMap>
+
+    <sql id="selectPortalBookmarkVo">
+        select id, user_id, article_id, create_time from portal_bookmark
+    </sql>
+
+    <!-- 动态排序 -->
+    <sql id="dynamicOrderBy">
+        <if test="params.orderByColumn != null and params.orderByColumn != ''">
+            order by ${params.orderByColumn}
+            <if test="params.isAsc != null and params.isAsc != ''">
+                ${params.isAsc}
+            </if>
+        </if>
+        <if test="params.orderByColumn == null or params.orderByColumn == ''">
+            order by create_time desc
+        </if>
+    </sql>
+
+    <!-- 分页查询 -->
+    <select id="selectPortalBookmarkPage" resultMap="PortalBookmarkResult">
+        <include refid="selectPortalBookmarkVo"/>
+        <where>
+            <if test="params.userId != null">and user_id = #{params.userId}</if>
+            <if test="params.articleId != null">and article_id = #{params.articleId}</if>
+        </where>
+        <include refid="dynamicOrderBy"/>
+    </select>
+
+    <!-- 不分页查询（用于导出等场景） -->
+    <select id="selectPortalBookmarkList" resultMap="PortalBookmarkResult">
+        <include refid="selectPortalBookmarkVo"/>
+        <where>
+            <if test="params.userId != null">and user_id = #{params.userId}</if>
+            <if test="params.articleId != null">and article_id = #{params.articleId}</if>
+        </where>
+        <include refid="dynamicOrderBy"/>
+    </select>
+
+    <select id="selectPortalBookmarkById" parameterType="Long" resultMap="PortalBookmarkResult">
+        <include refid="selectPortalBookmarkVo"/>
+        where id = #{id}
+    </select>
+
+    <insert id="insertPortalBookmark" parameterType="com.moyun.portal.domain.entity.PortalBookmark" useGeneratedKeys="true" keyProperty="id">
+        insert into portal_bookmark
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="userId != null">user_id,</if>
+            <if test="articleId != null">article_id,</if>
+            <if test="createTime != null">create_time,</if>
+        </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="userId != null">#{userId},</if>
+            <if test="articleId != null">#{articleId},</if>
+            <if test="createTime != null">#{createTime},</if>
+        </trim>
+    </insert>
+
+    <update id="updatePortalBookmark" parameterType="com.moyun.portal.domain.entity.PortalBookmark">
+        update portal_bookmark
+        <trim prefix="SET" suffixOverrides=",">
+            <if test="userId != null">user_id = #{userId},</if>
+            <if test="articleId != null">article_id = #{articleId},</if>
+            <if test="createTime != null">create_time = #{createTime},</if>
+        </trim>
+        where id = #{id}
+    </update>
+
+    <delete id="deletePortalBookmarkById" parameterType="Long">
+        delete from portal_bookmark where id = #{id}
+    </delete>
+
+    <delete id="deletePortalBookmarkByIds" parameterType="Long">
+        delete from portal_bookmark where id in
+        <foreach item="id" collection="array" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </delete>
+</mapper>

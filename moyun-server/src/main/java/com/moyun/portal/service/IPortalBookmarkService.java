@@ -1,6 +1,8 @@
 package com.moyun.portal.service;
 
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.moyun.portal.domain.entity.PortalBookmark;
+import com.moyun.portal.domain.query.BookmarkQuery;
 
 import java.util.List;
 
@@ -14,10 +16,19 @@ public interface IPortalBookmarkService {
     /**
      * 根据条件分页查询收藏列表
      *
-     * @param portalBookmark 收藏信息
-     * @return 收藏信息集合信息
+     * @param page 分页参数
+     * @param query 查询条件
+     * @return 分页结果
      */
-    public List<PortalBookmark> selectPortalBookmarkList(PortalBookmark portalBookmark);
+    Page<PortalBookmark> selectPortalBookmarkPage(Page<PortalBookmark> page, BookmarkQuery query);
+
+    /**
+     * 根据条件查询收藏列表（不分页，用于导出等场景）
+     *
+     * @param query 查询条件
+     * @return 收藏信息集合
+     */
+    List<PortalBookmark> selectPortalBookmarkList(BookmarkQuery query);
 
     /**
      * 通过收藏ID查询收藏

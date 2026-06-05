@@ -125,7 +125,7 @@ async function loadArticles() {
 const totalPages = computed(() => Math.ceil(totalItems.value / itemsPerPage.value));
 
 const paginatedArticles = computed(() => {
-  return allArticles.value; // 因为API已经做了分页
+  return allArticles.value as any[]; // 因为API已经做了分页
 });
 
 function handlePageChange(page: number) {

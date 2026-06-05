@@ -1,8 +1,11 @@
 package com.moyun.portal.mapper;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.moyun.portal.domain.entity.PortalFriendLink;
+import com.moyun.portal.domain.query.FriendLinkQuery;
 import org.apache.ibatis.annotations.Mapper;
+import org.apache.ibatis.annotations.Param;
 
 import java.util.List;
 
@@ -17,10 +20,19 @@ public interface PortalFriendLinkMapper extends BaseMapper<PortalFriendLink> {
     /**
      * 根据条件分页查询友情链接列表
      *
-     * @param portalFriendLink 友情链接信息
+     * @param page 分页参数
+     * @param query 查询条件
      * @return 友情链接信息集合信息
      */
-    public List<PortalFriendLink> selectPortalFriendLinkList(PortalFriendLink portalFriendLink);
+    Page<PortalFriendLink> selectPortalFriendLinkPage(Page<PortalFriendLink> page, @Param("params") FriendLinkQuery query);
+
+    /**
+     * 根据条件查询友情链接列表（不分页，用于导出等场景）
+     *
+     * @param query 查询条件
+     * @return 友情链接信息集合信息
+     */
+    List<PortalFriendLink> selectPortalFriendLinkList(@Param("params") FriendLinkQuery query);
 
     /**
      * 通过友情链接ID查询友情链接

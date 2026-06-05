@@ -145,15 +145,23 @@ export const httpGetList = <T>(
         return;
       }
 
-      // 转换分页响应
+      // 兼容后端两种返回格式：
+      // 1. TableDataInfo格式（后台）：rows, total
+      // 2. MyBatis-Plus Page对象（前台）：records, total, current, size, pages
+      const pageData = (data as any).data || {};
+      const list = pageData.records || pageData.rows || pageData.list || [];
+      const total = pageData.total || 0;
+      const current = pageData.current || pageData.page || params?.page || 1;
+      const size = pageData.size || pageData.pageSize || params?.pageSize || 10;
+
       resolve({
         code: data.code,
         message: data.msg,
         data: {
-          list: (data.rows || []) as T[],
-          total: data.total || 0,
-          page: params?.page || 1,
-          pageSize: params?.pageSize || 10,
+          list: list as T[],
+          total: total,
+          page: current,
+          pageSize: size,
         },
       });
     } catch (error) {

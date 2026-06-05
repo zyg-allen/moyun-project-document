@@ -5,11 +5,11 @@ import com.moyun.common.annotation.Log;
 import com.moyun.common.enums.BusinessType;
 import com.moyun.core.base.AjaxResult;
 import com.moyun.core.base.BaseController;
-import com.moyun.core.base.TableDataInfo;
 import com.moyun.ext.cms.domain.query.CmsCommentQuery;
 import com.moyun.ext.cms.domain.vo.CmsCommentVO;
 import com.moyun.ext.cms.service.ICmsCommentService;
 import com.moyun.portal.domain.entity.PortalComment;
+import com.moyun.util.bean.PageUtils;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -35,10 +35,10 @@ public class CmsCommentController extends BaseController {
     @Operation(summary = "获取评论列表", description = "根据条件分页查询评论列表")
     @PreAuthorize("@ss.hasPermi('cms:comment:list')")
     @GetMapping("/list")
-    public TableDataInfo list(CmsCommentQuery query) {
-        startPage();
-        Page<CmsCommentVO> page = cmsCommentService.selectCommentPage(query);
-        return getDataTable(page.getRecords(), page.getTotal());
+    public AjaxResult list(CmsCommentQuery query) {
+        Page<CmsCommentVO> page = PageUtils.buildPage(query);
+        page = cmsCommentService.selectCommentPage(page, query);
+        return success(page);
     }
 
     /**

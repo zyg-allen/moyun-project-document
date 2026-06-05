@@ -27,13 +27,13 @@ public class CmsTagServiceImpl implements ICmsTagService
     private PortalTagMapper portalTagMapper;
 
     @Override
-    public Page<CmsTagVO> selectTagPage(CmsTagQuery query)
+    public Page<CmsTagVO> selectTagPage(Page<CmsTagVO> page, CmsTagQuery query)
     {
-        Page<PortalTag> page = new Page<>(query.getPageNum(), query.getPageSize());
-        page = portalTagMapper.selectPage(page, buildQueryWrapper(query));
+        Page<PortalTag> entityPage = new Page<>(page.getCurrent(), page.getSize());
+        entityPage = portalTagMapper.selectPage(entityPage, buildQueryWrapper(query));
         
-        Page<CmsTagVO> voPage = new Page<>(page.getCurrent(), page.getSize(), page.getTotal());
-        List<CmsTagVO> voList = BeanUtil.copyToList(page.getRecords(), CmsTagVO.class);
+        Page<CmsTagVO> voPage = new Page<>(entityPage.getCurrent(), entityPage.getSize(), entityPage.getTotal());
+        List<CmsTagVO> voList = BeanUtil.copyToList(entityPage.getRecords(), CmsTagVO.class);
         voPage.setRecords(voList);
         return voPage;
     }

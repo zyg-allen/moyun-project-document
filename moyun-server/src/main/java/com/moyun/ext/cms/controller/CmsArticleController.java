@@ -5,11 +5,11 @@ import com.moyun.common.annotation.Log;
 import com.moyun.common.enums.BusinessType;
 import com.moyun.core.base.AjaxResult;
 import com.moyun.core.base.BaseController;
-import com.moyun.core.base.TableDataInfo;
 import com.moyun.ext.cms.domain.query.CmsArticleQuery;
 import com.moyun.ext.cms.domain.vo.CmsArticleVO;
 import com.moyun.ext.cms.service.ICmsArticleService;
 import com.moyun.portal.domain.entity.PortalArticle;
+import com.moyun.util.bean.PageUtils;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -36,10 +36,10 @@ public class CmsArticleController extends BaseController {
     @Operation(summary = "获取文章列表", description = "根据条件分页查询文章列表")
     @PreAuthorize("@ss.hasPermi('cms:article:list')")
     @GetMapping("/list")
-    public TableDataInfo list(CmsArticleQuery query) {
-        startPage();
-        Page<CmsArticleVO> page = cmsArticleService.selectArticlePage(query);
-        return getDataTable(page.getRecords(), page.getTotal());
+    public AjaxResult list(CmsArticleQuery query) {
+        Page<CmsArticleVO> page = PageUtils.buildPage(query);
+        page = cmsArticleService.selectArticlePage(page, query);
+        return success(page);
     }
 
     /**

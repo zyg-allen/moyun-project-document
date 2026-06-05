@@ -274,7 +274,7 @@ const markdownPreview = computed(() => {
 // 查询分类列表
 function getCategoryList() {
   listCategory({ pageNum: 1, pageSize: 100 }).then(response => {
-    categoryOptions.value = response.rows || [];
+    categoryOptions.value = response.data || [];
   });
 }
 

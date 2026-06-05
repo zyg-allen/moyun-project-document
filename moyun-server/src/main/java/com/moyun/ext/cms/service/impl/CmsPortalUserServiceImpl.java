@@ -27,13 +27,13 @@ public class CmsPortalUserServiceImpl implements ICmsPortalUserService
     private PortalUserMapper portalUserMapper;
 
     @Override
-    public Page<CmsPortalUserVO> selectUserPage(CmsPortalUserQuery query)
+    public Page<CmsPortalUserVO> selectUserPage(Page<CmsPortalUserVO> page, CmsPortalUserQuery query)
     {
-        Page<PortalUser> page = new Page<>(query.getPageNum(), query.getPageSize());
-        page = portalUserMapper.selectPage(page, buildQueryWrapper(query));
+        Page<PortalUser> entityPage = new Page<>(page.getCurrent(), page.getSize());
+        entityPage = portalUserMapper.selectPage(entityPage, buildQueryWrapper(query));
         
-        Page<CmsPortalUserVO> voPage = new Page<>(page.getCurrent(), page.getSize(), page.getTotal());
-        List<CmsPortalUserVO> voList = BeanUtil.copyToList(page.getRecords(), CmsPortalUserVO.class);
+        Page<CmsPortalUserVO> voPage = new Page<>(entityPage.getCurrent(), entityPage.getSize(), entityPage.getTotal());
+        List<CmsPortalUserVO> voList = BeanUtil.copyToList(entityPage.getRecords(), CmsPortalUserVO.class);
         voPage.setRecords(voList);
         return voPage;
     }

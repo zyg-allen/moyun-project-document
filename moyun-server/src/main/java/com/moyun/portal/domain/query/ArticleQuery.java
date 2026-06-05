@@ -34,6 +34,12 @@ public class ArticleQuery extends PageDomain {
     private Long categoryId;
 
     /**
+     * 分类名称（模糊查询）
+     */
+    @Schema(description = "分类名称", example = "技术")
+    private String categoryName;
+
+    /**
      * 文章状态
      */
     @Schema(description = "文章状态", example = "published")

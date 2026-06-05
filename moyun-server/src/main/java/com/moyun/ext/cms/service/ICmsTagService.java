@@ -17,10 +17,11 @@ public interface ICmsTagService
     /**
      * 查询标签分页列表
      *
+     * @param page 分页参数
      * @param query 查询条件
      * @return 标签分页列表
      */
-    Page<CmsTagVO> selectTagPage(CmsTagQuery query);
+    Page<CmsTagVO> selectTagPage(Page<CmsTagVO> page, CmsTagQuery query);
 
     /**
      * 查询标签列表

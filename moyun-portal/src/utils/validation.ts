@@ -143,13 +143,13 @@ export function validateForm<T>(schema: z.ZodSchema<T>, data: unknown) {
       });
       return {
         success: false,
-        data: null,
+        data: null as unknown as T,
         errors
       };
     }
     return {
       success: false,
-      data: null,
+      data: null as unknown as T,
       errors: { form: '验证失败，请重试' }
     };
   }

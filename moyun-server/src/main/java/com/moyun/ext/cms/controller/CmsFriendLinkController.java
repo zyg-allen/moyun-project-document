@@ -5,11 +5,11 @@ import com.moyun.common.annotation.Log;
 import com.moyun.common.enums.BusinessType;
 import com.moyun.core.base.AjaxResult;
 import com.moyun.core.base.BaseController;
-import com.moyun.core.base.TableDataInfo;
 import com.moyun.ext.cms.domain.query.CmsFriendLinkQuery;
 import com.moyun.ext.cms.domain.vo.CmsFriendLinkVO;
 import com.moyun.ext.cms.service.ICmsFriendLinkService;
 import com.moyun.portal.domain.entity.PortalFriendLink;
+import com.moyun.util.bean.PageUtils;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -29,11 +29,11 @@ public class CmsFriendLinkController extends BaseController
     @Operation(summary = "获取友情链接列表", description = "根据条件分页查询友情链接列表")
     @PreAuthorize("@ss.hasPermi('cms:friend-link:list')")
     @GetMapping("/list")
-    public TableDataInfo list(CmsFriendLinkQuery query)
+    public AjaxResult list(CmsFriendLinkQuery query)
     {
-        startPage();
-        Page<CmsFriendLinkVO> page = cmsFriendLinkService.selectFriendLinkPage(query);
-        return getDataTable(page.getRecords(), page.getTotal());
+        Page<CmsFriendLinkVO> page = PageUtils.buildPage(query);
+        page = cmsFriendLinkService.selectFriendLinkPage(page, query);
+        return success(page);
     }
 
     @Operation(summary = "获取友情链接详情", description = "根据友情链接ID获取友情链接详细信息")

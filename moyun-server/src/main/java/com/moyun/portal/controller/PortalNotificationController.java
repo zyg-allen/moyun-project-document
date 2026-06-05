@@ -1,12 +1,14 @@
 package com.moyun.portal.controller;
 
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.moyun.common.annotation.Log;
 import com.moyun.core.base.BaseController;
 import com.moyun.core.base.AjaxResult;
-import com.moyun.core.base.TableDataInfo;
 import com.moyun.common.enums.BusinessType;
+import com.moyun.util.bean.PageUtils;
 import com.moyun.util.file.ExcelUtil;
 import com.moyun.portal.domain.entity.PortalNotification;
+import com.moyun.portal.domain.query.NotificationQuery;
 import com.moyun.portal.service.IPortalNotificationService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -28,17 +30,17 @@ public class PortalNotificationController extends BaseController {
 
     @Operation(summary = "获取通知列表", description = "根据条件分页查询通知列表")
     @GetMapping("/list")
-    public TableDataInfo list(PortalNotification portalNotification) {
-        startPage();
-        List<PortalNotification> list = portalNotificationService.selectPortalNotificationList(portalNotification);
-        return getDataTable(list);
+    public AjaxResult list(NotificationQuery query) {
+        Page<PortalNotification> page = PageUtils.buildPage(query);
+        Page<PortalNotification> resultPage = portalNotificationService.selectPortalNotificationPage(page, query);
+        return success(resultPage);
     }
 
     @Operation(summary = "导出通知", description = "导出通知数据到Excel文件")
     @Log(title = "门户通知", businessType = BusinessType.EXPORT)
     @PostMapping("/export")
-    public void export(HttpServletResponse response, PortalNotification portalNotification) {
-        List<PortalNotification> list = portalNotificationService.selectPortalNotificationList(portalNotification);
+    public void export(HttpServletResponse response, NotificationQuery query) {
+        List<PortalNotification> list = portalNotificationService.selectPortalNotificationList(query);
         ExcelUtil<PortalNotification> util = new ExcelUtil<PortalNotification>(PortalNotification.class);
         util.exportExcel(response, list, "门户通知数据");
     }

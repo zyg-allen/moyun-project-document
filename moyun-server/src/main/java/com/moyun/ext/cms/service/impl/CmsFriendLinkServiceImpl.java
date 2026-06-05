@@ -22,10 +22,10 @@ public class CmsFriendLinkServiceImpl implements ICmsFriendLinkService
     private PortalFriendLinkMapper portalFriendLinkMapper;
 
     @Override
-    public Page<CmsFriendLinkVO> selectFriendLinkPage(CmsFriendLinkQuery query)
+    public Page<CmsFriendLinkVO> selectFriendLinkPage(Page<CmsFriendLinkVO> page, CmsFriendLinkQuery query)
     {
-        Page<PortalFriendLink> page = new Page<>(query.getPageNum(), query.getPageSize());
-        Page<PortalFriendLink> result = portalFriendLinkMapper.selectPage(page, buildQueryWrapper(query));
+        Page<PortalFriendLink> entityPage = new Page<>(page.getCurrent(), page.getSize());
+        Page<PortalFriendLink> result = portalFriendLinkMapper.selectPage(entityPage, buildQueryWrapper(query));
         Page<CmsFriendLinkVO> voPage = new Page<>(result.getCurrent(), result.getSize(), result.getTotal());
         voPage.setRecords(BeanUtil.copyToList(result.getRecords(), CmsFriendLinkVO.class));
         return voPage;

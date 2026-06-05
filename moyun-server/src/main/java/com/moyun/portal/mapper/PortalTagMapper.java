@@ -1,8 +1,11 @@
 package com.moyun.portal.mapper;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.moyun.portal.domain.entity.PortalTag;
+import com.moyun.portal.domain.query.TagQuery;
 import org.apache.ibatis.annotations.Mapper;
+import org.apache.ibatis.annotations.Param;
 
 import java.util.List;
 
@@ -17,10 +20,19 @@ public interface PortalTagMapper extends BaseMapper<PortalTag> {
     /**
      * 根据条件分页查询标签列表
      *
-     * @param portalTag 标签信息
+     * @param page 分页参数
+     * @param query 查询条件
      * @return 标签信息集合信息
      */
-    public List<PortalTag> selectPortalTagList(PortalTag portalTag);
+    Page<PortalTag> selectPortalTagPage(Page<PortalTag> page, @Param("params") TagQuery query);
+
+    /**
+     * 根据条件查询标签列表（不分页，用于导出等场景）
+     *
+     * @param query 查询条件
+     * @return 标签信息集合信息
+     */
+    List<PortalTag> selectPortalTagList(@Param("params") TagQuery query);
 
     /**
      * 通过标签ID查询标签

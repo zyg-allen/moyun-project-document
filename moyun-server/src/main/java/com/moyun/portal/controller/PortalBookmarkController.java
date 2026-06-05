@@ -1,12 +1,14 @@
 package com.moyun.portal.controller;
 
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.moyun.common.annotation.Log;
 import com.moyun.core.base.BaseController;
 import com.moyun.core.base.AjaxResult;
-import com.moyun.core.base.TableDataInfo;
 import com.moyun.common.enums.BusinessType;
+import com.moyun.util.bean.PageUtils;
 import com.moyun.util.file.ExcelUtil;
 import com.moyun.portal.domain.entity.PortalBookmark;
+import com.moyun.portal.domain.query.BookmarkQuery;
 import com.moyun.portal.service.IPortalBookmarkService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -28,17 +30,17 @@ public class PortalBookmarkController extends BaseController {
 
     @Operation(summary = "获取收藏列表", description = "根据条件分页查询收藏列表")
     @GetMapping("/list")
-    public TableDataInfo list(PortalBookmark portalBookmark) {
-        startPage();
-        List<PortalBookmark> list = portalBookmarkService.selectPortalBookmarkList(portalBookmark);
-        return getDataTable(list);
+    public AjaxResult list(BookmarkQuery query) {
+        Page<PortalBookmark> page = PageUtils.buildPage(query);
+        Page<PortalBookmark> resultPage = portalBookmarkService.selectPortalBookmarkPage(page, query);
+        return success(resultPage);
     }
 
     @Operation(summary = "导出收藏", description = "导出收藏数据到Excel文件")
     @Log(title = "门户收藏", businessType = BusinessType.EXPORT)
     @PostMapping("/export")
-    public void export(HttpServletResponse response, PortalBookmark portalBookmark) {
-        List<PortalBookmark> list = portalBookmarkService.selectPortalBookmarkList(portalBookmark);
+    public void export(HttpServletResponse response, BookmarkQuery query) {
+        List<PortalBookmark> list = portalBookmarkService.selectPortalBookmarkList(query);
         ExcelUtil<PortalBookmark> util = new ExcelUtil<PortalBookmark>(PortalBookmark.class);
         util.exportExcel(response, list, "门户收藏数据");
     }

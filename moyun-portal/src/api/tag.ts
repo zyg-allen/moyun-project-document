@@ -1,13 +1,13 @@
-import { httpGet, httpPost } from './client';
+import { httpGet, httpGetList, httpPost } from './client';
 import type {
   Tag,
   TagListParams,
-  PaginationResponse,
 } from '@/types/api';
+import { getHotTags as getMockHotTags, searchTags, createTag as createMockTag, getTagSuggestions } from '@/data/mockData';
 
 // 获取标签列表
 export const getTagList = (params?: TagListParams) => {
-  return httpGet<PaginationResponse<Tag>>('/portal/tag/list', params);
+  return httpGetList<Tag>('/portal/tag/list', params);
 };
 
 // 获取热门标签

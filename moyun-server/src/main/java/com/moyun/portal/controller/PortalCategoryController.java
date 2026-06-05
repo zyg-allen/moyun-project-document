@@ -1,12 +1,14 @@
 package com.moyun.portal.controller;
 
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.moyun.common.annotation.Log;
 import com.moyun.core.base.BaseController;
 import com.moyun.core.base.AjaxResult;
-import com.moyun.core.base.TableDataInfo;
 import com.moyun.common.enums.BusinessType;
+import com.moyun.util.bean.PageUtils;
 import com.moyun.util.file.ExcelUtil;
 import com.moyun.portal.domain.entity.PortalCategory;
+import com.moyun.portal.domain.query.CategoryQuery;
 import com.moyun.portal.service.IPortalCategoryService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -28,24 +30,24 @@ public class PortalCategoryController extends BaseController {
 
     @Operation(summary = "获取所有分类列表", description = "获取所有分类，不分页")
     @GetMapping("/list")
-    public AjaxResult getAllCategories(PortalCategory portalCategory) {
-        List<PortalCategory> list = portalCategoryService.selectPortalCategoryList(portalCategory);
+    public AjaxResult getAllCategories(CategoryQuery query) {
+        List<PortalCategory> list = portalCategoryService.selectPortalCategoryList(query);
         return success(list);
     }
 
     @Operation(summary = "获取分类列表（分页）", description = "根据条件分页查询分类列表")
     @GetMapping("/page")
-    public TableDataInfo page(PortalCategory portalCategory) {
-        startPage();
-        List<PortalCategory> list = portalCategoryService.selectPortalCategoryList(portalCategory);
-        return getDataTable(list);
+    public AjaxResult page(CategoryQuery query) {
+        Page<PortalCategory> page = PageUtils.buildPage(query);
+        Page<PortalCategory> resultPage = portalCategoryService.selectPortalCategoryPage(page, query);
+        return success(resultPage);
     }
 
     @Operation(summary = "导出分类", description = "导出分类数据到Excel文件")
     @Log(title = "门户分类", businessType = BusinessType.EXPORT)
     @PostMapping("/export")
-    public void export(HttpServletResponse response, PortalCategory portalCategory) {
-        List<PortalCategory> list = portalCategoryService.selectPortalCategoryList(portalCategory);
+    public void export(HttpServletResponse response, CategoryQuery query) {
+        List<PortalCategory> list = portalCategoryService.selectPortalCategoryList(query);
         ExcelUtil<PortalCategory> util = new ExcelUtil<PortalCategory>(PortalCategory.class);
         util.exportExcel(response, list, "门户分类数据");
     }

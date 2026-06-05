@@ -1,6 +1,8 @@
 package com.moyun.portal.service;
 
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.moyun.portal.domain.entity.PortalComment;
+import com.moyun.portal.domain.query.CommentQuery;
 
 import java.util.List;
 
@@ -14,10 +16,19 @@ public interface IPortalCommentService {
     /**
      * 根据条件分页查询评论列表
      *
-     * @param portalComment 评论信息
-     * @return 评论信息集合信息
+     * @param page 分页参数
+     * @param query 查询条件
+     * @return 分页结果
      */
-    public List<PortalComment> selectPortalCommentList(PortalComment portalComment);
+    Page<PortalComment> selectPortalCommentPage(Page<PortalComment> page, CommentQuery query);
+
+    /**
+     * 根据条件查询评论列表（不分页，用于导出等场景）
+     *
+     * @param query 查询条件
+     * @return 评论信息集合
+     */
+    List<PortalComment> selectPortalCommentList(CommentQuery query);
 
     /**
      * 通过评论ID查询评论

@@ -1,0 +1,127 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.moyun.portal.mapper.PortalFriendLinkMapper">
+
+    <resultMap type="com.moyun.portal.domain.entity.PortalFriendLink" id="PortalFriendLinkResult">
+        <id property="id" column="id"/>
+        <result property="name" column="name"/>
+        <result property="url" column="url"/>
+        <result property="description" column="description"/>
+        <result property="logo" column="logo"/>
+        <result property="sort" column="sort"/>
+        <result property="status" column="status"/>
+        <result property="createBy" column="create_by"/>
+        <result property="createTime" column="create_time"/>
+        <result property="updateBy" column="update_by"/>
+        <result property="updateTime" column="update_time"/>
+        <result property="remark" column="remark"/>
+    </resultMap>
+
+    <sql id="selectPortalFriendLinkVo">
+        select id, name, url, description, logo, sort, status, create_by, create_time, update_by, update_time, remark from portal_friend_link
+    </sql>
+
+    <!-- 通用查询条件片段 -->
+    <sql id="queryWhere">
+        <where>
+            <if test="params.name != null and params.name != ''">
+                AND name like concat('%', #{params.name}, '%')
+            </if>
+            <if test="params.status != null and params.status != ''">
+                AND status = #{params.status}
+            </if>
+        </where>
+    </sql>
+
+    <!-- 通用排序片段（默认排序） -->
+    <sql id="defaultOrderBy">
+        order by sort asc, id asc
+    </sql>
+
+    <!-- 动态排序片段 -->
+    <sql id="dynamicOrderBy">
+        <if test="params.orderByColumn != null and params.orderByColumn != ''">
+            order by ${params.orderByColumn}
+            <if test="params.isAsc != null and params.isAsc != ''">
+                ${params.isAsc}
+            </if>
+        </if>
+        <if test="params.orderByColumn == null or params.orderByColumn == ''">
+            <include refid="defaultOrderBy"/>
+        </if>
+    </sql>
+
+    <!-- 分页查询 -->
+    <select id="selectPortalFriendLinkPage" resultMap="PortalFriendLinkResult">
+        <include refid="selectPortalFriendLinkVo"/>
+        <include refid="queryWhere"/>
+        <include refid="dynamicOrderBy"/>
+    </select>
+
+    <!-- 不分页查询（用于导出等场景） -->
+    <select id="selectPortalFriendLinkList" resultMap="PortalFriendLinkResult">
+        <include refid="selectPortalFriendLinkVo"/>
+        <include refid="queryWhere"/>
+        <include refid="defaultOrderBy"/>
+    </select>
+
+    <select id="selectPortalFriendLinkById" parameterType="Long" resultMap="PortalFriendLinkResult">
+        <include refid="selectPortalFriendLinkVo"/>
+        where id = #{id}
+    </select>
+
+    <insert id="insertPortalFriendLink" parameterType="com.moyun.portal.domain.entity.PortalFriendLink" useGeneratedKeys="true" keyProperty="id">
+        insert into portal_friend_link
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="name != null">name,</if>
+            <if test="url != null">url,</if>
+            <if test="description != null">description,</if>
+            <if test="logo != null">logo,</if>
+            <if test="sort != null">sort,</if>
+            <if test="status != null">status,</if>
+            <if test="createBy != null">create_by,</if>
+            <if test="createTime != null">create_time,</if>
+            <if test="remark != null">remark,</if>
+        </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="name != null">#{name},</if>
+            <if test="url != null">#{url},</if>
+            <if test="description != null">#{description},</if>
+            <if test="logo != null">#{logo},</if>
+            <if test="sort != null">#{sort},</if>
+            <if test="status != null">#{status},</if>
+            <if test="createBy != null">#{createBy},</if>
+            <if test="createTime != null">#{createTime},</if>
+            <if test="remark != null">#{remark},</if>
+        </trim>
+    </insert>
+
+    <update id="updatePortalFriendLink" parameterType="com.moyun.portal.domain.entity.PortalFriendLink">
+        update portal_friend_link
+        <trim prefix="SET" suffixOverrides=",">
+            <if test="name != null and name != ''">name = #{name},</if>
+            <if test="url != null and url != ''">url = #{url},</if>
+            <if test="description != null">description = #{description},</if>
+            <if test="logo != null">logo = #{logo},</if>
+            <if test="sort != null">sort = #{sort},</if>
+            <if test="status != null">status = #{status},</if>
+            <if test="updateBy != null">update_by = #{updateBy},</if>
+            <if test="updateTime != null">update_time = #{updateTime},</if>
+            <if test="remark != null">remark = #{remark},</if>
+        </trim>
+        where id = #{id}
+    </update>
+
+    <delete id="deletePortalFriendLinkById" parameterType="Long">
+        delete from portal_friend_link where id = #{id}
+    </delete>
+
+    <delete id="deletePortalFriendLinkByIds" parameterType="Long">
+        delete from portal_friend_link where id in
+        <foreach item="id" collection="array" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </delete>
+</mapper>

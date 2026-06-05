@@ -1,8 +1,11 @@
 package com.moyun.portal.mapper;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.moyun.portal.domain.entity.PortalLike;
+import com.moyun.portal.domain.query.LikeQuery;
 import org.apache.ibatis.annotations.Mapper;
+import org.apache.ibatis.annotations.Param;
 
 import java.util.List;
 
@@ -17,10 +20,19 @@ public interface PortalLikeMapper extends BaseMapper<PortalLike> {
     /**
      * 根据条件分页查询点赞列表
      *
-     * @param portalLike 点赞信息
+     * @param page 分页参数
+     * @param query 查询条件
      * @return 点赞信息集合信息
      */
-    public List<PortalLike> selectPortalLikeList(PortalLike portalLike);
+    Page<PortalLike> selectPortalLikePage(Page<PortalLike> page, @Param("params") LikeQuery query);
+
+    /**
+     * 根据条件查询点赞列表（不分页，用于导出等场景）
+     *
+     * @param query 查询条件
+     * @return 点赞信息集合信息
+     */
+    List<PortalLike> selectPortalLikeList(@Param("params") LikeQuery query);
 
     /**
      * 通过点赞ID查询点赞

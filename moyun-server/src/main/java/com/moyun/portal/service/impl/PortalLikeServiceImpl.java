@@ -1,7 +1,9 @@
 package com.moyun.portal.service.impl;
 
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.moyun.portal.domain.entity.PortalLike;
+import com.moyun.portal.domain.query.LikeQuery;
 import com.moyun.portal.mapper.PortalLikeMapper;
 import com.moyun.portal.service.IPortalLikeService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -23,12 +25,24 @@ public class PortalLikeServiceImpl extends ServiceImpl<PortalLikeMapper, PortalL
     /**
      * 根据条件分页查询点赞列表
      *
-     * @param portalLike 点赞信息
-     * @return 点赞信息集合信息
+     * @param page 分页参数
+     * @param query 查询条件
+     * @return 分页结果
      */
     @Override
-    public List<PortalLike> selectPortalLikeList(PortalLike portalLike) {
-        return portalLikeMapper.selectPortalLikeList(portalLike);
+    public Page<PortalLike> selectPortalLikePage(Page<PortalLike> page, LikeQuery query) {
+        return baseMapper.selectPortalLikePage(page, query);
+    }
+
+    /**
+     * 根据条件查询点赞列表（不分页，用于导出等场景）
+     *
+     * @param query 查询条件
+     * @return 点赞信息集合
+     */
+    @Override
+    public List<PortalLike> selectPortalLikeList(LikeQuery query) {
+        return baseMapper.selectPortalLikeList(query);
     }
 
     /**

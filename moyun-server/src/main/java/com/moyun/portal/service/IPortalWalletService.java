@@ -1,5 +1,6 @@
 package com.moyun.portal.service;
 
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.moyun.portal.domain.entity.PortalWallet;
 
 import java.util.List;
@@ -14,10 +15,19 @@ public interface IPortalWalletService {
     /**
      * 根据条件分页查询钱包列表
      *
+     * @param page 分页参数
      * @param portalWallet 钱包信息
-     * @return 钱包信息集合信息
+     * @return 分页结果
      */
-    public List<PortalWallet> selectPortalWalletList(PortalWallet portalWallet);
+    Page<PortalWallet> selectPortalWalletPage(Page<PortalWallet> page, PortalWallet portalWallet);
+
+    /**
+     * 根据条件查询钱包列表（不分页，用于导出等场景）
+     *
+     * @param portalWallet 钱包信息
+     * @return 钱包信息集合
+     */
+    List<PortalWallet> selectPortalWalletList(PortalWallet portalWallet);
 
     /**
      * 通过钱包ID查询钱包

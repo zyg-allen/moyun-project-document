@@ -1,5 +1,6 @@
 package com.moyun.portal.service.impl;
 
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.moyun.portal.domain.entity.PortalWallet;
 import com.moyun.portal.mapper.PortalWalletMapper;
@@ -23,12 +24,24 @@ public class PortalWalletServiceImpl extends ServiceImpl<PortalWalletMapper, Por
     /**
      * 根据条件分页查询钱包列表
      *
+     * @param page 分页参数
      * @param portalWallet 钱包信息
-     * @return 钱包信息集合信息
+     * @return 分页结果
+     */
+    @Override
+    public Page<PortalWallet> selectPortalWalletPage(Page<PortalWallet> page, PortalWallet portalWallet) {
+        return baseMapper.selectPortalWalletPage(page, portalWallet);
+    }
+
+    /**
+     * 根据条件查询钱包列表（不分页，用于导出等场景）
+     *
+     * @param portalWallet 钱包信息
+     * @return 钱包信息集合
      */
     @Override
     public List<PortalWallet> selectPortalWalletList(PortalWallet portalWallet) {
-        return portalWalletMapper.selectPortalWalletList(portalWallet);
+        return baseMapper.selectPortalWalletList(portalWallet);
     }
 
     /**

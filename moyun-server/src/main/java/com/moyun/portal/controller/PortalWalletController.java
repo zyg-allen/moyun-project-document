@@ -1,9 +1,9 @@
 package com.moyun.portal.controller;
 
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.moyun.common.annotation.Log;
 import com.moyun.core.base.BaseController;
 import com.moyun.core.base.AjaxResult;
-import com.moyun.core.base.TableDataInfo;
 import com.moyun.common.enums.BusinessType;
 import com.moyun.util.file.ExcelUtil;
 import com.moyun.portal.domain.entity.PortalWallet;
@@ -28,16 +28,20 @@ public class PortalWalletController extends BaseController {
 
     @Operation(summary = "获取钱包列表", description = "根据条件分页查询钱包列表")
     @GetMapping("/list")
-    public TableDataInfo list(PortalWallet portalWallet) {
-        startPage();
-        List<PortalWallet> list = portalWalletService.selectPortalWalletList(portalWallet);
-        return getDataTable(list);
+    public AjaxResult list(PortalWallet portalWallet) {
+        // 使用 startPage() 创建分页对象，自动从请求参数获取 page 和 pageSize
+        Page<PortalWallet> page = startPage();
+        // 调用分页查询方法
+        Page<PortalWallet> resultPage = portalWalletService.selectPortalWalletPage(page, portalWallet);
+        // 直接返回 Page 对象，MyBatis-Plus 会自动处理分页
+        return success(resultPage);
     }
 
     @Operation(summary = "导出钱包", description = "导出钱包数据到Excel文件")
     @Log(title = "门户钱包", businessType = BusinessType.EXPORT)
     @PostMapping("/export")
     public void export(HttpServletResponse response, PortalWallet portalWallet) {
+        // 导出时不分页，调用不分页的查询方法
         List<PortalWallet> list = portalWalletService.selectPortalWalletList(portalWallet);
         ExcelUtil<PortalWallet> util = new ExcelUtil<PortalWallet>(PortalWallet.class);
         util.exportExcel(response, list, "门户钱包数据");

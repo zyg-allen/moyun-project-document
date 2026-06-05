@@ -67,19 +67,31 @@ Authorization: Bearer {token}
 
 | 参数名 | 类型 | 必填 | 说明 |
 |--------|------|------|------|
-| page | number | 否 | 页码，默认 1 |
+| pageNum | number | 否 | 页码，默认 1 |
 | pageSize | number | 否 | 每页数量，默认 10 |
 
-分页响应格式：
+分页响应格式（MyBatis-Plus Page对象）：
 
 ```json
 {
-  "list": [],
+  "records": [],
   "total": 100,
-  "page": 1,
-  "pageSize": 10
+  "size": 10,
+  "current": 1,
+  "pages": 10
 }
 ```
+
+**字段说明**：
+- `records`：数据列表
+- `total`：总记录数
+- `size`：每页大小
+- `current`：当前页码
+- `pages`：总页数
+
+**兼容性说明**：
+- 前端 `httpGetList` 函数兼容多种分页响应格式，优先顺序为：`records` > `rows` > `list`
+- 新接口统一使用 `records` 字段
 
 ---
 
@@ -359,7 +371,7 @@ Authorization: Bearer {token}
 
 ```json
 {
-  "list": [
+  "records": [
     {
       "id": "1",
       "title": "Vue3 入门教程",
@@ -389,8 +401,9 @@ Authorization: Bearer {token}
     }
   ],
   "total": 100,
-  "page": 1,
-  "pageSize": 10
+  "size": 10,
+  "current": 1,
+  "pages": 10
 }
 ```
 
@@ -620,7 +633,7 @@ Authorization: Bearer {token}
 
 ```json
 {
-  "list": [
+  "records": [
     {
       "id": "1",
       "articleId": "1",
@@ -642,8 +655,9 @@ Authorization: Bearer {token}
     }
   ],
   "total": 50,
-  "page": 1,
-  "pageSize": 10
+  "size": 10,
+  "current": 1,
+  "pages": 5
 }
 ```
 
@@ -737,7 +751,7 @@ Authorization: Bearer {token}
 
 ```json
 {
-  "list": [
+  "records": [
     {
       "id": "1",
       "userId": "1",
@@ -751,8 +765,9 @@ Authorization: Bearer {token}
     }
   ],
   "total": 50,
-  "page": 1,
-  "pageSize": 10
+  "size": 10,
+  "current": 1,
+  "pages": 5
 }
 ```
 
@@ -894,7 +909,7 @@ Authorization: Bearer {token}
 
 ```json
 {
-  "list": [
+  "records": [
     {
       "id": "1",
       "user": {
@@ -907,8 +922,9 @@ Authorization: Bearer {token}
     }
   ],
   "total": 100,
-  "page": 1,
-  "pageSize": 10
+  "size": 10,
+  "current": 1,
+  "pages": 10
 }
 ```
 
@@ -935,7 +951,26 @@ Authorization: Bearer {token}
 
 **响应数据**:
 
-同粉丝列表。
+```json
+{
+  "records": [
+    {
+      "id": "1",
+      "user": {
+        "id": "2",
+        "username": "lisi",
+        "avatar": "https://example.com/avatar.jpg"
+      },
+      "userId": "2",
+      "createdAt": "2024-01-01T00:00:00Z"
+    }
+  ],
+  "total": 50,
+  "size": 10,
+  "current": 1,
+  "pages": 5
+}
+```
 
 ---
 
@@ -1021,7 +1056,7 @@ Authorization: Bearer {token}
 
 ```json
 {
-  "list": [
+  "records": [
     {
       "id": "1",
       "name": "Vue3",
@@ -1031,8 +1066,9 @@ Authorization: Bearer {token}
     }
   ],
   "total": 100,
-  "page": 1,
-  "pageSize": 10
+  "size": 10,
+  "current": 1,
+  "pages": 10
 }
 ```
 
@@ -1216,7 +1252,7 @@ Authorization: Bearer {token}
 
 ```json
 {
-  "list": [
+  "records": [
     {
       "id": "1",
       "userId": "1",
@@ -1232,8 +1268,9 @@ Authorization: Bearer {token}
     }
   ],
   "total": 50,
-  "page": 1,
-  "pageSize": 10
+  "size": 10,
+  "current": 1,
+  "pages": 5
 }
 ```
 
@@ -1344,7 +1381,7 @@ Authorization: Bearer {token}
 
 ```json
 {
-  "list": [
+  "records": [
     {
       "id": "1",
       "userId": "1",
@@ -1359,8 +1396,9 @@ Authorization: Bearer {token}
     }
   ],
   "total": 50,
-  "page": 1,
-  "pageSize": 10
+  "size": 10,
+  "current": 1,
+  "pages": 5
 }
 ```
 
@@ -1466,7 +1504,7 @@ Authorization: Bearer {token}
 
 ```json
 {
-  "list": [
+  "records": [
     {
       "id": "1",
       "userId": "1",
@@ -1480,8 +1518,9 @@ Authorization: Bearer {token}
     }
   ],
   "total": 50,
-  "page": 1,
-  "pageSize": 10
+  "size": 10,
+  "current": 1,
+  "pages": 5
 }
 ```
 
@@ -1611,6 +1650,6 @@ TypeScript类型定义在 `src/types/api.ts`。
 
 ---
 
-**文档版本**: v1.1  
-**最后更新**: 2024-05-23  
+**文档版本**: v1.2  
+**最后更新**: 2026-05-28  
 **维护团队**: 墨韵智库后端团队

@@ -17,10 +17,11 @@ public interface ICmsNotificationService
     /**
      * 查询通知分页列表
      *
+     * @param page 分页参数
      * @param query 查询条件
      * @return 通知分页列表
      */
-    Page<CmsNotificationVO> selectNotificationPage(CmsNotificationQuery query);
+    Page<CmsNotificationVO> selectNotificationPage(Page<CmsNotificationVO> page, CmsNotificationQuery query);
 
     /**
      * 查询通知列表

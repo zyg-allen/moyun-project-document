@@ -1,7 +1,9 @@
 package com.moyun.portal.service.impl;
 
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.moyun.portal.domain.entity.PortalFollow;
+import com.moyun.portal.domain.query.FollowQuery;
 import com.moyun.portal.mapper.PortalFollowMapper;
 import com.moyun.portal.service.IPortalFollowService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -23,12 +25,24 @@ public class PortalFollowServiceImpl extends ServiceImpl<PortalFollowMapper, Por
     /**
      * 根据条件分页查询关注列表
      *
-     * @param portalFollow 关注信息
-     * @return 关注信息集合信息
+     * @param page 分页参数
+     * @param query 查询条件
+     * @return 分页结果
      */
     @Override
-    public List<PortalFollow> selectPortalFollowList(PortalFollow portalFollow) {
-        return portalFollowMapper.selectPortalFollowList(portalFollow);
+    public Page<PortalFollow> selectPortalFollowPage(Page<PortalFollow> page, FollowQuery query) {
+        return baseMapper.selectPortalFollowPage(page, query);
+    }
+
+    /**
+     * 根据条件查询关注列表（不分页，用于导出等场景）
+     *
+     * @param query 查询条件
+     * @return 关注信息集合
+     */
+    @Override
+    public List<PortalFollow> selectPortalFollowList(FollowQuery query) {
+        return baseMapper.selectPortalFollowList(query);
     }
 
     /**

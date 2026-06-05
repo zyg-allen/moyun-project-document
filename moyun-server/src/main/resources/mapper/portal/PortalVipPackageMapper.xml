@@ -1,0 +1,139 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.moyun.portal.mapper.PortalVipPackageMapper">
+
+    <resultMap type="com.moyun.portal.domain.entity.PortalVipPackage" id="PortalVipPackageResult">
+        <id property="id" column="id"/>
+        <result property="name" column="name"/>
+        <result property="price" column="price"/>
+        <result property="originalPrice" column="original_price"/>
+        <result property="duration" column="duration"/>
+        <result property="description" column="description"/>
+        <result property="features" column="features"/>
+        <result property="popular" column="popular"/>
+        <result property="sort" column="sort"/>
+        <result property="status" column="status"/>
+        <result property="createBy" column="create_by"/>
+        <result property="createTime" column="create_time"/>
+        <result property="updateBy" column="update_by"/>
+        <result property="updateTime" column="update_time"/>
+        <result property="remark" column="remark"/>
+    </resultMap>
+
+    <sql id="selectPortalVipPackageVo">
+        select id, name, price, original_price, duration, description, features, popular, sort, status, create_by, create_time, update_by, update_time, remark from portal_vip_package
+    </sql>
+
+    <!-- 通用查询条件片段 -->
+    <sql id="queryWhere">
+        <where>
+            <if test="params.name != null and params.name != ''">
+                AND name like concat('%', #{params.name}, '%')
+            </if>
+            <if test="params.status != null and params.status != ''">
+                AND status = #{params.status}
+            </if>
+        </where>
+    </sql>
+
+    <!-- 通用排序片段（默认排序） -->
+    <sql id="defaultOrderBy">
+        order by sort asc, id asc
+    </sql>
+
+    <!-- 动态排序片段 -->
+    <sql id="dynamicOrderBy">
+        <if test="params.orderByColumn != null and params.orderByColumn != ''">
+            order by ${params.orderByColumn}
+            <if test="params.isAsc != null and params.isAsc != ''">
+                ${params.isAsc}
+            </if>
+        </if>
+        <if test="params.orderByColumn == null or params.orderByColumn == ''">
+            <include refid="defaultOrderBy"/>
+        </if>
+    </sql>
+
+    <!-- 分页查询 -->
+    <select id="selectPortalVipPackagePage" resultMap="PortalVipPackageResult">
+        <include refid="selectPortalVipPackageVo"/>
+        <include refid="queryWhere"/>
+        <include refid="dynamicOrderBy"/>
+    </select>
+
+    <!-- 不分页查询（用于导出等场景） -->
+    <select id="selectPortalVipPackageList" resultMap="PortalVipPackageResult">
+        <include refid="selectPortalVipPackageVo"/>
+        <include refid="queryWhere"/>
+        <include refid="defaultOrderBy"/>
+    </select>
+
+    <select id="selectPortalVipPackageById" parameterType="Long" resultMap="PortalVipPackageResult">
+        <include refid="selectPortalVipPackageVo"/>
+        where id = #{id}
+    </select>
+
+    <insert id="insertPortalVipPackage" parameterType="com.moyun.portal.domain.entity.PortalVipPackage" useGeneratedKeys="true" keyProperty="id">
+        insert into portal_vip_package
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="name != null">name,</if>
+            <if test="price != null">price,</if>
+            <if test="originalPrice != null">original_price,</if>
+            <if test="duration != null">duration,</if>
+            <if test="description != null">description,</if>
+            <if test="features != null">features,</if>
+            <if test="popular != null">popular,</if>
+            <if test="sort != null">sort,</if>
+            <if test="status != null">status,</if>
+            <if test="createBy != null">create_by,</if>
+            <if test="createTime != null">create_time,</if>
+            <if test="remark != null">remark,</if>
+        </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="name != null">#{name},</if>
+            <if test="price != null">#{price},</if>
+            <if test="originalPrice != null">#{originalPrice},</if>
+            <if test="duration != null">#{duration},</if>
+            <if test="description != null">#{description},</if>
+            <if test="features != null">#{features},</if>
+            <if test="popular != null">#{popular},</if>
+            <if test="sort != null">#{sort},</if>
+            <if test="status != null">#{status},</if>
+            <if test="createBy != null">#{createBy},</if>
+            <if test="createTime != null">#{createTime},</if>
+            <if test="remark != null">#{remark},</if>
+        </trim>
+    </insert>
+
+    <update id="updatePortalVipPackage" parameterType="com.moyun.portal.domain.entity.PortalVipPackage">
+        update portal_vip_package
+        <trim prefix="SET" suffixOverrides=",">
+            <if test="name != null and name != ''">name = #{name},</if>
+            <if test="price != null">price = #{price},</if>
+            <if test="originalPrice != null">original_price = #{originalPrice},</if>
+            <if test="duration != null">duration = #{duration},</if>
+            <if test="description != null">description = #{description},</if>
+            <if test="features != null">features = #{features},</if>
+            <if test="popular != null">popular = #{popular},</if>
+            <if test="sort != null">sort = #{sort},</if>
+            <if test="status != null">status = #{status},</if>
+            <if test="updateBy != null">update_by = #{updateBy},</if>
+            <if test="updateTime != null">update_time = #{updateTime},</if>
+            <if test="remark != null">remark = #{remark},</if>
+        </trim>
+        where id = #{id}
+    </update>
+
+    <delete id="deletePortalVipPackageById" parameterType="Long">
+        delete from portal_vip_package where id = #{id}
+    </delete>
+
+    <delete id="deletePortalVipPackageByIds" parameterType="Long">
+        delete from portal_vip_package where id in
+        <foreach item="id" collection="array" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </delete>
+</mapper>

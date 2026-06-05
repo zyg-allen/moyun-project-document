@@ -1,6 +1,8 @@
 package com.moyun.portal.service;
 
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.moyun.portal.domain.entity.PortalLike;
+import com.moyun.portal.domain.query.LikeQuery;
 
 import java.util.List;
 
@@ -14,10 +16,19 @@ public interface IPortalLikeService {
     /**
      * 根据条件分页查询点赞列表
      *
-     * @param portalLike 点赞信息
-     * @return 点赞信息集合信息
+     * @param page 分页参数
+     * @param query 查询条件
+     * @return 分页结果
      */
-    public List<PortalLike> selectPortalLikeList(PortalLike portalLike);
+    Page<PortalLike> selectPortalLikePage(Page<PortalLike> page, LikeQuery query);
+
+    /**
+     * 根据条件查询点赞列表（不分页，用于导出等场景）
+     *
+     * @param query 查询条件
+     * @return 点赞信息集合
+     */
+    List<PortalLike> selectPortalLikeList(LikeQuery query);
 
     /**
      * 通过点赞ID查询点赞

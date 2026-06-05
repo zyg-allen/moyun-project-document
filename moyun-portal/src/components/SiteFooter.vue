@@ -11,12 +11,15 @@ const currentYear = computed(() => new Date().getFullYear());
       <div class="grid grid-cols-1 md:grid-cols-4 gap-6 sm:gap-8">
         <!-- 关于我们 -->
         <div class="md:col-span-2">
-          <h3 class="font-semibold mb-2 text-sm" style="color: var(--theme-text);">关于我们</h3>
+          <h3 class="font-semibold mb-2 text-sm" style="color: var(--theme-text);">一纸墨</h3>
+          <p class="text-xs leading-relaxed mb-1" style="color: var(--theme-text-secondary);">
+            在浮躁的世界，留一页纸给灵魂。
+          </p>
           <p class="text-xs leading-relaxed" style="color: var(--theme-text-secondary);">
-            墨韵·智库 - 一个网络文学阅读分享平台，提供散文、美文、随笔等经典短篇美文。
+            学习·记录·散文·分享
           </p>
           <p class="text-xs mt-2" style="color: var(--theme-text-secondary);">
-            Copyright © {{ currentYear }} 墨韵·智库
+            Copyright © {{ currentYear }} 一纸墨 · 好文字，自有回响。
           </p>
         </div>
 

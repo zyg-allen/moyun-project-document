@@ -8,6 +8,8 @@ export interface ApiResponse<T = any> {
 export interface PaginationParams {
   page: number;
   pageSize: number;
+  orderByColumn?: string;
+  isAsc?: string;
 }
 
 export interface PaginationResponse<T> {
@@ -96,7 +98,7 @@ export interface Article {
   excerpt?: string;
   cover?: string;
   author?: User;
-  authorId: string;
+  authorId?: string;
   // 后端返回的字段
   authorUsername?: string;
   authorNickname?: string;
@@ -147,10 +149,12 @@ export interface CreateArticleParams {
   contentMarkdown?: string;
   excerpt?: string;
   cover?: string;
+  coverImage?: string;
   category?: string;
   categoryId?: string;
   tags?: string[];
-  status?: 'draft' | 'published';
+  tagNames?: string[];
+  status?: 'draft' | 'published' | string;
   editorMode?: 'richtext' | 'markdown';
 }
 
@@ -173,13 +177,13 @@ export interface Comment {
   id: string;
   articleId: string;
   author: User;
-  authorId: string;
+  authorId?: string;
   content: string;
   parentId?: string;
   replyTo?: string;
   replyToUser?: User;
   replies?: Comment[];
-  likeCount: number;
+  likeCount?: number;
   isLiked?: boolean;
   createdAt: string;
   updatedAt?: string;
@@ -330,6 +334,10 @@ export interface TagListParams {
   page?: number;
   pageSize?: number;
   keyword?: string;
+  name?: string;
+  status?: string;
+  orderByColumn?: string;
+  isAsc?: string;
 }
 
 // 搜索相关类型
@@ -505,4 +513,126 @@ export interface TodayVisitorListParams {
 export interface TodayVisitorStats {
   total: number;
   list: Visitor[];
+}
+
+// 读书空间相关类型
+export interface Book {
+  id: string;
+  title: string;
+  author: string;
+  cover: string;
+  description: string;
+  isbn?: string;
+  publisher?: string;
+  publishDate?: string;
+  pageCount?: number;
+  categoryId?: string;
+  tags?: string[];
+  rating: number;
+  readingCount: number;
+  status: string;
+  createTime?: string;
+  updateTime?: string;
+}
+
+export interface BookList {
+  id: string;
+  title: string;
+  description: string;
+  cover: string;
+  bookCount: number;
+  viewCount: number;
+  likeCount: number;
+  createTime?: string;
+}
+
+export interface Quote {
+  id: string;
+  content: string;
+  page?: string;
+  chapter?: string;
+  likeCount: number;
+  book?: Book;
+  createTime?: string;
+}
+
+export interface ReadingHomeResponse {
+  bookLists: BookList[];
+  books: Book[];
+  quotes: Quote[];
+}
+
+export interface BookListParams {
+  page?: number;
+  pageSize?: number;
+  categoryId?: string;
+}
+
+// 面试指南相关类型
+export interface InterviewCategory {
+  id: string;
+  name: string;
+  slug: string;
+  description: string;
+  icon: string;
+  sort: number;
+  questionCount: number;
+  status: string;
+}
+
+export interface InterviewQuestion {
+  id: string;
+  title: string;
+  description: string;
+  difficulty: 'easy' | 'medium' | 'hard';
+  categoryId: string;
+  tags: string[];
+  companies: string[];
+  acceptanceRate: number;
+  submissionCount: number;
+  likeCount: number;
+  hint?: string;
+  solution?: string;
+  sort: number;
+  status: string;
+  createTime?: string;
+}
+
+export interface InterviewExperience {
+  id: string;
+  title: string;
+  company: string;
+  position: string;
+  year: number;
+  month: number;
+  content: string;
+  viewCount: number;
+  likeCount: number;
+  commentCount: number;
+  user: User;
+  createTime?: string;
+}
+
+export interface ResumeTemplate {
+  id: string;
+  title: string;
+  description: string;
+  cover: string;
+  category: string;
+  likeCount: number;
+  downloadCount: number;
+}
+
+export interface InterviewHomeResponse {
+  categories: InterviewCategory[];
+  hotQuestions: InterviewQuestion[];
+  experiences: InterviewExperience[];
+  resumeTemplates: ResumeTemplate[];
+}
+
+export interface QuestionListParams {
+  page?: number;
+  pageSize?: number;
+  categoryId?: string;
+  difficulty?: string;
 }

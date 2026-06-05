@@ -17,10 +17,11 @@ public interface ICmsCommentService
     /**
      * 查询评论分页列表
      *
+     * @param page 分页参数
      * @param query 查询条件
      * @return 评论分页列表
      */
-    Page<CmsCommentVO> selectCommentPage(CmsCommentQuery query);
+    Page<CmsCommentVO> selectCommentPage(Page<CmsCommentVO> page, CmsCommentQuery query);
 
     /**
      * 查询评论列表

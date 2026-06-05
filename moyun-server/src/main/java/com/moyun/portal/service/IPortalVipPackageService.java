@@ -1,6 +1,8 @@
 package com.moyun.portal.service;
 
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.moyun.portal.domain.entity.PortalVipPackage;
+import com.moyun.portal.domain.query.VipPackageQuery;
 
 import java.util.List;
 
@@ -14,10 +16,19 @@ public interface IPortalVipPackageService {
     /**
      * 根据条件分页查询VIP套餐列表
      *
-     * @param portalVipPackage VIP套餐信息
-     * @return VIP套餐信息集合信息
+     * @param page 分页参数
+     * @param query 查询条件
+     * @return 分页结果
      */
-    public List<PortalVipPackage> selectPortalVipPackageList(PortalVipPackage portalVipPackage);
+    Page<PortalVipPackage> selectPortalVipPackagePage(Page<PortalVipPackage> page, VipPackageQuery query);
+
+    /**
+     * 根据条件查询VIP套餐列表（不分页，用于导出等场景）
+     *
+     * @param query 查询条件
+     * @return VIP套餐信息集合
+     */
+    List<PortalVipPackage> selectPortalVipPackageList(VipPackageQuery query);
 
     /**
      * 通过VIP套餐ID查询VIP套餐

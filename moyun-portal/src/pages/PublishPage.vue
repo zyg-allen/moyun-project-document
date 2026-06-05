@@ -1,16 +1,14 @@
 <script setup lang="ts">
-import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue';
-import { useRouter, RouterLink as Link } from 'vue-router';
+import { ref, computed, watch, onMounted } from 'vue';
+import { useRouter } from 'vue-router';
 import { 
-  ArrowLeft, Image as ImageIcon, Upload, Save, Eye, Send, X, 
-  Bold, Italic, List, ListOrdered, Quote, Code as CodeIcon,
-  Link as LinkIcon, Clock, User, Calendar, FileText, Settings,
-  Sparkles, Globe, Lock, MessageSquare, Tag as TagIcon, BookOpen, 
-  ChevronDown, ChevronUp, Check, File, Video, Paperclip, 
-  History, RotateCcw, Undo2, Redo2, Type, Plus, ChevronRight
+  ArrowLeft, Image as ImageIcon, Save, Eye, Send, X, 
+  List, ListOrdered, Clock, User, Calendar, FileText, Settings,
+  Sparkles, Globe, Lock, Tag as TagIcon, BookOpen, 
+  ChevronDown, Check, Type, Plus, ChevronRight
 } from 'lucide-vue-next';
-import { getCurrentUser, addArticle } from '@/data/mockData';
-import { categories as mockCategories, getParentCategoryNames, getSubCategories, type SubCategory } from '@/data/categories';
+import { addArticle } from '@/data/mockData';
+import { categories as mockCategories } from '@/data/categories';
 import { 
   getHotTags, 
   searchTagList, 
@@ -23,15 +21,19 @@ import {
 } from '@/api/tag';
 import { getCategoryList } from '@/api/category';
 import { createArticle } from '@/api/article';
+import { useUserStore } from '@/stores/user';
+import { useAuth } from '@/composables/useAuth';
 import type { Tag, Category } from '@/types/api';
 import SiteFooter from '@/components/SiteFooter.vue';
 import QuillEditor from '@/components/QuillEditor.vue';
 import { extractExcerpt } from '@/utils/excerpt';
 
 const router = useRouter();
+const userStore = useUserStore();
+const { requireAuth } = useAuth();
 
 // 用户信息
-const currentUser = ref<any>(null);
+const currentUser = computed(() => userStore.user);
 
 // 文件上传相关
 const fileInputRef = ref<HTMLInputElement | null>(null);
@@ -74,10 +76,7 @@ const commentModeration = ref(false);
 const visibility = ref<'public' | 'private' | 'password'>('public');
 const articlePassword = ref('');
 
-// 文学平台特有功能
-const creativeNotes = ref('');
-const series = ref('');
-const sourceQuote = ref('');
+// 自定义URL
 const customSlug = ref('');
 
 // 高级选项折叠状态
@@ -103,11 +102,6 @@ const readingTime = computed(() => {
   return minutes;
 });
 
-// 字符数统计
-const charCount = computed(() => {
-  return content.value.replace(/\s/g, '').length;
-});
-
 // Markdown预览
 const markdownPreview = computed(() => {
   return content.value
@@ -119,22 +113,19 @@ const markdownPreview = computed(() => {
     .replace(/\n/g, '<br>');
 });
 
-// 系列/专栏选项
-const seriesOptions = ref([
-  '《岁月如歌》',
-  '《心灵独白》',
-  '《时光漫步》',
-  '《人间烟火》'
-]);
+onMounted(async () => {
+  // 等待用户状态初始化
+  if (!userStore.isUserInitialized) {
+    await userStore.initializeUser();
+  }
 
-onMounted(() => {
-  currentUser.value = getCurrentUser();
-  if (!currentUser.value) {
-    router.push('/login');
+  // 检查是否登录
+  if (!userStore.isAuthenticated) {
+    requireAuth();
     return;
   }
   
-  authorName.value = currentUser.value.username;
+  authorName.value = userStore.username;
   publishTime.value = new Date().toISOString().slice(0, 16);
   
   // 加载分类
@@ -154,16 +145,16 @@ async function loadCategories() {
     }
   } catch (error) {
     console.error('Failed to load categories:', error);
-    // 降级到mock数据
+    // 降级到mock数据，转换为正确的Category类型
     categories.value = mockCategories.map(cat => ({
       id: cat.id,
       name: cat.name,
-      description: cat.description,
-      icon: cat.icon,
-      articleCount: cat.articleCount,
-      status: '0',
-      createTime: new Date().toISOString(),
-      updateTime: new Date().toISOString()
+      slug: cat.id || cat.name.toLowerCase(),
+      description: (cat as any).description,
+      icon: (cat as any).icon,
+      articleCount: (cat as any).articleCount,
+      sort: 0,
+      createdAt: new Date().toISOString()
     }));
   } finally {
     loadingCategories.value = false;
@@ -387,10 +378,10 @@ async function handlePublish() {
       content: finalContent,
       contentMarkdown: editorMode.value === 'markdown' ? content.value : undefined,
       excerpt: excerpt.value || content.value.substring(0, 200) + '...',
-      coverImage: coverImage.value || '',
+      cover: coverImage.value || '',
       categoryId: selectedCategory.value,
       tagNames: tags.value,
-      status: '1' // 已发布
+      status: 'published' // 已发布
     });
     
     if (response.code === 200) {
@@ -398,7 +389,7 @@ async function handlePublish() {
       alert('发布成功！');
       router.push('/');
     } else {
-      alert('发布失败：' + (response.msg || '未知错误'));
+      alert('发布失败：' + (response.message || '未知错误'));
     }
   } catch (error) {
     console.error('Failed to publish article:', error);
@@ -417,7 +408,15 @@ async function handlePublish() {
           editorMode: editorMode.value,
           excerpt: excerpt.value || content.value.substring(0, 200) + '...',
           cover: coverImage.value || '',
-          author: user,
+          author: {
+            id: user.id,
+            username: user.username,
+            nickname: user.nickname || user.username,
+            email: user.email,
+            avatar: user.avatar,
+            bio: user.bio || '',
+            createdAt: user.createdAt || new Date().toISOString()
+          },
           category: selectedCategory.value,
           tags: tags.value
         });
@@ -470,14 +469,16 @@ function triggerFileUpload() {
 
 function handleFileSelect(event: Event) {
   const target = event.target as HTMLInputElement;
-  if (target.files && target.files.length > 0) {
-    handleFile(target.files[0]);
+  const file = target.files?.[0];
+  if (file) {
+    handleFile(file);
   }
 }
 
 function handleDrop(event: DragEvent) {
-  if (event.dataTransfer && event.dataTransfer.files.length > 0) {
-    handleFile(event.dataTransfer.files[0]);
+  const file = event.dataTransfer?.files?.[0];
+  if (file) {
+    handleFile(file);
   }
 }
 

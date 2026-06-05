@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.moyun.portal.mapper.PortalWalletMapper">
+
+    <resultMap type="com.moyun.portal.domain.entity.PortalWallet" id="PortalWalletResult">
+        <id property="id" column="id"/>
+        <result property="userId" column="user_id"/>
+        <result property="balance" column="balance"/>
+        <result property="frozenBalance" column="frozen_balance"/>
+        <result property="totalRecharge" column="total_recharge"/>
+        <result property="totalWithdraw" column="total_withdraw"/>
+        <result property="createTime" column="create_time"/>
+        <result property="updateTime" column="update_time"/>
+    </resultMap>
+
+    <sql id="selectPortalWalletVo">
+        select id, user_id, balance, frozen_balance, total_recharge, total_withdraw, create_time, update_time from portal_wallet
+    </sql>
+
+    <!-- 分页查询 -->
+    <select id="selectPortalWalletPage" resultMap="PortalWalletResult">
+        <include refid="selectPortalWalletVo"/>
+        <where>
+            <if test="params.userId != null">and user_id = #{params.userId}</if>
+        </where>
+        order by create_time desc
+    </select>
+
+    <!-- 不分页查询（用于导出等场景） -->
+    <select id="selectPortalWalletList" resultMap="PortalWalletResult">
+        <include refid="selectPortalWalletVo"/>
+        <where>
+            <if test="params.userId != null">and user_id = #{params.userId}</if>
+        </where>
+        order by create_time desc
+    </select>
+
+    <select id="selectPortalWalletById" parameterType="Long" resultMap="PortalWalletResult">
+        <include refid="selectPortalWalletVo"/>
+        where id = #{id}
+    </select>
+
+    <select id="selectPortalWalletByUserId" parameterType="Long" resultMap="PortalWalletResult">
+        <include refid="selectPortalWalletVo"/>
+        where user_id = #{userId}
+    </select>
+
+    <insert id="insertPortalWallet" parameterType="com.moyun.portal.domain.entity.PortalWallet" useGeneratedKeys="true" keyProperty="id">
+        insert into portal_wallet
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="userId != null">user_id,</if>
+            <if test="balance != null">balance,</if>
+            <if test="frozenBalance != null">frozen_balance,</if>
+            <if test="totalRecharge != null">total_recharge,</if>
+            <if test="totalWithdraw != null">total_withdraw,</if>
+            <if test="createTime != null">create_time,</if>
+            <if test="updateTime != null">update_time,</if>
+        </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="userId != null">#{userId},</if>
+            <if test="balance != null">#{balance},</if>
+            <if test="frozenBalance != null">#{frozenBalance},</if>
+            <if test="totalRecharge != null">#{totalRecharge},</if>
+            <if test="totalWithdraw != null">#{totalWithdraw},</if>
+            <if test="createTime != null">#{createTime},</if>
+            <if test="updateTime != null">#{updateTime},</if>
+        </trim>
+    </insert>
+
+    <update id="updatePortalWallet" parameterType="com.moyun.portal.domain.entity.PortalWallet">
+        update portal_wallet
+        <trim prefix="SET" suffixOverrides=",">
+            <if test="userId != null">user_id = #{userId},</if>
+            <if test="balance != null">balance = #{balance},</if>
+            <if test="frozenBalance != null">frozen_balance = #{frozenBalance},</if>
+            <if test="totalRecharge != null">total_recharge = #{totalRecharge},</if>
+            <if test="totalWithdraw != null">total_withdraw = #{totalWithdraw},</if>
+            <if test="updateTime != null">update_time = #{updateTime},</if>
+        </trim>
+        where id = #{id}
+    </update>
+
+    <delete id="deletePortalWalletById" parameterType="Long">
+        delete from portal_wallet where id = #{id}
+    </delete>
+
+    <delete id="deletePortalWalletByIds" parameterType="Long">
+        delete from portal_wallet where id in
+        <foreach item="id" collection="array" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </delete>
+</mapper>

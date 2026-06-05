@@ -540,7 +540,7 @@ export const mockComments: Comment[] = [
   {
     id: '1',
     articleId: '1',
-    author: mockUsers[1],
+    author: mockUsers[1] as User,
     content: '写得很好！组合式 API 确实让代码更清晰了。',
     createdAt: '2024-01-11',
     likeCount: 12,
@@ -549,7 +549,7 @@ export const mockComments: Comment[] = [
         id: '1-1',
         articleId: '1',
         parentId: '1',
-        author: mockUsers[0],
+        author: mockUsers[0] as User,
         content: '感谢支持！后续会更新更多 Vue 3 的教程。',
         createdAt: '2024-01-11',
         likeCount: 5
@@ -558,7 +558,7 @@ export const mockComments: Comment[] = [
         id: '1-2',
         articleId: '1',
         parentId: '1',
-        author: mockUsers[2],
+        author: mockUsers[2] as User,
         content: '赞同！我也觉得组合式 API 更灵活。',
         createdAt: '2024-01-12',
         likeCount: 3
@@ -568,7 +568,7 @@ export const mockComments: Comment[] = [
   {
     id: '2',
     articleId: '1',
-    author: mockUsers[2],
+    author: mockUsers[2] as User,
     content: '期待更多 Vue 3 的教程！',
     createdAt: '2024-01-12',
     likeCount: 8
@@ -576,7 +576,7 @@ export const mockComments: Comment[] = [
   {
     id: '3',
     articleId: '1',
-    author: mockUsers[1],
+    author: mockUsers[1] as User,
     content: '请问 setup 函数中如何处理异步数据呢？',
     createdAt: '2024-01-13',
     likeCount: 15,
@@ -585,7 +585,7 @@ export const mockComments: Comment[] = [
         id: '3-1',
         articleId: '1',
         parentId: '3',
-        author: mockUsers[0],
+        author: mockUsers[0] as User,
         content: '可以使用 onMounted + async 函数，或者用 vue-query 这样的库来管理异步数据。',
         createdAt: '2024-01-13',
         likeCount: 10
@@ -595,7 +595,7 @@ export const mockComments: Comment[] = [
   {
     id: '4',
     articleId: '1',
-    author: mockUsers[2],
+    author: mockUsers[2] as User,
     content: '响应式引用和响应式对象有什么区别呢？',
     createdAt: '2024-01-14',
     likeCount: 6
@@ -603,7 +603,7 @@ export const mockComments: Comment[] = [
   {
     id: '5',
     articleId: '1',
-    author: mockUsers[1],
+    author: mockUsers[1] as User,
     content: '文章结构清晰，一步步引导，非常适合初学者！',
     createdAt: '2024-01-15',
     likeCount: 20
@@ -611,7 +611,7 @@ export const mockComments: Comment[] = [
   {
     id: '6',
     articleId: '1',
-    author: mockUsers[0],
+    author: mockUsers[0] as User,
     content: '感谢大家的反馈！后续会继续更新更多优质内容。',
     createdAt: '2024-01-16',
     likeCount: 25
@@ -619,7 +619,7 @@ export const mockComments: Comment[] = [
   {
     id: '7',
     articleId: '1',
-    author: mockUsers[2],
+    author: mockUsers[2] as User,
     content: '能不能出一期关于自定义 Hooks 的教程呢？',
     createdAt: '2024-01-17',
     likeCount: 18,
@@ -628,7 +628,7 @@ export const mockComments: Comment[] = [
         id: '7-1',
         articleId: '1',
         parentId: '7',
-        author: mockUsers[0],
+        author: mockUsers[0] as User,
         content: '安排！下一期就讲自定义 Hooks 的实践。',
         createdAt: '2024-01-17',
         likeCount: 12
@@ -638,7 +638,7 @@ export const mockComments: Comment[] = [
   {
     id: '8',
     articleId: '1',
-    author: mockUsers[1],
+    author: mockUsers[1] as User,
     content: '代码示例很完整，直接就能拿来用！',
     createdAt: '2024-01-18',
     likeCount: 9
@@ -646,7 +646,7 @@ export const mockComments: Comment[] = [
   {
     id: '9',
     articleId: '1',
-    author: mockUsers[2],
+    author: mockUsers[2] as User,
     content: 'Vue 3 的类型推导做得真的好，配合 TypeScript 太爽了。',
     createdAt: '2024-01-19',
     likeCount: 22
@@ -654,7 +654,7 @@ export const mockComments: Comment[] = [
   {
     id: '10',
     articleId: '1',
-    author: mockUsers[0],
+    author: mockUsers[0] as User,
     content: '感谢分享，已收藏！',
     createdAt: '2024-01-20',
     likeCount: 14
@@ -662,7 +662,7 @@ export const mockComments: Comment[] = [
   {
     id: '11',
     articleId: '1',
-    author: mockUsers[1],
+    author: mockUsers[1] as User,
     content: '从 Vue 2 迁移到 Vue 3，感觉代码简洁了很多。',
     createdAt: '2024-01-21',
     likeCount: 16
@@ -670,7 +670,7 @@ export const mockComments: Comment[] = [
   {
     id: '12',
     articleId: '1',
-    author: mockUsers[2],
+    author: mockUsers[2] as User,
     content: 'Composition API 让逻辑复用变得更简单了！',
     createdAt: '2024-01-22',
     likeCount: 11
@@ -678,7 +678,7 @@ export const mockComments: Comment[] = [
   {
     id: '3',
     articleId: '2',
-    author: mockUsers[0],
+    author: mockUsers[0] as User,
     content: 'Tailwind 3.0 确实好用！',
     createdAt: '2024-01-13'
   }
@@ -718,8 +718,8 @@ export function searchArticles(query: string): Article[] {
   const q = query.toLowerCase();
   return mockArticles.filter(a => 
     a.title.toLowerCase().includes(q) || 
-    a.excerpt.toLowerCase().includes(q) ||
-    a.tags.some(t => t.toLowerCase().includes(q))
+    (a.excerpt ?? '').toLowerCase().includes(q) ||
+    (a.tags ?? []).some(t => t.toLowerCase().includes(q))
   );
 }
 
@@ -728,7 +728,7 @@ export function getArticlesByCategory(category: string): Article[] {
 }
 
 export function getArticlesByUser(userId: string): Article[] {
-  return mockArticles.filter(a => a.author.id === userId);
+  return mockArticles.filter(a => a.author?.id === userId);
 }
 
 export function getCommentsByArticleId(articleId: string): Comment[] {
@@ -743,7 +743,7 @@ export function addComment(articleId: string, author: User, content: string, par
     articleId,
     author,
     content,
-    createdAt: new Date().toISOString().split('T')[0],
+    createdAt: new Date().toISOString().split('T')[0] ?? '',
     parentId,
     likeCount: 0,
     isLiked: false,
@@ -856,7 +856,7 @@ export function createTag(name: string): Tag {
     name,
     slug,
     articleCount: 0,
-    createdAt: new Date().toISOString().split('T')[0]
+    createdAt: new Date().toISOString().split('T')[0] ?? ''
   };
   mockTags.unshift(newTag);
   return newTag;
@@ -881,8 +881,8 @@ export function getTagSuggestions(title: string, category: string): Tag[] {
   };
   
   // 匹配分类相关标签
-  if (categoryKeywords[category]) {
-    const categoryTags = categoryKeywords[category];
+  const categoryTags = categoryKeywords[category];
+  if (categoryTags) {
     categoryTags.forEach(keyword => {
       const tag = mockTags.find(t => t.name === keyword);
       if (tag) {

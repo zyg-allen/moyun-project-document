@@ -1,7 +1,9 @@
 package com.moyun.portal.service.impl;
 
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.moyun.portal.domain.entity.PortalOrder;
+import com.moyun.portal.domain.query.OrderQuery;
 import com.moyun.portal.mapper.PortalOrderMapper;
 import com.moyun.portal.service.IPortalOrderService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -23,12 +25,24 @@ public class PortalOrderServiceImpl extends ServiceImpl<PortalOrderMapper, Porta
     /**
      * 根据条件分页查询订单列表
      *
-     * @param portalOrder 订单信息
-     * @return 订单信息集合信息
+     * @param page 分页参数
+     * @param query 查询条件
+     * @return 分页结果
      */
     @Override
-    public List<PortalOrder> selectPortalOrderList(PortalOrder portalOrder) {
-        return portalOrderMapper.selectPortalOrderList(portalOrder);
+    public Page<PortalOrder> selectPortalOrderPage(Page<PortalOrder> page, OrderQuery query) {
+        return baseMapper.selectPortalOrderPage(page, query);
+    }
+
+    /**
+     * 根据条件查询订单列表（不分页，用于导出等场景）
+     *
+     * @param query 查询条件
+     * @return 订单信息集合
+     */
+    @Override
+    public List<PortalOrder> selectPortalOrderList(OrderQuery query) {
+        return baseMapper.selectPortalOrderList(query);
     }
 
     /**

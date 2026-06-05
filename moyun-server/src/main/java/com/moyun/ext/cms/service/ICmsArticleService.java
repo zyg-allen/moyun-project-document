@@ -17,10 +17,11 @@ public interface ICmsArticleService
     /**
      * 查询文章分页列表
      *
+     * @param page 分页参数
      * @param query 查询条件
      * @return 文章分页列表
      */
-    Page<CmsArticleVO> selectArticlePage(CmsArticleQuery query);
+    Page<CmsArticleVO> selectArticlePage(Page<CmsArticleVO> page, CmsArticleQuery query);
 
     /**
      * 查询文章列表

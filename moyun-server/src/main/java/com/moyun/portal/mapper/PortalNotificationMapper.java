@@ -1,8 +1,11 @@
 package com.moyun.portal.mapper;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.moyun.portal.domain.entity.PortalNotification;
+import com.moyun.portal.domain.query.NotificationQuery;
 import org.apache.ibatis.annotations.Mapper;
+import org.apache.ibatis.annotations.Param;
 
 import java.util.List;
 
@@ -17,10 +20,19 @@ public interface PortalNotificationMapper extends BaseMapper<PortalNotification>
     /**
      * 根据条件分页查询通知列表
      *
-     * @param portalNotification 通知信息
+     * @param page 分页参数
+     * @param query 查询条件
      * @return 通知信息集合信息
      */
-    public List<PortalNotification> selectPortalNotificationList(PortalNotification portalNotification);
+    Page<PortalNotification> selectPortalNotificationPage(Page<PortalNotification> page, @Param("params") NotificationQuery query);
+
+    /**
+     * 根据条件查询通知列表（不分页，用于导出等场景）
+     *
+     * @param query 查询条件
+     * @return 通知信息集合信息
+     */
+    List<PortalNotification> selectPortalNotificationList(@Param("params") NotificationQuery query);
 
     /**
      * 通过通知ID查询通知

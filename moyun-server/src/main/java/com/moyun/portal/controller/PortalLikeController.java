@@ -1,12 +1,14 @@
 package com.moyun.portal.controller;
 
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.moyun.common.annotation.Log;
 import com.moyun.core.base.BaseController;
 import com.moyun.core.base.AjaxResult;
-import com.moyun.core.base.TableDataInfo;
 import com.moyun.common.enums.BusinessType;
+import com.moyun.util.bean.PageUtils;
 import com.moyun.util.file.ExcelUtil;
 import com.moyun.portal.domain.entity.PortalLike;
+import com.moyun.portal.domain.query.LikeQuery;
 import com.moyun.portal.service.IPortalLikeService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -28,17 +30,17 @@ public class PortalLikeController extends BaseController {
 
     @Operation(summary = "获取点赞列表", description = "根据条件分页查询点赞列表")
     @GetMapping("/list")
-    public TableDataInfo list(PortalLike portalLike) {
-        startPage();
-        List<PortalLike> list = portalLikeService.selectPortalLikeList(portalLike);
-        return getDataTable(list);
+    public AjaxResult list(LikeQuery query) {
+        Page<PortalLike> page = PageUtils.buildPage(query);
+        Page<PortalLike> resultPage = portalLikeService.selectPortalLikePage(page, query);
+        return success(resultPage);
     }
 
     @Operation(summary = "导出点赞", description = "导出点赞数据到Excel文件")
     @Log(title = "门户点赞", businessType = BusinessType.EXPORT)
     @PostMapping("/export")
-    public void export(HttpServletResponse response, PortalLike portalLike) {
-        List<PortalLike> list = portalLikeService.selectPortalLikeList(portalLike);
+    public void export(HttpServletResponse response, LikeQuery query) {
+        List<PortalLike> list = portalLikeService.selectPortalLikeList(query);
         ExcelUtil<PortalLike> util = new ExcelUtil<PortalLike>(PortalLike.class);
         util.exportExcel(response, list, "门户点赞数据");
     }

@@ -1,12 +1,14 @@
 package com.moyun.portal.controller;
 
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.moyun.common.annotation.Log;
 import com.moyun.core.base.BaseController;
 import com.moyun.core.base.AjaxResult;
-import com.moyun.core.base.TableDataInfo;
 import com.moyun.common.enums.BusinessType;
+import com.moyun.util.bean.PageUtils;
 import com.moyun.util.file.ExcelUtil;
 import com.moyun.portal.domain.entity.PortalVipPackage;
+import com.moyun.portal.domain.query.VipPackageQuery;
 import com.moyun.portal.service.IPortalVipPackageService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -28,17 +30,17 @@ public class PortalVipPackageController extends BaseController {
 
     @Operation(summary = "获取VIP套餐列表", description = "根据条件分页查询VIP套餐列表")
     @GetMapping("/list")
-    public TableDataInfo list(PortalVipPackage portalVipPackage) {
-        startPage();
-        List<PortalVipPackage> list = portalVipPackageService.selectPortalVipPackageList(portalVipPackage);
-        return getDataTable(list);
+    public AjaxResult list(VipPackageQuery query) {
+        Page<PortalVipPackage> page = PageUtils.buildPage(query);
+        Page<PortalVipPackage> resultPage = portalVipPackageService.selectPortalVipPackagePage(page, query);
+        return success(resultPage);
     }
 
     @Operation(summary = "导出VIP套餐", description = "导出VIP套餐数据到Excel文件")
     @Log(title = "门户VIP套餐", businessType = BusinessType.EXPORT)
     @PostMapping("/export")
-    public void export(HttpServletResponse response, PortalVipPackage portalVipPackage) {
-        List<PortalVipPackage> list = portalVipPackageService.selectPortalVipPackageList(portalVipPackage);
+    public void export(HttpServletResponse response, VipPackageQuery query) {
+        List<PortalVipPackage> list = portalVipPackageService.selectPortalVipPackageList(query);
         ExcelUtil<PortalVipPackage> util = new ExcelUtil<PortalVipPackage>(PortalVipPackage.class);
         util.exportExcel(response, list, "门户VIP套餐数据");
     }

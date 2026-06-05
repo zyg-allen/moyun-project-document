@@ -18,6 +18,8 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
+import java.util.Arrays;
+import java.util.List;
 
 /**
  * 门户token过滤器 验证token有效性
@@ -32,12 +34,49 @@ public class PortalJwtAuthenticationTokenFilter extends OncePerRequestFilter {
     @Qualifier("portalTokenService")
     private PortalTokenService portalTokenService;
 
+    /**
+     * 公开路径列表（不需要登录即可访问）
+     */
+    private static final List<String> PUBLIC_PATHS = Arrays.asList(
+            "/portal/login",
+            "/portal/register",
+            "/portal/captchaImage",
+            "/portallist",
+            "/portal/article/hot",
+            "/portal/article/featured",
+            "/portal/article/carousel",
+            "/portal/article/home",
+            "/portal/article/byCategory",
+            "/portal/category/",
+            "/portal/tag/",
+            "/portal/comment/list",
+            "/portal/friendLink/",
+            "/portal/vipPackage/",
+            "/portal/user/profile/",
+            "/portal/book/",
+            "/portal/bookList/",
+            "/portal/bookQuote/",
+            "/portal/interviewCategory/",
+            "/portal/interviewQuestion/",
+            "/portal/interviewExperience/",
+            "/portal/interviewResumeTemplate/",
+            "/portal/debug/"
+    );
+
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain)
             throws ServletException, IOException {
-        // 只处理 /portal 路径的请求
         String requestURI = request.getRequestURI();
+
+        // 只处理 /portal 路径的请求
         if (!requestURI.startsWith("/portal/")) {
+            chain.doFilter(request, response);
+            return;
+        }
+
+        // 跳过公开路径的token验证
+        if (isPublicPath(requestURI, request.getMethod())) {
+            log.debug("跳过公开路径的token验证: {}", requestURI);
             chain.doFilter(request, response);
             return;
         }
@@ -52,5 +91,34 @@ public class PortalJwtAuthenticationTokenFilter extends OncePerRequestFilter {
             SecurityContextHolder.getContext().setAuthentication(authenticationToken);
         }
         chain.doFilter(request, response);
+    }
+
+    /**
+     * 判断是否为公开路径
+     */
+    private boolean isPublicPath(String requestURI, String method) {
+        // 检查精确匹配的路径
+        for (String publicPath : PUBLIC_PATHS) {
+            if (requestURI.equals(publicPath) || requestURI.startsWith(publicPath)) {
+                // 对于文章相关的POST请求（view/like）也需要允许
+                if (requestURI.startsWith("/portal/article/") &&
+                        ("POST".equals(method) || "DELETE".equals(method))) {
+                    // 检查是否是 view 或 like 操作
+                    if (requestURI.contains("/view") || requestURI.contains("/like")) {
+                        return true;
+                    }
+                }
+                // GET请求的文章详情
+                if ("GET".equals(method) && requestURI.startsWith("/portal/article/")) {
+                    return true;
+                }
+                // 评论的POST请求
+                if (requestURI.startsWith("/portal/comment/") && "POST".equals(method)) {
+                    return true;
+                }
+                return true;
+            }
+        }
+        return false;
     }
 }

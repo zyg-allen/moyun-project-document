@@ -1,12 +1,12 @@
 package com.moyun.portal.controller;
 
-import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.moyun.common.annotation.Log;
 import com.moyun.core.base.BaseController;
 import com.moyun.core.base.AjaxResult;
-import com.moyun.core.base.TableDataInfo;
 import com.moyun.common.enums.BusinessType;
+import com.moyun.portal.domain.query.ArticleQuery;
+import com.moyun.util.bean.PageUtils;
 import com.moyun.util.file.ExcelUtil;
 import com.moyun.portal.domain.entity.PortalArticle;
 import com.moyun.portal.domain.vo.ArticleVO;
@@ -36,17 +36,18 @@ public class PortalArticleController extends BaseController {
 
     @Operation(summary = "获取文章列表", description = "根据条件分页查询文章列表")
     @GetMapping("/list")
-    public TableDataInfo list(PortalArticle portalArticle) {
-        startPage();
-        List<PortalArticle> list = portalArticleService.selectPortalArticleList(portalArticle);
-        return getDataTable(ArticleConvertUtil.toArticleVOList(list));
+    public AjaxResult list(ArticleQuery query) {
+        Page<PortalArticle> page = PageUtils.buildPage(query);
+        Page<PortalArticle> resultPage = portalArticleService.selectPortalArticlePage(page, query);
+        return success(resultPage);
     }
 
     @Operation(summary = "导出文章", description = "导出文章数据到Excel文件")
     @Log(title = "门户文章", businessType = BusinessType.EXPORT)
     @PostMapping("/export")
-    public void export(HttpServletResponse response, PortalArticle portalArticle) {
-        List<PortalArticle> list = portalArticleService.selectPortalArticleList(portalArticle);
+    public void export(HttpServletResponse response, ArticleQuery query) {
+        // 导出时不分页，调用不分页的查询方法
+        List<PortalArticle> list = portalArticleService.selectPortalArticleList(query);
         ExcelUtil<PortalArticle> util = new ExcelUtil<PortalArticle>(PortalArticle.class);
         util.exportExcel(response, list, "门户文章数据");
     }
@@ -114,53 +115,89 @@ public class PortalArticleController extends BaseController {
 
     @Operation(summary = "获取热门文章", description = "获取热门文章列表，按浏览量排序")
     @GetMapping("/hot")
-    public TableDataInfo getHotArticles(@RequestParam(defaultValue = "10") Integer limit) {
-        Page<PortalArticle> page = new Page<>(1, limit);
-        LambdaQueryWrapper<PortalArticle> wrapper = new LambdaQueryWrapper<>();
-        wrapper.eq(PortalArticle::getStatus, "published")
-               .orderByDesc(PortalArticle::getViews)
-               .orderByDesc(PortalArticle::getCreateTime);
-        Page<PortalArticle> resultPage = portalArticleMapper.selectPage(page, wrapper);
-        return getDataTable(ArticleConvertUtil.toArticleVOList(resultPage.getRecords()), resultPage.getTotal());
+    public AjaxResult getHotArticles(@RequestParam(defaultValue = "10") Integer limit) {
+        Page<PortalArticle> page = PageUtils.buildPage(1, limit);
+        List<PortalArticle> list = portalArticleMapper.selectHotArticles(page);
+        return success(list);
     }
 
     @Operation(summary = "获取精选文章", description = "获取精选文章列表")
     @GetMapping("/featured")
-    public TableDataInfo getFeaturedArticles(@RequestParam(defaultValue = "10") Integer limit) {
-        Page<PortalArticle> page = new Page<>(1, limit);
-        LambdaQueryWrapper<PortalArticle> wrapper = new LambdaQueryWrapper<>();
-        wrapper.eq(PortalArticle::getStatus, "published")
-               .eq(PortalArticle::getIsFeatured, true)
-               .orderByDesc(PortalArticle::getIsTop)
-               .orderByDesc(PortalArticle::getCreateTime);
-        Page<PortalArticle> resultPage = portalArticleMapper.selectPage(page, wrapper);
-        return getDataTable(ArticleConvertUtil.toArticleVOList(resultPage.getRecords()), resultPage.getTotal());
+    public AjaxResult getFeaturedArticles(@RequestParam(defaultValue = "10") Integer limit) {
+        Page<PortalArticle> page = PageUtils.buildPage(1, limit);
+        List<PortalArticle> list = portalArticleMapper.selectFeaturedArticles(page);
+        return success(list);
     }
 
     @Operation(summary = "获取轮播文章", description = "获取轮播文章列表")
     @GetMapping("/carousel")
     public AjaxResult getCarouselArticles() {
-        LambdaQueryWrapper<PortalArticle> wrapper = new LambdaQueryWrapper<>();
-        wrapper.eq(PortalArticle::getStatus, "published")
-               .eq(PortalArticle::getIsCarousel, true)
-               .orderByDesc(PortalArticle::getCreateTime);
-        List<PortalArticle> list = portalArticleMapper.selectList(wrapper);
-        return success(ArticleConvertUtil.toArticleVOList(list));
+        List<PortalArticle> list = portalArticleMapper.selectCarouselArticles();
+        return success(list);
     }
 
     @Operation(summary = "获取相关文章", description = "获取相关推荐文章")
     @GetMapping("/{id}/related")
-    public TableDataInfo getRelatedArticles(@PathVariable Long id, @RequestParam(defaultValue = "5") Integer limit) {
-        Page<PortalArticle> page = new Page<>(1, limit);
-        PortalArticle currentArticle = portalArticleService.selectPortalArticleById(id);
-        LambdaQueryWrapper<PortalArticle> wrapper = new LambdaQueryWrapper<>();
-        wrapper.eq(PortalArticle::getStatus, "published")
-               .ne(PortalArticle::getId, id);
-        if (currentArticle != null && currentArticle.getCategoryId() != null) {
-            wrapper.eq(PortalArticle::getCategoryId, currentArticle.getCategoryId());
+    public AjaxResult getRelatedArticles(@PathVariable Long id, @RequestParam(defaultValue = "5") Integer limit) {
+        Page<PortalArticle> page = PageUtils.buildPage(1, limit);
+        List<PortalArticle> list = portalArticleMapper.selectRelatedArticles(page, id);
+        return success(list);
+    }
+
+    @Operation(summary = "按分类获取文章列表", description = "根据分类ID或名称获取文章列表")
+    @GetMapping("/byCategory")
+    public AjaxResult getArticlesByCategory(ArticleQuery query) {
+        Page<PortalArticle> page = PageUtils.buildPage(query);
+        Page<PortalArticle> resultPage = portalArticleService.selectPortalArticlePage(page, query);
+        return success(resultPage);
+    }
+
+    @Operation(summary = "获取首页数据汇总", description = "获取首页所需的全部数据")
+    @GetMapping("/home")
+    public AjaxResult getHomeData() {
+        // 获取轮播文章
+        List<PortalArticle> carouselArticles = portalArticleMapper.selectCarouselArticles();
+
+        // 获取精选文章（最多8篇）
+        Page<PortalArticle> featuredPage = PageUtils.buildPage(1, 8);
+        List<PortalArticle> featuredArticles = portalArticleMapper.selectFeaturedArticles(featuredPage);
+
+        // 获取热门文章（最多10篇）
+        Page<PortalArticle> hotPage = PageUtils.buildPage(1, 10);
+        List<PortalArticle> hotArticles = portalArticleMapper.selectHotArticles(hotPage);
+
+        // 获取最新文章（最多20篇，用于按主题探索）
+        Page<PortalArticle> latestPage = PageUtils.buildPage(1, 20);
+        List<PortalArticle> latestArticles = portalArticleMapper.selectLatestArticles(latestPage);
+
+        return success(new HomeDataVO(
+            ArticleConvertUtil.toArticleVOList(carouselArticles),
+            ArticleConvertUtil.toArticleVOList(featuredArticles),
+            ArticleConvertUtil.toArticleVOList(hotArticles),
+            ArticleConvertUtil.toArticleVOList(latestArticles)
+        ));
+    }
+
+    /**
+     * 首页数据VO
+     */
+    public static class HomeDataVO {
+        private List<ArticleVO> carouselArticles;
+        private List<ArticleVO> featuredArticles;
+        private List<ArticleVO> hotArticles;
+        private List<ArticleVO> latestArticles;
+
+        public HomeDataVO(List<ArticleVO> carouselArticles, List<ArticleVO> featuredArticles,
+                         List<ArticleVO> hotArticles, List<ArticleVO> latestArticles) {
+            this.carouselArticles = carouselArticles;
+            this.featuredArticles = featuredArticles;
+            this.hotArticles = hotArticles;
+            this.latestArticles = latestArticles;
         }
-        wrapper.orderByDesc(PortalArticle::getCreateTime);
-        Page<PortalArticle> resultPage = portalArticleMapper.selectPage(page, wrapper);
-        return getDataTable(ArticleConvertUtil.toArticleVOList(resultPage.getRecords()), resultPage.getTotal());
+
+        public List<ArticleVO> getCarouselArticles() { return carouselArticles; }
+        public List<ArticleVO> getFeaturedArticles() { return featuredArticles; }
+        public List<ArticleVO> getHotArticles() { return latestArticles; }
+        public List<ArticleVO> getLatestArticles() { return latestArticles; }
     }
 }

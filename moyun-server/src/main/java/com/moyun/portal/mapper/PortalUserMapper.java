@@ -1,7 +1,9 @@
 package com.moyun.portal.mapper;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.moyun.portal.domain.entity.PortalUser;
+import com.moyun.portal.domain.query.UserQuery;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
@@ -18,10 +20,19 @@ public interface PortalUserMapper extends BaseMapper<PortalUser> {
     /**
      * 根据条件分页查询用户列表
      *
-     * @param portalUser 用户信息
+     * @param page 分页参数
+     * @param query 查询条件
      * @return 用户信息集合信息
      */
-    public List<PortalUser> selectPortalUserList(PortalUser portalUser);
+    Page<PortalUser> selectPortalUserPage(Page<PortalUser> page, @Param("params") UserQuery query);
+
+    /**
+     * 根据条件查询用户列表（不分页，用于导出等场景）
+     *
+     * @param query 查询条件
+     * @return 用户信息集合信息
+     */
+    List<PortalUser> selectPortalUserList(@Param("params") UserQuery query);
 
     /**
      * 通过用户名查询用户

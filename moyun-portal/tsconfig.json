@@ -6,7 +6,11 @@
     "strict": false,
     "noUnusedLocals": false,
     "noUnusedParameters": false,
-    "noFallthroughCasesInSwitch": false,
+    "noFallthroughCasesInSwitch": true,
+    "noImplicitAny": true,
+    "noImplicitReturns": true,
+    "noImplicitThis": true,
+    "noUncheckedIndexedAccess": false,
     "baseUrl": "./",
     "paths": {
       "@/*": [
@@ -16,7 +20,6 @@
   },
   "include": [
     "src/**/*.ts",
-    "src/**/*.vue",
-    "api"
+    "src/**/*.vue"
   ]
 }

@@ -1,12 +1,13 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
 import { RouterLink as Link, useRouter, useRoute } from 'vue-router';
-import { 
+import {
   Search, User, Plus, LogOut, Menu, X, Palette, Sun, Moon, Eye, Home,
-  ChevronDown, ChevronUp
+  ChevronDown, ChevronUp, Settings, UserCircle
 } from 'lucide-vue-next';
 import { getStoredTheme, setTheme, getCurrentTheme, type Theme, themes } from '@/utils/theme';
 import { useUserStore } from '@/stores/user';
+import { useAuth } from '@/composables/useAuth';
 import NotificationBell from './NotificationBell.vue';
 import * as notificationApi from '@/api/notification';
 import { categories } from '@/data/categories';
@@ -14,6 +15,7 @@ import { categories } from '@/data/categories';
 const router = useRouter();
 const route = useRoute();
 const userStore = useUserStore();
+const { requireAuth, isAuthenticated } = useAuth();
 
 const isMenuOpen = ref(false);
 const searchQuery = ref('');
@@ -22,6 +24,7 @@ const isThemeMenuOpen = ref(false);
 const activeNavItem = ref<string | null>(null);
 const notifications = ref<any[]>([]);
 const notificationsLoading = ref(false);
+const isUserMenuOpen = ref(false);
 
 // 导航数据结构 - 使用统一的分类数据
 const navItems = ref([
@@ -47,12 +50,12 @@ const navItems = ref([
       { name: '用户协议', path: '/agreement' },
       { name: '举报反馈', path: '/report' }
     ]
-  }
+  },
 ]);
 
-const currentUser = computed(() => userStore.user);
-const unreadCount = computed(() => 
-  notifications.value.filter(n => !n.isRead).length
+const currentUser = computed(() => userStore.user)
+const unreadCount = computed(() =>
+    notifications.value.filter(n => !n.isRead).length
 );
 
 // 模拟通知数据
@@ -84,7 +87,7 @@ const mockNotifications = [
     content: '您的评论收到了用户"清风"的回复。',
     time: '2026-05-17 10:15',
     isRead: true
-  }
+  },
 ];
 
 onMounted(async () => {
@@ -109,14 +112,14 @@ function toggleNav(key: string) {
 function selectTheme(theme: Theme) {
   currentTheme.value = theme;
   setTheme(theme, true);
-  
+
   const currentQuery = { ...route.query };
   currentQuery.theme = theme;
-  router.replace({ 
-    path: route.path, 
-    query: currentQuery 
+  router.replace({
+    path: route.path,
+    query: currentQuery
   });
-  
+
   isThemeMenuOpen.value = false;
 }
 
@@ -125,6 +128,29 @@ function markAsRead(id: string) {
   if (notification) {
     notification.isRead = true;
   }
+}
+
+function handleLogout() {
+  userStore.logoutWithApi();
+  isUserMenuOpen.value = false;
+  router.push('/');
+}
+
+function handleGoToProfile() {
+  isUserMenuOpen.value = false;
+  // 检查是否登录，未登录则跳转到登录页
+  if (!requireAuth('/user')) {
+    return;
+  }
+  router.push('/user');
+}
+
+function handlePublish() {
+  // 检查是否登录，未登录则跳转到登录页
+  if (!requireAuth('/publish')) {
+    return;
+  }
+  router.push('/publish');
 }
 </script>
 
@@ -144,53 +170,53 @@ function markAsRead(id: string) {
                 <h1 class="hidden sm:block text-base sm:text-xl font-bold" style="color: var(--theme-text);">墨韵</h1>
               </div>
             </Link>
-            
+
             <span class="hidden sm:inline" style="color: var(--theme-text-secondary);">|</span>
             <span class="text-xs sm:text-sm" style="color: var(--theme-text);">
               <span class="sm:hidden">听松看云</span>
               <span class="hidden sm:inline">今日主题：听松看云</span>
             </span>
           </div>
-          
+
           <!-- 右侧：搜索和操作 -->
           <div class="flex items-center space-x-1 sm:space-x-3">
             <!-- 搜索图标按钮 -->
-            <button 
-              @click="router.push('/search')"
-              class="p-1.5 sm:p-2 rounded-lg transition-colors"
-              style="color: var(--theme-text-secondary);"
-              title="搜索"
+            <button
+                @click="router.push('/search')"
+                class="p-1.5 sm:p-2 rounded-lg transition-colors"
+                style="color: var(--theme-text-secondary);"
+                title="搜索"
             >
               <Search class="w-4 h-4 sm:w-5 sm:h-5" />
             </button>
-            
+
             <!-- 消息铃铛 -->
-            <NotificationBell 
-              :notifications="notifications"
-              @read="markAsRead"
-              @show-detail="(n) => console.log(n)"
+            <NotificationBell
+                :notifications="notifications"
+                @read="markAsRead"
+                @show-detail="(n) => console.log(n)"
             />
-            
+
             <!-- 主题切换 -->
             <div class="relative">
-              <button 
-                @click="isThemeMenuOpen = !isThemeMenuOpen"
-                class="p-1.5 rounded-full transition-colors"
-                style="color: var(--theme-text);"
+              <button
+                  @click="isThemeMenuOpen = !isThemeMenuOpen"
+                  class="p-1.5 rounded-full transition-colors"
+                  style="color: var(--theme-text);"
               >
                 <Palette class="w-4 h-4" />
               </button>
-              <div 
-                v-if="isThemeMenuOpen"
-                class="absolute right-0 mt-2 w-40 rounded-lg shadow-lg border py-2 z-50"
-                style="background-color: var(--theme-bg); border-color: var(--theme-border);"
+              <div
+                  v-if="isThemeMenuOpen"
+                  class="absolute right-0 mt-2 w-40 rounded-lg shadow-lg border py-2 z-50"
+                  style="background-color: var(--theme-bg); border-color: var(--theme-border);"
               >
                 <button
-                  v-for="theme in ['light', 'dark', 'eye'] as Theme[]"
-                  :key="theme"
-                  @click="selectTheme(theme)"
-                  class="w-full flex items-center space-x-2 px-3 py-2 text-left transition-colors"
-                  :style="{ backgroundColor: 'var(--theme-surface)' }"
+                    v-for="theme in ['light', 'dark', 'eye'] as Theme[]"
+                    :key="theme"
+                    @click="selectTheme(theme)"
+                    class="w-full flex items-center space-x-2 px-3 py-2 text-left transition-colors"
+                    :style="{ backgroundColor: 'var(--theme-surface)' }"
                 >
                   <Sun v-if="theme === 'light'" class="w-4 h-4 text-yellow-500" />
                   <Moon v-else-if="theme === 'dark'" class="w-4 h-4 text-indigo-500" />
@@ -201,35 +227,85 @@ function markAsRead(id: string) {
                 </button>
               </div>
             </div>
-            
+
             <!-- 用户操作 -->
             <template v-if="currentUser">
-              <Link 
-                to="/publish"
-                target="_blank"
-                class="flex items-center space-x-1 px-2 sm:px-3 py-1.5 rounded-full text-sm font-medium transition-colors flex-shrink-0"
-                style="background-color: var(--theme-primary); color: white;"
+              <button
+                  @click="handlePublish"
+                  class="flex items-center space-x-1 px-2 sm:px-3 py-1.5 rounded-full text-sm font-medium transition-colors flex-shrink-0"
+                  style="background-color: var(--theme-primary); color: white;"
               >
                 <Plus class="w-4 h-4" />
                 <span class="hidden sm:inline">创作</span>
-              </Link>
-              <Link to="/user" class="flex items-center space-x-2 hover:opacity-80 transition-opacity flex-shrink-0">
-                <img 
-                  :src="currentUser.avatar" 
-                  :alt="currentUser.username"
-                  class="w-8 h-8 rounded-full"
-                  loading="lazy"
-                />
-                <span class="text-sm font-medium hidden sm:inline" style="color: var(--theme-text);">
-                  {{ (currentUser as any).nickname || currentUser.username }}
-                </span>
-              </Link>
+              </button>
+
+              <!-- 用户头像下拉菜单 -->
+              <div class="relative">
+                <button
+                    @click="isUserMenuOpen = !isUserMenuOpen"
+                    class="flex items-center space-x-2 hover:opacity-80 transition-opacity flex-shrink-0"
+                >
+                  <img
+                      :src="currentUser.avatar"
+                      :alt="currentUser.username"
+                      class="w-8 h-8 rounded-full"
+                      loading="lazy"
+                  />
+                  <span class="text-sm font-medium hidden sm:inline" style="color: var(--theme-text);">
+                    {{ (currentUser as any).nickname || currentUser.username }}
+                  </span>
+                  <ChevronDown class="w-3 h-3 hidden sm:block" style="color: var(--theme-text-secondary);" />
+                </button>
+
+                <!-- 用户下拉菜单 -->
+                <div
+                    v-if="isUserMenuOpen"
+                    class="absolute right-0 mt-2 w-48 rounded-lg shadow-lg border py-2 z-50"
+                    style="background-color: var(--theme-bg); border-color: var(--theme-border);"
+                >
+                  <div class="px-3 py-2 border-b" style="border-color: var(--theme-border);">
+                    <p class="text-sm font-medium" style="color: var(--theme-text);">
+                      {{ (currentUser as any).nickname || currentUser.username }}
+                    </p>
+                    <p class="text-xs" style="color: var(--theme-text-secondary);">
+                      {{ currentUser.email || '' }}
+                    </p>
+                  </div>
+
+                  <button
+                      @click="handleGoToProfile"
+                      class="w-full flex items-center space-x-2 px-3 py-2 text-left transition-colors hover:opacity-80"
+                      :style="{ backgroundColor: 'var(--theme-surface)' }"
+                  >
+                    <UserCircle class="w-4 h-4" style="color: var(--theme-text-secondary);" />
+                    <span class="text-sm" style="color: var(--theme-text);">个人中心</span>
+                  </button>
+
+                  <button
+                      @click="handleGoToProfile"
+                      class="w-full flex items-center space-x-2 px-3 py-2 text-left transition-colors hover:opacity-80"
+                  >
+                    <Settings class="w-4 h-4" style="color: var(--theme-text-secondary);" />
+                    <span class="text-sm" style="color: var(--theme-text);">账号设置</span>
+                  </button>
+
+                  <div class="border-t my-1" style="border-color: var(--theme-border);"></div>
+
+                  <button
+                      @click="handleLogout"
+                      class="w-full flex items-center space-x-2 px-3 py-2 text-left transition-colors hover:opacity-80"
+                  >
+                    <LogOut class="w-4 h-4" style="color: #dc2626;" />
+                    <span class="text-sm" style="color: #dc2626;">退出登录</span>
+                  </button>
+                </div>
+              </div>
             </template>
             <template v-else>
-              <Link 
-                to="/login"
-                class="px-2 sm:px-3 py-1.5 font-medium transition-colors flex-shrink-0"
-                style="color: var(--theme-text);"
+              <Link
+                  to="/login"
+                  class="px-2 sm:px-3 py-1.5 font-medium transition-colors flex-shrink-0"
+                  style="color: var(--theme-text);"
               >
                 <span class="hidden sm:inline">登录/注册</span>
                 <span class="sm:hidden">登录</span>
@@ -248,10 +324,10 @@ function markAsRead(id: string) {
           <nav class="hidden lg:flex items-center space-x-2">
             <!-- 首页链接 -->
             <Link
-              to="/"
-              class="px-5 py-2.5 text-base font-semibold transition-all duration-200 rounded-lg hover:scale-105 hover:shadow-sm"
-              style="color: var(--theme-text);"
-              active-class=""
+                to="/"
+                class="px-5 py-2.5 text-base font-semibold transition-all duration-200 rounded-lg hover:scale-105 hover:shadow-sm"
+                style="color: var(--theme-text);"
+                active-class=""
             >
               首页
             </Link>
@@ -259,9 +335,9 @@ function markAsRead(id: string) {
               <!-- 名家录直接跳转 -->
               <template v-if="item.key === 'authors'">
                 <Link
-                  to="/authors"
-                  class="px-5 py-2.5 text-base font-semibold transition-all duration-200 rounded-lg hover:scale-105 hover:shadow-sm"
-                  style="color: var(--theme-text);"
+                    to="/authors"
+                    class="px-5 py-2.5 text-base font-semibold transition-all duration-200 rounded-lg hover:scale-105 hover:shadow-sm"
+                    style="color: var(--theme-text);"
                 >
                   {{ item.name }}
                 </Link>
@@ -269,13 +345,13 @@ function markAsRead(id: string) {
               <!-- 其他有子菜单的项 -->
               <template v-else>
                 <div class="relative" @click.stop>
-                  <button 
-                    @click="toggleNav(item.key)"
-                    :class="[
+                  <button
+                      @click="toggleNav(item.key)"
+                      :class="[
                       'px-5 py-2.5 text-base font-semibold transition-all duration-200 rounded-lg',
                       activeNavItem === item.key ? 'shadow-md scale-105' : 'hover:scale-105 hover:shadow-sm'
                     ]"
-                    :style="{
+                      :style="{
                       color: activeNavItem === item.key ? 'white' : 'var(--theme-text)',
                       backgroundColor: activeNavItem === item.key ? 'var(--theme-primary)' : 'transparent'
                     }"
@@ -283,18 +359,18 @@ function markAsRead(id: string) {
                     {{ item.name }}
                   </button>
                   <!-- PC端二级菜单 -->
-                  <div 
-                    v-if="activeNavItem === item.key"
-                    class="absolute top-full left-0 mt-2 w-72 shadow-xl border rounded-xl py-3 z-50 transform transition-all duration-200"
-                    style="background-color: var(--theme-bg); border-color: var(--theme-border);"
+                  <div
+                      v-if="activeNavItem === item.key"
+                      class="absolute top-full left-0 mt-2 w-72 shadow-xl border rounded-xl py-3 z-50 transform transition-all duration-200"
+                      style="background-color: var(--theme-bg); border-color: var(--theme-border);"
                   >
                     <Link
-                      v-for="(child, idx) in item.children"
-                      :key="child.name"
-                      :to="child.path"
-                      @click="activeNavItem = null"
-                      class="block px-5 py-3 text-base hover:scale-105 transition-all duration-150"
-                      :style="{ 
+                        v-for="(child, idx) in item.children"
+                        :key="child.name"
+                        :to="child.path"
+                        @click="activeNavItem = null"
+                        class="block px-5 py-3 text-base hover:scale-105 transition-all duration-150"
+                        :style="{
                         color: 'var(--theme-text)',
                         borderTop: idx > 0 ? '1px solid var(--theme-border)' : 'none'
                       }"
@@ -308,10 +384,10 @@ function markAsRead(id: string) {
           </nav>
 
           <!-- 移动端菜单按钮 -->
-          <button 
-            @click="isMenuOpen = !isMenuOpen"
-            class="lg:hidden p-2 rounded-lg transition-colors"
-            style="color: var(--theme-text);"
+          <button
+              @click="isMenuOpen = !isMenuOpen"
+              class="lg:hidden p-2 rounded-lg transition-colors"
+              style="color: var(--theme-text);"
           >
             <Menu v-if="!isMenuOpen" class="w-6 h-6" />
             <X v-else class="w-6 h-6" />
@@ -321,37 +397,37 @@ function markAsRead(id: string) {
     </div>
 
     <!-- 移动端菜单 -->
-    <div 
-      v-if="isMenuOpen"
-      class="lg:hidden border-t"
-      style="background-color: var(--theme-bg); border-color: var(--theme-border);"
+    <div
+        v-if="isMenuOpen"
+        class="lg:hidden border-t"
+        style="background-color: var(--theme-bg); border-color: var(--theme-border);"
     >
       <div class="px-4 py-3 space-y-2">
         <!-- 移动端首页链接 -->
         <Link
-          to="/"
-          @click="isMenuOpen = false"
-          class="block border rounded-xl px-5 py-4 mb-2"
-          style="color: var(--theme-text); border-color: var(--theme-border);"
+            to="/"
+            @click="isMenuOpen = false"
+            class="block border rounded-xl px-5 py-4 mb-2"
+            style="color: var(--theme-text); border-color: var(--theme-border);"
         >
           <span class="font-semibold text-lg">首页</span>
         </Link>
         <div v-for="item in navItems" :key="item.key" class="mb-2">
           <Link
-            :to="item.key === 'authors' ? '/authors' : '/list?category=' + item.name"
-            @click="isMenuOpen = false"
-            class="block border rounded-xl px-5 py-4"
-            style="color: var(--theme-text); border-color: var(--theme-border);"
+              :to="item.key === 'authors' ? '/authors' : '/list?category=' + item.name"
+              @click="isMenuOpen = false"
+              class="block border rounded-xl px-5 py-4"
+              style="color: var(--theme-text); border-color: var(--theme-border);"
           >
             <span class="font-semibold text-lg">{{ item.name }}</span>
           </Link>
         </div>
         <!-- 更多按钮 -->
         <Link
-          to="/list"
-          @click="isMenuOpen = false"
-          class="block border rounded-xl px-5 py-4 text-center"
-          style="color: var(--theme-text); border-color: var(--theme-border); background-color: var(--theme-surface);"
+            to="/list"
+            @click="isMenuOpen = false"
+            class="block border rounded-xl px-5 py-4 text-center"
+            style="color: var(--theme-text); border-color: var(--theme-border); background-color: var(--theme-surface);"
         >
           <span class="font-semibold text-lg">查看更多</span>
         </Link>
@@ -359,3 +435,6 @@ function markAsRead(id: string) {
     </div>
   </header>
 </template>
+
+<style scoped>
+</style>

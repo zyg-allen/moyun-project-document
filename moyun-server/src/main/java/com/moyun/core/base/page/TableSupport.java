@@ -10,9 +10,10 @@ import com.moyun.util.string.StringUtils;
  */
 public class TableSupport {
     /**
-     * 当前记录起始索引
+     * 当前记录起始索引（兼容 page 和 pageNum）
      */
     public static final String PAGE_NUM = "pageNum";
+    public static final String PAGE_NUM_ALIAS = "page";
 
     /**
      * 每页显示记录数
@@ -34,7 +35,12 @@ public class TableSupport {
      */
     public static PageDomain buildPageRequest() {
         PageDomain pageDomain = new PageDomain();
-        pageDomain.setPageNum(Convert.toInt(getParameter(PAGE_NUM)));
+        // 优先使用 pageNum，若未传则使用 page（兼容前端）
+        String pageNumValue = getParameter(PAGE_NUM);
+        if (StringUtils.isEmpty(pageNumValue)) {
+            pageNumValue = getParameter(PAGE_NUM_ALIAS);
+        }
+        pageDomain.setPageNum(Convert.toInt(pageNumValue));
         pageDomain.setPageSize(Convert.toInt(getParameter(PAGE_SIZE)));
         pageDomain.setOrderByColumn(getParameter(ORDER_BY_COLUMN));
         pageDomain.setIsAsc(getParameter(IS_ASC));
@@ -48,8 +54,13 @@ public class TableSupport {
         if (pageDomain == null) {
             pageDomain = new PageDomain();
         }
+        // 优先使用 pageNum，若未传则使用 page（兼容前端）
         if (pageDomain.getPageNum() == null || pageDomain.getPageNum() <= 0) {
-            pageDomain.setPageNum(Convert.toInt(getParameter(PAGE_NUM), 1));
+            String pageNumValue = getParameter(PAGE_NUM);
+            if (StringUtils.isEmpty(pageNumValue)) {
+                pageNumValue = getParameter(PAGE_NUM_ALIAS);
+            }
+            pageDomain.setPageNum(Convert.toInt(pageNumValue, 1));
         }
         if (pageDomain.getPageSize() == null || pageDomain.getPageSize() <= 0) {
             pageDomain.setPageSize(Convert.toInt(getParameter(PAGE_SIZE), 10));

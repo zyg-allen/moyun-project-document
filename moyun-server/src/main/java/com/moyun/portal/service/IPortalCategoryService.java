@@ -1,6 +1,8 @@
 package com.moyun.portal.service;
 
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.moyun.portal.domain.entity.PortalCategory;
+import com.moyun.portal.domain.query.CategoryQuery;
 
 import java.util.List;
 
@@ -14,10 +16,19 @@ public interface IPortalCategoryService {
     /**
      * 根据条件分页查询分类列表
      *
-     * @param portalCategory 分类信息
-     * @return 分类信息集合信息
+     * @param page 分页参数
+     * @param query 查询条件
+     * @return 分页结果
      */
-    public List<PortalCategory> selectPortalCategoryList(PortalCategory portalCategory);
+    Page<PortalCategory> selectPortalCategoryPage(Page<PortalCategory> page, CategoryQuery query);
+
+    /**
+     * 根据条件查询分类列表（不分页，用于导出等场景）
+     *
+     * @param query 查询条件
+     * @return 分类信息集合
+     */
+    List<PortalCategory> selectPortalCategoryList(CategoryQuery query);
 
     /**
      * 通过分类ID查询分类

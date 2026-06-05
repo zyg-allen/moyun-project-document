@@ -1,7 +1,9 @@
 package com.moyun.portal.service.impl;
 
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.moyun.portal.domain.entity.PortalCategory;
+import com.moyun.portal.domain.query.CategoryQuery;
 import com.moyun.portal.mapper.PortalCategoryMapper;
 import com.moyun.portal.service.IPortalCategoryService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -23,12 +25,24 @@ public class PortalCategoryServiceImpl extends ServiceImpl<PortalCategoryMapper,
     /**
      * 根据条件分页查询分类列表
      *
-     * @param portalCategory 分类信息
-     * @return 分类信息集合信息
+     * @param page 分页参数
+     * @param query 查询条件
+     * @return 分页结果
      */
     @Override
-    public List<PortalCategory> selectPortalCategoryList(PortalCategory portalCategory) {
-        return portalCategoryMapper.selectPortalCategoryList(portalCategory);
+    public Page<PortalCategory> selectPortalCategoryPage(Page<PortalCategory> page, CategoryQuery query) {
+        return baseMapper.selectPortalCategoryPage(page, query);
+    }
+
+    /**
+     * 根据条件查询分类列表（不分页，用于导出等场景）
+     *
+     * @param query 查询条件
+     * @return 分类信息集合
+     */
+    @Override
+    public List<PortalCategory> selectPortalCategoryList(CategoryQuery query) {
+        return baseMapper.selectPortalCategoryList(query);
     }
 
     /**

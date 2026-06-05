@@ -1,7 +1,9 @@
 package com.moyun.portal.service.impl;
 
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.moyun.portal.domain.entity.PortalFriendLink;
+import com.moyun.portal.domain.query.FriendLinkQuery;
 import com.moyun.portal.mapper.PortalFriendLinkMapper;
 import com.moyun.portal.service.IPortalFriendLinkService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -23,12 +25,24 @@ public class PortalFriendLinkServiceImpl extends ServiceImpl<PortalFriendLinkMap
     /**
      * 根据条件分页查询友情链接列表
      *
-     * @param portalFriendLink 友情链接信息
-     * @return 友情链接信息集合信息
+     * @param page 分页参数
+     * @param query 查询条件
+     * @return 分页结果
      */
     @Override
-    public List<PortalFriendLink> selectPortalFriendLinkList(PortalFriendLink portalFriendLink) {
-        return portalFriendLinkMapper.selectPortalFriendLinkList(portalFriendLink);
+    public Page<PortalFriendLink> selectPortalFriendLinkPage(Page<PortalFriendLink> page, FriendLinkQuery query) {
+        return baseMapper.selectPortalFriendLinkPage(page, query);
+    }
+
+    /**
+     * 根据条件查询友情链接列表（不分页，用于导出等场景）
+     *
+     * @param query 查询条件
+     * @return 友情链接信息集合
+     */
+    @Override
+    public List<PortalFriendLink> selectPortalFriendLinkList(FriendLinkQuery query) {
+        return baseMapper.selectPortalFriendLinkList(query);
     }
 
     /**

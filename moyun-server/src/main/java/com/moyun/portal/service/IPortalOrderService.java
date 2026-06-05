@@ -1,6 +1,8 @@
 package com.moyun.portal.service;
 
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.moyun.portal.domain.entity.PortalOrder;
+import com.moyun.portal.domain.query.OrderQuery;
 
 import java.util.List;
 
@@ -14,10 +16,19 @@ public interface IPortalOrderService {
     /**
      * 根据条件分页查询订单列表
      *
-     * @param portalOrder 订单信息
-     * @return 订单信息集合信息
+     * @param page 分页参数
+     * @param query 查询条件
+     * @return 分页结果
      */
-    public List<PortalOrder> selectPortalOrderList(PortalOrder portalOrder);
+    Page<PortalOrder> selectPortalOrderPage(Page<PortalOrder> page, OrderQuery query);
+
+    /**
+     * 根据条件查询订单列表（不分页，用于导出等场景）
+     *
+     * @param query 查询条件
+     * @return 订单信息集合
+     */
+    List<PortalOrder> selectPortalOrderList(OrderQuery query);
 
     /**
      * 通过订单ID查询订单

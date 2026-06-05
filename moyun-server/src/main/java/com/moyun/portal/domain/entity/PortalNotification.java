@@ -35,7 +35,7 @@ public class PortalNotification extends BaseEntity {
     @TableField(exist = false)
     private String remark;
 
-    @NotNull(message = "用户ID不能为空")
+    //@NotNull(message = "用户ID不能为空")
     private Long userId;
 
     @NotBlank(message = "类型不能为空")

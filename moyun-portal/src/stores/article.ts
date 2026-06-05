@@ -2,14 +2,14 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { safeLocalStorage } from '@/utils/security'
 import { getArticles, addArticle as addMockArticle, getArticleById, searchArticles, getArticlesByCategory } from '@/data/mockData'
-import type { Article } from '@/types'
+import type { Article } from '@/types/api'
 import * as articleApi from '@/api/article'
 import * as bookmarkApi from '@/api/bookmark'
 
 const storage = safeLocalStorage()
 
 export const useArticleStore = defineStore('article', () => {
-  const articles = ref<Article[]>(getArticles())
+  const articles = ref<Article[]>(getArticles() as any)
   const loading = ref(false)
   const searchQuery = ref('')
   const selectedCategory = ref('')
@@ -21,12 +21,12 @@ export const useArticleStore = defineStore('article', () => {
   )
 
   const hotArticles = computed(() => 
-    [...articles.value].sort((a, b) => b.views - a.views).slice(0, 5)
+    [...articles.value].sort((a, b) => (b.views || 0) - (a.views || 0)).slice(0, 5)
   )
 
   const latestArticles = computed(() => 
     [...articles.value].sort((a, b) => 
-      new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      new Date(b.createdAt || Date.now()).getTime() - new Date(a.createdAt || Date.now()).getTime()
     )
   )
 
@@ -34,11 +34,11 @@ export const useArticleStore = defineStore('article', () => {
     let result = articles.value
     
     if (searchQuery.value) {
-      return searchArticles(searchQuery.value)
+      return searchArticles(searchQuery.value) as any
     }
     
     if (selectedCategory.value) {
-      result = getArticlesByCategory(selectedCategory.value)
+      result = getArticlesByCategory(selectedCategory.value) as any
     }
     
     return result
@@ -62,12 +62,12 @@ export const useArticleStore = defineStore('article', () => {
     try {
       const response = await articleApi.getArticleList(params)
       if (response.code === 200) {
-        articles.value = response.data.list as Article[]
+        articles.value = (response.data.list || []) as Article[]
       }
     } catch (error) {
       console.error('获取文章列表失败:', error)
       // Fallback to mock data
-      articles.value = getArticles()
+      articles.value = getArticles() as any
     } finally {
       loading.value = false
     }
@@ -127,25 +127,25 @@ export const useArticleStore = defineStore('article', () => {
   function fetchArticles() {
     loading.value = true
     setTimeout(() => {
-      articles.value = getArticles()
+      articles.value = getArticles() as any
       loading.value = false
     }, 500)
   }
 
   function getArticle(id: string) {
-    return getArticleById(id)
+    return getArticleById(id) as any
   }
 
   function addArticle(article: Partial<Article>) {
     const newArticle = addMockArticle(article as any)
-    articles.value.unshift(newArticle)
+    articles.value.unshift(newArticle as any)
     return newArticle
   }
 
   function updateArticle(id: string, updates: Partial<Article>) {
     const index = articles.value.findIndex(a => a.id === id)
     if (index !== -1) {
-      articles.value[index] = { ...articles.value[index], ...updates }
+      articles.value[index] = { ...articles.value[index], ...updates } as Article
     }
   }
 
@@ -159,10 +159,10 @@ export const useArticleStore = defineStore('article', () => {
       const index = likedArticleIds.value.indexOf(id)
       if (index === -1) {
         likedArticleIds.value.push(id)
-        article.likes++
+        article.likes = (article.likes || 0) + 1
       } else {
         likedArticleIds.value.splice(index, 1)
-        article.likes--
+        article.likes = (article.likes || 1) - 1
       }
       saveLikedArticles()
     }

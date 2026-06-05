@@ -1,10 +1,12 @@
 package com.moyun.portal.service.impl;
 
+import com.baomidou.mybatisplus.core.mapper.BaseMapper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.moyun.portal.domain.entity.PortalArticle;
+import com.moyun.portal.domain.query.ArticleQuery;
 import com.moyun.portal.mapper.PortalArticleMapper;
 import com.moyun.portal.service.IPortalArticleService;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -17,18 +19,27 @@ import java.util.List;
 @Service
 public class PortalArticleServiceImpl extends ServiceImpl<PortalArticleMapper, PortalArticle> implements IPortalArticleService {
 
-    @Autowired
-    private PortalArticleMapper portalArticleMapper;
-
     /**
      * 根据条件分页查询文章列表
      *
+     * @param page 分页参数
      * @param portalArticle 文章信息
-     * @return 文章信息集合信息
+     * @return 分页结果
      */
     @Override
-    public List<PortalArticle> selectPortalArticleList(PortalArticle portalArticle) {
-        return portalArticleMapper.selectPortalArticleList(portalArticle);
+    public Page<PortalArticle> selectPortalArticlePage(Page<PortalArticle> page, ArticleQuery portalArticle) {
+        return baseMapper.selectPortalArticlePage(page, portalArticle);
+    }
+
+    /**
+     * 根据条件查询文章列表（不分页，用于导出等场景）
+     *
+     * @param portalArticle 文章信息
+     * @return 文章信息集合
+     */
+    @Override
+    public List<PortalArticle> selectPortalArticleList(ArticleQuery portalArticle) {
+        return baseMapper.selectPortalArticleList(portalArticle);
     }
 
     /**
@@ -39,7 +50,7 @@ public class PortalArticleServiceImpl extends ServiceImpl<PortalArticleMapper, P
      */
     @Override
     public PortalArticle selectPortalArticleById(Long id) {
-        return portalArticleMapper.selectPortalArticleById(id);
+        return baseMapper.selectPortalArticleById(id);
     }
 
     /**
@@ -50,7 +61,7 @@ public class PortalArticleServiceImpl extends ServiceImpl<PortalArticleMapper, P
      */
     @Override
     public int insertPortalArticle(PortalArticle portalArticle) {
-        return portalArticleMapper.insertPortalArticle(portalArticle);
+        return baseMapper.insertPortalArticle(portalArticle);
     }
 
     /**
@@ -61,7 +72,7 @@ public class PortalArticleServiceImpl extends ServiceImpl<PortalArticleMapper, P
      */
     @Override
     public int updatePortalArticle(PortalArticle portalArticle) {
-        return portalArticleMapper.updatePortalArticle(portalArticle);
+        return baseMapper.updatePortalArticle(portalArticle);
     }
 
     /**
@@ -72,7 +83,7 @@ public class PortalArticleServiceImpl extends ServiceImpl<PortalArticleMapper, P
      */
     @Override
     public int deletePortalArticleById(Long id) {
-        return portalArticleMapper.deletePortalArticleById(id);
+        return baseMapper.deletePortalArticleById(id);
     }
 
     /**
@@ -83,6 +94,6 @@ public class PortalArticleServiceImpl extends ServiceImpl<PortalArticleMapper, P
      */
     @Override
     public int deletePortalArticleByIds(Long[] ids) {
-        return portalArticleMapper.deletePortalArticleByIds(ids);
+        return baseMapper.deletePortalArticleByIds(ids);
     }
 }

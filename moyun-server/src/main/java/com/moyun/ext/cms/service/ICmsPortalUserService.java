@@ -17,10 +17,11 @@ public interface ICmsPortalUserService
     /**
      * 查询门户用户列表
      *
+     * @param page 分页参数
      * @param query 查询条件
      * @return 门户用户列表
      */
-    Page<CmsPortalUserVO> selectUserPage(CmsPortalUserQuery query);
+    Page<CmsPortalUserVO> selectUserPage(Page<CmsPortalUserVO> page, CmsPortalUserQuery query);
 
     /**
      * 查询门户用户列表

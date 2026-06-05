@@ -1,12 +1,14 @@
 package com.moyun.portal.controller;
 
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.moyun.common.annotation.Log;
 import com.moyun.core.base.BaseController;
 import com.moyun.core.base.AjaxResult;
-import com.moyun.core.base.TableDataInfo;
 import com.moyun.common.enums.BusinessType;
+import com.moyun.util.bean.PageUtils;
 import com.moyun.util.file.ExcelUtil;
 import com.moyun.portal.domain.entity.PortalUser;
+import com.moyun.portal.domain.query.UserQuery;
 import com.moyun.portal.service.IPortalUserService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -28,17 +30,17 @@ public class PortalUserController extends BaseController {
 
     @Operation(summary = "获取用户列表", description = "根据条件分页查询用户列表")
     @GetMapping("/list")
-    public TableDataInfo list(PortalUser portalUser) {
-        startPage();
-        List<PortalUser> list = portalUserService.selectPortalUserList(portalUser);
-        return getDataTable(list);
+    public AjaxResult list(UserQuery query) {
+        Page<PortalUser> page = PageUtils.buildPage(query);
+        Page<PortalUser> resultPage = portalUserService.selectPortalUserPage(page, query);
+        return success(resultPage);
     }
 
     @Operation(summary = "导出用户", description = "导出用户数据到Excel文件")
     @Log(title = "门户用户", businessType = BusinessType.EXPORT)
     @PostMapping("/export")
-    public void export(HttpServletResponse response, PortalUser portalUser) {
-        List<PortalUser> list = portalUserService.selectPortalUserList(portalUser);
+    public void export(HttpServletResponse response, UserQuery query) {
+        List<PortalUser> list = portalUserService.selectPortalUserList(query);
         ExcelUtil<PortalUser> util = new ExcelUtil<PortalUser>(PortalUser.class);
         util.exportExcel(response, list, "门户用户数据");
     }
@@ -80,5 +82,14 @@ public class PortalUserController extends BaseController {
     @DeleteMapping("/{ids}")
     public AjaxResult remove(@Parameter(description = "用户ID数组") @PathVariable Long[] ids) {
         return toAjax(portalUserService.deletePortalUserByIds(ids));
+    }
+
+    @Operation(summary = "获取名家列表", description = "获取首页展示的名家列表")
+    @GetMapping("/authors")
+    public AjaxResult getAuthors(@Parameter(description = "每页数量") @RequestParam(defaultValue = "10") Integer limit) {
+        UserQuery query = new UserQuery();
+        query.setStatus("0");
+        List<PortalUser> list = portalUserService.selectPortalUserList(query);
+        return success(list.stream().limit(limit).toList());
     }
 }

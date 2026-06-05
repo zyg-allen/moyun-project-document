@@ -1,8 +1,11 @@
 package com.moyun.portal.mapper;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.moyun.portal.domain.entity.PortalVipPackage;
+import com.moyun.portal.domain.query.VipPackageQuery;
 import org.apache.ibatis.annotations.Mapper;
+import org.apache.ibatis.annotations.Param;
 
 import java.util.List;
 
@@ -17,10 +20,19 @@ public interface PortalVipPackageMapper extends BaseMapper<PortalVipPackage> {
     /**
      * 根据条件分页查询VIP套餐列表
      *
-     * @param portalVipPackage VIP套餐信息
+     * @param page 分页参数
+     * @param query 查询条件
      * @return VIP套餐信息集合信息
      */
-    public List<PortalVipPackage> selectPortalVipPackageList(PortalVipPackage portalVipPackage);
+    Page<PortalVipPackage> selectPortalVipPackagePage(Page<PortalVipPackage> page, @Param("params") VipPackageQuery query);
+
+    /**
+     * 根据条件查询VIP套餐列表（不分页，用于导出等场景）
+     *
+     * @param query 查询条件
+     * @return VIP套餐信息集合信息
+     */
+    List<PortalVipPackage> selectPortalVipPackageList(@Param("params") VipPackageQuery query);
 
     /**
      * 通过VIP套餐ID查询VIP套餐

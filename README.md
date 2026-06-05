@@ -1,21 +1,25 @@
 # 墨韵·智库 - 文学+技术社区平台
 
 **项目名称**: 墨韵·智库 (Moyun Wisdom)  
-**文档版本**: v3.0  
-**更新时间**: 2026-05-26  
+**文档版本**: v3.1  
+**更新时间**: 2026-06-04  
 **项目类型**: 前后端分离的社区平台  
-**项目状态**: ✅ 第一阶段完成 | 🚧 第二阶段开发中
+**项目状态**: ✅ 第一阶段完成 | ✅ 第二阶段完成 | ⏳ 第三阶段规划中
 
 ---
 
 ## 📊 项目阶段进度
 
-| 阶段 | 状态 | 说明 |
-|------|------|------|
-| **第一阶段** | ✅ 已完成 | 前台基础功能（用户认证、文章浏览、互动等） |
-| **第二阶段** | 🚧 进行中 | 后台管理系统开发 |
-| **第三阶段** | ⏳ 规划中 | 第三方登录集成（微信、支付宝） |
-| **第四阶段** | ⏳ 规划中 | 高级功能（推荐算法、用户成长体系等） |
+| 阶段 | 名称 | 状态 | 完成时间 | 说明 |
+|------|------|------|----------|------|
+| **第一阶段** | 前台基础功能 | ✅ 已完成 | 2026-05-24 | 用户认证、文章浏览、互动等 |
+| **第二阶段** | 后台管理系统 | ✅ 已完成 | 2026-05-27 | CMS内容管理、用户管理、审核等 |
+| **第三阶段** | 性能与SEO优化 | ⏳ 规划中 | 待定 | 系统配置、数据统计、SEO优化 |
+| **第四阶段** | Nuxt 3 SSR | ⏳ 规划中 | 待定 | 服务端渲染、SEO效果最大化 |
+| **第五阶段** | 第三方集成 | ⏳ 规划中 | 待定 | 微信登录、支付宝登录 |
+| **第六阶段** | 高级功能 | ⏳ 规划中 | 待定 | 推荐算法、用户成长、钱包打赏 |
+
+**[查看完整项目规划](./PROJECT_PLAN.md)**
 
 ---
 
@@ -27,7 +31,7 @@
 
 - **用户前台**: 清新美观的社区门户，支持文章发布、阅读、评论、互动
 - **独立认证体系**: 前后台用户完全独立，双 SecurityFilterChain 配置
-- **后台管理**: 功能强大的管理系统，支持内容审核、用户管理、系统监控（第二阶段开发中）
+- **后台管理**: 功能强大的管理系统，支持内容审核、用户管理、系统监控
 - **工作流引擎**: Flowable 集成，支持复杂的业务审批流程
 - **多主题支持**: 日间、夜间、护眼三种主题自由切换
 - **响应式设计**: 完美适配各种屏幕尺寸
@@ -46,42 +50,27 @@
 | **持久层** | MyBatis-Plus 3.5.7 | ORM 框架 |
 | **数据库** | MySQL 8.0+ | 关系型数据库 |
 | **缓存** | Redis | 缓存中间件 |
-| **NoSQL** | MongoDB | 非关系型数据库 |
 | **工作流** | Flowable 7.1.0 | 工作流引擎 |
 | **安全** | Spring Security 6.3.1 | 安全框架 |
-| **文档** | Knife4j 4.4.0 | API 文档 |
-| **连接池** | Druid 1.2.23 | 数据库连接池 |
-| **工具库** | Hutool 5.8.44 | 工具类库 |
 
-### 用户前台 (moyun-portal)
+### 前台门户 (moyun-portal)
 
 | 技术 | 版本 | 说明 |
 |------|------|------|
 | **框架** | Vue 3.4.15 | 前端框架 |
-| **构建工具** | Vite 5.0.12 | 构建工具 |
-| **路由** | Vue Router 4.2.5 | 路由管理 |
-| **状态管理** | Pinia 3.0.4 | 状态管理 |
+| **构建** | Vite 5.0.12 | 构建工具 |
+| **状态** | Pinia 3.0.4 | 状态管理 |
 | **样式** | Tailwind CSS 3.4.1 | CSS 框架 |
 | **语言** | TypeScript 5.3.3 | 编程语言 |
-| **富文本** | Vue Quill 1.2.0 | 编辑器 |
-| **图标** | Lucide Vue Next 0.511.0 | 图标库 |
-| **工具库** | Dayjs 1.11.10 | 日期处理 |
-| **Markdown** | Marked 12.0.0 | Markdown 解析 |
 
 ### 后台管理 (moyun-admin-vue)
 
 | 技术 | 版本 | 说明 |
 |------|------|------|
-| **框架** | Vue 3.4.0 | 前端框架 |
-| **构建工具** | Vite 5.0.4 | 构建工具 |
-| **UI 组件** | Element Plus 2.4.3 | UI 组件库 |
-| **状态管理** | Pinia 2.1.7 | 状态管理 |
-| **工作流** | bpmn-js 11.1.0 | BPMN 设计器 |
-| **图表** | ECharts 5.4.3 | 数据可视化 |
-| **表单设计** | vform3-builds 3.0.10 | 表单设计器 |
-| **富文本** | Vue Quill 1.2.0 | 编辑器 |
-| **路由** | Vue Router 4.2.5 | 路由管理 |
-| **HTTP 客户端** | Axios 0.27.2 | HTTP 请求 |
+| **框架** | Vue 3.4.15 | 前端框架 |
+| **UI** | Element Plus 2.5.0 | UI 组件库 |
+| **构建** | Vite 5.0.12 | 构建工具 |
+| **状态** | Pinia 3.0.4 | 状态管理 |
 
 ---
 
@@ -89,56 +78,58 @@
 
 ```
 moyun-project-document/
-├── docs/                      # 项目文档
-│   ├── 开发记录.md           # 开发历程、技术决策、问题解决
-│   ├── 需求记录.md           # 功能需求、待开发功能清单
-│   └── 部署与验证指南.md     # 环境搭建、功能验证、问题排查
+├── README.md                    # 项目说明文档
+├── PROJECT_PLAN.md              # 项目整体规划
+├── CHANGELOG.md                 # 更新日志
+├── CODE_WIKI.md                # 代码规范
 │
-├── moyun-server/              # 后端服务
+├── docs/                        # 公共文档目录
+│   ├── 开发记录.md              # 开发历程记录
+│   ├── 功能测试验证清单.md      # 测试用例清单
+│   ├── 部署与验证指南.md       # 部署说明文档
+│   └── 问题修复清单.md          # 问题追踪记录
+│
+├── moyun-server/               # 后端服务
 │   ├── src/main/java/com/moyun/
-│   │   ├── common/            # 通用基础模块
-│   │   ├── core/              # 核心框架模块
-│   │   ├── util/              # 工具模块
-│   │   ├── modules/           # 业务模块
-│   │   │   ├── system/        # 系统管理模块
-│   │   │   └── portal/        # 门户系统模块
-│   │   └── ext/               # 扩展模块
-│   ├── src/main/resources/sql/
-│   │   ├── 01_moyun_init.sql  # 系统管理基础表
-│   │   ├── 02_workflow_init.sql # 工作流与定时任务表
-│   │   ├── 03_portal_init.sql # 门户系统表
-│   │   └── README.md
+│   │   ├── common/             # 通用基础模块
+│   │   ├── core/               # 核心框架模块
+│   │   ├── util/               # 工具模块
+│   │   ├── modules/            # 业务模块
+│   │   │   └── portal/         # 门户系统模块
+│   │   └── ext/                # 扩展模块
+│   │       └── cms/             # CMS 内容管理
+│   ├── src/main/resources/
+│   │   ├── mapper/             # MyBatis XML
+│   │   └── sql/                # 数据库脚本
+│   ├── ARCHITECTURE.md         # 后端架构文档
 │   └── pom.xml
 │
-├── moyun-portal/              # 用户前台
+├── moyun-portal/               # 用户前台
 │   ├── src/
-│   │   ├── api/               # API 接口（统一 /portal/ 前缀）
-│   │   ├── components/        # 组件
-│   │   ├── pages/             # 页面
-│   │   ├── router/            # 路由
-│   │   ├── stores/            # 状态管理
-│   │   └── types/             # 类型定义
-│   ├── API文档.md
-│   └── package.json
+│   │   ├── api/                # API 接口定义
+│   │   ├── components/         # Vue 组件
+│   │   ├── pages/              # 页面组件
+│   │   ├── stores/             # Pinia 状态
+│   │   └── utils/              # 工具函数
+│   ├── .trae/documents/        # 模块文档
+│   │   ├── prd.md              # 产品需求文档
+│   │   └── arch.md             # 架构设计文档
+│   ├── API文档.md              # API 接口文档
+│   └── README.md               # 模块说明
 │
-├── moyun-admin-vue/           # 后台管理（待开发）
-│   ├── src/
-│   │   ├── api/               # API 接口
-│   │   ├── views/             # 页面视图
-│   │   ├── components/        # 公共组件
-│   │   ├── store/             # 状态管理
-│   │   └── router/            # 路由
-│   └── package.json
-│
-└── .trae/rules/               # 项目规则
-    └── git-commit-message.md  # Git 提交规范
+└── moyun-admin-vue/            # 后台管理
+    ├── src/
+    │   ├── api/                # API 接口定义
+    │   ├── views/              # 页面组件
+    │   ├── components/         # Vue 组件
+    │   └── utils/              # 工具函数
+    ├── doc/                    # 模块文档
+    └── README.md               # 模块说明
 ```
 
 ---
 
 ## 🚀 快速开始
-
-详细的部署步骤和功能验证请参考 [部署与验证指南.md](./docs/部署与验证指南.md)
 
 ### 环境要求
 
@@ -146,222 +137,132 @@ moyun-project-document/
 - **Node.js**: 18+
 - **MySQL**: 8.0+
 - **Redis**: 6.0+
-- **Maven**: 3.8+
 
-### 数据库初始化
-
-按顺序执行以下 SQL 脚本：
-
-```bash
-# 1. 系统管理基础表
-mysql -u root -p moyun < moyun-server/src/main/resources/sql/01_moyun_init.sql
-
-# 2. 工作流与定时任务表
-mysql -u root -p moyun < moyun-server/src/main/resources/sql/02_workflow_init.sql
-
-# 3. 门户系统表
-mysql -u root -p moyun < moyun-server/src/main/resources/sql/03_portal_init.sql
-```
-
-### 后端服务启动
+### 后端启动
 
 ```bash
 cd moyun-server
-# 修改 application.yaml 中的数据库和 Redis 配置
+
+# 1. 导入数据库脚本
+mysql -u root -p < src/main/resources/sql/01_moyun_init.sql
+mysql -u root -p < src/main/resources/sql/02_workflow_init.sql
+mysql -u root -p < src/main/resources/sql/03_portal_init.sql
+
+# 2. 修改配置
+vim src/main/resources/application-druid.yml
+# 修改数据库连接信息
+
+# 3. 启动服务
 mvn spring-boot:run
 ```
 
-后端服务将在 `http://localhost:8080` 启动  
-Swagger 文档: `http://localhost:8080/doc.html`  
-默认后台账号: `admin` / `admin123`
-
-### 用户前台启动
+### 前台启动
 
 ```bash
 cd moyun-portal
+
+# 安装依赖
 npm install
+
+# 开发模式
 npm run dev
-```
 
-前台将在 `http://localhost:5173` 启动
-
-### 后台管理启动
-
-（第二阶段开发中）
-
----
-
-## ✅ 第一阶段已完成功能
-
-### 用户前台 (moyun-portal)
-
-| 模块 | 功能描述 | 状态 |
-|------|----------|------|
-| **用户认证** | 用户注册、登录、登出、Token认证 | ✅ |
-| **文章浏览** | 文章列表、文章详情、分类筛选、搜索 | ✅ |
-| **文章互动** | 点赞、收藏、关注作者 | ✅ |
-| **评论系统** | 查看评论、发表评论 | ✅ |
-| **分类标签** | 分类列表、标签列表 | ✅ |
-
-### 技术架构改进
-
-- 前后台独立认证体系（双 SecurityFilterChain）
-- 独立用户表（sys_user 和 portal_user）
-- 统一前台 API 路径前缀 /portal/
-- 包结构优化（common/core/util/modules/ext）
-- 移除前台模拟数据，使用真实 API
-
----
-
-## 🚧 第二阶段待开发功能（后台管理）
-
-| 模块 | 功能描述 | 优先级 |
-|------|----------|--------|
-| **门户用户管理** | 用户列表、详情、状态管理 | 🔴 高 |
-| **文章管理** | 文章列表、审核、上下架、推荐 | 🔴 高 |
-| **分类管理** | 分类增删改查、排序 | 🔴 高 |
-| **标签管理** | 标签增删改查 | 🔴 高 |
-| **评论管理** | 评论审核、删除 | 🔴 高 |
-| **数据统计** | 仪表盘、用户/文章数据统计 | 🟡 中 |
-
-详细需求请参考 [需求记录.md](./docs/需求记录.md)
-
----
-
-## 📝 开发规范
-
-### Git 提交规范
-
-格式: `type(scope): subject`
-
-**Type 类型**:
-- `feat`: 新功能
-- `fix`: 修复 bug
-- `docs`: 文档更新
-- `style`: 代码格式
-- `refactor`: 重构
-- `perf`: 性能优化
-- `test`: 测试相关
-- `chore`: 构建/工具变更
-
-**示例**:
-```bash
-git commit -m "feat(article): 添加文章点赞功能"
-git commit -m "fix(user): 修复登录验证问题"
-```
-
-### 代码规范
-
-- **前端**: 遵循 Vue 3 最佳实践，使用 TypeScript
-- **后端**: 遵循 Java 开发规范，接口统一返回 Result 格式
-- **命名**: 文件夹使用 kebab-case，组件使用 PascalCase，变量使用 camelCase
-
----
-
-## 🔧 部署指南
-
-### 后端部署
-
-```bash
-# 打包
-mvn clean package -DskipTests
-
-# 运行
-java -jar target/moyun-server-1.0.0.jar
-```
-
-### 前端部署
-
-```bash
-# 用户前台
-cd moyun-portal
+# 生产构建
 npm run build
-# 将 dist 目录部署到 Nginx 或其他 Web 服务器
+```
 
-# 后台管理
+### 后台启动
+
+```bash
 cd moyun-admin-vue
-npm run build:prod
-# 将 dist 目录部署到 Nginx 或其他 Web 服务器
+
+# 安装依赖
+npm install
+
+# 开发模式
+npm run dev
+
+# 生产构建
+npm run build
 ```
 
 ---
 
-## 📊 项目统计
+## 📖 文档导航
 
-| 类别 | 数量 | 说明 |
+### 🚶 快速定位
+
+| 文档类型 | 适用场景 | 文档位置 |
+|---------|---------|---------|
+| **项目概览** | 了解项目整体情况 | [README.md](./README.md) |
+| **项目规划** | 查看开发计划和路线图 | [PROJECT_PLAN.md](./PROJECT_PLAN.md) |
+| **更新日志** | 查看版本更新历史 | [CHANGELOG.md](./CHANGELOG.md) |
+| **代码规范** | 了解代码编写规范 | [CODE_WIKI.md](./CODE_WIKI.md) |
+
+### 📚 开发文档
+
+| 文档 | 说明 | 适用人员 |
+|------|------|---------|
+| [开发记录.md](./docs/开发记录.md) | 详细的开发历程记录 | 所有开发者 |
+| [功能测试验证清单.md](./docs/功能测试验证清单.md) | 功能测试用例清单 | 测试人员、开发者 |
+| [部署与验证指南.md](./docs/部署与验证指南.md) | 环境部署和验证指南 | 运维人员、开发者 |
+| [问题修复清单.md](./docs/问题修复清单.md) | 已解决问题记录 | 开发者 |
+
+### 🎨 模块文档
+
+| 模块 | 文档 | 说明 |
 |------|------|------|
-| **后端模块** | 4+ | common、framework、system、community |
-| **前台页面** | 15+ | 首页、详情、搜索、用户中心等 |
-| **后台模块** | 6+ | 26个子模块，120+功能点 |
-| **前端组件** | 50+ | 前台 + 后台公共组件 |
-| **API 接口** | 80+ | 前后端 API 接口 |
+| **前台门户** | [moyun-portal/README.md](./moyun-portal/README.md) | 前台模块说明 |
+| **前台门户** | [moyun-portal/API文档.md](./moyun-portal/API文档.md) | 前台 API 文档 |
+| **前台门户** | [moyun-portal/.trae/documents/prd.md](./moyun-portal/.trae/documents/prd.md) | 产品需求文档 |
+| **后台管理** | [moyun-admin-vue/README.md](./moyun-admin-vue/README.md) | 后台模块说明 |
+| **后端服务** | [moyun-server/ARCHITECTURE.md](./moyun-server/ARCHITECTURE.md) | 后端架构文档 |
 
 ---
 
-## 📚 相关文档
+## 🔗 相关链接
 
-| 文档 | 说明 |
-|------|------|
-| [开发记录.md](./docs/开发记录.md) | 开发历程、技术决策、问题解决方案 |
-| [需求记录.md](./docs/需求记录.md) | 功能需求清单、待开发功能规划 |
-| [部署与验证指南.md](./docs/部署与验证指南.md) | 环境搭建、功能验证、常见问题排查 |
-| [前台API文档.md](./moyun-portal/API文档.md) | 前台接口文档 |
-| [数据库脚本说明](./moyun-server/src/main/resources/sql/README.md) | SQL脚本说明 |
-| [Git 提交规范](./.trae/rules/git-commit-message.md) | Git 提交信息格式规范 |
+- **项目仓库**: https://github.com/zyg-allen/moyun-project-document
+- **技术文档**: 参见各模块 README.md
+- **问题反馈**: 通过 GitHub Issues
+
+---
+
+## 📝 更新日志
+
+详细更新记录请查看 [CHANGELOG.md](./CHANGELOG.md)
+
+### 最新版本 (v3.1 - 2026-06-04)
+
+**重大更新**:
+- ✅ 完成 Portal 模块标准分页改造
+- ✅ 完成 CMS 模块标准分页改造
+- ✅ 前端分页兼容处理
+- ✅ 全链路检查通过
+- ✅ 详情页收藏点赞区域优化
+- ✅ 文档体系重新整理
+
+**详细记录**: [开发记录.md](./docs/开发记录.md)
 
 ---
 
 ## 🤝 贡献指南
 
-欢迎贡献代码、提交 Issue 或提出改进建议！
+欢迎提交 Issue 和 Pull Request！
 
 1. Fork 本仓库
 2. 创建特性分支 (`git checkout -b feature/AmazingFeature`)
-3. 提交更改 (`git commit -m 'feat: Add some AmazingFeature'`)
+3. 提交更改 (`git commit -m 'Add some AmazingFeature'`)
 4. 推送到分支 (`git push origin feature/AmazingFeature`)
-5. 提交 Pull Request
+5. 创建 Pull Request
 
 ---
 
 ## 📄 许可证
 
-本项目采用 MIT 许可证 - 查看 LICENSE 文件了解详情
+本项目基于 MIT 许可证 - 参见 [LICENSE](./LICENSE) 文件
 
 ---
 
-## 🎯 项目路线图
-
-| 阶段 | 状态 | 时间 | 说明 |
-|------|------|------|------|
-| **第一阶段** | ✅ 已完成 | 2026-05 | 前台基础功能 |
-| **第二阶段** | 🚧 进行中 | - | 后台管理系统 |
-| **第三阶段** | ⏳ 规划中 | - | 第三方登录集成 |
-| **第四阶段** | ⏳ 规划中 | - | 高级功能完善 |
-
-### 第二阶段具体任务
-
-- [ ] 门户用户管理模块
-- [ ] 文章管理模块（审核、上下架、推荐）
-- [ ] 分类管理模块
-- [ ] 标签管理模块
-- [ ] 评论管理模块
-- [ ] 数据统计模块
-
----
-
-## 📞 技术支持
-
-如有问题，请先查阅相关文档，特别是 [部署与验证指南.md](./docs/部署与验证指南.md) 中的常见问题排查部分。
-
-**相关资源**:
-- [Vue 3 官方文档](https://cn.vuejs.org/)
-- [Spring Boot 官方文档](https://spring.io/projects/spring-boot)
-- [Element Plus 官方文档](https://element-plus.org/)
-- [MyBatis-Plus 官方文档](https://baomidou.com/)
-- [Flowable 官方文档](https://www.flowable.com/open-source/docs)
-
----
-
-**维护人员**: 项目团队  
-**最后更新**: 2026-05-26  
-**文档版本**: v3.0
+**项目维护者**: 墨韵·智库开发团队  
+**最后更新**: 2026-06-04

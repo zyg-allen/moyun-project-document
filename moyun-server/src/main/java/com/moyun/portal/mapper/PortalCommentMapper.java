@@ -1,8 +1,11 @@
 package com.moyun.portal.mapper;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.moyun.portal.domain.entity.PortalComment;
+import com.moyun.portal.domain.query.CommentQuery;
 import org.apache.ibatis.annotations.Mapper;
+import org.apache.ibatis.annotations.Param;
 
 import java.util.List;
 
@@ -17,10 +20,19 @@ public interface PortalCommentMapper extends BaseMapper<PortalComment> {
     /**
      * 根据条件分页查询评论列表
      *
-     * @param portalComment 评论信息
+     * @param page 分页参数
+     * @param query 查询条件
      * @return 评论信息集合信息
      */
-    public List<PortalComment> selectPortalCommentList(PortalComment portalComment);
+    Page<PortalComment> selectPortalCommentPage(Page<PortalComment> page, @Param("params") CommentQuery query);
+
+    /**
+     * 根据条件查询评论列表（不分页，用于导出等场景）
+     *
+     * @param query 查询条件
+     * @return 评论信息集合信息
+     */
+    List<PortalComment> selectPortalCommentList(@Param("params") CommentQuery query);
 
     /**
      * 通过评论ID查询评论

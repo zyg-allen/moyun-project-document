@@ -5,11 +5,11 @@ import com.moyun.common.annotation.Log;
 import com.moyun.common.enums.BusinessType;
 import com.moyun.core.base.AjaxResult;
 import com.moyun.core.base.BaseController;
-import com.moyun.core.base.TableDataInfo;
 import com.moyun.ext.cms.domain.query.CmsNotificationQuery;
 import com.moyun.ext.cms.domain.vo.CmsNotificationVO;
 import com.moyun.ext.cms.service.ICmsNotificationService;
 import com.moyun.portal.domain.entity.PortalNotification;
+import com.moyun.util.bean.PageUtils;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -36,10 +36,10 @@ public class CmsNotificationController extends BaseController {
     @Operation(summary = "获取通知列表", description = "根据条件分页查询通知列表")
     @PreAuthorize("@ss.hasPermi('cms:notification:list')")
     @GetMapping("/list")
-    public TableDataInfo list(CmsNotificationQuery query) {
-        startPage();
-        Page<CmsNotificationVO> page = cmsNotificationService.selectNotificationPage(query);
-        return getDataTable(page.getRecords(), page.getTotal());
+    public AjaxResult list(CmsNotificationQuery query) {
+        Page<CmsNotificationVO> page = PageUtils.buildPage(query);
+        page = cmsNotificationService.selectNotificationPage(page, query);
+        return success(page);
     }
 
     /**

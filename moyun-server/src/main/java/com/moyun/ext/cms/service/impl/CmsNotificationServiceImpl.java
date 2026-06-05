@@ -34,13 +34,13 @@ public class CmsNotificationServiceImpl implements ICmsNotificationService
     private PortalUserMapper portalUserMapper;
 
     @Override
-    public Page<CmsNotificationVO> selectNotificationPage(CmsNotificationQuery query)
+    public Page<CmsNotificationVO> selectNotificationPage(Page<CmsNotificationVO> page, CmsNotificationQuery query)
     {
-        Page<PortalNotification> page = new Page<>(query.getPageNum(), query.getPageSize());
-        page = portalNotificationMapper.selectPage(page, buildQueryWrapper(query));
+        Page<PortalNotification> entityPage = new Page<>(page.getCurrent(), page.getSize());
+        entityPage = portalNotificationMapper.selectPage(entityPage, buildQueryWrapper(query));
         
-        Page<CmsNotificationVO> voPage = new Page<>(page.getCurrent(), page.getSize(), page.getTotal());
-        List<CmsNotificationVO> voList = BeanUtil.copyToList(page.getRecords(), CmsNotificationVO.class);
+        Page<CmsNotificationVO> voPage = new Page<>(entityPage.getCurrent(), entityPage.getSize(), entityPage.getTotal());
+        List<CmsNotificationVO> voList = BeanUtil.copyToList(entityPage.getRecords(), CmsNotificationVO.class);
         
         // 批量查询用户信息，避免N+1查询问题
         if (CollUtil.isNotEmpty(voList))

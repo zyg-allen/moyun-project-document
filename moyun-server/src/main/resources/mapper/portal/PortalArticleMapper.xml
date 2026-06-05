@@ -1,0 +1,215 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.moyun.portal.mapper.PortalArticleMapper">
+
+    <resultMap type="com.moyun.portal.domain.entity.PortalArticle" id="PortalArticleResult">
+        <id property="id" column="id"/>
+        <result property="title" column="title"/>
+        <result property="content" column="content"/>
+        <result property="excerpt" column="excerpt"/>
+        <result property="cover" column="cover"/>
+        <result property="authorId" column="author_id"/>
+        <result property="categoryId" column="category_id"/>
+        <result property="status" column="status"/>
+        <result property="isFeatured" column="is_featured"/>
+        <result property="isTop" column="is_top"/>
+        <result property="isCarousel" column="is_carousel"/>
+        <result property="views" column="views"/>
+        <result property="likes" column="likes"/>
+        <result property="comments" column="comments"/>
+        <result property="shareCount" column="share_count"/>
+        <result property="bookmarkCount" column="bookmark_count"/>
+        <result property="publishedAt" column="published_at"/>
+        <result property="link" column="link"/>
+        <result property="editorMode" column="editor_mode"/>
+        <result property="contentMarkdown" column="content_markdown"/>
+        <result property="createBy" column="create_by"/>
+        <result property="createTime" column="create_time"/>
+        <result property="updateBy" column="update_by"/>
+        <result property="updateTime" column="update_time"/>
+        <result property="remark" column="remark"/>
+    </resultMap>
+
+    <sql id="selectPortalArticleVo">
+        select id, title, content, excerpt, cover, author_id, category_id, status,
+               is_featured, is_top, is_carousel, views, likes, comments, share_count,
+               bookmark_count, published_at, link, editor_mode, content_markdown,
+               create_by, create_time, update_by, update_time, remark
+        from portal_article
+    </sql>
+
+    <!-- 通用查询条件片段 -->
+    <sql id="queryWhere">
+        <where>
+            status = 'published'
+            <if test="params.title != null and params.title != ''">
+                AND title like concat('%', #{params.title}, '%')
+            </if>
+            <if test="params.authorId != null">
+                AND author_id = #{params.authorId}
+            </if>
+            <if test="params.categoryId != null">
+                AND category_id = #{params.categoryId}
+            </if>
+            <if test="params.categoryName != null and params.categoryName != ''">
+                AND title like concat('%', #{params.categoryName}, '%')
+            </if>
+            <if test="params.status != null and params.status != ''">
+                AND status = #{params.status}
+            </if>
+            <if test="params.isTop != null">
+                AND is_top = #{params.isTop}
+            </if>
+            <if test="params.isFeatured != null">
+                AND is_featured = #{params.isFeatured}
+            </if>
+            <if test="params.isCarousel != null">
+                AND is_carousel = #{params.isCarousel}
+            </if>
+        </where>
+    </sql>
+
+    <!-- 通用排序片段（默认排序） -->
+    <sql id="defaultOrderBy">
+        order by is_top desc, published_at desc, create_time desc
+    </sql>
+
+    <!-- 动态排序片段 -->
+    <sql id="dynamicOrderBy">
+        <if test="params.orderByColumn != null and params.orderByColumn != ''">
+            order by ${params.orderByColumn}
+            <if test="params.isAsc != null and params.isAsc != ''">
+                ${params.isAsc}
+            </if>
+        </if>
+        <if test="params.orderByColumn == null or params.orderByColumn == ''">
+            <include refid="defaultOrderBy"/>
+        </if>
+    </sql>
+
+    <!-- 分页查询 -->
+    <select id="selectPortalArticlePage" resultMap="PortalArticleResult">
+        <include refid="selectPortalArticleVo"/>
+        <include refid="queryWhere"/>
+        <include refid="dynamicOrderBy"/>
+    </select>
+
+    <!-- 不分页查询（用于导出等场景） -->
+    <select id="selectPortalArticleList" resultMap="PortalArticleResult">
+        <include refid="selectPortalArticleVo"/>
+        <include refid="queryWhere"/>
+        <include refid="defaultOrderBy"/>
+    </select>
+
+    <!-- 查询热门文章（按浏览量排序） -->
+    <select id="selectHotArticles" resultMap="PortalArticleResult">
+        <include refid="selectPortalArticleVo"/>
+        <where>
+            status = 'published'
+        </where>
+        order by views desc, create_time desc
+    </select>
+
+    <!-- 查询精选文章 -->
+    <select id="selectFeaturedArticles" resultMap="PortalArticleResult">
+        <include refid="selectPortalArticleVo"/>
+        <where>
+            status = 'published'
+            AND is_featured = true
+        </where>
+        order by is_top desc, published_at desc, create_time desc
+    </select>
+
+    <!-- 查询轮播文章 -->
+    <select id="selectCarouselArticles" resultMap="PortalArticleResult">
+        <include refid="selectPortalArticleVo"/>
+        <where>
+            status = 'published'
+            AND is_carousel = true
+        </where>
+        order by create_time desc
+    </select>
+
+    <!-- 查询相关文章 -->
+    <select id="selectRelatedArticles" resultMap="PortalArticleResult">
+        <include refid="selectPortalArticleVo"/>
+        <where>
+            status = 'published'
+            AND id != #{currentId}
+        </where>
+        order by create_time desc
+    </select>
+
+    <!-- 查询最新文章 -->
+    <select id="selectLatestArticles" resultMap="PortalArticleResult">
+        <include refid="selectPortalArticleVo"/>
+        <where>
+            status = 'published'
+        </where>
+        order by create_time desc
+    </select>
+
+    <!-- 根据ID查询 -->
+    <select id="selectPortalArticleById" parameterType="Long" resultMap="PortalArticleResult">
+        <include refid="selectPortalArticleVo"/>
+        where id = #{id}
+    </select>
+
+    <!-- 新增文章 -->
+    <insert id="insertPortalArticle" parameterType="com.moyun.portal.domain.entity.PortalArticle">
+        insert into portal_article(title, content, excerpt, cover, author_id, category_id, status,
+                                   is_featured, is_top, is_carousel, views, likes, comments,
+                                   share_count, bookmark_count, published_at, link, editor_mode,
+                                   content_markdown, create_by, create_time, update_by, update_time, remark)
+        values(#{title}, #{content}, #{excerpt}, #{cover}, #{authorId}, #{categoryId}, #{status},
+               #{isFeatured}, #{isTop}, #{isCarousel}, #{views}, #{likes}, #{comments},
+               #{shareCount}, #{bookmarkCount}, #{publishedAt}, #{link}, #{editorMode},
+               #{contentMarkdown}, #{createBy}, #{createTime}, #{updateBy}, #{updateTime}, #{remark})
+    </insert>
+
+    <!-- 修改文章 -->
+    <update id="updatePortalArticle" parameterType="com.moyun.portal.domain.entity.PortalArticle">
+        update portal_article
+        <set>
+            <if test="title != null and title != ''">title = #{title},</if>
+            <if test="content != null">content = #{content},</if>
+            <if test="excerpt != null">excerpt = #{excerpt},</if>
+            <if test="cover != null">cover = #{cover},</if>
+            <if test="authorId != null">author_id = #{authorId},</if>
+            <if test="categoryId != null">category_id = #{categoryId},</if>
+            <if test="status != null">status = #{status},</if>
+            <if test="isFeatured != null">is_featured = #{isFeatured},</if>
+            <if test="isTop != null">is_top = #{isTop},</if>
+            <if test="isCarousel != null">is_carousel = #{isCarousel},</if>
+            <if test="views != null">views = #{views},</if>
+            <if test="likes != null">likes = #{likes},</if>
+            <if test="comments != null">comments = #{comments},</if>
+            <if test="shareCount != null">share_count = #{shareCount},</if>
+            <if test="bookmarkCount != null">bookmark_count = #{bookmarkCount},</if>
+            <if test="publishedAt != null">published_at = #{publishedAt},</if>
+            <if test="link != null">link = #{link},</if>
+            <if test="editorMode != null">editor_mode = #{editorMode},</if>
+            <if test="contentMarkdown != null">content_markdown = #{contentMarkdown},</if>
+            <if test="updateBy != null">update_by = #{updateBy},</if>
+            <if test="updateTime != null">update_time = #{updateTime},</if>
+            <if test="remark != null">remark = #{remark},</if>
+        </set>
+        where id = #{id}
+    </update>
+
+    <!-- 删除文章 -->
+    <delete id="deletePortalArticleById" parameterType="Long">
+        delete from portal_article where id = #{id}
+    </delete>
+
+    <!-- 批量删除文章 -->
+    <delete id="deletePortalArticleByIds" parameterType="Long">
+        delete from portal_article where id in
+        <foreach item="item" collection="array" open="(" separator="," close=")">
+            #{item}
+        </foreach>
+    </delete>
+
+</mapper>

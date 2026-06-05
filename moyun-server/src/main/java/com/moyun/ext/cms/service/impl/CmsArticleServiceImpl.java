@@ -27,13 +27,13 @@ public class CmsArticleServiceImpl implements ICmsArticleService
     private PortalArticleMapper portalArticleMapper;
 
     @Override
-    public Page<CmsArticleVO> selectArticlePage(CmsArticleQuery query)
+    public Page<CmsArticleVO> selectArticlePage(Page<CmsArticleVO> page, CmsArticleQuery query)
     {
-        Page<PortalArticle> page = new Page<>(query.getPageNum(), query.getPageSize());
-        page = portalArticleMapper.selectPage(page, buildQueryWrapper(query));
+        Page<PortalArticle> entityPage = new Page<>(page.getCurrent(), page.getSize());
+        entityPage = portalArticleMapper.selectPage(entityPage, buildQueryWrapper(query));
         
-        Page<CmsArticleVO> voPage = new Page<>(page.getCurrent(), page.getSize(), page.getTotal());
-        List<CmsArticleVO> voList = BeanUtil.copyToList(page.getRecords(), CmsArticleVO.class);
+        Page<CmsArticleVO> voPage = new Page<>(entityPage.getCurrent(), entityPage.getSize(), entityPage.getTotal());
+        List<CmsArticleVO> voList = BeanUtil.copyToList(entityPage.getRecords(), CmsArticleVO.class);
         voPage.setRecords(voList);
         return voPage;
     }

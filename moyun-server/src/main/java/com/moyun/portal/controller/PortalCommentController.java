@@ -1,12 +1,14 @@
 package com.moyun.portal.controller;
 
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.moyun.common.annotation.Log;
 import com.moyun.core.base.BaseController;
 import com.moyun.core.base.AjaxResult;
-import com.moyun.core.base.TableDataInfo;
 import com.moyun.common.enums.BusinessType;
+import com.moyun.util.bean.PageUtils;
 import com.moyun.util.file.ExcelUtil;
 import com.moyun.portal.domain.entity.PortalComment;
+import com.moyun.portal.domain.query.CommentQuery;
 import com.moyun.portal.service.IPortalCommentService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -28,17 +30,17 @@ public class PortalCommentController extends BaseController {
 
     @Operation(summary = "获取评论列表", description = "根据条件分页查询评论列表")
     @GetMapping("/list")
-    public TableDataInfo list(PortalComment portalComment) {
-        startPage();
-        List<PortalComment> list = portalCommentService.selectPortalCommentList(portalComment);
-        return getDataTable(list);
+    public AjaxResult list(CommentQuery query) {
+        Page<PortalComment> page = PageUtils.buildPage(query);
+        Page<PortalComment> resultPage = portalCommentService.selectPortalCommentPage(page, query);
+        return success(resultPage);
     }
 
     @Operation(summary = "导出评论", description = "导出评论数据到Excel文件")
     @Log(title = "门户评论", businessType = BusinessType.EXPORT)
     @PostMapping("/export")
-    public void export(HttpServletResponse response, PortalComment portalComment) {
-        List<PortalComment> list = portalCommentService.selectPortalCommentList(portalComment);
+    public void export(HttpServletResponse response, CommentQuery query) {
+        List<PortalComment> list = portalCommentService.selectPortalCommentList(query);
         ExcelUtil<PortalComment> util = new ExcelUtil<PortalComment>(PortalComment.class);
         util.exportExcel(response, list, "门户评论数据");
     }

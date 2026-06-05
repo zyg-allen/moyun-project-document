@@ -1,12 +1,14 @@
 package com.moyun.portal.controller;
 
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.moyun.common.annotation.Log;
 import com.moyun.core.base.BaseController;
 import com.moyun.core.base.AjaxResult;
-import com.moyun.core.base.TableDataInfo;
 import com.moyun.common.enums.BusinessType;
+import com.moyun.util.bean.PageUtils;
 import com.moyun.util.file.ExcelUtil;
 import com.moyun.portal.domain.entity.PortalTag;
+import com.moyun.portal.domain.query.TagQuery;
 import com.moyun.portal.service.IPortalTagService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -28,16 +30,16 @@ public class PortalTagController extends BaseController {
 
     @Operation(summary = "获取标签列表", description = "根据条件分页查询标签列表")
     @GetMapping("/list")
-    public TableDataInfo list(PortalTag portalTag) {
-        startPage();
-        List<PortalTag> list = portalTagService.selectPortalTagList(portalTag);
-        return getDataTable(list);
+    public AjaxResult list(TagQuery query) {
+        Page<PortalTag> page = PageUtils.buildPage(query);
+        Page<PortalTag> resultPage = portalTagService.selectPortalTagPage(page, query);
+        return success(resultPage);
     }
 
     @Operation(summary = "获取热门标签", description = "获取使用最多的热门标签")
     @GetMapping("/hot")
     public AjaxResult getHotTags(@RequestParam(defaultValue = "20") Integer limit) {
-        PortalTag query = new PortalTag();
+        TagQuery query = new TagQuery();
         query.setStatus("0");
         List<PortalTag> list = portalTagService.selectPortalTagList(query);
         if (list.size() > limit) {
@@ -49,7 +51,7 @@ public class PortalTagController extends BaseController {
     @Operation(summary = "搜索标签", description = "根据关键词搜索标签")
     @GetMapping("/search")
     public AjaxResult searchTags(@RequestParam String keyword) {
-        PortalTag query = new PortalTag();
+        TagQuery query = new TagQuery();
         query.setName(keyword);
         List<PortalTag> list = portalTagService.selectPortalTagList(query);
         return success(list);
@@ -60,7 +62,7 @@ public class PortalTagController extends BaseController {
     public AjaxResult getRecommendTags(
             @RequestParam(required = false) String title,
             @RequestParam(required = false) String category) {
-        PortalTag query = new PortalTag();
+        TagQuery query = new TagQuery();
         query.setStatus("0");
         List<PortalTag> list = portalTagService.selectPortalTagList(query);
         if (list.size() > 10) {
@@ -78,8 +80,8 @@ public class PortalTagController extends BaseController {
     @Operation(summary = "导出标签", description = "导出标签数据到Excel文件")
     @Log(title = "门户标签", businessType = BusinessType.EXPORT)
     @PostMapping("/export")
-    public void export(HttpServletResponse response, PortalTag portalTag) {
-        List<PortalTag> list = portalTagService.selectPortalTagList(portalTag);
+    public void export(HttpServletResponse response, TagQuery query) {
+        List<PortalTag> list = portalTagService.selectPortalTagList(query);
         ExcelUtil<PortalTag> util = new ExcelUtil<PortalTag>(PortalTag.class);
         util.exportExcel(response, list, "门户标签数据");
     }

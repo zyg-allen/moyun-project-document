@@ -1,7 +1,9 @@
 package com.moyun.portal.service.impl;
 
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.moyun.portal.domain.entity.PortalVipPackage;
+import com.moyun.portal.domain.query.VipPackageQuery;
 import com.moyun.portal.mapper.PortalVipPackageMapper;
 import com.moyun.portal.service.IPortalVipPackageService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -23,12 +25,24 @@ public class PortalVipPackageServiceImpl extends ServiceImpl<PortalVipPackageMap
     /**
      * 根据条件分页查询VIP套餐列表
      *
-     * @param portalVipPackage VIP套餐信息
-     * @return VIP套餐信息集合信息
+     * @param page 分页参数
+     * @param query 查询条件
+     * @return 分页结果
      */
     @Override
-    public List<PortalVipPackage> selectPortalVipPackageList(PortalVipPackage portalVipPackage) {
-        return portalVipPackageMapper.selectPortalVipPackageList(portalVipPackage);
+    public Page<PortalVipPackage> selectPortalVipPackagePage(Page<PortalVipPackage> page, VipPackageQuery query) {
+        return baseMapper.selectPortalVipPackagePage(page, query);
+    }
+
+    /**
+     * 根据条件查询VIP套餐列表（不分页，用于导出等场景）
+     *
+     * @param query 查询条件
+     * @return VIP套餐信息集合
+     */
+    @Override
+    public List<PortalVipPackage> selectPortalVipPackageList(VipPackageQuery query) {
+        return baseMapper.selectPortalVipPackageList(query);
     }
 
     /**

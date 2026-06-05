@@ -5,11 +5,11 @@ import com.moyun.common.annotation.Log;
 import com.moyun.common.enums.BusinessType;
 import com.moyun.core.base.AjaxResult;
 import com.moyun.core.base.BaseController;
-import com.moyun.core.base.TableDataInfo;
 import com.moyun.ext.cms.domain.query.CmsTagQuery;
 import com.moyun.ext.cms.domain.vo.CmsTagVO;
 import com.moyun.ext.cms.service.ICmsTagService;
 import com.moyun.portal.domain.entity.PortalTag;
+import com.moyun.util.bean.PageUtils;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -36,10 +36,10 @@ public class CmsTagController extends BaseController {
     @Operation(summary = "获取标签列表", description = "根据条件分页查询标签列表")
     @PreAuthorize("@ss.hasPermi('cms:tag:list')")
     @GetMapping("/list")
-    public TableDataInfo list(CmsTagQuery query) {
-        startPage();
-        Page<CmsTagVO> page = cmsTagService.selectTagPage(query);
-        return getDataTable(page.getRecords(), page.getTotal());
+    public AjaxResult list(CmsTagQuery query) {
+        Page<CmsTagVO> page = PageUtils.buildPage(query);
+        page = cmsTagService.selectTagPage(page, query);
+        return success(page);
     }
 
     /**

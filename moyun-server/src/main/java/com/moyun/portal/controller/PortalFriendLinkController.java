@@ -1,12 +1,14 @@
 package com.moyun.portal.controller;
 
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.moyun.common.annotation.Log;
 import com.moyun.core.base.BaseController;
 import com.moyun.core.base.AjaxResult;
-import com.moyun.core.base.TableDataInfo;
 import com.moyun.common.enums.BusinessType;
+import com.moyun.util.bean.PageUtils;
 import com.moyun.util.file.ExcelUtil;
 import com.moyun.portal.domain.entity.PortalFriendLink;
+import com.moyun.portal.domain.query.FriendLinkQuery;
 import com.moyun.portal.service.IPortalFriendLinkService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -28,17 +30,17 @@ public class PortalFriendLinkController extends BaseController {
 
     @Operation(summary = "获取友情链接列表", description = "根据条件分页查询友情链接列表")
     @GetMapping("/list")
-    public TableDataInfo list(PortalFriendLink portalFriendLink) {
-        startPage();
-        List<PortalFriendLink> list = portalFriendLinkService.selectPortalFriendLinkList(portalFriendLink);
-        return getDataTable(list);
+    public AjaxResult list(FriendLinkQuery query) {
+        Page<PortalFriendLink> page = PageUtils.buildPage(query);
+        Page<PortalFriendLink> resultPage = portalFriendLinkService.selectPortalFriendLinkPage(page, query);
+        return success(resultPage);
     }
 
     @Operation(summary = "导出友情链接", description = "导出友情链接数据到Excel文件")
     @Log(title = "门户友情链接", businessType = BusinessType.EXPORT)
     @PostMapping("/export")
-    public void export(HttpServletResponse response, PortalFriendLink portalFriendLink) {
-        List<PortalFriendLink> list = portalFriendLinkService.selectPortalFriendLinkList(portalFriendLink);
+    public void export(HttpServletResponse response, FriendLinkQuery query) {
+        List<PortalFriendLink> list = portalFriendLinkService.selectPortalFriendLinkList(query);
         ExcelUtil<PortalFriendLink> util = new ExcelUtil<PortalFriendLink>(PortalFriendLink.class);
         util.exportExcel(response, list, "门户友情链接数据");
     }

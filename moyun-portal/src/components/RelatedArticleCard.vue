@@ -2,6 +2,7 @@
 import { RouterLink as Link } from 'vue-router';
 import { Eye, Heart, Tag } from 'lucide-vue-next';
 import LazyImage from './LazyImage.vue';
+import Avatar from '@/components/Avatar.vue';
 import type { Article } from '@/types/api';
 
 interface Props {
@@ -14,6 +15,8 @@ const props = defineProps<Props>();
 function getAuthorUsername(article: Article): string {
   if (article.author?.username) return article.author.username;
   if ('authorUsername' in article) return article.authorUsername as string;
+  if (article.author?.nickname) return article.author.nickname;
+  if ('authorNickname' in article) return article.authorNickname as string;
   return '';
 }
 
@@ -40,22 +43,22 @@ function getTags(article: Article): string[] {
 </script>
 
 <template>
-  <article 
-    class="group rounded-2xl overflow-hidden border shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-300" 
-    style="background-color: var(--theme-bg); border-color: var(--theme-border);"
-    :aria-label="'相关文章: ' + article.title"
+  <article
+      class="group rounded-2xl overflow-hidden border shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-300"
+      style="background-color: var(--theme-bg); border-color: var(--theme-border);"
+      :aria-label="'相关文章: ' + article.title"
   >
-    <Link 
-      :to="`/article/${article.id}`" 
-      class="block"
-      :aria-label="'查看文章: ' + article.title"
+    <Link
+        :to="`/article/${article.id}`"
+        class="block"
+        :aria-label="'查看文章: ' + article.title"
     >
       <!-- Cover Image -->
       <div v-if="article.cover" class="relative aspect-[16/9] overflow-hidden">
-        <LazyImage 
-          :src="article.cover" 
-          :alt="article.title"
-          :aspect-ratio="16/9"
+        <LazyImage
+            :src="article.cover"
+            :alt="article.title"
+            :aspect-ratio="16/9"
         />
         <div class="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
         <div class="absolute top-3 left-3" v-if="getCategoryName(article)">
@@ -67,10 +70,10 @@ function getTags(article: Article): string[] {
 
       <!-- Content -->
       <div class="p-4">
-        <Link 
-          :to="`/article/${article.id}`"
-          class="block text-base font-bold mb-2 line-clamp-2 transition-colors hover:opacity-80"
-          style="color: var(--theme-text);"
+        <Link
+            :to="`/article/${article.id}`"
+            class="block text-base font-bold mb-2 line-clamp-2 transition-colors hover:opacity-80"
+            style="color: var(--theme-text);"
         >
           {{ article.title }}
         </Link>
@@ -80,11 +83,11 @@ function getTags(article: Article): string[] {
         </p>
 
         <div class="flex flex-wrap gap-1.5 mb-3">
-          <span 
-            v-for="tag in getTags(article).slice(0, 2)" 
-            :key="tag"
-            class="inline-flex items-center px-2 py-0.5 text-xs rounded-full"
-            style="background-color: var(--theme-surface); color: var(--theme-text-secondary);"
+          <span
+              v-for="tag in getTags(article).slice(0, 2)"
+              :key="tag"
+              class="inline-flex items-center px-2 py-0.5 text-xs rounded-full"
+              style="background-color: var(--theme-surface); color: var(--theme-text-secondary);"
           >
             <Tag class="w-3 h-3 mr-1" aria-hidden="true" />
             {{ tag }}
@@ -93,11 +96,10 @@ function getTags(article: Article): string[] {
 
         <div class="flex items-center justify-between text-xs" style="color: var(--theme-text-secondary);">
           <div class="flex items-center space-x-1">
-            <img 
-              :src="getAuthorAvatar(article)" 
-              :alt="getAuthorUsername(article)"
-              class="w-6 h-6 rounded-full"
-              loading="lazy"
+            <Avatar
+                :src="getAuthorAvatar(article)"
+                :name="getAuthorUsername(article)"
+                size="sm"
             />
             <span>{{ getAuthorUsername(article) }}</span>
           </div>

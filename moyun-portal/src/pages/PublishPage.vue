@@ -1,23 +1,23 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
-import { 
-  ArrowLeft, Image as ImageIcon, Save, Eye, Send, X, 
+import {
+  ArrowLeft, Image as ImageIcon, Save, Eye, Send, X,
   List, ListOrdered, Clock, User, Calendar, FileText, Settings,
-  Sparkles, Globe, Lock, Tag as TagIcon, BookOpen, 
+  Sparkles, Globe, Lock, Tag as TagIcon, BookOpen,
   ChevronDown, Check, Type, Plus, ChevronRight, Code
 } from 'lucide-vue-next';
 import { addArticle } from '@/data/mockData';
 import { categories as mockCategories } from '@/data/categories';
-import { 
-  getHotTags, 
-  searchTagList, 
-  createNewTag, 
-  getRecommendTags, 
-  mockGetHotTags, 
-  mockSearchTags, 
-  mockCreateTag, 
-  mockGetRecommendTags 
+import {
+  getHotTags,
+  searchTagList,
+  createNewTag,
+  getRecommendTags,
+  mockGetHotTags,
+  mockSearchTags,
+  mockCreateTag,
+  mockGetRecommendTags
 } from '@/api/tag';
 import { getCategoryList, getCategoryTree } from '@/api/category';
 import { createArticle } from '@/api/article';
@@ -99,6 +99,12 @@ const isPublishing = ref(false);
 const isSaving = ref(false);
 const lastSaved = ref<string | null>(null);
 
+// 高级选项显示状态
+const showAdvanced = ref(false);
+const showSeoSettings = ref(false);
+const showCommentSettings = ref(false);
+const showPermissionSettings = ref(false);
+
 // 字数统计
 const wordCount = computed(() => {
   return content.value.length;
@@ -112,12 +118,12 @@ const readingTime = computed(() => {
 // Markdown预览
 const markdownPreview = computed(() => {
   return content.value
-    .replace(/^### (.*$)/gim, '<h3>$1</h3>')
-    .replace(/^## (.*$)/gim, '<h2>$1</h2>')
-    .replace(/^# (.*$)/gim, '<h1>$1</h1>')
-    .replace(/\*\*(.*)\*\*/gim, '<strong>$1</strong>')
-    .replace(/\*(.*)\*/gim, '<em>$1</em>')
-    .replace(/\n/g, '<br>');
+      .replace(/^### (.*$)/gim, '<h3>$1</h3>')
+      .replace(/^## (.*$)/gim, '<h2>$1</h2>')
+      .replace(/^# (.*$)/gim, '<h1>$1</h1>')
+      .replace(/\*\*(.*)\*\*/gim, '<strong>$1</strong>')
+      .replace(/\*(.*)\*/gim, '<em>$1</em>')
+      .replace(/\n/g, '<br>');
 });
 
 onMounted(async () => {
@@ -131,13 +137,13 @@ onMounted(async () => {
     requireAuth();
     return;
   }
-  
+
   authorName.value = userStore.username;
   publishTime.value = new Date().toISOString().slice(0, 16);
-  
+
   // 加载分类
   loadCategories();
-  
+
   // 加载热门标签
   loadHotTags();
 });
@@ -198,7 +204,7 @@ async function searchForTags(keyword: string) {
     isSearchingTags.value = false;
     return;
   }
-  
+
   isSearchingTags.value = true;
   try {
     const response = await searchTagList(keyword);
@@ -227,7 +233,7 @@ async function loadTagSuggestions() {
   if (!title.value.trim() && !selectedParentCategory.value) {
     return;
   }
-  
+
   try {
     const response = await getRecommendTags(title.value, selectedParentCategory.value);
     if (response.code === 200 && response.data) {
@@ -256,12 +262,12 @@ function addTagFromSuggestion(tagName: string) {
 // 创建并添加新标签
 async function createAndAddTag(tagName: string) {
   if (!tagName.trim()) return;
-  
+
   // 检查是否已存在
   if (tags.value.includes(tagName.trim())) {
     return;
   }
-  
+
   try {
     const response = await createNewTag(tagName.trim());
     if (response.code === 200 && response.data) {
@@ -329,12 +335,12 @@ async function saveDraft(isAuto = false) {
   if (isAuto) {
     isSaving.value = true;
   }
-  
+
   // 模拟API调用
   setTimeout(() => {
     lastSaved.value = new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
     isSaving.value = false;
-    
+
     if (!isAuto) {
       alert('草稿已保存');
     }
@@ -377,10 +383,10 @@ async function handlePublish() {
   isPublishing.value = true;
 
   try {
-    const finalContent = editorMode.value === 'markdown' 
-      ? markdownPreview.value
-      : content.value;
-      
+    const finalContent = editorMode.value === 'markdown'
+        ? markdownPreview.value
+        : content.value;
+
     const response = await createArticle({
       title: title.value,
       content: finalContent,
@@ -391,7 +397,7 @@ async function handlePublish() {
       tagNames: tags.value,
       status: 'published' // 已发布
     });
-    
+
     if (response.code === 200) {
       articleStatus.value = 'published';
       alert('发布成功！');
@@ -405,10 +411,10 @@ async function handlePublish() {
     try {
       const user = currentUser.value;
       if (user) {
-        const finalContent = editorMode.value === 'markdown' 
-          ? markdownPreview.value
-          : content.value;
-          
+        const finalContent = editorMode.value === 'markdown'
+            ? markdownPreview.value
+            : content.value;
+
         addArticle({
           title: title.value,
           content: finalContent,
@@ -458,7 +464,7 @@ const isExtractingExcerpt = ref(false);
 // 从正文提取摘要
 async function extractExcerptFromContent() {
   if (!content.value) return;
-  
+
   isExtractingExcerpt.value = true;
   try {
     excerpt.value = await extractExcerpt(content.value, editorMode.value);
@@ -531,9 +537,9 @@ const titleLength = computed(() => title.value.length);
             <div class="flex items-center gap-2">
               <span class="text-lg font-semibold" style="color: var(--theme-text);">写文章</span>
               <!-- 状态标签 -->
-              <span 
-                class="px-2.5 py-1 rounded-full text-xs font-medium"
-                :style="{
+              <span
+                  class="px-2.5 py-1 rounded-full text-xs font-medium"
+                  :style="{
                   backgroundColor: articleStatus === 'draft' ? 'var(--theme-accent)' : 
                                    articleStatus === 'review' ? '#fef3c7' : '#d1fae5',
                   color: articleStatus === 'draft' ? 'var(--theme-primary)' : 
@@ -554,32 +560,32 @@ const titleLength = computed(() => title.value.length);
             </div>
 
             <!-- 保存草稿 -->
-            <button 
-              @click="saveDraft(false)"
-              :disabled="isSaving"
-              class="px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2"
-              style="color: var(--theme-text); border: 1px solid var(--theme-border);"
+            <button
+                @click="saveDraft(false)"
+                :disabled="isSaving"
+                class="px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2"
+                style="color: var(--theme-text); border: 1px solid var(--theme-border);"
             >
               <Save class="w-4 h-4" />
               <span class="hidden sm:inline">保存草稿</span>
             </button>
 
             <!-- 预览 -->
-            <button 
-              @click="previewArticle"
-              class="px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2"
-              :style="showPreview ? { backgroundColor: 'var(--theme-accent)', color: 'var(--theme-primary)' } : { color: 'var(--theme-text-secondary)' }"
+            <button
+                @click="previewArticle"
+                class="px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2"
+                :style="showPreview ? { backgroundColor: 'var(--theme-accent)', color: 'var(--theme-primary)' } : { color: 'var(--theme-text-secondary)' }"
             >
               <Eye class="w-4 h-4" />
               <span class="hidden sm:inline">预览</span>
             </button>
 
             <!-- 发布 -->
-            <button 
-              @click="handlePublish" 
-              :disabled="isPublishing"
-              class="px-5 py-2 rounded-lg font-medium transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-              style="background-color: var(--theme-primary); color: white;"
+            <button
+                @click="handlePublish"
+                :disabled="isPublishing"
+                class="px-5 py-2 rounded-lg font-medium transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                style="background-color: var(--theme-primary); color: white;"
             >
               <Send class="w-4 h-4" />
               {{ isPublishing ? '发布中...' : '发布' }}
@@ -623,26 +629,26 @@ const titleLength = computed(() => title.value.length);
             <div class="rounded-lg border-2 border-dashed overflow-hidden" style="border-color: var(--theme-border);">
               <div v-if="coverImage" class="relative group">
                 <img :src="coverImage" alt="Cover" class="w-full h-40 sm:h-48 object-cover" />
-                <button 
-                  @click="coverImage = ''"
-                  class="absolute top-2 right-2 w-8 h-8 bg-black/50 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                <button
+                    @click="coverImage = ''"
+                    class="absolute top-2 right-2 w-8 h-8 bg-black/50 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
                 >
                   <X class="w-4 h-4" />
                 </button>
               </div>
-              <div v-else 
+              <div v-else
                    class="w-full py-8 sm:py-10 flex flex-col items-center justify-center cursor-pointer"
                    style="color: var(--theme-text-secondary);"
                    @click="triggerFileUpload"
                    @dragover.prevent
                    @drop.prevent="handleDrop"
               >
-                <input 
-                  ref="fileInputRef" 
-                  type="file" 
-                  accept="image/*" 
-                  class="hidden" 
-                  @change="handleFileSelect"
+                <input
+                    ref="fileInputRef"
+                    type="file"
+                    accept="image/*"
+                    class="hidden"
+                    @change="handleFileSelect"
                 />
                 <ImageIcon class="w-8 h-8 sm:w-10 sm:h-10 mb-2" />
                 <p class="font-medium mb-1">上传封面图片</p>
@@ -652,13 +658,13 @@ const titleLength = computed(() => title.value.length);
 
             <!-- 标题输入 -->
             <div>
-              <input 
-                v-model="title" 
-                type="text" 
-                placeholder="在这里输入文章标题..." 
-                class="w-full text-xl sm:text-2xl lg:text-3xl font-bold bg-transparent border-none focus:outline-none focus:ring-0"
-                style="color: var(--theme-text);"
-                maxlength="80"
+              <input
+                  v-model="title"
+                  type="text"
+                  placeholder="在这里输入文章标题..."
+                  class="w-full text-xl sm:text-2xl lg:text-3xl font-bold bg-transparent border-none focus:outline-none focus:ring-0"
+                  style="color: var(--theme-text);"
+                  maxlength="80"
               />
               <div class="flex items-center justify-end mt-1">
                 <span class="text-xs" :style="{ color: titleLength > 70 ? '#ef4444' : 'var(--theme-text-secondary)' }">
@@ -670,18 +676,18 @@ const titleLength = computed(() => title.value.length);
             <!-- 编辑器模式切换 -->
             <div class="flex items-center gap-3">
               <div class="flex rounded-lg p-1" style="background-color: var(--theme-surface);">
-                <button 
-                  @click="editorMode = 'richtext'"
-                  class="px-3 py-1.5 rounded-md text-sm font-medium transition-colors flex items-center gap-2"
-                  :style="editorMode === 'richtext' ? { backgroundColor: 'var(--theme-primary)', color: 'white' } : { color: 'var(--theme-text-secondary)' }"
+                <button
+                    @click="editorMode = 'richtext'"
+                    class="px-3 py-1.5 rounded-md text-sm font-medium transition-colors flex items-center gap-2"
+                    :style="editorMode === 'richtext' ? { backgroundColor: 'var(--theme-primary)', color: 'white' } : { color: 'var(--theme-text-secondary)' }"
                 >
                   <Type class="w-4 h-4" />
                   富文本
                 </button>
-                <button 
-                  @click="editorMode = 'markdown'"
-                  class="px-3 py-1.5 rounded-md text-sm font-medium transition-colors flex items-center gap-2"
-                  :style="editorMode === 'markdown' ? { backgroundColor: 'var(--theme-primary)', color: 'white' } : { color: 'var(--theme-text-secondary)' }"
+                <button
+                    @click="editorMode = 'markdown'"
+                    class="px-3 py-1.5 rounded-md text-sm font-medium transition-colors flex items-center gap-2"
+                    :style="editorMode === 'markdown' ? { backgroundColor: 'var(--theme-primary)', color: 'white' } : { color: 'var(--theme-text-secondary)' }"
                 >
                   <Code class="w-4 h-4" />
                   Markdown
@@ -708,18 +714,18 @@ const titleLength = computed(() => title.value.length);
                 </div>
 
                 <!-- 富文本编辑模式 (Quill) -->
-                <QuillEditor 
-                  v-else-if="editorMode === 'richtext'" 
-                  v-model="content"
-                  placeholder="开始写作..."
-                  theme="snow"
+                <QuillEditor
+                    v-else-if="editorMode === 'richtext'"
+                    v-model="content"
+                    placeholder="开始写作..."
+                    theme="snow"
                 />
 
                 <!-- Markdown编辑模式 -->
-                <MarkdownEditor 
-                  v-else
-                  v-model="content"
-                  placeholder="开始写作..."
+                <MarkdownEditor
+                    v-else
+                    v-model="content"
+                    placeholder="开始写作..."
                 />
               </div>
 
@@ -730,11 +736,11 @@ const titleLength = computed(() => title.value.length);
                     <BookOpen class="w-4 h-4" />
                     摘要
                   </h3>
-                  <button 
-                    @click="extractExcerptFromContent"
-                    :disabled="isExtractingExcerpt"
-                    class="text-xs px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1"
-                    style="color: var(--theme-primary); background-color: var(--theme-accent);"
+                  <button
+                      @click="extractExcerptFromContent"
+                      :disabled="isExtractingExcerpt"
+                      class="text-xs px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1"
+                      style="color: var(--theme-primary); background-color: var(--theme-accent);"
                   >
                     <svg v-if="isExtractingExcerpt" class="animate-spin w-3 h-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                       <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
@@ -744,14 +750,14 @@ const titleLength = computed(() => title.value.length);
                     <span>{{ isExtractingExcerpt ? '提取中...' : '智能提取' }}</span>
                   </button>
                 </div>
-                
-                <textarea 
-                  v-model="excerpt" 
-                  placeholder="文章摘要（选填，会在列表页显示，不填则自动截取内容前200字）"
-                  class="w-full text-sm border-0 focus:outline-none resize-none"
-                  rows="3"
-                  maxlength="200"
-                  style="background-color: transparent; color: var(--theme-text-secondary);"
+
+                <textarea
+                    v-model="excerpt"
+                    placeholder="文章摘要（选填，会在列表页显示，不填则自动截取内容前200字）"
+                    class="w-full text-sm border-0 focus:outline-none resize-none"
+                    rows="3"
+                    maxlength="200"
+                    style="background-color: transparent; color: var(--theme-text-secondary);"
                 ></textarea>
                 <div class="flex justify-between items-center mt-1">
                   <span class="text-xs" style="color: var(--theme-text-secondary);">
@@ -773,35 +779,35 @@ const titleLength = computed(() => title.value.length);
                 <List class="w-4 h-4" />
                 分类
               </h3>
-              
+
               <div class="space-y-3">
                 <!-- 一级分类 -->
                 <div>
                   <label class="block text-xs mb-1.5" style="color: var(--theme-text-secondary);">一级分类</label>
-                  <select 
-                    v-model="selectedParentCategory"
-                    @change="selectedChildCategory = ''"
-                    class="w-full px-3 py-2 text-sm rounded-lg border focus:outline-none focus:ring-2"
-                    style="background-color: var(--theme-bg); border-color: var(--theme-border); color: var(--theme-text);"
+                  <select
+                      v-model="selectedParentCategory"
+                      @change="selectedChildCategory = ''"
+                      class="w-full px-3 py-2 text-sm rounded-lg border focus:outline-none focus:ring-2"
+                      style="background-color: var(--theme-bg); border-color: var(--theme-border); color: var(--theme-text);"
                   >
                     <option value="">请选择一级分类</option>
                     <option v-for="cat in categories" :key="cat.id" :value="cat.id">{{ cat.name }}</option>
                   </select>
                 </div>
-                
+
                 <!-- 二级分类 - 只有选择了一级分类后才显示 -->
                 <div v-if="selectedParentCategory && childCategories.length > 0">
                   <label class="block text-xs mb-1.5" style="color: var(--theme-text-secondary);">二级分类</label>
-                  <select 
-                    v-model="selectedChildCategory"
-                    class="w-full px-3 py-2 text-sm rounded-lg border focus:outline-none focus:ring-2"
-                    style="background-color: var(--theme-bg); border-color: var(--theme-border); color: var(--theme-text);"
+                  <select
+                      v-model="selectedChildCategory"
+                      class="w-full px-3 py-2 text-sm rounded-lg border focus:outline-none focus:ring-2"
+                      style="background-color: var(--theme-bg); border-color: var(--theme-border); color: var(--theme-text);"
                   >
                     <option value="">请选择二级分类（可选）</option>
                     <option v-for="child in childCategories" :key="child.id" :value="child.id">{{ child.name }}</option>
                   </select>
                 </div>
-                
+
                 <div v-if="loadingCategories" class="text-xs" style="color: var(--theme-text-secondary);">
                   加载中...
                 </div>
@@ -817,14 +823,14 @@ const titleLength = computed(() => title.value.length);
                   ({{ tags.length }}/10)
                 </span>
               </h3>
-              
+
               <!-- 已选标签 -->
               <div v-if="tags.length > 0" class="flex flex-wrap gap-1.5 mb-3">
-                <span 
-                  v-for="tag in tags" 
-                  :key="tag"
-                  class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium"
-                  style="background-color: var(--theme-accent); color: var(--theme-primary);"
+                <span
+                    v-for="tag in tags"
+                    :key="tag"
+                    class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium"
+                    style="background-color: var(--theme-accent); color: var(--theme-primary);"
                 >
                   {{ tag }}
                   <button @click="removeTag(tag)" class="hover:text-red-500">
@@ -832,24 +838,24 @@ const titleLength = computed(() => title.value.length);
                   </button>
                 </span>
               </div>
-              
+
               <!-- 标签搜索输入框 -->
               <div class="relative mb-3">
-                <input 
-                  v-model="tagInput"
-                  @input="searchForTags(tagInput)"
-                  @focus="showTagSuggestions = true"
-                  @keydown.enter.prevent="handleTagInputEnter"
-                  type="text" 
-                  placeholder="搜索或输入标签..."
-                  class="w-full px-3 py-2 text-sm rounded-lg border focus:outline-none focus:ring-2 pr-8"
-                  style="background-color: var(--theme-bg); border-color: var(--theme-border); color: var(--theme-text);"
+                <input
+                    v-model="tagInput"
+                    @input="searchForTags(tagInput)"
+                    @focus="showTagSuggestions = true"
+                    @keydown.enter.prevent="handleTagInputEnter"
+                    type="text"
+                    placeholder="搜索或输入标签..."
+                    class="w-full px-3 py-2 text-sm rounded-lg border focus:outline-none focus:ring-2 pr-8"
+                    style="background-color: var(--theme-bg); border-color: var(--theme-border); color: var(--theme-text);"
                 />
                 <div v-if="isSearchingTags" class="absolute right-2 top-1/2 transform -translate-y-1/2">
                   <div class="w-4 h-4 border-2 border-t-transparent rounded-full animate-spin" style="border-color: var(--theme-primary);"></div>
                 </div>
               </div>
-              
+
               <!-- 标签搜索结果 / 建议标签 -->
               <div v-if="showTagSuggestions" class="mb-3 max-h-[250px] overflow-y-auto">
                 <!-- 搜索结果 -->
@@ -857,12 +863,12 @@ const titleLength = computed(() => title.value.length);
                   <h4 class="text-xs font-medium mb-1.5" style="color: var(--theme-text-secondary);">搜索结果</h4>
                   <div class="flex flex-wrap gap-1.5">
                     <button
-                      v-for="tag in tagSearchResults"
-                      :key="tag.id"
-                      @click="addTagFromSuggestion(tag.name)"
-                      :disabled="tags.includes(tag.name)"
-                      class="px-2.5 py-0.5 text-xs rounded-full transition-colors"
-                      :style="tags.includes(tag.name) 
+                        v-for="tag in tagSearchResults"
+                        :key="tag.id"
+                        @click="addTagFromSuggestion(tag.name)"
+                        :disabled="tags.includes(tag.name)"
+                        class="px-2.5 py-0.5 text-xs rounded-full transition-colors"
+                        :style="tags.includes(tag.name)
                         ? 'background-color: var(--theme-accent); color: var(--theme-text-secondary); cursor: not-allowed;' 
                         : 'background-color: var(--theme-accent); color: var(--theme-primary); cursor: pointer;'"
                     >
@@ -870,7 +876,7 @@ const titleLength = computed(() => title.value.length);
                     </button>
                   </div>
                 </div>
-                
+
                 <!-- 智能建议 -->
                 <div v-if="tagSuggestions.length > 0" class="mb-3">
                   <h4 class="text-xs font-medium mb-1.5 flex items-center gap-1" style="color: var(--theme-text-secondary);">
@@ -879,12 +885,12 @@ const titleLength = computed(() => title.value.length);
                   </h4>
                   <div class="flex flex-wrap gap-1.5">
                     <button
-                      v-for="tag in tagSuggestions"
-                      :key="tag.id"
-                      @click="addTagFromSuggestion(tag.name)"
-                      :disabled="tags.includes(tag.name)"
-                      class="px-2.5 py-0.5 text-xs rounded-full transition-colors"
-                      :style="tags.includes(tag.name) 
+                        v-for="tag in tagSuggestions"
+                        :key="tag.id"
+                        @click="addTagFromSuggestion(tag.name)"
+                        :disabled="tags.includes(tag.name)"
+                        class="px-2.5 py-0.5 text-xs rounded-full transition-colors"
+                        :style="tags.includes(tag.name)
                         ? 'background-color: var(--theme-accent); color: var(--theme-text-secondary); cursor: not-allowed;' 
                         : 'background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; cursor: pointer;'"
                     >
@@ -892,18 +898,18 @@ const titleLength = computed(() => title.value.length);
                     </button>
                   </div>
                 </div>
-                
+
                 <!-- 热门标签 -->
                 <div v-if="hotTags.length > 0" class="mb-3">
                   <h4 class="text-xs font-medium mb-1.5" style="color: var(--theme-text-secondary);">热门标签</h4>
                   <div class="flex flex-wrap gap-1.5">
                     <button
-                      v-for="tag in hotTags"
-                      :key="tag.id"
-                      @click="addTagFromSuggestion(tag.name)"
-                      :disabled="tags.includes(tag.name)"
-                      class="px-2.5 py-0.5 text-xs rounded-full transition-colors"
-                      :style="tags.includes(tag.name) 
+                        v-for="tag in hotTags"
+                        :key="tag.id"
+                        @click="addTagFromSuggestion(tag.name)"
+                        :disabled="tags.includes(tag.name)"
+                        class="px-2.5 py-0.5 text-xs rounded-full transition-colors"
+                        :style="tags.includes(tag.name)
                         ? 'background-color: var(--theme-accent); color: var(--theme-text-secondary); cursor: not-allowed;' 
                         : 'background-color: var(--theme-accent); color: var(--theme-text-secondary); cursor: pointer;'"
                     >
@@ -911,26 +917,26 @@ const titleLength = computed(() => title.value.length);
                     </button>
                   </div>
                 </div>
-                
+
                 <!-- 自定义创建标签 -->
                 <div v-if="tagInput.trim() && !tagSearchResults.some(t => t.name.toLowerCase() === tagInput.toLowerCase())" class="mt-2.5 pt-2.5 border-t" style="border-color: var(--theme-border);">
                   <button
-                    @click="createAndAddTag(tagInput)"
-                    class="flex items-center gap-1 text-xs text-primary-600 hover:text-primary-700"
-                    style="color: var(--theme-primary);"
+                      @click="createAndAddTag(tagInput)"
+                      class="flex items-center gap-1 text-xs text-primary-600 hover:text-primary-700"
+                      style="color: var(--theme-primary);"
                   >
                     <Plus class="w-3 h-3" />
                     创建新标签: "{{ tagInput.trim() }}"
                   </button>
                 </div>
               </div>
-              
+
               <!-- 收起建议按钮 -->
               <button
-                v-if="showTagSuggestions"
-                @click="showTagSuggestions = false"
-                class="text-xs w-full text-center py-1.5 hover:bg-gray-50 rounded-lg"
-                style="color: var(--theme-text-secondary);"
+                  v-if="showTagSuggestions"
+                  @click="showTagSuggestions = false"
+                  class="text-xs w-full text-center py-1.5 hover:bg-gray-50 rounded-lg"
+                  style="color: var(--theme-text-secondary);"
               >
                 收起建议
               </button>
@@ -938,28 +944,28 @@ const titleLength = computed(() => title.value.length);
 
             <!-- 高级选项区 - 移到这里 -->
             <div class="rounded-lg border overflow-hidden" style="background-color: var(--theme-surface); border-color: var(--theme-border);">
-              <button 
-                @click="showAdvanced = !showAdvanced"
-                class="w-full px-3 sm:px-4 py-3 flex items-center justify-between"
-                style="color: var(--theme-text);"
+              <button
+                  @click="showAdvanced = !showAdvanced"
+                  class="w-full px-3 sm:px-4 py-3 flex items-center justify-between"
+                  style="color: var(--theme-text);"
               >
                 <span class="font-semibold flex items-center gap-2">
                   <Settings class="w-4 h-4" />
                   高级选项
                 </span>
-                <ChevronDown 
-                  class="w-5 h-5 transition-transform"
-                  :class="{ 'rotate-180': showAdvanced }"
-                  style="color: var(--theme-text-secondary);"
+                <ChevronDown
+                    class="w-5 h-5 transition-transform"
+                    :class="{ 'rotate-180': showAdvanced }"
+                    style="color: var(--theme-text-secondary);"
                 />
               </button>
 
               <div v-if="showAdvanced" class="px-3 sm:px-4 pb-4 space-y-3">
                 <!-- SEO设置 -->
                 <div class="border-t pt-3" style="border-color: var(--theme-border);">
-                  <button 
-                    @click="showSeoSettings = !showSeoSettings"
-                    class="flex items-center justify-between w-full mb-2"
+                  <button
+                      @click="showSeoSettings = !showSeoSettings"
+                      class="flex items-center justify-between w-full mb-2"
                   >
                     <span class="font-medium text-sm" style="color: var(--theme-text);">SEO 设置</span>
                     <ChevronRight class="w-4 h-4" :class="{ 'rotate-90': showSeoSettings }" style="color: var(--theme-text-secondary);" />
@@ -967,32 +973,32 @@ const titleLength = computed(() => title.value.length);
                   <div v-if="showSeoSettings" class="space-y-2 pl-2">
                     <div>
                       <label class="block text-xs mb-1" style="color: var(--theme-text-secondary);">SEO 标题</label>
-                      <input 
-                        v-model="seoTitle" 
-                        type="text" 
-                        placeholder="不填则使用文章标题"
-                        class="w-full px-3 py-2 text-sm rounded-lg border focus:outline-none focus:ring-2"
-                        style="background-color: var(--theme-bg); border-color: var(--theme-border); color: var(--theme-text);"
+                      <input
+                          v-model="seoTitle"
+                          type="text"
+                          placeholder="不填则使用文章标题"
+                          class="w-full px-3 py-2 text-sm rounded-lg border focus:outline-none focus:ring-2"
+                          style="background-color: var(--theme-bg); border-color: var(--theme-border); color: var(--theme-text);"
                       />
                     </div>
                     <div>
                       <label class="block text-xs mb-1" style="color: var(--theme-text-secondary);">SEO 描述</label>
-                      <textarea 
-                        v-model="seoDescription" 
-                        placeholder="用于搜索引擎展示，建议150字以内"
-                        class="w-full px-3 py-2 text-sm rounded-lg border focus:outline-none resize-none"
-                        rows="2"
-                        style="background-color: var(--theme-bg); border-color: var(--theme-border); color: var(--theme-text);"
+                      <textarea
+                          v-model="seoDescription"
+                          placeholder="用于搜索引擎展示，建议150字以内"
+                          class="w-full px-3 py-2 text-sm rounded-lg border focus:outline-none resize-none"
+                          rows="2"
+                          style="background-color: var(--theme-bg); border-color: var(--theme-border); color: var(--theme-text);"
                       ></textarea>
                     </div>
                     <div>
                       <label class="block text-xs mb-1" style="color: var(--theme-text-secondary);">关键词</label>
-                      <input 
-                        v-model="seoKeywords" 
-                        type="text" 
-                        placeholder="用逗号分隔，如：春天,回忆,人生"
-                        class="w-full px-3 py-2 text-sm rounded-lg border focus:outline-none focus:ring-2"
-                        style="background-color: var(--theme-bg); border-color: var(--theme-border); color: var(--theme-text);"
+                      <input
+                          v-model="seoKeywords"
+                          type="text"
+                          placeholder="用逗号分隔，如：春天,回忆,人生"
+                          class="w-full px-3 py-2 text-sm rounded-lg border focus:outline-none focus:ring-2"
+                          style="background-color: var(--theme-bg); border-color: var(--theme-border); color: var(--theme-text);"
                       />
                     </div>
                   </div>
@@ -1000,9 +1006,9 @@ const titleLength = computed(() => title.value.length);
 
                 <!-- 评论设置 -->
                 <div class="border-t pt-3" style="border-color: var(--theme-border);">
-                  <button 
-                    @click="showCommentSettings = !showCommentSettings"
-                    class="flex items-center justify-between w-full mb-2"
+                  <button
+                      @click="showCommentSettings = !showCommentSettings"
+                      class="flex items-center justify-between w-full mb-2"
                   >
                     <span class="font-medium text-sm" style="color: var(--theme-text);">评论设置</span>
                     <ChevronRight class="w-4 h-4" :class="{ 'rotate-90': showCommentSettings }" style="color: var(--theme-text-secondary);" />
@@ -1021,9 +1027,9 @@ const titleLength = computed(() => title.value.length);
 
                 <!-- 权限设置 -->
                 <div class="border-t pt-3" style="border-color: var(--theme-border);">
-                  <button 
-                    @click="showPermissionSettings = !showPermissionSettings"
-                    class="flex items-center justify-between w-full mb-2"
+                  <button
+                      @click="showPermissionSettings = !showPermissionSettings"
+                      class="flex items-center justify-between w-full mb-2"
                   >
                     <span class="font-medium text-sm" style="color: var(--theme-text);">权限设置</span>
                     <ChevronRight class="w-4 h-4" :class="{ 'rotate-90': showPermissionSettings }" style="color: var(--theme-text-secondary);" />
@@ -1046,12 +1052,12 @@ const titleLength = computed(() => title.value.length);
                       </label>
                     </div>
                     <div v-if="visibility === 'password'">
-                      <input 
-                        v-model="articlePassword" 
-                        type="password" 
-                        placeholder="请输入访问密码"
-                        class="w-full px-3 py-2 text-sm rounded-lg border focus:outline-none focus:ring-2"
-                        style="background-color: var(--theme-bg); border-color: var(--theme-border); color: var(--theme-text);"
+                      <input
+                          v-model="articlePassword"
+                          type="password"
+                          placeholder="请输入访问密码"
+                          class="w-full px-3 py-2 text-sm rounded-lg border focus:outline-none focus:ring-2"
+                          style="background-color: var(--theme-bg); border-color: var(--theme-border); color: var(--theme-text);"
                       />
                     </div>
                   </div>
@@ -1060,12 +1066,12 @@ const titleLength = computed(() => title.value.length);
                 <!-- 自定义URL -->
                 <div class="border-t pt-3" style="border-color: var(--theme-border);">
                   <label class="block text-xs mb-1" style="color: var(--theme-text-secondary);">自定义 URL Slug</label>
-                  <input 
-                    v-model="customSlug" 
-                    type="text" 
-                    placeholder="如：my-article-title（用于 SEO 友好链接）"
-                    class="w-full px-3 py-2 text-sm rounded-lg border focus:outline-none focus:ring-2"
-                    style="background-color: var(--theme-bg); border-color: var(--theme-border); color: var(--theme-text);"
+                  <input
+                      v-model="customSlug"
+                      type="text"
+                      placeholder="如：my-article-title（用于 SEO 友好链接）"
+                      class="w-full px-3 py-2 text-sm rounded-lg border focus:outline-none focus:ring-2"
+                      style="background-color: var(--theme-bg); border-color: var(--theme-border); color: var(--theme-text);"
                   />
                 </div>
               </div>

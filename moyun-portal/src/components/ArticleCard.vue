@@ -2,6 +2,7 @@
 import { RouterLink as Link } from 'vue-router';
 import { Clock, Tag } from 'lucide-vue-next';
 import LazyImage from '@/components/LazyImage.vue';
+import Avatar from '@/components/Avatar.vue';
 import type { Article } from '@/types/api';
 
 interface Props {
@@ -32,6 +33,8 @@ function formatDateTime(dateStr: string | undefined) {
 function getAuthorUsername(article: Article): string {
   if (article.author?.username) return article.author.username;
   if ('authorUsername' in article) return article.authorUsername as string;
+  if (article.author?.nickname) return article.author.nickname;
+  if ('authorNickname' in article) return article.authorNickname as string;
   return '';
 }
 
@@ -51,60 +54,58 @@ function getTags(article: Article): string[] {
 </script>
 
 <template>
-  <article 
-    class="group rounded-lg overflow-hidden border shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-300" 
-    :class="[article.cover ? 'min-h-[100px] sm:min-h-[120px]' : 'min-h-[70px] sm:min-h-[80px]']"
-    style="background-color: var(--theme-bg); border-color: var(--theme-border);"
-    :aria-label="'文章标题: ' + article.title"
+  <article
+      class="group rounded-lg overflow-hidden border shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-300"
+      :class="[article.cover ? 'min-h-[100px] sm:min-h-[120px]' : 'min-h-[70px] sm:min-h-[80px]']"
+      style="background-color: var(--theme-bg); border-color: var(--theme-border);"
+      :aria-label="'文章标题: ' + article.title"
   >
-    <Link 
-      :to="'/article/' + article.id" 
-      target="_blank"
-      class="flex flex-col sm:flex-row gap-0 h-full items-stretch"
-      :aria-label="'查看文章: ' + article.title"
+    <Link
+        :to="'/article/' + article.id"
+        target="_blank"
+        class="flex flex-col sm:flex-row gap-0 h-full items-stretch"
+        :aria-label="'查看文章: ' + article.title"
     >
       <!-- Cover Image (Optional) -->
       <div v-if="article.cover" class="flex-shrink-0">
         <div class="py-2 sm:py-3 px-2 sm:px-3">
           <div class="w-24 sm:w-32 md:w-40 h-16 sm:h-20 md:h-24 flex-shrink-0">
-            <LazyImage 
-              :src="article.cover" 
-              :alt="article.title"
-              class="w-full h-full object-cover rounded-md"
+            <LazyImage
+                :src="article.cover"
+                :alt="article.title"
+                class="w-full h-full object-cover rounded-md"
             />
           </div>
         </div>
       </div>
 
       <!-- Content -->
-      <div 
-        class="flex-1 p-3 sm:p-4 flex flex-col justify-center min-w-0"
+      <div
+          class="flex-1 p-3 sm:p-4 flex flex-col justify-center min-w-0"
       >
         <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 w-full">
           <!-- 标题靠左 -->
           <div class="flex-1 min-w-0">
-            <Link 
-              :to="'/article/' + article.id"
-              target="_blank"
-              class="text-sm md:text-base font-medium line-clamp-2 transition-colors hover:opacity-80"
-              style="color: var(--theme-text);"
+            <Link
+                :to="'/article/' + article.id"
+                target="_blank"
+                class="text-sm md:text-base font-medium line-clamp-2 transition-colors hover:opacity-80"
+                style="color: var(--theme-text);"
             >
               {{ truncateText(article.title) }}
             </Link>
             <!-- 作者信息 -->
-            <Link 
-              :to="'/author/' + article.authorId"
-              @click.stop
-              class="flex items-center gap-1.5 mt-1 text-xs transition-colors hover:opacity-80"
-              style="color: var(--theme-text-secondary);"
+            <Link
+                :to="'/author/' + article.authorId"
+                @click.stop
+                class="flex items-center gap-1.5 mt-1 text-xs transition-colors hover:opacity-80"
+                style="color: var(--theme-text-secondary);"
             >
-              <div class="w-4 h-4 rounded-full overflow-hidden flex-shrink-0">
-                <img 
-                  :src="getAuthorAvatar(article)" 
-                  :alt="getAuthorUsername(article)"
-                  class="w-full h-full object-cover"
-                />
-              </div>
+              <Avatar
+                  :src="getAuthorAvatar(article)"
+                  :name="getAuthorUsername(article)"
+                  size="xs"
+              />
               <span>{{ getAuthorUsername(article) }}</span>
             </Link>
             <!-- 简介 -->
@@ -117,17 +118,17 @@ function getTags(article: Article): string[] {
           <div class="flex flex-wrap items-center justify-end gap-2 flex-shrink-0">
             <!-- 标签 -->
             <div class="flex flex-wrap gap-1.5">
-              <span 
-                v-for="tag in getTags(article).slice(0, 2)" 
-                :key="tag"
-                class="inline-flex items-center px-2 py-0.5 text-xs rounded-full"
-                style="background-color: var(--theme-surface); color: var(--theme-text-secondary);"
+              <span
+                  v-for="tag in getTags(article).slice(0, 2)"
+                  :key="tag"
+                  class="inline-flex items-center px-2 py-0.5 text-xs rounded-full"
+                  style="background-color: var(--theme-surface); color: var(--theme-text-secondary);"
               >
                 <Tag class="w-3 h-3 mr-1" aria-hidden="true" />
                 {{ tag }}
               </span>
             </div>
-            
+
             <!-- 日期时间 -->
             <div class="flex items-center gap-1 text-xs flex-shrink-0" style="color: var(--theme-text-secondary);">
               <Clock class="w-3 h-3" aria-hidden="true" />

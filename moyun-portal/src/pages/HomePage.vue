@@ -145,6 +145,16 @@ const loadAuthors = async () => {
     }
   } catch (err) {
     console.error('加载名家失败:', err)
+    // 使用默认名家数据
+    authors.value = [
+      { id: '1', name: '林清玄', avatar: '林', works: 318, likes: '5.6w', days: 365 },
+      { id: '2', name: '毕淑敏', avatar: '毕', works: 256, likes: '4.2w', days: 300 },
+      { id: '3', name: '周国平', avatar: '周', works: 198, likes: '3.8w', days: 280 },
+      { id: '4', name: '迟子建', avatar: '迟', works: 176, likes: '3.2w', days: 250 },
+      { id: '5', name: '贾平凹', avatar: '贾', works: 234, likes: '4.5w', days: 320 },
+      { id: '6', name: '铁凝', avatar: '铁', works: 156, likes: '2.8w', days: 220 },
+      { id: '7', name: '莫言', avatar: '莫', works: 356, likes: '6.1w', days: 400 }
+    ]
   }
 }
 

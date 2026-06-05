@@ -1,6 +1,7 @@
 package com.moyun.portal.domain.entity;
 
 import com.baomidou.mybatisplus.annotation.IdType;
+import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
 import com.moyun.core.base.BaseEntity;
@@ -8,6 +9,9 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 import org.apache.commons.lang3.builder.ToStringBuilder;
 import org.apache.commons.lang3.builder.ToStringStyle;
+
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * 门户分类对象 portal_category
@@ -48,6 +52,10 @@ public class PortalCategory extends BaseEntity
 
     /** 状态（0正常 1停用） */
     private String status;
+
+    /** 子分类列表（不映射到数据库字段） */
+    @TableField(exist = false)
+    private List<PortalCategory> children = new ArrayList<>();
 
     public PortalCategory()
     {
@@ -137,6 +145,16 @@ public class PortalCategory extends BaseEntity
     public void setStatus(String status)
     {
         this.status = status;
+    }
+
+    public List<PortalCategory> getChildren()
+    {
+        return children;
+    }
+
+    public void setChildren(List<PortalCategory> children)
+    {
+        this.children = children;
     }
 
     @Override

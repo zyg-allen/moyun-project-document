@@ -31,6 +31,14 @@ public interface IPortalCategoryService {
     List<PortalCategory> selectPortalCategoryList(CategoryQuery query);
 
     /**
+     * 获取树形分类列表
+     *
+     * @param query 查询条件
+     * @return 树形分类列表
+     */
+    List<PortalCategory> selectPortalCategoryTree(CategoryQuery query);
+
+    /**
      * 通过分类ID查询分类
      *
      * @param id 分类ID

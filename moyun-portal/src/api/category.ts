@@ -9,6 +9,11 @@ export const getCategoryList = (params?: CategoryListParams) => {
   return httpGet<Category[]>('/portal/category/list', params);
 };
 
+// 获取树形分类
+export const getCategoryTree = (params?: CategoryListParams) => {
+  return httpGet<Category[]>('/portal/category/public/tree', params);
+};
+
 // 获取分类详情
 export const getCategoryById = (id: string) => {
   return httpGet<Category>(`/portal/category/${id}`);

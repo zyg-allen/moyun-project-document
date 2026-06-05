@@ -9,7 +9,9 @@ import com.moyun.portal.service.IPortalCategoryService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * 门户分类 业务层处理
@@ -43,6 +45,55 @@ public class PortalCategoryServiceImpl extends ServiceImpl<PortalCategoryMapper,
     @Override
     public List<PortalCategory> selectPortalCategoryList(CategoryQuery query) {
         return baseMapper.selectPortalCategoryList(query);
+    }
+
+    /**
+     * 获取树形分类列表
+     *
+     * @param query 查询条件
+     * @return 树形分类列表
+     */
+    @Override
+    public List<PortalCategory> selectPortalCategoryTree(CategoryQuery query) {
+        List<PortalCategory> allCategories = baseMapper.selectPortalCategoryList(query);
+        return buildTree(allCategories);
+    }
+
+    /**
+     * 构建树形结构
+     *
+     * @param categories 分类列表
+     * @return 树形结构
+     */
+    private List<PortalCategory> buildTree(List<PortalCategory> categories) {
+        List<PortalCategory> rootNodes = categories.stream()
+                .filter(c -> c.getParentId() == null || c.getParentId() == 0)
+                .collect(Collectors.toList());
+
+        for (PortalCategory root : rootNodes) {
+            buildChildren(root, categories);
+        }
+
+        return rootNodes;
+    }
+
+    /**
+     * 递归构建子节点
+     *
+     * @param parent 父节点
+     * @param allCategories 所有分类列表
+     */
+    private void buildChildren(PortalCategory parent, List<PortalCategory> allCategories) {
+        List<PortalCategory> children = allCategories.stream()
+                .filter(c -> c.getParentId() != null && c.getParentId().equals(parent.getId()))
+                .collect(Collectors.toList());
+
+        if (!children.isEmpty()) {
+            parent.setChildren(children);
+            for (PortalCategory child : children) {
+                buildChildren(child, allCategories);
+            }
+        }
     }
 
     /**

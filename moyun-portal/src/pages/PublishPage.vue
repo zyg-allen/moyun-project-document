@@ -5,7 +5,7 @@ import {
   ArrowLeft, Image as ImageIcon, Save, Eye, Send, X, 
   List, ListOrdered, Clock, User, Calendar, FileText, Settings,
   Sparkles, Globe, Lock, Tag as TagIcon, BookOpen, 
-  ChevronDown, Check, Type, Plus, ChevronRight
+  ChevronDown, Check, Type, Plus, ChevronRight, Code
 } from 'lucide-vue-next';
 import { addArticle } from '@/data/mockData';
 import { categories as mockCategories } from '@/data/categories';
@@ -19,13 +19,14 @@ import {
   mockCreateTag, 
   mockGetRecommendTags 
 } from '@/api/tag';
-import { getCategoryList } from '@/api/category';
+import { getCategoryList, getCategoryTree } from '@/api/category';
 import { createArticle } from '@/api/article';
 import { useUserStore } from '@/stores/user';
 import { useAuth } from '@/composables/useAuth';
 import type { Tag, Category } from '@/types/api';
 import SiteFooter from '@/components/SiteFooter.vue';
 import QuillEditor from '@/components/QuillEditor.vue';
+import MarkdownEditor from '@/components/MarkdownEditor.vue';
 import { extractExcerpt } from '@/utils/excerpt';
 
 const router = useRouter();
@@ -46,10 +47,22 @@ const tagInput = ref('');
 const excerpt = ref('');
 const coverImage = ref('');
 
-// 分类
+// 分类 - 二级联动
 const categories = ref<Category[]>([]);
-const selectedCategory = ref('');
+const selectedParentCategory = ref<string>('');
+const selectedChildCategory = ref<string>('');
 const loadingCategories = ref(false);
+
+// 获取当前选中的分类ID
+const selectedCategory = computed(() => {
+  return selectedChildCategory.value || selectedParentCategory.value || '';
+});
+
+// 获取当前分类的子分类
+const childCategories = computed(() => {
+  const parent = categories.value.find(c => c.id === selectedParentCategory.value);
+  return parent?.children || [];
+});
 
 // 元信息
 const articleStatus = ref<'draft' | 'published' | 'review'>('draft');
@@ -78,12 +91,6 @@ const articlePassword = ref('');
 
 // 自定义URL
 const customSlug = ref('');
-
-// 高级选项折叠状态
-const showAdvanced = ref(false);
-const showSeoSettings = ref(false);
-const showCommentSettings = ref(false);
-const showPermissionSettings = ref(false);
 
 // 编辑器设置
 const editorMode = ref<'richtext' | 'markdown'>('richtext');
@@ -139,7 +146,7 @@ onMounted(async () => {
 async function loadCategories() {
   loadingCategories.value = true;
   try {
-    const response = await getCategoryList();
+    const response = await getCategoryTree();
     if (response.code === 200 && response.data) {
       categories.value = response.data;
     }
@@ -154,7 +161,8 @@ async function loadCategories() {
       icon: (cat as any).icon,
       articleCount: (cat as any).articleCount,
       sort: 0,
-      createdAt: new Date().toISOString()
+      createdAt: new Date().toISOString(),
+      children: []
     }));
   } finally {
     loadingCategories.value = false;
@@ -216,12 +224,12 @@ async function searchForTags(keyword: string) {
 
 // 获取标签建议
 async function loadTagSuggestions() {
-  if (!title.value.trim() && !selectedCategory.value) {
+  if (!title.value.trim() && !selectedParentCategory.value) {
     return;
   }
   
   try {
-    const response = await getRecommendTags(title.value, selectedCategory.value);
+    const response = await getRecommendTags(title.value, selectedParentCategory.value);
     if (response.code === 200 && response.data) {
       tagSuggestions.value = response.data;
     } else {
@@ -230,7 +238,7 @@ async function loadTagSuggestions() {
   } catch (error) {
     console.error('Failed to load tag suggestions, falling back to mock:', error);
     try {
-      const mockResponse = await mockGetRecommendTags(title.value, selectedCategory.value);
+      const mockResponse = await mockGetRecommendTags(title.value, selectedParentCategory.value);
       if (mockResponse.code === 200) {
         tagSuggestions.value = mockResponse.data;
       }
@@ -277,8 +285,8 @@ async function createAndAddTag(tagName: string) {
 }
 
 // 监听标题和分类变化，更新标签建议
-watch([title, selectedCategory], () => {
-  if (title.value.trim().length > 2 || selectedCategory.value) {
+watch([title, selectedParentCategory], () => {
+  if (title.value.trim().length > 2 || selectedParentCategory.value) {
     loadTagSuggestions();
   }
 });
@@ -675,7 +683,7 @@ const titleLength = computed(() => title.value.length);
                   class="px-3 py-1.5 rounded-md text-sm font-medium transition-colors flex items-center gap-2"
                   :style="editorMode === 'markdown' ? { backgroundColor: 'var(--theme-primary)', color: 'white' } : { color: 'var(--theme-text-secondary)' }"
                 >
-                  <CodeIcon class="w-4 h-4" />
+                  <Code class="w-4 h-4" />
                   Markdown
                 </button>
               </div>
@@ -708,20 +716,11 @@ const titleLength = computed(() => title.value.length);
                 />
 
                 <!-- Markdown编辑模式 -->
-                <textarea 
+                <MarkdownEditor 
                   v-else
-                  v-model="content" 
-                  placeholder="开始写作...
-
-支持的格式：
-# 一级标题
-## 二级标题
-**加粗**
-*斜体*
-- 列表项"
-                  class="w-full h-full min-h-[200px] text-base sm:text-lg rounded-lg border p-3 sm:p-4 resize-vertical focus:outline-none focus:ring-2 font-mono"
-                  style="background-color: var(--theme-surface); color: var(--theme-text); border-color: var(--theme-border);"
-                ></textarea>
+                  v-model="content"
+                  placeholder="开始写作..."
+                />
               </div>
 
               <!-- 摘要区 -->
@@ -764,163 +763,46 @@ const titleLength = computed(() => title.value.length);
                 </div>
               </div>
             </div>
-
-            <!-- 高级选项区 -->
-            <div class="rounded-lg border overflow-hidden" style="background-color: var(--theme-surface); border-color: var(--theme-border);">
-              <button 
-                @click="showAdvanced = !showAdvanced"
-                class="w-full px-3 sm:px-4 py-3 flex items-center justify-between"
-                style="color: var(--theme-text);"
-              >
-                <span class="font-semibold flex items-center gap-2">
-                  <Settings class="w-4 h-4" />
-                  高级选项
-                </span>
-                <ChevronDown 
-                  class="w-5 h-5 transition-transform"
-                  :class="{ 'rotate-180': showAdvanced }"
-                  style="color: var(--theme-text-secondary);"
-                />
-              </button>
-
-              <div v-if="showAdvanced" class="px-3 sm:px-4 pb-4 space-y-3">
-                <!-- SEO设置 -->
-                <div class="border-t pt-3" style="border-color: var(--theme-border);">
-                  <button 
-                    @click="showSeoSettings = !showSeoSettings"
-                    class="flex items-center justify-between w-full mb-2"
-                  >
-                    <span class="font-medium text-sm" style="color: var(--theme-text);">SEO 设置</span>
-                    <ChevronRight class="w-4 h-4" :class="{ 'rotate-90': showSeoSettings }" style="color: var(--theme-text-secondary);" />
-                  </button>
-                  <div v-if="showSeoSettings" class="space-y-2 pl-2">
-                    <div>
-                      <label class="block text-xs mb-1" style="color: var(--theme-text-secondary);">SEO 标题</label>
-                      <input 
-                        v-model="seoTitle" 
-                        type="text" 
-                        placeholder="不填则使用文章标题"
-                        class="w-full px-3 py-2 text-sm rounded-lg border focus:outline-none focus:ring-2"
-                        style="background-color: var(--theme-bg); border-color: var(--theme-border); color: var(--theme-text);"
-                      />
-                    </div>
-                    <div>
-                      <label class="block text-xs mb-1" style="color: var(--theme-text-secondary);">SEO 描述</label>
-                      <textarea 
-                        v-model="seoDescription" 
-                        placeholder="用于搜索引擎展示，建议150字以内"
-                        class="w-full px-3 py-2 text-sm rounded-lg border focus:outline-none resize-none"
-                        rows="2"
-                        style="background-color: var(--theme-bg); border-color: var(--theme-border); color: var(--theme-text);"
-                      ></textarea>
-                    </div>
-                    <div>
-                      <label class="block text-xs mb-1" style="color: var(--theme-text-secondary);">关键词</label>
-                      <input 
-                        v-model="seoKeywords" 
-                        type="text" 
-                        placeholder="用逗号分隔，如：春天,回忆,人生"
-                        class="w-full px-3 py-2 text-sm rounded-lg border focus:outline-none focus:ring-2"
-                        style="background-color: var(--theme-bg); border-color: var(--theme-border); color: var(--theme-text);"
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                <!-- 评论设置 -->
-                <div class="border-t pt-3" style="border-color: var(--theme-border);">
-                  <button 
-                    @click="showCommentSettings = !showCommentSettings"
-                    class="flex items-center justify-between w-full mb-2"
-                  >
-                    <span class="font-medium text-sm" style="color: var(--theme-text);">评论设置</span>
-                    <ChevronRight class="w-4 h-4" :class="{ 'rotate-90': showCommentSettings }" style="color: var(--theme-text-secondary);" />
-                  </button>
-                  <div v-if="showCommentSettings" class="space-y-2 pl-2">
-                    <label class="flex items-center gap-2 cursor-pointer">
-                      <input type="checkbox" v-model="allowComments" class="w-4 h-4 rounded" />
-                      <span class="text-sm" style="color: var(--theme-text);">允许评论</span>
-                    </label>
-                    <label class="flex items-center gap-2 cursor-pointer">
-                      <input type="checkbox" v-model="commentModeration" class="w-4 h-4 rounded" />
-                      <span class="text-sm" style="color: var(--theme-text);">评论需要审核</span>
-                    </label>
-                  </div>
-                </div>
-
-                <!-- 权限设置 -->
-                <div class="border-t pt-3" style="border-color: var(--theme-border);">
-                  <button 
-                    @click="showPermissionSettings = !showPermissionSettings"
-                    class="flex items-center justify-between w-full mb-2"
-                  >
-                    <span class="font-medium text-sm" style="color: var(--theme-text);">权限设置</span>
-                    <ChevronRight class="w-4 h-4" :class="{ 'rotate-90': showPermissionSettings }" style="color: var(--theme-text-secondary);" />
-                  </button>
-                  <div v-if="showPermissionSettings" class="space-y-2 pl-2">
-                    <div class="flex gap-2 flex-wrap">
-                      <label class="flex items-center gap-2 cursor-pointer">
-                        <input type="radio" v-model="visibility" value="public" class="w-4 h-4" />
-                        <Globe class="w-4 h-4" style="color: var(--theme-text-secondary);" />
-                        <span class="text-sm" style="color: var(--theme-text);">公开</span>
-                      </label>
-                      <label class="flex items-center gap-2 cursor-pointer">
-                        <input type="radio" v-model="visibility" value="private" class="w-4 h-4" />
-                        <Lock class="w-4 h-4" style="color: var(--theme-text-secondary);" />
-                        <span class="text-sm" style="color: var(--theme-text);">仅自己</span>
-                      </label>
-                      <label class="flex items-center gap-2 cursor-pointer">
-                        <input type="radio" v-model="visibility" value="password" class="w-4 h-4" />
-                        <span class="text-sm" style="color: var(--theme-text);">密码保护</span>
-                      </label>
-                    </div>
-                    <div v-if="visibility === 'password'">
-                      <input 
-                        v-model="articlePassword" 
-                        type="password" 
-                        placeholder="请输入访问密码"
-                        class="w-full px-3 py-2 text-sm rounded-lg border focus:outline-none focus:ring-2"
-                        style="background-color: var(--theme-bg); border-color: var(--theme-border); color: var(--theme-text);"
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                <!-- 自定义URL -->
-                <div class="border-t pt-3" style="border-color: var(--theme-border);">
-                  <label class="block text-xs mb-1" style="color: var(--theme-text-secondary);">自定义 URL Slug</label>
-                  <input 
-                    v-model="customSlug" 
-                    type="text" 
-                    placeholder="如：my-article-title（用于 SEO 友好链接）"
-                    class="w-full px-3 py-2 text-sm rounded-lg border focus:outline-none focus:ring-2"
-                    style="background-color: var(--theme-bg); border-color: var(--theme-border); color: var(--theme-text);"
-                  />
-                </div>
-              </div>
-            </div>
           </div>
 
-          <!-- 右侧边栏 -->
+          <!-- 右侧边栏 - 分类、标签和高级选项 -->
           <div class="lg:col-span-1 space-y-4">
-            <!-- 分类选择 -->
+            <!-- 分类选择 - 二级联动 -->
             <div class="rounded-lg border p-3 sm:p-4" style="background-color: var(--theme-surface); border-color: var(--theme-border);">
               <h3 class="font-semibold mb-3 flex items-center gap-2" style="color: var(--theme-text);">
                 <List class="w-4 h-4" />
                 分类
               </h3>
               
-              <div>
-                <label class="block text-xs mb-1.5" style="color: var(--theme-text-secondary);">选择分类</label>
-                <select 
-                  v-model="selectedCategory"
-                  class="w-full px-3 py-2 text-sm rounded-lg border focus:outline-none focus:ring-2"
-                  style="background-color: var(--theme-bg); border-color: var(--theme-border); color: var(--theme-text);"
-                >
-                  <option value="">请选择分类</option>
-                  <option v-for="cat in categories" :key="cat.id" :value="cat.id">{{ cat.name }}</option>
-                </select>
-                <div v-if="loadingCategories" class="mt-2 text-xs" style="color: var(--theme-text-secondary);">
+              <div class="space-y-3">
+                <!-- 一级分类 -->
+                <div>
+                  <label class="block text-xs mb-1.5" style="color: var(--theme-text-secondary);">一级分类</label>
+                  <select 
+                    v-model="selectedParentCategory"
+                    @change="selectedChildCategory = ''"
+                    class="w-full px-3 py-2 text-sm rounded-lg border focus:outline-none focus:ring-2"
+                    style="background-color: var(--theme-bg); border-color: var(--theme-border); color: var(--theme-text);"
+                  >
+                    <option value="">请选择一级分类</option>
+                    <option v-for="cat in categories" :key="cat.id" :value="cat.id">{{ cat.name }}</option>
+                  </select>
+                </div>
+                
+                <!-- 二级分类 - 只有选择了一级分类后才显示 -->
+                <div v-if="selectedParentCategory && childCategories.length > 0">
+                  <label class="block text-xs mb-1.5" style="color: var(--theme-text-secondary);">二级分类</label>
+                  <select 
+                    v-model="selectedChildCategory"
+                    class="w-full px-3 py-2 text-sm rounded-lg border focus:outline-none focus:ring-2"
+                    style="background-color: var(--theme-bg); border-color: var(--theme-border); color: var(--theme-text);"
+                  >
+                    <option value="">请选择二级分类（可选）</option>
+                    <option v-for="child in childCategories" :key="child.id" :value="child.id">{{ child.name }}</option>
+                  </select>
+                </div>
+                
+                <div v-if="loadingCategories" class="text-xs" style="color: var(--theme-text-secondary);">
                   加载中...
                 </div>
               </div>
@@ -1054,36 +936,137 @@ const titleLength = computed(() => title.value.length);
               </button>
             </div>
 
-            <!-- 发布设置 -->
-            <div class="rounded-lg border p-3 sm:p-4" style="background-color: var(--theme-surface); border-color: var(--theme-border);">
-              <h3 class="font-semibold mb-3 flex items-center gap-2" style="color: var(--theme-text);">
-                <Send class="w-4 h-4" />
-                发布设置
-              </h3>
-              <div class="space-y-3">
-                <div class="flex items-center justify-between">
-                  <label class="text-sm" style="color: var(--theme-text-secondary);">允许评论</label>
-                  <button
-                    @click="allowComments = !allowComments"
-                    class="relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-offset-2"
-                    :style="{ backgroundColor: allowComments ? 'var(--theme-primary)' : 'var(--theme-border)' }"
+            <!-- 高级选项区 - 移到这里 -->
+            <div class="rounded-lg border overflow-hidden" style="background-color: var(--theme-surface); border-color: var(--theme-border);">
+              <button 
+                @click="showAdvanced = !showAdvanced"
+                class="w-full px-3 sm:px-4 py-3 flex items-center justify-between"
+                style="color: var(--theme-text);"
+              >
+                <span class="font-semibold flex items-center gap-2">
+                  <Settings class="w-4 h-4" />
+                  高级选项
+                </span>
+                <ChevronDown 
+                  class="w-5 h-5 transition-transform"
+                  :class="{ 'rotate-180': showAdvanced }"
+                  style="color: var(--theme-text-secondary);"
+                />
+              </button>
+
+              <div v-if="showAdvanced" class="px-3 sm:px-4 pb-4 space-y-3">
+                <!-- SEO设置 -->
+                <div class="border-t pt-3" style="border-color: var(--theme-border);">
+                  <button 
+                    @click="showSeoSettings = !showSeoSettings"
+                    class="flex items-center justify-between w-full mb-2"
                   >
-                    <span
-                      class="pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out"
-                      :style="{ transform: allowComments ? 'translateX(1rem)' : 'translateX(0)' }"
-                    ></span>
+                    <span class="font-medium text-sm" style="color: var(--theme-text);">SEO 设置</span>
+                    <ChevronRight class="w-4 h-4" :class="{ 'rotate-90': showSeoSettings }" style="color: var(--theme-text-secondary);" />
                   </button>
+                  <div v-if="showSeoSettings" class="space-y-2 pl-2">
+                    <div>
+                      <label class="block text-xs mb-1" style="color: var(--theme-text-secondary);">SEO 标题</label>
+                      <input 
+                        v-model="seoTitle" 
+                        type="text" 
+                        placeholder="不填则使用文章标题"
+                        class="w-full px-3 py-2 text-sm rounded-lg border focus:outline-none focus:ring-2"
+                        style="background-color: var(--theme-bg); border-color: var(--theme-border); color: var(--theme-text);"
+                      />
+                    </div>
+                    <div>
+                      <label class="block text-xs mb-1" style="color: var(--theme-text-secondary);">SEO 描述</label>
+                      <textarea 
+                        v-model="seoDescription" 
+                        placeholder="用于搜索引擎展示，建议150字以内"
+                        class="w-full px-3 py-2 text-sm rounded-lg border focus:outline-none resize-none"
+                        rows="2"
+                        style="background-color: var(--theme-bg); border-color: var(--theme-border); color: var(--theme-text);"
+                      ></textarea>
+                    </div>
+                    <div>
+                      <label class="block text-xs mb-1" style="color: var(--theme-text-secondary);">关键词</label>
+                      <input 
+                        v-model="seoKeywords" 
+                        type="text" 
+                        placeholder="用逗号分隔，如：春天,回忆,人生"
+                        class="w-full px-3 py-2 text-sm rounded-lg border focus:outline-none focus:ring-2"
+                        style="background-color: var(--theme-bg); border-color: var(--theme-border); color: var(--theme-text);"
+                      />
+                    </div>
+                  </div>
                 </div>
-                <div>
-                  <label class="block text-sm mb-2" style="color: var(--theme-text-secondary);">可见性</label>
-                  <select
-                    v-model="visibility"
+
+                <!-- 评论设置 -->
+                <div class="border-t pt-3" style="border-color: var(--theme-border);">
+                  <button 
+                    @click="showCommentSettings = !showCommentSettings"
+                    class="flex items-center justify-between w-full mb-2"
+                  >
+                    <span class="font-medium text-sm" style="color: var(--theme-text);">评论设置</span>
+                    <ChevronRight class="w-4 h-4" :class="{ 'rotate-90': showCommentSettings }" style="color: var(--theme-text-secondary);" />
+                  </button>
+                  <div v-if="showCommentSettings" class="space-y-2 pl-2">
+                    <label class="flex items-center gap-2 cursor-pointer">
+                      <input type="checkbox" v-model="allowComments" class="w-4 h-4 rounded" />
+                      <span class="text-sm" style="color: var(--theme-text);">允许评论</span>
+                    </label>
+                    <label class="flex items-center gap-2 cursor-pointer">
+                      <input type="checkbox" v-model="commentModeration" class="w-4 h-4 rounded" />
+                      <span class="text-sm" style="color: var(--theme-text);">评论需要审核</span>
+                    </label>
+                  </div>
+                </div>
+
+                <!-- 权限设置 -->
+                <div class="border-t pt-3" style="border-color: var(--theme-border);">
+                  <button 
+                    @click="showPermissionSettings = !showPermissionSettings"
+                    class="flex items-center justify-between w-full mb-2"
+                  >
+                    <span class="font-medium text-sm" style="color: var(--theme-text);">权限设置</span>
+                    <ChevronRight class="w-4 h-4" :class="{ 'rotate-90': showPermissionSettings }" style="color: var(--theme-text-secondary);" />
+                  </button>
+                  <div v-if="showPermissionSettings" class="space-y-2 pl-2">
+                    <div class="flex gap-2 flex-wrap">
+                      <label class="flex items-center gap-2 cursor-pointer">
+                        <input type="radio" v-model="visibility" value="public" class="w-4 h-4" />
+                        <Globe class="w-4 h-4" style="color: var(--theme-text-secondary);" />
+                        <span class="text-sm" style="color: var(--theme-text);">公开</span>
+                      </label>
+                      <label class="flex items-center gap-2 cursor-pointer">
+                        <input type="radio" v-model="visibility" value="private" class="w-4 h-4" />
+                        <Lock class="w-4 h-4" style="color: var(--theme-text-secondary);" />
+                        <span class="text-sm" style="color: var(--theme-text);">仅自己</span>
+                      </label>
+                      <label class="flex items-center gap-2 cursor-pointer">
+                        <input type="radio" v-model="visibility" value="password" class="w-4 h-4" />
+                        <span class="text-sm" style="color: var(--theme-text);">密码保护</span>
+                      </label>
+                    </div>
+                    <div v-if="visibility === 'password'">
+                      <input 
+                        v-model="articlePassword" 
+                        type="password" 
+                        placeholder="请输入访问密码"
+                        class="w-full px-3 py-2 text-sm rounded-lg border focus:outline-none focus:ring-2"
+                        style="background-color: var(--theme-bg); border-color: var(--theme-border); color: var(--theme-text);"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <!-- 自定义URL -->
+                <div class="border-t pt-3" style="border-color: var(--theme-border);">
+                  <label class="block text-xs mb-1" style="color: var(--theme-text-secondary);">自定义 URL Slug</label>
+                  <input 
+                    v-model="customSlug" 
+                    type="text" 
+                    placeholder="如：my-article-title（用于 SEO 友好链接）"
                     class="w-full px-3 py-2 text-sm rounded-lg border focus:outline-none focus:ring-2"
                     style="background-color: var(--theme-bg); border-color: var(--theme-border); color: var(--theme-text);"
-                  >
-                    <option value="public">公开</option>
-                    <option value="private">私密</option>
-                  </select>
+                  />
                 </div>
               </div>
             </div>

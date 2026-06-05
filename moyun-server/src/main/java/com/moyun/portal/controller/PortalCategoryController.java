@@ -5,6 +5,7 @@ import com.moyun.common.annotation.Log;
 import com.moyun.core.base.BaseController;
 import com.moyun.core.base.AjaxResult;
 import com.moyun.common.enums.BusinessType;
+import com.moyun.common.annotation.Anonymous;
 import com.moyun.util.bean.PageUtils;
 import com.moyun.util.file.ExcelUtil;
 import com.moyun.portal.domain.entity.PortalCategory;
@@ -32,6 +33,22 @@ public class PortalCategoryController extends BaseController {
     @GetMapping("/list")
     public AjaxResult getAllCategories(CategoryQuery query) {
         List<PortalCategory> list = portalCategoryService.selectPortalCategoryList(query);
+        return success(list);
+    }
+
+    @Operation(summary = "获取树形分类列表", description = "获取树形结构的分类")
+    @GetMapping("/tree")
+    public AjaxResult getCategoryTree(CategoryQuery query) {
+        List<PortalCategory> list = portalCategoryService.selectPortalCategoryTree(query);
+        return success(list);
+    }
+
+    @Anonymous
+    @Operation(summary = "获取公开树形分类列表", description = "获取公开的树形分类")
+    @GetMapping("/public/tree")
+    public AjaxResult getPublicCategoryTree(CategoryQuery query) {
+        query.setStatus("0");
+        List<PortalCategory> list = portalCategoryService.selectPortalCategoryTree(query);
         return success(list);
     }
 

@@ -64,16 +64,6 @@ const routes = [
     meta: { title: '面试', isPublic: true }
   },
   {
-    path: '/reading',
-    name: 'reading',
-    component: ReadingPage,
-  },
-  {
-    path: '/interview',
-    name: 'interview',
-    component: InterviewPage,
-  },
-  {
     path: '/article/:id',
     name: 'article',
     component: ArticleDetailPage,

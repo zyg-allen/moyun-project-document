@@ -150,4 +150,54 @@ public class PortalCategoryServiceImpl extends ServiceImpl<PortalCategoryMapper,
     public int deletePortalCategoryByIds(Long[] ids) {
         return portalCategoryMapper.deletePortalCategoryByIds(ids);
     }
+
+    /**
+     * 获取分类的完整路径ID列表（从根到当前）
+     *
+     * @param categoryId 分类ID
+     * @return 分类ID列表
+     */
+    @Override
+    public List<Long> getCategoryPathIds(Long categoryId) {
+        if (categoryId == null) {
+            return new ArrayList<>();
+        }
+        return portalCategoryMapper.selectCategoryAncestorIds(categoryId);
+    }
+
+    /**
+     * 获取分类的路径字符串（逗号分隔）
+     *
+     * @param categoryId 分类ID
+     * @return 路径字符串，例如：1,3,5
+     */
+    @Override
+    public String getCategoryPath(Long categoryId) {
+        if (categoryId == null) {
+            return null;
+        }
+        List<Long> ids = getCategoryPathIds(categoryId);
+        if (ids.isEmpty()) {
+            return null;
+        }
+        return ids.stream().map(String::valueOf).collect(Collectors.joining(","));
+    }
+
+    /**
+     * 获取顶级分类ID
+     *
+     * @param categoryId 分类ID
+     * @return 顶级分类ID
+     */
+    @Override
+    public Long getRootCategoryId(Long categoryId) {
+        if (categoryId == null) {
+            return null;
+        }
+        List<Long> ids = getCategoryPathIds(categoryId);
+        if (ids.isEmpty()) {
+            return categoryId;
+        }
+        return ids.get(0);
+    }
 }

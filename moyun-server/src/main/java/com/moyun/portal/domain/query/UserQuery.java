@@ -52,6 +52,12 @@ public class UserQuery extends PageDomain {
     private String status;
 
     /**
+     * 删除标志
+     */
+    @Schema(description = "删除标志", example = "0")
+    private String delFlag;
+
+    /**
      * 开始时间
      */
     @Schema(description = "开始时间", example = "2024-01-01")

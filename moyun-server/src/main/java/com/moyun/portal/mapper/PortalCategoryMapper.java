@@ -73,4 +73,12 @@ public interface PortalCategoryMapper extends BaseMapper<PortalCategory> {
      * @return 结果
      */
     public int deletePortalCategoryByIds(Long[] ids);
+
+    /**
+     * 获取分类的所有祖先ID（包括自身），按从根到当前的顺序排列
+     *
+     * @param categoryId 分类ID
+     * @return 分类ID列表
+     */
+    List<Long> selectCategoryAncestorIds(Long categoryId);
 }

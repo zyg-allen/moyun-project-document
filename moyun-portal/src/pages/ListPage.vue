@@ -38,6 +38,7 @@ interface Article {
 const route = useRoute();
 const selectedCategory = ref('全部');
 const sortBy = ref('最新');
+const isCategoryRecommended = ref(false); // 是否只显示分类推荐
 const allArticles = ref<Article[]>([]);
 const currentPage = ref(1);
 const itemsPerPage = ref(10);
@@ -69,12 +70,14 @@ const transformArticle = (apiArticle: any): Article => {
 
 onMounted(() => {
   selectedCategory.value = (route.query.category as string) || '全部';
+  isCategoryRecommended.value = route.query.categoryRecommended === 'true';
   currentPage.value = 1;
   loadArticles();
 });
 
 watch(() => route.query, (newQuery) => {
   selectedCategory.value = (newQuery.category as string) || '全部';
+  isCategoryRecommended.value = newQuery.categoryRecommended === 'true';
   currentPage.value = 1;
   loadArticles();
 }, { deep: true });
@@ -92,15 +95,42 @@ const breadcrumbs = computed(() => {
   return items;
 });
 
+const pageTitle = computed(() => {
+  let title = '文章列表';
+  if (selectedCategory.value && selectedCategory.value !== '全部') {
+    title = isCategoryRecommended.value 
+      ? `${selectedCategory.value} · 本栏推荐` 
+      : selectedCategory.value;
+  } else if (isCategoryRecommended.value) {
+    title = '本栏推荐';
+  }
+  return title;
+});
+
+const pageDescription = computed(() => {
+  let desc = '浏览所有文章';
+  if (selectedCategory.value && selectedCategory.value !== '全部') {
+    if (isCategoryRecommended.value) {
+      desc = `浏览${selectedCategory.value}分类下的推荐文章`;
+    } else {
+      desc = `浏览${selectedCategory.value}分类下的所有文章`;
+    }
+  } else if (isCategoryRecommended.value) {
+    desc = '浏览所有分类的推荐文章';
+  }
+  return desc;
+});
+
 async function loadArticles() {
   try {
     loading.value = true;
     error.value = null;
     
     const params: any = {
-      page: currentPage.value,
+      pageNum: currentPage.value,
       pageSize: itemsPerPage.value,
-      category: selectedCategory.value !== '全部' ? selectedCategory.value : undefined
+      categoryName: selectedCategory.value !== '全部' ? selectedCategory.value : undefined,
+      isCategoryRecommended: isCategoryRecommended.value ? true : undefined
     };
     
     const response = await getArticleList(params);
@@ -137,18 +167,10 @@ function handlePageChange(page: number) {
 // SEO - 动态更新
 useHead(
   computed(() => {
-    let title = '文章列表'
-    let description = '浏览所有文章'
-    
-    if (selectedCategory.value && selectedCategory.value !== '全部') {
-      title = selectedCategory.value
-      description = `浏览${selectedCategory.value}分类下的所有文章`
-    }
-    
     return generateSeo({
-      title,
-      description,
-      keywords: [selectedCategory.value, '文章', '分类'],
+      title: pageTitle.value,
+      description: pageDescription.value,
+      keywords: [selectedCategory.value, isCategoryRecommended.value ? '推荐' : '', '文章', '分类'],
       type: 'website'
     })
   })
@@ -179,8 +201,20 @@ useHead(
       </div>
     </div>
 
+    <!-- 页面标题 -->
+    <div class="py-6" style="background-color: var(--theme-bg);">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="flex items-center gap-3">
+          <h1 class="text-2xl font-bold" style="color: var(--theme-text);">{{ pageTitle }}</h1>
+          <span v-if="isCategoryRecommended" class="px-2 py-1 text-xs rounded-full" style="background-color: var(--theme-primary); color: white;">
+            本栏推荐
+          </span>
+        </div>
+      </div>
+    </div>
+
     <!-- 文章列表 -->
-    <div class="py-8 flex-1">
+    <div class="py-4 flex-1">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <!-- 文章卡片列表 -->
         <div v-if="paginatedArticles.length > 0" class="space-y-4 sm:space-y-6 mb-6">

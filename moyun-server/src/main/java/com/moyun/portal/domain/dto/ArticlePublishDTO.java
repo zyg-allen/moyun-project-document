@@ -45,10 +45,10 @@ public class ArticlePublishDTO implements Serializable {
     private String excerpt;
 
     /**
-     * 封面图片URL
+     * 封面图片URL或Base64
      */
-    @Size(max = 500, message = "封面URL长度不能超过500个字符")
-    @Schema(description = "封面图片URL", example = "https://example.com/cover.jpg")
+    @Size(max = 10485760, message = "封面长度不能超过10MB")
+    @Schema(description = "封面图片URL或Base64", example = "https://example.com/cover.jpg")
     private String cover;
 
     /**

@@ -211,3 +211,18 @@ ruoyi:
   importPath: /profile/import
   # 验证码类型 math 数字计算 char 字符验证
   captchaType: math
+
+# MinIO文件存储配置
+minio:
+  # 是否启用MinIO，false表示使用本地存储
+  enabled: true
+  # MinIO服务地址
+  endpoint: http://127.0.0.1:9000
+  # MinIO accessKey
+  access-key: admin123
+  # MinIO secretKey
+  secret-key: admin123
+  # 存储桶名称
+  bucket-name: moyun
+  # 访问地址（可选，用于生成文件访问，默认使用endpoint）
+  access-url: http://127.0.0.1:9000

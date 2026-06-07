@@ -63,6 +63,13 @@ const request = async <T>(
     headers,
   });
 
+  // 处理401未授权
+  if (response.status === 401) {
+    removeToken();
+    window.location.href = '/login';
+    throw new Error('登录已过期，请重新登录');
+  }
+
   const data: BackendResponse<T> = await response.json();
 
   // 转换响应格式：msg -> message

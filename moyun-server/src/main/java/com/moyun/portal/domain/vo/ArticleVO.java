@@ -88,6 +88,18 @@ public class ArticleVO implements Serializable {
     private Long categoryId;
 
     /**
+     * 顶级分类ID
+     */
+    @Schema(description = "顶级分类ID", example = "1")
+    private Long rootCategoryId;
+
+    /**
+     * 分类路径
+     */
+    @Schema(description = "分类路径", example = "1,3,5")
+    private String categoryPath;
+
+    /**
      * 分类名称
      */
     @Schema(description = "分类名称", example = "技术")

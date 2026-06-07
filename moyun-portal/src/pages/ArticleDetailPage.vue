@@ -363,104 +363,107 @@ const head = useHead(
         <!-- Article exists - show content -->
         <template v-if="article">
           <article
-              class="rounded-xl mb-4 min-h-[400px] sm:min-h-[500px] md:min-h-[600px] w-full"
+              class="rounded-xl mb-4 min-h-[80vh] w-full"
               style="background-color: var(--theme-surface); border: 1px solid var(--theme-border);"
               role="article"
               :aria-labelledby="'article-title-' + article.id"
           >
-            <div class="p-4 sm:p-6 md:p-8 w-full">
+            <div class="p-4 sm:p-6 md:p-8 w-full flex flex-col min-h-[80vh]">
 
-              <div class="text-center mb-6">
+              <!-- 标题区域 - 紧凑 -->
+              <div class="text-center mb-2">
                 <h1
                     :id="'article-title-' + article.id"
-                    class="text-xl md:text-2xl lg:text-3xl font-bold leading-tight"
+                    class="text-lg md:text-xl lg:text-2xl font-bold leading-tight"
                     style="color: var(--theme-text);"
                 >
                   {{ article.title }}
                 </h1>
               </div>
 
-              <div class="flex items-center gap-4 py-4 border-b mb-6 overflow-x-auto justify-end" style="border-color: var(--theme-border);">
+              <!-- 作者和标签信息行 - 紧凑 -->
+              <div class="flex items-center gap-2 pb-2 mb-2 border-b overflow-x-auto justify-between flex-wrap" style="border-color: var(--theme-border);">
                 <Link
                     v-if="articleAuthor"
                     :to="`/author/${articleAuthor.id || article?.authorId}`"
-                    class="flex items-center gap-3 hover:opacity-80 transition-opacity flex-shrink-0"
+                    class="flex items-center gap-2 hover:opacity-80 transition-opacity flex-shrink-0"
                 >
                   <img
                       :src="articleAuthor.avatar"
                       :alt="articleAuthor.username"
-                      class="w-10 h-10 rounded-full"
+                      class="w-8 h-8 rounded-full"
                       loading="lazy"
                   />
-                  <span class="font-medium text-base whitespace-nowrap" style="color: var(--theme-text);">{{ articleAuthor.nickname || articleAuthor.username }}</span>
+                  <span class="font-medium text-sm whitespace-nowrap" style="color: var(--theme-text);">{{ articleAuthor.nickname || articleAuthor.username }}</span>
                 </Link>
 
-                <div class="flex items-center gap-3 text-sm flex-shrink-0" style="color: var(--theme-text-secondary);">
+                <div class="flex items-center gap-2 text-xs flex-shrink-0" style="color: var(--theme-text-secondary);">
                   <span>{{ articleDate }}</span>
                   <span>·</span>
                   <span>{{ articleViews }} 阅读</span>
                 </div>
 
-                <div v-if="articleTags.length > 0" class="flex items-center gap-2 flex-1 min-w-0 justify-end" role="list" aria-label="文章标签">
-                <span
-                    v-for="tag in articleTags"
-                    :key="tag"
-                    class="inline-flex px-3 py-1 text-sm rounded-full whitespace-nowrap"
-                    style="background-color: var(--theme-accent); color: var(--theme-primary);"
-                    role="listitem"
-                >
-                  {{ tag }}
-                </span>
+                <div v-if="articleTags.length > 0" class="flex items-center gap-1 flex-1 min-w-0 justify-end" role="list" aria-label="文章标签">
+                  <span
+                      v-for="tag in articleTags"
+                      :key="tag"
+                      class="inline-flex px-2 py-0.5 text-xs rounded-full whitespace-nowrap"
+                      style="background-color: var(--theme-accent); color: var(--theme-primary);"
+                      role="listitem"
+                  >
+                    {{ tag }}
+                  </span>
                 </div>
               </div>
 
-              <MarkdownRenderer
-                  :content="article.content"
-                  :content-markdown="article.contentMarkdown"
-                  :editor-mode="article.editorMode"
-              />
+              <!-- 内容区域 - 自适应 -->
+              <div class="flex-1 py-4">
+                <MarkdownRenderer
+                    :content="article.content"
+                    :content-markdown="article.contentMarkdown"
+                    :editor-mode="article.editorMode"
+                />
+              </div>
 
-              <div class="flex items-center justify-between pt-3 mt-3 border-t gap-2" style="border-color: var(--theme-border);">
-                <div class="flex items-center gap-2">
+              <!-- 互动区域 - 紧凑 -->
+              <div class="flex items-center justify-between pt-2 mt-auto border-t gap-2 flex-wrap" style="border-color: var(--theme-border);">
+                <div class="flex items-center gap-1">
                   <button
                       @click="handleLike"
-                      class="flex items-center gap-1.5 px-3 py-1.5 rounded-full transition-all focus:outline-none text-sm"
+                      class="flex items-center gap-0.5 px-1.5 py-0.5 rounded-full transition-all focus:outline-none text-xs"
                       :style="getLikeButtonStyle()"
                       :aria-pressed="isLiked"
                       :aria-label="isLiked ? '取消点赞' : '点赞文章'"
                   >
-                    <Heart class="w-4 h-4" :class="{ 'fill-current': isLiked }" aria-hidden="true" />
+                    <Heart class="w-3 h-3" :class="{ 'fill-current': isLiked }" aria-hidden="true" />
                     <span class="font-medium">{{ articleLikes }}</span>
                   </button>
                   <button
                       @click="handleBookmark"
-                      class="flex items-center gap-1.5 px-3 py-1.5 rounded-full transition-all focus:outline-none text-sm"
+                      class="flex items-center gap-0.5 px-1.5 py-0.5 rounded-full transition-all focus:outline-none text-xs"
                       :style="getBookmarkButtonStyle()"
                       :aria-pressed="isBookmarked"
                       :aria-label="isBookmarked ? '取消收藏' : '收藏文章'"
                   >
-                    <Bookmark class="w-4 h-4" :class="{ 'fill-current': isBookmarked }" aria-hidden="true" />
-                    <span class="font-medium">收藏</span>
+                    <Bookmark class="w-3 h-3" :class="{ 'fill-current': isBookmarked }" aria-hidden="true" />
+                    <span class="font-medium">藏</span>
                   </button>
                   <button
                       @click="handleShare"
-                      class="flex items-center gap-1.5 px-3 py-1.5 rounded-full transition-colors focus:outline-none text-sm"
+                      class="flex items-center gap-0.5 px-1.5 py-0.5 rounded-full transition-colors focus:outline-none text-xs"
                       style="background-color: var(--theme-surface); color: var(--theme-text-secondary);"
                       :aria-label="'分享文章'"
                   >
-                    <Share2 class="w-4 h-4" aria-hidden="true" />
+                    <Share2 class="w-3 h-3" aria-hidden="true" />
                     <span class="font-medium">{{ articleShareCount }}</span>
                   </button>
-                </div>
-                <div class="text-xs" style="color: var(--theme-text-secondary);">
-                  {{ articleUpdateDate }}
                 </div>
               </div>
             </div>
           </article>
 
           <section class="rounded-xl p-4 sm:p-6 md:p-8 mb-4" style="background-color: var(--theme-surface); border: 1px solid var(--theme-border);" aria-labelledby="comments-heading">
-            <h2 id="comments-heading" class="text-lg font-bold mb-6 flex items-center space-x-3" style="color: var(--theme-text);">
+            <h2 id="comments-heading" class="text-lg font-bold mb-4 flex items-center space-x-3" style="color: var(--theme-text);">
               <MessageSquare class="w-6 h-6" style="color: var(--theme-primary);" aria-hidden="true" />
               <span>评论 ({{ totalCommentsCount }})</span>
             </h2>

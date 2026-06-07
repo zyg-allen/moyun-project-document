@@ -77,4 +77,28 @@ public interface IPortalCategoryService {
      * @return 结果
      */
     public int deletePortalCategoryByIds(Long[] ids);
+
+    /**
+     * 获取分类的完整路径ID列表（从根到当前）
+     *
+     * @param categoryId 分类ID
+     * @return 分类ID列表
+     */
+    List<Long> getCategoryPathIds(Long categoryId);
+
+    /**
+     * 获取分类的路径字符串（逗号分隔）
+     *
+     * @param categoryId 分类ID
+     * @return 路径字符串，例如：1,3,5
+     */
+    String getCategoryPath(Long categoryId);
+
+    /**
+     * 获取顶级分类ID
+     *
+     * @param categoryId 分类ID
+     * @return 顶级分类ID
+     */
+    Long getRootCategoryId(Long categoryId);
 }

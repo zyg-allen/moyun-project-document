@@ -361,6 +361,45 @@ export interface UploadFileResponse {
   mimeType: string;
 }
 
+// 文件管理相关类型
+export interface FileInfo {
+  id: string;
+  fileName: string;
+  fileExt?: string;
+  fileType?: string;
+  fileSize?: number;
+  fileUrl: string;
+  filePath?: string;
+  storageType?: string;
+  bucketName?: string;
+  objectName?: string;
+  fileMd5?: string;
+  uploadUserId?: string;
+  uploadUserName?: string;
+  status?: string;
+  businessType?: string;
+  businessId?: string;
+  createTime?: string;
+  updateTime?: string;
+}
+
+export interface FileListParams {
+  page?: number;
+  pageSize?: number;
+  fileName?: string;
+  fileType?: string;
+  storageType?: string;
+  businessType?: string;
+  businessId?: string;
+  status?: string;
+}
+
+export interface UploadFileParams {
+  file: File;
+  businessType?: string;
+  businessId?: string;
+}
+
 // 通知相关类型
 export interface Notification {
   id: string;

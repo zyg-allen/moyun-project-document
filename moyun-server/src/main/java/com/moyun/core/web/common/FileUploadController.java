@@ -7,6 +7,7 @@ import com.moyun.core.base.AjaxResult;
 import com.moyun.core.config.ServerConfig;
 import com.moyun.util.file.FileUploadUtils;
 import com.moyun.util.file.FileUtils;
+import com.moyun.util.file.MinioUtils;
 import com.moyun.util.string.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -25,17 +26,30 @@ public class FileUploadController {
     @Autowired
     private ServerConfig serverConfig;
 
+    @Autowired
+    private MinioUtils minioUtils;
+
     @Anonymous
     @PostMapping("/upload")
     @SuppressWarnings("DuplicatedCode")
     public AjaxResult uploadFile(MultipartFile file) {
         try {
             log.info("文件 {} 上传中...", file.getOriginalFilename());
-            // 上传文件路径
-            String filePath = RuoYiConfig.getUploadPath();
-            // 上传并返回新文件名称
-            String fileName = FileUploadUtils.upload(filePath, file);
-            String url = serverConfig.getUrl() + fileName;
+
+            String url;
+            String fileName;
+
+            // 判断是否启用MinIO
+            if (minioUtils.isEnabled()) {
+                url = minioUtils.uploadFile(file);
+                fileName = url;
+            } else {
+                // 本地存储
+                String filePath = RuoYiConfig.getUploadPath();
+                fileName = FileUploadUtils.upload(filePath, file);
+                url = serverConfig.getUrl() + fileName;
+            }
+
             AjaxResult ajax = AjaxResult.success();
             ajax.put("url", url);
             ajax.put("fileName", fileName);

@@ -1,17 +1,15 @@
 package com.moyun.portal.domain.entity;
 
 import com.baomidou.mybatisplus.annotation.IdType;
+import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
 import com.fasterxml.jackson.annotation.JsonFormat;
 import com.moyun.core.base.BaseEntity;
-import com.moyun.core.base.page.PageDomain;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import lombok.Data;
-import org.apache.commons.lang3.builder.ToStringBuilder;
-import org.apache.commons.lang3.builder.ToStringStyle;
 
 import java.time.LocalDateTime;
 
@@ -33,13 +31,29 @@ public class PortalArticle extends BaseEntity
     @Size(min = 0, max = 1000, message = "文章摘要长度不能超过1000个字符")
     private String excerpt;
 
-    @Size(min = 0, max = 500, message = "封面URL长度不能超过500个字符")
+    @Size(min = 0, max = 10485760, message = "封面长度不能超过10MB")
     private String cover;
 
-    @NotNull(message = "作者ID不能为空")
     private Long authorId;
 
     private Long categoryId;
+
+    /**
+     * 顶级分类ID
+     */
+    private Long rootCategoryId;
+
+    /**
+     * 分类路径，用逗号分隔，包含所有祖先分类ID，例如：1,3,5
+     */
+    @Size(min = 0, max = 500, message = "分类路径长度不能超过500个字符")
+    private String categoryPath;
+
+    @TableField(exist = false)
+    private String categoryName;
+
+    @TableField(exist = false)
+    private String categorySlug;
 
     @Size(min = 0, max = 20, message = "状态长度不能超过20个字符")
     private String status;
@@ -49,6 +63,8 @@ public class PortalArticle extends BaseEntity
     private Boolean isTop;
 
     private Boolean isCarousel;
+
+    private Boolean isCategoryRecommended;
 
     private Long views;
 

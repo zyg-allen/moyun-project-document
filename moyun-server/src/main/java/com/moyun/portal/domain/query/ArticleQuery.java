@@ -34,6 +34,12 @@ public class ArticleQuery extends PageDomain {
     private Long categoryId;
 
     /**
+     * 顶级分类ID
+     */
+    @Schema(description = "顶级分类ID", example = "1")
+    private Long rootCategoryId;
+
+    /**
      * 分类名称（模糊查询）
      */
     @Schema(description = "分类名称", example = "技术")
@@ -62,6 +68,12 @@ public class ArticleQuery extends PageDomain {
      */
     @Schema(description = "是否轮播", example = "false")
     private Boolean isCarousel;
+
+    /**
+     * 是否栏目推荐
+     */
+    @Schema(description = "是否栏目推荐", example = "false")
+    private Boolean isCategoryRecommended;
 
     /**
      * 开始时间

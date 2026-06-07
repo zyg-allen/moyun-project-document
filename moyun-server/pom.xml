@@ -88,8 +88,7 @@
         </dependency>
 
         <!-- velocity代码生成使用模板 -->
-        <dependency>
-            <groupId>org.apache.velocity</groupId>
+        <dependency>            <groupId>org.apache.velocity</groupId>
             <artifactId>velocity-engine-core</artifactId>
             <version>${velocity.version}</version>
         </dependency>
@@ -251,6 +250,13 @@
             <groupId>com.googlecode.aviator</groupId>
             <artifactId>aviator</artifactId>
             <version>${aviator.version}</version>
+        </dependency>
+
+        <!-- MinIO 依赖 -->
+        <dependency>
+            <groupId>io.minio</groupId>
+            <artifactId>minio</artifactId>
+            <version>8.5.12</version>
         </dependency>
 
     </dependencies>

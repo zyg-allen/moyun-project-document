@@ -11,6 +11,16 @@
           @keyup.enter="handleQuery"
         />
       </el-form-item>
+      <el-form-item label="顶级分类" prop="rootCategoryId">
+        <el-select v-model="queryParams.rootCategoryId" placeholder="请选择顶级分类" clearable style="width: 200px">
+          <el-option
+            v-for="item in rootCategoryOptions"
+            :key="item.id"
+            :label="item.name"
+            :value="item.id"
+          />
+        </el-select>
+      </el-form-item>
       <el-form-item label="分类" prop="categoryId">
         <el-select v-model="queryParams.categoryId" placeholder="请选择分类" clearable style="width: 200px">
           <el-option
@@ -146,6 +156,7 @@ const router = useRouter();
 // 表格数据
 const articleList = ref([]);
 const categoryOptions = ref([]);
+const rootCategoryOptions = ref([]);
 const loading = ref(true);
 const showSearch = ref(true);
 const ids = ref([]);
@@ -170,6 +181,7 @@ const queryParams = reactive({
   pageNum: 1,
   pageSize: 10,
   title: undefined,
+  rootCategoryId: undefined,
   categoryId: undefined,
   status: undefined
 });
@@ -208,6 +220,8 @@ function getList() {
 function getCategoryList() {
   listCategory({ pageNum: 1, pageSize: 100 }).then(response => {
     categoryOptions.value = response.rows || [];
+    // 筛选出顶级分类（parentId 为空或 0）
+    rootCategoryOptions.value = categoryOptions.value.filter(item => !item.parentId || item.parentId === 0);
   });
 }
 

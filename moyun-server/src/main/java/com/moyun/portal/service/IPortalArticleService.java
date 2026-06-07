@@ -70,4 +70,12 @@ public interface IPortalArticleService extends IService<PortalArticle> {
      * @return 结果
      */
     int deletePortalArticleByIds(Long[] ids);
+
+    /**
+     * 前台发布文章（带自动发布逻辑）
+     *
+     * @param portalArticle 文章信息
+     * @return 结果
+     */
+    int publishArticle(PortalArticle portalArticle);
 }

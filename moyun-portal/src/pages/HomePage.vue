@@ -11,7 +11,7 @@ import {
 import LazyImage from '@/components/LazyImage.vue'
 import SiteFooter from '@/components/SiteFooter.vue'
 import { generateSeo } from '@/utils/seo'
-import { getHomeData, getTagList } from '@/api/article'
+import { getHomeData, getTagList, getCategoryRecommendedArticles } from '@/api/article'
 import { getFriendLinks } from '@/api/friendLink'
 import { getAuthors } from '@/api/user'
 import { getCategoryList } from '@/api/category'
@@ -46,6 +46,8 @@ const categories = ref<any[]>([])
 const authors = ref<any[]>([])
 const loading = ref(true)
 const error = ref<string | null>(null)
+// 存储每个分类的推荐文章
+const categoryArticles = ref<Record<string, any[]>>({})
 
 const transformArticle = (apiArticle: any): any => {
   return {
@@ -199,6 +201,8 @@ onMounted(async () => {
   ])
   if (categories.value.length > 0) {
     activeTheme.value = categories.value[0].name
+    // 加载第一个分类的推荐文章
+    await loadCategoryArticles(categories.value[0].name)
   } else {
     activeTheme.value = '散文'
   }
@@ -211,12 +215,31 @@ onMounted(async () => {
   }
 })
 
-const selectTheme = (themeId: string, themeName: string) => {
+const selectTheme = async (themeId: string, themeName: string) => {
   activeTheme.value = themeName
+  // 如果该分类的推荐文章还没有加载，就加载
+  if (!categoryArticles.value[themeName]) {
+    await loadCategoryArticles(themeName)
+  }
+}
+
+// 加载分类推荐文章
+const loadCategoryArticles = async (themeName: string) => {
+  try {
+    const response = await getCategoryRecommendedArticles(themeName, undefined, 8)
+    if (response.code === 200 && response.data) {
+      const list = (response.data as any).list || response.data || []
+      categoryArticles.value[themeName] = list.map(transformArticle)
+    }
+  } catch (err) {
+    console.error('加载分类推荐文章失败:', err)
+    categoryArticles.value[themeName] = []
+  }
 }
 
 const viewMore = (themeName: string) => {
-  router.push({ path: '/list', query: { category: themeName } })
+  // 跳转到列表页，并带上分类推荐的参数
+  router.push({ path: '/list', query: { category: themeName, categoryRecommended: 'true' } })
 }
 
 const goToAuthor = (id: string) => {
@@ -224,6 +247,11 @@ const goToAuthor = (id: string) => {
 }
 
 const getThemeArticles = (themeName: string): any[] => {
+  // 如果有该分类的推荐文章，就用推荐文章
+  if (categoryArticles.value[themeName] && categoryArticles.value[themeName].length > 0) {
+    return categoryArticles.value[themeName]
+  }
+  // 如果没有，就从最新文章里过滤
   const filtered = latestArticles.value.filter(article => {
     return article.category === themeName || themeName === ''
   })

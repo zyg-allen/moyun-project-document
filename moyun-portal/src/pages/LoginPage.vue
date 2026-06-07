@@ -1,28 +1,75 @@
 <script setup lang="ts">
 import { ref } from 'vue';
 import { RouterLink as Link, useRouter } from 'vue-router';
-import { Eye, EyeOff, Mail, Lock, ArrowRight, AlertCircle } from 'lucide-vue-next';
+import { 
+  Eye, EyeOff, Lock, ArrowRight, AlertCircle, 
+  Smartphone, MessageSquare, User 
+} from 'lucide-vue-next';
+import loginBackground from '@/assets/images/login-background.jpg';
 import { useUserStore } from '@/stores/user';
 import { loginSchema, validateForm } from '@/utils/validation';
 
 const router = useRouter();
 const userStore = useUserStore();
 
-const form = ref({
+// 登录方式切换
+const loginType = ref<'password' | 'sms'>('password');
+
+// 密码登录表单
+const passwordForm = ref({
   username: '',
   password: ''
 });
 
+// 短信登录表单
+const smsForm = ref({
+  phone: '',
+  code: ''
+});
+
 const showPassword = ref(false);
 const isLoading = ref(false);
+const isSendingCode = ref(false);
+const countdown = ref(0);
 const errors = ref<Record<string, string>>({});
 const serverError = ref('');
 
-async function handleLogin() {
+// 倒计时
+function startCountdown() {
+  countdown.value = 60;
+  const timer = setInterval(() => {
+    countdown.value--;
+    if (countdown.value <= 0) {
+      clearInterval(timer);
+    }
+  }, 1000);
+}
+
+// 发送短信验证码
+async function sendSmsCode() {
+  if (!smsForm.value.phone || !/^1[3-9]\d{9}$/.test(smsForm.value.phone)) {
+    errors.value.phone = '请输入正确的手机号';
+    return;
+  }
+  
+  isSendingCode.value = true;
+  try {
+    // 模拟发送短信
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    startCountdown();
+  } catch (error) {
+    serverError.value = '发送失败，请稍后重试';
+  } finally {
+    isSendingCode.value = false;
+  }
+}
+
+// 密码登录
+async function handlePasswordLogin() {
   errors.value = {};
   serverError.value = '';
 
-  const result = validateForm(loginSchema, form.value);
+  const result = validateForm(loginSchema, passwordForm.value);
   
   if (!result.success) {
     errors.value = result.errors;
@@ -32,7 +79,7 @@ async function handleLogin() {
   isLoading.value = true;
 
   try {
-    const { success, message } = await userStore.loginWithApi(form.value);
+    const { success, message } = await userStore.loginWithApi(passwordForm.value);
     if (success) {
       router.push('/');
     } else {
@@ -46,6 +93,40 @@ async function handleLogin() {
   }
 }
 
+// 短信登录
+async function handleSmsLogin() {
+  errors.value = {};
+  serverError.value = '';
+
+  if (!smsForm.value.phone || !/^1[3-9]\d{9}$/.test(smsForm.value.phone)) {
+    errors.value.phone = '请输入正确的手机号';
+    return;
+  }
+  if (!smsForm.value.code || smsForm.value.code.length < 4) {
+    errors.value.code = '请输入正确的验证码';
+    return;
+  }
+
+  isLoading.value = true;
+
+  try {
+    // 模拟短信登录
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    // 暂时直接成功
+    router.push('/');
+  } catch (error) {
+    console.error('登录失败:', error);
+    serverError.value = '登录失败，请稍后重试';
+  } finally {
+    isLoading.value = false;
+  }
+}
+
+// 第三方登录
+function handleSocialLogin(type: 'wechat' | 'gitee') {
+  alert(`${type === 'wechat' ? '微信' : 'Gitee'}登录功能开发中...`);
+}
+
 function clearError(field: string) {
   if (errors.value[field]) {
     errors.value[field] = '';
@@ -54,86 +135,93 @@ function clearError(field: string) {
 </script>
 
 <template>
-  <div class="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex flex-col items-center justify-center py-12 px-4 relative overflow-hidden">
-    <!-- 背景网格 -->
-    <div class="absolute inset-0 overflow-hidden pointer-events-none">
-      <div class="absolute inset-0" style="
-        background-image: 
-          linear-gradient(rgba(0, 242, 254, 0.03) 1px, transparent 1px),
-          linear-gradient(90deg, rgba(0, 242, 254, 0.03) 1px, transparent 1px);
-        background-size: 50px 50px;
-      "></div>
-    </div>
-
-    <!-- 霓虹发光装饰 -->
-    <div class="absolute inset-0 overflow-hidden pointer-events-none">
-      <div class="absolute -top-40 -left-40 w-96 h-96 bg-cyan-500/10 rounded-full blur-3xl animate-pulse"></div>
-      <div class="absolute -bottom-40 -right-40 w-96 h-96 bg-purple-500/10 rounded-full blur-3xl animate-pulse" style="animation-delay: 1s;"></div>
-      <div class="absolute top-1/3 right-1/4 w-64 h-64 bg-pink-500/5 rounded-full blur-3xl animate-pulse" style="animation-delay: 2s;"></div>
-    </div>
+  <div class="min-h-screen flex flex-col items-center justify-center py-12 px-4 relative overflow-hidden" 
+       :style="{ backgroundImage: `url(${loginBackground})`, backgroundSize: 'cover', backgroundPosition: 'center' }">
+    
+    <!-- 背景遮罩 -->
+    <div class="absolute inset-0 bg-gradient-to-br from-black/60 via-black/40 to-black/60"></div>
     
     <div class="max-w-md w-full relative z-10">
       <!-- Logo -->
       <div class="text-center mb-10">
         <Link to="/" class="inline-flex items-center space-x-3 transition-all duration-300 hover:scale-105 hover:shadow-lg">
-          <div class="w-16 h-16 bg-gradient-to-br from-cyan-500 to-purple-600 rounded-2xl flex items-center justify-center shadow-2xl shadow-cyan-500/25 border border-cyan-400/30">
+          <div class="w-16 h-16 bg-gradient-to-br from-amber-500 to-orange-600 rounded-2xl flex items-center justify-center shadow-2xl shadow-amber-500/25 border border-amber-400/30">
             <span class="text-white font-bold text-3xl">墨</span>
           </div>
           <div class="text-left">
-            <span class="block text-3xl font-bold bg-gradient-to-r from-cyan-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">
+            <span class="block text-3xl font-bold bg-gradient-to-r from-amber-200 via-orange-200 to-yellow-200 bg-clip-text text-transparent">
               墨韵·智库
             </span>
-            <span class="block text-xs text-cyan-300/60 tracking-widest mt-1">KNOWLEDGE HUB</span>
+            <span class="block text-xs text-amber-200/70 tracking-widest mt-1">KNOWLEDGE HUB</span>
           </div>
         </Link>
       </div>
 
       <!-- Login Card -->
       <div class="relative group">
-        <!-- 霓虹边框 -->
-        <div class="absolute -inset-1 bg-gradient-to-r from-cyan-500 via-purple-500 to-pink-500 rounded-3xl blur opacity-30 group-hover:opacity-50 transition-all duration-1000"></div>
+        <!-- 发光边框 -->
+        <div class="absolute -inset-1 bg-gradient-to-r from-amber-500 via-orange-500 to-yellow-500 rounded-3xl blur opacity-30 group-hover:opacity-50 transition-all duration-1000"></div>
         
         <!-- 卡片主体 -->
-        <div class="relative bg-slate-900/90 backdrop-blur-xl rounded-3xl shadow-2xl overflow-hidden border border-slate-700/50">
+        <div class="relative bg-white/95 backdrop-blur-xl rounded-3xl shadow-2xl overflow-hidden border border-white/20">
           <!-- 顶部光效 -->
-          <div class="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-cyan-500/50 to-transparent"></div>
+          <div class="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-amber-500/50 to-transparent"></div>
           
           <div class="p-8">
             <div class="text-center mb-8">
-              <h1 class="text-3xl font-bold bg-gradient-to-r from-white via-cyan-100 to-purple-100 bg-clip-text text-transparent mb-2">欢迎回来</h1>
-              <p class="text-cyan-300/80 text-sm mb-1">在浮躁的世界，留一页纸给灵魂。</p>
-              <p class="text-slate-500 text-xs">我有一纸墨，足以慰风尘。</p>
+              <h1 class="text-3xl font-bold text-slate-800 mb-2">欢迎回来</h1>
+              <p class="text-slate-500 text-sm">在浮躁的世界，留一页纸给灵魂。</p>
             </div>
 
             <!-- Server Error -->
-            <div v-if="serverError" class="mb-6 p-4 bg-red-950/50 border border-red-500/30 rounded-xl text-red-300 text-sm flex items-start gap-2 animate-shake">
-              <AlertCircle class="w-4 h-4 flex-shrink-0 mt-0.5 text-red-400" />
+            <div v-if="serverError" class="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl text-red-600 text-sm flex items-start gap-2">
+              <AlertCircle class="w-4 h-4 flex-shrink-0 mt-0.5" />
               <span>{{ serverError }}</span>
             </div>
 
-            <!-- Form -->
-            <form @submit.prevent="handleLogin" class="space-y-5">
+            <!-- 登录方式切换 -->
+            <div class="flex gap-2 mb-8 bg-slate-100 p-1.5 rounded-2xl">
+              <button 
+                @click="loginType = 'password'"
+                class="flex-1 py-2.5 px-4 rounded-xl text-sm font-medium transition-all duration-300 flex items-center justify-center gap-2"
+                :class="loginType === 'password' 
+                  ? 'bg-white text-slate-800 shadow-md' 
+                  : 'text-slate-500 hover:text-slate-700'">
+                <User class="w-4 h-4" />
+                <span>密码登录</span>
+              </button>
+              <button 
+                @click="loginType = 'sms'"
+                class="flex-1 py-2.5 px-4 rounded-xl text-sm font-medium transition-all duration-300 flex items-center justify-center gap-2"
+                :class="loginType === 'sms' 
+                  ? 'bg-white text-slate-800 shadow-md' 
+                  : 'text-slate-500 hover:text-slate-700'">
+                <Smartphone class="w-4 h-4" />
+                <span>短信登录</span>
+              </button>
+            </div>
+
+            <!-- 密码登录表单 -->
+            <form v-if="loginType === 'password'" @submit.prevent="handlePasswordLogin" class="space-y-5">
               <!-- Username -->
               <div class="group">
-                <label class="block text-xs font-medium text-cyan-300 mb-2 ml-1 tracking-wider">用户名</label>
+                <label class="block text-xs font-medium text-slate-600 mb-2 ml-1 tracking-wider">用户名</label>
                 <div class="relative">
-                  <Mail class="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-cyan-400/60 group-focus-within:text-cyan-400 transition-colors" />
+                  <User class="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 group-focus-within:text-amber-500 transition-colors" />
                   <input
-                    v-model="form.username"
+                    v-model="passwordForm.username"
                     type="text"
                     placeholder="请输入用户名"
                     @input="clearError('username')"
-                    class="w-full pl-12 pr-4 py-4 bg-slate-800/50 border-2 rounded-2xl focus:outline-none focus:ring-0 transition-all duration-300 placeholder:text-slate-600 text-slate-200"
+                    class="w-full pl-12 pr-4 py-4 bg-slate-50 border-2 rounded-2xl focus:outline-none focus:ring-0 transition-all duration-300 placeholder:text-slate-400 text-slate-800"
                     :class="{
-                      'border-red-500/50 focus:border-red-400 bg-red-950/20': errors.username,
-                      'border-slate-700/50 focus:border-cyan-400 focus:shadow-lg focus:shadow-cyan-500/25': !errors.username
+                      'border-red-300 focus:border-red-400 bg-red-50': errors.username,
+                      'border-slate-200 focus:border-amber-400 focus:shadow-lg focus:shadow-amber-500/10': !errors.username
                     }"
                     :disabled="isLoading"
                   />
-                  <!-- 输入框底部光效 -->
-                  <div class="absolute bottom-0 left-1/2 -translate-x-1/2 w-0 h-0.5 bg-gradient-to-r from-transparent via-cyan-400 to-transparent transition-all duration-300 group-focus-within:w-full"></div>
                 </div>
-                <p v-if="errors.username" class="mt-2 text-xs text-red-400 flex items-center gap-1 ml-1">
+                <p v-if="errors.username" class="mt-2 text-xs text-red-500 flex items-center gap-1 ml-1">
                   <AlertCircle class="w-3.5 h-3.5" />
                   {{ errors.username }}
                 </p>
@@ -141,34 +229,32 @@ function clearError(field: string) {
 
               <!-- Password -->
               <div class="group">
-                <label class="block text-xs font-medium text-cyan-300 mb-2 ml-1 tracking-wider">密码</label>
+                <label class="block text-xs font-medium text-slate-600 mb-2 ml-1 tracking-wider">密码</label>
                 <div class="relative">
-                  <Lock class="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-cyan-400/60 group-focus-within:text-cyan-400 transition-colors" />
+                  <Lock class="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 group-focus-within:text-amber-500 transition-colors" />
                   <input
-                    v-model="form.password"
+                    v-model="passwordForm.password"
                     :type="showPassword ? 'text' : 'password'"
-                    placeholder="••••••••"
+                    placeholder="请输入密码"
                     @input="clearError('password')"
-                    class="w-full pl-12 pr-12 py-4 bg-slate-800/50 border-2 rounded-2xl focus:outline-none focus:ring-0 transition-all duration-300 placeholder:text-slate-600 text-slate-200"
+                    class="w-full pl-12 pr-12 py-4 bg-slate-50 border-2 rounded-2xl focus:outline-none focus:ring-0 transition-all duration-300 placeholder:text-slate-400 text-slate-800"
                     :class="{
-                      'border-red-500/50 focus:border-red-400 bg-red-950/20': errors.password,
-                      'border-slate-700/50 focus:border-cyan-400 focus:shadow-lg focus:shadow-cyan-500/25': !errors.password
+                      'border-red-300 focus:border-red-400 bg-red-50': errors.password,
+                      'border-slate-200 focus:border-amber-400 focus:shadow-lg focus:shadow-amber-500/10': !errors.password
                     }"
                     :disabled="isLoading"
                   />
-                  <!-- 输入框底部光效 -->
-                  <div class="absolute bottom-0 left-1/2 -translate-x-1/2 w-0 h-0.5 bg-gradient-to-r from-transparent via-cyan-400 to-transparent transition-all duration-300 group-focus-within:w-full"></div>
                   <button
                     type="button"
                     @click="showPassword = !showPassword"
-                    class="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 hover:text-cyan-400 transition-colors duration-300"
+                    class="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-amber-500 transition-colors duration-300"
                     :disabled="isLoading"
                   >
                     <Eye v-if="!showPassword" class="w-5 h-5" />
                     <EyeOff v-else class="w-5 h-5" />
                   </button>
                 </div>
-                <p v-if="errors.password" class="mt-2 text-xs text-red-400 flex items-center gap-1 ml-1">
+                <p v-if="errors.password" class="mt-2 text-xs text-red-500 flex items-center gap-1 ml-1">
                   <AlertCircle class="w-3.5 h-3.5" />
                   {{ errors.password }}
                 </p>
@@ -179,24 +265,100 @@ function clearError(field: string) {
                 <label class="flex items-center cursor-pointer group">
                   <div class="relative">
                     <input type="checkbox" class="sr-only peer" />
-                    <div class="w-4 h-4 border-2 border-slate-600 rounded transition-all duration-300 peer-checked:border-cyan-400 peer-checked:bg-cyan-400/20"></div>
+                    <div class="w-4 h-4 border-2 border-slate-300 rounded transition-all duration-300 peer-checked:border-amber-500 peer-checked:bg-amber-50"></div>
                     <div class="absolute inset-0 flex items-center justify-center opacity-0 peer-checked:opacity-100 transition-opacity duration-300">
-                      <div class="w-2 h-2 bg-cyan-400 rounded-full"></div>
+                      <div class="w-2 h-2 bg-amber-500 rounded-full"></div>
                     </div>
                   </div>
-                  <span class="ml-2 text-sm text-slate-400 group-hover:text-cyan-300 transition-colors">记住我</span>
+                  <span class="ml-2 text-sm text-slate-500 group-hover:text-slate-700 transition-colors">记住我</span>
                 </label>
-                <a href="#" class="text-sm text-cyan-400 hover:text-cyan-300 font-medium transition-colors hover:underline underline-offset-4">忘记密码？</a>
+                <a href="#" class="text-sm text-amber-600 hover:text-amber-700 font-medium transition-colors hover:underline underline-offset-4">忘记密码？</a>
               </div>
 
               <!-- Submit -->
               <button
                 type="submit"
                 :disabled="isLoading"
-                class="relative w-full py-4 bg-gradient-to-r from-cyan-500 via-purple-500 to-pink-500 text-white font-semibold rounded-2xl transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed overflow-hidden group"
+                class="relative w-full py-4 bg-gradient-to-r from-amber-500 via-orange-500 to-yellow-500 text-white font-semibold rounded-2xl transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed overflow-hidden group shadow-lg shadow-orange-500/20 hover:shadow-orange-500/30"
               >
-                <!-- 按钮光效 -->
-                <div class="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000"></div>
+                <span class="relative flex items-center justify-center gap-2" v-if="!isLoading">
+                  <span>登录</span>
+                  <ArrowRight class="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                </span>
+                <span v-else class="relative flex items-center justify-center gap-2">
+                  <span>登录中...</span>
+                  <div class="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                </span>
+              </button>
+            </form>
+
+            <!-- 短信登录表单 -->
+            <form v-else @submit.prevent="handleSmsLogin" class="space-y-5">
+              <!-- Phone -->
+              <div class="group">
+                <label class="block text-xs font-medium text-slate-600 mb-2 ml-1 tracking-wider">手机号</label>
+                <div class="relative">
+                  <Smartphone class="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 group-focus-within:text-amber-500 transition-colors" />
+                  <input
+                    v-model="smsForm.phone"
+                    type="tel"
+                    placeholder="请输入手机号"
+                    @input="clearError('phone')"
+                    class="w-full pl-12 pr-4 py-4 bg-slate-50 border-2 rounded-2xl focus:outline-none focus:ring-0 transition-all duration-300 placeholder:text-slate-400 text-slate-800"
+                    :class="{
+                      'border-red-300 focus:border-red-400 bg-red-50': errors.phone,
+                      'border-slate-200 focus:border-amber-400 focus:shadow-lg focus:shadow-amber-500/10': !errors.phone
+                    }"
+                    :disabled="isLoading"
+                  />
+                </div>
+                <p v-if="errors.phone" class="mt-2 text-xs text-red-500 flex items-center gap-1 ml-1">
+                  <AlertCircle class="w-3.5 h-3.5" />
+                  {{ errors.phone }}
+                </p>
+              </div>
+
+              <!-- Verification Code -->
+              <div class="group">
+                <label class="block text-xs font-medium text-slate-600 mb-2 ml-1 tracking-wider">验证码</label>
+                <div class="flex gap-3">
+                  <div class="relative flex-1">
+                    <MessageSquare class="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 group-focus-within:text-amber-500 transition-colors" />
+                    <input
+                      v-model="smsForm.code"
+                      type="text"
+                      placeholder="请输入验证码"
+                      @input="clearError('code')"
+                      maxlength="6"
+                      class="w-full pl-12 pr-4 py-4 bg-slate-50 border-2 rounded-2xl focus:outline-none focus:ring-0 transition-all duration-300 placeholder:text-slate-400 text-slate-800"
+                      :class="{
+                        'border-red-300 focus:border-red-400 bg-red-50': errors.code,
+                        'border-slate-200 focus:border-amber-400 focus:shadow-lg focus:shadow-amber-500/10': !errors.code
+                      }"
+                      :disabled="isLoading"
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    @click="sendSmsCode"
+                    :disabled="isSendingCode || countdown > 0"
+                    class="px-4 py-4 bg-slate-100 text-slate-700 font-medium rounded-2xl transition-all duration-300 hover:bg-slate-200 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap min-w-[110px]"
+                  >
+                    {{ countdown > 0 ? `${countdown}s` : (isSendingCode ? '发送中' : '获取验证码') }}
+                  </button>
+                </div>
+                <p v-if="errors.code" class="mt-2 text-xs text-red-500 flex items-center gap-1 ml-1">
+                  <AlertCircle class="w-3.5 h-3.5" />
+                  {{ errors.code }}
+                </p>
+              </div>
+
+              <!-- Submit -->
+              <button
+                type="submit"
+                :disabled="isLoading"
+                class="relative w-full py-4 bg-gradient-to-r from-amber-500 via-orange-500 to-yellow-500 text-white font-semibold rounded-2xl transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed overflow-hidden group shadow-lg shadow-orange-500/20 hover:shadow-orange-500/30"
+              >
                 <span class="relative flex items-center justify-center gap-2" v-if="!isLoading">
                   <span>登录</span>
                   <ArrowRight class="w-4 h-4 group-hover:translate-x-1 transition-transform" />
@@ -210,39 +372,39 @@ function clearError(field: string) {
 
             <!-- Divider -->
             <div class="my-8 flex items-center gap-4">
-              <div class="flex-1 h-px bg-gradient-to-r from-transparent via-slate-600 to-transparent"></div>
-              <span class="text-xs text-slate-500 tracking-wider">或</span>
-              <div class="flex-1 h-px bg-gradient-to-r from-transparent via-slate-600 to-transparent"></div>
+              <div class="flex-1 h-px bg-gradient-to-r from-transparent via-slate-300 to-transparent"></div>
+              <span class="text-xs text-slate-400 tracking-wider">其他登录方式</span>
+              <div class="flex-1 h-px bg-gradient-to-r from-transparent via-slate-300 to-transparent"></div>
             </div>
 
             <!-- Social Login -->
-            <div class="grid grid-cols-3 gap-3">
-              <button class="py-3.5 bg-slate-800/50 border-2 border-slate-700/50 rounded-2xl hover:border-cyan-500/50 hover:bg-slate-800 transition-all duration-300 hover:shadow-lg hover:shadow-cyan-500/10 group">
-                <svg class="w-5 h-5 mx-auto text-slate-400 group-hover:text-cyan-400 transition-colors" viewBox="0 0 24 24">
-                  <path fill="currentColor" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-                  <path fill="currentColor" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-                  <path fill="currentColor" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
-                  <path fill="currentColor" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
-                </svg>
+            <div class="grid grid-cols-2 gap-4">
+              <button 
+                @click="handleSocialLogin('wechat')"
+                class="py-3.5 bg-white border-2 border-slate-200 rounded-2xl hover:border-green-400 hover:bg-green-50 transition-all duration-300 hover:shadow-lg hover:shadow-green-500/10 group">
+                <div class="flex items-center justify-center gap-2">
+                  <MessageSquare class="w-5 h-5 text-slate-500 group-hover:text-green-500 transition-colors" />
+                  <span class="text-sm font-medium text-slate-600 group-hover:text-green-600">微信登录</span>
+                </div>
               </button>
-              <button class="py-3.5 bg-slate-800/50 border-2 border-slate-700/50 rounded-2xl hover:border-cyan-500/50 hover:bg-slate-800 transition-all duration-300 hover:shadow-lg hover:shadow-cyan-500/10 group">
-                <svg class="w-5 h-5 mx-auto text-slate-400 group-hover:text-cyan-400 transition-colors" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
-                </svg>
-              </button>
-              <button class="py-3.5 bg-slate-800/50 border-2 border-slate-700/50 rounded-2xl hover:border-cyan-500/50 hover:bg-slate-800 transition-all duration-300 hover:shadow-lg hover:shadow-cyan-500/10 group">
-                <svg class="w-5 h-5 mx-auto text-slate-400 group-hover:text-cyan-400 transition-colors" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
-                </svg>
+              <button 
+                @click="handleSocialLogin('gitee')"
+                class="py-3.5 bg-white border-2 border-slate-200 rounded-2xl hover:border-red-400 hover:bg-red-50 transition-all duration-300 hover:shadow-lg hover:shadow-red-500/10 group">
+                <div class="flex items-center justify-center gap-2">
+                  <svg class="w-5 h-5 text-slate-500 group-hover:text-red-500 transition-colors" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M11.984 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 11.984 0zm5.362 7.488c.19 2.118-.948 3.864-3.063 4.87l-.003.002 1.515 4.546a.24.24 0 0 1-.095.274.238.238 0 0 1-.285-.03l-5.295-3.95-2.037 1.52a.29.29 0 0 1-.328-.01.288.288 0 0 1-.099-.222v-1.718l-2.363 1.76a.239.239 0 0 1-.331-.07.238.238 0 0 1-.03-.277l2.71-4.34-.003-.003c-1.722-.97-2.445-2.61-1.98-4.518.396-1.62 1.772-2.727 3.643-2.727.84 0 1.636.263 2.298.744a4.7 4.7 0 0 1 2.191-.693c2.188 0 3.98 1.62 4.25 3.834h-.002z"/>
+                  </svg>
+                  <span class="text-sm font-medium text-slate-600 group-hover:text-red-600">Gitee登录</span>
+                </div>
               </button>
             </div>
           </div>
 
           <!-- Footer -->
-          <div class="px-8 py-6 bg-slate-900/50 border-t border-slate-800/50 text-center">
+          <div class="px-8 py-6 bg-slate-50 border-t border-slate-100 text-center">
             <p class="text-slate-500 text-sm">
               还没有账户？
-              <Link to="/register" class="text-cyan-400 hover:text-cyan-300 font-semibold ml-1 transition-colors hover:underline underline-offset-4">立即注册</Link>
+              <Link to="/register" class="text-amber-600 hover:text-amber-700 font-semibold ml-1 transition-colors hover:underline underline-offset-4">立即注册</Link>
             </p>
           </div>
         </div>
@@ -250,14 +412,14 @@ function clearError(field: string) {
 
       <!-- Back Home -->
       <div class="text-center mt-8">
-        <Link to="/" class="inline-flex items-center space-x-1 text-slate-500 hover:text-cyan-400 transition-colors group">
+        <Link to="/" class="inline-flex items-center space-x-1 text-white/70 hover:text-white transition-colors group">
           <ArrowRight class="w-4 h-4 rotate-180 group-hover:-translate-x-0.5 transition-transform" />
           <span>返回首页</span>
         </Link>
       </div>
 
       <!-- 版权提示 -->
-      <div class="mt-8 text-center text-xs text-slate-600">
+      <div class="mt-8 text-center text-xs text-white/50">
         Copyright © 2026 墨韵·智库 · 京ICP备xxxxxxxx号-2
       </div>
     </div>

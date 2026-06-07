@@ -12,10 +12,17 @@
         <result property="cover" column="cover"/>
         <result property="authorId" column="author_id"/>
         <result property="categoryId" column="category_id"/>
+        <!-- TODO: 运行数据库升级脚本后取消注释
+        <result property="rootCategoryId" column="root_category_id"/>
+        <result property="categoryPath" column="category_path"/>
+        -->
+        <result property="categoryName" column="category_name"/>
+        <result property="categorySlug" column="category_slug"/>
         <result property="status" column="status"/>
         <result property="isFeatured" column="is_featured"/>
         <result property="isTop" column="is_top"/>
         <result property="isCarousel" column="is_carousel"/>
+        <result property="isCategoryRecommended" column="is_category_recommended"/>
         <result property="views" column="views"/>
         <result property="likes" column="likes"/>
         <result property="comments" column="comments"/>
@@ -33,53 +40,67 @@
     </resultMap>
 
     <sql id="selectPortalArticleVo">
-        select id, title, content, excerpt, cover, author_id, category_id, status,
-               is_featured, is_top, is_carousel, views, likes, comments, share_count,
-               bookmark_count, published_at, link, editor_mode, content_markdown,
-               create_by, create_time, update_by, update_time, remark
-        from portal_article
+        select pa.id, pa.title, pa.content, pa.excerpt, pa.cover, pa.author_id, pa.category_id, 
+               <!-- TODO: 运行数据库升级脚本后取消注释
+               pa.root_category_id, pa.category_path, 
+               -->
+               pa.status,
+               pa.is_featured, pa.is_top, pa.is_carousel, pa.is_category_recommended, pa.views, pa.likes, pa.comments, pa.share_count,
+               pa.bookmark_count, pa.published_at, pa.link, pa.editor_mode, pa.content_markdown,
+               pa.create_by, pa.create_time, pa.update_by, pa.update_time, pa.remark,
+               pc.name as category_name, pc.slug as category_slug
+        from portal_article pa
+        left join portal_category pc on pa.category_id = pc.id
     </sql>
 
     <!-- 通用查询条件片段 -->
     <sql id="queryWhere">
         <where>
-            status = 'published'
+            pa.status = 'published'
             <if test="params.title != null and params.title != ''">
-                AND title like concat('%', #{params.title}, '%')
+                AND pa.title like concat('%', #{params.title}, '%')
             </if>
             <if test="params.authorId != null">
-                AND author_id = #{params.authorId}
+                AND pa.author_id = #{params.authorId}
             </if>
             <if test="params.categoryId != null">
-                AND category_id = #{params.categoryId}
+                AND pa.category_id = #{params.categoryId}
             </if>
+            <!-- TODO: 运行数据库升级脚本后取消注释
+            <if test="params.rootCategoryId != null">
+                AND pa.root_category_id = #{params.rootCategoryId}
+            </if>
+            -->
             <if test="params.categoryName != null and params.categoryName != ''">
-                AND title like concat('%', #{params.categoryName}, '%')
+                AND pc.name = #{params.categoryName}
             </if>
             <if test="params.status != null and params.status != ''">
-                AND status = #{params.status}
+                AND pa.status = #{params.status}
             </if>
             <if test="params.isTop != null">
-                AND is_top = #{params.isTop}
+                AND pa.is_top = #{params.isTop}
             </if>
             <if test="params.isFeatured != null">
-                AND is_featured = #{params.isFeatured}
+                AND pa.is_featured = #{params.isFeatured}
             </if>
             <if test="params.isCarousel != null">
-                AND is_carousel = #{params.isCarousel}
+                AND pa.is_carousel = #{params.isCarousel}
+            </if>
+            <if test="params.isCategoryRecommended != null">
+                AND pa.is_category_recommended = #{params.isCategoryRecommended}
             </if>
         </where>
     </sql>
 
     <!-- 通用排序片段（默认排序） -->
     <sql id="defaultOrderBy">
-        order by is_top desc, published_at desc, create_time desc
+        order by pa.is_top desc, pa.published_at desc, pa.create_time desc
     </sql>
 
     <!-- 动态排序片段 -->
     <sql id="dynamicOrderBy">
         <if test="params.orderByColumn != null and params.orderByColumn != ''">
-            order by ${params.orderByColumn}
+            order by pa.${params.orderByColumn}
             <if test="params.isAsc != null and params.isAsc != ''">
                 ${params.isAsc}
             </if>
@@ -107,64 +128,72 @@
     <select id="selectHotArticles" resultMap="PortalArticleResult">
         <include refid="selectPortalArticleVo"/>
         <where>
-            status = 'published'
+            pa.status = 'published'
         </where>
-        order by views desc, create_time desc
+        order by pa.views desc, pa.create_time desc
     </select>
 
     <!-- 查询精选文章 -->
     <select id="selectFeaturedArticles" resultMap="PortalArticleResult">
         <include refid="selectPortalArticleVo"/>
         <where>
-            status = 'published'
-            AND is_featured = true
+            pa.status = 'published'
+            AND pa.is_featured = true
         </where>
-        order by is_top desc, published_at desc, create_time desc
+        order by pa.is_top desc, pa.published_at desc, pa.create_time desc
     </select>
 
     <!-- 查询轮播文章 -->
     <select id="selectCarouselArticles" resultMap="PortalArticleResult">
         <include refid="selectPortalArticleVo"/>
         <where>
-            status = 'published'
-            AND is_carousel = true
+            pa.status = 'published'
+            AND pa.is_carousel = true
         </where>
-        order by create_time desc
+        order by pa.create_time desc
     </select>
 
     <!-- 查询相关文章 -->
     <select id="selectRelatedArticles" resultMap="PortalArticleResult">
         <include refid="selectPortalArticleVo"/>
         <where>
-            status = 'published'
-            AND id != #{currentId}
+            pa.status = 'published'
+            AND pa.id != #{currentId}
         </where>
-        order by create_time desc
+        order by pa.create_time desc
     </select>
 
     <!-- 查询最新文章 -->
     <select id="selectLatestArticles" resultMap="PortalArticleResult">
         <include refid="selectPortalArticleVo"/>
         <where>
-            status = 'published'
+            pa.status = 'published'
         </where>
-        order by create_time desc
+        order by pa.create_time desc
     </select>
 
     <!-- 根据ID查询 -->
     <select id="selectPortalArticleById" parameterType="Long" resultMap="PortalArticleResult">
         <include refid="selectPortalArticleVo"/>
-        where id = #{id}
+        where pa.id = #{id}
     </select>
 
     <!-- 新增文章 -->
     <insert id="insertPortalArticle" parameterType="com.moyun.portal.domain.entity.PortalArticle">
-        insert into portal_article(title, content, excerpt, cover, author_id, category_id, status,
-                                   is_featured, is_top, is_carousel, views, likes, comments,
+        insert into portal_article(title, content, excerpt, cover, author_id, category_id, 
+                                   <!-- TODO: 运行数据库升级脚本后取消注释
+                                   root_category_id, category_path, 
+                                   -->
+                                   status,
+                                   is_featured, is_top, is_carousel, is_category_recommended, views, likes, comments,
                                    share_count, bookmark_count, published_at, link, editor_mode,
                                    content_markdown, create_by, create_time, update_by, update_time, remark)
-        values(#{title}, #{content}, #{excerpt}, #{cover}, #{authorId}, #{categoryId}, #{status},
-               #{isFeatured}, #{isTop}, #{isCarousel}, #{views}, #{likes}, #{comments},
+        values(#{title}, #{content}, #{excerpt}, #{cover}, #{authorId}, #{categoryId}, 
+               <!-- TODO: 运行数据库升级脚本后取消注释
+               #{rootCategoryId}, #{categoryPath}, 
+               -->
+               #{status},
+               #{isFeatured}, #{isTop}, #{isCarousel}, #{isCategoryRecommended}, #{views}, #{likes}, #{comments},
                #{shareCount}, #{bookmarkCount}, #{publishedAt}, #{link}, #{editorMode},
                #{contentMarkdown}, #{createBy}, #{createTime}, #{updateBy}, #{updateTime}, #{remark})
     </insert>
@@ -179,10 +208,15 @@
             <if test="cover != null">cover = #{cover},</if>
             <if test="authorId != null">author_id = #{authorId},</if>
             <if test="categoryId != null">category_id = #{categoryId},</if>
+            <!-- TODO: 运行数据库升级脚本后取消注释
+            <if test="rootCategoryId != null">root_category_id = #{rootCategoryId},</if>
+            <if test="categoryPath != null">category_path = #{categoryPath},</if>
+            -->
             <if test="status != null">status = #{status},</if>
             <if test="isFeatured != null">is_featured = #{isFeatured},</if>
             <if test="isTop != null">is_top = #{isTop},</if>
             <if test="isCarousel != null">is_carousel = #{isCarousel},</if>
+            <if test="isCategoryRecommended != null">is_category_recommended = #{isCategoryRecommended},</if>
             <if test="views != null">views = #{views},</if>
             <if test="likes != null">likes = #{likes},</if>
             <if test="comments != null">comments = #{comments},</if>

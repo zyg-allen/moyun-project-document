@@ -405,42 +405,18 @@ async function handlePublish() {
     } else {
       alert('发布失败：' + (response.message || '未知错误'));
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error('Failed to publish article:', error);
-    // 降级使用mock
-    try {
-      const user = currentUser.value;
-      if (user) {
-        const finalContent = editorMode.value === 'markdown'
-            ? markdownPreview.value
-            : content.value;
+    // 显示错误信息
+    const errorMessage = error?.message || '发布失败，请稍后重试';
 
-        addArticle({
-          title: title.value,
-          content: finalContent,
-          contentMarkdown: editorMode.value === 'markdown' ? content.value : undefined,
-          editorMode: editorMode.value,
-          excerpt: excerpt.value || content.value.substring(0, 200) + '...',
-          cover: coverImage.value || '',
-          author: {
-            id: user.id,
-            username: user.username,
-            nickname: user.nickname || user.username,
-            email: user.email,
-            avatar: user.avatar,
-            bio: user.bio || '',
-            createdAt: user.createdAt || new Date().toISOString()
-          },
-          category: selectedCategory.value,
-          tags: tags.value
-        });
+    // 如果是未登录错误，跳转到登录页
+    if (errorMessage.includes('登录') || errorMessage.includes('认证') || errorMessage.includes('401')) {
+      if (confirm('您还没有登录，是否前往登录？')) {
+        router.push('/login');
       }
-      articleStatus.value = 'published';
-      alert('发布成功！（使用mock数据）');
-      router.push('/');
-    } catch (mockError) {
-      console.error('Failed to publish with mock:', mockError);
-      alert('发布失败，请稍后重试');
+    } else {
+      alert(errorMessage);
     }
   } finally {
     isPublishing.value = false;

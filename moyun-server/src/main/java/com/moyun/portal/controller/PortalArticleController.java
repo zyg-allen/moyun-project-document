@@ -5,6 +5,7 @@ import com.moyun.common.annotation.Log;
 import com.moyun.core.base.BaseController;
 import com.moyun.core.base.AjaxResult;
 import com.moyun.common.enums.BusinessType;
+import com.moyun.portal.domain.dto.ArticlePublishDTO;
 import com.moyun.portal.domain.query.ArticleQuery;
 import com.moyun.util.bean.PageUtils;
 import com.moyun.util.file.ExcelUtil;
@@ -64,6 +65,29 @@ public class PortalArticleController extends BaseController {
     @PostMapping
     public AjaxResult add(@Validated @RequestBody PortalArticle portalArticle) {
         return toAjax(portalArticleService.insertPortalArticle(portalArticle));
+    }
+
+    /**
+     * 前台发布文章
+     */
+    @Operation(summary = "前台发布文章", description = "用户在前台发布新文章，自动获取作者信息")
+    @Log(title = "门户文章", businessType = BusinessType.INSERT)
+    @PostMapping("/publish")
+    public AjaxResult publish(@Validated @RequestBody ArticlePublishDTO publishDTO) {
+        // 将 DTO 转换为实体
+        PortalArticle article = new PortalArticle();
+        article.setTitle(publishDTO.getTitle());
+        article.setContent(publishDTO.getContent());
+        article.setExcerpt(publishDTO.getExcerpt());
+        article.setCover(publishDTO.getCover());
+        article.setCategoryId(publishDTO.getCategoryId());
+        article.setIsFeatured(publishDTO.getIsFeatured());
+        article.setIsTop(publishDTO.getIsTop());
+        article.setIsCarousel(publishDTO.getIsCarousel());
+        
+        // 调用 Service 发布
+        int result = portalArticleService.publishArticle(article);
+        return toAjax(result);
     }
 
     @Operation(summary = "修改文章", description = "更新文章信息")
@@ -147,6 +171,24 @@ public class PortalArticleController extends BaseController {
     @Operation(summary = "按分类获取文章列表", description = "根据分类ID或名称获取文章列表")
     @GetMapping("/byCategory")
     public AjaxResult getArticlesByCategory(ArticleQuery query) {
+        Page<PortalArticle> page = PageUtils.buildPage(query);
+        Page<PortalArticle> resultPage = portalArticleService.selectPortalArticlePage(page, query);
+        return success(resultPage);
+    }
+
+    @Operation(summary = "获取分类推荐文章", description = "获取指定分类的推荐文章列表")
+    @GetMapping("/categoryRecommended")
+    public AjaxResult getCategoryRecommendedArticles(
+            @RequestParam(required = false) String categoryName,
+            @RequestParam(required = false) Long categoryId,
+            @RequestParam(defaultValue = "8") Integer limit) {
+        ArticleQuery query = new ArticleQuery();
+        query.setCategoryName(categoryName);
+        query.setCategoryId(categoryId);
+        query.setIsCategoryRecommended(true);
+        query.setPageNum(1);
+        query.setPageSize(limit);
+        
         Page<PortalArticle> page = PageUtils.buildPage(query);
         Page<PortalArticle> resultPage = portalArticleService.selectPortalArticlePage(page, query);
         return success(resultPage);

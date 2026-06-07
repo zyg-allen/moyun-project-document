@@ -86,3 +86,8 @@ export const getHomeData = () => {
 export const getArticlesByCategory = (categoryId?: string, categoryName?: string, pageSize = 10) => {
   return httpGetList<Article>('/portal/article/byCategory', { categoryId, categoryName, pageSize });
 };
+
+// 获取分类推荐文章
+export const getCategoryRecommendedArticles = (categoryName?: string, categoryId?: string, limit = 8) => {
+  return httpGetList<Article>('/portal/article/categoryRecommended', { categoryName, categoryId, limit });
+};

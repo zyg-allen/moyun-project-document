@@ -25,11 +25,7 @@ export const uploadPortalFile = (file: File, businessType?: string, businessId?:
   if (businessId) {
     formData.append('businessId', businessId);
   }
-  return httpPost<FileInfo>('/portal/file/upload', formData, {
-    headers: {
-      'Content-Type': 'multipart/form-data',
-    },
-  });
+  return httpPost<FileInfo>('/portal/file/upload', formData);
 };
 
 // 删除文件

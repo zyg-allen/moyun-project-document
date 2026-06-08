@@ -59,6 +59,7 @@
 
 <script setup lang="ts">
 import { ref, watch } from 'vue';
+import { uploadPortalFile } from '@/api/file';
 
 interface Props {
   modelValue?: string;
@@ -106,11 +107,27 @@ const insertLink = () => {
   }
 };
 
-const insertImage = () => {
-  const url = prompt('请输入图片地址：');
-  if (url) {
-    insertText('![图片描述](', `${url})`);
-  }
+const insertImage = async () => {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = 'image/*';
+  input.onchange = async (e) => {
+    const file = (e.target as HTMLInputElement).files?.[0];
+    if (file) {
+      try {
+        const response = await uploadPortalFile(file, 'article_content');
+        if (response.code === 200 && response.data) {
+          insertText('![图片](', `${response.data.fileUrl})`);
+        } else {
+          alert('图片上传失败');
+        }
+      } catch (error) {
+        console.error('图片上传失败:', error);
+        alert('图片上传失败');
+      }
+    }
+  };
+  input.click();
 };
 
 const handleInput = () => {

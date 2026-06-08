@@ -4,16 +4,15 @@ import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
 import com.fasterxml.jackson.annotation.JsonFormat;
-import com.moyun.core.base.BaseEntity;
 import jakarta.validation.constraints.NotNull;
 import org.apache.commons.lang3.builder.ToStringBuilder;
 import org.apache.commons.lang3.builder.ToStringStyle;
 
+import java.io.Serializable;
 import java.time.LocalDateTime;
 
 @TableName("portal_like")
-public class PortalLike extends BaseEntity
-{
+public class PortalLike implements Serializable {
     private static final long serialVersionUID = 1L;
 
     @TableId(type = IdType.AUTO)
@@ -28,64 +27,52 @@ public class PortalLike extends BaseEntity
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime createTime;
 
-    public PortalLike()
-    {
+    public PortalLike() {
     }
 
-    public PortalLike(Long id)
-    {
+    public PortalLike(Long id) {
         this.id = id;
     }
 
-    public Long getId()
-    {
+    public Long getId() {
         return id;
     }
 
-    public void setId(Long id)
-    {
+    public void setId(Long id) {
         this.id = id;
     }
 
-    public Long getUserId()
-    {
+    public Long getUserId() {
         return userId;
     }
 
-    public void setUserId(Long userId)
-    {
+    public void setUserId(Long userId) {
         this.userId = userId;
     }
 
-    public Long getArticleId()
-    {
+    public Long getArticleId() {
         return articleId;
     }
 
-    public void setArticleId(Long articleId)
-    {
+    public void setArticleId(Long articleId) {
         this.articleId = articleId;
     }
 
-    @Override
-    public LocalDateTime getCreateTime()
-    {
+    public LocalDateTime getCreateTime() {
         return createTime;
     }
 
-    @Override
-    public void setCreateTime(LocalDateTime createTime)
-    {
+    public void setCreateTime(LocalDateTime createTime) {
         this.createTime = createTime;
     }
 
     @Override
     public String toString() {
-        return new ToStringBuilder(this,ToStringStyle.MULTI_LINE_STYLE)
-            .append("id", getId())
-            .append("userId", getUserId())
-            .append("articleId", getArticleId())
-            .append("createTime", getCreateTime())
-            .toString();
+        return new ToStringBuilder(this, ToStringStyle.MULTI_LINE_STYLE)
+                .append("id", getId())
+                .append("userId", getUserId())
+                .append("articleId", getArticleId())
+                .append("createTime", getCreateTime())
+                .toString();
     }
 }

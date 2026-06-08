@@ -176,17 +176,26 @@ export interface UpdateArticleParams {
 export interface Comment {
   id: string;
   articleId: string;
-  author: User;
+  author?: User;
   authorId?: string;
+  authorUsername?: string;
+  authorNickname?: string;
+  authorAvatar?: string;
   content: string;
   parentId?: string;
+  rootId?: string;
   replyTo?: string;
-  replyToUser?: User;
+  replyToUsername?: string;
+  replyToNickname?: string;
+  replyToContent?: string;
   replies?: Comment[];
   likeCount?: number;
-  isLiked?: boolean;
-  createdAt: string;
+  status?: string;
+  createTime?: string;
+  createdAt?: string;
+  updateTime?: string;
   updatedAt?: string;
+  isLiked?: boolean;
 }
 
 export interface CommentListParams {

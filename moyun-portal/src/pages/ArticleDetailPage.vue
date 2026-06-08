@@ -1,21 +1,20 @@
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue';
-import { useRoute, RouterLink as Link, useRouter } from 'vue-router';
-import { useHead } from '@vueuse/head';
-import { ArrowLeft, Heart, Share2, MessageSquare, Eye, Clock, User as UserIcon, Tag, Send, Bookmark, MoreHorizontal, Reply } from 'lucide-vue-next';
-
-import ArticleCard from '@/components/ArticleCard.vue';
-import LazyImage from '@/components/LazyImage.vue';
+import {computed, onMounted, ref} from 'vue';
+import {RouterLink as Link, useRoute, useRouter} from 'vue-router';
+import {useHead} from '@vueuse/head';
+import {Bookmark, Clock, Eye, Heart, MessageSquare, Reply, Send, Share2, Tag} from 'lucide-vue-next';
 import Breadcrumb from '@/components/Breadcrumb.vue';
 import SiteFooter from '@/components/SiteFooter.vue';
 import MarkdownRenderer from '@/components/MarkdownRenderer.vue';
-import { useArticleStore } from '@/stores/article';
-import { useUserStore } from '@/stores/user';
-import { useAuth } from '@/composables/useAuth';
-import { generateSeo } from '@/utils/seo';
-import { sanitizeHTML } from '@/utils/security';
-import { formatShortDate } from '@/utils/date';
-import type { Article, Comment, User } from '@/types/api';
+import BackToTop from '@/components/BackToTop.vue';
+import {useArticleStore} from '@/stores/article';
+import {useUserStore} from '@/stores/user';
+import {useAuth} from '@/composables/useAuth';
+import {generateSeo} from '@/utils/seo';
+import {sanitizeHTML} from '@/utils/security';
+import {formatShortDate} from '@/utils/date';
+import {getSafeAvatar} from '@/utils/avatar';
+import type {Article, Comment, User} from '@/types/api';
 import * as articleApi from '@/api/article';
 import * as commentApi from '@/api/comment';
 
@@ -23,21 +22,38 @@ const route = useRoute();
 const router = useRouter();
 const articleStore = useArticleStore();
 const userStore = useUserStore();
-const { isAuthenticated, requireAuth, withAuth } = useAuth();
+const {isAuthenticated, requireAuth, withAuth, withAuthConfirm} = useAuth();
 const article = ref<Article | null>(null);
 const comments = ref<Comment[]>([]);
 const newComment = ref('');
 const currentUser = computed(() => userStore.user);
 const replyingTo = ref<Comment | null>(null);
+const replyingRootComment = ref<Comment | null>(null); // 保存根评论用于回复
+const replyingToRoot = ref(false); // 是否是直接回复根评论
 const replyContent = ref('');
-const displayedCount = ref(3);
-const expandedReplies = ref<Set<string>>(new Set());
+const displayedCount = ref(100); // 不做分页，一次加载所有
 const loading = ref(false);
 const submitting = ref(false);
 const error = ref<string | null>(null);
 
 const isLiked = computed(() => article.value ? articleStore.likedArticleIds.includes(article.value.id) : false);
 const isBookmarked = computed(() => article.value ? articleStore.bookmarkedArticleIds.includes(article.value.id) : false);
+
+// 获取评论作者的显示名称
+function getCommentAuthorName(comment: Comment): string {
+  return comment.authorNickname || comment.authorUsername || comment.author?.nickname || comment.author?.username || '匿名用户';
+}
+
+// 获取评论作者的头像
+function getCommentAuthorAvatar(comment: Comment): string {
+  const authorId = comment.authorId || comment.author?.id || '';
+  return getSafeAvatar(comment.authorAvatar || comment.author?.avatar, authorId);
+}
+
+// 获取被回复用户的显示名称
+function getReplyToName(comment: Comment): string {
+  return comment.replyToNickname || comment.replyToUsername || '';
+}
 
 // 获取文章作者信息
 const articleAuthor = computed(() => {
@@ -48,7 +64,7 @@ const articleAuthor = computed(() => {
     id: article.value.authorId || '',
     username: article.value.authorUsername || '',
     nickname: article.value.authorNickname || article.value.authorUsername || '',
-    avatar: article.value.authorAvatar || '',
+    avatar: getSafeAvatar(article.value.authorAvatar, article.value.authorId || ''),
     bio: article.value.authorBio || '',
     createdAt: ''
   } as User;
@@ -91,8 +107,8 @@ const articleExcerpt = computed(() => {
 const breadcrumbs = computed(() => {
   if (!article.value) return [];
   return [
-    { label: articleCategory.value, path: `/list?category=${articleCategory.value}` },
-    { label: article.value.title }
+    {label: articleCategory.value, path: `/list?category=${articleCategory.value}`},
+    {label: article.value.title}
   ];
 });
 
@@ -119,7 +135,9 @@ const totalCommentsCount = computed(() => {
   const countReplies = (cmts: Comment[]) => {
     cmts.forEach(c => {
       count++;
-      if (c.replies) countReplies(c.replies);
+      if (c.replies && c.replies.length > 0) {
+        count += c.replies.length;
+      }
     });
   };
   countReplies(comments.value);
@@ -136,7 +154,7 @@ async function loadArticle() {
   try {
     const articleId = route.params.id as string;
 
-    const response = await articleApi.getArticleDetail({ id: articleId });
+    const response = await articleApi.getArticleDetail({id: articleId});
     if (response.code === 200) {
       article.value = response.data as Article;
     } else {
@@ -145,7 +163,16 @@ async function loadArticle() {
 
     await loadComments(articleId);
 
-    await articleApi.incrementView(articleId);
+    // 增加阅读量（支持防刷逻辑）
+    try {
+      const viewResponse = await articleApi.incrementView(articleId);
+      if (viewResponse.code === 200 && viewResponse.data && article.value) {
+        // 更新文章阅读量
+        article.value.views = viewResponse.data.views;
+      }
+    } catch (viewError) {
+      console.error('增加阅读量失败:', viewError);
+    }
   } catch (err) {
     console.error('加载文章失败:', err);
     error.value = '加载文章失败，请稍后重试';
@@ -156,29 +183,42 @@ async function loadArticle() {
 
 async function loadComments(articleId: string) {
   try {
-    const response = await commentApi.getCommentList({ articleId });
+    const response = await commentApi.getArticleComments(articleId);
     if (response.code === 200) {
-      comments.value = response.data.list as Comment[];
+      // 确保每个评论都有完整的结构
+      const commentList = response.data as Comment[];
+      comments.value = commentList.map(comment => {
+        if (!comment.replies) {
+          comment.replies = [];
+        }
+        return comment;
+      });
     }
   } catch (error) {
     console.error('加载评论失败:', error);
+    comments.value = [];
   }
 }
 
 async function handleLike() {
   if (!article.value) return;
-  // 使用 withAuth 包装，确保用户登录后才能执行点赞
-  await withAuth(async () => {
-    await articleStore.likeArticleWithApi(article.value.id);
-  });
+  // 使用 withAuthConfirm 包装，未登录时弹出确认框
+  await withAuthConfirm(async () => {
+    const result = await articleStore.likeArticleWithApi(article.value.id);
+    // 如果点赞成功，更新文章的点赞数和状态
+    if (result.success && article.value) {
+      article.value.likes = result.likeCount;
+    }
+  }, '点赞');
 }
 
 async function handleBookmark() {
   if (!article.value) return;
-  // 使用 withAuth 包装，确保用户登录后才能执行收藏
-  await withAuth(async () => {
-    await articleStore.bookmarkArticleWithApi(article.value.id);
-  });
+  // 使用 withAuthConfirm 包装，未登录时弹出确认框
+  await withAuthConfirm(async () => {
+    const result = await articleStore.bookmarkArticleWithApi(article.value.id);
+    // 收藏成功后，前端状态会自动同步到 store
+  }, '收藏');
 }
 
 function handleShare() {
@@ -199,9 +239,9 @@ function handleShare() {
 
 async function handleSubmitComment() {
   if (!newComment.value.trim() || !article.value) return;
-  
-  // 使用 withAuth 包装，确保用户登录后才能发表评论
-  const result = await withAuth(async () => {
+
+  // 使用 withAuthConfirm 包装，未登录时弹出确认框
+  await withAuthConfirm(async () => {
     submitting.value = true;
     try {
       const response = await commentApi.addComment({
@@ -210,48 +250,52 @@ async function handleSubmitComment() {
       });
 
       if (response.code === 200) {
-        comments.value.unshift(response.data as Comment);
+        // 发表评论成功后，重新加载评论列表
+        await loadComments(article.value.id);
+        newComment.value = '';
       }
-      newComment.value = '';
     } catch (error) {
       console.error('发表评论失败:', error);
     } finally {
       submitting.value = false;
     }
-  });
+  }, '发表评论');
 }
 
-function handleReply(comment: Comment) {
-  // 检查是否登录
-  if (!requireAuth()) {
-    return;
-  }
-  replyingTo.value = comment;
-  replyContent.value = '';
+async function handleReply(rootComment: Comment, replyComment?: Comment) {
+  // 使用 withAuthConfirm 包装，未登录时弹出确认框
+  await withAuthConfirm(() => {
+    replyingRootComment.value = rootComment;
+    replyingTo.value = replyComment || rootComment;
+    replyingToRoot.value = !replyComment; // 没有第二个参数就是直接回复根评论
+    replyContent.value = '';
+    return Promise.resolve(null);
+  }, '回复评论');
 }
 
 function handleCancelReply() {
   replyingTo.value = null;
+  replyingRootComment.value = null;
+  replyingToRoot.value = false;
   replyContent.value = '';
 }
 
 async function handleSubmitReply() {
-  if (!replyContent.value.trim() || !currentUser.value || !article.value || !replyingTo.value) return;
+  if (!replyContent.value.trim() || !currentUser.value || !article.value || !replyingRootComment.value) return;
 
   submitting.value = true;
   try {
     const response = await commentApi.addComment({
       articleId: article.value.id,
       content: replyContent.value,
-      replyTo: replyingTo.value.id
+      parentId: replyingRootComment.value.id // 始终回复到根评论
     });
 
     if (response.code === 200) {
-      if (!replyingTo.value.replies) replyingTo.value.replies = [];
-      replyingTo.value.replies.push(response.data as Comment);
+      // 回复成功后，重新加载评论列表
+      await loadComments(article.value.id);
+      handleCancelReply();
     }
-    replyingTo.value = null;
-    replyContent.value = '';
   } catch (error) {
     console.error('发表回复失败:', error);
   } finally {
@@ -260,44 +304,39 @@ async function handleSubmitReply() {
 }
 
 async function handleLikeComment(commentId: string) {
-  try {
-    await commentApi.likeComment(commentId);
-  } catch (error) {
-    console.error('点赞评论失败:', error);
-  }
-}
-
-function toggleReplies(commentId: string) {
-  if (expandedReplies.value.has(commentId)) {
-    expandedReplies.value.delete(commentId);
-  } else {
-    expandedReplies.value.add(commentId);
-  }
+  // 使用 withAuthConfirm 包装，未登录时弹出确认框
+  await withAuthConfirm(async () => {
+    try {
+      await commentApi.likeComment(commentId);
+    } catch (error) {
+      console.error('点赞评论失败:', error);
+    }
+  }, '点赞评论');
 }
 
 function loadMoreComments() {
-  displayedCount.value += 10;
+  displayedCount.value += 100;
 }
 
 function getLikeButtonStyle() {
   if (isLiked.value) {
-    return { backgroundColor: 'var(--theme-accent)', color: 'var(--theme-primary)' };
+    return {backgroundColor: 'var(--theme-accent)', color: 'var(--theme-primary)'};
   }
-  return { backgroundColor: 'var(--theme-surface)', color: 'var(--theme-text-secondary)' };
+  return {backgroundColor: 'var(--theme-surface)', color: 'var(--theme-text-secondary)'};
 }
 
 function getBookmarkButtonStyle() {
   if (isBookmarked.value) {
-    return { backgroundColor: 'var(--theme-accent)', color: 'var(--theme-primary)' };
+    return {backgroundColor: 'var(--theme-accent)', color: 'var(--theme-primary)'};
   }
-  return { backgroundColor: 'var(--theme-surface)', color: 'var(--theme-text-secondary)' };
+  return {backgroundColor: 'var(--theme-surface)', color: 'var(--theme-text-secondary)'};
 }
 
 function getCommentLikeButtonStyle(isLiked: boolean) {
   if (isLiked) {
-    return { color: 'var(--theme-primary)' };
+    return {color: 'var(--theme-primary)'};
   }
-  return { color: 'var(--theme-text-secondary)' };
+  return {color: 'var(--theme-text-secondary)'};
 }
 
 const head = useHead(
@@ -330,7 +369,7 @@ const head = useHead(
     <div class="border-b py-3 sm:py-4" style="background-color: var(--theme-bg); border-color: var(--theme-border);">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div class="flex items-center justify-between gap-4">
-          <Breadcrumb :items="breadcrumbs" />
+          <Breadcrumb :items="breadcrumbs"/>
         </div>
       </div>
     </div>
@@ -339,7 +378,8 @@ const head = useHead(
     <div v-if="loading" class="flex-1 py-16">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div class="text-center">
-          <div class="inline-block w-12 h-12 border-4 border-t-4 border-gray-300 rounded-full animate-spin" style="border-top-color: var(--theme-primary);"></div>
+          <div class="inline-block w-12 h-12 border-4 border-t-4 border-gray-300 rounded-full animate-spin"
+               style="border-top-color: var(--theme-primary);"></div>
           <p class="mt-4" style="color: var(--theme-text-secondary);">加载中...</p>
         </div>
       </div>
@@ -350,15 +390,16 @@ const head = useHead(
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div class="text-center">
           <p class="text-lg mb-4" style="color: var(--theme-text);">{{ error }}</p>
-          <button @click="loadArticle" class="px-6 py-2 rounded-lg font-medium transition-colors" style="background-color: var(--theme-primary); color: white;">
+          <button @click="loadArticle" class="px-6 py-2 rounded-lg font-medium transition-colors"
+                  style="background-color: var(--theme-primary); color: white;">
             重试
           </button>
         </div>
       </div>
     </div>
 
-    <!-- 文章内容区域 - 与列表页保持一致的宽度和间距 -->
-    <div v-else class="py-8 flex-1">
+    <!-- 文章内容区域 -->
+    <div v-else class="py-6 flex-1">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <!-- Article exists - show content -->
         <template v-if="article">
@@ -370,23 +411,25 @@ const head = useHead(
           >
             <div class="p-4 sm:p-6 md:p-8 w-full flex flex-col min-h-[80vh]">
 
-              <!-- 标题区域 - 紧凑 -->
-              <div class="text-center mb-2">
+              <!-- 标题区域 -->
+              <div class="text-center mb-3">
                 <h1
                     :id="'article-title-' + article.id"
-                    class="text-lg md:text-xl lg:text-2xl font-bold leading-tight"
+                    class="text-xl md:text-2xl lg:text-3xl font-bold leading-tight"
                     style="color: var(--theme-text);"
                 >
                   {{ article.title }}
                 </h1>
               </div>
 
-              <!-- 作者和标签信息行 - 紧凑 -->
-              <div class="flex items-center gap-2 pb-2 mb-2 border-b overflow-x-auto justify-between flex-wrap" style="border-color: var(--theme-border);">
+              <!-- 文章信息行 - 更紧凑美观的排版 -->
+              <div class="flex flex-wrap items-center justify-center gap-4 py-3 mb-4 border-t border-b"
+                   style="border-color: var(--theme-border);">
+                <!-- 作者信息 -->
                 <Link
                     v-if="articleAuthor"
                     :to="`/author/${articleAuthor.id || article?.authorId}`"
-                    class="flex items-center gap-2 hover:opacity-80 transition-opacity flex-shrink-0"
+                    class="flex items-center gap-2 hover:opacity-80 transition-opacity"
                 >
                   <img
                       :src="articleAuthor.avatar"
@@ -394,30 +437,33 @@ const head = useHead(
                       class="w-8 h-8 rounded-full"
                       loading="lazy"
                   />
-                  <span class="font-medium text-sm whitespace-nowrap" style="color: var(--theme-text);">{{ articleAuthor.nickname || articleAuthor.username }}</span>
+                  <span class="font-medium text-sm" style="color: var(--theme-text);">
+                    {{ articleAuthor.nickname || articleAuthor.username }}
+                  </span>
                 </Link>
 
-                <div class="flex items-center gap-2 text-xs flex-shrink-0" style="color: var(--theme-text-secondary);">
-                  <span>{{ articleDate }}</span>
-                  <span>·</span>
-                  <span>{{ articleViews }} 阅读</span>
+                <!-- 时间 -->
+                <div class="flex items-center gap-1" style="color: var(--theme-text-secondary);">
+                  <Clock class="w-3.5 h-3.5"/>
+                  <span class="text-sm">{{ articleDate }}</span>
                 </div>
 
-                <div v-if="articleTags.length > 0" class="flex items-center gap-1 flex-1 min-w-0 justify-end" role="list" aria-label="文章标签">
-                  <span
-                      v-for="tag in articleTags"
-                      :key="tag"
-                      class="inline-flex px-2 py-0.5 text-xs rounded-full whitespace-nowrap"
-                      style="background-color: var(--theme-accent); color: var(--theme-primary);"
-                      role="listitem"
-                  >
-                    {{ tag }}
-                  </span>
+                <!-- 阅读量 -->
+                <div class="flex items-center gap-1" style="color: var(--theme-text-secondary);">
+                  <Eye class="w-3.5 h-3.5"/>
+                  <span class="text-sm">{{ articleViews }} 阅读</span>
+                </div>
+
+                <!-- 标签 -->
+                <div v-if="articleTags.length > 0" class="flex items-center gap-1"
+                     style="color: var(--theme-text-secondary);">
+                  <Tag class="w-3.5 h-3.5"/>
+                  <span class="text-sm">{{ articleTags.join(' · ') }}</span>
                 </div>
               </div>
 
               <!-- 内容区域 - 自适应 -->
-              <div class="flex-1 py-4">
+              <div class="flex-1 py-6">
                 <MarkdownRenderer
                     :content="article.content"
                     :content-markdown="article.contentMarkdown"
@@ -425,46 +471,52 @@ const head = useHead(
                 />
               </div>
 
-              <!-- 互动区域 - 紧凑 -->
-              <div class="flex items-center justify-between pt-2 mt-auto border-t gap-2 flex-wrap" style="border-color: var(--theme-border);">
-                <div class="flex items-center gap-1">
+              <!-- 互动区域 -->
+              <div class="flex items-center justify-center pt-4 mt-auto border-t flex-wrap"
+                   style="border-color: var(--theme-border);">
+                <div class="flex items-center gap-4">
                   <button
                       @click="handleLike"
-                      class="flex items-center gap-0.5 px-1.5 py-0.5 rounded-full transition-all focus:outline-none text-xs"
+                      class="flex items-center gap-2 px-4 py-2 rounded-full transition-all hover:scale-105 focus:outline-none"
                       :style="getLikeButtonStyle()"
                       :aria-pressed="isLiked"
                       :aria-label="isLiked ? '取消点赞' : '点赞文章'"
                   >
-                    <Heart class="w-3 h-3" :class="{ 'fill-current': isLiked }" aria-hidden="true" />
-                    <span class="font-medium">{{ articleLikes }}</span>
+                    <Heart class="w-5 h-5 transition-transform" :class="{ 'fill-current': isLiked }"
+                           aria-hidden="true"/>
+                    <span class="font-medium text-sm">{{ articleLikes }}</span>
                   </button>
                   <button
                       @click="handleBookmark"
-                      class="flex items-center gap-0.5 px-1.5 py-0.5 rounded-full transition-all focus:outline-none text-xs"
+                      class="flex items-center gap-2 px-4 py-2 rounded-full transition-all hover:scale-105 focus:outline-none"
                       :style="getBookmarkButtonStyle()"
                       :aria-pressed="isBookmarked"
                       :aria-label="isBookmarked ? '取消收藏' : '收藏文章'"
                   >
-                    <Bookmark class="w-3 h-3" :class="{ 'fill-current': isBookmarked }" aria-hidden="true" />
-                    <span class="font-medium">藏</span>
+                    <Bookmark class="w-5 h-5 transition-transform" :class="{ 'fill-current': isBookmarked }"
+                              aria-hidden="true"/>
+                    <span class="font-medium text-sm">收藏</span>
                   </button>
                   <button
                       @click="handleShare"
-                      class="flex items-center gap-0.5 px-1.5 py-0.5 rounded-full transition-colors focus:outline-none text-xs"
+                      class="flex items-center gap-2 px-4 py-2 rounded-full transition-all hover:scale-105 focus:outline-none"
                       style="background-color: var(--theme-surface); color: var(--theme-text-secondary);"
                       :aria-label="'分享文章'"
                   >
-                    <Share2 class="w-3 h-3" aria-hidden="true" />
-                    <span class="font-medium">{{ articleShareCount }}</span>
+                    <Share2 class="w-5 h-5 transition-transform" aria-hidden="true"/>
+                    <span class="font-medium text-sm">{{ articleShareCount }}</span>
                   </button>
                 </div>
               </div>
             </div>
           </article>
 
-          <section class="rounded-xl p-4 sm:p-6 md:p-8 mb-4" style="background-color: var(--theme-surface); border: 1px solid var(--theme-border);" aria-labelledby="comments-heading">
-            <h2 id="comments-heading" class="text-lg font-bold mb-4 flex items-center space-x-3" style="color: var(--theme-text);">
-              <MessageSquare class="w-6 h-6" style="color: var(--theme-primary);" aria-hidden="true" />
+          <section class="rounded-xl p-4 sm:p-6 md:p-8 mb-4"
+                   style="background-color: var(--theme-surface); border: 1px solid var(--theme-border);"
+                   aria-labelledby="comments-heading">
+            <h2 id="comments-heading" class="text-lg font-bold mb-4 flex items-center space-x-3"
+                style="color: var(--theme-text);">
+              <MessageSquare class="w-6 h-6" style="color: var(--theme-primary);" aria-hidden="true"/>
               <span>评论 ({{ totalCommentsCount }})</span>
             </h2>
 
@@ -492,7 +544,7 @@ const head = useHead(
                       class="px-6 py-3 rounded-full font-medium text-sm transition-colors flex items-center gap-2 disabled:opacity-50 focus:outline-none flex-shrink-0"
                       style="background-color: var(--theme-primary); color: white;"
                   >
-                    <Send class="w-4 h-4" aria-hidden="true" />
+                    <Send class="w-4 h-4" aria-hidden="true"/>
                     <span>发表评论</span>
                   </button>
                 </div>
@@ -511,126 +563,185 @@ const head = useHead(
 
             <div class="space-y-6" role="list" aria-label="评论列表">
               <div
-                  v-for="comment in displayedComments"
-                  :key="comment.id"
-                  class="flex gap-3"
+                  v-for="rootComment in displayedComments"
+                  :key="rootComment.id"
+                  class="comment-root"
                   role="listitem"
               >
-                <img
-                    :src="comment.author?.avatar"
-                    :alt="comment.author?.username"
-                    class="w-10 h-10 rounded-full flex-shrink-0"
-                    loading="lazy"
-                />
-                <div class="flex-1 min-w-0">
-                  <div class="flex items-center gap-3 mb-2">
-                    <span class="font-medium text-base" style="color: var(--theme-text);">{{ comment.author?.username || '匿名用户' }}</span>
-                    <span class="text-sm" style="color: var(--theme-text-secondary);">{{ comment.createdAt }}</span>
+                <!-- 一级评论 -->
+                <div class="flex gap-3">
+                  <img
+                      :src="getCommentAuthorAvatar(rootComment)"
+                      :alt="getCommentAuthorName(rootComment)"
+                      class="w-10 h-10 rounded-full flex-shrink-0"
+                      loading="lazy"
+                  />
+                  <div class="flex-1 min-w-0">
+                    <div class="flex items-center gap-3 mb-2">
+                      <span class="font-medium text-base"
+                            style="color: var(--theme-text);">{{ getCommentAuthorName(rootComment) }}</span>
+                      <span class="text-sm" style="color: var(--theme-text-secondary);">
+                        {{ formatShortDate(rootComment.createTime || rootComment.createdAt || '') }}
+                      </span>
+                    </div>
+                    <p class="text-base mb-3" style="color: var(--theme-text);">{{ rootComment.content }}</p>
+                    <div class="flex items-center gap-4 mb-3">
+                      <button
+                          @click="handleLikeComment(rootComment.id)"
+                          class="flex items-center gap-2 transition-colors focus:outline-none text-sm"
+                          :style="getCommentLikeButtonStyle(!!rootComment.isLiked)"
+                          :aria-label="rootComment.isLiked ? '取消点赞' : '点赞评论'"
+                      >
+                        <Heart class="w-4 h-4" :class="{ 'fill-current': rootComment.isLiked }" aria-hidden="true"/>
+                        <span>{{ rootComment.likeCount || 0 }}</span>
+                      </button>
+                      <button
+                          @click="handleReply(rootComment)"
+                          class="flex items-center gap-2 transition-colors focus:outline-none text-sm"
+                          style="color: var(--theme-text-secondary);"
+                          :aria-label="'回复评论'"
+                      >
+                        <Reply class="w-4 h-4" aria-hidden="true"/>
+                        <span>回复</span>
+                      </button>
+                    </div>
                   </div>
-                  <p class="text-base mb-3" style="color: var(--theme-text-secondary);">{{ comment.content }}</p>
-                  <div class="flex items-center gap-4 mb-3">
-                    <button
-                        @click="handleLikeComment(comment.id)"
-                        class="flex items-center gap-2 transition-colors focus:outline-none text-sm"
-                        :style="getCommentLikeButtonStyle(!!comment.isLiked)"
-                        :aria-label="comment.isLiked ? '取消点赞' : '点赞评论'"
-                    >
-                      <Heart class="w-4 h-4" :class="{ 'fill-current': comment.isLiked }" aria-hidden="true" />
-                      <span>{{ comment.likeCount || 0 }}</span>
-                    </button>
-                    <button
-                        @click="handleReply(comment)"
-                        class="flex items-center gap-2 transition-colors focus:outline-none text-sm"
-                        style="color: var(--theme-text-secondary);"
-                        :aria-label="'回复评论'"
-                    >
-                      <Reply class="w-4 h-4" aria-hidden="true" />
-                      <span>回复</span>
-                    </button>
-                    <button
-                        v-if="comment.replies && comment.replies.length > 0"
-                        @click="toggleReplies(comment.id)"
-                        class="flex items-center gap-2 transition-colors focus:outline-none text-sm"
-                        style="color: var(--theme-primary);"
-                    >
-                      <span>{{ expandedReplies.has(comment.id) ? '收起' : '展开' }} {{ comment.replies.length }} 回复</span>
-                    </button>
-                  </div>
+                </div>
 
-                  <div v-if="replyingTo?.id === comment.id" class="mb-4 p-4 rounded-xl" style="background-color: var(--theme-bg);">
-                    <div class="flex gap-3">
-                      <img
-                          :src="currentUser?.avatar"
-                          :alt="currentUser?.username"
-                          class="w-8 h-8 rounded-full flex-shrink-0"
-                          loading="lazy"
+                <!-- 回复输入框 -->
+                <div v-if="replyingTo?.id === rootComment.id && replyingToRoot" class="mt-4 mb-4 ml-13 p-4 rounded-xl"
+                     style="background-color: var(--theme-bg);">
+                  <div class="flex gap-3">
+                    <img
+                        :src="currentUser?.avatar"
+                        :alt="currentUser?.username"
+                        class="w-8 h-8 rounded-full flex-shrink-0"
+                        loading="lazy"
+                    />
+                    <div class="flex-1">
+                      <div class="text-sm mb-2" style="color: var(--theme-text-secondary);">回复
+                        {{ getCommentAuthorName(rootComment) }}
+                      </div>
+                      <textarea
+                          v-model="replyContent"
+                          placeholder="写回复..."
+                          class="w-full p-3 border rounded-xl text-base resize-none focus:outline-none focus:ring-2"
+                          style="border-color: var(--theme-border); background-color: var(--theme-bg); color: var(--theme-text);"
+                          rows="2"
                       />
-                      <div class="flex-1">
-                        <div class="text-sm mb-2" style="color: var(--theme-text-secondary);">回复 {{ comment.author?.username || '匿名用户' }}</div>
-                        <textarea
-                            v-model="replyContent"
-                            placeholder="写回复..."
-                            class="w-full p-3 border rounded-xl text-base resize-none focus:outline-none focus:ring-2"
-                            style="border-color: var(--theme-border); background-color: var(--theme-bg); color: var(--theme-text);"
-                            rows="2"
-                        />
-                        <div class="flex justify-end mt-3 gap-3">
-                          <button
-                              @click="handleCancelReply"
-                              class="px-4 py-2 rounded-full font-medium text-sm transition-colors focus:outline-none"
-                              style="color: var(--theme-text-secondary);"
-                          >
-                            取消
-                          </button>
-                          <button
-                              @click="handleSubmitReply"
-                              :disabled="!replyContent.trim() || submitting"
-                              class="px-4 py-2 rounded-full font-medium text-sm transition-colors flex items-center gap-2 disabled:opacity-50 focus:outline-none"
-                              style="background-color: var(--theme-primary); color: white;"
-                          >
-                            回复
-                          </button>
-                        </div>
+                      <div class="flex justify-end mt-3 gap-3">
+                        <button
+                            @click="handleCancelReply"
+                            class="px-4 py-2 rounded-full font-medium text-sm transition-colors focus:outline-none"
+                            style="color: var(--theme-text-secondary);"
+                        >
+                          取消
+                        </button>
+                        <button
+                            @click="handleSubmitReply"
+                            :disabled="!replyContent.trim() || submitting"
+                            class="px-4 py-2 rounded-full font-medium text-sm transition-colors flex items-center gap-2 disabled:opacity-50 focus:outline-none"
+                            style="background-color: var(--theme-primary); color: white;"
+                        >
+                          回复
+                        </button>
                       </div>
                     </div>
                   </div>
+                </div>
 
-                  <div v-if="comment.replies && comment.replies.length > 0 && expandedReplies.has(comment.id)" class="space-y-4 ml-0 mt-4">
-                    <div
-                        v-for="reply in comment.replies"
-                        :key="reply.id"
-                        class="flex gap-3"
-                    >
-                      <div class="w-1 rounded-full ml-5 mt-2" style="background-color: var(--theme-border);"></div>
+                <!-- 回复列表 -->
+                <div v-if="rootComment.replies && rootComment.replies.length > 0" class="reply-list mt-4">
+                  <div
+                      v-for="reply in rootComment.replies"
+                      :key="reply.id"
+                      class="reply-item"
+                  >
+                    <div class="flex gap-3">
+                      <div class="w-1 rounded-full ml-5 mt-2 flex-shrink-0"
+                           style="background-color: var(--theme-border);"></div>
                       <img
-                          :src="reply.author?.avatar"
-                          :alt="reply.author?.username"
+                          :src="getCommentAuthorAvatar(reply)"
+                          :alt="getCommentAuthorName(reply)"
                           class="w-8 h-8 rounded-full flex-shrink-0"
                           loading="lazy"
                       />
                       <div class="flex-1 min-w-0">
-                        <div class="flex items-center gap-3 mb-2">
-                          <span class="font-medium text-sm" style="color: var(--theme-text);">{{ reply.author?.username || '匿名用户' }}</span>
-                          <span class="text-sm" style="color: var(--theme-text-secondary);">{{ reply.createdAt }}</span>
+                        <div class="flex items-center gap-3 mb-2 flex-wrap">
+                          <span class="font-medium text-sm"
+                                style="color: var(--theme-text);">{{ getCommentAuthorName(reply) }}</span>
+                          <span v-if="getReplyToName(reply)" class="text-sm reply-to"
+                                style="color: var(--theme-primary);">
+                            回复 @{{ getReplyToName(reply) }}
+                          </span>
+                          <span class="text-sm" style="color: var(--theme-text-secondary);">
+                            {{ formatShortDate(reply.createTime || reply.createdAt || '') }}
+                          </span>
                         </div>
-                        <p class="text-sm mb-3" style="color: var(--theme-text-secondary);">{{ reply.content }}</p>
+                        <!-- 引用的内容 -->
+                        <div v-if="reply.replyToContent" class="reply-quote mb-2">
+                          引用: {{ reply.replyToContent }}
+                        </div>
+                        <p class="text-sm mb-3" style="color: var(--theme-text);">{{ reply.content }}</p>
                         <div class="flex items-center gap-3">
                           <button
                               @click="handleLikeComment(reply.id)"
                               class="flex items-center gap-2 transition-colors focus:outline-none text-sm"
                               :style="getCommentLikeButtonStyle(!!reply.isLiked)"
                           >
-                            <Heart class="w-4 h-4" :class="{ 'fill-current': reply.isLiked }" aria-hidden="true" />
+                            <Heart class="w-4 h-4" :class="{ 'fill-current': reply.isLiked }" aria-hidden="true"/>
                             <span>{{ reply.likeCount || 0 }}</span>
                           </button>
                           <button
-                              @click="handleReply(comment)"
+                              @click="handleReply(rootComment, reply)"
                               class="flex items-center gap-2 transition-colors focus:outline-none text-sm"
                               style="color: var(--theme-text-secondary);"
                           >
-                            <Reply class="w-4 h-4" aria-hidden="true" />
+                            <Reply class="w-4 h-4" aria-hidden="true"/>
                             <span>回复</span>
                           </button>
+                        </div>
+                      </div>
+                    </div>
+
+                    <!-- 回复输入框 - 在回复列表中 -->
+                    <div v-if="replyingTo?.id === reply.id && !replyingToRoot" class="mt-3 mb-3 ml-13 p-3 rounded-lg"
+                         style="background-color: var(--theme-bg);">
+                      <div class="flex gap-3">
+                        <img
+                            :src="currentUser?.avatar"
+                            :alt="currentUser?.username"
+                            class="w-7 h-7 rounded-full flex-shrink-0"
+                            loading="lazy"
+                        />
+                        <div class="flex-1">
+                          <div class="text-xs mb-2" style="color: var(--theme-text-secondary);">
+                            回复 {{ getReplyToName(reply) || getCommentAuthorName(reply) }}
+                          </div>
+                          <textarea
+                              v-model="replyContent"
+                              placeholder="写回复..."
+                              class="w-full p-2 border rounded-lg text-sm resize-none focus:outline-none focus:ring-2"
+                              style="border-color: var(--theme-border); background-color: var(--theme-bg); color: var(--theme-text);"
+                              rows="2"
+                          />
+                          <div class="flex justify-end mt-2 gap-2">
+                            <button
+                                @click="handleCancelReply"
+                                class="px-3 py-1 rounded-full text-xs transition-colors focus:outline-none"
+                                style="color: var(--theme-text-secondary);"
+                            >
+                              取消
+                            </button>
+                            <button
+                                @click="handleSubmitReply"
+                                :disabled="!replyContent.trim() || submitting"
+                                class="px-3 py-1 rounded-full text-xs transition-colors flex items-center gap-1 disabled:opacity-50 focus:outline-none"
+                                style="background-color: var(--theme-primary); color: white;"
+                            >
+                              回复
+                            </button>
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -663,7 +774,56 @@ const head = useHead(
 
     <!-- 公共Footer组件 -->
     <div class="mt-8 sm:mt-10 lg:mt-12">
-      <SiteFooter />
+      <SiteFooter/>
     </div>
+
+    <!-- 返回顶部按钮 -->
+    <BackToTop/>
   </div>
 </template>
+
+<style scoped>
+.comment-root {
+  margin-bottom: 24px;
+  border-bottom: 1px solid var(--theme-border);
+  padding-bottom: 16px;
+}
+
+.reply-list {
+  margin-left: 52px;
+  margin-top: 12px;
+  background-color: var(--theme-bg);
+  border-radius: 8px;
+  padding: 12px;
+}
+
+.reply-item {
+  margin-bottom: 12px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--theme-border);
+}
+
+.reply-item:last-child {
+  margin-bottom: 0;
+  padding-bottom: 0;
+  border-bottom: none;
+}
+
+.reply-quote {
+  font-size: 13px;
+  color: var(--theme-text-secondary);
+  background: var(--theme-surface);
+  padding: 4px 8px;
+  border-radius: 4px;
+  margin: 6px 0;
+  border-left: 2px solid var(--theme-primary);
+}
+
+.reply-to {
+  color: var(--theme-primary);
+}
+
+.ml-13 {
+  margin-left: 52px;
+}
+</style>

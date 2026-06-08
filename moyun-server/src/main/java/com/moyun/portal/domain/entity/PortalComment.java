@@ -21,7 +21,6 @@ public class PortalComment extends BaseEntity
     @NotNull(message = "文章ID不能为空")
     private Long articleId;
 
-    @NotNull(message = "评论者ID不能为空")
     private Long authorId;
 
     @NotBlank(message = "评论内容不能为空")
@@ -29,7 +28,11 @@ public class PortalComment extends BaseEntity
 
     private Long parentId;
 
+    private Long rootId;
+
     private Long replyTo;
+
+    private String replyToContent;
 
     private Long likeCount;
 
@@ -94,6 +97,16 @@ public class PortalComment extends BaseEntity
         this.parentId = parentId;
     }
 
+    public Long getRootId()
+    {
+        return rootId;
+    }
+
+    public void setRootId(Long rootId)
+    {
+        this.rootId = rootId;
+    }
+
     public Long getReplyTo()
     {
         return replyTo;
@@ -102,6 +115,16 @@ public class PortalComment extends BaseEntity
     public void setReplyTo(Long replyTo)
     {
         this.replyTo = replyTo;
+    }
+
+    public String getReplyToContent()
+    {
+        return replyToContent;
+    }
+
+    public void setReplyToContent(String replyToContent)
+    {
+        this.replyToContent = replyToContent;
     }
 
     public Long getLikeCount()
@@ -132,7 +155,9 @@ public class PortalComment extends BaseEntity
             .append("authorId", getAuthorId())
             .append("content", getContent())
             .append("parentId", getParentId())
+            .append("rootId", getRootId())
             .append("replyTo", getReplyTo())
+            .append("replyToContent", getReplyToContent())
             .append("likeCount", getLikeCount())
             .append("status", getStatus())
             .append("createBy", getCreateBy())

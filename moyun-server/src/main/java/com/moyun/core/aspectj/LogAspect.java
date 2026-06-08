@@ -13,6 +13,7 @@ import com.moyun.core.manager.factory.AsyncFactory;
 import com.moyun.system.domain.entity.SysOperLog;
 import com.moyun.util.http.ServletUtils;
 import com.moyun.util.ip.IpUtils;
+import com.moyun.portal.util.PortalSecurityUtils;
 import com.moyun.util.security.SecurityUtils;
 import com.moyun.util.string.ExceptionUtil;
 import com.moyun.util.string.StringUtils;
@@ -85,9 +86,6 @@ public class LogAspect {
 
     protected void handleLog(final JoinPoint joinPoint, Log controllerLog, final Exception e, Object jsonResult) {
         try {
-            // 获取当前的用户
-            LoginUser loginUser = SecurityUtils.getLoginUser();
-
             // *========数据库日志=========*//
             SysOperLog operLog = new SysOperLog();
             operLog.setStatus(BusinessStatus.SUCCESS.ordinal());
@@ -95,13 +93,9 @@ public class LogAspect {
             String ip = IpUtils.getIpAddr();
             operLog.setOperIp(ip);
             operLog.setOperUrl(StringUtils.substring(ServletUtils.getRequest().getRequestURI(), 0, 255));
-            if (loginUser != null) {
-                operLog.setOperName(loginUser.getUsername());
-                SysUser currentUser = loginUser.getUser();
-                if (StringUtils.isNotNull(currentUser) && StringUtils.isNotNull(currentUser.getDept())) {
-                    operLog.setDeptName(currentUser.getDept().getDeptName());
-                }
-            }
+            
+            // 获取当前的用户（支持前后台两种认证体系）
+            fillOperatorInfo(operLog);
 
             if (e != null) {
                 operLog.setStatus(BusinessStatus.FAIL.ordinal());
@@ -125,6 +119,53 @@ public class LogAspect {
             exp.printStackTrace();
         } finally {
             TIME_THREADLOCAL.remove();
+        }
+    }
+
+    /**
+     * 填充操作人信息（支持前后台两种认证体系）
+     * 根据请求路径判断使用哪个SecurityUtils
+     */
+    private void fillOperatorInfo(SysOperLog operLog) {
+        try {
+            HttpServletRequest request = ServletUtils.getRequest();
+            if (request == null) {
+                return;
+            }
+            String requestUri = request.getRequestURI();
+            
+            // 判断是否为前台门户请求
+            if (requestUri != null && requestUri.startsWith("/portal/")) {
+                // 使用前台门户的认证工具类
+                try {
+                    com.moyun.portal.domain.model.PortalLoginUser portalLoginUser = PortalSecurityUtils.getLoginUser();
+                    if (portalLoginUser != null) {
+                        operLog.setOperName(portalLoginUser.getUsername());
+                        // 前台门户没有部门概念，可以设置用户昵称或ID
+                        if (portalLoginUser.getUser() != null) {
+                            operLog.setDeptName("门户用户:" + portalLoginUser.getNickname());
+                        }
+                    }
+                } catch (Exception ex) {
+                    log.debug("获取门户用户信息失败: {}", ex.getMessage());
+                }
+            } else {
+                // 使用后台管理系统的认证工具类
+                try {
+                    LoginUser loginUser = SecurityUtils.getLoginUser();
+                    if (loginUser != null) {
+                        operLog.setOperName(loginUser.getUsername());
+                        SysUser currentUser = loginUser.getUser();
+                        if (StringUtils.isNotNull(currentUser) && StringUtils.isNotNull(currentUser.getDept())) {
+                            operLog.setDeptName(currentUser.getDept().getDeptName());
+                        }
+                    }
+                } catch (Exception ex) {
+                    log.debug("获取后台用户信息失败: {}", ex.getMessage());
+                }
+            }
+        } catch (Exception e) {
+            log.debug("获取登录用户信息失败: {}", e.getMessage());
         }
     }
 

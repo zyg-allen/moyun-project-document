@@ -10,7 +10,9 @@
         <result property="authorId" column="author_id"/>
         <result property="content" column="content"/>
         <result property="parentId" column="parent_id"/>
+        <result property="rootId" column="root_id"/>
         <result property="replyTo" column="reply_to"/>
+        <result property="replyToContent" column="reply_to_content"/>
         <result property="likeCount" column="like_count"/>
         <result property="status" column="status"/>
         <result property="createBy" column="create_by"/>
@@ -21,7 +23,7 @@
     </resultMap>
 
     <sql id="selectPortalCommentVo">
-        select id, article_id, author_id, content, parent_id, reply_to, like_count, status, create_by, create_time, update_by, update_time, remark from portal_comment
+        select id, article_id, author_id, content, parent_id, root_id, reply_to, reply_to_content, like_count, status, create_by, create_time, update_by, update_time, remark from portal_comment
     </sql>
 
     <!-- 分页查询 -->
@@ -60,7 +62,9 @@
             <if test="authorId != null">author_id,</if>
             <if test="content != null">content,</if>
             <if test="parentId != null">parent_id,</if>
+            <if test="rootId != null">root_id,</if>
             <if test="replyTo != null">reply_to,</if>
+            <if test="replyToContent != null">reply_to_content,</if>
             <if test="likeCount != null">like_count,</if>
             <if test="status != null">status,</if>
             <if test="createBy != null">create_by,</if>
@@ -72,7 +76,9 @@
             <if test="authorId != null">#{authorId},</if>
             <if test="content != null">#{content},</if>
             <if test="parentId != null">#{parentId},</if>
+            <if test="rootId != null">#{rootId},</if>
             <if test="replyTo != null">#{replyTo},</if>
+            <if test="replyToContent != null">#{replyToContent},</if>
             <if test="likeCount != null">#{likeCount},</if>
             <if test="status != null">#{status},</if>
             <if test="createBy != null">#{createBy},</if>
@@ -88,7 +94,9 @@
             <if test="authorId != null">author_id = #{authorId},</if>
             <if test="content != null and content != ''">content = #{content},</if>
             <if test="parentId != null">parent_id = #{parentId},</if>
+            <if test="rootId != null">root_id = #{rootId},</if>
             <if test="replyTo != null">reply_to = #{replyTo},</if>
+            <if test="replyToContent != null">reply_to_content = #{replyToContent},</if>
             <if test="likeCount != null">like_count = #{likeCount},</if>
             <if test="status != null">status = #{status},</if>
             <if test="updateBy != null">update_by = #{updateBy},</if>

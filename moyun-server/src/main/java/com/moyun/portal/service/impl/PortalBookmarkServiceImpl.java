@@ -6,6 +6,7 @@ import com.moyun.portal.domain.entity.PortalBookmark;
 import com.moyun.portal.domain.query.BookmarkQuery;
 import com.moyun.portal.mapper.PortalBookmarkMapper;
 import com.moyun.portal.service.IPortalBookmarkService;
+import com.moyun.portal.util.PortalSecurityUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -25,7 +26,7 @@ public class PortalBookmarkServiceImpl extends ServiceImpl<PortalBookmarkMapper,
     /**
      * 根据条件分页查询收藏列表
      *
-     * @param page 分页参数
+     * @param page  分页参数
      * @param query 查询条件
      * @return 分页结果
      */
@@ -58,12 +59,17 @@ public class PortalBookmarkServiceImpl extends ServiceImpl<PortalBookmarkMapper,
 
     /**
      * 新增收藏信息
+     * 自动获取当前登录用户的ID
      *
      * @param portalBookmark 收藏信息
      * @return 结果
      */
     @Override
     public int insertPortalBookmark(PortalBookmark portalBookmark) {
+        // 自动填充用户ID
+        if (portalBookmark.getUserId() == null) {
+            portalBookmark.setUserId(PortalSecurityUtils.getUserId());
+        }
         return portalBookmarkMapper.insertPortalBookmark(portalBookmark);
     }
 

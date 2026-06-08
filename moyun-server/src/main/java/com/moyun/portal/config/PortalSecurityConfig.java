@@ -121,8 +121,12 @@ public class PortalSecurityConfig {
                         .requestMatchers(HttpMethod.DELETE, "/portal/comment/*/like").permitAll()
                         .requestMatchers("/portal/category/**").permitAll()
                         .requestMatchers("/portal/tag/**").permitAll()
+                        // 友情链接接口（支持驼峰和连字符两种命名）
                         .requestMatchers("/portal/friendLink/**").permitAll()
+                        .requestMatchers("/portal/friend-link/**").permitAll()
                         .requestMatchers("/portal/vipPackage/**").permitAll()
+                        // 用户相关公开接口（作者列表、公开资料等）
+                        .requestMatchers("/portal/user/authors").permitAll()
                         .requestMatchers("/portal/user/profile/**").permitAll()
                         // 面试指南和读书空间公开接口
                         .requestMatchers("/portal/book/**").permitAll()
@@ -132,6 +136,8 @@ public class PortalSecurityConfig {
                         .requestMatchers("/portal/interviewQuestion/**").permitAll()
                         .requestMatchers("/portal/interviewExperience/**").permitAll()
                         .requestMatchers("/portal/interviewResumeTemplate/**").permitAll()
+                        // 首页聚合接口
+                        .requestMatchers("/portal/home/**").permitAll()
                         // 其他门户请求需要认证
                         .anyRequest().authenticated()
                 )

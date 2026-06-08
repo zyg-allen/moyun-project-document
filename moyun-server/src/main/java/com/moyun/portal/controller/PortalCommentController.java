@@ -9,6 +9,7 @@ import com.moyun.util.bean.PageUtils;
 import com.moyun.util.file.ExcelUtil;
 import com.moyun.portal.domain.entity.PortalComment;
 import com.moyun.portal.domain.query.CommentQuery;
+import com.moyun.portal.domain.vo.CommentVO;
 import com.moyun.portal.service.IPortalCommentService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -27,6 +28,13 @@ public class PortalCommentController extends BaseController {
 
     @Autowired
     private IPortalCommentService portalCommentService;
+
+    @Operation(summary = "获取文章的评论列表（含回复）", description = "获取文章的评论列表，包含回复内容")
+    @GetMapping("/article/{articleId}")
+    public AjaxResult getArticleComments(@Parameter(description = "文章ID") @PathVariable Long articleId) {
+        List<CommentVO> comments = portalCommentService.getCommentsByArticle(articleId);
+        return success(comments);
+    }
 
     @Operation(summary = "获取评论列表", description = "根据条件分页查询评论列表")
     @GetMapping("/list")

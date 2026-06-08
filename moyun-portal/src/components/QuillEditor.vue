@@ -18,6 +18,7 @@
 import { ref, watch } from 'vue';
 import { QuillEditor } from '@vueup/vue-quill';
 import '@vueup/vue-quill/dist/vue-quill.snow.css';
+import { uploadPortalFile } from '@/api/file';
 
 interface Props {
   modelValue?: string;
@@ -41,15 +42,46 @@ const emit = defineEmits<{
 const content = ref(props.modelValue);
 const editorRef = ref();
 
-const toolbarOptions = [
-  ['bold', 'italic', 'underline', 'strike'],
-  ['blockquote', 'code-block'],
-  [{ 'list': 'ordered' }, { 'list': 'bullet' }],
-  [{ 'header': [1, 2, 3, 4, 5, 6, false] }],
-  ['link', 'image', 'video'],
-  ['clean'],
-  ['undo', 'redo']
-];
+const toolbarOptions = {
+  container: [
+    ['bold', 'italic', 'underline', 'strike'],
+    ['blockquote', 'code-block'],
+    [{ 'list': 'ordered' }, { 'list': 'bullet' }],
+    [{ 'header': [1, 2, 3, 4, 5, 6, false] }],
+    ['link', 'image', 'video'],
+    ['clean'],
+    ['undo', 'redo']
+  ],
+  handlers: {
+    image: imageHandler
+  }
+};
+
+// 自定义图片上传
+async function imageHandler() {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = 'image/*';
+  input.onchange = async (e) => {
+    const file = (e.target as HTMLInputElement).files?.[0];
+    if (file) {
+      try {
+        const response = await uploadPortalFile(file, 'article_content');
+        if (response.code === 200 && response.data) {
+          const range = editorRef.value?.getSelection(true);
+          editorRef.value?.insertText(range.index, ' ');
+          editorRef.value?.insertEmbed(range.index, 'image', response.data.fileUrl);
+        } else {
+          alert('图片上传失败');
+        }
+      } catch (error) {
+        console.error('图片上传失败:', error);
+        alert('图片上传失败');
+      }
+    }
+  };
+  input.click();
+}
 
 // 监听 modelValue 变化，更新本地 content
 watch(() => props.modelValue, (newVal) => {

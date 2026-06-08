@@ -3,6 +3,7 @@ package com.moyun.portal.service;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.moyun.portal.domain.entity.PortalComment;
 import com.moyun.portal.domain.query.CommentQuery;
+import com.moyun.portal.domain.vo.CommentVO;
 
 import java.util.List;
 
@@ -69,4 +70,12 @@ public interface IPortalCommentService {
      * @return 结果
      */
     public int deletePortalCommentByIds(Long[] ids);
+
+    /**
+     * 获取文章的评论列表（含回复）
+     *
+     * @param articleId 文章ID
+     * @return 评论VO列表
+     */
+    List<CommentVO> getCommentsByArticle(Long articleId);
 }

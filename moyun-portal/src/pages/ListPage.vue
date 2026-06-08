@@ -7,6 +7,7 @@ import ArticleCard from '@/components/ArticleCard.vue';
 import Pagination from '@/components/Pagination.vue';
 import Breadcrumb from '@/components/Breadcrumb.vue';
 import SiteFooter from '@/components/SiteFooter.vue';
+import BackToTop from '@/components/BackToTop.vue';
 
 import { getArticleList } from '@/api/article';
 import { generateSeo } from '@/utils/seo';
@@ -84,23 +85,23 @@ watch(() => route.query, (newQuery) => {
 
 const breadcrumbs = computed(() => {
   const items = [];
-  
+
   if (selectedCategory.value && selectedCategory.value !== '全部') {
     items.push({ label: '分类', path: '/' });
     items.push({ label: selectedCategory.value });
   } else {
     items.push({ label: '文章列表' });
   }
-  
+
   return items;
 });
 
 const pageTitle = computed(() => {
   let title = '文章列表';
   if (selectedCategory.value && selectedCategory.value !== '全部') {
-    title = isCategoryRecommended.value 
-      ? `${selectedCategory.value} · 本栏推荐` 
-      : selectedCategory.value;
+    title = isCategoryRecommended.value
+        ? `${selectedCategory.value} · 本栏推荐`
+        : selectedCategory.value;
   } else if (isCategoryRecommended.value) {
     title = '本栏推荐';
   }
@@ -125,16 +126,16 @@ async function loadArticles() {
   try {
     loading.value = true;
     error.value = null;
-    
+
     const params: any = {
       pageNum: currentPage.value,
       pageSize: itemsPerPage.value,
       categoryName: selectedCategory.value !== '全部' ? selectedCategory.value : undefined,
       isCategoryRecommended: isCategoryRecommended.value ? true : undefined
     };
-    
+
     const response = await getArticleList(params);
-    
+
     if (response.code === 200 && response.data) {
       const apiArticles = response.data.list || [];
       allArticles.value = apiArticles.map(transformArticle);
@@ -166,14 +167,14 @@ function handlePageChange(page: number) {
 
 // SEO - 动态更新
 useHead(
-  computed(() => {
-    return generateSeo({
-      title: pageTitle.value,
-      description: pageDescription.value,
-      keywords: [selectedCategory.value, isCategoryRecommended.value ? '推荐' : '', '文章', '分类'],
-      type: 'website'
+    computed(() => {
+      return generateSeo({
+        title: pageTitle.value,
+        description: pageDescription.value,
+        keywords: [selectedCategory.value, isCategoryRecommended.value ? '推荐' : '', '文章', '分类'],
+        type: 'website'
+      })
     })
-  })
 )
 </script>
 
@@ -187,10 +188,10 @@ useHead(
           <div class="flex items-center space-x-2">
             <span class="text-sm hidden sm:inline" style="color: var(--theme-text-secondary);">排序：</span>
             <select
-              v-model="sortBy"
-              @change="loadArticles"
-              class="text-sm border rounded-lg px-3 py-2 focus:outline-none focus:ring-2"
-              style="border-color: var(--theme-border); background-color: var(--theme-bg); color: var(--theme-text);"
+                v-model="sortBy"
+                @change="loadArticles"
+                class="text-sm border rounded-lg px-3 py-2 focus:outline-none focus:ring-2"
+                style="border-color: var(--theme-border); background-color: var(--theme-bg); color: var(--theme-text);"
             >
               <option>最新</option>
               <option>热门</option>
@@ -218,21 +219,21 @@ useHead(
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <!-- 文章卡片列表 -->
         <div v-if="paginatedArticles.length > 0" class="space-y-4 sm:space-y-6 mb-6">
-          <ArticleCard 
-            v-for="article in paginatedArticles" 
-            :key="article.id" 
-            :article="article"
+          <ArticleCard
+              v-for="article in paginatedArticles"
+              :key="article.id"
+              :article="article"
           />
         </div>
 
         <!-- Pagination -->
         <div class="flex justify-center mt-8" v-if="totalPages > 1 && paginatedArticles.length > 0">
-          <Pagination 
-            :current-page="currentPage"
-            :total-pages="totalPages"
-            :total-items="totalItems"
-            :items-per-page="itemsPerPage"
-            @page-change="handlePageChange"
+          <Pagination
+              :current-page="currentPage"
+              :total-pages="totalPages"
+              :total-items="totalItems"
+              :items-per-page="itemsPerPage"
+              @page-change="handlePageChange"
           />
         </div>
 
@@ -251,5 +252,8 @@ useHead(
     <div class="mt-8">
       <SiteFooter />
     </div>
+
+    <!-- 返回顶部按钮 -->
+    <BackToTop />
   </div>
 </template>

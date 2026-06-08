@@ -21,6 +21,7 @@ import {
 } from '@/api/tag';
 import { getCategoryList, getCategoryTree } from '@/api/category';
 import { createArticle } from '@/api/article';
+import { uploadPortalFile } from '@/api/file';
 import { useUserStore } from '@/stores/user';
 import { useAuth } from '@/composables/useAuth';
 import type { Tag, Category } from '@/types/api';
@@ -452,6 +453,9 @@ async function extractExcerptFromContent() {
   }
 }
 
+// 文件上传相关状态
+const isUploadingCover = ref(false);
+
 // 文件上传相关函数
 function triggerFileUpload() {
   fileInputRef.value?.click();
@@ -472,7 +476,7 @@ function handleDrop(event: DragEvent) {
   }
 }
 
-function handleFile(file: File) {
+async function handleFile(file: File) {
   // 检查文件类型
   if (!file.type.startsWith('image/')) {
     alert('请选择图片文件！');
@@ -485,7 +489,7 @@ function handleFile(file: File) {
     return;
   }
 
-  // 创建预览 URL
+  // 先显示本地预览
   const reader = new FileReader();
   reader.onload = (e) => {
     if (e.target?.result) {
@@ -493,6 +497,24 @@ function handleFile(file: File) {
     }
   };
   reader.readAsDataURL(file);
+
+  // 同时上传到MinIO
+  isUploadingCover.value = true;
+  try {
+    const response = await uploadPortalFile(file, 'article_cover');
+    if (response.code === 200 && response.data) {
+      // 上传成功，替换为服务器URL
+      coverImage.value = response.data.fileUrl;
+      console.log('封面上传成功:', response.data);
+    } else {
+      alert('封面上传失败，请重试');
+    }
+  } catch (error) {
+    console.error('封面上传失败:', error);
+    alert('封面上传失败，请重试');
+  } finally {
+    isUploadingCover.value = false;
+  }
 }
 
 // 计算标题字数
@@ -605,7 +627,13 @@ const titleLength = computed(() => title.value.length);
             <div class="rounded-lg border-2 border-dashed overflow-hidden" style="border-color: var(--theme-border);">
               <div v-if="coverImage" class="relative group">
                 <img :src="coverImage" alt="Cover" class="w-full h-40 sm:h-48 object-cover" />
-                <button
+                <div v-if="isUploadingCover" class="absolute inset-0 bg-black/50 flex items-center justify-center">
+                  <div class="flex flex-col items-center gap-2">
+                    <div class="w-6 h-6 border-2 border-white/50 border-t-white rounded-full animate-spin"></div>
+                    <span class="text-white text-sm">上传中...</span>
+                  </div>
+                </div>
+                <button v-else
                     @click="coverImage = ''"
                     class="absolute top-2 right-2 w-8 h-8 bg-black/50 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
                 >

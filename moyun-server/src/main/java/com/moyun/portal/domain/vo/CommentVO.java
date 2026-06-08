@@ -69,6 +69,12 @@ public class CommentVO implements Serializable {
     private Long parentId;
 
     /**
+     * 根评论ID（一级评论的ID）
+     */
+    @Schema(description = "根评论ID", example = "1")
+    private Long rootId;
+
+    /**
      * 回复目标用户ID
      */
     @Schema(description = "回复目标用户ID", example = "2")
@@ -85,6 +91,12 @@ public class CommentVO implements Serializable {
      */
     @Schema(description = "回复目标昵称", example = "Jane Doe")
     private String replyToNickname;
+
+    /**
+     * 被回复的内容摘要
+     */
+    @Schema(description = "被回复的内容摘要", example = "这篇文章写得真好...")
+    private String replyToContent;
 
     /**
      * 点赞数
@@ -109,5 +121,5 @@ public class CommentVO implements Serializable {
      * 子评论列表
      */
     @Schema(description = "子评论列表")
-    private java.util.List<CommentVO> children;
+    private java.util.List<CommentVO> replies;
 }

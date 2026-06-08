@@ -50,9 +50,13 @@ const request = async <T>(
 ): Promise<ApiResponse<T>> => {
   const token = getToken();
   const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
     ...(options.headers as Record<string, string> || {}),
   };
+
+  // 只有当不是 FormData 时才设置 Content-Type
+  if (!(options.body instanceof FormData)) {
+    headers['Content-Type'] = 'application/json';
+  }
 
   if (token) {
     headers['Authorization'] = `Bearer ${token}`;
@@ -179,21 +183,21 @@ export const httpGetList = <T>(
 
 export const httpPost = <T>(
   url: string,
-  data?: Record<string, any>
+  data?: Record<string, any> | FormData
 ): Promise<ApiResponse<T>> => {
   return request<T>(url, {
     method: 'POST',
-    body: data ? JSON.stringify(data) : undefined,
+    body: data instanceof FormData ? data : (data ? JSON.stringify(data) : undefined),
   });
 };
 
 export const httpPut = <T>(
   url: string,
-  data?: Record<string, any>
+  data?: Record<string, any> | FormData
 ): Promise<ApiResponse<T>> => {
   return request<T>(url, {
     method: 'PUT',
-    body: data ? JSON.stringify(data) : undefined,
+    body: data instanceof FormData ? data : (data ? JSON.stringify(data) : undefined),
   });
 };
 

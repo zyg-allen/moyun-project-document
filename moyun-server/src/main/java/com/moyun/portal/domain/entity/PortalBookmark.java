@@ -9,16 +9,17 @@ import jakarta.validation.constraints.NotNull;
 import org.apache.commons.lang3.builder.ToStringBuilder;
 import org.apache.commons.lang3.builder.ToStringStyle;
 
+import java.io.Serial;
 import java.time.LocalDateTime;
 
 @TableName("portal_bookmark")
 public class PortalBookmark extends BaseEntity {
+    @Serial
     private static final long serialVersionUID = 1L;
 
     @TableId(type = IdType.AUTO)
     private Long id;
 
-    @NotNull(message = "用户ID不能为空")
     private Long userId;
 
     @NotNull(message = "文章ID不能为空")
@@ -70,11 +71,6 @@ public class PortalBookmark extends BaseEntity {
 
     @Override
     public String toString() {
-        return new ToStringBuilder(this, ToStringStyle.MULTI_LINE_STYLE)
-                .append("id", getId())
-                .append("userId", getUserId())
-                .append("articleId", getArticleId())
-                .append("createTime", getCreateTime())
-                .toString();
+        return new ToStringBuilder(this, ToStringStyle.MULTI_LINE_STYLE).append("id", getId()).append("userId", getUserId()).append("articleId", getArticleId()).append("createTime", getCreateTime()).toString();
     }
 }

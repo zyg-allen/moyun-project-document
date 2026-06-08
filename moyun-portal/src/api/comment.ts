@@ -1,10 +1,15 @@
-import { httpGetList, httpPost, httpDelete } from './client';
+import { httpGet, httpGetList, httpPost, httpDelete } from './client';
 import type {
   Comment,
   CommentListParams,
   CreateCommentParams,
   DeleteCommentParams,
 } from '@/types/api';
+
+// 获取文章的评论列表（含回复）- 新接口
+export const getArticleComments = (articleId: string) => {
+  return httpGet<Comment[]>(`/portal/comment/article/${articleId}`);
+};
 
 // 获取评论列表
 export const getCommentList = (params: CommentListParams) => {

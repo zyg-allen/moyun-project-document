@@ -28,6 +28,12 @@ public class CommentQuery extends PageDomain {
     private Long authorId;
 
     /**
+     * 父评论ID（用于查询子评论）
+     */
+    @Schema(description = "父评论ID", example = "1")
+    private Long parentId;
+
+    /**
      * 评论内容（模糊查询）
      */
     @Schema(description = "评论内容", example = "好")

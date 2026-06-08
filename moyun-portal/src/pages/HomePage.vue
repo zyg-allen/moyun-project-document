@@ -10,6 +10,7 @@ import {
 } from 'lucide-vue-next'
 import LazyImage from '@/components/LazyImage.vue'
 import SiteFooter from '@/components/SiteFooter.vue'
+import BackToTop from '@/components/BackToTop.vue'
 import { generateSeo } from '@/utils/seo'
 import { getHomeData, getTagList, getCategoryRecommendedArticles } from '@/api/article'
 import { getFriendLinks } from '@/api/friendLink'
@@ -858,6 +859,9 @@ useHead(
     <div class="mt-4 sm:mt-6">
       <SiteFooter />
     </div>
+
+    <!-- 返回顶部按钮 -->
+    <BackToTop />
   </div>
 </template>
 

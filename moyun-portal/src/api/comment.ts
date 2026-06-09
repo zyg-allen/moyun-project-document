@@ -6,9 +6,9 @@ import type {
   DeleteCommentParams,
 } from '@/types/api';
 
-// 获取文章的评论列表（含回复）- 新接口
-export const getArticleComments = (articleId: string) => {
-  return httpGet<Comment[]>(`/portal/comment/article/${articleId}`);
+// 获取文章的评论列表（含回复）- 分页版本
+export const getArticleComments = (articleId: string, pageNum: number = 1, pageSize: number = 20) => {
+  return httpGet<any>(`/portal/comment/article/${articleId}?pageNum=${pageNum}&pageSize=${pageSize}`);
 };
 
 // 获取评论列表

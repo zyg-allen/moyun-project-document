@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref } from 'vue';
-import { RouterLink as Link, useRouter } from 'vue-router';
+import { RouterLink as Link, useRouter, useRoute } from 'vue-router';
 import { 
   Eye, EyeOff, Lock, ArrowRight, AlertCircle, 
   Smartphone, MessageSquare, User 
@@ -10,6 +10,7 @@ import { useUserStore } from '@/stores/user';
 import { loginSchema, validateForm } from '@/utils/validation';
 
 const router = useRouter();
+const route = useRoute();
 const userStore = useUserStore();
 
 // 登录方式切换
@@ -81,7 +82,13 @@ async function handlePasswordLogin() {
   try {
     const { success, message } = await userStore.loginWithApi(passwordForm.value);
     if (success) {
-      router.push('/');
+      // 登录成功后，根据 redirect 参数跳转到原页面
+      const redirect = route.query.redirect as string;
+      if (redirect) {
+        router.push(redirect);
+      } else {
+        router.push('/');
+      }
     } else {
       serverError.value = message || '登录失败，请检查用户名和密码';
     }
@@ -112,8 +119,13 @@ async function handleSmsLogin() {
   try {
     // 模拟短信登录
     await new Promise(resolve => setTimeout(resolve, 1000));
-    // 暂时直接成功
-    router.push('/');
+    // 登录成功后，根据 redirect 参数跳转到原页面
+    const redirect = route.query.redirect as string;
+    if (redirect) {
+      router.push(redirect);
+    } else {
+      router.push('/');
+    }
   } catch (error) {
     console.error('登录失败:', error);
     serverError.value = '登录失败，请稍后重试';

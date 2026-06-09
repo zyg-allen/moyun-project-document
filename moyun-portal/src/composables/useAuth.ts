@@ -104,61 +104,84 @@ export function useAuth() {
         justify-content: center;
         z-index: 9999;
         animation: fadeIn 0.2s ease;
+        backdrop-filter: blur(4px);
       `
 
             const confirmDialog = document.createElement('div')
             confirmDialog.style.cssText = `
         background-color: #ffffff;
-        border-radius: 12px;
-        padding: 24px;
-        max-width: 400px;
+        border-radius: 16px;
+        padding: 28px;
+        max-width: 420px;
         width: 90%;
-        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
-        animation: slideUp 0.2s ease;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        animation: slideUp 0.3s ease;
       `
+
+            const iconContainer = document.createElement('div')
+            iconContainer.style.cssText = `
+        width: 56px;
+        height: 56px;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto 20px;
+      `
+            
+            const lockIcon = document.createElement('span')
+            lockIcon.innerHTML = '🔒'
+            lockIcon.style.cssText = 'font-size: 28px;'
+            iconContainer.appendChild(lockIcon)
 
             const title = document.createElement('h3')
             title.textContent = '提示'
             title.style.cssText = `
         margin: 0 0 12px 0;
-        font-size: 18px;
+        font-size: 20px;
         font-weight: 600;
         color: #1a1a1a;
+        text-align: center;
       `
 
             const message = document.createElement('p')
-            message.textContent = `${actionName}需要先登录，是否前往登录？`
+            message.textContent = `${actionName}需要先登录哦，登录后可以享受更多精彩功能~`
             message.style.cssText = `
-        margin: 0 0 20px 0;
-        font-size: 14px;
+        margin: 0 0 24px 0;
+        font-size: 15px;
         color: #666666;
         line-height: 1.6;
+        text-align: center;
       `
 
             const buttonGroup = document.createElement('div')
             buttonGroup.style.cssText = `
         display: flex;
         gap: 12px;
-        justify-content: flex-end;
+        justify-content: center;
       `
 
             const cancelButton = document.createElement('button')
             cancelButton.textContent = '继续浏览'
             cancelButton.style.cssText = `
-        padding: 10px 24px;
-        border: 1px solid #e0e0e0;
-        border-radius: 8px;
+        padding: 12px 28px;
+        border: 2px solid #e0e0e0;
+        border-radius: 10px;
         background-color: #ffffff;
         color: #666666;
-        font-size: 14px;
+        font-size: 15px;
+        font-weight: 500;
         cursor: pointer;
         transition: all 0.2s;
       `
             cancelButton.addEventListener('mouseenter', () => {
                 cancelButton.style.backgroundColor = '#f5f5f5'
+                cancelButton.style.borderColor = '#d0d0d0'
             })
             cancelButton.addEventListener('mouseleave', () => {
                 cancelButton.style.backgroundColor = '#ffffff'
+                cancelButton.style.borderColor = '#e0e0e0'
             })
             cancelButton.addEventListener('click', () => {
                 document.body.removeChild(confirmOverlay)
@@ -166,22 +189,26 @@ export function useAuth() {
             })
 
             const confirmButton = document.createElement('button')
-            confirmButton.textContent = '跳转登录'
+            confirmButton.textContent = '去登录'
             confirmButton.style.cssText = `
-        padding: 10px 24px;
+        padding: 12px 28px;
         border: none;
-        border-radius: 8px;
-        background-color: #1890ff;
+        border-radius: 10px;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         color: #ffffff;
-        font-size: 14px;
+        font-size: 15px;
+        font-weight: 600;
         cursor: pointer;
         transition: all 0.2s;
+        box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
       `
             confirmButton.addEventListener('mouseenter', () => {
-                confirmButton.style.backgroundColor = '#40a9ff'
+                confirmButton.style.transform = 'translateY(-2px)'
+                confirmButton.style.boxShadow = '0 6px 16px rgba(102, 126, 234, 0.5)'
             })
             confirmButton.addEventListener('mouseleave', () => {
-                confirmButton.style.backgroundColor = '#1890ff'
+                confirmButton.style.transform = 'translateY(0)'
+                confirmButton.style.boxShadow = '0 4px 12px rgba(102, 126, 234, 0.4)'
             })
             confirmButton.addEventListener('click', () => {
                 document.body.removeChild(confirmOverlay)
@@ -196,14 +223,15 @@ export function useAuth() {
           to { opacity: 1; }
         }
         @keyframes slideUp {
-          from { opacity: 0; transform: translateY(20px); }
-          to { opacity: 1; transform: translateY(0); }
+          from { opacity: 0; transform: translateY(30px) scale(0.95); }
+          to { opacity: 1; transform: translateY(0) scale(1); }
         }
       `
             document.head.appendChild(styleSheet)
 
             buttonGroup.appendChild(cancelButton)
             buttonGroup.appendChild(confirmButton)
+            confirmDialog.appendChild(iconContainer)
             confirmDialog.appendChild(title)
             confirmDialog.appendChild(message)
             confirmDialog.appendChild(buttonGroup)

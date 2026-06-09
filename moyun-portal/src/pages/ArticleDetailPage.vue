@@ -7,6 +7,7 @@ import Breadcrumb from '@/components/Breadcrumb.vue';
 import SiteFooter from '@/components/SiteFooter.vue';
 import MarkdownRenderer from '@/components/MarkdownRenderer.vue';
 import BackToTop from '@/components/BackToTop.vue';
+import TagList from '@/components/TagList.vue';
 import {useArticleStore} from '@/stores/article';
 import {useUserStore} from '@/stores/user';
 import {useAuth} from '@/composables/useAuth';
@@ -31,8 +32,11 @@ const replyingTo = ref<Comment | null>(null);
 const replyingRootComment = ref<Comment | null>(null); // 保存根评论用于回复
 const replyingToRoot = ref(false); // 是否是直接回复根评论
 const replyContent = ref('');
-const displayedCount = ref(100); // 不做分页，一次加载所有
+// 后端已实现分页，无需本地分页变量
 const loading = ref(false);
+const commentsLoading = ref(false); // 评论加载状态
+const commentsPageNum = ref(1); // 当前页码
+const commentsHasMore = ref(false); // 是否有更多评论
 const submitting = ref(false);
 const error = ref<string | null>(null);
 
@@ -128,8 +132,8 @@ const articleUpdateDate = computed(() => {
   return dateStr ? formatShortDate(dateStr) : '';
 });
 
-const displayedComments = computed(() => comments.value.slice(0, displayedCount.value));
-const hasMoreComments = computed(() => displayedCount.value < comments.value.length);
+const displayedComments = computed(() => comments.value); // 后端已分页，直接使用所有评论
+const hasMoreComments = computed(() => commentsHasMore.value); // 使用后端返回的 hasMore
 const totalCommentsCount = computed(() => {
   let count = 0;
   const countReplies = (cmts: Comment[]) => {
@@ -183,20 +187,26 @@ async function loadArticle() {
 
 async function loadComments(articleId: string) {
   try {
-    const response = await commentApi.getArticleComments(articleId);
-    if (response.code === 200) {
+    commentsLoading.value = true;
+    const response = await commentApi.getArticleComments(articleId, commentsPageNum.value, 20);
+    if (response.code === 200 && response.data) {
+      const result = response.data;
       // 确保每个评论都有完整的结构
-      const commentList = response.data as Comment[];
+      const commentList = (result.list || []) as Comment[];
       comments.value = commentList.map(comment => {
         if (!comment.replies) {
           comment.replies = [];
         }
         return comment;
       });
+      // 更新分页信息
+      commentsHasMore.value = result.hasMore || false;
     }
   } catch (error) {
     console.error('加载评论失败:', error);
     comments.value = [];
+  } finally {
+    commentsLoading.value = false;
   }
 }
 
@@ -250,7 +260,9 @@ async function handleSubmitComment() {
       });
 
       if (response.code === 200) {
-        // 发表评论成功后，重新加载评论列表
+        // 发表评论成功后，重新加载评论列表（重置到第一页）
+        commentsPageNum.value = 1;
+        comments.value = []; // 清空旧评论
         await loadComments(article.value.id);
         newComment.value = '';
       }
@@ -292,7 +304,9 @@ async function handleSubmitReply() {
     });
 
     if (response.code === 200) {
-      // 回复成功后，重新加载评论列表
+      // 回复成功后，重新加载评论列表（重置到第一页）
+      commentsPageNum.value = 1;
+      comments.value = []; // 清空旧评论
       await loadComments(article.value.id);
       handleCancelReply();
     }
@@ -314,8 +328,35 @@ async function handleLikeComment(commentId: string) {
   }, '点赞评论');
 }
 
-function loadMoreComments() {
-  displayedCount.value += 100;
+async function loadMoreComments() {
+  if (commentsLoading.value || !commentsHasMore.value) return;
+  
+  try {
+    commentsLoading.value = true;
+    commentsPageNum.value += 1;
+    const articleId = route.params.id as string;
+    const response = await commentApi.getArticleComments(articleId, commentsPageNum.value, 20);
+    
+    if (response.code === 200 && response.data) {
+      const result = response.data;
+      const newComments = (result.list || []) as Comment[];
+      // 添加新评论，确保结构完整
+      const processedComments = newComments.map(comment => {
+        if (!comment.replies) {
+          comment.replies = [];
+        }
+        return comment;
+      });
+      comments.value = [...comments.value, ...processedComments];
+      // 更新分页信息
+      commentsHasMore.value = result.hasMore || false;
+    }
+  } catch (error) {
+    console.error('加载更多评论失败:', error);
+    commentsPageNum.value -= 1; // 加载失败，恢复页码
+  } finally {
+    commentsLoading.value = false;
+  }
 }
 
 function getLikeButtonStyle() {
@@ -422,44 +463,41 @@ const head = useHead(
                 </h1>
               </div>
 
-              <!-- 文章信息行 - 更紧凑美观的排版 -->
-              <div class="flex flex-wrap items-center justify-center gap-4 py-3 mb-4 border-t border-b"
+              <!-- 文章信息行 - 左边信息，右边标签 -->
+              <div class="flex items-center justify-between py-4 mb-6 border-t border-b flex-wrap gap-4"
                    style="border-color: var(--theme-border);">
-                <!-- 作者信息 -->
-                <Link
-                    v-if="articleAuthor"
-                    :to="`/author/${articleAuthor.id || article?.authorId}`"
-                    class="flex items-center gap-2 hover:opacity-80 transition-opacity"
-                >
-                  <img
-                      :src="articleAuthor.avatar"
-                      :alt="articleAuthor.username"
-                      class="w-8 h-8 rounded-full"
-                      loading="lazy"
-                  />
-                  <span class="font-medium text-sm" style="color: var(--theme-text);">
-                    {{ articleAuthor.nickname || articleAuthor.username }}
+                <!-- 左边：发布人、时间、阅读量 -->
+                <div class="flex items-center gap-6">
+                  <!-- 作者信息 - 可点击跳转作者中心 -->
+                  <Link
+                      v-if="articleAuthor"
+                      :to="`/author/${articleAuthor.id || article?.authorId}`"
+                      class="flex items-center gap-3 hover:opacity-80 transition-opacity"
+                  >
+                    <img
+                        :src="articleAuthor.avatar"
+                        :alt="articleAuthor.username"
+                        class="w-10 h-10 rounded-full"
+                        loading="lazy"
+                    />
+                    <span class="font-medium text-base" style="color: var(--theme-text);">
+                      {{ articleAuthor.nickname || articleAuthor.username }}
+                    </span>
+                  </Link>
+
+                  <!-- 时间 -->
+                  <span class="text-base" style="color: var(--theme-text-secondary);">
+                    {{ articleDate }}
                   </span>
-                </Link>
 
-                <!-- 时间 -->
-                <div class="flex items-center gap-1" style="color: var(--theme-text-secondary);">
-                  <Clock class="w-3.5 h-3.5"/>
-                  <span class="text-sm">{{ articleDate }}</span>
+                  <!-- 阅读量 -->
+                  <span class="text-base" style="color: var(--theme-text-secondary);">
+                    {{ articleViews }} 阅读
+                  </span>
                 </div>
 
-                <!-- 阅读量 -->
-                <div class="flex items-center gap-1" style="color: var(--theme-text-secondary);">
-                  <Eye class="w-3.5 h-3.5"/>
-                  <span class="text-sm">{{ articleViews }} 阅读</span>
-                </div>
-
-                <!-- 标签 -->
-                <div v-if="articleTags.length > 0" class="flex items-center gap-1"
-                     style="color: var(--theme-text-secondary);">
-                  <Tag class="w-3.5 h-3.5"/>
-                  <span class="text-sm">{{ articleTags.join(' · ') }}</span>
-                </div>
+                <!-- 右边：标签列表 -->
+                <TagList v-if="articleTags.length > 0" :tags="articleTags" :max-visible="3" />
               </div>
 
               <!-- 内容区域 - 自适应 -->
@@ -752,12 +790,17 @@ const head = useHead(
 
             <div v-if="hasMoreComments" class="text-center mt-6">
               <button
+                  v-if="hasMoreComments"
                   @click="loadMoreComments"
-                  class="px-6 py-2 rounded-full font-medium text-sm transition-colors focus:outline-none"
+                  :disabled="commentsLoading"
+                  class="px-6 py-2 rounded-full font-medium text-sm transition-colors focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
                   style="background-color: var(--theme-surface); color: var(--theme-text-secondary);"
               >
-                查看更多评论 ({{ comments.length - displayedCount }} 条)
+                {{ commentsLoading ? '加载中...' : '加载更多评论' }}
               </button>
+              <p v-else-if="comments.length > 0" class="text-center text-sm" style="color: var(--theme-text-secondary);">
+                已显示全部评论
+              </p>
             </div>
           </section>
         </template>

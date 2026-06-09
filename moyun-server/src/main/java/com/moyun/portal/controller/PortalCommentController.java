@@ -20,6 +20,7 @@ import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 
 @Tag(name = "门户评论", description = "门户评论的增删改查操作接口")
 @RestController
@@ -29,11 +30,14 @@ public class PortalCommentController extends BaseController {
     @Autowired
     private IPortalCommentService portalCommentService;
 
-    @Operation(summary = "获取文章的评论列表（含回复）", description = "获取文章的评论列表，包含回复内容")
+    @Operation(summary = "获取文章的评论列表（含回复）", description = "获取文章的评论列表，包含回复内容，支持分页")
     @GetMapping("/article/{articleId}")
-    public AjaxResult getArticleComments(@Parameter(description = "文章ID") @PathVariable Long articleId) {
-        List<CommentVO> comments = portalCommentService.getCommentsByArticle(articleId);
-        return success(comments);
+    public AjaxResult getArticleComments(
+            @Parameter(description = "文章ID") @PathVariable Long articleId,
+            @Parameter(description = "页码，从1开始") @RequestParam(defaultValue = "1") Integer pageNum,
+            @Parameter(description = "每页数量") @RequestParam(defaultValue = "20") Integer pageSize) {
+        Map<String, Object> result = portalCommentService.getCommentsByArticle(articleId, pageNum, pageSize);
+        return success(result);
     }
 
     @Operation(summary = "获取评论列表", description = "根据条件分页查询评论列表")

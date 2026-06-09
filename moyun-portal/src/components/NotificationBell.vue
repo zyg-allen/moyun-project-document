@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { Bell, X } from 'lucide-vue-next'
 import { getCurrentTheme } from '@/utils/theme'
 
@@ -23,15 +23,21 @@ const emit = defineEmits<{
 const showDropdown = ref(false)
 const showModal = ref(false)
 const selectedNotification = ref<Notification | null>(null)
+const dropdownRef = ref<HTMLElement | null>(null)
 
 const currentTheme = computed(() => getCurrentTheme())
 
-function handleMouseEnter() {
-  showDropdown.value = true
+function toggleDropdown() {
+  showDropdown.value = !showDropdown.value
 }
 
-function handleMouseLeave() {
-  showDropdown.value = false
+function closeDropdown(event: MouseEvent) {
+  if (
+    dropdownRef.value &&
+    !dropdownRef.value.contains(event.target as Node)
+  ) {
+    showDropdown.value = false
+  }
 }
 
 function handleNotificationClick(notification: Notification) {
@@ -48,14 +54,23 @@ function closeModal() {
   selectedNotification.value = null
 }
 
+onMounted(() => {
+  document.addEventListener('click', closeDropdown)
+})
+
+onUnmounted(() => {
+  document.removeEventListener('click', closeDropdown)
+})
+
 const unreadCount = computed(() => {
   return props.notifications.filter(n => !n.isRead).length
 })
 </script>
 
 <template>
-  <div class="relative" @mouseenter="handleMouseEnter" @mouseleave="handleMouseLeave">
+  <div class="relative" ref="dropdownRef">
     <button
+      @click.stop="toggleDropdown"
       class="relative flex items-center gap-2 px-3 py-2 rounded-full transition-colors"
       :class="currentTheme === 'dark' ? 'hover:bg-gray-700' : 'hover:bg-gray-100'"
     >

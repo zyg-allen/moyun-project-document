@@ -165,64 +165,83 @@ public class PortalCommentServiceImpl extends ServiceImpl<PortalCommentMapper, P
      */
     @Override
     public List<CommentVO> getCommentsByArticle(Long articleId) {
-        // 1. 一次性查出所有评论
-        List<PortalComment> allComments = baseMapper.selectList(
+        // 1. 查询所有一级评论（按时间倒序，最新的在上）
+        List<PortalComment> rootComments = baseMapper.selectList(
                 new LambdaQueryWrapper<PortalComment>()
                         .eq(PortalComment::getArticleId, articleId)
                         .eq(PortalComment::getStatus, "1")
-                        .orderByAsc(PortalComment::getCreateTime)
+                        .eq(PortalComment::getParentId, 0)
+                        .orderByDesc(PortalComment::getCreateTime)
         );
-        
-        if (allComments.isEmpty()) {
+
+        if (rootComments.isEmpty()) {
             return new ArrayList<>();
         }
-        
-        // 2. 批量查询用户信息
+
+        // 2. 查询所有回复评论（按时间正序，保持对话逻辑）
+        List<Long> rootIds = rootComments.stream()
+                .map(PortalComment::getId)
+                .collect(Collectors.toList());
+
+        List<PortalComment> allReplies = baseMapper.selectList(
+                new LambdaQueryWrapper<PortalComment>()
+                        .eq(PortalComment::getArticleId, articleId)
+                        .eq(PortalComment::getStatus, "1")
+                        .ne(PortalComment::getParentId, 0)
+                        .in(PortalComment::getRootId, rootIds)
+                        .orderByAsc(PortalComment::getCreateTime)
+        );
+
+        // 3. 合并一级评论和回复，用于批量查询用户信息
+        List<PortalComment> allComments = new ArrayList<>();
+        allComments.addAll(rootComments);
+        allComments.addAll(allReplies);
+
+        // 4. 批量查询用户信息
         Set<Long> userIds = allComments.stream()
                 .map(PortalComment::getAuthorId)
                 .collect(Collectors.toSet());
-        
+
         // 添加被回复用户的ID
-        allComments.stream()
+        allReplies.stream()
                 .filter(c -> c.getReplyTo() != null)
                 .forEach(c -> userIds.add(c.getReplyTo()));
-        
+
         List<PortalUser> users = portalUserMapper.selectBatchIds(userIds);
         Map<Long, PortalUser> userMap = users.stream()
                 .collect(Collectors.toMap(PortalUser::getId, u -> u));
-        
-        // 3. 组装 VO
+
+        // 5. 组装一级评论为VO（已按倒序排序）
         List<CommentVO> roots = new ArrayList<>();
         Map<Long, List<CommentVO>> replyMap = new HashMap<>();
-        
-        for (PortalComment comment : allComments) {
-            CommentVO vo = convertToVO(comment, userMap);
-            
-            if (comment.getParentId() == 0) {
-                roots.add(vo);
-                replyMap.put(comment.getId(), new ArrayList<>());
+
+        for (PortalComment rootComment : rootComments) {
+            CommentVO vo = convertToVO(rootComment, userMap);
+            roots.add(vo);
+            replyMap.put(rootComment.getId(), new ArrayList<>());
+        }
+
+        // 6. 组装回复为VO，并挂载到对应的一级评论下（回复按正序）
+        for (PortalComment reply : allReplies) {
+            CommentVO vo = convertToVO(reply, userMap);
+            Long rootId = reply.getRootId();
+            if (rootId != null && rootId > 0) {
+                replyMap.computeIfAbsent(rootId, k -> new ArrayList<>()).add(vo);
             } else {
-                Long rootId = comment.getRootId();
-                if (rootId != null && rootId > 0) {
-                    replyMap.computeIfAbsent(rootId, k -> new ArrayList<>()).add(vo);
-                } else {
-                    // 如果rootId不存在，尝试使用parentId查找
-                    replyMap.computeIfAbsent(comment.getParentId(), k -> new ArrayList<>()).add(vo);
-                }
+                // 如果rootId不存在，尝试使用parentId查找
+                replyMap.computeIfAbsent(reply.getParentId(), k -> new ArrayList<>()).add(vo);
             }
         }
-        
-        // 4. 将回复挂载到对应的一级评论下
+
+        // 7. 将回复挂载到对应的一级评论下
         for (CommentVO root : roots) {
             List<CommentVO> replies = replyMap.get(root.getId());
             if (replies != null && !replies.isEmpty()) {
                 root.setReplies(replies);
             }
         }
-        
-        // 5. 一级评论按时间倒序（最新的在上）
-        roots.sort((a, b) -> b.getCreateTime().compareTo(a.getCreateTime()));
-        
+
+        // 8. 一级评论已经按倒序从数据库取出，无需再次排序
         return roots;
     }
     
@@ -255,5 +274,135 @@ public class PortalCommentServiceImpl extends ServiceImpl<PortalCommentMapper, P
         }
         
         return vo;
+    }
+
+    /**
+     * 获取文章的评论列表（含回复）- 分页版本（行业标准：一级评论倒序，回复正序）
+     *
+     * @param articleId 文章ID
+     * @param pageNum 页码，从1开始
+     * @param pageSize 每页数量
+     * @return 包含评论列表和分页信息的Map
+     */
+    @Override
+    public Map<String, Object> getCommentsByArticle(Long articleId, Integer pageNum, Integer pageSize) {
+        // 1. 查询一级评论总数（用于分页）
+        Long totalCount = baseMapper.selectCount(
+                new LambdaQueryWrapper<PortalComment>()
+                        .eq(PortalComment::getArticleId, articleId)
+                        .eq(PortalComment::getStatus, "1")
+                        .eq(PortalComment::getParentId, 0)
+        );
+
+        int total = totalCount.intValue();
+        int pages = (int) Math.ceil((double) total / pageSize);
+
+        if (total == 0) {
+            Map<String, Object> emptyResult = new HashMap<>();
+            emptyResult.put("list", new ArrayList<>());
+            emptyResult.put("total", 0);
+            emptyResult.put("pageNum", pageNum);
+            emptyResult.put("pageSize", pageSize);
+            emptyResult.put("pages", 0);
+            emptyResult.put("hasMore", false);
+            return emptyResult;
+        }
+
+        // 2. 分页查询一级评论（按时间倒序，最新的在上）
+        Page<PortalComment> rootPage = new Page<>(pageNum, pageSize);
+        Page<PortalComment> rootResultPage = baseMapper.selectPage(
+                rootPage,
+                new LambdaQueryWrapper<PortalComment>()
+                        .eq(PortalComment::getArticleId, articleId)
+                        .eq(PortalComment::getStatus, "1")
+                        .eq(PortalComment::getParentId, 0)
+                        .orderByDesc(PortalComment::getCreateTime)
+        );
+
+        List<PortalComment> rootComments = rootResultPage.getRecords();
+        if (rootComments.isEmpty()) {
+            Map<String, Object> emptyResult = new HashMap<>();
+            emptyResult.put("list", new ArrayList<>());
+            emptyResult.put("total", total);
+            emptyResult.put("pageNum", pageNum);
+            emptyResult.put("pageSize", pageSize);
+            emptyResult.put("pages", pages);
+            emptyResult.put("hasMore", pageNum < pages);
+            return emptyResult;
+        }
+
+        // 3. 查询这些一级评论的所有回复（按时间正序，保持对话逻辑）
+        List<Long> rootIds = rootComments.stream()
+                .map(PortalComment::getId)
+                .collect(Collectors.toList());
+
+        List<PortalComment> allReplies = baseMapper.selectList(
+                new LambdaQueryWrapper<PortalComment>()
+                        .eq(PortalComment::getArticleId, articleId)
+                        .eq(PortalComment::getStatus, "1")
+                        .ne(PortalComment::getParentId, 0)
+                        .in(PortalComment::getRootId, rootIds)
+                        .orderByAsc(PortalComment::getCreateTime)
+        );
+
+        // 4. 合并一级评论和回复，用于批量查询用户信息
+        List<PortalComment> allComments = new ArrayList<>();
+        allComments.addAll(rootComments);
+        allComments.addAll(allReplies);
+
+        // 5. 批量查询用户信息
+        Set<Long> userIds = allComments.stream()
+                .map(PortalComment::getAuthorId)
+                .collect(Collectors.toSet());
+
+        // 添加被回复用户的ID
+        allReplies.stream()
+                .filter(c -> c.getReplyTo() != null)
+                .forEach(c -> userIds.add(c.getReplyTo()));
+
+        List<PortalUser> users = portalUserMapper.selectBatchIds(userIds);
+        Map<Long, PortalUser> userMap = users.stream()
+                .collect(Collectors.toMap(PortalUser::getId, u -> u));
+
+        // 6. 组装一级评论为VO
+        List<CommentVO> roots = new ArrayList<>();
+        Map<Long, List<CommentVO>> replyMap = new HashMap<>();
+
+        for (PortalComment rootComment : rootComments) {
+            CommentVO vo = convertToVO(rootComment, userMap);
+            roots.add(vo);
+            replyMap.put(rootComment.getId(), new ArrayList<>());
+        }
+
+        // 7. 组装回复为VO，并挂载到对应的一级评论下
+        for (PortalComment reply : allReplies) {
+            CommentVO vo = convertToVO(reply, userMap);
+            Long rootId = reply.getRootId();
+            if (rootId != null && rootId > 0) {
+                replyMap.computeIfAbsent(rootId, k -> new ArrayList<>()).add(vo);
+            } else {
+                // 如果rootId不存在，尝试使用parentId查找
+                replyMap.computeIfAbsent(reply.getParentId(), k -> new ArrayList<>()).add(vo);
+            }
+        }
+
+        // 8. 将回复挂载到对应的一级评论下（回复按时间正序，保持对话逻辑）
+        for (CommentVO root : roots) {
+            List<CommentVO> replies = replyMap.get(root.getId());
+            if (replies != null && !replies.isEmpty()) {
+                root.setReplies(replies);
+            }
+        }
+
+        // 9. 构建返回结果（一级评论已经按倒序从数据库取出，无需再次排序）
+        Map<String, Object> result = new HashMap<>();
+        result.put("list", roots);
+        result.put("total", total);
+        result.put("pageNum", pageNum);
+        result.put("pageSize", pageSize);
+        result.put("pages", pages);
+        result.put("hasMore", pageNum < pages);
+
+        return result;
     }
 }

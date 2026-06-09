@@ -33,30 +33,11 @@ export function formatRelativeTime(date: string | Date): string {
 /**
  * 格式化为简短日期
  * @param date 日期字符串或 Date 对象
- * @returns 简短日期字符串
+ * @returns 日期字符串，格式为 YYYY-MM-DD HH:mm
  */
 export function formatShortDate(date: string | Date): string {
   if (!date) return '';
-  const d = dayjs(date);
-  const now = dayjs();
-  
-  // 如果是今天
-  if (d.isSame(now, 'day')) {
-    return '今天 ' + d.format('HH:mm');
-  }
-  
-  // 如果是昨天
-  if (d.isSame(now.subtract(1, 'day'), 'day')) {
-    return '昨天 ' + d.format('HH:mm');
-  }
-  
-  // 如果是今年
-  if (d.isSame(now, 'year')) {
-    return d.format('MM-DD HH:mm');
-  }
-  
-  // 其他情况
-  return d.format('YYYY-MM-DD');
+  return dayjs(date).format('YYYY-MM-DD HH:mm');
 }
 
 /**

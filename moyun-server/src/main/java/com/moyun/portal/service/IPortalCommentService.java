@@ -6,6 +6,7 @@ import com.moyun.portal.domain.query.CommentQuery;
 import com.moyun.portal.domain.vo.CommentVO;
 
 import java.util.List;
+import java.util.Map;
 
 /**
  * 门户评论 业务层
@@ -78,4 +79,14 @@ public interface IPortalCommentService {
      * @return 评论VO列表
      */
     List<CommentVO> getCommentsByArticle(Long articleId);
+
+    /**
+     * 获取文章的评论列表（含回复）- 分页版本
+     *
+     * @param articleId 文章ID
+     * @param pageNum 页码，从1开始
+     * @param pageSize 每页数量
+     * @return 包含评论列表和分页信息的Map
+     */
+    Map<String, Object> getCommentsByArticle(Long articleId, Integer pageNum, Integer pageSize);
 }

@@ -24,7 +24,7 @@
         <langchain4j-dashscope.version>1.12.1-beta21</langchain4j-dashscope.version>
         <jjwt.version>0.12.3</jjwt.version>
         <spring-security.version>6.3.1</spring-security.version>
-        <poi.version>5.2.5</poi.version>
+        <poi.version>5.4.0</poi.version>
         <fastjson2.version>2.0.53</fastjson2.version>
         <useragentutils.version>1.21</useragentutils.version>
         <oshi.version>6.6.5</oshi.version>
@@ -256,7 +256,7 @@
         <dependency>
             <groupId>io.minio</groupId>
             <artifactId>minio</artifactId>
-            <version>8.5.12</version>
+            <version>8.6.0</version>
         </dependency>
 
     </dependencies>

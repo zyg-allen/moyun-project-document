@@ -1,7 +1,7 @@
-import { defineStore } from 'pinia'
-import { ref, computed } from 'vue'
-import type { Article } from '@/types/api'
-import { safeLocalStorage } from '@/utils/security'
+import {defineStore} from 'pinia'
+import {ref, computed} from 'vue'
+import type {Article} from '@/types/api'
+import {safeLocalStorage} from '@/utils/security'
 import * as articleApi from '@/api/article'
 
 const storage = safeLocalStorage()
@@ -79,7 +79,7 @@ export const useArticleStore = defineStore('article', () => {
     async function fetchArticleDetailWithApi(id: string) {
         loading.value = true
         try {
-            const response = await articleApi.getArticleDetail({ id })
+            const response = await articleApi.getArticleDetail({id})
             if (response.code === 200) {
                 return response.data
             }
@@ -92,27 +92,35 @@ export const useArticleStore = defineStore('article', () => {
         }
     }
 
-    async function likeArticleWithApi(articleId: string): Promise<{ success: boolean; isLiked?: boolean; likeCount?: number }> {
+    async function likeArticleWithApi(articleId: string): Promise<{
+        success: boolean;
+        isLiked?: boolean;
+        likeCount?: number
+    }> {
         try {
             const response = await articleApi.toggleLikeArticle(articleId)
             if (response.code === 200 && response.data) {
                 likeArticle(articleId)
-                return { success: true, ...(response.data as any) }
+                return {success: true, ...(response.data as any)}
             }
-            return { success: false, isLiked: false, likeCount: 0 }
+            return {success: false, isLiked: false, likeCount: 0}
         } catch (error) {
             console.error('点赞失败:', error)
-            return { success: false, isLiked: false, likeCount: 0 }
+            return {success: false, isLiked: false, likeCount: 0}
         }
     }
 
-    async function bookmarkArticleWithApi(articleId: string): Promise<{ success: boolean }> {
+    async function bookmarkArticleWithApi(articleId: string): Promise<{ success: boolean; isBookmarked?: boolean }> {
         try {
-            bookmarkArticle(articleId)
-            return { success: true }
+            const response = await articleApi.toggleBookmarkArticle(articleId)
+            if (response.code === 200 && response.data) {
+                bookmarkArticle(articleId)
+                return {success: true, isBookmarked: response.data.isBookmarked}
+            }
+            return {success: false, isBookmarked: false}
         } catch (error) {
             console.error('收藏失败:', error)
-            return { success: false }
+            return {success: false, isBookmarked: false}
         }
     }
 

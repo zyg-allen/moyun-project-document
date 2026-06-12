@@ -43,7 +43,7 @@ public class PortalOrder extends BaseEntity
     @Size(min = 0, max = 20, message = "状态长度不能超过20个字符")
     private String status;
 
-    @Size(min = 0, max = 50, message = "支付方式长度不能超过50个字符")
+    @Size(min = 0, max = 50, message = "方式长度不能超过50个字符")
     private String payMethod;
 
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")

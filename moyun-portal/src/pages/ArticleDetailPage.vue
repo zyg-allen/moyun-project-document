@@ -39,6 +39,12 @@ const commentsPageNum = ref(1); // 当前页码
 const commentsHasMore = ref(false); // 是否有更多评论
 const submitting = ref(false);
 const error = ref<string | null>(null);
+const isShareMenuOpen = ref(false); // 分享菜单是否展开
+
+// 检查是否支持原生分享
+const supportsNativeShare = computed(() => {
+  return typeof navigator !== 'undefined' && typeof navigator.share === 'function';
+});
 
 const isLiked = computed(() => article.value ? articleStore.likedArticleIds.includes(article.value.id) : false);
 const isBookmarked = computed(() => article.value ? articleStore.bookmarkedArticleIds.includes(article.value.id) : false);
@@ -234,16 +240,144 @@ async function handleBookmark() {
 function handleShare() {
   if (!article.value) return;
   articleStore.shareArticle(article.value.id);
+  isShareMenuOpen.value = !isShareMenuOpen.value;
+}
 
-  if (navigator.share) {
-    navigator.share({
-      title: article.value.title,
-      text: articleExcerpt.value,
-      url: window.location.href,
-    }).catch(console.error);
-  } else {
-    navigator.clipboard.writeText(window.location.href);
+// 获取分享链接
+function getShareUrl(): string {
+  return window.location.href;
+}
+
+// 复制链接到剪贴板
+async function copyLink() {
+  const url = getShareUrl();
+  try {
+    await navigator.clipboard.writeText(url);
     alert('链接已复制到剪贴板');
+  } catch (err) {
+    // 降级处理：使用传统方法
+    const textArea = document.createElement('textarea');
+    textArea.value = url;
+    textArea.style.position = 'fixed';
+    textArea.style.left = '-999999px';
+    document.body.appendChild(textArea);
+    textArea.select();
+    try {
+      document.execCommand('copy');
+      alert('链接已复制到剪贴板');
+    } catch (e) {
+      alert('复制失败，请手动复制链接');
+    }
+    document.body.removeChild(textArea);
+  }
+  isShareMenuOpen.value = false;
+}
+
+// 分享到微信好友
+function shareToWechat() {
+  // 判断是否在微信内打开
+  if (isWechatBrowser()) {
+    // 微信内打开，提示用户使用微信自带分享功能
+    alert('请点击右上角"..."，选择"发送给朋友"或"分享到朋友圈"');
+  } else {
+    // 非微信浏览器，复制链接并提示
+    copyLinkAndNotify('微信');
+  }
+  isShareMenuOpen.value = false;
+}
+
+// 分享到微信朋友圈
+function shareToWechatMoments() {
+  // 判断是否在微信内打开
+  if (isWechatBrowser()) {
+    // 微信内打开，提示用户使用微信自带分享功能
+    alert('请点击右上角"..."，选择"分享到朋友圈"');
+  } else {
+    // 非微信浏览器，复制链接并提示
+    copyLinkAndNotify('微信朋友圈');
+  }
+  isShareMenuOpen.value = false;
+}
+
+// 判断是否在微信浏览器中
+function isWechatBrowser(): boolean {
+  const ua = navigator.userAgent.toLowerCase();
+  return ua.includes('micromessenger');
+}
+
+// 复制链接并提示分享到指定平台
+function copyLinkAndNotify(platform: string) {
+  const url = getShareUrl();
+  try {
+    navigator.clipboard.writeText(url);
+    alert(`链接已复制到剪贴板，请打开${platform}粘贴分享`);
+  } catch (err) {
+    const textArea = document.createElement('textarea');
+    textArea.value = url;
+    textArea.style.position = 'fixed';
+    textArea.style.left = '-999999px';
+    document.body.appendChild(textArea);
+    textArea.select();
+    try {
+      document.execCommand('copy');
+      alert(`链接已复制到剪贴板，请打开${platform}粘贴分享`);
+    } catch (e) {
+      alert(`复制失败，请手动复制链接：${url}`);
+    }
+    document.body.removeChild(textArea);
+  }
+}
+
+// 分享到微博
+function shareToWeibo() {
+  if (!article.value) return;
+  const url = `https://service.weibo.com/share/share.php?title=${encodeURIComponent(article.value.title + ' - ' + articleExcerpt.value)}&url=${encodeURIComponent(getShareUrl())}`;
+  window.open(url, '_blank', 'width=600,height=500');
+  isShareMenuOpen.value = false;
+}
+
+// 分享到QQ
+function shareToQQ() {
+  if (!article.value) return;
+  const url = `https://connect.qq.com/widget/shareqq/index.html?title=${encodeURIComponent(article.value.title)}&desc=${encodeURIComponent(articleExcerpt.value)}&url=${encodeURIComponent(getShareUrl())}`;
+  window.open(url, '_blank', 'width=600,height=500');
+  isShareMenuOpen.value = false;
+}
+
+// 分享到QQ空间
+function shareToQzone() {
+  if (!article.value) return;
+  const url = `https://sns.qzone.qq.com/cgi-bin/qzshare/cgi_qzshare_onekey?title=${encodeURIComponent(article.value.title)}&desc=${encodeURIComponent(articleExcerpt.value)}&url=${encodeURIComponent(getShareUrl())}`;
+  window.open(url, '_blank', 'width=600,height=500');
+  isShareMenuOpen.value = false;
+}
+
+// 原生分享（移动端）
+async function nativeShare() {
+  if (supportsNativeShare.value) {
+    try {
+      await navigator.share({
+        title: article.value.title,
+        text: articleExcerpt.value,
+        url: getShareUrl(),
+      });
+    } catch (err) {
+      // 用户取消分享不报错
+      if ((err as Error).name !== 'AbortError') {
+        console.error('分享失败:', err);
+      }
+    }
+  } else {
+    alert('您的浏览器不支持原生分享功能');
+  }
+  isShareMenuOpen.value = false;
+}
+
+// 点击其他地方关闭分享菜单
+function handleClickOutside(event: MouseEvent) {
+  const target = event.target as HTMLElement;
+  if (!target.closest('.share-menu-container')) {
+    isShareMenuOpen.value = false;
   }
 }
 
@@ -330,13 +464,13 @@ async function handleLikeComment(commentId: string) {
 
 async function loadMoreComments() {
   if (commentsLoading.value || !commentsHasMore.value) return;
-  
+
   try {
     commentsLoading.value = true;
     commentsPageNum.value += 1;
     const articleId = route.params.id as string;
     const response = await commentApi.getArticleComments(articleId, commentsPageNum.value, 20);
-    
+
     if (response.code === 200 && response.data) {
       const result = response.data;
       const newComments = (result.list || []) as Comment[];
@@ -550,12 +684,80 @@ const head = useHead(
                   </button>
                   <button
                       @click="handleShare"
-                      class="flex items-center gap-2 px-4 py-2 rounded-full transition-all hover:scale-105 focus:outline-none"
+                      class="flex items-center gap-2 px-4 py-2 rounded-full transition-all hover:scale-105 focus:outline-none relative share-menu-container"
                       style="background-color: var(--theme-surface); color: var(--theme-text-secondary);"
                       :aria-label="'分享文章'"
+                      @blur="handleClickOutside"
                   >
                     <Share2 class="w-5 h-5 transition-transform" aria-hidden="true"/>
                     <span class="font-medium text-sm">{{ articleShareCount }}</span>
+                    <!-- 分享菜单 -->
+                    <div
+                        v-if="isShareMenuOpen"
+                        class="absolute right-0 top-full mt-2 w-56 rounded-xl shadow-xl border py-2 z-50"
+                        style="background-color: var(--theme-bg); border-color: var(--theme-border);"
+                        @click.stop
+                    >
+                      <!-- 复制链接 -->
+                      <button
+                          @click="copyLink"
+                          class="w-full flex items-center space-x-3 px-4 py-3 text-left transition-colors hover:opacity-80"
+                          :style="{ backgroundColor: 'var(--theme-surface)' }"
+                      >
+                        <span class="text-lg">🔗</span>
+                        <span class="text-sm" style="color: var(--theme-text);">复制链接</span>
+                      </button>
+                      <!-- 原生分享（移动端） -->
+                      <button
+                          v-if="supportsNativeShare"
+                          @click="nativeShare"
+                          class="w-full flex items-center space-x-3 px-4 py-3 text-left transition-colors hover:opacity-80"
+                      >
+                        <span class="text-lg">📱</span>
+                        <span class="text-sm" style="color: var(--theme-text);">原生分享</span>
+                      </button>
+                      <div class="border-t my-1" style="border-color: var(--theme-border);"></div>
+                      <!-- 分享到微信好友 -->
+                      <button
+                          @click="shareToWechat"
+                          class="w-full flex items-center space-x-3 px-4 py-3 text-left transition-colors hover:opacity-80"
+                      >
+                        <span class="text-lg">💬</span>
+                        <span class="text-sm" style="color: var(--theme-text);">微信好友</span>
+                      </button>
+                      <!-- 分享到微信朋友圈 -->
+                      <button
+                          @click="shareToWechatMoments"
+                          class="w-full flex items-center space-x-3 px-4 py-3 text-left transition-colors hover:opacity-80"
+                      >
+                        <span class="text-lg">📷</span>
+                        <span class="text-sm" style="color: var(--theme-text);">微信朋友圈</span>
+                      </button>
+                      <!-- 分享到微博 -->
+                      <button
+                          @click="shareToWeibo"
+                          class="w-full flex items-center space-x-3 px-4 py-3 text-left transition-colors hover:opacity-80"
+                      >
+                        <span class="text-lg">📝</span>
+                        <span class="text-sm" style="color: var(--theme-text);">分享到微博</span>
+                      </button>
+                      <!-- 分享到QQ -->
+                      <button
+                          @click="shareToQQ"
+                          class="w-full flex items-center space-x-3 px-4 py-3 text-left transition-colors hover:opacity-80"
+                      >
+                        <span class="text-lg">💬</span>
+                        <span class="text-sm" style="color: var(--theme-text);">分享到QQ</span>
+                      </button>
+                      <!-- 分享到QQ空间 -->
+                      <button
+                          @click="shareToQzone"
+                          class="w-full flex items-center space-x-3 px-4 py-3 text-left transition-colors hover:opacity-80"
+                      >
+                        <span class="text-lg">🌐</span>
+                        <span class="text-sm" style="color: var(--theme-text);">分享到QQ空间</span>
+                      </button>
+                    </div>
                   </button>
                 </div>
               </div>

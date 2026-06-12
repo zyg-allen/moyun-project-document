@@ -95,14 +95,17 @@ export const useUserStore = defineStore('user', () => {
       const response = await userApi.getCurrentUser()
       if (response.code === 200) {
         const userData = response.data as User | null
-        user.value = userData
-        if (userData) {
+        // 验证用户数据是否有效（必须是对象且包含id字段）
+        if (userData && typeof userData === 'object' && userData.id) {
+          user.value = userData
           persistUserToStorage(userData)
+          return userData
         } else {
-          // 未登录时返回null，清除本地存储
+          // 无效数据，视为未登录
+          user.value = null
           persistUserToStorage(null)
+          return null
         }
-        return userData
       }
       // 获取失败时清除用户信息
       user.value = null

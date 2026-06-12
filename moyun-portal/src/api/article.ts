@@ -171,6 +171,11 @@ export const getRelatedArticles = (articleId: string, limit = 5) => {
     return httpGetList<Article>(`/portal/article/${articleId}/related`, {limit});
 };
 
+// 获取分类推荐文章
+export const getCategoryRecommendedArticles = (categoryName: string, params?: ArticleListParams, limit = 8) => {
+    return httpGetList<Article>('/portal/article/categoryRecommended', { categoryName, limit, ...params });
+};
+
 // 获取热门文章
 export const getHotArticles = (limit = 10) => {
     return httpGetList<Article>('/portal/article/hot', {limit});
@@ -196,12 +201,18 @@ export const getHomeData = () => {
     }>('/portal/article/home');
 };
 
-// 按分类获取文章列表
-export const getArticlesByCategory = (categoryId?: string, categoryName?: string, pageSize = 10) => {
-    return httpGetList<Article>('/portal/article/byCategory', {categoryId, categoryName, pageSize});
+/** 收藏结果类型 */
+export interface BookmarkResult {
+    isBookmarked: boolean;
+    articleId: number;
+}
+
+// 文章收藏/取消收藏 - 统一接口
+export const toggleBookmarkArticle = (articleId: string) => {
+    return httpPost<BookmarkResult>(`/portal/bookmark/${articleId}/toggle`);
 };
 
-// 获取分类推荐文章
-export const getCategoryRecommendedArticles = (categoryName?: string, categoryId?: string, limit = 8) => {
-    return httpGetList<Article>('/portal/article/categoryRecommended', {categoryName, categoryId, limit});
+// 检查收藏状态
+export const checkBookmarkStatus = (articleId: string) => {
+    return httpGet<BookmarkResult>(`/portal/bookmark/${articleId}/check`);
 };

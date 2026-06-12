@@ -4,16 +4,19 @@ import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
 import com.fasterxml.jackson.annotation.JsonFormat;
-import com.moyun.core.base.BaseEntity;
 import jakarta.validation.constraints.NotNull;
 import org.apache.commons.lang3.builder.ToStringBuilder;
 import org.apache.commons.lang3.builder.ToStringStyle;
 
 import java.io.Serial;
+import java.io.Serializable;
 import java.time.LocalDateTime;
 
+/**
+ * 门户收藏实体
+ */
 @TableName("portal_bookmark")
-public class PortalBookmark extends BaseEntity {
+public class PortalBookmark implements Serializable {
     @Serial
     private static final long serialVersionUID = 1L;
 
@@ -59,12 +62,10 @@ public class PortalBookmark extends BaseEntity {
         this.articleId = articleId;
     }
 
-    @Override
     public LocalDateTime getCreateTime() {
         return createTime;
     }
 
-    @Override
     public void setCreateTime(LocalDateTime createTime) {
         this.createTime = createTime;
     }

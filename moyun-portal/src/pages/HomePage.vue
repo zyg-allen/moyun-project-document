@@ -14,6 +14,7 @@ import BackToTop from '@/components/BackToTop.vue'
 import { generateSeo } from '@/utils/seo'
 import * as articleApi from '@/api/article'
 import * as categoryApi from '@/api/category'
+import { filterCategoryTree, getCategoryTarget } from '@/api/category'
 import * as tagApi from '@/api/tag'
 import { getFriendLinks } from '@/api/friendLink'
 import { getAuthors } from '@/api/user'
@@ -24,9 +25,6 @@ import type { Category } from '@/types/api'
 const router = useRouter()
 const userStore = useUserStore()
 const { requireAuth } = useAuth()
-
-const SPECIAL_PAGE_NAMES = ['读书空间', '面试指南']
-const isSpecialPageName = (name: string): boolean => SPECIAL_PAGE_NAMES.includes(name)
 
 interface HeroItem {
   id: string
@@ -173,14 +171,17 @@ const nextHero = () => {
 }
 
 const themes = computed(() => {
-  return categories.value
-    .filter((cat: Category) => !isSpecialPageName(cat.name))
-    .map((cat: Category) => ({
-      id: String(cat.id),
-      name: cat.name,
-      key: cat.slug || cat.name,
-      path: `/category/${encodeURIComponent(cat.name)}`
-    }))
+  return filterCategoryTree(categories.value)
+      .map((cat: Category) => {
+        const target = getCategoryTarget(cat)
+        return {
+          id: String(cat.id),
+          name: cat.name,
+          key: cat.slug || cat.name,
+          path: target.path,
+          isExternal: target.type === 'external'
+        }
+      })
 })
 
 const activeTheme = ref('')
@@ -195,9 +196,9 @@ onMounted(async () => {
     loadAuthors(),
     loadFriendLinks()
   ])
-  if (categories.value.length > 0) {
-    activeTheme.value = categories.value[0].name
-    await loadCategoryArticles(categories.value[0].name)
+  if (themes.value.length > 0) {
+    activeTheme.value = themes.value[0].name
+    await loadCategoryArticles(themes.value[0].name)
   } else {
     activeTheme.value = '散文'
   }
@@ -211,6 +212,13 @@ onMounted(async () => {
 })
 
 const selectTheme = async (themeId: string, themeName: string) => {
+  // 检查是否为外部链接
+  const theme = themes.value.find(t => t.id === themeId)
+  if (theme && theme.isExternal && theme.path) {
+    // 外部链接直接跳转
+    window.open(theme.path, '_blank', 'noopener,noreferrer')
+    return
+  }
   activeTheme.value = themeName
   if (!categoryArticles.value[themeName]) {
     await loadCategoryArticles(themeName)

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, watch } from 'vue';
 import { RouterLink as Link, useRouter, useRoute } from 'vue-router';
 import {
   Search, User, Plus, LogOut, Menu, X, Palette, Sun, Moon, Eye, Home,
@@ -12,6 +12,7 @@ import { useAuth } from '@/composables/useAuth';
 import NotificationBell from './NotificationBell.vue';
 import * as notificationApi from '@/api/notification';
 import * as categoryApi from '@/api/category';
+import { shouldShowCategory, filterCategoryTree, getCategoryTarget } from '@/api/category';
 import type { Category } from '@/types/api';
 
 const router = useRouter();
@@ -29,26 +30,49 @@ const notificationsLoading = ref(false);
 const isUserMenuOpen = ref(false);
 
 const categories = ref<Category[]>([]);
-const isSpecialPageName = (name: string) => ['读书空间', '面试指南'].includes(name);
 
-// 导航数据结构 - 使用统一的分类数据（过滤特殊页面）
-// 路径统一使用语义化格式 /category/:name
+// 导航数据结构 - 使用统一的分类过滤逻辑（filterCategoryTree）
+// 跳转目标使用 getCategoryTarget（支持 linkType 外部链接）
 const navItems = computed(() => [
+  {
+    name: '首页',
+    key: 'home',
+    path: '/',
+    children: []
+  },
   {
     name: '名家录',
     key: 'authors',
     children: []
   },
-  ...categories.value
-    .filter(cat => !isSpecialPageName(cat.name))
-    .map(cat => ({
-      name: cat.name,
-      key: cat.id,
-      children: (cat.children || []).map(sub => ({
-        name: sub.name,
-        path: `/category/${encodeURIComponent(sub.name)}`
-      }))
-    })),
+  ...filterCategoryTree(categories.value)
+      .map(cat => {
+        const target = getCategoryTarget(cat);
+        // 外部链接特殊处理：没有子菜单，点击跳转外链
+        if (target.type === 'external') {
+          return {
+            name: cat.name,
+            key: cat.id,
+            externalUrl: target.path,
+            isExternal: true,
+            children: []
+          };
+        }
+        return {
+          name: cat.name,
+          key: cat.id,
+          externalUrl: null,
+          isExternal: false,
+          children: (cat.children || []).map(sub => {
+            const subTarget = getCategoryTarget(sub);
+            return {
+              name: sub.name,
+              path: subTarget.type === 'external' ? subTarget.path : subTarget.path,
+              isExternal: subTarget.type === 'external'
+            };
+          })
+        };
+      }),
   {
     name: '读书空间',
     key: 'reading',
@@ -82,44 +106,24 @@ const unreadCount = computed(() =>
     notifications.value.filter(n => !n.isRead).length
 );
 
-// 模拟通知数据
-const mockNotifications = [
-  {
-    id: '1',
-    title: '您的文章被收藏了',
-    content: '恭喜！您的文章《听松看云》被用户墨韵收藏了。',
-    time: '2026-05-20 09:30',
-    isRead: false
-  },
-  {
-    id: '2',
-    title: '系统更新通知',
-    content: '为了更好的用户体验，我们进行了系统更新，新增了消息提醒功能！',
-    time: '2026-05-19 18:00',
-    isRead: false
-  },
-  {
-    id: '3',
-    title: '社区活动邀请',
-    content: '墨韵社区将于本周六举办线上文学沙龙活动，诚邀您的参与。',
-    time: '2026-05-18 14:20',
-    isRead: true
-  },
-  {
-    id: '4',
-    title: '评论回复',
-    content: '您的评论收到了用户"清风"的回复。',
-    time: '2026-05-17 10:15',
-    isRead: true
-  },
-];
-
 onMounted(async () => {
   currentTheme.value = getCurrentTheme();
   await loadCategories();
-  await loadNotifications();
-  await userStore.fetchCurrentUser();
+  if (userStore.isAuthenticated) {
+    await loadNotifications();
+  }
 });
+
+watch(
+    () => userStore.isAuthenticated,
+    (isAuth) => {
+      if (isAuth) {
+        loadNotifications();
+      } else {
+        notifications.value = [];
+      }
+    }
+);
 
 async function loadCategories() {
   try {
@@ -133,8 +137,21 @@ async function loadCategories() {
 }
 
 async function loadNotifications() {
-  // 直接使用模拟数据，避免API调用失败
-  notifications.value = mockNotifications;
+  try {
+    const response = await notificationApi.getNotificationList({ page: 1, pageSize: 10 });
+    if (response.code === 200 && response.data) {
+      notifications.value = response.data.list.map((item: any) => ({
+        id: String(item.id),
+        title: item.title,
+        content: item.content,
+        time: item.createTime,
+        isRead: item.isRead
+      }));
+    }
+  } catch (error) {
+    console.error('加载通知失败:', error);
+    notifications.value = [];
+  }
 }
 
 function toggleNav(key: string) {
@@ -159,10 +176,17 @@ function selectTheme(theme: Theme) {
   isThemeMenuOpen.value = false;
 }
 
-function markAsRead(id: string) {
-  const notification = notifications.value.find(n => n.id === id);
-  if (notification) {
-    notification.isRead = true;
+async function markAsRead(id: string) {
+  try {
+    const response = await notificationApi.markAsRead({ id });
+    if (response.code === 200) {
+      const notification = notifications.value.find(n => n.id === id);
+      if (notification) {
+        notification.isRead = true;
+      }
+    }
+  } catch (error) {
+    console.error('标记已读失败:', error);
   }
 }
 
@@ -368,18 +392,19 @@ function handlePublish() {
         <div class="flex items-center justify-between py-3">
           <!-- PC端导航 -->
           <nav class="hidden lg:flex items-center space-x-2">
-            <!-- 首页链接 -->
-            <Link
-                to="/"
-                class="px-5 py-2.5 text-base font-semibold transition-all duration-200 rounded-lg hover:scale-105 hover:shadow-sm"
-                style="color: var(--theme-text);"
-                active-class=""
-            >
-              首页
-            </Link>
             <template v-for="item in navItems" :key="item.key">
+              <!-- 首页直接跳转 -->
+              <template v-if="item.key === 'home'">
+                <Link
+                    :to="item.path"
+                    class="px-5 py-2.5 text-base font-semibold transition-all duration-200 rounded-lg hover:scale-105 hover:shadow-sm"
+                    style="color: var(--theme-text);"
+                >
+                  {{ item.name }}
+                </Link>
+              </template>
               <!-- 名家录直接跳转 -->
-              <template v-if="item.key === 'authors'">
+              <template v-else-if="item.key === 'authors'">
                 <Link
                     to="/authors"
                     class="px-5 py-2.5 text-base font-semibold transition-all duration-200 rounded-lg hover:scale-105 hover:shadow-sm"
@@ -387,6 +412,18 @@ function handlePublish() {
                 >
                   {{ item.name }}
                 </Link>
+              </template>
+              <!-- 外部链接项（isExternal=true） -->
+              <template v-else-if="item.isExternal">
+                <a
+                    :href="item.externalUrl"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    class="px-5 py-2.5 text-base font-semibold transition-all duration-200 rounded-lg hover:scale-105 hover:shadow-sm"
+                    style="color: var(--theme-text);"
+                >
+                  {{ item.name }} ↗
+                </a>
               </template>
               <!-- 其他有子菜单的项 -->
               <template v-else>
@@ -410,19 +447,36 @@ function handlePublish() {
                       class="absolute top-full left-0 mt-2 w-72 shadow-xl border rounded-xl py-3 z-50 transform transition-all duration-200"
                       style="background-color: var(--theme-bg); border-color: var(--theme-border);"
                   >
-                    <Link
-                        v-for="(child, idx) in item.children"
-                        :key="child.name"
-                        :to="child.path"
-                        @click="activeNavItem = null"
-                        class="block px-5 py-3 text-base hover:scale-105 transition-all duration-150"
-                        :style="{
-                        color: 'var(--theme-text)',
-                        borderTop: idx > 0 ? '1px solid var(--theme-border)' : 'none'
-                      }"
-                    >
-                      {{ child.name }}
-                    </Link>
+                    <template v-for="(child, idx) in item.children" :key="child.name">
+                      <!-- 子菜单外部链接 -->
+                      <a
+                          v-if="child.isExternal"
+                          :href="child.path"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          @click="activeNavItem = null"
+                          class="block px-5 py-3 text-base hover:scale-105 transition-all duration-150"
+                          :style="{
+                            color: 'var(--theme-text)',
+                            borderTop: idx > 0 ? '1px solid var(--theme-border)' : 'none'
+                          }"
+                      >
+                        {{ child.name }} ↗
+                      </a>
+                      <!-- 子菜单内部路由 -->
+                      <Link
+                          v-else
+                          :to="child.path"
+                          @click="activeNavItem = null"
+                          class="block px-5 py-3 text-base hover:scale-105 transition-all duration-150"
+                          :style="{
+                            color: 'var(--theme-text)',
+                            borderTop: idx > 0 ? '1px solid var(--theme-border)' : 'none'
+                          }"
+                      >
+                        {{ child.name }}
+                      </Link>
+                    </template>
                   </div>
                 </div>
               </template>
@@ -449,34 +503,50 @@ function handlePublish() {
         style="background-color: var(--theme-bg); border-color: var(--theme-border);"
     >
       <div class="px-4 py-3 space-y-2">
-        <!-- 移动端首页链接 -->
-        <Link
-            to="/"
-            @click="isMenuOpen = false"
-            class="block border rounded-xl px-5 py-4 mb-2"
-            style="color: var(--theme-text); border-color: var(--theme-border);"
-        >
-          <span class="font-semibold text-lg">首页</span>
-        </Link>
         <div v-for="item in navItems" :key="item.key" class="mb-2">
+          <!-- 首页直接跳转 -->
           <Link
-            :to="item.key === 'authors' ? '/authors' : `/category/${encodeURIComponent(item.name)}`"
-            @click="isMenuOpen = false"
-            class="block border rounded-xl px-5 py-4"
-            style="color: var(--theme-text); border-color: var(--theme-border);"
+              v-if="item.key === 'home'"
+              :to="item.path"
+              @click="isMenuOpen = false"
+              class="block border rounded-xl px-5 py-4"
+              style="color: var(--theme-text); border-color: var(--theme-border);"
+          >
+            <span class="font-semibold text-lg">{{ item.name }}</span>
+          </Link>
+          <!-- 名家录 -->
+          <Link
+              v-else-if="item.key === 'authors'"
+              to="/authors"
+              @click="isMenuOpen = false"
+              class="block border rounded-xl px-5 py-4"
+              style="color: var(--theme-text); border-color: var(--theme-border);"
+          >
+            <span class="font-semibold text-lg">{{ item.name }}</span>
+          </Link>
+          <!-- 外部链接项 -->
+          <a
+              v-else-if="item.isExternal"
+              :href="item.externalUrl"
+              target="_blank"
+              rel="noopener noreferrer"
+              @click="isMenuOpen = false"
+              class="block border rounded-xl px-5 py-4"
+              style="color: var(--theme-text); border-color: var(--theme-border);"
+          >
+            <span class="font-semibold text-lg">{{ item.name }} ↗</span>
+          </a>
+          <!-- 普通栏目项 -->
+          <Link
+              v-else
+              :to="`/category/${encodeURIComponent(item.name)}`"
+              @click="isMenuOpen = false"
+              class="block border rounded-xl px-5 py-4"
+              style="color: var(--theme-text); border-color: var(--theme-border);"
           >
             <span class="font-semibold text-lg">{{ item.name }}</span>
           </Link>
         </div>
-        <!-- 更多按钮 -->
-        <Link
-            to="/category"
-            @click="isMenuOpen = false"
-            class="block border rounded-xl px-5 py-4 text-center"
-            style="color: var(--theme-text); border-color: var(--theme-border); background-color: var(--theme-surface);"
-        >
-          <span class="font-semibold text-lg">查看更多</span>
-        </Link>
       </div>
     </div>
   </header>

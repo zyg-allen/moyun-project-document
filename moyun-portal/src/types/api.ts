@@ -363,6 +363,14 @@ export interface Category {
   parentId?: string;
   children?: Category[];
   createdAt: string;
+  /** 展示状态：0=展示 1=隐藏（后端维护） */
+  status?: string | number;
+  /** 跳转类型：0=本地路由跳转到栏目 1=跳转到外部链接 */
+  linkType?: string | number;
+  /** 外部链接地址（当 linkType=1 时生效） */
+  externalUrl?: string;
+  /** 类型标识：home=首页 category=普通栏目 special=特殊页面（如读书空间、面试指南） */
+  type?: string;
 }
 
 export interface CategoryListParams {

@@ -57,7 +57,7 @@ public class PortalUserController extends BaseController {
     @PostMapping("/export")
     public void export(HttpServletResponse response, UserQuery query) {
         List<PortalUser> list = portalUserService.selectPortalUserList(query);
-        ExcelUtil<PortalUser> util = new ExcelUtil<PortalUser>(PortalUser.class);
+        ExcelUtil<PortalUser> util = new ExcelUtil<>(PortalUser.class);
         util.exportExcel(response, list, "门户用户数据");
     }
 
@@ -73,7 +73,7 @@ public class PortalUserController extends BaseController {
         PortalUser currentUser = PortalSecurityUtils.getUser();
         if (currentUser == null) {
             // 未登录时返回null，不返回错误，让前端静默处理
-            return success(null);
+            return success("用户未登录");
         }
         // 查询最新的用户数据（确保是最新的，避免缓存延迟）
         PortalUser freshUser = portalUserService.selectPortalUserById(currentUser.getId());

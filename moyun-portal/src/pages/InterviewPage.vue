@@ -9,6 +9,7 @@ import LazyImage from '@/components/LazyImage.vue';
 import { getInterviewHome } from '@/api/interview';
 import { generateSeo } from '@/utils/seo';
 import type { InterviewCategory, InterviewQuestion, InterviewExperience, ResumeTemplate } from '@/types/api';
+import { getSafeAvatar } from '@/utils/avatar';
 
 const router = useRouter();
 const loading = ref(false);
@@ -142,11 +143,9 @@ useHead(
                 热门题目
               </h2>
               <button 
-                @click="router.push('/interview/questions')"
-                class="text-blue-600 hover:text-blue-800 font-medium flex items-center"
+                class="text-gray-400 cursor-default font-medium flex items-center"
               >
-                查看更多
-                <ArrowRight class="w-4 h-4 ml-1" />
+                面试指南专属页面
               </button>
             </div>
             
@@ -222,7 +221,7 @@ useHead(
                   <div class="flex items-center mb-4">
                     <div class="w-12 h-12 rounded-full overflow-hidden mr-4">
                       <LazyImage 
-                        :src="experience.user.avatar" 
+                        :src="getSafeAvatar(experience.user.avatar, experience.user.id)" 
                         :alt="experience.user.nickname"
                         class="w-full h-full object-cover"
                       />

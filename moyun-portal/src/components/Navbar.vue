@@ -7,10 +7,12 @@ import {
 } from 'lucide-vue-next';
 import { getStoredTheme, setTheme, getCurrentTheme, type Theme, themes } from '@/utils/theme';
 import { useUserStore } from '@/stores/user';
+import { getSafeAvatar } from '@/utils/avatar';
 import { useAuth } from '@/composables/useAuth';
 import NotificationBell from './NotificationBell.vue';
 import * as notificationApi from '@/api/notification';
-import { categories } from '@/data/categories';
+import * as categoryApi from '@/api/category';
+import type { Category } from '@/types/api';
 
 const router = useRouter();
 const route = useRoute();
@@ -26,21 +28,43 @@ const notifications = ref<any[]>([]);
 const notificationsLoading = ref(false);
 const isUserMenuOpen = ref(false);
 
-// 导航数据结构 - 使用统一的分类数据
-const navItems = ref([
+const categories = ref<Category[]>([]);
+const isSpecialPageName = (name: string) => ['读书空间', '面试指南'].includes(name);
+
+// 导航数据结构 - 使用统一的分类数据（过滤特殊页面）
+// 路径统一使用语义化格式 /category/:name
+const navItems = computed(() => [
   {
     name: '名家录',
     key: 'authors',
     children: []
   },
-  ...categories.map(cat => ({
-    name: cat.name,
-    key: cat.key,
-    children: cat.children.map(sub => ({
-      name: sub.name,
-      path: sub.path
-    }))
-  })),
+  ...categories.value
+    .filter(cat => !isSpecialPageName(cat.name))
+    .map(cat => ({
+      name: cat.name,
+      key: cat.id,
+      children: (cat.children || []).map(sub => ({
+        name: sub.name,
+        path: `/category/${encodeURIComponent(sub.name)}`
+      }))
+    })),
+  {
+    name: '读书空间',
+    key: 'reading',
+    children: [
+      { name: '书单推荐', path: '/reading' },
+      { name: '书籍详情', path: '/reading/books' },
+    ]
+  },
+  {
+    name: '面试指南',
+    key: 'interview',
+    children: [
+      { name: '面试题库', path: '/interview' },
+      { name: '面试经验', path: '/interview/experiences' },
+    ]
+  },
   {
     name: '帮助中心',
     key: 'help',
@@ -92,9 +116,21 @@ const mockNotifications = [
 
 onMounted(async () => {
   currentTheme.value = getCurrentTheme();
+  await loadCategories();
   await loadNotifications();
   await userStore.fetchCurrentUser();
 });
+
+async function loadCategories() {
+  try {
+    const response = await categoryApi.getCategoryTree();
+    if (response.code === 200) {
+      categories.value = response.data || [];
+    }
+  } catch (error) {
+    console.error('加载分类失败:', error);
+  }
+}
 
 async function loadNotifications() {
   // 直接使用模拟数据，避免API调用失败
@@ -143,6 +179,15 @@ function handleGoToProfile() {
     return;
   }
   router.push('/user');
+}
+
+function handleGoToSettings() {
+  isUserMenuOpen.value = false;
+  // 检查是否登录，未登录则跳转到登录页
+  if (!requireAuth('/user/settings')) {
+    return;
+  }
+  router.push('/user/settings');
 }
 
 function handlePublish() {
@@ -246,10 +291,11 @@ function handlePublish() {
                     class="flex items-center space-x-2 hover:opacity-80 transition-opacity flex-shrink-0"
                 >
                   <img
-                      :src="currentUser.avatar"
+                      :src="getSafeAvatar(currentUser.avatar, currentUser.id)"
                       :alt="currentUser.username"
                       class="w-8 h-8 rounded-full"
                       loading="lazy"
+                      @error="(e: Event) => (e.target as HTMLImageElement).src = getSafeAvatar(null, currentUser.id)"
                   />
                   <span class="text-sm font-medium hidden sm:inline" style="color: var(--theme-text);">
                     {{ (currentUser as any).nickname || currentUser.username }}
@@ -282,7 +328,7 @@ function handlePublish() {
                   </button>
 
                   <button
-                      @click="handleGoToProfile"
+                      @click="handleGoToSettings"
                       class="w-full flex items-center space-x-2 px-3 py-2 text-left transition-colors hover:opacity-80"
                   >
                     <Settings class="w-4 h-4" style="color: var(--theme-text-secondary);" />
@@ -414,17 +460,17 @@ function handlePublish() {
         </Link>
         <div v-for="item in navItems" :key="item.key" class="mb-2">
           <Link
-              :to="item.key === 'authors' ? '/authors' : '/list?category=' + item.name"
-              @click="isMenuOpen = false"
-              class="block border rounded-xl px-5 py-4"
-              style="color: var(--theme-text); border-color: var(--theme-border);"
+            :to="item.key === 'authors' ? '/authors' : `/category/${encodeURIComponent(item.name)}`"
+            @click="isMenuOpen = false"
+            class="block border rounded-xl px-5 py-4"
+            style="color: var(--theme-text); border-color: var(--theme-border);"
           >
             <span class="font-semibold text-lg">{{ item.name }}</span>
           </Link>
         </div>
         <!-- 更多按钮 -->
         <Link
-            to="/list"
+            to="/category"
             @click="isMenuOpen = false"
             class="block border rounded-xl px-5 py-4 text-center"
             style="color: var(--theme-text); border-color: var(--theme-border); background-color: var(--theme-surface);"

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { useRouter } from 'vue-router';
 import { ChevronRight, Home } from 'lucide-vue-next';
+import { computed } from 'vue';
 
 interface BreadcrumbItem {
   label: string;
@@ -11,7 +12,7 @@ interface Props {
   items: BreadcrumbItem[];
 }
 
-defineProps<Props>();
+const props = defineProps<Props>();
 const router = useRouter();
 
 function navigateTo(path?: string) {
@@ -19,6 +20,31 @@ function navigateTo(path?: string) {
     router.push(path);
   }
 }
+
+// 生成面包屑结构化数据（供父组件注入 JSON-LD 使用）
+const breadcrumbJsonLd = computed(() => {
+  const items = [
+    { name: '首页', url: '/' },
+    ...props.items.map(item => ({
+      name: item.label,
+      url: item.path || ''
+    }))
+  ].filter(item => item.url);
+
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: items.map((item, index) => ({
+      '@type': 'ListItem',
+      position: index + 1,
+      name: item.name,
+      item: item.url.startsWith('http') ? item.url : `${window.location.origin}${item.url}`
+    }))
+  };
+});
+
+// 暴露给父组件使用
+defineExpose({ breadcrumbJsonLd });
 </script>
 
 <template>

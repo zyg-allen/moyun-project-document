@@ -8,36 +8,40 @@ import Pagination from '@/components/Pagination.vue';
 import Breadcrumb from '@/components/Breadcrumb.vue';
 import SiteFooter from '@/components/SiteFooter.vue';
 
-import { getArticles, searchArticles, getArticlesByCategory } from '@/data/mockData';
+import * as articleApi from '@/api/article';
+import * as tagApi from '@/api/tag';
 import { generateSeo } from '@/utils/seo';
 import type { Article } from '@/types';
 
 const route = useRoute();
 const router = useRouter();
 const searchQuery = ref('');
-const selectedCategory = ref('全部');
+const selectedCategory = ref('');
 const sortBy = ref('最新');
 const allArticles = ref<Article[]>([]);
 const currentPage = ref(1);
 const itemsPerPage = ref(10);
+const hotTags = ref<string[]>([]);
+const isLoading = ref(false);
 
 onMounted(() => {
   searchQuery.value = (route.query.q as string) || '';
-  selectedCategory.value = (route.query.category as string) || '全部';
+  selectedCategory.value = (route.query.category as string) || '';
   currentPage.value = 1;
   performSearch();
+  loadHotTags();
 });
 
 watch(() => route.query, (newQuery) => {
   searchQuery.value = (newQuery.q as string) || '';
-  selectedCategory.value = (newQuery.category as string) || '全部';
+  selectedCategory.value = (newQuery.category as string) || '';
   currentPage.value = 1;
   performSearch();
 }, { deep: true });
 
 const breadcrumbs = computed(() => {
   const items = [];
-  
+
   if (route.query.q) {
     items.push({ label: '搜索', path: '/search' });
     items.push({ label: `"${route.query.q}"` });
@@ -50,53 +54,80 @@ const breadcrumbs = computed(() => {
   } else {
     items.push({ label: '搜索' });
   }
-  
+
   return items;
 });
 
-const hasQuery = computed(() => 
+const hasQuery = computed(() =>
   (route.query.tag && route.query.tag !== '') ||
   searchQuery.value.trim() ||
-  (selectedCategory.value && selectedCategory.value !== '全部')
+  (selectedCategory.value && selectedCategory.value !== '')
 );
 
-function performSearch() {
-  let result: Article[] = [];
-  
+// 加载热门标签
+async function loadHotTags() {
+  try {
+    const response = await tagApi.getHotTags(30);
+    if (response.code === 200 && response.data) {
+      hotTags.value = response.data.map((t: any) => t.name || String(t));
+    }
+  } catch (err) {
+    console.error('加载热门标签失败:', err);
+  }
+}
+
+// 使用真实 API 搜索文章
+async function performSearch() {
   // 没有查询条件时不加载内容
   if (!hasQuery.value) {
     allArticles.value = [];
     return;
   }
-  
-  // 按标签搜索
-  const tagParam = route.query.tag as string;
-  if (tagParam) {
-    result = searchArticles(tagParam);
-  }
-  // 按关键词搜索
-  else if (searchQuery.value.trim()) {
-    result = searchArticles(searchQuery.value);
-  }
-  // 按分类搜索
-  else if (selectedCategory.value !== '全部') {
-    result = getArticlesByCategory(selectedCategory.value);
-    if (result.length === 0) {
-      // 如果没有精确匹配，按标签搜索
-      result = getArticles().filter(a => 
-        a.tags.includes(selectedCategory.value)
-      );
+
+  isLoading.value = true;
+  try {
+    let result: Article[] = [];
+    const tagParam = route.query.tag as string;
+
+    if (tagParam) {
+      // 按标签搜索
+      const response = await articleApi.getArticleList({ tag: tagParam, pageSize: 100 });
+      if (response.code === 200 && response.data) {
+        result = (response.data as any).list || response.data || [];
+      }
+    } else if (searchQuery.value.trim()) {
+      // 按关键词搜索
+      const response = await articleApi.getArticleList({ keyword: searchQuery.value.trim(), pageSize: 100 });
+      if (response.code === 200 && response.data) {
+        result = (response.data as any).list || response.data || [];
+      }
+    } else if (selectedCategory.value) {
+      // 按分类搜索
+      const response = await articleApi.getArticlesByCategory(undefined, selectedCategory.value, 100);
+      if (response.code === 200 && response.data) {
+        const data = response.data as any;
+        result = data.list || (Array.isArray(data) ? data : []) || [];
+      }
     }
+
+    // 排序
+    if (sortBy.value === '热门') {
+      result = [...result].sort((a: any, b: any) => (b.views || b.viewCount || 0) - (a.views || a.viewCount || 0));
+    } else if (sortBy.value === '最新') {
+      result = [...result].sort((a: any, b: any) => {
+        const timeA = new Date(b.createTime || b.createdAt || 0).getTime();
+        const timeB = new Date(a.createTime || a.createdAt || 0).getTime();
+        return timeA - timeB;
+      });
+    }
+
+    allArticles.value = result;
+  } catch (err) {
+    console.error('搜索失败:', err);
+    allArticles.value = [];
+  } finally {
+    isLoading.value = false;
   }
-  
-  // 排序
-  if (sortBy.value === '热门') {
-    result = [...result].sort((a, b) => b.views - a.views);
-  } else if (sortBy.value === '最新') {
-    result = [...result].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-  }
-  
-  allArticles.value = result;
 }
 
 const totalItems = computed(() => allArticles.value.length);
@@ -148,7 +179,7 @@ useHead(
   computed(() => {
     let title = '搜索'
     let description = '搜索墨韵·智库中的文章、标签和作者'
-    
+
     if (searchQuery.value) {
       title = `搜索: ${searchQuery.value}`
       description = `搜索关于"${searchQuery.value}"的文章和内容`
@@ -159,7 +190,7 @@ useHead(
       title = `标签: ${route.query.tag}`
       description = `查看带有"${route.query.tag}"标签的所有文章`
     }
-    
+
     return generateSeo({
       title,
       description,
@@ -228,18 +259,24 @@ useHead(
       <!-- Results -->
       <div class="py-8" v-if="hasQuery">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <!-- Loading State -->
+          <div v-if="isLoading" class="text-center py-12">
+            <div class="inline-block w-10 h-10 border-4 border-t-4 border-gray-300 rounded-full animate-spin" style="border-top-color: var(--theme-primary);"></div>
+            <p class="mt-4" style="color: var(--theme-text-secondary);">搜索中...</p>
+          </div>
+
           <!-- Results Vertical List -->
-          <div v-if="paginatedArticles.length > 0" class="space-y-4 sm:space-y-6 mb-6">
-            <ArticleCard 
-              v-for="article in paginatedArticles" 
-              :key="article.id" 
+          <div v-else-if="paginatedArticles.length > 0" class="space-y-4 sm:space-y-6 mb-6">
+            <ArticleCard
+              v-for="article in paginatedArticles"
+              :key="article.id"
               :article="article"
             />
           </div>
 
           <!-- Pagination -->
-          <div class="flex justify-center mt-8">
-            <Pagination 
+          <div v-if="!isLoading" class="flex justify-center mt-8">
+            <Pagination
               v-if="totalPages > 1 && paginatedArticles.length > 0"
               :current-page="currentPage"
               :total-pages="totalPages"
@@ -250,14 +287,14 @@ useHead(
           </div>
 
           <!-- No Results - 只在有查询条件但无结果时显示 -->
-          <div v-if="paginatedArticles.length === 0" class="text-center py-16">
+          <div v-if="!isLoading && paginatedArticles.length === 0" class="text-center py-16">
             <div class="w-24 h-24 rounded-full flex items-center justify-center mx-auto mb-6" style="background-color: var(--theme-surface);">
               <SearchIcon class="w-12 h-12" style="color: var(--theme-text-secondary);" />
             </div>
             <h3 class="text-xl font-bold mb-2" style="color: var(--theme-text);">未找到相关内容</h3>
             <p class="mb-6" style="color: var(--theme-text-secondary);">尝试使用不同的关键词或浏览其他分类</p>
             <button
-              @click="searchQuery = ''; selectedCategory = '全部'; performSearch()"
+              @click="searchQuery = ''; selectedCategory = ''; performSearch()"
               class="px-6 py-2 rounded-full font-medium transition-colors"
               style="background-color: var(--theme-primary); color: white;"
             >
@@ -275,8 +312,8 @@ useHead(
             <span>热门标签</span>
           </h2>
           <div class="flex flex-wrap gap-3">
-            <span 
-              v-for="tag in ['文学', '散文', '随笔', 'Vue', 'JavaScript', 'React', '前端开发', 'TypeScript', '设计', 'Python', 'Go', '旅行', '乡情', '怀旧', '读书笔记', '写作指导']" 
+            <span
+              v-for="tag in hotTags"
               :key="tag"
               @click="handleTagClick(tag)"
               @mouseenter="handleTagMouseEnter($event)"

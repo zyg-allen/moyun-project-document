@@ -116,9 +116,14 @@ export const getArticleList = (params?: ArticleListParams) => {
     return httpGetList<Article>('/portal/article/list', params);
 };
 
-// 获取文章详情
+// 获取文章详情（支持ID或slug）
 export const getArticleDetail = (params: ArticleDetailParams) => {
     return httpGet<Article>(`/portal/article/${params.id}`);
+};
+
+// 根据别名获取文章详情（SEO语义化URL）
+export const getArticleDetailBySlug = (slug: string) => {
+    return httpGet<Article>(`/portal/article/slug/${slug}`);
 };
 
 // 创建文章

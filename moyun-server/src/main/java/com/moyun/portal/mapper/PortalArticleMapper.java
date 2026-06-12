@@ -83,6 +83,14 @@ public interface PortalArticleMapper extends BaseMapper<PortalArticle> {
     PortalArticle selectPortalArticleById(Long id);
 
     /**
+     * 通过文章别名查询文章
+     *
+     * @param slug 文章别名
+     * @return 文章对象
+     */
+    PortalArticle selectPortalArticleBySlug(@Param("slug") String slug);
+
+    /**
      * 新增文章信息
      *
      * @param portalArticle 文章信息

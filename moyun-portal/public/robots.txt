@@ -1,8 +1,19 @@
 
 User-agent: *
 Allow: /
+
+# 登录认证页面不允许被收录
+Disallow: /login
+Disallow: /register
+
+# 个人中心及账号相关页面不允许被收录
+Disallow: /user
+Disallow: /user/profile
+Disallow: /user/settings
+Disallow: /publish
+
+# API 和管理后台不允许爬取
 Disallow: /api/
 Disallow: /admin/
 
-Sitemap: https://example.com/sitemap.xml
-
+Sitemap: https://moyun.example.com/sitemap.xml

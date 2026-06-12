@@ -81,6 +81,16 @@ public class PortalArticleController extends BaseController {
         return success(ArticleConvertUtil.toArticleVO(article));
     }
 
+    @Operation(summary = "根据别名获取文章详情", description = "根据文章别名(slug)获取文章详细信息，用于SEO语义化URL")
+    @GetMapping(value = "/slug/{slug}")
+    public AjaxResult getInfoBySlug(@Parameter(description = "文章别名") @PathVariable String slug) {
+        PortalArticle article = portalArticleMapper.selectPortalArticleBySlug(slug);
+        if (article == null) {
+            return error("文章不存在");
+        }
+        return success(ArticleConvertUtil.toArticleVO(article));
+    }
+
     @Operation(summary = "新增文章", description = "创建新文章")
     @Log(title = "门户文章", businessType = BusinessType.INSERT)
     @PostMapping

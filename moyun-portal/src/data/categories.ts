@@ -11,7 +11,16 @@ export interface SubCategory {
   path: string;
 }
 
+// 需要排除的特殊页面名称（独立页面，不作为普通分类展示，仅首页可进入）
+export const SPECIAL_PAGE_NAMES = ['读书空间', '面试指南'];
+
+// 检查是否为特殊页面名称
+export function isSpecialPageName(name: string): boolean {
+  return SPECIAL_PAGE_NAMES.includes(name);
+}
+
 // 统一的分类数据（二级联动）
+// 注意：读书空间、面试指南是独立特殊页面，不作为文章分类出现在此处，仅首页可进入
 export const categories: Category[] = [
   {
     id: 'featured',
@@ -47,30 +56,6 @@ export const categories: Category[] = [
       { id: 'performance', name: '性能日志', path: '/list?category=性能日志' },
       { id: 'ai', name: 'AI编程', path: '/list?category=AI编程' },
       { id: 'opensource', name: '开源日志', path: '/list?category=开源日志' }
-    ]
-  },
-  {
-    id: 'books',
-    name: '读书空间',
-    key: 'books',
-    children: [
-      { id: 'classic', name: '人文经典', path: '/list?category=人文经典' },
-      { id: 'techbooks', name: '技术书籍', path: '/list?category=技术书籍' },
-      { id: 'readtogether', name: '共读计划', path: '/list?category=共读计划' },
-      { id: 'booklist', name: '书单推荐', path: '/list?category=书单推荐' },
-      { id: 'quotes', name: '金句摘录', path: '/list?category=金句摘录' }
-    ]
-  },
-  {
-    id: 'interview',
-    name: '面试指南',
-    key: 'interview',
-    children: [
-      { id: 'questions', name: '真题库', path: '/list?category=真题库' },
-      { id: 'experience', name: '面经复盘', path: '/list?category=面经复盘' },
-      { id: 'resume', name: '简历优化', path: '/list?category=简历优化' },
-      { id: 'mock', name: '模拟面试', path: '/list?category=模拟面试' },
-      { id: 'career', name: '职业规划', path: '/list?category=职业规划' }
     ]
   },
   {

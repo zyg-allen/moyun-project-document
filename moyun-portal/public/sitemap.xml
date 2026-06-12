@@ -1,41 +1,84 @@
 
-&lt;?xml version="1.0" encoding="UTF-8"?&gt;
-&lt;urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"&gt;
-  &lt;url&gt;
-    &lt;loc&gt;https://example.com/&lt;/loc&gt;
-    &lt;lastmod&gt;2026-05-17&lt;/lastmod&gt;
-    &lt;changefreq&gt;daily&lt;/changefreq&gt;
-    &lt;priority&gt;1.0&lt;/priority&gt;
-  &lt;/url&gt;
-  &lt;url&gt;
-    &lt;loc&gt;https://example.com/search&lt;/loc&gt;
-    &lt;lastmod&gt;2026-05-17&lt;/lastmod&gt;
-    &lt;changefreq&gt;daily&lt;/changefreq&gt;
-    &lt;priority&gt;0.8&lt;/priority&gt;
-  &lt;/url&gt;
-  &lt;url&gt;
-    &lt;loc&gt;https://example.com/login&lt;/loc&gt;
-    &lt;lastmod&gt;2026-05-17&lt;/lastmod&gt;
-    &lt;changefreq&gt;monthly&lt;/changefreq&gt;
-    &lt;priority&gt;0.5&lt;/priority&gt;
-  &lt;/url&gt;
-  &lt;url&gt;
-    &lt;loc&gt;https://example.com/register&lt;/loc&gt;
-    &lt;lastmod&gt;2026-05-17&lt;/lastmod&gt;
-    &lt;changefreq&gt;monthly&lt;/changefreq&gt;
-    &lt;priority&gt;0.5&lt;/priority&gt;
-  &lt;/url&gt;
-  &lt;url&gt;
-    &lt;loc&gt;https://example.com/publish&lt;/loc&gt;
-    &lt;lastmod&gt;2026-05-17&lt;/lastmod&gt;
-    &lt;changefreq&gt;weekly&lt;/changefreq&gt;
-    &lt;priority&gt;0.7&lt;/priority&gt;
-  &lt;/url&gt;
-  &lt;url&gt;
-    &lt;loc&gt;https://example.com/user&lt;/loc&gt;
-    &lt;lastmod&gt;2026-05-17&lt;/lastmod&gt;
-    &lt;changefreq&gt;weekly&lt;/changefreq&gt;
-    &lt;priority&gt;0.6&lt;/priority&gt;
-  &lt;/url&gt;
-&lt;/urlset&gt;
-
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  墨韵·智库 网站地图
+  注意：此文件为静态 sitemap，仅包含固定页面。
+  文章详情页 (/article/:id) 和分类页 (/category/:name) 的 URL
+  建议通过后端接口动态生成，以下为示例占位，实际请替换为正式域名。
+  正式环境请将 https://moyun.example.com 替换为实际域名。
+-->
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <!-- 首页 -->
+  <url>
+    <loc>https://moyun.example.com/</loc>
+    <lastmod>2026-06-09</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>1.0</priority>
+  </url>
+  <!-- 语义化分类列表页 -->
+  <url>
+    <loc>https://moyun.example.com/category</loc>
+    <lastmod>2026-06-09</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.9</priority>
+  </url>
+  <!-- 语义化标签列表页 -->
+  <url>
+    <loc>https://moyun.example.com/tag</loc>
+    <lastmod>2026-06-06-09</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <!-- 特殊页面：读书空间 -->
+  <url>
+    <loc>https://moyun.example.com/reading</loc>
+    <lastmod>2026-06-09</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <!-- 特殊页面：面试指南 -->
+  <url>
+    <loc>https://moyun.example.com/interview</loc>
+    <lastmod>2026-06-09</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <!-- 搜索页 -->
+  <url>
+    <loc>https://moyun.example.com/search</loc>
+    <lastmod>2026-06-09</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <!-- 作者列表页 -->
+  <url>
+    <loc>https://moyun.example.com/authors</loc>
+    <lastmod>2026-06-09</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <!-- 帮助与信息页 -->
+  <url>
+    <loc>https://moyun.example.com/help</loc>
+    <lastmod>2026-06-09</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.4</priority>
+  </url>
+  <url>
+    <loc>https://moyun.example.com/about</loc>
+    <lastmod>2026-06-09</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.4</priority>
+  </url>
+  <url>
+    <loc>https://moyun.example.com/agreement</loc>
+    <lastmod>2026-06-09</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.3</priority>
+  </url>
+  <!--
+    以下为文章详情页示例 URL，请通过后端 API 动态生成完整列表：
+    GET /portal/article/list?pageNum=1&pageSize=100
+    每篇文章对应: https://moyun.example.com/article/{id}
+  -->
+</urlset>

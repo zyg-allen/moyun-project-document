@@ -145,11 +145,9 @@ useHead(
                 热门书籍
               </h2>
               <button 
-                @click="router.push('/reading/books')"
-                class="text-purple-600 hover:text-purple-800 font-medium flex items-center"
+                class="text-gray-400 cursor-default font-medium flex items-center"
               >
-                查看更多
-                <ArrowRight class="w-4 h-4 ml-1" />
+                读书空间专属页面
               </button>
             </div>
             

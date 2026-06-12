@@ -7,15 +7,14 @@
     <resultMap type="com.moyun.portal.domain.entity.PortalArticle" id="PortalArticleResult">
         <id property="id" column="id"/>
         <result property="title" column="title"/>
+        <result property="slug" column="slug"/>
         <result property="content" column="content"/>
         <result property="excerpt" column="excerpt"/>
         <result property="cover" column="cover"/>
         <result property="authorId" column="author_id"/>
         <result property="categoryId" column="category_id"/>
-        <!-- TODO: 运行数据库升级脚本后取消注释
         <result property="rootCategoryId" column="root_category_id"/>
         <result property="categoryPath" column="category_path"/>
-        -->
         <result property="categoryName" column="category_name"/>
         <result property="categorySlug" column="category_slug"/>
         <result property="status" column="status"/>
@@ -40,10 +39,8 @@
     </resultMap>
 
     <sql id="selectPortalArticleVo">
-        select pa.id, pa.title, pa.content, pa.excerpt, pa.cover, pa.author_id, pa.category_id, 
-               <!-- TODO: 运行数据库升级脚本后取消注释
+        select pa.id, pa.title, pa.slug, pa.content, pa.excerpt, pa.cover, pa.author_id, pa.category_id, 
                pa.root_category_id, pa.category_path, 
-               -->
                pa.status,
                pa.is_featured, pa.is_top, pa.is_carousel, pa.is_category_recommended, pa.views, pa.likes, pa.comments, pa.share_count,
                pa.bookmark_count, pa.published_at, pa.link, pa.editor_mode, pa.content_markdown,
@@ -66,11 +63,9 @@
             <if test="params.categoryId != null">
                 AND pa.category_id = #{params.categoryId}
             </if>
-            <!-- TODO: 运行数据库升级脚本后取消注释
             <if test="params.rootCategoryId != null">
                 AND pa.root_category_id = #{params.rootCategoryId}
             </if>
-            -->
             <if test="params.categoryName != null and params.categoryName != ''">
                 AND pc.name = #{params.categoryName}
             </if>
@@ -178,20 +173,22 @@
         where pa.id = #{id}
     </select>
 
+    <!-- 根据别名查询 -->
+    <select id="selectPortalArticleBySlug" parameterType="String" resultMap="PortalArticleResult">
+        <include refid="selectPortalArticleVo"/>
+        where pa.slug = #{slug}
+    </select>
+
     <!-- 新增文章 -->
     <insert id="insertPortalArticle" parameterType="com.moyun.portal.domain.entity.PortalArticle">
-        insert into portal_article(title, content, excerpt, cover, author_id, category_id, 
-                                   <!-- TODO: 运行数据库升级脚本后取消注释
+        insert into portal_article(title, slug, content, excerpt, cover, author_id, category_id, 
                                    root_category_id, category_path, 
-                                   -->
                                    status,
                                    is_featured, is_top, is_carousel, is_category_recommended, views, likes, comments,
                                    share_count, bookmark_count, published_at, link, editor_mode,
                                    content_markdown, create_by, create_time, update_by, update_time, remark)
-        values(#{title}, #{content}, #{excerpt}, #{cover}, #{authorId}, #{categoryId}, 
-               <!-- TODO: 运行数据库升级脚本后取消注释
+        values(#{title}, #{slug}, #{content}, #{excerpt}, #{cover}, #{authorId}, #{categoryId}, 
                #{rootCategoryId}, #{categoryPath}, 
-               -->
                #{status},
                #{isFeatured}, #{isTop}, #{isCarousel}, #{isCategoryRecommended}, #{views}, #{likes}, #{comments},
                #{shareCount}, #{bookmarkCount}, #{publishedAt}, #{link}, #{editorMode},
@@ -208,10 +205,8 @@
             <if test="cover != null">cover = #{cover},</if>
             <if test="authorId != null">author_id = #{authorId},</if>
             <if test="categoryId != null">category_id = #{categoryId},</if>
-            <!-- TODO: 运行数据库升级脚本后取消注释
             <if test="rootCategoryId != null">root_category_id = #{rootCategoryId},</if>
             <if test="categoryPath != null">category_path = #{categoryPath},</if>
-            -->
             <if test="status != null">status = #{status},</if>
             <if test="isFeatured != null">is_featured = #{isFeatured},</if>
             <if test="isTop != null">is_top = #{isTop},</if>

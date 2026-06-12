@@ -28,7 +28,7 @@ const hiddenTagCount = computed(() => {
 })
 
 function goToTagPage(tag: string) {
-  router.push({ path: '/list', query: { tag } })
+  router.push(`/tag/${encodeURIComponent(tag)}`)
   showDialog.value = false
 }
 

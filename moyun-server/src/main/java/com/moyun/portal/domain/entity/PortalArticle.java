@@ -26,6 +26,13 @@ public class PortalArticle extends BaseEntity
     @Size(min = 0, max = 500, message = "文章标题长度不能超过500个字符")
     private String title;
 
+    /**
+     * 文章URL别名，用于SEO语义化路径
+     * 例如：spring-boot-best-practice
+     */
+    @Size(min = 0, max = 500, message = "文章别名长度不能超过500个字符")
+    private String slug;
+
     private String content;
 
     @Size(min = 0, max = 1000, message = "文章摘要长度不能超过1000个字符")

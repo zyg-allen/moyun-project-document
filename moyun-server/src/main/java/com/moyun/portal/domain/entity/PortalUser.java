@@ -67,6 +67,66 @@ public class PortalUser extends BaseEntity
     @Size(min = 0, max = 100, message = "微信号长度不能超过100个字符")
     private String wechat;
 
+    /** 性别 */
+    @Size(min = 0, max = 20, message = "性别长度不能超过20个字符")
+    private String gender;
+
+    /** 生日 */
+    @Size(min = 0, max = 20, message = "生日长度不能超过20个字符")
+    private String birthday;
+
+    /** 所在城市/地点 */
+    @Size(min = 0, max = 100, message = "地点长度不能超过100个字符")
+    private String location;
+
+    /** 个人网站 */
+    @Size(min = 0, max = 200, message = "网站长度不能超过200个字符")
+    private String website;
+
+    /** GitHub账号 */
+    @Size(min = 0, max = 100, message = "GitHub长度不能超过100个字符")
+    private String github;
+
+    /** 公司 */
+    @Size(min = 0, max = 200, message = "公司长度不能超过200个字符")
+    private String company;
+
+    /** 学校 */
+    @Size(min = 0, max = 200, message = "学校长度不能超过200个字符")
+    private String school;
+
+    /** 语言偏好 */
+    @Size(min = 0, max = 20, message = "语言长度不能超过20个字符")
+    private String language;
+
+    /** 时区 */
+    @Size(min = 0, max = 50, message = "时区长度不能超过50个字符")
+    private String timezone;
+
+    /** 是否接收点赞通知 */
+    private Boolean notifyLike;
+
+    /** 是否接收评论通知 */
+    private Boolean notifyComment;
+
+    /** 是否接收关注通知 */
+    private Boolean notifyFollow;
+
+    /** 是否接收系统通知 */
+    private Boolean notifySystem;
+
+    /** 是否允许被关注 */
+    private Boolean privacyFollow;
+
+    /** 是否公开收藏夹 */
+    private Boolean privacyBookmark;
+
+    /** 是否公开邮箱 */
+    private Boolean privacyEmail;
+
+    /** 是否公开手机号 */
+    private Boolean privacyPhone;
+
     /** 角色：user/admin */
     @Size(min = 0, max = 20, message = "角色长度不能超过20个字符")
     private String role;
@@ -217,6 +277,176 @@ public class PortalUser extends BaseEntity
         this.wechat = wechat;
     }
 
+    public String getGender()
+    {
+        return gender;
+    }
+
+    public void setGender(String gender)
+    {
+        this.gender = gender;
+    }
+
+    public String getBirthday()
+    {
+        return birthday;
+    }
+
+    public void setBirthday(String birthday)
+    {
+        this.birthday = birthday;
+    }
+
+    public String getLocation()
+    {
+        return location;
+    }
+
+    public void setLocation(String location)
+    {
+        this.location = location;
+    }
+
+    public String getWebsite()
+    {
+        return website;
+    }
+
+    public void setWebsite(String website)
+    {
+        this.website = website;
+    }
+
+    public String getGithub()
+    {
+        return github;
+    }
+
+    public void setGithub(String github)
+    {
+        this.github = github;
+    }
+
+    public String getCompany()
+    {
+        return company;
+    }
+
+    public void setCompany(String company)
+    {
+        this.company = company;
+    }
+
+    public String getSchool()
+    {
+        return school;
+    }
+
+    public void setSchool(String school)
+    {
+        this.school = school;
+    }
+
+    public String getLanguage()
+    {
+        return language;
+    }
+
+    public void setLanguage(String language)
+    {
+        this.language = language;
+    }
+
+    public String getTimezone()
+    {
+        return timezone;
+    }
+
+    public void setTimezone(String timezone)
+    {
+        this.timezone = timezone;
+    }
+
+    public Boolean getNotifyLike()
+    {
+        return notifyLike;
+    }
+
+    public void setNotifyLike(Boolean notifyLike)
+    {
+        this.notifyLike = notifyLike;
+    }
+
+    public Boolean getNotifyComment()
+    {
+        return notifyComment;
+    }
+
+    public void setNotifyComment(Boolean notifyComment)
+    {
+        this.notifyComment = notifyComment;
+    }
+
+    public Boolean getNotifyFollow()
+    {
+        return notifyFollow;
+    }
+
+    public void setNotifyFollow(Boolean notifyFollow)
+    {
+        this.notifyFollow = notifyFollow;
+    }
+
+    public Boolean getNotifySystem()
+    {
+        return notifySystem;
+    }
+
+    public void setNotifySystem(Boolean notifySystem)
+    {
+        this.notifySystem = notifySystem;
+    }
+
+    public Boolean getPrivacyFollow()
+    {
+        return privacyFollow;
+    }
+
+    public void setPrivacyFollow(Boolean privacyFollow)
+    {
+        this.privacyFollow = privacyFollow;
+    }
+
+    public Boolean getPrivacyBookmark()
+    {
+        return privacyBookmark;
+    }
+
+    public void setPrivacyBookmark(Boolean privacyBookmark)
+    {
+        this.privacyBookmark = privacyBookmark;
+    }
+
+    public Boolean getPrivacyEmail()
+    {
+        return privacyEmail;
+    }
+
+    public void setPrivacyEmail(Boolean privacyEmail)
+    {
+        this.privacyEmail = privacyEmail;
+    }
+
+    public Boolean getPrivacyPhone()
+    {
+        return privacyPhone;
+    }
+
+    public void setPrivacyPhone(Boolean privacyPhone)
+    {
+        this.privacyPhone = privacyPhone;
+    }
+
     public String getRole()
     {
         return role;
@@ -321,6 +551,23 @@ public class PortalUser extends BaseEntity
             .append("bio", getBio())
             .append("position", getPosition())
             .append("wechat", getWechat())
+            .append("gender", getGender())
+            .append("birthday", getBirthday())
+            .append("location", getLocation())
+            .append("website", getWebsite())
+            .append("github", getGithub())
+            .append("company", getCompany())
+            .append("school", getSchool())
+            .append("language", getLanguage())
+            .append("timezone", getTimezone())
+            .append("notifyLike", getNotifyLike())
+            .append("notifyComment", getNotifyComment())
+            .append("notifyFollow", getNotifyFollow())
+            .append("notifySystem", getNotifySystem())
+            .append("privacyFollow", getPrivacyFollow())
+            .append("privacyBookmark", getPrivacyBookmark())
+            .append("privacyEmail", getPrivacyEmail())
+            .append("privacyPhone", getPrivacyPhone())
             .append("role", getRole())
             .append("vipExpireAt", getVipExpireAt())
             .append("isPhoneVerified", getIsPhoneVerified())

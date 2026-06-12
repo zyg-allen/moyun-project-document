@@ -3,7 +3,6 @@ import type {
   Tag,
   TagListParams,
 } from '@/types/api';
-import { getHotTags as getMockHotTags, searchTags, createTag as createMockTag, getTagSuggestions } from '@/data/mockData';
 
 // 获取标签列表
 export const getTagList = (params?: TagListParams) => {
@@ -33,42 +32,4 @@ export const createNewTag = (name: string) => {
 // 获取标签建议
 export const getRecommendTags = (title: string, category: string) => {
   return httpGet<Tag[]>('/portal/tag/recommend', { title, category });
-};
-
-// ================== 模拟API实现 ==================
-
-// 模拟获取热门标签
-export const mockGetHotTags = (limit = 20) => {
-  return Promise.resolve({
-    code: 200,
-    data: getMockHotTags(limit),
-    message: 'success'
-  });
-};
-
-// 模拟搜索标签
-export const mockSearchTags = (keyword: string) => {
-  return Promise.resolve({
-    code: 200,
-    data: searchTags(keyword),
-    message: 'success'
-  });
-};
-
-// 模拟创建标签
-export const mockCreateTag = (name: string) => {
-  return Promise.resolve({
-    code: 200,
-    data: createMockTag(name),
-    message: 'success'
-  });
-};
-
-// 模拟获取标签建议
-export const mockGetRecommendTags = (title: string, category: string) => {
-  return Promise.resolve({
-    code: 200,
-    data: getTagSuggestions(title, category),
-    message: 'success'
-  });
 };

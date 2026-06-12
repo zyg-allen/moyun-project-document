@@ -218,7 +218,7 @@ export const httpUpload = <T>(
 
   const token = getToken();
   const headers: Record<string, string> = {};
-  
+
   if (token) {
     headers['Authorization'] = `Bearer ${token}`;
   }
@@ -227,5 +227,5 @@ export const httpUpload = <T>(
     method: 'POST',
     headers,
     body: formData,
-  }).then((response) => response.json());
+  }).then((response) => response.json() as Promise<ApiResponse<T>>);
 };

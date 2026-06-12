@@ -12,17 +12,21 @@ import LazyImage from '@/components/LazyImage.vue'
 import SiteFooter from '@/components/SiteFooter.vue'
 import BackToTop from '@/components/BackToTop.vue'
 import { generateSeo } from '@/utils/seo'
-import { getHomeData, getTagList, getCategoryRecommendedArticles } from '@/api/article'
+import * as articleApi from '@/api/article'
+import * as categoryApi from '@/api/category'
+import * as tagApi from '@/api/tag'
 import { getFriendLinks } from '@/api/friendLink'
 import { getAuthors } from '@/api/user'
-import { getCategoryList } from '@/api/category'
 import { useUserStore } from '@/stores/user'
 import { useAuth } from '@/composables/useAuth'
-import type { FriendLink } from '@/api/friendLink'
+import type { Category } from '@/types/api'
 
 const router = useRouter()
 const userStore = useUserStore()
 const { requireAuth } = useAuth()
+
+const SPECIAL_PAGE_NAMES = ['读书空间', '面试指南']
+const isSpecialPageName = (name: string): boolean => SPECIAL_PAGE_NAMES.includes(name)
 
 interface HeroItem {
   id: string
@@ -37,17 +41,16 @@ interface HeroItem {
 
 const heroImages = ref<HeroItem[]>([])
 const currentHeroIndex = ref(0)
-const friendLinks = ref<FriendLink[]>([])
+const friendLinks = ref<any[]>([])
 const carouselArticles = ref<any[]>([])
 const featuredArticles = ref<any[]>([])
 const hotArticles = ref<any[]>([])
 const latestArticles = ref<any[]>([])
 const tags = ref<any[]>([])
-const categories = ref<any[]>([])
+const categories = ref<Category[]>([])
 const authors = ref<any[]>([])
 const loading = ref(true)
 const error = ref<string | null>(null)
-// 存储每个分类的推荐文章
 const categoryArticles = ref<Record<string, any[]>>({})
 
 const transformArticle = (apiArticle: any): any => {
@@ -76,7 +79,7 @@ const transformArticle = (apiArticle: any): any => {
 const loadHomeData = async () => {
   try {
     loading.value = true
-    const homeResponse = await getHomeData()
+    const homeResponse = await articleApi.getHomeData()
     if (homeResponse.code === 200 && homeResponse.data) {
       carouselArticles.value = homeResponse.data.carouselArticles?.map(transformArticle) || []
       featuredArticles.value = homeResponse.data.featuredArticles?.map(transformArticle) || []
@@ -103,7 +106,7 @@ const loadHomeData = async () => {
 
 const loadCategories = async () => {
   try {
-    const response = await getCategoryList()
+    const response = await categoryApi.getCategoryTree()
     if (response.code === 200 && response.data) {
       categories.value = response.data
     }
@@ -114,19 +117,9 @@ const loadCategories = async () => {
 
 const loadTags = async () => {
   try {
-    const response = await getTagList()
+    const response = await tagApi.getHotTags()
     if (response.code === 200 && response.data) {
-      // 兼容两种格式：分页响应或直接数组
-      const data = response.data as any
-      if ('list' in data) {
-        tags.value = data.list
-      } else if ('records' in data) {
-        tags.value = data.records
-      } else if (Array.isArray(data)) {
-        tags.value = data
-      } else {
-        tags.value = []
-      }
+      tags.value = response.data
     }
   } catch (err) {
     console.error('加载标签失败:', err)
@@ -148,7 +141,6 @@ const loadAuthors = async () => {
     }
   } catch (err) {
     console.error('加载名家失败:', err)
-    // 使用默认名家数据
     authors.value = [
       { id: '1', name: '林清玄', avatar: '林', works: 318, likes: '5.6w', days: 365 },
       { id: '2', name: '毕淑敏', avatar: '毕', works: 256, likes: '4.2w', days: 300 },
@@ -181,11 +173,14 @@ const nextHero = () => {
 }
 
 const themes = computed(() => {
-  return categories.value.map((cat) => ({
-    id: String(cat.id),
-    name: cat.name,
-    key: cat.slug || cat.name
-  }))
+  return categories.value
+    .filter((cat: Category) => !isSpecialPageName(cat.name))
+    .map((cat: Category) => ({
+      id: String(cat.id),
+      name: cat.name,
+      key: cat.slug || cat.name,
+      path: `/category/${encodeURIComponent(cat.name)}`
+    }))
 })
 
 const activeTheme = ref('')
@@ -202,7 +197,6 @@ onMounted(async () => {
   ])
   if (categories.value.length > 0) {
     activeTheme.value = categories.value[0].name
-    // 加载第一个分类的推荐文章
     await loadCategoryArticles(categories.value[0].name)
   } else {
     activeTheme.value = '散文'
@@ -218,16 +212,14 @@ onMounted(async () => {
 
 const selectTheme = async (themeId: string, themeName: string) => {
   activeTheme.value = themeName
-  // 如果该分类的推荐文章还没有加载，就加载
   if (!categoryArticles.value[themeName]) {
     await loadCategoryArticles(themeName)
   }
 }
 
-// 加载分类推荐文章
 const loadCategoryArticles = async (themeName: string) => {
   try {
-    const response = await getCategoryRecommendedArticles(themeName, undefined, 8)
+    const response = await articleApi.getCategoryRecommendedArticles(themeName, undefined, 8)
     if (response.code === 200 && response.data) {
       const list = (response.data as any).list || response.data || []
       categoryArticles.value[themeName] = list.map(transformArticle)
@@ -239,8 +231,7 @@ const loadCategoryArticles = async (themeName: string) => {
 }
 
 const viewMore = (themeName: string) => {
-  // 跳转到列表页，并带上分类推荐的参数
-  router.push({ path: '/list', query: { category: themeName, categoryRecommended: 'true' } })
+  router.push(`/category/${encodeURIComponent(themeName)}`)
 }
 
 const goToAuthor = (id: string) => {
@@ -248,11 +239,9 @@ const goToAuthor = (id: string) => {
 }
 
 const getThemeArticles = (themeName: string): any[] => {
-  // 如果有该分类的推荐文章，就用推荐文章
   if (categoryArticles.value[themeName] && categoryArticles.value[themeName].length > 0) {
     return categoryArticles.value[themeName]
   }
-  // 如果没有，就从最新文章里过滤
   const filtered = latestArticles.value.filter(article => {
     return article.category === themeName || themeName === ''
   })
@@ -290,7 +279,6 @@ const getThemeCode = (themeName: string) => {
 }
 
 const handleWrite = () => {
-  // 检查是否登录，未登录则跳转到登录页
   if (!requireAuth('/publish')) {
     return;
   }
@@ -299,20 +287,19 @@ const handleWrite = () => {
 
 useHead(
     generateSeo({
-      title: '首页 - 一纸墨',
-      description: '一纸墨 - 在浮躁的世界，留一页纸给灵魂。学习、记录、散文、分享。',
-      keywords: ['文学', '散文', '创作', '技术', '阅读', '社区', '一纸墨'],
-      type: 'website'
+      title: '首页',
+      description: '墨韵·智库 - 为文学爱好者和技术开发者提供一个纯净的创作与阅读空间，在这里分享技术与生活之美',
+      keywords: ['文学', '散文', '技术', '编程', '创作', '阅读', '分享'],
+      type: 'website',
+      canonicalPath: '/'
     })
 )
 </script>
 
 <template>
   <div style="background-color: var(--theme-bg); min-height: 100vh;" class="flex flex-col">
-    <!-- 1. 首屏轮播区 -->
     <div class="py-4 sm:py-6" style="background-color: var(--theme-bg);">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <!-- 品牌口号 -->
         <div class="text-center mb-4 sm:mb-6">
           <p class="text-sm sm:text-base text-gray-600">
             在浮躁的世界，留一页纸给灵魂。
@@ -394,7 +381,6 @@ useHead(
       </div>
     </div>
 
-    <!-- 2. 名言提示和写作入口 -->
     <div>
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div class="grid grid-cols-1 md:grid-cols-2 gap-0">
@@ -426,7 +412,6 @@ useHead(
       </div>
     </div>
 
-    <!-- 3. 本栏推荐 + 热门推荐 -->
     <div class="py-4 sm:py-6" style="background-color: var(--theme-bg);">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div class="grid lg:grid-cols-[2fr_1fr] gap-4 sm:gap-6">
@@ -436,7 +421,7 @@ useHead(
                 <Star class="w-4 h-4 sm:w-5 sm:h-5 text-yellow-500" />
                 <h2 class="text-base sm:text-lg font-bold" style="color: var(--theme-text);">本栏推荐</h2>
               </div>
-              <button @click="router.push('/list')" class="flex items-center gap-1 text-xs sm:text-sm font-medium" style="color: var(--theme-text-secondary);">
+              <button @click="router.push('/category')" class="flex items-center gap-1 text-xs sm:text-sm font-medium" style="color: var(--theme-text-secondary);">
                 <span>更多</span>
                 <ArrowRight class="w-3 h-3 sm:w-4 sm:h-4" />
               </button>
@@ -445,7 +430,7 @@ useHead(
               <div
                   v-for="(article, index) in featuredArticles.slice(0, 8)"
                   :key="article.id"
-                  @click="router.push('/article/' + article.id)"
+                  @click.stop="router.push('/article/' + article.id)"
                   class="group flex gap-2 sm:gap-3 p-2 sm:p-3 rounded-lg cursor-pointer transition-colors"
                   :style="{ backgroundColor: 'var(--theme-surface)' }"
               >
@@ -491,7 +476,7 @@ useHead(
                 <div
                     v-for="(article, index) in trendingArticles"
                     :key="article.id"
-                    @click="router.push('/article/' + article.id)"
+                    @click.stop="router.push('/article/' + article.id)"
                     class="flex items-start gap-2 cursor-pointer"
                 >
                   <span
@@ -540,7 +525,6 @@ useHead(
       </div>
     </div>
 
-    <!-- 4. 读书空间 -->
     <div class="py-4 sm:py-6" style="background-color: var(--theme-bg);">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div class="p-4 sm:p-5 rounded-xl" style="background-color: var(--theme-surface);">
@@ -624,7 +608,6 @@ useHead(
       </div>
     </div>
 
-    <!-- 5. 面试指南 -->
     <div class="py-4 sm:py-6" style="background-color: var(--theme-bg);">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div class="p-4 sm:p-5 rounded-xl" style="background-color: var(--theme-surface);">
@@ -708,7 +691,6 @@ useHead(
       </div>
     </div>
 
-    <!-- 6. 按主题探索 -->
     <div class="py-4 sm:py-6 border-t" style="background-color: var(--theme-bg); border-color: var(--theme-border);">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div class="flex items-center justify-between mb-3 sm:mb-4">
@@ -753,7 +735,7 @@ useHead(
             <div
                 v-for="article in getThemeArticles(activeTheme)"
                 :key="article.id"
-                @click="router.push('/article/' + article.id)"
+                @click.stop="router.push('/article/' + article.id)"
                 class="flex items-center gap-2 cursor-pointer"
             >
               <div class="w-1 h-1 rounded-full" style="background-color: var(--theme-primary);"></div>
@@ -767,7 +749,6 @@ useHead(
       </div>
     </div>
 
-    <!-- 7. 墨韵名家录 -->
     <div class="py-4 sm:py-6" style="background-color: var(--theme-bg);">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div class="flex items-center justify-between mb-3 sm:mb-4">
@@ -802,7 +783,11 @@ useHead(
             <p class="text-xs" style="color: var(--theme-text-secondary);">已创作 {{ author.works }} 篇</p>
             <p class="text-xs" style="color: var(--theme-text-secondary);">{{ author.likes }} 喜欢</p>
             <p class="text-xs" style="color: var(--theme-text-secondary);">坚持 {{ author.days }} 天</p>
-            <button class="mt-2 px-3 py-1 rounded-full text-xs border" style="border-color: var(--theme-primary); color: var(--theme-primary);">
+            <button
+                @click.stop
+                class="mt-2 px-3 py-1 rounded-full text-xs border"
+                style="border-color: var(--theme-primary); color: var(--theme-primary);"
+            >
               关注作者
             </button>
           </div>
@@ -810,7 +795,6 @@ useHead(
       </div>
     </div>
 
-    <!-- 8. 热门标签 & 友情链接 -->
     <div class="py-4 sm:py-6 border-t" style="background-color: var(--theme-surface); border-color: var(--theme-border);">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div class="space-y-6 sm:space-y-8">
@@ -823,7 +807,7 @@ useHead(
               <span
                   v-for="tag in (tags.length > 0 ? tags : [{ id: '1', name: '文学' }, { id: '2', name: '散文' }, { id: '3', name: '随笔' }])"
                   :key="tag.id || tag"
-                  @click="router.push('/list')"
+                  @click="router.push(`/tag/${encodeURIComponent(tag.name || tag)}`)"
                   class="inline-flex items-center gap-1 px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-full text-xs cursor-pointer transition-all hover:opacity-80"
                   :style="{ backgroundColor: 'var(--theme-accent)', color: 'var(--theme-primary)' }"
               >
@@ -860,7 +844,6 @@ useHead(
       <SiteFooter />
     </div>
 
-    <!-- 返回顶部按钮 -->
     <BackToTop />
   </div>
 </template>

@@ -6,8 +6,6 @@ import { useHead } from '@vueuse/head';
 import { 
   User, BookOpen, Heart, Star, Users, ChevronRight, UserPlus, UserMinus, MessageSquare, Calendar, Clock
 } from 'lucide-vue-next';
-import { getArticles, mockUsers } from '@/data/mockData';
-import { getCurrentUser } from '@/data/mockData';
 import { generateSeo } from '@/utils/seo';
 import ArticleCard from '@/components/ArticleCard.vue';
 import SiteFooter from '@/components/SiteFooter.vue';
@@ -16,6 +14,7 @@ import type { Article, User as UserType } from '@/types';
 import * as userApi from '@/api/user';
 import * as articleApi from '@/api/article';
 import * as followApi from '@/api/follow';
+import { getSafeAvatar } from '@/utils/avatar';
 
 const route = useRoute();
 const router = useRouter();
@@ -31,19 +30,19 @@ const isLoading = ref(false);
 const currentUser = ref<UserType | null>(null);
 const loadingArticles = ref(false);
 
-// 模拟统计数据
+// 真实统计数据
 const authorStats = ref({
-  following: 128,
-  followers: 256,
-  articles: 32,
-  totalViews: 12568,
-  totalLikes: 892,
-  joinDate: '2023-01-15'
+  following: 0,
+  followers: 0,
+  articles: 0,
+  totalViews: 0,
+  totalLikes: 0,
+  joinDate: ''
 });
 
 // 检查是否是自己的主页
 const isOwnProfile = computed(() => {
-  return currentUser.value && author.value && currentUser.value.id === author.value.id;
+  return currentUser.value && author.value && String(currentUser.value.id) === String(author.value.id);
 });
 
 // SEO
@@ -66,43 +65,64 @@ watch(() => activeTab.value, () => {
 
 async function loadAuthorData() {
   // 获取当前登录用户
-  currentUser.value = getCurrentUser();
-  
+  try {
+    const userResp = await userApi.getCurrentUser();
+    if (userResp.code === 200 && userResp.data) {
+      currentUser.value = userResp.data;
+    }
+  } catch (e) {
+    // 未登录也不影响查看作者主页
+  }
+
   // 获取作者ID
   const authorId = route.params.id as string;
-  
+
   isLoading.value = true;
   try {
-    // 直接使用模拟数据，避免 API 调用失败
-    const foundAuthor = mockUsers.find(u => u.id === authorId);
-    if (foundAuthor) {
-      author.value = foundAuthor;
-      const allArticles = getArticles();
-      authorArticles.value = allArticles.filter(a => a.author.id === authorId);
-      authorStats.value.articles = authorArticles.value.length;
-      authorStats.value.totalViews = authorArticles.value.reduce((sum, a) => sum + a.views, 0);
-      authorStats.value.totalLikes = authorArticles.value.reduce((sum, a) => sum + a.likes, 0);
-      
-      // 设置加入日期
-      if (author.value) {
-        authorStats.value.joinDate = author.value.createdAt;
-      }
+    // 获取作者基本信息
+    const authorResp = await userApi.getUserById(authorId);
+    if (authorResp.code === 200 && authorResp.data) {
+      author.value = authorResp.data;
+      authorStats.value.joinDate = (author.value as any).createTime || (author.value as any).createdAt || '';
     } else {
       router.push('/404');
+      return;
+    }
+
+    // 获取作者文章列表
+    loadingArticles.value = true;
+    try {
+      const articlesResp = await articleApi.getArticleList({ authorId: authorId, pageSize: 100 });
+      if (articlesResp.code === 200 && articlesResp.data) {
+        const list = (articlesResp.data as any).list || articlesResp.data || [];
+        authorArticles.value = list;
+        authorStats.value.articles = list.length;
+        authorStats.value.totalViews = list.reduce((sum: number, a: any) => sum + (a.views || a.viewCount || 0), 0);
+        authorStats.value.totalLikes = list.reduce((sum: number, a: any) => sum + (a.likes || a.likeCount || 0), 0);
+      }
+    } catch (err) {
+      console.error('加载作者文章失败:', err);
+    } finally {
+      loadingArticles.value = false;
+    }
+
+    // 获取作者统计信息
+    try {
+      const statsResp = await userApi.getUserStats(authorId);
+      if (statsResp.code === 200 && statsResp.data) {
+        const stats = statsResp.data as any;
+        authorStats.value.followers = stats.fansCount || stats.followerCount || stats.followers || authorStats.value.followers;
+        authorStats.value.following = stats.followCount || stats.following || authorStats.value.following;
+        if (stats.articleCount !== undefined) authorStats.value.articles = stats.articleCount;
+        if (stats.totalViews !== undefined) authorStats.value.totalViews = stats.totalViews;
+        if (stats.totalLikes !== undefined) authorStats.value.totalLikes = stats.totalLikes;
+      }
+    } catch (err) {
+      console.error('加载作者统计失败:', err);
     }
   } catch (error) {
     console.error('加载作者信息失败:', error);
-    const foundAuthor = mockUsers.find(u => u.id === authorId);
-    if (foundAuthor) {
-      author.value = foundAuthor;
-      const allArticles = getArticles();
-      authorArticles.value = allArticles.filter(a => a.author.id === authorId);
-      authorStats.value.articles = authorArticles.value.length;
-      authorStats.value.totalViews = authorArticles.value.reduce((sum, a) => sum + a.views, 0);
-      authorStats.value.totalLikes = authorArticles.value.reduce((sum, a) => sum + a.likes, 0);
-    } else {
-      router.push('/404');
-    }
+    router.push('/404');
   } finally {
     isLoading.value = false;
   }
@@ -182,7 +202,12 @@ function handlePageChange(page: number) {
               <!-- 头像 -->
               <div class="flex-shrink-0">
                 <div class="w-24 h-24 sm:w-32 sm:h-32 rounded-2xl overflow-hidden">
-                  <img :src="author.avatar" :alt="author.username" class="w-full h-full object-cover">
+                  <img 
+                    :src="getSafeAvatar(author.avatar, author.id)" 
+                    :alt="author.username" 
+                    class="w-full h-full object-cover"
+                    @error="(e: Event) => (e.target as HTMLImageElement).src = getSafeAvatar(null, author.id)"
+                  >
                 </div>
               </div>
               

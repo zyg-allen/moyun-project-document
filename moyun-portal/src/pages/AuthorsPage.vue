@@ -8,10 +8,10 @@ import {
 } from 'lucide-vue-next';
 import SiteFooter from '@/components/SiteFooter.vue';
 import Breadcrumb from '@/components/Breadcrumb.vue';
-import { getArticles, mockUsers, getCurrentUser } from '@/data/mockData';
 import { generateSeo } from '@/utils/seo';
-import type { Article, User } from '@/types';
+import type { User } from '@/types';
 import * as userApi from '@/api/user';
+import { getSafeAvatar } from '@/utils/avatar';
 
 const router = useRouter();
 
@@ -27,18 +27,15 @@ const sortOptions = [
   { label: '粉丝最多', value: 'fans' }
 ];
 
-// 模拟统计数据
-const getUserStats = (userId: string) => {
-  const userArticles = getArticles().filter(a => a.author.id === userId);
-  const totalViews = userArticles.reduce((sum, a) => sum + a.views, 0);
-  const totalLikes = userArticles.reduce((sum, a) => sum + a.likes, 0);
-  
+// 使用真实 API 获取用户统计数据
+const getUserStats = (userId: string): { articles: number; views: number; likes: number; following: number; followers: number } => {
+  const user = users.value.find(u => u.id === userId);
   return {
-    articles: userArticles.length,
-    views: totalViews,
-    likes: totalLikes,
-    following: Math.floor(Math.random() * 200) + 50,
-    followers: Math.floor(Math.random() * 500) + 100
+    articles: (user as any)?.articleCount || 0,
+    views: (user as any)?.viewCount || 0,
+    likes: (user as any)?.likeCount || 0,
+    following: (user as any)?.followCount || 0,
+    followers: (user as any)?.fansCount || 0
   };
 };
 
@@ -84,11 +81,12 @@ onMounted(() => {
 async function loadUsers() {
   isLoading.value = true;
   try {
-    // 直接使用模拟数据，避免 API 调用失败
-    users.value = mockUsers;
+    const response = await userApi.getAuthors(50);
+    if (response.code === 200 && response.data) {
+      users.value = response.data;
+    }
   } catch (error) {
     console.error('加载用户列表失败:', error);
-    users.value = mockUsers;
   } finally {
     isLoading.value = false;
   }
@@ -174,10 +172,11 @@ useHead(
           <div class="flex items-start gap-3 sm:gap-4 mb-4">
             <div class="w-14 h-14 sm:w-16 sm:h-16 rounded-xl overflow-hidden flex-shrink-0">
               <img 
-                :src="user.avatar" 
+                :src="getSafeAvatar(user.avatar, user.id)" 
                 :alt="user.username"
                 class="w-full h-full object-cover"
                 loading="lazy"
+                @error="(e: Event) => (e.target as HTMLImageElement).src = getSafeAvatar(null, user.id)"
               />
             </div>
             <div class="flex-1 min-w-0">

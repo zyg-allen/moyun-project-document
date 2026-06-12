@@ -1,9 +1,11 @@
 <script setup lang="ts">
-import { RouterLink as Link } from 'vue-router';
+import { RouterLink as Link, useRouter } from 'vue-router';
 import { Clock, Tag } from 'lucide-vue-next';
 import LazyImage from '@/components/LazyImage.vue';
 import Avatar from '@/components/Avatar.vue';
 import type { Article } from '@/types/api';
+
+const router = useRouter();
 
 interface Props {
   article: Article;
@@ -51,6 +53,24 @@ function getTags(article: Article): string[] {
   if ('tagNames' in article && Array.isArray(article.tagNames)) return article.tagNames as string[];
   return [];
 }
+
+// 统一的文章跳转逻辑（支持slug）
+function goToArticle(articleId: string | number | undefined, slug?: string) {
+  if (!articleId) {
+    console.warn('文章ID为空，无法跳转');
+    return;
+  }
+  const path = slug
+    ? `/article/${String(articleId)}/${encodeURIComponent(slug)}`
+    : `/article/${String(articleId)}`;
+  router.push(path);
+}
+
+// 统一的作者跳转逻辑
+function goToAuthor(authorId: string | number | undefined) {
+  if (!authorId) return;
+  router.push('/author/' + String(authorId));
+}
 </script>
 
 <template>
@@ -60,12 +80,7 @@ function getTags(article: Article): string[] {
       style="background-color: var(--theme-bg); border-color: var(--theme-border);"
       :aria-label="'文章标题: ' + article.title"
   >
-    <Link
-        :to="'/article/' + article.id"
-        target="_blank"
-        class="flex flex-col sm:flex-row gap-0 h-full items-stretch"
-        :aria-label="'查看文章: ' + article.title"
-    >
+    <div class="flex flex-col sm:flex-row gap-0 h-full items-stretch cursor-pointer" @click.stop="goToArticle(article.id, article.slug)">
       <!-- Cover Image (Optional) -->
       <div v-if="article.cover" class="flex-shrink-0">
         <div class="py-2 sm:py-3 px-2 sm:px-3">
@@ -80,25 +95,20 @@ function getTags(article: Article): string[] {
       </div>
 
       <!-- Content -->
-      <div
-          class="flex-1 p-3 sm:p-4 flex flex-col justify-center min-w-0"
-      >
+      <div class="flex-1 p-3 sm:p-4 flex flex-col justify-center min-w-0">
         <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 w-full">
           <!-- 标题靠左 -->
           <div class="flex-1 min-w-0">
-            <Link
-                :to="'/article/' + article.id"
-                target="_blank"
+            <div
                 class="text-sm md:text-base font-medium line-clamp-2 transition-colors hover:opacity-80"
                 style="color: var(--theme-text);"
             >
               {{ truncateText(article.title) }}
-            </Link>
+            </div>
             <!-- 作者信息 -->
-            <Link
-                :to="'/author/' + article.authorId"
-                @click.stop
-                class="flex items-center gap-1.5 mt-1 text-xs transition-colors hover:opacity-80"
+            <div
+                @click.stop="goToAuthor(article.authorId || article.author?.id)"
+                class="flex items-center gap-1.5 mt-1 text-xs transition-colors hover:opacity-80 cursor-pointer"
                 style="color: var(--theme-text-secondary);"
             >
               <Avatar
@@ -107,7 +117,7 @@ function getTags(article: Article): string[] {
                   size="xs"
               />
               <span>{{ getAuthorUsername(article) }}</span>
-            </Link>
+            </div>
             <!-- 简介 -->
             <p class="text-xs mt-1 line-clamp-1" style="color: var(--theme-text-secondary);">
               {{ truncateText(article.excerpt) }}
@@ -137,6 +147,6 @@ function getTags(article: Article): string[] {
           </div>
         </div>
       </div>
-    </Link>
+    </div>
   </article>
 </template>

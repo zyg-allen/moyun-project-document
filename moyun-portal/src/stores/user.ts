@@ -94,9 +94,14 @@ export const useUserStore = defineStore('user', () => {
     try {
       const response = await userApi.getCurrentUser()
       if (response.code === 200) {
-        const userData = response.data as User
+        const userData = response.data as User | null
         user.value = userData
-        persistUserToStorage(userData)
+        if (userData) {
+          persistUserToStorage(userData)
+        } else {
+          // 未登录时返回null，清除本地存储
+          persistUserToStorage(null)
+        }
         return userData
       }
       // 获取失败时清除用户信息
@@ -104,7 +109,8 @@ export const useUserStore = defineStore('user', () => {
       persistUserToStorage(null)
       return null
     } catch (error) {
-      console.error('获取用户信息失败:', error)
+      // 未登录导致的401错误不显示错误提示
+      console.warn('获取用户信息失败:', error)
       user.value = null
       persistUserToStorage(null)
       return null

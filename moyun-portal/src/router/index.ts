@@ -1,4 +1,4 @@
-import { createRouter, createWebHistory } from 'vue-router'
+import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 
 // ============ 页面组件导入 ============
@@ -7,6 +7,8 @@ const ArticleDetailPage = () => import('@/pages/ArticleDetailPage.vue')
 const SearchPage = () => import('@/pages/SearchPage.vue')
 const ListPage = () => import('@/pages/ListPage.vue')
 const UserPage = () => import('@/pages/UserPage.vue')
+const UserProfilePage = () => import('@/pages/UserProfilePage.vue')
+const UserSettingsPage = () => import('@/pages/UserSettingsPage.vue')
 const AuthorPage = () => import('@/pages/AuthorPage.vue')
 const AuthorsPage = () => import('@/pages/AuthorsPage.vue')
 const HelpCenterPage = () => import('@/pages/HelpCenter.vue')
@@ -39,11 +41,15 @@ declare module 'vue-router' {
      * @default false
      */
     isPublic?: boolean
+    /**
+     * robots 元标签，默认允许收录
+     */
+    robots?: 'noindex,nofollow' | 'noindex,follow' | 'index,follow'
   }
 }
 
 // 路由配置
-const routes = [
+const routes: RouteRecordRaw[] = [
   // ============ 公开页面（无需登录） ============
   {
     path: '/',
@@ -55,16 +61,16 @@ const routes = [
     path: '/reading',
     name: 'reading',
     component: ReadingPage,
-    meta: { title: '读书', isPublic: true }
+    meta: { title: '读书空间', isPublic: true }
   },
   {
     path: '/interview',
     name: 'interview',
     component: InterviewPage,
-    meta: { title: '面试', isPublic: true }
+    meta: { title: '面试指南', isPublic: true }
   },
   {
-    path: '/article/:id',
+    path: '/article/:id/:slug?',
     name: 'article',
     component: ArticleDetailPage,
     meta: { title: '文章详情', isPublic: true }
@@ -75,6 +81,20 @@ const routes = [
     component: SearchPage,
     meta: { title: '搜索', isPublic: true }
   },
+  // ============ 语义化列表页路由（SEO 优先） ============
+  {
+    path: '/category/:name(.*)?',
+    name: 'category',
+    component: ListPage,
+    meta: { title: '分类文章', isPublic: true }
+  },
+  {
+    path: '/tag/:name(.*)?',
+    name: 'tag',
+    component: ListPage,
+    meta: { title: '标签文章', isPublic: true }
+  },
+  // 兼容旧路径（保留，不再作为主要入口）
   {
     path: '/list',
     name: 'list',
@@ -122,33 +142,45 @@ const routes = [
     path: '/login',
     name: 'login',
     component: LoginPage,
-    meta: { title: '登录', isPublic: true }
+    meta: { title: '登录', isPublic: true, robots: 'noindex,follow' }
   },
   {
     path: '/register',
     name: 'register',
     component: RegisterPage,
-    meta: { title: '注册', isPublic: true }
+    meta: { title: '注册', isPublic: true, robots: 'noindex,follow' }
   },
   // ============ 需要登录的页面 ============
   {
     path: '/user',
     name: 'user',
     component: UserPage,
-    meta: { requiresAuth: true, title: '个人中心' }
+    meta: { requiresAuth: true, title: '个人中心', robots: 'noindex,nofollow' }
+  },
+  {
+    path: '/user/profile',
+    name: 'user-profile',
+    component: UserProfilePage,
+    meta: { requiresAuth: true, title: '编辑个人资料', robots: 'noindex,nofollow' }
+  },
+  {
+    path: '/user/settings',
+    name: 'user-settings',
+    component: UserSettingsPage,
+    meta: { requiresAuth: true, title: '账号设置', robots: 'noindex,nofollow' }
   },
   {
     path: '/publish',
     name: 'publish',
     component: PublishPage,
-    meta: { requiresAuth: true, title: '发布文章' }
+    meta: { requiresAuth: true, title: '发布文章', robots: 'noindex,nofollow' }
   },
   // ============ 404 页面 ============
   {
     path: '/:pathMatch(.*)*',
     name: 'not-found',
     component: NotFoundPage,
-    meta: { title: '页面未找到', isPublic: true }
+    meta: { title: '页面未找到', isPublic: true, robots: 'noindex,follow' }
   }
 ]
 

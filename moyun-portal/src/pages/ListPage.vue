@@ -9,10 +9,12 @@ import Breadcrumb from '@/components/Breadcrumb.vue';
 import SiteFooter from '@/components/SiteFooter.vue';
 import BackToTop from '@/components/BackToTop.vue';
 
-import { getArticleList } from '@/api/article';
-import { generateSeo } from '@/utils/seo';
-import { categories } from '@/data/categories';
+import * as articleApi from '@/api/article';
+import * as categoryApi from '@/api/category';
+import { generateSeo, buildCanonicalUrl, fromSlug } from '@/utils/seo';
 import type { Article as ApiArticle } from '@/types/api';
+
+const isSpecialPageName = (name: string) => ['读书空间', '面试指南'].includes(name);
 
 // 前台Article类型
 interface User {
@@ -37,6 +39,7 @@ interface Article {
 }
 
 const route = useRoute();
+const listType = ref<'category' | 'tag' | 'all'>('all');
 const selectedCategory = ref('全部');
 const sortBy = ref('最新');
 const isCategoryRecommended = ref(false); // 是否只显示分类推荐
@@ -46,6 +49,30 @@ const itemsPerPage = ref(10);
 const loading = ref(false);
 const totalItems = ref(0);
 const error = ref<string | null>(null);
+
+// 从路由参数解析列表类型和关键词
+function parseRouteParams() {
+  const routeName = route.name as string;
+  const paramName = route.params.name as string | undefined;
+  const queryCategory = route.query.category as string | undefined;
+
+  if (routeName === 'category' && paramName) {
+    listType.value = 'category';
+    selectedCategory.value = fromSlug(paramName);
+  } else if (routeName === 'tag' && paramName) {
+    listType.value = 'tag';
+    selectedCategory.value = fromSlug(paramName);
+  } else if (queryCategory) {
+    // 兼容旧路径：/list?category=xxx
+    listType.value = 'category';
+    selectedCategory.value = queryCategory;
+  } else {
+    listType.value = 'all';
+    selectedCategory.value = '全部';
+  }
+
+  isCategoryRecommended.value = route.query.categoryRecommended === 'true';
+}
 
 // 转换API文章为前台格式
 const transformArticle = (apiArticle: any): Article => {
@@ -70,15 +97,13 @@ const transformArticle = (apiArticle: any): Article => {
 };
 
 onMounted(() => {
-  selectedCategory.value = (route.query.category as string) || '全部';
-  isCategoryRecommended.value = route.query.categoryRecommended === 'true';
+  parseRouteParams();
   currentPage.value = 1;
   loadArticles();
 });
 
-watch(() => route.query, (newQuery) => {
-  selectedCategory.value = (newQuery.category as string) || '全部';
-  isCategoryRecommended.value = newQuery.categoryRecommended === 'true';
+watch(() => route.fullPath, () => {
+  parseRouteParams();
   currentPage.value = 1;
   loadArticles();
 }, { deep: true });
@@ -86,19 +111,37 @@ watch(() => route.query, (newQuery) => {
 const breadcrumbs = computed(() => {
   const items = [];
 
-  if (selectedCategory.value && selectedCategory.value !== '全部') {
-    items.push({ label: '分类', path: '/' });
-    items.push({ label: selectedCategory.value });
+  if (listType.value === 'tag') {
+    items.push({ label: '首页', path: '/' });
+    items.push({ label: '标签' });
+    items.push({ label: selectedCategory.value, path: `/tag/${encodeURIComponent(selectedCategory.value)}` });
+  } else if (selectedCategory.value && selectedCategory.value !== '全部') {
+    items.push({ label: '首页', path: '/' });
+    items.push({ label: selectedCategory.value, path: `/category/${encodeURIComponent(selectedCategory.value)}` });
   } else {
+    items.push({ label: '首页', path: '/' });
     items.push({ label: '文章列表' });
   }
 
   return items;
 });
 
+// 语义化路径用于 canonical（不包含分页参数）
+const canonicalPath = computed(() => {
+  if (listType.value === 'tag') {
+    return `/tag/${encodeURIComponent(selectedCategory.value)}`;
+  }
+  if (listType.value === 'category' && selectedCategory.value !== '全部') {
+    return `/category/${encodeURIComponent(selectedCategory.value)}`;
+  }
+  return '/category';
+});
+
 const pageTitle = computed(() => {
   let title = '文章列表';
-  if (selectedCategory.value && selectedCategory.value !== '全部') {
+  if (listType.value === 'tag') {
+    title = `标签：${selectedCategory.value}`;
+  } else if (selectedCategory.value && selectedCategory.value !== '全部') {
     title = isCategoryRecommended.value
         ? `${selectedCategory.value} · 本栏推荐`
         : selectedCategory.value;
@@ -110,7 +153,9 @@ const pageTitle = computed(() => {
 
 const pageDescription = computed(() => {
   let desc = '浏览所有文章';
-  if (selectedCategory.value && selectedCategory.value !== '全部') {
+  if (listType.value === 'tag') {
+    desc = `标签「${selectedCategory.value}」下的所有文章`;
+  } else if (selectedCategory.value && selectedCategory.value !== '全部') {
     if (isCategoryRecommended.value) {
       desc = `浏览${selectedCategory.value}分类下的推荐文章`;
     } else {
@@ -134,7 +179,7 @@ async function loadArticles() {
       isCategoryRecommended: isCategoryRecommended.value ? true : undefined
     };
 
-    const response = await getArticleList(params);
+    const response = await articleApi.getArticleList(params);
 
     if (response.code === 200 && response.data) {
       const apiArticles = response.data.list || [];
@@ -165,14 +210,20 @@ function handlePageChange(page: number) {
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
-// SEO - 动态更新
+// SEO - 动态更新（使用语义化 canonical 路径，避免分页参数产生重复内容）
 useHead(
     computed(() => {
       return generateSeo({
         title: pageTitle.value,
         description: pageDescription.value,
-        keywords: [selectedCategory.value, isCategoryRecommended.value ? '推荐' : '', '文章', '分类'],
-        type: 'website'
+        keywords: [
+          selectedCategory.value !== '全部' ? selectedCategory.value : '',
+          isCategoryRecommended.value ? '推荐' : '',
+          listType.value === 'tag' ? '标签' : '文章',
+          listType.value === 'tag' ? selectedCategory.value : ''
+        ].filter(Boolean),
+        type: 'website',
+        canonicalPath: canonicalPath.value
       })
     })
 )

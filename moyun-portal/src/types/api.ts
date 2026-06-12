@@ -38,6 +38,23 @@ export interface User {
   isWechatVerified?: boolean;
   twoFactorEnabled?: boolean;
   status?: 'active' | 'banned' | 'inactive';
+  gender?: string;
+  birthday?: string;
+  location?: string;
+  website?: string;
+  github?: string;
+  company?: string;
+  school?: string;
+  language?: string;
+  timezone?: string;
+  notifyLike?: boolean;
+  notifyComment?: boolean;
+  notifyFollow?: boolean;
+  notifySystem?: boolean;
+  privacyFollow?: boolean;
+  privacyBookmark?: boolean;
+  privacyEmail?: boolean;
+  privacyPhone?: boolean;
 }
 
 export interface LoginParams {
@@ -71,6 +88,27 @@ export interface UpdateUserProfileParams {
   bio?: string;
   avatar?: string;
   position?: string;
+  username?: string;
+  phone?: string;
+  wechat?: string;
+  email?: string;
+  gender?: string;
+  birthday?: string;
+  location?: string;
+  website?: string;
+  github?: string;
+  company?: string;
+  school?: string;
+  language?: string;
+  timezone?: string;
+  notifyLike?: boolean;
+  notifyComment?: boolean;
+  notifyFollow?: boolean;
+  notifySystem?: boolean;
+  privacyFollow?: boolean;
+  privacyBookmark?: boolean;
+  privacyEmail?: boolean;
+  privacyPhone?: boolean;
 }
 
 export interface UpdatePasswordParams {
@@ -93,6 +131,8 @@ export interface SendSmsCodeParams {
 export interface Article {
   id: string;
   title: string;
+  /** 文章URL别名，用于SEO语义化路径 */
+  slug?: string;
   content: string;
   contentMarkdown?: string;
   excerpt?: string;

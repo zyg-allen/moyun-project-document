@@ -7,19 +7,13 @@ import {
   Sparkles, Globe, Lock, Tag as TagIcon, BookOpen,
   ChevronDown, Check, Type, Plus, ChevronRight, Code
 } from 'lucide-vue-next';
-import { addArticle } from '@/data/mockData';
-import { categories as mockCategories } from '@/data/categories';
 import {
   getHotTags,
   searchTagList,
   createNewTag,
-  getRecommendTags,
-  mockGetHotTags,
-  mockSearchTags,
-  mockCreateTag,
-  mockGetRecommendTags
+  getRecommendTags
 } from '@/api/tag';
-import { getCategoryList, getCategoryTree } from '@/api/category';
+import { getCategoryTree } from '@/api/category';
 import { createArticle } from '@/api/article';
 import { uploadPortalFile } from '@/api/file';
 import { useUserStore } from '@/stores/user';
@@ -62,7 +56,7 @@ const selectedCategory = computed(() => {
 // 获取当前分类的子分类
 const childCategories = computed(() => {
   const parent = categories.value.find(c => c.id === selectedParentCategory.value);
-  return parent?.children || [];
+  return (parent as any)?.children || [];
 });
 
 // 元信息
@@ -159,18 +153,6 @@ async function loadCategories() {
     }
   } catch (error) {
     console.error('Failed to load categories:', error);
-    // 降级到mock数据，转换为正确的Category类型
-    categories.value = mockCategories.map(cat => ({
-      id: cat.id,
-      name: cat.name,
-      slug: cat.id || cat.name.toLowerCase(),
-      description: (cat as any).description,
-      icon: (cat as any).icon,
-      articleCount: (cat as any).articleCount,
-      sort: 0,
-      createdAt: new Date().toISOString(),
-      children: []
-    }));
   } finally {
     loadingCategories.value = false;
   }
@@ -182,19 +164,9 @@ async function loadHotTags() {
     const response = await getHotTags(30);
     if (response.code === 200 && response.data) {
       hotTags.value = response.data;
-    } else {
-      throw new Error('API returned error');
     }
   } catch (error) {
-    console.error('Failed to load hot tags, falling back to mock:', error);
-    try {
-      const mockResponse = await mockGetHotTags(30);
-      if (mockResponse.code === 200) {
-        hotTags.value = mockResponse.data;
-      }
-    } catch (mockError) {
-      console.error('Failed to load mock hot tags:', mockError);
-    }
+    console.error('Failed to load hot tags:', error);
   }
 }
 
@@ -211,19 +183,9 @@ async function searchForTags(keyword: string) {
     const response = await searchTagList(keyword);
     if (response.code === 200 && response.data) {
       tagSearchResults.value = response.data;
-    } else {
-      throw new Error('API returned error');
     }
   } catch (error) {
-    console.error('Failed to search tags, falling back to mock:', error);
-    try {
-      const mockResponse = await mockSearchTags(keyword);
-      if (mockResponse.code === 200) {
-        tagSearchResults.value = mockResponse.data;
-      }
-    } catch (mockError) {
-      console.error('Failed to search mock tags:', mockError);
-    }
+    console.error('Failed to search tags:', error);
   } finally {
     isSearchingTags.value = false;
   }
@@ -239,19 +201,9 @@ async function loadTagSuggestions() {
     const response = await getRecommendTags(title.value, selectedParentCategory.value);
     if (response.code === 200 && response.data) {
       tagSuggestions.value = response.data;
-    } else {
-      throw new Error('API returned error');
     }
   } catch (error) {
-    console.error('Failed to load tag suggestions, falling back to mock:', error);
-    try {
-      const mockResponse = await mockGetRecommendTags(title.value, selectedParentCategory.value);
-      if (mockResponse.code === 200) {
-        tagSuggestions.value = mockResponse.data;
-      }
-    } catch (mockError) {
-      console.error('Failed to load mock tag suggestions:', mockError);
-    }
+    console.error('Failed to load tag suggestions:', error);
   }
 }
 
@@ -272,22 +224,14 @@ async function createAndAddTag(tagName: string) {
   try {
     const response = await createNewTag(tagName.trim());
     if (response.code === 200 && response.data) {
-      addTag(response.data.name);
+      addTag((response.data as any).name || tagName.trim());
     } else {
-      throw new Error('API returned error');
-    }
-  } catch (error) {
-    console.error('Failed to create tag, falling back to mock:', error);
-    try {
-      const mockResponse = await mockCreateTag(tagName.trim());
-      if (mockResponse.code === 200) {
-        addTag(mockResponse.data.name);
-      }
-    } catch (mockError) {
-      console.error('Failed to create mock tag:', mockError);
-      // 直接添加标签名
       addTag(tagName.trim());
     }
+  } catch (error) {
+    console.error('Failed to create tag:', error);
+    // 直接添加标签名
+    addTag(tagName.trim());
   }
 }
 
@@ -404,7 +348,7 @@ async function handlePublish() {
       alert('发布成功！');
       router.push('/');
     } else {
-      alert('发布失败：' + (response.message || '未知错误'));
+      alert('发布失败：' + ((response as any).message || '未知错误'));
     }
   } catch (error: any) {
     console.error('Failed to publish article:', error);
@@ -498,13 +442,13 @@ async function handleFile(file: File) {
   };
   reader.readAsDataURL(file);
 
-  // 同时上传到MinIO
+  // 同时上传到文件服务
   isUploadingCover.value = true;
   try {
     const response = await uploadPortalFile(file, 'article_cover');
     if (response.code === 200 && response.data) {
       // 上传成功，替换为服务器URL
-      coverImage.value = response.data.fileUrl;
+      coverImage.value = (response.data as any).fileUrl || coverImage.value;
       console.log('封面上传成功:', response.data);
     } else {
       alert('封面上传失败，请重试');
@@ -538,9 +482,9 @@ const titleLength = computed(() => title.value.length);
               <span
                   class="px-2.5 py-1 rounded-full text-xs font-medium"
                   :style="{
-                  backgroundColor: articleStatus === 'draft' ? 'var(--theme-accent)' : 
+                  backgroundColor: articleStatus === 'draft' ? 'var(--theme-accent)' :
                                    articleStatus === 'review' ? '#fef3c7' : '#d1fae5',
-                  color: articleStatus === 'draft' ? 'var(--theme-primary)' : 
+                  color: articleStatus === 'draft' ? 'var(--theme-primary)' :
                          articleStatus === 'review' ? '#92400e' : '#065f46'
                 }"
               >
@@ -767,9 +711,6 @@ const titleLength = computed(() => title.value.length);
                   <span class="text-xs" style="color: var(--theme-text-secondary);">
                     {{ excerpt.length }}/200
                   </span>
-                  <span v-if="excerpt.length === 0" class="text-xs text-blue-500">
-                    💡 点击「智能提取」快速生成摘要
-                  </span>
                 </div>
               </div>
             </div>
@@ -873,7 +814,7 @@ const titleLength = computed(() => title.value.length);
                         :disabled="tags.includes(tag.name)"
                         class="px-2.5 py-0.5 text-xs rounded-full transition-colors"
                         :style="tags.includes(tag.name)
-                        ? 'background-color: var(--theme-accent); color: var(--theme-text-secondary); cursor: not-allowed;' 
+                        ? 'background-color: var(--theme-accent); color: var(--theme-text-secondary); cursor: not-allowed;'
                         : 'background-color: var(--theme-accent); color: var(--theme-primary); cursor: pointer;'"
                     >
                       {{ tag.name }}
@@ -881,7 +822,7 @@ const titleLength = computed(() => title.value.length);
                   </div>
                 </div>
 
-                <!-- 智能建议 -->
+                <!-- 智能推荐 -->
                 <div v-if="tagSuggestions.length > 0" class="mb-3">
                   <h4 class="text-xs font-medium mb-1.5 flex items-center gap-1" style="color: var(--theme-text-secondary);">
                     <Sparkles class="w-3 h-3" />
@@ -895,7 +836,7 @@ const titleLength = computed(() => title.value.length);
                         :disabled="tags.includes(tag.name)"
                         class="px-2.5 py-0.5 text-xs rounded-full transition-colors"
                         :style="tags.includes(tag.name)
-                        ? 'background-color: var(--theme-accent); color: var(--theme-text-secondary); cursor: not-allowed;' 
+                        ? 'background-color: var(--theme-accent); color: var(--theme-text-secondary); cursor: not-allowed;'
                         : 'background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; cursor: pointer;'"
                     >
                       {{ tag.name }}
@@ -914,7 +855,7 @@ const titleLength = computed(() => title.value.length);
                         :disabled="tags.includes(tag.name)"
                         class="px-2.5 py-0.5 text-xs rounded-full transition-colors"
                         :style="tags.includes(tag.name)
-                        ? 'background-color: var(--theme-accent); color: var(--theme-text-secondary); cursor: not-allowed;' 
+                        ? 'background-color: var(--theme-accent); color: var(--theme-text-secondary); cursor: not-allowed;'
                         : 'background-color: var(--theme-accent); color: var(--theme-text-secondary); cursor: pointer;'"
                     >
                       {{ tag.name }}

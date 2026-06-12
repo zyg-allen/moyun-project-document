@@ -16,6 +16,23 @@
         <result property="bio" column="bio"/>
         <result property="position" column="position"/>
         <result property="wechat" column="wechat"/>
+        <result property="gender" column="gender"/>
+        <result property="birthday" column="birthday"/>
+        <result property="location" column="location"/>
+        <result property="website" column="website"/>
+        <result property="github" column="github"/>
+        <result property="company" column="company"/>
+        <result property="school" column="school"/>
+        <result property="language" column="language"/>
+        <result property="timezone" column="timezone"/>
+        <result property="notifyLike" column="notify_like"/>
+        <result property="notifyComment" column="notify_comment"/>
+        <result property="notifyFollow" column="notify_follow"/>
+        <result property="notifySystem" column="notify_system"/>
+        <result property="privacyFollow" column="privacy_follow"/>
+        <result property="privacyBookmark" column="privacy_bookmark"/>
+        <result property="privacyEmail" column="privacy_email"/>
+        <result property="privacyPhone" column="privacy_phone"/>
         <result property="role" column="role"/>
         <result property="vipExpireAt" column="vip_expire_at"/>
         <result property="isPhoneVerified" column="is_phone_verified"/>
@@ -33,7 +50,7 @@
     </resultMap>
 
     <sql id="selectPortalUserVo">
-        select id, user_id, username, nickname, email, phone, password, avatar, bio, position, wechat, role, vip_expire_at, is_phone_verified, is_wechat_verified, two_factor_enabled, status, del_flag, login_ip, login_date, create_by, create_time, update_by, update_time, remark from portal_user
+        select id, user_id, username, nickname, email, phone, password, avatar, bio, position, wechat, gender, birthday, location, website, github, company, school, language, timezone, notify_like, notify_comment, notify_follow, notify_system, privacy_follow, privacy_bookmark, privacy_email, privacy_phone, role, vip_expire_at, is_phone_verified, is_wechat_verified, two_factor_enabled, status, del_flag, login_ip, login_date, create_by, create_time, update_by, update_time, remark from portal_user
     </sql>
 
     <!-- 分页查询 -->
@@ -99,6 +116,23 @@
             <if test="bio != null">bio,</if>
             <if test="position != null">position,</if>
             <if test="wechat != null">wechat,</if>
+            <if test="gender != null">gender,</if>
+            <if test="birthday != null">birthday,</if>
+            <if test="location != null">location,</if>
+            <if test="website != null">website,</if>
+            <if test="github != null">github,</if>
+            <if test="company != null">company,</if>
+            <if test="school != null">school,</if>
+            <if test="language != null">language,</if>
+            <if test="timezone != null">timezone,</if>
+            <if test="notifyLike != null">notify_like,</if>
+            <if test="notifyComment != null">notify_comment,</if>
+            <if test="notifyFollow != null">notify_follow,</if>
+            <if test="notifySystem != null">notify_system,</if>
+            <if test="privacyFollow != null">privacy_follow,</if>
+            <if test="privacyBookmark != null">privacy_bookmark,</if>
+            <if test="privacyEmail != null">privacy_email,</if>
+            <if test="privacyPhone != null">privacy_phone,</if>
             <if test="role != null">role,</if>
             <if test="vipExpireAt != null">vip_expire_at,</if>
             <if test="isPhoneVerified != null">is_phone_verified,</if>
@@ -123,6 +157,23 @@
             <if test="bio != null">#{bio},</if>
             <if test="position != null">#{position},</if>
             <if test="wechat != null">#{wechat},</if>
+            <if test="gender != null">#{gender},</if>
+            <if test="birthday != null">#{birthday},</if>
+            <if test="location != null">#{location},</if>
+            <if test="website != null">#{website},</if>
+            <if test="github != null">#{github},</if>
+            <if test="company != null">#{company},</if>
+            <if test="school != null">#{school},</if>
+            <if test="language != null">#{language},</if>
+            <if test="timezone != null">#{timezone},</if>
+            <if test="notifyLike != null">#{notifyLike},</if>
+            <if test="notifyComment != null">#{notifyComment},</if>
+            <if test="notifyFollow != null">#{notifyFollow},</if>
+            <if test="notifySystem != null">#{notifySystem},</if>
+            <if test="privacyFollow != null">#{privacyFollow},</if>
+            <if test="privacyBookmark != null">#{privacyBookmark},</if>
+            <if test="privacyEmail != null">#{privacyEmail},</if>
+            <if test="privacyPhone != null">#{privacyPhone},</if>
             <if test="role != null">#{role},</if>
             <if test="vipExpireAt != null">#{vipExpireAt},</if>
             <if test="isPhoneVerified != null">#{isPhoneVerified},</if>
@@ -151,6 +202,23 @@
             <if test="bio != null">bio = #{bio},</if>
             <if test="position != null">position = #{position},</if>
             <if test="wechat != null">wechat = #{wechat},</if>
+            <if test="gender != null">gender = #{gender},</if>
+            <if test="birthday != null">birthday = #{birthday},</if>
+            <if test="location != null">location = #{location},</if>
+            <if test="website != null">website = #{website},</if>
+            <if test="github != null">github = #{github},</if>
+            <if test="company != null">company = #{company},</if>
+            <if test="school != null">school = #{school},</if>
+            <if test="language != null">language = #{language},</if>
+            <if test="timezone != null">timezone = #{timezone},</if>
+            <if test="notifyLike != null">notify_like = #{notifyLike},</if>
+            <if test="notifyComment != null">notify_comment = #{notifyComment},</if>
+            <if test="notifyFollow != null">notify_follow = #{notifyFollow},</if>
+            <if test="notifySystem != null">notify_system = #{notifySystem},</if>
+            <if test="privacyFollow != null">privacy_follow = #{privacyFollow},</if>
+            <if test="privacyBookmark != null">privacy_bookmark = #{privacyBookmark},</if>
+            <if test="privacyEmail != null">privacy_email = #{privacyEmail},</if>
+            <if test="privacyPhone != null">privacy_phone = #{privacyPhone},</if>
             <if test="role != null">role = #{role},</if>
             <if test="vipExpireAt != null">vip_expire_at = #{vipExpireAt},</if>
             <if test="isPhoneVerified != null">is_phone_verified = #{isPhoneVerified},</if>

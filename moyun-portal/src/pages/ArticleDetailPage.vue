@@ -11,7 +11,7 @@ import TagList from '@/components/TagList.vue';
 import {useArticleStore} from '@/stores/article';
 import {useUserStore} from '@/stores/user';
 import {useAuth} from '@/composables/useAuth';
-import {generateSeo} from '@/utils/seo';
+import {generateSeo, generateArticleJsonLd} from '@/utils/seo';
 import {sanitizeHTML} from '@/utils/security';
 import {formatShortDate} from '@/utils/date';
 import {getSafeAvatar} from '@/utils/avatar';
@@ -386,9 +386,11 @@ const head = useHead(
         return generateSeo({
           title: '文章详情',
           description: '阅读精彩文章',
-          type: 'article'
+          type: 'article',
+          canonicalPath: '/article'
         })
       }
+      const canonicalPath = `/article/${article.value.id}`
       return generateSeo({
         title: article.value.title,
         description: article.value.excerpt,
@@ -397,7 +399,17 @@ const head = useHead(
         keywords: article.value.tags,
         author: article.value.author?.username || article.value.authorUsername || '',
         publishedTime: article.value.createdAt,
-        modifiedTime: article.value.updatedAt
+        modifiedTime: article.value.updatedAt,
+        canonicalPath,
+        jsonLd: generateArticleJsonLd({
+          title: article.value.title,
+          description: article.value.excerpt,
+          image: article.value.cover,
+          url: canonicalPath,
+          author: article.value.author?.username || article.value.authorUsername || '',
+          publishedTime: article.value.createdAt,
+          modifiedTime: article.value.updatedAt
+        })
       })
     })
 )
@@ -475,10 +487,11 @@ const head = useHead(
                       class="flex items-center gap-3 hover:opacity-80 transition-opacity"
                   >
                     <img
-                        :src="articleAuthor.avatar"
+                        :src="getSafeAvatar(articleAuthor.avatar, articleAuthor.id)"
                         :alt="articleAuthor.username"
                         class="w-10 h-10 rounded-full"
                         loading="lazy"
+                        @error="(e: Event) => (e.target as HTMLImageElement).src = getSafeAvatar(null, articleAuthor.id)"
                     />
                     <span class="font-medium text-base" style="color: var(--theme-text);">
                       {{ articleAuthor.nickname || articleAuthor.username }}
@@ -561,10 +574,11 @@ const head = useHead(
             <div v-if="currentUser" class="mb-6">
               <div class="flex gap-3">
                 <img
-                    :src="currentUser?.avatar"
+                    :src="getSafeAvatar(currentUser?.avatar, currentUser?.id)"
                     :alt="currentUser?.username"
                     class="w-10 h-10 rounded-full flex-shrink-0"
                     loading="lazy"
+                    @error="(e: Event) => (e.target as HTMLImageElement).src = getSafeAvatar(null, currentUser?.id)"
                 />
                 <div class="flex-1 flex gap-3 items-end">
                   <label for="comment-input" class="sr-only">写下你的评论</label>
@@ -651,10 +665,11 @@ const head = useHead(
                      style="background-color: var(--theme-bg);">
                   <div class="flex gap-3">
                     <img
-                        :src="currentUser?.avatar"
+                        :src="getSafeAvatar(currentUser?.avatar, currentUser?.id)"
                         :alt="currentUser?.username"
                         class="w-8 h-8 rounded-full flex-shrink-0"
                         loading="lazy"
+                        @error="(e: Event) => (e.target as HTMLImageElement).src = getSafeAvatar(null, currentUser?.id)"
                     />
                     <div class="flex-1">
                       <div class="text-sm mb-2" style="color: var(--theme-text-secondary);">回复
@@ -747,10 +762,11 @@ const head = useHead(
                          style="background-color: var(--theme-bg);">
                       <div class="flex gap-3">
                         <img
-                            :src="currentUser?.avatar"
+                            :src="getSafeAvatar(currentUser?.avatar, currentUser?.id)"
                             :alt="currentUser?.username"
                             class="w-7 h-7 rounded-full flex-shrink-0"
                             loading="lazy"
+                            @error="(e: Event) => (e.target as HTMLImageElement).src = getSafeAvatar(null, currentUser?.id)"
                         />
                         <div class="flex-1">
                           <div class="text-xs mb-2" style="color: var(--theme-text-secondary);">

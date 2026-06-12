@@ -34,6 +34,12 @@ public class ArticleVO implements Serializable {
     private String title;
 
     /**
+     * 文章URL别名，用于SEO语义化路径
+     */
+    @Schema(description = "文章URL别名", example = "spring-boot-best-practice")
+    private String slug;
+
+    /**
      * 文章内容
      */
     @Schema(description = "文章内容", example = "文章详细内容...")

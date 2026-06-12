@@ -29,7 +29,7 @@ export const logout = () => {
 
 // 获取当前用户信息
 export const getCurrentUser = () => {
-  return httpGet<User>('/portal/user/info');
+  return httpGet<User>('/portal/user/me');
 };
 
 // 更新用户信息

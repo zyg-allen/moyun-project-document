@@ -128,6 +128,8 @@ public class PortalSecurityConfig {
                         // 用户相关公开接口（作者列表、公开资料等）
                         .requestMatchers("/portal/user/authors").permitAll()
                         .requestMatchers("/portal/user/profile/**").permitAll()
+                        // 当前用户信息接口允许匿名访问（未登录返回null）
+                        .requestMatchers("/portal/user/me").permitAll()
                         // 面试指南和读书空间公开接口
                         .requestMatchers("/portal/book/**").permitAll()
                         .requestMatchers("/portal/bookList/**").permitAll()

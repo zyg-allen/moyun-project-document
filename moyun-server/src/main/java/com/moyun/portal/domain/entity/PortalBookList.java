@@ -39,6 +39,15 @@ public class PortalBookList extends BaseEntity
 
     private String status;
 
+    /** 是否精选（首页展示用） */
+    private Boolean isFeatured;
+
+    /** 访问级别: free=免费公开, vip=会员专享 */
+    private String accessLevel;
+
+    /** 标签（逗号分隔） */
+    private String tags;
+
     public PortalBookList()
     {
     }
@@ -153,9 +162,32 @@ public class PortalBookList extends BaseEntity
         return status;
     }
 
-    public void setStatus(String status)
-    {
+    public void setStatus(String status) {
         this.status = status;
+    }
+
+    public Boolean getIsFeatured() {
+        return isFeatured;
+    }
+
+    public void setIsFeatured(Boolean isFeatured) {
+        this.isFeatured = isFeatured;
+    }
+
+    public String getAccessLevel() {
+        return accessLevel;
+    }
+
+    public void setAccessLevel(String accessLevel) {
+        this.accessLevel = accessLevel;
+    }
+
+    public String getTags() {
+        return tags;
+    }
+
+    public void setTags(String tags) {
+        this.tags = tags;
     }
 
     @Override
@@ -172,6 +204,9 @@ public class PortalBookList extends BaseEntity
             .append("viewCount", getViewCount())
             .append("likeCount", getLikeCount())
             .append("status", getStatus())
+            .append("isFeatured", getIsFeatured())
+            .append("accessLevel", getAccessLevel())
+            .append("tags", getTags())
             .append("createBy", getCreateBy())
             .append("createTime", getCreateTime())
             .append("updateBy", getUpdateBy())

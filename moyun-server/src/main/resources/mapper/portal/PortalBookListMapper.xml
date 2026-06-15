@@ -3,52 +3,85 @@
 PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
 "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.moyun.portal.mapper.PortalBookListMapper">
-    
+
     <resultMap type="com.moyun.portal.domain.entity.PortalBookList" id="PortalBookListResult">
-        <id     property="id"         column="id"         />
-        <result property="title"      column="title"      />
-        <result property="description" column="description" />
-        <result property="cover"      column="cover"      />
-        <result property="userId"     column="user_id"    />
-        <result property="categoryId" column="category_id"/>
-        <result property="isPublic"   column="is_public"  />
-        <result property="bookCount"  column="book_count" />
-        <result property="viewCount"  column="view_count" />
-        <result property="likeCount"  column="like_count" />
-        <result property="status"     column="status"     />
-        <result property="createBy"   column="create_by"  />
-        <result property="createTime" column="create_time" />
-        <result property="updateBy"   column="update_by"  />
-        <result property="updateTime" column="update_time" />
-        <result property="remark"     column="remark"     />
+        <id     property="id"            column="id"            />
+        <result property="title"         column="title"         />
+        <result property="description"   column="description"   />
+        <result property="cover"         column="cover"         />
+        <result property="userId"        column="user_id"       />
+        <result property="categoryId"    column="category_id"   />
+        <result property="isPublic"      column="is_public"     />
+        <result property="bookCount"     column="book_count"    />
+        <result property="viewCount"     column="view_count"    />
+        <result property="likeCount"     column="like_count"    />
+        <result property="status"        column="status"        />
+        <result property="isFeatured"    column="is_featured"   />
+        <result property="accessLevel"   column="access_level"  />
+        <result property="tags"          column="tags"          />
+        <result property="createBy"      column="create_by"     />
+        <result property="createTime"    column="create_time"   />
+        <result property="updateBy"      column="update_by"     />
+        <result property="updateTime"    column="update_time"   />
+        <result property="remark"        column="remark"        />
     </resultMap>
 
     <sql id="selectPortalBookListVo">
-        select id, title, description, cover, user_id, category_id, is_public, book_count, view_count, like_count, status, create_by, create_time, update_by, update_time, remark 
+        select id, title, description, cover, user_id, category_id, is_public, book_count,
+               view_count, like_count, status, is_featured, access_level, tags,
+               create_by, create_time, update_by, update_time, remark
         from portal_book_list
     </sql>
 
-    <select id="selectPortalBookListList" parameterType="com.moyun.portal.domain.entity.PortalBookList" resultMap="PortalBookListResult">
+    <select id="selectPortalBookListPage" parameterType="com.moyun.portal.domain.query.BookListQuery" resultMap="PortalBookListResult">
         <include refid="selectPortalBookListVo"/>
-        <where>  
-            <if test="title != null and title != ''">
-                AND title like concat('%', #{title}, '%')
+        <where>
+            <if test="query.title != null and query.title != ''">
+                AND title like concat('%', #{query.title}, '%')
             </if>
-            <if test="userId != null">
-                AND user_id = #{userId}
+            <if test="query.userId != null">
+                AND user_id = #{query.userId}
             </if>
-            <if test="status != null and status != ''">
-                AND status = #{status}
+            <if test="query.categoryId != null">
+                AND category_id = #{query.categoryId}
+            </if>
+            <if test="query.isPublic != null">
+                AND is_public = #{query.isPublic}
+            </if>
+            <if test="query.status != null and query.status != ''">
+                AND status = #{query.status}
+            </if>
+            <if test="query.isFeatured != null">
+                AND is_featured = #{query.isFeatured}
+            </if>
+        </where>
+        order by view_count desc, id desc
+    </select>
+
+    <select id="selectPortalBookList" parameterType="com.moyun.portal.domain.query.BookListQuery" resultMap="PortalBookListResult">
+        <include refid="selectPortalBookListVo"/>
+        <where>
+            <if test="query.title != null and query.title != ''">
+                AND title like concat('%', #{query.title}, '%')
+            </if>
+            <if test="query.userId != null">
+                AND user_id = #{query.userId}
+            </if>
+            <if test="query.isPublic != null">
+                AND is_public = #{query.isPublic}
+            </if>
+            <if test="query.status != null and query.status != ''">
+                AND status = #{query.status}
             </if>
         </where>
         order by view_count desc
     </select>
-    
+
     <select id="selectPortalBookListById" parameterType="Long" resultMap="PortalBookListResult">
         <include refid="selectPortalBookListVo"/>
         where id = #{id}
     </select>
-        
+
     <insert id="insertPortalBookList" parameterType="com.moyun.portal.domain.entity.PortalBookList" useGeneratedKeys="true" keyProperty="id">
         insert into portal_book_list
         <trim prefix="(" suffix=")" suffixOverrides=",">
@@ -62,6 +95,9 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             <if test="viewCount != null">view_count,</if>
             <if test="likeCount != null">like_count,</if>
             <if test="status != null and status != ''">status,</if>
+            <if test="isFeatured != null">is_featured,</if>
+            <if test="accessLevel != null and accessLevel != ''">access_level,</if>
+            <if test="tags != null and tags != ''">tags,</if>
             <if test="createBy != null and createBy != ''">create_by,</if>
             <if test="createTime != null">create_time,</if>
             <if test="remark != null and remark != ''">remark,</if>
@@ -77,6 +113,9 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             <if test="viewCount != null">#{viewCount},</if>
             <if test="likeCount != null">#{likeCount},</if>
             <if test="status != null and status != ''">#{status},</if>
+            <if test="isFeatured != null">#{isFeatured},</if>
+            <if test="accessLevel != null and accessLevel != ''">#{accessLevel},</if>
+            <if test="tags != null and tags != ''">#{tags},</if>
             <if test="createBy != null and createBy != ''">#{createBy},</if>
             <if test="createTime != null">#{createTime},</if>
             <if test="remark != null and remark != ''">#{remark},</if>
@@ -89,13 +128,15 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             <if test="title != null and title != ''">title = #{title},</if>
             <if test="description != null">description = #{description},</if>
             <if test="cover != null and cover != ''">cover = #{cover},</if>
-            <if test="userId != null">user_id = #{userId},</if>
             <if test="categoryId != null">category_id = #{categoryId},</if>
             <if test="isPublic != null">is_public = #{isPublic},</if>
             <if test="bookCount != null">book_count = #{bookCount},</if>
             <if test="viewCount != null">view_count = #{viewCount},</if>
             <if test="likeCount != null">like_count = #{likeCount},</if>
             <if test="status != null and status != ''">status = #{status},</if>
+            <if test="isFeatured != null">is_featured = #{isFeatured},</if>
+            <if test="accessLevel != null and accessLevel != ''">access_level = #{accessLevel},</if>
+            <if test="tags != null">tags = #{tags},</if>
             <if test="updateBy != null and updateBy != ''">update_by = #{updateBy},</if>
             <if test="updateTime != null">update_time = #{updateTime},</if>
             <if test="remark != null">remark = #{remark},</if>
@@ -108,9 +149,10 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
     </delete>
 
     <delete id="deletePortalBookListByIds" parameterType="Long">
-        delete from portal_book_list where id in 
+        delete from portal_book_list where id in
         <foreach item="id" collection="array" open="(" separator="," close=")">
             #{id}
         </foreach>
     </delete>
+
 </mapper>

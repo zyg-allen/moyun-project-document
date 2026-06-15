@@ -2,14 +2,16 @@ package com.moyun.portal.controller;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.moyun.common.annotation.Log;
-import com.moyun.core.base.BaseController;
 import com.moyun.core.base.AjaxResult;
 import com.moyun.common.enums.BusinessType;
+import com.moyun.core.base.BaseController;
 import com.moyun.util.bean.PageUtils;
 import com.moyun.util.file.ExcelUtil;
 import com.moyun.portal.domain.entity.PortalNotification;
+import com.moyun.portal.domain.entity.PortalUser;
 import com.moyun.portal.domain.query.NotificationQuery;
 import com.moyun.portal.service.IPortalNotificationService;
+import com.moyun.portal.util.PortalSecurityUtils;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -28,9 +30,16 @@ public class PortalNotificationController extends BaseController {
     @Autowired
     private IPortalNotificationService portalNotificationService;
 
-    @Operation(summary = "获取通知列表", description = "根据条件分页查询通知列表")
+    @Operation(summary = "获取通知列表", description = "根据条件分页查询通知列表（按当前登录用户过滤，未登录返回空列表）")
     @GetMapping("/list")
     public AjaxResult list(NotificationQuery query) {
+        PortalUser currentUser = PortalSecurityUtils.getUser();
+        if (currentUser == null) {
+            return success(new Page<PortalNotification>());
+        }
+        if (query.getUserId() == null) {
+            query.setUserId(currentUser.getId());
+        }
         Page<PortalNotification> page = PageUtils.buildPage(query);
         Page<PortalNotification> resultPage = portalNotificationService.selectPortalNotificationPage(page, query);
         return success(resultPage);

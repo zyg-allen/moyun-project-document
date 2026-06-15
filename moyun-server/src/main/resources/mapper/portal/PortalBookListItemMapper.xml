@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.moyun.portal.mapper.PortalBookListItemMapper">
+
+    <resultMap type="com.moyun.portal.domain.entity.PortalBookListItem" id="PortalBookListItemResult">
+        <id     property="id"            column="id"            />
+        <result property="bookListId"    column="book_list_id"  />
+        <result property="bookId"        column="book_id"       />
+        <result property="sort"          column="sort"          />
+        <result property="note"          column="note"          />
+        <result property="createTime"    column="create_time"   />
+    </resultMap>
+
+    <select id="selectByBookListId" parameterType="Long" resultMap="PortalBookListItemResult">
+        select id, book_list_id, book_id, sort, note, create_time
+        from portal_book_list_item
+        where book_list_id = #{bookListId}
+        order by sort asc, id asc
+    </select>
+
+    <insert id="insertItem" parameterType="com.moyun.portal.domain.entity.PortalBookListItem" useGeneratedKeys="true" keyProperty="id">
+        insert into portal_book_list_item (book_list_id, book_id, sort, note, create_time)
+        values (#{bookListId}, #{bookId}, #{sort}, #{note}, #{createTime})
+    </insert>
+
+    <delete id="deleteByBookListIdAndBookId">
+        delete from portal_book_list_item where book_list_id = #{bookListId} and book_id = #{bookId}
+    </delete>
+
+    <delete id="deleteByBookListId">
+        delete from portal_book_list_item where book_list_id = #{bookListId}
+    </delete>
+
+</mapper>

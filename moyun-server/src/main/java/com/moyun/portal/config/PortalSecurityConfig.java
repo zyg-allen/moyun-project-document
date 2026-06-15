@@ -125,15 +125,18 @@ public class PortalSecurityConfig {
                         .requestMatchers("/portal/friendLink/**").permitAll()
                         .requestMatchers("/portal/friend-link/**").permitAll()
                         .requestMatchers("/portal/vipPackage/**").permitAll()
+                        .requestMatchers("/portal/notification/**").permitAll()
                         // 用户相关公开接口（作者列表、公开资料等）
                         .requestMatchers("/portal/user/authors").permitAll()
                         .requestMatchers("/portal/user/profile/**").permitAll()
                         // 当前用户信息接口允许匿名访问（未登录返回null）
                         .requestMatchers("/portal/user/me").permitAll()
-                        // 面试指南和读书空间公开接口
+                        // 读书空间前台公开接口（书籍、书单、金句列表、详情、点赞）
+                        .requestMatchers("/portal/reading/**").permitAll()
                         .requestMatchers("/portal/book/**").permitAll()
                         .requestMatchers("/portal/bookList/**").permitAll()
                         .requestMatchers("/portal/bookQuote/**").permitAll()
+                        // 面试指南公开接口
                         .requestMatchers("/portal/interviewCategory/**").permitAll()
                         .requestMatchers("/portal/interviewQuestion/**").permitAll()
                         .requestMatchers("/portal/interviewExperience/**").permitAll()

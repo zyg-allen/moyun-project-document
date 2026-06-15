@@ -618,15 +618,23 @@ export interface Book {
   author: string;
   cover: string;
   description: string;
+  summary?: string;
   isbn?: string;
   publisher?: string;
   publishDate?: string;
   pageCount?: number;
   categoryId?: string;
-  tags?: string[];
+  tags?: string;
   rating: number;
   readingCount: number;
   status: string;
+  // 商业化预留字段
+  accessLevel?: 'free' | 'vip' | 'preview';
+  previewRatio?: number;
+  price?: number;
+  isFeatured?: boolean;
+  isRecommended?: boolean;
+  authorBio?: string;
   createTime?: string;
   updateTime?: string;
 }
@@ -636,32 +644,61 @@ export interface BookList {
   title: string;
   description: string;
   cover: string;
+  userId?: string;
+  categoryId?: string;
+  isPublic?: boolean;
   bookCount: number;
   viewCount: number;
   likeCount: number;
+  status: string;
+  isFeatured?: boolean;
+  accessLevel?: string;
+  tags?: string;
   createTime?: string;
+  updateTime?: string;
 }
 
-export interface Quote {
+export interface BookQuote {
   id: string;
+  userId?: string;
+  bookId: string;
   content: string;
   page?: string;
   chapter?: string;
+  location?: string;
   likeCount: number;
+  isPublic?: boolean;
+  isFeatured?: boolean;
   book?: Book;
   createTime?: string;
+  updateTime?: string;
 }
+
+// 保持向后兼容的 Quote 别名
+export type Quote = BookQuote;
 
 export interface ReadingHomeResponse {
   bookLists: BookList[];
   books: Book[];
-  quotes: Quote[];
+  quotes: BookQuote[];
+  bookCount?: number;
+  bookListCount?: number;
+  quoteCount?: number;
 }
 
 export interface BookListParams {
   page?: number;
   pageSize?: number;
   categoryId?: string;
+  keyword?: string;
+}
+
+// 通用分页响应别名（兼容接口返回
+export interface PagedResponse<T> {
+  list: T[];
+  total: number;
+  page: number;
+  pageSize: number;
 }
 
 // 面试指南相关类型

@@ -1,4 +1,4 @@
-import { httpGet, httpPost, httpDelete } from './client'
+import { httpGet, httpPost, httpDelete, httpGetList } from './client'
 import type { ApiResponse } from '@/types/api'
 import type { Notification, NotificationType } from '@/types'
 
@@ -16,8 +16,8 @@ export interface MarkAsReadParams {
 
 export async function getNotificationList(
   params?: GetNotificationListParams
-): Promise<ApiResponse<{ list: Notification[]; total: number }>> {
-  return httpGet('/portal/notification/list', params)
+): Promise<ApiResponse<{ list: Notification[]; total: number; page: number; pageSize: number }>> {
+  return httpGetList<Notification>('/portal/notification/list', params)
 }
 
 export async function getUnreadCount(): Promise<ApiResponse<{ count: number }>> {

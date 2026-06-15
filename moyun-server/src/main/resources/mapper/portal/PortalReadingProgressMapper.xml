@@ -1,0 +1,121 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.moyun.portal.mapper.PortalReadingProgressMapper">
+
+    <resultMap type="com.moyun.portal.domain.entity.PortalReadingProgress" id="PortalReadingProgressResult">
+        <id     property="id"            column="id"            />
+        <result property="userId"        column="user_id"       />
+        <result property="bookId"        column="book_id"       />
+        <result property="status"        column="status"        />
+        <result property="progress"      column="progress"      />
+        <result property="pagesRead"     column="pages_read"    />
+        <result property="startDate"     column="start_date"    />
+        <result property="finishDate"    column="finish_date"   />
+        <result property="note"          column="note"          />
+        <result property="createTime"    column="create_time"   />
+        <result property="updateTime"    column="update_time"   />
+    </resultMap>
+
+    <sql id="selectPortalReadingProgressVo">
+        select id, user_id, book_id, status, progress, pages_read, start_date,
+               finish_date, note, create_time, update_time
+        from portal_reading_progress
+    </sql>
+
+    <select id="selectPortalReadingProgressPage" parameterType="com.moyun.portal.domain.query.ReadingProgressQuery" resultMap="PortalReadingProgressResult">
+        <include refid="selectPortalReadingProgressVo"/>
+        <where>
+            <if test="query.userId != null">
+                AND user_id = #{query.userId}
+            </if>
+            <if test="query.bookId != null">
+                AND book_id = #{query.bookId}
+            </if>
+            <if test="query.status != null and query.status != ''">
+                AND status = #{query.status}
+            </if>
+        </where>
+        order by update_time desc, id desc
+    </select>
+
+    <select id="selectPortalReadingProgressList" parameterType="com.moyun.portal.domain.query.ReadingProgressQuery" resultMap="PortalReadingProgressResult">
+        <include refid="selectPortalReadingProgressVo"/>
+        <where>
+            <if test="query.userId != null">
+                AND user_id = #{query.userId}
+            </if>
+            <if test="query.bookId != null">
+                AND book_id = #{query.bookId}
+            </if>
+            <if test="query.status != null and query.status != ''">
+                AND status = #{query.status}
+            </if>
+        </where>
+        order by update_time desc
+    </select>
+
+    <select id="selectPortalReadingProgressById" parameterType="Long" resultMap="PortalReadingProgressResult">
+        <include refid="selectPortalReadingProgressVo"/>
+        where id = #{id}
+    </select>
+
+    <select id="selectByUserAndBook" resultMap="PortalReadingProgressResult">
+        <include refid="selectPortalReadingProgressVo"/>
+        where user_id = #{userId} and book_id = #{bookId}
+        limit 1
+    </select>
+
+    <insert id="insertPortalReadingProgress" parameterType="com.moyun.portal.domain.entity.PortalReadingProgress" useGeneratedKeys="true" keyProperty="id">
+        insert into portal_reading_progress
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="userId != null">user_id,</if>
+            <if test="bookId != null">book_id,</if>
+            <if test="status != null and status != ''">status,</if>
+            <if test="progress != null">progress,</if>
+            <if test="pagesRead != null">pages_read,</if>
+            <if test="startDate != null">start_date,</if>
+            <if test="finishDate != null">finish_date,</if>
+            <if test="note != null and note != ''">note,</if>
+            <if test="createTime != null">create_time,</if>
+         </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="userId != null">#{userId},</if>
+            <if test="bookId != null">#{bookId},</if>
+            <if test="status != null and status != ''">#{status},</if>
+            <if test="progress != null">#{progress},</if>
+            <if test="pagesRead != null">#{pagesRead},</if>
+            <if test="startDate != null">#{startDate},</if>
+            <if test="finishDate != null">#{finishDate},</if>
+            <if test="note != null and note != ''">#{note},</if>
+            <if test="createTime != null">#{createTime},</if>
+         </trim>
+    </insert>
+
+    <update id="updatePortalReadingProgress" parameterType="com.moyun.portal.domain.entity.PortalReadingProgress">
+        update portal_reading_progress
+        <trim prefix="SET" suffixOverrides=",">
+            <if test="status != null and status != ''">status = #{status},</if>
+            <if test="progress != null">progress = #{progress},</if>
+            <if test="pagesRead != null">pages_read = #{pagesRead},</if>
+            <if test="startDate != null">start_date = #{startDate},</if>
+            <if test="finishDate != null">finish_date = #{finishDate},</if>
+            <if test="note != null">note = #{note},</if>
+            <if test="updateTime != null">update_time = #{updateTime},</if>
+        </trim>
+        where id = #{id}
+    </update>
+
+    <delete id="deletePortalReadingProgressById" parameterType="Long">
+        delete from portal_reading_progress where id = #{id}
+    </delete>
+
+    <delete id="deletePortalReadingProgressByIds" parameterType="Long">
+        delete from portal_reading_progress where id in
+        <foreach item="id" collection="array" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </delete>
+
+</mapper>

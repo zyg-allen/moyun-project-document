@@ -31,6 +31,12 @@ public class PortalBookQuote
 
     private Boolean isPublic;
 
+    /** 是否精选（首页展示用） */
+    private Boolean isFeatured;
+
+    /** 章节标题/位置描述 */
+    private String location;
+
     private LocalDateTime createTime;
 
     private LocalDateTime updateTime;
@@ -119,13 +125,27 @@ public class PortalBookQuote
         return isPublic;
     }
 
-    public void setIsPublic(Boolean isPublic)
-    {
+    public void setIsPublic(Boolean isPublic) {
         this.isPublic = isPublic;
     }
 
-    public LocalDateTime getCreateTime()
-    {
+    public Boolean getIsFeatured() {
+        return isFeatured;
+    }
+
+    public void setIsFeatured(Boolean isFeatured) {
+        this.isFeatured = isFeatured;
+    }
+
+    public String getLocation() {
+        return location;
+    }
+
+    public void setLocation(String location) {
+        this.location = location;
+    }
+
+    public LocalDateTime getCreateTime() {
         return createTime;
     }
 
@@ -153,8 +173,10 @@ public class PortalBookQuote
             .append("content", getContent())
             .append("page", getPage())
             .append("chapter", getChapter())
+            .append("location", getLocation())
             .append("likeCount", getLikeCount())
             .append("isPublic", getIsPublic())
+            .append("isFeatured", getIsFeatured())
             .append("createTime", getCreateTime())
             .append("updateTime", getUpdateTime())
             .toString();

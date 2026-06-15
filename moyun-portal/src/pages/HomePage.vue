@@ -172,16 +172,16 @@ const nextHero = () => {
 
 const themes = computed(() => {
   return filterCategoryTree(categories.value)
-      .map((cat: Category) => {
-        const target = getCategoryTarget(cat)
-        return {
-          id: String(cat.id),
-          name: cat.name,
-          key: cat.slug || cat.name,
-          path: target.path,
-          isExternal: target.type === 'external'
-        }
-      })
+    .map((cat: Category) => {
+      const target = getCategoryTarget(cat)
+      return {
+        id: String(cat.id),
+        name: cat.name,
+        key: cat.slug || cat.name,
+        path: target.path,
+        isExternal: target.type === 'external'
+      }
+    })
 })
 
 const activeTheme = ref('')

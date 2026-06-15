@@ -464,13 +464,13 @@ async function handleLikeComment(commentId: string) {
 
 async function loadMoreComments() {
   if (commentsLoading.value || !commentsHasMore.value) return;
-
+  
   try {
     commentsLoading.value = true;
     commentsPageNum.value += 1;
     const articleId = route.params.id as string;
     const response = await commentApi.getArticleComments(articleId, commentsPageNum.value, 20);
-
+    
     if (response.code === 200 && response.data) {
       const result = response.data;
       const newComments = (result.list || []) as Comment[];

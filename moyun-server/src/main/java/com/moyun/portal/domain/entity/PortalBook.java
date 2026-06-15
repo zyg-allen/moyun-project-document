@@ -92,16 +92,34 @@ public class PortalBook extends BaseEntity {
      */
     private BigDecimal rating;
 
-    /**
-     * 阅读人数
-     */
+    /** 阅读人数 */
     private Long readingCount;
 
-    /**
-     * 状态:active,inactive
-     */
+    /** 状态:active,inactive */
     @Size(min = 0, max = 20, message = "状态长度不能超过20个字符")
     private String status;
+
+    /** 访问级别: free=免费公开, vip=会员专享, preview=试读（前30%免费） */
+    @Size(min = 0, max = 20, message = "访问级别长度不能超过20个字符")
+    private String accessLevel;
+
+    /** 免费试读比例（0-100，当 access_level=preview 时生效） */
+    private Integer previewRatio;
+
+    /** 书籍单价（元，预留：未来付费单本购买） */
+    private java.math.BigDecimal price;
+
+    /** 是否精选 */
+    private Boolean isFeatured;
+
+    /** 是否推荐（首页展示用） */
+    private Boolean isRecommended;
+
+    /** 简介（纯文本） */
+    private String summary;
+
+    /** 作者简介 */
+    private String authorBio;
 
     public PortalBook() {
     }
@@ -222,6 +240,62 @@ public class PortalBook extends BaseEntity {
         this.status = status;
     }
 
+    public String getAccessLevel() {
+        return accessLevel;
+    }
+
+    public void setAccessLevel(String accessLevel) {
+        this.accessLevel = accessLevel;
+    }
+
+    public Integer getPreviewRatio() {
+        return previewRatio;
+    }
+
+    public void setPreviewRatio(Integer previewRatio) {
+        this.previewRatio = previewRatio;
+    }
+
+    public java.math.BigDecimal getPrice() {
+        return price;
+    }
+
+    public void setPrice(java.math.BigDecimal price) {
+        this.price = price;
+    }
+
+    public Boolean getIsFeatured() {
+        return isFeatured;
+    }
+
+    public void setIsFeatured(Boolean isFeatured) {
+        this.isFeatured = isFeatured;
+    }
+
+    public Boolean getIsRecommended() {
+        return isRecommended;
+    }
+
+    public void setIsRecommended(Boolean isRecommended) {
+        this.isRecommended = isRecommended;
+    }
+
+    public String getSummary() {
+        return summary;
+    }
+
+    public void setSummary(String summary) {
+        this.summary = summary;
+    }
+
+    public String getAuthorBio() {
+        return authorBio;
+    }
+
+    public void setAuthorBio(String authorBio) {
+        this.authorBio = authorBio;
+    }
+
     @Override
     public String toString() {
         return new ToStringBuilder(this, ToStringStyle.MULTI_LINE_STYLE)
@@ -230,6 +304,7 @@ public class PortalBook extends BaseEntity {
                 .append("author", getAuthor())
                 .append("cover", getCover())
                 .append("description", getDescription())
+                .append("summary", getSummary())
                 .append("isbn", getIsbn())
                 .append("publisher", getPublisher())
                 .append("publishDate", getPublishDate())
@@ -239,6 +314,12 @@ public class PortalBook extends BaseEntity {
                 .append("rating", getRating())
                 .append("readingCount", getReadingCount())
                 .append("status", getStatus())
+                .append("accessLevel", getAccessLevel())
+                .append("previewRatio", getPreviewRatio())
+                .append("price", getPrice())
+                .append("isFeatured", getIsFeatured())
+                .append("isRecommended", getIsRecommended())
+                .append("authorBio", getAuthorBio())
                 .append("createBy", getCreateBy())
                 .append("createTime", getCreateTime())
                 .append("updateBy", getUpdateBy())

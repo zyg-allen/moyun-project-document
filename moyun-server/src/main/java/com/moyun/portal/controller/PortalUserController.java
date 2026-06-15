@@ -73,7 +73,7 @@ public class PortalUserController extends BaseController {
         PortalUser currentUser = PortalSecurityUtils.getUser();
         if (currentUser == null) {
             // 未登录时返回null，不返回错误，让前端静默处理
-            return success("用户未登录");
+            return success(null);
         }
         // 查询最新的用户数据（确保是最新的，避免缓存延迟）
         PortalUser freshUser = portalUserService.selectPortalUserById(currentUser.getId());

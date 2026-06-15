@@ -46,33 +46,33 @@ const navItems = computed(() => [
     children: []
   },
   ...filterCategoryTree(categories.value)
-      .map(cat => {
-        const target = getCategoryTarget(cat);
-        // 外部链接特殊处理：没有子菜单，点击跳转外链
-        if (target.type === 'external') {
-          return {
-            name: cat.name,
-            key: cat.id,
-            externalUrl: target.path,
-            isExternal: true,
-            children: []
-          };
-        }
+    .map(cat => {
+      const target = getCategoryTarget(cat);
+      // 外部链接特殊处理：没有子菜单，点击跳转外链
+      if (target.type === 'external') {
         return {
           name: cat.name,
           key: cat.id,
-          externalUrl: null,
-          isExternal: false,
-          children: (cat.children || []).map(sub => {
-            const subTarget = getCategoryTarget(sub);
-            return {
-              name: sub.name,
-              path: subTarget.type === 'external' ? subTarget.path : subTarget.path,
-              isExternal: subTarget.type === 'external'
-            };
-          })
+          externalUrl: target.path,
+          isExternal: true,
+          children: []
         };
-      }),
+      }
+      return {
+        name: cat.name,
+        key: cat.id,
+        externalUrl: null,
+        isExternal: false,
+        children: (cat.children || []).map(sub => {
+          const subTarget = getCategoryTarget(sub);
+          return {
+            name: sub.name,
+            path: subTarget.type === 'external' ? subTarget.path : subTarget.path,
+            isExternal: subTarget.type === 'external'
+          };
+        })
+      };
+    }),
   {
     name: '读书空间',
     key: 'reading',
@@ -115,14 +115,14 @@ onMounted(async () => {
 });
 
 watch(
-    () => userStore.isAuthenticated,
-    (isAuth) => {
-      if (isAuth) {
-        loadNotifications();
-      } else {
-        notifications.value = [];
-      }
+  () => userStore.isAuthenticated,
+  (isAuth) => {
+    if (isAuth) {
+      loadNotifications();
+    } else {
+      notifications.value = [];
     }
+  }
 );
 
 async function loadCategories() {

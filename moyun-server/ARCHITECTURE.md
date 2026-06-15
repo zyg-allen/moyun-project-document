@@ -269,36 +269,127 @@ moyun-server/
 
 ### 2️⃣ 模块依赖关系
 
+```mermaid
+graph TD
+    A[MoyunApplication] --> B[common/]
+    A --> C[util/]
+    A --> D[core/]
+    
+    B --> E[modules/system/]
+    B --> F[modules/portal/]
+    B --> G[ext/job/]
+    B --> H[ext/generator/]
+    B --> I[ext/flowable/]
+    
+    C --> E
+    C --> F
+    C --> G
+    C --> H
+    C --> I
+    
+    D --> E
+    D --> F
+    D --> G
+    D --> H
+    D --> I
+    
+    E -.-> F
+    F -.-> E
+    
+    G -.-> E
+    H -.-> E
+    I -.-> E
+    
+    F -.-> I
 ```
-┌──────────────┐
-│   MoyunApp   │ 启动类
-└──────┬───────┘
-       │
-       ▼
-┌─────────────────────────┐
-│        common/          │ 通用模块
-│   (被所有模块依赖)       │
-└──────────┬──────────────┘
-           │
-           ▼
-┌─────────────────────────┐
-│         util/           │ 工具模块
-│   (被所有模块依赖)       │
-└──────────┬──────────────┘
-           │
-           ▼
-┌─────────────────────────┐
-│         core/           │ 核心框架
-│   (被业务模块依赖)       │
-└──────────┬──────────────┘
-           │
-    ┌──────┴──────┐
-    ▼             ▼
-┌────────┐   ┌──────────┐
-│modules/│   │   ext/    │
-│业务模块 │   │ 扩展模块  │
-└────────┘   └──────────┘
+
+**依赖规则说明**：
+| 模块 | 依赖来源 | 被依赖方 | 说明 |
+|------|---------|---------|------|
+| **common/** | 无 | 所有模块 | 最底层，不依赖任何模块 |
+| **util/** | common/ | 所有模块 | 工具模块，仅依赖 common |
+| **core/** | common/, util/ | 业务/扩展模块 | 核心框架，提供安全、MVC等 |
+| **modules/system/** | common/, util/, core/ | 无（可选被portal依赖） | 系统管理业务 |
+| **modules/portal/** | common/, util/, core/ | 无（可选被ext/flowable依赖） | 门户业务，面向用户 |
+| **ext/job/** | common/, util/, core/ | 无（可选依赖system） | 定时任务扩展 |
+| **ext/generator/** | common/, util/, core/ | 无（可选依赖system） | 代码生成扩展 |
+| **ext/flowable/** | common/, util/, core/ | 无（可选依赖system/portal） | 工作流扩展 |
+
+### 3️⃣ 模块边界清晰化
+
+#### ✅ 业务模块 vs 扩展模块
+
+```mermaid
+graph LR
+    subgraph 核心业务层
+        A[modules/system/]
+        B[modules/portal/]
+    end
+    
+    subgraph 扩展能力层
+        C[ext/job/]
+        D[ext/generator/]
+        E[ext/flowable/]
+    end
+    
+    subgraph 基础设施层
+        F[common/]
+        G[util/]
+        H[core/]
+    end
+    
+    F --> A
+    F --> B
+    F --> C
+    F --> D
+    F --> E
+    
+    G --> A
+    G --> B
+    G --> C
+    G --> D
+    G --> E
+    
+    H --> A
+    H --> B
+    H --> C
+    H --> D
+    H --> E
+    
+    style 核心业务层 fill:#e6f7ff,stroke:#1890ff,stroke-width:2
+    style 扩展能力层 fill:#f6ffed,stroke:#52c41a,stroke-width:2
+    style 基础设施层 fill:#fff7e6,stroke:#fa8c16,stroke-width:2
 ```
+
+#### 📖 边界定义表
+
+| 维度 | modules/（业务模块） | ext/（扩展模块） |
+|------|---------------------|-----------------|
+| **定位** | 核心业务逻辑，系统必需 | 可选功能，按需启用 |
+| **生命周期** | 随系统一起部署 | 可独立启用/禁用 |
+| **稳定性** | 高稳定，变更需严格测试 | 相对独立，可快速迭代 |
+| **耦合度** | 紧密耦合核心框架 | 松耦合，插件式集成 |
+| **示例** | 用户管理、文章发布 | 定时任务、工作流、代码生成 |
+| **命名约定** | `com.moyun.modules.xxx.*` | `com.moyun.ext.xxx.*` |
+
+#### 🚫 禁止的依赖方向
+
+```mermaid
+graph LR
+    A[modules/] -- 禁止 --> B[ext/]
+    style A fill:#fff2e8,stroke:#ff7875
+    style B fill:#f6ffed,stroke:#52c41a
+    
+    C[ext/job] -- 禁止 --> D[ext/generator]
+    style C fill:#f6ffed,stroke:#52c41a
+    style D fill:#f6ffed,stroke:#52c41a
+```
+
+**禁止规则**：
+1. ❌ **业务模块不能依赖扩展模块**（避免核心功能依赖可选功能）
+2. ❌ **扩展模块之间不能互相依赖**（保持扩展模块独立）
+3. ✅ **扩展模块可以依赖业务模块**（扩展功能增强核心业务）
+4. ✅ **业务模块之间可以相互依赖**（合理的业务耦合）
 
 ---
 

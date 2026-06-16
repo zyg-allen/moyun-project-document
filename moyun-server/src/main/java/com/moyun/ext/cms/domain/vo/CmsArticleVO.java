@@ -1,17 +1,19 @@
 package com.moyun.ext.cms.domain.vo;
 
-import com.fasterxml.jackson.annotation.JsonFormat;
-import com.moyun.core.base.BaseEntity;
-
 import java.time.LocalDateTime;
+
+import com.fasterxml.jackson.annotation.JsonFormat;
+import lombok.Data;
+
+import com.moyun.core.base.BaseEntity;
 
 /**
  * 文章视图对象
  *
  * @author moyun
  */
-public class CmsArticleVO extends BaseEntity
-{
+@Data
+public class CmsArticleVO extends BaseEntity {
     private static final long serialVersionUID = 1L;
 
     /** 文章ID */
@@ -35,11 +37,32 @@ public class CmsArticleVO extends BaseEntity
     /** 作者昵称 */
     private String authorNickname;
 
+    /** 作者用户名 */
+    private String authorUsername;
+
+    /** 作者头像 */
+    private String authorAvatar;
+
     /** 分类ID */
     private Long categoryId;
 
     /** 分类名称 */
     private String categoryName;
+
+    /** 分类别名 */
+    private String categorySlug;
+
+    /** 顶级分类ID */
+    private Long rootCategoryId;
+
+    /** 分类路径，用逗号分隔，包含所有祖先分类ID */
+    private String categoryPath;
+
+    /** 是否分类推荐 */
+    private Boolean isCategoryRecommended;
+
+    /** 文章别名（SEO URL） */
+    private String slug;
 
     /** 状态 */
     private String status;
@@ -81,223 +104,20 @@ public class CmsArticleVO extends BaseEntity
     /** Markdown 内容 */
     private String contentMarkdown;
 
-    public Long getId()
-    {
-        return id;
-    }
+    /** 更新时间 */
+    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
+    private LocalDateTime updateTime;
 
-    public void setId(Long id)
-    {
-        this.id = id;
-    }
+    /** 创建人 */
+    private String createBy;
 
-    public String getTitle()
-    {
-        return title;
-    }
+    /** 更新人 */
+    private String updateBy;
 
-    public void setTitle(String title)
-    {
-        this.title = title;
-    }
+    /** 备注 */
+    private String remark;
 
-    public String getContent()
-    {
-        return content;
-    }
-
-    public void setContent(String content)
-    {
-        this.content = content;
-    }
-
-    public String getExcerpt()
-    {
-        return excerpt;
-    }
-
-    public void setExcerpt(String excerpt)
-    {
-        this.excerpt = excerpt;
-    }
-
-    public String getCover()
-    {
-        return cover;
-    }
-
-    public void setCover(String cover)
-    {
-        this.cover = cover;
-    }
-
-    public Long getAuthorId()
-    {
-        return authorId;
-    }
-
-    public void setAuthorId(Long authorId)
-    {
-        this.authorId = authorId;
-    }
-
-    public String getAuthorNickname()
-    {
-        return authorNickname;
-    }
-
-    public void setAuthorNickname(String authorNickname)
-    {
-        this.authorNickname = authorNickname;
-    }
-
-    public Long getCategoryId()
-    {
-        return categoryId;
-    }
-
-    public void setCategoryId(Long categoryId)
-    {
-        this.categoryId = categoryId;
-    }
-
-    public String getCategoryName()
-    {
-        return categoryName;
-    }
-
-    public void setCategoryName(String categoryName)
-    {
-        this.categoryName = categoryName;
-    }
-
-    public String getStatus()
-    {
-        return status;
-    }
-
-    public void setStatus(String status)
-    {
-        this.status = status;
-    }
-
-    public Boolean getIsFeatured()
-    {
-        return isFeatured;
-    }
-
-    public void setIsFeatured(Boolean isFeatured)
-    {
-        this.isFeatured = isFeatured;
-    }
-
-    public Boolean getIsTop()
-    {
-        return isTop;
-    }
-
-    public void setIsTop(Boolean isTop)
-    {
-        this.isTop = isTop;
-    }
-
-    public Boolean getIsCarousel()
-    {
-        return isCarousel;
-    }
-
-    public void setIsCarousel(Boolean isCarousel)
-    {
-        this.isCarousel = isCarousel;
-    }
-
-    public Long getViews()
-    {
-        return views;
-    }
-
-    public void setViews(Long views)
-    {
-        this.views = views;
-    }
-
-    public Long getLikes()
-    {
-        return likes;
-    }
-
-    public void setLikes(Long likes)
-    {
-        this.likes = likes;
-    }
-
-    public Long getComments()
-    {
-        return comments;
-    }
-
-    public void setComments(Long comments)
-    {
-        this.comments = comments;
-    }
-
-    public Long getShareCount()
-    {
-        return shareCount;
-    }
-
-    public void setShareCount(Long shareCount)
-    {
-        this.shareCount = shareCount;
-    }
-
-    public Long getBookmarkCount()
-    {
-        return bookmarkCount;
-    }
-
-    public void setBookmarkCount(Long bookmarkCount)
-    {
-        this.bookmarkCount = bookmarkCount;
-    }
-
-    public LocalDateTime getPublishedAt()
-    {
-        return publishedAt;
-    }
-
-    public void setPublishedAt(LocalDateTime publishedAt)
-    {
-        this.publishedAt = publishedAt;
-    }
-
-    public String getLink()
-    {
-        return link;
-    }
-
-    public void setLink(String link)
-    {
-        this.link = link;
-    }
-
-    public String getEditorMode()
-    {
-        return editorMode;
-    }
-
-    public void setEditorMode(String editorMode)
-    {
-        this.editorMode = editorMode;
-    }
-
-    public String getContentMarkdown()
-    {
-        return contentMarkdown;
-    }
-
-    public void setContentMarkdown(String contentMarkdown)
-    {
-        this.contentMarkdown = contentMarkdown;
-    }
+    /** 创建时间 */
+    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
+    private LocalDateTime createTime;
 }

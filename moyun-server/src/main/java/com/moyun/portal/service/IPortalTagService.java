@@ -1,10 +1,12 @@
 package com.moyun.portal.service;
 
+import java.util.List;
+
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+
 import com.moyun.portal.domain.entity.PortalTag;
 import com.moyun.portal.domain.query.TagQuery;
-
-import java.util.List;
+import com.moyun.portal.domain.vo.TagVO;
 
 /**
  * 门户标签 业务层
@@ -15,58 +17,50 @@ public interface IPortalTagService {
 
     /**
      * 根据条件分页查询标签列表
-     *
-     * @param page 分页参数
-     * @param query 查询条件
-     * @return 分页结果
      */
     Page<PortalTag> selectPortalTagPage(Page<PortalTag> page, TagQuery query);
 
     /**
-     * 根据条件查询标签列表（不分页，用于导出等场景）
-     *
-     * @param query 查询条件
-     * @return 标签信息集合
+     * 根据条件查询标签列表
      */
     List<PortalTag> selectPortalTagList(TagQuery query);
 
-    /**
-     * 通过标签ID查询标签
-     *
-     * @param id 标签ID
-     * @return 标签对象信息
-     */
-    public PortalTag selectPortalTagById(Long id);
+    PortalTag selectPortalTagById(Long id);
+
+    int insertPortalTag(PortalTag portalTag);
+
+    int updatePortalTag(PortalTag portalTag);
+
+    int deletePortalTagById(Long id);
+
+    int deletePortalTagByIds(Long[] ids);
 
     /**
-     * 新增标签信息
+     * 绑定标签到实体。
      *
-     * @param portalTag 标签信息
-     * @return 结果
+     * @param entityType 实体类型（如 article / book / interview_question）
+     * @param entityId   实体ID
+     * @param tagIds     已存在的标签ID列表（可为 null/empty）
+     * @param tagNames   通过名称提供的标签列表（不存在时会自动创建并绑定到指定 module）（可为 null/empty）
+     * @param module     所属模块，用于当 tagNames 不存在时创建新标签时写入 module 字段（可为 null）
      */
-    public int insertPortalTag(PortalTag portalTag);
+    void bindTags(String entityType, Long entityId, List<Long> tagIds, List<String> tagNames, String module);
 
     /**
-     * 修改标签信息
-     *
-     * @param portalTag 标签信息
-     * @return 结果
+     * 解绑实体的全部标签
      */
-    public int updatePortalTag(PortalTag portalTag);
+    void unbindTags(String entityType, Long entityId);
 
     /**
-     * 通过标签ID删除标签
-     *
-     * @param id 标签ID
-     * @return 结果
+     * 根据实体获取已绑定的标签 VO 列表
      */
-    public int deletePortalTagById(Long id);
+    List<TagVO> getTagsByEntity(String entityType, Long entityId);
 
     /**
-     * 批量删除标签信息
+     * 获取热门标签（按 reference_count 降序）
      *
-     * @param ids 需要删除的标签ID
-     * @return 结果
+     * @param module 所属模块（可为 null 表示全部）
+     * @param limit  返回数量
      */
-    public int deletePortalTagByIds(Long[] ids);
+    List<TagVO> getHotTags(String module, int limit);
 }

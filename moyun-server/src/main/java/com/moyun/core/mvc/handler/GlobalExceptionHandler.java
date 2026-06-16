@@ -9,8 +9,7 @@ import com.moyun.core.base.text.Convert;
 import com.moyun.util.html.EscapeUtil;
 import com.moyun.util.string.StringUtils;
 import jakarta.servlet.http.HttpServletRequest;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.validation.BindException;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
@@ -25,9 +24,9 @@ import org.springframework.web.method.annotation.MethodArgumentTypeMismatchExcep
  *
  * @author ruoyi
  */
+@Slf4j
 @RestControllerAdvice
 public class GlobalExceptionHandler {
-    private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
 
     /**
      * 权限校验异常

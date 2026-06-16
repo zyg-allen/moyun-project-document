@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.moyun.portal.mapper.PortalEntityTagMapper">
+
+    <resultMap type="com.moyun.portal.domain.entity.PortalEntityTag" id="PortalEntityTagResult">
+        <id property="id" column="id"/>
+        <result property="tagId" column="tag_id"/>
+        <result property="entityType" column="entity_type"/>
+        <result property="entityId" column="entity_id"/>
+        <result property="sort" column="sort"/>
+        <result property="createTime" column="create_time"/>
+    </resultMap>
+
+    <sql id="selectPortalEntityTagVo">
+        select id, tag_id, entity_type, entity_id, sort, create_time from portal_entity_tag
+    </sql>
+
+    <insert id="insertBatch" parameterType="java.util.List">
+        insert into portal_entity_tag (tag_id, entity_type, entity_id, sort, create_time)
+        values
+        <foreach collection="list" item="item" separator=",">
+            (#{item.tagId}, #{item.entityType}, #{item.entityId},
+             #{item.sort, jdbcType=INTEGER},
+             #{item.createTime, jdbcType=TIMESTAMP})
+        </foreach>
+    </insert>
+
+    <delete id="deleteByEntity">
+        delete from portal_entity_tag
+        where entity_type = #{entityType} and entity_id = #{entityId}
+    </delete>
+
+    <select id="selectByEntity" resultMap="PortalEntityTagResult">
+        <include refid="selectPortalEntityTagVo"/>
+        where entity_type = #{entityType} and entity_id = #{entityId}
+        order by sort asc, id asc
+    </select>
+
+    <select id="selectTagIdsByEntity" resultType="java.lang.Long">
+        select tag_id from portal_entity_tag
+        where entity_type = #{entityType} and entity_id = #{entityId}
+        order by sort asc, id asc
+    </select>
+
+    <select id="selectByTagId" resultMap="PortalEntityTagResult">
+        <include refid="selectPortalEntityTagVo"/>
+        where tag_id = #{tagId}
+        order by entity_type asc, id asc
+    </select>
+</mapper>

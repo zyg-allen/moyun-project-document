@@ -1,5 +1,4 @@
-import request from '@/utils/request'
-import { parseStrEmpty } from "@/utils/ruoyi";
+import request from '@/utils/request';
 
 // 查询文章列表
 export function listArticle(query) {
@@ -7,15 +6,15 @@ export function listArticle(query) {
     url: '/cms/article/list',
     method: 'get',
     params: query
-  })
+  });
 }
 
 // 查询文章详细
-export function getArticle(articleId) {
+export function getArticle(id) {
   return request({
-    url: '/cms/article/' + parseStrEmpty(articleId),
+    url: '/cms/article/' + id,
     method: 'get'
-  })
+  });
 }
 
 // 新增文章
@@ -24,7 +23,7 @@ export function addArticle(data) {
     url: '/cms/article',
     method: 'post',
     data: data
-  })
+  });
 }
 
 // 修改文章
@@ -33,39 +32,67 @@ export function updateArticle(data) {
     url: '/cms/article',
     method: 'put',
     data: data
-  })
+  });
 }
 
 // 删除文章
-export function delArticle(articleId) {
+export function delArticle(id) {
   return request({
-    url: '/cms/article/' + articleId,
+    url: '/cms/article/' + id,
     method: 'delete'
-  })
+  });
 }
 
-// 文章审核
-export function auditArticle(articleId, auditStatus) {
-  const data = {
-    articleId,
-    auditStatus
-  }
+// 批量删除文章
+export function delArticleBatch(ids) {
+  return request({
+    url: '/cms/article/batch',
+    method: 'delete',
+    data: ids
+  });
+}
+
+// 审核文章
+export function auditArticle(data) {
   return request({
     url: '/cms/article/audit',
     method: 'put',
     data: data
-  })
+  });
 }
 
-// 文章上下架
-export function changeArticleStatus(articleId, status) {
-  const data = {
-    articleId,
-    status
-  }
+// 发布/下架文章
+export function publishArticle(data) {
   return request({
-    url: '/cms/article/changeStatus',
+    url: '/cms/article/publish',
     method: 'put',
     data: data
-  })
+  });
+}
+
+// 设置精选
+export function setFeatured(data) {
+  return request({
+    url: '/cms/article/featured',
+    method: 'put',
+    data: data
+  });
+}
+
+// 设置置顶
+export function setTop(data) {
+  return request({
+    url: '/cms/article/top',
+    method: 'put',
+    data: data
+  });
+}
+
+// 设置轮播
+export function setCarousel(data) {
+  return request({
+    url: '/cms/article/carousel',
+    method: 'put',
+    data: data
+  });
 }

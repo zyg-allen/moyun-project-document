@@ -1,11 +1,12 @@
 package com.moyun.ext.cms.domain.query;
 
-import com.moyun.core.base.BaseEntity;
-import com.moyun.core.base.page.PageDomain;
+import java.io.Serializable;
+
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 
-import java.io.Serializable;
+import com.moyun.core.base.BaseEntity;
+import com.moyun.core.base.page.PageDomain;
 
 /**
  * 评论查询对象

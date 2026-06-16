@@ -47,4 +47,16 @@ public class TagVO implements Serializable {
      */
     @Schema(description = "状态", example = "0")
     private String status;
+
+    /**
+     * 所属模块
+     */
+    @Schema(description = "所属模块", example = "article")
+    private String module;
+
+    /**
+     * 引用次数
+     */
+    @Schema(description = "引用次数", example = "10")
+    private Long referenceCount;
 }

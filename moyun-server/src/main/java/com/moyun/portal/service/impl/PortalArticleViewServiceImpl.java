@@ -1,27 +1,26 @@
 package com.moyun.portal.service.impl;
 
-import com.moyun.portal.domain.entity.PortalArticle;
-import com.moyun.portal.mapper.PortalArticleMapper;
-import com.moyun.portal.mapper.PortalArticleViewMapper;
-import com.moyun.portal.service.IPortalArticleService;
-import com.moyun.portal.service.IPortalArticleViewService;
-import com.moyun.portal.domain.query.ArticleQuery;
-import com.moyun.util.bean.PageUtils;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import java.util.List;
+
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.List;
+import com.moyun.portal.domain.entity.PortalArticle;
+import com.moyun.portal.domain.query.ArticleQuery;
+import com.moyun.portal.mapper.PortalArticleMapper;
+import com.moyun.portal.mapper.PortalArticleViewMapper;
+import com.moyun.portal.service.IPortalArticleService;
+import com.moyun.portal.service.IPortalArticleViewService;
+import com.moyun.util.bean.PageUtils;
 
 /**
  * 文章浏览数据同步服务实现
  */
+@Slf4j
 @Service
 public class PortalArticleViewServiceImpl implements IPortalArticleViewService {
-
-    private static final Logger log = LoggerFactory.getLogger(PortalArticleViewServiceImpl.class);
 
     @Autowired
     private PortalArticleViewMapper portalArticleViewMapper;

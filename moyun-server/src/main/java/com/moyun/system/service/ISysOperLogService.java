@@ -1,6 +1,7 @@
 package com.moyun.system.service;
 
 import com.moyun.system.domain.entity.SysOperLog;
+import com.moyun.system.domain.query.OperLogQuery;
 
 import java.util.List;
 
@@ -21,10 +22,10 @@ public interface ISysOperLogService {
     /**
      * 查询系统操作日志集合
      *
-     * @param operLog 操作日志对象
+     * @param query 操作日志查询条件
      * @return 操作日志集合
      */
-    List<SysOperLog> selectOperLogList(SysOperLog operLog);
+    List<SysOperLog> selectOperLogList(OperLogQuery query);
 
     /**
      * 批量删除系统操作日志

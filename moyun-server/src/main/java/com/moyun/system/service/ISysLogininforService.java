@@ -1,6 +1,7 @@
 package com.moyun.system.service;
 
 import com.moyun.system.domain.entity.SysLogininfor;
+import com.moyun.system.domain.query.LogininforQuery;
 
 import java.util.List;
 
@@ -20,10 +21,10 @@ public interface ISysLogininforService {
     /**
      * 查询系统登录日志集合
      *
-     * @param logininfor 访问日志对象
+     * @param query 访问日志查询条件
      * @return 登录记录集合
      */
-    public List<SysLogininfor> selectLogininforList(SysLogininfor logininfor);
+    public List<SysLogininfor> selectLogininforList(LogininforQuery query);
 
     /**
      * 批量删除系统登录日志

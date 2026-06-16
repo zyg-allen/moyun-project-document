@@ -3,9 +3,8 @@ package com.moyun.util.file;
 import com.moyun.common.config.RuoYiConfig;
 import com.moyun.common.constant.Constants;
 import com.moyun.util.string.StringUtils;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.poi.util.IOUtils;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.io.ByteArrayInputStream;
 import java.io.FileInputStream;
@@ -14,8 +13,8 @@ import java.net.URL;
 import java.net.URLConnection;
 import java.util.Arrays;
 
+@Slf4j
 public class ImageUtils {
-    private static final Logger log = LoggerFactory.getLogger(ImageUtils.class);
 
     public static byte[] getImage(String imagePath) {
         InputStream is = getFile(imagePath);

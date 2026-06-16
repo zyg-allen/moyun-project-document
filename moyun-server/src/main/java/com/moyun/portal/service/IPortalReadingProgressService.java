@@ -1,11 +1,12 @@
 package com.moyun.portal.service;
 
+import java.util.List;
+
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.IService;
+
 import com.moyun.portal.domain.entity.PortalReadingProgress;
 import com.moyun.portal.domain.query.ReadingProgressQuery;
-
-import java.util.List;
 
 /**
  * 阅读进度 业务层接口

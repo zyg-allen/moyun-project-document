@@ -1,43 +1,98 @@
 package com.moyun.portal.domain.entity;
 
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
+import java.io.Serial;
+import java.time.LocalDateTime;
+
 import com.baomidou.mybatisplus.annotation.IdType;
+import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
-import com.moyun.core.base.BaseEntity;
-import org.apache.commons.lang3.builder.ToStringBuilder;
-import org.apache.commons.lang3.builder.ToStringStyle;
+import com.fasterxml.jackson.annotation.JsonFormat;
+import lombok.Data;
 
+import com.moyun.core.base.BaseEntity;
+
+/**
+ * 面经
+ *
+ * @author moyun
+ */
+@Data
 @TableName("portal_interview_experience")
 public class PortalInterviewExperience extends BaseEntity
 {
+    @Serial
     private static final long serialVersionUID = 1L;
 
     @TableId(type = IdType.AUTO)
     private Long id;
 
+    /** 用户ID */
     private Long userId;
 
+    /** 面经标题 */
+    @NotBlank(message = "面经标题不能为空")
+    @Size(min = 0, max = 500, message = "面经标题长度不能超过500个字符")
     private String title;
 
+    /** 公司 */
+    @NotBlank(message = "公司不能为空")
+    @Size(min = 0, max = 200, message = "公司名称长度不能超过200个字符")
     private String company;
 
+    /** 岗位 */
     private String position;
 
+    /** 年份 */
     private Integer year;
 
+    /** 月份 */
     private Integer month;
 
+    /** 内容摘要 */
+    private String summary;
+
+    /** 正文内容 */
+    @NotBlank(message = "面经内容不能为空")
     private String content;
 
+    /** 封面图 */
+    private String coverImage;
+
+    /** 标签 */
     private String tags;
 
+    /** 是否置顶 */
+    private Boolean isTop;
+
+    /** 浏览数 */
     private Long viewCount;
 
+    /** 点赞数 */
     private Long likeCount;
 
+    /** 评论数 */
     private Long commentCount;
 
+    /** 状态：draft/pending/published/rejected/archived */
+    @Size(min = 0, max = 20, message = "状态长度不能超过20个字符")
     private String status;
+
+    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
+    private LocalDateTime createTime;
+
+    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
+    private LocalDateTime updateTime;
+
+    /** 作者昵称（非持久字段，关联填充） */
+    @TableField(exist = false)
+    private String userNickname;
+
+    /** 作者头像（非持久字段，关联填充） */
+    @TableField(exist = false)
+    private String userAvatar;
 
     public PortalInterviewExperience()
     {
@@ -46,159 +101,5 @@ public class PortalInterviewExperience extends BaseEntity
     public PortalInterviewExperience(Long id)
     {
         this.id = id;
-    }
-
-    public Long getId()
-    {
-        return id;
-    }
-
-    public void setId(Long id)
-    {
-        this.id = id;
-    }
-
-    public Long getUserId()
-    {
-        return userId;
-    }
-
-    public void setUserId(Long userId)
-    {
-        this.userId = userId;
-    }
-
-    public String getTitle()
-    {
-        return title;
-    }
-
-    public void setTitle(String title)
-    {
-        this.title = title;
-    }
-
-    public String getCompany()
-    {
-        return company;
-    }
-
-    public void setCompany(String company)
-    {
-        this.company = company;
-    }
-
-    public String getPosition()
-    {
-        return position;
-    }
-
-    public void setPosition(String position)
-    {
-        this.position = position;
-    }
-
-    public Integer getYear()
-    {
-        return year;
-    }
-
-    public void setYear(Integer year)
-    {
-        this.year = year;
-    }
-
-    public Integer getMonth()
-    {
-        return month;
-    }
-
-    public void setMonth(Integer month)
-    {
-        this.month = month;
-    }
-
-    public String getContent()
-    {
-        return content;
-    }
-
-    public void setContent(String content)
-    {
-        this.content = content;
-    }
-
-    public String getTags()
-    {
-        return tags;
-    }
-
-    public void setTags(String tags)
-    {
-        this.tags = tags;
-    }
-
-    public Long getViewCount()
-    {
-        return viewCount;
-    }
-
-    public void setViewCount(Long viewCount)
-    {
-        this.viewCount = viewCount;
-    }
-
-    public Long getLikeCount()
-    {
-        return likeCount;
-    }
-
-    public void setLikeCount(Long likeCount)
-    {
-        this.likeCount = likeCount;
-    }
-
-    public Long getCommentCount()
-    {
-        return commentCount;
-    }
-
-    public void setCommentCount(Long commentCount)
-    {
-        this.commentCount = commentCount;
-    }
-
-    public String getStatus()
-    {
-        return status;
-    }
-
-    public void setStatus(String status)
-    {
-        this.status = status;
-    }
-
-    @Override
-    public String toString() {
-        return new ToStringBuilder(this,ToStringStyle.MULTI_LINE_STYLE)
-            .append("id", getId())
-            .append("userId", getUserId())
-            .append("title", getTitle())
-            .append("company", getCompany())
-            .append("position", getPosition())
-            .append("year", getYear())
-            .append("month", getMonth())
-            .append("content", getContent())
-            .append("tags", getTags())
-            .append("viewCount", getViewCount())
-            .append("likeCount", getLikeCount())
-            .append("commentCount", getCommentCount())
-            .append("status", getStatus())
-            .append("createBy", getCreateBy())
-            .append("createTime", getCreateTime())
-            .append("updateBy", getUpdateBy())
-            .append("updateTime", getUpdateTime())
-            .append("remark", getRemark())
-            .toString();
     }
 }

@@ -6,11 +6,10 @@ import com.moyun.common.config.RuoYiConfig;
 import com.moyun.common.constant.Constants;
 import com.moyun.util.http.HttpUtils;
 import com.moyun.util.string.StringUtils;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 public class AddressUtils {
-    private static final Logger log = LoggerFactory.getLogger(AddressUtils.class);
 
     public static final String IP_URL = "http://whois.pconline.com.cn/ipJson.jsp";
 

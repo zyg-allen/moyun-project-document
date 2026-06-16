@@ -1,5 +1,6 @@
 package com.moyun.ext.flowable.flow;
 
+import lombok.extern.slf4j.Slf4j;
 import org.flowable.bpmn.model.*;
 import org.flowable.engine.RepositoryService;
 import org.flowable.engine.repository.ProcessDefinition;
@@ -17,9 +18,8 @@ import java.util.stream.Collectors;
  * @author Tony
  * @date 2021-04-03
  */
+@Slf4j
 public class FlowableUtils {
-
-    private static final Logger log = LoggerFactory.getLogger(FlowableUtils.class);
 
     /**
      * 获取元素出口连线

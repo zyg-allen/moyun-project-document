@@ -1,6 +1,14 @@
 package com.moyun.ext.cms.controller;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.validation.annotation.Validated;
+import org.springframework.web.bind.annotation.*;
+
 import com.moyun.common.annotation.Log;
 import com.moyun.common.enums.BusinessType;
 import com.moyun.core.base.AjaxResult;
@@ -10,13 +18,6 @@ import com.moyun.ext.cms.domain.vo.CmsArticleVO;
 import com.moyun.ext.cms.service.ICmsArticleService;
 import com.moyun.portal.domain.entity.PortalArticle;
 import com.moyun.util.bean.PageUtils;
-import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.Parameter;
-import io.swagger.v3.oas.annotations.tags.Tag;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.validation.annotation.Validated;
-import org.springframework.web.bind.annotation.*;
 
 /**
  * CMS文章管理Controller
@@ -105,6 +106,39 @@ public class CmsArticleController extends BaseController {
     @PutMapping("/featured")
     public AjaxResult featured(@RequestBody PortalArticle article) {
         return toAjax(cmsArticleService.setFeatured(article));
+    }
+
+    /**
+     * 设置置顶
+     */
+    @Operation(summary = "设置置顶", description = "设置文章是否置顶")
+    @PreAuthorize("@ss.hasPermi('cms:article:edit')")
+    @Log(title = "文章管理", businessType = BusinessType.UPDATE)
+    @PutMapping("/top")
+    public AjaxResult top(@RequestBody PortalArticle article) {
+        return toAjax(cmsArticleService.setTop(article));
+    }
+
+    /**
+     * 设置轮播
+     */
+    @Operation(summary = "设置轮播", description = "设置文章是否轮播")
+    @PreAuthorize("@ss.hasPermi('cms:article:edit')")
+    @Log(title = "文章管理", businessType = BusinessType.UPDATE)
+    @PutMapping("/carousel")
+    public AjaxResult carousel(@RequestBody PortalArticle article) {
+        return toAjax(cmsArticleService.setCarousel(article));
+    }
+
+    /**
+     * 批量删除文章
+     */
+    @Operation(summary = "批量删除文章", description = "批量删除文章")
+    @PreAuthorize("@ss.hasPermi('cms:article:remove')")
+    @Log(title = "文章管理", businessType = BusinessType.DELETE)
+    @DeleteMapping("/batch")
+    public AjaxResult removeBatch(@RequestBody Long[] ids) {
+        return toAjax(cmsArticleService.deleteArticleByIds(ids));
     }
 
     /**

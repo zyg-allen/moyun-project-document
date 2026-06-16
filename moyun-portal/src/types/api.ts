@@ -701,71 +701,216 @@ export interface PagedResponse<T> {
   pageSize: number;
 }
 
-// 面试指南相关类型
-export interface InterviewCategory {
-  id: string;
+// ========================= 面试指南相关类型（对齐后端 VO） =========================
+export interface InterviewCategoryVO {
+  id: string | number;
   name: string;
-  slug: string;
-  description: string;
-  icon: string;
+  slug?: string;
+  description?: string;
+  icon?: string;
   sort: number;
-  questionCount: number;
+  questionCount?: number;
   status: string;
+  createTime?: string;
+  updateTime?: string;
 }
 
-export interface InterviewQuestion {
-  id: string;
+export interface InterviewCompanyVO {
+  id: string | number;
+  name: string;
+  slug?: string;
+  logo?: string;
+  description?: string;
+  industry?: string;
+  questionCount?: number;
+  sort: number;
+  status: string;
+  createTime?: string;
+  updateTime?: string;
+}
+
+export interface InterviewQuestionVO {
+  id: string | number;
   title: string;
-  description: string;
+  description?: string;
   difficulty: 'easy' | 'medium' | 'hard';
-  categoryId: string;
-  tags: string[];
-  companies: string[];
+  categoryId?: string | number;
+  categoryName?: string;
+  tags?: string[];
+  tagList?: TagVO[];
+  companies?: InterviewCompanyVO[];
   acceptanceRate: number;
   submissionCount: number;
   likeCount: number;
-  hint?: string;
-  solution?: string;
+  liked?: boolean;
+  bookmarked?: boolean;
+  attemptStatus?: 'not_attempted' | 'attempted' | 'solved' | string;
   sort: number;
   status: string;
   createTime?: string;
+  updateTime?: string;
 }
 
-export interface InterviewExperience {
-  id: string;
-  title: string;
-  company: string;
-  position: string;
-  year: number;
-  month: number;
-  content: string;
-  viewCount: number;
-  likeCount: number;
-  commentCount: number;
-  user: User;
+export interface InterviewQuestionDetailVO extends InterviewQuestionVO {
+  hint?: string;
+  solution?: string;
+  mySubmissions?: InterviewSubmissionVO[];
+}
+
+export interface InterviewQuestionQuery {
+  pageNum?: number;
+  pageSize?: number;
+  categoryId?: string | number;
+  difficulty?: string;
+  keyword?: string;
+  companyId?: string | number;
+}
+
+export interface InterviewSubmissionVO {
+  id: string | number;
+  questionId: string | number;
+  userId: string | number;
+  code?: string;
+  content?: string;
+  language?: string;
+  answerType?: 'code' | 'text' | 'design';
+  status?: string;
+  isSuccess?: boolean;
+  runtime?: number;
+  memoryUsage?: number;
+  note?: string;
   createTime?: string;
 }
 
-export interface ResumeTemplate {
-  id: string;
+export interface InterviewExperienceVO {
+  id: string | number;
+  userId: string | number;
   title: string;
-  description: string;
-  cover: string;
-  category: string;
+  company: string;
+  position?: string;
+  year?: number;
+  month?: number;
+  summary?: string;
+  content?: string;
+  coverImage?: string;
+  tags?: string[];
+  tagList?: TagVO[];
+  isTop?: boolean;
+  viewCount: number;
+  likeCount: number;
+  commentCount: number;
+  status?: string;
+  liked?: boolean;
+  userNickname?: string;
+  userAvatar?: string;
+  user?: { id: string; nickname: string; avatar?: string };
+  createTime?: string;
+  updateTime?: string;
+}
+
+export interface InterviewExperienceQuery {
+  pageNum?: number;
+  pageSize?: number;
+  company?: string;
+  keyword?: string;
+  year?: number;
+  userId?: string | number;
+}
+
+export interface InterviewCommentVO {
+  id: string | number;
+  experienceId: string | number;
+  userId: string | number;
+  parentId?: string | number;
+  replyToUserId?: string | number;
+  content: string;
+  likeCount: number;
+  liked?: boolean;
+  status?: string;
+  userNickname?: string;
+  userAvatar?: string;
+  user?: { id: string; nickname: string; avatar?: string };
+  replyToUser?: { id: string; nickname: string };
+  replies?: InterviewCommentVO[];
+  createTime?: string;
+}
+
+export interface InterviewResumeTemplateVO {
+  id: string | number;
+  title: string;
+  description?: string;
+  cover?: string;
+  downloadUrl?: string;
+  category?: string;
+  fileType?: string;
+  fileSize?: number;
+  isPremium?: boolean;
+  usageGuide?: string;
   likeCount: number;
   downloadCount: number;
+  tags?: string[];
+  tagList?: TagVO[];
+  sort: number;
+  status: string;
+  liked?: boolean;
+  createTime?: string;
 }
 
-export interface InterviewHomeResponse {
-  categories: InterviewCategory[];
-  hotQuestions: InterviewQuestion[];
-  experiences: InterviewExperience[];
-  resumeTemplates: ResumeTemplate[];
+export interface InterviewResumeTemplateQuery {
+  pageNum?: number;
+  pageSize?: number;
+  category?: string;
+  keyword?: string;
+  fileType?: string;
 }
 
-export interface QuestionListParams {
+export interface InterviewBookmarkVO {
+  id: string | number;
+  questionId: string | number;
+  userId: string | number;
+  note?: string;
+  question?: InterviewQuestionVO;
+  createTime?: string;
+}
+
+export interface InterviewAttemptVO {
+  id: string | number;
+  questionId: string | number;
+  userId: string | number;
+  attemptCount: number;
+  status: 'not_attempted' | 'attempted' | 'solved' | string;
+  lastAttemptAt?: string;
+  firstSolvedAt?: string;
+  lastSolvedAt?: string;
+  question?: InterviewQuestionVO;
+}
+
+export interface InterviewHomeDataVO {
+  categories: InterviewCategoryVO[];
+  hotQuestions: InterviewQuestionVO[];
+  hotExperiences: InterviewExperienceVO[];
+  resumeTemplates: InterviewResumeTemplateVO[];
+  hotCompanies: InterviewCompanyVO[];
+  totalQuestionCount?: number;
+  totalSubmissionCount?: number;
+}
+
+export interface PageResult<T> {
+  list: T[];
+  total: number;
   page?: number;
   pageSize?: number;
-  categoryId?: string;
-  difficulty?: string;
+}
+
+// ==================== 通用标签（通用标签系统）====================
+
+export interface TagVO {
+  id?: string | number;
+  name: string;
+  slug?: string;
+  module?: string;
+  referenceCount?: number;
+  sort?: number;
+  status?: string;
+  createTime?: string;
 }

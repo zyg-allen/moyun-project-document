@@ -2,6 +2,7 @@ package com.moyun.system.mapper;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.moyun.system.domain.entity.SysLogininfor;
+import com.moyun.system.domain.query.LogininforQuery;
 import org.apache.ibatis.annotations.Mapper;
 
 import java.util.List;
@@ -17,10 +18,10 @@ public interface SysLogininforMapper extends BaseMapper<SysLogininfor> {
     /**
      * 查询系统访问记录集合
      *
-     * @param logininfor 访问记录对象
+     * @param query 访问记录查询条件
      * @return 访问记录集合
      */
-    List<SysLogininfor> selectLogininforList(SysLogininfor logininfor);
+    List<SysLogininfor> selectLogininforList(LogininforQuery query);
 
     /**
      * 批量删除系统访问记录

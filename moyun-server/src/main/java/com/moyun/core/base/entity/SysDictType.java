@@ -1,19 +1,21 @@
 package com.moyun.core.base.entity;
 
-import com.moyun.common.annotation.Excel;
-import com.moyun.common.annotation.Excel.ColumnType;
-import com.moyun.core.base.BaseEntity;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
-import org.apache.commons.lang3.builder.ToStringBuilder;
-import org.apache.commons.lang3.builder.ToStringStyle;
+
+import lombok.Data;
+
+import com.moyun.common.annotation.Excel.ColumnType;
+import com.moyun.common.annotation.Excel;
+import com.moyun.core.base.BaseEntity;
 
 /**
  * 字典类型表 sys_dict_type
  *
  * @author ruoyi
  */
+@Data
 public class SysDictType extends BaseEntity {
     private static final long serialVersionUID = 1L;
 
@@ -41,22 +43,10 @@ public class SysDictType extends BaseEntity {
     @Excel(name = "状态", readConverterExp = "0=正常,1=停用")
     private String status;
 
-    public Long getDictId() {
-        return dictId;
-    }
-
-    public void setDictId(Long dictId) {
-        this.dictId = dictId;
-    }
-
     @NotBlank(message = "字典名称不能为空")
     @Size(min = 0, max = 100, message = "字典类型名称长度不能超过100个字符")
     public String getDictName() {
         return dictName;
-    }
-
-    public void setDictName(String dictName) {
-        this.dictName = dictName;
     }
 
     @NotBlank(message = "字典类型不能为空")
@@ -64,32 +54,5 @@ public class SysDictType extends BaseEntity {
     @Pattern(regexp = "^[a-z][a-z0-9_]*$", message = "字典类型必须以字母开头，且只能为（小写字母，数字，下滑线）")
     public String getDictType() {
         return dictType;
-    }
-
-    public void setDictType(String dictType) {
-        this.dictType = dictType;
-    }
-
-    public String getStatus() {
-        return status;
-    }
-
-    public void setStatus(String status) {
-        this.status = status;
-    }
-
-    @Override
-    public String toString() {
-        return new ToStringBuilder(this, ToStringStyle.MULTI_LINE_STYLE)
-                .append("dictId", getDictId())
-                .append("dictName", getDictName())
-                .append("dictType", getDictType())
-                .append("status", getStatus())
-                .append("createBy", getCreateBy())
-                .append("createTime", getCreateTime())
-                .append("updateBy", getUpdateBy())
-                .append("updateTime", getUpdateTime())
-                .append("remark", getRemark())
-                .toString();
     }
 }

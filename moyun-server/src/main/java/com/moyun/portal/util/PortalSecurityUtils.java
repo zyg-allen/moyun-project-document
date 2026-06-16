@@ -1,9 +1,10 @@
 package com.moyun.portal.util;
 
-import com.moyun.portal.domain.entity.PortalUser;
-import com.moyun.portal.domain.model.PortalLoginUser;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
+
+import com.moyun.portal.domain.entity.PortalUser;
+import com.moyun.portal.domain.model.PortalLoginUser;
 
 /**
  * 门户安全工具类

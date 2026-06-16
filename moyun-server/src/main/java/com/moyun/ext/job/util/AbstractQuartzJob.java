@@ -9,10 +9,9 @@ import com.moyun.util.spring.SpringUtils;
 import com.moyun.ext.job.domain.entity.SysJob;
 import com.moyun.ext.job.domain.entity.SysJobLog;
 import com.moyun.ext.job.service.ISysJobLogService;
+import lombok.extern.slf4j.Slf4j;
 import org.quartz.Job;
 import org.quartz.JobExecutionContext;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.util.Date;
 
@@ -21,8 +20,8 @@ import java.util.Date;
  *
  * @author ruoyi
  */
+@Slf4j
 public abstract class AbstractQuartzJob implements Job {
-    private static final Logger log = LoggerFactory.getLogger(AbstractQuartzJob.class);
 
     private static ThreadLocal<Date> threadLocal = new ThreadLocal<>();
 

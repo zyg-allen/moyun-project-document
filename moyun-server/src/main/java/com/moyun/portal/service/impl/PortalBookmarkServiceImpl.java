@@ -1,16 +1,17 @@
 package com.moyun.portal.service.impl;
 
+import java.util.List;
+
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
 import com.moyun.portal.domain.entity.PortalBookmark;
 import com.moyun.portal.domain.query.BookmarkQuery;
 import com.moyun.portal.mapper.PortalBookmarkMapper;
 import com.moyun.portal.service.IPortalBookmarkService;
 import com.moyun.portal.util.PortalSecurityUtils;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Service;
-
-import java.util.List;
 
 /**
  * 门户收藏 业务层处理

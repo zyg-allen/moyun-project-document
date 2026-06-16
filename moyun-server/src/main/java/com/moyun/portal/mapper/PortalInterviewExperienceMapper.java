@@ -1,10 +1,11 @@
 package com.moyun.portal.mapper;
 
+import java.util.List;
+
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
-import com.moyun.portal.domain.entity.PortalInterviewExperience;
 import org.apache.ibatis.annotations.Mapper;
 
-import java.util.List;
+import com.moyun.portal.domain.entity.PortalInterviewExperience;
 
 /**
  * 门户面试经验表 数据层
@@ -61,4 +62,14 @@ public interface PortalInterviewExperienceMapper extends BaseMapper<PortalInterv
      * @return 结果
      */
     public int deletePortalInterviewExperienceByIds(Long[] ids);
+
+    /**
+     * 浏览数 +1
+     */
+    void incrementViewCount(Long id);
+
+    /**
+     * 评论数 +1
+     */
+    void incrementCommentCount(Long id);
 }

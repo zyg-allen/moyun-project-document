@@ -1,5 +1,6 @@
 package com.moyun.ext.flowable.listener;
 
+import lombok.extern.slf4j.Slf4j;
 import org.flowable.engine.delegate.TaskListener;
 import org.flowable.task.service.delegate.DelegateTask;
 import org.slf4j.Logger;
@@ -12,10 +13,9 @@ import org.springframework.stereotype.Component;
  * @author Tony
  * @date 2021-04-03
  */
+@Slf4j
 @Component
 public class FlowTaskListener implements TaskListener {
-
-    private static final Logger log = LoggerFactory.getLogger(FlowTaskListener.class);
 
     @Override
     public void notify(DelegateTask delegateTask) {

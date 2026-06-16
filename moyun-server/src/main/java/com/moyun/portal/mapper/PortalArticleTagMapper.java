@@ -1,10 +1,11 @@
 package com.moyun.portal.mapper;
 
+import java.util.List;
+
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
-import com.moyun.portal.domain.entity.PortalArticleTag;
 import org.apache.ibatis.annotations.Mapper;
 
-import java.util.List;
+import com.moyun.portal.domain.entity.PortalArticleTag;
 
 /**
  * 门户文章标签关联表 数据层

@@ -1,5 +1,10 @@
 package com.moyun.ext.cms.domain.vo;
 
+import java.time.LocalDateTime;
+
+import com.fasterxml.jackson.annotation.JsonFormat;
+import lombok.Data;
+
 import com.moyun.core.base.BaseEntity;
 
 /**
@@ -7,8 +12,8 @@ import com.moyun.core.base.BaseEntity;
  *
  * @author moyun
  */
-public class CmsTagVO extends BaseEntity
-{
+@Data
+public class CmsTagVO extends BaseEntity {
     private static final long serialVersionUID = 1L;
 
     /** 标签ID */
@@ -29,63 +34,6 @@ public class CmsTagVO extends BaseEntity
     /** 文章数量 */
     private Integer articleCount;
 
-    public Long getId()
-    {
-        return id;
-    }
-
-    public void setId(Long id)
-    {
-        this.id = id;
-    }
-
-    public String getName()
-    {
-        return name;
-    }
-
-    public void setName(String name)
-    {
-        this.name = name;
-    }
-
-    public String getSlug()
-    {
-        return slug;
-    }
-
-    public void setSlug(String slug)
-    {
-        this.slug = slug;
-    }
-
-    public Integer getSort()
-    {
-        return sort;
-    }
-
-    public void setSort(Integer sort)
-    {
-        this.sort = sort;
-    }
-
-    public String getStatus()
-    {
-        return status;
-    }
-
-    public void setStatus(String status)
-    {
-        this.status = status;
-    }
-
-    public Integer getArticleCount()
-    {
-        return articleCount;
-    }
-
-    public void setArticleCount(Integer articleCount)
-    {
-        this.articleCount = articleCount;
-    }
+    /** 备注 */
+    private String remark;
 }

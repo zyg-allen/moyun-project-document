@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.moyun.portal.mapper.PortalInterviewCommentLikeMapper">
+
+    <resultMap type="com.moyun.portal.domain.entity.PortalInterviewCommentLike" id="PortalInterviewCommentLikeResult">
+        <id     property="id"         column="id"         />
+        <result property="commentId"  column="comment_id" />
+        <result property="userId"     column="user_id"    />
+        <result property="createTime" column="create_time" />
+    </resultMap>
+
+    <select id="selectLike" resultMap="PortalInterviewCommentLikeResult">
+        select id, comment_id, user_id, create_time
+        from portal_interview_comment_like
+        where comment_id = #{commentId} and user_id = #{userId}
+        limit 1
+    </select>
+
+</mapper>

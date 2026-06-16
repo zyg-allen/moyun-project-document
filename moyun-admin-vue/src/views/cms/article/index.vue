@@ -1,136 +1,139 @@
 <template>
   <div class="app-container">
     <!-- 搜索表单 -->
-    <el-form :model="queryParams" ref="queryRef" :inline="true" v-show="showSearch" label-width="68px">
-      <el-form-item label="文章标题" prop="title">
+    <el-form :model="queryParams" :inline="true" class="search-form">
+      <el-form-item label="文章标题">
         <el-input
           v-model="queryParams.title"
           placeholder="请输入文章标题"
           clearable
-          style="width: 200px"
           @keyup.enter="handleQuery"
         />
       </el-form-item>
-      <el-form-item label="顶级分类" prop="rootCategoryId">
-        <el-select v-model="queryParams.rootCategoryId" placeholder="请选择顶级分类" clearable style="width: 200px">
-          <el-option
-            v-for="item in rootCategoryOptions"
-            :key="item.id"
-            :label="item.name"
-            :value="item.id"
-          />
-        </el-select>
-      </el-form-item>
-      <el-form-item label="分类" prop="categoryId">
-        <el-select v-model="queryParams.categoryId" placeholder="请选择分类" clearable style="width: 200px">
-          <el-option
-            v-for="item in categoryOptions"
-            :key="item.id"
-            :label="item.name"
-            :value="item.id"
-          />
-        </el-select>
-      </el-form-item>
-      <el-form-item label="发布状态" prop="status">
-        <el-select v-model="queryParams.status" placeholder="发布状态" clearable style="width: 200px">
+      <el-form-item label="文章状态">
+        <el-select v-model="queryParams.status" placeholder="请选择状态" clearable>
+          <el-option label="全部" value="" />
           <el-option label="草稿" value="draft" />
           <el-option label="已发布" value="published" />
           <el-option label="已归档" value="archived" />
         </el-select>
       </el-form-item>
+      <el-form-item label="分类">
+        <el-select v-model="queryParams.categoryId" placeholder="请选择分类" clearable filterable>
+          <el-option label="全部" value="" />
+          <el-option
+            v-for="cat in categoryOptions"
+            :key="cat.id"
+            :label="cat.name"
+            :value="cat.id"
+          />
+        </el-select>
+      </el-form-item>
       <el-form-item>
-        <el-button type="primary" icon="Search" @click="handleQuery">搜索</el-button>
-        <el-button icon="Refresh" @click="resetQuery">重置</el-button>
+        <el-button type="primary" @click="handleQuery">
+          <el-icon><Search /></el-icon> 搜索
+        </el-button>
+        <el-button @click="resetQuery">
+          <el-icon><Refresh /></el-icon> 重置
+        </el-button>
       </el-form-item>
     </el-form>
 
     <!-- 操作按钮 -->
-    <el-row :gutter="10" class="mb8">
-      <el-col :span="1.5">
-        <el-button
-          type="primary"
-          plain
-          icon="Plus"
-          @click="handleAdd"
-          v-hasPermi="['cms:article:add']"
-        >新增</el-button>
-      </el-col>
-      <el-col :span="1.5">
-        <el-button
-          type="danger"
-          plain
-          icon="Delete"
-          :disabled="multiple"
-          @click="handleDelete"
-          v-hasPermi="['cms:article:remove']"
-        >删除</el-button>
-      </el-col>
-      <right-toolbar v-model:showSearch="showSearch" @queryTable="getList" :columns="columns"></right-toolbar>
-    </el-row>
+    <div class="button-group">
+      <el-button type="primary" @click="handleAdd">
+        <el-icon><Plus /></el-icon> 新增
+      </el-button>
+      <el-button type="danger" :disabled="multiple" @click="handleDelete">
+        <el-icon><Delete /></el-icon> 删除
+      </el-button>
+    </div>
 
-    <!-- 数据表格 -->
-    <el-table v-loading="loading" :data="articleList" @selection-change="handleSelectionChange">
+    <!-- 文章列表 -->
+    <el-table
+      v-loading="loading"
+      :data="articleList"
+      @selection-change="handleSelectionChange"
+    >
       <el-table-column type="selection" width="55" align="center" />
-      <el-table-column label="文章编号" align="center" prop="id" width="80" />
-      <el-table-column label="文章标题" align="center" prop="title" width="200" :show-overflow-tooltip="true" />
-      <el-table-column label="封面" align="center" prop="cover" width="100">
-        <template #default="scope">
+      <el-table-column label="ID" prop="id" width="80" />
+      <el-table-column label="封面" width="120">
+        <template #default="{ row }">
           <el-image
-            v-if="scope.row.cover"
-            :src="scope.row.cover"
-            :preview-src-list="[scope.row.cover]"
+            v-if="row.cover"
+            :src="row.cover"
             fit="cover"
-            style="width: 80px; height: 50px"
+            class="article-cover"
+            :preview-src-list="[row.cover]"
           />
+          <span v-else class="no-cover">无封面</span>
         </template>
       </el-table-column>
-      <el-table-column label="分类" align="center" prop="categoryName" width="120" />
-      <el-table-column label="作者" align="center" prop="authorNickname" width="100" />
-      <el-table-column label="浏览量" align="center" prop="views" width="80" />
-      <el-table-column label="发布状态" align="center" prop="status" width="100">
-        <template #default="scope">
-          <el-tag :type="getStatusType(scope.row.status)">
-            {{ getStatusText(scope.row.status) }}
+      <el-table-column label="标题" prop="title" min-width="200" show-overflow-tooltip />
+      <el-table-column label="作者" width="150">
+        <template #default="{ row }">
+          <span>{{ row.authorNickname || row.authorUsername || '-' }}</span>
+        </template>
+      </el-table-column>
+      <el-table-column label="分类" width="120">
+        <template #default="{ row }">
+          <el-tag>{{ row.categoryName || '-' }}</el-tag>
+        </template>
+      </el-table-column>
+      <el-table-column label="状态" width="100">
+        <template #default="{ row }">
+          <el-tag :type="getStatusType(row.status)">
+            {{ getStatusLabel(row.status) }}
           </el-tag>
         </template>
       </el-table-column>
-      <el-table-column label="创建时间" align="center" prop="createTime" width="160">
-        <template #default="scope">
-          <span>{{ parseTime(scope.row.createTime) }}</span>
+      <el-table-column label="浏览" width="80">
+        <template #default="{ row }">
+          <span>{{ row.views || 0 }}</span>
         </template>
       </el-table-column>
-      <el-table-column label="操作" align="center" class-name="small-padding fixed-width" width="240">
-        <template #default="scope">
-          <el-button
-            link
-            type="primary"
-            icon="Edit"
-            @click="handleUpdate(scope.row)"
-            v-hasPermi="['cms:article:edit']"
-          >修改</el-button>
-          <el-button
-            link
-            type="success"
-            icon="Check"
-            @click="handleAudit(scope.row, 'published')"
-            v-if="scope.row.status === 'draft'"
-            v-hasPermi="['cms:article:audit']"
-          >通过</el-button>
-          <el-button
-            link
-            type="danger"
-            icon="Close"
-            @click="handleAudit(scope.row, 'archived')"
-            v-if="scope.row.status === 'draft'"
-            v-hasPermi="['cms:article:audit']"
-          >拒绝</el-button>
-          <el-button
-            link
-            type="primary"
-            icon="Delete"
-            @click="handleDelete(scope.row)"
-            v-hasPermi="['cms:article:remove']"
-          >删除</el-button>
+      <el-table-column label="点赞" width="80">
+        <template #default="{ row }">
+          <span>{{ row.likes || 0 }}</span>
+        </template>
+      </el-table-column>
+      <el-table-column label="评论" width="80">
+        <template #default="{ row }">
+          <span>{{ row.comments || 0 }}</span>
+        </template>
+      </el-table-column>
+      <el-table-column label="精选" width="80">
+        <template #default="{ row }">
+          <el-switch
+            v-model="row.isFeatured"
+            :active-value="true"
+            :inactive-value="false"
+            @change="handleFeaturedChange(row)"
+          />
+        </template>
+      </el-table-column>
+      <el-table-column label="置顶" width="80">
+        <template #default="{ row }">
+          <el-switch
+            v-model="row.isTop"
+            :active-value="true"
+            :inactive-value="false"
+            @change="handleTopChange(row)"
+          />
+        </template>
+      </el-table-column>
+      <el-table-column label="创建时间" width="180" prop="createTime" />
+      <el-table-column label="操作" width="280" fixed="right">
+        <template #default="{ row }">
+          <el-button link type="primary" @click="handleView(row)">
+            查看
+          </el-button>
+          <el-button link type="primary" @click="handleEdit(row)">
+            编辑
+          </el-button>
+          <el-button link type="danger" @click="handleDelete(row)">
+            删除
+          </el-button>
         </template>
       </el-table-column>
     </el-table>
@@ -146,138 +149,188 @@
   </div>
 </template>
 
-<script setup name="CmsArticle">
-import { listArticle, delArticle, auditArticle } from "@/api/cms/article";
-import { listCategory } from "@/api/cms/category";
+<script setup lang="ts">
+import { ref, reactive, onMounted, computed } from 'vue';
+import { useRouter } from 'vue-router';
+import { ElMessage, ElMessageBox } from 'element-plus';
+import { Search, Refresh, Plus, Delete } from '@element-plus/icons-vue';
+import { listArticle, delArticle, delArticleBatch, updateArticle, setFeatured, setTop } from '@/api/cms/article';
+import { listCategory } from '@/api/cms/category';
 
-const { proxy } = getCurrentInstance();
 const router = useRouter();
 
-// 表格数据
-const articleList = ref([]);
-const categoryOptions = ref([]);
-const rootCategoryOptions = ref([]);
+// 列表数据
 const loading = ref(true);
-const showSearch = ref(true);
-const ids = ref([]);
-const single = ref(true);
-const multiple = ref(true);
+const articleList = ref<any[]>([]);
 const total = ref(0);
-
-// 列显隐信息
-const columns = ref([
-  { key: 0, label: "文章编号", visible: true },
-  { key: 1, label: "文章标题", visible: true },
-  { key: 2, label: "封面", visible: true },
-  { key: 3, label: "分类", visible: true },
-  { key: 4, label: "作者", visible: true },
-  { key: 5, label: "浏览量", visible: true },
-  { key: 6, label: "发布状态", visible: true },
-  { key: 7, label: "创建时间", visible: true }
-]);
+const categoryOptions = ref<any[]>([]);
 
 // 查询参数
 const queryParams = reactive({
   pageNum: 1,
   pageSize: 10,
-  title: undefined,
-  rootCategoryId: undefined,
-  categoryId: undefined,
-  status: undefined
+  title: '',
+  status: '',
+  categoryId: ''
 });
 
-// 获取状态类型
-function getStatusType(status) {
-  const typeMap = {
-    draft: "warning",
-    published: "success",
-    archived: "info"
-  };
-  return typeMap[status] || "info";
+// 选中行
+const ids = ref<number[]>([]);
+const multiple = computed(() => ids.value.length === 0);
+
+// 状态映射
+const statusMap = {
+  draft: { label: '草稿', type: 'info' },
+  published: { label: '已发布', type: 'success' },
+  archived: { label: '已归档', type: 'warning' }
+};
+
+function getStatusLabel(status: string) {
+  return statusMap[status]?.label || status;
 }
 
-// 获取状态文本
-function getStatusText(status) {
-  const textMap = {
-    draft: "草稿",
-    published: "已发布",
-    archived: "已归档"
-  };
-  return textMap[status] || "未知";
+function getStatusType(status: string) {
+  return statusMap[status]?.type || 'info';
 }
 
-// 查询文章列表
-function getList() {
+// 加载分类选项
+async function loadCategories() {
+  try {
+    const res = await listCategory({ pageNum: 1, pageSize: 100 });
+    categoryOptions.value = res.rows || [];
+  } catch (error) {
+    console.error('加载分类失败:', error);
+  }
+}
+
+// 加载文章列表
+async function getList() {
   loading.value = true;
-  listArticle(queryParams).then(response => {
-    articleList.value = response.rows || [];
-    total.value = response.total || 0;
+  try {
+    const res = await listArticle(queryParams);
+    articleList.value = res.rows || [];
+    total.value = res.total || 0;
+  } catch (error) {
+    console.error('加载文章列表失败:', error);
+  } finally {
     loading.value = false;
-  });
+  }
 }
 
-// 查询分类列表
-function getCategoryList() {
-  listCategory({ pageNum: 1, pageSize: 100 }).then(response => {
-    categoryOptions.value = response.rows || [];
-    // 筛选出顶级分类（parentId 为空或 0）
-    rootCategoryOptions.value = categoryOptions.value.filter(item => !item.parentId || item.parentId === 0);
-  });
-}
-
-// 搜索按钮操作
+// 搜索
 function handleQuery() {
   queryParams.pageNum = 1;
   getList();
 }
 
-// 重置按钮操作
+// 重置
 function resetQuery() {
-  proxy.resetForm("queryRef");
-  handleQuery();
+  queryParams.title = '';
+  queryParams.status = '';
+  queryParams.categoryId = '';
+  queryParams.pageNum = 1;
+  getList();
 }
 
-// 表格多选
-function handleSelectionChange(selection) {
-  ids.value = selection.map(item => item.id);
-  single.value = selection.length !== 1;
-  multiple.value = !selection.length;
-}
-
-// 新增按钮操作 - 跳转到编辑页面
+// 新增
 function handleAdd() {
   router.push('/cms/article/edit');
 }
 
-// 修改按钮操作 - 跳转到编辑页面
-function handleUpdate(row) {
-  const id = row.id || ids.value[0];
-  router.push(`/cms/article/edit/${id}`);
+// 查看
+function handleView(row: any) {
+  router.push({
+    path: '/cms/article/edit',
+    query: { id: row.id, mode: 'view' }
+  });
 }
 
-// 删除按钮操作
-function handleDelete(row) {
-  const articleIds = row.id || ids.value;
-  proxy.$modal.confirm('是否确认删除文章编号为"' + articleIds + '"的数据项？').then(function () {
-    return delArticle(articleIds);
-  }).then(() => {
+// 编辑
+function handleEdit(row: any) {
+  router.push({
+    path: '/cms/article/edit',
+    query: { id: row.id }
+  });
+}
+
+// 删除
+async function handleDelete(row: any) {
+  const articleIds = row.id ? [row.id] : ids.value;
+  try {
+    await ElMessageBox.confirm(
+      `是否确认删除文章ID为"${articleIds.join(',')}"的数据项？`,
+      '警告',
+      { confirmButtonText: '确定', cancelButtonText: '取消', type: 'warning' }
+    );
+    if (articleIds.length === 1) {
+      await delArticle(articleIds[0]);
+    } else {
+      await delArticleBatch(articleIds);
+    }
+    ElMessage.success('删除成功');
     getList();
-    proxy.$modal.msgSuccess("删除成功");
-  }).catch(() => {});
+  } catch (error: any) {
+    if (error !== 'cancel') {
+      ElMessage.error(error.message || '删除失败');
+    }
+  }
 }
 
-// 文章审核
-function handleAudit(row, status) {
-  const statusText = status === 'published' ? '通过' : '拒绝';
-  proxy.$modal.confirm('确认要' + statusText + '该文章吗？').then(function () {
-    return auditArticle(row.id, status);
-  }).then(() => {
-    proxy.$modal.msgSuccess("审核成功");
-    getList();
-  }).catch(() => {});
+// 精选切换
+async function handleFeaturedChange(row: any) {
+  try {
+    await setFeatured({ id: row.id, isFeatured: row.isFeatured });
+    ElMessage.success(row.isFeatured ? '设置精选成功' : '取消精选成功');
+  } catch (error: any) {
+    row.isFeatured = !row.isFeatured; // 回滚
+    ElMessage.error(error.message || '操作失败');
+  }
 }
 
-// 初始化查询
-getCategoryList();
-getList();
+// 置顶切换
+async function handleTopChange(row: any) {
+  try {
+    await setTop({ id: row.id, isTop: row.isTop });
+    ElMessage.success(row.isTop ? '设置置顶成功' : '取消置顶成功');
+  } catch (error: any) {
+    row.isTop = !row.isTop; // 回滚
+    ElMessage.error(error.message || '操作失败');
+  }
+}
+
+// 多选
+function handleSelectionChange(selection: any[]) {
+  ids.value = selection.map((item: any) => item.id);
+}
+
+// 初始化
+onMounted(() => {
+  loadCategories();
+  getList();
+});
 </script>
+
+<style scoped>
+.app-container {
+  padding: 20px;
+}
+
+.search-form {
+  margin-bottom: 16px;
+}
+
+.button-group {
+  margin-bottom: 16px;
+}
+
+.article-cover {
+  width: 80px;
+  height: 60px;
+  border-radius: 4px;
+}
+
+.no-cover {
+  color: #909399;
+  font-size: 12px;
+}
+</style>

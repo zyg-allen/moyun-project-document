@@ -1,5 +1,14 @@
 package com.moyun.portal.service.impl;
 
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
+import org.springframework.stereotype.Service;
+
 import com.moyun.common.constant.Constants;
 import com.moyun.core.base.AjaxResult;
 import com.moyun.core.base.model.LoginBody;
@@ -9,24 +18,15 @@ import com.moyun.portal.domain.model.PortalLoginUser;
 import com.moyun.portal.security.auth.PortalTokenService;
 import com.moyun.portal.service.IPortalUserService;
 import com.moyun.util.string.StringUtils;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.security.authentication.AuthenticationManager;
-import org.springframework.security.authentication.BadCredentialsException;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.core.Authentication;
-import org.springframework.stereotype.Service;
 
 /**
  * 门户登录服务
  *
  * @author moyun
  */
+@Slf4j
 @Service
 public class PortalLoginServiceImpl {
-    private static final Logger log = LoggerFactory.getLogger(PortalLoginServiceImpl.class);
 
     @Autowired
     @Qualifier("portalAuthenticationManager")

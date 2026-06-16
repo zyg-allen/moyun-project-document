@@ -6,8 +6,7 @@ import com.moyun.util.http.ServletUtils;
 import com.moyun.util.ip.AddressUtils;
 import com.moyun.util.ip.IpUtils;
 import jakarta.servlet.http.HttpServletRequest;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 
 import java.time.LocalDateTime;
 import java.util.TimerTask;
@@ -17,9 +16,8 @@ import java.util.TimerTask;
  *
  * @author ruoyi
  */
+@Slf4j
 public class AsyncFactory {
-
-    private static final Logger sys_user_logger = LoggerFactory.getLogger("sys-user");
 
     /**
      * 记录登录信息
@@ -42,7 +40,7 @@ public class AsyncFactory {
                 // 使用预先保存的 userAgent，不在异步线程中调用 ServletUtils.getRequest()
                 String os = userAgent != null ? userAgent : "unknown";
                 // 打印信息到日志
-                sys_user_logger.info("[{}]{}-{}-{}-{}", username, ip, address, message, os);
+                log.info("[{}]{}-{}-{}-{}", username, ip, address, message, os);
                 // 封装对象
                 SysLogininfor logininfor = new SysLogininfor();
                 logininfor.setUserName(username);

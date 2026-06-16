@@ -21,7 +21,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
 		values (#{userName}, #{status}, #{ipaddr}, #{loginLocation}, #{browser}, #{os}, #{msg}, sysdate())
 	</insert>
 	
-	<select id="selectLogininforList" parameterType="com.moyun.system.domain.entity.SysLogininfor" resultMap="SysLogininforResult">
+	<select id="selectLogininforList" parameterType="com.moyun.system.domain.query.LogininforQuery" resultMap="SysLogininforResult">
 		select info_id, user_name, ipaddr, login_location, browser, os, status, msg, login_time from sys_logininfor
 		<where>
 			<if test="ipaddr != null and ipaddr != ''">
@@ -33,11 +33,11 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
 			<if test="userName != null and userName != ''">
 				AND user_name like concat('%', #{userName}, '%')
 			</if>
-			<if test="params.beginTime != null and params.beginTime != ''"><!-- 寮€濮嬫椂闂存绱?-->
-				AND login_time &gt;= #{params.beginTime}
+			<if test="beginTime != null and beginTime != ''">
+				AND login_time &gt;= #{beginTime}
 			</if>
-			<if test="params.endTime != null and params.endTime != ''"><!-- 缁撴潫鏃堕棿妫€绱?-->
-				AND login_time &lt;= #{params.endTime}
+			<if test="endTime != null and endTime != ''">
+				AND login_time &lt;= #{endTime}
 			</if>
 		</where>
 		order by info_id desc

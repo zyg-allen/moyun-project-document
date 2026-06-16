@@ -1,16 +1,18 @@
 package com.moyun.ext.cms.domain.vo;
 
-import com.moyun.core.base.BaseEntity;
-
 import java.util.List;
+
+import lombok.Data;
+
+import com.moyun.core.base.BaseEntity;
 
 /**
  * 分类视图对象
  *
  * @author moyun
  */
-public class CmsCategoryVO extends BaseEntity
-{
+@Data
+public class CmsCategoryVO extends BaseEntity {
     private static final long serialVersionUID = 1L;
 
     /** 分类ID */
@@ -37,96 +39,9 @@ public class CmsCategoryVO extends BaseEntity
     /** 状态（0正常 1停用） */
     private String status;
 
+    /** 文章数量 */
+    private Integer articleCount;
+
     /** 子分类 */
     private List<CmsCategoryVO> children;
-
-    public Long getId()
-    {
-        return id;
-    }
-
-    public void setId(Long id)
-    {
-        this.id = id;
-    }
-
-    public String getName()
-    {
-        return name;
-    }
-
-    public void setName(String name)
-    {
-        this.name = name;
-    }
-
-    public String getSlug()
-    {
-        return slug;
-    }
-
-    public void setSlug(String slug)
-    {
-        this.slug = slug;
-    }
-
-    public String getDescription()
-    {
-        return description;
-    }
-
-    public void setDescription(String description)
-    {
-        this.description = description;
-    }
-
-    public String getIcon()
-    {
-        return icon;
-    }
-
-    public void setIcon(String icon)
-    {
-        this.icon = icon;
-    }
-
-    public Integer getSort()
-    {
-        return sort;
-    }
-
-    public void setSort(Integer sort)
-    {
-        this.sort = sort;
-    }
-
-    public Long getParentId()
-    {
-        return parentId;
-    }
-
-    public void setParentId(Long parentId)
-    {
-        this.parentId = parentId;
-    }
-
-    public String getStatus()
-    {
-        return status;
-    }
-
-    public void setStatus(String status)
-    {
-        this.status = status;
-    }
-
-    public List<CmsCategoryVO> getChildren()
-    {
-        return children;
-    }
-
-    public void setChildren(List<CmsCategoryVO> children)
-    {
-        this.children = children;
-    }
 }

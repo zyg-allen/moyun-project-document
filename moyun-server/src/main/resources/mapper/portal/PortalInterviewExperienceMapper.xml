@@ -12,8 +12,11 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         <result property="position"     column="position"      />
         <result property="year"         column="year"          />
         <result property="month"        column="month"         />
+        <result property="summary"      column="summary"       />
         <result property="content"      column="content"       />
+        <result property="coverImage"   column="cover_image"   />
         <result property="tags"         column="tags"          />
+        <result property="isTop"        column="is_top"        />
         <result property="viewCount"    column="view_count"    />
         <result property="likeCount"    column="like_count"    />
         <result property="commentCount" column="comment_count" />
@@ -26,7 +29,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
     </resultMap>
 
     <sql id="selectPortalInterviewExperienceVo">
-        select id, user_id, title, company, position, year, month, content, tags, view_count, like_count, comment_count, status, create_by, create_time, update_by, update_time, remark 
+        select id, user_id, title, company, position, year, month, summary, content, cover_image, tags, is_top, view_count, like_count, comment_count, status, create_by, create_time, update_by, update_time, remark
         from portal_interview_experience
     </sql>
 
@@ -63,8 +66,11 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             <if test="position != null and position != ''">position,</if>
             <if test="year != null">year,</if>
             <if test="month != null">month,</if>
+            <if test="summary != null and summary != ''">summary,</if>
             <if test="content != null and content != ''">content,</if>
+            <if test="coverImage != null and coverImage != ''">cover_image,</if>
             <if test="tags != null and tags != ''">tags,</if>
+            <if test="isTop != null">is_top,</if>
             <if test="viewCount != null">view_count,</if>
             <if test="likeCount != null">like_count,</if>
             <if test="commentCount != null">comment_count,</if>
@@ -80,8 +86,11 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             <if test="position != null and position != ''">#{position},</if>
             <if test="year != null">#{year},</if>
             <if test="month != null">#{month},</if>
+            <if test="summary != null and summary != ''">#{summary},</if>
             <if test="content != null and content != ''">#{content},</if>
+            <if test="coverImage != null and coverImage != ''">#{coverImage},</if>
             <if test="tags != null and tags != ''">#{tags},</if>
+            <if test="isTop != null">#{isTop},</if>
             <if test="viewCount != null">#{viewCount},</if>
             <if test="likeCount != null">#{likeCount},</if>
             <if test="commentCount != null">#{commentCount},</if>
@@ -101,8 +110,11 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             <if test="position != null and position != ''">position = #{position},</if>
             <if test="year != null">year = #{year},</if>
             <if test="month != null">month = #{month},</if>
+            <if test="summary != null and summary != ''">summary = #{summary},</if>
             <if test="content != null and content != ''">content = #{content},</if>
+            <if test="coverImage != null and coverImage != ''">cover_image = #{coverImage},</if>
             <if test="tags != null and tags != ''">tags = #{tags},</if>
+            <if test="isTop != null">is_top = #{isTop},</if>
             <if test="viewCount != null">view_count = #{viewCount},</if>
             <if test="likeCount != null">like_count = #{likeCount},</if>
             <if test="commentCount != null">comment_count = #{commentCount},</if>
@@ -124,4 +136,14 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             #{id}
         </foreach>
     </delete>
+
+    <!-- 浏览数 +1 -->
+    <update id="incrementViewCount" parameterType="Long">
+        update portal_interview_experience set view_count = coalesce(view_count, 0) + 1 where id = #{id}
+    </update>
+
+    <!-- 评论数 +1 -->
+    <update id="incrementCommentCount" parameterType="Long">
+        update portal_interview_experience set comment_count = coalesce(comment_count, 0) + 1 where id = #{id}
+    </update>
 </mapper>

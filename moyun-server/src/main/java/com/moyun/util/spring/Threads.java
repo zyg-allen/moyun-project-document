@@ -1,12 +1,11 @@
 package com.moyun.util.spring;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 
 import java.util.concurrent.*;
 
+@Slf4j
 public class Threads {
-    private static final Logger log = LoggerFactory.getLogger(Threads.class);
 
     public static void sleep(long milliseconds) {
         try {

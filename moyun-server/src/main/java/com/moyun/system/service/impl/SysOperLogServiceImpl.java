@@ -1,6 +1,7 @@
 package com.moyun.system.service.impl;
 
 import com.moyun.system.domain.entity.SysOperLog;
+import com.moyun.system.domain.query.OperLogQuery;
 import com.moyun.system.mapper.SysOperLogMapper;
 import com.moyun.system.service.ISysOperLogService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -32,12 +33,12 @@ public class SysOperLogServiceImpl implements ISysOperLogService {
     /**
      * 查询系统操作日志集合
      *
-     * @param operLog 操作日志对象
+     * @param query 操作日志查询条件
      * @return 操作日志集合
      */
     @Override
-    public List<SysOperLog> selectOperLogList(SysOperLog operLog) {
-        return operLogMapper.selectOperLogList(operLog);
+    public List<SysOperLog> selectOperLogList(OperLogQuery query) {
+        return operLogMapper.selectOperLogList(query);
     }
 
     /**

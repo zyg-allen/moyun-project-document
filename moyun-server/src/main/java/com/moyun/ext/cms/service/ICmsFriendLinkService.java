@@ -1,11 +1,12 @@
 package com.moyun.ext.cms.service;
 
+import java.util.List;
+
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+
 import com.moyun.ext.cms.domain.query.CmsFriendLinkQuery;
 import com.moyun.ext.cms.domain.vo.CmsFriendLinkVO;
 import com.moyun.portal.domain.entity.PortalFriendLink;
-
-import java.util.List;
 
 public interface ICmsFriendLinkService
 {

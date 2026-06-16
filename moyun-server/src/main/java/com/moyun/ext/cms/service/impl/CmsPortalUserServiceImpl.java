@@ -1,19 +1,20 @@
 package com.moyun.ext.cms.service.impl;
 
+import java.util.Arrays;
+import java.util.List;
+
 import cn.hutool.core.bean.BeanUtil;
 import cn.hutool.core.util.ObjectUtil;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
 import com.moyun.ext.cms.domain.query.CmsPortalUserQuery;
 import com.moyun.ext.cms.domain.vo.CmsPortalUserVO;
 import com.moyun.ext.cms.service.ICmsPortalUserService;
 import com.moyun.portal.domain.entity.PortalUser;
 import com.moyun.portal.mapper.PortalUserMapper;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Service;
-
-import java.util.Arrays;
-import java.util.List;
 
 /**
  * CMS门户用户服务实现类
@@ -29,11 +30,17 @@ public class CmsPortalUserServiceImpl implements ICmsPortalUserService
     @Override
     public Page<CmsPortalUserVO> selectUserPage(Page<CmsPortalUserVO> page, CmsPortalUserQuery query)
     {
-        Page<PortalUser> entityPage = new Page<>(page.getCurrent(), page.getSize());
-        entityPage = portalUserMapper.selectPage(entityPage, buildQueryWrapper(query));
-        
-        Page<CmsPortalUserVO> voPage = new Page<>(entityPage.getCurrent(), entityPage.getSize(), entityPage.getTotal());
-        List<CmsPortalUserVO> voList = BeanUtil.copyToList(entityPage.getRecords(), CmsPortalUserVO.class);
+        LambdaQueryWrapper<PortalUser> wrapper = buildQueryWrapper(query);
+        long total = portalUserMapper.selectCount(wrapper);
+
+        List<PortalUser> entityList = portalUserMapper.selectList(wrapper);
+
+        int start = (int) ((page.getCurrent() - 1) * page.getSize());
+        int end = (int) Math.min(start + page.getSize(), entityList.size());
+        List<PortalUser> pageList = start < entityList.size() ? entityList.subList(start, end) : new java.util.ArrayList<>();
+
+        Page<CmsPortalUserVO> voPage = new Page<>(page.getCurrent(), page.getSize(), total);
+        List<CmsPortalUserVO> voList = BeanUtil.copyToList(pageList, CmsPortalUserVO.class);
         voPage.setRecords(voList);
         return voPage;
     }

@@ -9,19 +9,28 @@ import com.moyun.util.file.FileUploadUtils;
 import com.moyun.util.file.FileUtils;
 import com.moyun.util.file.MinioUtils;
 import com.moyun.util.string.StringUtils;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
+/**
+ * 文件上传
+ *
+ * @author ruoyi
+ */
+@Anonymous
+@Tag(name = "文件上传", description = "通用文件上传接口")
 @RestController
 @RequestMapping("/file")
+@Slf4j
 public class FileUploadController {
-
-    private final Logger log = LoggerFactory.getLogger(FileUploadController.class);
 
     @Autowired
     private ServerConfig serverConfig;
@@ -29,10 +38,13 @@ public class FileUploadController {
     @Autowired
     private MinioUtils minioUtils;
 
-    @Anonymous
+    /**
+     * 文件上传
+     */
+    @Operation(summary = "文件上传", description = "上传文件到服务器或MinIO存储")
     @PostMapping("/upload")
-    @SuppressWarnings("DuplicatedCode")
-    public AjaxResult uploadFile(MultipartFile file) {
+    public AjaxResult uploadFile(
+            @Parameter(description = "上传的文件") @RequestParam("file") MultipartFile file) {
         try {
             log.info("文件 {} 上传中...", file.getOriginalFilename());
 

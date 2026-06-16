@@ -11,6 +11,9 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         <result property="cover"        column="cover"         />
         <result property="downloadUrl"  column="download_url"  />
         <result property="category"     column="category"      />
+        <result property="fileType"     column="file_type"     />
+        <result property="fileSize"     column="file_size"     />
+        <result property="isPremium"    column="is_premium"    />
         <result property="likeCount"    column="like_count"    />
         <result property="downloadCount" column="download_count" />
         <result property="sort"         column="sort"          />
@@ -23,7 +26,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
     </resultMap>
 
     <sql id="selectPortalInterviewResumeTemplateVo">
-        select id, title, description, cover, download_url, category, like_count, download_count, sort, status, create_by, create_time, update_by, update_time, remark 
+        select id, title, description, cover, download_url, category, file_type, file_size, is_premium, like_count, download_count, sort, status, create_by, create_time, update_by, update_time, remark
         from portal_interview_resume_template
     </sql>
 
@@ -47,7 +50,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         <include refid="selectPortalInterviewResumeTemplateVo"/>
         where id = #{id}
     </select>
-        
+
     <insert id="insertPortalInterviewResumeTemplate" parameterType="com.moyun.portal.domain.entity.PortalInterviewResumeTemplate" useGeneratedKeys="true" keyProperty="id">
         insert into portal_interview_resume_template
         <trim prefix="(" suffix=")" suffixOverrides=",">
@@ -56,6 +59,11 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             <if test="cover != null and cover != ''">cover,</if>
             <if test="downloadUrl != null and downloadUrl != ''">download_url,</if>
             <if test="category != null and category != ''">category,</if>
+            <if test="fileType != null and fileType != ''">file_type,</if>
+            <if test="fileSize != null">file_size,</if>
+            <if test="isPremium != null">is_premium,</if>
+            <if test="usageGuide != null and usageGuide != ''">usage_guide,</if>
+            <if test="tags != null and tags != ''">tags,</if>
             <if test="likeCount != null">like_count,</if>
             <if test="downloadCount != null">download_count,</if>
             <if test="sort != null">sort,</if>
@@ -70,6 +78,11 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             <if test="cover != null and cover != ''">#{cover},</if>
             <if test="downloadUrl != null and downloadUrl != ''">#{downloadUrl},</if>
             <if test="category != null and category != ''">#{category},</if>
+            <if test="fileType != null and fileType != ''">#{fileType},</if>
+            <if test="fileSize != null">#{fileSize},</if>
+            <if test="isPremium != null">#{isPremium},</if>
+            <if test="usageGuide != null and usageGuide != ''">#{usageGuide},</if>
+            <if test="tags != null and tags != ''">#{tags},</if>
             <if test="likeCount != null">#{likeCount},</if>
             <if test="downloadCount != null">#{downloadCount},</if>
             <if test="sort != null">#{sort},</if>
@@ -88,6 +101,11 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             <if test="cover != null and cover != ''">cover = #{cover},</if>
             <if test="downloadUrl != null and downloadUrl != ''">download_url = #{downloadUrl},</if>
             <if test="category != null and category != ''">category = #{category},</if>
+            <if test="fileType != null and fileType != ''">file_type = #{fileType},</if>
+            <if test="fileSize != null">file_size = #{fileSize},</if>
+            <if test="isPremium != null">is_premium = #{isPremium},</if>
+            <if test="usageGuide != null and usageGuide != ''">usage_guide = #{usageGuide},</if>
+            <if test="tags != null and tags != ''">tags = #{tags},</if>
             <if test="likeCount != null">like_count = #{likeCount},</if>
             <if test="downloadCount != null">download_count = #{downloadCount},</if>
             <if test="sort != null">sort = #{sort},</if>

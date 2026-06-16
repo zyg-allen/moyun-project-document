@@ -1,11 +1,12 @@
 package com.moyun.portal.service;
 
+import java.util.List;
+
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.IService;
+
 import com.moyun.portal.domain.entity.PortalBookQuote;
 import com.moyun.portal.domain.query.BookQuoteQuery;
-
-import java.util.List;
 
 /**
  * 金句摘录 业务层接口

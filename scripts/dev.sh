@@ -18,6 +18,20 @@ print_header() {
   echo "==============================================="
 }
 
+check_db() {
+  if ! command -v mysql &>/dev/null; then
+    echo "⚠️  未找到 mysql 命令，请先安装 MySQL 客户端"
+    return 1
+  fi
+  if ! mysql -u root -p123456 -e "USE moyun-db; SHOW TABLES;" &>/dev/null; then
+    echo "⚠️  数据库 'moyun-db' 不存在或密码不对（当前默认 root/123456）"
+    echo "   请先执行: ./scripts/dev.sh db-init"
+    return 1
+  fi
+  echo "✅ 数据库 moyun-db 连接正常"
+  return 0
+}
+
 case "$cmd" in
   status)
     print_header
@@ -26,19 +40,75 @@ case "$cmd" in
     echo "  - moyun-admin-vue : 后台管理 (Vue 3 + Element Plus)"
     echo "  - moyun-portal    : 用户前台 (Vue 3 + TypeScript + Tailwind)"
     echo ""
-    echo "🚀 快速命令:"
-    echo "  ./scripts/dev.sh install  # 安装所有前端依赖"
-    echo "  ./scripts/dev.sh portal   # 启动前台 (3000)"
-    echo "  ./scripts/dev.sh admin    # 启动后台 (80)"
-    echo "  ./scripts/dev.sh server   # 启动后端 (8080)"
-    echo "  ./scripts/dev.sh all      # 同时启动三个项目"
-    echo "  ./scripts/dev.sh stop     # 停止所有项目"
-    echo "  ./scripts/dev.sh reset    # 清理并重置环境"
+    echo "🚀 快速命令（建议执行顺序）:"
+    echo "  1) ./scripts/dev.sh db-init  # 创建数据库 moyun-db & 执行 SQL（首次必跑）"
+    echo "  2) ./scripts/dev.sh install  # 安装前端 npm 依赖"
+    echo "  3) ./scripts/dev.sh server   # 启动后端 (http://localhost:8080)"
+    echo "  4) ./scripts/dev.sh portal   # 启动门户前台 (http://localhost:3000)"
+    echo "  5) ./scripts/dev.sh admin    # 启动后台管理 (http://localhost:80)"
+    echo ""
+    echo "其它命令:"
+    echo "  ./scripts/dev.sh all        # 同时启动三个服务（后台模式）"
+    echo "  ./scripts/dev.sh stop       # 停止所有开发服务"
+    echo "  ./scripts/dev.sh reset      # 清理 node_modules 和构建产物"
+    echo ""
+    echo "🔐 默认账号:"
+    echo "  - 后台管理: admin / admin123"
+    echo "  - 数据库:   root / 123456 (库名: moyun-db)"
     echo ""
     echo "🌐 端口约定:"
     echo "  - 后端 API:  http://localhost:8080"
-    echo "  - 前台 Portal: http://localhost:3000"
+    echo "  - 门户 Portal: http://localhost:3000"
     echo "  - 后台 Admin:  http://localhost:80"
+    echo "  - Swagger Doc: http://localhost:8080/doc.html"
+    ;;
+
+  db-init)
+    print_header
+    echo "🗄️  初始化数据库 moyun-db..."
+    echo "   注：需本机安装 MySQL 8.0+ 且 root 密码为 123456"
+    echo ""
+
+    # 创建数据库
+    echo "→ 创建数据库 moyun-db..."
+    mysql -u root -p123456 -e "CREATE DATABASE IF NOT EXISTS moyun-db DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;" || {
+      echo "❌ 数据库连接失败，请确认 MySQL 服务运行且 root 密码为 123456"
+      echo "   如需修改密码，请编辑 moyun-server/src/main/resources/application-local.yaml"
+      exit 1
+    }
+    echo "✅ 数据库 moyun-db 创建完成（或已存在）"
+
+    # 执行基础初始化脚本
+    echo ""
+    echo "→ 执行基础初始化脚本（6 个）..."
+    SQL_BASE="moyun-server/src/main/resources/sql"
+    for f in 01_moyun_init.sql 02_workflow_init.sql 03_portal_init.sql 04_cms_menu_init.sql; do
+      if [ -f "$SQL_BASE/$f" ]; then
+        echo "   · 执行 $f ..."
+        mysql -u root -p123456 moyun-db < "$SQL_BASE/$f" 2>/dev/null || echo "     ⚠️  $f 执行时忽略部分错误（可能表已存在）"
+      else
+        echo "   · 跳过 $f（文件不存在）"
+      fi
+    done
+    echo "✅ 基础表完成"
+
+    # 执行面试空间扩展模块脚本
+    echo ""
+    echo "→ 执行面试空间模块脚本（2 个）..."
+    SQL_PORTAL="docs/sql"
+    if [ -f "$SQL_PORTAL/portal_module_ddl_v2.sql" ]; then
+      echo "   · 执行 portal_module_ddl_v2.sql (面试表 DDL)..."
+      mysql -u root -p123456 moyun-db < "$SQL_PORTAL/portal_module_ddl_v2.sql"
+      echo "   · 执行 portal_module_init_v2.sql (面试初始数据)..."
+      mysql -u root -p123456 moyun-db < "$SQL_PORTAL/portal_module_init_v2.sql"
+      echo "✅ 面试空间模块完成"
+    else
+      echo "⚠️  $SQL_PORTAL/portal_module_ddl_v2.sql 不存在，跳过面试模块"
+    fi
+
+    echo ""
+    echo "🎉 数据库初始化完成！"
+    echo "   验证命令: mysql -u root -p123456 moyun-db -e 'SHOW TABLES;'"
     ;;
 
   install)
@@ -65,6 +135,7 @@ case "$cmd" in
   server)
     print_header
     echo "☕ 启动后端服务 (需 Java 21 + Maven)..."
+    check_db || exit 1
     cd moyun-server && mvn spring-boot:run
     ;;
 

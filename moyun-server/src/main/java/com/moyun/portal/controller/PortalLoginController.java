@@ -1,16 +1,10 @@
 package com.moyun.portal.controller;
 
-import com.moyun.common.constant.Constants;
-import com.moyun.core.base.AjaxResult;
-import com.moyun.util.security.SecurityUtils;
-import com.moyun.core.base.model.LoginBody;
-import com.moyun.portal.domain.entity.PortalUser;
-import com.moyun.portal.domain.model.PortalLoginUser;
-import com.moyun.portal.security.auth.PortalTokenService;
-import com.moyun.portal.service.IPortalUserService;
-import com.moyun.portal.service.impl.PortalLoginServiceImpl;
+import java.time.LocalDateTime;
 
-import com.moyun.util.string.StringUtils;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -18,13 +12,25 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
-import java.time.LocalDateTime;
+import com.moyun.common.annotation.Anonymous;
+import com.moyun.common.constant.Constants;
+import com.moyun.core.base.AjaxResult;
+import com.moyun.core.base.model.LoginBody;
+import com.moyun.portal.domain.entity.PortalUser;
+import com.moyun.portal.domain.model.PortalLoginUser;
+import com.moyun.portal.security.auth.PortalTokenService;
+import com.moyun.portal.service.IPortalUserService;
+import com.moyun.portal.service.impl.PortalLoginServiceImpl;
+import com.moyun.util.security.SecurityUtils;
+import com.moyun.util.string.StringUtils;
 
 /**
  * 门户登录验证
  *
  * @author moyun
  */
+@Anonymous
+@Tag(name = "门户登录", description = "门户用户登录注册相关接口")
 @RestController
 @RequestMapping("/portal")
 public class PortalLoginController {
@@ -44,23 +50,21 @@ public class PortalLoginController {
 
     /**
      * 登录方法
-     *
-     * @param loginBody 登录信息
-     * @return 结果
      */
+    @Operation(summary = "用户登录", description = "用户登录获取Token")
     @PostMapping("/login")
-    public AjaxResult login(@RequestBody LoginBody loginBody) {
+    public AjaxResult login(
+            @Parameter(description = "登录信息") @RequestBody LoginBody loginBody) {
         return portalLoginService.login(loginBody);
     }
 
     /**
      * 注册方法
-     *
-     * @param portalUser 用户信息
-     * @return 结果
      */
+    @Operation(summary = "用户注册", description = "注册新门户用户")
     @PostMapping("/register")
-    public AjaxResult register(@RequestBody PortalUser portalUser) {
+    public AjaxResult register(
+            @Parameter(description = "用户信息") @RequestBody PortalUser portalUser) {
         if (StringUtils.isEmpty(portalUser.getUsername()) || StringUtils.isEmpty(portalUser.getPassword())) {
             return AjaxResult.error("用户名或密码不能为空");
         }
@@ -97,6 +101,7 @@ public class PortalLoginController {
     /**
      * 获取当前用户信息
      */
+    @Operation(summary = "获取当前用户信息", description = "获取已登录用户的信息")
     @GetMapping("/user/info")
     public AjaxResult getInfo() {
         PortalLoginUser loginUser = getCurrentLoginUser();
@@ -109,6 +114,7 @@ public class PortalLoginController {
     /**
      * 退出登录
      */
+    @Operation(summary = "退出登录", description = "清除登录状态")
     @PostMapping("/logout")
     public AjaxResult logout() {
         PortalLoginUser loginUser = getCurrentLoginUser();

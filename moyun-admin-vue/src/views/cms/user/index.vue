@@ -4,29 +4,29 @@
     <el-form :model="queryParams" ref="queryRef" :inline="true" v-show="showSearch" label-width="68px">
       <el-form-item label="用户名" prop="username">
         <el-input
-          v-model="queryParams.username"
-          placeholder="请输入用户名"
-          clearable
-          style="width: 200px"
-          @keyup.enter="handleQuery"
+            v-model="queryParams.username"
+            placeholder="请输入用户名"
+            clearable
+            style="width: 200px"
+            @keyup.enter="handleQuery"
         />
       </el-form-item>
       <el-form-item label="用户昵称" prop="nickname">
         <el-input
-          v-model="queryParams.nickname"
-          placeholder="请输入用户昵称"
-          clearable
-          style="width: 200px"
-          @keyup.enter="handleQuery"
+            v-model="queryParams.nickname"
+            placeholder="请输入用户昵称"
+            clearable
+            style="width: 200px"
+            @keyup.enter="handleQuery"
         />
       </el-form-item>
       <el-form-item label="手机号" prop="phone">
         <el-input
-          v-model="queryParams.phone"
-          placeholder="请输入手机号"
-          clearable
-          style="width: 200px"
-          @keyup.enter="handleQuery"
+            v-model="queryParams.phone"
+            placeholder="请输入手机号"
+            clearable
+            style="width: 200px"
+            @keyup.enter="handleQuery"
         />
       </el-form-item>
       <el-form-item label="状态" prop="status">
@@ -45,31 +45,31 @@
     <el-row :gutter="10" class="mb8">
       <el-col :span="1.5">
         <el-button
-          type="primary"
-          plain
-          icon="Plus"
-          @click="handleAdd"
-          v-hasPermi="['cms:user:add']"
+            type="primary"
+            plain
+            icon="Plus"
+            @click="handleAdd"
+            v-hasPermi="['cms:user:add']"
         >新增</el-button>
       </el-col>
       <el-col :span="1.5">
         <el-button
-          type="success"
-          plain
-          icon="Edit"
-          :disabled="single"
-          @click="handleUpdate"
-          v-hasPermi="['cms:user:edit']"
+            type="success"
+            plain
+            icon="Edit"
+            :disabled="single"
+            @click="handleUpdate"
+            v-hasPermi="['cms:user:edit']"
         >修改</el-button>
       </el-col>
       <el-col :span="1.5">
         <el-button
-          type="danger"
-          plain
-          icon="Delete"
-          :disabled="multiple"
-          @click="handleDelete"
-          v-hasPermi="['cms:user:remove']"
+            type="danger"
+            plain
+            icon="Delete"
+            :disabled="multiple"
+            @click="handleDelete"
+            v-hasPermi="['cms:user:remove']"
         >删除</el-button>
       </el-col>
       <right-toolbar v-model:showSearch="showSearch" @queryTable="getList" :columns="columns"></right-toolbar>
@@ -84,10 +84,10 @@
       <el-table-column label="头像" align="center" prop="avatar" width="100">
         <template #default="scope">
           <el-image
-            :src="scope.row.avatar"
-            :preview-src-list="[scope.row.avatar]"
-            fit="cover"
-            style="width: 40px; height: 40px; border-radius: 50%"
+              :src="scope.row.avatar"
+              :preview-src-list="[scope.row.avatar]"
+              fit="cover"
+              style="width: 40px; height: 40px; border-radius: 50%"
           />
         </template>
       </el-table-column>
@@ -96,10 +96,10 @@
       <el-table-column label="状态" align="center" prop="status" width="80">
         <template #default="scope">
           <el-switch
-            v-model="scope.row.status"
-            active-value="0"
-            inactive-value="1"
-            @change="handleStatusChange(scope.row)"
+              v-model="scope.row.status"
+              active-value="0"
+              inactive-value="1"
+              @change="handleStatusChange(scope.row)"
           />
         </template>
       </el-table-column>
@@ -111,25 +111,25 @@
       <el-table-column label="操作" align="center" class-name="small-padding fixed-width" width="180">
         <template #default="scope">
           <el-button
-            link
-            type="primary"
-            icon="Edit"
-            @click="handleUpdate(scope.row)"
-            v-hasPermi="['cms:user:edit']"
+              link
+              type="primary"
+              icon="Edit"
+              @click="handleUpdate(scope.row)"
+              v-hasPermi="['cms:user:edit']"
           >修改</el-button>
           <el-button
-            link
-            type="primary"
-            icon="Key"
-            @click="handleResetPwd(scope.row)"
-            v-hasPermi="['cms:user:resetPwd']"
+              link
+              type="primary"
+              icon="Key"
+              @click="handleResetPwd(scope.row)"
+              v-hasPermi="['cms:user:resetPwd']"
           >重置密码</el-button>
           <el-button
-            link
-            type="primary"
-            icon="Delete"
-            @click="handleDelete(scope.row)"
-            v-hasPermi="['cms:user:remove']"
+              link
+              type="primary"
+              icon="Delete"
+              @click="handleDelete(scope.row)"
+              v-hasPermi="['cms:user:remove']"
           >删除</el-button>
         </template>
       </el-table-column>
@@ -137,11 +137,11 @@
 
     <!-- 分页 -->
     <pagination
-      v-show="total > 0"
-      :total="total"
-      v-model:page="queryParams.pageNum"
-      v-model:limit="queryParams.pageSize"
-      @pagination="getList"
+        v-show="total > 0"
+        :total="total"
+        v-model:page="queryParams.pageNum"
+        v-model:limit="queryParams.pageSize"
+        @pagination="getList"
     />
 
     <!-- 添加或修改用户对话框 -->
@@ -249,8 +249,8 @@ const { queryParams, form, rules } = toRefs(data);
 function getList() {
   loading.value = true;
   listUser(queryParams.value).then(response => {
-    userList.value = response.rows;
-    total.value = response.total;
+    userList.value = response.data.records;
+    total.value = response.data.total;
     loading.value = false;
   });
 }

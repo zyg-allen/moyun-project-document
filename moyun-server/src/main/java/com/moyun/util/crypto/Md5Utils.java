@@ -1,13 +1,12 @@
 package com.moyun.util.crypto;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 
+@Slf4j
 public class Md5Utils {
-    private static final Logger log = LoggerFactory.getLogger(Md5Utils.class);
 
     private static byte[] md5(String s) {
         MessageDigest algorithm;

@@ -1,6 +1,7 @@
 package com.moyun.system.service.impl;
 
 import com.moyun.system.domain.entity.SysLogininfor;
+import com.moyun.system.domain.query.LogininforQuery;
 import com.moyun.system.mapper.SysLogininforMapper;
 import com.moyun.system.service.ISysLogininforService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -32,12 +33,12 @@ public class SysLogininforServiceImpl implements ISysLogininforService {
     /**
      * 查询系统登录日志集合
      *
-     * @param logininfor 访问日志对象
+     * @param query 访问日志查询条件
      * @return 登录记录集合
      */
     @Override
-    public List<SysLogininfor> selectLogininforList(SysLogininfor logininfor) {
-        return logininforMapper.selectLogininforList(logininfor);
+    public List<SysLogininfor> selectLogininforList(LogininforQuery query) {
+        return logininforMapper.selectLogininforList(query);
     }
 
     /**

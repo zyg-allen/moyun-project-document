@@ -1,10 +1,10 @@
 package com.moyun.ext.cms.service;
 
+import java.util.List;
+
 import com.moyun.ext.cms.domain.query.CmsCategoryQuery;
 import com.moyun.ext.cms.domain.vo.CmsCategoryVO;
 import com.moyun.portal.domain.entity.PortalCategory;
-
-import java.util.List;
 
 /**
  * CMS分类服务接口
@@ -68,4 +68,12 @@ public interface ICmsCategoryService
      * @return 结果
      */
     boolean hasChildCategory(Long id);
+
+    /**
+     * 修改分类状态
+     *
+     * @param category 分类信息
+     * @return 结果
+     */
+    int changeStatus(PortalCategory category);
 }

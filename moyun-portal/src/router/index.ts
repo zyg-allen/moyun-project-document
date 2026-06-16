@@ -21,6 +21,9 @@ const PublishPage = () => import('@/pages/PublishPage.vue')
 const NotFoundPage = () => import('@/pages/NotFoundPage.vue')
 const ReadingPage = () => import('@/pages/ReadingPage.vue')
 const InterviewPage = () => import('@/pages/InterviewPage.vue')
+const QuestionDetailPage = () => import('@/pages/interview/QuestionDetailPage.vue')
+const ExperienceDetailPage = () => import('@/pages/interview/ExperienceDetailPage.vue')
+const ResumeTemplatePage = () => import('@/pages/interview/ResumeTemplatePage.vue')
 
 // ============ 路由配置 ============
 
@@ -68,6 +71,24 @@ const routes: RouteRecordRaw[] = [
     name: 'interview',
     component: InterviewPage,
     meta: { title: '面试指南', isPublic: true }
+  },
+  {
+    path: '/interview/question/:id',
+    name: 'interview-question',
+    component: QuestionDetailPage,
+    meta: { title: '题目详情', isPublic: true }
+  },
+  {
+    path: '/interview/experience/:id',
+    name: 'interview-experience',
+    component: ExperienceDetailPage,
+    meta: { title: '面经详情', isPublic: true }
+  },
+  {
+    path: '/interview/resume-templates',
+    name: 'interview-resume-templates',
+    component: ResumeTemplatePage,
+    meta: { title: '简历模板', isPublic: true }
   },
   {
     path: '/article/:id/:slug?',

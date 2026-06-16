@@ -208,8 +208,8 @@ async function getList() {
   loading.value = true;
   try {
     const res = await listArticle(queryParams);
-    articleList.value = res.rows || [];
-    total.value = res.total || 0;
+    articleList.value = res.data.records || [];
+    total.value = res.data.total || 0;
   } catch (error) {
     console.error('加载文章列表失败:', error);
   } finally {

@@ -1,184 +1,194 @@
 package com.moyun.ext.cms.service.impl;
 
-import java.time.LocalDateTime;
-import java.util.Arrays;
-import java.util.List;
-
-import cn.hutool.core.util.ObjectUtil;
+import cn.hutool.core.bean.BeanUtil;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
+import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
-import com.moyun.util.bean.PageUtils;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Service;
-
 import com.moyun.ext.cms.domain.query.CmsArticleQuery;
 import com.moyun.ext.cms.domain.vo.CmsArticleVO;
 import com.moyun.ext.cms.service.ICmsArticleService;
 import com.moyun.portal.domain.entity.PortalArticle;
+import com.moyun.portal.domain.query.ArticleQuery;
 import com.moyun.portal.mapper.PortalArticleMapper;
 import com.moyun.util.file.Base64ImageUtils;
-
 import com.moyun.util.security.SecurityUtils;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
+
+import java.time.LocalDateTime;
+import java.util.Arrays;
+import java.util.List;
 
 /**
- * CMS文章服务实现类
+ * CMS文章服务实现类（标准重构版）
  *
  * @author moyun
  */
+@Slf4j
 @Service
-public class CmsArticleServiceImpl implements ICmsArticleService
-{
+public class CmsArticleServiceImpl implements ICmsArticleService {
+
     @Autowired
     private PortalArticleMapper portalArticleMapper;
 
     @Autowired
     private Base64ImageUtils base64ImageUtils;
 
+    // ==================== 查询方法 ====================
+
     @Override
-    public Page<CmsArticleVO> selectArticlePage(Page<CmsArticleVO> page, CmsArticleQuery query)
-    {
-        // 使用CMS专用分页查询方法（包含分类JOIN + 作者信息），mapper resultMap type=CmsArticleVO，无需转换
-        Page<CmsArticleVO> voPage = PageUtils.buildPage(query);
-        return portalArticleMapper.selectCmsArticlePage(voPage, query);
+    public Page<CmsArticleVO> selectArticlePage(Page<CmsArticleVO> page, CmsArticleQuery query) {
+        // 1. 转换查询参数
+        ArticleQuery articleQuery = BeanUtil.copyProperties(query, ArticleQuery.class);
+
+        // 2. 创建实体分页对象
+        Page<PortalArticle> entityPage = new Page<>(page.getCurrent(), page.getSize());
+
+        // 3. 执行分页查询（MP 自动拦截，自动查询 total）
+        IPage<PortalArticle> result = portalArticleMapper.selectPortalArticlePage(entityPage, articleQuery);
+
+        // 4. 转换 VO
+        List<CmsArticleVO> voList = BeanUtil.copyToList(result.getRecords(), CmsArticleVO.class);
+
+        // 5. 构造返回结果
+        Page<CmsArticleVO> voPage = new Page<>(result.getCurrent(), result.getSize(), result.getTotal());
+        voPage.setRecords(voList);
+        return voPage;
     }
 
     @Override
-    public List<PortalArticle> selectArticleList(CmsArticleQuery query)
-    {
-        return portalArticleMapper.selectList(buildQueryWrapper(query));
+    public List<PortalArticle> selectArticleList(CmsArticleQuery query) {
+        ArticleQuery articleQuery = BeanUtil.copyProperties(query, ArticleQuery.class);
+        return portalArticleMapper.selectPortalArticleList(articleQuery);
     }
 
     @Override
-    public CmsArticleVO selectArticleById(Long id)
-    {
-        // 使用CMS专用查询：关联查询作者信息（昵称/用户名/头像）和分类信息，mapper resultMap type=CmsArticleVO
+    public CmsArticleVO selectArticleById(Long id) {
+        if (id == null) {
+            return null;
+        }
         return portalArticleMapper.selectCmsArticleById(id);
     }
 
+    // ==================== 新增 / 修改 ====================
+
     @Override
-    public int insertArticle(PortalArticle article)
-    {
-        // 自动处理Base64图片
+    public int insertArticle(PortalArticle article) {
+        if (article == null) {
+            return 0;
+        }
         processArticleImages(article);
-        // 自动设置后台作者信息
         fillAdminAuthorInfo(article);
-        // 设置默认状态为已发布
-        if (article.getStatus() == null) {
+        if (!StringUtils.hasText(article.getStatus())) {
             article.setStatus("published");
         }
-        // 设置发布时间
         if (article.getPublishedAt() == null) {
             article.setPublishedAt(LocalDateTime.now());
         }
         return portalArticleMapper.insert(article);
     }
 
-    /**
-     * 自动设置后台作者信息
-     *
-     * @param article 文章信息
-     */
-    private void fillAdminAuthorInfo(PortalArticle article) {
-        // 自动设置作者ID为当前登录的后台用户ID（如果还没设置）
-        if (article.getAuthorId() == null) {
-            Long adminUserId = SecurityUtils.getUserId();
-            if (adminUserId != null) {
-                article.setAuthorId(adminUserId);
-            }
-        }
-    }
-
-    /**
-     * 处理文章的Base64图片（封面、富文本、Markdown内容）
-     *
-     * @param article 文章信息
-     */
-    private void processArticleImages(PortalArticle article) {
-        // 处理封面
-        if (article.getCover() != null) {
-            article.setCover(base64ImageUtils.uploadBase64Image(article.getCover()));
-        }
-        // 处理富文本内容
-        if (article.getContent() != null) {
-            article.setContent(base64ImageUtils.processContentImages(article.getContent()));
-        }
-        // 处理Markdown内容
-        if (article.getContentMarkdown() != null) {
-            article.setContentMarkdown(base64ImageUtils.processContentImages(article.getContentMarkdown()));
-        }
-    }
-
     @Override
-    public int updateArticle(PortalArticle article)
-    {
-        // 自动处理Base64图片
+    public int updateArticle(PortalArticle article) {
+        if (article == null || article.getId() == null) {
+            return 0;
+        }
         processArticleImages(article);
         return portalArticleMapper.updateById(article);
     }
 
+    // ==================== 状态更新（使用 LambdaUpdateWrapper） ====================
+
     @Override
-    public int auditArticle(PortalArticle article)
-    {
-        PortalArticle updateArticle = new PortalArticle();
-        updateArticle.setId(article.getId());
-        updateArticle.setStatus(article.getStatus());
-        return portalArticleMapper.updateById(updateArticle);
+    public int auditArticle(PortalArticle article) {
+        if (article == null || article.getId() == null) {
+            return 0;
+        }
+        LambdaUpdateWrapper<PortalArticle> wrapper = new LambdaUpdateWrapper<>();
+        wrapper.eq(PortalArticle::getId, article.getId())
+                .set(PortalArticle::getStatus, article.getStatus());
+        return portalArticleMapper.update(null, wrapper);
     }
 
     @Override
-    public int publishArticle(PortalArticle article)
-    {
-        PortalArticle updateArticle = new PortalArticle();
-        updateArticle.setId(article.getId());
-        updateArticle.setStatus(article.getStatus());
-        return portalArticleMapper.updateById(updateArticle);
+    public int publishArticle(PortalArticle article) {
+        if (article == null || article.getId() == null) {
+            return 0;
+        }
+        LambdaUpdateWrapper<PortalArticle> wrapper = new LambdaUpdateWrapper<>();
+        wrapper.eq(PortalArticle::getId, article.getId())
+                .set(PortalArticle::getStatus, article.getStatus())
+                .set(PortalArticle::getPublishedAt, LocalDateTime.now());
+        return portalArticleMapper.update(null, wrapper);
     }
 
     @Override
-    public int setFeatured(PortalArticle article)
-    {
-        PortalArticle updateArticle = new PortalArticle();
-        updateArticle.setId(article.getId());
-        updateArticle.setIsFeatured(article.getIsFeatured());
-        return portalArticleMapper.updateById(updateArticle);
+    public int setFeatured(PortalArticle article) {
+        if (article == null || article.getId() == null) {
+            return 0;
+        }
+        LambdaUpdateWrapper<PortalArticle> wrapper = new LambdaUpdateWrapper<>();
+        wrapper.eq(PortalArticle::getId, article.getId())
+                .set(PortalArticle::getIsFeatured, article.getIsFeatured());
+        return portalArticleMapper.update(null, wrapper);
     }
 
     @Override
-    public int setTop(PortalArticle article)
-    {
-        PortalArticle updateArticle = new PortalArticle();
-        updateArticle.setId(article.getId());
-        updateArticle.setIsTop(article.getIsTop());
-        return portalArticleMapper.updateById(updateArticle);
+    public int setTop(PortalArticle article) {
+        if (article == null || article.getId() == null) {
+            return 0;
+        }
+        LambdaUpdateWrapper<PortalArticle> wrapper = new LambdaUpdateWrapper<>();
+        wrapper.eq(PortalArticle::getId, article.getId())
+                .set(PortalArticle::getIsTop, article.getIsTop());
+        return portalArticleMapper.update(null, wrapper);
     }
 
     @Override
-    public int setCarousel(PortalArticle article)
-    {
-        PortalArticle updateArticle = new PortalArticle();
-        updateArticle.setId(article.getId());
-        updateArticle.setIsCarousel(article.getIsCarousel());
-        return portalArticleMapper.updateById(updateArticle);
+    public int setCarousel(PortalArticle article) {
+        if (article == null || article.getId() == null) {
+            return 0;
+        }
+        LambdaUpdateWrapper<PortalArticle> wrapper = new LambdaUpdateWrapper<>();
+        wrapper.eq(PortalArticle::getId, article.getId())
+                .set(PortalArticle::getIsCarousel, article.getIsCarousel());
+        return portalArticleMapper.update(null, wrapper);
     }
 
+    // ==================== 删除 ====================
+
     @Override
-    public int deleteArticleByIds(Long[] ids)
-    {
+    public int deleteArticleByIds(Long[] ids) {
+        if (ids == null || ids.length == 0) {
+            return 0;
+        }
         return portalArticleMapper.deleteBatchIds(Arrays.asList(ids));
     }
 
-    /**
-     * 构建查询条件
-     */
-    private LambdaQueryWrapper<PortalArticle> buildQueryWrapper(CmsArticleQuery query)
-    {
-        LambdaQueryWrapper<PortalArticle> wrapper = new LambdaQueryWrapper<>();
-        wrapper.like(ObjectUtil.isNotEmpty(query.getTitle()), PortalArticle::getTitle, query.getTitle());
-        wrapper.eq(ObjectUtil.isNotNull(query.getAuthorId()), PortalArticle::getAuthorId, query.getAuthorId());
-        wrapper.eq(ObjectUtil.isNotNull(query.getCategoryId()), PortalArticle::getCategoryId, query.getCategoryId());
-        wrapper.eq(ObjectUtil.isNotEmpty(query.getStatus()), PortalArticle::getStatus, query.getStatus());
-        wrapper.eq(ObjectUtil.isNotNull(query.getIsFeatured()), PortalArticle::getIsFeatured, query.getIsFeatured());
-        wrapper.orderByDesc(PortalArticle::getCreateTime);
-        return wrapper;
+    // ==================== 私有方法 ====================
+
+    private void fillAdminAuthorInfo(PortalArticle article) {
+        if (article.getAuthorId() == null) {
+            Long adminUserId = SecurityUtils.getUserId();
+            if (adminUserId == null) {
+                throw new RuntimeException("当前后台用户未登录，无法设置作者信息");
+            }
+            article.setAuthorId(adminUserId);
+        }
+    }
+
+    private void processArticleImages(PortalArticle article) {
+        if (StringUtils.hasText(article.getCover()) && article.getCover().startsWith("data:image")) {
+            article.setCover(base64ImageUtils.uploadBase64Image(article.getCover()));
+        }
+        if (StringUtils.hasText(article.getContent()) && article.getContent().contains("data:image")) {
+            article.setContent(base64ImageUtils.processContentImages(article.getContent()));
+        }
+        if (StringUtils.hasText(article.getContentMarkdown()) && article.getContentMarkdown().contains("data:image")) {
+            article.setContentMarkdown(base64ImageUtils.processContentImages(article.getContentMarkdown()));
+        }
     }
 }

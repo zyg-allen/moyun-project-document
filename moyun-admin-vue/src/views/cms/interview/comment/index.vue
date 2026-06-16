@@ -77,8 +77,8 @@ async function getList() {
   loading.value = true;
   try {
     const res = await listInterviewComment(queryParams);
-    commentList.value = res.rows || [];
-    total.value = res.total || 0;
+    commentList.value = res.data.records || [];
+    total.value = res.data.total || 0;
   } catch (e) { /* ignore */ } finally {
     loading.value = false;
   }

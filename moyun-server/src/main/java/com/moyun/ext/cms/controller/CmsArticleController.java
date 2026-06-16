@@ -1,14 +1,6 @@
 package com.moyun.ext.cms.controller;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
-import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.Parameter;
-import io.swagger.v3.oas.annotations.tags.Tag;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.validation.annotation.Validated;
-import org.springframework.web.bind.annotation.*;
-
 import com.moyun.common.annotation.Log;
 import com.moyun.common.enums.BusinessType;
 import com.moyun.core.base.AjaxResult;
@@ -17,7 +9,17 @@ import com.moyun.ext.cms.domain.query.CmsArticleQuery;
 import com.moyun.ext.cms.domain.vo.CmsArticleVO;
 import com.moyun.ext.cms.service.ICmsArticleService;
 import com.moyun.portal.domain.entity.PortalArticle;
-import com.moyun.util.bean.PageUtils;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotNull;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.validation.annotation.Validated;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.Arrays;
 
 /**
  * CMS文章管理Controller
@@ -27,20 +29,24 @@ import com.moyun.util.bean.PageUtils;
 @Tag(name = "CMS文章管理", description = "CMS文章管理接口")
 @RestController
 @RequestMapping("/cms/article")
+@Validated
 public class CmsArticleController extends BaseController {
+
     @Autowired
     private ICmsArticleService cmsArticleService;
 
     /**
-     * 获取文章列表
+     * 获取文章列表（分页）
      */
     @Operation(summary = "获取文章列表", description = "根据条件分页查询文章列表")
     @PreAuthorize("@ss.hasPermi('cms:article:list')")
     @GetMapping("/list")
     public AjaxResult list(CmsArticleQuery query) {
-        Page<CmsArticleVO> page = PageUtils.buildPage(query);
-        page = cmsArticleService.selectArticlePage(page, query);
-        return success(page);
+        // 构造分页对象（泛型为 VO）
+        Page<CmsArticleVO> page = new Page<>(query.getPageNum(), query.getPageSize());
+        // 执行查询
+        Page<CmsArticleVO> result = cmsArticleService.selectArticlePage(page, query);
+        return success(result);
     }
 
     /**
@@ -48,9 +54,11 @@ public class CmsArticleController extends BaseController {
      */
     @Operation(summary = "获取文章详情", description = "根据文章ID获取文章详细信息")
     @PreAuthorize("@ss.hasPermi('cms:article:query')")
-    @GetMapping(value = "/{id}")
-    public AjaxResult getInfo(@Parameter(description = "文章ID") @PathVariable Long id) {
-        return success(cmsArticleService.selectArticleById(id));
+    @GetMapping("/{id}")
+    public AjaxResult getInfo(@Parameter(description = "文章ID", required = true)
+                              @PathVariable @NotNull(message = "文章ID不能为空") Long id) {
+        CmsArticleVO vo = cmsArticleService.selectArticleById(id);
+        return success(vo);
     }
 
     /**
@@ -60,8 +68,9 @@ public class CmsArticleController extends BaseController {
     @PreAuthorize("@ss.hasPermi('cms:article:add')")
     @Log(title = "文章管理", businessType = BusinessType.INSERT)
     @PostMapping
-    public AjaxResult add(@Validated @RequestBody PortalArticle article) {
-        return toAjax(cmsArticleService.insertArticle(article));
+    public AjaxResult add(@Valid @RequestBody PortalArticle article) {
+        int result = cmsArticleService.insertArticle(article);
+        return toAjax(result);
     }
 
     /**
@@ -71,8 +80,9 @@ public class CmsArticleController extends BaseController {
     @PreAuthorize("@ss.hasPermi('cms:article:edit')")
     @Log(title = "文章管理", businessType = BusinessType.UPDATE)
     @PutMapping
-    public AjaxResult edit(@Validated @RequestBody PortalArticle article) {
-        return toAjax(cmsArticleService.updateArticle(article));
+    public AjaxResult edit(@Valid @RequestBody PortalArticle article) {
+        int result = cmsArticleService.updateArticle(article);
+        return toAjax(result);
     }
 
     /**
@@ -83,7 +93,8 @@ public class CmsArticleController extends BaseController {
     @Log(title = "文章管理", businessType = BusinessType.UPDATE)
     @PutMapping("/audit")
     public AjaxResult audit(@RequestBody PortalArticle article) {
-        return toAjax(cmsArticleService.auditArticle(article));
+        int result = cmsArticleService.auditArticle(article);
+        return toAjax(result);
     }
 
     /**
@@ -94,7 +105,8 @@ public class CmsArticleController extends BaseController {
     @Log(title = "文章管理", businessType = BusinessType.UPDATE)
     @PutMapping("/publish")
     public AjaxResult publish(@RequestBody PortalArticle article) {
-        return toAjax(cmsArticleService.publishArticle(article));
+        int result = cmsArticleService.publishArticle(article);
+        return toAjax(result);
     }
 
     /**
@@ -105,7 +117,8 @@ public class CmsArticleController extends BaseController {
     @Log(title = "文章管理", businessType = BusinessType.UPDATE)
     @PutMapping("/featured")
     public AjaxResult featured(@RequestBody PortalArticle article) {
-        return toAjax(cmsArticleService.setFeatured(article));
+        int result = cmsArticleService.setFeatured(article);
+        return toAjax(result);
     }
 
     /**
@@ -116,7 +129,8 @@ public class CmsArticleController extends BaseController {
     @Log(title = "文章管理", businessType = BusinessType.UPDATE)
     @PutMapping("/top")
     public AjaxResult top(@RequestBody PortalArticle article) {
-        return toAjax(cmsArticleService.setTop(article));
+        int result = cmsArticleService.setTop(article);
+        return toAjax(result);
     }
 
     /**
@@ -127,28 +141,39 @@ public class CmsArticleController extends BaseController {
     @Log(title = "文章管理", businessType = BusinessType.UPDATE)
     @PutMapping("/carousel")
     public AjaxResult carousel(@RequestBody PortalArticle article) {
-        return toAjax(cmsArticleService.setCarousel(article));
+        int result = cmsArticleService.setCarousel(article);
+        return toAjax(result);
     }
 
     /**
-     * 批量删除文章
+     * 批量删除文章（通过请求体传递 ID 数组）
      */
-    @Operation(summary = "批量删除文章", description = "批量删除文章")
+    @Operation(summary = "批量删除文章", description = "通过 ID 数组批量删除文章")
     @PreAuthorize("@ss.hasPermi('cms:article:remove')")
     @Log(title = "文章管理", businessType = BusinessType.DELETE)
     @DeleteMapping("/batch")
     public AjaxResult removeBatch(@RequestBody Long[] ids) {
-        return toAjax(cmsArticleService.deleteArticleByIds(ids));
+        int result = cmsArticleService.deleteArticleByIds(ids);
+        return toAjax(result);
     }
 
     /**
-     * 删除文章
+     * 删除文章（单个或批量，路径用逗号分隔）
+     * 例如：/1 或 /1,2,3
      */
-    @Operation(summary = "删除文章", description = "批量删除文章")
+    @Operation(summary = "删除文章", description = "根据 ID 删除文章，支持逗号分隔多个")
     @PreAuthorize("@ss.hasPermi('cms:article:remove')")
     @Log(title = "文章管理", businessType = BusinessType.DELETE)
     @DeleteMapping("/{ids}")
-    public AjaxResult remove(@Parameter(description = "文章ID数组") @PathVariable Long[] ids) {
-        return toAjax(cmsArticleService.deleteArticleByIds(ids));
+    public AjaxResult remove(@Parameter(description = "文章ID，多个用逗号分隔", required = true)
+                             @PathVariable @NotNull(message = "文章ID不能为空") String ids) {
+        // 手动解析 ID 字符串
+        Long[] idArray = Arrays.stream(ids.split(","))
+                .map(String::trim)
+                .filter(s -> !s.isEmpty())
+                .map(Long::parseLong)
+                .toArray(Long[]::new);
+        int result = cmsArticleService.deleteArticleByIds(idArray);
+        return toAjax(result);
     }
 }

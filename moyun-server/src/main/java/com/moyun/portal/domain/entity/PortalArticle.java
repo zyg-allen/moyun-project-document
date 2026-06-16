@@ -1,17 +1,18 @@
 package com.moyun.portal.domain.entity;
 
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
+import java.time.LocalDateTime;
+
 import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
 import com.fasterxml.jackson.annotation.JsonFormat;
-import com.moyun.core.base.BaseEntity;
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
-import jakarta.validation.constraints.Size;
 import lombok.Data;
 
-import java.time.LocalDateTime;
+import com.moyun.core.base.BaseEntity;
 
 @Data
 @TableName("portal_article")
@@ -93,5 +94,17 @@ public class PortalArticle extends BaseEntity
     private String editorMode;
 
     private String contentMarkdown;
+
+    /** 作者昵称 */
+    @TableField(exist = false)
+    private String authorNickname;
+
+    /** 作者用户名 */
+    @TableField(exist = false)
+    private String authorUsername;
+
+    /** 作者头像 */
+    @TableField(exist = false)
+    private String authorAvatar;
 
 }

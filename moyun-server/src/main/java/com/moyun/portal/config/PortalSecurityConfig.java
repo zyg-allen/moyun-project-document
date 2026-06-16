@@ -1,8 +1,5 @@
 package com.moyun.portal.config;
 
-import com.moyun.core.security.handle.AuthenticationEntryPointImpl;
-import com.moyun.core.security.handle.LogoutSuccessHandlerImpl;
-import com.moyun.portal.security.filter.PortalJwtAuthenticationTokenFilter;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
@@ -23,6 +20,10 @@ import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.security.web.authentication.logout.LogoutFilter;
 import org.springframework.web.filter.CorsFilter;
+
+import com.moyun.core.security.handle.AuthenticationEntryPointImpl;
+import com.moyun.core.security.handle.LogoutSuccessHandlerImpl;
+import com.moyun.portal.security.filter.PortalJwtAuthenticationTokenFilter;
 
 /**
  * 门户spring security配置（独立认证）

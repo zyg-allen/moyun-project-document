@@ -12,6 +12,7 @@ import com.moyun.system.service.ISysConfigService;
 import com.moyun.system.service.ISysUserService;
 import com.moyun.util.security.SecurityUtils;
 import com.moyun.util.string.StringUtils;
+import lombok.extern.slf4j.Slf4j;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -29,9 +30,8 @@ import java.util.stream.Collectors;
  * @author ruoyi
  */
 @Service
+@Slf4j
 public class SysUserServiceImpl extends ServiceImpl<SysUserMapper, SysUser> implements ISysUserService {
-
-    private static final Logger log = LoggerFactory.getLogger(SysUserServiceImpl.class);
 
     @Autowired
     private SysUserMapper userMapper;

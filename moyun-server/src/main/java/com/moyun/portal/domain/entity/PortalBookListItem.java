@@ -3,8 +3,7 @@ package com.moyun.portal.domain.entity;
 import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
-import org.apache.commons.lang3.builder.ToStringBuilder;
-import org.apache.commons.lang3.builder.ToStringStyle;
+import lombok.Data;
 
 import java.time.LocalDateTime;
 
@@ -13,6 +12,7 @@ import java.time.LocalDateTime;
  *
  * @author moyun
  */
+@Data
 @TableName("portal_book_list_item")
 public class PortalBookListItem
 {
@@ -38,77 +38,5 @@ public class PortalBookListItem
 
     public PortalBookListItem()
     {
-    }
-
-    public Long getId()
-    {
-        return id;
-    }
-
-    public void setId(Long id)
-    {
-        this.id = id;
-    }
-
-    public Long getBookListId()
-    {
-        return bookListId;
-    }
-
-    public void setBookListId(Long bookListId)
-    {
-        this.bookListId = bookListId;
-    }
-
-    public Long getBookId()
-    {
-        return bookId;
-    }
-
-    public void setBookId(Long bookId)
-    {
-        this.bookId = bookId;
-    }
-
-    public Integer getSort()
-    {
-        return sort;
-    }
-
-    public void setSort(Integer sort)
-    {
-        this.sort = sort;
-    }
-
-    public String getNote()
-    {
-        return note;
-    }
-
-    public void setNote(String note)
-    {
-        this.note = note;
-    }
-
-    public LocalDateTime getCreateTime()
-    {
-        return createTime;
-    }
-
-    public void setCreateTime(LocalDateTime createTime)
-    {
-        this.createTime = createTime;
-    }
-
-    @Override
-    public String toString() {
-        return new ToStringBuilder(this,ToStringStyle.MULTI_LINE_STYLE)
-            .append("id", getId())
-            .append("bookListId", getBookListId())
-            .append("bookId", getBookId())
-            .append("sort", getSort())
-            .append("note", getNote())
-            .append("createTime", getCreateTime())
-            .toString();
     }
 }

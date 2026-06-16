@@ -1,10 +1,10 @@
 package com.moyun.core.base;
 
-import com.moyun.common.constant.HttpStatus;
-import com.moyun.util.string.StringUtils;
-
 import java.util.HashMap;
 import java.util.Objects;
+
+import com.moyun.common.constant.HttpStatus;
+import com.moyun.util.string.StringUtils;
 
 /**
  * 操作消息提醒

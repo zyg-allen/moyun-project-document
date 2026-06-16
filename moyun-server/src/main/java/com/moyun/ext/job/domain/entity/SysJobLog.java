@@ -4,8 +4,7 @@ import com.fasterxml.jackson.annotation.JsonFormat;
 import com.moyun.common.annotation.Excel;
 import com.moyun.common.annotation.Excel.ColumnType;
 import com.moyun.core.base.BaseEntity;
-import org.apache.commons.lang3.builder.ToStringBuilder;
-import org.apache.commons.lang3.builder.ToStringStyle;
+import lombok.Data;
 
 import java.io.Serial;
 import java.io.Serializable;
@@ -16,6 +15,7 @@ import java.util.Date;
  *
  * @author ruoyi
  */
+@Data
 public class SysJobLog extends BaseEntity implements Serializable {
 
     @Serial
@@ -49,91 +49,4 @@ public class SysJobLog extends BaseEntity implements Serializable {
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     @Excel(name = "停止时间", width = 30, dateFormat = "yyyy-MM-dd HH:mm:ss", type = Excel.Type.EXPORT)
     private Date stopTime;
-
-    public Long getJobLogId() {
-        return jobLogId;
-    }
-
-    public void setJobLogId(Long jobLogId) {
-        this.jobLogId = jobLogId;
-    }
-
-    public String getJobName() {
-        return jobName;
-    }
-
-    public void setJobName(String jobName) {
-        this.jobName = jobName;
-    }
-
-    public String getJobGroup() {
-        return jobGroup;
-    }
-
-    public void setJobGroup(String jobGroup) {
-        this.jobGroup = jobGroup;
-    }
-
-    public String getInvokeTarget() {
-        return invokeTarget;
-    }
-
-    public void setInvokeTarget(String invokeTarget) {
-        this.invokeTarget = invokeTarget;
-    }
-
-    public String getJobMessage() {
-        return jobMessage;
-    }
-
-    public void setJobMessage(String jobMessage) {
-        this.jobMessage = jobMessage;
-    }
-
-    public String getStatus() {
-        return status;
-    }
-
-    public void setStatus(String status) {
-        this.status = status;
-    }
-
-    public String getExceptionInfo() {
-        return exceptionInfo;
-    }
-
-    public void setExceptionInfo(String exceptionInfo) {
-        this.exceptionInfo = exceptionInfo;
-    }
-
-    public Date getStartTime() {
-        return startTime;
-    }
-
-    public void setStartTime(Date startTime) {
-        this.startTime = startTime;
-    }
-
-    public Date getStopTime() {
-        return stopTime;
-    }
-
-    public void setStopTime(Date stopTime) {
-        this.stopTime = stopTime;
-    }
-
-    @Override
-    public String toString() {
-        return new ToStringBuilder(this, ToStringStyle.MULTI_LINE_STYLE)
-                .append("jobLogId", getJobLogId())
-                .append("jobName", getJobName())
-                .append("jobGroup", getJobGroup())
-                .append("invokeTarget", getInvokeTarget())
-                .append("jobMessage", getJobMessage())
-                .append("status", getStatus())
-                .append("exceptionInfo", getExceptionInfo())
-                .append("startTime", getStartTime())
-                .append("stopTime", getStopTime())
-                .toString();
-    }
 }

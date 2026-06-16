@@ -1,22 +1,24 @@
 package com.moyun.ext.cms.service.impl;
 
-import cn.hutool.core.bean.BeanUtil;
+import java.time.LocalDateTime;
+import java.util.Arrays;
+import java.util.List;
+
 import cn.hutool.core.util.ObjectUtil;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.moyun.util.bean.PageUtils;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
 import com.moyun.ext.cms.domain.query.CmsArticleQuery;
 import com.moyun.ext.cms.domain.vo.CmsArticleVO;
 import com.moyun.ext.cms.service.ICmsArticleService;
 import com.moyun.portal.domain.entity.PortalArticle;
 import com.moyun.portal.mapper.PortalArticleMapper;
 import com.moyun.util.file.Base64ImageUtils;
-import com.moyun.util.security.SecurityUtils;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Service;
 
-import java.time.LocalDateTime;
-import java.util.Arrays;
-import java.util.List;
+import com.moyun.util.security.SecurityUtils;
 
 /**
  * CMS文章服务实现类
@@ -35,13 +37,9 @@ public class CmsArticleServiceImpl implements ICmsArticleService
     @Override
     public Page<CmsArticleVO> selectArticlePage(Page<CmsArticleVO> page, CmsArticleQuery query)
     {
-        Page<PortalArticle> entityPage = new Page<>(page.getCurrent(), page.getSize());
-        entityPage = portalArticleMapper.selectPage(entityPage, buildQueryWrapper(query));
-        
-        Page<CmsArticleVO> voPage = new Page<>(entityPage.getCurrent(), entityPage.getSize(), entityPage.getTotal());
-        List<CmsArticleVO> voList = BeanUtil.copyToList(entityPage.getRecords(), CmsArticleVO.class);
-        voPage.setRecords(voList);
-        return voPage;
+        // 使用CMS专用分页查询方法（包含分类JOIN + 作者信息），mapper resultMap type=CmsArticleVO，无需转换
+        Page<CmsArticleVO> voPage = PageUtils.buildPage(query);
+        return portalArticleMapper.selectCmsArticlePage(voPage, query);
     }
 
     @Override
@@ -51,9 +49,10 @@ public class CmsArticleServiceImpl implements ICmsArticleService
     }
 
     @Override
-    public PortalArticle selectArticleById(Long id)
+    public CmsArticleVO selectArticleById(Long id)
     {
-        return portalArticleMapper.selectById(id);
+        // 使用CMS专用查询：关联查询作者信息（昵称/用户名/头像）和分类信息，mapper resultMap type=CmsArticleVO
+        return portalArticleMapper.selectCmsArticleById(id);
     }
 
     @Override
@@ -141,6 +140,24 @@ public class CmsArticleServiceImpl implements ICmsArticleService
         PortalArticle updateArticle = new PortalArticle();
         updateArticle.setId(article.getId());
         updateArticle.setIsFeatured(article.getIsFeatured());
+        return portalArticleMapper.updateById(updateArticle);
+    }
+
+    @Override
+    public int setTop(PortalArticle article)
+    {
+        PortalArticle updateArticle = new PortalArticle();
+        updateArticle.setId(article.getId());
+        updateArticle.setIsTop(article.getIsTop());
+        return portalArticleMapper.updateById(updateArticle);
+    }
+
+    @Override
+    public int setCarousel(PortalArticle article)
+    {
+        PortalArticle updateArticle = new PortalArticle();
+        updateArticle.setId(article.getId());
+        updateArticle.setIsCarousel(article.getIsCarousel());
         return portalArticleMapper.updateById(updateArticle);
     }
 

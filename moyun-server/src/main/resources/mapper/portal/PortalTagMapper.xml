@@ -10,6 +10,8 @@
         <result property="slug" column="slug"/>
         <result property="sort" column="sort"/>
         <result property="status" column="status"/>
+        <result property="module" column="module"/>
+        <result property="referenceCount" column="reference_count"/>
         <result property="createBy" column="create_by"/>
         <result property="createTime" column="create_time"/>
         <result property="updateBy" column="update_by"/>
@@ -18,7 +20,7 @@
     </resultMap>
 
     <sql id="selectPortalTagVo">
-        select id, name, slug, sort, status, create_by, create_time, update_by, update_time, remark from portal_tag
+        select id, name, slug, sort, status, module, reference_count, create_by, create_time, update_by, update_time, remark from portal_tag
     </sql>
 
     <!-- 通用查询条件片段 -->
@@ -29,6 +31,9 @@
             </if>
             <if test="params.status != null and params.status != ''">
                 AND status = #{params.status}
+            </if>
+            <if test="params.module != null and params.module != ''">
+                AND module = #{params.module}
             </if>
         </where>
     </sql>
@@ -77,6 +82,8 @@
             <if test="slug != null">slug,</if>
             <if test="sort != null">sort,</if>
             <if test="status != null">status,</if>
+            <if test="module != null">module,</if>
+            <if test="referenceCount != null">reference_count,</if>
             <if test="createBy != null">create_by,</if>
             <if test="createTime != null">create_time,</if>
             <if test="remark != null">remark,</if>
@@ -86,6 +93,8 @@
             <if test="slug != null">#{slug},</if>
             <if test="sort != null">#{sort},</if>
             <if test="status != null">#{status},</if>
+            <if test="module != null">#{module},</if>
+            <if test="referenceCount != null">#{referenceCount},</if>
             <if test="createBy != null">#{createBy},</if>
             <if test="createTime != null">#{createTime},</if>
             <if test="remark != null">#{remark},</if>
@@ -99,6 +108,8 @@
             <if test="slug != null">slug = #{slug},</if>
             <if test="sort != null">sort = #{sort},</if>
             <if test="status != null">status = #{status},</if>
+            <if test="module != null">module = #{module},</if>
+            <if test="referenceCount != null">reference_count = #{referenceCount},</if>
             <if test="updateBy != null">update_by = #{updateBy},</if>
             <if test="updateTime != null">update_time = #{updateTime},</if>
             <if test="remark != null">remark = #{remark},</if>
@@ -116,4 +127,45 @@
             #{id}
         </foreach>
     </delete>
+
+    <select id="selectByNameAndModule" resultMap="PortalTagResult">
+        <include refid="selectPortalTagVo"/>
+        where name = #{name}
+        <if test="module != null and module != ''">
+            AND module = #{module}
+        </if>
+        <if test="module == null or module == ''">
+            AND (module is null or module = '')
+        </if>
+        limit 1
+    </select>
+
+    <select id="selectTagsByEntity" resultMap="PortalTagResult">
+        <include refid="selectPortalTagVo"/>
+        where id in (
+            select tag_id from portal_entity_tag
+            where entity_type = #{entityType} and entity_id = #{entityId}
+        )
+        order by sort asc, id asc
+    </select>
+
+    <select id="selectHotTags" resultMap="PortalTagResult">
+        <include refid="selectPortalTagVo"/>
+        <where>
+            <if test="module != null and module != ''">
+                AND module = #{module}
+            </if>
+            AND (reference_count is null or reference_count > 0)
+        </where>
+        order by reference_count desc, sort asc, id asc
+        limit #{limit}
+    </select>
+
+    <update id="updateReferenceCountBatch">
+        UPDATE portal_tag SET reference_count = COALESCE(reference_count, 0) + #{delta} WHERE id IN
+        <foreach collection="ids" item="id" open="(" separator="," close=")">#{id}</foreach>
+    </update>
+    <update id="updateReferenceCount">
+        UPDATE portal_tag SET reference_count = COALESCE(reference_count, 0) + #{delta} WHERE id = #{id}
+    </update>
 </mapper>

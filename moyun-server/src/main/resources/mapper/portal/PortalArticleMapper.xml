@@ -38,6 +38,44 @@
         <result property="remark" column="remark"/>
     </resultMap>
 
+    <resultMap type="com.moyun.ext.cms.domain.vo.CmsArticleVO" id="CmsArticleResult">
+        <id property="id" column="id"/>
+        <result property="title" column="title"/>
+        <result property="slug" column="slug"/>
+        <result property="content" column="content"/>
+        <result property="excerpt" column="excerpt"/>
+        <result property="cover" column="cover"/>
+        <result property="authorId" column="author_id"/>
+        <result property="categoryId" column="category_id"/>
+        <result property="rootCategoryId" column="root_category_id"/>
+        <result property="categoryPath" column="category_path"/>
+        <result property="categoryName" column="category_name"/>
+        <result property="categorySlug" column="category_slug"/>
+        <result property="status" column="status"/>
+        <result property="isFeatured" column="is_featured"/>
+        <result property="isTop" column="is_top"/>
+        <result property="isCarousel" column="is_carousel"/>
+        <result property="isCategoryRecommended" column="is_category_recommended"/>
+        <result property="views" column="views"/>
+        <result property="likes" column="likes"/>
+        <result property="comments" column="comments"/>
+        <result property="shareCount" column="share_count"/>
+        <result property="bookmarkCount" column="bookmark_count"/>
+        <result property="publishedAt" column="published_at"/>
+        <result property="link" column="link"/>
+        <result property="editorMode" column="editor_mode"/>
+        <result property="contentMarkdown" column="content_markdown"/>
+        <result property="createBy" column="create_by"/>
+        <result property="createTime" column="create_time"/>
+        <result property="updateBy" column="update_by"/>
+        <result property="updateTime" column="update_time"/>
+        <result property="remark" column="remark"/>
+        <!-- 作者信息 -->
+        <result property="authorNickname" column="author_nickname"/>
+        <result property="authorUsername" column="author_username"/>
+        <result property="authorAvatar" column="author_avatar"/>
+    </resultMap>
+
     <sql id="selectPortalArticleVo">
         select pa.id, pa.title, pa.slug, pa.content, pa.excerpt, pa.cover, pa.author_id, pa.category_id, 
                pa.root_category_id, pa.category_path, 
@@ -50,10 +88,62 @@
         left join portal_category pc on pa.category_id = pc.id
     </sql>
 
-    <!-- 通用查询条件片段 -->
+    <!-- CMS文章查询，不限制状态，包含作者信息 -->
+    <sql id="selectCmsArticleVo">
+        select pa.id, pa.title, pa.slug, pa.content, pa.excerpt, pa.cover, pa.author_id, pa.category_id, 
+               pa.root_category_id, pa.category_path, 
+               pa.status,
+               pa.is_featured, pa.is_top, pa.is_carousel, pa.is_category_recommended, pa.views, pa.likes, pa.comments, pa.share_count,
+               pa.bookmark_count, pa.published_at, pa.link, pa.editor_mode, pa.content_markdown,
+               pa.create_by, pa.create_time, pa.update_by, pa.update_time, pa.remark,
+               pc.name as category_name, pc.slug as category_slug,
+               pu.nickname as author_nickname, pu.username as author_username, pu.avatar as author_avatar
+        from portal_article pa
+        left join portal_category pc on pa.category_id = pc.id
+        left join portal_user pu on pa.author_id = pu.id
+    </sql>
+
+    <!-- 通用查询条件片段（前台，不限制状态由queryWhereCms处理） -->
     <sql id="queryWhere">
         <where>
             pa.status = 'published'
+            <if test="params.title != null and params.title != ''">
+                AND pa.title like concat('%', #{params.title}, '%')
+            </if>
+            <if test="params.authorId != null">
+                AND pa.author_id = #{params.authorId}
+            </if>
+            <if test="params.categoryId != null">
+                AND pa.category_id = #{params.categoryId}
+            </if>
+            <if test="params.rootCategoryId != null">
+                AND pa.root_category_id = #{params.rootCategoryId}
+            </if>
+            <if test="params.categoryName != null and params.categoryName != ''">
+                AND pc.name = #{params.categoryName}
+            </if>
+            <if test="params.status != null and params.status != ''">
+                AND pa.status = #{params.status}
+            </if>
+            <if test="params.isTop != null">
+                AND pa.is_top = #{params.isTop}
+            </if>
+            <if test="params.isFeatured != null">
+                AND pa.is_featured = #{params.isFeatured}
+            </if>
+            <if test="params.isCarousel != null">
+                AND pa.is_carousel = #{params.isCarousel}
+            </if>
+            <if test="params.isCategoryRecommended != null">
+                AND pa.is_category_recommended = #{params.isCategoryRecommended}
+            </if>
+        </where>
+    </sql>
+
+    <!-- CMS查询条件片段（不自动过滤状态） -->
+    <sql id="queryWhereCms">
+        <where>
+            1=1
             <if test="params.title != null and params.title != ''">
                 AND pa.title like concat('%', #{params.title}, '%')
             </if>
@@ -240,5 +330,27 @@
             #{item}
         </foreach>
     </delete>
+
+    <!-- ========== CMS专用查询（不限制状态） ========== -->
+
+    <!-- CMS分页查询文章（所有状态） -->
+    <select id="selectCmsArticlePage" resultMap="CmsArticleResult">
+        <include refid="selectCmsArticleVo"/>
+        <include refid="queryWhereCms"/>
+        <include refid="dynamicOrderBy"/>
+    </select>
+
+    <!-- CMS不分页查询文章（所有状态） -->
+    <select id="selectCmsArticleList" resultMap="CmsArticleResult">
+        <include refid="selectCmsArticleVo"/>
+        <include refid="queryWhereCms"/>
+        <include refid="defaultOrderBy"/>
+    </select>
+
+    <!-- CMS根据ID查询文章 -->
+    <select id="selectCmsArticleById" parameterType="Long" resultMap="CmsArticleResult">
+        <include refid="selectCmsArticleVo"/>
+        where pa.id = #{id}
+    </select>
 
 </mapper>

@@ -1,13 +1,14 @@
 package com.moyun.portal.mapper;
 
+import java.util.List;
+
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
-import com.moyun.portal.domain.entity.PortalBookmark;
-import com.moyun.portal.domain.query.BookmarkQuery;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
-import java.util.List;
+import com.moyun.portal.domain.entity.PortalBookmark;
+import com.moyun.portal.domain.query.BookmarkQuery;
 
 /**
  * 门户收藏表 数据层

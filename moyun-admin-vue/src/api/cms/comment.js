@@ -45,10 +45,10 @@ export function delComment(commentId) {
 }
 
 // 评论审核
-export function auditComment(commentId, auditStatus) {
+export function auditComment(id, status) {
   const data = {
-    commentId,
-    auditStatus
+    id,
+    status
   }
   return request({
     url: '/cms/comment/audit',

@@ -1,37 +1,84 @@
 package com.moyun.portal.domain.entity;
 
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
+import java.io.Serial;
+import java.time.LocalDateTime;
+
 import com.baomidou.mybatisplus.annotation.IdType;
+import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
-import com.moyun.core.base.BaseEntity;
-import org.apache.commons.lang3.builder.ToStringBuilder;
-import org.apache.commons.lang3.builder.ToStringStyle;
+import com.fasterxml.jackson.annotation.JsonFormat;
+import lombok.Data;
 
+import com.moyun.core.base.BaseEntity;
+
+/**
+ * 简历模板
+ *
+ * @author moyun
+ */
+@Data
 @TableName("portal_interview_resume_template")
 public class PortalInterviewResumeTemplate extends BaseEntity
 {
+    @Serial
     private static final long serialVersionUID = 1L;
 
     @TableId(type = IdType.AUTO)
     private Long id;
 
+    /** 模板标题 */
+    @NotBlank(message = "模板标题不能为空")
+    @Size(min = 0, max = 500, message = "模板标题长度不能超过500个字符")
     private String title;
 
+    /** 模板描述 */
     private String description;
 
+    /** 封面URL */
     private String cover;
 
+    /** 下载地址 */
     private String downloadUrl;
 
+    /** 分类 */
     private String category;
 
+    /** 文件类型：docx/pdf/psd */
+    private String fileType;
+
+    /** 文件大小（字节） */
+    private Long fileSize;
+
+    /** 是否付费 */
+    private Boolean isPremium;
+
+    /** 使用指南 */
+    private String usageGuide;
+
+    /** 点赞数 */
     private Long likeCount;
 
+    /** 下载次数 */
     private Long downloadCount;
 
+    /** 排序 */
     private Integer sort;
 
+    /** 标签（逗号分隔，可选） */
+    private String tags;
+
+    /** 状态：active/inactive */
+    @Size(min = 0, max = 20, message = "状态长度不能超过20个字符")
     private String status;
+
+    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
+    private LocalDateTime createTime;
+
+    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
+    private LocalDateTime updateTime;
 
     public PortalInterviewResumeTemplate()
     {
@@ -40,126 +87,5 @@ public class PortalInterviewResumeTemplate extends BaseEntity
     public PortalInterviewResumeTemplate(Long id)
     {
         this.id = id;
-    }
-
-    public Long getId()
-    {
-        return id;
-    }
-
-    public void setId(Long id)
-    {
-        this.id = id;
-    }
-
-    public String getTitle()
-    {
-        return title;
-    }
-
-    public void setTitle(String title)
-    {
-        this.title = title;
-    }
-
-    public String getDescription()
-    {
-        return description;
-    }
-
-    public void setDescription(String description)
-    {
-        this.description = description;
-    }
-
-    public String getCover()
-    {
-        return cover;
-    }
-
-    public void setCover(String cover)
-    {
-        this.cover = cover;
-    }
-
-    public String getDownloadUrl()
-    {
-        return downloadUrl;
-    }
-
-    public void setDownloadUrl(String downloadUrl)
-    {
-        this.downloadUrl = downloadUrl;
-    }
-
-    public String getCategory()
-    {
-        return category;
-    }
-
-    public void setCategory(String category)
-    {
-        this.category = category;
-    }
-
-    public Long getLikeCount()
-    {
-        return likeCount;
-    }
-
-    public void setLikeCount(Long likeCount)
-    {
-        this.likeCount = likeCount;
-    }
-
-    public Long getDownloadCount()
-    {
-        return downloadCount;
-    }
-
-    public void setDownloadCount(Long downloadCount)
-    {
-        this.downloadCount = downloadCount;
-    }
-
-    public Integer getSort()
-    {
-        return sort;
-    }
-
-    public void setSort(Integer sort)
-    {
-        this.sort = sort;
-    }
-
-    public String getStatus()
-    {
-        return status;
-    }
-
-    public void setStatus(String status)
-    {
-        this.status = status;
-    }
-
-    @Override
-    public String toString() {
-        return new ToStringBuilder(this,ToStringStyle.MULTI_LINE_STYLE)
-            .append("id", getId())
-            .append("title", getTitle())
-            .append("description", getDescription())
-            .append("cover", getCover())
-            .append("downloadUrl", getDownloadUrl())
-            .append("category", getCategory())
-            .append("likeCount", getLikeCount())
-            .append("downloadCount", getDownloadCount())
-            .append("sort", getSort())
-            .append("status", getStatus())
-            .append("createBy", getCreateBy())
-            .append("createTime", getCreateTime())
-            .append("updateBy", getUpdateBy())
-            .append("updateTime", getUpdateTime())
-            .append("remark", getRemark())
-            .toString();
     }
 }

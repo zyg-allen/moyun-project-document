@@ -1,16 +1,17 @@
 package com.moyun.portal.domain.entity;
 
+import jakarta.validation.constraints.NotNull;
+import java.time.LocalDateTime;
+
 import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
 import com.fasterxml.jackson.annotation.JsonFormat;
+import lombok.Data;
+
 import com.moyun.core.base.BaseEntity;
-import jakarta.validation.constraints.NotNull;
-import org.apache.commons.lang3.builder.ToStringBuilder;
-import org.apache.commons.lang3.builder.ToStringStyle;
 
-import java.time.LocalDateTime;
-
+@Data
 @TableName("portal_comment_like")
 public class PortalCommentLike extends BaseEntity
 {
@@ -37,36 +38,6 @@ public class PortalCommentLike extends BaseEntity
         this.id = id;
     }
 
-    public Long getId()
-    {
-        return id;
-    }
-
-    public void setId(Long id)
-    {
-        this.id = id;
-    }
-
-    public Long getUserId()
-    {
-        return userId;
-    }
-
-    public void setUserId(Long userId)
-    {
-        this.userId = userId;
-    }
-
-    public Long getCommentId()
-    {
-        return commentId;
-    }
-
-    public void setCommentId(Long commentId)
-    {
-        this.commentId = commentId;
-    }
-
     @Override
     public LocalDateTime getCreateTime()
     {
@@ -77,15 +48,5 @@ public class PortalCommentLike extends BaseEntity
     public void setCreateTime(LocalDateTime createTime)
     {
         this.createTime = createTime;
-    }
-
-    @Override
-    public String toString() {
-        return new ToStringBuilder(this,ToStringStyle.MULTI_LINE_STYLE)
-            .append("id", getId())
-            .append("userId", getUserId())
-            .append("commentId", getCommentId())
-            .append("createTime", getCreateTime())
-            .toString();
     }
 }

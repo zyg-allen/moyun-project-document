@@ -1,9 +1,9 @@
 package com.moyun.portal.service;
 
+import java.util.List;
+
 import com.moyun.portal.domain.vo.HomeModuleVO;
 import com.moyun.portal.domain.vo.HomePageVO;
-
-import java.util.List;
 
 /**
  * 首页数据服务接口

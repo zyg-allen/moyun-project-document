@@ -1,18 +1,19 @@
 package com.moyun.portal.domain.entity;
 
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
+import java.io.Serial;
+import java.time.LocalDateTime;
+
 import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
 import com.fasterxml.jackson.annotation.JsonFormat;
-import com.moyun.core.base.BaseEntity;
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
-import jakarta.validation.constraints.Size;
 import lombok.Data;
 
-import java.io.Serial;
-import java.time.LocalDateTime;
+import com.moyun.core.base.BaseEntity;
 
 @Data
 @TableName("portal_notification")
@@ -53,5 +54,9 @@ public class PortalNotification extends BaseEntity {
 
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime createTime;
+
+    /** 用户昵称（非持久字段，查询时关联填充） */
+    @TableField(exist = false)
+    private String userNickname;
 
 }

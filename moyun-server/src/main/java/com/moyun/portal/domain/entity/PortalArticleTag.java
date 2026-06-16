@@ -1,16 +1,17 @@
 package com.moyun.portal.domain.entity;
 
+import jakarta.validation.constraints.NotNull;
+import java.time.LocalDateTime;
+
 import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
 import com.fasterxml.jackson.annotation.JsonFormat;
+import lombok.Data;
+
 import com.moyun.core.base.BaseEntity;
-import jakarta.validation.constraints.NotNull;
-import org.apache.commons.lang3.builder.ToStringBuilder;
-import org.apache.commons.lang3.builder.ToStringStyle;
 
-import java.time.LocalDateTime;
-
+@Data
 @TableName("portal_article_tag")
 public class PortalArticleTag extends BaseEntity
 {
@@ -37,36 +38,6 @@ public class PortalArticleTag extends BaseEntity
         this.id = id;
     }
 
-    public Long getId()
-    {
-        return id;
-    }
-
-    public void setId(Long id)
-    {
-        this.id = id;
-    }
-
-    public Long getArticleId()
-    {
-        return articleId;
-    }
-
-    public void setArticleId(Long articleId)
-    {
-        this.articleId = articleId;
-    }
-
-    public Long getTagId()
-    {
-        return tagId;
-    }
-
-    public void setTagId(Long tagId)
-    {
-        this.tagId = tagId;
-    }
-
     @Override
     public LocalDateTime getCreateTime()
     {
@@ -77,15 +48,5 @@ public class PortalArticleTag extends BaseEntity
     public void setCreateTime(LocalDateTime createTime)
     {
         this.createTime = createTime;
-    }
-
-    @Override
-    public String toString() {
-        return new ToStringBuilder(this,ToStringStyle.MULTI_LINE_STYLE)
-            .append("id", getId())
-            .append("articleId", getArticleId())
-            .append("tagId", getTagId())
-            .append("createTime", getCreateTime())
-            .toString();
     }
 }

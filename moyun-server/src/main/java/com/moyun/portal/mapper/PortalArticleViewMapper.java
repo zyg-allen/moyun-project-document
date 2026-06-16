@@ -1,14 +1,15 @@
 package com.moyun.portal.mapper;
 
+import java.time.LocalDateTime;
+import java.util.List;
+
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
-import com.moyun.portal.domain.entity.PortalArticleView;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
 import org.apache.ibatis.annotations.Update;
 
-import java.time.LocalDateTime;
-import java.util.List;
+import com.moyun.portal.domain.entity.PortalArticleView;
 
 /**
  * 文章浏览记录Mapper

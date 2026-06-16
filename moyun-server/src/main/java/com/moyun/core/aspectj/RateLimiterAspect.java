@@ -5,12 +5,11 @@ import com.moyun.common.enums.LimitType;
 import com.moyun.common.exception.system.ServiceException;
 import com.moyun.util.ip.IpUtils;
 import com.moyun.util.string.StringUtils;
+import lombok.extern.slf4j.Slf4j;
 import org.aspectj.lang.JoinPoint;
 import org.aspectj.lang.annotation.Aspect;
 import org.aspectj.lang.annotation.Before;
 import org.aspectj.lang.reflect.MethodSignature;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.script.RedisScript;
@@ -26,9 +25,9 @@ import java.util.List;
  * @author ruoyi
  */
 @Aspect
+@Slf4j
 @Component
 public class RateLimiterAspect {
-    private static final Logger log = LoggerFactory.getLogger(RateLimiterAspect.class);
 
     private RedisTemplate<String, Object> redisTemplate;
 

@@ -1,22 +1,24 @@
 package com.moyun.portal.domain.entity;
 
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+
 import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
 import com.fasterxml.jackson.annotation.JsonFormat;
-import org.apache.commons.lang3.builder.ToStringBuilder;
-import org.apache.commons.lang3.builder.ToStringStyle;
+import lombok.Data;
 
-import java.time.LocalDate;
-import java.time.LocalDateTime;
+import com.moyun.core.base.BaseEntity;
 
 /**
  * 阅读进度表 实体
  *
  * @author moyun
  */
+@Data
 @TableName("portal_reading_progress")
-public class PortalReadingProgress
+public class PortalReadingProgress extends BaseEntity
 {
     private static final long serialVersionUID = 1L;
 
@@ -57,132 +59,5 @@ public class PortalReadingProgress
 
     public PortalReadingProgress()
     {
-    }
-
-    public Long getId()
-    {
-        return id;
-    }
-
-    public void setId(Long id)
-    {
-        this.id = id;
-    }
-
-    public Long getUserId()
-    {
-        return userId;
-    }
-
-    public void setUserId(Long userId)
-    {
-        this.userId = userId;
-    }
-
-    public Long getBookId()
-    {
-        return bookId;
-    }
-
-    public void setBookId(Long bookId)
-    {
-        this.bookId = bookId;
-    }
-
-    public String getStatus()
-    {
-        return status;
-    }
-
-    public void setStatus(String status)
-    {
-        this.status = status;
-    }
-
-    public Integer getProgress()
-    {
-        return progress;
-    }
-
-    public void setProgress(Integer progress)
-    {
-        this.progress = progress;
-    }
-
-    public Integer getPagesRead()
-    {
-        return pagesRead;
-    }
-
-    public void setPagesRead(Integer pagesRead)
-    {
-        this.pagesRead = pagesRead;
-    }
-
-    public LocalDate getStartDate()
-    {
-        return startDate;
-    }
-
-    public void setStartDate(LocalDate startDate)
-    {
-        this.startDate = startDate;
-    }
-
-    public LocalDate getFinishDate()
-    {
-        return finishDate;
-    }
-
-    public void setFinishDate(LocalDate finishDate)
-    {
-        this.finishDate = finishDate;
-    }
-
-    public String getNote()
-    {
-        return note;
-    }
-
-    public void setNote(String note)
-    {
-        this.note = note;
-    }
-
-    public LocalDateTime getCreateTime()
-    {
-        return createTime;
-    }
-
-    public void setCreateTime(LocalDateTime createTime)
-    {
-        this.createTime = createTime;
-    }
-
-    public LocalDateTime getUpdateTime()
-    {
-        return updateTime;
-    }
-
-    public void setUpdateTime(LocalDateTime updateTime)
-    {
-        this.updateTime = updateTime;
-    }
-
-    @Override
-    public String toString() {
-        return new ToStringBuilder(this,ToStringStyle.MULTI_LINE_STYLE)
-            .append("id", getId())
-            .append("userId", getUserId())
-            .append("bookId", getBookId())
-            .append("status", getStatus())
-            .append("progress", getProgress())
-            .append("pagesRead", getPagesRead())
-            .append("startDate", getStartDate())
-            .append("finishDate", getFinishDate())
-            .append("note", getNote())
-            .append("createTime", getCreateTime())
-            .append("updateTime", getUpdateTime())
-            .toString();
     }
 }

@@ -1,9 +1,10 @@
 package com.moyun.ext.cms.domain.query;
 
-import com.moyun.core.base.BaseEntity;
-import com.moyun.core.base.page.PageDomain;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
+
+import com.moyun.core.base.BaseEntity;
+import com.moyun.core.base.page.PageDomain;
 
 /**
  * 分类查询对象

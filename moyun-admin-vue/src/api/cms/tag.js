@@ -1,6 +1,8 @@
 import request from '@/utils/request'
 import { parseStrEmpty } from "@/utils/ruoyi";
 
+// ==================== CMS 标签管理（原有） ====================
+
 // 查询标签列表
 export function listTag(query) {
   return request({
@@ -46,13 +48,39 @@ export function delTag(tagId) {
 
 // 标签状态修改
 export function changeTagStatus(tagId, status) {
-  const data = {
-    tagId,
-    status
-  }
+  const data = { tagId, status }
   return request({
     url: '/cms/tag/changeStatus',
     method: 'put',
+    data: data
+  })
+}
+
+// ==================== Portal 通用标签系统（新增） ====================
+
+// 拉取标签列表（前端门户/通用），支持关键字与 module 过滤
+export function listPortalTag(query) {
+  return request({
+    url: '/portal/tag/list',
+    method: 'get',
+    params: query
+  })
+}
+
+// 热门标签（按 module 分类）
+export function getHotTags(module, limit) {
+  return request({
+    url: '/portal/tag/hot',
+    method: 'get',
+    params: { module, limit }
+  })
+}
+
+// 为实体绑定标签（entityType, entityId, tagIds / tagNames, module）
+export function bindTagsToEntity(data) {
+  return request({
+    url: '/portal/tag/bind',
+    method: 'post',
     data: data
   })
 }

@@ -1,23 +1,24 @@
 package com.moyun.portal.domain.entity;
 
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+
 import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
 import com.fasterxml.jackson.annotation.JsonFormat;
-import com.moyun.core.base.BaseEntity;
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.Size;
-import org.apache.commons.lang3.builder.ToStringBuilder;
-import org.apache.commons.lang3.builder.ToStringStyle;
+import lombok.Data;
 
-import java.math.BigDecimal;
-import java.time.LocalDateTime;
+import com.moyun.core.base.BaseEntity;
 
 /**
  * 面试题目对象 portal_interview_question
  *
  * @author moyun
  */
+@Data
 @TableName("portal_interview_question")
 public class PortalInterviewQuestion extends BaseEntity {
     private static final long serialVersionUID = 1L;
@@ -104,142 +105,5 @@ public class PortalInterviewQuestion extends BaseEntity {
 
     public PortalInterviewQuestion(Long id) {
         this.id = id;
-    }
-
-    public Long getId() {
-        return id;
-    }
-
-    public void setId(Long id) {
-        this.id = id;
-    }
-
-    public String getTitle() {
-        return title;
-    }
-
-    public void setTitle(String title) {
-        this.title = title;
-    }
-
-    public String getDescription() {
-        return description;
-    }
-
-    public void setDescription(String description) {
-        this.description = description;
-    }
-
-    public String getDifficulty() {
-        return difficulty;
-    }
-
-    public void setDifficulty(String difficulty) {
-        this.difficulty = difficulty;
-    }
-
-    public Long getCategoryId() {
-        return categoryId;
-    }
-
-    public void setCategoryId(Long categoryId) {
-        this.categoryId = categoryId;
-    }
-
-    public String getTags() {
-        return tags;
-    }
-
-    public void setTags(String tags) {
-        this.tags = tags;
-    }
-
-    public String getCompanies() {
-        return companies;
-    }
-
-    public void setCompanies(String companies) {
-        this.companies = companies;
-    }
-
-    public BigDecimal getAcceptanceRate() {
-        return acceptanceRate;
-    }
-
-    public void setAcceptanceRate(BigDecimal acceptanceRate) {
-        this.acceptanceRate = acceptanceRate;
-    }
-
-    public Long getSubmissionCount() {
-        return submissionCount;
-    }
-
-    public void setSubmissionCount(Long submissionCount) {
-        this.submissionCount = submissionCount;
-    }
-
-    public Long getLikeCount() {
-        return likeCount;
-    }
-
-    public void setLikeCount(Long likeCount) {
-        this.likeCount = likeCount;
-    }
-
-    public String getHint() {
-        return hint;
-    }
-
-    public void setHint(String hint) {
-        this.hint = hint;
-    }
-
-    public String getSolution() {
-        return solution;
-    }
-
-    public void setSolution(String solution) {
-        this.solution = solution;
-    }
-
-    public Integer getSort() {
-        return sort;
-    }
-
-    public void setSort(Integer sort) {
-        this.sort = sort;
-    }
-
-    public String getStatus() {
-        return status;
-    }
-
-    public void setStatus(String status) {
-        this.status = status;
-    }
-
-    @Override
-    public String toString() {
-        return new ToStringBuilder(this, ToStringStyle.MULTI_LINE_STYLE)
-                .append("id", getId())
-                .append("title", getTitle())
-                .append("description", getDescription())
-                .append("difficulty", getDifficulty())
-                .append("categoryId", getCategoryId())
-                .append("tags", getTags())
-                .append("companies", getCompanies())
-                .append("acceptanceRate", getAcceptanceRate())
-                .append("submissionCount", getSubmissionCount())
-                .append("likeCount", getLikeCount())
-                .append("hint", getHint())
-                .append("solution", getSolution())
-                .append("sort", getSort())
-                .append("status", getStatus())
-                .append("createBy", getCreateBy())
-                .append("createTime", getCreateTime())
-                .append("updateBy", getUpdateBy())
-                .append("updateTime", getUpdateTime())
-                .append("remark", getRemark())
-                .toString();
     }
 }

@@ -1,9 +1,10 @@
 package com.moyun.portal.domain.query;
 
-import com.moyun.core.base.page.PageDomain;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
+
+import com.moyun.core.base.page.PageDomain;
 
 /**
  * 标签查询对象
@@ -38,4 +39,10 @@ public class TagQuery extends PageDomain {
      */
     @Schema(description = "结束时间", example = "2024-12-31")
     private String endTime;
+
+    /**
+     * 所属模块（article/book/book_list/book_quote/interview_question/interview_experience/interview_resume_template/comment/common）
+     */
+    @Schema(description = "所属模块", example = "article")
+    private String module;
 }

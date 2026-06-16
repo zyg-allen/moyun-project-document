@@ -1,13 +1,16 @@
 package com.moyun.portal.mapper;
 
+import java.util.List;
+
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
-import com.moyun.portal.domain.entity.PortalArticle;
-import com.moyun.portal.domain.query.ArticleQuery;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
-import java.util.List;
+import com.moyun.ext.cms.domain.query.CmsArticleQuery;
+import com.moyun.ext.cms.domain.vo.CmsArticleVO;
+import com.moyun.portal.domain.entity.PortalArticle;
+import com.moyun.portal.domain.query.ArticleQuery;
 
 /**
  * 门户文章表 数据层
@@ -121,4 +124,31 @@ public interface PortalArticleMapper extends BaseMapper<PortalArticle> {
      * @return 结果
      */
     int deletePortalArticleByIds(Long[] ids);
+
+    // ========== CMS专用方法 ==========
+
+    /**
+     * CMS分页查询文章（所有状态），返回CMS视图对象
+     *
+     * @param page 分页参数
+     * @param query 查询条件（CMS专用）
+     * @return 分页结果
+     */
+    Page<CmsArticleVO> selectCmsArticlePage(Page<CmsArticleVO> page, @Param("params") CmsArticleQuery query);
+
+    /**
+     * CMS不分页查询文章（所有状态），返回CMS视图对象
+     *
+     * @param query 查询条件（CMS专用）
+     * @return 文章列表
+     */
+    List<CmsArticleVO> selectCmsArticleList(@Param("params") CmsArticleQuery query);
+
+    /**
+     * CMS根据ID查询文章，返回CMS视图对象
+     *
+     * @param id 文章ID
+     * @return 文章对象
+     */
+    CmsArticleVO selectCmsArticleById(Long id);
 }

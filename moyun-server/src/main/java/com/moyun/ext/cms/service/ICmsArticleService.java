@@ -1,11 +1,12 @@
 package com.moyun.ext.cms.service;
 
+import java.util.List;
+
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+
 import com.moyun.ext.cms.domain.query.CmsArticleQuery;
 import com.moyun.ext.cms.domain.vo.CmsArticleVO;
 import com.moyun.portal.domain.entity.PortalArticle;
-
-import java.util.List;
 
 /**
  * CMS文章服务接口
@@ -35,9 +36,9 @@ public interface ICmsArticleService
      * 查询文章详情
      *
      * @param id 文章ID
-     * @return 文章信息
+     * @return 文章信息（CMS视图对象，含作者信息/分类信息）
      */
-    PortalArticle selectArticleById(Long id);
+    CmsArticleVO selectArticleById(Long id);
 
     /**
      * 新增文章
@@ -78,6 +79,22 @@ public interface ICmsArticleService
      * @return 结果
      */
     int setFeatured(PortalArticle article);
+
+    /**
+     * 设置置顶
+     *
+     * @param article 文章信息
+     * @return 结果
+     */
+    int setTop(PortalArticle article);
+
+    /**
+     * 设置轮播
+     *
+     * @param article 文章信息
+     * @return 结果
+     */
+    int setCarousel(PortalArticle article);
 
     /**
      * 批量删除文章

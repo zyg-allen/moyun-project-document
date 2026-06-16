@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.moyun.portal.mapper.PortalInterviewQuestionCompanyMapper">
+
+    <resultMap type="com.moyun.portal.domain.entity.PortalInterviewQuestionCompany" id="PortalInterviewQuestionCompanyResult">
+        <id     property="id"         column="id"         />
+        <result property="questionId" column="question_id" />
+        <result property="companyId"  column="company_id"  />
+        <result property="sort"       column="sort"        />
+        <result property="createTime" column="create_time" />
+    </resultMap>
+
+    <delete id="deleteByQuestionId">
+        delete from portal_interview_question_company where question_id = #{questionId}
+    </delete>
+
+    <delete id="deleteByCompanyId">
+        delete from portal_interview_question_company where company_id = #{companyId}
+    </delete>
+
+    <insert id="batchInsert" parameterType="java.util.List">
+        insert into portal_interview_question_company (question_id, company_id, sort, create_time)
+        values
+        <foreach collection="list" item="item" separator=",">
+            (#{item.questionId}, #{item.companyId}, #{item.sort}, now())
+        </foreach>
+    </insert>
+
+</mapper>

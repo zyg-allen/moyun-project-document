@@ -36,11 +36,20 @@ export function updateCategory(data) {
   })
 }
 
-// 删除分类
+// 删除分类（单个ID）
 export function delCategory(categoryId) {
   return request({
     url: '/cms/category/' + categoryId,
     method: 'delete'
+  })
+}
+
+// 删除分类（批量）
+export function delCategoryBatch(ids) {
+  return request({
+    url: '/cms/category/batch',
+    method: 'delete',
+    data: ids
   })
 }
 

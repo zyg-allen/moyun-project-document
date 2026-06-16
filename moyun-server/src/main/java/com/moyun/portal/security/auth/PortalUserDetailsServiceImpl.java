@@ -1,11 +1,9 @@
 package com.moyun.portal.security.auth;
 
-import com.moyun.portal.domain.entity.PortalUser;
-import com.moyun.portal.domain.model.PortalLoginUser;
-import com.moyun.portal.service.IPortalUserService;
-import com.moyun.util.string.StringUtils;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import java.util.HashSet;
+import java.util.Set;
+
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -13,8 +11,10 @@ import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 
-import java.util.HashSet;
-import java.util.Set;
+import com.moyun.portal.domain.entity.PortalUser;
+import com.moyun.portal.domain.model.PortalLoginUser;
+import com.moyun.portal.service.IPortalUserService;
+import com.moyun.util.string.StringUtils;
 
 /**
  * 门户用户验证处理
@@ -22,9 +22,8 @@ import java.util.Set;
  * @author moyun
  */
 @Service("portalUserDetailsServiceImpl")
+@Slf4j
 public class PortalUserDetailsServiceImpl implements UserDetailsService {
-
-    private static final Logger log = LoggerFactory.getLogger(PortalUserDetailsServiceImpl.class);
 
     @Autowired
     @Qualifier("portalUserServiceImpl")

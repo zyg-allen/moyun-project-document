@@ -1,13 +1,7 @@
 package com.moyun.ext.cms.controller;
 
-import com.moyun.common.annotation.Log;
-import com.moyun.common.enums.BusinessType;
-import com.moyun.core.base.AjaxResult;
-import com.moyun.core.base.BaseController;
-import com.moyun.ext.cms.domain.query.CmsCategoryQuery;
-import com.moyun.ext.cms.domain.vo.CmsCategoryVO;
-import com.moyun.ext.cms.service.ICmsCategoryService;
-import com.moyun.portal.domain.entity.PortalCategory;
+import java.util.List;
+
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -16,7 +10,14 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.List;
+import com.moyun.common.annotation.Log;
+import com.moyun.common.enums.BusinessType;
+import com.moyun.core.base.AjaxResult;
+import com.moyun.core.base.BaseController;
+import com.moyun.ext.cms.domain.query.CmsCategoryQuery;
+import com.moyun.ext.cms.domain.vo.CmsCategoryVO;
+import com.moyun.ext.cms.service.ICmsCategoryService;
+import com.moyun.portal.domain.entity.PortalCategory;
 
 /**
  * CMS分类管理Controller
@@ -70,7 +71,11 @@ public class CmsCategoryController extends BaseController {
     @Log(title = "分类管理", businessType = BusinessType.INSERT)
     @PostMapping
     public AjaxResult add(@Validated @RequestBody PortalCategory category) {
-        return toAjax(cmsCategoryService.insertCategory(category));
+        try {
+            return toAjax(cmsCategoryService.insertCategory(category));
+        } catch (RuntimeException e) {
+            return error(e.getMessage());
+        }
     }
 
     /**
@@ -81,7 +86,11 @@ public class CmsCategoryController extends BaseController {
     @Log(title = "分类管理", businessType = BusinessType.UPDATE)
     @PutMapping
     public AjaxResult edit(@Validated @RequestBody PortalCategory category) {
-        return toAjax(cmsCategoryService.updateCategory(category));
+        try {
+            return toAjax(cmsCategoryService.updateCategory(category));
+        } catch (RuntimeException e) {
+            return error(e.getMessage());
+        }
     }
 
     /**
@@ -92,6 +101,33 @@ public class CmsCategoryController extends BaseController {
     @Log(title = "分类管理", businessType = BusinessType.DELETE)
     @DeleteMapping("/{ids}")
     public AjaxResult remove(@Parameter(description = "分类ID数组") @PathVariable Long[] ids) {
+        for (Long id : ids) {
+            if (cmsCategoryService.hasChildCategory(id)) {
+                return error("存在子分类，不能删除");
+            }
+        }
+        return toAjax(cmsCategoryService.deleteCategoryByIds(ids));
+    }
+
+    /**
+     * 状态修改
+     */
+    @Operation(summary = "修改分类状态", description = "启用或禁用分类")
+    @PreAuthorize("@ss.hasPermi('cms:category:edit')")
+    @Log(title = "分类管理", businessType = BusinessType.UPDATE)
+    @PutMapping("/changeStatus")
+    public AjaxResult changeStatus(@RequestBody PortalCategory category) {
+        return toAjax(cmsCategoryService.changeStatus(category));
+    }
+
+    /**
+     * 批量删除分类
+     */
+    @Operation(summary = "批量删除分类", description = "批量删除分类")
+    @PreAuthorize("@ss.hasPermi('cms:category:remove')")
+    @Log(title = "分类管理", businessType = BusinessType.DELETE)
+    @DeleteMapping("/batch")
+    public AjaxResult removeBatch(@RequestBody Long[] ids) {
         for (Long id : ids) {
             if (cmsCategoryService.hasChildCategory(id)) {
                 return error("存在子分类，不能删除");

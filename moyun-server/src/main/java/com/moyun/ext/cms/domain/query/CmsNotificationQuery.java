@@ -1,7 +1,8 @@
 package com.moyun.ext.cms.domain.query;
 
-import com.moyun.core.base.page.PageDomain;
 import lombok.Data;
+
+import com.moyun.core.base.page.PageDomain;
 
 /**
  * 通知查询对象

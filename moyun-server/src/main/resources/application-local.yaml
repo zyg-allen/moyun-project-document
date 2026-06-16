@@ -1,71 +1,32 @@
-
 spring:
+  # =============================================
+  # MySQL 数据源配置
+  # =============================================
   datasource:
-    # 使用 Druid 数据源
     type: com.alibaba.druid.pool.DruidDataSource
-    driver-class-name: com.mysql.cj.jdbc.Driver  #ecom_publish
+    driver-class-name: com.mysql.cj.jdbc.Driver
     url: jdbc:mysql://localhost:3306/moyun-db?useUnicode=true&characterEncoding=utf-8&useSSL=false&serverTimezone=Asia/Shanghai
     username: root
     password: 123456
-    # Druid 连接池配置
     druid:
-      # 初始连接数
+      # 连接池基础配置
       initial-size: 5
-      # 最小连接池数量
       min-idle: 10
-      # 最大连接池数量
       max-active: 20
-      # 配置获取连接等待超时的时间
       max-wait: 60000
-      # 配置连接超时时间
-      connect-timeout: 3000
-      # 配置网络超时时间
-      socket-timeout: 12000
-      # 配置间隔多久才进行一次检测，检测需要关闭的空闲连接，单位是毫秒
+      connect-timeout: 30000
+      socket-timeout: 60000
+      # 连接检测
       time-between-eviction-runs-millis: 60000
-      # 配置一个连接在池中最小生存的时间，单位是毫秒
       min-evictable-idle-time-millis: 300000
-      # 配置一个连接在池中最大生存的时间，单位是毫秒
       max-evictable-idle-time-millis: 900000
-      # 配置检测连接是否有效
       validation-query: SELECT 1
-      # 申请连接时执行validationQuery检测连接是否有效
       test-while-idle: true
-      # 申请连接时执行validationQuery检测连接是否有效
       test-on-borrow: false
-      # 归还连接时执行validationQuery检测连接是否有效
       test-on-return: false
-      # 是否缓存preparedStatement
       pool-prepared-statements: true
-      # 配置监控统计拦截的filters，去掉后监控界面sql无法统计
+      # 监控统计
       filters: stat,wall,slf4j
-      # 初始连接数
-      initialSize: 5
-      # 最小连接池数量
-      minIdle: 10
-      # 最大连接池数量
-      maxActive: 20
-      # 配置获取连接等待超时的时间
-      maxWait: 60000
-      # 配置连接超时时间
-      connectTimeout: 30000
-      # 配置网络超时时间
-      socketTimeout: 60000
-      # 配置间隔多久才进行一次检测，检测需要关闭的空闲连接，单位是毫秒
-      timeBetweenEvictionRunsMillis: 60000
-      # 配置一个连接在池中最小生存的时间，单位是毫秒
-      minEvictableIdleTimeMillis: 300000
-      # 配置一个连接在池中最大生存的时间，单位是毫秒
-      maxEvictableIdleTimeMillis: 900000
-      # 配置检测连接是否有效
-      validationQuery: SELECT 1 FROM DUAL
-      # 建议配置为true，不影响性能，并且保证安全性
-      testWhileIdle: true
-      # 申请连接时执行validationQuery检测连接是否有效，做了这个配置会降低性能
-      testOnBorrow: false
-      # 归还连接时执行validationQuery检测连接是否有效，做了这个配置会降低性能
-      testOnReturn: false
-      # 开启mergeSql功能；慢SQL记录
       filter:
         stat:
           merge-sql: true
@@ -74,51 +35,107 @@ spring:
         wall:
           config:
             multi-statement-allow: true
-      # Web 监控配置
+      # Druid Web 监控页
       web-stat-filter:
         enabled: true
         url-pattern: /*
         exclusions: "*.js,*.gif,*.jpg,*.png,*.css,*.ico,/druid/*"
-      # StatViewServlet 配置
       stat-view-servlet:
         enabled: true
-        # 访问内置监控页面的路径，内置监控页面的首页是/druid/index.html
         url-pattern: /druid/*
-        # 不允许清空统计数据
         reset-enable: false
-        # 监控页面登录用户名
         login-username: admin
-        # 监控页面登录密码
         login-password: admin
-        # 允许访问的IP地址(为空表示允许所有)
         allow: ""
-        # 禁止访问的IP地址
         deny: ""
-      # 开启 Spring 监控
-      aop-patterns: com.zyg.bootv3.service.*
+      # Spring 监控
+      aop-patterns: com.moyun.system.service.*
+
+  # =============================================
+  # Redis 配置
+  # =============================================
   data:
     redis:
       host: localhost
       port: 6379
-    # MongoDB 配置（辅助中间件）
-    mongodb:
-      uri: mongodb://localhost:27017/bootv3
-      # 连接池配置
-      options:
-        # 最大连接数
-        max-connection-per-host: 20
-        # 最小连接数
-        min-connections-per-host: 5
-        # 连接超时时间
-        connect-timeout: 10000
-        # 读取超时时间
-        read-timeout: 10000
+      database: 0
+      password:         # 本地无密码，留空；生产环境设为真实密码
+      timeout: 3000
+      lettuce:
+        pool:
+          max-active: 8
+          max-wait: -1
+          max-idle: 8
+          min-idle: 0
 
-# MyBatis-Plus 配置（与 application.yaml 中的配置保持一致）
-# 注意：这里仅作为本地环境的覆盖配置，主配置在 application.yaml 中
-langchain4j:
-  community:
-    dashscope:
-      chat-model:
-        model-name: qwen-max
-        api-key: sk-c760a4e037ee492fbff0f18e35cb6167
+    # MongoDB 配置（可选，辅助中间件）
+    mongodb:
+      uri: mongodb://localhost:27017/moyun
+      auto-index-creation: true
+
+# =============================================
+# 日志配置（本地环境覆盖）
+# =============================================
+logging:
+  level:
+    # SQL 日志（仅本地开启）
+    org.hibernate.SQL: debug
+
+# =============================================
+# Token 配置（本地环境覆盖）
+# =============================================
+token:
+  expireTime: 30              # 本地 30 分钟，生产建议 120
+
+# =============================================
+# 墨韵框架配置（本地文件路径覆盖）
+# =============================================
+moyun:
+  profile: /profile            # 本地文件存储路径
+
+# =============================================
+# MyBatis-Plus 配置
+# =============================================
+mybatis-plus:
+  mapper-locations: classpath*:/mapper/**/*.xml
+  type-aliases-package: com.moyun.core.base.entity,com.moyun.system.domain.entity,com.moyun.portal.domain.entity,com.moyun.ext.cms.domain.entity,com.moyun.ext.job.domain.entity
+  configuration:
+    map-underscore-to-camel-case: true
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+  global-config:
+    db-config:
+      id-type: auto
+      logic-delete-field: deleted
+      logic-delete-value: 1
+      logic-not-delete-value: 0
+
+# =============================================
+# Flowable 工作流配置
+# =============================================
+flowable:
+  async-executor-activate: false
+  check-process-definitions: false
+  # ⚠️ 注意：本地开发时设置为 true 让 Flowable 自动建表
+  #        已有建表脚本则设为 false 避免重复创建
+  database-schema-update: true
+  history-level: audit
+  database-type: mysql
+  eventregistry:
+    enabled: false
+  cmmn:
+    enabled: false
+  dmn:
+    enabled: false
+  app:
+    enabled: false
+
+# =============================================
+# MinIO 文件存储配置
+# =============================================
+minio:
+  enabled: false              # false=本地文件系统，true=MinIO 对象存储
+  endpoint: http://127.0.0.1:9000
+  access-key: admin123
+  secret-key: admin123
+  bucket-name: moyun
+  access-url: http://127.0.0.1:9000

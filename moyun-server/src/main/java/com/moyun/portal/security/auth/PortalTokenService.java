@@ -1,5 +1,22 @@
 package com.moyun.portal.security.auth;
 
+import jakarta.servlet.http.HttpServletRequest;
+import java.nio.charset.StandardCharsets;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.concurrent.TimeUnit;
+import javax.crypto.SecretKey;
+
+import eu.bitwalker.useragentutils.UserAgent;
+import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.SignatureAlgorithm;
+import io.jsonwebtoken.security.Keys;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Component;
+
 import com.moyun.common.constant.CacheConstants;
 import com.moyun.common.constant.Constants;
 import com.moyun.core.config.redis.RedisCache;
@@ -9,32 +26,15 @@ import com.moyun.util.ip.AddressUtils;
 import com.moyun.util.ip.IpUtils;
 import com.moyun.util.string.StringUtils;
 import com.moyun.util.uuid.IdUtils;
-import eu.bitwalker.useragentutils.UserAgent;
-import io.jsonwebtoken.Claims;
-import io.jsonwebtoken.Jwts;
-import io.jsonwebtoken.SignatureAlgorithm;
-import io.jsonwebtoken.security.Keys;
-import jakarta.servlet.http.HttpServletRequest;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.stereotype.Component;
-
-import javax.crypto.SecretKey;
-import java.nio.charset.StandardCharsets;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.concurrent.TimeUnit;
 
 /**
  * 门户token验证处理
  *
  * @author moyun
  */
+@Slf4j
 @Component("portalTokenService")
 public class PortalTokenService {
-    private static final Logger log = LoggerFactory.getLogger(PortalTokenService.class);
 
     // 令牌自定义标识
     @Value("${token.header}")

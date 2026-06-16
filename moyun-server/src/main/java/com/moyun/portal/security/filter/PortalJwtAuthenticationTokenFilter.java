@@ -1,14 +1,14 @@
 package com.moyun.portal.security.filter;
 
-import com.moyun.portal.domain.model.PortalLoginUser;
-import com.moyun.portal.security.auth.PortalTokenService;
-import com.moyun.util.string.StringUtils;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import java.io.IOException;
+import java.util.Arrays;
+import java.util.List;
+
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -17,9 +17,9 @@ import org.springframework.security.web.authentication.WebAuthenticationDetailsS
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
-import java.io.IOException;
-import java.util.Arrays;
-import java.util.List;
+import com.moyun.portal.domain.model.PortalLoginUser;
+import com.moyun.portal.security.auth.PortalTokenService;
+import com.moyun.util.string.StringUtils;
 
 /**
  * 门户token过滤器 验证token有效性
@@ -27,8 +27,8 @@ import java.util.List;
  * @author moyun
  */
 @Component
+@Slf4j
 public class PortalJwtAuthenticationTokenFilter extends OncePerRequestFilter {
-    private static final Logger log = LoggerFactory.getLogger(PortalJwtAuthenticationTokenFilter.class);
 
     @Autowired
     @Qualifier("portalTokenService")

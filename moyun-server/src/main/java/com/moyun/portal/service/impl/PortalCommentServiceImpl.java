@@ -1,8 +1,16 @@
 package com.moyun.portal.service.impl;
 
+import java.util.*;
+import java.util.stream.Collectors;
+
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.BeanUtils;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
 import com.moyun.portal.domain.entity.PortalComment;
 import com.moyun.portal.domain.entity.PortalUser;
 import com.moyun.portal.domain.query.CommentQuery;
@@ -11,13 +19,6 @@ import com.moyun.portal.mapper.PortalCommentMapper;
 import com.moyun.portal.mapper.PortalUserMapper;
 import com.moyun.portal.service.IPortalCommentService;
 import com.moyun.portal.util.PortalSecurityUtils;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.BeanUtils;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Service;
-
-import java.util.*;
-import java.util.stream.Collectors;
 
 /**
  * 门户评论 业务层处理

@@ -1,13 +1,14 @@
 package com.moyun.portal.mapper;
 
+import java.util.List;
+
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
-import com.moyun.portal.domain.entity.PortalTag;
-import com.moyun.portal.domain.query.TagQuery;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
-import java.util.List;
+import com.moyun.portal.domain.entity.PortalTag;
+import com.moyun.portal.domain.query.TagQuery;
 
 /**
  * 门户标签表 数据层
@@ -73,4 +74,41 @@ public interface PortalTagMapper extends BaseMapper<PortalTag> {
      * @return 结果
      */
     public int deletePortalTagByIds(Long[] ids);
+
+    /**
+     * 根据名称精确查询标签（可选 module）
+     *
+     * @param name   标签名称
+     * @param module 所属模块（可为 null）
+     * @return 标签对象
+     */
+    PortalTag selectByNameAndModule(@Param("name") String name, @Param("module") String module);
+
+    /**
+     * 根据实体（entityType + entityId）查询已关联的标签
+     *
+     * @param entityType 实体类型
+     * @param entityId   实体ID
+     * @return 标签列表
+     */
+    List<PortalTag> selectTagsByEntity(@Param("entityType") String entityType, @Param("entityId") Long entityId);
+
+    /**
+     * 根据模块（可选）按引用次数降序获取热门标签
+     *
+     * @param module 所属模块（可为 null 表示全部）
+     * @param limit  限制数量
+     * @return 标签列表
+     */
+    List<PortalTag> selectHotTags(@Param("module") String module, @Param("limit") Integer limit);
+
+    /**
+     * 批量更新 reference_count（原子增减，delta 为 1 或 -1）
+     */
+    int updateReferenceCountBatch(@Param("ids") List<Long> ids, @Param("delta") Long delta);
+
+    /**
+     * 单条更新 reference_count（原子增减）
+     */
+    int updateReferenceCount(@Param("id") Long id, @Param("delta") Long delta);
 }

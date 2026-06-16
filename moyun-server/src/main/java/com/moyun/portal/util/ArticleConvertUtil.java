@@ -1,8 +1,9 @@
 package com.moyun.portal.util;
 
+import org.springframework.beans.BeanUtils;
+
 import com.moyun.portal.domain.entity.PortalArticle;
 import com.moyun.portal.domain.vo.ArticleVO;
-import org.springframework.beans.BeanUtils;
 
 /**
  * 文章对象转换工具类

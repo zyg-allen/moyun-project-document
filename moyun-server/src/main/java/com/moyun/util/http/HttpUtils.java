@@ -2,8 +2,7 @@ package com.moyun.util.http;
 
 import com.moyun.common.constant.Constants;
 import com.moyun.util.string.StringUtils;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.MediaType;
 
 import javax.net.ssl.*;
@@ -15,8 +14,8 @@ import java.net.URLConnection;
 import java.nio.charset.StandardCharsets;
 import java.security.cert.X509Certificate;
 
+@Slf4j
 public class HttpUtils {
-    private static final Logger log = LoggerFactory.getLogger(HttpUtils.class);
 
     public static String sendGet(String url) {
         return sendGet(url, StringUtils.EMPTY);

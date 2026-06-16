@@ -1,14 +1,15 @@
 package com.moyun.core.base;
 
-import com.fasterxml.jackson.annotation.JsonInclude;
-import com.moyun.core.base.entity.SysDept;
-import com.moyun.core.base.entity.SysMenu;
-import lombok.Data;
-
 import java.io.Serial;
 import java.io.Serializable;
 import java.util.List;
 import java.util.stream.Collectors;
+
+import com.fasterxml.jackson.annotation.JsonInclude;
+import lombok.Data;
+
+import com.moyun.core.base.entity.SysDept;
+import com.moyun.core.base.entity.SysMenu;
 
 /**
  * Treeselect树结构实体类

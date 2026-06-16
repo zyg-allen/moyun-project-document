@@ -29,50 +29,11 @@ spring:
       # 忽略未知字段
       fail-on-unknown-properties: false
 
-  # MySQL 数据库配置（主配置）
-  datasource:
-    type: com.alibaba.druid.pool.DruidDataSource
-    driver-class-name: com.mysql.cj.jdbc.Driver
-    url: jdbc:mysql://localhost:3306/moyundb?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai&useSSL=false
-    username: root
-    password: root
-    druid:
-      initial-size: 5
-      min-idle: 5
-      max-active: 20
-      max-wait: 60000
-      time-between-eviction-runs-millis: 60000
-      min-evictable-idle-time-millis: 300000
-      validation-query: SELECT 1
-      test-while-idle: true
-      test-on-borrow: false
-      test-on-return: false
-
-  # Redis 配置（可选，开发环境可暂时不配置）
-  data:
-    redis:
-      host: localhost
-      port: 6379
-      database: 0
-      password:
-      timeout: 3000
-      lettuce:
-        pool:
-          max-active: 8
-          max-wait: -1
-          max-idle: 8
-          min-idle: 0
-    # MongoDB 配置（可选，辅助中间件）
-    mongodb:
-      uri: mongodb://localhost:27017/moyun
-      auto-index-creation: true
-
-# 日志配置
+# 日志配置（公共格式，各环境共享）
 logging:
   level:
     com.moyun: debug
     org.springframework: info
-    org.hibernate.SQL: debug
   pattern:
     console: '%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{50} - %msg%n'
 
@@ -81,25 +42,24 @@ security:
   # 后台管理需要排除的路径模块（这些路径使用独立的认证配置）
   exclude-modules:  /portal/**,/external/**,/doc.html,/swagger-ui.html
 
-# 墨韵框架配置
+# 墨韵框架配置（公共部分）
 moyun:
   name: moyun
   version: 4.x
   copyrightYear: 2024
   # 实例演示开关
   demoEnabled: false
-  # 文件路径 示例（ Windows配置D:/moyun/uploadPath，Linux配置 /home/moyun/uploadPath）
-  profile: /profile
   # 获取ip地址开关
   addressEnabled: false
 
 # Token 配置
+# secret 通过环境变量 ${TOKEN_SECRET:} 注入，各环境不同密钥
+# expireTime 建议本地 30 分钟，生产可在环境文件中覆盖
 token:
   header: Authorization
   # 密钥必须至少 512 位 (64 字节) 用于 HS512 算法
   # 生产环境必须通过环境变量 TOKEN_SECRET 配置强随机密钥
   secret: ${TOKEN_SECRET:}
-  expireTime: 30
 
 # 验证码配置
 captcha:
@@ -119,73 +79,6 @@ user:
     maxRetryCount: 5
     # 密码锁定时间（默认10分钟）
     lockTime: 10
-
-# Flowable工作流配置
-flowable:
-  # 异步执行器（开发环境建议关闭，生产环境根据需要开启）
-  async-executor-activate: false
-
-  # 自动部署验证设置（关闭classpath下的BPMN文件自动部署）
-  check-process-definitions: false
-
-  # 数据库表更新策略
-  # true = 检查并更新表结构（推荐，首次启动会自动建表）
-  # false = 不自动处理表结构（手动建表后使用）
-  # create-drop = 启动时创建，关闭时删除（仅测试用）
-  # drop-create = 先删除再创建（版本升级时用，会清空数据！）
-  # ⚠️ 注意：如果已手动执行建表脚本，请设置为 false
-  database-schema-update: true
-
-  # 历史记录级别
-  # none = 不记录历史（最快）
-  # activity = 仅记录活动实例
-  # audit = 审计级别（默认，推荐生产环境）
-  # full = 完整历史（最慢，但信息最全，包含变量详情）
-  history-level: audit
-
-  # 数据库类型（可选，Flowable会自动检测）
-  database-type: mysql
-
-  # 事件注册器配置（如需使用事件功能）
-  eventregistry:
-    enabled: false
-
-  # CMMN案例管理配置（如需使用案例管理功能）
-  cmmn:
-    enabled: false
-
-  # DMN决策引擎配置（如需使用决策表功能）
-  dmn:
-    enabled: false
-
-  # App应用引擎配置（如需使用应用管理功能）
-  app:
-    enabled: false
-
-# MyBatis-Plus 配置
-mybatis-plus:
-  # Mapper XML 文件位置
-  mapper-locations: classpath*:/mapper/**/*.xml
-  # 实体类包路径（类型别名扫描包） - 只扫描真正的实体包，避免query/dto/vo冲突
-  type-aliases-package: com.moyun.core.base.entity,com.moyun.system.domain.entity,com.moyun.portal.domain.entity,com.moyun.ext.cms.domain.entity,com.moyun.ext.job.domain.entity
-  # 配置
-  configuration:
-    # 驼峰转下划线
-    map-underscore-to-camel-case: true
-    # 日志实现：生产环境建议使用 Slf4jImpl 或在 profile 中覆盖
-    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
-  # 全局配置
-  global-config:
-    # 数据库配置
-    db-config:
-      # 主键类型（AUTO 自增）
-      id-type: auto
-      # 逻辑删除字段
-      logic-delete-field: deleted
-      # 逻辑删除值
-      logic-delete-value: 1
-      # 逻辑未删除值
-      logic-not-delete-value: 0
 
 # 防止XSS攻击
 xss:
@@ -211,18 +104,3 @@ ruoyi:
   importPath: /profile/import
   # 验证码类型 math 数字计算 char 字符验证
   captchaType: math
-
-# MinIO文件存储配置
-minio:
-  # 是否启用MinIO，false表示使用本地存储
-  enabled: true
-  # MinIO服务地址
-  endpoint: http://127.0.0.1:9000
-  # MinIO accessKey
-  access-key: admin123
-  # MinIO secretKey
-  secret-key: admin123
-  # 存储桶名称
-  bucket-name: moyun
-  # 访问地址（可选，用于生成文件访问，默认使用endpoint）
-  access-url: http://127.0.0.1:9000

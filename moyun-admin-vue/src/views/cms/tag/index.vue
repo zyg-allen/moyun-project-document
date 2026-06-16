@@ -2,9 +2,9 @@
   <div class="app-container">
     <!-- 搜索表单 -->
     <el-form :model="queryParams" ref="queryRef" :inline="true" v-show="showSearch" label-width="68px">
-      <el-form-item label="标签名称" prop="tagName">
+      <el-form-item label="标签名称" prop="name">
         <el-input
-          v-model="queryParams.tagName"
+          v-model="queryParams.name"
           placeholder="请输入标签名称"
           clearable
           style="width: 200px"
@@ -178,7 +178,7 @@ const data = reactive({
     status: undefined
   },
   rules: {
-    tagName: [{ required: true, message: "标签名称不能为空", trigger: "blur" }]
+    name: [{ required: true, message: "标签名称不能为空", trigger: "blur" }]
   }
 });
 

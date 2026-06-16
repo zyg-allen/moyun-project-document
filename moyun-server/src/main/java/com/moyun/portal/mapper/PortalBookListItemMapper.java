@@ -1,11 +1,12 @@
 package com.moyun.portal.mapper;
 
+import java.util.List;
+
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
-import com.moyun.portal.domain.entity.PortalBookListItem;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
-import java.util.List;
+import com.moyun.portal.domain.entity.PortalBookListItem;
 
 /**
  * 书单-书籍关联表 数据层

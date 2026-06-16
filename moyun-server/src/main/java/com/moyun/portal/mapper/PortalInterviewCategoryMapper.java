@@ -1,10 +1,11 @@
 package com.moyun.portal.mapper;
 
+import java.util.List;
+
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
-import com.moyun.portal.domain.entity.PortalInterviewCategory;
 import org.apache.ibatis.annotations.Mapper;
 
-import java.util.List;
+import com.moyun.portal.domain.entity.PortalInterviewCategory;
 
 /**
  * 门户面试分类表 数据层

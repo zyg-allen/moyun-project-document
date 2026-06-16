@@ -11,11 +11,10 @@
           @keyup.enter="handleQuery"
         />
       </el-form-item>
-      <el-form-item label="审核状态" prop="auditStatus">
-        <el-select v-model="queryParams.auditStatus" placeholder="审核状态" clearable style="width: 200px">
-          <el-option label="待审核" value="0" />
-          <el-option label="已通过" value="1" />
-          <el-option label="已拒绝" value="2" />
+      <el-form-item label="状态" prop="status">
+        <el-select v-model="queryParams.status" placeholder="状态" clearable style="width: 200px">
+          <el-option label="正常" value="0" />
+          <el-option label="停用" value="1" />
         </el-select>
       </el-form-item>
       <el-form-item>
@@ -40,16 +39,16 @@
     </el-row>
 
     <!-- 数据表格 -->
-    <el-table v-loading="loading" :data="commentList" @selection-change="handleSelectionChange" row-key="commentId" :tree-props="{children: 'children', hasChildren: 'hasChildren'}">
+    <el-table v-loading="loading" :data="commentList" @selection-change="handleSelectionChange" row-key="id" :tree-props="{children: 'children', hasChildren: 'hasChildren'}">
       <el-table-column type="selection" width="55" align="center" />
-      <el-table-column label="评论编号" align="center" prop="commentId" width="80" />
+      <el-table-column label="评论编号" align="center" prop="id" width="80" />
       <el-table-column label="评论内容" align="center" prop="content" :show-overflow-tooltip="true" min-width="200" />
-      <el-table-column label="用户昵称" align="center" prop="userName" width="120" />
+      <el-table-column label="用户昵称" align="center" prop="authorNickname" width="120" />
       <el-table-column label="文章标题" align="center" prop="articleTitle" width="150" :show-overflow-tooltip="true" />
-      <el-table-column label="审核状态" align="center" prop="auditStatus" width="100">
+      <el-table-column label="状态" align="center" prop="status" width="100">
         <template #default="scope">
-          <el-tag :type="getAuditStatusType(scope.row.auditStatus)">
-            {{ getAuditStatusText(scope.row.auditStatus) }}
+          <el-tag :type="getAuditStatusType(scope.row.status)">
+            {{ getAuditStatusText(scope.row.status) }}
           </el-tag>
         </template>
       </el-table-column>
@@ -67,22 +66,13 @@
             @click="handleView(scope.row)"
             v-hasPermi="['cms:comment:query']"
           >查看</el-button>
-          <el-dropdown
-            v-if="scope.row.auditStatus === '0'"
-            @command="(command) => handleAudit(command, scope.row)"
+          <el-button
+            link
+            type="success"
+            icon="Check"
+            @click="handleAudit('0', scope.row)"
             v-hasPermi="['cms:comment:edit']"
-          >
-            <el-button link type="success" icon="Check">
-              审核
-              <el-icon class="el-icon--right"><arrow-down /></el-icon>
-            </el-button>
-            <template #dropdown>
-              <el-dropdown-menu>
-                <el-dropdown-item command="1">通过</el-dropdown-item>
-                <el-dropdown-item command="2">拒绝</el-dropdown-item>
-              </el-dropdown-menu>
-            </template>
-          </el-dropdown>
+          >启用</el-button>
           <el-button
             link
             type="primary"
@@ -106,15 +96,15 @@
     <!-- 查看评论对话框 -->
     <el-dialog title="评论详情" v-model="viewOpen" width="600px" append-to-body>
       <el-descriptions :column="1" border>
-        <el-descriptions-item label="评论编号">{{ viewForm.commentId }}</el-descriptions-item>
-        <el-descriptions-item label="用户昵称">{{ viewForm.userName }}</el-descriptions-item>
-        <el-descriptions-item label="文章标题">{{ viewForm.articleTitle }}</el-descriptions-item>
+        <el-descriptions-item label="评论编号">{{ viewForm.id }}</el-descriptions-item>
+        <el-descriptions-item label="用户昵称">{{ viewForm.authorNickname || '-' }}</el-descriptions-item>
+        <el-descriptions-item label="文章标题">{{ viewForm.articleTitle || '-' }}</el-descriptions-item>
         <el-descriptions-item label="评论内容">
           <span>{{ viewForm.content }}</span>
         </el-descriptions-item>
-        <el-descriptions-item label="审核状态">
-          <el-tag :type="getAuditStatusType(viewForm.auditStatus)">
-            {{ getAuditStatusText(viewForm.auditStatus) }}
+        <el-descriptions-item label="状态">
+          <el-tag :type="getAuditStatusType(viewForm.status)">
+            {{ getAuditStatusText(viewForm.status) }}
           </el-tag>
         </el-descriptions-item>
         <el-descriptions-item label="创建时间">{{ parseTime(viewForm.createTime) }}</el-descriptions-item>
@@ -130,7 +120,6 @@
 
 <script setup name="CmsComment">
 import { listComment, getComment, delComment, auditComment } from "@/api/cms/comment";
-import { ArrowDown } from "@element-plus/icons-vue";
 
 const { proxy } = getCurrentInstance();
 
@@ -164,31 +153,29 @@ const data = reactive({
     pageNum: 1,
     pageSize: 10,
     content: undefined,
-    auditStatus: undefined
+    status: undefined
   },
   rules: {}
 });
 
 const { queryParams, form, viewForm, rules } = toRefs(data);
 
-// 获取审核状态类型
-function getAuditStatusType(auditStatus) {
+// 获取状态类型
+function getAuditStatusType(status) {
   const typeMap = {
-    '0': 'warning',
-    '1': 'success',
-    '2': 'danger'
+    '0': 'success',
+    '1': 'danger'
   };
-  return typeMap[auditStatus] || 'info';
+  return typeMap[status] || 'info';
 }
 
-// 获取审核状态文本
-function getAuditStatusText(auditStatus) {
+// 获取状态文本
+function getAuditStatusText(status) {
   const textMap = {
-    '0': '待审核',
-    '1': '已通过',
-    '2': '已拒绝'
+    '0': '正常',
+    '1': '停用'
   };
-  return textMap[auditStatus] || '未知';
+  return textMap[status] || '未知';
 }
 
 // 查询评论列表
@@ -215,15 +202,15 @@ function resetQuery() {
 
 // 表格多选
 function handleSelectionChange(selection) {
-  ids.value = selection.map(item => item.commentId);
+  ids.value = selection.map(item => item.id);
   single.value = selection.length !== 1;
   multiple.value = !selection.length;
 }
 
 // 查看按钮操作
 function handleView(row) {
-  const commentId = row.commentId;
-  getComment(commentId).then(response => {
+  const id = row.id;
+  getComment(id).then(response => {
     viewForm.value = response.data;
     viewOpen.value = true;
   });
@@ -231,7 +218,7 @@ function handleView(row) {
 
 // 删除按钮操作
 function handleDelete(row) {
-  const commentIds = row.commentId || ids.value;
+  const commentIds = row.id || ids.value;
   proxy.$modal.confirm('是否确认删除评论编号为"' + commentIds + '"的数据项？').then(function () {
     return delComment(commentIds);
   }).then(() => {
@@ -240,13 +227,13 @@ function handleDelete(row) {
   }).catch(() => {});
 }
 
-// 评论审核
+// 启用评论
 function handleAudit(command, row) {
-  const auditText = command === "1" ? "通过" : "拒绝";
-  proxy.$modal.confirm('确认要' + auditText + '该评论吗？').then(function () {
-    return auditComment(row.commentId, command);
+  const statusText = command === "0" ? "启用" : "停用";
+  proxy.$modal.confirm('确认要' + statusText + '该评论吗？').then(function () {
+    return auditComment(row.id, command);
   }).then(() => {
-    proxy.$modal.msgSuccess("审核成功");
+    proxy.$modal.msgSuccess("操作成功");
     getList();
   }).catch(() => {});
 }

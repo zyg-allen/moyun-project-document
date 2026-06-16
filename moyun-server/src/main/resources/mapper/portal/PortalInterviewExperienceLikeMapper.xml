@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.moyun.portal.mapper.PortalInterviewExperienceLikeMapper">
+
+    <resultMap type="com.moyun.portal.domain.entity.PortalInterviewExperienceLike" id="PortalInterviewExperienceLikeResult">
+        <id     property="id"            column="id"             />
+        <result property="experienceId"  column="experience_id"  />
+        <result property="userId"        column="user_id"        />
+        <result property="createTime"    column="create_time"    />
+    </resultMap>
+
+    <select id="selectLike" resultMap="PortalInterviewExperienceLikeResult">
+        select id, experience_id, user_id, create_time
+        from portal_interview_experience_like
+        where experience_id = #{experienceId} and user_id = #{userId}
+        limit 1
+    </select>
+
+</mapper>

@@ -13,6 +13,7 @@ import com.moyun.ext.generator.util.GenUtils;
 import com.moyun.ext.generator.util.VelocityInitializer;
 import com.moyun.ext.generator.util.VelocityUtils;
 import com.moyun.util.string.StringUtils;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.IOUtils;
 import org.apache.velocity.Template;
@@ -41,9 +42,9 @@ import java.util.zip.ZipOutputStream;
  *
  * @author ruoyi
  */
+@Slf4j
 @Service
 public class GenTableServiceImpl implements IGenTableService {
-    private static final Logger log = LoggerFactory.getLogger(GenTableServiceImpl.class);
 
     @Autowired
     private GenTableMapper genTableMapper;

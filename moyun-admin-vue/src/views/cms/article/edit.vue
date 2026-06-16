@@ -226,7 +226,7 @@ const editorWidth = ref(50);
 const isResizing = ref(false);
 
 // 是否为编辑模式
-const isEdit = computed(() => !!route.params.id);
+const isEdit = computed(() => !!route.query.id);
 
 // 查询参数
 const data = reactive({
@@ -274,14 +274,14 @@ const markdownPreview = computed(() => {
 // 查询分类列表
 function getCategoryList() {
   listCategory({ pageNum: 1, pageSize: 100 }).then(response => {
-    categoryOptions.value = response.data || [];
+    categoryOptions.value = response.rows || response.data || [];
   });
 }
 
 // 查询标签列表
 function getTagList() {
   listTag({ pageNum: 1, pageSize: 100 }).then(response => {
-    tagOptions.value = response.rows || [];
+    tagOptions.value = response.rows || response.data || [];
   });
 }
 
@@ -291,8 +291,8 @@ function init() {
   getTagList();
   
   // 如果有 ID，说明是编辑模式，加载数据
-  if (route.params.id) {
-    getArticle(route.params.id).then(response => {
+  if (route.query.id) {
+    getArticle(route.query.id).then(response => {
       const data = response.data || {};
       form.value = { ...form.value, ...data };
       // 确保有默认值

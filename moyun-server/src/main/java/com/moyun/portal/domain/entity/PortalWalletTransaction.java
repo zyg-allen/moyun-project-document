@@ -1,20 +1,21 @@
 package com.moyun.portal.domain.entity;
 
-import com.baomidou.mybatisplus.annotation.IdType;
-import com.baomidou.mybatisplus.annotation.TableId;
-import com.baomidou.mybatisplus.annotation.TableName;
-import com.fasterxml.jackson.annotation.JsonFormat;
-import com.moyun.core.base.BaseEntity;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
-import org.apache.commons.lang3.builder.ToStringBuilder;
-import org.apache.commons.lang3.builder.ToStringStyle;
-
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
+import com.baomidou.mybatisplus.annotation.IdType;
+import com.baomidou.mybatisplus.annotation.TableId;
+import com.baomidou.mybatisplus.annotation.TableName;
+import com.fasterxml.jackson.annotation.JsonFormat;
+import lombok.Data;
+
+import com.moyun.core.base.BaseEntity;
+
+@Data
 @TableName("portal_wallet_transaction")
 public class PortalWalletTransaction extends BaseEntity
 {
@@ -57,86 +58,6 @@ public class PortalWalletTransaction extends BaseEntity
         this.id = id;
     }
 
-    public Long getId()
-    {
-        return id;
-    }
-
-    public void setId(Long id)
-    {
-        this.id = id;
-    }
-
-    public Long getUserId()
-    {
-        return userId;
-    }
-
-    public void setUserId(Long userId)
-    {
-        this.userId = userId;
-    }
-
-    public String getType()
-    {
-        return type;
-    }
-
-    public void setType(String type)
-    {
-        this.type = type;
-    }
-
-    public BigDecimal getAmount()
-    {
-        return amount;
-    }
-
-    public void setAmount(BigDecimal amount)
-    {
-        this.amount = amount;
-    }
-
-    public BigDecimal getBalanceBefore()
-    {
-        return balanceBefore;
-    }
-
-    public void setBalanceBefore(BigDecimal balanceBefore)
-    {
-        this.balanceBefore = balanceBefore;
-    }
-
-    public BigDecimal getBalanceAfter()
-    {
-        return balanceAfter;
-    }
-
-    public void setBalanceAfter(BigDecimal balanceAfter)
-    {
-        this.balanceAfter = balanceAfter;
-    }
-
-    public String getDescription()
-    {
-        return description;
-    }
-
-    public void setDescription(String description)
-    {
-        this.description = description;
-    }
-
-    public Long getOrderId()
-    {
-        return orderId;
-    }
-
-    public void setOrderId(Long orderId)
-    {
-        this.orderId = orderId;
-    }
-
     @Override
     public LocalDateTime getCreateTime()
     {
@@ -147,20 +68,5 @@ public class PortalWalletTransaction extends BaseEntity
     public void setCreateTime(LocalDateTime createTime)
     {
         this.createTime = createTime;
-    }
-
-    @Override
-    public String toString() {
-        return new ToStringBuilder(this,ToStringStyle.MULTI_LINE_STYLE)
-            .append("id", getId())
-            .append("userId", getUserId())
-            .append("type", getType())
-            .append("amount", getAmount())
-            .append("balanceBefore", getBalanceBefore())
-            .append("balanceAfter", getBalanceAfter())
-            .append("description", getDescription())
-            .append("orderId", getOrderId())
-            .append("createTime", getCreateTime())
-            .toString();
     }
 }

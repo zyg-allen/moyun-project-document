@@ -1,23 +1,24 @@
 package com.moyun.portal.domain.entity;
 
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
+import java.math.BigDecimal;
+import java.time.LocalDate;
+
 import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
 import com.fasterxml.jackson.annotation.JsonFormat;
-import com.moyun.core.base.BaseEntity;
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.Size;
-import org.apache.commons.lang3.builder.ToStringBuilder;
-import org.apache.commons.lang3.builder.ToStringStyle;
+import lombok.Data;
 
-import java.math.BigDecimal;
-import java.time.LocalDate;
+import com.moyun.core.base.BaseEntity;
 
 /**
  * 书籍对象 portal_book
  *
  * @author moyun
  */
+@Data
 @TableName("portal_book")
 public class PortalBook extends BaseEntity {
     private static final long serialVersionUID = 1L;
@@ -107,7 +108,7 @@ public class PortalBook extends BaseEntity {
     private Integer previewRatio;
 
     /** 书籍单价（元，预留：未来付费单本购买） */
-    private java.math.BigDecimal price;
+    private BigDecimal price;
 
     /** 是否精选 */
     private Boolean isFeatured;
@@ -126,205 +127,5 @@ public class PortalBook extends BaseEntity {
 
     public PortalBook(Long id) {
         this.id = id;
-    }
-
-    public Long getId() {
-        return id;
-    }
-
-    public void setId(Long id) {
-        this.id = id;
-    }
-
-    public String getTitle() {
-        return title;
-    }
-
-    public void setTitle(String title) {
-        this.title = title;
-    }
-
-    public String getAuthor() {
-        return author;
-    }
-
-    public void setAuthor(String author) {
-        this.author = author;
-    }
-
-    public String getCover() {
-        return cover;
-    }
-
-    public void setCover(String cover) {
-        this.cover = cover;
-    }
-
-    public String getDescription() {
-        return description;
-    }
-
-    public void setDescription(String description) {
-        this.description = description;
-    }
-
-    public String getIsbn() {
-        return isbn;
-    }
-
-    public void setIsbn(String isbn) {
-        this.isbn = isbn;
-    }
-
-    public String getPublisher() {
-        return publisher;
-    }
-
-    public void setPublisher(String publisher) {
-        this.publisher = publisher;
-    }
-
-    public LocalDate getPublishDate() {
-        return publishDate;
-    }
-
-    public void setPublishDate(LocalDate publishDate) {
-        this.publishDate = publishDate;
-    }
-
-    public Integer getPageCount() {
-        return pageCount;
-    }
-
-    public void setPageCount(Integer pageCount) {
-        this.pageCount = pageCount;
-    }
-
-    public Long getCategoryId() {
-        return categoryId;
-    }
-
-    public void setCategoryId(Long categoryId) {
-        this.categoryId = categoryId;
-    }
-
-    public String getTags() {
-        return tags;
-    }
-
-    public void setTags(String tags) {
-        this.tags = tags;
-    }
-
-    public BigDecimal getRating() {
-        return rating;
-    }
-
-    public void setRating(BigDecimal rating) {
-        this.rating = rating;
-    }
-
-    public Long getReadingCount() {
-        return readingCount;
-    }
-
-    public void setReadingCount(Long readingCount) {
-        this.readingCount = readingCount;
-    }
-
-    public String getStatus() {
-        return status;
-    }
-
-    public void setStatus(String status) {
-        this.status = status;
-    }
-
-    public String getAccessLevel() {
-        return accessLevel;
-    }
-
-    public void setAccessLevel(String accessLevel) {
-        this.accessLevel = accessLevel;
-    }
-
-    public Integer getPreviewRatio() {
-        return previewRatio;
-    }
-
-    public void setPreviewRatio(Integer previewRatio) {
-        this.previewRatio = previewRatio;
-    }
-
-    public java.math.BigDecimal getPrice() {
-        return price;
-    }
-
-    public void setPrice(java.math.BigDecimal price) {
-        this.price = price;
-    }
-
-    public Boolean getIsFeatured() {
-        return isFeatured;
-    }
-
-    public void setIsFeatured(Boolean isFeatured) {
-        this.isFeatured = isFeatured;
-    }
-
-    public Boolean getIsRecommended() {
-        return isRecommended;
-    }
-
-    public void setIsRecommended(Boolean isRecommended) {
-        this.isRecommended = isRecommended;
-    }
-
-    public String getSummary() {
-        return summary;
-    }
-
-    public void setSummary(String summary) {
-        this.summary = summary;
-    }
-
-    public String getAuthorBio() {
-        return authorBio;
-    }
-
-    public void setAuthorBio(String authorBio) {
-        this.authorBio = authorBio;
-    }
-
-    @Override
-    public String toString() {
-        return new ToStringBuilder(this, ToStringStyle.MULTI_LINE_STYLE)
-                .append("id", getId())
-                .append("title", getTitle())
-                .append("author", getAuthor())
-                .append("cover", getCover())
-                .append("description", getDescription())
-                .append("summary", getSummary())
-                .append("isbn", getIsbn())
-                .append("publisher", getPublisher())
-                .append("publishDate", getPublishDate())
-                .append("pageCount", getPageCount())
-                .append("categoryId", getCategoryId())
-                .append("tags", getTags())
-                .append("rating", getRating())
-                .append("readingCount", getReadingCount())
-                .append("status", getStatus())
-                .append("accessLevel", getAccessLevel())
-                .append("previewRatio", getPreviewRatio())
-                .append("price", getPrice())
-                .append("isFeatured", getIsFeatured())
-                .append("isRecommended", getIsRecommended())
-                .append("authorBio", getAuthorBio())
-                .append("createBy", getCreateBy())
-                .append("createTime", getCreateTime())
-                .append("updateBy", getUpdateBy())
-                .append("updateTime", getUpdateTime())
-                .append("remark", getRemark())
-                .toString();
     }
 }

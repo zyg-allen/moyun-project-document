@@ -1,20 +1,21 @@
 package com.moyun.ext.cms.service.impl;
 
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import java.util.stream.Collectors;
+
 import cn.hutool.core.bean.BeanUtil;
 import cn.hutool.core.util.ObjectUtil;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
 import com.moyun.ext.cms.domain.query.CmsCategoryQuery;
 import com.moyun.ext.cms.domain.vo.CmsCategoryVO;
 import com.moyun.ext.cms.service.ICmsCategoryService;
 import com.moyun.portal.domain.entity.PortalCategory;
 import com.moyun.portal.mapper.PortalCategoryMapper;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Service;
-
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-import java.util.stream.Collectors;
 
 /**
  * CMS分类服务实现类
@@ -51,12 +52,26 @@ public class CmsCategoryServiceImpl implements ICmsCategoryService
     @Override
     public int insertCategory(PortalCategory category)
     {
+        // 校验：不能超过两级栏目
+        if (category.getParentId() != null && category.getParentId() != 0) {
+            PortalCategory parent = portalCategoryMapper.selectById(category.getParentId());
+            if (parent != null && parent.getParentId() != null && parent.getParentId() != 0) {
+                throw new RuntimeException("最多只支持两级栏目，不能添加三级栏目");
+            }
+        }
         return portalCategoryMapper.insert(category);
     }
 
     @Override
     public int updateCategory(PortalCategory category)
     {
+        // 校验：不能修改为三级栏目
+        if (category.getParentId() != null && category.getParentId() != 0) {
+            PortalCategory parent = portalCategoryMapper.selectById(category.getParentId());
+            if (parent != null && parent.getParentId() != null && parent.getParentId() != 0) {
+                throw new RuntimeException("最多只支持两级栏目，不能设置为三级");
+            }
+        }
         return portalCategoryMapper.updateById(category);
     }
 
@@ -72,6 +87,15 @@ public class CmsCategoryServiceImpl implements ICmsCategoryService
         LambdaQueryWrapper<PortalCategory> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(PortalCategory::getParentId, id);
         return portalCategoryMapper.selectCount(wrapper) > 0;
+    }
+
+    @Override
+    public int changeStatus(PortalCategory category)
+    {
+        PortalCategory updateCategory = new PortalCategory();
+        updateCategory.setId(category.getId());
+        updateCategory.setStatus(category.getStatus());
+        return portalCategoryMapper.updateById(updateCategory);
     }
 
     /**

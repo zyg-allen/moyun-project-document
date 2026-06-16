@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.moyun.portal.mapper.PortalInterviewCompanyMapper">
+
+    <resultMap type="com.moyun.portal.domain.entity.PortalInterviewCompany" id="PortalInterviewCompanyResult">
+        <id     property="id"            column="id"             />
+        <result property="name"          column="name"           />
+        <result property="slug"          column="slug"           />
+        <result property="logo"          column="logo"           />
+        <result property="description"   column="description"    />
+        <result property="industry"      column="industry"       />
+        <result property="questionCount" column="question_count" />
+        <result property="sort"          column="sort"           />
+        <result property="status"        column="status"         />
+        <result property="createBy"      column="create_by"      />
+        <result property="createTime"    column="create_time"    />
+        <result property="updateBy"      column="update_by"      />
+        <result property="updateTime"    column="update_time"    />
+        <result property="remark"        column="remark"         />
+    </resultMap>
+
+    <select id="selectHotCompanies" resultMap="PortalInterviewCompanyResult">
+        select c.id, c.name, c.slug, c.logo, c.description, c.industry, c.question_count, c.sort, c.status
+        from portal_interview_company c
+        where c.status = 'active'
+        order by c.question_count desc, c.sort asc
+        limit #{limit}
+    </select>
+
+    <select id="selectCompaniesByQuestionId" resultMap="PortalInterviewCompanyResult">
+        select c.id, c.name, c.slug, c.logo, c.description, c.industry, c.question_count, c.sort, c.status
+        from portal_interview_company c
+        inner join portal_interview_question_company qc on qc.company_id = c.id
+        where qc.question_id = #{questionId}
+        order by qc.sort asc, c.sort asc
+    </select>
+
+</mapper>

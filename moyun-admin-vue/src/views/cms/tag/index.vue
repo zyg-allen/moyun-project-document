@@ -188,8 +188,8 @@ const { queryParams, form, rules } = toRefs(data);
 function getList() {
   loading.value = true;
   listTag(queryParams.value).then(response => {
-    tagList.value = response.rows;
-    total.value = response.total;
+    tagList.value = response.data.records || [];
+        total.value = response.data.total || 0;
     loading.value = false;
   });
 }

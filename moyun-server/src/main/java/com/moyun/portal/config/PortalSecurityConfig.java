@@ -138,12 +138,11 @@ public class PortalSecurityConfig {
                         .requestMatchers("/portal/bookList/**").permitAll()
                         .requestMatchers("/portal/bookQuote/**").permitAll()
                         // 面试指南公开接口
-                        .requestMatchers("/portal/interviewCategory/**").permitAll()
-                        .requestMatchers("/portal/interviewQuestion/**").permitAll()
-                        .requestMatchers("/portal/interviewExperience/**").permitAll()
-                        .requestMatchers("/portal/interviewResumeTemplate/**").permitAll()
+                        .requestMatchers("/portal/interview/**").permitAll()
                         // 首页聚合接口
                         .requestMatchers("/portal/home/**").permitAll()
+                        // 后台管理接口（admin token 认证，由核心 SecurityConfig 处理）
+                        .requestMatchers("/portal/admin/**").permitAll()
                         // 其他门户请求需要认证
                         .anyRequest().authenticated()
                 )

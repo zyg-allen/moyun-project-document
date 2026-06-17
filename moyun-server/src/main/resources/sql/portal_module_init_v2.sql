@@ -39,22 +39,22 @@ INSERT INTO `portal_interview_company` (`id`, `name`, `slug`, `logo`, `descripti
 -- =====================================================
 -- 三、通用标签 portal_tag（module=common）
 -- =====================================================
-INSERT INTO `portal_tag` (`id`, `name`, `slug`, `sort`, `status`, `module`, `reference_count`) VALUES
-(1,  '高频题',     'high-frequency',   1,  '0', 'common', 0),
-(2,  '经典题',     'classic',          2,  '0', 'common', 0),
-(3,  '中等难度',   'medium',           3,  '0', 'common', 0),
-(4,  '实战',       'hands-on',         4,  '0', 'common', 0),
-(5,  '算法',       'algo',             5,  '0', 'common', 0),
-(6,  '系统设计',   'sys-design',       6,  '0', 'common', 0),
-(7,  '分布式',     'distributed',      7,  '0', 'common', 0),
-(8,  'Java',       'java',             8,  '0', 'common', 0),
-(9,  'MySQL',      'mysql',            9,  '0', 'common', 0),
-(10, 'Redis',      'redis',            10, '0', 'common', 0),
-(11, '并发',       'concurrent',       11, '0', 'common', 0),
-(12, '面试官爱问', 'interviewer-fav',  12, '0', 'common', 0),
-(13, '八股文',     'eight-part',       13, '0', 'common', 0),
-(14, '真题',       'real-question',    14, '0', 'common', 0),
-(15, '大厂',       'big-tech',         15, '0', 'common', 0);
+INSERT INTO `portal_tag` ( `name`, `slug`, `sort`, `status`, `module`, `reference_count`) VALUES
+( '高频题',     'high-frequency',   1,  '0', 'common', 0),
+( '经典题',     'classic',          2,  '0', 'common', 0),
+( '中等难度',   'medium',           3,  '0', 'common', 0),
+( '实战',       'hands-on',         4,  '0', 'common', 0),
+( '算法',       'algo',             5,  '0', 'common', 0),
+( '系统设计',   'sys-design',       6,  '0', 'common', 0),
+( '分布式',     'distributed',      7,  '0', 'common', 0),
+( 'Java',       'java',             8,  '0', 'common', 0),
+( 'MySQL',      'mysql',            9,  '0', 'common', 0),
+( 'Redis',      'redis',            10, '0', 'common', 0),
+( '并发',       'concurrent',       11, '0', 'common', 0),
+( '面试官爱问', 'interviewer-fav',  12, '0', 'common', 0),
+( '八股文',     'eight-part',       13, '0', 'common', 0),
+( '真题',       'real-question',    14, '0', 'common', 0),
+( '大厂',       'big-tech',         15, '0', 'common', 0);
 
 
 -- =====================================================

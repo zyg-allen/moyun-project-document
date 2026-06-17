@@ -184,8 +184,8 @@ const { queryParams, form, rules } = toRefs(data);
 function getList() {
   loading.value = true;
   listFriendLink(queryParams.value).then(response => {
-    friendLinkList.value = response.rows;
-    total.value = response.total;
+    friendLinkList.value = response.data.records || [];
+        total.value = response.data.total || 0;
     loading.value = false;
   });
 }

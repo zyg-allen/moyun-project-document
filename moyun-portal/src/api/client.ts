@@ -45,8 +45,8 @@ export const removeRefreshToken = (): void => {
 
 // 请求拦截器
 const request = async <T>(
-  url: string,
-  options: RequestInit = {}
+    url: string,
+    options: RequestInit = {}
 ): Promise<ApiResponse<T>> => {
   const token = getToken();
   const headers: Record<string, string> = {
@@ -69,8 +69,15 @@ const request = async <T>(
 
   // 处理401未授权
   if (response.status === 401) {
-    removeToken();
-    window.location.href = '/login';
+    // 保存当前路径，登录后返回
+    const currentPath = window.location.pathname + window.location.search;
+    const loginUrl = '/login?redirect=' + encodeURIComponent(currentPath);
+    // 弹窗确认，用户可取消（如正在编辑文章）
+    const confirmed = window.confirm('登录已过期，请重新登录。\n\n点击"确定"跳转登录页，点击"取消"留在当前页面。');
+    if (confirmed) {
+      removeToken();
+      window.location.href = loginUrl;
+    }
     throw new Error('登录已过期，请重新登录');
   }
 
@@ -98,8 +105,8 @@ export interface PaginationResponse<T> {
 
 // HTTP方法
 export const httpGet = <T>(
-  url: string,
-  params?: Record<string, any>
+    url: string,
+    params?: Record<string, any>
 ): Promise<ApiResponse<T>> => {
   let query = '';
   if (params) {
@@ -118,8 +125,8 @@ export const httpGet = <T>(
 
 // 获取分页数据的专用方法
 export const httpGetList = <T>(
-  url: string,
-  params?: Record<string, any>
+    url: string,
+    params?: Record<string, any>
 ): Promise<ApiResponse<PaginationResponse<T>>> => {
   let query = '';
   if (params) {
@@ -131,7 +138,7 @@ export const httpGetList = <T>(
     });
     query = `?${searchParams.toString()}`;
   }
-  
+
   // 这里直接处理分页响应
   return new Promise(async (resolve, reject) => {
     try {
@@ -148,6 +155,19 @@ export const httpGetList = <T>(
         method: 'GET',
         headers,
       });
+
+      // 处理401未授权
+      if (response.status === 401) {
+        const currentPath = window.location.pathname + window.location.search;
+        const loginUrl = '/login?redirect=' + encodeURIComponent(currentPath);
+        const confirmed = window.confirm('登录已过期，请重新登录。\n\n点击"确定"跳转登录页，点击"取消"留在当前页面。');
+        if (confirmed) {
+          removeToken();
+          window.location.href = loginUrl;
+        }
+        reject(new Error('登录已过期，请重新登录'));
+        return;
+      }
 
       const data: BackendResponse<T> = await response.json();
 
@@ -182,8 +202,8 @@ export const httpGetList = <T>(
 };
 
 export const httpPost = <T>(
-  url: string,
-  data?: Record<string, any> | FormData
+    url: string,
+    data?: Record<string, any> | FormData
 ): Promise<ApiResponse<T>> => {
   return request<T>(url, {
     method: 'POST',
@@ -192,8 +212,8 @@ export const httpPost = <T>(
 };
 
 export const httpPut = <T>(
-  url: string,
-  data?: Record<string, any> | FormData
+    url: string,
+    data?: Record<string, any> | FormData
 ): Promise<ApiResponse<T>> => {
   return request<T>(url, {
     method: 'PUT',
@@ -202,7 +222,7 @@ export const httpPut = <T>(
 };
 
 export const httpDelete = <T>(
-  url: string
+    url: string
 ): Promise<ApiResponse<T>> => {
   return request<T>(url, {
     method: 'DELETE',
@@ -210,8 +230,8 @@ export const httpDelete = <T>(
 };
 
 export const httpUpload = <T>(
-  url: string,
-  file: File
+    url: string,
+    file: File
 ): Promise<ApiResponse<T>> => {
   const formData = new FormData();
   formData.append('file', file);

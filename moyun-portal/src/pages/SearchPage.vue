@@ -103,7 +103,7 @@ async function performSearch() {
       }
     } else if (selectedCategory.value) {
       // 按分类搜索
-      const response = await articleApi.getArticlesByCategory(undefined, selectedCategory.value, 100);
+      const response = await articleApi.getArticleList({ category: selectedCategory.value, pageSize: 100 });
       if (response.code === 200 && response.data) {
         const data = response.data as any;
         result = data.list || (Array.isArray(data) ? data : []) || [];

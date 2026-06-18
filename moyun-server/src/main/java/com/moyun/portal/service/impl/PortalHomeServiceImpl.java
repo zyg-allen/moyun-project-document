@@ -25,9 +25,11 @@ import com.moyun.portal.domain.query.UserQuery;
 import com.moyun.portal.domain.vo.ArticleVO;
 import com.moyun.portal.domain.vo.HomeModuleVO;
 import com.moyun.portal.domain.vo.HomePageVO;
+import com.moyun.portal.domain.vo.UserStatsVO;
 import com.moyun.portal.mapper.PortalArticleMapper;
 import com.moyun.portal.service.IPortalCategoryService;
 import com.moyun.portal.service.IPortalFriendLinkService;
+import com.moyun.portal.service.IPortalGrowthService;
 import com.moyun.portal.service.IPortalHomeService;
 import com.moyun.portal.service.IPortalTagService;
 import com.moyun.portal.service.IPortalUserService;
@@ -91,6 +93,9 @@ public class PortalHomeServiceImpl implements IPortalHomeService {
 
     @Autowired
     private IPortalUserService portalUserService;
+
+    @Autowired
+    private IPortalGrowthService portalGrowthService;
 
     // ==================== 核心模块（聚合接口） ====================
 
@@ -231,8 +236,10 @@ public class PortalHomeServiceImpl implements IPortalHomeService {
                     vo.setNickname(u.getNickname());
                     vo.setAvatar(u.getAvatar());
                     vo.setBio(u.getBio());
-                    vo.setArticleCount(0);
-                    vo.setFollowerCount(0);
+                    // 从成长体系统计聚合表读取真实数据
+                    UserStatsVO stats = portalGrowthService.getUserStats(u.getId());
+                    vo.setArticleCount(stats.getArticles() != null ? stats.getArticles() : 0);
+                    vo.setFollowerCount(stats.getFollowers() != null ? stats.getFollowers() : 0);
                     return vo;
                 })
                 .collect(Collectors.toList());

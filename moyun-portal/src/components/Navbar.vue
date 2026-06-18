@@ -31,9 +31,19 @@ const isUserMenuOpen = ref(false);
 
 const categories = ref<Category[]>([]);
 
+// 导航项统一类型：所有属性可选（除 name/key/children），避免联合类型访问报错
+interface NavItem {
+  name: string;
+  key: string;
+  path?: string;
+  externalUrl?: string | null;
+  isExternal?: boolean;
+  children: { name: string; path?: string; isExternal?: boolean }[];
+}
+
 // 导航数据结构 - 使用统一的分类过滤逻辑（filterCategoryTree）
 // 跳转目标使用 getCategoryTarget（支持 linkType 外部链接）
-const navItems = computed(() => [
+const navItems = computed<NavItem[]>(() => [
   {
     name: '首页',
     key: 'home',

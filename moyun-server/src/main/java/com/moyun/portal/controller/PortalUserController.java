@@ -24,6 +24,8 @@ import com.moyun.ext.file.domain.entity.SysFile;
 import com.moyun.ext.file.service.ISysFileService;
 import com.moyun.portal.domain.entity.PortalUser;
 import com.moyun.portal.domain.query.UserQuery;
+import com.moyun.portal.domain.vo.UserStatsVO;
+import com.moyun.portal.service.IPortalGrowthService;
 import com.moyun.portal.service.IPortalUserService;
 import com.moyun.portal.util.PortalSecurityUtils;
 import com.moyun.util.bean.PageUtils;
@@ -40,6 +42,9 @@ public class PortalUserController extends BaseController {
 
     @Autowired
     private ISysFileService sysFileService;
+
+    @Autowired
+    private IPortalGrowthService portalGrowthService;
 
     private static final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
 
@@ -302,17 +307,8 @@ public class PortalUserController extends BaseController {
             targetUserId = currentUser.getId();
         }
 
-        Map<String, Object> stats = new HashMap<>();
-        stats.put("userId", targetUserId);
-        stats.put("articles", 0);
-        stats.put("views", 0);
-        stats.put("likes", 0);
-        stats.put("followers", 0);
-        stats.put("following", 0);
-        stats.put("bookmarks", 0);
-        stats.put("comments", 0);
-        stats.put("todayVisitors", 0);
-
+        // 从成长体系统计聚合表读取真实数据
+        UserStatsVO stats = portalGrowthService.getUserStats(targetUserId);
         return success(stats);
     }
 

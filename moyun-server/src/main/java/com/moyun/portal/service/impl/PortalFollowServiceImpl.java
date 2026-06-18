@@ -1,27 +1,42 @@
 package com.moyun.portal.service.impl;
 
+import java.time.LocalDateTime;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import com.moyun.portal.domain.entity.PortalFollow;
 import com.moyun.portal.domain.query.FollowQuery;
 import com.moyun.portal.mapper.PortalFollowMapper;
+import com.moyun.portal.mapper.PortalUserStatsMapper;
 import com.moyun.portal.service.IPortalFollowService;
+import com.moyun.portal.service.IPortalGrowthService;
 
 /**
  * 门户关注 业务层处理
  *
  * @author moyun
  */
+@Slf4j
 @Service
 public class PortalFollowServiceImpl extends ServiceImpl<PortalFollowMapper, PortalFollow> implements IPortalFollowService {
 
     @Autowired
     private PortalFollowMapper portalFollowMapper;
+
+    @Autowired
+    private PortalUserStatsMapper userStatsMapper;
+
+    @Autowired
+    private IPortalGrowthService portalGrowthService;
 
     /**
      * 根据条件分页查询关注列表
@@ -99,5 +114,97 @@ public class PortalFollowServiceImpl extends ServiceImpl<PortalFollowMapper, Por
     @Override
     public int deletePortalFollowByIds(Long[] ids) {
         return portalFollowMapper.deletePortalFollowByIds(ids);
+    }
+
+    /**
+     * 切换关注状态（关注/取消关注）
+     *
+     * 同步更新 portal_user_stats 中的粉丝数和关注数，
+     * 并为被关注者记录 receive_follow 成长事件。
+     *
+     * @param followerId  关注者ID（当前登录用户）
+     * @param followingId 被关注者ID
+     * @return 包含 followed（是否已关注）和 followerCount（被关注者粉丝数）的 Map
+     */
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public Map<String, Object> toggleFollow(Long followerId, Long followingId) {
+        Map<String, Object> result = new HashMap<>();
+        if (followerId == null || followingId == null) {
+            result.put("followed", false);
+            result.put("message", "参数不能为空");
+            return result;
+        }
+        if (followerId.equals(followingId)) {
+            result.put("followed", false);
+            result.put("message", "不能关注自己");
+            return result;
+        }
+
+        // 确保双方统计记录存在
+        userStatsMapper.insertIfNotExists(followerId);
+        userStatsMapper.insertIfNotExists(followingId);
+
+        // 查询是否已关注
+        PortalFollow existing = baseMapper.selectOne(
+                new LambdaQueryWrapper<PortalFollow>()
+                        .eq(PortalFollow::getFollowerId, followerId)
+                        .eq(PortalFollow::getFollowingId, followingId)
+        );
+
+        if (existing == null) {
+            // 未关注 → 关注
+            PortalFollow follow = new PortalFollow();
+            follow.setFollowerId(followerId);
+            follow.setFollowingId(followingId);
+            follow.setCreateTime(LocalDateTime.now());
+            baseMapper.insert(follow);
+
+            // 原子更新统计：关注者关注数+1，被关注者粉丝数+1
+            userStatsMapper.addFollowingCount(followerId, 1);
+            userStatsMapper.addFollowerCount(followingId, 1);
+
+            // 为被关注者记录成长事件
+            portalGrowthService.recordEventWithTarget("article", "receive_follow",
+                    followingId, followerId, "user", followerId);
+
+            result.put("followed", true);
+            result.put("message", "关注成功");
+        } else {
+            // 已关注 → 取消关注
+            baseMapper.deleteById(existing.getId());
+
+            // 原子更新统计：关注者关注数-1，被关注者粉丝数-1
+            userStatsMapper.addFollowingCount(followerId, -1);
+            userStatsMapper.addFollowerCount(followingId, -1);
+
+            result.put("followed", false);
+            result.put("message", "已取消关注");
+        }
+
+        // 返回被关注者最新粉丝数
+        com.moyun.portal.domain.entity.PortalUserStats stats = userStatsMapper.selectByUserId(followingId);
+        result.put("followerCount", stats != null && stats.getFollowerCount() != null ? stats.getFollowerCount() : 0);
+        return result;
+    }
+
+    /**
+     * 检查当前用户是否已关注目标用户
+     *
+     * @param followerId  关注者ID
+     * @param followingId 被关注者ID
+     * @return true=已关注
+     */
+    @Override
+    public boolean isFollowing(Long followerId, Long followingId) {
+        if (followerId == null || followingId == null) {
+            return false;
+        }
+        Long count = baseMapper.selectCount(
+                new LambdaQueryWrapper<PortalFollow>()
+                        .eq(PortalFollow::getFollowerId, followerId)
+                        .eq(PortalFollow::getFollowingId, followingId)
+        );
+        return count != null && count > 0;
     }
 }

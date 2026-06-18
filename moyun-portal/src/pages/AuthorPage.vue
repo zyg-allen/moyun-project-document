@@ -4,16 +4,17 @@ import Pagination from '@/components/Pagination.vue';
 import { RouterLink as Link, useRoute, useRouter } from 'vue-router';
 import { useHead } from '@vueuse/head';
 import { 
-  User, BookOpen, Heart, Star, Users, ChevronRight, UserPlus, UserMinus, MessageSquare, Calendar, Clock
+  User, BookOpen, Heart, Star, Users, ChevronRight, UserPlus, UserMinus, MessageSquare, Calendar, Clock, Award, Trophy
 } from 'lucide-vue-next';
 import { generateSeo } from '@/utils/seo';
 import ArticleCard from '@/components/ArticleCard.vue';
 import SiteFooter from '@/components/SiteFooter.vue';
 import Breadcrumb from '@/components/Breadcrumb.vue';
-import type { Article, User as UserType } from '@/types';
+import type { Article, User as UserType, UserGrowthVO, AchievementVO } from '@/types';
 import * as userApi from '@/api/user';
 import * as articleApi from '@/api/article';
 import * as followApi from '@/api/follow';
+import * as growthApi from '@/api/growth';
 import { getSafeAvatar } from '@/utils/avatar';
 
 const route = useRoute();
@@ -22,6 +23,8 @@ const router = useRouter();
 // 数据
 const author = ref<UserType | null>(null);
 const authorArticles = ref<Article[]>([]);
+const authorGrowth = ref<UserGrowthVO | null>(null);
+const authorAchievements = ref<AchievementVO[]>([]);
 const activeTab = ref('articles');
 const currentPage = ref(1);
 const itemsPerPage = ref(10);
@@ -120,6 +123,26 @@ async function loadAuthorData() {
     } catch (err) {
       console.error('加载作者统计失败:', err);
     }
+
+    // 获取作者成长信息（等级/头衔/赛季排名）
+    try {
+      const growthResp = await growthApi.getUserGrowth(authorId);
+      if (growthResp.code === 200 && growthResp.data) {
+        authorGrowth.value = growthResp.data;
+      }
+    } catch (err) {
+      console.error('加载作者成长信息失败:', err);
+    }
+
+    // 获取作者成就达成列表
+    try {
+      const achResp = await growthApi.getUserAchievements(authorId);
+      if (achResp.code === 200 && achResp.data) {
+        authorAchievements.value = achResp.data;
+      }
+    } catch (err) {
+      console.error('加载作者成就失败:', err);
+    }
   } catch (error) {
     console.error('加载作者信息失败:', error);
     router.push('/404');
@@ -166,6 +189,18 @@ const paginatedArticles = computed(() => {
   const start = (currentPage.value - 1) * itemsPerPage.value;
   const end = start + itemsPerPage.value;
   return authorArticles.value.slice(start, end);
+});
+
+// 已达成的成就列表
+const earnedAchievements = computed(() => authorAchievements.value.filter(a => a.earned));
+const achievementProgress = computed(() => {
+  const total = authorAchievements.value.length;
+  const earned = earnedAchievements.value.length;
+  return {
+    total,
+    earned,
+    percent: total > 0 ? Math.round((earned / total) * 100) : 0
+  };
 });
 
 function handlePageChange(page: number) {
@@ -215,12 +250,31 @@ function handlePageChange(page: number) {
               <div class="flex-1 min-w-0">
                 <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-4">
                   <div class="min-w-0">
-                    <h1 class="text-2xl sm:text-3xl font-bold mb-2" style="color: var(--theme-text);">{{ author.username }}</h1>
+                    <div class="flex items-center gap-2 sm:gap-3 flex-wrap mb-2">
+                      <h1 class="text-2xl sm:text-3xl font-bold" style="color: var(--theme-text);">{{ author.username }}</h1>
+                      <!-- 成长等级徽章 -->
+                      <span
+                        v-if="authorGrowth"
+                        class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium"
+                        style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;"
+                      >
+                        <Award class="w-3.5 h-3.5" />
+                        Lv.{{ authorGrowth.level }} {{ authorGrowth.title }}
+                      </span>
+                    </div>
                     <p class="text-sm sm:text-base mb-3" style="color: var(--theme-text-secondary);">{{ author.bio || '这个人很懒，什么都没写~' }}</p>
-                    <div class="flex items-center gap-4 text-xs sm:text-sm" style="color: var(--theme-text-secondary);">
+                    <div class="flex items-center gap-4 text-xs sm:text-sm flex-wrap" style="color: var(--theme-text-secondary);">
                       <div class="flex items-center gap-1">
                         <Calendar class="w-4 h-4" />
                         <span>加入于 {{ authorStats.joinDate }}</span>
+                      </div>
+                      <div v-if="authorGrowth" class="flex items-center gap-1">
+                        <Trophy class="w-4 h-4" />
+                        <span>成长值 {{ authorGrowth.growthValue }}</span>
+                      </div>
+                      <div v-if="authorGrowth && authorGrowth.seasonRank" class="flex items-center gap-1">
+                        <Trophy class="w-4 h-4" />
+                        <span>赛季排名 #{{ authorGrowth.seasonRank }}</span>
                       </div>
                     </div>
                   </div>
@@ -381,68 +435,94 @@ function handlePageChange(page: number) {
           <!-- 成就 Tab -->
           <div v-else-if="activeTab === 'achievements'" class="p-4 sm:p-6">
             <div class="space-y-4 sm:space-y-6">
-              <!-- 成就徽章 -->
-              <div class="p-4 sm:p-6 rounded-xl" style="background-color: var(--theme-surface);">
-                <h3 class="font-medium mb-4" style="color: var(--theme-text);">成就徽章</h3>
-                <div class="flex gap-3 overflow-x-auto pb-2">
-                  <div v-for="badge in [
-                    { name: '创作者', icon: Star, desc: '发布第一篇文章' },
-                    { name: '人气王', icon: Heart, desc: '获得100个赞' },
-                    { name: '博学多才', icon: BookOpen, desc: '发布10篇文章' },
-                    { name: '社交达人', icon: Users, desc: '拥有100个粉丝' },
-                    { name: '活跃之星', icon: Clock, desc: '连续7天登录' },
-                    { name: '资深用户', icon: Star, desc: '注册满1年' }
-                  ]" :key="badge.name" class="text-center p-3 rounded-xl flex-shrink-0 w-32" style="background-color: var(--theme-bg);">
-                    <div class="w-10 h-10 mx-auto mb-2 rounded-xl flex items-center justify-center" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
-                      <component :is="badge.icon" class="w-6 h-6 sm:w-7 sm:h-7 text-white" />
+              <!-- 成长概览 -->
+              <div v-if="authorGrowth" class="p-4 sm:p-6 rounded-xl" style="background-color: var(--theme-surface);">
+                <div class="flex items-center justify-between mb-4">
+                  <h3 class="font-medium" style="color: var(--theme-text);">成长概览</h3>
+                  <Link
+                    :to="`/achievements?userId=${author?.id}`"
+                    class="text-xs flex items-center gap-1 hover:underline"
+                    style="color: var(--theme-primary);"
+                  >
+                    查看全部成就
+                    <ChevronRight class="w-3 h-3" />
+                  </Link>
+                </div>
+                <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  <div class="text-center p-3 rounded-lg" style="background-color: var(--theme-bg);">
+                    <div class="text-2xl font-bold mb-1" style="color: var(--theme-primary);">Lv.{{ authorGrowth.level }}</div>
+                    <div class="text-xs" style="color: var(--theme-text-secondary);">成长等级</div>
+                  </div>
+                  <div class="text-center p-3 rounded-lg" style="background-color: var(--theme-bg);">
+                    <div class="text-2xl font-bold mb-1" style="color: var(--theme-primary);">{{ authorGrowth.growthValue }}</div>
+                    <div class="text-xs" style="color: var(--theme-text-secondary);">成长值</div>
+                  </div>
+                  <div class="text-center p-3 rounded-lg" style="background-color: var(--theme-bg);">
+                    <div class="text-2xl font-bold mb-1" style="color: var(--theme-primary);">{{ authorGrowth.seasonValue }}</div>
+                    <div class="text-xs" style="color: var(--theme-text-secondary);">赛季成长值</div>
+                  </div>
+                  <div class="text-center p-3 rounded-lg" style="background-color: var(--theme-bg);">
+                    <div class="text-2xl font-bold mb-1" style="color: var(--theme-primary);">{{ authorGrowth.seasonRank ? '#' + authorGrowth.seasonRank : '-' }}</div>
+                    <div class="text-xs" style="color: var(--theme-text-secondary);">赛季排名</div>
+                  </div>
+                </div>
+                <div class="mt-3 p-3 rounded-lg flex items-center gap-2" style="background-color: var(--theme-bg);">
+                  <Award class="w-4 h-4 flex-shrink-0" style="color: var(--theme-primary);" />
+                  <span class="text-sm" style="color: var(--theme-text);">当前头衔：</span>
+                  <span class="text-sm font-medium" style="color: var(--theme-primary);">{{ authorGrowth.title }}</span>
+                  <span v-if="authorGrowth.nextLevelTitle" class="text-xs ml-auto" style="color: var(--theme-text-secondary);">
+                    下一阶段：{{ authorGrowth.nextLevelTitle }}
+                  </span>
+                </div>
+              </div>
+
+              <!-- 成就进度 -->
+              <div v-if="authorAchievements.length > 0" class="p-4 sm:p-6 rounded-xl" style="background-color: var(--theme-surface);">
+                <div class="flex items-center justify-between mb-4">
+                  <h3 class="font-medium" style="color: var(--theme-text);">成就进度</h3>
+                  <span class="text-xs" style="color: var(--theme-text-secondary);">
+                    {{ achievementProgress.earned }}/{{ achievementProgress.total }} 已达成
+                  </span>
+                </div>
+                <!-- 进度条 -->
+                <div class="w-full h-2 rounded-full mb-4" style="background-color: var(--theme-bg);">
+                  <div
+                    class="h-2 rounded-full transition-all"
+                    :style="{ width: achievementProgress.percent + '%', backgroundColor: 'var(--theme-primary)' }"
+                  ></div>
+                </div>
+                <!-- 成就徽章网格 -->
+                <div class="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-3">
+                  <div
+                    v-for="ach in authorAchievements"
+                    :key="ach.id"
+                    class="text-center p-3 rounded-xl"
+                    :style="ach.earned
+                      ? { backgroundColor: 'var(--theme-bg)' }
+                      : { backgroundColor: 'var(--theme-bg)', opacity: 0.5 }"
+                  >
+                    <div
+                      class="w-10 h-10 mx-auto mb-2 rounded-xl flex items-center justify-center"
+                      :style="ach.earned
+                        ? { background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' }
+                        : { backgroundColor: 'var(--theme-border)' }"
+                    >
+                      <component :is="ach.earned ? Award : Star" class="w-5 h-5 text-white" />
                     </div>
-                    <p class="text-sm font-medium mb-1" style="color: var(--theme-text);">{{ badge.name }}</p>
-                    <p class="text-xs" style="color: var(--theme-text-secondary);">{{ badge.desc }}</p>
+                    <p class="text-xs font-medium mb-1 truncate" style="color: var(--theme-text);">{{ ach.name }}</p>
+                    <p v-if="ach.earned && ach.earnedTime" class="text-xs" style="color: var(--theme-text-secondary);">
+                      {{ ach.earnedTime.substring(0, 10) }}
+                    </p>
+                    <p v-else class="text-xs" style="color: var(--theme-text-secondary);">未达成</p>
                   </div>
                 </div>
               </div>
 
-              <!-- 数据成就 -->
-              <div class="p-4 sm:p-6 rounded-xl" style="background-color: var(--theme-surface);">
-                <h3 class="font-medium mb-4" style="color: var(--theme-text);">数据里程碑</h3>
-                <div class="space-y-4">
-                  <div class="flex items-center gap-4 p-4 rounded-lg" style="background-color: var(--theme-bg);">
-                    <div class="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style="background-color: var(--theme-accent);">
-                      <Star class="w-5 h-5" style="color: var(--theme-primary);" />
-                    </div>
-                    <div class="flex-1 min-w-0">
-                      <p class="text-sm font-medium mb-1" style="color: var(--theme-text);">文章浏览量突破 10,000</p>
-                      <p class="text-xs" style="color: var(--theme-text-secondary);">于 2024-01-20 达成</p>
-                    </div>
-                    <div class="flex-shrink-0">
-                      <span class="text-xs px-2 py-1 rounded-full" style="background-color: var(--theme-primary); color: white;">已达成</span>
-                    </div>
-                  </div>
-                  <div class="flex items-center gap-4 p-4 rounded-lg" style="background-color: var(--theme-bg);">
-                    <div class="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style="background-color: var(--theme-accent);">
-                      <Heart class="w-5 h-5" style="color: var(--theme-primary);" />
-                    </div>
-                    <div class="flex-1 min-w-0">
-                      <p class="text-sm font-medium mb-1" style="color: var(--theme-text);">获赞数突破 500</p>
-                      <p class="text-xs" style="color: var(--theme-text-secondary);">于 2024-02-15 达成</p>
-                    </div>
-                    <div class="flex-shrink-0">
-                      <span class="text-xs px-2 py-1 rounded-full" style="background-color: var(--theme-primary); color: white;">已达成</span>
-                    </div>
-                  </div>
-                  <div class="flex items-center gap-4 p-4 rounded-lg" style="background-color: var(--theme-bg);">
-                    <div class="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style="background-color: var(--theme-accent);">
-                      <Users class="w-5 h-5" style="color: var(--theme-primary);" />
-                    </div>
-                    <div class="flex-1 min-w-0">
-                      <p class="text-sm font-medium mb-1" style="color: var(--theme-text);">粉丝数突破 500</p>
-                      <p class="text-xs" style="color: var(--theme-text-secondary);">即将达成 ({{ authorStats.followers }}/500)</p>
-                    </div>
-                    <div class="flex-shrink-0">
-                      <span class="text-xs px-2 py-1 rounded-full" style="border: 1px solid var(--theme-border); color: var(--theme-text-secondary);">进行中</span>
-                    </div>
-                  </div>
-                </div>
+              <!-- 空状态 -->
+              <div v-if="!authorGrowth && authorAchievements.length === 0" class="p-8 sm:p-12 text-center">
+                <Star class="w-12 h-12 sm:w-16 sm:h-16 mx-auto mb-4" style="color: var(--theme-text-secondary);" />
+                <h3 class="text-lg font-medium mb-2" style="color: var(--theme-text);">暂无成就数据</h3>
+                <p style="color: var(--theme-text-secondary);">{{ author?.username }}还没有成长数据</p>
               </div>
             </div>
           </div>

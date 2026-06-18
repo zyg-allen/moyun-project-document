@@ -162,7 +162,7 @@ function tagsToStr(tags) { return (tags || []).join(','); }
 async function loadTagOptions() {
   try {
     const res = await getHotTags('interview_experience', 50);
-    const rows = res.rows || res.data || [];
+    const rows = res.data || [];
     tagOptions.value = rows
       .map(item => item.name || item.tagName || item)
       .filter(Boolean);
@@ -173,8 +173,8 @@ async function getList() {
   loading.value = true;
   try {
     const res = await listInterviewExperience(queryParams);
-    experienceList.value = res.rows || [];
-    total.value = res.total || 0;
+    experienceList.value = res.data.records || [];
+    total.value = res.data.total || 0;
   } catch (e) { /* ignore */ } finally {
     loading.value = false;
   }

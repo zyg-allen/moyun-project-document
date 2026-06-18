@@ -48,6 +48,19 @@ public class InterviewSubmissionVO implements Serializable {
     /** 用户备注 */
     private String note;
 
+    /** 是否被精选 */
+    private Boolean isFeatured;
+
+    /** 精选时间 */
+    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
+    private LocalDateTime featuredTime;
+
+    /** 提交者昵称（精选笔记展示用） */
+    private String userNickname;
+
+    /** 提交者头像（精选笔记展示用） */
+    private String userAvatar;
+
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime createTime;
 }

@@ -18,6 +18,7 @@ import com.moyun.core.base.BaseController;
 import com.moyun.portal.domain.entity.PortalFollow;
 import com.moyun.portal.domain.query.FollowQuery;
 import com.moyun.portal.service.IPortalFollowService;
+import com.moyun.portal.util.PortalSecurityUtils;
 import com.moyun.util.bean.PageUtils;
 import com.moyun.util.file.ExcelUtil;
 
@@ -71,5 +72,30 @@ public class PortalFollowController extends BaseController {
     @DeleteMapping("/{ids}")
     public AjaxResult remove(@Parameter(description = "关注ID数组") @PathVariable Long[] ids) {
         return toAjax(portalFollowService.deletePortalFollowByIds(ids));
+    }
+
+    @Operation(summary = "关注/取消关注", description = "切换关注状态，同步更新粉丝数和关注数")
+    @PostMapping("/toggle/{userId}")
+    public AjaxResult toggleFollow(@Parameter(description = "被关注用户ID") @PathVariable Long userId) {
+        Long currentUserId = PortalSecurityUtils.getUserId();
+        if (currentUserId == null) {
+            return error("请先登录");
+        }
+        return success(portalFollowService.toggleFollow(currentUserId, userId));
+    }
+
+    @Operation(summary = "检查是否已关注", description = "检查当前用户是否已关注目标用户")
+    @GetMapping("/isFollowing/{userId}")
+    public AjaxResult isFollowing(@Parameter(description = "目标用户ID") @PathVariable Long userId) {
+        Long currentUserId = PortalSecurityUtils.getUserId();
+        if (currentUserId == null) {
+            java.util.Map<String, Object> result = new java.util.HashMap<>();
+            result.put("isFollowing", false);
+            return success(result);
+        }
+        boolean following = portalFollowService.isFollowing(currentUserId, userId);
+        java.util.Map<String, Object> result = new java.util.HashMap<>();
+        result.put("isFollowing", following);
+        return success(result);
     }
 }

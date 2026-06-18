@@ -16,14 +16,18 @@ import com.moyun.core.base.AjaxResult;
 import com.moyun.core.base.BaseController;
 import com.moyun.portal.domain.entity.PortalBook;
 import com.moyun.portal.domain.entity.PortalBookList;
+import com.moyun.portal.domain.entity.PortalBookListBookmark;
 import com.moyun.portal.domain.entity.PortalBookListItem;
 import com.moyun.portal.domain.entity.PortalBookQuote;
 import com.moyun.portal.domain.query.BookListQuery;
 import com.moyun.portal.domain.query.BookQuery;
 import com.moyun.portal.domain.query.BookQuoteQuery;
+import com.moyun.portal.mapper.PortalBookListBookmarkMapper;
 import com.moyun.portal.service.IPortalBookListService;
 import com.moyun.portal.service.IPortalBookQuoteService;
 import com.moyun.portal.service.IPortalBookService;
+import com.moyun.portal.service.IPortalGrowthService;
+import com.moyun.portal.util.PortalSecurityUtils;
 
 /**
  * 读书空间前台Controller
@@ -43,6 +47,12 @@ public class PortalReadingController extends BaseController {
 
     @Autowired
     private IPortalBookQuoteService portalBookQuoteService;
+
+    @Autowired
+    private PortalBookListBookmarkMapper bookListBookmarkMapper;
+
+    @Autowired
+    private IPortalGrowthService portalGrowthService;
 
     /**
      * 获取读书空间首页数据
@@ -239,5 +249,66 @@ public class PortalReadingController extends BaseController {
     public AjaxResult likeBookList(@Parameter(description = "书单ID") @PathVariable Long id) {
         portalBookListService.incrementLikeCount(id);
         return AjaxResult.success("点赞成功");
+    }
+
+    /**
+     * 书单收藏/取消收藏
+     */
+    @Operation(summary = "书单收藏", description = "收藏/取消收藏书单，需登录")
+    @PostMapping("/book-lists/{id}/bookmark")
+    public AjaxResult toggleBookListBookmark(@Parameter(description = "书单ID") @PathVariable Long id) {
+        Long userId = PortalSecurityUtils.getUserId();
+        if (userId == null) {
+            return AjaxResult.error("请先登录");
+        }
+
+        PortalBookListBookmark existing = bookListBookmarkMapper.selectBookmark(id, userId);
+        Map<String, Object> result = new HashMap<>();
+
+        if (existing == null) {
+            // 未收藏 → 收藏
+            PortalBookListBookmark bookmark = new PortalBookListBookmark();
+            bookmark.setBooklistId(id);
+            bookmark.setUserId(userId);
+            bookmark.setCreateTime(java.time.LocalDateTime.now());
+            bookListBookmarkMapper.insert(bookmark);
+
+            // 为书单创建者记录被收藏成长事件
+            PortalBookList booklist = portalBookListService.selectPortalBookListById(id);
+            if (booklist != null && booklist.getUserId() != null && !booklist.getUserId().equals(userId)) {
+                portalGrowthService.recordEventWithTarget("reading", "booklist_bookmarked",
+                        booklist.getUserId(), userId, "booklist", id);
+            }
+
+            result.put("bookmarked", true);
+            result.put("message", "收藏成功");
+        } else {
+            // 已收藏 → 取消收藏
+            bookListBookmarkMapper.deleteById(existing.getId());
+            result.put("bookmarked", false);
+            result.put("message", "已取消收藏");
+        }
+
+        // 返回最新收藏数
+        result.put("bookmarkCount", bookListBookmarkMapper.countByBooklist(id));
+        return AjaxResult.success(result);
+    }
+
+    /**
+     * 检查当前用户是否已收藏书单
+     */
+    @Operation(summary = "检查书单收藏状态", description = "检查当前用户是否已收藏目标书单")
+    @GetMapping("/book-lists/{id}/bookmark")
+    public AjaxResult checkBookListBookmark(@Parameter(description = "书单ID") @PathVariable Long id) {
+        Long userId = PortalSecurityUtils.getUserId();
+        Map<String, Object> result = new HashMap<>();
+        if (userId == null) {
+            result.put("bookmarked", false);
+        } else {
+            PortalBookListBookmark existing = bookListBookmarkMapper.selectBookmark(id, userId);
+            result.put("bookmarked", existing != null);
+        }
+        result.put("bookmarkCount", bookListBookmarkMapper.countByBooklist(id));
+        return AjaxResult.success(result);
     }
 }

@@ -19,7 +19,11 @@ import {
   Zap,
   Flame,
   Eye,
-  ThumbsUp
+  ThumbsUp,
+  Calendar,
+  TrendingUp,
+  Trophy,
+  Lock
 } from 'lucide-vue-next';
 import { useArticleStore } from '@/stores/article';
 import { useUserStore } from '@/stores/user';
@@ -27,7 +31,8 @@ import { generateSeo } from '@/utils/seo';
 import ArticleCard from '@/components/ArticleCard.vue';
 import Breadcrumb from '@/components/Breadcrumb.vue';
 import * as userApi from '@/api/user';
-import type { Article, User as UserType, UserStats } from '@/types/api';
+import * as growthApi from '@/api/growth';
+import type { Article, User as UserType, UserStats, UserGrowthVO, UserBadgeVO, UserStatsVO, CheckinResult } from '@/types/api';
 import { getSafeAvatar } from '@/utils/avatar';
 
 const router = useRouter();
@@ -43,15 +48,13 @@ const isLoading = ref(false);
 const currentPage = ref(1);
 const itemsPerPage = ref(10);
 
-// 成就徽章数据
-const badges = ref([
-  { name: '创作新星', desc: '发布10篇文章', icon: Star, color: 'from-yellow-400 to-orange-500' },
-  { name: '人气作者', desc: '获得100个赞', icon: Flame, color: 'from-red-400 to-pink-500' },
-  { name: '连续打卡', desc: '连续7天打卡', icon: CheckCircle2, color: 'from-green-400 to-emerald-500' },
-  { name: '活跃用户', desc: '累计登录30天', icon: Zap, color: 'from-blue-400 to-cyan-500' },
-  { name: '精品作者', desc: '3篇文章获推荐', icon: Award, color: 'from-purple-400 to-violet-500' },
-  { name: '粉丝达人', desc: '拥有100个粉丝', icon: Users, color: 'from-pink-400 to-rose-500' }
-]);
+// 成长体系数据
+const myGrowth = ref<UserGrowthVO | null>(null);
+const myStats = ref<UserStatsVO | null>(null);
+const myBadges = ref<UserBadgeVO[]>([]);
+const checkinResult = ref<CheckinResult | null>(null);
+const checkinLoading = ref(false);
+const hasCheckedInToday = ref(false);
 
 // SEO
 useHead(
@@ -71,6 +74,21 @@ const paginatedArticles = computed(() => {
   return userArticles.value.slice(start, end);
 });
 
+// 成长等级进度（粗略估算：每级 100 成长值）
+const levelProgress = computed(() => {
+  if (!myGrowth.value) return { percent: 0, current: 0, required: 100 };
+  const value = myGrowth.value.growthValue || 0;
+  const level = myGrowth.value.level || 1;
+  const base = (level - 1) * 100;
+  const current = value - base;
+  const required = 100;
+  return {
+    percent: Math.min(100, Math.round((current / required) * 100)),
+    current,
+    required
+  };
+});
+
 // 加载用户信息和统计
 async function loadUserData() {
   if (!userStore.isAuthenticated) {
@@ -86,6 +104,58 @@ async function loadUserData() {
     }
   } catch (error) {
     console.warn('获取用户统计失败，使用默认值');
+  }
+
+  // 并行加载成长体系数据
+  try {
+    const [growthResp, statsResp, badgesResp] = await Promise.all([
+      growthApi.getMyGrowth(),
+      growthApi.getMyStats(),
+      growthApi.getMyBadges(),
+    ]);
+    if (growthResp.code === 200 && growthResp.data) {
+      myGrowth.value = growthResp.data;
+    }
+    if (statsResp.code === 200 && statsResp.data) {
+      myStats.value = statsResp.data;
+      // 通过 checkinStreak > 0 且 lastCheckinDate 推断今日是否已签到
+      // 后端 checkin 接口会返回 "今日已签到" 消息，这里首次加载不阻塞
+    }
+    if (badgesResp.code === 200 && badgesResp.data) {
+      myBadges.value = badgesResp.data;
+    }
+  } catch (error) {
+    console.warn('获取成长体系数据失败:', error);
+  }
+}
+
+// 每日签到
+async function handleCheckin() {
+  if (checkinLoading.value || hasCheckedInToday.value) return;
+  checkinLoading.value = true;
+  try {
+    const resp = await growthApi.checkin();
+    if (resp.code === 200 && resp.data) {
+      checkinResult.value = resp.data;
+      if (resp.data.success) {
+        hasCheckedInToday.value = true;
+        // 刷新成长信息
+        try {
+          const growthResp = await growthApi.getMyGrowth();
+          if (growthResp.code === 200 && growthResp.data) {
+            myGrowth.value = growthResp.data;
+          }
+        } catch (e) { /* ignore */ }
+      } else {
+        // 已签到
+        hasCheckedInToday.value = true;
+      }
+    }
+  } catch (error) {
+    console.error('签到失败:', error);
+    checkinResult.value = { success: false, message: '签到失败，请稍后重试' };
+  } finally {
+    checkinLoading.value = false;
   }
 }
 
@@ -165,9 +235,16 @@ function goToSettings() {
                 <div class="flex-1 min-w-0">
                   <div class="flex items-start justify-between gap-4">
                     <div class="min-w-0 flex-1">
-                      <h1 class="text-2xl sm:text-3xl font-bold mb-2" style="color: var(--theme-text);">
-                        {{ currentUser.nickname || currentUser.username }}
-                      </h1>
+                      <div class="flex items-center gap-3 flex-wrap mb-2">
+                        <h1 class="text-2xl sm:text-3xl font-bold" style="color: var(--theme-text);">
+                          {{ currentUser.nickname || currentUser.username }}
+                        </h1>
+                        <!-- 成长等级徽章 -->
+                        <span v-if="myGrowth" class="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs sm:text-sm font-medium" style="background: linear-gradient(135deg, #f59e0b 0%, #ef4444 100%); color: white;">
+                          <Star class="w-3 h-3 sm:w-4 sm:h-4" />
+                          Lv.{{ myGrowth.level || 1 }} · {{ myGrowth.title || '初出茅庐' }}
+                        </span>
+                      </div>
                       <p class="text-sm sm:text-base mb-2" style="color: var(--theme-text-secondary);">
                         {{ currentUser.position || '暂无职位' }}
                       </p>
@@ -191,35 +268,102 @@ function goToSettings() {
                         </span>
                       </div>
                     </div>
+
+                    <!-- 签到按钮 -->
+                    <div class="flex-shrink-0">
+                      <button
+                        @click="handleCheckin"
+                        :disabled="checkinLoading || hasCheckedInToday"
+                        class="flex items-center gap-2 px-4 sm:px-5 py-2 sm:py-2.5 rounded-xl text-sm font-medium transition-all"
+                        :style="hasCheckedInToday
+                          ? 'background-color: var(--theme-accent); color: var(--theme-text-secondary); cursor: not-allowed;'
+                          : 'background-color: var(--theme-primary); color: white;' "
+                      >
+                        <Calendar class="w-4 h-4" />
+                        {{ hasCheckedInToday ? '今日已签' : (checkinLoading ? '签到中...' : '每日签到') }}
+                      </button>
+                      <p v-if="checkinResult" class="mt-2 text-xs text-right" :style="{ color: checkinResult.success ? '#10b981' : 'var(--theme-text-secondary)' }">
+                        {{ checkinResult.message }}
+                        <span v-if="checkinResult.growth">+{{ checkinResult.growth }}</span>
+                      </p>
+                    </div>
+                  </div>
+
+                  <!-- 成长值进度条 -->
+                  <div v-if="myGrowth" class="mt-4">
+                    <div class="flex items-center justify-between text-xs sm:text-sm mb-1">
+                      <span style="color: var(--theme-text-secondary);">
+                        成长值 {{ myGrowth.growthValue || 0 }}
+                        <span v-if="myGrowth.seasonRank" class="ml-2">· 本季第 {{ myGrowth.seasonRank }} 名</span>
+                      </span>
+                      <span v-if="myGrowth.nextLevelTitle" style="color: var(--theme-text-secondary);">
+                        下一级：{{ myGrowth.nextLevelTitle }}
+                      </span>
+                    </div>
+                    <div class="w-full h-2 rounded-full overflow-hidden" style="background-color: var(--theme-accent);">
+                      <div
+                        class="h-full rounded-full transition-all"
+                        style="background: linear-gradient(90deg, #f59e0b 0%, #ef4444 100%);"
+                        :style="{ width: levelProgress.percent + '%' }"
+                      ></div>
+                    </div>
                   </div>
                 </div>
               </div>
 
-              <!-- 统计数据 -->
+              <!-- 统计数据 - 扩展为更全面的成长统计 -->
               <div class="mt-8 grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-6 gap-4">
                 <div class="text-center p-4 rounded-xl" style="background-color: var(--theme-accent);">
-                  <div class="text-xl sm:text-2xl font-bold mb-1" style="color: var(--theme-text);">{{ userStats?.articles || 0 }}</div>
+                  <div class="text-xl sm:text-2xl font-bold mb-1" style="color: var(--theme-text);">{{ myStats?.articles ?? userStats?.articles ?? 0 }}</div>
                   <div class="text-xs sm:text-sm" style="color: var(--theme-text-secondary);">文章</div>
                 </div>
                 <div class="text-center p-4 rounded-xl" style="background-color: var(--theme-accent);">
-                  <div class="text-xl sm:text-2xl font-bold mb-1" style="color: var(--theme-text);">{{ userStats?.views || 0 }}</div>
+                  <div class="text-xl sm:text-2xl font-bold mb-1" style="color: var(--theme-text);">{{ myStats?.views ?? userStats?.views ?? 0 }}</div>
                   <div class="text-xs sm:text-sm" style="color: var(--theme-text-secondary);">浏览</div>
                 </div>
                 <div class="text-center p-4 rounded-xl" style="background-color: var(--theme-accent);">
-                  <div class="text-xl sm:text-2xl font-bold mb-1" style="color: var(--theme-text);">{{ userStats?.likes || 0 }}</div>
+                  <div class="text-xl sm:text-2xl font-bold mb-1" style="color: var(--theme-text);">{{ myStats?.totalLikes ?? userStats?.likes ?? 0 }}</div>
                   <div class="text-xs sm:text-sm" style="color: var(--theme-text-secondary);">获赞</div>
                 </div>
                 <div class="text-center p-4 rounded-xl" style="background-color: var(--theme-accent);">
-                  <div class="text-xl sm:text-2xl font-bold mb-1" style="color: var(--theme-text);">{{ userStats?.following || 0 }}</div>
+                  <div class="text-xl sm:text-2xl font-bold mb-1" style="color: var(--theme-text);">{{ myStats?.following ?? userStats?.following ?? 0 }}</div>
                   <div class="text-xs sm:text-sm" style="color: var(--theme-text-secondary);">关注</div>
                 </div>
                 <div class="text-center p-4 rounded-xl" style="background-color: var(--theme-accent);">
-                  <div class="text-xl sm:text-2xl font-bold mb-1" style="color: var(--theme-text);">{{ userStats?.followers || 0 }}</div>
+                  <div class="text-xl sm:text-2xl font-bold mb-1" style="color: var(--theme-text);">{{ myStats?.followers ?? userStats?.followers ?? 0 }}</div>
                   <div class="text-xs sm:text-sm" style="color: var(--theme-text-secondary);">粉丝</div>
                 </div>
                 <div class="text-center p-4 rounded-xl" style="background-color: var(--theme-accent);">
-                  <div class="text-xl sm:text-2xl font-bold mb-1" style="color: var(--theme-text);">{{ userStats?.bookmarks || 0 }}</div>
+                  <div class="text-xl sm:text-2xl font-bold mb-1" style="color: var(--theme-text);">{{ myStats?.bookmarks ?? userStats?.bookmarks ?? 0 }}</div>
                   <div class="text-xs sm:text-sm" style="color: var(--theme-text-secondary);">收藏</div>
+                </div>
+              </div>
+
+              <!-- 扩展统计：读书/面试/创作 -->
+              <div v-if="myStats" class="mt-4 grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-4">
+                <div class="text-center p-3 rounded-xl" style="background-color: var(--theme-accent);">
+                  <div class="text-lg sm:text-xl font-bold mb-1" style="color: var(--theme-text);">{{ myStats.wordCount || 0 }}</div>
+                  <div class="text-xs" style="color: var(--theme-text-secondary);">创作字数</div>
+                </div>
+                <div class="text-center p-3 rounded-xl" style="background-color: var(--theme-accent);">
+                  <div class="text-lg sm:text-xl font-bold mb-1" style="color: var(--theme-text);">{{ myStats.bookFinished || 0 }}</div>
+                  <div class="text-xs" style="color: var(--theme-text-secondary);">读完的书</div>
+                </div>
+                <div class="text-center p-3 rounded-xl" style="background-color: var(--theme-accent);">
+                  <div class="text-lg sm:text-xl font-bold mb-1" style="color: var(--theme-text);">{{ myStats.quoteCount || 0 }}</div>
+                  <div class="text-xs" style="color: var(--theme-text-secondary);">金句</div>
+                </div>
+                <div class="text-center p-3 rounded-xl" style="background-color: var(--theme-accent);">
+                  <div class="text-lg sm:text-xl font-bold mb-1" style="color: var(--theme-text);">{{ myStats.questionSolved || 0 }}</div>
+                  <div class="text-xs" style="color: var(--theme-text-secondary);">解题数</div>
+                </div>
+                <div class="text-center p-3 rounded-xl" style="background-color: var(--theme-accent);">
+                  <div class="text-lg sm:text-xl font-bold mb-1" style="color: var(--theme-text);">{{ myStats.noteCount || 0 }}</div>
+                  <div class="text-xs" style="color: var(--theme-text-secondary);">笔记数</div>
+                </div>
+                <div class="text-center p-3 rounded-xl" style="background-color: var(--theme-accent);">
+                  <div class="text-lg sm:text-xl font-bold mb-1" style="color: var(--theme-text);">{{ myStats.checkinStreak || 0 }}</div>
+                  <div class="text-xs" style="color: var(--theme-text-secondary);">连续签到</div>
                 </div>
               </div>
 
@@ -234,18 +378,51 @@ function goToSettings() {
                 </div>
               </div>
 
-              <!-- 成就徽章 -->
+              <!-- 成就徽章 - 使用真实数据 -->
               <div class="mt-6">
-                <h3 class="text-base font-semibold mb-4" style="color: var(--theme-text);">我的徽章</h3>
-                <div class="flex gap-3 overflow-x-auto pb-2">
-                  <div v-for="badge in badges" :key="badge.name" class="text-center p-3 rounded-xl flex-shrink-0 w-32" style="background-color: var(--theme-accent); border: 1px solid var(--theme-border);">
-                    <div class="w-10 h-10 mx-auto mb-2 rounded-xl flex items-center justify-center" :style="{ background: `linear-gradient(135deg, var(--badge-color))` }">
-                      <component :is="badge.icon" class="w-6 h-6 text-white" />
+                <div class="flex items-center justify-between mb-4">
+                  <h3 class="text-base font-semibold" style="color: var(--theme-text);">我的徽章</h3>
+                  <Link to="/achievements" class="text-xs sm:text-sm flex items-center gap-1" style="color: var(--theme-primary);">
+                    查看全部
+                    <ChevronRight class="w-3 h-3 sm:w-4 sm:h-4" />
+                  </Link>
+                </div>
+                <div v-if="myBadges.length > 0" class="flex gap-3 overflow-x-auto pb-2">
+                  <div v-for="badge in myBadges" :key="badge.id" class="text-center p-3 rounded-xl flex-shrink-0 w-32" style="background-color: var(--theme-accent); border: 1px solid var(--theme-border);">
+                    <div class="w-10 h-10 mx-auto mb-2 rounded-xl flex items-center justify-center" style="background: linear-gradient(135deg, #f59e0b 0%, #ef4444 100%);">
+                      <img
+                        v-if="badge.icon"
+                        :src="badge.icon"
+                        :alt="badge.name"
+                        class="w-6 h-6 object-contain"
+                        @error="(e: Event) => (e.target as HTMLImageElement).style.display = 'none'"
+                      />
+                      <Award v-else class="w-6 h-6 text-white" />
                     </div>
-                    <p class="text-sm font-medium mb-1" style="color: var(--theme-text);">{{ badge.name }}</p>
-                    <p class="text-xs" style="color: var(--theme-text-secondary);">{{ badge.desc }}</p>
+                    <p class="text-sm font-medium mb-1 truncate" style="color: var(--theme-text);">{{ badge.name }}</p>
+                    <p class="text-xs line-clamp-2" style="color: var(--theme-text-secondary);">{{ badge.description || '' }}</p>
                   </div>
                 </div>
+                <div v-else class="p-6 rounded-xl text-center" style="background-color: var(--theme-accent); border: 1px dashed var(--theme-border);">
+                  <Award class="w-10 h-10 mx-auto mb-2" style="color: var(--theme-text-secondary);" />
+                  <p class="text-sm mb-3" style="color: var(--theme-text-secondary);">还没有徽章，继续努力解锁成就吧</p>
+                  <Link to="/achievements" class="inline-flex items-center gap-1 text-xs sm:text-sm" style="color: var(--theme-primary);">
+                    查看成就列表
+                    <ChevronRight class="w-3 h-3 sm:w-4 sm:h-4" />
+                  </Link>
+                </div>
+              </div>
+
+              <!-- 快捷入口 -->
+              <div class="mt-6 flex flex-wrap gap-3">
+                <Link to="/ranking" class="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-colors" style="background-color: var(--theme-accent); color: var(--theme-text);">
+                  <Trophy class="w-4 h-4" style="color: #f59e0b;" />
+                  成长排行榜
+                </Link>
+                <Link to="/achievements" class="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-colors" style="background-color: var(--theme-accent); color: var(--theme-text);">
+                  <Award class="w-4 h-4" style="color: #8b5cf6;" />
+                  成就中心
+                </Link>
               </div>
             </div>
           </div>

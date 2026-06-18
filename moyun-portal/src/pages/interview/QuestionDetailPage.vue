@@ -4,14 +4,16 @@ import { useRoute, useRouter } from 'vue-router';
 import { useHead } from '@vueuse/head';
 import {
   ChevronLeft, ChevronDown, ChevronUp, ThumbsUp, Bookmark,
-  Code2, MessageSquare, CheckCircle, XCircle, Clock, Zap, Lightbulb, BookOpen
+  Code2, MessageSquare, CheckCircle, XCircle, Clock, Zap, Lightbulb, BookOpen, Star, Award
 } from 'lucide-vue-next';
 import SiteFooter from '@/components/SiteFooter.vue';
 import { generateSeo } from '@/utils/seo';
 import {
   getQuestionDetail, submitAnswer, toggleQuestionLike, toggleQuestionBookmark,
+  getFeaturedNotes,
 } from '@/api/interview';
 import type { InterviewQuestionDetailVO, InterviewSubmissionVO } from '@/types/api';
+import { getSafeAvatar } from '@/utils/avatar';
 
 const route = useRoute();
 const router = useRouter();
@@ -22,6 +24,7 @@ const loading = ref(false);
 const submitting = ref(false);
 const question = ref<InterviewQuestionDetailVO | null>(null);
 const submissions = ref<InterviewSubmissionVO[]>([]);
+const featuredNotes = ref<InterviewSubmissionVO[]>([]);
 const toast = ref<{ message: string; type: 'success' | 'error' } | null>(null);
 const toastTimer = ref<number | null>(null);
 
@@ -61,12 +64,26 @@ async function loadQuestionDetail() {
     } else {
       showToast(res.message || '加载题目失败', 'error');
     }
+    // 并行加载精选笔记
+    loadFeaturedNotes();
   } catch (err: any) {
     console.error('加载题目详情失败:', err);
     showToast(err?.message || '加载题目详情失败，请稍后重试', 'error');
   } finally {
     loading.value = true ? false : false;
     loading.value = false;
+  }
+}
+
+async function loadFeaturedNotes() {
+  try {
+    const res = await getFeaturedNotes(questionId.value);
+    if (res.code === 200 && res.data) {
+      featuredNotes.value = res.data;
+    }
+  } catch (err) {
+    // 精选笔记加载失败不影响主流程
+    console.warn('加载精选笔记失败:', err);
   }
 }
 
@@ -366,6 +383,41 @@ useHead(
                 <span v-if="submitting" class="w-4 h-4 rounded-full border-2 border-white border-t-transparent animate-spin mr-2"></span>
                 {{ submitting ? '提交中...' : '提交答案' }}
               </button>
+            </div>
+          </div>
+
+          <!-- 精选笔记 -->
+          <div v-if="featuredNotes.length > 0" class="bg-white rounded-xl shadow-sm p-6">
+            <h2 class="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+              <Award class="w-5 h-5 mr-2 text-yellow-500" />
+              精选笔记 ({{ featuredNotes.length }})
+            </h2>
+            <div class="space-y-4">
+              <div
+                v-for="note in featuredNotes"
+                :key="note.id"
+                class="border border-gray-100 rounded-lg p-4 hover:border-yellow-200 transition"
+              >
+                <div class="flex items-center gap-3 mb-3">
+                  <img
+                    :src="getSafeAvatar(note.userAvatar, String(note.userId))"
+                    :alt="note.userNickname || '用户'"
+                    class="w-8 h-8 rounded-full object-cover"
+                    @error="(e: Event) => (e.target as HTMLImageElement).src = getSafeAvatar(null, String(note.userId))"
+                  />
+                  <div class="flex-1 min-w-0">
+                    <div class="flex items-center gap-2">
+                      <span class="text-sm font-medium text-gray-900">{{ note.userNickname || '匿名用户' }}</span>
+                      <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-yellow-100 text-yellow-700">
+                        <Star class="w-3 h-3" />
+                        精选
+                      </span>
+                    </div>
+                    <p class="text-xs text-gray-500">{{ note.featuredTime || note.createTime || '-' }}</p>
+                  </div>
+                </div>
+                <div class="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">{{ note.note }}</div>
+              </div>
             </div>
           </div>
 

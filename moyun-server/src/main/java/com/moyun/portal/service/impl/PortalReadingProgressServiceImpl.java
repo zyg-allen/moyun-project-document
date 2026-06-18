@@ -11,6 +11,7 @@ import org.springframework.stereotype.Service;
 import com.moyun.portal.domain.entity.PortalReadingProgress;
 import com.moyun.portal.domain.query.ReadingProgressQuery;
 import com.moyun.portal.mapper.PortalReadingProgressMapper;
+import com.moyun.portal.service.IPortalGrowthService;
 import com.moyun.portal.service.IPortalReadingProgressService;
 
 /**
@@ -23,6 +24,9 @@ public class PortalReadingProgressServiceImpl extends ServiceImpl<PortalReadingP
 
     @Autowired
     private PortalReadingProgressMapper portalReadingProgressMapper;
+
+    @Autowired
+    private IPortalGrowthService portalGrowthService;
 
     @Override
     public Page<PortalReadingProgress> selectPortalReadingProgressPage(Page<PortalReadingProgress> page, ReadingProgressQuery query) {
@@ -59,11 +63,35 @@ public class PortalReadingProgressServiceImpl extends ServiceImpl<PortalReadingP
     @Override
     public int updatePortalReadingProgress(PortalReadingProgress portalReadingProgress) {
         portalReadingProgress.setUpdateTime(LocalDateTime.now());
+
+        // 查询更新前的状态，判断是否是首次完成阅读
+        String previousStatus = null;
+        if (portalReadingProgress.getId() != null) {
+            PortalReadingProgress existing = portalReadingProgressMapper.selectPortalReadingProgressById(portalReadingProgress.getId());
+            if (existing != null) {
+                previousStatus = existing.getStatus();
+            }
+        }
+
         // 如果进度达到100%，自动标记为已读
+        boolean justFinished = false;
         if (portalReadingProgress.getProgress() != null && portalReadingProgress.getProgress() >= 100) {
             portalReadingProgress.setStatus("finished");
+            // 仅在之前未完成时触发成长事件（避免重复）
+            if (!"finished".equals(previousStatus)) {
+                justFinished = true;
+            }
         }
-        return portalReadingProgressMapper.updatePortalReadingProgress(portalReadingProgress);
+
+        int rows = portalReadingProgressMapper.updatePortalReadingProgress(portalReadingProgress);
+
+        // 记录完成阅读成长事件
+        if (rows > 0 && justFinished && portalReadingProgress.getUserId() != null) {
+            portalGrowthService.recordEvent("reading", "finish_book",
+                    portalReadingProgress.getUserId(), "book", portalReadingProgress.getBookId());
+        }
+
+        return rows;
     }
 
     @Override

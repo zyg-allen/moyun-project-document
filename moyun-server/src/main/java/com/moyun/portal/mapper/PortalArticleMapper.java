@@ -3,9 +3,11 @@ package com.moyun.portal.mapper;
 import java.util.List;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
+import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
+import org.apache.ibatis.annotations.Update;
 
 import com.moyun.ext.cms.domain.query.CmsArticleQuery;
 import com.moyun.ext.cms.domain.vo.CmsArticleVO;
@@ -151,4 +153,46 @@ public interface PortalArticleMapper extends BaseMapper<PortalArticle> {
      * @return 文章对象
      */
     CmsArticleVO selectCmsArticleById(Long id);
+
+    // ========== 原子计数更新方法 ==========
+
+    /**
+     * 原子增加浏览量
+     *
+     * @param id    文章ID
+     * @param delta 增量（正数增加，负数减少）
+     * @return 受影响行数
+     */
+    @Update("UPDATE portal_article SET views = views + #{delta} WHERE id = #{id}")
+    int incrementViews(@Param("id") Long id, @Param("delta") long delta);
+
+    /**
+     * 原子增加点赞数
+     *
+     * @param id    文章ID
+     * @param delta 增量（正数增加，负数减少）
+     * @return 受影响行数
+     */
+    @Update("UPDATE portal_article SET likes = likes + #{delta} WHERE id = #{id}")
+    int incrementLikes(@Param("id") Long id, @Param("delta") long delta);
+
+    /**
+     * 原子增加评论数
+     *
+     * @param id    文章ID
+     * @param delta 增量（正数增加，负数减少）
+     * @return 受影响行数
+     */
+    @Update("UPDATE portal_article SET comments = comments + #{delta} WHERE id = #{id}")
+    int incrementComments(@Param("id") Long id, @Param("delta") long delta);
+
+    /**
+     * 原子增加收藏数
+     *
+     * @param id    文章ID
+     * @param delta 增量（正数增加，负数减少）
+     * @return 受影响行数
+     */
+    @Update("UPDATE portal_article SET bookmark_count = bookmark_count + #{delta} WHERE id = #{id}")
+    int incrementBookmarkCount(@Param("id") Long id, @Param("delta") long delta);
 }

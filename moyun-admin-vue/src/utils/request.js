@@ -87,7 +87,9 @@ service.interceptors.response.use(res => {
         ElMessageBox.confirm('登录状态已过期，您可以继续留在该页面，或者重新登录', '系统提示', { confirmButtonText: '重新登录', cancelButtonText: '取消', type: 'warning' }).then(() => {
           isRelogin.show = false;
           useUserStore().logOut().then(() => {
-            location.href = '/index';
+            // 跳转登录页，携带当前页面路径，登录后返回
+            const currentPath = window.location.hash ? window.location.hash.substring(1) : window.location.pathname;
+            location.href = '/login?redirect=' + encodeURIComponent(currentPath);
           })
       }).catch(() => {
         isRelogin.show = false;

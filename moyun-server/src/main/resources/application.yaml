@@ -9,7 +9,7 @@ spring:
   application:
     name: moyun-server
   profiles:
-    active: local
+    active: dev
   # 文件上传配置
   servlet:
     multipart:

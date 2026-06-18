@@ -1,6 +1,9 @@
 package com.moyun.core.config;
 
+import com.baomidou.mybatisplus.annotation.DbType;
 import com.baomidou.mybatisplus.autoconfigure.SpringBootVFS;
+import com.baomidou.mybatisplus.extension.plugins.MybatisPlusInterceptor;
+import com.baomidou.mybatisplus.extension.plugins.inner.PaginationInnerInterceptor;
 import com.baomidou.mybatisplus.extension.spring.MybatisSqlSessionFactoryBean;
 import com.moyun.util.string.StringUtils;
 import lombok.extern.slf4j.Slf4j;
@@ -99,7 +102,7 @@ public class MyBatisConfig {
     }
 
     @Bean
-    public SqlSessionFactory sqlSessionFactory(DataSource dataSource) throws Exception {
+    public SqlSessionFactory sqlSessionFactory(DataSource dataSource,MybatisPlusInterceptor mybatisPlusInterceptor) throws Exception {
         // 优先使用 mybatis-plus 配置，兼容 mybatis 配置
         String typeAliasesPackage = env.getProperty("mybatis-plus.type-aliases-package");
         if (StringUtils.isEmpty(typeAliasesPackage)) {
@@ -127,10 +130,20 @@ public class MyBatisConfig {
         final MybatisSqlSessionFactoryBean sessionFactory = new MybatisSqlSessionFactoryBean();
         sessionFactory.setDataSource(dataSource);
         sessionFactory.setTypeAliasesPackage(typeAliasesPackage);
+        // ✅ 注入分页插件——这一行是唯一缺少的
+        sessionFactory.setPlugins(mybatisPlusInterceptor);
         sessionFactory.setMapperLocations(resolveMapperLocations(StringUtils.split(mapperLocations, ",")));
+
         if (StringUtils.isNotEmpty(configLocation)) {
             sessionFactory.setConfigLocation(new DefaultResourceLoader().getResource(configLocation));
         }
         return sessionFactory.getObject();
+    }
+
+    @Bean
+    public MybatisPlusInterceptor mybatisPlusInterceptor() {
+        MybatisPlusInterceptor interceptor = new MybatisPlusInterceptor();
+        interceptor.addInnerInterceptor(new PaginationInnerInterceptor(DbType.MYSQL));
+        return interceptor;
     }
 }

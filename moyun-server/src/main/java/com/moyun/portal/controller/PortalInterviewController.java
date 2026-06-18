@@ -110,6 +110,21 @@ public class PortalInterviewController extends BaseController {
         return AjaxResult.success(portalInterviewService.selectBookmarkPage(page, currentUserId()));
     }
 
+    // ==================== 精选笔记 ====================
+    @Operation(summary = "查询某题目的精选笔记列表", description = "公开接口，返回后台采纳的优质笔记")
+    @GetMapping("/question/{id}/featured-notes")
+    @Anonymous
+    public AjaxResult getFeaturedNotes(@PathVariable("id") Long questionId) {
+        return AjaxResult.success(portalInterviewService.selectFeaturedSubmissions(questionId));
+    }
+
+    @Operation(summary = "采纳/取消采纳提交笔记为精选", description = "后台管理接口，需管理员权限")
+    @PostMapping("/submission/{id}/adopt")
+    public AjaxResult adoptSubmission(@PathVariable("id") Long submissionId,
+                                       @RequestParam(defaultValue = "true") boolean isFeatured) {
+        return AjaxResult.success(portalInterviewService.adoptSubmission(submissionId, isFeatured));
+    }
+
     // ==================== 面经管理 ====================
     @Operation(summary = "获取面经分页列表")
     @GetMapping("/experience/list")

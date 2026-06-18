@@ -100,7 +100,7 @@ async function getList() {
   loading.value = true;
   try {
     const res = await listInterviewCategory();
-    allList.value = res.data || res.rows || [];
+    allList.value = res.data || [];
   } catch (e) { /* ignore */ } finally {
     loading.value = false;
   }

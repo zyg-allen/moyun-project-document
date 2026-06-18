@@ -12,6 +12,7 @@ import com.moyun.portal.domain.entity.PortalBookQuote;
 import com.moyun.portal.domain.query.BookQuoteQuery;
 import com.moyun.portal.mapper.PortalBookQuoteMapper;
 import com.moyun.portal.service.IPortalBookQuoteService;
+import com.moyun.portal.service.IPortalGrowthService;
 
 /**
  * 金句摘录 业务层实现
@@ -23,6 +24,9 @@ public class PortalBookQuoteServiceImpl extends ServiceImpl<PortalBookQuoteMappe
 
     @Autowired
     private PortalBookQuoteMapper portalBookQuoteMapper;
+
+    @Autowired
+    private IPortalGrowthService portalGrowthService;
 
     @Override
     public Page<PortalBookQuote> selectPortalBookQuotePage(Page<PortalBookQuote> page, BookQuoteQuery query) {
@@ -50,7 +54,15 @@ public class PortalBookQuoteServiceImpl extends ServiceImpl<PortalBookQuoteMappe
         if (portalBookQuote.getLikeCount() == null) {
             portalBookQuote.setLikeCount(0L);
         }
-        return portalBookQuoteMapper.insertPortalBookQuote(portalBookQuote);
+        int rows = portalBookQuoteMapper.insertPortalBookQuote(portalBookQuote);
+
+        // 记录发布金句成长事件
+        if (rows > 0 && portalBookQuote.getUserId() != null) {
+            portalGrowthService.recordEvent("reading", "write_quote",
+                    portalBookQuote.getUserId(), "quote", portalBookQuote.getId());
+        }
+
+        return rows;
     }
 
     @Override
@@ -86,6 +98,12 @@ public class PortalBookQuoteServiceImpl extends ServiceImpl<PortalBookQuoteMappe
             quote.setLikeCount((quote.getLikeCount() == null ? 0L : quote.getLikeCount()) + 1L);
             quote.setUpdateTime(LocalDateTime.now());
             portalBookQuoteMapper.updatePortalBookQuote(quote);
+
+            // 为金句发布者记录被赞成长事件
+            if (quote.getUserId() != null) {
+                portalGrowthService.recordEvent("reading", "quote_liked",
+                        quote.getUserId(), "quote", quote.getId());
+            }
         }
     }
 

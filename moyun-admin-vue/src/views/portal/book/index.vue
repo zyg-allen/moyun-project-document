@@ -399,8 +399,8 @@ const columns = [
 function getList() {
   loading.value = true;
   listBook(queryParams).then((response) => {
-    const rows = response.rows || response.data?.rows || (response.data ? (Array.isArray(response.data) ? response.data : response.data.records) : []);
-    const totalCount = response.total || response.data?.total || 0;
+    const rows = response.data.records || [];
+    const totalCount = response.data.total || 0;
     bookList.value = rows;
     total.value = totalCount;
     loading.value = false;

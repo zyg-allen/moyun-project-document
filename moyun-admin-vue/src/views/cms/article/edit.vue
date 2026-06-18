@@ -398,9 +398,9 @@ function submitForm() {
   });
 }
 
-// 返回列表
+// 返回列表（关闭当前编辑器标签页，跳转到文章列表）
 function goBack() {
-  router.push('/cms/article');
+  proxy.$tab.closeOpenPage('/cms/article');
 }
 
 // 初始化

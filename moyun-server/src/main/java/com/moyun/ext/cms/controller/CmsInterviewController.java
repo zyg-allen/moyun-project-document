@@ -3,6 +3,7 @@ package com.moyun.ext.cms.controller;
 import java.util.List;
 import java.util.Map;
 
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -35,6 +36,10 @@ import com.moyun.portal.domain.entity.PortalInterviewCompany;
 import com.moyun.portal.domain.entity.PortalInterviewExperience;
 import com.moyun.portal.domain.entity.PortalInterviewQuestion;
 import com.moyun.portal.domain.entity.PortalInterviewResumeTemplate;
+import com.moyun.portal.domain.entity.PortalInterviewSubmission;
+import com.moyun.portal.mapper.PortalInterviewSubmissionMapper;
+import com.moyun.portal.mapper.PortalUserStatsMapper;
+import com.moyun.portal.service.IPortalGrowthService;
 import com.moyun.util.bean.PageUtils;
 
 /**
@@ -49,6 +54,15 @@ public class CmsInterviewController extends BaseController {
 
     @Autowired
     private IPortalInterviewService portalInterviewService;
+
+    @Autowired
+    private PortalInterviewSubmissionMapper portalInterviewSubmissionMapper;
+
+    @Autowired
+    private IPortalGrowthService portalGrowthService;
+
+    @Autowired
+    private PortalUserStatsMapper portalUserStatsMapper;
 
     // ========================================================================
     // 题目管理
@@ -304,6 +318,72 @@ public class CmsInterviewController extends BaseController {
     @DeleteMapping("/company/{ids}")
     public AjaxResult removeCompany(@Parameter(description = "公司ID数组") @PathVariable Long[] ids) {
         return toAjax(portalInterviewService.deleteCompanyByIds(ids));
+    }
+
+    // ========================================================================
+    // 精选笔记管理（提交笔记采纳/取消采纳）
+    // ========================================================================
+
+    @Operation(summary = "获取提交笔记分页列表", description = "分页查询用户提交的笔记，支持按题目ID和精选状态筛选")
+    @PreAuthorize("@ss.hasPermi('cms:interview:list')")
+    @GetMapping("/submission/list")
+    public AjaxResult listSubmission(
+            @RequestParam(required = false) Long questionId,
+            @RequestParam(required = false) Boolean isFeatured,
+            @RequestParam(defaultValue = "1") Integer pageNum,
+            @RequestParam(defaultValue = "10") Integer pageSize) {
+        Page<PortalInterviewSubmission> page = new Page<>(pageNum, pageSize);
+        LambdaQueryWrapper<PortalInterviewSubmission> wrapper = new LambdaQueryWrapper<>();
+        if (questionId != null) {
+            wrapper.eq(PortalInterviewSubmission::getQuestionId, questionId);
+        }
+        if (isFeatured != null) {
+            wrapper.eq(PortalInterviewSubmission::getIsFeatured, isFeatured);
+        }
+        // 只查询有 note 内容的提交
+        wrapper.isNotNull(PortalInterviewSubmission::getNote)
+                .ne(PortalInterviewSubmission::getNote, "");
+        wrapper.orderByDesc(PortalInterviewSubmission::getCreateTime);
+        page = portalInterviewSubmissionMapper.selectPage(page, wrapper);
+        return success(page);
+    }
+
+    @Operation(summary = "采纳笔记为精选", description = "将用户提交的笔记采纳为精选笔记，触发 note_adopted 成长事件")
+    @PreAuthorize("@ss.hasPermi('cms:interview:edit')")
+    @Log(title = "精选笔记", businessType = BusinessType.UPDATE)
+    @PutMapping("/submission/featured")
+    public AjaxResult featureSubmission(@RequestBody Map<String, Object> body) {
+        Long id = Long.valueOf(String.valueOf(body.get("id")));
+        int rows = portalInterviewSubmissionMapper.updateFeatured(id, true);
+        if (rows > 0) {
+            PortalInterviewSubmission submission = portalInterviewSubmissionMapper.selectById(id);
+            if (submission != null && submission.getUserId() != null) {
+                Long userId = submission.getUserId();
+                // 触发 note_adopted 成长事件
+                portalGrowthService.recordEvent("interview", "note_adopted", userId, "submission", id);
+                // 更新用户统计：笔记被精选数 +1
+                portalUserStatsMapper.addNoteAdopted(userId, 1);
+            }
+        }
+        return toAjax(rows);
+    }
+
+    @Operation(summary = "取消精选笔记", description = "取消笔记的精选状态")
+    @PreAuthorize("@ss.hasPermi('cms:interview:edit')")
+    @Log(title = "精选笔记", businessType = BusinessType.UPDATE)
+    @PutMapping("/submission/unfeatured")
+    public AjaxResult unfeatureSubmission(@RequestBody Map<String, Object> body) {
+        Long id = Long.valueOf(String.valueOf(body.get("id")));
+        int rows = portalInterviewSubmissionMapper.updateFeatured(id, false);
+        if (rows > 0) {
+            PortalInterviewSubmission submission = portalInterviewSubmissionMapper.selectById(id);
+            if (submission != null && submission.getUserId() != null) {
+                Long userId = submission.getUserId();
+                // 取消精选不扣成长值，只减统计
+                portalUserStatsMapper.addNoteAdopted(userId, -1);
+            }
+        }
+        return toAjax(rows);
     }
 
 }

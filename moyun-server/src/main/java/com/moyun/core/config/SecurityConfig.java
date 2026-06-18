@@ -105,6 +105,10 @@ public class SecurityConfig {
      */
     private boolean shouldApplyTo(HttpServletRequest request) {
         String uri = request.getRequestURI();
+        // 后台管理路径（/portal/admin/**）需要由核心 SecurityConfig 处理 admin token
+        if (uri.startsWith("/portal/admin/")) {
+            return true;
+        }
         List<String> excludeModules = getExcludeModules();
         if (excludeModules.isEmpty()) {
             return true;

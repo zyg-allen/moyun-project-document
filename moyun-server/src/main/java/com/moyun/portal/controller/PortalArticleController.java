@@ -32,6 +32,7 @@ import com.moyun.portal.mapper.PortalArticleViewMapper;
 import com.moyun.portal.mapper.PortalLikeMapper;
 import com.moyun.portal.service.IPortalArticleService;
 import com.moyun.portal.service.IPortalArticleViewService;
+import com.moyun.portal.service.IPortalGrowthService;
 import com.moyun.portal.util.ArticleConvertUtil;
 import com.moyun.portal.util.PortalSecurityUtils;
 import com.moyun.util.bean.PageUtils;
@@ -56,6 +57,9 @@ public class PortalArticleController extends BaseController {
 
     @Autowired
     private IPortalArticleViewService portalArticleViewService;
+
+    @Autowired
+    private IPortalGrowthService portalGrowthService;
 
     @Operation(summary = "获取文章列表", description = "根据条件分页查询文章列表")
     @GetMapping("/list")
@@ -175,24 +179,28 @@ public class PortalArticleController extends BaseController {
             like.setCreateTime(LocalDateTime.now());
             portalLikeMapper.insert(like);
 
-            // 增加点赞数
-            article.setLikes(article.getLikes() == null ? 1 : article.getLikes() + 1);
-            portalArticleService.updatePortalArticle(article);
+            // 原子增加点赞数
+            portalArticleMapper.incrementLikes(id, 1);
+
+            // 为文章作者记录获赞成长事件
+            if (article.getAuthorId() != null && !article.getAuthorId().equals(userId)) {
+                portalGrowthService.recordEventWithTarget("article", "receive_like",
+                        article.getAuthorId(), userId, "article", id);
+            }
 
             isLiked = true;
-            newLikeCount = article.getLikes();
+            newLikeCount = (article.getLikes() == null ? 0 : article.getLikes()) + 1;
         } else {
             // 已点赞，取消点赞
             portalLikeMapper.deleteById(existingLike.getId());
 
-            // 减少点赞数
+            // 原子减少点赞数
             if (article.getLikes() != null && article.getLikes() > 0) {
-                article.setLikes(article.getLikes() - 1);
-                portalArticleService.updatePortalArticle(article);
+                portalArticleMapper.incrementLikes(id, -1);
             }
 
             isLiked = false;
-            newLikeCount = article.getLikes() == null ? 0 : article.getLikes();
+            newLikeCount = article.getLikes() == null || article.getLikes() <= 0 ? 0 : article.getLikes() - 1;
         }
 
         // 返回最新状态
@@ -260,11 +268,12 @@ public class PortalArticleController extends BaseController {
         }
 
         boolean increased = false;
+        long currentViews = article.getViews() == null ? 0 : article.getViews();
         if (recentViews == 0) {
-            // 有效时间内未浏览过，增加阅读量
-            article.setViews(article.getViews() == null ? 1 : article.getViews() + 1);
-            portalArticleService.updatePortalArticle(article);
+            // 有效时间内未浏览过，原子增加阅读量
+            portalArticleMapper.incrementViews(id, 1);
             increased = true;
+            currentViews = currentViews + 1;
 
             // 记录浏览历史
             PortalArticleView view = new PortalArticleView();
@@ -279,7 +288,7 @@ public class PortalArticleController extends BaseController {
         // 返回结果
         Map<String, Object> result = new HashMap<>();
         result.put("increased", increased);
-        result.put("views", article.getViews());
+        result.put("views", currentViews);
         result.put("message", increased ? "阅读量+1" : "阅读量未变化");
 
         return success(result);

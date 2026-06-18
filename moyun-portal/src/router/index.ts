@@ -24,6 +24,8 @@ const InterviewPage = () => import('@/pages/InterviewPage.vue')
 const QuestionDetailPage = () => import('@/pages/interview/QuestionDetailPage.vue')
 const ExperienceDetailPage = () => import('@/pages/interview/ExperienceDetailPage.vue')
 const ResumeTemplatePage = () => import('@/pages/interview/ResumeTemplatePage.vue')
+const GrowthRankingPage = () => import('@/pages/GrowthRankingPage.vue')
+const AchievementsPage = () => import('@/pages/AchievementsPage.vue')
 
 // ============ 路由配置 ============
 
@@ -133,6 +135,18 @@ const routes: RouteRecordRaw[] = [
     name: 'authors',
     component: AuthorsPage,
     meta: { title: '作者列表', isPublic: true }
+  },
+  {
+    path: '/ranking',
+    name: 'ranking',
+    component: GrowthRankingPage,
+    meta: { title: '成长排行榜', isPublic: true }
+  },
+  {
+    path: '/achievements',
+    name: 'achievements',
+    component: AchievementsPage,
+    meta: { title: '成就徽章', isPublic: true }
   },
   {
     path: '/help',

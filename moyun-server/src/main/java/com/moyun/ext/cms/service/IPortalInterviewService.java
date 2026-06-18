@@ -67,6 +67,23 @@ public interface IPortalInterviewService {
 
     Page<InterviewBookmarkVO> selectBookmarkPage(Page<InterviewBookmarkVO> page, Long userId);
 
+    /**
+     * 后台采纳/取消采纳提交笔记为精选
+     *
+     * @param submissionId 提交记录ID
+     * @param isFeatured   true=采纳，false=取消采纳
+     * @return 操作结果
+     */
+    Map<String, Object> adoptSubmission(Long submissionId, boolean isFeatured);
+
+    /**
+     * 查询某题目的精选笔记列表
+     *
+     * @param questionId 题目ID
+     * @return 精选提交记录列表
+     */
+    List<InterviewSubmissionVO> selectFeaturedSubmissions(Long questionId);
+
     // ==================== 面经 ====================
     Page<InterviewExperienceVO> selectExperiencePage(Page<InterviewExperienceVO> page, InterviewExperienceQuery query, Long currentUserId);
 

@@ -2,20 +2,25 @@
 import { ref, computed, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { useHead } from '@vueuse/head';
-import { BookOpen, Quote as QuoteIcon, Star, ArrowRight, Users } from 'lucide-vue-next';
+import { BookOpen, Quote as QuoteIcon, Star, ArrowRight, Users, Bookmark, BookmarkCheck } from 'lucide-vue-next';
 import SiteFooter from '@/components/SiteFooter.vue';
 import LazyImage from '@/components/LazyImage.vue';
 
-import { getReadingHome } from '@/api/reading';
+import { getReadingHome, toggleBookListBookmark, checkBookListBookmark } from '@/api/reading';
 import { generateSeo } from '@/utils/seo';
+import { useUserStore } from '@/stores/user';
 import type { Book, BookList, Quote as QuoteType } from '@/types/api';
 
 const router = useRouter();
+const userStore = useUserStore();
 const loading = ref(false);
 const error = ref<string | null>(null);
 const bookLists = ref<BookList[]>([]);
 const books = ref<Book[]>([]);
 const quotes = ref<QuoteType[]>([]);
+// 书单收藏状态：{ [bookListId]: boolean }
+const bookmarkStates = ref<Record<string | number, boolean>>({});
+const bookmarkLoading = ref<Record<string | number, boolean>>({});
 
 onMounted(() => {
   loadReadingHome();
@@ -32,6 +37,16 @@ async function loadReadingHome() {
       bookLists.value = response.data.bookLists || [];
       books.value = response.data.books || [];
       quotes.value = response.data.quotes || [];
+      // 登录用户批量查询收藏状态
+      if (userStore.isAuthenticated) {
+        bookLists.value.forEach(bl => {
+          checkBookListBookmark(bl.id).then(resp => {
+            if (resp.code === 200 && resp.data) {
+              bookmarkStates.value[bl.id] = !!(resp.data as any).bookmarked;
+            }
+          }).catch(() => { /* ignore */ });
+        });
+      }
     } else {
       error.value = response.message || '加载数据失败';
     }
@@ -40,6 +55,25 @@ async function loadReadingHome() {
     error.value = '加载数据失败，请稍后重试';
   } finally {
     loading.value = false;
+  }
+}
+
+async function handleToggleBookmark(bookListId: string | number) {
+  if (!userStore.isAuthenticated) {
+    router.push({ name: 'login', query: { redirect: router.currentRoute.value.fullPath } });
+    return;
+  }
+  if (bookmarkLoading.value[bookListId]) return;
+  bookmarkLoading.value[bookListId] = true;
+  try {
+    const resp = await toggleBookListBookmark(bookListId);
+    if (resp.code === 200 && resp.data) {
+      bookmarkStates.value[bookListId] = !!(resp.data as any).bookmarked;
+    }
+  } catch (err) {
+    console.error('书单收藏失败:', err);
+  } finally {
+    bookmarkLoading.value[bookListId] = false;
   }
 }
 
@@ -116,7 +150,18 @@ useHead(
                   />
                 </div>
                 <div class="p-6">
-                  <h3 class="text-lg font-semibold text-gray-900 mb-2">{{ bookList.title }}</h3>
+                  <div class="flex items-start justify-between gap-3 mb-2">
+                    <h3 class="text-lg font-semibold text-gray-900 flex-1">{{ bookList.title }}</h3>
+                    <button
+                      @click.stop="handleToggleBookmark(bookList.id)"
+                      :disabled="bookmarkLoading[bookList.id]"
+                      class="flex-shrink-0 p-1.5 rounded-lg hover:bg-gray-100 transition-colors disabled:opacity-50"
+                      :title="bookmarkStates[bookList.id] ? '取消收藏' : '收藏书单'"
+                    >
+                      <BookmarkCheck v-if="bookmarkStates[bookList.id]" class="w-5 h-5 text-purple-600" />
+                      <Bookmark v-else class="w-5 h-5 text-gray-400" />
+                    </button>
+                  </div>
                   <p class="text-gray-600 text-sm mb-4 line-clamp-2">{{ bookList.description }}</p>
                   <div class="flex items-center text-sm text-gray-500">
                     <span class="flex items-center mr-4">

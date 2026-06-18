@@ -182,8 +182,8 @@ function getAuditStatusText(status) {
 function getList() {
   loading.value = true;
   listComment(queryParams.value).then(response => {
-    commentList.value = response.rows;
-    total.value = response.total;
+    commentList.value = response.data.records || [];
+    total.value = response.data.total || 0;
     loading.value = false;
   });
 }

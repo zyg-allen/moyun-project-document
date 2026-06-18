@@ -102,6 +102,15 @@ export const getMyBookmarkList = (params?: {
   return httpGetList<InterviewBookmarkVO>('/portal/interview/bookmark/list', params);
 };
 
+// ==================== 精选笔记 ====================
+
+// 查询某题目的精选笔记列表（公开接口）
+export const getFeaturedNotes = (questionId: string | number) => {
+  return httpGet<InterviewSubmissionVO[]>(
+    `/portal/interview/question/${questionId}/featured-notes`
+  );
+};
+
 // ==================== 面经 ====================
 
 export const getExperienceList = (params?: InterviewExperienceQuery) => {

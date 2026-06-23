@@ -18,6 +18,8 @@ import { filterCategoryTree, getCategoryTarget } from '@/api/category'
 import * as tagApi from '@/api/tag'
 import { getFriendLinks } from '@/api/friendLink'
 import { getAuthors } from '@/api/user'
+import { getReadingHome } from '@/api/reading'
+import { getInterviewHome } from '@/api/interview'
 import { useUserStore } from '@/stores/user'
 import { useAuth } from '@/composables/useAuth'
 import type { Category } from '@/types/api'
@@ -50,6 +52,17 @@ const authors = ref<any[]>([])
 const loading = ref(true)
 const error = ref<string | null>(null)
 const categoryArticles = ref<Record<string, any[]>>({})
+
+// 读书空间首页数据
+const readingBooks = ref<any[]>([])
+const readingBookLists = ref<any[]>([])
+const readingQuotes = ref<any[]>([])
+
+// 面试空间首页数据
+const interviewQuestions = ref<any[]>([])
+const interviewExperiences = ref<any[]>([])
+const interviewCategories = ref<any[]>([])
+const interviewTotalQuestions = ref(0)
 
 const transformArticle = (apiArticle: any): any => {
   return {
@@ -162,6 +175,34 @@ const loadFriendLinks = async () => {
   }
 }
 
+const loadReadingData = async () => {
+  try {
+    const response = await getReadingHome()
+    if (response.code === 200 && response.data) {
+      readingBookLists.value = (response.data.bookLists || []).slice(0, 3)
+      readingBooks.value = (response.data.books || []).slice(0, 4)
+      readingQuotes.value = (response.data.quotes || []).slice(0, 1)
+    }
+  } catch (err) {
+    console.error('加载读书空间数据失败:', err)
+  }
+}
+
+const loadInterviewData = async () => {
+  try {
+    const response = await getInterviewHome()
+    if (response.code === 200 && response.data) {
+      const d: any = response.data
+      interviewCategories.value = (d.categories || []).slice(0, 3)
+      interviewQuestions.value = (d.hotQuestions || []).slice(0, 3)
+      interviewExperiences.value = (d.hotExperiences || []).slice(0, 3)
+      interviewTotalQuestions.value = d.totalQuestionCount || 0
+    }
+  } catch (err) {
+    console.error('加载面试空间数据失败:', err)
+  }
+}
+
 const prevHero = () => {
   currentHeroIndex.value = (currentHeroIndex.value - 1 + heroImages.value.length) % heroImages.value.length
 }
@@ -194,7 +235,9 @@ onMounted(async () => {
     loadCategories(),
     loadTags(),
     loadAuthors(),
-    loadFriendLinks()
+    loadFriendLinks(),
+    loadReadingData(),
+    loadInterviewData()
   ])
   if (themes.value.length > 0) {
     activeTheme.value = themes.value[0].name
@@ -553,16 +596,33 @@ useHead(
           </div>
 
           <div class="grid grid-cols-1 md:grid-cols-4 gap-3 sm:gap-4">
-            <div class="relative h-28 sm:h-32 rounded-xl overflow-hidden">
+            <!-- 本月共读 / 精选书籍 -->
+            <div
+                v-if="readingBooks.length > 0"
+                class="relative h-28 sm:h-32 rounded-xl overflow-hidden cursor-pointer"
+                @click="router.push(`/reading/book/${readingBooks[0].id}`)"
+            >
+              <LazyImage
+                  :src="readingBooks[0].cover"
+                  :alt="readingBooks[0].title"
+                  class="absolute inset-0 w-full h-full object-cover"
+              />
+              <div class="absolute inset-0 bg-gradient-to-br from-green-600/80 to-green-800/80 p-3 sm:p-4">
+                <span class="inline-block px-2 py-0.5 bg-white/20 backdrop-blur text-white text-xs rounded mb-2">本月共读</span>
+                <h4 class="text-white font-bold text-sm sm:text-base mb-1 line-clamp-1">{{ readingBooks[0].title }}</h4>
+                <p class="text-white/80 text-xs mb-3">{{ readingBooks[0].author }}</p>
+                <span class="px-3 py-1 bg-white text-green-700 rounded-full text-xs font-medium">立即阅读</span>
+              </div>
+            </div>
+            <div v-else class="relative h-28 sm:h-32 rounded-xl overflow-hidden">
               <div class="absolute inset-0 bg-gradient-to-br from-green-600 to-green-800"></div>
               <div class="absolute inset-0 p-3 sm:p-4">
                 <span class="inline-block px-2 py-0.5 bg-white/20 backdrop-blur text-white text-xs rounded mb-2">本月共读</span>
-                <h4 class="text-white font-bold text-sm sm:text-base mb-1">《代码整洁之道》</h4>
-                <p class="text-white/80 text-xs mb-3">Robert C. Martin 著</p>
-                <button class="px-3 py-1 bg-white text-green-700 rounded-full text-xs font-medium">立即加入</button>
+                <h4 class="text-white font-bold text-sm sm:text-base mb-1">暂无推荐</h4>
               </div>
             </div>
 
+            <!-- 热门书单 -->
             <div class="p-3 sm:p-4 rounded-xl" style="background-color: var(--theme-bg);">
               <div class="flex items-center gap-2 mb-3">
                 <div class="w-7 h-7 rounded-lg bg-orange-100 flex items-center justify-center">
@@ -571,21 +631,20 @@ useHead(
                 <span class="font-medium text-xs sm:text-sm" style="color: var(--theme-text);">热门书单</span>
               </div>
               <div class="space-y-2.5">
-                <div class="flex items-center gap-2">
+                <div
+                    v-for="bl in readingBookLists"
+                    :key="bl.id"
+                    class="flex items-center gap-2 cursor-pointer hover:text-orange-500 transition-colors"
+                    @click="router.push(`/reading/book-list/${bl.id}`)"
+                >
                   <div class="w-1.5 h-1.5 rounded-full bg-orange-500"></div>
-                  <span class="text-xs" style="color: var(--theme-text-secondary);">程序员必读书单</span>
+                  <span class="text-xs line-clamp-1" style="color: var(--theme-text-secondary);">{{ bl.title }}</span>
                 </div>
-                <div class="flex items-center gap-2">
-                  <div class="w-1.5 h-1.5 rounded-full bg-orange-400"></div>
-                  <span class="text-xs" style="color: var(--theme-text-secondary);">经典散文集</span>
-                </div>
-                <div class="flex items-center gap-2">
-                  <div class="w-1.5 h-1.5 rounded-full bg-blue-400"></div>
-                  <span class="text-xs" style="color: var(--theme-text-secondary);">AI时代生存指南</span>
-                </div>
+                <div v-if="readingBookLists.length === 0" class="text-xs" style="color: var(--theme-text-secondary);">暂无书单</div>
               </div>
             </div>
 
+            <!-- 金句摘录 -->
             <div class="p-3 sm:p-4 rounded-xl" style="background-color: var(--theme-bg);">
               <div class="flex items-center gap-2 mb-3">
                 <div class="w-7 h-7 rounded-lg bg-purple-100 flex items-center justify-center">
@@ -593,22 +652,23 @@ useHead(
                 </div>
                 <span class="font-medium text-xs sm:text-sm" style="color: var(--theme-text);">金句摘录</span>
               </div>
-              <p class="text-xs sm:text-sm italic" style="color: var(--theme-text-secondary);">
-                "代码是写给人看的，顺便给机器执行。"
+              <p v-if="readingQuotes.length > 0" class="text-xs sm:text-sm italic line-clamp-3" style="color: var(--theme-text-secondary);">
+                "{{ readingQuotes[0].content }}"
               </p>
-              <p class="text-xs mt-2" style="color: var(--theme-text-secondary);">——《代码整洁之道》</p>
+              <p v-else class="text-xs" style="color: var(--theme-text-secondary);">暂无金句</p>
             </div>
 
+            <!-- 共读统计 -->
             <div class="p-3 sm:p-4 rounded-xl" style="background-color: var(--theme-bg);">
               <div class="flex items-center gap-2 mb-3">
                 <div class="w-7 h-7 rounded-lg bg-pink-100 flex items-center justify-center">
                   <Users class="w-3.5 h-3.5 text-pink-500" />
                 </div>
-                <span class="font-medium text-xs sm:text-sm" style="color: var(--theme-text);">共读进度</span>
+                <span class="font-medium text-xs sm:text-sm" style="color: var(--theme-text);">读书统计</span>
               </div>
               <div class="text-center">
-                <p class="text-2xl sm:text-3xl font-bold text-red-600">1,234</p>
-                <p class="text-xs mt-1" style="color: var(--theme-text-secondary);">人正在共读</p>
+                <p class="text-2xl sm:text-3xl font-bold text-green-600">{{ readingBooks.length + readingBookLists.length }}</p>
+                <p class="text-xs mt-1" style="color: var(--theme-text-secondary);">本精选好书</p>
               </div>
             </div>
           </div>
@@ -636,62 +696,62 @@ useHead(
           </div>
 
           <div class="grid grid-cols-1 md:grid-cols-3 gap-3 sm:gap-4">
+            <!-- 热门题目 -->
             <div class="p-3 sm:p-4 rounded-xl" style="background-color: var(--theme-bg);">
               <div class="flex items-center justify-between mb-3">
-                <span class="font-medium text-xs sm:text-sm" style="color: var(--theme-text);">真题库</span>
+                <span class="font-medium text-xs sm:text-sm" style="color: var(--theme-text);">热门题目</span>
                 <span class="px-2 py-0.5 bg-red-100 text-red-600 rounded text-xs">hot</span>
               </div>
               <div class="space-y-2.5">
-                <div class="flex items-center justify-between">
-                  <span class="text-xs" style="color: var(--theme-text-secondary);">算法精选</span>
-                  <span class="text-xs" style="color: var(--theme-text-secondary);">1,280道</span>
+                <div
+                    v-for="q in interviewQuestions"
+                    :key="q.id"
+                    class="flex items-center justify-between cursor-pointer hover:text-blue-500 transition-colors"
+                    @click="router.push(`/interview/question/${q.id}`)"
+                >
+                  <span class="text-xs line-clamp-1" style="color: var(--theme-text-secondary);">{{ q.title }}</span>
+                  <span class="text-xs flex-shrink-0 ml-2" style="color: var(--theme-text-secondary);">{{ q.submissionCount || 0 }}提交</span>
                 </div>
-                <div class="flex items-center justify-between">
-                  <span class="text-xs" style="color: var(--theme-text-secondary);">系统设计题</span>
-                  <span class="text-xs" style="color: var(--theme-text-secondary);">45道</span>
-                </div>
-                <div class="flex items-center justify-between">
-                  <span class="text-xs" style="color: var(--theme-text-secondary);">行为面试题</span>
-                  <span class="text-xs" style="color: var(--theme-text-secondary);">36道</span>
-                </div>
+                <div v-if="interviewQuestions.length === 0" class="text-xs" style="color: var(--theme-text-secondary);">暂无题目</div>
               </div>
             </div>
 
+            <!-- 热门面经 -->
             <div class="p-3 sm:p-4 rounded-xl" style="background-color: var(--theme-bg);">
               <div class="flex items-center justify-between mb-3">
                 <span class="font-medium text-xs sm:text-sm" style="color: var(--theme-text);">面经复盘</span>
                 <span class="px-2 py-0.5 bg-blue-100 text-blue-600 rounded text-xs">new</span>
               </div>
               <div class="space-y-2.5">
-                <div class="flex items-center justify-between">
-                  <span class="text-xs" style="color: var(--theme-text-secondary);">字节跳动面经</span>
-                  <span class="text-xs" style="color: var(--theme-text-secondary);">2024</span>
+                <div
+                    v-for="exp in interviewExperiences"
+                    :key="exp.id"
+                    class="flex items-center justify-between cursor-pointer hover:text-blue-500 transition-colors"
+                    @click="router.push(`/interview/experience/${exp.id}`)"
+                >
+                  <span class="text-xs line-clamp-1" style="color: var(--theme-text-secondary);">{{ exp.title }}</span>
+                  <span v-if="exp.company" class="text-xs flex-shrink-0 ml-2" style="color: var(--theme-text-secondary);">{{ exp.company }}</span>
                 </div>
-                <div class="flex items-center justify-between">
-                  <span class="text-xs" style="color: var(--theme-text-secondary);">阿里巴巴面经</span>
-                  <span class="text-xs" style="color: var(--theme-text-secondary);">2024</span>
-                </div>
-                <div class="flex items-center justify-between">
-                  <span class="text-xs" style="color: var(--theme-text-secondary);">腾讯面试复盘</span>
-                  <span class="text-xs" style="color: var(--theme-text-secondary);">2024</span>
-                </div>
+                <div v-if="interviewExperiences.length === 0" class="text-xs" style="color: var(--theme-text-secondary);">暂无面经</div>
               </div>
             </div>
 
+            <!-- 题目分类 -->
             <div class="p-3 sm:p-4 rounded-xl" style="background-color: var(--theme-bg);">
               <div class="flex items-center justify-between mb-3">
-                <span class="font-medium text-xs sm:text-sm" style="color: var(--theme-text);">简历优化</span>
+                <span class="font-medium text-xs sm:text-sm" style="color: var(--theme-text);">题目分类</span>
               </div>
               <div class="space-y-2.5">
-                <div class="flex items-center justify-between">
-                  <span class="text-xs" style="color: var(--theme-text-secondary);">技术亮点提炼</span>
+                <div
+                    v-for="cat in interviewCategories"
+                    :key="cat.id"
+                    class="flex items-center justify-between cursor-pointer hover:text-blue-500 transition-colors"
+                    @click="router.push('/interview/questions')"
+                >
+                  <span class="text-xs line-clamp-1" style="color: var(--theme-text-secondary);">{{ cat.name }}</span>
+                  <span class="text-xs flex-shrink-0 ml-2" style="color: var(--theme-text-secondary);">{{ cat.questionCount || 0 }}道</span>
                 </div>
-                <div class="flex items-center justify-between">
-                  <span class="text-xs" style="color: var(--theme-text-secondary);">STAR法则书写</span>
-                </div>
-                <div class="flex items-center justify-between">
-                  <span class="text-xs" style="color: var(--theme-text-secondary);">简历模板下载</span>
-                </div>
+                <div v-if="interviewCategories.length === 0" class="text-xs" style="color: var(--theme-text-secondary);">暂无分类</div>
               </div>
             </div>
           </div>

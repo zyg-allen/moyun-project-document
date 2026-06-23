@@ -17,6 +17,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import com.moyun.common.annotation.Log;
+import com.moyun.common.constant.HttpStatus;
 import com.moyun.common.enums.BusinessType;
 import com.moyun.core.base.AjaxResult;
 import com.moyun.core.base.BaseController;
@@ -24,6 +25,8 @@ import com.moyun.ext.file.domain.entity.SysFile;
 import com.moyun.ext.file.service.ISysFileService;
 import com.moyun.portal.domain.entity.PortalUser;
 import com.moyun.portal.domain.query.UserQuery;
+import com.moyun.portal.domain.vo.UserStatsVO;
+import com.moyun.portal.service.IPortalGrowthService;
 import com.moyun.portal.service.IPortalUserService;
 import com.moyun.portal.util.PortalSecurityUtils;
 import com.moyun.util.bean.PageUtils;
@@ -40,6 +43,9 @@ public class PortalUserController extends BaseController {
 
     @Autowired
     private ISysFileService sysFileService;
+
+    @Autowired
+    private IPortalGrowthService portalGrowthService;
 
     private static final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
 
@@ -88,7 +94,7 @@ public class PortalUserController extends BaseController {
     public AjaxResult updateProfile(@RequestBody Map<String, Object> params) {
         PortalUser currentUser = PortalSecurityUtils.getUser();
         if (currentUser == null) {
-            return error("用户未登录");
+            return AjaxResult.error(HttpStatus.UNAUTHORIZED, "登录已过期，请重新登录");
         }
 
         PortalUser user = new PortalUser();
@@ -188,7 +194,7 @@ public class PortalUserController extends BaseController {
     public AjaxResult updatePassword(@RequestBody Map<String, String> params) {
         PortalUser currentUser = PortalSecurityUtils.getUser();
         if (currentUser == null) {
-            return error("用户未登录");
+            return AjaxResult.error(HttpStatus.UNAUTHORIZED, "登录已过期，请重新登录");
         }
 
         String oldPassword = params.get("oldPassword");
@@ -241,7 +247,7 @@ public class PortalUserController extends BaseController {
     public AjaxResult uploadAvatar(@RequestParam("file") MultipartFile file) {
         PortalUser currentUser = PortalSecurityUtils.getUser();
         if (currentUser == null) {
-            return error("用户未登录");
+            return AjaxResult.error(HttpStatus.UNAUTHORIZED, "登录已过期，请重新登录");
         }
 
         if (file == null || file.isEmpty()) {
@@ -297,22 +303,13 @@ public class PortalUserController extends BaseController {
         if (targetUserId == null) {
             PortalUser currentUser = PortalSecurityUtils.getUser();
             if (currentUser == null) {
-                return error("用户未登录");
+                return AjaxResult.error(HttpStatus.UNAUTHORIZED, "登录已过期，请重新登录");
             }
             targetUserId = currentUser.getId();
         }
 
-        Map<String, Object> stats = new HashMap<>();
-        stats.put("userId", targetUserId);
-        stats.put("articles", 0);
-        stats.put("views", 0);
-        stats.put("likes", 0);
-        stats.put("followers", 0);
-        stats.put("following", 0);
-        stats.put("bookmarks", 0);
-        stats.put("comments", 0);
-        stats.put("todayVisitors", 0);
-
+        // 从成长体系统计聚合表读取真实数据
+        UserStatsVO stats = portalGrowthService.getUserStats(targetUserId);
         return success(stats);
     }
 

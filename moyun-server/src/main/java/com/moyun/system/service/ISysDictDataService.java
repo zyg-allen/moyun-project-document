@@ -1,5 +1,6 @@
 package com.moyun.system.service;
 
+import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.moyun.core.base.entity.SysDictData;
 
 import java.util.List;
@@ -10,6 +11,15 @@ import java.util.List;
  * @author ruoyi
  */
 public interface ISysDictDataService {
+
+    /**
+     * 根据条件分页查询字典数据（MyBatis-Plus 分页）
+     *
+     * @param page      分页对象
+     * @param dictData  字典数据信息
+     * @return 字典数据分页数据
+     */
+    IPage<SysDictData> selectDictDataPage(IPage<SysDictData> page, SysDictData dictData);
 
     /**
      * 根据条件分页查询字典数据

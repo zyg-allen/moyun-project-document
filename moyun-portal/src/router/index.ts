@@ -20,10 +20,16 @@ const RegisterPage = () => import('@/pages/RegisterPage.vue')
 const PublishPage = () => import('@/pages/PublishPage.vue')
 const NotFoundPage = () => import('@/pages/NotFoundPage.vue')
 const ReadingPage = () => import('@/pages/ReadingPage.vue')
+const BookDetailPage = () => import('@/pages/reading/BookDetailPage.vue')
+const BookListDetailPage = () => import('@/pages/reading/BookListDetailPage.vue')
 const InterviewPage = () => import('@/pages/InterviewPage.vue')
 const QuestionDetailPage = () => import('@/pages/interview/QuestionDetailPage.vue')
 const ExperienceDetailPage = () => import('@/pages/interview/ExperienceDetailPage.vue')
 const ResumeTemplatePage = () => import('@/pages/interview/ResumeTemplatePage.vue')
+const QuestionListPage = () => import('@/pages/interview/QuestionListPage.vue')
+const ExperienceListPage = () => import('@/pages/interview/ExperienceListPage.vue')
+const GrowthRankingPage = () => import('@/pages/GrowthRankingPage.vue')
+const AchievementsPage = () => import('@/pages/AchievementsPage.vue')
 
 // ============ 路由配置 ============
 
@@ -67,10 +73,34 @@ const routes: RouteRecordRaw[] = [
     meta: { title: '读书空间', isPublic: true }
   },
   {
+    path: '/reading/book/:id',
+    name: 'book-detail',
+    component: BookDetailPage,
+    meta: { title: '书籍详情', isPublic: true }
+  },
+  {
+    path: '/reading/book-list/:id',
+    name: 'book-list-detail',
+    component: BookListDetailPage,
+    meta: { title: '书单详情', isPublic: true }
+  },
+  {
     path: '/interview',
     name: 'interview',
     component: InterviewPage,
     meta: { title: '面试指南', isPublic: true }
+  },
+  {
+    path: '/interview/questions',
+    name: 'interview-questions',
+    component: QuestionListPage,
+    meta: { title: '题目列表', isPublic: true }
+  },
+  {
+    path: '/interview/experiences',
+    name: 'interview-experiences',
+    component: ExperienceListPage,
+    meta: { title: '面经列表', isPublic: true }
   },
   {
     path: '/interview/question/:id',
@@ -133,6 +163,18 @@ const routes: RouteRecordRaw[] = [
     name: 'authors',
     component: AuthorsPage,
     meta: { title: '作者列表', isPublic: true }
+  },
+  {
+    path: '/ranking',
+    name: 'ranking',
+    component: GrowthRankingPage,
+    meta: { title: '成长排行榜', isPublic: true }
+  },
+  {
+    path: '/achievements',
+    name: 'achievements',
+    component: AchievementsPage,
+    meta: { title: '成就徽章', isPublic: true }
   },
   {
     path: '/help',

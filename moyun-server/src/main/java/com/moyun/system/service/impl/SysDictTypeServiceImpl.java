@@ -1,5 +1,6 @@
 package com.moyun.system.service.impl;
 
+import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.moyun.common.constant.CacheConstants;
 import com.moyun.core.base.entity.SysDictData;
 import com.moyun.core.base.entity.SysDictType;
@@ -43,6 +44,18 @@ public class SysDictTypeServiceImpl implements ISysDictTypeService {
     @PostConstruct
     public void init() {
         loadingDictCache();
+    }
+
+    /**
+     * 根据条件分页查询字典类型（MyBatis-Plus 分页）
+     *
+     * @param page      分页对象
+     * @param dictType  字典类型信息
+     * @return 字典类型分页数据
+     */
+    @Override
+    public IPage<SysDictType> selectDictTypePage(IPage<SysDictType> page, SysDictType dictType) {
+        return dictTypeMapper.selectDictTypePage(page, dictType);
     }
 
     /**

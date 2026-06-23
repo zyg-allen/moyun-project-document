@@ -36,6 +36,22 @@
         from sys_dict_data
     </sql>
 
+    <select id="selectDictDataPage" resultMap="SysDictDataResult">
+        <include refid="selectDictDataVo"/>
+        <where>
+            <if test="dictType != null and dictType != ''">
+                AND dict_type = #{dictType}
+            </if>
+            <if test="dictLabel != null and dictLabel != ''">
+                AND dict_label like concat('%', #{dictLabel}, '%')
+            </if>
+            <if test="status != null and status != ''">
+                AND status = #{status}
+            </if>
+        </where>
+        order by dict_sort asc
+    </select>
+
     <select id="selectDictDataList" parameterType="com.moyun.core.base.entity.SysDictData"
             resultMap="SysDictDataResult">
         <include refid="selectDictDataVo"/>

@@ -1,3 +1,5 @@
+import { showAuthExpiredDialog } from '@/utils/authDialog';
+
 // 后台响应类型
 interface BackendResponse<T = any> {
   code: number;
@@ -67,21 +69,19 @@ const request = async <T>(
     headers,
   });
 
-  // 处理401未授权
+  // 处理401未授权（HTTP 状态码 401，Spring Security 拦截）
   if (response.status === 401) {
-    // 保存当前路径，登录后返回
-    const currentPath = window.location.pathname + window.location.search;
-    const loginUrl = '/login?redirect=' + encodeURIComponent(currentPath);
-    // 弹窗确认，用户可取消（如正在编辑文章）
-    const confirmed = window.confirm('登录已过期，请重新登录。\n\n点击"确定"跳转登录页，点击"取消"留在当前页面。');
-    if (confirmed) {
-      removeToken();
-      window.location.href = loginUrl;
-    }
+    showAuthExpiredDialog();
     throw new Error('登录已过期，请重新登录');
   }
 
   const data: BackendResponse<T> = await response.json();
+
+  // 处理业务 code 401（后端 Controller 主动返回的登录过期）
+  if (data.code === 401) {
+    showAuthExpiredDialog();
+    throw new Error(data.msg || '登录已过期，请重新登录');
+  }
 
   // 转换响应格式：msg -> message
   if (!response.ok || data.code !== 200) {
@@ -156,20 +156,21 @@ export const httpGetList = <T>(
         headers,
       });
 
-      // 处理401未授权
+      // 处理401未授权（HTTP 状态码 401，Spring Security 拦截）
       if (response.status === 401) {
-        const currentPath = window.location.pathname + window.location.search;
-        const loginUrl = '/login?redirect=' + encodeURIComponent(currentPath);
-        const confirmed = window.confirm('登录已过期，请重新登录。\n\n点击"确定"跳转登录页，点击"取消"留在当前页面。');
-        if (confirmed) {
-          removeToken();
-          window.location.href = loginUrl;
-        }
+        showAuthExpiredDialog();
         reject(new Error('登录已过期，请重新登录'));
         return;
       }
 
       const data: BackendResponse<T> = await response.json();
+
+      // 处理业务 code 401（后端 Controller 主动返回的登录过期）
+      if (data.code === 401) {
+        showAuthExpiredDialog();
+        reject(new Error(data.msg || '登录已过期，请重新登录'));
+        return;
+      }
 
       if (!response.ok || data.code !== 200) {
         reject(new Error(data.msg || '请求失败'));
@@ -247,5 +248,25 @@ export const httpUpload = <T>(
     method: 'POST',
     headers,
     body: formData,
-  }).then((response) => response.json() as Promise<ApiResponse<T>>);
+  }).then(async (response) => {
+    // 处理401未授权（HTTP 状态码 401，Spring Security 拦截）
+    if (response.status === 401) {
+      showAuthExpiredDialog();
+      throw new Error('登录已过期，请重新登录');
+    }
+
+    const data = await response.json() as BackendResponse<T>;
+
+    // 处理业务 code 401（后端 Controller 主动返回的登录过期）
+    if (data.code === 401) {
+      showAuthExpiredDialog();
+      throw new Error(data.msg || '登录已过期，请重新登录');
+    }
+
+    return {
+      code: data.code,
+      message: data.msg,
+      data: data.data as T,
+    };
+  });
 };

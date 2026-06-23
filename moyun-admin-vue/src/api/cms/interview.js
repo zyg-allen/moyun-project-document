@@ -271,3 +271,32 @@ export function delInterviewCompany(ids) {
     method: 'delete'
   });
 }
+
+// ==================== 精选笔记管理 ====================
+
+// 查询提交笔记分页列表
+export function listInterviewSubmission(query) {
+  return request({
+    url: '/cms/interview/submission/list',
+    method: 'get',
+    params: query
+  });
+}
+
+// 采纳笔记为精选
+export function featureSubmission(id) {
+  return request({
+    url: '/cms/interview/submission/featured',
+    method: 'put',
+    data: { id }
+  });
+}
+
+// 取消精选笔记
+export function unfeatureSubmission(id) {
+  return request({
+    url: '/cms/interview/submission/unfeatured',
+    method: 'put',
+    data: { id }
+  });
+}

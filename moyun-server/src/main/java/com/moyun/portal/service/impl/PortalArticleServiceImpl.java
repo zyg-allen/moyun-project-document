@@ -12,8 +12,10 @@ import org.springframework.stereotype.Service;
 import com.moyun.portal.domain.entity.PortalArticle;
 import com.moyun.portal.domain.query.ArticleQuery;
 import com.moyun.portal.mapper.PortalArticleMapper;
+import com.moyun.portal.mapper.PortalUserStatsMapper;
 import com.moyun.portal.service.IPortalArticleService;
 import com.moyun.portal.service.IPortalCategoryService;
+import com.moyun.portal.service.IPortalGrowthService;
 import com.moyun.portal.util.PortalSecurityUtils;
 import com.moyun.util.file.Base64ImageUtils;
 
@@ -30,6 +32,12 @@ public class PortalArticleServiceImpl extends ServiceImpl<PortalArticleMapper, P
 
     @Autowired
     private Base64ImageUtils base64ImageUtils;
+
+    @Autowired
+    private IPortalGrowthService portalGrowthService;
+
+    @Autowired
+    private PortalUserStatsMapper userStatsMapper;
 
     /**
      * 根据条件分页查询文章列表
@@ -116,7 +124,31 @@ public class PortalArticleServiceImpl extends ServiceImpl<PortalArticleMapper, P
         if (portalArticle.getPublishedAt() == null) {
             portalArticle.setPublishedAt(LocalDateTime.now());
         }
-        return baseMapper.insertPortalArticle(portalArticle);
+        int rows = baseMapper.insertPortalArticle(portalArticle);
+
+        // 记录成长事件 + 更新创作字数统计
+        if (rows > 0 && portalArticle.getAuthorId() != null) {
+            // 统计创作字数（按内容字符数粗略计算）
+            long wordCount = 0;
+            if (portalArticle.getContent() != null) {
+                wordCount = portalArticle.getContent().length();
+            }
+            if (wordCount > 0) {
+                userStatsMapper.insertIfNotExists(portalArticle.getAuthorId());
+                userStatsMapper.addArticleWordSum(portalArticle.getAuthorId(), wordCount);
+            }
+            // 记录发布文章成长事件
+            portalGrowthService.recordEvent("article", "publish_article",
+                    portalArticle.getAuthorId(), "article", portalArticle.getId());
+
+            // 如果是精选文章，额外记录精选事件
+            if (Boolean.TRUE.equals(portalArticle.getIsFeatured())) {
+                portalGrowthService.recordEvent("article", "article_featured",
+                        portalArticle.getAuthorId(), "article", portalArticle.getId());
+            }
+        }
+
+        return rows;
     }
     
     /**

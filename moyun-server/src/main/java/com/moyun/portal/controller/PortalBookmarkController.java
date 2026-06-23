@@ -22,8 +22,10 @@ import com.moyun.core.base.AjaxResult;
 import com.moyun.core.base.BaseController;
 import com.moyun.portal.domain.entity.PortalBookmark;
 import com.moyun.portal.domain.query.BookmarkQuery;
+import com.moyun.portal.mapper.PortalArticleMapper;
 import com.moyun.portal.mapper.PortalBookmarkMapper;
 import com.moyun.portal.service.IPortalBookmarkService;
+import com.moyun.portal.service.IPortalGrowthService;
 import com.moyun.portal.util.PortalSecurityUtils;
 import com.moyun.util.bean.PageUtils;
 import com.moyun.util.file.ExcelUtil;
@@ -38,6 +40,12 @@ public class PortalBookmarkController extends BaseController {
 
     @Autowired
     private PortalBookmarkMapper portalBookmarkMapper;
+
+    @Autowired
+    private PortalArticleMapper portalArticleMapper;
+
+    @Autowired
+    private IPortalGrowthService portalGrowthService;
 
     @Operation(summary = "获取收藏列表", description = "根据条件分页查询收藏列表")
     @GetMapping("/list")
@@ -114,10 +122,25 @@ public class PortalBookmarkController extends BaseController {
             bookmark.setArticleId(articleId);
             bookmark.setCreateTime(LocalDateTime.now());
             portalBookmarkMapper.insert(bookmark);
+
+            // 原子增加文章收藏数
+            portalArticleMapper.incrementBookmarkCount(articleId, 1);
+
+            // 为文章作者记录被收藏成长事件
+            com.moyun.portal.domain.entity.PortalArticle article = portalArticleMapper.selectById(articleId);
+            if (article != null && article.getAuthorId() != null && !article.getAuthorId().equals(userId)) {
+                portalGrowthService.recordEventWithTarget("article", "receive_bookmark",
+                        article.getAuthorId(), userId, "article", articleId);
+            }
+
             isBookmarked = true;
         } else {
             // 已收藏，取消收藏
             portalBookmarkMapper.deleteById(existingBookmark.getId());
+
+            // 原子减少文章收藏数
+            portalArticleMapper.incrementBookmarkCount(articleId, -1);
+
             isBookmarked = false;
         }
 

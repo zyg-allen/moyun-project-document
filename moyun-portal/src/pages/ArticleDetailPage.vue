@@ -614,9 +614,9 @@ const head = useHead(
                    style="border-color: var(--theme-border);">
                 <!-- 左边：发布人、时间、阅读量 -->
                 <div class="flex items-center gap-6">
-                  <!-- 作者信息 - 可点击跳转作者中心 -->
+                  <!-- 作者信息 - 可点击跳转作者中心（仅当 authorId 有效时） -->
                   <Link
-                      v-if="articleAuthor"
+                      v-if="articleAuthor && (articleAuthor.id || article?.authorId)"
                       :to="`/author/${articleAuthor.id || article?.authorId}`"
                       class="flex items-center gap-3 hover:opacity-80 transition-opacity"
                   >
@@ -628,9 +628,21 @@ const head = useHead(
                         @error="(e: Event) => (e.target as HTMLImageElement).src = getSafeAvatar(null, articleAuthor.id)"
                     />
                     <span class="font-medium text-base" style="color: var(--theme-text);">
-                      {{ articleAuthor.nickname || articleAuthor.username }}
+                      {{ articleAuthor.nickname || articleAuthor.username || '匿名作者' }}
                     </span>
                   </Link>
+                  <!-- 作者信息 - 无 authorId 时仅展示不可点击 -->
+                  <div v-else-if="articleAuthor" class="flex items-center gap-3">
+                    <img
+                        :src="getSafeAvatar(articleAuthor.avatar, articleAuthor.id)"
+                        :alt="articleAuthor.username"
+                        class="w-10 h-10 rounded-full"
+                        loading="lazy"
+                    />
+                    <span class="font-medium text-base" style="color: var(--theme-text);">
+                      {{ articleAuthor.nickname || articleAuthor.username || '匿名作者' }}
+                    </span>
+                  </div>
 
                   <!-- 时间 -->
                   <span class="text-base" style="color: var(--theme-text-secondary);">

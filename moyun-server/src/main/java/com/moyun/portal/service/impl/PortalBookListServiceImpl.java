@@ -14,6 +14,7 @@ import com.moyun.portal.domain.query.BookListQuery;
 import com.moyun.portal.mapper.PortalBookListItemMapper;
 import com.moyun.portal.mapper.PortalBookListMapper;
 import com.moyun.portal.service.IPortalBookListService;
+import com.moyun.portal.service.IPortalGrowthService;
 
 /**
  * 书单 业务层实现
@@ -28,6 +29,9 @@ public class PortalBookListServiceImpl extends ServiceImpl<PortalBookListMapper,
 
     @Autowired
     private PortalBookListItemMapper portalBookListItemMapper;
+
+    @Autowired
+    private IPortalGrowthService portalGrowthService;
 
     @Override
     public Page<PortalBookList> selectPortalBookListPage(Page<PortalBookList> page, BookListQuery query) {
@@ -64,7 +68,15 @@ public class PortalBookListServiceImpl extends ServiceImpl<PortalBookListMapper,
         if (portalBookList.getLikeCount() == null) {
             portalBookList.setLikeCount(0L);
         }
-        return portalBookListMapper.insertPortalBookList(portalBookList);
+        int rows = portalBookListMapper.insertPortalBookList(portalBookList);
+
+        // 记录创建书单成长事件
+        if (rows > 0 && portalBookList.getUserId() != null) {
+            portalGrowthService.recordEvent("reading", "create_booklist",
+                    portalBookList.getUserId(), "booklist", portalBookList.getId());
+        }
+
+        return rows;
     }
 
     @Override
@@ -147,6 +159,12 @@ public class PortalBookListServiceImpl extends ServiceImpl<PortalBookListMapper,
         if (bl != null) {
             bl.setLikeCount((bl.getLikeCount() == null ? 0L : bl.getLikeCount()) + 1L);
             portalBookListMapper.updatePortalBookList(bl);
+
+            // 为书单创建者记录被赞成长事件
+            if (bl.getUserId() != null) {
+                portalGrowthService.recordEvent("reading", "booklist_liked",
+                        bl.getUserId(), "booklist", bl.getId());
+            }
         }
     }
 }

@@ -141,6 +141,11 @@ public class PortalSecurityConfig {
                         .requestMatchers("/portal/interview/**").permitAll()
                         // 首页聚合接口
                         .requestMatchers("/portal/home/**").permitAll()
+                        // 成长体系公开接口（排行榜、指定用户成长/统计/徽章）
+                        .requestMatchers(HttpMethod.GET, "/portal/growth/ranking").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/portal/growth/user/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/portal/growth/stats").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/portal/growth/badges").permitAll()
                         // 后台管理接口（admin token 认证，由核心 SecurityConfig 处理）
                         .requestMatchers("/portal/admin/**").permitAll()
                         // 其他门户请求需要认证

@@ -45,6 +45,7 @@ import com.moyun.portal.domain.entity.PortalInterviewExperienceLike;
 import com.moyun.portal.domain.entity.PortalInterviewQuestion;
 import com.moyun.portal.domain.entity.PortalInterviewQuestionLike;
 import com.moyun.portal.domain.entity.PortalInterviewResumeTemplate;
+import com.moyun.portal.domain.entity.PortalInterviewResumeTemplateLike;
 import com.moyun.portal.domain.entity.PortalInterviewSubmission;
 import com.moyun.portal.mapper.PortalInterviewAttemptMapper;
 import com.moyun.portal.mapper.PortalInterviewBookmarkMapper;
@@ -56,8 +57,10 @@ import com.moyun.portal.mapper.PortalInterviewExperienceLikeMapper;
 import com.moyun.portal.mapper.PortalInterviewExperienceMapper;
 import com.moyun.portal.mapper.PortalInterviewQuestionLikeMapper;
 import com.moyun.portal.mapper.PortalInterviewQuestionMapper;
+import com.moyun.portal.mapper.PortalInterviewResumeTemplateLikeMapper;
 import com.moyun.portal.mapper.PortalInterviewResumeTemplateMapper;
 import com.moyun.portal.mapper.PortalInterviewSubmissionMapper;
+import com.moyun.portal.service.IPortalGrowthService;
 import com.moyun.portal.service.IPortalTagService;
 
 /**
@@ -72,6 +75,7 @@ public class PortalInterviewServiceImpl implements IPortalInterviewService {
     @Autowired private PortalInterviewCategoryMapper categoryMapper;
     @Autowired private PortalInterviewExperienceMapper experienceMapper;
     @Autowired private PortalInterviewResumeTemplateMapper resumeTemplateMapper;
+    @Autowired private PortalInterviewResumeTemplateLikeMapper resumeTemplateLikeMapper;
     @Autowired private PortalInterviewSubmissionMapper submissionMapper;
     @Autowired private PortalInterviewBookmarkMapper bookmarkMapper;
     @Autowired private PortalInterviewQuestionLikeMapper questionLikeMapper;
@@ -81,6 +85,8 @@ public class PortalInterviewServiceImpl implements IPortalInterviewService {
     @Autowired private PortalInterviewCommentLikeMapper commentLikeMapper;
     @Autowired private PortalInterviewCompanyMapper companyMapper;
     @Autowired private IPortalTagService portalTagService;
+    @Autowired private IPortalGrowthService portalGrowthService;
+    @Autowired private com.moyun.portal.mapper.PortalUserMapper portalUserMapper;
 
     // ========================================================================
     // 首页聚合
@@ -283,6 +289,7 @@ public class PortalInterviewServiceImpl implements IPortalInterviewService {
 
         // 3. 更新做题记录
         PortalInterviewAttempt attempt = attemptMapper.selectAttempt(questionId, userId);
+        boolean firstSolve = false;
         if (attempt == null) {
             attempt = new PortalInterviewAttempt();
             attempt.setQuestionId(questionId);
@@ -293,6 +300,7 @@ public class PortalInterviewServiceImpl implements IPortalInterviewService {
             if (isSuccess) {
                 attempt.setFirstSolvedAt(LocalDateTime.now());
                 attempt.setLastSolvedAt(LocalDateTime.now());
+                firstSolve = true;
             }
             attemptMapper.insert(attempt);
         } else {
@@ -302,11 +310,24 @@ public class PortalInterviewServiceImpl implements IPortalInterviewService {
                 attempt.setStatus("solved");
                 attempt.setFirstSolvedAt(LocalDateTime.now());
                 attempt.setLastSolvedAt(LocalDateTime.now());
+                firstSolve = true;
             } else if (isSuccess) {
                 attempt.setLastSolvedAt(LocalDateTime.now());
             }
             attemptMapper.updateById(attempt);
         }
+
+        // 4. 记录成长事件
+        if (firstSolve) {
+            portalGrowthService.recordEvent("interview", "solve_question",
+                    userId, "question", questionId);
+        }
+        // 如果提交包含笔记，记录写笔记成长事件
+        if (StringUtils.isNotEmpty(submission.getNote())) {
+            portalGrowthService.recordEvent("interview", "write_note",
+                    userId, "submission", submission.getId());
+        }
+
         return toSubmissionVO(submission);
     }
 
@@ -380,6 +401,60 @@ public class PortalInterviewServiceImpl implements IPortalInterviewService {
         return page;
     }
 
+    /**
+     * 后台采纳/取消采纳提交笔记为精选
+     * 采纳时为提交者记录 note_adopted 成长事件
+     */
+    @Override
+    public Map<String, Object> adoptSubmission(Long submissionId, boolean isFeatured) {
+        PortalInterviewSubmission submission = submissionMapper.selectById(submissionId);
+        if (submission == null) throw new ServiceException("提交记录不存在");
+        if (submission.getNote() == null || submission.getNote().trim().isEmpty()) {
+            throw new ServiceException("该提交无笔记内容，无法采纳");
+        }
+
+        // 查询原状态，判断是否是首次采纳
+        boolean wasFeatured = Boolean.TRUE.equals(submission.getIsFeatured());
+
+        // 原子更新精选状态
+        int rows = submissionMapper.updateFeatured(submissionId, isFeatured);
+
+        Map<String, Object> result = new HashMap<>();
+        result.put("affected", rows);
+        result.put("isFeatured", isFeatured);
+
+        // 仅在"未采纳 → 采纳"时记录成长事件，避免重复
+        if (rows > 0 && isFeatured && !wasFeatured && submission.getUserId() != null) {
+            portalGrowthService.recordEvent("interview", "note_adopted",
+                    submission.getUserId(), "submission", submissionId);
+        }
+
+        result.put("message", isFeatured ? "已采纳为精选笔记" : "已取消精选");
+        return result;
+    }
+
+    /**
+     * 查询某题目的精选笔记列表
+     */
+    @Override
+    public List<InterviewSubmissionVO> selectFeaturedSubmissions(Long questionId) {
+        List<PortalInterviewSubmission> list = submissionMapper.selectFeaturedByQuestion(questionId);
+        List<InterviewSubmissionVO> result = list.stream().map(this::toSubmissionVO).collect(Collectors.toList());
+        // 填充提交者昵称/头像
+        for (InterviewSubmissionVO vo : result) {
+            if (vo.getUserId() != null) {
+                try {
+                    com.moyun.portal.domain.entity.PortalUser user = portalUserMapper.selectPortalUserById(vo.getUserId());
+                    if (user != null) {
+                        vo.setUserNickname(user.getNickname() != null ? user.getNickname() : user.getUsername());
+                        vo.setUserAvatar(user.getAvatar());
+                    }
+                } catch (Exception e) { /* ignore */ }
+            }
+        }
+        return result;
+    }
+
     // ========================================================================
     // 面经管理
     // ========================================================================
@@ -437,6 +512,13 @@ public class PortalInterviewServiceImpl implements IPortalInterviewService {
             for (String p : parts) if (p != null && !p.trim().isEmpty()) extractedTagNames.add(p.trim());
         }
         portalTagService.bindTags("interview_experience", experience.getId(), extractedTagIds, extractedTagNames, "interview_experience");
+
+        // 记录发布面经成长事件
+        if (row > 0 && userId != null) {
+            portalGrowthService.recordEvent("interview", "publish_experience",
+                    userId, "experience", experience.getId());
+        }
+
         return row;
     }
 
@@ -507,6 +589,12 @@ public class PortalInterviewServiceImpl implements IPortalInterviewService {
             experienceLikeMapper.insert(like);
             exp.setLikeCount((exp.getLikeCount() == null ? 0L : exp.getLikeCount()) + 1);
             result.put("liked", true);
+
+            // 为面经作者记录被赞成长事件
+            if (exp.getUserId() != null && !exp.getUserId().equals(userId)) {
+                portalGrowthService.recordEventWithTarget("interview", "experience_liked",
+                        exp.getUserId(), userId, "experience", experienceId);
+            }
         }
         experienceMapper.updateById(exp);
         result.put("likeCount", exp.getLikeCount());
@@ -665,13 +753,29 @@ public class PortalInterviewServiceImpl implements IPortalInterviewService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public Map<String, Object> toggleResumeTemplateLike(Long templateId, Long userId) {
+        if (userId == null) throw new ServiceException("请登录后操作");
         PortalInterviewResumeTemplate template = resumeTemplateMapper.selectById(templateId);
         if (template == null) throw new ServiceException("模板不存在");
         Map<String, Object> result = new HashMap<>();
-        // 简化：不按用户存储，每次调用视为点赞 +1
-        template.setLikeCount((template.getLikeCount() == null ? 0L : template.getLikeCount()) + 1);
+
+        // 查询是否已点赞（防重）
+        PortalInterviewResumeTemplateLike exist = resumeTemplateLikeMapper.selectLike(templateId, userId);
+        if (exist != null) {
+            // 已点赞 → 取消点赞
+            resumeTemplateLikeMapper.deleteById(exist.getId());
+            template.setLikeCount(Math.max(0L, (template.getLikeCount() == null ? 0L : template.getLikeCount()) - 1));
+            result.put("liked", false);
+        } else {
+            // 未点赞 → 点赞
+            PortalInterviewResumeTemplateLike like = new PortalInterviewResumeTemplateLike();
+            like.setTemplateId(templateId);
+            like.setUserId(userId);
+            like.setCreateTime(LocalDateTime.now());
+            resumeTemplateLikeMapper.insert(like);
+            template.setLikeCount((template.getLikeCount() == null ? 0L : template.getLikeCount()) + 1);
+            result.put("liked", true);
+        }
         resumeTemplateMapper.updateById(template);
-        result.put("liked", true);
         result.put("likeCount", template.getLikeCount());
         return result;
     }

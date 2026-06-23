@@ -56,6 +56,16 @@ export const likeBookList = (listId: string | number) => {
   return httpPost(`/portal/reading/book-lists/${listId}/like`);
 };
 
+// 书单收藏（toggle，返回最新收藏状态）
+export const toggleBookListBookmark = (listId: string | number) => {
+  return httpPost<{ bookmarked: boolean; message?: string }>(`/portal/reading/book-lists/${listId}/bookmark`);
+};
+
+// 查询书单收藏状态
+export const checkBookListBookmark = (listId: string | number) => {
+  return httpGet<{ bookmarked: boolean }>(`/portal/reading/book-lists/${listId}/bookmark`);
+};
+
 // =====================================================
 // 读书空间 - 金句摘录
 // =====================================================

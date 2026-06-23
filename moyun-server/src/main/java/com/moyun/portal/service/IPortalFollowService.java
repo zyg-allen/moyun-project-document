@@ -70,4 +70,25 @@ public interface IPortalFollowService {
      * @return 结果
      */
     public int deletePortalFollowByIds(Long[] ids);
+
+    /**
+     * 切换关注状态（关注/取消关注）
+     *
+     * 同步更新 portal_user_stats 中的粉丝数和关注数，
+     * 并为被关注者记录 receive_follow 成长事件。
+     *
+     * @param followerId  关注者ID（当前登录用户）
+     * @param followingId 被关注者ID
+     * @return 包含 followed（是否已关注）和 followerCount（被关注者粉丝数）的 Map
+     */
+    java.util.Map<String, Object> toggleFollow(Long followerId, Long followingId);
+
+    /**
+     * 检查当前用户是否已关注目标用户
+     *
+     * @param followerId  关注者ID
+     * @param followingId 被关注者ID
+     * @return true=已关注
+     */
+    boolean isFollowing(Long followerId, Long followingId);
 }

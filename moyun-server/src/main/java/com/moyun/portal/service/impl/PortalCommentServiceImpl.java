@@ -11,13 +11,16 @@ import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import com.moyun.portal.domain.entity.PortalArticle;
 import com.moyun.portal.domain.entity.PortalComment;
 import com.moyun.portal.domain.entity.PortalUser;
 import com.moyun.portal.domain.query.CommentQuery;
 import com.moyun.portal.domain.vo.CommentVO;
+import com.moyun.portal.mapper.PortalArticleMapper;
 import com.moyun.portal.mapper.PortalCommentMapper;
 import com.moyun.portal.mapper.PortalUserMapper;
 import com.moyun.portal.service.IPortalCommentService;
+import com.moyun.portal.service.IPortalGrowthService;
 import com.moyun.portal.util.PortalSecurityUtils;
 
 /**
@@ -34,6 +37,12 @@ public class PortalCommentServiceImpl extends ServiceImpl<PortalCommentMapper, P
 
     @Autowired
     private PortalUserMapper portalUserMapper;
+
+    @Autowired
+    private PortalArticleMapper portalArticleMapper;
+
+    @Autowired
+    private IPortalGrowthService portalGrowthService;
 
     /**
      * 根据条件分页查询评论列表
@@ -122,7 +131,24 @@ public class PortalCommentServiceImpl extends ServiceImpl<PortalCommentMapper, P
             portalComment.setLikeCount(0L);
         }
         
-        return portalCommentMapper.insertPortalComment(portalComment);
+        int rows = portalCommentMapper.insertPortalComment(portalComment);
+
+        // 同步增加文章评论数（原子更新，仅一级评论计入文章评论数）
+        if (rows > 0 && portalComment.getArticleId() != null
+                && (portalComment.getParentId() == null || portalComment.getParentId() == 0)) {
+            portalArticleMapper.incrementComments(portalComment.getArticleId(), 1);
+
+            // 为文章作者记录被评论成长事件
+            PortalArticle article = portalArticleMapper.selectById(portalComment.getArticleId());
+            if (article != null && article.getAuthorId() != null
+                    && !article.getAuthorId().equals(portalComment.getAuthorId())) {
+                portalGrowthService.recordEventWithTarget("article", "receive_comment",
+                        article.getAuthorId(), portalComment.getAuthorId(),
+                        "article", portalComment.getArticleId());
+            }
+        }
+
+        return rows;
     }
 
     /**
@@ -144,7 +170,17 @@ public class PortalCommentServiceImpl extends ServiceImpl<PortalCommentMapper, P
      */
     @Override
     public int deletePortalCommentById(Long id) {
-        return portalCommentMapper.deletePortalCommentById(id);
+        // 删除前查询评论，用于同步减少文章评论数
+        PortalComment comment = portalCommentMapper.selectPortalCommentById(id);
+        int rows = portalCommentMapper.deletePortalCommentById(id);
+
+        // 同步减少文章评论数（仅一级评论）
+        if (rows > 0 && comment != null && comment.getArticleId() != null
+                && (comment.getParentId() == null || comment.getParentId() == 0)) {
+            portalArticleMapper.incrementComments(comment.getArticleId(), -1);
+        }
+
+        return rows;
     }
 
     /**

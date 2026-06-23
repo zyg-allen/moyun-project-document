@@ -779,6 +779,10 @@ export interface InterviewSubmissionVO {
   runtime?: number;
   memoryUsage?: number;
   note?: string;
+  isFeatured?: boolean;
+  featuredTime?: string;
+  userNickname?: string;
+  userAvatar?: string;
   createTime?: string;
 }
 
@@ -913,4 +917,99 @@ export interface TagVO {
   sort?: number;
   status?: string;
   createTime?: string;
+}
+
+// ==================== 用户成长体系 ====================
+
+/** 用户成长信息 */
+export interface UserGrowthVO {
+  userId: string | number;
+  /** 累计成长值 */
+  growthValue: number;
+  /** 当前等级 */
+  level: number;
+  /** 当前头衔 */
+  title: string;
+  /** 本季成长值 */
+  seasonValue: number;
+  /** 距离下一级所需成长值 */
+  nextLevelGrowth?: number;
+  /** 下一级头衔 */
+  nextLevelTitle?: string;
+  /** 本季排名 */
+  seasonRank?: number;
+  updateTime?: string;
+}
+
+/** 用户统计信息（成长体系扩展） */
+export interface UserStatsVO {
+  userId: string | number;
+  // 文章模块
+  articles: number;
+  views: number;
+  likes: number;
+  bookmarks: number;
+  wordCount: number;
+  // 读书空间
+  bookFinished: number;
+  booklistCount: number;
+  quoteCount: number;
+  readingMinutes: number;
+  // 面试空间
+  questionSolved: number;
+  noteCount: number;
+  experienceCount: number;
+  noteAdopted: number;
+  // 通用
+  followers: number;
+  following: number;
+  comments: number;
+  totalLikes: number;
+  checkinStreak: number;
+}
+
+/** 用户徽章 */
+export interface UserBadgeVO {
+  id: string | number;
+  achievementId: string | number;
+  code: string;
+  name: string;
+  description?: string;
+  icon?: string;
+  module?: string;
+  growthReward?: number;
+  createTime?: string;
+}
+
+/** 成就展示（含用户达成状态） */
+export interface AchievementVO {
+  id: string | number;
+  code: string;
+  name: string;
+  description?: string;
+  icon?: string;
+  /** 所属模块: article/reading/interview/all */
+  module?: string;
+  growthReward?: number;
+  sort?: number;
+  /** 当前用户是否已达成 */
+  earned?: boolean;
+  /** 达成时间（未达成为 null） */
+  earnedTime?: string;
+}
+
+/** 成长排行榜项（复用 UserGrowthVO，附加用户基础信息） */
+export interface GrowthRankingItem extends UserGrowthVO {
+  nickname?: string;
+  avatar?: string;
+}
+
+/** 每日签到结果 */
+export interface CheckinResult {
+  success: boolean;
+  message: string;
+  /** 连续签到天数 */
+  streak?: number;
+  /** 本次签到获得成长值 */
+  growth?: number;
 }

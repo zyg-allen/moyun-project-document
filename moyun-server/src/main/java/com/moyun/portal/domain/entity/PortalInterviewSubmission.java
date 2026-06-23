@@ -60,6 +60,13 @@ public class PortalInterviewSubmission extends BaseEntity {
     /** 备注 */
     private String note;
 
+    /** 是否被精选（后台采纳为优质笔记） */
+    private Boolean isFeatured;
+
+    /** 精选时间 */
+    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
+    private LocalDateTime featuredTime;
+
     /** 提交时间 */
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime createTime;

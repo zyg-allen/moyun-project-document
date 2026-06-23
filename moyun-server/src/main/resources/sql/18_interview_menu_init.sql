@@ -1,37 +1,22 @@
 -- =============================================
 -- 面试空间模块 - 菜单和权限初始化脚本
--- 版本：1.0
+-- 版本：2.0
 -- 日期：2026-06-18
 -- 说明：为墨韵智库面试空间模块添加后台管理菜单和权限
--- 依赖：需要先执行 04_cms_menu_init.sql（内容管理目录已存在）
+-- 层级：独立一级菜单（与"读书空间"同级），二级菜单页面
 -- =============================================
 
--- 1. 获取"内容管理"目录的 menu_id
-SET @cms_menu_id = (SELECT menu_id FROM sys_menu WHERE menu_name = '内容管理' AND menu_type = 'M' LIMIT 1);
-
--- 如果"内容管理"目录不存在，则创建
-INSERT IGNORE INTO `sys_menu`(
-    `menu_name`, `parent_id`, `order_num`, `path`, `component`, `query`, `is_frame`, `is_cache`, `menu_type`, `visible`, `status`, `perms`, `icon`, `create_by`, `create_time`, `update_by`, `update_time`, `remark`
-) VALUES (
-    '内容管理', 0, 10, 'cms', NULL, NULL, 1, 0, 'M', '0', '0', NULL, 'documentation', 'admin', NOW(), '', NULL, '内容管理目录'
-);
-
--- 重新获取 menu_id（如果刚刚插入）
-SET @cms_menu_id = (SELECT menu_id FROM sys_menu WHERE menu_name = '内容管理' AND menu_type = 'M' LIMIT 1);
-
--- =============================================
--- 2. 插入二级菜单：面试管理（目录）
--- =============================================
+-- 1. 插入一级菜单：面试空间（与"读书空间"同级）
 INSERT INTO `sys_menu`(
     `menu_name`, `parent_id`, `order_num`, `path`, `component`, `query`, `is_frame`, `is_cache`, `menu_type`, `visible`, `status`, `perms`, `icon`, `create_by`, `create_time`, `update_by`, `update_time`, `remark`
 ) VALUES (
-    '面试管理', @cms_menu_id, 8, 'interview', NULL, NULL, 1, 0, 'M', '0', '0', NULL, 'education', 'admin', NOW(), '', NULL, '面试管理目录'
+    '面试空间', 0, 12, 'interview', NULL, NULL, 1, 0, 'M', '0', '0', NULL, 'education', 'admin', NOW(), '', NULL, '面试空间目录'
 );
 
 SET @interview_menu_id = LAST_INSERT_ID();
 
 -- =============================================
--- 3. 题目管理
+-- 2. 题目管理
 -- =============================================
 INSERT INTO `sys_menu`(
     `menu_name`, `parent_id`, `order_num`, `path`, `component`, `query`, `is_frame`, `is_cache`, `menu_type`, `visible`, `status`, `perms`, `icon`, `create_by`, `create_time`, `update_by`, `update_time`, `remark`
@@ -50,7 +35,7 @@ INSERT INTO `sys_menu`(
 ('题目删除', @question_menu_id, 4, '', NULL, NULL, 1, 0, 'F', '0', '0', 'cms:interview:remove', '#', 'admin', NOW(), '', NULL, '');
 
 -- =============================================
--- 4. 分类管理
+-- 3. 分类管理
 -- =============================================
 INSERT INTO `sys_menu`(
     `menu_name`, `parent_id`, `order_num`, `path`, `component`, `query`, `is_frame`, `is_cache`, `menu_type`, `visible`, `status`, `perms`, `icon`, `create_by`, `create_time`, `update_by`, `update_time`, `remark`
@@ -69,7 +54,7 @@ INSERT INTO `sys_menu`(
 ('分类删除', @category_menu_id, 4, '', NULL, NULL, 1, 0, 'F', '0', '0', 'cms:interview:remove', '#', 'admin', NOW(), '', NULL, '');
 
 -- =============================================
--- 5. 面经管理
+-- 4. 面经管理
 -- =============================================
 INSERT INTO `sys_menu`(
     `menu_name`, `parent_id`, `order_num`, `path`, `component`, `query`, `is_frame`, `is_cache`, `menu_type`, `visible`, `status`, `perms`, `icon`, `create_by`, `create_time`, `update_by`, `update_time`, `remark`
@@ -88,7 +73,7 @@ INSERT INTO `sys_menu`(
 ('面经删除', @experience_menu_id, 4, '', NULL, NULL, 1, 0, 'F', '0', '0', 'cms:interview:remove', '#', 'admin', NOW(), '', NULL, '');
 
 -- =============================================
--- 6. 评论管理
+-- 5. 评论管理
 -- =============================================
 INSERT INTO `sys_menu`(
     `menu_name`, `parent_id`, `order_num`, `path`, `component`, `query`, `is_frame`, `is_cache`, `menu_type`, `visible`, `status`, `perms`, `icon`, `create_by`, `create_time`, `update_by`, `update_time`, `remark`
@@ -106,7 +91,7 @@ INSERT INTO `sys_menu`(
 ('评论删除', @comment_menu_id, 3, '', NULL, NULL, 1, 0, 'F', '0', '0', 'cms:interview:remove', '#', 'admin', NOW(), '', NULL, '');
 
 -- =============================================
--- 7. 简历模板管理
+-- 6. 简历模板管理
 -- =============================================
 INSERT INTO `sys_menu`(
     `menu_name`, `parent_id`, `order_num`, `path`, `component`, `query`, `is_frame`, `is_cache`, `menu_type`, `visible`, `status`, `perms`, `icon`, `create_by`, `create_time`, `update_by`, `update_time`, `remark`
@@ -125,7 +110,7 @@ INSERT INTO `sys_menu`(
 ('模板删除', @resume_menu_id, 4, '', NULL, NULL, 1, 0, 'F', '0', '0', 'cms:interview:remove', '#', 'admin', NOW(), '', NULL, '');
 
 -- =============================================
--- 8. 公司标签管理
+-- 7. 公司管理
 -- =============================================
 INSERT INTO `sys_menu`(
     `menu_name`, `parent_id`, `order_num`, `path`, `component`, `query`, `is_frame`, `is_cache`, `menu_type`, `visible`, `status`, `perms`, `icon`, `create_by`, `create_time`, `update_by`, `update_time`, `remark`
@@ -147,16 +132,15 @@ INSERT INTO `sys_menu`(
 -- 为管理员角色分配面试空间菜单权限
 -- =============================================
 
--- 获取管理员角色的ID（通常为1）
 SET @admin_role_id = 1;
 
 -- 删除旧的面试空间权限（如果存在），避免重复
 DELETE FROM `sys_role_menu` WHERE `menu_id` IN (
     SELECT `menu_id` FROM `sys_menu` WHERE `menu_name` IN (
-        '面试管理', '题目管理', '面试分类', '面经管理', '面试评论', '简历模板', '公司管理'
+        '面试空间', '面试管理', '题目管理', '面试分类', '面经管理', '面试评论', '简历模板', '公司管理'
     ) OR `parent_id` IN (
         SELECT `menu_id` FROM `sys_menu` WHERE `menu_name` IN (
-            '面试管理', '题目管理', '面试分类', '面经管理', '面试评论', '简历模板', '公司管理'
+            '面试空间', '面试管理', '题目管理', '面试分类', '面经管理', '面试评论', '简历模板', '公司管理'
         )
     )
 );
@@ -165,10 +149,10 @@ DELETE FROM `sys_role_menu` WHERE `menu_id` IN (
 INSERT INTO `sys_role_menu` (`role_id`, `menu_id`)
 SELECT @admin_role_id, `menu_id` FROM `sys_menu`
 WHERE `menu_name` IN (
-    '面试管理', '题目管理', '面试分类', '面经管理', '面试评论', '简历模板', '公司管理'
+    '面试空间', '题目管理', '面试分类', '面经管理', '面试评论', '简历模板', '公司管理'
 ) OR `parent_id` IN (
     SELECT `menu_id` FROM `sys_menu` WHERE `menu_name` IN (
-        '面试管理', '题目管理', '面试分类', '面经管理', '面试评论', '简历模板', '公司管理'
+        '面试空间', '题目管理', '面试分类', '面经管理', '面试评论', '简历模板', '公司管理'
     )
 );
 
@@ -177,4 +161,3 @@ WHERE `menu_name` IN (
 -- =============================================
 
 SELECT '面试空间菜单和权限初始化脚本执行完成！' AS message;
-SELECT '注意：本脚本依赖"内容管理"一级菜单已存在，请先执行 04_cms_menu_init.sql' AS note;

@@ -1,5 +1,6 @@
 package com.moyun.system.mapper;
 
+import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.moyun.core.base.entity.SysDictType;
 
 import java.util.List;
@@ -11,7 +12,16 @@ import java.util.List;
  */
 public interface SysDictTypeMapper {
     /**
-     * 根据条件分页查询字典类型
+     * 根据条件分页查询字典类型（MyBatis-Plus 分页）
+     *
+     * @param page      分页对象
+     * @param dictType  字典类型信息
+     * @return 字典类型分页数据
+     */
+    public IPage<SysDictType> selectDictTypePage(IPage<SysDictType> page, SysDictType dictType);
+
+    /**
+     * 根据条件分页查询字典类型（兼容旧调用，不分页）
      *
      * @param dictType 字典类型信息
      * @return 字典类型集合信息

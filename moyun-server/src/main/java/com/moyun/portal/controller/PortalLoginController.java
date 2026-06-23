@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.*;
 
 import com.moyun.common.annotation.Anonymous;
 import com.moyun.common.constant.Constants;
+import com.moyun.common.constant.HttpStatus;
 import com.moyun.core.base.AjaxResult;
 import com.moyun.core.base.model.LoginBody;
 import com.moyun.portal.domain.entity.PortalUser;
@@ -106,7 +107,7 @@ public class PortalLoginController {
     public AjaxResult getInfo() {
         PortalLoginUser loginUser = getCurrentLoginUser();
         if (loginUser == null) {
-            return AjaxResult.error("用户未登录");
+            return AjaxResult.error(HttpStatus.UNAUTHORIZED, "登录已过期，请重新登录");
         }
         return AjaxResult.success(toUserVo(loginUser.getUser()));
     }

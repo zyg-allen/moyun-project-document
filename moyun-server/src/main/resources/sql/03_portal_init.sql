@@ -75,6 +75,8 @@ CREATE TABLE `portal_tag` (
   `slug` varchar(100) DEFAULT NULL COMMENT '标签别名',
   `sort` int DEFAULT '0' COMMENT '排序',
   `status` char(1) DEFAULT '0' COMMENT '状态（0正常 1停用）',
+  `module` varchar(50) DEFAULT NULL COMMENT '所属模块（article/interview_question/interview_experience/interview_resume_template 等，null 表示通用）',
+  `reference_count` bigint unsigned DEFAULT '0' COMMENT '被引用次数（冗余计数列，绑定/解绑时同步维护）',
   `create_by` varchar(64) DEFAULT '' COMMENT '创建者',
   `create_time` datetime DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
   `update_by` varchar(64) DEFAULT '' COMMENT '更新者',
@@ -82,7 +84,9 @@ CREATE TABLE `portal_tag` (
   `remark` varchar(500) DEFAULT NULL COMMENT '备注',
   PRIMARY KEY (`id`),
   UNIQUE KEY `uk_name` (`name`),
-  KEY `idx_slug` (`slug`)
+  KEY `idx_slug` (`slug`),
+  KEY `idx_module` (`module`),
+  KEY `idx_reference_count` (`reference_count` DESC)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='门户标签表';
 
 -- ----------------------------

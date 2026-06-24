@@ -33,6 +33,7 @@ import com.moyun.portal.mapper.PortalLikeMapper;
 import com.moyun.portal.service.IPortalArticleService;
 import com.moyun.portal.service.IPortalArticleViewService;
 import com.moyun.portal.service.IPortalGrowthService;
+import com.moyun.portal.service.IPortalTagService;
 import com.moyun.portal.util.ArticleConvertUtil;
 import com.moyun.portal.util.PortalSecurityUtils;
 import com.moyun.util.bean.PageUtils;
@@ -60,6 +61,9 @@ public class PortalArticleController extends BaseController {
 
     @Autowired
     private IPortalGrowthService portalGrowthService;
+
+    @Autowired
+    private IPortalTagService portalTagService;
 
     @Operation(summary = "获取文章列表", description = "根据条件分页查询文章列表")
     @GetMapping("/list")
@@ -123,6 +127,11 @@ public class PortalArticleController extends BaseController {
 
         // 调用 Service 发布
         int result = portalArticleService.publishArticle(article);
+        // 发布成功后绑定标签（同步维护 portal_entity_tag + portal_tag.reference_count）
+        if (result > 0 && article.getId() != null) {
+            portalTagService.bindTags("article", article.getId(),
+                    publishDTO.getTagIds(), publishDTO.getTagNames(), "article");
+        }
         return toAjax(result);
     }
 
@@ -130,14 +139,27 @@ public class PortalArticleController extends BaseController {
     @Log(title = "门户文章", businessType = BusinessType.UPDATE)
     @PutMapping
     public AjaxResult edit(@Validated @RequestBody PortalArticle portalArticle) {
-        return toAjax(portalArticleService.updatePortalArticle(portalArticle));
+        int result = portalArticleService.updatePortalArticle(portalArticle);
+        // 修改成功后同步更新标签绑定（bindTags 内部会计算差集，只增减变化的 tag）
+        if (result > 0 && portalArticle.getId() != null) {
+            portalTagService.bindTags("article", portalArticle.getId(),
+                    portalArticle.getTagIds(), portalArticle.getTagNames(), "article");
+        }
+        return toAjax(result);
     }
 
     @Operation(summary = "删除文章", description = "批量删除文章")
     @Log(title = "门户文章", businessType = BusinessType.DELETE)
     @DeleteMapping("/{ids}")
     public AjaxResult remove(@Parameter(description = "文章ID数组") @PathVariable Long[] ids) {
-        return toAjax(portalArticleService.deletePortalArticleByIds(ids));
+        int result = portalArticleService.deletePortalArticleByIds(ids);
+        // 删除成功后解绑标签（同步减少 reference_count）
+        if (result > 0) {
+            for (Long id : ids) {
+                portalTagService.unbindTags("article", id);
+            }
+        }
+        return toAjax(result);
     }
 
     /**

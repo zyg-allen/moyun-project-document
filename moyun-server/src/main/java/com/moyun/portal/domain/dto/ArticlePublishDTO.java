@@ -65,6 +65,12 @@ public class ArticlePublishDTO implements Serializable {
     private List<Long> tagIds;
 
     /**
+     * 标签名称列表（用于自动创建新标签，与 tagIds 合并去重）
+     */
+    @Schema(description = "标签名称列表", example = "[\"Spring Boot\", \"Java\"]")
+    private List<String> tagNames;
+
+    /**
      * 是否设为精选
      */
     @Schema(description = "是否设为精选", example = "false")

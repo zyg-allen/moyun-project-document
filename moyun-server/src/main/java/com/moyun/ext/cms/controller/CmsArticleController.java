@@ -9,6 +9,7 @@ import com.moyun.ext.cms.domain.query.CmsArticleQuery;
 import com.moyun.ext.cms.domain.vo.CmsArticleVO;
 import com.moyun.ext.cms.service.ICmsArticleService;
 import com.moyun.portal.domain.entity.PortalArticle;
+import com.moyun.portal.service.IPortalTagService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -34,6 +35,9 @@ public class CmsArticleController extends BaseController {
 
     @Autowired
     private ICmsArticleService cmsArticleService;
+
+    @Autowired
+    private IPortalTagService portalTagService;
 
     /**
      * 获取文章列表（分页）
@@ -70,6 +74,11 @@ public class CmsArticleController extends BaseController {
     @PostMapping
     public AjaxResult add(@Valid @RequestBody PortalArticle article) {
         int result = cmsArticleService.insertArticle(article);
+        // 新增成功后绑定标签
+        if (result > 0 && article.getId() != null) {
+            portalTagService.bindTags("article", article.getId(),
+                    article.getTagIds(), article.getTagNames(), "article");
+        }
         return toAjax(result);
     }
 
@@ -82,6 +91,11 @@ public class CmsArticleController extends BaseController {
     @PutMapping
     public AjaxResult edit(@Valid @RequestBody PortalArticle article) {
         int result = cmsArticleService.updateArticle(article);
+        // 修改成功后同步更新标签绑定
+        if (result > 0 && article.getId() != null) {
+            portalTagService.bindTags("article", article.getId(),
+                    article.getTagIds(), article.getTagNames(), "article");
+        }
         return toAjax(result);
     }
 
@@ -154,6 +168,12 @@ public class CmsArticleController extends BaseController {
     @DeleteMapping("/batch")
     public AjaxResult removeBatch(@RequestBody Long[] ids) {
         int result = cmsArticleService.deleteArticleByIds(ids);
+        // 删除成功后解绑标签
+        if (result > 0) {
+            for (Long id : ids) {
+                portalTagService.unbindTags("article", id);
+            }
+        }
         return toAjax(result);
     }
 
@@ -174,6 +194,12 @@ public class CmsArticleController extends BaseController {
                 .map(Long::parseLong)
                 .toArray(Long[]::new);
         int result = cmsArticleService.deleteArticleByIds(idArray);
+        // 删除成功后解绑标签
+        if (result > 0) {
+            for (Long id : idArray) {
+                portalTagService.unbindTags("article", id);
+            }
+        }
         return toAjax(result);
     }
 }

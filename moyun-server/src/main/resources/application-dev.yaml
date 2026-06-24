@@ -133,9 +133,9 @@ flowable:
 # MinIO 文件存储配置
 # =============================================
 minio:
-  enabled: false              # false=本地文件系统，true=MinIO 对象存储
-  endpoint: http://127.0.0.1:9000
+  enabled: true              # false=本地文件系统，true=MinIO 对象存储
+  endpoint: http://127.0.0.1:9001
   access-key: admin123
   secret-key: admin123
   bucket-name: moyun
-  access-url: http://127.0.0.1:9000
+  access-url: http://127.0.0.1:9001/moyun

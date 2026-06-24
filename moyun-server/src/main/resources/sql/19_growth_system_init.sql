@@ -15,8 +15,11 @@ CREATE TABLE `portal_user_growth` (
     `level`         INT             DEFAULT 1 COMMENT '当前等级',
     `title`         VARCHAR(50)     DEFAULT '初出茅庐' COMMENT '当前头衔',
     `season_value`  INT UNSIGNED    DEFAULT 0 COMMENT '本季成长值（赛季排名用）',
+    `create_by`     VARCHAR(64)     DEFAULT '' COMMENT '创建者',
     `create_time`   DATETIME        DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    `update_by`     VARCHAR(64)     DEFAULT '' COMMENT '更新者',
     `update_time`   DATETIME        DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    `remark`        VARCHAR(500)    DEFAULT NULL COMMENT '备注',
     PRIMARY KEY (`id`),
     UNIQUE KEY `uk_user` (`user_id`),
     KEY `idx_season` (`season_value` DESC)
@@ -36,7 +39,11 @@ CREATE TABLE `portal_growth_log` (
     `entity_id`      BIGINT          DEFAULT NULL COMMENT '实体ID',
     `growth_delta`   INT             NOT NULL COMMENT '成长值变化（正数增加，负数减少）',
     `description`    VARCHAR(255)    DEFAULT NULL COMMENT '描述',
+    `create_by`      VARCHAR(64)     DEFAULT '' COMMENT '创建者',
     `create_time`    DATETIME        DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    `update_by`      VARCHAR(64)     DEFAULT '' COMMENT '更新者',
+    `update_time`    DATETIME        DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    `remark`         VARCHAR(500)    DEFAULT NULL COMMENT '备注',
     PRIMARY KEY (`id`),
     KEY `idx_user_time` (`user_id`, `create_time`),
     KEY `idx_module_action` (`module`, `action`),
@@ -70,8 +77,11 @@ CREATE TABLE `portal_user_stats` (
     `total_like_received`   BIGINT          DEFAULT 0 COMMENT '跨模块总获赞',
     `checkin_streak`        INT             DEFAULT 0 COMMENT '连续签到天数',
     `last_checkin_date`     DATE            DEFAULT NULL COMMENT '最后签到日期',
+    `create_by`             VARCHAR(64)     DEFAULT '' COMMENT '创建者',
     `create_time`           DATETIME        DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    `update_by`             VARCHAR(64)     DEFAULT '' COMMENT '更新者',
     `update_time`           DATETIME        DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    `remark`                VARCHAR(500)    DEFAULT NULL COMMENT '备注',
     PRIMARY KEY (`id`),
     UNIQUE KEY `uk_user` (`user_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='门户用户统计聚合表';
@@ -89,7 +99,11 @@ CREATE TABLE `portal_growth_rule` (
     `description`   VARCHAR(255)    DEFAULT NULL COMMENT '描述',
     `status`        CHAR(1)         DEFAULT '0' COMMENT '状态（0启用 1停用）',
     `sort`          INT             DEFAULT 0 COMMENT '排序',
+    `create_by`     VARCHAR(64)     DEFAULT '' COMMENT '创建者',
     `create_time`   DATETIME        DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    `update_by`     VARCHAR(64)     DEFAULT '' COMMENT '更新者',
+    `update_time`   DATETIME        DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    `remark`        VARCHAR(500)    DEFAULT NULL COMMENT '备注',
     PRIMARY KEY (`id`),
     UNIQUE KEY `uk_module_action` (`module`, `action`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='成长规则配置表';
@@ -109,7 +123,11 @@ CREATE TABLE `portal_achievement` (
     `growth_reward`  INT             DEFAULT 0 COMMENT '达成奖励成长值',
     `sort`           INT             DEFAULT 0 COMMENT '排序',
     `status`         CHAR(1)         DEFAULT '0' COMMENT '状态（0启用 1停用）',
+    `create_by`      VARCHAR(64)     DEFAULT '' COMMENT '创建者',
     `create_time`    DATETIME        DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    `update_by`      VARCHAR(64)     DEFAULT '' COMMENT '更新者',
+    `update_time`    DATETIME        DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    `remark`         VARCHAR(500)    DEFAULT NULL COMMENT '备注',
     PRIMARY KEY (`id`),
     UNIQUE KEY `uk_code` (`code`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='成就定义表';
@@ -122,7 +140,11 @@ CREATE TABLE `portal_user_badge` (
     `id`             BIGINT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT '主键',
     `user_id`        BIGINT UNSIGNED NOT NULL COMMENT '用户ID',
     `achievement_id` BIGINT UNSIGNED NOT NULL COMMENT '成就ID',
+    `create_by`      VARCHAR(64)     DEFAULT '' COMMENT '创建者',
     `create_time`    DATETIME        DEFAULT CURRENT_TIMESTAMP COMMENT '获得时间',
+    `update_by`      VARCHAR(64)     DEFAULT '' COMMENT '更新者',
+    `update_time`    DATETIME        DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    `remark`         VARCHAR(500)    DEFAULT NULL COMMENT '备注',
     PRIMARY KEY (`id`),
     UNIQUE KEY `uk_user_achievement` (`user_id`, `achievement_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='用户徽章记录表';

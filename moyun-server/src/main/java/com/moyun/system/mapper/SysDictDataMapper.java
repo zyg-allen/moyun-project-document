@@ -19,7 +19,7 @@ public interface SysDictDataMapper {
      * @param dictData  字典数据信息
      * @return 字典数据分页数据
      */
-    public IPage<SysDictData> selectDictDataPage(IPage<SysDictData> page, SysDictData dictData);
+    public IPage<SysDictData> selectDictDataPage(IPage<SysDictData> page, @Param("dictData") SysDictData dictData);
 
     /**
      * 根据条件分页查询字典数据（兼容旧调用，不分页）

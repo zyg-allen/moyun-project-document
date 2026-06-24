@@ -23,20 +23,20 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
 	<select id="selectDictTypePage" resultMap="SysDictTypeResult">
 		<include refid="selectDictTypeVo"/>
 		<where>
-			<if test="dictName != null and dictName != ''">
-				AND dict_name like concat('%', #{dictName}, '%')
+			<if test="dictType.dictName != null and dictType.dictName != ''">
+				AND dict_name like concat('%', #{dictType.dictName}, '%')
 			</if>
-			<if test="status != null and status != ''">
-				AND status = #{status}
+			<if test="dictType.status != null and dictType.status != ''">
+				AND status = #{dictType.status}
 			</if>
-			<if test="dictType != null and dictType != ''">
-				AND dict_type like concat('%', #{dictType}, '%')
+			<if test="dictType.dictType != null and dictType.dictType != ''">
+				AND dict_type like concat('%', #{dictType.dictType}, '%')
 			</if>
-			<if test="params.beginTime != null and params.beginTime != ''">
-				and date_format(create_time,'%Y%m%d') &gt;= date_format(#{params.beginTime},'%Y%m%d')
+			<if test="dictType.params.beginTime != null and dictType.params.beginTime != ''">
+				and date_format(create_time,'%Y%m%d') &gt;= date_format(#{dictType.params.beginTime},'%Y%m%d')
 			</if>
-			<if test="params.endTime != null and params.endTime != ''">
-				and date_format(create_time,'%Y%m%d') &lt;= date_format(#{params.endTime},'%Y%m%d')
+			<if test="dictType.params.endTime != null and dictType.params.endTime != ''">
+				and date_format(create_time,'%Y%m%d') &lt;= date_format(#{dictType.params.endTime},'%Y%m%d')
 			</if>
 		</where>
 		order by dict_id desc

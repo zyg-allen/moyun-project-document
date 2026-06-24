@@ -28,8 +28,8 @@
 | 20 | **20_resume_template_like.sql** | 简历模板点赞表 | 在 19 之后 |
 | 21 | **21_submission_featured.sql** | 提交笔记精选字段 | 在 20 之后 |
 | 22 | **22_booklist_bookmark.sql** | 书单收藏表 | 在 21 之后 |
-| 23 | **23_growth_admin_menu-new.sql** | 成长体系后台管理菜单（NEW） | 在 22 之后 |
-| 24 | **24_featured_note_menu-new.sql** | 精选笔记管理菜单（NEW） | 在 23 之后 |
+| 23 | **23_growth_admin_menu.sql** | 成长体系后台管理菜单（NEW） | 在 22 之后 |
+| 24 | **24_featured_note_menu.sql** | 精选笔记管理菜单（NEW） | 在 23 之后 |
 
 ### 脚本详细说明
 
@@ -107,14 +107,14 @@
 - 创建 `portal_book_list_bookmark` 表
 - 支持 booklist_bookmarked 成长事件
 
-#### 23. 23_growth_admin_menu-new.sql - 成长体系后台管理菜单（NEW）
+#### 23. 23_growth_admin_menu.sql - 成长体系后台管理菜单（NEW）
 - 创建"成长体系"一级菜单（与"面试空间"同级）
 - 5个二级菜单：成长规则、成就管理、用户成长、用户徽章、成长流水
 - 每个二级菜单含查询/新增/修改/删除按钮权限
 - 为管理员角色分配所有权限
 - **注意**：对应的前端页面（cms/growth/*）和后台 Controller 需后续创建
 
-#### 24. 24_featured_note_menu-new.sql - 精选笔记管理菜单（NEW）
+#### 24. 24_featured_note_menu.sql - 精选笔记管理菜单（NEW）
 - 在"面试空间"下创建"精选笔记"二级菜单
 - 含查询/采纳精选/取消精选按钮权限
 - 采纳精选时自动触发 note_adopted 成长事件（+50 成长值）

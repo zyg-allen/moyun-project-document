@@ -40,6 +40,7 @@ import com.moyun.portal.domain.entity.PortalInterviewSubmission;
 import com.moyun.portal.mapper.PortalInterviewSubmissionMapper;
 import com.moyun.portal.mapper.PortalUserStatsMapper;
 import com.moyun.portal.service.IPortalGrowthService;
+import com.moyun.portal.service.IPortalTagService;
 import com.moyun.util.bean.PageUtils;
 
 /**
@@ -63,6 +64,9 @@ public class CmsInterviewController extends BaseController {
 
     @Autowired
     private PortalUserStatsMapper portalUserStatsMapper;
+
+    @Autowired
+    private IPortalTagService portalTagService;
 
     // ========================================================================
     // 题目管理
@@ -106,7 +110,14 @@ public class CmsInterviewController extends BaseController {
     @Log(title = "面试题目", businessType = BusinessType.DELETE)
     @DeleteMapping("/question")
     public AjaxResult removeQuestion(@RequestBody Long[] ids) {
-        return toAjax(portalInterviewService.deleteQuestionByIds(ids));
+        int result = portalInterviewService.deleteQuestionByIds(ids);
+        // 删除成功后解绑标签（同步减少 reference_count）
+        if (result > 0) {
+            for (Long id : ids) {
+                portalTagService.unbindTags("interview_question", id);
+            }
+        }
+        return toAjax(result);
     }
 
     // ========================================================================
@@ -198,7 +209,12 @@ public class CmsInterviewController extends BaseController {
     @Log(title = "面试面经", businessType = BusinessType.DELETE)
     @DeleteMapping("/experience/{id}")
     public AjaxResult removeExperience(@Parameter(description = "面经ID") @PathVariable Long id) {
-        return toAjax(portalInterviewService.deleteExperienceById(id, null));
+        int result = portalInterviewService.deleteExperienceById(id, null);
+        // 删除成功后解绑标签
+        if (result > 0) {
+            portalTagService.unbindTags("interview_experience", id);
+        }
+        return toAjax(result);
     }
 
     // ========================================================================
@@ -274,7 +290,14 @@ public class CmsInterviewController extends BaseController {
     @Log(title = "简历模板", businessType = BusinessType.DELETE)
     @DeleteMapping("/resume/{ids}")
     public AjaxResult removeResume(@Parameter(description = "模板ID数组") @PathVariable Long[] ids) {
-        return toAjax(portalInterviewService.deleteResumeTemplateByIds(ids));
+        int result = portalInterviewService.deleteResumeTemplateByIds(ids);
+        // 删除成功后解绑标签
+        if (result > 0) {
+            for (Long id : ids) {
+                portalTagService.unbindTags("interview_resume_template", id);
+            }
+        }
+        return toAjax(result);
     }
 
     // ========================================================================

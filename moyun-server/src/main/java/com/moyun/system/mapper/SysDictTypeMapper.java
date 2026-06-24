@@ -2,6 +2,7 @@ package com.moyun.system.mapper;
 
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.moyun.core.base.entity.SysDictType;
+import org.apache.ibatis.annotations.Param;
 
 import java.util.List;
 
@@ -18,7 +19,7 @@ public interface SysDictTypeMapper {
      * @param dictType  字典类型信息
      * @return 字典类型分页数据
      */
-    public IPage<SysDictType> selectDictTypePage(IPage<SysDictType> page, SysDictType dictType);
+    public IPage<SysDictType> selectDictTypePage(IPage<SysDictType> page, @Param("dictType") SysDictType dictType);
 
     /**
      * 根据条件分页查询字典类型（兼容旧调用，不分页）

@@ -8,7 +8,11 @@ CREATE TABLE `portal_interview_resume_template_like` (
     `id`          BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键',
     `template_id` BIGINT NOT NULL COMMENT '简历模板ID',
     `user_id`     BIGINT NOT NULL COMMENT '用户ID',
+    `create_by`   VARCHAR(64) DEFAULT '' COMMENT '创建者',
     `create_time` DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '点赞时间',
+    `update_by`   VARCHAR(64) DEFAULT '' COMMENT '更新者',
+    `update_time` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    `remark`      VARCHAR(500) DEFAULT NULL COMMENT '备注',
     PRIMARY KEY (`id`),
     UNIQUE KEY `uk_template_user` (`template_id`, `user_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='简历模板点赞表';

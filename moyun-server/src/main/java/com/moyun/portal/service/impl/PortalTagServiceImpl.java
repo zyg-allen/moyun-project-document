@@ -50,6 +50,10 @@ public class PortalTagServiceImpl extends ServiceImpl<PortalTagMapper, PortalTag
         if (portalTag.getReferenceCount() == null) {
             portalTag.setReferenceCount(0L);
         }
+        // 防御性处理：去除 name 前缀的 # 符号（# 属于展示符号，不应入库）
+        if (portalTag.getName() != null) {
+            portalTag.setName(stripTagPrefix(portalTag.getName()));
+        }
         return portalTagMapper.insertPortalTag(portalTag);
     }
 
@@ -93,7 +97,8 @@ public class PortalTagServiceImpl extends ServiceImpl<PortalTagMapper, PortalTag
         if (tagNames != null && !tagNames.isEmpty()) {
             for (String rawName : tagNames) {
                 if (rawName == null) continue;
-                String name = rawName.trim();
+                // 去除前缀 # 符号及首尾空白（# 属于展示符号，不应入库）
+                String name = stripTagPrefix(rawName.trim());
                 if (name.isEmpty()) continue;
                 PortalTag tag = portalTagMapper.selectByNameAndModule(name, module);
                 if (tag == null) {
@@ -192,5 +197,18 @@ public class PortalTagServiceImpl extends ServiceImpl<PortalTagMapper, PortalTag
         vo.setModule(tag.getModule());
         vo.setReferenceCount(tag.getReferenceCount());
         return vo;
+    }
+
+    /**
+     * 去除标签名前缀的 # 符号（支持连续多个 #）及首尾空白。
+     * 数据库统一存储纯文本，# 由前端按需拼接展示。
+     */
+    private String stripTagPrefix(String name) {
+        if (name == null) return "";
+        String result = name.trim();
+        while (result.startsWith("#")) {
+            result = result.substring(1).trim();
+        }
+        return result;
     }
 }

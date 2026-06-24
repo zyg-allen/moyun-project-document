@@ -17,6 +17,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import com.moyun.common.annotation.Log;
+import com.moyun.common.constant.HttpStatus;
 import com.moyun.common.enums.BusinessType;
 import com.moyun.core.base.AjaxResult;
 import com.moyun.core.base.BaseController;
@@ -93,7 +94,7 @@ public class PortalUserController extends BaseController {
     public AjaxResult updateProfile(@RequestBody Map<String, Object> params) {
         PortalUser currentUser = PortalSecurityUtils.getUser();
         if (currentUser == null) {
-            return error("用户未登录");
+            return AjaxResult.error(HttpStatus.UNAUTHORIZED, "登录已过期，请重新登录");
         }
 
         PortalUser user = new PortalUser();
@@ -193,7 +194,7 @@ public class PortalUserController extends BaseController {
     public AjaxResult updatePassword(@RequestBody Map<String, String> params) {
         PortalUser currentUser = PortalSecurityUtils.getUser();
         if (currentUser == null) {
-            return error("用户未登录");
+            return AjaxResult.error(HttpStatus.UNAUTHORIZED, "登录已过期，请重新登录");
         }
 
         String oldPassword = params.get("oldPassword");
@@ -246,7 +247,7 @@ public class PortalUserController extends BaseController {
     public AjaxResult uploadAvatar(@RequestParam("file") MultipartFile file) {
         PortalUser currentUser = PortalSecurityUtils.getUser();
         if (currentUser == null) {
-            return error("用户未登录");
+            return AjaxResult.error(HttpStatus.UNAUTHORIZED, "登录已过期，请重新登录");
         }
 
         if (file == null || file.isEmpty()) {
@@ -302,7 +303,7 @@ public class PortalUserController extends BaseController {
         if (targetUserId == null) {
             PortalUser currentUser = PortalSecurityUtils.getUser();
             if (currentUser == null) {
-                return error("用户未登录");
+                return AjaxResult.error(HttpStatus.UNAUTHORIZED, "登录已过期，请重新登录");
             }
             targetUserId = currentUser.getId();
         }

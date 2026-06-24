@@ -12,6 +12,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
 import com.moyun.common.annotation.Anonymous;
+import com.moyun.common.constant.HttpStatus;
 import com.moyun.core.base.AjaxResult;
 import com.moyun.core.base.BaseController;
 import com.moyun.portal.domain.entity.PortalBook;
@@ -259,7 +260,7 @@ public class PortalReadingController extends BaseController {
     public AjaxResult toggleBookListBookmark(@Parameter(description = "书单ID") @PathVariable Long id) {
         Long userId = PortalSecurityUtils.getUserId();
         if (userId == null) {
-            return AjaxResult.error("请先登录");
+            return AjaxResult.error(HttpStatus.UNAUTHORIZED, "登录已过期，请重新登录");
         }
 
         PortalBookListBookmark existing = bookListBookmarkMapper.selectBookmark(id, userId);

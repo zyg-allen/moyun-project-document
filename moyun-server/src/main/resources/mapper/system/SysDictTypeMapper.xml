@@ -20,6 +20,28 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
 		from sys_dict_type
     </sql>
 
+	<select id="selectDictTypePage" resultMap="SysDictTypeResult">
+		<include refid="selectDictTypeVo"/>
+		<where>
+			<if test="dictType.dictName != null and dictType.dictName != ''">
+				AND dict_name like concat('%', #{dictType.dictName}, '%')
+			</if>
+			<if test="dictType.status != null and dictType.status != ''">
+				AND status = #{dictType.status}
+			</if>
+			<if test="dictType.dictType != null and dictType.dictType != ''">
+				AND dict_type like concat('%', #{dictType.dictType}, '%')
+			</if>
+			<if test="dictType.params.beginTime != null and dictType.params.beginTime != ''">
+				and date_format(create_time,'%Y%m%d') &gt;= date_format(#{dictType.params.beginTime},'%Y%m%d')
+			</if>
+			<if test="dictType.params.endTime != null and dictType.params.endTime != ''">
+				and date_format(create_time,'%Y%m%d') &lt;= date_format(#{dictType.params.endTime},'%Y%m%d')
+			</if>
+		</where>
+		order by dict_id desc
+	</select>
+
 	<select id="selectDictTypeList" parameterType="com.moyun.core.base.entity.SysDictType" resultMap="SysDictTypeResult">
 	    <include refid="selectDictTypeVo"/>
 		<where>
@@ -32,7 +54,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
 			<if test="dictType != null and dictType != ''">
 				AND dict_type like concat('%', #{dictType}, '%')
 			</if>
-			<if test="params.beginTime != null and params.beginTime != ''"><!-- 寮€濮嬫椂闂存绱?-->
+			<if test="params.beginTime != null and params.beginTime != ''"><!-- 寮€濮嬫椂闂存绱?-->
 				and date_format(create_time,'%Y%m%d') &gt;= date_format(#{params.beginTime},'%Y%m%d')
 			</if>
 			<if test="params.endTime != null and params.endTime != ''"><!-- 缁撴潫鏃堕棿妫€绱?-->

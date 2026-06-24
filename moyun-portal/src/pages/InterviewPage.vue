@@ -171,7 +171,7 @@ useHead(computed(() => generateSeo({
             <FileText class="w-5 h-5 mr-2" />
             简历模板
           </button>
-          <button @click="() => {}" class="px-6 py-3 bg-white/10 border border-white/30 text-white rounded-lg font-medium hover:bg-white/20 transition flex items-center backdrop-blur-sm">
+          <button @click="router.push('/interview/questions')" class="px-6 py-3 bg-white/10 border border-white/30 text-white rounded-lg font-medium hover:bg-white/20 transition flex items-center backdrop-blur-sm">
             <BookOpen class="w-5 h-5 mr-2" />
             浏览题库
           </button>
@@ -208,7 +208,7 @@ useHead(computed(() => generateSeo({
               <div
                 v-for="cat in categories"
                 :key="cat.id"
-                @click="goQuestion(cat.id)"
+                @click="router.push(`/interview/questions?categoryId=${cat.id}`)"
                 class="bg-white rounded-xl p-6 shadow-sm hover:shadow-lg hover:-translate-y-1 transition cursor-pointer border border-gray-100"
               >
                 <div class="w-12 h-12 bg-gradient-to-br from-blue-500 to-indigo-500 rounded-lg flex items-center justify-center mb-4 text-white">
@@ -231,6 +231,9 @@ useHead(computed(() => generateSeo({
                 <Trophy class="w-6 h-6 mr-2 text-yellow-500" />
                 热门题目
               </h2>
+              <button @click="router.push('/interview/questions')" class="text-blue-600 hover:text-blue-800 text-sm font-medium flex items-center">
+                查看更多 <ArrowRight class="w-4 h-4 ml-1" />
+              </button>
             </div>
             <div class="space-y-3">
               <div
@@ -290,7 +293,9 @@ useHead(computed(() => generateSeo({
                 <Briefcase class="w-6 h-6 mr-2 text-orange-500" />
                 热门面经
               </h2>
-              <span class="text-sm text-gray-500">真实面试经验分享</span>
+              <button @click="router.push('/interview/experiences')" class="text-blue-600 hover:text-blue-800 text-sm font-medium flex items-center">
+                查看更多 <ArrowRight class="w-4 h-4 ml-1" />
+              </button>
             </div>
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
               <div

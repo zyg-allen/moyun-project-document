@@ -242,8 +242,8 @@ function getTypeList() {
 function getList() {
   loading.value = true;
   listData(queryParams.value).then(response => {
-    dataList.value = response.rows;
-    total.value = response.total;
+    dataList.value = response.data.records;
+    total.value = response.data.total;
     loading.value = false;
   });
 }

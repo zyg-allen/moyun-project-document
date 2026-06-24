@@ -12,7 +12,6 @@ import com.moyun.portal.domain.entity.PortalArticle;
 import com.moyun.portal.domain.query.ArticleQuery;
 import com.moyun.portal.mapper.PortalArticleMapper;
 import com.moyun.util.file.Base64ImageUtils;
-import com.moyun.util.security.SecurityUtils;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -171,13 +170,8 @@ public class CmsArticleServiceImpl implements ICmsArticleService {
     // ==================== 私有方法 ====================
 
     private void fillAdminAuthorInfo(PortalArticle article) {
-        if (article.getAuthorId() == null) {
-            Long adminUserId = SecurityUtils.getUserId();
-            if (adminUserId == null) {
-                throw new RuntimeException("当前后台用户未登录，无法设置作者信息");
-            }
-            article.setAuthorId(adminUserId);
-        }
+        // authorId 必须由前端选择 portal_user，不再自动填充 sys_user 的 ID
+        // 如果前端未传 authorId，则留空（文章将显示为"匿名作者"）
     }
 
     private void processArticleImages(PortalArticle article) {

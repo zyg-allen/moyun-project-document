@@ -36,6 +36,9 @@
         <result property="updateBy" column="update_by"/>
         <result property="updateTime" column="update_time"/>
         <result property="remark" column="remark"/>
+        <result property="authorNickname" column="author_nickname"/>
+        <result property="authorUsername" column="author_username"/>
+        <result property="authorAvatar" column="author_avatar"/>
     </resultMap>
 
     <resultMap type="com.moyun.ext.cms.domain.vo.CmsArticleVO" id="CmsArticleResult">
@@ -83,9 +86,11 @@
                pa.is_featured, pa.is_top, pa.is_carousel, pa.is_category_recommended, pa.views, pa.likes, pa.comments, pa.share_count,
                pa.bookmark_count, pa.published_at, pa.link, pa.editor_mode, pa.content_markdown,
                pa.create_by, pa.create_time, pa.update_by, pa.update_time, pa.remark,
-               pc.name as category_name, pc.slug as category_slug
+               pc.name as category_name, pc.slug as category_slug,
+               pu.nickname as author_nickname, pu.username as author_username, pu.avatar as author_avatar
         from portal_article pa
         left join portal_category pc on pa.category_id = pc.id
+        left join portal_user pu on pa.author_id = pu.id
     </sql>
 
     <!-- CMS文章查询，不限制状态，包含作者信息 -->

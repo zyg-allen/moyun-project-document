@@ -16,7 +16,7 @@
 -- 0. 清理旧的精选笔记菜单数据（如果存在，避免重复执行时报错）
 DELETE FROM `sys_role_menu` WHERE `menu_id` IN (
     SELECT `menu_id` FROM `sys_menu` WHERE `menu_name` = '精选笔记'
-) OR `menu_id` IN (
+) OR `parent_id` IN (
     SELECT `menu_id` FROM (SELECT * FROM `sys_menu`) tmp WHERE `menu_name` = '精选笔记'
 );
 DELETE FROM `sys_menu` WHERE `menu_name` = '精选笔记' OR `parent_id` IN (

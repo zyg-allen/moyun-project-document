@@ -28,6 +28,7 @@ CREATE TABLE sys_dept (
   create_time       datetime                                COMMENT '创建时间',
   update_by         varchar(64)     DEFAULT ''                COMMENT '更新者',
   update_time       datetime                                COMMENT '更新时间',
+  remark            varchar(500)    DEFAULT NULL              COMMENT '备注',
   PRIMARY KEY (dept_id)
 ) ENGINE=InnoDB AUTO_INCREMENT=200 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='部门表';
 
@@ -269,6 +270,11 @@ DROP TABLE IF EXISTS sys_user_role;
 CREATE TABLE sys_user_role (
   user_id   bigint(20) NOT NULL COMMENT '用户ID',
   role_id   bigint(20) NOT NULL COMMENT '角色ID',
+  create_by   varchar(64) DEFAULT '' COMMENT '创建者',
+  create_time datetime COMMENT '创建时间',
+  update_by   varchar(64) DEFAULT '' COMMENT '更新者',
+  update_time datetime COMMENT '更新时间',
+  remark      varchar(500) DEFAULT NULL COMMENT '备注',
   PRIMARY KEY(user_id, role_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='用户和角色关联表';
 
@@ -284,6 +290,11 @@ DROP TABLE IF EXISTS sys_role_menu;
 CREATE TABLE sys_role_menu (
   role_id   bigint(20) NOT NULL COMMENT '角色ID',
   menu_id   bigint(20) NOT NULL COMMENT '菜单ID',
+  create_by   varchar(64) DEFAULT '' COMMENT '创建者',
+  create_time datetime COMMENT '创建时间',
+  update_by   varchar(64) DEFAULT '' COMMENT '更新者',
+  update_time datetime COMMENT '更新时间',
+  remark      varchar(500) DEFAULT NULL COMMENT '备注',
   PRIMARY KEY(role_id, menu_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='角色和菜单关联表';
 
@@ -384,6 +395,11 @@ DROP TABLE IF EXISTS sys_role_dept;
 CREATE TABLE sys_role_dept (
   role_id   bigint(20) NOT NULL COMMENT '角色ID',
   dept_id   bigint(20) NOT NULL COMMENT '部门ID',
+  create_by   varchar(64) DEFAULT '' COMMENT '创建者',
+  create_time datetime COMMENT '创建时间',
+  update_by   varchar(64) DEFAULT '' COMMENT '更新者',
+  update_time datetime COMMENT '更新时间',
+  remark      varchar(500) DEFAULT NULL COMMENT '备注',
   PRIMARY KEY(role_id, dept_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='角色和部门关联表';
 
@@ -400,6 +416,11 @@ DROP TABLE IF EXISTS sys_user_post;
 CREATE TABLE sys_user_post (
   user_id   bigint(20) NOT NULL COMMENT '用户ID',
   post_id   bigint(20) NOT NULL COMMENT '岗位ID',
+  create_by   varchar(64) DEFAULT '' COMMENT '创建者',
+  create_time datetime COMMENT '创建时间',
+  update_by   varchar(64) DEFAULT '' COMMENT '更新者',
+  update_time datetime COMMENT '更新时间',
+  remark      varchar(500) DEFAULT NULL COMMENT '备注',
   PRIMARY KEY (user_id, post_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='用户与岗位关联表';
 
@@ -430,6 +451,11 @@ CREATE TABLE sys_oper_log (
   error_msg         varchar(2000)   DEFAULT ''                COMMENT '错误消息',
   oper_time         datetime                                COMMENT '操作时间',
   cost_time         bigint(20)      DEFAULT 0                 COMMENT '消耗时间',
+  create_by         varchar(64)     DEFAULT ''                COMMENT '创建者',
+  create_time       datetime                                  COMMENT '创建时间',
+  update_by         varchar(64)     DEFAULT ''                COMMENT '更新者',
+  update_time       datetime                                  COMMENT '更新时间',
+  remark            varchar(500)    DEFAULT NULL              COMMENT '备注',
   PRIMARY KEY (oper_id),
   KEY idx_sys_oper_log_bt (business_type),
   KEY idx_sys_oper_log_s (status),
@@ -574,6 +600,11 @@ CREATE TABLE sys_logininfor (
   status         char(1)        DEFAULT '0'               COMMENT '登录状态（0成功 1失败）',
   msg            varchar(255)   DEFAULT ''                COMMENT '提示消息',
   login_time     datetime                               COMMENT '访问时间',
+  create_by      varchar(64)    DEFAULT ''                COMMENT '创建者',
+  create_time    datetime                                 COMMENT '创建时间',
+  update_by      varchar(64)    DEFAULT ''                COMMENT '更新者',
+  update_time    datetime                                 COMMENT '更新时间',
+  remark         varchar(500)   DEFAULT NULL              COMMENT '备注',
   PRIMARY KEY (info_id),
   KEY idx_sys_logininfor_s (status),
   KEY idx_sys_logininfor_lt (login_time)
@@ -619,6 +650,10 @@ CREATE TABLE sys_job_log (
   status              char(1)        DEFAULT '0'               COMMENT '执行状态（0正常 1失败）',
   exception_info      varchar(2000)  DEFAULT ''                COMMENT '异常信息',
   create_time         datetime                               COMMENT '创建时间',
+  create_by           varchar(64)   DEFAULT ''                COMMENT '创建者',
+  update_by           varchar(64)   DEFAULT ''                COMMENT '更新者',
+  update_time         datetime                               COMMENT '更新时间',
+  remark              varchar(500)  DEFAULT NULL              COMMENT '备注',
   PRIMARY KEY (job_log_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='定时任务调度日志表';
 
@@ -703,6 +738,7 @@ CREATE TABLE gen_table_column (
   create_time       datetime                               COMMENT '创建时间',
   update_by         varchar(64)     DEFAULT ''               COMMENT '更新者',
   update_time       datetime                               COMMENT '更新时间',
+  remark            varchar(500)   DEFAULT NULL             COMMENT '备注',
   PRIMARY KEY (column_id)
 ) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='代码生成业务表字段';
 
@@ -772,6 +808,11 @@ CREATE TABLE sys_deploy_form (
   id        bigint(20) NOT NULL AUTO_INCREMENT COMMENT '主键',
   form_id   bigint(20) DEFAULT NULL COMMENT '表单主键',
   deploy_id varchar(50) DEFAULT NULL COMMENT '流程实例主键',
+  create_by   varchar(64) DEFAULT '' COMMENT '创建者',
+  create_time datetime COMMENT '创建时间',
+  update_by   varchar(64) DEFAULT '' COMMENT '更新者',
+  update_time datetime COMMENT '更新时间',
+  remark      varchar(500) DEFAULT NULL COMMENT '备注',
   PRIMARY KEY (id)
 ) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='流程实例关联表单';
 

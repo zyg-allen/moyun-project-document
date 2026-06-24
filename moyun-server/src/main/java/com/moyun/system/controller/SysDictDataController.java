@@ -1,13 +1,14 @@
 package com.moyun.system.controller;
 
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.moyun.common.annotation.Log;
 import com.moyun.common.enums.BusinessType;
 import com.moyun.core.base.AjaxResult;
 import com.moyun.core.base.BaseController;
-import com.moyun.core.base.TableDataInfo;
 import com.moyun.core.base.entity.SysDictData;
 import com.moyun.system.service.ISysDictDataService;
 import com.moyun.system.service.ISysDictTypeService;
+import com.moyun.util.bean.PageUtils;
 import com.moyun.util.file.ExcelUtil;
 import com.moyun.util.string.StringUtils;
 import io.swagger.v3.oas.annotations.Operation;
@@ -40,10 +41,10 @@ public class SysDictDataController extends BaseController {
     @Operation(summary = "获取字典数据列表", description = "分页查询字典数据列表")
     @PreAuthorize("@ss.hasPermi('system:dict:list')")
     @GetMapping("/list")
-    public TableDataInfo list(SysDictData dictData) {
-        startPage();
-        List<SysDictData> list = dictDataService.selectDictDataList(dictData);
-        return getDataTable(list);
+    public AjaxResult list(SysDictData dictData) {
+        Page<SysDictData> page = PageUtils.startPage();
+        dictDataService.selectDictDataPage(page, dictData);
+        return success(page);
     }
 
     @Operation(summary = "导出字典数据", description = "导出字典数据到Excel文件")

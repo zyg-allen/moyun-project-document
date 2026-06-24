@@ -1,5 +1,6 @@
 package com.moyun.system.service.impl;
 
+import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.moyun.core.base.entity.SysDictData;
 import com.moyun.system.mapper.SysDictDataMapper;
 import com.moyun.system.service.ISysDictDataService;
@@ -19,6 +20,18 @@ public class SysDictDataServiceImpl implements ISysDictDataService {
 
     @Autowired
     private SysDictDataMapper dictDataMapper;
+
+    /**
+     * 根据条件分页查询字典数据（MyBatis-Plus 分页）
+     *
+     * @param page      分页对象
+     * @param dictData  字典数据信息
+     * @return 字典数据分页数据
+     */
+    @Override
+    public IPage<SysDictData> selectDictDataPage(IPage<SysDictData> page, SysDictData dictData) {
+        return dictDataMapper.selectDictDataPage(page, dictData);
+    }
 
     /**
      * 根据条件分页查询字典数据

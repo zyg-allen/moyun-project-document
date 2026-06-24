@@ -137,9 +137,10 @@ useHead(
             </div>
             
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div 
-                v-for="(bookList, index) in bookLists" 
+              <div
+                v-for="(bookList, index) in bookLists"
                 :key="bookList.id"
+                @click="router.push(`/reading/book-list/${bookList.id}`)"
                 class="bg-white rounded-xl overflow-hidden shadow-sm hover:shadow-md transition cursor-pointer"
               >
                 <div class="h-48 bg-gradient-to-r from-purple-100 to-indigo-100 relative">
@@ -189,17 +190,19 @@ useHead(
                 <BookOpen class="w-6 h-6 mr-2 text-purple-600" />
                 热门书籍
               </h2>
-              <button 
-                class="text-gray-400 cursor-default font-medium flex items-center"
+              <button
+                @click="router.push('/reading')"
+                class="text-purple-600 hover:text-purple-800 font-medium flex items-center"
               >
                 读书空间专属页面
               </button>
             </div>
-            
+
             <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6">
-              <div 
-                v-for="(book, index) in books" 
+              <div
+                v-for="(book, index) in books"
                 :key="book.id"
+                @click="router.push(`/reading/book/${book.id}`)"
                 class="group cursor-pointer"
               >
                 <div class="aspect-[3/4] rounded-lg overflow-hidden shadow-sm mb-3 group-hover:shadow-md transition">

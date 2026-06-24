@@ -30,6 +30,7 @@ const currentPage = ref(1);
 const itemsPerPage = ref(10);
 const isFollowing = ref(false);
 const isLoading = ref(false);
+const notFound = ref(false);
 const currentUser = ref<UserType | null>(null);
 const loadingArticles = ref(false);
 
@@ -88,7 +89,7 @@ async function loadAuthorData() {
       author.value = authorResp.data;
       authorStats.value.joinDate = (author.value as any).createTime || (author.value as any).createdAt || '';
     } else {
-      router.push('/404');
+      notFound.value = true;
       return;
     }
 
@@ -227,6 +228,14 @@ function handlePageChange(page: number) {
         <div v-if="isLoading" class="text-center py-12">
           <div class="inline-block w-12 h-12 border-4 border-t-4 border-gray-300 rounded-full animate-spin" style="border-top-color: var(--theme-primary);"></div>
           <p class="mt-4" style="color: var(--theme-text-secondary);">加载中...</p>
+        </div>
+
+        <!-- 用户不存在 -->
+        <div v-else-if="notFound" class="text-center py-16">
+          <p class="text-5xl mb-4">404</p>
+          <p class="text-lg mb-2" style="color: var(--theme-text);">该用户不存在</p>
+          <p class="text-sm mb-6" style="color: var(--theme-text-secondary);">可能该用户已注销或账号已迁移</p>
+          <button @click="router.push('/')" class="px-6 py-2 rounded-lg text-white" style="background-color: var(--theme-primary);">返回首页</button>
         </div>
 
         <template v-else-if="author">

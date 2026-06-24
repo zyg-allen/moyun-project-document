@@ -75,6 +75,27 @@
             </el-form-item>
           </el-col>
         </el-row>
+
+        <el-row :gutter="20">
+          <el-col :span="12">
+            <el-form-item label="作者" prop="authorId">
+              <el-select
+                v-model="form.authorId"
+                placeholder="请选择作者（门户用户）"
+                filterable
+                clearable
+                style="width: 100%"
+              >
+                <el-option
+                  v-for="item in authorOptions"
+                  :key="item.id"
+                  :label="item.nickname || item.username"
+                  :value="item.id"
+                />
+              </el-select>
+            </el-form-item>
+          </el-col>
+        </el-row>
       </el-card>
 
       <!-- 文章内容区块 -->
@@ -207,6 +228,7 @@
 <script setup name="CmsArticleEdit">
 import { listCategory } from "@/api/cms/category";
 import { listTag } from "@/api/cms/tag";
+import { listUser } from "@/api/cms/user";
 import { getArticle, addArticle, updateArticle } from "@/api/cms/article";
 import ImageUpload from "@/components/ImageUpload/index.vue";
 import Editor from "@/components/Editor/index.vue";
@@ -220,6 +242,7 @@ const articleRef = ref();
 const submitLoading = ref(false);
 const categoryOptions = ref([]);
 const tagOptions = ref([]);
+const authorOptions = ref([]);
 
 // 编辑器宽度控制
 const editorWidth = ref(50);
@@ -241,7 +264,7 @@ const data = reactive({
     contentMarkdown: "",
     editorMode: "richtext",
     link: "",
-    authorNickname: "",
+    authorId: undefined,
     isTop: false,
     isFeatured: false,
     isCarousel: false,
@@ -285,10 +308,18 @@ function getTagList() {
   });
 }
 
+// 查询作者列表（portal_user）
+function getAuthorList() {
+  listUser({ pageNum: 1, pageSize: 200 }).then(response => {
+    authorOptions.value = response.rows || response.data?.records || response.data || [];
+  });
+}
+
 // 初始化数据
 function init() {
   getCategoryList();
   getTagList();
+  getAuthorList();
   
   // 如果有 ID，说明是编辑模式，加载数据
   if (route.query.id) {

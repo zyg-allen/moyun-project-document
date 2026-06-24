@@ -7,6 +7,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
+import com.moyun.common.constant.HttpStatus;
 import com.moyun.core.base.AjaxResult;
 import com.moyun.core.base.BaseController;
 import com.moyun.portal.domain.vo.AchievementVO;
@@ -39,7 +40,7 @@ public class PortalGrowthController extends BaseController {
     public AjaxResult getMyGrowth() {
         Long userId = PortalSecurityUtils.getUserId();
         if (userId == null) {
-            return error("用户未登录");
+            return AjaxResult.error(HttpStatus.UNAUTHORIZED, "登录已过期，请重新登录");
         }
         UserGrowthVO vo = portalGrowthService.getUserGrowth(userId);
         return success(vo);
@@ -61,7 +62,7 @@ public class PortalGrowthController extends BaseController {
         if (targetUserId == null) {
             targetUserId = PortalSecurityUtils.getUserId();
             if (targetUserId == null) {
-                return error("用户未登录");
+                return AjaxResult.error(HttpStatus.UNAUTHORIZED, "登录已过期，请重新登录");
             }
         }
         UserStatsVO vo = portalGrowthService.getUserStats(targetUserId);
@@ -77,7 +78,7 @@ public class PortalGrowthController extends BaseController {
         if (targetUserId == null) {
             targetUserId = PortalSecurityUtils.getUserId();
             if (targetUserId == null) {
-                return error("用户未登录");
+                return AjaxResult.error(HttpStatus.UNAUTHORIZED, "登录已过期，请重新登录");
             }
         }
         List<UserBadgeVO> list = portalGrowthService.getUserBadges(targetUserId);
@@ -112,7 +113,7 @@ public class PortalGrowthController extends BaseController {
     public AjaxResult checkin() {
         Long userId = PortalSecurityUtils.getUserId();
         if (userId == null) {
-            return error("用户未登录");
+            return AjaxResult.error(HttpStatus.UNAUTHORIZED, "登录已过期，请重新登录");
         }
         return success(portalGrowthService.checkin(userId));
     }

@@ -1,0 +1,141 @@
+spring:
+  # =============================================
+  # MySQL 数据源配置
+  # =============================================
+  datasource:
+    type: com.alibaba.druid.pool.DruidDataSource
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://localhost:3306/moyun-db?useUnicode=true&characterEncoding=utf-8&useSSL=false&serverTimezone=Asia/Shanghai
+    username: root
+    password: 123456
+    druid:
+      # 连接池基础配置
+      initial-size: 5
+      min-idle: 10
+      max-active: 20
+      max-wait: 60000
+      connect-timeout: 30000
+      socket-timeout: 60000
+      # 连接检测
+      time-between-eviction-runs-millis: 60000
+      min-evictable-idle-time-millis: 300000
+      max-evictable-idle-time-millis: 900000
+      validation-query: SELECT 1
+      test-while-idle: true
+      test-on-borrow: false
+      test-on-return: false
+      pool-prepared-statements: true
+      # 监控统计
+      filters: stat,wall,slf4j
+      filter:
+        stat:
+          merge-sql: true
+          slow-sql-millis: 5000
+          log-slow-sql: true
+        wall:
+          config:
+            multi-statement-allow: true
+      # Druid Web 监控页
+      web-stat-filter:
+        enabled: true
+        url-pattern: /*
+        exclusions: "*.js,*.gif,*.jpg,*.png,*.css,*.ico,/druid/*"
+      stat-view-servlet:
+        enabled: true
+        url-pattern: /druid/*
+        reset-enable: false
+        login-username: admin
+        login-password: admin
+        allow: ""
+        deny: ""
+      # Spring 监控
+      aop-patterns: com.moyun.system.service.*
+
+  # =============================================
+  # Redis 配置
+  # =============================================
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      database: 0
+      password:         # 本地无密码，留空；生产环境设为真实密码
+      timeout: 3000
+      lettuce:
+        pool:
+          max-active: 8
+          max-wait: -1
+          max-idle: 8
+          min-idle: 0
+
+    # MongoDB 配置（可选，辅助中间件）
+    mongodb:
+      uri: mongodb://localhost:27017/moyun
+      auto-index-creation: true
+
+# =============================================
+# 日志配置（本地环境覆盖）
+# =============================================
+logging:
+  level:
+    # SQL 日志（仅本地开启）
+    org.hibernate.SQL: debug
+
+# =============================================
+# Token 配置（本地环境覆盖）
+# =============================================
+token:
+  expireTime: 30              # 本地 30 分钟，生产建议 120
+
+# =============================================
+# 墨韵框架配置（本地文件路径覆盖）
+# =============================================
+moyun:
+  profile: /profile            # 本地文件存储路径
+
+# =============================================
+# MyBatis-Plus 配置
+# =============================================
+mybatis-plus:
+  mapper-locations: classpath*:/mapper/**/*.xml
+  type-aliases-package: com.moyun.core.base.entity,com.moyun.system.domain.entity,com.moyun.portal.domain.entity,com.moyun.ext.cms.domain.entity,com.moyun.ext.job.domain.entity
+  configuration:
+    map-underscore-to-camel-case: true
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+  global-config:
+    db-config:
+      id-type: auto
+      logic-delete-field: deleted
+      logic-delete-value: 1
+      logic-not-delete-value: 0
+
+# =============================================
+# Flowable 工作流配置
+# =============================================
+flowable:
+  async-executor-activate: false
+  check-process-definitions: false
+  # ⚠️ 注意：本地开发时设置为 true 让 Flowable 自动建表
+  #        已有建表脚本则设为 false 避免重复创建
+  database-schema-update: true
+  history-level: audit
+  database-type: mysql
+  eventregistry:
+    enabled: false
+  cmmn:
+    enabled: false
+  dmn:
+    enabled: false
+  app:
+    enabled: false
+
+# =============================================
+# MinIO 文件存储配置
+# =============================================
+minio:
+  enabled: false              # false=本地文件系统，true=MinIO 对象存储
+  endpoint: http://127.0.0.1:9000
+  access-key: admin123
+  secret-key: admin123
+  bucket-name: moyun
+  access-url: http://127.0.0.1:9000

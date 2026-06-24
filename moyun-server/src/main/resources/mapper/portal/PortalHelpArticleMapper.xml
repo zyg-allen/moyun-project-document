@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.moyun.portal.mapper.PortalHelpArticleMapper">
+
+    <resultMap type="com.moyun.portal.domain.entity.PortalHelpArticle" id="PortalHelpArticleResult">
+        <id     property="id"          column="id"           />
+        <result property="categoryId"  column="category_id"  />
+        <result property="title"       column="title"        />
+        <result property="content"     column="content"      />
+        <result property="viewCount"   column="view_count"    />
+        <result property="likeCount"   column="like_count"    />
+        <result property="sort"        column="sort"         />
+        <result property="isFeatured"  column="is_featured"   />
+        <result property="status"      column="status"       />
+        <result property="createBy"    column="create_by"    />
+        <result property="createTime"  column="create_time"  />
+        <result property="updateBy"    column="update_by"    />
+        <result property="updateTime"  column="update_time"  />
+        <result property="remark"      column="remark"        />
+    </resultMap>
+
+    <sql id="selectHelpArticleVo">
+        select id, category_id, title, content, view_count, like_count, sort, is_featured, status, create_by, create_time, update_by, update_time, remark
+        from portal_help_article
+    </sql>
+
+    <select id="selectHelpArticlePage" resultMap="PortalHelpArticleResult">
+        <include refid="selectHelpArticleVo"/>
+        <where>
+            <if test="article.categoryId != null">
+                AND category_id = #{article.categoryId}
+            </if>
+            <if test="article.title != null and article.title != ''">
+                AND title like concat('%', #{article.title}, '%')
+            </if>
+            <if test="article.status != null and article.status != ''">
+                AND status = #{article.status}
+            </if>
+            <if test="article.isFeatured != null">
+                AND is_featured = #{article.isFeatured}
+            </if>
+        </where>
+        order by sort asc, id desc
+    </select>
+
+    <select id="selectHelpArticleList" resultMap="PortalHelpArticleResult">
+        <include refid="selectHelpArticleVo"/>
+        <where>
+            <if test="article.categoryId != null">
+                AND category_id = #{article.categoryId}
+            </if>
+            <if test="article.title != null and article.title != ''">
+                AND title like concat('%', #{article.title}, '%')
+            </if>
+            <if test="article.status != null and article.status != ''">
+                AND status = #{article.status}
+            </if>
+        </where>
+        order by sort asc, id desc
+    </select>
+
+    <select id="selectByCategoryId" resultMap="PortalHelpArticleResult">
+        <include refid="selectHelpArticleVo"/>
+        where status = 'published' and category_id = #{categoryId}
+        order by sort asc, id desc
+    </select>
+
+    <select id="selectFeaturedList" resultMap="PortalHelpArticleResult">
+        <include refid="selectHelpArticleVo"/>
+        where status = 'published' and is_featured = 1
+        order by view_count desc
+        limit #{limit}
+    </select>
+
+    <select id="searchArticles" resultMap="PortalHelpArticleResult">
+        <include refid="selectHelpArticleVo"/>
+        where status = 'published'
+          and (title like concat('%', #{keyword}, '%') or content like concat('%', #{keyword}, '%'))
+        order by view_count desc
+        limit 50
+    </select>
+
+    <select id="selectPublishedById" resultMap="PortalHelpArticleResult">
+        <include refid="selectHelpArticleVo"/>
+        where id = #{id} and status = 'published'
+    </select>
+
+    <update id="incrementViewCount">
+        update portal_help_article set view_count = view_count + 1 where id = #{id}
+    </update>
+
+</mapper>

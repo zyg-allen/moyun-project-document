@@ -107,4 +107,12 @@ public class PortalArticle extends BaseEntity
     @TableField(exist = false)
     private String authorAvatar;
 
+    /** 标签ID列表（非持久化，用于接收前端传参，绑定/解绑时同步维护 reference_count） */
+    @TableField(exist = false)
+    private java.util.List<Long> tagIds;
+
+    /** 标签名称列表（非持久化，用于自动创建新标签） */
+    @TableField(exist = false)
+    private java.util.List<String> tagNames;
+
 }

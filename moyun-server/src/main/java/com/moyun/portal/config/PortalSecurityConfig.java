@@ -139,6 +139,8 @@ public class PortalSecurityConfig {
                         .requestMatchers("/portal/bookQuote/**").permitAll()
                         // 面试指南公开接口
                         .requestMatchers("/portal/interview/**").permitAll()
+                        // 帮助中心公开接口
+                        .requestMatchers("/portal/help/**").permitAll()
                         // 首页聚合接口
                         .requestMatchers("/portal/home/**").permitAll()
                         // 成长体系公开接口（排行榜、指定用户成长/统计/徽章）

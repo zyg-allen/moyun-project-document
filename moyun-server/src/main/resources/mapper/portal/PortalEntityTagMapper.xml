@@ -18,7 +18,7 @@
     </sql>
 
     <insert id="insertBatch" parameterType="java.util.List">
-        insert into portal_entity_tag (tag_id, entity_type, entity_id, sort, create_time)
+        insert ignore into portal_entity_tag (tag_id, entity_type, entity_id, sort, create_time)
         values
         <foreach collection="list" item="item" separator=",">
             (#{item.tagId}, #{item.entityType}, #{item.entityId},

@@ -155,7 +155,7 @@
             <if test="module != null and module != ''">
                 AND module = #{module}
             </if>
-            AND (reference_count is null or reference_count > 0)
+
         </where>
         order by reference_count desc, sort asc, id asc
         limit #{limit}

@@ -81,8 +81,8 @@ SELECT
     `update_by`,
     `update_time`,
     `remark`
-FROM `portal_notification`
-ON DUPLICATE KEY UPDATE id = id;
+FROM `portal_notification` a
+ON DUPLICATE KEY UPDATE id = a.id;
 
 -- 迁移已读记录：portal_notification.is_read=1 的记录写入 sys_notification_read
 INSERT IGNORE INTO `sys_notification_read` (`notification_id`, `user_id`, `read_time`, `create_time`)

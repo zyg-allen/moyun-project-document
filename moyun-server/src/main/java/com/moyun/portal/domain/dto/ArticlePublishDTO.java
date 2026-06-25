@@ -38,6 +38,12 @@ public class ArticlePublishDTO implements Serializable {
     private String content;
 
     /**
+     * Markdown 原始内容（编辑器模式为 markdown 时由前端传入，便于后续编辑回显）
+     */
+    @Schema(description = "Markdown 原始内容", example = "# 标题\n正文...")
+    private String contentMarkdown;
+
+    /**
      * 文章摘要
      */
     @Size(max = 1000, message = "文章摘要长度不能超过1000个字符")
@@ -57,6 +63,29 @@ public class ArticlePublishDTO implements Serializable {
     @NotNull(message = "分类ID不能为空")
     @Schema(description = "分类ID", example = "1")
     private Long categoryId;
+
+    /**
+     * 文章URL别名，用于SEO语义化路径
+     * 用户可自定义；为空时后端根据标题自动生成
+     */
+    @Size(max = 500, message = "文章别名长度不能超过500个字符")
+    @Schema(description = "文章URL别名（SEO用），为空时后端自动生成", example = "spring-boot-best-practice")
+    private String slug;
+
+    /**
+     * 编辑器模式：richtext 富文本 / markdown Markdown
+     * 切换编辑器时同步该字段，用于详情页按正确模式渲染内容
+     */
+    @Size(max = 20, message = "编辑器模式长度不能超过20个字符")
+    @Schema(description = "编辑器模式（richtext/markdown）", example = "richtext")
+    private String editorMode;
+
+    /**
+     * 外部链接（用于广告或跳转链接）
+     */
+    @Size(max = 500, message = "外部链接长度不能超过500个字符")
+    @Schema(description = "外部链接", example = "https://example.com")
+    private String link;
 
     /**
      * 标签ID列表

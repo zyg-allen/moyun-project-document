@@ -138,4 +138,4 @@ minio:
   access-key: admin123
   secret-key: admin123
   bucket-name: moyun
-  access-url: http://127.0.0.1:9001
+  access-url: http://127.0.0.1:9001/moyun

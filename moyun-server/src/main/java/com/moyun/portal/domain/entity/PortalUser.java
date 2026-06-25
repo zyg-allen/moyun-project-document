@@ -9,6 +9,7 @@ import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
 import com.fasterxml.jackson.annotation.JsonFormat;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.Data;
 
 import com.moyun.core.base.BaseEntity;
@@ -48,7 +49,8 @@ public class PortalUser extends BaseEntity {
     @Size(min = 0, max = 20, message = "手机号长度不能超过20个字符")
     private String phone;
 
-    /** 密码 */
+    /** 密码（仅允许反序列化写入，禁止序列化输出，防止接口泄露） */
+    @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
     private String password;
 
     /** 头像URL */

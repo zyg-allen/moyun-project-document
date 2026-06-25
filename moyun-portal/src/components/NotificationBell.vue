@@ -13,11 +13,11 @@ interface Notification {
 
 const props = defineProps<{
   notifications: Notification[]
+  unreadCount?: number
 }>()
 
 const emit = defineEmits<{
   read: [id: string]
-  showDetail: [notification: Notification]
 }>()
 
 const showDropdown = ref(false)
@@ -26,6 +26,13 @@ const selectedNotification = ref<Notification | null>(null)
 const dropdownRef = ref<HTMLElement | null>(null)
 
 const currentTheme = computed(() => getCurrentTheme())
+
+// 优先使用父组件传入的真实未读数，否则回退到本地计算
+const unreadCount = computed(() => {
+  return props.unreadCount !== undefined
+    ? props.unreadCount
+    : props.notifications.filter(n => !n.isRead).length
+})
 
 function toggleDropdown() {
   showDropdown.value = !showDropdown.value
@@ -60,10 +67,6 @@ onMounted(() => {
 
 onUnmounted(() => {
   document.removeEventListener('click', closeDropdown)
-})
-
-const unreadCount = computed(() => {
-  return props.notifications.filter(n => !n.isRead).length
 })
 </script>
 

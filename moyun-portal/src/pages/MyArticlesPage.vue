@@ -130,8 +130,12 @@ import {
   Edit3, Send, Trash2, AlertCircle
 } from 'lucide-vue-next';
 import { getMyArticles, deleteArticle as deleteArticleApi, updateArticle } from '@/api/article';
+import { useToast } from '@/composables/useToast';
+import { useConfirmModal } from '@/composables/useConfirmModal';
 
 const router = useRouter();
+const toast = useToast();
+const confirmModal = useConfirmModal();
 
 // 状态数据
 const loading = ref(false);
@@ -230,7 +234,12 @@ function editArticle(article: any) {
 
 // 重新提交审核（草稿/已拒绝 → pending）
 async function resubmitArticle(article: any) {
-  if (!confirm(`确认重新提交文章"${article.title}"进行审核？`)) return;
+  const ok = await confirmModal.confirm(`确认重新提交文章"${article.title}"进行审核？`, {
+    title: '重新提交审核',
+    confirmText: '确认提交',
+    danger: false,
+  });
+  if (!ok) return;
   try {
     // 更新已有文章，将状态改为 pending（待审核）
     await updateArticle({
@@ -243,22 +252,27 @@ async function resubmitArticle(article: any) {
       tagNames: article.tagNames,
       status: 'pending'
     } as any);
-    alert('已重新提交，等待审核');
+    toast.success('已重新提交，等待审核');
     loadArticles();
   } catch (error: any) {
-    alert(error?.message || '提交失败');
+    toast.error(error?.message || '提交失败');
   }
 }
 
 // 删除文章
 async function deleteArticle(article: any) {
-  if (!confirm(`确认删除文章"${article.title || '无标题草稿'}"？删除后不可恢复。`)) return;
+  const ok = await confirmModal.confirm(`确认删除文章"${article.title || '无标题草稿'}"？删除后不可恢复。`, {
+    title: '删除文章',
+    confirmText: '确认删除',
+    danger: true,
+  });
+  if (!ok) return;
   try {
     await deleteArticleApi(article.id);
-    alert('删除成功');
+    toast.success('删除成功');
     loadArticles();
   } catch (error: any) {
-    alert(error?.message || '删除失败');
+    toast.error(error?.message || '删除失败');
   }
 }
 

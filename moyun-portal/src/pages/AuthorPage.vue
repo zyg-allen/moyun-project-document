@@ -117,9 +117,14 @@ async function loadAuthorData() {
         const stats = statsResp.data as any;
         authorStats.value.followers = stats.fansCount || stats.followerCount || stats.followers || authorStats.value.followers;
         authorStats.value.following = stats.followCount || stats.following || authorStats.value.following;
-        if (stats.articleCount !== undefined) authorStats.value.articles = stats.articleCount;
-        if (stats.totalViews !== undefined) authorStats.value.totalViews = stats.totalViews;
-        if (stats.totalLikes !== undefined) authorStats.value.totalLikes = stats.totalLikes;
+        // 后端 UserStatsVO 字段：articles / views / likes / totalLikes
+        if (stats.articles !== undefined) authorStats.value.articles = stats.articles;
+        if (stats.views !== undefined) authorStats.value.totalViews = stats.views;
+        if (stats.totalLikes !== undefined) {
+          authorStats.value.totalLikes = stats.totalLikes;
+        } else if (stats.likes !== undefined) {
+          authorStats.value.totalLikes = stats.likes;
+        }
       }
     } catch (err) {
       console.error('加载作者统计失败:', err);

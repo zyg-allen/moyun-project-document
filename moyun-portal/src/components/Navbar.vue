@@ -26,7 +26,7 @@ const currentTheme = ref<Theme>(getCurrentTheme());
 const isThemeMenuOpen = ref(false);
 const activeNavItem = ref<string | null>(null);
 const notifications = ref<any[]>([]);
-const notificationsLoading = ref(false);
+const unreadCount = ref(0);
 const isUserMenuOpen = ref(false);
 
 const categories = ref<Category[]>([]);
@@ -112,15 +112,13 @@ const navItems = computed<NavItem[]>(() => [
 ]);
 
 const currentUser = computed(() => userStore.user)
-const unreadCount = computed(() =>
-    notifications.value.filter(n => !n.isRead).length
-);
 
 onMounted(async () => {
   currentTheme.value = getCurrentTheme();
   await loadCategories();
   if (userStore.isAuthenticated) {
     await loadNotifications();
+    await loadUnreadCount();
   }
 });
 
@@ -129,8 +127,10 @@ watch(
   (isAuth) => {
     if (isAuth) {
       loadNotifications();
+      loadUnreadCount();
     } else {
       notifications.value = [];
+      unreadCount.value = 0;
     }
   }
 );
@@ -148,7 +148,7 @@ async function loadCategories() {
 
 async function loadNotifications() {
   try {
-    const response = await notificationApi.getNotificationList({ page: 1, pageSize: 10 });
+    const response = await notificationApi.getNotificationList({ pageNum: 1, pageSize: 10 });
     if (response.code === 200 && response.data) {
       notifications.value = response.data.list.map((item: any) => ({
         id: String(item.id),
@@ -161,6 +161,17 @@ async function loadNotifications() {
   } catch (error) {
     console.error('加载通知失败:', error);
     notifications.value = [];
+  }
+}
+
+async function loadUnreadCount() {
+  try {
+    const response = await notificationApi.getUnreadCount();
+    if (response.code === 200) {
+      unreadCount.value = response.data || 0;
+    }
+  } catch (error) {
+    console.error('加载未读数失败:', error);
   }
 }
 
@@ -194,6 +205,8 @@ async function markAsRead(id: string) {
       if (notification) {
         notification.isRead = true;
       }
+      // 刷新真实未读数
+      await loadUnreadCount();
     }
   } catch (error) {
     console.error('标记已读失败:', error);
@@ -272,8 +285,8 @@ function handlePublish() {
             <!-- 消息铃铛 -->
             <NotificationBell
                 :notifications="notifications"
+                :unread-count="unreadCount"
                 @read="markAsRead"
-                @show-detail="(n) => console.log(n)"
             />
 
             <!-- 主题切换 -->

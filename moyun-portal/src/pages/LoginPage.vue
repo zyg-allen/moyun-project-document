@@ -8,10 +8,12 @@ import {
 import loginBackground from '@/assets/images/login-background.jpg';
 import { useUserStore } from '@/stores/user';
 import { loginSchema, validateForm } from '@/utils/validation';
+import { useToast } from '@/composables/useToast';
 
 const router = useRouter();
 const route = useRoute();
 const userStore = useUserStore();
+const toast = useToast();
 
 // 登录方式切换
 const loginType = ref<'password' | 'sms'>('password');
@@ -136,7 +138,7 @@ async function handleSmsLogin() {
 
 // 第三方登录
 function handleSocialLogin(type: 'wechat' | 'gitee') {
-  alert(`${type === 'wechat' ? '微信' : 'Gitee'}登录功能开发中...`);
+  toast.info(`${type === 'wechat' ? '微信' : 'Gitee'}登录功能开发中...`);
 }
 
 function clearError(field: string) {

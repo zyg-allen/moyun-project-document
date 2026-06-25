@@ -1,9 +1,9 @@
 <template>
    <div class="app-container">
       <el-form :model="queryParams" ref="queryRef" :inline="true" v-show="showSearch">
-         <el-form-item label="公告标题" prop="noticeTitle">
+         <el-form-item label="公告标题" prop="title">
             <el-input
-               v-model="queryParams.noticeTitle"
+               v-model="queryParams.title"
                placeholder="请输入公告标题"
                clearable
                style="width: 200px"
@@ -70,11 +70,11 @@
 
       <el-table v-loading="loading" :data="noticeList" @selection-change="handleSelectionChange">
          <el-table-column type="selection" width="55" align="center" />
-         <el-table-column label="序号" align="center" prop="noticeId" width="100" />
+         <el-table-column label="序号" align="center" prop="id" width="100" />
          <el-table-column
             label="公告标题"
             align="center"
-            prop="noticeTitle"
+            prop="title"
             :show-overflow-tooltip="true"
          />
          <el-table-column label="公告类型" align="center" prop="noticeType" width="100">
@@ -114,8 +114,8 @@
          <el-form ref="noticeRef" :model="form" :rules="rules" label-width="80px">
             <el-row>
                <el-col :span="12">
-                  <el-form-item label="公告标题" prop="noticeTitle">
-                     <el-input v-model="form.noticeTitle" placeholder="请输入公告标题" />
+                  <el-form-item label="公告标题" prop="title">
+                     <el-input v-model="form.title" placeholder="请输入公告标题" />
                   </el-form-item>
                </el-col>
                <el-col :span="12">
@@ -143,7 +143,7 @@
                </el-col>
                <el-col :span="24">
                   <el-form-item label="内容">
-                    <editor v-model="form.noticeContent" :min-height="192"/>
+                    <editor v-model="form.content" :min-height="192"/>
                   </el-form-item>
                </el-col>
             </el-row>
@@ -179,12 +179,12 @@ const data = reactive({
   queryParams: {
     pageNum: 1,
     pageSize: 10,
-    noticeTitle: undefined,
+    title: undefined,
     createBy: undefined,
-    status: undefined
+    noticeType: undefined
   },
   rules: {
-    noticeTitle: [{ required: true, message: "公告标题不能为空", trigger: "blur" }],
+    title: [{ required: true, message: "公告标题不能为空", trigger: "blur" }],
     noticeType: [{ required: true, message: "公告类型不能为空", trigger: "change" }]
   },
 });
@@ -208,10 +208,10 @@ function cancel() {
 /** 表单重置 */
 function reset() {
   form.value = {
-    noticeId: undefined,
-    noticeTitle: undefined,
+    id: undefined,
+    title: undefined,
     noticeType: undefined,
-    noticeContent: undefined,
+    content: undefined,
     status: "0"
   };
   proxy.resetForm("noticeRef");
@@ -228,7 +228,7 @@ function resetQuery() {
 }
 /** 多选框选中数据 */
 function handleSelectionChange(selection) {
-  ids.value = selection.map(item => item.noticeId);
+  ids.value = selection.map(item => item.id);
   single.value = selection.length != 1;
   multiple.value = !selection.length;
 }
@@ -241,7 +241,7 @@ function handleAdd() {
 /**修改按钮操作 */
 function handleUpdate(row) {
   reset();
-  const noticeId = row.noticeId || ids.value;
+  const noticeId = row.id || ids.value;
   getNotice(noticeId).then(response => {
     form.value = response.data;
     open.value = true;
@@ -252,7 +252,7 @@ function handleUpdate(row) {
 function submitForm() {
   proxy.$refs["noticeRef"].validate(valid => {
     if (valid) {
-      if (form.value.noticeId != undefined) {
+      if (form.value.id != undefined) {
         updateNotice(form.value).then(response => {
           proxy.$modal.msgSuccess("修改成功");
           open.value = false;
@@ -270,7 +270,7 @@ function submitForm() {
 }
 /** 删除按钮操作 */
 function handleDelete(row) {
-  const noticeIds = row.noticeId || ids.value
+  const noticeIds = row.id || ids.value
   proxy.$modal.confirm('是否确认删除公告编号为"' + noticeIds + '"的数据项？').then(function() {
     return delNotice(noticeIds);
   }).then(() => {

@@ -26,6 +26,7 @@ import com.moyun.ext.file.service.ISysFileService;
 import com.moyun.portal.domain.entity.PortalUser;
 import com.moyun.portal.domain.query.UserQuery;
 import com.moyun.portal.domain.vo.UserStatsVO;
+import com.moyun.portal.mapper.PortalArticleMapper;
 import com.moyun.portal.service.IPortalGrowthService;
 import com.moyun.portal.service.IPortalUserService;
 import com.moyun.portal.util.PortalSecurityUtils;
@@ -46,6 +47,9 @@ public class PortalUserController extends BaseController {
 
     @Autowired
     private IPortalGrowthService portalGrowthService;
+
+    @Autowired
+    private PortalArticleMapper articleMapper;
 
     private static final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
 
@@ -346,12 +350,59 @@ public class PortalUserController extends BaseController {
         return toAjax(portalUserService.deletePortalUserByIds(ids));
     }
 
-    @Operation(summary = "获取名家列表", description = "获取首页展示的名家列表")
+    @Operation(summary = "获取名家列表", description = "获取首页展示的名家列表，含文章数/浏览/获赞/创作天数等统计")
     @GetMapping("/authors")
     public AjaxResult getAuthors(@Parameter(description = "每页数量") @RequestParam(defaultValue = "10") Integer limit) {
         UserQuery query = new UserQuery();
         query.setStatus("0");
         List<PortalUser> list = portalUserService.selectPortalUserList(query);
-        return success(list.stream().limit(limit).toList());
+        List<Map<String, Object>> result = list.stream().limit(limit).map(user -> {
+            Map<String, Object> item = new HashMap<>();
+            item.put("id", user.getId());
+            item.put("username", user.getUsername());
+            item.put("nickname", user.getNickname());
+            item.put("avatar", user.getAvatar());
+            item.put("bio", user.getBio());
+            item.put("position", user.getPosition());
+            // 真实统计：从文章表实时聚合
+            try {
+                java.util.Map<String, Object> stats = articleMapper.selectAuthorArticleStats(user.getId());
+                if (stats != null) {
+                    item.put("works", toInt(stats.get("articleCount")));
+                    item.put("views", toLong(stats.get("viewSum")));
+                    item.put("likes", toLong(stats.get("likeSum")));
+                } else {
+                    item.put("works", 0);
+                    item.put("views", 0L);
+                    item.put("likes", 0L);
+                }
+            } catch (Exception e) {
+                item.put("works", 0);
+                item.put("views", 0L);
+                item.put("likes", 0L);
+            }
+            // 创作天数：从注册时间计算
+            if (user.getCreateTime() != null) {
+                long days = java.time.Duration.between(
+                        user.getCreateTime(), java.time.LocalDateTime.now()).toDays();
+                item.put("days", days);
+            } else {
+                item.put("days", 0L);
+            }
+            return item;
+        }).toList();
+        return success(result);
+    }
+
+    private static Integer toInt(Object o) {
+        if (o == null) return 0;
+        if (o instanceof Number) return ((Number) o).intValue();
+        try { return Integer.parseInt(o.toString()); } catch (Exception e) { return 0; }
+    }
+
+    private static Long toLong(Object o) {
+        if (o == null) return 0L;
+        if (o instanceof Number) return ((Number) o).longValue();
+        try { return Long.parseLong(o.toString()); } catch (Exception e) { return 0L; }
     }
 }

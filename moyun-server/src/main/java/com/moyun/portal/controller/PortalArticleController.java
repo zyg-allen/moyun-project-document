@@ -73,6 +73,26 @@ public class PortalArticleController extends BaseController {
         return success(resultPage);
     }
 
+    /**
+     * 我的文章列表（前台，按 authorId + status 查询）
+     * 用于作者查看自己所有状态的文章（草稿/待审核/已发布/已拒绝）
+     * authorId 自动从当前登录用户获取，前端无需传
+     * status 可选值：draft / pending / published / rejected / archived
+     */
+    @Operation(summary = "我的文章列表", description = "查询当前登录用户的所有文章，支持按状态筛选")
+    @GetMapping("/my")
+    public AjaxResult myArticles(ArticleQuery query) {
+        Long userId = PortalSecurityUtils.getUserId();
+        if (userId == null) {
+            return error("请先登录");
+        }
+        // 强制 authorId 为当前登录用户，防止越权查询他人文章
+        query.setAuthorId(userId);
+        Page<PortalArticle> page = PageUtils.buildPage(query);
+        Page<PortalArticle> resultPage = portalArticleService.selectMyArticlesPage(page, query);
+        return success(resultPage);
+    }
+
     @Operation(summary = "导出文章", description = "导出文章数据到Excel文件")
     @Log(title = "门户文章", businessType = BusinessType.EXPORT)
     @PostMapping("/export")
@@ -109,8 +129,9 @@ public class PortalArticleController extends BaseController {
 
     /**
      * 前台发布文章
+     * 发布后状态为 pending（待审核），需后台人工审核通过后才变更为 published
      */
-    @Operation(summary = "前台发布文章", description = "用户在前台发布新文章，自动获取作者信息")
+    @Operation(summary = "前台发布文章", description = "用户在前台发布新文章，发布后进入待审核状态")
     @Log(title = "门户文章", businessType = BusinessType.INSERT)
     @PostMapping("/publish")
     public AjaxResult publish(@Validated @RequestBody ArticlePublishDTO publishDTO) {
@@ -118,21 +139,52 @@ public class PortalArticleController extends BaseController {
         PortalArticle article = new PortalArticle();
         article.setTitle(publishDTO.getTitle());
         article.setContent(publishDTO.getContent());
+        // 同步编辑器模式（richtext / markdown），切换编辑器时持久化该字段
+        article.setEditorMode(publishDTO.getEditorMode());
+        // 同步 Markdown 原始内容（便于后续编辑回显）
+        article.setContentMarkdown(publishDTO.getContentMarkdown());
+        // 用户自定义 slug（为空时由 Service 自动生成，确保 SEO 语义化路径非空）
+        article.setSlug(publishDTO.getSlug());
         article.setExcerpt(publishDTO.getExcerpt());
         article.setCover(publishDTO.getCover());
         article.setCategoryId(publishDTO.getCategoryId());
+        article.setLink(publishDTO.getLink());
         article.setIsFeatured(publishDTO.getIsFeatured());
         article.setIsTop(publishDTO.getIsTop());
         article.setIsCarousel(publishDTO.getIsCarousel());
 
-        // 调用 Service 发布
+        // 调用 Service 发布（默认状态 pending 待审核）
         int result = portalArticleService.publishArticle(article);
         // 发布成功后绑定标签（同步维护 portal_entity_tag + portal_tag.reference_count）
         if (result > 0 && article.getId() != null) {
             portalTagService.bindTags("article", article.getId(),
                     publishDTO.getTagIds(), publishDTO.getTagNames(), "article");
         }
-        return toAjax(result);
+        // 返回文章详情（含 id、status、slug、createTime 等）
+        Map<String, Object> data = new HashMap<>();
+        data.put("id", article.getId());
+        data.put("status", article.getStatus());
+        data.put("slug", article.getSlug());
+        data.put("publishedAt", article.getPublishedAt());
+        data.put("message", "发布成功，等待审核");
+        return success(data);
+    }
+
+    /**
+     * 前台保存草稿（真实入库，返回草稿详情含 id）
+     * 新建草稿返回 id，更新草稿保持原 id
+     */
+    @Operation(summary = "前台保存草稿", description = "保存文章草稿，真实入库并返回草稿详情（含id）")
+    @Log(title = "门户文章-草稿", businessType = BusinessType.INSERT)
+    @PostMapping("/draft")
+    public AjaxResult saveDraft(@RequestBody PortalArticle portalArticle) {
+        PortalArticle saved = portalArticleService.saveDraft(portalArticle);
+        // 草稿保存成功后同步绑定标签（草稿阶段也允许绑定，便于后续发布）
+        if (saved != null && saved.getId() != null) {
+            portalTagService.bindTags("article", saved.getId(),
+                    portalArticle.getTagIds(), portalArticle.getTagNames(), "article");
+        }
+        return success(saved);
     }
 
     @Operation(summary = "修改文章", description = "更新文章信息")

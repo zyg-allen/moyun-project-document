@@ -60,6 +60,72 @@ CREATE TABLE IF NOT EXISTS `sys_notification_read` (
   KEY `idx_notification_id` (`notification_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='系统通知用户已读关系表';
 
+-- =============================================
+-- 3. 迁移 portal_notification 历史数据到 sys_notification
+--    原 per-user 通知 → scope=user，保留 user_id
+--    原 is_read=true 的记录同步写入 sys_notification_read
+-- =============================================
+INSERT INTO `sys_notification` (`id`, `type`, `title`, `content`, `data`, `scope`, `user_id`, `notice_type`, `status`, `create_by`, `create_time`, `update_by`, `update_time`, `remark`)
+SELECT
+    `id`,
+    `type`,
+    `title`,
+    `content`,
+    `data`,
+    'user' AS scope,
+    `user_id`,
+    NULL AS notice_type,
+    '0' AS status,
+    `create_by`,
+    `create_time`,
+    `update_by`,
+    `update_time`,
+    `remark`
+FROM `portal_notification`
+ON DUPLICATE KEY UPDATE id = id;
+
+-- 迁移已读记录：portal_notification.is_read=1 的记录写入 sys_notification_read
+INSERT IGNORE INTO `sys_notification_read` (`notification_id`, `user_id`, `read_time`, `create_time`)
+SELECT
+    n.`id`,
+    n.`user_id`,
+    n.`update_time` AS read_time,
+    n.`update_time` AS create_time
+FROM `portal_notification` n
+WHERE n.`is_read` = 1
+ON DUPLICATE KEY UPDATE notification_id = notification_id;
+
+-- =============================================
+-- 4. 迁移 sys_notice 历史数据到 sys_notification
+--    原全局公告 → scope=all，user_id=NULL
+--    notice_type 保留（1=通知 / 2=公告）
+--    status 保留（0=正常 / 1=关闭）
+-- =============================================
+INSERT INTO `sys_notification` (`type`, `title`, `content`, `scope`, `user_id`, `notice_type`, `status`, `create_by`, `create_time`, `update_by`, `update_time`, `remark`)
+SELECT
+    CASE WHEN n.`notice_type` = '1' THEN 'notice' ELSE 'announcement' END AS type,
+    n.`notice_title` AS title,
+    CAST(n.`notice_content` AS CHAR) AS content,
+    'all' AS scope,
+    NULL AS user_id,
+    n.`notice_type`,
+    n.`status`,
+    n.`create_by`,
+    n.`create_time`,
+    n.`update_by`,
+    n.`update_time`,
+    n.`remark`
+FROM `sys_notice` n
+ON DUPLICATE KEY UPDATE id = id;
+
+-- =============================================
+-- 5. 废弃旧表（保留表结构，仅重命名备份，便于回滚）
+--    注意：不直接 DROP，避免误操作导致数据丢失
+--    确认新表运行正常后，可手动执行 DROP TABLE portal_notification_bak / sys_notice_bak
+-- =============================================
+-- 备份并移除原表（重命名为 _bak 后缀）
+RENAME TABLE `portal_notification` TO `portal_notification_bak`;
+RENAME TABLE `sys_notice` TO `sys_notice_bak`;
 
 -- =============================================
 -- 6. 校验结果

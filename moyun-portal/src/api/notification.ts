@@ -3,14 +3,13 @@ import type { ApiResponse } from '@/types/api'
 import type { Notification, NotificationType } from '@/types'
 
 export interface GetNotificationListParams {
-  page?: number
+  pageNum?: number
   pageSize?: number
   type?: NotificationType
-  isRead?: boolean
 }
 
 export interface MarkAsReadParams {
-  id?: string
+  id?: string | number
   all?: boolean
 }
 
@@ -20,8 +19,8 @@ export async function getNotificationList(
   return httpGetList<Notification>('/portal/notification/list', params)
 }
 
-export async function getUnreadCount(): Promise<ApiResponse<{ count: number }>> {
-  return httpGet('/portal/notification/unread-count')
+export async function getUnreadCount(): Promise<ApiResponse<number>> {
+  return httpGet<number>('/portal/notification/unread-count')
 }
 
 export async function markAsRead(
@@ -34,7 +33,7 @@ export async function markAsRead(
 }
 
 export async function deleteNotification(
-  id: string
+  id: string | number
 ): Promise<ApiResponse<void>> {
   return httpDelete(`/portal/notification/${id}`)
 }

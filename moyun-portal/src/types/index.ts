@@ -5,12 +5,14 @@ export * from './api'
 export type EditorMode = 'richtext' | 'markdown'
 
 // 通知相关类型
-export type NotificationType = 
-  | 'like' 
-  | 'comment' 
-  | 'follow' 
-  | 'reply' 
+export type NotificationType =
+  | 'like'
+  | 'comment'
+  | 'follow'
   | 'system'
+  | 'order'
+  | 'notice'
+  | 'announcement'
 
 // 用户成就和徽章
 export interface Achievement {

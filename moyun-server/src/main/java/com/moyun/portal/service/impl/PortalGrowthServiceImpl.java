@@ -18,6 +18,7 @@ import com.moyun.portal.domain.vo.UserBadgeVO;
 import com.moyun.portal.domain.vo.UserGrowthVO;
 import com.moyun.portal.domain.vo.UserStatsVO;
 import com.moyun.portal.mapper.PortalAchievementMapper;
+import com.moyun.portal.mapper.PortalArticleMapper;
 import com.moyun.portal.mapper.PortalGrowthLogMapper;
 import com.moyun.portal.mapper.PortalGrowthRuleMapper;
 import com.moyun.portal.mapper.PortalUserBadgeMapper;
@@ -64,6 +65,9 @@ public class PortalGrowthServiceImpl implements IPortalGrowthService {
 
     @Autowired
     private PortalUserBadgeMapper badgeMapper;
+
+    @Autowired
+    private PortalArticleMapper articleMapper;
 
     private static final ObjectMapper objectMapper = new ObjectMapper();
 
@@ -188,12 +192,26 @@ public class PortalGrowthServiceImpl implements IPortalGrowthService {
             stats.setUserId(userId);
         }
 
+        // 文章相关统计直接从 portal_article 表实时聚合，保证数据真实准确
+        // （portal_user_stats 的 article_view_sum 等字段由于历史原因可能未同步，这里以文章表为准）
+        Map<String, Object> articleStats = null;
+        try {
+            articleStats = articleMapper.selectAuthorArticleStats(userId);
+        } catch (Exception e) {
+            log.warn("聚合作者[{}]文章统计失败，回退到统计表数据: {}", userId, e.getMessage());
+        }
+
         UserStatsVO vo = new UserStatsVO();
         vo.setUserId(userId);
-        vo.setArticles(stats.getArticleCount() != null ? stats.getArticleCount() : 0);
-        vo.setViews(stats.getArticleViewSum() != null ? stats.getArticleViewSum() : 0L);
-        vo.setLikes(stats.getArticleLikeSum() != null ? stats.getArticleLikeSum() : 0L);
-        vo.setBookmarks(stats.getArticleBookmarkSum() != null ? stats.getArticleBookmarkSum() : 0L);
+        // 文章数、浏览量、获赞数、收藏数优先使用文章表实时聚合结果
+        vo.setArticles(articleStats != null ? toInt(articleStats.get("articleCount")) :
+                (stats.getArticleCount() != null ? stats.getArticleCount() : 0));
+        vo.setViews(articleStats != null ? toLong(articleStats.get("viewSum")) :
+                (stats.getArticleViewSum() != null ? stats.getArticleViewSum() : 0L));
+        vo.setLikes(articleStats != null ? toLong(articleStats.get("likeSum")) :
+                (stats.getArticleLikeSum() != null ? stats.getArticleLikeSum() : 0L));
+        vo.setBookmarks(articleStats != null ? toLong(articleStats.get("bookmarkSum")) :
+                (stats.getArticleBookmarkSum() != null ? stats.getArticleBookmarkSum() : 0L));
         vo.setWordCount(stats.getArticleWordSum() != null ? stats.getArticleWordSum() : 0L);
         vo.setBookFinished(stats.getBookFinished() != null ? stats.getBookFinished() : 0);
         vo.setBooklistCount(stats.getBooklistCount() != null ? stats.getBooklistCount() : 0);

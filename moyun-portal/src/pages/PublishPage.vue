@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted } from 'vue';
-import { useRouter } from 'vue-router';
+import { useRouter, useRoute } from 'vue-router';
 import {
   ArrowLeft, Image as ImageIcon, Save, Eye, Send, X,
   List, ListOrdered, Clock, User, Calendar, FileText, Settings,
@@ -14,10 +14,12 @@ import {
   getRecommendTags
 } from '@/api/tag';
 import { getCategoryTree } from '@/api/category';
-import { createArticle } from '@/api/article';
+import { createArticle, publishArticle, saveDraft as saveDraftApi, getArticleDetail } from '@/api/article';
 import { uploadPortalFile } from '@/api/file';
 import { useUserStore } from '@/stores/user';
 import { useAuth } from '@/composables/useAuth';
+import { useToast } from '@/composables/useToast';
+import { useConfirmModal } from '@/composables/useConfirmModal';
 import type { Tag, Category } from '@/types/api';
 import SiteFooter from '@/components/SiteFooter.vue';
 import QuillEditor from '@/components/QuillEditor.vue';
@@ -25,8 +27,11 @@ import MarkdownEditor from '@/components/MarkdownEditor.vue';
 import { extractExcerpt } from '@/utils/excerpt';
 
 const router = useRouter();
+const route = useRoute();
 const userStore = useUserStore();
 const { requireAuth } = useAuth();
+const toast = useToast();
+const confirmModal = useConfirmModal();
 
 // 用户信息
 const currentUser = computed(() => userStore.user);
@@ -60,7 +65,7 @@ const childCategories = computed(() => {
 });
 
 // 元信息
-const articleStatus = ref<'draft' | 'published' | 'review'>('draft');
+const articleStatus = ref<'draft' | 'published' | 'pending'>('draft');
 const publishTime = ref('');
 const authorName = ref('');
 
@@ -100,6 +105,9 @@ const showSeoSettings = ref(false);
 const showCommentSettings = ref(false);
 const showPermissionSettings = ref(false);
 
+// 草稿ID（保存后记录，后续保存为更新）
+const draftId = ref<string | number | null>(null);
+
 // 字数统计
 const wordCount = computed(() => {
   return content.value.length;
@@ -136,12 +144,63 @@ onMounted(async () => {
   authorName.value = userStore.username;
   publishTime.value = new Date().toISOString().slice(0, 16);
 
-  // 加载分类
-  loadCategories();
+  // 加载分类（await 确保编辑模式回填分类时数据已就绪）
+  await loadCategories();
 
   // 加载热门标签
   loadHotTags();
+
+  // 编辑模式：如果 query.id 存在，加载已有文章
+  const editId = route.query.id as string;
+  if (editId) {
+    await loadArticleForEdit(editId);
+  }
 });
+
+// 加载已有文章用于编辑
+async function loadArticleForEdit(id: string) {
+  try {
+    const response = await getArticleDetail({ id });
+    if (response.code === 200 && response.data) {
+      const article = response.data as any;
+      title.value = article.title || '';
+      content.value = article.contentMarkdown || article.content || '';
+      excerpt.value = article.excerpt || '';
+      coverImage.value = article.cover || '';
+      tags.value = article.tagNames || article.tags || [];
+      draftId.value = article.id ? Number(article.id) : null;
+      articleStatus.value = article.status || 'draft';
+
+      // 回填分类
+      if (article.categoryId) {
+        const categoryId = String(article.categoryId);
+        // 尝试匹配一级分类
+        const parentCat = categories.value.find(c => c.id === categoryId);
+        if (parentCat) {
+          selectedParentCategory.value = categoryId;
+        } else {
+          // 可能是二级分类，查找其父级
+          for (const parent of categories.value) {
+            const child = (parent.children || []).find((ch: any) => ch.id === categoryId);
+            if (child) {
+              selectedParentCategory.value = parent.id;
+              selectedChildCategory.value = categoryId;
+              break;
+            }
+          }
+        }
+      }
+
+      // 回填编辑器模式
+      if (article.editorMode) {
+        editorMode.value = article.editorMode;
+      }
+    }
+  } catch (error) {
+    console.error('加载文章失败:', error);
+    toast.error('加载文章失败，请重试');
+  }
+}
 
 // 加载分类
 async function loadCategories() {
@@ -247,7 +306,7 @@ function addTag(tag: string) {
   const trimmedTag = tag.trim();
   if (trimmedTag && !tags.value.includes(trimmedTag)) {
     if (tags.value.length >= 10) {
-      alert('最多只能添加10个标签');
+      toast.warning('最多只能添加10个标签');
       return;
     }
     tags.value.push(trimmedTag);
@@ -275,21 +334,62 @@ function removeTag(tag: string) {
   tags.value = tags.value.filter(t => t !== tag);
 }
 
-// 保存草稿
+// 保存草稿（真实入库，返回草稿详情含 id）
 async function saveDraft(isAuto = false) {
+  // 草稿允许标题/内容为空（用户可能只想保存一个标题占位）
+  if (!title.value.trim() && !content.value.trim()) {
+    if (!isAuto) toast.warning('请至少输入标题或内容');
+    return;
+  }
+
   if (isAuto) {
     isSaving.value = true;
   }
 
-  // 模拟API调用
-  setTimeout(() => {
-    lastSaved.value = new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
-    isSaving.value = false;
+  try {
+    const response = await saveDraftApi({
+      id: draftId.value != null ? String(draftId.value) : undefined,
+      title: title.value,
+      content: content.value,
+      contentMarkdown: editorMode.value === 'markdown' ? content.value : undefined,
+      editorMode: editorMode.value,
+      excerpt: excerpt.value,
+      cover: coverImage.value || '',
+      categoryId: selectedCategory.value ? String(selectedCategory.value) : undefined,
+      tagNames: tags.value,
+    });
 
-    if (!isAuto) {
-      alert('草稿已保存');
+    if (response.code === 200 && response.data) {
+      // 记录草稿 id，后续保存为更新
+      draftId.value = (response.data as any).id;
+      articleStatus.value = 'draft';
+      lastSaved.value = new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+
+      if (!isAuto) {
+        toast.success('草稿已保存');
+      }
+    } else {
+      if (!isAuto) toast.error('草稿保存失败：' + ((response as any).message || '未知错误'));
     }
-  }, 500);
+  } catch (error: any) {
+    console.error('Failed to save draft:', error);
+    if (!isAuto) {
+      const errorMessage = error?.message || '草稿保存失败，请稍后重试';
+      if (errorMessage.includes('登录') || errorMessage.includes('认证') || errorMessage.includes('401')) {
+        const ok = await confirmModal.confirm('您还没有登录，是否前往登录？', {
+          title: '需要登录',
+          confirmText: '前往登录',
+        });
+        if (ok) {
+          router.push('/login');
+        }
+      } else {
+        toast.error(errorMessage);
+      }
+    }
+  } finally {
+    isSaving.value = false;
+  }
 }
 
 // 预览文章
@@ -302,26 +402,26 @@ function closePreview() {
   showPreview.value = false;
 }
 
-// 发布文章
+// 发布文章（发布后进入待审核状态）
 async function handlePublish() {
   if (!title.value.trim()) {
-    alert('请输入文章标题');
+    toast.warning('请输入文章标题');
     return;
   }
   if (title.value.length < 4) {
-    alert('标题至少4个字符');
+    toast.warning('标题至少4个字符');
     return;
   }
   if (!content.value.trim()) {
-    alert('请输入文章内容');
+    toast.warning('请输入文章内容');
     return;
   }
   if (content.value.length < 50) {
-    alert('内容至少50个字符');
+    toast.warning('内容至少50个字符');
     return;
   }
   if (!selectedCategory.value) {
-    alert('请选择文章分类');
+    toast.warning('请选择文章分类');
     return;
   }
 
@@ -332,7 +432,7 @@ async function handlePublish() {
         ? markdownPreview.value
         : content.value;
 
-    const response = await createArticle({
+    const response = await publishArticle({
       title: title.value,
       content: finalContent,
       contentMarkdown: editorMode.value === 'markdown' ? content.value : undefined,
@@ -340,15 +440,20 @@ async function handlePublish() {
       cover: coverImage.value || '',
       categoryId: selectedCategory.value,
       tagNames: tags.value,
-      status: 'published' // 已发布
-    });
+      status: 'published', // 前端标记意图为发布，后端会转为 pending 待审核
+      // 同步编辑器模式，详情页据此渲染内容
+      editorMode: editorMode.value,
+      // 用户自定义 SEO 别名（为空时后端按标题自动生成，确保非空）
+      slug: customSlug.value.trim() || undefined,
+    } as any);
 
     if (response.code === 200) {
-      articleStatus.value = 'published';
-      alert('发布成功！');
+      articleStatus.value = 'pending';
+      const msg = (response.data as any)?.message || '发布成功，等待审核';
+      toast.success(msg);
       router.push('/');
     } else {
-      alert('发布失败：' + ((response as any).message || '未知错误'));
+      toast.error('发布失败：' + ((response as any).message || '未知错误'));
     }
   } catch (error: any) {
     console.error('Failed to publish article:', error);
@@ -357,11 +462,15 @@ async function handlePublish() {
 
     // 如果是未登录错误，跳转到登录页
     if (errorMessage.includes('登录') || errorMessage.includes('认证') || errorMessage.includes('401')) {
-      if (confirm('您还没有登录，是否前往登录？')) {
+      const ok = await confirmModal.confirm('您还没有登录，是否前往登录？', {
+        title: '需要登录',
+        confirmText: '前往登录',
+      });
+      if (ok) {
         router.push('/login');
       }
     } else {
-      alert(errorMessage);
+      toast.error(errorMessage);
     }
   } finally {
     isPublishing.value = false;
@@ -369,9 +478,14 @@ async function handlePublish() {
 }
 
 // 返回列表
-function goBack() {
+async function goBack() {
   if (title.value.trim() || content.value.trim()) {
-    if (confirm('有未保存的内容，确定要离开吗？')) {
+    const ok = await confirmModal.confirm('有未保存的内容，确定要离开吗？', {
+      title: '离开页面',
+      confirmText: '离开',
+      danger: true,
+    });
+    if (ok) {
       router.push('/');
     }
   } else {
@@ -391,7 +505,7 @@ async function extractExcerptFromContent() {
     excerpt.value = await extractExcerpt(content.value, editorMode.value);
   } catch (error) {
     console.error('摘要提取失败:', error);
-    alert('摘要提取失败，请重试');
+    toast.error('摘要提取失败，请重试');
   } finally {
     isExtractingExcerpt.value = false;
   }
@@ -421,15 +535,16 @@ function handleDrop(event: DragEvent) {
 }
 
 async function handleFile(file: File) {
-  // 检查文件类型
-  if (!file.type.startsWith('image/')) {
-    alert('请选择图片文件！');
+  // 检查文件类型（仅允许常见图片格式）
+  const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+  if (!allowedTypes.includes(file.type)) {
+    toast.warning('仅支持 JPG / PNG / WebP / GIF 格式的图片！');
     return;
   }
 
-  // 检查文件大小 (最大 5MB)
-  if (file.size > 5 * 1024 * 1024) {
-    alert('文件大小不能超过 5MB！');
+  // 检查文件大小 (最大 500KB，方正封面无需大图)
+  if (file.size > 500 * 1024) {
+    toast.warning('文件大小不能超过 500KB！');
     return;
   }
 
@@ -437,7 +552,7 @@ async function handleFile(file: File) {
   const reader = new FileReader();
   reader.onload = (e) => {
     if (e.target?.result) {
-      coverImage.value = e.target.result as string;
+      coverImage.value = e.target?.result as string;
     }
   };
   reader.readAsDataURL(file);
@@ -451,11 +566,11 @@ async function handleFile(file: File) {
       coverImage.value = (response.data as any).fileUrl || coverImage.value;
       console.log('封面上传成功:', response.data);
     } else {
-      alert('封面上传失败，请重试');
+      toast.error('封面上传失败，请重试');
     }
   } catch (error) {
     console.error('封面上传失败:', error);
-    alert('封面上传失败，请重试');
+    toast.error('封面上传失败，请重试');
   } finally {
     isUploadingCover.value = false;
   }
@@ -483,12 +598,12 @@ const titleLength = computed(() => title.value.length);
                   class="px-2.5 py-1 rounded-full text-xs font-medium"
                   :style="{
                   backgroundColor: articleStatus === 'draft' ? 'var(--theme-accent)' :
-                                   articleStatus === 'review' ? '#fef3c7' : '#d1fae5',
+                                   articleStatus === 'pending' ? '#fef3c7' : '#d1fae5',
                   color: articleStatus === 'draft' ? 'var(--theme-primary)' :
-                         articleStatus === 'review' ? '#92400e' : '#065f46'
+                         articleStatus === 'pending' ? '#92400e' : '#065f46'
                 }"
               >
-                {{ articleStatus === 'draft' ? '草稿' : articleStatus === 'review' ? '审核中' : '已发布' }}
+                {{ articleStatus === 'draft' ? '草稿' : articleStatus === 'pending' ? '审核中' : '已发布' }}
               </span>
             </div>
           </div>
@@ -570,7 +685,10 @@ const titleLength = computed(() => title.value.length);
             <!-- 封面图上传 -->
             <div class="rounded-lg border-2 border-dashed overflow-hidden" style="border-color: var(--theme-border);">
               <div v-if="coverImage" class="relative group">
-                <img :src="coverImage" alt="Cover" class="w-full h-40 sm:h-48 object-cover" />
+                <!-- 方正显示：使用 aspect-square 强制 1:1 比例，限制最大宽度 -->
+                <div class="w-full max-w-xs aspect-square mx-auto">
+                  <img :src="coverImage" alt="Cover" class="w-full h-full object-cover" />
+                </div>
                 <div v-if="isUploadingCover" class="absolute inset-0 bg-black/50 flex items-center justify-center">
                   <div class="flex flex-col items-center gap-2">
                     <div class="w-6 h-6 border-2 border-white/50 border-t-white rounded-full animate-spin"></div>
@@ -594,13 +712,14 @@ const titleLength = computed(() => title.value.length);
                 <input
                     ref="fileInputRef"
                     type="file"
-                    accept="image/*"
+                    accept="image/jpeg,image/png,image/webp,image/gif"
                     class="hidden"
                     @change="handleFileSelect"
                 />
                 <ImageIcon class="w-8 h-8 sm:w-10 sm:h-10 mb-2" />
                 <p class="font-medium mb-1">上传封面图片</p>
-                <p class="text-sm">点击或拖拽上传，建议尺寸 1200x630</p>
+                <p class="text-sm">点击或拖拽上传，建议尺寸 600x600（方正显示）</p>
+                <p class="text-xs mt-1" style="color: var(--theme-text-secondary);">支持 JPG / PNG / WebP / GIF，最大 500KB</p>
               </div>
             </div>
 
@@ -777,7 +896,7 @@ const titleLength = computed(() => title.value.length);
                     class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium"
                     style="background-color: var(--theme-accent); color: var(--theme-primary);"
                 >
-                  {{ tag }}
+                  #{{ tag }}
                   <button @click="removeTag(tag)" class="hover:text-red-500">
                     <X class="w-3 h-3" />
                   </button>
@@ -817,7 +936,7 @@ const titleLength = computed(() => title.value.length);
                         ? 'background-color: var(--theme-accent); color: var(--theme-text-secondary); cursor: not-allowed;'
                         : 'background-color: var(--theme-accent); color: var(--theme-primary); cursor: pointer;'"
                     >
-                      {{ tag.name }}
+                      #{{ tag.name }}
                     </button>
                   </div>
                 </div>
@@ -839,7 +958,7 @@ const titleLength = computed(() => title.value.length);
                         ? 'background-color: var(--theme-accent); color: var(--theme-text-secondary); cursor: not-allowed;'
                         : 'background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; cursor: pointer;'"
                     >
-                      {{ tag.name }}
+                      #{{ tag.name }}
                     </button>
                   </div>
                 </div>
@@ -858,7 +977,7 @@ const titleLength = computed(() => title.value.length);
                         ? 'background-color: var(--theme-accent); color: var(--theme-text-secondary); cursor: not-allowed;'
                         : 'background-color: var(--theme-accent); color: var(--theme-text-secondary); cursor: pointer;'"
                     >
-                      {{ tag.name }}
+                      #{{ tag.name }}
                     </button>
                   </div>
                 </div>

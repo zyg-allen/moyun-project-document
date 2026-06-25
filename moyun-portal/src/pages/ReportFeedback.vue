@@ -5,6 +5,9 @@ import { AlertTriangle, MessageSquare, CheckCircle } from 'lucide-vue-next';
 import SiteFooter from '@/components/SiteFooter.vue';
 import Breadcrumb from '@/components/Breadcrumb.vue';
 import { generateSeo } from '@/utils/seo';
+import { useToast } from '@/composables/useToast';
+
+const toast = useToast();
 
 useHead(
   generateSeo({
@@ -53,7 +56,7 @@ const feedbackTypes = [
 
 const handleSubmitReport = () => {
   if (!reportForm.value.description.trim()) {
-    alert('请描述问题详情');
+    toast.warning('请描述问题详情');
     return;
   }
 
@@ -62,6 +65,7 @@ const handleSubmitReport = () => {
     isSubmitting.value = false;
     submitSuccess.value = true;
     showToast.value = true;
+    toast.success('举报提交成功，我们会尽快处理');
     setTimeout(() => {
       submitSuccess.value = false;
       showToast.value = false;
@@ -78,7 +82,7 @@ const handleSubmitReport = () => {
 
 const handleSubmitFeedback = () => {
   if (!feedbackForm.value.description.trim()) {
-    alert('请填写反馈内容');
+    toast.warning('请填写反馈内容');
     return;
   }
 
@@ -87,6 +91,7 @@ const handleSubmitFeedback = () => {
     isSubmitting.value = false;
     submitSuccess.value = true;
     showToast.value = true;
+    toast.success('反馈提交成功，感谢您的支持');
     setTimeout(() => {
       submitSuccess.value = false;
       showToast.value = false;

@@ -19,6 +19,9 @@ import { ref, watch } from 'vue';
 import { QuillEditor } from '@vueup/vue-quill';
 import '@vueup/vue-quill/dist/vue-quill.snow.css';
 import { uploadPortalFile } from '@/api/file';
+import { useToast } from '@/composables/useToast';
+
+const toast = useToast();
 
 interface Props {
   modelValue?: string;
@@ -72,11 +75,11 @@ async function imageHandler() {
           editorRef.value?.insertText(range.index, ' ');
           editorRef.value?.insertEmbed(range.index, 'image', response.data.fileUrl);
         } else {
-          alert('图片上传失败');
+          toast.error('图片上传失败');
         }
       } catch (error) {
         console.error('图片上传失败:', error);
-        alert('图片上传失败');
+        toast.error('图片上传失败');
       }
     }
   };

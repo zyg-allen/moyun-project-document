@@ -3,6 +3,9 @@ import { ref, watch, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import Layout from '@/components/Layout.vue'
 import ErrorBoundary from '@/components/ErrorBoundary.vue'
+import ToastContainer from '@/components/ToastContainer.vue'
+import ConfirmModal from '@/components/ConfirmModal.vue'
+import PromptModal from '@/components/PromptModal.vue'
 import { useUserStore } from '@/stores/user'
 
 const route = useRoute()
@@ -31,5 +34,8 @@ onMounted(async () => {
         <router-view />
       </template>
     </div>
+    <ToastContainer />
+    <ConfirmModal />
+    <PromptModal />
   </ErrorBoundary>
 </template>

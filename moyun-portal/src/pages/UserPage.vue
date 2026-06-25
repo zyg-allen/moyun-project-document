@@ -32,6 +32,7 @@ import ArticleCard from '@/components/ArticleCard.vue';
 import Breadcrumb from '@/components/Breadcrumb.vue';
 import * as userApi from '@/api/user';
 import * as growthApi from '@/api/growth';
+import { getMyArticles } from '@/api/article';
 import type { Article, User as UserType, UserStats, UserGrowthVO, UserBadgeVO, UserStatsVO, CheckinResult } from '@/types/api';
 import { getSafeAvatar } from '@/utils/avatar';
 
@@ -104,6 +105,21 @@ async function loadUserData() {
     }
   } catch (error) {
     console.warn('获取用户统计失败，使用默认值');
+  }
+
+  // 加载用户文章（仅已发布的，用于个人中心展示）
+  try {
+    const articlesResp = await getMyArticles({
+      pageNum: 1,
+      pageSize: 10,
+      status: 'published'
+    });
+    if (articlesResp.code === 200 && articlesResp.data) {
+      const page = articlesResp.data as any;
+      userArticles.value = page.records || page.list || [];
+    }
+  } catch (error) {
+    console.warn('获取用户文章失败:', error);
   }
 
   // 并行加载成长体系数据
@@ -454,10 +470,16 @@ function goToSettings() {
             <div v-if="activeTab === 'articles'">
               <div class="flex items-center justify-between mb-6">
                 <h2 class="text-xl sm:text-2xl font-bold" style="color: var(--theme-text);">我的文章</h2>
-                <Link to="/publish" target="_blank" class="inline-flex items-center gap-2 px-4 sm:px-5 py-2 sm:py-2.5 rounded-xl font-medium hover:opacity-90 transition-colors text-sm" style="background-color: var(--theme-primary); color: white;">
-                  <Edit class="w-4 h-4" />
-                  写文章
-                </Link>
+                <div class="flex items-center gap-3">
+                  <Link to="/my/articles" class="inline-flex items-center gap-1 px-3 py-2 rounded-xl font-medium hover:opacity-80 transition-colors text-sm" style="color: var(--theme-primary);">
+                    查看全部
+                    <ChevronRight class="w-4 h-4" />
+                  </Link>
+                  <Link to="/publish" target="_blank" class="inline-flex items-center gap-2 px-4 sm:px-5 py-2 sm:py-2.5 rounded-xl font-medium hover:opacity-90 transition-colors text-sm" style="background-color: var(--theme-primary); color: white;">
+                    <Edit class="w-4 h-4" />
+                    写文章
+                  </Link>
+                </div>
               </div>
 
               <div v-if="userArticles.length > 0" class="space-y-4 sm:space-y-6">

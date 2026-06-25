@@ -1,12 +1,14 @@
 package com.moyun.portal.mapper;
 
 import java.util.List;
+import java.util.Map;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
+import org.apache.ibatis.annotations.Select;
 import org.apache.ibatis.annotations.Update;
 
 import com.moyun.ext.cms.domain.query.CmsArticleQuery;
@@ -30,6 +32,16 @@ public interface PortalArticleMapper extends BaseMapper<PortalArticle> {
      * @return 分页结果
      */
     Page<PortalArticle> selectPortalArticlePage(Page<PortalArticle> page, @Param("params") ArticleQuery query);
+
+    /**
+     * 查询"我的文章"分页列表（按 authorId 过滤，不强制 status=published）
+     * 用于作者查看自己所有状态的文章（草稿/待审核/已发布/已拒绝）
+     *
+     * @param page 分页参数
+     * @param query 查询条件（authorId 必填，status 可选）
+     * @return 分页结果
+     */
+    Page<PortalArticle> selectMyArticlesPage(Page<PortalArticle> page, @Param("params") ArticleQuery query);
 
     /**
      * 根据条件查询文章列表（不分页，用于导出等场景）
@@ -195,4 +207,20 @@ public interface PortalArticleMapper extends BaseMapper<PortalArticle> {
      */
     @Update("UPDATE portal_article SET bookmark_count = bookmark_count + #{delta} WHERE id = #{id}")
     int incrementBookmarkCount(@Param("id") Long id, @Param("delta") long delta);
+
+    /**
+     * 按作者聚合文章统计（从文章表实时聚合，作为统计展示的真实数据源）
+     * 仅统计已发布文章
+     *
+     * @param authorId 作者用户ID
+     * @return Map 包含 articleCount / viewSum / likeSum / bookmarkSum / commentSum
+     */
+    @Select("SELECT count(*) AS articleCount, " +
+            "coalesce(sum(views), 0) AS viewSum, " +
+            "coalesce(sum(likes), 0) AS likeSum, " +
+            "coalesce(sum(bookmark_count), 0) AS bookmarkSum, " +
+            "coalesce(sum(comments), 0) AS commentSum " +
+            "FROM portal_article " +
+            "WHERE author_id = #{authorId} AND status = 'published'")
+    Map<String, Object> selectAuthorArticleStats(@Param("authorId") Long authorId);
 }

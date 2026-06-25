@@ -131,9 +131,30 @@ export const createArticle = (params: CreateArticleParams) => {
     return httpPost<Article>('/portal/article', params);
 };
 
+// 发布文章（发布后进入待审核状态 pending）
+export const publishArticle = (params: CreateArticleParams) => {
+    return httpPost<{ id: number; status: string; publishedAt: string; message: string }>('/portal/article/publish', params);
+};
+
+// 保存草稿（真实入库，返回草稿详情含 id）
+export const saveDraft = (params: Partial<Article>) => {
+    return httpPost<Article>('/portal/article/draft', params);
+};
+
+// 我的文章列表（前台，按 authorId + status 查询，authorId 后端自动取当前登录用户）
+export const getMyArticles = (params: {
+    pageNum?: number;
+    pageSize?: number;
+    status?: string; // draft / pending / published / rejected / archived
+    title?: string;
+    categoryId?: number;
+}) => {
+    return httpGet<any>('/portal/article/my', params);
+};
+
 // 更新文章
 export const updateArticle = (params: UpdateArticleParams) => {
-    return httpPut<Article>(`/portal/article/${params.id}`, params);
+    return httpPut<Article>('/portal/article', params);
 };
 
 // 删除文章

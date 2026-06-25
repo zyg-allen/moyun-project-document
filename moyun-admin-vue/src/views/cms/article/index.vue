@@ -14,7 +14,9 @@
         <el-select v-model="queryParams.status" placeholder="请选择状态" clearable>
           <el-option label="全部" value="" />
           <el-option label="草稿" value="draft" />
+          <el-option label="待审核" value="pending" />
           <el-option label="已发布" value="published" />
+          <el-option label="已拒绝" value="rejected" />
           <el-option label="已归档" value="archived" />
         </el-select>
       </el-form-item>
@@ -123,13 +125,20 @@
         </template>
       </el-table-column>
       <el-table-column label="创建时间" width="180" prop="createTime" />
-      <el-table-column label="操作" width="280" fixed="right">
+      <el-table-column label="操作" width="360" fixed="right">
         <template #default="{ row }">
           <el-button link type="primary" @click="handleView(row)">
             查看
           </el-button>
           <el-button link type="primary" @click="handleEdit(row)">
             编辑
+          </el-button>
+          <!-- 审核按钮：仅 pending 状态显示 -->
+          <el-button v-if="row.status === 'pending'" link type="success" @click="handleAudit(row, 'published')">
+            通过
+          </el-button>
+          <el-button v-if="row.status === 'pending'" link type="warning" @click="handleAudit(row, 'rejected')">
+            拒绝
           </el-button>
           <el-button link type="danger" @click="handleDelete(row)">
             删除
@@ -146,6 +155,27 @@
       v-model:limit="queryParams.pageSize"
       @pagination="getList"
     />
+
+    <!-- 审核拒绝原因弹窗 -->
+    <el-dialog v-model="rejectDialogVisible" title="审核拒绝" width="500px">
+      <el-form>
+        <el-form-item label="文章标题">
+          <span>{{ currentArticle?.title }}</span>
+        </el-form-item>
+        <el-form-item label="拒绝原因">
+          <el-input
+            v-model="rejectReason"
+            type="textarea"
+            :rows="4"
+            placeholder="请输入拒绝原因（将记录到文章 remark 字段，用户可见）"
+          />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="rejectDialogVisible = false">取消</el-button>
+        <el-button type="primary" @click="confirmReject">确认拒绝</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -154,7 +184,7 @@ import { ref, reactive, onMounted, computed } from 'vue';
 import { useRouter } from 'vue-router';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { Search, Refresh, Plus, Delete } from '@element-plus/icons-vue';
-import { listArticle, delArticle, delArticleBatch, updateArticle, setFeatured, setTop } from '@/api/cms/article';
+import { listArticle, delArticle, delArticleBatch, updateArticle, setFeatured, setTop, auditArticle } from '@/api/cms/article';
 import { listCategory } from '@/api/cms/category';
 
 const router = useRouter();
@@ -164,6 +194,11 @@ const loading = ref(true);
 const articleList = ref<any[]>([]);
 const total = ref(0);
 const categoryOptions = ref<any[]>([]);
+
+// 审核拒绝弹窗
+const rejectDialogVisible = ref(false);
+const currentArticle = ref<any>(null);
+const rejectReason = ref('');
 
 // 查询参数
 const queryParams = reactive({
@@ -178,10 +213,12 @@ const queryParams = reactive({
 const ids = ref<number[]>([]);
 const multiple = computed(() => ids.value.length === 0);
 
-// 状态映射
+// 状态映射（补充 pending / rejected）
 const statusMap = {
   draft: { label: '草稿', type: 'info' },
+  pending: { label: '待审核', type: 'warning' },
   published: { label: '已发布', type: 'success' },
+  rejected: { label: '已拒绝', type: 'danger' },
   archived: { label: '已归档', type: 'warning' }
 };
 
@@ -301,6 +338,52 @@ async function handleTopChange(row: any) {
 // 多选
 function handleSelectionChange(selection: any[]) {
   ids.value = selection.map((item: any) => item.id);
+}
+
+// 审核文章：通过 / 拒绝
+async function handleAudit(row: any, status: 'published' | 'rejected') {
+  if (status === 'published') {
+    // 审核通过：直接确认
+    try {
+      await ElMessageBox.confirm(
+        `确认审核通过文章"${row.title}"？通过后将变为已发布状态。`,
+        '审核确认',
+        { confirmButtonText: '通过', cancelButtonText: '取消', type: 'success' }
+      );
+      await auditArticle({ id: row.id, status: 'published' });
+      ElMessage.success('审核通过，文章已发布');
+      getList();
+    } catch (error: any) {
+      if (error !== 'cancel') {
+        ElMessage.error(error.message || '审核操作失败');
+      }
+    }
+  } else {
+    // 审核拒绝：打开弹窗输入原因
+    currentArticle.value = row;
+    rejectReason.value = '';
+    rejectDialogVisible.value = true;
+  }
+}
+
+// 确认拒绝
+async function confirmReject() {
+  if (!rejectReason.value.trim()) {
+    ElMessage.warning('请输入拒绝原因');
+    return;
+  }
+  try {
+    await auditArticle({
+      id: currentArticle.value.id,
+      status: 'rejected',
+      remark: rejectReason.value
+    });
+    ElMessage.success('已拒绝，原因已记录');
+    rejectDialogVisible.value = false;
+    getList();
+  } catch (error: any) {
+    ElMessage.error(error.message || '审核操作失败');
+  }
 }
 
 // 初始化

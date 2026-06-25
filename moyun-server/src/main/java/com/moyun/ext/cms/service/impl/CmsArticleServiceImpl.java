@@ -106,10 +106,35 @@ public class CmsArticleServiceImpl implements ICmsArticleService {
         if (article == null || article.getId() == null) {
             return 0;
         }
+        // 状态校验：仅允许审核为 published / rejected
+        String newStatus = article.getStatus();
+        if (!"published".equals(newStatus) && !"rejected".equals(newStatus)) {
+            throw new com.moyun.common.exception.system.ServiceException("审核状态仅支持 published / rejected");
+        }
+        // 仅 pending 状态的文章可被审核（防止重复审核已发布/已拒绝的文章）
+        PortalArticle existing = portalArticleMapper.selectById(article.getId());
+        if (existing == null) {
+            throw new com.moyun.common.exception.system.ServiceException("文章不存在");
+        }
+        if (!"pending".equals(existing.getStatus())) {
+            throw new com.moyun.common.exception.system.ServiceException("仅待审核（pending）状态的文章可审核，当前状态：" + existing.getStatus());
+        }
+
         LambdaUpdateWrapper<PortalArticle> wrapper = new LambdaUpdateWrapper<>();
         wrapper.eq(PortalArticle::getId, article.getId())
-                .set(PortalArticle::getStatus, article.getStatus());
-        return portalArticleMapper.update(null, wrapper);
+                .eq(PortalArticle::getStatus, "pending") // 乐观锁：仅 pending 可审核
+                .set(PortalArticle::getStatus, newStatus);
+        // 审核通过设置发布时间；拒绝记录原因到 remark
+        if ("published".equals(newStatus)) {
+            wrapper.set(PortalArticle::getPublishedAt, LocalDateTime.now());
+        } else if (article.getRemark() != null && !article.getRemark().isEmpty()) {
+            wrapper.set(PortalArticle::getRemark, article.getRemark());
+        }
+        int rows = portalArticleMapper.update(null, wrapper);
+        if (rows == 0) {
+            throw new com.moyun.common.exception.system.ServiceException("审核失败：文章状态已变更，请刷新后重试");
+        }
+        return rows;
     }
 
     @Override

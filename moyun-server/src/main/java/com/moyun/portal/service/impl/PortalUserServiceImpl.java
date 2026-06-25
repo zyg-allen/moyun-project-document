@@ -33,7 +33,10 @@ public class PortalUserServiceImpl extends ServiceImpl<PortalUserMapper, PortalU
      */
     @Override
     public Page<PortalUser> selectPortalUserPage(Page<PortalUser> page, UserQuery query) {
-        return baseMapper.selectPortalUserPage(page, query);
+        Page<PortalUser> result = baseMapper.selectPortalUserPage(page, query);
+        // 双重防护：清空 password 字段，防止接口泄露
+        result.getRecords().forEach(this::clearPassword);
+        return result;
     }
 
     /**
@@ -44,11 +47,13 @@ public class PortalUserServiceImpl extends ServiceImpl<PortalUserMapper, PortalU
      */
     @Override
     public List<PortalUser> selectPortalUserList(UserQuery query) {
-        return baseMapper.selectPortalUserList(query);
+        List<PortalUser> list = baseMapper.selectPortalUserList(query);
+        list.forEach(this::clearPassword);
+        return list;
     }
 
     /**
-     * 通过用户名查询用户
+     * 通过用户名查询用户（登录校验场景，需要 password）
      *
      * @param username 用户名
      * @return 用户对象信息
@@ -66,7 +71,9 @@ public class PortalUserServiceImpl extends ServiceImpl<PortalUserMapper, PortalU
      */
     @Override
     public PortalUser selectPortalUserById(Long id) {
-        return portalUserMapper.selectPortalUserById(id);
+        PortalUser user = portalUserMapper.selectPortalUserById(id);
+        clearPassword(user);
+        return user;
     }
 
     /**
@@ -189,5 +196,17 @@ public class PortalUserServiceImpl extends ServiceImpl<PortalUserMapper, PortalU
     @Override
     public int deletePortalUserByIds(Long[] ids) {
         return portalUserMapper.deletePortalUserByIds(ids);
+    }
+
+    /**
+     * 清空用户对象的 password 字段（双重防护，防止接口泄露密码哈希）
+     * 配合 PortalUser 实体上的 @JsonProperty(access = WRITE_ONLY) 使用
+     *
+     * @param user 用户对象
+     */
+    private void clearPassword(PortalUser user) {
+        if (user != null) {
+            user.setPassword(null);
+        }
     }
 }

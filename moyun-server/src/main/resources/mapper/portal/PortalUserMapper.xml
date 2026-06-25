@@ -49,7 +49,13 @@
         <result property="remark" column="remark"/>
     </resultMap>
 
+    <!-- 公共查询字段（不含 password，用于对外返回的查询场景） -->
     <sql id="selectPortalUserVo">
+        select id, user_id, username, nickname, email, phone, avatar, bio, position, wechat, gender, birthday, location, website, github, company, school, language, timezone, notify_like, notify_comment, notify_follow, notify_system, privacy_follow, privacy_bookmark, privacy_email, privacy_phone, role, vip_expire_at, is_phone_verified, is_wechat_verified, two_factor_enabled, status, del_flag, login_ip, login_date, create_by, create_time, update_by, update_time, remark from portal_user
+    </sql>
+
+    <!-- 含 password 的查询字段（仅用于登录校验等内部场景） -->
+    <sql id="selectPortalUserWithPasswordVo">
         select id, user_id, username, nickname, email, phone, password, avatar, bio, position, wechat, gender, birthday, location, website, github, company, school, language, timezone, notify_like, notify_comment, notify_follow, notify_system, privacy_follow, privacy_bookmark, privacy_email, privacy_phone, role, vip_expire_at, is_phone_verified, is_wechat_verified, two_factor_enabled, status, del_flag, login_ip, login_date, create_by, create_time, update_by, update_time, remark from portal_user
     </sql>
 
@@ -84,7 +90,7 @@
     </select>
 
     <select id="selectPortalUserByUsername" parameterType="String" resultMap="PortalUserResult">
-        <include refid="selectPortalUserVo"/>
+        <include refid="selectPortalUserWithPasswordVo"/>
         where username = #{username}
     </select>
 

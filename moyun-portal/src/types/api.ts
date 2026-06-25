@@ -196,6 +196,10 @@ export interface CreateArticleParams {
   tagNames?: string[];
   status?: 'draft' | 'published' | string;
   editorMode?: 'richtext' | 'markdown';
+  /** 文章URL别名（SEO语义化路径），为空时后端自动生成 */
+  slug?: string;
+  /** 外部链接 */
+  link?: string;
 }
 
 export interface UpdateArticleParams {
@@ -208,7 +212,8 @@ export interface UpdateArticleParams {
   category?: string;
   categoryId?: string;
   tags?: string[];
-  status?: 'draft' | 'published';
+  tagNames?: string[];
+  status?: 'draft' | 'pending' | 'published' | 'rejected' | 'archived';
   editorMode?: 'richtext' | 'markdown';
 }
 
@@ -459,18 +464,31 @@ export interface UploadFileParams {
 
 // 通知相关类型
 export interface Notification {
-  id: string;
-  userId: string;
-  type: 'comment' | 'like' | 'follow' | 'system' | 'order';
+  id: string | number;
+  userId?: string | number;
+  type: 'comment' | 'like' | 'follow' | 'system' | 'order' | 'notice' | 'announcement';
   title: string;
   content: string;
-  data?: Record<string, any>;
-  read: boolean;
-  createdAt: string;
+  data?: string | Record<string, any>;
+  /** 通知范围：user=个人通知 all=全局广播 */
+  scope?: 'user' | 'all';
+  /** 通知子类型（RuoYi 公告类型：1=通知 2=公告） */
+  noticeType?: string;
+  /** 状态：0=正常 1=停用 */
+  status?: string;
+  /** 是否已读（后端通过 sys_notification_read 计算） */
+  isRead?: boolean;
+  /** 接收用户昵称（scope=user 时后端关联返回） */
+  userNickname?: string;
+  createBy?: string;
+  createTime?: string;
+  updateBy?: string;
+  updateTime?: string;
+  remark?: string;
 }
 
 export interface NotificationListParams {
-  page?: number;
+  pageNum?: number;
   pageSize?: number;
   type?: string;
   unreadOnly?: boolean;

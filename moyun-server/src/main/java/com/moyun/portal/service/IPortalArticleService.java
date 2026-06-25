@@ -25,6 +25,16 @@ public interface IPortalArticleService extends IService<PortalArticle> {
     Page<PortalArticle> selectPortalArticlePage(Page<PortalArticle> page, ArticleQuery portalArticle);
 
     /**
+     * 查询"我的文章"分页列表（按 authorId 过滤，不强制 status=published）
+     * 用于作者查看自己所有状态的文章（草稿/待审核/已发布/已拒绝）
+     *
+     * @param page 分页参数
+     * @param query 查询条件（authorId 必填，status 可选）
+     * @return 分页结果
+     */
+    Page<PortalArticle> selectMyArticlesPage(Page<PortalArticle> page, ArticleQuery query);
+
+    /**
      * 根据条件查询文章列表（不分页，用于导出等场景）
      *
      * @param portalArticle 文章信息
@@ -74,9 +84,20 @@ public interface IPortalArticleService extends IService<PortalArticle> {
 
     /**
      * 前台发布文章（带自动发布逻辑）
+     * 发布后状态为 pending（待审核），审核通过后变更为 published
      *
      * @param portalArticle 文章信息
      * @return 结果
      */
     int publishArticle(PortalArticle portalArticle);
+
+    /**
+     * 前台保存草稿（真实入库，返回包含 id 的实体）
+     * 新建草稿：status = draft
+     * 更新草稿：保持 status = draft
+     *
+     * @param portalArticle 文章信息（id 为空时新建，非空时更新）
+     * @return 入库后的文章实体（含 id、createTime、updateTime）
+     */
+    PortalArticle saveDraft(PortalArticle portalArticle);
 }

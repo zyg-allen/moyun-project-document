@@ -18,6 +18,7 @@ const ReportFeedbackPage = () => import('@/pages/ReportFeedback.vue')
 const LoginPage = () => import('@/pages/LoginPage.vue')
 const RegisterPage = () => import('@/pages/RegisterPage.vue')
 const PublishPage = () => import('@/pages/PublishPage.vue')
+const MyArticlesPage = () => import('@/pages/MyArticlesPage.vue')
 const NotFoundPage = () => import('@/pages/NotFoundPage.vue')
 const ReadingPage = () => import('@/pages/ReadingPage.vue')
 const BookDetailPage = () => import('@/pages/reading/BookDetailPage.vue')
@@ -237,6 +238,12 @@ const routes: RouteRecordRaw[] = [
     name: 'publish',
     component: PublishPage,
     meta: { requiresAuth: true, title: '发布文章', robots: 'noindex,nofollow' }
+  },
+  {
+    path: '/my/articles',
+    name: 'my-articles',
+    component: MyArticlesPage,
+    meta: { requiresAuth: true, title: '我的文章', robots: 'noindex,nofollow' }
   },
   // ============ 404 页面 ============
   {

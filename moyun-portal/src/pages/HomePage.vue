@@ -141,26 +141,19 @@ const loadAuthors = async () => {
   try {
     const response = await getAuthors(10)
     if (response.code === 200 && response.data) {
+      // 后端 /portal/user/authors 已返回真实统计字段 works/views/likes/days
       authors.value = response.data.map((user: any) => ({
         id: String(user.id),
         name: user.nickname || user.username,
         avatar: (user.nickname || user.username || 'A').charAt(0),
-        works: Math.floor(Math.random() * 200) + 10,
-        likes: Math.floor(Math.random() * 5000) + 100,
-        days: Math.floor(Math.random() * 365) + 30
+        works: Number(user.works || 0),
+        likes: Number(user.likes || 0),
+        days: Number(user.days || 0)
       }))
     }
   } catch (err) {
     console.error('加载名家失败:', err)
-    authors.value = [
-      { id: '1', name: '林清玄', avatar: '林', works: 318, likes: '5.6w', days: 365 },
-      { id: '2', name: '毕淑敏', avatar: '毕', works: 256, likes: '4.2w', days: 300 },
-      { id: '3', name: '周国平', avatar: '周', works: 198, likes: '3.8w', days: 280 },
-      { id: '4', name: '迟子建', avatar: '迟', works: 176, likes: '3.2w', days: 250 },
-      { id: '5', name: '贾平凹', avatar: '贾', works: 234, likes: '4.5w', days: 320 },
-      { id: '6', name: '铁凝', avatar: '铁', works: 156, likes: '2.8w', days: 220 },
-      { id: '7', name: '莫言', avatar: '莫', works: 356, likes: '6.1w', days: 400 }
-    ]
+    authors.value = []
   }
 }
 
@@ -836,9 +829,9 @@ useHead(
           </div>
         </div>
 
-        <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3 sm:gap-4">
+        <div v-if="authors.length > 0" class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3 sm:gap-4">
           <div
-              v-for="author in (authors.length > 0 ? authors : [{ id: '1', name: '林清玄', avatar: '林', works: 318, likes: '5.6w', days: 365 }])"
+              v-for="author in authors"
               :key="author.id"
               @click="goToAuthor(author.id)"
               class="text-center p-3 sm:p-4 rounded-xl cursor-pointer transition-colors"
@@ -859,6 +852,9 @@ useHead(
               关注作者
             </button>
           </div>
+        </div>
+        <div v-else class="py-8 text-center" style="color: var(--theme-text-secondary);">
+          <p class="text-sm">暂无名家数据</p>
         </div>
       </div>
     </div>

@@ -7,6 +7,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.Data;
 
 import com.moyun.common.annotation.Excel.ColumnType;
@@ -74,8 +75,9 @@ public class SysUser extends BaseEntity {
     private String avatar;
 
     /**
-     * 密码
+     * 密码（仅允许反序列化写入，禁止序列化输出，防止接口泄露）
      */
+    @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
     private String password;
 
     /**

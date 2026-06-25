@@ -182,6 +182,22 @@
         </where>
     </sql>
 
+    <!-- "我的文章"查询条件片段（强制 author_id，status 可选，不强制 published） -->
+    <sql id="queryWhereMy">
+        <where>
+            pa.author_id = #{params.authorId}
+            <if test="params.title != null and params.title != ''">
+                AND pa.title like concat('%', #{params.title}, '%')
+            </if>
+            <if test="params.status != null and params.status != ''">
+                AND pa.status = #{params.status}
+            </if>
+            <if test="params.categoryId != null">
+                AND pa.category_id = #{params.categoryId}
+            </if>
+        </where>
+    </sql>
+
     <!-- 通用排序片段（默认排序） -->
     <sql id="defaultOrderBy">
         order by pa.is_top desc, pa.published_at desc, pa.create_time desc
@@ -205,6 +221,13 @@
         <include refid="selectPortalArticleVo"/>
         <include refid="queryWhere"/>
         <include refid="dynamicOrderBy"/>
+    </select>
+
+    <!-- "我的文章"分页查询（按 authorId 过滤，status 可选） -->
+    <select id="selectMyArticlesPage" resultMap="PortalArticleResult">
+        <include refid="selectPortalArticleVo"/>
+        <include refid="queryWhereMy"/>
+        order by pa.update_time desc
     </select>
 
     <!-- 不分页查询（用于导出等场景） -->
@@ -295,6 +318,7 @@
         update portal_article
         <set>
             <if test="title != null and title != ''">title = #{title},</if>
+            <if test="slug != null">slug = #{slug},</if>
             <if test="content != null">content = #{content},</if>
             <if test="excerpt != null">excerpt = #{excerpt},</if>
             <if test="cover != null">cover = #{cover},</if>

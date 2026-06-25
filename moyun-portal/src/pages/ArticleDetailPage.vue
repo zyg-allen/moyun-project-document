@@ -11,6 +11,7 @@ import TagList from '@/components/TagList.vue';
 import {useArticleStore} from '@/stores/article';
 import {useUserStore} from '@/stores/user';
 import {useAuth} from '@/composables/useAuth';
+import {useToast} from '@/composables/useToast';
 import {generateSeo, generateArticleJsonLd} from '@/utils/seo';
 import {sanitizeHTML} from '@/utils/security';
 import {formatShortDate} from '@/utils/date';
@@ -24,6 +25,7 @@ const router = useRouter();
 const articleStore = useArticleStore();
 const userStore = useUserStore();
 const {isAuthenticated, requireAuth, withAuth, withAuthConfirm} = useAuth();
+const toast = useToast();
 const article = ref<Article | null>(null);
 const comments = ref<Comment[]>([]);
 const newComment = ref('');
@@ -253,7 +255,7 @@ async function copyLink() {
   const url = getShareUrl();
   try {
     await navigator.clipboard.writeText(url);
-    alert('链接已复制到剪贴板');
+    toast.success('链接已复制到剪贴板');
   } catch (err) {
     // 降级处理：使用传统方法
     const textArea = document.createElement('textarea');
@@ -264,9 +266,9 @@ async function copyLink() {
     textArea.select();
     try {
       document.execCommand('copy');
-      alert('链接已复制到剪贴板');
+      toast.success('链接已复制到剪贴板');
     } catch (e) {
-      alert('复制失败，请手动复制链接');
+      toast.error('复制失败，请手动复制链接');
     }
     document.body.removeChild(textArea);
   }
@@ -278,7 +280,7 @@ function shareToWechat() {
   // 判断是否在微信内打开
   if (isWechatBrowser()) {
     // 微信内打开，提示用户使用微信自带分享功能
-    alert('请点击右上角"..."，选择"发送给朋友"或"分享到朋友圈"');
+    toast.info('请点击右上角"..."，选择"发送给朋友"或"分享到朋友圈"', 4000);
   } else {
     // 非微信浏览器，复制链接并提示
     copyLinkAndNotify('微信');
@@ -291,7 +293,7 @@ function shareToWechatMoments() {
   // 判断是否在微信内打开
   if (isWechatBrowser()) {
     // 微信内打开，提示用户使用微信自带分享功能
-    alert('请点击右上角"..."，选择"分享到朋友圈"');
+    toast.info('请点击右上角"..."，选择"分享到朋友圈"', 4000);
   } else {
     // 非微信浏览器，复制链接并提示
     copyLinkAndNotify('微信朋友圈');
@@ -310,7 +312,7 @@ function copyLinkAndNotify(platform: string) {
   const url = getShareUrl();
   try {
     navigator.clipboard.writeText(url);
-    alert(`链接已复制到剪贴板，请打开${platform}粘贴分享`);
+    toast.success(`链接已复制到剪贴板，请打开${platform}粘贴分享`);
   } catch (err) {
     const textArea = document.createElement('textarea');
     textArea.value = url;
@@ -320,9 +322,9 @@ function copyLinkAndNotify(platform: string) {
     textArea.select();
     try {
       document.execCommand('copy');
-      alert(`链接已复制到剪贴板，请打开${platform}粘贴分享`);
+      toast.success(`链接已复制到剪贴板，请打开${platform}粘贴分享`);
     } catch (e) {
-      alert(`复制失败，请手动复制链接：${url}`);
+      toast.error(`复制失败，请手动复制链接`);
     }
     document.body.removeChild(textArea);
   }
@@ -368,7 +370,7 @@ async function nativeShare() {
       }
     }
   } else {
-    alert('您的浏览器不支持原生分享功能');
+    toast.warning('您的浏览器不支持原生分享功能');
   }
   isShareMenuOpen.value = false;
 }

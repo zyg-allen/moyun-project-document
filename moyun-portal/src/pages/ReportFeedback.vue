@@ -6,8 +6,11 @@ import SiteFooter from '@/components/SiteFooter.vue';
 import Breadcrumb from '@/components/Breadcrumb.vue';
 import { generateSeo } from '@/utils/seo';
 import { useToast } from '@/composables/useToast';
+import { useAuth } from '@/composables/useAuth';
+import { submitReport, submitFeedback } from '@/api/report';
 
 const toast = useToast();
+const { isAuthenticated, requireAuth } = useAuth();
 
 useHead(
   generateSeo({
@@ -54,15 +57,26 @@ const feedbackTypes = [
   { value: 'other', label: '其他' }
 ];
 
-const handleSubmitReport = () => {
+const handleSubmitReport = async () => {
   if (!reportForm.value.description.trim()) {
     toast.warning('请描述问题详情');
     return;
   }
+  if (!isAuthenticated()) {
+    toast.warning('请先登录后再提交举报');
+    requireAuth();
+    return;
+  }
 
   isSubmitting.value = true;
-  setTimeout(() => {
-    isSubmitting.value = false;
+  try {
+    await submitReport({
+      reportType: reportForm.value.reportType as any,
+      targetUrl: reportForm.value.targetUrl || undefined,
+      description: reportForm.value.description.trim(),
+      contact: reportForm.value.contact || undefined,
+      images: reportForm.value.images
+    });
     submitSuccess.value = true;
     showToast.value = true;
     toast.success('举报提交成功，我们会尽快处理');
@@ -77,18 +91,32 @@ const handleSubmitReport = () => {
         images: []
       };
     }, 2000);
-  }, 1000);
+  } catch (e: any) {
+    toast.error(e?.message || '举报提交失败，请稍后重试');
+  } finally {
+    isSubmitting.value = false;
+  }
 };
 
-const handleSubmitFeedback = () => {
+const handleSubmitFeedback = async () => {
   if (!feedbackForm.value.description.trim()) {
     toast.warning('请填写反馈内容');
     return;
   }
+  if (!isAuthenticated()) {
+    toast.warning('请先登录后再提交反馈');
+    requireAuth();
+    return;
+  }
 
   isSubmitting.value = true;
-  setTimeout(() => {
-    isSubmitting.value = false;
+  try {
+    await submitFeedback({
+      feedbackType: feedbackForm.value.feedbackType as any,
+      subject: feedbackForm.value.subject || undefined,
+      description: feedbackForm.value.description.trim(),
+      contact: feedbackForm.value.contact || undefined
+    });
     submitSuccess.value = true;
     showToast.value = true;
     toast.success('反馈提交成功，感谢您的支持');
@@ -102,7 +130,11 @@ const handleSubmitFeedback = () => {
         contact: ''
       };
     }, 2000);
-  }, 1000);
+  } catch (e: any) {
+    toast.error(e?.message || '反馈提交失败，请稍后重试');
+  } finally {
+    isSubmitting.value = false;
+  }
 };
 </script>
 

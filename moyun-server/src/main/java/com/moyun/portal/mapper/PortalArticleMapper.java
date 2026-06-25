@@ -223,4 +223,75 @@ public interface PortalArticleMapper extends BaseMapper<PortalArticle> {
             "FROM portal_article " +
             "WHERE author_id = #{authorId} AND status = 'published'")
     Map<String, Object> selectAuthorArticleStats(@Param("authorId") Long authorId);
+
+    // ========== 运营首页聚合统计方法 ==========
+
+    /**
+     * 文章核心指标统计（全站总量）
+     * @return Map 包含 totalArticles/publishedArticles/pendingArticles/draftArticles/totalViews/totalLikes/totalComments
+     */
+    @Select("SELECT " +
+            "count(*) AS totalArticles, " +
+            "sum(CASE WHEN status = 'published' THEN 1 ELSE 0 END) AS publishedArticles, " +
+            "sum(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) AS pendingArticles, " +
+            "sum(CASE WHEN status = 'draft' THEN 1 ELSE 0 END) AS draftArticles, " +
+            "coalesce(sum(views), 0) AS totalViews, " +
+            "coalesce(sum(likes), 0) AS totalLikes, " +
+            "coalesce(sum(comments), 0) AS totalComments " +
+            "FROM portal_article WHERE del_flag = '0'")
+    Map<String, Object> selectArticleMetrics();
+
+    /**
+     * 按日期范围统计每日新增文章数（趋势图）
+     */
+    @Select("SELECT DATE(create_time) AS date, count(*) AS value " +
+            "FROM portal_article " +
+            "WHERE del_flag = '0' AND create_time >= #{startTime} " +
+            "GROUP BY DATE(create_time) ORDER BY date")
+    List<Map<String, Object>> selectDailyPublishTrend(@Param("startTime") java.time.LocalDateTime startTime);
+
+    /**
+     * 栏目排行榜：按文章数和浏览量聚合 Top N
+     */
+    @Select("SELECT c.id AS categoryId, c.name AS categoryName, " +
+            "count(a.id) AS articleCount, " +
+            "coalesce(sum(a.views), 0) AS totalViews, " +
+            "coalesce(sum(a.likes), 0) AS totalLikes " +
+            "FROM portal_category c " +
+            "LEFT JOIN portal_article a ON a.category_id = c.id AND a.del_flag = '0' AND a.status = 'published' " +
+            "WHERE c.del_flag = '0' " +
+            "GROUP BY c.id, c.name " +
+            "ORDER BY articleCount DESC, totalViews DESC " +
+            "LIMIT #{limit}")
+    List<Map<String, Object>> selectCategoryRanking(@Param("limit") int limit);
+
+    /**
+     * 查询待审核文章列表（运营首页待办任务）
+     */
+    @Select("SELECT a.id, a.title, a.author_id AS authorId, a.create_time, " +
+            "u.nickname AS authorNickname, u.username AS authorUsername " +
+            "FROM portal_article a " +
+            "LEFT JOIN portal_user u ON u.id = a.author_id " +
+            "WHERE a.status = 'pending' AND a.del_flag = '0' " +
+            "ORDER BY a.create_time ASC " +
+            "LIMIT #{limit}")
+    List<Map<String, Object>> selectPendingArticles(@Param("limit") int limit);
+
+    /**
+     * 统计待审核文章数量
+     */
+    @Select("SELECT count(*) FROM portal_article WHERE status = 'pending' AND del_flag = '0'")
+    long countPendingArticles();
+
+    /**
+     * 热门文章 Top N（按浏览量+点赞数加权排序，用于 Redis ZSet 初始化）
+     */
+    @Select("SELECT id, title, views, likes, " +
+            "(coalesce(views,0) + coalesce(likes,0) * 5) AS score, " +
+            "author_id AS authorId " +
+            "FROM portal_article " +
+            "WHERE status = 'published' AND del_flag = '0' " +
+            "ORDER BY score DESC " +
+            "LIMIT #{limit}")
+    List<Map<String, Object>> selectHotArticlesForRanking(@Param("limit") int limit);
 }

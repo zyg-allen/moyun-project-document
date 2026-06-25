@@ -56,4 +56,33 @@ public interface PortalArticleViewMapper extends BaseMapper<PortalArticleView>
      */
     @Select("SELECT DISTINCT article_id FROM portal_article_view WHERE article_id IS NOT NULL")
     List<Long> selectAllViewedArticleIds();
+
+    // ========== 运营首页访客统计 ==========
+
+    /**
+     * 今日访客数（UV，去重用户ID+IP）
+     */
+    @Select("SELECT COUNT(DISTINCT " +
+            "CASE WHEN user_id IS NOT NULL THEN CONCAT('u:', user_id) " +
+            "ELSE CONCAT('i:', ip) END) " +
+            "FROM portal_article_view " +
+            "WHERE view_time >= #{startTime}")
+    long countTodayVisitors(@Param("startTime") LocalDateTime startTime);
+
+    /**
+     * 今日页面浏览量（PV）
+     */
+    @Select("SELECT COUNT(*) FROM portal_article_view WHERE view_time >= #{startTime}")
+    long countTodayPageViews(@Param("startTime") LocalDateTime startTime);
+
+    /**
+     * 近N天每日UV趋势（折线图）
+     */
+    @Select("SELECT DATE(view_time) AS date, " +
+            "COUNT(DISTINCT CASE WHEN user_id IS NOT NULL THEN CONCAT('u:', user_id) " +
+            "ELSE CONCAT('i:', ip) END) AS value " +
+            "FROM portal_article_view " +
+            "WHERE view_time >= #{startTime} " +
+            "GROUP BY DATE(view_time) ORDER BY date")
+    List<java.util.Map<String, Object>> selectDailyVisitorTrend(@Param("startTime") LocalDateTime startTime);
 }

@@ -100,9 +100,8 @@ async function loadAuthorData() {
       if (articlesResp.code === 200 && articlesResp.data) {
         const list = (articlesResp.data as any).list || articlesResp.data || [];
         authorArticles.value = list;
+        // 文章数先以列表为准，后续 stats 接口会覆盖真实值
         authorStats.value.articles = list.length;
-        authorStats.value.totalViews = list.reduce((sum: number, a: any) => sum + (a.views || a.viewCount || 0), 0);
-        authorStats.value.totalLikes = list.reduce((sum: number, a: any) => sum + (a.likes || a.likeCount || 0), 0);
       }
     } catch (err) {
       console.error('加载作者文章失败:', err);
@@ -110,13 +109,13 @@ async function loadAuthorData() {
       loadingArticles.value = false;
     }
 
-    // 获取作者统计信息
+    // 获取作者统计信息（使用 /portal/growth/stats 真实聚合接口）
     try {
-      const statsResp = await userApi.getUserStats(authorId);
+      const statsResp = await growthApi.getUserStatsById(authorId);
       if (statsResp.code === 200 && statsResp.data) {
         const stats = statsResp.data as any;
-        authorStats.value.followers = stats.fansCount || stats.followerCount || stats.followers || authorStats.value.followers;
-        authorStats.value.following = stats.followCount || stats.following || authorStats.value.following;
+        authorStats.value.followers = stats.followers || stats.fansCount || stats.followerCount || authorStats.value.followers;
+        authorStats.value.following = stats.following || stats.followCount || authorStats.value.following;
         // 后端 UserStatsVO 字段：articles / views / likes / totalLikes
         if (stats.articles !== undefined) authorStats.value.articles = stats.articles;
         if (stats.views !== undefined) authorStats.value.totalViews = stats.views;
@@ -426,7 +425,7 @@ function handlePageChange(page: number) {
                     <div class="text-xs" style="color: var(--theme-text-secondary);">最高获赞</div>
                   </div>
                   <div class="text-center p-3 rounded-lg" style="background-color: var(--theme-bg);">
-                    <div class="text-2xl font-bold mb-1" style="color: var(--theme-primary);">{{ Math.round((authorStats.totalLikes / authorStats.totalViews) * 100) }}%</div>
+                    <div class="text-2xl font-bold mb-1" style="color: var(--theme-primary);">{{ authorStats.totalViews > 0 ? Math.round((authorStats.totalLikes / authorStats.totalViews) * 100) : 0 }}%</div>
                     <div class="text-xs" style="color: var(--theme-text-secondary);">点赞率</div>
                   </div>
                 </div>

@@ -9,8 +9,8 @@
 --   4. 为超级管理员（role_id=1）分配权限
 --
 -- 说明：
---   - 通知公告（sys_notice, menu_id=107, system/notice/index）已存在于 01_moyun_init.sql，无需新增
---   - 通知中心（system/notification）已由 36_init_notification_center_menu.sql 创建
+--   - 通知管理（cms/notification）已由 04_cms_menu_init.sql 创建，为本系统唯一通知入口
+--   - 原通知公告（menu_id=107）及通知中心已删除（见 40_fix_bugs_v4.sql）
 --   - 帮助中心 controller/vue 页面已存在，但缺 sys_menu 入口，本脚本补齐
 --   - 本脚本可重复执行（IF NOT EXISTS 守护）
 -- ===================================================================

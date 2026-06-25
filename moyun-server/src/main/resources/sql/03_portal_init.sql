@@ -283,7 +283,7 @@ CREATE TABLE `portal_friend_link` (
   `description` varchar(500) DEFAULT NULL COMMENT '链接描述',
   `logo` varchar(500) DEFAULT NULL COMMENT 'Logo URL',
   `sort` int DEFAULT '0' COMMENT '排序',
-  `status` varchar(20) DEFAULT 'active' COMMENT '状态：active/inactive',
+  `status` varchar(20) DEFAULT '0' COMMENT '状态：0正常 1停用',
   `create_by` varchar(64) DEFAULT '' COMMENT '创建者',
   `create_time` datetime DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
   `update_by` varchar(64) DEFAULT '' COMMENT '更新者',
@@ -398,6 +398,6 @@ INSERT INTO `portal_vip_package` (`name`, `price`, `original_price`, `duration`,
 -- 初始化数据 - 友情链接
 -- ----------------------------
 INSERT INTO `portal_friend_link` (`name`, `url`, `description`, `sort`, `status`, `create_by`) VALUES
-('中国作家网', 'https://www.chinawriter.com.cn', '中国作家协会官方网站', 1, 'active', 'admin'),
-('起点中文网', 'https://www.qidian.com', '阅文集团旗下网站', 2, 'active', 'admin'),
-('掘金', 'https://juejin.cn', '帮助开发者成长的社区', 3, 'active', 'admin');
+('中国作家网', 'https://www.chinawriter.com.cn', '中国作家协会官方网站', 1, '0', 'admin'),
+('起点中文网', 'https://www.qidian.com', '阅文集团旗下网站', 2, '0', 'admin'),
+('掘金', 'https://juejin.cn', '帮助开发者成长的社区', 3, '0', 'admin');

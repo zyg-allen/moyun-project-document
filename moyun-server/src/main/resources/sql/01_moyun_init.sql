@@ -171,7 +171,6 @@ INSERT INTO sys_menu VALUES('103',  '部门管理', '1',   '4', 'dept',       's
 INSERT INTO sys_menu VALUES('104',  '岗位管理', '1',   '5', 'post',       'system/post/index',        '', '', 1, 0, 'C', '0', '0', 'system:post:list',        'post',          'admin', NOW(), '', NULL, '岗位管理菜单');
 INSERT INTO sys_menu VALUES('105',  '字典管理', '1',   '6', 'dict',       'system/dict/index',        '', '', 1, 0, 'C', '0', '0', 'system:dict:list',        'dict',          'admin', NOW(), '', NULL, '字典管理菜单');
 INSERT INTO sys_menu VALUES('106',  '参数设置', '1',   '7', 'config',     'system/config/index',      '', '', 1, 0, 'C', '0', '0', 'system:config:list',      'edit',          'admin', NOW(), '', NULL, '参数设置菜单');
-INSERT INTO sys_menu VALUES('107',  '通知公告', '1',   '8', 'notice',     'system/notice/index',      '', '', 1, 0, 'C', '0', '0', 'system:notice:list',      'message',       'admin', NOW(), '', NULL, '通知公告菜单');
 INSERT INTO sys_menu VALUES('108',  '日志管理', '1',   '9', 'log',        '',                         '', '', 1, 0, 'M', '0', '0', '',                        'log',           'admin', NOW(), '', NULL, '日志管理菜单');
 INSERT INTO sys_menu VALUES('109',  '在线用户', '2',   '1', 'online',     'monitor/online/index',     '', '', 1, 0, 'C', '0', '0', 'monitor:online:list',     'online',        'admin', NOW(), '', NULL, '在线用户菜单');
 INSERT INTO sys_menu VALUES('110',  '定时任务', '2',   '2', 'job',        'monitor/job/index',        '', '', 1, 0, 'C', '0', '0', 'monitor:job:list',        'job',           'admin', NOW(), '', NULL, '定时任务菜单');
@@ -229,11 +228,6 @@ INSERT INTO sys_menu VALUES('1031', '参数新增', '106', '2', '#', '', '', '',
 INSERT INTO sys_menu VALUES('1032', '参数修改', '106', '3', '#', '', '', '', 1, 0, 'F', '0', '0', 'system:config:edit',         '#', 'admin', NOW(), '', NULL, '');
 INSERT INTO sys_menu VALUES('1033', '参数删除', '106', '4', '#', '', '', '', 1, 0, 'F', '0', '0', 'system:config:remove',       '#', 'admin', NOW(), '', NULL, '');
 INSERT INTO sys_menu VALUES('1034', '参数导出', '106', '5', '#', '', '', '', 1, 0, 'F', '0', '0', 'system:config:export',       '#', 'admin', NOW(), '', NULL, '');
--- 通知公告按钮
-INSERT INTO sys_menu VALUES('1035', '公告查询', '107', '1', '#', '', '', '', 1, 0, 'F', '0', '0', 'system:notice:query',        '#', 'admin', NOW(), '', NULL, '');
-INSERT INTO sys_menu VALUES('1036', '公告新增', '107', '2', '#', '', '', '', 1, 0, 'F', '0', '0', 'system:notice:add',          '#', 'admin', NOW(), '', NULL, '');
-INSERT INTO sys_menu VALUES('1037', '公告修改', '107', '3', '#', '', '', '', 1, 0, 'F', '0', '0', 'system:notice:edit',         '#', 'admin', NOW(), '', NULL, '');
-INSERT INTO sys_menu VALUES('1038', '公告删除', '107', '4', '#', '', '', '', 1, 0, 'F', '0', '0', 'system:notice:remove',       '#', 'admin', NOW(), '', NULL, '');
 -- 操作日志按钮
 INSERT INTO sys_menu VALUES('1039', '操作查询', '500', '1', '#', '', '', '', 1, 0, 'F', '0', '0', 'monitor:operlog:query',      '#', 'admin', NOW(), '', NULL, '');
 INSERT INTO sys_menu VALUES('1040', '操作删除', '500', '2', '#', '', '', '', 1, 0, 'F', '0', '0', 'monitor:operlog:remove',     '#', 'admin', NOW(), '', NULL, '');
@@ -310,7 +304,6 @@ INSERT INTO sys_role_menu VALUES ('2', '103');
 INSERT INTO sys_role_menu VALUES ('2', '104');
 INSERT INTO sys_role_menu VALUES ('2', '105');
 INSERT INTO sys_role_menu VALUES ('2', '106');
-INSERT INTO sys_role_menu VALUES ('2', '107');
 INSERT INTO sys_role_menu VALUES ('2', '108');
 INSERT INTO sys_role_menu VALUES ('2', '109');
 INSERT INTO sys_role_menu VALUES ('2', '110');
@@ -360,10 +353,6 @@ INSERT INTO sys_role_menu VALUES ('2', '1031');
 INSERT INTO sys_role_menu VALUES ('2', '1032');
 INSERT INTO sys_role_menu VALUES ('2', '1033');
 INSERT INTO sys_role_menu VALUES ('2', '1034');
-INSERT INTO sys_role_menu VALUES ('2', '1035');
-INSERT INTO sys_role_menu VALUES ('2', '1036');
-INSERT INTO sys_role_menu VALUES ('2', '1037');
-INSERT INTO sys_role_menu VALUES ('2', '1038');
 INSERT INTO sys_role_menu VALUES ('2', '1039');
 INSERT INTO sys_role_menu VALUES ('2', '1040');
 INSERT INTO sys_role_menu VALUES ('2', '1041');

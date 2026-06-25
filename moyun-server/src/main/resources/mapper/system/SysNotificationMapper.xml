@@ -1,0 +1,195 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.moyun.system.mapper.SysNotificationMapper">
+
+    <resultMap type="com.moyun.system.domain.entity.SysNotification" id="SysNotificationResult">
+        <id property="id" column="id"/>
+        <result property="type" column="type"/>
+        <result property="title" column="title"/>
+        <result property="content" column="content"/>
+        <result property="data" column="data"/>
+        <result property="scope" column="scope"/>
+        <result property="userId" column="user_id"/>
+        <result property="userType" column="user_type"/>
+        <result property="noticeType" column="notice_type"/>
+        <result property="status" column="status"/>
+        <result property="createBy" column="create_by"/>
+        <result property="createTime" column="create_time"/>
+        <result property="updateBy" column="update_by"/>
+        <result property="updateTime" column="update_time"/>
+        <result property="remark" column="remark"/>
+        <result property="userNickname" column="user_nickname"/>
+        <result property="isRead" column="is_read"/>
+    </resultMap>
+
+    <sql id="selectNotificationVo">
+        select id, type, title, content, data, scope, user_id, user_type, notice_type, status,
+               create_by, create_time, update_by, update_time, remark
+        from sys_notification
+    </sql>
+
+    <!-- 后台管理分页查询（按 user_type 关联不同用户表显示昵称） -->
+    <select id="selectNotificationPage" resultMap="SysNotificationResult">
+        select n.id, n.type, n.title, n.content, n.data, n.scope, n.user_id, n.user_type, n.notice_type, n.status,
+               n.create_by, n.create_time, n.update_by, n.update_time, n.remark,
+               case
+                   when n.scope = 'all' then null
+                   when n.user_type = 'sys' then su.nick_name
+                   else pu.nickname
+               end as user_nickname
+        from sys_notification n
+        left join portal_user pu on n.user_id = pu.id and n.user_type = 'portal'
+        left join sys_user su on n.user_id = su.user_id and n.user_type = 'sys'
+        <where>
+            <if test="params.title != null and params.title != ''">and n.title like concat('%', #{params.title}, '%')</if>
+            <if test="params.type != null and params.type != ''">and n.type = #{params.type}</if>
+            <if test="params.scope != null and params.scope != ''">and n.scope = #{params.scope}</if>
+            <if test="params.userType != null and params.userType != ''">and n.user_type = #{params.userType}</if>
+            <if test="params.userId != null">and n.user_id = #{params.userId}</if>
+            <if test="params.status != null and params.status != ''">and n.status = #{params.status}</if>
+            <if test="params.noticeType != null and params.noticeType != ''">and n.notice_type = #{params.noticeType}</if>
+            <if test="params.createBy != null and params.createBy != ''">and n.create_by like concat('%', #{params.createBy}, '%')</if>
+        </where>
+        order by n.create_time desc
+    </select>
+
+    <!-- 不分页查询（导出等） -->
+    <select id="selectNotificationList" resultMap="SysNotificationResult">
+        <include refid="selectNotificationVo"/>
+        <where>
+            <if test="params.title != null and params.title != ''">and title like concat('%', #{params.title}, '%')</if>
+            <if test="params.type != null and params.type != ''">and type = #{params.type}</if>
+            <if test="params.scope != null and params.scope != ''">and scope = #{params.scope}</if>
+            <if test="params.userType != null and params.userType != ''">and user_type = #{params.userType}</if>
+            <if test="params.userId != null">and user_id = #{params.userId}</if>
+            <if test="params.status != null and params.status != ''">and status = #{params.status}</if>
+            <if test="params.noticeType != null and params.noticeType != ''">and notice_type = #{params.noticeType}</if>
+            <if test="params.createBy != null and params.createBy != ''">and create_by like concat('%', #{params.createBy}, '%')</if>
+        </where>
+        order by create_time desc
+    </select>
+
+    <select id="selectNotificationById" parameterType="Long" resultMap="SysNotificationResult">
+        <include refid="selectNotificationVo"/>
+        where id = #{id}
+    </select>
+
+    <insert id="insertNotification" parameterType="com.moyun.system.domain.entity.SysNotification" useGeneratedKeys="true" keyProperty="id">
+        insert into sys_notification
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="type != null">type,</if>
+            <if test="title != null">title,</if>
+            <if test="content != null">content,</if>
+            <if test="data != null">data,</if>
+            <if test="scope != null">scope,</if>
+            <if test="userId != null">user_id,</if>
+            <if test="userType != null">user_type,</if>
+            <if test="noticeType != null">notice_type,</if>
+            <if test="status != null">status,</if>
+            <if test="createBy != null">create_by,</if>
+            <if test="createTime != null">create_time,</if>
+            <if test="remark != null">remark,</if>
+        </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="type != null">#{type},</if>
+            <if test="title != null">#{title},</if>
+            <if test="content != null">#{content},</if>
+            <if test="data != null">#{data},</if>
+            <if test="scope != null">#{scope},</if>
+            <if test="userId != null">#{userId},</if>
+            <if test="userType != null">#{userType},</if>
+            <if test="noticeType != null">#{noticeType},</if>
+            <if test="status != null">#{status},</if>
+            <if test="createBy != null">#{createBy},</if>
+            <if test="createTime != null">#{createTime},</if>
+            <if test="remark != null">#{remark},</if>
+        </trim>
+    </insert>
+
+    <update id="updateNotification" parameterType="com.moyun.system.domain.entity.SysNotification">
+        update sys_notification
+        <trim prefix="SET" suffixOverrides=",">
+            <if test="type != null and type != ''">type = #{type},</if>
+            <if test="title != null">title = #{title},</if>
+            <if test="content != null">content = #{content},</if>
+            <if test="data != null">data = #{data},</if>
+            <if test="scope != null and scope != ''">scope = #{scope},</if>
+            <if test="userId != null">user_id = #{userId},</if>
+            <if test="userType != null and userType != ''">user_type = #{userType},</if>
+            <if test="noticeType != null">notice_type = #{noticeType},</if>
+            <if test="status != null">status = #{status},</if>
+            <if test="updateBy != null">update_by = #{updateBy},</if>
+            <if test="updateTime != null">update_time = #{updateTime},</if>
+            <if test="remark != null">remark = #{remark},</if>
+        </trim>
+        where id = #{id}
+    </update>
+
+    <delete id="deleteNotificationById" parameterType="Long">
+        delete from sys_notification where id = #{id}
+    </delete>
+
+    <delete id="deleteNotificationByIds" parameterType="Long">
+        delete from sys_notification where id in
+        <foreach item="id" collection="array" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </delete>
+
+    <!-- 查询用户未读通知（个人 + 广播，排除已读） -->
+    <select id="selectUnreadByUserId" resultMap="SysNotificationResult">
+        select n.id, n.type, n.title, n.content, n.data, n.scope, n.user_id, n.user_type, n.notice_type, n.status,
+               n.create_by, n.create_time, n.update_by, n.update_time, n.remark,
+               0 as is_read
+        from sys_notification n
+        where n.status = '0'
+        and (
+            (n.scope = 'user' and n.user_id = #{userId} and n.user_type = #{userType})
+            or n.scope = 'all'
+        )
+        and not exists (
+            select 1 from sys_notification_read r
+            where r.notification_id = n.id
+              and r.user_id = #{userId}
+              and r.user_type = #{userType}
+        )
+        order by n.create_time desc
+    </select>
+
+    <!-- 查询用户所有通知（含已读状态） -->
+    <select id="selectAllByUserId" resultMap="SysNotificationResult">
+        select n.id, n.type, n.title, n.content, n.data, n.scope, n.user_id, n.user_type, n.notice_type, n.status,
+               n.create_by, n.create_time, n.update_by, n.update_time, n.remark,
+               case when r.id is not null then 1 else 0 end as is_read
+        from sys_notification n
+        left join sys_notification_read r
+            on r.notification_id = n.id
+            and r.user_id = #{userId}
+            and r.user_type = #{userType}
+        where n.status = '0'
+        and (
+            (n.scope = 'user' and n.user_id = #{userId} and n.user_type = #{userType})
+            or n.scope = 'all'
+        )
+        order by n.create_time desc
+    </select>
+
+    <!-- 统计用户未读数 -->
+    <select id="countUnreadByUserId" resultType="int">
+        select count(*)
+        from sys_notification n
+        where n.status = '0'
+        and (
+            (n.scope = 'user' and n.user_id = #{userId} and n.user_type = #{userType})
+            or n.scope = 'all'
+        )
+        and not exists (
+            select 1 from sys_notification_read r
+            where r.notification_id = n.id
+              and r.user_id = #{userId}
+              and r.user_type = #{userType}
+        )
+    </select>
+</mapper>

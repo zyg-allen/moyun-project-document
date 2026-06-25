@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.moyun.system.mapper.SysNotificationReadMapper">
+
+    <!-- 标记单条通知已读（INSERT IGNORE 防重复） -->
+    <insert id="markAsRead">
+        insert ignore into sys_notification_read (notification_id, user_id, user_type, read_time, create_time)
+        values (#{notificationId}, #{userId}, #{userType}, now(), now())
+    </insert>
+
+    <!-- 标记用户所有未读通知为已读（批量 INSERT IGNORE） -->
+    <insert id="markAllAsRead">
+        insert ignore into sys_notification_read (notification_id, user_id, user_type, read_time, create_time)
+        select n.id, #{userId}, #{userType}, now(), now()
+        from sys_notification n
+        where n.status = '0'
+        and (
+            (n.scope = 'user' and n.user_id = #{userId} and n.user_type = #{userType})
+            or n.scope = 'all'
+        )
+        and not exists (
+            select 1 from sys_notification_read r
+            where r.notification_id = n.id
+              and r.user_id = #{userId}
+              and r.user_type = #{userType}
+        )
+    </insert>
+
+    <!-- 检查用户是否已读某条通知 -->
+    <select id="countByNotificationAndUser" resultType="int">
+        select count(*) from sys_notification_read
+        where notification_id = #{notificationId}
+          and user_id = #{userId}
+          and user_type = #{userType}
+    </select>
+</mapper>

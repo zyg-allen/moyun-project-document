@@ -129,6 +129,10 @@ public class PortalSecurityConfig {
                         .requestMatchers("/portal/user/profile/**").permitAll()
                         // 当前用户信息接口允许匿名访问（未登录返回null）
                         .requestMatchers("/portal/user/me").permitAll()
+                        // 作者主页：按 ID 查询用户公开信息，允许游客访问（/portal/user/{id}）
+                        .requestMatchers(HttpMethod.GET, "/portal/user/{id}").permitAll()
+                        // 用户统计（/portal/user/{id}/stats 或 /portal/user/stats）公开
+                        .requestMatchers(HttpMethod.GET, "/portal/user/{id}/stats").permitAll()
                         // 读书空间前台公开接口（书籍、书单、金句列表、详情、点赞）
                         .requestMatchers("/portal/reading/**").permitAll()
                         .requestMatchers("/portal/book/**").permitAll()
@@ -138,11 +142,12 @@ public class PortalSecurityConfig {
                         .requestMatchers("/portal/interview/**").permitAll()
                         // 帮助中心公开接口
                         .requestMatchers("/portal/help/**").permitAll()
-                        // 成长体系公开接口（排行榜、指定用户成长/统计/徽章）
+                        // 成长体系公开接口（排行榜、指定用户成长/统计/徽章/成就）
                         .requestMatchers(HttpMethod.GET, "/portal/growth/ranking").permitAll()
                         .requestMatchers(HttpMethod.GET, "/portal/growth/user/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/portal/growth/stats").permitAll()
                         .requestMatchers(HttpMethod.GET, "/portal/growth/badges").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/portal/growth/achievements").permitAll()
                         // 关注公开接口（检查关注状态，允许游客浏览作者主页）
                         .requestMatchers(HttpMethod.GET, "/portal/follow/check/**").permitAll()
                         // 后台管理接口（admin token 认证，由核心 SecurityConfig 处理）

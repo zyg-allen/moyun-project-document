@@ -3,7 +3,6 @@ import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { useHead } from '@vueuse/head';
 import {
-  Settings,
   ArrowLeft,
   Lock,
   Bell,
@@ -13,7 +12,6 @@ import {
   EyeOff,
   Save,
   Check,
-  Globe,
   UserCheck,
   Heart,
   MessageSquare,
@@ -333,9 +331,10 @@ function confirmDelete() {
                 <div class="space-y-4">
                   <!-- 当前密码 -->
                   <div>
-                    <label class="block text-sm font-medium mb-2" style="color: var(--theme-text);">当前密码</label>
+                    <label for="settings-old-password" class="block text-sm font-medium mb-2" style="color: var(--theme-text);">当前密码</label>
                     <div class="relative">
                       <input
+                        id="settings-old-password"
                         v-model="passwordForm.oldPassword"
                         :type="showOldPassword ? 'text' : 'password'"
                         placeholder="请输入当前密码"
@@ -346,6 +345,8 @@ function confirmDelete() {
                         @click="showOldPassword = !showOldPassword"
                         class="absolute right-4 top-1/2 -translate-y-1/2"
                         style="color: var(--theme-text-secondary);"
+                        :aria-label="showOldPassword ? '隐藏密码' : '显示密码'"
+                        :aria-pressed="showOldPassword"
                       >
                         <Eye v-if="!showOldPassword" class="w-5 h-5" />
                         <EyeOff v-else class="w-5 h-5" />
@@ -355,9 +356,10 @@ function confirmDelete() {
 
                   <!-- 新密码 -->
                   <div>
-                    <label class="block text-sm font-medium mb-2" style="color: var(--theme-text);">新密码</label>
+                    <label for="settings-new-password" class="block text-sm font-medium mb-2" style="color: var(--theme-text);">新密码</label>
                     <div class="relative">
                       <input
+                        id="settings-new-password"
                         v-model="passwordForm.newPassword"
                         :type="showNewPassword ? 'text' : 'password'"
                         placeholder="请输入新密码（至少6位）"
@@ -368,6 +370,8 @@ function confirmDelete() {
                         @click="showNewPassword = !showNewPassword"
                         class="absolute right-4 top-1/2 -translate-y-1/2"
                         style="color: var(--theme-text-secondary);"
+                        :aria-label="showNewPassword ? '隐藏密码' : '显示密码'"
+                        :aria-pressed="showNewPassword"
                       >
                         <Eye v-if="!showNewPassword" class="w-5 h-5" />
                         <EyeOff v-else class="w-5 h-5" />
@@ -377,9 +381,10 @@ function confirmDelete() {
 
                   <!-- 确认新密码 -->
                   <div>
-                    <label class="block text-sm font-medium mb-2" style="color: var(--theme-text);">确认新密码</label>
+                    <label for="settings-confirm-password" class="block text-sm font-medium mb-2" style="color: var(--theme-text);">确认新密码</label>
                     <div class="relative">
                       <input
+                        id="settings-confirm-password"
                         v-model="passwordForm.confirmPassword"
                         :type="showConfirmPassword ? 'text' : 'password'"
                         placeholder="请再次输入新密码"
@@ -390,6 +395,8 @@ function confirmDelete() {
                         @click="showConfirmPassword = !showConfirmPassword"
                         class="absolute right-4 top-1/2 -translate-y-1/2"
                         style="color: var(--theme-text-secondary);"
+                        :aria-label="showConfirmPassword ? '隐藏密码' : '显示密码'"
+                        :aria-pressed="showConfirmPassword"
                       >
                         <Eye v-if="!showConfirmPassword" class="w-5 h-5" />
                         <EyeOff v-else class="w-5 h-5" />
@@ -626,7 +633,9 @@ function confirmDelete() {
                         <p class="text-sm font-medium mb-3" style="color: var(--theme-text);">
                           为防止误操作，请在下方输入框中输入 "注销账号" 以确认：
                         </p>
+                        <label for="settings-delete-confirm" class="sr-only">输入"注销账号"以确认</label>
                         <input
+                          id="settings-delete-confirm"
                           v-model="deleteConfirmText"
                           type="text"
                           placeholder="注销账号"

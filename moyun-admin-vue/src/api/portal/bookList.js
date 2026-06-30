@@ -47,7 +47,7 @@ export function delBookList(id) {
 // 批量删除书单
 export function delBookListBatch(ids) {
   return request({
-    url: '/portal/admin/book-lists/' + ids,
+    url: '/portal/admin/book-lists/ids/' + ids,
     method: 'delete'
   })
 }

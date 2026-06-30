@@ -25,7 +25,7 @@ CREATE TABLE IF NOT EXISTS `portal_report` (
   `id`            bigint       NOT NULL AUTO_INCREMENT COMMENT '举报ID',
   `report_type`   varchar(32)  NOT NULL                COMMENT '举报类型：spam/inappropriate/infringement/fraud/other',
   `target_url`    varchar(500) DEFAULT NULL             COMMENT '举报目标URL',
-  `description`   varchar(1000) NOT NULL                COMMENT '问题描述',
+  `description`   varchar(2000) NOT NULL                COMMENT '问题描述',
   `contact`       varchar(100) DEFAULT NULL             COMMENT '联系方式（可选）',
   `images`        varchar(1000) DEFAULT NULL            COMMENT '图片证据（JSON数组，最多3张）',
   `user_id`       bigint       DEFAULT NULL             COMMENT '举报人用户ID',

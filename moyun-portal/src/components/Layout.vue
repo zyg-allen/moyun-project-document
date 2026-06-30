@@ -20,7 +20,14 @@ withDefaults(defineProps<Props>(), {
     </header>
 
     <!-- Main Content -->
-    <main class="flex-1">
+    <a
+      href="#main-content"
+      class="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-50 focus:px-4 focus:py-2 focus:rounded-lg focus:text-white"
+      :style="{ backgroundColor: 'var(--theme-primary)' }"
+    >
+      跳到主内容
+    </a>
+    <main id="main-content" class="flex-1">
       <slot />
     </main>
   </div>

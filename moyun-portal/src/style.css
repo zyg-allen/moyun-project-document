@@ -11,7 +11,10 @@
   --theme-border: #E5E7EB;
   --theme-surface: #F9FAFB;
   --theme-accent: #FEE2E2;
-  
+  /* 语义色（跨主题统一） */
+  --theme-danger: #DC2626;
+  --theme-success: #10B981;
+
   font-family:
     -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica,
     Arial, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji';

@@ -161,10 +161,11 @@ function clearError(field: string) {
             <form @submit.prevent="handleRegister" class="space-y-4">
               <!-- Username -->
               <div class="group">
-                <label class="block text-xs font-medium text-slate-600 mb-2 ml-1 tracking-wider">用户名</label>
+                <label for="register-username" class="block text-xs font-medium text-slate-600 mb-2 ml-1 tracking-wider">用户名</label>
                 <div class="relative">
                   <User class="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 group-focus-within:text-amber-500 transition-colors" />
                   <input
+                    id="register-username"
                     v-model="form.username"
                     type="text"
                     placeholder="请输入用户名"
@@ -185,10 +186,11 @@ function clearError(field: string) {
 
               <!-- Phone -->
               <div class="group">
-                <label class="block text-xs font-medium text-slate-600 mb-2 ml-1 tracking-wider">手机号</label>
+                <label for="register-phone" class="block text-xs font-medium text-slate-600 mb-2 ml-1 tracking-wider">手机号</label>
                 <div class="relative">
                   <Smartphone class="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 group-focus-within:text-amber-500 transition-colors" />
                   <input
+                    id="register-phone"
                     v-model="form.phone"
                     type="tel"
                     placeholder="请输入手机号"
@@ -209,11 +211,12 @@ function clearError(field: string) {
 
               <!-- Verification Code -->
               <div class="group">
-                <label class="block text-xs font-medium text-slate-600 mb-2 ml-1 tracking-wider">验证码</label>
+                <label for="register-code" class="block text-xs font-medium text-slate-600 mb-2 ml-1 tracking-wider">验证码</label>
                 <div class="flex gap-3">
                   <div class="relative flex-1">
                     <MessageSquare class="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 group-focus-within:text-amber-500 transition-colors" />
                     <input
+                      id="register-code"
                       v-model="form.code"
                       type="text"
                       placeholder="请输入验证码"
@@ -244,10 +247,11 @@ function clearError(field: string) {
 
               <!-- Password -->
               <div class="group">
-                <label class="block text-xs font-medium text-slate-600 mb-2 ml-1 tracking-wider">密码</label>
+                <label for="register-password" class="block text-xs font-medium text-slate-600 mb-2 ml-1 tracking-wider">密码</label>
                 <div class="relative">
                   <Lock class="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 group-focus-within:text-amber-500 transition-colors" />
                   <input
+                    id="register-password"
                     v-model="form.password"
                     :type="showPassword ? 'text' : 'password'"
                     placeholder="请设置密码（至少6位）"
@@ -264,6 +268,8 @@ function clearError(field: string) {
                     @click="showPassword = !showPassword"
                     class="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-amber-500 transition-colors duration-300"
                     :disabled="isLoading"
+                    :aria-label="showPassword ? '隐藏密码' : '显示密码'"
+                    :aria-pressed="showPassword"
                   >
                     <Eye v-if="!showPassword" class="w-5 h-5" />
                     <EyeOff v-else class="w-5 h-5" />
@@ -277,10 +283,11 @@ function clearError(field: string) {
 
               <!-- Confirm Password -->
               <div class="group">
-                <label class="block text-xs font-medium text-slate-600 mb-2 ml-1 tracking-wider">确认密码</label>
+                <label for="register-confirm-password" class="block text-xs font-medium text-slate-600 mb-2 ml-1 tracking-wider">确认密码</label>
                 <div class="relative">
                   <Lock class="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 group-focus-within:text-amber-500 transition-colors" />
                   <input
+                    id="register-confirm-password"
                     v-model="form.confirmPassword"
                     :type="showConfirmPassword ? 'text' : 'password'"
                     placeholder="请再次输入密码"
@@ -297,6 +304,8 @@ function clearError(field: string) {
                     @click="showConfirmPassword = !showConfirmPassword"
                     class="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-amber-500 transition-colors duration-300"
                     :disabled="isLoading"
+                    :aria-label="showConfirmPassword ? '隐藏密码' : '显示密码'"
+                    :aria-pressed="showConfirmPassword"
                   >
                     <Eye v-if="!showConfirmPassword" class="w-5 h-5" />
                     <EyeOff v-else class="w-5 h-5" />

@@ -124,7 +124,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
-import { useRouter } from 'vue-router';
+import { useRouter, useRoute } from 'vue-router';
 import {
   Plus, FileText, ImageIcon, Clock, Folder, Eye, Heart,
   Edit3, Send, Trash2, AlertCircle
@@ -134,6 +134,7 @@ import { useToast } from '@/composables/useToast';
 import { useConfirmModal } from '@/composables/useConfirmModal';
 
 const router = useRouter();
+const route = useRoute();
 const toast = useToast();
 const confirmModal = useConfirmModal();
 
@@ -143,7 +144,12 @@ const articles = ref<any[]>([]);
 const total = ref(0);
 const pageNum = ref(1);
 const pageSize = ref(10);
-const activeStatus = ref(''); // 空 = 全部
+
+// 从 query 参数初始化状态筛选（'all' 或空 → 全部，对应 activeStatus 空字符串）
+const validStatuses = ['all', 'draft', 'pending', 'published', 'rejected'];
+const queryStatus = (route.query.status as string) || '';
+const initialStatus = validStatuses.includes(queryStatus) && queryStatus !== 'all' ? queryStatus : '';
+const activeStatus = ref(initialStatus); // 空 = 全部
 
 // 状态 Tab 配置
 const statusTabs = computed(() => [

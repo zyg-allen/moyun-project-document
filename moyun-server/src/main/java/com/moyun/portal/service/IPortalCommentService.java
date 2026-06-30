@@ -90,4 +90,13 @@ public interface IPortalCommentService {
      * @return 包含评论列表和分页信息的Map
      */
     Map<String, Object> getCommentsByArticle(Long articleId, Integer pageNum, Integer pageSize);
+
+    /**
+     * 切换评论点赞状态（点赞 / 取消点赞，幂等 toggle）
+     *
+     * @param commentId 评论ID
+     * @param userId    当前登录用户ID
+     * @return 含 liked（当前是否已赞）和 likeCount（评论最新点赞数）
+     */
+    Map<String, Object> toggleLike(Long commentId, Long userId);
 }

@@ -45,4 +45,10 @@ public class TagQuery extends PageDomain {
      */
     @Schema(description = "所属模块", example = "article")
     private String module;
+
+    /**
+     * 分类ID（用于标签推荐：筛选该分类下文章使用过的标签）
+     */
+    @Schema(description = "分类ID", example = "1")
+    private Long categoryId;
 }

@@ -16,7 +16,6 @@ import com.moyun.ext.cms.domain.query.InterviewCommentQuery;
 import com.moyun.ext.cms.domain.query.InterviewExperienceQuery;
 import com.moyun.ext.cms.domain.query.InterviewQuestionQuery;
 import com.moyun.ext.cms.domain.query.InterviewResumeTemplateQuery;
-import com.moyun.ext.cms.domain.vo.InterviewBookmarkVO;
 import com.moyun.ext.cms.domain.vo.InterviewCommentVO;
 import com.moyun.ext.cms.domain.vo.InterviewExperienceVO;
 import com.moyun.ext.cms.domain.vo.InterviewQuestionVO;
@@ -25,7 +24,6 @@ import com.moyun.ext.cms.service.IPortalInterviewService;
 import com.moyun.portal.domain.entity.PortalInterviewCategory;
 import com.moyun.portal.domain.entity.PortalInterviewComment;
 import com.moyun.portal.domain.entity.PortalInterviewCompany;
-import com.moyun.portal.domain.entity.PortalInterviewExperience;
 import com.moyun.portal.domain.entity.PortalInterviewQuestion;
 import com.moyun.portal.domain.entity.PortalInterviewResumeTemplate;
 import com.moyun.portal.util.PortalSecurityUtils;
@@ -33,6 +31,10 @@ import com.moyun.util.bean.PageUtils;
 
 /**
  * 面试空间 Controller（门户端）
+ * <p>
+ * 说明：已清理以下死接口（仅删除 Controller 方法，保留 Service/Mapper/XML 实现）：
+ * getMyBookmarkList、adoptSubmission、publishExperience、updateExperience、
+ * deleteExperience、deleteComment、getResumeTemplateDetail、getCompanyList、getCompanyDetail
  *
  * @author moyun
  */
@@ -111,38 +113,12 @@ public class PortalInterviewController extends BaseController {
         return AjaxResult.success(portalInterviewService.toggleQuestionBookmark(questionId, userId, note));
     }
 
-    // ==================== 我的收藏 ====================
-    @Operation(summary = "我的收藏列表")
-    @GetMapping("/bookmark/list")
-    public AjaxResult getMyBookmarkList() {
-        Long userId = currentUserId();
-        if (userId == null) {
-            return AjaxResult.error(HttpStatus.UNAUTHORIZED, "登录已过期，请重新登录");
-        }
-        Page<InterviewBookmarkVO> page = this.startPage();
-        return AjaxResult.success(portalInterviewService.selectBookmarkPage(page, userId));
-    }
-
     // ==================== 精选笔记 ====================
     @Operation(summary = "查询某题目的精选笔记列表", description = "公开接口，返回后台采纳的优质笔记")
     @GetMapping("/question/{id}/featured-notes")
     @Anonymous
     public AjaxResult getFeaturedNotes(@PathVariable("id") Long questionId) {
         return AjaxResult.success(portalInterviewService.selectFeaturedSubmissions(questionId));
-    }
-
-    @Operation(summary = "采纳/取消采纳提交笔记为精选", description = "后台管理接口，需管理员权限")
-    @PostMapping("/submission/{id}/adopt")
-    public AjaxResult adoptSubmission(@PathVariable("id") Long submissionId,
-                                       @RequestParam(defaultValue = "true") boolean isFeatured) {
-        Long userId = currentUserId();
-        if (userId == null) {
-            return AjaxResult.error(HttpStatus.UNAUTHORIZED, "登录已过期，请重新登录");
-        }
-        if (!PortalSecurityUtils.isAdmin()) {
-            return AjaxResult.error(HttpStatus.FORBIDDEN, "无权限执行该操作");
-        }
-        return AjaxResult.success(portalInterviewService.adoptSubmission(submissionId, isFeatured));
     }
 
     // ==================== 面经管理 ====================
@@ -159,36 +135,6 @@ public class PortalInterviewController extends BaseController {
     @Anonymous
     public AjaxResult getExperienceDetail(@PathVariable("id") Long id) {
         return AjaxResult.success(portalInterviewService.selectExperienceDetailById(id, currentUserId()));
-    }
-
-    @Operation(summary = "发布面经")
-    @PostMapping("/experience")
-    public AjaxResult publishExperience(@RequestBody PortalInterviewExperience experience) {
-        Long userId = currentUserId();
-        if (userId == null) {
-            return AjaxResult.error(HttpStatus.UNAUTHORIZED, "登录已过期，请重新登录");
-        }
-        return AjaxResult.success(portalInterviewService.insertExperience(experience, userId));
-    }
-
-    @Operation(summary = "更新面经")
-    @PutMapping("/experience")
-    public AjaxResult updateExperience(@RequestBody PortalInterviewExperience experience) {
-        Long userId = currentUserId();
-        if (userId == null) {
-            return AjaxResult.error(HttpStatus.UNAUTHORIZED, "登录已过期，请重新登录");
-        }
-        return AjaxResult.success(portalInterviewService.updateExperience(experience, userId));
-    }
-
-    @Operation(summary = "删除面经")
-    @DeleteMapping("/experience/{id}")
-    public AjaxResult deleteExperience(@PathVariable("id") Long id) {
-        Long userId = currentUserId();
-        if (userId == null) {
-            return AjaxResult.error(HttpStatus.UNAUTHORIZED, "登录已过期，请重新登录");
-        }
-        return AjaxResult.success(portalInterviewService.deleteExperienceById(id, userId));
     }
 
     @Operation(summary = "点赞/取消点赞 面经")
@@ -220,16 +166,6 @@ public class PortalInterviewController extends BaseController {
         return AjaxResult.success(portalInterviewService.insertComment(comment, userId));
     }
 
-    @Operation(summary = "删除评论")
-    @DeleteMapping("/comment/{id}")
-    public AjaxResult deleteComment(@PathVariable("id") Long id) {
-        Long userId = currentUserId();
-        if (userId == null) {
-            return AjaxResult.error(HttpStatus.UNAUTHORIZED, "登录已过期，请重新登录");
-        }
-        return AjaxResult.success(portalInterviewService.deleteCommentById(id, userId));
-    }
-
     @Operation(summary = "点赞/取消点赞 评论")
     @PostMapping("/comment/{id}/like")
     public AjaxResult toggleCommentLike(@PathVariable("id") Long commentId) {
@@ -249,13 +185,6 @@ public class PortalInterviewController extends BaseController {
         return AjaxResult.success(portalInterviewService.selectResumeTemplatePage(page, query, currentUserId()));
     }
 
-    @Operation(summary = "获取简历模板详情")
-    @GetMapping("/resume/{id}")
-    @Anonymous
-    public AjaxResult getResumeTemplateDetail(@PathVariable("id") Long id) {
-        return AjaxResult.success(portalInterviewService.selectResumeTemplateById(id));
-    }
-
     @Operation(summary = "下载简历模板（返回下载地址）")
     @GetMapping("/resume/{id}/download")
     @Anonymous
@@ -271,20 +200,5 @@ public class PortalInterviewController extends BaseController {
             return AjaxResult.error(HttpStatus.UNAUTHORIZED, "登录已过期，请重新登录");
         }
         return AjaxResult.success(portalInterviewService.toggleResumeTemplateLike(templateId, userId));
-    }
-
-    // ==================== 公司标签 ====================
-    @Operation(summary = "获取公司标签列表")
-    @GetMapping("/company/list")
-    @Anonymous
-    public AjaxResult getCompanyList() {
-        return AjaxResult.success(portalInterviewService.selectCompanyList(new com.moyun.ext.cms.domain.query.InterviewCompanyQuery()));
-    }
-
-    @Operation(summary = "获取公司标签详情")
-    @GetMapping("/company/{id}")
-    @Anonymous
-    public AjaxResult getCompanyDetail(@PathVariable("id") Long id) {
-        return AjaxResult.success(portalInterviewService.selectCompanyById(id));
     }
 }

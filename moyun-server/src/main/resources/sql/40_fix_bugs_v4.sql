@@ -109,6 +109,13 @@ WHERE `perms` LIKE 'cms:comment:%'
   AND `menu_id` NOT IN (SELECT `menu_id` FROM `sys_role_menu` WHERE `role_id` = 1);
 
 -- =============================================
+-- 5. 修复 portal_report.description 列长与实体校验不一致
+--    实体 PortalReport.java @Size(max=2000)，原建表为 varchar(1000)
+--    统一为 varchar(2000)，避免 1001-2000 字的举报描述写入失败
+-- =============================================
+ALTER TABLE `portal_report` MODIFY COLUMN `description` varchar(2000) NOT NULL COMMENT '问题描述';
+
+-- =============================================
 -- 验证查询（执行后可手动运行核对）
 -- =============================================
 -- SELECT menu_id, menu_name, parent_id, path, component, status, visible, perms

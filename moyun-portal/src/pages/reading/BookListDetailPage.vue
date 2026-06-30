@@ -2,7 +2,7 @@
 import { ref, onMounted, watch, computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useHead } from '@vueuse/head';
-import { BookOpen, Star, ArrowLeft, Users, Heart, Bookmark, BookmarkCheck, Eye } from 'lucide-vue-next';
+import { BookOpen, Star, ArrowLeft, Heart, Bookmark, BookmarkCheck, Eye } from 'lucide-vue-next';
 import LazyImage from '@/components/LazyImage.vue';
 import SiteFooter from '@/components/SiteFooter.vue';
 import { generateSeo } from '@/utils/seo';
@@ -322,8 +322,6 @@ watch(listId, (newId, oldId) => {
     </div>
 
     <!-- 页脚 -->
-    <div class="mt-auto">
-      <SiteFooter />
-    </div>
+    <SiteFooter />
   </div>
 </template>

@@ -12,13 +12,21 @@ import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 import com.moyun.common.annotation.Log;
+import com.moyun.common.constant.HttpStatus;
 import com.moyun.common.enums.BusinessType;
 import com.moyun.core.base.AjaxResult;
 import com.moyun.core.base.BaseController;
 import com.moyun.portal.domain.entity.PortalWallet;
 import com.moyun.portal.service.IPortalWalletService;
+import com.moyun.portal.util.PortalSecurityUtils;
 import com.moyun.util.file.ExcelUtil;
 
+/**
+ * 门户钱包 Controller（v7.0 第六阶段预留）
+ *
+ * <p>安全说明：钱包属敏感资源，写操作（export/add/edit/remove）仅管理员可调用，
+ * 读操作（list/getInfo）需登录。当前为预留接口，正式启用前需补充业务校验。</p>
+ */
 @Tag(name = "门户钱包", description = "门户钱包的增删改查操作接口")
 @RestController
 @RequestMapping("/portal/wallet")
@@ -30,6 +38,9 @@ public class PortalWalletController extends BaseController {
     @Operation(summary = "获取钱包列表", description = "根据条件分页查询钱包列表")
     @GetMapping("/list")
     public AjaxResult list(PortalWallet portalWallet) {
+        if (PortalSecurityUtils.getUserId() == null) {
+            return AjaxResult.error(HttpStatus.UNAUTHORIZED, "请先登录");
+        }
         // 使用 startPage() 创建分页对象，自动从请求参数获取 page 和 pageSize
         Page<PortalWallet> page = startPage();
         // 调用分页查询方法
@@ -38,10 +49,13 @@ public class PortalWalletController extends BaseController {
         return success(resultPage);
     }
 
-    @Operation(summary = "导出钱包", description = "导出钱包数据到Excel文件")
+    @Operation(summary = "导出钱包", description = "导出钱包数据到Excel文件（仅管理员）")
     @Log(title = "门户钱包", businessType = BusinessType.EXPORT)
     @PostMapping("/export")
     public void export(HttpServletResponse response, PortalWallet portalWallet) {
+        if (!PortalSecurityUtils.isAdmin()) {
+            throw new com.moyun.common.exception.system.ServiceException("无权限，仅管理员可操作");
+        }
         // 导出时不分页，调用不分页的查询方法
         List<PortalWallet> list = portalWalletService.selectPortalWalletList(portalWallet);
         ExcelUtil<PortalWallet> util = new ExcelUtil<PortalWallet>(PortalWallet.class);
@@ -51,27 +65,39 @@ public class PortalWalletController extends BaseController {
     @Operation(summary = "获取钱包详情", description = "根据钱包ID获取钱包详细信息")
     @GetMapping(value = "/{id}")
     public AjaxResult getInfo(@Parameter(description = "钱包ID") @PathVariable Long id) {
+        if (PortalSecurityUtils.getUserId() == null) {
+            return AjaxResult.error(HttpStatus.UNAUTHORIZED, "请先登录");
+        }
         return success(portalWalletService.selectPortalWalletById(id));
     }
 
-    @Operation(summary = "新增钱包", description = "创建新钱包")
+    @Operation(summary = "新增钱包", description = "创建新钱包（仅管理员）")
     @Log(title = "门户钱包", businessType = BusinessType.INSERT)
     @PostMapping
     public AjaxResult add(@Validated @RequestBody PortalWallet portalWallet) {
+        if (!PortalSecurityUtils.isAdmin()) {
+            return AjaxResult.error(HttpStatus.UNAUTHORIZED, "无权限，仅管理员可操作");
+        }
         return toAjax(portalWalletService.insertPortalWallet(portalWallet));
     }
 
-    @Operation(summary = "修改钱包", description = "更新钱包信息")
+    @Operation(summary = "修改钱包", description = "更新钱包信息（仅管理员）")
     @Log(title = "门户钱包", businessType = BusinessType.UPDATE)
     @PutMapping
     public AjaxResult edit(@Validated @RequestBody PortalWallet portalWallet) {
+        if (!PortalSecurityUtils.isAdmin()) {
+            return AjaxResult.error(HttpStatus.UNAUTHORIZED, "无权限，仅管理员可操作");
+        }
         return toAjax(portalWalletService.updatePortalWallet(portalWallet));
     }
 
-    @Operation(summary = "删除钱包", description = "批量删除钱包")
+    @Operation(summary = "删除钱包", description = "批量删除钱包（仅管理员）")
     @Log(title = "门户钱包", businessType = BusinessType.DELETE)
     @DeleteMapping("/{ids}")
     public AjaxResult remove(@Parameter(description = "钱包ID数组") @PathVariable Long[] ids) {
+        if (!PortalSecurityUtils.isAdmin()) {
+            return AjaxResult.error(HttpStatus.UNAUTHORIZED, "无权限，仅管理员可操作");
+        }
         return toAjax(portalWalletService.deletePortalWalletByIds(ids));
     }
 }

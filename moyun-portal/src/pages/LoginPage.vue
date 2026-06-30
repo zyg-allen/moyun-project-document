@@ -141,6 +141,11 @@ function handleSocialLogin(type: 'wechat' | 'gitee') {
   toast.info(`${type === 'wechat' ? '微信' : 'Gitee'}登录功能开发中...`);
 }
 
+// 忘记密码（暂未实现，给出友好提示）
+function handleForgotPassword() {
+  toast.info('忘记密码功能开发中，如需重置请联系管理员');
+}
+
 function clearError(field: string) {
   if (errors.value[field]) {
     errors.value[field] = '';
@@ -219,10 +224,11 @@ function clearError(field: string) {
             <form v-if="loginType === 'password'" @submit.prevent="handlePasswordLogin" class="space-y-5">
               <!-- Username -->
               <div class="group">
-                <label class="block text-xs font-medium text-slate-600 mb-2 ml-1 tracking-wider">用户名</label>
+                <label for="login-username" class="block text-xs font-medium text-slate-600 mb-2 ml-1 tracking-wider">用户名</label>
                 <div class="relative">
                   <User class="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 group-focus-within:text-amber-500 transition-colors" />
                   <input
+                    id="login-username"
                     v-model="passwordForm.username"
                     type="text"
                     placeholder="请输入用户名"
@@ -243,10 +249,11 @@ function clearError(field: string) {
 
               <!-- Password -->
               <div class="group">
-                <label class="block text-xs font-medium text-slate-600 mb-2 ml-1 tracking-wider">密码</label>
+                <label for="login-password" class="block text-xs font-medium text-slate-600 mb-2 ml-1 tracking-wider">密码</label>
                 <div class="relative">
                   <Lock class="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 group-focus-within:text-amber-500 transition-colors" />
                   <input
+                    id="login-password"
                     v-model="passwordForm.password"
                     :type="showPassword ? 'text' : 'password'"
                     placeholder="请输入密码"
@@ -263,6 +270,8 @@ function clearError(field: string) {
                     @click="showPassword = !showPassword"
                     class="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-amber-500 transition-colors duration-300"
                     :disabled="isLoading"
+                    :aria-label="showPassword ? '隐藏密码' : '显示密码'"
+                    :aria-pressed="showPassword"
                   >
                     <Eye v-if="!showPassword" class="w-5 h-5" />
                     <EyeOff v-else class="w-5 h-5" />
@@ -286,7 +295,7 @@ function clearError(field: string) {
                   </div>
                   <span class="ml-2 text-sm text-slate-500 group-hover:text-slate-700 transition-colors">记住我</span>
                 </label>
-                <a href="#" class="text-sm text-amber-600 hover:text-amber-700 font-medium transition-colors hover:underline underline-offset-4">忘记密码？</a>
+                <button type="button" @click="handleForgotPassword" class="text-sm text-amber-600 hover:text-amber-700 font-medium transition-colors hover:underline underline-offset-4">忘记密码？</button>
               </div>
 
               <!-- Submit -->
@@ -310,10 +319,11 @@ function clearError(field: string) {
             <form v-else @submit.prevent="handleSmsLogin" class="space-y-5">
               <!-- Phone -->
               <div class="group">
-                <label class="block text-xs font-medium text-slate-600 mb-2 ml-1 tracking-wider">手机号</label>
+                <label for="login-phone" class="block text-xs font-medium text-slate-600 mb-2 ml-1 tracking-wider">手机号</label>
                 <div class="relative">
                   <Smartphone class="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 group-focus-within:text-amber-500 transition-colors" />
                   <input
+                    id="login-phone"
                     v-model="smsForm.phone"
                     type="tel"
                     placeholder="请输入手机号"
@@ -334,11 +344,12 @@ function clearError(field: string) {
 
               <!-- Verification Code -->
               <div class="group">
-                <label class="block text-xs font-medium text-slate-600 mb-2 ml-1 tracking-wider">验证码</label>
+                <label for="login-code" class="block text-xs font-medium text-slate-600 mb-2 ml-1 tracking-wider">验证码</label>
                 <div class="flex gap-3">
                   <div class="relative flex-1">
                     <MessageSquare class="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 group-focus-within:text-amber-500 transition-colors" />
                     <input
+                      id="login-code"
                       v-model="smsForm.code"
                       type="text"
                       placeholder="请输入验证码"

@@ -1,17 +1,19 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { RouterLink as Link, useRouter } from 'vue-router'
 import { useHead } from '@vueuse/head'
 import {
-  Search, ChevronRight, ChevronLeft, Star, Flame,
-  User, Heart, Eye, Clock, Tag, BookOpen, Calendar,
-  MessageSquare, Quote, MoreHorizontal, ArrowRight, Sparkles,
-  Mic, Code, Book, Briefcase, Users, Pen, MessageCircle, Upload, CheckCircle
+  ChevronRight, ChevronLeft, Star, Flame,
+  User, Eye, Tag, BookOpen,
+  Quote, ArrowRight, Sparkles,
+  Book, Briefcase, Users,
+  AlertCircle, RefreshCw
 } from 'lucide-vue-next'
 import LazyImage from '@/components/LazyImage.vue'
 import SiteFooter from '@/components/SiteFooter.vue'
 import BackToTop from '@/components/BackToTop.vue'
 import { generateSeo } from '@/utils/seo'
+import { transformArticle } from '@/utils/articleTransform'
 import * as articleApi from '@/api/article'
 import * as categoryApi from '@/api/category'
 import { filterCategoryTree, getCategoryTarget } from '@/api/category'
@@ -64,29 +66,6 @@ const interviewExperiences = ref<any[]>([])
 const interviewCategories = ref<any[]>([])
 const interviewTotalQuestions = ref(0)
 
-const transformArticle = (apiArticle: any): any => {
-  return {
-    id: String(apiArticle.id),
-    title: apiArticle.title,
-    content: apiArticle.content || '',
-    excerpt: apiArticle.excerpt || apiArticle.content?.substring(0, 100) || '',
-    cover: apiArticle.cover || apiArticle.thumbnail,
-    author: {
-      id: String(apiArticle.authorId || apiArticle.userId || '1'),
-      username: apiArticle.authorNickname || apiArticle.authorUsername || apiArticle.nickname || '作者',
-      nickname: apiArticle.authorNickname || apiArticle.authorUsername || apiArticle.nickname || '作者',
-      avatar: apiArticle.authorAvatar || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&h=150&fit=crop',
-      bio: apiArticle.authorBio || '热爱写作，分享生活'
-    },
-    category: apiArticle.categoryName || apiArticle.category || '散文',
-    tags: apiArticle.tagNames || apiArticle.tags || [],
-    views: Number(apiArticle.views || 0),
-    likes: Number(apiArticle.likes || 0),
-    comments: Number(apiArticle.comments || 0),
-    createdAt: apiArticle.createdAt || apiArticle.createTime || apiArticle.publishedAt || new Date().toISOString().split('T')[0]
-  }
-}
-
 const loadHomeData = async () => {
   try {
     loading.value = true
@@ -100,7 +79,7 @@ const loadHomeData = async () => {
       if (carouselArticles.value.length > 0) {
         heroImages.value = carouselArticles.value.map((article, index) => ({
           id: String(article.id),
-          image: article.cover || `https://images.unsplash.com/photo-${1500000000000 + index * 10000}?w=1200&h=600&fit=crop`,
+          image: article.cover || '',
           title: article.title,
           subtitle: article.excerpt,
           author: '文 / ' + (article.author?.nickname || article.author?.username || '作者'),
@@ -112,7 +91,13 @@ const loadHomeData = async () => {
     }
   } catch (err) {
     console.error('加载首页数据失败:', err)
+    error.value = '加载首页数据失败，请稍后重试'
   }
+}
+
+const retryLoad = async () => {
+  error.value = null
+  await loadAll()
 }
 
 const loadCategories = async () => {
@@ -204,6 +189,23 @@ const nextHero = () => {
   currentHeroIndex.value = (currentHeroIndex.value + 1) % heroImages.value.length
 }
 
+// 轮播定时器（仅当有多张图时启动）
+let heroTimer: ReturnType<typeof setInterval> | null = null
+
+const startHeroAutoplay = () => {
+  if (heroTimer || heroImages.value.length <= 1) return
+  heroTimer = setInterval(() => {
+    nextHero()
+  }, 5000)
+}
+
+const stopHeroAutoplay = () => {
+  if (heroTimer) {
+    clearInterval(heroTimer)
+    heroTimer = null
+  }
+}
+
 const themes = computed(() => {
   return filterCategoryTree(categories.value)
     .map((cat: Category) => {
@@ -222,29 +224,40 @@ const activeTheme = ref('')
 
 const trendingArticles = computed(() => hotArticles.value.slice(0, 6))
 
-onMounted(async () => {
-  await Promise.all([
-    loadHomeData(),
-    loadCategories(),
-    loadTags(),
-    loadAuthors(),
-    loadFriendLinks(),
-    loadReadingData(),
-    loadInterviewData()
-  ])
-  if (themes.value.length > 0) {
-    activeTheme.value = themes.value[0].name
-    await loadCategoryArticles(themes.value[0].name)
-  } else {
-    activeTheme.value = '散文'
+const loadAll = async () => {
+  try {
+    loading.value = true
+    await Promise.all([
+      loadHomeData(),
+      loadCategories(),
+      loadTags(),
+      loadAuthors(),
+      loadFriendLinks(),
+      loadReadingData(),
+      loadInterviewData()
+    ])
+    if (themes.value.length > 0) {
+      activeTheme.value = themes.value[0].name
+      await loadCategoryArticles(themes.value[0].name)
+    } else {
+      activeTheme.value = '散文'
+    }
+  } catch (e) {
+    console.error('加载首页数据失败:', e)
+    error.value = '加载首页数据失败，请稍后重试'
+  } finally {
+    loading.value = false
+    // 数据加载完成后启动轮播（仅当有多张图时）
+    startHeroAutoplay()
   }
-  loading.value = false
+}
 
-  if (heroImages.value.length === 0) {
-    setInterval(() => {
-      nextHero()
-    }, 5000)
-  }
+onMounted(() => {
+  loadAll()
+})
+
+onUnmounted(() => {
+  stopHeroAutoplay()
 })
 
 const selectTheme = async (themeId: string, themeName: string) => {
@@ -342,7 +355,27 @@ useHead(
 
 <template>
   <div style="background-color: var(--theme-bg); min-height: 100vh;" class="flex flex-col">
-    <div class="py-4 sm:py-6" style="background-color: var(--theme-bg);">
+    <div v-if="loading" class="min-h-[60vh] flex items-center justify-center" style="background-color: var(--theme-bg);">
+      <div class="flex flex-col items-center gap-4">
+        <div class="w-10 h-10 rounded-full animate-spin" style="border-width: 3px; border-style: solid; border-color: var(--theme-border); border-top-color: var(--theme-primary);"></div>
+        <p class="text-sm" style="color: var(--theme-text-secondary);">正在加载首页内容...</p>
+      </div>
+    </div>
+    <div v-else-if="error" class="min-h-[60vh] flex items-center justify-center px-4" style="background-color: var(--theme-bg);">
+      <div class="text-center max-w-md">
+        <div class="w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4" style="background-color: var(--theme-accent);">
+          <AlertCircle class="w-10 h-10" style="color: var(--theme-primary);" />
+        </div>
+        <h3 class="text-xl font-bold mb-2" style="color: var(--theme-text);">加载失败</h3>
+        <p class="text-sm mb-6" style="color: var(--theme-text-secondary);">{{ error }}</p>
+        <button @click="retryLoad" class="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-medium text-white" style="background-color: var(--theme-primary);">
+          <RefreshCw class="w-4 h-4" />
+          重新加载
+        </button>
+      </div>
+    </div>
+    <template v-else>
+    <div class="py-6 sm:py-8" style="background-color: var(--theme-bg);">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div class="text-center mb-4 sm:mb-6">
           <p class="text-sm sm:text-base text-gray-600">
@@ -353,7 +386,7 @@ useHead(
           </p>
         </div>
 
-        <div class="relative h-[280px] sm:h-[320px] md:h-[380px] overflow-hidden rounded-xl shadow-lg">
+        <div class="relative h-[280px] sm:h-[320px] md:h-[380px] overflow-hidden rounded-xl shadow-lg" style="background-color: var(--theme-accent);">
           <div v-if="heroImages.length > 0">
             <div class="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-black/70"></div>
             <LazyImage
@@ -365,7 +398,7 @@ useHead(
             <div class="absolute inset-0 flex flex-col justify-end pb-8 sm:pb-10 md:pb-12">
               <div class="px-6 sm:px-8 md:px-10">
                 <div class="max-w-3xl">
-                  <div class="inline-flex items-center space-x-2 bg-red-600 text-white px-3 py-1 rounded-full text-xs font-medium mb-3 sm:mb-4">
+                  <div class="inline-flex items-center space-x-2 px-3 py-1 rounded-full text-xs font-medium mb-3 sm:mb-4" style="background-color: var(--theme-primary); color: white;">
                     <span class="w-2 h-2 bg-yellow-400 rounded-full animate-pulse"></span>
                     {{ heroImages[currentHeroIndex].tag }}
                   </div>
@@ -388,7 +421,8 @@ useHead(
                     <span class="text-gray-300 text-sm">{{ heroImages[currentHeroIndex].author }}</span>
                     <button
                         @click="router.push(`/article/${heroImages[currentHeroIndex].articleId}`)"
-                        class="inline-flex items-center space-x-2 px-4 sm:px-5 py-2 sm:py-2.5 bg-red-600 text-white rounded-full text-sm font-medium hover:bg-red-700 transition-colors"
+                        class="inline-flex items-center space-x-2 px-4 sm:px-5 py-2 sm:py-2.5 rounded-full text-sm font-medium hover:opacity-90 transition-opacity"
+                        style="background-color: var(--theme-primary); color: white;"
                     >
                       <span>阅读全文</span>
                       <ChevronRight class="w-4 h-4" />
@@ -399,13 +433,13 @@ useHead(
             </div>
             <button
                 @click="prevHero"
-                class="absolute left-2 sm:left-3 top-1/2 -translate-y-1/2 w-7 h-7 sm:w-8 sm:h-8 bg-black/30 backdrop-blur text-white rounded-full flex items-center justify-center hover:bg-black/50 transition-colors"
+                class="absolute left-2 sm:left-3 top-1/2 -translate-y-1/2 w-11 h-11 bg-black/30 backdrop-blur text-white rounded-full flex items-center justify-center hover:bg-black/50 transition-colors"
             >
               <ChevronLeft class="w-4 h-4 sm:w-5 sm:h-5" />
             </button>
             <button
                 @click="nextHero"
-                class="absolute right-2 sm:right-3 top-1/2 -translate-y-1/2 w-7 h-7 sm:w-8 sm:h-8 bg-black/30 backdrop-blur text-white rounded-full flex items-center justify-center hover:bg-black/50 transition-colors"
+                class="absolute right-2 sm:right-3 top-1/2 -translate-y-1/2 w-11 h-11 bg-black/30 backdrop-blur text-white rounded-full flex items-center justify-center hover:bg-black/50 transition-colors"
             >
               <ChevronRight class="w-4 h-4 sm:w-5 sm:h-5" />
             </button>
@@ -414,8 +448,14 @@ useHead(
                   v-for="(_, index) in heroImages"
                   :key="index"
                   @click="currentHeroIndex = index"
-                  :class="['w-1.5 h-1.5 rounded-full transition-all', currentHeroIndex === index ? 'bg-red-600 w-5' : 'bg-white/50 hover:bg-white/70']"
-              ></button>
+                  class="p-2 flex items-center justify-center"
+                  :aria-label="`切换到第 ${index + 1} 张`"
+              >
+                <span
+                    :class="['block rounded-full transition-all', currentHeroIndex === index ? 'w-5 h-1.5' : 'w-1.5 h-1.5 bg-white/50 hover:bg-white/70']"
+                    :style="currentHeroIndex === index ? { backgroundColor: 'var(--theme-primary)' } : {}"
+                ></span>
+              </button>
             </div>
           </div>
           <div v-else class="w-full h-full flex items-center justify-center bg-gray-200">
@@ -442,7 +482,7 @@ useHead(
           <button
               @click="handleWrite"
               class="flex items-center justify-between py-3 sm:py-4 px-4 text-left hover:opacity-90 transition-opacity"
-              style="background-color: #dc2626;"
+              style="background-color: var(--theme-primary);"
           >
             <div>
               <p class="text-white font-semibold text-sm sm:text-base">今天，写点什么？</p>
@@ -456,7 +496,7 @@ useHead(
       </div>
     </div>
 
-    <div class="py-4 sm:py-6" style="background-color: var(--theme-bg);">
+    <div class="py-6 sm:py-8" style="background-color: var(--theme-bg);">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div class="grid lg:grid-cols-[2fr_1fr] gap-4 sm:gap-6">
           <div>
@@ -471,11 +511,12 @@ useHead(
               </button>
             </div>
             <div class="space-y-2 sm:space-y-3">
-              <div
+              <button
+                  type="button"
                   v-for="(article, index) in featuredArticles.slice(0, 8)"
                   :key="article.id"
                   @click.stop="router.push('/article/' + article.id)"
-                  class="group flex gap-2 sm:gap-3 p-2 sm:p-3 rounded-lg cursor-pointer transition-colors"
+                  class="group flex gap-2 sm:gap-3 p-2 sm:p-3 rounded-lg cursor-pointer transition-colors w-full text-left"
                   :style="{ backgroundColor: 'var(--theme-surface)' }"
               >
                 <div class="relative w-20 h-14 sm:w-24 sm:h-16 flex-shrink-0">
@@ -486,7 +527,8 @@ useHead(
                   />
                   <span
                       v-if="index === 0"
-                      class="absolute top-1 left-1 px-1.5 py-0.5 bg-red-600 text-white text-xs rounded"
+                      class="absolute top-1 left-1 px-1.5 py-0.5 text-white text-xs rounded"
+                      style="background-color: var(--theme-primary);"
                   >
                     置顶
                   </span>
@@ -506,7 +548,7 @@ useHead(
                     <span>{{ article.views }} 阅读</span>
                   </div>
                 </div>
-              </div>
+              </button>
             </div>
           </div>
 
@@ -517,11 +559,12 @@ useHead(
                 <h3 class="font-semibold text-sm sm:text-base" style="color: var(--theme-text);">热门推荐</h3>
               </div>
               <div class="space-y-2 sm:space-y-3">
-                <div
+                <button
+                    type="button"
                     v-for="(article, index) in trendingArticles"
                     :key="article.id"
                     @click.stop="router.push('/article/' + article.id)"
-                    class="flex items-start gap-2 cursor-pointer"
+                    class="flex items-start gap-2 cursor-pointer w-full text-left"
                 >
                   <span
                       class="w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0"
@@ -540,7 +583,7 @@ useHead(
                       </span>
                     </div>
                   </div>
-                </div>
+                </button>
               </div>
             </div>
 
@@ -569,7 +612,7 @@ useHead(
       </div>
     </div>
 
-    <div class="py-4 sm:py-6" style="background-color: var(--theme-bg);">
+    <div class="py-6 sm:py-8" style="background-color: var(--theme-bg);">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div class="p-4 sm:p-5 rounded-xl" style="background-color: var(--theme-surface);">
           <div class="flex items-center justify-between mb-4">
@@ -590,9 +633,10 @@ useHead(
 
           <div class="grid grid-cols-1 md:grid-cols-4 gap-3 sm:gap-4">
             <!-- 本月共读 / 精选书籍 -->
-            <div
+            <button
+                type="button"
                 v-if="readingBooks.length > 0"
-                class="relative h-28 sm:h-32 rounded-xl overflow-hidden cursor-pointer"
+                class="relative h-28 sm:h-32 rounded-xl overflow-hidden cursor-pointer w-full text-left"
                 @click="router.push(`/reading/book/${readingBooks[0].id}`)"
             >
               <LazyImage
@@ -606,7 +650,7 @@ useHead(
                 <p class="text-white/80 text-xs mb-3">{{ readingBooks[0].author }}</p>
                 <span class="px-3 py-1 bg-white text-green-700 rounded-full text-xs font-medium">立即阅读</span>
               </div>
-            </div>
+            </button>
             <div v-else class="relative h-28 sm:h-32 rounded-xl overflow-hidden">
               <div class="absolute inset-0 bg-gradient-to-br from-green-600 to-green-800"></div>
               <div class="absolute inset-0 p-3 sm:p-4">
@@ -624,15 +668,16 @@ useHead(
                 <span class="font-medium text-xs sm:text-sm" style="color: var(--theme-text);">热门书单</span>
               </div>
               <div class="space-y-2.5">
-                <div
+                <button
+                    type="button"
                     v-for="bl in readingBookLists"
                     :key="bl.id"
-                    class="flex items-center gap-2 cursor-pointer hover:text-orange-500 transition-colors"
+                    class="flex items-center gap-2 cursor-pointer hover:text-orange-500 transition-colors w-full text-left"
                     @click="router.push(`/reading/book-list/${bl.id}`)"
                 >
                   <div class="w-1.5 h-1.5 rounded-full bg-orange-500"></div>
                   <span class="text-xs line-clamp-1" style="color: var(--theme-text-secondary);">{{ bl.title }}</span>
-                </div>
+                </button>
                 <div v-if="readingBookLists.length === 0" class="text-xs" style="color: var(--theme-text-secondary);">暂无书单</div>
               </div>
             </div>
@@ -669,7 +714,7 @@ useHead(
       </div>
     </div>
 
-    <div class="py-4 sm:py-6" style="background-color: var(--theme-bg);">
+    <div class="py-6 sm:py-8" style="background-color: var(--theme-bg);">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div class="p-4 sm:p-5 rounded-xl" style="background-color: var(--theme-surface);">
           <div class="flex items-center justify-between mb-4">
@@ -696,15 +741,16 @@ useHead(
                 <span class="px-2 py-0.5 bg-red-100 text-red-600 rounded text-xs">hot</span>
               </div>
               <div class="space-y-2.5">
-                <div
+                <button
+                    type="button"
                     v-for="q in interviewQuestions"
                     :key="q.id"
-                    class="flex items-center justify-between cursor-pointer hover:text-blue-500 transition-colors"
+                    class="flex items-center justify-between cursor-pointer hover:text-blue-500 transition-colors w-full text-left"
                     @click="router.push(`/interview/question/${q.id}`)"
                 >
                   <span class="text-xs line-clamp-1" style="color: var(--theme-text-secondary);">{{ q.title }}</span>
                   <span class="text-xs flex-shrink-0 ml-2" style="color: var(--theme-text-secondary);">{{ q.submissionCount || 0 }}提交</span>
-                </div>
+                </button>
                 <div v-if="interviewQuestions.length === 0" class="text-xs" style="color: var(--theme-text-secondary);">暂无题目</div>
               </div>
             </div>
@@ -716,15 +762,16 @@ useHead(
                 <span class="px-2 py-0.5 bg-blue-100 text-blue-600 rounded text-xs">new</span>
               </div>
               <div class="space-y-2.5">
-                <div
+                <button
+                    type="button"
                     v-for="exp in interviewExperiences"
                     :key="exp.id"
-                    class="flex items-center justify-between cursor-pointer hover:text-blue-500 transition-colors"
+                    class="flex items-center justify-between cursor-pointer hover:text-blue-500 transition-colors w-full text-left"
                     @click="router.push(`/interview/experience/${exp.id}`)"
                 >
                   <span class="text-xs line-clamp-1" style="color: var(--theme-text-secondary);">{{ exp.title }}</span>
                   <span v-if="exp.company" class="text-xs flex-shrink-0 ml-2" style="color: var(--theme-text-secondary);">{{ exp.company }}</span>
-                </div>
+                </button>
                 <div v-if="interviewExperiences.length === 0" class="text-xs" style="color: var(--theme-text-secondary);">暂无面经</div>
               </div>
             </div>
@@ -735,15 +782,16 @@ useHead(
                 <span class="font-medium text-xs sm:text-sm" style="color: var(--theme-text);">题目分类</span>
               </div>
               <div class="space-y-2.5">
-                <div
+                <button
+                    type="button"
                     v-for="cat in interviewCategories"
                     :key="cat.id"
-                    class="flex items-center justify-between cursor-pointer hover:text-blue-500 transition-colors"
+                    class="flex items-center justify-between cursor-pointer hover:text-blue-500 transition-colors w-full text-left"
                     @click="router.push('/interview/questions')"
                 >
                   <span class="text-xs line-clamp-1" style="color: var(--theme-text-secondary);">{{ cat.name }}</span>
                   <span class="text-xs flex-shrink-0 ml-2" style="color: var(--theme-text-secondary);">{{ cat.questionCount || 0 }}道</span>
-                </div>
+                </button>
                 <div v-if="interviewCategories.length === 0" class="text-xs" style="color: var(--theme-text-secondary);">暂无分类</div>
               </div>
             </div>
@@ -752,20 +800,12 @@ useHead(
       </div>
     </div>
 
-    <div class="py-4 sm:py-6 border-t" style="background-color: var(--theme-bg); border-color: var(--theme-border);">
+    <div class="py-6 sm:py-8 border-t" style="background-color: var(--theme-bg); border-color: var(--theme-border);">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div class="flex items-center justify-between mb-3 sm:mb-4">
           <div class="flex items-center gap-2">
             <BookOpen class="w-4 h-4 sm:w-5 sm:h-5" style="color: var(--theme-primary);" />
             <h2 class="text-base sm:text-lg font-bold" style="color: var(--theme-text);">按主题探索</h2>
-          </div>
-          <div class="flex items-center gap-1.5">
-            <button class="w-5 h-5 sm:w-6 sm:h-6 rounded border flex items-center justify-center" style="border-color: var(--theme-border);">
-              <ChevronLeft class="w-3 h-3 sm:w-4 sm:h-4" />
-            </button>
-            <button class="w-5 h-5 sm:w-6 sm:h-6 rounded border flex items-center justify-center" style="border-color: var(--theme-border);">
-              <ChevronRight class="w-3 h-3 sm:w-4 sm:h-4" />
-            </button>
           </div>
         </div>
 
@@ -793,24 +833,25 @@ useHead(
             </button>
           </div>
           <div class="grid sm:grid-cols-2 gap-4 sm:gap-6">
-            <div
+            <button
+                type="button"
                 v-for="article in getThemeArticles(activeTheme)"
                 :key="article.id"
                 @click.stop="router.push('/article/' + article.id)"
-                class="flex items-center gap-2 cursor-pointer"
+                class="flex items-center gap-2 cursor-pointer w-full text-left"
             >
               <div class="w-1 h-1 rounded-full" style="background-color: var(--theme-primary);"></div>
               <span class="text-xs sm:text-sm line-clamp-1 flex-1" style="color: var(--theme-text);">
                 {{ article.title }}
               </span>
               <span class="text-xs flex-shrink-0" style="color: var(--theme-text-secondary);">{{ article.createdAt }}</span>
-            </div>
+            </button>
           </div>
         </div>
       </div>
     </div>
 
-    <div class="py-4 sm:py-6" style="background-color: var(--theme-bg);">
+    <div class="py-6 sm:py-8" style="background-color: var(--theme-bg);">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div class="flex items-center justify-between mb-3 sm:mb-4">
           <div class="flex items-center gap-2">
@@ -822,19 +863,16 @@ useHead(
               <span>全部作者</span>
               <ArrowRight class="w-3 h-3 sm:w-4 sm:h-4" />
             </Link>
-            <div class="flex items-center gap-1">
-              <button class="w-5 h-5 sm:w-6 sm:h-6 rounded border flex items-center justify-center text-xs" style="border-color: var(--theme-border);">4</button>
-              <button class="w-5 h-5 sm:w-6 sm:h-6 rounded border flex items-center justify-center text-xs" style="border-color: var(--theme-border);">></button>
-            </div>
           </div>
         </div>
 
         <div v-if="authors.length > 0" class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3 sm:gap-4">
-          <div
+          <button
+              type="button"
               v-for="author in authors"
               :key="author.id"
               @click="goToAuthor(author.id)"
-              class="text-center p-3 sm:p-4 rounded-xl cursor-pointer transition-colors"
+              class="text-center p-3 sm:p-4 rounded-xl cursor-pointer transition-colors w-full"
               :style="{ backgroundColor: 'var(--theme-surface)' }"
           >
             <div class="w-10 h-10 sm:w-12 sm:h-12 mx-auto mb-2 rounded-full bg-gradient-to-br from-red-100 to-orange-100 flex items-center justify-center">
@@ -844,14 +882,7 @@ useHead(
             <p class="text-xs" style="color: var(--theme-text-secondary);">已创作 {{ author.works }} 篇</p>
             <p class="text-xs" style="color: var(--theme-text-secondary);">{{ author.likes }} 喜欢</p>
             <p class="text-xs" style="color: var(--theme-text-secondary);">坚持 {{ author.days }} 天</p>
-            <button
-                @click.stop
-                class="mt-2 px-3 py-1 rounded-full text-xs border"
-                style="border-color: var(--theme-primary); color: var(--theme-primary);"
-            >
-              关注作者
-            </button>
-          </div>
+          </button>
         </div>
         <div v-else class="py-8 text-center" style="color: var(--theme-text-secondary);">
           <p class="text-sm">暂无名家数据</p>
@@ -859,7 +890,7 @@ useHead(
       </div>
     </div>
 
-    <div class="py-4 sm:py-6 border-t" style="background-color: var(--theme-surface); border-color: var(--theme-border);">
+    <div class="py-6 sm:py-8 border-t" style="background-color: var(--theme-surface); border-color: var(--theme-border);">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div class="space-y-6 sm:space-y-8">
           <div class="rounded-xl p-4 sm:p-5" style="background-color: var(--theme-bg);">
@@ -868,7 +899,8 @@ useHead(
               <h3 class="font-semibold text-sm sm:text-base" style="color: var(--theme-text);">热门标签</h3>
             </div>
             <nav class="flex flex-wrap gap-1.5 sm:gap-2">
-              <span
+              <button
+                  type="button"
                   v-for="tag in (tags.length > 0 ? tags : [{ id: '1', name: '文学' }, { id: '2', name: '散文' }, { id: '3', name: '随笔' }])"
                   :key="tag.id || tag"
                   @click="router.push(`/tag/${encodeURIComponent(tag.name || tag)}`)"
@@ -877,7 +909,7 @@ useHead(
               >
                 <Tag class="w-3 h-3" />
                 {{ tag.name || tag }}
-              </span>
+              </button>
             </nav>
           </div>
 
@@ -904,11 +936,12 @@ useHead(
       </div>
     </div>
 
-    <div class="mt-4 sm:mt-6">
+    <div class="mt-6 sm:mt-8">
       <SiteFooter />
     </div>
 
     <BackToTop />
+    </template>
   </div>
 </template>
 

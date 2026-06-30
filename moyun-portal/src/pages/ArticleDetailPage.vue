@@ -142,6 +142,38 @@ const articleUpdateDate = computed(() => {
 
 const displayedComments = computed(() => comments.value); // 后端已分页，直接使用所有评论
 const hasMoreComments = computed(() => commentsHasMore.value); // 使用后端返回的 hasMore
+
+// 审核状态进度条
+const auditStep = computed(() => {
+  const s = article.value?.status;
+  if (s === 'draft') return 1;
+  if (s === 'pending') return 2;
+  if (s === 'rejected') return 2; // 驳回仍停留在审核步骤
+  if (s === 'published') return 3;
+  return 1;
+});
+const auditStatusText = computed(() => {
+  const s = article.value?.status;
+  if (s === 'draft') return '草稿未提交';
+  if (s === 'pending') return '审核中，请耐心等待';
+  if (s === 'rejected') return '审核未通过';
+  if (s === 'archived') return '已归档';
+  return '';
+});
+const auditStatusColor = computed(() => {
+  const s = article.value?.status;
+  if (s === 'rejected') return '#dc2626';
+  if (s === 'pending') return '#d97706';
+  if (s === 'draft') return 'var(--theme-text-secondary)';
+  return 'var(--theme-primary)';
+});
+const auditStatusBarStyle = computed(() => {
+  const s = article.value?.status;
+  if (s === 'rejected') return { backgroundColor: '#fef2f2', borderLeft: '4px solid #dc2626' };
+  if (s === 'pending') return { backgroundColor: '#fffbeb', borderLeft: '4px solid #d97706' };
+  return { backgroundColor: 'var(--theme-accent)', borderLeft: '4px solid var(--theme-primary)' };
+});
+
 const totalCommentsCount = computed(() => {
   let count = 0;
   const countReplies = (cmts: Comment[]) => {
@@ -166,24 +198,26 @@ async function loadArticle() {
   try {
     const articleId = route.params.id as string;
 
-    const response = await articleApi.getArticleDetail({id: articleId});
+    // 三个独立请求并行：详情、评论、阅读量
+    const [response, , viewResponse] = await Promise.all([
+      articleApi.getArticleDetail({id: articleId}),
+      loadComments(articleId),
+      // 增加阅读量（支持防刷逻辑），失败不应阻断详情加载
+      articleApi.incrementView(articleId).catch((viewError) => {
+        console.error('增加阅读量失败:', viewError);
+        return null;
+      }),
+    ]);
+
     if (response.code === 200) {
       article.value = response.data as Article;
     } else {
       error.value = response.message || '加载文章失败';
     }
 
-    await loadComments(articleId);
-
-    // 增加阅读量（支持防刷逻辑）
-    try {
-      const viewResponse = await articleApi.incrementView(articleId);
-      if (viewResponse.code === 200 && viewResponse.data && article.value) {
-        // 更新文章阅读量
-        article.value.views = viewResponse.data.views;
-      }
-    } catch (viewError) {
-      console.error('增加阅读量失败:', viewError);
+    // 更新文章阅读量
+    if (viewResponse && viewResponse.code === 200 && viewResponse.data && article.value) {
+      article.value.views = viewResponse.data.views;
     }
   } catch (err) {
     console.error('加载文章失败:', err);
@@ -593,12 +627,43 @@ const head = useHead(
         <!-- Article exists - show content -->
         <template v-if="article">
           <article
-              class="rounded-xl mb-4 min-h-[80vh] w-full"
+              class="rounded-xl mb-4 w-full"
               style="background-color: var(--theme-surface); border: 1px solid var(--theme-border);"
               role="article"
               :aria-labelledby="'article-title-' + article.id"
           >
-            <div class="p-4 sm:p-6 md:p-8 w-full flex flex-col min-h-[80vh]">
+            <div class="p-4 sm:p-6 md:p-8 w-full flex flex-col">
+
+              <!-- 审核状态进度条（仅非 published 状态显示） -->
+              <div v-if="article.status && article.status !== 'published'" class="mb-4 p-4 rounded-lg" :style="auditStatusBarStyle">
+                <div class="flex items-center gap-3 mb-2">
+                  <Clock class="w-5 h-5 flex-shrink-0" :style="{ color: auditStatusColor }" />
+                  <span class="font-medium" :style="{ color: auditStatusColor }">{{ auditStatusText }}</span>
+                </div>
+                <!-- 进度条 -->
+                <div class="flex items-center gap-2 text-xs">
+                  <div class="flex-1 flex items-center gap-1">
+                    <div class="w-6 h-6 rounded-full flex items-center justify-center text-white text-xs" style="background-color: var(--theme-primary);">1</div>
+                    <span style="color: var(--theme-text-secondary);">撰写</span>
+                  </div>
+                  <div class="flex-1 h-0.5" :style="{ backgroundColor: auditStep >= 2 ? 'var(--theme-primary)' : 'var(--theme-border)' }"></div>
+                  <div class="flex-1 flex items-center gap-1">
+                    <div class="w-6 h-6 rounded-full flex items-center justify-center text-xs" :style="{ backgroundColor: auditStep >= 2 ? 'var(--theme-primary)' : 'var(--theme-border)', color: auditStep >= 2 ? 'white' : 'var(--theme-text-secondary)' }">2</div>
+                    <span :style="{ color: auditStep >= 2 ? 'var(--theme-text)' : 'var(--theme-text-secondary)' }">审核中</span>
+                  </div>
+                  <div class="flex-1 h-0.5" :style="{ backgroundColor: auditStep >= 3 ? 'var(--theme-primary)' : 'var(--theme-border)' }"></div>
+                  <div class="flex-1 flex items-center gap-1">
+                    <div class="w-6 h-6 rounded-full flex items-center justify-center text-xs" :style="{ backgroundColor: auditStep >= 3 ? 'var(--theme-primary)' : 'var(--theme-border)', color: auditStep >= 3 ? 'white' : 'var(--theme-text-secondary)' }">3</div>
+                    <span :style="{ color: auditStep >= 3 ? 'var(--theme-text)' : 'var(--theme-text-secondary)' }">已发布</span>
+                  </div>
+                </div>
+                <p v-if="article.status === 'rejected' && article.remark" class="mt-3 text-sm" style="color: var(--theme-text-secondary);">
+                  审核意见：{{ article.remark }}
+                </p>
+                <p v-if="article.status === 'rejected'" class="mt-2">
+                  <Link to="/publish" class="text-sm font-medium" style="color: var(--theme-primary);">去修改并重新提交 →</Link>
+                </p>
+              </div>
 
               <!-- 标题区域 -->
               <div class="text-center mb-3">
@@ -1048,9 +1113,7 @@ const head = useHead(
     </div>
 
     <!-- 公共Footer组件 -->
-    <div class="mt-8 sm:mt-10 lg:mt-12">
-      <SiteFooter/>
-    </div>
+    <SiteFooter />
 
     <!-- 返回顶部按钮 -->
     <BackToTop/>

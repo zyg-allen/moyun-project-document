@@ -18,24 +18,6 @@ export function getComment(commentId) {
   })
 }
 
-// 新增评论
-export function addComment(data) {
-  return request({
-    url: '/cms/comment',
-    method: 'post',
-    data: data
-  })
-}
-
-// 修改评论
-export function updateComment(data) {
-  return request({
-    url: '/cms/comment',
-    method: 'put',
-    data: data
-  })
-}
-
 // 删除评论
 export function delComment(commentId) {
   return request({

@@ -2,9 +2,9 @@
 import { ref, computed, onMounted } from 'vue';
 import { RouterLink as Link, useRouter } from 'vue-router';
 import { useHead } from '@vueuse/head';
-import { 
-  User as UserIcon, Search, Filter, ChevronDown, Star, Heart, Clock, 
-  ArrowRight, Calendar, Trophy, Award, Medal
+import {
+  User as UserIcon, Search, ChevronDown, Star,
+  ArrowRight, Calendar
 } from 'lucide-vue-next';
 import SiteFooter from '@/components/SiteFooter.vue';
 import Breadcrumb from '@/components/Breadcrumb.vue';

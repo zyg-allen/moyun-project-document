@@ -238,7 +238,7 @@ public interface PortalArticleMapper extends BaseMapper<PortalArticle> {
             "coalesce(sum(views), 0) AS totalViews, " +
             "coalesce(sum(likes), 0) AS totalLikes, " +
             "coalesce(sum(comments), 0) AS totalComments " +
-            "FROM portal_article WHERE del_flag = '0'")
+            "FROM portal_article")
     Map<String, Object> selectArticleMetrics();
 
     /**
@@ -246,7 +246,7 @@ public interface PortalArticleMapper extends BaseMapper<PortalArticle> {
      */
     @Select("SELECT DATE(create_time) AS date, count(*) AS value " +
             "FROM portal_article " +
-            "WHERE del_flag = '0' AND create_time >= #{startTime} " +
+            "WHERE create_time >= #{startTime} " +
             "GROUP BY DATE(create_time) ORDER BY date")
     List<Map<String, Object>> selectDailyPublishTrend(@Param("startTime") java.time.LocalDateTime startTime);
 
@@ -258,8 +258,7 @@ public interface PortalArticleMapper extends BaseMapper<PortalArticle> {
             "coalesce(sum(a.views), 0) AS totalViews, " +
             "coalesce(sum(a.likes), 0) AS totalLikes " +
             "FROM portal_category c " +
-            "LEFT JOIN portal_article a ON a.category_id = c.id AND a.del_flag = '0' AND a.status = 'published' " +
-            "WHERE c.del_flag = '0' " +
+            "LEFT JOIN portal_article a ON a.category_id = c.id AND a.status = 'published' " +
             "GROUP BY c.id, c.name " +
             "ORDER BY articleCount DESC, totalViews DESC " +
             "LIMIT #{limit}")
@@ -272,7 +271,7 @@ public interface PortalArticleMapper extends BaseMapper<PortalArticle> {
             "u.nickname AS authorNickname, u.username AS authorUsername " +
             "FROM portal_article a " +
             "LEFT JOIN portal_user u ON u.id = a.author_id " +
-            "WHERE a.status = 'pending' AND a.del_flag = '0' " +
+            "WHERE a.status = 'pending' " +
             "ORDER BY a.create_time ASC " +
             "LIMIT #{limit}")
     List<Map<String, Object>> selectPendingArticles(@Param("limit") int limit);
@@ -280,7 +279,7 @@ public interface PortalArticleMapper extends BaseMapper<PortalArticle> {
     /**
      * 统计待审核文章数量
      */
-    @Select("SELECT count(*) FROM portal_article WHERE status = 'pending' AND del_flag = '0'")
+    @Select("SELECT count(*) FROM portal_article WHERE status = 'pending'")
     long countPendingArticles();
 
     /**
@@ -290,7 +289,7 @@ public interface PortalArticleMapper extends BaseMapper<PortalArticle> {
             "(coalesce(views,0) + coalesce(likes,0) * 5) AS score, " +
             "author_id AS authorId " +
             "FROM portal_article " +
-            "WHERE status = 'published' AND del_flag = '0' " +
+            "WHERE status = 'published' " +
             "ORDER BY score DESC " +
             "LIMIT #{limit}")
     List<Map<String, Object>> selectHotArticlesForRanking(@Param("limit") int limit);

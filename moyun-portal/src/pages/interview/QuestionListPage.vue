@@ -140,7 +140,7 @@ function goBack() {
 </script>
 
 <template>
-  <div class="min-h-screen flex flex-col" style="background-color: var(--theme-surface);">
+  <div class="min-h-screen flex flex-col" style="background-color: var(--theme-bg);">
     <!-- 顶部导航栏 -->
     <div
       class="border-b sticky top-0 z-30"
@@ -161,7 +161,7 @@ function goBack() {
     <!-- Hero 区 -->
     <div
       class="text-white py-14 relative overflow-hidden"
-      style="background: linear-gradient(135deg, var(--theme-primary), color-mix(in srgb, var(--theme-primary), black 20%));"
+      style="background: linear-gradient(135deg, var(--theme-primary), color-mix(in srgb, var(--theme-primary) 60%, #4338ca 100%));"
     >
       <div class="absolute inset-0 opacity-10 pointer-events-none">
         <div class="absolute top-10 left-10 w-64 h-64 rounded-full bg-white"></div>
@@ -175,7 +175,9 @@ function goBack() {
             class="w-5 h-5 absolute left-4 top-1/2 -translate-y-1/2"
             style="color: var(--theme-text-secondary);"
           />
+          <label for="question-search-input" class="sr-only">搜索题目</label>
           <input
+            id="question-search-input"
             v-model="searchInput"
             @keyup.enter="doSearch"
             type="text"
@@ -203,7 +205,7 @@ function goBack() {
             <!-- 分类筛选 -->
             <div
               class="rounded-xl shadow-sm p-4 mb-4"
-              style="background-color: var(--theme-bg); border: 1px solid var(--theme-border);"
+              style="background-color: var(--theme-surface); border: 1px solid var(--theme-border);"
             >
               <h3 class="text-sm font-semibold mb-3 flex items-center" style="color: var(--theme-text);">
                 <BookOpen class="w-4 h-4 mr-2" />
@@ -233,7 +235,7 @@ function goBack() {
             <!-- 难度筛选 -->
             <div
               class="rounded-xl shadow-sm p-4"
-              style="background-color: var(--theme-bg); border: 1px solid var(--theme-border);"
+              style="background-color: var(--theme-surface); border: 1px solid var(--theme-border);"
             >
               <h3 class="text-sm font-semibold mb-3 flex items-center" style="color: var(--theme-text);">
                 <Zap class="w-4 h-4 mr-2" />
@@ -268,7 +270,7 @@ function goBack() {
             <div
               v-else-if="error"
               class="rounded-xl p-8 text-center"
-              style="background-color: var(--theme-bg); border: 1px solid var(--theme-border);"
+              style="background-color: var(--theme-surface); border: 1px solid var(--theme-border);"
             >
               <p class="mb-4" style="color: var(--theme-primary);">{{ error }}</p>
               <button
@@ -284,7 +286,7 @@ function goBack() {
             <div
               v-else-if="questions.length === 0"
               class="rounded-xl py-16 text-center"
-              style="background-color: var(--theme-bg); border: 1px solid var(--theme-border);"
+              style="background-color: var(--theme-surface); border: 1px solid var(--theme-border);"
             >
               <BookOpen
                 class="w-12 h-12 mx-auto mb-3"
@@ -301,7 +303,7 @@ function goBack() {
                   :key="q.id"
                   @click="gotoQuestion(q.id)"
                   class="rounded-xl shadow-sm hover:shadow-md transition cursor-pointer p-5"
-                  style="background-color: var(--theme-bg); border: 1px solid var(--theme-border);"
+                  style="background-color: var(--theme-surface); border: 1px solid var(--theme-border);"
                 >
                   <!-- 标签行 -->
                   <div class="flex items-center flex-wrap gap-2 mb-2">
@@ -314,7 +316,7 @@ function goBack() {
                     <span
                       v-if="q.categoryName"
                       class="px-2.5 py-1 rounded-full text-xs font-medium"
-                      style="background-color: var(--theme-surface); color: var(--theme-text-secondary);"
+                      style="background-color: var(--theme-bg); color: var(--theme-text-secondary);"
                     >
                       <BookOpen class="w-3 h-3 inline mr-1" />
                       {{ q.categoryName }}
@@ -323,7 +325,7 @@ function goBack() {
                       v-for="tag in (q.tags || []).slice(0, 3)"
                       :key="tag"
                       class="px-2 py-1 rounded text-xs"
-                      style="background-color: var(--theme-surface); color: var(--theme-text-secondary);"
+                      style="background-color: var(--theme-bg); color: var(--theme-text-secondary);"
                     >
                       #{{ tag }}
                     </span>
@@ -353,7 +355,7 @@ function goBack() {
                       v-for="c in q.companies.slice(0, 4)"
                       :key="c.id"
                       class="px-2 py-0.5 rounded text-xs"
-                      style="background-color: var(--theme-surface); color: var(--theme-text-secondary);"
+                      style="background-color: var(--theme-bg); color: var(--theme-text-secondary);"
                     >
                       {{ c.name }}
                     </span>
@@ -382,8 +384,9 @@ function goBack() {
                 <button
                   @click="gotoPage(page - 1)"
                   :disabled="page === 1"
+                  :aria-label="`第 ${page - 1} 页`"
                   class="px-3 py-2 rounded-lg text-sm transition disabled:opacity-40"
-                  style="background-color: var(--theme-bg); border: 1px solid var(--theme-border); color: var(--theme-text-secondary);"
+                  style="background-color: var(--theme-surface); border: 1px solid var(--theme-border); color: var(--theme-text-secondary);"
                 >
                   <ChevronLeft class="w-4 h-4" />
                 </button>
@@ -393,8 +396,9 @@ function goBack() {
                 <button
                   @click="gotoPage(page + 1)"
                   :disabled="page === totalPages"
+                  :aria-label="`第 ${page + 1} 页`"
                   class="px-3 py-2 rounded-lg text-sm transition disabled:opacity-40"
-                  style="background-color: var(--theme-bg); border: 1px solid var(--theme-border); color: var(--theme-text-secondary);"
+                  style="background-color: var(--theme-surface); border: 1px solid var(--theme-border); color: var(--theme-text-secondary);"
                 >
                   <ChevronRight class="w-4 h-4" />
                 </button>

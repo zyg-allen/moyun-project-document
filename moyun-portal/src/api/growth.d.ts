@@ -1,0 +1,11 @@
+import type { UserGrowthVO, UserStatsVO, UserBadgeVO, AchievementVO, GrowthRankingItem, CheckinResult } from '@/types/api';
+export declare const getMyGrowth: () => Promise<import("./client").ApiResponse<UserGrowthVO>>;
+export declare const getUserGrowth: (userId: string | number) => Promise<import("./client").ApiResponse<UserGrowthVO>>;
+export declare const getMyStats: () => Promise<import("./client").ApiResponse<UserStatsVO>>;
+export declare const getUserStatsById: (userId: string | number) => Promise<import("./client").ApiResponse<UserStatsVO>>;
+export declare const getMyBadges: () => Promise<import("./client").ApiResponse<UserBadgeVO[]>>;
+export declare const getUserBadges: (userId: string | number) => Promise<import("./client").ApiResponse<UserBadgeVO[]>>;
+export declare const getMyAchievements: () => Promise<import("./client").ApiResponse<AchievementVO[]>>;
+export declare const getUserAchievements: (userId: string | number) => Promise<import("./client").ApiResponse<AchievementVO[]>>;
+export declare const getGrowthRanking: (limit?: number) => Promise<import("./client").ApiResponse<GrowthRankingItem[]>>;
+export declare const checkin: () => Promise<import("./client").ApiResponse<CheckinResult>>;

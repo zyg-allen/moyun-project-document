@@ -10,6 +10,7 @@ import java.util.stream.Collectors;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -100,7 +101,8 @@ public class PortalTagServiceImpl extends ServiceImpl<PortalTagMapper, PortalTag
                 // 去除前缀 # 符号及首尾空白（# 属于展示符号，不应入库）
                 String name = stripTagPrefix(rawName.trim());
                 if (name.isEmpty()) continue;
-                PortalTag tag = portalTagMapper.selectByNameAndModule(name, module);
+                // 按 name 查重（与 uk_name 唯一约束一致，不依赖 module）
+                PortalTag tag = portalTagMapper.selectByName(name);
                 if (tag == null) {
                     tag = new PortalTag();
                     tag.setName(name);
@@ -108,7 +110,15 @@ public class PortalTagServiceImpl extends ServiceImpl<PortalTagMapper, PortalTag
                     tag.setReferenceCount(0L);
                     tag.setStatus("0");
                     tag.setCreateTime(LocalDateTime.now());
-                    portalTagMapper.insertPortalTag(tag);
+                    try {
+                        portalTagMapper.insertPortalTag(tag);
+                    } catch (DuplicateKeyException e) {
+                        // 并发或跨 module 同名：uk_name 冲突，回查复用已存在的 tag
+                        tag = portalTagMapper.selectByName(name);
+                        if (tag == null) {
+                            throw e;
+                        }
+                    }
                 }
                 finalIds.add(tag.getId());
             }

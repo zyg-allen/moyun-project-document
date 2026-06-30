@@ -35,14 +35,17 @@
         <el-row :gutter="20">
           <el-col :span="12">
             <el-form-item label="文章分类" prop="categoryId">
-              <el-select v-model="form.categoryId" placeholder="请选择分类" style="width: 100%">
-                <el-option
-                  v-for="item in categoryOptions"
-                  :key="item.id"
-                  :label="item.name"
-                  :value="item.id"
-                />
-              </el-select>
+              <el-tree-select
+                v-model="form.categoryId"
+                :data="categoryOptions"
+                :props="{ value: 'id', label: 'name', children: 'children' }"
+                value-key="id"
+                placeholder="请选择分类"
+                clearable
+                filterable
+                check-strictly
+                style="width: 100%"
+              />
             </el-form-item>
           </el-col>
           <el-col :span="12">
@@ -63,6 +66,11 @@
           <el-col :span="12">
             <el-form-item label="封面图片" prop="cover">
               <ImageUpload v-model="form.cover" />
+              <div class="cover-hint" :class="{ 'is-carousel': form.isCarousel }">
+                <span v-if="form.isCarousel" class="hint-tag">轮播图·必填</span>
+                <span v-else class="hint-tag hint-tag-optional">封面·可选</span>
+                <span class="hint-text">{{ coverSizeHint }}</span>
+              </div>
             </el-form-item>
           </el-col>
           <el-col :span="12">
@@ -81,7 +89,7 @@
             <el-form-item label="作者" prop="authorId">
               <el-select
                 v-model="form.authorId"
-                placeholder="请选择作者（门户用户）"
+                placeholder="留空则自动使用当前管理员的门户账户"
                 filterable
                 clearable
                 style="width: 100%"
@@ -93,6 +101,7 @@
                   :value="item.id"
                 />
               </el-select>
+              <div class="field-tip">不选择时，后端会自动将当前后台用户映射到门户作者账户（无账户则自动建户）</div>
             </el-form-item>
           </el-col>
         </el-row>
@@ -184,21 +193,51 @@
             </el-form-item>
           </el-col>
           <el-col :span="8">
-            <el-form-item label="是否置顶" prop="isTop">
-              <el-switch v-model="form.isTop" />
+            <el-form-item label="发布时间" prop="publishedAt">
+              <el-date-picker
+                v-model="form.publishedAt"
+                type="datetime"
+                value-format="YYYY-MM-DD HH:mm:ss"
+                placeholder="选择发布时间"
+                style="width: 100%"
+              />
             </el-form-item>
           </el-col>
           <el-col :span="8">
-            <el-form-item label="是否精选" prop="isFeatured">
-              <el-switch v-model="form.isFeatured" />
+            <el-form-item label="是否置顶" prop="isTop">
+              <el-switch v-model="form.isTop" />
             </el-form-item>
           </el-col>
         </el-row>
         
         <el-row :gutter="20">
           <el-col :span="8">
+            <el-form-item label="是否精选" prop="isFeatured">
+              <el-switch v-model="form.isFeatured" />
+            </el-form-item>
+          </el-col>
+          <el-col :span="8">
             <el-form-item label="是否轮播" prop="isCarousel">
               <el-switch v-model="form.isCarousel" />
+              <div class="field-tip">开启后封面图片<span class="text-danger">必填</span>，建议宽屏横幅</div>
+            </el-form-item>
+          </el-col>
+          <el-col :span="8">
+            <el-form-item label="分类推荐" prop="isCategoryRecommended">
+              <el-switch v-model="form.isCategoryRecommended" />
+              <div class="field-tip">开启后在所属分类页推荐展示</div>
+            </el-form-item>
+          </el-col>
+        </el-row>
+
+        <el-row :gutter="20">
+          <el-col :span="24">
+            <el-form-item label="SEO别名" prop="slug">
+              <el-input
+                v-model="form.slug"
+                placeholder="留空则按标题自动生成，用于 /article/{id}/{slug} 语义化路径"
+                clearable
+              />
             </el-form-item>
           </el-col>
         </el-row>
@@ -268,16 +307,42 @@ const data = reactive({
     isTop: false,
     isFeatured: false,
     isCarousel: false,
+    isCategoryRecommended: false,
+    publishedAt: null,
+    slug: "",
     status: "draft",
     remark: ""
-  },
-  rules: {
-    title: [{ required: true, message: "文章标题不能为空", trigger: "blur" }],
-    categoryId: [{ required: true, message: "文章分类不能为空", trigger: "change" }]
   }
 });
 
-const { form, rules } = toRefs(data);
+const { form } = toRefs(data);
+
+// 封面图片尺寸提示（根据是否轮播动态切换）
+const coverSizeHint = computed(() => {
+  if (form.value.isCarousel) {
+    return "轮播图必填，建议尺寸 1920×600（宽屏横幅），支持 JPG/PNG/WebP，单张 ≤ 2MB";
+  }
+  return "封面可选，建议尺寸 800×450（方正缩略图），支持 JPG/PNG/WebP，单张 ≤ 1MB";
+});
+
+// 校验规则（cover 必填性随 isCarousel 动态联动）
+const rules = computed(() => ({
+  title: [{ required: true, message: "文章标题不能为空", trigger: "blur" }],
+  categoryId: [{ required: true, message: "文章分类不能为空", trigger: "change" }],
+  cover: form.value.isCarousel
+    ? [{ required: true, message: "开启轮播后封面图片必填", trigger: "change" }]
+    : []
+}));
+
+// 轮播开关切换时动态联动：重新校验封面字段
+watch(() => form.value.isCarousel, (val) => {
+  if (articleRef.value) {
+    articleRef.value.clearValidate('cover');
+    if (val && form.value.cover) {
+      articleRef.value.validateField('cover');
+    }
+  }
+});
 
 // Markdown 预览
 const markdownPreview = computed(() => {
@@ -294,10 +359,14 @@ const markdownPreview = computed(() => {
     .replace(/\n/g, '<br>');
 });
 
-// 查询分类列表
+// 查询分类列表（构建为树结构，支持二级分类层级选择）
 function getCategoryList() {
   listCategory({ pageNum: 1, pageSize: 100 }).then(response => {
-    categoryOptions.value = response.rows || response.data || [];
+    const listData = (response.data && Array.isArray(response.data)) ? response.data
+                   : (response.rows && Array.isArray(response.rows)) ? response.rows
+                   : [];
+    // 构建树结构（一级栏目 → 二级栏目）
+    categoryOptions.value = proxy.handleTree(listData, "id");
   });
 }
 
@@ -496,7 +565,54 @@ init();
       font-weight: 600;
     }
   }
-  
+
+  .cover-hint {
+    margin-top: 8px;
+    font-size: 12px;
+    line-height: 1.6;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    color: var(--el-text-color-secondary);
+
+    .hint-tag {
+      padding: 1px 8px;
+      border-radius: 4px;
+      background: var(--el-color-danger-light-8);
+      color: var(--el-color-danger);
+      font-weight: 600;
+      white-space: nowrap;
+    }
+
+    .hint-tag-optional {
+      background: var(--el-fill-color);
+      color: var(--el-text-color-secondary);
+      font-weight: 400;
+    }
+
+    .hint-text {
+      flex: 1;
+      min-width: 0;
+    }
+
+    &.is-carousel .hint-text {
+      color: var(--el-color-danger);
+    }
+  }
+
+  .field-tip {
+    font-size: 12px;
+    color: var(--el-text-color-secondary);
+    line-height: 1.5;
+    margin-top: 4px;
+  }
+
+  .text-danger {
+    color: var(--el-color-danger);
+    font-weight: 600;
+  }
+
   .content-section {
     :deep(.el-card__body) {
       padding: 0;

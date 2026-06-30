@@ -30,6 +30,22 @@
 | 22 | **22_booklist_bookmark.sql** | 书单收藏表 | 在 21 之后 |
 | 23 | **23_growth_admin_menu.sql** | 成长体系后台管理菜单（NEW） | 在 22 之后 |
 | 24 | **24_featured_note_menu.sql** | 精选笔记管理菜单（NEW） | 在 23 之后 |
+| 25 | **25_fix_operlog_path-new.sql** | 修复操作日志路径 | 在 24 之后 |
+| 26 | **26_reading_interview_test_data.sql** | 读书空间与面试空间测试数据 | 在 25 之后 |
+| 27 | **27_help_center_init.sql** | 帮助中心初始化 | 在 26 之后 |
+| 28 | **28_alter_tables_add_base_fields.sql** | 表补充 BaseEntity 字段（首批） | 在 27 之后 |
+| 29 | **29_alter_all_tables_base_fields.sql** | 全表补充 BaseEntity 字段 | 在 28 之后 |
+| 30 | **30_alter_portal_tag_fields.sql** | portal_tag 表补充 module/reference_count 字段 | 在 29 之后 |
+| 31 | **31_create_portal_entity_tag.sql** | 通用实体标签关联表 | 在 30 之后 |
+| 32 | **32_cleanup_tag_name_prefix.sql** | 清理标签名 `#` 前缀 | 在 31 之后 |
+| 33 | **33_alter_article_status_enum.sql** | 文章 status 字段枚举注释 | 在 32 之后 |
+| 34 | **34_merge_notification_tables.sql** | 通知表合并（portal_notification + sys_notice → sys_notification + sys_notification_read） | 在 33 之后 |
+| 35 | **35_add_notification_user_type.sql** | 通知表新增 user_type 字段 | 在 34 之后 |
+| 36 | ~~36_init_notification_center_menu.sql~~ | **已废弃删除**（v4.0，见 40_fix_bugs_v4.sql） | - |
+| 37 | **37_init_dashboard_config.sql** | Dashboard 配置初始化 | 在 35 之后 |
+| 38 | **38_init_report_feedback_menu.sql** | 举报/反馈菜单及建表 | 在 37 之后 |
+| 39 | **39_init_flowable_menu.sql** | 流程管理菜单初始化 | 在 38 之后 |
+| 40 | **40_fix_bugs_v4.sql** | v4.0 综合 Bug 修复（友情链接 status + 通知菜单清理 + 评论菜单修复 + PortalReport 列长升级） | 在 39 之后 |
 
 ### 脚本详细说明
 
@@ -119,8 +135,65 @@
 - 含查询/采纳精选/取消精选按钮权限
 - 采纳精选时自动触发 note_adopted 成长事件（+50 成长值）
 - 为管理员角色分配所有权限
-- **依赖**：18_interview_menu_init.sql（面试空间一级菜单）
+- **依赖**：18_interview_menu_init.sql（面试空间一级菜单）、21 创建的精选字段、19 创建的 note_adopted 成长规则
 - **注意**：对应的前端页面（cms/interview/submission/index）和后台 Controller 接口需后续创建
+
+#### 25. 25_fix_operlog_path-new.sql - 修复操作日志路径
+- 修复操作日志中路径记录不准确的问题
+
+#### 26. 26_reading_interview_test_data.sql - 读书空间与面试空间测试数据
+- 为读书空间和面试空间模块补充测试数据
+
+#### 27. 27_help_center_init.sql - 帮助中心初始化
+- 创建帮助中心菜单及基础数据
+
+#### 28-29. 28/29_alter_*_base_fields.sql - 全表补充 BaseEntity 字段
+- 28：首批表补充 BaseEntity 审计字段（create_by/create_time/update_by/update_time/remark）
+- 29：全表补充，确保所有业务表统一审计字段
+
+#### 30-32. 标签体系改造
+- **30_alter_portal_tag_fields.sql**：portal_tag 表补充 `module`（所属模块）和 `reference_count`（引用次数）字段及索引
+- **31_create_portal_entity_tag.sql**：创建通用实体标签关联表 `portal_entity_tag`（tag_id + entity_type + entity_id）
+- **32_cleanup_tag_name_prefix.sql**：清理标签名中的 `#` 前缀（数据库存纯文本，前端按需拼接）
+
+#### 33. 33_alter_article_status_enum.sql - 文章状态枚举注释
+- 补充 `portal_article.status` 字段枚举说明：`draft/pending/published/rejected/archived`
+- 状态流转：draft → pending → published/rejected → pending（重新提交）→ archived
+
+#### 34. 34_merge_notification_tables.sql - 通知表合并
+- **背景**：原有两套通知表（portal_notification per-user 模型 + sys_notice 全局广播模型），模型冲突
+- **方案**：采用主流平台两表结构
+  - `sys_notification`（通知主体表）：scope=user 个人 / scope=all 广播
+  - `sys_notification_read`（用户已读关系表）：NOT EXISTS 计算未读
+- **操作**：迁移历史数据 → 旧表重命名为 `_bak` 备份（不直接 DROP）
+- **详见**：`docs/bugs/bug-list.md` BUG-004
+
+#### 35. 35_add_notification_user_type.sql - 通知表新增 user_type 字段
+- `sys_notification` 和 `sys_notification_read` 新增 `user_type` 字段（portal/sys）
+- 调整唯一索引为 `uk_notification_user_type`（notification_id + user_id + user_type）
+- **详见**：`docs/bugs/bug-list.md` BUG-005
+
+#### 36. ~~36_init_notification_center_menu.sql~~ - 已废弃删除
+- **v4.0 已废弃并删除**：后台通知中心菜单（`/system/notification`）已合并到 `cms/notification`（通知管理）
+- **详见**：`docs/bugs/bug-list.md` BUG-008
+
+#### 37. 37_init_dashboard_config.sql - Dashboard 配置初始化
+- 创建 Dashboard 首页配置数据
+
+#### 38. 38_init_report_feedback_menu.sql - 举报/反馈菜单及建表
+- 创建 `portal_report`（举报）和 `portal_feedback`（反馈）表
+- 创建后台管理菜单及按钮权限（cms:report:* / cms:feedback:*）
+- **v4.0 修订**：`portal_report.description` 列长从 `varchar(1000)` 改为 `varchar(2000)`，与实体 `@Size(max=2000)` 对齐
+
+#### 39. 39_init_flowable_menu.sql - 流程管理菜单初始化
+- 创建流程管理相关菜单
+
+#### 40. 40_fix_bugs_v4.sql - v4.0 综合 Bug 修复脚本
+- **1. 友情链接 status 统一**：`ALTER TABLE portal_friend_link MODIFY status varchar(20) DEFAULT '0'`，迁移 `active→0`、`inactive→1`
+- **2. 通知菜单清理**：DELETE 残留的通知公告（menu_id=107）及通知中心菜单 + 角色授权
+- **3. 评论管理修复**：修正菜单 path 为 `comment`、统一 perms `cms:comment:audit → cms:comment:edit`、补齐菜单及按钮、授权 admin 角色
+- **4. PortalReport 列长升级**：`ALTER TABLE portal_report MODIFY COLUMN description varchar(2000)`
+- **详见**：`docs/bugs/bug-list.md` BUG-007/008/009/011
 
 ### 注意事项
 
@@ -135,7 +208,11 @@
    - 06 脚本依赖 05 创建的分类ID，必须确保先执行 05 再执行 06
    - 23 脚本依赖 19 创建的成长体系表结构
    - 24 脚本依赖 18 创建的面试空间一级菜单、21 创建的精选字段、19 创建的 note_adopted 成长规则
+   - 34 脚本依赖 01 中的 sys_notice 表和 03 中的 portal_notification 表做数据迁移
+   - 35 脚本依赖 34 创建的 sys_notification / sys_notification_read 表
+   - 40 脚本依赖 03（portal_friend_link）、04（cms 菜单）、38（portal_report）的已有结构
 6. **NEW 标识**：文件名带 `-new` 后缀的脚本为最新新增脚本，执行后可去掉 `-new` 后缀重命名
+7. **已废弃脚本**：36_init_notification_center_menu.sql 已在 v4.0 删除，全新部署无需执行；已有部署需执行 40_fix_bugs_v4.sql 清理其创建的菜单
 
 ### 初始化后访问信息
 

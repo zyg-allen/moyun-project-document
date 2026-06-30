@@ -35,12 +35,37 @@ public class CmsArticleQuery extends PageDomain implements Serializable {
     private Long categoryId;
 
     /**
+     * 根分类ID
+     */
+    private Long rootCategoryId;
+
+    /**
+     * 分类名称
+     */
+    private String categoryName;
+
+    /**
      * 状态
      */
     private String status;
 
     /**
+     * 是否置顶
+     */
+    private Boolean isTop;
+
+    /**
      * 是否推荐
      */
     private Boolean isFeatured;
+
+    /**
+     * 是否轮播
+     */
+    private Boolean isCarousel;
+
+    /**
+     * 是否分类推荐
+     */
+    private Boolean isCategoryRecommended;
 }

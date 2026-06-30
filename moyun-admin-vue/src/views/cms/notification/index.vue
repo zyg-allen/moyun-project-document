@@ -160,9 +160,8 @@
           </el-select>
         </el-form-item>
         <el-form-item v-if="form.scope === 'user'" label="用户类型" prop="userType">
-          <el-select v-model="form.userType" placeholder="请选择用户类型" style="width: 100%">
+          <el-select v-model="form.userType" placeholder="请选择用户类型" style="width: 100%" disabled>
             <el-option label="门户用户" value="portal" />
-            <el-option label="系统用户（后台管理员）" value="sys" />
           </el-select>
         </el-form-item>
         <el-form-item label="通知标题" prop="title">
@@ -386,7 +385,7 @@ function remoteUserSearch(query) {
   if (query) {
     userSearchLoading.value = true;
     listUser({ nickname: query, pageNum: 1, pageSize: 20 }).then(response => {
-      userOptions.value = response.rows || [];
+      userOptions.value = response.data.records || [];
       userSearchLoading.value = false;
     }).catch(() => {
       userSearchLoading.value = false;

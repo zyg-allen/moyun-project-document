@@ -47,7 +47,7 @@ export function delBookQuote(id) {
 // 批量删除金句
 export function delBookQuoteBatch(ids) {
   return request({
-    url: '/portal/admin/book-quotes/' + ids,
+    url: '/portal/admin/book-quotes/ids/' + ids,
     method: 'delete'
   })
 }

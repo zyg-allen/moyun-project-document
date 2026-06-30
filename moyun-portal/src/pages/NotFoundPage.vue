@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { RouterLink as Link } from 'vue-router';
-import { Home, Search, ArrowLeft } from 'lucide-vue-next';
+import { Home, Search } from 'lucide-vue-next';
 </script>
 
 <template>

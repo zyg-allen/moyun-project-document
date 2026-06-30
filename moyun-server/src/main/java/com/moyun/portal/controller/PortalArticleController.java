@@ -1,7 +1,6 @@
 package com.moyun.portal.controller;
 
 import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
 import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
@@ -13,11 +12,13 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 import com.moyun.common.annotation.Log;
+import com.moyun.common.constant.HttpStatus;
 import com.moyun.common.enums.BusinessType;
 import com.moyun.core.base.AjaxResult;
 import com.moyun.core.base.BaseController;
@@ -31,14 +32,42 @@ import com.moyun.portal.mapper.PortalArticleMapper;
 import com.moyun.portal.mapper.PortalArticleViewMapper;
 import com.moyun.portal.mapper.PortalLikeMapper;
 import com.moyun.portal.service.IPortalArticleService;
-import com.moyun.portal.service.IPortalArticleViewService;
 import com.moyun.portal.service.IPortalGrowthService;
 import com.moyun.portal.service.IPortalTagService;
 import com.moyun.portal.util.ArticleConvertUtil;
 import com.moyun.portal.util.PortalSecurityUtils;
 import com.moyun.util.bean.PageUtils;
-import com.moyun.util.file.ExcelUtil;
 
+/**
+ * 门户文章 Controller
+ *
+ * 清理说明（仅删 Controller 方法，保留 Service/Mapper/XML）：
+ * 以下 13 个接口经前端调用链核对确认已无任何调用方，属于死接口，已删除：
+ *   - export                 前端未调用文章导出
+ *   - getInfoBySlug          SEO slug 接口，前端未调用 getArticleDetailBySlug
+ *   - add                    前端使用 publish / saveDraft 而非 add
+ *   - checkLikeStatus        前端 checkLikeStatus 函数仅定义未调用
+ *   - checkViewsConsistency  阅读量一致性校验，无前端调用
+ *   - repairArticleViews     单篇阅读量修复，无前端调用
+ *   - repairAllArticleViews  批量阅读量修复，无前端调用
+ *   - getRealViews           真实阅读量查询，无前端调用
+ *   - getHotArticles         前端 getHotArticles 仅定义未调用，home 已聚合
+ *   - getFeaturedArticles    同上，home 已聚合
+ *   - getCarouselArticles    同上，home 已聚合
+ *   - getRelatedArticles     前端 getRelatedArticles 仅定义未调用
+ *   - getArticlesByCategory  前端 mockData 有同名 mock 函数，与 API 无关
+ *
+ * 保留的 11 个在用接口：list / myArticles / getInfo / publish / saveDraft /
+ * edit / remove / toggleLikeArticle / incrementView / getCategoryRecommendedArticles / getHomeData
+ *
+ * 依赖保留说明：
+ *   - portalArticleMapper      : toggleLikeArticle(incrementLikes) / incrementView(incrementViews) 仍使用
+ *   - portalLikeMapper         : toggleLikeArticle(selectOne/insert/deleteById) 仍使用
+ *   - portalArticleViewMapper  : incrementView(countRecentViews/countRecentViewsByIp) 仍使用
+ *   - portalGrowthService      : toggleLikeArticle(recordEventWithTarget) 仍使用
+ *   - portalTagService         : publish/saveDraft/edit/remove(bindTags/unbindTags) 仍使用
+ *   - IPortalArticleViewService 已无调用方，注入与 import 一并移除
+ */
 @Tag(name = "门户文章", description = "门户文章的增删改查操作接口")
 @RestController
 @RequestMapping("/portal/article")
@@ -55,9 +84,6 @@ public class PortalArticleController extends BaseController {
 
     @Autowired
     private PortalArticleViewMapper portalArticleViewMapper;
-
-    @Autowired
-    private IPortalArticleViewService portalArticleViewService;
 
     @Autowired
     private IPortalGrowthService portalGrowthService;
@@ -84,7 +110,7 @@ public class PortalArticleController extends BaseController {
     public AjaxResult myArticles(ArticleQuery query) {
         Long userId = PortalSecurityUtils.getUserId();
         if (userId == null) {
-            return error("请先登录");
+            return AjaxResult.error(HttpStatus.UNAUTHORIZED, "请先登录");
         }
         // 强制 authorId 为当前登录用户，防止越权查询他人文章
         query.setAuthorId(userId);
@@ -93,38 +119,11 @@ public class PortalArticleController extends BaseController {
         return success(resultPage);
     }
 
-    @Operation(summary = "导出文章", description = "导出文章数据到Excel文件")
-    @Log(title = "门户文章", businessType = BusinessType.EXPORT)
-    @PostMapping("/export")
-    public void export(HttpServletResponse response, ArticleQuery query) {
-        // 导出时不分页，调用不分页的查询方法
-        List<PortalArticle> list = portalArticleService.selectPortalArticleList(query);
-        ExcelUtil<PortalArticle> util = new ExcelUtil<PortalArticle>(PortalArticle.class);
-        util.exportExcel(response, list, "门户文章数据");
-    }
-
     @Operation(summary = "获取文章详情", description = "根据文章ID获取文章详细信息")
     @GetMapping(value = "/{id}")
     public AjaxResult getInfo(@Parameter(description = "文章ID") @PathVariable Long id) {
         PortalArticle article = portalArticleService.selectPortalArticleById(id);
         return success(ArticleConvertUtil.toArticleVO(article));
-    }
-
-    @Operation(summary = "根据别名获取文章详情", description = "根据文章别名(slug)获取文章详细信息，用于SEO语义化URL")
-    @GetMapping(value = "/slug/{slug}")
-    public AjaxResult getInfoBySlug(@Parameter(description = "文章别名") @PathVariable String slug) {
-        PortalArticle article = portalArticleMapper.selectPortalArticleBySlug(slug);
-        if (article == null) {
-            return error("文章不存在");
-        }
-        return success(ArticleConvertUtil.toArticleVO(article));
-    }
-
-    @Operation(summary = "新增文章", description = "创建新文章")
-    @Log(title = "门户文章", businessType = BusinessType.INSERT)
-    @PostMapping
-    public AjaxResult add(@Validated @RequestBody PortalArticle portalArticle) {
-        return toAjax(portalArticleService.insertPortalArticle(portalArticle));
     }
 
     /**
@@ -180,10 +179,11 @@ public class PortalArticleController extends BaseController {
     public AjaxResult saveDraft(@RequestBody PortalArticle portalArticle) {
         PortalArticle saved = portalArticleService.saveDraft(portalArticle);
         // 草稿保存成功后同步绑定标签（草稿阶段也允许绑定，便于后续发布）
-        if (saved != null && saved.getId() != null) {
-            portalTagService.bindTags("article", saved.getId(),
-                    portalArticle.getTagIds(), portalArticle.getTagNames(), "article");
+        if (saved == null || saved.getId() == null) {
+            return AjaxResult.error("草稿保存失败");
         }
+        portalTagService.bindTags("article", saved.getId(),
+                portalArticle.getTagIds(), portalArticle.getTagNames(), "article");
         return success(saved);
     }
 
@@ -227,7 +227,7 @@ public class PortalArticleController extends BaseController {
     public AjaxResult toggleLikeArticle(@PathVariable Long id) {
         Long userId = PortalSecurityUtils.getUserId();
         if (userId == null) {
-            return error("请先登录");
+            return AjaxResult.error(HttpStatus.UNAUTHORIZED, "请先登录");
         }
 
         // 检查文章是否存在
@@ -251,7 +251,23 @@ public class PortalArticleController extends BaseController {
             like.setUserId(userId);
             like.setArticleId(id);
             like.setCreateTime(LocalDateTime.now());
-            portalLikeMapper.insert(like);
+            try {
+                portalLikeMapper.insert(like);
+            } catch (DuplicateKeyException e) {
+                // 并发场景：另一事务已先插入（uk_user_article 唯一索引触发）
+                // 按"已赞→取消"语义处理，保证幂等
+                PortalLike conflict = portalLikeMapper.selectOne(wrapper);
+                if (conflict != null) {
+                    portalLikeMapper.deleteById(conflict.getId());
+                }
+                if (article.getLikes() != null && article.getLikes() > 0) {
+                    portalArticleMapper.incrementLikes(id, -1);
+                }
+                Map<String, Object> r = new HashMap<>();
+                r.put("isLiked", false);
+                r.put("likeCount", article.getLikes() == null || article.getLikes() <= 0 ? 0 : article.getLikes() - 1);
+                return success(r);
+            }
 
             // 原子增加点赞数
             portalArticleMapper.incrementLikes(id, 1);
@@ -281,29 +297,6 @@ public class PortalArticleController extends BaseController {
         Map<String, Object> result = new HashMap<>();
         result.put("isLiked", isLiked);
         result.put("likeCount", newLikeCount);
-        return success(result);
-    }
-
-    /**
-     * 检查是否已点赞
-     */
-    @Operation(summary = "检查点赞状态", description = "检查当前用户是否已点赞该文章")
-    @GetMapping("/{id}/like/status")
-    public AjaxResult checkLikeStatus(@PathVariable Long id) {
-        Long userId = PortalSecurityUtils.getUserId();
-        if (userId == null) {
-            Map<String, Object> result = new HashMap<>();
-            result.put("isLiked", false);
-            return success(result);
-        }
-
-        LambdaQueryWrapper<PortalLike> wrapper = new LambdaQueryWrapper<>();
-        wrapper.eq(PortalLike::getUserId, userId)
-                .eq(PortalLike::getArticleId, id);
-        long count = portalLikeMapper.selectCount(wrapper);
-
-        Map<String, Object> result = new HashMap<>();
-        result.put("isLiked", count > 0);
         return success(result);
     }
 
@@ -368,83 +361,6 @@ public class PortalArticleController extends BaseController {
         return success(result);
     }
 
-    // ==================== 数据管理接口 - 以下是管理后台接口 ====================
-
-    /**
-     * 校验文章阅读量一致性
-     */
-    @Operation(summary = "校验阅读量一致性", description = "检查 portal_article.views 与 portal_article_view 是否一致")
-    @GetMapping("/{id}/view/check")
-    public AjaxResult checkViewsConsistency(@PathVariable Long id) {
-        boolean consistent = portalArticleViewService.checkArticleViewsConsistency(id);
-        long dbViews = 0;
-        long realViews = 0;
-
-        PortalArticle article = portalArticleService.selectPortalArticleById(id);
-        if (article != null) {
-            dbViews = article.getViews() == null ? 0 : article.getViews();
-        }
-        realViews = portalArticleViewService.getRealArticleViews(id);
-
-        Map<String, Object> result = new HashMap<>();
-        result.put("consistent", consistent);
-        result.put("dbViews", dbViews);
-        result.put("realViews", realViews);
-        result.put("difference", Math.abs(dbViews - realViews));
-
-        return success(result);
-    }
-
-    /**
-     * 修复单篇文章阅读量
-     */
-    @Operation(summary = "修复文章阅读量", description = "从 portal_article_view 重新统计并更新文章阅读量")
-    @Log(title = "修复文章阅读量", businessType = BusinessType.UPDATE)
-    @PostMapping("/{id}/view/repair")
-    @Transactional
-    public AjaxResult repairArticleViews(@PathVariable Long id) {
-        long newViews = portalArticleViewService.repairArticleViews(id);
-
-        Map<String, Object> result = new HashMap<>();
-        result.put("articleId", id);
-        result.put("newViews", newViews);
-        result.put("message", "修复成功");
-
-        return success(result);
-    }
-
-    /**
-     * 修复所有文章阅读量（批量）
-     */
-    @Operation(summary = "批量修复所有文章阅读量", description = "从 portal_article_view 重新统计所有文章的阅读量")
-    @Log(title = "批量修复文章阅读量", businessType = BusinessType.UPDATE)
-    @PostMapping("/view/repair/all")
-    @Transactional
-    public AjaxResult repairAllArticleViews() {
-        long repairedCount = portalArticleViewService.repairAllArticleViews();
-
-        Map<String, Object> result = new HashMap<>();
-        result.put("repairedCount", repairedCount);
-        result.put("message", "批量修复成功");
-
-        return success(result);
-    }
-
-    /**
-     * 获取文章真实阅读量（从 portal_article_view 表统计）
-     */
-    @Operation(summary = "获取文章真实阅读量", description = "从 portal_article_view 表统计真实阅读量（去重）")
-    @GetMapping("/{id}/view/real")
-    public AjaxResult getRealViews(@PathVariable Long id) {
-        int realViews = portalArticleViewService.getRealArticleViews(id);
-
-        Map<String, Object> result = new HashMap<>();
-        result.put("articleId", id);
-        result.put("realViews", realViews);
-
-        return success(result);
-    }
-
     // ==================== 私有方法 ====================
 
     /**
@@ -466,45 +382,6 @@ public class PortalArticleController extends BaseController {
             ip = ip.split(",")[0].trim();
         }
         return ip;
-    }
-
-    @Operation(summary = "获取热门文章", description = "获取热门文章列表，按浏览量排序")
-    @GetMapping("/hot")
-    public AjaxResult getHotArticles(@RequestParam(defaultValue = "10") Integer limit) {
-        Page<PortalArticle> page = PageUtils.buildPage(1, limit);
-        List<PortalArticle> list = portalArticleMapper.selectHotArticles(page);
-        return success(list);
-    }
-
-    @Operation(summary = "获取精选文章", description = "获取精选文章列表")
-    @GetMapping("/featured")
-    public AjaxResult getFeaturedArticles(@RequestParam(defaultValue = "10") Integer limit) {
-        Page<PortalArticle> page = PageUtils.buildPage(1, limit);
-        List<PortalArticle> list = portalArticleMapper.selectFeaturedArticles(page);
-        return success(list);
-    }
-
-    @Operation(summary = "获取轮播文章", description = "获取轮播文章列表")
-    @GetMapping("/carousel")
-    public AjaxResult getCarouselArticles() {
-        List<PortalArticle> list = portalArticleMapper.selectCarouselArticles();
-        return success(list);
-    }
-
-    @Operation(summary = "获取相关文章", description = "获取相关推荐文章")
-    @GetMapping("/{id}/related")
-    public AjaxResult getRelatedArticles(@PathVariable Long id, @RequestParam(defaultValue = "5") Integer limit) {
-        Page<PortalArticle> page = PageUtils.buildPage(1, limit);
-        List<PortalArticle> list = portalArticleMapper.selectRelatedArticles(page, id);
-        return success(list);
-    }
-
-    @Operation(summary = "按分类获取文章列表", description = "根据分类ID或名称获取文章列表")
-    @GetMapping("/byCategory")
-    public AjaxResult getArticlesByCategory(ArticleQuery query) {
-        Page<PortalArticle> page = PageUtils.buildPage(query);
-        Page<PortalArticle> resultPage = portalArticleService.selectPortalArticlePage(page, query);
-        return success(resultPage);
     }
 
     @Operation(summary = "获取分类推荐文章", description = "获取指定分类的推荐文章列表")

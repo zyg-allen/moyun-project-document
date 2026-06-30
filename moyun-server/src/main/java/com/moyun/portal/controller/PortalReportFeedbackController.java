@@ -1,5 +1,6 @@
 package com.moyun.portal.controller;
 
+import com.moyun.common.constant.HttpStatus;
 import com.moyun.core.base.AjaxResult;
 import com.moyun.core.base.BaseController;
 import com.moyun.portal.domain.entity.PortalFeedback;
@@ -48,7 +49,7 @@ public class PortalReportFeedbackController extends BaseController {
     public AjaxResult submitReport(@Validated @RequestBody PortalReport report, HttpServletRequest request) {
         PortalLoginUser loginUser = PortalSecurityUtils.getLoginUser();
         if (loginUser == null) {
-            return error("请先登录后再提交举报");
+            return AjaxResult.error(HttpStatus.UNAUTHORIZED, "请先登录后再提交举报");
         }
         report.setUserId(loginUser.getId());
         report.setUsername(loginUser.getUsername());
@@ -68,7 +69,7 @@ public class PortalReportFeedbackController extends BaseController {
     public AjaxResult submitFeedback(@Validated @RequestBody PortalFeedback feedback, HttpServletRequest request) {
         PortalLoginUser loginUser = PortalSecurityUtils.getLoginUser();
         if (loginUser == null) {
-            return error("请先登录后再提交反馈");
+            return AjaxResult.error(HttpStatus.UNAUTHORIZED, "请先登录后再提交反馈");
         }
         feedback.setUserId(loginUser.getId());
         feedback.setUsername(loginUser.getUsername());

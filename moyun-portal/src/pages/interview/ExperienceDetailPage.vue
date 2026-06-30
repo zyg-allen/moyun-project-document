@@ -4,7 +4,7 @@ import { useRoute, useRouter } from 'vue-router';
 import { useHead } from '@vueuse/head';
 import {
   ChevronLeft, ThumbsUp, MessageSquare, Eye, Calendar, Building2,
-  Briefcase, User as UserIcon, Send, Tag as TagIcon
+  Briefcase, Send, Tag as TagIcon
 } from 'lucide-vue-next';
 import SiteFooter from '@/components/SiteFooter.vue';
 import LazyImage from '@/components/LazyImage.vue';
@@ -182,18 +182,19 @@ useHead(
 </script>
 
 <template>
-  <div class="min-h-screen flex flex-col bg-gray-50">
+  <div class="min-h-screen flex flex-col" style="background-color: var(--theme-bg);">
     <!-- 顶部导航 -->
-    <div class="bg-white border-b border-gray-200 sticky top-0 z-30">
-      <div class="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between">
+    <div class="border-b sticky top-0 z-30" style="background-color: var(--theme-bg); border-color: var(--theme-border);">
+      <div class="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
         <button
           @click="router.back()"
-          class="flex items-center text-gray-600 hover:text-blue-600 transition text-sm"
+          class="flex items-center transition text-sm hover:opacity-70"
+          style="color: var(--theme-text-secondary);"
         >
           <ChevronLeft class="w-4 h-4 mr-1" />
           返回
         </button>
-        <span class="text-sm text-gray-500">面试经验</span>
+        <span class="text-sm" style="color: var(--theme-text-secondary);">面试经验</span>
         <span class="w-12"></span>
       </div>
     </div>
@@ -208,45 +209,46 @@ useHead(
     </div>
 
     <div class="flex-1 py-8">
-      <div class="max-w-5xl mx-auto px-4">
+      <div class="max-w-7xl mx-auto px-4">
         <!-- Loading -->
         <div v-if="loading && !experience" class="text-center py-12">
-          <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p class="mt-4 text-gray-600">加载中...</p>
+          <div class="animate-spin rounded-full h-12 w-12 border-b-2 mx-auto" style="border-color: var(--theme-primary);"></div>
+          <p class="mt-4" style="color: var(--theme-text-secondary);">加载中...</p>
         </div>
 
         <template v-else-if="experience">
           <!-- 封面 / 标题区 -->
-          <div class="bg-white rounded-xl shadow-sm overflow-hidden mb-6">
-            <div v-if="experience.coverImage" class="h-56 bg-gray-100">
+          <div class="rounded-xl shadow-sm overflow-hidden mb-6" style="background-color: var(--theme-surface); border: 1px solid var(--theme-border);">
+            <div v-if="experience.coverImage" class="h-56" style="background-color: var(--theme-surface);">
               <LazyImage :src="experience.coverImage" :alt="experience.title" class="w-full h-full object-cover" />
             </div>
             <div class="p-6">
               <div class="flex items-center flex-wrap gap-2 mb-3">
-                <span class="inline-flex items-center px-3 py-1 bg-indigo-50 text-indigo-700 rounded-full text-xs font-medium">
+                <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium" style="background-color: var(--theme-accent); color: var(--theme-primary);">
                   <Building2 class="w-3 h-3 mr-1" />
                   {{ experience.company }}
                 </span>
-                <span v-if="experience.position" class="inline-flex items-center px-3 py-1 bg-blue-50 text-blue-700 rounded-full text-xs font-medium">
+                <span v-if="experience.position" class="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium" style="background-color: var(--theme-accent); color: var(--theme-primary);">
                   <Briefcase class="w-3 h-3 mr-1" />
                   {{ experience.position }}
                 </span>
                 <span
                   v-for="tag in experience.tags"
                   :key="tag"
-                  class="inline-flex items-center px-2 py-1 bg-gray-100 text-gray-600 rounded text-xs"
+                  class="inline-flex items-center px-2 py-1 rounded text-xs"
+                  style="background-color: var(--theme-bg); color: var(--theme-text-secondary);"
                 >
                   <TagIcon class="w-3 h-3 mr-1" />
                   {{ tag }}
                 </span>
               </div>
-              <h1 class="text-3xl font-bold text-gray-900 mb-4">{{ experience.title }}</h1>
-              <div class="flex items-center flex-wrap gap-4 text-sm text-gray-500">
+              <h1 class="text-3xl font-bold mb-4" style="color: var(--theme-text);">{{ experience.title }}</h1>
+              <div class="flex items-center flex-wrap gap-4 text-sm" style="color: var(--theme-text-secondary);">
                 <div class="flex items-center">
-                  <div class="w-8 h-8 rounded-full overflow-hidden mr-2 bg-gray-200">
+                  <div class="w-8 h-8 rounded-full overflow-hidden mr-2" style="background-color: var(--theme-surface);">
                     <LazyImage :src="displayAvatar(experience)" :alt="displayName(experience)" class="w-full h-full object-cover" />
                   </div>
-                  <span class="font-medium text-gray-700">{{ displayName(experience) }}</span>
+                  <span class="font-medium" style="color: var(--theme-text);">{{ displayName(experience) }}</span>
                 </div>
                 <span v-if="experience.year || experience.month" class="flex items-center">
                   <Calendar class="w-4 h-4 mr-1" />
@@ -260,8 +262,8 @@ useHead(
           </div>
 
           <!-- 正文 -->
-          <div class="bg-white rounded-xl shadow-sm p-8 mb-6">
-            <div v-if="experience.summary" class="text-gray-600 italic mb-6 p-4 bg-gray-50 rounded-lg border-l-4 border-blue-500">
+          <div class="rounded-xl shadow-sm p-8 mb-6" style="background-color: var(--theme-surface); border: 1px solid var(--theme-border);">
+            <div v-if="experience.summary" class="italic mb-6 p-4 rounded-lg border-l-4" style="color: var(--theme-text-secondary); background-color: var(--theme-bg); border-color: var(--theme-primary);">
               {{ experience.summary }}
             </div>
             <MarkdownRenderer
@@ -270,11 +272,11 @@ useHead(
               editor-mode="markdown"
               class="article-content"
             />
-            <div class="mt-8 pt-6 border-t border-gray-100 flex items-center justify-center">
+            <div class="mt-8 pt-6 border-t border-[var(--theme-border)] flex items-center justify-center">
               <button
                 @click="handleLike"
                 class="inline-flex items-center px-6 py-2.5 rounded-full transition font-medium"
-                :class="experience.liked ? 'bg-blue-600 text-white' : 'bg-blue-50 text-blue-600 hover:bg-blue-100'"
+                :class="experience.liked ? 'bg-[var(--theme-primary)] text-white' : 'bg-[var(--theme-accent)] text-[var(--theme-primary)] hover:opacity-80'"
               >
                 <ThumbsUp class="w-4 h-4 mr-2" />
                 {{ experience.liked ? '已点赞 · ' : '点赞文章 · ' }}{{ experience.likeCount }}
@@ -283,17 +285,18 @@ useHead(
           </div>
 
           <!-- 评论区 -->
-          <div class="bg-white rounded-xl shadow-sm p-6">
-            <h2 class="text-xl font-bold text-gray-900 mb-4 flex items-center">
+          <div class="rounded-xl shadow-sm p-6" style="background-color: var(--theme-surface); border: 1px solid var(--theme-border);">
+            <h2 class="text-xl font-bold mb-4 flex items-center" style="color: var(--theme-text);">
               <MessageSquare class="w-5 h-5 mr-2 text-blue-500" />
               评论区 ({{ comments.length }})
             </h2>
 
             <!-- 发表评论 -->
-            <div class="mb-6 bg-gray-50 p-4 rounded-lg">
+            <div class="mb-6 p-4 rounded-lg" style="background-color: var(--theme-bg);">
               <textarea
                 v-model="newComment"
-                class="w-full p-3 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                class="w-full p-3 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[var(--theme-primary)]"
+                style="background-color: var(--theme-surface); color: var(--theme-text); border-color: var(--theme-border);"
                 rows="3"
                 placeholder="写下你的想法、疑问或补充..."
               ></textarea>
@@ -301,7 +304,8 @@ useHead(
                 <button
                   @click="handleSubmitComment"
                   :disabled="submittingComment"
-                  class="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700 disabled:bg-gray-400 transition"
+                  class="inline-flex items-center px-4 py-2 text-white rounded-lg text-sm hover:opacity-90 disabled:bg-gray-400 transition"
+                  style="background-color: var(--theme-primary);"
                 >
                   <Send class="w-4 h-4 mr-1" />
                   {{ submittingComment ? '发布中...' : '发布评论' }}
@@ -310,18 +314,18 @@ useHead(
             </div>
 
             <!-- 评论列表 -->
-            <div v-if="commentLoading" class="py-6 text-center text-sm text-gray-500">加载评论中...</div>
-            <div v-else-if="comments.length === 0" class="py-8 text-center text-sm text-gray-500">
+            <div v-if="commentLoading" class="py-6 text-center text-sm" style="color: var(--theme-text-secondary);">加载评论中...</div>
+            <div v-else-if="comments.length === 0" class="py-8 text-center text-sm" style="color: var(--theme-text-secondary);">
               还没有评论，来抢沙发吧~
             </div>
             <div v-else class="space-y-4">
               <div
                 v-for="comment in comments"
                 :key="comment.id"
-                class="border border-gray-100 rounded-lg p-4 hover:shadow-sm transition"
+                class="border border-[var(--theme-border)] rounded-lg p-4 hover:shadow-sm transition"
               >
                 <div class="flex items-start">
-                  <div class="w-8 h-8 rounded-full overflow-hidden mr-3 bg-gray-200 flex-shrink-0">
+                  <div class="w-8 h-8 rounded-full overflow-hidden mr-3 flex-shrink-0" style="background-color: var(--theme-surface);">
                     <LazyImage
                       :src="displayAvatar(comment)"
                       :alt="displayName(comment)"
@@ -330,22 +334,22 @@ useHead(
                   </div>
                   <div class="flex-1">
                     <div class="flex items-center justify-between mb-1">
-                      <span class="font-medium text-sm text-gray-800">{{ displayName(comment) }}</span>
-                      <span class="text-xs text-gray-400">{{ comment.createTime }}</span>
+                      <span class="font-medium text-sm" style="color: var(--theme-text);">{{ displayName(comment) }}</span>
+                      <span class="text-xs" style="color: var(--theme-text-secondary);">{{ comment.createTime }}</span>
                     </div>
-                    <div class="text-sm text-gray-700 mb-2 whitespace-pre-wrap">{{ comment.content }}</div>
-                    <div class="flex items-center gap-3 text-xs text-gray-500">
+                    <div class="text-sm mb-2 whitespace-pre-wrap" style="color: var(--theme-text-secondary);">{{ comment.content }}</div>
+                    <div class="flex items-center gap-3 text-xs" style="color: var(--theme-text-secondary);">
                       <button
                         @click="handleCommentLike(comment)"
-                        class="flex items-center hover:text-blue-500 transition"
-                        :class="comment.liked ? 'text-blue-600' : ''"
+                        class="flex items-center hover:text-[var(--theme-primary)] transition"
+                        :class="comment.liked ? 'text-[var(--theme-primary)]' : ''"
                       >
                         <ThumbsUp class="w-3 h-3 mr-1" />
                         {{ comment.likeCount }}
                       </button>
                       <button
                         @click="replyToComment = replyToComment?.id === comment.id ? null : comment"
-                        class="hover:text-blue-500 transition"
+                        class="hover:text-[var(--theme-primary)] transition"
                       >
                         回复
                       </button>
@@ -355,20 +359,23 @@ useHead(
                     <div v-if="replyToComment?.id === comment.id" class="mt-3">
                       <textarea
                         v-model="replyContent"
-                        class="w-full p-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        class="w-full p-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[var(--theme-primary)]"
+                        style="background-color: var(--theme-surface); color: var(--theme-text); border-color: var(--theme-border);"
                         rows="2"
                         :placeholder="'回复 @' + displayName(comment)"
                       ></textarea>
                       <div class="flex justify-end gap-2 mt-2">
                         <button
                           @click="replyToComment = null"
-                          class="px-3 py-1 text-sm text-gray-500 hover:text-gray-700"
+                          class="px-3 py-1 text-sm hover:text-[var(--theme-text)]"
+                          style="color: var(--theme-text-secondary);"
                         >
                           取消
                         </button>
                         <button
                           @click="handleReplySubmit(comment)"
-                          class="px-3 py-1 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                          class="px-3 py-1 text-sm text-white rounded-lg hover:opacity-90"
+                          style="background-color: var(--theme-primary);"
                         >
                           发送回复
                         </button>
@@ -376,24 +383,24 @@ useHead(
                     </div>
 
                     <!-- 子评论 -->
-                    <div v-if="comment.replies && comment.replies.length > 0" class="mt-3 pl-4 border-l-2 border-gray-100 space-y-3">
+                    <div v-if="comment.replies && comment.replies.length > 0" class="mt-3 pl-4 border-l-2 border-[var(--theme-border)] space-y-3">
                       <div
                         v-for="reply in comment.replies"
                         :key="reply.id"
                         class="text-sm"
                       >
                         <div class="flex items-start">
-                          <div class="w-6 h-6 rounded-full overflow-hidden mr-2 bg-gray-200 flex-shrink-0">
+                          <div class="w-6 h-6 rounded-full overflow-hidden mr-2 flex-shrink-0" style="background-color: var(--theme-surface);">
                             <LazyImage :src="displayAvatar(reply)" :alt="displayName(reply)" class="w-full h-full object-cover" />
                           </div>
                           <div class="flex-1">
                             <div class="flex items-center">
-                              <span class="font-medium text-gray-800 text-xs">{{ displayName(reply) }}</span>
-                              <span v-if="reply.replyToUser" class="text-gray-400 text-xs mx-1">回复</span>
-                              <span v-if="reply.replyToUser" class="font-medium text-gray-600 text-xs">{{ reply.replyToUser.nickname }}</span>
+                              <span class="font-medium text-xs" style="color: var(--theme-text);">{{ displayName(reply) }}</span>
+                              <span v-if="reply.replyToUser" class="text-xs mx-1" style="color: var(--theme-text-secondary);">回复</span>
+                              <span v-if="reply.replyToUser" class="font-medium text-xs" style="color: var(--theme-text);">{{ reply.replyToUser.nickname }}</span>
                             </div>
-                            <div class="text-gray-700 mt-1 whitespace-pre-wrap">{{ reply.content }}</div>
-                            <div class="text-xs text-gray-400 mt-1">{{ reply.createTime }}</div>
+                            <div class="mt-1 whitespace-pre-wrap" style="color: var(--theme-text-secondary);">{{ reply.content }}</div>
+                            <div class="text-xs mt-1" style="color: var(--theme-text-secondary);">{{ reply.createTime }}</div>
                           </div>
                         </div>
                       </div>
@@ -406,10 +413,11 @@ useHead(
         </template>
 
         <div v-else class="text-center py-12">
-          <p class="text-gray-600">未找到面经信息</p>
+          <p style="color: var(--theme-text-secondary);">未找到面经信息</p>
           <button
             @click="router.push('/interview')"
-            class="mt-4 px-4 py-2 bg-blue-500 text-white rounded-lg text-sm hover:bg-blue-600 transition"
+            class="mt-4 px-4 py-2 text-white rounded-lg text-sm hover:opacity-90 transition"
+            style="background-color: var(--theme-primary);"
           >
             返回面试指南
           </button>

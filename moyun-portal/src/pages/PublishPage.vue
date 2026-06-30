@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import { ref, computed, watch, onMounted } from 'vue';
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import {
   ArrowLeft, Image as ImageIcon, Save, Eye, Send, X,
-  List, ListOrdered, Clock, User, Calendar, FileText, Settings,
+  List, Clock, User, FileText, Settings,
   Sparkles, Globe, Lock, Tag as TagIcon, BookOpen,
   ChevronDown, Check, Type, Plus, ChevronRight, Code
 } from 'lucide-vue-next';
@@ -155,6 +155,13 @@ onMounted(async () => {
   if (editId) {
     await loadArticleForEdit(editId);
   }
+
+  // 启动草稿自动保存（30秒一次，仅当用户有输入时）
+  autoSaveTimer = setInterval(() => {
+    if (title.value.trim() || content.value.trim()) {
+      saveDraft(true);
+    }
+  }, 30000);
 });
 
 // 加载已有文章用于编辑
@@ -294,10 +301,39 @@ async function createAndAddTag(tagName: string) {
   }
 }
 
-// 监听标题和分类变化，更新标签建议
-watch([title, selectedParentCategory], () => {
-  if (title.value.trim().length > 2 || selectedParentCategory.value) {
+// 标签推荐的防抖计时器（避免每输入一个字符就发请求）
+let tagSuggestionTimer: ReturnType<typeof setTimeout> | null = null;
+
+// 草稿自动保存计时器（30秒自动保存一次）
+let autoSaveTimer: ReturnType<typeof setInterval> | null = null;
+
+function scheduleTagSuggestions() {
+  // 提高触发门槛：标题至少 5 字符，或已选择分类
+  if (title.value.trim().length < 5 && !selectedParentCategory.value) {
+    return;
+  }
+  if (tagSuggestionTimer) {
+    clearTimeout(tagSuggestionTimer);
+  }
+  tagSuggestionTimer = setTimeout(() => {
     loadTagSuggestions();
+    tagSuggestionTimer = null;
+  }, 500);
+}
+
+// 监听标题和分类变化，更新标签建议（500ms 防抖）
+watch([title, selectedParentCategory], () => {
+  scheduleTagSuggestions();
+});
+
+onUnmounted(() => {
+  if (tagSuggestionTimer) {
+    clearTimeout(tagSuggestionTimer);
+    tagSuggestionTimer = null;
+  }
+  if (autoSaveTimer) {
+    clearInterval(autoSaveTimer);
+    autoSaveTimer = null;
   }
 });
 
@@ -369,7 +405,8 @@ async function saveDraft(isAuto = false) {
         toast.success('草稿已保存');
       }
     } else {
-      if (!isAuto) toast.error('草稿保存失败：' + ((response as any).message || '未知错误'));
+      // 后端 code=200 但 data 为 null，说明业务异常被包装成协议成功，不信任 response.message（默认"操作成功"会误导）
+      if (!isAuto) toast.error('草稿保存失败，请稍后重试');
     }
   } catch (error: any) {
     console.error('Failed to save draft:', error);
@@ -451,7 +488,7 @@ async function handlePublish() {
       articleStatus.value = 'pending';
       const msg = (response.data as any)?.message || '发布成功，等待审核';
       toast.success(msg);
-      router.push('/');
+      router.push('/my/articles?status=pending');
     } else {
       toast.error('发布失败：' + ((response as any).message || '未知错误'));
     }
@@ -1146,8 +1183,6 @@ const titleLength = computed(() => title.value.length);
     </div>
 
     <!-- 底部 Footer -->
-    <div class="mt-8">
-      <SiteFooter />
-    </div>
+    <SiteFooter />
   </div>
 </template>

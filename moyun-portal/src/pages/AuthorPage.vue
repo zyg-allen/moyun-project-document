@@ -3,8 +3,8 @@ import { ref, computed, onMounted, watch } from 'vue';
 import Pagination from '@/components/Pagination.vue';
 import { RouterLink as Link, useRoute, useRouter } from 'vue-router';
 import { useHead } from '@vueuse/head';
-import { 
-  User, BookOpen, Heart, Star, Users, ChevronRight, UserPlus, UserMinus, MessageSquare, Calendar, Clock, Award, Trophy
+import {
+  User, BookOpen, Heart, Star, ChevronRight, UserPlus, UserMinus, MessageSquare, Calendar, Award, Trophy
 } from 'lucide-vue-next';
 import { generateSeo } from '@/utils/seo';
 import ArticleCard from '@/components/ArticleCard.vue';
@@ -68,23 +68,25 @@ watch(() => activeTab.value, () => {
 });
 
 async function loadAuthorData() {
-  // 获取当前登录用户
-  try {
-    const userResp = await userApi.getCurrentUser();
-    if (userResp.code === 200 && userResp.data) {
-      currentUser.value = userResp.data;
-    }
-  } catch (e) {
-    // 未登录也不影响查看作者主页
-  }
-
   // 获取作者ID
   const authorId = route.params.id as string;
 
   isLoading.value = true;
   try {
-    // 获取作者基本信息
-    const authorResp = await userApi.getUserById(authorId);
+    // 第一批：获取当前登录用户 与 获取作者基本信息 并行（两者无依赖）
+    // getCurrentUser 失败不应阻断流程（未登录也能查看作者主页），单独 catch 为 null
+    // getUserById 失败则走外层 catch（router.push('/404')），与原逻辑一致
+    const [userResp, authorResp] = await Promise.all([
+      userApi.getCurrentUser().catch(() => null),
+      userApi.getUserById(authorId),
+    ]);
+
+    // 处理 currentUser
+    if (userResp && userResp.code === 200 && userResp.data) {
+      currentUser.value = userResp.data;
+    }
+
+    // 处理 author
     if (authorResp.code === 200 && authorResp.data) {
       author.value = authorResp.data;
       authorStats.value.joinDate = (author.value as any).createTime || (author.value as any).createdAt || '';
@@ -93,61 +95,96 @@ async function loadAuthorData() {
       return;
     }
 
-    // 获取作者文章列表
+    // 第二批：文章 + 统计 + 关注检查 + 成长 + 成就 全部并行
+    // 每个请求独立 try/catch，单个失败不阻断其他请求（保持原逻辑）
     loadingArticles.value = true;
-    try {
-      const articlesResp = await articleApi.getArticleList({ authorId: authorId, pageSize: 100 });
-      if (articlesResp.code === 200 && articlesResp.data) {
-        const list = (articlesResp.data as any).list || articlesResp.data || [];
-        authorArticles.value = list;
-        // 文章数先以列表为准，后续 stats 接口会覆盖真实值
-        authorStats.value.articles = list.length;
+
+    // 获取作者文章列表
+    const loadArticles = async () => {
+      try {
+        const articlesResp = await articleApi.getArticleList({ authorId: authorId, pageSize: 100 });
+        if (articlesResp.code === 200 && articlesResp.data) {
+          const list = (articlesResp.data as any).list || articlesResp.data || [];
+          authorArticles.value = list;
+          // 文章数先以列表为准，后续 stats 接口会覆盖真实值
+          authorStats.value.articles = list.length;
+        }
+      } catch (err) {
+        console.error('加载作者文章失败:', err);
+      } finally {
+        loadingArticles.value = false;
       }
-    } catch (err) {
-      console.error('加载作者文章失败:', err);
-    } finally {
-      loadingArticles.value = false;
-    }
+    };
 
     // 获取作者统计信息（使用 /portal/growth/stats 真实聚合接口）
-    try {
-      const statsResp = await growthApi.getUserStatsById(authorId);
-      if (statsResp.code === 200 && statsResp.data) {
-        const stats = statsResp.data as any;
-        authorStats.value.followers = stats.followers || stats.fansCount || stats.followerCount || authorStats.value.followers;
-        authorStats.value.following = stats.following || stats.followCount || authorStats.value.following;
-        // 后端 UserStatsVO 字段：articles / views / likes / totalLikes
-        if (stats.articles !== undefined) authorStats.value.articles = stats.articles;
-        if (stats.views !== undefined) authorStats.value.totalViews = stats.views;
-        if (stats.totalLikes !== undefined) {
-          authorStats.value.totalLikes = stats.totalLikes;
-        } else if (stats.likes !== undefined) {
-          authorStats.value.totalLikes = stats.likes;
+    const loadStats = async () => {
+      try {
+        const statsResp = await growthApi.getUserStatsById(authorId);
+        if (statsResp.code === 200 && statsResp.data) {
+          const stats = statsResp.data as any;
+          authorStats.value.followers = stats.followers || stats.fansCount || stats.followerCount || authorStats.value.followers;
+          authorStats.value.following = stats.following || stats.followCount || authorStats.value.following;
+          // 后端 UserStatsVO 字段：articles / views / likes / totalLikes
+          if (stats.articles !== undefined) authorStats.value.articles = stats.articles;
+          if (stats.views !== undefined) authorStats.value.totalViews = stats.views;
+          if (stats.totalLikes !== undefined) {
+            authorStats.value.totalLikes = stats.totalLikes;
+          } else if (stats.likes !== undefined) {
+            authorStats.value.totalLikes = stats.likes;
+          }
+        }
+      } catch (err) {
+        console.error('加载作者统计失败:', err);
+      }
+    };
+
+    // 检查当前登录用户是否已关注该作者（初始化 isFollowing 状态）
+    // 仅在已登录且不是自己的主页时调用，避免按钮显示错误和粉丝数不同步
+    // 依赖 currentUser，与上面的请求并行执行（此时 currentUser 已就绪）
+    const loadFollow = async () => {
+      if (currentUser.value && !isOwnProfile.value) {
+        try {
+          const checkResp = await followApi.checkFollow({ userId: authorId });
+          if (checkResp.code === 200 && checkResp.data) {
+            isFollowing.value = (checkResp.data as any).following === true;
+          }
+        } catch (err) {
+          console.error('检查关注状态失败:', err);
         }
       }
-    } catch (err) {
-      console.error('加载作者统计失败:', err);
-    }
+    };
 
     // 获取作者成长信息（等级/头衔/赛季排名）
-    try {
-      const growthResp = await growthApi.getUserGrowth(authorId);
-      if (growthResp.code === 200 && growthResp.data) {
-        authorGrowth.value = growthResp.data;
+    const loadGrowth = async () => {
+      try {
+        const growthResp = await growthApi.getUserGrowth(authorId);
+        if (growthResp.code === 200 && growthResp.data) {
+          authorGrowth.value = growthResp.data;
+        }
+      } catch (err) {
+        console.error('加载作者成长信息失败:', err);
       }
-    } catch (err) {
-      console.error('加载作者成长信息失败:', err);
-    }
+    };
 
     // 获取作者成就达成列表
-    try {
-      const achResp = await growthApi.getUserAchievements(authorId);
-      if (achResp.code === 200 && achResp.data) {
-        authorAchievements.value = achResp.data;
+    const loadAchievements = async () => {
+      try {
+        const achResp = await growthApi.getUserAchievements(authorId);
+        if (achResp.code === 200 && achResp.data) {
+          authorAchievements.value = achResp.data;
+        }
+      } catch (err) {
+        console.error('加载作者成就失败:', err);
       }
-    } catch (err) {
-      console.error('加载作者成就失败:', err);
-    }
+    };
+
+    await Promise.all([
+      loadArticles(),
+      loadStats(),
+      loadFollow(),
+      loadGrowth(),
+      loadAchievements(),
+    ]);
   } catch (error) {
     console.error('加载作者信息失败:', error);
     router.push('/404');

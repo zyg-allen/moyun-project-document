@@ -1,28 +1,39 @@
 package com.moyun.portal.controller;
 
-import jakarta.servlet.http.HttpServletResponse;
-import java.util.List;
+import java.util.HashMap;
+import java.util.Map;
 
-import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 import com.moyun.common.annotation.Log;
+import com.moyun.common.constant.HttpStatus;
 import com.moyun.common.enums.BusinessType;
 import com.moyun.core.base.AjaxResult;
 import com.moyun.core.base.BaseController;
-import com.moyun.portal.domain.entity.PortalFollow;
-import com.moyun.portal.domain.query.FollowQuery;
 import com.moyun.portal.service.IPortalFollowService;
 import com.moyun.portal.util.PortalSecurityUtils;
-import com.moyun.util.bean.PageUtils;
-import com.moyun.util.file.ExcelUtil;
 
-@Tag(name = "门户关注", description = "门户关注的增删改查操作接口")
+/**
+ * 门户关注 接口
+ *
+ * 语义化 RESTful 契约（与前端 follow.ts 对齐）：
+ *   POST   /portal/follow/{userId}              关注用户（幂等）
+ *   DELETE /portal/follow/{userId}              取消关注（幂等）
+ *   GET    /portal/follow/check/{userId}        检查当前用户是否已关注目标用户
+ *
+ * 死接口清理说明（仅删除 Controller 方法，Service/Mapper/XML 保留不动，便于后续按需恢复）：
+ *   - GET  /portal/follow/{userId}/followers    粉丝列表（前端已不调用）
+ *   - GET  /portal/follow/{userId}/following    关注列表（前端已不调用）
+ *   - POST /portal/follow/toggle/{userId}       切换关注（已被 POST/DELETE {userId} 取代）
+ *   - GET  /portal/follow/isFollowing/{userId}  旧版检查关注（已被 check/{userId} 取代）
+ *
+ * @author moyun
+ */
+@Tag(name = "门户关注", description = "门户关注/取消关注/检查关注接口")
 @RestController
 @RequestMapping("/portal/follow")
 public class PortalFollowController extends BaseController {
@@ -30,72 +41,48 @@ public class PortalFollowController extends BaseController {
     @Autowired
     private IPortalFollowService portalFollowService;
 
-    @Operation(summary = "获取关注列表", description = "根据条件分页查询关注列表")
-    @GetMapping("/list")
-    public AjaxResult list(FollowQuery query) {
-        Page<PortalFollow> page = PageUtils.buildPage(query);
-        Page<PortalFollow> resultPage = portalFollowService.selectPortalFollowPage(page, query);
-        return success(resultPage);
-    }
-
-    @Operation(summary = "导出关注", description = "导出关注数据到Excel文件")
-    @Log(title = "门户关注", businessType = BusinessType.EXPORT)
-    @PostMapping("/export")
-    public void export(HttpServletResponse response, FollowQuery query) {
-        List<PortalFollow> list = portalFollowService.selectPortalFollowList(query);
-        ExcelUtil<PortalFollow> util = new ExcelUtil<PortalFollow>(PortalFollow.class);
-        util.exportExcel(response, list, "门户关注数据");
-    }
-
-    @Operation(summary = "获取关注详情", description = "根据关注ID获取关注详细信息")
-    @GetMapping(value = "/{id}")
-    public AjaxResult getInfo(@Parameter(description = "关注ID") @PathVariable Long id) {
-        return success(portalFollowService.selectPortalFollowById(id));
-    }
-
-    @Operation(summary = "新增关注", description = "创建新关注")
+    /**
+     * 关注用户（幂等：若已关注则保持已关注状态）
+     */
+    @Operation(summary = "关注用户", description = "当前登录用户关注目标用户（幂等，已关注不会重复插入）")
     @Log(title = "门户关注", businessType = BusinessType.INSERT)
-    @PostMapping
-    public AjaxResult add(@Validated @RequestBody PortalFollow portalFollow) {
-        return toAjax(portalFollowService.insertPortalFollow(portalFollow));
-    }
-
-    @Operation(summary = "修改关注", description = "更新关注信息")
-    @Log(title = "门户关注", businessType = BusinessType.UPDATE)
-    @PutMapping
-    public AjaxResult edit(@Validated @RequestBody PortalFollow portalFollow) {
-        return toAjax(portalFollowService.updatePortalFollow(portalFollow));
-    }
-
-    @Operation(summary = "删除关注", description = "批量删除关注")
-    @Log(title = "门户关注", businessType = BusinessType.DELETE)
-    @DeleteMapping("/{ids}")
-    public AjaxResult remove(@Parameter(description = "关注ID数组") @PathVariable Long[] ids) {
-        return toAjax(portalFollowService.deletePortalFollowByIds(ids));
-    }
-
-    @Operation(summary = "关注/取消关注", description = "切换关注状态，同步更新粉丝数和关注数")
-    @PostMapping("/toggle/{userId}")
-    public AjaxResult toggleFollow(@Parameter(description = "被关注用户ID") @PathVariable Long userId) {
+    @PostMapping("/{userId}")
+    public AjaxResult follow(@Parameter(description = "被关注用户ID") @PathVariable Long userId) {
         Long currentUserId = PortalSecurityUtils.getUserId();
         if (currentUserId == null) {
-            return error("请先登录");
+            return AjaxResult.error(HttpStatus.UNAUTHORIZED, "请先登录");
         }
-        return success(portalFollowService.toggleFollow(currentUserId, userId));
+        return success(portalFollowService.follow(currentUserId, userId));
     }
 
-    @Operation(summary = "检查是否已关注", description = "检查当前用户是否已关注目标用户")
-    @GetMapping("/isFollowing/{userId}")
-    public AjaxResult isFollowing(@Parameter(description = "目标用户ID") @PathVariable Long userId) {
+    /**
+     * 取消关注用户（幂等：若未关注则保持未关注状态）
+     */
+    @Operation(summary = "取消关注", description = "当前登录用户取消关注目标用户（幂等，未关注不会报错）")
+    @Log(title = "门户关注", businessType = BusinessType.DELETE)
+    @DeleteMapping("/{userId}")
+    public AjaxResult unfollow(@Parameter(description = "被取消关注用户ID") @PathVariable Long userId) {
         Long currentUserId = PortalSecurityUtils.getUserId();
         if (currentUserId == null) {
-            java.util.Map<String, Object> result = new java.util.HashMap<>();
-            result.put("isFollowing", false);
+            return AjaxResult.error(HttpStatus.UNAUTHORIZED, "请先登录");
+        }
+        return success(portalFollowService.unfollow(currentUserId, userId));
+    }
+
+    /**
+     * 检查当前登录用户是否已关注目标用户
+     */
+    @Operation(summary = "检查是否已关注", description = "检查当前登录用户是否已关注目标用户")
+    @GetMapping("/check/{userId}")
+    public AjaxResult checkFollow(@Parameter(description = "目标用户ID") @PathVariable Long userId) {
+        Long currentUserId = PortalSecurityUtils.getUserId();
+        Map<String, Object> result = new HashMap<>();
+        if (currentUserId == null) {
+            // 未登录返回 false，不报错（允许游客浏览作者主页）
+            result.put("following", false);
             return success(result);
         }
-        boolean following = portalFollowService.isFollowing(currentUserId, userId);
-        java.util.Map<String, Object> result = new java.util.HashMap<>();
-        result.put("isFollowing", following);
+        result.put("following", portalFollowService.isFollowing(currentUserId, userId));
         return success(result);
     }
 }

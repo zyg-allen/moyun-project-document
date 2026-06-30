@@ -1,5 +1,6 @@
 package com.moyun.portal.service.impl;
 
+import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -9,14 +10,19 @@ import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
+import com.moyun.common.exception.system.ServiceException;
 import com.moyun.portal.domain.entity.PortalArticle;
 import com.moyun.portal.domain.entity.PortalComment;
+import com.moyun.portal.domain.entity.PortalCommentLike;
 import com.moyun.portal.domain.entity.PortalUser;
 import com.moyun.portal.domain.query.CommentQuery;
 import com.moyun.portal.domain.vo.CommentVO;
 import com.moyun.portal.mapper.PortalArticleMapper;
+import com.moyun.portal.mapper.PortalCommentLikeMapper;
 import com.moyun.portal.mapper.PortalCommentMapper;
 import com.moyun.portal.mapper.PortalUserMapper;
 import com.moyun.portal.service.IPortalCommentService;
@@ -43,6 +49,9 @@ public class PortalCommentServiceImpl extends ServiceImpl<PortalCommentMapper, P
 
     @Autowired
     private IPortalGrowthService portalGrowthService;
+
+    @Autowired
+    private PortalCommentLikeMapper portalCommentLikeMapper;
 
     /**
      * 根据条件分页查询评论列表
@@ -440,6 +449,72 @@ public class PortalCommentServiceImpl extends ServiceImpl<PortalCommentMapper, P
         result.put("pages", pages);
         result.put("hasMore", pageNum < pages);
 
+        return result;
+    }
+
+    /**
+     * 切换评论点赞状态（点赞 / 取消点赞，幂等 toggle）
+     *
+     * <p>返回字段契约与 PortalArticleController.toggleLikeArticle 保持一致：
+     * {@code isLiked}（当前是否已赞）+ {@code likeCount}（评论最新点赞数）。
+     * 面试模块的 toggleCommentLike 使用 {@code liked} 字段属独立契约，不在此统一范围内。</p>
+     *
+     * @param commentId 评论ID
+     * @param userId    当前登录用户ID
+     * @return 含 isLiked 和 likeCount
+     */
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public Map<String, Object> toggleLike(Long commentId, Long userId) {
+        if (userId == null) {
+            throw new ServiceException("请登录后操作");
+        }
+        PortalCommentLike exist = portalCommentLikeMapper.selectLike(commentId, userId);
+        PortalComment comment = portalCommentMapper.selectById(commentId);
+        if (comment == null) {
+            throw new ServiceException("评论不存在");
+        }
+        Map<String, Object> result = new HashMap<>();
+        boolean isLiked;
+        if (exist != null) {
+            // 已赞 -> 取消
+            portalCommentLikeMapper.deleteById(exist.getId());
+            comment.setLikeCount(Math.max(0L, (comment.getLikeCount() == null ? 0L : comment.getLikeCount()) - 1));
+            isLiked = false;
+        } else {
+            // 未赞 -> 点赞
+            PortalCommentLike like = new PortalCommentLike();
+            like.setCommentId(commentId);
+            like.setUserId(userId);
+            like.setCreateTime(LocalDateTime.now());
+            try {
+                portalCommentLikeMapper.insert(like);
+            } catch (DuplicateKeyException e) {
+                // 并发场景：另一个事务已先插入（uk_comment_user 唯一索引触发）
+                // 此时按"已赞→取消"语义处理，保证幂等
+                log.info("评论点赞并发冲突，转为取消点赞：commentId={}, userId={}", commentId, userId);
+                PortalCommentLike conflict = portalCommentLikeMapper.selectLike(commentId, userId);
+                if (conflict != null) {
+                    portalCommentLikeMapper.deleteById(conflict.getId());
+                }
+                comment.setLikeCount(Math.max(0L, (comment.getLikeCount() == null ? 0L : comment.getLikeCount()) - 1));
+                portalCommentMapper.updateById(comment);
+                result.put("isLiked", false);
+                result.put("likeCount", comment.getLikeCount());
+                return result;
+            }
+            comment.setLikeCount((comment.getLikeCount() == null ? 0L : comment.getLikeCount()) + 1);
+            isLiked = true;
+
+            // 为评论作者记录"评论被点赞"成长事件（与文章点赞/收藏保持一致）
+            if (comment.getAuthorId() != null && !comment.getAuthorId().equals(userId)) {
+                portalGrowthService.recordEventWithTarget("comment", "receive_like",
+                        comment.getAuthorId(), userId, "comment", commentId);
+            }
+        }
+        portalCommentMapper.updateById(comment);
+        result.put("isLiked", isLiked);
+        result.put("likeCount", comment.getLikeCount());
         return result;
     }
 }

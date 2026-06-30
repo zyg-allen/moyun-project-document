@@ -43,3 +43,7 @@ build/
 /moyun-admin-vue/node_modules/
 /moyun-admin-vue/dist/
 /moyun-portal/dist/
+
+### IDE/TS 生成的 .vue 辅助文件（影响打包提交） ###
+*.vue.js
+*.vue.d.ts

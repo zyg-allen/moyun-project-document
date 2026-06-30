@@ -1,5 +1,12 @@
 package com.moyun.portal.controller;
 
+/**
+ * 文件变更说明：
+ * 已删除 GET /portal/user/info (getInfo) 接口，该接口为死接口，
+ * 前端已改用 /portal/user/me 获取当前用户信息。
+ * 本次仅清理 Controller 层方法，对应 Service/Mapper/XML 实现保持不变。
+ */
+
 import java.time.LocalDateTime;
 
 import io.swagger.v3.oas.annotations.Operation;
@@ -14,7 +21,6 @@ import org.springframework.web.bind.annotation.*;
 
 import com.moyun.common.annotation.Anonymous;
 import com.moyun.common.constant.Constants;
-import com.moyun.common.constant.HttpStatus;
 import com.moyun.core.base.AjaxResult;
 import com.moyun.core.base.model.LoginBody;
 import com.moyun.portal.domain.entity.PortalUser;
@@ -97,19 +103,6 @@ public class PortalLoginController {
         } else {
             return AjaxResult.error("注册失败");
         }
-    }
-
-    /**
-     * 获取当前用户信息
-     */
-    @Operation(summary = "获取当前用户信息", description = "获取已登录用户的信息")
-    @GetMapping("/user/info")
-    public AjaxResult getInfo() {
-        PortalLoginUser loginUser = getCurrentLoginUser();
-        if (loginUser == null) {
-            return AjaxResult.error(HttpStatus.UNAUTHORIZED, "登录已过期，请重新登录");
-        }
-        return AjaxResult.success(toUserVo(loginUser.getUser()));
     }
 
     /**

@@ -7,7 +7,6 @@ import type {
   RegisterResponse,
   UpdateUserProfileParams,
   UpdatePasswordParams,
-  BindPhoneParams,
   SendSmsCodeParams,
   UserStats,
 } from '@/types/api';
@@ -42,11 +41,6 @@ export const updatePassword = (params: UpdatePasswordParams) => {
   return httpPut('/portal/user/password', params);
 };
 
-// 绑定手机
-export const bindPhone = (params: BindPhoneParams) => {
-  return httpPost('/portal/user/bind-phone', params);
-};
-
 // 发送短信验证码
 export const sendSmsCode = (params: SendSmsCodeParams) => {
   return httpPost('/portal/user/send-sms', params);
@@ -65,11 +59,6 @@ export const getUserStats = (userId?: string) => {
 // 获取用户详情
 export const getUserById = (userId: string) => {
   return httpGet<User>(`/portal/user/${userId}`);
-};
-
-// 获取用户列表
-export const getUserList = (params: { page: number; pageSize: number; [key: string]: any }) => {
-  return httpGet<any>('/portal/user/list', params);
 };
 
 // 获取名家列表

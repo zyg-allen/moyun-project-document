@@ -1,18 +1,30 @@
+/**
+ * PortalUserController - 门户用户接口
+ *
+ * 清理说明（2026-06-28）：
+ * 已删除以下 5 个未被前端调用的死接口，仅移除 Controller 方法，
+ * Service / Mapper / XML 层实现予以保留，不影响其他调用方：
+ *   - GET    /portal/user/list     → list      （改由后台管理或聚合接口承担）
+ *   - POST   /portal/user/export   → export    （无导出场景）
+ *   - POST   /portal/user          → add       （注册走专用接口）
+ *   - PUT    /portal/user          → edit      （后台管理专用 Controller 负责）
+ *   - DELETE /portal/user/{ids}    → remove    （后台管理专用 Controller 负责）
+ *
+ * 保留的 7 个接口：getInfo / getCurrentUserInfo / updateProfile /
+ * updatePassword / uploadAvatar / getUserStats / getAuthors。
+ */
 package com.moyun.portal.controller;
 
-import jakarta.servlet.http.HttpServletResponse;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
-import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -30,8 +42,6 @@ import com.moyun.portal.mapper.PortalArticleMapper;
 import com.moyun.portal.service.IPortalGrowthService;
 import com.moyun.portal.service.IPortalUserService;
 import com.moyun.portal.util.PortalSecurityUtils;
-import com.moyun.util.bean.PageUtils;
-import com.moyun.util.file.ExcelUtil;
 
 @Tag(name = "门户用户", description = "门户用户的增删改查操作接口")
 @RestController
@@ -52,23 +62,6 @@ public class PortalUserController extends BaseController {
     private PortalArticleMapper articleMapper;
 
     private static final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
-
-    @Operation(summary = "获取用户列表", description = "根据条件分页查询用户列表")
-    @GetMapping("/list")
-    public AjaxResult list(UserQuery query) {
-        Page<PortalUser> page = PageUtils.buildPage(query);
-        Page<PortalUser> resultPage = portalUserService.selectPortalUserPage(page, query);
-        return success(resultPage);
-    }
-
-    @Operation(summary = "导出用户", description = "导出用户数据到Excel文件")
-    @Log(title = "门户用户", businessType = BusinessType.EXPORT)
-    @PostMapping("/export")
-    public void export(HttpServletResponse response, UserQuery query) {
-        List<PortalUser> list = portalUserService.selectPortalUserList(query);
-        ExcelUtil<PortalUser> util = new ExcelUtil<>(PortalUser.class);
-        util.exportExcel(response, list, "门户用户数据");
-    }
 
     @Operation(summary = "获取用户详情", description = "根据用户ID获取用户详细信息")
     @GetMapping(value = "/{id}")
@@ -315,39 +308,6 @@ public class PortalUserController extends BaseController {
         // 从成长体系统计聚合表读取真实数据
         UserStatsVO stats = portalGrowthService.getUserStats(targetUserId);
         return success(stats);
-    }
-
-    @Operation(summary = "新增用户", description = "创建新用户")
-    @Log(title = "门户用户", businessType = BusinessType.INSERT)
-    @PostMapping
-    public AjaxResult add(@Validated @RequestBody PortalUser portalUser) {
-        if (!portalUserService.checkPortalUserNameUnique(portalUser)) {
-            return error("新增用户'" + portalUser.getUsername() + "'失败，登录账号已存在");
-        }
-        if (!portalUserService.checkPortalEmailUnique(portalUser)) {
-            return error("新增用户'" + portalUser.getUsername() + "'失败，邮箱已存在");
-        }
-        return toAjax(portalUserService.insertPortalUser(portalUser));
-    }
-
-    @Operation(summary = "修改用户", description = "更新用户信息")
-    @Log(title = "门户用户", businessType = BusinessType.UPDATE)
-    @PutMapping
-    public AjaxResult edit(@Validated @RequestBody PortalUser portalUser) {
-        if (!portalUserService.checkPortalUserNameUnique(portalUser)) {
-            return error("修改用户'" + portalUser.getUsername() + "'失败，登录账号已存在");
-        }
-        if (!portalUserService.checkPortalEmailUnique(portalUser)) {
-            return error("修改用户'" + portalUser.getUsername() + "'失败，邮箱已存在");
-        }
-        return toAjax(portalUserService.updatePortalUser(portalUser));
-    }
-
-    @Operation(summary = "删除用户", description = "批量删除用户")
-    @Log(title = "门户用户", businessType = BusinessType.DELETE)
-    @DeleteMapping("/{ids}")
-    public AjaxResult remove(@Parameter(description = "用户ID数组") @PathVariable Long[] ids) {
-        return toAjax(portalUserService.deletePortalUserByIds(ids));
     }
 
     @Operation(summary = "获取名家列表", description = "获取首页展示的名家列表，含文章数/浏览/获赞/创作天数等统计")

@@ -35,6 +35,13 @@
             <if test="params.module != null and params.module != ''">
                 AND module = #{params.module}
             </if>
+            <if test="params.categoryId != null">
+                AND EXISTS (
+                    SELECT 1 FROM portal_entity_tag et
+                    JOIN portal_article a ON et.entity_id = a.id AND et.entity_type = 'article'
+                    WHERE et.tag_id = portal_tag.id AND a.category_id = #{params.categoryId}
+                )
+            </if>
         </where>
     </sql>
 
@@ -137,6 +144,12 @@
         <if test="module == null or module == ''">
             AND (module is null or module = '')
         </if>
+        limit 1
+    </select>
+
+    <select id="selectByName" resultMap="PortalTagResult">
+        <include refid="selectPortalTagVo"/>
+        where name = #{name}
         limit 1
     </select>
 

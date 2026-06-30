@@ -1,6 +1,7 @@
 package com.moyun.portal.service;
 
 import java.util.List;
+import java.util.Map;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 
@@ -91,4 +92,40 @@ public interface IPortalFollowService {
      * @return true=已关注
      */
     boolean isFollowing(Long followerId, Long followingId);
+
+    /**
+     * 关注用户（语义化接口：若已关注则保持已关注状态，幂等）
+     *
+     * @param followerId  关注者ID（当前登录用户）
+     * @param followingId 被关注者ID
+     * @return 包含 followed、followerCount、message 的结果 Map
+     */
+    Map<String, Object> follow(Long followerId, Long followingId);
+
+    /**
+     * 取消关注用户（语义化接口：若未关注则保持未关注状态，幂等）
+     *
+     * @param followerId  关注者ID（当前登录用户）
+     * @param followingId 被关注者ID
+     * @return 包含 followed、followerCount、message 的结果 Map
+     */
+    Map<String, Object> unfollow(Long followerId, Long followingId);
+
+    /**
+     * 查询指定用户的粉丝列表（分页，按关注时间倒序）
+     *
+     * @param page     分页参数
+     * @param userId   被查询用户ID
+     * @return 分页结果，records 为 PortalFollow（含 followerId/createTime）
+     */
+    Page<PortalFollow> selectFollowerPage(Page<PortalFollow> page, Long userId);
+
+    /**
+     * 查询指定用户的关注列表（分页，按关注时间倒序）
+     *
+     * @param page     分页参数
+     * @param userId   被查询用户ID
+     * @return 分页结果，records 为 PortalFollow（含 followingId/createTime）
+     */
+    Page<PortalFollow> selectFollowingPage(Page<PortalFollow> page, Long userId);
 }

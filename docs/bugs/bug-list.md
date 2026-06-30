@@ -326,4 +326,154 @@
 
   **需执行的 SQL 脚本**：
   1. `35_add_notification_user_type.sql` — 新增 user_type 字段 + 调整唯一索引
-  2. `36_init_notification_center_menu.sql` — 后台通知中心菜单初始化
+  2. `36_init_notification_center_menu.sql` — 后台通知中心菜单初始化（**注：v4.0 已废弃并删除**，见 BUG-009）
+
+---
+
+## BUG-006: [个人中心页 mock 数据] ✅ 已修复
+- **模块**：前台门户 - 个人中心页
+- **严重程度**：🔴 高
+- **复现步骤**：
+  1. 访问 `http://localhost:3000/author/3`
+  2. 查看作者统计区（总浏览/获赞/文章数等）
+- **预期结果**：展示后端真实聚合数据
+- **实际结果**：总浏览等数据为前端随机 mock 或文章列表前端累加，与后端真实值不一致
+- **根因**：`AuthorPage.vue` 未调用后端统计聚合接口，而是在前端累加文章列表的 views/likes（仅能反映已加载文章，非全量）；同时 `totalViews=0` 时计算 `totalLikes/totalViews` 产生 NaN%
+- **修复内容**：
+  1. 移除文章列表前端累加 `totalViews`/`totalLikes` 的逻辑，仅保留 `articles = list.length` 作为初始值
+  2. 改用 `growthApi.getUserStatsById(authorId)` 调用真实聚合接口 `GET /portal/growth/stats?userId=xxx`
+  3. 字段映射对齐后端 `UserStatsVO`（articles/views/likes/totalLikes/followers/following）
+  4. 修复 NaN%：`authorStats.totalViews > 0 ? Math.round((authorStats.totalLikes / authorStats.totalViews) * 100) : 0`
+- **修复文件**：
+  - `moyun-portal/src/pages/AuthorPage.vue`
+- **关联接口**：`GET /portal/growth/stats`（`PortalSecurityConfig` 已 permitAll，游客可访问）
+
+---
+
+## BUG-007: [友情链接表格字段不显示] ✅ 已修复
+- **模块**：后台管理 - 友情链接
+- **严重程度**：🔴 高
+- **复现步骤**：
+  1. 访问 `http://localhost/cms/cms/friend-link`
+  2. 查看表格列表
+- **预期结果**：显示网站名称/地址/描述/Logo/排序/状态等字段
+- **实际结果**：表格字段全部空白，仅显示编号和创建时间
+- **根因**：`CmsFriendLinkVO` 虽然 `import lombok.Data`，但**类上漏加 `@Data` 注解**。Lombok 的 `@Data` 不会继承到子类，导致 VO 自定义字段（id/name/url/description/logo/sort/status）没有 getter/setter，Jackson 序列化时只输出从 BaseEntity 继承的字段（createBy/createTime/updateBy/updateTime/remark）
+- **修复内容**：
+  1. `CmsFriendLinkVO` 补充 `@Data` + `@EqualsAndHashCode(callSuper = true)` 注解
+  2. SQL `40_fix_bugs_v4.sql` 统一 `portal_friend_link.status` 为 `0/1`（原 `active/inactive`，与前端字典不匹配）
+  3. `03_portal_init.sql` 建表脚本同步修改 status 默认值和注释
+- **修复文件**：
+  - `moyun-server/src/main/java/com/moyun/ext/cms/domain/vo/CmsFriendLinkVO.java`
+  - `moyun-server/src/main/resources/sql/40_fix_bugs_v4.sql`
+  - `moyun-server/src/main/resources/sql/03_portal_init.sql`
+
+---
+
+## BUG-008: [后台通知菜单重复] ✅ 已修复
+- **模块**：后台管理 - 通知系统
+- **严重程度**：🟠 中
+- **复现步骤**：
+  1. 登录后台管理系统
+  2. 查看左侧菜单
+- **预期结果**：只有一个通知管理入口（`/cms/notification`）
+- **实际结果**：存在 3 个通知相关菜单：通知公告（`/system/notice`，404）、通知中心（`/system/notification`，404）、通知管理（`/cms/notification`，正常）。前两个为多余入口
+- **根因**：BUG-004/005 合并通知表后，旧的 `SysNoticeController`（通知公告）和 `SysNotificationController`（通知中心）的菜单数据未清理，但 Controller 和前端页面已在之前的提交中删除，导致菜单点击 404
+- **修复内容**：
+  1. 删除残留的 `SysNoticeController` / `SysNotificationController`（确认已不存在）
+  2. 删除残留的前端文件：`views/system/notice/`、`views/system/notification/`、`api/system/notice.js`、`api/system/notification.js`（确认已不存在）
+  3. 删除 SQL 脚本 `36_init_notification_center_menu.sql`
+  4. `01_moyun_init.sql` 清理 menu_id=107（通知公告）及按钮 1035-1038 的 INSERT 和 sys_role_menu 授权
+  5. `40_fix_bugs_v4.sql` 中 DELETE 删除数据库中残留的通知公告/通知中心菜单及角色授权
+  6. `application.yaml` xss excludes 从 `/system/notice` 改为 `/cms/notification`
+  7. `38_init_report_feedback_menu.sql` 更新过时注释
+  8. 保留 `cms/notification`（通知管理）作为唯一通知入口
+- **修复文件**：
+  - `moyun-server/src/main/resources/sql/01_moyun_init.sql`
+  - `moyun-server/src/main/resources/sql/38_init_report_feedback_menu.sql`
+  - `moyun-server/src/main/resources/sql/40_fix_bugs_v4.sql`
+  - `moyun-server/src/main/resources/application.yaml`
+- **说明**：`sys_notice` 建表语句保留在 `01_moyun_init.sql` 中，因为 `34_merge_notification_tables.sql` 依赖它做数据迁移（RENAME 为 `sys_notice_bak`）
+
+---
+
+## BUG-009: [评论管理页面 404] ✅ 已修复
+- **模块**：后台管理 - 评论管理
+- **严重程度**：🔴 高
+- **复现步骤**：
+  1. 访问 `http://localhost/cms/cms/comment`
+- **预期结果**：显示评论管理列表页
+- **实际结果**：404
+- **根因**：数据库 `sys_menu` 中评论管理菜单的 `path` 字段值不正确（动态路由拼接规则：一级目录 `/{path}`，二级菜单 `/{parentPath}/{childPath}`，path 应为 `comment` 才能拼出 `/cms/comment`）；同时权限标识 `cms:comment:audit` 与 Controller 的 `@PreAuthorize` 不一致
+- **修复内容**：
+  1. SQL `40_fix_bugs_v4.sql` 修正菜单 path 为 `comment`
+  2. 统一权限标识 `cms:comment:audit → cms:comment:edit`（与 `CmsCommentController` 的 `@PreAuthorize` 对齐）
+  3. `INSERT ... WHERE NOT EXISTS` 确保评论管理菜单及按钮（query/edit/remove）存在
+  4. 为 admin 角色（role_id=1）授权
+- **修复文件**：
+  - `moyun-server/src/main/resources/sql/40_fix_bugs_v4.sql`
+- **关联验证**：`CmsCommentController` 的 `@PreAuthorize`（list/query/edit/remove）与 SQL 菜单 perms 完全一致；前端 `comment.js` 的请求路径与 Controller 一致
+
+---
+
+## BUG-010: [关注/取消关注接口 500] ✅ 已修复
+- **模块**：前台门户 - 关注功能
+- **严重程度**：🔴 高
+- **复现步骤**：
+  1. 登录门户
+  2. 访问作者主页 `http://localhost:3000/author/2`
+  3. 点击"关注"按钮
+- **预期结果**：关注成功，按钮变为"已关注"
+- **实际结果**：`POST /portal/follow/2` 返回 500 "Request method 'POST' is not supported"
+- **根因**：前后端接口契约不匹配。前端 `follow.ts` 调用语义化 RESTful 路径 `POST /portal/follow/{userId}`，但后端 `PortalFollowController` 只有 `@PostMapping`（无路径，期望 body 传 PortalFollow）和 `@DeleteMapping("/{ids}")`（批量删除），没有 `@PostMapping("/{userId}")`
+- **修复内容**：
+  1. 重构 `PortalFollowController` 为语义化 RESTful 契约：
+     - `POST /portal/follow/{userId}` 关注（幂等）
+     - `DELETE /portal/follow/{userId}` 取消关注（幂等）
+     - `GET /portal/follow/check/{userId}` 检查是否已关注
+     - `GET /portal/follow/{userId}/followers` 粉丝列表（分页）
+     - `GET /portal/follow/{userId}/following` 关注列表（分页）
+  2. `IPortalFollowService` 新增 `follow` / `unfollow` / `selectFollowerPage` / `selectFollowingPage` 方法
+  3. `PortalFollowServiceImpl` 实现：事务一致性（关注记录 + 统计计数 + 成长事件原子操作）、幂等性逻辑（已关注再关注/未关注再取消均不报错）
+  4. `PortalSecurityConfig` 放开 `GET /portal/follow/check/**` 及 followers/following 公开访问
+  5. 保留旧接口 `toggle/{userId}` / `isFollowing/{userId}` 向后兼容
+- **修复文件**：
+  - `moyun-server/src/main/java/com/moyun/portal/controller/PortalFollowController.java`
+  - `moyun-server/src/main/java/com/moyun/portal/service/IPortalFollowService.java`
+  - `moyun-server/src/main/java/com/moyun/portal/service/impl/PortalFollowServiceImpl.java`
+  - `moyun-server/src/main/java/com/moyun/portal/config/PortalSecurityConfig.java`
+
+---
+
+## BUG-011: [三端深度复查发现的问题] ✅ 已修复
+- **模块**：跨模块（后端 + Portal + Admin）
+- **严重程度**：🟠 中
+- **背景**：v4.0 修复完成后对三端做深度复查，发现 4 个 P1 问题
+- **修复内容**：
+
+  ### P1-1：PortalReport.description 校验与 DB 列长不一致
+  - **问题**：实体 `@Size(max=2000)`，建表为 `varchar(1000)`，1001-2000 字的举报描述会写入失败
+  - **修复**：`38_init_report_feedback_menu.sql` 改为 `varchar(2000)`，`40_fix_bugs_v4.sql` 新增 `ALTER TABLE portal_report MODIFY COLUMN description varchar(2000)`
+
+  ### P1-2：AuthorPage.vue 遗漏 checkFollow 调用
+  - **问题**：已关注用户访问作者主页时按钮显示"关注"而非"已关注"，点击后前端 `followers++` 导致显示数比服务端多 1
+  - **修复**：`loadAuthorData` 中已登录且非自己主页时调用 `followApi.checkFollow({ userId: authorId })` 初始化 `isFollowing`
+
+  ### P1-3：notification 用户搜索下拉永远为空
+  - **问题**：`remoteUserSearch` 用 `response.rows` 取数据，但 `/cms/user/list` 返回的是 `AjaxResult` 包装的 `Page`，正确路径是 `response.data.records`
+  - **修复**：`response.rows || []` → `response.data.records || []`
+
+  ### P1-4：notification 用户类型 sys 无后端接口
+  - **问题**：表单提供"系统用户"选项，但 `/cms/user/list` 只查 portal_user 表
+  - **修复**：移除 sys 选项，下拉固定为"门户用户"并 disabled
+
+  ### P2：comment.js 死代码
+  - **问题**：`addComment` / `updateComment` 两个导出函数无调用方，且后端无对应端点
+  - **修复**：删除这两个函数
+
+- **修复文件**：
+  - `moyun-server/src/main/resources/sql/38_init_report_feedback_menu.sql`
+  - `moyun-server/src/main/resources/sql/40_fix_bugs_v4.sql`
+  - `moyun-portal/src/pages/AuthorPage.vue`
+  - `moyun-admin-vue/src/views/cms/notification/index.vue`
+  - `moyun-admin-vue/src/api/cms/comment.js`

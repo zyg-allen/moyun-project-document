@@ -1,7 +1,6 @@
 import { httpGet, httpPost, httpGetList } from './client';
 import type {
   InterviewCategoryVO,
-  InterviewCompanyVO,
   InterviewQuestionVO,
   InterviewQuestionDetailVO,
   InterviewQuestionQuery,
@@ -11,7 +10,6 @@ import type {
   InterviewCommentVO,
   InterviewResumeTemplateVO,
   InterviewResumeTemplateQuery,
-  InterviewBookmarkVO,
   InterviewHomeDataVO,
   TagVO,
   PageResult,
@@ -27,26 +25,6 @@ export const getInterviewHome = () => {
 
 export const getInterviewCategoryList = () => {
   return httpGet<InterviewCategoryVO[]>('/portal/interview/category/list');
-};
-
-// ==================== 公司 ====================
-
-export const getCompanyList = () => {
-  return httpGet<InterviewCompanyVO[]>('/portal/interview/company/list');
-};
-
-export const getCompanyDetail = (companyId: string | number) => {
-  return httpGet<InterviewCompanyVO>(`/portal/interview/company/${companyId}`);
-};
-
-export const getCompanyQuestions = (
-  companyId: string | number,
-  params?: InterviewQuestionQuery
-) => {
-  return httpGetList<InterviewQuestionVO>(
-    `/portal/interview/company/${companyId}/questions`,
-    params
-  );
 };
 
 // ==================== 题目 ====================
@@ -95,13 +73,6 @@ export const toggleQuestionBookmark = (
   );
 };
 
-export const getMyBookmarkList = (params?: {
-  pageNum?: number;
-  pageSize?: number;
-}) => {
-  return httpGetList<InterviewBookmarkVO>('/portal/interview/bookmark/list', params);
-};
-
 // ==================== 精选笔记 ====================
 
 // 查询某题目的精选笔记列表（公开接口）
@@ -121,20 +92,6 @@ export const getExperienceDetail = (experienceId: string | number) => {
   return httpGet<InterviewExperienceVO>(
     `/portal/interview/experience/${experienceId}`
   );
-};
-
-export const publishExperience = (body: {
-  title: string;
-  company: string;
-  position?: string;
-  year?: number;
-  month?: number;
-  summary?: string;
-  content?: string;
-  coverImage?: string;
-  tags?: string[];
-}) => {
-  return httpPost<InterviewExperienceVO>('/portal/interview/experience', body);
 };
 
 export const toggleExperienceLike = (experienceId: string | number) => {
@@ -177,10 +134,6 @@ export const getResumeTemplateList = (params?: InterviewResumeTemplateQuery) => 
   );
 };
 
-export const getResumeTemplateDetail = (templateId: string | number) => {
-  return httpGet<InterviewResumeTemplateVO>(`/portal/interview/resume/${templateId}`);
-};
-
 export const downloadResumeTemplate = (templateId: string | number) => {
   return httpGet<{ downloadUrl: string }>(
     `/portal/interview/resume/${templateId}/download`
@@ -194,10 +147,6 @@ export const toggleResumeTemplateLike = (templateId: string | number) => {
 };
 
 // ==================== 通用标签系统 ====================
-
-export const getTagsByEntity = (entityType: string, entityId: string | number) => {
-  return httpGet<TagVO[]>(`/portal/tag/entity/${entityType}/${entityId}`);
-};
 
 export const bindTagsToEntity = (data: {
   entityType: string;

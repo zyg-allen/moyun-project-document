@@ -4,112 +4,12 @@
         "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.moyun.portal.mapper.PortalLikeMapper">
 
-    <resultMap type="com.moyun.portal.domain.entity.PortalLike" id="PortalLikeResult">
-        <id property="id" column="id"/>
-        <result property="userId" column="user_id"/>
-        <result property="articleId" column="article_id"/>
-        <result property="commentId" column="comment_id"/>
-        <result property="type" column="type"/>
-        <result property="createTime" column="create_time"/>
-    </resultMap>
+    <!--
+        说明：原 PortalLikeController / IPortalLikeService / PortalLikeServiceImpl 已删除。
+        文章点赞由 PortalArticleController.toggleLikeArticle 直接使用 BaseMapper 通用方法
+        （selectOne / insert / deleteById / selectCount）操作 portal_like 表，
+        不依赖本 XML 的自定义 SQL，故全部自定义语句已清理。
+        保留 namespace 以支撑 MyBatis-Plus Mapper Bean 注册。
+    -->
 
-    <sql id="selectPortalLikeVo">
-        select id, user_id, article_id, comment_id, type, create_time from portal_like
-    </sql>
-
-    <!-- 通用查询条件片段 -->
-    <sql id="queryWhere">
-        <where>
-            <if test="params.userId != null">
-                AND user_id = #{params.userId}
-            </if>
-            <if test="params.articleId != null">
-                AND article_id = #{params.articleId}
-            </if>
-            <if test="params.commentId != null">
-                AND comment_id = #{params.commentId}
-            </if>
-            <if test="params.type != null and params.type != ''">
-                AND type = #{params.type}
-            </if>
-        </where>
-    </sql>
-
-    <!-- 通用排序片段（默认排序） -->
-    <sql id="defaultOrderBy">
-        order by create_time desc
-    </sql>
-
-    <!-- 动态排序片段 -->
-    <sql id="dynamicOrderBy">
-        <if test="params.orderByColumn != null and params.orderByColumn != ''">
-            order by ${params.orderByColumn}
-            <if test="params.isAsc != null and params.isAsc != ''">
-                ${params.isAsc}
-            </if>
-        </if>
-        <if test="params.orderByColumn == null or params.orderByColumn == ''">
-            <include refid="defaultOrderBy"/>
-        </if>
-    </sql>
-
-    <!-- 分页查询 -->
-    <select id="selectPortalLikePage" resultMap="PortalLikeResult">
-        <include refid="selectPortalLikeVo"/>
-        <include refid="queryWhere"/>
-        <include refid="dynamicOrderBy"/>
-    </select>
-
-    <!-- 不分页查询（用于导出等场景） -->
-    <select id="selectPortalLikeList" resultMap="PortalLikeResult">
-        <include refid="selectPortalLikeVo"/>
-        <include refid="queryWhere"/>
-        <include refid="defaultOrderBy"/>
-    </select>
-
-    <select id="selectPortalLikeById" parameterType="Long" resultMap="PortalLikeResult">
-        <include refid="selectPortalLikeVo"/>
-        where id = #{id}
-    </select>
-
-    <insert id="insertPortalLike" parameterType="com.moyun.portal.domain.entity.PortalLike" useGeneratedKeys="true" keyProperty="id">
-        insert into portal_like
-        <trim prefix="(" suffix=")" suffixOverrides=",">
-            <if test="userId != null">user_id,</if>
-            <if test="articleId != null">article_id,</if>
-            <if test="commentId != null">comment_id,</if>
-            <if test="type != null">type,</if>
-            <if test="createTime != null">create_time,</if>
-        </trim>
-        <trim prefix="values (" suffix=")" suffixOverrides=",">
-            <if test="userId != null">#{userId},</if>
-            <if test="articleId != null">#{articleId},</if>
-            <if test="commentId != null">#{commentId},</if>
-            <if test="type != null">#{type},</if>
-            <if test="createTime != null">#{createTime},</if>
-        </trim>
-    </insert>
-
-    <update id="updatePortalLike" parameterType="com.moyun.portal.domain.entity.PortalLike">
-        update portal_like
-        <trim prefix="SET" suffixOverrides=",">
-            <if test="userId != null">user_id = #{userId},</if>
-            <if test="articleId != null">article_id = #{articleId},</if>
-            <if test="commentId != null">comment_id = #{commentId},</if>
-            <if test="type != null">type = #{type},</if>
-            <if test="createTime != null">create_time = #{createTime},</if>
-        </trim>
-        where id = #{id}
-    </update>
-
-    <delete id="deletePortalLikeById" parameterType="Long">
-        delete from portal_like where id = #{id}
-    </delete>
-
-    <delete id="deletePortalLikeByIds" parameterType="Long">
-        delete from portal_like where id in
-        <foreach item="id" collection="array" open="(" separator="," close=")">
-            #{id}
-        </foreach>
-    </delete>
 </mapper>

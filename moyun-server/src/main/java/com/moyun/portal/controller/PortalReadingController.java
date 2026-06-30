@@ -33,6 +33,21 @@ import com.moyun.portal.util.PortalSecurityUtils;
 /**
  * 读书空间前台Controller
  *
+ * NOTE（清理记录）：
+ *   本 Controller 曾暴露 10 个前台接口，经核查其中 5 个为无前端调用的死接口，已于本次清理移除：
+ *     - GET  /portal/reading/books                  → getBooks        （列表分页，前端改用首页精选数据，未再调用）
+ *     - GET  /portal/reading/book-lists             → getBookLists    （列表分页，前端改用首页精选数据，未再调用）
+ *     - GET  /portal/reading/quotes                 → getQuotes       （列表分页，前端改用首页精选数据，未再调用）
+ *     - POST /portal/reading/quotes/{id}/like       → likeQuote       （点赞接口，前端未接入）
+ *     - POST /portal/reading/book-lists/{id}/like   → likeBookList    （点赞接口，前端未接入）
+ *   保留以下 5 个仍在使用的接口：
+ *     - GET  /portal/reading/home                   → getReadingHome
+ *     - GET  /portal/reading/books/{id}             → getBookById
+ *     - GET  /portal/reading/book-lists/{id}        → getBookListById
+ *     - POST /portal/reading/book-lists/{id}/bookmark → toggleBookListBookmark
+ *     - GET  /portal/reading/book-lists/{id}/bookmark → checkBookListBookmark
+ *   说明：本次仅删除 Controller 层方法，对应的 Service / Mapper / XML 实现保持不动，避免影响其他调用方。
+ *
  * @author moyun
  */
 @Tag(name = "读书空间-前台", description = "读书空间前台接口")
@@ -100,34 +115,6 @@ public class PortalReadingController extends BaseController {
     }
 
     /**
-     * 获取书籍列表（分页）
-     */
-    @Operation(summary = "获取书籍列表", description = "分页获取书籍列表，支持分类、标签筛选")
-    @GetMapping("/books")
-    @Anonymous
-    public AjaxResult getBooks(
-            @Parameter(description = "分类ID") @RequestParam(required = false) Long categoryId,
-            @Parameter(description = "搜索关键词") @RequestParam(required = false) String keyword,
-            @Parameter(description = "是否精选") @RequestParam(required = false) Boolean isFeatured,
-            @Parameter(description = "页码") @RequestParam(defaultValue = "1") Integer page,
-            @Parameter(description = "每页条数") @RequestParam(defaultValue = "12") Integer pageSize) {
-        BookQuery query = new BookQuery();
-        query.setCategoryId(categoryId);
-        query.setTitle(keyword);
-        query.setIsFeatured(isFeatured);
-        query.setStatus("active");
-
-        Page<PortalBook> result = portalBookService.selectPortalBookPage(new Page<>(page, pageSize), query);
-
-        Map<String, Object> res = new HashMap<>();
-        res.put("list", result.getRecords());
-        res.put("total", result.getTotal());
-        res.put("page", page);
-        res.put("pageSize", pageSize);
-        return AjaxResult.success(res);
-    }
-
-    /**
      * 获取书籍详情
      */
     @Operation(summary = "获取书籍详情", description = "根据ID获取书籍详情")
@@ -145,34 +132,6 @@ public class PortalReadingController extends BaseController {
         result.put("book", book);
         result.put("quotes", quotes);
         return AjaxResult.success(result);
-    }
-
-    /**
-     * 获取书单列表（分页）
-     */
-    @Operation(summary = "获取书单列表", description = "分页获取书单列表")
-    @GetMapping("/book-lists")
-    @Anonymous
-    public AjaxResult getBookLists(
-            @Parameter(description = "分类ID") @RequestParam(required = false) Long categoryId,
-            @Parameter(description = "是否公开") @RequestParam(defaultValue = "true") Boolean isPublic,
-            @Parameter(description = "搜索关键词") @RequestParam(required = false) String keyword,
-            @Parameter(description = "页码") @RequestParam(defaultValue = "1") Integer page,
-            @Parameter(description = "每页条数") @RequestParam(defaultValue = "12") Integer pageSize) {
-        BookListQuery query = new BookListQuery();
-        query.setCategoryId(categoryId);
-        query.setTitle(keyword);
-        query.setIsPublic(isPublic);
-        query.setStatus("active");
-
-        Page<PortalBookList> result = portalBookListService.selectPortalBookListPage(new Page<>(page, pageSize), query);
-
-        Map<String, Object> res = new HashMap<>();
-        res.put("list", result.getRecords());
-        res.put("total", result.getTotal());
-        res.put("page", page);
-        res.put("pageSize", pageSize);
-        return AjaxResult.success(res);
     }
 
     /**
@@ -200,56 +159,6 @@ public class PortalReadingController extends BaseController {
         result.put("bookList", bookList);
         result.put("books", books);
         return AjaxResult.success(result);
-    }
-
-    /**
-     * 获取金句列表（分页）
-     */
-    @Operation(summary = "获取金句列表", description = "分页获取公开金句摘录")
-    @GetMapping("/quotes")
-    @Anonymous
-    public AjaxResult getQuotes(
-            @Parameter(description = "书籍ID") @RequestParam(required = false) Long bookId,
-            @Parameter(description = "是否精选") @RequestParam(required = false) Boolean isFeatured,
-            @Parameter(description = "搜索关键词") @RequestParam(required = false) String keyword,
-            @Parameter(description = "页码") @RequestParam(defaultValue = "1") Integer page,
-            @Parameter(description = "每页条数") @RequestParam(defaultValue = "20") Integer pageSize) {
-        BookQuoteQuery query = new BookQuoteQuery();
-        query.setBookId(bookId);
-        query.setIsFeatured(isFeatured);
-        query.setIsPublic(true);
-        query.setContent(keyword);
-
-        Page<PortalBookQuote> result = portalBookQuoteService.selectPortalBookQuotePage(new Page<>(page, pageSize), query);
-
-        Map<String, Object> res = new HashMap<>();
-        res.put("list", result.getRecords());
-        res.put("total", result.getTotal());
-        res.put("page", page);
-        res.put("pageSize", pageSize);
-        return AjaxResult.success(res);
-    }
-
-    /**
-     * 金句点赞
-     */
-    @Operation(summary = "金句点赞", description = "对金句进行点赞")
-    @PostMapping("/quotes/{id}/like")
-    @Anonymous
-    public AjaxResult likeQuote(@Parameter(description = "金句ID") @PathVariable Long id) {
-        portalBookQuoteService.incrementLikeCount(id);
-        return AjaxResult.success("点赞成功");
-    }
-
-    /**
-     * 书单点赞
-     */
-    @Operation(summary = "书单点赞", description = "对书单进行点赞")
-    @PostMapping("/book-lists/{id}/like")
-    @Anonymous
-    public AjaxResult likeBookList(@Parameter(description = "书单ID") @PathVariable Long id) {
-        portalBookListService.incrementLikeCount(id);
-        return AjaxResult.success("点赞成功");
     }
 
     /**

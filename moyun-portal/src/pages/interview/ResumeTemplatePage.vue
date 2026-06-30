@@ -4,7 +4,7 @@ import { useRouter } from 'vue-router';
 import { useHead } from '@vueuse/head';
 import {
   ChevronLeft, Search, Download, ThumbsUp, FileText, Sparkles,
-  ChevronRight, Clock, Star, Tag
+  ChevronRight, Star, Tag
 } from 'lucide-vue-next';
 import SiteFooter from '@/components/SiteFooter.vue';
 import LazyImage from '@/components/LazyImage.vue';
@@ -124,13 +124,13 @@ function gotoPage(p: number) {
 </script>
 
 <template>
-  <div class="min-h-screen flex flex-col bg-gray-50">
-    <div class="bg-white border-b border-gray-200 sticky top-0 z-30">
-      <div class="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
-        <button @click="router.back()" class="flex items-center text-gray-600 hover:text-blue-600 transition text-sm">
+  <div class="min-h-screen flex flex-col" style="background-color: var(--theme-bg);">
+    <div class="border-b sticky top-0 z-30" style="background-color: var(--theme-bg); border-color: var(--theme-border);">
+      <div class="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
+        <button @click="router.back()" class="flex items-center transition text-sm hover:opacity-70" style="color: var(--theme-text-secondary);">
           <ChevronLeft class="w-4 h-4 mr-1" /> 返回
         </button>
-        <span class="text-sm text-gray-500">简历模板</span>
+        <span class="text-sm" style="color: var(--theme-text-secondary);">简历模板</span>
         <span class="w-12"></span>
       </div>
     </div>
@@ -144,39 +144,40 @@ function gotoPage(p: number) {
     </div>
 
     <!-- 顶部 Hero -->
-    <div class="bg-gradient-to-r from-indigo-600 to-blue-600 text-white py-10">
-      <div class="max-w-6xl mx-auto px-4">
+    <div class="text-white py-10" style="background: linear-gradient(135deg, var(--theme-primary), color-mix(in srgb, var(--theme-primary) 60%, #4338ca 100%));">
+      <div class="max-w-7xl mx-auto px-4">
         <div class="flex items-center mb-3">
           <Sparkles class="w-6 h-6 mr-2" />
           <h1 class="text-3xl font-bold">精选简历模板库</h1>
         </div>
-        <p class="text-blue-100 mb-6">选择合适的模板，快速打造高质量简历</p>
-        <div class="relative max-w-xl bg-white rounded-lg p-2 flex">
-          <Search class="w-5 h-5 text-gray-400 absolute left-4 top-1/2 -translate-y-1/2" />
+        <p class="text-white/80 mb-6">选择合适的模板，快速打造高质量简历</p>
+        <div class="relative max-w-xl rounded-lg p-2 flex" style="background-color: var(--theme-bg);">
+          <Search class="w-5 h-5 absolute left-4 top-1/2 -translate-y-1/2" style="color: var(--theme-text-secondary);" />
           <input
             v-model="searchInput"
             @keyup.enter="doSearch"
             type="text"
             placeholder="搜索简历模板..."
-            class="flex-1 pl-10 pr-3 py-2 text-gray-800 focus:outline-none text-sm"
+            class="flex-1 pl-10 pr-3 py-2 focus:outline-none text-sm"
+            style="color: var(--theme-text);"
           />
-          <button @click="doSearch" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md text-sm transition">搜索</button>
+          <button @click="doSearch" class="px-4 py-2 text-white rounded-md text-sm transition hover:opacity-90" style="background-color: var(--theme-primary);">搜索</button>
         </div>
       </div>
     </div>
 
     <!-- 内容区 -->
     <div class="flex-1 py-8">
-      <div class="max-w-6xl mx-auto px-4">
+      <div class="max-w-7xl mx-auto px-4">
         <!-- 分类 Tab -->
-        <div class="bg-white rounded-xl shadow-sm p-4 mb-6">
+        <div class="rounded-xl shadow-sm p-4 mb-6" style="background-color: var(--theme-surface); border: 1px solid var(--theme-border);">
           <div class="flex items-center gap-2 overflow-x-auto">
             <button
               v-for="cat in categories"
               :key="cat.key"
               @click="activeCategory = cat.key; page = 1"
               class="flex-shrink-0 px-4 py-2 rounded-full text-sm font-medium transition whitespace-nowrap"
-              :class="activeCategory === cat.key ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'"
+              :class="activeCategory === cat.key ? 'bg-[var(--theme-primary)] text-white' : 'bg-[var(--theme-bg)] text-[var(--theme-text-secondary)] hover:bg-[var(--theme-accent)]'"
             >
               <Tag v-if="cat.key === 'all'" class="w-3 h-3 inline mr-1" />
               {{ cat.label }}
@@ -186,35 +187,37 @@ function gotoPage(p: number) {
 
         <!-- Loading -->
         <div v-if="loading" class="text-center py-12">
-          <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p class="mt-4 text-gray-600">加载中...</p>
+          <div class="animate-spin rounded-full h-12 w-12 border-b-2 mx-auto" style="border-color: var(--theme-primary);"></div>
+          <p class="mt-4" style="color: var(--theme-text-secondary);">加载中...</p>
         </div>
 
         <!-- 模板网格 -->
         <template v-else>
-          <div v-if="templates.length === 0" class="text-center py-16 bg-white rounded-xl shadow-sm">
-            <FileText class="w-12 h-12 text-gray-300 mx-auto mb-3" />
-            <p class="text-gray-500">暂无匹配的简历模板</p>
+          <div v-if="templates.length === 0" class="text-center py-16 rounded-xl shadow-sm" style="background-color: var(--theme-surface); border: 1px solid var(--theme-border);">
+            <FileText class="w-12 h-12 mx-auto mb-3" style="color: var(--theme-text-secondary); opacity: 0.4;" />
+            <p style="color: var(--theme-text-secondary);">暂无匹配的简历模板</p>
           </div>
           <div v-else class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
             <div
               v-for="t in templates"
               :key="t.id"
-              class="bg-white rounded-xl shadow-sm hover:shadow-lg transition overflow-hidden flex flex-col"
+              class="rounded-xl shadow-sm hover:shadow-lg transition overflow-hidden flex flex-col"
+              style="background-color: var(--theme-surface); border: 1px solid var(--theme-border);"
             >
-              <div class="h-48 bg-gray-100 relative">
+              <div class="h-48 relative" style="background-color: var(--theme-bg);">
                 <LazyImage
                   v-if="t.cover"
                   :src="t.cover"
                   :alt="t.title"
                   class="w-full h-full object-cover"
                 />
-                <div v-else class="flex items-center justify-center h-full bg-gradient-to-br from-blue-100 to-indigo-100">
+                <div v-else class="flex items-center justify-center h-full" style="background-color: var(--theme-accent);">
                   <FileText class="w-12 h-12 text-blue-400" />
                 </div>
                 <span
                   v-if="t.category"
-                  class="absolute top-3 left-3 px-2 py-1 bg-white/90 text-blue-600 rounded-full text-xs font-medium shadow-sm"
+                  class="absolute top-3 left-3 px-2 py-1 rounded-full text-xs font-medium shadow-sm"
+                  style="background-color: var(--theme-bg); color: var(--theme-primary);"
                 >
                   {{ t.category }}
                 </span>
@@ -226,27 +229,28 @@ function gotoPage(p: number) {
                 </span>
               </div>
               <div class="p-5 flex flex-col flex-1">
-                <h3 class="text-lg font-semibold text-gray-900 mb-2 line-clamp-1">{{ t.title }}</h3>
-                <p class="text-sm text-gray-600 mb-3 line-clamp-2 flex-1">
+                <h3 class="text-lg font-semibold mb-2 line-clamp-1" style="color: var(--theme-text);">{{ t.title }}</h3>
+                <p class="text-sm mb-3 line-clamp-2 flex-1" style="color: var(--theme-text-secondary);">
                   {{ t.description || '优质简历模板，助力你的求职之路' }}
                 </p>
-                <div class="flex items-center text-sm text-gray-500 mb-4">
+                <div class="flex items-center text-sm mb-4" style="color: var(--theme-text-secondary);">
                   <span class="flex items-center mr-3"><ThumbsUp class="w-4 h-4 mr-1" />{{ t.likeCount }}</span>
                   <span class="flex items-center"><Download class="w-4 h-4 mr-1" />{{ t.downloadCount }}</span>
-                  <span v-if="t.fileType" class="ml-auto text-xs text-gray-400 uppercase">{{ t.fileType }}</span>
+                  <span v-if="t.fileType" class="ml-auto text-xs uppercase" style="color: var(--theme-text-secondary);">{{ t.fileType }}</span>
                 </div>
                 <div class="flex items-center gap-2">
                   <button
                     @click="handleLike(t)"
                     class="flex-1 py-2 text-sm rounded-lg border transition flex items-center justify-center"
-                    :class="t.liked ? 'bg-blue-50 text-blue-600 border-blue-200' : 'border-gray-200 text-gray-700 hover:border-blue-300'"
+                    :class="t.liked ? 'bg-[var(--theme-accent)] text-[var(--theme-primary)] border-[var(--theme-border)]' : 'border-[var(--theme-border)] text-[var(--theme-text-secondary)] hover:border-[var(--theme-primary)]'"
                   >
                     <ThumbsUp class="w-4 h-4 mr-1" />
                     {{ t.liked ? '已赞' : '点赞' }}
                   </button>
                   <button
                     @click="handleDownload(t)"
-                    class="flex-1 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded-lg transition flex items-center justify-center"
+                    class="flex-1 py-2 text-white text-sm rounded-lg transition flex items-center justify-center hover:opacity-90"
+                    style="background-color: var(--theme-primary);"
                   >
                     <Download class="w-4 h-4 mr-1" />
                     下载
@@ -261,7 +265,8 @@ function gotoPage(p: number) {
             <button
               @click="gotoPage(page - 1)"
               :disabled="page === 1"
-              class="px-3 py-2 rounded-lg text-sm bg-white border border-gray-200 disabled:opacity-50 hover:bg-gray-50"
+              class="px-3 py-2 rounded-lg text-sm disabled:opacity-50 hover:bg-[var(--theme-accent)]"
+              style="background-color: var(--theme-surface); border: 1px solid var(--theme-border);"
             >
               <ChevronLeft class="w-4 h-4" />
             </button>
@@ -270,18 +275,19 @@ function gotoPage(p: number) {
               :key="p"
               @click="gotoPage(p)"
               class="min-w-[40px] px-3 py-2 rounded-lg text-sm transition"
-              :class="page === p ? 'bg-blue-600 text-white' : 'bg-white border border-gray-200 text-gray-700 hover:bg-gray-50'"
+              :class="page === p ? 'bg-blue-600 text-white' : 'bg-[var(--theme-surface)] border border-[var(--theme-border)] text-[var(--theme-text-secondary)] hover:bg-[var(--theme-accent)]'"
             >
               {{ p }}
             </button>
             <button
               @click="gotoPage(page + 1)"
               :disabled="page === totalPages()"
-              class="px-3 py-2 rounded-lg text-sm bg-white border border-gray-200 disabled:opacity-50 hover:bg-gray-50"
+              class="px-3 py-2 rounded-lg text-sm disabled:opacity-50 hover:bg-[var(--theme-accent)]"
+              style="background-color: var(--theme-surface); border: 1px solid var(--theme-border);"
             >
               <ChevronRight class="w-4 h-4" />
             </button>
-            <span class="ml-4 text-sm text-gray-500">共 {{ total }} 个模板</span>
+            <span class="ml-4 text-sm" style="color: var(--theme-text-secondary);">共 {{ total }} 个模板</span>
           </div>
         </template>
       </div>

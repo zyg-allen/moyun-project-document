@@ -3,27 +3,17 @@ import { ref, computed, onMounted } from 'vue';
 import { RouterLink as Link, useRouter } from 'vue-router';
 import { useHead } from '@vueuse/head';
 import {
-  User,
   Edit,
   BookOpen,
   Heart,
-  FileText,
   Settings,
   ChevronRight,
   Crown,
-  Wallet,
-  Users,
   Award,
-  CheckCircle2,
   Star,
-  Zap,
-  Flame,
-  Eye,
-  ThumbsUp,
   Calendar,
-  TrendingUp,
   Trophy,
-  Lock
+  Clock
 } from 'lucide-vue-next';
 import { useArticleStore } from '@/stores/article';
 import { useUserStore } from '@/stores/user';
@@ -48,6 +38,7 @@ const activeTab = ref('articles');
 const isLoading = ref(false);
 const currentPage = ref(1);
 const itemsPerPage = ref(10);
+const pendingCount = ref(0);
 
 // 成长体系数据
 const myGrowth = ref<UserGrowthVO | null>(null);
@@ -120,6 +111,23 @@ async function loadUserData() {
     }
   } catch (error) {
     console.warn('获取用户文章失败:', error);
+  }
+
+  // 加载待审核文章数量（用于提示卡）
+  try {
+    const pendingResp = await getMyArticles({
+      pageNum: 1,
+      pageSize: 1,
+      status: 'pending'
+    });
+    if (pendingResp.code === 200 && pendingResp.data) {
+      const page = pendingResp.data as any;
+      pendingCount.value = page.total || 0;
+    } else {
+      pendingCount.value = 0;
+    }
+  } catch (e) {
+    pendingCount.value = 0;
   }
 
   // 并行加载成长体系数据
@@ -298,7 +306,7 @@ function goToSettings() {
                         <Calendar class="w-4 h-4" />
                         {{ hasCheckedInToday ? '今日已签' : (checkinLoading ? '签到中...' : '每日签到') }}
                       </button>
-                      <p v-if="checkinResult" class="mt-2 text-xs text-right" :style="{ color: checkinResult.success ? '#10b981' : 'var(--theme-text-secondary)' }">
+                      <p v-if="checkinResult" class="mt-2 text-xs text-right" :style="{ color: checkinResult.success ? 'var(--theme-success)' : 'var(--theme-text-secondary)' }">
                         {{ checkinResult.message }}
                         <span v-if="checkinResult.growth">+{{ checkinResult.growth }}</span>
                       </p>
@@ -327,59 +335,68 @@ function goToSettings() {
                 </div>
               </div>
 
-              <!-- 统计数据 - 扩展为更全面的成长统计 -->
-              <div class="mt-8 grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-6 gap-4">
-                <div class="text-center p-4 rounded-xl" style="background-color: var(--theme-accent);">
-                  <div class="text-xl sm:text-2xl font-bold mb-1" style="color: var(--theme-text);">{{ myStats?.articles ?? userStats?.articles ?? 0 }}</div>
-                  <div class="text-xs sm:text-sm" style="color: var(--theme-text-secondary);">文章</div>
+              <!-- 统计数据 - 分两组：核心数据 + 创作数据 -->
+              <div class="mt-8 space-y-4">
+                <!-- 核心数据 -->
+                <div>
+                  <h4 class="text-xs font-semibold uppercase tracking-wider mb-3" style="color: var(--theme-text-secondary);">核心数据</h4>
+                  <div class="grid grid-cols-3 sm:grid-cols-6 gap-3">
+                    <div class="text-center p-3 sm:p-4 rounded-xl" style="background-color: var(--theme-accent);">
+                      <div class="text-lg sm:text-2xl font-bold mb-1" style="color: var(--theme-text);">{{ myStats?.articles ?? userStats?.articles ?? 0 }}</div>
+                      <div class="text-xs sm:text-sm" style="color: var(--theme-text-secondary);">文章</div>
+                    </div>
+                    <div class="text-center p-3 sm:p-4 rounded-xl" style="background-color: var(--theme-accent);">
+                      <div class="text-lg sm:text-2xl font-bold mb-1" style="color: var(--theme-text);">{{ myStats?.views ?? userStats?.views ?? 0 }}</div>
+                      <div class="text-xs sm:text-sm" style="color: var(--theme-text-secondary);">浏览</div>
+                    </div>
+                    <div class="text-center p-3 sm:p-4 rounded-xl" style="background-color: var(--theme-accent);">
+                      <div class="text-lg sm:text-2xl font-bold mb-1" style="color: var(--theme-text);">{{ myStats?.totalLikes ?? userStats?.likes ?? 0 }}</div>
+                      <div class="text-xs sm:text-sm" style="color: var(--theme-text-secondary);">获赞</div>
+                    </div>
+                    <div class="text-center p-3 sm:p-4 rounded-xl" style="background-color: var(--theme-accent);">
+                      <div class="text-lg sm:text-2xl font-bold mb-1" style="color: var(--theme-text);">{{ myStats?.following ?? userStats?.following ?? 0 }}</div>
+                      <div class="text-xs sm:text-sm" style="color: var(--theme-text-secondary);">关注</div>
+                    </div>
+                    <div class="text-center p-3 sm:p-4 rounded-xl" style="background-color: var(--theme-accent);">
+                      <div class="text-lg sm:text-2xl font-bold mb-1" style="color: var(--theme-text);">{{ myStats?.followers ?? userStats?.followers ?? 0 }}</div>
+                      <div class="text-xs sm:text-sm" style="color: var(--theme-text-secondary);">粉丝</div>
+                    </div>
+                    <div class="text-center p-3 sm:p-4 rounded-xl" style="background-color: var(--theme-accent);">
+                      <div class="text-lg sm:text-2xl font-bold mb-1" style="color: var(--theme-text);">{{ myStats?.bookmarks ?? userStats?.bookmarks ?? 0 }}</div>
+                      <div class="text-xs sm:text-sm" style="color: var(--theme-text-secondary);">收藏</div>
+                    </div>
+                  </div>
                 </div>
-                <div class="text-center p-4 rounded-xl" style="background-color: var(--theme-accent);">
-                  <div class="text-xl sm:text-2xl font-bold mb-1" style="color: var(--theme-text);">{{ myStats?.views ?? userStats?.views ?? 0 }}</div>
-                  <div class="text-xs sm:text-sm" style="color: var(--theme-text-secondary);">浏览</div>
-                </div>
-                <div class="text-center p-4 rounded-xl" style="background-color: var(--theme-accent);">
-                  <div class="text-xl sm:text-2xl font-bold mb-1" style="color: var(--theme-text);">{{ myStats?.totalLikes ?? userStats?.likes ?? 0 }}</div>
-                  <div class="text-xs sm:text-sm" style="color: var(--theme-text-secondary);">获赞</div>
-                </div>
-                <div class="text-center p-4 rounded-xl" style="background-color: var(--theme-accent);">
-                  <div class="text-xl sm:text-2xl font-bold mb-1" style="color: var(--theme-text);">{{ myStats?.following ?? userStats?.following ?? 0 }}</div>
-                  <div class="text-xs sm:text-sm" style="color: var(--theme-text-secondary);">关注</div>
-                </div>
-                <div class="text-center p-4 rounded-xl" style="background-color: var(--theme-accent);">
-                  <div class="text-xl sm:text-2xl font-bold mb-1" style="color: var(--theme-text);">{{ myStats?.followers ?? userStats?.followers ?? 0 }}</div>
-                  <div class="text-xs sm:text-sm" style="color: var(--theme-text-secondary);">粉丝</div>
-                </div>
-                <div class="text-center p-4 rounded-xl" style="background-color: var(--theme-accent);">
-                  <div class="text-xl sm:text-2xl font-bold mb-1" style="color: var(--theme-text);">{{ myStats?.bookmarks ?? userStats?.bookmarks ?? 0 }}</div>
-                  <div class="text-xs sm:text-sm" style="color: var(--theme-text-secondary);">收藏</div>
-                </div>
-              </div>
 
-              <!-- 扩展统计：读书/面试/创作 -->
-              <div v-if="myStats" class="mt-4 grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-4">
-                <div class="text-center p-3 rounded-xl" style="background-color: var(--theme-accent);">
-                  <div class="text-lg sm:text-xl font-bold mb-1" style="color: var(--theme-text);">{{ myStats.wordCount || 0 }}</div>
-                  <div class="text-xs" style="color: var(--theme-text-secondary);">创作字数</div>
-                </div>
-                <div class="text-center p-3 rounded-xl" style="background-color: var(--theme-accent);">
-                  <div class="text-lg sm:text-xl font-bold mb-1" style="color: var(--theme-text);">{{ myStats.bookFinished || 0 }}</div>
-                  <div class="text-xs" style="color: var(--theme-text-secondary);">读完的书</div>
-                </div>
-                <div class="text-center p-3 rounded-xl" style="background-color: var(--theme-accent);">
-                  <div class="text-lg sm:text-xl font-bold mb-1" style="color: var(--theme-text);">{{ myStats.quoteCount || 0 }}</div>
-                  <div class="text-xs" style="color: var(--theme-text-secondary);">金句</div>
-                </div>
-                <div class="text-center p-3 rounded-xl" style="background-color: var(--theme-accent);">
-                  <div class="text-lg sm:text-xl font-bold mb-1" style="color: var(--theme-text);">{{ myStats.questionSolved || 0 }}</div>
-                  <div class="text-xs" style="color: var(--theme-text-secondary);">解题数</div>
-                </div>
-                <div class="text-center p-3 rounded-xl" style="background-color: var(--theme-accent);">
-                  <div class="text-lg sm:text-xl font-bold mb-1" style="color: var(--theme-text);">{{ myStats.noteCount || 0 }}</div>
-                  <div class="text-xs" style="color: var(--theme-text-secondary);">笔记数</div>
-                </div>
-                <div class="text-center p-3 rounded-xl" style="background-color: var(--theme-accent);">
-                  <div class="text-lg sm:text-xl font-bold mb-1" style="color: var(--theme-text);">{{ myStats.checkinStreak || 0 }}</div>
-                  <div class="text-xs" style="color: var(--theme-text-secondary);">连续签到</div>
+                <!-- 创作与学习数据 -->
+                <div v-if="myStats">
+                  <h4 class="text-xs font-semibold uppercase tracking-wider mb-3" style="color: var(--theme-text-secondary);">创作与学习</h4>
+                  <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+                    <div class="text-center p-3 rounded-xl" style="background-color: var(--theme-accent);">
+                      <div class="text-base sm:text-xl font-bold mb-1" style="color: var(--theme-text);">{{ myStats.wordCount || 0 }}</div>
+                      <div class="text-xs" style="color: var(--theme-text-secondary);">创作字数</div>
+                    </div>
+                    <div class="text-center p-3 rounded-xl" style="background-color: var(--theme-accent);">
+                      <div class="text-base sm:text-xl font-bold mb-1" style="color: var(--theme-text);">{{ myStats.bookFinished || 0 }}</div>
+                      <div class="text-xs" style="color: var(--theme-text-secondary);">读完的书</div>
+                    </div>
+                    <div class="text-center p-3 rounded-xl" style="background-color: var(--theme-accent);">
+                      <div class="text-base sm:text-xl font-bold mb-1" style="color: var(--theme-text);">{{ myStats.quoteCount || 0 }}</div>
+                      <div class="text-xs" style="color: var(--theme-text-secondary);">金句</div>
+                    </div>
+                    <div class="text-center p-3 rounded-xl" style="background-color: var(--theme-accent);">
+                      <div class="text-base sm:text-xl font-bold mb-1" style="color: var(--theme-text);">{{ myStats.questionSolved || 0 }}</div>
+                      <div class="text-xs" style="color: var(--theme-text-secondary);">解题数</div>
+                    </div>
+                    <div class="text-center p-3 rounded-xl" style="background-color: var(--theme-accent);">
+                      <div class="text-base sm:text-xl font-bold mb-1" style="color: var(--theme-text);">{{ myStats.noteCount || 0 }}</div>
+                      <div class="text-xs" style="color: var(--theme-text-secondary);">笔记数</div>
+                    </div>
+                    <div class="text-center p-3 rounded-xl" style="background-color: var(--theme-accent);">
+                      <div class="text-base sm:text-xl font-bold mb-1" style="color: var(--theme-text);">{{ myStats.checkinStreak || 0 }}</div>
+                      <div class="text-xs" style="color: var(--theme-text-secondary);">连续签到</div>
+                    </div>
+                  </div>
                 </div>
               </div>
 
@@ -480,6 +497,17 @@ function goToSettings() {
                     写文章
                   </Link>
                 </div>
+              </div>
+
+              <!-- 待审核提示卡 -->
+              <div v-if="pendingCount > 0" class="mb-4 p-4 rounded-lg flex items-center justify-between" style="background-color: var(--theme-accent); border-left: 4px solid var(--theme-primary);">
+                <div class="flex items-center gap-2">
+                  <Clock class="w-5 h-5" style="color: var(--theme-primary);" />
+                  <span class="text-sm" style="color: var(--theme-text);">您有 <strong>{{ pendingCount }}</strong> 篇文章正在审核中</span>
+                </div>
+                <Link to="/my/articles?status=pending" class="text-sm font-medium" style="color: var(--theme-primary);">
+                  查看详情 →
+                </Link>
               </div>
 
               <div v-if="userArticles.length > 0" class="space-y-4 sm:space-y-6">

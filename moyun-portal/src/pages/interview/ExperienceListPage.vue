@@ -3,7 +3,7 @@ import { ref, onMounted, watch, computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useHead } from '@vueuse/head';
 import {
-  Briefcase, Search, Star, ArrowLeft, TrendingUp, BookOpen,
+  Briefcase, Search, Star, ArrowLeft, BookOpen,
   ChevronLeft, ChevronRight, MessageSquare, Eye
 } from 'lucide-vue-next';
 import LazyImage from '@/components/LazyImage.vue';
@@ -130,7 +130,7 @@ function gotoPage(p: number) {
       class="border-b sticky top-0 z-30 backdrop-blur-sm"
       style="background-color: var(--theme-surface); border-color: var(--theme-border);"
     >
-      <div class="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
+      <div class="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
         <button
           @click="goBack"
           class="flex items-center text-sm transition hover:opacity-80"
@@ -156,14 +156,14 @@ function gotoPage(p: number) {
     <!-- Hero 区 -->
     <div
       class="relative overflow-hidden text-white py-14"
-      style="background: linear-gradient(135deg, var(--theme-primary), var(--theme-primary) 40%, #6366f1 100%);"
+      style="background: linear-gradient(135deg, var(--theme-primary), color-mix(in srgb, var(--theme-primary) 60%, #4338ca 100%));"
     >
       <!-- 装饰圆 -->
       <div class="absolute inset-0 opacity-10 pointer-events-none">
         <div class="absolute top-8 left-10 w-48 h-48 rounded-full bg-white"></div>
         <div class="absolute bottom-8 right-16 w-72 h-72 rounded-full bg-white"></div>
       </div>
-      <div class="relative max-w-6xl mx-auto px-4 text-center">
+      <div class="relative max-w-7xl mx-auto px-4 text-center">
         <div class="inline-flex items-center bg-white/10 backdrop-blur-sm px-4 py-1.5 rounded-full text-sm mb-5">
           <Briefcase class="w-4 h-4 mr-2" /> 墨韵 · 面经分享
         </div>
@@ -172,7 +172,7 @@ function gotoPage(p: number) {
           汇集真实面试经验，从大厂面经到求职心得，助你少走弯路，直达 Offer
         </p>
         <!-- 搜索框 -->
-        <div class="max-w-xl mx-auto bg-white rounded-xl p-2 flex items-center shadow-lg">
+        <div class="max-w-xl mx-auto rounded-xl p-2 flex items-center shadow-lg" style="background-color: var(--theme-bg);">
           <Search class="w-5 h-5 ml-2 flex-shrink-0" style="color: var(--theme-text-secondary);" />
           <input
             v-model="searchInput"
@@ -195,7 +195,7 @@ function gotoPage(p: number) {
 
     <!-- 内容区 -->
     <div class="flex-1 py-8">
-      <div class="max-w-6xl mx-auto px-4">
+      <div class="max-w-7xl mx-auto px-4">
         <!-- 加载状态 -->
         <div v-if="loading" class="flex flex-col items-center justify-center py-20">
           <div

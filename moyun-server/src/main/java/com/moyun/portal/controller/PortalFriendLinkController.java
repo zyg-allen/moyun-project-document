@@ -1,26 +1,25 @@
 package com.moyun.portal.controller;
 
-import jakarta.servlet.http.HttpServletResponse;
-import java.util.List;
-
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
-import com.moyun.common.annotation.Log;
-import com.moyun.common.enums.BusinessType;
 import com.moyun.core.base.AjaxResult;
 import com.moyun.core.base.BaseController;
 import com.moyun.portal.domain.entity.PortalFriendLink;
 import com.moyun.portal.domain.query.FriendLinkQuery;
 import com.moyun.portal.service.IPortalFriendLinkService;
 import com.moyun.util.bean.PageUtils;
-import com.moyun.util.file.ExcelUtil;
 
+/**
+ * 门户友情链接 Controller
+ *
+ * 说明：本期清理死接口，仅保留前端在用的 list（首页 HomePage 调用 getFriendLinks）。
+ * 已删除以下死方法：export / getInfo / add / edit / remove。
+ * 对应的 Service / Mapper / XML 实现保持不变，未做任何修改。
+ */
 @Tag(name = "门户友情链接", description = "门户友情链接的增删改查操作接口")
 @RestController
 @RequestMapping("/portal/friend-link")
@@ -35,41 +34,5 @@ public class PortalFriendLinkController extends BaseController {
         Page<PortalFriendLink> page = PageUtils.buildPage(query);
         Page<PortalFriendLink> resultPage = portalFriendLinkService.selectPortalFriendLinkPage(page, query);
         return success(resultPage);
-    }
-
-    @Operation(summary = "导出友情链接", description = "导出友情链接数据到Excel文件")
-    @Log(title = "门户友情链接", businessType = BusinessType.EXPORT)
-    @PostMapping("/export")
-    public void export(HttpServletResponse response, FriendLinkQuery query) {
-        List<PortalFriendLink> list = portalFriendLinkService.selectPortalFriendLinkList(query);
-        ExcelUtil<PortalFriendLink> util = new ExcelUtil<PortalFriendLink>(PortalFriendLink.class);
-        util.exportExcel(response, list, "门户友情链接数据");
-    }
-
-    @Operation(summary = "获取友情链接详情", description = "根据友情链接ID获取友情链接详细信息")
-    @GetMapping(value = "/{id}")
-    public AjaxResult getInfo(@Parameter(description = "友情链接ID") @PathVariable Long id) {
-        return success(portalFriendLinkService.selectPortalFriendLinkById(id));
-    }
-
-    @Operation(summary = "新增友情链接", description = "创建新友情链接")
-    @Log(title = "门户友情链接", businessType = BusinessType.INSERT)
-    @PostMapping
-    public AjaxResult add(@Validated @RequestBody PortalFriendLink portalFriendLink) {
-        return toAjax(portalFriendLinkService.insertPortalFriendLink(portalFriendLink));
-    }
-
-    @Operation(summary = "修改友情链接", description = "更新友情链接信息")
-    @Log(title = "门户友情链接", businessType = BusinessType.UPDATE)
-    @PutMapping
-    public AjaxResult edit(@Validated @RequestBody PortalFriendLink portalFriendLink) {
-        return toAjax(portalFriendLinkService.updatePortalFriendLink(portalFriendLink));
-    }
-
-    @Operation(summary = "删除友情链接", description = "批量删除友情链接")
-    @Log(title = "门户友情链接", businessType = BusinessType.DELETE)
-    @DeleteMapping("/{ids}")
-    public AjaxResult remove(@Parameter(description = "友情链接ID数组") @PathVariable Long[] ids) {
-        return toAjax(portalFriendLinkService.deletePortalFriendLinkByIds(ids));
     }
 }

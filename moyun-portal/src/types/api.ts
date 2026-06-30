@@ -117,11 +117,6 @@ export interface UpdatePasswordParams {
   confirmPassword: string;
 }
 
-export interface BindPhoneParams {
-  phone: string;
-  code: string;
-}
-
 export interface SendSmsCodeParams {
   phone: string;
   type: 'register' | 'login' | 'bind' | 'reset_password';
@@ -144,6 +139,8 @@ export interface Article {
   authorNickname?: string;
   authorAvatar?: string;
   authorBio?: string;
+  /** 通用别名，部分页面使用 */
+  authorName?: string;
   category?: string;
   categoryId?: string;
   categoryName?: string;
@@ -157,12 +154,13 @@ export interface Article {
   isFeatured?: boolean;
   isTop?: boolean;
   isCarousel?: boolean;
-  status?: 'draft' | 'published' | 'archived';
+  status?: 'draft' | 'pending' | 'published' | 'rejected' | 'archived';
   editorMode?: 'richtext' | 'markdown';
   createdAt?: string;
   createTime?: string;
   updatedAt?: string;
   publishedAt?: string;
+  remark?: string; // 审核意见（rejected 时存拒绝原因）
 }
 
 export interface ArticleListParams {

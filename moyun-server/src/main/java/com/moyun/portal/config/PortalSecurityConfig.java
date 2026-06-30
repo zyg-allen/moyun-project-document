@@ -102,31 +102,28 @@ public class PortalSecurityConfig {
                 .authorizeHttpRequests(authorizeRequests -> authorizeRequests
                         // 门户登录、注册、验证码允许匿名访问
                         .requestMatchers("/portal/login", "/portal/register", "/portal/captchaImage", "/portal/debug/**").permitAll()
-                        // 门户公开资源允许匿名访问（所有HTTP方法）
-                        .requestMatchers(
-                                "/portal/article/list",
-                                "/portal/article/hot",
-                                "/portal/article/featured",
-                                "/portal/article/carousel",
-                                "/portal/article/home",
-                                "/portal/article/byCategory"
-                        ).permitAll()
-                        // 文章相关操作允许所有人访问（查看、点赞、浏览等）
+                        // 文章查看、点赞、浏览允许所有人访问（GET 全放开，POST view/like 公开，写操作需登录）
+                        // 注意：/portal/article/my 是 GET 但需登录，必须在 permitAll 之前声明
+                        .requestMatchers(HttpMethod.GET, "/portal/article/my").authenticated()
                         .requestMatchers(HttpMethod.GET, "/portal/article/**").permitAll()
                         .requestMatchers(HttpMethod.POST, "/portal/article/*/view").permitAll()
                         .requestMatchers(HttpMethod.POST, "/portal/article/*/like").permitAll()
-                        .requestMatchers(HttpMethod.DELETE, "/portal/article/*/like").permitAll()
+                        // 评论查看、发布、点赞公开（点赞需登录由 Controller 内部校验）
                         .requestMatchers(HttpMethod.GET, "/portal/comment/**").permitAll()
                         .requestMatchers(HttpMethod.POST, "/portal/comment/**").permitAll()
                         .requestMatchers(HttpMethod.POST, "/portal/comment/*/like").permitAll()
-                        .requestMatchers(HttpMethod.DELETE, "/portal/comment/*/like").permitAll()
-                        .requestMatchers("/portal/category/**").permitAll()
-                        .requestMatchers("/portal/tag/**").permitAll()
+                        // 分类查询公开（仅 GET），写操作（POST/PUT/DELETE）需登录 + 管理员角色
+                        .requestMatchers(HttpMethod.GET, "/portal/category/**").permitAll()
+                        // 标签查询公开（GET），创建/绑定需登录（Controller 内部校验 getUserId）
+                        .requestMatchers(HttpMethod.GET, "/portal/tag/**").permitAll()
                         // 友情链接接口（支持驼峰和连字符两种命名）
                         .requestMatchers("/portal/friendLink/**").permitAll()
                         .requestMatchers("/portal/friend-link/**").permitAll()
-                        .requestMatchers("/portal/vipPackage/**").permitAll()
-                        .requestMatchers("/portal/notification/**").permitAll()
+                        // VIP 套餐查询公开（售卖页展示），写操作需登录 + 管理员
+                        .requestMatchers(HttpMethod.GET, "/portal/vip-package/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/portal/vipPackage/**").permitAll()
+                        // 通知查询公开（未登录返回空列表/0，由 Controller 内部处理），标记已读需登录
+                        .requestMatchers(HttpMethod.GET, "/portal/notification/**").permitAll()
                         // 用户相关公开接口（作者列表、公开资料等）
                         .requestMatchers("/portal/user/authors").permitAll()
                         .requestMatchers("/portal/user/profile/**").permitAll()
@@ -141,13 +138,13 @@ public class PortalSecurityConfig {
                         .requestMatchers("/portal/interview/**").permitAll()
                         // 帮助中心公开接口
                         .requestMatchers("/portal/help/**").permitAll()
-                        // 首页聚合接口
-                        .requestMatchers("/portal/home/**").permitAll()
                         // 成长体系公开接口（排行榜、指定用户成长/统计/徽章）
                         .requestMatchers(HttpMethod.GET, "/portal/growth/ranking").permitAll()
                         .requestMatchers(HttpMethod.GET, "/portal/growth/user/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/portal/growth/stats").permitAll()
                         .requestMatchers(HttpMethod.GET, "/portal/growth/badges").permitAll()
+                        // 关注公开接口（检查关注状态，允许游客浏览作者主页）
+                        .requestMatchers(HttpMethod.GET, "/portal/follow/check/**").permitAll()
                         // 后台管理接口（admin token 认证，由核心 SecurityConfig 处理）
                         .requestMatchers("/portal/admin/**").permitAll()
                         // 其他门户请求需要认证

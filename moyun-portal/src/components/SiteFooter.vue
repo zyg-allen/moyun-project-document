@@ -1,8 +1,27 @@
 <script setup lang="ts">
 import { computed } from 'vue';
+import { useRouter } from 'vue-router';
 import { Github, Mail, MessageCircle } from 'lucide-vue-next';
+import { useToast } from '@/composables/useToast';
 
 const currentYear = computed(() => new Date().getFullYear());
+const router = useRouter();
+const toast = useToast();
+
+// 底部链接跳转
+function goTo(path: string) {
+  router.push(path);
+}
+
+// 隐私政策暂未实现，给出友好提示
+function handlePrivacyPolicy() {
+  toast.info('隐私政策页面建设中');
+}
+
+// QQ 群号暂未配置，给出友好提示
+function handleQQGroup() {
+  toast.info('QQ 群号暂未配置，如需联系请发邮件至 contact@moyun.com');
+}
 </script>
 
 <template>
@@ -36,28 +55,30 @@ const currentYear = computed(() => new Date().getFullYear());
         <div>
           <h3 class="font-semibold mb-2 text-sm" style="color: var(--theme-text);">关注我们</h3>
           <div class="flex items-center gap-2">
-            <a 
-              href="https://github.com/moyun" 
-              target="_blank" 
+            <a
+              href="https://github.com/moyun"
+              target="_blank"
               rel="noopener noreferrer"
-              class="w-8 h-8 rounded-lg flex items-center justify-center transition-colors"
+              class="w-8 h-8 rounded-lg flex items-center justify-center transition-colors hover:opacity-80"
               style="background-color: var(--theme-bg); color: var(--theme-text-secondary);"
               title="GitHub"
             >
               <Github class="w-4 h-4" />
             </a>
-            <a 
+            <a
               href="mailto:contact@moyun.com"
-              class="w-8 h-8 rounded-lg flex items-center justify-center transition-colors"
+              class="w-8 h-8 rounded-lg flex items-center justify-center transition-colors hover:opacity-80"
               style="background-color: var(--theme-bg); color: var(--theme-text-secondary);"
               title="邮箱"
             >
               <Mail class="w-4 h-4" />
             </a>
-            <button 
-              class="w-8 h-8 rounded-lg flex items-center justify-center transition-colors"
+            <button
+              type="button"
+              @click="handleQQGroup"
+              class="w-8 h-8 rounded-lg flex items-center justify-center transition-colors hover:opacity-80"
               style="background-color: var(--theme-bg); color: var(--theme-text-secondary);"
-              title="QQ"
+              title="QQ 群"
             >
               <MessageCircle class="w-4 h-4" />
             </button>
@@ -67,14 +88,17 @@ const currentYear = computed(() => new Date().getFullYear());
 
       <!-- 底部链接 -->
       <div class="mt-4 pt-4 border-t flex flex-wrap items-center justify-center gap-2 sm:gap-4 text-xs" style="border-color: var(--theme-border);">
-        <span style="color: var(--theme-text-secondary);">关于我们</span>
+        <button type="button" @click="goTo('/about')" class="transition-colors hover:opacity-80" style="color: var(--theme-text-secondary);">关于我们</button>
         <span style="color: var(--theme-border);">|</span>
-        <span style="color: var(--theme-text-secondary);">隐私政策</span>
+        <button type="button" @click="handlePrivacyPolicy" class="transition-colors hover:opacity-80" style="color: var(--theme-text-secondary);">隐私政策</button>
         <span style="color: var(--theme-border);">|</span>
-        <span style="color: var(--theme-text-secondary);">用户协议</span>
+        <button type="button" @click="goTo('/agreement')" class="transition-colors hover:opacity-80" style="color: var(--theme-text-secondary);">用户协议</button>
         <span style="color: var(--theme-border);">|</span>
         <span style="color: var(--theme-text-secondary);">京ICP备xxxxxxxx号-2</span>
       </div>
     </div>
   </footer>
 </template>
+
+<style scoped>
+</style>

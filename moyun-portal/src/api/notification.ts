@@ -1,4 +1,4 @@
-import { httpGet, httpPost, httpDelete, httpGetList } from './client'
+import { httpGet, httpPost, httpGetList } from './client'
 import type { ApiResponse } from '@/types/api'
 import type { Notification, NotificationType } from '@/types'
 
@@ -10,7 +10,6 @@ export interface GetNotificationListParams {
 
 export interface MarkAsReadParams {
   id?: string | number
-  all?: boolean
 }
 
 export async function getNotificationList(
@@ -26,14 +25,5 @@ export async function getUnreadCount(): Promise<ApiResponse<number>> {
 export async function markAsRead(
   params: MarkAsReadParams
 ): Promise<ApiResponse<void>> {
-  if (params.all) {
-    return httpPost('/portal/notification/mark-all-read')
-  }
   return httpPost(`/portal/notification/${params.id}/read`)
-}
-
-export async function deleteNotification(
-  id: string | number
-): Promise<ApiResponse<void>> {
-  return httpDelete(`/portal/notification/${id}`)
 }

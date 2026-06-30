@@ -386,8 +386,6 @@ watch(
     </div>
 
     <!-- 页脚 -->
-    <div class="mt-auto">
-      <SiteFooter />
-    </div>
+    <SiteFooter />
   </div>
 </template>

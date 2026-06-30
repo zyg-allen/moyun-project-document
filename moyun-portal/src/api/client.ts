@@ -1,4 +1,4 @@
-import { showAuthExpiredDialog } from '@/utils/authDialog';
+import { showAuthExpiredDialog, handleUnauthorized } from '@/utils/authDialog';
 
 // 后台响应类型
 interface BackendResponse<T = any> {
@@ -77,10 +77,10 @@ const request = async <T>(
 
   const data: BackendResponse<T> = await response.json();
 
-  // 处理业务 code 401（后端 Controller 主动返回的登录过期）
+  // 处理业务 code 401（后端 Controller 主动返回的未登录/登录过期）
   if (data.code === 401) {
-    showAuthExpiredDialog();
-    throw new Error(data.msg || '登录已过期，请重新登录');
+    await handleUnauthorized(data.msg);
+    throw new Error(data.msg || '请先登录');
   }
 
   // 转换响应格式：msg -> message
@@ -165,10 +165,10 @@ export const httpGetList = <T>(
 
       const data: BackendResponse<T> = await response.json();
 
-      // 处理业务 code 401（后端 Controller 主动返回的登录过期）
+      // 处理业务 code 401（后端 Controller 主动返回的未登录/登录过期）
       if (data.code === 401) {
-        showAuthExpiredDialog();
-        reject(new Error(data.msg || '登录已过期，请重新登录'));
+        await handleUnauthorized(data.msg);
+        reject(new Error(data.msg || '请先登录'));
         return;
       }
 
@@ -257,10 +257,10 @@ export const httpUpload = <T>(
 
     const data = await response.json() as BackendResponse<T>;
 
-    // 处理业务 code 401（后端 Controller 主动返回的登录过期）
+    // 处理业务 code 401（后端 Controller 主动返回的未登录/登录过期）
     if (data.code === 401) {
-      showAuthExpiredDialog();
-      throw new Error(data.msg || '登录已过期，请重新登录');
+      await handleUnauthorized(data.msg);
+      throw new Error(data.msg || '请先登录');
     }
 
     return {

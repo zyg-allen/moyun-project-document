@@ -267,6 +267,12 @@ export const dynamicRoutes = [
         component: () => import('@/views/cms/article/edit'),
         name: 'ArticleEditWithId',
         meta: { title: '编辑文章', activeMenu: '/cms/article' }
+      },
+      {
+        path: 'article/audit',
+        component: () => import('@/views/cms/article/audit'),
+        name: 'ArticleAudit',
+        meta: { title: '文章审核', activeMenu: '/cms/article' }
       }
     ]
   }

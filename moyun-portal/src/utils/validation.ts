@@ -113,16 +113,6 @@ export const changePasswordSchema = z.object({
   path: ['confirmPassword'],
 });
 
-// 绑定手机号验证规则
-export const bindPhoneSchema = z.object({
-  phone: z
-    .string()
-    .regex(/^1[3-9]\d{9}$/, '请输入有效的手机号'),
-  code: z
-    .string()
-    .length(6, '验证码必须是6位数字'),
-});
-
 // 验证帮助函数
 export function validateForm<T>(schema: z.ZodSchema<T>, data: unknown) {
   try {

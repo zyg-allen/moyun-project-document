@@ -5,8 +5,6 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
-import java.util.Arrays;
-import java.util.List;
 
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -22,7 +20,17 @@ import com.moyun.portal.security.auth.PortalTokenService;
 import com.moyun.util.string.StringUtils;
 
 /**
- * 门户token过滤器 验证token有效性
+ * 门户 token 过滤器：透明处理 token，不做路径判断
+ *
+ * <p>设计原则（与核心模块 {@code JwtAuthenticationTokenFilter} 一致）：</p>
+ * <ul>
+ *   <li>如果没有 token，直接跳过，由 {@code SecurityConfig} 决定是否允许访问；</li>
+ *   <li>如果有 token，解析并设置认证信息到 {@code SecurityContext}。</li>
+ * </ul>
+ *
+ * <p>访问控制完全交给 {@code PortalSecurityConfig.authorizeHttpRequests}，
+ * 避免维护"第二套路径白名单"导致规则不一致的 bug（如 {@code /portal/article/my}
+ * 既是 GET 又需登录，曾被白名单误伤）。</p>
  *
  * @author moyun
  */
@@ -34,34 +42,8 @@ public class PortalJwtAuthenticationTokenFilter extends OncePerRequestFilter {
     @Qualifier("portalTokenService")
     private PortalTokenService portalTokenService;
 
-    /**
-     * 公开路径列表（不需要登录即可访问）
-     */
-    private static final List<String> PUBLIC_PATHS = Arrays.asList(
-            "/portal/login",
-            "/portal/register",
-            "/portal/captchaImage",
-            "/portallist",
-            "/portal/article/hot",
-            "/portal/article/featured",
-            "/portal/article/carousel",
-            "/portal/article/home",
-            "/portal/article/byCategory",
-            "/portal/category/",
-            "/portal/tag/",
-            "/portal/comment/list",
-            "/portal/friendLink/",
-            "/portal/vipPackage/",
-            "/portal/user/profile/",
-            "/portal/book/",
-            "/portal/bookList/",
-            "/portal/bookQuote/",
-            "/portal/interviewCategory/",
-            "/portal/interviewQuestion/",
-            "/portal/interviewExperience/",
-            "/portal/interviewResumeTemplate/",
-            "/portal/debug/"
-    );
+    /** 后台管理接口路径前缀（由核心 SecurityConfig 的 admin token 处理，本 Filter 跳过） */
+    private static final String ADMIN_PATH_PREFIX = "/portal/admin/";
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain)
@@ -74,14 +56,14 @@ public class PortalJwtAuthenticationTokenFilter extends OncePerRequestFilter {
             return;
         }
 
-        // 跳过公开路径的token验证
-        if (isPublicPath(requestURI, request.getMethod())) {
-            log.debug("跳过公开路径的token验证: {}", requestURI);
+        // 后台管理接口由核心 SecurityConfig（admin token）处理，本 Filter 跳过
+        if (requestURI.startsWith(ADMIN_PATH_PREFIX)) {
             chain.doFilter(request, response);
             return;
         }
 
-        log.debug("处理门户请求: {}", requestURI);
+        // 透明处理：有 token 就解析设置 SecurityContext，无 token 跳过
+        // 访问控制完全交给 SecurityConfig.authorizeHttpRequests
         PortalLoginUser loginUser = portalTokenService.getLoginUser(request);
         if (StringUtils.isNotNull(loginUser)) {
             portalTokenService.verifyToken(loginUser);
@@ -91,34 +73,5 @@ public class PortalJwtAuthenticationTokenFilter extends OncePerRequestFilter {
             SecurityContextHolder.getContext().setAuthentication(authenticationToken);
         }
         chain.doFilter(request, response);
-    }
-
-    /**
-     * 判断是否为公开路径
-     */
-    private boolean isPublicPath(String requestURI, String method) {
-        // 检查精确匹配的路径
-        for (String publicPath : PUBLIC_PATHS) {
-            if (requestURI.equals(publicPath) || requestURI.startsWith(publicPath)) {
-                // 对于文章相关的POST请求（view/like）也需要允许
-                if (requestURI.startsWith("/portal/article/") &&
-                        ("POST".equals(method) || "DELETE".equals(method))) {
-                    // 检查是否是 view 或 like 操作
-                    if (requestURI.contains("/view") || requestURI.contains("/like")) {
-                        return true;
-                    }
-                }
-                // GET请求的文章详情
-                if ("GET".equals(method) && requestURI.startsWith("/portal/article/")) {
-                    return true;
-                }
-                // 评论的POST请求
-                if (requestURI.startsWith("/portal/comment/") && "POST".equals(method)) {
-                    return true;
-                }
-                return true;
-            }
-        }
-        return false;
     }
 }

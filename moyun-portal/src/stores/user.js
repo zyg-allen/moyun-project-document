@@ -1,0 +1,232 @@
+import { defineStore } from 'pinia';
+import { ref, computed } from 'vue';
+import * as userApi from '@/api/user';
+import { getToken, setToken, removeToken } from '@/api/client';
+// 用户状态存储键名
+const USER_STORAGE_KEY = 'moyun_user';
+// 从localStorage恢复用户信息
+function restoreUserFromStorage() {
+    try {
+        const userData = localStorage.getItem(USER_STORAGE_KEY);
+        if (userData) {
+            return JSON.parse(userData);
+        }
+    }
+    catch (e) {
+        console.error('恢复用户信息失败:', e);
+    }
+    return null;
+}
+// 持久化用户信息到localStorage
+function persistUserToStorage(user) {
+    if (user) {
+        localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(user));
+    }
+    else {
+        localStorage.removeItem(USER_STORAGE_KEY);
+    }
+}
+export const useUserStore = defineStore('user', () => {
+    // ==================== State ====================
+    const user = ref(restoreUserFromStorage());
+    const isAuthenticated = computed(() => user.value !== null);
+    const isLoading = ref(false);
+    const isUserInitialized = ref(false);
+    // ==================== Getters ====================
+    const userId = computed(() => user.value?.id || '');
+    const username = computed(() => user.value?.username || '');
+    const nickname = computed(() => user.value?.nickname || user.value?.username || '');
+    const avatar = computed(() => user.value?.avatar || '');
+    const bio = computed(() => user.value?.bio || '');
+    const email = computed(() => user.value?.email || '');
+    // ==================== Actions ====================
+    /**
+     * 初始化用户状态 - 应用启动时调用
+     * 如果有token，尝试获取用户信息
+     */
+    async function initializeUser() {
+        if (isUserInitialized.value) {
+            return;
+        }
+        const token = getToken();
+        if (!token) {
+            user.value = null;
+            persistUserToStorage(null);
+            isUserInitialized.value = true;
+            return;
+        }
+        // 尝试从本地存储恢复用户信息
+        if (user.value) {
+            isUserInitialized.value = true;
+            return;
+        }
+        // 从服务端获取最新用户信息
+        try {
+            await fetchCurrentUser();
+        }
+        catch (e) {
+            // 获取失败时，清除无效的token
+            console.warn('初始化用户信息失败:', e);
+            user.value = null;
+            persistUserToStorage(null);
+        }
+        finally {
+            isUserInitialized.value = true;
+        }
+    }
+    /**
+     * 从服务端获取当前登录用户信息
+     */
+    async function fetchCurrentUser() {
+        if (!getToken()) {
+            return null;
+        }
+        isLoading.value = true;
+        try {
+            const response = await userApi.getCurrentUser();
+            if (response.code === 200) {
+                const userData = response.data;
+                // 验证用户数据是否有效（必须是对象且包含id字段）
+                if (userData && typeof userData === 'object' && userData.id) {
+                    user.value = userData;
+                    persistUserToStorage(userData);
+                    return userData;
+                }
+                else {
+                    // 无效数据，视为未登录
+                    user.value = null;
+                    persistUserToStorage(null);
+                    return null;
+                }
+            }
+            // 获取失败时清除用户信息
+            user.value = null;
+            persistUserToStorage(null);
+            return null;
+        }
+        catch (error) {
+            // 未登录导致的401错误不显示错误提示
+            console.warn('获取用户信息失败:', error);
+            user.value = null;
+            persistUserToStorage(null);
+            return null;
+        }
+        finally {
+            isLoading.value = false;
+        }
+    }
+    /**
+     * 登录
+     */
+    async function loginWithApi(params) {
+        isLoading.value = true;
+        try {
+            const response = await userApi.login(params);
+            if (response.code === 200) {
+                setToken(response.data.token);
+                const userData = response.data.user;
+                user.value = userData;
+                persistUserToStorage(userData);
+                return { success: true };
+            }
+            return { success: false, message: response.message };
+        }
+        catch (error) {
+            console.error('登录失败:', error);
+            return { success: false, message: '登录失败，请重试' };
+        }
+        finally {
+            isLoading.value = false;
+        }
+    }
+    /**
+     * 注册
+     */
+    async function registerWithApi(params) {
+        isLoading.value = true;
+        try {
+            // 如果没有提供 confirmPassword，则使用 password 作为默认值
+            const registerParams = {
+                ...params,
+                confirmPassword: params.confirmPassword || params.password
+            };
+            const response = await userApi.register(registerParams);
+            if (response.code === 200) {
+                setToken(response.data.token);
+                const userData = response.data.user;
+                user.value = userData;
+                persistUserToStorage(userData);
+                return { success: true };
+            }
+            return { success: false, message: response.message };
+        }
+        catch (error) {
+            console.error('注册失败:', error);
+            return { success: false, message: '注册失败，请重试' };
+        }
+        finally {
+            isLoading.value = false;
+        }
+    }
+    /**
+     * 退出登录
+     */
+    async function logoutWithApi() {
+        try {
+            await userApi.logout();
+        }
+        catch (error) {
+            console.error('退出登录API调用失败:', error);
+        }
+        finally {
+            // 无论API是否成功，都清除本地状态
+            user.value = null;
+            persistUserToStorage(null);
+            removeToken();
+        }
+    }
+    /**
+     * 更新用户信息
+     */
+    async function updateUserWithApi(updates) {
+        isLoading.value = true;
+        try {
+            const response = await userApi.updateUserProfile(updates);
+            if (response.code === 200) {
+                const userData = response.data;
+                user.value = userData;
+                persistUserToStorage(userData);
+                return { success: true };
+            }
+            return { success: false, message: response.message };
+        }
+        catch (error) {
+            console.error('更新用户信息失败:', error);
+            return { success: false, message: '更新失败，请重试' };
+        }
+        finally {
+            isLoading.value = false;
+        }
+    }
+    return {
+        // State
+        user,
+        isAuthenticated,
+        isLoading,
+        isUserInitialized,
+        // Getters
+        userId,
+        username,
+        nickname,
+        avatar,
+        bio,
+        email,
+        // Actions
+        initializeUser,
+        fetchCurrentUser,
+        loginWithApi,
+        registerWithApi,
+        logoutWithApi,
+        updateUserWithApi
+    };
+});

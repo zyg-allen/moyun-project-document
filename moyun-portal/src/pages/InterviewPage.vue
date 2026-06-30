@@ -116,7 +116,7 @@ useHead(computed(() => generateSeo({
 </script>
 
 <template>
-  <div class="min-h-screen flex flex-col bg-gray-50">
+  <div class="min-h-screen flex flex-col" style="background-color: var(--theme-bg);">
     <!-- Toast -->
     <div
       v-if="toast"
@@ -127,7 +127,7 @@ useHead(computed(() => generateSeo({
     </div>
 
     <!-- Hero 区 -->
-    <div class="bg-gradient-to-br from-blue-700 via-indigo-700 to-purple-800 text-white pt-16 pb-20 relative overflow-hidden">
+    <div class="pt-16 pb-20 relative overflow-hidden text-white" style="background: linear-gradient(135deg, var(--theme-primary), color-mix(in srgb, var(--theme-primary) 60%, #4338ca 100%));">
       <div class="absolute inset-0 opacity-10">
         <div class="absolute top-10 left-10 w-64 h-64 rounded-full bg-white"></div>
         <div class="absolute bottom-10 right-20 w-80 h-80 rounded-full bg-white"></div>
@@ -139,7 +139,7 @@ useHead(computed(() => generateSeo({
         <div class="flex items-center justify-center mb-4">
           <h1 class="text-5xl font-bold tracking-tight">备战面试，直通 Offer</h1>
         </div>
-        <p class="text-xl text-blue-100 max-w-2xl mx-auto mb-10">
+        <p class="text-xl max-w-2xl mx-auto mb-10" style="color: rgba(255,255,255,0.9);">
           海量算法题库 · 真实面试经验 · 精选简历模板 — 一站式求职备战平台
         </p>
         <!-- 平台统计 -->
@@ -182,14 +182,14 @@ useHead(computed(() => generateSeo({
     <!-- 主要内容 -->
     <div class="flex-1 py-8 -mt-10">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div v-if="loading" class="text-center py-12 bg-white rounded-xl shadow-sm">
-          <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p class="mt-4 text-gray-600">加载中...</p>
+        <div v-if="loading" class="text-center py-12 rounded-xl shadow-sm" style="background-color: var(--theme-surface); border: 1px solid var(--theme-border);">
+          <div class="animate-spin rounded-full h-12 w-12 border-b-2 mx-auto" style="border-color: var(--theme-primary);"></div>
+          <p class="mt-4" style="color: var(--theme-text-secondary);">加载中...</p>
         </div>
 
-        <div v-else-if="error" class="bg-red-50 border border-red-200 rounded-xl p-8 max-w-2xl mx-auto text-center">
-          <p class="text-red-600 mb-4">{{ error }}</p>
-          <button @click="loadInterviewHome" class="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition text-sm">
+        <div v-else-if="error" class="rounded-xl p-8 max-w-2xl mx-auto text-center" style="background-color: var(--theme-surface); border: 1px solid var(--theme-border);">
+          <p class="mb-4" style="color: var(--theme-primary);">{{ error }}</p>
+          <button @click="loadInterviewHome" class="px-4 py-2 text-white rounded-lg transition text-sm" style="background-color: var(--theme-primary);">
             重试
           </button>
         </div>
@@ -198,25 +198,26 @@ useHead(computed(() => generateSeo({
           <!-- 分类快捷入口 -->
           <div v-if="categories.length > 0" class="mb-12">
             <div class="flex items-center justify-between mb-6">
-              <h2 class="text-2xl font-bold text-gray-900 flex items-center">
-                <BookOpen class="w-6 h-6 mr-2 text-blue-600" />
+              <h2 class="text-2xl font-bold flex items-center" style="color: var(--theme-text);">
+                <BookOpen class="w-6 h-6 mr-2" style="color: var(--theme-primary);" />
                 题目分类
               </h2>
-              <span class="text-sm text-gray-500">点击卡片进入分类</span>
+              <span class="text-sm" style="color: var(--theme-text-secondary);">点击卡片进入分类</span>
             </div>
             <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
               <div
                 v-for="cat in categories"
                 :key="cat.id"
                 @click="router.push(`/interview/questions?categoryId=${cat.id}`)"
-                class="bg-white rounded-xl p-6 shadow-sm hover:shadow-lg hover:-translate-y-1 transition cursor-pointer border border-gray-100"
+                class="rounded-xl p-6 shadow-sm hover:shadow-lg hover:-translate-y-1 transition cursor-pointer"
+                style="background-color: var(--theme-surface); border: 1px solid var(--theme-border);"
               >
-                <div class="w-12 h-12 bg-gradient-to-br from-blue-500 to-indigo-500 rounded-lg flex items-center justify-center mb-4 text-white">
+                <div class="w-12 h-12 rounded-lg flex items-center justify-center mb-4 text-white" style="background: linear-gradient(135deg, var(--theme-primary), color-mix(in srgb, var(--theme-primary) 70%, #4338ca));">
                   <BookOpen class="w-6 h-6" />
                 </div>
-                <h3 class="text-base font-semibold text-gray-900 mb-2">{{ cat.name }}</h3>
-                <p v-if="cat.description" class="text-gray-500 text-sm mb-3 line-clamp-2">{{ cat.description }}</p>
-                <div class="text-xs text-blue-600 font-medium flex items-center">
+                <h3 class="text-base font-semibold mb-2" style="color: var(--theme-text);">{{ cat.name }}</h3>
+                <p v-if="cat.description" class="text-sm mb-3 line-clamp-2" style="color: var(--theme-text-secondary);">{{ cat.description }}</p>
+                <div class="text-xs font-medium flex items-center" style="color: var(--theme-primary);">
                   {{ cat.questionCount || 0 }} 道题目
                   <ArrowRight class="w-3 h-3 ml-1" />
                 </div>
@@ -227,11 +228,11 @@ useHead(computed(() => generateSeo({
           <!-- 热门题目 -->
           <div v-if="hotQuestions.length > 0" class="mb-12">
             <div class="flex items-center justify-between mb-6">
-              <h2 class="text-2xl font-bold text-gray-900 flex items-center">
+              <h2 class="text-2xl font-bold flex items-center" style="color: var(--theme-text);">
                 <Trophy class="w-6 h-6 mr-2 text-yellow-500" />
                 热门题目
               </h2>
-              <button @click="router.push('/interview/questions')" class="text-blue-600 hover:text-blue-800 text-sm font-medium flex items-center">
+              <button @click="router.push('/interview/questions')" class="text-sm font-medium flex items-center" style="color: var(--theme-primary);">
                 查看更多 <ArrowRight class="w-4 h-4 ml-1" />
               </button>
             </div>
@@ -240,23 +241,25 @@ useHead(computed(() => generateSeo({
                 v-for="(q, index) in hotQuestions"
                 :key="q.id"
                 @click="goQuestion(q.id)"
-                class="bg-white rounded-xl p-5 shadow-sm hover:shadow-md hover:border-blue-200 border border-transparent transition cursor-pointer"
+                class="rounded-xl p-5 shadow-sm hover:shadow-md transition cursor-pointer"
+                style="background-color: var(--theme-surface); border: 1px solid var(--theme-border);"
               >
                 <div class="flex items-start justify-between">
                   <div class="flex-1 min-w-0">
                     <div class="flex items-center mb-2 flex-wrap gap-2">
-                      <span class="w-7 h-7 bg-blue-50 rounded-full flex items-center justify-center text-blue-600 font-bold text-xs mr-1">{{ index + 1 }}</span>
+                      <span class="w-7 h-7 rounded-full flex items-center justify-center font-bold text-xs mr-1" style="background-color: var(--theme-accent); color: var(--theme-primary);">{{ index + 1 }}</span>
                       <span
                         class="px-2.5 py-1 rounded-full text-xs font-medium"
                         :class="getDifficultyColor(q.difficulty)"
                       >
                         {{ getDifficultyText(q.difficulty) }}
                       </span>
-                      <span v-if="q.categoryName" class="px-2.5 py-1 bg-gray-100 text-gray-600 rounded-full text-xs">{{ q.categoryName }}</span>
+                      <span v-if="q.categoryName" class="px-2.5 py-1 rounded-full text-xs" style="background-color: var(--theme-accent); color: var(--theme-text-secondary);">{{ q.categoryName }}</span>
                       <span
                         v-for="tag in q.tags?.slice(0, 3)"
                         :key="tag"
-                        class="px-2 py-1 bg-indigo-50 text-indigo-600 rounded text-xs"
+                        class="px-2 py-1 rounded text-xs"
+                        style="background-color: var(--theme-accent); color: var(--theme-primary);"
                       >
                         #{{ tag }}
                       </span>
@@ -268,16 +271,16 @@ useHead(computed(() => generateSeo({
                         {{ c.name }}
                       </span>
                     </div>
-                    <h3 class="text-base font-semibold text-gray-900 mb-2">{{ q.title }}</h3>
-                    <p v-if="q.description" class="text-sm text-gray-500 line-clamp-2 mb-2">{{ q.description }}</p>
+                    <h3 class="text-base font-semibold mb-2" style="color: var(--theme-text);">{{ q.title }}</h3>
+                    <p v-if="q.description" class="text-sm line-clamp-2 mb-2" style="color: var(--theme-text-secondary);">{{ q.description }}</p>
                   </div>
                   <div class="text-right ml-6 flex-shrink-0">
-                    <div class="flex items-center justify-end gap-3 text-xs text-gray-500 mb-2">
+                    <div class="flex items-center justify-end gap-3 text-xs mb-2" style="color: var(--theme-text-secondary);">
                       <span class="flex items-center"><CheckCircle class="w-3 h-3 mr-1 text-green-500" /> {{ q.acceptanceRate }}%</span>
                       <span class="flex items-center"><Zap class="w-3 h-3 mr-1 text-yellow-500" /> {{ q.submissionCount }}</span>
                       <span class="flex items-center"><Star class="w-3 h-3 mr-1 text-orange-500" /> {{ q.likeCount }}</span>
                     </div>
-                    <span class="text-xs text-blue-600 font-medium flex items-center justify-end">
+                    <span class="text-xs font-medium flex items-center justify-end" style="color: var(--theme-primary);">
                       查看题目 <ArrowRight class="w-3 h-3 ml-1" />
                     </span>
                   </div>
@@ -289,11 +292,11 @@ useHead(computed(() => generateSeo({
           <!-- 热门面经 -->
           <div v-if="hotExperiences.length > 0" class="mb-12">
             <div class="flex items-center justify-between mb-6">
-              <h2 class="text-2xl font-bold text-gray-900 flex items-center">
+              <h2 class="text-2xl font-bold flex items-center" style="color: var(--theme-text);">
                 <Briefcase class="w-6 h-6 mr-2 text-orange-500" />
                 热门面经
               </h2>
-              <button @click="router.push('/interview/experiences')" class="text-blue-600 hover:text-blue-800 text-sm font-medium flex items-center">
+              <button @click="router.push('/interview/experiences')" class="text-sm font-medium flex items-center" style="color: var(--theme-primary);">
                 查看更多 <ArrowRight class="w-4 h-4 ml-1" />
               </button>
             </div>
@@ -302,29 +305,30 @@ useHead(computed(() => generateSeo({
                 v-for="exp in hotExperiences"
                 :key="exp.id"
                 @click="goExperience(exp.id)"
-                class="bg-white rounded-xl overflow-hidden shadow-sm hover:shadow-lg hover:-translate-y-1 transition cursor-pointer border border-gray-100 flex flex-col"
+                class="rounded-xl overflow-hidden shadow-sm hover:shadow-lg hover:-translate-y-1 transition cursor-pointer flex flex-col"
+                style="background-color: var(--theme-surface); border: 1px solid var(--theme-border);"
               >
-                <div v-if="exp.coverImage" class="h-36 bg-gray-100">
+                <div v-if="exp.coverImage" class="h-36" style="background-color: var(--theme-bg);">
                   <LazyImage :src="exp.coverImage" :alt="exp.title" class="w-full h-full object-cover" />
                 </div>
                 <div class="p-5 flex flex-col flex-1">
                   <div class="flex items-center gap-2 mb-3 flex-wrap">
-                    <span class="px-2.5 py-1 bg-indigo-50 text-indigo-700 rounded-full text-xs font-medium">{{ exp.company }}</span>
-                    <span v-if="exp.position" class="px-2.5 py-1 bg-blue-50 text-blue-700 rounded-full text-xs font-medium">{{ exp.position }}</span>
-                    <span v-if="exp.year" class="text-xs text-gray-400">{{ exp.year }}年</span>
+                    <span class="px-2.5 py-1 rounded-full text-xs font-medium" style="background-color: var(--theme-accent); color: var(--theme-primary);">{{ exp.company }}</span>
+                    <span v-if="exp.position" class="px-2.5 py-1 rounded-full text-xs font-medium" style="background-color: var(--theme-accent); color: var(--theme-primary);">{{ exp.position }}</span>
+                    <span v-if="exp.year" class="text-xs" style="color: var(--theme-text-secondary);">{{ exp.year }}年</span>
                   </div>
-                  <h3 class="text-lg font-semibold text-gray-900 mb-2 line-clamp-2">{{ exp.title }}</h3>
-                  <p v-if="exp.summary || exp.content" class="text-sm text-gray-600 mb-4 line-clamp-3 flex-1">
+                  <h3 class="text-lg font-semibold mb-2 line-clamp-2" style="color: var(--theme-text);">{{ exp.title }}</h3>
+                  <p v-if="exp.summary || exp.content" class="text-sm mb-4 line-clamp-3 flex-1" style="color: var(--theme-text-secondary);">
                     {{ exp.summary || exp.content }}
                   </p>
                   <div class="flex items-center justify-between">
-                    <div class="flex items-center text-sm text-gray-600">
-                      <div class="w-7 h-7 rounded-full overflow-hidden mr-2 bg-gray-200">
+                    <div class="flex items-center text-sm" style="color: var(--theme-text-secondary);">
+                      <div class="w-7 h-7 rounded-full overflow-hidden mr-2" style="background-color: var(--theme-bg);">
                         <LazyImage :src="expAvatar(exp)" :alt="expName(exp)" class="w-full h-full object-cover" />
                       </div>
                       <span class="font-medium text-xs">{{ expName(exp) }}</span>
                     </div>
-                    <div class="flex items-center gap-3 text-xs text-gray-500">
+                    <div class="flex items-center gap-3 text-xs" style="color: var(--theme-text-secondary);">
                       <span class="flex items-center"><Star class="w-3 h-3 mr-1 text-orange-400" />{{ exp.likeCount }}</span>
                       <span class="flex items-center"><TrendingUp class="w-3 h-3 mr-1 text-blue-400" />{{ exp.viewCount }}</span>
                       <span class="flex items-center"><BookOpen class="w-3 h-3 mr-1 text-green-400" />{{ exp.commentCount }}</span>
@@ -338,11 +342,11 @@ useHead(computed(() => generateSeo({
           <!-- 简历模板 -->
           <div v-if="resumeTemplates.length > 0" class="mb-12">
             <div class="flex items-center justify-between mb-6">
-              <h2 class="text-2xl font-bold text-gray-900 flex items-center">
+              <h2 class="text-2xl font-bold flex items-center" style="color: var(--theme-text);">
                 <FileText class="w-6 h-6 mr-2 text-purple-500" />
                 简历模板
               </h2>
-              <button @click="goResume" class="text-blue-600 hover:text-blue-800 text-sm font-medium flex items-center">
+              <button @click="goResume" class="text-sm font-medium flex items-center" style="color: var(--theme-primary);">
                 查看更多 <ArrowRight class="w-4 h-4 ml-1" />
               </button>
             </div>
@@ -351,18 +355,19 @@ useHead(computed(() => generateSeo({
                 v-for="t in resumeTemplates.slice(0, 4)"
                 :key="t.id"
                 @click="goResume()"
-                class="bg-white rounded-xl overflow-hidden shadow-sm hover:shadow-lg hover:-translate-y-1 transition cursor-pointer border border-gray-100"
+                class="rounded-xl overflow-hidden shadow-sm hover:shadow-lg hover:-translate-y-1 transition cursor-pointer"
+                style="background-color: var(--theme-surface); border: 1px solid var(--theme-border);"
               >
-                <div class="h-40 bg-gray-100">
+                <div class="h-40" style="background-color: var(--theme-bg);">
                   <LazyImage v-if="t.cover" :src="t.cover" :alt="t.title" class="w-full h-full object-cover" />
-                  <div v-else class="flex items-center justify-center h-full bg-gradient-to-br from-purple-100 to-indigo-100">
-                    <FileText class="w-10 h-10 text-purple-400" />
+                  <div v-else class="flex items-center justify-center h-full" style="background: linear-gradient(135deg, var(--theme-accent), color-mix(in srgb, var(--theme-accent) 50%, #c4b5fd));">
+                    <FileText class="w-10 h-10" style="color: var(--theme-primary);" />
                   </div>
                 </div>
                 <div class="p-4">
-                  <h3 class="text-base font-semibold text-gray-900 mb-1 line-clamp-1">{{ t.title }}</h3>
-                  <p v-if="t.description" class="text-sm text-gray-500 mb-3 line-clamp-2">{{ t.description }}</p>
-                  <div class="flex items-center justify-between text-xs text-gray-500">
+                  <h3 class="text-base font-semibold mb-1 line-clamp-1" style="color: var(--theme-text);">{{ t.title }}</h3>
+                  <p v-if="t.description" class="text-sm mb-3 line-clamp-2" style="color: var(--theme-text-secondary);">{{ t.description }}</p>
+                  <div class="flex items-center justify-between text-xs" style="color: var(--theme-text-secondary);">
                     <span class="flex items-center"><Star class="w-3 h-3 mr-1 text-orange-400" />{{ t.likeCount }}</span>
                     <span class="flex items-center"><FileText class="w-3 h-3 mr-1 text-blue-400" />{{ t.downloadCount }} 下载</span>
                   </div>
@@ -374,24 +379,25 @@ useHead(computed(() => generateSeo({
           <!-- 热门公司墙 -->
           <div v-if="hotCompanies.length > 0" class="mb-12">
             <div class="flex items-center justify-between mb-6">
-              <h2 class="text-2xl font-bold text-gray-900 flex items-center">
-                <Building2 class="w-6 h-6 mr-2 text-blue-500" />
+              <h2 class="text-2xl font-bold flex items-center" style="color: var(--theme-text);">
+                <Building2 class="w-6 h-6 mr-2" style="color: var(--theme-primary);" />
                 热门公司
               </h2>
-              <span class="text-sm text-gray-500">高频出现公司</span>
+              <span class="text-sm" style="color: var(--theme-text-secondary);">高频出现公司</span>
             </div>
             <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
               <div
                 v-for="c in hotCompanies"
                 :key="c.id"
-                class="bg-white rounded-xl p-5 shadow-sm hover:shadow-md hover:-translate-y-1 transition cursor-pointer text-center border border-gray-100"
+                class="rounded-xl p-5 shadow-sm hover:shadow-md hover:-translate-y-1 transition cursor-pointer text-center"
+                style="background-color: var(--theme-surface); border: 1px solid var(--theme-border);"
               >
-                <div class="w-14 h-14 mx-auto rounded-xl bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center mb-3 overflow-hidden">
+                <div class="w-14 h-14 mx-auto rounded-xl flex items-center justify-center mb-3 overflow-hidden" style="background-color: var(--theme-bg);">
                   <LazyImage v-if="c.logo" :src="c.logo" :alt="c.name" class="w-full h-full object-contain" />
-                  <Lightbulb v-else class="w-7 h-7 text-gray-400" />
+                  <Lightbulb v-else class="w-7 h-7" style="color: var(--theme-text-secondary);" />
                 </div>
-                <h3 class="text-sm font-semibold text-gray-900 mb-1 line-clamp-1">{{ c.name }}</h3>
-                <p class="text-xs text-gray-500">{{ c.questionCount || 0 }} 道题</p>
+                <h3 class="text-sm font-semibold mb-1 line-clamp-1" style="color: var(--theme-text);">{{ c.name }}</h3>
+                <p class="text-xs" style="color: var(--theme-text-secondary);">{{ c.questionCount || 0 }} 道题</p>
               </div>
             </div>
           </div>

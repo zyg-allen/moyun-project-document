@@ -13,13 +13,6 @@ interface Props {
 
 const props = defineProps<Props>();
 
-// 截断文本最多50字符
-function truncateText(text: string | undefined, maxLength: number = 50): string {
-  if (!text) return '';
-  if (text.length <= maxLength) return text;
-  return text.substring(0, maxLength) + '...';
-}
-
 function formatDateTime(dateStr: string | undefined) {
   if (!dateStr) return '';
   const date = new Date(dateStr);
@@ -80,7 +73,7 @@ function goToAuthor(authorId: string | number | undefined) {
       style="background-color: var(--theme-bg); border-color: var(--theme-border);"
       :aria-label="'文章标题: ' + article.title"
   >
-    <div class="flex flex-col sm:flex-row gap-0 h-full items-stretch cursor-pointer" @click.stop="goToArticle(article.id, article.slug)">
+    <div class="flex flex-col sm:flex-row gap-0 h-full items-stretch cursor-pointer">
       <!-- Cover Image (Optional) -->
       <div v-if="article.cover" class="flex-shrink-0">
         <div class="py-2 sm:py-3 px-2 sm:px-3">
@@ -96,54 +89,54 @@ function goToAuthor(authorId: string | number | undefined) {
 
       <!-- Content -->
       <div class="flex-1 p-3 sm:p-4 flex flex-col justify-center min-w-0">
-        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 w-full">
-          <!-- 标题靠左 -->
-          <div class="flex-1 min-w-0">
-            <div
-                class="text-sm md:text-base font-medium line-clamp-2 transition-colors hover:opacity-80"
-                style="color: var(--theme-text);"
+        <!-- 标题（line-clamp 自适应截断，避免与 truncateText 重复截断） -->
+        <Link
+            :to="article.slug ? `/article/${article.id}/${encodeURIComponent(article.slug)}` : `/article/${article.id}`"
+            class="block text-sm md:text-base font-medium line-clamp-2 leading-snug transition-colors hover:opacity-80"
+            style="color: var(--theme-text);"
+        >
+          {{ article.title }}
+        </Link>
+
+        <!-- 作者信息 -->
+        <button
+            type="button"
+            @click.stop="goToAuthor(article.authorId || article.author?.id)"
+            class="flex items-center gap-1.5 mt-1.5 text-xs transition-colors hover:opacity-80 cursor-pointer text-left"
+            style="color: var(--theme-text-secondary);"
+        >
+          <Avatar
+              :src="getAuthorAvatar(article)"
+              :name="getAuthorUsername(article)"
+              size="xs"
+          />
+          <span>{{ getAuthorUsername(article) }}</span>
+        </button>
+
+        <!-- 简介（line-clamp-2 提升信息密度） -->
+        <p v-if="article.excerpt" class="text-xs mt-1.5 line-clamp-2" style="color: var(--theme-text-secondary);">
+          {{ article.excerpt }}
+        </p>
+
+        <!-- 标签和日期时间 -->
+        <div class="flex flex-wrap items-center justify-between gap-2 mt-2">
+          <!-- 标签 -->
+          <div class="flex flex-wrap gap-1.5">
+            <span
+                v-for="tag in getTags(article).slice(0, 2)"
+                :key="tag"
+                class="inline-flex items-center px-2 py-0.5 text-xs rounded-full"
+                style="background-color: var(--theme-surface); color: var(--theme-text-secondary);"
             >
-              {{ truncateText(article.title) }}
-            </div>
-            <!-- 作者信息 -->
-            <div
-                @click.stop="goToAuthor(article.authorId || article.author?.id)"
-                class="flex items-center gap-1.5 mt-1 text-xs transition-colors hover:opacity-80 cursor-pointer"
-                style="color: var(--theme-text-secondary);"
-            >
-              <Avatar
-                  :src="getAuthorAvatar(article)"
-                  :name="getAuthorUsername(article)"
-                  size="xs"
-              />
-              <span>{{ getAuthorUsername(article) }}</span>
-            </div>
-            <!-- 简介 -->
-            <p class="text-xs mt-1 line-clamp-1" style="color: var(--theme-text-secondary);">
-              {{ truncateText(article.excerpt) }}
-            </p>
+              <Tag class="w-3 h-3 mr-1" aria-hidden="true" />
+              {{ tag }}
+            </span>
           </div>
 
-          <!-- 标签和日期时间靠右 -->
-          <div class="flex flex-wrap items-center justify-end gap-2 flex-shrink-0">
-            <!-- 标签 -->
-            <div class="flex flex-wrap gap-1.5">
-              <span
-                  v-for="tag in getTags(article).slice(0, 2)"
-                  :key="tag"
-                  class="inline-flex items-center px-2 py-0.5 text-xs rounded-full"
-                  style="background-color: var(--theme-surface); color: var(--theme-text-secondary);"
-              >
-                <Tag class="w-3 h-3 mr-1" aria-hidden="true" />
-                {{ tag }}
-              </span>
-            </div>
-
-            <!-- 日期时间 -->
-            <div class="flex items-center gap-1 text-xs flex-shrink-0" style="color: var(--theme-text-secondary);">
-              <Clock class="w-3 h-3" aria-hidden="true" />
-              <span>{{ formatDateTime(article.createdAt) }}</span>
-            </div>
+          <!-- 日期时间 -->
+          <div class="flex items-center gap-1 text-xs flex-shrink-0" style="color: var(--theme-text-secondary);">
+            <Clock class="w-3 h-3" aria-hidden="true" />
+            <span>{{ formatDateTime(article.createdAt) }}</span>
           </div>
         </div>
       </div>

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue';
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
 import { RouterLink as Link, useRouter, useRoute } from 'vue-router';
 import {
   Search, User, Plus, LogOut, Menu, X, Palette, Sun, Moon, Eye, Home,
@@ -244,10 +244,28 @@ function handlePublish() {
   }
   router.push('/publish');
 }
+
+function closeAllMenus() {
+  isThemeMenuOpen.value = false;
+  isUserMenuOpen.value = false;
+  isMenuOpen.value = false;
+  activeNavItem.value = null;
+}
+
+const handleDocumentClick = (e: MouseEvent) => {
+  const target = e.target as HTMLElement;
+  // 点击不在任何菜单触发按钮和菜单内时，关闭所有下拉
+  if (!target.closest('[data-menu-trigger]') && !target.closest('[data-menu-content]')) {
+    closeAllMenus();
+  }
+};
+
+onMounted(() => document.addEventListener('click', handleDocumentClick));
+onUnmounted(() => document.removeEventListener('click', handleDocumentClick));
 </script>
 
 <template>
-  <header class="sticky top-0 z-50 shadow-md" style="background-color: var(--theme-bg);">
+  <header class="sticky top-0 z-50 shadow-md" style="background-color: var(--theme-bg);" @keydown.esc="closeAllMenus">
     <!-- 顶部栏 -->
     <div class="border-b" style="background: linear-gradient(135deg, var(--theme-surface) 0%, var(--theme-bg) 100%); border-color: var(--theme-border);">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -275,7 +293,7 @@ function handlePublish() {
             <!-- 搜索图标按钮 -->
             <button
                 @click="router.push('/search')"
-                class="p-1.5 sm:p-2 rounded-lg transition-colors"
+                class="p-2.5 rounded-lg transition-colors"
                 style="color: var(--theme-text-secondary);"
                 title="搜索"
             >
@@ -293,8 +311,9 @@ function handlePublish() {
             <div class="relative">
               <button
                   @click="isThemeMenuOpen = !isThemeMenuOpen"
-                  class="p-1.5 rounded-full transition-colors"
+                  class="p-2.5 rounded-full transition-colors"
                   style="color: var(--theme-text);"
+                  data-menu-trigger
               >
                 <Palette class="w-4 h-4" />
               </button>
@@ -302,6 +321,7 @@ function handlePublish() {
                   v-if="isThemeMenuOpen"
                   class="absolute right-0 mt-2 w-40 rounded-lg shadow-lg border py-2 z-50"
                   style="background-color: var(--theme-bg); border-color: var(--theme-border);"
+                  data-menu-content
               >
                 <button
                     v-for="theme in ['light', 'dark', 'eye'] as Theme[]"
@@ -336,6 +356,7 @@ function handlePublish() {
                 <button
                     @click="isUserMenuOpen = !isUserMenuOpen"
                     class="flex items-center space-x-2 hover:opacity-80 transition-opacity flex-shrink-0"
+                    data-menu-trigger
                 >
                   <img
                       :src="getSafeAvatar(currentUser.avatar, currentUser.id)"
@@ -355,6 +376,7 @@ function handlePublish() {
                     v-if="isUserMenuOpen"
                     class="absolute right-0 mt-2 w-48 rounded-lg shadow-lg border py-2 z-50"
                     style="background-color: var(--theme-bg); border-color: var(--theme-border);"
+                    data-menu-content
                 >
                   <div class="px-3 py-2 border-b" style="border-color: var(--theme-border);">
                     <p class="text-sm font-medium" style="color: var(--theme-text);">
@@ -388,8 +410,8 @@ function handlePublish() {
                       @click="handleLogout"
                       class="w-full flex items-center space-x-2 px-3 py-2 text-left transition-colors hover:opacity-80"
                   >
-                    <LogOut class="w-4 h-4" style="color: #dc2626;" />
-                    <span class="text-sm" style="color: #dc2626;">退出登录</span>
+                    <LogOut class="w-4 h-4" style="color: var(--theme-danger);" />
+                    <span class="text-sm" style="color: var(--theme-danger);">退出登录</span>
                   </button>
                 </div>
               </div>
@@ -397,7 +419,7 @@ function handlePublish() {
             <template v-else>
               <Link
                   to="/login"
-                  class="px-2 sm:px-3 py-1.5 font-medium transition-colors flex-shrink-0"
+                  class="px-3 py-2.5 font-medium transition-colors flex-shrink-0 inline-flex items-center"
                   style="color: var(--theme-text);"
               >
                 <span class="hidden sm:inline">登录/注册</span>
@@ -461,6 +483,7 @@ function handlePublish() {
                       color: activeNavItem === item.key ? 'white' : 'var(--theme-text)',
                       backgroundColor: activeNavItem === item.key ? 'var(--theme-primary)' : 'transparent'
                     }"
+                      data-menu-trigger
                   >
                     {{ item.name }}
                   </button>
@@ -469,6 +492,7 @@ function handlePublish() {
                       v-if="activeNavItem === item.key"
                       class="absolute top-full left-0 mt-2 w-72 shadow-xl border rounded-xl py-3 z-50 transform transition-all duration-200"
                       style="background-color: var(--theme-bg); border-color: var(--theme-border);"
+                      data-menu-content
                   >
                     <template v-for="(child, idx) in item.children" :key="child.name">
                       <!-- 子菜单外部链接 -->
@@ -511,6 +535,7 @@ function handlePublish() {
               @click="isMenuOpen = !isMenuOpen"
               class="lg:hidden p-2 rounded-lg transition-colors"
               style="color: var(--theme-text);"
+              data-menu-trigger
           >
             <Menu v-if="!isMenuOpen" class="w-6 h-6" />
             <X v-else class="w-6 h-6" />
@@ -524,6 +549,7 @@ function handlePublish() {
         v-if="isMenuOpen"
         class="lg:hidden border-t"
         style="background-color: var(--theme-bg); border-color: var(--theme-border);"
+        data-menu-content
     >
       <div class="px-4 py-3 space-y-2">
         <div v-for="item in navItems" :key="item.key" class="mb-2">

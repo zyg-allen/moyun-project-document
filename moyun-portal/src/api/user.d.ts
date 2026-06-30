@@ -1,0 +1,12 @@
+import type { User, LoginParams, LoginResponse, RegisterParams, RegisterResponse, UpdateUserProfileParams, UpdatePasswordParams, SendSmsCodeParams, UserStats } from '@/types/api';
+export declare const login: (params: LoginParams) => Promise<import("./client").ApiResponse<LoginResponse>>;
+export declare const register: (params: RegisterParams) => Promise<import("./client").ApiResponse<RegisterResponse>>;
+export declare const logout: () => Promise<import("./client").ApiResponse<unknown>>;
+export declare const getCurrentUser: () => Promise<import("./client").ApiResponse<User>>;
+export declare const updateUserProfile: (params: UpdateUserProfileParams) => Promise<import("./client").ApiResponse<User>>;
+export declare const updatePassword: (params: UpdatePasswordParams) => Promise<import("./client").ApiResponse<unknown>>;
+export declare const sendSmsCode: (params: SendSmsCodeParams) => Promise<import("./client").ApiResponse<unknown>>;
+export declare const uploadAvatar: (file: File) => Promise<import("./client").ApiResponse<User>>;
+export declare const getUserStats: (userId?: string) => Promise<import("./client").ApiResponse<UserStats>>;
+export declare const getUserById: (userId: string) => Promise<import("./client").ApiResponse<User>>;
+export declare const getAuthors: (limit?: number) => Promise<import("./client").ApiResponse<any[]>>;

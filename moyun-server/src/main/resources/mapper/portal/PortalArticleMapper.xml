@@ -298,7 +298,8 @@
     </select>
 
     <!-- 新增文章 -->
-    <insert id="insertPortalArticle" parameterType="com.moyun.portal.domain.entity.PortalArticle">
+    <insert id="insertPortalArticle" parameterType="com.moyun.portal.domain.entity.PortalArticle"
+            useGeneratedKeys="true" keyProperty="id">
         insert into portal_article(title, slug, content, excerpt, cover, author_id, category_id, 
                                    root_category_id, category_path, 
                                    status,

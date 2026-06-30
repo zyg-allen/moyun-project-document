@@ -1,42 +1,39 @@
 package com.moyun.portal.controller;
 
-import jakarta.servlet.http.HttpServletResponse;
 import java.time.LocalDateTime;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
-import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
-import com.moyun.common.annotation.Log;
-import com.moyun.common.enums.BusinessType;
+import com.moyun.common.constant.HttpStatus;
 import com.moyun.core.base.AjaxResult;
 import com.moyun.core.base.BaseController;
 import com.moyun.portal.domain.entity.PortalBookmark;
-import com.moyun.portal.domain.query.BookmarkQuery;
 import com.moyun.portal.mapper.PortalArticleMapper;
 import com.moyun.portal.mapper.PortalBookmarkMapper;
-import com.moyun.portal.service.IPortalBookmarkService;
 import com.moyun.portal.service.IPortalGrowthService;
 import com.moyun.portal.util.PortalSecurityUtils;
-import com.moyun.util.bean.PageUtils;
-import com.moyun.util.file.ExcelUtil;
 
-@Tag(name = "门户收藏", description = "门户收藏的增删改查操作接口")
+/**
+ * 门户收藏 Controller
+ *
+ * <p>说明：原通用 CRUD 接口（list/export/getInfo/add/edit/remove/checkBookmarkStatus）已删除，
+ * 前端从未调用。文章收藏统一走 {@link #toggleBookmark(Long)} 接口（幂等 toggle）。
+ * Service / Mapper / XML 保留，因 Service 方法可能被其他模块复用。</p>
+ *
+ * @author moyun
+ */
+@Tag(name = "门户收藏", description = "门户文章收藏接口")
 @RestController
 @RequestMapping("/portal/bookmark")
 public class PortalBookmarkController extends BaseController {
-
-    @Autowired
-    private IPortalBookmarkService portalBookmarkService;
 
     @Autowired
     private PortalBookmarkMapper portalBookmarkMapper;
@@ -46,50 +43,6 @@ public class PortalBookmarkController extends BaseController {
 
     @Autowired
     private IPortalGrowthService portalGrowthService;
-
-    @Operation(summary = "获取收藏列表", description = "根据条件分页查询收藏列表")
-    @GetMapping("/list")
-    public AjaxResult list(BookmarkQuery query) {
-        Page<PortalBookmark> page = PageUtils.buildPage(query);
-        Page<PortalBookmark> resultPage = portalBookmarkService.selectPortalBookmarkPage(page, query);
-        return success(resultPage);
-    }
-
-    @Operation(summary = "导出收藏", description = "导出收藏数据到Excel文件")
-    @Log(title = "门户收藏", businessType = BusinessType.EXPORT)
-    @PostMapping("/export")
-    public void export(HttpServletResponse response, BookmarkQuery query) {
-        List<PortalBookmark> list = portalBookmarkService.selectPortalBookmarkList(query);
-        ExcelUtil<PortalBookmark> util = new ExcelUtil<PortalBookmark>(PortalBookmark.class);
-        util.exportExcel(response, list, "门户收藏数据");
-    }
-
-    @Operation(summary = "获取收藏详情", description = "根据收藏ID获取收藏详细信息")
-    @GetMapping(value = "/{id}")
-    public AjaxResult getInfo(@Parameter(description = "收藏ID") @PathVariable Long id) {
-        return success(portalBookmarkService.selectPortalBookmarkById(id));
-    }
-
-    @Operation(summary = "新增收藏", description = "创建新收藏")
-    @Log(title = "门户收藏", businessType = BusinessType.INSERT)
-    @PostMapping
-    public AjaxResult add(@Validated @RequestBody PortalBookmark portalBookmark) {
-        return toAjax(portalBookmarkService.insertPortalBookmark(portalBookmark));
-    }
-
-    @Operation(summary = "修改收藏", description = "更新收藏信息")
-    @Log(title = "门户收藏", businessType = BusinessType.UPDATE)
-    @PutMapping
-    public AjaxResult edit(@Validated @RequestBody PortalBookmark portalBookmark) {
-        return toAjax(portalBookmarkService.updatePortalBookmark(portalBookmark));
-    }
-
-    @Operation(summary = "删除收藏", description = "批量删除收藏")
-    @Log(title = "门户收藏", businessType = BusinessType.DELETE)
-    @DeleteMapping("/{ids}")
-    public AjaxResult remove(@Parameter(description = "收藏ID数组") @PathVariable Long[] ids) {
-        return toAjax(portalBookmarkService.deletePortalBookmarkByIds(ids));
-    }
 
     /**
      * 文章收藏 - 行业标准实现
@@ -104,7 +57,13 @@ public class PortalBookmarkController extends BaseController {
     public AjaxResult toggleBookmark(@PathVariable Long articleId) {
         Long userId = PortalSecurityUtils.getUserId();
         if (userId == null) {
-            return error("请先登录");
+            return AjaxResult.error(HttpStatus.UNAUTHORIZED, "请先登录");
+        }
+
+        // 校验文章存在性，避免对已删除文章产生脏收藏记录
+        com.moyun.portal.domain.entity.PortalArticle article = portalArticleMapper.selectById(articleId);
+        if (article == null) {
+            return error("文章不存在");
         }
 
         // 查询是否已收藏
@@ -121,14 +80,27 @@ public class PortalBookmarkController extends BaseController {
             bookmark.setUserId(userId);
             bookmark.setArticleId(articleId);
             bookmark.setCreateTime(LocalDateTime.now());
-            portalBookmarkMapper.insert(bookmark);
+            try {
+                portalBookmarkMapper.insert(bookmark);
+            } catch (DuplicateKeyException e) {
+                // 并发场景：另一事务已先插入（uk_user_article 唯一索引触发）
+                // 按"已收藏→取消"语义处理，保证幂等
+                PortalBookmark conflict = portalBookmarkMapper.selectOne(wrapper);
+                if (conflict != null) {
+                    portalBookmarkMapper.deleteById(conflict.getId());
+                }
+                portalArticleMapper.incrementBookmarkCount(articleId, -1);
+                Map<String, Object> r = new HashMap<>();
+                r.put("isBookmarked", false);
+                r.put("articleId", articleId);
+                return success(r);
+            }
 
             // 原子增加文章收藏数
             portalArticleMapper.incrementBookmarkCount(articleId, 1);
 
             // 为文章作者记录被收藏成长事件
-            com.moyun.portal.domain.entity.PortalArticle article = portalArticleMapper.selectById(articleId);
-            if (article != null && article.getAuthorId() != null && !article.getAuthorId().equals(userId)) {
+            if (article.getAuthorId() != null && !article.getAuthorId().equals(userId)) {
                 portalGrowthService.recordEventWithTarget("article", "receive_bookmark",
                         article.getAuthorId(), userId, "article", articleId);
             }
@@ -148,29 +120,6 @@ public class PortalBookmarkController extends BaseController {
         Map<String, Object> result = new HashMap<>();
         result.put("isBookmarked", isBookmarked);
         result.put("articleId", articleId);
-        return success(result);
-    }
-
-    /**
-     * 检查是否已收藏
-     */
-    @Operation(summary = "检查收藏状态", description = "检查当前用户是否已收藏该文章")
-    @GetMapping("/{articleId}/check")
-    public AjaxResult checkBookmarkStatus(@PathVariable Long articleId) {
-        Long userId = PortalSecurityUtils.getUserId();
-        if (userId == null) {
-            Map<String, Object> result = new HashMap<>();
-            result.put("isBookmarked", false);
-            return success(result);
-        }
-
-        LambdaQueryWrapper<PortalBookmark> wrapper = new LambdaQueryWrapper<>();
-        wrapper.eq(PortalBookmark::getUserId, userId)
-                .eq(PortalBookmark::getArticleId, articleId);
-        long count = portalBookmarkMapper.selectCount(wrapper);
-
-        Map<String, Object> result = new HashMap<>();
-        result.put("isBookmarked", count > 0);
         return success(result);
     }
 }

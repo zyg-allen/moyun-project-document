@@ -440,8 +440,8 @@ public class SysDashboardServiceImpl implements ISysDashboardService {
                 String nickname = row.get("authorNickname") != null ? String.valueOf(row.get("authorNickname")) : String.valueOf(row.get("authorUsername"));
                 item.setSubmitter(nickname);
                 item.setPriority("high");
-                // edit.vue 读取 route.query.id，必须用 query 形式跳转
-                item.setRoutePath("/cms/article/edit?id=" + item.getId());
+                // audit.vue 读取 route.query.id，必须用 query 形式跳转
+                item.setRoutePath("/cms/article/audit?id=" + item.getId());
                 tasks.add(item);
             }
 

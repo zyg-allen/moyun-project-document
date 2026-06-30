@@ -1,8 +1,5 @@
 package com.moyun.portal.controller;
 
-import jakarta.servlet.http.HttpServletResponse;
-import java.util.List;
-
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -11,6 +8,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
 import com.moyun.common.annotation.Log;
+import com.moyun.common.constant.HttpStatus;
 import com.moyun.common.enums.BusinessType;
 import com.moyun.core.base.AjaxResult;
 import com.moyun.core.base.BaseController;
@@ -23,6 +21,10 @@ import com.moyun.util.bean.PageUtils;
 /**
  * 门户通知 Controller
  * 面向门户用户(portal)，user_type 固定为 "portal"
+ *
+ * 清理说明：原 markAllAsRead / getInfo / remove / export 四个接口因前端不再调用属于死接口，
+ * 已于本次清理中从 Controller 层移除。对应的 Service / Mapper / XML 实现予以保留，
+ * 后续如需恢复可直接重新暴露。
  *
  * @author moyun
  */
@@ -66,42 +68,8 @@ public class PortalNotificationController extends BaseController {
     public AjaxResult markAsRead(@Parameter(description = "通知ID") @PathVariable Long id) {
         PortalUser currentUser = PortalSecurityUtils.getUser();
         if (currentUser == null) {
-            return error("请先登录");
+            return AjaxResult.error(HttpStatus.UNAUTHORIZED, "请先登录");
         }
         return toAjax(sysNotificationService.markAsRead(id, currentUser.getId(), USER_TYPE_PORTAL));
-    }
-
-    @Operation(summary = "标记所有通知已读", description = "将当前用户所有未读通知标记为已读（批量 INSERT IGNORE）")
-    @Log(title = "门户通知", businessType = BusinessType.UPDATE)
-    @PostMapping("/mark-all-read")
-    public AjaxResult markAllAsRead() {
-        PortalUser currentUser = PortalSecurityUtils.getUser();
-        if (currentUser == null) {
-            return error("请先登录");
-        }
-        return toAjax(sysNotificationService.markAllAsRead(currentUser.getId(), USER_TYPE_PORTAL));
-    }
-
-    @Operation(summary = "获取通知详情", description = "根据通知ID获取通知详细信息")
-    @GetMapping(value = "/{id}")
-    public AjaxResult getInfo(@Parameter(description = "通知ID") @PathVariable Long id) {
-        return success(sysNotificationService.selectNotificationById(id));
-    }
-
-    @Operation(summary = "删除通知", description = "批量删除通知")
-    @Log(title = "门户通知", businessType = BusinessType.DELETE)
-    @DeleteMapping("/{ids}")
-    public AjaxResult remove(@Parameter(description = "通知ID数组") @PathVariable Long[] ids) {
-        return toAjax(sysNotificationService.deleteNotificationByIds(ids));
-    }
-
-    @Operation(summary = "导出通知", description = "导出通知数据到Excel文件")
-    @Log(title = "门户通知", businessType = BusinessType.EXPORT)
-    @PostMapping("/export")
-    public void export(HttpServletResponse response, SysNotification query) {
-        List<SysNotification> list = sysNotificationService.selectNotificationList(query);
-        // 导出使用新实体
-        com.moyun.util.file.ExcelUtil<SysNotification> util = new com.moyun.util.file.ExcelUtil<>(SysNotification.class);
-        util.exportExcel(response, list, "通知数据");
     }
 }

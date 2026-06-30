@@ -207,4 +207,137 @@ public class PortalFollowServiceImpl extends ServiceImpl<PortalFollowMapper, Por
         );
         return count != null && count > 0;
     }
+
+    /**
+     * 关注用户（幂等：若已关注则直接返回已关注状态，不重复插入）
+     *
+     * @param followerId  关注者ID（当前登录用户）
+     * @param followingId 被关注者ID
+     * @return 包含 followed、followerCount、message 的结果 Map
+     */
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public Map<String, Object> follow(Long followerId, Long followingId) {
+        Map<String, Object> result = new HashMap<>();
+        if (followerId == null || followingId == null) {
+            result.put("followed", false);
+            result.put("message", "参数不能为空");
+            return result;
+        }
+        if (followerId.equals(followingId)) {
+            result.put("followed", false);
+            result.put("message", "不能关注自己");
+            return result;
+        }
+
+        // 已关注则幂等返回
+        if (isFollowing(followerId, followingId)) {
+            result.put("followed", true);
+            result.put("message", "已关注");
+            result.put("followerCount", getFollowerCount(followingId));
+            return result;
+        }
+
+        // 确保双方统计记录存在
+        userStatsMapper.insertIfNotExists(followerId);
+        userStatsMapper.insertIfNotExists(followingId);
+
+        // 插入关注记录
+        PortalFollow follow = new PortalFollow();
+        follow.setFollowerId(followerId);
+        follow.setFollowingId(followingId);
+        follow.setCreateTime(LocalDateTime.now());
+        baseMapper.insert(follow);
+
+        // 原子更新统计：关注者关注数+1，被关注者粉丝数+1
+        userStatsMapper.addFollowingCount(followerId, 1);
+        userStatsMapper.addFollowerCount(followingId, 1);
+
+        // 为被关注者记录成长事件
+        portalGrowthService.recordEventWithTarget("article", "receive_follow",
+                followingId, followerId, "user", followerId);
+
+        result.put("followed", true);
+        result.put("message", "关注成功");
+        result.put("followerCount", getFollowerCount(followingId));
+        return result;
+    }
+
+    /**
+     * 取消关注用户（幂等：若未关注则直接返回未关注状态，不报错）
+     *
+     * @param followerId  关注者ID（当前登录用户）
+     * @param followingId 被关注者ID
+     * @return 包含 followed、followerCount、message 的结果 Map
+     */
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public Map<String, Object> unfollow(Long followerId, Long followingId) {
+        Map<String, Object> result = new HashMap<>();
+        if (followerId == null || followingId == null) {
+            result.put("followed", false);
+            result.put("message", "参数不能为空");
+            return result;
+        }
+
+        // 未关注则幂等返回
+        if (!isFollowing(followerId, followingId)) {
+            result.put("followed", false);
+            result.put("message", "未关注");
+            result.put("followerCount", getFollowerCount(followingId));
+            return result;
+        }
+
+        // 删除关注记录
+        baseMapper.delete(
+                new LambdaQueryWrapper<PortalFollow>()
+                        .eq(PortalFollow::getFollowerId, followerId)
+                        .eq(PortalFollow::getFollowingId, followingId)
+        );
+
+        // 确保统计记录存在（防止取消关注时统计为空）
+        userStatsMapper.insertIfNotExists(followerId);
+        userStatsMapper.insertIfNotExists(followingId);
+
+        // 原子更新统计：关注者关注数-1，被关注者粉丝数-1
+        userStatsMapper.addFollowingCount(followerId, -1);
+        userStatsMapper.addFollowerCount(followingId, -1);
+
+        result.put("followed", false);
+        result.put("message", "已取消关注");
+        result.put("followerCount", getFollowerCount(followingId));
+        return result;
+    }
+
+    /**
+     * 查询指定用户的粉丝列表（分页，按关注时间倒序）
+     */
+    @Override
+    public Page<PortalFollow> selectFollowerPage(Page<PortalFollow> page, Long userId) {
+        return baseMapper.selectPage(page,
+                new LambdaQueryWrapper<PortalFollow>()
+                        .eq(PortalFollow::getFollowingId, userId)
+                        .orderByDesc(PortalFollow::getCreateTime)
+        );
+    }
+
+    /**
+     * 查询指定用户的关注列表（分页，按关注时间倒序）
+     */
+    @Override
+    public Page<PortalFollow> selectFollowingPage(Page<PortalFollow> page, Long userId) {
+        return baseMapper.selectPage(page,
+                new LambdaQueryWrapper<PortalFollow>()
+                        .eq(PortalFollow::getFollowerId, userId)
+                        .orderByDesc(PortalFollow::getCreateTime)
+        );
+    }
+
+    /**
+     * 获取指定用户的粉丝数（内部复用）
+     */
+    private Integer getFollowerCount(Long userId) {
+        com.moyun.portal.domain.entity.PortalUserStats stats = userStatsMapper.selectByUserId(userId);
+        return stats != null && stats.getFollowerCount() != null ? stats.getFollowerCount() : 0;
+    }
 }

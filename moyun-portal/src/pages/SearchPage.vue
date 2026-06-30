@@ -2,7 +2,7 @@
 import { ref, computed, onMounted, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useHead } from '@vueuse/head';
-import { Search as SearchIcon, TrendingUp, Clock, Award, ChevronRight } from 'lucide-vue-next';
+import { Search as SearchIcon, TrendingUp } from 'lucide-vue-next';
 import ArticleCard from '@/components/ArticleCard.vue';
 import Pagination from '@/components/Pagination.vue';
 import Breadcrumb from '@/components/Breadcrumb.vue';
@@ -212,7 +212,9 @@ useHead(
               <div class="absolute inset-y-0 left-0 pl-4 sm:pl-5 flex items-center pointer-events-none">
                 <SearchIcon class="w-5 h-5" style="color: var(--theme-text-secondary);" />
               </div>
+              <label for="search-input" class="sr-only">搜索文章</label>
               <input
+                id="search-input"
                 v-model="searchQuery"
                 @keyup.enter="handleSearch"
                 type="text"
@@ -241,7 +243,9 @@ useHead(
             <Breadcrumb :items="breadcrumbs" />
             <div class="flex items-center space-x-2 flex-shrink-0">
               <span class="text-xs sm:text-sm hidden sm:inline" style="color: var(--theme-text-secondary);">排序：</span>
+              <label for="search-sort" class="sr-only">排序方式</label>
               <select
+                id="search-sort"
                 v-model="sortBy"
                 @change="performSearch"
                 class="text-xs sm:text-sm border rounded-lg px-2 sm:px-3 py-1 sm:py-1.5 focus:outline-none focus:ring-2"
@@ -328,8 +332,6 @@ useHead(
       </div>
 
     <!-- 公共Footer组件 -->
-    <div class="mt-8 sm:mt-10 lg:mt-12">
-      <SiteFooter />
-    </div>
+    <SiteFooter />
   </div>
 </template>

@@ -1,10 +1,12 @@
 <template>
-  <div class="lazy-image-wrapper" :style="{ backgroundColor: 'var(--theme-surface)', minHeight: aspectRatio ? '120px' : 'auto' }">
+  <div class="lazy-image-wrapper" :style="{ backgroundColor: 'var(--theme-surface)', aspectRatio: normalizedAspectRatio }">
     <img
       :src="src"
       :alt="alt"
       class="lazy-image"
       loading="lazy"
+      width="100%"
+      height="100%"
       @error="onError"
       @load="onLoad"
       :aria-label="alt"
@@ -19,17 +21,25 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 
 interface Props {
   src: string
   alt?: string
-  aspectRatio?: number
+  aspectRatio?: number | string
 }
 
 const props = withDefaults(defineProps<Props>(), {
   alt: '',
   aspectRatio: undefined
+})
+
+const normalizedAspectRatio = computed(() => {
+  if (!props.aspectRatio) return undefined
+  if (typeof props.aspectRatio === 'number') {
+    return String(props.aspectRatio)
+  }
+  return props.aspectRatio
 })
 
 const hasError = ref(false)

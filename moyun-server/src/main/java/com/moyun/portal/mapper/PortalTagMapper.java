@@ -85,6 +85,14 @@ public interface PortalTagMapper extends BaseMapper<PortalTag> {
     PortalTag selectByNameAndModule(@Param("name") String name, @Param("module") String module);
 
     /**
+     * 根据名称精确查询标签（仅按 name，与 uk_name 唯一约束一致）
+     *
+     * @param name 标签名称
+     * @return 标签对象
+     */
+    PortalTag selectByName(@Param("name") String name);
+
+    /**
      * 根据实体（entityType + entityId）查询已关联的标签
      *
      * @param entityType 实体类型

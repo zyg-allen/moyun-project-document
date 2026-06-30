@@ -71,11 +71,6 @@ export function getCategoryTarget(cat: Category): { type: 'internal' | 'external
   return { type: 'internal', path: `/category/${encodeURIComponent(cat.name)}` };
 }
 
-// 获取分类列表
-export const getCategoryList = (params?: CategoryListParams) => {
-  return httpGet<Category[]>('/portal/category/list', params);
-};
-
 // 获取树形分类（带缓存）
 export const getCategoryTree = async (params?: CategoryListParams): Promise<BackendResponse<Category[]>> => {
   // 如果已有缓存，直接返回
@@ -114,9 +109,4 @@ export const getCategoryTree = async (params?: CategoryListParams): Promise<Back
 // 清除缓存（用于刷新场景）
 export const clearCategoryTreeCache = () => {
   categoryTreeCache = null;
-};
-
-// 获取分类详情
-export const getCategoryById = (id: string) => {
-  return httpGet<Category>(`/portal/category/${id}`);
 };

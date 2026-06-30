@@ -6,7 +6,17 @@ import traeBadgePlugin from 'vite-plugin-trae-solo-badge'
 // https://vite.dev/config/
 export default defineConfig({
   build: {
-    sourcemap: 'hidden',
+    sourcemap: false,  // 生产关闭 sourcemap
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'vue-vendor': ['vue', 'vue-router', 'pinia'],
+          'ui-vendor': ['lucide-vue-next'],
+          'editor-vendor': ['marked', 'quill', '@vueup/vue-quill'],
+          'utils-vendor': ['dayjs', '@vueuse/core', '@vueuse/head'],
+        },
+      },
+    },
   },
   server: {
     port: 3000,

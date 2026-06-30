@@ -1,55 +1,22 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <!DOCTYPE mapper
-        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
-        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.moyun.portal.mapper.PortalCommentLikeMapper">
 
     <resultMap type="com.moyun.portal.domain.entity.PortalCommentLike" id="PortalCommentLikeResult">
-        <id property="id" column="id"/>
-        <result property="userId" column="user_id"/>
-        <result property="commentId" column="comment_id"/>
+        <result property="id"         column="id"/>
+        <result property="commentId"  column="comment_id"/>
+        <result property="userId"     column="user_id"/>
         <result property="createTime" column="create_time"/>
     </resultMap>
 
-    <sql id="selectPortalCommentLikeVo">
-        select id, user_id, comment_id, create_time from portal_comment_like
-    </sql>
-
-    <select id="selectPortalCommentLikeList" parameterType="com.moyun.portal.domain.entity.PortalCommentLike" resultMap="PortalCommentLikeResult">
-        <include refid="selectPortalCommentLikeVo"/>
-        <where>
-            <if test="userId != null">and user_id = #{userId}</if>
-            <if test="commentId != null">and comment_id = #{commentId}</if>
-        </where>
+    <select id="selectLike" resultMap="PortalCommentLikeResult">
+        SELECT id, comment_id, user_id, create_time
+        FROM portal_comment_like
+        WHERE comment_id = #{commentId}
+          AND user_id    = #{userId}
+        LIMIT 1
     </select>
 
-    <select id="selectPortalCommentLikeById" parameterType="Long" resultMap="PortalCommentLikeResult">
-        <include refid="selectPortalCommentLikeVo"/>
-        where user_id = #{arg0} and comment_id = #{arg1}
-    </select>
-
-    <insert id="insertPortalCommentLike" parameterType="com.moyun.portal.domain.entity.PortalCommentLike" useGeneratedKeys="true" keyProperty="id">
-        insert into portal_comment_like
-        <trim prefix="(" suffix=")" suffixOverrides=",">
-            <if test="userId != null">user_id,</if>
-            <if test="commentId != null">comment_id,</if>
-            <if test="createTime != null">create_time,</if>
-        </trim>
-        <trim prefix="values (" suffix=")" suffixOverrides=",">
-            <if test="userId != null">#{userId},</if>
-            <if test="commentId != null">#{commentId},</if>
-            <if test="createTime != null">#{createTime},</if>
-        </trim>
-    </insert>
-
-    <delete id="deletePortalCommentLikeById" parameterType="Long">
-        delete from portal_comment_like where user_id = #{arg0} and comment_id = #{arg1}
-    </delete>
-
-    <delete id="deletePortalCommentLikeByIds" parameterType="Long">
-        delete from portal_comment_like where id in
-        <foreach item="id" collection="array" open="(" separator="," close=")">
-            #{id}
-        </foreach>
-    </delete>
 </mapper>

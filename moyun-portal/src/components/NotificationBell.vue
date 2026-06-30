@@ -73,7 +73,10 @@ onUnmounted(() => {
 <template>
   <div class="relative" ref="dropdownRef">
     <button
+      type="button"
       @click.stop="toggleDropdown"
+      :aria-expanded="showDropdown"
+      aria-haspopup="true"
       class="relative flex items-center gap-2 px-3 py-2 rounded-full transition-colors"
       :class="currentTheme === 'dark' ? 'hover:bg-gray-700' : 'hover:bg-gray-100'"
     >
@@ -94,48 +97,65 @@ onUnmounted(() => {
 
     <div
       v-if="showDropdown"
-      class="absolute right-0 top-full mt-2 w-80 sm:w-96 bg-white rounded-lg shadow-xl border z-50"
+      role="menu"
+      @keydown.esc.prevent="showDropdown = false"
+      class="absolute right-0 top-full mt-2 w-80 sm:w-96 rounded-lg shadow-xl border z-50"
+      style="background-color: var(--theme-surface);"
     >
       <div class="p-4 border-b">
-        <h3 class="font-semibold text-base" style="color: #1f2937;">消息通知</h3>
+        <h3 class="font-semibold text-base" style="color: var(--theme-text);">消息通知</h3>
       </div>
       <div class="max-h-80 overflow-y-auto">
-        <div 
+        <button
+          type="button"
           v-for="notification in notifications"
           :key="notification.id"
           @click="handleNotificationClick(notification)"
-          class="p-4 cursor-pointer border-b last:border-b-0 transition-colors"
+          class="w-full text-left p-4 cursor-pointer border-b last:border-b-0 transition-colors"
           :class="currentTheme === 'dark' ? 'hover:bg-gray-700' : 'hover:bg-gray-50'"
         >
-          <div class="flex items-start justify-between">
-            <div class="flex-1">
-              <div class="flex items-center gap-2">
+          <span class="flex items-start justify-between w-full">
+            <span class="flex-1">
+              <span class="flex items-center gap-2">
                 <span 
                   v-if="!notification.isRead"
                   class="w-2 h-2 bg-red-500 rounded-full flex-shrink-0"
                 ></span>
-                <h4 class="font-semibold text-sm" style="color: #111827;">{{ notification.title }}</h4>
-              </div>
-              <p class="text-xs mt-1" style="color: #6b7280;">{{ notification.time }}</p>
-            </div>
-          </div>
-        </div>
+                <span class="font-semibold text-sm" style="color: var(--theme-text);">{{ notification.title }}</span>
+              </span>
+              <span class="block text-xs mt-1" style="color: var(--theme-text-secondary);">{{ notification.time }}</span>
+            </span>
+          </span>
+        </button>
       </div>
     </div>
   </div>
 
-  <div v-if="showModal" class="fixed inset-0 z-50 flex items-center justify-center p-4">
+  <div
+    v-if="showModal"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="notification-modal-title"
+    @keydown.esc.prevent="closeModal"
+    class="fixed inset-0 z-50 flex items-center justify-center p-4"
+  >
     <div class="absolute inset-0 bg-black/50" @click="closeModal"></div>
-    <div class="relative bg-white rounded-lg shadow-xl w-full max-w-lg sm:max-w-2xl max-h-[85vh] overflow-y-auto">
-      <div class="sticky top-0 flex items-center justify-between p-4 sm:p-6 border-b bg-white">
-        <h3 class="font-bold text-lg sm:text-xl" style="color: #111827;">{{ selectedNotification?.title }}</h3>
-        <button @click="closeModal" class="p-2 rounded-full transition-colors" :class="currentTheme === 'dark' ? 'hover:bg-gray-700' : 'hover:bg-gray-100'">
-          <X class="w-5 h-5" style="color: #374151;" />
+    <div class="relative rounded-lg shadow-xl w-full max-w-lg sm:max-w-2xl max-h-[85vh] overflow-y-auto" style="background-color: var(--theme-surface);">
+      <div class="sticky top-0 flex items-center justify-between p-4 sm:p-6 border-b" style="background-color: var(--theme-surface);">
+        <h3 id="notification-modal-title" class="font-bold text-lg sm:text-xl" style="color: var(--theme-text);">{{ selectedNotification?.title }}</h3>
+        <button
+          type="button"
+          @click="closeModal"
+          aria-label="关闭"
+          class="p-2 rounded-full transition-colors"
+          :class="currentTheme === 'dark' ? 'hover:bg-gray-700' : 'hover:bg-gray-100'"
+        >
+          <X class="w-5 h-5" style="color: var(--theme-text-secondary);" />
         </button>
       </div>
       <div class="p-4 sm:p-6">
-        <p class="text-sm sm:text-base leading-relaxed" style="color: #374151;">{{ selectedNotification?.content }}</p>
-        <p class="text-xs sm:text-sm mt-6" style="color: #9ca3af;">{{ selectedNotification?.time }}</p>
+        <p class="text-sm sm:text-base leading-relaxed" style="color: var(--theme-text-secondary);">{{ selectedNotification?.content }}</p>
+        <p class="text-xs sm:text-sm mt-6" style="color: var(--theme-text-secondary);">{{ selectedNotification?.time }}</p>
       </div>
     </div>
   </div>

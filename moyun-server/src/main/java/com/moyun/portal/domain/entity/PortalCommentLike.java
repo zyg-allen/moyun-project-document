@@ -1,9 +1,10 @@
 package com.moyun.portal.domain.entity;
 
-import jakarta.validation.constraints.NotNull;
+import java.io.Serial;
 import java.time.LocalDateTime;
 
 import com.baomidou.mybatisplus.annotation.IdType;
+import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
 import com.fasterxml.jackson.annotation.JsonFormat;
@@ -11,42 +12,41 @@ import lombok.Data;
 
 import com.moyun.core.base.BaseEntity;
 
+/**
+ * 文章评论点赞记录
+ *
+ * @author moyun
+ */
 @Data
 @TableName("portal_comment_like")
-public class PortalCommentLike extends BaseEntity
-{
+public class PortalCommentLike extends BaseEntity {
+    @Serial
     private static final long serialVersionUID = 1L;
 
+    /** 主键 */
     @TableId(type = IdType.AUTO)
     private Long id;
 
-    @NotNull(message = "用户ID不能为空")
-    private Long userId;
-
-    @NotNull(message = "评论ID不能为空")
+    /** 评论ID */
     private Long commentId;
 
+    /** 用户ID */
+    private Long userId;
+
+    /** 点赞时间 */
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime createTime;
 
-    public PortalCommentLike()
-    {
-    }
+    // === BaseEntity 中不需要持久化的字段 ===
+    @TableField(exist = false)
+    private String createBy;
 
-    public PortalCommentLike(Long id)
-    {
-        this.id = id;
-    }
+    @TableField(exist = false)
+    private String updateBy;
 
-    @Override
-    public LocalDateTime getCreateTime()
-    {
-        return createTime;
-    }
+    @TableField(exist = false)
+    private LocalDateTime updateTime;
 
-    @Override
-    public void setCreateTime(LocalDateTime createTime)
-    {
-        this.createTime = createTime;
-    }
+    @TableField(exist = false)
+    private String remark;
 }

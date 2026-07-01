@@ -22,6 +22,9 @@ const NotFoundPage = () => import('@/pages/NotFoundPage.vue');
 const ReadingPage = () => import('@/pages/ReadingPage.vue');
 const BookDetailPage = () => import('@/pages/reading/BookDetailPage.vue');
 const BookListDetailPage = () => import('@/pages/reading/BookListDetailPage.vue');
+const ChapterReaderPage = () => import('@/pages/reading/ChapterReaderPage.vue');
+const MyBookshelfPage = () => import('@/pages/reading/MyBookshelfPage.vue');
+const DiscoverPage = () => import('@/pages/reading/DiscoverPage.vue');
 const InterviewPage = () => import('@/pages/InterviewPage.vue');
 const QuestionDetailPage = () => import('@/pages/interview/QuestionDetailPage.vue');
 const ExperienceDetailPage = () => import('@/pages/interview/ExperienceDetailPage.vue');
@@ -52,10 +55,28 @@ const routes = [
         meta: { title: '书籍详情', isPublic: true }
     },
     {
+        path: '/reading/book/:bookId/chapter/:chapterId',
+        name: 'chapter-reader',
+        component: ChapterReaderPage,
+        meta: { title: '章节阅读', isPublic: true }
+    },
+    {
         path: '/reading/book-list/:id',
         name: 'book-list-detail',
         component: BookListDetailPage,
         meta: { title: '书单详情', isPublic: true }
+    },
+    {
+        path: '/reading/bookshelf',
+        name: 'my-bookshelf',
+        component: MyBookshelfPage,
+        meta: { requiresAuth: true, title: '我的书架', robots: 'noindex,nofollow' }
+    },
+    {
+        path: '/reading/discover',
+        name: 'reading-discover',
+        component: DiscoverPage,
+        meta: { title: '发现好书', isPublic: true }
     },
     {
         path: '/interview',

@@ -41,6 +41,20 @@
           <el-option label="否" :value="false" />
         </el-select>
       </el-form-item>
+      <el-form-item label="类型" prop="type">
+        <el-select v-model="queryParams.type" placeholder="书籍类型" clearable style="width: 140px">
+          <el-option label="出版书籍" value="published" />
+          <el-option label="网络小说" value="novel" />
+          <el-option label="长文文章" value="longform" />
+        </el-select>
+      </el-form-item>
+      <el-form-item label="连载状态" prop="serialStatus">
+        <el-select v-model="queryParams.serialStatus" placeholder="连载状态" clearable style="width: 120px">
+          <el-option label="连载中" value="ongoing" />
+          <el-option label="已完结" value="completed" />
+          <el-option label="暂停" value="hiatus" />
+        </el-select>
+      </el-form-item>
       <el-form-item>
         <el-button type="primary" icon="Search" @click="handleQuery">搜索</el-button>
         <el-button icon="Refresh" @click="resetQuery">重置</el-button>
@@ -99,6 +113,30 @@
         </template>
       </el-table-column>
       <el-table-column label="分类" align="center" prop="categoryId" width="80" />
+      <el-table-column label="类型" align="center" prop="type" width="100">
+        <template #default="scope">
+          <el-tag :type="getBookTypeTagType(scope.row.type)" size="small">
+            {{ getBookTypeText(scope.row.type) }}
+          </el-tag>
+        </template>
+      </el-table-column>
+      <el-table-column label="连载状态" align="center" prop="serialStatus" width="100">
+        <template #default="scope">
+          <el-tag :type="getSerialStatusTagType(scope.row.serialStatus)" size="small">
+            {{ getSerialStatusText(scope.row.serialStatus) }}
+          </el-tag>
+        </template>
+      </el-table-column>
+      <el-table-column label="章节数" align="center" prop="chapterCount" width="80">
+        <template #default="scope">
+          <span>{{ scope.row.chapterCount != null ? scope.row.chapterCount : '-' }}</span>
+        </template>
+      </el-table-column>
+      <el-table-column label="总字数" align="center" prop="wordCount" width="90">
+        <template #default="scope">
+          <span>{{ scope.row.wordCount != null ? scope.row.wordCount : '-' }}</span>
+        </template>
+      </el-table-column>
       <el-table-column label="标签" align="center" prop="tags" width="150" :show-overflow-tooltip="true" />
       <el-table-column label="评分" align="center" prop="rating" width="90">
         <template #default="scope">
@@ -138,7 +176,7 @@
           <span>{{ parseTime(scope.row.createTime) }}</span>
         </template>
       </el-table-column>
-      <el-table-column label="操作" align="center" class-name="small-padding fixed-width" width="180">
+      <el-table-column label="操作" align="center" class-name="small-padding fixed-width" width="240">
         <template #default="scope">
           <el-button
             link
@@ -147,6 +185,13 @@
             @click="handleUpdate(scope.row)"
             v-hasPermi="['portal:book:edit']"
           >修改</el-button>
+          <el-button
+            link
+            type="success"
+            icon="Reading"
+            @click="handleManageChapters(scope.row)"
+            v-hasPermi="['portal:bookChapter:list']"
+          >章节</el-button>
           <el-button
             link
             type="primary"
@@ -290,6 +335,36 @@
         </el-row>
         <el-row :gutter="20">
           <el-col :span="12">
+            <el-form-item label="书籍类型" prop="type">
+              <el-select v-model="form.type" placeholder="请选择书籍类型" style="width: 100%">
+                <el-option label="出版书籍" value="published" />
+                <el-option label="网络小说" value="novel" />
+                <el-option label="长文文章" value="longform" />
+              </el-select>
+              <div style="font-size:12px;color:#909399;line-height:1.4">
+                出版书籍：传统书；网络小说：含章节连载；长文文章：单篇长文（兼容面试空间）
+              </div>
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="连载状态" prop="serialStatus">
+              <el-radio-group v-model="form.serialStatus">
+                <el-radio label="ongoing">连载中</el-radio>
+                <el-radio label="completed">已完结</el-radio>
+                <el-radio label="hiatus">暂停</el-radio>
+              </el-radio-group>
+            </el-form-item>
+          </el-col>
+        </el-row>
+        <el-row :gutter="20">
+          <el-col :span="12">
+            <el-form-item label="是否完结" prop="isFinished">
+              <el-switch v-model="form.isFinished" />
+            </el-form-item>
+          </el-col>
+        </el-row>
+        <el-row :gutter="20">
+          <el-col :span="12">
             <el-form-item label="是否精选" prop="isFeatured">
               <el-switch v-model="form.isFeatured" />
             </el-form-item>
@@ -319,8 +394,11 @@
 </template>
 
 <script setup name="Book">
-import { ref, reactive, toRefs, getCurrentInstance, onMounted } from "vue";
+import { ref, reactive, getCurrentInstance, onMounted } from "vue";
+import { useRouter } from "vue-router";
 import { listBook, addBook, updateBook, delBook, delBookBatch, getBook } from "@/api/portal/book";
+
+const router = useRouter();
 
 const { proxy } = getCurrentInstance();
 
@@ -332,7 +410,9 @@ const queryParams = reactive({
   author: null,
   categoryId: null,
   status: null,
-  isFeatured: null
+  isFeatured: null,
+  type: null,
+  serialStatus: null
 });
 
 // 表格相关
@@ -369,7 +449,10 @@ const form = ref({
   status: "active",
   isFeatured: false,
   isRecommended: false,
-  authorBio: null
+  authorBio: null,
+  type: "published",
+  serialStatus: "completed",
+  isFinished: false
 });
 
 // 校验规则
@@ -385,6 +468,10 @@ const columns = [
   { key: 2, label: "作者", visible: true, prop: "author" },
   { key: 3, label: "封面", visible: true, prop: "cover" },
   { key: 4, label: "分类", visible: true, prop: "categoryId" },
+  { key: 41, label: "类型", visible: true, prop: "type" },
+  { key: 42, label: "连载状态", visible: true, prop: "serialStatus" },
+  { key: 43, label: "章节数", visible: true, prop: "chapterCount" },
+  { key: 44, label: "总字数", visible: true, prop: "wordCount" },
   { key: 5, label: "标签", visible: true, prop: "tags" },
   { key: 6, label: "评分", visible: true, prop: "rating" },
   { key: 7, label: "阅读数", visible: true, prop: "readingCount" },
@@ -439,7 +526,10 @@ function resetForm() {
     status: "active",
     isFeatured: false,
     isRecommended: false,
-    authorBio: null
+    authorBio: null,
+    type: "published",
+    serialStatus: "completed",
+    isFinished: false
   };
   if (bookRef.value) bookRef.value.resetFields();
 }
@@ -452,6 +542,8 @@ function resetQuery() {
   queryParams.categoryId = null;
   queryParams.status = null;
   queryParams.isFeatured = null;
+  queryParams.type = null;
+  queryParams.serialStatus = null;
   handleQuery();
 }
 
@@ -529,6 +621,11 @@ function handleDelete(row) {
   }).catch(() => {});
 }
 
+// 跳转到章节管理（v1.0 新增）
+function handleManageChapters(row) {
+  router.push(`/portal/bookChapter/${row.id}`);
+}
+
 // 访问级别显示映射
 function getAccessLevelType(level) {
   if (level === "free") return "success";
@@ -542,6 +639,34 @@ function getAccessLevelText(level) {
   if (level === "vip") return "VIP";
   if (level === "preview") return "试读";
   return level || "-";
+}
+
+// 书籍类型显示映射（v1.0 新增）
+function getBookTypeText(type) {
+  if (type === "novel") return "网络小说";
+  if (type === "published") return "出版书籍";
+  if (type === "longform") return "长文文章";
+  return type || "未分类";
+}
+function getBookTypeTagType(type) {
+  if (type === "novel") return "warning";
+  if (type === "published") return "success";
+  if (type === "longform") return "info";
+  return "";
+}
+
+// 连载状态显示映射（v1.0 新增）
+function getSerialStatusText(status) {
+  if (status === "ongoing") return "连载中";
+  if (status === "completed") return "已完结";
+  if (status === "hiatus") return "暂停";
+  return status || "-";
+}
+function getSerialStatusTagType(status) {
+  if (status === "ongoing") return "success";
+  if (status === "completed") return "info";
+  if (status === "hiatus") return "warning";
+  return "";
 }
 
 onMounted(() => {

@@ -4,6 +4,7 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.Date;
 
 import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableId;
@@ -99,6 +100,34 @@ public class PortalBook extends BaseEntity {
     /** 状态:active,inactive */
     @Size(min = 0, max = 20, message = "状态长度不能超过20个字符")
     private String status;
+
+    /** 书籍类型：published=出版物，novel=网络小说，longform=长文 */
+    @Size(min = 0, max = 20, message = "书籍类型长度不能超过20个字符")
+    private String type;
+
+    /** 连载状态：ongoing=连载中，completed=已完结，hiatus=暂停更新 */
+    @Size(min = 0, max = 20, message = "连载状态长度不能超过20个字符")
+    private String serialStatus;
+
+    /** 总字数（章节字数之和） */
+    private Long wordCount;
+
+    /** 总章节数 */
+    private Integer chapterCount;
+
+    /** 最新章节ID（用于追更展示） */
+    private Long latestChapterId;
+
+    /** 最新章节标题 */
+    @Size(min = 0, max = 500, message = "最新章节标题长度不能超过500个字符")
+    private String latestChapterTitle;
+
+    /** 最后更新时间（章节发布时同步） */
+    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
+    private Date lastUpdateTime;
+
+    /** 是否完结：1=完结，0=连载中（冗余字段，便于查询） */
+    private Boolean isFinished;
 
     /** 访问级别: free=免费公开, vip=会员专享, preview=试读（前30%免费） */
     @Size(min = 0, max = 20, message = "访问级别长度不能超过20个字符")

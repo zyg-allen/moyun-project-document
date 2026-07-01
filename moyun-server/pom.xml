@@ -155,6 +155,13 @@
             <version>${poi.version}</version>
         </dependency>
 
+        <!-- Apache PDFBox PDF 文档解析（读书模块文档导入） -->
+        <dependency>
+            <groupId>org.apache.pdfbox</groupId>
+            <artifactId>pdfbox</artifactId>
+            <version>3.0.3</version>
+        </dependency>
+
         <!-- commons-io 文件操作 -->
         <dependency>
             <groupId>commons-io</groupId>

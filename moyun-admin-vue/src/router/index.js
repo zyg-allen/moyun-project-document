@@ -275,6 +275,57 @@ export const dynamicRoutes = [
         meta: { title: '文章审核', activeMenu: '/cms/article' }
       }
     ]
+  },
+  // 读书空间-章节管理（动态路由，权限由后台菜单控制；此处仅作为常驻页面入口备份）
+  {
+    path: '/portal',
+    component: Layout,
+    hidden: true,
+    permissions: ['portal:bookChapter:list'],
+    children: [
+      {
+        path: 'bookChapter',
+        component: () => import('@/views/portal/bookChapter/index'),
+        name: 'BookChapter',
+        meta: { title: '章节管理', activeMenu: '/portal/book' }
+      },
+      {
+        path: 'bookChapter/:bookId(\\d+)',
+        component: () => import('@/views/portal/bookChapter/index'),
+        name: 'BookChapterWithBook',
+        meta: { title: '章节管理', activeMenu: '/portal/book' }
+      }
+    ]
+  },
+  // 读书空间-书架管理（动态路由，权限由后台菜单控制）
+  {
+    path: '/portal',
+    component: Layout,
+    hidden: true,
+    permissions: ['portal:bookshelf:list'],
+    children: [
+      {
+        path: 'bookshelf',
+        component: () => import('@/views/portal/bookshelf/index'),
+        name: 'Bookshelf',
+        meta: { title: '书架管理', activeMenu: '/portal/book' }
+      }
+    ]
+  },
+  // 读书空间-推荐位管理（动态路由，权限由后台菜单控制）
+  {
+    path: '/portal',
+    component: Layout,
+    hidden: true,
+    permissions: ['portal:bookRecommend:list'],
+    children: [
+      {
+        path: 'bookRecommend',
+        component: () => import('@/views/portal/bookRecommend/index'),
+        name: 'BookRecommend',
+        meta: { title: '推荐位管理', activeMenu: '/portal/book' }
+      }
+    ]
   }
 ]
 

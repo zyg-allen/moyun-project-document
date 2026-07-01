@@ -14,13 +14,19 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         <result property="startDate"     column="start_date"    />
         <result property="finishDate"    column="finish_date"   />
         <result property="note"          column="note"          />
+        <result property="currentChapterId"   column="current_chapter_id"   />
+        <result property="currentChapterNo"   column="current_chapter_no"   />
+        <result property="chapterOffset"      column="chapter_offset"       />
+        <result property="lastReadTime"       column="last_read_time"       />
+        <result property="readingDurationMs"  column="reading_duration_ms"  />
         <result property="createTime"    column="create_time"   />
         <result property="updateTime"    column="update_time"   />
     </resultMap>
 
     <sql id="selectPortalReadingProgressVo">
         select id, user_id, book_id, status, progress, pages_read, start_date,
-               finish_date, note, create_time, update_time
+               finish_date, note, current_chapter_id, current_chapter_no, chapter_offset,
+               last_read_time, reading_duration_ms, create_time, update_time
         from portal_reading_progress
     </sql>
 
@@ -117,5 +123,47 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             #{id}
         </foreach>
     </delete>
+
+    <!-- v1.0 第二阶段：章节级进度 upsert
+         设计要点：
+           1. reading_duration_ms 采用累加语义：前端每次上报"自上次上报以来的增量"，后端累加得到整书累计时长
+           2. status 不覆写已读完状态：已 finished 的书不被心跳打回 reading（避免统计污染）
+           3. start_date 仅 INSERT 时设置，UPDATE 不动（保留首次阅读日期） -->
+    <insert id="upsertChapterProgress" parameterType="com.moyun.portal.domain.entity.PortalReadingProgress">
+        insert into portal_reading_progress
+            (user_id, book_id, status, progress, current_chapter_id, current_chapter_no,
+             chapter_offset, last_read_time, reading_duration_ms, start_date, create_time, update_time)
+        values
+            (#{userId}, #{bookId},
+             coalesce(#{status}, 'reading'),
+             coalesce(#{progress}, 0),
+             #{currentChapterId}, #{currentChapterNo},
+             coalesce(#{chapterOffset}, 0),
+             coalesce(#{lastReadTime}, NOW()),
+             coalesce(#{readingDurationMs}, 0),
+             coalesce(#{startDate}, CURDATE()),
+             NOW(), NOW())
+        on duplicate key update
+            status = CASE WHEN status = 'finished' THEN status ELSE coalesce(values(status), status) END,
+            progress = coalesce(values(progress), progress),
+            current_chapter_id = coalesce(values(current_chapter_id), current_chapter_id),
+            current_chapter_no = coalesce(values(current_chapter_no), current_chapter_no),
+            chapter_offset = coalesce(values(chapter_offset), chapter_offset),
+            last_read_time = coalesce(values(last_read_time), last_read_time),
+            reading_duration_ms = reading_duration_ms + coalesce(values(reading_duration_ms), 0),
+            update_time = NOW()
+    </insert>
+
+    <!-- v1.0 第二阶段：最近阅读记录（轻量列，排除 note 等大字段，仅取列表展示所需）
+         注意：UK 为 user_id + book_id，此处按 last_read_time 倒序取 limit -->
+    <select id="selectRecentReading" resultMap="PortalReadingProgressResult">
+        select id, user_id, book_id, status, progress, current_chapter_id, current_chapter_no,
+               chapter_offset, last_read_time, reading_duration_ms, create_time, update_time
+        from portal_reading_progress
+        where user_id = #{userId}
+          and last_read_time is not null
+        order by last_read_time desc
+        limit #{limit}
+    </select>
 
 </mapper>

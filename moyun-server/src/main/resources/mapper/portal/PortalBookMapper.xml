@@ -20,6 +20,14 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         <result property="rating"        column="rating"        />
         <result property="readingCount"  column="reading_count" />
         <result property="status"        column="status"        />
+        <result property="type"          column="type"          />
+        <result property="serialStatus"  column="serial_status" />
+        <result property="wordCount"     column="word_count"    />
+        <result property="chapterCount"  column="chapter_count" />
+        <result property="latestChapterId"    column="latest_chapter_id"    />
+        <result property="latestChapterTitle" column="latest_chapter_title" />
+        <result property="lastUpdateTime"     column="last_update_time"     />
+        <result property="isFinished"         column="is_finished"          />
         <result property="accessLevel"   column="access_level"  />
         <result property="previewRatio"  column="preview_ratio" />
         <result property="price"         column="price"         />
@@ -35,8 +43,10 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
 
     <sql id="selectPortalBookVo">
         select id, title, author, cover, description, summary, isbn, publisher, publish_date,
-               page_count, category_id, tags, rating, reading_count, status, access_level,
-               preview_ratio, price, is_featured, is_recommended, author_bio,
+               page_count, category_id, tags, rating, reading_count, status,
+               type, serial_status, word_count, chapter_count,
+               latest_chapter_id, latest_chapter_title, last_update_time, is_finished,
+               access_level, preview_ratio, price, is_featured, is_recommended, author_bio,
                create_by, create_time, update_by, update_time, remark
         from portal_book
     </sql>
@@ -68,8 +78,24 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             <if test="query.tag != null and query.tag != ''">
                 AND tags like concat('%', #{query.tag}, '%')
             </if>
+            <if test="query.isFinished != null">
+                AND is_finished = #{query.isFinished}
+            </if>
+            <if test="query.type != null and query.type != ''">
+                AND type = #{query.type}
+            </if>
         </where>
-        order by reading_count desc, id desc
+        <choose>
+            <when test="query.orderBy == 'new'">
+                order by create_time desc, id desc
+            </when>
+            <when test="query.orderBy == 'word_count'">
+                order by word_count desc, id desc
+            </when>
+            <otherwise>
+                order by reading_count desc, id desc
+            </otherwise>
+        </choose>
     </select>
 
     <select id="selectPortalBookList" parameterType="com.moyun.portal.domain.query.BookQuery" resultMap="PortalBookResult">
@@ -116,6 +142,14 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             <if test="rating != null">rating,</if>
             <if test="readingCount != null">reading_count,</if>
             <if test="status != null and status != ''">status,</if>
+            <if test="type != null and type != ''">type,</if>
+            <if test="serialStatus != null and serialStatus != ''">serial_status,</if>
+            <if test="wordCount != null">word_count,</if>
+            <if test="chapterCount != null">chapter_count,</if>
+            <if test="latestChapterId != null">latest_chapter_id,</if>
+            <if test="latestChapterTitle != null and latestChapterTitle != ''">latest_chapter_title,</if>
+            <if test="lastUpdateTime != null">last_update_time,</if>
+            <if test="isFinished != null">is_finished,</if>
             <if test="accessLevel != null and accessLevel != ''">access_level,</if>
             <if test="previewRatio != null">preview_ratio,</if>
             <if test="price != null">price,</if>
@@ -141,6 +175,14 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             <if test="rating != null">#{rating},</if>
             <if test="readingCount != null">#{readingCount},</if>
             <if test="status != null and status != ''">#{status},</if>
+            <if test="type != null and type != ''">#{type},</if>
+            <if test="serialStatus != null and serialStatus != ''">#{serialStatus},</if>
+            <if test="wordCount != null">#{wordCount},</if>
+            <if test="chapterCount != null">#{chapterCount},</if>
+            <if test="latestChapterId != null">#{latestChapterId},</if>
+            <if test="latestChapterTitle != null and latestChapterTitle != ''">#{latestChapterTitle},</if>
+            <if test="lastUpdateTime != null">#{lastUpdateTime},</if>
+            <if test="isFinished != null">#{isFinished},</if>
             <if test="accessLevel != null and accessLevel != ''">#{accessLevel},</if>
             <if test="previewRatio != null">#{previewRatio},</if>
             <if test="price != null">#{price},</if>
@@ -170,6 +212,14 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             <if test="rating != null">rating = #{rating},</if>
             <if test="readingCount != null">reading_count = #{readingCount},</if>
             <if test="status != null and status != ''">status = #{status},</if>
+            <if test="type != null and type != ''">type = #{type},</if>
+            <if test="serialStatus != null and serialStatus != ''">serial_status = #{serialStatus},</if>
+            <if test="wordCount != null">word_count = #{wordCount},</if>
+            <if test="chapterCount != null">chapter_count = #{chapterCount},</if>
+            <if test="latestChapterId != null">latest_chapter_id = #{latestChapterId},</if>
+            <if test="latestChapterTitle != null">latest_chapter_title = #{latestChapterTitle},</if>
+            <if test="lastUpdateTime != null">last_update_time = #{lastUpdateTime},</if>
+            <if test="isFinished != null">is_finished = #{isFinished},</if>
             <if test="accessLevel != null and accessLevel != ''">access_level = #{accessLevel},</if>
             <if test="previewRatio != null">preview_ratio = #{previewRatio},</if>
             <if test="price != null">price = #{price},</if>

@@ -564,6 +564,132 @@ export interface Book {
     authorBio?: string;
     createTime?: string;
     updateTime?: string;
+    /** 书籍类型：published 出版书籍 / novel 网络小说 / longform 长文文章（兼容面试空间） */
+    type?: 'published' | 'novel' | 'longform';
+    /** 连载状态：ongoing 连载中 / completed 已完结 / hiatus 暂停 */
+    serialStatus?: 'ongoing' | 'completed' | 'hiatus';
+    /** 总字数（已发布章节累计） */
+    wordCount?: number;
+    /** 已发布章节数 */
+    chapterCount?: number;
+    /** 最新章节 ID */
+    latestChapterId?: string;
+    /** 最新章节标题 */
+    latestChapterTitle?: string;
+    /** 最后更新时间（章节维度） */
+    lastUpdateTime?: string;
+    /** 是否完结 */
+    isFinished?: boolean;
+}
+/** 章节元信息（列表/目录用，不含正文） */
+export interface BookChapter {
+    id: string;
+    bookId: string;
+    title: string;
+    /** 正文 HTML（详情接口返回，列表接口不返回） */
+    content?: string;
+    /** 正文 Markdown（编辑器为 markdown 时返回） */
+    contentMarkdown?: string;
+    /** 编辑器模式：richtext 富文本 / markdown */
+    editorMode?: 'richtext' | 'markdown';
+    wordCount?: number;
+    /** 章节序号（排序用） */
+    chapterNo: number;
+    /** 分卷 ID（可选） */
+    volumeId?: string;
+    /** 是否免费：true 免费 / false VIP */
+    isFree?: boolean;
+    price?: number;
+    /** 是否已发布 */
+    isPublished?: boolean;
+    publishTime?: string;
+    viewCount?: number;
+    createTime?: string;
+    updateTime?: string;
+}
+/** 章节导航（上一章/下一章） */
+export interface BookChapterNav {
+    prev: {
+        id: string;
+        chapterNo: number;
+        title: string;
+    } | null;
+    next: {
+        id: string;
+        chapterNo: number;
+        title: string;
+    } | null;
+    current: {
+        id: string;
+        chapterNo: number;
+        title: string;
+        bookId: string;
+    };
+}
+/** 阅读进度（章节级） */
+export interface ReadingProgress {
+    id?: string;
+    userId?: string;
+    bookId: string | number;
+    /** 阅读状态: want_to_read, reading, finished */
+    status?: string;
+    /** 阅读进度百分比（0-100，整书维度，可空） */
+    progress?: number;
+    /** 已读页数（旧字段，保留） */
+    pagesRead?: number;
+    /** 当前阅读章节ID */
+    currentChapterId?: string | number | null;
+    /** 当前章节序号 */
+    currentChapterNo?: number;
+    /** 章节内滚动偏移（像素，用于续读恢复） */
+    chapterOffset?: number;
+    /** 最后阅读时间 */
+    lastReadTime?: string;
+    /** 累计阅读时长（毫秒） */
+    readingDurationMs?: number;
+    startTime?: string;
+    finishTime?: string;
+    createTime?: string;
+    updateTime?: string;
+}
+/** 书架项 */
+export interface BookshelfItem {
+    id: string;
+    userId: string;
+    bookId: string;
+    /** 最后阅读章节ID */
+    lastChapterId?: string | null;
+    /** 最后阅读章节序号 */
+    lastChapterNo?: number;
+    /** 排序值 */
+    sort?: number;
+    createTime?: string;
+    updateTime?: string;
+}
+/** 书架收藏检查结果 */
+export interface BookshelfCheckResult {
+    inBookshelf: boolean;
+    lastChapterId?: string | null;
+    lastChapterNo?: number;
+}
+/** 阅读偏好 */
+export interface ReadingPreference {
+    id?: string;
+    userId?: string;
+    /** 正文字号（px，12-32） */
+    fontSize: number;
+    /** 行距（倍，1.2-3.0） */
+    lineHeight: number;
+    /** 阅读主题：default / light / dark / sepia */
+    theme: 'default' | 'light' | 'dark' | 'sepia';
+    /** 字体：system / serif / song / hei */
+    fontFamily: 'system' | 'serif' | 'song' | 'hei';
+    /** 字间距（px） */
+    letterSpacing: number;
+    /** 段间距（em） */
+    paragraphSpacing: number;
+    createTime?: string;
+    updateTime?: string;
 }
 export interface BookList {
     id: string;

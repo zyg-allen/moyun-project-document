@@ -3,7 +3,7 @@ import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
 import { RouterLink as Link, useRouter, useRoute } from 'vue-router';
 import {
   Search, User, Plus, LogOut, Menu, X, Palette, Sun, Moon, Eye, Home,
-  ChevronDown, ChevronUp, Settings, UserCircle
+  ChevronDown, ChevronUp, Settings, UserCircle, BookMarked
 } from 'lucide-vue-next';
 import { getStoredTheme, setTheme, getCurrentTheme, type Theme, themes } from '@/utils/theme';
 import { useUserStore } from '@/stores/user';
@@ -18,7 +18,7 @@ import type { Category } from '@/types/api';
 const router = useRouter();
 const route = useRoute();
 const userStore = useUserStore();
-const { requireAuth, isAuthenticated } = useAuth();
+const { requireAuth } = useAuth();
 
 const isMenuOpen = ref(false);
 const searchQuery = ref('');
@@ -86,14 +86,17 @@ const navItems = computed<NavItem[]>(() => [
   {
     name: '读书空间',
     key: 'reading',
+    path: '/reading',
     children: [
-      { name: '书单推荐', path: '/reading' },
-      { name: '书籍详情', path: '/reading/books' },
+      { name: '读书首页', path: '/reading' },
+      { name: '发现好书', path: '/reading/discover' },
+      { name: '我的书架', path: '/reading/bookshelf' },
     ]
   },
   {
     name: '面试指南',
     key: 'interview',
+    path: '/interview',
     children: [
       { name: '面试题库', path: '/interview' },
       { name: '面试经验', path: '/interview/experiences' },
@@ -102,6 +105,7 @@ const navItems = computed<NavItem[]>(() => [
   {
     name: '帮助中心',
     key: 'help',
+    path: '/help',
     children: [
       { name: '常见问题', path: '/help' },
       { name: '关于我们', path: '/about' },
@@ -235,6 +239,14 @@ function handleGoToSettings() {
     return;
   }
   router.push('/user/settings');
+}
+
+function handleGoToBookshelf() {
+  isUserMenuOpen.value = false;
+  if (!requireAuth('/reading/bookshelf')) {
+    return;
+  }
+  router.push('/reading/bookshelf');
 }
 
 function handlePublish() {
@@ -394,6 +406,14 @@ onUnmounted(() => document.removeEventListener('click', handleDocumentClick));
                   >
                     <UserCircle class="w-4 h-4" style="color: var(--theme-text-secondary);" />
                     <span class="text-sm" style="color: var(--theme-text);">个人中心</span>
+                  </button>
+
+                  <button
+                      @click="handleGoToBookshelf"
+                      class="w-full flex items-center space-x-2 px-3 py-2 text-left transition-colors hover:opacity-80"
+                  >
+                    <BookMarked class="w-4 h-4" style="color: var(--theme-text-secondary);" />
+                    <span class="text-sm" style="color: var(--theme-text);">我的书架</span>
                   </button>
 
                   <button
@@ -585,10 +605,10 @@ onUnmounted(() => document.removeEventListener('click', handleDocumentClick));
           >
             <span class="font-semibold text-lg">{{ item.name }} ↗</span>
           </a>
-          <!-- 普通栏目项 -->
+          <!-- 普通栏目项：有 path 用 path（读书/面试/帮助），否则按分类跳转 -->
           <Link
               v-else
-              :to="`/category/${encodeURIComponent(item.name)}`"
+              :to="item.path || `/category/${encodeURIComponent(item.name)}`"
               @click="isMenuOpen = false"
               class="block border rounded-xl px-5 py-4"
               style="color: var(--theme-text); border-color: var(--theme-border);"

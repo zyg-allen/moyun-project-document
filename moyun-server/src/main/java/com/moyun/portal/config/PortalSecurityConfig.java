@@ -134,6 +134,14 @@ public class PortalSecurityConfig {
                         // 用户统计（/portal/user/{id}/stats 或 /portal/user/stats）公开
                         .requestMatchers(HttpMethod.GET, "/portal/user/{id}/stats").permitAll()
                         // 读书空间前台公开接口（书籍、书单、金句列表、详情、点赞）
+                        // 注意：阅读进度、书架、阅读偏好的写接口（POST/PUT/DELETE）需登录，
+                        // 只读 GET 接口对游客放行（控制器已做 null 兜底，未登录返回空/false，无数据泄露）
+                        .requestMatchers(HttpMethod.GET, "/portal/reading/progress/recent").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/portal/reading/progress/{bookId}").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/portal/reading/bookshelf/check/**").permitAll()
+                        .requestMatchers("/portal/reading/progress/**").authenticated()
+                        .requestMatchers("/portal/reading/bookshelf/**").authenticated()
+                        .requestMatchers("/portal/reading/preference/**").authenticated()
                         .requestMatchers("/portal/reading/**").permitAll()
                         .requestMatchers("/portal/book/**").permitAll()
                         .requestMatchers("/portal/bookList/**").permitAll()

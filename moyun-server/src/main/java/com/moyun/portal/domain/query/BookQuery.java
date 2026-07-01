@@ -48,6 +48,14 @@ public class BookQuery extends PageDomain
     @Schema(description = "标签", example = "编程")
     private String tag;
 
+    /** 是否完结：1=完结，0=连载中 */
+    @Schema(description = "是否完结", example = "true")
+    private Boolean isFinished;
+
+    /** 书籍类型：published/novel/longform */
+    @Schema(description = "书籍类型", example = "novel")
+    private String type;
+
     /** 开始时间 */
     @Schema(description = "开始时间", example = "2024-01-01")
     private String startTime;
@@ -55,4 +63,8 @@ public class BookQuery extends PageDomain
     /** 结束时间 */
     @Schema(description = "结束时间", example = "2024-12-31")
     private String endTime;
+
+    /** 排序方式：hot=按阅读数(默认)/new=按创建时间/word_count=按字数 */
+    @Schema(description = "排序方式", example = "new")
+    private String orderBy;
 }

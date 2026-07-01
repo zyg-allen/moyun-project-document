@@ -51,6 +51,26 @@ public class PortalReadingProgress extends BaseEntity
     /** 阅读笔记/读后感 */
     private String note;
 
+    // -------------------------------------------------------
+    // v1.0 第二阶段新增：章节级进度记忆（由 42 号 SQL 扩展）
+    // -------------------------------------------------------
+
+    /** 当前阅读章节ID */
+    private Long currentChapterId;
+
+    /** 当前章节序号 */
+    private Integer currentChapterNo;
+
+    /** 章节内滚动偏移（像素，用于续读恢复） */
+    private Integer chapterOffset;
+
+    /** 最后阅读时间 */
+    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
+    private LocalDateTime lastReadTime;
+
+    /** 累计阅读时长（毫秒） */
+    private Long readingDurationMs;
+
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime createTime;
 

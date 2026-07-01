@@ -118,4 +118,20 @@ public class PortalReadingProgressServiceImpl extends ServiceImpl<PortalReadingP
         }
         return portalReadingProgressMapper.selectPortalReadingProgressList(query);
     }
+
+    @Override
+    public int upsertChapterProgress(PortalReadingProgress progress) {
+        if (progress.getLastReadTime() == null) {
+            progress.setLastReadTime(LocalDateTime.now());
+        }
+        return portalReadingProgressMapper.upsertChapterProgress(progress);
+    }
+
+    @Override
+    public List<PortalReadingProgress> selectRecentReading(Long userId, int limit) {
+        if (limit <= 0 || limit > 50) {
+            limit = 10;
+        }
+        return portalReadingProgressMapper.selectRecentReading(userId, limit);
+    }
 }

@@ -1,0 +1,230 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.moyun.portal.mapper.PortalBookChapterMapper">
+
+    <resultMap type="com.moyun.portal.domain.entity.PortalBookChapter" id="PortalBookChapterResult">
+        <id     property="id"              column="id"               />
+        <result property="bookId"          column="book_id"          />
+        <result property="title"           column="title"            />
+        <result property="content"         column="content"          />
+        <result property="contentMarkdown" column="content_markdown" />
+        <result property="editorMode"      column="editor_mode"      />
+        <result property="wordCount"       column="word_count"       />
+        <result property="chapterNo"       column="chapter_no"       />
+        <result property="volumeId"        column="volume_id"        />
+        <result property="isFree"          column="is_free"          />
+        <result property="price"           column="price"            />
+        <result property="isPublished"     column="is_published"     />
+        <result property="publishTime"     column="publish_time"     />
+        <result property="viewCount"       column="view_count"       />
+        <result property="createBy"        column="create_by"        />
+        <result property="createTime"      column="create_time"      />
+        <result property="updateBy"        column="update_by"        />
+        <result property="updateTime"      column="update_time"      />
+        <result property="remark"          column="remark"           />
+    </resultMap>
+
+    <!-- 列表查询列（不含正文 content，避免列表查询加载大字段） -->
+    <sql id="selectChapterColumns">
+        select id, book_id, title, content_markdown, editor_mode, word_count, chapter_no,
+               volume_id, is_free, price, is_published, publish_time, view_count,
+               create_by, create_time, update_by, update_time, remark
+        from portal_book_chapter
+    </sql>
+
+    <!-- 详情查询列（含正文 content） -->
+    <sql id="selectChapterDetailColumns">
+        select id, book_id, title, content, content_markdown, editor_mode, word_count, chapter_no,
+               volume_id, is_free, price, is_published, publish_time, view_count,
+               create_by, create_time, update_by, update_time, remark
+        from portal_book_chapter
+    </sql>
+
+    <!-- 分页查询 -->
+    <select id="selectChapterPage" parameterType="com.moyun.portal.domain.query.BookChapterQuery" resultMap="PortalBookChapterResult">
+        <include refid="selectChapterColumns"/>
+        <where>
+            <if test="query.bookId != null">
+                AND book_id = #{query.bookId}
+            </if>
+            <if test="query.title != null and query.title != ''">
+                AND title like concat('%', #{query.title}, '%')
+            </if>
+            <if test="query.isPublished != null">
+                AND is_published = #{query.isPublished}
+            </if>
+            <if test="query.isFree != null">
+                AND is_free = #{query.isFree}
+            </if>
+        </where>
+        order by chapter_no asc
+    </select>
+
+    <!-- 列表查询 -->
+    <select id="selectChapterList" parameterType="com.moyun.portal.domain.query.BookChapterQuery" resultMap="PortalBookChapterResult">
+        <include refid="selectChapterColumns"/>
+        <where>
+            <if test="query.bookId != null">
+                AND book_id = #{query.bookId}
+            </if>
+            <if test="query.title != null and query.title != ''">
+                AND title like concat('%', #{query.title}, '%')
+            </if>
+            <if test="query.isPublished != null">
+                AND is_published = #{query.isPublished}
+            </if>
+            <if test="query.isFree != null">
+                AND is_free = #{query.isFree}
+            </if>
+        </where>
+        order by chapter_no asc
+    </select>
+
+    <!-- 详情查询 -->
+    <select id="selectChapterById" parameterType="Long" resultMap="PortalBookChapterResult">
+        <include refid="selectChapterDetailColumns"/>
+        where id = #{id}
+    </select>
+
+    <!-- 新增章节 -->
+    <insert id="insertChapter" parameterType="com.moyun.portal.domain.entity.PortalBookChapter" useGeneratedKeys="true" keyProperty="id">
+        insert into portal_book_chapter
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="bookId != null">book_id,</if>
+            <if test="title != null and title != ''">title,</if>
+            <if test="content != null and content != ''">content,</if>
+            <if test="contentMarkdown != null and contentMarkdown != ''">content_markdown,</if>
+            <if test="editorMode != null and editorMode != ''">editor_mode,</if>
+            <if test="wordCount != null">word_count,</if>
+            <if test="chapterNo != null">chapter_no,</if>
+            <if test="volumeId != null">volume_id,</if>
+            <if test="isFree != null">is_free,</if>
+            <if test="price != null">price,</if>
+            <if test="isPublished != null">is_published,</if>
+            <if test="publishTime != null">publish_time,</if>
+            <if test="viewCount != null">view_count,</if>
+            <if test="createBy != null and createBy != ''">create_by,</if>
+            <if test="createTime != null">create_time,</if>
+            <if test="remark != null and remark != ''">remark,</if>
+        </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="bookId != null">#{bookId},</if>
+            <if test="title != null and title != ''">#{title},</if>
+            <if test="content != null and content != ''">#{content},</if>
+            <if test="contentMarkdown != null and contentMarkdown != ''">#{contentMarkdown},</if>
+            <if test="editorMode != null and editorMode != ''">#{editorMode},</if>
+            <if test="wordCount != null">#{wordCount},</if>
+            <if test="chapterNo != null">#{chapterNo},</if>
+            <if test="volumeId != null">#{volumeId},</if>
+            <if test="isFree != null">#{isFree},</if>
+            <if test="price != null">#{price},</if>
+            <if test="isPublished != null">#{isPublished},</if>
+            <if test="publishTime != null">#{publishTime},</if>
+            <if test="viewCount != null">#{viewCount},</if>
+            <if test="createBy != null and createBy != ''">#{createBy},</if>
+            <if test="createTime != null">#{createTime},</if>
+            <if test="remark != null and remark != ''">#{remark},</if>
+        </trim>
+    </insert>
+
+    <!-- 批量新增章节 -->
+    <insert id="batchInsertChapter" parameterType="java.util.List">
+        insert into portal_book_chapter
+        (book_id, title, content, content_markdown, editor_mode, word_count, chapter_no,
+         is_free, is_published, publish_time, view_count, create_by, create_time)
+        values
+        <foreach collection="list" item="item" separator=",">
+            (#{item.bookId}, #{item.title}, #{item.content}, #{item.contentMarkdown},
+             #{item.editorMode}, #{item.wordCount}, #{item.chapterNo},
+             #{item.isFree}, #{item.isPublished}, #{item.publishTime}, 0,
+             #{item.createBy}, #{item.createTime})
+        </foreach>
+    </insert>
+
+    <!-- 修改章节 -->
+    <update id="updateChapter" parameterType="com.moyun.portal.domain.entity.PortalBookChapter">
+        update portal_book_chapter
+        <trim prefix="SET" suffixOverrides=",">
+            <if test="bookId != null">book_id = #{bookId},</if>
+            <if test="title != null and title != ''">title = #{title},</if>
+            <if test="content != null">content = #{content},</if>
+            <if test="contentMarkdown != null">content_markdown = #{contentMarkdown},</if>
+            <if test="editorMode != null and editorMode != ''">editor_mode = #{editorMode},</if>
+            <if test="wordCount != null">word_count = #{wordCount},</if>
+            <if test="chapterNo != null">chapter_no = #{chapterNo},</if>
+            <if test="volumeId != null">volume_id = #{volumeId},</if>
+            <if test="isFree != null">is_free = #{isFree},</if>
+            <if test="price != null">price = #{price},</if>
+            <if test="isPublished != null">is_published = #{isPublished},</if>
+            <if test="publishTime != null">publish_time = #{publishTime},</if>
+            <if test="viewCount != null">view_count = #{viewCount},</if>
+            <if test="updateBy != null and updateBy != ''">update_by = #{updateBy},</if>
+            <if test="updateTime != null">update_time = #{updateTime},</if>
+            <if test="remark != null">remark = #{remark},</if>
+        </trim>
+        where id = #{id}
+    </update>
+
+    <!-- 删除章节 -->
+    <delete id="deleteChapterById" parameterType="Long">
+        delete from portal_book_chapter where id = #{id}
+    </delete>
+
+    <delete id="deleteChapterByIds" parameterType="Long">
+        delete from portal_book_chapter where id in
+        <foreach collection="ids" item="id" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </delete>
+
+    <!-- 查询书籍的最大章节序号 -->
+    <select id="selectMaxChapterNo" parameterType="Long" resultType="Integer">
+        select coalesce(max(chapter_no), 0) from portal_book_chapter where book_id = #{bookId}
+    </select>
+
+    <!-- 查询上一章（已发布，chapter_no 小于当前的最大一章） -->
+    <select id="selectPrevChapter" resultMap="PortalBookChapterResult">
+        <include refid="selectChapterColumns"/>
+        where book_id = #{bookId}
+          and chapter_no &lt; #{chapterNo}
+          and is_published = 1
+        order by chapter_no desc
+        limit 1
+    </select>
+
+    <!-- 查询下一章（已发布，chapter_no 大于当前的最小一章） -->
+    <select id="selectNextChapter" resultMap="PortalBookChapterResult">
+        <include refid="selectChapterColumns"/>
+        where book_id = #{bookId}
+          and chapter_no &gt; #{chapterNo}
+          and is_published = 1
+        order by chapter_no asc
+        limit 1
+    </select>
+
+    <!-- 查询已发布章节数 -->
+    <select id="selectPublishedChapterCount" parameterType="Long" resultType="Integer">
+        select count(*) from portal_book_chapter where book_id = #{bookId} and is_published = 1
+    </select>
+
+    <!-- 查询已发布章节总字数 -->
+    <select id="selectPublishedWordCount" parameterType="Long" resultType="Long">
+        select coalesce(sum(word_count), 0) from portal_book_chapter where book_id = #{bookId} and is_published = 1
+    </select>
+
+    <!-- 查询最新已发布章节 -->
+    <select id="selectLatestPublishedChapter" parameterType="Long" resultMap="PortalBookChapterResult">
+        <include refid="selectChapterColumns"/>
+        where book_id = #{bookId} and is_published = 1
+        order by chapter_no desc
+        limit 1
+    </select>
+
+    <!-- 浏览量 +1 -->
+    <update id="incrementViewCount" parameterType="Long">
+        update portal_book_chapter set view_count = view_count + 1 where id = #{id}
+    </update>
+
+</mapper>

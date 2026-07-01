@@ -1,0 +1,156 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.moyun.portal.mapper.PortalBookshelfMapper">
+
+    <resultMap type="com.moyun.portal.domain.entity.PortalBookshelf" id="PortalBookshelfResult">
+        <id     property="id"              column="id"              />
+        <result property="userId"          column="user_id"         />
+        <result property="bookId"          column="book_id"         />
+        <result property="lastChapterId"   column="last_chapter_id" />
+        <result property="lastChapterNo"   column="last_chapter_no" />
+        <result property="sort"            column="sort"            />
+        <result property="createBy"        column="create_by"       />
+        <result property="createTime"      column="create_time"     />
+        <result property="updateBy"        column="update_by"       />
+        <result property="updateTime"      column="update_time"     />
+        <result property="remark"          column="remark"          />
+    </resultMap>
+
+    <sql id="selectBookshelfVo">
+        select id, user_id, book_id, last_chapter_id, last_chapter_no, sort,
+               create_by, create_time, update_by, update_time, remark
+        from portal_bookshelf
+    </sql>
+
+    <select id="selectBookshelfPage" parameterType="com.moyun.portal.domain.query.BookshelfQuery" resultMap="PortalBookshelfResult">
+        <include refid="selectBookshelfVo"/>
+        <where>
+            <if test="query.userId != null">
+                AND user_id = #{query.userId}
+            </if>
+            <if test="query.bookId != null">
+                AND book_id = #{query.bookId}
+            </if>
+            <if test="query.bookTitle != null and query.bookTitle != ''">
+                AND book_id IN (SELECT id FROM portal_book WHERE title LIKE CONCAT('%', #{query.bookTitle}, '%'))
+            </if>
+        </where>
+        <choose>
+            <when test="query.orderBy == 'recent'">
+                order by update_time desc, id desc
+            </when>
+            <when test="query.orderBy == 'sort'">
+                order by sort desc, create_time desc, id desc
+            </when>
+            <otherwise>
+                order by create_time desc, id desc
+            </otherwise>
+        </choose>
+    </select>
+
+    <select id="selectBookshelfList" parameterType="com.moyun.portal.domain.query.BookshelfQuery" resultMap="PortalBookshelfResult">
+        <include refid="selectBookshelfVo"/>
+        <where>
+            <if test="query.userId != null">
+                AND user_id = #{query.userId}
+            </if>
+            <if test="query.bookId != null">
+                AND book_id = #{query.bookId}
+            </if>
+            <if test="query.bookTitle != null and query.bookTitle != ''">
+                AND book_id IN (SELECT id FROM portal_book WHERE title LIKE CONCAT('%', #{query.bookTitle}, '%'))
+            </if>
+        </where>
+        <choose>
+            <when test="query.orderBy == 'recent'">
+                order by update_time desc, id desc
+            </when>
+            <when test="query.orderBy == 'sort'">
+                order by sort desc, create_time desc, id desc
+            </when>
+            <otherwise>
+                order by create_time desc, id desc
+            </otherwise>
+        </choose>
+    </select>
+
+    <select id="selectBookshelfById" parameterType="Long" resultMap="PortalBookshelfResult">
+        <include refid="selectBookshelfVo"/>
+        where id = #{id}
+    </select>
+
+    <select id="selectByUserAndBook" resultMap="PortalBookshelfResult">
+        <include refid="selectBookshelfVo"/>
+        where user_id = #{userId} and book_id = #{bookId}
+        limit 1
+    </select>
+
+    <insert id="insertBookshelf" parameterType="com.moyun.portal.domain.entity.PortalBookshelf" useGeneratedKeys="true" keyProperty="id">
+        insert into portal_bookshelf
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="userId != null">user_id,</if>
+            <if test="bookId != null">book_id,</if>
+            <if test="lastChapterId != null">last_chapter_id,</if>
+            <if test="lastChapterNo != null">last_chapter_no,</if>
+            <if test="sort != null">sort,</if>
+            <if test="createBy != null and createBy != ''">create_by,</if>
+            <if test="createTime != null">create_time,</if>
+            <if test="updateBy != null and updateBy != ''">update_by,</if>
+            <if test="updateTime != null">update_time,</if>
+            <if test="remark != null and remark != ''">remark,</if>
+        </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="userId != null">#{userId},</if>
+            <if test="bookId != null">#{bookId},</if>
+            <if test="lastChapterId != null">#{lastChapterId},</if>
+            <if test="lastChapterNo != null">#{lastChapterNo},</if>
+            <if test="sort != null">#{sort},</if>
+            <if test="createBy != null and createBy != ''">#{createBy},</if>
+            <if test="createTime != null">#{createTime},</if>
+            <if test="updateBy != null and updateBy != ''">#{updateBy},</if>
+            <if test="updateTime != null">#{updateTime},</if>
+            <if test="remark != null and remark != ''">#{remark},</if>
+        </trim>
+    </insert>
+
+    <update id="updateBookshelf" parameterType="com.moyun.portal.domain.entity.PortalBookshelf">
+        update portal_bookshelf
+        <trim prefix="SET" suffixOverrides=",">
+            <if test="lastChapterId != null">last_chapter_id = #{lastChapterId},</if>
+            <if test="lastChapterNo != null">last_chapter_no = #{lastChapterNo},</if>
+            <if test="sort != null">sort = #{sort},</if>
+            <if test="updateBy != null and updateBy != ''">update_by = #{updateBy},</if>
+            <if test="updateTime != null">update_time = #{updateTime},</if>
+            <if test="remark != null">remark = #{remark},</if>
+        </trim>
+        where id = #{id}
+    </update>
+
+    <delete id="deleteBookshelfById" parameterType="Long">
+        delete from portal_bookshelf where id = #{id}
+    </delete>
+
+    <delete id="deleteBookshelfByIds" parameterType="Long">
+        delete from portal_bookshelf where id in
+        <foreach item="id" collection="array" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </delete>
+
+    <delete id="deleteByUserAndBook">
+        delete from portal_bookshelf where user_id = #{userId} and book_id = #{bookId}
+    </delete>
+
+    <update id="updateLastChapter">
+        update portal_bookshelf
+        <set>
+            <if test="lastChapterId != null">last_chapter_id = #{lastChapterId},</if>
+            <if test="lastChapterNo != null">last_chapter_no = #{lastChapterNo},</if>
+            update_time = NOW()
+        </set>
+        where user_id = #{userId} and book_id = #{bookId}
+    </update>
+
+</mapper>

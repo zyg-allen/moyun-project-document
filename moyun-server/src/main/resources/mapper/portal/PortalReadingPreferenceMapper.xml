@@ -1,0 +1,108 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.moyun.portal.mapper.PortalReadingPreferenceMapper">
+
+    <resultMap type="com.moyun.portal.domain.entity.PortalReadingPreference" id="PortalReadingPreferenceResult">
+        <id     property="id"                 column="id"                  />
+        <result property="userId"             column="user_id"             />
+        <result property="fontSize"           column="font_size"           />
+        <result property="lineHeight"         column="line_height"         />
+        <result property="theme"              column="theme"               />
+        <result property="fontFamily"         column="font_family"         />
+        <result property="letterSpacing"      column="letter_spacing"      />
+        <result property="paragraphSpacing"   column="paragraph_spacing"   />
+        <result property="createBy"           column="create_by"           />
+        <result property="createTime"         column="create_time"         />
+        <result property="updateBy"           column="update_by"           />
+        <result property="updateTime"         column="update_time"         />
+        <result property="remark"             column="remark"              />
+    </resultMap>
+
+    <sql id="selectPreferenceVo">
+        select id, user_id, font_size, line_height, theme, font_family,
+               letter_spacing, paragraph_spacing, create_by, create_time,
+               update_by, update_time, remark
+        from portal_reading_preference
+    </sql>
+
+    <select id="selectByUserId" parameterType="Long" resultMap="PortalReadingPreferenceResult">
+        <include refid="selectPreferenceVo"/>
+        where user_id = #{userId}
+        limit 1
+    </select>
+
+    <insert id="insertPreference" parameterType="com.moyun.portal.domain.entity.PortalReadingPreference" useGeneratedKeys="true" keyProperty="id">
+        insert into portal_reading_preference
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="userId != null">user_id,</if>
+            <if test="fontSize != null">font_size,</if>
+            <if test="lineHeight != null">line_height,</if>
+            <if test="theme != null and theme != ''">theme,</if>
+            <if test="fontFamily != null and fontFamily != ''">font_family,</if>
+            <if test="letterSpacing != null">letter_spacing,</if>
+            <if test="paragraphSpacing != null">paragraph_spacing,</if>
+            <if test="createBy != null and createBy != ''">create_by,</if>
+            <if test="createTime != null">create_time,</if>
+            <if test="updateBy != null and updateBy != ''">update_by,</if>
+            <if test="updateTime != null">update_time,</if>
+            <if test="remark != null and remark != ''">remark,</if>
+        </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="userId != null">#{userId},</if>
+            <if test="fontSize != null">#{fontSize},</if>
+            <if test="lineHeight != null">#{lineHeight},</if>
+            <if test="theme != null and theme != ''">#{theme},</if>
+            <if test="fontFamily != null and fontFamily != ''">#{fontFamily},</if>
+            <if test="letterSpacing != null">#{letterSpacing},</if>
+            <if test="paragraphSpacing != null">#{paragraphSpacing},</if>
+            <if test="createBy != null and createBy != ''">#{createBy},</if>
+            <if test="createTime != null">#{createTime},</if>
+            <if test="updateBy != null and updateBy != ''">#{updateBy},</if>
+            <if test="updateTime != null">#{updateTime},</if>
+            <if test="remark != null and remark != ''">#{remark},</if>
+        </trim>
+    </insert>
+
+    <update id="updatePreference" parameterType="com.moyun.portal.domain.entity.PortalReadingPreference">
+        update portal_reading_preference
+        <trim prefix="SET" suffixOverrides=",">
+            <if test="fontSize != null">font_size = #{fontSize},</if>
+            <if test="lineHeight != null">line_height = #{lineHeight},</if>
+            <if test="theme != null and theme != ''">theme = #{theme},</if>
+            <if test="fontFamily != null and fontFamily != ''">font_family = #{fontFamily},</if>
+            <if test="letterSpacing != null">letter_spacing = #{letterSpacing},</if>
+            <if test="paragraphSpacing != null">paragraph_spacing = #{paragraphSpacing},</if>
+            <if test="updateBy != null and updateBy != ''">update_by = #{updateBy},</if>
+            <if test="updateTime != null">update_time = #{updateTime},</if>
+            <if test="remark != null">remark = #{remark},</if>
+        </trim>
+        where id = #{id}
+    </update>
+
+    <!-- upsert：依赖 UK(user_id) 触发 ON DUPLICATE KEY UPDATE -->
+    <insert id="upsertPreference" parameterType="com.moyun.portal.domain.entity.PortalReadingPreference">
+        insert into portal_reading_preference
+            (user_id, font_size, line_height, theme, font_family,
+             letter_spacing, paragraph_spacing, create_time, update_time)
+        values
+            (#{userId},
+             coalesce(#{fontSize}, 18),
+             coalesce(#{lineHeight}, 1.8),
+             coalesce(#{theme}, 'default'),
+             coalesce(#{fontFamily}, 'system'),
+             coalesce(#{letterSpacing}, 0.0),
+             coalesce(#{paragraphSpacing}, 1.2),
+             NOW(), NOW())
+        on duplicate key update
+            font_size = coalesce(values(font_size), font_size),
+            line_height = coalesce(values(line_height), line_height),
+            theme = coalesce(values(theme), theme),
+            font_family = coalesce(values(font_family), font_family),
+            letter_spacing = coalesce(values(letter_spacing), letter_spacing),
+            paragraph_spacing = coalesce(values(paragraph_spacing), paragraph_spacing),
+            update_time = NOW()
+    </insert>
+
+</mapper>

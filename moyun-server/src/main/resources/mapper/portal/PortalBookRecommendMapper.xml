@@ -1,0 +1,169 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.moyun.portal.mapper.PortalBookRecommendMapper">
+
+    <resultMap type="com.moyun.portal.domain.entity.PortalBookRecommend" id="PortalBookRecommendResult">
+        <id     property="id"           column="id"           />
+        <result property="bookId"        column="book_id"      />
+        <result property="position"      column="position"     />
+        <result property="sort"          column="sort"         />
+        <result property="startTime"     column="start_time"   />
+        <result property="endTime"       column="end_time"     />
+        <result property="isActive"      column="is_active"    />
+        <result property="createBy"      column="create_by"    />
+        <result property="createTime"    column="create_time"  />
+        <result property="updateBy"      column="update_by"    />
+        <result property="updateTime"    column="update_time"  />
+        <result property="remark"        column="remark"       />
+        <result property="bookTitle"     column="book_title"   />
+    </resultMap>
+
+    <sql id="selectBookRecommendVo">
+        select r.id, r.book_id, r.position, r.sort, r.start_time, r.end_time, r.is_active,
+               r.create_by, r.create_time, r.update_by, r.update_time, r.remark,
+               b.title as book_title
+        from portal_book_recommend r
+        left join portal_book b on r.book_id = b.id
+    </sql>
+
+    <select id="selectBookRecommendPage" parameterType="com.moyun.portal.domain.query.BookRecommendQuery" resultMap="PortalBookRecommendResult">
+        <include refid="selectBookRecommendVo"/>
+        <where>
+            <if test="query.position != null and query.position != ''">
+                AND r.position = #{query.position}
+            </if>
+            <if test="query.isActive != null">
+                AND r.is_active = #{query.isActive}
+            </if>
+            <if test="query.bookTitle != null and query.bookTitle != ''">
+                AND b.title LIKE CONCAT('%', #{query.bookTitle}, '%')
+            </if>
+        </where>
+        <choose>
+            <when test="query.orderBy == 'sort'">
+                order by r.sort asc, r.create_time desc, r.id desc
+            </when>
+            <otherwise>
+                order by r.create_time desc, r.id desc
+            </otherwise>
+        </choose>
+    </select>
+
+    <select id="selectBookRecommendList" parameterType="com.moyun.portal.domain.query.BookRecommendQuery" resultMap="PortalBookRecommendResult">
+        <include refid="selectBookRecommendVo"/>
+        <where>
+            <if test="query.position != null and query.position != ''">
+                AND r.position = #{query.position}
+            </if>
+            <if test="query.isActive != null">
+                AND r.is_active = #{query.isActive}
+            </if>
+            <if test="query.bookTitle != null and query.bookTitle != ''">
+                AND b.title LIKE CONCAT('%', #{query.bookTitle}, '%')
+            </if>
+        </where>
+        <choose>
+            <when test="query.orderBy == 'sort'">
+                order by r.sort asc, r.create_time desc, r.id desc
+            </when>
+            <otherwise>
+                order by r.create_time desc, r.id desc
+            </otherwise>
+        </choose>
+    </select>
+
+    <select id="selectBookRecommendById" parameterType="Long" resultMap="PortalBookRecommendResult">
+        <include refid="selectBookRecommendVo"/>
+        where r.id = #{id}
+    </select>
+
+    <select id="selectActiveByPosition" resultMap="PortalBookRecommendResult">
+        <include refid="selectBookRecommendVo"/>
+        where r.is_active = 1
+          and r.position = #{position}
+          and (r.start_time is null or r.start_time &lt;= NOW())
+          and (r.end_time is null or r.end_time &gt;= NOW())
+        order by r.sort asc, r.id asc
+    </select>
+
+    <insert id="insertBookRecommend" parameterType="com.moyun.portal.domain.entity.PortalBookRecommend" useGeneratedKeys="true" keyProperty="id">
+        insert into portal_book_recommend
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="bookId != null">book_id,</if>
+            <if test="position != null and position != ''">position,</if>
+            <if test="sort != null">sort,</if>
+            <if test="startTime != null">start_time,</if>
+            <if test="endTime != null">end_time,</if>
+            <if test="isActive != null">is_active,</if>
+            <if test="createBy != null and createBy != ''">create_by,</if>
+            <if test="createTime != null">create_time,</if>
+            <if test="updateBy != null and updateBy != ''">update_by,</if>
+            <if test="updateTime != null">update_time,</if>
+            <if test="remark != null and remark != ''">remark,</if>
+        </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="bookId != null">#{bookId},</if>
+            <if test="position != null and position != ''">#{position},</if>
+            <if test="sort != null">#{sort},</if>
+            <if test="startTime != null">#{startTime},</if>
+            <if test="endTime != null">#{endTime},</if>
+            <if test="isActive != null">#{isActive},</if>
+            <if test="createBy != null and createBy != ''">#{createBy},</if>
+            <if test="createTime != null">#{createTime},</if>
+            <if test="updateBy != null and updateBy != ''">#{updateBy},</if>
+            <if test="updateTime != null">#{updateTime},</if>
+            <if test="remark != null and remark != ''">#{remark},</if>
+        </trim>
+    </insert>
+
+    <update id="updateBookRecommend" parameterType="com.moyun.portal.domain.entity.PortalBookRecommend">
+        update portal_book_recommend
+        <trim prefix="SET" suffixOverrides=",">
+            <if test="bookId != null">book_id = #{bookId},</if>
+            <if test="position != null and position != ''">position = #{position},</if>
+            <if test="sort != null">sort = #{sort},</if>
+            <if test="startTime != null">start_time = #{startTime},</if>
+            <if test="endTime != null">end_time = #{endTime},</if>
+            <if test="isActive != null">is_active = #{isActive},</if>
+            <if test="updateBy != null and updateBy != ''">update_by = #{updateBy},</if>
+            <if test="updateTime != null">update_time = #{updateTime},</if>
+            <if test="remark != null">remark = #{remark},</if>
+        </trim>
+        where id = #{id}
+    </update>
+
+    <delete id="deleteBookRecommendById" parameterType="Long">
+        delete from portal_book_recommend where id = #{id}
+    </delete>
+
+    <delete id="deleteBookRecommendByIds" parameterType="Long">
+        delete from portal_book_recommend where id in
+        <foreach item="id" collection="array" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </delete>
+
+    <update id="batchUpdateSort" parameterType="java.util.List">
+        update portal_book_recommend
+        <trim prefix="SET" suffixOverrides=",">
+            <trim prefix="sort = case" suffix="end,">
+                <foreach collection="list" item="item">
+                    when id = #{item.id} then #{item.sort}
+                </foreach>
+            </trim>
+        </trim>
+        where id in
+        <foreach collection="list" item="item" open="(" separator="," close=")">
+            #{item.id}
+        </foreach>
+    </update>
+
+    <update id="toggleActive">
+        update portal_book_recommend
+        set is_active = #{isActive}, update_time = NOW()
+        where id = #{id}
+    </update>
+
+</mapper>

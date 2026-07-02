@@ -68,6 +68,15 @@ public interface IPortalInterviewService {
     Page<InterviewBookmarkVO> selectBookmarkPage(Page<InterviewBookmarkVO> page, Long userId);
 
     /**
+     * 查询我的答题历史（分页，按提交时间倒序）
+     *
+     * @param page   分页参数
+     * @param userId 当前用户ID
+     * @return 提交记录分页
+     */
+    Page<InterviewSubmissionVO> selectMySubmissionList(Page<InterviewSubmissionVO> page, Long userId);
+
+    /**
      * 后台采纳/取消采纳提交笔记为精选
      *
      * @param submissionId 提交记录ID
@@ -88,6 +97,16 @@ public interface IPortalInterviewService {
     Page<InterviewExperienceVO> selectExperiencePage(Page<InterviewExperienceVO> page, InterviewExperienceQuery query, Long currentUserId);
 
     InterviewExperienceVO selectExperienceDetailById(Long id, Long currentUserId);
+
+    /**
+     * 查询我的面经列表（复用 selectExperiencePage，传入 userId 过滤）
+     *
+     * @param page  分页参数
+     * @param query 查询条件（userId 会被强制覆盖）
+     * @param userId 当前用户ID
+     * @return 面经分页
+     */
+    Page<InterviewExperienceVO> selectMyExperienceList(Page<InterviewExperienceVO> page, InterviewExperienceQuery query, Long userId);
 
     int insertExperience(PortalInterviewExperience experience, Long userId);
 
@@ -116,6 +135,14 @@ public interface IPortalInterviewService {
     Page<InterviewResumeTemplateVO> selectResumeTemplatePage(Page<InterviewResumeTemplateVO> page, InterviewResumeTemplateQuery query, Long currentUserId);
 
     InterviewResumeTemplateVO selectResumeTemplateById(Long id);
+
+    /**
+     * 下载简历模板：返回模板信息并原子递增下载次数
+     *
+     * @param id 模板ID
+     * @return 模板信息（含下载地址）
+     */
+    InterviewResumeTemplateVO downloadResumeTemplate(Long id);
 
     int insertResumeTemplate(PortalInterviewResumeTemplate template);
 

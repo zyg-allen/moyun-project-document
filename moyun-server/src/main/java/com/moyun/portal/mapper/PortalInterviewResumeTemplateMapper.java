@@ -4,6 +4,8 @@ import java.util.List;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import org.apache.ibatis.annotations.Mapper;
+import org.apache.ibatis.annotations.Param;
+import org.apache.ibatis.annotations.Update;
 
 import com.moyun.portal.domain.entity.PortalInterviewResumeTemplate;
 
@@ -62,4 +64,13 @@ public interface PortalInterviewResumeTemplateMapper extends BaseMapper<PortalIn
      * @return 结果
      */
     public int deletePortalInterviewResumeTemplateByIds(Long[] ids);
+
+    /**
+     * 原子递增下载次数（避免并发丢失更新）
+     *
+     * @param id 简历模板ID
+     * @return 影响行数
+     */
+    @Update("update portal_interview_resume_template set download_count = download_count + 1 where id = #{id}")
+    int incrementDownloadCount(@Param("id") Long id);
 }

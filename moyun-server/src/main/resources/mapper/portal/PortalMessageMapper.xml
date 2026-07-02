@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.moyun.portal.mapper.PortalMessageMapper">
+
+    <resultMap type="com.moyun.ext.cms.domain.vo.MessageVO" id="MessageVOResult">
+        <id property="id" column="id"/>
+        <result property="sessionId" column="session_id"/>
+        <result property="senderId" column="sender_id"/>
+        <result property="receiverId" column="receiver_id"/>
+        <result property="content" column="content"/>
+        <result property="msgType" column="msg_type"/>
+        <result property="isRead" column="is_read"/>
+        <result property="createTime" column="create_time"/>
+        <result property="senderNickname" column="sender_nickname"/>
+        <result property="senderAvatar" column="sender_avatar"/>
+    </resultMap>
+
+    <!-- 按会话分页查询历史消息，关联 portal_user 取发送者信息 -->
+    <select id="selectBySession" resultMap="MessageVOResult">
+        SELECT m.id,
+               m.session_id,
+               m.sender_id,
+               m.receiver_id,
+               m.content,
+               m.msg_type,
+               m.is_read,
+               m.create_time,
+               u.nickname AS sender_nickname,
+               u.avatar   AS sender_avatar
+        FROM portal_message m
+        LEFT JOIN portal_user u ON u.id = m.sender_id
+        WHERE m.session_id = #{sessionId}
+        ORDER BY m.id ASC
+    </select>
+
+    <!-- 查询用户总未读数（汇总所有会话中当前用户的未读数） -->
+    <select id="selectUnreadCount" resultType="java.lang.Integer">
+        SELECT COALESCE(SUM(
+            CASE WHEN user_a = #{userId} THEN unread_a ELSE unread_b END
+        ), 0)
+        FROM portal_message_session
+        WHERE user_a = #{userId} OR user_b = #{userId}
+    </select>
+</mapper>

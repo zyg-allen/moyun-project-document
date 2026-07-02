@@ -33,6 +33,7 @@ import com.moyun.common.constant.HttpStatus;
 import com.moyun.common.enums.BusinessType;
 import com.moyun.core.base.AjaxResult;
 import com.moyun.core.base.BaseController;
+import com.moyun.ext.cms.service.IUserDashboardService;
 import com.moyun.ext.file.domain.entity.SysFile;
 import com.moyun.ext.file.service.ISysFileService;
 import com.moyun.portal.domain.entity.PortalUser;
@@ -61,6 +62,9 @@ public class PortalUserController extends BaseController {
     @Autowired
     private PortalArticleMapper articleMapper;
 
+    @Autowired
+    private IUserDashboardService userDashboardService;
+
     private static final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
 
     @Operation(summary = "获取用户详情", description = "根据用户ID获取用户详细信息")
@@ -83,6 +87,16 @@ public class PortalUserController extends BaseController {
             return success(null);
         }
         return success(freshUser);
+    }
+
+    @Operation(summary = "获取个人中心聚合 Dashboard", description = "返回当前登录用户各模块统计数字（文章、收藏、书架、面试答题、面经、简历、关注、专栏、未读消息/通知、成长等级、签到等），用于个人中心 Tab 角标")
+    @GetMapping("/me/dashboard")
+    public AjaxResult getDashboard() {
+        Long userId = PortalSecurityUtils.getUserId();
+        if (userId == null) {
+            return AjaxResult.error(HttpStatus.UNAUTHORIZED, "登录已过期，请重新登录");
+        }
+        return success(userDashboardService.getUserDashboard(userId));
     }
 
     @Operation(summary = "更新个人资料", description = "当前登录用户更新自己的个人资料")

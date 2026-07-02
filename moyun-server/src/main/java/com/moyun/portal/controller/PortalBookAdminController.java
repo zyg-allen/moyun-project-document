@@ -7,6 +7,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.HashMap;
+import java.util.Map;
+
 import com.moyun.common.annotation.Log;
 import com.moyun.common.enums.BusinessType;
 import com.moyun.core.base.AjaxResult;
@@ -54,7 +57,13 @@ public class PortalBookAdminController extends BaseController {
     @PostMapping
     public AjaxResult add(@RequestBody PortalBook portalBook) {
         int result = portalBookService.insertPortalBook(portalBook);
-        return result > 0 ? success("新增成功") : error("新增失败");
+        if (result > 0) {
+            // 返回新书 ID，供导入向导等场景联动使用（MyBatis-Plus 自动回填主键）
+            Map<String, Object> data = new HashMap<>();
+            data.put("id", portalBook.getId());
+            return success(data);
+        }
+        return error("新增失败");
     }
 
     @Operation(summary = "修改书籍")

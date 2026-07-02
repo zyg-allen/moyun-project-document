@@ -91,6 +91,33 @@ public class PortalTokenService {
     }
 
     /**
+     * 根据 token 字符串获取门户用户身份信息
+     *
+     * <p>用于 WebSocket 握手等无法直接从 HTTP 请求头获取 token 的场景（如 ?token=xxx 查询参数）。
+     * 复用内部 parseToken + Redis 查询逻辑。</p>
+     *
+     * @param token 令牌（可带 Bearer 前缀）
+     * @return 用户信息，token 为空或无效时返回 null
+     */
+    public PortalLoginUser getLoginUserByToken(String token) {
+        if (StringUtils.isEmpty(token)) {
+            return null;
+        }
+        if (token.startsWith(Constants.TOKEN_PREFIX)) {
+            token = token.replace(Constants.TOKEN_PREFIX, "");
+        }
+        try {
+            Claims claims = parseToken(token);
+            String uuid = (String) claims.get(Constants.LOGIN_USER_KEY);
+            String userKey = getTokenKey(uuid);
+            return redisCache.getCacheObject(userKey);
+        } catch (Exception e) {
+            log.error("根据Token获取门户用户信息异常'{}'", e.getMessage(), e);
+            return null;
+        }
+    }
+
+    /**
      * 设置用户身份信息
      */
     public void setLoginUser(PortalLoginUser loginUser) {

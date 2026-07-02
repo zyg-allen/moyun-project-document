@@ -46,6 +46,16 @@
 | 38 | **38_init_report_feedback_menu.sql** | 举报/反馈菜单及建表 | 在 37 之后 |
 | 39 | **39_init_flowable_menu.sql** | 流程管理菜单初始化 | 在 38 之后 |
 | 40 | **40_fix_bugs_v4.sql** | v4.0 综合 Bug 修复（友情链接 status + 通知菜单清理 + 评论菜单修复 + PortalReport 列长升级） | 在 39 之后 |
+| 41 | **41_init_comment_like.sql** | 评论点赞表 | 在 40 之后 |
+| 42 | **42_portal_book_chapter_init.sql** | 章节体系 + 书籍扩展字段（type/serial_status/word_count/chapter_count/is_finished） | 在 41 之后 |
+| 43 | **43_portal_book_chapter_menu_init.sql** | 章节管理菜单 | 在 42 之后 |
+| 44 | **44_portal_bookshelf_preference_init.sql** | 书架 + 阅读偏好表 | 在 43 之后 |
+| 45 | **45_portal_bookshelf_menu_init.sql** | 书架管理菜单 | 在 44 之后 |
+| 46 | **46_portal_book_recommend_init.sql** | 推荐位表（第三阶段） | 在 45 之后 |
+| 47 | **47_portal_book_recommend_menu_init.sql** | 推荐位管理菜单（幂等可重入） | 在 46 之后 |
+| 48 | **48_portal_book_seed_data.sql** | 章节正文 + 推荐位种子数据（幂等可重入） | 在 47 之后 |
+| 49 | **49_fix_cms_category_menu_path.sql** | 修复"分类管理"菜单 path（改为 `/category` 绝对路径，解决 `/cms/cms/category` 及 `/cms/category` 404，幂等可重入） | 在 48 之后 |
+| 50 | **50_disable_tool_build_menu.sql** | 停用"表单构建"菜单（功能未实现，组件不存在导致路由注册警告，可逆） | 在 49 之后 |
 
 ### 脚本详细说明
 

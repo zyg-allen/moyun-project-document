@@ -239,6 +239,70 @@ public class PortalReadingController extends BaseController {
     }
 
     // ========================================================================
+    // 点赞相关接口（金句 / 书单）
+    // ========================================================================
+
+    /**
+     * 切换金句点赞（toggle，已点赞则取消，未点赞则新增）
+     */
+    @Operation(summary = "金句点赞切换", description = "已点赞则取消，未点赞则新增，需登录")
+    @PostMapping("/quote/{id}/like")
+    public AjaxResult toggleQuoteLike(@Parameter(description = "金句ID") @PathVariable Long id) {
+        Long userId = PortalSecurityUtils.getUserId();
+        if (userId == null) {
+            return AjaxResult.error(HttpStatus.UNAUTHORIZED, "登录已过期，请重新登录");
+        }
+        Map<String, Object> result = portalBookQuoteService.toggleQuoteLike(id, userId);
+        return AjaxResult.success(result);
+    }
+
+    /**
+     * 查询当前用户是否点赞该金句
+     */
+    @Operation(summary = "查询金句点赞状态", description = "返回当前用户是否已点赞目标金句")
+    @GetMapping("/quote/{id}/like")
+    public AjaxResult checkQuoteLike(@Parameter(description = "金句ID") @PathVariable Long id) {
+        Long userId = PortalSecurityUtils.getUserId();
+        Map<String, Object> result = new HashMap<>();
+        if (userId == null) {
+            result.put("liked", false);
+        } else {
+            result.put("liked", portalBookQuoteService.isQuoteLiked(id, userId));
+        }
+        return AjaxResult.success(result);
+    }
+
+    /**
+     * 切换书单点赞（toggle，已点赞则取消，未点赞则新增）
+     */
+    @Operation(summary = "书单点赞切换", description = "已点赞则取消，未点赞则新增，需登录")
+    @PostMapping("/book-list/{id}/like")
+    public AjaxResult toggleBookListLike(@Parameter(description = "书单ID") @PathVariable Long id) {
+        Long userId = PortalSecurityUtils.getUserId();
+        if (userId == null) {
+            return AjaxResult.error(HttpStatus.UNAUTHORIZED, "登录已过期，请重新登录");
+        }
+        Map<String, Object> result = portalBookListService.toggleBookListLike(id, userId);
+        return AjaxResult.success(result);
+    }
+
+    /**
+     * 查询当前用户是否点赞该书单
+     */
+    @Operation(summary = "查询书单点赞状态", description = "返回当前用户是否已点赞目标书单")
+    @GetMapping("/book-list/{id}/like")
+    public AjaxResult checkBookListLike(@Parameter(description = "书单ID") @PathVariable Long id) {
+        Long userId = PortalSecurityUtils.getUserId();
+        Map<String, Object> result = new HashMap<>();
+        if (userId == null) {
+            result.put("liked", false);
+        } else {
+            result.put("liked", portalBookListService.isBookListLiked(id, userId));
+        }
+        return AjaxResult.success(result);
+    }
+
+    // ========================================================================
     // 章节阅读相关接口（v1.0 新增）
     // ========================================================================
 

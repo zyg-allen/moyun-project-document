@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.moyun.portal.mapper.PortalBookClubRecordLikeMapper">
+
+    <resultMap type="com.moyun.portal.domain.entity.PortalBookClubRecordLike" id="PortalBookClubRecordLikeResult">
+        <id     property="id"          column="id"          />
+        <result property="recordId"    column="record_id"  />
+        <result property="userId"      column="user_id"    />
+        <result property="createBy"    column="create_by"  />
+        <result property="createTime"  column="create_time" />
+        <result property="updateBy"    column="update_by"  />
+        <result property="updateTime"  column="update_time" />
+        <result property="remark"      column="remark"     />
+    </resultMap>
+
+    <!-- 查询某用户是否已点赞某打卡记录 -->
+    <select id="selectByRecordAndUser" resultMap="PortalBookClubRecordLikeResult">
+        select id, record_id, user_id, create_by, create_time, update_by, update_time, remark
+        from portal_book_club_record_like
+        where record_id = #{recordId} and user_id = #{userId}
+        limit 1
+    </select>
+
+    <!-- 统计某打卡记录的点赞数 -->
+    <select id="countByRecord" resultType="long">
+        select count(1) from portal_book_club_record_like where record_id = #{recordId}
+    </select>
+
+</mapper>

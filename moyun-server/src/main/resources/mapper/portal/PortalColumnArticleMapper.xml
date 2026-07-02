@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.moyun.portal.mapper.PortalColumnArticleMapper">
+
+    <!-- 专栏文章目录 -->
+    <resultMap type="com.moyun.ext.cms.domain.vo.ArticleSimpleVO" id="ArticleSimpleResult">
+        <id property="id" column="id"/>
+        <result property="title" column="title"/>
+        <result property="cover" column="cover"/>
+        <result property="excerpt" column="excerpt"/>
+        <result property="viewCount" column="view_count"/>
+        <result property="likeCount" column="like_count"/>
+        <result property="createdTime" column="created_time"/>
+        <result property="sortOrder" column="sort_order"/>
+    </resultMap>
+
+    <!-- 查询专栏文章目录（关联 portal_article） -->
+    <select id="selectArticlesByColumn" resultMap="ArticleSimpleResult">
+        SELECT a.id, a.title, a.cover, a.excerpt,
+               a.views AS view_count, a.likes AS like_count,
+               a.create_time AS created_time, ca.sort_order AS sort_order
+        FROM portal_column_article ca
+        INNER JOIN portal_article a ON a.id = ca.article_id
+        WHERE ca.column_id = #{columnId}
+        ORDER BY ca.sort_order ASC, ca.created_time ASC
+    </select>
+
+</mapper>

@@ -1,8 +1,12 @@
 package com.moyun.portal.controller;
 
 import java.time.LocalDateTime;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.stream.Collectors;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import io.swagger.v3.oas.annotations.Operation;
@@ -15,6 +19,7 @@ import org.springframework.web.bind.annotation.*;
 import com.moyun.common.constant.HttpStatus;
 import com.moyun.core.base.AjaxResult;
 import com.moyun.core.base.BaseController;
+import com.moyun.portal.domain.entity.PortalArticle;
 import com.moyun.portal.domain.entity.PortalBookmark;
 import com.moyun.portal.mapper.PortalArticleMapper;
 import com.moyun.portal.mapper.PortalBookmarkMapper;
@@ -120,6 +125,51 @@ public class PortalBookmarkController extends BaseController {
         Map<String, Object> result = new HashMap<>();
         result.put("isBookmarked", isBookmarked);
         result.put("articleId", articleId);
+        return success(result);
+    }
+
+    /**
+     * 我的收藏列表 - 获取当前用户收藏的文章列表
+     * 1. 查询当前用户的所有收藏记录（按收藏时间倒序）
+     * 2. 批量查询已发布文章详情（含作者/分类信息）
+     * 3. 仅返回 published 状态文章，避免展示草稿/已删除文章
+     */
+    @Operation(summary = "我的收藏列表", description = "获取当前用户收藏的文章列表（仅已发布）")
+    @GetMapping("/my")
+    public AjaxResult getMyBookmarks() {
+        Long userId = PortalSecurityUtils.getUserId();
+        if (userId == null) {
+            return AjaxResult.error(HttpStatus.UNAUTHORIZED, "请先登录");
+        }
+
+        // 1. 查询当前用户所有收藏记录（按收藏时间倒序）
+        LambdaQueryWrapper<PortalBookmark> bw = new LambdaQueryWrapper<>();
+        bw.eq(PortalBookmark::getUserId, userId).orderByDesc(PortalBookmark::getCreateTime);
+        List<PortalBookmark> bookmarks = portalBookmarkMapper.selectList(bw);
+
+        Map<String, Object> result = new HashMap<>();
+        if (bookmarks.isEmpty()) {
+            result.put("list", Collections.emptyList());
+            result.put("total", 0);
+            return success(result);
+        }
+
+        // 2. 提取文章ID
+        List<Long> articleIds = bookmarks.stream()
+                .map(PortalBookmark::getArticleId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toList());
+        if (articleIds.isEmpty()) {
+            result.put("list", Collections.emptyList());
+            result.put("total", 0);
+            return success(result);
+        }
+
+        // 3. 批量查询已发布文章详情（JOIN 作者与分类）
+        List<PortalArticle> articles = portalArticleMapper.selectArticlesByIds(articleIds);
+
+        result.put("list", articles);
+        result.put("total", articles.size());
         return success(result);
     }
 }

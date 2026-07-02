@@ -32,8 +32,17 @@ const ExperienceDetailPage = () => import('@/pages/interview/ExperienceDetailPag
 const ResumeTemplatePage = () => import('@/pages/interview/ResumeTemplatePage.vue')
 const QuestionListPage = () => import('@/pages/interview/QuestionListPage.vue')
 const ExperienceListPage = () => import('@/pages/interview/ExperienceListPage.vue')
+const MyResumesPage = () => import('@/pages/interview/MyResumesPage.vue')
+const ResumeEditPage = () => import('@/pages/interview/ResumeEditPage.vue')
 const GrowthRankingPage = () => import('@/pages/GrowthRankingPage.vue')
 const AchievementsPage = () => import('@/pages/AchievementsPage.vue')
+const FollowListPage = () => import('@/pages/FollowListPage.vue')
+const MessagesPage = () => import('@/pages/MessagesPage.vue')
+const FeedPage = () => import('@/pages/FeedPage.vue')
+const ColumnsPage = () => import('@/pages/ColumnsPage.vue')
+const ColumnDetailPage = () => import('@/pages/ColumnDetailPage.vue')
+const ColumnEditPage = () => import('@/pages/ColumnEditPage.vue')
+const MyColumnsPage = () => import('@/pages/MyColumnsPage.vue')
 
 // ============ 路由配置 ============
 
@@ -112,6 +121,19 @@ const routes: RouteRecordRaw[] = [
     component: InterviewPage,
     meta: { title: '面试指南', isPublic: true }
   },
+  // 学习中心暂未实现，重定向到面试指南
+  {
+    path: '/learn',
+    redirect: '/interview'
+  },
+  {
+    path: '/learn/wrong',
+    redirect: '/interview'
+  },
+  {
+    path: '/learn/plan',
+    redirect: '/interview'
+  },
   {
     path: '/interview/questions',
     name: 'interview-questions',
@@ -131,16 +153,64 @@ const routes: RouteRecordRaw[] = [
     meta: { title: '题目详情', isPublic: true }
   },
   {
+    path: '/interview/experience/publish',
+    name: 'interview-experience-publish',
+    component: () => import('@/pages/interview/ExperiencePublishPage.vue'),
+    meta: { title: '发布面经', requiresAuth: true }
+  },
+  {
+    path: '/interview/experience/edit/:id',
+    name: 'interview-experience-edit',
+    component: () => import('@/pages/interview/ExperiencePublishPage.vue'),
+    meta: { title: '编辑面经', requiresAuth: true }
+  },
+  {
     path: '/interview/experience/:id',
     name: 'interview-experience',
     component: ExperienceDetailPage,
     meta: { title: '面经详情', isPublic: true }
   },
   {
+    path: '/interview/my/attempts',
+    name: 'interview-my-attempts',
+    component: () => import('@/pages/interview/MyAttemptsPage.vue'),
+    meta: { title: '我的答题', requiresAuth: true }
+  },
+  {
+    path: '/interview/my/bookmarks',
+    name: 'interview-my-bookmarks',
+    component: () => import('@/pages/interview/MyBookmarksPage.vue'),
+    meta: { title: '我的收藏题目', requiresAuth: true }
+  },
+  {
+    path: '/interview/my/experiences',
+    name: 'interview-my-experiences',
+    component: () => import('@/pages/interview/MyExperiencesPage.vue'),
+    meta: { title: '我的面经', requiresAuth: true }
+  },
+  {
     path: '/interview/resume-templates',
     name: 'interview-resume-templates',
     component: ResumeTemplatePage,
     meta: { title: '简历模板', isPublic: true }
+  },
+  {
+    path: '/interview/my/resumes',
+    name: 'interview-my-resumes',
+    component: MyResumesPage,
+    meta: { title: '我的简历', requiresAuth: true, robots: 'noindex,nofollow' }
+  },
+  {
+    path: '/interview/resume/edit',
+    name: 'interview-resume-editor-create',
+    component: ResumeEditPage,
+    meta: { title: '创建简历', requiresAuth: true, robots: 'noindex,nofollow' }
+  },
+  {
+    path: '/interview/resume/edit/:id',
+    name: 'interview-resume-editor-edit',
+    component: ResumeEditPage,
+    meta: { title: '编辑简历', requiresAuth: true, robots: 'noindex,nofollow' }
   },
   {
     path: '/article/:id/:slug?',
@@ -153,6 +223,44 @@ const routes: RouteRecordRaw[] = [
     name: 'search',
     component: SearchPage,
     meta: { title: '搜索', isPublic: true }
+  },
+  // ============ Feed 流 / 专栏 ============
+  {
+    path: '/feed',
+    name: 'feed',
+    component: FeedPage,
+    meta: { title: '动态广场', isPublic: true }
+  },
+  {
+    path: '/columns',
+    name: 'columns',
+    component: ColumnsPage,
+    meta: { title: '专栏广场', isPublic: true }
+  },
+  // 注意：静态/带参路由必须在 /column/:id 动态路由之前定义，否则 create/edit/my 会被当作 :id
+  {
+    path: '/column/create',
+    name: 'column-create',
+    component: ColumnEditPage,
+    meta: { requiresAuth: true, title: '创建专栏', robots: 'noindex,nofollow' }
+  },
+  {
+    path: '/column/edit/:id',
+    name: 'column-edit',
+    component: ColumnEditPage,
+    meta: { requiresAuth: true, title: '编辑专栏', robots: 'noindex,nofollow' }
+  },
+  {
+    path: '/column/my',
+    name: 'column-my',
+    component: MyColumnsPage,
+    meta: { requiresAuth: true, title: '我的专栏', robots: 'noindex,nofollow' }
+  },
+  {
+    path: '/column/:id',
+    name: 'column-detail',
+    component: ColumnDetailPage,
+    meta: { title: '专栏详情', isPublic: true }
   },
   // ============ 语义化列表页路由（SEO 优先） ============
   {
@@ -179,6 +287,18 @@ const routes: RouteRecordRaw[] = [
     name: 'author',
     component: AuthorPage,
     meta: { title: '作者主页', isPublic: true }
+  },
+  {
+    path: '/user/:id/following',
+    name: 'user-following',
+    component: FollowListPage,
+    meta: { title: '关注列表', isPublic: true, robots: 'noindex,follow' }
+  },
+  {
+    path: '/user/:id/followers',
+    name: 'user-followers',
+    component: FollowListPage,
+    meta: { title: '粉丝列表', isPublic: true, robots: 'noindex,follow' }
   },
   {
     path: '/authors',
@@ -265,6 +385,18 @@ const routes: RouteRecordRaw[] = [
     name: 'my-articles',
     component: MyArticlesPage,
     meta: { requiresAuth: true, title: '我的文章', robots: 'noindex,nofollow' }
+  },
+  {
+    path: '/messages',
+    name: 'messages',
+    component: MessagesPage,
+    meta: { requiresAuth: true, title: '消息中心', robots: 'noindex,nofollow' }
+  },
+  {
+    path: '/messages/chat/:sessionId',
+    name: 'messages-chat',
+    component: MessagesPage,
+    meta: { requiresAuth: true, title: '私信', robots: 'noindex,nofollow' }
   },
   // ============ 404 页面 ============
   {

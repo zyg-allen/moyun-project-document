@@ -1,15 +1,22 @@
 package com.moyun.portal.service.impl;
 
 import java.time.LocalDateTime;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import com.moyun.portal.domain.entity.PortalBookQuote;
+import com.moyun.portal.domain.entity.PortalBookQuoteLike;
 import com.moyun.portal.domain.query.BookQuoteQuery;
+import com.moyun.portal.mapper.PortalBookQuoteLikeMapper;
 import com.moyun.portal.mapper.PortalBookQuoteMapper;
 import com.moyun.portal.service.IPortalBookQuoteService;
 import com.moyun.portal.service.IPortalGrowthService;
@@ -24,6 +31,9 @@ public class PortalBookQuoteServiceImpl extends ServiceImpl<PortalBookQuoteMappe
 
     @Autowired
     private PortalBookQuoteMapper portalBookQuoteMapper;
+
+    @Autowired
+    private PortalBookQuoteLikeMapper portalBookQuoteLikeMapper;
 
     @Autowired
     private IPortalGrowthService portalGrowthService;
@@ -115,5 +125,48 @@ public class PortalBookQuoteServiceImpl extends ServiceImpl<PortalBookQuoteMappe
         Page<PortalBookQuote> page = new Page<>(1, limit);
         Page<PortalBookQuote> result = portalBookQuoteMapper.selectPortalBookQuotePage(page, query);
         return result.getRecords();
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public Map<String, Object> toggleQuoteLike(Long quoteId, Long userId) {
+        PortalBookQuoteLike existing = portalBookQuoteLikeMapper.selectOne(
+                new LambdaQueryWrapper<PortalBookQuoteLike>()
+                        .eq(PortalBookQuoteLike::getQuoteId, quoteId)
+                        .eq(PortalBookQuoteLike::getUserId, userId));
+        Map<String, Object> result = new HashMap<>();
+        if (existing != null) {
+            // 已点赞 → 取消点赞
+            portalBookQuoteLikeMapper.deleteById(existing.getId());
+            portalBookQuoteMapper.decrementLikeCount(quoteId);
+            result.put("liked", false);
+        } else {
+            // 未点赞 → 新增点赞（并发兜底：唯一键冲突视为已点赞）
+            PortalBookQuoteLike like = new PortalBookQuoteLike();
+            like.setQuoteId(quoteId);
+            like.setUserId(userId);
+            like.setCreateTime(LocalDateTime.now());
+            try {
+                portalBookQuoteLikeMapper.insert(like);
+                portalBookQuoteMapper.incrementLikeCount(quoteId);
+                result.put("liked", true);
+            } catch (DuplicateKeyException e) {
+                // 并发下另一事务已点赞，视为已点赞（不再重复计数）
+                result.put("liked", true);
+            }
+        }
+        // 返回最新点赞数
+        PortalBookQuote quote = portalBookQuoteMapper.selectPortalBookQuoteById(quoteId);
+        result.put("likeCount", quote != null && quote.getLikeCount() != null ? quote.getLikeCount() : 0L);
+        return result;
+    }
+
+    @Override
+    public boolean isQuoteLiked(Long quoteId, Long userId) {
+        Long count = portalBookQuoteLikeMapper.selectCount(
+                new LambdaQueryWrapper<PortalBookQuoteLike>()
+                        .eq(PortalBookQuoteLike::getQuoteId, quoteId)
+                        .eq(PortalBookQuoteLike::getUserId, userId));
+        return count != null && count > 0;
     }
 }

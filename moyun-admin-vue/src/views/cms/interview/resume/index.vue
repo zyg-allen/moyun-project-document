@@ -78,7 +78,7 @@
     <el-dialog v-model="dialogVisible" :title="dialogTitle" width="720px">
       <el-form :model="form" label-width="100px">
         <el-form-item label="封面">
-          <el-input v-model="form.cover" placeholder="封面图片URL" />
+          <image-upload v-model="form.cover" :limit="1" :file-size="5" />
         </el-form-item>
         <el-form-item label="标题"><el-input v-model="form.title" placeholder="请输入标题" /></el-form-item>
         <el-form-item label="分类">
@@ -101,8 +101,14 @@
             <el-option label="DOC" value="doc" />
           </el-select>
         </el-form-item>
-        <el-form-item label="下载URL">
-          <el-input v-model="form.downloadUrl" placeholder="文件下载URL" />
+        <el-form-item label="下载文件">
+          <file-upload
+            v-model="form.downloadUrl"
+            :limit="1"
+            :file-size="20"
+            :file-type="['pdf', 'doc', 'docx']"
+            :is-show-tip="true"
+          />
         </el-form-item>
         <el-form-item label="是否付费">
           <el-switch v-model="form.isPaid" />

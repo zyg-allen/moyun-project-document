@@ -1,0 +1,124 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.moyun.portal.mapper.PortalColumnMapper">
+
+    <!-- 专栏列表简要信息 -->
+    <resultMap type="com.moyun.ext.cms.domain.vo.ColumnListItemVO" id="ColumnListItemResult">
+        <id property="id" column="id"/>
+        <result property="userId" column="user_id"/>
+        <result property="title" column="title"/>
+        <result property="subtitle" column="subtitle"/>
+        <result property="cover" column="cover"/>
+        <result property="categoryId" column="category_id"/>
+        <result property="status" column="status"/>
+        <result property="articleCount" column="article_count"/>
+        <result property="subscribeCount" column="subscribe_count"/>
+        <result property="viewCount" column="view_count"/>
+        <result property="isFinished" column="is_finished"/>
+        <result property="price" column="price"/>
+        <result property="createdTime" column="created_time"/>
+        <result property="authorName" column="author_name"/>
+        <result property="authorAvatar" column="author_avatar"/>
+    </resultMap>
+
+    <!-- 专栏详情 -->
+    <resultMap type="com.moyun.ext.cms.domain.vo.ColumnVO" id="ColumnVOResult">
+        <id property="id" column="id"/>
+        <result property="userId" column="user_id"/>
+        <result property="title" column="title"/>
+        <result property="subtitle" column="subtitle"/>
+        <result property="description" column="description"/>
+        <result property="cover" column="cover"/>
+        <result property="categoryId" column="category_id"/>
+        <result property="status" column="status"/>
+        <result property="articleCount" column="article_count"/>
+        <result property="subscribeCount" column="subscribe_count"/>
+        <result property="viewCount" column="view_count"/>
+        <result property="isFinished" column="is_finished"/>
+        <result property="price" column="price"/>
+        <result property="createdTime" column="created_time"/>
+        <result property="updatedTime" column="updated_time"/>
+        <result property="authorName" column="author_name"/>
+        <result property="authorAvatar" column="author_avatar"/>
+        <result property="authorBio" column="author_bio"/>
+    </resultMap>
+
+    <!-- 公开列表分页（仅 published） -->
+    <select id="selectListPage" resultMap="ColumnListItemResult">
+        SELECT c.id, c.user_id, c.title, c.subtitle, c.cover, c.category_id, c.status,
+               c.article_count, c.subscribe_count, c.view_count, c.is_finished, c.price, c.created_time,
+               pu.nickname AS author_name, pu.avatar AS author_avatar
+        FROM portal_column c
+        LEFT JOIN portal_user pu ON pu.id = c.user_id
+        WHERE c.status = 'published'
+        <if test="query.keyword != null and query.keyword != ''">
+            AND (c.title LIKE CONCAT('%', #{query.keyword}, '%')
+                 OR c.subtitle LIKE CONCAT('%', #{query.keyword}, '%'))
+        </if>
+        <if test="query.categoryId != null">
+            AND c.category_id = #{query.categoryId}
+        </if>
+        <choose>
+            <when test="query.sortBy == 'popular'">
+                ORDER BY c.view_count DESC, c.created_time DESC
+            </when>
+            <when test="query.sortBy == 'subscribe'">
+                ORDER BY c.subscribe_count DESC, c.created_time DESC
+            </when>
+            <otherwise>
+                ORDER BY c.created_time DESC
+            </otherwise>
+        </choose>
+    </select>
+
+    <!-- 专栏详情（含作者信息） -->
+    <select id="selectDetailById" resultMap="ColumnVOResult">
+        SELECT c.id, c.user_id, c.title, c.subtitle, c.description, c.cover, c.category_id, c.status,
+               c.article_count, c.subscribe_count, c.view_count, c.is_finished, c.price,
+               c.created_time, c.updated_time,
+               pu.nickname AS author_name, pu.avatar AS author_avatar, pu.bio AS author_bio
+        FROM portal_column c
+        LEFT JOIN portal_user pu ON pu.id = c.user_id
+        WHERE c.id = #{id}
+    </select>
+
+    <!-- 我创建的专栏分页 -->
+    <select id="selectMyColumnsPage" resultMap="ColumnListItemResult">
+        SELECT c.id, c.user_id, c.title, c.subtitle, c.cover, c.category_id, c.status,
+               c.article_count, c.subscribe_count, c.view_count, c.is_finished, c.price, c.created_time,
+               pu.nickname AS author_name, pu.avatar AS author_avatar
+        FROM portal_column c
+        LEFT JOIN portal_user pu ON pu.id = c.user_id
+        WHERE c.user_id = #{userId}
+        ORDER BY c.created_time DESC
+    </select>
+
+    <!-- 我订阅的专栏分页 -->
+    <select id="selectSubscribedColumnsPage" resultMap="ColumnListItemResult">
+        SELECT c.id, c.user_id, c.title, c.subtitle, c.cover, c.category_id, c.status,
+               c.article_count, c.subscribe_count, c.view_count, c.is_finished, c.price, c.created_time,
+               pu.nickname AS author_name, pu.avatar AS author_avatar
+        FROM portal_column c
+        INNER JOIN portal_column_subscribe s ON s.column_id = c.id AND s.user_id = #{userId}
+        LEFT JOIN portal_user pu ON pu.id = c.user_id
+        ORDER BY s.created_time DESC
+    </select>
+
+    <!-- 批量更新专栏内文章排序（按 article_id 匹配，单条 CASE WHEN） -->
+    <update id="updateArticleSort">
+        UPDATE portal_column_article
+        SET sort_order = CASE article_id
+            <foreach collection="items" item="it">
+                WHEN #{it.id} THEN #{it.sortOrder}
+            </foreach>
+            END
+        WHERE column_id = #{columnId}
+        AND article_id IN
+        <foreach collection="items" item="it" open="(" separator="," close=")">
+            #{it.id}
+        </foreach>
+    </update>
+
+</mapper>

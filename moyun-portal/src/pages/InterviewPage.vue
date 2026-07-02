@@ -102,6 +102,9 @@ function goExperience(id: any) {
 function goResume() {
   router.push('/interview/resume-templates');
 }
+function goMyResume() {
+  router.push('/interview/my/resumes');
+}
 
 function formatNumber(n: number) {
   if (n >= 10000) return (n / 10000).toFixed(1) + 'w';
@@ -167,7 +170,11 @@ useHead(computed(() => generateSeo({
         </div>
         <!-- 快捷入口 -->
         <div class="flex flex-wrap items-center justify-center gap-3">
-          <button @click="goResume" class="px-6 py-3 bg-white text-indigo-700 rounded-lg font-medium hover:bg-blue-50 transition flex items-center">
+          <button @click="goMyResume" class="px-6 py-3 bg-white text-indigo-700 rounded-lg font-medium hover:bg-blue-50 transition flex items-center">
+            <FileText class="w-5 h-5 mr-2" />
+            我的简历
+          </button>
+          <button @click="goResume" class="px-6 py-3 bg-white/10 border border-white/30 text-white rounded-lg font-medium hover:bg-white/20 transition flex items-center backdrop-blur-sm">
             <FileText class="w-5 h-5 mr-2" />
             简历模板
           </button>

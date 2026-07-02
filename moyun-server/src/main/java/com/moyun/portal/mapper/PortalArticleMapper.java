@@ -52,6 +52,15 @@ public interface PortalArticleMapper extends BaseMapper<PortalArticle> {
     List<PortalArticle> selectPortalArticleList(@Param("params") ArticleQuery query);
 
     /**
+     * 根据文章ID列表批量查询已发布文章（用于"我的收藏"等场景，JOIN 作者与分类）
+     * 仅返回 status='published' 的文章，避免展示草稿/已删除文章
+     *
+     * @param ids 文章ID列表
+     * @return 文章列表
+     */
+    List<PortalArticle> selectArticlesByIds(@Param("ids") List<Long> ids);
+
+    /**
      * 查询热门文章（按浏览量排序）
      *
      * @param page 分页参数

@@ -103,3 +103,14 @@ export interface BookmarkResult {
 export const toggleBookmarkArticle = (articleId: string) => {
     return httpPost<BookmarkResult>(`/portal/bookmark/${articleId}/toggle`);
 };
+
+/** 我的收藏列表结果类型 */
+export interface MyBookmarksResult {
+    list: Article[];
+    total: number;
+}
+
+// 我的收藏列表 - 获取当前用户收藏的文章列表（仅已发布，含作者与分类信息）
+export const getMyBookmarks = () => {
+    return httpGet<MyBookmarksResult>('/portal/bookmark/my');
+};

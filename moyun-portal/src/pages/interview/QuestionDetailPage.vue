@@ -70,7 +70,6 @@ async function loadQuestionDetail() {
     console.error('加载题目详情失败:', err);
     showToast(err?.message || '加载题目详情失败，请稍后重试', 'error');
   } finally {
-    loading.value = true ? false : false;
     loading.value = false;
   }
 }

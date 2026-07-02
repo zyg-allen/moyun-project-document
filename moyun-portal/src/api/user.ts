@@ -9,6 +9,7 @@ import type {
   UpdatePasswordParams,
   SendSmsCodeParams,
   UserStats,
+  UserDashboard,
 } from '@/types/api';
 
 // 用户登录
@@ -54,6 +55,11 @@ export const uploadAvatar = (file: File) => {
 // 获取用户统计信息
 export const getUserStats = (userId?: string) => {
   return httpGet<UserStats>(userId ? `/portal/user/${userId}/stats` : '/portal/user/stats');
+};
+
+// 获取个人中心 Dashboard 聚合数据（文章/收藏/书架/答题/面经/简历/关注/粉丝/专栏/未读消息/成长等级）
+export const getMyDashboard = () => {
+  return httpGet<UserDashboard>('/portal/user/me/dashboard');
 };
 
 // 获取用户详情

@@ -123,4 +123,14 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         </foreach>
     </delete>
 
+    <!-- 原子递增点赞数（避免并发丢失更新） -->
+    <update id="incrementLikeCount">
+        update portal_book_quote set like_count = like_count + 1 where id = #{id}
+    </update>
+
+    <!-- 原子递减点赞数（不低于 0，避免并发与脏数据导致负数） -->
+    <update id="decrementLikeCount">
+        update portal_book_quote set like_count = GREATEST(like_count - 1, 0) where id = #{id}
+    </update>
+
 </mapper>

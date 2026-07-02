@@ -9,6 +9,7 @@ import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import com.moyun.ext.cms.service.IFeedService;
 import com.moyun.portal.domain.entity.PortalArticle;
 import com.moyun.portal.domain.query.ArticleQuery;
 import com.moyun.portal.mapper.PortalArticleMapper;
@@ -38,6 +39,9 @@ public class PortalArticleServiceImpl extends ServiceImpl<PortalArticleMapper, P
 
     @Autowired
     private PortalUserStatsMapper userStatsMapper;
+
+    @Autowired
+    private IFeedService feedService;
 
     /**
      * 根据条件分页查询文章列表
@@ -166,6 +170,16 @@ public class PortalArticleServiceImpl extends ServiceImpl<PortalArticleMapper, P
             if (Boolean.TRUE.equals(portalArticle.getIsFeatured())) {
                 portalGrowthService.recordEvent("article", "article_featured",
                         portalArticle.getAuthorId(), "article", portalArticle.getId());
+            }
+
+            // 发布动态事件（Feed 流）。try-catch 包裹，避免 Feed 失败影响文章发布主流程
+            try {
+                feedService.publishEvent(portalArticle.getAuthorId(), "publish_article", "article",
+                        portalArticle.getId(), portalArticle.getTitle(),
+                        portalArticle.getExcerpt(), portalArticle.getCover());
+            } catch (Exception e) {
+                org.slf4j.LoggerFactory.getLogger(PortalArticleServiceImpl.class)
+                        .error("[Feed] 文章发布动态事件失败：articleId={}", portalArticle.getId(), e);
             }
         }
 

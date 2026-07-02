@@ -291,6 +291,19 @@
         where pa.id = #{id}
     </select>
 
+    <!-- 根据ID列表批量查询已发布文章（用于"我的收藏"等场景，仅返回 published） -->
+    <select id="selectArticlesByIds" resultMap="PortalArticleResult">
+        <include refid="selectPortalArticleVo"/>
+        <where>
+            pa.status = 'published'
+            AND pa.id IN
+            <foreach item="id" collection="ids" open="(" separator="," close=")">
+                #{id}
+            </foreach>
+        </where>
+        order by pa.published_at desc, pa.create_time desc
+    </select>
+
     <!-- 根据别名查询 -->
     <select id="selectPortalArticleBySlug" parameterType="String" resultMap="PortalArticleResult">
         <include refid="selectPortalArticleVo"/>

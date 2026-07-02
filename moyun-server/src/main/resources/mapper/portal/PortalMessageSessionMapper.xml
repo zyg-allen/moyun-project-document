@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.moyun.portal.mapper.PortalMessageSessionMapper">
+
+    <resultMap type="com.moyun.portal.domain.entity.PortalMessageSession" id="PortalMessageSessionResult">
+        <id property="id" column="id"/>
+        <result property="userA" column="user_a"/>
+        <result property="userB" column="user_b"/>
+        <result property="lastMessageId" column="last_message_id"/>
+        <result property="lastMessageContent" column="last_message_content"/>
+        <result property="lastMessageTime" column="last_message_time"/>
+        <result property="unreadA" column="unread_a"/>
+        <result property="unreadB" column="unread_b"/>
+        <result property="createTime" column="create_time"/>
+        <result property="updateTime" column="update_time"/>
+    </resultMap>
+
+    <resultMap type="com.moyun.ext.cms.domain.vo.MessageSessionVO" id="MessageSessionVOResult">
+        <id property="id" column="id"/>
+        <result property="lastMessageContent" column="last_message_content"/>
+        <result property="lastMessageTime" column="last_message_time"/>
+        <result property="unreadCount" column="unread_count"/>
+        <association property="peerUser" javaType="com.moyun.ext.cms.domain.vo.MessageSessionVO$PeerUser">
+            <result property="id" column="peer_id"/>
+            <result property="nickname" column="peer_nickname"/>
+            <result property="avatar" column="peer_avatar"/>
+        </association>
+    </resultMap>
+
+    <!-- 查询我参与的所有会话，关联 portal_user 取对方信息 -->
+    <select id="selectMySessions" resultMap="MessageSessionVOResult">
+        SELECT s.id,
+               s.last_message_content,
+               s.last_message_time,
+               CASE WHEN s.user_a = #{userId} THEN s.unread_a ELSE s.unread_b END AS unread_count,
+               CASE WHEN s.user_a = #{userId} THEN s.user_b ELSE s.user_a END AS peer_id,
+               u.nickname AS peer_nickname,
+               u.avatar   AS peer_avatar
+        FROM portal_message_session s
+        LEFT JOIN portal_user u
+            ON u.id = (CASE WHEN s.user_a = #{userId} THEN s.user_b ELSE s.user_a END)
+        WHERE s.user_a = #{userId} OR s.user_b = #{userId}
+        ORDER BY s.last_message_time DESC
+    </select>
+
+    <!-- 按 userA/userB 查询会话 -->
+    <select id="selectByUsers" resultMap="PortalMessageSessionResult">
+        SELECT id, user_a, user_b, last_message_id, last_message_content, last_message_time,
+               unread_a, unread_b, create_time, update_time
+        FROM portal_message_session
+        WHERE user_a = #{userA} AND user_b = #{userB}
+    </select>
+
+    <!-- 插入会话（唯一键冲突时忽略，避免并发重复创建） -->
+    <insert id="insertIgnore" parameterType="com.moyun.portal.domain.entity.PortalMessageSession"
+            useGeneratedKeys="true" keyProperty="id">
+        INSERT IGNORE INTO portal_message_session
+            (user_a, user_b, unread_a, unread_b, create_time, update_time)
+        VALUES
+            (#{userA}, #{userB}, 0, 0, #{createTime}, #{updateTime})
+    </insert>
+</mapper>

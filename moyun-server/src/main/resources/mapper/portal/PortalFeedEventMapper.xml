@@ -1,0 +1,103 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.moyun.portal.mapper.PortalFeedEventMapper">
+
+    <!-- FeedEventVO 结果映射 -->
+    <resultMap type="com.moyun.ext.cms.domain.vo.FeedEventVO" id="FeedEventVOResult">
+        <id property="eventId" column="event_id"/>
+        <result property="userId" column="user_id"/>
+        <result property="userNickname" column="user_nickname"/>
+        <result property="userAvatar" column="user_avatar"/>
+        <result property="eventType" column="event_type"/>
+        <result property="targetType" column="target_type"/>
+        <result property="targetId" column="target_id"/>
+        <result property="title" column="title"/>
+        <result property="summary" column="summary"/>
+        <result property="cover" column="cover"/>
+        <result property="createdTime" column="created_time"/>
+        <result property="isLiked" column="is_liked"/>
+    </resultMap>
+
+    <!-- 动态事件字段（实体） -->
+    <resultMap type="com.moyun.portal.domain.entity.PortalFeedEvent" id="PortalFeedEventResult">
+        <id property="id" column="id"/>
+        <result property="userId" column="user_id"/>
+        <result property="eventType" column="event_type"/>
+        <result property="targetType" column="target_type"/>
+        <result property="targetId" column="target_id"/>
+        <result property="title" column="title"/>
+        <result property="summary" column="summary"/>
+        <result property="cover" column="cover"/>
+        <result property="createdTime" column="created_time"/>
+    </resultMap>
+
+    <sql id="selectFeedEventVo">
+        select id, user_id, event_type, target_type, target_id, title, summary, cover, created_time
+        from portal_feed_event
+    </sql>
+
+    <!-- 查询我关注的人的最近动态（读时拉模式：JOIN portal_follow） -->
+    <select id="selectFollowingEvents" resultMap="FeedEventVOResult">
+        select
+            fe.id              as event_id,
+            fe.user_id        as user_id,
+            coalesce(pu.nickname, pu.username) as user_nickname,
+            pu.avatar         as user_avatar,
+            fe.event_type     as event_type,
+            fe.target_type    as target_type,
+            fe.target_id      as target_id,
+            fe.title           as title,
+            fe.summary        as summary,
+            fe.cover          as cover,
+            fe.created_time   as created_time
+        from portal_feed_event fe
+        inner join portal_follow pf on pf.following_id = fe.user_id
+        inner join portal_user  pu on pu.id = fe.user_id
+        where pf.follower_id = #{userId}
+        order by fe.created_time desc
+    </select>
+
+    <!-- 全站热门动态（最近 7 天事件，按时间倒序） -->
+    <select id="selectHotEvents" resultMap="FeedEventVOResult">
+        select
+            fe.id              as event_id,
+            fe.user_id        as user_id,
+            coalesce(pu.nickname, pu.username) as user_nickname,
+            pu.avatar         as user_avatar,
+            fe.event_type     as event_type,
+            fe.target_type    as target_type,
+            fe.target_id      as target_id,
+            fe.title           as title,
+            fe.summary        as summary,
+            fe.cover          as cover,
+            fe.created_time   as created_time
+        from portal_feed_event fe
+        left join portal_user pu on pu.id = fe.user_id
+        where fe.created_time &gt;= date_sub(now(), interval 7 day)
+        order by fe.created_time desc
+    </select>
+
+    <!-- 新增动态事件（返回自增主键） -->
+    <insert id="insertFeedEvent" parameterType="com.moyun.portal.domain.entity.PortalFeedEvent"
+            useGeneratedKeys="true" keyProperty="id">
+        insert into portal_feed_event
+        (user_id, event_type, target_type, target_id, title, summary, cover, created_time)
+        values
+        (#{userId}, #{eventType}, #{targetType}, #{targetId}, #{title}, #{summary}, #{cover}, #{createdTime})
+    </insert>
+
+    <!-- 根据目标对象查询事件 -->
+    <select id="selectByTarget" resultMap="PortalFeedEventResult">
+        <include refid="selectFeedEventVo"/>
+        where target_type = #{targetType} and target_id = #{targetId}
+        order by created_time desc
+    </select>
+
+    <!-- 根据目标对象删除事件（如文章被删除） -->
+    <delete id="deleteByTarget">
+        delete from portal_feed_event where target_type = #{targetType} and target_id = #{targetId}
+    </delete>
+
+</mapper>

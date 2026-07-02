@@ -31,4 +31,29 @@ public interface PortalBookListMapper extends BaseMapper<PortalBookList>
     int deletePortalBookListById(@Param("id") Long id);
 
     int deletePortalBookListByIds(@Param("ids") Long[] ids);
+
+    /**
+     * 原子递增浏览数（避免并发丢失更新）
+     */
+    int incrementViewCount(@Param("id") Long id);
+
+    /**
+     * 原子递增点赞数（避免并发丢失更新）
+     */
+    int incrementLikeCount(@Param("id") Long id);
+
+    /**
+     * 原子递减点赞数（避免并发丢失更新，不低于 0）
+     */
+    int decrementLikeCount(@Param("id") Long id);
+
+    /**
+     * 原子递增书籍数量（书单项新增后）
+     */
+    int incrementBookCount(@Param("id") Long id);
+
+    /**
+     * 原子递减书籍数量（书单项删除后，不低于 0）
+     */
+    int decrementBookCount(@Param("id") Long id);
 }

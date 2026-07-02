@@ -1069,6 +1069,93 @@ export interface InterviewResumeTemplateQuery {
   fileType?: string;
 }
 
+// ==================== 用户简历（面试空间第2期）====================
+
+export interface UserResumeJobIntention {
+  position?: string;
+  city?: string;
+  salaryMin?: number;
+  salaryMax?: number;
+  jobType?: string;
+  availableTime?: string;
+}
+
+export interface UserResumeEducationItem {
+  school?: string;
+  major?: string;
+  degree?: string;
+  startDate?: string;
+  endDate?: string;
+  description?: string;
+}
+
+export interface UserResumeWorkItem {
+  company?: string;
+  position?: string;
+  startDate?: string;
+  endDate?: string;
+  description?: string;
+}
+
+export interface UserResumeProjectItem {
+  name?: string;
+  role?: string;
+  startDate?: string;
+  endDate?: string;
+  description?: string;
+  url?: string;
+}
+
+export interface UserResumeSkillItem {
+  name?: string;
+  level?: string;
+  category?: string;
+}
+
+export interface UserResumeScoreItem {
+  item: string;
+  maxScore: number;
+  score: number;
+  message?: string;
+}
+
+export interface UserResumeVO {
+  id?: string | number;
+  userId?: string | number;
+  title?: string;
+  parentId?: string | number | null;
+  versionNo?: number;
+  name?: string;
+  gender?: string;
+  birthDate?: string;
+  phone?: string;
+  email?: string;
+  avatar?: string;
+  jobIntention?: UserResumeJobIntention | null;
+  educations?: UserResumeEducationItem[];
+  works?: UserResumeWorkItem[];
+  projects?: UserResumeProjectItem[];
+  skills?: UserResumeSkillItem[];
+  selfIntro?: string;
+  score?: number;
+  scoreDetail?: UserResumeScoreItem[];
+  scoredTime?: string;
+  fileUrl?: string;
+  exportTime?: string;
+  status?: string;
+  mine?: boolean;
+  createTime?: string;
+  updateTime?: string;
+}
+
+export interface UserResumeQuery {
+  pageNum?: number;
+  pageSize?: number;
+  keyword?: string;
+  status?: string;
+}
+
+
 export interface InterviewBookmarkVO {
   id: string | number;
   questionId: string | number;
@@ -1213,4 +1300,269 @@ export interface CheckinResult {
   streak?: number;
   /** 本次签到获得成长值 */
   growth?: number;
+}
+
+// ==================== Feed 流 ====================
+
+/** Feed 动态事件类型（后端枚举值） */
+export type FeedEventType =
+  | 'publish_article'
+  | 'publish_experience'
+  | 'new_column'
+  | 'checkin'
+  | string;
+
+/** Feed 动态目标类型（用于跳转） */
+export type FeedTargetType = 'article' | 'experience' | 'column' | string;
+
+/** Feed 动态事件 VO */
+export interface FeedEventVO {
+  /** 事件唯一ID */
+  eventId: string | number;
+  userId: string | number;
+  userNickname?: string;
+  userAvatar?: string;
+  /** 事件类型：publish_article / publish_experience / new_column / checkin 等 */
+  eventType: FeedEventType;
+  /** 目标类型：article / experience / column */
+  targetType: FeedTargetType;
+  /** 目标ID（文章/面经/专栏ID） */
+  targetId: string | number;
+  title?: string;
+  summary?: string;
+  cover?: string;
+  createdTime?: string;
+}
+
+// ==================== 专栏 ====================
+
+/** 专栏内文章条目（目录列表） */
+export interface ArticleSimpleVO {
+  id: string | number;
+  title: string;
+  cover?: string;
+  excerpt?: string;
+  viewCount?: number;
+  likeCount?: number;
+  createdTime?: string;
+  /** 排序值（升序） */
+  sortOrder?: number;
+}
+
+/** 专栏列表项 */
+export interface ColumnListItemVO {
+  id: string | number;
+  userId: string | number;
+  title: string;
+  subtitle?: string;
+  cover?: string;
+  description?: string;
+  articleCount?: number;
+  subscribeCount?: number;
+  viewCount?: number;
+  /** 是否完结：true 已完结 / false 连载中 */
+  isFinished?: boolean;
+  status?: string;
+  createdTime?: string;
+  authorName?: string;
+  authorAvatar?: string;
+}
+
+/** 专栏详情 VO */
+export interface ColumnVO {
+  id: string | number;
+  userId: string | number;
+  title: string;
+  subtitle?: string;
+  description?: string;
+  cover?: string;
+  categoryId?: string | number;
+  status?: string;
+  articleCount?: number;
+  subscribeCount?: number;
+  viewCount?: number;
+  isFinished?: boolean;
+  price?: number;
+  createdTime?: string;
+  updatedTime?: string;
+  authorName?: string;
+  authorAvatar?: string;
+  authorBio?: string;
+  /** 当前用户是否已订阅（未登录为 false） */
+  isSubscribed?: boolean;
+  /** 专栏文章目录 */
+  articles?: ArticleSimpleVO[];
+}
+
+/** 专栏列表查询参数 */
+export interface ColumnQuery {
+  /** 当前页码（对应后端 PageDomain.pageNum） */
+  pageNum?: number;
+  pageSize?: number;
+  keyword?: string;
+  status?: string;
+  categoryId?: string | number;
+  /** 排序方式：latest 最新 / popular 热门 / subscribe 订阅数 */
+  sortBy?: 'latest' | 'popular' | 'subscribe';
+}
+
+/** 专栏保存（创建/修改）请求体 */
+export interface ColumnSaveBody {
+  id?: string | number;
+  title: string;
+  subtitle?: string;
+  description?: string;
+  cover?: string;
+  categoryId?: string | number;
+  isFinished?: boolean;
+  price?: number;
+}
+
+/** 订阅切换返回 */
+export interface SubscribeToggleResult {
+  subscribed: boolean;
+  subscribeCount: number;
+}
+
+/** 批量排序条目 */
+export interface ColumnArticleSortItem {
+  id: string | number;
+  sortOrder: number;
+}
+
+// ==================== 私信相关类型 ====================
+
+/** 聊天对方用户信息 */
+export interface PeerUser {
+  id: string;
+  username?: string;
+  nickname?: string;
+  avatar?: string;
+  bio?: string;
+}
+
+/** 消息类型：文本/图片等 */
+export type MessageType = 'text' | 'image' | 'system';
+
+/** 私信会话（列表项 VO） */
+export interface MessageSessionVO {
+  id: string;
+  /** 会话对方用户信息 */
+  peerUser?: PeerUser;
+  /** 对方用户ID */
+  peerId?: string;
+  peerNickname?: string;
+  peerAvatar?: string;
+  /** 最后一条消息预览 */
+  lastMessage?: string;
+  /** 最后一条消息内容 */
+  lastContent?: string;
+  /** 最后消息时间 */
+  lastMessageTime?: string;
+  /** 最后消息发送者ID */
+  lastSenderId?: string;
+  /** 未读消息数 */
+  unreadCount?: number;
+  /** 会话创建/更新时间 */
+  createTime?: string;
+  updateTime?: string;
+}
+
+/** 单条消息 VO */
+export interface MessageVO {
+  id: string;
+  /** 所属会话ID */
+  sessionId: string;
+  /** 发送者ID */
+  senderId: string;
+  senderNickname?: string;
+  senderAvatar?: string;
+  /** 接收者ID */
+  receiverId?: string;
+  /** 消息内容 */
+  content: string;
+  /** 消息类型 */
+  msgType?: MessageType;
+  /** 是否为当前用户发送 */
+  isMine?: boolean;
+  /** 消息创建时间 */
+  createdTime?: string;
+  createTime?: string;
+}
+
+/** 历史消息兼容别名 */
+export type Message = MessageVO;
+
+/** 私信会话（前端使用，等价于 MessageSessionVO） */
+export type MessageSession = MessageSessionVO;
+
+/** 发送私信参数 */
+export interface SendMessageParams {
+  receiverId: string;
+  content: string;
+  msgType?: MessageType;
+}
+
+/** 会话列表查询参数 */
+export interface MessageSessionListParams {
+  pageNum?: number;
+  pageSize?: number;
+}
+
+/** 历史消息查询参数 */
+export interface MessageHistoryParams {
+  pageNum?: number;
+  pageSize?: number;
+}
+
+// ==================== 个人中心 Dashboard ====================
+
+/**
+ * 个人中心顶部数据聚合接口返回结构（GET /portal/user/me/dashboard）
+ * 各字段后端可能不全部返回，前端统一以可选 + 默认 0 处理。
+ */
+export interface UserDashboard {
+  /** 文章数（已发布） */
+  articles: number;
+  /** 收藏总数（文章/题目/书单/金句合计） */
+  bookmarks: number;
+  /** 书架数 */
+  bookshelf: number;
+  /** 答题数 */
+  questions: number;
+  /** 面经数 */
+  experiences: number;
+  /** 简历数 */
+  resumes: number;
+  /** 关注数 */
+  following: number;
+  /** 粉丝数 */
+  followers: number;
+  /** 专栏数（专栏作者） */
+  columns: number;
+  /** 未读消息数 */
+  unreadMessages: number;
+  /** 成长等级 */
+  growthLevel: number;
+  /** 累计成长值 */
+  growthValue: number;
+  /** 当前等级头衔 */
+  growthTitle?: string;
+}
+
+/** 关注/粉丝列表中的用户项（公开用户基础信息） */
+export interface FollowUserItem {
+  id: string | number;
+  username?: string;
+  nickname?: string;
+  avatar?: string;
+  bio?: string;
+  position?: string;
+  /** 是否被当前用户关注（粉丝列表用） */
+  following?: boolean;
+  /** 是否互相关注（对方也关注当前登录用户） */
+  mutualFollow?: boolean;
+  /** 是否为当前登录用户本人 */
+  isMe?: boolean;
+  createdAt?: string;
 }

@@ -162,6 +162,8 @@ public class SecurityConfig {
                             // 静态资源，可匿名访问
                             .requestMatchers(HttpMethod.GET, "/", "/*.html", "/*.css", "/*.js", "/profile/**").permitAll()
                             .requestMatchers("/swagger-ui.html", "/swagger-resources/**", "/webjars/**", "/*/api-docs", "/druid/**", "/doc.html", "/swagger-ui/**", "/v3/api-docs/**").permitAll()
+                            // WebSocket 握手端点：放行 HTTP 升级请求，鉴权由 PortalWebSocketAuthInterceptor 处理
+                            .requestMatchers("/ws-message/**").permitAll()
                             // 除上面外的所有请求全部需要鉴权认证
                             .anyRequest().authenticated();
                 })

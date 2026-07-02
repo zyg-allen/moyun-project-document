@@ -33,4 +33,105 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         delete from portal_book_list_item where book_list_id = #{bookListId}
     </delete>
 
+    <!-- 查询书单内书籍列表（带书籍详情），用于后台"管理书籍"弹窗 -->
+    <select id="selectItemsWithBookDetail" resultType="java.util.LinkedHashMap">
+        select i.id as itemId,
+               i.book_list_id as bookListId,
+               i.book_id as bookId,
+               b.id as id,
+               i.sort as sort,
+               i.note as note,
+               i.create_time as createTime,
+               b.title as title,
+               b.author as author,
+               b.cover as cover,
+               b.category_id as categoryId,
+               b.isbn as isbn,
+               b.rating as rating,
+               b.status as bookStatus,
+               b.type as type,
+               b.word_count as wordCount,
+               b.chapter_count as chapterCount
+        from portal_book_list_item i
+        left join portal_book b on b.id = i.book_id
+        where i.book_list_id = #{bookListId}
+        order by i.sort asc, i.id asc
+    </select>
+
+    <!-- 查询书单内已包含的 book_id 列表 -->
+    <select id="selectExistBookIds" resultType="java.lang.Long">
+        select book_id from portal_book_list_item where book_list_id = #{bookListId}
+    </select>
+
+    <!-- 批量插入书单-书籍关联 -->
+    <insert id="batchInsertItems" parameterType="java.util.List">
+        insert into portal_book_list_item (book_list_id, book_id, sort, note, create_time)
+        values
+        <foreach collection="items" item="item" separator=",">
+            (#{item.bookListId}, #{item.bookId}, #{item.sort}, #{item.note}, #{item.createTime})
+        </foreach>
+    </insert>
+
+    <!-- 更新单条排序（校验归属：只更新属于该书单的记录） -->
+    <update id="updateSort">
+        update portal_book_list_item set sort = #{sort} where id = #{id} and book_list_id = #{bookListId}
+    </update>
+
+    <!-- 批量删除书单-书籍关联（按 bookListId + bookIds） -->
+    <delete id="batchDeleteByBookListIdAndBookIds">
+        delete from portal_book_list_item
+        where book_list_id = #{bookListId}
+          and book_id in
+        <foreach collection="bookIds" item="bookId" open="(" separator="," close=")">
+            #{bookId}
+        </foreach>
+    </delete>
+
+    <!-- 查询可添加到书单的书籍（排除已在书单内的），支持书名/作者/分类筛选 -->
+    <select id="selectAvailableBooks" resultMap="com.moyun.portal.mapper.PortalBookMapper.PortalBookResult">
+        select b.id, b.title, b.author, b.cover, b.description, b.summary, b.isbn, b.publisher,
+               b.publish_date, b.page_count, b.category_id, b.tags, b.rating, b.reading_count,
+               b.status, b.type, b.serial_status, b.word_count, b.chapter_count,
+               b.latest_chapter_id, b.latest_chapter_title, b.last_update_time, b.is_finished,
+               b.access_level, b.preview_ratio, b.price, b.is_featured, b.is_recommended, b.author_bio,
+               b.create_by, b.create_time, b.update_by, b.update_time, b.remark
+        from portal_book b
+        where b.status = 'active'
+          and b.id not in (select book_id from portal_book_list_item where book_list_id = #{bookListId})
+        <if test="title != null and title != ''">
+            and b.title like concat('%', #{title}, '%')
+        </if>
+        <if test="author != null and author != ''">
+            and b.author like concat('%', #{author}, '%')
+        </if>
+        <if test="categoryId != null">
+            and b.category_id = #{categoryId}
+        </if>
+        order by b.id desc
+        limit 200
+    </select>
+
+    <!-- 分页查询可添加到书单的书籍（排除已在书单内的），支持书名/作者/分类筛选 -->
+    <select id="selectAvailableBooksPage" resultMap="com.moyun.portal.mapper.PortalBookMapper.PortalBookResult">
+        select b.id, b.title, b.author, b.cover, b.description, b.summary, b.isbn, b.publisher,
+               b.publish_date, b.page_count, b.category_id, b.tags, b.rating, b.reading_count,
+               b.status, b.type, b.serial_status, b.word_count, b.chapter_count,
+               b.latest_chapter_id, b.latest_chapter_title, b.last_update_time, b.is_finished,
+               b.access_level, b.preview_ratio, b.price, b.is_featured, b.is_recommended, b.author_bio,
+               b.create_by, b.create_time, b.update_by, b.update_time, b.remark
+        from portal_book b
+        where b.status = 'active'
+          and b.id not in (select book_id from portal_book_list_item where book_list_id = #{bookListId})
+        <if test="title != null and title != ''">
+            and b.title like concat('%', #{title}, '%')
+        </if>
+        <if test="author != null and author != ''">
+            and b.author like concat('%', #{author}, '%')
+        </if>
+        <if test="categoryId != null">
+            and b.category_id = #{categoryId}
+        </if>
+        order by b.id desc
+    </select>
+
 </mapper>

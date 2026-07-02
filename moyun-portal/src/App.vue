@@ -6,6 +6,7 @@ import ErrorBoundary from '@/components/ErrorBoundary.vue'
 import ToastContainer from '@/components/ToastContainer.vue'
 import ConfirmModal from '@/components/ConfirmModal.vue'
 import PromptModal from '@/components/PromptModal.vue'
+import MobileTabBar from '@/components/MobileTabBar.vue'
 import { useUserStore } from '@/stores/user'
 
 const route = useRoute()
@@ -33,6 +34,8 @@ onMounted(async () => {
       <template v-else>
         <router-view />
       </template>
+      <!-- 移动端底部 TabBar（仅在带布局的页面显示，移动端 < 768px 可见） -->
+      <MobileTabBar v-if="showLayout" />
     </div>
     <ToastContainer />
     <ConfirmModal />

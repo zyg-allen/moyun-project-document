@@ -74,4 +74,22 @@ public interface PortalFollowMapper extends BaseMapper<PortalFollow> {
      * @return 结果
      */
     public int deletePortalFollowByIds(Long[] ids);
+
+    /**
+     * 查询指定用户的粉丝ID列表（关注该用户的人）
+     * 用于 Feed 流推送：向粉丝收件箱写入动态。
+     *
+     * @param followingId 被关注者ID
+     * @return 粉丝ID列表
+     */
+    List<Long> selectFollowers(@Param("followingId") Long followingId);
+
+    /**
+     * 统计指定用户的粉丝数量
+     * 用于 Feed 推送阈值判断（粉丝数 &lt; 1000 时同步推送）。
+     *
+     * @param followingId 被关注者ID
+     * @return 粉丝数
+     */
+    long countFollowers(@Param("followingId") Long followingId);
 }

@@ -31,4 +31,14 @@ public interface PortalBookQuoteMapper extends BaseMapper<PortalBookQuote>
     int deletePortalBookQuoteById(@Param("id") Long id);
 
     int deletePortalBookQuoteByIds(@Param("ids") Long[] ids);
+
+    /**
+     * 原子递增点赞数（避免并发丢失更新）
+     */
+    int incrementLikeCount(@Param("id") Long id);
+
+    /**
+     * 原子递减点赞数（避免并发丢失更新，不低于 0）
+     */
+    int decrementLikeCount(@Param("id") Long id);
 }

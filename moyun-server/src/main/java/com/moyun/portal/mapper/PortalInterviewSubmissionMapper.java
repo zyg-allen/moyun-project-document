@@ -53,4 +53,13 @@ public interface PortalInterviewSubmissionMapper extends BaseMapper<PortalInterv
     @Select("SELECT * FROM portal_interview_submission WHERE question_id = #{questionId} " +
             "AND is_featured = 1 AND note IS NOT NULL AND note != '' ORDER BY featured_time DESC")
     List<PortalInterviewSubmission> selectFeaturedByQuestion(@Param("questionId") Long questionId);
+
+    /**
+     * 查询用户所有提交记录（按提交时间倒序）
+     *
+     * @param userId 用户ID
+     * @return 提交记录列表
+     */
+    @Select("SELECT * FROM portal_interview_submission WHERE user_id = #{userId} ORDER BY create_time DESC")
+    List<PortalInterviewSubmission> selectSubmissionsByUserId(@Param("userId") Long userId);
 }

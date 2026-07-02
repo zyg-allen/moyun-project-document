@@ -3,7 +3,7 @@ import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
 import { RouterLink as Link, useRouter, useRoute } from 'vue-router';
 import {
   Search, User, Plus, LogOut, Menu, X, Palette, Sun, Moon, Eye, Home,
-  ChevronDown, ChevronUp, Settings, UserCircle, BookMarked
+  ChevronDown, ChevronUp, Settings, UserCircle, BookMarked, MessageSquare
 } from 'lucide-vue-next';
 import { getStoredTheme, setTheme, getCurrentTheme, type Theme, themes } from '@/utils/theme';
 import { useUserStore } from '@/stores/user';
@@ -53,6 +53,18 @@ const navItems = computed<NavItem[]>(() => [
   {
     name: '名家录',
     key: 'authors',
+    children: []
+  },
+  {
+    name: '动态',
+    key: 'feed',
+    path: '/feed',
+    children: []
+  },
+  {
+    name: '专栏',
+    key: 'columns',
+    path: '/columns',
     children: []
   },
   ...filterCategoryTree(categories.value)
@@ -319,6 +331,18 @@ onUnmounted(() => document.removeEventListener('click', handleDocumentClick));
                 @read="markAsRead"
             />
 
+            <!-- 消息中心入口 -->
+            <Link
+                v-if="currentUser"
+                to="/messages"
+                class="p-2.5 rounded-lg transition-colors relative"
+                style="color: var(--theme-text-secondary);"
+                title="消息中心"
+                aria-label="消息中心"
+            >
+              <MessageSquare class="w-4 h-4 sm:w-5 sm:h-5" />
+            </Link>
+
             <!-- 主题切换 -->
             <div class="relative">
               <button
@@ -472,6 +496,16 @@ onUnmounted(() => document.removeEventListener('click', handleDocumentClick));
               <template v-else-if="item.key === 'authors'">
                 <Link
                     to="/authors"
+                    class="px-5 py-2.5 text-base font-semibold transition-all duration-200 rounded-lg hover:scale-105 hover:shadow-sm"
+                    style="color: var(--theme-text);"
+                >
+                  {{ item.name }}
+                </Link>
+              </template>
+              <!-- 有 path 但无子菜单：直接跳转（动态 / 专栏 等） -->
+              <template v-else-if="item.path && item.children.length === 0">
+                <Link
+                    :to="item.path"
                     class="px-5 py-2.5 text-base font-semibold transition-all duration-200 rounded-lg hover:scale-105 hover:shadow-sm"
                     style="color: var(--theme-text);"
                 >

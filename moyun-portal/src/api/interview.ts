@@ -1,4 +1,4 @@
-import { httpGet, httpPost, httpGetList } from './client';
+import { httpGet, httpPost, httpDelete, httpPut, httpGetList } from './client';
 import type {
   InterviewCategoryVO,
   InterviewQuestionVO,
@@ -11,6 +11,8 @@ import type {
   InterviewResumeTemplateVO,
   InterviewResumeTemplateQuery,
   InterviewHomeDataVO,
+  UserResumeVO,
+  UserResumeQuery,
   TagVO,
   PageResult,
 } from '@/types/api';
@@ -82,6 +84,23 @@ export const getFeaturedNotes = (questionId: string | number) => {
   );
 };
 
+// ==================== 我的（个人中心） ====================
+
+// 我的收藏题目列表
+export const getMyBookmarkList = (params?: { pageNum?: number; pageSize?: number }) => {
+  return httpGetList<InterviewQuestionVO>('/portal/interview/bookmark/my', params);
+};
+
+// 我的答题历史
+export const getMySubmissionList = (params?: { pageNum?: number; pageSize?: number }) => {
+  return httpGetList<InterviewSubmissionVO>('/portal/interview/submission/my', params);
+};
+
+// 我的面经列表（含草稿/待审核）
+export const getMyExperienceList = (params?: InterviewExperienceQuery) => {
+  return httpGetList<InterviewExperienceVO>('/portal/interview/experience/my', params);
+};
+
 // ==================== 面经 ====================
 
 export const getExperienceList = (params?: InterviewExperienceQuery) => {
@@ -98,6 +117,45 @@ export const toggleExperienceLike = (experienceId: string | number) => {
   return httpPost<{ liked: boolean; likeCount: number }>(
     `/portal/interview/experience/${experienceId}/like`
   );
+};
+
+// 发布面经
+export const publishExperience = (body: {
+  title: string;
+  company: string;
+  position?: string;
+  year?: number;
+  month?: number;
+  content: string;
+  summary?: string;
+  coverImage?: string;
+  tags?: string;
+  status?: 'draft' | 'pending';
+}) => {
+  return httpPost<InterviewExperienceVO>('/portal/interview/experience', body);
+};
+
+// 更新面经
+export const updateExperience = (
+  id: string | number,
+  body: Partial<{
+    title: string;
+    company: string;
+    position: string;
+    year: number;
+    month: number;
+    content: string;
+    summary: string;
+    coverImage: string;
+    tags: string;
+  }>
+) => {
+  return httpPut<InterviewExperienceVO>(`/portal/interview/experience`, { id, ...body });
+};
+
+// 删除面经
+export const deleteExperience = (experienceId: string | number) => {
+  return httpDelete<{ success: boolean }>(`/portal/interview/experience/${experienceId}`);
 };
 
 // ==================== 面经评论 ====================
@@ -125,6 +183,11 @@ export const toggleCommentLike = (commentId: string | number) => {
   );
 };
 
+// 删除评论
+export const deleteComment = (commentId: string | number) => {
+  return httpDelete<{ success: boolean }>(`/portal/interview/comment/${commentId}`);
+};
+
 // ==================== 简历模板 ====================
 
 export const getResumeTemplateList = (params?: InterviewResumeTemplateQuery) => {
@@ -132,6 +195,10 @@ export const getResumeTemplateList = (params?: InterviewResumeTemplateQuery) => 
     '/portal/interview/resume/list',
     params
   );
+};
+
+export const getResumeTemplateDetail = (templateId: string | number) => {
+  return httpGet<InterviewResumeTemplateVO>(`/portal/interview/resume/${templateId}`);
 };
 
 export const downloadResumeTemplate = (templateId: string | number) => {
@@ -172,3 +239,45 @@ export const searchTags = (keyword: string) => {
 
 // 兼容类型别名（向后兼容）
 export type { PageResult, TagVO };
+
+// ==================== 用户简历（第2期）====================
+
+export const getMyResumeList = (params?: UserResumeQuery) => {
+  return httpGetList<UserResumeVO>('/portal/interview/resume/user/list', params);
+};
+
+export const getResumeDetail = (id: string | number) => {
+  return httpGet<UserResumeVO>(`/portal/interview/resume/user/${id}`);
+};
+
+export const saveResume = (data: UserResumeVO) => {
+  return httpPost<string | number>('/portal/interview/resume/user/save', data as unknown as Record<string, any>);
+};
+
+export const deleteResume = (id: string | number) => {
+  return httpDelete<number>(`/portal/interview/resume/user/${id}`);
+};
+
+export const copyResume = (id: string | number) => {
+  return httpPost<string | number>(`/portal/interview/resume/user/${id}/copy`);
+};
+
+export const getResumeVersions = (id: string | number) => {
+  return httpGet<UserResumeVO[]>(`/portal/interview/resume/user/${id}/versions`);
+};
+
+export const exportResumePdf = (id: string | number) => {
+  return httpPost<UserResumeVO>(`/portal/interview/resume/user/${id}/export`);
+};
+
+export const scoreResume = (id: string | number) => {
+  return httpPost<UserResumeVO>(`/portal/interview/resume/user/${id}/score`);
+};
+
+export const updateResumeStatus = (id: string | number, status: string) => {
+  return httpPut<number>(
+    `/portal/interview/resume/user/${id}/status`,
+    { status }
+  );
+};
+

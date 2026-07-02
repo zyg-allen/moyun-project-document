@@ -33,6 +33,7 @@ import com.moyun.ext.cms.domain.vo.InterviewQuestionDetailVO;
 import com.moyun.ext.cms.domain.vo.InterviewQuestionVO;
 import com.moyun.ext.cms.domain.vo.InterviewResumeTemplateVO;
 import com.moyun.ext.cms.domain.vo.InterviewSubmissionVO;
+import com.moyun.ext.cms.service.IFeedService;
 import com.moyun.ext.cms.service.IPortalInterviewService;
 import com.moyun.portal.domain.entity.PortalInterviewAttempt;
 import com.moyun.portal.domain.entity.PortalInterviewBookmark;
@@ -87,6 +88,7 @@ public class PortalInterviewServiceImpl implements IPortalInterviewService {
     @Autowired private IPortalTagService portalTagService;
     @Autowired private IPortalGrowthService portalGrowthService;
     @Autowired private com.moyun.portal.mapper.PortalUserMapper portalUserMapper;
+    @Autowired private IFeedService feedService;
 
     // ========================================================================
     // 首页聚合
@@ -401,6 +403,55 @@ public class PortalInterviewServiceImpl implements IPortalInterviewService {
         return page;
     }
 
+    @Override
+    public Page<InterviewSubmissionVO> selectMySubmissionList(Page<InterviewSubmissionVO> page, Long userId) {
+        if (userId == null) {
+            page.setRecords(Collections.emptyList());
+            return page;
+        }
+        List<PortalInterviewSubmission> list = submissionMapper.selectSubmissionsByUserId(userId);
+        List<InterviewSubmissionVO> vos = list.stream().map(entity -> {
+            InterviewSubmissionVO vo = new InterviewSubmissionVO();
+            vo.setId(entity.getId());
+            vo.setQuestionId(entity.getQuestionId());
+            vo.setUserId(entity.getUserId());
+            vo.setCode(entity.getCode());
+            vo.setContent(entity.getContent());
+            vo.setLanguage(entity.getLanguage());
+            vo.setAnswerType(entity.getAnswerType());
+            vo.setStatus(entity.getStatus());
+            vo.setIsSuccess(entity.getIsSuccess());
+            vo.setRuntime(entity.getRuntime());
+            vo.setMemoryUsage(entity.getMemoryUsage());
+            vo.setNote(entity.getNote());
+            vo.setIsFeatured(entity.getIsFeatured());
+            vo.setFeaturedTime(entity.getFeaturedTime());
+            vo.setCreateTime(entity.getCreateTime());
+            // 填充题目标题和难度
+            PortalInterviewQuestion q = questionMapper.selectById(entity.getQuestionId());
+            if (q != null) {
+                vo.setQuestionTitle(q.getTitle());
+                vo.setQuestionDifficulty(q.getDifficulty());
+            }
+            return vo;
+        }).skip((long) (int) ((page.getCurrent() - 1) * page.getSize())).limit((int) page.getSize()).collect(Collectors.toList());
+        page.setRecords(vos);
+        page.setTotal((long) list.size());
+        return page;
+    }
+
+    @Override
+    public Page<InterviewExperienceVO> selectMyExperienceList(Page<InterviewExperienceVO> page, InterviewExperienceQuery query, Long userId) {
+        // 复用 selectExperiencePage，强制按 userId 过滤
+        if (query == null) {
+            query = new InterviewExperienceQuery();
+        }
+        query.setUserId(userId);
+        // 我的面经可见所有状态（含 draft/pending/rejected）
+        query.setStatus(null);
+        return selectExperiencePage(page, query, userId);
+    }
+
     /**
      * 后台采纳/取消采纳提交笔记为精选
      * 采纳时为提交者记录 note_adopted 成长事件
@@ -517,6 +568,16 @@ public class PortalInterviewServiceImpl implements IPortalInterviewService {
         if (row > 0 && userId != null) {
             portalGrowthService.recordEvent("interview", "publish_experience",
                     userId, "experience", experience.getId());
+
+            // 发布动态事件（Feed 流）。try-catch 包裹，避免 Feed 失败影响面经发布主流程
+            try {
+                feedService.publishEvent(userId, "publish_experience", "experience",
+                        experience.getId(), experience.getTitle(),
+                        experience.getSummary(), experience.getCoverImage());
+            } catch (Exception e) {
+                org.slf4j.LoggerFactory.getLogger(PortalInterviewServiceImpl.class)
+                        .error("[Feed] 面经发布动态事件失败：experienceId={}", experience.getId(), e);
+            }
         }
 
         return row;
@@ -714,6 +775,21 @@ public class PortalInterviewServiceImpl implements IPortalInterviewService {
             List<com.moyun.portal.domain.vo.TagVO> tagList = portalTagService.getTagsByEntity("interview_resume_template", vo.getId());
             if (tagList != null) vo.setTagList(tagList);
         }
+        return vo;
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public InterviewResumeTemplateVO downloadResumeTemplate(Long id) {
+        // 先查询模板
+        InterviewResumeTemplateVO vo = selectResumeTemplateById(id);
+        if (vo == null) {
+            return null;
+        }
+        // 原子递增下载次数，避免并发丢失更新
+        resumeTemplateMapper.incrementDownloadCount(id);
+        // 回填最新计数
+        vo.setDownloadCount((vo.getDownloadCount() == null ? 0L : vo.getDownloadCount()) + 1);
         return vo;
     }
 

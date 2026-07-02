@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.moyun.portal.mapper.PortalBookClubParticipantMapper">
+
+    <resultMap type="com.moyun.portal.domain.entity.PortalBookClubParticipant" id="PortalBookClubParticipantResult">
+        <id     property="id"          column="id"          />
+        <result property="activityId"  column="activity_id" />
+        <result property="userId"      column="user_id"     />
+        <result property="joinTime"    column="join_time"   />
+        <result property="createBy"    column="create_by"   />
+        <result property="createTime"  column="create_time" />
+        <result property="updateBy"    column="update_by"   />
+        <result property="updateTime"  column="update_time" />
+        <result property="remark"      column="remark"      />
+    </resultMap>
+
+    <!-- 查询某用户是否已加入某活动 -->
+    <select id="selectByActivityAndUser" resultMap="PortalBookClubParticipantResult">
+        select id, activity_id, user_id, join_time, create_by, create_time, update_by, update_time, remark
+        from portal_book_club_participant
+        where activity_id = #{activityId} and user_id = #{userId}
+        limit 1
+    </select>
+
+    <!-- 统计某活动的实际参与人数 -->
+    <select id="countByActivity" resultType="long">
+        select count(1) from portal_book_club_participant where activity_id = #{activityId}
+    </select>
+
+</mapper>

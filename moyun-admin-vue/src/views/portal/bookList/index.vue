@@ -5,7 +5,9 @@
         <el-input v-model="queryParams.title" placeholder="请输入书单名称" clearable style="width: 200px" @keyup.enter="handleQuery" />
       </el-form-item>
       <el-form-item label="分类" prop="categoryId">
-        <el-input v-model="queryParams.categoryId" placeholder="请输入分类ID" clearable style="width: 150px" @keyup.enter="handleQuery" />
+        <el-select v-model="queryParams.categoryId" placeholder="请选择分类" clearable filterable style="width: 180px" @change="handleQuery">
+          <el-option v-for="item in categoryOptions" :key="item.id" :label="item.name" :value="item.id" />
+        </el-select>
       </el-form-item>
       <el-form-item label="是否公开" prop="isPublic">
         <el-select v-model="queryParams.isPublic" placeholder="是否公开" clearable style="width: 120px">
@@ -48,7 +50,11 @@
         </template>
       </el-table-column>
       <el-table-column label="描述" align="center" prop="description" width="200" :show-overflow-tooltip="true" />
-      <el-table-column label="分类" align="center" prop="categoryId" width="80" />
+      <el-table-column label="分类" align="center" prop="categoryId" width="100">
+        <template #default="scope">
+          <span>{{ getCategoryName(scope.row.categoryId) }}</span>
+        </template>
+      </el-table-column>
       <el-table-column label="标签" align="center" prop="tags" width="150" :show-overflow-tooltip="true" />
       <el-table-column label="书籍数" align="center" prop="bookCount" width="80" />
       <el-table-column label="浏览数" align="center" prop="viewCount" width="80" />
@@ -85,9 +91,10 @@
           <span>{{ parseTime(scope.row.createTime) }}</span>
         </template>
       </el-table-column>
-      <el-table-column label="操作" align="center" class-name="small-padding fixed-width" width="180">
+      <el-table-column label="操作" align="center" class-name="small-padding fixed-width" width="260">
         <template #default="scope">
           <el-button link type="primary" icon="Edit" @click="handleUpdate(scope.row)" v-hasPermi="['portal:bookList:edit']">修改</el-button>
+          <el-button link type="success" icon="Reading" @click="handleManageBooks(scope.row)" v-hasPermi="['portal:bookList:query']">管理书籍</el-button>
           <el-button link type="primary" icon="Delete" @click="handleDelete(scope.row)" v-hasPermi="['portal:bookList:remove']">删除</el-button>
         </template>
       </el-table-column>
@@ -120,13 +127,15 @@
         </el-row>
         <el-row :gutter="20">
           <el-col :span="12">
-            <el-form-item label="分类ID" prop="categoryId">
-              <el-input-number v-model="form.categoryId" :min="0" style="width: 100%" />
+            <el-form-item label="分类" prop="categoryId">
+              <el-select v-model="form.categoryId" placeholder="请选择分类" clearable filterable style="width: 100%">
+                <el-option v-for="item in categoryOptions" :key="item.id" :label="item.name" :value="item.id" />
+              </el-select>
             </el-form-item>
           </el-col>
           <el-col :span="12">
             <el-form-item label="创建者ID" prop="userId">
-              <el-input-number v-model="form.userId" :min="1" style="width: 100%" />
+              <el-input-number v-model="form.userId" :min="1" :disabled="true" style="width: 100%" />
             </el-form-item>
           </el-col>
         </el-row>
@@ -141,6 +150,7 @@
               <el-select v-model="form.accessLevel" placeholder="请选择" style="width: 100%">
                 <el-option label="免费公开" value="free" />
                 <el-option label="会员专享" value="vip" />
+                <el-option label="试读（前30%免费）" value="preview" />
               </el-select>
             </el-form-item>
           </el-col>
@@ -168,19 +178,19 @@
           </el-col>
           <el-col :span="12">
             <el-form-item label="书籍数" prop="bookCount">
-              <el-input-number v-model="form.bookCount" :min="0" style="width: 100%" />
+              <el-input-number v-model="form.bookCount" :min="0" :disabled="true" style="width: 100%" />
             </el-form-item>
           </el-col>
         </el-row>
         <el-row :gutter="20">
           <el-col :span="12">
             <el-form-item label="浏览数" prop="viewCount">
-              <el-input-number v-model="form.viewCount" :min="0" style="width: 100%" />
+              <el-input-number v-model="form.viewCount" :min="0" :disabled="true" style="width: 100%" />
             </el-form-item>
           </el-col>
           <el-col :span="12">
             <el-form-item label="点赞数" prop="likeCount">
-              <el-input-number v-model="form.likeCount" :min="0" style="width: 100%" />
+              <el-input-number v-model="form.likeCount" :min="0" :disabled="true" style="width: 100%" />
             </el-form-item>
           </el-col>
         </el-row>
@@ -192,14 +202,126 @@
         </div>
       </template>
     </el-dialog>
+
+    <!-- 管理书籍对话框 -->
+    <el-dialog :title="booksDialogTitle" v-model="booksDialogOpen" width="1000px" append-to-body @open="onBooksDialogOpen">
+      <div style="margin-bottom: 12px; color: #909399; font-size: 13px">
+        当前书单共 <b style="color: #409eff">{{ currentBooks.length }}</b> 本书籍。左侧为可添加书籍（按条件筛选），右侧为书单内已有书籍。
+      </div>
+      <el-row :gutter="16">
+        <!-- 左侧：可添加书籍 -->
+        <el-col :span="14">
+          <div style="font-weight: 600; margin-bottom: 8px">可添加书籍</div>
+          <el-form :inline="true" :model="availableQuery" size="small" style="margin-bottom: 8px">
+            <el-form-item label="书名" style="margin-bottom: 0">
+              <el-input v-model="availableQuery.title" placeholder="书名" clearable style="width: 130px" @keyup.enter="loadAvailableBooks" />
+            </el-form-item>
+            <el-form-item label="作者" style="margin-bottom: 0">
+              <el-input v-model="availableQuery.author" placeholder="作者" clearable style="width: 120px" @keyup.enter="loadAvailableBooks" />
+            </el-form-item>
+            <el-form-item label="分类" style="margin-bottom: 0">
+              <el-select v-model="availableQuery.categoryId" placeholder="分类" clearable filterable style="width: 130px">
+                <el-option v-for="item in categoryOptions" :key="item.id" :label="item.name" :value="item.id" />
+              </el-select>
+            </el-form-item>
+            <el-form-item style="margin-bottom: 0">
+              <el-button type="primary" icon="Search" @click="loadAvailableBooks">查询</el-button>
+              <el-button icon="Refresh" @click="resetAvailableQuery">重置</el-button>
+            </el-form-item>
+          </el-form>
+          <el-table
+            v-loading="availableLoading"
+            :data="availableBooks"
+            height="380"
+            size="small"
+            @selection-change="handleAvailableSelectionChange"
+          >
+            <el-table-column type="selection" width="40" align="center" />
+            <el-table-column label="书名" prop="title" min-width="140" :show-overflow-tooltip="true" />
+            <el-table-column label="作者" prop="author" width="90" :show-overflow-tooltip="true" />
+            <el-table-column label="分类" width="90" align="center">
+              <template #default="scope">
+                <span>{{ getCategoryName(scope.row.categoryId) }}</span>
+              </template>
+            </el-table-column>
+          </el-table>
+          <div style="margin-top: 8px; text-align: right">
+            <el-button
+              type="primary"
+              icon="Plus"
+              :disabled="availableSelected.length === 0"
+              @click="handleAddBooks"
+            >添加选中书籍</el-button>
+          </div>
+        </el-col>
+        <!-- 右侧：书单内已有书籍 -->
+        <el-col :span="10">
+          <div style="font-weight: 600; margin-bottom: 8px">书单内书籍</div>
+          <el-table
+            v-loading="currentLoading"
+            :data="currentBooks"
+            height="380"
+            size="small"
+            @selection-change="handleCurrentSelectionChange"
+          >
+            <el-table-column type="selection" width="40" align="center" />
+            <el-table-column label="书名" prop="title" min-width="100" :show-overflow-tooltip="true" />
+            <el-table-column label="作者" prop="author" width="70" :show-overflow-tooltip="true" />
+            <el-table-column label="排序" width="80" align="center">
+              <template #default="scope">
+                <el-input-number
+                  v-model="scope.row.sort"
+                  :min="0"
+                  :max="9999"
+                  size="small"
+                  controls-position="right"
+                  style="width: 60px"
+                  @change="markSortChanged"
+                />
+              </template>
+            </el-table-column>
+          </el-table>
+          <div style="margin-top: 8px; text-align: right">
+            <el-button
+              type="primary"
+              icon="Sort"
+              :disabled="!sortChanged"
+              :loading="sortSaving"
+              @click="handleSaveSort"
+            >保存排序</el-button>
+            <el-button
+              type="danger"
+              icon="Delete"
+              :disabled="currentSelected.length === 0"
+              @click="handleRemoveBooks"
+            >移除选中书籍</el-button>
+          </div>
+        </el-col>
+      </el-row>
+    </el-dialog>
   </div>
 </template>
 
 <script setup name="BookList">
 import { ref, reactive, getCurrentInstance, onMounted } from "vue";
+import useUserStore from "@/store/modules/user";
 import { listBookList, addBookList, updateBookList, delBookList, delBookListBatch, getBookList } from "@/api/portal/bookList";
+import { listCategories } from "@/api/portal/category";
+import {
+  listBookListItems,
+  addBooksToBookList,
+  removeBooksFromBookList,
+  listAvailableBooks,
+  updateBookListSort
+} from "@/api/portal/bookListRelation";
 
 const { proxy } = getCurrentInstance();
+const userStore = useUserStore();
+
+// 分类下拉数据
+const categoryOptions = ref([]);
+// 分类ID -> 名称映射，用于表格列显示
+const categoryMap = ref({});
 
 const queryParams = reactive({
   pageNum: 1,
@@ -217,6 +339,23 @@ const total = ref(0);
 const selectedRows = ref([]);
 const single = ref(true);
 const multiple = ref(true);
+
+// ====== 管理书籍弹窗状态 =====
+const booksDialogOpen = ref(false);
+const booksDialogTitle = ref("");
+const currentBookListId = ref(null);
+// 当前书单内已有书籍
+const currentBooks = ref([]);
+const currentLoading = ref(false);
+const currentSelected = ref([]);
+// 可添加书籍（排除已在书单内）
+const availableBooks = ref([]);
+const availableLoading = ref(false);
+const availableSelected = ref([]);
+const availableQuery = reactive({ title: null, author: null, categoryId: null });
+// 排序状态
+const sortChanged = ref(false);
+const sortSaving = ref(false);
 
 const open = ref(false);
 const title = ref("");
@@ -274,6 +413,165 @@ function getList() {
   });
 }
 
+// 加载分类下拉数据
+function loadCategories() {
+  listCategories({ status: "0" }).then((response) => {
+    const list = response.data || [];
+    categoryOptions.value = list;
+    const map = {};
+    list.forEach((c) => {
+      map[c.id] = c.name;
+    });
+    categoryMap.value = map;
+  }).catch(() => {
+    categoryOptions.value = [];
+    categoryMap.value = {};
+  });
+}
+
+// 根据分类ID获取分类名称（用于表格展示）
+function getCategoryName(categoryId) {
+  if (categoryId == null) return "-";
+  return categoryMap.value[categoryId] || ("#" + categoryId);
+}
+
+// ====== 管理书籍相关 =====
+// 打开管理书籍弹窗
+function handleManageBooks(row) {
+  currentBookListId.value = row.id;
+  booksDialogTitle.value = "管理书籍 - " + row.title;
+  booksDialogOpen.value = true;
+}
+
+// 弹窗 open 时触发加载两侧数据
+function onBooksDialogOpen() {
+  // 重置筛选条件
+  availableQuery.title = null;
+  availableQuery.author = null;
+  availableQuery.categoryId = null;
+  availableSelected.value = [];
+  currentSelected.value = [];
+  sortChanged.value = false;
+  sortSaving.value = false;
+  loadCurrentBooks();
+  loadAvailableBooks();
+}
+
+// 加载书单内已有书籍
+function loadCurrentBooks() {
+  if (!currentBookListId.value) return;
+  currentLoading.value = true;
+  listBookListItems(currentBookListId.value).then((response) => {
+    currentBooks.value = response.data || [];
+    currentLoading.value = false;
+  }).catch((e) => {
+    proxy.$modal.msgError("加载书单书籍失败: " + e.message);
+    currentLoading.value = false;
+  });
+}
+
+// 加载可添加书籍（按书名/作者/分类筛选，排除已在书单内）
+function loadAvailableBooks() {
+  if (!currentBookListId.value) return;
+  availableLoading.value = true;
+  listAvailableBooks(currentBookListId.value, availableQuery).then((response) => {
+    availableBooks.value = response.data || [];
+    availableLoading.value = false;
+  }).catch((e) => {
+    proxy.$modal.msgError("查询可添加书籍失败: " + e.message);
+    availableLoading.value = false;
+  });
+}
+
+// 重置可添加书籍筛选
+function resetAvailableQuery() {
+  availableQuery.title = null;
+  availableQuery.author = null;
+  availableQuery.categoryId = null;
+  loadAvailableBooks();
+}
+
+// 可添加书籍选择变化
+function handleAvailableSelectionChange(selection) {
+  availableSelected.value = selection;
+}
+
+// 书单内书籍选择变化
+function handleCurrentSelectionChange(selection) {
+  currentSelected.value = selection;
+}
+
+// 添加选中书籍到书单
+function handleAddBooks() {
+  const bookIds = availableSelected.value.map((b) => b.id);
+  if (bookIds.length === 0) return;
+  proxy.$modal.confirm('是否确认将选中的 ' + bookIds.length + ' 本书籍加入书单？').then(() => {
+    addBooksToBookList(currentBookListId.value, bookIds, null).then((response) => {
+    if (response.code === 200) {
+      proxy.$modal.msgSuccess("成功添加 " + bookIds.length + " 本书籍");
+      sortChanged.value = false;
+      loadCurrentBooks();
+      loadAvailableBooks();
+      getList();
+    } else {
+      proxy.$modal.msgError(response.msg || "添加失败");
+    }
+  }).catch((e) => {
+    proxy.$modal.msgError("添加失败: " + e.message);
+  });
+  }).catch(() => {});
+}
+
+// 标记排序已修改
+function markSortChanged() {
+  sortChanged.value = true;
+}
+
+// 保存排序
+function handleSaveSort() {
+  if (!sortChanged.value || currentBooks.value.length === 0) return;
+  // 构建排序数据（使用 itemId 作为 id，因为 SQL 中 i.id 映射为 itemId）
+  const sortItems = currentBooks.value.map((item) => ({
+    id: item.itemId,
+    sort: item.sort || 0
+  }));
+  sortSaving.value = true;
+  updateBookListSort(currentBookListId.value, sortItems).then((response) => {
+    sortSaving.value = false;
+    if (response.code === 200) {
+      proxy.$modal.msgSuccess("排序保存成功");
+      sortChanged.value = false;
+      loadCurrentBooks();
+      getList();
+    } else {
+      proxy.$modal.msgError(response.msg || "排序保存失败");
+    }
+  }).catch((e) => {
+    sortSaving.value = false;
+    proxy.$modal.msgError("排序保存失败: " + e.message);
+  });
+}
+
+// 从书单移除选中书籍
+function handleRemoveBooks() {
+  const bookIds = currentSelected.value.map((b) => b.id);
+  if (bookIds.length === 0) return;
+  proxy.$modal.confirm('是否确认从书单中移除选中的 ' + bookIds.length + ' 本书籍？').then(() => {
+    removeBooksFromBookList(currentBookListId.value, bookIds).then((response) => {
+      if (response.code === 200) {
+        proxy.$modal.msgSuccess("移除成功");
+        loadCurrentBooks();
+        loadAvailableBooks();
+        getList();
+      } else {
+        proxy.$modal.msgError(response.msg || "移除失败");
+      }
+    }).catch((e) => {
+      proxy.$modal.msgError("移除失败: " + e.message);
+    });
+  }).catch(() => {});
+}
+
 function cancel() {
   open.value = false;
   resetForm();
@@ -285,7 +583,7 @@ function resetForm() {
     title: null,
     description: null,
     cover: null,
-    userId: 1,
+    userId: userStore.id || 1,
     categoryId: null,
     isPublic: true,
     bookCount: 0,
@@ -377,6 +675,7 @@ function handleDelete(row) {
 }
 
 onMounted(() => {
+  loadCategories();
   getList();
 });
 </script>

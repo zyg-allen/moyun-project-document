@@ -1,6 +1,7 @@
 package com.moyun.portal.service;
 
 import java.util.List;
+import java.util.Map;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.IService;
@@ -43,4 +44,15 @@ public interface IPortalBookQuoteService extends IService<PortalBookQuote> {
      * 查询某本书的公开金句
      */
     List<PortalBookQuote> selectQuotesByBookId(Long bookId, int limit);
+
+    /**
+     * 切换金句点赞（toggle，已点赞则取消，未点赞则新增）
+     * @return 包含 liked(Boolean) 与 likeCount(Long)
+     */
+    Map<String, Object> toggleQuoteLike(Long quoteId, Long userId);
+
+    /**
+     * 查询当前用户是否已点赞该金句
+     */
+    boolean isQuoteLiked(Long quoteId, Long userId);
 }

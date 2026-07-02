@@ -61,6 +61,12 @@ public class InterviewSubmissionVO implements Serializable {
     /** 提交者头像（精选笔记展示用） */
     private String userAvatar;
 
+    /** 题目标题（我的答题历史展示用） */
+    private String questionTitle;
+
+    /** 题目难度（我的答题历史展示用） */
+    private String questionDifficulty;
+
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime createTime;
 }

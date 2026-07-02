@@ -3,6 +3,7 @@
   "compilerOptions": {
     "composite": true,
     "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.app.tsbuildinfo",
+    "outDir": "./node_modules/.tmp/tsbuild",
     "strict": false,
     "noUnusedLocals": false,
     "noUnusedParameters": false,

@@ -3,6 +3,7 @@ package com.moyun.portal.domain.entity;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 import com.baomidou.mybatisplus.annotation.IdType;
@@ -94,6 +95,18 @@ public class PortalArticle extends BaseEntity
     private String editorMode;
 
     private String contentMarkdown;
+
+    /** 是否付费阅读 0=免费 1=付费 */
+    private Integer isPaid;
+
+    /** 付费内容（购买后可见） */
+    private String paidContent;
+
+    /** 试读字数（未购买可预览的字数） */
+    private Integer previewLength;
+
+    /** 付费价格，0=免费 */
+    private BigDecimal price;
 
     /** 作者昵称 */
     @TableField(exist = false)

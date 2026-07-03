@@ -38,6 +38,13 @@ public class PortalReport implements Serializable {
     @Size(max = 500, message = "目标URL长度不能超过500")
     private String targetUrl;
 
+    /** 举报目标类型：comment=评论 / article=文章 / user=用户（为空表示通用举报，仅 target_url） */
+    @Size(max = 32, message = "举报目标类型长度不能超过32")
+    private String targetType;
+
+    /** 举报目标ID（评论/文章/用户ID，配合 targetType 使用） */
+    private Long targetId;
+
     /** 举报描述（问题描述） */
     @NotBlank(message = "问题描述不能为空")
     @Size(max = 2000, message = "问题描述长度不能超过2000")

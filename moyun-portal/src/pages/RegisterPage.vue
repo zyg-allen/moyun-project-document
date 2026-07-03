@@ -6,7 +6,6 @@ import {
 } from 'lucide-vue-next';
 import loginBackground from '@/assets/images/login-background.jpg';
 import { useUserStore } from '@/stores/user';
-import { registerSchema, validateForm } from '@/utils/validation';
 
 const router = useRouter();
 const userStore = useUserStore();

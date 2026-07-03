@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.moyun.portal.mapper.PortalCirclePostMapper">
+
+    <!-- 圈子帖子 VO -->
+    <resultMap type="com.moyun.ext.cms.domain.vo.CirclePostVO" id="CirclePostVOResult">
+        <id property="id" column="id"/>
+        <result property="circleId" column="circle_id"/>
+        <result property="userId" column="user_id"/>
+        <result property="title" column="title"/>
+        <result property="content" column="content"/>
+        <result property="viewCount" column="view_count"/>
+        <result property="likeCount" column="like_count"/>
+        <result property="replyCount" column="reply_count"/>
+        <result property="status" column="status"/>
+        <result property="createdTime" column="created_time"/>
+        <result property="authorName" column="author_name"/>
+        <result property="authorAvatar" column="author_avatar"/>
+    </resultMap>
+
+    <!-- 圈子帖子分页（公开，仅 active） -->
+    <select id="selectPostsByCircle" resultMap="CirclePostVOResult">
+        SELECT p.id, p.circle_id, p.user_id, p.title, p.content, p.view_count, p.like_count,
+               p.reply_count, p.status, p.created_time,
+               pu.nickname AS author_name, pu.avatar AS author_avatar
+        FROM portal_circle_post p
+        LEFT JOIN portal_user pu ON pu.id = p.user_id
+        WHERE p.circle_id = #{circleId} AND p.status = 'active'
+        ORDER BY p.created_time DESC
+    </select>
+
+    <!-- 帖子详情（含作者信息） -->
+    <select id="selectPostDetail" resultMap="CirclePostVOResult">
+        SELECT p.id, p.circle_id, p.user_id, p.title, p.content, p.view_count, p.like_count,
+               p.reply_count, p.status, p.created_time,
+               pu.nickname AS author_name, pu.avatar AS author_avatar
+        FROM portal_circle_post p
+        LEFT JOIN portal_user pu ON pu.id = p.user_id
+        WHERE p.id = #{id}
+    </select>
+
+    <!-- 后台帖子分页查询（含所有状态） -->
+    <select id="selectCmsPostsPage" resultMap="CirclePostVOResult">
+        SELECT p.id, p.circle_id, p.user_id, p.title, p.content, p.view_count, p.like_count,
+               p.reply_count, p.status, p.created_time,
+               pu.nickname AS author_name, pu.avatar AS author_avatar
+        FROM portal_circle_post p
+        LEFT JOIN portal_user pu ON pu.id = p.user_id
+        <where>
+            <if test="circleId != null">
+                AND p.circle_id = #{circleId}
+            </if>
+            <if test="keyword != null and keyword != ''">
+                AND p.title LIKE CONCAT('%', #{keyword}, '%')
+            </if>
+            <if test="status != null and status != ''">
+                AND p.status = #{status}
+            </if>
+        </where>
+        ORDER BY p.created_time DESC
+    </select>
+
+</mapper>

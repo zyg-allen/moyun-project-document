@@ -1,0 +1,121 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.moyun.portal.mapper.PortalTopicMapper">
+
+    <!-- 话题列表简要信息 -->
+    <resultMap type="com.moyun.ext.cms.domain.vo.TopicListItemVO" id="TopicListItemResult">
+        <id property="id" column="id"/>
+        <result property="name" column="name"/>
+        <result property="slug" column="slug"/>
+        <result property="description" column="description"/>
+        <result property="cover" column="cover"/>
+        <result property="postCount" column="post_count"/>
+        <result property="followCount" column="follow_count"/>
+        <result property="status" column="status"/>
+        <result property="createdTime" column="created_time"/>
+    </resultMap>
+
+    <!-- 话题详情 -->
+    <resultMap type="com.moyun.ext.cms.domain.vo.TopicVO" id="TopicVOResult">
+        <id property="id" column="id"/>
+        <result property="name" column="name"/>
+        <result property="slug" column="slug"/>
+        <result property="description" column="description"/>
+        <result property="cover" column="cover"/>
+        <result property="postCount" column="post_count"/>
+        <result property="followCount" column="follow_count"/>
+        <result property="status" column="status"/>
+        <result property="createdTime" column="created_time"/>
+    </resultMap>
+
+    <!-- 话题下的动态 -->
+    <resultMap type="com.moyun.ext.cms.domain.vo.TopicPostVO" id="TopicPostVOResult">
+        <id property="id" column="id"/>
+        <result property="title" column="title"/>
+        <result property="cover" column="cover"/>
+        <result property="excerpt" column="excerpt"/>
+        <result property="authorId" column="author_id"/>
+        <result property="viewCount" column="views"/>
+        <result property="likeCount" column="likes"/>
+        <result property="createdTime" column="create_time"/>
+        <result property="authorName" column="author_name"/>
+        <result property="authorAvatar" column="author_avatar"/>
+    </resultMap>
+
+    <!-- 话题列表分页（公开，仅 active） -->
+    <select id="selectListPage" resultMap="TopicListItemResult">
+        SELECT t.id, t.name, t.slug, t.description, t.cover, t.post_count, t.follow_count,
+               t.status, t.created_time
+        FROM portal_topic t
+        WHERE t.status = 'active'
+        <if test="query.keyword != null and query.keyword != ''">
+            AND (t.name LIKE CONCAT('%', #{query.keyword}, '%')
+                 OR t.description LIKE CONCAT('%', #{query.keyword}, '%'))
+        </if>
+        <if test="query.initial != null and query.initial != ''">
+            AND t.name LIKE CONCAT(#{query.initial}, '%')
+        </if>
+        ORDER BY t.follow_count DESC, t.created_time DESC
+    </select>
+
+    <!-- 热门话题（按关注数倒序） -->
+    <select id="selectHotPage" resultMap="TopicListItemResult">
+        SELECT t.id, t.name, t.slug, t.description, t.cover, t.post_count, t.follow_count,
+               t.status, t.created_time
+        FROM portal_topic t
+        WHERE t.status = 'active'
+        ORDER BY t.follow_count DESC, t.post_count DESC, t.created_time DESC
+    </select>
+
+    <!-- 话题详情（按 slug） -->
+    <select id="selectDetailBySlug" resultMap="TopicVOResult">
+        SELECT t.id, t.name, t.slug, t.description, t.cover, t.post_count, t.follow_count,
+               t.status, t.created_time
+        FROM portal_topic t
+        WHERE t.slug = #{slug}
+    </select>
+
+    <!-- 话题详情（按 ID） -->
+    <select id="selectDetailById" resultMap="TopicVOResult">
+        SELECT t.id, t.name, t.slug, t.description, t.cover, t.post_count, t.follow_count,
+               t.status, t.created_time
+        FROM portal_topic t
+        WHERE t.id = #{id}
+    </select>
+
+    <!--
+        话题下的动态：基于 portal_entity_tag 扩展
+        通过 portal_tag(name=话题名) → portal_entity_tag(tag_id, entity_type='article') → portal_article
+        聚合带该话题标签的已发布文章
+    -->
+    <select id="selectTopicPosts" resultMap="TopicPostVOResult">
+        SELECT a.id, a.title, a.cover, a.excerpt, a.author_id, a.views, a.likes, a.create_time,
+               pu.nickname AS author_name, pu.avatar AS author_avatar
+        FROM portal_article a
+        INNER JOIN portal_entity_tag et ON et.entity_id = a.id AND et.entity_type = 'article'
+        INNER JOIN portal_tag tg ON tg.id = et.tag_id AND tg.name = #{topicName}
+        LEFT JOIN portal_user pu ON pu.id = a.author_id
+        WHERE a.status = 'published'
+        ORDER BY a.create_time DESC
+    </select>
+
+    <!-- 后台话题分页查询（含所有状态） -->
+    <select id="selectCmsListPage" resultMap="TopicListItemResult">
+        SELECT t.id, t.name, t.slug, t.description, t.cover, t.post_count, t.follow_count,
+               t.status, t.created_time
+        FROM portal_topic t
+        <where>
+            <if test="query.keyword != null and query.keyword != ''">
+                AND (t.name LIKE CONCAT('%', #{query.keyword}, '%')
+                     OR t.description LIKE CONCAT('%', #{query.keyword}, '%'))
+            </if>
+            <if test="query.status != null and query.status != ''">
+                AND t.status = #{query.status}
+            </if>
+        </where>
+        ORDER BY t.created_time DESC
+    </select>
+
+</mapper>

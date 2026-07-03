@@ -7,8 +7,7 @@
 -- ----------------------------
 -- 1. 用户成长值总表
 -- ----------------------------
-DROP TABLE IF EXISTS `portal_user_growth`;
-CREATE TABLE `portal_user_growth` (
+CREATE TABLE IF NOT EXISTS `portal_user_growth` (
     `id`            BIGINT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT '主键',
     `user_id`       BIGINT UNSIGNED NOT NULL COMMENT '门户用户ID（portal_user.id）',
     `growth_value`  INT UNSIGNED    DEFAULT 0 COMMENT '成长值（累计，只增不减）',
@@ -28,8 +27,7 @@ CREATE TABLE `portal_user_growth` (
 -- ----------------------------
 -- 2. 成长事件流水表
 -- ----------------------------
-DROP TABLE IF EXISTS `portal_growth_log`;
-CREATE TABLE `portal_growth_log` (
+CREATE TABLE IF NOT EXISTS `portal_growth_log` (
     `id`             BIGINT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT '主键',
     `user_id`        BIGINT UNSIGNED NOT NULL COMMENT '获得成长值的用户ID',
     `target_user_id` BIGINT UNSIGNED DEFAULT NULL COMMENT '目标用户ID（如被点赞的内容作者）',
@@ -54,8 +52,7 @@ CREATE TABLE `portal_growth_log` (
 -- ----------------------------
 -- 3. 用户统计聚合表
 -- ----------------------------
-DROP TABLE IF EXISTS `portal_user_stats`;
-CREATE TABLE `portal_user_stats` (
+CREATE TABLE IF NOT EXISTS `portal_user_stats` (
     `id`                    BIGINT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT '主键',
     `user_id`               BIGINT UNSIGNED NOT NULL COMMENT '门户用户ID',
     `article_count`         INT             DEFAULT 0 COMMENT '发布文章数',
@@ -89,8 +86,7 @@ CREATE TABLE `portal_user_stats` (
 -- ----------------------------
 -- 4. 成长规则配置表
 -- ----------------------------
-DROP TABLE IF EXISTS `portal_growth_rule`;
-CREATE TABLE `portal_growth_rule` (
+CREATE TABLE IF NOT EXISTS `portal_growth_rule` (
     `id`            BIGINT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT '主键',
     `module`        VARCHAR(32)     NOT NULL COMMENT '模块: article/reading/interview/all',
     `action`        VARCHAR(64)     NOT NULL COMMENT '行为编码',
@@ -111,8 +107,7 @@ CREATE TABLE `portal_growth_rule` (
 -- ----------------------------
 -- 5. 成就定义表
 -- ----------------------------
-DROP TABLE IF EXISTS `portal_achievement`;
-CREATE TABLE `portal_achievement` (
+CREATE TABLE IF NOT EXISTS `portal_achievement` (
     `id`             BIGINT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT '主键',
     `code`           VARCHAR(64)     NOT NULL COMMENT '成就编码',
     `name`           VARCHAR(100)    NOT NULL COMMENT '成就名称',
@@ -135,8 +130,7 @@ CREATE TABLE `portal_achievement` (
 -- ----------------------------
 -- 6. 用户徽章记录表
 -- ----------------------------
-DROP TABLE IF EXISTS `portal_user_badge`;
-CREATE TABLE `portal_user_badge` (
+CREATE TABLE IF NOT EXISTS `portal_user_badge` (
     `id`             BIGINT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT '主键',
     `user_id`        BIGINT UNSIGNED NOT NULL COMMENT '用户ID',
     `achievement_id` BIGINT UNSIGNED NOT NULL COMMENT '成就ID',

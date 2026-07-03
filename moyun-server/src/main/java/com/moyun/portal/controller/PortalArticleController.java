@@ -34,9 +34,12 @@ import com.moyun.portal.mapper.PortalLikeMapper;
 import com.moyun.portal.service.IPortalArticleService;
 import com.moyun.portal.service.IPortalGrowthService;
 import com.moyun.portal.service.IPortalTagService;
+import com.moyun.portal.service.IPortalTipService;
 import com.moyun.portal.util.ArticleConvertUtil;
 import com.moyun.portal.util.PortalSecurityUtils;
 import com.moyun.util.bean.PageUtils;
+
+import com.moyun.portal.domain.entity.PortalTipOrder;
 
 /**
  * 门户文章 Controller
@@ -91,6 +94,9 @@ public class PortalArticleController extends BaseController {
     @Autowired
     private IPortalTagService portalTagService;
 
+    @Autowired
+    private IPortalTipService portalTipService;
+
     @Operation(summary = "获取文章列表", description = "根据条件分页查询文章列表")
     @GetMapping("/list")
     public AjaxResult list(ArticleQuery query) {
@@ -123,7 +129,90 @@ public class PortalArticleController extends BaseController {
     @GetMapping(value = "/{id}")
     public AjaxResult getInfo(@Parameter(description = "文章ID") @PathVariable Long id) {
         PortalArticle article = portalArticleService.selectPortalArticleById(id);
-        return success(ArticleConvertUtil.toArticleVO(article));
+        ArticleVO vo = ArticleConvertUtil.toArticleVO(article);
+        // 付费阅读：未购买用户只返回 preview_length 字数的试读部分，并隐藏付费内容
+        if (vo != null && vo.getIsPaid() != null && vo.getIsPaid() == 1) {
+            Long userId = PortalSecurityUtils.getUserId();
+            boolean canReadFull = false;
+            // 作者本人可阅读全文
+            if (userId != null && article != null && userId.equals(article.getAuthorId())) {
+                canReadFull = true;
+            }
+            // 已购买可阅读全文
+            if (!canReadFull && userId != null
+                    && portalTipService.hasPaid(userId, "article_paid", id)) {
+                canReadFull = true;
+            }
+            vo.setIsPurchased(canReadFull);
+            if (!canReadFull) {
+                // 试读截断：仅保留 preview_length 字数
+                int previewLength = vo.getPreviewLength() == null ? 0 : vo.getPreviewLength();
+                if (previewLength > 0 && vo.getContent() != null && vo.getContent().length() > previewLength) {
+                    vo.setContent(vo.getContent().substring(0, previewLength));
+                }
+                // 隐藏付费内容
+                vo.setPaidContent(null);
+            }
+        }
+        return success(vo);
+    }
+
+    /**
+     * 购买付费阅读（需登录）
+     * 复用打赏订单表 portal_tip_order，target_type='article_paid'，amount=文章价格
+     */
+    @Operation(summary = "购买付费阅读", description = "购买付费文章阅读权限，复用打赏订单表")
+    @PostMapping("/{id}/purchase")
+    @Transactional(rollbackFor = Exception.class)
+    public AjaxResult purchase(@Parameter(description = "文章ID") @PathVariable Long id) {
+        Long userId = PortalSecurityUtils.getUserId();
+        if (userId == null) {
+            return AjaxResult.error(HttpStatus.UNAUTHORIZED, "请先登录");
+        }
+
+        PortalArticle article = portalArticleService.selectPortalArticleById(id);
+        if (article == null) {
+            return error("文章不存在");
+        }
+        if (article.getIsPaid() == null || article.getIsPaid() != 1) {
+            return error("该文章非付费文章");
+        }
+        if (article.getAuthorId() != null && article.getAuthorId().equals(userId)) {
+            return error("作者无需购买自己的文章");
+        }
+        if (portalTipService.hasPaid(userId, "article_paid", id)) {
+            return error("您已购买该文章，无需重复购买");
+        }
+        if (article.getPrice() == null || article.getPrice().doubleValue() <= 0) {
+            return error("付费文章价格异常");
+        }
+
+        PortalTipOrder order = new PortalTipOrder();
+        order.setTargetType("article_paid");
+        order.setTargetId(id);
+        order.setAmount(article.getPrice());
+        PortalTipOrder created = portalTipService.toggleTipOrList(order);
+
+        Map<String, Object> data = new HashMap<>();
+        data.put("id", created.getId());
+        data.put("status", created.getStatus());
+        data.put("message", "购买成功");
+        return success(data);
+    }
+
+    /**
+     * 我购买的文章（需登录）
+     */
+    @Operation(summary = "我购买的文章", description = "分页查询当前用户已购买的付费文章")
+    @GetMapping("/my/purchased")
+    public AjaxResult myPurchased(ArticleQuery query) {
+        Long userId = PortalSecurityUtils.getUserId();
+        if (userId == null) {
+            return AjaxResult.error(HttpStatus.UNAUTHORIZED, "请先登录");
+        }
+        Page<PortalArticle> page = PageUtils.buildPage(query);
+        Page<PortalArticle> resultPage = portalArticleMapper.selectPurchasedArticlesPage(page, userId);
+        return success(ArticleConvertUtil.toArticleVOList(resultPage.getRecords()));
     }
 
     /**

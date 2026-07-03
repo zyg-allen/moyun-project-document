@@ -208,7 +208,7 @@ function avatarUrl(ev: FeedEventVO): string {
       class="border-b sticky top-0 z-30 backdrop-blur-sm"
       style="background-color: var(--theme-surface); border-color: var(--theme-border);"
     >
-      <div class="max-w-3xl mx-auto px-4 py-3 flex items-center justify-between">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex items-center justify-between">
         <button
           @click="goBack"
           class="flex items-center text-sm transition hover:opacity-80"
@@ -231,7 +231,7 @@ function avatarUrl(ev: FeedEventVO): string {
         <div class="absolute top-8 left-10 w-48 h-48 rounded-full bg-white"></div>
         <div class="absolute bottom-8 right-16 w-72 h-72 rounded-full bg-white"></div>
       </div>
-      <div class="relative max-w-3xl mx-auto px-4 text-center">
+      <div class="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
         <div class="inline-flex items-center bg-white/10 backdrop-blur-sm px-4 py-1.5 rounded-full text-sm mb-4">
           <Sparkles class="w-4 h-4 mr-2" /> 墨韵 · 动态广场
         </div>
@@ -242,7 +242,7 @@ function avatarUrl(ev: FeedEventVO): string {
 
     <!-- Tab 切换 -->
     <div class="border-b" style="background-color: var(--theme-surface); border-color: var(--theme-border);">
-      <div class="max-w-3xl mx-auto px-4 flex items-center gap-1">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center gap-1">
         <button
           @click="switchTab('hot')"
           class="flex items-center px-5 py-3 text-sm font-medium transition relative"
@@ -278,7 +278,7 @@ function avatarUrl(ev: FeedEventVO): string {
 
     <!-- 内容区 -->
     <div class="flex-1 py-6">
-      <div class="max-w-3xl mx-auto px-4">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <!-- 加载状态（首屏） -->
         <div v-if="loading && list.length === 0" class="flex flex-col items-center justify-center py-20">
           <div

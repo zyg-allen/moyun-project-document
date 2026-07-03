@@ -226,6 +226,7 @@ public class PortalGrowthServiceImpl implements IPortalGrowthService {
         vo.setComments(stats.getCommentCount() != null ? stats.getCommentCount() : 0);
         vo.setTotalLikes(stats.getTotalLikeReceived() != null ? stats.getTotalLikeReceived() : 0L);
         vo.setCheckinStreak(stats.getCheckinStreak() != null ? stats.getCheckinStreak() : 0);
+        vo.setLastCheckinDate(stats.getLastCheckinDate());
         return vo;
     }
 

@@ -12,7 +12,7 @@ import BackToTop from '@/components/BackToTop.vue';
 import * as articleApi from '@/api/article';
 import * as categoryApi from '@/api/category';
 import { getHotTags } from '@/api/tag';
-import { generateSeo, buildCanonicalUrl, fromSlug } from '@/utils/seo';
+import { generateSeo, fromSlug } from '@/utils/seo';
 import { transformArticle } from '@/utils/articleTransform';
 import { useAuth } from '@/composables/useAuth';
 import type { Article as ApiArticle } from '@/types/api';

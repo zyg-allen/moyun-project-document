@@ -5,14 +5,14 @@ import {
   Search, User, Plus, LogOut, Menu, X, Palette, Sun, Moon, Eye, Home,
   ChevronDown, ChevronUp, Settings, UserCircle, BookMarked, MessageSquare
 } from 'lucide-vue-next';
-import { getStoredTheme, setTheme, getCurrentTheme, type Theme, themes } from '@/utils/theme';
+import { setTheme, getCurrentTheme, type Theme, themes } from '@/utils/theme';
 import { useUserStore } from '@/stores/user';
 import { getSafeAvatar } from '@/utils/avatar';
 import { useAuth } from '@/composables/useAuth';
 import NotificationBell from './NotificationBell.vue';
 import * as notificationApi from '@/api/notification';
 import * as categoryApi from '@/api/category';
-import { shouldShowCategory, filterCategoryTree, getCategoryTarget } from '@/api/category';
+import { filterCategoryTree, getCategoryTarget } from '@/api/category';
 import type { Category } from '@/types/api';
 
 const router = useRouter();

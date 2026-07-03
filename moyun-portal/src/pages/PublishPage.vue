@@ -5,7 +5,8 @@ import {
   ArrowLeft, Image as ImageIcon, Save, Eye, Send, X,
   List, Clock, User, FileText, Settings,
   Sparkles, Globe, Lock, Tag as TagIcon, BookOpen,
-  ChevronDown, Check, Type, Plus, ChevronRight, Code
+  ChevronDown, Check, Type, Plus, ChevronRight, Code,
+  Lightbulb, ChevronRight as ChevronRightIcon
 } from 'lucide-vue-next';
 import {
   getHotTags,
@@ -14,8 +15,17 @@ import {
   getRecommendTags
 } from '@/api/tag';
 import { getCategoryTree } from '@/api/category';
-import { createArticle, publishArticle, saveDraft as saveDraftApi, getArticleDetail } from '@/api/article';
+import { publishArticle, saveDraft as saveDraftApi, getArticleDetail } from '@/api/article';
 import { uploadPortalFile } from '@/api/file';
+import { getTodayPrompt } from '@/api/prompt';
+import type { WritingPromptVO } from '@/api/prompt';
+import {
+  getArticleVersions,
+  getArticleVersionDetail,
+  rollbackArticleVersion,
+  diffArticleVersions
+} from '@/api/articleVersion';
+import type { ArticleVersionItem, ArticleVersionDetail, VersionDiffResult } from '@/api/articleVersion';
 import { useUserStore } from '@/stores/user';
 import { useAuth } from '@/composables/useAuth';
 import { useToast } from '@/composables/useToast';
@@ -99,6 +109,30 @@ const isPublishing = ref(false);
 const isSaving = ref(false);
 const lastSaved = ref<string | null>(null);
 
+// 今日写作 prompt（页面顶部提示卡片）
+const todayPrompt = ref<WritingPromptVO | null>(null);
+const promptExpanded = ref(false);
+async function loadTodayPrompt() {
+  try {
+    const res = await getTodayPrompt();
+    if (res.code === 200 && res.data) {
+      todayPrompt.value = res.data;
+    }
+  } catch (err) {
+    // 静默失败，不影响发布页主流程
+    console.warn('加载今日 prompt 失败:', err);
+  }
+}
+function togglePrompt() {
+  promptExpanded.value = !promptExpanded.value;
+}
+function applyPromptAsTitle() {
+  if (!todayPrompt.value) return;
+  if (!title.value.trim()) {
+    title.value = todayPrompt.value.title;
+  }
+}
+
 // 高级选项显示状态
 const showAdvanced = ref(false);
 const showSeoSettings = ref(false);
@@ -107,6 +141,24 @@ const showPermissionSettings = ref(false);
 
 // 草稿ID（保存后记录，后续保存为更新）
 const draftId = ref<string | number | null>(null);
+
+// ============ 版本历史 ============
+// 抽屉显隐
+const showVersionDrawer = ref(false);
+// 版本列表
+const versionList = ref<ArticleVersionItem[]>([]);
+const loadingVersions = ref(false);
+// 选中版本详情
+const selectedVersion = ref<ArticleVersionDetail | null>(null);
+const loadingVersionDetail = ref(false);
+// 对比结果
+const diffResult = ref<VersionDiffResult | null>(null);
+const loadingDiff = ref(false);
+// 对比选中的两个版本号（版本列表里勾选）
+const diffV1 = ref<number | null>(null);
+const diffV2 = ref<number | null>(null);
+// 回滚中
+const rollingBack = ref(false);
 
 // 字数统计
 const wordCount = computed(() => {
@@ -149,6 +201,9 @@ onMounted(async () => {
 
   // 加载热门标签
   loadHotTags();
+
+  // 加载今日写作 prompt（不阻塞主流程）
+  loadTodayPrompt();
 
   // 编辑模式：如果 query.id 存在，加载已有文章
   const editId = route.query.id as string;
@@ -530,6 +585,160 @@ async function goBack() {
   }
 }
 
+// ============ 版本历史相关函数 ============
+
+// 打开版本历史抽屉
+async function openVersionDrawer() {
+  if (!draftId.value) {
+    toast.warning('请先保存草稿，生成版本记录');
+    return;
+  }
+  showVersionDrawer.value = true;
+  // 重置状态
+  selectedVersion.value = null;
+  diffResult.value = null;
+  diffV1.value = null;
+  diffV2.value = null;
+  await loadVersions();
+}
+
+// 加载版本列表
+async function loadVersions() {
+  if (!draftId.value) return;
+  loadingVersions.value = true;
+  try {
+    const response = await getArticleVersions(draftId.value);
+    versionList.value = response.code === 200 ? (response.data || []) : [];
+  } catch (error: any) {
+    console.error('加载版本列表失败:', error);
+    toast.error(error?.message || '加载版本列表失败');
+    versionList.value = [];
+  } finally {
+    loadingVersions.value = false;
+  }
+}
+
+// 查看版本详情
+async function viewVersionDetail(version: ArticleVersionItem) {
+  loadingVersionDetail.value = true;
+  selectedVersion.value = null;
+  diffResult.value = null;
+  try {
+    const response = await getArticleVersionDetail(version.id);
+    if (response.code === 200 && response.data) {
+      selectedVersion.value = response.data;
+    } else {
+      toast.error(response.message || '加载版本详情失败');
+    }
+  } catch (error: any) {
+    console.error('加载版本详情失败:', error);
+    toast.error(error?.message || '加载版本详情失败');
+  } finally {
+    loadingVersionDetail.value = false;
+  }
+}
+
+// 回滚到指定版本
+async function handleRollback(version: ArticleVersionItem) {
+  if (!draftId.value) return;
+  const ok = await confirmModal.confirm(
+    `确定要回滚到「版本 ${version.versionNo}」吗？当前编辑器内容将被该版本覆盖，并生成一个新的版本快照。`,
+    {
+      title: '回滚确认',
+      confirmText: '确认回滚',
+      danger: true,
+    }
+  );
+  if (!ok) return;
+
+  rollingBack.value = true;
+  try {
+    const response = await rollbackArticleVersion(draftId.value, version.id);
+    if (response.code === 200 && response.data) {
+      const data = response.data;
+      // 用回滚后的内容覆盖编辑器
+      title.value = data.title || title.value;
+      if (data.contentMarkdown) {
+        content.value = data.contentMarkdown;
+      } else if (data.content) {
+        content.value = data.content;
+      }
+      if (data.excerpt !== undefined && data.excerpt !== null) {
+        excerpt.value = data.excerpt;
+      }
+      toast.success(`已回滚到版本 ${version.versionNo}`);
+      // 关闭详情，刷新版本列表
+      selectedVersion.value = null;
+      await loadVersions();
+    } else {
+      toast.warning(response.message || '回滚未生效，请稍后重试');
+    }
+  } catch (error: any) {
+    console.error('回滚失败:', error);
+    toast.error(error?.message || '回滚失败，请稍后重试');
+  } finally {
+    rollingBack.value = false;
+  }
+}
+
+// 切换对比选中（最多选两个）
+function toggleDiffPick(versionNo: number) {
+  if (diffV1.value === versionNo) {
+    diffV1.value = null;
+  } else if (diffV2.value === versionNo) {
+    diffV2.value = null;
+  } else if (diffV1.value === null) {
+    diffV1.value = versionNo;
+  } else if (diffV2.value === null) {
+    diffV2.value = versionNo;
+  } else {
+    // 都已选，替换第二个
+    diffV2.value = versionNo;
+  }
+}
+
+// 执行对比
+async function handleDiff() {
+  if (!draftId.value) {
+    toast.warning('缺少文章 ID');
+    return;
+  }
+  if (diffV1.value === null || diffV2.value === null) {
+    toast.warning('请选择两个版本进行对比');
+    return;
+  }
+  if (diffV1.value === diffV2.value) {
+    toast.warning('请选择两个不同的版本');
+    return;
+  }
+
+  loadingDiff.value = true;
+  diffResult.value = null;
+  selectedVersion.value = null;
+  try {
+    const response = await diffArticleVersions(draftId.value, diffV1.value, diffV2.value);
+    if (response.code === 200 && response.data) {
+      diffResult.value = response.data;
+    } else {
+      toast.error(response.message || '版本对比失败');
+    }
+  } catch (error: any) {
+    console.error('版本对比失败:', error);
+    toast.error(error?.message || '版本对比失败');
+  } finally {
+    loadingDiff.value = false;
+  }
+}
+
+// 关闭抽屉
+function closeVersionDrawer() {
+  showVersionDrawer.value = false;
+  selectedVersion.value = null;
+  diffResult.value = null;
+  diffV1.value = null;
+  diffV2.value = null;
+}
+
 // 摘要提取状态
 const isExtractingExcerpt = ref(false);
 
@@ -664,6 +873,18 @@ const titleLength = computed(() => title.value.length);
               <span class="hidden sm:inline">保存草稿</span>
             </button>
 
+            <!-- 版本历史（仅在已保存草稿时显示） -->
+            <button
+                v-if="draftId"
+                @click="openVersionDrawer"
+                class="px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2"
+                style="color: var(--theme-text-secondary); border: 1px solid var(--theme-border);"
+                title="查看与回滚历史版本"
+            >
+              <History class="w-4 h-4" />
+              <span class="hidden sm:inline">版本历史</span>
+            </button>
+
             <!-- 预览 -->
             <button
                 @click="previewArticle"
@@ -695,6 +916,54 @@ const titleLength = computed(() => title.value.length);
         <div class="grid grid-cols-1 lg:grid-cols-4 gap-4">
           <!-- 左侧主编辑区 -->
           <div class="lg:col-span-3 space-y-4">
+            <!-- 今日写作 prompt 提示卡片 -->
+            <div
+              v-if="todayPrompt"
+              class="rounded-lg overflow-hidden"
+              style="background: linear-gradient(135deg, color-mix(in srgb, var(--theme-primary) 8%, var(--theme-surface)), var(--theme-surface)); border: 1px solid color-mix(in srgb, var(--theme-primary) 30%, var(--theme-border));"
+            >
+              <div
+                class="px-4 py-3 flex items-center justify-between cursor-pointer"
+                @click="togglePrompt"
+              >
+                <div class="flex items-center gap-2 min-w-0">
+                  <Lightbulb class="w-4 h-4 flex-shrink-0" style="color: var(--theme-primary);" />
+                  <span class="text-sm font-medium truncate" style="color: var(--theme-text);">
+                    今日写作 Prompt：{{ todayPrompt.title }}
+                  </span>
+                  <span
+                    v-if="todayPrompt.category"
+                    class="px-1.5 py-0.5 rounded text-xs flex-shrink-0"
+                    style="background-color: color-mix(in srgb, var(--theme-primary) 12%, transparent); color: var(--theme-primary);"
+                  >
+                    {{ todayPrompt.category }}
+                  </span>
+                </div>
+                <ChevronRightIcon
+                  class="w-4 h-4 flex-shrink-0 transition-transform"
+                  :class="{ 'rotate-90': promptExpanded }"
+                  style="color: var(--theme-text-secondary);"
+                />
+              </div>
+              <div v-if="promptExpanded" class="px-4 pb-3 pt-1 border-t" style="border-color: color-mix(in srgb, var(--theme-primary) 20%, var(--theme-border));">
+                <p v-if="todayPrompt.description" class="text-sm mt-2 mb-3 whitespace-pre-wrap" style="color: var(--theme-text);">
+                  {{ todayPrompt.description }}
+                </p>
+                <div class="flex items-center gap-2 flex-wrap">
+                  <button
+                    @click="applyPromptAsTitle"
+                    class="inline-flex items-center px-3 py-1.5 rounded-md text-xs font-medium text-white transition hover:opacity-90"
+                    style="background-color: var(--theme-primary);"
+                  >
+                    <Sparkles class="w-3.5 h-3.5 mr-1" />
+                    用它作为标题
+                  </button>
+                  <span v-if="todayPrompt.promptDate" class="text-xs" style="color: var(--theme-text-secondary);">
+                    {{ todayPrompt.promptDate }}
+                  </span>
+                </div>
+              </div>
+            </div>
             <!-- 元信息区 -->
             <div class="rounded-lg p-3 flex flex-wrap items-center gap-3" style="background-color: var(--theme-surface); border: 1px solid var(--theme-border);">
               <!-- 作者 -->
@@ -1182,7 +1451,210 @@ const titleLength = computed(() => title.value.length);
       </div>
     </div>
 
+    <!-- 版本历史抽屉 -->
+    <transition name="version-drawer">
+      <div v-if="showVersionDrawer" class="fixed inset-0 z-50 flex" role="dialog" aria-modal="true" aria-label="版本历史">
+        <!-- 遮罩 -->
+        <div class="absolute inset-0 bg-black/40" @click="closeVersionDrawer"></div>
+        <!-- 抽屉主体 -->
+        <div class="relative ml-auto w-full max-w-2xl h-full shadow-xl flex flex-col" style="background-color: var(--theme-surface);">
+          <!-- 头部 -->
+          <div class="flex items-center justify-between px-5 py-4 border-b" style="border-color: var(--theme-border);">
+            <div class="flex items-center gap-2">
+              <History class="w-5 h-5" style="color: var(--theme-primary);" />
+              <h3 class="text-lg font-semibold" style="color: var(--theme-text);">版本历史</h3>
+              <span v-if="versionList.length > 0" class="text-xs px-2 py-0.5 rounded-full" style="background-color: var(--theme-accent); color: var(--theme-primary);">
+                共 {{ versionList.length }} 个版本
+              </span>
+            </div>
+            <button @click="closeVersionDrawer" class="p-1.5 rounded-lg hover:bg-gray-100" style="color: var(--theme-text-secondary);">
+              <X class="w-5 h-5" />
+            </button>
+          </div>
+
+          <!-- 操作提示条 -->
+          <div class="px-5 py-2.5 border-b flex items-center justify-between flex-wrap gap-2" style="background-color: var(--theme-bg); border-color: var(--theme-border);">
+            <div class="text-xs flex items-center gap-2" style="color: var(--theme-text-secondary);">
+              <GitCompare class="w-3.5 h-3.5" />
+              <span>勾选两个版本可进行对比</span>
+              <span v-if="diffV1 !== null" class="px-1.5 py-0.5 rounded" style="background-color: var(--theme-accent); color: var(--theme-primary);">V{{ diffV1 }}</span>
+              <span v-if="diffV2 !== null" class="px-1.5 py-0.5 rounded" style="background-color: var(--theme-accent); color: var(--theme-primary);">V{{ diffV2 }}</span>
+            </div>
+            <button
+                @click="handleDiff"
+                :disabled="diffV1 === null || diffV2 === null || loadingDiff"
+                class="text-xs px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed"
+                style="color: white; background-color: var(--theme-primary);"
+            >
+              <svg v-if="loadingDiff" class="animate-spin w-3 h-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              </svg>
+              <GitCompare v-else class="w-3 h-3" />
+              {{ loadingDiff ? '对比中...' : '对比选中版本' }}
+            </button>
+          </div>
+
+          <!-- 主体内容区：左侧版本列表 + 右侧详情/对比 -->
+          <div class="flex-1 overflow-hidden flex">
+            <!-- 版本列表 -->
+            <div class="w-1/2 border-r overflow-y-auto" style="border-color: var(--theme-border);">
+              <div v-if="loadingVersions" class="p-6 flex flex-col items-center gap-2" style="color: var(--theme-text-secondary);">
+                <div class="w-5 h-5 border-2 border-t-transparent rounded-full animate-spin" style="border-color: var(--theme-primary);"></div>
+                <span class="text-xs">加载版本中...</span>
+              </div>
+
+              <div v-else-if="versionList.length === 0" class="p-6 text-center" style="color: var(--theme-text-secondary);">
+                <History class="w-8 h-8 mx-auto mb-2 opacity-40" />
+                <p class="text-sm">暂无版本记录</p>
+                <p class="text-xs mt-1">保存草稿后会自动生成版本快照</p>
+              </div>
+
+              <ul v-else class="divide-y" style="border-color: var(--theme-border);">
+                <li
+                    v-for="v in versionList"
+                    :key="v.id"
+                    class="px-4 py-3 cursor-pointer transition-colors hover:bg-gray-50"
+                    :style="{
+                      backgroundColor: selectedVersion?.id === v.id ? 'var(--theme-accent)' : 'transparent'
+                    }"
+                    @click="viewVersionDetail(v)"
+                >
+                  <div class="flex items-center justify-between mb-1">
+                    <div class="flex items-center gap-2">
+                      <input
+                          type="checkbox"
+                          :checked="diffV1 === v.versionNo || diffV2 === v.versionNo"
+                          @click.stop="toggleDiffPick(v.versionNo)"
+                          class="w-3.5 h-3.5"
+                          :title="`选择 V${v.versionNo} 进行对比`"
+                      />
+                      <span class="text-sm font-semibold" style="color: var(--theme-primary);">版本 {{ v.versionNo }}</span>
+                    </div>
+                    <span class="text-xs" style="color: var(--theme-text-secondary);">{{ v.createdTime }}</span>
+                  </div>
+                  <p class="text-sm truncate" style="color: var(--theme-text);" :title="v.title">{{ v.title || '（无标题）' }}</p>
+                  <p v-if="v.excerpt" class="text-xs mt-1 line-clamp-2" style="color: var(--theme-text-secondary);">{{ v.excerpt }}</p>
+                </li>
+              </ul>
+            </div>
+
+            <!-- 详情 / 对比区 -->
+            <div class="w-1/2 overflow-y-auto">
+              <!-- 对比结果优先展示 -->
+              <div v-if="diffResult" class="p-4 space-y-4">
+                <div class="flex items-center justify-between">
+                  <h4 class="text-sm font-semibold flex items-center gap-1.5" style="color: var(--theme-text);">
+                    <GitCompare class="w-4 h-4" />
+                    版本对比
+                  </h4>
+                  <button @click="diffResult = null" class="text-xs" style="color: var(--theme-text-secondary);">关闭对比</button>
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                  <!-- V1 -->
+                  <div class="rounded-lg border p-3" style="border-color: var(--theme-border); background-color: var(--theme-bg);">
+                    <div class="flex items-center justify-between mb-2">
+                      <span class="text-xs font-semibold px-1.5 py-0.5 rounded" style="background-color: var(--theme-accent); color: var(--theme-primary);">
+                        {{ diffResult.v1.found ? `V${diffResult.v1.versionNo}` : '版本不存在' }}
+                      </span>
+                      <span v-if="diffResult.v1.createdTime" class="text-xs" style="color: var(--theme-text-secondary);">{{ diffResult.v1.createdTime }}</span>
+                    </div>
+                    <p class="text-sm font-medium mb-2" style="color: var(--theme-text);">{{ diffResult.v1.title || '（无标题）' }}</p>
+                    <pre v-if="diffResult.v1.contentMarkdown || diffResult.v1.content" class="text-xs whitespace-pre-wrap break-words max-h-64 overflow-y-auto p-2 rounded" style="color: var(--theme-text-secondary); background-color: var(--theme-surface);">{{ diffResult.v1.contentMarkdown || diffResult.v1.content }}</pre>
+                    <p v-else class="text-xs italic" style="color: var(--theme-text-secondary);">（无内容）</p>
+                  </div>
+                  <!-- V2 -->
+                  <div class="rounded-lg border p-3" style="border-color: var(--theme-border); background-color: var(--theme-bg);">
+                    <div class="flex items-center justify-between mb-2">
+                      <span class="text-xs font-semibold px-1.5 py-0.5 rounded" style="background-color: var(--theme-accent); color: var(--theme-primary);">
+                        {{ diffResult.v2.found ? `V${diffResult.v2.versionNo}` : '版本不存在' }}
+                      </span>
+                      <span v-if="diffResult.v2.createdTime" class="text-xs" style="color: var(--theme-text-secondary);">{{ diffResult.v2.createdTime }}</span>
+                    </div>
+                    <p class="text-sm font-medium mb-2" style="color: var(--theme-text);">{{ diffResult.v2.title || '（无标题）' }}</p>
+                    <pre v-if="diffResult.v2.contentMarkdown || diffResult.v2.content" class="text-xs whitespace-pre-wrap break-words max-h-64 overflow-y-auto p-2 rounded" style="color: var(--theme-text-secondary); background-color: var(--theme-surface);">{{ diffResult.v2.contentMarkdown || diffResult.v2.content }}</pre>
+                    <p v-else class="text-xs italic" style="color: var(--theme-text-secondary);">（无内容）</p>
+                  </div>
+                </div>
+                <p class="text-xs text-center" style="color: var(--theme-text-secondary);">
+                  提示：此处仅并排展示两个版本的文本，不进行逐行差异标注。
+                </p>
+              </div>
+
+              <!-- 版本详情 -->
+              <div v-else-if="selectedVersion" class="p-4 space-y-3">
+                <div class="flex items-center justify-between">
+                  <h4 class="text-sm font-semibold flex items-center gap-1.5" style="color: var(--theme-text);">
+                    <FileText class="w-4 h-4" />
+                    版本 {{ selectedVersion.versionNo }} 详情
+                  </h4>
+                  <button
+                      @click="handleRollback(selectedVersion)"
+                      :disabled="rollingBack"
+                      class="text-xs px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed"
+                      style="color: white; background-color: #ef4444;"
+                  >
+                    <svg v-if="rollingBack" class="animate-spin w-3 h-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                      <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    <RotateCcw v-else class="w-3 h-3" />
+                    {{ rollingBack ? '回滚中...' : '回滚到此版本' }}
+                  </button>
+                </div>
+                <div>
+                  <label class="block text-xs mb-1" style="color: var(--theme-text-secondary);">标题</label>
+                  <p class="text-sm font-medium" style="color: var(--theme-text);">{{ selectedVersion.title || '（无标题）' }}</p>
+                </div>
+                <div v-if="selectedVersion.excerpt">
+                  <label class="block text-xs mb-1" style="color: var(--theme-text-secondary);">摘要</label>
+                  <p class="text-sm" style="color: var(--theme-text-secondary);">{{ selectedVersion.excerpt }}</p>
+                </div>
+                <div>
+                  <label class="block text-xs mb-1" style="color: var(--theme-text-secondary);">内容</label>
+                  <pre class="text-xs whitespace-pre-wrap break-words max-h-96 overflow-y-auto p-3 rounded-lg border" style="color: var(--theme-text-secondary); background-color: var(--theme-bg); border-color: var(--theme-border);">{{ selectedVersion.contentMarkdown || selectedVersion.content || '（无内容）' }}</pre>
+                </div>
+                <div class="text-xs flex items-center gap-2" style="color: var(--theme-text-secondary);">
+                  <Clock class="w-3 h-3" />
+                  <span>创建于 {{ selectedVersion.createdTime }}</span>
+                </div>
+              </div>
+
+              <!-- 加载中 -->
+              <div v-else-if="loadingVersionDetail" class="p-6 flex flex-col items-center gap-2" style="color: var(--theme-text-secondary);">
+                <div class="w-5 h-5 border-2 border-t-transparent rounded-full animate-spin" style="border-color: var(--theme-primary);"></div>
+                <span class="text-xs">加载版本详情...</span>
+              </div>
+
+              <!-- 空状态 -->
+              <div v-else class="p-6 text-center" style="color: var(--theme-text-secondary);">
+                <FileText class="w-8 h-8 mx-auto mb-2 opacity-40" />
+                <p class="text-sm">点击左侧版本查看详情</p>
+                <p class="text-xs mt-1">可查看版本内容、回滚或勾选两个版本进行对比</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </transition>
+
     <!-- 底部 Footer -->
     <SiteFooter />
   </div>
 </template>
+
+<style scoped>
+/* 版本历史抽屉过渡动画 */
+.version-drawer-enter-active,
+.version-drawer-leave-active {
+  transition: opacity 0.2s ease;
+}
+.version-drawer-enter-active > div:last-child,
+.version-drawer-leave-active > div:last-child {
+  transition: transform 0.25s ease;
+}
+.version-drawer-enter-from,
+.version-drawer-leave-to {
+  opacity: 0;
+}
+</style>

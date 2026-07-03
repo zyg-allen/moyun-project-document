@@ -6,6 +6,7 @@ import lombok.Data;
 
 import java.io.Serial;
 import java.io.Serializable;
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -215,4 +216,34 @@ public class ArticleVO implements Serializable {
      */
     @Schema(description = "Markdown 原始内容", example = "# 标题\n内容...")
     private String contentMarkdown;
+
+    /**
+     * 是否付费阅读 0=免费 1=付费
+     */
+    @Schema(description = "是否付费阅读", example = "0")
+    private Integer isPaid;
+
+    /**
+     * 付费内容（购买后可见；未购买时后端会清空该字段）
+     */
+    @Schema(description = "付费内容（购买后可见）")
+    private String paidContent;
+
+    /**
+     * 试读字数（未购买可预览的字数）
+     */
+    @Schema(description = "试读字数", example = "200")
+    private Integer previewLength;
+
+    /**
+     * 付费价格，0=免费
+     */
+    @Schema(description = "付费价格", example = "9.90")
+    private BigDecimal price;
+
+    /**
+     * 当前用户是否已购买该付费文章（非持久化，详情接口动态填充）
+     */
+    @Schema(description = "当前用户是否已购买", example = "false")
+    private Boolean isPurchased;
 }

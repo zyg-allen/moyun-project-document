@@ -38,14 +38,15 @@ public class PortalWalletController extends BaseController {
     @Operation(summary = "获取钱包列表", description = "根据条件分页查询钱包列表")
     @GetMapping("/list")
     public AjaxResult list(PortalWallet portalWallet) {
-        if (PortalSecurityUtils.getUserId() == null) {
+        Long userId = PortalSecurityUtils.getUserId();
+        if (userId == null) {
             return AjaxResult.error(HttpStatus.UNAUTHORIZED, "请先登录");
         }
-        // 使用 startPage() 创建分页对象，自动从请求参数获取 page 和 pageSize
+        if (!PortalSecurityUtils.isAdmin()) {
+            portalWallet.setUserId(userId);
+        }
         Page<PortalWallet> page = startPage();
-        // 调用分页查询方法
         Page<PortalWallet> resultPage = portalWalletService.selectPortalWalletPage(page, portalWallet);
-        // 直接返回 Page 对象，MyBatis-Plus 会自动处理分页
         return success(resultPage);
     }
 
@@ -65,10 +66,18 @@ public class PortalWalletController extends BaseController {
     @Operation(summary = "获取钱包详情", description = "根据钱包ID获取钱包详细信息")
     @GetMapping(value = "/{id}")
     public AjaxResult getInfo(@Parameter(description = "钱包ID") @PathVariable Long id) {
-        if (PortalSecurityUtils.getUserId() == null) {
+        Long userId = PortalSecurityUtils.getUserId();
+        if (userId == null) {
             return AjaxResult.error(HttpStatus.UNAUTHORIZED, "请先登录");
         }
-        return success(portalWalletService.selectPortalWalletById(id));
+        PortalWallet wallet = portalWalletService.selectPortalWalletById(id);
+        if (wallet == null) {
+            return AjaxResult.error("钱包不存在");
+        }
+        if (!PortalSecurityUtils.isAdmin() && !userId.equals(wallet.getUserId())) {
+            return AjaxResult.error(HttpStatus.FORBIDDEN, "无权查看该钱包");
+        }
+        return success(wallet);
     }
 
     @Operation(summary = "新增钱包", description = "创建新钱包（仅管理员）")

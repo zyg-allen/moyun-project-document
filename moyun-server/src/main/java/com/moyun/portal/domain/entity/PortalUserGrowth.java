@@ -37,6 +37,15 @@ public class PortalUserGrowth {
     /** 本季成长值 */
     private Integer seasonValue;
 
+    /** 补签卡数量（每月赠送1张，补签消耗） */
+    private Integer supplementCardCount;
+
+    /** 最后赠送补签卡月份（YYYY-MM，幂等控制每月只赠送1张） */
+    private String lastCardGrantMonth;
+
+    /** 积分余额（可消耗，与成长值解耦，用于积分商城） */
+    private Long points;
+
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime createTime;
 

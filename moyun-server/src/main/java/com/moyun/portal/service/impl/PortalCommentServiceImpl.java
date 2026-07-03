@@ -25,6 +25,7 @@ import com.moyun.portal.mapper.PortalArticleMapper;
 import com.moyun.portal.mapper.PortalCommentLikeMapper;
 import com.moyun.portal.mapper.PortalCommentMapper;
 import com.moyun.portal.mapper.PortalUserMapper;
+import com.moyun.portal.service.IMentionService;
 import com.moyun.portal.service.IPortalCommentService;
 import com.moyun.portal.service.IPortalGrowthService;
 import com.moyun.portal.util.PortalSecurityUtils;
@@ -52,6 +53,9 @@ public class PortalCommentServiceImpl extends ServiceImpl<PortalCommentMapper, P
 
     @Autowired
     private PortalCommentLikeMapper portalCommentLikeMapper;
+
+    @Autowired
+    private IMentionService mentionService;
 
     /**
      * 根据条件分页查询评论列表
@@ -154,6 +158,17 @@ public class PortalCommentServiceImpl extends ServiceImpl<PortalCommentMapper, P
                 portalGrowthService.recordEventWithTarget("article", "receive_comment",
                         article.getAuthorId(), portalComment.getAuthorId(),
                         "article", portalComment.getArticleId());
+            }
+        }
+
+        // 解析评论内容中的 @username 并向被提及用户发送通知（阶段四 4.3）
+        if (rows > 0 && portalComment.getContent() != null) {
+            try {
+                mentionService.parseAndNotify(portalComment.getContent(),
+                        portalComment.getAuthorId(), "comment", portalComment.getId());
+            } catch (Exception e) {
+                // @提及通知失败不影响评论主流程
+                log.warn("评论 @提及通知失败：commentId={}, err={}", portalComment.getId(), e.getMessage());
             }
         }
 

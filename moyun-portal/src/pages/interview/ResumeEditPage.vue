@@ -367,7 +367,7 @@ onBeforeRouteLeave((to, from, next) => {
       class="border-b sticky top-0 z-30 backdrop-blur-sm"
       style="background-color: var(--theme-surface); border-color: var(--theme-border);"
     >
-      <div class="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between gap-2">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex items-center justify-between gap-2">
         <button
           @click="goBack"
           class="flex items-center text-sm transition hover:opacity-80 shrink-0"
@@ -434,7 +434,7 @@ onBeforeRouteLeave((to, from, next) => {
 
     <!-- 内容区 -->
     <div class="flex-1 py-8">
-      <div class="max-w-3xl mx-auto px-4">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <!-- 标题 -->
         <div class="mb-6 text-center">
           <h1 class="text-3xl font-bold tracking-tight mb-2" style="color: var(--theme-text);">

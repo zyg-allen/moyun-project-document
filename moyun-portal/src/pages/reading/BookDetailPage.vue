@@ -7,14 +7,58 @@ import LazyImage from '@/components/LazyImage.vue';
 import SiteFooter from '@/components/SiteFooter.vue';
 import BookshelfButton from '@/components/reading/BookshelfButton.vue';
 import { generateSeo } from '@/utils/seo';
-import { getBookDetail, getBookChapterList, getReadingProgress } from '@/api/reading';
+import { getBookDetail, getBookChapterList, getReadingProgress, toggleQuoteLike, checkQuoteLike } from '@/api/reading';
 import { useAuth } from '@/composables/useAuth';
+import { useToast } from '@/composables/useToast';
 import { formatShortDate } from '@/utils/date';
 import type { Book, BookChapter, BookQuote, ReadingProgress } from '@/types/api';
 
 const route = useRoute();
 const router = useRouter();
 const { isAuthenticated } = useAuth();
+const toast = useToast();
+const quoteLikeLoading = ref<Set<string>>(new Set());
+
+// 切换金句点赞
+async function handleQuoteLike(quote: BookQuote & { liked?: boolean }) {
+  if (!isAuthenticated()) {
+    toast.warning('请先登录后再点赞');
+    router.push({ name: 'login', query: { redirect: route.fullPath } });
+    return;
+  }
+  if (quoteLikeLoading.value.has(quote.id)) return;
+  quoteLikeLoading.value.add(quote.id);
+  try {
+    const resp = await toggleQuoteLike(quote.id);
+    if (resp.code === 200 && resp.data) {
+      quote.liked = resp.data.liked;
+      quote.likeCount = resp.data.likeCount;
+    }
+  } catch (e) {
+    toast.error('点赞失败，请稍后重试');
+  } finally {
+    quoteLikeLoading.value.delete(quote.id);
+  }
+}
+
+// 加载金句点赞状态（已登录时）
+async function loadQuoteLikeStates(quoteIds: string[]) {
+  if (!isAuthenticated() || quoteIds.length === 0) return;
+  // 并发查询每个金句的点赞状态（接口未提供批量查询）
+  await Promise.all(
+    quoteIds.map(async (qid) => {
+      try {
+        const resp = await checkQuoteLike(qid);
+        if (resp.code === 200 && resp.data) {
+          const target = quotes.value.find((q) => q.id === qid);
+          if (target) (target as BookQuote & { liked?: boolean }).liked = resp.data!.liked;
+        }
+      } catch {
+        // 静默失败
+      }
+    })
+  );
+}
 
 const loading = ref(false);
 const error = ref<string | null>(null);
@@ -56,6 +100,8 @@ async function loadBookDetail() {
     if (response.code === 200 && response.data) {
       book.value = response.data.book;
       quotes.value = response.data.quotes || [];
+      // 已登录时，加载金句点赞状态
+      loadQuoteLikeStates(quotes.value.map((q) => q.id));
       // v1.0：网络小说/长文文章类型，加载章节目录
       loadChapters(bookId);
       // v1.0 第二阶段：登录用户加载阅读进度（用于"继续阅读"）
@@ -615,10 +661,21 @@ watch(
                       <span>第 {{ quote.page }} 页</span>
                     </span>
                   </div>
-                  <span class="flex items-center gap-1">
-                    <Heart class="w-3.5 h-3.5" aria-hidden="true" />
+                  <button
+                    type="button"
+                    class="flex items-center gap-1 transition hover:opacity-80 disabled:opacity-50"
+                    :style="{ color: (quote as any).liked ? 'var(--theme-primary)' : 'var(--theme-text-secondary)' }"
+                    :disabled="quoteLikeLoading.has(quote.id)"
+                    :aria-label="(quote as any).liked ? '取消点赞' : '点赞'"
+                    @click="handleQuoteLike(quote as any)"
+                  >
+                    <Heart
+                      class="w-3.5 h-3.5"
+                      :fill="(quote as any).liked ? 'currentColor' : 'none'"
+                      aria-hidden="true"
+                    />
                     <span>{{ quote.likeCount || 0 }}</span>
-                  </span>
+                  </button>
                 </div>
               </article>
             </div>

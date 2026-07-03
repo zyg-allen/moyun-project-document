@@ -5,8 +5,7 @@
 --          后端原无此接口，本次补充
 -- ============================================================
 
-DROP TABLE IF EXISTS `portal_comment_like`;
-CREATE TABLE `portal_comment_like` (
+CREATE TABLE IF NOT EXISTS `portal_comment_like` (
     `id`          BIGINT       NOT NULL AUTO_INCREMENT COMMENT '主键',
     `comment_id`  BIGINT       NOT NULL COMMENT '评论ID',
     `user_id`     BIGINT       NOT NULL COMMENT '点赞用户ID',

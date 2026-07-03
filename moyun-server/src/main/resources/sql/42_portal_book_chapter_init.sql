@@ -12,8 +12,7 @@
 -- -------------------------------------------------------
 -- 1. 新建章节表
 -- -------------------------------------------------------
-DROP TABLE IF EXISTS `portal_book_chapter`;
-CREATE TABLE `portal_book_chapter` (
+CREATE TABLE IF NOT EXISTS `portal_book_chapter` (
     `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键',
     `book_id` BIGINT NOT NULL COMMENT '所属书籍ID',
     `title` VARCHAR(500) NOT NULL COMMENT '章节标题',
@@ -43,8 +42,7 @@ CREATE TABLE `portal_book_chapter` (
 -- -------------------------------------------------------
 -- 2. 新建章节浏览记录表（用于阅读统计、防刷）
 -- -------------------------------------------------------
-DROP TABLE IF EXISTS `portal_book_chapter_view`;
-CREATE TABLE `portal_book_chapter_view` (
+CREATE TABLE IF NOT EXISTS `portal_book_chapter_view` (
     `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键',
     `chapter_id` BIGINT NOT NULL COMMENT '章节ID',
     `book_id` BIGINT NOT NULL COMMENT '书籍ID',

@@ -2,6 +2,8 @@ package com.moyun.portal.domain.vo;
 
 import lombok.Data;
 
+import java.time.LocalDate;
+
 /**
  * 用户统计信息 VO
  *
@@ -56,4 +58,6 @@ public class UserStatsVO {
     private Long totalLikes;
     /** 连续签到天数 */
     private Integer checkinStreak;
+    /** 最后签到日期（前端据此判断今日是否已签到，刷新后状态不丢失） */
+    private LocalDate lastCheckinDate;
 }

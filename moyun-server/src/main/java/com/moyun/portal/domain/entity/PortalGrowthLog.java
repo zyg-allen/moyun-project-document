@@ -46,6 +46,9 @@ public class PortalGrowthLog {
     /** 描述 */
     private String description;
 
+    /** 备注（补签场景存储补签目标日期 YYYY-MM-DD） */
+    private String remark;
+
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime createTime;
 }

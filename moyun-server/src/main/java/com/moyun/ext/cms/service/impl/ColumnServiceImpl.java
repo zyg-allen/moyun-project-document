@@ -10,6 +10,7 @@ import com.moyun.ext.cms.domain.vo.ColumnArticleSortItem;
 import com.moyun.ext.cms.domain.vo.ColumnListItemVO;
 import com.moyun.ext.cms.domain.vo.ColumnVO;
 import com.moyun.ext.cms.service.IColumnService;
+import com.moyun.ext.cms.service.IFeedService;
 import com.moyun.portal.domain.entity.PortalArticle;
 import com.moyun.portal.domain.entity.PortalColumn;
 import com.moyun.portal.domain.entity.PortalColumnArticle;
@@ -44,6 +45,7 @@ public class ColumnServiceImpl implements IColumnService {
     @Autowired private PortalColumnArticleMapper columnArticleMapper;
     @Autowired private PortalColumnSubscribeMapper columnSubscribeMapper;
     @Autowired private PortalArticleMapper articleMapper;
+    @Autowired(required = false) private IFeedService feedService;
 
     // ========================================================================
     // 列表 / 详情
@@ -70,7 +72,6 @@ public class ColumnServiceImpl implements IColumnService {
         if (currentUserId == null || !currentUserId.equals(vo.getUserId())) {
             columnMapper.updateViewCount(id, 1);
         }
-        // TODO: 调用 feedService.publishEvent（Feed 模块完成后接入）
         return vo;
     }
 
@@ -133,10 +134,14 @@ public class ColumnServiceImpl implements IColumnService {
 
         if (isNew) {
             columnMapper.insert(entity);
+            // 仅新建时推送 Feed；修改不推送
+            if (feedService != null && "published".equals(entity.getStatus())) {
+                feedService.publishEvent(userId, "new_column", "column", entity.getId(),
+                        entity.getTitle(), entity.getDescription(), entity.getCover());
+            }
         } else {
             columnMapper.updateById(entity);
         }
-        // TODO: 调用 feedService.publishEvent（Feed 模块完成后接入）
         return entity.getId();
     }
 
@@ -263,8 +268,16 @@ public class ColumnServiceImpl implements IColumnService {
         }
         if (rows > 0) {
             columnMapper.updateArticleCount(columnId, 1);
+            // 专栏新增文章 → 推送 Feed
+            if (feedService != null) {
+                PortalColumn col = columnMapper.selectById(columnId);
+                PortalArticle art = articleMapper.selectById(articleId);
+                if (col != null && art != null && "published".equals(col.getStatus())) {
+                    feedService.publishEvent(col.getUserId(), "column_new_article", "article", art.getId(),
+                            art.getTitle(), col.getTitle() + " 更新了新文章", art.getCover());
+                }
+            }
         }
-        // TODO: 调用 feedService.publishEvent（专栏加入新文章时，Feed 模块完成后接入）
         return rows;
     }
 

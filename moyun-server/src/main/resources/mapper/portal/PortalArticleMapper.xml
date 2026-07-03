@@ -31,6 +31,10 @@
         <result property="link" column="link"/>
         <result property="editorMode" column="editor_mode"/>
         <result property="contentMarkdown" column="content_markdown"/>
+        <result property="isPaid" column="is_paid"/>
+        <result property="paidContent" column="paid_content"/>
+        <result property="previewLength" column="preview_length"/>
+        <result property="price" column="price"/>
         <result property="createBy" column="create_by"/>
         <result property="createTime" column="create_time"/>
         <result property="updateBy" column="update_by"/>
@@ -80,11 +84,12 @@
     </resultMap>
 
     <sql id="selectPortalArticleVo">
-        select pa.id, pa.title, pa.slug, pa.content, pa.excerpt, pa.cover, pa.author_id, pa.category_id, 
-               pa.root_category_id, pa.category_path, 
+        select pa.id, pa.title, pa.slug, pa.content, pa.excerpt, pa.cover, pa.author_id, pa.category_id,
+               pa.root_category_id, pa.category_path,
                pa.status,
                pa.is_featured, pa.is_top, pa.is_carousel, pa.is_category_recommended, pa.views, pa.likes, pa.comments, pa.share_count,
                pa.bookmark_count, pa.published_at, pa.link, pa.editor_mode, pa.content_markdown,
+               pa.is_paid, pa.paid_content, pa.preview_length, pa.price,
                pa.create_by, pa.create_time, pa.update_by, pa.update_time, pa.remark,
                pc.name as category_name, pc.slug as category_slug,
                pu.nickname as author_nickname, pu.username as author_username, pu.avatar as author_avatar
@@ -304,6 +309,17 @@
         order by pa.published_at desc, pa.create_time desc
     </select>
 
+    <!-- 我购买的文章（付费阅读）分页查询：JOIN portal_tip_order 取已支付购买记录 -->
+    <select id="selectPurchasedArticlesPage" resultMap="PortalArticleResult">
+        <include refid="selectPortalArticleVo"/>
+        INNER JOIN portal_tip_order t ON t.target_type = 'article_paid'
+                                      AND t.target_id = pa.id
+                                      AND t.status = 'paid'
+        WHERE pa.status = 'published'
+          AND t.user_id = #{userId}
+        ORDER BY t.paid_time DESC
+    </select>
+
     <!-- 根据别名查询 -->
     <select id="selectPortalArticleBySlug" parameterType="String" resultMap="PortalArticleResult">
         <include refid="selectPortalArticleVo"/>
@@ -313,18 +329,20 @@
     <!-- 新增文章 -->
     <insert id="insertPortalArticle" parameterType="com.moyun.portal.domain.entity.PortalArticle"
             useGeneratedKeys="true" keyProperty="id">
-        insert into portal_article(title, slug, content, excerpt, cover, author_id, category_id, 
-                                   root_category_id, category_path, 
+        insert into portal_article(title, slug, content, excerpt, cover, author_id, category_id,
+                                   root_category_id, category_path,
                                    status,
                                    is_featured, is_top, is_carousel, is_category_recommended, views, likes, comments,
                                    share_count, bookmark_count, published_at, link, editor_mode,
-                                   content_markdown, create_by, create_time, update_by, update_time, remark)
-        values(#{title}, #{slug}, #{content}, #{excerpt}, #{cover}, #{authorId}, #{categoryId}, 
-               #{rootCategoryId}, #{categoryPath}, 
+                                   content_markdown, is_paid, paid_content, preview_length, price,
+                                   create_by, create_time, update_by, update_time, remark)
+        values(#{title}, #{slug}, #{content}, #{excerpt}, #{cover}, #{authorId}, #{categoryId},
+               #{rootCategoryId}, #{categoryPath},
                #{status},
                #{isFeatured}, #{isTop}, #{isCarousel}, #{isCategoryRecommended}, #{views}, #{likes}, #{comments},
                #{shareCount}, #{bookmarkCount}, #{publishedAt}, #{link}, #{editorMode},
-               #{contentMarkdown}, #{createBy}, #{createTime}, #{updateBy}, #{updateTime}, #{remark})
+               #{contentMarkdown}, #{isPaid}, #{paidContent}, #{previewLength}, #{price},
+               #{createBy}, #{createTime}, #{updateBy}, #{updateTime}, #{remark})
     </insert>
 
     <!-- 修改文章 -->
@@ -354,6 +372,10 @@
             <if test="link != null">link = #{link},</if>
             <if test="editorMode != null">editor_mode = #{editorMode},</if>
             <if test="contentMarkdown != null">content_markdown = #{contentMarkdown},</if>
+            <if test="isPaid != null">is_paid = #{isPaid},</if>
+            <if test="paidContent != null">paid_content = #{paidContent},</if>
+            <if test="previewLength != null">preview_length = #{previewLength},</if>
+            <if test="price != null">price = #{price},</if>
             <if test="updateBy != null">update_by = #{updateBy},</if>
             <if test="updateTime != null">update_time = #{updateTime},</if>
             <if test="remark != null">remark = #{remark},</if>

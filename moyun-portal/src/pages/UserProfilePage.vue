@@ -206,7 +206,7 @@ function goBack() {
 
     <!-- 主内容区域 -->
     <div class="py-8 flex-1">
-      <div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <!-- 提示信息 -->
         <div v-if="successMessage" class="mb-6 p-4 rounded-xl text-sm" style="background-color: #dcfce7; color: #166534; border: 1px solid #86efac;">
           {{ successMessage }}

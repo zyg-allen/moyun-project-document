@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.moyun.portal.mapper.PortalJobMapper">
+
+    <!-- 职位列表项 -->
+    <resultMap type="com.moyun.ext.cms.domain.vo.JobListItemVO" id="JobListItemResult">
+        <id     property="id"           column="id"            />
+        <result property="companyId"   column="company_id"     />
+        <result property="title"        column="title"          />
+        <result property="city"         column="city"           />
+        <result property="salaryMin"    column="salary_min"     />
+        <result property="salaryMax"    column="salary_max"     />
+        <result property="experience"  column="experience"     />
+        <result property="education"    column="education"      />
+        <result property="status"       column="status"         />
+        <result property="createdTime"  column="created_time"   />
+        <result property="companyName"  column="company_name"   />
+        <result property="companyLogo"  column="company_logo"   />
+    </resultMap>
+
+    <!-- 职位详情 -->
+    <resultMap type="com.moyun.ext.cms.domain.vo.JobVO" id="JobVOResult">
+        <id     property="id"               column="id"                />
+        <result property="companyId"       column="company_id"         />
+        <result property="title"            column="title"             />
+        <result property="city"             column="city"              />
+        <result property="salaryMin"        column="salary_min"        />
+        <result property="salaryMax"        column="salary_max"        />
+        <result property="experience"       column="experience"        />
+        <result property="education"         column="education"         />
+        <result property="description"      column="description"        />
+        <result property="requirement"      column="requirement"        />
+        <result property="status"           column="status"             />
+        <result property="createdTime"      column="created_time"      />
+        <result property="updatedTime"      column="updated_time"      />
+        <result property="companyName"      column="company_name"      />
+        <result property="companyLogo"      column="company_logo"      />
+        <result property="companyIndustry"  column="company_industry"  />
+    </resultMap>
+
+    <!-- 公开列表分页（默认仅 open） -->
+    <select id="selectListPage" resultMap="JobListItemResult">
+        SELECT j.id, j.company_id, j.title, j.city, j.salary_min, j.salary_max,
+               j.experience, j.education, j.status, j.created_time,
+               c.name AS company_name, c.logo AS company_logo
+        FROM portal_job j
+        LEFT JOIN portal_interview_company c ON c.id = j.company_id
+        <where>
+            <if test="query.status != null and query.status != ''">
+                AND j.status = #{query.status}
+            </if>
+            <if test="query.status == null or query.status == ''">
+                AND j.status = 'open'
+            </if>
+            <if test="query.keyword != null and query.keyword != ''">
+                AND j.title LIKE CONCAT('%', #{query.keyword}, '%')
+            </if>
+            <if test="query.companyId != null">
+                AND j.company_id = #{query.companyId}
+            </if>
+            <if test="query.city != null and query.city != ''">
+                AND j.city = #{query.city}
+            </if>
+            <if test="query.experience != null and query.experience != ''">
+                AND j.experience = #{query.experience}
+            </if>
+            <if test="query.education != null and query.education != ''">
+                AND j.education = #{query.education}
+            </if>
+        </where>
+        ORDER BY j.created_time DESC
+    </select>
+
+    <!-- 职位详情（含公司信息） -->
+    <select id="selectDetailById" resultMap="JobVOResult">
+        SELECT j.id, j.company_id, j.title, j.city, j.salary_min, j.salary_max,
+               j.experience, j.education, j.description, j.requirement, j.status,
+               j.created_time, j.updated_time,
+               c.name AS company_name, c.logo AS company_logo, c.industry AS company_industry
+        FROM portal_job j
+        LEFT JOIN portal_interview_company c ON c.id = j.company_id
+        WHERE j.id = #{id}
+    </select>
+
+</mapper>

@@ -15,6 +15,7 @@ import com.moyun.portal.domain.query.ArticleQuery;
 import com.moyun.portal.mapper.PortalArticleMapper;
 import com.moyun.portal.mapper.PortalUserStatsMapper;
 import com.moyun.portal.service.IPortalArticleService;
+import com.moyun.portal.service.IPortalArticleVersionService;
 import com.moyun.portal.service.IPortalCategoryService;
 import com.moyun.portal.service.IPortalGrowthService;
 import com.moyun.portal.util.PortalSecurityUtils;
@@ -42,6 +43,9 @@ public class PortalArticleServiceImpl extends ServiceImpl<PortalArticleMapper, P
 
     @Autowired
     private IFeedService feedService;
+
+    @Autowired
+    private IPortalArticleVersionService articleVersionService;
 
     /**
      * 根据条件分页查询文章列表
@@ -214,7 +218,16 @@ public class PortalArticleServiceImpl extends ServiceImpl<PortalArticleMapper, P
             baseMapper.updatePortalArticle(portalArticle);
         }
         // 重新查询返回完整实体（含 createTime / updateTime 等数据库默认值）
-        return baseMapper.selectPortalArticleById(portalArticle.getId());
+        PortalArticle saved = baseMapper.selectPortalArticleById(portalArticle.getId());
+        // 生成草稿版本快照（保存文章时调用，version_no 自增；saveVersion 内置内容去重，
+        // 避免草稿自动保存产生冗余版本）。try-catch 保证版本失败不影响草稿保存主流程。
+        try {
+            articleVersionService.saveVersion(saved, saved.getAuthorId());
+        } catch (Exception e) {
+            org.slf4j.LoggerFactory.getLogger(PortalArticleServiceImpl.class)
+                    .warn("[版本] 草稿版本快照失败：articleId={}", saved.getId(), e);
+        }
+        return saved;
     }
 
     /**

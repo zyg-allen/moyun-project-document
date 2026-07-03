@@ -3,12 +3,10 @@ import type {
   UploadFileResponse,
 } from '@/types/api';
 
-// 上传文件
-export const uploadFile = (file: File) => {
-  return httpUpload<UploadFileResponse>('/upload/file', file);
+export const uploadFile = (file: File, extra?: Record<string, string>) => {
+  return httpUpload<UploadFileResponse>('/portal/file/upload', file, extra);
 };
 
-// 上传图片
-export const uploadImage = (file: File) => {
-  return httpUpload<UploadFileResponse>('/upload/image', file);
+export const uploadImage = (file: File, extra?: Record<string, string>) => {
+  return httpUpload<UploadFileResponse>('/portal/file/upload', file, extra);
 };

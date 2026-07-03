@@ -1,0 +1,259 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.moyun.portal.mapper.PortalRecommendMapper">
+
+    <!-- ================================================================== -->
+    <!-- 文章推荐                                                            -->
+    <!-- ================================================================== -->
+
+    <!-- 文章：基于内容（与用户点赞文章共享标签，且用户未看过） -->
+    <select id="selectArticleByContent" resultType="java.util.LinkedHashMap">
+        SELECT a.id, a.title, a.cover, a.excerpt,
+               a.author_id AS authorId,
+               pu.nickname AS authorName,
+               pu.avatar AS authorAvatar,
+               COUNT(DISTINCT et.tag_id) AS score
+        FROM portal_article a
+        INNER JOIN portal_entity_tag et ON et.entity_id = a.id AND et.entity_type = 'article'
+        LEFT JOIN portal_user pu ON pu.id = a.author_id
+        WHERE a.status = 'published'
+          AND et.tag_id IN (
+              SELECT et2.tag_id FROM portal_entity_tag et2
+              INNER JOIN portal_like l ON l.article_id = et2.entity_id AND et2.entity_type = 'article'
+              WHERE l.user_id = #{userId}
+          )
+          AND a.id NOT IN (SELECT article_id FROM portal_like WHERE user_id = #{userId})
+          AND a.id NOT IN (SELECT article_id FROM portal_article_view WHERE user_id = #{userId})
+        GROUP BY a.id, a.title, a.cover, a.excerpt, a.author_id, pu.nickname, pu.avatar
+        ORDER BY score DESC, a.views DESC
+        LIMIT #{limit}
+    </select>
+
+    <!-- 文章：协同过滤（点赞过同文章的相似用户喜欢的文章，当前用户未看过） -->
+    <select id="selectArticleByCollaborative" resultType="java.util.LinkedHashMap">
+        SELECT a.id, a.title, a.cover, a.excerpt,
+               a.author_id AS authorId,
+               pu.nickname AS authorName,
+               pu.avatar AS authorAvatar,
+               COUNT(*) AS score
+        FROM portal_like l2
+        INNER JOIN portal_article a ON a.id = l2.article_id AND a.status = 'published'
+        LEFT JOIN portal_user pu ON pu.id = a.author_id
+        WHERE l2.user_id IN (
+            SELECT DISTINCT l1.user_id FROM portal_like l1
+            INNER JOIN portal_like l3 ON l3.article_id = l1.article_id
+            WHERE l3.user_id = #{userId} AND l1.user_id &lt;&gt; #{userId}
+        )
+        AND l2.article_id NOT IN (SELECT article_id FROM portal_like WHERE user_id = #{userId})
+        AND l2.article_id NOT IN (SELECT article_id FROM portal_article_view WHERE user_id = #{userId})
+        GROUP BY a.id, a.title, a.cover, a.excerpt, a.author_id, pu.nickname, pu.avatar
+        ORDER BY score DESC
+        LIMIT #{limit}
+    </select>
+
+    <!-- 文章：热门兜底（按浏览+点赞加权） -->
+    <select id="selectHotArticles" resultType="java.util.LinkedHashMap">
+        SELECT a.id, a.title, a.cover, a.excerpt,
+               a.author_id AS authorId,
+               pu.nickname AS authorName,
+               pu.avatar AS authorAvatar,
+               (COALESCE(a.views, 0) + COALESCE(a.likes, 0) * 5) AS score
+        FROM portal_article a
+        LEFT JOIN portal_user pu ON pu.id = a.author_id
+        WHERE a.status = 'published'
+        ORDER BY score DESC
+        LIMIT #{limit}
+    </select>
+
+    <!-- ================================================================== -->
+    <!-- 题目推荐                                                            -->
+    <!-- ================================================================== -->
+
+    <!-- 题目：基于内容（与用户答题/点赞/收藏题目共享标签，且用户未做过） -->
+    <select id="selectQuestionByContent" resultType="java.util.LinkedHashMap">
+        SELECT q.id, q.title, q.cover,
+               q.description AS excerpt,
+               q.difficulty AS extra,
+               q.tags,
+               COUNT(DISTINCT et.tag_id) AS score
+        FROM portal_interview_question q
+        INNER JOIN portal_entity_tag et ON et.entity_id = q.id AND et.entity_type = 'interview_question'
+        WHERE q.status = 'active'
+          AND et.tag_id IN (
+              SELECT et2.tag_id FROM portal_entity_tag et2
+              WHERE et2.entity_type = 'interview_question'
+                AND et2.entity_id IN (
+                    SELECT question_id FROM portal_interview_question_like WHERE user_id = #{userId}
+                    UNION
+                    SELECT question_id FROM portal_interview_bookmark WHERE user_id = #{userId}
+                    UNION
+                    SELECT question_id FROM portal_interview_submission WHERE user_id = #{userId}
+                )
+          )
+          AND q.id NOT IN (SELECT question_id FROM portal_interview_question_like WHERE user_id = #{userId})
+          AND q.id NOT IN (SELECT question_id FROM portal_interview_bookmark WHERE user_id = #{userId})
+          AND q.id NOT IN (SELECT question_id FROM portal_interview_submission WHERE user_id = #{userId})
+        GROUP BY q.id, q.title, q.cover, q.description, q.difficulty, q.tags
+        ORDER BY score DESC, q.submission_count DESC
+        LIMIT #{limit}
+    </select>
+
+    <!-- 题目：协同过滤（行为相似用户点赞/收藏的题目，当前用户未做过） -->
+    <select id="selectQuestionByCollaborative" resultType="java.util.LinkedHashMap">
+        SELECT q.id, q.title, q.cover,
+               q.description AS excerpt,
+               q.difficulty AS extra,
+               q.tags,
+               COUNT(*) AS score
+        FROM (
+            SELECT question_id, user_id FROM portal_interview_question_like
+            UNION ALL
+            SELECT question_id, user_id FROM portal_interview_bookmark
+        ) act
+        INNER JOIN portal_interview_question q ON q.id = act.question_id AND q.status = 'active'
+        WHERE act.user_id IN (
+            SELECT DISTINCT s1.user_id FROM (
+                SELECT question_id, user_id FROM portal_interview_question_like
+                UNION ALL
+                SELECT question_id, user_id FROM portal_interview_bookmark
+                UNION ALL
+                SELECT question_id, user_id FROM portal_interview_submission
+            ) s1
+            INNER JOIN (
+                SELECT question_id, user_id FROM portal_interview_question_like
+                UNION ALL
+                SELECT question_id, user_id FROM portal_interview_bookmark
+                UNION ALL
+                SELECT question_id, user_id FROM portal_interview_submission
+            ) s3 ON s3.question_id = s1.question_id
+            WHERE s3.user_id = #{userId} AND s1.user_id &lt;&gt; #{userId}
+        )
+        AND act.question_id NOT IN (SELECT question_id FROM portal_interview_question_like WHERE user_id = #{userId})
+        AND act.question_id NOT IN (SELECT question_id FROM portal_interview_bookmark WHERE user_id = #{userId})
+        AND act.question_id NOT IN (SELECT question_id FROM portal_interview_submission WHERE user_id = #{userId})
+        GROUP BY q.id, q.title, q.cover, q.description, q.difficulty, q.tags
+        ORDER BY score DESC
+        LIMIT #{limit}
+    </select>
+
+    <!-- 题目：热门兜底（按点赞+提交加权） -->
+    <select id="selectHotQuestions" resultType="java.util.LinkedHashMap">
+        SELECT q.id, q.title, q.cover,
+               q.description AS excerpt,
+               q.difficulty AS extra,
+               q.tags,
+               (COALESCE(q.like_count, 0) * 5 + COALESCE(q.submission_count, 0)) AS score
+        FROM portal_interview_question q
+        WHERE q.status = 'active'
+        ORDER BY score DESC
+        LIMIT #{limit}
+    </select>
+
+    <!-- ================================================================== -->
+    <!-- 书籍推荐                                                            -->
+    <!-- ================================================================== -->
+
+    <!-- 书籍：基于内容（与用户收藏书籍同分类，且用户未收藏） -->
+    <select id="selectBookByContent" resultType="java.util.LinkedHashMap">
+        SELECT b.id, b.title, b.cover,
+               b.summary AS excerpt,
+               b.author AS authorName,
+               b.tags,
+               (COALESCE(b.rating, 0) + COALESCE(b.reading_count, 0) / 100) AS score
+        FROM portal_book b
+        WHERE b.status = 'active'
+          AND b.id NOT IN (SELECT book_id FROM portal_bookshelf WHERE user_id = #{userId})
+          AND (
+              b.category_id IN (
+                  SELECT bk.book_id_cat FROM (
+                      SELECT bb.category_id AS book_id_cat FROM portal_bookshelf bs
+                      INNER JOIN portal_book bb ON bb.id = bs.book_id
+                      WHERE bs.user_id = #{userId} AND bb.category_id IS NOT NULL
+                  ) t
+              )
+              OR b.author IN (
+                  SELECT bb.author FROM portal_bookshelf bs
+                  INNER JOIN portal_book bb ON bb.id = bs.book_id
+                  WHERE bs.user_id = #{userId} AND bb.author IS NOT NULL
+              )
+          )
+        ORDER BY score DESC
+        LIMIT #{limit}
+    </select>
+
+    <!-- 书籍：协同过滤（行为相似用户收藏的书籍，当前用户未收藏） -->
+    <select id="selectBookByCollaborative" resultType="java.util.LinkedHashMap">
+        SELECT b.id, b.title, b.cover,
+               b.summary AS excerpt,
+               b.author AS authorName,
+               b.tags,
+               COUNT(*) AS score
+        FROM portal_bookshelf bs2
+        INNER JOIN portal_book b ON b.id = bs2.book_id AND b.status = 'active'
+        WHERE bs2.user_id IN (
+            SELECT DISTINCT bs1.user_id FROM portal_bookshelf bs1
+            INNER JOIN portal_bookshelf bs3 ON bs3.book_id = bs1.book_id
+            WHERE bs3.user_id = #{userId} AND bs1.user_id &lt;&gt; #{userId}
+        )
+        AND bs2.book_id NOT IN (SELECT book_id FROM portal_bookshelf WHERE user_id = #{userId})
+        GROUP BY b.id, b.title, b.cover, b.summary, b.author, b.tags
+        ORDER BY score DESC
+        LIMIT #{limit}
+    </select>
+
+    <!-- 书籍：热门兜底（按阅读人数+评分加权） -->
+    <select id="selectHotBooks" resultType="java.util.LinkedHashMap">
+        SELECT b.id, b.title, b.cover,
+               b.summary AS excerpt,
+               b.author AS authorName,
+               b.tags,
+               (COALESCE(b.rating, 0) * 2 + COALESCE(b.reading_count, 0)) AS score
+        FROM portal_book b
+        WHERE b.status = 'active'
+        ORDER BY score DESC
+        LIMIT #{limit}
+    </select>
+
+    <!-- ================================================================== -->
+    <!-- 创作者推荐                                                          -->
+    <!-- ================================================================== -->
+
+    <!-- 创作者：协同过滤（行为相似用户关注的创作者，当前用户未关注） -->
+    <select id="selectCreatorByCollaborative" resultType="java.util.LinkedHashMap">
+        SELECT u.id,
+               u.nickname AS title,
+               u.avatar AS cover,
+               u.bio AS excerpt,
+               COUNT(*) AS score
+        FROM portal_follow f2
+        INNER JOIN portal_user u ON u.id = f2.following_id AND u.status = '0'
+        WHERE f2.follower_id IN (
+            SELECT DISTINCT f1.follower_id FROM portal_follow f1
+            INNER JOIN portal_follow f3 ON f3.following_id = f1.following_id
+            WHERE f3.follower_id = #{userId} AND f1.follower_id &lt;&gt; #{userId}
+        )
+        AND f2.following_id &lt;&gt; #{userId}
+        AND f2.following_id NOT IN (SELECT following_id FROM portal_follow WHERE follower_id = #{userId})
+        GROUP BY u.id, u.nickname, u.avatar, u.bio
+        ORDER BY score DESC
+        LIMIT #{limit}
+    </select>
+
+    <!-- 创作者：热门兜底（按文章总浏览量加权） -->
+    <select id="selectHotCreators" resultType="java.util.LinkedHashMap">
+        SELECT u.id,
+               u.nickname AS title,
+               u.avatar AS cover,
+               u.bio AS excerpt,
+               COALESCE(SUM(a.views), 0) AS score
+        FROM portal_user u
+        LEFT JOIN portal_article a ON a.author_id = u.id AND a.status = 'published'
+        WHERE u.status = '0'
+        GROUP BY u.id, u.nickname, u.avatar, u.bio
+        ORDER BY score DESC, u.id DESC
+        LIMIT #{limit}
+    </select>
+
+</mapper>

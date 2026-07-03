@@ -232,10 +232,16 @@ export const httpDelete = <T>(
 
 export const httpUpload = <T>(
     url: string,
-    file: File
+    file: File | FormData,
+    extraFields?: Record<string, string>
 ): Promise<ApiResponse<T>> => {
-  const formData = new FormData();
-  formData.append('file', file);
+  const formData = file instanceof FormData ? file : new FormData();
+  if (!(file instanceof FormData)) {
+    formData.append('file', file);
+  }
+  if (extraFields) {
+    Object.entries(extraFields).forEach(([k, v]) => formData.append(k, v));
+  }
 
   const token = getToken();
   const headers: Record<string, string> = {};

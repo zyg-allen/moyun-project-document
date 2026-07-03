@@ -19,6 +19,7 @@ const LoginPage = () => import('@/pages/LoginPage.vue')
 const RegisterPage = () => import('@/pages/RegisterPage.vue')
 const PublishPage = () => import('@/pages/PublishPage.vue')
 const MyArticlesPage = () => import('@/pages/MyArticlesPage.vue')
+const MyConsumptionPage = () => import('@/pages/MyConsumptionPage.vue')
 const NotFoundPage = () => import('@/pages/NotFoundPage.vue')
 const ReadingPage = () => import('@/pages/ReadingPage.vue')
 const BookDetailPage = () => import('@/pages/reading/BookDetailPage.vue')
@@ -26,6 +27,8 @@ const BookListDetailPage = () => import('@/pages/reading/BookListDetailPage.vue'
 const ChapterReaderPage = () => import('@/pages/reading/ChapterReaderPage.vue')
 const MyBookshelfPage = () => import('@/pages/reading/MyBookshelfPage.vue')
 const DiscoverPage = () => import('@/pages/reading/DiscoverPage.vue')
+const BookClubListPage = () => import('@/pages/reading/BookClubListPage.vue')
+const BookClubDetailPage = () => import('@/pages/reading/BookClubDetailPage.vue')
 const InterviewPage = () => import('@/pages/InterviewPage.vue')
 const QuestionDetailPage = () => import('@/pages/interview/QuestionDetailPage.vue')
 const ExperienceDetailPage = () => import('@/pages/interview/ExperienceDetailPage.vue')
@@ -34,6 +37,10 @@ const QuestionListPage = () => import('@/pages/interview/QuestionListPage.vue')
 const ExperienceListPage = () => import('@/pages/interview/ExperienceListPage.vue')
 const MyResumesPage = () => import('@/pages/interview/MyResumesPage.vue')
 const ResumeEditPage = () => import('@/pages/interview/ResumeEditPage.vue')
+const CompanyPage = () => import('@/pages/interview/CompanyPage.vue')
+const JobListPage = () => import('@/pages/interview/JobListPage.vue')
+const JobDetailPage = () => import('@/pages/interview/JobDetailPage.vue')
+
 const GrowthRankingPage = () => import('@/pages/GrowthRankingPage.vue')
 const AchievementsPage = () => import('@/pages/AchievementsPage.vue')
 const FollowListPage = () => import('@/pages/FollowListPage.vue')
@@ -43,6 +50,19 @@ const ColumnsPage = () => import('@/pages/ColumnsPage.vue')
 const ColumnDetailPage = () => import('@/pages/ColumnDetailPage.vue')
 const ColumnEditPage = () => import('@/pages/ColumnEditPage.vue')
 const MyColumnsPage = () => import('@/pages/MyColumnsPage.vue')
+const ContestListPage = () => import('@/pages/ContestListPage.vue')
+const ContestDetailPage = () => import('@/pages/ContestDetailPage.vue')
+const CreatorCenterPage = () => import('@/pages/CreatorCenterPage.vue')
+const CreatorCertificationPage = () => import('@/pages/CreatorCertificationPage.vue')
+const LearnCenterPage = () => import('@/pages/learn/LearnCenterPage.vue')
+const StudyPlanPage = () => import('@/pages/learn/StudyPlanPage.vue')
+const WrongBookPage = () => import('@/pages/learn/WrongBookPage.vue')
+const StudyCalendarPage = () => import('@/pages/learn/StudyCalendarPage.vue')
+const KnowledgeGraphPage = () => import('@/pages/learn/KnowledgeGraphPage.vue')
+const LeaderboardPage = () => import('@/pages/learn/LeaderboardPage.vue')
+const PkPage = () => import('@/pages/learn/PkPage.vue')
+const CodeRunnerPage = () => import('@/pages/tools/CodeRunnerPage.vue')
+const MockInterviewPage = () => import('@/pages/interview/MockInterviewPage.vue')
 
 // ============ 路由配置 ============
 
@@ -116,23 +136,66 @@ const routes: RouteRecordRaw[] = [
     meta: { title: '发现好书', isPublic: true }
   },
   {
+    path: '/reading/club',
+    name: 'reading-club-list',
+    component: BookClubListPage,
+    meta: { title: '共读活动', isPublic: true }
+  },
+  {
+    path: '/reading/club/:id',
+    name: 'reading-club-detail',
+    component: BookClubDetailPage,
+    meta: { title: '共读活动详情', isPublic: true }
+  },
+  {
     path: '/interview',
     name: 'interview',
     component: InterviewPage,
     meta: { title: '面试指南', isPublic: true }
   },
-  // 学习中心暂未实现，重定向到面试指南
+  // ============ 学习中心（阶段三 3.1 / 3.2 / 3.3） ============
   {
     path: '/learn',
-    redirect: '/interview'
-  },
-  {
-    path: '/learn/wrong',
-    redirect: '/interview'
+    name: 'learn-center',
+    component: LearnCenterPage,
+    meta: { title: '学习中心', isPublic: true }
   },
   {
     path: '/learn/plan',
-    redirect: '/interview'
+    name: 'learn-plan',
+    component: StudyPlanPage,
+    meta: { requiresAuth: true, title: '学习计划', robots: 'noindex,nofollow' }
+  },
+  {
+    path: '/learn/wrong',
+    name: 'learn-wrong',
+    component: WrongBookPage,
+    meta: { requiresAuth: true, title: '错题本', robots: 'noindex,nofollow' }
+  },
+  // ============ 学习统计（阶段三 3.4 / 3.5 / 3.7） ============
+  {
+    path: '/learn/calendar',
+    name: 'learn-calendar',
+    component: StudyCalendarPage,
+    meta: { requiresAuth: true, title: '刷题日历', robots: 'noindex,nofollow' }
+  },
+  {
+    path: '/learn/knowledge',
+    name: 'learn-knowledge',
+    component: KnowledgeGraphPage,
+    meta: { title: '知识图谱', isPublic: true }
+  },
+  {
+    path: '/learn/leaderboard',
+    name: 'learn-leaderboard',
+    component: LeaderboardPage,
+    meta: { title: '刷题排行榜', isPublic: true }
+  },
+  {
+    path: '/learn/pk',
+    name: 'learn-pk',
+    component: PkPage,
+    meta: { requiresAuth: true, title: 'PK 对战', robots: 'noindex,nofollow' }
   },
   {
     path: '/interview/questions',
@@ -212,6 +275,40 @@ const routes: RouteRecordRaw[] = [
     component: ResumeEditPage,
     meta: { title: '编辑简历', requiresAuth: true, robots: 'noindex,nofollow' }
   },
+  // ============ 公司主页（阶段三 3.8） ============
+  {
+    path: '/interview/company/:id',
+    name: 'interview-company',
+    component: CompanyPage,
+    meta: { title: '公司主页', isPublic: true }
+  },
+  // ============ 在招职位（阶段三 3.9） ============
+  {
+    path: '/interview/jobs',
+    name: 'interview-jobs',
+    component: JobListPage,
+    meta: { title: '在招职位', isPublic: true }
+  },
+  {
+    path: '/interview/jobs/:id',
+    name: 'interview-job-detail',
+    component: JobDetailPage,
+    meta: { title: '职位详情', isPublic: true }
+  },
+  // ============ AI 模拟面试官（阶段三 3.10） ============
+  {
+    path: '/interview/mock',
+    name: 'interview-mock',
+    component: MockInterviewPage,
+    meta: { requiresAuth: true, title: 'AI 模拟面试', robots: 'noindex,nofollow' }
+  },
+  // ============ 在线代码运行（阶段三 3.6） ============
+  {
+    path: '/tools/code',
+    name: 'tools-code',
+    component: CodeRunnerPage,
+    meta: { requiresAuth: true, title: '在线代码运行', robots: 'noindex,nofollow' }
+  },
   {
     path: '/article/:id/:slug?',
     name: 'article',
@@ -256,11 +353,38 @@ const routes: RouteRecordRaw[] = [
     component: MyColumnsPage,
     meta: { requiresAuth: true, title: '我的专栏', robots: 'noindex,nofollow' }
   },
+  // ============ 创作者中心 ============
+  {
+    path: '/creator',
+    name: 'creator-center',
+    component: CreatorCenterPage,
+    meta: { requiresAuth: true, title: '创作者中心', robots: 'noindex,nofollow' }
+  },
+  // ============ 创作者认证 ============
+  {
+    path: '/creator/certification',
+    name: 'creator-certification',
+    component: CreatorCertificationPage,
+    meta: { requiresAuth: true, title: '创作者认证', robots: 'noindex,nofollow' }
+  },
   {
     path: '/column/:id',
     name: 'column-detail',
     component: ColumnDetailPage,
     meta: { title: '专栏详情', isPublic: true }
+  },
+  // ============ 创作挑战 / 征文活动 ============
+  {
+    path: '/contests',
+    name: 'contests',
+    component: ContestListPage,
+    meta: { title: '创作挑战', isPublic: true }
+  },
+  {
+    path: '/contest/:id',
+    name: 'contest-detail',
+    component: ContestDetailPage,
+    meta: { title: '活动详情', isPublic: true }
   },
   // ============ 语义化列表页路由（SEO 优先） ============
   {
@@ -385,6 +509,12 @@ const routes: RouteRecordRaw[] = [
     name: 'my-articles',
     component: MyArticlesPage,
     meta: { requiresAuth: true, title: '我的文章', robots: 'noindex,nofollow' }
+  },
+  {
+    path: '/my/consumption',
+    name: 'my-consumption',
+    component: MyConsumptionPage,
+    meta: { requiresAuth: true, title: '我的消费记录', robots: 'noindex,nofollow' }
   },
   {
     path: '/messages',

@@ -4,10 +4,16 @@ import { httpPost } from './client';
 export type ReportType = 'spam' | 'inappropriate' | 'infringement' | 'fraud' | 'other';
 // 反馈类型
 export type FeedbackType = 'suggestion' | 'bug' | 'experience' | 'other';
+// 举报目标类型：comment=评论 / article=文章 / user=用户
+export type ReportTargetType = 'comment' | 'article' | 'user';
 
 export interface SubmitReportParams {
   reportType: ReportType;
   targetUrl?: string;
+  /** 举报目标类型：comment/article/user，定向举报具体内容时填写（与 targetId 配合） */
+  targetType?: ReportTargetType;
+  /** 举报目标ID（评论/文章/用户ID） */
+  targetId?: string | number;
   description: string;
   contact?: string;
   images?: string[];
@@ -34,6 +40,23 @@ export const submitReport = (params: SubmitReportParams) => {
     delete (payload as any).images;
   }
   return httpPost<string>('/portal/report/submit', payload);
+};
+
+/**
+ * 提交内容举报（评论/文章等具体内容定向举报，阶段四 4.3）
+ * POST /portal/report/submit
+ * @param targetType 目标类型 comment/article/user
+ * @param targetId   目标ID
+ * @param reportType 举报理由类型
+ * @param description 问题描述
+ */
+export const submitContentReport = (
+  targetType: ReportTargetType,
+  targetId: string | number,
+  reportType: ReportType,
+  description: string,
+) => {
+  return submitReport({ reportType, targetType, targetId, description });
 };
 
 /**

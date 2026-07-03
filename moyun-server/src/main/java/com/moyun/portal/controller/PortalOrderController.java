@@ -40,8 +40,12 @@ public class PortalOrderController extends BaseController {
     @Operation(summary = "获取订单列表", description = "根据条件分页查询订单列表")
     @GetMapping("/list")
     public AjaxResult list(OrderQuery query) {
-        if (PortalSecurityUtils.getUserId() == null) {
+        Long userId = PortalSecurityUtils.getUserId();
+        if (userId == null) {
             return AjaxResult.error(HttpStatus.UNAUTHORIZED, "请先登录");
+        }
+        if (!PortalSecurityUtils.isAdmin() && query != null) {
+            query.setUserId(userId);
         }
         Page<PortalOrder> page = PageUtils.buildPage(query);
         Page<PortalOrder> resultPage = portalOrderService.selectPortalOrderPage(page, query);
@@ -63,10 +67,18 @@ public class PortalOrderController extends BaseController {
     @Operation(summary = "获取订单详情", description = "根据订单ID获取订单详细信息")
     @GetMapping(value = "/{id}")
     public AjaxResult getInfo(@Parameter(description = "订单ID") @PathVariable Long id) {
-        if (PortalSecurityUtils.getUserId() == null) {
+        Long userId = PortalSecurityUtils.getUserId();
+        if (userId == null) {
             return AjaxResult.error(HttpStatus.UNAUTHORIZED, "请先登录");
         }
-        return success(portalOrderService.selectPortalOrderById(id));
+        PortalOrder order = portalOrderService.selectPortalOrderById(id);
+        if (order == null) {
+            return AjaxResult.error("订单不存在");
+        }
+        if (!PortalSecurityUtils.isAdmin() && !userId.equals(order.getUserId())) {
+            return AjaxResult.error(HttpStatus.FORBIDDEN, "无权查看该订单");
+        }
+        return success(order);
     }
 
     @Operation(summary = "新增订单", description = "创建新订单（仅管理员）")

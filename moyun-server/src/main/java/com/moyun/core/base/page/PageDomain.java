@@ -62,6 +62,13 @@ public class PageDomain {
     }
 
     public void setOrderByColumn(String orderByColumn) {
+        if (StringUtils.isEmpty(orderByColumn)) {
+            this.orderByColumn = null;
+            return;
+        }
+        if (!orderByColumn.matches("^[a-zA-Z][a-zA-Z0-9_]{0,63}$")) {
+            throw new IllegalArgumentException("排序列名不合法：" + orderByColumn);
+        }
         this.orderByColumn = orderByColumn;
     }
 
@@ -71,11 +78,13 @@ public class PageDomain {
 
     public void setIsAsc(String isAsc) {
         if (StringUtils.isNotEmpty(isAsc)) {
-            // 兼容前端排序类型
             if ("ascending".equals(isAsc)) {
                 isAsc = "asc";
             } else if ("descending".equals(isAsc)) {
                 isAsc = "desc";
+            }
+            if (!"asc".equals(isAsc) && !"desc".equals(isAsc)) {
+                throw new IllegalArgumentException("排序方向不合法：" + isAsc);
             }
             this.isAsc = isAsc;
         }

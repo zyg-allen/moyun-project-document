@@ -73,6 +73,28 @@
         </choose>
     </select>
 
+    <!-- 后台列表分页（含所有状态，含作者信息） -->
+    <select id="selectAdminListPage" resultMap="ColumnListItemResult">
+        SELECT c.id, c.user_id, c.title, c.subtitle, c.cover, c.category_id, c.status,
+               c.article_count, c.subscribe_count, c.view_count, c.is_finished, c.price, c.created_time,
+               pu.nickname AS author_name, pu.avatar AS author_avatar
+        FROM portal_column c
+        LEFT JOIN portal_user pu ON pu.id = c.user_id
+        <where>
+            <if test="query.keyword != null and query.keyword != ''">
+                AND (c.title LIKE CONCAT('%', #{query.keyword}, '%')
+                     OR c.subtitle LIKE CONCAT('%', #{query.keyword}, '%'))
+            </if>
+            <if test="query.status != null and query.status != ''">
+                AND c.status = #{query.status}
+            </if>
+            <if test="query.categoryId != null">
+                AND c.category_id = #{query.categoryId}
+            </if>
+        </where>
+        ORDER BY c.created_time DESC
+    </select>
+
     <!-- 专栏详情（含作者信息） -->
     <select id="selectDetailById" resultMap="ColumnVOResult">
         SELECT c.id, c.user_id, c.title, c.subtitle, c.description, c.cover, c.category_id, c.status,

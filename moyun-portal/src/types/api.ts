@@ -161,6 +161,69 @@ export interface Article {
   updatedAt?: string;
   publishedAt?: string;
   remark?: string; // 审核意见（rejected 时存拒绝原因）
+  /** 是否付费阅读 0=免费 1=付费 */
+  isPaid?: number;
+  /** 付费内容（购买后可见；未购买时后端会清空该字段） */
+  paidContent?: string;
+  /** 试读字数（未购买可预览的字数） */
+  previewLength?: number;
+  /** 付费价格，0=免费 */
+  price?: number;
+  /** 当前用户是否已购买该付费文章（详情接口动态填充） */
+  isPurchased?: boolean;
+}
+
+// 打赏目标类型：article=文章打赏，column=专栏打赏，article_paid=付费阅读购买
+export type TipTargetType = 'article' | 'column' | 'article_paid';
+
+/**
+ * 打赏/付费阅读购买订单
+ * 复用 portal_tip_order 表，target_type='article_paid' 表示付费阅读购买记录
+ */
+export interface PortalTipOrder {
+  id?: number | string;
+  /** 打赏者ID */
+  userId?: number | string;
+  /** 被打赏者（作者）ID */
+  authorId?: number | string;
+  /** 目标类型：article/column/article_paid */
+  targetType?: TipTargetType;
+  /** 目标ID（文章ID/专栏ID） */
+  targetId?: number | string;
+  /** 金额（元） */
+  amount?: number;
+  /** 留言（打赏时附带） */
+  message?: string;
+  /** 订单状态：pending/paid */
+  status?: string;
+  /** 支付方式（简化版固定 wallet） */
+  payMethod?: string;
+  /** 支付时间 */
+  paidTime?: string;
+  /** 创建时间 */
+  createdTime?: string;
+  /** 打赏者昵称（JOIN 填充） */
+  userNickname?: string;
+  /** 打赏者头像（JOIN 填充） */
+  userAvatar?: string;
+  /** 作者昵称（JOIN 填充） */
+  authorNickname?: string;
+  /** 作者头像（JOIN 填充） */
+  authorAvatar?: string;
+}
+
+/** 发起打赏请求体 */
+export interface TipTargetBody {
+  /** 金额（元） */
+  amount: number;
+  /** 留言 */
+  message?: string;
+}
+
+/** 打赏列表分页查询参数 */
+export interface TipQuery {
+  pageNum?: number;
+  pageSize?: number;
 }
 
 export interface ArticleListParams {
@@ -1254,6 +1317,8 @@ export interface UserStatsVO {
   comments: number;
   totalLikes: number;
   checkinStreak: number;
+  /** 最后签到日期（YYYY-MM-DD，前端据此判断今日是否已签到） */
+  lastCheckinDate?: string;
 }
 
 /** 用户徽章 */
@@ -1565,4 +1630,102 @@ export interface FollowUserItem {
   /** 是否为当前登录用户本人 */
   isMe?: boolean;
   createdAt?: string;
+}
+
+// ==================== 职位（求职闭环）====================
+
+/** 职位列表项（含公司简要信息） */
+export interface JobListItemVO {
+  id: string | number;
+  companyId?: string | number;
+  title: string;
+  city?: string;
+  salaryMin?: number;
+  salaryMax?: number;
+  experience?: string;
+  education?: string;
+  status?: string;
+  companyName?: string;
+  companyLogo?: string;
+  createdTime?: string;
+}
+
+/** 职位详情（含公司信息） */
+export interface JobVO extends JobListItemVO {
+  description?: string;
+  requirement?: string;
+  companyIndustry?: string;
+  updatedTime?: string;
+}
+
+/** 职位查询参数 */
+export interface JobQuery {
+  pageNum?: number;
+  pageSize?: number;
+  keyword?: string;
+  companyId?: string | number;
+  city?: string;
+  experience?: string;
+  education?: string;
+  status?: string;
+}
+
+// ==================== 在线代码运行（任务 3.6）====================
+
+/** 代码运行记录 VO */
+export interface CodeRunVO {
+  id: string | number;
+  userId?: string | number;
+  /** java/python/javascript */
+  language: string;
+  code: string;
+  stdin?: string;
+  output?: string;
+  errorMsg?: string;
+  /** running/success/failed/timeout */
+  status: string;
+  runtimeMs?: number;
+  memKb?: number;
+  createTime?: string;
+}
+
+// ==================== AI 模拟面试官（任务 3.10）====================
+
+/** 模拟面试问答 VO */
+export interface MockInterviewQaVO {
+  id: string | number;
+  interviewId: string | number;
+  questionId?: string | number;
+  /** 题目序号（从 0 开始） */
+  questionIdx: number;
+  /** 面试问题（快照自题目标题） */
+  question: string;
+  userAnswer?: string;
+  aiFeedback?: string;
+  /** 本题评分（0-100），未作答为空 */
+  score?: number;
+  createTime?: string;
+}
+
+/** 模拟面试会话 VO */
+export interface MockInterviewVO {
+  id: string | number;
+  userId?: string | number;
+  position?: string;
+  scene?: string;
+  /** in_progress/finished */
+  status: string;
+  totalQa: number;
+  score?: number;
+  summary?: string;
+  createTime?: string;
+  updateTime?: string;
+}
+
+/** 模拟面试详情 VO（含问答列表） */
+export interface MockInterviewDetailVO extends MockInterviewVO {
+  /** 问答列表（按 question_idx 升序） */
+  qaList: MockInterviewQaVO[];
+  /** 已答完题数 */
+  answeredCount?: number;
 }

@@ -62,4 +62,24 @@ public interface PortalUserGrowthMapper extends BaseMapper<PortalUserGrowth> {
      */
     @Update("INSERT IGNORE INTO portal_user_growth (user_id, growth_value, level, title, season_value) VALUES (#{userId}, 0, 1, '初出茅庐', 0)")
     int insertIfNotExists(@Param("userId") Long userId);
+
+    /**
+     * 原子增加积分（任务奖励）
+     */
+    @Update("UPDATE portal_user_growth SET points = points + #{delta} WHERE user_id = #{userId}")
+    int addPoints(@Param("userId") Long userId, @Param("delta") int delta);
+
+    /**
+     * 原子扣减积分（积分商城兑换，先校验余额）
+     *
+     * @return 影响行数，0 表示余额不足
+     */
+    @Update("UPDATE portal_user_growth SET points = points - #{delta} WHERE user_id = #{userId} AND points >= #{delta}")
+    int deductPoints(@Param("userId") Long userId, @Param("delta") int delta);
+
+    /**
+     * 查询用户积分余额
+     */
+    @Select("SELECT points FROM portal_user_growth WHERE user_id = #{userId}")
+    Long selectPoints(@Param("userId") Long userId);
 }

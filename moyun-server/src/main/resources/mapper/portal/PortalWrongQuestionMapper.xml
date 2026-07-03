@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.moyun.portal.mapper.PortalWrongQuestionMapper">
+
+    <!-- 错题本 VO 结果映射 -->
+    <resultMap type="com.moyun.ext.cms.domain.vo.WrongQuestionVO" id="WrongQuestionVOResult">
+        <id property="id" column="id"/>
+        <result property="userId" column="user_id"/>
+        <result property="questionId" column="question_id"/>
+        <result property="attemptId" column="attempt_id"/>
+        <result property="status" column="status"/>
+        <result property="wrongCount" column="wrong_count"/>
+        <result property="lastWrongTime" column="last_wrong_time"/>
+        <result property="nextReviewTime" column="next_review_time"/>
+        <result property="createdTime" column="created_time"/>
+        <result property="questionTitle" column="question_title"/>
+        <result property="questionDifficulty" column="question_difficulty"/>
+        <result property="questionTags" column="question_tags"/>
+        <result property="questionCategoryId" column="question_category_id"/>
+    </resultMap>
+
+    <!-- 错题本分页列表（JOIN portal_interview_question 获取题目信息；userId 为 null 时查全部，供后台使用） -->
+    <select id="selectWrongQuestionPage" resultMap="WrongQuestionVOResult">
+        SELECT wq.id, wq.user_id, wq.question_id, wq.attempt_id, wq.status, wq.wrong_count,
+               wq.last_wrong_time, wq.next_review_time, wq.created_time,
+               q.title AS question_title, q.difficulty AS question_difficulty,
+               q.tags AS question_tags, q.category_id AS question_category_id
+        FROM portal_wrong_question wq
+        LEFT JOIN portal_interview_question q ON q.id = wq.question_id
+        <where>
+            <if test="userId != null">
+                AND wq.user_id = #{userId}
+            </if>
+            <if test="query != null and query.status != null and query.status != ''">
+                AND wq.status = #{query.status}
+            </if>
+            <if test="query != null and query.tag != null and query.tag != ''">
+                AND q.tags LIKE CONCAT('%', #{query.tag}, '%')
+            </if>
+            <if test="query != null and query.keyword != null and query.keyword != ''">
+                AND q.title LIKE CONCAT('%', #{query.keyword}, '%')
+            </if>
+        </where>
+        ORDER BY wq.last_wrong_time DESC
+    </select>
+
+</mapper>

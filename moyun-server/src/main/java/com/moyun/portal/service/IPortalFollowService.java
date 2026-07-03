@@ -7,6 +7,7 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 
 import com.moyun.portal.domain.entity.PortalFollow;
 import com.moyun.portal.domain.query.FollowQuery;
+import com.moyun.portal.domain.vo.FollowUserVO;
 
 /**
  * 门户关注 业务层
@@ -128,4 +129,22 @@ public interface IPortalFollowService {
      * @return 分页结果，records 为 PortalFollow（含 followingId/createTime）
      */
     Page<PortalFollow> selectFollowingPage(Page<PortalFollow> page, Long userId);
+
+    /**
+     * 查询指定用户的粉丝列表（JOIN portal_user，返回用户信息）
+     *
+     * @param page   分页参数
+     * @param userId 被查询用户ID
+     * @return 分页结果，records 为 FollowUserVO（含 username/nickname/avatar 等）
+     */
+    Page<FollowUserVO> selectFollowerUserPage(Page<FollowUserVO> page, Long userId);
+
+    /**
+     * 查询指定用户的关注列表（JOIN portal_user，返回用户信息）
+     *
+     * @param page   分页参数
+     * @param userId 被查询用户ID
+     * @return 分页结果，records 为 FollowUserVO（含 username/nickname/avatar 等）
+     */
+    Page<FollowUserVO> selectFollowingUserPage(Page<FollowUserVO> page, Long userId);
 }

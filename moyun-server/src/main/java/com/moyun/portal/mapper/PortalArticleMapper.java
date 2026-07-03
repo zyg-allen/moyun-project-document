@@ -61,6 +61,16 @@ public interface PortalArticleMapper extends BaseMapper<PortalArticle> {
     List<PortalArticle> selectArticlesByIds(@Param("ids") List<Long> ids);
 
     /**
+     * 我购买的文章（付费阅读）分页查询
+     * JOIN portal_tip_order 取 target_type='article_paid' AND status='paid' 的记录
+     *
+     * @param page   分页参数
+     * @param userId 当前登录用户ID
+     * @return 文章分页列表
+     */
+    Page<PortalArticle> selectPurchasedArticlesPage(Page<PortalArticle> page, @Param("userId") Long userId);
+
+    /**
      * 查询热门文章（按浏览量排序）
      *
      * @param page 分页参数

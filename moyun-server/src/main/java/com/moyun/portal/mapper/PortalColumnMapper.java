@@ -28,6 +28,12 @@ public interface PortalColumnMapper extends BaseMapper<PortalColumn> {
     Page<ColumnListItemVO> selectListPage(Page<ColumnListItemVO> page, @Param("query") ColumnQuery query);
 
     /**
+     * 后台专栏列表分页（含所有状态，含作者信息）
+     * 支持 keyword（标题/副标题）/status/categoryId 筛选
+     */
+    Page<ColumnListItemVO> selectAdminListPage(Page<ColumnListItemVO> page, @Param("query") ColumnQuery query);
+
+    /**
      * 专栏详情（含作者信息，不含文章目录与订阅状态）
      */
     ColumnVO selectDetailById(@Param("id") Long id);

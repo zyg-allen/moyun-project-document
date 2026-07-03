@@ -6,9 +6,11 @@ import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
+import org.apache.ibatis.annotations.Select;
 
 import com.moyun.portal.domain.entity.PortalFollow;
 import com.moyun.portal.domain.query.FollowQuery;
+import com.moyun.portal.domain.vo.FollowUserVO;
 
 /**
  * 门户关注表 数据层
@@ -92,4 +94,32 @@ public interface PortalFollowMapper extends BaseMapper<PortalFollow> {
      * @return 粉丝数
      */
     long countFollowers(@Param("followingId") Long followingId);
+
+    /**
+     * 查询指定用户的粉丝列表（JOIN portal_user，返回用户信息）
+     *
+     * @param page        分页参数
+     * @param followingId 被关注者ID
+     * @return 分页结果，每条记录含粉丝用户信息
+     */
+    @Select("SELECT f.id, f.follower_id AS user_id, u.username, u.nickname, u.avatar, u.bio, u.position, f.create_time AS created_at " +
+            "FROM portal_follow f " +
+            "LEFT JOIN portal_user u ON u.id = f.follower_id " +
+            "WHERE f.following_id = #{followingId} " +
+            "ORDER BY f.create_time DESC")
+    Page<FollowUserVO> selectFollowerUserPage(Page<FollowUserVO> page, @Param("followingId") Long followingId);
+
+    /**
+     * 查询指定用户的关注列表（JOIN portal_user，返回用户信息）
+     *
+     * @param page        分页参数
+     * @param followerId  关注者ID
+     * @return 分页结果，每条记录含被关注用户信息
+     */
+    @Select("SELECT f.id, f.following_id AS user_id, u.username, u.nickname, u.avatar, u.bio, u.position, f.create_time AS created_at " +
+            "FROM portal_follow f " +
+            "LEFT JOIN portal_user u ON u.id = f.following_id " +
+            "WHERE f.follower_id = #{followerId} " +
+            "ORDER BY f.create_time DESC")
+    Page<FollowUserVO> selectFollowingUserPage(Page<FollowUserVO> page, @Param("followerId") Long followerId);
 }

@@ -8,8 +8,7 @@
 -- ----------------------------
 -- 门户用户表
 -- ----------------------------
-DROP TABLE IF EXISTS `portal_user`;
-CREATE TABLE `portal_user` (
+CREATE TABLE IF NOT EXISTS `portal_user` (
   `id` bigint NOT NULL AUTO_INCREMENT COMMENT '用户ID',
   `user_id` bigint DEFAULT NULL COMMENT '关联后台用户ID',
   `username` varchar(50) NOT NULL COMMENT '用户名',
@@ -45,8 +44,7 @@ CREATE TABLE `portal_user` (
 -- ----------------------------
 -- 门户分类表
 -- ----------------------------
-DROP TABLE IF EXISTS `portal_category`;
-CREATE TABLE `portal_category` (
+CREATE TABLE IF NOT EXISTS `portal_category` (
   `id` bigint NOT NULL AUTO_INCREMENT COMMENT '分类ID',
   `name` varchar(100) NOT NULL COMMENT '分类名称',
   `slug` varchar(100) DEFAULT NULL COMMENT '分类别名',
@@ -68,8 +66,7 @@ CREATE TABLE `portal_category` (
 -- ----------------------------
 -- 门户标签表
 -- ----------------------------
-DROP TABLE IF EXISTS `portal_tag`;
-CREATE TABLE `portal_tag` (
+CREATE TABLE IF NOT EXISTS `portal_tag` (
   `id` bigint NOT NULL AUTO_INCREMENT COMMENT '标签ID',
   `name` varchar(100) NOT NULL COMMENT '标签名称',
   `slug` varchar(100) DEFAULT NULL COMMENT '标签别名',
@@ -92,8 +89,7 @@ CREATE TABLE `portal_tag` (
 -- ----------------------------
 -- 门户文章表
 -- ----------------------------
-DROP TABLE IF EXISTS `portal_article`;
-CREATE TABLE `portal_article` (
+CREATE TABLE IF NOT EXISTS `portal_article` (
   `id` bigint NOT NULL AUTO_INCREMENT COMMENT '文章ID',
   `title` varchar(500) NOT NULL COMMENT '文章标题',
   `content` longtext COMMENT '文章内容（HTML格式）',
@@ -133,8 +129,7 @@ CREATE TABLE `portal_article` (
 -- ----------------------------
 -- 文章标签关联表
 -- ----------------------------
-DROP TABLE IF EXISTS `portal_article_tag`;
-CREATE TABLE `portal_article_tag` (
+CREATE TABLE IF NOT EXISTS `portal_article_tag` (
   `id` bigint NOT NULL AUTO_INCREMENT COMMENT 'ID',
   `article_id` bigint NOT NULL COMMENT '文章ID',
   `tag_id` bigint NOT NULL COMMENT '标签ID',
@@ -152,8 +147,7 @@ CREATE TABLE `portal_article_tag` (
 -- ----------------------------
 -- 门户评论表
 -- ----------------------------
-DROP TABLE IF EXISTS `portal_comment`;
-CREATE TABLE `portal_comment` (
+CREATE TABLE IF NOT EXISTS `portal_comment` (
   `id` bigint NOT NULL AUTO_INCREMENT COMMENT '评论ID',
   `article_id` bigint NOT NULL COMMENT '文章ID',
   `author_id` bigint NOT NULL COMMENT '评论者ID（门户用户ID）',
@@ -176,8 +170,7 @@ CREATE TABLE `portal_comment` (
 -- ----------------------------
 -- 门户收藏表
 -- ----------------------------
-DROP TABLE IF EXISTS `portal_bookmark`;
-CREATE TABLE `portal_bookmark` (
+CREATE TABLE IF NOT EXISTS `portal_bookmark` (
   `id` bigint NOT NULL AUTO_INCREMENT COMMENT '收藏ID',
   `user_id` bigint NOT NULL COMMENT '用户ID（门户用户ID）',
   `article_id` bigint NOT NULL COMMENT '文章ID',
@@ -195,8 +188,7 @@ CREATE TABLE `portal_bookmark` (
 -- ----------------------------
 -- 门户点赞表（文章）
 -- ----------------------------
-DROP TABLE IF EXISTS `portal_like`;
-CREATE TABLE `portal_like` (
+CREATE TABLE IF NOT EXISTS `portal_like` (
   `id` bigint NOT NULL AUTO_INCREMENT COMMENT '点赞ID',
   `user_id` bigint NOT NULL COMMENT '用户ID（门户用户ID）',
   `article_id` bigint NOT NULL COMMENT '文章ID',
@@ -214,8 +206,7 @@ CREATE TABLE `portal_like` (
 -- ----------------------------
 -- 门户评论点赞表
 -- ----------------------------
-DROP TABLE IF EXISTS `portal_comment_like`;
-CREATE TABLE `portal_comment_like` (
+CREATE TABLE IF NOT EXISTS `portal_comment_like` (
   `id` bigint NOT NULL AUTO_INCREMENT COMMENT 'ID',
   `user_id` bigint NOT NULL COMMENT '用户ID（门户用户ID）',
   `comment_id` bigint NOT NULL COMMENT '评论ID',
@@ -233,8 +224,7 @@ CREATE TABLE `portal_comment_like` (
 -- ----------------------------
 -- 门户关注表
 -- ----------------------------
-DROP TABLE IF EXISTS `portal_follow`;
-CREATE TABLE `portal_follow` (
+CREATE TABLE IF NOT EXISTS `portal_follow` (
   `id` bigint NOT NULL AUTO_INCREMENT COMMENT '关注ID',
   `follower_id` bigint NOT NULL COMMENT '关注者ID（门户用户ID）',
   `following_id` bigint NOT NULL COMMENT '被关注者ID（门户用户ID）',
@@ -252,8 +242,7 @@ CREATE TABLE `portal_follow` (
 -- ----------------------------
 -- 门户通知表
 -- ----------------------------
-DROP TABLE IF EXISTS `portal_notification`;
-CREATE TABLE `portal_notification` (
+CREATE TABLE IF NOT EXISTS `portal_notification` (
   `id` bigint NOT NULL AUTO_INCREMENT COMMENT '通知ID',
   `user_id` bigint NOT NULL COMMENT '用户ID（门户用户ID）',
   `type` varchar(50) NOT NULL COMMENT '类型：comment/like/follow/system/order',
@@ -275,8 +264,7 @@ CREATE TABLE `portal_notification` (
 -- ----------------------------
 -- 门户友情链接表
 -- ----------------------------
-DROP TABLE IF EXISTS `portal_friend_link`;
-CREATE TABLE `portal_friend_link` (
+CREATE TABLE IF NOT EXISTS `portal_friend_link` (
   `id` bigint NOT NULL AUTO_INCREMENT COMMENT '链接ID',
   `name` varchar(100) NOT NULL COMMENT '链接名称',
   `url` varchar(500) NOT NULL COMMENT '链接地址',
@@ -296,8 +284,7 @@ CREATE TABLE `portal_friend_link` (
 -- ----------------------------
 -- 门户VIP套餐表
 -- ----------------------------
-DROP TABLE IF EXISTS `portal_vip_package`;
-CREATE TABLE `portal_vip_package` (
+CREATE TABLE IF NOT EXISTS `portal_vip_package` (
   `id` bigint NOT NULL AUTO_INCREMENT COMMENT '套餐ID',
   `name` varchar(100) NOT NULL COMMENT '套餐名称',
   `price` decimal(10,2) NOT NULL COMMENT '价格',
@@ -320,8 +307,7 @@ CREATE TABLE `portal_vip_package` (
 -- ----------------------------
 -- 门户订单表
 -- ----------------------------
-DROP TABLE IF EXISTS `portal_order`;
-CREATE TABLE `portal_order` (
+CREATE TABLE IF NOT EXISTS `portal_order` (
   `id` bigint NOT NULL AUTO_INCREMENT COMMENT '订单ID',
   `order_no` varchar(64) NOT NULL COMMENT '订单号',
   `user_id` bigint NOT NULL COMMENT '用户ID（门户用户ID）',
@@ -346,8 +332,7 @@ CREATE TABLE `portal_order` (
 -- ----------------------------
 -- 门户钱包表
 -- ----------------------------
-DROP TABLE IF EXISTS `portal_wallet`;
-CREATE TABLE `portal_wallet` (
+CREATE TABLE IF NOT EXISTS `portal_wallet` (
   `id` bigint NOT NULL AUTO_INCREMENT COMMENT '钱包ID',
   `user_id` bigint NOT NULL COMMENT '用户ID（门户用户ID）',
   `balance` decimal(10,2) DEFAULT '0.00' COMMENT '余额',
@@ -366,8 +351,7 @@ CREATE TABLE `portal_wallet` (
 -- ----------------------------
 -- 门户钱包交易记录表
 -- ----------------------------
-DROP TABLE IF EXISTS `portal_wallet_transaction`;
-CREATE TABLE `portal_wallet_transaction` (
+CREATE TABLE IF NOT EXISTS `portal_wallet_transaction` (
   `id` bigint NOT NULL AUTO_INCREMENT COMMENT '交易ID',
   `user_id` bigint NOT NULL COMMENT '用户ID（门户用户ID）',
   `type` varchar(50) NOT NULL COMMENT '类型：recharge/consume/refund/withdraw',

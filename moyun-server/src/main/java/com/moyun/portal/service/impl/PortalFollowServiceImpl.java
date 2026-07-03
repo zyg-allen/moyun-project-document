@@ -15,6 +15,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.moyun.portal.domain.entity.PortalFollow;
 import com.moyun.portal.domain.query.FollowQuery;
+import com.moyun.portal.domain.vo.FollowUserVO;
 import com.moyun.portal.mapper.PortalFollowMapper;
 import com.moyun.portal.mapper.PortalUserStatsMapper;
 import com.moyun.portal.service.IPortalFollowService;
@@ -331,6 +332,22 @@ public class PortalFollowServiceImpl extends ServiceImpl<PortalFollowMapper, Por
                         .eq(PortalFollow::getFollowerId, userId)
                         .orderByDesc(PortalFollow::getCreateTime)
         );
+    }
+
+    /**
+     * 查询指定用户的粉丝列表（JOIN portal_user，返回用户信息）
+     */
+    @Override
+    public Page<FollowUserVO> selectFollowerUserPage(Page<FollowUserVO> page, Long userId) {
+        return baseMapper.selectFollowerUserPage(page, userId);
+    }
+
+    /**
+     * 查询指定用户的关注列表（JOIN portal_user，返回用户信息）
+     */
+    @Override
+    public Page<FollowUserVO> selectFollowingUserPage(Page<FollowUserVO> page, Long userId) {
+        return baseMapper.selectFollowingUserPage(page, userId);
     }
 
     /**

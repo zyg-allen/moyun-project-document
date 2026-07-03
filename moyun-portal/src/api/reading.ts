@@ -160,3 +160,91 @@ export const getRanking = (type: 'hot' | 'new' | 'completed' | 'word_count' = 'h
 export const getLimitFree = () => {
   return httpGet<BookRecommend[]>('/portal/reading/limit-free');
 };
+
+// =====================================================
+// 读书空间 - 点赞（金句 / 书单） v4.4 补齐
+// =====================================================
+
+// 切换金句点赞（toggle，返回最新 liked 与 likeCount）
+export const toggleQuoteLike = (quoteId: string | number) => {
+  return httpPost<{ liked: boolean; likeCount: number }>(`/portal/reading/quote/${quoteId}/like`);
+};
+
+// 查询金句点赞状态
+export const checkQuoteLike = (quoteId: string | number) => {
+  return httpGet<{ liked: boolean }>(`/portal/reading/quote/${quoteId}/like`);
+};
+
+// 切换书单点赞
+export const toggleBookListLike = (listId: string | number) => {
+  return httpPost<{ liked: boolean; likeCount: number }>(`/portal/reading/book-list/${listId}/like`);
+};
+
+// 查询书单点赞状态
+export const checkBookListLike = (listId: string | number) => {
+  return httpGet<{ liked: boolean }>(`/portal/reading/book-list/${listId}/like`);
+};
+
+// =====================================================
+// 读书空间 - 共读活动（v4.4 补齐，对应后端 PortalBookClubController）
+// =====================================================
+
+export interface BookClubActivity {
+  id: number;
+  title: string;
+  description?: string;
+  bookId?: number;
+  cover?: string;
+  startDate?: string;
+  endDate?: string;
+  maxParticipants?: number;
+  currentParticipants?: number;
+  status?: string;
+  participantsCount?: number;
+  recordsCount?: number;
+  isJoined?: boolean;
+  createTime?: string;
+}
+
+export interface BookClubRecord {
+  id: number;
+  activityId: number;
+  userId: number;
+  day?: number;
+  content: string;
+  images?: string;
+  recordType?: string;
+  likeCount: number;
+  authorName?: string;
+  authorAvatar?: string;
+  isLiked?: boolean;
+  createTime?: string;
+}
+
+export const getBookClubList = (params: { pageNum?: number; pageSize?: number } = {}) => {
+  return httpGet<{ records: BookClubActivity[]; total: number } | BookClubActivity[]>('/portal/reading/club/list', params);
+};
+
+export const getBookClubDetail = (id: string | number) => {
+  return httpGet<BookClubActivity>(`/portal/reading/club/${id}`);
+};
+
+export const getBookClubRecords = (id: string | number, params: { pageNum?: number; pageSize?: number } = {}) => {
+  return httpGet<{ records: BookClubRecord[]; total: number } | BookClubRecord[]>(`/portal/reading/club/${id}/records`, params);
+};
+
+export const joinBookClub = (id: string | number) => {
+  return httpPost<{ joined?: boolean; message?: string }>(`/portal/reading/club/${id}/join`);
+};
+
+export const leaveBookClub = (id: string | number) => {
+  return httpDelete<{ message?: string }>(`/portal/reading/club/${id}/leave`);
+};
+
+export const submitBookClubRecord = (id: string | number, data: { content: string; recordType?: string }) => {
+  return httpPost<{ message?: string }>(`/portal/reading/club/${id}/records`, data);
+};
+
+export const likeBookClubRecord = (recordId: string | number) => {
+  return httpPost<{ liked?: boolean; likeCount?: number; message?: string }>(`/portal/reading/club/records/${recordId}/like`);
+};

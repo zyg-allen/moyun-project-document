@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.moyun.portal.mapper.PortalCreatorSettlementMapper">
+
+    <resultMap type="com.moyun.portal.domain.entity.PortalCreatorSettlement" id="PortalCreatorSettlementResult">
+        <id property="id" column="id"/>
+        <result property="creatorId" column="creator_id"/>
+        <result property="period" column="period"/>
+        <result property="tipIncome" column="tip_income"/>
+        <result property="paidReadIncome" column="paid_read_income"/>
+        <result property="columnIncome" column="column_income"/>
+        <result property="totalIncome" column="total_income"/>
+        <result property="platformFee" column="platform_fee"/>
+        <result property="creatorIncome" column="creator_income"/>
+        <result property="status" column="status"/>
+        <result property="paidTime" column="paid_time"/>
+        <result property="createTime" column="create_time"/>
+        <result property="updateTime" column="update_time"/>
+        <result property="creatorNickname" column="creator_nickname"/>
+        <result property="creatorAvatar" column="creator_avatar"/>
+    </resultMap>
+
+    <sql id="selectColumns">
+        s.id, s.creator_id, s.period, s.tip_income, s.paid_read_income, s.column_income,
+        s.total_income, s.platform_fee, s.creator_income, s.status, s.paid_time,
+        s.create_time, s.update_time,
+        pu.nickname AS creator_nickname, pu.avatar AS creator_avatar
+    </sql>
+
+    <!-- 我的结算单分页（JOIN portal_user 取创作者昵称/头像） -->
+    <select id="selectMySettlementsPage" resultMap="PortalCreatorSettlementResult">
+        SELECT <include refid="selectColumns"/>
+        FROM portal_creator_settlement s
+        LEFT JOIN portal_user pu ON pu.id = s.creator_id
+        WHERE s.creator_id = #{creatorId}
+        ORDER BY s.period DESC, s.id DESC
+    </select>
+
+    <!-- 后台结算单分页（含创作者信息，支持按 period/status/creatorId 过滤） -->
+    <select id="selectAdminPage" resultMap="PortalCreatorSettlementResult">
+        SELECT <include refid="selectColumns"/>
+        FROM portal_creator_settlement s
+        LEFT JOIN portal_user pu ON pu.id = s.creator_id
+        <where>
+            <if test="query.creatorId != null">and s.creator_id = #{query.creatorId}</if>
+            <if test="query.period != null and query.period != ''">and s.period = #{query.period}</if>
+            <if test="query.status != null and query.status != ''">and s.status = #{query.status}</if>
+        </where>
+        ORDER BY s.period DESC, s.id DESC
+    </select>
+
+    <!-- 结算单详情（含创作者信息） -->
+    <select id="selectDetailById" resultMap="PortalCreatorSettlementResult">
+        SELECT <include refid="selectColumns"/>
+        FROM portal_creator_settlement s
+        LEFT JOIN portal_user pu ON pu.id = s.creator_id
+        WHERE s.id = #{id}
+    </select>
+
+</mapper>

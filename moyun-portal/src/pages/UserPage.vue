@@ -241,6 +241,12 @@ async function loadUserData() {
     }
     if (statsResp.code === 200 && statsResp.data) {
       myStats.value = statsResp.data;
+      // 根据后端返回的最后签到日期恢复"今日已签到"状态（刷新后不丢失）
+      const lastDate = statsResp.data.lastCheckinDate;
+      if (lastDate) {
+        const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+        hasCheckedInToday.value = lastDate === today;
+      }
     }
     if (badgesResp.code === 200 && badgesResp.data) {
       myBadges.value = badgesResp.data;
@@ -1352,21 +1358,20 @@ const dashboardCards = computed(() => {
                       <ChevronRight class="w-5 h-5 ml-auto flex-shrink-0" style="color: var(--theme-text-secondary);" />
                     </button>
 
-                    <!-- 消费记录（占位） -->
+                    <!-- 消费记录 -->
                     <button
-                      disabled
-                      class="flex items-center gap-4 p-5 rounded-2xl text-left cursor-not-allowed"
-                      style="background-color: var(--theme-surface); border: 1px solid var(--theme-border); opacity: 0.6;"
-                      title="功能开发中"
+                      @click="router.push('/my/consumption')"
+                      class="flex items-center gap-4 p-5 rounded-2xl text-left transition-colors hover:opacity-90"
+                      style="background-color: var(--theme-surface); border: 1px solid var(--theme-border);"
                     >
                       <div class="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0" style="background-color: #fffbeb;">
                         <Receipt class="w-6 h-6" style="color: #f59e0b;" />
                       </div>
                       <div class="min-w-0">
-                        <p class="font-semibold mb-1" style="color: var(--theme-text);">消费记录</p>
-                        <p class="text-xs" style="color: var(--theme-text-secondary);">功能开发中，敬请期待</p>
+                        <p class="font-semibold mb-1" style="color: var(--theme-text);">我的打赏/消费记录</p>
+                        <p class="text-xs" style="color: var(--theme-text-secondary);">查看我打赏的与收到的打赏</p>
                       </div>
-                      <span class="ml-auto text-xs px-2 py-1 rounded-full" style="background-color: var(--theme-accent); color: var(--theme-text-secondary);">即将上线</span>
+                      <ChevronRight class="w-5 h-5 ml-auto flex-shrink-0" style="color: var(--theme-text-secondary);" />
                     </button>
                   </div>
                 </div>

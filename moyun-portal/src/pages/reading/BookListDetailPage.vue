@@ -6,8 +6,9 @@ import { BookOpen, Star, ArrowLeft, Heart, Bookmark, BookmarkCheck, Eye } from '
 import LazyImage from '@/components/LazyImage.vue';
 import SiteFooter from '@/components/SiteFooter.vue';
 import { generateSeo } from '@/utils/seo';
-import { getBookListDetail, toggleBookListBookmark, checkBookListBookmark } from '@/api/reading';
+import { getBookListDetail, toggleBookListBookmark, checkBookListBookmark, toggleBookListLike, checkBookListLike } from '@/api/reading';
 import { useUserStore } from '@/stores/user';
+import { useToast } from '@/composables/useToast';
 import type { Book, BookList } from '@/types/api';
 
 const route = useRoute();
@@ -20,6 +21,32 @@ const bookList = ref<BookList | null>(null);
 const books = ref<Book[]>([]);
 const bookmarked = ref(false);
 const bookmarkLoading = ref(false);
+// 书单点赞状态
+const liked = ref(false);
+const likeLoading = ref(false);
+const toast = useToast();
+
+async function handleToggleLike() {
+  if (!bookList.value) return;
+  if (!userStore.isAuthenticated) {
+    toast.warning('请先登录后再点赞');
+    router.push({ name: 'login', query: { redirect: route.fullPath } });
+    return;
+  }
+  if (likeLoading.value) return;
+  likeLoading.value = true;
+  try {
+    const resp = await toggleBookListLike(bookList.value.id);
+    if (resp.code === 200 && resp.data) {
+      liked.value = resp.data.liked;
+      bookList.value.likeCount = resp.data.likeCount;
+    }
+  } catch {
+    toast.error('点赞失败，请稍后重试');
+  } finally {
+    likeLoading.value = false;
+  }
+}
 
 const listId = computed(() => route.params.id as string);
 
@@ -52,6 +79,12 @@ async function loadDetail() {
             if (resp.code === 200 && resp.data) {
               bookmarked.value = !!(resp.data as any).bookmarked;
             }
+          })
+          .catch(() => { /* ignore */ });
+        // 同时查询点赞状态
+        checkBookListLike(bookList.value.id)
+          .then(resp => {
+            if (resp.code === 200 && resp.data) liked.value = !!resp.data.liked;
           })
           .catch(() => { /* ignore */ });
       }
@@ -231,10 +264,21 @@ watch(listId, (newId, oldId) => {
                   <Eye class="w-4 h-4 sm:w-5 sm:h-5 mr-1.5" />
                   {{ bookList.viewCount }} 浏览
                 </span>
-                <span class="flex items-center text-sm sm:text-base">
-                  <Heart class="w-4 h-4 sm:w-5 sm:h-5 mr-1.5" />
+                <button
+                  type="button"
+                  class="flex items-center text-sm sm:text-base transition hover:opacity-80 disabled:opacity-50"
+                  :style="{ color: liked ? 'var(--theme-primary)' : 'inherit' }"
+                  :disabled="likeLoading"
+                  :aria-pressed="liked"
+                  :aria-label="liked ? '取消点赞' : '点赞书单'"
+                  @click="handleToggleLike"
+                >
+                  <Heart
+                    class="w-4 h-4 sm:w-5 sm:h-5 mr-1.5"
+                    :fill="liked ? 'currentColor' : 'none'"
+                  />
                   {{ bookList.likeCount }} 点赞
-                </span>
+                </button>
               </div>
 
               <!-- 收藏按钮 -->

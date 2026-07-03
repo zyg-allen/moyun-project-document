@@ -1,0 +1,135 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.moyun.portal.mapper.PortalCircleMapper">
+
+    <!-- 圈子列表简要信息 -->
+    <resultMap type="com.moyun.ext.cms.domain.vo.CircleListItemVO" id="CircleListItemResult">
+        <id property="id" column="id"/>
+        <result property="name" column="name"/>
+        <result property="description" column="description"/>
+        <result property="cover" column="cover"/>
+        <result property="ownerId" column="owner_id"/>
+        <result property="memberCount" column="member_count"/>
+        <result property="postCount" column="post_count"/>
+        <result property="category" column="category"/>
+        <result property="status" column="status"/>
+        <result property="createdTime" column="created_time"/>
+        <result property="ownerName" column="owner_name"/>
+        <result property="ownerAvatar" column="owner_avatar"/>
+    </resultMap>
+
+    <!-- 圈子详情 -->
+    <resultMap type="com.moyun.ext.cms.domain.vo.CircleVO" id="CircleVOResult">
+        <id property="id" column="id"/>
+        <result property="name" column="name"/>
+        <result property="description" column="description"/>
+        <result property="cover" column="cover"/>
+        <result property="ownerId" column="owner_id"/>
+        <result property="memberCount" column="member_count"/>
+        <result property="postCount" column="post_count"/>
+        <result property="category" column="category"/>
+        <result property="status" column="status"/>
+        <result property="createdTime" column="created_time"/>
+        <result property="ownerName" column="owner_name"/>
+        <result property="ownerAvatar" column="owner_avatar"/>
+    </resultMap>
+
+    <!-- 公开列表分页（仅 active） -->
+    <select id="selectListPage" resultMap="CircleListItemResult">
+        SELECT c.id, c.name, c.description, c.cover, c.owner_id, c.member_count, c.post_count,
+               c.category, c.status, c.created_time,
+               pu.nickname AS owner_name, pu.avatar AS owner_avatar
+        FROM portal_circle c
+        LEFT JOIN portal_user pu ON pu.id = c.owner_id
+        WHERE c.status = 'active'
+        <if test="query.keyword != null and query.keyword != ''">
+            AND (c.name LIKE CONCAT('%', #{query.keyword}, '%')
+                 OR c.description LIKE CONCAT('%', #{query.keyword}, '%'))
+        </if>
+        <if test="query.category != null and query.category != ''">
+            AND c.category = #{query.category}
+        </if>
+        <choose>
+            <when test="query.sortBy == 'popular'">
+                ORDER BY c.member_count DESC, c.created_time DESC
+            </when>
+            <when test="query.sortBy == 'members'">
+                ORDER BY c.member_count DESC, c.created_time DESC
+            </when>
+            <otherwise>
+                ORDER BY c.created_time DESC
+            </otherwise>
+        </choose>
+    </select>
+
+    <!-- 圈子详情（含圈主信息） -->
+    <select id="selectDetailById" resultMap="CircleVOResult">
+        SELECT c.id, c.name, c.description, c.cover, c.owner_id, c.member_count, c.post_count,
+               c.category, c.status, c.created_time,
+               pu.nickname AS owner_name, pu.avatar AS owner_avatar
+        FROM portal_circle c
+        LEFT JOIN portal_user pu ON pu.id = c.owner_id
+        WHERE c.id = #{id}
+    </select>
+
+    <!-- 我创建的圈子分页 -->
+    <select id="selectMyCirclesPage" resultMap="CircleListItemResult">
+        SELECT c.id, c.name, c.description, c.cover, c.owner_id, c.member_count, c.post_count,
+               c.category, c.status, c.created_time,
+               pu.nickname AS owner_name, pu.avatar AS owner_avatar
+        FROM portal_circle c
+        LEFT JOIN portal_user pu ON pu.id = c.owner_id
+        WHERE c.owner_id = #{userId}
+        ORDER BY c.created_time DESC
+    </select>
+
+    <!-- 我加入的圈子分页 -->
+    <select id="selectJoinedCirclesPage" resultMap="CircleListItemResult">
+        SELECT c.id, c.name, c.description, c.cover, c.owner_id, c.member_count, c.post_count,
+               c.category, c.status, c.created_time,
+               pu.nickname AS owner_name, pu.avatar AS owner_avatar
+        FROM portal_circle c
+        INNER JOIN portal_circle_member m ON m.circle_id = c.id AND m.user_id = #{userId}
+        LEFT JOIN portal_user pu ON pu.id = c.owner_id
+        ORDER BY m.joined_time DESC
+    </select>
+
+    <!-- 圈子成员列表（JOIN portal_user，前 N 个） -->
+    <select id="selectMembersByCircle" resultType="com.moyun.ext.cms.domain.vo.CircleMemberVO">
+        SELECT m.id, m.circle_id AS circleId, m.user_id AS userId, m.role,
+               m.joined_time AS joinedTime,
+               pu.nickname, pu.avatar
+        FROM portal_circle_member m
+        LEFT JOIN portal_user pu ON pu.id = m.user_id
+        WHERE m.circle_id = #{circleId}
+        ORDER BY FIELD(m.role, 'owner', 'admin', 'member'), m.joined_time ASC
+        <if test="limit != null">
+            LIMIT #{limit}
+        </if>
+    </select>
+
+    <!-- 后台分页查询（含所有状态） -->
+    <select id="selectCmsListPage" resultMap="CircleListItemResult">
+        SELECT c.id, c.name, c.description, c.cover, c.owner_id, c.member_count, c.post_count,
+               c.category, c.status, c.created_time,
+               pu.nickname AS owner_name, pu.avatar AS owner_avatar
+        FROM portal_circle c
+        LEFT JOIN portal_user pu ON pu.id = c.owner_id
+        <where>
+            <if test="query.keyword != null and query.keyword != ''">
+                AND (c.name LIKE CONCAT('%', #{query.keyword}, '%')
+                     OR c.description LIKE CONCAT('%', #{query.keyword}, '%'))
+            </if>
+            <if test="query.status != null and query.status != ''">
+                AND c.status = #{query.status}
+            </if>
+            <if test="query.category != null and query.category != ''">
+                AND c.category = #{query.category}
+            </if>
+        </where>
+        ORDER BY c.created_time DESC
+    </select>
+
+</mapper>

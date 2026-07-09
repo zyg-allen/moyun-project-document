@@ -323,6 +323,16 @@ public class PortalInterviewServiceImpl implements IPortalInterviewService {
         if (firstSolve) {
             portalGrowthService.recordEvent("interview", "solve_question",
                     userId, "question", questionId);
+
+            // 发布动态事件（Feed 流）
+            try {
+                feedService.publishEvent(userId, "solve_question", "question",
+                        questionId, question.getTitle(),
+                        question.getDifficulty(), null);
+            } catch (Exception e) {
+                org.slf4j.LoggerFactory.getLogger(PortalInterviewServiceImpl.class)
+                        .error("[Feed] 答题动态事件失败：questionId={}", questionId, e);
+            }
         }
         // 如果提交包含笔记，记录写笔记成长事件
         if (StringUtils.isNotEmpty(submission.getNote())) {

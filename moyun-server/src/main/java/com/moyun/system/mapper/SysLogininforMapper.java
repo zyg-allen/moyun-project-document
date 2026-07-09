@@ -70,13 +70,14 @@ public interface SysLogininforMapper extends BaseMapper<SysLogininfor> {
 
     /**
      * 近N天每日登录趋势（折线图，区分成功/失败）
+     * 使用 DATE_FORMAT 返回纯字符串，避免 java.sql.Date 序列化格式不一致导致日期 key 匹配失败
      */
-    @Select("SELECT DATE(login_time) AS date, " +
+    @Select("SELECT DATE_FORMAT(login_time, '%Y-%m-%d') AS date, " +
             "COUNT(*) AS value, " +
             "CASE WHEN status = '0' THEN 'success' ELSE 'fail' END AS label " +
             "FROM sys_logininfor " +
             "WHERE login_time >= #{startTime} " +
-            "GROUP BY DATE(login_time), status " +
+            "GROUP BY DATE_FORMAT(login_time, '%Y-%m-%d'), status " +
             "ORDER BY date")
     List<Map<String, Object>> selectDailyLoginTrend(@Param("startTime") LocalDateTime startTime);
 }

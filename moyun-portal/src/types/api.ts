@@ -864,7 +864,12 @@ export interface BookList {
 export interface BookQuote {
   id: string;
   userId?: string;
+  userNickname?: string;
+  userAvatar?: string;
   bookId: string;
+  bookTitle?: string;
+  bookAuthor?: string;
+  bookCover?: string;
   content: string;
   page?: string;
   chapter?: string;
@@ -1365,6 +1370,24 @@ export interface CheckinResult {
   streak?: number;
   /** 本次签到获得成长值 */
   growth?: number;
+}
+
+/** 成长时间线条目 */
+export interface GrowthTimelineItem {
+  id: string;
+  userId?: string;
+  module: string;
+  action: string;
+  entityType?: string;
+  entityId?: string;
+  growthDelta?: number;
+  description?: string;
+  createTime?: string;
+  targetTitle?: string;
+  targetCover?: string;
+  targetUrl?: string;
+  icon?: string;
+  actionLabel?: string;
 }
 
 // ==================== Feed 流 ====================

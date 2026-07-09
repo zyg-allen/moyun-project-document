@@ -116,7 +116,11 @@ const menuItems = [
 
 // 返回
 function goBack() {
-  router.push('/user');
+  if (window.history.length > 1) {
+    router.back();
+  } else {
+    router.push('/user');
+  }
 }
 
 // 清除消息
@@ -250,7 +254,7 @@ function confirmDelete() {
     <div class="border-b py-3 sm:py-4" style="background-color: var(--theme-bg); border-color: var(--theme-border);">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div class="flex items-center justify-between gap-4">
-          <Breadcrumb :items="[{ label: '首页', path: '/' }, { label: '个人中心', path: '/user' }, { label: '账号设置' }]" />
+          <Breadcrumb :items="[{ label: '个人中心', path: '/user' }, { label: '账号设置' }]" />
           <button
             @click="goBack"
             class="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-colors"
@@ -265,7 +269,7 @@ function confirmDelete() {
 
     <!-- 主内容区域 -->
     <div class="py-8 flex-1">
-      <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <!-- 提示信息 -->
         <div v-if="successMessage" class="mb-6 p-4 rounded-xl text-sm flex items-center gap-2" style="background-color: #dcfce7; color: #166534; border: 1px solid #86efac;">
           <Check class="w-5 h-5 flex-shrink-0" />

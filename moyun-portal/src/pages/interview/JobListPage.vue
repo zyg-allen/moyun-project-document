@@ -121,7 +121,7 @@ function salaryText(j: JobListItemVO): string {
 <template>
   <div class="min-h-screen flex flex-col" style="background-color: var(--theme-bg);">
     <header class="sticky top-0 z-10 backdrop-blur" style="background-color: var(--theme-surface); border-bottom: 1px solid var(--theme-border);">
-      <div class="max-w-5xl mx-auto px-4 py-3 flex items-center gap-3">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex items-center gap-3">
         <button @click="router.back()" class="p-1.5 rounded-lg transition hover:bg-black/5" style="color: var(--theme-text-secondary);">
           <ArrowLeft class="w-5 h-5" />
         </button>
@@ -132,7 +132,7 @@ function salaryText(j: JobListItemVO): string {
     </header>
 
     <main class="flex-1 py-6">
-      <div class="max-w-5xl mx-auto px-4">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <!-- 搜索栏 -->
         <div class="rounded-xl shadow-sm p-4 mb-5" style="background-color: var(--theme-surface); border: 1px solid var(--theme-border);">
           <div class="flex flex-col sm:flex-row gap-2">

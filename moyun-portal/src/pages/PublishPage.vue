@@ -6,7 +6,8 @@ import {
   List, Clock, User, FileText, Settings,
   Sparkles, Globe, Lock, Tag as TagIcon, BookOpen,
   ChevronDown, Check, Type, Plus, ChevronRight, Code,
-  Lightbulb, ChevronRight as ChevronRightIcon
+  Lightbulb, ChevronRight as ChevronRightIcon,
+  History, GitCompare, RotateCcw
 } from 'lucide-vue-next';
 import {
   getHotTags,
@@ -211,9 +212,9 @@ onMounted(async () => {
     await loadArticleForEdit(editId);
   }
 
-  // 启动草稿自动保存（30秒一次，仅当用户有输入时）
+  // 启动草稿自动保存（30秒一次，仅当用户有输入时；只读模式下不自动保存）
   autoSaveTimer = setInterval(() => {
-    if (title.value.trim() || content.value.trim()) {
+    if (!isReadOnly.value && (title.value.trim() || content.value.trim())) {
       saveDraft(true);
     }
   }, 30000);
@@ -427,6 +428,8 @@ function removeTag(tag: string) {
 
 // 保存草稿（真实入库，返回草稿详情含 id）
 async function saveDraft(isAuto = false) {
+  // 只读模式下不允许保存
+  if (isReadOnly.value) return;
   // 草稿允许标题/内容为空（用户可能只想保存一个标题占位）
   if (!title.value.trim() && !content.value.trim()) {
     if (!isAuto) toast.warning('请至少输入标题或内容');
@@ -496,6 +499,10 @@ function closePreview() {
 
 // 发布文章（发布后进入待审核状态）
 async function handlePublish() {
+  if (isReadOnly.value) {
+    toast.warning(readOnlyReason.value || '当前不可发布');
+    return;
+  }
   if (!title.value.trim()) {
     toast.warning('请输入文章标题');
     return;
@@ -525,6 +532,7 @@ async function handlePublish() {
         : content.value;
 
     const response = await publishArticle({
+      id: draftId.value != null ? String(draftId.value) : undefined,
       title: title.value,
       content: finalContent,
       contentMarkdown: editorMode.value === 'markdown' ? content.value : undefined,
@@ -570,7 +578,21 @@ async function handlePublish() {
 }
 
 // 返回列表
+// 返回上一页（无历史时回退到首页）
+function goBackToPrev() {
+  if (window.history.length > 1) {
+    router.back();
+  } else {
+    router.push('/');
+  }
+}
+
 async function goBack() {
+  // 只读模式（查看 / 审核中）下内容来自已加载文章，直接离开不弹"未保存"提示
+  if (isReadOnly.value) {
+    goBackToPrev();
+    return;
+  }
   if (title.value.trim() || content.value.trim()) {
     const ok = await confirmModal.confirm('有未保存的内容，确定要离开吗？', {
       title: '离开页面',
@@ -578,10 +600,10 @@ async function goBack() {
       danger: true,
     });
     if (ok) {
-      router.push('/');
+      goBackToPrev();
     }
   } else {
-    router.push('/');
+    goBackToPrev();
   }
 }
 
@@ -824,6 +846,20 @@ async function handleFile(file: File) {
 
 // 计算标题字数
 const titleLength = computed(() => title.value.length);
+
+// 只读模式：查看模式（mode=view）或审核中（pending）时，禁止编辑与发布
+const isReadOnly = computed(() => {
+  return route.query.mode === 'view' || articleStatus.value === 'pending';
+});
+const readOnlyReason = computed(() => {
+  if (route.query.mode === 'view') {
+    return '当前为查看模式，内容不可编辑';
+  }
+  if (articleStatus.value === 'pending') {
+    return '文章正在审核中，暂不可编辑或发布';
+  }
+  return '';
+});
 </script>
 
 <template>
@@ -838,7 +874,7 @@ const titleLength = computed(() => title.value.length);
               <ArrowLeft class="w-5 h-5" />
             </button>
             <div class="flex items-center gap-2">
-              <span class="text-lg font-semibold" style="color: var(--theme-text);">写文章</span>
+              <span class="text-lg font-semibold" style="color: var(--theme-text);">{{ isReadOnly ? '查看文章' : '写文章' }}</span>
               <!-- 状态标签 -->
               <span
                   class="px-2.5 py-1 rounded-full text-xs font-medium"
@@ -862,8 +898,9 @@ const titleLength = computed(() => title.value.length);
               <span>已保存于 {{ lastSaved }}</span>
             </div>
 
-            <!-- 保存草稿 -->
+            <!-- 保存草稿（只读模式下隐藏） -->
             <button
+                v-if="!isReadOnly"
                 @click="saveDraft(false)"
                 :disabled="isSaving"
                 class="px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2"
@@ -873,9 +910,9 @@ const titleLength = computed(() => title.value.length);
               <span class="hidden sm:inline">保存草稿</span>
             </button>
 
-            <!-- 版本历史（仅在已保存草稿时显示） -->
+            <!-- 版本历史（仅草稿模式显示） -->
             <button
-                v-if="draftId"
+                v-if="draftId && !isReadOnly"
                 @click="openVersionDrawer"
                 class="px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2"
                 style="color: var(--theme-text-secondary); border: 1px solid var(--theme-border);"
@@ -895,8 +932,9 @@ const titleLength = computed(() => title.value.length);
               <span class="hidden sm:inline">预览</span>
             </button>
 
-            <!-- 发布 -->
+            <!-- 发布（只读模式下隐藏） -->
             <button
+                v-if="!isReadOnly"
                 @click="handlePublish"
                 :disabled="isPublishing"
                 class="px-5 py-2 rounded-lg font-medium transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
@@ -913,12 +951,19 @@ const titleLength = computed(() => title.value.length);
     <!-- 主内容区 -->
     <div class="py-8 flex-1">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <!-- 只读模式提示横幅 -->
+        <div v-if="isReadOnly" class="mb-4 rounded-lg border px-4 py-3 flex items-center gap-2" style="background-color: #fef3c7; border-color: #fde68a;">
+          <svg class="w-5 h-5 flex-shrink-0" style="color: #92400e;" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01M5 19h14a2 2 0 001.7-3l-7-12a2 2 0 00-3.4 0l-7 12A2 2 0 005 19z" />
+          </svg>
+          <span class="text-sm font-medium" style="color: #92400e;">{{ readOnlyReason }}</span>
+        </div>
         <div class="grid grid-cols-1 lg:grid-cols-4 gap-4">
           <!-- 左侧主编辑区 -->
           <div class="lg:col-span-3 space-y-4">
-            <!-- 今日写作 prompt 提示卡片 -->
+            <!-- 今日写作 prompt 提示卡片（只读模式下隐藏） -->
             <div
-              v-if="todayPrompt"
+              v-if="todayPrompt && !isReadOnly"
               class="rounded-lg overflow-hidden"
               style="background: linear-gradient(135deg, color-mix(in srgb, var(--theme-primary) 8%, var(--theme-surface)), var(--theme-surface)); border: 1px solid color-mix(in srgb, var(--theme-primary) 30%, var(--theme-border));"
             >
@@ -1001,7 +1046,7 @@ const titleLength = computed(() => title.value.length);
                     <span class="text-white text-sm">上传中...</span>
                   </div>
                 </div>
-                <button v-else
+                <button v-else-if="!isReadOnly"
                     @click="coverImage = ''"
                     class="absolute top-2 right-2 w-8 h-8 bg-black/50 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
                 >
@@ -1009,11 +1054,12 @@ const titleLength = computed(() => title.value.length);
                 </button>
               </div>
               <div v-else
-                   class="w-full py-8 sm:py-10 flex flex-col items-center justify-center cursor-pointer"
+                   class="w-full py-8 sm:py-10 flex flex-col items-center justify-center"
+                   :class="{ 'cursor-pointer': !isReadOnly, 'opacity-60': isReadOnly }"
                    style="color: var(--theme-text-secondary);"
-                   @click="triggerFileUpload"
+                   @click="!isReadOnly && triggerFileUpload()"
                    @dragover.prevent
-                   @drop.prevent="handleDrop"
+                   @drop.prevent="!isReadOnly && handleDrop($event)"
               >
                 <input
                     ref="fileInputRef"
@@ -1036,7 +1082,9 @@ const titleLength = computed(() => title.value.length);
                   type="text"
                   placeholder="在这里输入文章标题..."
                   class="w-full text-xl sm:text-2xl lg:text-3xl font-bold bg-transparent border-none focus:outline-none focus:ring-0"
+                  :class="{ 'cursor-default': isReadOnly }"
                   style="color: var(--theme-text);"
+                  :readonly="isReadOnly"
                   maxlength="80"
               />
               <div class="flex items-center justify-end mt-1">
@@ -1046,8 +1094,8 @@ const titleLength = computed(() => title.value.length);
               </div>
             </div>
 
-            <!-- 编辑器模式切换 -->
-            <div class="flex items-center gap-3">
+            <!-- 编辑器模式切换（只读模式下隐藏） -->
+            <div v-if="!isReadOnly" class="flex items-center gap-3">
               <div class="flex rounded-lg p-1" style="background-color: var(--theme-surface);">
                 <button
                     @click="editorMode = 'richtext'"
@@ -1072,8 +1120,16 @@ const titleLength = computed(() => title.value.length);
             <div class="space-y-3">
               <!-- 内容编辑器 -->
               <div>
+                <!-- 只读内容展示（查看模式 / 审核中） -->
+                <div v-if="isReadOnly" class="rounded-lg border p-4 sm:p-6 min-h-[300px]" style="background-color: var(--theme-surface); border-color: var(--theme-border);">
+                  <div class="prose prose-lg max-w-none" style="color: var(--theme-text);">
+                    <div v-if="editorMode === 'markdown'" v-html="markdownPreview"></div>
+                    <div v-else v-html="content || '<p>暂无内容</p>'"></div>
+                  </div>
+                </div>
+
                 <!-- 预览模式 -->
-                <div v-if="showPreview" class="rounded-lg border p-4 sm:p-6" style="background-color: var(--theme-surface); border-color: var(--theme-border);">
+                <div v-else-if="showPreview" class="rounded-lg border p-4 sm:p-6" style="background-color: var(--theme-surface); border-color: var(--theme-border);">
                   <div class="flex items-center justify-between mb-4 pb-3 border-b" style="border-color: var(--theme-border);">
                     <h2 class="text-lg sm:text-xl font-bold" style="color: var(--theme-text);">{{ title || '文章标题' }}</h2>
                     <button @click="closePreview" class="p-1.5 rounded-lg hover:bg-gray-100" style="color: var(--theme-text-secondary);">
@@ -1110,6 +1166,7 @@ const titleLength = computed(() => title.value.length);
                     摘要
                   </h3>
                   <button
+                      v-if="!isReadOnly"
                       @click="extractExcerptFromContent"
                       :disabled="isExtractingExcerpt"
                       class="text-xs px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1"
@@ -1128,8 +1185,10 @@ const titleLength = computed(() => title.value.length);
                     v-model="excerpt"
                     placeholder="文章摘要（选填，会在列表页显示，不填则自动截取内容前200字）"
                     class="w-full text-sm border-0 focus:outline-none resize-none"
+                    :class="{ 'cursor-default': isReadOnly }"
                     rows="3"
                     maxlength="200"
+                    :readonly="isReadOnly"
                     style="background-color: transparent; color: var(--theme-text-secondary);"
                 ></textarea>
                 <div class="flex justify-between items-center mt-1">
@@ -1157,7 +1216,9 @@ const titleLength = computed(() => title.value.length);
                   <select
                       v-model="selectedParentCategory"
                       @change="selectedChildCategory = ''"
+                      :disabled="isReadOnly"
                       class="w-full px-3 py-2 text-sm rounded-lg border focus:outline-none focus:ring-2"
+                      :class="{ 'cursor-not-allowed opacity-60': isReadOnly }"
                       style="background-color: var(--theme-bg); border-color: var(--theme-border); color: var(--theme-text);"
                   >
                     <option value="">请选择一级分类</option>
@@ -1170,7 +1231,9 @@ const titleLength = computed(() => title.value.length);
                   <label class="block text-xs mb-1.5" style="color: var(--theme-text-secondary);">二级分类</label>
                   <select
                       v-model="selectedChildCategory"
+                      :disabled="isReadOnly"
                       class="w-full px-3 py-2 text-sm rounded-lg border focus:outline-none focus:ring-2"
+                      :class="{ 'cursor-not-allowed opacity-60': isReadOnly }"
                       style="background-color: var(--theme-bg); border-color: var(--theme-border); color: var(--theme-text);"
                   >
                     <option value="">请选择二级分类（可选）</option>
@@ -1203,14 +1266,14 @@ const titleLength = computed(() => title.value.length);
                     style="background-color: var(--theme-accent); color: var(--theme-primary);"
                 >
                   #{{ tag }}
-                  <button @click="removeTag(tag)" class="hover:text-red-500">
+                  <button v-if="!isReadOnly" @click="removeTag(tag)" class="hover:text-red-500">
                     <X class="w-3 h-3" />
                   </button>
                 </span>
               </div>
 
-              <!-- 标签搜索输入框 -->
-              <div class="relative mb-3">
+              <!-- 标签搜索输入框（只读模式下隐藏） -->
+              <div v-if="!isReadOnly" class="relative mb-3">
                 <input
                     v-model="tagInput"
                     @input="searchForTags(tagInput)"
@@ -1226,8 +1289,8 @@ const titleLength = computed(() => title.value.length);
                 </div>
               </div>
 
-              <!-- 标签搜索结果 / 建议标签 -->
-              <div v-if="showTagSuggestions" class="mb-3 max-h-[250px] overflow-y-auto">
+              <!-- 标签搜索结果 / 建议标签（只读模式下隐藏） -->
+              <div v-if="showTagSuggestions && !isReadOnly" class="mb-3 max-h-[250px] overflow-y-auto">
                 <!-- 搜索结果 -->
                 <div v-if="tagSearchResults.length > 0" class="mb-3">
                   <h4 class="text-xs font-medium mb-1.5" style="color: var(--theme-text-secondary);">搜索结果</h4>
@@ -1301,9 +1364,9 @@ const titleLength = computed(() => title.value.length);
                 </div>
               </div>
 
-              <!-- 收起建议按钮 -->
+              <!-- 收起建议按钮（只读模式下隐藏） -->
               <button
-                  v-if="showTagSuggestions"
+                  v-if="showTagSuggestions && !isReadOnly"
                   @click="showTagSuggestions = false"
                   class="text-xs w-full text-center py-1.5 hover:bg-gray-50 rounded-lg"
                   style="color: var(--theme-text-secondary);"
@@ -1312,8 +1375,8 @@ const titleLength = computed(() => title.value.length);
               </button>
             </div>
 
-            <!-- 高级选项区 - 移到这里 -->
-            <div class="rounded-lg border overflow-hidden" style="background-color: var(--theme-surface); border-color: var(--theme-border);">
+            <!-- 高级选项区 - 移到这里（只读模式下隐藏） -->
+            <div v-if="!isReadOnly" class="rounded-lg border overflow-hidden" style="background-color: var(--theme-surface); border-color: var(--theme-border);">
               <button
                   @click="showAdvanced = !showAdvanced"
                   class="w-full px-3 sm:px-4 py-3 flex items-center justify-between"

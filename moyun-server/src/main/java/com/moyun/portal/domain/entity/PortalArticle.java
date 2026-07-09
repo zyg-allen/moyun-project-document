@@ -97,7 +97,7 @@ public class PortalArticle extends BaseEntity
     private String contentMarkdown;
 
     /** 是否付费阅读 0=免费 1=付费 */
-    private Integer isPaid;
+    private Integer isPaid = 0;
 
     /** 付费内容（购买后可见） */
     private String paidContent;

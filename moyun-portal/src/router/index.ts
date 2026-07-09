@@ -19,7 +19,6 @@ const LoginPage = () => import('@/pages/LoginPage.vue')
 const RegisterPage = () => import('@/pages/RegisterPage.vue')
 const PublishPage = () => import('@/pages/PublishPage.vue')
 const MyArticlesPage = () => import('@/pages/MyArticlesPage.vue')
-const MyConsumptionPage = () => import('@/pages/MyConsumptionPage.vue')
 const NotFoundPage = () => import('@/pages/NotFoundPage.vue')
 const ReadingPage = () => import('@/pages/ReadingPage.vue')
 const BookDetailPage = () => import('@/pages/reading/BookDetailPage.vue')
@@ -29,6 +28,8 @@ const MyBookshelfPage = () => import('@/pages/reading/MyBookshelfPage.vue')
 const DiscoverPage = () => import('@/pages/reading/DiscoverPage.vue')
 const BookClubListPage = () => import('@/pages/reading/BookClubListPage.vue')
 const BookClubDetailPage = () => import('@/pages/reading/BookClubDetailPage.vue')
+const QuoteListPage = () => import('@/pages/reading/QuoteListPage.vue')
+const GrowthTimelinePage = () => import('@/pages/GrowthTimelinePage.vue')
 const InterviewPage = () => import('@/pages/InterviewPage.vue')
 const QuestionDetailPage = () => import('@/pages/interview/QuestionDetailPage.vue')
 const ExperienceDetailPage = () => import('@/pages/interview/ExperienceDetailPage.vue')
@@ -52,7 +53,6 @@ const ColumnEditPage = () => import('@/pages/ColumnEditPage.vue')
 const MyColumnsPage = () => import('@/pages/MyColumnsPage.vue')
 const ContestListPage = () => import('@/pages/ContestListPage.vue')
 const ContestDetailPage = () => import('@/pages/ContestDetailPage.vue')
-const CreatorCenterPage = () => import('@/pages/CreatorCenterPage.vue')
 const CreatorCertificationPage = () => import('@/pages/CreatorCertificationPage.vue')
 const LearnCenterPage = () => import('@/pages/learn/LearnCenterPage.vue')
 const StudyPlanPage = () => import('@/pages/learn/StudyPlanPage.vue')
@@ -60,7 +60,6 @@ const WrongBookPage = () => import('@/pages/learn/WrongBookPage.vue')
 const StudyCalendarPage = () => import('@/pages/learn/StudyCalendarPage.vue')
 const KnowledgeGraphPage = () => import('@/pages/learn/KnowledgeGraphPage.vue')
 const LeaderboardPage = () => import('@/pages/learn/LeaderboardPage.vue')
-const PkPage = () => import('@/pages/learn/PkPage.vue')
 const CodeRunnerPage = () => import('@/pages/tools/CodeRunnerPage.vue')
 const MockInterviewPage = () => import('@/pages/interview/MockInterviewPage.vue')
 
@@ -136,6 +135,18 @@ const routes: RouteRecordRaw[] = [
     meta: { title: '发现好书', isPublic: true }
   },
   {
+    path: '/reading/quotes',
+    name: 'reading-quotes',
+    component: QuoteListPage,
+    meta: { title: '金句摘录', isPublic: true }
+  },
+  {
+    path: '/growth/timeline',
+    name: 'growth-timeline',
+    component: GrowthTimelinePage,
+    meta: { title: '成长时间线', requiresAuth: true }
+  },
+  {
     path: '/reading/club',
     name: 'reading-club-list',
     component: BookClubListPage,
@@ -190,12 +201,6 @@ const routes: RouteRecordRaw[] = [
     name: 'learn-leaderboard',
     component: LeaderboardPage,
     meta: { title: '刷题排行榜', isPublic: true }
-  },
-  {
-    path: '/learn/pk',
-    name: 'learn-pk',
-    component: PkPage,
-    meta: { requiresAuth: true, title: 'PK 对战', robots: 'noindex,nofollow' }
   },
   {
     path: '/interview/questions',
@@ -353,12 +358,10 @@ const routes: RouteRecordRaw[] = [
     component: MyColumnsPage,
     meta: { requiresAuth: true, title: '我的专栏', robots: 'noindex,nofollow' }
   },
-  // ============ 创作者中心 ============
+  // ============ 创作者中心（已合并到个人中心 dashboard Tab） ============
   {
     path: '/creator',
-    name: 'creator-center',
-    component: CreatorCenterPage,
-    meta: { requiresAuth: true, title: '创作者中心', robots: 'noindex,nofollow' }
+    redirect: { path: '/user', query: { tab: 'dashboard' } }
   },
   // ============ 创作者认证 ============
   {
@@ -509,12 +512,6 @@ const routes: RouteRecordRaw[] = [
     name: 'my-articles',
     component: MyArticlesPage,
     meta: { requiresAuth: true, title: '我的文章', robots: 'noindex,nofollow' }
-  },
-  {
-    path: '/my/consumption',
-    name: 'my-consumption',
-    component: MyConsumptionPage,
-    meta: { requiresAuth: true, title: '我的消费记录', robots: 'noindex,nofollow' }
   },
   {
     path: '/messages',

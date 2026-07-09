@@ -105,4 +105,23 @@ public class PortalMessageController extends BaseController {
         }
         return AjaxResult.success(messageService.getUnreadCount(userId));
     }
+
+    /**
+     * 按对方用户ID获取或创建会话
+     * 用于"作者主页发起新私信"等场景：尚未有任何消息往来时仍能进入聊天页。幂等，已有会话直接返回。
+     */
+    @Operation(summary = "按对方用户ID获取或创建会话", description = "用于作者主页发起新私信；幂等，已有会话直接返回")
+    @GetMapping("/session/with/{userId}")
+    public AjaxResult getOrCreateSessionWithUser(
+            @Parameter(description = "对方用户ID") @PathVariable Long userId) {
+        Long currentUserId = currentUserId();
+        if (currentUserId == null) {
+            return AjaxResult.error(HttpStatus.UNAUTHORIZED, "登录已过期，请重新登录");
+        }
+        if (currentUserId.equals(userId)) {
+            return AjaxResult.error("不能给自己发私信");
+        }
+        MessageSessionVO vo = messageService.getOrCreateSessionVO(currentUserId, userId);
+        return AjaxResult.success(vo);
+    }
 }

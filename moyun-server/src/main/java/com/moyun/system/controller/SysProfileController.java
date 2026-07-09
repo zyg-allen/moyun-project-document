@@ -1,15 +1,15 @@
 package com.moyun.system.controller;
 
 import com.moyun.common.annotation.Log;
-import com.moyun.common.config.RuoYiConfig;
 import com.moyun.common.enums.BusinessType;
 import com.moyun.core.base.AjaxResult;
 import com.moyun.core.base.BaseController;
 import com.moyun.core.base.entity.SysUser;
 import com.moyun.core.base.model.LoginUser;
 import com.moyun.core.security.auth.TokenService;
+import com.moyun.ext.file.domain.entity.SysFile;
+import com.moyun.ext.file.service.ISysFileService;
 import com.moyun.system.service.ISysUserService;
-import com.moyun.util.file.FileUploadUtils;
 import com.moyun.util.file.MimeTypeUtils;
 import com.moyun.util.security.SecurityUtils;
 import com.moyun.util.string.StringUtils;
@@ -35,6 +35,9 @@ public class SysProfileController extends BaseController {
 
     @Autowired
     private TokenService tokenService;
+
+    @Autowired
+    private ISysFileService sysFileService;
 
     /**
      * 个人信息
@@ -109,14 +112,20 @@ public class SysProfileController extends BaseController {
 
     /**
      * 头像上传
+     * <p>
+     * 走 {@link ISysFileService#uploadFile}，兼容 MinIO / 本地存储。
+     * 上传前用 {@link FileUploadUtils#assertAllowed} 校验图片格式。
      */
     @Operation(summary = "上传头像", description = "上传并更新当前登录用户的头像")
     @Log(title = "用户头像", businessType = BusinessType.UPDATE)
     @PostMapping("/avatar")
     public AjaxResult avatar(@RequestParam("avatarfile") MultipartFile file) throws Exception {
         if (!file.isEmpty()) {
+            // 校验图片扩展名（沿用 RuoYi 默认图片扩展名校验逻辑）
+            com.moyun.util.file.FileUploadUtils.assertAllowed(file, MimeTypeUtils.IMAGE_EXTENSION);
             LoginUser loginUser = getLoginUser();
-            String avatar = FileUploadUtils.upload(RuoYiConfig.getAvatarPath(), file, MimeTypeUtils.IMAGE_EXTENSION);
+            SysFile sysFile = sysFileService.uploadFile(file, "avatar", String.valueOf(loginUser.getUser().getUserId()));
+            String avatar = sysFile.getFileUrl();
             if (userService.updateUserAvatar(loginUser.getUsername(), avatar)) {
                 AjaxResult ajax = AjaxResult.success();
                 ajax.put("imgUrl", avatar);

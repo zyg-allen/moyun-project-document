@@ -23,44 +23,48 @@ public interface PortalCreatorMapper {
 
     /**
      * 当前用户文章近 N 天每日阅读总数（portal_article_view JOIN portal_article）
+     * 用 DATE_FORMAT 显式返回 'yyyy-MM-dd' 字符串，避免 java.sql.Date 序列化差异
      */
-    @Select("SELECT DATE(v.view_time) AS date, COUNT(*) AS value " +
+    @Select("SELECT DATE_FORMAT(v.view_time, '%Y-%m-%d') AS date, COUNT(*) AS value " +
             "FROM portal_article_view v " +
             "INNER JOIN portal_article a ON a.id = v.article_id " +
             "WHERE a.author_id = #{userId} AND v.view_time >= #{startTime} " +
-            "GROUP BY DATE(v.view_time) ORDER BY date")
+            "GROUP BY DATE_FORMAT(v.view_time, '%Y-%m-%d') ORDER BY date")
     List<Map<String, Object>> dailyViewTrend(@Param("userId") Long userId,
                                              @Param("startTime") LocalDateTime startTime);
 
     /**
      * 当前用户文章近 N 天每日新增点赞数（portal_like JOIN portal_article）
+     * 用 DATE_FORMAT 显式返回 'yyyy-MM-dd' 字符串，避免 java.sql.Date 序列化差异
      */
-    @Select("SELECT DATE(l.create_time) AS date, COUNT(*) AS value " +
+    @Select("SELECT DATE_FORMAT(l.create_time, '%Y-%m-%d') AS date, COUNT(*) AS value " +
             "FROM portal_like l " +
             "INNER JOIN portal_article a ON a.id = l.article_id " +
             "WHERE a.author_id = #{userId} AND l.create_time >= #{startTime} " +
-            "GROUP BY DATE(l.create_time) ORDER BY date")
+            "GROUP BY DATE_FORMAT(l.create_time, '%Y-%m-%d') ORDER BY date")
     List<Map<String, Object>> dailyLikeTrend(@Param("userId") Long userId,
                                              @Param("startTime") LocalDateTime startTime);
 
     /**
      * 当前用户文章近 N 天每日新增收藏数（portal_bookmark JOIN portal_article）
+     * 用 DATE_FORMAT 显式返回 'yyyy-MM-dd' 字符串，避免 java.sql.Date 序列化差异
      */
-    @Select("SELECT DATE(b.create_time) AS date, COUNT(*) AS value " +
+    @Select("SELECT DATE_FORMAT(b.create_time, '%Y-%m-%d') AS date, COUNT(*) AS value " +
             "FROM portal_bookmark b " +
             "INNER JOIN portal_article a ON a.id = b.article_id " +
             "WHERE a.author_id = #{userId} AND b.create_time >= #{startTime} " +
-            "GROUP BY DATE(b.create_time) ORDER BY date")
+            "GROUP BY DATE_FORMAT(b.create_time, '%Y-%m-%d') ORDER BY date")
     List<Map<String, Object>> dailyBookmarkTrend(@Param("userId") Long userId,
                                                  @Param("startTime") LocalDateTime startTime);
 
     /**
      * 当前用户近 N 天每日新增粉丝数（portal_follow.following_id = 当前用户）
+     * 用 DATE_FORMAT 显式返回 'yyyy-MM-dd' 字符串，避免 java.sql.Date 序列化差异
      */
-    @Select("SELECT DATE(f.create_time) AS date, COUNT(*) AS value " +
+    @Select("SELECT DATE_FORMAT(f.create_time, '%Y-%m-%d') AS date, COUNT(*) AS value " +
             "FROM portal_follow f " +
             "WHERE f.following_id = #{userId} AND f.create_time >= #{startTime} " +
-            "GROUP BY DATE(f.create_time) ORDER BY date")
+            "GROUP BY DATE_FORMAT(f.create_time, '%Y-%m-%d') ORDER BY date")
     List<Map<String, Object>> dailyFollowerTrend(@Param("userId") Long userId,
                                                  @Param("startTime") LocalDateTime startTime);
 
@@ -68,15 +72,16 @@ public interface PortalCreatorMapper {
 
     /**
      * 当前用户近 1 年文章创建/更新按日统计（UNION create_time 与 update_time）
+     * 用 DATE_FORMAT 显式返回 'yyyy-MM-dd' 字符串
      */
     @Select("SELECT dt AS date, SUM(cnt) AS count FROM ( " +
-            "  SELECT DATE(create_time) AS dt, COUNT(*) AS cnt FROM portal_article " +
+            "  SELECT DATE_FORMAT(create_time, '%Y-%m-%d') AS dt, COUNT(*) AS cnt FROM portal_article " +
             "  WHERE author_id = #{userId} AND create_time >= #{startTime} " +
-            "  GROUP BY DATE(create_time) " +
+            "  GROUP BY DATE_FORMAT(create_time, '%Y-%m-%d') " +
             "  UNION ALL " +
-            "  SELECT DATE(update_time) AS dt, COUNT(*) AS cnt FROM portal_article " +
+            "  SELECT DATE_FORMAT(update_time, '%Y-%m-%d') AS dt, COUNT(*) AS cnt FROM portal_article " +
             "  WHERE author_id = #{userId} AND update_time >= #{startTime} " +
-            "  GROUP BY DATE(update_time) " +
+            "  GROUP BY DATE_FORMAT(update_time, '%Y-%m-%d') " +
             ") t GROUP BY dt ORDER BY date")
     List<Map<String, Object>> calendarHeatmap(@Param("userId") Long userId,
                                               @Param("startTime") LocalDateTime startTime);

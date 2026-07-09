@@ -69,4 +69,14 @@ public interface IMessageService {
      * @return 会话对象
      */
     PortalMessageSession createOrGetSession(Long userA, Long userB);
+
+    /**
+     * 按对方用户ID获取或创建会话，并返回 VO（含对方信息与未读数）
+     * 用于"作者主页发起新私信"场景：尚未有任何消息往来时仍能进入聊天页
+     *
+     * @param currentUserId 当前用户ID
+     * @param peerUserId    对方用户ID
+     * @return 会话 VO
+     */
+    MessageSessionVO getOrCreateSessionVO(Long currentUserId, Long peerUserId);
 }

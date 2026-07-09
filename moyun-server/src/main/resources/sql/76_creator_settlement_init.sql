@@ -3,6 +3,8 @@
 -- 按月聚合打赏/付费阅读/专栏订阅收入，按平台抽成比例结算给创作者
 -- 幂等设计：CREATE TABLE IF NOT EXISTS
 -- 执行顺序：本脚本在 58_tip_init.sql 之后执行
+-- 注：前台已下线打赏/消费记录功能，结算依赖的收入来源已不存在，
+--     本菜单 visible=1（隐藏），后端 Controller/Service/Mapper 保留以兼容历史数据。
 -- =====================================================
 
 -- 创作者结算单表
@@ -39,20 +41,20 @@ DELETE FROM `sys_role_menu` WHERE `menu_id` IN (
 );
 DELETE FROM `sys_menu` WHERE `menu_name` IN ('创作者结算', '分成结算');
 
--- 1. 插入一级菜单：创作者结算（一级目录）
+-- 1. 插入一级菜单：创作者结算（一级目录，已下线 visible=1 隐藏）
 INSERT INTO `sys_menu`(
     `menu_name`, `parent_id`, `order_num`, `path`, `component`, `query`, `is_frame`, `is_cache`, `menu_type`, `visible`, `status`, `perms`, `icon`, `create_by`, `create_time`, `update_by`, `update_time`, `remark`
 ) VALUES (
-    '创作者结算', 0, 15, 'portal-settlement', NULL, NULL, 1, 0, 'M', '0', '0', NULL, 'money', 'admin', NOW(), '', NULL, '创作者分成结算目录'
+    '创作者结算', 0, 15, 'portal-settlement', NULL, NULL, 1, 0, 'M', '1', '0', NULL, 'money', 'admin', NOW(), '', NULL, '【已下线】前台打赏/消费记录移除，结算依赖的收入来源不存在'
 );
 
 SET @settle_menu_id = LAST_INSERT_ID();
 
--- 2. 二级菜单：分成结算
+-- 2. 二级菜单：分成结算（已下线 visible=1 隐藏）
 INSERT INTO `sys_menu`(
     `menu_name`, `parent_id`, `order_num`, `path`, `component`, `query`, `is_frame`, `is_cache`, `menu_type`, `visible`, `status`, `perms`, `icon`, `create_by`, `create_time`, `update_by`, `update_time`, `remark`
 ) VALUES (
-    '分成结算', @settle_menu_id, 1, 'settlement', 'portal/settlement/index', NULL, 1, 0, 'C', '0', '0', 'portal:settlement:list', 'edit', 'admin', NOW(), '', NULL, '创作者分成结算列表与操作'
+    '分成结算', @settle_menu_id, 1, 'settlement', 'portal/settlement/index', NULL, 1, 0, 'C', '1', '0', 'portal:settlement:list', 'edit', 'admin', NOW(), '', NULL, '【已下线】前台打赏/消费记录移除'
 );
 
 SET @settle_list_menu_id = LAST_INSERT_ID();

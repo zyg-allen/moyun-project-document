@@ -16,10 +16,12 @@ import org.springframework.transaction.annotation.Transactional;
 import com.moyun.portal.domain.entity.PortalBookQuote;
 import com.moyun.portal.domain.entity.PortalBookQuoteLike;
 import com.moyun.portal.domain.query.BookQuoteQuery;
+import com.moyun.portal.domain.vo.BookQuoteVO;
 import com.moyun.portal.mapper.PortalBookQuoteLikeMapper;
 import com.moyun.portal.mapper.PortalBookQuoteMapper;
 import com.moyun.portal.service.IPortalBookQuoteService;
 import com.moyun.portal.service.IPortalGrowthService;
+import com.moyun.ext.cms.service.IFeedService;
 
 /**
  * 金句摘录 业务层实现
@@ -37,6 +39,9 @@ public class PortalBookQuoteServiceImpl extends ServiceImpl<PortalBookQuoteMappe
 
     @Autowired
     private IPortalGrowthService portalGrowthService;
+
+    @Autowired
+    private IFeedService feedService;
 
     @Override
     public Page<PortalBookQuote> selectPortalBookQuotePage(Page<PortalBookQuote> page, BookQuoteQuery query) {
@@ -70,6 +75,20 @@ public class PortalBookQuoteServiceImpl extends ServiceImpl<PortalBookQuoteMappe
         if (rows > 0 && portalBookQuote.getUserId() != null) {
             portalGrowthService.recordEvent("reading", "write_quote",
                     portalBookQuote.getUserId(), "quote", portalBookQuote.getId());
+
+            // 发布动态事件（Feed 流）
+            try {
+                String contentPreview = portalBookQuote.getContent();
+                if (contentPreview != null && contentPreview.length() > 50) {
+                    contentPreview = contentPreview.substring(0, 50) + "...";
+                }
+                feedService.publishEvent(portalBookQuote.getUserId(), "write_quote", "quote",
+                        portalBookQuote.getId(), contentPreview,
+                        portalBookQuote.getChapter(), null);
+            } catch (Exception e) {
+                org.slf4j.LoggerFactory.getLogger(PortalBookQuoteServiceImpl.class)
+                        .error("[Feed] 金句发布动态事件失败：quoteId={}", portalBookQuote.getId(), e);
+            }
         }
 
         return rows;
@@ -168,5 +187,25 @@ public class PortalBookQuoteServiceImpl extends ServiceImpl<PortalBookQuoteMappe
                         .eq(PortalBookQuoteLike::getQuoteId, quoteId)
                         .eq(PortalBookQuoteLike::getUserId, userId));
         return count != null && count > 0;
+    }
+
+    @Override
+    public Page<BookQuoteVO> selectQuoteVOPage(Page<BookQuoteVO> page, BookQuoteQuery query) {
+        return portalBookQuoteMapper.selectQuoteVOPage(page, query);
+    }
+
+    @Override
+    public BookQuoteVO selectQuoteVOById(Long id) {
+        return portalBookQuoteMapper.selectQuoteVOById(id);
+    }
+
+    @Override
+    public List<BookQuoteVO> selectFeaturedQuoteVOs(int limit) {
+        BookQuoteQuery query = new BookQuoteQuery();
+        query.setIsFeatured(true);
+        query.setIsPublic(true);
+        Page<BookQuoteVO> page = new Page<>(1, limit);
+        Page<BookQuoteVO> result = portalBookQuoteMapper.selectQuoteVOPage(page, query);
+        return result.getRecords();
     }
 }

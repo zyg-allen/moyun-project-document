@@ -7,7 +7,9 @@ import {
   User, Eye, Tag, BookOpen,
   Quote, ArrowRight, Sparkles,
   Book, Briefcase, Users,
-  AlertCircle, RefreshCw
+  AlertCircle, RefreshCw,
+  BarChart3, Network, TrendingUp,
+  MessageCircle, Activity, Crown, Target
 } from 'lucide-vue-next'
 import LazyImage from '@/components/LazyImage.vue'
 import SiteFooter from '@/components/SiteFooter.vue'
@@ -22,6 +24,8 @@ import { getFriendLinks } from '@/api/friendLink'
 import { getAuthors } from '@/api/user'
 import { getReadingHome } from '@/api/reading'
 import { getInterviewHome } from '@/api/interview'
+import { getHotFeed } from '@/api/feed'
+import { getLeaderboard } from '@/api/learnStats'
 import { useUserStore } from '@/stores/user'
 import { useAuth } from '@/composables/useAuth'
 import type { Category } from '@/types/api'
@@ -65,6 +69,12 @@ const interviewQuestions = ref<any[]>([])
 const interviewExperiences = ref<any[]>([])
 const interviewCategories = ref<any[]>([])
 const interviewTotalQuestions = ref(0)
+
+// 学习中心首页数据（阶段三核心展示）
+const leaderboardTop3 = ref<any[]>([])
+
+// 社区动态预览数据（营造社区氛围）
+const hotFeedList = ref<any[]>([])
 
 const loadHomeData = async () => {
   try {
@@ -181,6 +191,59 @@ const loadInterviewData = async () => {
   }
 }
 
+const loadLeaderboardData = async () => {
+  try {
+    const response = await getLeaderboard('question', 3)
+    if (response.code === 200 && response.data) {
+      // 接口返回 Leaderboard，含 list 字段
+      const list = (response.data as any).list || response.data || []
+      leaderboardTop3.value = Array.isArray(list) ? list.slice(0, 3) : []
+    }
+  } catch (err) {
+    console.error('加载刷题排行榜失败:', err)
+    leaderboardTop3.value = []
+  }
+}
+
+const loadHotFeedData = async () => {
+  try {
+    const response = await getHotFeed({ pageNum: 1, pageSize: 3 })
+    if (response.code === 200 && response.data) {
+      // httpGetList 已统一返回 { list, total, page, pageSize }
+      hotFeedList.value = (response.data.list || []).slice(0, 3)
+    }
+  } catch (err) {
+    // 游客或冷启动可能无数据，静默失败
+    console.error('加载社区动态失败:', err)
+    hotFeedList.value = []
+  }
+}
+
+// 动态卡片的目标跳转路径
+const getFeedTargetPath = (item: any): string => {
+  if (!item) return '/feed'
+  const t = item.targetType || item.eventType
+  const id = item.targetId
+  if (t === 'article' && id) return `/article/${id}`
+  if (t === 'experience' && id) return `/interview/experience/${id}`
+  if (t === 'column' && id) return `/column/${id}`
+  if (t === 'book' && id) return `/reading/book/${id}`
+  return '/feed'
+}
+
+// 动态事件类型展示文案
+const getFeedActionText = (item: any): string => {
+  const t = item.eventType
+  switch (t) {
+    case 'publish_article': return '发布了文章'
+    case 'publish_experience': return '分享了面经'
+    case 'new_column': return '创建了专栏'
+    case 'checkin': return '完成了签到'
+    case 'pass_question': return '通过了一道题'
+    default: return '有了新动态'
+  }
+}
+
 const prevHero = () => {
   currentHeroIndex.value = (currentHeroIndex.value - 1 + heroImages.value.length) % heroImages.value.length
 }
@@ -234,7 +297,9 @@ const loadAll = async () => {
       loadAuthors(),
       loadFriendLinks(),
       loadReadingData(),
-      loadInterviewData()
+      loadInterviewData(),
+      loadLeaderboardData(),
+      loadHotFeedData()
     ])
     if (themes.value.length > 0) {
       activeTheme.value = themes.value[0].name
@@ -800,6 +865,108 @@ useHead(
       </div>
     </div>
 
+    <div class="py-6 sm:py-8" style="background-color: var(--theme-bg);">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="rounded-2xl overflow-hidden shadow-lg" style="background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);">
+          <!-- 学习中心 标题栏 -->
+          <div class="flex items-center justify-between px-5 sm:px-7 py-4 sm:py-5">
+            <div class="flex items-center gap-2 sm:gap-3">
+              <div class="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-white/20 backdrop-blur flex items-center justify-center">
+                <Target class="w-5 h-5 text-white" />
+              </div>
+              <div>
+                <h2 class="text-base sm:text-lg font-bold text-white">学习中心</h2>
+                <p class="text-white/80 text-xs">刷题有计划 · 学习有同伴 · 成长看得见</p>
+              </div>
+            </div>
+            <button
+                @click="router.push('/learn')"
+                class="inline-flex items-center gap-1 px-3 sm:px-4 py-1.5 sm:py-2 rounded-full text-xs sm:text-sm font-medium bg-white text-indigo-700 hover:bg-indigo-50 transition-colors"
+            >
+              <span>进入学习中心</span>
+              <ArrowRight class="w-3 h-3 sm:w-4 sm:h-4" />
+            </button>
+          </div>
+
+          <!-- 三栏卡片 -->
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-0 bg-white/5 backdrop-blur">
+            <!-- 1. 刷题排行榜 Top3 -->
+            <div class="p-4 sm:p-5 border-t md:border-t-0 md:border-r border-white/10">
+              <div class="flex items-center gap-2 mb-3">
+                <Crown class="w-4 h-4 text-yellow-300" />
+                <h3 class="font-semibold text-sm text-white">刷题排行榜</h3>
+              </div>
+              <div v-if="leaderboardTop3.length > 0" class="space-y-2">
+                <button
+                    v-for="(item, idx) in leaderboardTop3"
+                    :key="item.userId"
+                    @click="router.push(`/learn/leaderboard`)"
+                    class="w-full flex items-center gap-3 px-2 py-2 rounded-lg hover:bg-white/10 transition-colors text-left"
+                >
+                  <span
+                      class="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0"
+                      :class="idx === 0 ? 'bg-yellow-400 text-yellow-900' : idx === 1 ? 'bg-gray-300 text-gray-800' : 'bg-orange-400 text-orange-900'"
+                  >
+                    {{ idx + 1 }}
+                  </span>
+                  <span class="text-sm text-white flex-1 truncate">{{ item.nickname }}</span>
+                  <span class="text-xs text-white/70 flex-shrink-0">{{ item.value }} 题</span>
+                </button>
+              </div>
+              <div v-else class="py-6 text-center">
+                <p class="text-white/60 text-xs">榜单空缺中，等你来登顶</p>
+                <button
+                    @click="router.push('/learn/leaderboard')"
+                    class="mt-2 inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-xs bg-white/20 text-white hover:bg-white/30 transition-colors"
+                >
+                  查看完整榜单
+                  <ArrowRight class="w-3 h-3" />
+                </button>
+              </div>
+            </div>
+
+            <!-- 2. 知识图谱入口 -->
+            <button
+                @click="router.push('/learn/knowledge')"
+                class="p-4 sm:p-5 border-t md:border-t-0 md:border-r border-white/10 text-left hover:bg-white/10 transition-colors group"
+            >
+              <div class="flex items-center gap-2 mb-3">
+                <Network class="w-4 h-4 text-cyan-300" />
+                <h3 class="font-semibold text-sm text-white">知识图谱</h3>
+              </div>
+              <p class="text-white/80 text-xs leading-relaxed mb-3">
+                可视化你的知识结构，发现薄弱点，按图谱强化复习
+              </p>
+              <div class="flex items-center gap-2">
+                <BarChart3 class="w-3.5 h-3.5 text-cyan-300" />
+                <span class="text-xs text-cyan-200 group-hover:underline">查看我的知识网络 →</span>
+              </div>
+            </button>
+
+            <!-- 3. 刷题日历入口（登录后可见热力图，未登录引导登录） -->
+            <button
+                @click="router.push(userStore.isAuthenticated ? '/learn/calendar' : '/login')"
+                class="p-4 sm:p-5 border-t md:border-t-0 border-white/10 text-left hover:bg-white/10 transition-colors group"
+            >
+              <div class="flex items-center gap-2 mb-3">
+                <Activity class="w-4 h-4 text-pink-300" />
+                <h3 class="font-semibold text-sm text-white">刷题日历</h3>
+              </div>
+              <p class="text-white/80 text-xs leading-relaxed mb-3">
+                连续打卡，让坚持可见。每一次提交都是成长的足迹
+              </p>
+              <div class="flex items-center gap-2">
+                <TrendingUp class="w-3.5 h-3.5 text-pink-300" />
+                <span class="text-xs text-pink-200 group-hover:underline">
+                  {{ userStore.isAuthenticated ? '查看我的热力图 →' : '登录开启打卡记录 →' }}
+                </span>
+              </div>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <div class="py-6 sm:py-8 border-t" style="background-color: var(--theme-bg); border-color: var(--theme-border);">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div class="flex items-center justify-between mb-3 sm:mb-4">
@@ -886,6 +1053,67 @@ useHead(
         </div>
         <div v-else class="py-8 text-center" style="color: var(--theme-text-secondary);">
           <p class="text-sm">暂无名家数据</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- 社区动态预览：营造"有人正在创作/学习"的社区氛围 -->
+    <div class="py-6 sm:py-8" style="background-color: var(--theme-bg);">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="flex items-center justify-between mb-3 sm:mb-4">
+          <div class="flex items-center gap-2">
+            <MessageCircle class="w-4 h-4 sm:w-5 sm:h-5" style="color: var(--theme-primary);" />
+            <div>
+              <h2 class="text-base sm:text-lg font-bold" style="color: var(--theme-text);">墨韵动态</h2>
+              <p class="text-xs" style="color: var(--theme-text-secondary);">看看大家都在做什么</p>
+            </div>
+          </div>
+          <button @click="router.push('/feed')" class="flex items-center gap-1 text-xs sm:text-sm font-medium" style="color: var(--theme-primary);">
+            <span>动态广场</span>
+            <ArrowRight class="w-3 h-3 sm:w-4 sm:h-4" />
+          </button>
+        </div>
+
+        <div v-if="hotFeedList.length > 0" class="grid grid-cols-1 md:grid-cols-3 gap-3 sm:gap-4">
+          <button
+              v-for="feed in hotFeedList"
+              :key="feed.eventId"
+              @click="router.push(getFeedTargetPath(feed))"
+              class="p-4 rounded-xl border text-left transition-all hover:scale-105 hover:shadow-md"
+              style="background-color: var(--theme-surface); border-color: var(--theme-border);"
+          >
+            <div class="flex items-center gap-2 mb-2">
+              <div class="w-8 h-8 rounded-full bg-gradient-to-br from-red-100 to-orange-100 flex items-center justify-center flex-shrink-0">
+                <span class="text-xs font-bold" style="color: var(--theme-primary);">
+                  {{ (feed.userNickname || 'A').charAt(0) }}
+                </span>
+              </div>
+              <div class="flex-1 min-w-0">
+                <p class="text-sm font-medium truncate" style="color: var(--theme-text);">
+                  {{ feed.userNickname || '匿名' }}
+                </p>
+                <p class="text-xs" style="color: var(--theme-text-secondary);">
+                  {{ getFeedActionText(feed) }}
+                </p>
+              </div>
+            </div>
+            <p v-if="feed.summary" class="text-xs line-clamp-2 mt-2" style="color: var(--theme-text-secondary);">
+              {{ feed.summary }}
+            </p>
+          </button>
+        </div>
+        <div v-else class="p-6 sm:p-8 rounded-xl text-center" style="background-color: var(--theme-surface);">
+          <MessageCircle class="w-8 h-8 mx-auto mb-2 opacity-30" style="color: var(--theme-text-secondary);" />
+          <p class="text-sm mb-1" style="color: var(--theme-text);">社区还很安静</p>
+          <p class="text-xs" style="color: var(--theme-text-secondary);">第一批创作者正在赶来，期待他们的故事</p>
+          <button
+              @click="handleWrite"
+              class="mt-3 inline-flex items-center gap-1 px-4 py-2 rounded-full text-xs font-medium text-white"
+              style="background-color: var(--theme-primary);"
+          >
+            <Sparkles class="w-3.5 h-3.5" />
+            成为第一位创作者
+          </button>
         </div>
       </div>
     </div>

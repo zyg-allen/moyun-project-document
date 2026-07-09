@@ -103,7 +103,7 @@ onMounted(() => {
     <!-- 面包屑 -->
     <div class="border-b py-3 sm:py-4" style="background-color: var(--theme-bg); border-color: var(--theme-border);">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <Breadcrumb :items="[{ label: '首页', path: '/' }, { label: '成长排行榜' }]" />
+        <Breadcrumb :items="[{ label: '成长排行榜' }]" />
       </div>
     </div>
 

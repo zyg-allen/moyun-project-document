@@ -262,11 +262,12 @@ public interface PortalArticleMapper extends BaseMapper<PortalArticle> {
 
     /**
      * 按日期范围统计每日新增文章数（趋势图）
+     * 使用 DATE_FORMAT 返回纯字符串，避免 java.sql.Date 序列化格式不一致导致日期 key 匹配失败
      */
-    @Select("SELECT DATE(create_time) AS date, count(*) AS value " +
+    @Select("SELECT DATE_FORMAT(create_time, '%Y-%m-%d') AS date, count(*) AS value " +
             "FROM portal_article " +
             "WHERE create_time >= #{startTime} " +
-            "GROUP BY DATE(create_time) ORDER BY date")
+            "GROUP BY DATE_FORMAT(create_time, '%Y-%m-%d') ORDER BY date")
     List<Map<String, Object>> selectDailyPublishTrend(@Param("startTime") java.time.LocalDateTime startTime);
 
     /**
@@ -303,12 +304,15 @@ public interface PortalArticleMapper extends BaseMapper<PortalArticle> {
 
     /**
      * 热门文章 Top N（按浏览量+点赞数加权排序，用于 Redis ZSet 初始化）
+     * JOIN portal_user 获取作者名，避免前端 author 字段为空
      */
-    @Select("SELECT id, title, views, likes, " +
-            "(coalesce(views,0) + coalesce(likes,0) * 5) AS score, " +
-            "author_id AS authorId " +
-            "FROM portal_article " +
-            "WHERE status = 'published' " +
+    @Select("SELECT a.id, a.title, a.views, a.likes, " +
+            "(coalesce(a.views,0) + coalesce(a.likes,0) * 5) AS score, " +
+            "a.author_id AS authorId, " +
+            "coalesce(u.nickname, u.username) AS author " +
+            "FROM portal_article a " +
+            "LEFT JOIN portal_user u ON u.id = a.author_id " +
+            "WHERE a.status = 'published' " +
             "ORDER BY score DESC " +
             "LIMIT #{limit}")
     List<Map<String, Object>> selectHotArticlesForRanking(@Param("limit") int limit);

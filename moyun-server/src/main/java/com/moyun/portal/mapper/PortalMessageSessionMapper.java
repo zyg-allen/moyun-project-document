@@ -41,4 +41,14 @@ public interface PortalMessageSessionMapper extends BaseMapper<PortalMessageSess
      * @return 影响行数
      */
     int insertIgnore(PortalMessageSession session);
+
+    /**
+     * 按 sessionId 查询会话 VO（含对方用户信息与未读数）
+     * 用于"按对方用户ID获取或创建会话"后返回前端
+     *
+     * @param sessionId 会话ID
+     * @param userId    当前用户ID（决定 peerUser 与 unreadCount 取哪一边）
+     * @return 会话 VO
+     */
+    MessageSessionVO selectSessionVOById(@Param("sessionId") Long sessionId, @Param("userId") Long userId);
 }

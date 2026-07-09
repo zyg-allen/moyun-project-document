@@ -21,6 +21,7 @@ import com.moyun.portal.domain.entity.PortalBookList;
 import com.moyun.portal.domain.entity.PortalBookListBookmark;
 import com.moyun.portal.domain.entity.PortalBookListItem;
 import com.moyun.portal.domain.entity.PortalBookQuote;
+import com.moyun.portal.domain.vo.BookQuoteVO;
 import com.moyun.portal.domain.entity.PortalBookRecommend;
 import com.moyun.portal.domain.query.BookChapterQuery;
 import com.moyun.portal.domain.query.BookListQuery;
@@ -114,18 +115,14 @@ public class PortalReadingController extends BaseController {
             new Page<>(1, 8), bookQuery);
         data.put("books", bookPage.getRecords());
 
-        // 精选金句
-        BookQuoteQuery quoteQuery = new BookQuoteQuery();
-        quoteQuery.setIsFeatured(true);
-        quoteQuery.setIsPublic(true);
-        Page<PortalBookQuote> quotePage = portalBookQuoteService.selectPortalBookQuotePage(
-            new Page<>(1, 5), quoteQuery);
-        data.put("quotes", quotePage.getRecords());
+        // 精选金句（VO，带书籍和摘录人信息）
+        java.util.List<BookQuoteVO> featuredQuotes = portalBookQuoteService.selectFeaturedQuoteVOs(5);
+        data.put("quotes", featuredQuotes);
 
         // 统计数据
         data.put("bookCount", bookPage.getTotal());
         data.put("bookListCount", listPage.getTotal());
-        data.put("quoteCount", quotePage.getTotal());
+        data.put("quoteCount", featuredQuotes.size());
 
         return AjaxResult.success(data);
     }
@@ -142,8 +139,9 @@ public class PortalReadingController extends BaseController {
         if (book == null) {
             return AjaxResult.error("书籍不存在");
         }
-        // 获取该书籍相关金句
-        List<PortalBookQuote> quotes = portalBookQuoteService.selectQuotesByBookId(id, 10);
+        // 获取该书籍相关金句（VO，带摘录人信息）
+        List<BookQuoteVO> quotes = portalBookQuoteService.selectQuoteVOPage(
+                new Page<>(1, 10), new BookQuoteQuery() {{ setBookId(id); setIsPublic(true); }}).getRecords();
         Map<String, Object> result = new HashMap<>();
         result.put("book", book);
         result.put("quotes", quotes);
@@ -511,6 +509,51 @@ public class PortalReadingController extends BaseController {
         result.put("list", page.getRecords());
         result.put("total", page.getTotal());
         return AjaxResult.success(result);
+    }
+
+    // ========================================================================
+    // 金句摘录相关接口
+    // ========================================================================
+
+    /**
+     * 金句列表（分页，公开）
+     */
+    @Operation(summary = "金句列表", description = "分页查询公开金句，支持按书籍筛选")
+    @GetMapping("/quotes")
+    @Anonymous
+    public AjaxResult getQuotes(
+            @Parameter(description = "页码，默认1") @RequestParam(defaultValue = "1") int pageNum,
+            @Parameter(description = "每页条数，默认20") @RequestParam(defaultValue = "20") int pageSize,
+            @Parameter(description = "书籍ID，可选") @RequestParam(required = false) Long bookId,
+            @Parameter(description = "排序：hot=热门(点赞) / new=最新") @RequestParam(defaultValue = "hot") String sort) {
+        if (pageSize <= 0 || pageSize > 100) pageSize = 20;
+        BookQuoteQuery query = new BookQuoteQuery();
+        query.setIsPublic(true);
+        query.setBookId(bookId);
+        // sort 控制在 Mapper 层默认 order by like_count desc，默认即为热门
+        // 若需要按最新排序，这里先按默认（点赞），后续扩展可加 orderBy 字段
+        Page<BookQuoteVO> page = portalBookQuoteService.selectQuoteVOPage(
+                new Page<>(pageNum, pageSize), query);
+        Map<String, Object> result = new HashMap<>();
+        result.put("list", page.getRecords());
+        result.put("total", page.getTotal());
+        result.put("page", page.getCurrent());
+        result.put("pageSize", page.getSize());
+        return AjaxResult.success(result);
+    }
+
+    /**
+     * 金句详情
+     */
+    @Operation(summary = "金句详情", description = "根据ID获取金句详情（含书籍和摘录人信息）")
+    @GetMapping("/quotes/{id}")
+    @Anonymous
+    public AjaxResult getQuoteDetail(@Parameter(description = "金句ID") @PathVariable Long id) {
+        BookQuoteVO quote = portalBookQuoteService.selectQuoteVOById(id);
+        if (quote == null) {
+            return AjaxResult.error("金句不存在");
+        }
+        return AjaxResult.success(quote);
     }
 
     /**

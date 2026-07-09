@@ -9,6 +9,7 @@ import org.apache.ibatis.annotations.Param;
 
 import com.moyun.portal.domain.entity.PortalBookQuote;
 import com.moyun.portal.domain.query.BookQuoteQuery;
+import com.moyun.portal.domain.vo.BookQuoteVO;
 
 /**
  * 金句摘录表 数据层
@@ -41,4 +42,14 @@ public interface PortalBookQuoteMapper extends BaseMapper<PortalBookQuote>
      * 原子递减点赞数（避免并发丢失更新，不低于 0）
      */
     int decrementLikeCount(@Param("id") Long id);
+
+    /**
+     * 金句VO分页查询（关联书籍+用户）
+     */
+    Page<BookQuoteVO> selectQuoteVOPage(Page<BookQuoteVO> page, @Param("query") BookQuoteQuery query);
+
+    /**
+     * 根据ID查询金句VO
+     */
+    BookQuoteVO selectQuoteVOById(@Param("id") Long id);
 }

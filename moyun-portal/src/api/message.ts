@@ -16,6 +16,7 @@ import type {
  * - POST /portal/message/send               发送消息（body: {receiverId, content, msgType}）
  * - PUT  /portal/message/session/{id}/read   标记会话已读
  * - GET  /portal/message/unread-count       总未读数
+ * - GET  /portal/message/session/with/{userId} 按对方用户ID获取或创建会话
  */
 
 // 获取会话列表
@@ -45,6 +46,11 @@ export const markSessionRead = (sessionId: string) => {
 // 获取总未读数
 export const getUnreadMessageCount = () => {
     return httpGet<number>('/portal/message/unread-count')
+}
+
+// 按对方用户ID获取或创建会话（用于作者主页发起新私信）
+export const getOrCreateSession = (peerUserId: string | number) => {
+    return httpGet<MessageSessionVO>(`/portal/message/session/with/${peerUserId}`)
 }
 
 export type {

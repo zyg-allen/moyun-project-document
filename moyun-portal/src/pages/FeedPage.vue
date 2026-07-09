@@ -193,7 +193,11 @@ function goDiscoverAuthors() {
 }
 
 function goBack() {
-  router.push('/');
+  if (window.history.length > 1) {
+    router.back();
+  } else {
+    router.push('/');
+  }
 }
 
 function avatarUrl(ev: FeedEventVO): string {
@@ -223,20 +227,21 @@ function avatarUrl(ev: FeedEventVO): string {
     </div>
 
     <!-- Hero 区 -->
-    <div
-      class="relative overflow-hidden text-white py-12"
-      style="background: linear-gradient(135deg, var(--theme-primary), color-mix(in srgb, var(--theme-primary) 60%, #4338ca 100%));"
-    >
-      <div class="absolute inset-0 opacity-10 pointer-events-none">
-        <div class="absolute top-8 left-10 w-48 h-48 rounded-full bg-white"></div>
-        <div class="absolute bottom-8 right-16 w-72 h-72 rounded-full bg-white"></div>
-      </div>
-      <div class="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-        <div class="inline-flex items-center bg-white/10 backdrop-blur-sm px-4 py-1.5 rounded-full text-sm mb-4">
-          <Sparkles class="w-4 h-4 mr-2" /> 墨韵 · 动态广场
+    <div class="py-6 sm:py-8">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="relative overflow-hidden rounded-2xl text-white" style="background-image: radial-gradient(circle at 20% 50%, rgba(190, 24, 93, 0.3) 0%, transparent 50%), radial-gradient(circle at 80% 30%, rgba(124, 58, 237, 0.3) 0%, transparent 50%), linear-gradient(135deg, #be185d 0%, #a21caf 50%, #7c3aed 100%);">
+          <div class="absolute inset-0 opacity-10 pointer-events-none" aria-hidden="true">
+            <svg class="absolute top-6 left-8 w-32 h-32 text-white" viewBox="0 0 24 24" fill="currentColor"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
+            <svg class="absolute bottom-4 right-10 w-40 h-40 text-white" viewBox="0 0 24 24" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-2 10H7v-2h10v2zm0-4H7V7h10v2z"/></svg>
+          </div>
+          <div class="relative px-6 py-8 sm:px-10 sm:py-10 text-center">
+            <div class="inline-flex items-center bg-white/10 backdrop-blur-sm px-4 py-1.5 rounded-full text-sm mb-4">
+              <Sparkles class="w-4 h-4 mr-2" /> 墨韵 · 动态广场
+            </div>
+            <h1 class="text-3xl md:text-4xl font-bold mb-3">动态广场</h1>
+            <p class="text-sm md:text-base opacity-90">关注你喜欢的创作者，发现全站精彩动态</p>
+          </div>
         </div>
-        <h1 class="text-3xl md:text-4xl font-bold mb-3">动态广场</h1>
-        <p class="text-sm md:text-base opacity-90">关注你喜欢的创作者，发现全站精彩动态</p>
       </div>
     </div>
 

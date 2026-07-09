@@ -13,6 +13,7 @@ import com.moyun.ext.file.service.ISysFileService;
 import com.moyun.util.file.MinioUtils;
 import com.moyun.util.security.SecurityUtils;
 import com.moyun.portal.util.PortalSecurityUtils;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -26,6 +27,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.UUID;
 
+@Slf4j
 @Service
 public class SysFileServiceImpl implements ISysFileService {
 
@@ -88,7 +90,8 @@ public class SysFileServiceImpl implements ISysFileService {
             sysFile.setBusinessType(businessType);
             sysFile.setBusinessId(businessId);
             sysFile.setStatus("0");
-            
+            sysFile.setFallback(0);
+
             if (isPortalUser) {
                 sysFile.setUploadUserId(PortalSecurityUtils.getUserId());
                 sysFile.setUploadUserName(PortalSecurityUtils.getUsername());
@@ -97,19 +100,46 @@ public class SysFileServiceImpl implements ISysFileService {
                 sysFile.setUploadUserName(SecurityUtils.getUsername());
             }
 
-            String fileUrl;
-            if (minioUtils.isEnabled()) {
-                fileUrl = minioUtils.uploadFile(file);
-                sysFile.setStorageType("minio");
-                sysFile.setBucketName(minioConfig.getBucketName());
-                sysFile.setObjectName(extractObjectNameFromUrl(fileUrl));
-                sysFile.setFilePath(fileUrl);
+            // MinIO 可用性判断：配置启用 + 服务真实可达 + 未手动强制降级
+            boolean useMinio = minioUtils.isEnabled()
+                    && (!Boolean.TRUE.equals(minioConfig.getAutoFallback()) || minioUtils.isAvailable());
+
+            if (useMinio) {
+                try {
+                    String fileUrl = minioUtils.uploadFile(file);
+                    sysFile.setFileUrl(fileUrl);
+                    sysFile.setStorageType("minio");
+                    sysFile.setBucketName(minioConfig.getBucketName());
+                    sysFile.setObjectName(extractObjectNameFromUrl(fileUrl));
+                    sysFile.setFilePath(fileUrl);
+                    sysFile.setFallback(0);
+                } catch (Exception minioEx) {
+                    // 上传过程中 MinIO 异常，按 autoFallback 决定是否降级
+                    if (Boolean.TRUE.equals(minioConfig.getAutoFallback())) {
+                        log.warn("[文件存储] MinIO 上传异常，自动降级到本地存储：{}", minioEx.getMessage());
+                        LocalUploadResult local = uploadToLocal(file);
+                        sysFile.setFileUrl(local.url);
+                        sysFile.setStorageType("local");
+                        sysFile.setFilePath(local.url);
+                        sysFile.setLocalPath(local.absolutePath);
+                        sysFile.setFallback(1);
+                    } else {
+                        throw minioEx;
+                    }
+                }
             } else {
-                fileUrl = uploadToLocal(file);
+                // 配置未启用 MinIO 或手动强制降级到本地
+                LocalUploadResult local = uploadToLocal(file);
+                sysFile.setFileUrl(local.url);
                 sysFile.setStorageType("local");
-                sysFile.setFilePath(fileUrl);
+                sysFile.setFilePath(local.url);
+                sysFile.setLocalPath(local.absolutePath);
+                // 手动强制降级时也标记 fallback=1
+                if (Boolean.TRUE.equals(minioConfig.getEnabled())
+                        && Boolean.TRUE.equals(minioConfig.getFallbackToLocal())) {
+                    sysFile.setFallback(1);
+                }
             }
-            sysFile.setFileUrl(fileUrl);
 
             sysFileMapper.insert(sysFile);
         } catch (Exception e) {
@@ -135,22 +165,45 @@ public class SysFileServiceImpl implements ISysFileService {
             sysFile.setBusinessType(businessType);
             sysFile.setBusinessId(businessId);
             sysFile.setStatus("0");
+            sysFile.setFallback(0);
             sysFile.setUploadUserId(SecurityUtils.getUserId());
             sysFile.setUploadUserName(SecurityUtils.getUsername());
 
-            String fileUrl;
-            if (minioUtils.isEnabled()) {
-                fileUrl = minioUtils.uploadBytes(bytes, contentType, fileExt);
-                sysFile.setStorageType("minio");
-                sysFile.setBucketName(minioConfig.getBucketName());
-                sysFile.setObjectName(extractObjectNameFromUrl(fileUrl));
-                sysFile.setFilePath(fileUrl);
+            boolean useMinio = minioUtils.isEnabled()
+                    && (!Boolean.TRUE.equals(minioConfig.getAutoFallback()) || minioUtils.isAvailable());
+
+            if (useMinio) {
+                try {
+                    String fileUrl = minioUtils.uploadBytes(bytes, contentType, fileExt);
+                    sysFile.setStorageType("minio");
+                    sysFile.setBucketName(minioConfig.getBucketName());
+                    sysFile.setObjectName(extractObjectNameFromUrl(fileUrl));
+                    sysFile.setFilePath(fileUrl);
+                    sysFile.setFileUrl(fileUrl);
+                } catch (Exception minioEx) {
+                    if (Boolean.TRUE.equals(minioConfig.getAutoFallback())) {
+                        log.warn("[文件存储] MinIO 上传字节异常，自动降级到本地存储：{}", minioEx.getMessage());
+                        LocalUploadResult local = uploadBytesToLocal(bytes, fileName);
+                        sysFile.setStorageType("local");
+                        sysFile.setFileUrl(local.url);
+                        sysFile.setFilePath(local.url);
+                        sysFile.setLocalPath(local.absolutePath);
+                        sysFile.setFallback(1);
+                    } else {
+                        throw minioEx;
+                    }
+                }
             } else {
-                fileUrl = uploadBytesToLocal(bytes, fileName);
+                LocalUploadResult local = uploadBytesToLocal(bytes, fileName);
                 sysFile.setStorageType("local");
-                sysFile.setFilePath(fileUrl);
+                sysFile.setFileUrl(local.url);
+                sysFile.setFilePath(local.url);
+                sysFile.setLocalPath(local.absolutePath);
+                if (Boolean.TRUE.equals(minioConfig.getEnabled())
+                        && Boolean.TRUE.equals(minioConfig.getFallbackToLocal())) {
+                    sysFile.setFallback(1);
+                }
             }
-            sysFile.setFileUrl(fileUrl);
 
             sysFileMapper.insert(sysFile);
         } catch (Exception e) {
@@ -187,14 +240,18 @@ public class SysFileServiceImpl implements ISysFileService {
                     minioUtils.removeFile(file.getObjectName());
                 }
             } else if ("local".equals(file.getStorageType())) {
-                if (file.getFilePath() != null) {
-                    String localPath = file.getFilePath();
+                // 优先使用 localPath（绝对路径，最可靠）；缺失时回退到 filePath 解析
+                String localPath = file.getLocalPath();
+                if (localPath == null && file.getFilePath() != null) {
+                    localPath = file.getFilePath();
                     if (localPath.startsWith(serverConfig.getUrl())) {
                         localPath = localPath.substring(serverConfig.getUrl().length());
                     }
                     if (localPath.startsWith("/profile")) {
                         localPath = RuoYiConfig.getProfile() + localPath.substring("/profile".length());
                     }
+                }
+                if (localPath != null) {
                     File localFile = new File(localPath);
                     if (localFile.exists()) {
                         localFile.delete();
@@ -259,31 +316,46 @@ public class SysFileServiceImpl implements ISysFileService {
     }
 
     private String generateLocalFileName(String originalFileName) {
-        String suffix = originalFileName.substring(originalFileName.lastIndexOf("."));
+        String suffix = "";
+        if (originalFileName != null && originalFileName.contains(".")) {
+            suffix = originalFileName.substring(originalFileName.lastIndexOf("."));
+        }
         String datePath = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy/MM/dd"));
         return datePath + "/" + UUID.randomUUID().toString().replace("-", "") + suffix;
     }
 
-    private String uploadToLocal(MultipartFile file) throws IOException {
+    private LocalUploadResult uploadToLocal(MultipartFile file) throws IOException {
         String fileName = generateLocalFileName(file.getOriginalFilename());
-        String filePath = RuoYiConfig.getProfile() + File.separator + fileName;
-        File destFile = new File(filePath);
+        String absolutePath = RuoYiConfig.getProfile() + File.separator + fileName;
+        File destFile = new File(absolutePath);
         if (!destFile.getParentFile().exists()) {
             destFile.getParentFile().mkdirs();
         }
         file.transferTo(destFile);
-        return serverConfig.getUrl() + "/profile/" + fileName;
+        String url = serverConfig.getUrl() + "/profile/" + fileName;
+        return new LocalUploadResult(url, absolutePath);
     }
 
-    private String uploadBytesToLocal(byte[] bytes, String originalFileName) throws IOException {
+    private LocalUploadResult uploadBytesToLocal(byte[] bytes, String originalFileName) throws IOException {
         String fileName = generateLocalFileName(originalFileName);
-        String filePath = RuoYiConfig.getProfile() + File.separator + fileName;
-        File destFile = new File(filePath);
+        String absolutePath = RuoYiConfig.getProfile() + File.separator + fileName;
+        File destFile = new File(absolutePath);
         if (!destFile.getParentFile().exists()) {
             destFile.getParentFile().mkdirs();
         }
         java.nio.file.Files.write(destFile.toPath(), bytes);
-        return serverConfig.getUrl() + "/profile/" + fileName;
+        String url = serverConfig.getUrl() + "/profile/" + fileName;
+        return new LocalUploadResult(url, absolutePath);
+    }
+
+    /** 本地上传结果：访问 URL + 绝对路径 */
+    private static class LocalUploadResult {
+        final String url;
+        final String absolutePath;
+        LocalUploadResult(String url, String absolutePath) {
+            this.url = url;
+            this.absolutePath = absolutePath;
+        }
     }
 
     private String extractObjectNameFromUrl(String url) {

@@ -1,18 +1,18 @@
 <template>
   <div class="upload-file">
     <el-upload
-      multiple
-      :action="uploadFileUrl"
-      :before-upload="handleBeforeUpload"
-      :file-list="fileList"
-      :limit="limit"
-      :on-error="handleUploadError"
-      :on-exceed="handleExceed"
-      :on-success="handleUploadSuccess"
-      :show-file-list="false"
-      :headers="headers"
-      class="upload-file-uploader"
-      ref="fileUpload"
+        multiple
+        :action="uploadFileUrl"
+        :before-upload="handleBeforeUpload"
+        :file-list="fileList"
+        :limit="limit"
+        :on-error="handleUploadError"
+        :on-exceed="handleExceed"
+        :on-success="handleUploadSuccess"
+        :show-file-list="false"
+        :headers="headers"
+        class="upload-file-uploader"
+        ref="fileUpload"
     >
       <!-- 上传按钮 -->
       <el-button type="primary">选取文件</el-button>
@@ -27,7 +27,7 @@
     <!-- 文件列表 -->
     <transition-group class="upload-file-list el-upload-list el-upload-list--text" name="el-fade-in-linear" tag="ul">
       <li :key="file.uid" class="el-upload-list__item ele-upload-list__item-content" v-for="(file, index) in fileList">
-        <el-link :href="`${baseUrl}${file.url}`" :underline="false" target="_blank">
+        <el-link :href="file.url && file.url.startsWith('http') ? file.url : `${baseUrl}${file.url}`" :underline="false" target="_blank">
           <span class="el-icon-document"> {{ getFileName(file.name) }} </span>
         </el-link>
         <div class="ele-upload-list__item-content-action">
@@ -74,7 +74,7 @@ const uploadFileUrl = ref(import.meta.env.VITE_APP_BASE_API + "/common/upload");
 const headers = ref({ Authorization: "Bearer " + getToken() });
 const fileList = ref([]);
 const showTip = computed(
-  () => props.isShowTip && (props.fileType || props.fileSize)
+    () => props.isShowTip && (props.fileType || props.fileSize)
 );
 
 watch(() => props.modelValue, val => {

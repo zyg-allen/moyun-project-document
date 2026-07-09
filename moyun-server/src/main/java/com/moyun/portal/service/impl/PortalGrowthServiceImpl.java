@@ -2,6 +2,7 @@ package com.moyun.portal.service.impl;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.baomidou.mybatisplus.core.metadata.IPage;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -14,6 +15,7 @@ import com.moyun.portal.domain.entity.PortalUserBadge;
 import com.moyun.portal.domain.entity.PortalUserGrowth;
 import com.moyun.portal.domain.entity.PortalUserStats;
 import com.moyun.portal.domain.vo.AchievementVO;
+import com.moyun.portal.domain.vo.GrowthTimelineVO;
 import com.moyun.portal.domain.vo.UserBadgeVO;
 import com.moyun.portal.domain.vo.UserGrowthVO;
 import com.moyun.portal.domain.vo.UserStatsVO;
@@ -519,5 +521,75 @@ public class PortalGrowthServiceImpl implements IPortalGrowthService {
             // SecurityContext 不可用时忽略
         }
         return false;
+    }
+
+    @Override
+    public IPage<GrowthTimelineVO> getTimeline(IPage<GrowthTimelineVO> page, Long userId, String module) {
+        IPage<GrowthTimelineVO> result = logMapper.selectTimelineVOPage(page, userId, module);
+        // 填充 actionLabel、icon、targetUrl（SQL 无法生成的派生字段）
+        for (GrowthTimelineVO vo : result.getRecords()) {
+            vo.setActionLabel(deriveActionLabel(vo.getAction()));
+            vo.setIcon(deriveIcon(vo.getModule()));
+            vo.setTargetUrl(deriveTargetUrl(vo.getEntityType(), vo.getEntityId()));
+        }
+        return result;
+    }
+
+    /** 行为编码 → 人类可读标签 */
+    private String deriveActionLabel(String action) {
+        if (action == null) return "未知行为";
+        switch (action) {
+            // 创作
+            case "publish_article": return "发布文章";
+            case "article_featured": return "文章被精选";
+            case "receive_like": return "获得点赞";
+            case "receive_bookmark": return "被收藏";
+            case "receive_comment": return "收到评论";
+            case "receive_follow": return "被关注";
+            // 读书
+            case "write_quote": return "记录金句";
+            case "quote_liked": return "金句被赞";
+            case "create_booklist": return "创建书单";
+            case "booklist_liked": return "书单被赞";
+            case "booklist_bookmarked": return "书单被收藏";
+            case "finish_book": return "读完一本书";
+            // 面试
+            case "solve_question": return "答对题目";
+            case "write_note": return "提交笔记";
+            case "note_adopted": return "笔记被精选";
+            case "publish_experience": return "发布面经";
+            case "experience_liked": return "面经被赞";
+            // 成长
+            case "daily_checkin": return "每日签到";
+            case "achievement_reward": return "获得成就";
+            default: return action;
+        }
+    }
+
+    /** 模块 → 图标标识 */
+    private String deriveIcon(String module) {
+        if (module == null) return "star";
+        switch (module) {
+            case "article": return "pen";
+            case "reading": return "book-open";
+            case "interview": return "briefcase";
+            case "all": return "star";
+            default: return "star";
+        }
+    }
+
+    /** 实体类型+ID → 前端跳转路径 */
+    private String deriveTargetUrl(String entityType, Long entityId) {
+        if (entityType == null || entityId == null) return null;
+        switch (entityType) {
+            case "article": return "/article/" + entityId;
+            case "book": return "/reading/book/" + entityId;
+            case "quote": return "/reading/quotes";
+            case "booklist": return "/reading/booklist/" + entityId;
+            case "question": return "/interview/question/" + entityId;
+            case "experience": return "/interview/experience/" + entityId;
+            case "column": return "/column/" + entityId;
+            default: return null;
+        }
     }
 }

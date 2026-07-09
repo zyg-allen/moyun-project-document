@@ -8,6 +8,7 @@ import com.baomidou.mybatisplus.extension.service.IService;
 
 import com.moyun.portal.domain.entity.PortalBookQuote;
 import com.moyun.portal.domain.query.BookQuoteQuery;
+import com.moyun.portal.domain.vo.BookQuoteVO;
 
 /**
  * 金句摘录 业务层接口
@@ -55,4 +56,19 @@ public interface IPortalBookQuoteService extends IService<PortalBookQuote> {
      * 查询当前用户是否已点赞该金句
      */
     boolean isQuoteLiked(Long quoteId, Long userId);
+
+    /**
+     * 金句VO分页查询（关联书籍+用户，用于前台列表展示）
+     */
+    Page<BookQuoteVO> selectQuoteVOPage(Page<BookQuoteVO> page, BookQuoteQuery query);
+
+    /**
+     * 根据ID查询金句VO
+     */
+    BookQuoteVO selectQuoteVOById(Long id);
+
+    /**
+     * 查询精选金句（VO，带书籍和用户信息）
+     */
+    List<BookQuoteVO> selectFeaturedQuoteVOs(int limit);
 }

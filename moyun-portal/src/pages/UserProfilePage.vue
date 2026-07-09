@@ -181,7 +181,11 @@ async function saveProfile() {
 
 // 返回上一页
 function goBack() {
-  router.push('/user');
+  if (window.history.length > 1) {
+    router.back();
+  } else {
+    router.push('/user');
+  }
 }
 </script>
 
@@ -191,7 +195,7 @@ function goBack() {
     <div class="border-b py-3 sm:py-4" style="background-color: var(--theme-bg); border-color: var(--theme-border);">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div class="flex items-center justify-between gap-4">
-          <Breadcrumb :items="[{ label: '首页', path: '/' }, { label: '个人中心', path: '/user' }, { label: '编辑资料' }]" />
+          <Breadcrumb :items="[{ label: '个人中心', path: '/user' }, { label: '编辑资料' }]" />
           <button
             @click="goBack"
             class="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-colors"

@@ -61,4 +61,19 @@
         VALUES
             (#{userA}, #{userB}, 0, 0, #{createTime}, #{updateTime})
     </insert>
+
+    <!-- 按 sessionId 查询会话 VO（含对方信息与未读数） -->
+    <select id="selectSessionVOById" resultMap="MessageSessionVOResult">
+        SELECT s.id,
+               s.last_message_content,
+               s.last_message_time,
+               CASE WHEN s.user_a = #{userId} THEN s.unread_a ELSE s.unread_b END AS unread_count,
+               CASE WHEN s.user_a = #{userId} THEN s.user_b ELSE s.user_a END AS peer_id,
+               u.nickname AS peer_nickname,
+               u.avatar   AS peer_avatar
+        FROM portal_message_session s
+        LEFT JOIN portal_user u
+            ON u.id = (CASE WHEN s.user_a = #{userId} THEN s.user_b ELSE s.user_a END)
+        WHERE s.id = #{sessionId}
+    </select>
 </mapper>

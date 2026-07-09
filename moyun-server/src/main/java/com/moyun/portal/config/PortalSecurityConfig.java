@@ -23,6 +23,7 @@ import org.springframework.web.filter.CorsFilter;
 
 import com.moyun.core.security.handle.AuthenticationEntryPointImpl;
 import com.moyun.core.security.handle.LogoutSuccessHandlerImpl;
+import com.moyun.core.config.properties.PermitAllUrlProperties;
 import com.moyun.portal.security.filter.PortalJwtAuthenticationTokenFilter;
 
 /**
@@ -74,6 +75,13 @@ public class PortalSecurityConfig {
     private CorsFilter corsFilter;
 
     /**
+     * 允许匿名访问的地址（扫描 @Anonymous 注解收集）
+     * 门户链也消费此列表，使 Controller 上的 @Anonymous 注解在 /portal/** 路径上生效
+     */
+    @Autowired
+    private PermitAllUrlProperties permitAllUrl;
+
+    /**
      * 门户身份验证实现
      */
     @Bean(name = "portalAuthenticationManager")
@@ -99,9 +107,12 @@ public class PortalSecurityConfig {
                 .sessionManagement(session -> session
                         .sessionCreationPolicy(SessionCreationPolicy.STATELESS)
                 )
-                .authorizeHttpRequests(authorizeRequests -> authorizeRequests
+                .authorizeHttpRequests(authorizeRequests -> {
+                        // 先消费 @Anonymous 注解收集的 URL，使 Controller 上的 @Anonymous 在门户链生效
+                        // 必须放在 authenticated() 窄规则之前，但 @Anonymous 标注的都是公开方法，不会与需登录的窄规则冲突
+                        permitAllUrl.getUrls().forEach(url -> authorizeRequests.requestMatchers(url).permitAll());
                         // 门户登录、注册、验证码允许匿名访问
-                        .requestMatchers("/portal/login", "/portal/register", "/portal/captchaImage", "/portal/debug/**").permitAll()
+                        authorizeRequests.requestMatchers("/portal/login", "/portal/register", "/portal/captchaImage", "/portal/debug/**").permitAll()
                         // 文章查看、点赞、浏览允许所有人访问（GET 全放开，POST view/like 公开，写操作需登录）
                         // 注意：/portal/article/my 是 GET 但需登录，必须在 permitAll 之前声明
                         .requestMatchers(HttpMethod.GET, "/portal/article/my").authenticated()
@@ -156,13 +167,15 @@ public class PortalSecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/portal/growth/stats").permitAll()
                         .requestMatchers(HttpMethod.GET, "/portal/growth/badges").permitAll()
                         .requestMatchers(HttpMethod.GET, "/portal/growth/achievements").permitAll()
-                        // 关注公开接口（检查关注状态，允许游客浏览作者主页）
+                        // 关注公开接口（检查关注状态、粉丝列表、关注列表，允许游客浏览作者主页）
                         .requestMatchers(HttpMethod.GET, "/portal/follow/check/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/portal/follow/{userId}/followers").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/portal/follow/{userId}/following").permitAll()
                         // 后台管理接口（admin token 认证，由核心 SecurityConfig 处理）
                         .requestMatchers("/portal/admin/**").permitAll()
                         // 其他门户请求需要认证
-                        .anyRequest().authenticated()
-                )
+                        .anyRequest().authenticated();
+                })
                 .logout(logout -> logout
                         .logoutUrl("/portal/logout")
                         .logoutSuccessHandler(logoutSuccessHandler)

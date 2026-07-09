@@ -112,7 +112,7 @@ useHead(
     <div class="border-b py-3 sm:py-4" style="background-color: var(--theme-bg); border-color: var(--theme-border);">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div class="flex items-center justify-between gap-4">
-          <Breadcrumb :items="[{ label: '首页', path: '/' }, { label: '名家录' }]" />
+          <Breadcrumb :items="[{ label: '名家录' }]" />
         </div>
       </div>
     </div>

@@ -2,12 +2,13 @@
 import { ref, computed, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { useHead } from '@vueuse/head';
-import { BookOpen, Star, ArrowRight, Users, Bookmark, BookmarkCheck, Quote, Compass, Clock, CheckCircle2 } from 'lucide-vue-next';
+import { BookOpen, Star, ArrowRight, Users, Bookmark, BookmarkCheck, Quote, Compass, Clock, CheckCircle2, User, Calendar } from 'lucide-vue-next';
 import SiteFooter from '@/components/SiteFooter.vue';
 import LazyImage from '@/components/LazyImage.vue';
 
 import { getReadingHome, toggleBookListBookmark, checkBookListBookmark, getRanking } from '@/api/reading';
 import { generateSeo } from '@/utils/seo';
+import { formatDate } from '@/utils/date';
 import { useUserStore } from '@/stores/user';
 import type { Book, BookList, Quote as QuoteType, RankingType } from '@/types/api';
 
@@ -386,7 +387,11 @@ useHead(
                 <Quote class="w-6 h-6 mr-2" style="color: var(--theme-primary);" />
                 金句摘录
               </h2>
-              <button class="font-medium flex items-center hover:opacity-80" style="color: var(--theme-primary);">
+              <button
+                class="font-medium flex items-center hover:opacity-80"
+                style="color: var(--theme-primary);"
+                @click="router.push('/reading/quotes')"
+              >
                 查看更多
                 <ArrowRight class="w-4 h-4 ml-1" />
               </button>
@@ -396,27 +401,50 @@ useHead(
               <div 
                 v-for="(quote, index) in quotes" 
                 :key="quote.id"
-                class="rounded-xl p-6 shadow-sm hover:shadow-md transition" style="background-color: var(--theme-surface); border: 1px solid var(--theme-border);"
+                class="rounded-xl p-6 shadow-sm hover:shadow-md transition cursor-pointer"
+                style="background-color: var(--theme-surface); border: 1px solid var(--theme-border);"
+                @click="router.push('/reading/quotes')"
               >
                 <Quote class="w-8 h-8 mb-4 opacity-30" style="color: var(--theme-primary);" />
-                <p class="text-lg italic mb-6 leading-relaxed" style="color: var(--theme-text);">
+                <p class="text-lg italic mb-5 leading-relaxed" style="color: var(--theme-text);">
                   "{{ quote.content }}"
                 </p>
-                <div class="flex items-center justify-between">
-                  <div v-if="quote.book" class="flex items-center">
-                    <div class="w-12 h-16 rounded overflow-hidden mr-3">
+                <!-- 出处（书籍信息） -->
+                <div class="flex items-center justify-between mb-3">
+                  <div class="flex items-center min-w-0">
+                    <div v-if="quote.bookCover || quote.book?.cover" class="w-10 h-14 rounded overflow-hidden mr-3 flex-shrink-0">
                       <LazyImage
-                        :src="quote.book.cover"
-                        :alt="quote.book.title"
+                        :src="quote.bookCover || quote.book?.cover"
+                        :alt="quote.bookTitle || quote.book?.title"
                         class="w-full h-full object-cover"
                       />
                     </div>
-                    <div>
-                      <p class="text-sm font-medium" style="color: var(--theme-text);">{{ quote.book.title }}</p>
-                      <p class="text-xs" style="color: var(--theme-text-secondary);">{{ quote.book.author }}</p>
+                    <div v-else class="w-10 h-14 rounded mr-3 flex-shrink-0 flex items-center justify-center" style="background-color: var(--theme-bg);">
+                      <BookOpen class="w-5 h-5" style="color: var(--theme-text-secondary);" />
+                    </div>
+                    <div class="min-w-0">
+                      <p class="text-sm font-medium truncate" style="color: var(--theme-text);">
+                        {{ quote.bookTitle || quote.book?.title || '未知书籍' }}
+                      </p>
+                      <p class="text-xs truncate" style="color: var(--theme-text-secondary);">
+                        {{ quote.bookAuthor || quote.book?.author || '佚名' }}
+                      </p>
                     </div>
                   </div>
-                  <div class="flex items-center text-sm" style="color: var(--theme-text-secondary);">
+                </div>
+                <!-- 摘录人 + 时间 + 点赞 -->
+                <div class="flex items-center justify-between pt-3 border-t text-xs" style="border-color: var(--theme-border); color: var(--theme-text-secondary);">
+                  <div class="flex items-center gap-3">
+                    <span class="flex items-center gap-1">
+                      <User class="w-3.5 h-3.5" />
+                      {{ quote.userNickname || '匿名用户' }}
+                    </span>
+                    <span v-if="quote.createTime" class="flex items-center gap-1">
+                      <Calendar class="w-3.5 h-3.5" />
+                      {{ formatDate(quote.createTime) }}
+                    </span>
+                  </div>
+                  <div class="flex items-center text-sm">
                     <Star class="w-4 h-4 mr-1" />
                     {{ quote.likeCount }}
                   </div>

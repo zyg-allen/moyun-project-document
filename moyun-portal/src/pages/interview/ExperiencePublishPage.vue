@@ -176,7 +176,7 @@ onMounted(() => {
       class="border-b sticky top-0 z-30 backdrop-blur-sm"
       style="background-color: var(--theme-surface); border-color: var(--theme-border);"
     >
-      <div class="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex items-center justify-between">
         <button
           @click="goBack"
           class="flex items-center text-sm transition hover:opacity-80"

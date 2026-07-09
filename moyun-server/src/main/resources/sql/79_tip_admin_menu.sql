@@ -3,6 +3,8 @@
 -- 挂载在"内容管理"一级菜单下
 -- 幂等设计：INSERT ... WHERE NOT EXISTS
 -- 执行顺序：本脚本在 58_tip_init.sql 之后执行
+-- 注：前台已下线打赏功能（见 UserPage 账号 Tab 移除入口），
+--     本菜单 visible=1（隐藏）保留以兼容已部署数据库，后端 Controller/Service/Mapper 保留不动。
 -- =====================================================
 
 -- 取"内容管理"父菜单ID
@@ -10,19 +12,19 @@ SELECT @cms_parent_id := menu_id FROM sys_menu WHERE menu_name = '内容管理' 
 SET @cms_parent_id = IFNULL(@cms_parent_id, 0);
 
 -- =============================================
--- 打赏管理（只读查询）
+-- 打赏管理（只读查询，已下线 visible=1 隐藏）
 -- =============================================
 INSERT INTO sys_menu (menu_name, parent_id, order_num, path, component, query, is_frame, is_cache,
                       menu_type, visible, status, perms, icon, create_by, create_time, remark)
 SELECT '打赏管理', @cms_parent_id, 13, 'tip', 'cms/tip/index', NULL, 1, 0,
-       'C', '0', '0', 'portal:tip:list', 'money', 'admin', NOW(), '打赏流水后台查询菜单'
+       'C', '1', '0', 'portal:tip:list', 'money', 'admin', NOW(), '【已下线】前台打赏功能移除，菜单隐藏保留以兼容历史数据'
 FROM DUAL
 WHERE NOT EXISTS (SELECT 1 FROM sys_menu WHERE perms = 'portal:tip:list');
 SELECT @tip_menu_id := menu_id FROM sys_menu WHERE perms = 'portal:tip:list' LIMIT 1;
 
 INSERT INTO sys_menu (menu_name, parent_id, order_num, path, component, query, is_frame, is_cache,
                       menu_type, visible, status, perms, icon, create_by, create_time, remark)
-SELECT '打赏查询', @tip_menu_id, 1, '', NULL, NULL, 1, 0, 'F', '0', '0', 'portal:tip:query', '#', 'admin', NOW(), ''
+SELECT '打赏查询', @tip_menu_id, 1, '', NULL, NULL, 1, 0, 'F', '1', '0', 'portal:tip:query', '#', 'admin', NOW(), '【已下线】'
 FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM sys_menu WHERE perms = 'portal:tip:query');
 
 -- =============================================

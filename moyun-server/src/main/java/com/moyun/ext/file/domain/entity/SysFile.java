@@ -46,6 +46,17 @@ public class SysFile extends BaseEntity {
     @Size(min = 0, max = 100, message = "对象名称长度不能超过100个字符")
     private String objectName;
 
+    /**
+     * 是否降级存储：0=正常 1=因 MinIO 不可用降级到本地
+     */
+    private Integer fallback;
+
+    /**
+     * 本地备份绝对路径（MinIO 可用时也记录，便于降级访问或后续同步回 MinIO）
+     */
+    @Size(min = 0, max = 500, message = "本地备份路径长度不能超过500个字符")
+    private String localPath;
+
     @Size(min = 0, max = 500, message = "文件MD5长度不能超过500个字符")
     private String fileMd5;
 

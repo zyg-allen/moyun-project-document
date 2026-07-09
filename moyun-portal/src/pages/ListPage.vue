@@ -123,14 +123,11 @@ const breadcrumbs = computed(() => {
   const items = [];
 
   if (listType.value === 'tag') {
-    items.push({ label: '首页', path: '/' });
     items.push({ label: '标签' });
     items.push({ label: selectedCategory.value, path: `/tag/${encodeURIComponent(selectedCategory.value)}` });
   } else if (selectedCategory.value && selectedCategory.value !== '全部') {
-    items.push({ label: '首页', path: '/' });
     items.push({ label: selectedCategory.value, path: `/category/${encodeURIComponent(selectedCategory.value)}` });
   } else {
-    items.push({ label: '首页', path: '/' });
     items.push({ label: '文章列表' });
   }
 

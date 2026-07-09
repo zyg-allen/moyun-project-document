@@ -3,8 +3,8 @@ package com.moyun.core.web.common;
 import com.moyun.common.config.RuoYiConfig;
 import com.moyun.common.constant.Constants;
 import com.moyun.core.base.AjaxResult;
-import com.moyun.core.config.ServerConfig;
-import com.moyun.util.file.FileUploadUtils;
+import com.moyun.ext.file.domain.entity.SysFile;
+import com.moyun.ext.file.service.ISysFileService;
 import com.moyun.util.file.FileUtils;
 import com.moyun.util.string.StringUtils;
 import io.swagger.v3.oas.annotations.Operation;
@@ -22,6 +22,8 @@ import java.util.List;
 
 /**
  * 通用请求处理
+ * <p>
+ * 文件上传统一走 {@link ISysFileService}（兼容 MinIO / 本地存储），下载仍读取本地磁盘。
  *
  * @author ruoyi
  */
@@ -32,7 +34,7 @@ import java.util.List;
 public class CommonController {
 
     @Autowired
-    private ServerConfig serverConfig;
+    private ISysFileService sysFileService;
 
     private static final String FILE_DELIMETER = ",";
 
@@ -65,22 +67,23 @@ public class CommonController {
 
     /**
      * 通用上传请求（单个）
+     * <p>
+     * 走 {@link ISysFileService#uploadFile}，兼容 MinIO / 本地存储，元数据落 sys_file 表。
+     * 返回字段兼容前端 ImageUpload 组件（fileName 存访问 URL，组件内部拼接 baseUrl）。
      */
     @Operation(summary = "单文件上传", description = "上传单个文件")
     @PostMapping("/upload")
     public AjaxResult uploadFile(
             @Parameter(description = "上传的文件") MultipartFile file) {
         try {
-            // 上传文件路径
-            String filePath = RuoYiConfig.getUploadPath();
-            // 上传并返回新文件名称
-            String fileName = FileUploadUtils.upload(filePath, file);
-            String url = serverConfig.getUrl() + fileName;
+            SysFile sysFile = sysFileService.uploadFile(file, "common", null);
+            String url = sysFile.getFileUrl();
             AjaxResult ajax = AjaxResult.success();
             ajax.put("url", url);
-            ajax.put("fileName", fileName);
-            ajax.put("newFileName", FileUtils.getName(fileName));
+            ajax.put("fileName", url);
+            ajax.put("newFileName", FileUtils.getName(url));
             ajax.put("originalFilename", file.getOriginalFilename());
+            ajax.put("fileId", sysFile.getId());
             return ajax;
         } catch (Exception e) {
             return AjaxResult.error(e.getMessage());
@@ -89,32 +92,34 @@ public class CommonController {
 
     /**
      * 通用上传请求（多个）
+     * <p>
+     * 循环调用 {@link ISysFileService#uploadFile}，兼容 MinIO / 本地存储。
      */
     @Operation(summary = "多文件上传", description = "上传多个文件")
     @PostMapping("/uploads")
     public AjaxResult uploadFiles(
             @Parameter(description = "上传的文件列表") List<MultipartFile> files) {
         try {
-            // 上传文件路径
-            String filePath = RuoYiConfig.getUploadPath();
             List<String> urls = new ArrayList<>();
             List<String> fileNames = new ArrayList<>();
             List<String> newFileNames = new ArrayList<>();
             List<String> originalFilenames = new ArrayList<>();
+            List<Long> fileIds = new ArrayList<>();
             for (MultipartFile file : files) {
-                // 上传并返回新文件名称
-                String fileName = FileUploadUtils.upload(filePath, file);
-                String url = serverConfig.getUrl() + fileName;
+                SysFile sysFile = sysFileService.uploadFile(file, "common", null);
+                String url = sysFile.getFileUrl();
                 urls.add(url);
-                fileNames.add(fileName);
-                newFileNames.add(FileUtils.getName(fileName));
+                fileNames.add(url);
+                newFileNames.add(FileUtils.getName(url));
                 originalFilenames.add(file.getOriginalFilename());
+                fileIds.add(sysFile.getId());
             }
             AjaxResult ajax = AjaxResult.success();
             ajax.put("urls", StringUtils.join(urls, FILE_DELIMETER));
             ajax.put("fileNames", StringUtils.join(fileNames, FILE_DELIMETER));
             ajax.put("newFileNames", StringUtils.join(newFileNames, FILE_DELIMETER));
             ajax.put("originalFilenames", StringUtils.join(originalFilenames, FILE_DELIMETER));
+            ajax.put("fileIds", StringUtils.join(fileIds, FILE_DELIMETER));
             return ajax;
         } catch (Exception e) {
             return AjaxResult.error(e.getMessage());

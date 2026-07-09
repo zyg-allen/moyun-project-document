@@ -36,6 +36,7 @@
         <kaptcha.version>2.3.2</kaptcha.version>
         <knife4j.version>4.4.0</knife4j.version>
         <aviator.version>5.3.3</aviator.version>
+        <pdfbox.version>3.0.3</pdfbox.version>
     </properties>
     <dependencies>
         <dependency>
@@ -160,11 +161,23 @@
             <version>${poi.version}</version>
         </dependency>
 
-        <!-- Apache PDFBox PDF 文档解析（读书模块文档导入） -->
+        <!-- Apache PDFBox 核心库（读书模块文档导入 + 简历 PDF 导出） -->
         <dependency>
             <groupId>org.apache.pdfbox</groupId>
             <artifactId>pdfbox</artifactId>
-            <version>3.0.3</version>
+            <version>${pdfbox.version}</version>
+        </dependency>
+        <!-- PDFBox 字体库（处理字体） -->
+        <dependency>
+            <groupId>org.apache.pdfbox</groupId>
+            <artifactId>fontbox</artifactId>
+            <version>${pdfbox.version}</version>
+        </dependency>
+        <!-- PDFBox 工具库（处理 PDF 图片等） -->
+        <dependency>
+            <groupId>org.apache.pdfbox</groupId>
+            <artifactId>pdfbox-tools</artifactId>
+            <version>${pdfbox.version}</version>
         </dependency>
 
         <!-- commons-io 文件操作 -->

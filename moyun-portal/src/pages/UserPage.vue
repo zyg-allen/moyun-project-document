@@ -21,10 +21,19 @@ import {
   FileText,
   MessageSquare,
   Flag,
-  Receipt,
   AlertCircle,
   CheckCircle2,
+  // 数据看板相关图标
+  BarChart3,
+  Eye,
+  Bookmark,
+  UserPlus,
+  MapPin,
+  Loader2,
+  PenSquare,
+  RefreshCw,
 } from 'lucide-vue-next';
+import { useRoute } from 'vue-router';
 import { useUserStore } from '@/stores/user';
 import { generateSeo } from '@/utils/seo';
 import ArticleCard from '@/components/ArticleCard.vue';
@@ -40,6 +49,16 @@ import {
   getMyResumeList,
 } from '@/api/interview';
 import { getMyBookshelf } from '@/api/reading';
+import {
+  getCreatorDashboard,
+  getCreatorCalendar,
+  getReaderProfile,
+} from '@/api/creator';
+import type {
+  CreatorDashboard,
+  CalendarCell,
+  ReaderProfile,
+} from '@/api/creator';
 import type {
   Article,
   User as UserType,
@@ -60,14 +79,30 @@ import type {
 import { getSafeAvatar } from '@/utils/avatar';
 
 const router = useRouter();
+const route = useRoute();
 const userStore = useUserStore();
 
 // ============ 基础数据 ============
 const currentUser = ref<UserType | null>(null);
 const userStats = ref<UserStats | null>(null);
-const activeTab = ref('articles');
+// 默认进入"数据看板"，让创作者数据成为入口
+const initialTab = ((): string => {
+  const q = route.query.tab;
+  if (typeof q === 'string' && ['dashboard','articles','saved','reading','learn','interview','follow','achievements','account'].includes(q)) {
+    return q;
+  }
+  return 'dashboard';
+})();
+const activeTab = ref(initialTab);
 const isLoading = ref(false);
 const pendingCount = ref(0);
+
+// ============ 数据看板 Tab（创作者数据） ============
+const creatorTrend = ref<CreatorDashboard | null>(null);
+const creatorCalendar = ref<CalendarCell[]>([]);
+const readerProfile = ref<ReaderProfile | null>(null);
+const creatorLoading = ref(false);
+const creatorError = ref<string | null>(null);
 
 // Dashboard 聚合数据（顶部数据卡片 + Tab 角标）
 const dashboard = ref<UserDashboard | null>(null);
@@ -134,6 +169,7 @@ interface TabConfig {
 }
 
 const tabs: TabConfig[] = [
+  { id: 'dashboard', label: '数据看板', icon: BarChart3, countKey: null },
   { id: 'articles', label: '文章', icon: BookOpen, countKey: 'articles' },
   { id: 'saved', label: '收藏', icon: Heart, countKey: 'bookmarks' },
   { id: 'reading', label: '阅读', icon: BookMarked, countKey: 'bookshelf' },
@@ -255,8 +291,8 @@ async function loadUserData() {
     console.warn('获取成长体系数据失败:', error);
   }
 
-  // 默认 Tab（文章）数据加载
-  await loadTabData('articles');
+  // 默认 Tab（数据看板）数据加载
+  await loadTabData(activeTab.value);
 }
 
 // 各 Tab 懒加载入口
@@ -265,6 +301,9 @@ async function loadTabData(tabId: string) {
   tabLoaded[tabId] = true;
   try {
     switch (tabId) {
+      case 'dashboard':
+        await loadDashboardTab();
+        break;
       case 'articles':
         await loadArticlesTab();
         break;
@@ -464,6 +503,229 @@ async function loadAchievementsTab() {
   }
 }
 
+// ---- 数据看板 Tab（创作者中心数据） ----
+async function loadDashboardTab() {
+  creatorLoading.value = true;
+  creatorError.value = null;
+  try {
+    const [dashRes, calRes, readerRes] = await Promise.all([
+      getCreatorDashboard(),
+      getCreatorCalendar(),
+      getReaderProfile(),
+    ]);
+    if (dashRes.code === 200) creatorTrend.value = dashRes.data;
+    if (calRes.code === 200) creatorCalendar.value = calRes.data || [];
+    if (readerRes.code === 200) readerProfile.value = readerRes.data;
+  } catch (err) {
+    const e = err as { message?: string };
+    creatorError.value = e?.message || '加载创作者数据失败，请稍后重试';
+  } finally {
+    creatorLoading.value = false;
+  }
+}
+
+async function reloadDashboard() {
+  tabLoaded['dashboard'] = false;
+  await loadDashboardTab();
+  tabLoaded['dashboard'] = true;
+}
+
+// ============ 数据看板：30 天趋势折线图（SVG） ============
+const trendTotals = computed(() => {
+  const d = creatorTrend.value;
+  if (!d) return { views: 0, likes: 0, bookmarks: 0, followers: 0 };
+  // 强制 Number 转换，避免后端返回字符串 "0" 时 0 + "0" 拼接为 "00"
+  const sum = (arr: number[] | undefined) =>
+    (arr || []).reduce((a, b) => a + Number(b) || 0, 0);
+  return {
+    views: sum(d.views),
+    likes: sum(d.likes),
+    bookmarks: sum(d.bookmarks),
+    followers: sum(d.followers),
+  };
+});
+
+const hasTrendData = computed(() => {
+  const t = trendTotals.value;
+  return t.views + t.likes + t.bookmarks + t.followers > 0;
+});
+
+const CHART_W = 760;
+const CHART_H = 240;
+const PAD_L = 40;
+const PAD_R = 16;
+const PAD_T = 16;
+const PAD_B = 28;
+
+const chartMax = computed(() => {
+  const d = creatorTrend.value;
+  if (!d) return 10;
+  const all = [
+    ...(d.views || []),
+    ...(d.likes || []),
+    ...(d.bookmarks || []),
+    ...(d.followers || []),
+  ].map((v) => Number(v) || 0);
+  const m = Math.max(1, ...all);
+  return Math.max(5, Math.ceil(m / 5) * 5);
+});
+
+interface Series {
+  key: string;
+  label: string;
+  color: string;
+  values: number[];
+}
+
+const series = computed<Series[]>(() => {
+  const d = creatorTrend.value;
+  if (!d) return [];
+  const toNum = (arr: number[] | undefined) => (arr || []).map((v) => Number(v) || 0);
+  return [
+    { key: 'views', label: '阅读', color: 'var(--theme-primary)', values: toNum(d.views) },
+    { key: 'likes', label: '点赞', color: '#ef4444', values: toNum(d.likes) },
+    { key: 'bookmarks', label: '收藏', color: '#f59e0b', values: toNum(d.bookmarks) },
+    { key: 'followers', label: '新增粉丝', color: '#10b981', values: toNum(d.followers) },
+  ];
+});
+
+const xCount = computed(() => creatorTrend.value?.dates?.length || 30);
+
+function xCoord(i: number): number {
+  const innerW = CHART_W - PAD_L - PAD_R;
+  const n = Math.max(1, xCount.value - 1);
+  return PAD_L + (innerW * i) / n;
+}
+
+function yCoord(v: number): number {
+  const innerH = CHART_H - PAD_T - PAD_B;
+  const max = chartMax.value || 1;
+  return PAD_T + innerH - (innerH * v) / max;
+}
+
+function buildPath(values: number[]): string {
+  if (!values.length) return '';
+  return values
+    .map((v, i) => `${i === 0 ? 'M' : 'L'} ${xCoord(i).toFixed(1)} ${yCoord(v).toFixed(1)}`)
+    .join(' ');
+}
+
+const yTicks = computed(() => {
+  const max = chartMax.value;
+  return [0, max / 4, max / 2, (max * 3) / 4, max].map((v) => Math.round(v));
+});
+
+const xLabels = computed(() => {
+  const dates = creatorTrend.value?.dates || [];
+  const labels: { x: number; text: string }[] = [];
+  dates.forEach((date, i) => {
+    if (i % 5 === 0 || i === dates.length - 1) {
+      labels.push({ x: xCoord(i), text: date.slice(5) });
+    }
+  });
+  return labels;
+});
+
+// ============ 数据看板：创作日历热力图（GitHub 风格） ============
+interface HeatCell {
+  date: string;
+  count: number;
+  month: number;
+}
+
+function toDateStr(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+const heatColumns = computed<HeatCell[][]>(() => {
+  const countMap = new Map<string, number>();
+  creatorCalendar.value.forEach((c) => countMap.set(c.date, c.count));
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const start = new Date(today);
+  start.setDate(start.getDate() - 364);
+  const dayOfWeek = start.getDay();
+  start.setDate(start.getDate() - dayOfWeek);
+
+  const columns: HeatCell[][] = [];
+  const cursor = new Date(start);
+  while (cursor <= today) {
+    const col: HeatCell[] = [];
+    for (let d = 0; d < 7; d++) {
+      const dateStr = toDateStr(cursor);
+      if (cursor > today) {
+        col.push({ date: dateStr, count: -1, month: cursor.getMonth() });
+      } else {
+        col.push({
+          date: dateStr,
+          count: countMap.get(dateStr) || 0,
+          month: cursor.getMonth(),
+        });
+      }
+      cursor.setDate(cursor.getDate() + 1);
+    }
+    columns.push(col);
+  }
+  return columns;
+});
+
+const heatMax = computed(() => {
+  let m = 0;
+  heatColumns.value.forEach((col) => col.forEach((c) => { if (c.count > m) m = c.count; }));
+  return m;
+});
+
+function heatColor(count: number): string {
+  if (count < 0) return 'transparent';
+  if (count === 0) return 'var(--theme-border)';
+  const max = Math.max(1, heatMax.value);
+  const ratio = Math.min(1, count / max);
+  if (ratio <= 0.25) return '#9be9a8';
+  if (ratio <= 0.5) return '#40c463';
+  if (ratio <= 0.75) return '#30a14e';
+  return '#216e39';
+}
+
+const monthLabels = computed(() => {
+  const labels: { x: number; text: string }[] = [];
+  heatColumns.value.forEach((col, idx) => {
+    const first = col.find((c) => c.count >= 0);
+    if (!first) return;
+    const prevMonth = idx > 0
+      ? heatColumns.value[idx - 1].find((c) => c.count >= 0)?.month
+      : undefined;
+    if (first.month !== prevMonth) {
+      labels.push({ x: idx, text: `${first.month + 1}月` });
+    }
+  });
+  return labels;
+});
+
+const totalContributions = computed(() =>
+  creatorCalendar.value.reduce((sum, c) => sum + c.count, 0)
+);
+
+const hasCalendarData = computed(() => totalContributions.value > 0);
+
+// ============ 数据看板：读者画像 ============
+const maxRegionValue = computed(() => {
+  const regions = readerProfile.value?.regions || [];
+  return Math.max(1, ...regions.map((r) => r.value));
+});
+
+const maxHourValue = computed(() => {
+  const hours = readerProfile.value?.hours || [];
+  return Math.max(1, ...hours.map((h) => h.value));
+});
+
+function goPublish() {
+  router.push('/publish');
+}
+
 // ============ 交互 ============
 function handleTabChange(tabId: string) {
   if (activeTab.value === tabId) return;
@@ -564,7 +826,7 @@ const dashboardCards = computed(() => {
     <div class="border-b py-3 sm:py-4" style="background-color: var(--theme-bg); border-color: var(--theme-border);">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div class="flex items-center justify-between gap-4">
-          <Breadcrumb :items="[{ label: '首页', path: '/' }, { label: '个人中心' }]" />
+          <Breadcrumb :items="[{ label: '个人中心' }]" />
           <div class="flex gap-3">
             <button
               @click="goToProfile"
@@ -765,8 +1027,283 @@ const dashboardCards = computed(() => {
           <div class="min-h-[500px]">
             <transition name="fade" mode="out-in">
               <div :key="activeTab">
+                <!-- ============ 数据看板（创作者中心合并） ============ -->
+                <div v-if="activeTab === 'dashboard'">
+                  <div class="flex items-center justify-between mb-6">
+                    <h2 class="text-xl sm:text-2xl font-bold flex items-center gap-2" style="color: var(--theme-text);">
+                      <BarChart3 class="w-6 h-6" style="color: var(--theme-primary);" />
+                      数据看板
+                    </h2>
+                    <button
+                      @click="reloadDashboard"
+                      :disabled="creatorLoading"
+                      class="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-medium transition-colors disabled:opacity-50"
+                      style="background-color: var(--theme-surface); border: 1px solid var(--theme-border); color: var(--theme-text);"
+                    >
+                      <RefreshCw class="w-4 h-4" :class="{ 'animate-spin': creatorLoading }" />
+                      刷新
+                    </button>
+                  </div>
+
+                  <!-- 加载中 -->
+                  <div v-if="creatorLoading && !creatorTrend" class="flex flex-col items-center justify-center py-20 rounded-2xl" style="background-color: var(--theme-surface); border: 1px solid var(--theme-border); color: var(--theme-text-secondary);">
+                    <Loader2 class="w-8 h-8 animate-spin mb-3" />
+                    <span class="text-sm">正在加载创作者数据...</span>
+                  </div>
+
+                  <!-- 错误 -->
+                  <div v-else-if="creatorError" class="rounded-2xl p-6 text-center"
+                    style="background-color: var(--theme-surface); border: 1px solid var(--theme-border); color: var(--theme-text-secondary);"
+                  >
+                    <p class="mb-4 text-sm">{{ creatorError }}</p>
+                    <button @click="reloadDashboard"
+                      class="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-white"
+                      style="background-color: var(--theme-primary);">
+                      <RefreshCw class="w-4 h-4" />
+                      重新加载
+                    </button>
+                  </div>
+
+                  <template v-else>
+                    <!-- ==================== 顶部：30 天数据趋势 ==================== -->
+                    <section class="rounded-2xl p-4 sm:p-6 mb-6"
+                      style="background-color: var(--theme-surface); border: 1px solid var(--theme-border);"
+                    >
+                      <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+                        <h3 class="font-semibold flex items-center gap-2" style="color: var(--theme-text);">
+                          <Eye class="w-5 h-5" style="color: var(--theme-primary);" />
+                          近 30 天数据趋势
+                        </h3>
+                        <!-- 汇总 -->
+                        <div class="flex flex-wrap gap-3 text-sm">
+                          <div class="flex items-center gap-1.5" style="color: var(--theme-text-secondary);">
+                            <Eye class="w-4 h-4" style="color: var(--theme-primary);" />
+                            阅读 <span class="font-semibold" style="color: var(--theme-text);">{{ trendTotals.views }}</span>
+                          </div>
+                          <div class="flex items-center gap-1.5" style="color: var(--theme-text-secondary);">
+                            <Heart class="w-4 h-4 text-red-500" />
+                            点赞 <span class="font-semibold" style="color: var(--theme-text);">{{ trendTotals.likes }}</span>
+                          </div>
+                          <div class="flex items-center gap-1.5" style="color: var(--theme-text-secondary);">
+                            <Bookmark class="w-4 h-4 text-amber-500" />
+                            收藏 <span class="font-semibold" style="color: var(--theme-text);">{{ trendTotals.bookmarks }}</span>
+                          </div>
+                          <div class="flex items-center gap-1.5" style="color: var(--theme-text-secondary);">
+                            <UserPlus class="w-4 h-4 text-emerald-500" />
+                            新增粉丝 <span class="font-semibold" style="color: var(--theme-text);">{{ trendTotals.followers }}</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <!-- 有数据：SVG 折线图 -->
+                      <div v-if="hasTrendData" class="w-full overflow-x-auto">
+                        <svg :viewBox="`0 0 ${CHART_W} ${CHART_H}`" class="w-full h-auto" style="min-width: 560px;">
+                          <!-- Y 轴网格线 + 刻度 -->
+                          <g>
+                            <line
+                              v-for="(t, i) in yTicks" :key="`grid-${i}`"
+                              :x1="PAD_L" :x2="CHART_W - PAD_R"
+                              :y1="yCoord(t)" :y2="yCoord(t)"
+                              stroke="var(--theme-border)" stroke-width="1" stroke-dasharray="3 3"
+                            />
+                            <text
+                              v-for="(t, i) in yTicks" :key="`ytick-${i}`"
+                              :x="PAD_L - 6" :y="yCoord(t) + 4"
+                              text-anchor="end" font-size="10" fill="var(--theme-text-secondary)"
+                            >{{ t }}</text>
+                          </g>
+                          <!-- 折线 -->
+                          <g>
+                            <path
+                              v-for="s in series" :key="`line-${s.key}`"
+                              :d="buildPath(s.values)"
+                              :stroke="s.color" stroke-width="2" fill="none"
+                              stroke-linejoin="round" stroke-linecap="round"
+                            />
+                          </g>
+                          <!-- X 轴标签 -->
+                          <g>
+                            <text
+                              v-for="(lbl, i) in xLabels" :key="`xlabel-${i}`"
+                              :x="lbl.x" :y="CHART_H - 8"
+                              text-anchor="middle" font-size="10" fill="var(--theme-text-secondary)"
+                            >{{ lbl.text }}</text>
+                          </g>
+                        </svg>
+
+                        <!-- 图例 -->
+                        <div class="flex flex-wrap items-center gap-4 mt-3 text-xs" style="color: var(--theme-text-secondary);">
+                          <div v-for="s in series" :key="`legend-${s.key}`" class="flex items-center gap-1.5">
+                            <span class="inline-block w-3 h-3 rounded-sm" :style="{ backgroundColor: s.color }"></span>
+                            {{ s.label }}
+                          </div>
+                        </div>
+                      </div>
+
+                      <!-- 无数据：空状态引导 -->
+                      <div v-else class="py-12 text-center">
+                        <div class="w-14 h-14 mx-auto rounded-full flex items-center justify-center mb-3"
+                          style="background-color: var(--theme-accent);">
+                          <BarChart3 class="w-7 h-7" style="color: var(--theme-primary);" />
+                        </div>
+                        <p class="text-sm mb-1" style="color: var(--theme-text);">暂无数据</p>
+                        <p class="text-xs mb-4" style="color: var(--theme-text-secondary);">发布你的第一篇文章，开始积累读者与反馈</p>
+                        <button @click="goPublish"
+                          class="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium text-white"
+                          style="background-color: var(--theme-primary);">
+                          <PenSquare class="w-4 h-4" />
+                          去创作
+                        </button>
+                      </div>
+                    </section>
+
+                    <!-- ==================== 中部：创作日历热力图 ==================== -->
+                    <section class="rounded-2xl p-4 sm:p-6 mb-6"
+                      style="background-color: var(--theme-surface); border: 1px solid var(--theme-border);"
+                    >
+                      <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+                        <h3 class="font-semibold flex items-center gap-2" style="color: var(--theme-text);">
+                          <Calendar class="w-5 h-5" style="color: var(--theme-primary);" />
+                          创作日历
+                        </h3>
+                        <span class="text-sm" style="color: var(--theme-text-secondary);">
+                          近 1 年共 <span class="font-semibold" style="color: var(--theme-text);">{{ totalContributions }}</span> 次创作活动
+                        </span>
+                      </div>
+
+                      <div v-if="hasCalendarData" class="w-full overflow-x-auto">
+                        <div class="inline-block">
+                          <!-- 月份标签行 -->
+                          <div class="flex ml-7 mb-1 relative h-3">
+                            <div
+                              v-for="(lbl, i) in monthLabels" :key="`mlbl-${i}`"
+                              class="text-[10px] absolute"
+                              style="color: var(--theme-text-secondary);"
+                              :style="{ marginLeft: (lbl.x * 14) + 'px' }"
+                            >{{ lbl.text }}</div>
+                          </div>
+                          <div class="flex gap-1">
+                            <!-- 星期标签 -->
+                            <div class="flex flex-col gap-1 mr-1 text-[10px] pt-0.5" style="color: var(--theme-text-secondary);">
+                              <div class="h-3 leading-3">&nbsp;</div>
+                              <div class="h-3 leading-3">一</div>
+                              <div class="h-3 leading-3">&nbsp;</div>
+                              <div class="h-3 leading-3">三</div>
+                              <div class="h-3 leading-3">&nbsp;</div>
+                              <div class="h-3 leading-3">五</div>
+                              <div class="h-3 leading-3">&nbsp;</div>
+                            </div>
+                            <!-- 热力方块 -->
+                            <div class="flex gap-1">
+                              <div v-for="(col, ci) in heatColumns" :key="`col-${ci}`" class="flex flex-col gap-1">
+                                <div
+                                  v-for="(cell, ri) in col" :key="`cell-${ci}-${ri}`"
+                                  class="w-3 h-3 rounded-sm"
+                                  :style="{ backgroundColor: heatColor(cell.count) }"
+                                  :title="cell.count >= 0 ? `${cell.date}：${cell.count} 次` : ''"
+                                ></div>
+                              </div>
+                            </div>
+                          </div>
+                          <!-- 图例 -->
+                          <div class="flex items-center gap-2 mt-3 ml-7 text-[10px]" style="color: var(--theme-text-secondary);">
+                            <span>少</span>
+                            <span class="w-3 h-3 rounded-sm" style="background-color: var(--theme-border);"></span>
+                            <span class="w-3 h-3 rounded-sm" style="background-color: #9be9a8;"></span>
+                            <span class="w-3 h-3 rounded-sm" style="background-color: #40c463;"></span>
+                            <span class="w-3 h-3 rounded-sm" style="background-color: #30a14e;"></span>
+                            <span class="w-3 h-3 rounded-sm" style="background-color: #216e39;"></span>
+                            <span>多</span>
+                          </div>
+                        </div>
+                      </div>
+                      <div v-else class="py-12 text-center">
+                        <div class="w-14 h-14 mx-auto rounded-full flex items-center justify-center mb-3"
+                          style="background-color: var(--theme-accent);">
+                          <Calendar class="w-7 h-7" style="color: var(--theme-primary);" />
+                        </div>
+                        <p class="text-sm mb-1" style="color: var(--theme-text);">暂无创作记录</p>
+                        <p class="text-xs" style="color: var(--theme-text-secondary);">持续创作，让你的创作日历丰富起来</p>
+                      </div>
+                    </section>
+
+                    <!-- ==================== 底部：读者画像 ==================== -->
+                    <section class="rounded-2xl p-4 sm:p-6"
+                      style="background-color: var(--theme-surface); border: 1px solid var(--theme-border);"
+                    >
+                      <h3 class="font-semibold flex items-center gap-2 mb-4" style="color: var(--theme-text);">
+                        <Users class="w-5 h-5" style="color: var(--theme-primary);" />
+                        读者画像（近 30 天）
+                      </h3>
+
+                      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <!-- 地域分布 Top10 -->
+                        <div>
+                          <h4 class="text-sm font-medium flex items-center gap-2 mb-3" style="color: var(--theme-text-secondary);">
+                            <MapPin class="w-4 h-4" />
+                            地域分布 Top10
+                          </h4>
+                          <div v-if="(readerProfile?.regions || []).length" class="space-y-2">
+                            <div v-for="(r, i) in readerProfile?.regions" :key="`region-${i}`" class="flex items-center gap-2">
+                              <span class="text-xs w-28 truncate" :title="r.region" style="color: var(--theme-text-secondary);">{{ r.region }}</span>
+                              <div class="flex-1 h-4 rounded overflow-hidden" style="background-color: var(--theme-bg);">
+                                <div
+                                  class="h-full rounded transition-all"
+                                  :style="{
+                                    width: ((r.value / maxRegionValue) * 100) + '%',
+                                    backgroundColor: 'var(--theme-primary)',
+                                  }"
+                                ></div>
+                              </div>
+                              <span class="text-xs w-10 text-right font-medium" style="color: var(--theme-text);">{{ r.value }}</span>
+                            </div>
+                          </div>
+                          <div v-else class="text-sm py-8 text-center" style="color: var(--theme-text-secondary);">
+                            暂无地域分布数据
+                          </div>
+                        </div>
+
+                        <!-- 时段分布 24 小时 -->
+                        <div>
+                          <h4 class="text-sm font-medium flex items-center gap-2 mb-3" style="color: var(--theme-text-secondary);">
+                            <Clock class="w-4 h-4" />
+                            时段分布（0-23 时）
+                          </h4>
+                          <div v-if="(readerProfile?.hours || []).length" class="flex items-end gap-1 h-40">
+                            <div
+                              v-for="h in readerProfile?.hours" :key="`hour-${h.hour}`"
+                              class="flex-1 flex flex-col items-center justify-end group"
+                            >
+                              <div
+                                class="w-full rounded-t transition-all"
+                                :style="{
+                                  height: ((h.value / maxHourValue) * 100) + '%',
+                                  minHeight: h.value > 0 ? '4px' : '1px',
+                                  backgroundColor: 'var(--theme-primary)',
+                                  opacity: h.value > 0 ? 1 : 0.25,
+                                }"
+                                :title="`${h.hour}时：${h.value} 次`"
+                              ></div>
+                            </div>
+                          </div>
+                          <div v-else class="text-sm py-8 text-center" style="color: var(--theme-text-secondary);">
+                            暂无时段分布数据
+                          </div>
+                          <div class="flex justify-between mt-1 text-[10px]" style="color: var(--theme-text-secondary);">
+                            <span>0时</span>
+                            <span>6时</span>
+                            <span>12时</span>
+                            <span>18时</span>
+                            <span>23时</span>
+                          </div>
+                        </div>
+                      </div>
+                    </section>
+                  </template>
+                </div>
+
                 <!-- ============ 文章 ============ -->
-                <div v-if="activeTab === 'articles'">
+                <div v-else-if="activeTab === 'articles'">
                   <div class="flex items-center justify-between mb-6">
                     <h2 class="text-xl sm:text-2xl font-bold" style="color: var(--theme-text);">我的文章</h2>
                     <div class="flex items-center gap-3">
@@ -1354,22 +1891,6 @@ const dashboardCards = computed(() => {
                       <div class="min-w-0">
                         <p class="font-semibold mb-1" style="color: var(--theme-text);">我的反馈</p>
                         <p class="text-xs" style="color: var(--theme-text-secondary);">意见反馈与帮助中心</p>
-                      </div>
-                      <ChevronRight class="w-5 h-5 ml-auto flex-shrink-0" style="color: var(--theme-text-secondary);" />
-                    </button>
-
-                    <!-- 消费记录 -->
-                    <button
-                      @click="router.push('/my/consumption')"
-                      class="flex items-center gap-4 p-5 rounded-2xl text-left transition-colors hover:opacity-90"
-                      style="background-color: var(--theme-surface); border: 1px solid var(--theme-border);"
-                    >
-                      <div class="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0" style="background-color: #fffbeb;">
-                        <Receipt class="w-6 h-6" style="color: #f59e0b;" />
-                      </div>
-                      <div class="min-w-0">
-                        <p class="font-semibold mb-1" style="color: var(--theme-text);">我的打赏/消费记录</p>
-                        <p class="text-xs" style="color: var(--theme-text-secondary);">查看我打赏的与收到的打赏</p>
                       </div>
                       <ChevronRight class="w-5 h-5 ml-auto flex-shrink-0" style="color: var(--theme-text-secondary);" />
                     </button>

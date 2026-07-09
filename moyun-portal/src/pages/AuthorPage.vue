@@ -15,10 +15,13 @@ import * as userApi from '@/api/user';
 import * as articleApi from '@/api/article';
 import * as followApi from '@/api/follow';
 import * as growthApi from '@/api/growth';
+import * as messageApi from '@/api/message';
+import { useToast } from '@/composables/useToast';
 import { getSafeAvatar } from '@/utils/avatar';
 
 const route = useRoute();
 const router = useRouter();
+const toast = useToast();
 
 // 数据
 const author = ref<UserType | null>(null);
@@ -224,6 +227,30 @@ function goToOwnProfile() {
   router.push('/user');
 }
 
+// 发起私信：跳转到与该作者的会话（不存在则由后端创建）
+async function startChat() {
+  if (!author.value) return;
+  if (!currentUser.value) {
+    router.push({ name: 'login', query: { redirect: route.fullPath } });
+    return;
+  }
+  if (isOwnProfile.value) {
+    toast.info('不能给自己发私信');
+    return;
+  }
+  try {
+    const resp = await messageApi.getOrCreateSession(String(author.value.id));
+    if (resp.code === 200 && resp.data && resp.data.id) {
+      router.push(`/messages/chat/${resp.data.id}`);
+    } else {
+      toast.error(resp.msg || '发起私信失败');
+    }
+  } catch (error) {
+    console.error('发起私信失败:', error);
+    toast.error('发起私信失败，请重试');
+  }
+}
+
 const totalItems = computed(() => authorArticles.value.length);
 const totalPages = computed(() => Math.ceil(totalItems.value / itemsPerPage.value));
 
@@ -257,7 +284,7 @@ function handlePageChange(page: number) {
     <div class="border-b py-3 sm:py-4" style="background-color: var(--theme-bg); border-color: var(--theme-border);">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div class="flex items-center justify-between gap-4">
-          <Breadcrumb :items="[{ label: '首页', path: '/' }, { label: author?.username || '用户主页' }]" />
+          <Breadcrumb :items="[{ label: author?.username || '用户主页' }]" />
         </div>
       </div>
     </div>
@@ -352,7 +379,8 @@ function handlePageChange(page: number) {
                         <component :is="isFollowing ? UserMinus : UserPlus" class="w-4 h-4" />
                         {{ isFollowing ? '已关注' : '关注' }}
                       </button>
-                      <button 
+                      <button
+                        @click="startChat"
                         class="px-4 sm:px-5 py-2.5 rounded-xl font-medium border transition-colors text-sm flex items-center gap-2"
                         style="border-color: var(--theme-border); color: var(--theme-text);"
                       >

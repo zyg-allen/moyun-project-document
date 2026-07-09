@@ -139,3 +139,6 @@ minio:
   secret-key: admin123
   bucket-name: moyun
   access-url: http://127.0.0.1:9001
+  # 降级配置（运行期可调，无需重启；可通过 /system/file/storage/switch 接口切换）
+  auto-fallback: true        # 自动降级：MinIO 上传/连接异常时自动切到本地存储（默认 true）
+  fallback-to-local: false   # 手动强制降级到本地存储（true=强制走本地，忽略 MinIO 配置）

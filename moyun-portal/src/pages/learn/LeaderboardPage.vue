@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue';
 import { useHead } from '@vueuse/head';
-import { Trophy, Crown, Medal, Award, Loader2, ChevronLeft, ListChecks, Star, Swords } from 'lucide-vue-next';
+import { Trophy, Crown, Medal, Award, Loader2, ChevronLeft, ListChecks, Star } from 'lucide-vue-next';
 import SiteFooter from '@/components/SiteFooter.vue';
 import { generateSeo } from '@/utils/seo';
 import { getSafeAvatar } from '@/utils/avatar';
@@ -94,14 +94,6 @@ const currentUnit = computed(() => tabs.find((t) => t.type === activeType.value)
             刷题排行榜
           </h1>
           <div class="ml-auto flex items-center gap-2">
-            <router-link
-              to="/learn/pk"
-              class="flex items-center gap-1 px-3 py-1.5 rounded-md text-sm font-medium text-white transition-opacity hover:opacity-90"
-              style="background-color: var(--theme-primary);"
-            >
-              <Swords class="w-4 h-4" />
-              <span class="hidden sm:inline">PK 对战</span>
-            </router-link>
             <!-- Tab 切换 -->
             <div class="flex gap-1 p-1 rounded-lg" style="background-color: var(--theme-bg);">
               <button

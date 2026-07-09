@@ -1,6 +1,8 @@
 package com.moyun.portal.service;
 
+import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.moyun.portal.domain.vo.AchievementVO;
+import com.moyun.portal.domain.vo.GrowthTimelineVO;
 import com.moyun.portal.domain.vo.UserBadgeVO;
 import com.moyun.portal.domain.vo.UserGrowthVO;
 import com.moyun.portal.domain.vo.UserStatsVO;
@@ -85,4 +87,15 @@ public interface IPortalGrowthService {
      * @param userId 用户ID
      */
     void checkAndGrantAchievements(Long userId);
+
+    /**
+     * 获取用户成长时间线（分页，支持按模块筛选）
+     * 统一聚合读书、面试、创作等各模块的行为记录
+     *
+     * @param page   分页参数
+     * @param userId 用户ID
+     * @param module 模块筛选（article/reading/interview/all），为空或 all 表示全部
+     * @return 时间线分页数据（含关联标题、封面等展示字段）
+     */
+    IPage<GrowthTimelineVO> getTimeline(IPage<GrowthTimelineVO> page, Long userId, String module);
 }

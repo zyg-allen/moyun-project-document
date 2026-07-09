@@ -112,7 +112,11 @@ function handlePageChange(page: number) {
 }
 
 function goBack() {
-  router.push('/reading');
+  if (window.history.length > 1) {
+    router.back();
+  } else {
+    router.push('/reading');
+  }
 }
 
 onMounted(() => {

@@ -4,6 +4,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -110,6 +111,16 @@ public class PortalArticleServiceImpl extends ServiceImpl<PortalArticleMapper, P
         processArticleImages(portalArticle);
         // 自动设置前台作者信息
         fillPortalAuthorAndCategory(portalArticle);
+        // 付费阅读字段默认值
+        if (portalArticle.getIsPaid() == null) {
+            portalArticle.setIsPaid(0);
+        }
+        if (portalArticle.getPreviewLength() == null) {
+            portalArticle.setPreviewLength(0);
+        }
+        if (portalArticle.getPrice() == null) {
+            portalArticle.setPrice(java.math.BigDecimal.ZERO);
+        }
         return baseMapper.insertPortalArticle(portalArticle);
     }
 
@@ -153,10 +164,27 @@ public class PortalArticleServiceImpl extends ServiceImpl<PortalArticleMapper, P
         if (portalArticle.getPublishedAt() == null) {
             portalArticle.setPublishedAt(LocalDateTime.now());
         }
-        int rows = baseMapper.insertPortalArticle(portalArticle);
+        // 付费阅读字段默认值
+        if (portalArticle.getIsPaid() == null) {
+            portalArticle.setIsPaid(0);
+        }
+        if (portalArticle.getPreviewLength() == null) {
+            portalArticle.setPreviewLength(0);
+        }
+        if (portalArticle.getPrice() == null) {
+            portalArticle.setPrice(java.math.BigDecimal.ZERO);
+        }
+        // 有 id 时走更新（草稿发布），无 id 时新建
+        boolean isNew = portalArticle.getId() == null;
+        int rows;
+        if (isNew) {
+            rows = baseMapper.insertPortalArticle(portalArticle);
+        } else {
+            rows = baseMapper.updatePortalArticle(portalArticle);
+        }
 
-        // 记录成长事件 + 更新创作字数统计
-        if (rows > 0 && portalArticle.getAuthorId() != null) {
+        // 记录成长事件 + 更新创作字数统计（仅首次发布时触发，避免重复加成长值）
+        if (rows > 0 && isNew && portalArticle.getAuthorId() != null) {
             // 统计创作字数（按内容字符数粗略计算）
             long wordCount = 0;
             if (portalArticle.getContent() != null) {
@@ -209,10 +237,34 @@ public class PortalArticleServiceImpl extends ServiceImpl<PortalArticleMapper, P
         fillSlug(portalArticle);
         // 草稿强制状态为 draft
         portalArticle.setStatus("draft");
+        // 付费阅读字段默认值
+        if (portalArticle.getIsPaid() == null) {
+            portalArticle.setIsPaid(0);
+        }
+        if (portalArticle.getPreviewLength() == null) {
+            portalArticle.setPreviewLength(0);
+        }
+        if (portalArticle.getPrice() == null) {
+            portalArticle.setPrice(java.math.BigDecimal.ZERO);
+        }
 
         if (portalArticle.getId() == null) {
-            // 新建草稿
-            baseMapper.insertPortalArticle(portalArticle);
+            // 新建草稿前检查：同一作者是否已有同标题的草稿，有则复用（避免重复创建）
+            if (portalArticle.getAuthorId() != null && portalArticle.getTitle() != null && !portalArticle.getTitle().isBlank()) {
+                PortalArticle existing = baseMapper.selectOne(new LambdaQueryWrapper<PortalArticle>()
+                        .eq(PortalArticle::getAuthorId, portalArticle.getAuthorId())
+                        .eq(PortalArticle::getTitle, portalArticle.getTitle())
+                        .eq(PortalArticle::getStatus, "draft")
+                        .last("LIMIT 1"));
+                if (existing != null) {
+                    portalArticle.setId(existing.getId());
+                    baseMapper.updatePortalArticle(portalArticle);
+                } else {
+                    baseMapper.insertPortalArticle(portalArticle);
+                }
+            } else {
+                baseMapper.insertPortalArticle(portalArticle);
+            }
         } else {
             // 更新已有草稿
             baseMapper.updatePortalArticle(portalArticle);

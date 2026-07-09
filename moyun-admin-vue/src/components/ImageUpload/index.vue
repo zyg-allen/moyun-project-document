@@ -1,21 +1,21 @@
 <template>
   <div class="component-upload-image">
     <el-upload
-      multiple
-      :action="uploadImgUrl"
-      list-type="picture-card"
-      :on-success="handleUploadSuccess"
-      :before-upload="handleBeforeUpload"
-      :limit="limit"
-      :on-error="handleUploadError"
-      :on-exceed="handleExceed"
-      ref="imageUpload"
-      :before-remove="handleDelete"
-      :show-file-list="true"
-      :headers="headers"
-      :file-list="fileList"
-      :on-preview="handlePictureCardPreview"
-      :class="{ hide: fileList.length >= limit }"
+        multiple
+        :action="uploadImgUrl"
+        list-type="picture-card"
+        :on-success="handleUploadSuccess"
+        :before-upload="handleBeforeUpload"
+        :limit="limit"
+        :on-error="handleUploadError"
+        :on-exceed="handleExceed"
+        ref="imageUpload"
+        :before-remove="handleDelete"
+        :show-file-list="true"
+        :headers="headers"
+        :file-list="fileList"
+        :on-preview="handlePictureCardPreview"
+        :class="{ hide: fileList.length >= limit }"
     >
       <el-icon class="avatar-uploader-icon"><plus /></el-icon>
     </el-upload>
@@ -32,14 +32,14 @@
     </div>
 
     <el-dialog
-      v-model="dialogVisible"
-      title="预览"
-      width="800px"
-      append-to-body
+        v-model="dialogVisible"
+        title="预览"
+        width="800px"
+        append-to-body
     >
       <img
-        :src="dialogImageUrl"
-        style="display: block; max-width: 100%; margin: 0 auto"
+          :src="dialogImageUrl"
+          style="display: block; max-width: 100%; margin: 0 auto"
       />
     </el-dialog>
   </div>
@@ -83,7 +83,7 @@ const uploadImgUrl = ref(import.meta.env.VITE_APP_BASE_API + "/common/upload"); 
 const headers = ref({ Authorization: "Bearer " + getToken() });
 const fileList = ref([]);
 const showTip = computed(
-  () => props.isShowTip && (props.fileType || props.fileSize)
+    () => props.isShowTip && (props.fileType || props.fileSize)
 );
 
 watch(() => props.modelValue, val => {
@@ -93,7 +93,11 @@ watch(() => props.modelValue, val => {
     // 然后将数组转为对象数组
     fileList.value = list.map(item => {
       if (typeof item === "string") {
-        if (item.indexOf(baseUrl) === -1) {
+        // 完整 URL（MinIO http://... 或 https://...）直接使用，不拼 baseUrl
+        if (/^https?:\/\//.test(item)) {
+          item = { name: item, url: item };
+        } else if (item.indexOf(baseUrl) === -1) {
+          // 相对路径，拼 baseUrl 前缀
           item = { name: baseUrl + item, url: baseUrl + item };
         } else {
           item = { name: item, url: item };
@@ -125,7 +129,7 @@ function handleBeforeUpload(file) {
   }
   if (!isImg) {
     proxy.$modal.msgError(
-      `文件格式不正确, 请上传${props.fileType.join("/")}图片格式文件!`
+        `文件格式不正确, 请上传${props.fileType.join("/")}图片格式文件!`
     );
     return false;
   }
@@ -208,6 +212,6 @@ function listToString(list, separator) {
 <style scoped lang="scss">
 // .el-upload--picture-card 控制加号部分
 :deep(.hide .el-upload--picture-card) {
-    display: none;
+  display: none;
 }
 </style>

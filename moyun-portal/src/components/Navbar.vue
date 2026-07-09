@@ -2,8 +2,9 @@
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
 import { RouterLink as Link, useRouter, useRoute } from 'vue-router';
 import {
-  Search, User, Plus, LogOut, Menu, X, Palette, Sun, Moon, Eye, Home,
-  ChevronDown, ChevronUp, Settings, UserCircle, BookMarked, MessageSquare
+  Search, Plus, LogOut, Menu, X, Palette, Sun, Moon, Eye,
+  ChevronDown, ChevronRight, Settings, UserCircle, BookMarked, MessageSquare,
+  HelpCircle, Lock
 } from 'lucide-vue-next';
 import { setTheme, getCurrentTheme, type Theme, themes } from '@/utils/theme';
 import { useUserStore } from '@/stores/user';
@@ -38,94 +39,117 @@ interface NavItem {
   path?: string;
   externalUrl?: string | null;
   isExternal?: boolean;
-  children: { name: string; path?: string; isExternal?: boolean }[];
+  children: { name: string; path?: string; isExternal?: boolean; requiresAuth?: boolean }[];
 }
 
-// 导航数据结构 - 使用统一的分类过滤逻辑（filterCategoryTree）
-// 跳转目标使用 getCategoryTarget（支持 linkType 外部链接）
-const navItems = computed<NavItem[]>(() => [
-  {
-    name: '首页',
-    key: 'home',
-    path: '/',
-    children: []
-  },
-  {
-    name: '名家录',
-    key: 'authors',
-    children: []
-  },
-  {
-    name: '动态',
-    key: 'feed',
-    path: '/feed',
-    children: []
-  },
-  {
-    name: '专栏',
-    key: 'columns',
-    path: '/columns',
-    children: []
-  },
-  ...filterCategoryTree(categories.value)
-    .map(cat => {
-      const target = getCategoryTarget(cat);
-      // 外部链接特殊处理：没有子菜单，点击跳转外链
-      if (target.type === 'external') {
+// 导航数据结构 - 精简为 5 个一级菜单：首页 / 读书 / 面试（含学习中心） / 创作 / 我的
+// 学习中心已并入面试（数据全部来自面试题库），社区已拆解（FeedPage→我的、Authors→创作、排行/成就→我的）
+const navItems = computed<NavItem[]>(() => {
+  const isLoggedIn = userStore.isAuthenticated;
+  return [
+    // 1. 首页 - 平台总入口
+    {
+      name: '首页',
+      key: 'home',
+      path: '/',
+      children: []
+    },
+    // 2. 动态内容分类（散文/技术/生活等，从后台分类树动态读取）
+    ...filterCategoryTree(categories.value)
+      .map(cat => {
+        const target = getCategoryTarget(cat);
+        // 外部链接特殊处理：没有子菜单，点击跳转外链
+        if (target.type === 'external') {
+          return {
+            name: cat.name,
+            key: cat.id,
+            externalUrl: target.path,
+            isExternal: true,
+            children: []
+          };
+        }
         return {
           name: cat.name,
           key: cat.id,
-          externalUrl: target.path,
-          isExternal: true,
-          children: []
+          externalUrl: null,
+          isExternal: false,
+          children: (cat.children || []).map(sub => {
+            const subTarget = getCategoryTarget(sub);
+            return {
+              name: sub.name,
+              path: subTarget.type === 'external' ? subTarget.path : subTarget.path,
+              isExternal: subTarget.type === 'external'
+            };
+          })
         };
-      }
-      return {
-        name: cat.name,
-        key: cat.id,
-        externalUrl: null,
-        isExternal: false,
-        children: (cat.children || []).map(sub => {
-          const subTarget = getCategoryTarget(sub);
-          return {
-            name: sub.name,
-            path: subTarget.type === 'external' ? subTarget.path : subTarget.path,
-            isExternal: subTarget.type === 'external'
-          };
-        })
-      };
-    }),
-  {
-    name: '读书空间',
-    key: 'reading',
-    path: '/reading',
-    children: [
-      { name: '读书首页', path: '/reading' },
-      { name: '发现好书', path: '/reading/discover' },
-      { name: '我的书架', path: '/reading/bookshelf' },
-    ]
-  },
-  {
-    name: '面试指南',
-    key: 'interview',
-    path: '/interview',
-    children: [
-      { name: '面试题库', path: '/interview' },
-      { name: '面试经验', path: '/interview/experiences' },
-    ]
-  },
-  {
-    name: '帮助中心',
-    key: 'help',
-    path: '/help',
-    children: [
-      { name: '常见问题', path: '/help' },
-      { name: '关于我们', path: '/about' },
-      { name: '用户协议', path: '/agreement' },
-      { name: '举报反馈', path: '/report' }
-    ]
-  },
-]);
+      }),
+    // 3. 读书空间 - 文学爱好者内容消费与沉淀
+    {
+      name: '读书',
+      key: 'reading',
+      path: '/reading',
+      children: [
+        { name: '读书首页', path: '/reading' },
+        { name: '发现好书', path: '/reading/discover' },
+        { name: '共读活动', path: '/reading/club' },
+        { name: '我的书架', path: '/reading/bookshelf', requiresAuth: true },
+      ]
+    },
+    // 4. 面试 - 求职者面试闭环（已合并原"学习中心"7 个页面，因为数据全部来自面试题库）
+    {
+      name: '面试',
+      key: 'interview',
+      path: '/interview',
+      children: [
+        { name: '面试题库', path: '/interview' },
+        { name: '面试经验', path: '/interview/experiences' },
+        { name: '简历模板', path: '/interview/resume-templates' },
+        { name: '在招职位', path: '/interview/jobs' },
+        { name: 'AI 模拟面试', path: '/interview/mock', requiresAuth: true },
+        // 学习中心子模块（合并自原 /learn 菜单）
+        { name: '学习中心', path: '/learn' },
+        { name: '知识图谱', path: '/learn/knowledge' },
+        { name: '刷题排行榜', path: '/learn/leaderboard' },
+        { name: '学习计划', path: '/learn/plan', requiresAuth: true },
+        { name: '错题本', path: '/learn/wrong', requiresAuth: true },
+        { name: '刷题日历', path: '/learn/calendar', requiresAuth: true },
+      ]
+    },
+    // 5. 创作 - 创作者内容生态
+    {
+      name: '创作',
+      key: 'create',
+      children: [
+        { name: '发布文章', path: '/publish', requiresAuth: true },
+        { name: '我的文章', path: '/my/articles', requiresAuth: true },
+        { name: '专栏广场', path: '/columns' },
+        { name: '我的专栏', path: '/column/my', requiresAuth: true },
+        { name: '创作挑战', path: '/contests' },
+        { name: '创作者认证', path: '/creator/certification', requiresAuth: true },
+        { name: '创作者列表', path: '/authors' },
+      ]
+    },
+    // 6. 我的 - 个人中心聚合（原"社区"已拆解到此）
+    {
+      name: '我的',
+      key: 'mine',
+      children: [
+        { name: '个人中心', path: '/user', requiresAuth: true },
+        { name: '成长时间线', path: '/growth/timeline', requiresAuth: true },
+        { name: '动态广场', path: '/feed' },
+        { name: '成长排行榜', path: '/ranking' },
+        { name: '成就徽章', path: '/achievements', requiresAuth: true },
+      ]
+    },
+  ].filter(item => {
+    // 未登录用户：过滤掉所有子项都需登录的菜单（避免空菜单）
+    if (!isLoggedIn && item.children.length > 0) {
+      const hasPublicChild = item.children.some(c => !c.requiresAuth);
+      return hasPublicChild;
+    }
+    return true;
+  });
+});
 
 const currentUser = computed(() => userStore.user)
 
@@ -314,6 +338,18 @@ onUnmounted(() => document.removeEventListener('click', handleDocumentClick));
 
           <!-- 右侧：搜索和操作 -->
           <div class="flex items-center space-x-1 sm:space-x-3">
+            <!-- 帮助中心入口（醒目但不占主导航位置） -->
+            <Link
+                to="/help"
+                class="p-2.5 rounded-lg transition-all duration-200 hover:scale-110 relative group"
+                style="color: var(--theme-primary);"
+                title="帮助中心"
+                aria-label="帮助中心"
+            >
+              <HelpCircle class="w-4 h-4 sm:w-5 sm:h-5" />
+              <span class="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full animate-pulse" style="background-color: var(--theme-primary);"></span>
+            </Link>
+
             <!-- 搜索图标按钮 -->
             <button
                 @click="router.push('/search')"
@@ -492,17 +528,7 @@ onUnmounted(() => document.removeEventListener('click', handleDocumentClick));
                   {{ item.name }}
                 </Link>
               </template>
-              <!-- 名家录直接跳转 -->
-              <template v-else-if="item.key === 'authors'">
-                <Link
-                    to="/authors"
-                    class="px-5 py-2.5 text-base font-semibold transition-all duration-200 rounded-lg hover:scale-105 hover:shadow-sm"
-                    style="color: var(--theme-text);"
-                >
-                  {{ item.name }}
-                </Link>
-              </template>
-              <!-- 有 path 但无子菜单：直接跳转（动态 / 专栏 等） -->
+              <!-- 有 path 但无子菜单：直接跳转（动态分类等） -->
               <template v-else-if="item.path && item.children.length === 0">
                 <Link
                     :to="item.path"
@@ -524,13 +550,13 @@ onUnmounted(() => document.removeEventListener('click', handleDocumentClick));
                   {{ item.name }} ↗
                 </a>
               </template>
-              <!-- 其他有子菜单的项 -->
+              <!-- 其他有子菜单的项（读书/面试/学习/创作/社区 + 动态分类） -->
               <template v-else>
                 <div class="relative" @click.stop>
                   <button
                       @click="toggleNav(item.key)"
                       :class="[
-                      'px-5 py-2.5 text-base font-semibold transition-all duration-200 rounded-lg',
+                      'inline-flex items-center gap-1 px-5 py-2.5 text-base font-semibold transition-all duration-200 rounded-lg',
                       activeNavItem === item.key ? 'shadow-md scale-105' : 'hover:scale-105 hover:shadow-sm'
                     ]"
                       :style="{
@@ -539,7 +565,8 @@ onUnmounted(() => document.removeEventListener('click', handleDocumentClick));
                     }"
                       data-menu-trigger
                   >
-                    {{ item.name }}
+                    <span>{{ item.name }}</span>
+                    <ChevronDown class="w-3.5 h-3.5 transition-transform duration-200" :class="{ 'rotate-180': activeNavItem === item.key }" />
                   </button>
                   <!-- PC端二级菜单 -->
                   <div
@@ -556,26 +583,32 @@ onUnmounted(() => document.removeEventListener('click', handleDocumentClick));
                           target="_blank"
                           rel="noopener noreferrer"
                           @click="activeNavItem = null"
-                          class="block px-5 py-3 text-base hover:scale-105 transition-all duration-150"
+                          class="flex items-center justify-between px-5 py-3 text-base hover:scale-105 transition-all duration-150"
                           :style="{
                             color: 'var(--theme-text)',
                             borderTop: idx > 0 ? '1px solid var(--theme-border)' : 'none'
                           }"
                       >
-                        {{ child.name }} ↗
+                        <span>{{ child.name }} ↗</span>
                       </a>
                       <!-- 子菜单内部路由 -->
                       <Link
                           v-else
                           :to="child.path"
                           @click="activeNavItem = null"
-                          class="block px-5 py-3 text-base hover:scale-105 transition-all duration-150"
+                          class="flex items-center justify-between px-5 py-3 text-base hover:scale-105 transition-all duration-150 group"
                           :style="{
                             color: 'var(--theme-text)',
                             borderTop: idx > 0 ? '1px solid var(--theme-border)' : 'none'
                           }"
                       >
-                        {{ child.name }}
+                        <span>{{ child.name }}</span>
+                        <!-- 需登录的子项：醒目锁标记 -->
+                        <Lock
+                            v-if="child.requiresAuth"
+                            class="w-3.5 h-3.5 opacity-60 group-hover:opacity-100 transition-opacity"
+                            style="color: var(--theme-primary);"
+                        />
                       </Link>
                     </template>
                   </div>
@@ -601,26 +634,30 @@ onUnmounted(() => document.removeEventListener('click', handleDocumentClick));
     <!-- 移动端菜单 -->
     <div
         v-if="isMenuOpen"
-        class="lg:hidden border-t"
+        class="lg:hidden border-t max-h-[80vh] overflow-y-auto"
         style="background-color: var(--theme-bg); border-color: var(--theme-border);"
         data-menu-content
     >
       <div class="px-4 py-3 space-y-2">
+        <!-- 帮助中心入口（醒目置顶） -->
+        <Link
+            to="/help"
+            @click="isMenuOpen = false"
+            class="flex items-center justify-between border rounded-xl px-5 py-4"
+            style="color: var(--theme-primary); border-color: var(--theme-primary); background-color: var(--theme-surface);"
+        >
+          <span class="font-semibold text-base flex items-center gap-2">
+            <HelpCircle class="w-4 h-4" />
+            帮助中心
+          </span>
+          <ChevronRight class="w-4 h-4" />
+        </Link>
+
         <div v-for="item in navItems" :key="item.key" class="mb-2">
           <!-- 首页直接跳转 -->
           <Link
               v-if="item.key === 'home'"
               :to="item.path"
-              @click="isMenuOpen = false"
-              class="block border rounded-xl px-5 py-4"
-              style="color: var(--theme-text); border-color: var(--theme-border);"
-          >
-            <span class="font-semibold text-lg">{{ item.name }}</span>
-          </Link>
-          <!-- 名家录 -->
-          <Link
-              v-else-if="item.key === 'authors'"
-              to="/authors"
               @click="isMenuOpen = false"
               class="block border rounded-xl px-5 py-4"
               style="color: var(--theme-text); border-color: var(--theme-border);"
@@ -639,16 +676,75 @@ onUnmounted(() => document.removeEventListener('click', handleDocumentClick));
           >
             <span class="font-semibold text-lg">{{ item.name }} ↗</span>
           </a>
-          <!-- 普通栏目项：有 path 用 path（读书/面试/帮助），否则按分类跳转 -->
+          <!-- 有 path 但无子菜单：直接跳转 -->
           <Link
-              v-else
-              :to="item.path || `/category/${encodeURIComponent(item.name)}`"
+              v-else-if="item.path && item.children.length === 0"
+              :to="item.path"
               @click="isMenuOpen = false"
               class="block border rounded-xl px-5 py-4"
               style="color: var(--theme-text); border-color: var(--theme-border);"
           >
             <span class="font-semibold text-lg">{{ item.name }}</span>
           </Link>
+          <!-- 有子菜单：点击展开/折叠 -->
+          <div v-else class="border rounded-xl overflow-hidden" style="border-color: var(--theme-border);">
+            <button
+                @click="toggleNav(item.key)"
+                class="w-full flex items-center justify-between px-5 py-4"
+                :style="{
+                  color: 'var(--theme-text)',
+                  backgroundColor: activeNavItem === item.key ? 'var(--theme-surface)' : 'transparent'
+                }"
+            >
+              <span class="font-semibold text-lg">{{ item.name }}</span>
+              <ChevronDown
+                  class="w-4 h-4 transition-transform duration-200"
+                  :class="{ 'rotate-180': activeNavItem === item.key }"
+              />
+            </button>
+            <!-- 移动端二级菜单 -->
+            <div
+                v-if="activeNavItem === item.key"
+                class="border-t"
+                style="border-color: var(--theme-border); background-color: var(--theme-surface);"
+            >
+              <template v-for="(child, idx) in item.children" :key="child.name">
+                <!-- 子菜单外部链接 -->
+                <a
+                    v-if="child.isExternal"
+                    :href="child.path"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    @click="isMenuOpen = false"
+                    class="flex items-center justify-between px-7 py-3 text-sm"
+                    :style="{
+                      color: 'var(--theme-text)',
+                      borderTop: idx > 0 ? '1px solid var(--theme-border)' : 'none'
+                    }"
+                >
+                  <span>{{ child.name }} ↗</span>
+                </a>
+                <!-- 子菜单内部路由 -->
+                <Link
+                    v-else
+                    :to="child.path"
+                    @click="isMenuOpen = false"
+                    class="flex items-center justify-between px-7 py-3 text-sm group"
+                    :style="{
+                      color: 'var(--theme-text)',
+                      borderTop: idx > 0 ? '1px solid var(--theme-border)' : 'none'
+                    }"
+                >
+                  <span>{{ child.name }}</span>
+                  <Lock
+                      v-if="child.requiresAuth"
+                      class="w-3 h-3 opacity-60 group-hover:opacity-100 transition-opacity"
+                      style="color: var(--theme-primary);"
+                  />
+                </Link>
+              </template>
+            </div>
+          </div>
         </div>
       </div>
     </div>

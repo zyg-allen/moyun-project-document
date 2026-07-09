@@ -213,6 +213,24 @@ public class MessageServiceImpl implements IMessageService {
     }
 
     // ========================================================================
+    // 按对方用户ID获取或创建会话 VO（用于作者主页发起新私信）
+    // ========================================================================
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public MessageSessionVO getOrCreateSessionVO(Long currentUserId, Long peerUserId) {
+        if (currentUserId == null || peerUserId == null) {
+            throw new ServiceException("用户ID不能为空");
+        }
+        if (currentUserId.equals(peerUserId)) {
+            throw new ServiceException("不能给自己发私信");
+        }
+        Long userA = Math.min(currentUserId, peerUserId);
+        Long userB = Math.max(currentUserId, peerUserId);
+        PortalMessageSession session = createOrGetSession(userA, userB);
+        return sessionMapper.selectSessionVOById(session.getId(), currentUserId);
+    }
+
+    // ========================================================================
     // 私有辅助
     // ========================================================================
     private MessageVO buildMessageVO(PortalMessage m) {

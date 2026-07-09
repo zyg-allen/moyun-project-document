@@ -146,7 +146,7 @@ function goBack() {
       class="border-b sticky top-0 z-30"
       style="background-color: var(--theme-bg); border-color: var(--theme-border);"
     >
-      <div class="max-w-7xl mx-auto px-4 py-3">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
         <button
           @click="goBack"
           class="flex items-center text-sm transition hover:opacity-70"
@@ -159,46 +159,47 @@ function goBack() {
     </div>
 
     <!-- Hero 区 -->
-    <div
-      class="text-white py-14 relative overflow-hidden"
-      style="background: linear-gradient(135deg, var(--theme-primary), color-mix(in srgb, var(--theme-primary) 60%, #4338ca 100%));"
-    >
-      <div class="absolute inset-0 opacity-10 pointer-events-none">
-        <div class="absolute top-10 left-10 w-64 h-64 rounded-full bg-white"></div>
-        <div class="absolute bottom-0 right-20 w-80 h-80 rounded-full bg-white"></div>
-      </div>
-      <div class="relative max-w-7xl mx-auto px-4 text-center">
-        <h1 class="text-4xl font-bold mb-3">面试题库</h1>
-        <p class="text-lg mb-8 opacity-90">海量面试题目，涵盖算法、系统设计、前端、后端等方向</p>
-        <div class="relative max-w-xl mx-auto rounded-lg p-2 flex" style="background-color: var(--theme-bg);">
-          <Search
-            class="w-5 h-5 absolute left-4 top-1/2 -translate-y-1/2"
-            style="color: var(--theme-text-secondary);"
-          />
-          <label for="question-search-input" class="sr-only">搜索题目</label>
-          <input
-            id="question-search-input"
-            v-model="searchInput"
-            @keyup.enter="doSearch"
-            type="text"
-            placeholder="搜索题目..."
-            class="search-input flex-1 pl-10 pr-3 py-2 focus:outline-none text-sm"
-            style="color: var(--theme-text);"
-          />
-          <button
-            @click="doSearch"
-            class="px-4 py-2 text-white rounded-md text-sm transition hover:opacity-90"
-            style="background-color: var(--theme-primary);"
-          >
-            搜索
-          </button>
+    <div class="py-6 sm:py-8">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="relative overflow-hidden rounded-2xl text-white" style="background-image: radial-gradient(circle at 20% 30%, rgba(99, 102, 241, 0.4) 0%, transparent 50%), radial-gradient(circle at 80% 70%, rgba(168, 85, 247, 0.4) 0%, transparent 50%), linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);">
+          <div class="absolute inset-0 opacity-10 pointer-events-none" aria-hidden="true">
+            <svg class="absolute top-6 left-8 w-32 h-32 text-white" viewBox="0 0 24 24" fill="currentColor"><path d="M9.4 16.6L4.8 12l4.6-4.6L8 6l-6 6 6 6 1.4-1.4zm5.2 0L19.2 12l-4.6-4.6L16 6l6 6-6 6-1.4-1.4z"/></svg>
+            <svg class="absolute bottom-4 right-10 w-40 h-40 text-white" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 4c-3.31 0-6 2.69-6 6s2.69 6 6 6 6-2.69 6-6-2.69-6-6-6zm0 2c2.21 0 4 1.79 4 4s-1.79 4-4 4-4-1.79-4-4 1.79-4 4-4zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"/></svg>
+          </div>
+          <div class="relative px-6 py-8 sm:px-10 sm:py-10 text-center">
+            <h1 class="text-4xl font-bold mb-3">面试题库</h1>
+            <p class="text-lg mb-8 opacity-90">海量面试题目，涵盖算法、系统设计、前端、后端等方向</p>
+            <div class="relative max-w-xl mx-auto rounded-lg p-2 flex" style="background-color: var(--theme-bg);">
+              <Search
+                class="w-5 h-5 absolute left-4 top-1/2 -translate-y-1/2"
+                style="color: var(--theme-text-secondary);"
+              />
+              <label for="question-search-input" class="sr-only">搜索题目</label>
+              <input
+                id="question-search-input"
+                v-model="searchInput"
+                @keyup.enter="doSearch"
+                type="text"
+                placeholder="搜索题目..."
+                class="search-input flex-1 pl-10 pr-3 py-2 focus:outline-none text-sm"
+                style="color: var(--theme-text);"
+              />
+              <button
+                @click="doSearch"
+                class="px-4 py-2 text-white rounded-md text-sm transition hover:opacity-90"
+                style="background-color: var(--theme-primary);"
+              >
+                搜索
+              </button>
+            </div>
+          </div>
         </div>
       </div>
     </div>
 
     <!-- 主体内容 -->
     <div class="flex-1 py-8">
-      <div class="max-w-7xl mx-auto px-4">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div class="flex flex-col lg:flex-row gap-6">
           <!-- 左侧筛选栏 -->
           <aside class="w-full lg:w-64 flex-shrink-0">

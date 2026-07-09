@@ -5,16 +5,16 @@
       <el-row>
         <el-col :xs="24" :md="12" :style="{ height: '350px' }">
           <vue-cropper
-            ref="cropper"
-            :img="options.img"
-            :info="true"
-            :autoCrop="options.autoCrop"
-            :autoCropWidth="options.autoCropWidth"
-            :autoCropHeight="options.autoCropHeight"
-            :fixedBox="options.fixedBox"
-            :outputType="options.outputType"
-            @realTime="realTime"
-            v-if="visible"
+              ref="cropper"
+              :img="options.img"
+              :info="true"
+              :autoCrop="options.autoCrop"
+              :autoCropWidth="options.autoCropWidth"
+              :autoCropHeight="options.autoCropHeight"
+              :fixedBox="options.fixedBox"
+              :outputType="options.outputType"
+              @realTime="realTime"
+              v-if="visible"
           />
         </el-col>
         <el-col :xs="24" :md="12" :style="{ height: '350px' }">
@@ -27,10 +27,10 @@
       <el-row>
         <el-col :lg="2" :md="2">
           <el-upload
-            action="#"
-            :http-request="requestUpload"
-            :show-file-list="false"
-            :before-upload="beforeUpload"
+              action="#"
+              :http-request="requestUpload"
+              :show-file-list="false"
+              :before-upload="beforeUpload"
           >
             <el-button>
               选择
@@ -126,7 +126,10 @@ function uploadImg() {
     formData.append("avatarfile", data, options.filename);
     uploadAvatar(formData).then(response => {
       open.value = false;
-      options.img = import.meta.env.VITE_APP_BASE_API + response.imgUrl;
+      // 完整 URL（MinIO）直接用，相对路径拼 baseUrl
+      options.img = /^https?:\/\//.test(response.imgUrl)
+          ? response.imgUrl
+          : import.meta.env.VITE_APP_BASE_API + response.imgUrl;
       userStore.avatar = options.img;
       proxy.$modal.msgSuccess("修改成功");
       visible.value = false;

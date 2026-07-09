@@ -143,7 +143,11 @@ function clearEditor() {
 }
 
 function goBack() {
-  router.push('/interview');
+  if (window.history.length > 1) {
+    router.back();
+  } else {
+    router.push('/interview');
+  }
 }
 
 function formatTime(ms?: number) {
@@ -215,7 +219,7 @@ function showToast(message: string, type: 'success' | 'error' = 'success') {
       class="border-b sticky top-0 z-30 backdrop-blur-sm"
       style="background-color: var(--theme-surface); border-color: var(--theme-border);"
     >
-      <div class="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex items-center justify-between">
         <button
           @click="goBack"
           class="flex items-center text-sm transition hover:opacity-80"
@@ -248,26 +252,27 @@ function showToast(message: string, type: 'success' | 'error' = 'success') {
     </div>
 
     <!-- Hero 区 -->
-    <div
-      class="relative overflow-hidden text-white py-10"
-      style="background: linear-gradient(135deg, var(--theme-primary), color-mix(in srgb, var(--theme-primary) 60%, #4338ca 100%));"
-    >
-      <div class="absolute inset-0 opacity-10 pointer-events-none">
-        <div class="absolute top-6 left-10 w-40 h-40 rounded-full bg-white"></div>
-        <div class="absolute bottom-6 right-16 w-64 h-64 rounded-full bg-white"></div>
+    <div class="py-6 sm:py-8">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="relative overflow-hidden rounded-2xl text-white" style="background-image: radial-gradient(circle at 20% 30%, rgba(99, 102, 241, 0.4) 0%, transparent 50%), radial-gradient(circle at 80% 70%, rgba(168, 85, 247, 0.4) 0%, transparent 50%), linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);">
+      <div class="absolute inset-0 opacity-10 pointer-events-none" aria-hidden="true">
+        <svg class="absolute top-6 left-8 w-32 h-32 text-white" viewBox="0 0 24 24" fill="currentColor"><path d="M9.4 16.6L4.8 12l4.6-4.6L8 6l-6 6 6 6 1.4-1.4zm5.2 0L19.2 12l-4.6-4.6L16 6l6 6-6 6-1.4-1.4z"/></svg>
+        <svg class="absolute bottom-4 right-10 w-40 h-40 text-white" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 4c-3.31 0-6 2.69-6 6s2.69 6 6 6 6-2.69 6-6-2.69-6-6-6zm0 2c2.21 0 4 1.79 4 4s-1.79 4-4 4-4-1.79-4-4 1.79-4 4-4zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"/></svg>
       </div>
-      <div class="relative max-w-6xl mx-auto px-4 text-center">
+      <div class="relative px-6 py-8 sm:px-10 sm:py-10 text-center">
         <div class="inline-flex items-center bg-white/10 backdrop-blur-sm px-4 py-1.5 rounded-full text-sm mb-3">
           <Terminal class="w-4 h-4 mr-2" /> 墨韵 · 代码沙箱
         </div>
         <h1 class="text-2xl md:text-3xl font-bold mb-2">在线代码运行</h1>
         <p class="text-sm opacity-90">支持 Java / Python / JavaScript，沙箱执行，超时 5 秒，输出截断 1MB</p>
       </div>
+        </div>
+      </div>
     </div>
 
     <!-- 主内容：左编辑器 / 右输出 -->
     <div class="flex-1 py-6">
-      <div class="max-w-6xl mx-auto px-4">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
           <!-- 左侧：编辑器 -->
           <div

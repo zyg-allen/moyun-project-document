@@ -6,6 +6,7 @@ import type {
   AchievementVO,
   GrowthRankingItem,
   CheckinResult,
+  GrowthTimelineItem,
 } from '@/types/api';
 
 // 获取当前登录用户的成长信息
@@ -56,4 +57,17 @@ export const getGrowthRanking = (limit = 10) => {
 // 每日签到
 export const checkin = () => {
   return httpPost<CheckinResult>('/portal/growth/checkin');
+};
+
+// 获取成长时间线（支持按模块筛选）
+export const getTimeline = (params: {
+  pageNum?: number;
+  pageSize?: number;
+  module?: string;
+  userId?: string | number;
+} = {}) => {
+  return httpGet<{ list: GrowthTimelineItem[]; total: number; page: number; pageSize: number }>(
+    '/portal/growth/timeline',
+    params
+  );
 };

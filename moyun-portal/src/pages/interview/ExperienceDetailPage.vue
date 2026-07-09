@@ -185,7 +185,7 @@ useHead(
   <div class="min-h-screen flex flex-col" style="background-color: var(--theme-bg);">
     <!-- 顶部导航 -->
     <div class="border-b sticky top-0 z-30" style="background-color: var(--theme-bg); border-color: var(--theme-border);">
-      <div class="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex items-center justify-between">
         <button
           @click="router.back()"
           class="flex items-center transition text-sm hover:opacity-70"
@@ -209,7 +209,7 @@ useHead(
     </div>
 
     <div class="flex-1 py-8">
-      <div class="max-w-7xl mx-auto px-4">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <!-- Loading -->
         <div v-if="loading && !experience" class="text-center py-12">
           <div class="animate-spin rounded-full h-12 w-12 border-b-2 mx-auto" style="border-color: var(--theme-primary);"></div>

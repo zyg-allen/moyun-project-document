@@ -101,7 +101,11 @@ function gotoCreate() {
 }
 
 function goBack() {
-  router.push('/');
+  if (window.history.length > 1) {
+    router.back();
+  } else {
+    router.push('/');
+  }
 }
 
 function gotoMy() {
@@ -151,51 +155,52 @@ function gotoPage(p: number) {
     </div>
 
     <!-- Hero 区 -->
-    <div
-      class="relative overflow-hidden text-white py-14"
-      style="background: linear-gradient(135deg, var(--theme-primary), color-mix(in srgb, var(--theme-primary) 60%, #4338ca 100%));"
-    >
-      <div class="absolute inset-0 opacity-10 pointer-events-none">
-        <div class="absolute top-8 left-10 w-48 h-48 rounded-full bg-white"></div>
-        <div class="absolute bottom-8 right-16 w-72 h-72 rounded-full bg-white"></div>
-      </div>
-      <div class="relative max-w-7xl mx-auto px-4 text-center">
-        <div class="inline-flex items-center bg-white/10 backdrop-blur-sm px-4 py-1.5 rounded-full text-sm mb-5">
-          <BookOpen class="w-4 h-4 mr-2" /> 墨韵 · 专栏
-        </div>
-        <h1 class="text-4xl md:text-5xl font-bold tracking-tight mb-4">专栏广场</h1>
-        <p class="text-base md:text-lg text-white/90 max-w-2xl mx-auto mb-8">
-          按主题聚合文章，持续连载，订阅追更，构建你的知识体系
-        </p>
-        <!-- 搜索框 -->
-        <div class="max-w-xl mx-auto rounded-xl p-2 flex items-center shadow-lg" style="background-color: var(--theme-bg);">
-          <Search class="w-5 h-5 ml-2 flex-shrink-0" style="color: var(--theme-text-secondary);" />
-          <input
-            v-model="searchInput"
-            @keyup.enter="doSearch"
-            type="text"
-            placeholder="搜索专栏标题、副标题..."
-            class="flex-1 px-3 py-2 focus:outline-none text-sm"
-            style="color: var(--theme-text);"
-          />
-          <button
-            @click="doSearch"
-            class="px-5 py-2 rounded-lg text-sm font-medium text-white transition hover:opacity-90"
-            style="background-color: var(--theme-primary);"
-          >
-            搜索
-          </button>
-        </div>
-        <!-- 创建按钮 -->
-        <div class="mt-6">
-          <button
-            @click="gotoCreate"
-            class="inline-flex items-center px-5 py-2.5 rounded-lg text-sm font-medium text-white transition hover:opacity-90"
-            style="background-color: rgba(255,255,255,0.2);"
-          >
-            <Plus class="w-4 h-4 mr-1.5" />
-            创建专栏
-          </button>
+    <div class="py-6 sm:py-8">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="relative overflow-hidden rounded-2xl text-white" style="background-image: radial-gradient(circle at 20% 50%, rgba(190, 24, 93, 0.3) 0%, transparent 50%), radial-gradient(circle at 80% 30%, rgba(124, 58, 237, 0.3) 0%, transparent 50%), linear-gradient(135deg, #be185d 0%, #a21caf 50%, #7c3aed 100%);">
+          <div class="absolute inset-0 opacity-10 pointer-events-none" aria-hidden="true">
+            <svg class="absolute top-6 left-8 w-32 h-32 text-white" viewBox="0 0 24 24" fill="currentColor"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
+            <svg class="absolute bottom-4 right-10 w-40 h-40 text-white" viewBox="0 0 24 24" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-2 10H7v-2h10v2zm0-4H7V7h10v2z"/></svg>
+          </div>
+          <div class="relative px-6 py-8 sm:px-10 sm:py-10 text-center">
+            <div class="inline-flex items-center bg-white/10 backdrop-blur-sm px-4 py-1.5 rounded-full text-sm mb-5">
+              <BookOpen class="w-4 h-4 mr-2" /> 墨韵 · 专栏
+            </div>
+            <h1 class="text-4xl md:text-5xl font-bold tracking-tight mb-4">专栏广场</h1>
+            <p class="text-base md:text-lg text-white/90 max-w-2xl mx-auto mb-8">
+              按主题聚合文章，持续连载，订阅追更，构建你的知识体系
+            </p>
+            <!-- 搜索框 -->
+            <div class="max-w-xl mx-auto rounded-xl p-2 flex items-center shadow-lg" style="background-color: var(--theme-bg);">
+              <Search class="w-5 h-5 ml-2 flex-shrink-0" style="color: var(--theme-text-secondary);" />
+              <input
+                v-model="searchInput"
+                @keyup.enter="doSearch"
+                type="text"
+                placeholder="搜索专栏标题、副标题..."
+                class="flex-1 px-3 py-2 focus:outline-none text-sm"
+                style="color: var(--theme-text);"
+              />
+              <button
+                @click="doSearch"
+                class="px-5 py-2 rounded-lg text-sm font-medium text-white transition hover:opacity-90"
+                style="background-color: var(--theme-primary);"
+              >
+                搜索
+              </button>
+            </div>
+            <!-- 创建按钮 -->
+            <div class="mt-6">
+              <button
+                @click="gotoCreate"
+                class="inline-flex items-center px-5 py-2.5 rounded-lg text-sm font-medium text-white transition hover:opacity-90"
+                style="background-color: rgba(255,255,255,0.2);"
+              >
+                <Plus class="w-4 h-4 mr-1.5" />
+                创建专栏
+              </button>
+            </div>
+          </div>
         </div>
       </div>
     </div>

@@ -241,7 +241,6 @@ function switchTab(tab: 'notification' | 'message') {
 
 // 面包屑
 const breadcrumbItems = computed(() => [
-    { label: '首页', path: '/' },
     { label: '消息中心' },
 ]);
 

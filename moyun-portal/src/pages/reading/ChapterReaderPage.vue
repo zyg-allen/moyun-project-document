@@ -28,10 +28,12 @@ import {
 } from '@/api/reading'
 import { useReadingProgress } from '@/composables/useReadingProgress'
 import { useReadingPreference } from '@/composables/useReadingPreference'
+import { useUserStore } from '@/stores/user'
 import type { Book, BookChapter, BookChapterNav, ReadingPreference } from '@/types/api'
 
 const route = useRoute()
 const router = useRouter()
+const userStore = useUserStore()
 
 // ----- 状态 -----
 const loading = ref(false)
@@ -219,8 +221,8 @@ async function loadAll() {
         restoredOffset = 0
       }
       if (seq !== loadSeq) return // 竞态守卫：恢复期间又切了章节，不滚动
-      // 同步书架最后阅读章节（fire and forget，失败静默）
-      if (bidForProgress) {
+      // 同步书架最后阅读章节（仅登录用户，fire and forget，失败静默）
+      if (bidForProgress && userStore.isAuthenticated) {
         updateBookshelfLastChapter(bidForProgress, Number(cId), cNo).catch(() => {})
       }
       // 等待渲染后滚动到恢复位置

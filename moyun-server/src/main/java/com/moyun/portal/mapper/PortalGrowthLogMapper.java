@@ -1,11 +1,13 @@
 package com.moyun.portal.mapper;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
+import com.baomidou.mybatisplus.core.metadata.IPage;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
 
 import com.moyun.portal.domain.entity.PortalGrowthLog;
+import com.moyun.portal.domain.vo.GrowthTimelineVO;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -35,4 +37,11 @@ public interface PortalGrowthLogMapper extends BaseMapper<PortalGrowthLog> {
      */
     @Select("SELECT * FROM portal_growth_log WHERE user_id = #{userId} ORDER BY create_time DESC LIMIT #{limit}")
     List<PortalGrowthLog> selectRecentLogs(@Param("userId") Long userId, @Param("limit") int limit);
+
+    /**
+     * 分页查询成长时间线 VO（含关联标题、封面）
+     */
+    IPage<GrowthTimelineVO> selectTimelineVOPage(IPage<GrowthTimelineVO> page,
+                                                   @Param("userId") Long userId,
+                                                   @Param("module") String module);
 }

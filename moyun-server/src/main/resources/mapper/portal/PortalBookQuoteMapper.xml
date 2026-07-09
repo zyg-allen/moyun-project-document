@@ -4,6 +4,25 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
 "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.moyun.portal.mapper.PortalBookQuoteMapper">
 
+    <resultMap type="com.moyun.portal.domain.vo.BookQuoteVO" id="BookQuoteVOResult">
+        <id     property="id"            column="id"            />
+        <result property="userId"        column="user_id"       />
+        <result property="userNickname"  column="user_nickname" />
+        <result property="userAvatar"    column="user_avatar"   />
+        <result property="bookId"        column="book_id"       />
+        <result property="bookTitle"     column="book_title"    />
+        <result property="bookAuthor"    column="book_author"   />
+        <result property="bookCover"     column="book_cover"    />
+        <result property="content"       column="content"       />
+        <result property="page"          column="page"          />
+        <result property="chapter"       column="chapter"       />
+        <result property="location"      column="location"      />
+        <result property="likeCount"     column="like_count"    />
+        <result property="isPublic"      column="is_public"     />
+        <result property="isFeatured"    column="is_featured"   />
+        <result property="createTime"    column="create_time"   />
+    </resultMap>
+
     <resultMap type="com.moyun.portal.domain.entity.PortalBookQuote" id="PortalBookQuoteResult">
         <id     property="id"            column="id"            />
         <result property="userId"        column="user_id"       />
@@ -132,5 +151,74 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
     <update id="decrementLikeCount">
         update portal_book_quote set like_count = GREATEST(like_count - 1, 0) where id = #{id}
     </update>
+
+    <!-- ============================================================ -->
+    <!-- 前台 VO 查询：关联书籍 + 用户，返回完整金句卡片信息 -->
+    <!-- ============================================================ -->
+
+    <select id="selectQuoteVOPage" parameterType="com.moyun.portal.domain.query.BookQuoteQuery" resultMap="BookQuoteVOResult">
+        SELECT
+            q.id,
+            q.user_id,
+            u.nickname   AS user_nickname,
+            u.avatar     AS user_avatar,
+            q.book_id,
+            b.title      AS book_title,
+            b.author     AS book_author,
+            b.cover      AS book_cover,
+            q.content,
+            q.page,
+            q.chapter,
+            q.location,
+            q.like_count,
+            q.is_public,
+            q.is_featured,
+            q.create_time
+        FROM portal_book_quote q
+        LEFT JOIN portal_user u ON u.id = q.user_id
+        LEFT JOIN portal_book b ON b.id = q.book_id
+        <where>
+            <if test="query.userId != null">
+                AND q.user_id = #{query.userId}
+            </if>
+            <if test="query.bookId != null">
+                AND q.book_id = #{query.bookId}
+            </if>
+            <if test="query.content != null and query.content != ''">
+                AND q.content like concat('%', #{query.content}, '%')
+            </if>
+            <if test="query.isPublic != null">
+                AND q.is_public = #{query.isPublic}
+            </if>
+            <if test="query.isFeatured != null">
+                AND q.is_featured = #{query.isFeatured}
+            </if>
+        </where>
+        ORDER BY q.like_count DESC, q.id DESC
+    </select>
+
+    <select id="selectQuoteVOById" parameterType="Long" resultMap="BookQuoteVOResult">
+        SELECT
+            q.id,
+            q.user_id,
+            u.nickname   AS user_nickname,
+            u.avatar     AS user_avatar,
+            q.book_id,
+            b.title      AS book_title,
+            b.author     AS book_author,
+            b.cover      AS book_cover,
+            q.content,
+            q.page,
+            q.chapter,
+            q.location,
+            q.like_count,
+            q.is_public,
+            q.is_featured,
+            q.create_time
+        FROM portal_book_quote q
+        LEFT JOIN portal_user u ON u.id = q.user_id
+        LEFT JOIN portal_book b ON b.id = q.book_id
+        WHERE q.id = #{id}
+    </select>
 
 </mapper>

@@ -41,6 +41,18 @@ public class MinioConfig {
      */
     private Boolean enabled = false;
 
+    /**
+     * 手动强制降级到本地存储（运行期可调，无需重启）。
+     * enabled=true 但本字段=true 时，所有上传绕过 MinIO 直接落本地。
+     */
+    private Boolean fallbackToLocal = false;
+
+    /**
+     * 自动降级开关：MinIO 上传/连接异常时自动切到本地存储（默认 true）。
+     * 关闭后 MinIO 异常将直接抛错，不降级。
+     */
+    private Boolean autoFallback = true;
+
     @Bean
     public MinioClient minioClient() {
         return MinioClient.builder()

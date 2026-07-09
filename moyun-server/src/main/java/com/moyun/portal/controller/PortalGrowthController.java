@@ -7,17 +7,22 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
+import com.baomidou.mybatisplus.core.metadata.IPage;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.moyun.common.constant.HttpStatus;
 import com.moyun.core.base.AjaxResult;
 import com.moyun.core.base.BaseController;
 import com.moyun.portal.domain.vo.AchievementVO;
+import com.moyun.portal.domain.vo.GrowthTimelineVO;
 import com.moyun.portal.domain.vo.UserBadgeVO;
 import com.moyun.portal.domain.vo.UserGrowthVO;
 import com.moyun.portal.domain.vo.UserStatsVO;
 import com.moyun.portal.service.IPortalGrowthService;
 import com.moyun.portal.util.PortalSecurityUtils;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * 门户用户成长体系 接口
@@ -116,5 +121,30 @@ public class PortalGrowthController extends BaseController {
             return AjaxResult.error(HttpStatus.UNAUTHORIZED, "登录已过期，请重新登录");
         }
         return success(portalGrowthService.checkin(userId));
+    }
+
+    @Operation(summary = "成长时间线", description = "统一展示用户读书、面试、创作等各模块的行为记录，按时间倒序")
+    @GetMapping("/timeline")
+    public AjaxResult getTimeline(
+            @Parameter(description = "页码，默认1") @RequestParam(defaultValue = "1") int pageNum,
+            @Parameter(description = "每页条数，默认20") @RequestParam(defaultValue = "20") int pageSize,
+            @Parameter(description = "模块筛选：article/reading/interview/all，默认all") @RequestParam(defaultValue = "all") String module,
+            @Parameter(description = "用户ID（可选，不传则获取当前登录用户）") @RequestParam(required = false) Long userId) {
+        Long targetUserId = userId;
+        if (targetUserId == null) {
+            targetUserId = PortalSecurityUtils.getUserId();
+            if (targetUserId == null) {
+                return AjaxResult.error(HttpStatus.UNAUTHORIZED, "登录已过期，请重新登录");
+            }
+        }
+        if (pageSize <= 0 || pageSize > 100) pageSize = 20;
+        Page<GrowthTimelineVO> page = new Page<>(pageNum, pageSize);
+        IPage<GrowthTimelineVO> result = portalGrowthService.getTimeline(page, targetUserId, module);
+        Map<String, Object> data = new HashMap<>();
+        data.put("list", result.getRecords());
+        data.put("total", result.getTotal());
+        data.put("page", result.getCurrent());
+        data.put("pageSize", result.getSize());
+        return success(data);
     }
 }

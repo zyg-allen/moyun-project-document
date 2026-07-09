@@ -289,7 +289,7 @@ onMounted(() => {
 
 <style scoped>
 .my-articles-page {
-  max-width: 1000px;
+  max-width: 1280px;
   margin: 0 auto;
   padding: 2rem 1rem;
 }

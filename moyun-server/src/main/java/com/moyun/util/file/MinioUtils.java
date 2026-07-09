@@ -184,15 +184,42 @@ public class MinioUtils {
      * 生成文件名
      */
     private String generateFileName(String originalFileName) {
-        String suffix = originalFileName.substring(originalFileName.lastIndexOf("."));
+        String suffix = "";
+        if (originalFileName != null && originalFileName.contains(".")) {
+            suffix = originalFileName.substring(originalFileName.lastIndexOf("."));
+        }
         String datePath = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy/MM/dd"));
         return datePath + "/" + UUID.randomUUID().toString().replace("-", "") + suffix;
     }
 
     /**
-     * 判断是否启用MinIO
+     * 判断是否启用 MinIO。
+     * <p>
+     * 综合两个条件：配置 enabled=true 且未手动强制降级（fallbackToLocal=false）。
+     * 注意：本方法只看配置，不探测 MinIO 服务是否真的可达，上传时仍需配合 {@link #isAvailable()} 做运行期降级。
      */
     public boolean isEnabled() {
-        return Boolean.TRUE.equals(minioConfig.getEnabled());
+        return Boolean.TRUE.equals(minioConfig.getEnabled())
+                && !Boolean.TRUE.equals(minioConfig.getFallbackToLocal());
+    }
+
+    /**
+     * 探测 MinIO 服务是否真实可达（bucket 是否存在）。
+     * <p>
+     * 用于上传前的运行期降级判断：配置上启用了 MinIO，但服务实际不可达时自动切到本地。
+     * 调用轻量（仅一次 bucketExists 请求），失败立即返回 false，不阻塞。
+     */
+    public boolean isAvailable() {
+        if (!isEnabled()) {
+            return false;
+        }
+        try {
+            String bucketName = minioConfig.getBucketName();
+            minioClient.bucketExists(BucketExistsArgs.builder().bucket(bucketName).build());
+            return true;
+        } catch (Exception e) {
+            log.warn("[MinIO] 服务不可达，将降级到本地存储：{}", e.getMessage());
+            return false;
+        }
     }
 }

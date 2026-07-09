@@ -24,6 +24,7 @@ import com.moyun.portal.mapper.PortalBookListLikeMapper;
 import com.moyun.portal.mapper.PortalBookListMapper;
 import com.moyun.portal.service.IPortalBookListService;
 import com.moyun.portal.service.IPortalGrowthService;
+import com.moyun.ext.cms.service.IFeedService;
 
 /**
  * 书单 业务层实现
@@ -44,6 +45,9 @@ public class PortalBookListServiceImpl extends ServiceImpl<PortalBookListMapper,
 
     @Autowired
     private IPortalGrowthService portalGrowthService;
+
+    @Autowired
+    private IFeedService feedService;
 
     @Override
     public Page<PortalBookList> selectPortalBookListPage(Page<PortalBookList> page, BookListQuery query) {
@@ -86,6 +90,16 @@ public class PortalBookListServiceImpl extends ServiceImpl<PortalBookListMapper,
         if (rows > 0 && portalBookList.getUserId() != null) {
             portalGrowthService.recordEvent("reading", "create_booklist",
                     portalBookList.getUserId(), "booklist", portalBookList.getId());
+
+            // 发布动态事件（Feed 流）
+            try {
+                feedService.publishEvent(portalBookList.getUserId(), "create_booklist", "booklist",
+                        portalBookList.getId(), portalBookList.getTitle(),
+                        portalBookList.getDescription(), portalBookList.getCover());
+            } catch (Exception e) {
+                org.slf4j.LoggerFactory.getLogger(PortalBookListServiceImpl.class)
+                        .error("[Feed] 书单创建动态事件失败：booklistId={}", portalBookList.getId(), e);
+            }
         }
 
         return rows;

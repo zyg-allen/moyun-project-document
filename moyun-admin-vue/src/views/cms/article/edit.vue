@@ -65,7 +65,7 @@
         <el-row :gutter="20">
           <el-col :span="12">
             <el-form-item label="封面图片" prop="cover">
-              <ImageUpload v-model="form.cover" />
+              <ImageUpload v-model="form.cover" :limit="1" />
               <div class="cover-hint" :class="{ 'is-carousel': form.isCarousel }">
                 <span v-if="form.isCarousel" class="hint-tag">轮播图·必填</span>
                 <span v-else class="hint-tag hint-tag-optional">封面·可选</span>
@@ -373,7 +373,11 @@ function getCategoryList() {
 // 查询标签列表
 function getTagList() {
   listTag({ pageNum: 1, pageSize: 100 }).then(response => {
-    tagOptions.value = response.rows || response.data || [];
+    // 后端 list 接口返回 Page 对象，数据在 data.records 里
+    const data = response.data;
+    tagOptions.value = (data && Array.isArray(data.records)) ? data.records
+                     : (Array.isArray(data) ? data
+                     : (response.rows || []));
   });
 }
 

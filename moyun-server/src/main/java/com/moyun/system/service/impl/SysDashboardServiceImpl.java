@@ -88,6 +88,18 @@ public class SysDashboardServiceImpl implements ISysDashboardService {
     private PortalFeedbackMapper feedbackMapper;
 
     @Autowired
+    private com.moyun.portal.mapper.PortalUserMapper portalUserMapper;
+
+    @Autowired
+    private com.moyun.system.service.ISysConfigService configService;
+
+    @Autowired
+    private com.moyun.common.config.RuoYiConfig ruoYiConfig;
+
+    @Autowired
+    private org.springframework.jdbc.core.JdbcTemplate jdbcTemplate;
+
+    @Autowired
     private RedisCache redisCache;
 
     @Override
@@ -235,21 +247,14 @@ public class SysDashboardServiceImpl implements ISysDashboardService {
             long totalLikes = toLong(stats.get("totalLikes"));
             long totalComments = toLong(stats.get("totalComments"));
 
-            cards.add(buildCard("articleCount", "文章总数", totalArticles, "Document", 12.5));
-            cards.add(buildCard("publishedArticles", "已发布文章", publishedArticles, "CircleCheck", 8.3));
-            cards.add(buildCard("pendingArticles", "待审核文章", pendingArticles, "Clock", -5.2));
-            cards.add(buildCard("totalViews", "总浏览量", totalViews, "View", 23.1));
-            cards.add(buildCard("totalLikes", "总点赞数", totalLikes, "Star", 15.7));
-            cards.add(buildCard("totalComments", "总评论数", totalComments, "ChatDotRound", 9.4));
+            cards.add(buildCard("articleCount", "文章总数", totalArticles, "Document", 0.0));
+            cards.add(buildCard("publishedArticles", "已发布文章", publishedArticles, "CircleCheck", 0.0));
+            cards.add(buildCard("pendingArticles", "待审核文章", pendingArticles, "Clock", 0.0));
+            cards.add(buildCard("totalViews", "总浏览量", totalViews, "View", 0.0));
+            cards.add(buildCard("totalLikes", "总点赞数", totalLikes, "Star", 0.0));
+            cards.add(buildCard("totalComments", "总评论数", totalComments, "ChatDotRound", 0.0));
         } catch (Exception e) {
             log.error("[Dashboard] 构建核心指标失败", e);
-            // 失败时返回模拟数据，保证首页可用
-            cards.add(buildCard("articleCount", "文章总数", 1280L, "Document", 12.5));
-            cards.add(buildCard("publishedArticles", "已发布文章", 1056L, "CircleCheck", 8.3));
-            cards.add(buildCard("pendingArticles", "待审核文章", 24L, "Clock", -5.2));
-            cards.add(buildCard("totalViews", "总浏览量", 358920L, "View", 23.1));
-            cards.add(buildCard("totalLikes", "总点赞数", 28560L, "Star", 15.7));
-            cards.add(buildCard("totalComments", "总评论数", 9420L, "ChatDotRound", 9.4));
         }
         return cards;
     }
@@ -271,17 +276,13 @@ public class SysDashboardServiceImpl implements ISysDashboardService {
 
             // 待审核文章数（首页"今日新增文章"卡片实际展示待审核数，便于运营关注审核队列）
             stats.setTodayNewArticles(articleMapper.countPendingArticles());
-            // 今日新增用户数（暂用模拟值，后续可扩展 PortalUserMapper）
-            stats.setTodayNewUsers(18L);
+            // 今日新增用户数：查询 PortalUser 今日注册量
+            com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<com.moyun.portal.domain.entity.PortalUser> userWrapper =
+                    new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<>();
+            userWrapper.ge(com.moyun.portal.domain.entity.PortalUser::getCreateTime, todayStart);
+            stats.setTodayNewUsers(toLong(portalUserMapper.selectCount(userWrapper)));
         } catch (Exception e) {
             log.error("[Dashboard] 构建今日统计失败", e);
-            stats.setTodayVisitors(1256L);
-            stats.setTodayPageViews(3420L);
-            stats.setTodayLoginUsers(48L);
-            stats.setTodayLoginCount(72L);
-            stats.setLoginSuccessRate(93.6);
-            stats.setTodayNewArticles(24L);
-            stats.setTodayNewUsers(18L);
         }
         return stats;
     }
@@ -321,20 +322,6 @@ public class SysDashboardServiceImpl implements ISysDashboardService {
             }
         } catch (Exception e) {
             log.error("[Dashboard] 构建登录趋势失败", e);
-            // 模拟数据
-            for (int i = 6; i >= 0; i--) {
-                String date = LocalDateTime.now().minusDays(i).toLocalDate().toString();
-                DashboardVO.TrendPoint success = new DashboardVO.TrendPoint();
-                success.setDate(date);
-                success.setValue(40L + (long) (Math.random() * 30));
-                success.setLabel("success");
-                result.add(success);
-                DashboardVO.TrendPoint fail = new DashboardVO.TrendPoint();
-                fail.setDate(date);
-                fail.setValue(2L + (long) (Math.random() * 5));
-                fail.setLabel("fail");
-                result.add(fail);
-            }
         }
         return result;
     }
@@ -362,14 +349,6 @@ public class SysDashboardServiceImpl implements ISysDashboardService {
             }
         } catch (Exception e) {
             log.error("[Dashboard] 构建发布趋势失败", e);
-            for (int i = 6; i >= 0; i--) {
-                String date = LocalDateTime.now().minusDays(i).toLocalDate().toString();
-                DashboardVO.TrendPoint point = new DashboardVO.TrendPoint();
-                point.setDate(date);
-                point.setValue(15L + (long) (Math.random() * 25));
-                point.setLabel("publish");
-                result.add(point);
-            }
         }
         return result;
     }
@@ -404,18 +383,6 @@ public class SysDashboardServiceImpl implements ISysDashboardService {
             }
         } catch (Exception e) {
             log.error("[Dashboard] 构建栏目排行失败", e);
-            // 模拟数据
-            String[] names = {"后端开发", "前端开发", "数据库", "算法与数据结构", "运维部署", "读书空间", "面试指南"};
-            for (int i = 0; i < names.length; i++) {
-                DashboardVO.CategoryRank item = new DashboardVO.CategoryRank();
-                item.setCategoryId((long) (i + 1));
-                item.setCategoryName(names[i]);
-                item.setArticleCount(120L - i * 15);
-                item.setTotalViews(35000L - i * 3200);
-                item.setTotalLikes(2800L - i * 280);
-                item.setRank(i + 1);
-                result.add(item);
-            }
         }
         return result;
     }
@@ -519,20 +486,6 @@ public class SysDashboardServiceImpl implements ISysDashboardService {
             }
         } catch (Exception e) {
             log.error("[Dashboard] 构建待办任务失败", e);
-            // 模拟数据
-            for (int i = 1; i <= 4; i++) {
-                DashboardVO.TaskItem item = new DashboardVO.TaskItem();
-                item.setId((long) i);
-                item.setType("article_audit");
-                item.setTitle("《Spring Boot 实战指南 第" + i + "版》");
-                item.setDescription("用户投稿文章待审核");
-                item.setStatus("pending");
-                item.setCreateTime(LocalDateTime.now().minusHours(i).format(DATETIME_FMT));
-                item.setSubmitter("作者" + i);
-                item.setPriority(i <= 2 ? "high" : "medium");
-                item.setRoutePath("/cms/article/edit?id=" + i);
-                tasks.add(item);
-            }
         }
         return tasks;
     }
@@ -568,21 +521,6 @@ public class SysDashboardServiceImpl implements ISysDashboardService {
             }
         } catch (Exception e) {
             log.error("[Dashboard] 构建已办任务失败", e);
-            // 模拟数据
-            String[] titles = {"审核通过《Vue3 组合式 API 实战》", "修改文章分类配置", "下架违规文章", "导出文章数据报表", "更新首页轮播图"};
-            for (int i = 0; i < titles.length; i++) {
-                DashboardVO.TaskItem item = new DashboardVO.TaskItem();
-                item.setId((long) (i + 1));
-                item.setType("operation");
-                item.setTitle(titles[i]);
-                item.setDescription("已完成操作");
-                item.setStatus("processed");
-                item.setCreateTime(LocalDateTime.now().minusHours(i + 2).format(DATETIME_FMT));
-                item.setSubmitter("当前管理员");
-                item.setPriority("low");
-                item.setRoutePath("/monitor/operlog");
-                tasks.add(item);
-            }
         }
         return tasks;
     }
@@ -647,23 +585,6 @@ public class SysDashboardServiceImpl implements ISysDashboardService {
         if (activities.size() > 12) {
             activities = activities.subList(0, 12);
         }
-
-        // 空数据时返回模拟动态
-        if (activities.isEmpty()) {
-            String[] modules = {"文章管理", "用户管理", "系统配置", "栏目管理", "评论管理"};
-            String[] ops = {"新增了文章", "修改了配置", "审核了文章", "删除了违规内容", "导出了数据报表"};
-            for (int i = 0; i < 8; i++) {
-                DashboardVO.ActivityItem item = new DashboardVO.ActivityItem();
-                item.setId((long) (i + 1));
-                item.setType("operation");
-                item.setModule(modules[i % modules.length]);
-                item.setContent(ops[i % ops.length]);
-                item.setOperator("admin");
-                item.setCreateTime(LocalDateTime.now().minusMinutes(i * 15 + 5).format(DATETIME_FMT));
-                item.setBusinessType(new String[]{"INSERT", "UPDATE", "DELETE", "EXPORT"}[i % 4]);
-                activities.add(item);
-            }
-        }
         return activities;
     }
 
@@ -703,6 +624,7 @@ public class SysDashboardServiceImpl implements ISysDashboardService {
                     DashboardVO.HotArticle item = new DashboardVO.HotArticle();
                     item.setId(toLong(row.get("id")));
                     item.setTitle(String.valueOf(row.get("title")));
+                    item.setAuthor(row.get("author") != null ? String.valueOf(row.get("author")) : "");
                     item.setViews(toLong(row.get("views")));
                     item.setLikes(toLong(row.get("likes")));
                     item.setScore(toDouble(row.get("score")));
@@ -720,38 +642,36 @@ public class SysDashboardServiceImpl implements ISysDashboardService {
                     }
                 }
             } else {
-                // 从 ZSet 还原（需补全标题等字段）
+                // 从 ZSet 还原（需补全标题/作者等字段）
                 int rank = 1;
                 for (Object idObj : zsetResult) {
                     Long id = Long.parseLong(String.valueOf(idObj));
                     Double score = redisCache.redisTemplate.opsForZSet().score(ZSET_KEY_HOT_ARTICLES, idObj);
                     // 查文章详情补全信息
                     com.moyun.portal.domain.entity.PortalArticle article = articleMapper.selectPortalArticleById(id);
+                    if (article == null) {
+                        // 文章已删除，跳过
+                        continue;
+                    }
                     DashboardVO.HotArticle item = new DashboardVO.HotArticle();
                     item.setId(id);
-                    item.setTitle(article != null ? article.getTitle() : "未知文章");
-                    item.setViews(article != null && article.getViews() != null ? article.getViews() : 0L);
-                    item.setLikes(article != null && article.getLikes() != null ? article.getLikes() : 0L);
+                    item.setTitle(article.getTitle());
+                    item.setViews(article.getViews() != null ? article.getViews() : 0L);
+                    item.setLikes(article.getLikes() != null ? article.getLikes() : 0L);
                     item.setScore(score != null ? score : 0.0);
                     item.setRank(rank++);
+                    // 查作者名
+                    try {
+                        com.moyun.portal.domain.entity.PortalUser author = portalUserMapper.selectById(article.getAuthorId());
+                        item.setAuthor(author != null ? (author.getNickname() != null ? author.getNickname() : author.getUsername()) : "");
+                    } catch (Exception ignored) {
+                        item.setAuthor("");
+                    }
                     result.add(item);
                 }
             }
         } catch (Exception e) {
             log.error("[Dashboard] 构建热门文章失败", e);
-            // 模拟数据
-            String[] titles = {"Spring Boot 3.0 实战指南", "Vue3 组合式 API 深度解析", "MySQL 索引优化实战",
-                    "Redis 分布式锁实现原理", "Docker 容器化部署最佳实践"};
-            for (int i = 0; i < titles.length; i++) {
-                DashboardVO.HotArticle item = new DashboardVO.HotArticle();
-                item.setId((long) (i + 1));
-                item.setTitle(titles[i]);
-                item.setViews(15000L - i * 1800);
-                item.setLikes(1200L - i * 180);
-                item.setScore((double) (15000 - i * 1800 + (1200 - i * 180) * 5));
-                item.setRank(i + 1);
-                result.add(item);
-            }
         }
         return result;
     }
@@ -761,41 +681,67 @@ public class SysDashboardServiceImpl implements ISysDashboardService {
      */
     private DashboardVO.SystemConfigOverview buildConfigOverview() {
         DashboardVO.SystemConfigOverview overview = new DashboardVO.SystemConfigOverview();
-        overview.setSiteName("墨韵智库");
-        overview.setSiteDescription("知识分享与成长平台");
-        overview.setVersion("3.9.0");
-        overview.setUptimeHours(72L);
-        overview.setCacheHitRate(94.6);
-        overview.setTableCount(46L);
-        overview.setRedisMemoryMb(28.5);
+        try {
+            // 站点名：优先从 sys_config 查，没有则用 RuoYiConfig
+            String siteName = configService.selectConfigByKey("sys.index.siteName");
+            overview.setSiteName(siteName != null && !siteName.isEmpty() ? siteName : ruoYiConfig.getName());
+            // 站点描述
+            String siteDesc = configService.selectConfigByKey("sys.index.siteDescription");
+            overview.setSiteDescription(siteDesc != null ? siteDesc : "");
+            // 版本
+            overview.setVersion(ruoYiConfig.getVersion());
+            // 运行时长（JVM 启动至今的小时数）
+            long uptimeMs = java.lang.management.ManagementFactory.getRuntimeMXBean().getUptime();
+            overview.setUptimeHours(uptimeMs / 3600000);
+            // 数据库表数量
+            try {
+                String dbName = jdbcTemplate.queryForObject("SELECT DATABASE()", String.class);
+                Long tableCount = jdbcTemplate.queryForObject(
+                        "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = ? AND table_type = 'BASE TABLE'",
+                        Long.class, dbName);
+                overview.setTableCount(tableCount != null ? tableCount : 0L);
+            } catch (Exception e) {
+                log.warn("[Dashboard] 查询表数量失败：{}", e.getMessage());
+                overview.setTableCount(0L);
+            }
+            // Redis 内存使用（MB）
+            try {
+                java.util.Properties redisInfo = redisCache.redisTemplate.getConnectionFactory()
+                        .getConnection().info();
+                if (redisInfo != null && redisInfo.getProperty("used_memory") != null) {
+                    long usedBytes = Long.parseLong(redisInfo.getProperty("used_memory"));
+                    overview.setRedisMemoryMb(usedBytes / 1024.0 / 1024.0);
+                } else {
+                    overview.setRedisMemoryMb(0.0);
+                }
+            } catch (Exception e) {
+                log.warn("[Dashboard] 查询Redis内存失败：{}", e.getMessage());
+                overview.setRedisMemoryMb(0.0);
+            }
+            // 缓存命中率暂无法精确统计
+            overview.setCacheHitRate(0.0);
 
-        List<Map<String, Object>> configItems = new ArrayList<>();
-        Map<String, Object> item1 = new HashMap<>();
-        item1.put("key", "siteName");
-        item1.put("label", "站点名称");
-        item1.put("value", "墨韵智库");
-        configItems.add(item1);
-
-        Map<String, Object> item2 = new HashMap<>();
-        item2.put("key", "registerEnabled");
-        item2.put("label", "开放注册");
-        item2.put("value", "true");
-        configItems.add(item2);
-
-        Map<String, Object> item3 = new HashMap<>();
-        item3.put("key", "articleAuditEnabled");
-        item3.put("label", "文章审核");
-        item3.put("value", "true");
-        configItems.add(item3);
-
-        Map<String, Object> item4 = new HashMap<>();
-        item4.put("key", "cacheTtl");
-        item4.put("label", "缓存时长");
-        item4.put("value", "300秒");
-        configItems.add(item4);
-
-        overview.setConfigItems(configItems);
+            // 配置项列表（真实 sys_config 值）
+            List<Map<String, Object>> configItems = new ArrayList<>();
+            configItems.add(buildConfigItem("siteName", "站点名称", overview.getSiteName()));
+            configItems.add(buildConfigItem("registerEnabled", "开放注册",
+                    configService.selectConfigByKey("sys.account.registerUser")));
+            configItems.add(buildConfigItem("articleAuditEnabled", "文章审核",
+                    configService.selectConfigByKey("sys.index.articleAudit")));
+            configItems.add(buildConfigItem("cacheTtl", "缓存时长", CACHE_TTL_SECONDS + "秒"));
+            overview.setConfigItems(configItems);
+        } catch (Exception e) {
+            log.error("[Dashboard] 构建配置概览失败", e);
+        }
         return overview;
+    }
+
+    private Map<String, Object> buildConfigItem(String key, String label, Object value) {
+        Map<String, Object> item = new HashMap<>();
+        item.put("key", key);
+        item.put("label", label);
+        item.put("value", value != null ? value : "");
+        return item;
     }
 
     // ========== 工具方法 ==========

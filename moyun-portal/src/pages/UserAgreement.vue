@@ -20,12 +20,12 @@ useHead(
     <!-- 面包屑 -->
     <div class="border-b py-3 sm:py-4" style="background-color: var(--theme-bg); border-color: var(--theme-border);">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <Breadcrumb :items="[{ label: '首页', path: '/' }, { label: '用户协议' }]" />
+        <Breadcrumb :items="[{ label: '用户协议' }]" />
       </div>
     </div>
 
     <!-- 主内容 -->
-    <div class="flex-1 max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
+    <div class="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
       <div class="text-center mb-8 sm:mb-10">
         <FileText class="w-10 h-10 sm:w-12 sm:h-12 mx-auto mb-3 sm:mb-4" style="color: var(--theme-primary);" />
         <h1 class="text-2xl sm:text-3xl font-bold" style="color: var(--theme-text);">用户服务协议</h1>

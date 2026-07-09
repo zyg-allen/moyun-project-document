@@ -83,7 +83,11 @@ function goLogin() {
 }
 
 function goBack() {
-  router.push('/');
+  if (window.history.length > 1) {
+    router.back();
+  } else {
+    router.push('/');
+  }
 }
 
 function planTypeText(t: string | null) {
@@ -135,15 +139,14 @@ function difficultyColor(d: string | null) {
     </div>
 
     <!-- Hero 区 -->
-    <div
-      class="relative overflow-hidden text-white py-12"
-      style="background: linear-gradient(135deg, var(--theme-primary), color-mix(in srgb, var(--theme-primary) 60%, #4338ca 100%));"
-    >
-      <div class="absolute inset-0 opacity-10 pointer-events-none">
-        <div class="absolute top-6 left-10 w-40 h-40 rounded-full bg-white"></div>
-        <div class="absolute bottom-4 right-16 w-56 h-56 rounded-full bg-white"></div>
+    <div class="py-6 sm:py-8">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="relative overflow-hidden rounded-2xl text-white" style="background-image: radial-gradient(circle at 25% 25%, rgba(20, 184, 166, 0.4) 0%, transparent 50%), radial-gradient(circle at 75% 75%, rgba(59, 130, 246, 0.4) 0%, transparent 50%), linear-gradient(135deg, #0f766e 0%, #1e40af 100%);">
+      <div class="absolute inset-0 opacity-10 pointer-events-none" aria-hidden="true">
+        <svg class="absolute top-6 left-8 w-32 h-32 text-white" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3L1 9l4 2.18v6L12 21l7-3.82v-6l2-1.09V17h2V9L12 3zm6.82 6L12 12.72 5.18 9 12 5.28 18.82 9zM17 15.99l-5 2.73-5-2.73v-3.72L12 15l5-2.73v3.72z"/></svg>
+        <svg class="absolute bottom-4 right-10 w-40 h-40 text-white" viewBox="0 0 24 24" fill="currentColor"><path d="M9 21c0 .55.45 1 1 1h4c.55 0 1-.45 1-1v-1H9v1zm3-19C8.14 2 5 5.14 5 9c0 2.38 1.19 4.47 3 5.74V17c0 .55.45 1 1 1h6c.55 0 1-.45 1-1v-2.26c1.81-1.27 3-3.36 3-5.74 0-3.86-3.14-7-7-7z"/></svg>
       </div>
-      <div class="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="relative px-6 py-8 sm:px-10 sm:py-10">
         <div class="inline-flex items-center bg-white/10 backdrop-blur-sm px-3 py-1 rounded-full text-sm mb-4">
           <BookOpen class="w-4 h-4 mr-2" /> 学习者成长闭环
         </div>
@@ -160,6 +163,8 @@ function difficultyColor(d: string | null) {
             <LogIn class="w-4 h-4 mr-1.5" />
             登录查看我的学习数据
           </button>
+        </div>
+      </div>
         </div>
       </div>
     </div>

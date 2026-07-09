@@ -99,12 +99,12 @@ useHead(
     <!-- 面包屑 -->
     <div class="border-b py-3 sm:py-4" style="background-color: var(--theme-bg); border-color: var(--theme-border);">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <Breadcrumb :items="[{ label: '首页', path: '/' }, { label: '帮助中心' }]" />
+        <Breadcrumb :items="[{ label: '帮助中心' }]" />
       </div>
     </div>
 
     <!-- 主内容 -->
-    <div class="flex-1 max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 w-full">
+    <div class="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 w-full">
       <!-- 页面标题 -->
       <div class="text-center mb-8 sm:mb-12">
         <h1 class="text-2xl sm:text-3xl lg:text-4xl font-bold mb-3 sm:mb-4" style="color: var(--theme-text);">帮助中心</h1>

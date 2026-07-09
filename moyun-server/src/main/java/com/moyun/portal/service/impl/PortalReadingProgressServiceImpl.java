@@ -13,6 +13,7 @@ import com.moyun.portal.domain.query.ReadingProgressQuery;
 import com.moyun.portal.mapper.PortalReadingProgressMapper;
 import com.moyun.portal.service.IPortalGrowthService;
 import com.moyun.portal.service.IPortalReadingProgressService;
+import com.moyun.ext.cms.service.IFeedService;
 
 /**
  * 阅读进度 业务层实现
@@ -27,6 +28,9 @@ public class PortalReadingProgressServiceImpl extends ServiceImpl<PortalReadingP
 
     @Autowired
     private IPortalGrowthService portalGrowthService;
+
+    @Autowired
+    private IFeedService feedService;
 
     @Override
     public Page<PortalReadingProgress> selectPortalReadingProgressPage(Page<PortalReadingProgress> page, ReadingProgressQuery query) {
@@ -89,6 +93,16 @@ public class PortalReadingProgressServiceImpl extends ServiceImpl<PortalReadingP
         if (rows > 0 && justFinished && portalReadingProgress.getUserId() != null) {
             portalGrowthService.recordEvent("reading", "finish_book",
                     portalReadingProgress.getUserId(), "book", portalReadingProgress.getBookId());
+
+            // 发布动态事件（Feed 流）
+            try {
+                feedService.publishEvent(portalReadingProgress.getUserId(), "finish_book", "book",
+                        portalReadingProgress.getBookId(), "完成阅读",
+                        null, null);
+            } catch (Exception e) {
+                org.slf4j.LoggerFactory.getLogger(PortalReadingProgressServiceImpl.class)
+                        .error("[Feed] 完成阅读动态事件失败：bookId={}", portalReadingProgress.getBookId(), e);
+            }
         }
 
         return rows;

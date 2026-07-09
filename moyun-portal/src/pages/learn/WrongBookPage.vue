@@ -134,7 +134,11 @@ function redoQuestion(wq: WrongQuestionVO) {
 }
 
 function goBack() {
-  router.push('/learn');
+  if (window.history.length > 1) {
+    router.back();
+  } else {
+    router.push('/learn');
+  }
 }
 
 function gotoPage(p: number) {

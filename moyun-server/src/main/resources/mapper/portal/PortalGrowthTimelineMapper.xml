@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.moyun.portal.mapper.PortalGrowthLogMapper">
+
+    <!-- 成长时间线分页查询：统一关联读书/面试/创作各模块的标题和封面 -->
+    <select id="selectTimelineVOPage" resultType="com.moyun.portal.domain.vo.GrowthTimelineVO">
+        SELECT
+            g.id,
+            g.user_id           AS userId,
+            g.module            AS module,
+            g.action            AS action,
+            g.entity_type       AS entityType,
+            g.entity_id         AS entityId,
+            g.growth_delta      AS growthDelta,
+            g.description       AS description,
+            g.create_time       AS createTime,
+            <!-- 目标标题：按 entityType 子查询关联 -->
+            CASE
+                WHEN g.entity_type = 'article' THEN (SELECT title FROM portal_article WHERE id = g.entity_id)
+                WHEN g.entity_type = 'book' THEN (SELECT title FROM portal_book WHERE id = g.entity_id)
+                WHEN g.entity_type = 'quote' THEN (SELECT CONCAT('金句：', LEFT(content, 40)) FROM portal_book_quote WHERE id = g.entity_id)
+                WHEN g.entity_type = 'booklist' THEN (SELECT title FROM portal_book_list WHERE id = g.entity_id)
+                WHEN g.entity_type = 'question' THEN (SELECT title FROM portal_interview_question WHERE id = g.entity_id)
+                WHEN g.entity_type = 'experience' THEN (SELECT title FROM portal_interview_experience WHERE id = g.entity_id)
+                WHEN g.entity_type = 'column' THEN (SELECT title FROM portal_column WHERE id = g.entity_id)
+                ELSE NULL
+            END                 AS targetTitle,
+            <!-- 目标封面 -->
+            CASE
+                WHEN g.entity_type = 'article' THEN (SELECT cover FROM portal_article WHERE id = g.entity_id)
+                WHEN g.entity_type = 'book' THEN (SELECT cover FROM portal_book WHERE id = g.entity_id)
+                WHEN g.entity_type = 'experience' THEN (SELECT cover_image FROM portal_interview_experience WHERE id = g.entity_id)
+                WHEN g.entity_type = 'booklist' THEN (SELECT cover FROM portal_book_list WHERE id = g.entity_id)
+                WHEN g.entity_type = 'column' THEN (SELECT cover FROM portal_column WHERE id = g.entity_id)
+                ELSE NULL
+            END                 AS targetCover
+        FROM portal_growth_log g
+        WHERE g.user_id = #{userId}
+        <if test="module != null and module != '' and module != 'all'">
+            AND g.module = #{module}
+        </if>
+        ORDER BY g.create_time DESC
+    </select>
+
+</mapper>

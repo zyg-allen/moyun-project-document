@@ -44,6 +44,11 @@ const usePermissionStore = defineStore(
               const defaultRoutes = filterAsyncRouter(defaultData)
               const asyncRoutes = filterDynamicRoutes(dynamicRoutes)
               asyncRoutes.forEach(route => { router.addRoute(route) })
+              // vue-router 4.x 要求所有路由 path 以 "/" 开头
+              // RuoYi 后端返回的菜单 path 不带 "/"（如 monitor、job），需统一规范化
+              normalizeTopLevelPath(rewriteRoutes)
+              normalizeTopLevelPath(sidebarRoutes)
+              normalizeTopLevelPath(defaultRoutes)
               this.setRoutes(rewriteRoutes)
               this.setSidebarRouters(constantRoutes.concat(sidebarRoutes))
               this.setDefaultRoutes(sidebarRoutes)
@@ -54,6 +59,19 @@ const usePermissionStore = defineStore(
         }
       }
     })
+
+// vue-router 4.x 要求所有路由 path 以 "/" 开头
+// RuoYi 后端返回的菜单 path 不带 "/"（如 monitor、job），filterChildren 展平后需要规范化
+function normalizeTopLevelPath(routes) {
+  routes.forEach(route => {
+    if (route.path && !route.path.startsWith('/') && !isHttp(route.path)) {
+      route.path = '/' + route.path
+    }
+    if (route.children && route.children.length) {
+      normalizeTopLevelPath(route.children)
+    }
+  })
+}
 
 // 遍历后台传来的路由字符串，转换为组件对象
 function filterAsyncRouter(asyncRouterMap, lastRouter = false, type = false) {
@@ -72,11 +90,12 @@ function filterAsyncRouter(asyncRouterMap, lastRouter = false, type = false) {
         route.component = loadView(route.component)
       }
     }
-    if (lastRouter && !isHttp(route.path)) {
-      route.path = lastRouter.path + '/' + route.path
-    }
+    // 不再在此处拼接父子 path：
+    // - type=true 时 filterChildren 已完成拼接
+    // - type=false 时 sidebar 的 resolvePath(basePath + '/' + routePath) 负责拼接
+    // - normalizeTopLevelPath 统一补全 "/" 前缀
     if (route.children != null && route.children && route.children.length) {
-      route.children = filterAsyncRouter(route.children, route, type)
+      route.children = filterAsyncRouter(route.children, false, type)
     } else {
       delete route['children']
       delete route['redirect']

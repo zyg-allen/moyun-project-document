@@ -2,7 +2,7 @@
 import { ref, onMounted, watch, computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useHead } from '@vueuse/head';
-import { BookOpen, Star, ArrowLeft, Users, Calendar, FileText, Tag, Quote, Heart, List, ChevronRight } from 'lucide-vue-next';
+import { BookOpen, Star, ArrowLeft, Users, Calendar, FileText, Tag, Quote, Heart, List, ChevronRight, User } from 'lucide-vue-next';
 import LazyImage from '@/components/LazyImage.vue';
 import SiteFooter from '@/components/SiteFooter.vue';
 import BookshelfButton from '@/components/reading/BookshelfButton.vue';
@@ -208,7 +208,11 @@ function goReadChapter(chapterId: string | number) {
 
 // 返回读书空间
 function goBack() {
-  router.push('/reading');
+  if (window.history.length > 1) {
+    router.back();
+  } else {
+    router.push('/reading');
+  }
 }
 
 // SEO
@@ -328,11 +332,14 @@ watch(
     <!-- 书籍内容 -->
     <div v-else class="flex-1">
       <!-- Hero 区：渐变背景 -->
-      <section
-        class="py-8 sm:py-12"
-        style="background: linear-gradient(135deg, var(--theme-primary) 0%, var(--theme-accent) 100%);"
-      >
+      <div class="py-6 sm:py-8">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <section class="relative overflow-hidden rounded-2xl text-white" style="background-image: radial-gradient(circle at 30% 20%, rgba(180, 83, 9, 0.3) 0%, transparent 50%), radial-gradient(circle at 70% 80%, rgba(220, 38, 38, 0.3) 0%, transparent 50%), linear-gradient(135deg, #92400e 0%, #b45309 50%, #c2410c 100%);">
+        <div class="absolute inset-0 opacity-10 pointer-events-none" aria-hidden="true">
+          <svg class="absolute top-6 left-8 w-32 h-32 text-white" viewBox="0 0 24 24" fill="currentColor"><path d="M21 5c-1.11-.35-2.33-.5-3.5-.5-1.19 0-2.39.15-3.5.5-1.11-.35-2.33-.5-3.5-.5-1.19 0-2.39.15-3.5.5C5.39 5.15 4.19 5 3 5v14c1.19 0 2.39.15 3.5.5 1.11-.35 2.31-.5 3.5-.5 1.19 0 2.39.15 3.5.5 1.11-.35 2.31-.5 3.5-.5 1.17 0 2.39.15 3.5.5V5z"/></svg>
+          <svg class="absolute bottom-4 right-10 w-40 h-40 text-white" viewBox="0 0 24 24" fill="currentColor"><path d="M19 2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-2 14H7V6h10v10z"/></svg>
+        </div>
+        <div class="relative px-6 py-8 sm:px-10 sm:py-10">
           <div class="flex flex-col md:flex-row gap-8 items-start">
             <!-- 左侧：书籍封面 -->
             <div class="flex-shrink-0 mx-auto md:mx-0">
@@ -492,7 +499,9 @@ watch(
             </div>
           </div>
         </div>
-      </section>
+          </section>
+        </div>
+      </div>
 
       <!-- 内容区 -->
       <div class="py-8">
@@ -652,6 +661,14 @@ watch(
                 </p>
                 <div class="flex items-center justify-between flex-wrap gap-2 text-sm" style="color: var(--theme-text-secondary);">
                   <div class="flex items-center gap-3 flex-wrap">
+                    <span v-if="quote.userNickname" class="flex items-center gap-1">
+                      <User class="w-3.5 h-3.5" aria-hidden="true" />
+                      <span>{{ quote.userNickname }}</span>
+                    </span>
+                    <span v-if="quote.createTime" class="flex items-center gap-1">
+                      <Calendar class="w-3.5 h-3.5" aria-hidden="true" />
+                      <span>{{ formatShortDate(quote.createTime) }}</span>
+                    </span>
                     <span v-if="quote.chapter" class="flex items-center gap-1">
                       <BookOpen class="w-3.5 h-3.5" aria-hidden="true" />
                       <span>{{ quote.chapter }}</span>

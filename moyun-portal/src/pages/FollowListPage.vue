@@ -53,7 +53,7 @@ interface CrumbItem {
 }
 
 const breadcrumbItems = computed<CrumbItem[]>(() => {
-    const items: CrumbItem[] = [{ label: '首页', path: '/' }];
+    const items: CrumbItem[] = [];
     if (targetUser.value) {
         items.push({ label: targetUser.value.nickname || targetUser.value.username, path: `/author/${targetUser.value.id}` });
     } else {
@@ -228,7 +228,7 @@ function displayName(item: FollowUserItem): string {
   <div class="min-h-screen flex flex-col" style="background-color: var(--theme-bg);">
     <!-- 面包屑 -->
     <div class="border-b py-3 sm:py-4" style="border-color: var(--theme-border);">
-      <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div class="flex items-center justify-between gap-4">
           <Breadcrumb :items="breadcrumbItems" />
           <button
@@ -244,7 +244,7 @@ function displayName(item: FollowUserItem): string {
     </div>
 
     <div class="py-6 sm:py-8 flex-1">
-      <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <!-- 加载中 -->
         <div v-if="isLoadingUser" class="text-center py-12">
           <Loader2 class="w-8 h-8 mx-auto animate-spin" style="color: var(--theme-primary);" />

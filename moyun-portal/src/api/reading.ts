@@ -162,6 +162,28 @@ export const getLimitFree = () => {
 };
 
 // =====================================================
+// 读书空间 - 金句摘录列表/详情
+// =====================================================
+
+// 金句列表（分页，公开）
+export const getQuoteList = (params: {
+  pageNum?: number;
+  pageSize?: number;
+  bookId?: number | string;
+  sort?: 'hot' | 'new';
+} = {}) => {
+  return httpGet<{ list: BookQuote[]; total: number; page: number; pageSize: number }>(
+    '/portal/reading/quotes',
+    params
+  );
+};
+
+// 金句详情
+export const getQuoteDetail = (quoteId: string | number) => {
+  return httpGet<BookQuote>(`/portal/reading/quotes/${quoteId}`);
+};
+
+// =====================================================
 // 读书空间 - 点赞（金句 / 书单） v4.4 补齐
 // =====================================================
 

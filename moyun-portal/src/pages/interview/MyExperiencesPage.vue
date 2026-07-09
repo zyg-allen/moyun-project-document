@@ -143,7 +143,7 @@ function gotoPage(p: number) {
       class="border-b sticky top-0 z-30 backdrop-blur-sm"
       style="background-color: var(--theme-surface); border-color: var(--theme-border);"
     >
-      <div class="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex items-center justify-between">
         <button
           @click="goBack"
           class="flex items-center text-sm transition hover:opacity-80"
@@ -174,26 +174,27 @@ function gotoPage(p: number) {
     </div>
 
     <!-- Hero 区 -->
-    <div
-      class="text-white py-12 relative overflow-hidden"
-      style="background: linear-gradient(135deg, var(--theme-primary), color-mix(in srgb, var(--theme-primary) 60%, #4338ca 100%));"
-    >
-      <div class="absolute inset-0 opacity-10 pointer-events-none">
-        <div class="absolute top-8 left-10 w-56 h-56 rounded-full bg-white"></div>
-        <div class="absolute bottom-0 right-20 w-72 h-72 rounded-full bg-white"></div>
-      </div>
-      <div class="relative max-w-5xl mx-auto px-4 text-center">
-        <div class="inline-flex items-center bg-white/10 backdrop-blur-sm px-4 py-1.5 rounded-full text-sm mb-4">
-          <BookOpen class="w-4 h-4 mr-2" /> 墨韵 · 我的面经
+    <div class="py-6 sm:py-8">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="relative overflow-hidden rounded-2xl text-white" style="background-image: radial-gradient(circle at 20% 30%, rgba(99, 102, 241, 0.4) 0%, transparent 50%), radial-gradient(circle at 80% 70%, rgba(168, 85, 247, 0.4) 0%, transparent 50%), linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);">
+          <div class="absolute inset-0 opacity-10 pointer-events-none" aria-hidden="true">
+            <svg class="absolute top-6 left-8 w-32 h-32 text-white" viewBox="0 0 24 24" fill="currentColor"><path d="M9.4 16.6L4.8 12l4.6-4.6L8 6l-6 6 6 6 1.4-1.4zm5.2 0L19.2 12l-4.6-4.6L16 6l6 6-6 6-1.4-1.4z"/></svg>
+            <svg class="absolute bottom-4 right-10 w-40 h-40 text-white" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 4c-3.31 0-6 2.69-6 6s2.69 6 6 6 6-2.69 6-6-2.69-6-6-6zm0 2c2.21 0 4 1.79 4 4s-1.79 4-4 4-4-1.79-4-4 1.79-4 4-4zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"/></svg>
+          </div>
+          <div class="relative px-6 py-8 sm:px-10 sm:py-10 text-center">
+            <div class="inline-flex items-center bg-white/10 backdrop-blur-sm px-4 py-1.5 rounded-full text-sm mb-4">
+              <BookOpen class="w-4 h-4 mr-2" /> 墨韵 · 我的面经
+            </div>
+            <h1 class="text-3xl md:text-4xl font-bold mb-3">我的面经</h1>
+            <p class="text-sm md:text-base opacity-90">管理你发布的面经，跟进审核状态与数据反馈</p>
+          </div>
         </div>
-        <h1 class="text-3xl md:text-4xl font-bold mb-3">我的面经</h1>
-        <p class="text-sm md:text-base opacity-90">管理你发布的面经，跟进审核状态与数据反馈</p>
       </div>
     </div>
 
     <!-- 内容区 -->
     <div class="flex-1 py-8">
-      <div class="max-w-5xl mx-auto px-4">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <!-- 加载状态 -->
         <div v-if="loading" class="text-center py-16">
           <div

@@ -120,7 +120,11 @@ async function handleToggleBookmark() {
 }
 
 function goBack() {
-  router.push({ name: 'reading' });
+  if (window.history.length > 1) {
+    router.back();
+  } else {
+    router.push({ name: 'reading' });
+  }
 }
 
 function goToBook(book: Book) {
@@ -207,13 +211,20 @@ watch(listId, (newId, oldId) => {
     <!-- 书单内容 -->
     <template v-else-if="bookList">
       <!-- Hero 区 -->
-      <section class="relative overflow-hidden" style="background-color: var(--theme-primary);">
+      <div class="py-6 sm:py-8">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <section class="relative overflow-hidden rounded-2xl text-white" style="background-image: radial-gradient(circle at 30% 20%, rgba(180, 83, 9, 0.3) 0%, transparent 50%), radial-gradient(circle at 70% 80%, rgba(220, 38, 38, 0.3) 0%, transparent 50%), linear-gradient(135deg, #92400e 0%, #b45309 50%, #c2410c 100%);">
+        <!-- 装饰图案：书本 + 书签 -->
+        <div class="absolute inset-0 opacity-10 pointer-events-none" aria-hidden="true">
+          <svg class="absolute top-6 left-8 w-32 h-32 text-white" viewBox="0 0 24 24" fill="currentColor"><path d="M21 5c-1.11-.35-2.33-.5-3.5-.5-1.19 0-2.39.15-3.5.5-1.11-.35-2.33-.5-3.5-.5-1.19 0-2.39.15-3.5.5C5.39 5.15 4.19 5 3 5v14c1.19 0 2.39.15 3.5.5 1.11-.35 2.31-.5 3.5-.5 1.19 0 2.39.15 3.5.5 1.11-.35 2.31-.5 3.5-.5 1.17 0 2.39.15 3.5.5V5z"/></svg>
+          <svg class="absolute bottom-4 right-10 w-40 h-40 text-white" viewBox="0 0 24 24" fill="currentColor"><path d="M19 2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-2 14H7V6h10v10z"/></svg>
+        </div>
         <!-- 渐变叠加层，增加层次感 -->
         <div
           class="absolute inset-0 pointer-events-none"
           style="background: linear-gradient(135deg, rgba(255,255,255,0.12) 0%, rgba(0,0,0,0.20) 100%);"
         ></div>
-        <div class="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 sm:py-14">
+        <div class="relative px-6 py-8 sm:px-10 sm:py-10">
           <div class="flex flex-col md:flex-row gap-6 sm:gap-8 items-start">
             <!-- 书单封面 -->
             <div class="flex-shrink-0 mx-auto md:mx-0">
@@ -301,7 +312,9 @@ watch(listId, (newId, oldId) => {
             </div>
           </div>
         </div>
-      </section>
+          </section>
+        </div>
+      </div>
 
       <!-- 书籍列表区 -->
       <div class="flex-1 py-8 sm:py-10">

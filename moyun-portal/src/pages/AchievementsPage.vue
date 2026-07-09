@@ -69,14 +69,25 @@ function getModuleIcon(module?: string) {
 async function loadData() {
   isLoading.value = true;
   try {
-    const [achResp, growthResp] = await Promise.all([
-      targetUserId.value ? getUserAchievements(targetUserId.value) : getMyAchievements(),
-      targetUserId.value ? getUserGrowth(targetUserId.value) : getMyGrowth(),
-    ]);
+    // 游客查看自己（未登录无 targetUserId）：只查成就列表，不查个人成长数据
+    // 已登录查看自己：调 getMyGrowth
+    // 查看他人：调公开的 getUserGrowth
+    const achPromise = targetUserId.value
+      ? getUserAchievements(targetUserId.value)
+      : getMyAchievements();
+    let growthPromise: Promise<{ code: number; data?: UserGrowthVO | null }>;
+    if (targetUserId.value) {
+      growthPromise = getUserGrowth(targetUserId.value).catch(() => ({ code: 0, data: null }));
+    } else if (userStore.isAuthenticated) {
+      growthPromise = getMyGrowth().catch(() => ({ code: 0, data: null }));
+    } else {
+      growthPromise = Promise.resolve({ code: 0, data: null });
+    }
+    const [achResp, growthResp] = await Promise.all([achPromise, growthPromise]);
     if (achResp.code === 200 && achResp.data) {
       achievements.value = achResp.data;
     }
-    if (growthResp.code === 200 && growthResp.data) {
+    if (growthResp && growthResp.code === 200 && growthResp.data) {
       growth.value = growthResp.data;
     }
   } catch (error) {
@@ -102,7 +113,7 @@ watch(targetUserId, () => {
     <!-- 面包屑 -->
     <div class="border-b py-3 sm:py-4" style="background-color: var(--theme-bg); border-color: var(--theme-border);">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <Breadcrumb :items="[{ label: '首页', path: '/' }, { label: '成就徽章' }]" />
+        <Breadcrumb :items="[{ label: '成就徽章' }]" />
       </div>
     </div>
 

@@ -5,7 +5,11 @@ import { ArrowLeft } from 'lucide-vue-next';
 const router = useRouter();
 
 function goBack() {
-  router.back();
+  if (window.history.length > 1) {
+    router.back();
+  } else {
+    router.push('/');
+  }
 }
 </script>
 

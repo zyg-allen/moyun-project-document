@@ -30,11 +30,10 @@ const exporting = ref(false);
 const scoring = ref(false);
 // 自动保存指示：idle / saving / saved
 const saveStatus = ref<'idle' | 'saving' | 'saved'>('idle');
-// 保存互斥锁：防止自动保存与手动保存并发产生重复创建/后写覆盖
+// 保存互斥锁：防止并发保存产生重复创建/后写覆盖
 const saving = ref(false);
 
-// 自动保存控制
-let autoSaveTimer: number | null = null;
+// 加载完成标记：用于离开页时判断是否有未保存内容
 const loaded = ref(false);
 
 // 表单
@@ -139,7 +138,7 @@ function scorePercent(item: UserResumeScoreItem): number {
 
 // 保存：silent 时不显示成功 toast，错误始终提示
 async function doSave(silent = false): Promise<boolean> {
-  // 互斥锁：已有保存在途时跳过（自动保存路径直接 return；手动保存提示稍候）
+  // 互斥锁：已有保存在途时跳过（手动保存提示稍候）
   if (saving.value) {
     if (!silent) showToast('正在保存中，请稍候', 'error');
     return false;
@@ -162,6 +161,9 @@ async function doSave(silent = false): Promise<boolean> {
       }
       saveStatus.value = 'saved';
       if (!silent) showToast('保存成功', 'success');
+      // 等待 form.id 变化触发的 watch 执行完（被 saving 标志跳过），
+      // 再返回，避免 watch 在 nextTick 把 saveStatus 覆盖回 idle
+      await nextTick();
       return true;
     } else {
       saveStatus.value = 'idle';
@@ -177,9 +179,8 @@ async function doSave(silent = false): Promise<boolean> {
   }
 }
 
-// 手动保存草稿：先清除待触发的自动保存定时器，避免冗余保存
+// 手动保存草稿
 async function handleSaveDraft() {
-  if (autoSaveTimer) { window.clearTimeout(autoSaveTimer); autoSaveTimer = null; }
   await doSave(false);
 }
 
@@ -256,15 +257,17 @@ async function handleScore() {
   }
 }
 
-// 自动保存（3 秒防抖）
+// 注：已移除表单自动保存。为避免用户中途放弃时产生难以清理的脏数据，
+// 简历仅在用户手动点击「保存草稿」「导出PDF」「评分」时才入库。
+// 但仍需跟踪"是否有未保存修改"，用于离开页提示：用户编辑后 saveStatus 重置为 idle，
+// 保存成功后恢复 saved。加载阶段（loaded=false）与保存流程（saving=true）跳过，
+// 避免回填数据 / 保存后 form.id 回填触发误判。
 watch(
   form,
   () => {
     if (!loaded.value) return;
-    if (autoSaveTimer) window.clearTimeout(autoSaveTimer);
-    autoSaveTimer = window.setTimeout(() => {
-      doSave(true);
-    }, 3000);
+    if (saving.value) return;
+    saveStatus.value = 'idle';
   },
   { deep: true },
 );
@@ -302,6 +305,10 @@ async function loadDetail(): Promise<boolean> {
       form.exportTime = d.exportTime || '';
       form.status = d.status || 'draft';
       form.versionNo = d.versionNo;
+      // 等待本轮 form 变化触发的 watch 执行完（此时 loaded=false 被跳过），
+      // 再标记为已同步，避免回填数据被误判为"有未保存修改"
+      await nextTick();
+      saveStatus.value = 'saved';
       return true;
     } else {
       pageError.value = res.message || '加载简历失败';
@@ -318,7 +325,7 @@ async function loadDetail(): Promise<boolean> {
 onMounted(() => {
   if (isEdit.value && editId.value) {
     loadDetail().then((ok) => {
-      // 仅加载成功后开启自动保存；失败时保持 loaded=false，避免对错误态表单触发保存
+      // 加载成功后标记 loaded，用于离开页时判断未保存内容
       if (ok) nextTick(() => { loaded.value = true; });
     });
   } else {
@@ -332,14 +339,12 @@ watch(() => route.params.id, (newId, oldId) => {
   // 仅在切换到另一份已有简历时重新加载；从编辑切回创建（无 id）则重置为空白草稿
   if (!newId) {
     loaded.value = false;
-    if (autoSaveTimer) { window.clearTimeout(autoSaveTimer); autoSaveTimer = null; }
     form.id = undefined;
     form.title = '';
     nextTick(() => { loaded.value = true; });
     return;
   }
   loaded.value = false;
-  if (autoSaveTimer) { window.clearTimeout(autoSaveTimer); autoSaveTimer = null; }
   form.id = undefined;
   loadDetail().then((ok) => {
     if (ok) nextTick(() => { loaded.value = true; });
@@ -353,8 +358,6 @@ onBeforeRouteLeave((to, from, next) => {
   if (unsaved && !window.confirm('有未保存的内容，确定离开吗？')) {
     next(false);
   } else {
-    // 离开时清理自动保存定时器
-    if (autoSaveTimer) { window.clearTimeout(autoSaveTimer); autoSaveTimer = null; }
     next();
   }
 });
@@ -378,7 +381,7 @@ onBeforeRouteLeave((to, from, next) => {
         </button>
         <span class="text-sm font-medium truncate" style="color: var(--theme-text);">{{ pageTitle }}</span>
         <div class="flex items-center gap-2 shrink-0">
-          <!-- 自动保存指示 -->
+          <!-- 保存状态指示（手动保存时显示） -->
           <span
             v-if="saveStatus !== 'idle'"
             class="text-xs hidden sm:inline-flex items-center"
@@ -390,7 +393,7 @@ onBeforeRouteLeave((to, from, next) => {
                 class="w-1.5 h-1.5 rounded-full mr-1"
                 style="background-color: var(--theme-primary);"
               ></span>
-              已自动保存
+              已保存
             </span>
           </span>
           <button
@@ -441,7 +444,7 @@ onBeforeRouteLeave((to, from, next) => {
             {{ pageTitle }}
           </h1>
           <p class="text-sm" style="color: var(--theme-text-secondary);">
-            完善简历各部分，内容会自动保存
+            完善简历各部分，完成后请手动保存
           </p>
         </div>
 

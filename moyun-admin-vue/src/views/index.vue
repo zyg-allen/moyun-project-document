@@ -32,10 +32,10 @@
             <div class="metric-body">
               <div class="metric-value">{{ formatNum(m.value) }}</div>
               <div class="metric-label">{{ m.label }}</div>
-              <div class="metric-trend" :class="trendClass(m.trend)">
+              <div v-if="m.trend != null" class="metric-trend" :class="trendClass(m.trend)">
                 <el-icon v-if="m.trend > 0"><Top /></el-icon>
                 <el-icon v-else-if="m.trend < 0"><Bottom /></el-icon>
-                {{ m.trend > 0 ? '+' : '' }}{{ m.trend || 0 }}%
+                {{ m.trend > 0 ? '+' : '' }}{{ m.trend }}%
               </div>
             </div>
           </div>
@@ -237,7 +237,7 @@
               <el-descriptions-item label="站点描述">{{ configOverview.siteDescription || '-' }}</el-descriptions-item>
               <el-descriptions-item label="当前版本">{{ configOverview.version || '-' }}</el-descriptions-item>
               <el-descriptions-item label="运行时长">{{ configOverview.uptimeHours || 0 }} 小时</el-descriptions-item>
-              <el-descriptions-item label="缓存命中率">{{ formatRate(configOverview.cacheHitRate) }}</el-descriptions-item>
+              <el-descriptions-item label="缓存命中率">{{ configOverview.cacheHitRate == null ? '-' : formatRate(configOverview.cacheHitRate) }}</el-descriptions-item>
               <el-descriptions-item label="数据库表数">{{ configOverview.tableCount || 0 }}</el-descriptions-item>
               <el-descriptions-item label="Redis 内存">{{ formatMemory(configOverview.redisMemoryMb) }}</el-descriptions-item>
             </el-descriptions>

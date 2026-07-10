@@ -13,7 +13,6 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DuplicateKeyException;
-import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
 import com.moyun.common.constant.HttpStatus;
@@ -58,7 +57,6 @@ public class PortalBookmarkController extends BaseController {
      */
     @Operation(summary = "文章收藏/取消收藏", description = "收藏或取消收藏文章，返回最新状态")
     @PostMapping("/{articleId}/toggle")
-    @Transactional
     public AjaxResult toggleBookmark(@PathVariable Long articleId) {
         Long userId = PortalSecurityUtils.getUserId();
         if (userId == null) {

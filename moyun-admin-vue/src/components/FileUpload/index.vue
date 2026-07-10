@@ -1,18 +1,18 @@
 <template>
   <div class="upload-file">
     <el-upload
-        multiple
-        :action="uploadFileUrl"
-        :before-upload="handleBeforeUpload"
-        :file-list="fileList"
-        :limit="limit"
-        :on-error="handleUploadError"
-        :on-exceed="handleExceed"
-        :on-success="handleUploadSuccess"
-        :show-file-list="false"
-        :headers="headers"
-        class="upload-file-uploader"
-        ref="fileUpload"
+      multiple
+      :action="uploadFileUrl"
+      :before-upload="handleBeforeUpload"
+      :file-list="fileList"
+      :limit="limit"
+      :on-error="handleUploadError"
+      :on-exceed="handleExceed"
+      :on-success="handleUploadSuccess"
+      :show-file-list="false"
+      :headers="headers"
+      class="upload-file-uploader"
+      ref="fileUpload"
     >
       <!-- 上传按钮 -->
       <el-button type="primary">选取文件</el-button>
@@ -40,6 +40,7 @@
 
 <script setup>
 import { getToken } from "@/utils/auth";
+import { delFileByUrl } from "@/api/system/file";
 
 const props = defineProps({
   modelValue: [String, Object, Array],
@@ -74,7 +75,7 @@ const uploadFileUrl = ref(import.meta.env.VITE_APP_BASE_API + "/common/upload");
 const headers = ref({ Authorization: "Bearer " + getToken() });
 const fileList = ref([]);
 const showTip = computed(
-    () => props.isShowTip && (props.fileType || props.fileSize)
+  () => props.isShowTip && (props.fileType || props.fileSize)
 );
 
 watch(() => props.modelValue, val => {
@@ -134,7 +135,8 @@ function handleUploadError(err) {
 // 上传成功回调
 function handleUploadSuccess(res, file) {
   if (res.code === 200) {
-    uploadList.value.push({ name: res.fileName, url: res.fileName });
+    // 记录 fileId（便于按 id 维护，当前删除走 url）
+    uploadList.value.push({ name: res.fileName, url: res.fileName, fileId: res.fileId });
     uploadedSuccessfully();
   } else {
     number.value--;
@@ -145,8 +147,27 @@ function handleUploadSuccess(res, file) {
   }
 }
 
-// 删除文件
-function handleDelete(index) {
+// 删除文件：二次确认后调后端清理存储+记录，失败则回滚列表项
+async function handleDelete(index) {
+  const file = fileList.value[index];
+  if (!file) return;
+  const fileUrl = file.url;
+  // 先弹出永久删除确认
+  try {
+    await proxy.$modal.confirm('删除后将永久清除该附件的存储与记录，且无法恢复，是否确认？');
+  } catch (e) {
+    // 用户取消，保留列表项
+    return;
+  }
+  // 调后端清理（非空 url 才调；后端找不到记录会幂等返回）
+  if (fileUrl) {
+    try {
+      await delFileByUrl(fileUrl);
+    } catch (e) {
+      proxy.$modal.msgError("删除文件失败，已保留该附件");
+      return;
+    }
+  }
   fileList.value.splice(index, 1);
   emit("update:modelValue", listToString(fileList.value));
 }

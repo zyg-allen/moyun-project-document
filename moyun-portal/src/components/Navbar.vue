@@ -8,6 +8,7 @@ import {
 } from 'lucide-vue-next';
 import { setTheme, getCurrentTheme, type Theme, themes } from '@/utils/theme';
 import { useUserStore } from '@/stores/user';
+import { useMessageStore } from '@/stores/message';
 import { getSafeAvatar } from '@/utils/avatar';
 import { useAuth } from '@/composables/useAuth';
 import NotificationBell from './NotificationBell.vue';
@@ -19,6 +20,7 @@ import type { Category } from '@/types/api';
 const router = useRouter();
 const route = useRoute();
 const userStore = useUserStore();
+const messageStore = useMessageStore();
 const { requireAuth } = useAuth();
 
 const isMenuOpen = ref(false);
@@ -27,7 +29,12 @@ const currentTheme = ref<Theme>(getCurrentTheme());
 const isThemeMenuOpen = ref(false);
 const activeNavItem = ref<string | null>(null);
 const notifications = ref<any[]>([]);
-const unreadCount = ref(0);
+// 通知未读数从消息 store 取，与 MessagesPage 跨组件同步
+const unreadCount = computed(() => messageStore.notifUnreadCount);
+// 私信未读数从消息 store 取，用于头部"消息中心"按钮徽章
+const msgUnreadCount = computed(() => messageStore.msgUnreadCount);
+// 头部消息中心按钮徽章：仅显示私信未读数（通知未读数由铃铛单独展示，避免重复计数）
+const msgBadgeCount = computed(() => messageStore.msgUnreadCount);
 const isUserMenuOpen = ref(false);
 
 const categories = ref<Category[]>([]);
@@ -158,7 +165,7 @@ onMounted(async () => {
   await loadCategories();
   if (userStore.isAuthenticated) {
     await loadNotifications();
-    await loadUnreadCount();
+    await messageStore.loadAllUnread();
   }
 });
 
@@ -167,10 +174,10 @@ watch(
   (isAuth) => {
     if (isAuth) {
       loadNotifications();
-      loadUnreadCount();
+      messageStore.loadAllUnread();
     } else {
       notifications.value = [];
-      unreadCount.value = 0;
+      messageStore.reset();
     }
   }
 );
@@ -204,14 +211,19 @@ async function loadNotifications() {
   }
 }
 
-async function loadUnreadCount() {
+async function markAsRead(id: string) {
   try {
-    const response = await notificationApi.getUnreadCount();
+    const response = await notificationApi.markAsRead({ id });
     if (response.code === 200) {
-      unreadCount.value = response.data || 0;
+      const notification = notifications.value.find(n => n.id === id);
+      if (notification) {
+        notification.isRead = true;
+      }
+      // 本地未读数 -1（store 同步给 MessagesPage）
+      messageStore.decNotifUnread();
     }
   } catch (error) {
-    console.error('加载未读数失败:', error);
+    console.error('标记已读失败:', error);
   }
 }
 
@@ -235,22 +247,6 @@ function selectTheme(theme: Theme) {
   });
 
   isThemeMenuOpen.value = false;
-}
-
-async function markAsRead(id: string) {
-  try {
-    const response = await notificationApi.markAsRead({ id });
-    if (response.code === 200) {
-      const notification = notifications.value.find(n => n.id === id);
-      if (notification) {
-        notification.isRead = true;
-      }
-      // 刷新真实未读数
-      await loadUnreadCount();
-    }
-  } catch (error) {
-    console.error('标记已读失败:', error);
-  }
 }
 
 function handleLogout() {
@@ -377,6 +373,13 @@ onUnmounted(() => document.removeEventListener('click', handleDocumentClick));
                 aria-label="消息中心"
             >
               <MessageSquare class="w-4 h-4 sm:w-5 sm:h-5" />
+              <span
+                v-if="msgBadgeCount > 0"
+                class="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full text-xs flex items-center justify-center"
+                style="background-color: #ef4444; color: white;"
+              >
+                {{ msgBadgeCount > 99 ? '99+' : msgBadgeCount }}
+              </span>
             </Link>
 
             <!-- 主题切换 -->

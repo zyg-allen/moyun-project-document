@@ -119,9 +119,10 @@ public class PortalSecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/portal/article/**").permitAll()
                         .requestMatchers(HttpMethod.POST, "/portal/article/*/view").permitAll()
                         .requestMatchers(HttpMethod.POST, "/portal/article/*/like").permitAll()
-                        // 评论查看、发布、点赞公开（点赞需登录由 Controller 内部校验）
+                        // 评论查看公开；发布评论需登录（authorId 由 Service 强制覆写，不再信任前端）
                         .requestMatchers(HttpMethod.GET, "/portal/comment/**").permitAll()
-                        .requestMatchers(HttpMethod.POST, "/portal/comment/**").permitAll()
+                        // POST /portal/comment/** 默认落入 anyRequest().authenticated() 链，强制登录态
+                        // 评论点赞虽标 permitAll，但实际由 Controller 内部校验 getUserId 后再操作
                         .requestMatchers(HttpMethod.POST, "/portal/comment/*/like").permitAll()
                         // 分类查询公开（仅 GET），写操作（POST/PUT/DELETE）需登录 + 管理员角色
                         .requestMatchers(HttpMethod.GET, "/portal/category/**").permitAll()
@@ -130,6 +131,8 @@ public class PortalSecurityConfig {
                         // 友情链接接口（支持驼峰和连字符两种命名）
                         .requestMatchers("/portal/friendLink/**").permitAll()
                         .requestMatchers("/portal/friend-link/**").permitAll()
+                        // 自研广告位前台展示接口（详情页底部广告卡片，公开访问）
+                        .requestMatchers("/portal/ad/**").permitAll()
                         // VIP 套餐查询公开（售卖页展示），写操作需登录 + 管理员
                         .requestMatchers(HttpMethod.GET, "/portal/vip-package/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/portal/vipPackage/**").permitAll()

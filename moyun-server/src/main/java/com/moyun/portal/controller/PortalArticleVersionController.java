@@ -46,8 +46,13 @@ public class PortalArticleVersionController extends BaseController {
         if (userId == null) {
             return AjaxResult.error(HttpStatus.UNAUTHORIZED, "登录已过期，请重新登录");
         }
-        List<PortalArticleVersion> list = portalArticleVersionService.listVersions(id);
-        return AjaxResult.success(list);
+        try {
+            List<PortalArticleVersion> list = portalArticleVersionService.listVersions(id);
+            return AjaxResult.success(list);
+        } catch (RuntimeException e) {
+            // 归属校验失败等业务异常，返回友好提示
+            return AjaxResult.error(e.getMessage() != null ? e.getMessage() : "查询版本列表失败");
+        }
     }
 
     @Operation(summary = "版本详情", description = "查询指定版本的完整内容快照")
@@ -57,11 +62,16 @@ public class PortalArticleVersionController extends BaseController {
         if (userId == null) {
             return AjaxResult.error(HttpStatus.UNAUTHORIZED, "登录已过期，请重新登录");
         }
-        PortalArticleVersion version = portalArticleVersionService.getVersion(versionId);
-        if (version == null) {
-            return AjaxResult.error("版本不存在");
+        try {
+            PortalArticleVersion version = portalArticleVersionService.getVersion(versionId);
+            if (version == null) {
+                return AjaxResult.error("版本不存在");
+            }
+            return AjaxResult.success(version);
+        } catch (RuntimeException e) {
+            // 归属校验失败等业务异常，返回友好提示
+            return AjaxResult.error(e.getMessage() != null ? e.getMessage() : "查询版本详情失败");
         }
-        return AjaxResult.success(version);
     }
 
     @Operation(summary = "回滚版本", description = "将文章内容覆盖回指定版本，并生成回滚后的新版本快照")
@@ -89,7 +99,12 @@ public class PortalArticleVersionController extends BaseController {
         if (userId == null) {
             return AjaxResult.error(HttpStatus.UNAUTHORIZED, "登录已过期，请重新登录");
         }
-        Map<String, Object> result = portalArticleVersionService.diff(id, v1, v2);
-        return AjaxResult.success(result);
+        try {
+            Map<String, Object> result = portalArticleVersionService.diff(id, v1, v2);
+            return AjaxResult.success(result);
+        } catch (RuntimeException e) {
+            // 归属校验失败等业务异常，返回友好提示
+            return AjaxResult.error(e.getMessage() != null ? e.getMessage() : "版本对比失败");
+        }
     }
 }

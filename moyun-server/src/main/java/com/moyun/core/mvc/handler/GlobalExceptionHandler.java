@@ -90,7 +90,12 @@ public class GlobalExceptionHandler {
     public AjaxResult handleRuntimeException(RuntimeException e, HttpServletRequest request) {
         String requestURI = request.getRequestURI();
         log.error("请求地址'{}',发生未知异常.", requestURI, e);
-        return AjaxResult.error(e.getMessage());
+        // 业务异常 message 是开发者编写的友好提示，保留原信息返回
+        if (e instanceof ServiceException) {
+            return AjaxResult.error(e.getMessage());
+        }
+        // 其他运行时异常避免泄露 SQL/表名/堆栈等敏感信息，返回通用提示
+        return AjaxResult.error("操作失败，请稍后重试");
     }
 
     /**
@@ -100,7 +105,7 @@ public class GlobalExceptionHandler {
     public AjaxResult handleException(Exception e, HttpServletRequest request) {
         String requestURI = request.getRequestURI();
         log.error("请求地址'{}',发生系统异常.", requestURI, e);
-        return AjaxResult.error(e.getMessage());
+        return AjaxResult.error("系统繁忙，请稍后重试");
     }
 
     /**

@@ -247,12 +247,12 @@ public class SysDashboardServiceImpl implements ISysDashboardService {
             long totalLikes = toLong(stats.get("totalLikes"));
             long totalComments = toLong(stats.get("totalComments"));
 
-            cards.add(buildCard("articleCount", "文章总数", totalArticles, "Document", 0.0));
-            cards.add(buildCard("publishedArticles", "已发布文章", publishedArticles, "CircleCheck", 0.0));
-            cards.add(buildCard("pendingArticles", "待审核文章", pendingArticles, "Clock", 0.0));
-            cards.add(buildCard("totalViews", "总浏览量", totalViews, "View", 0.0));
-            cards.add(buildCard("totalLikes", "总点赞数", totalLikes, "Star", 0.0));
-            cards.add(buildCard("totalComments", "总评论数", totalComments, "ChatDotRound", 0.0));
+            cards.add(buildCard("articleCount", "文章总数", totalArticles, "Document", null));
+            cards.add(buildCard("publishedArticles", "已发布文章", publishedArticles, "CircleCheck", null));
+            cards.add(buildCard("pendingArticles", "待审核文章", pendingArticles, "Clock", null));
+            cards.add(buildCard("totalViews", "总浏览量", totalViews, "View", null));
+            cards.add(buildCard("totalLikes", "总点赞数", totalLikes, "Star", null));
+            cards.add(buildCard("totalComments", "总评论数", totalComments, "ChatDotRound", null));
         } catch (Exception e) {
             log.error("[Dashboard] 构建核心指标失败", e);
         }
@@ -274,8 +274,8 @@ public class SysDashboardServiceImpl implements ISysDashboardService {
             long totalCount = stats.getTodayLoginCount();
             stats.setLoginSuccessRate(totalCount > 0 ? (successCount * 100.0 / totalCount) : 100.0);
 
-            // 待审核文章数（首页"今日新增文章"卡片实际展示待审核数，便于运营关注审核队列）
-            stats.setTodayNewArticles(articleMapper.countPendingArticles());
+            // 今日新增文章数（按 create_time 过滤，口径与"今日新增文章"卡片名称一致，含所有状态）
+            stats.setTodayNewArticles(articleMapper.countTodayNewArticles(todayStart));
             // 今日新增用户数：查询 PortalUser 今日注册量
             com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<com.moyun.portal.domain.entity.PortalUser> userWrapper =
                     new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<>();
@@ -402,7 +402,12 @@ public class SysDashboardServiceImpl implements ISysDashboardService {
                 item.setTitle(String.valueOf(row.get("title")));
                 item.setDescription("文章待审核");
                 item.setStatus("pending");
-                Object createTime = row.get("create_time");
+                // 注意：MyBatis 开启 map-underscore-to-camel-case，@Select 返回 Map 时
+                // create_time 列会被转为 createTime 键，不能用 row.get("create_time")
+                Object createTime = row.get("createTime");
+                if (createTime == null) {
+                    createTime = row.get("create_time");
+                }
                 item.setCreateTime(createTime != null ? String.valueOf(createTime) : "");
                 String nickname = row.get("authorNickname") != null ? String.valueOf(row.get("authorNickname")) : String.valueOf(row.get("authorUsername"));
                 item.setSubmitter(nickname);
@@ -704,7 +709,7 @@ public class SysDashboardServiceImpl implements ISysDashboardService {
                 log.warn("[Dashboard] 查询表数量失败：{}", e.getMessage());
                 overview.setTableCount(0L);
             }
-            // Redis 内存使用（MB）
+            // Redis 内存使用（MB）+ 缓存命中率（keyspace_hits / (keyspace_hits + keyspace_misses)）
             try {
                 java.util.Properties redisInfo = redisCache.redisTemplate.getConnectionFactory()
                         .getConnection().info();
@@ -714,12 +719,20 @@ public class SysDashboardServiceImpl implements ISysDashboardService {
                 } else {
                     overview.setRedisMemoryMb(0.0);
                 }
+                // 缓存命中率：Redis INFO stats 中的 keyspace_hits 与 keyspace_misses
+                // 未启用 keyspace 时两值均为 0，此时命中率为 null（前端显示"-"而非假数据 0%）
+                long hits = parseRedisLong(redisInfo.getProperty("keyspace_hits"));
+                long misses = parseRedisLong(redisInfo.getProperty("keyspace_misses"));
+                if (hits + misses > 0) {
+                    overview.setCacheHitRate(hits * 100.0 / (hits + misses));
+                } else {
+                    overview.setCacheHitRate(null);
+                }
             } catch (Exception e) {
                 log.warn("[Dashboard] 查询Redis内存失败：{}", e.getMessage());
                 overview.setRedisMemoryMb(0.0);
+                overview.setCacheHitRate(null);
             }
-            // 缓存命中率暂无法精确统计
-            overview.setCacheHitRate(0.0);
 
             // 配置项列表（真实 sys_config 值）
             List<Map<String, Object>> configItems = new ArrayList<>();
@@ -753,7 +766,12 @@ public class SysDashboardServiceImpl implements ISysDashboardService {
         card.setValue(value);
         card.setIcon(icon);
         card.setTrend(trend);
-        card.setTrendDirection(trend > 0 ? "up" : (trend < 0 ? "down" : "flat"));
+        // trend 为 null 时不编造趋势方向，前端据此隐藏趋势行
+        if (trend != null) {
+            card.setTrendDirection(trend > 0 ? "up" : (trend < 0 ? "down" : "flat"));
+        } else {
+            card.setTrendDirection(null);
+        }
         return card;
     }
 
@@ -774,6 +792,18 @@ public class SysDashboardServiceImpl implements ISysDashboardService {
             return Double.parseDouble(String.valueOf(obj));
         } catch (Exception e) {
             return 0.0;
+        }
+    }
+
+    /**
+     * 解析 Redis INFO 返回的数值字段（可能为 null 或非数字），失败返回 0
+     */
+    private long parseRedisLong(String val) {
+        if (val == null || val.isEmpty()) return 0L;
+        try {
+            return Long.parseLong(val.trim());
+        } catch (NumberFormatException e) {
+            return 0L;
         }
     }
 

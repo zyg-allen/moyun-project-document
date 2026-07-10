@@ -194,7 +194,7 @@ public interface PortalArticleMapper extends BaseMapper<PortalArticle> {
      * @param delta 增量（正数增加，负数减少）
      * @return 受影响行数
      */
-    @Update("UPDATE portal_article SET views = views + #{delta} WHERE id = #{id}")
+    @Update("UPDATE portal_article SET views = views + #{delta} WHERE id = #{id} AND views + #{delta} >= 0")
     int incrementViews(@Param("id") Long id, @Param("delta") long delta);
 
     /**
@@ -204,7 +204,7 @@ public interface PortalArticleMapper extends BaseMapper<PortalArticle> {
      * @param delta 增量（正数增加，负数减少）
      * @return 受影响行数
      */
-    @Update("UPDATE portal_article SET likes = likes + #{delta} WHERE id = #{id}")
+    @Update("UPDATE portal_article SET likes = likes + #{delta} WHERE id = #{id} AND likes + #{delta} >= 0")
     int incrementLikes(@Param("id") Long id, @Param("delta") long delta);
 
     /**
@@ -214,7 +214,7 @@ public interface PortalArticleMapper extends BaseMapper<PortalArticle> {
      * @param delta 增量（正数增加，负数减少）
      * @return 受影响行数
      */
-    @Update("UPDATE portal_article SET comments = comments + #{delta} WHERE id = #{id}")
+    @Update("UPDATE portal_article SET comments = comments + #{delta} WHERE id = #{id} AND comments + #{delta} >= 0")
     int incrementComments(@Param("id") Long id, @Param("delta") long delta);
 
     /**
@@ -224,7 +224,7 @@ public interface PortalArticleMapper extends BaseMapper<PortalArticle> {
      * @param delta 增量（正数增加，负数减少）
      * @return 受影响行数
      */
-    @Update("UPDATE portal_article SET bookmark_count = bookmark_count + #{delta} WHERE id = #{id}")
+    @Update("UPDATE portal_article SET bookmark_count = bookmark_count + #{delta} WHERE id = #{id} AND bookmark_count + #{delta} >= 0")
     int incrementBookmarkCount(@Param("id") Long id, @Param("delta") long delta);
 
     /**
@@ -301,6 +301,13 @@ public interface PortalArticleMapper extends BaseMapper<PortalArticle> {
      */
     @Select("SELECT count(*) FROM portal_article WHERE status = 'pending'")
     long countPendingArticles();
+
+    /**
+     * 统计今日新增文章数（按 create_time >= startTime 过滤，含所有状态）
+     * 用于首页"今日新增文章"卡片，口径与卡片名称一致
+     */
+    @Select("SELECT count(*) FROM portal_article WHERE create_time >= #{startTime}")
+    long countTodayNewArticles(@Param("startTime") java.time.LocalDateTime startTime);
 
     /**
      * 热门文章 Top N（按浏览量+点赞数加权排序，用于 Redis ZSet 初始化）

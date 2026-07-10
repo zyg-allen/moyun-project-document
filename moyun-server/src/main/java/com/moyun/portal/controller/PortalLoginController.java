@@ -20,7 +20,9 @@ import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import com.moyun.common.annotation.Anonymous;
+import com.moyun.common.annotation.RateLimiter;
 import com.moyun.common.constant.Constants;
+import com.moyun.common.enums.LimitType;
 import com.moyun.core.base.AjaxResult;
 import com.moyun.core.base.model.LoginBody;
 import com.moyun.portal.domain.entity.PortalUser;
@@ -59,6 +61,7 @@ public class PortalLoginController {
      * 登录方法
      */
     @Operation(summary = "用户登录", description = "用户登录获取Token")
+    @RateLimiter(time = 60, count = 5, limitType = LimitType.IP)
     @PostMapping("/login")
     public AjaxResult login(
             @Parameter(description = "登录信息") @RequestBody LoginBody loginBody) {
@@ -69,6 +72,7 @@ public class PortalLoginController {
      * 注册方法
      */
     @Operation(summary = "用户注册", description = "注册新门户用户")
+    @RateLimiter(time = 3600, count = 3, limitType = LimitType.IP)
     @PostMapping("/register")
     public AjaxResult register(
             @Parameter(description = "用户信息") @RequestBody PortalUser portalUser) {
@@ -84,11 +88,18 @@ public class PortalLoginController {
         // 设置默认状态
         portalUser.setStatus("0");
 
+        // 保留明文密码，用于注册成功后立即登录认证
+        String rawPassword = portalUser.getPassword();
+
+        // 密码 BCrypt 加密后再落库（避免明文存储），Service 层亦有兜底加密
+        portalUser.setPassword(SecurityUtils.encryptPassword(rawPassword));
+
         boolean success = portalUserService.registerPortalUser(portalUser);
         if (success) {
             // 注册成功后，直接登录并返回 token
+            // 注意：此处使用注册前的明文密码做认证，BCryptPasswordEncoder.matches 会自动完成校验
             Authentication authentication = authenticationManager.authenticate(
-                    new UsernamePasswordAuthenticationToken(portalUser.getUsername(), portalUser.getPassword()));
+                    new UsernamePasswordAuthenticationToken(portalUser.getUsername(), rawPassword));
 
             // 生成token
             PortalLoginUser loginUser = (PortalLoginUser) authentication.getPrincipal();

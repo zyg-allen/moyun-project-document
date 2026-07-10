@@ -43,9 +43,6 @@ public class TokenService {
     @Value("${token.secret:}")
     private String secret;
 
-    // 开发环境备用密钥（仅用于开发，生产环境必须配置）
-    private static final String DEV_FALLBACK_SECRET = "a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6q7r8s9t0u1v2w3x4y5z6A7B8C9D0E1F2G3H4I5J6K7L8M9N0";
-
     // 令牌有效期（默认30分钟）
     @Value("${token.expireTime}")
     private int expireTime;
@@ -172,11 +169,17 @@ public class TokenService {
 
     /**
      * 获取实际使用的密钥
+     * <p>
+     * 安全策略：fail-fast，TOKEN_SECRET 未配置或长度不足 64 字符（512位）时直接抛出
+     * IllegalStateException 让应用启动失败，避免因疏忽启用弱密钥或回退到硬编码默认密钥。
+     * </p>
      */
     private String getEffectiveSecret() {
         if (StringUtils.isEmpty(secret)) {
-            log.warn("Using development fallback secret - NOT SAFE FOR PRODUCTION!");
-            return DEV_FALLBACK_SECRET;
+            throw new IllegalStateException("JWT密钥未配置，请设置环境变量 TOKEN_SECRET（至少64字符/512位，用于HS512算法）");
+        }
+        if (secret.length() < 64) {
+            throw new IllegalStateException("JWT密钥长度不足64字符，HS512算法要求至少512位（64字节），请设置环境变量 TOKEN_SECRET（至少64字符），当前长度：" + secret.length());
         }
         return secret;
     }

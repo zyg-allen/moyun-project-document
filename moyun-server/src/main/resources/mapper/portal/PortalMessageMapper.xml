@@ -8,7 +8,9 @@
         <id property="id" column="id"/>
         <result property="sessionId" column="session_id"/>
         <result property="senderId" column="sender_id"/>
+        <result property="senderType" column="sender_type"/>
         <result property="receiverId" column="receiver_id"/>
+        <result property="receiverType" column="receiver_type"/>
         <result property="content" column="content"/>
         <result property="msgType" column="msg_type"/>
         <result property="isRead" column="is_read"/>
@@ -17,30 +19,44 @@
         <result property="senderAvatar" column="sender_avatar"/>
     </resultMap>
 
-    <!-- 按会话分页查询历史消息，关联 portal_user 取发送者信息 -->
+    <!--
+      按会话分页查询历史消息：
+      发送者信息按 sender_type JOIN（portal→portal_user，sys→sys_user），
+      COALESCE 兼容两类体系，确保管理员发送的消息也能显示昵称/头像。
+    -->
     <select id="selectBySession" resultMap="MessageVOResult">
         SELECT m.id,
                m.session_id,
                m.sender_id,
+               m.sender_type,
                m.receiver_id,
+               m.receiver_type,
                m.content,
                m.msg_type,
                m.is_read,
                m.create_time,
-               u.nickname AS sender_nickname,
-               u.avatar   AS sender_avatar
+               COALESCE(pu.nickname, su.nick_name) AS sender_nickname,
+               COALESCE(pu.avatar, su.avatar)     AS sender_avatar
         FROM portal_message m
-        LEFT JOIN portal_user u ON u.id = m.sender_id
+        LEFT JOIN portal_user pu ON pu.id = m.sender_id AND m.sender_type = 'portal'
+        LEFT JOIN sys_user su ON su.user_id = m.sender_id AND m.sender_type = 'sys'
         WHERE m.session_id = #{sessionId}
         ORDER BY m.id ASC
     </select>
 
-    <!-- 查询用户总未读数（汇总所有会话中当前用户的未读数） -->
+    <!--
+      查询用户总未读数：
+      当前用户在会话中匹配 (user_a,user_a_type) 或 (user_b,user_b_type)，
+      取对应 unread_a / unread_b 汇总。
+    -->
     <select id="selectUnreadCount" resultType="java.lang.Integer">
         SELECT COALESCE(SUM(
-            CASE WHEN user_a = #{userId} THEN unread_a ELSE unread_b END
+            CASE WHEN user_a = #{userId} AND user_a_type = #{userType} THEN unread_a
+                 WHEN user_b = #{userId} AND user_b_type = #{userType} THEN unread_b
+                 ELSE 0 END
         ), 0)
         FROM portal_message_session
-        WHERE user_a = #{userId} OR user_b = #{userId}
+        WHERE (user_a = #{userId} AND user_a_type = #{userType})
+           OR (user_b = #{userId} AND user_b_type = #{userType})
     </select>
 </mapper>

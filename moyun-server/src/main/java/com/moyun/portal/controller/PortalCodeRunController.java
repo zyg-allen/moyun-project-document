@@ -33,14 +33,11 @@ public class PortalCodeRunController extends BaseController {
     @Operation(summary = "执行代码", description = "沙箱执行 java/python/javascript 代码，超时 5s，输出截断 1MB，同步返回结果")
     @PostMapping("/run")
     public AjaxResult run(@RequestBody CodeRunRequest body) {
-        Long userId = currentUserId();
-        if (userId == null) {
-            return AjaxResult.error(HttpStatus.UNAUTHORIZED, "登录已过期，请重新登录");
-        }
-        if (body == null || body.getLanguage() == null || body.getCode() == null) {
-            return AjaxResult.error("language 与 code 不能为空");
-        }
-        return AjaxResult.success(codeRunService.runCode(userId, body.getLanguage(), body.getCode(), body.getStdin()));
+        // 安全风险：当前 CodeExecutorService 基于 ProcessBuilder 直接执行用户代码，
+        // 未引入 Docker / cgroups 等强隔离沙箱，存在 RCE（任意命令执行）风险。
+        // 在独立安全沙箱就绪之前，临时禁用此入口，仅保留 Controller 与路由占位，
+        // Service / Mapper / 历史查询接口保持不动，待沙箱方案落地后重新启用。
+        return AjaxResult.error(503, "代码执行功能正在升级安全沙箱，暂时不可用");
     }
 
     @Operation(summary = "我的运行历史", description = "分页查询当前用户的代码运行历史，按时间倒序")

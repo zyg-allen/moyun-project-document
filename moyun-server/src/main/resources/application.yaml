@@ -90,11 +90,12 @@ xss:
   urlPatterns: /system/*,/monitor/*,/tool/*
 
 # knife4j的增强配置，不需要增强可以不配
+# 生产环境请设置环境变量 KNIFE4J_PRODUCTION=true 关闭 Swagger 文档，避免接口暴露
 knife4j:
-  enable: true
+  enable: ${KNIFE4J_ENABLE:true}
   setting:
     language: zh_cn
-  production: false
+  production: ${KNIFE4J_PRODUCTION:false}
 
 # 项目配置（兼容原来的 ruoyi 配置）
 ruoyi:

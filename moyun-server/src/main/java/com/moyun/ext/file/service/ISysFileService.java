@@ -25,4 +25,15 @@ public interface ISysFileService {
     int deleteFileByIds(Long[] ids);
 
     boolean deleteFileFromStorage(SysFile file);
+
+    /**
+     * 按 fileUrl 删除文件（存储 + DB 记录）。
+     * 用于前端组件删除/替换附件时清理：组件只持有访问 URL，无 fileId。
+     * 可选校验上传者本人，防止越权删除他人文件。
+     *
+     * @param fileUrl         文件访问 URL
+     * @param expectUploadUserId 期望的上传者ID（非空时校验，为空则不校验）
+     * @return 是否删除成功（记录不存在视为未删除返回 false）
+     */
+    boolean deleteFileByUrl(String fileUrl, Long expectUploadUserId);
 }

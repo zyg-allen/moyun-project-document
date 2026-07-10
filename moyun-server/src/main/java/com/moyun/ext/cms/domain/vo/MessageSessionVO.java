@@ -38,6 +38,8 @@ public class MessageSessionVO {
     public static class PeerUser {
         /** 对方用户ID */
         private Long id;
+        /** 对方用户类型 portal/sys */
+        private String userType;
         /** 对方昵称 */
         private String nickname;
         /** 对方头像 */

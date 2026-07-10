@@ -1,6 +1,9 @@
 -- =============================================
 -- V19: 全局用户成长体系建表 + 初始化数据
 -- 包含：成长值总表、成长事件流水、用户统计聚合、成长规则、成就定义、用户徽章
+-- 幂等设计：可重复执行（建表用 CREATE TABLE IF NOT EXISTS，
+--           种子数据用 INSERT IGNORE，依赖 portal_growth_rule.uk_module_action
+--           与 portal_achievement.uk_code 唯一键去重）
 -- @author moyun
 -- =============================================
 
@@ -146,7 +149,7 @@ CREATE TABLE IF NOT EXISTS `portal_user_badge` (
 -- =============================================
 -- 初始化数据：成长规则
 -- =============================================
-INSERT INTO `portal_growth_rule` (`module`, `action`, `growth_delta`, `daily_limit`, `description`, `status`, `sort`) VALUES
+INSERT IGNORE INTO `portal_growth_rule` (`module`, `action`, `growth_delta`, `daily_limit`, `description`, `status`, `sort`) VALUES
 -- 文章模块
 ('article', 'publish_article',      50,  3,  '发布文章',           '0', 1),
 ('article', 'receive_like',          2,  0,  '文章被点赞',         '0', 2),
@@ -175,7 +178,7 @@ INSERT INTO `portal_growth_rule` (`module`, `action`, `growth_delta`, `daily_lim
 -- =============================================
 -- 初始化数据：成就定义
 -- =============================================
-INSERT INTO `portal_achievement` (`code`, `name`, `description`, `icon`, `module`, `condition_json`, `growth_reward`, `sort`, `status`) VALUES
+INSERT IGNORE INTO `portal_achievement` (`code`, `name`, `description`, `icon`, `module`, `condition_json`, `growth_reward`, `sort`, `status`) VALUES
 -- 文章模块成就
 ('first_article',        '初露锋芒',     '发布第一篇文章',           NULL, 'article',  '{"action":"publish_article","count":1}',     20,  1,  '0'),
 ('article_10',           '勤勉作者',     '发布10篇文章',             NULL, 'article',  '{"action":"publish_article","count":10}',    50,  2,  '0'),

@@ -10,6 +10,7 @@ import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 import com.moyun.common.annotation.Log;
+import com.moyun.common.annotation.RateLimiter;
 import com.moyun.common.constant.HttpStatus;
 import com.moyun.common.enums.BusinessType;
 import com.moyun.core.base.AjaxResult;
@@ -48,8 +49,14 @@ public class PortalCommentController extends BaseController {
 
     @Operation(summary = "新增评论", description = "创建新评论")
     @Log(title = "门户评论", businessType = BusinessType.INSERT)
+    @RateLimiter(time = 60, count = 10)
     @PostMapping
     public AjaxResult add(@Validated @RequestBody PortalComment portalComment) {
+        // 发布评论需登录态校验（与 SecurityConfig 链 authenticated 双重防护）
+        Long userId = PortalSecurityUtils.getUserId();
+        if (userId == null) {
+            return AjaxResult.error(HttpStatus.UNAUTHORIZED, "请先登录后再评论");
+        }
         return toAjax(portalCommentService.insertPortalComment(portalComment));
     }
 

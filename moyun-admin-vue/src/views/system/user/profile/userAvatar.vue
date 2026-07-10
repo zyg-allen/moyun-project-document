@@ -5,16 +5,16 @@
       <el-row>
         <el-col :xs="24" :md="12" :style="{ height: '350px' }">
           <vue-cropper
-              ref="cropper"
-              :img="options.img"
-              :info="true"
-              :autoCrop="options.autoCrop"
-              :autoCropWidth="options.autoCropWidth"
-              :autoCropHeight="options.autoCropHeight"
-              :fixedBox="options.fixedBox"
-              :outputType="options.outputType"
-              @realTime="realTime"
-              v-if="visible"
+            ref="cropper"
+            :img="options.img"
+            :info="true"
+            :autoCrop="options.autoCrop"
+            :autoCropWidth="options.autoCropWidth"
+            :autoCropHeight="options.autoCropHeight"
+            :fixedBox="options.fixedBox"
+            :outputType="options.outputType"
+            @realTime="realTime"
+            v-if="visible"
           />
         </el-col>
         <el-col :xs="24" :md="12" :style="{ height: '350px' }">
@@ -27,10 +27,10 @@
       <el-row>
         <el-col :lg="2" :md="2">
           <el-upload
-              action="#"
-              :http-request="requestUpload"
-              :show-file-list="false"
-              :before-upload="beforeUpload"
+            action="#"
+            :http-request="requestUpload"
+            :show-file-list="false"
+            :before-upload="beforeUpload"
           >
             <el-button>
               选择
@@ -62,6 +62,7 @@
 import "vue-cropper/dist/index.css";
 import { VueCropper } from "vue-cropper";
 import { uploadAvatar } from "@/api/system/user";
+import { delFileByUrl } from "@/api/system/file";
 import useUserStore from "@/store/modules/user";
 
 const userStore = useUserStore();
@@ -124,15 +125,26 @@ function uploadImg() {
   proxy.$refs.cropper.getCropBlob(data => {
     let formData = new FormData();
     formData.append("avatarfile", data, options.filename);
+    // 记录旧头像（上传成功后清理旧文件，避免脏数据堆积）
+    // 注意：旧头像可能是历史 profile 目录文件（不在 sys_file 表），
+    // delFileByUrl 查不到记录会幂等返回 false，调用无害且不阻断主流程
+    const oldAvatar = userStore.avatar;
     uploadAvatar(formData).then(response => {
       open.value = false;
       // 完整 URL（MinIO）直接用，相对路径拼 baseUrl
       options.img = /^https?:\/\//.test(response.imgUrl)
-          ? response.imgUrl
-          : import.meta.env.VITE_APP_BASE_API + response.imgUrl;
+        ? response.imgUrl
+        : import.meta.env.VITE_APP_BASE_API + response.imgUrl;
       userStore.avatar = options.img;
       proxy.$modal.msgSuccess("修改成功");
       visible.value = false;
+      // 新头像上传成功后，异步清理旧头像文件（DB+存储）
+      // 仅当旧头像为 http URL（已入库）时才调；profile 相对路径走专用接口不在 sys_file 表
+      if (oldAvatar && /^https?:\/\//.test(oldAvatar)) {
+        delFileByUrl(oldAvatar).catch(e => {
+          console.warn('旧头像清理失败：', e);
+        });
+      }
     });
   });
 }

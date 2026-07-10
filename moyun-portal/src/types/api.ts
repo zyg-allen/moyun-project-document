@@ -156,6 +156,8 @@ export interface Article {
   isCarousel?: boolean;
   status?: 'draft' | 'pending' | 'published' | 'rejected' | 'archived';
   editorMode?: 'richtext' | 'markdown';
+  /** 编辑会话标识（一次编辑会话唯一，草稿/发布幂等去重） */
+  sessionToken?: string;
   createdAt?: string;
   createTime?: string;
   updatedAt?: string;
@@ -245,6 +247,10 @@ export interface ArticleDetailParams {
 }
 
 export interface CreateArticleParams {
+  /** 文章ID（草稿转发布/编辑时传入，沿用同一条记录） */
+  id?: string;
+  /** 编辑会话标识（一次编辑会话唯一，用于草稿/发布幂等去重） */
+  sessionToken?: string;
   title: string;
   content: string;
   contentMarkdown?: string;

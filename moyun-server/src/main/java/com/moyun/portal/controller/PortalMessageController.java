@@ -37,6 +37,9 @@ public class PortalMessageController extends BaseController {
         return PortalSecurityUtils.getUserId();
     }
 
+    /** 门户端发件人类型固定为 portal */
+    private static final String SENDER_TYPE = "portal";
+
     /**
      * 我的会话列表
      */
@@ -47,7 +50,7 @@ public class PortalMessageController extends BaseController {
         if (userId == null) {
             return AjaxResult.error(HttpStatus.UNAUTHORIZED, "登录已过期，请重新登录");
         }
-        Page<MessageSessionVO> page = messageService.listSessions(userId, query);
+        Page<MessageSessionVO> page = messageService.listSessions(userId, SENDER_TYPE, query);
         return AjaxResult.success(page);
     }
 
@@ -61,21 +64,24 @@ public class PortalMessageController extends BaseController {
         if (userId == null) {
             return AjaxResult.error(HttpStatus.UNAUTHORIZED, "登录已过期，请重新登录");
         }
-        Page<MessageVO> page = messageService.listHistory(sessionId, userId, query);
+        Page<MessageVO> page = messageService.listHistory(sessionId, userId, SENDER_TYPE, query);
         return AjaxResult.success(page);
     }
 
     /**
      * 发送消息
      */
-    @Operation(summary = "发送消息", description = "向指定用户发送私信")
+    @Operation(summary = "发送消息", description = "向指定用户发送私信；receiverType 留空默认 portal，显式传 sys 可给管理员发")
     @PostMapping("/send")
     public AjaxResult send(@Valid @RequestBody MessageSendDTO dto) {
         Long userId = currentUserId();
         if (userId == null) {
             return AjaxResult.error(HttpStatus.UNAUTHORIZED, "登录已过期，请重新登录");
         }
-        MessageVO vo = messageService.sendMessage(userId, dto.getReceiverId(), dto.getContent(), dto.getMsgType());
+        // 接收者类型默认 portal；显式传 sys 才给管理员发，避免误发
+        String receiverType = (dto.getReceiverType() == null || dto.getReceiverType().isEmpty())
+                ? "portal" : dto.getReceiverType();
+        MessageVO vo = messageService.sendMessage(userId, SENDER_TYPE, dto.getReceiverId(), receiverType, dto.getContent(), dto.getMsgType());
         return AjaxResult.success(vo);
     }
 
@@ -89,7 +95,7 @@ public class PortalMessageController extends BaseController {
         if (userId == null) {
             return AjaxResult.error(HttpStatus.UNAUTHORIZED, "登录已过期，请重新登录");
         }
-        boolean ok = messageService.markSessionRead(id, userId);
+        boolean ok = messageService.markSessionRead(id, userId, SENDER_TYPE);
         return ok ? AjaxResult.success() : AjaxResult.error("会话不存在或无权操作");
     }
 
@@ -103,25 +109,28 @@ public class PortalMessageController extends BaseController {
         if (userId == null) {
             return AjaxResult.error(HttpStatus.UNAUTHORIZED, "登录已过期，请重新登录");
         }
-        return AjaxResult.success(messageService.getUnreadCount(userId));
+        return AjaxResult.success(messageService.getUnreadCount(userId, SENDER_TYPE));
     }
 
     /**
      * 按对方用户ID获取或创建会话
      * 用于"作者主页发起新私信"等场景：尚未有任何消息往来时仍能进入聊天页。幂等，已有会话直接返回。
+     * peerType 留空默认 portal。
      */
     @Operation(summary = "按对方用户ID获取或创建会话", description = "用于作者主页发起新私信；幂等，已有会话直接返回")
     @GetMapping("/session/with/{userId}")
     public AjaxResult getOrCreateSessionWithUser(
-            @Parameter(description = "对方用户ID") @PathVariable Long userId) {
+            @Parameter(description = "对方用户ID") @PathVariable Long userId,
+            @Parameter(description = "对方用户类型 portal/sys，留空默认 portal") @RequestParam(value = "peerType", required = false) String peerType) {
         Long currentUserId = currentUserId();
         if (currentUserId == null) {
             return AjaxResult.error(HttpStatus.UNAUTHORIZED, "登录已过期，请重新登录");
         }
-        if (currentUserId.equals(userId)) {
+        if (currentUserId.equals(userId) && (peerType == null || SENDER_TYPE.equals(peerType))) {
             return AjaxResult.error("不能给自己发私信");
         }
-        MessageSessionVO vo = messageService.getOrCreateSessionVO(currentUserId, userId);
+        String pt = (peerType == null || peerType.isEmpty()) ? SENDER_TYPE : peerType;
+        MessageSessionVO vo = messageService.getOrCreateSessionVO(currentUserId, SENDER_TYPE, userId, pt);
         return AjaxResult.success(vo);
     }
 }

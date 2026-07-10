@@ -80,6 +80,7 @@ import { Eye } from 'lucide-vue-next';
 import { uploadPortalFile } from '@/api/file';
 import { useToast } from '@/composables/useToast';
 import { usePromptModal } from '@/composables/usePromptModal';
+import { sanitizeHTML } from '@/utils/security';
 
 const toast = useToast();
 const promptModal = usePromptModal();
@@ -112,7 +113,8 @@ const togglePreview = () => {
 
 // 简易 Markdown 渲染（无需引入第三方库，支持常用语法）
 const renderedHtml = computed(() => {
-  return renderMarkdown(content.value || '');
+  // 对预览输出过 sanitize，防止 XSS
+  return sanitizeHTML(renderMarkdown(content.value || ''));
 });
 
 /**

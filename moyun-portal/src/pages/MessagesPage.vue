@@ -9,6 +9,7 @@ import type { Notification, MessageSessionVO, PeerUser } from '@/types/api';
 import * as notificationApi from '@/api/notification';
 import * as messageApi from '@/api/message';
 import { useUserStore } from '@/stores/user';
+import { useMessageStore } from '@/stores/message';
 import { getSafeAvatar } from '@/utils/avatar';
 import { useToast } from '@/composables/useToast';
 import MessageChat from '@/components/MessageChat.vue';
@@ -18,6 +19,7 @@ import { generateSeo } from '@/utils/seo';
 const route = useRoute();
 const router = useRouter();
 const userStore = useUserStore();
+const messageStore = useMessageStore();
 const toast = useToast();
 
 useHead(
@@ -39,7 +41,8 @@ const activeTab = ref<'notification' | 'message'>('notification');
 const notifications = ref<Notification[]>([]);
 const notifLoading = ref(false);
 const notifFilter = ref<string>(''); // 全部为空
-const notifUnreadCount = ref(0);
+// 通知未读数从消息 store 取，与 Navbar 跨组件同步
+const notifUnreadCount = computed(() => messageStore.notifUnreadCount);
 
 const notifFilterOptions = [
     { label: '全部', value: '' },
@@ -112,14 +115,7 @@ async function loadNotifications() {
 }
 
 async function loadNotifUnread() {
-    try {
-        const resp = await notificationApi.getUnreadCount();
-        if (resp.code === 200) {
-            notifUnreadCount.value = resp.data || 0;
-        }
-    } catch {
-        /* ignore */
-    }
+    await messageStore.loadNotifUnread();
 }
 
 async function markNotifRead(n: Notification) {
@@ -128,7 +124,8 @@ async function markNotifRead(n: Notification) {
         const id = String(n.id);
         await notificationApi.markAsRead({ id });
         n.isRead = true;
-        notifUnreadCount.value = Math.max(0, notifUnreadCount.value - 1);
+        // 本地未读数 -1（store 同步给 Navbar）
+        messageStore.decNotifUnread();
     } catch (error) {
         console.error('标记已读失败:', error);
         toast.error('标记已读失败');
@@ -146,7 +143,8 @@ async function markAllNotifRead() {
             unread.map((n) => notificationApi.markAsRead({ id: String(n.id) }).catch(() => null))
         );
         unread.forEach((n) => (n.isRead = true));
-        notifUnreadCount.value = 0;
+        // 清空通知未读数（store 同步给 Navbar）
+        messageStore.clearNotifUnread();
         toast.success('已全部标记为已读');
     } catch (error) {
         console.error('全部已读失败:', error);
@@ -157,10 +155,11 @@ async function markAllNotifRead() {
 // ============ 私信会话相关 ============
 const sessions = ref<MessageSessionVO[]>([]);
 const sessionLoading = ref(false);
-const msgUnreadCount = ref(0);
+// 私信未读数从消息 store 取，与 Navbar 跨组件同步
+const msgUnreadCount = computed(() => messageStore.msgUnreadCount);
 const activeSession = ref<MessageSessionVO | null>(null);
 
-const totalUnread = computed(() => notifUnreadCount.value + msgUnreadCount.value);
+const totalUnread = computed(() => messageStore.totalUnread);
 
 async function loadSessions() {
     sessionLoading.value = true;
@@ -177,14 +176,7 @@ async function loadSessions() {
 }
 
 async function loadMsgUnread() {
-    try {
-        const resp = await messageApi.getUnreadMessageCount();
-        if (resp.code === 200) {
-            msgUnreadCount.value = resp.data || 0;
-        }
-    } catch {
-        /* ignore */
-    }
+    await messageStore.loadMsgUnread();
 }
 
 function openChat(session: MessageSessionVO) {
@@ -284,7 +276,7 @@ watch(isChatMode, (isChat) => {
     <!-- 聊天详情模式 -->
     <template v-if="isChatMode">
       <div class="flex-1 flex flex-col" style="height: calc(100vh - 60px);">
-        <div class="max-w-3xl mx-auto w-full flex-1 flex flex-col">
+        <div class="max-w-4xl mx-auto w-full flex-1 flex flex-col">
           <MessageChat
             :session-id="chatSessionId"
             :peer-user="activeSession ? sessionPeer(activeSession) : null"

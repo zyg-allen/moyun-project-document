@@ -9,11 +9,22 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import com.moyun.ext.cms.service.IFeedService;
 import com.moyun.portal.domain.entity.PortalArticle;
+import com.moyun.portal.domain.entity.PortalArticleVersion;
+import com.moyun.portal.domain.entity.PortalBookmark;
+import com.moyun.portal.domain.entity.PortalComment;
+import com.moyun.portal.domain.entity.PortalLike;
+import com.moyun.portal.domain.entity.PortalTipOrder;
 import com.moyun.portal.domain.query.ArticleQuery;
 import com.moyun.portal.mapper.PortalArticleMapper;
+import com.moyun.portal.mapper.PortalArticleVersionMapper;
+import com.moyun.portal.mapper.PortalBookmarkMapper;
+import com.moyun.portal.mapper.PortalCommentMapper;
+import com.moyun.portal.mapper.PortalLikeMapper;
+import com.moyun.portal.mapper.PortalTipOrderMapper;
 import com.moyun.portal.mapper.PortalUserStatsMapper;
 import com.moyun.portal.service.IPortalArticleService;
 import com.moyun.portal.service.IPortalArticleVersionService;
@@ -47,6 +58,22 @@ public class PortalArticleServiceImpl extends ServiceImpl<PortalArticleMapper, P
 
     @Autowired
     private IPortalArticleVersionService articleVersionService;
+
+    // 以下 Mapper 用于删除文章时级联清理关联数据（评论/点赞/收藏/版本/打赏订单）
+    @Autowired
+    private PortalCommentMapper portalCommentMapper;
+
+    @Autowired
+    private PortalLikeMapper portalLikeMapper;
+
+    @Autowired
+    private PortalBookmarkMapper portalBookmarkMapper;
+
+    @Autowired
+    private PortalArticleVersionMapper portalArticleVersionMapper;
+
+    @Autowired
+    private PortalTipOrderMapper portalTipOrderMapper;
 
     /**
      * 根据条件分页查询文章列表
@@ -131,7 +158,12 @@ public class PortalArticleServiceImpl extends ServiceImpl<PortalArticleMapper, P
      * @return 结果
      */
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public int updatePortalArticle(PortalArticle portalArticle) {
+        // 归属校验：当 id 非空时（更新场景），校验当前用户为文章作者，防止越权修改他人文章
+        if (portalArticle.getId() != null) {
+            checkOwnership(portalArticle.getId(), PortalSecurityUtils.getUserId());
+        }
         // 自动处理Base64图片
         processArticleImages(portalArticle);
         // 切换分类或新建分类时同步维护 category_path 与 root_category_id
@@ -149,6 +181,7 @@ public class PortalArticleServiceImpl extends ServiceImpl<PortalArticleMapper, P
      * @return 结果
      */
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public int publishArticle(PortalArticle portalArticle) {
         // 自动处理Base64图片
         processArticleImages(portalArticle);
@@ -174,8 +207,39 @@ public class PortalArticleServiceImpl extends ServiceImpl<PortalArticleMapper, P
         if (portalArticle.getPrice() == null) {
             portalArticle.setPrice(java.math.BigDecimal.ZERO);
         }
+        // 幂等去重：有 id 走更新；无 id 但有 sessionToken 时按 token 查找已有记录
+        // 保证一次编辑会话只产生一条文章记录（草稿→发布沿用同一条）
+        if (portalArticle.getId() == null && portalArticle.getSessionToken() != null
+                && !portalArticle.getSessionToken().isBlank()) {
+            PortalArticle existing = baseMapper.selectOne(new LambdaQueryWrapper<PortalArticle>()
+                    .eq(PortalArticle::getSessionToken, portalArticle.getSessionToken())
+                    .eq(PortalArticle::getAuthorId, portalArticle.getAuthorId())
+                    .last("LIMIT 1"));
+            if (existing != null) {
+                portalArticle.setId(existing.getId());
+            }
+        }
+
+        // 归属校验：当 id 非空时（草稿转发布走更新路径），校验当前用户为文章作者，
+        // 防止越权发布/覆盖他人文章（sessionToken 解析出的 id 已按 authorId 过滤，此处为二次兜底）
+        if (portalArticle.getId() != null) {
+            checkOwnership(portalArticle.getId(), PortalSecurityUtils.getUserId());
+        }
+
         // 有 id 时走更新（草稿发布），无 id 时新建
         boolean isNew = portalArticle.getId() == null;
+        // 是否为首次发布（草稿→待审核）。更新场景下需查询原状态：
+        // 仅当原状态为 draft 且从未发布过（published_at 为空）时，才视为首次发布，
+        // 触发成长事件/Feed。updatePortalArticle 采用 NOT_NULL 策略，publishedAt 在草稿
+        // 阶段不会被清空，因此 publishedAt==null 可靠地表示"从未发布过"，
+        // 避免：草稿转发布已触发成长事件 → 被拒 → 重新编辑再发布时重复触发。
+        boolean isFirstPublish = isNew;
+        if (!isNew) {
+            PortalArticle before = baseMapper.selectPortalArticleById(portalArticle.getId());
+            if (before != null && "draft".equals(before.getStatus()) && before.getPublishedAt() == null) {
+                isFirstPublish = true;
+            }
+        }
         int rows;
         if (isNew) {
             rows = baseMapper.insertPortalArticle(portalArticle);
@@ -183,8 +247,8 @@ public class PortalArticleServiceImpl extends ServiceImpl<PortalArticleMapper, P
             rows = baseMapper.updatePortalArticle(portalArticle);
         }
 
-        // 记录成长事件 + 更新创作字数统计（仅首次发布时触发，避免重复加成长值）
-        if (rows > 0 && isNew && portalArticle.getAuthorId() != null) {
+        // 记录成长事件 + 更新创作字数统计（首次发布时触发，避免重复加成长值）
+        if (rows > 0 && isFirstPublish && portalArticle.getAuthorId() != null) {
             // 统计创作字数（按内容字符数粗略计算）
             long wordCount = 0;
             if (portalArticle.getContent() != null) {
@@ -227,7 +291,7 @@ public class PortalArticleServiceImpl extends ServiceImpl<PortalArticleMapper, P
      * @return 入库后的文章实体（含 id、createTime、updateTime）
      */
     @Override
-    @org.springframework.transaction.annotation.Transactional(rollbackFor = Exception.class)
+    @Transactional(rollbackFor = Exception.class)
     public PortalArticle saveDraft(PortalArticle portalArticle) {
         // 自动处理Base64图片
         processArticleImages(portalArticle);
@@ -248,25 +312,32 @@ public class PortalArticleServiceImpl extends ServiceImpl<PortalArticleMapper, P
             portalArticle.setPrice(java.math.BigDecimal.ZERO);
         }
 
-        if (portalArticle.getId() == null) {
-            // 新建草稿前检查：同一作者是否已有同标题的草稿，有则复用（避免重复创建）
-            if (portalArticle.getAuthorId() != null && portalArticle.getTitle() != null && !portalArticle.getTitle().isBlank()) {
-                PortalArticle existing = baseMapper.selectOne(new LambdaQueryWrapper<PortalArticle>()
-                        .eq(PortalArticle::getAuthorId, portalArticle.getAuthorId())
-                        .eq(PortalArticle::getTitle, portalArticle.getTitle())
-                        .eq(PortalArticle::getStatus, "draft")
-                        .last("LIMIT 1"));
-                if (existing != null) {
-                    portalArticle.setId(existing.getId());
-                    baseMapper.updatePortalArticle(portalArticle);
-                } else {
-                    baseMapper.insertPortalArticle(portalArticle);
-                }
-            } else {
-                baseMapper.insertPortalArticle(portalArticle);
+        // 幂等去重：优先按 id 更新，无 id 时按 sessionToken 查找已有记录
+        // 保证一次编辑会话只产生一条文章记录
+        if (portalArticle.getId() == null && portalArticle.getSessionToken() != null
+                && !portalArticle.getSessionToken().isBlank()) {
+            // 双重保障：按 sessionToken 查找同会话已有记录
+            PortalArticle existing = baseMapper.selectOne(new LambdaQueryWrapper<PortalArticle>()
+                    .eq(PortalArticle::getSessionToken, portalArticle.getSessionToken())
+                    .eq(PortalArticle::getAuthorId, portalArticle.getAuthorId())
+                    .last("LIMIT 1"));
+            if (existing != null) {
+                portalArticle.setId(existing.getId());
             }
+        }
+
+        // 归属校验：当 id 非空时（更新已有草稿），校验当前用户为文章作者，
+        // 防止越权覆盖他人草稿（sessionToken 解析出的 id 已按 authorId 过滤，此处为二次兜底）
+        if (portalArticle.getId() != null) {
+            checkOwnership(portalArticle.getId(), PortalSecurityUtils.getUserId());
+        }
+
+        if (portalArticle.getId() == null) {
+            // 新建草稿
+            baseMapper.insertPortalArticle(portalArticle);
         } else {
-            // 更新已有草稿
+            // 更新已有记录（保持草稿状态不被覆盖）
+            // 注意：不限制原状态，允许 draft→draft、pending→draft（打回重编）等场景
             baseMapper.updatePortalArticle(portalArticle);
         }
         // 重新查询返回完整实体（含 createTime / updateTime 等数据库默认值）
@@ -473,7 +544,12 @@ public class PortalArticleServiceImpl extends ServiceImpl<PortalArticleMapper, P
      * @return 结果
      */
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public int deletePortalArticleById(Long id) {
+        // 归属校验：仅作者本人可删除自己的文章，防止越权删除他人文章
+        checkOwnership(id, PortalSecurityUtils.getUserId());
+        // 级联清理关联数据（评论/点赞/收藏/版本/打赏订单），避免脏数据
+        cascadeDeleteByArticleId(id);
         return baseMapper.deletePortalArticleById(id);
     }
 
@@ -484,7 +560,66 @@ public class PortalArticleServiceImpl extends ServiceImpl<PortalArticleMapper, P
      * @return 结果
      */
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public int deletePortalArticleByIds(Long[] ids) {
+        if (ids == null || ids.length == 0) {
+            return 0;
+        }
+        // 逐条校验归属：仅作者本人可删除自己的文章，防止越权删除他人文章
+        Long currentUserId = PortalSecurityUtils.getUserId();
+        for (Long id : ids) {
+            checkOwnership(id, currentUserId);
+        }
+        // 逐条级联清理关联数据（评论/点赞/收藏/版本/打赏订单），避免脏数据
+        for (Long id : ids) {
+            cascadeDeleteByArticleId(id);
+        }
         return baseMapper.deletePortalArticleByIds(ids);
+    }
+
+    /**
+     * 文章归属校验：校验文章存在且 authorId 与当前用户一致
+     * 用于 update/publish/saveDraft/delete 等写操作前的越权防护
+     *
+     * @param articleId    文章ID
+     * @param currentUserId 当前登录用户ID
+     * @throws RuntimeException 文章不存在或无权操作他人文章时抛出
+     */
+    private void checkOwnership(Long articleId, Long currentUserId) {
+        if (articleId == null) {
+            throw new RuntimeException("文章ID不能为空");
+        }
+        PortalArticle existing = baseMapper.selectPortalArticleById(articleId);
+        if (existing == null) {
+            throw new RuntimeException("文章不存在");
+        }
+        if (currentUserId == null || !existing.getAuthorId().equals(currentUserId)) {
+            throw new RuntimeException("无权操作他人文章");
+        }
+    }
+
+    /**
+     * 级联清理文章关联数据（评论/点赞/收藏/版本/打赏订单）
+     * 在删除主表文章记录前调用，避免出现脏数据。使用 LambdaQueryWrapper 批量条件删除。
+     *
+     * @param articleId 文章ID
+     */
+    private void cascadeDeleteByArticleId(Long articleId) {
+        // 删除关联评论
+        portalCommentMapper.delete(new LambdaQueryWrapper<PortalComment>()
+                .eq(PortalComment::getArticleId, articleId));
+        // 删除关联点赞
+        portalLikeMapper.delete(new LambdaQueryWrapper<PortalLike>()
+                .eq(PortalLike::getArticleId, articleId));
+        // 删除关联收藏
+        portalBookmarkMapper.delete(new LambdaQueryWrapper<PortalBookmark>()
+                .eq(PortalBookmark::getArticleId, articleId));
+        // 删除关联版本
+        portalArticleVersionMapper.delete(new LambdaQueryWrapper<PortalArticleVersion>()
+                .eq(PortalArticleVersion::getArticleId, articleId));
+        // 删除关联打赏订单（article 与 article_paid 两种 targetType）
+        portalTipOrderMapper.delete(new LambdaQueryWrapper<PortalTipOrder>()
+                .eq(PortalTipOrder::getTargetId, articleId)
+                .in(PortalTipOrder::getTargetType, "article", "article_paid"));
     }
 }

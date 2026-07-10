@@ -17,7 +17,7 @@ import {
 } from '@/api/tag';
 import { getCategoryTree } from '@/api/category';
 import { publishArticle, saveDraft as saveDraftApi, getArticleDetail } from '@/api/article';
-import { uploadPortalFile } from '@/api/file';
+import { uploadPortalFile, deletePortalFile } from '@/api/file';
 import { getTodayPrompt } from '@/api/prompt';
 import type { WritingPromptVO } from '@/api/prompt';
 import {
@@ -143,6 +143,19 @@ const showPermissionSettings = ref(false);
 // 草稿ID（保存后记录，后续保存为更新）
 const draftId = ref<string | number | null>(null);
 
+// 编辑会话标识（一次编辑会话唯一，草稿/发布共用同一 token，后端按 token 幂等去重）
+// 双重保障：1) 保存后回填 draftId 走更新；2) sessionToken 兜底，即使 draftId 丢失也只更新不新建
+const generateSessionToken = () => {
+  try {
+    if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+      return crypto.randomUUID();
+    }
+  } catch (e) { /* ignore */ }
+  // 降级：时间戳 + 随机数
+  return `sess-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+};
+const sessionToken = ref<string>(generateSessionToken());
+
 // ============ 版本历史 ============
 // 抽屉显隐
 const showVersionDrawer = ref(false);
@@ -212,12 +225,8 @@ onMounted(async () => {
     await loadArticleForEdit(editId);
   }
 
-  // 启动草稿自动保存（30秒一次，仅当用户有输入时；只读模式下不自动保存）
-  autoSaveTimer = setInterval(() => {
-    if (!isReadOnly.value && (title.value.trim() || content.value.trim())) {
-      saveDraft(true);
-    }
-  }, 30000);
+  // 注：已移除草稿自动保存。为避免用户中途放弃时产生难以清理的脏数据，
+  // 草稿仅在用户手动点击「保存草稿」或「发布」时才入库。
 });
 
 // 加载已有文章用于编辑
@@ -233,6 +242,10 @@ async function loadArticleForEdit(id: string) {
       tags.value = article.tagNames || article.tags || [];
       draftId.value = article.id ? Number(article.id) : null;
       articleStatus.value = article.status || 'draft';
+      // 回填会话标识：编辑已有文章时沿用其 sessionToken，保证后续保存/发布只更新不新建
+      if (article.sessionToken) {
+        sessionToken.value = article.sessionToken;
+      }
 
       // 回填分类
       if (article.categoryId) {
@@ -360,9 +373,6 @@ async function createAndAddTag(tagName: string) {
 // 标签推荐的防抖计时器（避免每输入一个字符就发请求）
 let tagSuggestionTimer: ReturnType<typeof setTimeout> | null = null;
 
-// 草稿自动保存计时器（30秒自动保存一次）
-let autoSaveTimer: ReturnType<typeof setInterval> | null = null;
-
 function scheduleTagSuggestions() {
   // 提高触发门槛：标题至少 5 字符，或已选择分类
   if (title.value.trim().length < 5 && !selectedParentCategory.value) {
@@ -386,10 +396,6 @@ onUnmounted(() => {
   if (tagSuggestionTimer) {
     clearTimeout(tagSuggestionTimer);
     tagSuggestionTimer = null;
-  }
-  if (autoSaveTimer) {
-    clearInterval(autoSaveTimer);
-    autoSaveTimer = null;
   }
 });
 
@@ -443,6 +449,7 @@ async function saveDraft(isAuto = false) {
   try {
     const response = await saveDraftApi({
       id: draftId.value != null ? String(draftId.value) : undefined,
+      sessionToken: sessionToken.value,
       title: title.value,
       content: content.value,
       contentMarkdown: editorMode.value === 'markdown' ? content.value : undefined,
@@ -533,6 +540,7 @@ async function handlePublish() {
 
     const response = await publishArticle({
       id: draftId.value != null ? String(draftId.value) : undefined,
+      sessionToken: sessionToken.value,
       title: title.value,
       content: finalContent,
       contentMarkdown: editorMode.value === 'markdown' ? content.value : undefined,
@@ -802,6 +810,23 @@ function handleDrop(event: DragEvent) {
   }
 }
 
+// 删除封面：二次确认后调后端清理（仅 http URL 入库过需删；Base64 未入库直接清空）
+async function removeCover() {
+  if (!coverImage.value) return;
+  const ok = window.confirm('删除后将永久清除该封面的存储与记录，且无法恢复，是否确认？');
+  if (!ok) return;
+  const oldCover = coverImage.value;
+  coverImage.value = '';
+  if (/^https?:\/\//.test(oldCover)) {
+    try {
+      await deletePortalFile(oldCover);
+    } catch (e) {
+      toast.error('文件记录清理失败，请稍后在文件管理中处理');
+      console.warn('封面清理失败：', e);
+    }
+  }
+}
+
 async function handleFile(file: File) {
   // 检查文件类型（仅允许常见图片格式）
   const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
@@ -816,30 +841,44 @@ async function handleFile(file: File) {
     return;
   }
 
-  // 先显示本地预览
-  const reader = new FileReader();
-  reader.onload = (e) => {
-    if (e.target?.result) {
-      coverImage.value = e.target?.result as string;
-    }
-  };
-  reader.readAsDataURL(file);
+  // 替换场景（封面已有 http URL）：先记录旧封面，新封面上传成功后再删旧，
+  // 上传失败则恢复旧封面，保证不丢失。Base64/blob 预览未入库无需删。
+  // 与「删除按钮」区分：删除按钮直接删；替换按钮先传新再删旧，兼容"不丢失"诉求。
+  const oldCover = coverImage.value && /^https?:\/\//.test(coverImage.value)
+    ? coverImage.value
+    : null;
 
-  // 同时上传到文件服务
+  // 本地预览（同步 API，避免 FileReader 异步回调与上传结果产生的时序竞争）
+  const objectUrl = URL.createObjectURL(file);
+  coverImage.value = objectUrl;
+
+  // 上传到文件服务
   isUploadingCover.value = true;
   try {
     const response = await uploadPortalFile(file, 'article_cover');
     if (response.code === 200 && response.data) {
       // 上传成功，替换为服务器URL
       coverImage.value = (response.data as any).fileUrl || coverImage.value;
-      console.log('封面上传成功:', response.data);
+      // 新封面上传成功后，删除旧封面（DB+存储），失败仅警告不影响新封面
+      if (oldCover) {
+        try {
+          await deletePortalFile(oldCover);
+        } catch (e) {
+          console.warn('旧封面清理失败：', e);
+        }
+      }
     } else {
+      // 上传失败：恢复旧封面（替换语义——不丢失原封面），用户可重试或改用「删除」
+      coverImage.value = oldCover || '';
       toast.error('封面上传失败，请重试');
     }
   } catch (error) {
     console.error('封面上传失败:', error);
+    coverImage.value = oldCover || '';
     toast.error('封面上传失败，请重试');
   } finally {
+    // 释放本地预览 blob URL（成功时已被 fileUrl 覆盖，失败时已恢复为 oldCover）
+    URL.revokeObjectURL(objectUrl);
     isUploadingCover.value = false;
   }
 }
@@ -892,7 +931,7 @@ const readOnlyReason = computed(() => {
 
           <!-- 右侧操作按钮 -->
           <div class="flex items-center gap-3">
-            <!-- 自动保存提示 -->
+            <!-- 保存提示（手动保存后显示最近保存时间） -->
             <div v-if="lastSaved" class="hidden sm:flex items-center gap-1.5 text-xs" style="color: var(--theme-text-secondary);">
               <Check class="w-3.5 h-3.5 text-green-500" />
               <span>已保存于 {{ lastSaved }}</span>
@@ -1046,12 +1085,23 @@ const readOnlyReason = computed(() => {
                     <span class="text-white text-sm">上传中...</span>
                   </div>
                 </div>
-                <button v-else-if="!isReadOnly"
-                    @click="coverImage = ''"
-                    class="absolute top-2 right-2 w-8 h-8 bg-black/50 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                <!-- 封面操作：替换（先传新再删旧）+ 删除（直接删） -->
+                <div v-else-if="!isReadOnly"
+                    class="absolute top-2 right-2 flex gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity"
                 >
-                  <X class="w-4 h-4" />
-                </button>
+                  <button type="button" @click="triggerFileUpload"
+                      class="w-8 h-8 bg-black/50 text-white rounded-full flex items-center justify-center hover:bg-black/70"
+                      title="替换封面（上传新封面成功后删除旧封面）"
+                  >
+                    <RotateCcw class="w-4 h-4" />
+                  </button>
+                  <button type="button" @click="removeCover"
+                      class="w-8 h-8 bg-black/50 text-white rounded-full flex items-center justify-center hover:bg-red-600/80"
+                      title="删除封面"
+                  >
+                    <X class="w-4 h-4" />
+                  </button>
+                </div>
               </div>
               <div v-else
                    class="w-full py-8 sm:py-10 flex flex-col items-center justify-center"

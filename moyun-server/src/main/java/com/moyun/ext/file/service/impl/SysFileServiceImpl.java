@@ -4,6 +4,7 @@ package com.moyun.ext.file.service.impl;
 import cn.hutool.crypto.digest.DigestUtil;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.moyun.common.exception.system.ServiceException;
 import com.moyun.common.config.MinioConfig;
 import com.moyun.common.config.RuoYiConfig;
 import com.moyun.core.config.ServerConfig;
@@ -25,11 +26,30 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 @Slf4j
 @Service
 public class SysFileServiceImpl implements ISysFileService {
+
+    /**
+     * 允许上传的文件扩展名白名单（小写）
+     * <p>
+     * 安全策略：uploadFile 在写入存储前先校验扩展名是否在此集合内，
+     * 不在白名单的扩展名（如 .exe / .sh / .jsp / .php 等）直接拒绝，规避可执行文件上传与 webshell 风险。
+     * </p>
+     */
+    private static final Set<String> ALLOWED_EXTENSIONS = Set.of(
+            // 图片
+            "jpg", "jpeg", "png", "gif", "webp", "bmp",
+            // 文档
+            "pdf", "doc", "docx", "xls", "xlsx", "ppt", "pptx", "txt",
+            // 音视频
+            "mp4", "mp3", "wav",
+            // 压缩
+            "zip", "rar"
+    );
 
     @Autowired
     private SysFileMapper sysFileMapper;
@@ -78,6 +98,12 @@ public class SysFileServiceImpl implements ISysFileService {
         try {
             String fileName = file.getOriginalFilename();
             String fileExt = getFileExt(fileName);
+
+            // 文件类型白名单校验：不在白名单内的扩展名直接拒绝，防止上传可执行文件 / webshell
+            if (fileExt == null || fileExt.isEmpty() || !ALLOWED_EXTENSIONS.contains(fileExt)) {
+                throw new ServiceException("不支持的文件类型");
+            }
+
             String fileType = getFileType(fileExt);
             byte[] fileBytes = file.getBytes();
             String fileMd5 = DigestUtil.md5Hex(fileBytes);
@@ -262,6 +288,48 @@ public class SysFileServiceImpl implements ISysFileService {
         } catch (Exception e) {
             throw new RuntimeException("删除文件失败", e);
         }
+    }
+
+    /**
+     * 按 fileUrl 删除文件（存储 + DB 记录）。
+     * 兼容前端组件只持有访问 URL 的场景：上传后组件存的是 url，删除时只有 url 可用。
+     * 校验逻辑：expectUploadUserId 非空时，必须与记录 uploadUserId 一致，防止越权删他人文件。
+     * 未找到记录返回 false（不抛异常），便于前端幂等调用（重复删除静默成功）。
+     */
+    @Override
+    @Transactional
+    public boolean deleteFileByUrl(String fileUrl, Long expectUploadUserId) {
+        if (fileUrl == null || fileUrl.trim().isEmpty()) {
+            return false;
+        }
+        SysFile file = sysFileMapper.selectOne(new LambdaQueryWrapper<SysFile>()
+                .eq(SysFile::getFileUrl, fileUrl)
+                .last("LIMIT 1"));
+        if (file == null) {
+            // 兼容：前端传相对路径时尝试 strip 域名再查
+            String stripped = fileUrl;
+            int idx = stripped.indexOf("://");
+            if (idx > 0) {
+                int slash = stripped.indexOf("/", idx + 3);
+                if (slash > 0) {
+                    stripped = stripped.substring(slash);
+                }
+            }
+            if (!stripped.equals(fileUrl)) {
+                file = sysFileMapper.selectOne(new LambdaQueryWrapper<SysFile>()
+                        .eq(SysFile::getFileUrl, stripped)
+                        .last("LIMIT 1"));
+            }
+        }
+        if (file == null) {
+            return false;
+        }
+        if (expectUploadUserId != null && file.getUploadUserId() != null
+                && !expectUploadUserId.equals(file.getUploadUserId())) {
+            throw new RuntimeException("无权删除：文件不属于当前用户");
+        }
+        deleteFileFromStorage(file);
+        return sysFileMapper.deleteById(file.getId()) > 0;
     }
 
     private LambdaQueryWrapper<SysFile> buildQueryWrapper(SysFile query) {

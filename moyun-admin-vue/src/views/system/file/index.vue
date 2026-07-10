@@ -108,7 +108,7 @@
 </template>
 
 <script>
-import { listFile, getFile, delFile, delFiles, uploadFile } from '@/api/system/file'
+import { listFile, getFile, delFilesByUrl, uploadFile } from '@/api/system/file'
 
 export default {
   name: 'File',
@@ -118,6 +118,8 @@ export default {
       loading: true,
       // 选中数组
       ids: [],
+      // 选中的完整行数据（用于按 URL 删除时取 fileUrl）
+      selectedRows: [],
       // 非单个禁用
       single: true,
       // 非多个禁用
@@ -218,6 +220,7 @@ export default {
     },
     // 多选框选中数据
     handleSelectionChange(selection) {
+      this.selectedRows = selection
       this.ids = selection.map(item => item.id)
       this.single = selection.length !== 1
       this.multiple = !selection.length
@@ -250,13 +253,30 @@ export default {
       }
     },
     /** 删除按钮操作 */
+    // 统一走按 URL 删除（与各附件组件删除/替换路径一致，后端按 fileUrl 查记录→删存储→删DB）
+    // 单行：row.id 存在时取 row.fileUrl；批量：从已选行 this.selectedRows 提取 fileUrl
     handleDelete(row) {
-      const fileIds = row.id ? [row.id] : this.ids
-      this.$modal.confirm('是否确认删除文件编号为"' + fileIds.join(',') + '"的数据项？').then(function() {
-        return delFiles(fileIds.join(','))
-      }).then(() => {
+      const isSingle = row && row.id
+      const rows = isSingle ? [row] : this.selectedRows
+      const fileUrls = rows.map(r => r.fileUrl).filter(Boolean)
+      if (!fileUrls.length) {
+        this.$modal.msgWarning('未选择可删除的文件')
+        return
+      }
+      const tip = isSingle
+        ? '是否确认删除该文件？删除后将同时清除存储与记录，且无法恢复。'
+        : '是否确认删除选中的 ' + fileUrls.length + ' 个文件？删除后将同时清除存储与记录，且无法恢复。'
+      this.$modal.confirm(tip).then(function() {
+        return delFilesByUrl(fileUrls)
+      }).then(results => {
+        // 统计失败项（部分失败不阻断已成功项，提示用户重试失败的）
+        const failed = Array.isArray(results) ? results.filter(r => !r.ok) : []
         this.getList()
-        this.$modal.msgSuccess('删除成功')
+        if (failed.length > 0) {
+          this.$modal.msgWarning('删除完成，其中 ' + failed.length + ' 个文件清理失败，请稍后重试')
+        } else {
+          this.$modal.msgSuccess('删除成功')
+        }
       }).catch(() => {})
     }
   }

@@ -34,8 +34,14 @@ public class PortalMessageSession extends BaseEntity {
     /** 用户A（较小ID） */
     private Long userA;
 
+    /** A方用户类型 portal/sys */
+    private String userAType;
+
     /** 用户B（较大ID） */
     private Long userB;
+
+    /** B方用户类型 portal/sys */
+    private String userBType;
 
     /** 最后一条消息ID */
     private Long lastMessageId;

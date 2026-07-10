@@ -11,6 +11,7 @@ import com.moyun.portal.domain.entity.PortalUser;
 import com.moyun.portal.domain.query.UserQuery;
 import com.moyun.portal.mapper.PortalUserMapper;
 import com.moyun.portal.service.IPortalUserService;
+import com.moyun.util.security.SecurityUtils;
 import com.moyun.util.string.StringUtils;
 
 /**
@@ -116,6 +117,8 @@ public class PortalUserServiceImpl extends ServiceImpl<PortalUserMapper, PortalU
      */
     @Override
     public int insertPortalUser(PortalUser portalUser) {
+        // 防御性加密：确保密码不会以明文形式落库（已加密则跳过，避免双重加密）
+        ensurePasswordEncoded(portalUser);
         return portalUserMapper.insertPortalUser(portalUser);
     }
 
@@ -127,6 +130,8 @@ public class PortalUserServiceImpl extends ServiceImpl<PortalUserMapper, PortalU
      */
     @Override
     public boolean registerPortalUser(PortalUser portalUser) {
+        // 防御性加密：Controller 已加密，此处兜底防止其他调用方未加密
+        ensurePasswordEncoded(portalUser);
         return portalUserMapper.insertPortalUser(portalUser) > 0;
     }
 
@@ -138,6 +143,8 @@ public class PortalUserServiceImpl extends ServiceImpl<PortalUserMapper, PortalU
      */
     @Override
     public int updatePortalUser(PortalUser portalUser) {
+        // 防御性加密：若调用方在 update 时携带了明文密码，需先加密再写库
+        ensurePasswordEncoded(portalUser);
         return portalUserMapper.updatePortalUser(portalUser);
     }
 
@@ -161,6 +168,8 @@ public class PortalUserServiceImpl extends ServiceImpl<PortalUserMapper, PortalU
      */
     @Override
     public int resetPortalUserPwd(PortalUser portalUser) {
+        // 防御性加密：重置密码场景，确保新密码已 BCrypt 加密
+        ensurePasswordEncoded(portalUser);
         return portalUserMapper.updatePortalUser(portalUser);
     }
 
@@ -173,7 +182,9 @@ public class PortalUserServiceImpl extends ServiceImpl<PortalUserMapper, PortalU
      */
     @Override
     public int resetPortalUserPwd(String username, String password) {
-        return portalUserMapper.resetPortalUserPwd(username, password);
+        // 防御性加密：若调用方传入明文密码，需先加密；已加密则跳过，避免双重加密
+        String encoded = encodeIfRaw(password);
+        return portalUserMapper.resetPortalUserPwd(username, encoded);
     }
 
     /**
@@ -208,5 +219,53 @@ public class PortalUserServiceImpl extends ServiceImpl<PortalUserMapper, PortalU
         if (user != null) {
             user.setPassword(null);
         }
+    }
+
+    /**
+     * 防御性加密：仅在密码非空且尚未 BCrypt 加密时执行加密
+     * <p>
+     * BCrypt 哈希特征：以 "$2a$" / "$2b$" / "$2y$" 开头，长度 60。
+     * 调用方（如 PortalLoginController.register）可能已加密，此处只对明文兜底，避免双重加密导致登录失败。
+     * </p>
+     *
+     * @param portalUser 用户信息
+     */
+    private void ensurePasswordEncoded(PortalUser portalUser) {
+        if (portalUser == null) {
+            return;
+        }
+        String pwd = portalUser.getPassword();
+        if (pwd == null || pwd.isEmpty()) {
+            return;
+        }
+        portalUser.setPassword(encodeIfRaw(pwd));
+    }
+
+    /**
+     * 若传入的是明文密码则做 BCrypt 加密；已是 BCrypt 哈希则原样返回
+     *
+     * @param password 待判定的密码字符串
+     * @return 已加密后的密码
+     */
+    private String encodeIfRaw(String password) {
+        if (password == null || password.isEmpty()) {
+            return password;
+        }
+        if (isBcryptEncoded(password)) {
+            return password;
+        }
+        return SecurityUtils.encryptPassword(password);
+    }
+
+    /**
+     * 判断字符串是否已是 BCrypt 哈希（$2a$ / $2b$ / $2y$ 开头，长度 60）
+     *
+     * @param password 密码字符串
+     * @return true 表示已是 BCrypt 哈希
+     */
+    private boolean isBcryptEncoded(String password) {
+        return password != null
+                && password.length() == 60
+                && (password.startsWith("$2a$") || password.startsWith("$2b$") || password.startsWith("$2y$"));
     }
 }

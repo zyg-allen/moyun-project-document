@@ -22,6 +22,10 @@
           <size-select id="size-select" class="right-menu-item hover-effect" />
         </el-tooltip>
       </template>
+
+      <!-- 私信中心铃铛：未读徽章 + 下拉预览，点击进入私信中心 -->
+      <message-bell class="right-menu-item hover-effect" />
+
       <div class="avatar-container">
         <el-dropdown @command="handleCommand" class="right-menu-item hover-effect" trigger="click">
           <div class="avatar-wrapper">
@@ -57,6 +61,7 @@ import SizeSelect from '@/components/SizeSelect'
 import HeaderSearch from '@/components/HeaderSearch'
 import RuoYiGit from '@/components/RuoYi/Git'
 import RuoYiDoc from '@/components/RuoYi/Doc'
+import MessageBell from '@/components/MessageBell'
 import useAppStore from '@/store/modules/app'
 import useUserStore from '@/store/modules/user'
 import useSettingsStore from '@/store/modules/settings'
@@ -89,6 +94,9 @@ function logout() {
     type: 'warning'
   }).then(() => {
     userStore.logOut().then(() => {
+      location.href = '/index';
+    }).catch(() => {
+      // 登出接口失败仍跳转登录页，避免用户卡在原页且 MessageBell 轮询持续触发 401 弹窗
       location.href = '/index';
     })
   }).catch(() => { });

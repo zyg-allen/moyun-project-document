@@ -2,6 +2,7 @@
 import { marked } from 'marked'
 import { computed } from 'vue'
 import type { EditorMode } from '@/types'
+import { sanitizeHTML } from '@/utils/security'
 
 interface Props {
   content: string
@@ -24,10 +25,11 @@ marked.setOptions({
 const renderContent = computed(() => {
   // 如果是 Markdown 模式且有 Markdown 内容，优先渲染 Markdown
   if (props.editorMode === 'markdown' && props.contentMarkdown) {
-    return marked.parse(props.contentMarkdown) as string
+    // 对 marked.parse 输出过 sanitize，防止 XSS
+    return sanitizeHTML(marked.parse(props.contentMarkdown) as string)
   }
-  // 否则使用 HTML 内容
-  return props.content
+  // 否则使用 HTML 内容，对原始 HTML 也过 sanitize
+  return sanitizeHTML(props.content)
 })
 </script>
 

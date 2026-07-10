@@ -1,0 +1,219 @@
+# =============================================================================
+# 墨韵后端生产环境配置模板（application-prod.yaml.example）
+# -----------------------------------------------------------------------------
+# 使用说明：
+# 1. 复制本文件为 application-prod.yaml：cp application-prod.yaml.example application-prod.yaml
+# 2. 通过环境变量或外部配置注入实际凭据，切勿在文件中直接写入明文密钥
+# 3. 启动时指定 profile：--spring.profiles.active=prod
+# 4. 所有 ${ENV_VAR} 占位符均为必填项，未设置时应用将 fail-fast 拒绝启动
+# =============================================================================
+
+server:
+  port: ${SERVER_PORT:8080}
+
+spring:
+  # =============================================
+  # MySQL 数据源配置（生产环境必填）
+  # - MYSQL_URL：完整 JDBC 连接串，建议开启 useSSL=true
+  # - MYSQL_USERNAME / MYSQL_PASSWORD：数据库账号，建议使用最小权限账号
+  # =============================================
+  datasource:
+    type: com.alibaba.druid.pool.DruidDataSource
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: ${MYSQL_URL}
+    username: ${MYSQL_USERNAME}
+    password: ${MYSQL_PASSWORD}
+    druid:
+      # 连接池基础配置（生产环境建议根据实际负载调整）
+      initial-size: 10
+      min-idle: 10
+      max-active: 50
+      max-wait: 60000
+      connect-timeout: 30000
+      socket-timeout: 60000
+      # 连接检测
+      time-between-eviction-runs-millis: 60000
+      min-evictable-idle-time-millis: 300000
+      max-evictable-idle-time-millis: 900000
+      validation-query: SELECT 1
+      test-while-idle: true
+      test-on-borrow: false
+      test-on-return: false
+      pool-prepared-statements: true
+      # 监控统计
+      filters: stat,wall,slf4j
+      filter:
+        stat:
+          merge-sql: true
+          slow-sql-millis: 3000
+          log-slow-sql: true
+        wall:
+          config:
+            multi-statement-allow: false
+      # Druid Web 监控页：生产环境建议关闭（enabled=false）或必须修改默认凭据
+      web-stat-filter:
+        enabled: true
+        url-pattern: /*
+        exclusions: "*.js,*.gif,*.jpg,*.png,*.css,*.ico,/druid/*"
+      stat-view-servlet:
+        enabled: true
+        url-pattern: /druid/*
+        reset-enable: false
+        # 生产环境必须设置强密码，且通过 SecurityConfig 限制为 ADMIN 角色访问
+        login-username: ${DRUID_USERNAME}
+        login-password: ${DRUID_PASSWORD}
+        # 生产环境建议限定可访问 IP，例如：allow: 10.0.0.0/24
+        allow: ${DRUID_ALLOW_IP:}
+        deny: ""
+      aop-patterns: com.moyun.system.service.*
+
+  # =============================================
+  # Redis 配置（生产环境必填）
+  # - REDIS_HOST / REDIS_PORT：Redis 实例地址
+  # - REDIS_PASSWORD：生产环境必须设置强密码
+  # =============================================
+  data:
+    redis:
+      host: ${REDIS_HOST}
+      port: ${REDIS_PORT:6379}
+      database: ${REDIS_DATABASE:0}
+      password: ${REDIS_PASSWORD}
+      timeout: 3000
+      lettuce:
+        pool:
+          max-active: 16
+          max-wait: -1
+          max-idle: 8
+          min-idle: 0
+
+    # MongoDB 配置（可选）
+    mongodb:
+      uri: ${MONGODB_URI}
+      auto-index-creation: false
+
+# =============================================
+# 日志配置（生产环境使用 info，避免 debug 日志泄露敏感信息）
+# =============================================
+logging:
+  level:
+    com.moyun: info
+    org.springframework: warn
+  pattern:
+    console: '%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{50} - %msg%n'
+
+# =============================================
+# Token 配置
+# - TOKEN_SECRET：JWT 签名密钥，必须至少 32 字符，建议使用强随机串
+#   生成方式示例：openssl rand -base64 64
+#   未配置或长度不足 32 字符时应用将 fail-fast 拒绝启动
+# - TOKEN_EXPIRE_TIME：Token 有效期（分钟），生产建议 120
+# =============================================
+token:
+  header: Authorization
+  secret: ${TOKEN_SECRET}
+  expireTime: ${TOKEN_EXPIRE_TIME:120}
+
+# =============================================
+# 安全配置
+# =============================================
+security:
+  exclude-modules: /portal/**,/external/**,/doc.html,/swagger-ui.html
+
+# =============================================
+# 验证码配置
+# =============================================
+captcha:
+  enabled: true
+  type: math
+  length: 2
+  width: 160
+  height: 60
+
+# =============================================
+# 用户配置
+# =============================================
+user:
+  password:
+    maxRetryCount: 5
+    lockTime: 10
+
+# =============================================
+# 防止 XSS 攻击
+# =============================================
+xss:
+  enabled: true
+  excludes: /cms/notification
+  urlPatterns: /system/*,/monitor/*,/tool/*
+
+# =============================================
+# knife4j 配置
+# - 生产环境建议 KNIFE4J_PRODUCTION=true 关闭 Swagger 文档，避免接口暴露
+# =============================================
+knife4j:
+  enable: ${KNIFE4J_ENABLE:false}
+  setting:
+    language: zh_cn
+  production: ${KNIFE4J_PRODUCTION:true}
+
+# =============================================
+# 墨韵框架配置
+# - MOYUN_PROFILE：本地文件存储根路径（生产环境建议使用独立挂载盘）
+# =============================================
+moyun:
+  name: moyun
+  version: 4.x
+  copyrightYear: 2024
+  demoEnabled: false
+  addressEnabled: false
+  profile: ${MOYUN_PROFILE:/data/moyun/profile}
+
+# =============================================
+# MyBatis-Plus 配置
+# =============================================
+mybatis-plus:
+  mapper-locations: classpath*:/mapper/**/*.xml
+  type-aliases-package: com.moyun.core.base.entity,com.moyun.system.domain.entity,com.moyun.portal.domain.entity,com.moyun.ext.cms.domain.entity,com.moyun.ext.job.domain.entity
+  configuration:
+    map-underscore-to-camel-case: true
+    # 生产环境关闭 SQL 日志，避免性能损耗与敏感信息泄露
+    log-impl: org.apache.ibatis.logging.nologging.NoLoggingImpl
+  global-config:
+    db-config:
+      id-type: auto
+      logic-delete-field: deleted
+      logic-delete-value: 1
+      logic-not-delete-value: 0
+
+# =============================================
+# Flowable 工作流配置
+# =============================================
+flowable:
+  async-executor-activate: false
+  check-process-definitions: false
+  database-schema-update: false
+  history-level: audit
+  database-type: mysql
+  eventregistry:
+    enabled: false
+  cmmn:
+    enabled: false
+  dmn:
+    enabled: false
+  app:
+    enabled: false
+
+# =============================================
+# MinIO 文件存储配置（生产环境必填）
+# - MINIO_ENDPOINT：MinIO 服务地址（建议内网地址）
+# - MINIO_ACCESS_KEY / MINIO_SECRET_KEY：访问凭据，建议使用最小权限账号
+# - MINIO_BUCKET_NAME：存储桶名称（需提前创建）
+# =============================================
+minio:
+  enabled: true
+  endpoint: ${MINIO_ENDPOINT}
+  access-key: ${MINIO_ACCESS_KEY}
+  secret-key: ${MINIO_SECRET_KEY}
+  bucket-name: ${MINIO_BUCKET_NAME:moyun}
+  access-url: ${MINIO_ACCESS_URL}
+  auto-fallback: false
+  fallback-to-local: false

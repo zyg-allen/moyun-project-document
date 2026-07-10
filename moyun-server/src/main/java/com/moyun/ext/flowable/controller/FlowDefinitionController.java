@@ -79,7 +79,7 @@ public class FlowDefinitionController extends BaseController {
             flowDefinitionService.importFile(name, category, in);
         } catch (Exception e) {
             log.error("导入失败:", e);
-            return AjaxResult.success(e.getMessage());
+            return AjaxResult.error("导入失败：" + e.getMessage());
         } finally {
             try {
                 if (in != null) {
@@ -118,7 +118,7 @@ public class FlowDefinitionController extends BaseController {
                 ImageIO.write(image, "png", os);
             }
         } catch (Exception e) {
-            e.printStackTrace();
+            log.error("读取流程图片失败", e);
         } finally {
             try {
                 if (os != null) {
@@ -126,7 +126,7 @@ public class FlowDefinitionController extends BaseController {
                     os.close();
                 }
             } catch (IOException e) {
-                e.printStackTrace();
+                log.error("关闭输出流出错", e);
             }
         }
 

@@ -225,6 +225,10 @@ public class PortalArticleController extends BaseController {
     public AjaxResult publish(@Validated @RequestBody ArticlePublishDTO publishDTO) {
         // 将 DTO 转换为实体
         PortalArticle article = new PortalArticle();
+        // 沿用草稿记录（草稿转发布：有 id 走更新，避免重复生成记录）
+        article.setId(publishDTO.getId());
+        // 编辑会话标识（与草稿共用同一 token，后端按 token 幂等去重）
+        article.setSessionToken(publishDTO.getSessionToken());
         article.setTitle(publishDTO.getTitle());
         article.setContent(publishDTO.getContent());
         // 同步编辑器模式（richtext / markdown），切换编辑器时持久化该字段
@@ -241,21 +245,26 @@ public class PortalArticleController extends BaseController {
         article.setIsTop(publishDTO.getIsTop());
         article.setIsCarousel(publishDTO.getIsCarousel());
 
-        // 调用 Service 发布（默认状态 pending 待审核）
-        int result = portalArticleService.publishArticle(article);
-        // 发布成功后绑定标签（同步维护 portal_entity_tag + portal_tag.reference_count）
-        if (result > 0 && article.getId() != null) {
-            portalTagService.bindTags("article", article.getId(),
-                    publishDTO.getTagIds(), publishDTO.getTagNames(), "article");
+        try {
+            // 调用 Service 发布（默认状态 pending 待审核）
+            int result = portalArticleService.publishArticle(article);
+            // 发布成功后绑定标签（同步维护 portal_entity_tag + portal_tag.reference_count）
+            if (result > 0 && article.getId() != null) {
+                portalTagService.bindTags("article", article.getId(),
+                        publishDTO.getTagIds(), publishDTO.getTagNames(), "article");
+            }
+            // 返回文章详情（含 id、status、slug、createTime 等）
+            Map<String, Object> data = new HashMap<>();
+            data.put("id", article.getId());
+            data.put("status", article.getStatus());
+            data.put("slug", article.getSlug());
+            data.put("publishedAt", article.getPublishedAt());
+            data.put("message", "发布成功，等待审核");
+            return success(data);
+        } catch (RuntimeException e) {
+            // 归属校验失败等业务异常，返回友好提示
+            return AjaxResult.error(e.getMessage() != null ? e.getMessage() : "发布失败");
         }
-        // 返回文章详情（含 id、status、slug、createTime 等）
-        Map<String, Object> data = new HashMap<>();
-        data.put("id", article.getId());
-        data.put("status", article.getStatus());
-        data.put("slug", article.getSlug());
-        data.put("publishedAt", article.getPublishedAt());
-        data.put("message", "发布成功，等待审核");
-        return success(data);
     }
 
     /**
@@ -266,41 +275,56 @@ public class PortalArticleController extends BaseController {
     @Log(title = "门户文章-草稿", businessType = BusinessType.INSERT)
     @PostMapping("/draft")
     public AjaxResult saveDraft(@RequestBody PortalArticle portalArticle) {
-        PortalArticle saved = portalArticleService.saveDraft(portalArticle);
-        // 草稿保存成功后同步绑定标签（草稿阶段也允许绑定，便于后续发布）
-        if (saved == null || saved.getId() == null) {
-            return AjaxResult.error("草稿保存失败");
+        try {
+            PortalArticle saved = portalArticleService.saveDraft(portalArticle);
+            // 草稿保存成功后同步绑定标签（草稿阶段也允许绑定，便于后续发布）
+            if (saved == null || saved.getId() == null) {
+                return AjaxResult.error("草稿保存失败");
+            }
+            portalTagService.bindTags("article", saved.getId(),
+                    portalArticle.getTagIds(), portalArticle.getTagNames(), "article");
+            return success(saved);
+        } catch (RuntimeException e) {
+            // 归属校验失败等业务异常，返回友好提示
+            return AjaxResult.error(e.getMessage() != null ? e.getMessage() : "草稿保存失败");
         }
-        portalTagService.bindTags("article", saved.getId(),
-                portalArticle.getTagIds(), portalArticle.getTagNames(), "article");
-        return success(saved);
     }
 
     @Operation(summary = "修改文章", description = "更新文章信息")
     @Log(title = "门户文章", businessType = BusinessType.UPDATE)
     @PutMapping
     public AjaxResult edit(@Validated @RequestBody PortalArticle portalArticle) {
-        int result = portalArticleService.updatePortalArticle(portalArticle);
-        // 修改成功后同步更新标签绑定（bindTags 内部会计算差集，只增减变化的 tag）
-        if (result > 0 && portalArticle.getId() != null) {
-            portalTagService.bindTags("article", portalArticle.getId(),
-                    portalArticle.getTagIds(), portalArticle.getTagNames(), "article");
+        try {
+            int result = portalArticleService.updatePortalArticle(portalArticle);
+            // 修改成功后同步更新标签绑定（bindTags 内部会计算差集，只增减变化的 tag）
+            if (result > 0 && portalArticle.getId() != null) {
+                portalTagService.bindTags("article", portalArticle.getId(),
+                        portalArticle.getTagIds(), portalArticle.getTagNames(), "article");
+            }
+            return toAjax(result);
+        } catch (RuntimeException e) {
+            // 归属校验失败等业务异常，返回友好提示
+            return AjaxResult.error(e.getMessage() != null ? e.getMessage() : "修改失败");
         }
-        return toAjax(result);
     }
 
     @Operation(summary = "删除文章", description = "批量删除文章")
     @Log(title = "门户文章", businessType = BusinessType.DELETE)
     @DeleteMapping("/{ids}")
     public AjaxResult remove(@Parameter(description = "文章ID数组") @PathVariable Long[] ids) {
-        int result = portalArticleService.deletePortalArticleByIds(ids);
-        // 删除成功后解绑标签（同步减少 reference_count）
-        if (result > 0) {
-            for (Long id : ids) {
-                portalTagService.unbindTags("article", id);
+        try {
+            int result = portalArticleService.deletePortalArticleByIds(ids);
+            // 删除成功后解绑标签（同步减少 reference_count）
+            if (result > 0) {
+                for (Long id : ids) {
+                    portalTagService.unbindTags("article", id);
+                }
             }
+            return toAjax(result);
+        } catch (RuntimeException e) {
+            // 归属校验失败等业务异常，返回友好提示
+            return AjaxResult.error(e.getMessage() != null ? e.getMessage() : "删除失败");
         }
-        return toAjax(result);
     }
 
     /**
@@ -312,7 +336,6 @@ public class PortalArticleController extends BaseController {
      */
     @Operation(summary = "文章点赞/取消点赞", description = "点赞或取消点赞文章，返回最新点赞数")
     @PostMapping("/{id}/like")
-    @Transactional
     public AjaxResult toggleLikeArticle(@PathVariable Long id) {
         Long userId = PortalSecurityUtils.getUserId();
         if (userId == null) {
@@ -399,7 +422,6 @@ public class PortalArticleController extends BaseController {
      */
     @Operation(summary = "增加浏览量", description = "增加文章浏览量，支持防刷逻辑")
     @PostMapping("/{id}/view")
-    @Transactional
     public AjaxResult incrementView(@PathVariable Long id, HttpServletRequest request) {
         PortalArticle article = portalArticleService.selectPortalArticleById(id);
         if (article == null) {

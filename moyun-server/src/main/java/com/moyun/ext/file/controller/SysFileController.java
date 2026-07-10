@@ -70,6 +70,21 @@ public class SysFileController extends BaseController {
         return toAjax(sysFileService.deleteFileById(id));
     }
 
+    /**
+     * 按文件URL删除（存储 + 记录）
+     * 用于前端组件「删除/替换附件」时清理：组件只持有访问 URL，无 fileId。
+     * 需 system:file:remove 权限（后台用户），不校验上传者（后台可管理所有文件）。
+     * 记录不存在视为已删除（幂等）。
+     */
+    @Operation(summary = "按URL删除文件", description = "根据文件访问URL删除文件（存储+记录），用于附件替换/删除清理")
+    @PreAuthorize("@ss.hasPermi('system:file:remove')")
+    @Log(title = "文件管理", businessType = BusinessType.DELETE)
+    @DeleteMapping("/byUrl")
+    public AjaxResult removeByUrl(@Parameter(description = "文件访问URL") @RequestParam("fileUrl") String fileUrl) {
+        boolean ok = sysFileService.deleteFileByUrl(fileUrl, null);
+        return success(ok);
+    }
+
     @Operation(summary = "批量删除文件", description = "根据文件ID列表批量删除文件")
     @PreAuthorize("@ss.hasPermi('system:file:remove')")
     @Log(title = "文件管理", businessType = BusinessType.DELETE)

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useHead } from '@vueuse/head';
 import { ArrowLeft, Save, Send, Eye, Edit3, Loader2 } from 'lucide-vue-next';
@@ -165,6 +165,26 @@ async function loadDetail() {
 onMounted(() => {
   if (isEdit.value) {
     loadDetail();
+  }
+});
+
+// 路由参数变化时（同一组件复用，如从 /publish 跳转 /edit/:id 或在编辑间切换）重新加载
+// editId 为 route.params.id 的 computed，watch 它等价于监听路由参数变化
+watch(editId, (newId, oldId) => {
+  if (newId !== oldId) {
+    // 重置表单状态，避免显示上一条面经的数据
+    title.value = '';
+    company.value = '';
+    position.value = '';
+    year.value = '';
+    month.value = '';
+    tags.value = '';
+    summary.value = '';
+    content.value = '';
+    pageError.value = null;
+    if (newId) {
+      loadDetail();
+    }
   }
 });
 </script>

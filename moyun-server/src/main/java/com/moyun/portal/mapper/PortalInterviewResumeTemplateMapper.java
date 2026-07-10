@@ -73,4 +73,14 @@ public interface PortalInterviewResumeTemplateMapper extends BaseMapper<PortalIn
      */
     @Update("update portal_interview_resume_template set download_count = download_count + 1 where id = #{id}")
     int incrementDownloadCount(@Param("id") Long id);
+
+    /**
+     * 原子增加点赞数（避免并发丢失更新，参考 PortalArticleMapper.incrementLikes 模式）
+     *
+     * @param id    模板ID
+     * @param delta 增量（正数增加，负数减少）
+     * @return 受影响行数
+     */
+    @Update("UPDATE portal_interview_resume_template SET like_count = like_count + #{delta} WHERE id = #{id} AND like_count + #{delta} >= 0")
+    int incrementLikes(@Param("id") Long id, @Param("delta") long delta);
 }

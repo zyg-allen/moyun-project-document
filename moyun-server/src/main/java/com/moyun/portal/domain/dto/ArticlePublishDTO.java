@@ -23,6 +23,22 @@ public class ArticlePublishDTO implements Serializable {
     private static final long serialVersionUID = 1L;
 
     /**
+     * 文章ID（编辑/草稿转发布时传入，保证一次编辑会话只产生一条记录）
+     * 为空时后端按 sessionToken 幂等查找或新建
+     */
+    @Schema(description = "文章ID（草稿转发布时传入，沿用同一条记录）", example = "1")
+    private Long id;
+
+    /**
+     * 编辑会话标识（一次编辑会话唯一，用于草稿/发布幂等去重）
+     * 前端进入发布页生成，保存草稿/发布都带上同一 token；
+     * 后端用 token 做幂等：同 token 已存在记录则更新，否则新建。
+     */
+    @Size(max = 64, message = "会话标识长度不能超过64个字符")
+    @Schema(description = "编辑会话标识（一次编辑会话唯一，用于幂等去重）")
+    private String sessionToken;
+
+    /**
      * 文章标题
      */
     @NotBlank(message = "文章标题不能为空")

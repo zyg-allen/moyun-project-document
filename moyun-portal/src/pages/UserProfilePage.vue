@@ -21,6 +21,7 @@ import { useUserStore } from '@/stores/user';
 import { generateSeo } from '@/utils/seo';
 import Breadcrumb from '@/components/Breadcrumb.vue';
 import * as userApi from '@/api/user';
+import { deletePortalFile } from '@/api/file';
 import type { User, UpdateUserProfileParams } from '@/types/api';
 
 const router = useRouter();
@@ -98,60 +99,83 @@ onMounted(async () => {
 });
 
 // 处理头像选择
-function handleAvatarChange(event: Event) {
+// 替换语义（与其他附件组件统一）：先上传新 → 成功后再删旧 → 失败恢复旧值，避免丢失原头像。
+// 额外触发动作：头像上传走专用 /portal/user/avatar 接口会同步更新 user.avatar 字段，
+// 因此替换时需清理「被覆盖的旧头像文件」（DB+存储），未上传前不涉及。
+async function handleAvatarChange(event: Event) {
   const target = event.target as HTMLInputElement;
   const file = target.files?.[0];
-  if (!file) {
-    return;
-  }
+  if (!file) return;
+  if (isAvatarUploading.value) return;
 
   // 校验文件类型
   if (!file.type.startsWith('image/')) {
     errorMessage.value = '请选择图片文件';
+    if (target) target.value = '';
     return;
   }
 
   // 校验文件大小 (5MB)
   if (file.size > 5 * 1024 * 1024) {
     errorMessage.value = '图片大小不能超过5MB';
+    if (target) target.value = '';
     return;
   }
 
-  // 本地预览
-  const reader = new FileReader();
-  reader.onload = (e) => {
-    avatarPreview.value = e.target?.result as string;
-  };
-  reader.readAsDataURL(file);
+  // 记录旧头像（已上传 URL 才需后端清理；首次设置无旧值则跳过）
+  const oldAvatar = profileForm.value.avatar || '';
+  const previousPreview = avatarPreview.value;
+  // 本地预览：使用同步 createObjectURL 避免 FileReader 异步回调时序竞争
+  const blobUrl = URL.createObjectURL(file);
+  avatarPreview.value = blobUrl;
 
-  // 上传到服务器
-  uploadAvatar(file);
-}
-
-async function uploadAvatar(file: File) {
   isAvatarUploading.value = true;
   errorMessage.value = '';
+  successMessage.value = '';
 
   try {
     const response = await userApi.uploadAvatar(file);
     if (response && response.code === 200 && response.data) {
-      profileForm.value.avatar = (response.data as any).avatar || (response.data as any).url || (response.data as User).avatar || '';
-      if (profileForm.value.avatar) {
-        avatarPreview.value = profileForm.value.avatar;
+      const newAvatar = (response.data as any).avatar || (response.data as any).url || (response.data as User).avatar || '';
+      profileForm.value.avatar = newAvatar;
+      if (newAvatar) {
+        // 切换预览为正式 URL，并释放本地 blob URL（避免内存泄漏）
+        avatarPreview.value = newAvatar;
+        URL.revokeObjectURL(blobUrl);
+      } else {
+        // 后端未返回 URL 时保留 blob 预览，待后续保存资料时再处理
       }
       successMessage.value = '头像上传成功';
       // 更新本地 store 中的用户信息
-      if (userStore.user && profileForm.value.avatar) {
-        userStore.updateUserWithApi({ avatar: profileForm.value.avatar });
+      if (userStore.user && newAvatar) {
+        userStore.updateUserWithApi({ avatar: newAvatar });
+      }
+      // 新头像上传成功后，清理旧头像文件（DB+存储），失败仅警告不阻断主流程
+      // 注意：旧头像可能由专用 avatar 接口写入 sys_file 表，也可能为 profile 目录相对路径，后者 deletePortalFile 查不到记录幂等返回
+      if (oldAvatar && /^https?:\/\//.test(oldAvatar)) {
+        try {
+          await deletePortalFile(oldAvatar);
+        } catch (e) {
+          console.warn('旧头像清理失败：', e);
+        }
       }
     } else {
-      errorMessage.value = response.message || '头像上传失败';
+      // 上传失败：恢复旧值（替换语义——不丢失原头像），释放本次失败的 blob URL
+      profileForm.value.avatar = oldAvatar;
+      avatarPreview.value = previousPreview;
+      URL.revokeObjectURL(blobUrl);
+      errorMessage.value = response?.message || '头像上传失败';
     }
   } catch (error) {
+    profileForm.value.avatar = oldAvatar;
+    avatarPreview.value = previousPreview;
+    URL.revokeObjectURL(blobUrl);
     console.error('头像上传失败:', error);
     errorMessage.value = '头像上传失败，请稍后重试';
   } finally {
     isAvatarUploading.value = false;
+    // 清空 input 以便重复选择同一文件
+    if (target) target.value = '';
   }
 }
 

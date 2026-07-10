@@ -355,6 +355,8 @@ public class PortalInterviewServiceImpl implements IPortalInterviewService {
         if (exist != null) {
             // 取消点赞
             questionLikeMapper.deleteById(exist.getId());
+            // 原子减少点赞数（不低于0，避免并发丢失更新）
+            questionMapper.incrementLikes(questionId, -1);
             question.setLikeCount(Math.max(0L, (question.getLikeCount() == null ? 0L : question.getLikeCount()) - 1));
             result.put("liked", false);
         } else {
@@ -364,10 +366,11 @@ public class PortalInterviewServiceImpl implements IPortalInterviewService {
             like.setUserId(userId);
             like.setCreateTime(LocalDateTime.now());
             questionLikeMapper.insert(like);
+            // 原子增加点赞数（避免并发丢失更新）
+            questionMapper.incrementLikes(questionId, 1);
             question.setLikeCount((question.getLikeCount() == null ? 0L : question.getLikeCount()) + 1);
             result.put("liked", true);
         }
-        questionMapper.updateById(question);
         result.put("likeCount", question.getLikeCount());
         return result;
     }
@@ -650,6 +653,8 @@ public class PortalInterviewServiceImpl implements IPortalInterviewService {
         Map<String, Object> result = new HashMap<>();
         if (exist != null) {
             experienceLikeMapper.deleteById(exist.getId());
+            // 原子减少点赞数（不低于0，避免并发丢失更新）
+            experienceMapper.incrementLikes(experienceId, -1);
             exp.setLikeCount(Math.max(0L, (exp.getLikeCount() == null ? 0L : exp.getLikeCount()) - 1));
             result.put("liked", false);
         } else {
@@ -658,6 +663,8 @@ public class PortalInterviewServiceImpl implements IPortalInterviewService {
             like.setUserId(userId);
             like.setCreateTime(LocalDateTime.now());
             experienceLikeMapper.insert(like);
+            // 原子增加点赞数（避免并发丢失更新）
+            experienceMapper.incrementLikes(experienceId, 1);
             exp.setLikeCount((exp.getLikeCount() == null ? 0L : exp.getLikeCount()) + 1);
             result.put("liked", true);
 
@@ -667,7 +674,6 @@ public class PortalInterviewServiceImpl implements IPortalInterviewService {
                         exp.getUserId(), userId, "experience", experienceId);
             }
         }
-        experienceMapper.updateById(exp);
         result.put("likeCount", exp.getLikeCount());
         return result;
     }
@@ -738,6 +744,8 @@ public class PortalInterviewServiceImpl implements IPortalInterviewService {
         Map<String, Object> result = new HashMap<>();
         if (exist != null) {
             commentLikeMapper.deleteById(exist.getId());
+            // 原子减少点赞数（不低于0，避免并发丢失更新）
+            commentMapper.incrementLikes(commentId, -1);
             comment.setLikeCount(Math.max(0L, (comment.getLikeCount() == null ? 0L : comment.getLikeCount()) - 1));
             result.put("liked", false);
         } else {
@@ -746,10 +754,11 @@ public class PortalInterviewServiceImpl implements IPortalInterviewService {
             like.setUserId(userId);
             like.setCreateTime(LocalDateTime.now());
             commentLikeMapper.insert(like);
+            // 原子增加点赞数（避免并发丢失更新）
+            commentMapper.incrementLikes(commentId, 1);
             comment.setLikeCount((comment.getLikeCount() == null ? 0L : comment.getLikeCount()) + 1);
             result.put("liked", true);
         }
-        commentMapper.updateById(comment);
         result.put("likeCount", comment.getLikeCount());
         return result;
     }
@@ -849,6 +858,8 @@ public class PortalInterviewServiceImpl implements IPortalInterviewService {
         if (exist != null) {
             // 已点赞 → 取消点赞
             resumeTemplateLikeMapper.deleteById(exist.getId());
+            // 原子减少点赞数（不低于0，避免并发丢失更新）
+            resumeTemplateMapper.incrementLikes(templateId, -1);
             template.setLikeCount(Math.max(0L, (template.getLikeCount() == null ? 0L : template.getLikeCount()) - 1));
             result.put("liked", false);
         } else {
@@ -858,10 +869,11 @@ public class PortalInterviewServiceImpl implements IPortalInterviewService {
             like.setUserId(userId);
             like.setCreateTime(LocalDateTime.now());
             resumeTemplateLikeMapper.insert(like);
+            // 原子增加点赞数（避免并发丢失更新）
+            resumeTemplateMapper.incrementLikes(templateId, 1);
             template.setLikeCount((template.getLikeCount() == null ? 0L : template.getLikeCount()) + 1);
             result.put("liked", true);
         }
-        resumeTemplateMapper.updateById(template);
         result.put("likeCount", template.getLikeCount());
         return result;
     }

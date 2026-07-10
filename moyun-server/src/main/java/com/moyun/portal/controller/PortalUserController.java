@@ -231,21 +231,16 @@ public class PortalUserController extends BaseController {
             return error("用户不存在");
         }
 
-        // 验证旧密码
-        if (user.getPassword() != null && !user.getPassword().startsWith("$")) {
-            // 未加密存储的情况
-            if (!oldPassword.equals(user.getPassword())) {
-                return error("当前密码错误");
-            }
-        } else if (user.getPassword() != null) {
-            // BCrypt 加密存储
+        // 验证旧密码：移除历史"明文存储"分支，仅支持 BCrypt 比对，杜绝明文密码
+        if (user.getPassword() != null) {
             if (!passwordEncoder.matches(oldPassword, user.getPassword())) {
                 return error("当前密码错误");
             }
         }
 
-        // 更新为新密码（BCrypt 加密）
-        int result = portalUserService.resetPortalUserPwd(user.getUsername(), passwordEncoder.encode(newPassword));
+        // 更新为新密码：Service 层 resetPortalUserPwd 已对明文做兜底 BCrypt 加密，
+        // 这里直接传入明文 newPassword 即可，避免重复编码导致登录失败
+        int result = portalUserService.resetPortalUserPwd(user.getUsername(), newPassword);
         if (result > 0) {
             return success("密码修改成功");
         }

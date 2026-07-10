@@ -99,10 +99,9 @@ public class PortalCommentServiceImpl extends ServiceImpl<PortalCommentMapper, P
      */
     @Override
     public int insertPortalComment(PortalComment portalComment) {
-        // 自动填充评论者ID
-        if (portalComment.getAuthorId() == null) {
-            portalComment.setAuthorId(PortalSecurityUtils.getUserId());
-        }
+        // 强制覆写 authorId 为当前登录用户，不再信任前端传入的 authorId，防止伪造
+        // 评论发布入口已由 SecurityConfig 强制 authenticated，此处 userId 必非空
+        portalComment.setAuthorId(PortalSecurityUtils.getUserId());
         // 设置默认状态：0-待审核，1-已发布
         if (portalComment.getStatus() == null) {
             portalComment.setStatus("1");
@@ -494,6 +493,8 @@ public class PortalCommentServiceImpl extends ServiceImpl<PortalCommentMapper, P
         if (exist != null) {
             // 已赞 -> 取消
             portalCommentLikeMapper.deleteById(exist.getId());
+            // 原子减少点赞数（不低于0，避免并发丢失更新）
+            portalCommentMapper.incrementLikes(commentId, -1);
             comment.setLikeCount(Math.max(0L, (comment.getLikeCount() == null ? 0L : comment.getLikeCount()) - 1));
             isLiked = false;
         } else {
@@ -512,12 +513,15 @@ public class PortalCommentServiceImpl extends ServiceImpl<PortalCommentMapper, P
                 if (conflict != null) {
                     portalCommentLikeMapper.deleteById(conflict.getId());
                 }
+                // 原子减少点赞数（不低于0，避免并发丢失更新）
+                portalCommentMapper.incrementLikes(commentId, -1);
                 comment.setLikeCount(Math.max(0L, (comment.getLikeCount() == null ? 0L : comment.getLikeCount()) - 1));
-                portalCommentMapper.updateById(comment);
                 result.put("isLiked", false);
                 result.put("likeCount", comment.getLikeCount());
                 return result;
             }
+            // 原子增加点赞数（避免并发丢失更新）
+            portalCommentMapper.incrementLikes(commentId, 1);
             comment.setLikeCount((comment.getLikeCount() == null ? 0L : comment.getLikeCount()) + 1);
             isLiked = true;
 
@@ -527,7 +531,6 @@ public class PortalCommentServiceImpl extends ServiceImpl<PortalCommentMapper, P
                         comment.getAuthorId(), userId, "comment", commentId);
             }
         }
-        portalCommentMapper.updateById(comment);
         result.put("isLiked", isLiked);
         result.put("likeCount", comment.getLikeCount());
         return result;

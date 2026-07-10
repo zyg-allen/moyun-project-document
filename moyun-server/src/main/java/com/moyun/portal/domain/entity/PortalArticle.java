@@ -94,6 +94,15 @@ public class PortalArticle extends BaseEntity
     @Size(min = 0, max = 20, message = "编辑器模式长度不能超过20个字符")
     private String editorMode;
 
+    /**
+     * 编辑会话标识（一次编辑会话唯一）。
+     * 前端进入发布页生成，保存草稿/发布都带上同一 token；
+     * 后端用 token 做幂等：同 token 已存在记录则更新，否则新建，
+     * 保证一次编辑会话只产生一条文章记录。
+     */
+    @Size(min = 0, max = 64, message = "会话标识长度不能超过64个字符")
+    private String sessionToken;
+
     private String contentMarkdown;
 
     /** 是否付费阅读 0=免费 1=付费 */

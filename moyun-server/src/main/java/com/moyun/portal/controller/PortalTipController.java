@@ -12,18 +12,18 @@ import com.moyun.util.bean.PageUtils;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 
 /**
  * 打赏 Controller（门户端）
- * 复用为付费阅读购买记录（target_type='article_paid'）
+ * MVP 阶段采用积分打赏，不涉及真实资金
+ * 复用为付费阅读购买记录（target_type='article_paid'，仍为占位逻辑）
  *
  * @author moyun
  */
-@Tag(name = "打赏", description = "对文章/专栏打赏，复用为付费阅读购买记录")
+@Tag(name = "打赏", description = "对文章/专栏积分打赏，复用为付费阅读购买记录")
 @RestController
 @RequestMapping("/portal/tip")
 public class PortalTipController extends BaseController {
@@ -37,11 +37,10 @@ public class PortalTipController extends BaseController {
 
     /**
      * 发起打赏（需登录）
-     * 简化实现：不接入真实支付，直接置 status='paid'
+     * MVP 阶段：积分打赏，扣减打赏者积分，被打赏者获得积分，双方触发成长事件
      */
-    @Operation(summary = "发起打赏", description = "对文章/专栏发起打赏，简化版直接置 status='paid'")
+    @Operation(summary = "发起打赏", description = "对文章/专栏发起积分打赏，amount 为积分数（正整数）")
     @PostMapping("/{targetType}/{targetId}")
-    @Transactional(rollbackFor = Exception.class)
     public AjaxResult toggleTipOrList(@PathVariable("targetType") String targetType,
                                       @PathVariable("targetId") Long targetId,
                                       @RequestBody PortalTipOrder body) {
@@ -57,8 +56,13 @@ public class PortalTipController extends BaseController {
         order.setAmount(body.getAmount());
         order.setMessage(body.getMessage());
 
-        PortalTipOrder created = portalTipService.toggleTipOrList(order);
-        return AjaxResult.success(created);
+        try {
+            PortalTipOrder created = portalTipService.toggleTipOrList(order);
+            return AjaxResult.success(created);
+        } catch (RuntimeException e) {
+            // 积分余额不足、给自己打赏等业务校验失败，返回友好提示
+            return AjaxResult.error(e.getMessage());
+        }
     }
 
     /**

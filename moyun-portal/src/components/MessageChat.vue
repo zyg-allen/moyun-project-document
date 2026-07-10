@@ -62,7 +62,47 @@ function formatTime(time?: string): string {
     if (sameDay) {
         return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
     }
-    return `${d.getMonth() + 1}/${d.getDate()} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    const sameYear = d.getFullYear() === now.getFullYear();
+    if (sameYear) {
+        return `${d.getMonth() + 1}/${d.getDate()} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    }
+    return `${d.getFullYear()}/${d.getMonth() + 1}/${d.getDate()} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+/**
+ * 取消息所在"日历日"的分组标签。
+ * 用于在历史消息列表中插入"今天/昨天/具体日期"分隔线，便于回顾。
+ */
+function dateGroupLabel(time?: string): string {
+    if (!time) return '';
+    const d = new Date(time);
+    if (Number.isNaN(d.getTime())) return '';
+    const now = new Date();
+    const pad = (n: number) => String(n).padStart(2, '0');
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+    const dayMs = 24 * 60 * 60 * 1000;
+    const diffDays = Math.floor((startOfToday - new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime()) / dayMs);
+    if (diffDays <= 0) return '今天';
+    if (diffDays === 1) return '昨天';
+    if (diffDays === 2) return '前天';
+    if (d.getFullYear() === now.getFullYear()) {
+        return `${d.getMonth() + 1}月${d.getDate()}日`;
+    }
+    return `${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日`;
+}
+
+/**
+ * 判断相邻两条消息是否跨"日历日"，跨日则在中间插入日期分隔线。
+ */
+function shouldShowDateDivider(prev?: MessageVO, curr?: MessageVO): boolean {
+    if (!prev || !curr) return true;
+    const pt = prev.createdTime || prev.createTime;
+    const ct = curr.createdTime || curr.createTime;
+    if (!pt || !ct) return true;
+    const a = new Date(pt);
+    const b = new Date(ct);
+    if (Number.isNaN(a.getTime()) || Number.isNaN(b.getTime())) return false;
+    return a.toDateString() !== b.toDateString();
 }
 
 function sortByTime(list: MessageVO[]): MessageVO[] {
@@ -237,9 +277,15 @@ async function handleSend() {
         });
         if (resp.code === 200 && resp.data) {
             // 用真实消息替换临时消息
+            // 注意：发送期间 WS 推送/轮询可能已把真实消息投递进列表，需先去重避免重复
             const idx = messages.value.findIndex((m) => m.id === tempId);
             if (idx >= 0) {
-                messages.value.splice(idx, 1, resp.data);
+                if (!isDuplicate(resp.data)) {
+                    messages.value.splice(idx, 1, resp.data);
+                } else {
+                    // 真实消息已由 WS/轮询投递，仅移除临时消息
+                    messages.value.splice(idx, 1);
+                }
             } else {
                 appendMessage(resp.data);
             }
@@ -272,9 +318,11 @@ function onKeydown(e: KeyboardEvent) {
 }
 
 async function markRead() {
+    // 在 await 前捕获当前 sessionId，避免 await 期间切换会话后 emit 出错误的 sessionId
+    const sid = props.sessionId;
     try {
-        await messageApi.markSessionRead(props.sessionId);
-        emit('read', props.sessionId);
+        await messageApi.markSessionRead(sid);
+        emit('read', sid);
     } catch (error) {
         console.warn('标记已读失败:', error);
     }
@@ -388,7 +436,19 @@ watch(
       </div>
 
       <!-- 消息气泡 -->
-      <template v-for="msg in messages" :key="msg.id">
+      <template v-for="(msg, idx) in messages" :key="msg.id">
+        <!-- 日期分组分隔线：首条或跨"日历日"时插入"今天/昨天/具体日期"标签 -->
+        <div
+          v-if="shouldShowDateDivider(messages[idx - 1], msg)"
+          class="flex justify-center my-3"
+        >
+          <span
+            class="text-xs px-3 py-1 rounded-full"
+            style="background-color: var(--theme-surface); color: var(--theme-text-secondary); border: 1px solid var(--theme-border);"
+          >
+            {{ dateGroupLabel(msg.createdTime || msg.createTime) }}
+          </span>
+        </div>
         <div
           class="flex items-end gap-2"
           :class="isMine(msg) ? 'flex-row-reverse' : 'flex-row'"
@@ -401,7 +461,7 @@ watch(
             @error="(e: Event) => (e.target as HTMLImageElement).src = getSafeAvatar(null, peer?.id || '')"
           />
           <div
-            class="max-w-[75%] sm:max-w-[60%] px-3.5 py-2 rounded-2xl text-sm break-words"
+            class="max-w-[85%] sm:max-w-[70%] px-3.5 py-2 rounded-2xl text-sm break-words"
             :style="isMine(msg)
               ? { backgroundColor: 'var(--theme-primary)', color: 'white', borderBottomRightRadius: '4px' }
               : { backgroundColor: 'var(--theme-surface)', color: 'var(--theme-text)', border: '1px solid var(--theme-border)', borderBottomLeftRadius: '4px' }"

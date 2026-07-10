@@ -22,8 +22,14 @@ public class MessageVO {
     /** 发送者 */
     private Long senderId;
 
+    /** 发送者类型 portal/sys */
+    private String senderType;
+
     /** 接收者 */
     private Long receiverId;
+
+    /** 接收者类型 portal/sys */
+    private String receiverType;
 
     /** 消息内容 */
     private String content;

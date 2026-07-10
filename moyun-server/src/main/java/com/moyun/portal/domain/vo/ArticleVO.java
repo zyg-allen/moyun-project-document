@@ -212,6 +212,12 @@ public class ArticleVO implements Serializable {
     private String editorMode;
 
     /**
+     * 编辑会话标识（一次编辑会话唯一，用于草稿/发布幂等去重）
+     */
+    @Schema(description = "编辑会话标识")
+    private String sessionToken;
+
+    /**
      * Markdown 原始内容
      */
     @Schema(description = "Markdown 原始内容", example = "# 标题\n内容...")

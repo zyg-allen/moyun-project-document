@@ -12,7 +12,7 @@ import {
   applyCertification, getMyCertification, CERT_TYPE_OPTIONS,
   type CreatorCertification,
 } from '@/api/certification';
-import { uploadPortalFile } from '@/api/file';
+import { uploadPortalFile, deletePortalFile } from '@/api/file';
 
 const router = useRouter();
 
@@ -90,41 +90,68 @@ async function loadMy() {
 }
 
 // 证件照上传
+// 替换语义（与其他附件组件统一）：先上传新 → 成功后再删旧 → 失败恢复旧值，避免丢失原证件照。
+// 额外触发动作：本场景证件照为「先上传到服务器保存 URL，后随表单提交」，
+// 因此替换时仅清理「本次会话内已上传但被替换掉的旧 URL」，未提交表单前不涉及业务记录的级联。
 async function handleCertImageChange(event: Event) {
   const target = event.target as HTMLInputElement;
   const file = target.files?.[0];
   if (!file) return;
+  if (uploading.value) return;
 
   if (!file.type.startsWith('image/')) {
     showToast('请选择图片文件', 'error');
+    if (target) target.value = '';
     return;
   }
   if (file.size > 5 * 1024 * 1024) {
     showToast('图片大小不能超过 5MB', 'error');
+    if (target) target.value = '';
     return;
   }
 
-  // 本地预览
-  const reader = new FileReader();
-  reader.onload = (e) => {
-    certImagePreview.value = e.target?.result as string;
-  };
-  reader.readAsDataURL(file);
+  // 记录旧证件照（已上传 URL 才需后端清理；首次上传 form.certImage 为空则跳过）
+  const oldCertImage = form.certImage || '';
+  const previousPreview = certImagePreview.value;
+  // 本地预览：使用同步 createObjectURL 避免 FileReader 异步回调时序竞争（大文件快速失败时 onload 可能晚于清空触发）
+  const blobUrl = URL.createObjectURL(file);
+  certImagePreview.value = blobUrl;
 
   uploading.value = true;
   try {
     const res = await uploadPortalFile(file, 'creator_certification');
     if (res.code === 200 && res.data) {
-      form.certImage = res.data.fileUrl || '';
+      const newUrl = res.data.fileUrl || '';
+      form.certImage = newUrl;
+      // 切换预览为正式 URL，并释放本地 blob URL（避免内存泄漏）
+      certImagePreview.value = newUrl;
+      URL.revokeObjectURL(blobUrl);
+      // 新证件照上传成功后，清理旧证件照文件（DB+存储），失败仅警告不阻断主流程
+      if (oldCertImage && /^https?:\/\//.test(oldCertImage)) {
+        try {
+          await deletePortalFile(oldCertImage);
+        } catch (e) {
+          console.warn('旧证件照清理失败：', e);
+        }
+      }
       showToast('证件照上传成功', 'success');
     } else {
+      // 上传失败：恢复旧值（替换语义——不丢失原证件照），释放本次失败的 blob URL
+      form.certImage = oldCertImage;
+      certImagePreview.value = previousPreview;
+      URL.revokeObjectURL(blobUrl);
       showToast(res.message || '上传失败', 'error');
     }
   } catch (err) {
+    form.certImage = oldCertImage;
+    certImagePreview.value = previousPreview;
+    URL.revokeObjectURL(blobUrl);
     const e = err as { message?: string };
     showToast(e?.message || '上传失败，请稍后重试', 'error');
   } finally {
     uploading.value = false;
+    // 清空 input 以便重复选择同一文件
+    if (target) target.value = '';
   }
 }
 

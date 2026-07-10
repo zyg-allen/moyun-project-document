@@ -124,7 +124,7 @@ public class UserDashboardServiceImpl implements IUserDashboardService {
 
         // ===== 未读消息（portal_message_session，复用 IMessageService.getUnreadCount）=====
         // 前端 UserDashboard.unreadMessages 期望为未读私信数
-        Integer unreadMessage = messageService.getUnreadCount(userId);
+        Integer unreadMessage = messageService.getUnreadCount(userId,"portal");
         data.put("unreadMessages", unreadMessage == null ? 0 : unreadMessage);
 
         // ===== 成长体系（portal_user_growth，复用 IPortalGrowthService.getUserGrowth，含 LEVEL_THRESHOLDS 等级映射）=====

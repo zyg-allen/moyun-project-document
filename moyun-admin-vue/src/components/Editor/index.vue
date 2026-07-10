@@ -1,27 +1,27 @@
 <template>
   <div>
     <el-upload
-        :action="uploadUrl"
-        :before-upload="handleBeforeUpload"
-        :on-success="handleUploadSuccess"
-        :on-error="handleUploadError"
-        name="file"
-        :show-file-list="false"
-        :headers="headers"
-        class="editor-img-uploader"
-        v-if="type == 'url'"
+      :action="uploadUrl"
+      :before-upload="handleBeforeUpload"
+      :on-success="handleUploadSuccess"
+      :on-error="handleUploadError"
+      name="file"
+      :show-file-list="false"
+      :headers="headers"
+      class="editor-img-uploader"
+      v-if="type == 'url'"
     >
       <i ref="uploadRef" class="editor-img-uploader"></i>
     </el-upload>
   </div>
   <div class="editor">
     <quill-editor
-        ref="quillEditorRef"
-        v-model:content="content"
-        contentType="html"
-        @textChange="(e) => $emit('update:modelValue', content)"
-        :options="options"
-        :style="styles"
+      ref="quillEditorRef"
+      v-model:content="content"
+      contentType="html"
+      @textChange="(e) => $emit('update:modelValue', content)"
+      :options="options"
+      :style="styles"
     />
   </div>
 </template>
@@ -157,8 +157,8 @@ function handleUploadSuccess(res, file) {
     let length = quill.selection.savedRange.index;
     // 插入图片：完整 URL（MinIO）直接用，相对路径拼 baseUrl
     const imgUrl = /^https?:\/\//.test(res.fileName)
-        ? res.fileName
-        : import.meta.env.VITE_APP_BASE_API + res.fileName;
+      ? res.fileName
+      : import.meta.env.VITE_APP_BASE_API + res.fileName;
     quill.insertEmbed(length, "image", imgUrl);
     // 调整光标到最后
     quill.setSelection(length + 1);

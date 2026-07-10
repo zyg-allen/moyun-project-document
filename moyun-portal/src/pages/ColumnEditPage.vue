@@ -9,6 +9,7 @@ import SiteFooter from '@/components/SiteFooter.vue';
 import LazyImage from '@/components/LazyImage.vue';
 import { generateSeo } from '@/utils/seo';
 import { uploadImage } from '@/api/upload';
+import { deletePortalFile } from '@/api/file';
 import { getColumnDetail, saveColumn } from '@/api/column';
 import type { ColumnSaveBody } from '@/types/api';
 
@@ -113,16 +114,30 @@ async function handleUpload(e: Event) {
   const file = target.files?.[0];
   if (!file) return;
   if (uploading.value) return;
+  // 替换场景（已有旧封面）：先记录旧封面，新上传成功后再删旧，失败则恢复旧封面，保证不丢失。
+  // 与「清除」按钮区分：清除直接删；替换先传新再删旧。
+  const oldCover = cover.value || null;
   uploading.value = true;
   try {
     const res = await uploadImage(file);
     if (res.code === 200 && res.data) {
       cover.value = res.data.fileUrl;
+      // 新封面上传成功后，删除旧封面（DB+存储），失败仅警告不影响新封面
+      if (oldCover) {
+        try {
+          await deletePortalFile(oldCover);
+        } catch (e) {
+          console.warn('旧封面清理失败：', e);
+        }
+      }
       showToast('封面上传成功', 'success');
     } else {
-      showToast(res.message || '上传失败', 'error');
+      // 上传失败：恢复旧封面（替换语义——不丢失原封面），用户可重试或改用「清除」
+      cover.value = oldCover || '';
+      showToast(res.message || '上传失败，请重试', 'error');
     }
   } catch (err) {
+    cover.value = oldCover || '';
     const er = err as { message?: string };
     showToast(er?.message || '上传失败，请稍后重试', 'error');
   } finally {
@@ -132,8 +147,22 @@ async function handleUpload(e: Event) {
   }
 }
 
-function clearCover() {
+// 删除封面：二次确认后调后端清理存储+记录
+async function clearCover() {
+  if (!cover.value) {
+    cover.value = '';
+    return;
+  }
+  const ok = window.confirm('删除后将永久清除该封面的存储与记录，且无法恢复，是否确认？');
+  if (!ok) return;
+  const oldCover = cover.value;
   cover.value = '';
+  try {
+    await deletePortalFile(oldCover);
+  } catch (e) {
+    showToast('文件记录清理失败，请稍后在文件管理中处理', 'error');
+    console.warn('封面清理失败：', e);
+  }
 }
 
 function validate(): string | null {
@@ -347,7 +376,7 @@ function goBack() {
                 >
                   <Loader2 v-if="uploading" class="w-4 h-4 mr-1 animate-spin" />
                   <Upload v-else class="w-4 h-4 mr-1" />
-                  {{ uploading ? '上传中...' : '上传封面' }}
+                  {{ uploading ? '上传中...' : (cover ? '替换封面' : '上传封面') }}
                 </button>
                 <button
                   v-if="cover"

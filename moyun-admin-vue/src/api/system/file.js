@@ -35,6 +35,30 @@ export function delFile(id) {
   })
 }
 
+// 按文件URL删除文件（用于附件删除/替换时清理存储+记录，组件只持有url无fileId时使用）
+export function delFileByUrl(fileUrl) {
+  return request({
+    url: '/system/file/byUrl',
+    method: 'delete',
+    params: { fileUrl }
+  })
+}
+
+// 按文件URL批量删除文件（用于文件管理页批量删除，统一走 byUrl 清理路径）
+// 并行调用 delFileByUrl，任一失败不阻断其余；返回每个 URL 的结果
+export function delFilesByUrl(fileUrls) {
+  if (!Array.isArray(fileUrls) || fileUrls.length === 0) {
+    return Promise.resolve([])
+  }
+  return Promise.all(
+    fileUrls.map(url =>
+      delFileByUrl(url)
+        .then(res => ({ url, ok: true, res }))
+        .catch(err => ({ url, ok: false, err }))
+    )
+  )
+}
+
 // 批量删除文件
 export function delFiles(ids) {
   return request({

@@ -1,13 +1,16 @@
 <script setup lang="ts">
-import {computed, onMounted, ref} from 'vue';
+import {computed, onMounted, ref, watch} from 'vue';
 import {RouterLink as Link, useRoute, useRouter} from 'vue-router';
 import {useHead} from '@vueuse/head';
-import {Bookmark, Clock, Gift, Heart, Lock, MessageSquare, Reply, Send, Share2, X} from 'lucide-vue-next';
+import {Bookmark, Clock, Gift, Heart, Lock, MessageSquare, Reply, Send, Share2} from 'lucide-vue-next';
 import Breadcrumb from '@/components/Breadcrumb.vue';
 import SiteFooter from '@/components/SiteFooter.vue';
 import MarkdownRenderer from '@/components/MarkdownRenderer.vue';
 import BackToTop from '@/components/BackToTop.vue';
 import TagList from '@/components/TagList.vue';
+import TipModal from '@/components/TipModal.vue';
+import RelatedArticleCard from '@/components/RelatedArticleCard.vue';
+import AdCard from '@/components/AdCard.vue';
 import {useArticleStore} from '@/stores/article';
 import {useUserStore} from '@/stores/user';
 import {useAuth} from '@/composables/useAuth';
@@ -19,7 +22,7 @@ import {getSafeAvatar} from '@/utils/avatar';
 import type {Article, Comment, User} from '@/types/api';
 import * as articleApi from '@/api/article';
 import * as commentApi from '@/api/comment';
-import {tipTarget, purchaseArticle} from '@/api/tip';
+import {purchaseArticle} from '@/api/tip';
 
 const route = useRoute();
 const router = useRouter();
@@ -29,6 +32,7 @@ const {isAuthenticated, requireAuth, withAuth, withAuthConfirm} = useAuth();
 const toast = useToast();
 const article = ref<Article | null>(null);
 const comments = ref<Comment[]>([]);
+const relatedArticles = ref<Article[]>([]);
 const newComment = ref('');
 const currentUser = computed(() => userStore.user);
 const replyingTo = ref<Comment | null>(null);
@@ -193,6 +197,20 @@ onMounted(async () => {
   await loadArticle();
 });
 
+// 路由参数变化时（同组件复用，如从相关推荐点击跳转新文章）重新加载
+watch(() => route.params.id, (newId, oldId) => {
+  if (newId && newId !== oldId) {
+    // 重置状态，避免显示旧文章数据
+    article.value = null;
+    comments.value = [];
+    relatedArticles.value = [];
+    commentsPageNum.value = 1;
+    error.value = null;
+    window.scrollTo({top: 0, behavior: 'smooth'});
+    loadArticle();
+  }
+});
+
 async function loadArticle() {
   loading.value = true;
   error.value = null;
@@ -219,6 +237,11 @@ async function loadArticle() {
     // 更新文章阅读量
     if (viewResponse && viewResponse.code === 200 && viewResponse.data && article.value) {
       article.value.views = viewResponse.data.views;
+    }
+
+    // 文章加载成功后异步加载相关推荐（不阻塞详情页渲染）
+    if (article.value) {
+      loadRelatedArticles();
     }
   } catch (err) {
     console.error('加载文章失败:', err);
@@ -250,6 +273,27 @@ async function loadComments(articleId: string) {
     comments.value = [];
   } finally {
     commentsLoading.value = false;
+  }
+}
+
+// 加载相关推荐（按分类取，过滤当前文章，最多 6 篇）
+async function loadRelatedArticles() {
+  if (!article.value) return;
+  const category = articleCategory.value;
+  if (!category) {
+    relatedArticles.value = [];
+    return;
+  }
+  try {
+    const res = await articleApi.getCategoryRecommendedArticles(category, { pageNum: 1, pageSize: 12 }, 12);
+    const list = (res.data?.list || []) as Article[];
+    const currentId = String(article.value.id);
+    relatedArticles.value = list
+      .filter(a => String(a.id) !== currentId)
+      .slice(0, 6);
+  } catch (err) {
+    console.error('加载相关推荐失败:', err);
+    relatedArticles.value = [];
   }
 }
 
@@ -553,9 +597,6 @@ function getCommentLikeButtonStyle(isLiked: boolean) {
 
 // ============ 打赏 & 付费阅读 ============
 const showTipModal = ref(false);
-const tipAmount = ref<number>(5);
-const tipMessage = ref('');
-const tipping = ref(false);
 const purchasing = ref(false);
 
 // 是否为当前文章作者（作者本人访问自己的文章）
@@ -573,48 +614,18 @@ const needPurchase = computed(() =>
 );
 
 // 打赏快捷金额
-const tipPresetAmounts = [2, 5, 10, 20, 50, 100];
-
 function openTipModal() {
   if (!requireAuth(router.currentRoute.value.fullPath)) return;
-  tipAmount.value = 5;
-  tipMessage.value = '';
   showTipModal.value = true;
 }
 
-function closeTipModal() {
-  if (tipping.value) return;
+function onTipSuccess() {
+  toast.success('鼓励成功，感谢支持创作者！');
   showTipModal.value = false;
 }
 
-function selectTipAmount(amount: number) {
-  tipAmount.value = amount;
-}
-
-async function handleTip() {
-  if (!article.value) return;
-  if (!tipAmount.value || tipAmount.value <= 0) {
-    toast.error('请输入有效的打赏金额');
-    return;
-  }
-  tipping.value = true;
-  try {
-    const res = await tipTarget('article', article.value.id, {
-      amount: tipAmount.value,
-      message: tipMessage.value,
-    });
-    if (res.code === 200) {
-      toast.success('打赏成功，感谢支持！');
-      showTipModal.value = false;
-    } else {
-      toast.error(res.message || '打赏失败');
-    }
-  } catch (err) {
-    const e = err as {message?: string};
-    toast.error(e?.message || '打赏失败，请稍后重试');
-  } finally {
-    tipping.value = false;
-  }
+function onTipError(message: string) {
+  toast.error(message || '鼓励失败');
 }
 
 async function handlePurchase() {
@@ -981,6 +992,24 @@ const head = useHead(
             </div>
           </article>
 
+          <!-- 相关推荐 -->
+          <section v-if="relatedArticles.length > 0" class="mb-4">
+            <h2 class="text-lg font-bold mb-4 flex items-center space-x-3"
+                style="color: var(--theme-text);">
+              <span>相关推荐</span>
+            </h2>
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              <RelatedArticleCard
+                v-for="rel in relatedArticles"
+                :key="rel.id"
+                :article="rel"
+              />
+            </div>
+          </section>
+
+          <!-- 广告位 -->
+          <AdCard slot-key="article_detail_bottom" class="mb-4" />
+
           <section class="rounded-xl p-4 sm:p-6 md:p-8 mb-4"
                    style="background-color: var(--theme-surface); border: 1px solid var(--theme-border);"
                    aria-labelledby="comments-heading">
@@ -1250,124 +1279,18 @@ const head = useHead(
       </div>
     </div>
 
-    <!-- 打赏弹窗 -->
-    <div
-      v-if="showTipModal"
-      class="fixed inset-0 z-50 flex items-center justify-center p-4"
-      style="background-color: rgba(0, 0, 0, 0.5);"
-      @click.self="closeTipModal"
-    >
-      <div
-        class="w-full max-w-md rounded-2xl shadow-xl"
-        style="background-color: var(--theme-surface); border: 1px solid var(--theme-border);"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="tip-modal-title"
-      >
-        <!-- 头部 -->
-        <div class="flex items-center justify-between p-5 border-b" style="border-color: var(--theme-border);">
-          <h3 id="tip-modal-title" class="text-lg font-bold flex items-center gap-2" style="color: var(--theme-text);">
-            <Gift class="w-5 h-5" style="color: var(--theme-primary);" />
-            打赏作者
-          </h3>
-          <button
-            @click="closeTipModal"
-            :disabled="tipping"
-            class="p-1 rounded-lg transition hover:opacity-70 disabled:opacity-40"
-            style="color: var(--theme-text-secondary);"
-            aria-label="关闭"
-          >
-            <X class="w-5 h-5" />
-          </button>
-        </div>
-
-        <!-- 内容 -->
-        <div class="p-5">
-          <!-- 作者信息 -->
-          <div v-if="articleAuthor" class="flex items-center gap-3 mb-5">
-            <img
-              :src="getSafeAvatar(articleAuthor.avatar, articleAuthor.id)"
-              :alt="articleAuthor.username"
-              class="w-10 h-10 rounded-full object-cover"
-              loading="lazy"
-            />
-            <div class="min-w-0">
-              <p class="font-medium truncate" style="color: var(--theme-text);">
-                {{ articleAuthor.nickname || articleAuthor.username || '匿名作者' }}
-              </p>
-              <p v-if="article" class="text-xs truncate" style="color: var(--theme-text-secondary);">
-                {{ article.title }}
-              </p>
-            </div>
-          </div>
-
-          <!-- 快捷金额 -->
-          <div class="mb-4">
-            <p class="text-sm mb-2" style="color: var(--theme-text-secondary);">选择金额（元）</p>
-            <div class="grid grid-cols-3 gap-2">
-              <button
-                v-for="amt in tipPresetAmounts"
-                :key="amt"
-                @click="selectTipAmount(amt)"
-                class="py-2 rounded-lg text-sm font-medium transition"
-                :style="tipAmount === amt
-                  ? 'background-color: var(--theme-primary); color: white;'
-                  : 'background-color: var(--theme-accent); color: var(--theme-text);'"
-              >
-                ¥{{ amt }}
-              </button>
-            </div>
-          </div>
-
-          <!-- 自定义金额 -->
-          <div class="mb-4">
-            <label for="tip-amount-input" class="text-sm mb-2 block" style="color: var(--theme-text-secondary);">自定义金额</label>
-            <input
-              id="tip-amount-input"
-              v-model.number="tipAmount"
-              type="number"
-              min="0.01"
-              step="0.01"
-              placeholder="请输入金额"
-              class="w-full px-3 py-2 rounded-lg text-sm focus:outline-none"
-              style="background-color: var(--theme-bg); color: var(--theme-text); border: 1px solid var(--theme-border);"
-            />
-          </div>
-
-          <!-- 留言 -->
-          <div class="mb-5">
-            <label for="tip-message-input" class="text-sm mb-2 block" style="color: var(--theme-text-secondary);">留言（选填）</label>
-            <textarea
-              id="tip-message-input"
-              v-model="tipMessage"
-              placeholder="说点什么鼓励一下作者..."
-              rows="2"
-              maxlength="100"
-              class="w-full px-3 py-2 rounded-lg text-sm resize-none focus:outline-none"
-              style="background-color: var(--theme-bg); color: var(--theme-text); border: 1px solid var(--theme-border);"
-            />
-          </div>
-
-          <!-- 确认按钮 -->
-          <button
-            @click="handleTip"
-            :disabled="tipping || !tipAmount || tipAmount <= 0"
-            class="w-full py-3 rounded-xl font-medium text-sm transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
-            style="background-color: var(--theme-primary); color: white;"
-          >
-            <svg v-if="tipping" class="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none">
-              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
-            </svg>
-            <Gift v-else class="w-4 h-4" />
-            {{ tipping ? '处理中...' : `打赏 ¥${Number(tipAmount || 0).toFixed(2)}` }}
-          </button>
-          <p class="text-xs text-center mt-3" style="color: var(--theme-text-secondary);">
-            打赏后不支持退款，请确认金额
-          </p>
-        </div>
-      </div>
-    </div>
+    <!-- 打赏弹窗（积分打赏 MVP） -->
+    <TipModal
+      :show="showTipModal"
+      target-type="article"
+      :target-id="article?.id || ''"
+      :author-avatar="articleAuthor?.avatar"
+      :author-name="articleAuthor?.nickname || articleAuthor?.username"
+      :target-title="article?.title"
+      @close="showTipModal = false"
+      @success="onTipSuccess"
+      @error="onTipError"
+    />
 
     <!-- 公共Footer组件 -->
     <SiteFooter />

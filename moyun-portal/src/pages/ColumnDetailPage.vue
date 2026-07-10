@@ -6,10 +6,11 @@ import {
   ArrowLeft, BookOpen, Users, Eye, FileText, Heart, Clock,
   Plus, Trash2, ArrowUp, ArrowDown, Save, CheckCircle2,
   Bell, BellOff, Pencil, Loader2, ChevronRight,
-  Gift, X,
+  Gift,
 } from 'lucide-vue-next';
 import SiteFooter from '@/components/SiteFooter.vue';
 import LazyImage from '@/components/LazyImage.vue';
+import TipModal from '@/components/TipModal.vue';
 import { generateSeo } from '@/utils/seo';
 import { getSafeAvatar } from '@/utils/avatar';
 import { formatShortDate } from '@/utils/date';
@@ -17,7 +18,6 @@ import {
   getColumnDetail, toggleSubscribe, toggleColumnFinish, deleteColumn,
   addArticle, removeArticle, sortArticles,
 } from '@/api/column';
-import { tipTarget } from '@/api/tip';
 import { useUserStore } from '@/stores/user';
 import { useAuth } from '@/composables/useAuth';
 import type { ColumnVO, ArticleSimpleVO, ColumnArticleSortItem } from '@/types/api';
@@ -295,52 +295,20 @@ async function handleAddArticle() {
 
 // ============ 打赏 ============
 const showTipModal = ref(false);
-const tipAmount = ref<number>(5);
-const tipMessage = ref('');
-const tipping = ref(false);
-const tipPresetAmounts = [2, 5, 10, 20, 50, 100];
 
 function openTipModal() {
   if (!requireAuth(router.currentRoute.value.fullPath)) return;
   if (!column.value) return;
-  tipAmount.value = 5;
-  tipMessage.value = '';
   showTipModal.value = true;
 }
 
-function closeTipModal() {
-  if (tipping.value) return;
+function onTipSuccess() {
+  showToast('鼓励成功，感谢支持创作者！', 'success');
   showTipModal.value = false;
 }
 
-function selectTipAmount(amount: number) {
-  tipAmount.value = amount;
-}
-
-async function handleTip() {
-  if (!column.value) return;
-  if (!tipAmount.value || tipAmount.value <= 0) {
-    showToast('请输入有效的打赏金额', 'error');
-    return;
-  }
-  tipping.value = true;
-  try {
-    const res = await tipTarget('column', column.value.id, {
-      amount: tipAmount.value,
-      message: tipMessage.value,
-    });
-    if (res.code === 200) {
-      showToast('打赏成功，感谢支持！', 'success');
-      showTipModal.value = false;
-    } else {
-      showToast(res.message || '打赏失败', 'error');
-    }
-  } catch (err) {
-    const e = err as { message?: string };
-    showToast(e?.message || '打赏失败，请稍后重试', 'error');
-  } finally {
-    tipping.value = false;
-  }
+function onTipError(message: string) {
+  showToast(message || '鼓励失败', 'error');
 }
 
 function goBack() {
@@ -718,121 +686,18 @@ function formatNumber(n?: number) {
       </div>
     </template>
 
-    <!-- 打赏弹窗 -->
-    <div
-      v-if="showTipModal"
-      class="fixed inset-0 z-50 flex items-center justify-center p-4"
-      style="background-color: rgba(0, 0, 0, 0.5);"
-      @click.self="closeTipModal"
-    >
-      <div
-        class="w-full max-w-md rounded-2xl shadow-xl"
-        style="background-color: var(--theme-surface); border: 1px solid var(--theme-border);"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="tip-modal-title"
-      >
-        <!-- 头部 -->
-        <div class="flex items-center justify-between p-5 border-b" style="border-color: var(--theme-border);">
-          <h3 id="tip-modal-title" class="text-lg font-bold flex items-center gap-2" style="color: var(--theme-text);">
-            <Gift class="w-5 h-5" style="color: var(--theme-primary);" />
-            打赏专栏作者
-          </h3>
-          <button
-            @click="closeTipModal"
-            :disabled="tipping"
-            class="p-1 rounded-lg transition hover:opacity-70 disabled:opacity-40"
-            style="color: var(--theme-text-secondary);"
-            aria-label="关闭"
-          >
-            <X class="w-5 h-5" />
-          </button>
-        </div>
-
-        <!-- 内容 -->
-        <div class="p-5">
-          <!-- 作者信息 -->
-          <div v-if="column" class="flex items-center gap-3 mb-5">
-            <img
-              :src="getSafeAvatar(column.authorAvatar, String(column.userId))"
-              :alt="column.authorName || '作者'"
-              class="w-10 h-10 rounded-full object-cover"
-              loading="lazy"
-            />
-            <div class="min-w-0">
-              <p class="font-medium truncate" style="color: var(--theme-text);">
-                {{ column.authorName || '匿名作者' }}
-              </p>
-              <p class="text-xs truncate" style="color: var(--theme-text-secondary);">
-                {{ column.title }}
-              </p>
-            </div>
-          </div>
-
-          <!-- 快捷金额 -->
-          <div class="mb-4">
-            <p class="text-sm mb-2" style="color: var(--theme-text-secondary);">选择金额（元）</p>
-            <div class="grid grid-cols-3 gap-2">
-              <button
-                v-for="amt in tipPresetAmounts"
-                :key="amt"
-                @click="selectTipAmount(amt)"
-                class="py-2 rounded-lg text-sm font-medium transition"
-                :style="tipAmount === amt
-                  ? 'background-color: var(--theme-primary); color: white;'
-                  : 'background-color: var(--theme-accent); color: var(--theme-text);'"
-              >
-                ¥{{ amt }}
-              </button>
-            </div>
-          </div>
-
-          <!-- 自定义金额 -->
-          <div class="mb-4">
-            <label for="col-tip-amount-input" class="text-sm mb-2 block" style="color: var(--theme-text-secondary);">自定义金额</label>
-            <input
-              id="col-tip-amount-input"
-              v-model.number="tipAmount"
-              type="number"
-              min="0.01"
-              step="0.01"
-              placeholder="请输入金额"
-              class="w-full px-3 py-2 rounded-lg text-sm focus:outline-none"
-              style="background-color: var(--theme-bg); color: var(--theme-text); border: 1px solid var(--theme-border);"
-            />
-          </div>
-
-          <!-- 留言 -->
-          <div class="mb-5">
-            <label for="col-tip-message-input" class="text-sm mb-2 block" style="color: var(--theme-text-secondary);">留言（选填）</label>
-            <textarea
-              id="col-tip-message-input"
-              v-model="tipMessage"
-              placeholder="说点什么鼓励一下作者..."
-              rows="2"
-              maxlength="100"
-              class="w-full px-3 py-2 rounded-lg text-sm resize-none focus:outline-none"
-              style="background-color: var(--theme-bg); color: var(--theme-text); border: 1px solid var(--theme-border);"
-            />
-          </div>
-
-          <!-- 确认按钮 -->
-          <button
-            @click="handleTip"
-            :disabled="tipping || !tipAmount || tipAmount <= 0"
-            class="w-full py-3 rounded-xl font-medium text-sm transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
-            style="background-color: var(--theme-primary); color: white;"
-          >
-            <Loader2 v-if="tipping" class="w-4 h-4 animate-spin" />
-            <Gift v-else class="w-4 h-4" />
-            {{ tipping ? '处理中...' : `打赏 ¥${Number(tipAmount || 0).toFixed(2)}` }}
-          </button>
-          <p class="text-xs text-center mt-3" style="color: var(--theme-text-secondary);">
-            打赏后不支持退款，请确认金额
-          </p>
-        </div>
-      </div>
-    </div>
+    <!-- 打赏弹窗（积分打赏 MVP） -->
+    <TipModal
+      :show="showTipModal"
+      target-type="column"
+      :target-id="column?.id || ''"
+      :author-avatar="column?.authorAvatar"
+      :author-name="column?.authorName"
+      :target-title="column?.title"
+      @close="showTipModal = false"
+      @success="onTipSuccess"
+      @error="onTipError"
+    />
 
     <SiteFooter />
   </div>

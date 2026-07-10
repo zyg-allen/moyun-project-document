@@ -161,7 +161,11 @@ public class SecurityConfig {
                     requests.requestMatchers("/login", "/register", "/captchaImage").permitAll()
                             // 静态资源，可匿名访问
                             .requestMatchers(HttpMethod.GET, "/", "/*.html", "/*.css", "/*.js", "/profile/**").permitAll()
-                            .requestMatchers("/swagger-ui.html", "/swagger-resources/**", "/webjars/**", "/*/api-docs", "/druid/**", "/doc.html", "/swagger-ui/**", "/v3/api-docs/**").permitAll()
+                            // Swagger / Knife4j 文档：开发环境默认放行；生产环境应通过 KNIFE4J_PRODUCTION=true 关闭文档入口，
+                            // 或在生产 SecurityConfig 中将以下 permitAll 改为 hasRole("ADMIN") / IP 白名单以避免接口暴露
+                            .requestMatchers("/swagger-ui.html", "/swagger-resources/**", "/webjars/**", "/*/api-docs", "/doc.html", "/swagger-ui/**", "/v3/api-docs/**").permitAll()
+                            // Druid 监控页面仅管理员可访问，避免生产环境暴露数据库监控信息
+                            .requestMatchers("/druid/**").hasRole("ADMIN")
                             // WebSocket 握手端点：放行 HTTP 升级请求，鉴权由 PortalWebSocketAuthInterceptor 处理
                             .requestMatchers("/ws-message/**").permitAll()
                             // 除上面外的所有请求全部需要鉴权认证

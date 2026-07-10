@@ -124,9 +124,8 @@ public class PortalBookQuoteServiceImpl extends ServiceImpl<PortalBookQuoteMappe
     public void incrementLikeCount(Long id) {
         PortalBookQuote quote = portalBookQuoteMapper.selectPortalBookQuoteById(id);
         if (quote != null) {
-            quote.setLikeCount((quote.getLikeCount() == null ? 0L : quote.getLikeCount()) + 1L);
-            quote.setUpdateTime(LocalDateTime.now());
-            portalBookQuoteMapper.updatePortalBookQuote(quote);
+            // 原子递增点赞数（避免并发丢失更新）
+            portalBookQuoteMapper.incrementLikeCount(id);
 
             // 为金句发布者记录被赞成长事件
             if (quote.getUserId() != null) {

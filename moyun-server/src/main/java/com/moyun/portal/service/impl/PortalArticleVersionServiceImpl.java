@@ -20,6 +20,7 @@ import com.moyun.portal.domain.entity.PortalArticleVersion;
 import com.moyun.portal.mapper.PortalArticleMapper;
 import com.moyun.portal.mapper.PortalArticleVersionMapper;
 import com.moyun.portal.service.IPortalArticleVersionService;
+import com.moyun.portal.util.PortalSecurityUtils;
 
 /**
  * 文章版本快照 业务层实现
@@ -69,12 +70,22 @@ public class PortalArticleVersionServiceImpl
 
     @Override
     public List<PortalArticleVersion> listVersions(Long articleId) {
+        // 归属校验：仅作者本人可查看自己文章的版本列表（含草稿版本），防止越权读取他人草稿版本
+        checkOwnership(articleId, PortalSecurityUtils.getUserId());
         return baseMapper.selectVersionList(articleId);
     }
 
     @Override
     public PortalArticleVersion getVersion(Long versionId) {
-        return baseMapper.selectById(versionId);
+        PortalArticleVersion version = baseMapper.selectById(versionId);
+        if (version == null) {
+            return null;
+        }
+        // 归属校验：查到版本后查对应文章，校验当前用户为文章作者，防止越权读取他人草稿版本
+        if (version.getArticleId() != null) {
+            checkOwnership(version.getArticleId(), PortalSecurityUtils.getUserId());
+        }
+        return version;
     }
 
     @Override
@@ -114,6 +125,8 @@ public class PortalArticleVersionServiceImpl
 
     @Override
     public Map<String, Object> diff(Long articleId, Integer v1, Integer v2) {
+        // 归属校验：仅作者本人可对比自己文章的版本，防止越权读取他人草稿版本内容
+        checkOwnership(articleId, PortalSecurityUtils.getUserId());
         PortalArticleVersion va = findByArticleAndVersionNo(articleId, v1);
         PortalArticleVersion vb = findByArticleAndVersionNo(articleId, v2);
         Map<String, Object> result = new HashMap<>();
@@ -123,6 +136,27 @@ public class PortalArticleVersionServiceImpl
     }
 
     // ==================== 私有方法 ====================
+
+    /**
+     * 文章归属校验：校验文章存在且 authorId 与当前用户一致
+     * 参照 rollback 方法的归属校验写法，用于版本列表/详情/对比接口的越权防护
+     *
+     * @param articleId  文章ID
+     * @param operatorId 当前登录用户ID
+     * @throws ServiceException 文章不存在或无权操作时抛出
+     */
+    private void checkOwnership(Long articleId, Long operatorId) {
+        if (articleId == null) {
+            throw new ServiceException("文章ID不能为空");
+        }
+        PortalArticle article = portalArticleMapper.selectById(articleId);
+        if (article == null) {
+            throw new ServiceException("文章不存在");
+        }
+        if (operatorId == null || !Objects.equals(article.getAuthorId(), operatorId)) {
+            throw new ServiceException("无权查看该文章版本");
+        }
+    }
 
     private PortalArticleVersion getLatestVersion(Long articleId) {
         LambdaQueryWrapper<PortalArticleVersion> wrapper = new LambdaQueryWrapper<>();

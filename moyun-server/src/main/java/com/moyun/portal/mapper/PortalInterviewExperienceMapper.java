@@ -4,6 +4,8 @@ import java.util.List;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import org.apache.ibatis.annotations.Mapper;
+import org.apache.ibatis.annotations.Param;
+import org.apache.ibatis.annotations.Update;
 
 import com.moyun.portal.domain.entity.PortalInterviewExperience;
 
@@ -72,4 +74,14 @@ public interface PortalInterviewExperienceMapper extends BaseMapper<PortalInterv
      * 评论数 +1
      */
     void incrementCommentCount(Long id);
+
+    /**
+     * 原子增加点赞数（避免并发丢失更新，参考 PortalArticleMapper.incrementLikes 模式）
+     *
+     * @param id    面经ID
+     * @param delta 增量（正数增加，负数减少）
+     * @return 受影响行数
+     */
+    @Update("UPDATE portal_interview_experience SET like_count = like_count + #{delta} WHERE id = #{id} AND like_count + #{delta} >= 0")
+    int incrementLikes(@Param("id") Long id, @Param("delta") long delta);
 }

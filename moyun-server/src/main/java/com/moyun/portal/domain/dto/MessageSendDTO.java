@@ -26,6 +26,10 @@ public class MessageSendDTO implements Serializable {
     @NotNull(message = "接收者不能为空")
     private Long receiverId;
 
+    /** 接收者用户类型 portal/sys，门户端发私信时留空默认 portal，显式指定可给管理员发 */
+    @Schema(description = "接收者用户类型 portal/sys（留空默认 portal）", example = "portal")
+    private String receiverType;
+
     /** 消息内容 */
     @Schema(description = "消息内容", requiredMode = Schema.RequiredMode.REQUIRED)
     @NotBlank(message = "消息内容不能为空")

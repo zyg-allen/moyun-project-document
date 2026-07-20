@@ -231,41 +231,41 @@ watch(targetUserId, () => {
             opacity: ach.earned ? 1 : 0.6
           }"
         >
-          <!-- 徽章图标 -->
-          <div class="relative inline-block mb-3">
-            <div
-              class="w-16 h-16 sm:w-20 sm:h-20 mx-auto rounded-full flex items-center justify-center"
-              :style="ach.earned
-                ? 'background: linear-gradient(135deg, #f59e0b 0%, #ef4444 100%);'
-                : 'background-color: var(--theme-accent);'"
-            >
-              <img
-                v-if="ach.icon"
-                :src="ach.icon"
-                :alt="ach.name"
-                class="w-8 h-8 sm:w-10 sm:h-10 object-contain"
-                @error="(e: Event) => (e.target as HTMLImageElement).style.display = 'none'"
-              />
-              <component
-                v-else
-                :is="ach.earned ? Award : Lock"
-                class="w-8 h-8 sm:w-10 sm:h-10"
-                :class="ach.earned ? 'text-white' : ''"
-                :style="!ach.earned ? 'color: var(--theme-text-secondary);' : ''"
-              />
-            </div>
-            <!-- 达成标记 -->
-            <div
-              v-if="ach.earned"
-              class="absolute -bottom-1 -right-1 w-6 h-6 rounded-full flex items-center justify-center"
-              style="background-color: #10b981;"
-            >
-              <CheckCircle2 class="w-4 h-4 text-white" />
-            </div>
-          </div>
+          <!-- 徽章图标（v1.1.2：图标缩小一半，原 w-16 h-16 sm:w-20 sm:h-20） -->
+    <div class="relative inline-block mb-3">
+      <div
+        class="w-8 h-8 sm:w-10 sm:h-10 mx-auto rounded-full flex items-center justify-center"
+        :style="ach.earned
+          ? 'background: linear-gradient(135deg, #f59e0b 0%, #ef4444 100%);'
+          : 'background-color: var(--theme-accent);'"
+      >
+        <img
+          v-if="ach.icon"
+          :src="ach.icon"
+          :alt="ach.name"
+          class="w-4 h-4 sm:w-5 sm:h-5 object-contain"
+          @error="(e: Event) => (e.target as HTMLImageElement).style.display = 'none'"
+        />
+        <component
+          v-else
+          :is="ach.earned ? Award : Lock"
+          class="w-4 h-4 sm:w-5 sm:h-5"
+          :class="ach.earned ? 'text-white' : ''"
+          :style="!ach.earned ? 'color: var(--theme-text-secondary);' : ''"
+        />
+      </div>
+      <!-- 达成标记（v1.1.2：随主图标同步缩小一半，原 w-5 h-5 → w-3 h-3） -->
+      <div
+        v-if="ach.earned"
+        class="absolute -bottom-0.5 -right-0.5 w-3 h-3 sm:w-4 sm:h-4 rounded-full flex items-center justify-center"
+        style="background-color: #10b981;"
+      >
+        <CheckCircle2 class="w-2 h-2 sm:w-2.5 sm:h-2.5 text-white" />
+      </div>
+    </div>
 
-          <!-- 名称 -->
-          <h3 class="font-bold text-sm sm:text-base mb-1 truncate" style="color: var(--theme-text);">
+          <!-- 名称（v1.1.2：字号同步缩，原 text-sm sm:text-base → text-xs sm:text-sm） -->
+          <h3 class="font-bold text-xs sm:text-sm mb-1 truncate" style="color: var(--theme-text);">
             {{ ach.name }}
           </h3>
 

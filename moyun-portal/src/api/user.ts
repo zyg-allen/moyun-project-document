@@ -7,7 +7,6 @@ import type {
   RegisterResponse,
   UpdateUserProfileParams,
   UpdatePasswordParams,
-  SendSmsCodeParams,
   UserStats,
   UserDashboard,
 } from '@/types/api';
@@ -42,19 +41,14 @@ export const updatePassword = (params: UpdatePasswordParams) => {
   return httpPut('/portal/user/password', params);
 };
 
-// 发送短信验证码
-export const sendSmsCode = (params: SendSmsCodeParams) => {
-  return httpPost('/portal/user/send-sms', params);
-};
-
 // 上传头像
 export const uploadAvatar = (file: File) => {
   return httpUpload<User>('/portal/user/avatar', file);
 };
 
-// 获取用户统计信息
-export const getUserStats = (userId?: string) => {
-  return httpGet<UserStats>(userId ? `/portal/user/${userId}/stats` : '/portal/user/stats');
+// 获取当前登录用户统计信息
+export const getUserStats = () => {
+  return httpGet<UserStats>('/portal/user/stats');
 };
 
 // 获取个人中心 Dashboard 聚合数据（文章/收藏/书架/答题/面经/简历/关注/粉丝/专栏/未读消息/成长等级）

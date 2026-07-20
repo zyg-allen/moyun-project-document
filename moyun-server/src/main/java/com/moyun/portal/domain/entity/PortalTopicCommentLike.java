@@ -11,29 +11,29 @@ import lombok.Data;
 import java.time.LocalDateTime;
 
 /**
- * 话题关注
+ * 话题评论点赞
  *
  * @author moyun
  */
 @Data
-@TableName("portal_topic_follow")
-public class PortalTopicFollow extends BaseEntity {
+@TableName("portal_topic_comment_like")
+public class PortalTopicCommentLike extends BaseEntity {
     private static final long serialVersionUID = 1L;
 
     @TableId(type = IdType.AUTO)
     private Long id;
 
-    /** 话题ID */
-    private Long topicId;
+    /** 评论 ID */
+    private Long commentId;
 
-    /** 关注用户ID */
+    /** 点赞用户 ID */
     private Long userId;
 
-    /** 关注时间 */
+    /** 创建时间 */
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime createdTime;
 
-    // BaseEntity 公共字段对应列在 portal_topic_follow 表中不存在，排除 MyBatis-Plus 映射
+    // BaseEntity 公共字段对应列在 portal_topic_comment_like 表中不存在，排除 MyBatis-Plus 映射
     @TableField(exist = false)
     private String createBy;
     @TableField(exist = false)

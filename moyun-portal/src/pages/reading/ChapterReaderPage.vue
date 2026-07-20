@@ -12,6 +12,10 @@ import {
   Clock,
   Eye,
   Settings as SettingsIcon,
+  ChevronUp,
+  ChevronDown,
+  CheckCircle2,
+  BookCheck,
 } from 'lucide-vue-next'
 import MarkdownRenderer from '@/components/MarkdownRenderer.vue'
 import SiteFooter from '@/components/SiteFooter.vue'
@@ -80,8 +84,52 @@ const settingsVisible = ref(false) // 阅读设置面板
 // 请求序号：防止快速切换章节时旧请求覆盖新请求的数据
 let loadSeq = 0
 
+// ----- 阅读模式（scroll 滚动 / paginate 分页）-----
+// 单独 localStorage 持久化，不进 ReadingPreference 服务端同步（避免后端 schema 改动）
+const READING_MODE_KEY = 'reading:mode';
+type ReadingMode = 'scroll' | 'paginate';
+const readingMode = ref<ReadingMode>(
+    (() => {
+      try {
+        const saved = localStorage.getItem(READING_MODE_KEY);
+        return saved === 'paginate' ? 'paginate' : 'scroll';
+      } catch {
+        return 'scroll';
+      }
+    })()
+);
+function toggleReadingMode() {
+  readingMode.value = readingMode.value === 'scroll' ? 'paginate' : 'scroll';
+  try {
+    localStorage.setItem(READING_MODE_KEY, readingMode.value);
+  } catch {
+    // 静默忽略 localStorage 写入失败
+  }
+  // 切换模式后重置分页状态，等下一帧重新计算
+  currentPage.value = 0;
+  totalPages.value = 1;
+  chapterFinishedMarked.value = false;
+  nextTick(() => {
+    recalcPages();
+    if (readingMode.value === 'scroll') {
+      // 滚动模式：恢复到顶部
+      window.scrollTo({ top: 0, behavior: 'auto' });
+    } else if (paginateContainer.value) {
+      // 分页模式：跳到第一页
+      paginateContainer.value.scrollTo({ top: 0, behavior: 'auto' });
+    }
+  });
+}
+
+// ----- 分页模式状态 -----
+const paginateContainer = ref<HTMLElement | null>(null);
+const currentPage = ref(0);
+const totalPages = ref(1);
+// 章节完成标记：本章"读到末尾"已触发过 markChapterFinished，避免重复上报（章节切换时重置）
+const chapterFinishedMarked = ref(false);
+
 // ----- 阅读进度 & 偏好 -----
-const { startReporting, stopReporting, updateOffset, restoreProgress } = useReadingProgress(
+const { startReporting, stopReporting, updateOffset, markChapterFinished, restoreProgress } = useReadingProgress(
     computed(() => bookId.value || chapter.value?.bookId)
 )
 const { preference, updatePreference, resetPreference } = useReadingPreference()
@@ -116,6 +164,25 @@ const progressText = computed(() => {
   if (!current) return ''
   if (total) return `${current} / ${total}`
   return `${current}`
+})
+
+// 是否为最后一章（用于判断"本书已读完"）
+const isLastChapter = computed(() => {
+  if (!nav.value?.next) return true // 没有 next 即视为最后一章
+  return false;
+})
+
+// 分页模式：页码指示文本
+const pageIndicatorText = computed(() => {
+  if (totalPages.value <= 1) return ''
+  return `${currentPage.value + 1} / ${totalPages.value}`
+})
+
+// 是否显示"本章已读完"卡片
+const showChapterFinishedCard = computed(() => {
+  return readingMode.value === 'paginate'
+      && chapterFinishedMarked.value
+      && currentPage.value >= totalPages.value - 1;
 })
 
 // 阅读器主题变量映射（覆盖站点主题）
@@ -191,6 +258,10 @@ async function loadAll() {
 
     if (chapterResp.code === 200 && chapterResp.data) {
       chapter.value = chapterResp.data
+      // 章节切换：重置分页状态 + 章节完成标记
+      currentPage.value = 0
+      totalPages.value = 1
+      chapterFinishedMarked.value = false
       // 拿到 bookId 后并行加载书籍信息和章节目录
       const bid = chapter.value.bookId || bookId.value
       if (bid) {
@@ -225,14 +296,30 @@ async function loadAll() {
       if (bidForProgress && userStore.isAuthenticated) {
         updateBookshelfLastChapter(bidForProgress, Number(cId), cNo).catch(() => {})
       }
-      // 等待渲染后滚动到恢复位置
+      // 等待渲染后处理位置恢复 + 分页计算
       await nextTick()
       if (seq !== loadSeq) return // 竞态守卫
       if (typeof window !== 'undefined') {
-        if (restoredOffset > 0) {
-          window.scrollTo({ top: restoredOffset, behavior: 'auto' })
+        if (readingMode.value === 'paginate') {
+          // 分页模式：计算总页数，恢复到上次阅读位置对应的页码
+          recalcPages()
+          if (restoredOffset > 0 && paginateContainer.value) {
+            const clientH = paginateContainer.value.clientHeight
+            currentPage.value = Math.floor(restoredOffset / clientH)
+            paginateContainer.value.scrollTo({
+              top: currentPage.value * clientH,
+              behavior: 'auto',
+            })
+          } else if (paginateContainer.value) {
+            paginateContainer.value.scrollTo({ top: 0, behavior: 'auto' })
+          }
         } else {
-          window.scrollTo({ top: 0, behavior: 'smooth' })
+          // 滚动模式：恢复到上次的 window 偏移
+          if (restoredOffset > 0) {
+            window.scrollTo({ top: restoredOffset, behavior: 'auto' })
+          } else {
+            window.scrollTo({ top: 0, behavior: 'smooth' })
+          }
         }
       }
     } else {
@@ -257,14 +344,118 @@ async function loadAll() {
   }
 }
 
-// ----- 滚动监听（节流上报 offset）-----
+// ----- 滚动监听（节流上报 offset + 检测章节完成）-----
 let scrollRafId: number | null = null
 function onScroll() {
   if (scrollRafId !== null) return
   scrollRafId = window.requestAnimationFrame(() => {
     scrollRafId = null
     updateOffset(window.scrollY || window.pageYOffset || 0)
+    // 滚动模式：检测是否到页面底部，触发章节完成
+    if (readingMode.value === 'scroll' && !chapterFinishedMarked.value) {
+      const scrollable = document.documentElement
+      const threshold = 50 // 距底部 50px 视为已读完
+      if (scrollable.scrollTop + window.innerHeight >= scrollable.scrollHeight - threshold) {
+        chapterFinishedMarked.value = true
+        markChapterFinished()
+      }
+    }
   })
+}
+
+// ----- 分页模式：内部滚动监听 -----
+let paginateRafId: number | null = null
+function onPaginateScroll() {
+  if (paginateRafId !== null) return
+  paginateRafId = window.requestAnimationFrame(() => {
+    paginateRafId = null
+    if (!paginateContainer.value) return
+    const el = paginateContainer.value
+    // 用 round 计算 currentPage（用于 UI 显示）
+    // 注意：不能用 round 判断末页，因为 Math.round 与 Math.ceil 在非整数倍时失配
+    // （如 scrollHeight/clientHeight = 3.1 时 totalPages-1 = 3 但 max round = 2，永不触发）
+    currentPage.value = Math.round(el.scrollTop / el.clientHeight)
+    // 修复 v1.1.1：改用"距底部距离"判断末页，与 scroll 模式 onScroll 一致
+    // 阈值 5px 容忍浮点误差 + smooth scroll 惯性
+    const distanceToBottom = el.scrollHeight - el.scrollTop - el.clientHeight
+    if (distanceToBottom <= 5 && !chapterFinishedMarked.value) {
+      chapterFinishedMarked.value = true
+      // 强制把 currentPage 钳制到末页，确保 showChapterFinishedCard 计算正确
+      currentPage.value = totalPages.value - 1
+      markChapterFinished()
+    }
+  })
+}
+
+/**
+ * 重新计算分页数：章节加载完成 / 字号变化 / 视口变化时调用
+ * 由 onMounted、loadAll 末尾、字号偏好变化、window resize 触发
+ */
+function recalcPages() {
+  if (readingMode.value !== 'paginate') return
+  if (!paginateContainer.value) return
+  const el = paginateContainer.value
+  totalPages.value = Math.max(1, Math.ceil(el.scrollHeight / el.clientHeight))
+  if (currentPage.value > totalPages.value - 1) {
+    currentPage.value = Math.max(0, totalPages.value - 1)
+  }
+}
+
+function goPrevPage() {
+  if (readingMode.value !== 'paginate' || !paginateContainer.value) return
+  if (currentPage.value > 0) {
+    currentPage.value--
+    paginateContainer.value.scrollTo({
+      top: currentPage.value * paginateContainer.value.clientHeight,
+      behavior: 'smooth',
+    })
+  } else if (nav.value?.prev) {
+    // 在第一页继续往前 → 翻上一章
+    goPrev()
+  }
+}
+
+function goNextPage() {
+  if (readingMode.value !== 'paginate' || !paginateContainer.value) return
+  if (currentPage.value < totalPages.value - 1) {
+    currentPage.value++
+    paginateContainer.value.scrollTo({
+      top: currentPage.value * paginateContainer.value.clientHeight,
+      behavior: 'smooth',
+    })
+    // 到最后一页触发章节完成
+    if (currentPage.value >= totalPages.value - 1 && !chapterFinishedMarked.value) {
+      chapterFinishedMarked.value = true
+      markChapterFinished()
+    }
+  } else if (nav.value?.next) {
+    // 在最后一页继续往后 → 翻下一章
+    goNext()
+  }
+}
+
+// ----- 触摸滑动翻页（移动端分页模式）-----
+let touchStartX = 0
+let touchStartY = 0
+function onTouchStart(e: TouchEvent) {
+  if (readingMode.value !== 'paginate') return
+  touchStartX = e.touches[0].clientX
+  touchStartY = e.touches[0].clientY
+}
+function onTouchEnd(e: TouchEvent) {
+  if (readingMode.value !== 'paginate') return
+  const dx = e.changedTouches[0].clientX - touchStartX
+  const dy = e.changedTouches[0].clientY - touchStartY
+  // 仅当横向滑动距离 > 纵向 且超过阈值时才视为翻页手势
+  if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 50) {
+    if (dx > 0) goPrevPage()
+    else goNextPage()
+  }
+}
+
+// ----- 窗口尺寸变化时重新计算分页 -----
+function onResize() {
+  recalcPages()
 }
 
 // ----- 跳转 -----
@@ -298,15 +489,27 @@ function handleTocSelect(chapterId: string | number) {
   goChapter(chapterId)
 }
 
-// 键盘左右翻页
+// 键盘左右翻页（滚动模式翻章节，分页模式翻页 + 到边界翻章节）
 function onKeydown(e: KeyboardEvent) {
   if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return
-  if (e.key === 'ArrowLeft' && nav.value?.prev) {
-    e.preventDefault()
-    goPrev()
-  } else if (e.key === 'ArrowRight' && nav.value?.next) {
-    e.preventDefault()
-    goNext()
+  if (readingMode.value === 'scroll') {
+    // 滚动模式：← → 直接翻章节
+    if (e.key === 'ArrowLeft' && nav.value?.prev) {
+      e.preventDefault()
+      goPrev()
+    } else if (e.key === 'ArrowRight' && nav.value?.next) {
+      e.preventDefault()
+      goNext()
+    }
+  } else {
+    // 分页模式：← → 翻页，到首/末页时翻章节
+    if (e.key === 'ArrowLeft') {
+      e.preventDefault()
+      goPrevPage()
+    } else if (e.key === 'ArrowRight') {
+      e.preventDefault()
+      goNextPage()
+    }
   }
 }
 
@@ -351,16 +554,22 @@ onMounted(() => {
   loadAll()
   window.addEventListener('keydown', onKeydown)
   window.addEventListener('scroll', onScroll, { passive: true })
+  window.addEventListener('resize', onResize)
 })
 
 onUnmounted(() => {
   window.removeEventListener('keydown', onKeydown)
   window.removeEventListener('scroll', onScroll)
+  window.removeEventListener('resize', onResize)
   // 强制上报最后阅读进度（composable 内部 onUnmounted 也会调用，此处显式调用确保顺序）
   stopReporting()
   if (scrollRafId !== null) {
     window.cancelAnimationFrame(scrollRafId)
     scrollRafId = null
+  }
+  if (paginateRafId !== null) {
+    window.cancelAnimationFrame(paginateRafId)
+    paginateRafId = null
   }
 })
 
@@ -371,13 +580,27 @@ watch(
       loadAll()
     }
 )
+
+// 阅读偏好变化（字号/行距/字体等）后重新计算分页
+watch(
+    () => preference.value.fontSize,
+    () => nextTick(() => recalcPages())
+)
+watch(
+    () => preference.value.lineHeight,
+    () => nextTick(() => recalcPages())
+)
+watch(
+    () => preference.value.fontFamily,
+    () => nextTick(() => recalcPages())
+)
 </script>
 
 <template>
   <div class="min-h-screen flex flex-col" :style="readerStyle">
     <!-- 顶部导航条 -->
     <header
-        class="sticky top-0 z-30 border-b backdrop-blur"
+        class="sticky top-0 z-30 border-b backdrop-blur-sm"
         style="background-color: var(--theme-surface); border-color: var(--theme-border);"
     >
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-14 flex items-center justify-between gap-3">
@@ -412,6 +635,22 @@ watch(
           >
             {{ progressText }}
           </span>
+          <!-- 阅读模式切换：滚动 / 分页 -->
+          <button
+              @click="toggleReadingMode"
+              class="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors focus:outline-none"
+              :style="{
+                backgroundColor: readingMode === 'paginate' ? 'var(--theme-primary)' : 'var(--theme-bg)',
+                color: readingMode === 'paginate' ? '#ffffff' : 'var(--theme-text)',
+                border: '1px solid var(--theme-border)'
+              }"
+              :aria-label="readingMode === 'paginate' ? '切换为滚动模式' : '切换为分页模式'"
+              :title="readingMode === 'paginate' ? '当前：分页模式，点击切回滚动' : '当前：滚动模式，点击切到分页'"
+          >
+            <BookOpen v-if="readingMode === 'scroll'" class="w-4 h-4" aria-hidden="true" />
+            <BookCheck v-else class="w-4 h-4" aria-hidden="true" />
+            <span class="hidden sm:inline">{{ readingMode === 'paginate' ? '分页' : '滚动' }}</span>
+          </button>
           <button
               @click="settingsVisible = true"
               class="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors focus:outline-none"
@@ -532,7 +771,9 @@ watch(
               </div>
 
               <!-- 正文 -->
+              <!-- 滚动模式：原整章 v-html 渲染，window 滚动 -->
               <div
+                  v-if="readingMode === 'scroll'"
                   class="chapter-content-wrapper rounded-xl p-6 sm:p-8 shadow-sm"
                   style="background-color: var(--theme-surface); border: 1px solid var(--theme-border);"
               >
@@ -541,6 +782,101 @@ watch(
                     :content-markdown="chapterMarkdown"
                     :editor-mode="editorMode"
                 />
+                <!-- 滚动模式：到底部时显示已读完提示 -->
+                <div
+                    v-if="chapterFinishedMarked"
+                    class="mt-8 p-4 rounded-lg flex items-center gap-3"
+                    style="background-color: var(--theme-accent); border: 1px solid var(--theme-border);"
+                >
+                  <CheckCircle2 class="w-5 h-5 flex-shrink-0" style="color: var(--theme-primary);" aria-hidden="true" />
+                  <div class="flex-1 min-w-0">
+                    <div v-if="isLastChapter" class="text-sm font-medium" style="color: var(--theme-text);">
+                      本书已读完
+                    </div>
+                    <div v-else class="text-sm font-medium" style="color: var(--theme-text);">
+                      本章已读完
+                    </div>
+                    <div class="text-xs" style="color: var(--theme-text-secondary);">
+                      <span v-if="isLastChapter">恭喜完成整本书的阅读</span>
+                      <span v-else>可继续阅读下一章</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- 分页模式：固定高度容器 + 内部滚动 + 触摸滑动 -->
+              <div
+                  v-else
+                  ref="paginateContainer"
+                  class="chapter-content-paginate rounded-xl shadow-sm"
+                  style="background-color: var(--theme-surface); border: 1px solid var(--theme-border);"
+                  @scroll.passive="onPaginateScroll"
+                  @touchstart.passive="onTouchStart"
+                  @touchend.passive="onTouchEnd"
+              >
+                <div class="chapter-content-inner p-6 sm:p-8">
+                  <MarkdownRenderer
+                      :content="chapterContent"
+                      :content-markdown="chapterMarkdown"
+                      :editor-mode="editorMode"
+                  />
+                  <!-- 分页模式：到最后一页时显示已读完卡片 -->
+                  <div
+                      v-if="showChapterFinishedCard"
+                      class="mt-8 p-4 rounded-lg flex items-center gap-3"
+                      style="background-color: var(--theme-accent); border: 1px solid var(--theme-border);"
+                  >
+                    <CheckCircle2 class="w-5 h-5 flex-shrink-0" style="color: var(--theme-primary);" aria-hidden="true" />
+                    <div class="flex-1 min-w-0">
+                      <div v-if="isLastChapter" class="text-sm font-medium" style="color: var(--theme-text);">
+                        本书已读完
+                      </div>
+                      <div v-else class="text-sm font-medium" style="color: var(--theme-text);">
+                        本章已读完
+                      </div>
+                      <div class="text-xs" style="color: var(--theme-text-secondary);">
+                        <span v-if="isLastChapter">恭喜完成整本书的阅读</span>
+                        <span v-else>可继续阅读下一章</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- 分页模式：底部翻页控制 + 页码指示器 -->
+              <div
+                  v-if="readingMode === 'paginate'"
+                  class="mt-4 flex items-center justify-between gap-3 p-3 rounded-xl"
+                  style="background-color: var(--theme-surface); border: 1px solid var(--theme-border);"
+              >
+                <button
+                    type="button"
+                    class="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors focus:outline-none disabled:opacity-40"
+                    style="background-color: var(--theme-bg); color: var(--theme-text); border: 1px solid var(--theme-border);"
+                    :disabled="currentPage <= 0 && !nav?.prev"
+                    @click="goPrevPage"
+                >
+                  <ChevronUp class="w-4 h-4" aria-hidden="true" />
+                  <span>上一页</span>
+                </button>
+                <span
+                    v-if="pageIndicatorText"
+                    class="text-xs px-2 py-1 rounded-md"
+                    style="color: var(--theme-text-secondary); background-color: var(--theme-bg);"
+                >
+                  {{ pageIndicatorText }}
+                </span>
+                <span v-else class="text-xs" style="color: var(--theme-text-secondary);">单页</span>
+                <button
+                    type="button"
+                    class="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors focus:outline-none disabled:opacity-40"
+                    style="background-color: var(--theme-primary); color: white; border: 1px solid var(--theme-primary);"
+                    :disabled="currentPage >= totalPages - 1 && !nav?.next"
+                    @click="goNextPage"
+                >
+                  <span>下一页</span>
+                  <ChevronDown class="w-4 h-4" aria-hidden="true" />
+                </button>
               </div>
 
               <!-- 章节底部：上一章/下一章 -->
@@ -584,7 +920,7 @@ watch(
 
               <!-- 键盘提示 -->
               <p class="mt-6 text-center text-xs" style="color: var(--theme-text-secondary);">
-                提示：可使用键盘 ← → 翻页
+                提示：可使用键盘 ← → 翻{{ readingMode === 'paginate' ? '页' : '章' }}，移动端可左右滑动翻页
               </p>
             </article>
           </main>
@@ -662,6 +998,45 @@ watch(
 .chapter-content-wrapper :deep(.prose h1),
 .chapter-content-wrapper :deep(.prose h2),
 .chapter-content-wrapper :deep(.prose h3) {
+  font-family: var(--reader-font-family, system-ui, sans-serif);
+}
+
+/* ===== v1.1 分页阅读模式 =====
+ * 设计要点：
+ *   - 容器固定高度（viewport - 头部 - 内边距 - 其他 UI 元素）
+ *   - overflow-y: auto 内部滚动，window 滚动不参与
+ *   - smooth scroll 实现翻页动画
+ *   - iOS momentum scrolling 触摸顺滑
+ *   - 内容样式继承自滚动模式（字号/行距/字体），保证两种模式视觉一致
+ */
+.chapter-content-paginate {
+  /* 视口高度 - 顶栏(56px) - 主体 py-6(48px) - 章节标题区(~90px) - 分页控件(~66px) - 章节导航(~102px) */
+  height: calc(100vh - 360px);
+  min-height: 320px;
+  overflow-y: auto;
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+}
+@media (max-width: 640px) {
+  /* 移动端：移除桌面端章节导航占用空间，给内容更多高度 */
+  .chapter-content-paginate {
+    height: calc(100vh - 280px);
+  }
+}
+.chapter-content-paginate :deep(.prose) {
+  max-width: none;
+  font-family: var(--reader-font-family, system-ui, sans-serif);
+}
+.chapter-content-paginate :deep(.prose p) {
+  font-size: var(--reader-font-size, 18px);
+  line-height: var(--reader-line-height, 1.85);
+  letter-spacing: var(--reader-letter-spacing, 0px);
+  margin-bottom: var(--reader-paragraph-spacing, 1.2em);
+}
+.chapter-content-paginate :deep(.prose h1),
+.chapter-content-paginate :deep(.prose h2),
+.chapter-content-paginate :deep(.prose h3) {
   font-family: var(--reader-font-family, system-ui, sans-serif);
 }
 /* 桌面端左侧目录：移动端（<1024px）隐藏，由抽屉接管；桌面端由 v-show 控制 */

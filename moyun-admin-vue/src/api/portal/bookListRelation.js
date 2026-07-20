@@ -29,7 +29,7 @@ export function removeBooksFromBookList(bookListId, bookIds) {
 // 从书单移除单本书籍
 export function removeBookFromBookList(bookListId, bookId) {
   return request({
-    url: '/portal/admin/book-lists/' + bookListId + '/items/' + bookId,
+    url: '/portal/admin/book-lists/items/' + bookId,
     method: 'delete'
   })
 }
@@ -38,7 +38,7 @@ export function removeBookFromBookList(bookListId, bookId) {
 // sortItems: [{ id: itemId, sort: 0 }, ...]
 export function updateBookListSort(bookListId, sortItems) {
   return request({
-    url: '/portal/admin/book-lists/' + bookListId + '/items/sort',
+    url: '/portal/admin/book-lists/' + bookListId + '/sort',
     method: 'put',
     data: sortItems
   })

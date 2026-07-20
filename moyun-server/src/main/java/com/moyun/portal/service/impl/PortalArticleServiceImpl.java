@@ -104,17 +104,6 @@ public class PortalArticleServiceImpl extends ServiceImpl<PortalArticleMapper, P
     }
 
     /**
-     * 根据条件查询文章列表（不分页，用于导出等场景）
-     *
-     * @param portalArticle 文章信息
-     * @return 文章信息集合
-     */
-    @Override
-    public List<PortalArticle> selectPortalArticleList(ArticleQuery portalArticle) {
-        return baseMapper.selectPortalArticleList(portalArticle);
-    }
-
-    /**
      * 通过文章ID查询文章
      *
      * @param id 文章ID
@@ -123,32 +112,6 @@ public class PortalArticleServiceImpl extends ServiceImpl<PortalArticleMapper, P
     @Override
     public PortalArticle selectPortalArticleById(Long id) {
         return baseMapper.selectPortalArticleById(id);
-    }
-
-    /**
-     * 新增文章信息（前台用户发布）
-     * 自动设置作者ID为当前登录的门户用户
-     *
-     * @param portalArticle 文章信息
-     * @return 结果
-     */
-    @Override
-    public int insertPortalArticle(PortalArticle portalArticle) {
-        // 自动处理Base64图片
-        processArticleImages(portalArticle);
-        // 自动设置前台作者信息
-        fillPortalAuthorAndCategory(portalArticle);
-        // 付费阅读字段默认值
-        if (portalArticle.getIsPaid() == null) {
-            portalArticle.setIsPaid(0);
-        }
-        if (portalArticle.getPreviewLength() == null) {
-            portalArticle.setPreviewLength(0);
-        }
-        if (portalArticle.getPrice() == null) {
-            portalArticle.setPrice(java.math.BigDecimal.ZERO);
-        }
-        return baseMapper.insertPortalArticle(portalArticle);
     }
 
     /**
@@ -535,22 +498,6 @@ public class PortalArticleServiceImpl extends ServiceImpl<PortalArticleMapper, P
                 return slug + "-" + System.currentTimeMillis();
             }
         }
-    }
-
-    /**
-     * 通过文章ID删除文章
-     *
-     * @param id 文章ID
-     * @return 结果
-     */
-    @Override
-    @Transactional(rollbackFor = Exception.class)
-    public int deletePortalArticleById(Long id) {
-        // 归属校验：仅作者本人可删除自己的文章，防止越权删除他人文章
-        checkOwnership(id, PortalSecurityUtils.getUserId());
-        // 级联清理关联数据（评论/点赞/收藏/版本/打赏订单），避免脏数据
-        cascadeDeleteByArticleId(id);
-        return baseMapper.deletePortalArticleById(id);
     }
 
     /**

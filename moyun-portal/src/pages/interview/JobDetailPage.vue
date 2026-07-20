@@ -74,7 +74,7 @@ function goCompany() {
 
 <template>
   <div class="min-h-screen flex flex-col" style="background-color: var(--theme-bg);">
-    <header class="sticky top-0 z-10 backdrop-blur" style="background-color: var(--theme-surface); border-bottom: 1px solid var(--theme-border);">
+    <header class="sticky top-0 z-30 backdrop-blur-sm" style="background-color: var(--theme-surface); border-bottom: 1px solid var(--theme-border);">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex items-center gap-3">
         <button @click="router.back()" class="p-1.5 rounded-lg transition hover:bg-black/5" style="color: var(--theme-text-secondary);">
           <ArrowLeft class="w-5 h-5" />

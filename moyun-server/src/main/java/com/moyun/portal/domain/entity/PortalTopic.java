@@ -11,7 +11,7 @@ import lombok.Data;
 import java.time.LocalDateTime;
 
 /**
- * 话题/超话
+ * 话题主表
  *
  * @author moyun
  */
@@ -23,30 +23,53 @@ public class PortalTopic extends BaseEntity {
     @TableId(type = IdType.AUTO)
     private Long id;
 
-    /** 话题名称 */
-    private String name;
+    /** 话题标题 */
+    private String title;
 
-    /** 话题别名（URL 友好） */
-    private String slug;
-
-    /** 话题描述 */
+    /** 话题描述/导语 */
     private String description;
 
-    /** 话题封面 */
+    /** 封面图 URL */
     private String cover;
 
-    /** 关联内容数 */
+    /** 发起人 portal_user.id（必须是认证创作者） */
+    private Long creatorId;
+
+    /** 状态：active 活跃/archived 归档/deleted 删除 */
+    private String status;
+
+    /** 是否置顶：0 否/1 是 */
+    private Integer pinned;
+
+    /** 浏览数 */
+    private Integer viewCount;
+
+    /** 观点数 */
     private Integer postCount;
 
-    /** 关注数 */
-    private Integer followCount;
+    /** 话题被赞数 */
+    private Integer likeCount;
 
-    /** 状态 active/disabled */
-    private String status;
+    /** 是否精选：0 否/1 是 */
+    private Integer isFeatured;
+
+    /** 评论数（一级评论） */
+    private Integer commentCount;
+
+    /** 最后观点时间 */
+    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
+    private LocalDateTime lastPostTime;
+
+    /** 最后观点用户 */
+    private Long lastPosterId;
 
     /** 创建时间 */
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime createdTime;
+
+    /** 更新时间 */
+    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
+    private LocalDateTime updatedTime;
 
     // BaseEntity 公共字段对应列在 portal_topic 表中不存在，排除 MyBatis-Plus 映射
     @TableField(exist = false)

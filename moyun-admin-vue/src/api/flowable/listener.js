@@ -12,7 +12,7 @@ export function listListener(query) {
 // 查询流程监听详细
 export function getListener(id) {
   return request({
-    url: '/system/listener/' + id,
+    url: '/flowable/listener/' + id,
     method: 'get'
   })
 }
@@ -20,7 +20,7 @@ export function getListener(id) {
 // 新增流程监听
 export function addListener(data) {
   return request({
-    url: '/system/listener',
+    url: '/flowable/listener',
     method: 'post',
     data: data
   })
@@ -29,7 +29,7 @@ export function addListener(data) {
 // 修改流程监听
 export function updateListener(data) {
   return request({
-    url: '/system/listener',
+    url: '/flowable/listener',
     method: 'put',
     data: data
   })
@@ -38,7 +38,7 @@ export function updateListener(data) {
 // 删除流程监听
 export function delListener(id) {
   return request({
-    url: '/system/listener/' + id,
+    url: '/flowable/listener/' + id,
     method: 'delete'
   })
 }

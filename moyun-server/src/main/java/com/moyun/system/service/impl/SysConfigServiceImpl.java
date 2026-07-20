@@ -111,7 +111,12 @@ public class SysConfigServiceImpl extends ServiceImpl<SysConfigMapper, SysConfig
      */
     @Override
     public int insertConfig(SysConfig config) {
-        return baseMapper.insert(config);
+        int rows = baseMapper.insert(config);
+        if (rows > 0 && StringUtils.isNotEmpty(config.getConfigKey())) {
+            // v1.1.2 修复：原实现未清缓存，导致新增配置后 selectConfigByKey 仍读不到最新值
+            redisCache.setCacheObject(CONFIG_CACHE_KEY_PREFIX + config.getConfigKey(), config.getConfigValue());
+        }
+        return rows;
     }
 
     /**
@@ -122,7 +127,18 @@ public class SysConfigServiceImpl extends ServiceImpl<SysConfigMapper, SysConfig
      */
     @Override
     public int updateConfig(SysConfig config) {
-        return baseMapper.updateById(config);
+        int rows = baseMapper.updateById(config);
+        if (rows > 0 && config.getConfigKey() != null) {
+            // v1.1.2 修复：原实现只更新 DB 不清缓存，selectConfigByKey 仍返回旧值。
+            // 此处针对单 key 删除（比 clearConfigCache 全清更精细，不影响其他配置缓存），
+            // 下次读取时回源 DB 并回填新值。若 update 只改了部分字段未带 configKey，
+            // 由调用方（Controller）保证触发 refreshCache。
+            SysConfig fresh = baseMapper.selectById(config.getConfigId());
+            if (fresh != null && StringUtils.isNotEmpty(fresh.getConfigKey())) {
+                redisCache.setCacheObject(CONFIG_CACHE_KEY_PREFIX + fresh.getConfigKey(), fresh.getConfigValue());
+            }
+        }
+        return rows;
     }
 
     /**
@@ -133,6 +149,11 @@ public class SysConfigServiceImpl extends ServiceImpl<SysConfigMapper, SysConfig
     @Override
     public void deleteConfigByIds(Long[] configIds) {
         for (Long configId : configIds) {
+            SysConfig config = baseMapper.selectById(configId);
+            if (config != null && StringUtils.isNotEmpty(config.getConfigKey())) {
+                // v1.1.2 修复：删除前先记录 key，删除后清对应缓存
+                redisCache.deleteObject(CONFIG_CACHE_KEY_PREFIX + config.getConfigKey());
+            }
             baseMapper.deleteById(configId);
         }
     }

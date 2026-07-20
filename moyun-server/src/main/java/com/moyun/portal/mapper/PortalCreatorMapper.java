@@ -114,4 +114,56 @@ public interface PortalCreatorMapper {
             "GROUP BY HOUR(v.view_time) ORDER BY hour")
     List<Map<String, Object>> readerHourDistribution(@Param("userId") Long userId,
                                                     @Param("startTime") LocalDateTime startTime);
+
+    /**
+     * v1.1 读者画像：近 30 天读者性别分布
+     * <p>数据局限：仅统计登录读者（user_id 非空），游客无法统计；
+     * 读者未填写 gender 时归入 "unknown" 桶。</p>
+     * <p>用 COUNT(DISTINCT v.user_id) 而非 COUNT(*)，避免同一读者多次阅读被重复计数。</p>
+     */
+    @Select("SELECT COALESCE(u.gender, 'unknown') AS gender, COUNT(DISTINCT v.user_id) AS value " +
+            "FROM portal_article_view v " +
+            "INNER JOIN portal_article a ON a.id = v.article_id " +
+            "LEFT JOIN portal_user u ON u.id = v.user_id " +
+            "WHERE a.author_id = #{userId} AND v.view_time >= #{startTime} " +
+            "  AND v.user_id IS NOT NULL " +
+            "GROUP BY u.gender")
+    List<Map<String, Object>> readerGenderDistribution(@Param("userId") Long userId,
+                                                       @Param("startTime") LocalDateTime startTime);
+
+    /**
+     * v1.1 读者画像：近 30 天读者年龄段分布
+     * <p>年龄段划分：under_18 / 18_24 / 25_30 / 31_35 / 36_45 / over_45 / unknown</p>
+     * <p>数据局限（用户已指出）：
+     * <ul>
+     *   <li>仅统计登录读者，游客无法统计</li>
+     *   <li>birthday 为用户自填字符串，可能不真实（除非实名制）</li>
+     *   <li>birthday 为空或格式异常（STR_TO_DATE 返回 NULL）时归入 "unknown" 桶</li>
+     * </ul>
+     * </p>
+     * <p>用 STR_TO_DATE 兼容字符串存储，TIMESTAMPDIFF 计算年龄。
+     * 修复（v1.1.1）：原 SQL 对 birthday 为非日期格式时 STR_TO_DATE 返回 NULL，
+     * TIMESTAMPDIFF 返回 NULL，所有 WHEN 条件均不匹配，错误落入 ELSE 'over_45'。
+     * 现在显式判断 STR_TO_DATE IS NULL 归入 'unknown'，避免污染 over_45 桶。</p>
+     */
+    @Select("SELECT " +
+            "  CASE " +
+            "    WHEN u.birthday IS NULL OR u.birthday = '' THEN 'unknown' " +
+            "    WHEN STR_TO_DATE(u.birthday, '%Y-%m-%d') IS NULL THEN 'unknown' " +
+            "    WHEN TIMESTAMPDIFF(YEAR, STR_TO_DATE(u.birthday, '%Y-%m-%d'), CURDATE()) < 18 THEN 'under_18' " +
+            "    WHEN TIMESTAMPDIFF(YEAR, STR_TO_DATE(u.birthday, '%Y-%m-%d'), CURDATE()) BETWEEN 18 AND 24 THEN '18_24' " +
+            "    WHEN TIMESTAMPDIFF(YEAR, STR_TO_DATE(u.birthday, '%Y-%m-%d'), CURDATE()) BETWEEN 25 AND 30 THEN '25_30' " +
+            "    WHEN TIMESTAMPDIFF(YEAR, STR_TO_DATE(u.birthday, '%Y-%m-%d'), CURDATE()) BETWEEN 31 AND 35 THEN '31_35' " +
+            "    WHEN TIMESTAMPDIFF(YEAR, STR_TO_DATE(u.birthday, '%Y-%m-%d'), CURDATE()) BETWEEN 36 AND 45 THEN '36_45' " +
+            "    ELSE 'over_45' " +
+            "  END AS age_range, " +
+            "  COUNT(DISTINCT v.user_id) AS value " +
+            "FROM portal_article_view v " +
+            "INNER JOIN portal_article a ON a.id = v.article_id " +
+            "LEFT JOIN portal_user u ON u.id = v.user_id " +
+            "WHERE a.author_id = #{userId} AND v.view_time >= #{startTime} " +
+            "  AND v.user_id IS NOT NULL " +
+            "GROUP BY age_range")
+    List<Map<String, Object>> readerAgeRangeDistribution(@Param("userId") Long userId,
+                                                          @Param("startTime") LocalDateTime startTime);
 }

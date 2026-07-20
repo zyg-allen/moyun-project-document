@@ -11,9 +11,11 @@ import LazyImage from '@/components/LazyImage.vue';
 import { generateSeo } from '@/utils/seo';
 import { getSafeAvatar } from '@/utils/avatar';
 import { getMyColumns, getSubscribedColumns, deleteColumn } from '@/api/column';
+import { useToast } from '@/composables/useToast';
 import type { ColumnListItemVO, ColumnQuery } from '@/types/api';
 
 const router = useRouter();
+const toast = useToast();
 
 type TabKey = 'created' | 'subscribed';
 const activeTab = ref<TabKey>('created');
@@ -101,16 +103,16 @@ async function handleDelete(col: ColumnListItemVO) {
       // 本地移除
       columns.value = columns.value.filter(c => String(c.id) !== String(col.id));
       total.value = Math.max(0, total.value - 1);
-      showToast('删除成功', 'success');
+      toast.success('删除成功');
       if (columns.value.length === 0 && page.value > 1) {
         page.value -= 1;
       }
     } else {
-      showToast(res.message || '删除失败', 'error');
+      toast.error(res.message || '删除失败');
     }
   } catch (err) {
     const e = err as { message?: string };
-    showToast(e?.message || '删除失败，请稍后重试', 'error');
+    toast.error(e?.message || '删除失败，请稍后重试');
   } finally {
     actionId.value = null;
   }
@@ -135,15 +137,6 @@ function formatNumber(n?: number) {
   if (v >= 10000) return (v / 10000).toFixed(1) + 'w';
   if (v >= 1000) return (v / 1000).toFixed(1) + 'k';
   return String(v);
-}
-
-// Toast
-const toast = ref<{ message: string; type: 'success' | 'error' } | null>(null);
-let toastTimer: number | null = null;
-function showToast(message: string, type: 'success' | 'error' = 'success') {
-  toast.value = { message, type };
-  if (toastTimer) window.clearTimeout(toastTimer);
-  toastTimer = window.setTimeout(() => { toast.value = null; }, 3000);
 }
 </script>
 
@@ -173,15 +166,6 @@ function showToast(message: string, type: 'success' | 'error' = 'success') {
           创建专栏
         </button>
       </div>
-    </div>
-
-    <!-- Toast -->
-    <div
-      v-if="toast"
-      class="fixed top-20 left-1/2 -translate-x-1/2 z-50 px-4 py-2 rounded-lg shadow-lg text-sm"
-      :class="toast.type === 'success' ? 'bg-green-500 text-white' : 'bg-red-500 text-white'"
-    >
-      {{ toast.message }}
     </div>
 
     <!-- Hero 区 -->

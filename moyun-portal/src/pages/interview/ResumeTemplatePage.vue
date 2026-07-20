@@ -13,8 +13,10 @@ import {
   getResumeTemplateList, downloadResumeTemplate, toggleResumeTemplateLike,
 } from '@/api/interview';
 import type { InterviewResumeTemplateVO } from '@/types/api';
+import { useToast } from '@/composables/useToast';
 
 const router = useRouter();
+const toast = useToast();
 const loading = ref(false);
 const templates = ref<InterviewResumeTemplateVO[]>([]);
 const total = ref(0);
@@ -33,14 +35,6 @@ const categories = [
   { key: '实习', label: '实习' },
   { key: '简历', label: '简历' },
 ];
-
-const toast = ref<{ message: string; type: 'success' | 'error' } | null>(null);
-let toastTimer: number | null = null;
-function showToast(message: string, type: 'success' | 'error' = 'success') {
-  toast.value = { message, type };
-  if (toastTimer) window.clearTimeout(toastTimer);
-  toastTimer = window.setTimeout(() => { toast.value = null; }, 3000);
-}
 
 useHead(computed(() => generateSeo({
   title: '简历模板库',
@@ -73,10 +67,10 @@ async function loadTemplates() {
       templates.value = data.list || [];
       total.value = data.total || 0;
     } else {
-      showToast(res.message || '加载失败', 'error');
+      toast.error(res.message || '加载失败');
     }
   } catch (err: any) {
-    showToast(err?.message || '加载简历模板失败，请稍后重试', 'error');
+    toast.error(err?.message || '加载简历模板失败，请稍后重试');
   } finally {
     loading.value = false;
   }
@@ -88,12 +82,12 @@ async function handleDownload(t: InterviewResumeTemplateVO) {
     if (res.code === 200 && res.data?.downloadUrl) {
       window.open(res.data.downloadUrl, '_blank');
       t.downloadCount = (t.downloadCount || 0) + 1;
-      showToast('下载链接已打开', 'success');
+      toast.success('下载链接已打开');
     } else {
-      showToast(res.message || '获取下载链接失败', 'error');
+      toast.error(res.message || '获取下载链接失败');
     }
   } catch (err: any) {
-    showToast(err?.message || '下载失败', 'error');
+    toast.error(err?.message || '下载失败');
   }
 }
 
@@ -103,12 +97,12 @@ async function handleLike(t: InterviewResumeTemplateVO) {
     if (res.code === 200 && res.data) {
       t.liked = res.data.liked;
       t.likeCount = res.data.likeCount;
-      showToast(res.data.liked ? '点赞成功' : '已取消点赞', 'success');
+      toast.success(res.data.liked ? '点赞成功' : '已取消点赞');
     } else {
-      showToast(res.message || '操作失败', 'error');
+      toast.error(res.message || '操作失败');
     }
   } catch (err: any) {
-    showToast(err?.message || '操作失败', 'error');
+    toast.error(err?.message || '操作失败');
   }
 }
 
@@ -125,7 +119,7 @@ function gotoPage(p: number) {
 
 <template>
   <div class="min-h-screen flex flex-col" style="background-color: var(--theme-bg);">
-    <div class="border-b sticky top-0 z-30" style="background-color: var(--theme-bg); border-color: var(--theme-border);">
+    <div class="border-b sticky top-0 z-30 backdrop-blur-sm" style="background-color: var(--theme-surface); border-color: var(--theme-border);">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex items-center justify-between">
         <button @click="router.back()" class="flex items-center transition text-sm hover:opacity-70" style="color: var(--theme-text-secondary);">
           <ChevronLeft class="w-4 h-4 mr-1" /> 返回
@@ -133,14 +127,6 @@ function gotoPage(p: number) {
         <span class="text-sm" style="color: var(--theme-text-secondary);">简历模板</span>
         <span class="w-12"></span>
       </div>
-    </div>
-
-    <div
-      v-if="toast"
-      class="fixed top-20 left-1/2 -translate-x-1/2 z-50 px-4 py-2 rounded-lg shadow-lg text-sm"
-      :class="toast.type === 'success' ? 'bg-green-500 text-white' : 'bg-red-500 text-white'"
-    >
-      {{ toast.message }}
     </div>
 
     <!-- 顶部 Hero -->

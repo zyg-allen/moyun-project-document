@@ -11,10 +11,12 @@ import SiteFooter from '@/components/SiteFooter.vue';
 import { generateSeo } from '@/utils/seo';
 import { getSafeAvatar } from '@/utils/avatar';
 import { getExperienceList } from '@/api/interview';
+import { useToast } from '@/composables/useToast';
 import type { InterviewExperienceVO } from '@/types/api';
 
 const route = useRoute();
 const router = useRouter();
+const toast = useToast();
 
 const loading = ref(false);
 const error = ref<string | null>(null);
@@ -25,14 +27,6 @@ const pageSize = 12;
 
 const keyword = ref('');
 const searchInput = ref('');
-
-const toast = ref<{ message: string; type: 'success' | 'error' } | null>(null);
-let toastTimer: number | null = null;
-function showToast(message: string, type: 'success' | 'error' = 'success') {
-  toast.value = { message, type };
-  if (toastTimer) window.clearTimeout(toastTimer);
-  toastTimer = window.setTimeout(() => { toast.value = null; }, 3000);
-}
 
 useHead(computed(() => generateSeo({
   title: '面试经验',
@@ -74,11 +68,11 @@ async function loadExperiences() {
       total.value = data.total || 0;
     } else {
       error.value = res.message || '加载面经失败';
-      showToast(res.message || '加载失败', 'error');
+      toast.error(res.message || '加载失败');
     }
   } catch (err: any) {
     error.value = err?.message || '加载面经失败，请稍后重试';
-    showToast(err?.message || '加载失败', 'error');
+    toast.error(err?.message || '加载失败');
   } finally {
     loading.value = false;
   }
@@ -142,15 +136,6 @@ function gotoPage(p: number) {
         <span class="text-sm" style="color: var(--theme-text-secondary);">面试经验</span>
         <span class="w-20"></span>
       </div>
-    </div>
-
-    <!-- Toast -->
-    <div
-      v-if="toast"
-      class="fixed top-20 left-1/2 -translate-x-1/2 z-50 px-4 py-2 rounded-lg shadow-lg text-sm"
-      :class="toast.type === 'success' ? 'bg-green-500 text-white' : 'bg-red-500 text-white'"
-    >
-      {{ toast.message }}
     </div>
 
     <!-- Hero 区 -->

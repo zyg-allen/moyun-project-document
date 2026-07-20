@@ -16,9 +16,11 @@ import {
   getCommentList, publishComment, toggleCommentLike,
 } from '@/api/interview';
 import type { InterviewExperienceVO, InterviewCommentVO } from '@/types/api';
+import { useToast } from '@/composables/useToast';
 
 const route = useRoute();
 const router = useRouter();
+const toast = useToast();
 const experienceId = computed(() => route.params.id as string);
 
 const loading = ref(false);
@@ -29,15 +31,6 @@ const comments = ref<InterviewCommentVO[]>([]);
 const newComment = ref('');
 const replyToComment = ref<InterviewCommentVO | null>(null);
 const replyContent = ref('');
-
-const toast = ref<{ message: string; type: 'success' | 'error' } | null>(null);
-let toastTimer: number | null = null;
-
-function showToast(message: string, type: 'success' | 'error' = 'success') {
-  toast.value = { message, type };
-  if (toastTimer) window.clearTimeout(toastTimer);
-  toastTimer = window.setTimeout(() => { toast.value = null; }, 3000);
-}
 
 function displayName(vo: InterviewExperienceVO | InterviewCommentVO | null | undefined) {
   if (!vo) return '用户';
@@ -67,10 +60,10 @@ async function loadExperience() {
     if (res.code === 200 && res.data) {
       experience.value = res.data;
     } else {
-      showToast(res.message || '加载失败', 'error');
+      toast.error(res.message || '加载失败');
     }
   } catch (err: any) {
-    showToast(err?.message || '加载面经失败，请稍后重试', 'error');
+    toast.error(err?.message || '加载面经失败，请稍后重试');
   } finally {
     loading.value = false;
   }
@@ -97,18 +90,18 @@ async function handleLike() {
     if (res.code === 200 && res.data) {
       experience.value.liked = res.data.liked;
       experience.value.likeCount = res.data.likeCount;
-      showToast(res.data.liked ? '点赞成功' : '已取消点赞', 'success');
+      toast.success(res.data.liked ? '点赞成功' : '已取消点赞');
     } else {
-      showToast(res.message || '操作失败', 'error');
+      toast.error(res.message || '操作失败');
     }
   } catch (err: any) {
-    showToast(err?.message || '操作失败', 'error');
+    toast.error(err?.message || '操作失败');
   }
 }
 
 async function handleSubmitComment() {
   if (!experience.value || !newComment.value.trim()) {
-    showToast('请输入评论内容', 'error');
+    toast.error('请输入评论内容');
     return;
   }
   try {
@@ -120,12 +113,12 @@ async function handleSubmitComment() {
     if (res.code === 200 && res.data) {
       comments.value = [res.data, ...comments.value];
       newComment.value = '';
-      showToast('评论已发布', 'success');
+      toast.success('评论已发布');
     } else {
-      showToast(res.message || '评论失败', 'error');
+      toast.error(res.message || '评论失败');
     }
   } catch (err: any) {
-    showToast(err?.message || '评论失败', 'error');
+    toast.error(err?.message || '评论失败');
   } finally {
     submittingComment.value = false;
   }
@@ -133,7 +126,7 @@ async function handleSubmitComment() {
 
 async function handleReplySubmit(parent: InterviewCommentVO) {
   if (!experience.value || !replyContent.value.trim()) {
-    showToast('请输入回复内容', 'error');
+    toast.error('请输入回复内容');
     return;
   }
   try {
@@ -148,12 +141,12 @@ async function handleReplySubmit(parent: InterviewCommentVO) {
       parent.replies.push(res.data);
       replyContent.value = '';
       replyToComment.value = null;
-      showToast('回复已发布', 'success');
+      toast.success('回复已发布');
     } else {
-      showToast(res.message || '回复失败', 'error');
+      toast.error(res.message || '回复失败');
     }
   } catch (err: any) {
-    showToast(err?.message || '回复失败', 'error');
+    toast.error(err?.message || '回复失败');
   } finally {
     submittingComment.value = false;
   }
@@ -166,10 +159,10 @@ async function handleCommentLike(comment: InterviewCommentVO) {
       comment.liked = res.data.liked;
       comment.likeCount = res.data.likeCount;
     } else {
-      showToast(res.message || '操作失败', 'error');
+      toast.error(res.message || '操作失败');
     }
   } catch (err: any) {
-    showToast(err?.message || '操作失败', 'error');
+    toast.error(err?.message || '操作失败');
   }
 }
 
@@ -184,7 +177,7 @@ useHead(
 <template>
   <div class="min-h-screen flex flex-col" style="background-color: var(--theme-bg);">
     <!-- 顶部导航 -->
-    <div class="border-b sticky top-0 z-30" style="background-color: var(--theme-bg); border-color: var(--theme-border);">
+    <div class="border-b sticky top-0 z-30 backdrop-blur-sm" style="background-color: var(--theme-surface); border-color: var(--theme-border);">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex items-center justify-between">
         <button
           @click="router.back()"
@@ -197,15 +190,6 @@ useHead(
         <span class="text-sm" style="color: var(--theme-text-secondary);">面试经验</span>
         <span class="w-12"></span>
       </div>
-    </div>
-
-    <!-- Toast -->
-    <div
-      v-if="toast"
-      class="fixed top-20 left-1/2 -translate-x-1/2 z-50 px-4 py-2 rounded-lg shadow-lg text-sm transition"
-      :class="toast.type === 'success' ? 'bg-green-500 text-white' : 'bg-red-500 text-white'"
-    >
-      {{ toast.message }}
     </div>
 
     <div class="flex-1 py-8">

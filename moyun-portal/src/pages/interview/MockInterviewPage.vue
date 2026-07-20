@@ -13,8 +13,10 @@ import {
   finishMockInterview, getMyMockInterviews,
 } from '@/api/mockInterview';
 import type { MockInterviewDetailVO, MockInterviewVO } from '@/types/api';
+import { useToast } from '@/composables/useToast';
 
 const router = useRouter();
+const toast = useToast();
 
 type Stage = 'start' | 'answering' | 'result';
 const stage = ref<Stage>('start');
@@ -92,11 +94,11 @@ async function handleStart() {
       answer.value = '';
       stage.value = 'answering';
     } else {
-      showToast(res.message || '开始面试失败', 'error');
+      toast.error(res.message || '开始面试失败');
     }
   } catch (err) {
     const e = err as { message?: string };
-    showToast(e?.message || '开始面试失败，请稍后重试', 'error');
+    toast.error(e?.message || '开始面试失败，请稍后重试');
   } finally {
     starting.value = false;
   }
@@ -105,7 +107,7 @@ async function handleStart() {
 async function handleSubmitAnswer() {
   if (!interview.value || submitting.value) return;
   if (!answer.value.trim()) {
-    showToast('答案不能为空', 'error');
+    toast.error('答案不能为空');
     return;
   }
   if (isCurrentAnswered.value) {
@@ -125,13 +127,13 @@ async function handleSubmitAnswer() {
         interview.value.qaList[currentIdx.value] = res.data;
         interview.value.answeredCount = (interview.value.answeredCount || 0) + 1;
       }
-      showToast(`评分完成：${res.data.score} 分`, 'success');
+      toast.success(`评分完成：${res.data.score} 分`);
     } else {
-      showToast(res.message || '提交失败', 'error');
+      toast.error(res.message || '提交失败');
     }
   } catch (err) {
     const e = err as { message?: string };
-    showToast(e?.message || '提交失败，请稍后重试', 'error');
+    toast.error(e?.message || '提交失败，请稍后重试');
   } finally {
     submitting.value = false;
   }
@@ -164,7 +166,7 @@ function syncAnswerFromQa() {
 async function handleFinish() {
   if (!interview.value || finishing.value) return;
   if (answeredCount.value === 0) {
-    showToast('至少回答 1 道题再结束面试', 'error');
+    toast.error('至少回答 1 道题再结束面试');
     return;
   }
   if (!window.confirm(`确定结束本次面试吗？已答 ${answeredCount.value}/${totalQa.value} 题`)) return;
@@ -176,11 +178,11 @@ async function handleFinish() {
       stage.value = 'result';
       loadHistory();
     } else {
-      showToast(res.message || '结束失败', 'error');
+      toast.error(res.message || '结束失败');
     }
   } catch (err) {
     const e = err as { message?: string };
-    showToast(e?.message || '结束失败，请稍后重试', 'error');
+    toast.error(e?.message || '结束失败，请稍后重试');
   } finally {
     finishing.value = false;
   }
@@ -208,11 +210,11 @@ async function loadInterviewDetail(id: string | number) {
       stage.value = res.data.status === 'finished' ? 'result' : 'answering';
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } else {
-      showToast(res.message || '加载失败', 'error');
+      toast.error(res.message || '加载失败');
     }
   } catch (err) {
     const e = err as { message?: string };
-    showToast(e?.message || '加载失败', 'error');
+    toast.error(e?.message || '加载失败');
   }
 }
 
@@ -240,15 +242,6 @@ function formatTime(t?: string): string {
   if (!t) return '';
   return t.replace('T', ' ').slice(0, 16);
 }
-
-// Toast
-const toast = ref<{ message: string; type: 'success' | 'error' } | null>(null);
-let toastTimer: number | null = null;
-function showToast(message: string, type: 'success' | 'error' = 'success') {
-  toast.value = { message, type };
-  if (toastTimer) window.clearTimeout(toastTimer);
-  toastTimer = window.setTimeout(() => { toast.value = null; }, 3000);
-}
 </script>
 
 <template>
@@ -272,15 +265,6 @@ function showToast(message: string, type: 'success' | 'error' = 'success') {
         </span>
         <span class="w-16"></span>
       </div>
-    </div>
-
-    <!-- Toast -->
-    <div
-      v-if="toast"
-      class="fixed top-20 left-1/2 -translate-x-1/2 z-50 px-4 py-2 rounded-lg shadow-lg text-sm"
-      :class="toast.type === 'success' ? 'bg-green-500 text-white' : 'bg-red-500 text-white'"
-    >
-      {{ toast.message }}
     </div>
 
     <!-- ============ 开始页 ============ -->

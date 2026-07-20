@@ -32,6 +32,12 @@ import {
   Loader2,
   PenSquare,
   RefreshCw,
+  // v1.1 读者画像扩展图标
+  Venus,           // 性别-女
+  Mars,            // 性别-男
+  UserCircle,      // 性别-其他/未知
+  Cake,            // 年龄段
+  Info,
 } from 'lucide-vue-next';
 import { useRoute } from 'vue-router';
 import { useUserStore } from '@/stores/user';
@@ -722,6 +728,246 @@ const maxHourValue = computed(() => {
   return Math.max(1, ...hours.map((h) => h.value));
 });
 
+// v1.1 性别分布：合计人数（用于百分比兜底展示）
+const totalGenderCount = computed(() => {
+  const genders = readerProfile.value?.genders || [];
+  return genders.reduce((sum, g) => sum + (g.value || 0), 0);
+});
+
+// v1.1 性别分布：最大单项值（用于柱状条比例）
+const maxGenderValue = computed(() => {
+  const genders = readerProfile.value?.genders || [];
+  return Math.max(1, ...genders.map((g) => g.value));
+});
+
+// v1.1 性别标签映射：male→男 / female→女 / other→其他 / unknown→未知
+const genderLabelMap: Record<string, string> = {
+  male: '男',
+  female: '女',
+  other: '其他',
+  unknown: '未知',
+};
+
+// v1.1 性别图标映射：用于在每行前展示对应图标
+function getGenderIcon(gender: string) {
+  switch (gender) {
+    case 'male': return Mars;
+    case 'female': return Venus;
+    case 'other': return UserCircle;
+    default: return UserCircle;
+  }
+}
+
+// v1.1 性别图标颜色映射：男=蓝、女=粉、其他=灰、未知=灰
+function getGenderColor(gender: string): string {
+  switch (gender) {
+    case 'male': return '#3B82F6';     // 蓝
+    case 'female': return '#EC4899';   // 粉
+    case 'other': return '#A855F7';    // 紫
+    default: return '#9CA3AF';         // 灰
+  }
+}
+
+// v1.1 年龄段：合计人数
+const totalAgeRangeCount = computed(() => {
+  const ages = readerProfile.value?.ageRanges || [];
+  return ages.reduce((sum, a) => sum + (a.value || 0), 0);
+});
+
+// v1.1 年龄段：最大单项值
+const maxAgeRangeValue = computed(() => {
+  const ages = readerProfile.value?.ageRanges || [];
+  return Math.max(1, ...ages.map((a) => a.value));
+});
+
+// v1.1 年龄段标签映射
+const ageRangeLabelMap: Record<string, string> = {
+  under_18: '18 岁以下',
+  '18_24': '18-24 岁',
+  '25_30': '25-30 岁',
+  '31_35': '31-35 岁',
+  '36_45': '36-45 岁',
+  over_45: '45 岁以上',
+  unknown: '未知',
+};
+
+// v1.1 年龄段：按固定顺序排序后的展示列表
+const orderedAgeRanges = computed(() => {
+  const ages = readerProfile.value?.ageRanges || [];
+  const order = ['under_18', '18_24', '25_30', '31_35', '36_45', 'over_45', 'unknown'];
+  return order
+    .map((k) => ages.find((a) => a.range === k))
+    .filter((x): x is NonNullable<typeof x> => !!x);
+});
+
+// v1.1 时段分布：高峰时段（占比最高的前 3 个小时）
+const peakHours = computed(() => {
+  const hours = readerProfile.value?.hours || [];
+  if (!hours.length) return [];
+  return [...hours]
+    .sort((a, b) => b.value - a.value)
+    .slice(0, 3)
+    .map((h) => h.hour);
+});
+
+// v1.1.2 新增：时段分布总读者数（用于空值保护，避免 hours 长度 > 0 但 value 全 0 时仍渲染空柱图）
+const totalHourCount = computed(() => {
+  const hours = readerProfile.value?.hours || [];
+  return hours.reduce((sum, h) => sum + (h.value || 0), 0);
+});
+
+function isPeakHour(hour: number): boolean {
+  return peakHours.value.includes(hour);
+}
+
+// v1.1.2 读者画像：省份热力网格（地图组件的简化版，不引入 echarts）
+// 按地理分区（华北/东北/华东/华中/华南/西南/西北/港澳台）组织 34 省份
+// 后端返回的 region 是中文省份名（如"北京市"/"广东省"），需要去掉"省/市/自治区"后做归一化匹配
+const chinaRegionGroups: { label: string; provinces: { name: string; aliases: string[] }[] }[] = [
+  {
+    label: '华北',
+    provinces: [
+      { name: '北京', aliases: ['北京市', '北京'] },
+      { name: '天津', aliases: ['天津市', '天津'] },
+      { name: '河北', aliases: ['河北省', '河北'] },
+      { name: '山西', aliases: ['山西省', '山西'] },
+      { name: '内蒙古', aliases: ['内蒙古自治区', '内蒙古'] },
+    ],
+  },
+  {
+    label: '东北',
+    provinces: [
+      { name: '辽宁', aliases: ['辽宁省', '辽宁'] },
+      { name: '吉林', aliases: ['吉林省', '吉林'] },
+      { name: '黑龙江', aliases: ['黑龙江省', '黑龙江'] },
+    ],
+  },
+  {
+    label: '华东',
+    provinces: [
+      { name: '上海', aliases: ['上海市', '上海'] },
+      { name: '江苏', aliases: ['江苏省', '江苏'] },
+      { name: '浙江', aliases: ['浙江省', '浙江'] },
+      { name: '安徽', aliases: ['安徽省', '安徽'] },
+      { name: '福建', aliases: ['福建省', '福建'] },
+      { name: '江西', aliases: ['江西省', '江西'] },
+      { name: '山东', aliases: ['山东省', '山东'] },
+      { name: '台湾', aliases: ['台湾省', '台湾'] },
+    ],
+  },
+  {
+    label: '华中',
+    provinces: [
+      { name: '河南', aliases: ['河南省', '河南'] },
+      { name: '湖北', aliases: ['湖北省', '湖北'] },
+      { name: '湖南', aliases: ['湖南省', '湖南'] },
+    ],
+  },
+  {
+    label: '华南',
+    provinces: [
+      { name: '广东', aliases: ['广东省', '广东'] },
+      { name: '广西', aliases: ['广西壮族自治区', '广西'] },
+      { name: '海南', aliases: ['海南省', '海南'] },
+      { name: '香港', aliases: ['香港特别行政区', '香港'] },
+      { name: '澳门', aliases: ['澳门特别行政区', '澳门'] },
+    ],
+  },
+  {
+    label: '西南',
+    provinces: [
+      { name: '重庆', aliases: ['重庆市', '重庆'] },
+      { name: '四川', aliases: ['四川省', '四川'] },
+      { name: '贵州', aliases: ['贵州省', '贵州'] },
+      { name: '云南', aliases: ['云南省', '云南'] },
+      { name: '西藏', aliases: ['西藏自治区', '西藏'] },
+    ],
+  },
+  {
+    label: '西北',
+    provinces: [
+      { name: '陕西', aliases: ['陕西省', '陕西'] },
+      { name: '甘肃', aliases: ['甘肃省', '甘肃'] },
+      { name: '青海', aliases: ['青海省', '青海'] },
+      { name: '宁夏', aliases: ['宁夏回族自治区', '宁夏'] },
+      { name: '新疆', aliases: ['新疆维吾尔自治区', '新疆'] },
+    ],
+  },
+];
+
+// 省份名归一化：去掉"省/市/自治区/特别行政区"等后缀，返回简称
+function normalizeProvinceName(raw: string): string {
+  if (!raw) return '';
+  // v1.1.2 修复：JS 正则 | 选择是"先匹配优先"而非"最长匹配优先"，必须把长后缀放前面
+  // 否则 "新疆维吾尔自治区" 会先匹配 "自治区" 剥成 "新疆维吾尔" 而非 "新疆"
+  return raw
+    .replace(/(维吾尔自治区|壮族自治区|回族自治区|特别行政区|自治区|省|市)$/, '')
+    .trim();
+}
+
+// 把后端 regions 数组转为 Map<省份名, {value, percentage}>
+const regionValueMap = computed<Map<string, { value: number; percentage: number }>>(() => {
+  const map = new Map<string, { value: number; percentage: number }>();
+  const regions = readerProfile.value?.regions || [];
+  for (const r of regions) {
+    if (!r.region || r.region === '未知') continue;
+    const norm = normalizeProvinceName(r.region);
+    if (norm) {
+      map.set(norm, { value: r.value, percentage: r.percentage });
+    }
+  }
+  return map;
+});
+
+// 取某个省份的读者数（按归一化后的省份名匹配），未匹配返回 0
+function getProvinceValue(provinceAliases: string[]): number {
+  for (const alias of provinceAliases) {
+    const norm = normalizeProvinceName(alias);
+    const entry = regionValueMap.value.get(norm);
+    if (entry) return entry.value;
+  }
+  return 0;
+}
+
+// 省份热力等级（0-4）：根据值在所有省份中的相对位置分级
+const maxProvinceValue = computed(() => {
+  let max = 0;
+  for (const group of chinaRegionGroups) {
+    for (const p of group.provinces) {
+      const v = getProvinceValue(p.aliases);
+      if (v > max) max = v;
+    }
+  }
+  return Math.max(1, max);
+});
+
+function getHeatLevel(value: number): number {
+  if (value <= 0) return 0;
+  const ratio = value / maxProvinceValue.value;
+  if (ratio >= 0.75) return 4;
+  if (ratio >= 0.5) return 3;
+  if (ratio >= 0.25) return 2;
+  return 1;
+}
+
+// 热力等级 → 颜色（与 var(--theme-primary) 渐变到透明）
+function getHeatColor(level: number): string {
+  if (level === 0) return 'transparent';
+  const opacity = [0, 0.25, 0.5, 0.75, 1][level];
+  // 读取 CSS 变量并拼接 opacity，避免硬编码颜色（适配三套主题）
+  return `color-mix(in srgb, var(--theme-primary) ${opacity * 100}%, transparent)`;
+}
+
+// 全部 34 省份中是否有任意一个匹配到数据（用于判断是否显示热力网格）
+const hasAnyProvinceData = computed(() => {
+  for (const group of chinaRegionGroups) {
+    for (const p of group.provinces) {
+      if (getProvinceValue(p.aliases) > 0) return true;
+    }
+  }
+  return false;
+});
+
 function goPublish() {
   router.push('/publish');
 }
@@ -1227,62 +1473,190 @@ const dashboardCards = computed(() => {
                       </div>
                     </section>
 
-                    <!-- ==================== 底部：读者画像 ==================== -->
+                    <!-- ==================== 底部：读者画像（v1.1 扩展为 4 维度）==================== -->
                     <section class="rounded-2xl p-4 sm:p-6"
                       style="background-color: var(--theme-surface); border: 1px solid var(--theme-border);"
                     >
-                      <h3 class="font-semibold flex items-center gap-2 mb-4" style="color: var(--theme-text);">
-                        <Users class="w-5 h-5" style="color: var(--theme-primary);" />
-                        读者画像（近 30 天）
-                      </h3>
+                      <div class="flex items-center justify-between mb-4 flex-wrap gap-2">
+                        <h3 class="font-semibold flex items-center gap-2" style="color: var(--theme-text);">
+                          <Users class="w-5 h-5" style="color: var(--theme-primary);" />
+                          读者画像（近 30 天）
+                        </h3>
+                        <div class="flex items-center gap-1 text-xs" style="color: var(--theme-text-secondary);">
+                          <Info class="w-3 h-3" />
+                          <span>含地域 / 性别 / 年龄段 / 时段四维度</span>
+                        </div>
+                      </div>
 
                       <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                        <!-- 地域分布 Top10 -->
-                        <div>
+                        <!-- 1. 地域分布 Top10（按省份聚合 + 占比） -->
+                        <div class="lg:col-span-2">
                           <h4 class="text-sm font-medium flex items-center gap-2 mb-3" style="color: var(--theme-text-secondary);">
                             <MapPin class="w-4 h-4" />
-                            地域分布 Top10
+                            地域分布地图
+                            <span class="text-[10px] opacity-70">（按 IP 解析省份聚合 · 全 34 省份热力）</span>
                           </h4>
-                          <div v-if="(readerProfile?.regions || []).length" class="space-y-2">
-                            <div v-for="(r, i) in readerProfile?.regions" :key="`region-${i}`" class="flex items-center gap-2">
-                              <span class="text-xs w-28 truncate" :title="r.region" style="color: var(--theme-text-secondary);">{{ r.region }}</span>
-                              <div class="flex-1 h-4 rounded overflow-hidden" style="background-color: var(--theme-bg);">
-                                <div
-                                  class="h-full rounded transition-all"
-                                  :style="{
-                                    width: ((r.value / maxRegionValue) * 100) + '%',
-                                    backgroundColor: 'var(--theme-primary)',
-                                  }"
-                                ></div>
+
+                          <!-- 1a. 中国省份热力网格（地图组件的简化版，无需引入 echarts） -->
+                          <div
+                            v-if="hasAnyProvinceData"
+                            class="rounded-xl p-4 mb-4"
+                            style="background-color: var(--theme-bg); border: 1px solid var(--theme-border);"
+                          >
+                            <div class="space-y-3">
+                              <div v-for="(group, gi) in chinaRegionGroups" :key="`region-group-${gi}`">
+                                <div class="flex items-center gap-2 mb-1.5">
+                                  <span class="text-[10px] font-medium px-1.5 py-0.5 rounded" style="background-color: var(--theme-accent); color: var(--theme-text-secondary);">
+                                    {{ group.label }}
+                                  </span>
+                                </div>
+                                <div class="grid grid-cols-5 sm:grid-cols-8 gap-1">
+                                  <div
+                                    v-for="(p, pi) in group.provinces"
+                                    :key="`prov-${gi}-${pi}`"
+                                    class="aspect-square rounded flex flex-col items-center justify-center transition-all cursor-default group relative"
+                                    :style="{
+                                      backgroundColor: getHeatColor(getHeatLevel(getProvinceValue(p.aliases))),
+                                      border: getProvinceValue(p.aliases) > 0 ? '1px solid var(--theme-primary)' : '1px solid var(--theme-border)',
+                                    }"
+                                    :title="`${p.name}：${getProvinceValue(p.aliases)} 人`"
+                                  >
+                                    <span
+                                      class="text-[10px] sm:text-xs font-medium leading-tight text-center"
+                                      :style="{ color: getHeatLevel(getProvinceValue(p.aliases)) >= 3 ? '#fff' : 'var(--theme-text)' }"
+                                    >{{ p.name }}</span>
+                                    <span
+                                      v-if="getProvinceValue(p.aliases) > 0"
+                                      class="text-[8px] sm:text-[10px] leading-tight"
+                                      :style="{ color: getHeatLevel(getProvinceValue(p.aliases)) >= 3 ? 'rgba(255,255,255,0.85)' : 'var(--theme-text-secondary)' }"
+                                    >{{ getProvinceValue(p.aliases) }}</span>
+                                  </div>
+                                </div>
                               </div>
-                              <span class="text-xs w-10 text-right font-medium" style="color: var(--theme-text);">{{ r.value }}</span>
+                            </div>
+                            <!-- 图例 -->
+                            <div class="flex items-center justify-end gap-2 mt-3 text-[10px]" style="color: var(--theme-text-secondary);">
+                              <span>少</span>
+                              <div class="w-4 h-3 rounded" :style="{ backgroundColor: getHeatColor(1) }"></div>
+                              <div class="w-4 h-3 rounded" :style="{ backgroundColor: getHeatColor(2) }"></div>
+                              <div class="w-4 h-3 rounded" :style="{ backgroundColor: getHeatColor(3) }"></div>
+                              <div class="w-4 h-3 rounded" :style="{ backgroundColor: getHeatColor(4) }"></div>
+                              <span>多</span>
                             </div>
                           </div>
-                          <div v-else class="text-sm py-8 text-center" style="color: var(--theme-text-secondary);">
+
+                          <!-- 1b. Top10 排行（保留条形图，展示具体数值） -->
+                          <div v-if="(readerProfile?.regions || []).length" class="space-y-2">
+                            <div class="text-xs font-medium mb-2" style="color: var(--theme-text-secondary);">Top10 排行</div>
+                            <div v-for="(r, i) in readerProfile?.regions" :key="`region-${i}`" class="flex items-center gap-2">
+                              <span class="text-xs w-20 truncate" :title="r.region" style="color: var(--theme-text-secondary);">{{ r.region }}</span>
+                              <div class="flex-1 h-5 rounded overflow-hidden relative" style="background-color: var(--theme-bg);">
+                                <div
+                                  class="h-full rounded transition-all flex items-center justify-end pr-2"
+                                  :style="{
+                                    width: Math.max(2, (r.value / maxRegionValue) * 100) + '%',
+                                    backgroundColor: 'var(--theme-primary)',
+                                  }"
+                                >
+                                  <span class="text-[10px] font-medium text-white leading-none">{{ r.percentage }}%</span>
+                                </div>
+                              </div>
+                              <span class="text-xs w-12 text-right font-medium" style="color: var(--theme-text);">{{ r.value }} 人</span>
+                            </div>
+                          </div>
+                          <div v-else-if="!hasAnyProvinceData" class="text-sm py-8 text-center" style="color: var(--theme-text-secondary);">
                             暂无地域分布数据
                           </div>
                         </div>
 
-                        <!-- 时段分布 24 小时 -->
+                        <!-- 2. 性别分布（v1.1 新增） -->
                         <div>
+                          <h4 class="text-sm font-medium flex items-center gap-2 mb-3" style="color: var(--theme-text-secondary);">
+                            <Users class="w-4 h-4" />
+                            性别分布
+                            <span class="text-[10px] opacity-70">（仅登录读者）</span>
+                          </h4>
+                          <div v-if="(readerProfile?.genders || []).length && totalGenderCount > 0" class="space-y-2">
+                            <div v-for="(g, i) in readerProfile?.genders" :key="`gender-${i}`" class="flex items-center gap-2">
+                              <component :is="getGenderIcon(g.gender)" class="w-4 h-4 flex-shrink-0" :style="{ color: getGenderColor(g.gender) }" />
+                              <span class="text-xs w-12" style="color: var(--theme-text-secondary);">{{ genderLabelMap[g.gender] || g.gender }}</span>
+                              <div class="flex-1 h-5 rounded overflow-hidden relative" style="background-color: var(--theme-bg);">
+                                <div
+                                  class="h-full rounded transition-all flex items-center justify-end pr-2"
+                                  :style="{
+                                    width: Math.max(2, (g.value / maxGenderValue) * 100) + '%',
+                                    backgroundColor: getGenderColor(g.gender),
+                                  }"
+                                >
+                                  <span class="text-[10px] font-medium text-white leading-none">{{ g.percentage }}%</span>
+                                </div>
+                              </div>
+                              <span class="text-xs w-12 text-right font-medium" style="color: var(--theme-text);">{{ g.value }} 人</span>
+                            </div>
+                          </div>
+                          <div v-else class="text-sm py-8 text-center" style="color: var(--theme-text-secondary);">
+                            暂无性别数据
+                          </div>
+                        </div>
+
+                        <!-- 3. 年龄段分布（v1.1 新增） -->
+                        <div>
+                          <h4 class="text-sm font-medium flex items-center gap-2 mb-3" style="color: var(--theme-text-secondary);">
+                            <Cake class="w-4 h-4" />
+                            年龄段分布
+                            <span class="text-[10px] opacity-70">（基于读者自填生日）</span>
+                          </h4>
+                          <div v-if="orderedAgeRanges.length && totalAgeRangeCount > 0" class="space-y-2">
+                            <div v-for="(a, i) in orderedAgeRanges" :key="`age-${i}`" class="flex items-center gap-2">
+                              <span class="text-xs w-20 truncate" :title="ageRangeLabelMap[a.range] || a.range" style="color: var(--theme-text-secondary);">{{ ageRangeLabelMap[a.range] || a.range }}</span>
+                              <div class="flex-1 h-5 rounded overflow-hidden relative" style="background-color: var(--theme-bg);">
+                                <div
+                                  class="h-full rounded transition-all flex items-center justify-end pr-2"
+                                  :style="{
+                                    width: Math.max(2, (a.value / maxAgeRangeValue) * 100) + '%',
+                                    backgroundColor: 'var(--theme-primary)',
+                                  }"
+                                >
+                                  <span class="text-[10px] font-medium text-white leading-none">{{ a.percentage }}%</span>
+                                </div>
+                              </div>
+                              <span class="text-xs w-12 text-right font-medium" style="color: var(--theme-text);">{{ a.value }} 人</span>
+                            </div>
+                          </div>
+                          <div v-else class="text-sm py-8 text-center" style="color: var(--theme-text-secondary);">
+                            暂无年龄段数据
+                          </div>
+                        </div>
+
+                        <!-- 4. 时段分布（0-23 时，含高峰时段高亮）v1.1.2：加 lg:col-span-2 占满整行，柱子才不会太挤 -->
+                        <div class="lg:col-span-2">
                           <h4 class="text-sm font-medium flex items-center gap-2 mb-3" style="color: var(--theme-text-secondary);">
                             <Clock class="w-4 h-4" />
                             时段分布（0-23 时）
+                            <span v-if="peakHours.length" class="text-[10px] opacity-70">高峰：{{ peakHours.map(h => h + '时').join('、') }}</span>
                           </h4>
-                          <div v-if="(readerProfile?.hours || []).length" class="flex items-end gap-1 h-40">
+                          <!-- v1.1.2：增加 totalHourCount > 0 空值保护，避免 hours.length>0 但 value 全 0 时仍渲染空柱图 -->
+                          <div v-if="(readerProfile?.hours || []).length && totalHourCount > 0" class="flex items-end gap-1 h-40">
                             <div
                               v-for="h in readerProfile?.hours" :key="`hour-${h.hour}`"
-                              class="flex-1 flex flex-col items-center justify-end group"
+                              class="flex-1 flex flex-col items-center justify-end group relative"
                             >
+                              <!-- hover tooltip -->
+                              <div
+                                class="absolute -top-8 hidden group-hover:block z-10 px-2 py-1 rounded text-[10px] whitespace-nowrap"
+                                style="background-color: var(--theme-text); color: var(--theme-bg);"
+                              >
+                                {{ h.hour }}时 · {{ h.value }} 次 · {{ h.percentage }}%
+                              </div>
                               <div
                                 class="w-full rounded-t transition-all"
                                 :style="{
                                   height: ((h.value / maxHourValue) * 100) + '%',
                                   minHeight: h.value > 0 ? '4px' : '1px',
-                                  backgroundColor: 'var(--theme-primary)',
-                                  opacity: h.value > 0 ? 1 : 0.25,
+                                  backgroundColor: isPeakHour(h.hour) ? 'var(--theme-primary)' : 'var(--theme-text-secondary)',
+                                  opacity: h.value > 0 ? (isPeakHour(h.hour) ? 1 : 0.55) : 0.2,
                                 }"
-                                :title="`${h.hour}时：${h.value} 次`"
+                                :title="`${h.hour}时：${h.value} 次（${h.percentage}%）`"
                               ></div>
                             </div>
                           </div>
@@ -1296,6 +1670,20 @@ const dashboardCards = computed(() => {
                             <span>18时</span>
                             <span>23时</span>
                           </div>
+                        </div>
+                      </div>
+
+                      <!-- v1.1 数据局限说明（由后端返回，告知用户数据可能不真实的原因） -->
+                      <div
+                        v-if="readerProfile?.dataNote"
+                        class="mt-4 p-3 rounded-lg flex items-start gap-2 text-xs"
+                        style="background-color: var(--theme-bg); border: 1px solid var(--theme-border);"
+                      >
+                        <Info class="w-3.5 h-3.5 flex-shrink-0 mt-0.5" style="color: var(--theme-text-secondary);" />
+                        <div class="flex-1 space-y-1" style="color: var(--theme-text-secondary);">
+                          <p><span style="color: var(--theme-text); font-weight: 500;">地域：</span>{{ readerProfile.dataNote.regionNote }}</p>
+                          <p><span style="color: var(--theme-text); font-weight: 500;">性别：</span>{{ readerProfile.dataNote.genderNote }}</p>
+                          <p><span style="color: var(--theme-text); font-weight: 500;">年龄段：</span>{{ readerProfile.dataNote.ageRangeNote }}</p>
                         </div>
                       </div>
                     </section>

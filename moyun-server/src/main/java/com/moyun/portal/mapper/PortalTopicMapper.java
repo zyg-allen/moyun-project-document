@@ -1,18 +1,15 @@
 package com.moyun.portal.mapper;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
-import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
-import com.moyun.ext.cms.domain.query.TopicQuery;
-import com.moyun.ext.cms.domain.vo.TopicListItemVO;
-import com.moyun.ext.cms.domain.vo.TopicPostVO;
-import com.moyun.ext.cms.domain.vo.TopicVO;
-import com.moyun.portal.domain.entity.PortalTopic;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
+import org.apache.ibatis.annotations.Select;
 import org.apache.ibatis.annotations.Update;
 
+import com.moyun.portal.domain.entity.PortalTopic;
+
 /**
- * 话题 Mapper
+ * 话题主表 数据层
  *
  * @author moyun
  */
@@ -20,44 +17,48 @@ import org.apache.ibatis.annotations.Update;
 public interface PortalTopicMapper extends BaseMapper<PortalTopic> {
 
     /**
-     * 话题列表分页（公开，仅 active）
+     * 原子增加浏览数
      */
-    Page<TopicListItemVO> selectListPage(Page<TopicListItemVO> page, @Param("query") TopicQuery query);
+    @Update("UPDATE portal_topic SET view_count = view_count + #{delta} WHERE id = #{id} AND view_count + #{delta} >= 0")
+    int incrementViewCount(@Param("id") Long id, @Param("delta") int delta);
 
     /**
-     * 热门话题（按关注数倒序，默认 active）
+     * 原子增加观点数 + 同步最后观点时间/用户
      */
-    Page<TopicListItemVO> selectHotPage(Page<TopicListItemVO> page);
+    @Update("UPDATE portal_topic SET post_count = post_count + #{delta}, last_post_time = #{postTime}, last_poster_id = #{posterId} " +
+            "WHERE id = #{id} AND post_count + #{delta} >= 0")
+    int incrementPostCount(@Param("id") Long id, @Param("delta") int delta,
+                           @Param("postTime") java.time.LocalDateTime postTime,
+                           @Param("posterId") Long posterId);
 
     /**
-     * 话题详情（按 slug 查询）
+     * 仅原子减少观点数，不触碰 last_post_time / last_poster_id
+     * 用于删除观点时仅同步计数，保留最后观点时间/用户信息
      */
-    TopicVO selectDetailBySlug(@Param("slug") String slug);
+    @Update("UPDATE portal_topic SET post_count = GREATEST(0, post_count - 1) WHERE id = #{topicId}")
+    int decrementPostCount(@Param("topicId") Long topicId);
 
     /**
-     * 话题详情（按 ID 查询）
+     * 标记话题为精选（is_featured = 1）
      */
-    TopicVO selectDetailById(@Param("id") Long id);
+    @Update("UPDATE portal_topic SET is_featured = 1 WHERE id = #{topicId}")
+    int markFeatured(@Param("topicId") Long topicId);
 
     /**
-     * 话题下的动态（基于 portal_entity_tag + portal_tag 聚合带该话题标签的文章）
+     * 原子增加点赞数
      */
-    Page<TopicPostVO> selectTopicPosts(Page<TopicPostVO> page, @Param("topicName") String topicName);
+    @Update("UPDATE portal_topic SET like_count = like_count + #{delta} WHERE id = #{id} AND like_count + #{delta} >= 0")
+    int incrementLikeCount(@Param("id") Long id, @Param("delta") int delta);
 
     /**
-     * 后台话题分页查询（含所有状态）
+     * 原子增加评论数（仅一级评论计入）
      */
-    Page<TopicListItemVO> selectCmsListPage(Page<TopicListItemVO> page, @Param("query") TopicQuery query);
+    @Update("UPDATE portal_topic SET comment_count = comment_count + #{delta} WHERE id = #{id} AND comment_count + #{delta} >= 0")
+    int incrementCommentCount(@Param("id") Long id, @Param("delta") int delta);
 
     /**
-     * 原子更新关注数
+     * 行级锁：SELECT FOR UPDATE，用于 createPost 时获取楼层号的并发安全
      */
-    @Update("UPDATE portal_topic SET follow_count = GREATEST(follow_count + #{delta}, 0) WHERE id = #{id}")
-    int updateFollowCount(@Param("id") Long id, @Param("delta") int delta);
-
-    /**
-     * 原子更新关联内容数
-     */
-    @Update("UPDATE portal_topic SET post_count = GREATEST(post_count + #{delta}, 0) WHERE id = #{id}")
-    int updatePostCount(@Param("id") Long id, @Param("delta") int delta);
+    @Select("SELECT * FROM portal_topic WHERE id = #{id} FOR UPDATE")
+    PortalTopic selectForUpdate(@Param("id") Long id);
 }

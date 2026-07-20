@@ -3,18 +3,21 @@ import { ref, computed, onMounted, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useHead } from '@vueuse/head';
 import {
-  ArrowLeft, Save, Loader2, Upload, Image as ImageIcon, BookOpen, X,
+  ArrowLeft, Save, Loader2, Upload, Image as ImageIcon, BookOpen, X, FileText,
 } from 'lucide-vue-next';
 import SiteFooter from '@/components/SiteFooter.vue';
 import LazyImage from '@/components/LazyImage.vue';
+import MyArticlePicker from '@/components/MyArticlePicker.vue';
 import { generateSeo } from '@/utils/seo';
 import { uploadImage } from '@/api/upload';
 import { deletePortalFile } from '@/api/file';
-import { getColumnDetail, saveColumn } from '@/api/column';
+import { getColumnDetail, saveColumn, addArticle, removeArticle } from '@/api/column';
 import type { ColumnSaveBody } from '@/types/api';
+import { useToast } from '@/composables/useToast';
 
 const route = useRoute();
 const router = useRouter();
+const toast = useToast();
 
 const editId = computed(() => route.params.id as string | undefined);
 const isEdit = computed(() => !!editId.value);
@@ -28,19 +31,14 @@ const categoryId = ref('');
 const isFinished = ref(false);
 const price = ref<number | ''>('');
 
+// v1.1.3 新增：专栏文章关联（已选 articleId 列表 + 加载时回填的原列表）
+const selectedArticleIds = ref<Array<string | number>>([]);
+const originalArticleIds = ref<Array<string | number>>([]);
+
 const submitting = ref(false);
 const loadingDetail = ref(false);
 const uploading = ref(false);
 const pageError = ref<string | null>(null);
-
-// Toast
-const toast = ref<{ message: string; type: 'success' | 'error' } | null>(null);
-let toastTimer: number | null = null;
-function showToast(message: string, type: 'success' | 'error' = 'success') {
-  toast.value = { message, type };
-  if (toastTimer) window.clearTimeout(toastTimer);
-  toastTimer = window.setTimeout(() => { toast.value = null; }, 3000);
-}
 
 const fileInput = ref<HTMLInputElement | null>(null);
 
@@ -71,6 +69,8 @@ watch(editId, (newId, oldId) => {
     categoryId.value = '';
     isFinished.value = false;
     price.value = '';
+    selectedArticleIds.value = [];
+    originalArticleIds.value = [];
     pageError.value = null;
     if (newId) {
       loadDetail();
@@ -92,14 +92,18 @@ async function loadDetail() {
       categoryId.value = c.categoryId != null ? String(c.categoryId) : '';
       isFinished.value = !!c.isFinished;
       price.value = c.price != null ? c.price : '';
+      // v1.1.3 新增：回填专栏已关联的文章 ID 列表
+      const ids = (c.articles || []).map(a => a.id);
+      selectedArticleIds.value = ids;
+      originalArticleIds.value = [...ids];
     } else {
       pageError.value = res.message || '加载专栏失败';
-      showToast(res.message || '加载专栏失败', 'error');
+      toast.error(res.message || '加载专栏失败');
     }
   } catch (err) {
     const e = err as { message?: string };
     pageError.value = e?.message || '加载专栏失败，请稍后重试';
-    showToast(pageError.value, 'error');
+    toast.error(pageError.value);
   } finally {
     loadingDetail.value = false;
   }
@@ -130,16 +134,16 @@ async function handleUpload(e: Event) {
           console.warn('旧封面清理失败：', e);
         }
       }
-      showToast('封面上传成功', 'success');
+      toast.success('封面上传成功');
     } else {
       // 上传失败：恢复旧封面（替换语义——不丢失原封面），用户可重试或改用「清除」
       cover.value = oldCover || '';
-      showToast(res.message || '上传失败，请重试', 'error');
+      toast.error(res.message || '上传失败，请重试');
     }
   } catch (err) {
     cover.value = oldCover || '';
     const er = err as { message?: string };
-    showToast(er?.message || '上传失败，请稍后重试', 'error');
+    toast.error(er?.message || '上传失败，请稍后重试');
   } finally {
     uploading.value = false;
     // 清空 input 以便重复选择同一文件
@@ -160,7 +164,7 @@ async function clearCover() {
   try {
     await deletePortalFile(oldCover);
   } catch (e) {
-    showToast('文件记录清理失败，请稍后在文件管理中处理', 'error');
+    toast.error('文件记录清理失败，请稍后在文件管理中处理');
     console.warn('封面清理失败：', e);
   }
 }
@@ -182,7 +186,8 @@ function buildPayload(): ColumnSaveBody {
     subtitle: subtitle.value.trim() || undefined,
     description: description.value.trim() || undefined,
     cover: cover.value.trim() || undefined,
-    isFinished: isFinished.value,
+    // 后端 ColumnVO.isFinished 为 Integer（0/1），此处把 boolean 转换为 0/1
+    isFinished: isFinished.value ? 1 : 0,
   };
   if (categoryId.value.trim()) payload.categoryId = categoryId.value.trim();
   if (price.value !== '') payload.price = Number(price.value);
@@ -193,14 +198,21 @@ function buildPayload(): ColumnSaveBody {
 async function submit() {
   const errMsg = validate();
   if (errMsg) {
-    showToast(errMsg, 'error');
+    toast.error(errMsg);
     return;
   }
   submitting.value = true;
   try {
     const res = await saveColumn(buildPayload());
     if (res.code === 200) {
-      showToast(isEdit.value ? '专栏已更新' : '专栏创建成功', 'success');
+      // v1.1.3 新增：保存专栏后增量同步文章关联（diff selectedArticleIds 与 originalArticleIds）
+      // - 新建专栏：res.data 是新专栏 ID，所有 selectedArticleIds 都需要 addArticle
+      // - 编辑专栏：editId.value 是已有专栏 ID，diff 出新增和移除
+      const columnId = res.data ?? editId.value;
+      if (columnId) {
+        await syncArticleRelations(String(columnId));
+      }
+      toast.success(isEdit.value ? '专栏已更新' : '专栏创建成功');
       const newId = res.data;
       if (newId !== undefined && newId !== null && newId !== '') {
         router.push(`/column/${newId}`);
@@ -210,13 +222,51 @@ async function submit() {
         router.push('/columns');
       }
     } else {
-      showToast(res.message || '保存失败', 'error');
+      toast.error(res.message || '保存失败');
     }
   } catch (err) {
     const e = err as { message?: string };
-    showToast(e?.message || '保存失败，请稍后重试', 'error');
+    toast.error(e?.message || '保存失败，请稍后重试');
   } finally {
     submitting.value = false;
+  }
+}
+
+/**
+ * v1.1.3 新增：增量同步专栏-文章关联
+ * 比较 selectedArticleIds（当前勾选）与 originalArticleIds（加载时的原列表），
+ * 调 addArticle 加入新增的，调 removeArticle 移除取消的。
+ * 单条失败不影响整体（已加入/移出的不回滚，仅提示）。
+ */
+async function syncArticleRelations(columnId: string) {
+  const originalSet = new Set(originalArticleIds.value.map(id => String(id)));
+  const currentSet = new Set(selectedArticleIds.value.map(id => String(id)));
+
+  const toAdd: Array<string | number> = [];
+  selectedArticleIds.value.forEach(id => {
+    if (!originalSet.has(String(id))) toAdd.push(id);
+  });
+
+  const toRemove: Array<string | number> = [];
+  originalArticleIds.value.forEach(id => {
+    if (!currentSet.has(String(id))) toRemove.push(id);
+  });
+
+  // 串行执行（避免并发对同一专栏的并发冲突）
+  for (const aid of toAdd) {
+    try {
+      await addArticle(columnId, aid);
+    } catch (e) {
+      // 已加入过的会因唯一索引冲突报错，忽略
+      console.warn(`加入文章 ${aid} 失败：`, e);
+    }
+  }
+  for (const aid of toRemove) {
+    try {
+      await removeArticle(columnId, aid);
+    } catch (e) {
+      console.warn(`移出文章 ${aid} 失败：`, e);
+    }
   }
 }
 
@@ -248,15 +298,6 @@ function goBack() {
         <span class="text-sm font-medium" style="color: var(--theme-text);">{{ pageTitle }}</span>
         <span class="w-20"></span>
       </div>
-    </div>
-
-    <!-- Toast -->
-    <div
-      v-if="toast"
-      class="fixed top-20 left-1/2 -translate-x-1/2 z-50 px-4 py-2 rounded-lg shadow-lg text-sm"
-      :class="toast.type === 'success' ? 'bg-green-500 text-white' : 'bg-red-500 text-white'"
-    >
-      {{ toast.message }}
     </div>
 
     <!-- Hero 区 -->
@@ -423,6 +464,21 @@ function goBack() {
                 style="background-color: var(--theme-bg); color: var(--theme-text); border: 1px solid var(--theme-border);"
               />
             </div>
+          </div>
+
+          <!-- v1.1.3 新增：专栏文章选择（与详情页"管理文章"统一组件） -->
+          <div>
+            <label class="block text-sm font-medium mb-1.5 flex items-center" style="color: var(--theme-text);">
+              <FileText class="w-4 h-4 mr-1" style="color: var(--theme-primary);" />
+              专栏文章
+              <span class="ml-1 text-xs" style="color: var(--theme-text-secondary);">从我的已发布文章中勾选，保存后自动同步关联</span>
+            </label>
+            <MyArticlePicker
+              v-model="selectedArticleIds"
+              :exclude-ids="[]"
+              :multiple="true"
+              placeholder="搜索文章标题加入专栏..."
+            />
           </div>
 
           <!-- 完结状态 -->

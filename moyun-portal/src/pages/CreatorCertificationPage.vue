@@ -13,20 +13,15 @@ import {
   type CreatorCertification,
 } from '@/api/certification';
 import { uploadPortalFile, deletePortalFile } from '@/api/file';
+import { useToast } from '@/composables/useToast';
 
 const router = useRouter();
+const toast = useToast();
 
 // 加载 / 状态
 const loading = ref(false);
 const submitting = ref(false);
 const uploading = ref(false);
-const toast = ref<{ message: string; type: 'success' | 'error' } | null>(null);
-let toastTimer: number | null = null;
-function showToast(message: string, type: 'success' | 'error' = 'success') {
-  toast.value = { message, type };
-  if (toastTimer) window.clearTimeout(toastTimer);
-  toastTimer = window.setTimeout(() => { toast.value = null; }, 3000);
-}
 
 // 当前认证记录（最近一条）
 const current = ref<CreatorCertification | null>(null);
@@ -100,12 +95,12 @@ async function handleCertImageChange(event: Event) {
   if (uploading.value) return;
 
   if (!file.type.startsWith('image/')) {
-    showToast('请选择图片文件', 'error');
+    toast.error('请选择图片文件');
     if (target) target.value = '';
     return;
   }
   if (file.size > 5 * 1024 * 1024) {
-    showToast('图片大小不能超过 5MB', 'error');
+    toast.error('图片大小不能超过 5MB');
     if (target) target.value = '';
     return;
   }
@@ -134,20 +129,20 @@ async function handleCertImageChange(event: Event) {
           console.warn('旧证件照清理失败：', e);
         }
       }
-      showToast('证件照上传成功', 'success');
+      toast.success('证件照上传成功');
     } else {
       // 上传失败：恢复旧值（替换语义——不丢失原证件照），释放本次失败的 blob URL
       form.certImage = oldCertImage;
       certImagePreview.value = previousPreview;
       URL.revokeObjectURL(blobUrl);
-      showToast(res.message || '上传失败', 'error');
+      toast.error(res.message || '上传失败');
     }
   } catch (err) {
     form.certImage = oldCertImage;
     certImagePreview.value = previousPreview;
     URL.revokeObjectURL(blobUrl);
     const e = err as { message?: string };
-    showToast(e?.message || '上传失败，请稍后重试', 'error');
+    toast.error(e?.message || '上传失败，请稍后重试');
   } finally {
     uploading.value = false;
     // 清空 input 以便重复选择同一文件
@@ -159,15 +154,15 @@ async function handleCertImageChange(event: Event) {
 async function handleSubmit() {
   if (submitting.value) return;
   if (!form.realName.trim()) {
-    showToast('请输入真实姓名', 'error');
+    toast.error('请输入真实姓名');
     return;
   }
   if (!form.certType) {
-    showToast('请选择证件类型', 'error');
+    toast.error('请选择证件类型');
     return;
   }
   if (!form.certImage) {
-    showToast('请上传证件照', 'error');
+    toast.error('请上传证件照');
     return;
   }
 
@@ -176,15 +171,15 @@ async function handleSubmit() {
     const res = await applyCertification({ ...form });
     if (res.code === 200 && res.data) {
       current.value = res.data;
-      showToast('申请提交成功，请等待审核', 'success');
+      toast.success('申请提交成功，请等待审核');
       // 滚动到状态展示区
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } else {
-      showToast(res.message || '提交失败', 'error');
+      toast.error(res.message || '提交失败');
     }
   } catch (err) {
     const e = err as { message?: string };
-    showToast(e?.message || '提交失败，请稍后重试', 'error');
+    toast.error(e?.message || '提交失败，请稍后重试');
   } finally {
     submitting.value = false;
   }
@@ -227,15 +222,6 @@ function statusLabel(status?: string) {
         <span class="text-sm font-medium" style="color: var(--theme-text);">创作者认证</span>
         <span class="w-12"></span>
       </div>
-    </div>
-
-    <!-- Toast -->
-    <div
-      v-if="toast"
-      class="fixed top-20 left-1/2 -translate-x-1/2 z-50 px-4 py-2 rounded-lg shadow-lg text-sm"
-      :class="toast.type === 'success' ? 'bg-green-500 text-white' : 'bg-red-500 text-white'"
-    >
-      {{ toast.message }}
     </div>
 
     <!-- 加载状态 -->

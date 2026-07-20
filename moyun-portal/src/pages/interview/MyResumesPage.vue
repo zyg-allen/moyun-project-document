@@ -14,8 +14,10 @@ import {
 } from '@/api/interview';
 import { getToken } from '@/api/client';
 import type { UserResumeVO } from '@/types/api';
+import { useToast } from '@/composables/useToast';
 
 const router = useRouter();
+const toast = useToast();
 
 const loading = ref(false);
 const error = ref<string | null>(null);
@@ -38,15 +40,6 @@ const statusMap: Record<string, { label: string; class: string }> = {
   published: { label: '已发布', class: 'bg-green-100 text-green-700' },
   archived: { label: '已归档', class: 'bg-yellow-100 text-yellow-700' },
 };
-
-// Toast
-const toast = ref<{ message: string; type: 'success' | 'error' } | null>(null);
-let toastTimer: number | null = null;
-function showToast(message: string, type: 'success' | 'error' = 'success') {
-  toast.value = { message, type };
-  if (toastTimer) window.clearTimeout(toastTimer);
-  toastTimer = window.setTimeout(() => { toast.value = null; }, 3000);
-}
 
 useHead(computed(() => generateSeo({
   title: '我的简历',
@@ -92,7 +85,7 @@ function gotoCreate() {
 
 function gotoEdit(id: string | number | undefined) {
   if (id === undefined || id === null) {
-    showToast('简历数据异常，无法编辑', 'error');
+    toast.error('简历数据异常，无法编辑');
     return;
   }
   router.push(`/interview/resume/edit/${id}`);
@@ -118,11 +111,11 @@ async function handleCopy(r: UserResumeVO) {
   try {
     actionId.value = r.id;
     await copyResume(r.id);
-    showToast('已复制为新版本', 'success');
+    toast.success('已复制为新版本');
     page.value = 1;
     await loadResumes();
   } catch (err: any) {
-    showToast(err?.message || '复制失败，请稍后重试', 'error');
+    toast.error(err?.message || '复制失败，请稍后重试');
   } finally {
     actionId.value = null;
   }
@@ -157,7 +150,7 @@ async function handleExportPdf(r: UserResumeVO) {
     if (res.code === 200 && res.data?.fileUrl) {
       // fileUrl 为认证下载端点，需带 token 下载
       await downloadPdfAuth(res.data.fileUrl, r.id);
-      showToast('PDF 导出成功', 'success');
+      toast.success('PDF 导出成功');
       // 更新列表项的导出信息
       const idx = resumes.value.findIndex(item => item.id === r.id);
       if (idx !== -1) {
@@ -168,10 +161,10 @@ async function handleExportPdf(r: UserResumeVO) {
         };
       }
     } else {
-      showToast(res.message || '导出失败，请稍后重试', 'error');
+      toast.error(res.message || '导出失败，请稍后重试');
     }
   } catch (err: any) {
-    showToast(err?.message || '导出失败，请稍后重试', 'error');
+    toast.error(err?.message || '导出失败，请稍后重试');
   } finally {
     actionId.value = null;
   }
@@ -184,7 +177,7 @@ async function handleScore(r: UserResumeVO) {
     const res = await scoreResume(r.id);
     if (res.code === 200 && res.data) {
       const score = res.data.score;
-      showToast(`评分完成：${score} 分`, 'success');
+      toast.success(`评分完成：${score} 分`);
       // 更新当前列表项的评分显示
       const idx = resumes.value.findIndex(item => item.id === r.id);
       if (idx !== -1) {
@@ -196,10 +189,10 @@ async function handleScore(r: UserResumeVO) {
         };
       }
     } else {
-      showToast(res.message || '评分失败，请稍后重试', 'error');
+      toast.error(res.message || '评分失败，请稍后重试');
     }
   } catch (err: any) {
-    showToast(err?.message || '评分失败，请稍后重试', 'error');
+    toast.error(err?.message || '评分失败，请稍后重试');
   } finally {
     actionId.value = null;
   }
@@ -213,14 +206,14 @@ async function handleToggleStatus(r: UserResumeVO, target: 'published' | 'archiv
   try {
     actionId.value = r.id;
     await updateResumeStatus(r.id, target);
-    showToast(`${actionText}成功`, 'success');
+    toast.success(`${actionText}成功`);
     // 更新列表项状态
     const idx = resumes.value.findIndex(item => item.id === r.id);
     if (idx !== -1) {
       resumes.value[idx] = { ...resumes.value[idx], status: target };
     }
   } catch (err: any) {
-    showToast(err?.message || `${actionText}失败，请稍后重试`, 'error');
+    toast.error(err?.message || `${actionText}失败，请稍后重试`);
   } finally {
     actionId.value = null;
   }
@@ -236,10 +229,10 @@ async function handleShowVersions(r: UserResumeVO) {
     if (res.code === 200 && res.data) {
       versionModal.value.list = res.data;
     } else {
-      showToast(res.message || '加载版本历史失败', 'error');
+      toast.error(res.message || '加载版本历史失败');
     }
   } catch (err: any) {
-    showToast(err?.message || '加载版本历史失败', 'error');
+    toast.error(err?.message || '加载版本历史失败');
   } finally {
     versionModal.value.loading = false;
     actionId.value = null;
@@ -256,14 +249,14 @@ async function handleDelete(r: UserResumeVO) {
   try {
     actionId.value = r.id;
     await deleteResume(r.id);
-    showToast('删除成功', 'success');
+    toast.success('删除成功');
     if (resumes.value.length === 1 && page.value > 1) {
       page.value -= 1;
     } else {
       loadResumes();
     }
   } catch (err: any) {
-    showToast(err?.message || '删除失败，请稍后重试', 'error');
+    toast.error(err?.message || '删除失败，请稍后重试');
   } finally {
     actionId.value = null;
   }
@@ -302,15 +295,6 @@ function gotoPage(p: number) {
           创建简历
         </button>
       </div>
-    </div>
-
-    <!-- Toast -->
-    <div
-      v-if="toast"
-      class="fixed top-20 left-1/2 -translate-x-1/2 z-50 px-4 py-2 rounded-lg shadow-lg text-sm"
-      :class="toast.type === 'success' ? 'bg-green-500 text-white' : 'bg-red-500 text-white'"
-    >
-      {{ toast.message }}
     </div>
 
     <!-- Hero 区 -->

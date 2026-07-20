@@ -14,9 +14,11 @@ import {
 } from '@/api/interview';
 import type { InterviewQuestionDetailVO, InterviewSubmissionVO } from '@/types/api';
 import { getSafeAvatar } from '@/utils/avatar';
+import { useToast } from '@/composables/useToast';
 
 const route = useRoute();
 const router = useRouter();
+const toast = useToast();
 
 const questionId = computed(() => route.params.id as string);
 
@@ -25,8 +27,6 @@ const submitting = ref(false);
 const question = ref<InterviewQuestionDetailVO | null>(null);
 const submissions = ref<InterviewSubmissionVO[]>([]);
 const featuredNotes = ref<InterviewSubmissionVO[]>([]);
-const toast = ref<{ message: string; type: 'success' | 'error' } | null>(null);
-const toastTimer = ref<number | null>(null);
 
 const showHint = ref(false);
 const showSolution = ref(false);
@@ -42,14 +42,6 @@ const difficultyMap: Record<string, { label: string; class: string }> = {
   hard: { label: '困难', class: 'bg-red-100 text-red-700' },
 };
 
-function showToast(message: string, type: 'success' | 'error' = 'success') {
-  toast.value = { message, type };
-  if (toastTimer.value) window.clearTimeout(toastTimer.value);
-  toastTimer.value = window.setTimeout(() => {
-    toast.value = null;
-  }, 3000);
-}
-
 onMounted(() => {
   loadQuestionDetail();
 });
@@ -62,13 +54,13 @@ async function loadQuestionDetail() {
       question.value = res.data;
       submissions.value = res.data.mySubmissions?.slice(0, 10) || [];
     } else {
-      showToast(res.message || '加载题目失败', 'error');
+      toast.error(res.message || '加载题目失败');
     }
     // 并行加载精选笔记
     loadFeaturedNotes();
   } catch (err: any) {
     console.error('加载题目详情失败:', err);
-    showToast(err?.message || '加载题目详情失败，请稍后重试', 'error');
+    toast.error(err?.message || '加载题目详情失败，请稍后重试');
   } finally {
     loading.value = false;
   }
@@ -91,14 +83,14 @@ async function handleSubmit() {
   const body: any = { answerType: answerType.value };
   if (answerType.value === 'code') {
     if (!codeContent.value.trim()) {
-      showToast('请输入代码内容', 'error');
+      toast.error('请输入代码内容');
       return;
     }
     body.code = codeContent.value;
     body.language = language.value;
   } else {
     if (!textContent.value.trim()) {
-      showToast('请输入答案内容', 'error');
+      toast.error('请输入答案内容');
       return;
     }
     body.content = textContent.value;
@@ -109,13 +101,13 @@ async function handleSubmit() {
     const res = await submitAnswer(question.value.id, body);
     if (res.code === 200 && res.data) {
       submissions.value = [res.data, ...submissions.value].slice(0, 10);
-      showToast('提交成功！', 'success');
+      toast.success('提交成功！');
     } else {
-      showToast(res.message || '提交失败', 'error');
+      toast.error(res.message || '提交失败');
     }
   } catch (err: any) {
     console.error('提交答案失败:', err);
-    showToast(err?.message || '提交失败，请稍后重试', 'error');
+    toast.error(err?.message || '提交失败，请稍后重试');
   } finally {
     submitting.value = false;
   }
@@ -128,12 +120,12 @@ async function handleLike() {
     if (res.code === 200 && res.data) {
       question.value.liked = res.data.liked;
       question.value.likeCount = res.data.likeCount;
-      showToast(res.data.liked ? '点赞成功' : '已取消点赞', 'success');
+      toast.success(res.data.liked ? '点赞成功' : '已取消点赞');
     } else {
-      showToast(res.message || '操作失败', 'error');
+      toast.error(res.message || '操作失败');
     }
   } catch (err: any) {
-    showToast(err?.message || '操作失败', 'error');
+    toast.error(err?.message || '操作失败');
   }
 }
 
@@ -143,12 +135,12 @@ async function handleBookmark() {
     const res = await toggleQuestionBookmark(question.value.id);
     if (res.code === 200 && res.data) {
       question.value.bookmarked = res.data.bookmarked;
-      showToast(res.data.bookmarked ? '收藏成功' : '已取消收藏', 'success');
+      toast.success(res.data.bookmarked ? '收藏成功' : '已取消收藏');
     } else {
-      showToast(res.message || '操作失败', 'error');
+      toast.error(res.message || '操作失败');
     }
   } catch (err: any) {
-    showToast(err?.message || '操作失败', 'error');
+    toast.error(err?.message || '操作失败');
   }
 }
 
@@ -165,7 +157,7 @@ useHead(
 <template>
   <div class="min-h-screen flex flex-col" style="background-color: var(--theme-bg);">
     <!-- 顶部导航 -->
-    <div class="border-b sticky top-0 z-30" style="background-color: var(--theme-bg); border-color: var(--theme-border);">
+    <div class="border-b sticky top-0 z-30 backdrop-blur-sm" style="background-color: var(--theme-surface); border-color: var(--theme-border);">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex items-center justify-between">
         <button
           @click="router.back()"
@@ -178,15 +170,6 @@ useHead(
         <span class="text-sm" style="color: var(--theme-text-secondary);">面试题目</span>
         <span class="w-12"></span>
       </div>
-    </div>
-
-    <!-- Toast -->
-    <div
-      v-if="toast"
-      class="fixed top-20 left-1/2 -translate-x-1/2 z-50 px-4 py-2 rounded-lg shadow-lg text-sm transition"
-      :class="toast.type === 'success' ? 'bg-green-500 text-white' : 'bg-red-500 text-white'"
-    >
-      {{ toast.message }}
     </div>
 
     <!-- 主体内容 -->

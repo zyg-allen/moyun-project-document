@@ -63,6 +63,101 @@ public class SysFileServiceImpl implements ISysFileService {
     @Autowired
     private ServerConfig serverConfig;
 
+    /**
+     * v1.1.2 新增：系统配置 Service（用于读取 sys_config 中的存储模式配置）
+     * sys_config 优先级 > yaml：若 sys_config 中存在 file.storage.mode 则优先采用，
+     * 否则回退到 yaml 的 minio.enabled / fallbackToLocal。
+     */
+    @Autowired
+    private com.moyun.system.service.ISysConfigService sysConfigService;
+
+    /**
+     * sys_config 键名常量
+     */
+    private static final String CONFIG_KEY_STORAGE_MODE = "file.storage.mode";
+    private static final String CONFIG_KEY_LOCAL_PATH = "file.storage.local.path";
+    private static final String CONFIG_KEY_ACCESS_URL = "file.storage.access.url";
+
+    /**
+     * 读取 sys_config 中配置的存储模式（minio / local / auto）。
+     * 留空或不存在视为 auto：按 MinIO 可达性自动决定（兼容旧行为）。
+     */
+    private String resolveStorageMode() {
+        try {
+            String mode = sysConfigService.selectConfigByKey(CONFIG_KEY_STORAGE_MODE);
+            if (mode == null || mode.trim().isEmpty()) {
+                return "auto";
+            }
+            return mode.trim().toLowerCase();
+        } catch (Exception e) {
+            // 读取 sys_config 失败（如未初始化）时回退到 auto，避免阻塞上传
+            log.warn("[文件存储] 读取 sys_config[{}] 失败，回退到 auto 模式：{}", CONFIG_KEY_STORAGE_MODE, e.getMessage());
+            return "auto";
+        }
+    }
+
+    /**
+     * 读取本地存储根路径。优先 sys_config[local.path]，留空回退 RuoYiConfig.getProfile()。
+     */
+    private String resolveLocalRootPath() {
+        try {
+            String path = sysConfigService.selectConfigByKey(CONFIG_KEY_LOCAL_PATH);
+            if (path != null && !path.trim().isEmpty()) {
+                return path.trim();
+            }
+        } catch (Exception e) {
+            log.warn("[文件存储] 读取 sys_config[{}] 失败，回退到 RuoYiConfig.getProfile()：{}",
+                    CONFIG_KEY_LOCAL_PATH, e.getMessage());
+        }
+        return RuoYiConfig.getProfile();
+    }
+
+    /**
+     * 读取本地文件对外访问 URL 前缀。优先 sys_config[access.url]，留空回退 serverConfig.getUrl()。
+     */
+    private String resolveAccessUrlPrefix() {
+        try {
+            String url = sysConfigService.selectConfigByKey(CONFIG_KEY_ACCESS_URL);
+            if (url != null && !url.trim().isEmpty()) {
+                return url.trim();
+            }
+        } catch (Exception e) {
+            log.warn("[文件存储] 读取 sys_config[{}] 失败，回退到 serverConfig.getUrl()：{}",
+                    CONFIG_KEY_ACCESS_URL, e.getMessage());
+        }
+        return serverConfig.getUrl();
+    }
+
+    /**
+     * 综合判断是否走 MinIO：
+     *   - sys_config[file.storage.mode] = "local" → 强制本地（不探测 MinIO 可达性）
+     *   - sys_config[file.storage.mode] = "minio" → 强制 MinIO（除非 yaml 未启用 minio.enabled）
+     *   - sys_config[file.storage.mode] = "auto" 或不存在 → 探测可达性，不可达走本地
+     * 同时尊重 yaml 的 minio.fallbackToLocal=true 手动降级（与 sys_config=local 同义）。
+     */
+    private boolean resolveUseMinio() {
+        // yaml 未启用 MinIO：直接走本地
+        if (!Boolean.TRUE.equals(minioConfig.getEnabled())) {
+            return false;
+        }
+        // yaml 手动强制降级：直接走本地
+        if (Boolean.TRUE.equals(minioConfig.getFallbackToLocal())) {
+            return false;
+        }
+        String mode = resolveStorageMode();
+        switch (mode) {
+            case "local":
+                return false;
+            case "minio":
+                // 强制走 MinIO，但若 autoFallback=true 则上传失败仍可降级
+                return true;
+            case "auto":
+            default:
+                // 自动模式：探测可达性，不可达走本地
+                return minioUtils.isAvailable();
+        }
+    }
+
     @Override
     public Page<SysFile> selectFilePage(Page<SysFile> page, SysFile query) {
         return sysFileMapper.selectPage(page, buildQueryWrapper(query));
@@ -126,9 +221,11 @@ public class SysFileServiceImpl implements ISysFileService {
                 sysFile.setUploadUserName(SecurityUtils.getUsername());
             }
 
-            // MinIO 可用性判断：配置启用 + 服务真实可达 + 未手动强制降级
-            boolean useMinio = minioUtils.isEnabled()
-                    && (!Boolean.TRUE.equals(minioConfig.getAutoFallback()) || minioUtils.isAvailable());
+            // MinIO 可用性判断（v1.1.2 重构）：
+            //   - sys_config[file.storage.mode] 优先（local/minio/auto），可在后台界面切换无需重启
+            //   - yaml 的 minio.enabled / minio.fallbackToLocal 作为兜底
+            //   - mode=auto 时探测 isAvailable()，避免上传阶段才发现 MinIO 不可用
+            boolean useMinio = resolveUseMinio();
 
             if (useMinio) {
                 try {
@@ -195,8 +292,7 @@ public class SysFileServiceImpl implements ISysFileService {
             sysFile.setUploadUserId(SecurityUtils.getUserId());
             sysFile.setUploadUserName(SecurityUtils.getUsername());
 
-            boolean useMinio = minioUtils.isEnabled()
-                    && (!Boolean.TRUE.equals(minioConfig.getAutoFallback()) || minioUtils.isAvailable());
+            boolean useMinio = resolveUseMinio();
 
             if (useMinio) {
                 try {
@@ -270,11 +366,15 @@ public class SysFileServiceImpl implements ISysFileService {
                 String localPath = file.getLocalPath();
                 if (localPath == null && file.getFilePath() != null) {
                     localPath = file.getFilePath();
-                    if (localPath.startsWith(serverConfig.getUrl())) {
+                    // v1.1.2：URL 前缀可能来自 sys_config[access.url]，兼容历史 serverConfig.getUrl() 写入的记录
+                    String accessUrlPrefix = resolveAccessUrlPrefix();
+                    if (localPath.startsWith(accessUrlPrefix)) {
+                        localPath = localPath.substring(accessUrlPrefix.length());
+                    } else if (localPath.startsWith(serverConfig.getUrl())) {
                         localPath = localPath.substring(serverConfig.getUrl().length());
                     }
                     if (localPath.startsWith("/profile")) {
-                        localPath = RuoYiConfig.getProfile() + localPath.substring("/profile".length());
+                        localPath = resolveLocalRootPath() + localPath.substring("/profile".length());
                     }
                 }
                 if (localPath != null) {
@@ -394,25 +494,32 @@ public class SysFileServiceImpl implements ISysFileService {
 
     private LocalUploadResult uploadToLocal(MultipartFile file) throws IOException {
         String fileName = generateLocalFileName(file.getOriginalFilename());
-        String absolutePath = RuoYiConfig.getProfile() + File.separator + fileName;
+        // v1.1.2：本地存储根路径与访问 URL 前缀均改为后台 sys_config 可配
+        String localRoot = resolveLocalRootPath();
+        String accessUrlPrefix = resolveAccessUrlPrefix();
+        String absolutePath = localRoot + File.separator + fileName;
         File destFile = new File(absolutePath);
         if (!destFile.getParentFile().exists()) {
             destFile.getParentFile().mkdirs();
         }
         file.transferTo(destFile);
-        String url = serverConfig.getUrl() + "/profile/" + fileName;
+        // 兼容：accessUrlPrefix 为后端服务地址时走 /profile/** 静态映射（ResourcesConfig 注册）；
+        //       配置为 CDN/独立文件服务器时，需保证该前缀能直接访问到本地文件
+        String url = accessUrlPrefix + "/profile/" + fileName;
         return new LocalUploadResult(url, absolutePath);
     }
 
     private LocalUploadResult uploadBytesToLocal(byte[] bytes, String originalFileName) throws IOException {
         String fileName = generateLocalFileName(originalFileName);
-        String absolutePath = RuoYiConfig.getProfile() + File.separator + fileName;
+        String localRoot = resolveLocalRootPath();
+        String accessUrlPrefix = resolveAccessUrlPrefix();
+        String absolutePath = localRoot + File.separator + fileName;
         File destFile = new File(absolutePath);
         if (!destFile.getParentFile().exists()) {
             destFile.getParentFile().mkdirs();
         }
         java.nio.file.Files.write(destFile.toPath(), bytes);
-        String url = serverConfig.getUrl() + "/profile/" + fileName;
+        String url = accessUrlPrefix + "/profile/" + fileName;
         return new LocalUploadResult(url, absolutePath);
     }
 
@@ -428,7 +535,12 @@ public class SysFileServiceImpl implements ISysFileService {
 
     private String extractObjectNameFromUrl(String url) {
         String bucketName = minioConfig.getBucketName();
-        int index = url.indexOf(bucketName + "/");
+        // v1.1.2 修复：用 lastIndexOf 兼容 accessUrl 已含 bucket 名的旧配置
+        // 当 accessUrl 配置成 http://host/moyun（已含 bucket），URL 会是 http://host/moyun/moyun/...
+        // 用 indexOf 会切到第一个 moyun/，得到错误 objectName=moyun/2026/...
+        // 用 lastIndexOf 能定位最后一个 moyun/，正确提取 fileName=2026/...
+        // 安全性：fileName 是 yyyy/MM/dd/UUID.png 格式，不会含 bucketName
+        int index = url.lastIndexOf(bucketName + "/");
         if (index != -1) {
             return url.substring(index + bucketName.length() + 1);
         }

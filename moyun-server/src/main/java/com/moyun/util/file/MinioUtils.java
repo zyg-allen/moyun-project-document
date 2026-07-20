@@ -124,9 +124,28 @@ public class MinioUtils {
 
     /**
      * 获取文件访问URL（永久，需要配置存储桶策略为public）
+     * <p>v1.1.2 修复：用 accessUrl（对外访问地址，如 CDN）替代 endpoint（内网地址）。
+     * 生产环境 MinIO 通常部署在内网，前端无法访问 endpoint；accessUrl 应配置为外网/CDN 域名。
+     * 若 accessUrl 未配置，自动回退到 endpoint（兼容开发环境）。</p>
+     * <p>v1.1.2 二次修复：兼容 accessUrl 已包含 bucket 名的旧配置。
+     * 若 accessUrl 以 "/bucketName" 结尾，不再重复拼接 bucketName，
+     * 避免 URL 出现两个 bucket 名（如 http://host/moyun/moyun/...）。
+     * 新配置建议 accessUrl 不带 bucket 名（如 http://host:9001）。</p>
      */
     public String getFileUrl(String bucketName, String fileName) {
-        return minioConfig.getEndpoint() + "/" + bucketName + "/" + fileName;
+        String base = minioConfig.getAccessUrlOrEndpoint();
+        if (base == null || base.isEmpty()) {
+            return "/" + bucketName + "/" + fileName;
+        }
+        // 去掉末尾斜杠统一处理
+        while (base.endsWith("/")) {
+            base = base.substring(0, base.length() - 1);
+        }
+        // 防御：accessUrl 已含 bucket 名时不再重复拼接
+        if (base.endsWith("/" + bucketName)) {
+            return base + "/" + fileName;
+        }
+        return base + "/" + bucketName + "/" + fileName;
     }
 
     /**

@@ -904,7 +904,7 @@ const readOnlyReason = computed(() => {
 <template>
   <div class="min-h-screen flex flex-col" style="background-color: var(--theme-bg);">
     <!-- 顶部操作栏 -->
-    <div class="sticky top-0 z-30 border-b" style="background-color: var(--theme-surface); border-color: var(--theme-border);">
+    <div class="sticky top-0 z-30 border-b backdrop-blur-sm" style="background-color: var(--theme-surface); border-color: var(--theme-border);">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div class="flex items-center justify-between h-16">
           <!-- 左侧 -->

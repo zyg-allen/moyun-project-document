@@ -800,6 +800,12 @@ export interface ReadingProgress {
   lastReadTime?: string;
   /** 累计阅读时长（毫秒） */
   readingDurationMs?: number;
+  /**
+   * 章节完成标记（v1.1 阅读闭环）
+   * 前端检测到用户已读到章节底部时上报 true，后端据此将整书 status 置为 finished
+   * 并触发成长事件 + Feed 动态。仅最后一章上报才有意义。
+   */
+  chapterFinished?: boolean;
   startTime?: string;
   finishTime?: string;
   createTime?: string;
@@ -1508,7 +1514,8 @@ export interface ColumnSaveBody {
   description?: string;
   cover?: string;
   categoryId?: string | number;
-  isFinished?: boolean;
+  // 后端 ColumnVO.isFinished 为 Integer（DB tinyint），传 boolean 会反序列化失败，必须 0/1
+  isFinished?: number;
   price?: number;
 }
 
@@ -1757,4 +1764,69 @@ export interface MockInterviewDetailVO extends MockInterviewVO {
   qaList: MockInterviewQaVO[];
   /** 已答完题数 */
   answeredCount?: number;
+}
+
+// ==================== 话题模块 ====================
+
+/** 话题 VO */
+export interface Topic {
+  id: number;
+  title: string;
+  description?: string;
+  cover?: string;
+  creatorId: number;
+  creator?: { id: number; nickname: string; avatar?: string; isCertifiedCreator?: boolean };
+  status: string;
+  pinned: number;
+  viewCount: number;
+  postCount: number;
+  likeCount: number;
+  commentCount: number;
+  lastPostTime?: string;
+  lastPosterId?: number;
+  createdTime: string;
+  updatedTime?: string;
+  isLiked?: boolean;
+  isOwner?: boolean;
+}
+
+/** 话题观点 VO */
+export interface TopicPost {
+  id: number;
+  topicId: number;
+  userId: number;
+  user?: { id: number; nickname: string; avatar?: string };
+  content: string;
+  images?: string[];
+  parentPostId?: number;
+  replyToUserId?: number;
+  replyToUser?: { id: number; nickname: string };
+  floor: number;
+  likeCount: number;
+  commentCount: number;
+  isDeleted: number;
+  createdTime: string;
+  isLiked?: boolean;
+  isOwner?: boolean;
+}
+
+/** 话题评论 VO */
+export interface TopicComment {
+  id: number;
+  targetType: string;
+  targetId: number;
+  authorId: number;
+  author?: { id: number; nickname: string; avatar?: string };
+  content: string;
+  parentId: number;
+  rootId: number;
+  replyTo?: number;
+  replyToContent?: string;
+  replyToUser?: { id: number; nickname: string };
+  likeCount: number;
+  replyCount: number;
+  isDeleted: number;
+  createdTime: string;
+  isLiked?: boolean;
+  replies?: TopicComment[];
 }

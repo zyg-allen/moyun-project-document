@@ -145,7 +145,10 @@ minio:
   access-key: ${MINIO_ACCESS_KEY:admin123}
   secret-key: ${MINIO_SECRET_KEY:admin123}
   bucket-name: ${MINIO_BUCKET_NAME:moyun}
-  access-url: ${MINIO_ACCESS_URL:http://127.0.0.1:9001/moyun}
+  # v1.1.2 修复：access-url 应是 MinIO 服务根地址，不含 bucket 名。
+  # 旧默认值 http://127.0.0.1:9001/moyun 已包含 bucket 名 moyun，
+  # 而 MinioUtils.getFileUrl() 会再拼一次 bucketName，导致 URL 出现两个 moyun
+  access-url: ${MINIO_ACCESS_URL:http://127.0.0.1:9001}
   # 降级配置（运行期可调，无需重启；可通过 /system/file/storage/switch 接口切换）
   auto-fallback: true        # 自动降级：MinIO 上传/连接异常时自动切到本地存储（默认 true）
   fallback-to-local: false   # 手动强制降级到本地存储（true=强制走本地，忽略 MinIO 配置）

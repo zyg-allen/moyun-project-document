@@ -5,6 +5,85 @@
 
 ---
 
+## v5.2 (2026-07-19) 安全加固 + SQL 整理 + 文档重建
+
+### 主要变化
+
+- 🔒 安全加固：修复 5 项致命 + 17 项高级安全问题
+- 🗂️ SQL 整理：90 个原始脚本归类为 12 个整理文件，169 张表合并 ALTER 到最终 CREATE
+- 📚 文档重建：新增 01_项目介绍.md / 08_项目优缺点与改进建议.md / 09_开发进度.md
+
+### 致命问题修复（5 项）
+
+- C-1 在线代码执行 RCE → 临时下线 `/portal/code/run` 返回 503
+- C-2 门户密码明文存储 → 全链路 BCrypt（8 处）+ Controller 层加密
+- C-3 JWT 硬编码密钥 → 删 DEV_FALLBACK_SECRET，fail-fast，阈值 64 字符（HS512 要求）
+- C-4 文章 IDOR → 6 处 checkOwnership + 版本接口 3 处
+- C-5 凭据硬编码 → 全部 ${ENV_VAR} 化 + application-prod.yaml.example
+
+### 高级问题修复（17 项）
+
+- H-1 付费购买未扣费 → 抛异常拦截（待支付通道）
+- H-2 计数器非原子 → 面试 8 处 + 评论 3 处 + 金句 1 处 + 文章 4 处改原子 Mapper
+- H-3 Controller @Transactional → 3 处移除
+- H-4 删除不级联 → cascadeDeleteByArticleId 清理 5 张关联表
+- H-5 评论越权 → SecurityConfig + Controller + Service 三层修复
+- H-6 版本接口越权 → 3 处 checkOwnership
+- H-7 文件上传无白名单 → 19 扩展名白名单
+- H-8 Flowable 吞异常 → 4 处改 error
+- H-10 异常脱敏 → GlobalExceptionHandler 通用提示
+- H-11 SSRF → validateUrl 拦截内网
+- H-12 无限流 → login/register/comment 三处 @RateLimiter
+- H-13 Druid/Swagger 暴露 → knife4j.production 环境变量化 + druid ADMIN 限制
+- H-14 MarkdownRenderer XSS → sanitizeHTML + 白名单
+- H-15 路由不刷新 → ExperiencePublishPage 补 watch
+- H-16 SQL 非幂等 → 19 号脚本 42 条 INSERT IGNORE
+- H-17 测试数据混入 → 警告 + README 标注
+
+### SQL 整理
+
+- 90 个原始脚本 → 12 个整理文件（按 9 业务域 + 菜单 + 数据分类）
+- 169 张表合并 ALTER 到最终 CREATE TABLE IF NOT EXISTS
+- 深度复查补齐 16 张遗漏表（7 面试 + 2 系统 + 4 商业化 + 2 帮助中心 + 1 通知不一致）
+- 菜单 INSERT IGNORE 幂等，种子数据与测试数据分离
+
+### 文档重建
+
+- 新增 docs/01_项目介绍.md（项目全貌，9 大业务领域）
+- 新增 docs/08_项目优缺点与改进建议.md（后期开发指导）
+- 新增 docs/09_开发进度.md（各模块进度保留）
+
+### 相关文件
+
+- 后端：~18 个 Java 文件修改（Controller/Service/Mapper/Config/Handler/Util）
+- 后端配置：3 个文件（application.yaml + application-dev.yaml + application-prod.yaml.example）
+- 前端：4 个文件（MarkdownRenderer + MarkdownEditor + security.ts + ExperiencePublishPage）
+- SQL：sql-organized/ 目录 12 文件 + README
+- 文档：docs/ 3 个新文件 + devlog + README 更新
+
+---
+
+## v5.0 (2026-07-01) 积分打赏 MVP + 相关推荐 + 广告位基建
+
+### 主要变化
+
+- 💰 积分打赏 MVP：用积分替代真实资金，绕开支付资质
+- 📌 详情页相关推荐：复用 RelatedArticleCard
+- 📢 自研广告位基建：AdCard + 后端全套 + admin CRUD
+
+### 相关文件
+
+- PortalTipServiceImpl.java（积分扣减闭环）
+- TipModal.vue（公共组件抽取）
+- ArticleDetailPage.vue / ColumnDetailPage.vue（替换为 TipModal）
+- RelatedArticleCard.vue（复用）
+- AdCard.vue + api/ad.ts
+- PortalAdSlot 全套（实体/Mapper/Service/Controller）
+- CmsAdSlotController + cms/ad/index.vue
+- SQL 89（成长规则）+ SQL 90（广告位）
+
+---
+
 ## v4.0.5 (2026-06-26) 全面功能排查清单
 
 ### 主要变化

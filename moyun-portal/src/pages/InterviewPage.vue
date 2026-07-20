@@ -11,12 +11,14 @@ import LazyImage from '@/components/LazyImage.vue';
 import { generateSeo } from '@/utils/seo';
 import { getSafeAvatar } from '@/utils/avatar';
 import { getInterviewHome } from '@/api/interview';
+import { useToast } from '@/composables/useToast';
 import type {
   InterviewCategoryVO, InterviewQuestionVO,
   InterviewExperienceVO, InterviewResumeTemplateVO, InterviewCompanyVO,
 } from '@/types/api';
 
 const router = useRouter();
+const toast = useToast();
 const loading = ref(false);
 const error = ref<string | null>(null);
 const categories = ref<InterviewCategoryVO[]>([]);
@@ -26,14 +28,6 @@ const resumeTemplates = ref<InterviewResumeTemplateVO[]>([]);
 const hotCompanies = ref<InterviewCompanyVO[]>([]);
 const totalQuestionCount = ref<number>(0);
 const totalSubmissionCount = ref<number>(0);
-
-const toast = ref<{ message: string; type: 'success' | 'error' } | null>(null);
-let toastTimer: number | null = null;
-function showToast(message: string, type: 'success' | 'error' = 'success') {
-  toast.value = { message, type };
-  if (toastTimer) window.clearTimeout(toastTimer);
-  toastTimer = window.setTimeout(() => { toast.value = null; }, 3000);
-}
 
 onMounted(() => loadInterviewHome());
 
@@ -57,7 +51,7 @@ async function loadInterviewHome() {
   } catch (err: any) {
     console.error('加载面试指南失败:', err);
     error.value = '加载数据失败，请稍后重试';
-    showToast(err?.message || '加载失败', 'error');
+    toast.error(err?.message || '加载失败');
   } finally {
     loading.value = false;
   }
@@ -120,15 +114,6 @@ useHead(computed(() => generateSeo({
 
 <template>
   <div class="min-h-screen flex flex-col" style="background-color: var(--theme-bg);">
-    <!-- Toast -->
-    <div
-      v-if="toast"
-      class="fixed top-20 left-1/2 -translate-x-1/2 z-50 px-4 py-2 rounded-lg shadow-lg text-sm"
-      :class="toast.type === 'success' ? 'bg-green-500 text-white' : 'bg-red-500 text-white'"
-    >
-      {{ toast.message }}
-    </div>
-
     <!-- Hero 区 -->
     <div class="py-6 sm:py-8">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">

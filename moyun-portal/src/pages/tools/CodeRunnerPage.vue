@@ -9,9 +9,11 @@ import {
 import SiteFooter from '@/components/SiteFooter.vue';
 import { generateSeo } from '@/utils/seo';
 import { runCode, getMyCodeRuns } from '@/api/codeRun';
+import { useToast } from '@/composables/useToast';
 import type { CodeRunVO } from '@/types/api';
 
 const router = useRouter();
+const toast = useToast();
 
 type Lang = 'java' | 'python' | 'javascript';
 
@@ -73,7 +75,7 @@ function selectLang(lang: Lang) {
 async function handleRun() {
   if (running.value) return;
   if (!code.value.trim()) {
-    showToast('代码不能为空', 'error');
+    toast.error('代码不能为空');
     return;
   }
   running.value = true;
@@ -87,11 +89,11 @@ async function handleRun() {
     if (res.code === 200 && res.data) {
       result.value = res.data;
     } else {
-      showToast(res.message || '运行失败', 'error');
+      toast.error(res.message || '运行失败');
     }
   } catch (err) {
     const e = err as { message?: string };
-    showToast(e?.message || '运行失败，请稍后重试', 'error');
+    toast.error(e?.message || '运行失败，请稍后重试');
   } finally {
     running.value = false;
   }
@@ -115,7 +117,7 @@ async function loadHistory() {
     }
   } catch (err) {
     const e = err as { message?: string };
-    showToast(e?.message || '加载历史失败', 'error');
+    toast.error(e?.message || '加载历史失败');
   } finally {
     historyLoading.value = false;
   }
@@ -201,15 +203,6 @@ function statusBadgeFg(s?: string): string {
     default: return 'var(--theme-text-secondary)';
   }
 }
-
-// Toast
-const toast = ref<{ message: string; type: 'success' | 'error' } | null>(null);
-let toastTimer: number | null = null;
-function showToast(message: string, type: 'success' | 'error' = 'success') {
-  toast.value = { message, type };
-  if (toastTimer) window.clearTimeout(toastTimer);
-  toastTimer = window.setTimeout(() => { toast.value = null; }, 3000);
-}
 </script>
 
 <template>
@@ -240,15 +233,6 @@ function showToast(message: string, type: 'success' | 'error' = 'success') {
           运行历史
         </button>
       </div>
-    </div>
-
-    <!-- Toast -->
-    <div
-      v-if="toast"
-      class="fixed top-20 left-1/2 -translate-x-1/2 z-50 px-4 py-2 rounded-lg shadow-lg text-sm"
-      :class="toast.type === 'success' ? 'bg-green-500 text-white' : 'bg-red-500 text-white'"
-    >
-      {{ toast.message }}
     </div>
 
     <!-- Hero 区 -->

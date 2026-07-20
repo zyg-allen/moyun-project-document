@@ -4,6 +4,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 import com.baomidou.mybatisplus.annotation.IdType;
+import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
 import com.fasterxml.jackson.annotation.JsonFormat;
@@ -70,6 +71,15 @@ public class PortalReadingProgress extends BaseEntity
 
     /** 累计阅读时长（毫秒） */
     private Long readingDurationMs;
+
+    /**
+     * v1.0 阅读闭环：前端上报章节完成标记
+     * <p>非持久化字段（@TableField(exist = false)），仅作为完成事件触发信号在请求体中传递。</p>
+     * <p>触发逻辑：前端检测到用户阅读到章节底部时上报 chapterFinished=true，
+     * 若当前章节为最后一章，后端将整书 status 置为 finished 并触发成长事件 + Feed 动态。</p>
+     */
+    @TableField(exist = false)
+    private Boolean chapterFinished;
 
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime createTime;

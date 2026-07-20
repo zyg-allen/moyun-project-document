@@ -58,14 +58,21 @@ const error = ref<string | null>(null);
 const hotTags = ref<any[]>([]);
 
 // 从路由参数解析列表类型和关键词
-function parseRouteParams() {
+// 返回 true 表示正常加载，false 表示已重定向（话题讨论）应跳过后续加载
+function parseRouteParams(): boolean {
   const routeName = route.name as string;
-  const paramName = route.params.name as string | undefined;
+  const paramName = Array.isArray(route.params.name) ? route.params.name[0] : route.params.name;
   const queryCategory = route.query.category as string | undefined;
 
   if (routeName === 'category' && paramName) {
+    const decodedName = fromSlug(paramName);
+    // 特判：话题讨论分类 → 跳转到话题广场
+    if (decodedName === '话题讨论') {
+      router.replace('/topics');
+      return false;
+    }
     listType.value = 'category';
-    selectedCategory.value = fromSlug(paramName);
+    selectedCategory.value = decodedName;
   } else if (routeName === 'tag' && paramName) {
     listType.value = 'tag';
     selectedCategory.value = fromSlug(paramName);
@@ -79,14 +86,16 @@ function parseRouteParams() {
   }
 
   isCategoryRecommended.value = route.query.categoryRecommended === 'true';
+  return true;
 }
 
 // 转换API文章为前台格式：使用 @/utils/articleTransform 的统一实现
 
-onMounted(() => {
-  parseRouteParams();
+onMounted(async () => {
+  const shouldLoad = parseRouteParams();
+  if (!shouldLoad) return;  // 已重定向，跳过加载
   currentPage.value = 1;
-  Promise.all([loadArticles(), loadHotTags()]);
+  await Promise.all([loadArticles(), loadHotTags()]);
 });
 
 // 加载侧栏热门标签
@@ -113,10 +122,11 @@ function goToPublish() {
   router.push('/publish');
 }
 
-watch(() => route.fullPath, () => {
-  parseRouteParams();
+watch(() => route.fullPath, async () => {
+  const shouldLoad = parseRouteParams();
+  if (!shouldLoad) return;  // 已重定向，跳过加载
   currentPage.value = 1;
-  loadArticles();
+  await loadArticles();
 }, { deep: true });
 
 const breadcrumbs = computed(() => {

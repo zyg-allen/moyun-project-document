@@ -333,6 +333,44 @@ const routes: RouteRecordRaw[] = [
     component: FeedPage,
     meta: { title: '动态广场', isPublic: true }
   },
+  // ============ 话题模块 ============
+  // 注意：静态/带参路由必须在 /topic/:id 动态路由之前定义，否则 create/edit/my 会被当作 :id
+  {
+    path: '/topics',
+    name: 'topic-list',
+    component: () => import('@/pages/TopicListPage.vue'),
+    meta: { title: '话题广场', isPublic: true }
+  },
+  {
+    path: '/topic/create',
+    name: 'topic-create',
+    component: () => import('@/pages/TopicCreatePage.vue'),
+    meta: { title: '发起话题', requiresAuth: true }
+  },
+  {
+    path: '/topic/edit/:id',
+    name: 'topic-edit',
+    component: () => import('@/pages/TopicEditPage.vue'),
+    meta: { title: '编辑话题', requiresAuth: true }
+  },
+  {
+    path: '/topic/my/topics',
+    name: 'my-topics',
+    component: () => import('@/pages/MyTopicsPage.vue'),
+    meta: { title: '我的话题', requiresAuth: true }
+  },
+  {
+    path: '/topic/my/posts',
+    name: 'my-topic-posts',
+    component: () => import('@/pages/MyTopicPostsPage.vue'),
+    meta: { title: '我的观点', requiresAuth: true }
+  },
+  {
+    path: '/topic/:id',
+    name: 'topic-detail',
+    component: () => import('@/pages/TopicDetailPage.vue'),
+    meta: { title: '话题详情', isPublic: true }
+  },
   {
     path: '/columns',
     name: 'columns',

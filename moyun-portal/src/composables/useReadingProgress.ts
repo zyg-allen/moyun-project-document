@@ -11,6 +11,8 @@ import type { ReadingProgress } from '@/types/api';
  * 2. 续读恢复：进入章节时调用 restoreProgress 获取上次阅读位置
  * 3. 未登录静默：未登录用户不上报，仅本地保留
  * 4. 容错：上报失败静默忽略，不阻塞阅读
+ * 5. v1.1 阅读闭环：markChapterFinished 上报章节完成标记，
+ *    后端据此将整书状态置为 finished 并触发成长事件 + Feed 动态
  */
 export function useReadingProgress(bookId: Ref<string | number | undefined>) {
   const { isAuthenticated } = useAuth();
@@ -19,6 +21,8 @@ export function useReadingProgress(bookId: Ref<string | number | undefined>) {
   const chapterOffset = ref<number>(0);
   const readingDurationMs = ref<number>(0);
   const lastSavedOffset = ref<number>(-1); // 上次已上报的 offset，避免重复上报相同位置
+  // 章节完成标记：标记待上报的 chapterFinished 信号，上报成功后清空，失败则保留供下次心跳重试
+  const pendingChapterFinished = ref<boolean>(false);
 
   let throttleTimer: ReturnType<typeof setInterval> | null = null;
   let durationTimer: ReturnType<typeof setInterval> | null = null;
@@ -35,6 +39,7 @@ export function useReadingProgress(bookId: Ref<string | number | undefined>) {
     chapterOffset.value = 0;
     lastSavedOffset.value = -1;
     readingDurationMs.value = 0;
+    pendingChapterFinished.value = false;
 
     if (!isAuthenticated()) return;
 
@@ -63,7 +68,7 @@ export function useReadingProgress(bookId: Ref<string | number | undefined>) {
       clearInterval(durationTimer);
       durationTimer = null;
     }
-    // 章节切换时强制上报一次（带上累计时长）
+    // 章节切换时强制上报一次（带上累计时长 + 待发的 chapterFinished）
     if (currentChapterId.value !== null && isAuthenticated()) {
       doReport(true);
       // 上报后清空，防止重复 stopReporting 调用再次触发 doReport
@@ -76,6 +81,18 @@ export function useReadingProgress(bookId: Ref<string | number | undefined>) {
    */
   function updateOffset(offset: number) {
     chapterOffset.value = offset;
+  }
+
+  /**
+   * v1.1 阅读闭环：标记当前章节已读完（由阅读器在滚动到底部/翻到最后一页时调用）
+   * 调用后立即触发一次强制上报，将 chapterFinished=true 发送给后端。
+   * 若上报失败，pendingChapterFinished 保留为 true，下次 30s 心跳会自动重试。
+   */
+  async function markChapterFinished() {
+    if (!isAuthenticated() || !bookId.value || currentChapterId.value === null) return;
+    if (pendingChapterFinished.value) return; // 已有待发的完成信号，去重
+    pendingChapterFinished.value = true;
+    await doReport(true);
   }
 
   /**
@@ -104,28 +121,36 @@ export function useReadingProgress(bookId: Ref<string | number | undefined>) {
    * 实际上报逻辑
    * 上报语义：readingDurationMs 上报"自上次上报以来的增量"，后端累加得到整书累计时长。
    * 因此每次上报成功后必须清零，避免下次上报重复累加。
-   * @param force 强制上报（章节切换时）
+   * @param force 强制上报（章节切换 / 章节完成时）
    */
   async function doReport(force: boolean) {
     if (!isAuthenticated() || !bookId.value || currentChapterId.value === null) return;
-    // 节流：非强制时，若 offset 与上次相同且无新增时长则跳过
-    if (!force && chapterOffset.value === lastSavedOffset.value && readingDurationMs.value === 0) return;
+    const chapterFinished = pendingChapterFinished.value;
+    // 节流：非强制、非章节完成信号时，若 offset 与上次相同且无新增时长则跳过
+    if (!force && !chapterFinished && chapterOffset.value === lastSavedOffset.value && readingDurationMs.value === 0) return;
 
     const deltaMs = readingDurationMs.value;
+    const payload: Partial<ReadingProgress> = {
+      bookId: bookId.value,
+      currentChapterId: currentChapterId.value,
+      currentChapterNo: currentChapterNo.value,
+      chapterOffset: chapterOffset.value,
+      readingDurationMs: deltaMs,
+      status: 'reading',
+    };
+    // 仅在 true 时携带，避免 JSON 中出现 chapterFinished: false 误导后端
+    if (chapterFinished) {
+      payload.chapterFinished = true;
+    }
     try {
-      await reportReadingProgress({
-        bookId: bookId.value,
-        currentChapterId: currentChapterId.value,
-        currentChapterNo: currentChapterNo.value,
-        chapterOffset: chapterOffset.value,
-        readingDurationMs: deltaMs,
-        status: 'reading',
-      });
+      await reportReadingProgress(payload);
       lastSavedOffset.value = chapterOffset.value;
       // 上报成功后清零累计时长（上报的是增量 delta，后端负责累加）
       readingDurationMs.value = 0;
+      pendingChapterFinished.value = false;
     } catch (err) {
       // 静默忽略上报失败，时长不清零，下次上报时一并补上
+      // pendingChapterFinished 也不清空，下次心跳重试发送完成信号
     }
   }
 
@@ -137,6 +162,7 @@ export function useReadingProgress(bookId: Ref<string | number | undefined>) {
     startReporting,
     stopReporting,
     updateOffset,
+    markChapterFinished,
     restoreProgress,
   };
 }

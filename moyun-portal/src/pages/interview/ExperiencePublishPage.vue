@@ -7,9 +7,11 @@ import { marked } from 'marked';
 import SiteFooter from '@/components/SiteFooter.vue';
 import { generateSeo } from '@/utils/seo';
 import { publishExperience, updateExperience, getExperienceDetail } from '@/api/interview';
+import { useToast } from '@/composables/useToast';
 
 const route = useRoute();
 const router = useRouter();
+const toast = useToast();
 
 const editId = computed(() => route.params.id as string | undefined);
 const isEdit = computed(() => !!editId.value);
@@ -46,15 +48,6 @@ const renderedContent = computed(() => {
 
 const summaryCount = computed(() => summary.value.length);
 const contentCount = computed(() => content.value.replace(/\s/g, '').length);
-
-// Toast
-const toast = ref<{ message: string; type: 'success' | 'error' } | null>(null);
-let toastTimer: number | null = null;
-function showToast(message: string, type: 'success' | 'error' = 'success') {
-  toast.value = { message, type };
-  if (toastTimer) window.clearTimeout(toastTimer);
-  toastTimer = window.setTimeout(() => { toast.value = null; }, 3000);
-}
 
 useHead(computed(() => generateSeo({
   title: isEdit.value ? '编辑面经' : '发布面经',
@@ -103,27 +96,27 @@ function buildPayload() {
 async function submit(status: 'draft' | 'pending') {
   const errMsg = validate();
   if (errMsg) {
-    showToast(errMsg, 'error');
+    toast.error(errMsg);
     return;
   }
   try {
     submitting.value = true;
     if (isEdit.value && editId.value) {
       await updateExperience(editId.value, buildPayload());
-      showToast(status === 'draft' ? '草稿已保存' : '面经已更新', 'success');
+      toast.success(status === 'draft' ? '草稿已保存' : '面经已更新');
     } else {
       await publishExperience({ ...buildPayload(), status });
       if (status === 'pending') {
-        showToast('发布成功，发布后需审核', 'success');
+        toast.success('发布成功，发布后需审核');
       } else {
-        showToast('草稿已保存', 'success');
+        toast.success('草稿已保存');
       }
     }
     setTimeout(() => {
       router.push('/interview/my/experiences');
     }, 800);
   } catch (err: any) {
-    showToast(err?.message || '提交失败，请稍后重试', 'error');
+    toast.error(err?.message || '提交失败，请稍后重试');
   } finally {
     submitting.value = false;
   }
@@ -208,15 +201,6 @@ watch(editId, (newId, oldId) => {
         <span class="text-sm font-medium" style="color: var(--theme-text);">{{ pageTitle }}</span>
         <span class="w-12"></span>
       </div>
-    </div>
-
-    <!-- Toast -->
-    <div
-      v-if="toast"
-      class="fixed top-20 left-1/2 -translate-x-1/2 z-50 px-4 py-2 rounded-lg shadow-lg text-sm"
-      :class="toast.type === 'success' ? 'bg-green-500 text-white' : 'bg-red-500 text-white'"
-    >
-      {{ toast.message }}
     </div>
 
     <!-- 内容区 -->

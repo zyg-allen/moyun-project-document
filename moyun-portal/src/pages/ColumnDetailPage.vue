@@ -11,6 +11,7 @@ import {
 import SiteFooter from '@/components/SiteFooter.vue';
 import LazyImage from '@/components/LazyImage.vue';
 import TipModal from '@/components/TipModal.vue';
+import MyArticlePicker from '@/components/MyArticlePicker.vue';
 import { generateSeo } from '@/utils/seo';
 import { getSafeAvatar } from '@/utils/avatar';
 import { formatShortDate } from '@/utils/date';
@@ -20,12 +21,14 @@ import {
 } from '@/api/column';
 import { useUserStore } from '@/stores/user';
 import { useAuth } from '@/composables/useAuth';
-import type { ColumnVO, ArticleSimpleVO, ColumnArticleSortItem } from '@/types/api';
+import { useToast } from '@/composables/useToast';
+import type { ColumnVO, ArticleSimpleVO, ColumnArticleSortItem, Article } from '@/types/api';
 
 const route = useRoute();
 const router = useRouter();
 const userStore = useUserStore();
 const { requireAuth } = useAuth();
+const toast = useToast();
 
 const columnId = computed(() => route.params.id as string);
 const loading = ref(false);
@@ -43,15 +46,6 @@ const managing = ref(false);
 const sortDirty = ref(false);
 const articleToAdd = ref('');
 const addingArticle = ref(false);
-
-// Toast
-const toast = ref<{ message: string; type: 'success' | 'error' } | null>(null);
-let toastTimer: number | null = null;
-function showToast(message: string, type: 'success' | 'error' = 'success') {
-  toast.value = { message, type };
-  if (toastTimer) window.clearTimeout(toastTimer);
-  toastTimer = window.setTimeout(() => { toast.value = null; }, 3000);
-}
 
 const isOwner = computed(() => {
   if (!column.value || !userStore.user) return false;
@@ -118,13 +112,13 @@ async function handleSubscribe() {
     if (res.code === 200 && res.data) {
       isSubscribed.value = !!res.data.subscribed;
       subscribeCount.value = res.data.subscribeCount || 0;
-      showToast(isSubscribed.value ? '订阅成功' : '已取消订阅', 'success');
+      toast.success(isSubscribed.value ? '订阅成功' : '已取消订阅');
     } else {
-      showToast(res.message || '操作失败', 'error');
+      toast.error(res.message || '操作失败');
     }
   } catch (err) {
     const e = err as { message?: string };
-    showToast(e?.message || '操作失败，请稍后重试', 'error');
+    toast.error(e?.message || '操作失败，请稍后重试');
   } finally {
     subscribing.value = false;
   }
@@ -141,13 +135,13 @@ async function handleToggleFinish() {
       column.value = res.data;
       // toggleFinish 返回的是后端最新专栏详情，本地未保存的排序已被覆盖
       sortDirty.value = false;
-      showToast(`${action}成功`, 'success');
+      toast.success(`${action}成功`);
     } else {
-      showToast(res.message || `${action}失败`, 'error');
+      toast.error(res.message || `${action}失败`);
     }
   } catch (err) {
     const e = err as { message?: string };
-    showToast(e?.message || `${action}失败`, 'error');
+    toast.error(e?.message || `${action}失败`);
   } finally {
     managing.value = false;
   }
@@ -160,14 +154,14 @@ async function handleDelete() {
   try {
     const res = await deleteColumn(column.value.id);
     if (res.code === 200) {
-      showToast('删除成功', 'success');
+      toast.success('删除成功');
       router.push('/columns');
     } else {
-      showToast(res.message || '删除失败', 'error');
+      toast.error(res.message || '删除失败');
     }
   } catch (err) {
     const e = err as { message?: string };
-    showToast(e?.message || '删除失败，请稍后重试', 'error');
+    toast.error(e?.message || '删除失败，请稍后重试');
   } finally {
     managing.value = false;
   }
@@ -231,13 +225,13 @@ async function handleRemoveArticle(a: ArticleSimpleVO) {
         reassignSortOrder();
       }
       column.value.articleCount = Math.max(0, (column.value.articleCount || 0) - 1);
-      showToast('已移出专栏', 'success');
+      toast.success('已移出专栏');
     } else {
-      showToast(res.message || '移出失败', 'error');
+      toast.error(res.message || '移出失败');
     }
   } catch (err) {
     const e = err as { message?: string };
-    showToast(e?.message || '移出失败，请稍后重试', 'error');
+    toast.error(e?.message || '移出失败，请稍后重试');
   }
 }
 
@@ -258,13 +252,13 @@ async function handleSaveSort() {
         item.sortOrder = idx;
       });
       sortDirty.value = false;
-      showToast('排序已保存', 'success');
+      toast.success('排序已保存');
     } else {
-      showToast(res.message || '保存排序失败', 'error');
+      toast.error(res.message || '保存排序失败');
     }
   } catch (err) {
     const e = err as { message?: string };
-    showToast(e?.message || '保存排序失败，请稍后重试', 'error');
+    toast.error(e?.message || '保存排序失败，请稍后重试');
   }
 }
 
@@ -272,7 +266,7 @@ async function handleAddArticle() {
   if (!column.value) return;
   const aid = articleToAdd.value.trim();
   if (!aid) {
-    showToast('请输入文章ID', 'error');
+    toast.error('请输入文章ID');
     return;
   }
   addingArticle.value = true;
@@ -280,18 +274,43 @@ async function handleAddArticle() {
     const res = await addArticle(column.value.id, aid);
     if (res.code === 200) {
       articleToAdd.value = '';
-      showToast('加入成功', 'success');
+      toast.success('加入成功');
       await loadDetail();
     } else {
-      showToast(res.message || '加入失败', 'error');
+      toast.error(res.message || '加入失败');
     }
   } catch (err) {
     const e = err as { message?: string };
-    showToast(e?.message || '加入失败，请稍后重试', 'error');
+    toast.error(e?.message || '加入失败，请稍后重试');
   } finally {
     addingArticle.value = false;
   }
 }
+
+// v1.1.3 新增：从 MyArticlePicker 选择文章后增量加入（替代旧的"输入文章ID"）
+async function handleSelectArticle(article: Article) {
+  if (!column.value) return;
+  addingArticle.value = true;
+  try {
+    const res = await addArticle(column.value.id, article.id);
+    if (res.code === 200) {
+      toast.success(`已加入「${article.title}」`);
+      await loadDetail();
+    } else {
+      toast.error(res.message || '加入失败');
+    }
+  } catch (err) {
+    const e = err as { message?: string };
+    toast.error(e?.message || '加入失败，请稍后重试');
+  } finally {
+    addingArticle.value = false;
+  }
+}
+
+// v1.1.3 新增：候选文章列表中要排除已在专栏中的文章 ID
+const existingArticleIds = computed(() => {
+  return (column.value?.articles || []).map(a => a.id);
+});
 
 // ============ 打赏 ============
 const showTipModal = ref(false);
@@ -303,12 +322,12 @@ function openTipModal() {
 }
 
 function onTipSuccess() {
-  showToast('鼓励成功，感谢支持创作者！', 'success');
+  toast.success('鼓励成功，感谢支持创作者！');
   showTipModal.value = false;
 }
 
 function onTipError(message: string) {
-  showToast(message || '鼓励失败', 'error');
+  toast.error(message || '鼓励失败');
 }
 
 function goBack() {
@@ -346,15 +365,6 @@ function formatNumber(n?: number) {
         <span class="text-sm font-medium" style="color: var(--theme-text);">专栏详情</span>
         <span class="w-20"></span>
       </div>
-    </div>
-
-    <!-- Toast -->
-    <div
-      v-if="toast"
-      class="fixed top-20 left-1/2 -translate-x-1/2 z-50 px-4 py-2 rounded-lg shadow-lg text-sm"
-      :class="toast.type === 'success' ? 'bg-green-500 text-white' : 'bg-red-500 text-white'"
-    >
-      {{ toast.message }}
     </div>
 
     <!-- 加载状态 -->
@@ -549,29 +559,24 @@ function formatNumber(n?: number) {
               </div>
             </div>
 
-            <!-- 加入文章 -->
-            <div class="flex items-center gap-2 mb-4 p-3 rounded-lg" style="background-color: var(--theme-bg);">
-              <Plus class="w-4 h-4 flex-shrink-0" style="color: var(--theme-text-secondary);" />
-              <input
-                v-model="articleToAdd"
-                @keyup.enter="handleAddArticle"
-                type="text"
-                placeholder="输入文章ID加入专栏..."
-                class="flex-1 px-2 py-1.5 rounded-md text-sm focus:outline-none"
-                style="background-color: var(--theme-surface); color: var(--theme-text); border: 1px solid var(--theme-border);"
+            <!-- v1.1.3 改造：从"输入文章ID"升级为"我的文章选择器"，与编辑页统一组件 -->
+            <div class="mb-4 p-3 rounded-lg" style="background-color: var(--theme-bg);">
+              <div class="flex items-center gap-2 mb-2">
+                <Plus class="w-4 h-4 flex-shrink-0" style="color: var(--theme-text-secondary);" />
+                <span class="text-xs" style="color: var(--theme-text-secondary);">从我的已发布文章中选择加入</span>
+                <Loader2 v-if="addingArticle" class="w-3.5 h-3.5 animate-spin ml-auto" style="color: var(--theme-primary);" />
+              </div>
+              <MyArticlePicker
+                :model-value="[]"
+                :exclude-ids="existingArticleIds"
+                :multiple="false"
+                placeholder="搜索文章标题加入专栏..."
+                @select="handleSelectArticle"
               />
-              <button
-                @click="handleAddArticle"
-                :disabled="addingArticle"
-                class="inline-flex items-center px-3 py-1.5 rounded-md text-xs font-medium text-white transition hover:opacity-90 disabled:opacity-50"
-                style="background-color: var(--theme-primary);"
-              >
-                加入
-              </button>
             </div>
 
             <p v-if="sortedArticles.length === 0" class="text-sm text-center py-4" style="color: var(--theme-text-secondary);">
-              专栏还没有文章，输入文章ID加入吧
+              专栏还没有文章，从上方搜索选择加入吧
             </p>
           </div>
 

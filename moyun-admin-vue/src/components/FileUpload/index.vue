@@ -63,6 +63,12 @@ const props = defineProps({
   isShowTip: {
     type: Boolean,
     default: true
+  },
+  // v1.1.2 新增：上传地址（可由外部配置覆盖，默认走 /common/upload）
+  // 生产环境建议改为 /portal/file/upload（统一入口，享受 MinIO 自动降级）
+  uploadUrl: {
+    type: String,
+    default: "/common/upload"
   }
 });
 
@@ -71,7 +77,8 @@ const emit = defineEmits();
 const number = ref(0);
 const uploadList = ref([]);
 const baseUrl = import.meta.env.VITE_APP_BASE_API;
-const uploadFileUrl = ref(import.meta.env.VITE_APP_BASE_API + "/common/upload"); // 上传文件服务器地址
+// v1.1.2 改为 computed，外部动态切换 uploadUrl 时也能响应
+const uploadFileUrl = computed(() => import.meta.env.VITE_APP_BASE_API + props.uploadUrl);
 const headers = ref({ Authorization: "Bearer " + getToken() });
 const fileList = ref([]);
 const showTip = computed(
@@ -133,10 +140,21 @@ function handleUploadError(err) {
 }
 
 // 上传成功回调
+// v1.1.2 修复：兼容两种后端响应结构——
+//   /common/upload：{ code, msg, fileName, fileId, ...}（字段在根层）
+//   /portal/file/upload：{ code, msg, data: { id, fileName, fileUrl, ... } }（SysFile 在 data 字段下）
 function handleUploadSuccess(res, file) {
   if (res.code === 200) {
-    // 记录 fileId（便于按 id 维护，当前删除走 url）
-    uploadList.value.push({ name: res.fileName, url: res.fileName, fileId: res.fileId });
+    const data = res.data || {};
+    const url = data.fileUrl || res.fileName || data.fileName;
+    const fileId = data.id ?? res.fileId;
+    if (!url) {
+      proxy.$modal.msgError("上传成功但未返回文件URL");
+      number.value--;
+      proxy.$modal.closeLoading();
+      return;
+    }
+    uploadList.value.push({ name: url, url: url, fileId: fileId });
     uploadedSuccessfully();
   } else {
     number.value--;

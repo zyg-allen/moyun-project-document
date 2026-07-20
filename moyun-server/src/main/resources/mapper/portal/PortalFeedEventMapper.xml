@@ -38,25 +38,66 @@
         from portal_feed_event
     </sql>
 
-    <!-- 查询我关注的人的最近动态（读时拉模式：JOIN portal_follow） -->
+    <!-- 查询我关注的人的最近动态（读时拉模式：JOIN portal_follow）
+         v1.1.2 修复：用户反馈"已关注作者但关注 tab 无数据"。
+         原因：Feed 事件仅在作者新发布作品时写入，作者的历史文章（系统上线前已存在的
+         或发布时未触发 publishEvent 的）不会出现在 Feed 流中。
+         修复：用 UNION ALL 合并两类数据源——
+           1) portal_feed_event：作者发布动态事件（publish_article / publish_experience 等）
+           2) portal_article：作者历史文章（未触发 publishEvent 的存量数据）
+         v1.1.2 二次修复（审查发现）：
+           a) event_id 类型一致性：FeedEventVO.eventId 是 Long，原 concat('a_', a.id) 是
+              varchar 会导致 LongTypeHandler 抛 NumberFormatException，整个查询 500。
+              改用 a.id 直接作为 event_id（同表内唯一，跨表无业务依赖）。
+           b) 去重：原 SQL 第二段返回所有 status=published 文章，包含已触发 publish_event
+              的，导致同一篇文章在 Feed 流出现两次。加 not exists 过滤掉已存在 event 的文章。
+         注意：分页由 MyBatis-Plus 包装，外层 order by 保证时间倒序。 -->
     <select id="selectFollowingEvents" resultMap="FeedEventVOResult">
-        select
-            fe.id              as event_id,
-            fe.user_id        as user_id,
-            coalesce(pu.nickname, pu.username) as user_nickname,
-            pu.avatar         as user_avatar,
-            fe.event_type     as event_type,
-            fe.target_type    as target_type,
-            fe.target_id      as target_id,
-            fe.title           as title,
-            fe.summary        as summary,
-            fe.cover          as cover,
-            fe.created_time   as created_time
-        from portal_feed_event fe
-        inner join portal_follow pf on pf.following_id = fe.user_id
-        inner join portal_user  pu on pu.id = fe.user_id
-        where pf.follower_id = #{userId}
-        order by fe.created_time desc
+        select * from (
+            select
+                fe.id              as event_id,
+                fe.user_id        as user_id,
+                coalesce(pu.nickname, pu.username) as user_nickname,
+                pu.avatar         as user_avatar,
+                fe.event_type     as event_type,
+                fe.target_type    as target_type,
+                fe.target_id      as target_id,
+                fe.title           as title,
+                fe.summary        as summary,
+                fe.cover          as cover,
+                fe.created_time   as created_time
+            from portal_feed_event fe
+            inner join portal_follow pf on pf.following_id = fe.user_id
+            inner join portal_user  pu on pu.id = fe.user_id
+            where pf.follower_id = #{userId}
+
+            union all
+
+            select
+                a.id                as event_id,
+                a.author_id         as user_id,
+                coalesce(pu.nickname, pu.username) as user_nickname,
+                pu.avatar           as user_avatar,
+                'publish_article'   as event_type,
+                'article'           as target_type,
+                a.id                as target_id,
+                a.title             as title,
+                a.excerpt           as summary,
+                a.cover             as cover,
+                coalesce(a.update_time, a.create_time) as created_time
+            from portal_article a
+            inner join portal_follow pf on pf.following_id = a.author_id
+            inner join portal_user  pu on pu.id = a.author_id
+            where pf.follower_id = #{userId}
+              and a.status = 'published'
+              and not exists (
+                  select 1 from portal_feed_event fe2
+                  where fe2.target_type = 'article'
+                    and fe2.target_id = a.id
+                    and fe2.user_id = a.author_id
+              )
+        ) merged
+        order by created_time desc
     </select>
 
     <!-- 全站热门动态（最近 7 天事件，按时间倒序） -->

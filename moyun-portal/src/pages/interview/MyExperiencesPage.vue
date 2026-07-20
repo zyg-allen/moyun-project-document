@@ -10,8 +10,10 @@ import SiteFooter from '@/components/SiteFooter.vue';
 import { generateSeo } from '@/utils/seo';
 import { getMyExperienceList, deleteExperience } from '@/api/interview';
 import type { InterviewExperienceVO } from '@/types/api';
+import { useToast } from '@/composables/useToast';
 
 const router = useRouter();
+const toast = useToast();
 
 const loading = ref(false);
 const error = ref<string | null>(null);
@@ -30,15 +32,6 @@ const statusMap: Record<string, { label: string; class: string }> = {
   published: { label: '已发布', class: 'bg-green-100 text-green-700' },
   rejected: { label: '已驳回', class: 'bg-red-100 text-red-700' },
 };
-
-// Toast
-const toast = ref<{ message: string; type: 'success' | 'error' } | null>(null);
-let toastTimer: number | null = null;
-function showToast(message: string, type: 'success' | 'error' = 'success') {
-  toast.value = { message, type };
-  if (toastTimer) window.clearTimeout(toastTimer);
-  toastTimer = window.setTimeout(() => { toast.value = null; }, 3000);
-}
 
 useHead(computed(() => generateSeo({
   title: '我的面经',
@@ -115,7 +108,7 @@ async function handleDelete(exp: InterviewExperienceVO) {
   try {
     deletingId.value = exp.id;
     await deleteExperience(exp.id);
-    showToast('删除成功', 'success');
+    toast.success('删除成功');
     // 删除后若当前页只剩一条且非第一页，回退一页
     if (experiences.value.length === 1 && page.value > 1) {
       page.value -= 1;
@@ -123,7 +116,7 @@ async function handleDelete(exp: InterviewExperienceVO) {
       loadExperiences();
     }
   } catch (err: any) {
-    showToast(err?.message || '删除失败，请稍后重试', 'error');
+    toast.error(err?.message || '删除失败，请稍后重试');
   } finally {
     deletingId.value = null;
   }
@@ -162,15 +155,6 @@ function gotoPage(p: number) {
           发布面经
         </button>
       </div>
-    </div>
-
-    <!-- Toast -->
-    <div
-      v-if="toast"
-      class="fixed top-20 left-1/2 -translate-x-1/2 z-50 px-4 py-2 rounded-lg shadow-lg text-sm"
-      :class="toast.type === 'success' ? 'bg-green-500 text-white' : 'bg-red-500 text-white'"
-    >
-      {{ toast.message }}
     </div>
 
     <!-- Hero 区 -->

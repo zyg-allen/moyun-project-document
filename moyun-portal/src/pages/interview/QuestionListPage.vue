@@ -143,8 +143,8 @@ function goBack() {
   <div class="min-h-screen flex flex-col" style="background-color: var(--theme-bg);">
     <!-- 顶部导航栏 -->
     <div
-      class="border-b sticky top-0 z-30"
-      style="background-color: var(--theme-bg); border-color: var(--theme-border);"
+      class="border-b sticky top-0 z-30 backdrop-blur-sm"
+      style="background-color: var(--theme-surface); border-color: var(--theme-border);"
     >
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
         <button

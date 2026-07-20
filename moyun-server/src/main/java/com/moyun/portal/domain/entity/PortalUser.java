@@ -133,6 +133,9 @@ public class PortalUser extends BaseEntity {
     @Size(min = 0, max = 20, message = "角色长度不能超过20个字符")
     private String role;
 
+    /** 是否认证创作者：0 否/1 是（由 PortalCreatorCertificationServiceImpl.audit 维护） */
+    private Integer isCertifiedCreator;
+
     /** VIP过期时间 */
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime vipExpireAt;

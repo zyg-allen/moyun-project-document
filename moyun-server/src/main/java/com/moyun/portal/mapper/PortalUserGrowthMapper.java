@@ -45,9 +45,12 @@ public interface PortalUserGrowthMapper extends BaseMapper<PortalUserGrowth> {
 
     /**
      * 赛季排行榜（Top N，含用户昵称/头像）
+     * <p>修复 v1.1.2：JOIN 条件原为 g.user_id = u.user_id，导致 nickname/avatar 全部 NULL。
+     * portal_user_growth.user_id 关联的是 portal_user.id（自身主键），不是 portal_user.user_id（后台 sys_user 主键）。
+     * 同时增加 coalesce(nickname, username) 兜底，与 PortalFeedEventMapper 保持一致。</p>
      */
-    @Select("SELECT g.*, u.nickname, u.avatar FROM portal_user_growth g " +
-            "LEFT JOIN portal_user u ON g.user_id = u.user_id " +
+    @Select("SELECT g.*, coalesce(u.nickname, u.username) AS nickname, u.avatar FROM portal_user_growth g " +
+            "LEFT JOIN portal_user u ON g.user_id = u.id " +
             "ORDER BY g.season_value DESC LIMIT #{limit}")
     List<Map<String, Object>> selectSeasonRankingWithUser(@Param("limit") int limit);
 

@@ -124,19 +124,25 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         </foreach>
     </delete>
 
-    <!-- v1.0 第二阶段：章节级进度 upsert
+    <!-- v1.0 第二阶段：章节级进度 upsert（v1.1 阅读闭环增强）
          设计要点：
            1. reading_duration_ms 采用累加语义：前端每次上报"自上次上报以来的增量"，后端累加得到整书累计时长
            2. status 不覆写已读完状态：已 finished 的书不被心跳打回 reading（避免统计污染）
-           3. start_date 仅 INSERT 时设置，UPDATE 不动（保留首次阅读日期） -->
+           3. start_date 仅 INSERT 时设置，UPDATE 不动（保留首次阅读日期）
+           4. v1.1 阅读闭环：progress >= 100 时自动 status='finished' + finish_date=CURDATE()，
+              即使 Service 层未显式设置 status 也能在 SQL 层兜底，保证状态闭环
+           5. v1.1 progress 上限保护：超过 100 时按 100 写入，避免异常值污染百分比统计
+           6. v1.1.1 修复：INSERT 列表加入 finish_date，避免首次上报即 progress>=100 时
+              finish_date 落 NULL（INSERT 路径不走 ON DUPLICATE KEY UPDATE） -->
     <insert id="upsertChapterProgress" parameterType="com.moyun.portal.domain.entity.PortalReadingProgress">
         insert into portal_reading_progress
-            (user_id, book_id, status, progress, current_chapter_id, current_chapter_no,
+            (user_id, book_id, status, progress, finish_date, current_chapter_id, current_chapter_no,
              chapter_offset, last_read_time, reading_duration_ms, start_date, create_time, update_time)
         values
             (#{userId}, #{bookId},
              coalesce(#{status}, 'reading'),
              coalesce(#{progress}, 0),
+             CASE WHEN coalesce(#{progress}, 0) >= 100 THEN coalesce(#{finishDate}, CURDATE()) ELSE NULL END,
              #{currentChapterId}, #{currentChapterNo},
              coalesce(#{chapterOffset}, 0),
              coalesce(#{lastReadTime}, NOW()),
@@ -144,8 +150,19 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
              coalesce(#{startDate}, CURDATE()),
              NOW(), NOW())
         on duplicate key update
-            status = CASE WHEN status = 'finished' THEN status ELSE coalesce(values(status), status) END,
-            progress = coalesce(values(progress), progress),
+            status = CASE
+                WHEN status = 'finished' THEN status
+                WHEN coalesce(values(progress), 0) >= 100 THEN 'finished'
+                ELSE coalesce(values(status), status)
+            END,
+            progress = CASE
+                WHEN coalesce(values(progress), 0) >= 100 THEN 100
+                ELSE coalesce(values(progress), progress)
+            END,
+            finish_date = CASE
+                WHEN coalesce(values(progress), 0) >= 100 AND finish_date IS NULL THEN CURDATE()
+                ELSE finish_date
+            END,
             current_chapter_id = coalesce(values(current_chapter_id), current_chapter_id),
             current_chapter_no = coalesce(values(current_chapter_no), current_chapter_no),
             chapter_offset = coalesce(values(chapter_offset), chapter_offset),

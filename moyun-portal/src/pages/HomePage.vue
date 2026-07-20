@@ -419,7 +419,7 @@ useHead(
 </script>
 
 <template>
-  <div style="background-color: var(--theme-bg); min-height: 100vh;" class="flex flex-col">
+  <div class="min-h-screen flex flex-col" style="background-color: var(--theme-bg);">
     <div v-if="loading" class="min-h-[60vh] flex items-center justify-center" style="background-color: var(--theme-bg);">
       <div class="flex flex-col items-center gap-4">
         <div class="w-10 h-10 rounded-full animate-spin" style="border-width: 3px; border-style: solid; border-color: var(--theme-border); border-top-color: var(--theme-primary);"></div>

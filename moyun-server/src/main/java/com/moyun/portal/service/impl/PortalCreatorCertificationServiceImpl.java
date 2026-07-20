@@ -3,12 +3,16 @@ package com.moyun.portal.service.impl;
 import java.time.LocalDateTime;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import com.moyun.portal.domain.entity.PortalCreatorCertification;
+import com.moyun.portal.domain.entity.PortalUser;
 import com.moyun.portal.mapper.PortalCreatorCertificationMapper;
+import com.moyun.portal.mapper.PortalUserMapper;
 import com.moyun.portal.service.IPortalCreatorCertificationService;
 
 /**
@@ -23,6 +27,9 @@ import com.moyun.portal.service.IPortalCreatorCertificationService;
 public class PortalCreatorCertificationServiceImpl
         extends ServiceImpl<PortalCreatorCertificationMapper, PortalCreatorCertification>
         implements IPortalCreatorCertificationService {
+
+    @Autowired
+    private PortalUserMapper portalUserMapper;
 
     @Override
     public PortalCreatorCertification apply(Long userId, PortalCreatorCertification dto) {
@@ -71,6 +78,12 @@ public class PortalCreatorCertificationServiceImpl
         entity.setAuditRemark(remark);
         entity.setAuditedTime(LocalDateTime.now());
         baseMapper.updateById(entity);
+        // 同步 portal_user.is_certified_creator：通过=1，驳回=0
+        Integer certified = "approved".equals(status) ? 1 : 0;
+        LambdaUpdateWrapper<PortalUser> userUpdate = new LambdaUpdateWrapper<>();
+        userUpdate.eq(PortalUser::getId, entity.getUserId())
+                .set(PortalUser::getIsCertifiedCreator, certified);
+        portalUserMapper.update(null, userUpdate);
         return entity;
     }
 

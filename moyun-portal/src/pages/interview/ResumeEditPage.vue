@@ -14,9 +14,11 @@ import type {
   UserResumeVO, UserResumeJobIntention, UserResumeEducationItem, UserResumeWorkItem,
   UserResumeProjectItem, UserResumeSkillItem, UserResumeScoreItem,
 } from '@/types/api';
+import { useToast } from '@/composables/useToast';
 
 const route = useRoute();
 const router = useRouter();
+const toast = useToast();
 
 const editId = computed(() => route.params.id as string | undefined);
 const isEdit = computed(() => !!editId.value);
@@ -63,15 +65,6 @@ const form = reactive<UserResumeVO>({
   status: 'draft',
   versionNo: undefined,
 });
-
-// Toast
-const toast = ref<{ message: string; type: 'success' | 'error' } | null>(null);
-let toastTimer: number | null = null;
-function showToast(message: string, type: 'success' | 'error' = 'success') {
-  toast.value = { message, type };
-  if (toastTimer) window.clearTimeout(toastTimer);
-  toastTimer = window.setTimeout(() => { toast.value = null; }, 3000);
-}
 
 useHead(computed(() => generateSeo({
   title: pageTitle.value,
@@ -140,11 +133,11 @@ function scorePercent(item: UserResumeScoreItem): number {
 async function doSave(silent = false): Promise<boolean> {
   // 互斥锁：已有保存在途时跳过（手动保存提示稍候）
   if (saving.value) {
-    if (!silent) showToast('正在保存中，请稍候', 'error');
+    if (!silent) toast.error('正在保存中，请稍候');
     return false;
   }
   if (!form.title?.trim()) {
-    if (!silent) showToast('请填写简历标题', 'error');
+    if (!silent) toast.error('请填写简历标题');
     return false;
   }
   try {
@@ -160,19 +153,19 @@ async function doSave(silent = false): Promise<boolean> {
         }
       }
       saveStatus.value = 'saved';
-      if (!silent) showToast('保存成功', 'success');
+      if (!silent) toast.success('保存成功');
       // 等待 form.id 变化触发的 watch 执行完（被 saving 标志跳过），
       // 再返回，避免 watch 在 nextTick 把 saveStatus 覆盖回 idle
       await nextTick();
       return true;
     } else {
       saveStatus.value = 'idle';
-      showToast(res.message || '保存失败', 'error');
+      toast.error(res.message || '保存失败');
       return false;
     }
   } catch (err: any) {
     saveStatus.value = 'idle';
-    showToast(err?.message || '保存失败，请稍后重试', 'error');
+    toast.error(err?.message || '保存失败，请稍后重试');
     return false;
   } finally {
     saving.value = false;
@@ -216,14 +209,14 @@ async function handleExportPdf() {
     if (res.code === 200 && res.data?.fileUrl) {
       // fileUrl 为认证下载端点，需带 token 下载
       await downloadPdfAuth(res.data.fileUrl);
-      showToast('PDF 导出成功', 'success');
+      toast.success('PDF 导出成功');
       form.fileUrl = res.data.fileUrl;
       form.exportTime = res.data.exportTime || '';
     } else {
-      showToast(res.message || '导出失败，请稍后重试', 'error');
+      toast.error(res.message || '导出失败，请稍后重试');
     }
   } catch (err: any) {
-    showToast(err?.message || '导出失败，请稍后重试', 'error');
+    toast.error(err?.message || '导出失败，请稍后重试');
   } finally {
     exporting.value = false;
   }
@@ -241,17 +234,17 @@ async function handleScore() {
       form.score = res.data.score;
       form.scoreDetail = res.data.scoreDetail || [];
       form.scoredTime = res.data.scoredTime || '';
-      showToast(`评分完成：${form.score} 分`, 'success');
+      toast.success(`评分完成：${form.score} 分`);
       // 滚动到评分面板
       nextTick(() => {
         const el = document.getElementById('resume-score-panel');
         if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
       });
     } else {
-      showToast(res.message || '评分失败，请稍后重试', 'error');
+      toast.error(res.message || '评分失败，请稍后重试');
     }
   } catch (err: any) {
-    showToast(err?.message || '评分失败，请稍后重试', 'error');
+    toast.error(err?.message || '评分失败，请稍后重试');
   } finally {
     scoring.value = false;
   }
@@ -424,15 +417,6 @@ onBeforeRouteLeave((to, from, next) => {
           </button>
         </div>
       </div>
-    </div>
-
-    <!-- Toast -->
-    <div
-      v-if="toast"
-      class="fixed top-20 left-1/2 -translate-x-1/2 z-50 px-4 py-2 rounded-lg shadow-lg text-sm"
-      :class="toast.type === 'success' ? 'bg-green-500 text-white' : 'bg-red-500 text-white'"
-    >
-      {{ toast.message }}
     </div>
 
     <!-- 内容区 -->

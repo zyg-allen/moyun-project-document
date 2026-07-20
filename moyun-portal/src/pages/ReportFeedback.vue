@@ -139,7 +139,7 @@ const handleSubmitFeedback = async () => {
 </script>
 
 <template>
-  <div style="background-color: var(--theme-bg); min-height: 100vh;" class="flex flex-col">
+  <div class="min-h-screen flex flex-col" style="background-color: var(--theme-bg);">
     <!-- 面包屑 -->
     <div class="border-b py-3 sm:py-4" style="background-color: var(--theme-bg); border-color: var(--theme-border);">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">

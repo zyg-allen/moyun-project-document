@@ -1,10 +1,13 @@
 HELP.md
 
 # 环境配置文件（包含敏感信息）
-application-local.yaml
-application-dev.yaml
+# application-dev.yaml / application-local.yaml 已纳入版本控制（含本地默认开发凭据，与远程保持一致）
+# application-prod.yaml / application-test.yaml 含真实生产/测试凭据，禁止提交
 application-prod.yaml
 application-test.yaml
+
+# 源码打包产物（避免提交大文件）
+*.zip
 
 target/
 .mvn/wrapper/maven-wrapper.jar

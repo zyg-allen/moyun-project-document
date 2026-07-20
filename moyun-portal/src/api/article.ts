@@ -32,11 +32,6 @@ export const getArticleDetail = (params: ArticleDetailParams) => {
     return httpGet<Article>(`/portal/article/${params.id}`);
 };
 
-// 创建文章
-export const createArticle = (params: CreateArticleParams) => {
-    return httpPost<Article>('/portal/article', params);
-};
-
 // 发布文章（发布后进入待审核状态 pending）
 export const publishArticle = (params: CreateArticleParams) => {
     return httpPost<{ id: number; status: string; publishedAt: string; message: string }>('/portal/article/publish', params);

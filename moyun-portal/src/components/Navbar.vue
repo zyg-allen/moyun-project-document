@@ -13,9 +13,6 @@ import { getSafeAvatar } from '@/utils/avatar';
 import { useAuth } from '@/composables/useAuth';
 import NotificationBell from './NotificationBell.vue';
 import * as notificationApi from '@/api/notification';
-import * as categoryApi from '@/api/category';
-import { filterCategoryTree, getCategoryTarget } from '@/api/category';
-import type { Category } from '@/types/api';
 
 const router = useRouter();
 const route = useRoute();
@@ -37,8 +34,6 @@ const msgUnreadCount = computed(() => messageStore.msgUnreadCount);
 const msgBadgeCount = computed(() => messageStore.msgUnreadCount);
 const isUserMenuOpen = ref(false);
 
-const categories = ref<Category[]>([]);
-
 // 导航项统一类型：所有属性可选（除 name/key/children），避免联合类型访问报错
 interface NavItem {
   name: string;
@@ -49,7 +44,7 @@ interface NavItem {
   children: { name: string; path?: string; isExternal?: boolean; requiresAuth?: boolean }[];
 }
 
-// 导航数据结构 - 精简为 5 个一级菜单：首页 / 读书 / 面试（含学习中心） / 创作 / 我的
+// 导航数据结构 - 7 个一级菜单：首页 / 分类 / 读书 / 面试（含学习中心） / 创作 / 互动 / 我的
 // 学习中心已并入面试（数据全部来自面试题库），社区已拆解（FeedPage→我的、Authors→创作、排行/成就→我的）
 const navItems = computed<NavItem[]>(() => {
   const isLoggedIn = userStore.isAuthenticated;
@@ -61,35 +56,16 @@ const navItems = computed<NavItem[]>(() => {
       path: '/',
       children: []
     },
-    // 2. 动态内容分类（散文/技术/生活等，从后台分类树动态读取）
-    ...filterCategoryTree(categories.value)
-      .map(cat => {
-        const target = getCategoryTarget(cat);
-        // 外部链接特殊处理：没有子菜单，点击跳转外链
-        if (target.type === 'external') {
-          return {
-            name: cat.name,
-            key: cat.id,
-            externalUrl: target.path,
-            isExternal: true,
-            children: []
-          };
-        }
-        return {
-          name: cat.name,
-          key: cat.id,
-          externalUrl: null,
-          isExternal: false,
-          children: (cat.children || []).map(sub => {
-            const subTarget = getCategoryTarget(sub);
-            return {
-              name: sub.name,
-              path: subTarget.type === 'external' ? subTarget.path : subTarget.path,
-              isExternal: subTarget.type === 'external'
-            };
-          })
-        };
-      }),
+    // 2. 分类（静态，文章内容分类聚合）
+    {
+      name: '分类',
+      key: 'category',
+      children: [
+        { name: '散文天地', path: '/category/' + encodeURIComponent('散文天地') },
+        { name: '技术笔记', path: '/category/' + encodeURIComponent('技术笔记') },
+        { name: '技能工坊', path: '/category/' + encodeURIComponent('技能工坊') },
+      ]
+    },
     // 3. 读书空间 - 文学爱好者内容消费与沉淀
     {
       name: '读书',
@@ -136,7 +112,17 @@ const navItems = computed<NavItem[]>(() => {
         { name: '创作者列表', path: '/authors' },
       ]
     },
-    // 6. 我的 - 个人中心聚合（原"社区"已拆解到此）
+    // 6. 互动 - 社区互动聚合（话题/动态/挑战）
+    {
+      name: '互动',
+      key: 'interaction',
+      children: [
+        { name: '话题广场', path: '/topics' },
+        { name: '动态广场', path: '/feed' },
+        { name: '创作挑战', path: '/contests' },
+      ]
+    },
+    // 7. 我的 - 个人中心聚合（原"社区"已拆解到此）
     {
       name: '我的',
       key: 'mine',
@@ -144,6 +130,8 @@ const navItems = computed<NavItem[]>(() => {
         { name: '个人中心', path: '/user', requiresAuth: true },
         { name: '成长时间线', path: '/growth/timeline', requiresAuth: true },
         { name: '动态广场', path: '/feed' },
+        { name: '我的话题', path: '/topic/my/topics', requiresAuth: true },
+        { name: '我的观点', path: '/topic/my/posts', requiresAuth: true },
         { name: '成长排行榜', path: '/ranking' },
         { name: '成就徽章', path: '/achievements', requiresAuth: true },
       ]
@@ -162,7 +150,6 @@ const currentUser = computed(() => userStore.user)
 
 onMounted(async () => {
   currentTheme.value = getCurrentTheme();
-  await loadCategories();
   if (userStore.isAuthenticated) {
     await loadNotifications();
     await messageStore.loadAllUnread();
@@ -181,17 +168,6 @@ watch(
     }
   }
 );
-
-async function loadCategories() {
-  try {
-    const response = await categoryApi.getCategoryTree();
-    if (response.code === 200) {
-      categories.value = response.data || [];
-    }
-  } catch (error) {
-    console.error('加载分类失败:', error);
-  }
-}
 
 async function loadNotifications() {
   try {

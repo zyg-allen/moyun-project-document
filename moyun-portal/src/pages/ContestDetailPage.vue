@@ -12,11 +12,13 @@ import { getContestDetail, submitContest, voteSubmission } from '@/api/contest';
 import type { WritingContestVO, ContestSubmissionVO } from '@/api/contest';
 import { useUserStore } from '@/stores/user';
 import { useAuth } from '@/composables/useAuth';
+import { useToast } from '@/composables/useToast';
 
 const route = useRoute();
 const router = useRouter();
 const userStore = useUserStore();
 const { requireAuth } = useAuth();
+const toast = useToast();
 
 const contestId = computed(() => route.params.id as string);
 const loading = ref(false);
@@ -29,15 +31,6 @@ const hasSubmitted = ref(false);
 // 投稿表单
 const articleIdInput = ref('');
 const submitting = ref(false);
-
-// Toast
-const toast = ref<{ message: string; type: 'success' | 'error' } | null>(null);
-let toastTimer: number | null = null;
-function showToast(message: string, type: 'success' | 'error' = 'success') {
-  toast.value = { message, type };
-  if (toastTimer) window.clearTimeout(toastTimer);
-  toastTimer = window.setTimeout(() => { toast.value = null; }, 3000);
-}
 
 const isLoggedIn = computed(() => !!userStore.user);
 
@@ -88,7 +81,7 @@ async function handleSubmit() {
   if (!contest.value || submitting.value) return;
   const aid = articleIdInput.value.trim();
   if (!aid) {
-    showToast('请输入文章ID', 'error');
+    toast.error('请输入文章ID');
     return;
   }
   submitting.value = true;
@@ -97,14 +90,14 @@ async function handleSubmit() {
     if (res.code === 200) {
       articleIdInput.value = '';
       hasSubmitted.value = true;
-      showToast('投稿成功', 'success');
+      toast.success('投稿成功');
       await loadDetail();
     } else {
-      showToast(res.message || '投稿失败', 'error');
+      toast.error(res.message || '投稿失败');
     }
   } catch (err) {
     const e = err as { message?: string };
-    showToast(e?.message || '投稿失败，请稍后重试', 'error');
+    toast.error(e?.message || '投稿失败，请稍后重试');
   } finally {
     submitting.value = false;
   }
@@ -124,11 +117,11 @@ async function handleVote(sub: ContestSubmissionVO) {
       }
       sub.voteCount = res.data.voteCount;
     } else {
-      showToast(res.message || '投票失败', 'error');
+      toast.error(res.message || '投票失败');
     }
   } catch (err) {
     const e = err as { message?: string };
-    showToast(e?.message || '投票失败，请稍后重试', 'error');
+    toast.error(e?.message || '投票失败，请稍后重试');
   }
 }
 
@@ -204,15 +197,6 @@ const canSubmit = computed(() => {
         <span class="text-sm font-medium" style="color: var(--theme-text);">活动详情</span>
         <span class="w-20"></span>
       </div>
-    </div>
-
-    <!-- Toast -->
-    <div
-      v-if="toast"
-      class="fixed top-20 left-1/2 -translate-x-1/2 z-50 px-4 py-2 rounded-lg shadow-lg text-sm"
-      :class="toast.type === 'success' ? 'bg-green-500 text-white' : 'bg-red-500 text-white'"
-    >
-      {{ toast.message }}
     </div>
 
     <!-- 加载状态 -->

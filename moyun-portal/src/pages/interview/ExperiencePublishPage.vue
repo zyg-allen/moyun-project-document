@@ -206,16 +206,6 @@ watch(editId, (newId, oldId) => {
     <!-- 内容区 -->
     <div class="flex-1 py-8">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <!-- 标题 -->
-        <div class="mb-6 text-center">
-          <h1 class="text-3xl font-bold tracking-tight mb-2" style="color: var(--theme-text);">
-            {{ pageTitle }}
-          </h1>
-          <p class="text-sm" style="color: var(--theme-text-secondary);">
-            分享真实面试经验，帮助更多求职者少走弯路
-          </p>
-        </div>
-
         <!-- 加载详情中 -->
         <div
             v-if="loadingDetail"

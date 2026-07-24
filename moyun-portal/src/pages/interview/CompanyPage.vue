@@ -156,7 +156,7 @@ function salaryText(j: JobListItemVO): string {
           <ArrowLeft class="w-5 h-5" />
         </button>
         <h1 class="text-base font-semibold truncate" style="color: var(--theme-text);">
-          {{ company?.name || '公司主页' }}
+          公司主页
         </h1>
       </div>
     </header>
@@ -183,10 +183,10 @@ function salaryText(j: JobListItemVO): string {
           <section class="rounded-2xl shadow-sm p-6 mb-6 flex flex-col sm:flex-row items-start gap-5" style="background-color: var(--theme-surface); border: 1px solid var(--theme-border);">
             <div class="w-20 h-20 rounded-2xl overflow-hidden flex-shrink-0 flex items-center justify-center" style="background-color: var(--theme-bg);">
               <LazyImage
-                v-if="company.logo"
-                :src="getSafeAvatar(company.logo)"
-                :alt="company.name"
-                class="w-full h-full object-cover"
+                  v-if="company.logo"
+                  :src="getSafeAvatar(company.logo)"
+                  :alt="company.name"
+                  class="w-full h-full object-cover"
               />
               <Building2 v-else class="w-10 h-10" style="color: var(--theme-text-secondary);" />
             </div>
@@ -211,11 +211,11 @@ function salaryText(j: JobListItemVO): string {
           <!-- Tab 切换 -->
           <div class="flex items-center gap-1 border-b mb-5 overflow-x-auto" style="border-color: var(--theme-border);">
             <button
-              v-for="t in tabs"
-              :key="t.key"
-              @click="activeTab = t.key"
-              class="flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium whitespace-nowrap transition border-b-2 -mb-px"
-              :style="activeTab === t.key
+                v-for="t in tabs"
+                :key="t.key"
+                @click="activeTab = t.key"
+                class="flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium whitespace-nowrap transition border-b-2 -mb-px"
+                :style="activeTab === t.key
                 ? 'color: var(--theme-primary); border-color: var(--theme-primary);'
                 : 'color: var(--theme-text-secondary); border-color: transparent;'"
             >
@@ -235,11 +235,11 @@ function salaryText(j: JobListItemVO): string {
               <Empty v-if="questions.length === 0" description="该公司暂无关联题目" />
               <div v-else class="space-y-2">
                 <div
-                  v-for="q in questions"
-                  :key="q.id"
-                  @click="goQuestion(q)"
-                  class="rounded-xl p-4 cursor-pointer transition hover:shadow-md group"
-                  style="background-color: var(--theme-surface); border: 1px solid var(--theme-border);"
+                    v-for="q in questions"
+                    :key="q.id"
+                    @click="goQuestion(q)"
+                    class="rounded-xl p-4 cursor-pointer transition hover:shadow-md group"
+                    style="background-color: var(--theme-surface); border: 1px solid var(--theme-border);"
                 >
                   <div class="flex items-center justify-between gap-3">
                     <h3 class="font-medium truncate group-hover:underline" style="color: var(--theme-text);">
@@ -261,11 +261,11 @@ function salaryText(j: JobListItemVO): string {
               <Empty v-if="experiences.length === 0" description="该公司暂无面经" />
               <div v-else class="space-y-2">
                 <div
-                  v-for="e in experiences"
-                  :key="e.id"
-                  @click="goExperience(e)"
-                  class="rounded-xl p-4 cursor-pointer transition hover:shadow-md group"
-                  style="background-color: var(--theme-surface); border: 1px solid var(--theme-border);"
+                    v-for="e in experiences"
+                    :key="e.id"
+                    @click="goExperience(e)"
+                    class="rounded-xl p-4 cursor-pointer transition hover:shadow-md group"
+                    style="background-color: var(--theme-surface); border: 1px solid var(--theme-border);"
                 >
                   <h3 class="font-medium truncate group-hover:underline" style="color: var(--theme-text);">
                     {{ e.title }}
@@ -285,11 +285,11 @@ function salaryText(j: JobListItemVO): string {
               <Empty v-if="jobs.length === 0" description="该公司暂无在招职位" />
               <div v-else class="space-y-2">
                 <div
-                  v-for="j in jobs"
-                  :key="j.id"
-                  @click="goJob(j)"
-                  class="rounded-xl p-4 cursor-pointer transition hover:shadow-md group"
-                  style="background-color: var(--theme-surface); border: 1px solid var(--theme-border);"
+                    v-for="j in jobs"
+                    :key="j.id"
+                    @click="goJob(j)"
+                    class="rounded-xl p-4 cursor-pointer transition hover:shadow-md group"
+                    style="background-color: var(--theme-surface); border: 1px solid var(--theme-border);"
                 >
                   <div class="flex items-center justify-between gap-3">
                     <h3 class="font-medium truncate group-hover:underline" style="color: var(--theme-text);">
@@ -310,12 +310,12 @@ function salaryText(j: JobListItemVO): string {
 
             <!-- 分页 -->
             <Pagination
-              v-if="total > 0"
-              :current-page="page"
-              :total-pages="totalPages"
-              :total-items="total"
-              :items-per-page="pageSize"
-              @page-change="onPageChange"
+                v-if="total > 0"
+                :current-page="page"
+                :total-pages="totalPages"
+                :total-items="total"
+                :items-per-page="pageSize"
+                @page-change="onPageChange"
             />
           </div>
         </template>

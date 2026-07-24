@@ -273,46 +273,27 @@ function gotoPage(p: number) {
   <div class="min-h-screen flex flex-col" style="background-color: var(--theme-bg);">
     <!-- 顶部返回栏 -->
     <div
-      class="border-b sticky top-0 z-30 backdrop-blur-sm"
-      style="background-color: var(--theme-surface); border-color: var(--theme-border);"
+        class="border-b sticky top-0 z-30 backdrop-blur-sm"
+        style="background-color: var(--theme-surface); border-color: var(--theme-border);"
     >
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex items-center justify-between">
         <button
-          @click="goBack"
-          class="flex items-center text-sm transition hover:opacity-80"
-          style="color: var(--theme-text-secondary);"
+            @click="goBack"
+            class="flex items-center text-sm transition hover:opacity-80"
+            style="color: var(--theme-text-secondary);"
         >
           <ArrowLeft class="w-4 h-4 mr-1" />
           返回面试指南
         </button>
         <span class="text-sm font-medium" style="color: var(--theme-text);">我的简历</span>
         <button
-          @click="gotoCreate"
-          class="flex items-center text-sm text-white px-3 py-1.5 rounded-lg transition hover:opacity-90"
-          style="background-color: var(--theme-primary);"
+            @click="gotoCreate"
+            class="flex items-center text-sm text-white px-3 py-1.5 rounded-lg transition hover:opacity-90"
+            style="background-color: var(--theme-primary);"
         >
           <Plus class="w-4 h-4 mr-1" />
           创建简历
         </button>
-      </div>
-    </div>
-
-    <!-- Hero 区 -->
-    <div class="py-6 sm:py-8">
-      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div class="relative overflow-hidden rounded-2xl text-white" style="background-image: radial-gradient(circle at 20% 30%, rgba(99, 102, 241, 0.4) 0%, transparent 50%), radial-gradient(circle at 80% 70%, rgba(168, 85, 247, 0.4) 0%, transparent 50%), linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);">
-          <div class="absolute inset-0 opacity-10 pointer-events-none" aria-hidden="true">
-            <svg class="absolute top-6 left-8 w-32 h-32 text-white" viewBox="0 0 24 24" fill="currentColor"><path d="M9.4 16.6L4.8 12l4.6-4.6L8 6l-6 6 6 6 1.4-1.4zm5.2 0L19.2 12l-4.6-4.6L16 6l6 6-6 6-1.4-1.4z"/></svg>
-            <svg class="absolute bottom-4 right-10 w-40 h-40 text-white" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 4c-3.31 0-6 2.69-6 6s2.69 6 6 6 6-2.69 6-6-2.69-6-6-6zm0 2c2.21 0 4 1.79 4 4s-1.79 4-4 4-4-1.79-4-4 1.79-4 4-4zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"/></svg>
-          </div>
-          <div class="relative px-6 py-8 sm:px-10 sm:py-10 text-center">
-            <div class="inline-flex items-center bg-white/10 backdrop-blur-sm px-4 py-1.5 rounded-full text-sm mb-4">
-              <FileText class="w-4 h-4 mr-2" /> 墨韵 · 我的简历
-            </div>
-            <h1 class="text-3xl md:text-4xl font-bold mb-3">我的简历</h1>
-            <p class="text-sm md:text-base opacity-90">创建结构化简历，支持版本管理、PDF 导出与 AI 评分</p>
-          </div>
-        </div>
       </div>
     </div>
 
@@ -322,23 +303,23 @@ function gotoPage(p: number) {
         <!-- 加载状态 -->
         <div v-if="loading" class="text-center py-16">
           <div
-            class="animate-spin rounded-full h-10 w-10 border-2 mx-auto"
-            style="border-color: var(--theme-border); border-top-color: var(--theme-primary);"
+              class="animate-spin rounded-full h-10 w-10 border-2 mx-auto"
+              style="border-color: var(--theme-border); border-top-color: var(--theme-primary);"
           ></div>
           <p class="mt-4 text-sm" style="color: var(--theme-text-secondary);">加载中...</p>
         </div>
 
         <!-- 错误状态 -->
         <div
-          v-else-if="error"
-          class="rounded-xl border p-8 text-center"
-          style="background-color: var(--theme-surface); border-color: var(--theme-border);"
+            v-else-if="error"
+            class="rounded-xl border p-8 text-center"
+            style="background-color: var(--theme-surface); border-color: var(--theme-border);"
         >
           <p class="mb-4 text-sm" style="color: var(--theme-text);">{{ error }}</p>
           <button
-            @click="loadResumes"
-            class="px-4 py-2 text-white rounded-lg text-sm transition hover:opacity-90"
-            style="background-color: var(--theme-primary);"
+              @click="loadResumes"
+              class="px-4 py-2 text-white rounded-lg text-sm transition hover:opacity-90"
+              style="background-color: var(--theme-primary);"
           >
             重试
           </button>
@@ -346,16 +327,16 @@ function gotoPage(p: number) {
 
         <!-- 空状态 -->
         <div
-          v-else-if="resumes.length === 0"
-          class="rounded-xl border p-12 text-center"
-          style="background-color: var(--theme-surface); border-color: var(--theme-border);"
+            v-else-if="resumes.length === 0"
+            class="rounded-xl border p-12 text-center"
+            style="background-color: var(--theme-surface); border-color: var(--theme-border);"
         >
           <FileText class="w-12 h-12 mx-auto mb-3" style="color: var(--theme-text-secondary); opacity: 0.5;" />
           <p class="text-sm mb-4" style="color: var(--theme-text-secondary);">还没有简历，立即创建</p>
           <button
-            @click="gotoCreate"
-            class="inline-flex items-center px-4 py-2 text-white rounded-lg text-sm transition hover:opacity-90"
-            style="background-color: var(--theme-primary);"
+              @click="gotoCreate"
+              class="inline-flex items-center px-4 py-2 text-white rounded-lg text-sm transition hover:opacity-90"
+              style="background-color: var(--theme-primary);"
           >
             <Plus class="w-4 h-4 mr-1" />
             创建第一份简历
@@ -366,23 +347,23 @@ function gotoPage(p: number) {
         <template v-else>
           <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
             <div
-              v-for="r in resumes"
-              :key="r.id"
-              class="rounded-xl shadow-sm hover:shadow-md transition flex flex-col p-5"
-              style="background-color: var(--theme-surface); border: 1px solid var(--theme-border);"
+                v-for="r in resumes"
+                :key="r.id"
+                class="rounded-xl shadow-sm hover:shadow-md transition flex flex-col p-5"
+                style="background-color: var(--theme-surface); border: 1px solid var(--theme-border);"
             >
               <!-- 头部：标题 + 状态 -->
               <div class="flex items-start justify-between gap-2 mb-2">
                 <h3
-                  @click="gotoEdit(r.id)"
-                  class="text-base font-semibold leading-snug cursor-pointer hover:underline line-clamp-2"
-                  style="color: var(--theme-text);"
+                    @click="gotoEdit(r.id)"
+                    class="text-base font-semibold leading-snug cursor-pointer hover:underline line-clamp-2"
+                    style="color: var(--theme-text);"
                 >
                   {{ r.title || '未命名简历' }}
                 </h3>
                 <span
-                  class="shrink-0 px-2.5 py-1 rounded-full text-xs font-medium"
-                  :class="statusClass(r)"
+                    class="shrink-0 px-2.5 py-1 rounded-full text-xs font-medium"
+                    :class="statusClass(r)"
                 >
                   {{ statusLabel(r) }}
                 </span>
@@ -397,9 +378,9 @@ function gotoPage(p: number) {
 
               <!-- 评分 -->
               <div
-                v-if="r.score != null"
-                class="flex items-center text-sm mb-2"
-                style="color: var(--theme-primary);"
+                  v-if="r.score != null"
+                  class="flex items-center text-sm mb-2"
+                  style="color: var(--theme-primary);"
               >
                 <Star class="w-3.5 h-3.5 mr-1.5" />
                 评分 {{ r.score }} 分
@@ -407,9 +388,9 @@ function gotoPage(p: number) {
 
               <!-- 求职意向摘要 -->
               <p
-                v-if="r.jobIntention?.position"
-                class="text-sm line-clamp-1 mb-3"
-                style="color: var(--theme-text-secondary);"
+                  v-if="r.jobIntention?.position"
+                  class="text-sm line-clamp-1 mb-3"
+                  style="color: var(--theme-text-secondary);"
               >
                 意向：{{ r.jobIntention.position }}
                 <span v-if="r.jobIntention.city">· {{ r.jobIntention.city }}</span>
@@ -431,77 +412,77 @@ function gotoPage(p: number) {
               <!-- 操作 -->
               <div class="flex flex-wrap items-center gap-1.5 mt-auto">
                 <button
-                  @click="gotoEdit(r.id)"
-                  class="inline-flex items-center px-2.5 py-1.5 rounded-lg text-xs transition hover:opacity-80"
-                  style="background-color: var(--theme-bg); color: var(--theme-text); border: 1px solid var(--theme-border);"
+                    @click="gotoEdit(r.id)"
+                    class="inline-flex items-center px-2.5 py-1.5 rounded-lg text-xs transition hover:opacity-80"
+                    style="background-color: var(--theme-bg); color: var(--theme-text); border: 1px solid var(--theme-border);"
                 >
                   <Pencil class="w-3 h-3 mr-1" />编辑
                 </button>
                 <button
-                  @click="handleScore(r)"
-                  :disabled="actionId === r.id"
-                  class="inline-flex items-center px-2.5 py-1.5 rounded-lg text-xs transition hover:opacity-80 disabled:opacity-50 disabled:cursor-not-allowed"
-                  style="background-color: var(--theme-bg); color: var(--theme-primary); border: 1px solid var(--theme-border);"
+                    @click="handleScore(r)"
+                    :disabled="actionId === r.id"
+                    class="inline-flex items-center px-2.5 py-1.5 rounded-lg text-xs transition hover:opacity-80 disabled:opacity-50 disabled:cursor-not-allowed"
+                    style="background-color: var(--theme-bg); color: var(--theme-primary); border: 1px solid var(--theme-border);"
                 >
                   <Star class="w-3 h-3 mr-1" />评分
                 </button>
                 <button
-                  @click="handleExportPdf(r)"
-                  :disabled="actionId === r.id"
-                  class="inline-flex items-center px-2.5 py-1.5 rounded-lg text-xs transition hover:opacity-80 disabled:opacity-50 disabled:cursor-not-allowed"
-                  style="background-color: var(--theme-bg); color: var(--theme-text); border: 1px solid var(--theme-border);"
+                    @click="handleExportPdf(r)"
+                    :disabled="actionId === r.id"
+                    class="inline-flex items-center px-2.5 py-1.5 rounded-lg text-xs transition hover:opacity-80 disabled:opacity-50 disabled:cursor-not-allowed"
+                    style="background-color: var(--theme-bg); color: var(--theme-text); border: 1px solid var(--theme-border);"
                 >
                   <Download class="w-3 h-3 mr-1" />导出
                 </button>
                 <button
-                  @click="handleCopy(r)"
-                  :disabled="actionId === r.id"
-                  class="inline-flex items-center px-2.5 py-1.5 rounded-lg text-xs transition hover:opacity-80 disabled:opacity-50 disabled:cursor-not-allowed"
-                  style="background-color: var(--theme-bg); color: var(--theme-text); border: 1px solid var(--theme-border);"
+                    @click="handleCopy(r)"
+                    :disabled="actionId === r.id"
+                    class="inline-flex items-center px-2.5 py-1.5 rounded-lg text-xs transition hover:opacity-80 disabled:opacity-50 disabled:cursor-not-allowed"
+                    style="background-color: var(--theme-bg); color: var(--theme-text); border: 1px solid var(--theme-border);"
                 >
                   <Copy class="w-3 h-3 mr-1" />复制
                 </button>
                 <button
-                  @click="handleShowVersions(r)"
-                  :disabled="actionId === r.id"
-                  class="inline-flex items-center px-2.5 py-1.5 rounded-lg text-xs transition hover:opacity-80 disabled:opacity-50 disabled:cursor-not-allowed"
-                  style="background-color: var(--theme-bg); color: var(--theme-text); border: 1px solid var(--theme-border);"
+                    @click="handleShowVersions(r)"
+                    :disabled="actionId === r.id"
+                    class="inline-flex items-center px-2.5 py-1.5 rounded-lg text-xs transition hover:opacity-80 disabled:opacity-50 disabled:cursor-not-allowed"
+                    style="background-color: var(--theme-bg); color: var(--theme-text); border: 1px solid var(--theme-border);"
                 >
                   <History class="w-3 h-3 mr-1" />版本
                 </button>
                 <!-- 状态切换按钮：根据当前状态显示可用操作 -->
                 <button
-                  v-if="r.status === 'draft'"
-                  @click="handleToggleStatus(r, 'published')"
-                  :disabled="actionId === r.id"
-                  class="inline-flex items-center px-2.5 py-1.5 rounded-lg text-xs text-white transition hover:opacity-80 disabled:opacity-50 disabled:cursor-not-allowed"
-                  style="background-color: #16a34a;"
+                    v-if="r.status === 'draft'"
+                    @click="handleToggleStatus(r, 'published')"
+                    :disabled="actionId === r.id"
+                    class="inline-flex items-center px-2.5 py-1.5 rounded-lg text-xs text-white transition hover:opacity-80 disabled:opacity-50 disabled:cursor-not-allowed"
+                    style="background-color: #16a34a;"
                 >
                   <Send class="w-3 h-3 mr-1" />发布
                 </button>
                 <button
-                  v-if="r.status === 'published'"
-                  @click="handleToggleStatus(r, 'archived')"
-                  :disabled="actionId === r.id"
-                  class="inline-flex items-center px-2.5 py-1.5 rounded-lg text-xs text-white transition hover:opacity-80 disabled:opacity-50 disabled:cursor-not-allowed"
-                  style="background-color: #d97706;"
+                    v-if="r.status === 'published'"
+                    @click="handleToggleStatus(r, 'archived')"
+                    :disabled="actionId === r.id"
+                    class="inline-flex items-center px-2.5 py-1.5 rounded-lg text-xs text-white transition hover:opacity-80 disabled:opacity-50 disabled:cursor-not-allowed"
+                    style="background-color: #d97706;"
                 >
                   <Archive class="w-3 h-3 mr-1" />归档
                 </button>
                 <button
-                  v-if="r.status === 'archived'"
-                  @click="handleToggleStatus(r, 'draft')"
-                  :disabled="actionId === r.id"
-                  class="inline-flex items-center px-2.5 py-1.5 rounded-lg text-xs text-white transition hover:opacity-80 disabled:opacity-50 disabled:cursor-not-allowed"
-                  style="background-color: #2563eb;"
+                    v-if="r.status === 'archived'"
+                    @click="handleToggleStatus(r, 'draft')"
+                    :disabled="actionId === r.id"
+                    class="inline-flex items-center px-2.5 py-1.5 rounded-lg text-xs text-white transition hover:opacity-80 disabled:opacity-50 disabled:cursor-not-allowed"
+                    style="background-color: #2563eb;"
                 >
                   <Archive class="w-3 h-3 mr-1" />恢复
                 </button>
                 <button
-                  @click="handleDelete(r)"
-                  :disabled="actionId === r.id"
-                  class="inline-flex items-center px-2.5 py-1.5 rounded-lg text-xs text-white transition hover:opacity-80 disabled:opacity-50 disabled:cursor-not-allowed"
-                  style="background-color: #ef4444;"
+                    @click="handleDelete(r)"
+                    :disabled="actionId === r.id"
+                    class="inline-flex items-center px-2.5 py-1.5 rounded-lg text-xs text-white transition hover:opacity-80 disabled:opacity-50 disabled:cursor-not-allowed"
+                    style="background-color: #ef4444;"
                 >
                   <Trash2 class="w-3 h-3 mr-1" />删除
                 </button>
@@ -512,10 +493,10 @@ function gotoPage(p: number) {
           <!-- 分页 -->
           <div v-if="totalPages > 1" class="flex flex-wrap items-center justify-center gap-2 mt-8">
             <button
-              @click="gotoPage(page - 1)"
-              :disabled="page === 1"
-              class="px-3 py-2 rounded-lg text-sm transition disabled:opacity-40 disabled:cursor-not-allowed"
-              style="background-color: var(--theme-surface); border: 1px solid var(--theme-border); color: var(--theme-text);"
+                @click="gotoPage(page - 1)"
+                :disabled="page === 1"
+                class="px-3 py-2 rounded-lg text-sm transition disabled:opacity-40 disabled:cursor-not-allowed"
+                style="background-color: var(--theme-surface); border: 1px solid var(--theme-border); color: var(--theme-text);"
             >
               上一页
             </button>
@@ -523,10 +504,10 @@ function gotoPage(p: number) {
               第 {{ page }} / {{ totalPages }} 页
             </span>
             <button
-              @click="gotoPage(page + 1)"
-              :disabled="page === totalPages"
-              class="px-3 py-2 rounded-lg text-sm transition disabled:opacity-40 disabled:cursor-not-allowed"
-              style="background-color: var(--theme-surface); border: 1px solid var(--theme-border); color: var(--theme-text);"
+                @click="gotoPage(page + 1)"
+                :disabled="page === totalPages"
+                class="px-3 py-2 rounded-lg text-sm transition disabled:opacity-40 disabled:cursor-not-allowed"
+                style="background-color: var(--theme-surface); border: 1px solid var(--theme-border); color: var(--theme-text);"
             >
               下一页
             </button>
@@ -538,14 +519,14 @@ function gotoPage(p: number) {
 
     <!-- 版本历史模态框 -->
     <div
-      v-if="versionModal.open"
-      class="fixed inset-0 z-50 flex items-center justify-center p-4"
-      style="background-color: rgba(0,0,0,0.5);"
-      @click.self="closeVersionModal"
+        v-if="versionModal.open"
+        class="fixed inset-0 z-50 flex items-center justify-center p-4"
+        style="background-color: rgba(0,0,0,0.5);"
+        @click.self="closeVersionModal"
     >
       <div
-        class="rounded-xl shadow-xl w-full max-w-2xl max-h-[80vh] flex flex-col"
-        style="background-color: var(--theme-surface); border: 1px solid var(--theme-border);"
+          class="rounded-xl shadow-xl w-full max-w-2xl max-h-[80vh] flex flex-col"
+          style="background-color: var(--theme-surface); border: 1px solid var(--theme-border);"
       >
         <!-- 头部 -->
         <div class="flex items-center justify-between p-4 border-b" style="border-color: var(--theme-border);">
@@ -553,9 +534,9 @@ function gotoPage(p: number) {
             <History class="w-4 h-4 mr-2" />版本历史
           </h3>
           <button
-            @click="closeVersionModal"
-            class="transition hover:opacity-70"
-            style="color: var(--theme-text-secondary);"
+              @click="closeVersionModal"
+              class="transition hover:opacity-70"
+              style="color: var(--theme-text-secondary);"
           >
             <X class="w-5 h-5" />
           </button>
@@ -571,10 +552,10 @@ function gotoPage(p: number) {
           </div>
           <ul v-else class="space-y-2">
             <li
-              v-for="v in versionModal.list"
-              :key="v.id"
-              class="rounded-lg p-3 flex items-center justify-between gap-3"
-              style="background-color: var(--theme-bg); border: 1px solid var(--theme-border);"
+                v-for="v in versionModal.list"
+                :key="v.id"
+                class="rounded-lg p-3 flex items-center justify-between gap-3"
+                style="background-color: var(--theme-bg); border: 1px solid var(--theme-border);"
             >
               <div class="flex-1 min-w-0">
                 <div class="flex items-center gap-2 mb-1">
@@ -582,8 +563,8 @@ function gotoPage(p: number) {
                     v{{ v.versionNo || 1 }}
                   </span>
                   <span
-                    class="px-2 py-0.5 rounded-full text-xs font-medium"
-                    :class="statusClass(v)"
+                      class="px-2 py-0.5 rounded-full text-xs font-medium"
+                      :class="statusClass(v)"
                   >
                     {{ statusLabel(v) }}
                   </span>
@@ -596,9 +577,9 @@ function gotoPage(p: number) {
                 </p>
               </div>
               <button
-                @click="gotoEdit(v.id); closeVersionModal()"
-                class="shrink-0 inline-flex items-center px-2.5 py-1.5 rounded-lg text-xs transition hover:opacity-80"
-                style="background-color: var(--theme-surface); color: var(--theme-primary); border: 1px solid var(--theme-border);"
+                  @click="gotoEdit(v.id); closeVersionModal()"
+                  class="shrink-0 inline-flex items-center px-2.5 py-1.5 rounded-lg text-xs transition hover:opacity-80"
+                  style="background-color: var(--theme-surface); color: var(--theme-primary); border: 1px solid var(--theme-border);"
               >
                 <Pencil class="w-3 h-3 mr-1" />编辑
               </button>

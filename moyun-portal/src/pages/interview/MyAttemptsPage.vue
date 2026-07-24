@@ -130,14 +130,14 @@ function passLabel(sub: InterviewSubmissionVO) {
   <div class="min-h-screen flex flex-col" style="background-color: var(--theme-bg);">
     <!-- 顶部返回栏 -->
     <div
-      class="border-b sticky top-0 z-30 backdrop-blur-sm"
-      style="background-color: var(--theme-surface); border-color: var(--theme-border);"
+        class="border-b sticky top-0 z-30 backdrop-blur-sm"
+        style="background-color: var(--theme-surface); border-color: var(--theme-border);"
     >
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex items-center justify-between">
         <button
-          @click="goBack"
-          class="flex items-center text-sm transition hover:opacity-80"
-          style="color: var(--theme-text-secondary);"
+            @click="goBack"
+            class="flex items-center text-sm transition hover:opacity-80"
+            style="color: var(--theme-text-secondary);"
         >
           <ArrowLeft class="w-4 h-4 mr-1" />
           返回面试指南
@@ -147,48 +147,29 @@ function passLabel(sub: InterviewSubmissionVO) {
       </div>
     </div>
 
-    <!-- Hero 区 -->
-    <div class="py-6 sm:py-8">
-      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div class="relative overflow-hidden rounded-2xl text-white" style="background-image: radial-gradient(circle at 20% 30%, rgba(99, 102, 241, 0.4) 0%, transparent 50%), radial-gradient(circle at 80% 70%, rgba(168, 85, 247, 0.4) 0%, transparent 50%), linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);">
-          <div class="absolute inset-0 opacity-10 pointer-events-none" aria-hidden="true">
-            <svg class="absolute top-6 left-8 w-32 h-32 text-white" viewBox="0 0 24 24" fill="currentColor"><path d="M9.4 16.6L4.8 12l4.6-4.6L8 6l-6 6 6 6 1.4-1.4zm5.2 0L19.2 12l-4.6-4.6L16 6l6 6-6 6-1.4-1.4z"/></svg>
-            <svg class="absolute bottom-4 right-10 w-40 h-40 text-white" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 4c-3.31 0-6 2.69-6 6s2.69 6 6 6 6-2.69 6-6-2.69-6-6-6zm0 2c2.21 0 4 1.79 4 4s-1.79 4-4 4-4-1.79-4-4 1.79-4 4-4zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"/></svg>
-          </div>
-          <div class="relative px-6 py-8 sm:px-10 sm:py-10 text-center">
-            <div class="inline-flex items-center bg-white/10 backdrop-blur-sm px-4 py-1.5 rounded-full text-sm mb-4">
-              <Code class="w-4 h-4 mr-2" /> 墨韵 · 答题历史
-            </div>
-            <h1 class="text-3xl md:text-4xl font-bold mb-3">我的答题</h1>
-            <p class="text-sm md:text-base opacity-90">回顾每一次提交，从结果中复盘成长</p>
-          </div>
-        </div>
-      </div>
-    </div>
-
     <!-- 内容区 -->
     <div class="flex-1 py-8">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <!-- 加载状态 -->
         <div v-if="loading" class="text-center py-16">
           <div
-            class="animate-spin rounded-full h-10 w-10 border-2 mx-auto"
-            style="border-color: var(--theme-border); border-top-color: var(--theme-primary);"
+              class="animate-spin rounded-full h-10 w-10 border-2 mx-auto"
+              style="border-color: var(--theme-border); border-top-color: var(--theme-primary);"
           ></div>
           <p class="mt-4 text-sm" style="color: var(--theme-text-secondary);">加载中...</p>
         </div>
 
         <!-- 错误状态 -->
         <div
-          v-else-if="error"
-          class="rounded-xl border p-8 text-center"
-          style="background-color: var(--theme-surface); border-color: var(--theme-border);"
+            v-else-if="error"
+            class="rounded-xl border p-8 text-center"
+            style="background-color: var(--theme-surface); border-color: var(--theme-border);"
         >
           <p class="mb-4 text-sm" style="color: var(--theme-text);">{{ error }}</p>
           <button
-            @click="loadSubmissions"
-            class="px-4 py-2 text-white rounded-lg text-sm transition hover:opacity-90"
-            style="background-color: var(--theme-primary);"
+              @click="loadSubmissions"
+              class="px-4 py-2 text-white rounded-lg text-sm transition hover:opacity-90"
+              style="background-color: var(--theme-primary);"
           >
             重试
           </button>
@@ -196,16 +177,16 @@ function passLabel(sub: InterviewSubmissionVO) {
 
         <!-- 空状态 -->
         <div
-          v-else-if="submissions.length === 0"
-          class="rounded-xl border p-12 text-center"
-          style="background-color: var(--theme-surface); border-color: var(--theme-border);"
+            v-else-if="submissions.length === 0"
+            class="rounded-xl border p-12 text-center"
+            style="background-color: var(--theme-surface); border-color: var(--theme-border);"
         >
           <Code class="w-12 h-12 mx-auto mb-3" style="color: var(--theme-text-secondary); opacity: 0.5;" />
           <p class="text-sm mb-4" style="color: var(--theme-text-secondary);">还没有答题记录</p>
           <button
-            @click="router.push('/interview/questions')"
-            class="px-4 py-2 text-white rounded-lg text-sm transition hover:opacity-90"
-            style="background-color: var(--theme-primary);"
+              @click="router.push('/interview/questions')"
+              class="px-4 py-2 text-white rounded-lg text-sm transition hover:opacity-90"
+              style="background-color: var(--theme-primary);"
           >
             去做题
           </button>
@@ -215,40 +196,40 @@ function passLabel(sub: InterviewSubmissionVO) {
         <template v-else>
           <div class="space-y-4">
             <div
-              v-for="sub in submissions"
-              :key="sub.id"
-              @click="gotoQuestion(sub)"
-              class="rounded-xl shadow-sm hover:shadow-md transition cursor-pointer p-5"
-              style="background-color: var(--theme-surface); border: 1px solid var(--theme-border);"
+                v-for="sub in submissions"
+                :key="sub.id"
+                @click="gotoQuestion(sub)"
+                class="rounded-xl shadow-sm hover:shadow-md transition cursor-pointer p-5"
+                style="background-color: var(--theme-surface); border: 1px solid var(--theme-border);"
             >
               <!-- 标签行 -->
               <div class="flex items-center flex-wrap gap-2 mb-2">
                 <span
-                  class="px-2.5 py-1 rounded-full text-xs font-medium"
-                  :class="diffClass(sub)"
+                    class="px-2.5 py-1 rounded-full text-xs font-medium"
+                    :class="diffClass(sub)"
                 >
                   {{ diffLabel(sub) }}
                 </span>
                 <span
-                  class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium"
-                  style="background-color: var(--theme-bg); color: var(--theme-text-secondary);"
+                    class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium"
+                    style="background-color: var(--theme-bg); color: var(--theme-text-secondary);"
                 >
                   <component :is="answerTypeIcon(sub)" class="w-3 h-3 mr-1" />
                   {{ answerType(sub) }}
                 </span>
                 <!-- 通过 / 未通过 -->
                 <span
-                  class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium"
-                  :class="isPass(sub) ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'"
+                    class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium"
+                    :class="isPass(sub) ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'"
                 >
                   <CheckCircle v-if="isPass(sub)" class="w-3 h-3 mr-1" />
                   <XCircle v-else class="w-3 h-3 mr-1" />
                   {{ passLabel(sub) }}
                 </span>
                 <span
-                  v-if="sub.language"
-                  class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium"
-                  style="background-color: var(--theme-bg); color: var(--theme-primary);"
+                    v-if="sub.language"
+                    class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium"
+                    style="background-color: var(--theme-bg); color: var(--theme-primary);"
                 >
                   <Code class="w-3 h-3 mr-1" />
                   {{ sub.language }}
@@ -262,9 +243,9 @@ function passLabel(sub: InterviewSubmissionVO) {
 
               <!-- 答案片段 -->
               <p
-                v-if="sub.code || sub.content"
-                class="text-sm line-clamp-2 mb-3 font-mono"
-                style="color: var(--theme-text-secondary);"
+                  v-if="sub.code || sub.content"
+                  class="text-sm line-clamp-2 mb-3 font-mono"
+                  style="color: var(--theme-text-secondary);"
               >
                 {{ sub.code || sub.content }}
               </p>
@@ -287,11 +268,11 @@ function passLabel(sub: InterviewSubmissionVO) {
           <!-- 分页 -->
           <div v-if="totalPages > 1" class="flex flex-wrap items-center justify-center gap-2 mt-8">
             <button
-              @click="gotoPage(page - 1)"
-              :disabled="page === 1"
-              :aria-label="`第 ${page - 1} 页`"
-              class="px-3 py-2 rounded-lg text-sm transition disabled:opacity-40 disabled:cursor-not-allowed flex items-center"
-              style="background-color: var(--theme-surface); border: 1px solid var(--theme-border); color: var(--theme-text);"
+                @click="gotoPage(page - 1)"
+                :disabled="page === 1"
+                :aria-label="`第 ${page - 1} 页`"
+                class="px-3 py-2 rounded-lg text-sm transition disabled:opacity-40 disabled:cursor-not-allowed flex items-center"
+                style="background-color: var(--theme-surface); border: 1px solid var(--theme-border); color: var(--theme-text);"
             >
               <ChevronLeft class="w-4 h-4" />
               上一页
@@ -300,11 +281,11 @@ function passLabel(sub: InterviewSubmissionVO) {
               第 {{ page }} / {{ totalPages }} 页
             </span>
             <button
-              @click="gotoPage(page + 1)"
-              :disabled="page === totalPages"
-              :aria-label="`第 ${page + 1} 页`"
-              class="px-3 py-2 rounded-lg text-sm transition disabled:opacity-40 disabled:cursor-not-allowed flex items-center"
-              style="background-color: var(--theme-surface); border: 1px solid var(--theme-border); color: var(--theme-text);"
+                @click="gotoPage(page + 1)"
+                :disabled="page === totalPages"
+                :aria-label="`第 ${page + 1} 页`"
+                class="px-3 py-2 rounded-lg text-sm transition disabled:opacity-40 disabled:cursor-not-allowed flex items-center"
+                style="background-color: var(--theme-surface); border: 1px solid var(--theme-border); color: var(--theme-text);"
             >
               下一页
               <ChevronRight class="w-4 h-4" />

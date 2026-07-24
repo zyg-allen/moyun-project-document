@@ -249,14 +249,14 @@ function formatTime(t?: string): string {
   <div class="min-h-screen flex flex-col" style="background-color: var(--theme-bg);">
     <!-- 顶部返回栏 -->
     <div
-      class="border-b sticky top-0 z-30 backdrop-blur-sm"
-      style="background-color: var(--theme-surface); border-color: var(--theme-border);"
+        class="border-b sticky top-0 z-30 backdrop-blur-sm"
+        style="background-color: var(--theme-surface); border-color: var(--theme-border);"
     >
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex items-center justify-between">
         <button
-          @click="goBack"
-          class="flex items-center text-sm transition hover:opacity-80"
-          style="color: var(--theme-text-secondary);"
+            @click="goBack"
+            class="flex items-center text-sm transition hover:opacity-80"
+            style="color: var(--theme-text-secondary);"
         >
           <ArrowLeft class="w-4 h-4 mr-1" />
           {{ stage === 'start' ? '返回面试指南' : '返回' }}
@@ -270,52 +270,35 @@ function formatTime(t?: string): string {
 
     <!-- ============ 开始页 ============ -->
     <template v-if="stage === 'start'">
-      <div class="py-6 sm:py-8">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div class="relative overflow-hidden rounded-2xl text-white" style="background-image: radial-gradient(circle at 20% 30%, rgba(99, 102, 241, 0.4) 0%, transparent 50%), radial-gradient(circle at 80% 70%, rgba(168, 85, 247, 0.4) 0%, transparent 50%), linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);">
-            <div class="absolute inset-0 opacity-10 pointer-events-none" aria-hidden="true">
-              <svg class="absolute top-6 left-8 w-32 h-32 text-white" viewBox="0 0 24 24" fill="currentColor"><path d="M9.4 16.6L4.8 12l4.6-4.6L8 6l-6 6 6 6 1.4-1.4zm5.2 0L19.2 12l-4.6-4.6L16 6l6 6-6 6-1.4-1.4z"/></svg>
-              <svg class="absolute bottom-4 right-10 w-40 h-40 text-white" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 4c-3.31 0-6 2.69-6 6s2.69 6 6 6 6-2.69 6-6-2.69-6-6-6zm0 2c2.21 0 4 1.79 4 4s-1.79 4-4 4-4-1.79-4-4 1.79-4 4-4zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"/></svg>
-            </div>
-            <div class="relative px-6 py-8 sm:px-10 sm:py-10 text-center">
-              <div class="inline-flex items-center bg-white/10 backdrop-blur-sm px-4 py-1.5 rounded-full text-sm mb-3">
-                <Sparkles class="w-4 h-4 mr-2" /> 墨韵 · 模拟面试
-              </div>
-              <h1 class="text-2xl md:text-3xl font-bold mb-2">AI 模拟面试官</h1>
-              <p class="text-sm opacity-90">选择岗位与场景，系统抽取 5 道题，作答后即时规则评分</p>
-            </div>
-          </div>
-        </div>
-      </div>
-
       <div class="flex-1 py-8">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <!-- 配置卡片 -->
           <div
-            class="rounded-xl border p-6 mb-6"
-            style="background-color: var(--theme-surface); border-color: var(--theme-border);"
+              class="rounded-xl border p-6 mb-6"
+              style="background-color: var(--theme-surface); border-color: var(--theme-border);"
           >
-            <h2 class="text-base font-semibold mb-4 flex items-center" style="color: var(--theme-text);">
+            <h2 class="text-base font-semibold mb-1 flex items-center" style="color: var(--theme-text);">
               <MessageSquare class="w-4 h-4 mr-2" />面试配置
             </h2>
+            <p class="text-xs mb-4" style="color: var(--theme-text-secondary);">选择岗位与场景，系统抽取 5 道题，作答后即时规则评分</p>
 
             <!-- 岗位 -->
             <div class="mb-5">
               <label class="block text-sm mb-2" style="color: var(--theme-text);">面试岗位</label>
               <input
-                v-model="position"
-                type="text"
-                class="w-full px-3 py-2 rounded-lg text-sm focus:outline-none"
-                style="background-color: var(--theme-bg); color: var(--theme-text); border: 1px solid var(--theme-border);"
-                placeholder="如 后端开发工程师（可留空）"
+                  v-model="position"
+                  type="text"
+                  class="w-full px-3 py-2 rounded-lg text-sm focus:outline-none"
+                  style="background-color: var(--theme-bg); color: var(--theme-text); border: 1px solid var(--theme-border);"
+                  placeholder="如 后端开发工程师（可留空）"
               />
               <div class="flex flex-wrap gap-1.5 mt-2">
                 <button
-                  v-for="p in positionPresets"
-                  :key="p"
-                  @click="position = p"
-                  class="px-2.5 py-1 rounded-full text-xs transition"
-                  :style="position === p
+                    v-for="p in positionPresets"
+                    :key="p"
+                    @click="position = p"
+                    class="px-2.5 py-1 rounded-full text-xs transition"
+                    :style="position === p
                     ? { backgroundColor: 'var(--theme-primary)', color: '#fff' }
                     : { backgroundColor: 'var(--theme-bg)', color: 'var(--theme-text-secondary)', border: '1px solid var(--theme-border)' }"
                 >{{ p }}</button>
@@ -326,19 +309,19 @@ function formatTime(t?: string): string {
             <div class="mb-6">
               <label class="block text-sm mb-2" style="color: var(--theme-text);">面试场景</label>
               <input
-                v-model="scene"
-                type="text"
-                class="w-full px-3 py-2 rounded-lg text-sm focus:outline-none"
-                style="background-color: var(--theme-bg); color: var(--theme-text); border: 1px solid var(--theme-border);"
-                placeholder="如 算法 / 系统设计（按题目标签匹配，可留空）"
+                  v-model="scene"
+                  type="text"
+                  class="w-full px-3 py-2 rounded-lg text-sm focus:outline-none"
+                  style="background-color: var(--theme-bg); color: var(--theme-text); border: 1px solid var(--theme-border);"
+                  placeholder="如 算法 / 系统设计（按题目标签匹配，可留空）"
               />
               <div class="flex flex-wrap gap-1.5 mt-2">
                 <button
-                  v-for="s in scenePresets"
-                  :key="s"
-                  @click="scene = s"
-                  class="px-2.5 py-1 rounded-full text-xs transition"
-                  :style="scene === s
+                    v-for="s in scenePresets"
+                    :key="s"
+                    @click="scene = s"
+                    class="px-2.5 py-1 rounded-full text-xs transition"
+                    :style="scene === s
                     ? { backgroundColor: 'var(--theme-primary)', color: '#fff' }
                     : { backgroundColor: 'var(--theme-bg)', color: 'var(--theme-text-secondary)', border: '1px solid var(--theme-border)' }"
                 >{{ s }}</button>
@@ -346,10 +329,10 @@ function formatTime(t?: string): string {
             </div>
 
             <button
-              @click="handleStart"
-              :disabled="starting"
-              class="w-full inline-flex items-center justify-center px-4 py-2.5 text-white rounded-lg text-sm transition hover:opacity-90 disabled:opacity-50"
-              style="background-color: var(--theme-primary);"
+                @click="handleStart"
+                :disabled="starting"
+                class="w-full inline-flex items-center justify-center px-4 py-2.5 text-white rounded-lg text-sm transition hover:opacity-90 disabled:opacity-50"
+                style="background-color: var(--theme-primary);"
             >
               <Loader2 v-if="starting" class="w-4 h-4 mr-1.5 animate-spin" />
               <Sparkles v-else class="w-4 h-4 mr-1.5" />
@@ -368,19 +351,19 @@ function formatTime(t?: string): string {
             </div>
             <div class="divide-y" style="border-color: var(--theme-border);">
               <button
-                v-for="item in history"
-                :key="item.id"
-                @click="viewHistoryDetail(item)"
-                class="w-full text-left px-5 py-3 transition hover:opacity-80"
-                style="border-color: var(--theme-border);"
+                  v-for="item in history"
+                  :key="item.id"
+                  @click="viewHistoryDetail(item)"
+                  class="w-full text-left px-5 py-3 transition hover:opacity-80"
+                  style="border-color: var(--theme-border);"
               >
                 <div class="flex items-center justify-between mb-1">
                   <span class="text-sm font-medium" style="color: var(--theme-text);">
                     {{ item.position || '未指定岗位' }} · {{ item.scene || '综合' }}
                   </span>
                   <span
-                    class="text-xs px-2 py-0.5 rounded"
-                    :style="item.status === 'finished'
+                      class="text-xs px-2 py-0.5 rounded"
+                      :style="item.status === 'finished'
                       ? { backgroundColor: 'rgba(22,163,74,0.12)', color: '#16a34a' }
                       : { backgroundColor: 'rgba(245,158,11,0.12)', color: '#f59e0b' }"
                   >
@@ -398,9 +381,9 @@ function formatTime(t?: string): string {
             </div>
           </div>
           <div
-            v-else-if="!historyLoading"
-            class="rounded-xl border p-8 text-center"
-            style="background-color: var(--theme-surface); border-color: var(--theme-border);"
+              v-else-if="!historyLoading"
+              class="rounded-xl border p-8 text-center"
+              style="background-color: var(--theme-surface); border-color: var(--theme-border);"
           >
             <MessageSquare class="w-10 h-10 mx-auto mb-3" style="color: var(--theme-text-secondary); opacity: 0.4;" />
             <p class="text-sm" style="color: var(--theme-text-secondary);">还没有模拟面试记录，开始第一次吧</p>
@@ -424,8 +407,8 @@ function formatTime(t?: string): string {
           </div>
           <div class="h-1.5 rounded-full overflow-hidden" style="background-color: var(--theme-bg);">
             <div
-              class="h-full rounded-full transition-all"
-              :style="{ width: progressPercent + '%', backgroundColor: 'var(--theme-primary)' }"
+                class="h-full rounded-full transition-all"
+                :style="{ width: progressPercent + '%', backgroundColor: 'var(--theme-primary)' }"
             ></div>
           </div>
         </div>
@@ -436,28 +419,28 @@ function formatTime(t?: string): string {
           <!-- 题目导航 -->
           <div class="flex items-center gap-1.5 mb-4 flex-wrap">
             <button
-              v-for="(qa, idx) in interview.qaList"
-              :key="qa.id"
-              @click="gotoQuestion(idx)"
-              class="w-8 h-8 rounded-full text-xs font-medium transition flex items-center justify-center"
-              :style="idx === currentIdx
+                v-for="(qa, idx) in interview.qaList"
+                :key="qa.id"
+                @click="gotoQuestion(idx)"
+                class="w-8 h-8 rounded-full text-xs font-medium transition flex items-center justify-center"
+                :style="idx === currentIdx
                 ? { backgroundColor: 'var(--theme-primary)', color: '#fff' }
                 : qa.score != null
                   ? { backgroundColor: 'rgba(22,163,74,0.12)', color: '#16a34a', border: '1px solid rgba(22,163,74,0.3)' }
                   : { backgroundColor: 'var(--theme-bg)', color: 'var(--theme-text-secondary)', border: '1px solid var(--theme-border)' }"
-              :title="`第 ${idx + 1} 题`"
+                :title="`第 ${idx + 1} 题`"
             >{{ idx + 1 }}</button>
           </div>
 
           <!-- 题目卡片 -->
           <div
-            class="rounded-xl border p-5 mb-4"
-            style="background-color: var(--theme-surface); border-color: var(--theme-border);"
+              class="rounded-xl border p-5 mb-4"
+              style="background-color: var(--theme-surface); border-color: var(--theme-border);"
           >
             <div class="flex items-start">
               <span
-                class="inline-flex items-center justify-center w-7 h-7 rounded-full text-xs font-bold mr-3 flex-shrink-0"
-                style="background-color: var(--theme-primary); color: #fff;"
+                  class="inline-flex items-center justify-center w-7 h-7 rounded-full text-xs font-bold mr-3 flex-shrink-0"
+                  style="background-color: var(--theme-primary); color: #fff;"
               >{{ currentIdx + 1 }}</span>
               <p class="text-base font-medium leading-relaxed" style="color: var(--theme-text);">
                 {{ currentQa?.question }}
@@ -467,8 +450,8 @@ function formatTime(t?: string): string {
 
           <!-- 答案输入 -->
           <div
-            class="rounded-xl border overflow-hidden mb-4"
-            style="background-color: var(--theme-surface); border-color: var(--theme-border);"
+              class="rounded-xl border overflow-hidden mb-4"
+              style="background-color: var(--theme-surface); border-color: var(--theme-border);"
           >
             <div class="px-4 py-2 border-b flex items-center justify-between" style="border-color: var(--theme-border); background-color: var(--theme-bg);">
               <span class="text-xs font-medium" style="color: var(--theme-text-secondary);">你的回答</span>
@@ -477,19 +460,19 @@ function formatTime(t?: string): string {
               </span>
             </div>
             <textarea
-              v-model="answer"
-              :disabled="isCurrentAnswered"
-              class="w-full p-4 text-sm resize-none focus:outline-none disabled:opacity-70"
-              style="background-color: var(--theme-surface); color: var(--theme-text); height: 200px;"
-              placeholder="请在此输入你的回答，提交后将获得 AI 规则评分…"
+                v-model="answer"
+                :disabled="isCurrentAnswered"
+                class="w-full p-4 text-sm resize-none focus:outline-none disabled:opacity-70"
+                style="background-color: var(--theme-surface); color: var(--theme-text); height: 200px;"
+                placeholder="请在此输入你的回答，提交后将获得 AI 规则评分…"
             ></textarea>
           </div>
 
           <!-- 已答题反馈 -->
           <div
-            v-if="isCurrentAnswered && currentQa?.aiFeedback"
-            class="rounded-xl border p-4 mb-4"
-            style="background-color: var(--theme-bg); border-color: var(--theme-border);"
+              v-if="isCurrentAnswered && currentQa?.aiFeedback"
+              class="rounded-xl border p-4 mb-4"
+              style="background-color: var(--theme-bg); border-color: var(--theme-border);"
           >
             <div class="flex items-center mb-2">
               <Sparkles class="w-4 h-4 mr-1.5" :style="{ color: scoreColor(currentQa?.score) }" />
@@ -506,39 +489,39 @@ function formatTime(t?: string): string {
           <!-- 操作按钮 -->
           <div class="flex items-center justify-between gap-3">
             <button
-              @click="gotoPrev"
-              :disabled="currentIdx === 0"
-              class="inline-flex items-center px-3 py-2 rounded-lg text-sm transition disabled:opacity-40 disabled:cursor-not-allowed"
-              style="background-color: var(--theme-surface); color: var(--theme-text); border: 1px solid var(--theme-border);"
+                @click="gotoPrev"
+                :disabled="currentIdx === 0"
+                class="inline-flex items-center px-3 py-2 rounded-lg text-sm transition disabled:opacity-40 disabled:cursor-not-allowed"
+                style="background-color: var(--theme-surface); color: var(--theme-text); border: 1px solid var(--theme-border);"
             >
               <ChevronLeft class="w-4 h-4 mr-1" />上一题
             </button>
 
             <button
-              v-if="!isCurrentAnswered"
-              @click="handleSubmitAnswer"
-              :disabled="submitting"
-              class="inline-flex items-center px-5 py-2 text-white rounded-lg text-sm transition hover:opacity-90 disabled:opacity-50"
-              style="background-color: var(--theme-primary);"
+                v-if="!isCurrentAnswered"
+                @click="handleSubmitAnswer"
+                :disabled="submitting"
+                class="inline-flex items-center px-5 py-2 text-white rounded-lg text-sm transition hover:opacity-90 disabled:opacity-50"
+                style="background-color: var(--theme-primary);"
             >
               <Loader2 v-if="submitting" class="w-4 h-4 mr-1 animate-spin" />
               <CheckCircle2 v-else class="w-4 h-4 mr-1" />
               {{ submitting ? '评分中…' : '提交并评分' }}
             </button>
             <button
-              v-else-if="currentIdx < totalQa - 1"
-              @click="gotoNext"
-              class="inline-flex items-center px-5 py-2 text-white rounded-lg text-sm transition hover:opacity-90"
-              style="background-color: var(--theme-primary);"
+                v-else-if="currentIdx < totalQa - 1"
+                @click="gotoNext"
+                class="inline-flex items-center px-5 py-2 text-white rounded-lg text-sm transition hover:opacity-90"
+                style="background-color: var(--theme-primary);"
             >
               下一题<ChevronRight class="w-4 h-4 ml-1" />
             </button>
             <button
-              v-else
-              @click="handleFinish"
-              :disabled="finishing || answeredCount === 0"
-              class="inline-flex items-center px-5 py-2 text-white rounded-lg text-sm transition hover:opacity-90 disabled:opacity-50"
-              style="background-color: #16a34a;"
+                v-else
+                @click="handleFinish"
+                :disabled="finishing || answeredCount === 0"
+                class="inline-flex items-center px-5 py-2 text-white rounded-lg text-sm transition hover:opacity-90 disabled:opacity-50"
+                style="background-color: #16a34a;"
             >
               <Loader2 v-if="finishing" class="w-4 h-4 mr-1 animate-spin" />
               <Flag v-else class="w-4 h-4 mr-1" />
@@ -546,12 +529,12 @@ function formatTime(t?: string): string {
             </button>
 
             <button
-              v-if="currentIdx < totalQa - 1 || answeredCount < totalQa"
-              @click="handleFinish"
-              :disabled="finishing || answeredCount === 0"
-              class="inline-flex items-center px-3 py-2 rounded-lg text-sm transition disabled:opacity-40"
-              style="color: #16a34a; border: 1px solid var(--theme-border); background-color: var(--theme-surface);"
-              title="结束面试并生成总结"
+                v-if="currentIdx < totalQa - 1 || answeredCount < totalQa"
+                @click="handleFinish"
+                :disabled="finishing || answeredCount === 0"
+                class="inline-flex items-center px-3 py-2 rounded-lg text-sm transition disabled:opacity-40"
+                style="color: #16a34a; border: 1px solid var(--theme-border); background-color: var(--theme-surface);"
+                title="结束面试并生成总结"
             >
               <Flag class="w-4 h-4 mr-1" />结束
             </button>
@@ -567,8 +550,8 @@ function formatTime(t?: string): string {
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <!-- 总分卡片 -->
           <div
-            class="rounded-xl border p-6 mb-5 text-center"
-            style="background: linear-gradient(135deg, var(--theme-surface), color-mix(in srgb, var(--theme-primary) 8%, var(--theme-surface))); border-color: var(--theme-border);"
+              class="rounded-xl border p-6 mb-5 text-center"
+              style="background: linear-gradient(135deg, var(--theme-surface), color-mix(in srgb, var(--theme-primary) 8%, var(--theme-surface))); border-color: var(--theme-border);"
           >
             <div class="inline-flex items-center justify-center w-14 h-14 rounded-full mb-3" :style="{ backgroundColor: 'color-mix(in srgb, ' + scoreColor(interview.score) + ' 15%, transparent)' }">
               <Trophy class="w-7 h-7" :style="{ color: scoreColor(interview.score) }" />
@@ -592,21 +575,21 @@ function formatTime(t?: string): string {
               <Award class="w-4 h-4 mr-1.5" />逐题反馈
             </h3>
             <div
-              v-for="(qa, idx) in interview.qaList"
-              :key="qa.id"
-              class="rounded-xl border p-4"
-              style="background-color: var(--theme-surface); border-color: var(--theme-border);"
+                v-for="(qa, idx) in interview.qaList"
+                :key="qa.id"
+                class="rounded-xl border p-4"
+                style="background-color: var(--theme-surface); border-color: var(--theme-border);"
             >
               <div class="flex items-start mb-2">
                 <span
-                  class="inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-bold mr-3 flex-shrink-0"
-                  :style="{ backgroundColor: 'var(--theme-bg)', color: 'var(--theme-text)' }"
+                    class="inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-bold mr-3 flex-shrink-0"
+                    :style="{ backgroundColor: 'var(--theme-bg)', color: 'var(--theme-text)' }"
                 >{{ idx + 1 }}</span>
                 <p class="text-sm font-medium flex-1" style="color: var(--theme-text);">{{ qa.question }}</p>
                 <span
-                  v-if="qa.score != null"
-                  class="text-sm font-bold ml-2"
-                  :style="{ color: scoreColor(qa.score) }"
+                    v-if="qa.score != null"
+                    class="text-sm font-bold ml-2"
+                    :style="{ color: scoreColor(qa.score) }"
                 >{{ qa.score }}分</span>
                 <span v-else class="text-xs ml-2" style="color: var(--theme-text-secondary);">未作答</span>
               </div>
@@ -623,16 +606,16 @@ function formatTime(t?: string): string {
           <!-- 操作 -->
           <div class="flex items-center justify-center gap-3">
             <button
-              @click="restartInterview"
-              class="inline-flex items-center px-5 py-2 text-white rounded-lg text-sm transition hover:opacity-90"
-              style="background-color: var(--theme-primary);"
+                @click="restartInterview"
+                class="inline-flex items-center px-5 py-2 text-white rounded-lg text-sm transition hover:opacity-90"
+                style="background-color: var(--theme-primary);"
             >
               <RefreshCw class="w-4 h-4 mr-1" />再来一次
             </button>
             <button
-              @click="goBack"
-              class="inline-flex items-center px-5 py-2 rounded-lg text-sm transition hover:opacity-80"
-              style="background-color: var(--theme-surface); color: var(--theme-text); border: 1px solid var(--theme-border);"
+                @click="goBack"
+                class="inline-flex items-center px-5 py-2 rounded-lg text-sm transition hover:opacity-80"
+                style="background-color: var(--theme-surface); color: var(--theme-text); border: 1px solid var(--theme-border);"
             >
               返回
             </button>

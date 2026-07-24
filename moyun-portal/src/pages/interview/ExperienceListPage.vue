@@ -128,23 +128,23 @@ function gotoPage(p: number) {
   <div class="min-h-screen flex flex-col" style="background-color: var(--theme-bg);">
     <!-- 顶部返回栏 -->
     <div
-      class="border-b sticky top-0 z-30 backdrop-blur-sm"
-      style="background-color: var(--theme-surface); border-color: var(--theme-border);"
+        class="border-b sticky top-0 z-30 backdrop-blur-sm"
+        style="background-color: var(--theme-surface); border-color: var(--theme-border);"
     >
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex items-center justify-between">
         <button
-          @click="goBack"
-          class="flex items-center text-sm transition hover:opacity-80"
-          style="color: var(--theme-text-secondary);"
+            @click="goBack"
+            class="flex items-center text-sm transition hover:opacity-80"
+            style="color: var(--theme-text-secondary);"
         >
           <ArrowLeft class="w-4 h-4 mr-1" />
           返回面试指南
         </button>
         <span class="text-sm" style="color: var(--theme-text-secondary);">面试经验</span>
         <button
-          @click="goPublish"
-          class="inline-flex items-center px-4 py-1.5 text-sm text-white rounded-lg transition hover:opacity-90"
-          style="background-color: var(--theme-primary);"
+            @click="goPublish"
+            class="inline-flex items-center px-4 py-1.5 text-sm text-white rounded-lg transition hover:opacity-90"
+            style="background-color: var(--theme-primary);"
         >
           <PenSquare class="w-4 h-4 mr-1" />
           分享经验
@@ -162,10 +162,6 @@ function gotoPage(p: number) {
             <svg class="absolute bottom-4 right-10 w-40 h-40 text-white" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 4c-3.31 0-6 2.69-6 6s2.69 6 6 6 6-2.69 6-6-2.69-6-6-6zm0 2c2.21 0 4 1.79 4 4s-1.79 4-4 4-4-1.79-4-4 1.79-4 4-4zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"/></svg>
           </div>
           <div class="relative px-6 py-8 sm:px-10 sm:py-10 text-center">
-            <div class="inline-flex items-center bg-white/10 backdrop-blur-sm px-4 py-1.5 rounded-full text-sm mb-5">
-              <Briefcase class="w-4 h-4 mr-2" /> 墨韵 · 面经分享
-            </div>
-            <h1 class="text-4xl md:text-5xl font-bold tracking-tight mb-4">面试经验</h1>
             <p class="text-base md:text-lg text-white/90 max-w-2xl mx-auto mb-8">
               汇集真实面试经验，从大厂面经到求职心得，助你少走弯路，直达 Offer
             </p>
@@ -173,30 +169,19 @@ function gotoPage(p: number) {
             <div class="max-w-xl mx-auto rounded-xl p-2 flex items-center shadow-lg" style="background-color: var(--theme-bg);">
               <Search class="w-5 h-5 ml-2 flex-shrink-0" style="color: var(--theme-text-secondary);" />
               <input
-                v-model="searchInput"
-                @keyup.enter="doSearch"
-                type="text"
-                placeholder="搜索公司、职位、关键词..."
-                class="flex-1 px-3 py-2 focus:outline-none text-sm"
-                style="color: var(--theme-text);"
+                  v-model="searchInput"
+                  @keyup.enter="doSearch"
+                  type="text"
+                  placeholder="搜索公司、职位、关键词..."
+                  class="flex-1 px-3 py-2 focus:outline-none text-sm"
+                  style="color: var(--theme-text);"
               />
               <button
-                @click="doSearch"
-                class="px-5 py-2 rounded-lg text-sm font-medium text-white transition hover:opacity-90"
-                style="background-color: var(--theme-primary);"
+                  @click="doSearch"
+                  class="px-5 py-2 rounded-lg text-sm font-medium text-white transition hover:opacity-90"
+                  style="background-color: var(--theme-primary);"
               >
                 搜索
-              </button>
-            </div>
-            <!-- 分享经验按钮 -->
-            <div class="mt-6">
-              <button
-                @click="goPublish"
-                class="inline-flex items-center px-5 py-2.5 rounded-lg text-sm font-medium text-white transition hover:opacity-90"
-                style="background-color: rgba(255,255,255,0.2);"
-              >
-                <PenSquare class="w-4 h-4 mr-2" />
-                分享我的面试经验
               </button>
             </div>
           </div>
@@ -210,23 +195,23 @@ function gotoPage(p: number) {
         <!-- 加载状态 -->
         <div v-if="loading" class="flex flex-col items-center justify-center py-20">
           <div
-            class="animate-spin rounded-full h-12 w-12 border-b-2"
-            style="border-color: var(--theme-primary);"
+              class="animate-spin rounded-full h-12 w-12 border-b-2"
+              style="border-color: var(--theme-primary);"
           ></div>
           <p class="mt-4 text-sm" style="color: var(--theme-text-secondary);">加载中...</p>
         </div>
 
         <!-- 错误状态 -->
         <div
-          v-else-if="error"
-          class="rounded-xl border p-8 max-w-md mx-auto text-center"
-          style="background-color: var(--theme-surface); border-color: var(--theme-border);"
+            v-else-if="error"
+            class="rounded-xl border p-8 max-w-md mx-auto text-center"
+            style="background-color: var(--theme-surface); border-color: var(--theme-border);"
         >
           <p class="mb-4 text-sm" style="color: var(--theme-text);">{{ error }}</p>
           <button
-            @click="loadExperiences"
-            class="px-4 py-2 text-white rounded-lg text-sm transition hover:opacity-90"
-            style="background-color: var(--theme-primary);"
+              @click="loadExperiences"
+              class="px-4 py-2 text-white rounded-lg text-sm transition hover:opacity-90"
+              style="background-color: var(--theme-primary);"
           >
             重试
           </button>
@@ -234,16 +219,16 @@ function gotoPage(p: number) {
 
         <!-- 空数据状态 -->
         <div
-          v-else-if="experiences.length === 0"
-          class="rounded-xl border p-12 text-center"
-          style="background-color: var(--theme-surface); border-color: var(--theme-border);"
+            v-else-if="experiences.length === 0"
+            class="rounded-xl border p-12 text-center"
+            style="background-color: var(--theme-surface); border-color: var(--theme-border);"
         >
           <BookOpen class="w-12 h-12 mx-auto mb-3" style="color: var(--theme-text-secondary); opacity: 0.5;" />
           <p class="text-sm mb-4" style="color: var(--theme-text-secondary);">暂无面经，快来分享你的面试经验吧</p>
           <button
-            @click="goPublish"
-            class="inline-flex items-center px-4 py-2 text-white rounded-lg text-sm transition hover:opacity-90"
-            style="background-color: var(--theme-primary);"
+              @click="goPublish"
+              class="inline-flex items-center px-4 py-2 text-white rounded-lg text-sm transition hover:opacity-90"
+              style="background-color: var(--theme-primary);"
           >
             <PenSquare class="w-4 h-4 mr-1" />
             分享经验
@@ -254,25 +239,25 @@ function gotoPage(p: number) {
         <template v-else>
           <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 mb-8">
             <div
-              v-for="exp in experiences"
-              :key="exp.id"
-              @click="goDetail(exp.id)"
-              class="rounded-xl overflow-hidden border shadow-sm hover:shadow-lg hover:-translate-y-1 transition cursor-pointer flex flex-col"
-              style="background-color: var(--theme-surface); border-color: var(--theme-border);"
+                v-for="exp in experiences"
+                :key="exp.id"
+                @click="goDetail(exp.id)"
+                class="rounded-xl overflow-hidden border shadow-sm hover:shadow-lg hover:-translate-y-1 transition cursor-pointer flex flex-col"
+                style="background-color: var(--theme-surface); border-color: var(--theme-border);"
             >
               <!-- 封面图 -->
               <div v-if="exp.coverImage" class="h-40" style="background-color: var(--theme-bg);">
                 <LazyImage
-                  :src="exp.coverImage"
-                  :alt="exp.title"
-                  class="w-full h-full object-cover"
+                    :src="exp.coverImage"
+                    :alt="exp.title"
+                    class="w-full h-full object-cover"
                 />
               </div>
               <!-- 置顶标记 -->
               <div v-if="exp.isTop" class="relative">
                 <span
-                  class="absolute top-3 right-3 px-2 py-1 text-xs font-medium rounded-full text-white shadow-sm"
-                  style="background-color: var(--theme-primary);"
+                    class="absolute top-3 right-3 px-2 py-1 text-xs font-medium rounded-full text-white shadow-sm"
+                    style="background-color: var(--theme-primary);"
                 >
                   <Star class="w-3 h-3 inline mr-1" />置顶
                 </span>
@@ -282,24 +267,24 @@ function gotoPage(p: number) {
                 <!-- 标签行：公司 / 职位 / 年份 -->
                 <div class="flex items-center gap-2 mb-3 flex-wrap">
                   <span
-                    v-if="exp.company"
-                    class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium"
-                    style="background-color: var(--theme-bg); color: var(--theme-primary);"
+                      v-if="exp.company"
+                      class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium"
+                      style="background-color: var(--theme-bg); color: var(--theme-primary);"
                   >
                     <Briefcase class="w-3 h-3 mr-1" />
                     {{ exp.company }}
                   </span>
                   <span
-                    v-if="exp.position"
-                    class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium"
-                    style="background-color: var(--theme-bg); color: var(--theme-text-secondary);"
+                      v-if="exp.position"
+                      class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium"
+                      style="background-color: var(--theme-bg); color: var(--theme-text-secondary);"
                   >
                     {{ exp.position }}
                   </span>
                   <span
-                    v-if="exp.year"
-                    class="text-xs"
-                    style="color: var(--theme-text-secondary);"
+                      v-if="exp.year"
+                      class="text-xs"
+                      style="color: var(--theme-text-secondary);"
                   >
                     {{ exp.year }}年{{ exp.month ? exp.month + '月' : '' }}
                   </span>
@@ -307,17 +292,17 @@ function gotoPage(p: number) {
 
                 <!-- 标题 -->
                 <h3
-                  class="text-lg font-semibold mb-2 line-clamp-2"
-                  style="color: var(--theme-text);"
+                    class="text-lg font-semibold mb-2 line-clamp-2"
+                    style="color: var(--theme-text);"
                 >
                   {{ exp.title }}
                 </h3>
 
                 <!-- 摘要 -->
                 <p
-                  v-if="exp.summary || exp.content"
-                  class="text-sm mb-4 line-clamp-3 flex-1"
-                  style="color: var(--theme-text-secondary);"
+                    v-if="exp.summary || exp.content"
+                    class="text-sm mb-4 line-clamp-3 flex-1"
+                    style="color: var(--theme-text-secondary);"
                 >
                   {{ exp.summary || exp.content }}
                 </p>
@@ -327,9 +312,9 @@ function gotoPage(p: number) {
                   <div class="flex items-center min-w-0">
                     <div class="w-7 h-7 rounded-full overflow-hidden mr-2 flex-shrink-0" style="background-color: var(--theme-bg);">
                       <LazyImage
-                        :src="expAvatar(exp)"
-                        :alt="expName(exp)"
-                        class="w-full h-full object-cover"
+                          :src="expAvatar(exp)"
+                          :alt="expName(exp)"
+                          class="w-full h-full object-cover"
                       />
                     </div>
                     <span class="text-xs font-medium truncate" style="color: var(--theme-text);">{{ expName(exp) }}</span>
@@ -352,14 +337,14 @@ function gotoPage(p: number) {
 
           <!-- 分页 -->
           <div
-            v-if="totalPages() > 1"
-            class="flex flex-wrap items-center justify-center gap-2 mt-8"
+              v-if="totalPages() > 1"
+              class="flex flex-wrap items-center justify-center gap-2 mt-8"
           >
             <button
-              @click="gotoPage(page - 1)"
-              :disabled="page === 1"
-              class="px-3 py-2 rounded-lg text-sm transition disabled:opacity-40 disabled:cursor-not-allowed flex items-center"
-              style="background-color: var(--theme-surface); border: 1px solid var(--theme-border); color: var(--theme-text);"
+                @click="gotoPage(page - 1)"
+                :disabled="page === 1"
+                class="px-3 py-2 rounded-lg text-sm transition disabled:opacity-40 disabled:cursor-not-allowed flex items-center"
+                style="background-color: var(--theme-surface); border: 1px solid var(--theme-border); color: var(--theme-text);"
             >
               <ChevronLeft class="w-4 h-4" />
               上一页
@@ -368,10 +353,10 @@ function gotoPage(p: number) {
               第 {{ page }} / {{ totalPages() }} 页
             </span>
             <button
-              @click="gotoPage(page + 1)"
-              :disabled="page === totalPages()"
-              class="px-3 py-2 rounded-lg text-sm transition disabled:opacity-40 disabled:cursor-not-allowed flex items-center"
-              style="background-color: var(--theme-surface); border: 1px solid var(--theme-border); color: var(--theme-text);"
+                @click="gotoPage(page + 1)"
+                :disabled="page === totalPages()"
+                class="px-3 py-2 rounded-lg text-sm transition disabled:opacity-40 disabled:cursor-not-allowed flex items-center"
+                style="background-color: var(--theme-surface); border: 1px solid var(--theme-border); color: var(--theme-text);"
             >
               下一页
               <ChevronRight class="w-4 h-4" />

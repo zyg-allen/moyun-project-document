@@ -71,8 +71,8 @@ useHead(computed(() => generateSeo({
   description: '创建与编辑结构化简历，支持教育、工作、项目经历及技能、AI 评分与 PDF 导出',
   keywords: ['简历编辑', '创建简历', '求职简历', '简历评分', '墨韵'],
   canonicalPath: isEdit.value
-    ? `/interview/resume/edit/${editId.value}`
-    : '/interview/resume/edit',
+      ? `/interview/resume/edit/${editId.value}`
+      : '/interview/resume/edit',
   robots: 'noindex,nofollow',
 })));
 
@@ -256,13 +256,13 @@ async function handleScore() {
 // 保存成功后恢复 saved。加载阶段（loaded=false）与保存流程（saving=true）跳过，
 // 避免回填数据 / 保存后 form.id 回填触发误判。
 watch(
-  form,
-  () => {
-    if (!loaded.value) return;
-    if (saving.value) return;
-    saveStatus.value = 'idle';
-  },
-  { deep: true },
+    form,
+    () => {
+      if (!loaded.value) return;
+      if (saving.value) return;
+      saveStatus.value = 'idle';
+    },
+    { deep: true },
 );
 
 // 加载详情；返回是否成功
@@ -360,14 +360,14 @@ onBeforeRouteLeave((to, from, next) => {
   <div class="min-h-screen flex flex-col" style="background-color: var(--theme-bg);">
     <!-- 顶部操作栏 -->
     <div
-      class="border-b sticky top-0 z-30 backdrop-blur-sm"
-      style="background-color: var(--theme-surface); border-color: var(--theme-border);"
+        class="border-b sticky top-0 z-30 backdrop-blur-sm"
+        style="background-color: var(--theme-surface); border-color: var(--theme-border);"
     >
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex items-center justify-between gap-2">
         <button
-          @click="goBack"
-          class="flex items-center text-sm transition hover:opacity-80 shrink-0"
-          style="color: var(--theme-text-secondary);"
+            @click="goBack"
+            class="flex items-center text-sm transition hover:opacity-80 shrink-0"
+            style="color: var(--theme-text-secondary);"
         >
           <ArrowLeft class="w-4 h-4 mr-1" />
           返回
@@ -376,41 +376,41 @@ onBeforeRouteLeave((to, from, next) => {
         <div class="flex items-center gap-2 shrink-0">
           <!-- 保存状态指示（手动保存时显示） -->
           <span
-            v-if="saveStatus !== 'idle'"
-            class="text-xs hidden sm:inline-flex items-center"
-            style="color: var(--theme-text-secondary);"
+              v-if="saveStatus !== 'idle'"
+              class="text-xs hidden sm:inline-flex items-center"
+              style="color: var(--theme-text-secondary);"
           >
             <span v-if="saveStatus === 'saving'">保存中...</span>
             <span v-else-if="saveStatus === 'saved'" class="flex items-center">
               <span
-                class="w-1.5 h-1.5 rounded-full mr-1"
-                style="background-color: var(--theme-primary);"
+                  class="w-1.5 h-1.5 rounded-full mr-1"
+                  style="background-color: var(--theme-primary);"
               ></span>
               已保存
             </span>
           </span>
           <button
-            @click="handleSaveDraft"
-            class="inline-flex items-center px-3 py-1.5 rounded-lg text-sm transition hover:opacity-90"
-            style="background-color: var(--theme-bg); color: var(--theme-text); border: 1px solid var(--theme-border);"
+              @click="handleSaveDraft"
+              class="inline-flex items-center px-3 py-1.5 rounded-lg text-sm transition hover:opacity-90"
+              style="background-color: var(--theme-bg); color: var(--theme-text); border: 1px solid var(--theme-border);"
           >
             <Save class="w-4 h-4 mr-1" />
             保存草稿
           </button>
           <button
-            @click="handleExportPdf"
-            :disabled="exporting"
-            class="inline-flex items-center px-3 py-1.5 rounded-lg text-sm transition hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
-            style="background-color: var(--theme-bg); color: var(--theme-text); border: 1px solid var(--theme-border);"
+              @click="handleExportPdf"
+              :disabled="exporting"
+              class="inline-flex items-center px-3 py-1.5 rounded-lg text-sm transition hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
+              style="background-color: var(--theme-bg); color: var(--theme-text); border: 1px solid var(--theme-border);"
           >
             <Download class="w-4 h-4 mr-1" />
             {{ exporting ? '导出中...' : '导出PDF' }}
           </button>
           <button
-            @click="handleScore"
-            :disabled="scoring"
-            class="inline-flex items-center px-3 py-1.5 rounded-lg text-sm text-white transition hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
-            style="background-color: var(--theme-primary);"
+              @click="handleScore"
+              :disabled="scoring"
+              class="inline-flex items-center px-3 py-1.5 rounded-lg text-sm text-white transition hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
+              style="background-color: var(--theme-primary);"
           >
             <Star class="w-4 h-4 mr-1" />
             {{ scoring ? '评分中...' : '评分' }}
@@ -422,40 +422,30 @@ onBeforeRouteLeave((to, from, next) => {
     <!-- 内容区 -->
     <div class="flex-1 py-8">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <!-- 标题 -->
-        <div class="mb-6 text-center">
-          <h1 class="text-3xl font-bold tracking-tight mb-2" style="color: var(--theme-text);">
-            {{ pageTitle }}
-          </h1>
-          <p class="text-sm" style="color: var(--theme-text-secondary);">
-            完善简历各部分，完成后请手动保存
-          </p>
-        </div>
-
         <!-- 加载详情中 -->
         <div
-          v-if="loadingDetail"
-          class="rounded-xl border p-12 text-center"
-          style="background-color: var(--theme-surface); border-color: var(--theme-border);"
+            v-if="loadingDetail"
+            class="rounded-xl border p-12 text-center"
+            style="background-color: var(--theme-surface); border-color: var(--theme-border);"
         >
           <div
-            class="animate-spin rounded-full h-10 w-10 border-2 mx-auto"
-            style="border-color: var(--theme-border); border-top-color: var(--theme-primary);"
+              class="animate-spin rounded-full h-10 w-10 border-2 mx-auto"
+              style="border-color: var(--theme-border); border-top-color: var(--theme-primary);"
           ></div>
           <p class="mt-4 text-sm" style="color: var(--theme-text-secondary);">加载中...</p>
         </div>
 
         <!-- 加载失败 -->
         <div
-          v-else-if="pageError"
-          class="rounded-xl border p-8 text-center"
-          style="background-color: var(--theme-surface); border-color: var(--theme-border);"
+            v-else-if="pageError"
+            class="rounded-xl border p-8 text-center"
+            style="background-color: var(--theme-surface); border-color: var(--theme-border);"
         >
           <p class="mb-4 text-sm" style="color: var(--theme-text);">{{ pageError }}</p>
           <button
-            @click="loadDetail"
-            class="px-4 py-2 text-white rounded-lg text-sm transition hover:opacity-90"
-            style="background-color: var(--theme-primary);"
+              @click="loadDetail"
+              class="px-4 py-2 text-white rounded-lg text-sm transition hover:opacity-90"
+              style="background-color: var(--theme-primary);"
           >
             重试
           </button>
@@ -464,10 +454,10 @@ onBeforeRouteLeave((to, from, next) => {
         <template v-else>
           <!-- 评分面板 -->
           <div
-            v-if="form.scoreDetail && form.scoreDetail.length > 0"
-            id="resume-score-panel"
-            class="rounded-xl border p-6 mb-6"
-            style="background-color: var(--theme-surface); border-color: var(--theme-border);"
+              v-if="form.scoreDetail && form.scoreDetail.length > 0"
+              id="resume-score-panel"
+              class="rounded-xl border p-6 mb-6"
+              style="background-color: var(--theme-surface); border-color: var(--theme-border);"
           >
             <div class="flex items-center justify-between mb-4">
               <h3 class="text-base font-semibold flex items-center" style="color: var(--theme-text);">
@@ -489,8 +479,8 @@ onBeforeRouteLeave((to, from, next) => {
                 </div>
                 <div class="w-full h-2 rounded-full" style="background-color: var(--theme-bg);">
                   <div
-                    class="h-2 rounded-full transition-all"
-                    :style="{ width: scorePercent(item) + '%', backgroundColor: 'var(--theme-primary)' }"
+                      class="h-2 rounded-full transition-all"
+                      :style="{ width: scorePercent(item) + '%', backgroundColor: 'var(--theme-primary)' }"
                   ></div>
                 </div>
                 <p v-if="item.message" class="text-xs mt-1" style="color: var(--theme-text-secondary);">
@@ -502,27 +492,27 @@ onBeforeRouteLeave((to, from, next) => {
 
           <!-- 1. 简历标题 -->
           <div
-            class="rounded-xl border p-6 mb-5"
-            style="background-color: var(--theme-surface); border-color: var(--theme-border);"
+              class="rounded-xl border p-6 mb-5"
+              style="background-color: var(--theme-surface); border-color: var(--theme-border);"
           >
             <h3 class="text-base font-semibold mb-4 flex items-center" style="color: var(--theme-text);">
               <FileText class="w-4 h-4 mr-2" style="color: var(--theme-primary);" />
               简历标题
             </h3>
             <input
-              v-model="form.title"
-              type="text"
-              placeholder="例如：张三 - 前端开发工程师简历"
-              maxlength="100"
-              class="w-full px-3 py-2 rounded-lg text-sm focus:outline-none"
-              style="background-color: var(--theme-bg); border: 1px solid var(--theme-border); color: var(--theme-text);"
+                v-model="form.title"
+                type="text"
+                placeholder="例如：张三 - 前端开发工程师简历"
+                maxlength="100"
+                class="w-full px-3 py-2 rounded-lg text-sm focus:outline-none"
+                style="background-color: var(--theme-bg); border: 1px solid var(--theme-border); color: var(--theme-text);"
             />
           </div>
 
           <!-- 2. 基本信息 -->
           <div
-            class="rounded-xl border p-6 mb-5"
-            style="background-color: var(--theme-surface); border-color: var(--theme-border);"
+              class="rounded-xl border p-6 mb-5"
+              style="background-color: var(--theme-surface); border-color: var(--theme-border);"
           >
             <h3 class="text-base font-semibold mb-4 flex items-center" style="color: var(--theme-text);">
               <User class="w-4 h-4 mr-2" style="color: var(--theme-primary);" />
@@ -532,19 +522,19 @@ onBeforeRouteLeave((to, from, next) => {
               <div>
                 <label class="block text-sm font-medium mb-1.5" style="color: var(--theme-text);">姓名</label>
                 <input
-                  v-model="form.name"
-                  type="text"
-                  placeholder="请输入姓名"
-                  class="w-full px-3 py-2 rounded-lg text-sm focus:outline-none"
-                  style="background-color: var(--theme-bg); border: 1px solid var(--theme-border); color: var(--theme-text);"
+                    v-model="form.name"
+                    type="text"
+                    placeholder="请输入姓名"
+                    class="w-full px-3 py-2 rounded-lg text-sm focus:outline-none"
+                    style="background-color: var(--theme-bg); border: 1px solid var(--theme-border); color: var(--theme-text);"
                 />
               </div>
               <div>
                 <label class="block text-sm font-medium mb-1.5" style="color: var(--theme-text);">性别</label>
                 <select
-                  v-model="form.gender"
-                  class="w-full px-3 py-2 rounded-lg text-sm focus:outline-none"
-                  style="background-color: var(--theme-bg); border: 1px solid var(--theme-border); color: var(--theme-text);"
+                    v-model="form.gender"
+                    class="w-full px-3 py-2 rounded-lg text-sm focus:outline-none"
+                    style="background-color: var(--theme-bg); border: 1px solid var(--theme-border); color: var(--theme-text);"
                 >
                   <option value="">请选择</option>
                   <option value="男">男</option>
@@ -555,30 +545,30 @@ onBeforeRouteLeave((to, from, next) => {
               <div>
                 <label class="block text-sm font-medium mb-1.5" style="color: var(--theme-text);">出生日期</label>
                 <input
-                  v-model="form.birthDate"
-                  type="date"
-                  class="w-full px-3 py-2 rounded-lg text-sm focus:outline-none"
-                  style="background-color: var(--theme-bg); border: 1px solid var(--theme-border); color: var(--theme-text);"
+                    v-model="form.birthDate"
+                    type="date"
+                    class="w-full px-3 py-2 rounded-lg text-sm focus:outline-none"
+                    style="background-color: var(--theme-bg); border: 1px solid var(--theme-border); color: var(--theme-text);"
                 />
               </div>
               <div>
                 <label class="block text-sm font-medium mb-1.5" style="color: var(--theme-text);">手机</label>
                 <input
-                  v-model="form.phone"
-                  type="text"
-                  placeholder="请输入手机号"
-                  class="w-full px-3 py-2 rounded-lg text-sm focus:outline-none"
-                  style="background-color: var(--theme-bg); border: 1px solid var(--theme-border); color: var(--theme-text);"
+                    v-model="form.phone"
+                    type="text"
+                    placeholder="请输入手机号"
+                    class="w-full px-3 py-2 rounded-lg text-sm focus:outline-none"
+                    style="background-color: var(--theme-bg); border: 1px solid var(--theme-border); color: var(--theme-text);"
                 />
               </div>
               <div class="md:col-span-2">
                 <label class="block text-sm font-medium mb-1.5" style="color: var(--theme-text);">邮箱</label>
                 <input
-                  v-model="form.email"
-                  type="email"
-                  placeholder="请输入邮箱"
-                  class="w-full px-3 py-2 rounded-lg text-sm focus:outline-none"
-                  style="background-color: var(--theme-bg); border: 1px solid var(--theme-border); color: var(--theme-text);"
+                    v-model="form.email"
+                    type="email"
+                    placeholder="请输入邮箱"
+                    class="w-full px-3 py-2 rounded-lg text-sm focus:outline-none"
+                    style="background-color: var(--theme-bg); border: 1px solid var(--theme-border); color: var(--theme-text);"
                 />
               </div>
             </div>
@@ -586,8 +576,8 @@ onBeforeRouteLeave((to, from, next) => {
 
           <!-- 3. 求职意向 -->
           <div
-            class="rounded-xl border p-6 mb-5"
-            style="background-color: var(--theme-surface); border-color: var(--theme-border);"
+              class="rounded-xl border p-6 mb-5"
+              style="background-color: var(--theme-surface); border-color: var(--theme-border);"
           >
             <h3 class="text-base font-semibold mb-4 flex items-center" style="color: var(--theme-text);">
               <Target class="w-4 h-4 mr-2" style="color: var(--theme-primary);" />
@@ -597,51 +587,51 @@ onBeforeRouteLeave((to, from, next) => {
               <div>
                 <label class="block text-sm font-medium mb-1.5" style="color: var(--theme-text);">期望职位</label>
                 <input
-                  v-model="ensureJobIntention().position"
-                  type="text"
-                  placeholder="例如：前端开发工程师"
-                  class="w-full px-3 py-2 rounded-lg text-sm focus:outline-none"
-                  style="background-color: var(--theme-bg); border: 1px solid var(--theme-border); color: var(--theme-text);"
+                    v-model="ensureJobIntention().position"
+                    type="text"
+                    placeholder="例如：前端开发工程师"
+                    class="w-full px-3 py-2 rounded-lg text-sm focus:outline-none"
+                    style="background-color: var(--theme-bg); border: 1px solid var(--theme-border); color: var(--theme-text);"
                 />
               </div>
               <div>
                 <label class="block text-sm font-medium mb-1.5" style="color: var(--theme-text);">期望城市</label>
                 <input
-                  v-model="ensureJobIntention().city"
-                  type="text"
-                  placeholder="例如：北京"
-                  class="w-full px-3 py-2 rounded-lg text-sm focus:outline-none"
-                  style="background-color: var(--theme-bg); border: 1px solid var(--theme-border); color: var(--theme-text);"
+                    v-model="ensureJobIntention().city"
+                    type="text"
+                    placeholder="例如：北京"
+                    class="w-full px-3 py-2 rounded-lg text-sm focus:outline-none"
+                    style="background-color: var(--theme-bg); border: 1px solid var(--theme-border); color: var(--theme-text);"
                 />
               </div>
               <div>
                 <label class="block text-sm font-medium mb-1.5" style="color: var(--theme-text);">最低薪资（K）</label>
                 <input
-                  v-model.number="ensureJobIntention().salaryMin"
-                  type="number"
-                  min="0"
-                  placeholder="例如：15"
-                  class="w-full px-3 py-2 rounded-lg text-sm focus:outline-none"
-                  style="background-color: var(--theme-bg); border: 1px solid var(--theme-border); color: var(--theme-text);"
+                    v-model.number="ensureJobIntention().salaryMin"
+                    type="number"
+                    min="0"
+                    placeholder="例如：15"
+                    class="w-full px-3 py-2 rounded-lg text-sm focus:outline-none"
+                    style="background-color: var(--theme-bg); border: 1px solid var(--theme-border); color: var(--theme-text);"
                 />
               </div>
               <div>
                 <label class="block text-sm font-medium mb-1.5" style="color: var(--theme-text);">最高薪资（K）</label>
                 <input
-                  v-model.number="ensureJobIntention().salaryMax"
-                  type="number"
-                  min="0"
-                  placeholder="例如：25"
-                  class="w-full px-3 py-2 rounded-lg text-sm focus:outline-none"
-                  style="background-color: var(--theme-bg); border: 1px solid var(--theme-border); color: var(--theme-text);"
+                    v-model.number="ensureJobIntention().salaryMax"
+                    type="number"
+                    min="0"
+                    placeholder="例如：25"
+                    class="w-full px-3 py-2 rounded-lg text-sm focus:outline-none"
+                    style="background-color: var(--theme-bg); border: 1px solid var(--theme-border); color: var(--theme-text);"
                 />
               </div>
               <div>
                 <label class="block text-sm font-medium mb-1.5" style="color: var(--theme-text);">工作性质</label>
                 <select
-                  v-model="ensureJobIntention().jobType"
-                  class="w-full px-3 py-2 rounded-lg text-sm focus:outline-none"
-                  style="background-color: var(--theme-bg); border: 1px solid var(--theme-border); color: var(--theme-text);"
+                    v-model="ensureJobIntention().jobType"
+                    class="w-full px-3 py-2 rounded-lg text-sm focus:outline-none"
+                    style="background-color: var(--theme-bg); border: 1px solid var(--theme-border); color: var(--theme-text);"
                 >
                   <option value="">请选择</option>
                   <option value="全职">全职</option>
@@ -652,11 +642,11 @@ onBeforeRouteLeave((to, from, next) => {
               <div>
                 <label class="block text-sm font-medium mb-1.5" style="color: var(--theme-text);">到岗时间</label>
                 <input
-                  v-model="ensureJobIntention().availableTime"
-                  type="text"
-                  placeholder="例如：随时 / 1个月内"
-                  class="w-full px-3 py-2 rounded-lg text-sm focus:outline-none"
-                  style="background-color: var(--theme-bg); border: 1px solid var(--theme-border); color: var(--theme-text);"
+                    v-model="ensureJobIntention().availableTime"
+                    type="text"
+                    placeholder="例如：随时 / 1个月内"
+                    class="w-full px-3 py-2 rounded-lg text-sm focus:outline-none"
+                    style="background-color: var(--theme-bg); border: 1px solid var(--theme-border); color: var(--theme-text);"
                 />
               </div>
             </div>
@@ -664,8 +654,8 @@ onBeforeRouteLeave((to, from, next) => {
 
           <!-- 4. 教育经历 -->
           <div
-            class="rounded-xl border p-6 mb-5"
-            style="background-color: var(--theme-surface); border-color: var(--theme-border);"
+              class="rounded-xl border p-6 mb-5"
+              style="background-color: var(--theme-surface); border-color: var(--theme-border);"
           >
             <div class="flex items-center justify-between mb-4">
               <h3 class="text-base font-semibold flex items-center" style="color: var(--theme-text);">
@@ -673,9 +663,9 @@ onBeforeRouteLeave((to, from, next) => {
                 教育经历
               </h3>
               <button
-                @click="addEducation"
-                class="inline-flex items-center px-3 py-1.5 rounded-lg text-xs text-white transition hover:opacity-90"
-                style="background-color: var(--theme-primary);"
+                  @click="addEducation"
+                  class="inline-flex items-center px-3 py-1.5 rounded-lg text-xs text-white transition hover:opacity-90"
+                  style="background-color: var(--theme-primary);"
               >
                 <Plus class="w-3.5 h-3.5 mr-1" />
                 添加
@@ -686,10 +676,10 @@ onBeforeRouteLeave((to, from, next) => {
             </div>
             <div v-else class="space-y-4">
               <div
-                v-for="(edu, idx) in form.educations"
-                :key="'edu-' + idx"
-                class="rounded-lg p-4 relative"
-                style="background-color: var(--theme-bg); border: 1px solid var(--theme-border);"
+                  v-for="(edu, idx) in form.educations"
+                  :key="'edu-' + idx"
+                  class="rounded-lg p-4 relative"
+                  style="background-color: var(--theme-bg); border: 1px solid var(--theme-border);"
               >
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
                   <div>
@@ -726,10 +716,10 @@ onBeforeRouteLeave((to, from, next) => {
                   </div>
                 </div>
                 <button
-                  @click="removeEducation(idx)"
-                  class="absolute -top-2 -right-2 w-6 h-6 rounded-full flex items-center justify-center text-white shadow"
-                  style="background-color: #ef4444;"
-                  aria-label="删除该教育经历"
+                    @click="removeEducation(idx)"
+                    class="absolute -top-2 -right-2 w-6 h-6 rounded-full flex items-center justify-center text-white shadow"
+                    style="background-color: #ef4444;"
+                    aria-label="删除该教育经历"
                 >
                   <Trash2 class="w-3 h-3" />
                 </button>
@@ -739,8 +729,8 @@ onBeforeRouteLeave((to, from, next) => {
 
           <!-- 5. 工作经历 -->
           <div
-            class="rounded-xl border p-6 mb-5"
-            style="background-color: var(--theme-surface); border-color: var(--theme-border);"
+              class="rounded-xl border p-6 mb-5"
+              style="background-color: var(--theme-surface); border-color: var(--theme-border);"
           >
             <div class="flex items-center justify-between mb-4">
               <h3 class="text-base font-semibold flex items-center" style="color: var(--theme-text);">
@@ -748,9 +738,9 @@ onBeforeRouteLeave((to, from, next) => {
                 工作经历
               </h3>
               <button
-                @click="addWork"
-                class="inline-flex items-center px-3 py-1.5 rounded-lg text-xs text-white transition hover:opacity-90"
-                style="background-color: var(--theme-primary);"
+                  @click="addWork"
+                  class="inline-flex items-center px-3 py-1.5 rounded-lg text-xs text-white transition hover:opacity-90"
+                  style="background-color: var(--theme-primary);"
               >
                 <Plus class="w-3.5 h-3.5 mr-1" />
                 添加
@@ -761,10 +751,10 @@ onBeforeRouteLeave((to, from, next) => {
             </div>
             <div v-else class="space-y-4">
               <div
-                v-for="(w, idx) in form.works"
-                :key="'work-' + idx"
-                class="rounded-lg p-4 relative"
-                style="background-color: var(--theme-bg); border: 1px solid var(--theme-border);"
+                  v-for="(w, idx) in form.works"
+                  :key="'work-' + idx"
+                  class="rounded-lg p-4 relative"
+                  style="background-color: var(--theme-bg); border: 1px solid var(--theme-border);"
               >
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
                   <div>
@@ -791,10 +781,10 @@ onBeforeRouteLeave((to, from, next) => {
                   </div>
                 </div>
                 <button
-                  @click="removeWork(idx)"
-                  class="absolute -top-2 -right-2 w-6 h-6 rounded-full flex items-center justify-center text-white shadow"
-                  style="background-color: #ef4444;"
-                  aria-label="删除该工作经历"
+                    @click="removeWork(idx)"
+                    class="absolute -top-2 -right-2 w-6 h-6 rounded-full flex items-center justify-center text-white shadow"
+                    style="background-color: #ef4444;"
+                    aria-label="删除该工作经历"
                 >
                   <Trash2 class="w-3 h-3" />
                 </button>
@@ -804,8 +794,8 @@ onBeforeRouteLeave((to, from, next) => {
 
           <!-- 6. 项目经历 -->
           <div
-            class="rounded-xl border p-6 mb-5"
-            style="background-color: var(--theme-surface); border-color: var(--theme-border);"
+              class="rounded-xl border p-6 mb-5"
+              style="background-color: var(--theme-surface); border-color: var(--theme-border);"
           >
             <div class="flex items-center justify-between mb-4">
               <h3 class="text-base font-semibold flex items-center" style="color: var(--theme-text);">
@@ -813,9 +803,9 @@ onBeforeRouteLeave((to, from, next) => {
                 项目经历
               </h3>
               <button
-                @click="addProject"
-                class="inline-flex items-center px-3 py-1.5 rounded-lg text-xs text-white transition hover:opacity-90"
-                style="background-color: var(--theme-primary);"
+                  @click="addProject"
+                  class="inline-flex items-center px-3 py-1.5 rounded-lg text-xs text-white transition hover:opacity-90"
+                  style="background-color: var(--theme-primary);"
               >
                 <Plus class="w-3.5 h-3.5 mr-1" />
                 添加
@@ -826,10 +816,10 @@ onBeforeRouteLeave((to, from, next) => {
             </div>
             <div v-else class="space-y-4">
               <div
-                v-for="(p, idx) in form.projects"
-                :key="'proj-' + idx"
-                class="rounded-lg p-4 relative"
-                style="background-color: var(--theme-bg); border: 1px solid var(--theme-border);"
+                  v-for="(p, idx) in form.projects"
+                  :key="'proj-' + idx"
+                  class="rounded-lg p-4 relative"
+                  style="background-color: var(--theme-bg); border: 1px solid var(--theme-border);"
               >
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
                   <div>
@@ -860,10 +850,10 @@ onBeforeRouteLeave((to, from, next) => {
                   </div>
                 </div>
                 <button
-                  @click="removeProject(idx)"
-                  class="absolute -top-2 -right-2 w-6 h-6 rounded-full flex items-center justify-center text-white shadow"
-                  style="background-color: #ef4444;"
-                  aria-label="删除该项目经历"
+                    @click="removeProject(idx)"
+                    class="absolute -top-2 -right-2 w-6 h-6 rounded-full flex items-center justify-center text-white shadow"
+                    style="background-color: #ef4444;"
+                    aria-label="删除该项目经历"
                 >
                   <Trash2 class="w-3 h-3" />
                 </button>
@@ -873,8 +863,8 @@ onBeforeRouteLeave((to, from, next) => {
 
           <!-- 7. 技能列表 -->
           <div
-            class="rounded-xl border p-6 mb-5"
-            style="background-color: var(--theme-surface); border-color: var(--theme-border);"
+              class="rounded-xl border p-6 mb-5"
+              style="background-color: var(--theme-surface); border-color: var(--theme-border);"
           >
             <div class="flex items-center justify-between mb-4">
               <h3 class="text-base font-semibold flex items-center" style="color: var(--theme-text);">
@@ -882,9 +872,9 @@ onBeforeRouteLeave((to, from, next) => {
                 技能列表
               </h3>
               <button
-                @click="addSkill"
-                class="inline-flex items-center px-3 py-1.5 rounded-lg text-xs text-white transition hover:opacity-90"
-                style="background-color: var(--theme-primary);"
+                  @click="addSkill"
+                  class="inline-flex items-center px-3 py-1.5 rounded-lg text-xs text-white transition hover:opacity-90"
+                  style="background-color: var(--theme-primary);"
               >
                 <Plus class="w-3.5 h-3.5 mr-1" />
                 添加
@@ -895,10 +885,10 @@ onBeforeRouteLeave((to, from, next) => {
             </div>
             <div v-else class="space-y-3">
               <div
-                v-for="(s, idx) in form.skills"
-                :key="'skill-' + idx"
-                class="grid grid-cols-1 md:grid-cols-3 gap-3 relative rounded-lg p-3"
-                style="background-color: var(--theme-bg); border: 1px solid var(--theme-border);"
+                  v-for="(s, idx) in form.skills"
+                  :key="'skill-' + idx"
+                  class="grid grid-cols-1 md:grid-cols-3 gap-3 relative rounded-lg p-3"
+                  style="background-color: var(--theme-bg); border: 1px solid var(--theme-border);"
               >
                 <div>
                   <label class="block text-sm font-medium mb-1.5" style="color: var(--theme-text);">技能名称</label>
@@ -919,10 +909,10 @@ onBeforeRouteLeave((to, from, next) => {
                   <input v-model="s.category" type="text" placeholder="例如：前端框架" class="w-full px-3 py-2 rounded-lg text-sm focus:outline-none" style="background-color: var(--theme-surface); border: 1px solid var(--theme-border); color: var(--theme-text);" />
                 </div>
                 <button
-                  @click="removeSkill(idx)"
-                  class="absolute -top-2 -right-2 w-6 h-6 rounded-full flex items-center justify-center text-white shadow"
-                  style="background-color: #ef4444;"
-                  aria-label="删除该技能"
+                    @click="removeSkill(idx)"
+                    class="absolute -top-2 -right-2 w-6 h-6 rounded-full flex items-center justify-center text-white shadow"
+                    style="background-color: #ef4444;"
+                    aria-label="删除该技能"
                 >
                   <Trash2 class="w-3 h-3" />
                 </button>
@@ -932,46 +922,46 @@ onBeforeRouteLeave((to, from, next) => {
 
           <!-- 8. 自我介绍 -->
           <div
-            class="rounded-xl border p-6 mb-6"
-            style="background-color: var(--theme-surface); border-color: var(--theme-border);"
+              class="rounded-xl border p-6 mb-6"
+              style="background-color: var(--theme-surface); border-color: var(--theme-border);"
           >
             <h3 class="text-base font-semibold mb-4 flex items-center" style="color: var(--theme-text);">
               <FileText class="w-4 h-4 mr-2" style="color: var(--theme-primary);" />
               自我介绍
             </h3>
             <textarea
-              v-model="form.selfIntro"
-              rows="6"
-              placeholder="简要介绍自己的优势、职业规划与兴趣方向..."
-              class="w-full px-3 py-2 rounded-lg text-sm focus:outline-none resize-y"
-              style="background-color: var(--theme-bg); border: 1px solid var(--theme-border); color: var(--theme-text);"
+                v-model="form.selfIntro"
+                rows="6"
+                placeholder="简要介绍自己的优势、职业规划与兴趣方向..."
+                class="w-full px-3 py-2 rounded-lg text-sm focus:outline-none resize-y"
+                style="background-color: var(--theme-bg); border: 1px solid var(--theme-border); color: var(--theme-text);"
             ></textarea>
           </div>
 
           <!-- 底部操作按钮 -->
           <div class="flex flex-col sm:flex-row gap-3">
             <button
-              @click="handleSaveDraft"
-              class="flex-1 flex items-center justify-center px-5 py-2.5 rounded-lg text-sm font-medium transition hover:opacity-90"
-              style="background-color: var(--theme-bg); color: var(--theme-text); border: 1px solid var(--theme-border);"
+                @click="handleSaveDraft"
+                class="flex-1 flex items-center justify-center px-5 py-2.5 rounded-lg text-sm font-medium transition hover:opacity-90"
+                style="background-color: var(--theme-bg); color: var(--theme-text); border: 1px solid var(--theme-border);"
             >
               <Save class="w-4 h-4 mr-2" />
               保存草稿
             </button>
             <button
-              @click="handleExportPdf"
-              :disabled="exporting"
-              class="flex-1 flex items-center justify-center px-5 py-2.5 rounded-lg text-sm font-medium transition hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
-              style="background-color: var(--theme-bg); color: var(--theme-text); border: 1px solid var(--theme-border);"
+                @click="handleExportPdf"
+                :disabled="exporting"
+                class="flex-1 flex items-center justify-center px-5 py-2.5 rounded-lg text-sm font-medium transition hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
+                style="background-color: var(--theme-bg); color: var(--theme-text); border: 1px solid var(--theme-border);"
             >
               <Download class="w-4 h-4 mr-2" />
               {{ exporting ? '导出中...' : '导出PDF' }}
             </button>
             <button
-              @click="handleScore"
-              :disabled="scoring"
-              class="flex-1 flex items-center justify-center px-5 py-2.5 rounded-lg text-sm font-medium text-white transition hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
-              style="background-color: var(--theme-primary);"
+                @click="handleScore"
+                :disabled="scoring"
+                class="flex-1 flex items-center justify-center px-5 py-2.5 rounded-lg text-sm font-medium text-white transition hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
+                style="background-color: var(--theme-primary);"
             >
               <Star class="w-4 h-4 mr-2" />
               {{ scoring ? '评分中...' : 'AI 评分' }}

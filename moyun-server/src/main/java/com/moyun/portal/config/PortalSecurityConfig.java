@@ -124,6 +124,15 @@ public class PortalSecurityConfig {
                         // POST /portal/comment/** 默认落入 anyRequest().authenticated() 链，强制登录态
                         // 评论点赞虽标 permitAll，但实际由 Controller 内部校验 getUserId 后再操作
                         .requestMatchers(HttpMethod.POST, "/portal/comment/*/like").permitAll()
+                        // 话题模块：列表/详情/观点列表/评论列表对游客公开；
+                        // 我的话题/观点需登录；写操作由 Controller 内部 PortalSecurityUtils.getUserId() 校验
+                        // 注意：/portal/topic/my/** 必须在 /portal/topic/** permitAll 之前声明，否则会被覆盖
+                        .requestMatchers(HttpMethod.GET, "/portal/topic/my/**").authenticated()
+                        .requestMatchers(HttpMethod.GET, "/portal/topic/**").permitAll()
+                        // 点赞接口（话题/观点/评论）放行到 Controller，由 Controller 校验登录态后操作
+                        .requestMatchers(HttpMethod.POST, "/portal/topic/*/like").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/portal/topic/post/*/like").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/portal/topic/comment/*/like").permitAll()
                         // 分类查询公开（仅 GET），写操作（POST/PUT/DELETE）需登录 + 管理员角色
                         .requestMatchers(HttpMethod.GET, "/portal/category/**").permitAll()
                         // 标签查询公开（GET），创建/绑定需登录（Controller 内部校验 getUserId）

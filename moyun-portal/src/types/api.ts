@@ -443,6 +443,14 @@ export interface Category {
   externalUrl?: string;
   /** 类型标识：home=首页 category=普通栏目 special=特殊页面（如读书空间、面试指南） */
   type?: string;
+  /** 是否在头部栏目展示（0否/1是） */
+  showInNav?: number;
+  /** 路由类型（home/category/static/external） */
+  navRouteType?: string;
+  /** 静态/外链路由路径（仅 static/external 类型使用） */
+  navRoutePath?: string;
+  /** 是否需要登录（0否/1是） */
+  requiresAuth?: number;
 }
 
 export interface CategoryListParams {

@@ -199,12 +199,16 @@ function goBack() {
                 </span>
               </div>
 
-              <!-- 观点内容 -->
+              <!-- 观点内容（统一用 markdown 模式渲染，支持图片/格式化） -->
               <div
                 class="text-sm leading-relaxed mb-3"
                 style="color: var(--theme-text);"
               >
-                <MarkdownRenderer v-if="post.content" :content="post.content" />
+                <MarkdownRenderer
+                  v-if="post.content"
+                  editor-mode="markdown"
+                  :content-markdown="post.content"
+                />
                 <p v-else style="color: var(--theme-text-secondary);">（观点内容为空）</p>
               </div>
 

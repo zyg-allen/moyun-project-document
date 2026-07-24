@@ -57,6 +57,8 @@ const categories = ref<Category[]>([])
 const authors = ref<any[]>([])
 const loading = ref(true)
 const error = ref<string | null>(null)
+// 主数据（推荐/轮播等）局部错误，独立于其他 section，避免单点失败阻塞整页
+const mainDataError = ref<string | null>(null)
 const categoryArticles = ref<Record<string, any[]>>({})
 
 // 读书空间首页数据
@@ -78,7 +80,6 @@ const hotFeedList = ref<any[]>([])
 
 const loadHomeData = async () => {
   try {
-    loading.value = true
     const homeResponse = await articleApi.getHomeData()
     if (homeResponse.code === 200 && homeResponse.data) {
       carouselArticles.value = homeResponse.data.carouselArticles?.map(transformArticle) || []
@@ -98,15 +99,20 @@ const loadHomeData = async () => {
           tags: article.tags || []
         }))
       }
+    } else {
+      // 接口返回非 200，标记主数据错误但不影响其他 section
+      mainDataError.value = homeResponse.message || '主内容加载失败'
     }
   } catch (err) {
-    console.error('加载首页数据失败:', err)
-    error.value = '加载首页数据失败，请稍后重试'
+    console.error('加载首页主数据失败:', err)
+    // 不再设置全局 error，改为局部错误状态，允许其他 section 正常展示
+    mainDataError.value = '推荐内容加载失败，可点击重试'
   }
 }
 
 const retryLoad = async () => {
   error.value = null
+  mainDataError.value = null
   await loadAll()
 }
 
@@ -290,7 +296,9 @@ const trendingArticles = computed(() => hotArticles.value.slice(0, 6))
 const loadAll = async () => {
   try {
     loading.value = true
-    await Promise.all([
+    // 所有 section 并行加载，各自的错误已在 loadXxx 内部 try-catch 处理
+    // 任一 section 失败不会阻塞其他 section，避免单点失败导致整页不可用
+    await Promise.allSettled([
       loadHomeData(),
       loadCategories(),
       loadTags(),
@@ -307,9 +315,16 @@ const loadAll = async () => {
     } else {
       activeTheme.value = '散文'
     }
+    // 仅当主数据出错且其他 section 也都为空时才显示全局错误
+    if (mainDataError.value && !carouselArticles.value.length && !featuredArticles.value.length) {
+      error.value = mainDataError.value
+    }
   } catch (e) {
     console.error('加载首页数据失败:', e)
-    error.value = '加载首页数据失败，请稍后重试'
+    // 极端情况：loadAll 整体异常（如网络断开）
+    if (!error.value) {
+      error.value = '加载首页数据失败，请稍后重试'
+    }
   } finally {
     loading.value = false
     // 数据加载完成后启动轮播（仅当有多张图时）
@@ -451,7 +466,12 @@ useHead(
           </p>
         </div>
 
-        <div class="relative h-[280px] sm:h-[320px] md:h-[380px] overflow-hidden rounded-xl shadow-lg" style="background-color: var(--theme-accent);">
+        <div
+          class="relative h-[280px] sm:h-[320px] md:h-[380px] overflow-hidden rounded-xl shadow-lg"
+          style="background-color: var(--theme-accent);"
+          @mouseenter="stopHeroAutoplay"
+          @mouseleave="startHeroAutoplay"
+        >
           <div v-if="heroImages.length > 0">
             <div class="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-black/70"></div>
             <LazyImage
@@ -498,12 +518,14 @@ useHead(
             </div>
             <button
                 @click="prevHero"
+                aria-label="上一张"
                 class="absolute left-2 sm:left-3 top-1/2 -translate-y-1/2 w-11 h-11 bg-black/30 backdrop-blur text-white rounded-full flex items-center justify-center hover:bg-black/50 transition-colors"
             >
               <ChevronLeft class="w-4 h-4 sm:w-5 sm:h-5" />
             </button>
             <button
                 @click="nextHero"
+                aria-label="下一张"
                 class="absolute right-2 sm:right-3 top-1/2 -translate-y-1/2 w-11 h-11 bg-black/30 backdrop-blur text-white rounded-full flex items-center justify-center hover:bg-black/50 transition-colors"
             >
               <ChevronRight class="w-4 h-4 sm:w-5 sm:h-5" />

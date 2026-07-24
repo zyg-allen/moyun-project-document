@@ -54,8 +54,8 @@ useHead(computed(() => generateSeo({
   description: '分享你的真实面试经验，帮助更多求职者备战面试、直通 Offer',
   keywords: ['发布面经', '面经', '面试经验', '面经投稿', '墨韵'],
   canonicalPath: isEdit.value
-    ? `/interview/experience/edit/${editId.value}`
-    : '/interview/experience/publish',
+      ? `/interview/experience/edit/${editId.value}`
+      : '/interview/experience/publish',
   robots: 'noindex,nofollow',
 })));
 
@@ -186,14 +186,14 @@ watch(editId, (newId, oldId) => {
   <div class="min-h-screen flex flex-col" style="background-color: var(--theme-bg);">
     <!-- 顶部返回栏 -->
     <div
-      class="border-b sticky top-0 z-30 backdrop-blur-sm"
-      style="background-color: var(--theme-surface); border-color: var(--theme-border);"
+        class="border-b sticky top-0 z-30 backdrop-blur-sm"
+        style="background-color: var(--theme-surface); border-color: var(--theme-border);"
     >
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex items-center justify-between">
         <button
-          @click="goBack"
-          class="flex items-center text-sm transition hover:opacity-80"
-          style="color: var(--theme-text-secondary);"
+            @click="goBack"
+            class="flex items-center text-sm transition hover:opacity-80"
+            style="color: var(--theme-text-secondary);"
         >
           <ArrowLeft class="w-4 h-4 mr-1" />
           返回
@@ -205,7 +205,7 @@ watch(editId, (newId, oldId) => {
 
     <!-- 内容区 -->
     <div class="flex-1 py-8">
-      <div class="max-w-3xl mx-auto px-4">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <!-- 标题 -->
         <div class="mb-6 text-center">
           <h1 class="text-3xl font-bold tracking-tight mb-2" style="color: var(--theme-text);">
@@ -218,28 +218,28 @@ watch(editId, (newId, oldId) => {
 
         <!-- 加载详情中 -->
         <div
-          v-if="loadingDetail"
-          class="rounded-xl border p-12 text-center"
-          style="background-color: var(--theme-surface); border-color: var(--theme-border);"
+            v-if="loadingDetail"
+            class="rounded-xl border p-12 text-center"
+            style="background-color: var(--theme-surface); border-color: var(--theme-border);"
         >
           <div
-            class="animate-spin rounded-full h-10 w-10 border-2 mx-auto"
-            style="border-color: var(--theme-border); border-top-color: var(--theme-primary);"
+              class="animate-spin rounded-full h-10 w-10 border-2 mx-auto"
+              style="border-color: var(--theme-border); border-top-color: var(--theme-primary);"
           ></div>
           <p class="mt-4 text-sm" style="color: var(--theme-text-secondary);">加载中...</p>
         </div>
 
         <!-- 加载失败 -->
         <div
-          v-else-if="pageError"
-          class="rounded-xl border p-8 text-center"
-          style="background-color: var(--theme-surface); border-color: var(--theme-border);"
+            v-else-if="pageError"
+            class="rounded-xl border p-8 text-center"
+            style="background-color: var(--theme-surface); border-color: var(--theme-border);"
         >
           <p class="mb-4 text-sm" style="color: var(--theme-text);">{{ pageError }}</p>
           <button
-            @click="loadDetail"
-            class="px-4 py-2 text-white rounded-lg text-sm transition hover:opacity-90"
-            style="background-color: var(--theme-primary);"
+              @click="loadDetail"
+              class="px-4 py-2 text-white rounded-lg text-sm transition hover:opacity-90"
+              style="background-color: var(--theme-primary);"
           >
             重试
           </button>
@@ -247,9 +247,9 @@ watch(editId, (newId, oldId) => {
 
         <!-- 表单卡片 -->
         <div
-          v-else
-          class="rounded-xl border shadow-sm p-6 md:p-8"
-          style="background-color: var(--theme-surface); border-color: var(--theme-border);"
+            v-else
+            class="rounded-xl border shadow-sm p-6 md:p-8"
+            style="background-color: var(--theme-surface); border-color: var(--theme-border);"
         >
           <!-- 标题 -->
           <div class="mb-5">
@@ -257,12 +257,12 @@ watch(editId, (newId, oldId) => {
               标题 <span style="color: #ef4444;">*</span>
             </label>
             <input
-              v-model="title"
-              type="text"
-              placeholder="请输入面经标题，例如：字节跳动前端一面面经"
-              maxlength="100"
-              class="form-input w-full px-3 py-2.5 rounded-lg text-sm focus:outline-none transition"
-              style="background-color: var(--theme-bg); color: var(--theme-text); border: 1px solid var(--theme-border);"
+                v-model="title"
+                type="text"
+                placeholder="请输入面经标题，例如：字节跳动前端一面面经"
+                maxlength="100"
+                class="form-input w-full px-3 py-2.5 rounded-lg text-sm focus:outline-none transition"
+                style="background-color: var(--theme-bg); color: var(--theme-text); border: 1px solid var(--theme-border);"
             />
           </div>
 
@@ -273,12 +273,12 @@ watch(editId, (newId, oldId) => {
                 公司 <span style="color: #ef4444;">*</span>
               </label>
               <input
-                v-model="company"
-                type="text"
-                placeholder="例如：字节跳动"
-                maxlength="50"
-                class="form-input w-full px-3 py-2.5 rounded-lg text-sm focus:outline-none transition"
-                style="background-color: var(--theme-bg); color: var(--theme-text); border: 1px solid var(--theme-border);"
+                  v-model="company"
+                  type="text"
+                  placeholder="例如：字节跳动"
+                  maxlength="50"
+                  class="form-input w-full px-3 py-2.5 rounded-lg text-sm focus:outline-none transition"
+                  style="background-color: var(--theme-bg); color: var(--theme-text); border: 1px solid var(--theme-border);"
               />
             </div>
             <div>
@@ -286,12 +286,12 @@ watch(editId, (newId, oldId) => {
                 岗位
               </label>
               <input
-                v-model="position"
-                type="text"
-                placeholder="例如：前端开发工程师"
-                maxlength="50"
-                class="form-input w-full px-3 py-2.5 rounded-lg text-sm focus:outline-none transition"
-                style="background-color: var(--theme-bg); color: var(--theme-text); border: 1px solid var(--theme-border);"
+                  v-model="position"
+                  type="text"
+                  placeholder="例如：前端开发工程师"
+                  maxlength="50"
+                  class="form-input w-full px-3 py-2.5 rounded-lg text-sm focus:outline-none transition"
+                  style="background-color: var(--theme-bg); color: var(--theme-text); border: 1px solid var(--theme-border);"
               />
             </div>
           </div>
@@ -303,13 +303,13 @@ watch(editId, (newId, oldId) => {
                 年份
               </label>
               <input
-                v-model="year"
-                type="number"
-                placeholder="例如：2025"
-                min="1990"
-                max="2099"
-                class="form-input w-full px-3 py-2.5 rounded-lg text-sm focus:outline-none transition"
-                style="background-color: var(--theme-bg); color: var(--theme-text); border: 1px solid var(--theme-border);"
+                  v-model="year"
+                  type="number"
+                  placeholder="例如：2025"
+                  min="1990"
+                  max="2099"
+                  class="form-input w-full px-3 py-2.5 rounded-lg text-sm focus:outline-none transition"
+                  style="background-color: var(--theme-bg); color: var(--theme-text); border: 1px solid var(--theme-border);"
               />
             </div>
             <div>
@@ -317,9 +317,9 @@ watch(editId, (newId, oldId) => {
                 月份
               </label>
               <select
-                v-model="month"
-                class="form-input w-full px-3 py-2.5 rounded-lg text-sm focus:outline-none transition"
-                style="background-color: var(--theme-bg); color: var(--theme-text); border: 1px solid var(--theme-border);"
+                  v-model="month"
+                  class="form-input w-full px-3 py-2.5 rounded-lg text-sm focus:outline-none transition"
+                  style="background-color: var(--theme-bg); color: var(--theme-text); border: 1px solid var(--theme-border);"
               >
                 <option :value="''">选择月份</option>
                 <option v-for="m in months" :key="m" :value="m">{{ m }} 月</option>
@@ -333,12 +333,12 @@ watch(editId, (newId, oldId) => {
               标签
             </label>
             <input
-              v-model="tags"
-              type="text"
-              placeholder="多个标签用逗号分隔，例如：前端,React,一面"
-              maxlength="200"
-              class="form-input w-full px-3 py-2.5 rounded-lg text-sm focus:outline-none transition"
-              style="background-color: var(--theme-bg); color: var(--theme-text); border: 1px solid var(--theme-border);"
+                v-model="tags"
+                type="text"
+                placeholder="多个标签用逗号分隔，例如：前端,React,一面"
+                maxlength="200"
+                class="form-input w-full px-3 py-2.5 rounded-lg text-sm focus:outline-none transition"
+                style="background-color: var(--theme-bg); color: var(--theme-text); border: 1px solid var(--theme-border);"
             />
           </div>
 
@@ -351,12 +351,12 @@ watch(editId, (newId, oldId) => {
               </span>
             </label>
             <textarea
-              v-model="summary"
-              rows="3"
-              maxlength="500"
-              placeholder="一句话概括这次面试的核心内容（选填）"
-              class="form-input w-full px-3 py-2.5 rounded-lg text-sm focus:outline-none transition resize-y"
-              style="background-color: var(--theme-bg); color: var(--theme-text); border: 1px solid var(--theme-border);"
+                v-model="summary"
+                rows="3"
+                maxlength="500"
+                placeholder="一句话概括这次面试的核心内容（选填）"
+                class="form-input w-full px-3 py-2.5 rounded-lg text-sm focus:outline-none transition resize-y"
+                style="background-color: var(--theme-bg); color: var(--theme-text); border: 1px solid var(--theme-border);"
             ></textarea>
           </div>
 
@@ -371,10 +371,10 @@ watch(editId, (newId, oldId) => {
               </label>
               <div class="flex items-center gap-1 rounded-lg p-0.5" style="background-color: var(--theme-bg); border: 1px solid var(--theme-border);">
                 <button
-                  type="button"
-                  @click="previewMode = false"
-                  class="px-3 py-1 rounded-md text-xs flex items-center transition"
-                  :style="!previewMode
+                    type="button"
+                    @click="previewMode = false"
+                    class="px-3 py-1 rounded-md text-xs flex items-center transition"
+                    :style="!previewMode
                     ? 'background-color: var(--theme-primary); color: #fff;'
                     : 'color: var(--theme-text-secondary);'"
                 >
@@ -382,10 +382,10 @@ watch(editId, (newId, oldId) => {
                   编辑
                 </button>
                 <button
-                  type="button"
-                  @click="previewMode = true"
-                  class="px-3 py-1 rounded-md text-xs flex items-center transition"
-                  :style="previewMode
+                    type="button"
+                    @click="previewMode = true"
+                    class="px-3 py-1 rounded-md text-xs flex items-center transition"
+                    :style="previewMode
                     ? 'background-color: var(--theme-primary); color: #fff;'
                     : 'color: var(--theme-text-secondary);'"
                 >
@@ -397,19 +397,19 @@ watch(editId, (newId, oldId) => {
 
             <!-- 编辑模式 -->
             <textarea
-              v-if="!previewMode"
-              v-model="content"
-              rows="14"
-              placeholder="请输入面经正文，支持 Markdown 语法..."
-              class="form-input w-full px-3 py-2.5 rounded-lg text-sm font-mono focus:outline-none transition resize-y"
-              style="background-color: var(--theme-bg); color: var(--theme-text); border: 1px solid var(--theme-border);"
+                v-if="!previewMode"
+                v-model="content"
+                rows="14"
+                placeholder="请输入面经正文，支持 Markdown 语法..."
+                class="form-input w-full px-3 py-2.5 rounded-lg text-sm font-mono focus:outline-none transition resize-y"
+                style="background-color: var(--theme-bg); color: var(--theme-text); border: 1px solid var(--theme-border);"
             ></textarea>
 
             <!-- 预览模式 -->
             <div
-              v-else
-              class="prose prose-lg max-w-none rounded-lg p-4 min-h-[200px] text-sm"
-              style="background-color: var(--theme-bg); border: 1px solid var(--theme-border); color: var(--theme-text);"
+                v-else
+                class="prose prose-lg max-w-none rounded-lg p-4 min-h-[200px] text-sm"
+                style="background-color: var(--theme-bg); border: 1px solid var(--theme-border); color: var(--theme-text);"
             >
               <div v-if="content" v-html="renderedContent"></div>
               <p v-else style="color: var(--theme-text-secondary); opacity: 0.5;">暂无内容可预览</p>
@@ -424,20 +424,20 @@ watch(editId, (newId, oldId) => {
           <!-- 操作按钮 -->
           <div class="flex flex-col sm:flex-row gap-3 pt-4 border-t" style="border-color: var(--theme-border);">
             <button
-              @click="submit('draft')"
-              :disabled="submitting"
-              class="flex-1 flex items-center justify-center px-5 py-2.5 rounded-lg text-sm font-medium transition hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
-              style="background-color: var(--theme-bg); color: var(--theme-text); border: 1px solid var(--theme-border);"
+                @click="submit('draft')"
+                :disabled="submitting"
+                class="flex-1 flex items-center justify-center px-5 py-2.5 rounded-lg text-sm font-medium transition hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
+                style="background-color: var(--theme-bg); color: var(--theme-text); border: 1px solid var(--theme-border);"
             >
               <Loader2 v-if="submitting" class="w-4 h-4 mr-2 animate-spin" />
               <Save v-else class="w-4 h-4 mr-2" />
               存为草稿
             </button>
             <button
-              @click="submit('pending')"
-              :disabled="submitting"
-              class="flex-1 flex items-center justify-center px-5 py-2.5 rounded-lg text-sm font-medium text-white transition hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
-              style="background-color: var(--theme-primary);"
+                @click="submit('pending')"
+                :disabled="submitting"
+                class="flex-1 flex items-center justify-center px-5 py-2.5 rounded-lg text-sm font-medium text-white transition hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
+                style="background-color: var(--theme-primary);"
             >
               <Loader2 v-if="submitting" class="w-4 h-4 mr-2 animate-spin" />
               <Send v-else class="w-4 h-4 mr-2" />

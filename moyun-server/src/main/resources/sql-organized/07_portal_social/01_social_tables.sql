@@ -213,36 +213,35 @@ CREATE TABLE IF NOT EXISTS `portal_circle_post` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='圈子帖子';
 
 -- ----------------------------
--- 11. 话题/超话
---     合并：71 建表
+-- 11. 话题主表（话题讨论模块，新设计）
+--     实际建表脚本：sql/93_topic_discussion_init.sql
+--     注：旧版 tag 聚合型话题（name/slug/follow_count）已废弃，由 93 脚本 DROP 重建
 -- ----------------------------
 CREATE TABLE IF NOT EXISTS `portal_topic` (
-    `id`            BIGINT        NOT NULL AUTO_INCREMENT COMMENT '主键',
-    `name`          VARCHAR(64)   NOT NULL                COMMENT '话题名称',
-    `slug`          VARCHAR(128)  NOT NULL                COMMENT '话题别名（URL 友好）',
-    `description`   TEXT                                  COMMENT '话题描述',
-    `cover`         VARCHAR(500)  DEFAULT NULL            COMMENT '话题封面',
-    `post_count`    INT           NOT NULL DEFAULT 0     COMMENT '关联内容数',
-    `follow_count`  INT           NOT NULL DEFAULT 0     COMMENT '关注数',
-    `status`        VARCHAR(16)   NOT NULL DEFAULT 'active' COMMENT '状态 active/disabled',
-    `created_time`  DATETIME      DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    `id`              BIGINT       NOT NULL AUTO_INCREMENT COMMENT '主键',
+    `title`           VARCHAR(128) NOT NULL                COMMENT '话题标题',
+    `description`     VARCHAR(500) DEFAULT NULL            COMMENT '话题描述/导语',
+    `cover`           VARCHAR(500) DEFAULT NULL            COMMENT '封面图 URL',
+    `creator_id`      BIGINT       NOT NULL                COMMENT '发起人 portal_user.id（必须是认证创作者）',
+    `status`          VARCHAR(20)  NOT NULL DEFAULT 'active' COMMENT '状态：active/archived/deleted',
+    `pinned`          TINYINT      NOT NULL DEFAULT 0     COMMENT '是否置顶：0 否/1 是',
+    `view_count`      INT          NOT NULL DEFAULT 0     COMMENT '浏览数',
+    `post_count`      INT          NOT NULL DEFAULT 0     COMMENT '观点数',
+    `like_count`      INT          NOT NULL DEFAULT 0     COMMENT '话题被赞数',
+    `is_featured`     TINYINT      NOT NULL DEFAULT 0     COMMENT '是否精选：0 否/1 是',
+    `comment_count`   INT          NOT NULL DEFAULT 0     COMMENT '评论数（一级评论）',
+    `last_post_time`  DATETIME     DEFAULT NULL            COMMENT '最后观点时间',
+    `last_poster_id`  BIGINT       DEFAULT NULL            COMMENT '最后观点用户',
+    `created_time`    DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `updated_time`    DATETIME     DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
     PRIMARY KEY (`id`),
-    UNIQUE KEY `uk_slug` (`slug`),
-    UNIQUE KEY `uk_name` (`name`),
-    KEY `idx_status` (`status`),
-    KEY `idx_follow_count` (`follow_count`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='话题/超话';
+    KEY `idx_creator_time` (`creator_id`, `created_time`),
+    KEY `idx_status_pinned_last` (`status`, `pinned`, `last_post_time`),
+    KEY `idx_last_post` (`last_post_time`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='话题主表';
 
 -- ----------------------------
--- 12. 话题关注（独立于 portal_follow，避免改动现有用户关注逻辑）
---     合并：71 建表
+-- 12. 话题关注表（旧版，已废弃）
+--     新设计不再使用 follow 表，改为 portal_topic_like 点赞表
+--     实际建表脚本：sql/93_topic_discussion_init.sql
 -- ----------------------------
-CREATE TABLE IF NOT EXISTS `portal_topic_follow` (
-    `id`            BIGINT   NOT NULL AUTO_INCREMENT COMMENT '主键',
-    `topic_id`      BIGINT   NOT NULL                COMMENT '话题ID',
-    `user_id`       BIGINT   NOT NULL                COMMENT '关注用户ID',
-    `created_time`  DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '关注时间',
-    PRIMARY KEY (`id`),
-    UNIQUE KEY `uk_topic_user` (`topic_id`, `user_id`),
-    KEY `idx_user` (`user_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='话题关注';

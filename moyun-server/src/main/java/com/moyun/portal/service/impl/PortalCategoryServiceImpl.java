@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -57,6 +58,22 @@ public class PortalCategoryServiceImpl extends ServiceImpl<PortalCategoryMapper,
     @Override
     public List<PortalCategory> selectPortalCategoryTree(CategoryQuery query) {
         List<PortalCategory> allCategories = baseMapper.selectPortalCategoryList(query);
+        return buildTree(allCategories);
+    }
+
+    /**
+     * 获取头部导航栏目树（仅 show_in_nav=1 且 status=0 的分类）
+     * 供前端 Navbar 动态渲染使用。
+     *
+     * @return 树形导航栏目列表
+     */
+    @Override
+    public List<PortalCategory> selectNavCategoryTree() {
+        LambdaQueryWrapper<PortalCategory> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(PortalCategory::getStatus, "0");
+        wrapper.eq(PortalCategory::getShowInNav, 1);
+        wrapper.orderByAsc(PortalCategory::getSort);
+        List<PortalCategory> allCategories = baseMapper.selectList(wrapper);
         return buildTree(allCategories);
     }
 

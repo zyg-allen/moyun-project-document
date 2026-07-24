@@ -28,7 +28,7 @@ const route = useRoute();
 const router = useRouter();
 const articleStore = useArticleStore();
 const userStore = useUserStore();
-const {isAuthenticated, requireAuth, withAuth, withAuthConfirm} = useAuth();
+const {requireAuth, withAuthConfirm} = useAuth();
 const toast = useToast();
 const article = ref<Article | null>(null);
 const comments = ref<Comment[]>([]);
@@ -285,7 +285,7 @@ async function loadRelatedArticles() {
     return;
   }
   try {
-    const res = await articleApi.getCategoryRecommendedArticles(category, { pageNum: 1, pageSize: 12 }, 12);
+    const res = await articleApi.getCategoryRecommendedArticles(category, { page: 1, pageSize: 12 }, 12);
     const list = (res.data?.list || []) as Article[];
     const currentId = String(article.value.id);
     relatedArticles.value = list
@@ -446,6 +446,7 @@ async function nativeShare() {
       // 用户取消分享不报错
       if ((err as Error).name !== 'AbortError') {
         console.error('分享失败:', err);
+        toast.error('分享失败，请稍后重试');
       }
     }
   } else {
@@ -480,9 +481,14 @@ async function handleSubmitComment() {
         comments.value = []; // 清空旧评论
         await loadComments(article.value.id);
         newComment.value = '';
+        toast.success('评论发表成功');
+      } else {
+        toast.error(response.message || '发表评论失败');
       }
     } catch (error) {
       console.error('发表评论失败:', error);
+      const e = error as { message?: string };
+      toast.error(e?.message || '发表评论失败，请稍后重试');
     } finally {
       submitting.value = false;
     }
@@ -524,9 +530,14 @@ async function handleSubmitReply() {
       comments.value = []; // 清空旧评论
       await loadComments(article.value.id);
       handleCancelReply();
+      toast.success('回复发表成功');
+    } else {
+      toast.error(response.message || '发表回复失败');
     }
   } catch (error) {
     console.error('发表回复失败:', error);
+    const e = error as { message?: string };
+    toast.error(e?.message || '发表回复失败，请稍后重试');
   } finally {
     submitting.value = false;
   }
@@ -539,6 +550,8 @@ async function handleLikeComment(commentId: string) {
       await commentApi.likeComment(commentId);
     } catch (error) {
       console.error('点赞评论失败:', error);
+      const e = error as { message?: string };
+      toast.error(e?.message || '点赞失败，请稍后重试');
     }
   }, '点赞评论');
 }
@@ -687,8 +700,8 @@ const head = useHead(
 <template>
   <div class="min-h-screen flex flex-col" style="background-color: var(--theme-bg);">
 
-    <!-- Header - 与ListPage和SearchPage一致的面包屑结构 -->
-    <div class="border-b py-3 sm:py-4" style="background-color: var(--theme-bg); border-color: var(--theme-border);">
+    <!-- 吸顶面包屑栏 - 统一详情页顶部样式 -->
+    <div class="border-b sticky top-0 z-30 backdrop-blur-sm py-3" style="background-color: var(--theme-surface); border-color: var(--theme-border);">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div class="flex items-center justify-between gap-4">
           <Breadcrumb :items="breadcrumbs"/>
@@ -726,7 +739,7 @@ const head = useHead(
         <!-- Article exists - show content -->
         <template v-if="article">
           <article
-              class="rounded-xl mb-4 w-full"
+              class="rounded-2xl mb-4 w-full"
               style="background-color: var(--theme-surface); border: 1px solid var(--theme-border);"
               role="article"
               :aria-labelledby="'article-title-' + article.id"
@@ -825,12 +838,13 @@ const head = useHead(
                 <TagList v-if="articleTags.length > 0" :tags="articleTags" :max-visible="3" />
               </div>
 
-              <!-- 内容区域 - 自适应 -->
+              <!-- 内容区域 - 启用阅读列宽约束提升长文体验 -->
               <div class="flex-1 py-6">
                 <MarkdownRenderer
                     :content="article.content"
                     :content-markdown="article.contentMarkdown"
                     :editor-mode="article.editorMode"
+                    prose-width="normal"
                 />
               </div>
 
@@ -1010,7 +1024,7 @@ const head = useHead(
           <!-- 广告位 -->
           <AdCard slot-key="article_detail_bottom" class="mb-4" />
 
-          <section class="rounded-xl p-4 sm:p-6 md:p-8 mb-4"
+          <section class="rounded-2xl p-4 sm:p-6 md:p-8 mb-4"
                    style="background-color: var(--theme-surface); border: 1px solid var(--theme-border);"
                    aria-labelledby="comments-heading">
             <h2 id="comments-heading" class="text-lg font-bold mb-4 flex items-center space-x-3"

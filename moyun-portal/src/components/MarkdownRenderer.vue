@@ -5,15 +5,20 @@ import type { EditorMode } from '@/types'
 import { sanitizeHTML } from '@/utils/security'
 
 interface Props {
-  content: string
+  /** HTML 内容（richtext 模式渲染）。markdown 模式下可省略，仅传 contentMarkdown */
+  content?: string
   contentMarkdown?: string
   editorMode?: EditorMode
   className?: string
+  /** 阅读列宽约束：限制正文最大宽度以提升长文阅读体验 */
+  proseWidth?: 'none' | 'normal' | 'wide'
 }
 
 const props = withDefaults(defineProps<Props>(), {
+  content: '',
   editorMode: 'richtext',
   className: '',
+  proseWidth: 'none',
 })
 
 // 配置 marked
@@ -36,7 +41,9 @@ const renderContent = computed(() => {
 <template>
   <div
     :class="[
-      'prose prose-lg max-w-none',
+      'prose prose-lg',
+      // 阅读列宽约束：normal=约65ch适合长文阅读；wide=约80ch平衡；none=不限制
+      proseWidth === 'normal' ? 'max-w-3xl mx-auto' : (proseWidth === 'wide' ? 'max-w-4xl mx-auto' : 'max-w-none'),
       'prose-headings:font-bold prose-headings:text-gray-900 dark:prose-headings:text-gray-100',
       'prose-p:text-gray-700 dark:prose-p:text-gray-300',
       'prose-a:text-blue-600 dark:prose-a:text-blue-400',

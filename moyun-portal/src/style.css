@@ -14,6 +14,13 @@
   /* 语义色（跨主题统一） */
   --theme-danger: #DC2626;
   --theme-success: #10B981;
+  --theme-warning: #F59E0B;
+  --theme-info: #3B82F6;
+  /* 语义背景色（配合语义色使用，用于徽章/提示条背景） */
+  --theme-danger-bg: #FEE2E2;
+  --theme-success-bg: #D1FAE5;
+  --theme-warning-bg: #FEF3C7;
+  --theme-info-bg: #DBEAFE;
 
   font-family:
     -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica,
@@ -36,6 +43,11 @@
   --theme-border: #1E293B;
   --theme-surface: #1E293B;
   --theme-accent: #1E293B;
+  /* 暗色模式下语义背景色加深，与主背景区分 */
+  --theme-danger-bg: #7F1D1D;
+  --theme-success-bg: #064E3B;
+  --theme-warning-bg: #78350F;
+  --theme-info-bg: #1E3A8A;
 }
 
 /* 护眼主题 */
@@ -47,6 +59,11 @@
   --theme-border: #D1D5DB;
   --theme-surface: #FAF8F0;
   --theme-accent: #D1FAE5;
+  /* 护眼模式下语义背景色调整为低饱和度 */
+  --theme-danger-bg: #FCE7DC;
+  --theme-success-bg: #E8F5E9;
+  --theme-warning-bg: #FFF8E1;
+  --theme-info-bg: #E3F2FD;
 }
 
 /* 基础样式 */

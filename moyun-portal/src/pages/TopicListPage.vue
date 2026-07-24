@@ -9,6 +9,7 @@ import {
 import SiteFooter from '@/components/SiteFooter.vue';
 import LazyImage from '@/components/LazyImage.vue';
 import Empty from '@/components/Empty.vue';
+import LoadingSpinner from '@/components/LoadingSpinner.vue';
 import { generateSeo } from '@/utils/seo';
 import { getSafeAvatar } from '@/utils/avatar';
 import { formatRelativeTime } from '@/utils/date';
@@ -120,7 +121,7 @@ function gotoPage(p: number) {
     <!-- Hero 区 -->
     <div class="py-6 sm:py-8">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div class="relative overflow-hidden rounded-2xl text-white" style="background-image: radial-gradient(circle at 20% 50%, rgba(190, 24, 93, 0.3) 0%, transparent 50%), radial-gradient(circle at 80% 30%, rgba(124, 58, 237, 0.3) 0%, transparent 50%), linear-gradient(135deg, #be185d 0%, #a21caf 50%, #7c3aed 100%);">
+        <div class="relative overflow-hidden rounded-2xl text-white" style="background-image: linear-gradient(135deg, var(--theme-primary) 0%, var(--theme-info) 100%);">
           <div class="absolute inset-0 opacity-10 pointer-events-none" aria-hidden="true">
             <MessageCircle class="absolute top-6 left-8 w-32 h-32 text-white" />
             <MessageSquare class="absolute bottom-4 right-10 w-40 h-40 text-white" />
@@ -197,13 +198,7 @@ function gotoPage(p: number) {
     <div class="flex-1 py-8">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <!-- 加载状态 -->
-        <div v-if="loading" class="flex flex-col items-center justify-center py-20">
-          <div
-            class="animate-spin rounded-full h-12 w-12 border-b-2"
-            style="border-color: var(--theme-primary);"
-          ></div>
-          <p class="mt-4 text-sm" style="color: var(--theme-text-secondary);">加载中...</p>
-        </div>
+        <LoadingSpinner v-if="loading" size="xl" />
 
         <!-- 错误状态 -->
         <div
@@ -247,12 +242,12 @@ function gotoPage(p: number) {
               v-for="t in topics"
               :key="t.id"
               @click="gotoDetail(t)"
-              class="rounded-xl overflow-hidden border shadow-sm hover:shadow-md transition cursor-pointer flex flex-col"
+              class="rounded-2xl overflow-hidden border shadow-sm hover:shadow-lg hover:-translate-y-1 transition cursor-pointer flex flex-col"
               style="background-color: var(--theme-surface); border-color: var(--theme-border);"
             >
               <!-- 封面 -->
               <div
-                class="relative h-32"
+                class="relative h-40"
                 style="background-color: var(--theme-bg);"
               >
                 <LazyImage
@@ -271,7 +266,7 @@ function gotoPage(p: number) {
                 <span
                   v-if="t.pinned === 1"
                   class="absolute top-3 left-3 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium text-white"
-                  style="background-color: #f59e0b;"
+                  style="background-color: var(--theme-warning);"
                 >
                   <Pin class="w-3 h-3 mr-1" />置顶
                 </span>

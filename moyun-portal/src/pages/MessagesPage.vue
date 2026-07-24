@@ -109,6 +109,7 @@ async function loadNotifications() {
         }
     } catch (error) {
         console.error('加载通知失败:', error);
+        toast.error('加载通知失败，请稍后重试');
     } finally {
         notifLoading.value = false;
     }
@@ -170,6 +171,7 @@ async function loadSessions() {
         }
     } catch (error) {
         console.error('加载会话列表失败:', error);
+        toast.error('加载会话列表失败，请稍后重试');
     } finally {
         sessionLoading.value = false;
     }
@@ -268,7 +270,7 @@ watch(isChatMode, (isChat) => {
   <div class="min-h-screen flex flex-col" style="background-color: var(--theme-bg);">
     <!-- 面包屑 -->
     <div class="border-b py-3 sm:py-4" style="border-color: var(--theme-border);">
-      <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <Breadcrumb :items="breadcrumbItems" />
       </div>
     </div>
@@ -276,7 +278,7 @@ watch(isChatMode, (isChat) => {
     <!-- 聊天详情模式 -->
     <template v-if="isChatMode">
       <div class="flex-1 flex flex-col" style="height: calc(100vh - 60px);">
-        <div class="max-w-4xl mx-auto w-full flex-1 flex flex-col">
+        <div class="max-w-7xl mx-auto w-full flex-1 flex flex-col">
           <MessageChat
             :session-id="chatSessionId"
             :peer-user="activeSession ? sessionPeer(activeSession) : null"
@@ -291,7 +293,7 @@ watch(isChatMode, (isChat) => {
     <!-- 消息中心列表模式 -->
     <template v-else>
       <div class="py-6 sm:py-8 flex-1">
-        <div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <!-- 标题 -->
           <div class="flex items-center justify-between mb-5">
             <h1 class="text-xl sm:text-2xl font-bold" style="color: var(--theme-text);">消息中心</h1>

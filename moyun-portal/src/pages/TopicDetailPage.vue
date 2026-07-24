@@ -5,7 +5,7 @@ import { useHead } from '@vueuse/head';
 import {
   ArrowLeft, MessageCircle, Eye, Heart, MessageSquare, Send,
   Pin, ChevronLeft, ChevronRight, Trash2, Loader2, Pencil, BadgeCheck,
-  ChevronDown, Reply,
+  ChevronDown, Reply, X,
 } from 'lucide-vue-next';
 import SiteFooter from '@/components/SiteFooter.vue';
 import LazyImage from '@/components/LazyImage.vue';
@@ -50,6 +50,21 @@ const postsTotalPages = computed(() => Math.max(1, Math.ceil(postsTotal.value / 
 const newPostContent = ref('');
 const submitting = ref(false);
 const actionPostId = ref<number | null>(null);
+// 编辑器折叠 + 模式切换（plain=纯文本 / richtext=富文本 Markdown）
+const showPostEditor = ref(false);
+const postEditorMode = ref<'plain' | 'richtext'>('plain');
+
+function togglePostEditor() {
+  showPostEditor.value = !showPostEditor.value;
+  if (!showPostEditor.value) {
+    // 折叠时清空内容
+    newPostContent.value = '';
+  }
+}
+
+function switchPostEditorMode(mode: 'plain' | 'richtext') {
+  postEditorMode.value = mode;
+}
 
 // 话题点赞中
 const likingTopic = ref(false);
@@ -159,6 +174,8 @@ async function handleSubmitPost() {
     const res = await createTopicPost(topic.value.id, { content });
     if (res.code === 200 && res.data) {
       newPostContent.value = '';
+      // 提交成功后折叠编辑器，下次需重新点击展开
+      showPostEditor.value = false;
       toast.success('观点已发表');
       // 关键修复：先更新总数，再计算最后一页
       postsTotal.value += 1;
@@ -669,29 +686,106 @@ async function handleDeleteComment(
             </div>
           </div>
 
-          <!-- 发表观点 -->
+          <!-- 发表观点（默认折叠，点击展开） -->
           <div
             class="rounded-2xl border p-5 mb-6"
             style="background-color: var(--theme-surface); border-color: var(--theme-border);"
           >
-            <h2 class="text-base font-semibold mb-3" style="color: var(--theme-text);">
+            <!-- 折叠态：仅显示触发按钮 -->
+            <button
+              v-if="!showPostEditor"
+              @click="togglePostEditor"
+              class="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-medium transition hover:opacity-90"
+              style="color: var(--theme-primary); border: 1px dashed var(--theme-border);"
+            >
+              <Send class="w-4 h-4" />
               发表你的观点
-            </h2>
-            <MarkdownEditor
-              v-model="newPostContent"
-              placeholder="支持 Markdown 语法，表达你的观点..."
-            />
-            <div class="flex items-center justify-end mt-3">
-              <button
-                @click="handleSubmitPost"
-                :disabled="submitting || !newPostContent.trim()"
-                class="inline-flex items-center px-4 py-2 text-sm text-white rounded-lg transition hover:opacity-90 disabled:opacity-50"
-                style="background-color: var(--theme-primary);"
-              >
-                <Loader2 v-if="submitting" class="w-4 h-4 mr-1 animate-spin" />
-                <Send v-else class="w-4 h-4 mr-1" />
-                发表观点
-              </button>
+            </button>
+
+            <!-- 展开态：模式切换 + 编辑器 + 提交按钮 -->
+            <div v-else>
+              <div class="flex items-center justify-between mb-3">
+                <h2 class="text-base font-semibold" style="color: var(--theme-text);">
+                  发表你的观点
+                </h2>
+                <div class="flex items-center gap-2">
+                  <!-- 普通文本 / 富文本切换 -->
+                  <div
+                    class="inline-flex rounded-lg border overflow-hidden text-xs"
+                    style="border-color: var(--theme-border);"
+                  >
+                    <button
+                      type="button"
+                      @click="switchPostEditorMode('plain')"
+                      :class="postEditorMode === 'plain' ? 'text-white' : ''"
+                      :style="{
+                        backgroundColor: postEditorMode === 'plain' ? 'var(--theme-primary)' : 'transparent',
+                        color: postEditorMode === 'plain' ? 'white' : 'var(--theme-text-secondary)',
+                      }"
+                      class="px-3 py-1.5 transition"
+                    >
+                      普通文本
+                    </button>
+                    <button
+                      type="button"
+                      @click="switchPostEditorMode('richtext')"
+                      :class="postEditorMode === 'richtext' ? 'text-white' : ''"
+                      :style="{
+                        backgroundColor: postEditorMode === 'richtext' ? 'var(--theme-primary)' : 'transparent',
+                        color: postEditorMode === 'richtext' ? 'white' : 'var(--theme-text-secondary)',
+                      }"
+                      class="px-3 py-1.5 transition"
+                    >
+                      富文本
+                    </button>
+                  </div>
+                  <button
+                    @click="togglePostEditor"
+                    class="inline-flex items-center px-2 py-1.5 rounded-lg text-xs transition hover:opacity-80"
+                    style="color: var(--theme-text-secondary);"
+                    title="收起"
+                  >
+                    <X class="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+
+              <!-- 普通文本模式：纯 textarea，无格式 -->
+              <textarea
+                v-if="postEditorMode === 'plain'"
+                v-model="newPostContent"
+                placeholder="说点什么，纯文本即可..."
+                class="w-full p-3 border rounded-lg text-sm resize-y focus:outline-none"
+                style="border-color: var(--theme-border); background-color: var(--theme-bg); color: var(--theme-text); min-height: 120px;"
+                rows="5"
+              ></textarea>
+
+              <!-- 富文本模式：MarkdownEditor，支持图片上传和格式化 -->
+              <MarkdownEditor
+                v-else
+                v-model="newPostContent"
+                placeholder="支持 Markdown 语法，可插入图片..."
+              />
+
+              <div class="flex items-center justify-end mt-3 gap-2">
+                <button
+                  @click="togglePostEditor"
+                  class="inline-flex items-center px-4 py-2 text-sm rounded-lg transition hover:opacity-80"
+                  style="color: var(--theme-text-secondary);"
+                >
+                  取消
+                </button>
+                <button
+                  @click="handleSubmitPost"
+                  :disabled="submitting || !newPostContent.trim()"
+                  class="inline-flex items-center px-4 py-2 text-sm text-white rounded-lg transition hover:opacity-90 disabled:opacity-50"
+                  style="background-color: var(--theme-primary);"
+                >
+                  <Loader2 v-if="submitting" class="w-4 h-4 mr-1 animate-spin" />
+                  <Send v-else class="w-4 h-4 mr-1" />
+                  发表观点
+                </button>
+              </div>
             </div>
           </div>
 
@@ -771,16 +865,20 @@ async function handleDeleteComment(
                     回复 @{{ post.replyToUser.nickname }}
                   </div>
 
-                  <!-- 观点内容 -->
+                  <!-- 观点内容（统一用 markdown 模式渲染，支持图片/格式化） -->
                   <div
                     class="text-sm leading-relaxed"
                     style="color: var(--theme-text);"
                   >
-                    <MarkdownRenderer v-if="post.content" :content="post.content" />
+                    <MarkdownRenderer
+                      v-if="post.content"
+                      editor-mode="markdown"
+                      :content-markdown="post.content"
+                    />
                     <p v-else style="color: var(--theme-text-secondary);">（该观点内容为空）</p>
                   </div>
 
-                  <!-- 图片 -->
+                  <!-- 图片（独立 images 字段，富文本编辑器内嵌图片已由 markdown 渲染） -->
                   <div
                     v-if="post.images && post.images.length > 0"
                     class="grid grid-cols-2 sm:grid-cols-3 gap-2 mt-3"

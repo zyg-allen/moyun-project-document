@@ -30,14 +30,14 @@ export const getTopicDetail = (id: number | string) => {
 
 /**
  * 发起话题（需登录 + 创作者认证）
- * POST /portal/topic
+ * POST /portal/topic/save
  */
 export const createTopic = (data: {
   title: string;
   description?: string;
   cover?: string;
 }) => {
-  return httpPost<Topic>('/portal/topic', data);
+  return httpPost<Topic>('/portal/topic/save', data);
 };
 
 /**

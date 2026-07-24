@@ -190,7 +190,7 @@ async function loadAuthorData() {
     ]);
   } catch (error) {
     console.error('加载作者信息失败:', error);
-    router.push('/404');
+    router.push({ name: 'not-found' });
   } finally {
     isLoading.value = false;
   }
@@ -199,26 +199,23 @@ async function loadAuthorData() {
 // 切换关注状态
 async function toggleFollow() {
   if (!author.value || !currentUser.value) return;
-  
+
   try {
     if (isFollowing.value) {
       await followApi.unfollowUser({ userId: author.value.id });
       isFollowing.value = false;
       authorStats.value.followers--;
+      toast.success('已取消关注');
     } else {
       await followApi.followUser({ userId: author.value.id });
       isFollowing.value = true;
       authorStats.value.followers++;
+      toast.success('关注成功');
     }
   } catch (error) {
     console.error('操作失败:', error);
-    // 本地模拟
-    isFollowing.value = !isFollowing.value;
-    if (isFollowing.value) {
-      authorStats.value.followers++;
-    } else {
-      authorStats.value.followers--;
-    }
+    const e = error as { message?: string };
+    toast.error(e?.message || '操作失败，请稍后重试');
   }
 }
 
@@ -243,7 +240,7 @@ async function startChat() {
     if (resp.code === 200 && resp.data && resp.data.id) {
       router.push(`/messages/chat/${resp.data.id}`);
     } else {
-      toast.error(resp.msg || '发起私信失败');
+      toast.error(resp.message || '发起私信失败');
     }
   } catch (error) {
     console.error('发起私信失败:', error);
@@ -280,8 +277,8 @@ function handlePageChange(page: number) {
 
 <template>
   <div class="min-h-screen flex flex-col" style="background-color: var(--theme-bg);">
-    <!-- 面包屑 -->
-    <div class="border-b py-3 sm:py-4" style="background-color: var(--theme-bg); border-color: var(--theme-border);">
+    <!-- 吸顶面包屑栏 - 统一详情页顶部样式 -->
+    <div class="border-b sticky top-0 z-30 backdrop-blur-sm py-3" style="background-color: var(--theme-surface); border-color: var(--theme-border);">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div class="flex items-center justify-between gap-4">
           <Breadcrumb :items="[{ label: author?.username || '用户主页' }]" />
@@ -333,7 +330,7 @@ function handlePageChange(page: number) {
                       <span
                         v-if="authorGrowth"
                         class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium"
-                        style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;"
+                        style="background: linear-gradient(135deg, var(--theme-primary) 0%, var(--theme-info) 100%); color: white;"
                       >
                         <Award class="w-3.5 h-3.5" />
                         Lv.{{ authorGrowth.level }} {{ authorGrowth.title }}
@@ -582,7 +579,7 @@ function handlePageChange(page: number) {
                     <div
                       class="w-10 h-10 mx-auto mb-2 rounded-xl flex items-center justify-center"
                       :style="ach.earned
-                        ? { background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' }
+                        ? { background: 'linear-gradient(135deg, var(--theme-primary) 0%, var(--theme-info) 100%)' }
                         : { backgroundColor: 'var(--theme-border)' }"
                     >
                       <component :is="ach.earned ? Award : Star" class="w-5 h-5 text-white" />

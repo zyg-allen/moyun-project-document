@@ -11,6 +11,8 @@ import { useUserStore } from '@/stores/user';
 import { useMessageStore } from '@/stores/message';
 import { getSafeAvatar } from '@/utils/avatar';
 import { useAuth } from '@/composables/useAuth';
+import { getNavTree, getNavRouteTarget, isNavRequiresAuth } from '@/api/category';
+import type { Category } from '@/types/api';
 import NotificationBell from './NotificationBell.vue';
 import * as notificationApi from '@/api/notification';
 
@@ -44,112 +46,96 @@ interface NavItem {
   children: { name: string; path?: string; isExternal?: boolean; requiresAuth?: boolean }[];
 }
 
-// 导航数据结构 - 7 个一级菜单：首页 / 分类 / 读书 / 面试（含学习中心） / 创作 / 互动 / 我的
-// 学习中心已并入面试（数据全部来自面试题库），社区已拆解（FeedPage→我的、Authors→创作、排行/成就→我的）
+// 从后端 /portal/category/nav/tree 加载的原始分类树
+const navCategories = ref<Category[]>([]);
+
+/**
+ * 把后端 Category 转换为前端 NavItem。
+ *
+ * 一级栏目根据 nav_route_type 决定行为：
+ *   - home      : 直接跳转 /（模板用 key==='home' 特判）
+ *   - static    : 一级可点（path=nav_route_path），同时悬浮展开子菜单
+ *   - external  : 外部链接
+ *   - category  : 仅展开子菜单，无 path
+ *
+ * 二级栏目根据 nav_route_type 计算 path：
+ *   - home      : 不应出现在二级，兜底 /
+ *   - category  : /category/<encodeURIComponent(name)>
+ *   - static    : nav_route_path
+ *   - external  : nav_route_path（标记 isExternal，新窗口打开）
+ */
+function categoryToNavItem(cat: Category): NavItem {
+  const routeType = (cat.navRouteType || 'category').toLowerCase();
+  // 一级栏目
+  const children: NavItem['children'] = (cat.children || []).map(child => {
+    const childTarget = getNavRouteTarget(child);
+    return {
+      name: child.name,
+      path: childTarget.path,
+      isExternal: childTarget.type === 'external',
+      requiresAuth: isNavRequiresAuth(child),
+    };
+  });
+
+  if (routeType === 'home') {
+    return { name: cat.name, key: cat.slug || String(cat.id), path: '/', children: [] };
+  }
+  if (routeType === 'external') {
+    return {
+      name: cat.name,
+      key: cat.slug || String(cat.id),
+      externalUrl: cat.navRoutePath || '#',
+      isExternal: true,
+      children: [],
+    };
+  }
+  if (routeType === 'static') {
+    // 一级可点 + 展开子菜单
+    return {
+      name: cat.name,
+      key: cat.slug || String(cat.id),
+      path: cat.navRoutePath || '/',
+      children,
+    };
+  }
+  // category 类型：一级仅展开子菜单，无 path
+  return { name: cat.name, key: cat.slug || String(cat.id), children };
+}
+
+// 导航项（从后端动态加载 + 登录态过滤）
 const navItems = computed<NavItem[]>(() => {
   const isLoggedIn = userStore.isAuthenticated;
-  return [
-    // 1. 首页 - 平台总入口
-    {
-      name: '首页',
-      key: 'home',
-      path: '/',
-      children: []
-    },
-    // 2. 分类（静态，文章内容分类聚合）
-    {
-      name: '分类',
-      key: 'category',
-      children: [
-        { name: '散文天地', path: '/category/' + encodeURIComponent('散文天地') },
-        { name: '技术笔记', path: '/category/' + encodeURIComponent('技术笔记') },
-        { name: '技能工坊', path: '/category/' + encodeURIComponent('技能工坊') },
-      ]
-    },
-    // 3. 读书空间 - 文学爱好者内容消费与沉淀
-    {
-      name: '读书',
-      key: 'reading',
-      path: '/reading',
-      children: [
-        { name: '读书首页', path: '/reading' },
-        { name: '发现好书', path: '/reading/discover' },
-        { name: '共读活动', path: '/reading/club' },
-        { name: '我的书架', path: '/reading/bookshelf', requiresAuth: true },
-      ]
-    },
-    // 4. 面试 - 求职者面试闭环（已合并原"学习中心"7 个页面，因为数据全部来自面试题库）
-    {
-      name: '面试',
-      key: 'interview',
-      path: '/interview',
-      children: [
-        { name: '面试题库', path: '/interview' },
-        { name: '面试经验', path: '/interview/experiences' },
-        { name: '简历模板', path: '/interview/resume-templates' },
-        { name: '在招职位', path: '/interview/jobs' },
-        { name: 'AI 模拟面试', path: '/interview/mock', requiresAuth: true },
-        // 学习中心子模块（合并自原 /learn 菜单）
-        { name: '学习中心', path: '/learn' },
-        { name: '知识图谱', path: '/learn/knowledge' },
-        { name: '刷题排行榜', path: '/learn/leaderboard' },
-        { name: '学习计划', path: '/learn/plan', requiresAuth: true },
-        { name: '错题本', path: '/learn/wrong', requiresAuth: true },
-        { name: '刷题日历', path: '/learn/calendar', requiresAuth: true },
-      ]
-    },
-    // 5. 创作 - 创作者内容生态
-    {
-      name: '创作',
-      key: 'create',
-      children: [
-        { name: '发布文章', path: '/publish', requiresAuth: true },
-        { name: '我的文章', path: '/my/articles', requiresAuth: true },
-        { name: '专栏广场', path: '/columns' },
-        { name: '我的专栏', path: '/column/my', requiresAuth: true },
-        { name: '创作挑战', path: '/contests' },
-        { name: '创作者认证', path: '/creator/certification', requiresAuth: true },
-        { name: '创作者列表', path: '/authors' },
-      ]
-    },
-    // 6. 互动 - 社区互动聚合（话题/动态/挑战）
-    {
-      name: '互动',
-      key: 'interaction',
-      children: [
-        { name: '话题广场', path: '/topics' },
-        { name: '动态广场', path: '/feed' },
-        { name: '创作挑战', path: '/contests' },
-      ]
-    },
-    // 7. 我的 - 个人中心聚合（原"社区"已拆解到此）
-    {
-      name: '我的',
-      key: 'mine',
-      children: [
-        { name: '个人中心', path: '/user', requiresAuth: true },
-        { name: '成长时间线', path: '/growth/timeline', requiresAuth: true },
-        { name: '动态广场', path: '/feed' },
-        { name: '我的话题', path: '/topic/my/topics', requiresAuth: true },
-        { name: '我的观点', path: '/topic/my/posts', requiresAuth: true },
-        { name: '成长排行榜', path: '/ranking' },
-        { name: '成就徽章', path: '/achievements', requiresAuth: true },
-      ]
-    },
-  ].filter(item => {
-    // 未登录用户：过滤掉所有子项都需登录的菜单（避免空菜单）
-    if (!isLoggedIn && item.children.length > 0) {
-      const hasPublicChild = item.children.some(c => !c.requiresAuth);
-      return hasPublicChild;
-    }
-    return true;
-  });
+  return navCategories.value
+    .map(categoryToNavItem)
+    .filter(item => {
+      // 未登录用户：过滤掉所有子项都需登录的菜单（避免空菜单）
+      if (!isLoggedIn && item.children.length > 0) {
+        const hasPublicChild = item.children.some(c => !c.requiresAuth);
+        return hasPublicChild;
+      }
+      return true;
+    });
 });
+
+// 加载导航栏目树（带内存缓存，由 category.ts 统一管理）
+async function loadNavCategories() {
+  try {
+    const response = await getNavTree();
+    if (response.code === 200 && response.data) {
+      navCategories.value = response.data;
+    }
+  } catch (error) {
+    console.error('加载导航栏目失败:', error);
+    navCategories.value = [];
+  }
+}
 
 const currentUser = computed(() => userStore.user)
 
 onMounted(async () => {
   currentTheme.value = getCurrentTheme();
+  // 加载头部导航栏目树（所有用户都需要，未登录也能看到公开栏目）
+  await loadNavCategories();
   if (userStore.isAuthenticated) {
     await loadNotifications();
     await messageStore.loadAllUnread();

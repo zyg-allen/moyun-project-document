@@ -123,10 +123,11 @@ import { ref, watch } from 'vue';
 import { Gift, X } from 'lucide-vue-next';
 import { tipTarget } from '@/api/tip';
 import { getSafeAvatar } from '@/utils/avatar';
+import type { TipTargetType } from '@/types';
 
 const props = defineProps<{
   show: boolean;
-  targetType: string;
+  targetType: TipTargetType;
   targetId: string | number;
   authorAvatar?: string;
   authorName?: string;

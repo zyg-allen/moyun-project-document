@@ -40,6 +40,14 @@ public interface IPortalCategoryService {
     List<PortalCategory> selectPortalCategoryTree(CategoryQuery query);
 
     /**
+     * 获取头部导航栏目树（仅 show_in_nav=1 且 status=0 的分类）
+     * 供前端 Navbar 动态渲染使用。
+     *
+     * @return 树形导航栏目列表
+     */
+    List<PortalCategory> selectNavCategoryTree();
+
+    /**
      * 通过分类ID查询分类
      *
      * @param id 分类ID

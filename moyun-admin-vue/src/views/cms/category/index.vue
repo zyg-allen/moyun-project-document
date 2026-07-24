@@ -73,6 +73,27 @@
           </el-tag>
         </template>
       </el-table-column>
+      <el-table-column prop="showInNav" label="头部展示" width="90" align="center">
+        <template #default="{ row }">
+          <el-tag :type="Number(row.showInNav) === 1 ? 'success' : 'info'">
+            {{ Number(row.showInNav) === 1 ? '是' : '否' }}
+          </el-tag>
+        </template>
+      </el-table-column>
+      <el-table-column prop="navRouteType" label="路由类型" width="100" align="center">
+        <template #default="{ row }">
+          <el-tag v-if="row.navRouteType" :type="routeTypeTag(row.navRouteType)" size="small">
+            {{ routeTypeLabel(row.navRouteType) }}
+          </el-tag>
+          <span v-else style="color: #909399;">-</span>
+        </template>
+      </el-table-column>
+      <el-table-column prop="navRoutePath" label="路由路径" width="180" :show-overflow-tooltip="true">
+        <template #default="{ row }">
+          <span v-if="row.navRoutePath" style="color: var(--el-color-primary);">{{ row.navRoutePath }}</span>
+          <span v-else style="color: #909399;">动态分类</span>
+        </template>
+      </el-table-column>
       <el-table-column prop="description" label="描述" :show-overflow-tooltip="true" />
       <el-table-column label="创建时间" align="center" width="160" prop="createTime">
         <template #default="scope">
@@ -169,6 +190,50 @@
                 <el-radio label="0">正常</el-radio>
                 <el-radio label="1">停用</el-radio>
               </el-radio-group>
+            </el-form-item>
+          </el-col>
+        </el-row>
+        <el-row :gutter="20">
+          <el-col :span="12">
+            <el-form-item label="头部展示" prop="showInNav">
+              <el-radio-group v-model="form.showInNav">
+                <el-radio :label="1">展示</el-radio>
+                <el-radio :label="0">隐藏</el-radio>
+              </el-radio-group>
+              <div style="color: #909399; font-size: 12px; margin-top: 4px;">
+                控制是否在网站头部 Navbar 展示
+              </div>
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="需要登录" prop="requiresAuth">
+              <el-radio-group v-model="form.requiresAuth">
+                <el-radio :label="1">需要</el-radio>
+                <el-radio :label="0">不需要</el-radio>
+              </el-radio-group>
+              <div style="color: #909399; font-size: 12px; margin-top: 4px;">
+                标记后未登录用户看不到该项
+              </div>
+            </el-form-item>
+          </el-col>
+        </el-row>
+        <el-row :gutter="20">
+          <el-col :span="12">
+            <el-form-item label="路由类型" prop="navRouteType">
+              <el-select v-model="form.navRouteType" placeholder="请选择路由类型" style="width: 100%">
+                <el-option label="首页（固定 /）" value="home" />
+                <el-option label="动态分类（/category/名称）" value="category" />
+                <el-option label="静态路由（自定义路径）" value="static" />
+                <el-option label="外部链接（新窗口打开）" value="external" />
+              </el-select>
+              <div style="color: #909399; font-size: 12px; margin-top: 4px;">
+                home=首页；category=走文章分类列表；static=静态页面；external=外链
+              </div>
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="路由路径" prop="navRoutePath">
+              <el-input v-model="form.navRoutePath" placeholder="如 /reading/discover（static/external 时必填）" />
             </el-form-item>
           </el-col>
         </el-row>
@@ -280,11 +345,27 @@ function reset() {
     slug: undefined,
     sort: 0,
     status: "0",
+    showInNav: 0,
+    navRouteType: "category",
+    navRoutePath: undefined,
+    requiresAuth: 0,
     description: undefined,
     remark: undefined
   };
   isLevel2.value = false;
   proxy.resetForm("categoryRef");
+}
+
+/** 路由类型中文标签 */
+function routeTypeLabel(type) {
+  const map = { home: '首页', category: '动态分类', static: '静态路由', external: '外链' };
+  return map[type] || type;
+}
+
+/** 路由类型对应的 tag 样式 */
+function routeTypeTag(type) {
+  const map = { home: 'danger', category: 'success', static: 'warning', external: 'info' };
+  return map[type] || 'info';
 }
 
 /** 搜索按钮操作 */

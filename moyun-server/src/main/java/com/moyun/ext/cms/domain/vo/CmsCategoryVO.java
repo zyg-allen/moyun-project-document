@@ -39,6 +39,18 @@ public class CmsCategoryVO extends BaseEntity {
     /** 状态（0正常 1停用） */
     private String status;
 
+    /** 是否在头部栏目展示（0否/1是） */
+    private Integer showInNav;
+
+    /** 路由类型（home/category/static/external） */
+    private String navRouteType;
+
+    /** 静态/外链路由路径（仅 static/external 类型使用） */
+    private String navRoutePath;
+
+    /** 是否需要登录（0否/1是） */
+    private Integer requiresAuth;
+
     /** 文章数量 */
     private Integer articleCount;
 

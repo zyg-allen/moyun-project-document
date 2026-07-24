@@ -5,6 +5,8 @@ import { useHead } from '@vueuse/head';
 import { Clock, Flame, Tag, ArrowRight, PenLine } from 'lucide-vue-next';
 import ArticleCard from '@/components/ArticleCard.vue';
 import Pagination from '@/components/Pagination.vue';
+import Empty from '@/components/Empty.vue';
+import LoadingSpinner from '@/components/LoadingSpinner.vue';
 import Breadcrumb from '@/components/Breadcrumb.vue';
 import SiteFooter from '@/components/SiteFooter.vue';
 import BackToTop from '@/components/BackToTop.vue';
@@ -275,12 +277,7 @@ useHead(
           <!-- 主列表区 -->
           <div class="min-w-0">
             <!-- 加载状态 -->
-            <div v-if="loading" class="py-16 flex items-center justify-center">
-              <div class="flex flex-col items-center gap-3">
-                <div class="w-10 h-10 border-2 rounded-full animate-spin" style="border-color: var(--theme-accent); border-top-color: var(--theme-primary);"></div>
-                <p class="text-sm" style="color: var(--theme-text-secondary);">加载中...</p>
-              </div>
-            </div>
+            <LoadingSpinner v-if="loading" size="lg" />
 
             <!-- 错误状态 -->
             <div v-else-if="error" class="py-16 flex flex-col items-center justify-center text-center">
@@ -313,14 +310,14 @@ useHead(
             </div>
 
             <!-- 空状态 -->
-            <div v-else-if="!loading && !error && paginatedArticles.length === 0" class="text-center py-16">
-              <div class="w-24 h-24 rounded-full flex items-center justify-center mx-auto mb-6" style="background-color: var(--theme-accent);">
-                <Clock class="w-12 h-12" style="color: var(--theme-text-secondary);" />
-              </div>
-              <h3 class="text-xl font-bold mb-2" style="color: var(--theme-text);">暂无文章</h3>
-              <p class="mb-6" style="color: var(--theme-text-secondary);">该分类下还没有文章，敬请期待</p>
+            <Empty
+              v-else-if="!loading && !error && paginatedArticles.length === 0"
+              title="暂无文章"
+              description="该分类下还没有文章，敬请期待"
+              size="lg"
+            >
               <Link to="/category" class="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-white" style="background-color: var(--theme-primary);">浏览全站</Link>
-            </div>
+            </Empty>
           </div>
 
           <!-- 侧栏（lg 屏显示） -->

@@ -8,6 +8,8 @@ import {
 } from 'lucide-vue-next';
 import SiteFooter from '@/components/SiteFooter.vue';
 import LazyImage from '@/components/LazyImage.vue';
+import Empty from '@/components/Empty.vue';
+import LoadingSpinner from '@/components/LoadingSpinner.vue';
 import { generateSeo } from '@/utils/seo';
 import { getSafeAvatar } from '@/utils/avatar';
 import { getColumnList } from '@/api/column';
@@ -134,7 +136,7 @@ function gotoPage(p: number) {
       class="border-b sticky top-0 z-30 backdrop-blur-sm"
       style="background-color: var(--theme-surface); border-color: var(--theme-border);"
     >
-      <div class="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex items-center justify-between">
         <button
           @click="goBack"
           class="flex items-center text-sm transition hover:opacity-80"
@@ -157,7 +159,7 @@ function gotoPage(p: number) {
     <!-- Hero 区 -->
     <div class="py-6 sm:py-8">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div class="relative overflow-hidden rounded-2xl text-white" style="background-image: radial-gradient(circle at 20% 50%, rgba(190, 24, 93, 0.3) 0%, transparent 50%), radial-gradient(circle at 80% 30%, rgba(124, 58, 237, 0.3) 0%, transparent 50%), linear-gradient(135deg, #be185d 0%, #a21caf 50%, #7c3aed 100%);">
+        <div class="relative overflow-hidden rounded-2xl text-white" style="background-image: linear-gradient(135deg, var(--theme-primary) 0%, var(--theme-info) 100%);">
           <div class="absolute inset-0 opacity-10 pointer-events-none" aria-hidden="true">
             <svg class="absolute top-6 left-8 w-32 h-32 text-white" viewBox="0 0 24 24" fill="currentColor"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
             <svg class="absolute bottom-4 right-10 w-40 h-40 text-white" viewBox="0 0 24 24" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-2 10H7v-2h10v2zm0-4H7V7h10v2z"/></svg>
@@ -207,7 +209,7 @@ function gotoPage(p: number) {
 
     <!-- 筛选条 -->
     <div class="border-b" style="background-color: var(--theme-surface); border-color: var(--theme-border);">
-      <div class="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between flex-wrap gap-3">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex items-center justify-between flex-wrap gap-3">
         <div class="flex items-center gap-2">
           <span class="text-xs" style="color: var(--theme-text-secondary);">排序：</span>
           <button
@@ -232,15 +234,9 @@ function gotoPage(p: number) {
 
     <!-- 内容区 -->
     <div class="flex-1 py-8">
-      <div class="max-w-7xl mx-auto px-4">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <!-- 加载状态 -->
-        <div v-if="loading" class="flex flex-col items-center justify-center py-20">
-          <div
-            class="animate-spin rounded-full h-12 w-12 border-b-2"
-            style="border-color: var(--theme-primary);"
-          ></div>
-          <p class="mt-4 text-sm" style="color: var(--theme-text-secondary);">加载中...</p>
-        </div>
+        <LoadingSpinner v-if="loading" size="xl" />
 
         <!-- 错误状态 -->
         <div
@@ -259,16 +255,12 @@ function gotoPage(p: number) {
         </div>
 
         <!-- 空状态 -->
-        <div
+        <Empty
           v-else-if="columns.length === 0"
-          class="rounded-xl border p-12 text-center"
-          style="background-color: var(--theme-surface); border-color: var(--theme-border);"
-        >
-          <BookOpen class="w-12 h-12 mx-auto mb-3" style="color: var(--theme-text-secondary); opacity: 0.5;" />
-          <p class="text-sm" style="color: var(--theme-text-secondary);">
-            {{ keyword ? `没有找到与「${keyword}」相关的专栏` : '暂无专栏' }}
-          </p>
-        </div>
+          :title="keyword ? `没有找到与「${keyword}」相关的专栏` : '暂无专栏'"
+          description="期待创作者发起第一个专栏"
+          size="lg"
+        />
 
         <!-- 专栏卡片网格 -->
         <template v-else>
@@ -295,7 +287,7 @@ function gotoPage(p: number) {
                 <span
                   v-if="col.isFinished"
                   class="absolute top-3 left-3 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium text-white"
-                  style="background-color: #16a34a;"
+                  style="background-color: var(--theme-success);"
                 >
                   <CheckCircle2 class="w-3 h-3 mr-1" />
                   完结

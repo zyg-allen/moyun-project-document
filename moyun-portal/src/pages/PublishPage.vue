@@ -15,7 +15,7 @@ import {
   createNewTag,
   getRecommendTags
 } from '@/api/tag';
-import { getCategoryTree } from '@/api/category';
+import { getCategoryTree, filterCategoryTree } from '@/api/category';
 import { publishArticle, saveDraft as saveDraftApi, getArticleDetail } from '@/api/article';
 import { uploadPortalFile, deletePortalFile } from '@/api/file';
 import { getTodayPrompt } from '@/api/prompt';
@@ -284,7 +284,9 @@ async function loadCategories() {
   try {
     const response = await getCategoryTree();
     if (response.code === 200 && response.data) {
-      categories.value = response.data;
+      // 过滤掉非文章分类（static/home/external 类型 + 非文章一级栏目）
+      // 只保留 category 类型的分类供文章归类选择
+      categories.value = filterCategoryTree(response.data);
     }
   } catch (error) {
     console.error('Failed to load categories:', error);

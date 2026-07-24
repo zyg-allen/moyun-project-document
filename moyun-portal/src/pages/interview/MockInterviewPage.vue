@@ -4,7 +4,7 @@ import { useRouter } from 'vue-router';
 import { useHead } from '@vueuse/head';
 import {
   ArrowLeft, Loader2, MessageSquare, Award, CheckCircle2, ChevronLeft,
-  ChevronRight, Flag, RefreshCw, ListChecks, Sparkles, Trophy, X,
+  ChevronRight, Flag, RefreshCw, ListChecks, Sparkles, Trophy,
 } from 'lucide-vue-next';
 import SiteFooter from '@/components/SiteFooter.vue';
 import { generateSeo } from '@/utils/seo';
@@ -74,7 +74,8 @@ async function loadHistory() {
       history.value = res.data.list || [];
     }
   } catch (err) {
-    // 历史加载失败不阻断主流程
+    // 历史加载失败不阻断主流程，仅记录日志
+    console.error('加载面试历史失败:', err);
   } finally {
     historyLoading.value = false;
   }
@@ -288,7 +289,7 @@ function formatTime(t?: string): string {
       </div>
 
       <div class="flex-1 py-8">
-        <div class="max-w-2xl mx-auto px-4">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <!-- 配置卡片 -->
           <div
             class="rounded-xl border p-6 mb-6"
@@ -412,7 +413,7 @@ function formatTime(t?: string): string {
     <template v-else-if="stage === 'answering' && interview">
       <!-- 进度条 -->
       <div class="border-b" style="background-color: var(--theme-surface); border-color: var(--theme-border);">
-        <div class="max-w-3xl mx-auto px-4 py-3">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
           <div class="flex items-center justify-between mb-2">
             <span class="text-sm font-medium" style="color: var(--theme-text);">
               第 {{ currentIdx + 1 }} / {{ totalQa }} 题
@@ -431,7 +432,7 @@ function formatTime(t?: string): string {
       </div>
 
       <div class="flex-1 py-8">
-        <div class="max-w-3xl mx-auto px-4">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <!-- 题目导航 -->
           <div class="flex items-center gap-1.5 mb-4 flex-wrap">
             <button
@@ -563,7 +564,7 @@ function formatTime(t?: string): string {
     <!-- ============ 结果页 ============ -->
     <template v-else-if="stage === 'result' && interview">
       <div class="flex-1 py-8">
-        <div class="max-w-3xl mx-auto px-4">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <!-- 总分卡片 -->
           <div
             class="rounded-xl border p-6 mb-5 text-center"

@@ -3,7 +3,7 @@ import { ref, onMounted, watch, computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useHead } from '@vueuse/head';
 import {
-  Briefcase, Search, Star, ArrowLeft, BookOpen,
+  Briefcase, Search, Star, ArrowLeft, BookOpen, PenSquare,
   ChevronLeft, ChevronRight, MessageSquare, Eye
 } from 'lucide-vue-next';
 import LazyImage from '@/components/LazyImage.vue';
@@ -12,11 +12,13 @@ import { generateSeo } from '@/utils/seo';
 import { getSafeAvatar } from '@/utils/avatar';
 import { getExperienceList } from '@/api/interview';
 import { useToast } from '@/composables/useToast';
+import { useAuth } from '@/composables/useAuth';
 import type { InterviewExperienceVO } from '@/types/api';
 
 const route = useRoute();
 const router = useRouter();
 const toast = useToast();
+const { requireAuth } = useAuth();
 
 const loading = ref(false);
 const error = ref<string | null>(null);
@@ -86,6 +88,11 @@ function goDetail(id: string | number) {
   router.push(`/interview/experience/${id}`);
 }
 
+function goPublish() {
+  if (!requireAuth('/interview/experience/publish')) return;
+  router.push('/interview/experience/publish');
+}
+
 function expName(exp: InterviewExperienceVO) {
   const u: any = (exp as any).user;
   if (u?.nickname) return u.nickname;
@@ -134,7 +141,14 @@ function gotoPage(p: number) {
           返回面试指南
         </button>
         <span class="text-sm" style="color: var(--theme-text-secondary);">面试经验</span>
-        <span class="w-20"></span>
+        <button
+          @click="goPublish"
+          class="inline-flex items-center px-4 py-1.5 text-sm text-white rounded-lg transition hover:opacity-90"
+          style="background-color: var(--theme-primary);"
+        >
+          <PenSquare class="w-4 h-4 mr-1" />
+          分享经验
+        </button>
       </div>
     </div>
 
@@ -172,6 +186,17 @@ function gotoPage(p: number) {
                 style="background-color: var(--theme-primary);"
               >
                 搜索
+              </button>
+            </div>
+            <!-- 分享经验按钮 -->
+            <div class="mt-6">
+              <button
+                @click="goPublish"
+                class="inline-flex items-center px-5 py-2.5 rounded-lg text-sm font-medium text-white transition hover:opacity-90"
+                style="background-color: rgba(255,255,255,0.2);"
+              >
+                <PenSquare class="w-4 h-4 mr-2" />
+                分享我的面试经验
               </button>
             </div>
           </div>
@@ -214,7 +239,15 @@ function gotoPage(p: number) {
           style="background-color: var(--theme-surface); border-color: var(--theme-border);"
         >
           <BookOpen class="w-12 h-12 mx-auto mb-3" style="color: var(--theme-text-secondary); opacity: 0.5;" />
-          <p class="text-sm" style="color: var(--theme-text-secondary);">暂无面经</p>
+          <p class="text-sm mb-4" style="color: var(--theme-text-secondary);">暂无面经，快来分享你的面试经验吧</p>
+          <button
+            @click="goPublish"
+            class="inline-flex items-center px-4 py-2 text-white rounded-lg text-sm transition hover:opacity-90"
+            style="background-color: var(--theme-primary);"
+          >
+            <PenSquare class="w-4 h-4 mr-1" />
+            分享经验
+          </button>
         </div>
 
         <!-- 面经卡片列表 -->

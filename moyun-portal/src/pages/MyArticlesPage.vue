@@ -1,5 +1,15 @@
 <template>
   <div class="my-articles-page">
+    <!-- 吸顶面包屑栏 -->
+    <div
+      class="border-b sticky top-0 z-30 backdrop-blur-sm py-3"
+      style="background-color: var(--theme-surface); border-color: var(--theme-border);"
+    >
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between gap-4">
+        <Breadcrumb :items="breadcrumbs" />
+      </div>
+    </div>
+
     <!-- 页头 -->
     <div class="page-header">
       <div class="header-content">
@@ -132,6 +142,7 @@ import {
 import { getMyArticles, deleteArticle as deleteArticleApi, updateArticle } from '@/api/article';
 import { useToast } from '@/composables/useToast';
 import { useConfirmModal } from '@/composables/useConfirmModal';
+import Breadcrumb from '@/components/Breadcrumb.vue';
 
 const router = useRouter();
 const route = useRoute();
@@ -161,6 +172,11 @@ const statusTabs = computed(() => [
 ]);
 
 const totalPages = computed(() => Math.ceil(total.value / pageSize.value) || 1);
+
+const breadcrumbs = computed(() => [
+  { label: '个人中心', path: '/user' },
+  { label: '我的文章' },
+]);
 
 // 状态标签映射
 function getStatusLabel(status: string): string {

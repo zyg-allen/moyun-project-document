@@ -3,9 +3,10 @@ import { ref, computed, onMounted, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { useHead } from '@vueuse/head';
 import {
-  ArrowLeft, MessageCircle, Eye, Heart, MessageSquare, Plus,
+  MessageCircle, Eye, Heart, MessageSquare, Plus,
   ChevronLeft, ChevronRight, Pencil, Pin,
 } from 'lucide-vue-next';
+import Breadcrumb from '@/components/Breadcrumb.vue';
 import SiteFooter from '@/components/SiteFooter.vue';
 import LazyImage from '@/components/LazyImage.vue';
 import Empty from '@/components/Empty.vue';
@@ -34,6 +35,11 @@ useHead(computed(() => generateSeo({
   canonicalPath: '/topic/my/topics',
   robots: 'noindex,nofollow',
 })));
+
+// 面包屑
+const breadcrumbs = computed(() => [
+  { label: '我的话题' },
+]);
 
 onMounted(() => {
   loadTopics();
@@ -79,55 +85,26 @@ function gotoPage(p: number) {
   page.value = p;
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
-
-function goBack() {
-  if (window.history.length > 1) {
-    router.back();
-  } else {
-    router.push('/topics');
-  }
-}
 </script>
 
 <template>
   <div class="min-h-screen flex flex-col" style="background-color: var(--theme-bg);">
-    <!-- 顶部返回栏 -->
+    <!-- 吸顶面包屑栏 -->
     <div
-      class="border-b sticky top-0 z-30 backdrop-blur-sm"
+      class="border-b sticky top-0 z-30 backdrop-blur-sm py-3"
       style="background-color: var(--theme-surface); border-color: var(--theme-border);"
     >
-      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex items-center justify-between">
-        <button
-          @click="goBack"
-          class="flex items-center text-sm transition hover:opacity-80"
-          style="color: var(--theme-text-secondary);"
-        >
-          <ArrowLeft class="w-4 h-4 mr-1" />
-          返回话题广场
-        </button>
-        <span class="text-sm font-medium" style="color: var(--theme-text);">我的话题</span>
-        <button
-          @click="gotoCreate"
-          class="flex items-center text-sm text-white px-3 py-1.5 rounded-lg transition hover:opacity-90"
-          style="background-color: var(--theme-primary);"
-        >
-          <Plus class="w-4 h-4 mr-1" />
-          发起话题
-        </button>
-      </div>
-    </div>
-
-    <!-- Hero 区 -->
-    <div class="py-6 sm:py-8">
-      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div class="relative overflow-hidden rounded-2xl text-white" style="background-image: radial-gradient(circle at 20% 50%, rgba(190, 24, 93, 0.3) 0%, transparent 50%), radial-gradient(circle at 80% 30%, rgba(124, 58, 237, 0.3) 0%, transparent 50%), linear-gradient(135deg, #be185d 0%, #a21caf 50%, #7c3aed 100%);">
-          <div class="relative px-6 py-8 sm:px-10 sm:py-10 text-center">
-            <div class="inline-flex items-center bg-white/10 backdrop-blur-sm px-4 py-1.5 rounded-full text-sm mb-4">
-              <MessageCircle class="w-4 h-4 mr-2" /> 墨韵 · 我的话题
-            </div>
-            <h1 class="text-3xl md:text-4xl font-bold mb-3">我的话题</h1>
-            <p class="text-sm opacity-90">管理我发起的话题，查看参与讨论情况</p>
-          </div>
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between gap-4">
+        <Breadcrumb :items="breadcrumbs" />
+        <div class="flex items-center gap-2">
+          <button
+            @click="gotoCreate"
+            class="flex items-center text-sm text-white px-3 py-1.5 rounded-lg transition hover:opacity-90"
+            style="background-color: var(--theme-primary);"
+          >
+            <Plus class="w-4 h-4 mr-1" />
+            发起话题
+          </button>
         </div>
       </div>
     </div>

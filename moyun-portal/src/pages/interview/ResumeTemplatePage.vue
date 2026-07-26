@@ -1,12 +1,12 @@
 <script setup lang="ts">
 import { ref, onMounted, computed, watch } from 'vue';
-import { useRouter } from 'vue-router';
 import { useHead } from '@vueuse/head';
 import {
-  ChevronLeft, Search, Download, ThumbsUp, FileText, Sparkles,
+  ChevronLeft, Search, Download, ThumbsUp, FileText,
   ChevronRight, Star, Tag
 } from 'lucide-vue-next';
 import SiteFooter from '@/components/SiteFooter.vue';
+import Breadcrumb from '@/components/Breadcrumb.vue';
 import LazyImage from '@/components/LazyImage.vue';
 import { generateSeo } from '@/utils/seo';
 import {
@@ -15,7 +15,6 @@ import {
 import type { InterviewResumeTemplateVO } from '@/types/api';
 import { useToast } from '@/composables/useToast';
 
-const router = useRouter();
 const toast = useToast();
 const loading = ref(false);
 const templates = ref<InterviewResumeTemplateVO[]>([]);
@@ -40,6 +39,12 @@ useHead(computed(() => generateSeo({
   title: '简历模板库',
   description: '精选优质简历模板，助力求职成功',
 })));
+
+// 面包屑
+const breadcrumbs = computed(() => [
+  { label: '面试指南', path: '/interview' },
+  { label: '简历模板' },
+]);
 
 onMounted(() => {
   loadTemplates();
@@ -119,50 +124,33 @@ function gotoPage(p: number) {
 
 <template>
   <div class="min-h-screen flex flex-col" style="background-color: var(--theme-bg);">
-    <div class="border-b sticky top-0 z-30 backdrop-blur-sm" style="background-color: var(--theme-surface); border-color: var(--theme-border);">
-      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex items-center justify-between">
-        <button @click="router.back()" class="flex items-center transition text-sm hover:opacity-70" style="color: var(--theme-text-secondary);">
-          <ChevronLeft class="w-4 h-4 mr-1" /> 返回
-        </button>
-        <span class="text-sm" style="color: var(--theme-text-secondary);">简历模板</span>
+    <!-- 吸顶面包屑栏 -->
+    <div class="border-b sticky top-0 z-30 backdrop-blur-sm py-3" style="background-color: var(--theme-surface); border-color: var(--theme-border);">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between gap-4">
+        <Breadcrumb :items="breadcrumbs" />
         <span class="w-12"></span>
-      </div>
-    </div>
-
-    <!-- 顶部 Hero -->
-    <div class="py-6 sm:py-8">
-      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div class="relative overflow-hidden rounded-2xl text-white" style="background-image: radial-gradient(circle at 20% 30%, rgba(99, 102, 241, 0.4) 0%, transparent 50%), radial-gradient(circle at 80% 70%, rgba(168, 85, 247, 0.4) 0%, transparent 50%), linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);">
-          <div class="absolute inset-0 opacity-10 pointer-events-none" aria-hidden="true">
-            <svg class="absolute top-6 left-8 w-32 h-32 text-white" viewBox="0 0 24 24" fill="currentColor"><path d="M9.4 16.6L4.8 12l4.6-4.6L8 6l-6 6 6 6 1.4-1.4zm5.2 0L19.2 12l-4.6-4.6L16 6l6 6-6 6-1.4-1.4z"/></svg>
-            <svg class="absolute bottom-4 right-10 w-40 h-40 text-white" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 4c-3.31 0-6 2.69-6 6s2.69 6 6 6 6-2.69 6-6-2.69-6-6-6zm0 2c2.21 0 4 1.79 4 4s-1.79 4-4 4-4-1.79-4-4 1.79-4 4-4zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"/></svg>
-          </div>
-          <div class="relative px-6 py-8 sm:px-10 sm:py-10">
-            <div class="flex items-center mb-3">
-              <Sparkles class="w-6 h-6 mr-2" />
-              <h1 class="text-3xl font-bold">精选简历模板库</h1>
-            </div>
-            <p class="text-white/80 mb-6">选择合适的模板，快速打造高质量简历</p>
-            <div class="relative max-w-xl rounded-lg p-2 flex" style="background-color: var(--theme-bg);">
-              <Search class="w-5 h-5 absolute left-4 top-1/2 -translate-y-1/2" style="color: var(--theme-text-secondary);" />
-              <input
-                v-model="searchInput"
-                @keyup.enter="doSearch"
-                type="text"
-                placeholder="搜索简历模板..."
-                class="flex-1 pl-10 pr-3 py-2 focus:outline-none text-sm"
-                style="color: var(--theme-text);"
-              />
-              <button @click="doSearch" class="px-4 py-2 text-white rounded-md text-sm transition hover:opacity-90" style="background-color: var(--theme-primary);">搜索</button>
-            </div>
-          </div>
-        </div>
       </div>
     </div>
 
     <!-- 内容区 -->
     <div class="flex-1 py-8">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <!-- 搜索工具栏 -->
+        <div class="mb-6 max-w-xl mx-auto">
+          <div class="flex items-center rounded-xl border px-3 py-1" style="background-color: var(--theme-surface); border-color: var(--theme-border);">
+            <Search class="w-5 h-5 flex-shrink-0" style="color: var(--theme-text-secondary);" />
+            <input
+              v-model="searchInput"
+              @keyup.enter="doSearch"
+              type="text"
+              placeholder="搜索简历模板..."
+              class="flex-1 px-3 py-2 focus:outline-none text-sm"
+              style="color: var(--theme-text);"
+            />
+            <button @click="doSearch" class="px-5 py-1.5 rounded-lg text-sm font-medium text-white transition hover:opacity-90" style="background-color: var(--theme-primary);">搜索</button>
+          </div>
+        </div>
+
         <!-- 分类 Tab -->
         <div class="rounded-xl shadow-sm p-4 mb-6" style="background-color: var(--theme-surface); border: 1px solid var(--theme-border);">
           <div class="flex items-center gap-2 overflow-x-auto">

@@ -470,12 +470,15 @@ onMounted(async () => {
 .audit-right {
   flex: 1;
   min-width: 0;
-  max-height: calc(100vh - 200px);
+  /* 右侧整体滚动，内部内容自然撑开，避免双层嵌套滚动导致底部审核区被截断 */
+  max-height: calc(100vh - 140px);
   overflow-y: auto;
+  padding-right: 4px;
 }
 
 .detail-card {
   width: 100%;
+  /* 卡片 body 不再单独滚动，跟随外层 .audit-right 一起滚动 */
 }
 
 .detail-header {
@@ -520,8 +523,8 @@ onMounted(async () => {
   pointer-events: none;
   line-height: 1.7;
   color: #303133;
-  max-height: 500px;
-  overflow-y: auto;
+  /* 移除 max-height 与内部滚动，改为自然撑开：
+     外层 .audit-right 统一滚动，避免双层嵌套导致底部审核意见被挡住 */
   padding: 8px;
   background: #fafafa;
   border-radius: 4px;

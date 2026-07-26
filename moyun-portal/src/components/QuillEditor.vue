@@ -71,9 +71,14 @@ async function imageHandler() {
       try {
         const response = await uploadPortalFile(file, 'article_content');
         if (response.code === 200 && response.data) {
-          const range = editorRef.value?.getSelection(true);
-          editorRef.value?.insertText(range.index, ' ');
-          editorRef.value?.insertEmbed(range.index, 'image', response.data.fileUrl);
+          const quill = editorRef.value?.getQuill();
+          if (!quill) {
+            toast.error('编辑器未就绪');
+            return;
+          }
+          const range = quill.getSelection(true);
+          quill.insertText(range.index, ' ');
+          quill.insertEmbed(range.index, 'image', response.data.fileUrl);
         } else {
           toast.error('图片上传失败');
         }
@@ -119,7 +124,7 @@ defineExpose({
     }
   },
   getEditor: () => {
-    return editorRef.value;
+    return editorRef.value?.getQuill();
   }
 });
 </script>

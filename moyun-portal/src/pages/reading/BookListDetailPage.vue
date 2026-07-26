@@ -2,8 +2,9 @@
 import { ref, onMounted, watch, computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useHead } from '@vueuse/head';
-import { BookOpen, Star, ArrowLeft, Heart, Bookmark, BookmarkCheck, Eye } from 'lucide-vue-next';
+import { BookOpen, Star, Heart, Bookmark, BookmarkCheck, Eye } from 'lucide-vue-next';
 import LazyImage from '@/components/LazyImage.vue';
+import Breadcrumb from '@/components/Breadcrumb.vue';
 import SiteFooter from '@/components/SiteFooter.vue';
 import { generateSeo } from '@/utils/seo';
 import { getBookListDetail, toggleBookListBookmark, checkBookListBookmark, toggleBookListLike, checkBookListLike } from '@/api/reading';
@@ -119,17 +120,15 @@ async function handleToggleBookmark() {
   }
 }
 
-function goBack() {
-  if (window.history.length > 1) {
-    router.back();
-  } else {
-    router.push({ name: 'reading' });
-  }
-}
-
 function goToBook(book: Book) {
   router.push({ name: 'book-detail', params: { id: book.id } });
 }
+
+// 面包屑
+const breadcrumbs = computed(() => [
+  { label: '读书空间', path: '/reading' },
+  { label: bookList.value?.title || '书单详情' },
+]);
 
 useHead(
   computed(() => {
@@ -165,17 +164,10 @@ watch(listId, (newId, oldId) => {
 
 <template>
   <div class="min-h-screen flex flex-col" style="background-color: var(--theme-bg);">
-    <!-- 顶部返回栏 -->
-    <div class="border-b" style="background-color: var(--theme-bg); border-color: var(--theme-border);">
-      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 sm:py-4">
-        <button
-          @click="goBack"
-          class="inline-flex items-center gap-2 text-sm font-medium transition-colors hover:opacity-80 focus:outline-none"
-          style="color: var(--theme-text-secondary);"
-        >
-          <ArrowLeft class="w-4 h-4" />
-          <span>返回读书空间</span>
-        </button>
+    <!-- 吸顶面包屑栏 -->
+    <div class="border-b sticky top-0 z-30 backdrop-blur-sm py-3" style="background-color: var(--theme-surface); border-color: var(--theme-border);">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between gap-4">
+        <Breadcrumb :items="breadcrumbs" />
       </div>
     </div>
 

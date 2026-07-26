@@ -35,7 +35,7 @@ INSERT INTO portal_category (name, slug, description, icon, sort, parent_id, sta
 
 -- 4. 读书空间
 INSERT INTO portal_category (name, slug, description, icon, sort, parent_id, status, create_by) VALUES
-    ('读书空间', 'reading', '读书心得、经典共读、书单推荐', 'fa-book', 4, 0, '0', 'admin');
+    ('读书空间', 'reading', '读书心得、精选好书、书单推荐', 'fa-book', 4, 0, '0', 'admin');
 
 -- 5. 面试指南
 INSERT INTO portal_category (name, slug, description, icon, sort, parent_id, status, create_by) VALUES
@@ -76,9 +76,8 @@ INSERT INTO portal_category (name, slug, description, icon, sort, parent_id, sta
 INSERT INTO portal_category (name, slug, description, icon, sort, parent_id, status, create_by) VALUES
                                                                                                     ('人文经典', 'humanities', '散文集、小说、哲学随笔', 'fa-book-reader', 1, 4, '0', 'admin'),
                                                                                                     ('技术书籍', 'tech-books', '《代码整洁之道》《Java并发编程》', 'fa-laptop-code', 2, 4, '0', 'admin'),
-                                                                                                    ('共读计划', 'reading-club', '每月共读一本书+线上讨论', 'fa-calendar-alt', 3, 4, '0', 'admin'),
-                                                                                                    ('书单推荐', 'book-lists', '入门书单、进阶书单、冷门好书', 'fa-list', 4, 4, '0', 'admin'),
-                                                                                                    ('金句摘录', 'quotes', '高光语句+个人批注', 'fa-quote-left', 5, 4, '0', 'admin');
+                                                                                                    ('书单推荐', 'book-lists', '入门书单、进阶书单、冷门好书', 'fa-list', 3, 4, '0', 'admin'),
+                                                                                                    ('金句摘录', 'quotes', '高光语句+个人批注', 'fa-quote-left', 4, 4, '0', 'admin');
 
 -- 4. 面试指南的二级分类 (parent_id = 5)
 INSERT INTO portal_category (name, slug, description, icon, sort, parent_id, status, create_by) VALUES

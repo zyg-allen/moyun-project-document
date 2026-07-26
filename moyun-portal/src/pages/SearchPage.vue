@@ -204,32 +204,34 @@ useHead(
 <template>
   <div class="min-h-screen flex flex-col" style="background-color: var(--theme-bg);">
       <!-- Search Header -->
-      <div class="border-b py-4 sm:py-5" style="background-color: var(--theme-bg); border-color: var(--theme-border);">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div
+        class="border-b sticky top-0 z-30 backdrop-blur-sm py-3"
+        style="background-color: var(--theme-surface); border-color: var(--theme-border);"
+      >
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between gap-4">
+          <Breadcrumb :items="breadcrumbs" />
           <!-- Search Bar -->
-          <div class="flex items-center">
-            <div class="flex-1 relative">
-              <div class="absolute inset-y-0 left-0 pl-4 sm:pl-5 flex items-center pointer-events-none">
-                <SearchIcon class="w-5 h-5" style="color: var(--theme-text-secondary);" />
-              </div>
-              <label for="search-input" class="sr-only">搜索文章</label>
-              <input
-                id="search-input"
-                v-model="searchQuery"
-                @keyup.enter="handleSearch"
-                type="text"
-                placeholder="搜索文章、标签或作者..."
-                class="w-full pl-11 sm:pl-12 pr-5 sm:pr-6 py-2.5 sm:py-3 text-sm sm:text-base border rounded-xl focus:outline-none focus:ring-2 transition-all"
-                style="background-color: var(--theme-surface); border-color: var(--theme-border); color: var(--theme-text);"
-              />
-              <button
-                @click="handleSearch"
-                class="absolute inset-y-0 right-1.5 sm:right-2 my-1.5 sm:my-2 px-3 sm:px-4 font-medium rounded-lg transition-colors text-xs sm:text-sm"
-                style="background-color: var(--theme-primary); color: white;"
-              >
-                搜索
-              </button>
+          <div class="flex-1 relative">
+            <div class="absolute inset-y-0 left-0 pl-4 sm:pl-5 flex items-center pointer-events-none">
+              <SearchIcon class="w-5 h-5" style="color: var(--theme-text-secondary);" />
             </div>
+            <label for="search-input" class="sr-only">搜索文章</label>
+            <input
+              id="search-input"
+              v-model="searchQuery"
+              @keyup.enter="handleSearch"
+              type="text"
+              placeholder="搜索文章、标签或作者..."
+              class="w-full pl-11 sm:pl-12 pr-5 sm:pr-6 py-2.5 sm:py-3 text-sm sm:text-base border rounded-xl focus:outline-none focus:ring-2 transition-all"
+              style="background-color: var(--theme-surface); border-color: var(--theme-border); color: var(--theme-text);"
+            />
+            <button
+              @click="handleSearch"
+              class="absolute inset-y-0 right-1.5 sm:right-2 my-1.5 sm:my-2 px-3 sm:px-4 font-medium rounded-lg transition-colors text-xs sm:text-sm"
+              style="background-color: var(--theme-primary); color: white;"
+            >
+              搜索
+            </button>
           </div>
         </div>
       </div>
@@ -240,7 +242,6 @@ useHead(
       <div class="border-b py-3 sm:py-4" v-if="hasQuery" style="background-color: var(--theme-bg); border-color: var(--theme-border);">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div class="flex items-center justify-between gap-4">
-            <Breadcrumb :items="breadcrumbs" />
             <div class="flex items-center space-x-2 flex-shrink-0">
               <span class="text-xs sm:text-sm hidden sm:inline" style="color: var(--theme-text-secondary);">排序：</span>
               <label for="search-sort" class="sr-only">排序方式</label>

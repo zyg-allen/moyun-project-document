@@ -35,7 +35,7 @@ INSERT IGNORE INTO `portal_category` (`name`, `slug`, `description`, `icon`, `so
 ('首页',     'home',      '精选推荐、双轨轮播',                     'fa-home',         1, 0, '0', 'admin'),
 ('散文天地', 'prose',     '人文书写与情感表达',                     'fa-pen-fancy',    2, 0, '0', 'admin'),
 ('技术笔记', 'tech-notes','开发记录、技术解析、AI编程实践',         'fa-code',         3, 0, '0', 'admin'),
-('读书空间', 'reading',   '读书心得、经典共读、书单推荐',           'fa-book',         4, 0, '0', 'admin'),
+('读书空间', 'reading',   '读书心得、精选好书、书单推荐',           'fa-book',         4, 0, '0', 'admin'),
 ('面试指南', 'interview', '真题整理、面经复盘、简历优化',           'fa-briefcase',    5, 0, '0', 'admin'),
 ('技能工坊', 'skills',    '写作技巧、代码技巧、学习方法论',         'fa-tools',        6, 0, '0', 'admin'),
 ('社区互动', 'community', '话题讨论、投稿征集、用户动态',           'fa-users',        7, 0, '0', 'admin');
@@ -68,9 +68,8 @@ INSERT IGNORE INTO `portal_category` (`name`, `slug`, `description`, `icon`, `so
 INSERT IGNORE INTO `portal_category` (`name`, `slug`, `description`, `icon`, `sort`, `parent_id`, `status`, `create_by`) VALUES
 ('人文经典', 'humanities',     '散文集、小说、哲学随笔',                 'fa-book-reader', 1, 4, '0', 'admin'),
 ('技术书籍', 'tech-books',     '《代码整洁之道》《Java并发编程》',       'fa-laptop-code', 2, 4, '0', 'admin'),
-('共读计划', 'reading-club',   '每月共读一本书+线上讨论',               'fa-calendar-alt',3, 4, '0', 'admin'),
-('书单推荐', 'book-lists',     '入门书单、进阶书单、冷门好书',           'fa-list',        4, 4, '0', 'admin'),
-('金句摘录', 'quotes',         '高光语句+个人批注',                     'fa-quote-left',  5, 4, '0', 'admin');
+('书单推荐', 'book-lists',     '入门书单、进阶书单、冷门好书',           'fa-list',        3, 4, '0', 'admin'),
+('金句摘录', 'quotes',         '高光语句+个人批注',                     'fa-quote-left',  4, 4, '0', 'admin');
 
 -- 4. 面试指南的二级分类 (parent_id = 5)
 INSERT IGNORE INTO `portal_category` (`name`, `slug`, `description`, `icon`, `sort`, `parent_id`, `status`, `create_by`) VALUES

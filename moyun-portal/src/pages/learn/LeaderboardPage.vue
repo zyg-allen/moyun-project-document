@@ -3,6 +3,7 @@ import { ref, computed, onMounted, watch } from 'vue';
 import { useHead } from '@vueuse/head';
 import { Trophy, Crown, Medal, Award, Loader2, ChevronLeft, ListChecks, Star } from 'lucide-vue-next';
 import SiteFooter from '@/components/SiteFooter.vue';
+import Breadcrumb from '@/components/Breadcrumb.vue';
 import { generateSeo } from '@/utils/seo';
 import { getSafeAvatar } from '@/utils/avatar';
 import { getLeaderboard } from '@/api/learnStats';
@@ -24,6 +25,11 @@ const tabs: { type: LeaderboardType; label: string; icon: typeof ListChecks; uni
   { type: 'question', label: '通过题目数', icon: ListChecks, unit: '题' },
   { type: 'score', label: '刷题积分', icon: Star, unit: '分' },
 ];
+
+const breadcrumbs = computed(() => [
+  { label: '学习中心', path: '/learn' },
+  { label: '刷题排行榜' },
+]);
 
 async function loadLeaderboard() {
   loading.value = true;
@@ -82,6 +88,16 @@ const currentUnit = computed(() => tabs.find((t) => t.type === activeType.value)
 
 <template>
   <div class="min-h-screen flex flex-col" style="background-color: var(--theme-bg);">
+    <!-- 吸顶面包屑栏 -->
+    <div
+      class="border-b sticky top-0 z-30 backdrop-blur-sm py-3"
+      style="background-color: var(--theme-surface); border-color: var(--theme-border);"
+    >
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between gap-4">
+        <Breadcrumb :items="breadcrumbs" />
+      </div>
+    </div>
+
     <!-- 顶部条 -->
     <div class="border-b" style="background-color: var(--theme-surface); border-color: var(--theme-border);">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">

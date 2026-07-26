@@ -26,8 +26,6 @@ const BookListDetailPage = () => import('@/pages/reading/BookListDetailPage.vue'
 const ChapterReaderPage = () => import('@/pages/reading/ChapterReaderPage.vue')
 const MyBookshelfPage = () => import('@/pages/reading/MyBookshelfPage.vue')
 const DiscoverPage = () => import('@/pages/reading/DiscoverPage.vue')
-const BookClubListPage = () => import('@/pages/reading/BookClubListPage.vue')
-const BookClubDetailPage = () => import('@/pages/reading/BookClubDetailPage.vue')
 const QuoteListPage = () => import('@/pages/reading/QuoteListPage.vue')
 const GrowthTimelinePage = () => import('@/pages/GrowthTimelinePage.vue')
 const InterviewPage = () => import('@/pages/InterviewPage.vue')
@@ -39,8 +37,6 @@ const ExperienceListPage = () => import('@/pages/interview/ExperienceListPage.vu
 const MyResumesPage = () => import('@/pages/interview/MyResumesPage.vue')
 const ResumeEditPage = () => import('@/pages/interview/ResumeEditPage.vue')
 const CompanyPage = () => import('@/pages/interview/CompanyPage.vue')
-const JobListPage = () => import('@/pages/interview/JobListPage.vue')
-const JobDetailPage = () => import('@/pages/interview/JobDetailPage.vue')
 
 const GrowthRankingPage = () => import('@/pages/GrowthRankingPage.vue')
 const AchievementsPage = () => import('@/pages/AchievementsPage.vue')
@@ -145,18 +141,6 @@ const routes: RouteRecordRaw[] = [
     name: 'growth-timeline',
     component: GrowthTimelinePage,
     meta: { title: '成长时间线', requiresAuth: true }
-  },
-  {
-    path: '/reading/club',
-    name: 'reading-club-list',
-    component: BookClubListPage,
-    meta: { title: '共读活动', isPublic: true }
-  },
-  {
-    path: '/reading/club/:id',
-    name: 'reading-club-detail',
-    component: BookClubDetailPage,
-    meta: { title: '共读活动详情', isPublic: true }
   },
   {
     path: '/interview',
@@ -286,19 +270,6 @@ const routes: RouteRecordRaw[] = [
     name: 'interview-company',
     component: CompanyPage,
     meta: { title: '公司主页', isPublic: true }
-  },
-  // ============ 在招职位（阶段三 3.9） ============
-  {
-    path: '/interview/jobs',
-    name: 'interview-jobs',
-    component: JobListPage,
-    meta: { title: '在招职位', isPublic: true }
-  },
-  {
-    path: '/interview/jobs/:id',
-    name: 'interview-job-detail',
-    component: JobDetailPage,
-    meta: { title: '职位详情', isPublic: true }
   },
   // ============ AI 模拟面试官（阶段三 3.10） ============
   {

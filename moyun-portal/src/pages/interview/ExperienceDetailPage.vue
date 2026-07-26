@@ -3,10 +3,11 @@ import { ref, onMounted, computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useHead } from '@vueuse/head';
 import {
-  ChevronLeft, ThumbsUp, MessageSquare, Eye, Calendar, Building2,
+  ThumbsUp, MessageSquare, Eye, Calendar, Building2,
   Briefcase, Send, Tag as TagIcon
 } from 'lucide-vue-next';
 import SiteFooter from '@/components/SiteFooter.vue';
+import Breadcrumb from '@/components/Breadcrumb.vue';
 import LazyImage from '@/components/LazyImage.vue';
 import MarkdownRenderer from '@/components/MarkdownRenderer.vue';
 import { generateSeo } from '@/utils/seo';
@@ -172,23 +173,21 @@ useHead(
     description: experience.value?.summary || experience.value?.content?.slice(0, 120) || '面试经验分享',
   }))
 );
+
+// 面包屑
+const breadcrumbs = computed(() => [
+  { label: '面试指南', path: '/interview' },
+  { label: '面试经验', path: '/interview/experiences' },
+  { label: experience.value?.title || '面经详情' },
+]);
 </script>
 
 <template>
   <div class="min-h-screen flex flex-col" style="background-color: var(--theme-bg);">
-    <!-- 顶部导航 -->
-    <div class="border-b sticky top-0 z-30 backdrop-blur-sm" style="background-color: var(--theme-surface); border-color: var(--theme-border);">
-      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex items-center justify-between">
-        <button
-          @click="router.back()"
-          class="flex items-center transition text-sm hover:opacity-70"
-          style="color: var(--theme-text-secondary);"
-        >
-          <ChevronLeft class="w-4 h-4 mr-1" />
-          返回
-        </button>
-        <span class="text-sm" style="color: var(--theme-text-secondary);">面试经验</span>
-        <span class="w-12"></span>
+    <!-- 吸顶面包屑栏 -->
+    <div class="border-b sticky top-0 z-30 backdrop-blur-sm py-3" style="background-color: var(--theme-surface); border-color: var(--theme-border);">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between gap-4">
+        <Breadcrumb :items="breadcrumbs" />
       </div>
     </div>
 
@@ -399,11 +398,11 @@ useHead(
         <div v-else class="text-center py-12">
           <p style="color: var(--theme-text-secondary);">未找到面经信息</p>
           <button
-            @click="router.push('/interview')"
+            @click="router.push('/interview/experiences')"
             class="mt-4 px-4 py-2 text-white rounded-lg text-sm hover:opacity-90 transition"
             style="background-color: var(--theme-primary);"
           >
-            返回面试指南
+            返回面经列表
           </button>
         </div>
       </div>

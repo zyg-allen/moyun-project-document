@@ -18,9 +18,7 @@
 --     47_portal_book_recommend_menu_init.sql          推荐位管理菜单
 --     63_creator_certification_init.sql（仅菜单部分）  创作者认证菜单
 --     64_learn_center_init.sql                        学习者中心菜单
---     67_job_init.sql（仅菜单部分）                    职位管理菜单
 --     75_vip_center_init.sql                          VIP 会员中心菜单
---     77_book_club_admin_menu.sql                     共读活动菜单
 --     78_column_admin_menu.sql                        专栏管理菜单
 --     79_tip_admin_menu.sql                           打赏管理菜单（已下线隐藏）
 --     80_order_admin_menu.sql                         付费订单菜单（已下线隐藏）
@@ -760,41 +758,6 @@ WHERE (`menu_name` IN ('学习者中心', '学习计划', '错题本')
 AND `menu_id` NOT IN (SELECT `menu_id` FROM `sys_role_menu` WHERE `role_id` = @admin_role_id);
 
 -- =====================================================================
--- 十三、职位管理菜单（来源：67_job_init.sql，仅菜单部分）
--- =====================================================================
-
--- 取"面试空间"父菜单ID（已在第三段插入）
-SET @interview_menu_id_for_job = IFNULL(@interview_menu_id, 0);
-
-INSERT INTO sys_menu (menu_name, parent_id, order_num, path, component, query, is_frame, is_cache,
-                      menu_type, visible, status, perms, icon, create_by, create_time, remark)
-SELECT '职位管理', @interview_menu_id_for_job, 7, 'job', 'portal/job/index', NULL, 1, 0, 'C', '0', '0', 'portal:job:list', 'post', 'admin', NOW(), '职位管理菜单'
-FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM sys_menu WHERE perms = 'portal:job:list');
-SET @job_menu_id = (SELECT menu_id FROM sys_menu WHERE perms = 'portal:job:list' LIMIT 1);
-
-INSERT INTO sys_menu (menu_name, parent_id, order_num, path, component, query, is_frame, is_cache,
-                      menu_type, visible, status, perms, icon, create_by, create_time, remark)
-SELECT '职位查询', @job_menu_id, 1, '', NULL, NULL, 1, 0, 'F', '0', '0', 'portal:job:query', '#', 'admin', NOW(), ''
-FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM sys_menu WHERE perms = 'portal:job:query');
-INSERT INTO sys_menu (menu_name, parent_id, order_num, path, component, query, is_frame, is_cache,
-                      menu_type, visible, status, perms, icon, create_by, create_time, remark)
-SELECT '职位新增', @job_menu_id, 2, '', NULL, NULL, 1, 0, 'F', '0', '0', 'portal:job:add', '#', 'admin', NOW(), ''
-FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM sys_menu WHERE perms = 'portal:job:add');
-INSERT INTO sys_menu (menu_name, parent_id, order_num, path, component, query, is_frame, is_cache,
-                      menu_type, visible, status, perms, icon, create_by, create_time, remark)
-SELECT '职位修改', @job_menu_id, 3, '', NULL, NULL, 1, 0, 'F', '0', '0', 'portal:job:edit', '#', 'admin', NOW(), ''
-FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM sys_menu WHERE perms = 'portal:job:edit');
-INSERT INTO sys_menu (menu_name, parent_id, order_num, path, component, query, is_frame, is_cache,
-                      menu_type, visible, status, perms, icon, create_by, create_time, remark)
-SELECT '职位删除', @job_menu_id, 4, '', NULL, NULL, 1, 0, 'F', '0', '0', 'portal:job:remove', '#', 'admin', NOW(), ''
-FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM sys_menu WHERE perms = 'portal:job:remove');
-
-INSERT INTO `sys_role_menu` (`role_id`, `menu_id`)
-SELECT @admin_role_id, `menu_id` FROM `sys_menu`
-WHERE `perms` IN ('portal:job:list', 'portal:job:query', 'portal:job:add', 'portal:job:edit', 'portal:job:remove')
-AND `menu_id` NOT IN (SELECT `menu_id` FROM `sys_role_menu` WHERE `role_id` = @admin_role_id);
-
--- =====================================================================
 -- 十四、VIP 会员中心菜单（来源：75_vip_center_init.sql）
 -- =====================================================================
 
@@ -827,38 +790,6 @@ INSERT INTO `sys_role_menu` (`role_id`, `menu_id`)
 SELECT @admin_role_id, `menu_id` FROM `sys_menu`
 WHERE (`menu_name` IN ('商业化', 'VIP套餐管理')
    OR `parent_id` IN (SELECT `menu_id` FROM (SELECT * FROM `sys_menu`) tmp WHERE `menu_name` = 'VIP套餐管理'))
-AND `menu_id` NOT IN (SELECT `menu_id` FROM `sys_role_menu` WHERE `role_id` = @admin_role_id);
-
--- =====================================================================
--- 十五、共读活动菜单（来源：77_book_club_admin_menu.sql）
--- =====================================================================
-
-INSERT INTO sys_menu (menu_name, parent_id, order_num, path, component, query, is_frame, is_cache,
-                      menu_type, visible, status, perms, icon, create_by, create_time, remark)
-SELECT '共读活动', @portal_menu_id, 8, 'bookClub', 'portal/bookClub/index', NULL, 1, 0, 'C', '0', '0', 'portal:bookClub:list', 'people', 'admin', NOW(), '共读活动后台管理菜单'
-FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM sys_menu WHERE perms = 'portal:bookClub:list');
-SET @book_club_menu_id = (SELECT menu_id FROM sys_menu WHERE perms = 'portal:bookClub:list' LIMIT 1);
-
-INSERT INTO sys_menu (menu_name, parent_id, order_num, path, component, query, is_frame, is_cache,
-                      menu_type, visible, status, perms, icon, create_by, create_time, remark)
-SELECT '活动查询', @book_club_menu_id, 1, '', NULL, NULL, 1, 0, 'F', '0', '0', 'portal:bookClub:query', '#', 'admin', NOW(), ''
-FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM sys_menu WHERE perms = 'portal:bookClub:query');
-INSERT INTO sys_menu (menu_name, parent_id, order_num, path, component, query, is_frame, is_cache,
-                      menu_type, visible, status, perms, icon, create_by, create_time, remark)
-SELECT '活动新增', @book_club_menu_id, 2, '', NULL, NULL, 1, 0, 'F', '0', '0', 'portal:bookClub:add', '#', 'admin', NOW(), ''
-FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM sys_menu WHERE perms = 'portal:bookClub:add');
-INSERT INTO sys_menu (menu_name, parent_id, order_num, path, component, query, is_frame, is_cache,
-                      menu_type, visible, status, perms, icon, create_by, create_time, remark)
-SELECT '活动修改', @book_club_menu_id, 3, '', NULL, NULL, 1, 0, 'F', '0', '0', 'portal:bookClub:edit', '#', 'admin', NOW(), ''
-FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM sys_menu WHERE perms = 'portal:bookClub:edit');
-INSERT INTO sys_menu (menu_name, parent_id, order_num, path, component, query, is_frame, is_cache,
-                      menu_type, visible, status, perms, icon, create_by, create_time, remark)
-SELECT '活动删除', @book_club_menu_id, 4, '', NULL, NULL, 1, 0, 'F', '0', '0', 'portal:bookClub:remove', '#', 'admin', NOW(), ''
-FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM sys_menu WHERE perms = 'portal:bookClub:remove');
-
-INSERT INTO `sys_role_menu` (`role_id`, `menu_id`)
-SELECT @admin_role_id, `menu_id` FROM `sys_menu`
-WHERE `perms` IN ('portal:bookClub:list', 'portal:bookClub:query', 'portal:bookClub:add', 'portal:bookClub:edit', 'portal:bookClub:remove')
 AND `menu_id` NOT IN (SELECT `menu_id` FROM `sys_role_menu` WHERE `role_id` = @admin_role_id);
 
 -- =====================================================================

@@ -104,6 +104,9 @@ public class CmsArticleVO extends BaseEntity {
     /** Markdown 内容 */
     private String contentMarkdown;
 
+    /** 编辑会话标识（用于协作编辑/自动保存） */
+    private String sessionToken;
+
     /** 更新时间 */
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime updateTime;

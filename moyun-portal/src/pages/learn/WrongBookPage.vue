@@ -3,10 +3,11 @@ import { ref, computed, onMounted, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { useHead } from '@vueuse/head';
 import {
-  ArrowLeft, AlertCircle, Loader2, CheckCircle2, RefreshCw, Search,
+  AlertCircle, Loader2, CheckCircle2, RefreshCw, Search,
   ChevronLeft, ChevronRight, Clock, Repeat,
 } from 'lucide-vue-next';
 import SiteFooter from '@/components/SiteFooter.vue';
+import Breadcrumb from '@/components/Breadcrumb.vue';
 import { generateSeo } from '@/utils/seo';
 import {
   getWrongQuestions, markWrongQuestionMastered, getWrongQuestionCount,
@@ -31,6 +32,11 @@ const tagFilter = ref('');
 const keyword = ref('');
 
 const totalPages = computed(() => Math.max(1, Math.ceil(total.value / pageSize)));
+
+const breadcrumbs = computed(() => [
+  { label: '学习中心', path: '/learn' },
+  { label: '错题本' },
+]);
 
 useHead(computed(() => generateSeo({
   title: '错题本',
@@ -133,14 +139,6 @@ function redoQuestion(wq: WrongQuestionVO) {
   router.push(`/interview/question/${wq.questionId}`);
 }
 
-function goBack() {
-  if (window.history.length > 1) {
-    router.back();
-  } else {
-    router.push('/learn');
-  }
-}
-
 function gotoPage(p: number) {
   if (p < 1 || p > totalPages.value) return;
   page.value = p;
@@ -192,34 +190,15 @@ const statusTabs: { value: StatusFilter; label: string }[] = [
 
 <template>
   <div class="min-h-screen flex flex-col" style="background-color: var(--theme-bg);">
-    <!-- 顶部返回栏 -->
-    <div
-      class="border-b sticky top-0 z-30 backdrop-blur-sm"
-      style="background-color: var(--theme-surface); border-color: var(--theme-border);"
-    >
-      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex items-center justify-between">
-        <button
-          @click="goBack"
-          class="flex items-center text-sm transition hover:opacity-80"
-          style="color: var(--theme-text-secondary);"
-        >
-          <ArrowLeft class="w-4 h-4 mr-1" />
-          学习中心
-        </button>
-        <span class="text-sm font-medium" style="color: var(--theme-text);">错题本</span>
-        <span class="w-16"></span>
+    <!-- 顶部面包屑栏 -->
+    <div class="border-b sticky top-0 z-30 backdrop-blur-sm py-3" style="background-color: var(--theme-surface); border-color: var(--theme-border);">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between gap-4">
+        <Breadcrumb :items="breadcrumbs" />
+        <div class="flex items-center gap-2"></div>
       </div>
     </div>
 
     <main class="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-8">
-      <!-- 标题区 -->
-      <div class="mb-6">
-        <h1 class="text-2xl md:text-3xl font-bold mb-2" style="color: var(--theme-text);">错题本</h1>
-        <p class="text-sm" style="color: var(--theme-text-secondary);">
-          答错自动收录，按艾宾浩斯曲线安排复习，标记已掌握以过滤
-        </p>
-      </div>
-
       <!-- 统计卡片 -->
       <div v-if="stats" class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
         <div class="rounded-lg border p-4" style="background-color: var(--theme-surface); border-color: var(--theme-border);">

@@ -4,8 +4,9 @@ import { useRouter } from 'vue-router';
 import { useHead } from '@vueuse/head';
 import {
   BookOpen, Plus, Search, FileText, Users,
-  ArrowLeft, ChevronLeft, ChevronRight, CheckCircle2,
+  ChevronLeft, ChevronRight, CheckCircle2,
 } from 'lucide-vue-next';
+import Breadcrumb from '@/components/Breadcrumb.vue';
 import SiteFooter from '@/components/SiteFooter.vue';
 import LazyImage from '@/components/LazyImage.vue';
 import Empty from '@/components/Empty.vue';
@@ -37,6 +38,8 @@ const sortOptions: { value: NonNullable<ColumnQuery['sortBy']>; label: string }[
 ];
 
 const totalPages = computed(() => Math.max(1, Math.ceil(total.value / pageSize)));
+
+const breadcrumbs = computed(() => [{ label: '专栏广场' }]);
 
 useHead(computed(() => generateSeo({
   title: '专栏广场',
@@ -102,14 +105,6 @@ function gotoCreate() {
   router.push('/column/create');
 }
 
-function goBack() {
-  if (window.history.length > 1) {
-    router.back();
-  } else {
-    router.push('/');
-  }
-}
-
 function gotoMy() {
   if (!requireAuth('/column/my')) return;
   router.push('/column/my');
@@ -131,28 +126,18 @@ function gotoPage(p: number) {
 
 <template>
   <div class="min-h-screen flex flex-col" style="background-color: var(--theme-bg);">
-    <!-- 顶部返回栏 -->
-    <div
-      class="border-b sticky top-0 z-30 backdrop-blur-sm"
-      style="background-color: var(--theme-surface); border-color: var(--theme-border);"
-    >
-      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex items-center justify-between">
-        <button
-          @click="goBack"
-          class="flex items-center text-sm transition hover:opacity-80"
-          style="color: var(--theme-text-secondary);"
-        >
-          <ArrowLeft class="w-4 h-4 mr-1" />
-          返回首页
-        </button>
-        <span class="text-sm font-medium" style="color: var(--theme-text);">专栏广场</span>
-        <button
-          @click="gotoMy"
-          class="text-sm transition hover:opacity-80"
-          style="color: var(--theme-primary);"
-        >
-          我的专栏
-        </button>
+    <div class="border-b sticky top-0 z-30 backdrop-blur-sm py-3" style="background-color: var(--theme-surface); border-color: var(--theme-border);">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between gap-4">
+        <Breadcrumb :items="breadcrumbs" />
+        <div class="flex items-center gap-2">
+          <button
+            @click="gotoMy"
+            class="text-sm transition hover:opacity-80"
+            style="color: var(--theme-primary);"
+          >
+            我的专栏
+          </button>
+        </div>
       </div>
     </div>
 
@@ -168,7 +153,6 @@ function gotoPage(p: number) {
             <div class="inline-flex items-center bg-white/10 backdrop-blur-sm px-4 py-1.5 rounded-full text-sm mb-5">
               <BookOpen class="w-4 h-4 mr-2" /> 墨韵 · 专栏
             </div>
-            <h1 class="text-4xl md:text-5xl font-bold tracking-tight mb-4">专栏广场</h1>
             <p class="text-base md:text-lg text-white/90 max-w-2xl mx-auto mb-8">
               按主题聚合文章，持续连载，订阅追更，构建你的知识体系
             </p>

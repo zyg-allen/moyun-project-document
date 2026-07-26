@@ -1,11 +1,10 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { useHead } from '@vueuse/head';
 import {
   Camera,
   Save,
-  ArrowLeft,
   User as UserIcon,
   Mail,
   MapPin,
@@ -51,6 +50,11 @@ const isAvatarUploading = ref(false);
 const avatarPreview = ref('');
 const successMessage = ref('');
 const errorMessage = ref('');
+
+const breadcrumbs = computed(() => [
+  { label: '个人中心', path: '/user' },
+  { label: '资料编辑' },
+]);
 
 // SEO
 useHead(
@@ -215,20 +219,13 @@ function goBack() {
 
 <template>
   <div class="min-h-screen flex flex-col" style="background-color: var(--theme-bg);">
-    <!-- 面包屑 -->
-    <div class="border-b py-3 sm:py-4" style="background-color: var(--theme-bg); border-color: var(--theme-border);">
-      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div class="flex items-center justify-between gap-4">
-          <Breadcrumb :items="[{ label: '个人中心', path: '/user' }, { label: '编辑资料' }]" />
-          <button
-            @click="goBack"
-            class="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-colors"
-            style="background-color: var(--theme-surface); border: 1px solid var(--theme-border); color: var(--theme-text);"
-          >
-            <ArrowLeft class="w-4 h-4" />
-            返回
-          </button>
-        </div>
+    <!-- 顶部面包屑栏 -->
+    <div
+      class="border-b sticky top-0 z-30 backdrop-blur-sm py-3"
+      style="background-color: var(--theme-surface); border-color: var(--theme-border);"
+    >
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between gap-4">
+        <Breadcrumb :items="breadcrumbs" />
       </div>
     </div>
 

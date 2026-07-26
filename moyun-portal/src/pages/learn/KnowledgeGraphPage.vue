@@ -3,6 +3,7 @@ import { ref, computed, onMounted } from 'vue';
 import { useHead } from '@vueuse/head';
 import { Network, Loader2, ChevronLeft, Tag } from 'lucide-vue-next';
 import SiteFooter from '@/components/SiteFooter.vue';
+import Breadcrumb from '@/components/Breadcrumb.vue';
 import { generateSeo } from '@/utils/seo';
 import { getKnowledgeGraph } from '@/api/learnStats';
 import type { KnowledgeGraph, KnowledgeNode } from '@/api/learnStats';
@@ -17,6 +18,11 @@ useHead(computed(() => generateSeo({
 const loading = ref(true);
 const error = ref<string | null>(null);
 const graph = ref<KnowledgeGraph | null>(null);
+
+const breadcrumbs = computed(() => [
+  { label: '学习中心', path: '/learn' },
+  { label: '知识图谱' },
+]);
 
 async function loadGraph() {
   loading.value = true;
@@ -130,6 +136,16 @@ const stats = computed(() => {
 
 <template>
   <div class="min-h-screen flex flex-col" style="background-color: var(--theme-bg);">
+    <!-- 吸顶面包屑栏 -->
+    <div
+      class="border-b sticky top-0 z-30 backdrop-blur-sm py-3"
+      style="background-color: var(--theme-surface); border-color: var(--theme-border);"
+    >
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between gap-4">
+        <Breadcrumb :items="breadcrumbs" />
+      </div>
+    </div>
+
     <!-- 顶部条 -->
     <div class="border-b" style="background-color: var(--theme-surface); border-color: var(--theme-border);">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">

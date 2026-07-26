@@ -3,10 +3,11 @@ import { ref, reactive, computed, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { useHead } from '@vueuse/head';
 import {
-  ArrowLeft, Save, Upload, CheckCircle2, Clock, XCircle, Loader2,
+  Save, Upload, CheckCircle2, Clock, XCircle, Loader2,
   ShieldCheck, IdCard, Sparkles, Award,
 } from 'lucide-vue-next';
 import SiteFooter from '@/components/SiteFooter.vue';
+import Breadcrumb from '@/components/Breadcrumb.vue';
 import { generateSeo } from '@/utils/seo';
 import {
   applyCertification, getMyCertification, CERT_TYPE_OPTIONS,
@@ -55,6 +56,8 @@ const canApply = computed(() => {
   if (!current.value) return true;
   return current.value.status === 'rejected';
 });
+
+const breadcrumbs = computed(() => [{ label: '创作者认证' }]);
 
 useHead(computed(() => generateSeo({
   title: '创作者认证',
@@ -205,22 +208,13 @@ function statusLabel(status?: string) {
 
 <template>
   <div class="min-h-screen flex flex-col" style="background-color: var(--theme-bg);">
-    <!-- 顶部返回栏 -->
+    <!-- 顶部面包屑栏 -->
     <div
-      class="border-b sticky top-0 z-30 backdrop-blur-sm"
+      class="border-b sticky top-0 z-30 backdrop-blur-sm py-3"
       style="background-color: var(--theme-surface); border-color: var(--theme-border);"
     >
-      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex items-center justify-between">
-        <button
-          @click="goBack"
-          class="flex items-center text-sm transition hover:opacity-80"
-          style="color: var(--theme-text-secondary);"
-        >
-          <ArrowLeft class="w-4 h-4 mr-1" />
-          返回
-        </button>
-        <span class="text-sm font-medium" style="color: var(--theme-text);">创作者认证</span>
-        <span class="w-12"></span>
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between gap-4">
+        <Breadcrumb :items="breadcrumbs" />
       </div>
     </div>
 
@@ -232,17 +226,6 @@ function statusLabel(status?: string) {
 
     <div v-else class="flex-1 py-8">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <!-- 页头 -->
-        <div class="mb-8">
-          <h1 class="text-2xl font-bold mb-2 flex items-center" style="color: var(--theme-text);">
-            <ShieldCheck class="w-6 h-6 mr-2" style="color: var(--theme-primary);" />
-            创作者认证
-          </h1>
-          <p class="text-sm" style="color: var(--theme-text-secondary);">
-            提交认证申请，通过审核后即可发布专栏、连载等内容
-          </p>
-        </div>
-
         <!-- 已通过认证徽章提示 -->
         <div
           v-if="isApproved"

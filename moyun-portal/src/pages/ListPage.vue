@@ -251,22 +251,13 @@ useHead(
 
 <template>
   <div class="min-h-screen flex flex-col" style="background-color: var(--theme-bg);">
-    <!-- 面包屑 -->
-    <div class="border-b py-3" style="background-color: var(--theme-bg); border-color: var(--theme-border);">
-      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <!-- 吸顶面包屑栏 -->
+    <div class="border-b sticky top-0 z-30 backdrop-blur-sm py-3" style="background-color: var(--theme-surface); border-color: var(--theme-border);">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between gap-4">
         <Breadcrumb :items="breadcrumbs" />
-      </div>
-    </div>
-
-    <!-- 页面标题 -->
-    <div class="py-6" style="background-color: var(--theme-bg);">
-      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div class="flex items-center gap-3">
-          <h1 class="text-2xl font-bold" style="color: var(--theme-text);">{{ pageTitle }}</h1>
-          <span v-if="isCategoryRecommended" class="px-2 py-1 text-xs rounded-full" style="background-color: var(--theme-primary); color: white;">
-            本栏推荐
-          </span>
-        </div>
+        <span v-if="isCategoryRecommended" class="px-2 py-1 text-xs rounded-full flex-shrink-0" style="background-color: var(--theme-primary); color: white;">
+          本栏推荐
+        </span>
       </div>
     </div>
 

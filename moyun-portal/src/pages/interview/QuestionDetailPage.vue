@@ -3,9 +3,10 @@ import { ref, onMounted, computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useHead } from '@vueuse/head';
 import {
-  ChevronLeft, ChevronDown, ChevronUp, ThumbsUp, Bookmark,
+  ChevronDown, ChevronUp, ThumbsUp, Bookmark,
   Code2, MessageSquare, CheckCircle, XCircle, Clock, Zap, Lightbulb, BookOpen, Star, Award
 } from 'lucide-vue-next';
+import Breadcrumb from '@/components/Breadcrumb.vue';
 import SiteFooter from '@/components/SiteFooter.vue';
 import { generateSeo } from '@/utils/seo';
 import {
@@ -152,23 +153,21 @@ useHead(
     });
   })
 );
+
+// 面包屑
+const breadcrumbs = computed(() => [
+  { label: '面试指南', path: '/interview' },
+  { label: '面试题库', path: '/interview/questions' },
+  { label: '题目详情' },
+]);
 </script>
 
 <template>
   <div class="min-h-screen flex flex-col" style="background-color: var(--theme-bg);">
-    <!-- 顶部导航 -->
-    <div class="border-b sticky top-0 z-30 backdrop-blur-sm" style="background-color: var(--theme-surface); border-color: var(--theme-border);">
-      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex items-center justify-between">
-        <button
-          @click="router.back()"
-          class="flex items-center transition text-sm hover:opacity-70"
-          style="color: var(--theme-text-secondary);"
-        >
-          <ChevronLeft class="w-4 h-4 mr-1" />
-          返回
-        </button>
-        <span class="text-sm" style="color: var(--theme-text-secondary);">面试题目</span>
-        <span class="w-12"></span>
+    <!-- 吸顶面包屑栏 -->
+    <div class="border-b sticky top-0 z-30 backdrop-blur-sm py-3" style="background-color: var(--theme-surface); border-color: var(--theme-border);">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between gap-4">
+        <Breadcrumb :items="breadcrumbs" />
       </div>
     </div>
 
@@ -460,11 +459,11 @@ useHead(
         <div v-else class="text-center py-12">
           <p style="color: var(--theme-text-secondary);">未找到题目信息</p>
           <button
-            @click="router.push('/interview')"
+            @click="router.push('/interview/questions')"
             class="mt-4 px-4 py-2 text-white rounded-lg text-sm hover:opacity-90 transition"
             style="background-color: var(--theme-primary);"
           >
-            返回面试指南
+            返回题库
           </button>
         </div>
       </div>

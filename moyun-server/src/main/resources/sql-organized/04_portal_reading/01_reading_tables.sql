@@ -2,25 +2,23 @@
 -- 墨韵智库 - 读书空间建表 DDL（最终合并版）
 -- ============================================
 -- 合并来源脚本：
---   07_reading_interview_init.sql                   （读书空间初始建表：portal_book/portal_book_list/portal_book_list_item/portal_book_list_like/portal_book_quote/portal_book_quote_like/portal_reading_progress/portal_book_club_activity/portal_book_club_participant/portal_book_club_record/portal_book_club_record_like）
+--   07_reading_interview_init.sql                   （读书空间初始建表：portal_book/portal_book_list/portal_book_list_item/portal_book_list_like/portal_book_quote/portal_book_quote_like/portal_reading_progress）
 --   16_reading_space_add_fields.sql                 （portal_book 新增 access_level/preview_ratio/price/is_featured/is_recommended/summary/author_bio 字段及索引；portal_book_list 新增 is_featured/access_level/tags 字段及索引；portal_book_quote 新增 is_featured/location 字段及索引）
 --   22_booklist_bookmark.sql                        （portal_book_list_bookmark 建表）
 --   42_portal_book_chapter_init.sql                （portal_book_chapter/portal_book_chapter_view 建表；portal_book 新增 type/serial_status/word_count/chapter_count/latest_chapter_id/latest_chapter_title/last_update_time/is_finished 字段及索引；portal_reading_progress 新增 current_chapter_id/current_chapter_no/chapter_offset/last_read_time/reading_duration_ms 字段及索引；portal_book_quote 新增 chapter_id 字段及索引）
 --   44_portal_bookshelf_preference_init.sql         （portal_bookshelf/portal_reading_preference 建表）
 --   46_portal_book_recommend_init.sql               （portal_book_recommend 建表）
 --   53_reading_like_and_booklist_fix.sql            （幂等兜底，07 建表已包含 like_count/remark，本文件无新增字段）
---   54_book_club_activate.sql                       （portal_book_club_record 新增 record_type 字段及索引；portal_book_club_activity.status 注释更新）
 -- 涉及表：
 --   portal_book, portal_book_chapter, portal_book_chapter_view,
 --   portal_book_list, portal_book_list_item, portal_book_list_like, portal_book_list_bookmark,
 --   portal_book_quote, portal_book_quote_like,
---   portal_reading_progress, portal_bookshelf, portal_reading_preference, portal_book_recommend,
---   portal_book_club_activity, portal_book_club_participant,
---   portal_book_club_record, portal_book_club_record_like
+--   portal_reading_progress, portal_bookshelf, portal_reading_preference, portal_book_recommend
 -- 说明：
 --   - 本文件仅包含建表 DDL（CREATE TABLE IF NOT EXISTS），不含 INSERT 数据、菜单注入语句
 --   - 所有 ALTER TABLE 已合并入对应的 CREATE TABLE
 --   - 53 号脚本为幂等兜底（如缺失则补齐 like_count/remark），07 建表已包含，无新增字段
+--   - 共读活动相关 4 张表（portal_book_club_*）已下线删除，不再纳入本文件
 -- ============================================
 
 SET NAMES utf8mb4;
@@ -370,93 +368,6 @@ CREATE TABLE IF NOT EXISTS `portal_book_recommend` (
     KEY `idx_is_active` (`is_active`),
     KEY `idx_time_window` (`start_time`, `end_time`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='书籍推荐位表';
-
--- ----------------------------
--- 共读活动表
--- 来源：07 建表 + 54 扩展（status 注释更新）
--- ----------------------------
-CREATE TABLE IF NOT EXISTS `portal_book_club_activity` (
-    `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键',
-    `title` VARCHAR(500) NOT NULL COMMENT '活动标题',
-    `book_id` BIGINT NOT NULL COMMENT '书籍ID',
-    `description` TEXT COMMENT '活动描述',
-    `cover` VARCHAR(500) DEFAULT NULL COMMENT '活动封面',
-    `start_date` DATE NOT NULL COMMENT '开始日期',
-    `end_date` DATE NOT NULL COMMENT '结束日期',
-    `max_participants` INT DEFAULT 100 COMMENT '最大参与人数',
-    `current_participants` INT DEFAULT 0 COMMENT '当前参与人数',
-    `created_by` BIGINT NOT NULL COMMENT '创建者ID',
-    `status` VARCHAR(20) DEFAULT 'upcoming' COMMENT '状态:upcoming-未开始,ongoing-进行中,ended-已结束',
-    `create_by` VARCHAR(64) DEFAULT '' COMMENT '创建者',
-    `create_time` DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
-    `update_by` VARCHAR(64) DEFAULT '' COMMENT '更新者',
-    `update_time` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
-    `remark` VARCHAR(500) DEFAULT NULL COMMENT '备注',
-    PRIMARY KEY (`id`),
-    KEY `idx_created_by` (`created_by`),
-    KEY `idx_status` (`status`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='共读活动表';
-
--- ----------------------------
--- 共读参与表
--- 来源：07 建表
--- ----------------------------
-CREATE TABLE IF NOT EXISTS `portal_book_club_participant` (
-    `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键',
-    `activity_id` BIGINT NOT NULL COMMENT '活动ID',
-    `user_id` BIGINT NOT NULL COMMENT '用户ID',
-    `join_time` DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '加入时间',
-    `create_by` VARCHAR(64) DEFAULT '' COMMENT '创建者',
-    `create_time` DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
-    `update_by` VARCHAR(64) DEFAULT '' COMMENT '更新者',
-    `update_time` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
-    `remark` VARCHAR(500) DEFAULT NULL COMMENT '备注',
-    PRIMARY KEY (`id`),
-    UNIQUE KEY `uk_activity_user` (`activity_id`, `user_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='共读参与表';
-
--- ----------------------------
--- 共读打卡记录表
--- 来源：07 建表 + 54 扩展（record_type 字段及索引；content/like_count 已在 07 建表包含）
--- ----------------------------
-CREATE TABLE IF NOT EXISTS `portal_book_club_record` (
-    `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键',
-    `activity_id` BIGINT NOT NULL COMMENT '活动ID',
-    `user_id` BIGINT NOT NULL COMMENT '用户ID',
-    `day` INT NOT NULL COMMENT '第几天',
-    `content` TEXT COMMENT '打卡内容',
-    `images` TEXT COMMENT '图片，逗号分隔',
-    -- 54 扩展：记录类型（读后感/摘抄）
-    `record_type` VARCHAR(20) DEFAULT 'reflection' COMMENT '记录类型:reflection-读后感,excerpt-摘抄',
-    `like_count` BIGINT DEFAULT 0 COMMENT '点赞数',
-    `create_by` VARCHAR(64) DEFAULT '' COMMENT '创建者',
-    `create_time` DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '打卡时间',
-    `update_by` VARCHAR(64) DEFAULT '' COMMENT '更新者',
-    `update_time` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
-    `remark` VARCHAR(500) DEFAULT NULL COMMENT '备注',
-    PRIMARY KEY (`id`),
-    KEY `idx_activity_id` (`activity_id`),
-    KEY `idx_user_id` (`user_id`),
-    -- 54 扩展索引
-    KEY `idx_record_type` (`record_type`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='共读打卡记录表';
-
--- ----------------------------
--- 打卡点赞表
--- 来源：07 建表
--- ----------------------------
-CREATE TABLE IF NOT EXISTS `portal_book_club_record_like` (
-    `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键',
-    `record_id` BIGINT NOT NULL COMMENT '打卡记录ID',
-    `user_id` BIGINT NOT NULL COMMENT '用户ID',
-    `create_by` VARCHAR(64) DEFAULT '' COMMENT '创建者',
-    `create_time` DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '点赞时间',
-    `update_by` VARCHAR(64) DEFAULT '' COMMENT '更新者',
-    `update_time` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
-    `remark` VARCHAR(500) DEFAULT NULL COMMENT '备注',
-    PRIMARY KEY (`id`),
-    UNIQUE KEY `uk_record_user` (`record_id`, `user_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='打卡点赞表';
 
 SET FOREIGN_KEY_CHECKS = 1;
 

@@ -3,11 +3,12 @@ import { ref, computed, onMounted, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useHead } from '@vueuse/head';
 import {
-  ArrowLeft, Building2, MapPin, FileText, Briefcase, ListChecks,
-  Loader2, ExternalLink, ChevronRight,
+  Building2, FileText, ListChecks,
+  Loader2, ChevronRight,
 } from 'lucide-vue-next';
 import LazyImage from '@/components/LazyImage.vue';
 import SiteFooter from '@/components/SiteFooter.vue';
+import Breadcrumb from '@/components/Breadcrumb.vue';
 import Empty from '@/components/Empty.vue';
 import Pagination from '@/components/Pagination.vue';
 import { generateSeo } from '@/utils/seo';
@@ -16,10 +17,8 @@ import { formatRelativeTime } from '@/utils/date';
 import {
   getCompanyDetail, getCompanyQuestions, getCompanyExperiences,
 } from '@/api/company';
-import { getJobList } from '@/api/job';
 import type {
   InterviewCompanyVO, InterviewQuestionVO, InterviewExperienceVO,
-  JobListItemVO,
 } from '@/types/api';
 
 const route = useRoute();
@@ -31,13 +30,12 @@ const loading = ref(false);
 const error = ref<string | null>(null);
 const company = ref<InterviewCompanyVO | null>(null);
 
-type TabKey = 'questions' | 'experiences' | 'jobs';
+type TabKey = 'questions' | 'experiences';
 const activeTab = ref<TabKey>('questions');
 
 // 各 Tab 数据
 const questions = ref<InterviewQuestionVO[]>([]);
 const experiences = ref<InterviewExperienceVO[]>([]);
-const jobs = ref<JobListItemVO[]>([]);
 const tabLoading = ref(false);
 
 // 分页（每个 Tab 独立）
@@ -49,15 +47,20 @@ const totalPages = computed(() => Math.max(1, Math.ceil(total.value / pageSize))
 const tabs: { key: TabKey; label: string; icon: typeof ListChecks }[] = [
   { key: 'questions', label: '公司题目', icon: ListChecks },
   { key: 'experiences', label: '面经', icon: FileText },
-  { key: 'jobs', label: '在招职位', icon: Briefcase },
 ];
 
 useHead(computed(() => generateSeo({
   title: company.value?.name ? `${company.value.name} - 公司主页` : '公司主页',
-  description: company.value?.description || company.value?.industry || '聚合公司题目、面经与在招职位',
+  description: company.value?.description || company.value?.industry || '聚合公司题目与面经',
   keywords: ['公司主页', company.value?.name || '墨韵'].filter(Boolean) as string[],
   canonicalPath: `/interview/company/${companyId.value}`,
 })));
+
+// 面包屑
+const breadcrumbs = computed(() => [
+  { label: '面试指南', path: '/interview' },
+  { label: '公司' },
+]);
 
 onMounted(() => {
   loadCompany();
@@ -108,10 +111,6 @@ async function loadTabData() {
       const res = await getCompanyExperiences(company.value.name, { pageNum: page.value, pageSize });
       experiences.value = res.data?.list || [];
       total.value = res.data?.total || 0;
-    } else {
-      const res = await getJobList({ companyId: companyId.value, pageNum: page.value, pageSize });
-      jobs.value = res.data?.list || [];
-      total.value = res.data?.total || 0;
     }
   } catch (err) {
     // 静默失败，保持列表为空
@@ -133,33 +132,16 @@ function goQuestion(q: InterviewQuestionVO) {
 function goExperience(e: InterviewExperienceVO) {
   router.push(`/interview/experience/${e.id}`);
 }
-function goJob(j: JobListItemVO) {
-  router.push(`/interview/jobs/${j.id}`);
-}
-
-function salaryText(j: JobListItemVO): string {
-  const min = j.salaryMin;
-  const max = j.salaryMax;
-  if (min == null && max == null) return '薪资面议';
-  if (min != null && max != null) return `${min}k-${max}k`;
-  if (min != null) return `${min}k起`;
-  return `${max}k以内`;
-}
 </script>
 
 <template>
   <div class="min-h-screen flex flex-col" style="background-color: var(--theme-bg);">
-    <!-- 顶部导航 -->
-    <header class="sticky top-0 z-30 backdrop-blur-sm" style="background-color: var(--theme-surface); border-bottom: 1px solid var(--theme-border);">
-      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex items-center gap-3">
-        <button @click="router.back()" class="p-1.5 rounded-lg transition hover:bg-black/5" style="color: var(--theme-text-secondary);">
-          <ArrowLeft class="w-5 h-5" />
-        </button>
-        <h1 class="text-base font-semibold truncate" style="color: var(--theme-text);">
-          公司主页
-        </h1>
+    <!-- 吸顶面包屑栏 -->
+    <div class="border-b sticky top-0 z-30 backdrop-blur-sm py-3" style="background-color: var(--theme-surface); border-color: var(--theme-border);">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between gap-4">
+        <Breadcrumb :items="breadcrumbs" />
       </div>
-    </header>
+    </div>
 
     <main class="flex-1 py-6">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -174,7 +156,7 @@ function salaryText(j: JobListItemVO): string {
           <Building2 class="w-12 h-12 mx-auto mb-3 opacity-40" style="color: var(--theme-text-secondary);" />
           <p class="mb-4" style="color: var(--theme-text-secondary);">{{ error }}</p>
           <button @click="router.push('/interview')" class="px-4 py-2 text-white rounded-lg text-sm transition hover:opacity-90" style="background-color: var(--theme-primary);">
-            返回面试空间
+            返回面试指南
           </button>
         </div>
 
@@ -183,10 +165,10 @@ function salaryText(j: JobListItemVO): string {
           <section class="rounded-2xl shadow-sm p-6 mb-6 flex flex-col sm:flex-row items-start gap-5" style="background-color: var(--theme-surface); border: 1px solid var(--theme-border);">
             <div class="w-20 h-20 rounded-2xl overflow-hidden flex-shrink-0 flex items-center justify-center" style="background-color: var(--theme-bg);">
               <LazyImage
-                  v-if="company.logo"
-                  :src="getSafeAvatar(company.logo)"
-                  :alt="company.name"
-                  class="w-full h-full object-cover"
+                v-if="company.logo"
+                :src="getSafeAvatar(company.logo)"
+                :alt="company.name"
+                class="w-full h-full object-cover"
               />
               <Building2 v-else class="w-10 h-10" style="color: var(--theme-text-secondary);" />
             </div>
@@ -211,11 +193,11 @@ function salaryText(j: JobListItemVO): string {
           <!-- Tab 切换 -->
           <div class="flex items-center gap-1 border-b mb-5 overflow-x-auto" style="border-color: var(--theme-border);">
             <button
-                v-for="t in tabs"
-                :key="t.key"
-                @click="activeTab = t.key"
-                class="flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium whitespace-nowrap transition border-b-2 -mb-px"
-                :style="activeTab === t.key
+              v-for="t in tabs"
+              :key="t.key"
+              @click="activeTab = t.key"
+              class="flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium whitespace-nowrap transition border-b-2 -mb-px"
+              :style="activeTab === t.key
                 ? 'color: var(--theme-primary); border-color: var(--theme-primary);'
                 : 'color: var(--theme-text-secondary); border-color: transparent;'"
             >
@@ -235,11 +217,11 @@ function salaryText(j: JobListItemVO): string {
               <Empty v-if="questions.length === 0" description="该公司暂无关联题目" />
               <div v-else class="space-y-2">
                 <div
-                    v-for="q in questions"
-                    :key="q.id"
-                    @click="goQuestion(q)"
-                    class="rounded-xl p-4 cursor-pointer transition hover:shadow-md group"
-                    style="background-color: var(--theme-surface); border: 1px solid var(--theme-border);"
+                  v-for="q in questions"
+                  :key="q.id"
+                  @click="goQuestion(q)"
+                  class="rounded-xl p-4 cursor-pointer transition hover:shadow-md group"
+                  style="background-color: var(--theme-surface); border: 1px solid var(--theme-border);"
                 >
                   <div class="flex items-center justify-between gap-3">
                     <h3 class="font-medium truncate group-hover:underline" style="color: var(--theme-text);">
@@ -261,11 +243,11 @@ function salaryText(j: JobListItemVO): string {
               <Empty v-if="experiences.length === 0" description="该公司暂无面经" />
               <div v-else class="space-y-2">
                 <div
-                    v-for="e in experiences"
-                    :key="e.id"
-                    @click="goExperience(e)"
-                    class="rounded-xl p-4 cursor-pointer transition hover:shadow-md group"
-                    style="background-color: var(--theme-surface); border: 1px solid var(--theme-border);"
+                  v-for="e in experiences"
+                  :key="e.id"
+                  @click="goExperience(e)"
+                  class="rounded-xl p-4 cursor-pointer transition hover:shadow-md group"
+                  style="background-color: var(--theme-surface); border: 1px solid var(--theme-border);"
                 >
                   <h3 class="font-medium truncate group-hover:underline" style="color: var(--theme-text);">
                     {{ e.title }}
@@ -280,42 +262,14 @@ function salaryText(j: JobListItemVO): string {
               </div>
             </template>
 
-            <!-- 在招职位 -->
-            <template v-else>
-              <Empty v-if="jobs.length === 0" description="该公司暂无在招职位" />
-              <div v-else class="space-y-2">
-                <div
-                    v-for="j in jobs"
-                    :key="j.id"
-                    @click="goJob(j)"
-                    class="rounded-xl p-4 cursor-pointer transition hover:shadow-md group"
-                    style="background-color: var(--theme-surface); border: 1px solid var(--theme-border);"
-                >
-                  <div class="flex items-center justify-between gap-3">
-                    <h3 class="font-medium truncate group-hover:underline" style="color: var(--theme-text);">
-                      {{ j.title }}
-                    </h3>
-                    <span class="text-sm font-semibold flex-shrink-0" style="color: var(--theme-primary);">
-                      {{ salaryText(j) }}
-                    </span>
-                  </div>
-                  <div class="flex items-center gap-3 mt-1.5 text-xs" style="color: var(--theme-text-secondary);">
-                    <span v-if="j.city" class="flex items-center gap-1"><MapPin class="w-3.5 h-3.5" />{{ j.city }}</span>
-                    <span v-if="j.experience">{{ j.experience }}</span>
-                    <span v-if="j.education">{{ j.education }}</span>
-                  </div>
-                </div>
-              </div>
-            </template>
-
             <!-- 分页 -->
             <Pagination
-                v-if="total > 0"
-                :current-page="page"
-                :total-pages="totalPages"
-                :total-items="total"
-                :items-per-page="pageSize"
-                @page-change="onPageChange"
+              v-if="total > 0"
+              :current-page="page"
+              :total-pages="totalPages"
+              :total-items="total"
+              :items-per-page="pageSize"
+              @page-change="onPageChange"
             />
           </div>
         </template>

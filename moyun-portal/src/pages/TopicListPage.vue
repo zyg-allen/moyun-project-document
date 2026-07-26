@@ -7,6 +7,7 @@ import {
   Clock, Flame, TrendingUp, ChevronLeft, ChevronRight, Pin,
 } from 'lucide-vue-next';
 import SiteFooter from '@/components/SiteFooter.vue';
+import Breadcrumb from '@/components/Breadcrumb.vue';
 import LazyImage from '@/components/LazyImage.vue';
 import Empty from '@/components/Empty.vue';
 import LoadingSpinner from '@/components/LoadingSpinner.vue';
@@ -41,6 +42,10 @@ const sortOptions: { value: SortKey; label: string; icon: typeof Clock }[] = [
 ];
 
 const totalPages = computed(() => Math.max(1, Math.ceil(total.value / pageSize)));
+
+const breadcrumbs = computed(() => [
+  { label: '话题广场' },
+]);
 
 useHead(computed(() => generateSeo({
   title: '话题广场',
@@ -118,6 +123,16 @@ function gotoPage(p: number) {
 
 <template>
   <div class="min-h-screen flex flex-col" style="background-color: var(--theme-bg);">
+    <!-- 吸顶面包屑栏 -->
+    <div
+      class="border-b sticky top-0 z-30 backdrop-blur-sm py-3"
+      style="background-color: var(--theme-surface); border-color: var(--theme-border);"
+    >
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between gap-4">
+        <Breadcrumb :items="breadcrumbs" />
+      </div>
+    </div>
+
     <!-- Hero 区 -->
     <div class="py-6 sm:py-8">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">

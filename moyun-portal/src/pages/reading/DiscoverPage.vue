@@ -3,11 +3,12 @@ import { ref, computed, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { useHead } from '@vueuse/head';
 import {
-  BookOpen, Star, ArrowRight, Flame, Clock, CheckCircle2,
+  BookOpen, Star, Flame, Clock, CheckCircle2,
   TrendingUp, Gift, Calendar, ChevronRight
 } from 'lucide-vue-next';
 import SiteFooter from '@/components/SiteFooter.vue';
 import LazyImage from '@/components/LazyImage.vue';
+import Breadcrumb from '@/components/Breadcrumb.vue';
 
 import { getDiscoverData, getRanking } from '@/api/reading';
 import { generateSeo } from '@/utils/seo';
@@ -37,6 +38,12 @@ const rankingLoading = ref(false);
 const hasBanner = computed(() => banners.value.length > 0);
 const currentBannerIndex = ref(0);
 const currentBanner = computed(() => banners.value[currentBannerIndex.value] || null);
+
+// 面包屑
+const breadcrumbs = computed(() => [
+  { label: '读书空间', path: '/reading' },
+  { label: '发现好书' },
+]);
 
 onMounted(() => {
   loadDiscoverData();
@@ -112,31 +119,13 @@ useHead(
 
 <template>
   <div class="min-h-screen flex flex-col" style="background-color: var(--theme-bg);">
-    <!-- 页面头部：精简品牌区（与下方区块对齐，避免重复文案） -->
-    <div class="py-8 sm:py-10">
-      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div class="flex items-center justify-between flex-wrap gap-4">
-          <div class="flex items-center gap-3">
-            <div
-                class="w-10 h-10 rounded-lg flex items-center justify-center"
-                style="background-color: var(--theme-primary);"
-            >
-              <BookOpen class="w-5 h-5 text-white" />
-            </div>
-            <div>
-              <h1 class="text-xl sm:text-2xl font-bold" style="color: var(--theme-text);">发现好书</h1>
-              <p class="text-xs sm:text-sm" style="color: var(--theme-text-secondary);">为你精选，每周更新</p>
-            </div>
-          </div>
-          <button
-              @click="router.push('/reading')"
-              class="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors hover:opacity-80"
-              style="color: var(--theme-primary); background-color: var(--theme-accent);"
-          >
-            <span>返回读书空间</span>
-            <ArrowRight class="w-4 h-4" />
-          </button>
-        </div>
+    <!-- 吸顶面包屑栏 -->
+    <div
+      class="border-b sticky top-0 z-30 backdrop-blur-sm py-3"
+      style="background-color: var(--theme-surface); border-color: var(--theme-border);"
+    >
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between gap-4">
+        <Breadcrumb :items="breadcrumbs" />
       </div>
     </div>
 

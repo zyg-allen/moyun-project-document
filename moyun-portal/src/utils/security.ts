@@ -5,7 +5,7 @@ export function sanitizeHTML(html: string): string {
   tempDiv.innerHTML = html
 
   const allowedTags = ['p', 'br', 'strong', 'em', 'b', 'i', 'u', 's', 'del', 'sup', 'sub', 'span', 'hr', 'a', 'img', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'ul', 'ol', 'li', 'blockquote', 'pre', 'code', 'table', 'thead', 'tbody', 'tr', 'td', 'th']
-  const allowedAttributes = ['href', 'src', 'alt', 'title', 'target', 'class', 'colspan', 'rowspan', 'width', 'height']
+  const allowedAttributes = ['href', 'src', 'alt', 'title', 'target', 'class', 'colspan', 'rowspan', 'width', 'height', 'loading']
   const allowedSchemes = ['http:', 'https:', 'mailto:']
 
   const cleanNode = (node: Node) => {

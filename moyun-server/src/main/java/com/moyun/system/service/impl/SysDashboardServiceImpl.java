@@ -2,10 +2,12 @@ package com.moyun.system.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.moyun.core.config.redis.RedisCache;
+import com.moyun.portal.domain.entity.PortalCreatorCertification;
 import com.moyun.portal.domain.entity.PortalFeedback;
 import com.moyun.portal.domain.entity.PortalReport;
 import com.moyun.portal.mapper.PortalArticleMapper;
 import com.moyun.portal.mapper.PortalArticleViewMapper;
+import com.moyun.portal.mapper.PortalCreatorCertificationMapper;
 import com.moyun.portal.mapper.PortalFeedbackMapper;
 import com.moyun.portal.mapper.PortalReportMapper;
 import com.moyun.system.domain.entity.SysNotification;
@@ -86,6 +88,9 @@ public class SysDashboardServiceImpl implements ISysDashboardService {
 
     @Autowired
     private PortalFeedbackMapper feedbackMapper;
+
+    @Autowired
+    private PortalCreatorCertificationMapper creatorCertificationMapper;
 
     @Autowired
     private com.moyun.portal.mapper.PortalUserMapper portalUserMapper;
@@ -488,6 +493,40 @@ public class SysDashboardServiceImpl implements ISysDashboardService {
                 }
             } catch (Exception ex) {
                 log.warn("[Dashboard] 构建反馈待办失败：{}", ex.getMessage());
+            }
+
+            // 5. 创作者认证待审核（pending 状态）
+            try {
+                LambdaQueryWrapper<PortalCreatorCertification> certWrapper = new LambdaQueryWrapper<>();
+                certWrapper.eq(PortalCreatorCertification::getStatus, "pending")
+                        .orderByDesc(PortalCreatorCertification::getCreatedTime).last("limit 5");
+                List<PortalCreatorCertification> pendingCerts = creatorCertificationMapper.selectList(certWrapper);
+                for (PortalCreatorCertification c : pendingCerts) {
+                    DashboardVO.TaskItem item = new DashboardVO.TaskItem();
+                    item.setId(c.getId());
+                    item.setType("creator_certification");
+                    item.setTitle("认证申请：" + c.getRealName());
+                    item.setDescription("创作者认证待审核（" + (c.getCertType() != null ? c.getCertType() : "creator") + "）");
+                    item.setStatus("pending");
+                    item.setCreateTime(c.getCreatedTime() != null ? c.getCreatedTime().format(DATETIME_FMT) : "");
+                    // 申请人昵称（如查不到则用 realName 兜底）
+                    String submitter = c.getRealName();
+                    if (c.getUserId() != null) {
+                        try {
+                            com.moyun.portal.domain.entity.PortalUser u = portalUserMapper.selectPortalUserById(c.getUserId());
+                            if (u != null && u.getNickname() != null) {
+                                submitter = u.getNickname();
+                            }
+                        } catch (Exception ignored) {
+                        }
+                    }
+                    item.setSubmitter(submitter);
+                    item.setPriority("medium");
+                    item.setRoutePath("/certification/audit");
+                    tasks.add(item);
+                }
+            } catch (Exception ex) {
+                log.warn("[Dashboard] 构建创作者认证待办失败：{}", ex.getMessage());
             }
         } catch (Exception e) {
             log.error("[Dashboard] 构建待办任务失败", e);

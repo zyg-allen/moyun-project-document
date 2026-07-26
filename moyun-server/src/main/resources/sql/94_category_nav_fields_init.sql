@@ -36,8 +36,9 @@ ALTER TABLE `portal_category` ADD INDEX `idx_show_in_nav` (`show_in_nav`);
 -- ----------------------------
 -- 2. 清空旧分类数据并重置自增 ID
 -- ----------------------------
+DELETE FROM `portal_category`;
 truncate table `portal_category`;
-
+ALTER TABLE `portal_category` AUTO_INCREMENT = 1;
 
 -- =============================================
 -- 3. 一级栏目（8 个）
@@ -50,7 +51,7 @@ INSERT INTO `portal_category` (name, slug, description, icon, sort, parent_id, s
     -- 3. 技术笔记：技术成长模块，二级走 /category/<名称>
     ('技术笔记', 'tech-notes', '开发记录、技术解析、AI编程实践', 'fa-code', 3, 0, '0', 1, 'category', NULL, 0, 'admin'),
     -- 4. 读书空间：读书模块（书籍），静态栏目，一级可点跳 /reading
-    ('读书空间', 'reading', '读书心得、经典共读、书单推荐', 'fa-book', 4, 0, '0', 1, 'static', '/reading', 0, 'admin'),
+    ('读书空间', 'reading', '读书心得、精选好书、书单推荐', 'fa-book', 4, 0, '0', 1, 'static', '/reading', 0, 'admin'),
     -- 5. 面试指南：求职面试模块，静态栏目，一级可点跳 /interview
     ('面试指南', 'interview', '真题整理、面经复盘、简历优化', 'fa-briefcase', 5, 0, '0', 1, 'static', '/interview', 0, 'admin'),
     -- 6. 社区互动：话题讨论、动态，静态栏目（一级仅展开子菜单，无直接跳转）

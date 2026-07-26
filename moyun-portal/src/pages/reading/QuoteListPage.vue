@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue';
+import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { useHead } from '@vueuse/head';
 import { Quote, Star, User, Calendar, BookOpen } from 'lucide-vue-next';
-import BackButton from '@/components/BackButton.vue';
+import Breadcrumb from '@/components/Breadcrumb.vue';
 import SiteFooter from '@/components/SiteFooter.vue';
 import LazyImage from '@/components/LazyImage.vue';
 import Empty from '@/components/Empty.vue';
@@ -16,6 +16,11 @@ import { formatDate } from '@/utils/date';
 const router = useRouter();
 const userStore = useUserStore();
 useHead(generateSeo({ title: '金句摘录', description: '精选书籍金句，与书友一起品味文字', keywords: ['金句摘录', '读书金句', '书籍名言'], type: 'website' }));
+
+const breadcrumbs = computed(() => [
+  { label: '读书空间', path: '/reading' },
+  { label: '金句摘录' },
+]);
 
 const loading = ref(false);
 const quotes = ref<BookQuote[]>([]);
@@ -120,13 +125,11 @@ onUnmounted(() => {
 
 <template>
   <div class="min-h-screen flex flex-col" style="background-color: var(--theme-bg);">
-    <header class="sticky top-0 z-30 backdrop-blur-sm" style="background-color: var(--theme-surface); border-bottom: 1px solid var(--theme-border);">
-      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex items-center justify-between">
-        <BackButton />
-        <h1 class="text-base sm:text-lg font-bold" style="color: var(--theme-text);">金句摘录</h1>
-        <span class="w-8" />
+    <div class="border-b sticky top-0 z-30 backdrop-blur-sm py-3" style="background-color: var(--theme-surface); border-color: var(--theme-border);">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between gap-4">
+        <Breadcrumb :items="breadcrumbs" />
       </div>
-    </header>
+    </div>
 
     <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 pb-20">
       <div v-if="loading && quotes.length === 0" class="text-center py-16" style="color: var(--theme-text-secondary);">加载中...</div>

@@ -3,6 +3,7 @@ import { ref, computed, onMounted, watch } from 'vue';
 import { useHead } from '@vueuse/head';
 import { Calendar as CalendarIcon, ChevronLeft, Loader2, RefreshCw } from 'lucide-vue-next';
 import SiteFooter from '@/components/SiteFooter.vue';
+import Breadcrumb from '@/components/Breadcrumb.vue';
 import { generateSeo } from '@/utils/seo';
 import { getLearnCalendar } from '@/api/learnStats';
 import type { LearnCalendarCell } from '@/api/learnStats';
@@ -24,6 +25,11 @@ const currentYear = now.getFullYear();
 // 可选年份：当前年、前两年
 const yearOptions = [currentYear, currentYear - 1, currentYear - 2];
 const selectedYear = ref<number>(currentYear);
+
+const breadcrumbs = computed(() => [
+  { label: '学习中心', path: '/learn' },
+  { label: '刷题日历' },
+]);
 
 async function loadCalendar() {
   loading.value = true;
@@ -85,6 +91,16 @@ const summary = computed(() => {
 
 <template>
   <div class="min-h-screen flex flex-col" style="background-color: var(--theme-bg);">
+    <!-- 吸顶面包屑栏 -->
+    <div
+      class="border-b sticky top-0 z-30 backdrop-blur-sm py-3"
+      style="background-color: var(--theme-surface); border-color: var(--theme-border);"
+    >
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between gap-4">
+        <Breadcrumb :items="breadcrumbs" />
+      </div>
+    </div>
+
     <!-- 顶部条 -->
     <div class="border-b" style="background-color: var(--theme-surface); border-color: var(--theme-border);">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">

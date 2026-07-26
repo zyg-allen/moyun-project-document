@@ -141,8 +141,11 @@ const handleSubmitFeedback = async () => {
 <template>
   <div class="min-h-screen flex flex-col" style="background-color: var(--theme-bg);">
     <!-- 面包屑 -->
-    <div class="border-b py-3 sm:py-4" style="background-color: var(--theme-bg); border-color: var(--theme-border);">
-      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div
+      class="border-b sticky top-0 z-30 backdrop-blur-sm py-3"
+      style="background-color: var(--theme-surface); border-color: var(--theme-border);"
+    >
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between gap-4">
         <Breadcrumb :items="[{ label: '举报与反馈' }]" />
       </div>
     </div>

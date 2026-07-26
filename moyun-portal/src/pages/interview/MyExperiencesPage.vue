@@ -3,10 +3,11 @@ import { ref, onMounted, watch, computed } from 'vue';
 import { useRouter } from 'vue-router';
 import { useHead } from '@vueuse/head';
 import {
-  ArrowLeft, Plus, Edit3, Trash2, Eye, Star, Briefcase,
+  Plus, Edit3, Trash2, Eye, Star, Briefcase,
   ChevronLeft, ChevronRight, BookOpen,
 } from 'lucide-vue-next';
 import SiteFooter from '@/components/SiteFooter.vue';
+import Breadcrumb from '@/components/Breadcrumb.vue';
 import { generateSeo } from '@/utils/seo';
 import { getMyExperienceList, deleteExperience } from '@/api/interview';
 import type { InterviewExperienceVO } from '@/types/api';
@@ -41,6 +42,12 @@ useHead(computed(() => generateSeo({
   robots: 'noindex,nofollow',
 })));
 
+// 面包屑
+const breadcrumbs = computed(() => [
+  { label: '个人空间', path: '/user' },
+  { label: '我的面经' },
+]);
+
 onMounted(() => {
   loadExperiences();
 });
@@ -65,10 +72,6 @@ async function loadExperiences() {
   } finally {
     loading.value = false;
   }
-}
-
-function goBack() {
-  router.push('/interview');
 }
 
 function gotoPublish() {
@@ -131,25 +134,17 @@ function gotoPage(p: number) {
 
 <template>
   <div class="min-h-screen flex flex-col" style="background-color: var(--theme-bg);">
-    <!-- 顶部返回栏 -->
+    <!-- 吸顶面包屑栏 -->
     <div
-        class="border-b sticky top-0 z-30 backdrop-blur-sm"
-        style="background-color: var(--theme-surface); border-color: var(--theme-border);"
+      class="border-b sticky top-0 z-30 backdrop-blur-sm py-3"
+      style="background-color: var(--theme-surface); border-color: var(--theme-border);"
     >
-      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex items-center justify-between">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between gap-4">
+        <Breadcrumb :items="breadcrumbs" />
         <button
-            @click="goBack"
-            class="flex items-center text-sm transition hover:opacity-80"
-            style="color: var(--theme-text-secondary);"
-        >
-          <ArrowLeft class="w-4 h-4 mr-1" />
-          返回面试指南
-        </button>
-        <span class="text-sm font-medium" style="color: var(--theme-text);">我的面经</span>
-        <button
-            @click="gotoPublish"
-            class="flex items-center text-sm text-white px-3 py-1.5 rounded-lg transition hover:opacity-90"
-            style="background-color: var(--theme-primary);"
+          @click="gotoPublish"
+          class="flex items-center text-sm text-white px-3 py-1.5 rounded-lg transition hover:opacity-90 flex-shrink-0"
+          style="background-color: var(--theme-primary);"
         >
           <Plus class="w-4 h-4 mr-1" />
           发布面经
@@ -163,23 +158,23 @@ function gotoPage(p: number) {
         <!-- 加载状态 -->
         <div v-if="loading" class="text-center py-16">
           <div
-              class="animate-spin rounded-full h-10 w-10 border-2 mx-auto"
-              style="border-color: var(--theme-border); border-top-color: var(--theme-primary);"
+            class="animate-spin rounded-full h-10 w-10 border-2 mx-auto"
+            style="border-color: var(--theme-border); border-top-color: var(--theme-primary);"
           ></div>
           <p class="mt-4 text-sm" style="color: var(--theme-text-secondary);">加载中...</p>
         </div>
 
         <!-- 错误状态 -->
         <div
-            v-else-if="error"
-            class="rounded-xl border p-8 text-center"
-            style="background-color: var(--theme-surface); border-color: var(--theme-border);"
+          v-else-if="error"
+          class="rounded-xl border p-8 text-center"
+          style="background-color: var(--theme-surface); border-color: var(--theme-border);"
         >
           <p class="mb-4 text-sm" style="color: var(--theme-text);">{{ error }}</p>
           <button
-              @click="loadExperiences"
-              class="px-4 py-2 text-white rounded-lg text-sm transition hover:opacity-90"
-              style="background-color: var(--theme-primary);"
+            @click="loadExperiences"
+            class="px-4 py-2 text-white rounded-lg text-sm transition hover:opacity-90"
+            style="background-color: var(--theme-primary);"
           >
             重试
           </button>
@@ -187,16 +182,16 @@ function gotoPage(p: number) {
 
         <!-- 空状态 -->
         <div
-            v-else-if="experiences.length === 0"
-            class="rounded-xl border p-12 text-center"
-            style="background-color: var(--theme-surface); border-color: var(--theme-border);"
+          v-else-if="experiences.length === 0"
+          class="rounded-xl border p-12 text-center"
+          style="background-color: var(--theme-surface); border-color: var(--theme-border);"
         >
           <BookOpen class="w-12 h-12 mx-auto mb-3" style="color: var(--theme-text-secondary); opacity: 0.5;" />
           <p class="text-sm mb-4" style="color: var(--theme-text-secondary);">还没有发布任何面经</p>
           <button
-              @click="gotoPublish"
-              class="inline-flex items-center px-4 py-2 text-white rounded-lg text-sm transition hover:opacity-90"
-              style="background-color: var(--theme-primary);"
+            @click="gotoPublish"
+            class="inline-flex items-center px-4 py-2 text-white rounded-lg text-sm transition hover:opacity-90"
+            style="background-color: var(--theme-primary);"
           >
             <Plus class="w-4 h-4 mr-1" />
             发布第一篇面经
@@ -207,38 +202,38 @@ function gotoPage(p: number) {
         <template v-else>
           <div class="space-y-4">
             <div
-                v-for="exp in experiences"
-                :key="exp.id"
-                class="rounded-xl shadow-sm hover:shadow-md transition p-5"
-                style="background-color: var(--theme-surface); border: 1px solid var(--theme-border);"
+              v-for="exp in experiences"
+              :key="exp.id"
+              class="rounded-xl shadow-sm hover:shadow-md transition p-5"
+              style="background-color: var(--theme-surface); border: 1px solid var(--theme-border);"
             >
               <!-- 标签行 -->
               <div class="flex items-center flex-wrap gap-2 mb-2">
                 <span
-                    class="px-2.5 py-1 rounded-full text-xs font-medium"
-                    :class="statusClass(exp)"
+                  class="px-2.5 py-1 rounded-full text-xs font-medium"
+                  :class="statusClass(exp)"
                 >
                   {{ statusLabel(exp) }}
                 </span>
                 <span
-                    v-if="exp.company"
-                    class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium"
-                    style="background-color: var(--theme-bg); color: var(--theme-primary);"
+                  v-if="exp.company"
+                  class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium"
+                  style="background-color: var(--theme-bg); color: var(--theme-primary);"
                 >
                   <Briefcase class="w-3 h-3 mr-1" />
                   {{ exp.company }}
                 </span>
                 <span
-                    v-if="exp.position"
-                    class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium"
-                    style="background-color: var(--theme-bg); color: var(--theme-text-secondary);"
+                  v-if="exp.position"
+                  class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium"
+                  style="background-color: var(--theme-bg); color: var(--theme-text-secondary);"
                 >
                   {{ exp.position }}
                 </span>
                 <span
-                    v-if="exp.year"
-                    class="text-xs"
-                    style="color: var(--theme-text-secondary);"
+                  v-if="exp.year"
+                  class="text-xs"
+                  style="color: var(--theme-text-secondary);"
                 >
                   {{ exp.year }}年{{ exp.month ? exp.month + '月' : '' }}
                 </span>
@@ -246,18 +241,18 @@ function gotoPage(p: number) {
 
               <!-- 标题 -->
               <h3
-                  @click="gotoDetail(exp.id)"
-                  class="text-base font-semibold mb-1 cursor-pointer hover:underline"
-                  style="color: var(--theme-text);"
+                @click="gotoDetail(exp.id)"
+                class="text-base font-semibold mb-1 cursor-pointer hover:underline"
+                style="color: var(--theme-text);"
               >
                 {{ exp.title }}
               </h3>
 
               <!-- 摘要 -->
               <p
-                  v-if="exp.summary || exp.content"
-                  class="text-sm line-clamp-2 mb-3"
-                  style="color: var(--theme-text-secondary);"
+                v-if="exp.summary || exp.content"
+                class="text-sm line-clamp-2 mb-3"
+                style="color: var(--theme-text-secondary);"
               >
                 {{ exp.summary || exp.content }}
               </p>
@@ -279,18 +274,18 @@ function gotoPage(p: number) {
                 </div>
                 <div class="flex items-center gap-2">
                   <button
-                      @click="gotoEdit(exp.id)"
-                      class="inline-flex items-center px-3 py-1.5 rounded-lg text-xs transition hover:opacity-80"
-                      style="background-color: var(--theme-bg); color: var(--theme-text); border: 1px solid var(--theme-border);"
+                    @click="gotoEdit(exp.id)"
+                    class="inline-flex items-center px-3 py-1.5 rounded-lg text-xs transition hover:opacity-80"
+                    style="background-color: var(--theme-bg); color: var(--theme-text); border: 1px solid var(--theme-border);"
                   >
                     <Edit3 class="w-3 h-3 mr-1" />
                     编辑
                   </button>
                   <button
-                      @click="handleDelete(exp)"
-                      :disabled="deletingId === exp.id"
-                      class="inline-flex items-center px-3 py-1.5 rounded-lg text-xs text-white transition hover:opacity-80 disabled:opacity-50 disabled:cursor-not-allowed"
-                      style="background-color: #ef4444;"
+                    @click="handleDelete(exp)"
+                    :disabled="deletingId === exp.id"
+                    class="inline-flex items-center px-3 py-1.5 rounded-lg text-xs text-white transition hover:opacity-80 disabled:opacity-50 disabled:cursor-not-allowed"
+                    style="background-color: #ef4444;"
                   >
                     <Trash2 class="w-3 h-3 mr-1" />
                     删除
@@ -303,11 +298,11 @@ function gotoPage(p: number) {
           <!-- 分页 -->
           <div v-if="totalPages > 1" class="flex flex-wrap items-center justify-center gap-2 mt-8">
             <button
-                @click="gotoPage(page - 1)"
-                :disabled="page === 1"
-                :aria-label="`第 ${page - 1} 页`"
-                class="px-3 py-2 rounded-lg text-sm transition disabled:opacity-40 disabled:cursor-not-allowed flex items-center"
-                style="background-color: var(--theme-surface); border: 1px solid var(--theme-border); color: var(--theme-text);"
+              @click="gotoPage(page - 1)"
+              :disabled="page === 1"
+              :aria-label="`第 ${page - 1} 页`"
+              class="px-3 py-2 rounded-lg text-sm transition disabled:opacity-40 disabled:cursor-not-allowed flex items-center"
+              style="background-color: var(--theme-surface); border: 1px solid var(--theme-border); color: var(--theme-text);"
             >
               <ChevronLeft class="w-4 h-4" />
               上一页
@@ -316,11 +311,11 @@ function gotoPage(p: number) {
               第 {{ page }} / {{ totalPages }} 页
             </span>
             <button
-                @click="gotoPage(page + 1)"
-                :disabled="page === totalPages"
-                :aria-label="`第 ${page + 1} 页`"
-                class="px-3 py-2 rounded-lg text-sm transition disabled:opacity-40 disabled:cursor-not-allowed flex items-center"
-                style="background-color: var(--theme-surface); border: 1px solid var(--theme-border); color: var(--theme-text);"
+              @click="gotoPage(page + 1)"
+              :disabled="page === totalPages"
+              :aria-label="`第 ${page + 1} 页`"
+              class="px-3 py-2 rounded-lg text-sm transition disabled:opacity-40 disabled:cursor-not-allowed flex items-center"
+              style="background-color: var(--theme-surface); border: 1px solid var(--theme-border); color: var(--theme-text);"
             >
               下一页
               <ChevronRight class="w-4 h-4" />

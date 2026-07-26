@@ -2,8 +2,9 @@
 import { ref, onMounted, watch, computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useHead } from '@vueuse/head';
-import { BookOpen, Star, ArrowLeft, Users, Calendar, FileText, Tag, Quote, Heart, List, ChevronRight, User } from 'lucide-vue-next';
+import { BookOpen, Star, Users, Calendar, FileText, Tag, Quote, Heart, List, ChevronRight, User } from 'lucide-vue-next';
 import LazyImage from '@/components/LazyImage.vue';
+import Breadcrumb from '@/components/Breadcrumb.vue';
 import SiteFooter from '@/components/SiteFooter.vue';
 import BookshelfButton from '@/components/reading/BookshelfButton.vue';
 import { generateSeo } from '@/utils/seo';
@@ -206,14 +207,11 @@ function goReadChapter(chapterId: string | number) {
   }
 }
 
-// 返回读书空间
-function goBack() {
-  if (window.history.length > 1) {
-    router.back();
-  } else {
-    router.push('/reading');
-  }
-}
+// 面包屑
+const breadcrumbs = computed(() => [
+  { label: '读书空间', path: '/reading' },
+  { label: book.value?.title || '书籍详情' },
+]);
 
 // SEO
 useHead(
@@ -275,18 +273,10 @@ watch(
 
 <template>
   <div class="min-h-screen flex flex-col" style="background-color: var(--theme-bg);">
-    <!-- 顶部返回按钮 -->
-    <div class="border-b py-3 sm:py-4" style="background-color: var(--theme-bg); border-color: var(--theme-border);">
-      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <button
-          @click="goBack"
-          class="inline-flex items-center gap-2 text-sm font-medium transition-colors hover:opacity-80 focus:outline-none"
-          style="color: var(--theme-text-secondary);"
-          aria-label="返回读书空间"
-        >
-          <ArrowLeft class="w-4 h-4" aria-hidden="true" />
-          <span>返回读书空间</span>
-        </button>
+    <!-- 吸顶面包屑栏 -->
+    <div class="border-b sticky top-0 z-30 backdrop-blur-sm py-3" style="background-color: var(--theme-surface); border-color: var(--theme-border);">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between gap-4">
+        <Breadcrumb :items="breadcrumbs" />
       </div>
     </div>
 

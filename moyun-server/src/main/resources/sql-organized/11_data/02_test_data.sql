@@ -122,10 +122,6 @@ TRUNCATE TABLE portal_book_quote_like;            -- 金句点赞
 TRUNCATE TABLE portal_book_recommend;             -- 书籍推荐
 TRUNCATE TABLE portal_reading_progress;           -- 阅读进度
 TRUNCATE TABLE portal_reading_preference;         -- 阅读偏好
-TRUNCATE TABLE portal_book_club_activity;        -- 读书会活动
-TRUNCATE TABLE portal_book_club_participant;      -- 读书会参与者
-TRUNCATE TABLE portal_book_club_record;           -- 读书会打卡记录
-TRUNCATE TABLE portal_book_club_record_like;      -- 打卡点赞
 
 -- =====================================================================
 -- D. 面试模块（题库 + 答题 + 面经 + 模拟面试 + 错题本 + 代码运行 + 学习计划 + 简历）

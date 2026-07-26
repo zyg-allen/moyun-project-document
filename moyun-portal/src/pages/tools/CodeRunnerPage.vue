@@ -3,10 +3,11 @@ import { ref, computed } from 'vue';
 import { useRouter } from 'vue-router';
 import { useHead } from '@vueuse/head';
 import {
-  ArrowLeft, Play, Loader2, Terminal, History, X, Clock,
+  Play, Loader2, Terminal, History, X, Clock,
   CheckCircle2, AlertCircle, Timer, Cpu, Code2, Trash2,
 } from 'lucide-vue-next';
 import SiteFooter from '@/components/SiteFooter.vue';
+import Breadcrumb from '@/components/Breadcrumb.vue';
 import { generateSeo } from '@/utils/seo';
 import { runCode, getMyCodeRuns } from '@/api/codeRun';
 import { useToast } from '@/composables/useToast';
@@ -39,6 +40,11 @@ const historyPage = ref(1);
 const historyPageSize = 10;
 
 const historyTotalPages = computed(() => Math.max(1, Math.ceil(historyTotal.value / historyPageSize)));
+
+const breadcrumbs = computed(() => [
+  { label: '面试指南', path: '/interview' },
+  { label: '在线编程' },
+]);
 
 const statusText = computed(() => statusLabel(result.value?.status));
 
@@ -144,14 +150,6 @@ function clearEditor() {
   result.value = null;
 }
 
-function goBack() {
-  if (window.history.length > 1) {
-    router.back();
-  } else {
-    router.push('/interview');
-  }
-}
-
 function formatTime(ms?: number) {
   if (ms == null) return '-';
   if (ms < 1000) return ms + ' ms';
@@ -207,49 +205,19 @@ function statusBadgeFg(s?: string): string {
 
 <template>
   <div class="min-h-screen flex flex-col" style="background-color: var(--theme-bg);">
-    <!-- 顶部返回栏 -->
-    <div
-      class="border-b sticky top-0 z-30 backdrop-blur-sm"
-      style="background-color: var(--theme-surface); border-color: var(--theme-border);"
-    >
-      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex items-center justify-between">
-        <button
-          @click="goBack"
-          class="flex items-center text-sm transition hover:opacity-80"
-          style="color: var(--theme-text-secondary);"
-        >
-          <ArrowLeft class="w-4 h-4 mr-1" />
-          返回面试指南
-        </button>
-        <span class="text-sm font-medium flex items-center" style="color: var(--theme-text);">
-          <Code2 class="w-4 h-4 mr-1.5" />在线代码运行
-        </span>
-        <button
-          @click="openHistory"
-          class="flex items-center text-sm px-3 py-1.5 rounded-lg transition hover:opacity-80"
-          style="background-color: var(--theme-bg); color: var(--theme-text); border: 1px solid var(--theme-border);"
-        >
-          <History class="w-4 h-4 mr-1" />
-          运行历史
-        </button>
-      </div>
-    </div>
-
-    <!-- Hero 区 -->
-    <div class="py-6 sm:py-8">
-      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div class="relative overflow-hidden rounded-2xl text-white" style="background-image: radial-gradient(circle at 20% 30%, rgba(99, 102, 241, 0.4) 0%, transparent 50%), radial-gradient(circle at 80% 70%, rgba(168, 85, 247, 0.4) 0%, transparent 50%), linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);">
-      <div class="absolute inset-0 opacity-10 pointer-events-none" aria-hidden="true">
-        <svg class="absolute top-6 left-8 w-32 h-32 text-white" viewBox="0 0 24 24" fill="currentColor"><path d="M9.4 16.6L4.8 12l4.6-4.6L8 6l-6 6 6 6 1.4-1.4zm5.2 0L19.2 12l-4.6-4.6L16 6l6 6-6 6-1.4-1.4z"/></svg>
-        <svg class="absolute bottom-4 right-10 w-40 h-40 text-white" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 4c-3.31 0-6 2.69-6 6s2.69 6 6 6 6-2.69 6-6-2.69-6-6-6zm0 2c2.21 0 4 1.79 4 4s-1.79 4-4 4-4-1.79-4-4 1.79-4 4-4zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"/></svg>
-      </div>
-      <div class="relative px-6 py-8 sm:px-10 sm:py-10 text-center">
-        <div class="inline-flex items-center bg-white/10 backdrop-blur-sm px-4 py-1.5 rounded-full text-sm mb-3">
-          <Terminal class="w-4 h-4 mr-2" /> 墨韵 · 代码沙箱
-        </div>
-        <h1 class="text-2xl md:text-3xl font-bold mb-2">在线代码运行</h1>
-        <p class="text-sm opacity-90">支持 Java / Python / JavaScript，沙箱执行，超时 5 秒，输出截断 1MB</p>
-      </div>
+    <!-- 顶部面包屑栏 -->
+    <div class="border-b sticky top-0 z-30 backdrop-blur-sm py-3" style="background-color: var(--theme-surface); border-color: var(--theme-border);">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between gap-4">
+        <Breadcrumb :items="breadcrumbs" />
+        <div class="flex items-center gap-2">
+          <button
+            @click="openHistory"
+            class="flex items-center text-sm px-3 py-1.5 rounded-lg transition hover:opacity-80"
+            style="background-color: var(--theme-bg); color: var(--theme-text); border: 1px solid var(--theme-border);"
+          >
+            <History class="w-4 h-4 mr-1" />
+            运行历史
+          </button>
         </div>
       </div>
     </div>

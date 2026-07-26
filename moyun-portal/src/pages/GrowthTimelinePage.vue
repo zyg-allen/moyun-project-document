@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue';
+import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { useHead } from '@vueuse/head';
 import { Pen, BookOpen, Briefcase, Star, Calendar, ChevronRight } from 'lucide-vue-next';
-import BackButton from '@/components/BackButton.vue';
+import Breadcrumb from '@/components/Breadcrumb.vue';
 import SiteFooter from '@/components/SiteFooter.vue';
 import LazyImage from '@/components/LazyImage.vue';
 import Empty from '@/components/Empty.vue';
@@ -19,6 +19,11 @@ useHead(generateSeo({
   keywords: ['成长时间线', '学习记录', '成长画像'],
   type: 'website'
 }));
+
+const breadcrumbs = computed(() => [
+  { label: '个人中心', path: '/user' },
+  { label: '成长时间线' },
+]);
 
 const loading = ref(false);
 const loadingMore = ref(false);
@@ -117,14 +122,12 @@ onUnmounted(() => {
 
 <template>
   <div class="min-h-screen flex flex-col" style="background-color: var(--theme-bg);">
-    <!-- Header -->
-    <header class="sticky top-0 z-30 backdrop-blur-sm" style="background-color: var(--theme-surface); border-bottom: 1px solid var(--theme-border);">
-      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex items-center justify-between">
-        <BackButton />
-        <h1 class="text-base sm:text-lg font-bold" style="color: var(--theme-text);">成长时间线</h1>
-        <span class="w-8" />
+    <!-- 吸顶面包屑栏 -->
+    <div class="border-b sticky top-0 z-30 backdrop-blur-sm py-3" style="background-color: var(--theme-surface); border-color: var(--theme-border);">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between gap-4">
+        <Breadcrumb :items="breadcrumbs" />
       </div>
-    </header>
+    </div>
 
     <!-- v1.1.3 修复：用户反馈"宽度还是小小的"。
          原因：之前用 <main class="max-w-7xl ..."> 包裹所有内容，理论上等价于首页，

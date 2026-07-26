@@ -3,7 +3,7 @@ import { ref, computed, onMounted, watch } from 'vue';
 import { useRoute, useRouter, RouterLink as Link } from 'vue-router';
 import { useHead } from '@vueuse/head';
 import {
-    UserPlus, ArrowLeft, Loader2, Users, Heart, UserCheck
+    UserPlus, Loader2, Users, Heart, UserCheck
 } from 'lucide-vue-next';
 import type { User as UserType, FollowUserItem } from '@/types/api';
 import * as userApi from '@/api/user';
@@ -52,7 +52,7 @@ interface CrumbItem {
     path?: string;
 }
 
-const breadcrumbItems = computed<CrumbItem[]>(() => {
+const breadcrumbs = computed<CrumbItem[]>(() => {
     const items: CrumbItem[] = [];
     if (targetUser.value) {
         items.push({ label: targetUser.value.nickname || targetUser.value.username, path: `/author/${targetUser.value.id}` });
@@ -226,20 +226,13 @@ function displayName(item: FollowUserItem): string {
 
 <template>
   <div class="min-h-screen flex flex-col" style="background-color: var(--theme-bg);">
-    <!-- 面包屑 -->
-    <div class="border-b py-3 sm:py-4" style="border-color: var(--theme-border);">
-      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div class="flex items-center justify-between gap-4">
-          <Breadcrumb :items="breadcrumbItems" />
-          <button
-            @click="router.back()"
-            class="flex items-center gap-1 text-sm"
-            style="color: var(--theme-text-secondary);"
-          >
-            <ArrowLeft class="w-4 h-4" />
-            返回
-          </button>
-        </div>
+    <!-- 顶部面包屑栏 -->
+    <div
+      class="border-b sticky top-0 z-30 backdrop-blur-sm py-3"
+      style="background-color: var(--theme-surface); border-color: var(--theme-border);"
+    >
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between gap-4">
+        <Breadcrumb :items="breadcrumbs" />
       </div>
     </div>
 

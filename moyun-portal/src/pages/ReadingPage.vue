@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router';
 import { useHead } from '@vueuse/head';
 import { BookOpen, Star, ArrowRight, Users, Bookmark, BookmarkCheck, Quote, Compass, Clock, CheckCircle2, User, Calendar } from 'lucide-vue-next';
 import SiteFooter from '@/components/SiteFooter.vue';
+import Breadcrumb from '@/components/Breadcrumb.vue';
 import LazyImage from '@/components/LazyImage.vue';
 
 import { getReadingHome, toggleBookListBookmark, checkBookListBookmark, getRanking } from '@/api/reading';
@@ -14,6 +15,7 @@ import type { Book, BookList, Quote as QuoteType, RankingType } from '@/types/ap
 
 const router = useRouter();
 const userStore = useUserStore();
+const breadcrumbs = computed(() => [{ label: '读书空间' }]);
 const loading = ref(false);
 const error = ref<string | null>(null);
 const bookLists = ref<BookList[]>([]);
@@ -117,6 +119,16 @@ useHead(
 
 <template>
   <div class="min-h-screen flex flex-col" style="background-color: var(--theme-bg);">
+    <!-- 吸顶面包屑栏 -->
+    <div
+      class="border-b sticky top-0 z-30 backdrop-blur-sm py-3"
+      style="background-color: var(--theme-surface); border-color: var(--theme-border);"
+    >
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between gap-4">
+        <Breadcrumb :items="breadcrumbs" />
+      </div>
+    </div>
+
     <!-- 页面头部：精简品牌区（与下方区块对齐，避免满屏渐变超出与文案重复） -->
     <div class="py-8 sm:py-10">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">

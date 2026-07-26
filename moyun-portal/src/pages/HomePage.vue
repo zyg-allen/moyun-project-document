@@ -682,7 +682,7 @@ useHead(
               >
                 <BookOpen class="w-6 h-6 text-white" />
                 <span class="text-white text-sm font-medium">读书空间</span>
-                <span class="text-white/80 text-xs">共读计划</span>
+                <span class="text-white/80 text-xs">精选好书</span>
               </button>
               <button
                   @click="router.push('/interview')"
@@ -709,7 +709,7 @@ useHead(
               </div>
               <div>
                 <h3 class="font-semibold text-sm sm:text-base" style="color: var(--theme-text);">读书空间</h3>
-                <p class="text-xs" style="color: var(--theme-text-secondary);">每月共读一本书</p>
+                <p class="text-xs" style="color: var(--theme-text-secondary);">精选好书伴你阅读</p>
               </div>
             </div>
             <button @click="router.push('/reading')" class="flex items-center gap-1 text-xs sm:text-sm font-medium" style="color: var(--theme-primary);">
@@ -719,7 +719,7 @@ useHead(
           </div>
 
           <div class="grid grid-cols-1 md:grid-cols-4 gap-3 sm:gap-4">
-            <!-- 本月共读 / 精选书籍 -->
+            <!-- 精选书籍 -->
             <button
                 type="button"
                 v-if="readingBooks.length > 0"
@@ -732,7 +732,7 @@ useHead(
                   class="absolute inset-0 w-full h-full object-cover"
               />
               <div class="absolute inset-0 bg-gradient-to-br from-green-600/80 to-green-800/80 p-3 sm:p-4">
-                <span class="inline-block px-2 py-0.5 bg-white/20 backdrop-blur text-white text-xs rounded mb-2">本月共读</span>
+                <span class="inline-block px-2 py-0.5 bg-white/20 backdrop-blur text-white text-xs rounded mb-2">精选好书</span>
                 <h4 class="text-white font-bold text-sm sm:text-base mb-1 line-clamp-1">{{ readingBooks[0].title }}</h4>
                 <p class="text-white/80 text-xs mb-3">{{ readingBooks[0].author }}</p>
                 <span class="px-3 py-1 bg-white text-green-700 rounded-full text-xs font-medium">立即阅读</span>
@@ -741,7 +741,7 @@ useHead(
             <div v-else class="relative h-28 sm:h-32 rounded-xl overflow-hidden">
               <div class="absolute inset-0 bg-gradient-to-br from-green-600 to-green-800"></div>
               <div class="absolute inset-0 p-3 sm:p-4">
-                <span class="inline-block px-2 py-0.5 bg-white/20 backdrop-blur text-white text-xs rounded mb-2">本月共读</span>
+                <span class="inline-block px-2 py-0.5 bg-white/20 backdrop-blur text-white text-xs rounded mb-2">精选好书</span>
                 <h4 class="text-white font-bold text-sm sm:text-base mb-1">暂无推荐</h4>
               </div>
             </div>
@@ -783,7 +783,7 @@ useHead(
               <p v-else class="text-xs" style="color: var(--theme-text-secondary);">暂无金句</p>
             </div>
 
-            <!-- 共读统计 -->
+            <!-- 读书统计 -->
             <div class="p-3 sm:p-4 rounded-xl" style="background-color: var(--theme-bg);">
               <div class="flex items-center gap-2 mb-3">
                 <div class="w-7 h-7 rounded-lg bg-pink-100 flex items-center justify-center">

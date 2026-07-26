@@ -3,9 +3,10 @@ import { ref, computed, onMounted, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { useHead } from '@vueuse/head';
 import {
-  ArrowLeft, BookOpen, Plus, Pencil, Trash2, CheckCircle2,
+  BookOpen, Plus, Pencil, Trash2, CheckCircle2,
   FileText, Users, ChevronLeft, ChevronRight, Settings,
 } from 'lucide-vue-next';
+import Breadcrumb from '@/components/Breadcrumb.vue';
 import SiteFooter from '@/components/SiteFooter.vue';
 import LazyImage from '@/components/LazyImage.vue';
 import { generateSeo } from '@/utils/seo';
@@ -29,6 +30,11 @@ const pageSize = 12;
 const actionId = ref<string | number | null>(null);
 
 const totalPages = computed(() => Math.max(1, Math.ceil(total.value / pageSize)));
+
+const breadcrumbs = computed(() => [
+  { label: '专栏广场', path: '/columns' },
+  { label: '我的专栏' },
+]);
 
 useHead(computed(() => generateSeo({
   title: '我的专栏',
@@ -142,47 +148,18 @@ function formatNumber(n?: number) {
 
 <template>
   <div class="min-h-screen flex flex-col" style="background-color: var(--theme-bg);">
-    <!-- 顶部返回栏 -->
-    <div
-      class="border-b sticky top-0 z-30 backdrop-blur-sm"
-      style="background-color: var(--theme-surface); border-color: var(--theme-border);"
-    >
-      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex items-center justify-between">
-        <button
-          @click="goBack"
-          class="flex items-center text-sm transition hover:opacity-80"
-          style="color: var(--theme-text-secondary);"
-        >
-          <ArrowLeft class="w-4 h-4 mr-1" />
-          返回专栏广场
-        </button>
-        <span class="text-sm font-medium" style="color: var(--theme-text);">我的专栏</span>
-        <button
-          @click="gotoCreate"
-          class="flex items-center text-sm text-white px-3 py-1.5 rounded-lg transition hover:opacity-90"
-          style="background-color: var(--theme-primary);"
-        >
-          <Plus class="w-4 h-4 mr-1" />
-          创建专栏
-        </button>
-      </div>
-    </div>
-
-    <!-- Hero 区 -->
-    <div class="py-6 sm:py-8">
-      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div class="relative overflow-hidden rounded-2xl text-white" style="background-image: radial-gradient(circle at 20% 50%, rgba(190, 24, 93, 0.3) 0%, transparent 50%), radial-gradient(circle at 80% 30%, rgba(124, 58, 237, 0.3) 0%, transparent 50%), linear-gradient(135deg, #be185d 0%, #a21caf 50%, #7c3aed 100%);">
-          <div class="absolute inset-0 opacity-10 pointer-events-none" aria-hidden="true">
-            <svg class="absolute top-6 left-8 w-32 h-32 text-white" viewBox="0 0 24 24" fill="currentColor"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
-            <svg class="absolute bottom-4 right-10 w-40 h-40 text-white" viewBox="0 0 24 24" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-2 10H7v-2h10v2zm0-4H7V7h10v2z"/></svg>
-          </div>
-          <div class="relative px-6 py-8 sm:px-10 sm:py-10 text-center">
-            <div class="inline-flex items-center bg-white/10 backdrop-blur-sm px-4 py-1.5 rounded-full text-sm mb-4">
-              <BookOpen class="w-4 h-4 mr-2" /> 墨韵 · 我的专栏
-            </div>
-            <h1 class="text-3xl md:text-4xl font-bold mb-3">我的专栏</h1>
-            <p class="text-sm opacity-90">管理我创建的专栏，追更我订阅的专栏</p>
-          </div>
+    <div class="border-b sticky top-0 z-30 backdrop-blur-sm py-3" style="background-color: var(--theme-surface); border-color: var(--theme-border);">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between gap-4">
+        <Breadcrumb :items="breadcrumbs" />
+        <div class="flex items-center gap-2">
+          <button
+            @click="gotoCreate"
+            class="flex items-center text-sm text-white px-3 py-1.5 rounded-lg transition hover:opacity-90"
+            style="background-color: var(--theme-primary);"
+          >
+            <Plus class="w-4 h-4 mr-1" />
+            创建专栏
+          </button>
         </div>
       </div>
     </div>

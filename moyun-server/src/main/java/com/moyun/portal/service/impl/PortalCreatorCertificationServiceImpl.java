@@ -14,6 +14,8 @@ import com.moyun.portal.domain.entity.PortalUser;
 import com.moyun.portal.mapper.PortalCreatorCertificationMapper;
 import com.moyun.portal.mapper.PortalUserMapper;
 import com.moyun.portal.service.IPortalCreatorCertificationService;
+import com.moyun.system.domain.entity.SysNotification;
+import com.moyun.system.service.ISysNotificationService;
 
 /**
  * 创作者认证 业务层实现
@@ -30,6 +32,9 @@ public class PortalCreatorCertificationServiceImpl
 
     @Autowired
     private PortalUserMapper portalUserMapper;
+
+    @Autowired
+    private ISysNotificationService notificationService;
 
     @Override
     public PortalCreatorCertification apply(Long userId, PortalCreatorCertification dto) {
@@ -53,6 +58,23 @@ public class PortalCreatorCertificationServiceImpl
         entity.setStatus("pending");
         entity.setCreatedTime(LocalDateTime.now());
         baseMapper.insert(entity);
+
+        // 业务闭环：给后台管理员发送"待审核"通知，使其在首页待办列表能看到新申请
+        // scope=all 广播给所有 sys 后台用户；data 携带申请 ID，便于前端跳转
+        try {
+            SysNotification notice = new SysNotification();
+            notice.setType("system");
+            notice.setTitle("新创作者认证申请待审核");
+            notice.setContent("用户 " + entity.getRealName() + "（userId=" + userId + "）提交了创作者认证申请，请尽快审核");
+            notice.setScope("all");
+            notice.setUserType("sys");
+            notice.setNoticeType("1");
+            notice.setStatus("0");
+            notice.setData("{\"bizType\":\"creator_certification\",\"id\":" + entity.getId() + "}");
+            notificationService.sendBroadcastNotification(notice);
+        } catch (Exception ignored) {
+            // 通知发送失败不应阻断申请提交流程
+        }
         return entity;
     }
 
@@ -84,6 +106,28 @@ public class PortalCreatorCertificationServiceImpl
         userUpdate.eq(PortalUser::getId, entity.getUserId())
                 .set(PortalUser::getIsCertifiedCreator, certified);
         portalUserMapper.update(null, userUpdate);
+
+        // 业务闭环：把审核结果通知申请人，让用户在前台消息中心看到反馈
+        try {
+            SysNotification notice = new SysNotification();
+            notice.setType("system");
+            notice.setScope("user");
+            notice.setUserId(entity.getUserId());
+            notice.setUserType("portal");
+            notice.setNoticeType("1");
+            notice.setStatus("0");
+            if ("approved".equals(status)) {
+                notice.setTitle("创作者认证已通过");
+                notice.setContent("恭喜您，您的创作者认证申请已通过审核，现已获得创作者标识。");
+            } else {
+                notice.setTitle("创作者认证未通过");
+                notice.setContent("您的创作者认证申请未通过审核。" + (remark != null && !remark.isEmpty() ? "原因：" + remark : ""));
+            }
+            notice.setData("{\"bizType\":\"creator_certification\",\"id\":" + id + ",\"status\":\"" + status + "\"}");
+            notificationService.insertNotification(notice);
+        } catch (Exception ignored) {
+            // 通知发送失败不应阻断审核流程
+        }
         return entity;
     }
 

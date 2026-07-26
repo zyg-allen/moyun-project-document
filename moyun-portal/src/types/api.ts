@@ -1676,44 +1676,6 @@ export interface FollowUserItem {
   createdAt?: string;
 }
 
-// ==================== 职位（求职闭环）====================
-
-/** 职位列表项（含公司简要信息） */
-export interface JobListItemVO {
-  id: string | number;
-  companyId?: string | number;
-  title: string;
-  city?: string;
-  salaryMin?: number;
-  salaryMax?: number;
-  experience?: string;
-  education?: string;
-  status?: string;
-  companyName?: string;
-  companyLogo?: string;
-  createdTime?: string;
-}
-
-/** 职位详情（含公司信息） */
-export interface JobVO extends JobListItemVO {
-  description?: string;
-  requirement?: string;
-  companyIndustry?: string;
-  updatedTime?: string;
-}
-
-/** 职位查询参数 */
-export interface JobQuery {
-  pageNum?: number;
-  pageSize?: number;
-  keyword?: string;
-  companyId?: string | number;
-  city?: string;
-  experience?: string;
-  education?: string;
-  status?: string;
-}
-
 // ==================== 在线代码运行（任务 3.6）====================
 
 /** 代码运行记录 VO */

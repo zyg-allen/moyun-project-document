@@ -1,14 +1,15 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue';
-import { useRouter, useRoute } from 'vue-router';
+import { useRouter, useRoute, onBeforeRouteLeave } from 'vue-router';
 import {
-  ArrowLeft, Image as ImageIcon, Save, Eye, Send, X,
+  Image as ImageIcon, Save, Eye, Send, X,
   List, Clock, User, FileText, Settings,
   Sparkles, Globe, Lock, Tag as TagIcon, BookOpen,
   ChevronDown, Check, Type, Plus, ChevronRight, Code,
   Lightbulb, ChevronRight as ChevronRightIcon,
   History, GitCompare, RotateCcw
 } from 'lucide-vue-next';
+import Breadcrumb from '@/components/Breadcrumb.vue';
 import {
   getHotTags,
   searchTagList,
@@ -587,36 +588,6 @@ async function handlePublish() {
   }
 }
 
-// 返回列表
-// 返回上一页（无历史时回退到首页）
-function goBackToPrev() {
-  if (window.history.length > 1) {
-    router.back();
-  } else {
-    router.push('/');
-  }
-}
-
-async function goBack() {
-  // 只读模式（查看 / 审核中）下内容来自已加载文章，直接离开不弹"未保存"提示
-  if (isReadOnly.value) {
-    goBackToPrev();
-    return;
-  }
-  if (title.value.trim() || content.value.trim()) {
-    const ok = await confirmModal.confirm('有未保存的内容，确定要离开吗？', {
-      title: '离开页面',
-      confirmText: '离开',
-      danger: true,
-    });
-    if (ok) {
-      goBackToPrev();
-    }
-  } else {
-    goBackToPrev();
-  }
-}
-
 // ============ 版本历史相关函数 ============
 
 // 打开版本历史抽屉
@@ -901,90 +872,103 @@ const readOnlyReason = computed(() => {
   }
   return '';
 });
+
+// 面包屑：最后一项动态显示「写文章」/「查看文章」
+const breadcrumbs = computed(() => [
+  { label: '文章', path: '/category' },
+  { label: isReadOnly.value ? '查看文章' : '写文章' },
+]);
+
+// 离开页面保护：未保存内容时弹确认（覆盖面包屑跳转、浏览器后退等所有离开路径，替代原顶部返回按钮逻辑）
+onBeforeRouteLeave(async () => {
+  if (isReadOnly.value) return true;
+  if (title.value.trim() || content.value.trim()) {
+    const ok = await confirmModal.confirm('有未保存的内容，确定要离开吗？', {
+      title: '离开页面',
+      confirmText: '离开',
+      danger: true,
+    });
+    if (!ok) return false;
+  }
+  return true;
+});
 </script>
 
 <template>
   <div class="min-h-screen flex flex-col" style="background-color: var(--theme-bg);">
-    <!-- 顶部操作栏 -->
-    <div class="sticky top-0 z-30 border-b backdrop-blur-sm" style="background-color: var(--theme-surface); border-color: var(--theme-border);">
-      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div class="flex items-center justify-between h-16">
-          <!-- 左侧 -->
-          <div class="flex items-center gap-4">
-            <button @click="goBack" class="p-2 rounded-lg transition-colors hover:bg-gray-100" style="color: var(--theme-text-secondary);">
-              <ArrowLeft class="w-5 h-5" />
-            </button>
-            <div class="flex items-center gap-2">
-              <span class="text-lg font-semibold" style="color: var(--theme-text);">{{ isReadOnly ? '查看文章' : '写文章' }}</span>
-              <!-- 状态标签 -->
-              <span
-                  class="px-2.5 py-1 rounded-full text-xs font-medium"
-                  :style="{
-                  backgroundColor: articleStatus === 'draft' ? 'var(--theme-accent)' :
-                                   articleStatus === 'pending' ? '#fef3c7' : '#d1fae5',
-                  color: articleStatus === 'draft' ? 'var(--theme-primary)' :
-                         articleStatus === 'pending' ? '#92400e' : '#065f46'
-                }"
-              >
-                {{ articleStatus === 'draft' ? '草稿' : articleStatus === 'pending' ? '审核中' : '已发布' }}
-              </span>
-            </div>
+    <!-- 吸顶面包屑栏 -->
+    <div class="border-b sticky top-0 z-30 backdrop-blur-sm py-3" style="background-color: var(--theme-surface); border-color: var(--theme-border);">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between gap-4">
+        <!-- 左侧：面包屑 + 状态标签 -->
+        <div class="flex items-center gap-3 min-w-0">
+          <Breadcrumb :items="breadcrumbs" />
+          <!-- 状态标签 -->
+          <span
+              class="px-2.5 py-1 rounded-full text-xs font-medium flex-shrink-0"
+              :style="{
+              backgroundColor: articleStatus === 'draft' ? 'var(--theme-accent)' :
+                               articleStatus === 'pending' ? '#fef3c7' : '#d1fae5',
+              color: articleStatus === 'draft' ? 'var(--theme-primary)' :
+                     articleStatus === 'pending' ? '#92400e' : '#065f46'
+            }"
+          >
+            {{ articleStatus === 'draft' ? '草稿' : articleStatus === 'pending' ? '审核中' : '已发布' }}
+          </span>
+        </div>
+
+        <!-- 右侧操作按钮 -->
+        <div class="flex items-center gap-3 flex-shrink-0">
+          <!-- 保存提示（手动保存后显示最近保存时间） -->
+          <div v-if="lastSaved" class="hidden sm:flex items-center gap-1.5 text-xs" style="color: var(--theme-text-secondary);">
+            <Check class="w-3.5 h-3.5 text-green-500" />
+            <span>已保存于 {{ lastSaved }}</span>
           </div>
 
-          <!-- 右侧操作按钮 -->
-          <div class="flex items-center gap-3">
-            <!-- 保存提示（手动保存后显示最近保存时间） -->
-            <div v-if="lastSaved" class="hidden sm:flex items-center gap-1.5 text-xs" style="color: var(--theme-text-secondary);">
-              <Check class="w-3.5 h-3.5 text-green-500" />
-              <span>已保存于 {{ lastSaved }}</span>
-            </div>
+          <!-- 保存草稿（只读模式下隐藏） -->
+          <button
+              v-if="!isReadOnly"
+              @click="saveDraft(false)"
+              :disabled="isSaving"
+              class="px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2"
+              style="color: var(--theme-text); border: 1px solid var(--theme-border);"
+          >
+            <Save class="w-4 h-4" />
+            <span class="hidden sm:inline">保存草稿</span>
+          </button>
 
-            <!-- 保存草稿（只读模式下隐藏） -->
-            <button
-                v-if="!isReadOnly"
-                @click="saveDraft(false)"
-                :disabled="isSaving"
-                class="px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2"
-                style="color: var(--theme-text); border: 1px solid var(--theme-border);"
-            >
-              <Save class="w-4 h-4" />
-              <span class="hidden sm:inline">保存草稿</span>
-            </button>
+          <!-- 版本历史（仅草稿模式显示） -->
+          <button
+              v-if="draftId && !isReadOnly"
+              @click="openVersionDrawer"
+              class="px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2"
+              style="color: var(--theme-text-secondary); border: 1px solid var(--theme-border);"
+              title="查看与回滚历史版本"
+          >
+            <History class="w-4 h-4" />
+            <span class="hidden sm:inline">版本历史</span>
+          </button>
 
-            <!-- 版本历史（仅草稿模式显示） -->
-            <button
-                v-if="draftId && !isReadOnly"
-                @click="openVersionDrawer"
-                class="px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2"
-                style="color: var(--theme-text-secondary); border: 1px solid var(--theme-border);"
-                title="查看与回滚历史版本"
-            >
-              <History class="w-4 h-4" />
-              <span class="hidden sm:inline">版本历史</span>
-            </button>
+          <!-- 预览 -->
+          <button
+              @click="previewArticle"
+              class="px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2"
+              :style="showPreview ? { backgroundColor: 'var(--theme-accent)', color: 'var(--theme-primary)' } : { color: 'var(--theme-text-secondary)' }"
+          >
+            <Eye class="w-4 h-4" />
+            <span class="hidden sm:inline">预览</span>
+          </button>
 
-            <!-- 预览 -->
-            <button
-                @click="previewArticle"
-                class="px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2"
-                :style="showPreview ? { backgroundColor: 'var(--theme-accent)', color: 'var(--theme-primary)' } : { color: 'var(--theme-text-secondary)' }"
-            >
-              <Eye class="w-4 h-4" />
-              <span class="hidden sm:inline">预览</span>
-            </button>
-
-            <!-- 发布（只读模式下隐藏） -->
-            <button
-                v-if="!isReadOnly"
-                @click="handlePublish"
-                :disabled="isPublishing"
-                class="px-5 py-2 rounded-lg font-medium transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                style="background-color: var(--theme-primary); color: white;"
-            >
-              <Send class="w-4 h-4" />
-              {{ isPublishing ? '发布中...' : '发布' }}
-            </button>
-          </div>
+          <!-- 发布（只读模式下隐藏） -->
+          <button
+              v-if="!isReadOnly"
+              @click="handlePublish"
+              :disabled="isPublishing"
+              class="px-5 py-2 rounded-lg font-medium transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              style="background-color: var(--theme-primary); color: white;"
+          >
+            <Send class="w-4 h-4" />
+            {{ isPublishing ? '发布中...' : '发布' }}
+          </button>
         </div>
       </div>
     </div>

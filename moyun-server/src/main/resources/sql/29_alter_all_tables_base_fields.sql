@@ -176,25 +176,6 @@ CALL AddColumnIfNotExists('portal_book_list_like', 'update_by',   "VARCHAR(64) D
 CALL AddColumnIfNotExists('portal_book_list_like', 'update_time', "DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间'");
 CALL AddColumnIfNotExists('portal_book_list_like', 'remark',      "VARCHAR(500) DEFAULT NULL COMMENT '备注'");
 
--- 22. portal_book_club_participant（缺全部 5 个，使用 join_time 而非 create_time）
-CALL AddColumnIfNotExists('portal_book_club_participant', 'create_by',   "VARCHAR(64) DEFAULT '' COMMENT '创建者'");
-CALL AddColumnIfNotExists('portal_book_club_participant', 'create_time', "DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间'");
-CALL AddColumnIfNotExists('portal_book_club_participant', 'update_by',   "VARCHAR(64) DEFAULT '' COMMENT '更新者'");
-CALL AddColumnIfNotExists('portal_book_club_participant', 'update_time', "DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间'");
-CALL AddColumnIfNotExists('portal_book_club_participant', 'remark',      "VARCHAR(500) DEFAULT NULL COMMENT '备注'");
-
--- 23. portal_book_club_record（缺 create_by, update_by, update_time, remark）
-CALL AddColumnIfNotExists('portal_book_club_record', 'create_by',   "VARCHAR(64) DEFAULT '' COMMENT '创建者'");
-CALL AddColumnIfNotExists('portal_book_club_record', 'update_by',   "VARCHAR(64) DEFAULT '' COMMENT '更新者'");
-CALL AddColumnIfNotExists('portal_book_club_record', 'update_time', "DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间'");
-CALL AddColumnIfNotExists('portal_book_club_record', 'remark',      "VARCHAR(500) DEFAULT NULL COMMENT '备注'");
-
--- 24. portal_book_club_record_like（缺 create_by, update_by, update_time, remark）
-CALL AddColumnIfNotExists('portal_book_club_record_like', 'create_by',   "VARCHAR(64) DEFAULT '' COMMENT '创建者'");
-CALL AddColumnIfNotExists('portal_book_club_record_like', 'update_by',   "VARCHAR(64) DEFAULT '' COMMENT '更新者'");
-CALL AddColumnIfNotExists('portal_book_club_record_like', 'update_time', "DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间'");
-CALL AddColumnIfNotExists('portal_book_club_record_like', 'remark',      "VARCHAR(500) DEFAULT NULL COMMENT '备注'");
-
 -- =====================================================
 -- 四、文章浏览表（13_create_article_view_table.sql）
 -- =====================================================

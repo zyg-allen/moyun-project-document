@@ -2,8 +2,9 @@
 import { ref, computed, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { useHead } from '@vueuse/head';
-import { BookOpen, ArrowLeft, Trash2, BookMarked, RefreshCw } from 'lucide-vue-next';
+import { BookOpen, Trash2, RefreshCw } from 'lucide-vue-next';
 import LazyImage from '@/components/LazyImage.vue';
+import Breadcrumb from '@/components/Breadcrumb.vue';
 import SiteFooter from '@/components/SiteFooter.vue';
 import Pagination from '@/components/Pagination.vue';
 import Empty from '@/components/Empty.vue';
@@ -33,6 +34,12 @@ useHead(
     canonicalPath: '/reading/bookshelf',
   }))
 );
+
+// 面包屑
+const breadcrumbs = computed(() => [
+  { label: '读书空间', path: '/reading' },
+  { label: '我的书架' },
+]);
 
 async function loadBookshelf() {
   loading.value = true;
@@ -111,14 +118,6 @@ function handlePageChange(page: number) {
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
-function goBack() {
-  if (window.history.length > 1) {
-    router.back();
-  } else {
-    router.push('/reading');
-  }
-}
-
 onMounted(() => {
   // 需要登录
   if (!requireAuth('/reading/bookshelf')) return;
@@ -128,54 +127,42 @@ onMounted(() => {
 
 <template>
   <div class="min-h-screen flex flex-col" style="background-color: var(--theme-bg);">
-    <!-- 顶部 -->
-    <div class="border-b py-4" style="background-color: var(--theme-bg); border-color: var(--theme-border);">
-      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div class="flex items-center justify-between">
-          <button
-            @click="goBack"
-            class="inline-flex items-center gap-2 text-sm font-medium transition-colors hover:opacity-80"
-            style="color: var(--theme-text-secondary);"
-          >
-            <ArrowLeft class="w-4 h-4" />
-            <span>返回读书空间</span>
-          </button>
-          <button
-            @click="loadBookshelf"
-            class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors hover:opacity-80"
-            style="background-color: var(--theme-surface); color: var(--theme-text);"
-          >
-            <RefreshCw class="w-4 h-4" :class="loading ? 'animate-spin' : ''" />
-            <span>刷新</span>
-          </button>
-        </div>
-        <div class="mt-3 flex items-center gap-2">
-          <BookMarked class="w-6 h-6" style="color: var(--theme-primary);" />
-          <h1 class="text-2xl font-bold" style="color: var(--theme-text);">我的书架</h1>
-          <span class="text-sm ml-2" style="color: var(--theme-text-secondary);">共 {{ total }} 本</span>
-        </div>
-
-        <!-- 排序选项 -->
-        <div class="mt-4 flex gap-2">
-          <button
-            v-for="o in [
-              { value: 'latest', label: '按收藏时间' },
-              { value: 'recent', label: '按最近阅读' },
-            ]"
-            :key="o.value"
-            @click="changeOrder(o.value as 'latest' | 'recent')"
-            class="px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
-            :style="orderBy === o.value
-              ? { backgroundColor: 'var(--theme-primary)', color: '#ffffff' }
-              : { backgroundColor: 'var(--theme-surface)', color: 'var(--theme-text)', border: '1px solid var(--theme-border)' }"
-          >{{ o.label }}</button>
-        </div>
+    <!-- 吸顶面包屑栏 -->
+    <div class="border-b sticky top-0 z-30 backdrop-blur-sm py-3" style="background-color: var(--theme-surface); border-color: var(--theme-border);">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between gap-4">
+        <Breadcrumb :items="breadcrumbs" />
+        <button
+          @click="loadBookshelf"
+          class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors hover:opacity-80 flex-shrink-0"
+          style="background-color: var(--theme-bg); color: var(--theme-text);"
+        >
+          <RefreshCw class="w-4 h-4" :class="loading ? 'animate-spin' : ''" />
+          <span>刷新</span>
+        </button>
       </div>
     </div>
 
     <!-- 内容 -->
     <div class="flex-1 py-6">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <!-- 工具栏：数量 + 排序 -->
+        <div class="flex items-center justify-between flex-wrap gap-3 mb-6">
+          <span class="text-sm" style="color: var(--theme-text-secondary);">共 {{ total }} 本</span>
+          <div class="flex gap-2">
+            <button
+              v-for="o in [
+                { value: 'latest', label: '按收藏时间' },
+                { value: 'recent', label: '按最近阅读' },
+              ]"
+              :key="o.value"
+              @click="changeOrder(o.value as 'latest' | 'recent')"
+              class="px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
+              :style="orderBy === o.value
+                ? { backgroundColor: 'var(--theme-primary)', color: '#ffffff' }
+                : { backgroundColor: 'var(--theme-surface)', color: 'var(--theme-text)', border: '1px solid var(--theme-border)' }"
+            >{{ o.label }}</button>
+          </div>
+        </div>
         <!-- 加载中 -->
         <div v-if="loading && bookshelfList.length === 0" class="text-center py-16">
           <div

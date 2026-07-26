@@ -7,6 +7,7 @@ import {
   TrendingUp, Users, CheckCircle, Target, Zap, Building2, Lightbulb
 } from 'lucide-vue-next';
 import SiteFooter from '@/components/SiteFooter.vue';
+import Breadcrumb from '@/components/Breadcrumb.vue';
 import LazyImage from '@/components/LazyImage.vue';
 import { generateSeo } from '@/utils/seo';
 import { getSafeAvatar } from '@/utils/avatar';
@@ -110,10 +111,22 @@ useHead(computed(() => generateSeo({
   title: '面试指南 - 题库/面经/简历模板',
   description: '墨韵智库面试指南 - 精选算法题库、面试经验分享、简历模板下载',
 })));
+
+// 面包屑
+const breadcrumbs = computed(() => [
+  { label: '面试指南' },
+]);
 </script>
 
 <template>
   <div class="min-h-screen flex flex-col" style="background-color: var(--theme-bg);">
+    <!-- 吸顶面包屑栏 -->
+    <div class="border-b sticky top-0 z-30 backdrop-blur-sm py-3" style="background-color: var(--theme-surface); border-color: var(--theme-border);">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between gap-4">
+        <Breadcrumb :items="breadcrumbs" />
+      </div>
+    </div>
+
     <!-- Hero 区 -->
     <div class="py-6 sm:py-8">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">

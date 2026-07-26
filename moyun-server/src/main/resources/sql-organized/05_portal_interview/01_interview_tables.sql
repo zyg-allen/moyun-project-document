@@ -7,13 +7,12 @@
 --   21_submission_featured.sql                      （portal_interview_submission 新增 is_featured/featured_time 字段及 idx_submission_featured 索引）
 --   51_interview_ddl_fix.sql                        （portal_interview_company 建表；portal_interview_submission 新增 content/answer_type/is_success/note/create_by/update_by/update_time/remark 字段及 idx_user_question 索引；portal_interview_experience 新增 summary/cover_image/is_top 字段及 status 注释更新；portal_interview_resume_template 新增 file_type/file_size/is_premium/usage_guide/tags 字段）
 --   52_user_resume.sql                              （portal_user_resume 建表）
---   67_job_init.sql                                  （portal_job 建表，菜单部分本文件不含）
 --   69_mock_interview_init.sql                       （portal_mock_interview/portal_mock_interview_qa 建表）
 -- 涉及表：
 --   portal_interview_question, portal_interview_category, portal_interview_experience,
 --   portal_interview_company, portal_interview_submission,
 --   portal_interview_resume_template, portal_interview_resume_template_like,
---   portal_user_resume, portal_job, portal_mock_interview, portal_mock_interview_qa
+--   portal_user_resume, portal_mock_interview, portal_mock_interview_qa
 -- 说明：
 --   - 本文件仅包含建表 DDL（CREATE TABLE IF NOT EXISTS），不含 INSERT 数据、菜单注入语句
 --   - 所有 ALTER TABLE 已合并入对应的 CREATE TABLE
@@ -267,30 +266,6 @@ CREATE TABLE IF NOT EXISTS `portal_user_resume` (
     UNIQUE KEY `uk_parent_version` (`parent_id`, `version_no`),
     KEY `idx_user_status` (`user_id`, `status`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='用户简历';
-
--- ----------------------------
--- 职位表
--- 来源：67 建表
--- ----------------------------
-CREATE TABLE IF NOT EXISTS `portal_job` (
-    `id`            BIGINT        NOT NULL AUTO_INCREMENT COMMENT '主键',
-    `company_id`    BIGINT        DEFAULT NULL            COMMENT '公司ID（关联 portal_interview_company）',
-    `title`         VARCHAR(128)  NOT NULL                COMMENT '职位名称',
-    `city`          VARCHAR(64)   DEFAULT NULL            COMMENT '工作城市',
-    `salary_min`    DECIMAL(10,2) DEFAULT NULL            COMMENT '薪资下限',
-    `salary_max`    DECIMAL(10,2) DEFAULT NULL            COMMENT '薪资上限',
-    `experience`    VARCHAR(32)   DEFAULT NULL            COMMENT '经验要求',
-    `education`     VARCHAR(32)   DEFAULT NULL            COMMENT '学历要求',
-    `description`   TEXT                                  COMMENT '职位描述',
-    `requirement`   TEXT                                  COMMENT '任职要求',
-    `status`        VARCHAR(16)   NOT NULL DEFAULT 'open' COMMENT '状态：open/closed',
-    `created_time`  DATETIME      DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
-    `updated_time`  DATETIME      DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
-    PRIMARY KEY (`id`),
-    KEY `idx_company` (`company_id`),
-    KEY `idx_status` (`status`),
-    KEY `idx_created_time` (`created_time`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='职位';
 
 -- ----------------------------
 -- 模拟面试会话表

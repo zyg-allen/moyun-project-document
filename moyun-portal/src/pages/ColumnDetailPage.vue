@@ -3,11 +3,12 @@ import { ref, computed, onMounted, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useHead } from '@vueuse/head';
 import {
-  ArrowLeft, BookOpen, Users, Eye, FileText, Heart, Clock,
+  BookOpen, Users, Eye, FileText, Heart, Clock,
   Plus, Trash2, ArrowUp, ArrowDown, Save, CheckCircle2,
   Bell, BellOff, Pencil, Loader2, ChevronRight,
   Gift,
 } from 'lucide-vue-next';
+import Breadcrumb from '@/components/Breadcrumb.vue';
 import SiteFooter from '@/components/SiteFooter.vue';
 import LazyImage from '@/components/LazyImage.vue';
 import TipModal from '@/components/TipModal.vue';
@@ -34,6 +35,11 @@ const columnId = computed(() => route.params.id as string);
 const loading = ref(false);
 const error = ref<string | null>(null);
 const column = ref<ColumnVO | null>(null);
+
+const breadcrumbs = computed(() => [
+  { label: '专栏广场', path: '/columns' },
+  { label: column.value?.title || '专栏详情' },
+]);
 
 // 订阅
 const subscribing = ref(false);
@@ -330,14 +336,6 @@ function onTipError(message: string) {
   toast.error(message || '鼓励失败');
 }
 
-function goBack() {
-  if (window.history.length > 1) {
-    router.back();
-  } else {
-    router.push('/columns');
-  }
-}
-
 function formatNumber(n?: number) {
   const v = n || 0;
   if (v >= 10000) return (v / 10000).toFixed(1) + 'w';
@@ -348,22 +346,11 @@ function formatNumber(n?: number) {
 
 <template>
   <div class="min-h-screen flex flex-col" style="background-color: var(--theme-bg);">
-    <!-- 顶部返回栏 -->
-    <div
-      class="border-b sticky top-0 z-30 backdrop-blur-sm"
-      style="background-color: var(--theme-surface); border-color: var(--theme-border);"
-    >
-      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex items-center justify-between">
-        <button
-          @click="goBack"
-          class="flex items-center text-sm transition hover:opacity-80"
-          style="color: var(--theme-text-secondary);"
-        >
-          <ArrowLeft class="w-4 h-4 mr-1" />
-          返回专栏广场
-        </button>
-        <span class="text-sm font-medium" style="color: var(--theme-text);">专栏详情</span>
-        <span class="w-20"></span>
+    <div class="border-b sticky top-0 z-30 backdrop-blur-sm py-3" style="background-color: var(--theme-surface); border-color: var(--theme-border);">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between gap-4">
+        <Breadcrumb :items="breadcrumbs" />
+        <div class="flex items-center gap-2">
+        </div>
       </div>
     </div>
 

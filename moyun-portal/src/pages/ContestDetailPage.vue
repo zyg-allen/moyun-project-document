@@ -3,8 +3,9 @@ import { ref, computed, onMounted, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useHead } from '@vueuse/head';
 import {
-  ArrowLeft, Trophy, Calendar, Gift, Heart, FileText, Loader2, Send,
+  Trophy, Calendar, Gift, Heart, FileText, Loader2, Send,
 } from 'lucide-vue-next';
+import Breadcrumb from '@/components/Breadcrumb.vue';
 import SiteFooter from '@/components/SiteFooter.vue';
 import LazyImage from '@/components/LazyImage.vue';
 import { generateSeo } from '@/utils/seo';
@@ -27,6 +28,11 @@ const contest = ref<WritingContestVO | null>(null);
 const submissions = ref<ContestSubmissionVO[]>([]);
 const votedIds = ref<Set<string | number>>(new Set());
 const hasSubmitted = ref(false);
+
+const breadcrumbs = computed(() => [
+  { label: '创作挑战', path: '/contests' },
+  { label: contest.value?.title || '挑战详情' },
+]);
 
 // 投稿表单
 const articleIdInput = ref('');
@@ -162,14 +168,6 @@ function formatDateTime(t?: string) {
   return t.length >= 16 ? t.slice(0, 16) : t;
 }
 
-function goBack() {
-  if (window.history.length > 1) {
-    router.back();
-  } else {
-    router.push('/contests');
-  }
-}
-
 // 投稿阶段（可投稿）判断
 const canSubmit = computed(() => {
   if (!contest.value) return false;
@@ -180,22 +178,11 @@ const canSubmit = computed(() => {
 
 <template>
   <div class="min-h-screen flex flex-col" style="background-color: var(--theme-bg);">
-    <!-- 顶部返回栏 -->
-    <div
-      class="border-b sticky top-0 z-30 backdrop-blur-sm"
-      style="background-color: var(--theme-surface); border-color: var(--theme-border);"
-    >
-      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex items-center justify-between">
-        <button
-          @click="goBack"
-          class="flex items-center text-sm transition hover:opacity-80"
-          style="color: var(--theme-text-secondary);"
-        >
-          <ArrowLeft class="w-4 h-4 mr-1" />
-          返回活动广场
-        </button>
-        <span class="text-sm font-medium" style="color: var(--theme-text);">活动详情</span>
-        <span class="w-20"></span>
+    <div class="border-b sticky top-0 z-30 backdrop-blur-sm py-3" style="background-color: var(--theme-surface); border-color: var(--theme-border);">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between gap-4">
+        <Breadcrumb :items="breadcrumbs" />
+        <div class="flex items-center gap-2">
+        </div>
       </div>
     </div>
 

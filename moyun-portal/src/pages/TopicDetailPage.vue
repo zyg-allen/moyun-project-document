@@ -3,10 +3,11 @@ import { ref, computed, reactive, onMounted, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useHead } from '@vueuse/head';
 import {
-  ArrowLeft, MessageCircle, Eye, Heart, MessageSquare, Send,
+  MessageCircle, Eye, Heart, MessageSquare, Send,
   Pin, ChevronLeft, ChevronRight, Trash2, Loader2, Pencil, BadgeCheck,
   ChevronDown, Reply, X,
 } from 'lucide-vue-next';
+import Breadcrumb from '@/components/Breadcrumb.vue';
 import SiteFooter from '@/components/SiteFooter.vue';
 import LazyImage from '@/components/LazyImage.vue';
 import MarkdownEditor from '@/components/MarkdownEditor.vue';
@@ -80,6 +81,12 @@ useHead(computed(() => generateSeo({
   keywords: ['话题', '讨论', '观点', topic.value?.title].filter(Boolean) as string[],
   canonicalPath: `/topic/${topicId.value}`,
 })));
+
+// 面包屑
+const breadcrumbs = computed(() => [
+  { label: '话题广场', path: '/topics' },
+  { label: topic.value?.title || '话题详情' },
+]);
 
 onMounted(() => {
   loadAll();
@@ -258,14 +265,6 @@ function gotoPostsPage(p: number) {
   const el = document.getElementById('topic-posts');
   if (el) {
     el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  }
-}
-
-function goBack() {
-  if (window.history.length > 1) {
-    router.back();
-  } else {
-    router.push('/topics');
   }
 }
 
@@ -510,31 +509,24 @@ async function handleDeleteComment(
 
 <template>
   <div class="min-h-screen flex flex-col" style="background-color: var(--theme-bg);">
-    <!-- 顶部返回栏 -->
+    <!-- 吸顶面包屑栏 -->
     <div
-      class="border-b sticky top-0 z-30 backdrop-blur-sm"
+      class="border-b sticky top-0 z-30 backdrop-blur-sm py-3"
       style="background-color: var(--theme-surface); border-color: var(--theme-border);"
     >
-      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex items-center justify-between">
-        <button
-          @click="goBack"
-          class="flex items-center text-sm transition hover:opacity-80"
-          style="color: var(--theme-text-secondary);"
-        >
-          <ArrowLeft class="w-4 h-4 mr-1" />
-          返回话题广场
-        </button>
-        <span class="text-sm font-medium" style="color: var(--theme-text);">话题详情</span>
-        <button
-          v-if="isOwner"
-          @click="gotoEdit"
-          class="flex items-center text-sm px-3 py-1.5 rounded-lg transition hover:opacity-90"
-          style="color: var(--theme-primary); border: 1px solid var(--theme-border);"
-        >
-          <Pencil class="w-4 h-4 mr-1" />
-          编辑
-        </button>
-        <span v-else class="text-sm" style="color: transparent;">占位</span>
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between gap-4">
+        <Breadcrumb :items="breadcrumbs" />
+        <div class="flex items-center gap-2">
+          <button
+            v-if="isOwner"
+            @click="gotoEdit"
+            class="flex items-center text-sm px-3 py-1.5 rounded-lg transition hover:opacity-90"
+            style="color: var(--theme-primary); border: 1px solid var(--theme-border);"
+          >
+            <Pencil class="w-4 h-4 mr-1" />
+            编辑
+          </button>
+        </div>
       </div>
     </div>
 

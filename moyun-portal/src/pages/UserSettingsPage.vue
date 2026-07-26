@@ -1,9 +1,8 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { useHead } from '@vueuse/head';
 import {
-  ArrowLeft,
   Lock,
   Bell,
   Shield,
@@ -66,6 +65,11 @@ const showConfirmPassword = ref(false);
 const showDeleteConfirm = ref(false);
 const deleteConfirmText = ref('');
 
+const breadcrumbs = computed(() => [
+  { label: '个人中心', path: '/user' },
+  { label: '账号设置' },
+]);
+
 // SEO
 useHead(
   generateSeo({
@@ -113,15 +117,6 @@ const menuItems = [
   { id: 'privacy', label: '隐私设置', icon: Shield },
   { id: 'danger', label: '账号注销', icon: AlertTriangle }
 ];
-
-// 返回
-function goBack() {
-  if (window.history.length > 1) {
-    router.back();
-  } else {
-    router.push('/user');
-  }
-}
 
 // 清除消息
 function clearMessages() {
@@ -250,20 +245,13 @@ function confirmDelete() {
 
 <template>
   <div class="min-h-screen flex flex-col" style="background-color: var(--theme-bg);">
-    <!-- 面包屑 -->
-    <div class="border-b py-3 sm:py-4" style="background-color: var(--theme-bg); border-color: var(--theme-border);">
-      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div class="flex items-center justify-between gap-4">
-          <Breadcrumb :items="[{ label: '个人中心', path: '/user' }, { label: '账号设置' }]" />
-          <button
-            @click="goBack"
-            class="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-colors"
-            style="background-color: var(--theme-surface); border: 1px solid var(--theme-border); color: var(--theme-text);"
-          >
-            <ArrowLeft class="w-4 h-4" />
-            返回
-          </button>
-        </div>
+    <!-- 顶部面包屑栏 -->
+    <div
+      class="border-b sticky top-0 z-30 backdrop-blur-sm py-3"
+      style="background-color: var(--theme-surface); border-color: var(--theme-border);"
+    >
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between gap-4">
+        <Breadcrumb :items="breadcrumbs" />
       </div>
     </div>
 

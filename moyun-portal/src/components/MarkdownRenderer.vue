@@ -28,13 +28,21 @@ marked.setOptions({
 })
 
 const renderContent = computed(() => {
+  let html: string
   // 如果是 Markdown 模式且有 Markdown 内容，优先渲染 Markdown
   if (props.editorMode === 'markdown' && props.contentMarkdown) {
     // 对 marked.parse 输出过 sanitize，防止 XSS
-    return sanitizeHTML(marked.parse(props.contentMarkdown) as string)
+    html = sanitizeHTML(marked.parse(props.contentMarkdown) as string)
+  } else {
+    // 否则使用 HTML 内容，对原始 HTML 也过 sanitize
+    html = sanitizeHTML(props.content)
   }
-  // 否则使用 HTML 内容，对原始 HTML 也过 sanitize
-  return sanitizeHTML(props.content)
+  // 图片懒加载：为所有 <img> 补 loading="lazy"，避免长文一次性请求大量图片
+  // sanitize 已放行 loading 属性；未显式声明 loading 的 img 统一标记为 lazy
+  if (html.includes('<img')) {
+    html = html.replace(/<img(?![^>]*\sloading=)/gi, '<img loading="lazy"')
+  }
+  return html
 })
 </script>
 
@@ -82,6 +90,9 @@ const renderContent = computed(() => {
 
 :deep(.prose img) {
   margin: 1.5rem 0;
+  /* 图片加载前预留占位高度，避免加载完成后页面跳动导致分页/滚动位置错乱 */
+  min-height: 120px;
+  background-color: var(--theme-surface, #f3f4f6);
 }
 
 :deep(.prose blockquote) {

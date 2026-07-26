@@ -3,7 +3,6 @@ import { ref, onMounted, onUnmounted, watch, computed, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useHead } from '@vueuse/head'
 import {
-  ArrowLeft,
   ChevronLeft,
   ChevronRight,
   List as ListIcon,
@@ -18,6 +17,7 @@ import {
   BookCheck,
 } from 'lucide-vue-next'
 import MarkdownRenderer from '@/components/MarkdownRenderer.vue'
+import Breadcrumb from '@/components/Breadcrumb.vue'
 import SiteFooter from '@/components/SiteFooter.vue'
 import ChapterToc from '@/components/ChapterToc.vue'
 import ReadingSettingsPanel from '@/components/reading/ReadingSettingsPanel.vue'
@@ -112,12 +112,17 @@ function toggleReadingMode() {
   nextTick(() => {
     recalcPages();
     if (readingMode.value === 'scroll') {
-      // 滚动模式：恢复到顶部
+      // 滚动模式：恢复到顶部并启用段落懒渲染
       window.scrollTo({ top: 0, behavior: 'auto' });
-    } else if (paginateContainer.value) {
-      // 分页模式：跳到第一页
-      paginateContainer.value.scrollTo({ top: 0, behavior: 'auto' });
+      setupLazyObserver();
+    } else {
+      // 分页模式：跳到第一页，关闭段落懒渲染
+      teardownLazyObserver();
+      if (paginateContainer.value) {
+        paginateContainer.value.scrollTo({ top: 0, behavior: 'auto' });
+      }
     }
+    updateReadingPercent();
   });
 }
 
@@ -137,6 +142,13 @@ const { preference, updatePreference, resetPreference } = useReadingPreference()
 // ----- 计算属性 -----
 const bookId = computed(() => route.params.bookId as string)
 const chapterId = computed(() => route.params.chapterId as string)
+
+// 面包屑：读书空间 > 书名 > 章节标题
+const breadcrumbs = computed(() => [
+  { label: '读书空间', path: '/reading' },
+  { label: book.value?.title || '书籍', path: bookId.value ? `/reading/book/${bookId.value}` : '/reading' },
+  { label: chapter.value?.title || '章节' },
+])
 
 const editorMode = computed<'richtext' | 'markdown'>(() => {
   return (chapter.value?.editorMode as 'richtext' | 'markdown') || 'richtext'
@@ -172,11 +184,27 @@ const isLastChapter = computed(() => {
   return false;
 })
 
-// 分页模式：页码指示文本
-const pageIndicatorText = computed(() => {
-  if (totalPages.value <= 1) return ''
-  return `${currentPage.value + 1} / ${totalPages.value}`
-})
+// 章节阅读百分比（0-100）：替代页码显示，两种模式统一
+// 分页模式按当前页/总页数；滚动模式按 window 滚动位置
+const readingPercent = ref(0)
+function updateReadingPercent() {
+  if (typeof window === 'undefined') return
+  if (readingMode.value === 'paginate') {
+    if (totalPages.value <= 1) {
+      readingPercent.value = chapter.value ? 100 : 0
+    } else {
+      const pct = Math.round(((currentPage.value + 1) / totalPages.value) * 100)
+      readingPercent.value = Math.max(0, Math.min(100, pct))
+    }
+    return
+  }
+  // 滚动模式：基于 window 滚动位置
+  const doc = document.documentElement
+  const max = doc.scrollHeight - window.innerHeight
+  readingPercent.value = max > 0
+    ? Math.max(0, Math.min(100, Math.round((window.scrollY / max) * 100)))
+    : 0
+}
 
 // 是否显示"本章已读完"卡片
 const showChapterFinishedCard = computed(() => {
@@ -314,13 +342,15 @@ async function loadAll() {
             paginateContainer.value.scrollTo({ top: 0, behavior: 'auto' })
           }
         } else {
-          // 滚动模式：恢复到上次的 window 偏移
+          // 滚动模式：恢复到上次的 window 偏移，并启用段落懒渲染
           if (restoredOffset > 0) {
             window.scrollTo({ top: restoredOffset, behavior: 'auto' })
           } else {
             window.scrollTo({ top: 0, behavior: 'smooth' })
           }
+          setupLazyObserver()
         }
+        updateReadingPercent()
       }
     } else {
       error.value = chapterResp.message || '加载章节失败'
@@ -351,6 +381,7 @@ function onScroll() {
   scrollRafId = window.requestAnimationFrame(() => {
     scrollRafId = null
     updateOffset(window.scrollY || window.pageYOffset || 0)
+    updateReadingPercent()
     // 滚动模式：检测是否到页面底部，触发章节完成
     if (readingMode.value === 'scroll' && !chapterFinishedMarked.value) {
       const scrollable = document.documentElement
@@ -384,6 +415,7 @@ function onPaginateScroll() {
       currentPage.value = totalPages.value - 1
       markChapterFinished()
     }
+    updateReadingPercent()
   })
 }
 
@@ -399,6 +431,7 @@ function recalcPages() {
   if (currentPage.value > totalPages.value - 1) {
     currentPage.value = Math.max(0, totalPages.value - 1)
   }
+  updateReadingPercent()
 }
 
 function goPrevPage() {
@@ -409,6 +442,7 @@ function goPrevPage() {
       top: currentPage.value * paginateContainer.value.clientHeight,
       behavior: 'smooth',
     })
+    updateReadingPercent()
   } else if (nav.value?.prev) {
     // 在第一页继续往前 → 翻上一章
     goPrev()
@@ -423,6 +457,7 @@ function goNextPage() {
       top: currentPage.value * paginateContainer.value.clientHeight,
       behavior: 'smooth',
     })
+    updateReadingPercent()
     // 到最后一页触发章节完成
     if (currentPage.value >= totalPages.value - 1 && !chapterFinishedMarked.value) {
       chapterFinishedMarked.value = true
@@ -434,22 +469,29 @@ function goNextPage() {
   }
 }
 
-// ----- 触摸滑动翻页（移动端分页模式）-----
+// ----- 触摸滑动翻页（移动端：分页模式翻页 / 滚动模式翻屏）-----
 let touchStartX = 0
 let touchStartY = 0
 function onTouchStart(e: TouchEvent) {
-  if (readingMode.value !== 'paginate') return
+  // 滚动模式与分页模式均支持左右滑动，不再提前 return
   touchStartX = e.touches[0].clientX
   touchStartY = e.touches[0].clientY
 }
 function onTouchEnd(e: TouchEvent) {
-  if (readingMode.value !== 'paginate') return
   const dx = e.changedTouches[0].clientX - touchStartX
   const dy = e.changedTouches[0].clientY - touchStartY
   // 仅当横向滑动距离 > 纵向 且超过阈值时才视为翻页手势
-  if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 50) {
+  if (Math.abs(dx) <= Math.abs(dy) || Math.abs(dx) <= 50) return
+  if (readingMode.value === 'paginate') {
     if (dx > 0) goPrevPage()
     else goNextPage()
+  } else {
+    // 滚动模式：横向滑动 → 整屏上下滚动（视口高度减去顶栏 56px 与留白，避免顶栏遮挡）
+    const clientHeight = Math.max(200, window.innerHeight - 80)
+    window.scrollBy({
+      top: dx > 0 ? -clientHeight : clientHeight,
+      behavior: 'smooth',
+    })
   }
 }
 
@@ -458,16 +500,42 @@ function onResize() {
   recalcPages()
 }
 
-// ----- 跳转 -----
-function goBackToBook() {
-  const bid = bookId.value || chapter.value?.bookId
-  if (bid) {
-    router.push(`/reading/book/${bid}`)
-  } else {
-    router.push('/reading')
+// ----- 滚动模式：段落懒渲染（IntersectionObserver）-----
+// 长章节一次性渲染大量 DOM 会增加 GPU 合成压力。对离屏段落设 visibility:hidden，
+// 保留布局占位（visibility:hidden 仍占据空间，不影响滚动高度与进度计算），
+// 仅减少合成/绘制开销。进入视口前 300px 即恢复可见，避免出现可见的"空白闪烁"。
+let lazyParaObserver: IntersectionObserver | null = null
+function setupLazyObserver() {
+  teardownLazyObserver()
+  if (typeof window === 'undefined' || typeof IntersectionObserver === 'undefined') return
+  if (readingMode.value !== 'scroll') return
+  // 章节内容尚未渲染时不订阅，等下一次章节加载完成后再触发
+  const wrapper = document.querySelector<HTMLElement>('.chapter-content-wrapper')
+  if (!wrapper) return
+  const targets = wrapper.querySelectorAll<HTMLElement>(
+    '.prose p, .prose li, .prose pre, .prose blockquote, .prose img, .prose table'
+  )
+  if (targets.length === 0) return
+  lazyParaObserver = new IntersectionObserver(
+    (entries) => {
+      for (const entry of entries) {
+        const el = entry.target as HTMLElement
+        // isIntersecting=true：进入视口缓冲区 → 可见；否则隐藏以减少合成开销
+        el.style.visibility = entry.isIntersecting ? '' : 'hidden'
+      }
+    },
+    { rootMargin: '300px 0px', threshold: 0 }
+  )
+  targets.forEach((el) => lazyParaObserver!.observe(el))
+}
+function teardownLazyObserver() {
+  if (lazyParaObserver) {
+    lazyParaObserver.disconnect()
+    lazyParaObserver = null
   }
 }
 
+// ----- 跳转 -----
 function goChapter(targetId: string | number | null) {
   if (!targetId) return
   const bid = bookId.value || chapter.value?.bookId
@@ -561,6 +629,8 @@ onUnmounted(() => {
   window.removeEventListener('keydown', onKeydown)
   window.removeEventListener('scroll', onScroll)
   window.removeEventListener('resize', onResize)
+  // 关闭段落懒渲染监听
+  teardownLazyObserver()
   // 强制上报最后阅读进度（composable 内部 onUnmounted 也会调用，此处显式调用确保顺序）
   stopReporting()
   if (scrollRafId !== null) {
@@ -604,36 +674,28 @@ watch(
         style="background-color: var(--theme-surface); border-color: var(--theme-border);"
     >
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-14 flex items-center justify-between gap-3">
-        <!-- 左侧：返回 + 书名 -->
-        <div class="flex items-center gap-2 min-w-0">
-          <button
-              @click="goBackToBook"
-              class="inline-flex items-center gap-1 text-sm font-medium transition-colors hover:opacity-80 focus:outline-none flex-shrink-0"
-              style="color: var(--theme-text-secondary);"
-              aria-label="返回书籍详情"
-          >
-            <ArrowLeft class="w-4 h-4" aria-hidden="true" />
-            <span class="hidden sm:inline">返回</span>
-          </button>
-          <span style="color: var(--theme-text-secondary);">/</span>
-          <span
-              v-if="book"
-              class="text-sm truncate"
-              style="color: var(--theme-text);"
-              :title="book.title"
-          >
-            {{ book.title }}
-          </span>
+        <!-- 左侧：面包屑 -->
+        <div class="min-w-0 flex-1">
+          <Breadcrumb :items="breadcrumbs" />
         </div>
         <!-- 右侧：进度 + 目录 + 设置 -->
         <div class="flex items-center gap-2 flex-shrink-0">
-          <!-- 阅读进度 -->
+          <!-- 阅读进度（章节序号） -->
           <span
               v-if="progressText"
               class="text-xs hidden sm:inline px-2 py-1 rounded-md"
               style="color: var(--theme-text-secondary); background-color: var(--theme-bg);"
           >
             {{ progressText }}
+          </span>
+          <!-- 章节阅读百分比：两种模式通用，移动端也可见 -->
+          <span
+              v-if="chapter"
+              class="text-xs px-2 py-1 rounded-md tabular-nums"
+              style="color: var(--theme-text-secondary); background-color: var(--theme-bg);"
+              :aria-label="`本章阅读进度 ${readingPercent}%`"
+          >
+            {{ readingPercent }}%
           </span>
           <!-- 阅读模式切换：滚动 / 分页 -->
           <button
@@ -771,11 +833,13 @@ watch(
               </div>
 
               <!-- 正文 -->
-              <!-- 滚动模式：原整章 v-html 渲染，window 滚动 -->
+              <!-- 滚动模式：原整章 v-html 渲染，window 滚动，移动端支持左右滑动翻屏 -->
               <div
                   v-if="readingMode === 'scroll'"
                   class="chapter-content-wrapper rounded-xl p-6 sm:p-8 shadow-sm"
                   style="background-color: var(--theme-surface); border: 1px solid var(--theme-border);"
+                  @touchstart.passive="onTouchStart"
+                  @touchend.passive="onTouchEnd"
               >
                 <MarkdownRenderer
                     :content="chapterContent"
@@ -843,7 +907,7 @@ watch(
                 </div>
               </div>
 
-              <!-- 分页模式：底部翻页控制 + 页码指示器 -->
+              <!-- 分页模式：底部翻页控制 + 章节阅读百分比 -->
               <div
                   v-if="readingMode === 'paginate'"
                   class="mt-4 flex items-center justify-between gap-3 p-3 rounded-xl"
@@ -860,13 +924,12 @@ watch(
                   <span>上一页</span>
                 </button>
                 <span
-                    v-if="pageIndicatorText"
-                    class="text-xs px-2 py-1 rounded-md"
+                    class="text-xs px-2 py-1 rounded-md tabular-nums"
                     style="color: var(--theme-text-secondary); background-color: var(--theme-bg);"
+                    :aria-label="`本章阅读进度 ${readingPercent}%`"
                 >
-                  {{ pageIndicatorText }}
+                  {{ readingPercent }}%
                 </span>
-                <span v-else class="text-xs" style="color: var(--theme-text-secondary);">单页</span>
                 <button
                     type="button"
                     class="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors focus:outline-none disabled:opacity-40"
@@ -920,7 +983,7 @@ watch(
 
               <!-- 键盘提示 -->
               <p class="mt-6 text-center text-xs" style="color: var(--theme-text-secondary);">
-                提示：可使用键盘 ← → 翻{{ readingMode === 'paginate' ? '页' : '章' }}，移动端可左右滑动翻页
+                提示：可使用键盘 ← → 翻{{ readingMode === 'paginate' ? '页' : '章' }}，移动端可左右滑动翻{{ readingMode === 'paginate' ? '页' : '屏' }}
               </p>
             </article>
           </main>

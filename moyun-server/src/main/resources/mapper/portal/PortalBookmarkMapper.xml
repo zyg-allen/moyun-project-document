@@ -7,12 +7,14 @@
     <resultMap type="com.moyun.portal.domain.entity.PortalBookmark" id="PortalBookmarkResult">
         <id property="id" column="id"/>
         <result property="userId" column="user_id"/>
+        <result property="userBusinessId" column="user_business_id"/>
         <result property="articleId" column="article_id"/>
+        <result property="articleBusinessId" column="article_business_id"/>
         <result property="createTime" column="create_time"/>
     </resultMap>
 
     <sql id="selectPortalBookmarkVo">
-        select id, user_id, article_id, create_time from portal_bookmark
+        select id, user_id, user_business_id, article_id, article_business_id, create_time from portal_bookmark
     </sql>
 
     <!-- 动态排序 -->
@@ -57,12 +59,16 @@
         insert into portal_bookmark
         <trim prefix="(" suffix=")" suffixOverrides=",">
             <if test="userId != null">user_id,</if>
+            <if test="userBusinessId != null">user_business_id,</if>
             <if test="articleId != null">article_id,</if>
+            <if test="articleBusinessId != null">article_business_id,</if>
             <if test="createTime != null">create_time,</if>
         </trim>
         <trim prefix="values (" suffix=")" suffixOverrides=",">
             <if test="userId != null">#{userId},</if>
+            <if test="userBusinessId != null">#{userBusinessId},</if>
             <if test="articleId != null">#{articleId},</if>
+            <if test="articleBusinessId != null">#{articleBusinessId},</if>
             <if test="createTime != null">#{createTime},</if>
         </trim>
     </insert>
@@ -71,7 +77,9 @@
         update portal_bookmark
         <trim prefix="SET" suffixOverrides=",">
             <if test="userId != null">user_id = #{userId},</if>
+            <if test="userBusinessId != null">user_business_id = #{userBusinessId},</if>
             <if test="articleId != null">article_id = #{articleId},</if>
+            <if test="articleBusinessId != null">article_business_id = #{articleBusinessId},</if>
             <if test="createTime != null">create_time = #{createTime},</if>
         </trim>
         where id = #{id}

@@ -1,6 +1,7 @@
 package com.moyun.core.base;
 
 import com.baomidou.mybatisplus.annotation.TableField;
+import com.baomidou.mybatisplus.annotation.TableLogic;
 import com.fasterxml.jackson.annotation.JsonFormat;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonInclude;
@@ -53,6 +54,21 @@ public class BaseEntity implements Serializable {
      * 备注
      */
     private String remark;
+
+    /**
+     * 删除标记（0=存在 2=删除）
+     * <p>
+     * 与 sys_user / sys_dept / sys_role / portal_user 已有的 del_flag 字段保持一致。
+     * MyBatis-Plus 自动处理：
+     * - SELECT 自动追加 WHERE del_flag = '0'
+     * - deleteById / deleteBatchIds 自动转为 UPDATE SET del_flag = '2'
+     * <p>
+     * 注意：仅对继承 BaseEntity 的实体生效；关联表（PortalLike / PortalBookmark 等）
+     * 不继承 BaseEntity，保持物理删除（toggle 语义：取消点赞 = 删除关联记录）。
+     */
+    @TableLogic
+    @TableField(value = "del_flag")
+    private String delFlag;
 
     /**
      * 请求参数

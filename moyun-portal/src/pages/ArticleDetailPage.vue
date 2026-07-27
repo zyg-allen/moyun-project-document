@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import {computed, onMounted, ref, watch} from 'vue';
+import {computed, onMounted, onBeforeUnmount, ref, watch} from 'vue';
 import {RouterLink as Link, useRoute, useRouter} from 'vue-router';
 import {useHead} from '@vueuse/head';
 import {Bookmark, Clock, Gift, Heart, Lock, MessageSquare, Reply, Send, Share2} from 'lucide-vue-next';
@@ -53,8 +53,10 @@ const supportsNativeShare = computed(() => {
   return typeof navigator !== 'undefined' && typeof navigator.share === 'function';
 });
 
-const isLiked = computed(() => article.value ? articleStore.likedArticleIds.includes(article.value.id) : false);
-const isBookmarked = computed(() => article.value ? articleStore.bookmarkedArticleIds.includes(article.value.id) : false);
+// 以服务端返回的 article.isLiked / article.isBookmarked 为唯一真相源
+// 详情接口在登录态下会动态填充这两个字段，避免 localStorage 跨账号污染
+const isLiked = computed(() => !!article.value?.isLiked);
+const isBookmarked = computed(() => !!article.value?.isBookmarked);
 
 // 获取评论作者的显示名称
 function getCommentAuthorName(comment: Comment): string {
@@ -195,6 +197,13 @@ const totalCommentsCount = computed(() => {
 
 onMounted(async () => {
   await loadArticle();
+  // 监听全局点击，点击分享菜单外部时关闭下拉框
+  // （按钮 @blur 不可靠：点击 div/段落等非可聚焦元素时按钮不会失焦）
+  document.addEventListener('click', handleClickOutside);
+});
+
+onBeforeUnmount(() => {
+  document.removeEventListener('click', handleClickOutside);
 });
 
 // 路由参数变化时（同组件复用，如从相关推荐点击跳转新文章）重新加载
@@ -301,11 +310,8 @@ async function handleLike() {
   if (!article.value) return;
   // 使用 withAuthConfirm 包装，未登录时弹出确认框
   await withAuthConfirm(async () => {
-    const result = await articleStore.likeArticleWithApi(article.value.id);
-    // 如果点赞成功，更新文章的点赞数和状态
-    if (result.success && article.value) {
-      article.value.likes = result.likeCount;
-    }
+    // store 内部用 API 返回值更新 article.isLiked / likes，详情页 computed 自动响应
+    await articleStore.likeArticleWithApi(article.value);
   }, '点赞');
 }
 
@@ -313,8 +319,8 @@ async function handleBookmark() {
   if (!article.value) return;
   // 使用 withAuthConfirm 包装，未登录时弹出确认框
   await withAuthConfirm(async () => {
-    const result = await articleStore.bookmarkArticleWithApi(article.value.id);
-    // 收藏成功后，前端状态会自动同步到 store
+    // store 内部用 API 返回值更新 article.isBookmarked
+    await articleStore.bookmarkArticleWithApi(article.value);
   }, '收藏');
 }
 
@@ -543,17 +549,40 @@ async function handleSubmitReply() {
   }
 }
 
-async function handleLikeComment(commentId: string) {
+async function handleLikeComment(comment: Comment) {
   // 使用 withAuthConfirm 包装，未登录时弹出确认框
   await withAuthConfirm(async () => {
     try {
-      await commentApi.likeComment(commentId);
+      // 后端返回 { isLiked, likeCount }，用于更新本地状态
+      // 之前 BUG：只调 API 不更新本地，导致点赞按钮"看起来没反应"
+      const res = await commentApi.likeComment(comment.id);
+      const data = res.data || {};
+      // 同步更新评论列表中所有该 id 的评论（根评论 + 它在各处的回复引用）
+      updateCommentLikeState(comment.id, data.isLiked, data.likeCount);
     } catch (error) {
       console.error('点赞评论失败:', error);
       const e = error as { message?: string };
       toast.error(e?.message || '点赞失败，请稍后重试');
     }
   }, '点赞评论');
+}
+
+// 更新本地评论点赞状态：遍历一级评论及其回复，匹配 id 后更新 isLiked 与 likeCount
+function updateCommentLikeState(commentId: string, isLiked?: boolean, likeCount?: number) {
+  for (const root of comments.value) {
+    if (root.id === commentId) {
+      if (isLiked !== undefined) root.isLiked = isLiked;
+      if (likeCount !== undefined) root.likeCount = likeCount;
+    }
+    if (root.replies) {
+      for (const reply of root.replies) {
+        if (reply.id === commentId) {
+          if (isLiked !== undefined) reply.isLiked = isLiked;
+          if (likeCount !== undefined) reply.likeCount = likeCount;
+        }
+      }
+    }
+  }
 }
 
 async function loadMoreComments() {
@@ -929,7 +958,6 @@ const head = useHead(
                       class="flex items-center gap-2 px-4 py-2 rounded-full transition-all hover:scale-105 focus:outline-none relative share-menu-container"
                       style="background-color: var(--theme-surface); color: var(--theme-text-secondary);"
                       :aria-label="'分享文章'"
-                      @blur="handleClickOutside"
                   >
                     <Share2 class="w-5 h-5 transition-transform" aria-hidden="true"/>
                     <span class="font-medium text-sm">{{ articleShareCount }}</span>
@@ -1101,7 +1129,7 @@ const head = useHead(
                     <p class="text-base mb-3" style="color: var(--theme-text);">{{ rootComment.content }}</p>
                     <div class="flex items-center gap-4 mb-3">
                       <button
-                          @click="handleLikeComment(rootComment.id)"
+                          @click="handleLikeComment(rootComment)"
                           class="flex items-center gap-2 transition-colors focus:outline-none text-sm"
                           :style="getCommentLikeButtonStyle(!!rootComment.isLiked)"
                           :aria-label="rootComment.isLiked ? '取消点赞' : '点赞评论'"
@@ -1200,7 +1228,7 @@ const head = useHead(
                         <p class="text-sm mb-3" style="color: var(--theme-text);">{{ reply.content }}</p>
                         <div class="flex items-center gap-3">
                           <button
-                              @click="handleLikeComment(reply.id)"
+                              @click="handleLikeComment(reply)"
                               class="flex items-center gap-2 transition-colors focus:outline-none text-sm"
                               :style="getCommentLikeButtonStyle(!!reply.isLiked)"
                           >

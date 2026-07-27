@@ -13,6 +13,7 @@ import com.moyun.portal.mapper.PortalUserMapper;
 import com.moyun.portal.service.IPortalUserService;
 import com.moyun.util.security.SecurityUtils;
 import com.moyun.util.string.StringUtils;
+import com.moyun.util.uuid.BusinessIdGenerator;
 
 /**
  * 门户用户 业务层处理
@@ -119,6 +120,10 @@ public class PortalUserServiceImpl extends ServiceImpl<PortalUserMapper, PortalU
     public int insertPortalUser(PortalUser portalUser) {
         // 防御性加密：确保密码不会以明文形式落库（已加密则跳过，避免双重加密）
         ensurePasswordEncoded(portalUser);
+        // v5.9 P1：生成业务主键（仅当未设置时生成，避免覆盖已设置的值）
+        if (portalUser.getBusinessId() == null || portalUser.getBusinessId().isEmpty()) {
+            portalUser.setBusinessId(BusinessIdGenerator.forPortalUser());
+        }
         return portalUserMapper.insertPortalUser(portalUser);
     }
 
@@ -132,6 +137,10 @@ public class PortalUserServiceImpl extends ServiceImpl<PortalUserMapper, PortalU
     public boolean registerPortalUser(PortalUser portalUser) {
         // 防御性加密：Controller 已加密，此处兜底防止其他调用方未加密
         ensurePasswordEncoded(portalUser);
+        // v5.9 P1：生成业务主键（仅当未设置时生成，避免覆盖已设置的值）
+        if (portalUser.getBusinessId() == null || portalUser.getBusinessId().isEmpty()) {
+            portalUser.setBusinessId(BusinessIdGenerator.forPortalUser());
+        }
         return portalUserMapper.insertPortalUser(portalUser) > 0;
     }
 

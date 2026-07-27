@@ -173,6 +173,10 @@ export interface Article {
   price?: number;
   /** 当前用户是否已购买该付费文章（详情接口动态填充） */
   isPurchased?: boolean;
+  /** 当前用户是否已点赞（详情/列表接口动态填充，未登录为 false） */
+  isLiked?: boolean;
+  /** 当前用户是否已收藏（详情/列表接口动态填充，未登录为 false） */
+  isBookmarked?: boolean;
 }
 
 // 打赏目标类型：article=文章打赏，column=专栏打赏，article_paid=付费阅读购买

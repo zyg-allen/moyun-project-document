@@ -92,6 +92,11 @@ public class SysUser extends BaseEntity {
     private String delFlag;
 
     /**
+     * 业务主键（前缀sysu_，用于跨表关联，避免自增id在TRUNCATE后错乱）
+     */
+    private String businessId;
+
+    /**
      * 最后登录IP
      */
     @Excel(name = "最后登录IP", type = Type.EXPORT)

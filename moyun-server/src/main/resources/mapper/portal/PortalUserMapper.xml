@@ -40,6 +40,7 @@
         <result property="twoFactorEnabled" column="two_factor_enabled"/>
         <result property="status" column="status"/>
         <result property="delFlag" column="del_flag"/>
+        <result property="businessId" column="business_id"/>
         <result property="loginIp" column="login_ip"/>
         <result property="loginDate" column="login_date"/>
         <result property="createBy" column="create_by"/>
@@ -51,12 +52,12 @@
 
     <!-- 公共查询字段（不含 password，用于对外返回的查询场景） -->
     <sql id="selectPortalUserVo">
-        select id, user_id, username, nickname, email, phone, avatar, bio, position, wechat, gender, birthday, location, website, github, company, school, language, timezone, notify_like, notify_comment, notify_follow, notify_system, privacy_follow, privacy_bookmark, privacy_email, privacy_phone, role, vip_expire_at, is_phone_verified, is_wechat_verified, two_factor_enabled, status, del_flag, login_ip, login_date, create_by, create_time, update_by, update_time, remark from portal_user
+        select id, user_id, username, nickname, email, phone, avatar, bio, position, wechat, gender, birthday, location, website, github, company, school, language, timezone, notify_like, notify_comment, notify_follow, notify_system, privacy_follow, privacy_bookmark, privacy_email, privacy_phone, role, vip_expire_at, is_phone_verified, is_wechat_verified, two_factor_enabled, status, del_flag, login_ip, login_date, create_by, create_time, update_by, update_time, remark, business_id from portal_user
     </sql>
 
     <!-- 含 password 的查询字段（仅用于登录校验等内部场景） -->
     <sql id="selectPortalUserWithPasswordVo">
-        select id, user_id, username, nickname, email, phone, password, avatar, bio, position, wechat, gender, birthday, location, website, github, company, school, language, timezone, notify_like, notify_comment, notify_follow, notify_system, privacy_follow, privacy_bookmark, privacy_email, privacy_phone, role, vip_expire_at, is_phone_verified, is_wechat_verified, two_factor_enabled, status, del_flag, login_ip, login_date, create_by, create_time, update_by, update_time, remark from portal_user
+        select id, user_id, username, nickname, email, phone, password, avatar, bio, position, wechat, gender, birthday, location, website, github, company, school, language, timezone, notify_like, notify_comment, notify_follow, notify_system, privacy_follow, privacy_bookmark, privacy_email, privacy_phone, role, vip_expire_at, is_phone_verified, is_wechat_verified, two_factor_enabled, status, del_flag, login_ip, login_date, create_by, create_time, update_by, update_time, remark, business_id from portal_user
     </sql>
 
     <!-- 分页查询 -->
@@ -89,24 +90,26 @@
         order by create_time desc
     </select>
 
+    <!-- v5.9 逻辑删除：登录查询排除已删除用户，防止已注销账号仍可登录 -->
     <select id="selectPortalUserByUsername" parameterType="String" resultMap="PortalUserResult">
         <include refid="selectPortalUserWithPasswordVo"/>
-        where username = #{username}
+        where username = #{username} and del_flag = '0'
     </select>
 
     <select id="selectPortalUserById" parameterType="Long" resultMap="PortalUserResult">
         <include refid="selectPortalUserVo"/>
-        where id = #{id}
+        where id = #{id} and del_flag = '0'
     </select>
 
+    <!-- 唯一性校验排除已删除记录，使注销账号的用户名/邮箱可被重新注册 -->
     <select id="checkPortalUserNameUnique" parameterType="String" resultMap="PortalUserResult">
         <include refid="selectPortalUserVo"/>
-        where username = #{username} limit 1
+        where username = #{username} and del_flag = '0' limit 1
     </select>
 
     <select id="checkPortalEmailUnique" parameterType="String" resultMap="PortalUserResult">
         <include refid="selectPortalUserVo"/>
-        where email = #{email} limit 1
+        where email = #{email} and del_flag = '0' limit 1
     </select>
 
     <insert id="insertPortalUser" parameterType="com.moyun.portal.domain.entity.PortalUser" useGeneratedKeys="true" keyProperty="id">
@@ -151,6 +154,7 @@
             <if test="createBy != null">create_by,</if>
             <if test="createTime != null">create_time,</if>
             <if test="remark != null">remark,</if>
+            <if test="businessId != null">business_id,</if>
         </trim>
         <trim prefix="values (" suffix=")" suffixOverrides=",">
             <if test="userId != null">#{userId},</if>
@@ -192,6 +196,7 @@
             <if test="createBy != null">#{createBy},</if>
             <if test="createTime != null">#{createTime},</if>
             <if test="remark != null">#{remark},</if>
+            <if test="businessId != null">#{businessId},</if>
         </trim>
     </insert>
 
@@ -237,6 +242,7 @@
             <if test="updateBy != null">update_by = #{updateBy},</if>
             <if test="updateTime != null">update_time = #{updateTime},</if>
             <if test="remark != null">remark = #{remark},</if>
+            <if test="businessId != null">business_id = #{businessId},</if>
         </trim>
         where id = #{id}
     </update>
@@ -249,14 +255,15 @@
         update portal_user set password = #{password} where username = #{username}
     </update>
 
-    <delete id="deletePortalUserById" parameterType="Long">
-        delete from portal_user where id = #{id}
-    </delete>
+    <!-- v5.9 逻辑删除：与 sys_user 的 del_flag='2' 对齐，避免物理删除导致数据丢失与孤儿关联 -->
+    <update id="deletePortalUserById" parameterType="Long">
+        update portal_user set del_flag = '2' where id = #{id}
+    </update>
 
-    <delete id="deletePortalUserByIds" parameterType="Long">
-        delete from portal_user where id in
+    <update id="deletePortalUserByIds" parameterType="Long">
+        update portal_user set del_flag = '2' where id in
         <foreach item="id" collection="array" open="(" separator="," close=")">
             #{id}
         </foreach>
-    </delete>
+    </update>
 </mapper>

@@ -6,12 +6,14 @@
 
     <resultMap type="com.moyun.portal.domain.entity.PortalCategory" id="PortalCategoryResult">
         <id property="id" column="id"/>
+        <result property="businessId" column="business_id"/>
         <result property="name" column="name"/>
         <result property="slug" column="slug"/>
         <result property="description" column="description"/>
         <result property="icon" column="icon"/>
         <result property="sort" column="sort"/>
         <result property="parentId" column="parent_id"/>
+        <result property="parentBusinessId" column="parent_business_id"/>
         <result property="status" column="status"/>
         <result property="showInNav" column="show_in_nav"/>
         <result property="navRouteType" column="nav_route_type"/>
@@ -25,7 +27,7 @@
     </resultMap>
 
     <sql id="selectPortalCategoryVo">
-        select id, name, slug, description, icon, sort, parent_id, status, show_in_nav, nav_route_type, nav_route_path, requires_auth, create_by, create_time, update_by, update_time, remark from portal_category
+        select id, name, slug, description, icon, sort, parent_id, parent_business_id, status, show_in_nav, nav_route_type, nav_route_path, requires_auth, create_by, create_time, update_by, update_time, remark, business_id from portal_category
     </sql>
 
     <!-- 通用查询条件片段 -->
@@ -89,6 +91,7 @@
             <if test="icon != null">icon,</if>
             <if test="sort != null">sort,</if>
             <if test="parentId != null">parent_id,</if>
+            <if test="parentBusinessId != null">parent_business_id,</if>
             <if test="status != null">status,</if>
             <if test="showInNav != null">show_in_nav,</if>
             <if test="navRouteType != null">nav_route_type,</if>
@@ -97,6 +100,7 @@
             <if test="createBy != null">create_by,</if>
             <if test="createTime != null">create_time,</if>
             <if test="remark != null">remark,</if>
+            <if test="businessId != null">business_id,</if>
         </trim>
         <trim prefix="values (" suffix=")" suffixOverrides=",">
             <if test="name != null">#{name},</if>
@@ -105,6 +109,7 @@
             <if test="icon != null">#{icon},</if>
             <if test="sort != null">#{sort},</if>
             <if test="parentId != null">#{parentId},</if>
+            <if test="parentBusinessId != null">#{parentBusinessId},</if>
             <if test="status != null">#{status},</if>
             <if test="showInNav != null">#{showInNav},</if>
             <if test="navRouteType != null">#{navRouteType},</if>
@@ -113,6 +118,7 @@
             <if test="createBy != null">#{createBy},</if>
             <if test="createTime != null">#{createTime},</if>
             <if test="remark != null">#{remark},</if>
+            <if test="businessId != null">#{businessId},</if>
         </trim>
     </insert>
 
@@ -125,6 +131,7 @@
             <if test="icon != null">icon = #{icon},</if>
             <if test="sort != null">sort = #{sort},</if>
             <if test="parentId != null">parent_id = #{parentId},</if>
+            <if test="parentBusinessId != null">parent_business_id = #{parentBusinessId},</if>
             <if test="status != null">status = #{status},</if>
             <if test="showInNav != null">show_in_nav = #{showInNav},</if>
             <if test="navRouteType != null">nav_route_type = #{navRouteType},</if>
@@ -133,6 +140,7 @@
             <if test="updateBy != null">update_by = #{updateBy},</if>
             <if test="updateTime != null">update_time = #{updateTime},</if>
             <if test="remark != null">remark = #{remark},</if>
+            <if test="businessId != null">business_id = #{businessId},</if>
         </trim>
         where id = #{id}
     </update>

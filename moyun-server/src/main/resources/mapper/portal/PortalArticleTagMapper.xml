@@ -7,12 +7,14 @@
     <resultMap type="com.moyun.portal.domain.entity.PortalArticleTag" id="PortalArticleTagResult">
         <id property="id" column="id"/>
         <result property="articleId" column="article_id"/>
+        <result property="articleBusinessId" column="article_business_id"/>
         <result property="tagId" column="tag_id"/>
+        <result property="tagBusinessId" column="tag_business_id"/>
         <result property="createTime" column="create_time"/>
     </resultMap>
 
     <sql id="selectPortalArticleTagVo">
-        select id, article_id, tag_id, create_time from portal_article_tag
+        select id, article_id, article_business_id, tag_id, tag_business_id, create_time from portal_article_tag
     </sql>
 
     <select id="selectPortalArticleTagList" parameterType="com.moyun.portal.domain.entity.PortalArticleTag" resultMap="PortalArticleTagResult">
@@ -32,21 +34,25 @@
         insert into portal_article_tag
         <trim prefix="(" suffix=")" suffixOverrides=",">
             <if test="articleId != null">article_id,</if>
+            <if test="articleBusinessId != null">article_business_id,</if>
             <if test="tagId != null">tag_id,</if>
+            <if test="tagBusinessId != null">tag_business_id,</if>
             <if test="createTime != null">create_time,</if>
         </trim>
         <trim prefix="values (" suffix=")" suffixOverrides=",">
             <if test="articleId != null">#{articleId},</if>
+            <if test="articleBusinessId != null">#{articleBusinessId},</if>
             <if test="tagId != null">#{tagId},</if>
+            <if test="tagBusinessId != null">#{tagBusinessId},</if>
             <if test="createTime != null">#{createTime},</if>
         </trim>
     </insert>
 
     <insert id="batchInsertPortalArticleTag" parameterType="java.util.List">
-        insert into portal_article_tag (article_id, tag_id, create_time)
+        insert into portal_article_tag (article_id, tag_id, article_business_id, tag_business_id, create_time)
         values
         <foreach collection="list" item="item" index="index" separator=",">
-            (#{item.articleId}, #{item.tagId}, #{item.createTime})
+            (#{item.articleId}, #{item.tagId}, #{item.articleBusinessId}, #{item.tagBusinessId}, #{item.createTime})
         </foreach>
     </insert>
 

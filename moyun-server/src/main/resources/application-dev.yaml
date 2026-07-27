@@ -111,9 +111,11 @@ mybatis-plus:
   global-config:
     db-config:
       id-type: auto
-      logic-delete-field: deleted
-      logic-delete-value: 1
-      logic-not-delete-value: 0
+      # 逻辑删除：与 sys_user / sys_dept / sys_role / portal_user 已有的 del_flag 字段对齐
+      # 字段类型 char(1)，"0"=存在 "2"=删除（RuoYi 框架惯例）
+      logic-delete-field: delFlag
+      logic-delete-value: "2"
+      logic-not-delete-value: "0"
 
 # =============================================
 # Flowable 工作流配置

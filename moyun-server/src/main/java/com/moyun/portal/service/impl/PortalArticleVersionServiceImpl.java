@@ -17,8 +17,10 @@ import org.springframework.transaction.annotation.Transactional;
 import com.moyun.common.exception.system.ServiceException;
 import com.moyun.portal.domain.entity.PortalArticle;
 import com.moyun.portal.domain.entity.PortalArticleVersion;
+import com.moyun.portal.domain.entity.PortalUser;
 import com.moyun.portal.mapper.PortalArticleMapper;
 import com.moyun.portal.mapper.PortalArticleVersionMapper;
+import com.moyun.portal.mapper.PortalUserMapper;
 import com.moyun.portal.service.IPortalArticleVersionService;
 import com.moyun.portal.util.PortalSecurityUtils;
 
@@ -34,6 +36,9 @@ public class PortalArticleVersionServiceImpl
 
     @Autowired
     private PortalArticleMapper portalArticleMapper;
+
+    @Autowired
+    private PortalUserMapper portalUserMapper;
 
     /**
      * 保存版本快照（version_no 自增，内容未变化时跳过）
@@ -64,6 +69,14 @@ public class PortalArticleVersionServiceImpl
         version.setExcerpt(article.getExcerpt());
         version.setOperatorId(operatorId);
         version.setCreatedTime(LocalDateTime.now());
+        // v5.9 P1：双写 business_id 外键
+        version.setArticleBusinessId(article.getBusinessId());
+        if (operatorId != null) {
+            PortalUser operator = portalUserMapper.selectById(operatorId);
+            if (operator != null) {
+                version.setOperatorBusinessId(operator.getBusinessId());
+            }
+        }
         baseMapper.insert(version);
         return version;
     }

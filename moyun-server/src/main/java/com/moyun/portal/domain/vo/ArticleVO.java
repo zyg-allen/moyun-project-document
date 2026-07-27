@@ -252,4 +252,16 @@ public class ArticleVO implements Serializable {
      */
     @Schema(description = "当前用户是否已购买", example = "false")
     private Boolean isPurchased;
+
+    /**
+     * 当前用户是否已点赞（非持久化，详情/列表接口动态填充；未登录为 false）
+     */
+    @Schema(description = "当前用户是否已点赞", example = "false")
+    private Boolean isLiked;
+
+    /**
+     * 当前用户是否已收藏（非持久化，详情/列表接口动态填充；未登录为 false）
+     */
+    @Schema(description = "当前用户是否已收藏", example = "false")
+    private Boolean isBookmarked;
 }

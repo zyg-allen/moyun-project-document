@@ -25,8 +25,14 @@ public class PortalBookmark implements Serializable {
 
     private Long userId;
 
+    /** 用户业务主键（关联 portal_user.business_id，双轨过渡） */
+    private String userBusinessId;
+
     @NotNull(message = "文章ID不能为空")
     private Long articleId;
+
+    /** 文章业务主键（关联 portal_article.business_id，双轨过渡） */
+    private String articleBusinessId;
 
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime createTime;

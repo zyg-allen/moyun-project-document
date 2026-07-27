@@ -105,6 +105,12 @@ public class CommentVO implements Serializable {
     private Long likeCount;
 
     /**
+     * 当前用户是否已点赞（未登录时为 false）
+     */
+    @Schema(description = "当前用户是否已点赞", example = "false")
+    private Boolean isLiked;
+
+    /**
      * 评论状态
      */
     @Schema(description = "评论状态", example = "published")

@@ -25,12 +25,16 @@ import com.moyun.core.base.BaseController;
 import com.moyun.portal.domain.dto.ArticlePublishDTO;
 import com.moyun.portal.domain.entity.PortalArticle;
 import com.moyun.portal.domain.entity.PortalArticleView;
+import com.moyun.portal.domain.entity.PortalBookmark;
 import com.moyun.portal.domain.entity.PortalLike;
+import com.moyun.portal.domain.entity.PortalUser;
 import com.moyun.portal.domain.query.ArticleQuery;
 import com.moyun.portal.domain.vo.ArticleVO;
 import com.moyun.portal.mapper.PortalArticleMapper;
 import com.moyun.portal.mapper.PortalArticleViewMapper;
+import com.moyun.portal.mapper.PortalBookmarkMapper;
 import com.moyun.portal.mapper.PortalLikeMapper;
+import com.moyun.portal.mapper.PortalUserMapper;
 import com.moyun.portal.service.IPortalArticleService;
 import com.moyun.portal.service.IPortalGrowthService;
 import com.moyun.portal.service.IPortalTagService;
@@ -86,6 +90,12 @@ public class PortalArticleController extends BaseController {
     private PortalLikeMapper portalLikeMapper;
 
     @Autowired
+    private PortalUserMapper portalUserMapper;
+
+    @Autowired
+    private PortalBookmarkMapper portalBookmarkMapper;
+
+    @Autowired
     private PortalArticleViewMapper portalArticleViewMapper;
 
     @Autowired
@@ -130,17 +140,35 @@ public class PortalArticleController extends BaseController {
     public AjaxResult getInfo(@Parameter(description = "文章ID") @PathVariable Long id) {
         PortalArticle article = portalArticleService.selectPortalArticleById(id);
         ArticleVO vo = ArticleConvertUtil.toArticleVO(article);
+        if (vo == null) {
+            return success(null);
+        }
+
+        // 填充当前用户的点赞 / 收藏状态（以服务端为准，避免前端 localStorage 跨账号污染）
+        // 未登录时 isLiked / isBookmarked 默认 false，前端显示"未赞/未收藏"灰色状态
+        Long currentUserId = PortalSecurityUtils.getUserId();
+        if (currentUserId != null) {
+            LambdaQueryWrapper<PortalLike> likeWrapper = new LambdaQueryWrapper<>();
+            likeWrapper.eq(PortalLike::getUserId, currentUserId)
+                    .eq(PortalLike::getArticleId, id);
+            vo.setIsLiked(portalLikeMapper.selectOne(likeWrapper) != null);
+
+            LambdaQueryWrapper<PortalBookmark> bookmarkWrapper = new LambdaQueryWrapper<>();
+            bookmarkWrapper.eq(PortalBookmark::getUserId, currentUserId)
+                    .eq(PortalBookmark::getArticleId, id);
+            vo.setIsBookmarked(portalBookmarkMapper.selectOne(bookmarkWrapper) != null);
+        }
+
         // 付费阅读：未购买用户只返回 preview_length 字数的试读部分，并隐藏付费内容
-        if (vo != null && vo.getIsPaid() != null && vo.getIsPaid() == 1) {
-            Long userId = PortalSecurityUtils.getUserId();
+        if (vo.getIsPaid() != null && vo.getIsPaid() == 1) {
             boolean canReadFull = false;
             // 作者本人可阅读全文
-            if (userId != null && article != null && userId.equals(article.getAuthorId())) {
+            if (currentUserId != null && article != null && currentUserId.equals(article.getAuthorId())) {
                 canReadFull = true;
             }
             // 已购买可阅读全文
-            if (!canReadFull && userId != null
-                    && portalTipService.hasPaid(userId, "article_paid", id)) {
+            if (!canReadFull && currentUserId != null
+                    && portalTipService.hasPaid(currentUserId, "article_paid", id)) {
                 canReadFull = true;
             }
             vo.setIsPurchased(canReadFull);
@@ -363,6 +391,17 @@ public class PortalArticleController extends BaseController {
             like.setUserId(userId);
             like.setArticleId(id);
             like.setCreateTime(LocalDateTime.now());
+            // v5.9 P1：双写文章业务主键（article 已在前面查询，非空）
+            if (article.getBusinessId() != null && !article.getBusinessId().isEmpty()) {
+                like.setArticleBusinessId(article.getBusinessId());
+            }
+            // v5.9 P1：双写用户业务主键
+            if (like.getUserBusinessId() == null || like.getUserBusinessId().isEmpty()) {
+                PortalUser likeUser = portalUserMapper.selectById(userId);
+                if (likeUser != null) {
+                    like.setUserBusinessId(likeUser.getBusinessId());
+                }
+            }
             try {
                 portalLikeMapper.insert(like);
             } catch (DuplicateKeyException e) {
@@ -460,6 +499,14 @@ public class PortalArticleController extends BaseController {
             view.setIp(ip);
             view.setViewTime(LocalDateTime.now());
             view.setUserAgent(request.getHeader("User-Agent"));
+            // v5.9 P1：双写 business_id 外键
+            view.setArticleBusinessId(article.getBusinessId());
+            if (userId != null) {
+                PortalUser viewer = portalUserMapper.selectById(userId);
+                if (viewer != null) {
+                    view.setUserBusinessId(viewer.getBusinessId());
+                }
+            }
             portalArticleViewMapper.insert(view);
         }
 

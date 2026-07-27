@@ -6,11 +6,16 @@
 
     <resultMap type="com.moyun.portal.domain.entity.PortalComment" id="PortalCommentResult">
         <id property="id" column="id"/>
+        <result property="businessId" column="business_id"/>
         <result property="articleId" column="article_id"/>
+        <result property="articleBusinessId" column="article_business_id"/>
         <result property="authorId" column="author_id"/>
+        <result property="authorBusinessId" column="author_business_id"/>
         <result property="content" column="content"/>
         <result property="parentId" column="parent_id"/>
+        <result property="parentBusinessId" column="parent_business_id"/>
         <result property="rootId" column="root_id"/>
+        <result property="rootBusinessId" column="root_business_id"/>
         <result property="replyTo" column="reply_to"/>
         <result property="replyToContent" column="reply_to_content"/>
         <result property="likeCount" column="like_count"/>
@@ -20,16 +25,18 @@
         <result property="updateBy" column="update_by"/>
         <result property="updateTime" column="update_time"/>
         <result property="remark" column="remark"/>
+        <result property="delFlag" column="del_flag"/>
     </resultMap>
 
     <sql id="selectPortalCommentVo">
-        select id, article_id, author_id, content, parent_id, root_id, reply_to, reply_to_content, like_count, status, create_by, create_time, update_by, update_time, remark from portal_comment
+        select id, article_id, article_business_id, author_id, author_business_id, content, parent_id, parent_business_id, root_id, root_business_id, reply_to, reply_to_content, like_count, status, create_by, create_time, update_by, update_time, remark, del_flag, business_id from portal_comment
     </sql>
 
-    <!-- 分页查询 -->
+    <!-- 分页查询（排除已逻辑删除） -->
     <select id="selectPortalCommentPage" resultMap="PortalCommentResult">
         <include refid="selectPortalCommentVo"/>
         <where>
+            del_flag = '0'
             <if test="params.articleId != null">and article_id = #{params.articleId}</if>
             <if test="params.authorId != null">and author_id = #{params.authorId}</if>
             <if test="params.parentId != null">and parent_id = #{params.parentId}</if>
@@ -38,10 +45,11 @@
         order by create_time desc
     </select>
 
-    <!-- 不分页查询（用于导出等场景） -->
+    <!-- 不分页查询（用于导出等场景；排除已逻辑删除） -->
     <select id="selectPortalCommentList" resultMap="PortalCommentResult">
         <include refid="selectPortalCommentVo"/>
         <where>
+            del_flag = '0'
             <if test="params.articleId != null">and article_id = #{params.articleId}</if>
             <if test="params.authorId != null">and author_id = #{params.authorId}</if>
             <if test="params.parentId != null">and parent_id = #{params.parentId}</if>
@@ -52,17 +60,21 @@
 
     <select id="selectPortalCommentById" parameterType="Long" resultMap="PortalCommentResult">
         <include refid="selectPortalCommentVo"/>
-        where id = #{id}
+        where id = #{id} and del_flag = '0'
     </select>
 
     <insert id="insertPortalComment" parameterType="com.moyun.portal.domain.entity.PortalComment" useGeneratedKeys="true" keyProperty="id">
         insert into portal_comment
         <trim prefix="(" suffix=")" suffixOverrides=",">
             <if test="articleId != null">article_id,</if>
+            <if test="articleBusinessId != null">article_business_id,</if>
             <if test="authorId != null">author_id,</if>
+            <if test="authorBusinessId != null">author_business_id,</if>
             <if test="content != null">content,</if>
             <if test="parentId != null">parent_id,</if>
+            <if test="parentBusinessId != null">parent_business_id,</if>
             <if test="rootId != null">root_id,</if>
+            <if test="rootBusinessId != null">root_business_id,</if>
             <if test="replyTo != null">reply_to,</if>
             <if test="replyToContent != null">reply_to_content,</if>
             <if test="likeCount != null">like_count,</if>
@@ -70,13 +82,18 @@
             <if test="createBy != null">create_by,</if>
             <if test="createTime != null">create_time,</if>
             <if test="remark != null">remark,</if>
+            <if test="businessId != null">business_id,</if>
         </trim>
         <trim prefix="values (" suffix=")" suffixOverrides=",">
             <if test="articleId != null">#{articleId},</if>
+            <if test="articleBusinessId != null">#{articleBusinessId},</if>
             <if test="authorId != null">#{authorId},</if>
+            <if test="authorBusinessId != null">#{authorBusinessId},</if>
             <if test="content != null">#{content},</if>
             <if test="parentId != null">#{parentId},</if>
+            <if test="parentBusinessId != null">#{parentBusinessId},</if>
             <if test="rootId != null">#{rootId},</if>
+            <if test="rootBusinessId != null">#{rootBusinessId},</if>
             <if test="replyTo != null">#{replyTo},</if>
             <if test="replyToContent != null">#{replyToContent},</if>
             <if test="likeCount != null">#{likeCount},</if>
@@ -84,6 +101,7 @@
             <if test="createBy != null">#{createBy},</if>
             <if test="createTime != null">#{createTime},</if>
             <if test="remark != null">#{remark},</if>
+            <if test="businessId != null">#{businessId},</if>
         </trim>
     </insert>
 
@@ -91,10 +109,14 @@
         update portal_comment
         <trim prefix="SET" suffixOverrides=",">
             <if test="articleId != null">article_id = #{articleId},</if>
+            <if test="articleBusinessId != null">article_business_id = #{articleBusinessId},</if>
             <if test="authorId != null">author_id = #{authorId},</if>
+            <if test="authorBusinessId != null">author_business_id = #{authorBusinessId},</if>
             <if test="content != null and content != ''">content = #{content},</if>
             <if test="parentId != null">parent_id = #{parentId},</if>
+            <if test="parentBusinessId != null">parent_business_id = #{parentBusinessId},</if>
             <if test="rootId != null">root_id = #{rootId},</if>
+            <if test="rootBusinessId != null">root_business_id = #{rootBusinessId},</if>
             <if test="replyTo != null">reply_to = #{replyTo},</if>
             <if test="replyToContent != null">reply_to_content = #{replyToContent},</if>
             <if test="likeCount != null">like_count = #{likeCount},</if>
@@ -102,18 +124,20 @@
             <if test="updateBy != null">update_by = #{updateBy},</if>
             <if test="updateTime != null">update_time = #{updateTime},</if>
             <if test="remark != null">remark = #{remark},</if>
+            <if test="businessId != null">business_id = #{businessId},</if>
         </trim>
         where id = #{id}
     </update>
 
-    <delete id="deletePortalCommentById" parameterType="Long">
-        delete from portal_comment where id = #{id}
-    </delete>
+    <!-- v5.9 逻辑删除：与 BaseEntity.delFlag 对齐，避免物理删除导致评论数据丢失与孤儿回复 -->
+    <update id="deletePortalCommentById" parameterType="Long">
+        update portal_comment set del_flag = '2' where id = #{id}
+    </update>
 
-    <delete id="deletePortalCommentByIds" parameterType="Long">
-        delete from portal_comment where id in
+    <update id="deletePortalCommentByIds" parameterType="Long">
+        update portal_comment set del_flag = '2' where id in
         <foreach item="id" collection="array" open="(" separator="," close=")">
             #{id}
         </foreach>
-    </delete>
+    </update>
 </mapper>

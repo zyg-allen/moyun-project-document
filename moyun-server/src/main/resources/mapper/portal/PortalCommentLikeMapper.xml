@@ -5,14 +5,16 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
 <mapper namespace="com.moyun.portal.mapper.PortalCommentLikeMapper">
 
     <resultMap type="com.moyun.portal.domain.entity.PortalCommentLike" id="PortalCommentLikeResult">
-        <result property="id"         column="id"/>
-        <result property="commentId"  column="comment_id"/>
-        <result property="userId"     column="user_id"/>
-        <result property="createTime" column="create_time"/>
+        <result property="id"                column="id"/>
+        <result property="commentId"         column="comment_id"/>
+        <result property="commentBusinessId" column="comment_business_id"/>
+        <result property="userId"            column="user_id"/>
+        <result property="userBusinessId"    column="user_business_id"/>
+        <result property="createTime"        column="create_time"/>
     </resultMap>
 
     <select id="selectLike" resultMap="PortalCommentLikeResult">
-        SELECT id, comment_id, user_id, create_time
+        SELECT id, comment_id, comment_business_id, user_id, user_business_id, create_time
         FROM portal_comment_like
         WHERE comment_id = #{commentId}
           AND user_id    = #{userId}

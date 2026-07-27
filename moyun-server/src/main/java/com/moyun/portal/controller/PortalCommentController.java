@@ -43,7 +43,9 @@ public class PortalCommentController extends BaseController {
             @Parameter(description = "文章ID") @PathVariable Long articleId,
             @Parameter(description = "页码，从1开始") @RequestParam(defaultValue = "1") Integer pageNum,
             @Parameter(description = "每页数量") @RequestParam(defaultValue = "20") Integer pageSize) {
-        Map<String, Object> result = portalCommentService.getCommentsByArticle(articleId, pageNum, pageSize);
+        // 评论列表为公开接口，但 isLiked 字段需要登录态；未登录时 currentUserId=null，前端显示"未点赞"状态
+        Long currentUserId = PortalSecurityUtils.getUserId();
+        Map<String, Object> result = portalCommentService.getCommentsByArticle(articleId, pageNum, pageSize, currentUserId);
         return success(result);
     }
 

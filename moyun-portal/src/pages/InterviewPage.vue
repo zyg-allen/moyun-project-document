@@ -124,6 +124,15 @@ const breadcrumbs = computed(() => [
     <div class="border-b sticky top-0 z-30 backdrop-blur-sm py-3" style="background-color: var(--theme-surface); border-color: var(--theme-border);">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between gap-4">
         <Breadcrumb :items="breadcrumbs" />
+        <router-link
+          to="/interview/resume/edit"
+          class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-white transition hover:opacity-90 flex-shrink-0"
+          style="background-color: var(--theme-primary);"
+          title="维护我的简历（教育、工作、项目、技能等）"
+        >
+          <FileText class="w-3.5 h-3.5" />
+          维护我的简历
+        </router-link>
       </div>
     </div>
 

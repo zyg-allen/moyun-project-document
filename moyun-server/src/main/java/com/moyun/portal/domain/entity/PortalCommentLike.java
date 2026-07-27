@@ -30,8 +30,14 @@ public class PortalCommentLike extends BaseEntity {
     /** 评论ID */
     private Long commentId;
 
+    /** 评论业务主键（关联 portal_comment.business_id，双轨过渡） */
+    private String commentBusinessId;
+
     /** 用户ID */
     private Long userId;
+
+    /** 用户业务主键（关联 portal_user.business_id，双轨过渡） */
+    private String userBusinessId;
 
     /** 点赞时间 */
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
@@ -49,4 +55,8 @@ public class PortalCommentLike extends BaseEntity {
 
     @TableField(exist = false)
     private String remark;
+
+    // 覆盖 BaseEntity 的 delFlag：本表无 del_flag 列（迁移脚本排除），保持物理删除（toggle/流水语义）
+    @TableField(exist = false)
+    private String delFlag;
 }

@@ -67,6 +67,10 @@ public class PortalMessage extends BaseEntity {
     @TableField(exist = false)
     private String remark;
 
+    // 覆盖 BaseEntity 的 delFlag：本表无 del_flag 列（迁移脚本排除），保持物理删除（toggle/流水语义）
+    @TableField(exist = false)
+    private String delFlag;
+
     public PortalMessage() {
     }
 

@@ -87,9 +87,10 @@ public interface IPortalCommentService {
      * @param articleId 文章ID
      * @param pageNum 页码，从1开始
      * @param pageSize 每页数量
+     * @param currentUserId 当前登录用户ID（用于填充 isLiked 状态；未登录传 null）
      * @return 包含评论列表和分页信息的Map
      */
-    Map<String, Object> getCommentsByArticle(Long articleId, Integer pageNum, Integer pageSize);
+    Map<String, Object> getCommentsByArticle(Long articleId, Integer pageNum, Integer pageSize, Long currentUserId);
 
     /**
      * 切换评论点赞状态（点赞 / 取消点赞，幂等 toggle）

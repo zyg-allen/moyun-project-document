@@ -7,9 +7,13 @@ import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import com.moyun.portal.domain.entity.PortalArticle;
 import com.moyun.portal.domain.entity.PortalBookmark;
+import com.moyun.portal.domain.entity.PortalUser;
 import com.moyun.portal.domain.query.BookmarkQuery;
+import com.moyun.portal.mapper.PortalArticleMapper;
 import com.moyun.portal.mapper.PortalBookmarkMapper;
+import com.moyun.portal.mapper.PortalUserMapper;
 import com.moyun.portal.service.IPortalBookmarkService;
 import com.moyun.portal.util.PortalSecurityUtils;
 
@@ -23,6 +27,12 @@ public class PortalBookmarkServiceImpl extends ServiceImpl<PortalBookmarkMapper,
 
     @Autowired
     private PortalBookmarkMapper portalBookmarkMapper;
+
+    @Autowired
+    private PortalUserMapper portalUserMapper;
+
+    @Autowired
+    private PortalArticleMapper portalArticleMapper;
 
     /**
      * 根据条件分页查询收藏列表
@@ -70,6 +80,22 @@ public class PortalBookmarkServiceImpl extends ServiceImpl<PortalBookmarkMapper,
         // 自动填充用户ID
         if (portalBookmark.getUserId() == null) {
             portalBookmark.setUserId(PortalSecurityUtils.getUserId());
+        }
+        // v5.9 P1：双写用户业务主键
+        if (portalBookmark.getUserId() != null
+                && (portalBookmark.getUserBusinessId() == null || portalBookmark.getUserBusinessId().isEmpty())) {
+            PortalUser user = portalUserMapper.selectById(portalBookmark.getUserId());
+            if (user != null) {
+                portalBookmark.setUserBusinessId(user.getBusinessId());
+            }
+        }
+        // v5.9 P1：双写文章业务主键
+        if (portalBookmark.getArticleId() != null
+                && (portalBookmark.getArticleBusinessId() == null || portalBookmark.getArticleBusinessId().isEmpty())) {
+            PortalArticle article = portalArticleMapper.selectById(portalBookmark.getArticleId());
+            if (article != null) {
+                portalBookmark.setArticleBusinessId(article.getBusinessId());
+            }
         }
         return portalBookmarkMapper.insertPortalBookmark(portalBookmark);
     }

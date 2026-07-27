@@ -7,9 +7,12 @@
     <resultMap type="com.moyun.portal.domain.entity.PortalTipOrder" id="PortalTipOrderResult">
         <id property="id" column="id"/>
         <result property="userId" column="user_id"/>
+        <result property="userBusinessId" column="user_business_id"/>
         <result property="authorId" column="author_id"/>
+        <result property="authorBusinessId" column="author_business_id"/>
         <result property="targetType" column="target_type"/>
         <result property="targetId" column="target_id"/>
+        <result property="targetBusinessId" column="target_business_id"/>
         <result property="amount" column="amount"/>
         <result property="message" column="message"/>
         <result property="status" column="status"/>
@@ -27,7 +30,8 @@
     <select id="selectMyGivenPage" resultMap="PortalTipOrderResult">
         SELECT t.id, t.user_id, t.author_id, t.target_type, t.target_id, t.amount, t.message,
                t.status, t.pay_method, t.paid_time, t.created_time,
-               pu.nickname AS author_nickname, pu.avatar AS author_avatar
+               pu.nickname AS author_nickname, pu.avatar AS author_avatar,
+               t.user_business_id, t.author_business_id, t.target_business_id
         FROM portal_tip_order t
         LEFT JOIN portal_user pu ON pu.id = t.author_id
         WHERE t.user_id = #{userId}
@@ -38,7 +42,8 @@
     <select id="selectMyReceivedPage" resultMap="PortalTipOrderResult">
         SELECT t.id, t.user_id, t.author_id, t.target_type, t.target_id, t.amount, t.message,
                t.status, t.pay_method, t.paid_time, t.created_time,
-               pu.nickname AS user_nickname, pu.avatar AS user_avatar
+               pu.nickname AS user_nickname, pu.avatar AS user_avatar,
+               t.user_business_id, t.author_business_id, t.target_business_id
         FROM portal_tip_order t
         LEFT JOIN portal_user pu ON pu.id = t.user_id
         WHERE t.author_id = #{userId}
@@ -49,7 +54,8 @@
     <select id="selectTargetTipPage" resultMap="PortalTipOrderResult">
         SELECT t.id, t.user_id, t.author_id, t.target_type, t.target_id, t.amount, t.message,
                t.status, t.pay_method, t.paid_time, t.created_time,
-               pu.nickname AS user_nickname, pu.avatar AS user_avatar
+               pu.nickname AS user_nickname, pu.avatar AS user_avatar,
+               t.user_business_id, t.author_business_id, t.target_business_id
         FROM portal_tip_order t
         LEFT JOIN portal_user pu ON pu.id = t.user_id
         WHERE t.target_type = #{targetType}
@@ -73,7 +79,8 @@
         SELECT t.id, t.user_id, t.author_id, t.target_type, t.target_id, t.amount, t.message,
                t.status, t.pay_method, t.paid_time, t.created_time,
                u.nickname AS user_nickname, u.avatar AS user_avatar,
-               a.nickname AS author_nickname, a.avatar AS author_avatar
+               a.nickname AS author_nickname, a.avatar AS author_avatar,
+               t.user_business_id, t.author_business_id, t.target_business_id
         FROM portal_tip_order t
         LEFT JOIN portal_user u ON u.id = t.user_id
         LEFT JOIN portal_user a ON a.id = t.author_id
@@ -99,7 +106,8 @@
         SELECT t.id, t.user_id, t.author_id, t.target_type, t.target_id, t.amount, t.message,
                t.status, t.pay_method, t.paid_time, t.created_time,
                u.nickname AS user_nickname, u.avatar AS user_avatar,
-               ar.title AS target_title
+               ar.title AS target_title,
+               t.user_business_id, t.author_business_id, t.target_business_id
         FROM portal_tip_order t
         LEFT JOIN portal_user u ON u.id = t.user_id
         LEFT JOIN portal_article ar ON ar.id = t.target_id

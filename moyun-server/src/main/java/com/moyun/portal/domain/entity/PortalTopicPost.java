@@ -72,4 +72,7 @@ public class PortalTopicPost extends BaseEntity {
     private LocalDateTime updateTime;
     @TableField(exist = false)
     private String remark;
+    // 覆盖 BaseEntity 的 delFlag：本表用 is_deleted 字段管理删除，不走 MyBatis-Plus 全局逻辑删除
+    @TableField(exist = false)
+    private String delFlag;
 }

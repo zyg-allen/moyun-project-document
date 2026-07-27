@@ -29,6 +29,7 @@ import com.moyun.portal.service.IMentionService;
 import com.moyun.portal.service.IPortalCommentService;
 import com.moyun.portal.service.IPortalGrowthService;
 import com.moyun.portal.util.PortalSecurityUtils;
+import com.moyun.util.uuid.BusinessIdGenerator;
 
 /**
  * 门户评论 业务层处理
@@ -142,7 +143,43 @@ public class PortalCommentServiceImpl extends ServiceImpl<PortalCommentMapper, P
         if (portalComment.getLikeCount() == null) {
             portalComment.setLikeCount(0L);
         }
-        
+
+        // v5.9 P1：生成评论业务主键
+        if (portalComment.getBusinessId() == null || portalComment.getBusinessId().isEmpty()) {
+            portalComment.setBusinessId(BusinessIdGenerator.forComment());
+        }
+        // v5.9 P1：双写文章业务主键
+        if (portalComment.getArticleId() != null
+                && (portalComment.getArticleBusinessId() == null || portalComment.getArticleBusinessId().isEmpty())) {
+            PortalArticle article = portalArticleMapper.selectById(portalComment.getArticleId());
+            if (article != null) {
+                portalComment.setArticleBusinessId(article.getBusinessId());
+            }
+        }
+        // v5.9 P1：双写作者业务主键（authorId 已在前面设置为当前用户）
+        if (portalComment.getAuthorId() != null
+                && (portalComment.getAuthorBusinessId() == null || portalComment.getAuthorBusinessId().isEmpty())) {
+            PortalUser author = portalUserMapper.selectById(portalComment.getAuthorId());
+            if (author != null) {
+                portalComment.setAuthorBusinessId(author.getBusinessId());
+            }
+        }
+        // v5.9 P1：双写父评论/根评论业务主键
+        if (portalComment.getParentId() != null && portalComment.getParentId() > 0
+                && (portalComment.getParentBusinessId() == null || portalComment.getParentBusinessId().isEmpty())) {
+            PortalComment parent = portalCommentMapper.selectPortalCommentById(portalComment.getParentId());
+            if (parent != null) {
+                portalComment.setParentBusinessId(parent.getBusinessId());
+            }
+        }
+        if (portalComment.getRootId() != null && portalComment.getRootId() > 0
+                && (portalComment.getRootBusinessId() == null || portalComment.getRootBusinessId().isEmpty())) {
+            PortalComment root = portalCommentMapper.selectPortalCommentById(portalComment.getRootId());
+            if (root != null) {
+                portalComment.setRootBusinessId(root.getBusinessId());
+            }
+        }
+
         int rows = portalCommentMapper.insertPortalComment(portalComment);
 
         // 同步增加文章评论数（原子更新，仅一级评论计入文章评论数）
@@ -276,14 +313,14 @@ public class PortalCommentServiceImpl extends ServiceImpl<PortalCommentMapper, P
         Map<Long, List<CommentVO>> replyMap = new HashMap<>();
 
         for (PortalComment rootComment : rootComments) {
-            CommentVO vo = convertToVO(rootComment, userMap);
+            CommentVO vo = convertToVO(rootComment, userMap, null);
             roots.add(vo);
             replyMap.put(rootComment.getId(), new ArrayList<>());
         }
 
         // 6. 组装回复为VO，并挂载到对应的一级评论下（回复按正序）
         for (PortalComment reply : allReplies) {
-            CommentVO vo = convertToVO(reply, userMap);
+            CommentVO vo = convertToVO(reply, userMap, null);
             Long rootId = reply.getRootId();
             if (rootId != null && rootId > 0) {
                 replyMap.computeIfAbsent(rootId, k -> new ArrayList<>()).add(vo);
@@ -312,10 +349,10 @@ public class PortalCommentServiceImpl extends ServiceImpl<PortalCommentMapper, P
      * @param userMap 用户信息Map
      * @return 评论VO
      */
-    private CommentVO convertToVO(PortalComment comment, Map<Long, PortalUser> userMap) {
+    private CommentVO convertToVO(PortalComment comment, Map<Long, PortalUser> userMap, Set<Long> likedCommentIds) {
         CommentVO vo = new CommentVO();
         BeanUtils.copyProperties(comment, vo);
-        
+
         // 设置作者信息
         PortalUser author = userMap.get(comment.getAuthorId());
         if (author != null) {
@@ -323,7 +360,7 @@ public class PortalCommentServiceImpl extends ServiceImpl<PortalCommentMapper, P
             vo.setAuthorNickname(author.getNickname());
             vo.setAuthorAvatar(author.getAvatar());
         }
-        
+
         // 设置被回复人的昵称
         if (comment.getReplyTo() != null && comment.getReplyTo() > 0) {
             PortalUser replyUser = userMap.get(comment.getReplyTo());
@@ -332,7 +369,14 @@ public class PortalCommentServiceImpl extends ServiceImpl<PortalCommentMapper, P
                 vo.setReplyToNickname(replyUser.getNickname());
             }
         }
-        
+
+        // 填充当前用户的点赞状态（未登录时 likedCommentIds 为空集合，isLiked 默认 false）
+        if (likedCommentIds != null && comment.getId() != null) {
+            vo.setIsLiked(likedCommentIds.contains(comment.getId()));
+        } else {
+            vo.setIsLiked(false);
+        }
+
         return vo;
     }
 
@@ -342,10 +386,11 @@ public class PortalCommentServiceImpl extends ServiceImpl<PortalCommentMapper, P
      * @param articleId 文章ID
      * @param pageNum 页码，从1开始
      * @param pageSize 每页数量
+     * @param currentUserId 当前登录用户ID（用于批量填充 isLiked；未登录传 null）
      * @return 包含评论列表和分页信息的Map
      */
     @Override
-    public Map<String, Object> getCommentsByArticle(Long articleId, Integer pageNum, Integer pageSize) {
+    public Map<String, Object> getCommentsByArticle(Long articleId, Integer pageNum, Integer pageSize, Long currentUserId) {
         // 1. 查询一级评论总数（用于分页）
         Long totalCount = baseMapper.selectCount(
                 new LambdaQueryWrapper<PortalComment>()
@@ -424,19 +469,29 @@ public class PortalCommentServiceImpl extends ServiceImpl<PortalCommentMapper, P
         Map<Long, PortalUser> userMap = users.stream()
                 .collect(Collectors.toMap(PortalUser::getId, u -> u));
 
-        // 6. 组装一级评论为VO
+        // 6. 批量查询当前用户已点赞的评论 ID 集合（一次性填充 isLiked，避免 N+1 查询）
+        Set<Long> likedCommentIds = Collections.emptySet();
+        if (currentUserId != null && !allComments.isEmpty()) {
+            List<Long> allCommentIds = allComments.stream()
+                    .map(PortalComment::getId)
+                    .collect(Collectors.toList());
+            List<Long> liked = portalCommentLikeMapper.selectLikedByUser(currentUserId, allCommentIds);
+            likedCommentIds = liked == null ? Collections.emptySet() : new HashSet<>(liked);
+        }
+
+        // 7. 组装一级评论为VO
         List<CommentVO> roots = new ArrayList<>();
         Map<Long, List<CommentVO>> replyMap = new HashMap<>();
 
         for (PortalComment rootComment : rootComments) {
-            CommentVO vo = convertToVO(rootComment, userMap);
+            CommentVO vo = convertToVO(rootComment, userMap, likedCommentIds);
             roots.add(vo);
             replyMap.put(rootComment.getId(), new ArrayList<>());
         }
 
-        // 7. 组装回复为VO，并挂载到对应的一级评论下
+        // 8. 组装回复为VO，并挂载到对应的一级评论下
         for (PortalComment reply : allReplies) {
-            CommentVO vo = convertToVO(reply, userMap);
+            CommentVO vo = convertToVO(reply, userMap, likedCommentIds);
             Long rootId = reply.getRootId();
             if (rootId != null && rootId > 0) {
                 replyMap.computeIfAbsent(rootId, k -> new ArrayList<>()).add(vo);
@@ -446,7 +501,7 @@ public class PortalCommentServiceImpl extends ServiceImpl<PortalCommentMapper, P
             }
         }
 
-        // 8. 将回复挂载到对应的一级评论下（回复按时间正序，保持对话逻辑）
+        // 9. 将回复挂载到对应的一级评论下（回复按时间正序，保持对话逻辑）
         for (CommentVO root : roots) {
             List<CommentVO> replies = replyMap.get(root.getId());
             if (replies != null && !replies.isEmpty()) {
@@ -454,7 +509,7 @@ public class PortalCommentServiceImpl extends ServiceImpl<PortalCommentMapper, P
             }
         }
 
-        // 9. 构建返回结果（一级评论已经按倒序从数据库取出，无需再次排序）
+        // 10. 构建返回结果（一级评论已经按倒序从数据库取出，无需再次排序）
         Map<String, Object> result = new HashMap<>();
         result.put("list", roots);
         result.put("total", total);
@@ -503,6 +558,17 @@ public class PortalCommentServiceImpl extends ServiceImpl<PortalCommentMapper, P
             like.setCommentId(commentId);
             like.setUserId(userId);
             like.setCreateTime(LocalDateTime.now());
+            // v5.9 P1：双写评论业务主键（comment 已在前面查询，非空）
+            if (comment.getBusinessId() != null && !comment.getBusinessId().isEmpty()) {
+                like.setCommentBusinessId(comment.getBusinessId());
+            }
+            // v5.9 P1：双写用户业务主键
+            if (like.getUserBusinessId() == null || like.getUserBusinessId().isEmpty()) {
+                PortalUser likeUser = portalUserMapper.selectById(userId);
+                if (likeUser != null) {
+                    like.setUserBusinessId(likeUser.getBusinessId());
+                }
+            }
             try {
                 portalCommentLikeMapper.insert(like);
             } catch (DuplicateKeyException e) {

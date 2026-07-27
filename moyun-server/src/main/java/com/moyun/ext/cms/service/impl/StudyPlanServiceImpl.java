@@ -226,7 +226,7 @@ public class StudyPlanServiceImpl implements IStudyPlanService {
             log.warn("[StudyPlan] 用户 {} 画像构建失败：{}", userId, e.getMessage());
             return Collections.emptyList();
         }
-        if (snapshot == null || !Boolean.TRUE.equals(snapshot.getPersonalized())) {
+        if (snapshot == null || !snapshot.isPersonalized()) {
             log.info("[StudyPlan] 用户 {} 画像未个性化，跳过生成", userId);
             return Collections.emptyList();
         }

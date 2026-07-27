@@ -5,7 +5,7 @@ import { useHead } from '@vueuse/head';
 import {
   Briefcase, Search, Star, CheckCircle, Zap,
   ChevronLeft, ChevronRight, BookOpen,
-  Sparkles, Target, TrendingUp, RefreshCw,
+  Sparkles, Target, TrendingUp, RefreshCw, FileText,
 } from 'lucide-vue-next';
 import LazyImage from '@/components/LazyImage.vue';
 import Breadcrumb from '@/components/Breadcrumb.vue';
@@ -196,7 +196,15 @@ function gotoPage(p: number) {
     >
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between gap-4">
         <Breadcrumb :items="breadcrumbs" />
-        <span class="w-12"></span>
+        <router-link
+          to="/interview/resume/edit"
+          class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-white transition hover:opacity-90 flex-shrink-0"
+          style="background-color: var(--theme-primary);"
+          title="维护我的简历（教育、工作、项目、技能等）"
+        >
+          <FileText class="w-3.5 h-3.5" />
+          维护我的简历
+        </router-link>
       </div>
     </div>
 

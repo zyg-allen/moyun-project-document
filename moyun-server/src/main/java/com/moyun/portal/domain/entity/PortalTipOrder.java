@@ -29,14 +29,23 @@ public class PortalTipOrder extends BaseEntity {
     /** 打赏者用户ID */
     private Long userId;
 
+    /** 打赏者业务主键（关联 portal_user.business_id，双轨过渡） */
+    private String userBusinessId;
+
     /** 被打赏者用户ID */
     private Long authorId;
+
+    /** 被打赏者业务主键（关联 portal_user.business_id，双轨过渡） */
+    private String authorBusinessId;
 
     /** 打赏对象类型 article/column/article_paid */
     private String targetType;
 
     /** 打赏对象ID */
     private Long targetId;
+
+    /** 打赏对象业务主键（关联 portal_article/portal_column 等父表 business_id，双轨过渡） */
+    private String targetBusinessId;
 
     /** 打赏金额 */
     private BigDecimal amount;
@@ -69,6 +78,10 @@ public class PortalTipOrder extends BaseEntity {
     private LocalDateTime updateTime;
     @TableField(exist = false)
     private String remark;
+    // 覆盖 BaseEntity 的 delFlag：portal_tip_order 属于交易流水表，迁移脚本未加 del_flag 列，
+    // 保持物理删除（toggle/流水语义），不走 MyBatis-Plus 全局逻辑删除
+    @TableField(exist = false)
+    private String delFlag;
 
     /** 打赏者昵称（JOIN 查询时填充） */
     @TableField(exist = false)

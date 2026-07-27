@@ -11,10 +11,14 @@ import org.springframework.stereotype.Service;
 import com.moyun.core.base.page.PageDomain;
 import com.moyun.ext.cms.domain.vo.FeedEventVO;
 import com.moyun.ext.cms.service.IFeedService;
+import com.moyun.portal.domain.entity.PortalArticle;
 import com.moyun.portal.domain.entity.PortalFeedEvent;
+import com.moyun.portal.domain.entity.PortalUser;
+import com.moyun.portal.mapper.PortalArticleMapper;
 import com.moyun.portal.mapper.PortalFeedEventMapper;
 import com.moyun.portal.mapper.PortalFeedInboxMapper;
 import com.moyun.portal.mapper.PortalFollowMapper;
+import com.moyun.portal.mapper.PortalUserMapper;
 import com.moyun.util.bean.PageUtils;
 
 /**
@@ -45,6 +49,12 @@ public class FeedServiceImpl implements IFeedService {
 
     @Autowired
     private PortalFollowMapper followMapper;
+
+    @Autowired
+    private PortalUserMapper portalUserMapper;
+
+    @Autowired
+    private PortalArticleMapper portalArticleMapper;
 
     /**
      * 关注的人的动态（分页，读时拉模式）
@@ -86,6 +96,18 @@ public class FeedServiceImpl implements IFeedService {
         event.setSummary(summary);
         event.setCover(cover);
         event.setCreatedTime(LocalDateTime.now());
+        // v5.9 P1：双写 business_id 外键（user/target）
+        PortalUser publisher = portalUserMapper.selectById(userId);
+        if (publisher != null) {
+            event.setUserBusinessId(publisher.getBusinessId());
+        }
+        // target_business_id 根据 target_type 关联不同父表（本批仅处理 article，其他类型 P2 补）
+        if ("article".equals(targetType)) {
+            PortalArticle targetArticle = portalArticleMapper.selectById(targetId);
+            if (targetArticle != null) {
+                event.setTargetBusinessId(targetArticle.getBusinessId());
+            }
+        }
         int rows = feedEventMapper.insertFeedEvent(event);
         if (rows <= 0 || event.getId() == null) {
             log.warn("[Feed] 动态事件写入失败：userId={}, targetType={}, targetId={}", userId, targetType, targetId);

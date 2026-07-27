@@ -6,14 +6,18 @@
 
     <resultMap type="com.moyun.portal.domain.entity.PortalArticle" id="PortalArticleResult">
         <id property="id" column="id"/>
+        <result property="businessId" column="business_id"/>
         <result property="title" column="title"/>
         <result property="slug" column="slug"/>
         <result property="content" column="content"/>
         <result property="excerpt" column="excerpt"/>
         <result property="cover" column="cover"/>
         <result property="authorId" column="author_id"/>
+        <result property="authorBusinessId" column="author_business_id"/>
         <result property="categoryId" column="category_id"/>
+        <result property="categoryBusinessId" column="category_business_id"/>
         <result property="rootCategoryId" column="root_category_id"/>
+        <result property="rootCategoryBusinessId" column="root_category_business_id"/>
         <result property="categoryPath" column="category_path"/>
         <result property="categoryName" column="category_name"/>
         <result property="categorySlug" column="category_slug"/>
@@ -48,6 +52,10 @@
 
     <resultMap type="com.moyun.ext.cms.domain.vo.CmsArticleVO" id="CmsArticleResult">
         <id property="id" column="id"/>
+        <result property="businessId" column="business_id"/>
+        <result property="authorBusinessId" column="author_business_id"/>
+        <result property="categoryBusinessId" column="category_business_id"/>
+        <result property="rootCategoryBusinessId" column="root_category_business_id"/>
         <result property="title" column="title"/>
         <result property="slug" column="slug"/>
         <result property="content" column="content"/>
@@ -86,13 +94,13 @@
     </resultMap>
 
     <sql id="selectPortalArticleVo">
-        select pa.id, pa.title, pa.slug, pa.content, pa.excerpt, pa.cover, pa.author_id, pa.category_id,
-               pa.root_category_id, pa.category_path,
+        select pa.id, pa.title, pa.slug, pa.content, pa.excerpt, pa.cover, pa.author_id, pa.author_business_id,
+               pa.category_id, pa.category_business_id, pa.root_category_id, pa.root_category_business_id, pa.category_path,
                pa.status,
                pa.is_featured, pa.is_top, pa.is_carousel, pa.is_category_recommended, pa.views, pa.likes, pa.comments, pa.share_count,
                pa.bookmark_count, pa.published_at, pa.link, pa.editor_mode, pa.session_token, pa.content_markdown,
                pa.is_paid, pa.paid_content, pa.preview_length, pa.price,
-               pa.create_by, pa.create_time, pa.update_by, pa.update_time, pa.remark,
+               pa.create_by, pa.create_time, pa.update_by, pa.update_time, pa.remark, pa.business_id,
                pc.name as category_name, pc.slug as category_slug,
                pu.nickname as author_nickname, pu.username as author_username, pu.avatar as author_avatar
         from portal_article pa
@@ -108,6 +116,7 @@
                pa.is_featured, pa.is_top, pa.is_carousel, pa.is_category_recommended, pa.views, pa.likes, pa.comments, pa.share_count,
                pa.bookmark_count, pa.published_at, pa.link, pa.editor_mode, pa.session_token, pa.content_markdown,
                pa.create_by, pa.create_time, pa.update_by, pa.update_time, pa.remark,
+               pa.business_id, pa.author_business_id, pa.category_business_id, pa.root_category_business_id,
                pc.name as category_name, pc.slug as category_slug,
                pu.nickname as author_nickname, pu.username as author_username, pu.avatar as author_avatar
         from portal_article pa
@@ -118,7 +127,8 @@
     <!-- 通用查询条件片段（前台，不限制状态由queryWhereCms处理） -->
     <sql id="queryWhere">
         <where>
-            pa.status = 'published'
+            pa.del_flag = '0'
+            AND pa.status = 'published'
             <if test="params.title != null and params.title != ''">
                 AND pa.title like concat('%', #{params.title}, '%')
             </if>
@@ -152,10 +162,10 @@
         </where>
     </sql>
 
-    <!-- CMS查询条件片段（不自动过滤状态） -->
+    <!-- CMS查询条件片段（不自动过滤状态；默认排除已逻辑删除，CMS 后台如需查看已删除数据可走独立接口） -->
     <sql id="queryWhereCms">
         <where>
-            1=1
+            pa.del_flag = '0'
             <if test="params.title != null and params.title != ''">
                 AND pa.title like concat('%', #{params.title}, '%')
             </if>
@@ -189,10 +199,11 @@
         </where>
     </sql>
 
-    <!-- "我的文章"查询条件片段（强制 author_id，status 可选，不强制 published） -->
+    <!-- "我的文章"查询条件片段（强制 author_id，status 可选，不强制 published；排除已逻辑删除） -->
     <sql id="queryWhereMy">
         <where>
-            pa.author_id = #{params.authorId}
+            pa.del_flag = '0'
+            AND pa.author_id = #{params.authorId}
             <if test="params.title != null and params.title != ''">
                 AND pa.title like concat('%', #{params.title}, '%')
             </if>
@@ -248,7 +259,8 @@
     <select id="selectHotArticles" resultMap="PortalArticleResult">
         <include refid="selectPortalArticleVo"/>
         <where>
-            pa.status = 'published'
+            pa.del_flag = '0'
+            AND pa.status = 'published'
         </where>
         order by pa.views desc, pa.create_time desc
     </select>
@@ -257,7 +269,8 @@
     <select id="selectFeaturedArticles" resultMap="PortalArticleResult">
         <include refid="selectPortalArticleVo"/>
         <where>
-            pa.status = 'published'
+            pa.del_flag = '0'
+            AND pa.status = 'published'
             AND pa.is_featured = true
         </where>
         order by pa.is_top desc, pa.published_at desc, pa.create_time desc
@@ -267,7 +280,8 @@
     <select id="selectCarouselArticles" resultMap="PortalArticleResult">
         <include refid="selectPortalArticleVo"/>
         <where>
-            pa.status = 'published'
+            pa.del_flag = '0'
+            AND pa.status = 'published'
             AND pa.is_carousel = true
         </where>
         order by pa.create_time desc
@@ -277,7 +291,8 @@
     <select id="selectRelatedArticles" resultMap="PortalArticleResult">
         <include refid="selectPortalArticleVo"/>
         <where>
-            pa.status = 'published'
+            pa.del_flag = '0'
+            AND pa.status = 'published'
             AND pa.id != #{currentId}
         </where>
         order by pa.create_time desc
@@ -287,22 +302,24 @@
     <select id="selectLatestArticles" resultMap="PortalArticleResult">
         <include refid="selectPortalArticleVo"/>
         <where>
-            pa.status = 'published'
+            pa.del_flag = '0'
+            AND pa.status = 'published'
         </where>
         order by pa.create_time desc
     </select>
 
-    <!-- 根据ID查询 -->
+    <!-- 根据ID查询（排除已逻辑删除） -->
     <select id="selectPortalArticleById" parameterType="Long" resultMap="PortalArticleResult">
         <include refid="selectPortalArticleVo"/>
-        where pa.id = #{id}
+        where pa.id = #{id} and pa.del_flag = '0'
     </select>
 
     <!-- 根据ID列表批量查询已发布文章（用于"我的收藏"等场景，仅返回 published） -->
     <select id="selectArticlesByIds" resultMap="PortalArticleResult">
         <include refid="selectPortalArticleVo"/>
         <where>
-            pa.status = 'published'
+            pa.del_flag = '0'
+            AND pa.status = 'published'
             AND pa.id IN
             <foreach item="id" collection="ids" open="(" separator="," close=")">
                 #{id}
@@ -317,34 +334,92 @@
         INNER JOIN portal_tip_order t ON t.target_type = 'article_paid'
                                       AND t.target_id = pa.id
                                       AND t.status = 'paid'
-        WHERE pa.status = 'published'
+        WHERE pa.del_flag = '0'
+          AND pa.status = 'published'
           AND t.user_id = #{userId}
         ORDER BY t.paid_time DESC
     </select>
 
-    <!-- 根据别名查询 -->
+    <!-- 根据别名查询（排除已逻辑删除） -->
     <select id="selectPortalArticleBySlug" parameterType="String" resultMap="PortalArticleResult">
         <include refid="selectPortalArticleVo"/>
-        where pa.slug = #{slug}
+        where pa.slug = #{slug} and pa.del_flag = '0'
     </select>
 
     <!-- 新增文章 -->
     <insert id="insertPortalArticle" parameterType="com.moyun.portal.domain.entity.PortalArticle"
             useGeneratedKeys="true" keyProperty="id">
-        insert into portal_article(title, slug, content, excerpt, cover, author_id, category_id,
-                                   root_category_id, category_path,
-                                   status,
-                                   is_featured, is_top, is_carousel, is_category_recommended, views, likes, comments,
-                                   share_count, bookmark_count, published_at, link, editor_mode, session_token,
-                                   content_markdown, is_paid, paid_content, preview_length, price,
-                                   create_by, create_time, update_by, update_time, remark)
-        values(#{title}, #{slug}, #{content}, #{excerpt}, #{cover}, #{authorId}, #{categoryId},
-               #{rootCategoryId}, #{categoryPath},
-               #{status},
-               #{isFeatured}, #{isTop}, #{isCarousel}, #{isCategoryRecommended}, #{views}, #{likes}, #{comments},
-               #{shareCount}, #{bookmarkCount}, #{publishedAt}, #{link}, #{editorMode}, #{sessionToken},
-               #{contentMarkdown}, #{isPaid}, #{paidContent}, #{previewLength}, #{price},
-               #{createBy}, #{createTime}, #{updateBy}, #{updateTime}, #{remark})
+        insert into portal_article
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            title, slug, content, excerpt, cover,
+            <if test="authorId != null">author_id,</if>
+            <if test="authorBusinessId != null">author_business_id,</if>
+            <if test="categoryId != null">category_id,</if>
+            <if test="categoryBusinessId != null">category_business_id,</if>
+            <if test="rootCategoryId != null">root_category_id,</if>
+            <if test="rootCategoryBusinessId != null">root_category_business_id,</if>
+            <if test="categoryPath != null">category_path,</if>
+            <if test="status != null">status,</if>
+            <if test="isFeatured != null">is_featured,</if>
+            <if test="isTop != null">is_top,</if>
+            <if test="isCarousel != null">is_carousel,</if>
+            <if test="isCategoryRecommended != null">is_category_recommended,</if>
+            <if test="views != null">views,</if>
+            <if test="likes != null">likes,</if>
+            <if test="comments != null">comments,</if>
+            <if test="shareCount != null">share_count,</if>
+            <if test="bookmarkCount != null">bookmark_count,</if>
+            <if test="publishedAt != null">published_at,</if>
+            <if test="link != null">link,</if>
+            <if test="editorMode != null">editor_mode,</if>
+            <if test="sessionToken != null">session_token,</if>
+            <if test="contentMarkdown != null">content_markdown,</if>
+            <if test="isPaid != null">is_paid,</if>
+            <if test="paidContent != null">paid_content,</if>
+            <if test="previewLength != null">preview_length,</if>
+            <if test="price != null">price,</if>
+            <if test="createBy != null">create_by,</if>
+            <if test="createTime != null">create_time,</if>
+            <if test="updateBy != null">update_by,</if>
+            <if test="updateTime != null">update_time,</if>
+            <if test="remark != null">remark,</if>
+            <if test="businessId != null">business_id,</if>
+        </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            #{title}, #{slug}, #{content}, #{excerpt}, #{cover},
+            <if test="authorId != null">#{authorId},</if>
+            <if test="authorBusinessId != null">#{authorBusinessId},</if>
+            <if test="categoryId != null">#{categoryId},</if>
+            <if test="categoryBusinessId != null">#{categoryBusinessId},</if>
+            <if test="rootCategoryId != null">#{rootCategoryId},</if>
+            <if test="rootCategoryBusinessId != null">#{rootCategoryBusinessId},</if>
+            <if test="categoryPath != null">#{categoryPath},</if>
+            <if test="status != null">#{status},</if>
+            <if test="isFeatured != null">#{isFeatured},</if>
+            <if test="isTop != null">#{isTop},</if>
+            <if test="isCarousel != null">#{isCarousel},</if>
+            <if test="isCategoryRecommended != null">#{isCategoryRecommended},</if>
+            <if test="views != null">#{views},</if>
+            <if test="likes != null">#{likes},</if>
+            <if test="comments != null">#{comments},</if>
+            <if test="shareCount != null">#{shareCount},</if>
+            <if test="bookmarkCount != null">#{bookmarkCount},</if>
+            <if test="publishedAt != null">#{publishedAt},</if>
+            <if test="link != null">#{link},</if>
+            <if test="editorMode != null">#{editorMode},</if>
+            <if test="sessionToken != null">#{sessionToken},</if>
+            <if test="contentMarkdown != null">#{contentMarkdown},</if>
+            <if test="isPaid != null">#{isPaid},</if>
+            <if test="paidContent != null">#{paidContent},</if>
+            <if test="previewLength != null">#{previewLength},</if>
+            <if test="price != null">#{price},</if>
+            <if test="createBy != null">#{createBy},</if>
+            <if test="createTime != null">#{createTime},</if>
+            <if test="updateBy != null">#{updateBy},</if>
+            <if test="updateTime != null">#{updateTime},</if>
+            <if test="remark != null">#{remark},</if>
+            <if test="businessId != null">#{businessId},</if>
+        </trim>
     </insert>
 
     <!-- 修改文章 -->
@@ -357,8 +432,11 @@
             <if test="excerpt != null">excerpt = #{excerpt},</if>
             <if test="cover != null">cover = #{cover},</if>
             <if test="authorId != null">author_id = #{authorId},</if>
+            <if test="authorBusinessId != null">author_business_id = #{authorBusinessId},</if>
             <if test="categoryId != null">category_id = #{categoryId},</if>
+            <if test="categoryBusinessId != null">category_business_id = #{categoryBusinessId},</if>
             <if test="rootCategoryId != null">root_category_id = #{rootCategoryId},</if>
+            <if test="rootCategoryBusinessId != null">root_category_business_id = #{rootCategoryBusinessId},</if>
             <if test="categoryPath != null">category_path = #{categoryPath},</if>
             <if test="status != null">status = #{status},</if>
             <if test="isFeatured != null">is_featured = #{isFeatured},</if>
@@ -382,22 +460,23 @@
             <if test="updateBy != null">update_by = #{updateBy},</if>
             <if test="updateTime != null">update_time = #{updateTime},</if>
             <if test="remark != null">remark = #{remark},</if>
+            <if test="businessId != null">business_id = #{businessId},</if>
         </set>
         where id = #{id}
     </update>
 
-    <!-- 删除文章 -->
-    <delete id="deletePortalArticleById" parameterType="Long">
-        delete from portal_article where id = #{id}
-    </delete>
+    <!-- v5.9 逻辑删除：与 BaseEntity.delFlag 对齐，避免物理删除导致数据丢失与孤儿关联 -->
+    <update id="deletePortalArticleById" parameterType="Long">
+        update portal_article set del_flag = '2' where id = #{id}
+    </update>
 
-    <!-- 批量删除文章 -->
-    <delete id="deletePortalArticleByIds" parameterType="Long">
-        delete from portal_article where id in
+    <!-- 批量逻辑删除文章 -->
+    <update id="deletePortalArticleByIds" parameterType="Long">
+        update portal_article set del_flag = '2' where id in
         <foreach item="item" collection="array" open="(" separator="," close=")">
             #{item}
         </foreach>
-    </delete>
+    </update>
 
     <!-- ========== CMS专用查询（不限制状态） ========== -->
 
@@ -415,10 +494,10 @@
         <include refid="defaultOrderBy"/>
     </select>
 
-    <!-- CMS根据ID查询文章 -->
+    <!-- CMS根据ID查询文章（排除已逻辑删除） -->
     <select id="selectCmsArticleById" parameterType="Long" resultMap="CmsArticleResult">
         <include refid="selectCmsArticleVo"/>
-        where pa.id = #{id}
+        where pa.id = #{id} and pa.del_flag = '0'
     </select>
 
 </mapper>

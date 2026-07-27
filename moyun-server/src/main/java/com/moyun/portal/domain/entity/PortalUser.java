@@ -6,7 +6,9 @@ import jakarta.validation.constraints.Size;
 import java.time.LocalDateTime;
 
 import com.baomidou.mybatisplus.annotation.IdType;
+import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
+import com.baomidou.mybatisplus.annotation.TableLogic;
 import com.baomidou.mybatisplus.annotation.TableName;
 import com.fasterxml.jackson.annotation.JsonFormat;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -153,7 +155,12 @@ public class PortalUser extends BaseEntity {
     private String status;
 
     /** 删除标志（0代表存在 2代表删除） */
+    @TableLogic
+    @TableField(value = "del_flag")
     private String delFlag;
+
+    /** 业务主键（前缀usr_，用于跨表关联，避免自增id在TRUNCATE后错乱） */
+    private String businessId;
 
     /** 最后登录IP */
     private String loginIp;

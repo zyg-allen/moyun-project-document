@@ -1,59 +1,97 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import type { Article } from '@/types/api'
-import { safeLocalStorage } from '@/utils/security'
 import * as articleApi from '@/api/article'
 
-const storage = safeLocalStorage()
-const LIKED_KEY = 'article:likedIds'
-const BOOKMARKED_KEY = 'article:bookmarkedIds'
-
+/**
+ * 文章 Store（v5.9 重构）
+ *
+ * 设计变更：
+ * 不再用 localStorage 缓存点赞 / 收藏的 articleId 数组。
+ * 原因：localStorage 是设备级共享的，多账号切换时会跨账号污染
+ *   （A 账号点赞后切到 B 账号，B 看到自己也"已点赞"，但服务端实际无此记录）。
+ * 现在严格以服务端返回的 article.isLiked / article.isBookmarked 为唯一真相源，
+ * 详情接口在登录态下会动态填充这两个字段；点赞 / 收藏操作后用接口返回值更新 article 对象本身。
+ *
+ * 后端契约：
+ *   - GET /portal/article/{id} → ArticleVO（含 isLiked / isBookmarked）
+ *   - POST /portal/article/{id}/like → { isLiked, likeCount }
+ *   - POST /portal/bookmark/{articleId}/toggle → { isBookmarked, articleId }
+ */
 export const useArticleStore = defineStore('article', () => {
     const articles = ref<Article[]>([])
     const loading = ref(false)
-    const likedArticleIds = ref<string[]>(storage.getJSON<string[]>(LIKED_KEY, []))
-    const bookmarkedArticleIds = ref<string[]>(storage.getJSON<string[]>(BOOKMARKED_KEY, []))
 
     const bookmarkedArticles = computed(() =>
-        articles.value.filter((a) => bookmarkedArticleIds.value.includes(a.id))
+        articles.value.filter((a) => a.isBookmarked === true)
     )
 
-    function persistLiked() {
-        storage.setJSON(LIKED_KEY, likedArticleIds.value)
-    }
-
-    function persistBookmarked() {
-        storage.setJSON(BOOKMARKED_KEY, bookmarkedArticleIds.value)
-    }
-
+    /** 当前用户是否已点赞某文章（依据 articles 列表中的状态） */
     function isArticleLiked(id: string): boolean {
-        return likedArticleIds.value.includes(id)
+        const target = articles.value.find((a) => a.id === id)
+        return !!target?.isLiked
     }
 
+    /** 当前用户是否已收藏某文章（依据 articles 列表中的状态） */
     function isArticleBookmarked(id: string): boolean {
-        return bookmarkedArticleIds.value.includes(id)
+        const target = articles.value.find((a) => a.id === id)
+        return !!target?.isBookmarked
     }
 
-    function likeArticle(articleId: string) {
-        const idx = likedArticleIds.value.indexOf(articleId)
-        if (idx === -1) {
-            likedArticleIds.value.push(articleId)
-        } else {
-            likedArticleIds.value.splice(idx, 1)
+    /**
+     * 点赞 / 取消点赞（服务端 toggle）
+     * 用 API 返回的 isLiked / likeCount 更新本地 article 对象，避免不同步
+     */
+    async function likeArticleWithApi(article: Article): Promise<{ success: boolean; isLiked?: boolean; likeCount?: number }> {
+        try {
+            const response = await articleApi.toggleLikeArticle(article.id)
+            if (response.code === 200 && response.data) {
+                const data = response.data as { isLiked?: boolean; likeCount?: number }
+                // 用服务端返回值更新 article 对象（真相源）
+                article.isLiked = !!data.isLiked
+                if (data.likeCount !== undefined) {
+                    article.likes = data.likeCount
+                }
+                // 同步更新列表缓存（若存在）
+                const inList = articles.value.find((a) => a.id === article.id)
+                if (inList) {
+                    inList.isLiked = article.isLiked
+                    if (data.likeCount !== undefined) inList.likes = data.likeCount
+                }
+                return { success: true, ...data }
+            }
+            return { success: false, isLiked: false, likeCount: 0 }
+        } catch (error) {
+            console.error('点赞失败:', error)
+            return { success: false, isLiked: false, likeCount: 0 }
         }
-        persistLiked()
     }
 
-    function bookmarkArticle(id: string) {
-        const idx = bookmarkedArticleIds.value.indexOf(id)
-        if (idx === -1) {
-            bookmarkedArticleIds.value.push(id)
-        } else {
-            bookmarkedArticleIds.value.splice(idx, 1)
+    /**
+     * 收藏 / 取消收藏（服务端 toggle）
+     * 用 API 返回的 isBookmarked 更新本地 article 对象
+     */
+    async function bookmarkArticleWithApi(article: Article): Promise<{ success: boolean; isBookmarked?: boolean }> {
+        try {
+            const response = await articleApi.toggleBookmarkArticle(article.id)
+            if (response.code === 200 && response.data) {
+                const data = response.data as { isBookmarked?: boolean }
+                article.isBookmarked = !!data.isBookmarked
+                // 同步更新列表缓存（若存在）
+                const inList = articles.value.find((a) => a.id === article.id)
+                if (inList) {
+                    inList.isBookmarked = article.isBookmarked
+                }
+                return { success: true, isBookmarked: data.isBookmarked }
+            }
+            return { success: false, isBookmarked: false }
+        } catch (error) {
+            console.error('收藏失败:', error)
+            return { success: false, isBookmarked: false }
         }
-        persistBookmarked()
     }
 
+    /** 分享计数（仅本地乐观更新，无服务端状态） */
     function shareArticle(id: string) {
         const target = articles.value.find((a) => a.id === id)
         if (target) {
@@ -92,34 +130,6 @@ export const useArticleStore = defineStore('article', () => {
         }
     }
 
-    async function likeArticleWithApi(articleId: string): Promise<{ success: boolean; isLiked?: boolean; likeCount?: number }> {
-        try {
-            const response = await articleApi.toggleLikeArticle(articleId)
-            if (response.code === 200 && response.data) {
-                likeArticle(articleId)
-                return { success: true, ...(response.data as any) }
-            }
-            return { success: false, isLiked: false, likeCount: 0 }
-        } catch (error) {
-            console.error('点赞失败:', error)
-            return { success: false, isLiked: false, likeCount: 0 }
-        }
-    }
-
-    async function bookmarkArticleWithApi(articleId: string): Promise<{ success: boolean; isBookmarked?: boolean }> {
-        try {
-            const response = await articleApi.toggleBookmarkArticle(articleId)
-            if (response.code === 200 && response.data) {
-                bookmarkArticle(articleId)
-                return { success: true, isBookmarked: response.data.isBookmarked }
-            }
-            return { success: false, isBookmarked: false }
-        } catch (error) {
-            console.error('收藏失败:', error)
-            return { success: false, isBookmarked: false }
-        }
-    }
-
     async function fetchArticles(params?: any) {
         return fetchArticlesWithApi(params)
     }
@@ -131,12 +141,8 @@ export const useArticleStore = defineStore('article', () => {
     return {
         articles,
         loading,
-        likedArticleIds,
-        bookmarkedArticleIds,
         bookmarkedArticles,
-        likeArticle,
         isArticleLiked,
-        bookmarkArticle,
         isArticleBookmarked,
         shareArticle,
         likeArticleWithApi,

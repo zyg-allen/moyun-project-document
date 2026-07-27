@@ -60,6 +60,12 @@ public class InterviewQuestionVO implements Serializable {
     /** 当前用户做题状态（登录态返回） */
     private String attemptStatus;
 
+    /** 推荐理由（仅画像推荐接口返回，如 "weak_tag:Spring"、"required_skill:Vue"、"hot"） */
+    private String recommendReason;
+
+    /** 推荐匹配的标签/技能名（仅画像推荐接口返回，用于前端展示徽章） */
+    private String recommendTag;
+
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime createTime;
 

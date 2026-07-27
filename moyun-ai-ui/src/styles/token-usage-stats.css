@@ -1,0 +1,226 @@
+.token-usage-stats {
+  padding: 20px;
+  background: #f8fafc;
+  min-height: 100vh;
+}
+
+.stats-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 24px;
+}
+
+.header-left {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.stats-header h2 {
+  margin: 0;
+  font-size: 26px;
+  color: #303133;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+}
+
+.stats-header h2 i {
+  margin-right: 12px;
+  color: #409eff;
+  font-size: 24px;
+}
+
+.stats-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 20px;
+  margin-bottom: 24px;
+}
+
+.stat-card {
+  background: white;
+  border-radius: 14px;
+  padding: 24px;
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.stat-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.12);
+}
+
+.stat-icon {
+  width: 64px;
+  height: 64px;
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-size: 28px;
+  flex-shrink: 0;
+}
+
+.stat-info {
+  flex: 1;
+}
+
+.stat-value {
+  font-size: 32px;
+  font-weight: 700;
+  color: #303133;
+  line-height: 1.2;
+}
+
+.stat-label {
+  font-size: 14px;
+  color: #909399;
+  margin-top: 6px;
+}
+
+.charts-container {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
+  gap: 20px;
+}
+
+.chart-card {
+  background: white;
+  border-radius: 14px;
+  padding: 24px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+}
+
+.chart-card h3 {
+  margin: 0 0 18px 0;
+  font-size: 16px;
+  color: #303133;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+}
+
+.chart-card h3 i {
+  margin-right: 10px;
+  color: #409eff;
+  font-size: 18px;
+}
+
+.chart-content {
+  min-height: 200px;
+}
+
+/* 头部内联状态 */
+.inline-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: #606266;
+}
+
+.inline-status .status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #67c23a;
+}
+
+.inline-status .status-dot.warning {
+  background: #e6a23c;
+}
+
+.inline-status strong {
+  color: #303133;
+  font-weight: 600;
+}
+
+.inline-status .sep {
+  color: #dcdfe6;
+}
+
+.help-icon {
+  color: #909399;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.help-icon:hover {
+  color: #409eff;
+}
+
+/* 底部趋势图表 */
+.trend-section {
+  display: grid;
+  grid-template-columns: 1.5fr 1fr;
+  gap: 20px;
+  margin-top: 24px;
+}
+
+.trend-card {
+  background: white;
+  border-radius: 12px;
+  padding: 24px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+}
+
+.trend-card h3 {
+  margin: 0 0 20px 0;
+  font-size: 16px;
+  color: #303133;
+  font-weight: 600;
+}
+
+.trend-card h3 i {
+  margin-right: 8px;
+  color: #409eff;
+}
+
+.trend-chart {
+  height: 280px;
+}
+
+.help-popover {
+  font-size: 13px;
+}
+
+.help-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+  color: #606266;
+}
+
+.help-footer {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid #ebeef5;
+  font-size: 12px;
+  color: #909399;
+}
+
+@media (max-width: 768px) {
+  .stats-header {
+    flex-direction: column;
+    gap: 16px;
+  }
+  
+  .charts-container {
+    grid-template-columns: 1fr;
+  }
+  
+  .trend-section {
+    grid-template-columns: 1fr;
+  }
+  
+  .inline-status {
+    flex-wrap: wrap;
+  }
+}

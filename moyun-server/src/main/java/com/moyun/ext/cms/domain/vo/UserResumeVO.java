@@ -146,5 +146,19 @@ public class UserResumeVO implements Serializable {
         private Integer score;
         /** 评分说明 */
         private String message;
+        /** 子项明细（v5.9 阶段2：用于岗位匹配度等需要展示子项的维度，可为空） */
+        private List<SubScoreItem> subItems;
+    }
+
+    /** 评分子项（如岗位必备技能匹配明细：Spring 已掌握 / MySQL 缺失） */
+    @Data
+    public static class SubScoreItem implements Serializable {
+        private static final long serialVersionUID = 1L;
+        /** 子项名称（如 "Spring"） */
+        private String name;
+        /** 是否命中（true 已掌握 / false 缺失） */
+        private Boolean hit;
+        /** 子项说明 */
+        private String message;
     }
 }

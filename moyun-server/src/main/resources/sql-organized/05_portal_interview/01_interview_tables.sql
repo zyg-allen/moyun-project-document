@@ -269,19 +269,21 @@ CREATE TABLE IF NOT EXISTS `portal_user_resume` (
 
 -- ----------------------------
 -- 模拟面试会话表
--- 来源：69 建表
+-- 来源：69 建表 + 95 扩展（is_personalized / profile_snapshot）
 -- ----------------------------
 CREATE TABLE IF NOT EXISTS `portal_mock_interview` (
-    `id`          BIGINT       NOT NULL AUTO_INCREMENT COMMENT '主键',
-    `user_id`     BIGINT       NOT NULL                COMMENT '面试用户ID',
-    `position`   VARCHAR(64)  DEFAULT NULL            COMMENT '面试岗位（如 后端开发/前端开发）',
-    `scene`      VARCHAR(64)  DEFAULT NULL            COMMENT '面试场景（如 算法/系统设计/项目深挖，对应题目分类）',
-    `status`     VARCHAR(16)  NOT NULL DEFAULT 'in_progress' COMMENT '状态 in_progress/finished',
-    `total_qa`   INT          NOT NULL DEFAULT 0      COMMENT '题目总数',
-    `score`      INT          DEFAULT NULL            COMMENT '面试总分（0-100，结束面试时计算）',
-    `summary`    TEXT                                  COMMENT 'AI 生成的面试总结',
-    `create_time` DATETIME    DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
-    `update_time` DATETIME    DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    `id`               BIGINT       NOT NULL AUTO_INCREMENT COMMENT '主键',
+    `user_id`          BIGINT       NOT NULL                COMMENT '面试用户ID',
+    `position`         VARCHAR(64)  DEFAULT NULL            COMMENT '面试岗位（如 后端开发/前端开发）',
+    `scene`            VARCHAR(64)  DEFAULT NULL            COMMENT '面试场景（如 算法/系统设计/项目深挖，对应题目分类）',
+    `status`           VARCHAR(16)  NOT NULL DEFAULT 'in_progress' COMMENT '状态 in_progress/finished',
+    `total_qa`         INT          NOT NULL DEFAULT 0      COMMENT '题目总数',
+    `score`            INT          DEFAULT NULL            COMMENT '面试总分（0-100，结束面试时计算）',
+    `summary`          TEXT                                  COMMENT 'AI 生成的面试总结',
+    `is_personalized`  TINYINT(1)   DEFAULT 0               COMMENT 'v5.9：是否画像驱动抽题（0 否 / 1 是）',
+    `profile_snapshot` TEXT                                  COMMENT 'v5.9：画像快照 JSON（含岗位必备技能、薄弱点、面试统计）',
+    `create_time`      DATETIME     DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    `update_time`      DATETIME     DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
     PRIMARY KEY (`id`),
     KEY `idx_user_time` (`user_id`, `create_time`),
     KEY `idx_status` (`status`)
@@ -465,6 +467,31 @@ CREATE TABLE IF NOT EXISTS `portal_interview_question_company` (
     UNIQUE KEY `uk_question_company` (`question_id`, `company_id`),
     KEY `idx_company_id` (`company_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='题目-公司关联表';
+
+-- ----------------------------
+-- 面试岗位字典表
+-- 来源：95 建表（v5.9 阶段0：画像驱动抽题）
+-- ----------------------------
+CREATE TABLE IF NOT EXISTS `portal_interview_position` (
+    `id`              BIGINT       NOT NULL AUTO_INCREMENT COMMENT '主键',
+    `code`            VARCHAR(64)  NOT NULL                COMMENT '岗位编码（如 java_backend）',
+    `name`            VARCHAR(100) NOT NULL                COMMENT '岗位名称（如 Java后端工程师）',
+    `industry`        VARCHAR(50)  DEFAULT NULL            COMMENT '所属行业（如 互联网/金融/制造）',
+    `level`           VARCHAR(32)  DEFAULT NULL            COMMENT '岗位级别（junior/mid/senior）',
+    `required_skills` TEXT                                 COMMENT '必备技能 JSON 数组（如 ["Spring","MySQL","Redis"]，与 portal_tag.name 对齐）',
+    `hot_companies`   TEXT                                 COMMENT '热门公司 JSON 数组（如 ["阿里","腾讯","字节"]）',
+    `description`     VARCHAR(500) DEFAULT NULL            COMMENT '岗位描述',
+    `sort`            INT          DEFAULT 0               COMMENT '排序',
+    `status`          VARCHAR(16)  DEFAULT 'active'        COMMENT '状态 active/inactive',
+    `create_by`       VARCHAR(64)  DEFAULT ''              COMMENT '创建者',
+    `create_time`     DATETIME     DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    `update_by`       VARCHAR(64)  DEFAULT ''             COMMENT '更新者',
+    `update_time`     DATETIME     DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    `remark`          VARCHAR(500) DEFAULT NULL            COMMENT '备注',
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uk_code` (`code`),
+    KEY `idx_status_sort` (`status`, `sort`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='面试岗位字典表';
 
 SET FOREIGN_KEY_CHECKS = 1;
 

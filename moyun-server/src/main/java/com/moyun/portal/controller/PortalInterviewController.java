@@ -80,6 +80,18 @@ public class PortalInterviewController extends BaseController {
         return AjaxResult.success(portalInterviewService.selectQuestionPage(page, query, currentUserId()));
     }
 
+    @Operation(summary = "画像推荐题目", description = "基于用户画像（薄弱点 + 岗位必备技能 + 热门兜底）推荐题目，需登录；未登录或无画像时返回空列表")
+    @GetMapping("/question/recommend")
+    @Anonymous
+    public AjaxResult getRecommendedQuestions(@RequestParam(value = "limit", required = false, defaultValue = "6") Integer limit) {
+        Long userId = currentUserId();
+        if (userId == null) {
+            return AjaxResult.success(java.util.Collections.emptyList());
+        }
+        int safeLimit = limit == null ? 6 : Math.max(1, Math.min(limit, 12));
+        return AjaxResult.success(portalInterviewService.selectRecommendedQuestions(userId, safeLimit));
+    }
+
     @Operation(summary = "获取题目详情")
     @GetMapping("/question/{id}")
     @Anonymous

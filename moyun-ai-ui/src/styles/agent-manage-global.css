@@ -1,0 +1,271 @@
+/* 全局tooltip样式 - 用于提示词悬浮显示 */
+.prompt-tooltip {
+  max-width: 400px !important;
+  padding: 12px 16px !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2) !important;
+  border-radius: 10px !important;
+  line-height: 1.6 !important;
+  font-size: 13px !important;
+  white-space: pre-wrap !important;
+  word-break: break-word !important;
+}
+
+.prompt-tooltip.is-dark {
+  background: linear-gradient(135deg, #1f2937 0%, #111827 100%) !important;
+  color: #e5e7eb !important;
+}
+
+/* 统计对话框样式 */
+.stats-container {
+  padding: 10px 0;
+}
+
+.stats-cards {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.stat-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px;
+  background: #f8fafc;
+  border-radius: 12px;
+  border: 1px solid #e4e7ed;
+}
+
+.stat-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-size: 20px;
+}
+
+.stat-info {
+  flex: 1;
+}
+
+.stat-value {
+  font-size: 24px;
+  font-weight: 600;
+  color: #303133;
+}
+
+.stat-label {
+  font-size: 12px;
+  color: #909399;
+  margin-top: 2px;
+}
+
+.recent-sessions {
+  margin-bottom: 24px;
+}
+
+.recent-sessions h4,
+.api-info h4 {
+  font-size: 14px;
+  font-weight: 600;
+  color: #303133;
+  margin: 0 0 12px 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.recent-sessions h4 i,
+.api-info h4 i {
+  color: #409eff;
+}
+
+.api-info {
+  background: #f0f9eb;
+  padding: 16px;
+  border-radius: 8px;
+  border: 1px solid #e1f3d8;
+}
+
+.api-key-display {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.api-key {
+  font-family: monospace;
+  font-size: 14px;
+  background: white;
+  padding: 8px 12px;
+  border-radius: 4px;
+  border: 1px solid #dcdfe6;
+  flex: 1;
+}
+
+.api-endpoint {
+  font-size: 13px;
+  color: #606266;
+}
+
+.api-endpoint code {
+  background: white;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-family: monospace;
+  color: #409eff;
+}
+
+/* API文档样式 */
+.api-docs {
+  margin-top: 12px;
+}
+
+.api-docs h5 {
+  font-size: 14px;
+  font-weight: 600;
+  color: #303133;
+  margin: 0 0 12px 0;
+}
+
+.api-section {
+  margin-bottom: 16px;
+}
+
+.api-title {
+  font-size: 12px;
+  font-weight: 500;
+  color: #606266;
+  margin-bottom: 6px;
+}
+
+.api-url {
+  display: block;
+  background: white;
+  padding: 8px 12px;
+  border-radius: 4px;
+  font-family: monospace;
+  font-size: 13px;
+  color: #409eff;
+  border: 1px solid #dcdfe6;
+}
+
+.code-block {
+  background: #1e1e1e;
+  color: #d4d4d4;
+  padding: 12px;
+  border-radius: 6px;
+  font-family: monospace;
+  font-size: 12px;
+  line-height: 1.5;
+  overflow-x: auto;
+  white-space: pre;
+  margin: 0;
+}
+
+@media (max-width: 768px) {
+  .stats-cards {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+/* ============================================
+   弹窗响应式优化
+   ============================================ */
+
+/* 弹窗在中等屏幕下的处理 */
+@media (max-width: 1200px) {
+  .el-dialog {
+    width: 90% !important;
+    max-width: 1100px;
+  }
+}
+
+/* 弹窗在小屏幕下的处理 */
+@media (max-width: 768px) {
+  .el-dialog {
+    width: 95% !important;
+    margin: 10px auto !important;
+  }
+  
+  .el-dialog__body {
+    max-height: calc(100vh - 140px);
+    overflow-y: auto;
+    padding: 16px !important;
+  }
+  
+  .el-dialog__header {
+    padding: 12px 16px !important;
+  }
+  
+  .el-dialog__footer {
+    padding: 10px 16px !important;
+  }
+}
+
+/* ============================================
+   配置摘要样式
+   ============================================ */
+.config-summary {
+  background: #f8fafc;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 20px;
+  margin-top: 20px;
+}
+
+.config-summary .summary-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: #1f2937;
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.config-summary .summary-title i {
+  color: #6366f1;
+}
+
+.config-summary .summary-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+}
+
+.config-summary .summary-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 14px;
+  background: white;
+  border-radius: 8px;
+  border: 1px solid #f3f4f6;
+}
+
+.config-summary .summary-item .label {
+  font-size: 13px;
+  color: #6b7280;
+}
+
+.config-summary .summary-item .value {
+  font-size: 13px;
+  font-weight: 500;
+  color: #10b981;
+}
+
+.config-summary .summary-item .value.empty {
+  color: #9ca3af;
+}
+
+@media (max-width: 768px) {
+  .config-summary .summary-grid {
+    grid-template-columns: 1fr;
+  }
+}

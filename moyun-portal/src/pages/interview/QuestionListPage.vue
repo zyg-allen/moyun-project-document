@@ -5,20 +5,25 @@ import { useHead } from '@vueuse/head';
 import {
   Briefcase, Search, Star, CheckCircle, Zap,
   ChevronLeft, ChevronRight, BookOpen,
+  Sparkles, Target, TrendingUp, RefreshCw,
 } from 'lucide-vue-next';
 import LazyImage from '@/components/LazyImage.vue';
 import Breadcrumb from '@/components/Breadcrumb.vue';
 import SiteFooter from '@/components/SiteFooter.vue';
 import { generateSeo } from '@/utils/seo';
-import { getQuestionList, getInterviewCategoryList } from '@/api/interview';
+import { getQuestionList, getInterviewCategoryList, getRecommendedQuestions } from '@/api/interview';
+import { getMyMockProfile } from '@/api/mockInterview';
+import { useAuth } from '@/composables/useAuth';
 import type {
   InterviewQuestionVO,
   InterviewCategoryVO,
   InterviewQuestionQuery,
+  UserProfileSnapshotVO,
 } from '@/types/api';
 
 const route = useRoute();
 const router = useRouter();
+const { isAuthenticated } = useAuth();
 
 // ========== 筛选状态（支持从 URL query 初始化） ==========
 const activeCategoryId = ref<string | number | null>(
@@ -40,6 +45,12 @@ const error = ref<string | null>(null);
 const questions = ref<InterviewQuestionVO[]>([]);
 const categories = ref<InterviewCategoryVO[]>([]);
 
+// ========== 画像推荐（v5.9 阶段1） ==========
+const recoLoading = ref(false);
+const recoQuestions = ref<InterviewQuestionVO[]>([]);
+const profile = ref<UserProfileSnapshotVO | null>(null);
+const showRecommend = computed(() => isAuthenticated() && recoQuestions.value.length > 0);
+
 // ========== 难度配置 ==========
 const difficultyOptions = [
   { key: '', label: '全部' },
@@ -52,6 +63,13 @@ const difficultyMap: Record<string, { label: string; class: string }> = {
   easy: { label: '简单', class: 'bg-green-100 text-green-700' },
   medium: { label: '中等', class: 'bg-yellow-100 text-yellow-700' },
   hard: { label: '困难', class: 'bg-red-100 text-red-700' },
+};
+
+// ========== 推荐来源映射 ==========
+const reasonMap: Record<string, { label: string; class: string; icon: any }> = {
+  weak_tag: { label: '薄弱点', class: 'bg-red-50 text-red-600 border border-red-200', icon: Target },
+  required_skill: { label: '必备技能', class: 'bg-blue-50 text-blue-600 border border-blue-200', icon: Zap },
+  hot: { label: '热门推荐', class: 'bg-amber-50 text-amber-600 border border-amber-200', icon: TrendingUp },
 };
 
 // ========== SEO ==========
@@ -71,6 +89,7 @@ const breadcrumbs = computed(() => [
 onMounted(() => {
   loadCategories();
   loadQuestions();
+  loadRecommendations();
 });
 
 watch([activeCategoryId, activeDifficulty, keyword, page], () => {
@@ -112,6 +131,32 @@ async function loadQuestions() {
     error.value = err?.message || '加载题目失败，请稍后重试';
   } finally {
     loading.value = false;
+  }
+}
+
+/** 加载画像推荐题目与画像快照（仅登录用户） */
+async function loadRecommendations() {
+  if (!isAuthenticated()) return;
+  try {
+    recoLoading.value = true;
+    // 并行拉取推荐题目与画像快照
+    const [recoRes, profileRes] = await Promise.all([
+      getRecommendedQuestions(6),
+      getMyMockProfile({}).catch(() => null),
+    ]);
+    if (recoRes.code === 200 && recoRes.data) {
+      recoQuestions.value = recoRes.data;
+    }
+    if (profileRes && profileRes.code === 200 && profileRes.data) {
+      profile.value = profileRes.data;
+    }
+  } catch (err) {
+    // 未登录或画像构建失败时静默隐藏推荐模块
+    console.warn('加载推荐题目失败:', err);
+    recoQuestions.value = [];
+    profile.value = null;
+  } finally {
+    recoLoading.value = false;
   }
 }
 
@@ -181,6 +226,180 @@ function gotoPage(p: number) {
             </button>
           </div>
         </div>
+
+        <!-- 为你推荐（v5.9 阶段1：基于用户画像推荐） -->
+        <section
+          v-if="showRecommend"
+          class="mb-6 rounded-2xl overflow-hidden"
+          style="background: linear-gradient(135deg, var(--theme-primary) 0%, var(--theme-primary-dark, #4f46e5) 100%);"
+        >
+          <div class="px-5 py-4 sm:px-6 sm:py-5 text-white">
+            <!-- 标题行 -->
+            <div class="flex items-center justify-between gap-3 mb-3">
+              <div class="flex items-center gap-2">
+                <Sparkles class="w-5 h-5 flex-shrink-0" />
+                <h2 class="text-base sm:text-lg font-semibold">为你推荐</h2>
+                <span class="text-xs opacity-80 hidden sm:inline">基于你的画像（薄弱点 · 岗位必备技能）智能召回</span>
+              </div>
+              <button
+                @click="loadRecommendations"
+                :disabled="recoLoading"
+                class="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs bg-white/15 hover:bg-white/25 transition disabled:opacity-50"
+                aria-label="刷新推荐"
+              >
+                <RefreshCw class="w-3.5 h-3.5" :class="{ 'animate-spin': recoLoading }" />
+                <span class="hidden sm:inline">刷新</span>
+              </button>
+            </div>
+
+            <!-- 画像摘要（薄弱点 + 必备技能 + 面试统计） -->
+            <div
+              v-if="profile"
+              class="flex flex-wrap items-center gap-2 mb-4 text-xs"
+            >
+              <span
+                v-if="profile.weakTags && profile.weakTags.length > 0"
+                class="flex items-center gap-1 px-2 py-1 rounded-full bg-white/15"
+              >
+                <Target class="w-3 h-3" />
+                薄弱点 {{ profile.weakTags.length }}
+              </span>
+              <span
+                v-if="profile.requiredSkills && profile.requiredSkills.length > 0"
+                class="flex items-center gap-1 px-2 py-1 rounded-full bg-white/15"
+              >
+                <Zap class="w-3 h-3" />
+                必备技能 {{ profile.requiredSkills.length }}
+              </span>
+              <span
+                v-if="profile.mockInterviewCount != null && profile.mockInterviewCount > 0"
+                class="flex items-center gap-1 px-2 py-1 rounded-full bg-white/15"
+              >
+                <CheckCircle class="w-3 h-3" />
+                模拟面试 {{ profile.mockInterviewCount }} 次
+              </span>
+              <span
+                v-if="profile.avgMockScore != null && profile.avgMockScore > 0"
+                class="flex items-center gap-1 px-2 py-1 rounded-full bg-white/15"
+              >
+                <Star class="w-3 h-3" />
+                平均分 {{ profile.avgMockScore }}
+              </span>
+              <span
+                v-if="!profile.personalized"
+                class="px-2 py-1 rounded-full bg-white/15"
+              >
+                暂无画像数据，先答题或模拟面试以激活个性化推荐
+              </span>
+            </div>
+
+            <!-- 薄弱点标签云 -->
+            <div
+              v-if="profile && profile.weakTags && profile.weakTags.length > 0"
+              class="flex flex-wrap items-center gap-1.5 mb-4"
+            >
+              <span class="text-xs opacity-80 mr-1">薄弱：</span>
+              <span
+                v-for="wt in profile.weakTags.slice(0, 6)"
+                :key="wt.tagId"
+                class="px-2 py-0.5 rounded text-xs bg-white/15 hover:bg-white/25 transition cursor-default"
+                :title="`答 ${wt.total} 题，通过 ${wt.solved}，失败率 ${(wt.failRate * 100).toFixed(0)}%`"
+              >
+                {{ wt.tagName }}
+              </span>
+            </div>
+          </div>
+
+          <!-- 推荐题目卡片网格 -->
+          <div class="px-3 sm:px-4 pb-4">
+            <div
+              v-if="recoLoading"
+              class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3"
+            >
+              <div
+                v-for="n in 6"
+                :key="n"
+                class="rounded-xl p-4 animate-pulse"
+                style="background-color: rgba(255,255,255,0.95); height: 120px;"
+              >
+                <div class="h-3 w-16 bg-gray-200 rounded mb-3"></div>
+                <div class="h-4 w-3/4 bg-gray-200 rounded mb-2"></div>
+                <div class="h-3 w-1/2 bg-gray-100 rounded"></div>
+              </div>
+            </div>
+            <div
+              v-else
+              class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3"
+            >
+              <div
+                v-for="q in recoQuestions"
+                :key="q.id"
+                @click="gotoQuestion(q.id)"
+                class="rounded-xl p-4 transition cursor-pointer hover:shadow-lg hover:-translate-y-0.5"
+                style="background-color: rgba(255,255,255,0.97);"
+              >
+                <!-- 推荐来源徽章 + 难度 -->
+                <div class="flex items-center justify-between gap-2 mb-2">
+                  <span
+                    v-if="q.recommendReason && reasonMap[q.recommendReason]"
+                    class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium"
+                    :class="reasonMap[q.recommendReason].class"
+                  >
+                    <component
+                      :is="reasonMap[q.recommendReason].icon"
+                      class="w-3 h-3"
+                    />
+                    {{ reasonMap[q.recommendReason].label }}
+                  </span>
+                  <span
+                    v-else
+                    class="px-2 py-0.5 rounded text-xs font-medium"
+                    :class="difficultyMap[q.difficulty]?.class"
+                  >
+                    {{ difficultyMap[q.difficulty]?.label || q.difficulty }}
+                  </span>
+                  <span
+                    v-if="q.recommendTag"
+                    class="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 truncate max-w-[50%]"
+                    :title="q.recommendTag"
+                  >
+                    #{{ q.recommendTag }}
+                  </span>
+                </div>
+
+                <!-- 标题 -->
+                <h3 class="text-sm font-semibold mb-1.5 line-clamp-2" style="color: var(--theme-text);">
+                  {{ q.title }}
+                </h3>
+
+                <!-- 描述 -->
+                <p
+                  v-if="q.description"
+                  class="text-xs line-clamp-2 mb-2"
+                  style="color: var(--theme-text-secondary);"
+                >
+                  {{ q.description }}
+                </p>
+
+                <!-- 统计 -->
+                <div class="flex items-center gap-3 text-xs" style="color: var(--theme-text-secondary);">
+                  <span class="flex items-center">
+                    <CheckCircle class="w-3 h-3 mr-1" />
+                    {{ q.acceptanceRate }}%
+                  </span>
+                  <span class="flex items-center">
+                    <Zap class="w-3 h-3 mr-1" />
+                    {{ q.submissionCount }}
+                  </span>
+                  <span class="flex items-center">
+                    <Star class="w-3 h-3 mr-1" />
+                    {{ q.likeCount }}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
 
         <div class="flex flex-col lg:flex-row gap-6">
           <!-- 左侧筛选栏 -->

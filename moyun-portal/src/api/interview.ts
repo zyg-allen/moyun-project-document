@@ -1,6 +1,7 @@
 import { httpGet, httpPost, httpDelete, httpPut, httpGetList } from './client';
 import type {
   InterviewCategoryVO,
+  InterviewPositionVO,
   InterviewQuestionVO,
   InterviewQuestionDetailVO,
   InterviewQuestionQuery,
@@ -13,6 +14,7 @@ import type {
   InterviewHomeDataVO,
   UserResumeVO,
   UserResumeQuery,
+  ResumeAiAdviceVO,
   TagVO,
   PageResult,
 } from '@/types/api';
@@ -29,10 +31,33 @@ export const getInterviewCategoryList = () => {
   return httpGet<InterviewCategoryVO[]>('/portal/interview/category/list');
 };
 
+// ==================== 岗位字典（v5.9 阶段1：驱动模拟面试岗位选择与画像抽题） ====================
+
+/**
+ * 获取启用的岗位字典列表（公开接口）
+ * GET /portal/interview/position/list
+ * 返回所有 status=active 的岗位，含必备技能与热门公司 JSON 字符串。
+ * 用于模拟面试岗位选择、用户档案目标岗位选择等场景。
+ */
+export const getInterviewPositions = () => {
+  return httpGet<InterviewPositionVO[]>('/portal/interview/position/list');
+};
+
 // ==================== 题目 ====================
 
 export const getQuestionList = (params?: InterviewQuestionQuery) => {
   return httpGetList<InterviewQuestionVO>('/portal/interview/question/list', params);
+};
+
+/**
+ * 画像推荐题目（v5.9 阶段1：题库页"为你推荐"）
+ * GET /portal/interview/question/recommend?limit=
+ * 基于用户画像（薄弱点 + 岗位必备技能 + 热门兜底）三路召回，需登录。
+ * 未登录或无画像时返回空列表，前端按需隐藏"为你推荐"模块。
+ * 返回的 VO 中 recommendReason / recommendTag 标识推荐来源。
+ */
+export const getRecommendedQuestions = (limit = 6) => {
+  return httpGet<InterviewQuestionVO[]>('/portal/interview/question/recommend', { limit });
 };
 
 export const getQuestionDetail = (questionId: string | number) => {
@@ -272,6 +297,15 @@ export const exportResumePdf = (id: string | number) => {
 
 export const scoreResume = (id: string | number) => {
   return httpPost<UserResumeVO>(`/portal/interview/resume/user/${id}/score`);
+};
+
+/**
+ * 获取简历 AI 改进建议（v5.9 阶段2）
+ * POST /portal/interview/resume/user/{id}/ai-advice
+ * 基于评分明细与岗位匹配度生成改进建议，当前规则化，后期接入 AI 模型。
+ */
+export const getResumeAiAdvice = (id: string | number) => {
+  return httpPost<ResumeAiAdviceVO>(`/portal/interview/resume/user/${id}/ai-advice`);
 };
 
 export const updateResumeStatus = (id: string | number, status: string) => {

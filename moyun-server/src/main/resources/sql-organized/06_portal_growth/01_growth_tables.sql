@@ -99,6 +99,11 @@ CREATE TABLE IF NOT EXISTS `portal_user_stats` (
     `total_like_received`   BIGINT          DEFAULT 0 COMMENT '跨模块总获赞',
     `checkin_streak`        INT             DEFAULT 0 COMMENT '连续签到天数',
     `last_checkin_date`     DATE            DEFAULT NULL COMMENT '最后签到日期',
+    -- v5.9 阶段0：面试画像驱动抽题相关字段
+    `mock_interview_count`  INT             DEFAULT 0 COMMENT '模拟面试次数',
+    `avg_mock_score`        INT             DEFAULT 0 COMMENT '模拟面试平均分',
+    `weak_tags`             TEXT            DEFAULT NULL COMMENT '薄弱知识点 JSON 数组（如 [{"tagId":1,"tagName":"Spring","failRate":0.6}]）',
+    `weak_tags_updated_time` DATETIME       DEFAULT NULL COMMENT '薄弱点最后计算时间',
     `create_by`             VARCHAR(64)     DEFAULT '' COMMENT '创建者',
     `create_time`           DATETIME        DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     `update_by`             VARCHAR(64)     DEFAULT '' COMMENT '更新者',

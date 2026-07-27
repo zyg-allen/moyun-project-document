@@ -51,6 +51,22 @@ public interface IPortalInterviewService {
     // ==================== 题目 ====================
     Page<InterviewQuestionVO> selectQuestionPage(Page<InterviewQuestionVO> page, InterviewQuestionQuery query, Long currentUserId);
 
+    /**
+     * 基于用户画像推荐题目（v5.9 阶段1：题库页"为你推荐"）
+     * <p>
+     * 三路召回策略（与模拟面试画像驱动抽题一致）：
+     * 1. 薄弱点优先：失败率高的标签对应题目
+     * 2. 岗位必备技能：命中岗位字典时召回必备技能相关题目
+     * 3. 热门兜底：未命中画像或召回不足时，按点赞+提交数补齐
+     * <p>
+     * 返回的 VO 中 recommendReason / recommendTag 字段标识推荐来源。
+     *
+     * @param currentUserId 当前用户ID（未登录返回空列表）
+     * @param limit         推荐数量上限（默认 6）
+     * @return 推荐题目列表（已去重，按推荐来源排序）
+     */
+    List<InterviewQuestionVO> selectRecommendedQuestions(Long currentUserId, int limit);
+
     InterviewQuestionDetailVO selectQuestionDetailById(Long id, Long currentUserId);
 
     int insertQuestion(PortalInterviewQuestion question);

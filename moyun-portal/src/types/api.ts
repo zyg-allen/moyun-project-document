@@ -1004,6 +1004,29 @@ export interface InterviewCategoryVO {
   updateTime?: string;
 }
 
+/** 面试岗位字典 VO（v5.9 阶段1：驱动模拟面试岗位选择与画像抽题） */
+export interface InterviewPositionVO {
+  id: string | number;
+  /** 岗位编码（如 java_backend） */
+  code: string;
+  /** 岗位名称（如 Java后端工程师，与后端 findByName 精确匹配） */
+  name: string;
+  /** 所属行业 */
+  industry?: string;
+  /** 岗位级别 junior/mid/senior */
+  level?: string;
+  /** 必备技能 JSON 数组字符串（如 ["Spring","MySQL"]），前端按需 JSON.parse */
+  requiredSkills?: string;
+  /** 热门公司 JSON 数组字符串 */
+  hotCompanies?: string;
+  /** 岗位描述 */
+  description?: string;
+  sort?: number;
+  status: string;
+  createTime?: string;
+  updateTime?: string;
+}
+
 export interface InterviewCompanyVO {
   id: string | number;
   name: string;
@@ -1036,6 +1059,10 @@ export interface InterviewQuestionVO {
   attemptStatus?: 'not_attempted' | 'attempted' | 'solved' | string;
   sort: number;
   status: string;
+  /** 推荐理由（仅画像推荐接口返回：weak_tag/required_skill/hot） */
+  recommendReason?: string;
+  /** 推荐匹配的标签/技能名（仅画像推荐接口返回） */
+  recommendTag?: string;
   createTime?: string;
   updateTime?: string;
 }
@@ -1205,6 +1232,15 @@ export interface UserResumeScoreItem {
   maxScore: number;
   score: number;
   message?: string;
+  /** 子项明细（v5.9 阶段2：用于岗位匹配度等维度，可为空） */
+  subItems?: UserResumeSubScoreItem[];
+}
+
+/** 评分子项（如岗位必备技能匹配明细：Spring 已掌握 / MySQL 缺失） */
+export interface UserResumeSubScoreItem {
+  name: string;
+  hit: boolean;
+  message?: string;
 }
 
 export interface UserResumeVO {
@@ -1234,6 +1270,36 @@ export interface UserResumeVO {
   mine?: boolean;
   createTime?: string;
   updateTime?: string;
+}
+
+/** 简历 AI 改进建议 VO（v5.9 阶段2） */
+export interface ResumeAiAdviceVO {
+  resumeId?: string | number;
+  /** 当前评分（0-115） */
+  score?: number;
+  /** 评分等级 A/B/C/D */
+  grade?: string;
+  /** 整体总结 */
+  summary?: string;
+  /** 改进建议列表（分点） */
+  advices?: ResumeAiAdviceItem[];
+  /** 缺失岗位必备技能列表 */
+  missingSkills?: string[];
+  /** 是否启用 AI 模型（当前 false 规则化，后期接入 AI 置 true） */
+  aiPowered?: boolean;
+  generatedTime?: string;
+}
+
+/** 单条改进建议 */
+export interface ResumeAiAdviceItem {
+  /** 建议维度（如 "基本信息"、"岗位匹配度"） */
+  dimension?: string;
+  /** 优先级 high/medium/low */
+  priority?: 'high' | 'medium' | 'low' | string;
+  /** 建议内容 */
+  content?: string;
+  /** 建议类型 fill（补充缺失）/ refine（优化已有）/ match（岗位匹配） */
+  type?: 'fill' | 'refine' | 'match' | string;
 }
 
 export interface UserResumeQuery {
@@ -1724,6 +1790,10 @@ export interface MockInterviewVO {
   totalQa: number;
   score?: number;
   summary?: string;
+  /** 是否基于画像抽题（0随机 1画像驱动） */
+  isPersonalized?: number;
+  /** 抽题时的画像快照 JSON（含薄弱点列表，便于回溯分析） */
+  profileSnapshot?: string;
   createTime?: string;
   updateTime?: string;
 }
@@ -1734,6 +1804,41 @@ export interface MockInterviewDetailVO extends MockInterviewVO {
   qaList: MockInterviewQaVO[];
   /** 已答完题数 */
   answeredCount?: number;
+}
+
+// ==================== 用户画像快照（v5.9 阶段0：画像驱动抽题） ====================
+
+/** 薄弱知识点条目 */
+export interface WeakTagItem {
+  /** 标签ID */
+  tagId: number;
+  /** 标签名（如 Spring） */
+  tagName: string;
+  /** 该标签下用户答过的题目总数 */
+  total: number;
+  /** 通过数 */
+  solved: number;
+  /** 失败率 0.0-1.0（solved/total） */
+  failRate: number;
+}
+
+/** 用户画像快照 VO（v5.9 阶段0） */
+export interface UserProfileSnapshotVO {
+  userId?: number;
+  /** 目标岗位 */
+  position?: string;
+  /** 面试场景（如 算法/系统设计） */
+  scene?: string;
+  /** 岗位必备技能（来自岗位字典 required_skills JSON 数组） */
+  requiredSkills?: string[];
+  /** 薄弱知识点列表（按 failRate 降序） */
+  weakTags?: WeakTagItem[];
+  /** 模拟面试次数 */
+  mockInterviewCount?: number;
+  /** 模拟面试平均分 */
+  avgMockScore?: number;
+  /** 是否命中画像驱动（薄弱点 ≥ 1 或必备技能 ≥ 1） */
+  personalized: boolean;
 }
 
 // ==================== 话题模块 ====================

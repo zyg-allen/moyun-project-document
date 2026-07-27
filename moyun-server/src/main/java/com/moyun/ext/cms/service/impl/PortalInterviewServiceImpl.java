@@ -2,18 +2,25 @@ package com.moyun.ext.cms.service.impl;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.moyun.common.exception.system.ServiceException;
+import com.moyun.ext.cms.domain.vo.UserProfileSnapshotVO;
+import com.moyun.ext.cms.service.IUserProfileSnapshotService;
 import com.moyun.util.string.StringUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -72,6 +79,17 @@ import com.moyun.portal.service.IPortalTagService;
 @Service
 public class PortalInterviewServiceImpl implements IPortalInterviewService {
 
+    private static final Logger log = LoggerFactory.getLogger(PortalInterviewServiceImpl.class);
+
+    /** 画像推荐：薄弱点召回上限（避免单路刷屏） */
+    private static final int RECO_WEAK_TAG_LIMIT = 3;
+
+    /** 画像推荐：岗位必备技能召回上限 */
+    private static final int RECO_REQUIRED_SKILL_LIMIT = 3;
+
+    /** 画像推荐：每个标签/技能召回的题目数 */
+    private static final int RECO_PER_TAG_LIMIT = 2;
+
     @Autowired private PortalInterviewQuestionMapper questionMapper;
     @Autowired private PortalInterviewCategoryMapper categoryMapper;
     @Autowired private PortalInterviewExperienceMapper experienceMapper;
@@ -89,6 +107,7 @@ public class PortalInterviewServiceImpl implements IPortalInterviewService {
     @Autowired private IPortalGrowthService portalGrowthService;
     @Autowired private com.moyun.portal.mapper.PortalUserMapper portalUserMapper;
     @Autowired private IFeedService feedService;
+    @Autowired private IUserProfileSnapshotService profileSnapshotService;
 
     // ========================================================================
     // 首页聚合
@@ -190,6 +209,109 @@ public class PortalInterviewServiceImpl implements IPortalInterviewService {
         page.setRecords(vos);
         page.setTotal(entityPage.getTotal());
         return page;
+    }
+
+    // ========================================================================
+    // 画像推荐题目（v5.9 阶段1：题库页"为你推荐"）
+    // 三路召回：薄弱点优先 + 岗位必备技能 + 热门兜底
+    // ========================================================================
+    @Override
+    public List<InterviewQuestionVO> selectRecommendedQuestions(Long currentUserId, int limit) {
+        if (currentUserId == null) {
+            return Collections.emptyList();
+        }
+        int target = Math.max(1, Math.min(limit, 12));
+
+        // 1. 构建用户画像快照（position/scene 留空，由岗位字典与答题历史驱动）
+        UserProfileSnapshotVO snapshot = null;
+        try {
+            snapshot = profileSnapshotService.buildSnapshot(currentUserId, null, null);
+        } catch (Exception e) {
+            log.warn("[Recommend] 构建用户 {} 画像快照失败：{}，降级热门兜底", currentUserId, e.getMessage());
+        }
+
+        Set<Long> pickedIds = new LinkedHashSet<>();
+        List<InterviewQuestionVO> result = new ArrayList<>();
+
+        // 2. 路径1：薄弱点优先召回（按 failRate 降序）
+        if (snapshot != null && snapshot.getWeakTags() != null && !snapshot.getWeakTags().isEmpty()) {
+            List<UserProfileSnapshotVO.WeakTagItem> sorted = new ArrayList<>(snapshot.getWeakTags());
+            sorted.sort((a, b) -> {
+                double fa = a.getFailRate() == null ? 0 : a.getFailRate();
+                double fb = b.getFailRate() == null ? 0 : b.getFailRate();
+                return Double.compare(fb, fa);
+            });
+            int remain = Math.min(sorted.size(), RECO_WEAK_TAG_LIMIT);
+            for (int i = 0; i < remain && result.size() < target; i++) {
+                UserProfileSnapshotVO.WeakTagItem tag = sorted.get(i);
+                if (StringUtils.isEmpty(tag.getTagName())) continue;
+                int need = Math.min(RECO_PER_TAG_LIMIT, target - result.size());
+                List<PortalInterviewQuestion> matched = queryActiveByTag(tag.getTagName(), need);
+                mergeUnique(matched, pickedIds, result, currentUserId, "weak_tag", tag.getTagName(), target);
+            }
+        }
+
+        // 3. 路径2：岗位必备技能召回
+        if (snapshot != null && snapshot.getRequiredSkills() != null && !snapshot.getRequiredSkills().isEmpty() && result.size() < target) {
+            int remain = Math.min(snapshot.getRequiredSkills().size(), RECO_REQUIRED_SKILL_LIMIT);
+            for (int i = 0; i < remain && result.size() < target; i++) {
+                String skill = snapshot.getRequiredSkills().get(i);
+                if (StringUtils.isEmpty(skill)) continue;
+                int need = Math.min(RECO_PER_TAG_LIMIT, target - result.size());
+                List<PortalInterviewQuestion> matched = queryActiveByTag(skill, need);
+                mergeUnique(matched, pickedIds, result, currentUserId, "required_skill", skill, target);
+            }
+        }
+
+        // 4. 路径3：热门兜底，按点赞数 + 提交数补齐
+        if (result.size() < target) {
+            LambdaQueryWrapper<PortalInterviewQuestion> qw = Wrappers.<PortalInterviewQuestion>lambdaQuery()
+                    .eq(PortalInterviewQuestion::getStatus, "active");
+            if (!pickedIds.isEmpty()) {
+                qw.notIn(PortalInterviewQuestion::getId, pickedIds);
+            }
+            qw.orderByDesc(PortalInterviewQuestion::getLikeCount)
+                    .orderByDesc(PortalInterviewQuestion::getSubmissionCount)
+                    .orderByDesc(PortalInterviewQuestion::getCreateTime)
+                    .last("LIMIT " + Math.max(1, target - result.size()));
+            List<PortalInterviewQuestion> hot = questionMapper.selectList(qw);
+            mergeUnique(hot, pickedIds, result, currentUserId, "hot", null, target);
+        }
+
+        return result;
+    }
+
+    /** 按标签精确匹配（LIKE %tag%）查询启用状态的题目，按点赞数倒序 */
+    private List<PortalInterviewQuestion> queryActiveByTag(String tag, int limit) {
+        if (StringUtils.isEmpty(tag) || limit <= 0) return Collections.emptyList();
+        LambdaQueryWrapper<PortalInterviewQuestion> qw = Wrappers.<PortalInterviewQuestion>lambdaQuery()
+                .eq(PortalInterviewQuestion::getStatus, "active")
+                .like(PortalInterviewQuestion::getTags, tag.trim())
+                .orderByDesc(PortalInterviewQuestion::getLikeCount)
+                .orderByDesc(PortalInterviewQuestion::getSubmissionCount)
+                .last("LIMIT " + Math.max(1, limit));
+        return questionMapper.selectList(qw);
+    }
+
+    /** 将候选题目去重合并到结果集，并打上推荐来源标记 */
+    private void mergeUnique(List<PortalInterviewQuestion> candidates,
+                             Set<Long> pickedIds,
+                             List<InterviewQuestionVO> result,
+                             Long currentUserId,
+                             String reason,
+                             String tag,
+                             int target) {
+        if (candidates == null || candidates.isEmpty()) return;
+        for (PortalInterviewQuestion q : candidates) {
+            if (result.size() >= target) break;
+            if (q == null || q.getId() == null) continue;
+            if (pickedIds.contains(q.getId())) continue;
+            pickedIds.add(q.getId());
+            InterviewQuestionVO vo = toQuestionVO(q, currentUserId);
+            vo.setRecommendReason(reason);
+            vo.setRecommendTag(tag);
+            result.add(vo);
+        }
     }
 
     @Override

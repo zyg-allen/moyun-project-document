@@ -3,10 +3,15 @@ package com.moyun.ext.cms.service.impl;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.moyun.common.exception.system.ServiceException;
 import com.moyun.core.base.page.PageDomain;
+import com.moyun.ext.cms.config.AiProperties;
 import com.moyun.ext.cms.domain.vo.MockInterviewDetailVO;
+import com.moyun.ext.cms.domain.vo.UserProfileSnapshotVO;
 import com.moyun.ext.cms.service.IMockInterviewService;
+import com.moyun.ext.cms.service.IUserProfileSnapshotService;
+import com.moyun.ext.cms.service.LlmClient;
 import com.moyun.portal.domain.entity.PortalInterviewQuestion;
 import com.moyun.portal.domain.entity.PortalMockInterview;
 import com.moyun.portal.domain.entity.PortalMockInterviewQA;
@@ -15,6 +20,8 @@ import com.moyun.portal.mapper.PortalMockInterviewMapper;
 import com.moyun.portal.mapper.PortalMockInterviewQAMapper;
 import com.moyun.util.bean.PageUtils;
 import com.moyun.util.string.StringUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -31,17 +38,26 @@ import java.util.Set;
  * AI 模拟面试官 Service 实现（任务 3.10 学习者成长闭环）
  * <p>
  * 规则化评分：从题目 tags + solution 提取关键词，统计答案覆盖率 + 长度奖励，最高 100 分。
+ * v5.9 阶段0：支持画像驱动抽题（薄弱点优先 + 岗位必备 + 随机兜底三路召回）。
  *
  * @author moyun
  */
 @Service
 public class MockInterviewServiceImpl implements IMockInterviewService {
 
+    private static final Logger log = LoggerFactory.getLogger(MockInterviewServiceImpl.class);
+
     /** 每次面试抽取的题目数量 */
     private static final int QUESTION_COUNT = 5;
 
     /** 关键词提取上限 */
     private static final int MAX_KEYWORDS = 12;
+
+    /** 薄弱点召回上限（避免单路刷屏） */
+    private static final int WEAK_TAG_RECALL_LIMIT = 3;
+
+    /** 岗位必备技能召回上限 */
+    private static final int REQUIRED_SKILL_RECALL_LIMIT = 2;
 
     /** 中文/英文停用词，关键词提取时过滤 */
     private static final Set<String> STOPWORDS = new HashSet<>(Arrays.asList(
@@ -54,19 +70,47 @@ public class MockInterviewServiceImpl implements IMockInterviewService {
     @Autowired private PortalMockInterviewMapper interviewMapper;
     @Autowired private PortalMockInterviewQAMapper qaMapper;
     @Autowired private PortalInterviewQuestionMapper questionMapper;
+    @Autowired private IUserProfileSnapshotService profileSnapshotService;
+    @Autowired private ObjectMapper objectMapper;
+    @Autowired private LlmClient llmClient;
+    @Autowired private AiProperties aiProperties;
 
     // ========================================================================
     // 开始面试
     // ========================================================================
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public MockInterviewDetailVO start(Long userId, String position, String scene) {
+    public MockInterviewDetailVO start(Long userId, String position, String scene, boolean personalized) {
         if (userId == null) {
             throw new ServiceException("请登录后操作");
         }
-        List<PortalInterviewQuestion> questions = pickQuestions(position, scene, QUESTION_COUNT);
+
+        // 构建用户画像快照（无论是否启用个性化，都生成一次用于回溯）
+        UserProfileSnapshotVO snapshot = null;
+        boolean useProfile = personalized;
+        try {
+            snapshot = profileSnapshotService.buildSnapshot(userId, position, scene);
+            // 用户主动开启画像驱动，但快照不个性化（无薄弱点 + 无必备技能），降级为随机
+            if (useProfile && !snapshot.isPersonalized()) {
+                log.info("[MockInterview] 用户{}开启画像驱动，但快照不个性化，降级随机抽题", userId);
+                useProfile = false;
+            }
+        } catch (Exception e) {
+            log.warn("[MockInterview] 构建用户{}画像快照失败：{}，降级随机抽题", userId, e.getMessage());
+            useProfile = false;
+        }
+
+        List<PortalInterviewQuestion> questions = useProfile && snapshot != null
+                ? pickQuestionsByProfile(snapshot, QUESTION_COUNT)
+                : pickQuestions(position, scene, QUESTION_COUNT);
         if (questions.isEmpty()) {
             throw new ServiceException("题库中暂无可用题目，请稍后再试");
+        }
+
+        // 持久化画像快照 JSON
+        String snapshotJson = null;
+        if (snapshot != null) {
+            snapshotJson = toJson(snapshot);
         }
 
         // 创建会话
@@ -76,6 +120,8 @@ public class MockInterviewServiceImpl implements IMockInterviewService {
         interview.setScene(scene);
         interview.setStatus("in_progress");
         interview.setTotalQa(questions.size());
+        interview.setIsPersonalized(useProfile ? 1 : 0);
+        interview.setProfileSnapshot(snapshotJson);
         interview.setCreateTime(LocalDateTime.now());
         interviewMapper.insert(interview);
 
@@ -164,6 +210,16 @@ public class MockInterviewServiceImpl implements IMockInterviewService {
         interview.setStatus("finished");
         interview.setUpdateTime(LocalDateTime.now());
         interviewMapper.updateById(interview);
+
+        // v5.9 阶段0：结束面试后异步刷新用户统计与薄弱点画像
+        // 注意：此处仍同步执行，确保数据库一致；如果改为异步需保证事务可见性
+        try {
+            profileSnapshotService.updateMockInterviewStats(userId);
+            profileSnapshotService.refreshWeakTags(userId);
+        } catch (Exception e) {
+            log.warn("[MockInterview] 结束后刷新用户{}画像失败：{}", userId, e.getMessage());
+        }
+
         return assembleDetail(interview);
     }
 
@@ -180,6 +236,99 @@ public class MockInterviewServiceImpl implements IMockInterviewService {
                 .eq(PortalMockInterview::getUserId, userId)
                 .orderByDesc(PortalMockInterview::getCreateTime);
         return interviewMapper.selectPage(page, qw);
+    }
+
+    // ========================================================================
+    // 我的画像快照
+    // ========================================================================
+    @Override
+    public UserProfileSnapshotVO getMyProfile(Long userId, String position, String scene) {
+        if (userId == null) {
+            throw new ServiceException("请登录后操作");
+        }
+        return profileSnapshotService.buildSnapshot(userId, position, scene);
+    }
+
+    // ========================================================================
+    // 画像驱动抽题：三路召回（薄弱点优先 + 岗位必备 + 随机兜底）
+    // ========================================================================
+    private List<PortalInterviewQuestion> pickQuestionsByProfile(UserProfileSnapshotVO snapshot, int count) {
+        // 已选题目 ID 去重集合
+        Set<Long> pickedIds = new LinkedHashSet<>();
+        List<PortalInterviewQuestion> result = new ArrayList<>();
+
+        // 路径1：薄弱点优先召回（按 failRate 降序）
+        List<UserProfileSnapshotVO.WeakTagItem> weakTags = snapshot.getWeakTags();
+        if (weakTags != null && !weakTags.isEmpty()) {
+            // 按 failRate 降序（computeWeakTags 已排序，但保险起见再排一次）
+            List<UserProfileSnapshotVO.WeakTagItem> sorted = new ArrayList<>(weakTags);
+            sorted.sort((a, b) -> {
+                double fa = a.getFailRate() == null ? 0 : a.getFailRate();
+                double fb = b.getFailRate() == null ? 0 : b.getFailRate();
+                return Double.compare(fb, fa);
+            });
+            int remainWeak = Math.min(sorted.size(), WEAK_TAG_RECALL_LIMIT);
+            for (int i = 0; i < remainWeak && result.size() < count; i++) {
+                UserProfileSnapshotVO.WeakTagItem tag = sorted.get(i);
+                if (StringUtils.isEmpty(tag.getTagName())) continue;
+                List<PortalInterviewQuestion> matched = queryByTag(tag.getTagName(), count - result.size());
+                mergeUnique(matched, pickedIds, result, count - result.size());
+            }
+        }
+
+        // 路径2：岗位必备技能召回（每个技能召回 1 题，最多 WEAK_TAG_RECALL_LIMIT 个技能）
+        if (result.size() < count) {
+            List<String> requiredSkills = snapshot.getRequiredSkills();
+            if (requiredSkills != null && !requiredSkills.isEmpty()) {
+                int remainSkill = Math.min(requiredSkills.size(), REQUIRED_SKILL_RECALL_LIMIT);
+                for (int i = 0; i < remainSkill && result.size() < count; i++) {
+                    String skill = requiredSkills.get(i);
+                    if (StringUtils.isEmpty(skill)) continue;
+                    List<PortalInterviewQuestion> matched = queryByTag(skill, count - result.size());
+                    mergeUnique(matched, pickedIds, result, count - result.size());
+                }
+            }
+        }
+
+        // 路径3：随机兜底，补齐到 count
+        if (result.size() < count) {
+            LambdaQueryWrapper<PortalInterviewQuestion> qw = Wrappers.<PortalInterviewQuestion>lambdaQuery()
+                    .eq(PortalInterviewQuestion::getStatus, "active");
+            if (!pickedIds.isEmpty()) {
+                qw.notIn(PortalInterviewQuestion::getId, pickedIds);
+            }
+            qw.last("ORDER BY RAND() LIMIT " + Math.max(1, count - result.size()));
+            List<PortalInterviewQuestion> random = questionMapper.selectList(qw);
+            result.addAll(random);
+        }
+
+        // 截断到 count
+        return result.size() > count ? new ArrayList<>(result.subList(0, count)) : result;
+    }
+
+    /** 按标签精确匹配（LIKE %tag%）查询题目，随机排序 */
+    private List<PortalInterviewQuestion> queryByTag(String tag, int limit) {
+        if (StringUtils.isEmpty(tag) || limit <= 0) return new ArrayList<>();
+        LambdaQueryWrapper<PortalInterviewQuestion> qw = Wrappers.<PortalInterviewQuestion>lambdaQuery()
+                .eq(PortalInterviewQuestion::getStatus, "active")
+                .like(PortalInterviewQuestion::getTags, tag.trim())
+                .last("ORDER BY RAND() LIMIT " + Math.max(1, limit));
+        return questionMapper.selectList(qw);
+    }
+
+    /** 将候选题目去重合并到结果集，最多取 need 个 */
+    private void mergeUnique(List<PortalInterviewQuestion> candidates,
+                             Set<Long> pickedIds,
+                             List<PortalInterviewQuestion> result,
+                             int need) {
+        if (candidates == null || candidates.isEmpty() || need <= 0) return;
+        for (PortalInterviewQuestion q : candidates) {
+            if (result.size() >= need) break;
+            if (q == null || q.getId() == null) continue;
+            if (pickedIds.contains(q.getId())) continue;
+            pickedIds.add(q.getId());
+            result.add(q);
+        }
     }
 
     // ========================================================================
@@ -250,8 +399,44 @@ public class MockInterviewServiceImpl implements IMockInterviewService {
         double lengthBonus = Math.min(answer.length() / 200.0, 1.0) * 20;
         int score = (int) Math.min(100, Math.round(coverage * 80 + lengthBonus));
 
-        String feedback = buildFeedback(score, matched, keywords.size(), answer.length());
+        String feedback = buildFeedbackEnhanced(question, answer, score, matched, keywords.size());
         return new ScoreResult(score, feedback);
+    }
+
+    /**
+     * 增强 buildFeedback：v5.9 阶段3，AI 启用时调用 LLM 生成更丰富的反馈
+     * <p>
+     * 双模式：
+     * - AI 模式（moyun.ai.mock-interview-feedback-enabled=true）：LLM 生成针对性反馈
+     * - 规则化（默认）：保留原 buildFeedback 模板逻辑
+     */
+    private String buildFeedbackEnhanced(PortalInterviewQuestion question, String answer,
+                                         int score, int matched, int total) {
+        // 仅在配置启用且 LLM 可用时尝试 AI 生成
+        if (aiProperties.isEnabled() && aiProperties.isMockInterviewFeedbackEnabled() && llmClient.isEnabled()) {
+            try {
+                String aiFeedback = buildFeedbackWithLlm(question, answer, score, matched, total);
+                if (aiFeedback != null && !aiFeedback.trim().isEmpty()) {
+                    return aiFeedback;
+                }
+            } catch (Exception e) {
+                // AI 失败回退规则化，不阻断面试流程
+            }
+        }
+        return buildFeedback(score, matched, total, answer == null ? 0 : answer.length());
+    }
+
+    /** 通过 LLM 生成面试反馈（框架预留，AI 未启用时不调用） */
+    private String buildFeedbackWithLlm(PortalInterviewQuestion question, String answer,
+                                        int score, int matched, int total) {
+        String systemPrompt = "你是一名资深面试官，请基于考生回答给出简洁的反馈（200字以内），"
+                + "包含：优点、不足、改进建议。语气专业、鼓励。";
+        StringBuilder userMsg = new StringBuilder();
+        userMsg.append("题目：").append(question == null ? "未知" : question.getTitle()).append("\n");
+        userMsg.append("关键词覆盖：").append(matched).append("/").append(total).append("\n");
+        userMsg.append("得分：").append(score).append("/100\n");
+        userMsg.append("考生回答：\n").append(answer == null ? "（未作答）" : answer);
+        return llmClient.chat(systemPrompt, userMsg.toString());
     }
 
     /** 从 tags + solution 提取关键词（去重、过滤停用词） */
@@ -364,6 +549,8 @@ public class MockInterviewServiceImpl implements IMockInterviewService {
         vo.setSummary(interview.getSummary());
         vo.setCreateTime(interview.getCreateTime());
         vo.setUpdateTime(interview.getUpdateTime());
+        vo.setIsPersonalized(interview.getIsPersonalized());
+        vo.setProfileSnapshot(interview.getProfileSnapshot());
         // 问答列表
         List<PortalMockInterviewQA> qaList = qaMapper.selectByInterviewId(interview.getId());
         vo.setQaList(qaList);
@@ -375,6 +562,16 @@ public class MockInterviewServiceImpl implements IMockInterviewService {
         }
         vo.setAnsweredCount(answered);
         return vo;
+    }
+
+    private String toJson(Object obj) {
+        if (obj == null) return null;
+        try {
+            return objectMapper.writeValueAsString(obj);
+        } catch (Exception e) {
+            log.warn("JSON 序列化失败: {}", e.getMessage());
+            return null;
+        }
     }
 
     /** 评分结果值对象 */

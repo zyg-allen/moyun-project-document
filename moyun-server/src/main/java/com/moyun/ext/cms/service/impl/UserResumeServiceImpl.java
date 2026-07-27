@@ -6,11 +6,15 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.moyun.common.exception.system.ServiceException;
 import com.moyun.ext.cms.domain.query.UserResumeQuery;
+import com.moyun.ext.cms.domain.vo.ResumeAiAdviceVO;
 import com.moyun.ext.cms.domain.vo.UserResumeVO;
 import com.moyun.ext.cms.service.IUserResumeService;
+import com.moyun.ext.cms.service.ResumeAiAdviceService;
 import com.moyun.ext.cms.service.ResumePdfExporter;
 import com.moyun.ext.cms.service.ResumeScoringService;
+import com.moyun.portal.domain.entity.PortalUser;
 import com.moyun.portal.domain.entity.PortalUserResume;
+import com.moyun.portal.mapper.PortalUserMapper;
 import com.moyun.portal.mapper.PortalUserResumeMapper;
 import com.moyun.util.string.StringUtils;
 import org.slf4j.Logger;
@@ -39,6 +43,8 @@ public class UserResumeServiceImpl implements IUserResumeService {
     @Autowired private ResumeScoringService scoringService;
     @Autowired private ResumePdfExporter pdfExporter;
     @Autowired private ObjectMapper objectMapper;
+    @Autowired private PortalUserMapper portalUserMapper;
+    @Autowired private ResumeAiAdviceService aiAdviceService;
 
     // ========================================================================
     // 列表 / 详情
@@ -268,7 +274,20 @@ public class UserResumeServiceImpl implements IUserResumeService {
         if (!entity.getUserId().equals(userId)) throw new ServiceException("无权评分该简历");
 
         UserResumeVO vo = toVO(entity);
-        List<UserResumeVO.ScoreItem> items = scoringService.score(vo);
+
+        // v5.9 阶段2：从用户档案读取目标岗位（portal_user.position），驱动画像岗位匹配度评分
+        // 简历求职意向 ji.position 优先，用户档案 position 兜底
+        String targetPosition = null;
+        if (vo.getJobIntention() != null && StringUtils.isNotEmpty(vo.getJobIntention().getPosition())) {
+            targetPosition = vo.getJobIntention().getPosition();
+        } else {
+            PortalUser user = portalUserMapper.selectById(userId);
+            if (user != null && StringUtils.isNotEmpty(user.getPosition())) {
+                targetPosition = user.getPosition();
+            }
+        }
+
+        List<UserResumeVO.ScoreItem> items = scoringService.score(vo, targetPosition);
         int total = scoringService.total(items);
 
         entity.setScore(total);
@@ -282,6 +301,46 @@ public class UserResumeServiceImpl implements IUserResumeService {
         vo.setScoredTime(entity.getScoredTime());
         vo.setMine(true);
         return vo;
+    }
+
+    // ========================================================================
+    // AI 改进建议（v5.9 阶段2：规则化生成，预留 AI 扩展点）
+    // ========================================================================
+    @Override
+    public ResumeAiAdviceVO generateAiAdvice(Long id, Long userId) {
+        PortalUserResume entity = userResumeMapper.selectById(id);
+        if (entity == null) throw new ServiceException("简历不存在");
+        if (!entity.getUserId().equals(userId)) throw new ServiceException("无权访问该简历");
+
+        UserResumeVO vo = toVO(entity);
+
+        // 统一解析目标岗位一次（避免重复 DB 查询）
+        String targetPosition = resolveTargetPosition(vo, userId);
+
+        // 若未评分或内容已变更（scoredTime 早于 updateTime），先实时评分一次（不持久化，仅用于生成建议）
+        List<UserResumeVO.ScoreItem> items;
+        if (entity.getScoreDetail() != null && entity.getScoredTime() != null
+                && (entity.getUpdateTime() == null || !entity.getScoredTime().isBefore(entity.getUpdateTime()))) {
+            // 已有有效评分，复用
+            items = vo.getScoreDetail() != null ? vo.getScoreDetail() : new ArrayList<>();
+        } else {
+            // 实时评分（不落库）
+            items = scoringService.score(vo, targetPosition);
+        }
+
+        return aiAdviceService.generateAdvice(vo, items, targetPosition);
+    }
+
+    /** 解析目标岗位：简历求职意向 position 优先，用户档案 position 兜底 */
+    private String resolveTargetPosition(UserResumeVO vo, Long userId) {
+        if (vo.getJobIntention() != null && StringUtils.isNotEmpty(vo.getJobIntention().getPosition())) {
+            return vo.getJobIntention().getPosition();
+        }
+        PortalUser user = portalUserMapper.selectById(userId);
+        if (user != null && StringUtils.isNotEmpty(user.getPosition())) {
+            return user.getPosition();
+        }
+        return null;
     }
 
     // ========================================================================

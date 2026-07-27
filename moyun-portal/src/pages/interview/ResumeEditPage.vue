@@ -4,16 +4,19 @@ import { useRoute, useRouter, onBeforeRouteLeave } from 'vue-router';
 import { useHead } from '@vueuse/head';
 import {
   Save, Download, Star, Plus, Trash2, User, Briefcase, GraduationCap,
-  Code, FileText, Target,
+  Code, FileText, Target, Sparkles, CheckCircle2, XCircle, AlertCircle,
 } from 'lucide-vue-next';
 import SiteFooter from '@/components/SiteFooter.vue';
 import Breadcrumb from '@/components/Breadcrumb.vue';
 import { generateSeo } from '@/utils/seo';
-import { getResumeDetail, saveResume, exportResumePdf, scoreResume } from '@/api/interview';
+import {
+  getResumeDetail, saveResume, exportResumePdf, scoreResume, getResumeAiAdvice,
+} from '@/api/interview';
 import { getToken } from '@/api/client';
 import type {
   UserResumeVO, UserResumeJobIntention, UserResumeEducationItem, UserResumeWorkItem,
   UserResumeProjectItem, UserResumeSkillItem, UserResumeScoreItem,
+  ResumeAiAdviceVO,
 } from '@/types/api';
 import { useToast } from '@/composables/useToast';
 
@@ -31,6 +34,9 @@ const loadingDetail = ref(false);
 const pageError = ref<string | null>(null);
 const exporting = ref(false);
 const scoring = ref(false);
+// v5.9 阶段2：AI 改进建议
+const adviceLoading = ref(false);
+const aiAdvice = ref<ResumeAiAdviceVO | null>(null);
 // 自动保存指示：idle / saving / saved
 const saveStatus = ref<'idle' | 'saving' | 'saved'>('idle');
 // 保存互斥锁：防止并发保存产生重复创建/后写覆盖
@@ -238,6 +244,8 @@ async function handleScore() {
       form.score = res.data.score;
       form.scoreDetail = res.data.scoreDetail || [];
       form.scoredTime = res.data.scoredTime || '';
+      // 评分变化后清空旧建议，避免展示过期内容
+      aiAdvice.value = null;
       toast.success(`评分完成：${form.score} 分`);
       // 滚动到评分面板
       nextTick(() => {
@@ -253,6 +261,59 @@ async function handleScore() {
     scoring.value = false;
   }
 }
+
+// v5.9 阶段2：获取 AI 改进建议（基于当前评分明细 + 岗位匹配度）
+async function handleGetAdvice() {
+  if (adviceLoading.value) return;
+  if (!form.id) {
+    toast.error('请先保存简历再获取建议');
+    return;
+  }
+  // 若未评分或内容已变更，先评分（后端也会兜底实时评分，但前端先调用保证一致性）
+  if (!form.scoreDetail || form.scoreDetail.length === 0) {
+    const ok = await doSave(true);
+    if (!ok || !form.id) return;
+  }
+  try {
+    adviceLoading.value = true;
+    const res = await getResumeAiAdvice(form.id);
+    if (res.code === 200 && res.data) {
+      aiAdvice.value = res.data;
+      nextTick(() => {
+        const el = document.getElementById('resume-advice-panel');
+        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      });
+    } else {
+      toast.error(res.message || '生成建议失败，请稍后重试');
+    }
+  } catch (err: any) {
+    toast.error(err?.message || '生成建议失败，请稍后重试');
+  } finally {
+    adviceLoading.value = false;
+  }
+}
+
+// 优先级样式映射
+const priorityStyle: Record<string, { label: string; class: string }> = {
+  high: { label: '高优先级', class: 'bg-red-50 text-red-600 border border-red-200' },
+  medium: { label: '中优先级', class: 'bg-amber-50 text-amber-600 border border-amber-200' },
+  low: { label: '低优先级', class: 'bg-gray-50 text-gray-600 border border-gray-200' },
+};
+
+// 建议类型样式映射
+const adviceTypeLabel: Record<string, string> = {
+  fill: '补充缺失',
+  refine: '优化已有',
+  match: '岗位匹配',
+};
+
+// 评分等级样式映射
+const gradeStyle: Record<string, string> = {
+  A: 'bg-green-50 text-green-600 border border-green-200',
+  B: 'bg-blue-50 text-blue-600 border border-blue-200',
+  C: 'bg-amber-50 text-amber-600 border border-amber-200',
+  D: 'bg-red-50 text-red-600 border border-red-200',
+};
 
 // 注：已移除表单自动保存。为避免用户中途放弃时产生难以清理的脏数据，
 // 简历仅在用户手动点击「保存草稿」「导出PDF」「评分」时才入库。
@@ -411,6 +472,15 @@ onBeforeRouteLeave((to, from, next) => {
             <Star class="w-4 h-4 mr-1" />
             {{ scoring ? '评分中...' : '评分' }}
           </button>
+          <button
+            @click="handleGetAdvice"
+            :disabled="adviceLoading"
+            class="inline-flex items-center px-3 py-1.5 rounded-lg text-sm text-white transition hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
+            style="background: linear-gradient(135deg, var(--theme-primary), color-mix(in srgb, var(--theme-primary) 70%, #7c3aed));"
+          >
+            <Sparkles class="w-4 h-4 mr-1" />
+            {{ adviceLoading ? '生成中...' : 'AI 建议' }}
+          </button>
         </div>
       </div>
     </div>
@@ -482,8 +552,123 @@ onBeforeRouteLeave((to, from, next) => {
                 <p v-if="item.message" class="text-xs mt-1" style="color: var(--theme-text-secondary);">
                   {{ item.message }}
                 </p>
+                <!-- v5.9 阶段2：岗位匹配度子项明细 -->
+                <div
+                  v-if="item.subItems && item.subItems.length > 0"
+                  class="mt-2 flex flex-wrap gap-1.5"
+                >
+                  <span
+                    v-for="sub in item.subItems"
+                    :key="sub.name"
+                    class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs"
+                    :style="sub.hit
+                      ? { backgroundColor: 'rgba(22,163,74,0.1)', color: '#16a34a', border: '1px solid rgba(22,163,74,0.2)' }
+                      : { backgroundColor: 'rgba(239,68,68,0.08)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.2)' }"
+                    :title="sub.message"
+                  >
+                    <CheckCircle2 v-if="sub.hit" class="w-3 h-3" />
+                    <XCircle v-else class="w-3 h-3" />
+                    {{ sub.name }}
+                  </span>
+                </div>
               </div>
             </div>
+          </div>
+
+          <!-- v5.9 阶段2：AI 改进建议面板 -->
+          <div
+            v-if="aiAdvice"
+            id="resume-advice-panel"
+            class="rounded-xl border p-6 mb-6"
+            style="background: linear-gradient(135deg, var(--theme-surface), color-mix(in srgb, var(--theme-primary) 6%, var(--theme-surface))); border-color: var(--theme-border);"
+          >
+            <!-- 标题行 -->
+            <div class="flex items-center justify-between mb-4">
+              <h3 class="text-base font-semibold flex items-center" style="color: var(--theme-text);">
+                <Sparkles class="w-4 h-4 mr-2" style="color: var(--theme-primary);" />
+                AI 改进建议
+              </h3>
+              <div class="flex items-center gap-2">
+                <span
+                  v-if="aiAdvice.grade"
+                  class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium"
+                  :class="gradeStyle[aiAdvice.grade] || gradeStyle.D"
+                >
+                  等级 {{ aiAdvice.grade }}
+                </span>
+                <span
+                  v-if="aiAdvice.aiPowered === false"
+                  class="text-xs px-2 py-0.5 rounded-full"
+                  style="background-color: var(--theme-bg); color: var(--theme-text-secondary);"
+                >规则化生成</span>
+              </div>
+            </div>
+
+            <!-- 整体总结 -->
+            <div
+              v-if="aiAdvice.summary"
+              class="rounded-lg p-3 mb-4 text-sm leading-relaxed"
+              style="background-color: var(--theme-bg); color: var(--theme-text);"
+            >
+              {{ aiAdvice.summary }}
+            </div>
+
+            <!-- 缺失技能提示 -->
+            <div
+              v-if="aiAdvice.missingSkills && aiAdvice.missingSkills.length > 0"
+              class="mb-4 rounded-lg p-3"
+              style="background-color: rgba(239,68,68,0.06); border: 1px solid rgba(239,68,68,0.15);"
+            >
+              <div class="text-xs font-medium mb-2 flex items-center" style="color: #ef4444;">
+                <AlertCircle class="w-3.5 h-3.5 mr-1" />
+                岗位必备技能缺失（{{ aiAdvice.missingSkills.length }} 项）
+              </div>
+              <div class="flex flex-wrap gap-1.5">
+                <span
+                  v-for="skill in aiAdvice.missingSkills"
+                  :key="skill"
+                  class="px-2 py-0.5 rounded-full text-xs"
+                  style="background-color: rgba(239,68,68,0.08); color: #ef4444; border: 1px solid rgba(239,68,68,0.2);"
+                >{{ skill }}</span>
+              </div>
+            </div>
+
+            <!-- 建议列表 -->
+            <div v-if="aiAdvice.advices && aiAdvice.advices.length > 0" class="space-y-3">
+              <div
+                v-for="(advice, idx) in aiAdvice.advices"
+                :key="idx"
+                class="rounded-lg p-3"
+                style="background-color: var(--theme-bg);"
+              >
+                <div class="flex items-center gap-2 mb-1.5 flex-wrap">
+                  <span class="text-xs font-medium" style="color: var(--theme-text);">
+                    {{ advice.dimension || '综合' }}
+                  </span>
+                  <span
+                    v-if="advice.priority && priorityStyle[advice.priority]"
+                    class="text-xs px-1.5 py-0.5 rounded"
+                    :class="priorityStyle[advice.priority].class"
+                  >
+                    {{ priorityStyle[advice.priority].label }}
+                  </span>
+                  <span
+                    v-if="advice.type && adviceTypeLabel[advice.type]"
+                    class="text-xs px-1.5 py-0.5 rounded"
+                    style="background-color: var(--theme-surface); color: var(--theme-text-secondary); border: 1px solid var(--theme-border);"
+                  >
+                    {{ adviceTypeLabel[advice.type] }}
+                  </span>
+                </div>
+                <p class="text-sm leading-relaxed" style="color: var(--theme-text-secondary);">
+                  {{ advice.content }}
+                </p>
+              </div>
+            </div>
+            <p v-else class="text-sm text-center py-4" style="color: var(--theme-text-secondary);">
+              <CheckCircle2 class="w-5 h-5 inline mr-1" style="color: #16a34a;" />
+              各维度得分率良好，暂无改进建议
+            </p>
           </div>
 
           <!-- 1. 简历标题 -->
@@ -961,6 +1146,15 @@ onBeforeRouteLeave((to, from, next) => {
             >
               <Star class="w-4 h-4 mr-2" />
               {{ scoring ? '评分中...' : 'AI 评分' }}
+            </button>
+            <button
+              @click="handleGetAdvice"
+              :disabled="adviceLoading"
+              class="flex-1 flex items-center justify-center px-5 py-2.5 rounded-lg text-sm font-medium text-white transition hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
+              style="background: linear-gradient(135deg, var(--theme-primary), color-mix(in srgb, var(--theme-primary) 70%, #7c3aed));"
+            >
+              <Sparkles class="w-4 h-4 mr-2" />
+              {{ adviceLoading ? '生成中...' : 'AI 建议' }}
             </button>
           </div>
         </template>

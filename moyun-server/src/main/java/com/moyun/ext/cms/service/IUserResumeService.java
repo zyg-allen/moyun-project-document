@@ -2,6 +2,7 @@ package com.moyun.ext.cms.service;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.moyun.ext.cms.domain.query.UserResumeQuery;
+import com.moyun.ext.cms.domain.vo.ResumeAiAdviceVO;
 import com.moyun.ext.cms.domain.vo.UserResumeVO;
 
 import java.util.List;
@@ -69,6 +70,18 @@ public interface IUserResumeService {
      * @return 含评分结果的简历 VO
      */
     UserResumeVO scoreResume(Long id, Long userId);
+
+    /**
+     * 生成简历 AI 改进建议（v5.9 阶段2）
+     * <p>
+     * 基于当前评分明细与岗位匹配度子项生成改进建议，不持久化（每次实时生成）。
+     * 当前为规则化生成，后期可替换为真实 AI 模型调用。
+     *
+     * @param id     简历ID
+     * @param userId 当前用户ID
+     * @return 改进建议 VO
+     */
+    ResumeAiAdviceVO generateAiAdvice(Long id, Long userId);
 
     /**
      * 更新简历状态（draft/published/archived）

@@ -122,7 +122,7 @@ public class PortalUserResumeController extends BaseController {
         return AjaxResult.success(userResumeService.exportResumePdf(id, userId));
     }
 
-    @Operation(summary = "规则评分", description = "对简历进行规则评分，返回评分明细")
+    @Operation(summary = "规则评分", description = "对简历进行规则评分，返回评分明细（含岗位匹配度子项）")
     @PostMapping("/{id}/score")
     public AjaxResult scoreResume(@PathVariable("id") Long id) {
         Long userId = currentUserId();
@@ -130,6 +130,16 @@ public class PortalUserResumeController extends BaseController {
             return AjaxResult.error(HttpStatus.UNAUTHORIZED, "登录已过期，请重新登录");
         }
         return AjaxResult.success(userResumeService.scoreResume(id, userId));
+    }
+
+    @Operation(summary = "AI 改进建议", description = "基于评分明细与岗位匹配度生成改进建议（当前规则化，后期接入 AI 模型）")
+    @PostMapping("/{id}/ai-advice")
+    public AjaxResult getAiAdvice(@PathVariable("id") Long id) {
+        Long userId = currentUserId();
+        if (userId == null) {
+            return AjaxResult.error(HttpStatus.UNAUTHORIZED, "登录已过期，请重新登录");
+        }
+        return AjaxResult.success(userResumeService.generateAiAdvice(id, userId));
     }
 
     @Operation(summary = "更新状态", description = "更新简历状态：draft/published/archived")

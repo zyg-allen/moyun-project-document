@@ -44,6 +44,12 @@ public class PortalMockInterview extends BaseEntity {
     /** AI 生成的面试总结 */
     private String summary;
 
+    /** 是否基于画像抽题（0随机 1画像驱动） */
+    private Integer isPersonalized;
+
+    /** 抽题时的画像快照 JSON（含薄弱点列表，便于回溯分析） */
+    private String profileSnapshot;
+
     // createTime / updateTime 复用父类字段（对应 create_time / update_time 列），不重声明
     @TableField(exist = false)
     private String createBy;

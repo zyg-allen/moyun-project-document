@@ -1,0 +1,90 @@
+# ==================== 编译输出 ====================
+**/target/
+**/build/
+**/out/
+
+# ==================== IDE 配置 ====================
+# IntelliJ IDEA
+.idea/
+*.iml
+*.ipr
+*.iws
+
+# Eclipse
+.project
+.classpath
+.settings/
+.metadata/
+
+# VS Code
+.vscode/
+
+# NetBeans
+nbproject/
+nbbuild/
+nbdist/
+
+# ==================== Maven ====================
+pom.xml.tag
+pom.xml.releaseBackup
+pom.xml.versionsBackup
+pom.xml.next
+release.properties
+dependency-reduced-pom.xml
+buildNumber.properties
+.mvn/timing.properties
+.mvn/wrapper/maven-wrapper.jar
+
+# ==================== Gradle ====================
+.gradle/
+gradle/
+gradlew
+gradlew.bat
+
+# ==================== 日志文件 ====================
+*.log
+logs/
+
+# ==================== 操作系统 ====================
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# Linux
+*~
+
+# ==================== Java ====================
+*.class
+*.jar
+*.war
+*.ear
+*.nar
+
+# ==================== 临时文件 ====================
+*.tmp
+*.temp
+*.swp
+*.bak
+*.orig
+
+# ==================== 敏感配置（可选） ====================
+# 如果需要本地开发配置，可以创建以下文件（不会被提交）：
+# application-local.properties
+# application-dev.properties
+# *-secret.properties
+
+# ==================== 上传文件目录 ====================
+uploads/
+upload/
+files/
+
+# ==================== 测试报告 ====================
+test-output/
+surefire-reports/

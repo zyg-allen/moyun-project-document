@@ -1,12 +1,19 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
+import { useRouter } from 'vue-router';
 import { useHead } from '@vueuse/head';
-import { Network, Loader2, ChevronLeft, Tag } from 'lucide-vue-next';
+import { Network, Loader2, ChevronLeft, Tag, Target, Sparkles, AlertCircle } from 'lucide-vue-next';
 import SiteFooter from '@/components/SiteFooter.vue';
 import Breadcrumb from '@/components/Breadcrumb.vue';
 import { generateSeo } from '@/utils/seo';
 import { getKnowledgeGraph } from '@/api/learnStats';
+import { getMyMockProfile } from '@/api/mockInterview';
+import { useAuth } from '@/composables/useAuth';
 import type { KnowledgeGraph, KnowledgeNode } from '@/api/learnStats';
+import type { UserProfileSnapshotVO } from '@/types/api';
+
+const router = useRouter();
+const { isAuthenticated } = useAuth();
 
 useHead(computed(() => generateSeo({
   title: '知识图谱',
@@ -18,6 +25,33 @@ useHead(computed(() => generateSeo({
 const loading = ref(true);
 const error = ref<string | null>(null);
 const graph = ref<KnowledgeGraph | null>(null);
+// v5.9 阶段3：画像薄弱点（与图谱数据源一致，用于高亮与跳转）
+const profile = ref<UserProfileSnapshotVO | null>(null);
+const weakTagNames = computed<Set<string>>(() => {
+  const set = new Set<string>();
+  if (profile.value?.weakTags) {
+    for (const wt of profile.value.weakTags) {
+      if (wt.tagName) set.add(wt.tagName);
+    }
+  }
+  return set;
+});
+// 必备技能集合（用于在图谱中标识岗位相关节点）
+const requiredSkillNames = computed<Set<string>>(() => {
+  const set = new Set<string>();
+  if (profile.value?.requiredSkills) {
+    for (const s of profile.value.requiredSkills) set.add(s);
+  }
+  return set;
+});
+// 节点是否为薄弱点（按名称匹配，因为图谱节点 tagId 与画像 tagId 可能不一致）
+function isWeakNode(node: KnowledgeNode): boolean {
+  return weakTagNames.value.has(node.name);
+}
+// 节点是否为岗位必备技能
+function isRequiredNode(node: KnowledgeNode): boolean {
+  return requiredSkillNames.value.has(node.name);
+}
 
 const breadcrumbs = computed(() => [
   { label: '学习中心', path: '/learn' },
@@ -29,11 +63,17 @@ async function loadGraph() {
   error.value = null;
   try {
     // 不传 userId：后端在已登录时回退到当前用户，未登录时返回全局标签云
-    const res = await getKnowledgeGraph();
-    if (res.code === 200) {
-      graph.value = res.data;
+    const [graphRes, profileRes] = await Promise.all([
+      getKnowledgeGraph(),
+      isAuthenticated() ? getMyMockProfile({}).catch(() => null) : Promise.resolve(null),
+    ]);
+    if (graphRes.code === 200) {
+      graph.value = graphRes.data;
     } else {
-      error.value = res.message || '加载知识图谱失败';
+      error.value = graphRes.message || '加载知识图谱失败';
+    }
+    if (profileRes && profileRes.code === 200 && profileRes.data) {
+      profile.value = profileRes.data;
     }
   } catch (err) {
     const e = err as { message?: string };
@@ -44,6 +84,11 @@ async function loadGraph() {
 }
 
 onMounted(loadGraph);
+
+/** 跳转到该标签的题目列表（按关键词搜索） */
+function gotoTagQuestions(tagName: string) {
+  router.push({ path: '/interview/questions', query: { keyword: tagName } });
+}
 
 // ==================== 标签云：尺寸 / 颜色 ====================
 const maxQuestionCount = computed(() => {
@@ -203,28 +248,93 @@ const stats = computed(() => {
             </div>
           </section>
 
+          <!-- v5.9 阶段3：我的薄弱点侧栏（画像驱动） -->
+          <section
+            v-if="profile && profile.personalized"
+            class="rounded-lg p-4 sm:p-6"
+            style="background: linear-gradient(135deg, var(--theme-surface), color-mix(in srgb, var(--theme-primary) 6%, var(--theme-surface))); border: 1px solid var(--theme-border);"
+          >
+            <h2 class="font-semibold flex items-center gap-2 mb-3" style="color: var(--theme-text);">
+              <Target class="w-5 h-5" style="color: var(--theme-primary);" />
+              我的薄弱点
+              <span class="text-xs font-normal px-2 py-0.5 rounded-full" style="background-color: var(--theme-bg); color: var(--theme-text-secondary);">
+                来自画像快照
+              </span>
+            </h2>
+            <p class="text-xs mb-3" style="color: var(--theme-text-secondary);">
+              以下知识点失败率较高，建议优先攻克。点击标签可跳转至相关题目。
+            </p>
+            <!-- 薄弱点标签云（可点击跳转） -->
+            <div v-if="profile.weakTags && profile.weakTags.length > 0" class="flex flex-wrap gap-2">
+              <button
+                v-for="wt in profile.weakTags"
+                :key="wt.tagId"
+                @click="gotoTagQuestions(wt.tagName)"
+                class="inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm transition hover:scale-105"
+                style="background-color: rgba(239,68,68,0.08); color: #ef4444; border: 1px solid rgba(239,68,68,0.2);"
+                :title="`答 ${wt.total} 题，通过 ${wt.solved}，失败率 ${Math.round((wt.failRate || 0) * 100)}%`"
+              >
+                {{ wt.tagName }}
+                <span class="text-[10px] opacity-70">
+                  {{ Math.round((wt.failRate || 0) * 100) }}%
+                </span>
+              </button>
+            </div>
+            <div v-else class="text-sm py-3 text-center" style="color: var(--theme-text-secondary);">
+              <AlertCircle class="w-4 h-4 inline mr-1" />
+              暂无薄弱点数据，多做题以激活画像分析
+            </div>
+            <!-- 岗位必备技能未掌握提示 -->
+            <div
+              v-if="profile.requiredSkills && profile.requiredSkills.length > 0"
+              class="mt-4 pt-3 border-t"
+              style="border-color: var(--theme-border);"
+            >
+              <div class="text-xs mb-2 flex items-center" style="color: var(--theme-text-secondary);">
+                <Sparkles class="w-3.5 h-3.5 mr-1" />
+                岗位必备技能（红色为图谱中未掌握，建议重点突破）
+              </div>
+              <div class="flex flex-wrap gap-1.5">
+                <span
+                  v-for="skill in profile.requiredSkills"
+                  :key="skill"
+                  class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs"
+                  :style="weakTagNames.has(skill)
+                    ? { backgroundColor: 'rgba(239,68,68,0.08)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.2)' }
+                    : { backgroundColor: 'rgba(16,185,129,0.08)', color: '#10b981', border: '1px solid rgba(16,185,129,0.2)' }"
+                >{{ skill }}</span>
+              </div>
+            </div>
+          </section>
+
           <!-- 标签云 -->
           <section class="rounded-lg p-4 sm:p-6" style="background-color: var(--theme-surface); border: 1px solid var(--theme-border);">
             <h2 class="font-semibold flex items-center gap-2 mb-4" style="color: var(--theme-text);">
               <Tag class="w-5 h-5" style="color: var(--theme-primary);" />
               标签云（字号=题目数，颜色=掌握度）
+              <span
+                v-if="profile && profile.personalized"
+                class="text-xs font-normal px-2 py-0.5 rounded-full"
+                style="background-color: rgba(239,68,68,0.1); color: #ef4444;"
+              >红色描边=薄弱点</span>
             </h2>
             <div v-if="(graph.nodes || []).length" class="flex flex-wrap items-center gap-2">
-              <span
+              <button
                 v-for="node in graph.nodes"
                 :key="`tag-${node.tagId}`"
-                class="inline-block rounded-full px-3 py-1 leading-tight cursor-default transition-transform hover:scale-110"
+                @click="gotoTagQuestions(node.name)"
+                class="inline-block rounded-full px-3 py-1 leading-tight transition-transform hover:scale-110 cursor-pointer"
                 :style="{
                   fontSize: tagFontSize(node) + 'px',
                   color: masteryColor(node.mastery || 0),
                   backgroundColor: 'var(--theme-bg)',
-                  border: '1px solid var(--theme-border)',
+                  border: isWeakNode(node) ? '2px solid #ef4444' : (isRequiredNode(node) ? '2px solid var(--theme-primary)' : '1px solid var(--theme-border)'),
                 }"
-                :title="`${node.name}：题目 ${node.questionCount} 道 / 掌握 ${node.mastery || 0}%`"
+                :title="`${node.name}：题目 ${node.questionCount} 道 / 掌握 ${node.mastery || 0}%${isWeakNode(node) ? ' / 薄弱点' : ''}`"
               >
                 {{ node.name }}
                 <span class="text-[10px] opacity-70">({{ node.questionCount }})</span>
-              </span>
+              </button>
             </div>
             <div v-else class="text-sm py-8 text-center" style="color: var(--theme-text-secondary);">
               暂无标签数据
@@ -237,6 +347,12 @@ const stats = computed(() => {
               <span class="flex items-center gap-1"><span class="w-3 h-3 rounded-full inline-block" style="background-color: #f59e0b;"></span>30-60%</span>
               <span class="flex items-center gap-1"><span class="w-3 h-3 rounded-full inline-block" style="background-color: #3b82f6;"></span>60-85%</span>
               <span class="flex items-center gap-1"><span class="w-3 h-3 rounded-full inline-block" style="background-color: #10b981;"></span>≥85%</span>
+              <span
+                v-if="profile && profile.personalized"
+                class="flex items-center gap-1 ml-2"
+              >
+                <span class="w-3 h-3 rounded-full inline-block" style="border: 2px solid #ef4444;"></span>薄弱点
+              </span>
             </div>
           </section>
 
@@ -245,6 +361,11 @@ const stats = computed(() => {
             <h2 class="font-semibold flex items-center gap-2 mb-4" style="color: var(--theme-text);">
               <Network class="w-5 h-5" style="color: var(--theme-primary);" />
               知识关系图（标签共现）
+              <span
+                v-if="profile && profile.personalized"
+                class="text-xs font-normal px-2 py-0.5 rounded-full"
+                style="background-color: rgba(239,68,68,0.1); color: #ef4444;"
+              >薄弱节点已高亮</span>
             </h2>
             <div v-if="positionedNodes.length" class="w-full overflow-x-auto">
               <svg :viewBox="`0 0 ${GRAPH_SIZE} ${GRAPH_SIZE}`" class="w-full h-auto" style="min-width: 480px; max-width: 640px; margin: 0 auto; display: block;" role="img" aria-label="知识关系图">
@@ -261,20 +382,33 @@ const stats = computed(() => {
                 </g>
                 <!-- 节点 -->
                 <g>
-                  <g v-for="node in positionedNodes" :key="`node-${node.tagId}`">
+                  <g v-for="node in positionedNodes" :key="`node-${node.tagId}`" @click="gotoTagQuestions(node.name)" style="cursor: pointer;">
+                    <!-- 薄弱点脉冲环 -->
+                    <circle
+                      v-if="isWeakNode(node)"
+                      :cx="node.x" :cy="node.y" :r="node.r + 4"
+                      fill="none"
+                      stroke="#ef4444"
+                      stroke-width="1.5"
+                      opacity="0.5"
+                    >
+                      <animate attributeName="r" :values="`${node.r + 4};${node.r + 8};${node.r + 4}`" dur="2s" repeatCount="indefinite" />
+                      <animate attributeName="opacity" values="0.5;0.2;0.5" dur="2s" repeatCount="indefinite" />
+                    </circle>
                     <circle
                       :cx="node.x" :cy="node.y" :r="node.r"
                       :fill="masteryColor(node.mastery || 0)"
-                      :stroke="'var(--theme-surface)'"
-                      stroke-width="2"
+                      :stroke="isWeakNode(node) ? '#ef4444' : (isRequiredNode(node) ? 'var(--theme-primary)' : 'var(--theme-surface)')"
+                      :stroke-width="isWeakNode(node) || isRequiredNode(node) ? 3 : 2"
                     >
-                      <title>{{ node.name }}：题目 {{ node.questionCount }} 道 / 通过 {{ node.solved || 0 }} / 掌握 {{ node.mastery || 0 }}%</title>
+                      <title>{{ node.name }}：题目 {{ node.questionCount }} 道 / 通过 {{ node.solved || 0 }} / 掌握 {{ node.mastery || 0 }}%{{ isWeakNode(node) ? ' / 薄弱点' : '' }}</title>
                     </circle>
                     <text
                       :x="node.x" :y="node.y + node.r + 12"
                       text-anchor="middle"
-                      font-size="11"
-                      fill="var(--theme-text-secondary)"
+                      :font-size="isWeakNode(node) ? 12 : 11"
+                      :font-weight="isWeakNode(node) ? 600 : 400"
+                      :fill="isWeakNode(node) ? '#ef4444' : 'var(--theme-text-secondary)'"
                     >{{ node.name }}</text>
                   </g>
                 </g>

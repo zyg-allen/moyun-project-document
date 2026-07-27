@@ -11,6 +11,8 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
+
 /**
  * 学习计划与目标 Controller（任务 3.2，门户端）
  * <p>
@@ -92,5 +94,19 @@ public class PortalStudyPlanController extends BaseController {
             return AjaxResult.error(HttpStatus.UNAUTHORIZED, "登录已过期，请重新登录");
         }
         return AjaxResult.success(studyPlanService.deletePlan(id, userId));
+    }
+
+    @Operation(summary = "基于画像自动生成学习计划",
+            description = "v5.9 阶段3：根据用户画像快照（薄弱点 + 岗位必备技能）自动生成针对性学习计划。"
+                    + "自动去重：跳过已存在同 targetCategory 的 active 计划；受计划数量上限限制。"
+                    + "无画像或无薄弱点时返回空列表。")
+    @PostMapping("/auto-generate")
+    public AjaxResult autoGenerate() {
+        Long userId = currentUserId();
+        if (userId == null) {
+            return AjaxResult.error(HttpStatus.UNAUTHORIZED, "登录已过期，请重新登录");
+        }
+        List<StudyPlanVO> generated = studyPlanService.generatePlansFromProfile(userId);
+        return AjaxResult.success(generated);
     }
 }

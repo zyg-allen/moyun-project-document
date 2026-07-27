@@ -21,10 +21,26 @@ import { generateSeo } from '@/utils/seo';
 import Breadcrumb from '@/components/Breadcrumb.vue';
 import * as userApi from '@/api/user';
 import { deletePortalFile } from '@/api/file';
-import type { User, UpdateUserProfileParams } from '@/types/api';
+import { getInterviewPositions } from '@/api/interview';
+import type { User, UpdateUserProfileParams, InterviewPositionVO } from '@/types/api';
 
 const router = useRouter();
 const userStore = useUserStore();
+
+// 岗位字典（v5.9 阶段1：目标岗位选择挂钩字典，驱动画像必备技能召回）
+const positions = ref<InterviewPositionVO[]>([]);
+const selectedPosition = computed<InterviewPositionVO | null>(() =>
+  positions.value.find(p => p.name === profileForm.value.position) || null
+);
+const selectedPositionSkills = computed<string[]>(() => {
+  if (!selectedPosition.value?.requiredSkills) return [];
+  try {
+    const arr = JSON.parse(selectedPosition.value.requiredSkills);
+    return Array.isArray(arr) ? arr : [];
+  } catch {
+    return [];
+  }
+});
 
 // 表单数据
 const profileForm = ref<UpdateUserProfileParams>({
@@ -77,6 +93,13 @@ onMounted(async () => {
     router.push('/login');
     return;
   }
+
+  // 加载岗位字典（与用户信息并行，失败不阻断页面）
+  getInterviewPositions().then(res => {
+    if (res.code === 200 && res.data) {
+      positions.value = res.data;
+    }
+  }).catch(err => console.error('加载岗位字典失败:', err));
 
   // 加载用户信息
   const user = userStore.user;
@@ -341,16 +364,53 @@ function goBack() {
               <label class="block text-sm font-medium mb-2" style="color: var(--theme-text);">
                 <span class="flex items-center gap-2">
                   <Briefcase class="w-4 h-4" style="color: var(--theme-text-secondary);" />
-                  职位
+                  目标岗位 / 职位
                 </span>
               </label>
               <input
                 v-model="profileForm.position"
                 type="text"
-                placeholder="例如：前端开发工程师"
+                list="profile-position-options"
+                placeholder="例如：Java后端工程师（建议从字典选择，驱动画像推荐）"
                 class="w-full px-4 py-3 rounded-xl border focus:outline-none focus:ring-2 transition-all"
                 style="background-color: var(--theme-bg); border-color: var(--theme-border); color: var(--theme-text);"
               />
+              <datalist id="profile-position-options">
+                <option v-for="p in positions" :key="p.id" :value="p.name" />
+              </datalist>
+              <!-- 岗位字典快捷选择 -->
+              <div v-if="positions.length > 0" class="flex flex-wrap gap-1.5 mt-2">
+                <button
+                  v-for="p in positions"
+                  :key="p.id"
+                  type="button"
+                  @click="profileForm.position = p.name"
+                  class="px-2.5 py-1 rounded-full text-xs transition"
+                  :style="profileForm.position === p.name
+                    ? { backgroundColor: 'var(--theme-primary)', color: '#fff' }
+                    : { backgroundColor: 'var(--theme-bg)', color: 'var(--theme-text-secondary)', border: '1px solid var(--theme-border)' }"
+                  :title="p.description"
+                >{{ p.name }}</button>
+              </div>
+              <!-- 选中岗位的必备技能展示（提升画像可感知度） -->
+              <div
+                v-if="selectedPositionSkills.length > 0"
+                class="mt-2 rounded-lg p-2.5"
+                style="background-color: color-mix(in srgb, var(--theme-primary) 6%, var(--theme-bg));"
+              >
+                <div class="text-xs mb-1.5" style="color: var(--theme-text-secondary);">
+                  {{ selectedPosition?.name }} 必备技能
+                  <span v-if="selectedPosition?.level" class="ml-1 opacity-70">· {{ selectedPosition.level }}</span>
+                </div>
+                <div class="flex flex-wrap gap-1">
+                  <span
+                    v-for="skill in selectedPositionSkills"
+                    :key="skill"
+                    class="text-xs px-2 py-0.5 rounded-full"
+                    style="background-color: color-mix(in srgb, var(--theme-primary) 12%, transparent); color: var(--theme-primary);"
+                  >{{ skill }}</span>
+                </div>
+              </div>
             </div>
 
             <!-- 所在城市 -->

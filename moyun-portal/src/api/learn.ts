@@ -165,6 +165,17 @@ export const deleteStudyPlan = (id: number | string) => {
   return httpDelete<number>(`/portal/learn/plan/${id}`);
 };
 
+/**
+ * 基于画像自动生成学习计划（v5.9 阶段3，需登录）
+ * POST /portal/learn/plan/auto-generate
+ * 根据用户画像快照（薄弱点 + 岗位必备技能）自动生成针对性学习计划。
+ * 自动去重，无画像时返回空列表。
+ * @returns 生成的计划列表
+ */
+export const autoGeneratePlans = () => {
+  return httpPost<StudyPlanVO[]>('/portal/learn/plan/auto-generate');
+};
+
 // ==================== 3.3 错题本 ====================
 
 /**

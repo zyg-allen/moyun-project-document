@@ -5,13 +5,17 @@ import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.moyun.common.exception.system.ServiceException;
 import com.moyun.ext.cms.domain.vo.StudyPlanVO;
+import com.moyun.ext.cms.domain.vo.UserProfileSnapshotVO;
 import com.moyun.ext.cms.service.IStudyPlanService;
+import com.moyun.ext.cms.service.IUserProfileSnapshotService;
 import com.moyun.portal.domain.entity.PortalStudyPlan;
 import com.moyun.portal.domain.entity.PortalStudyPlanLog;
 import com.moyun.portal.mapper.PortalStudyPlanLogMapper;
 import com.moyun.portal.mapper.PortalStudyPlanMapper;
 import com.moyun.util.bean.PageUtils;
 import com.moyun.util.string.StringUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
@@ -20,7 +24,10 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 /**
  * 学习计划 Service 实现（任务 3.2）
@@ -30,11 +37,22 @@ import java.util.List;
 @Service
 public class StudyPlanServiceImpl implements IStudyPlanService {
 
+    private static final Logger log = LoggerFactory.getLogger(StudyPlanServiceImpl.class);
+
     /** 单用户计划数量上限 */
     private static final int MAX_PLAN_PER_USER = 20;
+    /** 单次画像生成计划数上限（避免一次生成过多） */
+    private static final int MAX_GENERATE_PER_CALL = 6;
+    /** 薄弱点计划目标题数 */
+    private static final int WEAK_TAG_TARGET_COUNT = 10;
+    /** 岗位必备技能计划目标题数 */
+    private static final int REQUIRED_SKILL_TARGET_COUNT = 15;
+    /** 生成的计划默认持续天数 */
+    private static final int GENERATED_PLAN_DAYS = 30;
 
     @Autowired private PortalStudyPlanMapper studyPlanMapper;
     @Autowired private PortalStudyPlanLogMapper studyPlanLogMapper;
+    @Autowired private IUserProfileSnapshotService profileSnapshotService;
 
     // ========================================================================
     // 创建 / 修改
@@ -188,6 +206,115 @@ public class StudyPlanServiceImpl implements IStudyPlanService {
                 .eq(PortalStudyPlanLog::getPlanId, planId);
         studyPlanLogMapper.delete(logQw);
         return studyPlanMapper.deleteById(planId);
+    }
+
+    // ========================================================================
+    // v5.9 阶段3：基于画像自动生成学习计划
+    // ========================================================================
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public List<StudyPlanVO> generatePlansFromProfile(Long userId) {
+        if (userId == null) {
+            throw new ServiceException("请登录后操作");
+        }
+
+        // 1. 构建用户画像快照
+        UserProfileSnapshotVO snapshot;
+        try {
+            snapshot = profileSnapshotService.buildSnapshot(userId, null, null);
+        } catch (Exception e) {
+            log.warn("[StudyPlan] 用户 {} 画像构建失败：{}", userId, e.getMessage());
+            return Collections.emptyList();
+        }
+        if (snapshot == null || !Boolean.TRUE.equals(snapshot.getPersonalized())) {
+            log.info("[StudyPlan] 用户 {} 画像未个性化，跳过生成", userId);
+            return Collections.emptyList();
+        }
+
+        // 2. 收集候选目标分类（薄弱点 + 岗位必备技能），去重
+        List<PlanCandidate> candidates = new ArrayList<>();
+        Set<String> seen = new HashSet<>();
+        if (snapshot.getWeakTags() != null) {
+            for (UserProfileSnapshotVO.WeakTagItem wt : snapshot.getWeakTags()) {
+                if (StringUtils.isNotEmpty(wt.getTagName()) && seen.add(wt.getTagName())) {
+                    candidates.add(new PlanCandidate(wt.getTagName(), WEAK_TAG_TARGET_COUNT, "weak"));
+                }
+            }
+        }
+        if (snapshot.getRequiredSkills() != null) {
+            for (String skill : snapshot.getRequiredSkills()) {
+                if (StringUtils.isNotEmpty(skill) && seen.add(skill)) {
+                    candidates.add(new PlanCandidate(skill, REQUIRED_SKILL_TARGET_COUNT, "required"));
+                }
+            }
+        }
+        if (candidates.isEmpty()) {
+            log.info("[StudyPlan] 用户 {} 无薄弱点与必备技能，跳过生成", userId);
+            return Collections.emptyList();
+        }
+
+        // 3. 查询已存在的 active 计划的 targetCategory 集合，避免重复
+        Set<String> existingCategories = new HashSet<>();
+        LambdaQueryWrapper<PortalStudyPlan> existQw = Wrappers.<PortalStudyPlan>lambdaQuery()
+                .eq(PortalStudyPlan::getUserId, userId)
+                .eq(PortalStudyPlan::getStatus, "active")
+                .eq(PortalStudyPlan::getPlanType, "daily_question");
+        List<PortalStudyPlan> existPlans = studyPlanMapper.selectList(existQw);
+        for (PortalStudyPlan p : existPlans) {
+            if (StringUtils.isNotEmpty(p.getTargetCategory())) {
+                existingCategories.add(p.getTargetCategory());
+            }
+        }
+
+        // 4. 校验计划总数上限
+        long totalCount = studyPlanMapper.selectCount(
+                Wrappers.<PortalStudyPlan>lambdaQuery().eq(PortalStudyPlan::getUserId, userId));
+        long remaining = MAX_PLAN_PER_USER - totalCount;
+        if (remaining <= 0) {
+            log.info("[StudyPlan] 用户 {} 计划数已达上限 {}，跳过生成", userId, MAX_PLAN_PER_USER);
+            return Collections.emptyList();
+        }
+
+        // 5. 生成计划（受剩余配额与单次上限双重限制）
+        int maxGenerate = (int) Math.min(remaining, MAX_GENERATE_PER_CALL);
+        List<StudyPlanVO> generated = new ArrayList<>();
+        LocalDate today = LocalDate.now();
+        LocalDate endDate = today.plusDays(GENERATED_PLAN_DAYS);
+
+        for (PlanCandidate c : candidates) {
+            if (generated.size() >= maxGenerate) break;
+            // 跳过已存在的同分类计划
+            if (existingCategories.contains(c.category)) continue;
+
+            PortalStudyPlan plan = new PortalStudyPlan();
+            plan.setUserId(userId);
+            plan.setTitle("[画像推荐] 攻克 " + c.category);
+            plan.setPlanType("daily_question");
+            plan.setTargetCount(c.targetCount);
+            plan.setTargetCategory(c.category);
+            plan.setStartDate(today);
+            plan.setEndDate(endDate);
+            plan.setStatus("active");
+            plan.setCreatedTime(LocalDateTime.now());
+            studyPlanMapper.insert(plan);
+
+            generated.add(toVOWithProgress(plan));
+            log.info("[StudyPlan] 用户 {} 生成计划：{}（来源={}）", userId, plan.getTitle(), c.source);
+        }
+
+        return generated;
+    }
+
+    /** 计划候选项（内部数据结构） */
+    private static class PlanCandidate {
+        final String category;
+        final int targetCount;
+        final String source; // weak / required
+        PlanCandidate(String category, int targetCount, String source) {
+            this.category = category;
+            this.targetCount = targetCount;
+            this.source = source;
+        }
     }
 
     // ========================================================================

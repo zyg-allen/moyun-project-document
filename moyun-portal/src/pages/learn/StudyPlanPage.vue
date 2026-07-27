@@ -4,18 +4,20 @@ import { useRouter } from 'vue-router';
 import { useHead } from '@vueuse/head';
 import {
   Target, Plus, Pencil, Trash2, CheckCircle2, Loader2,
-  AlertCircle, Minus, Flame, X, ListChecks,
+  AlertCircle, Minus, Flame, X, ListChecks, Sparkles,
 } from 'lucide-vue-next';
 import SiteFooter from '@/components/SiteFooter.vue';
 import Breadcrumb from '@/components/Breadcrumb.vue';
 import { generateSeo } from '@/utils/seo';
 import {
   getMyStudyPlans, saveStudyPlan, deleteStudyPlan,
-  recordPlanProgress, changePlanStatus,
+  recordPlanProgress, changePlanStatus, autoGeneratePlans,
 } from '@/api/learn';
 import type { StudyPlanVO, StudyPlanSaveBody } from '@/api/learn';
+import { useToast } from '@/composables/useToast';
 
 const router = useRouter();
+const toast = useToast();
 
 const loading = ref(false);
 const error = ref<string | null>(null);
@@ -24,6 +26,8 @@ const total = ref(0);
 const page = ref(1);
 const pageSize = 12;
 const actionId = ref<number | null>(null);
+// v5.9 阶段3：画像生成状态
+const generating = ref(false);
 
 type StatusFilter = 'active' | 'completed' | 'abandoned' | '';
 const statusFilter = ref<StatusFilter>('');
@@ -110,6 +114,31 @@ function openCreate() {
   });
   formError.value = null;
   formOpen.value = true;
+}
+
+// v5.9 阶段3：基于画像自动生成学习计划
+async function handleAutoGenerate() {
+  if (generating.value) return;
+  try {
+    generating.value = true;
+    const res = await autoGeneratePlans();
+    if (res.code === 200 && res.data) {
+      const count = res.data.length;
+      if (count === 0) {
+        toast.info('暂无可生成的计划（画像薄弱点为空或已有同名计划）');
+      } else {
+        toast.success(`已生成 ${count} 个学习计划（基于你的薄弱点与岗位必备技能）`);
+        // 刷新列表
+        await loadPlans();
+      }
+    } else {
+      toast.error(res.message || '生成失败，请稍后重试');
+    }
+  } catch (err: any) {
+    toast.error(err?.message || '生成失败，请稍后重试');
+  } finally {
+    generating.value = false;
+  }
 }
 
 function openEdit(plan: StudyPlanVO) {
@@ -248,7 +277,17 @@ const statusTabs: { value: StatusFilter; label: string }[] = [
     <div class="border-b sticky top-0 z-30 backdrop-blur-sm py-3" style="background-color: var(--theme-surface); border-color: var(--theme-border);">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between gap-4">
         <Breadcrumb :items="breadcrumbs" />
-        <div class="flex items-center gap-2">
+        <div class="flex items-center gap-3">
+          <button
+            @click="handleAutoGenerate"
+            :disabled="generating"
+            class="inline-flex items-center text-sm font-medium px-3 py-1.5 rounded-lg text-white transition hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
+            style="background: linear-gradient(135deg, var(--theme-primary), color-mix(in srgb, var(--theme-primary) 70%, #7c3aed));"
+            title="根据你的薄弱点与岗位必备技能自动生成学习计划"
+          >
+            <Sparkles class="w-4 h-4 mr-1" />
+            {{ generating ? '生成中...' : '基于画像生成' }}
+          </button>
           <button
             @click="openCreate"
             class="inline-flex items-center text-sm font-medium transition hover:opacity-90"

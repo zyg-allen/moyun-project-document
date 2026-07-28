@@ -33,16 +33,16 @@ CREATE TABLE sys_dept (
 ) ENGINE=InnoDB AUTO_INCREMENT=200 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='部门表';
 
 -- 初始化-部门表数据
-INSERT INTO sys_dept VALUES(100,  0,   '0',          '若依科技',   0, '若依', '15888888888', 'ry@qq.com', '0', '0', 'admin', NOW(), '', NULL);
-INSERT INTO sys_dept VALUES(101,  100, '0,100',      '深圳总公司', 1, '若依', '15888888888', 'ry@qq.com', '0', '0', 'admin', NOW(), '', NULL);
-INSERT INTO sys_dept VALUES(102,  100, '0,100',      '长沙分公司', 2, '若依', '15888888888', 'ry@qq.com', '0', '0', 'admin', NOW(), '', NULL);
-INSERT INTO sys_dept VALUES(103,  101, '0,100,101',  '研发部门',   1, '若依', '15888888888', 'ry@qq.com', '0', '0', 'admin', NOW(), '', NULL);
-INSERT INTO sys_dept VALUES(104,  101, '0,100,101',  '市场部门',   2, '若依', '15888888888', 'ry@qq.com', '0', '0', 'admin', NOW(), '', NULL);
-INSERT INTO sys_dept VALUES(105,  101, '0,100,101',  '测试部门',   3, '若依', '15888888888', 'ry@qq.com', '0', '0', 'admin', NOW(), '', NULL);
-INSERT INTO sys_dept VALUES(106,  101, '0,100,101',  '财务部门',   4, '若依', '15888888888', 'ry@qq.com', '0', '0', 'admin', NOW(), '', NULL);
-INSERT INTO sys_dept VALUES(107,  101, '0,100,101',  '运维部门',   5, '若依', '15888888888', 'ry@qq.com', '0', '0', 'admin', NOW(), '', NULL);
-INSERT INTO sys_dept VALUES(108,  102, '0,100,102',  '市场部门',   1, '若依', '15888888888', 'ry@qq.com', '0', '0', 'admin', NOW(), '', NULL);
-INSERT INTO sys_dept VALUES(109,  102, '0,100,102',  '财务部门',   2, '若依', '15888888888', 'ry@qq.com', '0', '0', 'admin', NOW(), '', NULL);
+INSERT INTO sys_dept VALUES(100,  0,   '0',          '若依科技',   0, '若依', '15888888888', 'ry@qq.com', '0', '0', 'admin', NOW(), '',NOW(), NULL);
+INSERT INTO sys_dept VALUES(101,  100, '0,100',      '深圳总公司', 1, '若依', '15888888888', 'ry@qq.com', '0', '0', 'admin', NOW(), '',NOW(), NULL);
+INSERT INTO sys_dept VALUES(102,  100, '0,100',      '长沙分公司', 2, '若依', '15888888888', 'ry@qq.com', '0', '0', 'admin', NOW(), '',NOW(), NULL);
+INSERT INTO sys_dept VALUES(103,  101, '0,100,101',  '研发部门',   1, '若依', '15888888888', 'ry@qq.com', '0', '0','admin', NOW(), '',NOW(), NULL);
+INSERT INTO sys_dept VALUES(104,  101, '0,100,101',  '市场部门',   2, '若依', '15888888888', 'ry@qq.com', '0', '0','admin', NOW(), '',NOW(), NULL);
+INSERT INTO sys_dept VALUES(105,  101, '0,100,101',  '测试部门',   3, '若依', '15888888888', 'ry@qq.com', '0', '0','admin', NOW(), '',NOW(), NULL);
+INSERT INTO sys_dept VALUES(106,  101, '0,100,101',  '财务部门',   4, '若依', '15888888888', 'ry@qq.com', '0', '0','admin', NOW(), '',NOW(), NULL);
+INSERT INTO sys_dept VALUES(107,  101, '0,100,101',  '运维部门',   5, '若依', '15888888888', 'ry@qq.com', '0', '0','admin', NOW(), '',NOW(), NULL);
+INSERT INTO sys_dept VALUES(108,  102, '0,100,102',  '市场部门',   1, '若依', '15888888888', 'ry@qq.com', '0', '0','admin', NOW(), '',NOW(), NULL);
+INSERT INTO sys_dept VALUES(109,  102, '0,100,102',  '财务部门',   2, '若依', '15888888888', 'ry@qq.com', '0', '0','admin', NOW(), '',NOW(), NULL);
 
 
 -- ============================================
@@ -273,8 +273,8 @@ CREATE TABLE sys_user_role (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='用户和角色关联表';
 
 -- 初始化-用户和角色关联表数据
-INSERT INTO sys_user_role VALUES ('1', '1');
-INSERT INTO sys_user_role VALUES ('2', '2');
+INSERT INTO sys_user_role VALUES ('1', '1','admin', NOW(), '',NOW(), NULL);
+INSERT INTO sys_user_role VALUES ('2', '2','admin', NOW(), '',NOW(), NULL);
 
 
 -- ============================================
@@ -293,88 +293,88 @@ CREATE TABLE sys_role_menu (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='角色和菜单关联表';
 
 -- 初始化-角色和菜单关联表数据
-INSERT INTO sys_role_menu VALUES ('2', '1');
-INSERT INTO sys_role_menu VALUES ('2', '2');
-INSERT INTO sys_role_menu VALUES ('2', '3');
-INSERT INTO sys_role_menu VALUES ('2', '4');
-INSERT INTO sys_role_menu VALUES ('2', '100');
-INSERT INTO sys_role_menu VALUES ('2', '101');
-INSERT INTO sys_role_menu VALUES ('2', '102');
-INSERT INTO sys_role_menu VALUES ('2', '103');
-INSERT INTO sys_role_menu VALUES ('2', '104');
-INSERT INTO sys_role_menu VALUES ('2', '105');
-INSERT INTO sys_role_menu VALUES ('2', '106');
-INSERT INTO sys_role_menu VALUES ('2', '108');
-INSERT INTO sys_role_menu VALUES ('2', '109');
-INSERT INTO sys_role_menu VALUES ('2', '110');
-INSERT INTO sys_role_menu VALUES ('2', '111');
-INSERT INTO sys_role_menu VALUES ('2', '112');
-INSERT INTO sys_role_menu VALUES ('2', '113');
-INSERT INTO sys_role_menu VALUES ('2', '114');
-INSERT INTO sys_role_menu VALUES ('2', '115');
-INSERT INTO sys_role_menu VALUES ('2', '116');
-INSERT INTO sys_role_menu VALUES ('2', '117');
-INSERT INTO sys_role_menu VALUES ('2', '118');
-INSERT INTO sys_role_menu VALUES ('2', '119');
-INSERT INTO sys_role_menu VALUES ('2', '500');
-INSERT INTO sys_role_menu VALUES ('2', '501');
-INSERT INTO sys_role_menu VALUES ('2', '1000');
-INSERT INTO sys_role_menu VALUES ('2', '1001');
-INSERT INTO sys_role_menu VALUES ('2', '1002');
-INSERT INTO sys_role_menu VALUES ('2', '1003');
-INSERT INTO sys_role_menu VALUES ('2', '1004');
-INSERT INTO sys_role_menu VALUES ('2', '1005');
-INSERT INTO sys_role_menu VALUES ('2', '1006');
-INSERT INTO sys_role_menu VALUES ('2', '1007');
-INSERT INTO sys_role_menu VALUES ('2', '1008');
-INSERT INTO sys_role_menu VALUES ('2', '1009');
-INSERT INTO sys_role_menu VALUES ('2', '1010');
-INSERT INTO sys_role_menu VALUES ('2', '1011');
-INSERT INTO sys_role_menu VALUES ('2', '1012');
-INSERT INTO sys_role_menu VALUES ('2', '1013');
-INSERT INTO sys_role_menu VALUES ('2', '1014');
-INSERT INTO sys_role_menu VALUES ('2', '1015');
-INSERT INTO sys_role_menu VALUES ('2', '1016');
-INSERT INTO sys_role_menu VALUES ('2', '1017');
-INSERT INTO sys_role_menu VALUES ('2', '1018');
-INSERT INTO sys_role_menu VALUES ('2', '1019');
-INSERT INTO sys_role_menu VALUES ('2', '1020');
-INSERT INTO sys_role_menu VALUES ('2', '1021');
-INSERT INTO sys_role_menu VALUES ('2', '1022');
-INSERT INTO sys_role_menu VALUES ('2', '1023');
-INSERT INTO sys_role_menu VALUES ('2', '1024');
-INSERT INTO sys_role_menu VALUES ('2', '1025');
-INSERT INTO sys_role_menu VALUES ('2', '1026');
-INSERT INTO sys_role_menu VALUES ('2', '1027');
-INSERT INTO sys_role_menu VALUES ('2', '1028');
-INSERT INTO sys_role_menu VALUES ('2', '1029');
-INSERT INTO sys_role_menu VALUES ('2', '1030');
-INSERT INTO sys_role_menu VALUES ('2', '1031');
-INSERT INTO sys_role_menu VALUES ('2', '1032');
-INSERT INTO sys_role_menu VALUES ('2', '1033');
-INSERT INTO sys_role_menu VALUES ('2', '1034');
-INSERT INTO sys_role_menu VALUES ('2', '1039');
-INSERT INTO sys_role_menu VALUES ('2', '1040');
-INSERT INTO sys_role_menu VALUES ('2', '1041');
-INSERT INTO sys_role_menu VALUES ('2', '1042');
-INSERT INTO sys_role_menu VALUES ('2', '1043');
-INSERT INTO sys_role_menu VALUES ('2', '1044');
-INSERT INTO sys_role_menu VALUES ('2', '1045');
-INSERT INTO sys_role_menu VALUES ('2', '1046');
-INSERT INTO sys_role_menu VALUES ('2', '1047');
-INSERT INTO sys_role_menu VALUES ('2', '1048');
-INSERT INTO sys_role_menu VALUES ('2', '1049');
-INSERT INTO sys_role_menu VALUES ('2', '1050');
-INSERT INTO sys_role_menu VALUES ('2', '1051');
-INSERT INTO sys_role_menu VALUES ('2', '1052');
-INSERT INTO sys_role_menu VALUES ('2', '1053');
-INSERT INTO sys_role_menu VALUES ('2', '1054');
-INSERT INTO sys_role_menu VALUES ('2', '1055');
-INSERT INTO sys_role_menu VALUES ('2', '1056');
-INSERT INTO sys_role_menu VALUES ('2', '1057');
-INSERT INTO sys_role_menu VALUES ('2', '1058');
-INSERT INTO sys_role_menu VALUES ('2', '1059');
-INSERT INTO sys_role_menu VALUES ('2', '1060');
+INSERT INTO sys_role_menu VALUES ('2', '1','admin', NOW(), '',NOW(), NULL);
+INSERT INTO sys_role_menu VALUES ('2', '2','admin', NOW(), '',NOW(), NULL);
+INSERT INTO sys_role_menu VALUES ('2', '3','admin', NOW(), '',NOW(), NULL);
+INSERT INTO sys_role_menu VALUES ('2', '4','admin', NOW(), '',NOW(), NULL);
+INSERT INTO sys_role_menu VALUES ('2', '100','admin', NOW(), '',NOW(), NULL);
+INSERT INTO sys_role_menu VALUES ('2', '101','admin', NOW(), '',NOW(), NULL);
+INSERT INTO sys_role_menu VALUES ('2', '102','admin', NOW(), '',NOW(), NULL);
+INSERT INTO sys_role_menu VALUES ('2', '103','admin', NOW(), '',NOW(), NULL);
+INSERT INTO sys_role_menu VALUES ('2', '104','admin', NOW(), '',NOW(), NULL);
+INSERT INTO sys_role_menu VALUES ('2', '105','admin', NOW(), '',NOW(), NULL);
+INSERT INTO sys_role_menu VALUES ('2', '106','admin', NOW(), '',NOW(), NULL);
+INSERT INTO sys_role_menu VALUES ('2', '108','admin', NOW(), '',NOW(), NULL);
+INSERT INTO sys_role_menu VALUES ('2', '109','admin', NOW(), '',NOW(), NULL);
+INSERT INTO sys_role_menu VALUES ('2', '110','admin', NOW(), '',NOW(), NULL);
+INSERT INTO sys_role_menu VALUES ('2', '111','admin', NOW(), '',NOW(), NULL);
+INSERT INTO sys_role_menu VALUES ('2', '112','admin', NOW(), '',NOW(), NULL);
+INSERT INTO sys_role_menu VALUES ('2', '113','admin', NOW(), '',NOW(), NULL);
+INSERT INTO sys_role_menu VALUES ('2', '114','admin', NOW(), '',NOW(), NULL);
+INSERT INTO sys_role_menu VALUES ('2', '115','admin', NOW(), '',NOW(), NULL);
+INSERT INTO sys_role_menu VALUES ('2', '116','admin', NOW(), '',NOW(), NULL);
+INSERT INTO sys_role_menu VALUES ('2', '117','admin', NOW(), '',NOW(), NULL);
+INSERT INTO sys_role_menu VALUES ('2', '118','admin', NOW(), '',NOW(), NULL);
+INSERT INTO sys_role_menu VALUES ('2', '119','admin', NOW(), '',NOW(), NULL);
+INSERT INTO sys_role_menu VALUES ('2', '500','admin', NOW(), '',NOW(), NULL);
+INSERT INTO sys_role_menu VALUES ('2', '501','admin', NOW(), '',NOW(), NULL);
+INSERT INTO sys_role_menu VALUES ('2', '1000','admin', NOW(), '',NOW(), NULL);
+INSERT INTO sys_role_menu VALUES ('2', '1001','admin', NOW(), '',NOW(), NULL);
+INSERT INTO sys_role_menu VALUES ('2', '1002','admin', NOW(), '',NOW(), NULL);
+INSERT INTO sys_role_menu VALUES ('2', '1003','admin', NOW(), '',NOW(), NULL);
+INSERT INTO sys_role_menu VALUES ('2', '1004','admin', NOW(), '',NOW(), NULL);
+INSERT INTO sys_role_menu VALUES ('2', '1005','admin', NOW(), '',NOW(), NULL);
+INSERT INTO sys_role_menu VALUES ('2', '1006','admin', NOW(), '',NOW(), NULL);
+INSERT INTO sys_role_menu VALUES ('2', '1007','admin', NOW(), '',NOW(), NULL);
+INSERT INTO sys_role_menu VALUES ('2', '1008','admin', NOW(), '',NOW(), NULL);
+INSERT INTO sys_role_menu VALUES ('2', '1009','admin', NOW(), '',NOW(), NULL);
+INSERT INTO sys_role_menu VALUES ('2', '1010','admin', NOW(), '',NOW(), NULL);
+INSERT INTO sys_role_menu VALUES ('2', '1011','admin', NOW(), '',NOW(), NULL);
+INSERT INTO sys_role_menu VALUES ('2', '1012','admin', NOW(), '',NOW(), NULL);
+INSERT INTO sys_role_menu VALUES ('2', '1013','admin', NOW(), '',NOW(), NULL);
+INSERT INTO sys_role_menu VALUES ('2', '1014','admin', NOW(), '',NOW(), NULL);
+INSERT INTO sys_role_menu VALUES ('2', '1015','admin', NOW(), '',NOW(), NULL);
+INSERT INTO sys_role_menu VALUES ('2', '1016','admin', NOW(), '',NOW(), NULL);
+INSERT INTO sys_role_menu VALUES ('2', '1017','admin', NOW(), '',NOW(), NULL);
+INSERT INTO sys_role_menu VALUES ('2', '1018','admin', NOW(), '',NOW(), NULL);
+INSERT INTO sys_role_menu VALUES ('2', '1019','admin', NOW(), '',NOW(), NULL);
+INSERT INTO sys_role_menu VALUES ('2', '1020','admin', NOW(), '',NOW(), NULL);
+INSERT INTO sys_role_menu VALUES ('2', '1021','admin', NOW(), '',NOW(), NULL);
+INSERT INTO sys_role_menu VALUES ('2', '1022','admin', NOW(), '',NOW(), NULL);
+INSERT INTO sys_role_menu VALUES ('2', '1023','admin', NOW(), '',NOW(), NULL);
+INSERT INTO sys_role_menu VALUES ('2', '1024','admin', NOW(), '',NOW(), NULL);
+INSERT INTO sys_role_menu VALUES ('2', '1025','admin', NOW(), '',NOW(), NULL);
+INSERT INTO sys_role_menu VALUES ('2', '1026','admin', NOW(), '',NOW(), NULL);
+INSERT INTO sys_role_menu VALUES ('2', '1027','admin', NOW(), '',NOW(), NULL);
+INSERT INTO sys_role_menu VALUES ('2', '1028','admin', NOW(), '',NOW(), NULL);
+INSERT INTO sys_role_menu VALUES ('2', '1029','admin', NOW(), '',NOW(), NULL);
+INSERT INTO sys_role_menu VALUES ('2', '1030','admin', NOW(), '',NOW(), NULL);
+INSERT INTO sys_role_menu VALUES ('2', '1031','admin', NOW(), '',NOW(), NULL);
+INSERT INTO sys_role_menu VALUES ('2', '1032','admin', NOW(), '',NOW(), NULL);
+INSERT INTO sys_role_menu VALUES ('2', '1033','admin', NOW(), '',NOW(), NULL);
+INSERT INTO sys_role_menu VALUES ('2', '1034','admin', NOW(), '',NOW(), NULL);
+INSERT INTO sys_role_menu VALUES ('2', '1039','admin', NOW(), '',NOW(), NULL);
+INSERT INTO sys_role_menu VALUES ('2', '1040','admin', NOW(), '',NOW(), NULL);
+INSERT INTO sys_role_menu VALUES ('2', '1041','admin', NOW(), '',NOW(), NULL);
+INSERT INTO sys_role_menu VALUES ('2', '1042','admin', NOW(), '',NOW(), NULL);
+INSERT INTO sys_role_menu VALUES ('2', '1043','admin', NOW(), '',NOW(), NULL);
+INSERT INTO sys_role_menu VALUES ('2', '1044','admin', NOW(), '',NOW(), NULL);
+INSERT INTO sys_role_menu VALUES ('2', '1045','admin', NOW(), '',NOW(), NULL);
+INSERT INTO sys_role_menu VALUES ('2', '1046','admin', NOW(), '',NOW(), NULL);
+INSERT INTO sys_role_menu VALUES ('2', '1047','admin', NOW(), '',NOW(), NULL);
+INSERT INTO sys_role_menu VALUES ('2', '1048','admin', NOW(), '',NOW(), NULL);
+INSERT INTO sys_role_menu VALUES ('2', '1049','admin', NOW(), '',NOW(), NULL);
+INSERT INTO sys_role_menu VALUES ('2', '1050','admin', NOW(), '',NOW(), NULL);
+INSERT INTO sys_role_menu VALUES ('2', '1051','admin', NOW(), '',NOW(), NULL);
+INSERT INTO sys_role_menu VALUES ('2', '1052','admin', NOW(), '',NOW(), NULL);
+INSERT INTO sys_role_menu VALUES ('2', '1053','admin', NOW(), '',NOW(), NULL);
+INSERT INTO sys_role_menu VALUES ('2', '1054','admin', NOW(), '',NOW(), NULL);
+INSERT INTO sys_role_menu VALUES ('2', '1055','admin', NOW(), '',NOW(), NULL);
+INSERT INTO sys_role_menu VALUES ('2', '1056','admin', NOW(), '',NOW(), NULL);
+INSERT INTO sys_role_menu VALUES ('2', '1057','admin', NOW(), '',NOW(), NULL);
+INSERT INTO sys_role_menu VALUES ('2', '1058','admin', NOW(), '',NOW(), NULL);
+INSERT INTO sys_role_menu VALUES ('2', '1059','admin', NOW(), '',NOW(), NULL);
+INSERT INTO sys_role_menu VALUES ('2', '1060','admin', NOW(), '',NOW(), NULL);
 
 
 -- ============================================
@@ -393,9 +393,9 @@ CREATE TABLE sys_role_dept (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='角色和部门关联表';
 
 -- 初始化-角色和部门关联表数据
-INSERT INTO sys_role_dept VALUES ('2', '100');
-INSERT INTO sys_role_dept VALUES ('2', '101');
-INSERT INTO sys_role_dept VALUES ('2', '105');
+INSERT INTO sys_role_dept VALUES ('2', '100','admin', NOW(), '',NOW(), NULL);
+INSERT INTO sys_role_dept VALUES ('2', '101','admin', NOW(), '',NOW(), NULL);
+INSERT INTO sys_role_dept VALUES ('2', '105','admin', NOW(), '',NOW(), NULL);
 
 
 -- ============================================
@@ -414,8 +414,8 @@ CREATE TABLE sys_user_post (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='用户与岗位关联表';
 
 -- 初始化-用户与岗位关联表数据
-INSERT INTO sys_user_post VALUES ('1', '1');
-INSERT INTO sys_user_post VALUES ('2', '2');
+INSERT INTO sys_user_post VALUES ('1', '1','admin', NOW(), '',NOW(), NULL);
+INSERT INTO sys_user_post VALUES ('2', '2','admin', NOW(), '',NOW(), NULL);
 
 
 -- ============================================

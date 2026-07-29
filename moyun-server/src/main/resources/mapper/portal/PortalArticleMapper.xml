@@ -6,18 +6,14 @@
 
     <resultMap type="com.moyun.portal.domain.entity.PortalArticle" id="PortalArticleResult">
         <id property="id" column="id"/>
-        <result property="businessId" column="business_id"/>
         <result property="title" column="title"/>
         <result property="slug" column="slug"/>
         <result property="content" column="content"/>
         <result property="excerpt" column="excerpt"/>
         <result property="cover" column="cover"/>
         <result property="authorId" column="author_id"/>
-        <result property="authorBusinessId" column="author_business_id"/>
         <result property="categoryId" column="category_id"/>
-        <result property="categoryBusinessId" column="category_business_id"/>
         <result property="rootCategoryId" column="root_category_id"/>
-        <result property="rootCategoryBusinessId" column="root_category_business_id"/>
         <result property="categoryPath" column="category_path"/>
         <result property="categoryName" column="category_name"/>
         <result property="categorySlug" column="category_slug"/>
@@ -52,10 +48,7 @@
 
     <resultMap type="com.moyun.ext.cms.domain.vo.CmsArticleVO" id="CmsArticleResult">
         <id property="id" column="id"/>
-        <result property="businessId" column="business_id"/>
-        <result property="authorBusinessId" column="author_business_id"/>
-        <result property="categoryBusinessId" column="category_business_id"/>
-        <result property="rootCategoryBusinessId" column="root_category_business_id"/>
+
         <result property="title" column="title"/>
         <result property="slug" column="slug"/>
         <result property="content" column="content"/>
@@ -94,13 +87,13 @@
     </resultMap>
 
     <sql id="selectPortalArticleVo">
-        select pa.id, pa.title, pa.slug, pa.content, pa.excerpt, pa.cover, pa.author_id, pa.author_business_id,
-               pa.category_id, pa.category_business_id, pa.root_category_id, pa.root_category_business_id, pa.category_path,
+        select pa.id, pa.title, pa.slug, pa.content, pa.excerpt, pa.cover, pa.author_id,
+               pa.category_id, pa.root_category_id,  pa.category_path,
                pa.status,
                pa.is_featured, pa.is_top, pa.is_carousel, pa.is_category_recommended, pa.views, pa.likes, pa.comments, pa.share_count,
                pa.bookmark_count, pa.published_at, pa.link, pa.editor_mode, pa.session_token, pa.content_markdown,
                pa.is_paid, pa.paid_content, pa.preview_length, pa.price,
-               pa.create_by, pa.create_time, pa.update_by, pa.update_time, pa.remark, pa.business_id,
+               pa.create_by, pa.create_time, pa.update_by, pa.update_time, pa.remark,
                pc.name as category_name, pc.slug as category_slug,
                pu.nickname as author_nickname, pu.username as author_username, pu.avatar as author_avatar
         from portal_article pa
@@ -116,7 +109,6 @@
                pa.is_featured, pa.is_top, pa.is_carousel, pa.is_category_recommended, pa.views, pa.likes, pa.comments, pa.share_count,
                pa.bookmark_count, pa.published_at, pa.link, pa.editor_mode, pa.session_token, pa.content_markdown,
                pa.create_by, pa.create_time, pa.update_by, pa.update_time, pa.remark,
-               pa.business_id, pa.author_business_id, pa.category_business_id, pa.root_category_business_id,
                pc.name as category_name, pc.slug as category_slug,
                pu.nickname as author_nickname, pu.username as author_username, pu.avatar as author_avatar
         from portal_article pa
@@ -353,11 +345,8 @@
         <trim prefix="(" suffix=")" suffixOverrides=",">
             title, slug, content, excerpt, cover,
             <if test="authorId != null">author_id,</if>
-            <if test="authorBusinessId != null">author_business_id,</if>
             <if test="categoryId != null">category_id,</if>
-            <if test="categoryBusinessId != null">category_business_id,</if>
             <if test="rootCategoryId != null">root_category_id,</if>
-            <if test="rootCategoryBusinessId != null">root_category_business_id,</if>
             <if test="categoryPath != null">category_path,</if>
             <if test="status != null">status,</if>
             <if test="isFeatured != null">is_featured,</if>
@@ -383,7 +372,6 @@
             <if test="updateBy != null">update_by,</if>
             <if test="updateTime != null">update_time,</if>
             <if test="remark != null">remark,</if>
-            <if test="businessId != null">business_id,</if>
         </trim>
         <trim prefix="values (" suffix=")" suffixOverrides=",">
             #{title}, #{slug}, #{content}, #{excerpt}, #{cover},
@@ -432,11 +420,8 @@
             <if test="excerpt != null">excerpt = #{excerpt},</if>
             <if test="cover != null">cover = #{cover},</if>
             <if test="authorId != null">author_id = #{authorId},</if>
-            <if test="authorBusinessId != null">author_business_id = #{authorBusinessId},</if>
             <if test="categoryId != null">category_id = #{categoryId},</if>
-            <if test="categoryBusinessId != null">category_business_id = #{categoryBusinessId},</if>
             <if test="rootCategoryId != null">root_category_id = #{rootCategoryId},</if>
-            <if test="rootCategoryBusinessId != null">root_category_business_id = #{rootCategoryBusinessId},</if>
             <if test="categoryPath != null">category_path = #{categoryPath},</if>
             <if test="status != null">status = #{status},</if>
             <if test="isFeatured != null">is_featured = #{isFeatured},</if>
@@ -460,7 +445,6 @@
             <if test="updateBy != null">update_by = #{updateBy},</if>
             <if test="updateTime != null">update_time = #{updateTime},</if>
             <if test="remark != null">remark = #{remark},</if>
-            <if test="businessId != null">business_id = #{businessId},</if>
         </set>
         where id = #{id}
     </update>

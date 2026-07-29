@@ -15,6 +15,9 @@
 ALTER TABLE `portal_friend_link`
     MODIFY COLUMN `status` varchar(20) DEFAULT '0' COMMENT '状态：0正常 1停用';
 
+ALTER TABLE `portal_friend_link`
+    add COLUMN `del_flag` char(1) DEFAULT '0' COMMENT '删除状态：0存在 1已删除';
+
 -- 2.2 迁移历史数据（active→0, inactive→1，幂等）
 UPDATE `portal_friend_link` SET `status` = '0' WHERE `status` = 'active';
 UPDATE `portal_friend_link` SET `status` = '1' WHERE `status` = 'inactive';

@@ -7,7 +7,6 @@
     <resultMap type="com.moyun.portal.domain.entity.PortalArticleTag" id="PortalArticleTagResult">
         <id property="id" column="id"/>
         <result property="articleId" column="article_id"/>
-        <result property="articleBusinessId" column="article_business_id"/>
         <result property="tagId" column="tag_id"/>
         <result property="tagBusinessId" column="tag_business_id"/>
         <result property="createTime" column="create_time"/>

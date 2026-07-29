@@ -49,8 +49,25 @@ public class CmsPortalUserController extends BaseController {
     @Operation(summary = "获取门户用户详情", description = "根据用户ID获取门户用户详细信息")
     @PreAuthorize("@ss.hasPermi('cms:user:query')")
     @GetMapping(value = "/{id}")
-    public AjaxResult getInfo(@Parameter(description = "用户ID") @PathVariable Long id) {
+    public AjaxResult getInfo(@Parameter(description = "用户ID") @PathVariable("id") Long id) {
         return success(cmsPortalUserService.selectUserById(id));
+    }
+
+    /**
+     * 获取门户用户画像（含完整画像 + 业务统计 + 快速跳转入口）
+     *
+     * <p>用于后台"用户画像"抽屉展示，让管理员快速掌握客户状态：
+     * <ul>
+     *   <li>完整画像：学校、公司、地点、网站、GitHub、认证、VIP、验证状态等</li>
+     *   <li>业务统计：文章/评论/收藏/书架/反馈/举报/粉丝/关注/获赞等</li>
+     *   <li>快速跳转：跳转到文章管理、评论管理、反馈管理、举报管理（带用户筛选参数）</li>
+     * </ul>
+     */
+    @Operation(summary = "获取门户用户画像", description = "聚合用户完整画像、业务统计、快速跳转入口，用于后台画像抽屉")
+    @PreAuthorize("@ss.hasPermi('cms:user:query')")
+    @GetMapping(value = "/{id}/profile")
+    public AjaxResult getProfile(@Parameter(description = "用户ID") @PathVariable("id") Long id) {
+        return success(cmsPortalUserService.selectUserProfile(id));
     }
 
     /**
@@ -104,7 +121,7 @@ public class CmsPortalUserController extends BaseController {
     @PreAuthorize("@ss.hasPermi('cms:user:remove')")
     @Log(title = "门户用户管理", businessType = BusinessType.DELETE)
     @DeleteMapping("/{ids}")
-    public AjaxResult remove(@Parameter(description = "用户ID数组") @PathVariable Long[] ids) {
+    public AjaxResult remove(@Parameter(description = "用户ID数组") @PathVariable("ids") Long[] ids) {
         return toAjax(cmsPortalUserService.deleteUserByIds(ids));
     }
 }

@@ -93,6 +93,18 @@
       </el-table-column>
       <el-table-column label="手机号" align="center" prop="phone" width="120" />
       <el-table-column label="邮箱" align="center" prop="email" width="180" :show-overflow-tooltip="true" />
+      <el-table-column label="创作者认证" align="center" prop="isCertifiedCreator" width="100">
+        <template #default="scope">
+          <el-tag v-if="scope.row.isCertifiedCreator === 1" type="success" size="small">已认证</el-tag>
+          <el-tag v-else type="info" size="small">未认证</el-tag>
+        </template>
+      </el-table-column>
+      <el-table-column label="VIP" align="center" prop="vipExpireAt" width="110">
+        <template #default="scope">
+          <el-tag v-if="scope.row.vipExpireAt && new Date(scope.row.vipExpireAt) > new Date()" type="warning" size="small">VIP</el-tag>
+          <span v-else class="text-muted">-</span>
+        </template>
+      </el-table-column>
       <el-table-column label="状态" align="center" prop="status" width="80">
         <template #default="scope">
           <el-switch
@@ -108,8 +120,15 @@
           <span>{{ parseTime(scope.row.createTime) }}</span>
         </template>
       </el-table-column>
-      <el-table-column label="操作" align="center" class-name="small-padding fixed-width" width="180">
+      <el-table-column label="操作" align="center" class-name="small-padding fixed-width" width="230">
         <template #default="scope">
+          <el-button
+              link
+              type="primary"
+              icon="View"
+              @click="handleProfile(scope.row)"
+              v-hasPermi="['cms:user:query']"
+          >画像</el-button>
           <el-button
               link
               type="primary"
@@ -168,6 +187,53 @@
         <el-form-item label="职位" prop="position">
           <el-input v-model="form.position" placeholder="请输入职位" />
         </el-form-item>
+        <el-divider content-position="left">画像资料</el-divider>
+        <el-row :gutter="0">
+          <el-col :span="12">
+            <el-form-item label="性别" prop="gender" label-width="80px">
+              <el-select v-model="form.gender" placeholder="请选择" clearable style="width: 100%">
+                <el-option label="男" value="male" />
+                <el-option label="女" value="female" />
+                <el-option label="其他" value="other" />
+              </el-select>
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="生日" prop="birthday" label-width="80px">
+              <el-input v-model="form.birthday" placeholder="如 1995-01-01" />
+            </el-form-item>
+          </el-col>
+        </el-row>
+        <el-form-item label="所在地" prop="location">
+          <el-input v-model="form.location" placeholder="请输入所在城市" />
+        </el-form-item>
+        <el-row :gutter="0">
+          <el-col :span="12">
+            <el-form-item label="公司" prop="company" label-width="80px">
+              <el-input v-model="form.company" placeholder="请输入公司" />
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="学校" prop="school" label-width="80px">
+              <el-input v-model="form.school" placeholder="请输入学校" />
+            </el-form-item>
+          </el-col>
+        </el-row>
+        <el-row :gutter="0">
+          <el-col :span="12">
+            <el-form-item label="微信号" prop="wechat" label-width="80px">
+              <el-input v-model="form.wechat" placeholder="请输入微信号" />
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="GitHub" prop="github" label-width="80px">
+              <el-input v-model="form.github" placeholder="GitHub 账号" />
+            </el-form-item>
+          </el-col>
+        </el-row>
+        <el-form-item label="个人网站" prop="website">
+          <el-input v-model="form.website" placeholder="https://" />
+        </el-form-item>
         <el-form-item label="密码" prop="password" v-if="!form.id">
           <el-input v-model="form.password" type="password" placeholder="请输入密码" show-password />
         </el-form-item>
@@ -188,14 +254,140 @@
         </div>
       </template>
     </el-dialog>
+
+    <!-- 用户画像抽屉 -->
+    <el-drawer v-model="profileOpen" size="640px" :title="profileTitle" direction="rtl">
+      <div v-loading="profileLoading" class="profile-container" v-if="profileData">
+        <!-- 用户基础信息卡片 -->
+        <div class="profile-header">
+          <el-avatar :src="profileData.user.avatar" :size="72" fit="cover" />
+          <div class="profile-header-info">
+            <div class="profile-name">
+              {{ profileData.user.nickname || profileData.user.username }}
+              <el-tag v-if="profileData.user.isCertifiedCreator === 1" type="success" size="small">已认证</el-tag>
+              <el-tag v-if="isVip(profileData.user.vipExpireAt)" type="warning" size="small">VIP</el-tag>
+              <el-tag :type="profileData.user.status === '0' ? 'success' : 'danger'" size="small">
+                {{ profileData.user.status === '0' ? '正常' : '停用' }}
+              </el-tag>
+            </div>
+            <div class="profile-sub">@{{ profileData.user.username }} · ID: {{ profileData.user.id }}</div>
+            <div class="profile-sub" v-if="profileData.user.bio">{{ profileData.user.bio }}</div>
+          </div>
+        </div>
+
+        <!-- 快速跳转入口 -->
+        <div class="profile-section">
+          <div class="section-title">快速跳转</div>
+          <div class="quick-links">
+            <el-button
+                v-for="link in profileData.links"
+                :key="link.menuPath"
+                :icon="link.icon"
+                @click="goToMenu(link)"
+                :disabled="!link.count || link.count === 0"
+            >
+              {{ link.label }}
+              <el-badge v-if="link.count > 0" :value="link.count" :max="999" class="link-badge" />
+            </el-button>
+          </div>
+        </div>
+
+        <!-- 业务统计 -->
+        <div class="profile-section">
+          <div class="section-title">内容创作</div>
+          <div class="stat-grid">
+            <div class="stat-item"><div class="stat-num">{{ profileData.stats.articles || 0 }}</div><div class="stat-label">文章</div></div>
+            <div class="stat-item"><div class="stat-num">{{ profileData.stats.views || 0 }}</div><div class="stat-label">浏览量</div></div>
+            <div class="stat-item"><div class="stat-num">{{ profileData.stats.likes || 0 }}</div><div class="stat-label">获赞</div></div>
+            <div class="stat-item"><div class="stat-num">{{ profileData.stats.bookmarks || 0 }}</div><div class="stat-label">被收藏</div></div>
+            <div class="stat-item"><div class="stat-num">{{ profileData.stats.comments || 0 }}</div><div class="stat-label">评论数</div></div>
+            <div class="stat-item"><div class="stat-num">{{ profileData.stats.topicPosts || 0 }}</div><div class="stat-label">话题观点</div></div>
+            <div class="stat-item"><div class="stat-num">{{ profileData.stats.wordCount || 0 }}</div><div class="stat-label">创作字数</div></div>
+            <div class="stat-item"><div class="stat-num">{{ profileData.stats.totalLikes || 0 }}</div><div class="stat-label">总获赞</div></div>
+          </div>
+        </div>
+
+        <div class="profile-section">
+          <div class="section-title">读书与面试</div>
+          <div class="stat-grid">
+            <div class="stat-item"><div class="stat-num">{{ profileData.stats.bookFinished || 0 }}</div><div class="stat-label">读完的书</div></div>
+            <div class="stat-item"><div class="stat-num">{{ profileData.stats.bookshelfCount || 0 }}</div><div class="stat-label">书架书籍</div></div>
+            <div class="stat-item"><div class="stat-num">{{ profileData.stats.booklistCount || 0 }}</div><div class="stat-label">书单</div></div>
+            <div class="stat-item"><div class="stat-num">{{ profileData.stats.quoteCount || 0 }}</div><div class="stat-label">金句</div></div>
+            <div class="stat-item"><div class="stat-num">{{ profileData.stats.questionSolved || 0 }}</div><div class="stat-label">解题数</div></div>
+            <div class="stat-item"><div class="stat-num">{{ profileData.stats.noteCount || 0 }}</div><div class="stat-label">笔记</div></div>
+            <div class="stat-item"><div class="stat-num">{{ profileData.stats.experienceCount || 0 }}</div><div class="stat-label">面经</div></div>
+            <div class="stat-item"><div class="stat-num">{{ profileData.stats.resumeCount || 0 }}</div><div class="stat-label">简历</div></div>
+          </div>
+        </div>
+
+        <div class="profile-section">
+          <div class="section-title">社交与反馈</div>
+          <div class="stat-grid">
+            <div class="stat-item"><div class="stat-num">{{ profileData.stats.followers || 0 }}</div><div class="stat-label">粉丝</div></div>
+            <div class="stat-item"><div class="stat-num">{{ profileData.stats.following || 0 }}</div><div class="stat-label">关注</div></div>
+            <div class="stat-item"><div class="stat-num">{{ profileData.stats.checkinStreak || 0 }}</div><div class="stat-label">连续签到</div></div>
+            <div class="stat-item">
+              <div class="stat-num">{{ profileData.stats.feedbackCount || 0 }}<span v-if="profileData.stats.feedbackPending > 0" class="stat-pending">（待处理 {{ profileData.stats.feedbackPending }}）</span></div>
+              <div class="stat-label">反馈</div>
+            </div>
+            <div class="stat-item"><div class="stat-num">{{ profileData.stats.reportAsReporter || 0 }}</div><div class="stat-label">发起举报</div></div>
+            <div class="stat-item"><div class="stat-num">{{ profileData.stats.reportAsTarget || 0 }}</div><div class="stat-label">被举报</div></div>
+          </div>
+        </div>
+
+        <!-- 完整画像资料 -->
+        <div class="profile-section">
+          <div class="section-title">画像资料</div>
+          <el-descriptions :column="2" border size="small">
+            <el-descriptions-item label="真实姓名">{{ profileData.user.remark || '-' }}</el-descriptions-item>
+            <el-descriptions-item label="性别">{{ genderText(profileData.user.gender) }}</el-descriptions-item>
+            <el-descriptions-item label="生日">{{ profileData.user.birthday || '-' }}</el-descriptions-item>
+            <el-descriptions-item label="所在地">{{ profileData.user.location || '-' }}</el-descriptions-item>
+            <el-descriptions-item label="公司">{{ profileData.user.company || '-' }}</el-descriptions-item>
+            <el-descriptions-item label="职位">{{ profileData.user.position || '-' }}</el-descriptions-item>
+            <el-descriptions-item label="学校">{{ profileData.user.school || '-' }}</el-descriptions-item>
+            <el-descriptions-item label="微信号">{{ profileData.user.wechat || '-' }}</el-descriptions-item>
+            <el-descriptions-item label="个人网站">
+              <el-link v-if="profileData.user.website" :href="profileData.user.website" target="_blank" type="primary">{{ profileData.user.website }}</el-link>
+              <span v-else>-</span>
+            </el-descriptions-item>
+            <el-descriptions-item label="GitHub">
+              <el-link v-if="profileData.user.github" :href="'https://github.com/' + profileData.user.github" target="_blank" type="primary">{{ profileData.user.github }}</el-link>
+              <span v-else>-</span>
+            </el-descriptions-item>
+            <el-descriptions-item label="语言">{{ profileData.user.language || '-' }}</el-descriptions-item>
+            <el-descriptions-item label="时区">{{ profileData.user.timezone || '-' }}</el-descriptions-item>
+            <el-descriptions-item label="手机验证">
+              <el-tag :type="profileData.user.isPhoneVerified ? 'success' : 'info'" size="small">{{ profileData.user.isPhoneVerified ? '已验证' : '未验证' }}</el-tag>
+            </el-descriptions-item>
+            <el-descriptions-item label="微信验证">
+              <el-tag :type="profileData.user.isWechatVerified ? 'success' : 'info'" size="small">{{ profileData.user.isWechatVerified ? '已验证' : '未验证' }}</el-tag>
+            </el-descriptions-item>
+            <el-descriptions-item label="两步验证">
+              <el-tag :type="profileData.user.twoFactorEnabled ? 'success' : 'info'" size="small">{{ profileData.user.twoFactorEnabled ? '已开启' : '未开启' }}</el-tag>
+            </el-descriptions-item>
+            <el-descriptions-item label="VIP到期">
+              <span v-if="profileData.user.vipExpireAt">{{ parseTime(profileData.user.vipExpireAt) }}</span>
+              <span v-else>-</span>
+            </el-descriptions-item>
+            <el-descriptions-item label="最后登录IP">{{ profileData.user.loginIp || '-' }}</el-descriptions-item>
+            <el-descriptions-item label="最后登录时间">{{ profileData.user.loginDate ? parseTime(profileData.user.loginDate) : '-' }}</el-descriptions-item>
+            <el-descriptions-item label="注册时间">{{ profileData.user.createTime ? parseTime(profileData.user.createTime) : '-' }}</el-descriptions-item>
+            <el-descriptions-item label="业务ID">{{ profileData.user.businessId || '-' }}</el-descriptions-item>
+          </el-descriptions>
+        </div>
+      </div>
+    </el-drawer>
   </div>
 </template>
 
 <script setup name="CmsUser">
-import { listUser, getUser, addUser, updateUser, delUser, changeUserStatus, resetUserPwd } from "@/api/cms/user";
+import { listUser, getUser, addUser, updateUser, delUser, changeUserStatus, resetUserPwd, getUserProfile } from "@/api/cms/user";
 import ImageUpload from "@/components/ImageUpload/index.vue";
 
 const { proxy } = getCurrentInstance();
+const router = useRouter();
 
 // 表格数据
 const userList = ref([]);
@@ -208,6 +400,12 @@ const multiple = ref(true);
 const total = ref(0);
 const title = ref("");
 
+// 用户画像抽屉
+const profileOpen = ref(false);
+const profileLoading = ref(false);
+const profileTitle = ref("");
+const profileData = ref(null);
+
 // 列显隐信息
 const columns = ref([
   { key: 0, label: `用户编号`, visible: true },
@@ -216,8 +414,10 @@ const columns = ref([
   { key: 3, label: `头像`, visible: true },
   { key: 4, label: `手机号`, visible: true },
   { key: 5, label: `邮箱`, visible: true },
-  { key: 6, label: `状态`, visible: true },
-  { key: 7, label: `注册时间`, visible: true }
+  { key: 6, label: `创作者认证`, visible: true },
+  { key: 7, label: `VIP`, visible: true },
+  { key: 8, label: `状态`, visible: true },
+  { key: 9, label: `注册时间`, visible: true }
 ]);
 
 // 查询参数
@@ -272,6 +472,14 @@ function reset() {
     email: undefined,
     bio: undefined,
     position: undefined,
+    gender: undefined,
+    birthday: undefined,
+    location: undefined,
+    company: undefined,
+    school: undefined,
+    wechat: undefined,
+    github: undefined,
+    website: undefined,
     password: undefined,
     status: "0",
     remark: undefined
@@ -375,6 +583,142 @@ function handleResetPwd(row) {
   }).catch(() => {});
 }
 
+// 打开用户画像抽屉
+function handleProfile(row) {
+  profileOpen.value = true;
+  profileLoading.value = true;
+  profileData.value = null;
+  profileTitle.value = "用户画像 - " + (row.nickname || row.username);
+  getUserProfile(row.id).then(response => {
+    profileData.value = response.data;
+    profileLoading.value = false;
+  }).catch(() => {
+    profileLoading.value = false;
+    profileOpen.value = false;
+  });
+}
+
+// 跳转到对应菜单页（带用户筛选参数）
+function goToMenu(link) {
+  if (!link || !link.count) {
+    return;
+  }
+  const query = {};
+  query[link.queryKey] = link.queryValue;
+  router.push({ path: link.menuPath, query: query });
+}
+
+// 判断是否 VIP（未过期）
+function isVip(vipExpireAt) {
+  return vipExpireAt && new Date(vipExpireAt) > new Date();
+}
+
+// 性别文案
+function genderText(gender) {
+  if (!gender) return '-';
+  const map = { 'male': '男', 'female': '女', 'other': '其他' };
+  return map[gender] || gender;
+}
+
 // 初始化查询
 getList();
 </script>
+
+<style lang="scss" scoped>
+.text-muted {
+  color: var(--el-text-color-secondary);
+}
+
+/* 用户画像抽屉样式 */
+.profile-container {
+  padding: 0 16px 16px;
+}
+
+.profile-header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px;
+  background: var(--el-fill-color-light);
+  border-radius: 8px;
+  margin-bottom: 20px;
+
+  .profile-header-info {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .profile-name {
+    font-size: 16px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+
+  .profile-sub {
+    font-size: 12px;
+    color: var(--el-text-color-secondary);
+    margin-top: 4px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+.profile-section {
+  margin-bottom: 20px;
+
+  .section-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--el-text-color-primary);
+    margin-bottom: 12px;
+    padding-left: 8px;
+    border-left: 3px solid var(--el-color-primary);
+  }
+}
+
+.quick-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+
+  .link-badge {
+    margin-left: 4px;
+  }
+}
+
+.stat-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+
+.stat-item {
+  text-align: center;
+  padding: 12px 4px;
+  background: var(--el-fill-color-lighter);
+  border-radius: 6px;
+
+  .stat-num {
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--el-color-primary);
+    line-height: 1.4;
+  }
+
+  .stat-label {
+    font-size: 12px;
+    color: var(--el-text-color-secondary);
+    margin-top: 4px;
+  }
+
+  .stat-pending {
+    font-size: 11px;
+    color: var(--el-color-danger);
+    font-weight: normal;
+  }
+}
+</style>

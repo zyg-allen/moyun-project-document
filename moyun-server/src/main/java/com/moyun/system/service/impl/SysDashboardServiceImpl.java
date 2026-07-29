@@ -444,7 +444,7 @@ public class SysDashboardServiceImpl implements ISysDashboardService {
                     item.setCreateTime(n.getCreateTime() != null ? n.getCreateTime().format(DATETIME_FMT) : "");
                     item.setSubmitter("系统");
                     item.setPriority("medium".equals(n.getType()) ? "medium" : "low");
-                    item.setRoutePath("/cms/notification");
+                    item.setRoutePath("/system/notification");
                     tasks.add(item);
                 }
             }

@@ -1,5 +1,8 @@
 -- 来源：all-db-ddl.sql 行4582-4975
 -- 用途：sys_menu 第二段——CMS 内容管理菜单完整初始化（INSERT 种子数据）
+-- v6.1 修复：将 CMS 菜单 ID 起点设为 2000，与 RuoYi 菜单（1-1060）区分，便于维护和角色关联
+
+ALTER TABLE sys_menu AUTO_INCREMENT = 2000;
 
 INSERT INTO sys_menu (menu_name, parent_id, order_num, path, component, query, is_frame, is_cache,
                       menu_type, visible, status, perms, icon, create_by, create_time, remark)
@@ -158,35 +161,8 @@ INSERT INTO sys_menu (menu_name, parent_id, order_num, path, component, query, i
 SELECT '评论删除', @comment_menu_id, 3, '', NULL, NULL, 1, 0, 'F', '0', '0', 'cms:comment:remove', '#', 'admin', NOW(), ''
 FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM sys_menu WHERE perms = 'cms:comment:remove');
 
--- =============================================================================
--- 七、通知管理（cms:notification）
--- =============================================================================
-INSERT INTO sys_menu (menu_name, parent_id, order_num, path, component, query, is_frame, is_cache,
-                      menu_type, visible, status, perms, icon, create_by, create_time, remark)
-SELECT '通知管理', @cms_parent_id, 6, 'notification', 'cms/notification/index', NULL, 1, 0, 'C', '0', '0', 'cms:notification:list', 'email', 'admin', NOW(), '通知管理菜单'
-FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM sys_menu WHERE perms = 'cms:notification:list');
-SELECT @notification_menu_id := menu_id FROM sys_menu WHERE perms = 'cms:notification:list' LIMIT 1;
-
-INSERT INTO sys_menu (menu_name, parent_id, order_num, path, component, query, is_frame, is_cache,
-                      menu_type, visible, status, perms, icon, create_by, create_time, remark)
-SELECT '通知查询', @notification_menu_id, 1, '', NULL, NULL, 1, 0, 'F', '0', '0', 'cms:notification:query', '#', 'admin', NOW(), ''
-FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM sys_menu WHERE perms = 'cms:notification:query');
-INSERT INTO sys_menu (menu_name, parent_id, order_num, path, component, query, is_frame, is_cache,
-                      menu_type, visible, status, perms, icon, create_by, create_time, remark)
-SELECT '通知新增', @notification_menu_id, 2, '', NULL, NULL, 1, 0, 'F', '0', '0', 'cms:notification:add', '#', 'admin', NOW(), ''
-FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM sys_menu WHERE perms = 'cms:notification:add');
-INSERT INTO sys_menu (menu_name, parent_id, order_num, path, component, query, is_frame, is_cache,
-                      menu_type, visible, status, perms, icon, create_by, create_time, remark)
-SELECT '通知修改', @notification_menu_id, 3, '', NULL, NULL, 1, 0, 'F', '0', '0', 'cms:notification:edit', '#', 'admin', NOW(), ''
-FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM sys_menu WHERE perms = 'cms:notification:edit');
-INSERT INTO sys_menu (menu_name, parent_id, order_num, path, component, query, is_frame, is_cache,
-                      menu_type, visible, status, perms, icon, create_by, create_time, remark)
-SELECT '通知删除', @notification_menu_id, 4, '', NULL, NULL, 1, 0, 'F', '0', '0', 'cms:notification:remove', '#', 'admin', NOW(), ''
-FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM sys_menu WHERE perms = 'cms:notification:remove');
-INSERT INTO sys_menu (menu_name, parent_id, order_num, path, component, query, is_frame, is_cache,
-                      menu_type, visible, status, perms, icon, create_by, create_time, remark)
-SELECT '发送系统通知', @notification_menu_id, 5, '', NULL, NULL, 1, 0, 'F', '0', '0', 'cms:notification:sendAll', '#', 'admin', NOW(), ''
-FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM sys_menu WHERE perms = 'cms:notification:sendAll');
+-- v6.2 通知管理已移出 CMS，归属"系统管理"目录，权限码 system:notification:*，见 93_菜单权限_消息中心.sql
+-- 原 cms:notification:* 菜单不再在此创建，避免与系统管理菜单重复
 
 -- =============================================================================
 -- 八、友情链接（cms:friend-link）

@@ -5,6 +5,7 @@ import java.util.List;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 
 import com.moyun.ext.cms.domain.query.CmsPortalUserQuery;
+import com.moyun.ext.cms.domain.vo.CmsPortalUserProfileVO;
 import com.moyun.ext.cms.domain.vo.CmsPortalUserVO;
 import com.moyun.portal.domain.entity.PortalUser;
 
@@ -39,6 +40,16 @@ public interface ICmsPortalUserService
      * @return 门户用户信息
      */
     PortalUser selectUserById(Long id);
+
+    /**
+     * 查询门户用户画像（含完整画像 + 业务统计 + 快速跳转入口）
+     *
+     * <p>用于后台"用户画像"抽屉展示，让管理员快速掌握客户状态。</p>
+     *
+     * @param id 用户ID
+     * @return 用户画像聚合对象
+     */
+    CmsPortalUserProfileVO selectUserProfile(Long id);
 
     /**
      * 新增门户用户

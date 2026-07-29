@@ -1,6 +1,103 @@
 -- 来源：all-db-ddl.sql 行4999-5001
 -- 用途：sys_role_menu 种子数据（INSERT）
+-- v6.1 修复：role_id=1 改为动态子查询（匹配 menu_id >= 2000 的 CMS 菜单），不再依赖硬编码 ID
+--          原硬编码 2000-2228 与 91 自增 ID 不匹配导致前端空白（parentNode null）
 
-LOCK TABLES `sys_role_menu` WRITE;
-INSERT INTO `sys_role_menu` VALUES (1,2000,'',NULL,'',NULL,NULL),(1,2001,'',NULL,'',NULL,NULL),(1,2002,'',NULL,'',NULL,NULL),(1,2003,'',NULL,'',NULL,NULL),(1,2004,'',NULL,'',NULL,NULL),(1,2005,'',NULL,'',NULL,NULL),(1,2006,'',NULL,'',NULL,NULL),(1,2007,'',NULL,'',NULL,NULL),(1,2008,'',NULL,'',NULL,NULL),(1,2009,'',NULL,'',NULL,NULL),(1,2010,'',NULL,'',NULL,NULL),(1,2011,'',NULL,'',NULL,NULL),(1,2012,'',NULL,'',NULL,NULL),(1,2013,'',NULL,'',NULL,NULL),(1,2014,'',NULL,'',NULL,NULL),(1,2015,'',NULL,'',NULL,NULL),(1,2016,'',NULL,'',NULL,NULL),(1,2017,'',NULL,'',NULL,NULL),(1,2018,'',NULL,'',NULL,NULL),(1,2019,'',NULL,'',NULL,NULL),(1,2020,'',NULL,'',NULL,NULL),(1,2021,'',NULL,'',NULL,NULL),(1,2022,'',NULL,'',NULL,NULL),(1,2023,'',NULL,'',NULL,NULL),(1,2024,'',NULL,'',NULL,NULL),(1,2025,'',NULL,'',NULL,NULL),(1,2027,'',NULL,'',NULL,NULL),(1,2028,'',NULL,'',NULL,NULL),(1,2029,'',NULL,'',NULL,NULL),(1,2030,'',NULL,'',NULL,NULL),(1,2031,'',NULL,'',NULL,NULL),(1,2032,'',NULL,'',NULL,NULL),(1,2033,'',NULL,'',NULL,NULL),(1,2034,'',NULL,'',NULL,NULL),(1,2035,'',NULL,'',NULL,NULL),(1,2036,'',NULL,'',NULL,NULL),(1,2037,'',NULL,'',NULL,NULL),(1,2038,'',NULL,'',NULL,NULL),(1,2039,'',NULL,'',NULL,NULL),(1,2040,'',NULL,'',NULL,NULL),(1,2041,'',NULL,'',NULL,NULL),(1,2042,'',NULL,'',NULL,NULL),(1,2043,'',NULL,'',NULL,NULL),(1,2044,'',NULL,'',NULL,NULL),(1,2045,'',NULL,'',NULL,NULL),(1,2046,'',NULL,'',NULL,NULL),(1,2047,'',NULL,'',NULL,NULL),(1,2048,'',NULL,'',NULL,NULL),(1,2049,'',NULL,'',NULL,NULL),(1,2050,'',NULL,'',NULL,NULL),(1,2051,'',NULL,'',NULL,NULL),(1,2052,'',NULL,'',NULL,NULL),(1,2053,'',NULL,'',NULL,NULL),(1,2054,'',NULL,'',NULL,NULL),(1,2055,'',NULL,'',NULL,NULL),(1,2056,'',NULL,'',NULL,NULL),(1,2057,'',NULL,'',NULL,NULL),(1,2058,'',NULL,'',NULL,NULL),(1,2059,'',NULL,'',NULL,NULL),(1,2060,'',NULL,'',NULL,NULL),(1,2061,'',NULL,'',NULL,NULL),(1,2062,'',NULL,'',NULL,NULL),(1,2063,'',NULL,'',NULL,NULL),(1,2064,'',NULL,'',NULL,NULL),(1,2065,'',NULL,'',NULL,NULL),(1,2066,'',NULL,'',NULL,NULL),(1,2067,'',NULL,'',NULL,NULL),(1,2068,'',NULL,'',NULL,NULL),(1,2069,'',NULL,'',NULL,NULL),(1,2070,'',NULL,'',NULL,NULL),(1,2071,'',NULL,'',NULL,NULL),(1,2072,'',NULL,'',NULL,NULL),(1,2073,'',NULL,'',NULL,NULL),(1,2074,'',NULL,'',NULL,NULL),(1,2075,'',NULL,'',NULL,NULL),(1,2076,'',NULL,'',NULL,NULL),(1,2077,'',NULL,'',NULL,NULL),(1,2078,'',NULL,'',NULL,NULL),(1,2079,'',NULL,'',NULL,NULL),(1,2080,'',NULL,'',NULL,NULL),(1,2081,'',NULL,'',NULL,NULL),(1,2082,'',NULL,'',NULL,NULL),(1,2083,'',NULL,'',NULL,NULL),(1,2084,'',NULL,'',NULL,NULL),(1,2085,'',NULL,'',NULL,NULL),(1,2086,'',NULL,'',NULL,NULL),(1,2087,'',NULL,'',NULL,NULL),(1,2088,'',NULL,'',NULL,NULL),(1,2089,'',NULL,'',NULL,NULL),(1,2090,'',NULL,'',NULL,NULL),(1,2091,'',NULL,'',NULL,NULL),(1,2092,'',NULL,'',NULL,NULL),(1,2093,'',NULL,'',NULL,NULL),(1,2094,'',NULL,'',NULL,NULL),(1,2095,'',NULL,'',NULL,NULL),(1,2096,'',NULL,'',NULL,NULL),(1,2097,'',NULL,'',NULL,NULL),(1,2098,'',NULL,'',NULL,NULL),(1,2099,'',NULL,'',NULL,NULL),(1,2100,'',NULL,'',NULL,NULL),(1,2101,'',NULL,'',NULL,NULL),(1,2102,'',NULL,'',NULL,NULL),(1,2103,'',NULL,'',NULL,NULL),(1,2104,'',NULL,'',NULL,NULL),(1,2105,'',NULL,'',NULL,NULL),(1,2106,'',NULL,'',NULL,NULL),(1,2107,'',NULL,'',NULL,NULL),(1,2108,'',NULL,'',NULL,NULL),(1,2109,'',NULL,'',NULL,NULL),(1,2110,'',NULL,'',NULL,NULL),(1,2111,'',NULL,'',NULL,NULL),(1,2112,'',NULL,'',NULL,NULL),(1,2113,'',NULL,'',NULL,NULL),(1,2114,'',NULL,'',NULL,NULL),(1,2115,'',NULL,'',NULL,NULL),(1,2116,'',NULL,'',NULL,NULL),(1,2117,'',NULL,'',NULL,NULL),(1,2118,'',NULL,'',NULL,NULL),(1,2119,'',NULL,'',NULL,NULL),(1,2120,'',NULL,'',NULL,NULL),(1,2121,'',NULL,'',NULL,NULL),(1,2122,'',NULL,'',NULL,NULL),(1,2123,'',NULL,'',NULL,NULL),(1,2124,'',NULL,'',NULL,NULL),(1,2125,'',NULL,'',NULL,NULL),(1,2126,'',NULL,'',NULL,NULL),(1,2127,'',NULL,'',NULL,NULL),(1,2128,'',NULL,'',NULL,NULL),(1,2129,'',NULL,'',NULL,NULL),(1,2130,'',NULL,'',NULL,NULL),(1,2131,'',NULL,'',NULL,NULL),(1,2132,'',NULL,'',NULL,NULL),(1,2133,'',NULL,'',NULL,NULL),(1,2134,'',NULL,'',NULL,NULL),(1,2135,'',NULL,'',NULL,NULL),(1,2136,'',NULL,'',NULL,NULL),(1,2137,'',NULL,'',NULL,NULL),(1,2138,'',NULL,'',NULL,NULL),(1,2139,'',NULL,'',NULL,NULL),(1,2140,'',NULL,'',NULL,NULL),(1,2141,'',NULL,'',NULL,NULL),(1,2142,'',NULL,'',NULL,NULL),(1,2143,'',NULL,'',NULL,NULL),(1,2144,'',NULL,'',NULL,NULL),(1,2145,'',NULL,'',NULL,NULL),(1,2146,'',NULL,'',NULL,NULL),(1,2147,'',NULL,'',NULL,NULL),(1,2148,'',NULL,'',NULL,NULL),(1,2149,'',NULL,'',NULL,NULL),(1,2150,'',NULL,'',NULL,NULL),(1,2151,'',NULL,'',NULL,NULL),(1,2152,'',NULL,'',NULL,NULL),(1,2153,'',NULL,'',NULL,NULL),(1,2154,'',NULL,'',NULL,NULL),(1,2155,'',NULL,'',NULL,NULL),(1,2156,'',NULL,'',NULL,NULL),(1,2157,'',NULL,'',NULL,NULL),(1,2158,'',NULL,'',NULL,NULL),(1,2159,'',NULL,'',NULL,NULL),(1,2160,'',NULL,'',NULL,NULL),(1,2161,'',NULL,'',NULL,NULL),(1,2162,'',NULL,'',NULL,NULL),(1,2169,'',NULL,'',NULL,NULL),(1,2170,'',NULL,'',NULL,NULL),(1,2171,'',NULL,'',NULL,NULL),(1,2172,'',NULL,'',NULL,NULL),(1,2173,'',NULL,'',NULL,NULL),(1,2174,'',NULL,'',NULL,NULL),(1,2175,'',NULL,'',NULL,NULL),(1,2176,'',NULL,'',NULL,NULL),(1,2177,'',NULL,'',NULL,NULL),(1,2178,'',NULL,'',NULL,NULL),(1,2179,'',NULL,'',NULL,NULL),(1,2180,'',NULL,'',NULL,NULL),(1,2181,'',NULL,'',NULL,NULL),(1,2182,'',NULL,'',NULL,NULL),(1,2183,'',NULL,'',NULL,NULL),(1,2184,'',NULL,'',NULL,NULL),(1,2185,'',NULL,'',NULL,NULL),(1,2186,'',NULL,'',NULL,NULL),(1,2187,'',NULL,'',NULL,NULL),(1,2188,'',NULL,'',NULL,NULL),(1,2189,'',NULL,'',NULL,NULL),(1,2190,'',NULL,'',NULL,NULL),(1,2191,'',NULL,'',NULL,NULL),(1,2192,'',NULL,'',NULL,NULL),(1,2193,'',NULL,'',NULL,NULL),(1,2194,'',NULL,'',NULL,NULL),(1,2195,'',NULL,'',NULL,NULL),(1,2196,'',NULL,'',NULL,NULL),(1,2197,'',NULL,'',NULL,NULL),(1,2198,'',NULL,'',NULL,NULL),(1,2199,'',NULL,'',NULL,NULL),(1,2200,'',NULL,'',NULL,NULL),(1,2201,'',NULL,'',NULL,NULL),(1,2202,'',NULL,'',NULL,NULL),(1,2203,'',NULL,'',NULL,NULL),(1,2204,'',NULL,'',NULL,NULL),(1,2205,'',NULL,'',NULL,NULL),(1,2206,'',NULL,'',NULL,NULL),(1,2207,'',NULL,'',NULL,NULL),(1,2208,'',NULL,'',NULL,NULL),(1,2209,'',NULL,'',NULL,NULL),(1,2210,'',NULL,'',NULL,NULL),(1,2211,'',NULL,'',NULL,NULL),(1,2212,'',NULL,'',NULL,NULL),(1,2213,'',NULL,'',NULL,NULL),(1,2214,'',NULL,'',NULL,NULL),(1,2215,'',NULL,'',NULL,NULL),(1,2216,'',NULL,'',NULL,NULL),(1,2217,'',NULL,'',NULL,NULL),(1,2218,'',NULL,'',NULL,NULL),(1,2219,'',NULL,'',NULL,NULL),(1,2220,'',NULL,'',NULL,NULL),(1,2221,'',NULL,'',NULL,NULL),(1,2222,'',NULL,'',NULL,NULL),(1,2223,'',NULL,'',NULL,NULL),(1,2224,'',NULL,'',NULL,NULL),(1,2225,'',NULL,'',NULL,NULL),(1,2226,'',NULL,'',NULL,NULL),(1,2227,'',NULL,'',NULL,NULL),(1,2228,'',NULL,'',NULL,NULL),(2,1,'admin','2026-07-28 15:42:32','','2026-07-28 15:42:32',NULL),(2,2,'admin','2026-07-28 15:42:32','','2026-07-28 15:42:32',NULL),(2,3,'admin','2026-07-28 15:42:32','','2026-07-28 15:42:32',NULL),(2,4,'admin','2026-07-28 15:42:32','','2026-07-28 15:42:32',NULL),(2,100,'admin','2026-07-28 15:42:32','','2026-07-28 15:42:32',NULL),(2,101,'admin','2026-07-28 15:42:32','','2026-07-28 15:42:32',NULL),(2,102,'admin','2026-07-28 15:42:32','','2026-07-28 15:42:32',NULL),(2,103,'admin','2026-07-28 15:42:32','','2026-07-28 15:42:32',NULL),(2,104,'admin','2026-07-28 15:42:32','','2026-07-28 15:42:32',NULL),(2,105,'admin','2026-07-28 15:42:32','','2026-07-28 15:42:32',NULL),(2,106,'admin','2026-07-28 15:42:33','','2026-07-28 15:42:33',NULL),(2,108,'admin','2026-07-28 15:42:33','','2026-07-28 15:42:33',NULL),(2,109,'admin','2026-07-28 15:42:33','','2026-07-28 15:42:33',NULL),(2,110,'admin','2026-07-28 15:42:33','','2026-07-28 15:42:33',NULL),(2,111,'admin','2026-07-28 15:42:33','','2026-07-28 15:42:33',NULL),(2,112,'admin','2026-07-28 15:42:33','','2026-07-28 15:42:33',NULL),(2,113,'admin','2026-07-28 15:42:33','','2026-07-28 15:42:33',NULL),(2,114,'admin','2026-07-28 15:42:33','','2026-07-28 15:42:33',NULL),(2,115,'admin','2026-07-28 15:42:33','','2026-07-28 15:42:33',NULL),(2,116,'admin','2026-07-28 15:42:33','','2026-07-28 15:42:33',NULL),(2,117,'admin','2026-07-28 15:42:33','','2026-07-28 15:42:33',NULL),(2,118,'admin','2026-07-28 15:42:33','','2026-07-28 15:42:33',NULL),(2,119,'admin','2026-07-28 15:42:33','','2026-07-28 15:42:33',NULL),(2,500,'admin','2026-07-28 15:42:33','','2026-07-28 15:42:33',NULL),(2,501,'admin','2026-07-28 15:42:33','','2026-07-28 15:42:33',NULL),(2,1000,'admin','2026-07-28 15:42:33','','2026-07-28 15:42:33',NULL),(2,1001,'admin','2026-07-28 15:42:33','','2026-07-28 15:42:33',NULL),(2,1002,'admin','2026-07-28 15:42:33','','2026-07-28 15:42:33',NULL),(2,1003,'admin','2026-07-28 15:42:33','','2026-07-28 15:42:33',NULL),(2,1004,'admin','2026-07-28 15:42:33','','2026-07-28 15:42:33',NULL),(2,1005,'admin','2026-07-28 15:42:33','','2026-07-28 15:42:33',NULL),(2,1006,'admin','2026-07-28 15:42:33','','2026-07-28 15:42:33',NULL),(2,1007,'admin','2026-07-28 15:42:33','','2026-07-28 15:42:33',NULL),(2,1008,'admin','2026-07-28 15:42:33','','2026-07-28 15:42:33',NULL),(2,1009,'admin','2026-07-28 15:42:33','','2026-07-28 15:42:33',NULL),(2,1010,'admin','2026-07-28 15:42:33','','2026-07-28 15:42:33',NULL),(2,1011,'admin','2026-07-28 15:42:33','','2026-07-28 15:42:33',NULL),(2,1012,'admin','2026-07-28 15:42:33','','2026-07-28 15:42:33',NULL),(2,1013,'admin','2026-07-28 15:42:33','','2026-07-28 15:42:33',NULL),(2,1014,'admin','2026-07-28 15:42:33','','2026-07-28 15:42:33',NULL),(2,1015,'admin','2026-07-28 15:42:33','','2026-07-28 15:42:33',NULL),(2,1016,'admin','2026-07-28 15:42:33','','2026-07-28 15:42:33',NULL),(2,1017,'admin','2026-07-28 15:42:33','','2026-07-28 15:42:33',NULL),(2,1018,'admin','2026-07-28 15:42:33','','2026-07-28 15:42:33',NULL),(2,1019,'admin','2026-07-28 15:42:33','','2026-07-28 15:42:33',NULL),(2,1020,'admin','2026-07-28 15:42:33','','2026-07-28 15:42:33',NULL),(2,1021,'admin','2026-07-28 15:42:33','','2026-07-28 15:42:33',NULL),(2,1022,'admin','2026-07-28 15:42:33','','2026-07-28 15:42:33',NULL),(2,1023,'admin','2026-07-28 15:42:33','','2026-07-28 15:42:33',NULL),(2,1024,'admin','2026-07-28 15:42:33','','2026-07-28 15:42:33',NULL),(2,1025,'admin','2026-07-28 15:42:33','','2026-07-28 15:42:33',NULL),(2,1026,'admin','2026-07-28 15:42:33','','2026-07-28 15:42:33',NULL),(2,1027,'admin','2026-07-28 15:42:33','','2026-07-28 15:42:33',NULL),(2,1028,'admin','2026-07-28 15:42:33','','2026-07-28 15:42:33',NULL),(2,1029,'admin','2026-07-28 15:42:33','','2026-07-28 15:42:33',NULL),(2,1030,'admin','2026-07-28 15:42:33','','2026-07-28 15:42:33',NULL),(2,1031,'admin','2026-07-28 15:42:33','','2026-07-28 15:42:33',NULL),(2,1032,'admin','2026-07-28 15:42:33','','2026-07-28 15:42:33',NULL),(2,1033,'admin','2026-07-28 15:42:33','','2026-07-28 15:42:33',NULL),(2,1034,'admin','2026-07-28 15:42:33','','2026-07-28 15:42:33',NULL),(2,1039,'admin','2026-07-28 15:42:33','','2026-07-28 15:42:33',NULL),(2,1040,'admin','2026-07-28 15:42:33','','2026-07-28 15:42:33',NULL),(2,1041,'admin','2026-07-28 15:42:34','','2026-07-28 15:42:34',NULL),(2,1042,'admin','2026-07-28 15:42:34','','2026-07-28 15:42:34',NULL),(2,1043,'admin','2026-07-28 15:42:34','','2026-07-28 15:42:34',NULL),(2,1044,'admin','2026-07-28 15:42:34','','2026-07-28 15:42:34',NULL),(2,1045,'admin','2026-07-28 15:42:34','','2026-07-28 15:42:34',NULL),(2,1046,'admin','2026-07-28 15:42:34','','2026-07-28 15:42:34',NULL),(2,1047,'admin','2026-07-28 15:42:34','','2026-07-28 15:42:34',NULL),(2,1048,'admin','2026-07-28 15:42:34','','2026-07-28 15:42:34',NULL),(2,1049,'admin','2026-07-28 15:42:34','','2026-07-28 15:42:34',NULL),(2,1050,'admin','2026-07-28 15:42:34','','2026-07-28 15:42:34',NULL),(2,1051,'admin','2026-07-28 15:42:34','','2026-07-28 15:42:34',NULL),(2,1052,'admin','2026-07-28 15:42:34','','2026-07-28 15:42:34',NULL),(2,1053,'admin','2026-07-28 15:42:34','','2026-07-28 15:42:34',NULL),(2,1054,'admin','2026-07-28 15:42:34','','2026-07-28 15:42:34',NULL),(2,1055,'admin','2026-07-28 15:42:34','','2026-07-28 15:42:34',NULL),(2,1056,'admin','2026-07-28 15:42:34','','2026-07-28 15:42:34',NULL),(2,1057,'admin','2026-07-28 15:42:34','','2026-07-28 15:42:34',NULL),(2,1058,'admin','2026-07-28 15:42:34','','2026-07-28 15:42:34',NULL),(2,1059,'admin','2026-07-28 15:42:34','','2026-07-28 15:42:34',NULL),(2,1060,'admin','2026-07-28 15:42:34','','2026-07-28 15:42:34',NULL);
-UNLOCK TABLES;
+-- =============================================================================
+-- 一、超级管理员（role_id=1）：关联全部 CMS 菜单（由 91 创建，ID >= 2000）
+-- =============================================================================
+INSERT INTO sys_role_menu (role_id, menu_id, create_by, create_time)
+SELECT 1, menu_id, 'admin', NOW()
+FROM sys_menu
+WHERE menu_id >= 2000
+  AND NOT EXISTS (
+      SELECT 1 FROM sys_role_menu rm
+      WHERE rm.role_id = 1 AND rm.menu_id = sys_menu.menu_id
+  );
+
+-- =============================================================================
+-- 二、普通角色（role_id=2）：关联 RuoYi 基础菜单（menu_id 1-1060，由 90 创建，ID 固定）
+-- =============================================================================
+INSERT INTO `sys_role_menu` (`role_id`, `menu_id`, `create_by`, `create_time`, `update_by`, `update_time`, `remark`) VALUES
+(2,1,'admin',NOW(),'',NULL,NULL),
+(2,2,'admin',NOW(),'',NULL,NULL),
+(2,3,'admin',NOW(),'',NULL,NULL),
+(2,4,'admin',NOW(),'',NULL,NULL),
+(2,100,'admin',NOW(),'',NULL,NULL),
+(2,101,'admin',NOW(),'',NULL,NULL),
+(2,102,'admin',NOW(),'',NULL,NULL),
+(2,103,'admin',NOW(),'',NULL,NULL),
+(2,104,'admin',NOW(),'',NULL,NULL),
+(2,105,'admin',NOW(),'',NULL,NULL),
+(2,106,'admin',NOW(),'',NULL,NULL),
+(2,108,'admin',NOW(),'',NULL,NULL),
+(2,109,'admin',NOW(),'',NULL,NULL),
+(2,110,'admin',NOW(),'',NULL,NULL),
+(2,111,'admin',NOW(),'',NULL,NULL),
+(2,112,'admin',NOW(),'',NULL,NULL),
+(2,113,'admin',NOW(),'',NULL,NULL),
+(2,114,'admin',NOW(),'',NULL,NULL),
+(2,115,'admin',NOW(),'',NULL,NULL),
+(2,116,'admin',NOW(),'',NULL,NULL),
+(2,117,'admin',NOW(),'',NULL,NULL),
+(2,118,'admin',NOW(),'',NULL,NULL),
+(2,119,'admin',NOW(),'',NULL,NULL),
+(2,500,'admin',NOW(),'',NULL,NULL),
+(2,501,'admin',NOW(),'',NULL,NULL),
+(2,1000,'admin',NOW(),'',NULL,NULL),
+(2,1001,'admin',NOW(),'',NULL,NULL),
+(2,1002,'admin',NOW(),'',NULL,NULL),
+(2,1003,'admin',NOW(),'',NULL,NULL),
+(2,1004,'admin',NOW(),'',NULL,NULL),
+(2,1005,'admin',NOW(),'',NULL,NULL),
+(2,1006,'admin',NOW(),'',NULL,NULL),
+(2,1007,'admin',NOW(),'',NULL,NULL),
+(2,1008,'admin',NOW(),'',NULL,NULL),
+(2,1009,'admin',NOW(),'',NULL,NULL),
+(2,1010,'admin',NOW(),'',NULL,NULL),
+(2,1011,'admin',NOW(),'',NULL,NULL),
+(2,1012,'admin',NOW(),'',NULL,NULL),
+(2,1013,'admin',NOW(),'',NULL,NULL),
+(2,1014,'admin',NOW(),'',NULL,NULL),
+(2,1015,'admin',NOW(),'',NULL,NULL),
+(2,1016,'admin',NOW(),'',NULL,NULL),
+(2,1017,'admin',NOW(),'',NULL,NULL),
+(2,1018,'admin',NOW(),'',NULL,NULL),
+(2,1019,'admin',NOW(),'',NULL,NULL),
+(2,1020,'admin',NOW(),'',NULL,NULL),
+(2,1021,'admin',NOW(),'',NULL,NULL),
+(2,1022,'admin',NOW(),'',NULL,NULL),
+(2,1023,'admin',NOW(),'',NULL,NULL),
+(2,1024,'admin',NOW(),'',NULL,NULL),
+(2,1025,'admin',NOW(),'',NULL,NULL),
+(2,1026,'admin',NOW(),'',NULL,NULL),
+(2,1027,'admin',NOW(),'',NULL,NULL),
+(2,1028,'admin',NOW(),'',NULL,NULL),
+(2,1029,'admin',NOW(),'',NULL,NULL),
+(2,1030,'admin',NOW(),'',NULL,NULL),
+(2,1031,'admin',NOW(),'',NULL,NULL),
+(2,1032,'admin',NOW(),'',NULL,NULL),
+(2,1033,'admin',NOW(),'',NULL,NULL),
+(2,1034,'admin',NOW(),'',NULL,NULL),
+(2,1039,'admin',NOW(),'',NULL,NULL),
+(2,1040,'admin',NOW(),'',NULL,NULL),
+(2,1041,'admin',NOW(),'',NULL,NULL),
+(2,1042,'admin',NOW(),'',NULL,NULL),
+(2,1043,'admin',NOW(),'',NULL,NULL),
+(2,1044,'admin',NOW(),'',NULL,NULL),
+(2,1045,'admin',NOW(),'',NULL,NULL),
+(2,1046,'admin',NOW(),'',NULL,NULL),
+(2,1047,'admin',NOW(),'',NULL,NULL),
+(2,1048,'admin',NOW(),'',NULL,NULL),
+(2,1049,'admin',NOW(),'',NULL,NULL),
+(2,1050,'admin',NOW(),'',NULL,NULL),
+(2,1051,'admin',NOW(),'',NULL,NULL),
+(2,1052,'admin',NOW(),'',NULL,NULL),
+(2,1053,'admin',NOW(),'',NULL,NULL),
+(2,1054,'admin',NOW(),'',NULL,NULL),
+(2,1055,'admin',NOW(),'',NULL,NULL),
+(2,1056,'admin',NOW(),'',NULL,NULL),
+(2,1057,'admin',NOW(),'',NULL,NULL),
+(2,1058,'admin',NOW(),'',NULL,NULL),
+(2,1059,'admin',NOW(),'',NULL,NULL),
+(2,1060,'admin',NOW(),'',NULL,NULL);

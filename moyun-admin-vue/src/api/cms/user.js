@@ -18,6 +18,14 @@ export function getUser(id) {
   })
 }
 
+// 查询门户用户画像（含完整画像 + 业务统计 + 快速跳转入口）
+export function getUserProfile(id) {
+  return request({
+    url: '/cms/user/' + parseStrEmpty(id) + '/profile',
+    method: 'get'
+  })
+}
+
 // 新增门户用户
 export function addUser(data) {
   return request({

@@ -1,4 +1,4 @@
-package com.moyun.ext.cms.controller;
+package com.moyun.system.controller;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import io.swagger.v3.oas.annotations.Operation;
@@ -25,8 +25,20 @@ import com.moyun.util.security.SecurityUtils;
  * <p>管理员接收门户用户私信、回复私信的入口，与门户端 {@link com.moyun.portal.controller.PortalMessageController}
  * 共用同一套 Service/数据模型，通过 user_type='sys' 区分管理员体系。</p>
  *
+ * <p>归属调整：原 {@code com.moyun.ext.cms.controller.SysMessageController} 已迁移至此
+ * （与 {@link SysNotificationController} 同级），私信是全局系统级能力，不应归属 CMS 业务模块。
+ * Service/VO 暂留在 ext.cms 包，因门户端 PortalMessageController 亦依赖，全量迁移需同步调整门户端。</p>
+ *
  * <p>权限：私信中心相关操作统一使用 system:message:* 权限码；
  * 发送消息要求登录态即可（回复是管理员高频操作，不再叠加细粒度权限避免阻碍工作流）。</p>
+ *
+ * <p>前后台权限区分：
+ * <ul>
+ *   <li>后台私信（本类，/system/message，system:message:*）：管理员查看会话、回复门户用户</li>
+ *   <li>门户私信（{@link com.moyun.portal.controller.PortalMessageController}，/portal/message）：
+ *       门户用户发起私信、查看自己的会话，走 portal 鉴权体系</li>
+ * </ul>
+ * 两者共用 {@link IMessageService}，通过 user_type 区分。</p>
  *
  * @author moyun
  */
@@ -66,7 +78,7 @@ public class SysMessageController extends BaseController {
     @Operation(summary = "历史消息", description = "分页查询指定会话的历史消息（仅会话成员可查）")
     @PreAuthorize("@ss.hasPermi('system:message:query')")
     @GetMapping("/{sessionId}/history")
-    public AjaxResult listHistory(@Parameter(description = "会话ID") @PathVariable Long sessionId, PageDomain query) {
+    public AjaxResult listHistory(@Parameter(description = "会话ID") @PathVariable("sessionId") Long sessionId, PageDomain query) {
         Long userId = currentUserId();
         if (userId == null) {
             return AjaxResult.error(HttpStatus.UNAUTHORIZED, "登录已过期，请重新登录");
@@ -99,7 +111,7 @@ public class SysMessageController extends BaseController {
     @Operation(summary = "标记会话已读", description = "清零当前管理员在该会话的未读数，并置接收消息为已读")
     @PreAuthorize("@ss.hasPermi('system:message:query')")
     @PutMapping("/session/{id}/read")
-    public AjaxResult markSessionRead(@Parameter(description = "会话ID") @PathVariable Long id) {
+    public AjaxResult markSessionRead(@Parameter(description = "会话ID") @PathVariable("id") Long id) {
         Long userId = currentUserId();
         if (userId == null) {
             return AjaxResult.error(HttpStatus.UNAUTHORIZED, "登录已过期，请重新登录");

@@ -86,4 +86,18 @@ public interface SysNotificationMapper extends BaseMapper<SysNotification> {
      */
     int countUnreadByUserId(@Param("userId") Long userId,
                             @Param("userType") String userType);
+
+    /**
+     * 查询公开广播通知（scope=all，未登录用户也可查看）
+     *
+     * <p>userId/userType 为 null 时不计算已读状态（isRead 固定为 false）。
+     * 用于门户公开页面，如公告列表、版本发布通知。</p>
+     *
+     * @param page     分页参数
+     * @param userId   用户ID（可空）
+     * @param userType 用户类型（可空）
+     */
+    Page<SysNotification> selectBroadcastAll(Page<SysNotification> page,
+                                             @Param("userId") Long userId,
+                                             @Param("userType") String userType);
 }

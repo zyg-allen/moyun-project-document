@@ -317,7 +317,6 @@ const count = ref(0);
 | 部署文档 | [../docs/04_部署指南.md](../docs/04_部署指南.md) | 部署与验证指南 |
 | API 文档 | [API文档.md](./API文档.md) | 详细 API 接口文档 |
 | 品牌设计 | [网站名称设计.md](./网站名称设计.md) | 品牌定位与文案 |
-| 类型检查报告 | [STRICT_TYPE_CHECK_REPORT.md](./STRICT_TYPE_CHECK_REPORT.md) | TypeScript 严格模式检查报告 |
 
 ---
 

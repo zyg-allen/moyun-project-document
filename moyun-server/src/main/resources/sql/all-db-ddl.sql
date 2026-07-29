@@ -1865,7 +1865,7 @@ INSERT INTO `portal_category` (`name`, `slug`, `description`, `icon`, `sort`, `p
 INSERT INTO `portal_category` (`name`, `slug`, `description`, `icon`, `sort`, `parent_id`, `status`, `show_in_nav`, `nav_route_type`, `nav_route_path`, `requires_auth`, `create_by`) VALUES ('社区互动', 'interaction', '话题讨论、动态广场', 'fa-users', 6, 0, '0', 1, 'category', NULL, 0, 'admin');
 INSERT INTO `portal_category` (`name`, `slug`, `description`, `icon`, `sort`, `parent_id`, `status`, `show_in_nav`, `nav_route_type`, `nav_route_path`, `requires_auth`, `create_by`) VALUES ('创作者中心', 'creator', '发布文章、专栏、征文、认证', 'fa-feather', 7, 0, '0', 1, 'category', NULL, 0, 'admin');
 INSERT INTO `portal_category` (`name`, `slug`, `description`, `icon`, `sort`, `parent_id`, `status`, `show_in_nav`, `nav_route_type`, `nav_route_path`, `requires_auth`, `create_by`) VALUES ('个人空间', 'mine', '个人中心、成长时间线、我的内容', 'fa-user', 8, 0, '0', 1, 'category', NULL, 0, 'admin');
-INSERT INTO `portal_category` (`name`, `slug`, `description`, `icon`, `sort`, `parent_id`, `status`, `show_in_nav`, `nav_route_type`, `nav_route_path`, `requires_auth`, `create_by`) VALUES ('人间烟火', 'life-stories', '饮食、市井、生活琐记', 'fa-utensils', 1, (SELECT `id` FROM `portal_category` WHERE `slug` = 'prose' AND `parent_id` = 0), '0', 1, 'category', NULL, 0, 'admin');
+INSERT INTO `portal_category` (`name`, `slug`, `description`, `icon`, `sort`, `parent_id`, `status`, `show_in_nav`, `nav_route_type`, `nav_route_path`, `requires_auth`, `create_by`) select '人间烟火', 'life-stories', '饮食、市井、生活琐记', 'fa-utensils', 1, (SELECT `id` FROM `portal_category` WHERE `slug` = 'prose' AND `parent_id` = 0), '0', 1, 'category', NULL, 0, 'admin';
 
 
 INSERT INTO `portal_category` (`name`, `slug`, `description`, `icon`, `sort`, `parent_id`, `status`, `show_in_nav`, `nav_route_type`, `nav_route_path`, `requires_auth`, `create_by`) select '山河行吟', 'travel-nature', '游记、自然书写、生态散文', 'fa-mountain', 2, (SELECT `id` FROM `portal_category` WHERE `slug` = 'prose' AND `parent_id` = 0), '0', 1, 'category', NULL, 0, 'admin';
@@ -2334,7 +2334,7 @@ CREATE TABLE `portal_friend_link` (
 --
 
 LOCK TABLES `portal_friend_link` WRITE;
-INSERT INTO `portal_friend_link` VALUES (1,'中国作家网','https://www.chinawriter.com.cn','中国作家协会官方网站',NULL,1,'0','admin','2026-07-28 15:44:22','','2026-07-28 15:44:22',NULL),(2,'起点中文网','https://www.qidian.com','阅文集团旗下网站',NULL,2,'0','admin','2026-07-28 15:44:22','','2026-07-28 15:44:22',NULL),(3,'掘金','https://juejin.cn','帮助开发者成长的社区',NULL,3,'0','admin','2026-07-28 15:44:22','','2026-07-28 15:44:22',NULL);
+INSERT INTO `portal_friend_link` VALUES (1,'中国作家网','https://www.chinawriter.com.cn','中国作家协会官方网站',NULL,1,'0','admin','2026-07-28 15:44:22','','2026-07-28 15:44:22',NULL,'0'),(2,'起点中文网','https://www.qidian.com','阅文集团旗下网站',NULL,2,'0','admin','2026-07-28 15:44:22','','2026-07-28 15:44:22',NULL,'0'),(3,'掘金','https://juejin.cn','帮助开发者成长的社区',NULL,3,'0','admin','2026-07-28 15:44:22','','2026-07-28 15:44:22',NULL,'0');
 UNLOCK TABLES;
 
 --

@@ -1,14 +1,18 @@
 package com.moyun.system.service.impl;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.moyun.common.exception.system.ServiceException;
+import com.moyun.portal.mapper.PortalUserMapper;
 import com.moyun.system.domain.entity.SysNotification;
+import com.moyun.system.domain.entity.SysUser;
 import com.moyun.system.mapper.SysNotificationMapper;
 import com.moyun.system.mapper.SysNotificationReadMapper;
+import com.moyun.system.mapper.SysUserMapper;
 import com.moyun.system.service.ISysNotificationService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -32,6 +36,12 @@ public class SysNotificationServiceImpl extends ServiceImpl<SysNotificationMappe
 
     @Autowired
     private SysNotificationReadMapper sysNotificationReadMapper;
+
+    @Autowired
+    private SysUserMapper sysUserMapper;
+
+    @Autowired
+    private PortalUserMapper portalUserMapper;
 
     // ==================== 后台管理 ====================
 
@@ -110,6 +120,63 @@ public class SysNotificationServiceImpl extends ServiceImpl<SysNotificationMappe
             notification.setCreateTime(LocalDateTime.now());
         }
         return sysNotificationMapper.insertNotification(notification);
+    }
+
+    /**
+     * 发送待办通知（type=todo）给所有系统用户 + 被系统用户绑定的前台用户
+     * 使用个人通知（scope=user）定向发送，未绑定的前台用户不可见
+     */
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public int sendTodoNotification(SysNotification template) {
+        // 强制 type=todo, scope=user
+        template.setType("todo");
+        template.setScope("user");
+        template.setNoticeType("1");
+        template.setStatus("0");
+        if (template.getCreateTime() == null) {
+            template.setCreateTime(LocalDateTime.now());
+        }
+
+        List<SysNotification> batch = new ArrayList<>();
+
+        // 1. 系统用户
+        List<SysUser> sysUsers = sysUserMapper.selectUserList(new SysUser());
+        for (SysUser su : sysUsers) {
+            SysNotification n = cloneTemplate(template);
+            n.setUserId(su.getUserId());
+            n.setUserType("sys");
+            batch.add(n);
+        }
+
+        // 2. 被系统用户绑定的前台用户
+        List<Long> boundPortalIds = portalUserMapper.selectBoundPortalUserIds();
+        for (Long portalId : boundPortalIds) {
+            SysNotification n = cloneTemplate(template);
+            n.setUserId(portalId);
+            n.setUserType("portal");
+            batch.add(n);
+        }
+
+        int count = 0;
+        for (SysNotification n : batch) {
+            count += sysNotificationMapper.insertNotification(n);
+        }
+        return count;
+    }
+
+    /** 克隆通知模板，避免共享同一对象引用 */
+    private SysNotification cloneTemplate(SysNotification src) {
+        SysNotification n = new SysNotification();
+        n.setType(src.getType());
+        n.setTitle(src.getTitle());
+        n.setContent(src.getContent());
+        n.setData(src.getData());
+        n.setScope(src.getScope());
+        n.setNoticeType(src.getNoticeType());
+        n.setStatus(src.getStatus());
+        n.setCreateTime(src.getCreateTime());
+        return n;
     }
 
     // ==================== 用户通知查询（门户 + 系统） ====================

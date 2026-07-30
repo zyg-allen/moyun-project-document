@@ -59,19 +59,17 @@ public class PortalCreatorCertificationServiceImpl
         entity.setCreatedTime(LocalDateTime.now());
         baseMapper.insert(entity);
 
-        // 业务闭环：给后台管理员发送"待审核"通知，使其在首页待办列表能看到新申请
-        // scope=all 广播给所有 sys 后台用户；data 携带申请 ID，便于前端跳转
+        // 业务闭环：发送"待审核"待办通知给所有系统用户 + 被系统用户绑定的前台用户
+        // 使用 type=todo 个人通知（scope=user）定向发送，未绑定前台用户不可见
+        // data 携带申请 ID，便于前端跳转
         try {
             SysNotification notice = new SysNotification();
-            notice.setType("system");
             notice.setTitle("新创作者认证申请待审核");
             notice.setContent("用户 " + entity.getRealName() + "（userId=" + userId + "）提交了创作者认证申请，请尽快审核");
-            notice.setScope("all");
-            notice.setUserType("sys");
             notice.setNoticeType("1");
             notice.setStatus("0");
             notice.setData("{\"bizType\":\"creator_certification\",\"id\":" + entity.getId() + "}");
-            notificationService.sendBroadcastNotification(notice);
+            notificationService.sendTodoNotification(notice);
         } catch (Exception ignored) {
             // 通知发送失败不应阻断申请提交流程
         }

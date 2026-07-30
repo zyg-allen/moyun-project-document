@@ -116,4 +116,12 @@ public interface PortalUserMapper extends BaseMapper<PortalUser> {
      * @return 结果
      */
     public PortalUser checkPortalEmailUnique(String email);
+
+    /**
+     * 查询所有绑定了系统用户的前台用户ID列表
+     * 用于待办通知定向发送
+     *
+     * @return 前台用户ID列表
+     */
+    List<Long> selectBoundPortalUserIds();
 }

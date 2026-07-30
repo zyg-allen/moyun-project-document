@@ -3,7 +3,7 @@ import { ref, computed, onMounted, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useHead } from '@vueuse/head';
 import {
-    Bell, MessageSquare, Heart, UserPlus, CheckCheck, Loader2, Inbox, Megaphone, Tag, X, Calendar
+    Bell, MessageSquare, Heart, UserPlus, CheckCheck, Loader2, Inbox, Megaphone, Tag, X, Calendar, ClipboardList
 } from 'lucide-vue-next';
 import type { Notification, MessageSessionVO, PeerUser } from '@/types/api';
 import * as notificationApi from '@/api/notification';
@@ -37,7 +37,12 @@ const chatSessionId = computed(() => String(route.params.sessionId || ''));
 
 // 是否已登录（决定可见 Tab：游客仅看公告，登录用户看全部）
 const isAuthenticated = computed(() => userStore.isAuthenticated);
-type TabKey = 'notification' | 'message' | 'announcement';
+// 是否绑定了系统用户（绑定后可查看待办通知）
+const isBoundSysUser = computed(() => {
+    const u = userStore.user;
+    return !!(u && u.userId);
+});
+type TabKey = 'notification' | 'message' | 'announcement' | 'todo';
 // 游客默认公告 Tab；登录用户默认通知 Tab；支持 ?tab= 深链
 const initialTab: TabKey = (route.query.tab as TabKey)
     || (isAuthenticated.value ? 'notification' : 'announcement');
@@ -157,6 +162,61 @@ async function markAllNotifRead() {
         console.error('全部已读失败:', error);
         toast.error('操作失败');
     }
+}
+
+// ============ 待办通知相关 ============
+const todos = ref<Notification[]>([]);
+const todoLoading = ref(false);
+const todoUnreadCount = computed(() => todos.value.filter((n) => !n.isRead).length);
+
+async function loadTodos() {
+    todoLoading.value = true;
+    try {
+        const resp = await notificationApi.getNotificationList({ pageNum: 1, pageSize: 50, type: 'todo' as any });
+        if (resp.code === 200 && resp.data) {
+            todos.value = resp.data.list || [];
+        }
+    } catch (error) {
+        console.error('加载待办失败:', error);
+        toast.error('加载待办失败，请稍后重试');
+    } finally {
+        todoLoading.value = false;
+    }
+}
+
+async function markTodoRead(n: Notification) {
+    if (n.isRead) return;
+    try {
+        await notificationApi.markAsRead({ id: String(n.id) });
+        n.isRead = true;
+        messageStore.decNotifUnread();
+    } catch (error) {
+        console.error('标记已读失败:', error);
+        toast.error('标记已读失败');
+    }
+}
+
+async function markAllTodoRead() {
+    const unread = todos.value.filter((n) => !n.isRead);
+    if (unread.length === 0) {
+        toast.info('没有未读待办');
+        return;
+    }
+    try {
+        await Promise.all(
+            unread.map((n) => notificationApi.markAsRead({ id: String(n.id) }).catch(() => null))
+        );
+        unread.forEach((n) => (n.isRead = true));
+        messageStore.clearNotifUnread();
+        toast.success('已全部标记为已读');
+    } catch (error) {
+        console.error('全部已读失败:', error);
+        toast.error('操作失败');
+    }
+}
+
+function getTodoIcon() {
+    return ClipboardList;
 }
 
 // ============ 公告相关（公开广播，游客可看） ============
@@ -319,6 +379,9 @@ function switchTab(tab: TabKey) {
     if (tab === 'message' && sessions.value.length === 0 && isAuthenticated.value) {
         loadSessions();
     }
+    if (tab === 'todo' && todos.value.length === 0 && isBoundSysUser.value) {
+        loadTodos();
+    }
 }
 
 // 面包屑
@@ -346,6 +409,10 @@ onMounted(async () => {
     // 通知/私信相关仅登录用户加载
     if (isAuthenticated.value) {
         tasks.push(loadNotifications(), loadNotifUnread(), loadSessions(), loadMsgUnread());
+        // 绑定系统用户的前台用户加载待办通知
+        if (isBoundSysUser.value) {
+            tasks.push(loadTodos());
+        }
     }
     await Promise.all(tasks);
 });
@@ -416,6 +483,20 @@ watch(isChatMode, (isChat) => {
                 通知
                 <span v-if="notifUnreadCount > 0" class="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full text-xs flex items-center justify-center" style="background-color: #ef4444; color: white;">
                   {{ notifUnreadCount > 99 ? '99+' : notifUnreadCount }}
+                </span>
+              </button>
+              <button
+                v-if="isAuthenticated && isBoundSysUser"
+                @click="switchTab('todo')"
+                class="flex items-center gap-2 px-4 sm:px-6 py-3 text-sm sm:text-base font-medium border-b-2 transition-colors relative"
+                :style="activeTab === 'todo'
+                  ? 'border-color: var(--theme-primary); color: var(--theme-primary);'
+                  : 'border-color: transparent; color: var(--theme-text-secondary);'"
+              >
+                <ClipboardList class="w-4 h-4" />
+                待办
+                <span v-if="todoUnreadCount > 0" class="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full text-xs flex items-center justify-center" style="background-color: #ef4444; color: white;">
+                  {{ todoUnreadCount > 99 ? '99+' : todoUnreadCount }}
                 </span>
               </button>
               <button
@@ -497,6 +578,54 @@ watch(isChatMode, (isChat) => {
               >
                 <div class="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0" :style="{ backgroundColor: 'var(--theme-accent)' }">
                   <component :is="getNotifIcon(n.type)" class="w-4 h-4" :style="{ color: getNotifIconColor(n.type) }" />
+                </div>
+                <div class="flex-1 min-w-0">
+                  <div class="flex items-center gap-2">
+                    <span v-if="!n.isRead" class="w-2 h-2 rounded-full flex-shrink-0" style="background-color: #ef4444;"></span>
+                    <span class="font-medium text-sm truncate" style="color: var(--theme-text);">{{ n.title }}</span>
+                  </div>
+                  <p class="text-sm mt-1 line-clamp-2" style="color: var(--theme-text-secondary);">{{ n.content }}</p>
+                  <p class="text-xs mt-1.5" style="color: var(--theme-text-secondary);">{{ formatRelativeTime(n.createTime) }}</p>
+                </div>
+              </button>
+            </div>
+          </div>
+
+          <!-- 待办 Tab -->
+          <div v-else-if="activeTab === 'todo'">
+            <div class="flex items-center justify-between mb-4 gap-2 flex-wrap">
+              <p class="text-sm" style="color: var(--theme-text-secondary);">待办事项来自系统审核流程</p>
+              <button
+                @click="markAllTodoRead"
+                class="flex items-center gap-1 text-xs sm:text-sm px-3 py-1.5 rounded-full transition-colors"
+                style="color: var(--theme-primary); background-color: var(--theme-surface); border: 1px solid var(--theme-border);"
+              >
+                <CheckCheck class="w-4 h-4" />
+                全部已读
+              </button>
+            </div>
+
+            <div v-if="todoLoading" class="text-center py-12">
+              <Loader2 class="w-8 h-8 mx-auto animate-spin" style="color: var(--theme-primary);" />
+            </div>
+            <div v-else-if="todos.length === 0" class="py-16 text-center rounded-2xl" style="background-color: var(--theme-surface); border: 1px solid var(--theme-border);">
+              <Inbox class="w-12 h-12 mx-auto mb-3" style="color: var(--theme-text-secondary);" />
+              <p class="text-sm" style="color: var(--theme-text-secondary);">暂无待办</p>
+            </div>
+            <div v-else class="space-y-2">
+              <button
+                v-for="n in todos"
+                :key="n.id"
+                @click="markTodoRead(n)"
+                class="w-full text-left flex items-start gap-3 p-4 rounded-2xl transition-colors"
+                :style="{
+                  backgroundColor: 'var(--theme-surface)',
+                  border: '1px solid var(--theme-border)',
+                  opacity: n.isRead ? 0.7 : 1
+                }"
+              >
+                <div class="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0" :style="{ backgroundColor: 'var(--theme-accent)' }">
+                  <ClipboardList class="w-4 h-4" style="color: var(--theme-primary);" />
                 </div>
                 <div class="flex-1 min-w-0">
                   <div class="flex items-center gap-2">

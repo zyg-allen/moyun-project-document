@@ -90,4 +90,31 @@ public interface ICmsPortalUserService
      * @return 结果
      */
     int resetUserPwd(PortalUser user);
+
+    /**
+     * 绑定系统用户（把 sys_user.user_id 写入 portal_user.user_id）
+     *
+     * <p>关系约束：sys_user ↔ portal_user 为一对多（一个后台账号可绑定多个门户身份），
+     * 但 portal_user 端为一对一——同一门户用户只能被一个系统用户绑定。
+     * 若该门户用户已绑定其他 sys_user，需先解绑再绑定。</p>
+     *
+     * <p>用于后台私信身份桥接：绑定后，该门户用户收到的私信可由绑定的系统用户在后台查看/回复。</p>
+     *
+     * @param portalUserId 门户用户ID
+     * @param sysUserId     后台用户ID（sys_user.user_id）
+     * @return 受影响行数
+     * @throws com.moyun.common.exception.system.ServiceException 门户用户不存在/已绑其他账号/后台用户不存在时抛出
+     */
+    int bindSysUser(Long portalUserId, Long sysUserId);
+
+    /**
+     * 解绑系统用户（清空 portal_user.user_id）
+     *
+     * <p>解绑后该门户用户成为独立身份（如邮箱投稿作者），不再受后台私信桥接。</p>
+     *
+     * @param portalUserId 门户用户ID
+     * @return 受影响行数
+     * @throws com.moyun.common.exception.system.ServiceException 门户用户不存在时抛出
+     */
+    int unbindSysUser(Long portalUserId);
 }

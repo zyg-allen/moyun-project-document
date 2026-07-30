@@ -461,6 +461,11 @@ const routes: RouteRecordRaw[] = [
     meta: { title: '帮助中心', isPublic: true }
   },
   {
+    // 公告已合并到消息中心（/messages?tab=announcement），保留旧路径重定向兼容外链
+    path: '/announcements',
+    redirect: { path: '/messages', query: { tab: 'announcement' } }
+  },
+  {
     path: '/about',
     name: 'about',
     component: AboutUsPage,
@@ -523,10 +528,11 @@ const routes: RouteRecordRaw[] = [
     meta: { requiresAuth: true, title: '我的文章', robots: 'noindex,nofollow' }
   },
   {
+    // 消息中心：游客可查看公告 Tab，通知/私信 Tab 需登录（页面内 onMounted 按需加载）
     path: '/messages',
     name: 'messages',
     component: MessagesPage,
-    meta: { requiresAuth: true, title: '消息中心', robots: 'noindex,nofollow' }
+    meta: { title: '消息中心', isPublic: true, robots: 'noindex,nofollow' }
   },
   {
     path: '/messages/chat/:sessionId',

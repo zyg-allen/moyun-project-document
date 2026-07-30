@@ -45,28 +45,52 @@
 
     <!-- 今日统计 -->
     <el-row :gutter="16" class="block-row">
-      <el-col :xs="24" :sm="12" :md="6">
+      <el-col :xs="12" :sm="8" :md="6">
         <el-card class="today-card" shadow="hover">
           <div class="today-num">{{ formatNum(todayStats.todayVisitors) }}</div>
           <div class="today-label">今日访客数 (UV)</div>
         </el-card>
       </el-col>
-      <el-col :xs="24" :sm="12" :md="6">
+      <el-col :xs="12" :sm="8" :md="6">
         <el-card class="today-card" shadow="hover">
           <div class="today-num">{{ formatNum(todayStats.todayPageViews) }}</div>
           <div class="today-label">今日浏览量 (PV)</div>
         </el-card>
       </el-col>
-      <el-col :xs="24" :sm="12" :md="6">
+      <el-col :xs="12" :sm="8" :md="6">
         <el-card class="today-card" shadow="hover">
           <div class="today-num">{{ formatNum(todayStats.todayLoginUsers) }}</div>
           <div class="today-label">今日登录人数</div>
         </el-card>
       </el-col>
-      <el-col :xs="24" :sm="12" :md="6">
+      <el-col :xs="12" :sm="8" :md="6">
         <el-card class="today-card" shadow="hover">
           <div class="today-num">{{ formatNum(todayStats.todayNewArticles) }}</div>
           <div class="today-label">今日新增文章</div>
+        </el-card>
+      </el-col>
+      <el-col :xs="12" :sm="8" :md="6">
+        <el-card class="today-card" shadow="hover">
+          <div class="today-num">{{ formatNum(todayStats.todayPortalLoginUsers) }}</div>
+          <div class="today-label">今日前台登录</div>
+        </el-card>
+      </el-col>
+      <el-col :xs="12" :sm="8" :md="6">
+        <el-card class="today-card" shadow="hover">
+          <div class="today-num">{{ formatNum(todayStats.todaySysLoginUsers) }}</div>
+          <div class="today-label">今日后台登录</div>
+        </el-card>
+      </el-col>
+      <el-col :xs="12" :sm="8" :md="6">
+        <el-card class="today-card" shadow="hover">
+          <div class="today-num">{{ formatNum(todayStats.todayNewUsers) }}</div>
+          <div class="today-label">今日新增用户</div>
+        </el-card>
+      </el-col>
+      <el-col :xs="12" :sm="8" :md="6">
+        <el-card class="today-card" shadow="hover">
+          <div class="today-num">{{ formatRate(todayStats.loginSuccessRate) }}</div>
+          <div class="today-label">今日登录成功率</div>
         </el-card>
       </el-col>
     </el-row>
@@ -180,11 +204,11 @@
           <div v-loading="loading" class="activity-list">
             <el-timeline>
               <el-timeline-item
-                v-for="a in systemActivities"
-                :key="a.id"
-                :timestamp="relativeTime(a.createTime)"
-                placement="top"
-                :type="activityTagType(a.businessType)"
+                  v-for="a in systemActivities"
+                  :key="a.id"
+                  :timestamp="relativeTime(a.createTime)"
+                  placement="top"
+                  :type="activityTagType(a.businessType)"
               >
                 <div class="activity-content">
                   <el-tag :type="activityTagType(a.businessType)" size="small" effect="plain">{{ a.module }}</el-tag>
@@ -475,7 +499,10 @@ function rankPercent(item) {
   return Math.round((item.totalViews || 0) * 100 / max)
 }
 function activityTagType(bt) {
-  return { INSERT: 'success', UPDATE: 'primary', DELETE: 'danger', EXPORT: 'warning', OTHER: 'info' }[bt] || 'info'
+  return {
+    INSERT: 'success', UPDATE: 'primary', DELETE: 'danger', EXPORT: 'warning', OTHER: 'info',
+    PUBLISH: 'success', REGISTER: 'warning', NOTIFICATION: 'primary'
+  }[bt] || 'info'
 }
 
 // ===== 生命周期 =====

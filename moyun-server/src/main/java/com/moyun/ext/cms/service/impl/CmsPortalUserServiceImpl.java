@@ -32,6 +32,12 @@ import com.moyun.portal.mapper.PortalUserMapper;
 import com.moyun.portal.mapper.PortalUserResumeMapper;
 import com.moyun.portal.service.IPortalGrowthService;
 import com.moyun.portal.service.IPortalUserService;
+import com.moyun.system.mapper.SysUserMapper;
+import com.moyun.core.base.entity.SysUser;
+
+import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * CMS门户用户服务实现类
@@ -68,6 +74,9 @@ public class CmsPortalUserServiceImpl implements ICmsPortalUserService
     @Autowired
     private PortalUserResumeMapper portalUserResumeMapper;
 
+    @Autowired
+    private SysUserMapper sysUserMapper;
+
     @Override
     public Page<CmsPortalUserVO> selectUserPage(Page<CmsPortalUserVO> page, CmsPortalUserQuery query)
     {
@@ -82,8 +91,51 @@ public class CmsPortalUserServiceImpl implements ICmsPortalUserService
 
         Page<CmsPortalUserVO> voPage = new Page<>(page.getCurrent(), page.getSize(), total);
         List<CmsPortalUserVO> voList = BeanUtil.copyToList(pageList, CmsPortalUserVO.class);
+        // 批量填充绑定的 sys_user 信息（列表展示"关联系统用户"列）
+        fillSysUserInfo(voList);
         voPage.setRecords(voList);
         return voPage;
+    }
+
+    /**
+     * 批量填充 VO 中的 sysUserName/sysNickName（一次查询，避免 N+1）
+     *
+     * <p>注意：SysUser.delFlag 未加 @TableLogic，MyBatis-Plus 的 selectBatchIds 不会过滤已删除用户，
+     * 这里显式加 del_flag='0' 条件，避免列表展示已删除的后台账号。</p>
+     *
+     * @param voList 当前页的门户用户 VO 列表
+     */
+    private void fillSysUserInfo(List<CmsPortalUserVO> voList) {
+        if (voList == null || voList.isEmpty()) {
+            return;
+        }
+        Set<Long> sysUserIds = voList.stream()
+                .map(CmsPortalUserVO::getUserId)
+                .filter(java.util.Objects::nonNull)
+                .collect(Collectors.toSet());
+        if (sysUserIds.isEmpty()) {
+            return;
+        }
+        // 显式过滤已删除用户（del_flag='0' 为正常）
+        LambdaQueryWrapper<SysUser> uw = new LambdaQueryWrapper<SysUser>()
+                .in(SysUser::getUserId, sysUserIds)
+                .eq(SysUser::getDelFlag, "0");
+        List<SysUser> sysUsers = sysUserMapper.selectList(uw);
+        if (sysUsers == null || sysUsers.isEmpty()) {
+            return;
+        }
+        Map<Long, SysUser> sysUserMap = sysUsers.stream()
+                .collect(Collectors.toMap(SysUser::getUserId, u -> u, (a, b) -> a));
+        for (CmsPortalUserVO vo : voList) {
+            if (vo.getUserId() == null) {
+                continue;
+            }
+            SysUser sysUser = sysUserMap.get(vo.getUserId());
+            if (sysUser != null) {
+                vo.setSysUserName(sysUser.getUserName());
+                vo.setSysNickName(sysUser.getNickName());
+            }
+        }
     }
 
     @Override
@@ -233,6 +285,66 @@ public class CmsPortalUserServiceImpl implements ICmsPortalUserService
         // 与前台注册（PortalUserServiceImpl.registerPortalUser）加密方式不一致，
         // 导致后台改密后前台用户无法登录
         return portalUserService.resetPortalUserPwd(user);
+    }
+
+    // ========================================================================
+    // 系统用户绑定（身份桥接入口）
+    //   关系：sys_user 1 : N portal_user（一个后台账号可绑多个门户身份）
+    //        portal_user 端为 1:1（同一门户用户只能被一个 sys_user 绑定）
+    //   场景：后台管理员绑定门户作者身份后，可在后台私信中心查看/回复发给该作者的私信
+    // ========================================================================
+    @Override
+    public int bindSysUser(Long portalUserId, Long sysUserId) {
+        if (portalUserId == null || sysUserId == null) {
+            throw new com.moyun.common.exception.system.ServiceException("门户用户ID与系统用户ID均不能为空");
+        }
+        PortalUser portalUser = portalUserMapper.selectById(portalUserId);
+        if (portalUser == null) {
+            throw new com.moyun.common.exception.system.ServiceException("门户用户不存在");
+        }
+        // 已绑定同一 sys_user，幂等直接返回成功
+        if (sysUserId.equals(portalUser.getUserId())) {
+            return 1;
+        }
+        // portal_user 端一对一校验：已绑其他 sys_user 则拒绝（需先解绑）
+        if (portalUser.getUserId() != null) {
+            throw new com.moyun.common.exception.system.ServiceException(
+                    "该门户用户已绑定其他系统用户，请先解绑后再绑定");
+        }
+        // 校验 sys_user 存在且未删除（selectById 不过滤 del_flag，需显式查询）
+        SysUser sysUser = sysUserMapper.selectOne(
+                new LambdaQueryWrapper<SysUser>()
+                        .eq(SysUser::getUserId, sysUserId)
+                        .eq(SysUser::getDelFlag, "0")
+        );
+        if (sysUser == null) {
+            throw new com.moyun.common.exception.system.ServiceException("系统用户不存在或已删除");
+        }
+        PortalUser update = new PortalUser();
+        update.setId(portalUserId);
+        update.setUserId(sysUserId);
+        return portalUserMapper.updateById(update);
+    }
+
+    @Override
+    public int unbindSysUser(Long portalUserId) {
+        if (portalUserId == null) {
+            throw new com.moyun.common.exception.system.ServiceException("门户用户ID不能为空");
+        }
+        PortalUser portalUser = portalUserMapper.selectById(portalUserId);
+        if (portalUser == null) {
+            throw new com.moyun.common.exception.system.ServiceException("门户用户不存在");
+        }
+        if (portalUser.getUserId() == null) {
+            // 未绑定，幂等返回
+            return 1;
+        }
+        // MyBatis-Plus updateById 默认不更新 null 字段，这里用 LambdaUpdateWrapper 显式置 null
+        com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper<PortalUser> uw =
+                new com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper<>();
+        uw.eq(PortalUser::getId, portalUserId)
+          .set(PortalUser::getUserId, null);
+        return portalUserMapper.update(null, uw);
     }
 
     /**

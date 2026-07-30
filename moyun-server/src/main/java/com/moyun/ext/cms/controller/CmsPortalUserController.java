@@ -4,6 +4,8 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.constraints.NotNull;
+import lombok.Data;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.validation.annotation.Validated;
@@ -123,5 +125,48 @@ public class CmsPortalUserController extends BaseController {
     @DeleteMapping("/{ids}")
     public AjaxResult remove(@Parameter(description = "用户ID数组") @PathVariable("ids") Long[] ids) {
         return toAjax(cmsPortalUserService.deleteUserByIds(ids));
+    }
+
+    /**
+     * 绑定系统用户（身份桥接入口）
+     *
+     * <p>把 sys_user.user_id 写入 portal_user.user_id。关系：sys_user 1:N portal_user，
+     * portal_user 端一对一——同一门户用户只能被一个系统用户绑定。</p>
+     *
+     * <p>绑定后，后台管理员可在私信中心查看/回复发给该门户作者的私信（详见 SysMessageController 身份桥接）。</p>
+     */
+    @Operation(summary = "绑定系统用户", description = "将门户用户绑定到后台系统用户，建立身份桥接关系")
+    @PreAuthorize("@ss.hasPermi('cms:user:bind')")
+    @Log(title = "门户用户管理-绑定系统用户", businessType = BusinessType.UPDATE)
+    @PutMapping("/bindSysUser")
+    public AjaxResult bindSysUser(@Validated @RequestBody BindSysUserDTO dto) {
+        return toAjax(cmsPortalUserService.bindSysUser(dto.getPortalUserId(), dto.getSysUserId()));
+    }
+
+    /**
+     * 解绑系统用户（清空 portal_user.user_id）
+     *
+     * <p>解绑后该门户用户成为独立身份（如邮箱投稿作者），不再受后台私信桥接。</p>
+     */
+    @Operation(summary = "解绑系统用户", description = "清空门户用户绑定的系统用户ID")
+    @PreAuthorize("@ss.hasPermi('cms:user:bind')")
+    @Log(title = "门户用户管理-解绑系统用户", businessType = BusinessType.UPDATE)
+    @PutMapping("/unbindSysUser/{id}")
+    public AjaxResult unbindSysUser(@Parameter(description = "门户用户ID") @PathVariable("id") Long id) {
+        return toAjax(cmsPortalUserService.unbindSysUser(id));
+    }
+
+    /**
+     * 绑定系统用户请求 DTO
+     */
+    @Data
+    public static class BindSysUserDTO {
+        /** 门户用户ID */
+        @NotNull(message = "门户用户ID不能为空")
+        private Long portalUserId;
+
+        /** 后台系统用户ID（sys_user.user_id） */
+        @NotNull(message = "系统用户ID不能为空")
+        private Long sysUserId;
     }
 }

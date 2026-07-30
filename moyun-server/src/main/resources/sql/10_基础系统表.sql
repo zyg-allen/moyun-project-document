@@ -270,6 +270,7 @@ CREATE TABLE `sys_logininfor` (
                                   `browser` varchar(50) COLLATE utf8mb4_0900_ai_ci DEFAULT '' COMMENT '浏览器类型',
                                   `os` varchar(50) COLLATE utf8mb4_0900_ai_ci DEFAULT '' COMMENT '操作系统',
                                   `status` char(1) COLLATE utf8mb4_0900_ai_ci DEFAULT '0' COMMENT '登录状态（0成功 1失败）',
+                                  `user_type` varchar(10) COLLATE utf8mb4_0900_ai_ci DEFAULT 'sys' COMMENT '登录来源类型（sys=后台用户 portal=门户用户）',
                                   `msg` varchar(255) COLLATE utf8mb4_0900_ai_ci DEFAULT '' COMMENT '提示消息',
                                   `login_time` datetime DEFAULT NULL COMMENT '访问时间',
                                   `create_by` varchar(64) COLLATE utf8mb4_0900_ai_ci DEFAULT '' COMMENT '创建者',
@@ -279,7 +280,8 @@ CREATE TABLE `sys_logininfor` (
                                   `remark` varchar(500) COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '备注',
                                   PRIMARY KEY (`info_id`),
                                   KEY `idx_sys_logininfor_s` (`status`),
-                                  KEY `idx_sys_logininfor_lt` (`login_time`)
+                                  KEY `idx_sys_logininfor_lt` (`login_time`),
+                                  KEY `idx_sys_logininfor_ut` (`user_type`)
 ) ENGINE=InnoDB AUTO_INCREMENT=100 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='系统访问记录';
 
 

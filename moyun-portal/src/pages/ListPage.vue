@@ -2,7 +2,7 @@
 import { ref, computed, onMounted, watch } from 'vue';
 import { useRoute, useRouter, RouterLink as Link } from 'vue-router';
 import { useHead } from '@vueuse/head';
-import { Clock, Flame, Tag, ArrowRight, PenLine } from 'lucide-vue-next';
+import { Clock, Flame, Tag, ArrowRight, PenLine, Eye, Megaphone } from 'lucide-vue-next';
 import ArticleCard from '@/components/ArticleCard.vue';
 import Pagination from '@/components/Pagination.vue';
 import Empty from '@/components/Empty.vue';
@@ -58,6 +58,8 @@ const error = ref<string | null>(null);
 
 // 侧栏：热门标签
 const hotTags = ref<any[]>([]);
+// 侧栏：热门文章推荐（复用首页热门数据接口）
+const hotArticles = ref<any[]>([]);
 
 // 从路由参数解析列表类型和关键词
 // 返回 true 表示正常加载，false 表示已重定向（话题讨论）应跳过后续加载
@@ -97,7 +99,7 @@ onMounted(async () => {
   const shouldLoad = parseRouteParams();
   if (!shouldLoad) return;  // 已重定向，跳过加载
   currentPage.value = 1;
-  await Promise.all([loadArticles(), loadHotTags()]);
+  await Promise.all([loadArticles(), loadHotTags(), loadHotArticles()]);
 });
 
 // 加载侧栏热门标签
@@ -110,6 +112,20 @@ async function loadHotTags() {
   } catch (err) {
     console.error('加载热门标签失败:', err);
     hotTags.value = [];
+  }
+}
+
+// 加载侧栏热门文章推荐（复用首页热门数据接口，取 5 条）
+async function loadHotArticles() {
+  try {
+    const response = await articleApi.getHomeData();
+    if (response.code === 200 && response.data) {
+      const list = (response.data as any).hotArticles || [];
+      hotArticles.value = list.slice(0, 5).map(transformArticle);
+    }
+  } catch (err) {
+    console.error('加载热门文章失败:', err);
+    hotArticles.value = [];
   }
 }
 
@@ -354,6 +370,38 @@ useHead(
               </nav>
             </div>
 
+            <!-- 热门文章推荐 -->
+            <div v-if="hotArticles.length > 0" class="rounded-xl p-5" style="background-color: var(--theme-surface); border: 1px solid var(--theme-border);">
+              <div class="flex items-center gap-2 mb-4">
+                <Flame class="w-4 h-4" style="color: var(--theme-primary);" />
+                <h3 class="font-semibold text-base" style="color: var(--theme-text);">热门文章</h3>
+              </div>
+              <div class="space-y-3">
+                <button
+                    v-for="(article, index) in hotArticles"
+                    :key="article.id"
+                    @click="router.push(`/article/${article.id}`)"
+                    class="flex items-start gap-2 cursor-pointer w-full text-left group"
+                >
+                  <span
+                      class="w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 mt-0.5"
+                      :style="index < 3 ? { backgroundColor: 'var(--theme-primary)', color: 'white' } : { backgroundColor: 'var(--theme-accent)', color: 'var(--theme-text-secondary)' }"
+                  >
+                    {{ index + 1 }}
+                  </span>
+                  <div class="flex-1 min-w-0">
+                    <h4 class="text-sm line-clamp-2 group-hover:opacity-80 transition-opacity" style="color: var(--theme-text);">
+                      {{ article.title }}
+                    </h4>
+                    <div class="flex items-center gap-1 mt-1 text-xs" style="color: var(--theme-text-secondary);">
+                      <Eye class="w-3 h-3" />
+                      <span>{{ article.views || 0 }}</span>
+                    </div>
+                  </div>
+                </button>
+              </div>
+            </div>
+
             <!-- 浏览其他分类 -->
             <div class="rounded-xl p-5" style="background-color: var(--theme-surface); border: 1px solid var(--theme-border);">
               <div class="flex items-center gap-2 mb-3">
@@ -366,6 +414,23 @@ useHead(
                 <Link to="/reading" class="block py-2 text-sm transition-colors hover:opacity-80" style="color: var(--theme-text-secondary);">读书空间</Link>
                 <Link to="/interview" class="block py-2 text-sm transition-colors hover:opacity-80" style="color: var(--theme-text-secondary);">面试指南</Link>
               </div>
+            </div>
+
+            <!-- 小广告位（纯静态占位卡，预留后端接口位置） -->
+            <div class="rounded-xl p-5 relative overflow-hidden" style="background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);">
+              <div class="flex items-center gap-2 mb-2">
+                <Megaphone class="w-4 h-4 text-white/80" />
+                <span class="text-xs text-white/80 font-medium">合作推广</span>
+              </div>
+              <h4 class="text-white font-semibold text-sm mb-1">成为认证创作者</h4>
+              <p class="text-white/80 text-xs mb-3 leading-relaxed">享受专属权益，让你的创作被更多人看见</p>
+              <button
+                  @click="router.push('/creator/certification')"
+                  class="inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-medium bg-white text-indigo-700 hover:bg-indigo-50 transition-colors"
+              >
+                了解更多
+                <ArrowRight class="w-3 h-3" />
+              </button>
             </div>
           </aside>
         </div>

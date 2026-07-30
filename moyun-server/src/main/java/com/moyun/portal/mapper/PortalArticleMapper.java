@@ -271,7 +271,7 @@ public interface PortalArticleMapper extends BaseMapper<PortalArticle> {
     List<Map<String, Object>> selectDailyPublishTrend(@Param("startTime") java.time.LocalDateTime startTime);
 
     /**
-     * 栏目排行榜：按文章数和浏览量聚合 Top N
+     * 栏目排行榜：按文章数和浏览量聚合 Top N（仅统计文章类栏目 category_type='article'）
      */
     @Select("SELECT c.id AS categoryId, c.name AS categoryName, " +
             "count(a.id) AS articleCount, " +
@@ -279,6 +279,7 @@ public interface PortalArticleMapper extends BaseMapper<PortalArticle> {
             "coalesce(sum(a.likes), 0) AS totalLikes " +
             "FROM portal_category c " +
             "LEFT JOIN portal_article a ON a.category_id = c.id AND a.status = 'published' " +
+            "WHERE c.category_type = 'article' " +
             "GROUP BY c.id, c.name " +
             "ORDER BY articleCount DESC, totalViews DESC " +
             "LIMIT #{limit}")

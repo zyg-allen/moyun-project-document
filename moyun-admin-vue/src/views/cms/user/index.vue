@@ -105,6 +105,14 @@
           <span v-else class="text-muted">-</span>
         </template>
       </el-table-column>
+      <el-table-column label="关联系统用户" align="center" prop="sysUserName" width="140" :show-overflow-tooltip="true">
+        <template #default="scope">
+          <el-tag v-if="scope.row.userId" type="primary" size="small">
+            {{ scope.row.sysNickName || scope.row.sysUserName || ('#' + scope.row.userId) }}
+          </el-tag>
+          <span v-else class="text-muted">未绑定</span>
+        </template>
+      </el-table-column>
       <el-table-column label="状态" align="center" prop="status" width="80">
         <template #default="scope">
           <el-switch
@@ -120,7 +128,7 @@
           <span>{{ parseTime(scope.row.createTime) }}</span>
         </template>
       </el-table-column>
-      <el-table-column label="操作" align="center" class-name="small-padding fixed-width" width="230">
+      <el-table-column label="操作" align="center" class-name="small-padding fixed-width" width="300">
         <template #default="scope">
           <el-button
               link
@@ -136,6 +144,13 @@
               @click="handleUpdate(scope.row)"
               v-hasPermi="['cms:user:edit']"
           >修改</el-button>
+          <el-button
+              link
+              type="primary"
+              icon="Link"
+              @click="handleBind(scope.row)"
+              v-hasPermi="['cms:user:bind']"
+          >绑定</el-button>
           <el-button
               link
               type="primary"
@@ -379,11 +394,57 @@
         </div>
       </div>
     </el-drawer>
+
+    <!-- 绑定系统用户对话框 -->
+    <el-dialog :title="bindTitle" v-model="bindOpen" width="520px" append-to-body>
+      <el-form v-loading="bindLoading" label-width="120px">
+        <el-form-item label="门户用户">
+          <span>{{ bindForm.portalUserLabel }}</span>
+        </el-form-item>
+        <el-form-item label="当前绑定">
+          <el-tag v-if="bindForm.currentSysUserId" type="primary" size="small">
+            {{ bindForm.currentSysNickName || bindForm.currentSysUserName || ('#' + bindForm.currentSysUserId) }}
+          </el-tag>
+          <span v-else class="text-muted">未绑定（独立门户身份）</span>
+        </el-form-item>
+        <el-form-item label="绑定系统用户">
+          <el-select
+              v-model="bindForm.sysUserId"
+              filterable
+              remote
+              reserve-keyword
+              clearable
+              placeholder="输入用户名/昵称搜索后台用户"
+              :remote-method="searchSysUser"
+              :loading="sysUserLoading"
+              style="width: 100%"
+          >
+            <el-option
+                v-for="item in sysUserOptions"
+                :key="item.userId"
+                :label="item.nickName ? (item.userName + '（' + item.nickName + '）') : item.userName"
+                :value="item.userId"
+            />
+          </el-select>
+          <div class="bind-tip">
+            清空选择并保存即为「解绑」，该门户用户将变为独立身份（如邮箱投稿作者）。
+            一个后台账号可绑定多个门户身份，但一个门户身份只能被一个后台账号绑定。
+          </div>
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <div class="dialog-footer">
+          <el-button type="primary" @click="submitBind">确 定</el-button>
+          <el-button @click="bindOpen = false">取 消</el-button>
+        </div>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup name="CmsUser">
-import { listUser, getUser, addUser, updateUser, delUser, changeUserStatus, resetUserPwd, getUserProfile } from "@/api/cms/user";
+import { listUser, getUser, addUser, updateUser, delUser, changeUserStatus, resetUserPwd, getUserProfile, bindSysUser, unbindSysUser } from "@/api/cms/user";
+import { listUser as listSysUser } from "@/api/system/user";
 import ImageUpload from "@/components/ImageUpload/index.vue";
 
 const { proxy } = getCurrentInstance();
@@ -406,6 +467,14 @@ const profileLoading = ref(false);
 const profileTitle = ref("");
 const profileData = ref(null);
 
+// 绑定系统用户弹窗
+const bindOpen = ref(false);
+const bindLoading = ref(false);
+const bindTitle = ref("");
+const bindForm = ref({ portalUserId: undefined, sysUserId: undefined });
+const sysUserOptions = ref([]);
+const sysUserLoading = ref(false);
+
 // 列显隐信息
 const columns = ref([
   { key: 0, label: `用户编号`, visible: true },
@@ -416,8 +485,9 @@ const columns = ref([
   { key: 5, label: `邮箱`, visible: true },
   { key: 6, label: `创作者认证`, visible: true },
   { key: 7, label: `VIP`, visible: true },
-  { key: 8, label: `状态`, visible: true },
-  { key: 9, label: `注册时间`, visible: true }
+  { key: 8, label: `关联系统用户`, visible: true },
+  { key: 9, label: `状态`, visible: true },
+  { key: 10, label: `注册时间`, visible: true }
 ]);
 
 // 查询参数
@@ -583,6 +653,79 @@ function handleResetPwd(row) {
   }).catch(() => {});
 }
 
+// 打开绑定系统用户弹窗
+function handleBind(row) {
+  bindForm.value = {
+    portalUserId: row.id,
+    portalUserLabel: (row.nickname || row.username) + '（#' + row.id + '）',
+    currentSysUserId: row.userId || null,
+    currentSysUserName: row.sysUserName || null,
+    currentSysNickName: row.sysNickName || null,
+    sysUserId: row.userId || undefined
+  };
+  sysUserOptions.value = [];
+  bindTitle.value = "绑定系统用户";
+  bindOpen.value = true;
+  // 若已绑定，预置当前选项到下拉，避免远程搜索前显示为空
+  if (row.userId) {
+    sysUserOptions.value = [{
+      userId: row.userId,
+      userName: row.sysUserName,
+      nickName: row.sysNickName
+    }];
+  }
+}
+
+// 远程搜索后台系统用户
+function searchSysUser(query) {
+  if (query) {
+    sysUserLoading.value = true;
+    listSysUser({ userName: query, pageNum: 1, pageSize: 20 }).then(response => {
+      sysUserOptions.value = response.rows || [];
+    }).finally(() => {
+      sysUserLoading.value = false;
+    });
+  } else {
+    sysUserOptions.value = bindForm.value.currentSysUserId
+        ? [{ userId: bindForm.value.currentSysUserId, userName: bindForm.value.currentSysUserName, nickName: bindForm.value.currentSysNickName }]
+        : [];
+  }
+}
+
+// 提交绑定/解绑
+function submitBind() {
+  const portalUserId = bindForm.value.portalUserId;
+  const newSysUserId = bindForm.value.sysUserId || null;
+  const oldSysUserId = bindForm.value.currentSysUserId || null;
+
+  // 无变化
+  if ((newSysUserId || null) === (oldSysUserId || null)) {
+    bindOpen.value = false;
+    return;
+  }
+
+  bindLoading.value = true;
+  if (newSysUserId === null) {
+    // 解绑
+    unbindSysUser(portalUserId).then(() => {
+      proxy.$modal.msgSuccess("解绑成功");
+      bindOpen.value = false;
+      getList();
+    }).finally(() => {
+      bindLoading.value = false;
+    });
+  } else {
+    // 绑定（后端会校验：已绑其他账号则拒绝，需先解绑）
+    bindSysUser(portalUserId, newSysUserId).then(() => {
+      proxy.$modal.msgSuccess("绑定成功");
+      bindOpen.value = false;
+      getList();
+    }).finally(() => {
+      bindLoading.value = false;
+    });
+  }
+}
+
 // 打开用户画像抽屉
 function handleProfile(row) {
   profileOpen.value = true;
@@ -627,6 +770,14 @@ getList();
 <style lang="scss" scoped>
 .text-muted {
   color: var(--el-text-color-secondary);
+}
+
+/* 绑定系统用户弹窗提示 */
+.bind-tip {
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+  line-height: 1.6;
+  margin-top: 6px;
 }
 
 /* 用户画像抽屉样式 */

@@ -56,9 +56,9 @@ public class Constants {
     public static final String FAIL = "1";
 
     /**
-     * 登录成功
+     * 登录成功（与 sys_logininfor.status char(1) 列对齐，0=成功，配合前端 sys_common_status 字典）
      */
-    public static final String LOGIN_SUCCESS = "Success";
+    public static final String LOGIN_SUCCESS = "0";
 
     /**
      * 注销
@@ -71,9 +71,9 @@ public class Constants {
     public static final String REGISTER = "Register";
 
     /**
-     * 登录失败
+     * 登录失败（与 sys_logininfor.status char(1) 列对齐，1=失败，配合前端 sys_common_status 字典）
      */
-    public static final String LOGIN_FAIL = "Error";
+    public static final String LOGIN_FAIL = "1";
 
     /**
      * 所有权限标识

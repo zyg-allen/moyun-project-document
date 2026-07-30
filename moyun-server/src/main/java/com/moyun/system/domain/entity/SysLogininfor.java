@@ -44,6 +44,9 @@ public class SysLogininfor implements Serializable {
     /** 登录状态（0成功 1失败） */
     private String status;
 
+    /** 登录来源类型（sys=后台用户 portal=门户用户） */
+    private String userType;
+
     /** 提示消息 */
     private String msg;
 

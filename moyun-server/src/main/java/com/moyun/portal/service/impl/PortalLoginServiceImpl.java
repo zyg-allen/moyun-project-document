@@ -12,12 +12,18 @@ import org.springframework.stereotype.Service;
 import com.moyun.common.constant.Constants;
 import com.moyun.core.base.AjaxResult;
 import com.moyun.core.base.model.LoginBody;
+import com.moyun.core.manager.AsyncManager;
+import com.moyun.core.manager.factory.AsyncFactory;
 import com.moyun.portal.controller.PortalLoginController;
 import com.moyun.portal.domain.entity.PortalUser;
 import com.moyun.portal.domain.model.PortalLoginUser;
 import com.moyun.portal.security.auth.PortalTokenService;
 import com.moyun.portal.service.IPortalUserService;
+import com.moyun.util.http.ServletUtils;
+import com.moyun.util.ip.IpUtils;
 import com.moyun.util.string.StringUtils;
+
+import java.time.LocalDateTime;
 
 /**
  * 门户登录服务
@@ -61,19 +67,42 @@ public class PortalLoginServiceImpl {
             // 该方法会去调用PortalUserDetailsServiceImpl.loadUserByUsername
             authentication = authenticationManager.authenticate(authenticationToken);
         } catch (Exception e) {
+            String errMsg;
             if (e instanceof BadCredentialsException) {
-                log.info("登录用户：{} 密码错误.", username);
-                return AjaxResult.error("用户名或密码错误");
+                log.info("门户登录用户：{} 密码错误.", username);
+                errMsg = "用户名或密码错误";
             } else {
-                log.info("登录用户：{} 验证失败: {}", username, e.getMessage());
-                return AjaxResult.error(e.getMessage());
+                log.info("门户登录用户：{} 验证失败: {}", username, e.getMessage());
+                errMsg = e.getMessage();
             }
+            // 记录门户登录失败日志（user_type=portal，供后台首页登录趋势/今日登录统计使用）
+            AsyncManager.me().execute(AsyncFactory.recordLogininfor(username, Constants.LOGIN_FAIL, errMsg, "portal"));
+            return AjaxResult.error(errMsg);
         }
 
-        log.info("登录用户：{} 成功.", username);
+        log.info("门户登录用户：{} 成功.", username);
 
         // 获取登录用户信息
         PortalLoginUser loginUser = (PortalLoginUser) authentication.getPrincipal();
+        PortalUser portalUser = loginUser.getUser();
+
+        // 记录门户登录成功日志（user_type=portal）
+        AsyncManager.me().execute(AsyncFactory.recordLogininfor(username, Constants.LOGIN_SUCCESS, "门户登录成功", "portal"));
+
+        // 更新 portal_user 最后登录IP/时间（修复：原为死字段，门户登录不维护）
+        try {
+            String ip = IpUtils.getIpAddr(ServletUtils.getRequest());
+            portalUser.setLoginIp(ip);
+            portalUser.setLoginDate(LocalDateTime.now());
+            PortalUser update = new PortalUser();
+            update.setId(portalUser.getId());
+            update.setLoginIp(ip);
+            update.setLoginDate(LocalDateTime.now());
+            portalUserService.updatePortalUser(update);
+        } catch (Exception ex) {
+            // 更新登录信息失败不影响登录主流程
+            log.warn("更新门户用户登录信息失败: {}", ex.getMessage());
+        }
 
         // 生成token
         String token = portalTokenService.createToken(loginUser);
@@ -81,7 +110,7 @@ public class PortalLoginServiceImpl {
         // 构建响应数据
         java.util.Map<String, Object> data = new java.util.HashMap<>();
         data.put(Constants.TOKEN, token);
-        data.put("user", toUserVo(loginUser.getUser()));
+        data.put("user", toUserVo(portalUser));
 
         return AjaxResult.success(data);
     }

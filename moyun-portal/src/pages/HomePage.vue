@@ -422,6 +422,14 @@ const handleWrite = () => {
   router.push('/publish');
 }
 
+// ============ Hero 区：站点核心数据 ============
+// 用前端已加载数据的长度作为统计指标，无需新接口
+const siteStats = computed(() => [
+  { label: '原创文章', value: latestArticles.value.length, suffix: '篇' },
+  { label: '认证名家', value: authors.value.length, suffix: '位' },
+  { label: '热门标签', value: tags.value.length, suffix: '个' }
+])
+
 useHead(
     generateSeo({
       title: '首页',
@@ -457,13 +465,25 @@ useHead(
     <template v-else>
     <div class="py-6 sm:py-8" style="background-color: var(--theme-bg);">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div class="text-center mb-4 sm:mb-6">
-          <p class="text-sm sm:text-base text-gray-600">
-            在浮躁的世界，留一页纸给灵魂。
+        <!-- Hero 区：站点定位标语 + 数据指标（搜索入口已在头部，此处不再重复） -->
+        <div class="text-center mb-5 sm:mb-6">
+          <h1 class="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight" style="color: var(--theme-text);">
+            每天进步一点点，<span style="color: var(--theme-primary);">遇见更好的自己</span>
+          </h1>
+          <p class="text-xs sm:text-sm md:text-base mt-2" style="color: var(--theme-text-secondary);">
+            坚持的力量，时间看得见 · 在这里读、写、学、思，让成长有迹可循
           </p>
-          <p class="text-xs sm:text-sm text-gray-400 mt-1">
-            我有一纸墨，足以慰风尘。让生活更有趣味。
-          </p>
+
+          <!-- 数据指标横条：3 个核心数据，手机端紧凑展示 -->
+          <div class="flex items-center justify-center gap-4 sm:gap-8 mt-4 sm:mt-5">
+            <div v-for="stat in siteStats" :key="stat.label" class="text-center">
+              <div class="flex items-baseline justify-center gap-0.5">
+                <span class="text-xl sm:text-2xl md:text-3xl font-bold" style="color: var(--theme-primary);">{{ stat.value }}</span>
+                <span class="text-xs sm:text-sm" style="color: var(--theme-text-secondary);">{{ stat.suffix }}</span>
+              </div>
+              <p class="text-xs sm:text-sm mt-0.5" style="color: var(--theme-text-secondary);">{{ stat.label }}</p>
+            </div>
+          </div>
         </div>
 
         <div
@@ -552,34 +572,33 @@ useHead(
       </div>
     </div>
 
-    <div>
-      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-0">
-          <div class="py-3 sm:py-4 px-4" style="background-color: var(--theme-surface);">
-            <div class="flex items-start gap-2 sm:gap-3">
-              <Quote class="w-5 h-5 sm:w-6 sm:h-6 opacity-30 flex-shrink-0 mt-0.5" style="color: var(--theme-primary);" />
-              <div>
-                <p class="text-sm sm:text-base italic" style="color: var(--theme-text);">
-                  "世间所有的相遇，都是久别重逢。"
-                </p>
-                <p class="text-xs mt-1" style="color: var(--theme-text-secondary);">—— 木心</p>
-              </div>
+    <!-- 名言 + 写作 CTA：用负 margin 消除轮播图外层底部 padding，紧贴轮播图底部，圆角+阴影制造浮起感 -->
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 -mt-6 sm:-mt-8 relative z-10">
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-0 rounded-xl shadow-xl overflow-hidden border" style="border-color: var(--theme-border);">
+        <div class="py-3 sm:py-4 px-4" style="background-color: var(--theme-surface);">
+          <div class="flex items-start gap-2 sm:gap-3">
+            <Quote class="w-5 h-5 sm:w-6 sm:h-6 opacity-30 flex-shrink-0 mt-0.5" style="color: var(--theme-primary);" />
+            <div>
+              <p class="text-sm sm:text-base italic" style="color: var(--theme-text);">
+                "世间所有的相遇，都是久别重逢。"
+              </p>
+              <p class="text-xs mt-1" style="color: var(--theme-text-secondary);">—— 木心</p>
             </div>
           </div>
-          <button
-              @click="handleWrite"
-              class="flex items-center justify-between py-3 sm:py-4 px-4 text-left hover:opacity-90 transition-opacity"
-              style="background-color: var(--theme-primary);"
-          >
-            <div>
-              <p class="text-white font-semibold text-sm sm:text-base">今天，写点什么？</p>
-              <p class="text-red-100 text-xs">写下即是沉淀，分享即是力量。</p>
-            </div>
-            <div class="w-7 h-7 sm:w-8 sm:h-8 bg-white/20 rounded-full flex items-center justify-center">
-              <Sparkles class="w-3.5 h-3.5 sm:w-4 sm:h-4 text-white" />
-            </div>
-          </button>
         </div>
+        <button
+            @click="handleWrite"
+            class="flex items-center justify-between py-3 sm:py-4 px-4 text-left hover:opacity-90 transition-opacity"
+            style="background-color: var(--theme-primary);"
+        >
+          <div>
+            <p class="text-white font-semibold text-sm sm:text-base">今天，写点什么？</p>
+            <p class="text-red-100 text-xs">写下即是沉淀，分享即是力量。</p>
+          </div>
+          <div class="w-7 h-7 sm:w-8 sm:h-8 bg-white/20 rounded-full flex items-center justify-center">
+            <Sparkles class="w-3.5 h-3.5 sm:w-4 sm:h-4 text-white" />
+          </div>
+        </button>
       </div>
     </div>
 

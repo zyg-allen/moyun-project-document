@@ -12,17 +12,17 @@
     <div v-if="showDropdown" class="dropdown-panel" @click.stop>
       <div class="dropdown-tabs">
         <div
-            class="tab-item"
-            :class="{ active: activeTab === 'message' }"
-            @click.stop="switchTab('message')"
+          class="tab-item"
+          :class="{ active: activeTab === 'message' }"
+          @click.stop="switchTab('message')"
         >
           <span>私信</span>
           <span v-if="msgUnread > 0" class="tab-badge">{{ msgUnread > 99 ? '99+' : msgUnread }}</span>
         </div>
         <div
-            class="tab-item"
-            :class="{ active: activeTab === 'notification' }"
-            @click.stop="switchTab('notification')"
+          class="tab-item"
+          :class="{ active: activeTab === 'notification' }"
+          @click.stop="switchTab('notification')"
         >
           <span>通知</span>
           <span v-if="notifUnread > 0" class="tab-badge">{{ notifUnread > 99 ? '99+' : notifUnread }}</span>
@@ -34,10 +34,10 @@
         <template v-if="activeTab === 'message'">
           <div v-if="sessions.length === 0 && !loading" class="empty-tip">暂无私信</div>
           <div
-              v-for="s in sessions"
-              :key="s.id"
-              class="session-item"
-              @click="goChat(s)"
+            v-for="s in sessions"
+            :key="s.id"
+            class="session-item"
+            @click="goChat(s)"
           >
             <el-avatar :size="36" :src="s.peerUser && s.peerUser.avatar">
               <span v-if="!(s.peerUser && s.peerUser.avatar)">{{ peerInitial(s) }}</span>
@@ -59,11 +59,11 @@
         <template v-else>
           <div v-if="notifications.length === 0 && !loading" class="empty-tip">暂无通知</div>
           <div
-              v-for="n in notifications"
-              :key="n.id"
-              class="session-item"
-              :class="{ 'is-unread': !n.isRead }"
-              @click="goNotification(n)"
+            v-for="n in notifications"
+            :key="n.id"
+            class="session-item"
+            :class="{ 'is-unread': !n.isRead }"
+            @click="goNotification(n)"
           >
             <div class="notif-icon-wrap">
               <el-icon class="notif-type-icon"><Bell /></el-icon>

@@ -33,12 +33,12 @@
     <!-- 后台管理分页查询（按 user_type 关联不同用户表显示昵称） -->
     <select id="selectNotificationPage" resultMap="SysNotificationResult">
         select n.id, n.type, n.title, n.content, n.data, n.scope, n.user_id, n.user_type, n.notice_type, n.status,
-        n.create_by, n.create_time, n.update_by, n.update_time, n.remark,
-        case
-        when n.scope = 'all' then null
-        when n.user_type = 'sys' then su.nick_name
-        else pu.nickname
-        end as user_nickname
+               n.create_by, n.create_time, n.update_by, n.update_time, n.remark,
+               case
+                   when n.scope = 'all' then null
+                   when n.user_type = 'sys' then su.nick_name
+                   else pu.nickname
+               end as user_nickname
         from sys_notification n
         left join portal_user pu on n.user_id = pu.id and n.user_type = 'portal'
         left join sys_user su on n.user_id = su.user_id and n.user_type = 'sys'
@@ -145,11 +145,11 @@
                0 as is_read
         from sys_notification n
         where n.status = '0'
-          and (
+        and (
             (n.scope = 'user' and n.user_id = #{userId} and n.user_type = #{userType})
-                or n.scope = 'all'
-            )
-          and not exists (
+            or n.scope = 'all'
+        )
+        and not exists (
             select 1 from sys_notification_read r
             where r.notification_id = n.id
               and r.user_id = #{userId}
@@ -164,15 +164,15 @@
                n.create_by, n.create_time, n.update_by, n.update_time, n.remark,
                case when r.id is not null then 1 else 0 end as is_read
         from sys_notification n
-                 left join sys_notification_read r
-                           on r.notification_id = n.id
-                               and r.user_id = #{userId}
-                               and r.user_type = #{userType}
+        left join sys_notification_read r
+            on r.notification_id = n.id
+            and r.user_id = #{userId}
+            and r.user_type = #{userType}
         where n.status = '0'
-          and (
+        and (
             (n.scope = 'user' and n.user_id = #{userId} and n.user_type = #{userType})
-                or n.scope = 'all'
-            )
+            or n.scope = 'all'
+        )
         order by n.create_time desc
     </select>
 
@@ -181,11 +181,11 @@
         select count(*)
         from sys_notification n
         where n.status = '0'
-          and (
+        and (
             (n.scope = 'user' and n.user_id = #{userId} and n.user_type = #{userType})
-                or n.scope = 'all'
-            )
-          and not exists (
+            or n.scope = 'all'
+        )
+        and not exists (
             select 1 from sys_notification_read r
             where r.notification_id = n.id
               and r.user_id = #{userId}
@@ -196,23 +196,23 @@
     <!-- 查询公开广播通知（scope=all，未登录用户也可查看） -->
     <select id="selectBroadcastAll" resultMap="SysNotificationResult">
         select n.id, n.type, n.title, n.content, n.data, n.scope, n.user_id, n.user_type, n.notice_type, n.status,
-        n.create_by, n.create_time, n.update_by, n.update_time, n.remark,
-        <choose>
-            <when test="userId != null">
-                case when r.id is not null then 1 else 0 end
-            </when>
-            <otherwise>0</otherwise>
-        </choose>
-        as is_read
+               n.create_by, n.create_time, n.update_by, n.update_time, n.remark,
+               <choose>
+                   <when test="userId != null">
+                       case when r.id is not null then 1 else 0 end
+                   </when>
+                   <otherwise>0</otherwise>
+               </choose>
+               as is_read
         from sys_notification n
         <if test="userId != null">
             left join sys_notification_read r
-            on r.notification_id = n.id
-            and r.user_id = #{userId}
-            and r.user_type = #{userType}
+                on r.notification_id = n.id
+                and r.user_id = #{userId}
+                and r.user_type = #{userType}
         </if>
         where n.status = '0'
-        and n.scope = 'all'
+          and n.scope = 'all'
         order by n.create_time desc
     </select>
 </mapper>

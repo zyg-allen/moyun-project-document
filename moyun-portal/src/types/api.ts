@@ -453,6 +453,8 @@ export interface Category {
   navRouteType?: string;
   /** 静态/外链路由路径（仅 static/external 类型使用） */
   navRoutePath?: string;
+  /** 栏目类型：article=文章栏目（可发布文章） special=特殊页面（不参与排行榜/发布） */
+  categoryType?: string;
   /** 是否需要登录（0否/1是） */
   requiresAuth?: number;
 }
@@ -1484,11 +1486,11 @@ export interface GrowthTimelineItem {
 
 /** Feed 动态事件类型（后端枚举值） */
 export type FeedEventType =
-  | 'publish_article'
-  | 'publish_experience'
-  | 'new_column'
-  | 'checkin'
-  | string;
+    | 'publish_article'
+    | 'publish_experience'
+    | 'new_column'
+    | 'checkin'
+    | string;
 
 /** Feed 动态目标类型（用于跳转） */
 export type FeedTargetType = 'article' | 'experience' | 'column' | string;

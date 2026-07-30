@@ -29,6 +29,12 @@ public class CmsPortalUserVO extends BaseEntity {
     /** 关联后台用户ID */
     private Long userId;
 
+    /** 关联后台用户登录名（sys_user.user_name，用于列表展示绑定状态） */
+    private String sysUserName;
+
+    /** 关联后台用户昵称（sys_user.nick_name，用于列表展示绑定状态） */
+    private String sysNickName;
+
     /** 用户名 */
     private String username;
 

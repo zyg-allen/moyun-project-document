@@ -13,12 +13,17 @@ SELECT @cms_parent_id := menu_id FROM sys_menu WHERE menu_name = '内容管理' 
 
 -- =============================================================================
 -- 二、门户用户管理（cms:user）
+--    path=portal-user，避免与"系统用户管理"菜单 path=user 冲突
+--    （两者子 path 相同会导致 RuoYi 前端动态路由 route name 撞车，门户用户菜单点击无法跳转）
 -- =============================================================================
 INSERT INTO sys_menu (menu_name, parent_id, order_num, path, component, query, is_frame, is_cache,
                       menu_type, visible, status, perms, icon, create_by, create_time, remark)
-SELECT '门户用户', @cms_parent_id, 1, 'user', 'cms/user/index', NULL, 1, 0, 'C', '0', '0', 'cms:user:list', 'user', 'admin', NOW(), '门户用户管理菜单'
+SELECT '门户用户', @cms_parent_id, 1, 'portal-user', 'cms/user/index', NULL, 1, 0, 'C', '0', '0', 'cms:user:list', 'user', 'admin', NOW(), '门户用户管理菜单'
 FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM sys_menu WHERE perms = 'cms:user:list');
 SELECT @user_menu_id := menu_id FROM sys_menu WHERE perms = 'cms:user:list' LIMIT 1;
+-- 修复历史 path（若已存在但 path 不是 portal-user，统一修正，避免与系统用户菜单 path=user 冲突）
+UPDATE sys_menu SET path = 'portal-user', update_by = 'admin', update_time = NOW()
+WHERE perms = 'cms:user:list' AND path != 'portal-user';
 
 INSERT INTO sys_menu (menu_name, parent_id, order_num, path, component, query, is_frame, is_cache,
                       menu_type, visible, status, perms, icon, create_by, create_time, remark)
@@ -44,6 +49,10 @@ INSERT INTO sys_menu (menu_name, parent_id, order_num, path, component, query, i
                       menu_type, visible, status, perms, icon, create_by, create_time, remark)
 SELECT '重置密码', @user_menu_id, 6, '', NULL, NULL, 1, 0, 'F', '0', '0', 'cms:user:resetPwd', '#', 'admin', NOW(), ''
 FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM sys_menu WHERE perms = 'cms:user:resetPwd');
+INSERT INTO sys_menu (menu_name, parent_id, order_num, path, component, query, is_frame, is_cache,
+                      menu_type, visible, status, perms, icon, create_by, create_time, remark)
+SELECT '绑定系统用户', @user_menu_id, 7, '', NULL, NULL, 1, 0, 'F', '0', '0', 'cms:user:bind', '#', 'admin', NOW(), '身份桥接：绑定/解绑后台系统用户'
+FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM sys_menu WHERE perms = 'cms:user:bind');
 
 -- =============================================================================
 -- 三、文章管理（cms:article）

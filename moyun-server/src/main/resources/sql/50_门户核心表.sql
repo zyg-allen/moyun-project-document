@@ -544,6 +544,7 @@ CREATE TABLE `portal_category` (
                                    `show_in_nav` tinyint(1) NOT NULL DEFAULT '0' COMMENT '是否在头部栏目展示（0否/1是）',
                                    `nav_route_type` varchar(20) COLLATE utf8mb4_0900_ai_ci NOT NULL DEFAULT 'category' COMMENT '路由类型（home/category/static/external）',
                                    `nav_route_path` varchar(200) COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '静态/外链路由路径（仅 static/external 类型使用）',
+                                   `category_type` varchar(20) COLLATE utf8mb4_0900_ai_ci NOT NULL DEFAULT 'article' COMMENT '栏目内容类型（article=文章栏目可发布文章 special=特殊页面不发布文章）',
                                    `requires_auth` tinyint(1) NOT NULL DEFAULT '0' COMMENT '是否需要登录（0否/1是）',
                                    `create_by` varchar(64) COLLATE utf8mb4_0900_ai_ci DEFAULT '' COMMENT '创建者',
                                    `create_time` datetime DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
@@ -558,6 +559,7 @@ CREATE TABLE `portal_category` (
                                    KEY `idx_parent_id` (`parent_id`),
                                    KEY `idx_slug` (`slug`),
                                    KEY `idx_show_in_nav` (`show_in_nav`),
+                                   KEY `idx_category_type` (`category_type`),
                                    KEY `idx_del_flag` (`del_flag`),
                                    KEY `idx_parent_bid` (`parent_business_id`)
 ) ENGINE=InnoDB AUTO_INCREMENT=51 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='门户分类表';

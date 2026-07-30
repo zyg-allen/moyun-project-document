@@ -4,11 +4,11 @@
     <el-form :model="queryParams" ref="queryRef" :inline="true" v-show="showSearch" label-width="80px">
       <el-form-item label="栏目名称" prop="name">
         <el-input
-          v-model="queryParams.name"
-          placeholder="请输入栏目名称"
-          clearable
-          style="width: 200px"
-          @keyup.enter="handleQuery"
+            v-model="queryParams.name"
+            placeholder="请输入栏目名称"
+            clearable
+            style="width: 200px"
+            @keyup.enter="handleQuery"
         />
       </el-form-item>
       <el-form-item label="状态" prop="status">
@@ -27,19 +27,19 @@
     <el-row :gutter="10" class="mb8">
       <el-col :span="1.5">
         <el-button
-          type="primary"
-          plain
-          icon="Plus"
-          @click="handleAddRoot"
-          v-hasPermi="['cms:category:add']"
+            type="primary"
+            plain
+            icon="Plus"
+            @click="handleAddRoot"
+            v-hasPermi="['cms:category:add']"
         >新增一级栏目</el-button>
       </el-col>
       <el-col :span="1.5">
         <el-button
-          type="info"
-          plain
-          icon="Sort"
-          @click="toggleExpandAll"
+            type="info"
+            plain
+            icon="Sort"
+            @click="toggleExpandAll"
         >展开/折叠</el-button>
       </el-col>
       <right-toolbar v-model:showSearch="showSearch" @queryTable="getList"></right-toolbar>
@@ -47,12 +47,12 @@
 
     <!-- 栏目表格 -->
     <el-table
-      v-if="refreshTable"
-      v-loading="loading"
-      :data="categoryList"
-      row-key="id"
-      :default-expand-all="isExpandAll"
-      :tree-props="{ children: 'children', hasChildren: 'hasChildren' }"
+        v-if="refreshTable"
+        v-loading="loading"
+        :data="categoryList"
+        row-key="id"
+        :default-expand-all="isExpandAll"
+        :tree-props="{ children: 'children', hasChildren: 'hasChildren' }"
     >
       <el-table-column prop="name" label="栏目名称" width="250" :show-overflow-tooltip="true">
         <template #default="{ row }">
@@ -112,42 +112,42 @@
           <!-- 一级栏目操作 -->
           <template v-if="scope.row.parentId === 0 || scope.row.parentId === null">
             <el-button
-              link
-              type="primary"
-              icon="Edit"
-              @click="handleUpdate(scope.row)"
-              v-hasPermi="['cms:category:edit']"
+                link
+                type="primary"
+                icon="Edit"
+                @click="handleUpdate(scope.row)"
+                v-hasPermi="['cms:category:edit']"
             >修改</el-button>
             <el-button
-              link
-              type="primary"
-              icon="Plus"
-              @click="handleAddChild(scope.row)"
-              v-hasPermi="['cms:category:add']"
+                link
+                type="primary"
+                icon="Plus"
+                @click="handleAddChild(scope.row)"
+                v-hasPermi="['cms:category:add']"
             >新增子栏目</el-button>
             <el-button
-              link
-              type="danger"
-              icon="Delete"
-              @click="handleDelete(scope.row)"
-              v-hasPermi="['cms:category:remove']"
+                link
+                type="danger"
+                icon="Delete"
+                @click="handleDelete(scope.row)"
+                v-hasPermi="['cms:category:remove']"
             >删除</el-button>
           </template>
           <!-- 二级栏目操作（只能修改和删除，不能新增子栏目） -->
           <template v-else>
             <el-button
-              link
-              type="primary"
-              icon="Edit"
-              @click="handleUpdate(scope.row)"
-              v-hasPermi="['cms:category:edit']"
+                link
+                type="primary"
+                icon="Edit"
+                @click="handleUpdate(scope.row)"
+                v-hasPermi="['cms:category:edit']"
             >修改</el-button>
             <el-button
-              link
-              type="danger"
-              icon="Delete"
-              @click="handleDelete(scope.row)"
-              v-hasPermi="['cms:category:remove']"
+                link
+                type="danger"
+                icon="Delete"
+                @click="handleDelete(scope.row)"
+                v-hasPermi="['cms:category:remove']"
             >删除</el-button>
           </template>
         </template>
@@ -159,15 +159,15 @@
       <el-form ref="categoryRef" :model="form" :rules="rules" label-width="100px">
         <el-form-item label="上级栏目">
           <el-tree-select
-            v-model="form.parentId"
-            :data="categoryOptions"
-            :props="{ value: 'id', label: 'name', children: 'children' }"
-            value-key="id"
-            placeholder="选择上级栏目（不选则为一级栏目）"
-            check-strictly
-            clearable
-            :disabled="isLevel2"
-            style="width: 100%"
+              v-model="form.parentId"
+              :data="categoryOptions"
+              :props="{ value: 'id', label: 'name', children: 'children' }"
+              value-key="id"
+              placeholder="选择上级栏目（不选则为一级栏目）"
+              check-strictly
+              clearable
+              :disabled="isLevel2"
+              style="width: 100%"
           />
           <div v-if="isLevel2" style="color: #909399; font-size: 12px; margin-top: 4px;">
             二级栏目不能添加子栏目
@@ -328,12 +328,12 @@ function getTreeselect() {
   listCategory().then(response => {
     // 构建"无"选项（一级栏目）
     const root = { id: 0, name: "无（作为一级栏目）", children: [] };
-    
+
     const listData = response.data || response.rows || [];
-    
+
     // 先用 handleTree 构建树结构
     const treeData = proxy.handleTree(listData, "id");
-    
+
     // 过滤掉三级及以上的子节点（只保留一级和二级）
     const filterTree = (nodes, level) => {
       if (level >= 2) return [];
@@ -344,7 +344,7 @@ function getTreeselect() {
         return true;
       });
     };
-    
+
     root.children = filterTree(treeData, 1);
     categoryOptions.value.push(root);
   });
@@ -457,7 +457,7 @@ function submitForm() {
           return;
         }
       }
-      
+
       if (form.value.id != undefined) {
         updateCategory(form.value).then(response => {
           proxy.$modal.msgSuccess("修改成功");
@@ -496,7 +496,7 @@ function handleDelete(row) {
     proxy.$modal.msgError("该栏目下存在子栏目，无法删除");
     return;
   }
-  
+
   proxy.$modal.confirm('是否确认删除栏目"' + row.name + '"？').then(function () {
     return delCategory(row.id);
   }).then(() => {

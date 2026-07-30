@@ -635,8 +635,8 @@ public class SysDashboardServiceImpl implements ISysDashboardService {
             com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<com.moyun.portal.domain.entity.PortalArticle> artWrapper =
                     new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<>();
             artWrapper.eq(com.moyun.portal.domain.entity.PortalArticle::getStatus, "published")
-                     .orderByDesc(com.moyun.portal.domain.entity.PortalArticle::getCreateTime)
-                     .last("LIMIT 8");
+                    .orderByDesc(com.moyun.portal.domain.entity.PortalArticle::getCreateTime)
+                    .last("LIMIT 8");
             List<com.moyun.portal.domain.entity.PortalArticle> recentArticles = articleMapper.selectList(artWrapper);
             if (recentArticles != null) {
                 for (com.moyun.portal.domain.entity.PortalArticle a : recentArticles) {
@@ -659,7 +659,7 @@ public class SysDashboardServiceImpl implements ISysDashboardService {
             com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<com.moyun.portal.domain.entity.PortalUser> userWrapper =
                     new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<>();
             userWrapper.orderByDesc(com.moyun.portal.domain.entity.PortalUser::getCreateTime)
-                       .last("LIMIT 5");
+                    .last("LIMIT 5");
             List<com.moyun.portal.domain.entity.PortalUser> recentUsers = portalUserMapper.selectList(userWrapper);
             if (recentUsers != null) {
                 for (com.moyun.portal.domain.entity.PortalUser u : recentUsers) {

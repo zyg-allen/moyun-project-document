@@ -1,5 +1,6 @@
 package com.moyun.core.base.entity;
 
+import com.baomidou.mybatisplus.annotation.TableField;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
@@ -38,6 +39,9 @@ public class SysUser extends BaseEntity {
      */
     @Excel(name = "部门编号", type = Type.IMPORT)
     private Long deptId;
+
+    @Excel(name = "用户类型")
+    private Long userType;
 
     /**
      * 用户账号
@@ -91,10 +95,6 @@ public class SysUser extends BaseEntity {
      */
     private String delFlag;
 
-    /**
-     * 业务主键（前缀sysu_，用于跨表关联，避免自增id在TRUNCATE后错乱）
-     */
-    private String businessId;
 
     /**
      * 最后登录IP
@@ -115,26 +115,31 @@ public class SysUser extends BaseEntity {
             @Excel(name = "部门名称", targetAttr = "deptName", type = Type.EXPORT),
             @Excel(name = "部门负责人", targetAttr = "leader", type = Type.EXPORT)
     })
+    @TableField(exist = false)
     private SysDept dept;
 
     /**
      * 角色对象
      */
+    @TableField(exist = false)
     private List<SysRole> roles;
 
     /**
      * 角色组
      */
+    @TableField(exist = false)
     private Long[] roleIds;
 
     /**
      * 岗位组
      */
+    @TableField(exist = false)
     private Long[] postIds;
 
     /**
      * 角色ID
      */
+    @TableField(exist = false)
     private Long roleId;
 
     public SysUser() {

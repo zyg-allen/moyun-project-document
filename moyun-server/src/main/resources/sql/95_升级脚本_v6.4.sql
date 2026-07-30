@@ -14,8 +14,8 @@ SET @col_exists := (
       AND COLUMN_NAME = 'user_type'
 );
 SET @sql := IF(@col_exists = 0,
-    'ALTER TABLE sys_logininfor ADD COLUMN user_type varchar(10) DEFAULT ''sys'' COMMENT ''登录来源类型（sys=后台用户 portal=门户用户）'' AFTER status',
-    'SELECT ''sys_logininfor.user_type 已存在，跳过'' AS msg');
+               'ALTER TABLE sys_logininfor ADD COLUMN user_type varchar(10) DEFAULT ''sys'' COMMENT ''登录来源类型（sys=后台用户 portal=门户用户）'' AFTER status',
+               'SELECT ''sys_logininfor.user_type 已存在，跳过'' AS msg');
 PREPARE stmt FROM @sql;
 EXECUTE stmt;
 DEALLOCATE PREPARE stmt;
@@ -26,8 +26,8 @@ SET @idx_exists := (
     WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'sys_logininfor' AND INDEX_NAME = 'idx_sys_logininfor_ut'
 );
 SET @sql := IF(@idx_exists = 0,
-    'ALTER TABLE sys_logininfor ADD KEY idx_sys_logininfor_ut (user_type)',
-    'SELECT ''idx_sys_logininfor_ut 已存在，跳过'' AS msg');
+               'ALTER TABLE sys_logininfor ADD KEY idx_sys_logininfor_ut (user_type)',
+               'SELECT ''idx_sys_logininfor_ut 已存在，跳过'' AS msg');
 PREPARE stmt FROM @sql;
 EXECUTE stmt;
 DEALLOCATE PREPARE stmt;
@@ -41,8 +41,8 @@ SET @col_exists := (
       AND COLUMN_NAME = 'category_type'
 );
 SET @sql := IF(@col_exists = 0,
-    'ALTER TABLE portal_category ADD COLUMN category_type varchar(20) NOT NULL DEFAULT ''article'' COMMENT ''栏目内容类型（article=文章栏目可发布文章 special=特殊页面不发布文章）'' AFTER nav_route_path',
-    'SELECT ''portal_category.category_type 已存在，跳过'' AS msg');
+               'ALTER TABLE portal_category ADD COLUMN category_type varchar(20) NOT NULL DEFAULT ''article'' COMMENT ''栏目内容类型（article=文章栏目可发布文章 special=特殊页面不发布文章）'' AFTER nav_route_path',
+               'SELECT ''portal_category.category_type 已存在，跳过'' AS msg');
 PREPARE stmt FROM @sql;
 EXECUTE stmt;
 DEALLOCATE PREPARE stmt;
@@ -53,8 +53,8 @@ SET @idx_exists := (
     WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'portal_category' AND INDEX_NAME = 'idx_category_type'
 );
 SET @sql := IF(@idx_exists = 0,
-    'ALTER TABLE portal_category ADD KEY idx_category_type (category_type)',
-    'SELECT ''idx_category_type 已存在，跳过'' AS msg');
+               'ALTER TABLE portal_category ADD KEY idx_category_type (category_type)',
+               'SELECT ''idx_category_type 已存在，跳过'' AS msg');
 PREPARE stmt FROM @sql;
 EXECUTE stmt;
 DEALLOCATE PREPARE stmt;

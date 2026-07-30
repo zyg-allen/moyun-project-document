@@ -204,11 +204,11 @@
           <div v-loading="loading" class="activity-list">
             <el-timeline>
               <el-timeline-item
-                v-for="a in systemActivities"
-                :key="a.id"
-                :timestamp="relativeTime(a.createTime)"
-                placement="top"
-                :type="activityTagType(a.businessType)"
+                  v-for="a in systemActivities"
+                  :key="a.id"
+                  :timestamp="relativeTime(a.createTime)"
+                  placement="top"
+                  :type="activityTagType(a.businessType)"
               >
                 <div class="activity-content">
                   <el-tag :type="activityTagType(a.businessType)" size="small" effect="plain">{{ a.module }}</el-tag>

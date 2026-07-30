@@ -172,9 +172,9 @@
             UNION ALL
             SELECT c.id, c.parent_id, ct.original_id
             FROM portal_category c
-            INNER JOIN category_tree ct ON c.id = ct.parent_id
+                     INNER JOIN category_tree ct ON c.id = ct.parent_id
             WHERE c.parent_id IS NOT NULL AND c.parent_id != 0
-        )
+            )
         SELECT id FROM category_tree ORDER BY (SELECT COUNT(*) FROM category_tree AS ct2 WHERE ct2.original_id = category_tree.original_id AND ct2.id != category_tree.id) DESC;
     </select>
 </mapper>

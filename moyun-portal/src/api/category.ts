@@ -67,13 +67,13 @@ export function shouldShowCategory(cat: Category | null | undefined): boolean {
 export function filterCategoryTree(categories: Category[] | null | undefined): Category[] {
   if (!categories || !Array.isArray(categories)) return [];
   return categories
-    .filter(shouldShowCategory)
-    .map(cat => ({
-      ...cat,
-      children: cat.children && cat.children.length > 0
-        ? filterCategoryTree(cat.children)
-        : []
-    }));
+      .filter(shouldShowCategory)
+      .map(cat => ({
+        ...cat,
+        children: cat.children && cat.children.length > 0
+            ? filterCategoryTree(cat.children)
+            : []
+      }));
 }
 
 /**

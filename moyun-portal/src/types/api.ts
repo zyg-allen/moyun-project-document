@@ -1486,11 +1486,11 @@ export interface GrowthTimelineItem {
 
 /** Feed 动态事件类型（后端枚举值） */
 export type FeedEventType =
-  | 'publish_article'
-  | 'publish_experience'
-  | 'new_column'
-  | 'checkin'
-  | string;
+    | 'publish_article'
+    | 'publish_experience'
+    | 'new_column'
+    | 'checkin'
+    | string;
 
 /** Feed 动态目标类型（用于跳转） */
 export type FeedTargetType = 'article' | 'experience' | 'column' | string;

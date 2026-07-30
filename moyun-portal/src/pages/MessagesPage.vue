@@ -3,7 +3,7 @@ import { ref, computed, onMounted, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useHead } from '@vueuse/head';
 import {
-    Bell, MessageSquare, Heart, UserPlus, CheckCheck, Loader2, Inbox
+    Bell, MessageSquare, Heart, UserPlus, CheckCheck, Loader2, Inbox, Megaphone, Tag, X, Calendar
 } from 'lucide-vue-next';
 import type { Notification, MessageSessionVO, PeerUser } from '@/types/api';
 import * as notificationApi from '@/api/notification';
@@ -25,8 +25,8 @@ const toast = useToast();
 useHead(
     generateSeo({
         title: '消息中心',
-        description: '通知与私信',
-        keywords: ['消息中心', '通知', '私信'],
+        description: '系统公告、通知与私信',
+        keywords: ['消息中心', '系统公告', '通知', '私信'],
         type: 'website'
     })
 );
@@ -35,7 +35,13 @@ useHead(
 const isChatMode = computed(() => !!route.params.sessionId);
 const chatSessionId = computed(() => String(route.params.sessionId || ''));
 
-const activeTab = ref<'notification' | 'message'>('notification');
+// 是否已登录（决定可见 Tab：游客仅看公告，登录用户看全部）
+const isAuthenticated = computed(() => userStore.isAuthenticated);
+type TabKey = 'notification' | 'message' | 'announcement';
+// 游客默认公告 Tab；登录用户默认通知 Tab；支持 ?tab= 深链
+const initialTab: TabKey = (route.query.tab as TabKey)
+    || (isAuthenticated.value ? 'notification' : 'announcement');
+const activeTab = ref<TabKey>(initialTab);
 
 // ============ 通知相关 ============
 const notifications = ref<Notification[]>([]);
@@ -153,6 +159,88 @@ async function markAllNotifRead() {
     }
 }
 
+// ============ 公告相关（公开广播，游客可看） ============
+const announcements = ref<Notification[]>([]);
+const announcementLoading = ref(false);
+const announcementFilter = ref<string>(''); // 全部为空
+// 公告详情弹窗
+const showAnnouncementModal = ref(false);
+const selectedAnnouncement = ref<Notification | null>(null);
+
+const announcementFilterOptions = [
+    { label: '全部', value: '' },
+    { label: '公告', value: 'announcement' },
+    { label: '通知', value: 'notice' },
+    { label: '系统', value: 'system' },
+];
+
+const filteredAnnouncements = computed(() => {
+    if (!announcementFilter.value) return announcements.value;
+    return announcements.value.filter((n) => n.type === announcementFilter.value);
+});
+
+const announcementUnreadCount = computed(() => announcements.value.filter((n) => !n.isRead).length);
+
+function getAnnouncementIcon(type?: string) {
+    switch (type) {
+        case 'announcement':
+            return Megaphone;
+        case 'notice':
+            return Tag;
+        case 'system':
+            return Bell;
+        default:
+            return Bell;
+    }
+}
+
+function getAnnouncementIconColor(type?: string): string {
+    switch (type) {
+        case 'announcement':
+            return '#f59e0b';
+        case 'notice':
+            return '#3b82f6';
+        case 'system':
+            return 'var(--theme-primary)';
+        default:
+            return 'var(--theme-primary)';
+    }
+}
+
+async function loadAnnouncements() {
+    announcementLoading.value = true;
+    try {
+        const resp = await notificationApi.getBroadcastList({ pageNum: 1, pageSize: 50 });
+        if (resp.code === 200 && resp.data) {
+            announcements.value = resp.data.list || [];
+        }
+    } catch (error) {
+        console.error('加载公告失败:', error);
+        toast.error('加载公告失败，请稍后重试');
+    } finally {
+        announcementLoading.value = false;
+    }
+}
+
+async function openAnnouncementDetail(n: Notification) {
+    selectedAnnouncement.value = n;
+    showAnnouncementModal.value = true;
+    // 已登录用户：标记已读（游客无 isRead 状态，跳过）
+    if (isAuthenticated.value && !n.isRead) {
+        try {
+            await notificationApi.markAsRead({ id: String(n.id) });
+            n.isRead = true;
+        } catch (error) {
+            console.error('标记已读失败:', error);
+        }
+    }
+}
+
+function closeAnnouncementDetail() {
+    showAnnouncementModal.value = false;
+    selectedAnnouncement.value = null;
+}
+
 // ============ 私信会话相关 ============
 const sessions = ref<MessageSessionVO[]>([]);
 const sessionLoading = ref(false);
@@ -226,9 +314,9 @@ function exitChat() {
 }
 
 // 切换 Tab
-function switchTab(tab: 'notification' | 'message') {
+function switchTab(tab: TabKey) {
     activeTab.value = tab;
-    if (tab === 'message' && sessions.value.length === 0) {
+    if (tab === 'message' && sessions.value.length === 0 && isAuthenticated.value) {
         loadSessions();
     }
 }
@@ -239,7 +327,9 @@ const breadcrumbItems = computed(() => [
 ]);
 
 onMounted(async () => {
-    if (!userStore.isAuthenticated) {
+    // 游客也可访问：仅查看公告 Tab，不跳转登录
+    // 聊天模式需要登录
+    if (isChatMode.value && !isAuthenticated.value) {
         router.push({ name: 'login', query: { redirect: route.fullPath } });
         return;
     }
@@ -251,7 +341,13 @@ onMounted(async () => {
         if (match) activeSession.value = match;
         return;
     }
-    await Promise.all([loadNotifications(), loadNotifUnread(), loadSessions(), loadMsgUnread()]);
+    // 公告数据所有用户都加载
+    const tasks: Promise<any>[] = [loadAnnouncements()];
+    // 通知/私信相关仅登录用户加载
+    if (isAuthenticated.value) {
+        tasks.push(loadNotifications(), loadNotifUnread(), loadSessions(), loadMsgUnread());
+    }
+    await Promise.all(tasks);
 });
 
 // 监听路由进入/退出聊天模式
@@ -309,6 +405,7 @@ watch(isChatMode, (isChat) => {
           <div class="mb-5 border-b" style="border-color: var(--theme-border);">
             <nav class="flex gap-1">
               <button
+                v-if="isAuthenticated"
                 @click="switchTab('notification')"
                 class="flex items-center gap-2 px-4 sm:px-6 py-3 text-sm sm:text-base font-medium border-b-2 transition-colors relative"
                 :style="activeTab === 'notification'
@@ -322,6 +419,20 @@ watch(isChatMode, (isChat) => {
                 </span>
               </button>
               <button
+                @click="switchTab('announcement')"
+                class="flex items-center gap-2 px-4 sm:px-6 py-3 text-sm sm:text-base font-medium border-b-2 transition-colors relative"
+                :style="activeTab === 'announcement'
+                  ? 'border-color: var(--theme-primary); color: var(--theme-primary);'
+                  : 'border-color: transparent; color: var(--theme-text-secondary);'"
+              >
+                <Megaphone class="w-4 h-4" />
+                公告
+                <span v-if="isAuthenticated && announcementUnreadCount > 0" class="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full text-xs flex items-center justify-center" style="background-color: #ef4444; color: white;">
+                  {{ announcementUnreadCount > 99 ? '99+' : announcementUnreadCount }}
+                </span>
+              </button>
+              <button
+                v-if="isAuthenticated"
                 @click="switchTab('message')"
                 class="flex items-center gap-2 px-4 sm:px-6 py-3 text-sm sm:text-base font-medium border-b-2 transition-colors relative"
                 :style="activeTab === 'message'
@@ -439,8 +550,99 @@ watch(isChatMode, (isChat) => {
               </button>
             </div>
           </div>
+
+          <!-- 公告 Tab（游客可看） -->
+          <div v-else-if="activeTab === 'announcement'">
+            <!-- 类型筛选 -->
+            <div class="flex items-center gap-2 mb-4 flex-wrap">
+              <button
+                v-for="opt in announcementFilterOptions"
+                :key="opt.value"
+                @click="announcementFilter = opt.value"
+                class="px-3 py-1.5 rounded-full text-xs sm:text-sm transition-colors"
+                :style="announcementFilter === opt.value
+                  ? { backgroundColor: 'var(--theme-primary)', color: 'white' }
+                  : { backgroundColor: 'var(--theme-surface)', color: 'var(--theme-text-secondary)', border: '1px solid var(--theme-border)' }"
+              >
+                {{ opt.label }}
+              </button>
+            </div>
+
+            <!-- 公告列表 -->
+            <div v-if="announcementLoading" class="text-center py-12">
+              <Loader2 class="w-8 h-8 mx-auto animate-spin" style="color: var(--theme-primary);" />
+            </div>
+            <div v-else-if="filteredAnnouncements.length === 0" class="py-16 text-center rounded-2xl" style="background-color: var(--theme-surface); border: 1px solid var(--theme-border);">
+              <Inbox class="w-12 h-12 mx-auto mb-3" style="color: var(--theme-text-secondary);" />
+              <p class="text-sm" style="color: var(--theme-text-secondary);">暂无公告</p>
+            </div>
+            <div v-else class="space-y-2">
+              <button
+                v-for="n in filteredAnnouncements"
+                :key="n.id"
+                @click="openAnnouncementDetail(n)"
+                class="w-full text-left flex items-start gap-3 p-4 rounded-2xl transition-colors hover:opacity-90"
+                :style="{
+                  backgroundColor: 'var(--theme-surface)',
+                  border: '1px solid var(--theme-border)',
+                  opacity: n.isRead ? 0.7 : 1
+                }"
+              >
+                <div class="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0" :style="{ backgroundColor: 'var(--theme-accent)' }">
+                  <component :is="getAnnouncementIcon(n.type)" class="w-4 h-4" :style="{ color: getAnnouncementIconColor(n.type) }" />
+                </div>
+                <div class="flex-1 min-w-0">
+                  <div class="flex items-center gap-2">
+                    <span v-if="isAuthenticated && !n.isRead" class="w-2 h-2 rounded-full flex-shrink-0" style="background-color: #ef4444;"></span>
+                    <span class="font-medium text-sm truncate" style="color: var(--theme-text);">{{ n.title }}</span>
+                  </div>
+                  <p class="text-sm mt-1 line-clamp-2" style="color: var(--theme-text-secondary);">{{ n.content }}</p>
+                  <p class="text-xs mt-1.5 flex items-center gap-1" style="color: var(--theme-text-secondary);">
+                    <Calendar class="w-3 h-3" />
+                    {{ formatRelativeTime(n.createTime) }}
+                  </p>
+                </div>
+              </button>
+            </div>
+          </div>
         </div>
       </div>
     </template>
+
+    <!-- 公告详情弹窗 -->
+    <div
+      v-if="showAnnouncementModal"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="announcement-modal-title"
+      @keydown.esc.prevent="closeAnnouncementDetail"
+      class="fixed inset-0 z-50 flex items-center justify-center p-4"
+    >
+      <div class="absolute inset-0 bg-black/50" @click="closeAnnouncementDetail"></div>
+      <div class="relative rounded-lg shadow-xl w-full max-w-lg sm:max-w-2xl max-h-[85vh] overflow-y-auto" style="background-color: var(--theme-surface);">
+        <div class="sticky top-0 flex items-center justify-between p-4 sm:p-6 border-b" style="background-color: var(--theme-surface); border-color: var(--theme-border);">
+          <div class="flex items-center gap-2 min-w-0">
+            <component :is="getAnnouncementIcon(selectedAnnouncement?.type)" class="w-5 h-5 flex-shrink-0" :style="{ color: getAnnouncementIconColor(selectedAnnouncement?.type) }" />
+            <h3 id="announcement-modal-title" class="font-bold text-lg sm:text-xl truncate" style="color: var(--theme-text);">{{ selectedAnnouncement?.title }}</h3>
+          </div>
+          <button
+            type="button"
+            @click="closeAnnouncementDetail"
+            aria-label="关闭"
+            class="p-2 rounded-full transition-colors flex-shrink-0"
+            style="color: var(--theme-text-secondary);"
+          >
+            <X class="w-5 h-5" />
+          </button>
+        </div>
+        <div class="p-4 sm:p-6">
+          <p class="text-sm sm:text-base leading-relaxed whitespace-pre-wrap" style="color: var(--theme-text-secondary);">{{ selectedAnnouncement?.content }}</p>
+          <p class="text-xs sm:text-sm mt-6 flex items-center gap-1" style="color: var(--theme-text-secondary);">
+            <Calendar class="w-3 h-3" />
+            {{ formatRelativeTime(selectedAnnouncement?.createTime) }}
+          </p>
+        </div>
+      </div>
+    </div>
   </div>
 </template>

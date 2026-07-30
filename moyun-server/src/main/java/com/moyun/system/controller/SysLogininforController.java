@@ -2,6 +2,8 @@ package com.moyun.system.controller;
 
 import com.moyun.common.annotation.Log;
 import com.moyun.common.enums.BusinessType;
+import com.baomidou.mybatisplus.core.metadata.IPage;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.moyun.core.base.AjaxResult;
 import com.moyun.core.base.BaseController;
 import com.moyun.core.base.TableDataInfo;
@@ -38,9 +40,9 @@ public class SysLogininforController extends BaseController {
     @PreAuthorize("@ss.hasPermi('monitor:logininfor:list')")
     @GetMapping("/list")
     public TableDataInfo list(LogininforQuery query) {
-        startPage();
-        List<SysLogininfor> list = logininforService.selectLogininforList(query);
-        return getDataTable(list);
+        Page<SysLogininfor> page = startPage();
+        IPage<SysLogininfor> result = logininforService.selectLogininforPage(page, query);
+        return getDataTable(result.getRecords(), result.getTotal());
     }
 
     @Operation(summary = "导出登录日志")

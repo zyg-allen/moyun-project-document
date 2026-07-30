@@ -27,3 +27,13 @@ export async function markAsRead(
 ): Promise<ApiResponse<void>> {
   return httpPost(`/portal/notification/${params.id}/read`)
 }
+
+/**
+ * 获取公开广播通知（未登录用户也可调用）
+ * 用于公告列表、版本发布等场景，只返回 scope=all 的通知
+ */
+export async function getBroadcastList(
+  params?: GetNotificationListParams
+): Promise<ApiResponse<{ list: Notification[]; total: number; page: number; pageSize: number }>> {
+  return httpGetList<Notification>('/portal/notification/broadcast', params)
+}

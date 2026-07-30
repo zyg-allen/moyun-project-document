@@ -1,6 +1,7 @@
 package com.moyun.system.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.moyun.core.config.redis.RedisCache;
 import com.moyun.system.domain.entity.SysConfig;
@@ -101,6 +102,14 @@ public class SysConfigServiceImpl extends ServiceImpl<SysConfigMapper, SysConfig
             queryWrapper.eq(SysConfig::getConfigType, config.getConfigType());
         }
         return baseMapper.selectList(queryWrapper);
+    }
+
+    /**
+     * 分页查询参数配置（MyBatis-Plus 标准分页）
+     */
+    @Override
+    public IPage<SysConfig> selectConfigPage(IPage<SysConfig> page, SysConfig config) {
+        return baseMapper.selectConfigPage(page, config);
     }
 
     /**

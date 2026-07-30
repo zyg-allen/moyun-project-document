@@ -59,7 +59,7 @@ public class PortalMessageController extends BaseController {
      */
     @Operation(summary = "历史消息", description = "分页查询指定会话的历史消息（仅会话成员可查）")
     @GetMapping("/{sessionId}/history")
-    public AjaxResult listHistory(@Parameter(description = "会话ID") @PathVariable Long sessionId, PageDomain query) {
+    public AjaxResult listHistory(@Parameter(description = "会话ID") @PathVariable("sessionId") Long sessionId, PageDomain query) {
         Long userId = currentUserId();
         if (userId == null) {
             return AjaxResult.error(HttpStatus.UNAUTHORIZED, "登录已过期，请重新登录");
@@ -90,7 +90,7 @@ public class PortalMessageController extends BaseController {
      */
     @Operation(summary = "标记会话已读", description = "清零当前用户在该会话的未读数，并置接收消息为已读")
     @PutMapping("/session/{id}/read")
-    public AjaxResult markSessionRead(@Parameter(description = "会话ID") @PathVariable Long id) {
+    public AjaxResult markSessionRead(@Parameter(description = "会话ID") @PathVariable("id") Long id) {
         Long userId = currentUserId();
         if (userId == null) {
             return AjaxResult.error(HttpStatus.UNAUTHORIZED, "登录已过期，请重新登录");
@@ -120,7 +120,7 @@ public class PortalMessageController extends BaseController {
     @Operation(summary = "按对方用户ID获取或创建会话", description = "用于作者主页发起新私信；幂等，已有会话直接返回")
     @GetMapping("/session/with/{userId}")
     public AjaxResult getOrCreateSessionWithUser(
-            @Parameter(description = "对方用户ID") @PathVariable Long userId,
+            @Parameter(description = "对方用户ID") @PathVariable("userId") Long userId,
             @Parameter(description = "对方用户类型 portal/sys，留空默认 portal") @RequestParam(value = "peerType", required = false) String peerType) {
         Long currentUserId = currentUserId();
         if (currentUserId == null) {

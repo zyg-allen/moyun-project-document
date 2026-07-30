@@ -42,7 +42,7 @@
           plain
           icon="Plus"
           @click="handleAdd"
-          v-hasPermi="['cms:notification:add']"
+          v-hasPermi="['system:notification:add']"
         >新增</el-button>
       </el-col>
       <el-col :span="1.5">
@@ -51,7 +51,7 @@
           plain
           icon="Message"
           @click="handleSendAll"
-          v-hasPermi="['cms:notification:add']"
+          v-hasPermi="['system:notification:add']"
         >发送系统通知</el-button>
       </el-col>
       <el-col :span="1.5">
@@ -61,7 +61,7 @@
           icon="Delete"
           :disabled="multiple"
           @click="handleDelete"
-          v-hasPermi="['cms:notification:remove']"
+          v-hasPermi="['system:notification:remove']"
         >删除</el-button>
       </el-col>
       <right-toolbar v-model:showSearch="showSearch" @queryTable="getList" :columns="columns"></right-toolbar>
@@ -102,21 +102,21 @@
             type="primary"
             icon="View"
             @click="handleView(scope.row)"
-            v-hasPermi="['cms:notification:query']"
+            v-hasPermi="['system:notification:query']"
           >查看</el-button>
           <el-button
             link
             type="primary"
             icon="Edit"
             @click="handleUpdate(scope.row)"
-            v-hasPermi="['cms:notification:edit']"
+            v-hasPermi="['system:notification:edit']"
           >修改</el-button>
           <el-button
             link
             type="primary"
             icon="Delete"
             @click="handleDelete(scope.row)"
-            v-hasPermi="['cms:notification:remove']"
+            v-hasPermi="['system:notification:remove']"
           >删除</el-button>
         </template>
       </el-table-column>
@@ -241,8 +241,8 @@
   </div>
 </template>
 
-<script setup name="CmsNotification">
-import { listNotification, getNotification, addNotification, updateNotification, delNotification, sendSystemNotification } from "@/api/cms/notification";
+<script setup name="SysNotification">
+import { listNotification, getNotification, addNotification, updateNotification, delNotification, sendSystemNotification } from "@/api/system/notification";
 import { listUser } from "@/api/cms/user";
 
 const { proxy } = getCurrentInstance();

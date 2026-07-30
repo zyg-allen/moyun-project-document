@@ -1,6 +1,8 @@
 package com.moyun.ext.job.controller;
 
 import com.moyun.common.annotation.Log;
+import com.baomidou.mybatisplus.core.metadata.IPage;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.moyun.core.base.BaseController;
 import com.moyun.core.base.AjaxResult;
 import com.moyun.core.base.TableDataInfo;
@@ -30,9 +32,9 @@ public class SysJobLogController extends BaseController {
     @PreAuthorize("@ss.hasPermi('monitor:job:list')")
     @GetMapping("/list")
     public TableDataInfo list(SysJobLog sysJobLog) {
-        startPage();
-        List<SysJobLog> list = jobLogService.selectJobLogList(sysJobLog);
-        return getDataTable(list);
+        Page<SysJobLog> page = startPage();
+        IPage<SysJobLog> result = jobLogService.selectJobLogPage(page, sysJobLog);
+        return getDataTable(result.getRecords(), result.getTotal());
     }
 
     @Log(title = "调度日志", businessType = BusinessType.EXPORT)

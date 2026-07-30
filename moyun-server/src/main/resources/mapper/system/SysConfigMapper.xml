@@ -50,11 +50,32 @@
             <if test="configKey != null and configKey != ''">
                 AND config_key like concat('%', #{configKey}, '%')
             </if>
-            <if test="params.beginTime != null and params.beginTime != ''"><!-- 寮€濮嬫椂闂存绱?-->
+            <if test="params.beginTime != null and params.beginTime != ''"><!-- 寮€濮嬫椂闂存绱?-->
                 and date_format(create_time,'%Y%m%d') &gt;= date_format(#{params.beginTime},'%Y%m%d')
             </if>
             <if test="params.endTime != null and params.endTime != ''"><!-- 缁撴潫鏃堕棿妫€绱?-->
                 and date_format(create_time,'%Y%m%d') &lt;= date_format(#{params.endTime},'%Y%m%d')
+            </if>
+        </where>
+    </select>
+
+    <select id="selectConfigPage" resultMap="SysConfigResult">
+        <include refid="selectConfigVo"/>
+        <where>
+            <if test="query.configName != null and query.configName != ''">
+                AND config_name like concat('%', #{query.configName}, '%')
+            </if>
+            <if test="query.configType != null and query.configType != ''">
+                AND config_type = #{query.configType}
+            </if>
+            <if test="query.configKey != null and query.configKey != ''">
+                AND config_key like concat('%', #{query.configKey}, '%')
+            </if>
+            <if test="query.params.beginTime != null and query.params.beginTime != ''">
+                and date_format(create_time,'%Y%m%d') &gt;= date_format(#{query.params.beginTime},'%Y%m%d')
+            </if>
+            <if test="query.params.endTime != null and query.params.endTime != ''">
+                and date_format(create_time,'%Y%m%d') &lt;= date_format(#{query.params.endTime},'%Y%m%d')
             </if>
         </where>
     </select>

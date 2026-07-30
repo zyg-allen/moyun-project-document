@@ -18,12 +18,13 @@ let categoryTreeLoading: Promise<Category[] | null> | null = null;
 /**
  * 判断分类是否应该展示在首页文章分类卡片（统一过滤逻辑）
  *
- * 过滤条件：
+ * 过滤条件（优先使用 categoryType 字段，降级兼容历史数据）：
  * 1. status 字段：0 展示  1 隐藏（后端维护）
- * 2. 名称黑名单：排除非文章分类的一级栏目（首页、读书空间、面试指南、社区互动、
- *    创作者中心、个人空间）—— 这些栏目由独立模块或 Navbar 处理，不在首页分类卡片展示
- * 3. nav_route_type 字段：只保留 category 类型（真正的文章分类），
- *    过滤掉 static/home/external 类型的导航占位项（如读书首页、发现好书等）
+ * 2. category_type 字段：article=文章栏目（展示） special=特殊页面（隐藏，如首页/外链等）
+ *    —— 历史数据已由升级脚本回填，若字段缺失则降级到名称/路由类型兜底逻辑
+ * 降级兜底（仅当 categoryType 为空时生效）：
+ *    - 名称黑名单：排除首页、读书空间等非文章一级栏目
+ *    - nav_route_type：只保留 category 类型，过滤 static/home/external 占位项
  *
  * 注意：Navbar 已改为读 /portal/category/nav/tree 动态渲染，不受此函数影响。
  *       本函数仅用于 HomePage / PublishPage 等读 /public/tree 的场景。
@@ -38,13 +39,20 @@ export function shouldShowCategory(cat: Category | null | undefined): boolean {
   const status = String(cat.status ?? '0');
   if (status === '1') return false;
 
-  // 条件2：名称过滤（排除非文章分类的一级栏目）
   const name = (cat.name || '').trim();
   if (!name) return false;
+
+  // 条件2：优先使用 category_type 字段（新增字段，标识文章栏目 vs 特殊页面）
+  const categoryType = (cat.categoryType || '').toLowerCase();
+  if (categoryType) {
+    // 字段已回填：article 展示，其余（special）隐藏
+    return categoryType === 'article';
+  }
+
+  // 降级兜底：categoryType 缺失时（历史脏数据），沿用名称黑名单 + 路由类型过滤
   const blockedNames = ['首页', '读书空间', '面试指南', '社区互动', '创作者中心', '个人空间'];
   if (blockedNames.includes(name)) return false;
 
-  // 条件3：路由类型过滤 - 只保留 category 类型（真正的文章分类）
   const routeType = (cat.navRouteType || 'category').toLowerCase();
   if (routeType !== 'category') return false;
 

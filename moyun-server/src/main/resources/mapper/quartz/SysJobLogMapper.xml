@@ -35,7 +35,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
 			<if test="invokeTarget != null and invokeTarget != ''">
 				AND invoke_target like concat('%', #{invokeTarget}, '%')
 			</if>
-			<if test="params.beginTime != null and params.beginTime != ''"><!-- 寮€濮嬫椂闂存绱?-->
+			<if test="params.beginTime != null and params.beginTime != ''"><!-- 寮€濮嬫椂闂存绱?-->
 				and date_format(create_time,'%Y%m%d') &gt;= date_format(#{params.beginTime},'%Y%m%d')
 			</if>
 			<if test="params.endTime != null and params.endTime != ''"><!-- 缁撴潫鏃堕棿妫€绱?-->
@@ -44,7 +44,32 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
 		</where>
 		order by create_time desc
 	</select>
-	
+
+	<select id="selectJobLogPage" resultMap="SysJobLogResult">
+		<include refid="selectJobLogVo"/>
+		<where>
+			<if test="query.jobName != null and query.jobName != ''">
+				AND job_name like concat('%', #{query.jobName}, '%')
+			</if>
+			<if test="query.jobGroup != null and query.jobGroup != ''">
+				AND job_group = #{query.jobGroup}
+			</if>
+			<if test="query.status != null and query.status != ''">
+				AND status = #{query.status}
+			</if>
+			<if test="query.invokeTarget != null and query.invokeTarget != ''">
+				AND invoke_target like concat('%', #{query.invokeTarget}, '%')
+			</if>
+			<if test="query.params.beginTime != null and query.params.beginTime != ''"><!-- 寮€濮嬫椂闂存绱?-->
+				and date_format(create_time,'%Y%m%d') &gt;= date_format(#{query.params.beginTime},'%Y%m%d')
+			</if>
+			<if test="query.params.endTime != null and query.params.endTime != ''"><!-- 缁撴潫鏃堕棿妫€绱?-->
+				and date_format(create_time,'%Y%m%d') &lt;= date_format(#{query.params.endTime},'%Y%m%d')
+			</if>
+		</where>
+		order by create_time desc
+	</select>
+
 	<select id="selectJobLogAll" resultMap="SysJobLogResult">
 		<include refid="selectJobLogVo"/>
 	</select>

@@ -383,11 +383,13 @@ watch(
     <div class="flex items-center gap-3 px-4 py-3 border-b" style="background-color: var(--theme-surface); border-color: var(--theme-border);">
       <button
         @click="goBack"
-        class="p-1.5 rounded-lg transition-colors flex-shrink-0 lg:hidden"
-        style="color: var(--theme-text-secondary);"
-        aria-label="返回"
+        class="flex items-center gap-1.5 px-3 py-2 rounded-lg transition-colors flex-shrink-0 font-medium text-sm hover:opacity-90"
+        style="background-color: var(--theme-primary); color: white;"
+        aria-label="返回消息列表"
+        title="返回消息列表"
       >
-        <ArrowLeft class="w-5 h-5" />
+        <ArrowLeft class="w-4 h-4" />
+        <span class="hidden sm:inline">返回</span>
       </button>
       <img
         :src="peerAvatar"

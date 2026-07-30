@@ -1,5 +1,7 @@
 package com.moyun.system.controller;
 
+import com.baomidou.mybatisplus.core.metadata.IPage;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.moyun.common.annotation.Log;
 import com.moyun.common.enums.BusinessType;
 import com.moyun.core.base.AjaxResult;
@@ -56,9 +58,9 @@ public class SysRoleController extends BaseController {
     @PreAuthorize("@ss.hasPermi('system:role:list')")
     @GetMapping("/list")
     public TableDataInfo list(SysRole role) {
-        startPage();
-        List<SysRole> list = roleService.selectRoleList(role);
-        return getDataTable(list);
+        Page<SysRole> page = startPage();
+        IPage<SysRole> result = roleService.selectRolePage(page, role);
+        return getDataTable(result.getRecords(), result.getTotal());
     }
 
     @Operation(summary = "导出角色", description = "导出角色数据到Excel文件")
@@ -184,9 +186,9 @@ public class SysRoleController extends BaseController {
     @PreAuthorize("@ss.hasPermi('system:role:list')")
     @GetMapping("/authUser/allocatedList")
     public TableDataInfo allocatedList(SysUser user) {
-        startPage();
-        List<SysUser> list = userService.selectAllocatedList(user);
-        return getDataTable(list);
+        Page<SysUser> page = startPage();
+        IPage<SysUser> result = userService.selectAllocatedPage(page, user);
+        return getDataTable(result.getRecords(), result.getTotal());
     }
 
     /**
@@ -196,9 +198,9 @@ public class SysRoleController extends BaseController {
     @PreAuthorize("@ss.hasPermi('system:role:list')")
     @GetMapping("/authUser/unallocatedList")
     public TableDataInfo unallocatedList(SysUser user) {
-        startPage();
-        List<SysUser> list = userService.selectUnallocatedList(user);
-        return getDataTable(list);
+        Page<SysUser> page = startPage();
+        IPage<SysUser> result = userService.selectUnallocatedPage(page, user);
+        return getDataTable(result.getRecords(), result.getTotal());
     }
 
     /**

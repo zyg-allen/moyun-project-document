@@ -34,6 +34,17 @@
                />
             </el-select>
          </el-form-item>
+         <el-form-item label="用户类型" prop="userType">
+            <el-select
+               v-model="queryParams.userType"
+               placeholder="用户类型"
+               clearable
+               style="width: 240px"
+            >
+               <el-option label="后台登录" value="sys" />
+               <el-option label="前台登录" value="portal" />
+            </el-select>
+         </el-form-item>
          <el-form-item label="登录时间" style="width: 308px">
             <el-date-picker
                v-model="dateRange"
@@ -97,6 +108,13 @@
          <el-table-column type="selection" width="55" align="center" />
          <el-table-column label="访问编号" align="center" prop="infoId" />
          <el-table-column label="用户名称" align="center" prop="userName" :show-overflow-tooltip="true" sortable="custom" :sort-orders="['descending', 'ascending']" />
+         <el-table-column label="用户类型" align="center" prop="userType" width="90">
+            <template #default="scope">
+               <el-tag :type="scope.row.userType === 'portal' ? 'success' : 'primary'" size="small">
+                  {{ scope.row.userType === 'portal' ? '前台' : '后台' }}
+               </el-tag>
+            </template>
+         </el-table-column>
          <el-table-column label="地址" align="center" prop="ipaddr" :show-overflow-tooltip="true" />
          <el-table-column label="登录地点" align="center" prop="loginLocation" :show-overflow-tooltip="true" />
          <el-table-column label="操作系统" align="center" prop="os" :show-overflow-tooltip="true" />
@@ -148,6 +166,7 @@ const queryParams = ref({
   ipaddr: undefined,
   userName: undefined,
   status: undefined,
+  userType: undefined,
   orderByColumn: undefined,
   isAsc: undefined
 });

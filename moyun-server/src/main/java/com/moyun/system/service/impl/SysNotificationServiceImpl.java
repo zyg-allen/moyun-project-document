@@ -159,4 +159,10 @@ public class SysNotificationServiceImpl extends ServiceImpl<SysNotificationMappe
         }
         return sysNotificationReadMapper.markAllAsRead(userId, userType);
     }
+
+    @Override
+    public Page<SysNotification> selectBroadcastNotifications(Page<SysNotification> page, Long userId, String userType) {
+        // userId/userType 为 null 时不计算已读状态（未登录用户）
+        return sysNotificationMapper.selectBroadcastAll(page, userId, userType);
+    }
 }

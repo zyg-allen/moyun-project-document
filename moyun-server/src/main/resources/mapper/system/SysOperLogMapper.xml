@@ -58,16 +58,50 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
 			<if test="operName != null and operName != ''">
 				AND oper_name like concat('%', #{operName}, '%')
 			</if>
-			<if test="beginTime != null and beginTime != ''">
-				AND oper_time &gt;= #{beginTime}
+			<if test="params.beginTime != null and params.beginTime != ''">
+				AND oper_time &gt;= #{params.beginTime}
 			</if>
-			<if test="endTime != null and endTime != ''">
-				AND oper_time &lt;= #{endTime}
+			<if test="params.endTime != null and params.endTime != ''">
+				AND oper_time &lt;= #{params.endTime}
 			</if>
 		</where>
 		order by oper_id desc
 	</select>
-	
+
+	<select id="selectOperLogPage" resultMap="SysOperLogResult">
+		<include refid="selectOperLogVo"/>
+		<where>
+			<if test="query.operIp != null and query.operIp != ''">
+				AND oper_ip like concat('%', #{query.operIp}, '%')
+			</if>
+			<if test="query.title != null and query.title != ''">
+				AND title like concat('%', #{query.title}, '%')
+			</if>
+			<if test="query.businessType != null">
+				AND business_type = #{query.businessType}
+			</if>
+			<if test="query.businessTypes != null and query.businessTypes.length > 0">
+			    AND business_type in
+			    <foreach collection="query.businessTypes" item="businessType" open="(" separator="," close=")">
+		 			#{businessType}
+		        </foreach>
+			</if>
+			<if test="query.status != null">
+				AND status = #{query.status}
+			</if>
+			<if test="query.operName != null and query.operName != ''">
+				AND oper_name like concat('%', #{query.operName}, '%')
+			</if>
+			<if test="query.params.beginTime != null and query.params.beginTime != ''">
+				AND oper_time &gt;= #{query.params.beginTime}
+			</if>
+			<if test="query.params.endTime != null and query.params.endTime != ''">
+				AND oper_time &lt;= #{query.params.endTime}
+			</if>
+		</where>
+		order by oper_id desc
+	</select>
+
 	<delete id="deleteOperLogByIds" parameterType="Long">
  		delete from sys_oper_log where oper_id in
  		<foreach collection="array" item="operId" open="(" separator="," close=")">

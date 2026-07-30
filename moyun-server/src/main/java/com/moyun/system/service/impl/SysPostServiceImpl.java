@@ -1,5 +1,6 @@
 package com.moyun.system.service.impl;
 
+import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.moyun.common.constant.UserConstants;
 import com.moyun.common.exception.system.ServiceException;
 import com.moyun.system.domain.entity.SysPost;
@@ -34,6 +35,14 @@ public class SysPostServiceImpl implements ISysPostService {
     @Override
     public List<SysPost> selectPostList(SysPost post) {
         return postMapper.selectPostList(post);
+    }
+
+    /**
+     * 分页查询岗位（MyBatis-Plus 标准分页，配合 PaginationInnerInterceptor）
+     */
+    @Override
+    public IPage<SysPost> selectPostPage(IPage<SysPost> page, SysPost post) {
+        return postMapper.selectPostPage(page, post);
     }
 
     /**

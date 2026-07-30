@@ -92,4 +92,16 @@ public interface ISysNotificationService extends IService<SysNotification> {
      * @param userType 用户类型：portal=门户用户 / sys=系统用户
      */
     int markAllAsRead(Long userId, String userType);
+
+    /**
+     * 查询公开广播通知（scope=all，未登录用户也可查看）
+     *
+     * <p>用于门户公开页面（如公告/版本发布），无需登录即可查看广播通知。
+     * 已登录用户可返回 isRead 状态，未登录用户 isRead 固定为 false。</p>
+     *
+     * @param page     分页参数
+     * @param userId   用户ID（未登录时传 null，不计算已读状态）
+     * @param userType 用户类型：portal=门户用户 / sys=系统用户（未登录时传 null）
+     */
+    Page<SysNotification> selectBroadcastNotifications(Page<SysNotification> page, Long userId, String userType);
 }

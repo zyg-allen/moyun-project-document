@@ -24,6 +24,9 @@ public class LogininforQuery extends PageDomain {
     @Schema(description = "登录状态（0成功 1失败）")
     private String status;
 
+    @Schema(description = "登录来源类型（sys=后台用户 portal=门户用户）")
+    private String userType;
+
     @Schema(description = "开始时间")
     private String beginTime;
 

@@ -2,6 +2,8 @@ package com.moyun.system.controller;
 
 import com.moyun.common.annotation.Log;
 import com.moyun.common.enums.BusinessType;
+import com.baomidou.mybatisplus.core.metadata.IPage;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.moyun.core.base.AjaxResult;
 import com.moyun.core.base.BaseController;
 import com.moyun.core.base.TableDataInfo;
@@ -34,9 +36,9 @@ public class SysOperlogController extends BaseController {
     @PreAuthorize("@ss.hasPermi('monitor:operlog:list')")
     @GetMapping("/list")
     public TableDataInfo list(OperLogQuery query) {
-        startPage();
-        List<SysOperLog> list = operLogService.selectOperLogList(query);
-        return getDataTable(list);
+        Page<SysOperLog> page = startPage();
+        IPage<SysOperLog> result = operLogService.selectOperLogPage(page, query);
+        return getDataTable(result.getRecords(), result.getTotal());
     }
 
     @Operation(summary = "导出操作日志")

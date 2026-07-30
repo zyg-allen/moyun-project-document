@@ -56,6 +56,30 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
 		order by r.role_sort
 	</select>
     
+	<select id="selectRolePage" resultMap="SysRoleResult">
+		<include refid="selectRoleVo"/>
+		where r.del_flag = '0'
+		<if test="query.roleId != null and query.roleId != 0">
+			AND r.role_id = #{query.roleId}
+		</if>
+		<if test="query.roleName != null and query.roleName != ''">
+			AND r.role_name like concat('%', #{query.roleName}, '%')
+		</if>
+		<if test="query.status != null and query.status != ''">
+			AND r.status = #{query.status}
+		</if>
+		<if test="query.roleKey != null and query.roleKey != ''">
+			AND r.role_key like concat('%', #{query.roleKey}, '%')
+		</if>
+		<if test="query.params.beginTime != null and query.params.beginTime != ''">
+			and date_format(r.create_time,'%Y%m%d') &gt;= date_format(#{query.params.beginTime},'%Y%m%d')
+		</if>
+		<if test="query.params.endTime != null and query.params.endTime != ''">
+			and date_format(r.create_time,'%Y%m%d') &lt;= date_format(#{query.params.endTime},'%Y%m%d')
+		</if>
+		${query.params.dataScope}
+		order by r.role_sort
+	</select>
 	<select id="selectRolePermissionByUserId" parameterType="Long" resultMap="SysRoleResult">
 		<include refid="selectRoleVo"/>
 		WHERE r.del_flag = '0' and ur.user_id = #{userId}

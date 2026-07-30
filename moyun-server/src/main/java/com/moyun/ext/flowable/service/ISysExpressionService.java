@@ -1,5 +1,6 @@
 package com.moyun.ext.flowable.service;
 
+import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.moyun.system.domain.entity.SysExpression;
 
 import java.util.List;
@@ -26,6 +27,15 @@ public interface ISysExpressionService {
      * @return 流程达式集合
      */
     public List<SysExpression> selectSysExpressionList(SysExpression sysExpression);
+
+    /**
+     * 分页查询流程达式（MyBatis-Plus 标准分页，配合 PaginationInnerInterceptor）
+     *
+     * @param page          分页对象
+     * @param sysExpression 流程达式查询条件
+     * @return 分页结果
+     */
+    public IPage<SysExpression> selectSysExpressionPage(IPage<SysExpression> page, SysExpression sysExpression);
 
     /**
      * 新增流程达式

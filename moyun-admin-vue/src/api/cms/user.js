@@ -18,6 +18,14 @@ export function getUser(id) {
   })
 }
 
+// 查询门户用户画像（含完整画像 + 业务统计 + 快速跳转入口）
+export function getUserProfile(id) {
+  return request({
+    url: '/cms/user/' + parseStrEmpty(id) + '/profile',
+    method: 'get'
+  })
+}
+
 // 新增门户用户
 export function addUser(data) {
   return request({
@@ -67,5 +75,26 @@ export function resetUserPwd(id, password) {
     url: '/cms/user/resetPwd',
     method: 'put',
     data: data
+  })
+}
+
+// 绑定系统用户（建立身份桥接：portal_user.user_id = sys_user.user_id）
+export function bindSysUser(portalUserId, sysUserId) {
+  const data = {
+    portalUserId,
+    sysUserId
+  }
+  return request({
+    url: '/cms/user/bindSysUser',
+    method: 'put',
+    data: data
+  })
+}
+
+// 解绑系统用户（清空 portal_user.user_id）
+export function unbindSysUser(id) {
+  return request({
+    url: '/cms/user/unbindSysUser/' + id,
+    method: 'put'
   })
 }

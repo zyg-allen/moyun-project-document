@@ -1805,6 +1805,7 @@ CREATE TABLE `portal_category` (
                                    `show_in_nav` tinyint(1) NOT NULL DEFAULT '0' COMMENT '是否在头部栏目展示（0否/1是）',
                                    `nav_route_type` varchar(20) COLLATE utf8mb4_0900_ai_ci NOT NULL DEFAULT 'category' COMMENT '路由类型（home/category/static/external）',
                                    `nav_route_path` varchar(200) COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '静态/外链路由路径（仅 static/external 类型使用）',
+                                   `category_type` varchar(20) COLLATE utf8mb4_0900_ai_ci NOT NULL DEFAULT 'article' COMMENT '栏目内容类型（article=文章栏目可发布文章 special=特殊页面不发布文章）',
                                    `requires_auth` tinyint(1) NOT NULL DEFAULT '0' COMMENT '是否需要登录（0否/1是）',
                                    `create_by` varchar(64) COLLATE utf8mb4_0900_ai_ci DEFAULT '' COMMENT '创建者',
                                    `create_time` datetime DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
@@ -1819,6 +1820,7 @@ CREATE TABLE `portal_category` (
                                    KEY `idx_parent_id` (`parent_id`),
                                    KEY `idx_slug` (`slug`),
                                    KEY `idx_show_in_nav` (`show_in_nav`),
+                                   KEY `idx_category_type` (`category_type`),
                                    KEY `idx_del_flag` (`del_flag`),
                                    KEY `idx_parent_bid` (`parent_business_id`)
 ) ENGINE=InnoDB AUTO_INCREMENT=51 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='门户分类表';
@@ -4403,6 +4405,7 @@ CREATE TABLE `sys_logininfor` (
                                   `browser` varchar(50) COLLATE utf8mb4_0900_ai_ci DEFAULT '' COMMENT '浏览器类型',
                                   `os` varchar(50) COLLATE utf8mb4_0900_ai_ci DEFAULT '' COMMENT '操作系统',
                                   `status` char(1) COLLATE utf8mb4_0900_ai_ci DEFAULT '0' COMMENT '登录状态（0成功 1失败）',
+                                  `user_type` varchar(10) COLLATE utf8mb4_0900_ai_ci DEFAULT 'sys' COMMENT '登录来源类型（sys=后台用户 portal=门户用户）',
                                   `msg` varchar(255) COLLATE utf8mb4_0900_ai_ci DEFAULT '' COMMENT '提示消息',
                                   `login_time` datetime DEFAULT NULL COMMENT '访问时间',
                                   `create_by` varchar(64) COLLATE utf8mb4_0900_ai_ci DEFAULT '' COMMENT '创建者',
@@ -4412,7 +4415,8 @@ CREATE TABLE `sys_logininfor` (
                                   `remark` varchar(500) COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '备注',
                                   PRIMARY KEY (`info_id`),
                                   KEY `idx_sys_logininfor_s` (`status`),
-                                  KEY `idx_sys_logininfor_lt` (`login_time`)
+                                  KEY `idx_sys_logininfor_lt` (`login_time`),
+                                  KEY `idx_sys_logininfor_ut` (`user_type`)
 ) ENGINE=InnoDB AUTO_INCREMENT=100 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='系统访问记录';
 
 
@@ -4619,6 +4623,10 @@ INSERT INTO sys_menu (menu_name, parent_id, order_num, path, component, query, i
                       menu_type, visible, status, perms, icon, create_by, create_time, remark)
 SELECT '重置密码', @user_menu_id, 6, '', NULL, NULL, 1, 0, 'F', '0', '0', 'cms:user:resetPwd', '#', 'admin', NOW(), ''
 FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM sys_menu WHERE perms = 'cms:user:resetPwd');
+INSERT INTO sys_menu (menu_name, parent_id, order_num, path, component, query, is_frame, is_cache,
+                      menu_type, visible, status, perms, icon, create_by, create_time, remark)
+SELECT '绑定系统用户', @user_menu_id, 7, '', NULL, NULL, 1, 0, 'F', '0', '0', 'cms:user:bind', '#', 'admin', NOW(), '身份桥接：绑定/解绑后台系统用户'
+FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM sys_menu WHERE perms = 'cms:user:bind');
 
 -- =============================================================================
 -- 三、文章管理（cms:article）

@@ -2,6 +2,8 @@ package com.moyun.ext.job.controller;
 
 import com.moyun.common.annotation.Log;
 import com.moyun.common.constant.Constants;
+import com.baomidou.mybatisplus.core.metadata.IPage;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.moyun.core.base.BaseController;
 import com.moyun.core.base.AjaxResult;
 import com.moyun.core.base.TableDataInfo;
@@ -36,9 +38,9 @@ public class SysJobController extends BaseController {
     @PreAuthorize("@ss.hasPermi('monitor:job:list')")
     @GetMapping("/list")
     public TableDataInfo list(SysJob sysJob) {
-        startPage();
-        List<SysJob> list = jobService.selectJobList(sysJob);
-        return getDataTable(list);
+        Page<SysJob> page = startPage();
+        IPage<SysJob> result = jobService.selectJobPage(page, sysJob);
+        return getDataTable(result.getRecords(), result.getTotal());
     }
 
     @PreAuthorize("@ss.hasPermi('monitor:job:export')")

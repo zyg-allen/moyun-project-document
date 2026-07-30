@@ -1,5 +1,6 @@
 package com.moyun.system.service;
 
+import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.moyun.system.domain.entity.SysConfig;
 
 import java.util.List;
@@ -41,6 +42,15 @@ public interface ISysConfigService {
      * @return 参数配置集合
      */
     List<SysConfig> selectConfigList(SysConfig config);
+
+    /**
+     * 分页查询参数配置（MyBatis-Plus 标准分页，配合 PaginationInnerInterceptor）
+     *
+     * @param page   分页对象
+     * @param config 参数配置查询条件
+     * @return 分页结果
+     */
+    IPage<SysConfig> selectConfigPage(IPage<SysConfig> page, SysConfig config);
 
     /**
      * 新增参数配置

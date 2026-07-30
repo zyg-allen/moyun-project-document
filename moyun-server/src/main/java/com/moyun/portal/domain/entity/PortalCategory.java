@@ -70,6 +70,10 @@ public class PortalCategory extends BaseEntity {
     @Size(min = 0, max = 200, message = "路由路径长度不能超过200个字符")
     private String navRoutePath;
 
+    /** 栏目内容类型（article=文章栏目可发布文章 special=特殊页面不发布文章） */
+    @Size(min = 0, max = 20, message = "栏目内容类型长度不能超过20个字符")
+    private String categoryType;
+
     /** 是否需要登录（0否/1是） */
     private Integer requiresAuth;
 

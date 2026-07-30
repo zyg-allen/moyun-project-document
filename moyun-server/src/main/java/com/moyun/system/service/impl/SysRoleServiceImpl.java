@@ -1,5 +1,6 @@
 package com.moyun.system.service.impl;
 
+import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.moyun.common.annotation.DataScope;
 import com.moyun.common.constant.UserConstants;
 import com.moyun.common.exception.system.ServiceException;
@@ -51,6 +52,18 @@ public class SysRoleServiceImpl implements ISysRoleService {
     @DataScope(deptAlias = "d")
     public List<SysRole> selectRoleList(SysRole role) {
         return roleMapper.selectRoleList(role);
+    }
+
+    /**
+     * 根据条件分页查询角色数据（MyBatis-Plus 标准分页，配合 PaginationInnerInterceptor）
+     *
+     * @param page 分页对象
+     * @param role 角色信息
+     * @return 分页结果
+     */
+    @Override
+    public IPage<SysRole> selectRolePage(IPage<SysRole> page, SysRole role) {
+        return roleMapper.selectRolePage(page, role);
     }
 
     /**

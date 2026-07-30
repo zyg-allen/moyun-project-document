@@ -1,23 +1,34 @@
 package com.moyun.system.mapper;
 
+import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.moyun.system.domain.entity.SysPost;
+import org.apache.ibatis.annotations.Param;
 
 import java.util.List;
 
 /**
  * 岗位信息 数据层
- * 
+ *
  * @author ruoyi
  */
 public interface SysPostMapper
 {
     /**
      * 查询岗位数据集合
-     * 
+     *
      * @param post 岗位信息
      * @return 岗位数据集合
      */
     public List<SysPost> selectPostList(SysPost post);
+
+    /**
+     * 分页查询岗位（MyBatis-Plus 标准分页，配合 PaginationInnerInterceptor）
+     *
+     * @param page 分页对象
+     * @param post 岗位信息
+     * @return 分页结果
+     */
+    IPage<SysPost> selectPostPage(IPage<SysPost> page, @Param("query") SysPost post);
 
     /**
      * 查询所有岗位

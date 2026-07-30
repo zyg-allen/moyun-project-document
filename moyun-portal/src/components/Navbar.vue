@@ -3,8 +3,8 @@ import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
 import { RouterLink as Link, useRouter, useRoute } from 'vue-router';
 import {
   Search, Plus, LogOut, Menu, X, Palette, Sun, Moon, Eye,
-  ChevronDown, ChevronRight, Settings, UserCircle, BookMarked, MessageSquare,
-  HelpCircle, Lock
+  ChevronDown, ChevronRight, Settings, UserCircle, BookMarked,
+  HelpCircle, Lock, Bell
 } from 'lucide-vue-next';
 import { setTheme, getCurrentTheme, type Theme, themes } from '@/utils/theme';
 import { useUserStore } from '@/stores/user';
@@ -13,8 +13,6 @@ import { getSafeAvatar } from '@/utils/avatar';
 import { useAuth } from '@/composables/useAuth';
 import { getNavTree, getNavRouteTarget, isNavRequiresAuth } from '@/api/category';
 import type { Category } from '@/types/api';
-import NotificationBell from './NotificationBell.vue';
-import * as notificationApi from '@/api/notification';
 
 const router = useRouter();
 const route = useRoute();
@@ -27,13 +25,8 @@ const searchQuery = ref('');
 const currentTheme = ref<Theme>(getCurrentTheme());
 const isThemeMenuOpen = ref(false);
 const activeNavItem = ref<string | null>(null);
-const notifications = ref<any[]>([]);
-// 通知未读数从消息 store 取，与 MessagesPage 跨组件同步
-const unreadCount = computed(() => messageStore.notifUnreadCount);
-// 私信未读数从消息 store 取，用于头部"消息中心"按钮徽章
-const msgUnreadCount = computed(() => messageStore.msgUnreadCount);
-// 头部消息中心按钮徽章：仅显示私信未读数（通知未读数由铃铛单独展示，避免重复计数）
-const msgBadgeCount = computed(() => messageStore.msgUnreadCount);
+// 消息中心未读总数（通知 + 私信），用于头部单一消息入口徽章
+const totalUnread = computed(() => messageStore.totalUnread);
 const isUserMenuOpen = ref(false);
 
 // 导航项统一类型：所有属性可选（除 name/key/children），避免联合类型访问报错
@@ -137,7 +130,6 @@ onMounted(async () => {
   // 加载头部导航栏目树（所有用户都需要，未登录也能看到公开栏目）
   await loadNavCategories();
   if (userStore.isAuthenticated) {
-    await loadNotifications();
     await messageStore.loadAllUnread();
   }
 });
@@ -146,48 +138,12 @@ watch(
   () => userStore.isAuthenticated,
   (isAuth) => {
     if (isAuth) {
-      loadNotifications();
       messageStore.loadAllUnread();
     } else {
-      notifications.value = [];
       messageStore.reset();
     }
   }
 );
-
-async function loadNotifications() {
-  try {
-    const response = await notificationApi.getNotificationList({ pageNum: 1, pageSize: 10 });
-    if (response.code === 200 && response.data) {
-      notifications.value = response.data.list.map((item: any) => ({
-        id: String(item.id),
-        title: item.title,
-        content: item.content,
-        time: item.createTime,
-        isRead: item.isRead
-      }));
-    }
-  } catch (error) {
-    console.error('加载通知失败:', error);
-    notifications.value = [];
-  }
-}
-
-async function markAsRead(id: string) {
-  try {
-    const response = await notificationApi.markAsRead({ id });
-    if (response.code === 200) {
-      const notification = notifications.value.find(n => n.id === id);
-      if (notification) {
-        notification.isRead = true;
-      }
-      // 本地未读数 -1（store 同步给 MessagesPage）
-      messageStore.decNotifUnread();
-    }
-  } catch (error) {
-    console.error('标记已读失败:', error);
-  }
-}
 
 function toggleNav(key: string) {
   if (activeNavItem.value === key) {
@@ -318,29 +274,21 @@ onUnmounted(() => document.removeEventListener('click', handleDocumentClick));
               <Search class="w-4 h-4 sm:w-5 sm:h-5" />
             </button>
 
-            <!-- 消息铃铛 -->
-            <NotificationBell
-                :notifications="notifications"
-                :unread-count="unreadCount"
-                @read="markAsRead"
-            />
-
-            <!-- 消息中心入口 -->
+            <!-- 消息中心入口（单一入口：公告/通知/私信，未登录用户可看公告） -->
             <Link
-                v-if="currentUser"
                 to="/messages"
                 class="p-2.5 rounded-lg transition-colors relative"
                 style="color: var(--theme-text-secondary);"
                 title="消息中心"
                 aria-label="消息中心"
             >
-              <MessageSquare class="w-4 h-4 sm:w-5 sm:h-5" />
+              <Bell class="w-4 h-4 sm:w-5 sm:h-5" />
               <span
-                v-if="msgBadgeCount > 0"
+                v-if="totalUnread > 0"
                 class="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full text-xs flex items-center justify-center"
                 style="background-color: #ef4444; color: white;"
               >
-                {{ msgBadgeCount > 99 ? '99+' : msgBadgeCount }}
+                {{ totalUnread > 99 ? '99+' : totalUnread }}
               </span>
             </Link>
 

@@ -128,4 +128,18 @@ public interface IPortalUserService {
      * @return 结果
      */
     public int deletePortalUserByIds(Long[] ids);
+
+    /**
+     * 按后台用户ID（sys_user.user_id）反查绑定的门户身份
+     *
+     * <p>用于前后台身份桥接：后台管理员发文章时会自动建立 role=admin 的门户影子账户
+     * （portal_user.user_id = sys_user.user_id）。当门户用户私信该门户身份时，
+     * 后台管理员可通过此映射以同一门户身份查看/回复私信，实现消息可达与闭环回复。</p>
+     *
+     * <p>若一个 sys_user 绑定了多个门户身份，优先返回 role='admin' 的；否则返回第一条。</p>
+     *
+     * @param sysUserId 后台用户ID
+     * @return 绑定的门户用户；未绑定返回 null
+     */
+    public PortalUser findBoundPortalIdentity(Long sysUserId);
 }

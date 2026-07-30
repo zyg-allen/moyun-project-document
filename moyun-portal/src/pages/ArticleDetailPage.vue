@@ -2,7 +2,7 @@
 import {computed, onMounted, onBeforeUnmount, ref, watch} from 'vue';
 import {RouterLink as Link, useRoute, useRouter} from 'vue-router';
 import {useHead} from '@vueuse/head';
-import {Bookmark, Clock, Gift, Heart, Lock, MessageSquare, Reply, Send, Share2} from 'lucide-vue-next';
+import {Bookmark, Clock, Gift, Heart, Lock, MessageSquare, Reply, Send, Share2, UserPlus, UserCheck, FileText, ThumbsUp, Users} from 'lucide-vue-next';
 import Breadcrumb from '@/components/Breadcrumb.vue';
 import SiteFooter from '@/components/SiteFooter.vue';
 import MarkdownRenderer from '@/components/MarkdownRenderer.vue';
@@ -19,7 +19,9 @@ import {generateSeo, generateArticleJsonLd} from '@/utils/seo';
 import {sanitizeHTML} from '@/utils/security';
 import {formatShortDate} from '@/utils/date';
 import {getSafeAvatar} from '@/utils/avatar';
-import type {Article, Comment, User} from '@/types/api';
+import * as growthApi from '@/api/growth';
+import * as followApi from '@/api/follow';
+import type {Article, Comment, User, UserStatsVO} from '@/types/api';
 import * as articleApi from '@/api/article';
 import * as commentApi from '@/api/comment';
 import {purchaseArticle} from '@/api/tip';
@@ -47,6 +49,11 @@ const commentsHasMore = ref(false); // 是否有更多评论
 const submitting = ref(false);
 const error = ref<string | null>(null);
 const isShareMenuOpen = ref(false); // 分享菜单是否展开
+
+// 作者统计画像（右侧栏作者卡用）
+const authorStats = ref<UserStatsVO | null>(null);
+const isFollowingAuthor = ref(false); // 是否已关注当前作者
+const followLoading = ref(false);
 
 // 检查是否支持原生分享
 const supportsNativeShare = computed(() => {
@@ -213,6 +220,8 @@ watch(() => route.params.id, (newId, oldId) => {
     article.value = null;
     comments.value = [];
     relatedArticles.value = [];
+    authorStats.value = null;
+    isFollowingAuthor.value = false;
     commentsPageNum.value = 1;
     error.value = null;
     window.scrollTo({top: 0, behavior: 'smooth'});
@@ -251,6 +260,9 @@ async function loadArticle() {
     // 文章加载成功后异步加载相关推荐（不阻塞详情页渲染）
     if (article.value) {
       loadRelatedArticles();
+      // 异步加载作者统计画像 + 关注状态（右侧栏作者卡用）
+      const authorId = article.value.authorId || article.value.author?.id;
+      if (authorId) loadAuthorStats(authorId);
     }
   } catch (err) {
     console.error('加载文章失败:', err);
@@ -305,6 +317,76 @@ async function loadRelatedArticles() {
     relatedArticles.value = [];
   }
 }
+
+// 加载作者统计画像 + 关注状态（右侧栏作者卡用）
+async function loadAuthorStats(authorId: string | number) {
+  if (!authorId) return;
+  // 重置状态，避免上一篇文章残留
+  authorStats.value = null;
+  isFollowingAuthor.value = false;
+  try {
+    const [statsResp, followResp] = await Promise.all([
+      growthApi.getUserStatsById(authorId),
+      currentUser.value
+        ? followApi.checkFollow({ userId: String(authorId) }).catch(() => null)
+        : Promise.resolve(null),
+    ]);
+    if (statsResp?.code === 200 && statsResp.data) {
+      authorStats.value = statsResp.data as UserStatsVO;
+    }
+    if (followResp?.code === 200 && followResp.data) {
+      isFollowingAuthor.value = !!(followResp.data as { following?: boolean }).following;
+    }
+  } catch (err) {
+    console.error('加载作者统计失败:', err);
+  }
+}
+
+// 关注 / 取消关注作者
+async function toggleFollow() {
+  if (!articleAuthor.value) return;
+  const authorId = String(articleAuthor.value.id || article.value?.authorId || '');
+  if (!authorId) return;
+  await withAuthConfirm(async () => {
+    followLoading.value = true;
+    try {
+      if (isFollowingAuthor.value) {
+        const res = await followApi.unfollowUser({ userId: authorId });
+        if (res?.code === 200) {
+          isFollowingAuthor.value = false;
+          if (authorStats.value && authorStats.value.followers > 0) {
+            authorStats.value.followers -= 1;
+          }
+          toast.success('已取消关注');
+        } else {
+          toast.error(res?.message || '操作失败');
+        }
+      } else {
+        const res = await followApi.followUser({ userId: authorId });
+        if (res?.code === 200) {
+          isFollowingAuthor.value = true;
+          if (authorStats.value) {
+            authorStats.value.followers = (authorStats.value.followers || 0) + 1;
+          }
+          toast.success('关注成功');
+        } else {
+          toast.error(res?.message || '操作失败');
+        }
+      }
+    } catch (err) {
+      const e = err as { message?: string };
+      toast.error(e?.message || '操作失败，请稍后重试');
+    } finally {
+      followLoading.value = false;
+    }
+  }, '关注作者');
+}
+
+// 是否为当前文章作者本人（作者本人访问自己文章时，隐藏关注按钮）
+const isSelfAuthor = computed(() => {
+  if (!articleAuthor.value || !currentUser.value) return false;
+  return String(articleAuthor.value.id || '') === String(currentUser.value.id || '');
+});
 
 async function handleLike() {
   if (!article.value) return;
@@ -767,6 +849,10 @@ const head = useHead(
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <!-- Article exists - show content -->
         <template v-if="article">
+        <!-- 双栏布局：左主区（文章） + 右侧栏（作者画像 + 小广告） -->
+        <div class="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-6 items-start mb-4">
+          <!-- 左侧主区 -->
+          <div class="min-w-0">
           <article
               class="rounded-2xl mb-4 w-full"
               style="background-color: var(--theme-surface); border: 1px solid var(--theme-border);"
@@ -1033,6 +1119,121 @@ const head = useHead(
               </div>
             </div>
           </article>
+          </div>
+          <!-- /左侧主区 -->
+
+          <!-- 右侧栏：作者画像卡 + 小广告位（桌面端 sticky；移动端不 sticky，自然下移到文章下方） -->
+          <aside class="space-y-4 lg:sticky lg:top-20 self-start w-full">
+            <!-- 作者画像卡 -->
+            <div
+                v-if="articleAuthor"
+                class="rounded-2xl p-5 author-card"
+                style="background-color: var(--theme-surface); border: 1px solid var(--theme-border);"
+            >
+              <!-- 头像 + 名字 -->
+              <div class="flex flex-col items-center text-center">
+                <Link
+                    v-if="articleAuthor.id || article?.authorId"
+                    :to="`/author/${articleAuthor.id || article?.authorId}`"
+                    class="block hover:opacity-90 transition-opacity"
+                >
+                  <img
+                      :src="getSafeAvatar(articleAuthor.avatar, articleAuthor.id)"
+                      :alt="articleAuthor.username"
+                      class="w-20 h-20 rounded-full ring-2"
+                      style="--tw-ring-color: var(--theme-accent);"
+                      loading="lazy"
+                      @error="(e: Event) => (e.target as HTMLImageElement).src = getSafeAvatar(null, articleAuthor.id)"
+                  />
+                </Link>
+                <img
+                    v-else
+                    :src="getSafeAvatar(articleAuthor.avatar, articleAuthor.id)"
+                    :alt="articleAuthor.username"
+                    class="w-20 h-20 rounded-full ring-2"
+                    style="--tw-ring-color: var(--theme-accent);"
+                    loading="lazy"
+                />
+                <Link
+                    v-if="articleAuthor.id || article?.authorId"
+                    :to="`/author/${articleAuthor.id || article?.authorId}`"
+                    class="mt-3 font-bold text-base hover:underline"
+                    style="color: var(--theme-text);"
+                >
+                  {{ articleAuthor.nickname || articleAuthor.username || '匿名作者' }}
+                </Link>
+                <span v-else class="mt-3 font-bold text-base" style="color: var(--theme-text);">
+                  {{ articleAuthor.nickname || articleAuthor.username || '匿名作者' }}
+                </span>
+                <!-- 简介 -->
+                <p
+                    v-if="articleAuthor.bio"
+                    class="mt-2 text-sm leading-relaxed line-clamp-3"
+                    style="color: var(--theme-text-secondary);"
+                >
+                  {{ articleAuthor.bio }}
+                </p>
+              </div>
+
+              <!-- 统计指标 2x2 网格 -->
+              <div class="grid grid-cols-2 gap-2 mt-4">
+                <div class="stat-cell">
+                  <FileText class="w-4 h-4 mb-1" aria-hidden="true"/>
+                  <div class="stat-value">{{ authorStats?.articles ?? 0 }}</div>
+                  <div class="stat-label">文章</div>
+                </div>
+                <div class="stat-cell">
+                  <ThumbsUp class="w-4 h-4 mb-1" aria-hidden="true"/>
+                  <div class="stat-value">{{ authorStats?.totalLikes ?? authorStats?.likes ?? 0 }}</div>
+                  <div class="stat-label">被点赞</div>
+                </div>
+                <div class="stat-cell">
+                  <Users class="w-4 h-4 mb-1" aria-hidden="true"/>
+                  <div class="stat-value">{{ authorStats?.followers ?? 0 }}</div>
+                  <div class="stat-label">粉丝</div>
+                </div>
+                <div class="stat-cell">
+                  <MessageSquare class="w-4 h-4 mb-1" aria-hidden="true"/>
+                  <div class="stat-value">{{ authorStats?.comments ?? 0 }}</div>
+                  <div class="stat-label">观点</div>
+                </div>
+              </div>
+
+              <!-- 关注按钮（作者本人不显示） -->
+              <button
+                  v-if="!isSelfAuthor && (articleAuthor.id || article?.authorId)"
+                  @click="toggleFollow"
+                  :disabled="followLoading"
+                  class="mt-4 w-full flex items-center justify-center gap-2 px-4 py-2 rounded-full font-medium text-sm transition-colors disabled:opacity-60 focus:outline-none"
+                  :style="isFollowingAuthor
+                    ? { backgroundColor: 'var(--theme-surface)', color: 'var(--theme-text-secondary)', border: '1px solid var(--theme-border)' }
+                    : { backgroundColor: 'var(--theme-primary)', color: 'white' }"
+                  :aria-pressed="isFollowingAuthor"
+                  :aria-label="isFollowingAuthor ? '取消关注作者' : '关注作者'"
+              >
+                <UserCheck v-if="isFollowingAuthor" class="w-4 h-4" aria-hidden="true"/>
+                <UserPlus v-else class="w-4 h-4" aria-hidden="true"/>
+                <span>{{ followLoading ? '处理中...' : (isFollowingAuthor ? '已关注' : '关注作者') }}</span>
+              </button>
+
+              <!-- 查看主页 -->
+              <Link
+                  v-if="articleAuthor.id || article?.authorId"
+                  :to="`/author/${articleAuthor.id || article?.authorId}`"
+                  class="mt-2 block text-center text-sm font-medium hover:underline"
+                  style="color: var(--theme-primary);"
+              >
+                查看作者主页 →
+              </Link>
+            </div>
+
+            <!-- 右侧栏小广告位（仅桌面端展示，避免移动端与底部广告位重复） -->
+            <div class="hidden lg:block">
+              <AdCard slot-key="article_detail_sidebar" />
+            </div>
+          </aside>
+        </div>
+        <!-- /双栏布局 -->
 
           <!-- 相关推荐 -->
           <section v-if="relatedArticles.length > 0" class="mb-4">
@@ -1385,5 +1586,41 @@ const head = useHead(
 
 .ml-13 {
   margin-left: 52px;
+}
+
+/* 作者画像卡统计单元 */
+.author-card .stat-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 10px 6px;
+  border-radius: 10px;
+  background-color: var(--theme-accent);
+  text-align: center;
+}
+
+.author-card .stat-cell svg {
+  color: var(--theme-primary);
+}
+
+.author-card .stat-value {
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1.2;
+  color: var(--theme-text);
+}
+
+.author-card .stat-label {
+  font-size: 12px;
+  color: var(--theme-text-secondary);
+  margin-top: 2px;
+}
+
+/* 简介 3 行截断 */
+.line-clamp-3 {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 </style>

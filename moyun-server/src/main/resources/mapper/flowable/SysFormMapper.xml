@@ -21,13 +21,22 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
 
     <select id="selectSysFormList" parameterType="SysForm" resultMap="SysFormResult">
         <include refid="selectSysFormVo"/>
-        <where>  
+        <where>
             <if test="formName != null  and formName != ''"> and form_name like concat('%', #{formName}, '%')</if>
             <if test="formContent != null  and formContent != ''"> and form_content = #{formContent}</if>
         </where>
         order by create_time desc
     </select>
-    
+
+    <select id="selectSysFormPage" resultMap="SysFormResult">
+        <include refid="selectSysFormVo"/>
+        <where>
+            <if test="query.formName != null  and query.formName != ''"> and form_name like concat('%', #{query.formName}, '%')</if>
+            <if test="query.formContent != null  and query.formContent != ''"> and form_content = #{query.formContent}</if>
+        </where>
+        order by create_time desc
+    </select>
+
     <select id="selectSysFormById" parameterType="Long" resultMap="SysFormResult">
         <include refid="selectSysFormVo"/>
         where form_id = #{formId}

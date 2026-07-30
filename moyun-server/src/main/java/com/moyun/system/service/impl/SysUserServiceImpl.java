@@ -1,5 +1,6 @@
 package com.moyun.system.service.impl;
 
+import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.moyun.core.base.entity.SysRole;
 import com.moyun.core.base.entity.SysUser;
@@ -66,6 +67,14 @@ public class SysUserServiceImpl extends ServiceImpl<SysUserMapper, SysUser> impl
     }
 
     /**
+     * 分页查询用户列表（MyBatis-Plus 标准分页，配合 PaginationInnerInterceptor）
+     */
+    @Override
+    public IPage<SysUser> selectUserPage(IPage<SysUser> page, SysUser user) {
+        return userMapper.selectUserPage(page, user);
+    }
+
+    /**
      * 根据条件分页查询已分配用户角色列表
      *
      * @param user 用户信息
@@ -85,6 +94,30 @@ public class SysUserServiceImpl extends ServiceImpl<SysUserMapper, SysUser> impl
     @Override
     public List<SysUser> selectUnallocatedList(SysUser user) {
         return userMapper.selectUnallocatedList(user);
+    }
+
+    /**
+     * 根据条件分页查询已分配用户角色列表（MyBatis-Plus 标准分页，配合 PaginationInnerInterceptor）
+     *
+     * @param page 分页对象
+     * @param user 用户信息
+     * @return 分页结果
+     */
+    @Override
+    public IPage<SysUser> selectAllocatedPage(IPage<SysUser> page, SysUser user) {
+        return userMapper.selectAllocatedPage(page, user);
+    }
+
+    /**
+     * 根据条件分页查询未分配用户角色列表（MyBatis-Plus 标准分页，配合 PaginationInnerInterceptor）
+     *
+     * @param page 分页对象
+     * @param user 用户信息
+     * @return 分页结果
+     */
+    @Override
+    public IPage<SysUser> selectUnallocatedPage(IPage<SysUser> page, SysUser user) {
+        return userMapper.selectUnallocatedPage(page, user);
     }
 
     /**

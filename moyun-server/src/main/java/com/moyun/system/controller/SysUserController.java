@@ -2,6 +2,8 @@ package com.moyun.system.controller;
 
 import com.moyun.common.annotation.Log;
 import com.moyun.common.enums.BusinessType;
+import com.baomidou.mybatisplus.core.metadata.IPage;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.moyun.core.base.AjaxResult;
 import com.moyun.core.base.BaseController;
 import com.moyun.core.base.TableDataInfo;
@@ -57,9 +59,9 @@ public class SysUserController extends BaseController {
     @PreAuthorize("@ss.hasPermi('system:user:list')")
     @GetMapping("/list")
     public TableDataInfo list(SysUser user) {
-        startPage();
-        List<SysUser> list = userService.selectUserList(user);
-        return getDataTable(list);
+        Page<SysUser> page = startPage();
+        IPage<SysUser> result = userService.selectUserPage(page, user);
+        return getDataTable(result.getRecords(), result.getTotal());
     }
 
     @Operation(summary = "导出用户", description = "导出用户数据到Excel文件")

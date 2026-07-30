@@ -1,6 +1,7 @@
--- 来源：all-db-ddl.sql 行4031-4447 + 行5044-5323（DDL 部分，已剔除 INSERT 种子数据）
--- 用途：基础系统表 DDL（sys_config / sys_deploy_form / sys_dept / sys_dict_data / sys_dict_type / sys_expression / sys_file / sys_form / sys_job / sys_job_log / sys_listener / sys_logininfor / sys_menu / sys_notice_bak / sys_notification / sys_notification_read / sys_oper_log / sys_post / sys_role / sys_role_dept / sys_user / sys_user_post / sys_user_role）
--- 注意：INSERT 种子数据见 81 段；sys_menu INSERT 见 90/91 段；已跳过行5042 游离 UNLOCK TABLES
+-- v6.1 合并：原 60_基础系统表 + 61_系统关联表_菜单与角色（合并为一个文件，减少分散）
+-- 来源：all-db-ddl.sql 行4031-4447 + 行5044-5323 + 行4984-4998
+-- 用途：基础系统表 DDL（sys_config / sys_dept / sys_dict_* / sys_menu / sys_role / sys_role_menu / sys_user* 等 24 张表）
+-- 注意：INSERT 种子数据见 80 段；sys_menu INSERT 见 90/91 段
 
 DROP TABLE IF EXISTS `sys_config`;
 CREATE TABLE `sys_config` (
@@ -269,6 +270,7 @@ CREATE TABLE `sys_logininfor` (
                                   `browser` varchar(50) COLLATE utf8mb4_0900_ai_ci DEFAULT '' COMMENT '浏览器类型',
                                   `os` varchar(50) COLLATE utf8mb4_0900_ai_ci DEFAULT '' COMMENT '操作系统',
                                   `status` char(1) COLLATE utf8mb4_0900_ai_ci DEFAULT '0' COMMENT '登录状态（0成功 1失败）',
+                                  `user_type` varchar(10) COLLATE utf8mb4_0900_ai_ci DEFAULT 'sys' COMMENT '登录来源类型（sys=后台用户 portal=门户用户）',
                                   `msg` varchar(255) COLLATE utf8mb4_0900_ai_ci DEFAULT '' COMMENT '提示消息',
                                   `login_time` datetime DEFAULT NULL COMMENT '访问时间',
                                   `create_by` varchar(64) COLLATE utf8mb4_0900_ai_ci DEFAULT '' COMMENT '创建者',
@@ -278,7 +280,8 @@ CREATE TABLE `sys_logininfor` (
                                   `remark` varchar(500) COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '备注',
                                   PRIMARY KEY (`info_id`),
                                   KEY `idx_sys_logininfor_s` (`status`),
-                                  KEY `idx_sys_logininfor_lt` (`login_time`)
+                                  KEY `idx_sys_logininfor_lt` (`login_time`),
+                                  KEY `idx_sys_logininfor_ut` (`user_type`)
 ) ENGINE=InnoDB AUTO_INCREMENT=100 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='系统访问记录';
 
 
@@ -536,3 +539,21 @@ CREATE TABLE `sys_user_role` (
                                  `remark` varchar(500) COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '备注',
                                  PRIMARY KEY (`user_id`,`role_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='用户和角色关联表';
+-- 来源：all-db-ddl.sql 行4984-4998
+-- 用途：sys_role_menu 关联表 CREATE TABLE（角色与菜单关联）
+
+CREATE TABLE `sys_role_menu` (
+                                 `role_id` bigint NOT NULL COMMENT '角色ID',
+                                 `menu_id` bigint NOT NULL COMMENT '菜单ID',
+                                 `create_by` varchar(64) COLLATE utf8mb4_0900_ai_ci DEFAULT '' COMMENT '创建者',
+                                 `create_time` datetime DEFAULT NULL COMMENT '创建时间',
+                                 `update_by` varchar(64) COLLATE utf8mb4_0900_ai_ci DEFAULT '' COMMENT '更新者',
+                                 `update_time` datetime DEFAULT NULL COMMENT '更新时间',
+                                 `remark` varchar(500) COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '备注',
+                                 PRIMARY KEY (`role_id`,`menu_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='角色和菜单关联表';
+
+--
+-- Dumping data for table `sys_role_menu`
+--
+

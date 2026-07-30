@@ -42,7 +42,25 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
 			</if>
 		</where>
 	</select>
-	
+
+	<select id="selectJobPage" resultMap="SysJobResult">
+		<include refid="selectJobVo"/>
+		<where>
+			<if test="query.jobName != null and query.jobName != ''">
+				AND job_name like concat('%', #{query.jobName}, '%')
+			</if>
+			<if test="query.jobGroup != null and query.jobGroup != ''">
+				AND job_group = #{query.jobGroup}
+			</if>
+			<if test="query.status != null and query.status != ''">
+				AND status = #{query.status}
+			</if>
+			<if test="query.invokeTarget != null and query.invokeTarget != ''">
+				AND invoke_target like concat('%', #{query.invokeTarget}, '%')
+			</if>
+		</where>
+	</select>
+
 	<select id="selectJobAll" resultMap="SysJobResult">
 		<include refid="selectJobVo"/>
 	</select>

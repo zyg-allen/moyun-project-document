@@ -1,5 +1,6 @@
 package com.moyun.system.service;
 
+import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.moyun.system.domain.entity.SysLogininfor;
 import com.moyun.system.domain.query.LogininforQuery;
 
@@ -21,10 +22,19 @@ public interface ISysLogininforService {
     /**
      * 查询系统登录日志集合
      *
-     * @param query 访问日志查询条件
+     * @param query 访问记录查询条件
      * @return 登录记录集合
      */
     public List<SysLogininfor> selectLogininforList(LogininforQuery query);
+
+    /**
+     * 分页查询系统登录日志（MyBatis-Plus 标准分页，配合 PaginationInnerInterceptor）
+     *
+     * @param page  分页对象
+     * @param query 访问记录查询条件
+     * @return 分页结果
+     */
+    public IPage<SysLogininfor> selectLogininforPage(IPage<SysLogininfor> page, LogininforQuery query);
 
     /**
      * 批量删除系统登录日志

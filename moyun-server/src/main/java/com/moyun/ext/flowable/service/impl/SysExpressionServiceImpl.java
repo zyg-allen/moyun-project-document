@@ -1,5 +1,6 @@
 package com.moyun.ext.flowable.service.impl;
 
+import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.moyun.ext.flowable.service.ISysExpressionService;
 import com.moyun.system.domain.entity.SysExpression;
 import com.moyun.system.mapper.SysExpressionMapper;
@@ -40,6 +41,14 @@ public class SysExpressionServiceImpl implements ISysExpressionService {
     @Override
     public List<SysExpression> selectSysExpressionList(SysExpression sysExpression) {
         return sysExpressionMapper.selectSysExpressionList(sysExpression);
+    }
+
+    /**
+     * 分页查询流程达式（MyBatis-Plus 标准分页）
+     */
+    @Override
+    public IPage<SysExpression> selectSysExpressionPage(IPage<SysExpression> page, SysExpression sysExpression) {
+        return sysExpressionMapper.selectSysExpressionPage(page, sysExpression);
     }
 
     /**

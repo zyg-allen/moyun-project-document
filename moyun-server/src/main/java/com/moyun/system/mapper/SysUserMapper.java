@@ -1,6 +1,7 @@
 package com.moyun.system.mapper;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
+import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.moyun.core.base.entity.SysUser;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
@@ -24,6 +25,15 @@ public interface SysUserMapper extends BaseMapper<SysUser> {
     public List<SysUser> selectUserList(SysUser sysUser);
 
     /**
+     * 分页查询用户列表（MyBatis-Plus 标准分页，配合 PaginationInnerInterceptor）
+     *
+     * @param page  分页对象
+     * @param user  用户信息
+     * @return 分页结果
+     */
+    IPage<SysUser> selectUserPage(IPage<SysUser> page, @Param("query") SysUser user);
+
+    /**
      * 根据条件分页查询已配用户角色列表
      *
      * @param user 用户信息
@@ -38,6 +48,24 @@ public interface SysUserMapper extends BaseMapper<SysUser> {
      * @return 用户信息集合信息
      */
     public List<SysUser> selectUnallocatedList(SysUser user);
+
+    /**
+     * 根据条件分页查询已分配用户角色列表（MyBatis-Plus 标准分页，配合 PaginationInnerInterceptor）
+     *
+     * @param page 分页对象
+     * @param user 用户信息
+     * @return 分页结果
+     */
+    IPage<SysUser> selectAllocatedPage(IPage<SysUser> page, @Param("query") SysUser user);
+
+    /**
+     * 根据条件分页查询未分配用户角色列表（MyBatis-Plus 标准分页，配合 PaginationInnerInterceptor）
+     *
+     * @param page 分页对象
+     * @param user 用户信息
+     * @return 分页结果
+     */
+    IPage<SysUser> selectUnallocatedPage(IPage<SysUser> page, @Param("query") SysUser user);
 
     /**
      * 通过用户名查询用户

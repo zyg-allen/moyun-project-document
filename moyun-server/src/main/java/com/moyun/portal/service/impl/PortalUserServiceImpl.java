@@ -2,6 +2,7 @@ package com.moyun.portal.service.impl;
 
 import java.util.List;
 
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -216,6 +217,46 @@ public class PortalUserServiceImpl extends ServiceImpl<PortalUserMapper, PortalU
     @Override
     public int deletePortalUserByIds(Long[] ids) {
         return portalUserMapper.deletePortalUserByIds(ids);
+    }
+
+    /**
+     * 按后台用户ID（sys_user.user_id）反查绑定的门户身份
+     *
+     * <p>后台管理员发文章时会自动建立 role=admin 的门户影子账户
+     * （portal_user.user_id = sys_user.user_id）。当门户用户私信该门户身份时，
+     * 后台管理员可通过此映射以同一门户身份查看/回复私信。</p>
+     *
+     * <p>优先返回 role='admin' 的绑定身份；若无则返回第一条；未绑定返回 null。</p>
+     *
+     * @param sysUserId 后台用户ID
+     * @return 绑定的门户用户；未绑定返回 null
+     */
+    @Override
+    public PortalUser findBoundPortalIdentity(Long sysUserId) {
+        if (sysUserId == null) {
+            return null;
+        }
+        // 优先查 role=admin 的影子账户（后台发文章自动建户产生的绑定）
+        PortalUser adminBinding = portalUserMapper.selectOne(
+                new LambdaQueryWrapper<PortalUser>()
+                        .eq(PortalUser::getUserId, sysUserId)
+                        .eq(PortalUser::getRole, "admin")
+                        .last("LIMIT 1")
+        );
+        if (adminBinding != null) {
+            clearPassword(adminBinding);
+            return adminBinding;
+        }
+        // 退而求其次：查任意绑定的门户账户（可能是手动绑定的非 admin 门户身份）
+        PortalUser anyBinding = portalUserMapper.selectOne(
+                new LambdaQueryWrapper<PortalUser>()
+                        .eq(PortalUser::getUserId, sysUserId)
+                        .last("LIMIT 1")
+        );
+        if (anyBinding != null) {
+            clearPassword(anyBinding);
+        }
+        return anyBinding;
     }
 
     /**

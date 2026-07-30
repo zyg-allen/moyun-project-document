@@ -83,10 +83,14 @@ public class DashboardVO implements Serializable {
         private Long todayVisitors;
         /** 今日页面浏览量（PV） */
         private Long todayPageViews;
-        /** 今日登录人数 */
+        /** 今日登录人数（前后台合计去重） */
         private Long todayLoginUsers;
-        /** 今日登录总次数 */
+        /** 今日登录总次数（前后台合计） */
         private Long todayLoginCount;
+        /** 今日门户用户登录人数（user_type=portal 去重） */
+        private Long todayPortalLoginUsers;
+        /** 今日后台用户登录人数（user_type=sys 去重） */
+        private Long todaySysLoginUsers;
         /** 今日登录成功率 */
         private Double loginSuccessRate;
         /** 今日新增文章数 */

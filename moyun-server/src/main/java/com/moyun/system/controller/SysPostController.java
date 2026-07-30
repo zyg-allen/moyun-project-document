@@ -2,6 +2,8 @@ package com.moyun.system.controller;
 
 import com.moyun.common.annotation.Log;
 import com.moyun.common.enums.BusinessType;
+import com.baomidou.mybatisplus.core.metadata.IPage;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.moyun.core.base.AjaxResult;
 import com.moyun.core.base.BaseController;
 import com.moyun.core.base.TableDataInfo;
@@ -38,9 +40,9 @@ public class SysPostController extends BaseController {
     @PreAuthorize("@ss.hasPermi('system:post:list')")
     @GetMapping("/list")
     public TableDataInfo list(SysPost post) {
-        startPage();
-        List<SysPost> list = postService.selectPostList(post);
-        return getDataTable(list);
+        Page<SysPost> page = startPage();
+        IPage<SysPost> result = postService.selectPostPage(page, post);
+        return getDataTable(result.getRecords(), result.getTotal());
     }
 
     @Operation(summary = "导出岗位", description = "导出岗位信息到Excel文件")

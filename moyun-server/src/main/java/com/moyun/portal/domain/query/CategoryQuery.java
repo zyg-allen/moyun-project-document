@@ -29,6 +29,12 @@ public class CategoryQuery extends PageDomain {
     private String status;
 
     /**
+     * 栏目内容类型（article=文章栏目 special=特殊页面）
+     */
+    @Schema(description = "栏目内容类型", example = "article")
+    private String categoryType;
+
+    /**
      * 父分类ID
      */
     @Schema(description = "父分类ID", example = "1")

@@ -453,6 +453,8 @@ export interface Category {
   navRouteType?: string;
   /** 静态/外链路由路径（仅 static/external 类型使用） */
   navRoutePath?: string;
+  /** 栏目类型：article=文章栏目（可发布文章） special=特殊页面（不参与排行榜/发布） */
+  categoryType?: string;
   /** 是否需要登录（0否/1是） */
   requiresAuth?: number;
 }

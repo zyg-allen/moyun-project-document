@@ -1,5 +1,6 @@
 package com.moyun.system.service;
 
+import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.moyun.core.base.entity.SysUser;
 
 import java.util.List;
@@ -20,6 +21,15 @@ public interface ISysUserService {
     public List<SysUser> selectUserList(SysUser user);
 
     /**
+     * 分页查询用户列表（MyBatis-Plus 标准分页，配合 PaginationInnerInterceptor）
+     *
+     * @param page  分页对象
+     * @param user  用户信息
+     * @return 分页结果
+     */
+    public IPage<SysUser> selectUserPage(IPage<SysUser> page, SysUser user);
+
+    /**
      * 根据条件分页查询已分配用户角色列表
      *
      * @param user 用户信息
@@ -34,6 +44,24 @@ public interface ISysUserService {
      * @return 用户信息集合信息
      */
     public List<SysUser> selectUnallocatedList(SysUser user);
+
+    /**
+     * 根据条件分页查询已分配用户角色列表（MyBatis-Plus 标准分页，配合 PaginationInnerInterceptor）
+     *
+     * @param page 分页对象
+     * @param user 用户信息
+     * @return 分页结果
+     */
+    public IPage<SysUser> selectAllocatedPage(IPage<SysUser> page, SysUser user);
+
+    /**
+     * 根据条件分页查询未分配用户角色列表（MyBatis-Plus 标准分页，配合 PaginationInnerInterceptor）
+     *
+     * @param page 分页对象
+     * @param user 用户信息
+     * @return 分页结果
+     */
+    public IPage<SysUser> selectUnallocatedPage(IPage<SysUser> page, SysUser user);
 
     /**
      * 通过用户名查询用户

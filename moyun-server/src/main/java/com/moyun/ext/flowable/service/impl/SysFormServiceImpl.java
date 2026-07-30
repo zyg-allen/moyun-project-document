@@ -1,5 +1,6 @@
 package com.moyun.ext.flowable.service.impl;
 
+import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.moyun.ext.flowable.service.ISysFormService;
 import com.moyun.system.domain.entity.SysForm;
 import com.moyun.system.mapper.SysFormMapper;
@@ -39,6 +40,14 @@ public class SysFormServiceImpl implements ISysFormService {
     @Override
     public List<SysForm> selectSysFormList(SysForm sysForm) {
         return sysFormMapper.selectSysFormList(sysForm);
+    }
+
+    /**
+     * 分页查询流程表单列表（MyBatis-Plus 标准分页）
+     */
+    @Override
+    public IPage<SysForm> selectSysFormPage(IPage<SysForm> page, SysForm sysForm) {
+        return sysFormMapper.selectSysFormPage(page, sysForm);
     }
 
     /**

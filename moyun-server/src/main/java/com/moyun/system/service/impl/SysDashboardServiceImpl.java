@@ -275,6 +275,9 @@ public class SysDashboardServiceImpl implements ISysDashboardService {
             stats.setTodayPageViews(articleViewMapper.countTodayPageViews(todayStart));
             stats.setTodayLoginUsers(logininforMapper.countTodayLoginUsers(todayStart));
             stats.setTodayLoginCount(logininforMapper.countTodayLoginCount(todayStart));
+            // 按前后台来源拆分登录人数（用于卡片细维度展示）
+            stats.setTodayPortalLoginUsers(logininforMapper.countTodayLoginUsersByType(todayStart, "portal"));
+            stats.setTodaySysLoginUsers(logininforMapper.countTodayLoginUsersByType(todayStart, "sys"));
             long successCount = logininforMapper.countTodayLoginSuccess(todayStart);
             long totalCount = stats.getTodayLoginCount();
             stats.setLoginSuccessRate(totalCount > 0 ? (successCount * 100.0 / totalCount) : 100.0);
@@ -300,15 +303,19 @@ public class SysDashboardServiceImpl implements ISysDashboardService {
         LocalDateTime startTime = LocalDateTime.now().minusDays(6).withHour(0).withMinute(0).withSecond(0).withNano(0);
         try {
             List<Map<String, Object>> raw = logininforMapper.selectDailyLoginTrend(startTime);
-            // 按日期分组，合并 success/fail
+            // 按日期分组，合并 success/fail（聚合前后台来源，保持前端 label=success/fail 不变）
+            // label 维度由 SQL 输出为 portal_success/portal_fail/sys_success/sys_fail，这里统一归到 success/fail
             Map<String, long[]> grouped = new TreeMap<>();
             for (Map<String, Object> row : raw) {
                 String date = String.valueOf(row.get("date"));
                 long value = toLong(row.get("value"));
                 String label = String.valueOf(row.get("label"));
                 long[] arr = grouped.computeIfAbsent(date, k -> new long[2]);
-                if ("success".equals(label)) arr[0] += value;
-                else arr[1] += value;
+                if (label != null && label.endsWith("success")) {
+                    arr[0] += value;
+                } else {
+                    arr[1] += value;
+                }
             }
             // 填充缺失日期
             for (int i = 6; i >= 0; i--) {
@@ -444,7 +451,7 @@ public class SysDashboardServiceImpl implements ISysDashboardService {
                     item.setCreateTime(n.getCreateTime() != null ? n.getCreateTime().format(DATETIME_FMT) : "");
                     item.setSubmitter("系统");
                     item.setPriority("medium".equals(n.getType()) ? "medium" : "low");
-                    item.setRoutePath("/cms/notification");
+                    item.setRoutePath("/system/notification");
                     tasks.add(item);
                 }
             }
@@ -622,6 +629,53 @@ public class SysDashboardServiceImpl implements ISysDashboardService {
             }
         } catch (Exception e) {
             log.error("[Dashboard] 构建通知动态失败", e);
+        }
+        try {
+            // 3. 最近门户动态：已发布文章（按 publish_time 倒序取 8 条）
+            com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<com.moyun.portal.domain.entity.PortalArticle> artWrapper =
+                    new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<>();
+            artWrapper.eq(com.moyun.portal.domain.entity.PortalArticle::getStatus, "published")
+                     .orderByDesc(com.moyun.portal.domain.entity.PortalArticle::getCreateTime)
+                     .last("LIMIT 8");
+            List<com.moyun.portal.domain.entity.PortalArticle> recentArticles = articleMapper.selectList(artWrapper);
+            if (recentArticles != null) {
+                for (com.moyun.portal.domain.entity.PortalArticle a : recentArticles) {
+                    DashboardVO.ActivityItem item = new DashboardVO.ActivityItem();
+                    item.setId(a.getId());
+                    item.setType("article_publish");
+                    item.setModule("文章发布");
+                    item.setContent(a.getTitle() != null ? a.getTitle() : "");
+                    item.setOperator(a.getCreateBy() != null ? a.getCreateBy() : "门户作者");
+                    item.setCreateTime(a.getCreateTime() != null ? a.getCreateTime().format(DATETIME_FMT) : "");
+                    item.setBusinessType("PUBLISH");
+                    activities.add(item);
+                }
+            }
+        } catch (Exception e) {
+            log.error("[Dashboard] 构建文章发布动态失败", e);
+        }
+        try {
+            // 4. 最近门户动态：新用户注册（按 create_time 倒序取 5 条）
+            com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<com.moyun.portal.domain.entity.PortalUser> userWrapper =
+                    new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<>();
+            userWrapper.orderByDesc(com.moyun.portal.domain.entity.PortalUser::getCreateTime)
+                       .last("LIMIT 5");
+            List<com.moyun.portal.domain.entity.PortalUser> recentUsers = portalUserMapper.selectList(userWrapper);
+            if (recentUsers != null) {
+                for (com.moyun.portal.domain.entity.PortalUser u : recentUsers) {
+                    DashboardVO.ActivityItem item = new DashboardVO.ActivityItem();
+                    item.setId(u.getId());
+                    item.setType("user_register");
+                    item.setModule("用户注册");
+                    item.setContent((u.getNickname() != null ? u.getNickname() : u.getUsername()) + " 加入了平台");
+                    item.setOperator(u.getUsername() != null ? u.getUsername() : "新用户");
+                    item.setCreateTime(u.getCreateTime() != null ? u.getCreateTime().format(DATETIME_FMT) : "");
+                    item.setBusinessType("REGISTER");
+                    activities.add(item);
+                }
+            }
+        } catch (Exception e) {
+            log.error("[Dashboard] 构建用户注册动态失败", e);
         }
 
         // 合并后按时间排序，取 Top 12

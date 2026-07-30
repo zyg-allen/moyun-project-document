@@ -73,6 +73,13 @@
           </el-tag>
         </template>
       </el-table-column>
+      <el-table-column prop="categoryType" label="栏目类型" width="100" align="center">
+        <template #default="{ row }">
+          <el-tag :type="row.categoryType === 'article' ? 'primary' : 'warning'" size="small">
+            {{ row.categoryType === 'article' ? '文章栏目' : '特殊页面' }}
+          </el-tag>
+        </template>
+      </el-table-column>
       <el-table-column prop="showInNav" label="头部展示" width="90" align="center">
         <template #default="{ row }">
           <el-tag :type="Number(row.showInNav) === 1 ? 'success' : 'info'">
@@ -237,6 +244,19 @@
             </el-form-item>
           </el-col>
         </el-row>
+        <el-row :gutter="20">
+          <el-col :span="12">
+            <el-form-item label="栏目类型" prop="categoryType">
+              <el-select v-model="form.categoryType" placeholder="请选择栏目类型" style="width: 100%">
+                <el-option label="文章栏目（可发布文章）" value="article" />
+                <el-option label="特殊页面（不发布文章）" value="special" />
+              </el-select>
+              <div style="color: #909399; font-size: 12px; margin-top: 4px;">
+                article=可发布文章的栏目；special=首页/外链等特殊页面（不参与栏目排行榜）
+              </div>
+            </el-form-item>
+          </el-col>
+        </el-row>
         <el-form-item label="栏目描述" prop="description">
           <el-input v-model="form.description" type="textarea" :rows="3" placeholder="请输入栏目描述" />
         </el-form-item>
@@ -348,6 +368,7 @@ function reset() {
     showInNav: 0,
     navRouteType: "category",
     navRoutePath: undefined,
+    categoryType: "article",
     requiresAuth: 0,
     description: undefined,
     remark: undefined

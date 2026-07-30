@@ -18,6 +18,7 @@
         <result property="showInNav" column="show_in_nav"/>
         <result property="navRouteType" column="nav_route_type"/>
         <result property="navRoutePath" column="nav_route_path"/>
+        <result property="categoryType" column="category_type"/>
         <result property="requiresAuth" column="requires_auth"/>
         <result property="createBy" column="create_by"/>
         <result property="createTime" column="create_time"/>
@@ -27,10 +28,10 @@
     </resultMap>
 
     <sql id="selectPortalCategoryVo">
-        select id, name, slug, description, icon, sort, parent_id, parent_business_id, status, show_in_nav, nav_route_type, nav_route_path, requires_auth, create_by, create_time, update_by, update_time, remark, business_id from portal_category
+        select id, name, slug, description, icon, sort, parent_id, parent_business_id, status, show_in_nav, nav_route_type, nav_route_path, category_type, requires_auth, create_by, create_time, update_by, update_time, remark, business_id from portal_category
     </sql>
 
-    <!-- 通用查询条件片段 -->
+    <!-- 通用查询条件片段（参数通过 @Param("params") 绑定，故用 params.xxx 访问） -->
     <sql id="queryWhere">
         <where>
             <if test="params.name != null and params.name != ''">
@@ -41,6 +42,9 @@
             </if>
             <if test="params.status != null and params.status != ''">
                 AND status = #{params.status}
+            </if>
+            <if test="params.categoryType != null and params.categoryType != ''">
+                AND category_type = #{params.categoryType}
             </if>
         </where>
     </sql>
@@ -96,6 +100,7 @@
             <if test="showInNav != null">show_in_nav,</if>
             <if test="navRouteType != null">nav_route_type,</if>
             <if test="navRoutePath != null">nav_route_path,</if>
+            <if test="categoryType != null">category_type,</if>
             <if test="requiresAuth != null">requires_auth,</if>
             <if test="createBy != null">create_by,</if>
             <if test="createTime != null">create_time,</if>
@@ -114,6 +119,7 @@
             <if test="showInNav != null">#{showInNav},</if>
             <if test="navRouteType != null">#{navRouteType},</if>
             <if test="navRoutePath != null">#{navRoutePath},</if>
+            <if test="categoryType != null">#{categoryType},</if>
             <if test="requiresAuth != null">#{requiresAuth},</if>
             <if test="createBy != null">#{createBy},</if>
             <if test="createTime != null">#{createTime},</if>
@@ -136,6 +142,7 @@
             <if test="showInNav != null">show_in_nav = #{showInNav},</if>
             <if test="navRouteType != null">nav_route_type = #{navRouteType},</if>
             <if test="navRoutePath != null">nav_route_path = #{navRoutePath},</if>
+            <if test="categoryType != null">category_type = #{categoryType},</if>
             <if test="requiresAuth != null">requires_auth = #{requiresAuth},</if>
             <if test="updateBy != null">update_by = #{updateBy},</if>
             <if test="updateTime != null">update_time = #{updateTime},</if>

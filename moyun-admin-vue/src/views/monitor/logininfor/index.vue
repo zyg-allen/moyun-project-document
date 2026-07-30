@@ -175,8 +175,8 @@ const queryParams = ref({
 function getList() {
   loading.value = true;
   list(proxy.addDateRange(queryParams.value, dateRange.value)).then(response => {
-    logininforList.value = response.rows;
-    total.value = response.total;
+    logininforList.value = response.data.records;
+    total.value = response.data.total;
     loading.value = false;
   });
 }

@@ -6,7 +6,6 @@ import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.moyun.core.base.AjaxResult;
 import com.moyun.core.base.BaseController;
-import com.moyun.core.base.TableDataInfo;
 import com.moyun.system.domain.entity.SysConfig;
 import com.moyun.system.service.ISysConfigService;
 import com.moyun.util.file.ExcelUtil;
@@ -39,10 +38,10 @@ public class SysConfigController extends BaseController {
     @Operation(summary = "获取参数配置列表", description = "分页查询系统参数配置列表")
     @PreAuthorize("@ss.hasPermi('system:config:list')")
     @GetMapping("/list")
-    public TableDataInfo list(SysConfig config) {
+    public AjaxResult list(SysConfig config) {
         Page<SysConfig> page = startPage();
         IPage<SysConfig> result = configService.selectConfigPage(page, config);
-        return getDataTable(result.getRecords(), result.getTotal());
+        return success(result);
     }
 
     @Operation(summary = "导出参数配置", description = "导出参数配置到Excel文件")

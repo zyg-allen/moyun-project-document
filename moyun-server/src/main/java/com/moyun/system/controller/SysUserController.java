@@ -6,7 +6,6 @@ import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.moyun.core.base.AjaxResult;
 import com.moyun.core.base.BaseController;
-import com.moyun.core.base.TableDataInfo;
 import com.moyun.core.base.entity.SysDept;
 import com.moyun.core.base.entity.SysRole;
 import com.moyun.core.base.entity.SysUser;
@@ -58,10 +57,10 @@ public class SysUserController extends BaseController {
     @Operation(summary = "获取用户列表", description = "根据条件分页查询用户列表")
     @PreAuthorize("@ss.hasPermi('system:user:list')")
     @GetMapping("/list")
-    public TableDataInfo list(SysUser user) {
+    public AjaxResult list(SysUser user) {
         Page<SysUser> page = startPage();
         IPage<SysUser> result = userService.selectUserPage(page, user);
-        return getDataTable(result.getRecords(), result.getTotal());
+        return success(result);
     }
 
     @Operation(summary = "导出用户", description = "导出用户数据到Excel文件")

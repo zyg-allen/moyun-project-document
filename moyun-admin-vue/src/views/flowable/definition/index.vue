@@ -398,8 +398,8 @@ function handleAddForm(row) {
  */
 function ListFormDeploy() {
   listForm(formQueryParams.value).then(res => {
-    formList.value = res.rows
-    formTotal.value = res.total
+    formList.value = res.data.records
+    formTotal.value = res.data.total
     formDeployOpen.value = true
     formDeployTitle.value = '挂载表单'
   })

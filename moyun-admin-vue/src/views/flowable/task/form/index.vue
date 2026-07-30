@@ -161,8 +161,8 @@ const formData = ref({})
 function getList() {
   loading.value = true
   listForm(queryParams.value).then(response => {
-    formList.value = response.rows
-    total.value = response.total
+    formList.value = response.data.records
+    total.value = response.data.total
     loading.value = false
   })
 }

@@ -45,10 +45,10 @@ public class SysListenerController extends BaseController {
                     content = @Content(mediaType = "application/json", schema = @Schema(implementation = TableDataInfo.class)))
     })
     @GetMapping("/list")
-    public TableDataInfo list(SysListener sysListener) {
+    public AjaxResult list(SysListener sysListener) {
         Page<SysListener> page = startPage();
         IPage<SysListener> result = sysListenerService.selectSysListenerPage(page, sysListener);
-        return getDataTable(result.getRecords(), result.getTotal());
+        return success(result);
     }
 
     /**

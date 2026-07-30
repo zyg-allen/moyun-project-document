@@ -86,13 +86,7 @@ public class BaseController {
         rspData.setCode(HttpStatus.SUCCESS);
         rspData.setMsg("查询成功");
         rspData.setRows(list);
-        // 如果是 MyBatis-Plus 的 Page 对象，获取总数
-        if (list instanceof Page) {
-            Page<?> page = (Page<?>) list;
-            rspData.setTotal(total);
-        } else {
-            rspData.setTotal(list.size());
-        }
+        rspData.setTotal(total);
         return rspData;
     }
 

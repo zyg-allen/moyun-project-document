@@ -681,7 +681,7 @@ function searchSysUser(query) {
   if (query) {
     sysUserLoading.value = true;
     listSysUser({ userName: query, pageNum: 1, pageSize: 20 }).then(response => {
-      sysUserOptions.value = response.rows || [];
+      sysUserOptions.value = response.data.records || [];
     }).finally(() => {
       sysUserLoading.value = false;
     });

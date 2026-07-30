@@ -6,7 +6,6 @@ import com.moyun.common.annotation.Log;
 import com.moyun.common.enums.BusinessType;
 import com.moyun.core.base.AjaxResult;
 import com.moyun.core.base.BaseController;
-import com.moyun.core.base.TableDataInfo;
 import com.moyun.core.base.entity.SysDept;
 import com.moyun.core.base.entity.SysRole;
 import com.moyun.core.base.entity.SysUser;
@@ -57,10 +56,10 @@ public class SysRoleController extends BaseController {
     @Operation(summary = "获取角色列表", description = "根据条件分页查询角色列表")
     @PreAuthorize("@ss.hasPermi('system:role:list')")
     @GetMapping("/list")
-    public TableDataInfo list(SysRole role) {
+    public AjaxResult list(SysRole role) {
         Page<SysRole> page = startPage();
         IPage<SysRole> result = roleService.selectRolePage(page, role);
-        return getDataTable(result.getRecords(), result.getTotal());
+        return success(result);
     }
 
     @Operation(summary = "导出角色", description = "导出角色数据到Excel文件")
@@ -185,10 +184,10 @@ public class SysRoleController extends BaseController {
     @Operation(summary = "查询已分配用户角色列表", description = "获取已分配指定角色的用户列表")
     @PreAuthorize("@ss.hasPermi('system:role:list')")
     @GetMapping("/authUser/allocatedList")
-    public TableDataInfo allocatedList(SysUser user) {
+    public AjaxResult allocatedList(SysUser user) {
         Page<SysUser> page = startPage();
         IPage<SysUser> result = userService.selectAllocatedPage(page, user);
-        return getDataTable(result.getRecords(), result.getTotal());
+        return success(result);
     }
 
     /**
@@ -197,10 +196,10 @@ public class SysRoleController extends BaseController {
     @Operation(summary = "查询未分配用户角色列表", description = "获取未分配指定角色的用户列表")
     @PreAuthorize("@ss.hasPermi('system:role:list')")
     @GetMapping("/authUser/unallocatedList")
-    public TableDataInfo unallocatedList(SysUser user) {
+    public AjaxResult unallocatedList(SysUser user) {
         Page<SysUser> page = startPage();
         IPage<SysUser> result = userService.selectUnallocatedPage(page, user);
-        return getDataTable(result.getRecords(), result.getTotal());
+        return success(result);
     }
 
     /**

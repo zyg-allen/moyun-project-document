@@ -45,10 +45,10 @@ public class SysExpressionController extends BaseController {
                     content = @Content(mediaType = "application/json", schema = @Schema(implementation = TableDataInfo.class)))
     })
     @GetMapping("/list")
-    public TableDataInfo list(SysExpression sysExpression) {
+    public AjaxResult list(SysExpression sysExpression) {
         Page<SysExpression> page = startPage();
         IPage<SysExpression> result = sysExpressionService.selectSysExpressionPage(page, sysExpression);
-        return getDataTable(result.getRecords(), result.getTotal());
+        return success(result);
     }
 
     /**

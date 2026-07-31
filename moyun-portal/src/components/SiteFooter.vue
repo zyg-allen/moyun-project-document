@@ -94,6 +94,10 @@ function handleQQGroup() {
         <span style="color: var(--theme-border);">|</span>
         <button type="button" @click="goTo('/agreement')" class="transition-colors hover:opacity-80" style="color: var(--theme-text-secondary);">用户协议</button>
         <span style="color: var(--theme-border);">|</span>
+        <button type="button" @click="goTo('/help')" class="transition-colors hover:opacity-80" style="color: var(--theme-text-secondary);">帮助中心</button>
+        <span style="color: var(--theme-border);">|</span>
+        <button type="button" @click="goTo('/report')" class="transition-colors hover:opacity-80" style="color: var(--theme-text-secondary);">意见反馈</button>
+        <span style="color: var(--theme-border);">|</span>
         <span style="color: var(--theme-text-secondary);">京ICP备xxxxxxxx号-2</span>
       </div>
     </div>

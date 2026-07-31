@@ -2254,7 +2254,7 @@ const dashboardCards = computed(() => {
 
                     <!-- 我的举报 -->
                     <button
-                      @click="router.push('/report')"
+                      @click="router.push('/my/reports')"
                       class="flex items-center gap-4 p-5 rounded-2xl text-left transition-colors hover:opacity-90"
                       style="background-color: var(--theme-surface); border: 1px solid var(--theme-border);"
                     >
@@ -2270,7 +2270,7 @@ const dashboardCards = computed(() => {
 
                     <!-- 我的反馈 -->
                     <button
-                      @click="router.push('/report')"
+                      @click="router.push('/my/feedback')"
                       class="flex items-center gap-4 p-5 rounded-2xl text-left transition-colors hover:opacity-90"
                       style="background-color: var(--theme-surface); border: 1px solid var(--theme-border);"
                     >
@@ -2279,7 +2279,7 @@ const dashboardCards = computed(() => {
                       </div>
                       <div class="min-w-0">
                         <p class="font-semibold mb-1" style="color: var(--theme-text);">我的反馈</p>
-                        <p class="text-xs" style="color: var(--theme-text-secondary);">意见反馈与帮助中心</p>
+                        <p class="text-xs" style="color: var(--theme-text-secondary);">查看意见反馈处理进度</p>
                       </div>
                       <ChevronRight class="w-5 h-5 ml-auto flex-shrink-0" style="color: var(--theme-text-secondary);" />
                     </button>

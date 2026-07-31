@@ -63,7 +63,7 @@
     <pagination v-show="total > 0" :total="total" v-model:page="queryParams.pageNum" v-model:limit="queryParams.pageSize" @pagination="getList" />
 
     <!-- 详情对话框 -->
-    <el-dialog title="反馈详情" v-model="viewOpen" width="640px" append-to-body>
+    <el-dialog title="反馈详情" v-model="viewOpen" width="720px" append-to-body>
       <el-descriptions :column="2" border>
         <el-descriptions-item label="反馈编号">{{ viewForm.id }}</el-descriptions-item>
         <el-descriptions-item label="反馈类型">{{ getTypeLabel(viewForm.feedbackType) }}</el-descriptions-item>
@@ -98,6 +98,10 @@
         </el-form-item>
         <el-form-item label="处理结果" prop="handleResult">
           <el-input v-model="handleForm.handleResult" type="textarea" :rows="4" placeholder="请输入处理结果说明" />
+        </el-form-item>
+        <el-form-item label="通知用户">
+          <el-switch v-model="handleForm.notifyUser" active-text="站内信通知提交人" inactive-text="" />
+          <div style="font-size: 12px; color: #909399; margin-top: 4px;">开启后，处理结果将以站内通知发送给反馈提交人</div>
         </el-form-item>
       </el-form>
       <template #footer>
@@ -198,14 +202,19 @@ function handleView(row) {
   })
 }
 function handleHandle(row) {
-  handleForm.value = { id: row.id, subject: row.subject, status: 'resolved', handleResult: '' }
+  handleForm.value = { id: row.id, subject: row.subject, status: 'resolved', handleResult: '', notifyUser: true }
   handleOpen.value = true
 }
 function submitHandle() {
   handleRef.value.validate(valid => {
     if (!valid) return
-    // 仅提交必要字段，防止字段篡改
-    const payload = { id: handleForm.value.id, status: handleForm.value.status, handleResult: handleForm.value.handleResult }
+    // 仅提交必要字段，防止字段篡改；notifyUser 控制是否发送站内通知
+    const payload = {
+      id: handleForm.value.id,
+      status: handleForm.value.status,
+      handleResult: handleForm.value.handleResult,
+      notifyUser: handleForm.value.notifyUser === true
+    }
     handleFeedback(payload).then(() => {
       proxy.$modal.msgSuccess('处理成功')
       handleOpen.value = false

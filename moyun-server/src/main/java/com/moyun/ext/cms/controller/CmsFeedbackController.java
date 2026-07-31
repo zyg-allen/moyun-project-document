@@ -10,9 +10,13 @@ import com.moyun.core.base.BaseController;
 import com.moyun.core.base.TableDataInfo;
 import com.moyun.portal.domain.entity.PortalFeedback;
 import com.moyun.portal.mapper.PortalFeedbackMapper;
+import com.moyun.system.domain.entity.SysNotification;
+import com.moyun.system.service.ISysNotificationService;
 import com.moyun.util.bean.PageUtils;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
@@ -30,8 +34,13 @@ import java.time.LocalDateTime;
 @RequestMapping("/cms/feedback")
 public class CmsFeedbackController extends BaseController {
 
+    private static final Logger log = LoggerFactory.getLogger(CmsFeedbackController.class);
+
     @Autowired
     private PortalFeedbackMapper feedbackMapper;
+
+    @Autowired
+    private ISysNotificationService notificationService;
 
     /**
      * 查询反馈列表（分页）
@@ -72,9 +81,10 @@ public class CmsFeedbackController extends BaseController {
 
     /**
      * 处理反馈（标记状态并记录处理结果）
-     * 仅允许更新 status/handleResult 两个字段，防止前端篡改 userId/username/description 等
+     * 仅允许更新 status/handleResult 两个字段，防止前端篡改 userId/username/description 等。
+     * 当请求携带 notifyUser=true 时，向反馈提交人发送站内通知（默认不通知）。
      */
-    @Operation(summary = "处理反馈", description = "处理反馈记录，标记状态并记录处理结果")
+    @Operation(summary = "处理反馈", description = "处理反馈记录，标记状态并记录处理结果，可选通知提交人")
     @PreAuthorize("@ss.hasPermi('cms:feedback:handle')")
     @Log(title = "意见反馈", businessType = BusinessType.UPDATE)
     @PutMapping("/handle")
@@ -97,7 +107,46 @@ public class CmsFeedbackController extends BaseController {
                 .set(PortalFeedback::getHandler, getUsername())
                 .set(PortalFeedback::getHandleTime, LocalDateTime.now())
                 .set(PortalFeedback::getUpdateTime, LocalDateTime.now());
-        return toAjax(feedbackMapper.update(null, updateWrapper));
+        int rows = feedbackMapper.update(null, updateWrapper);
+        // 处理成功后，按需向反馈提交人发送站内通知
+        if (rows > 0 && Boolean.TRUE.equals(feedback.getNotifyUser())) {
+            sendHandleNotification(feedback.getId(), status, feedback.getHandleResult());
+        }
+        return toAjax(rows);
+    }
+
+    /**
+     * 反馈处理结果站内信通知提交人
+     * 通知失败不影响处理主流程
+     */
+    private void sendHandleNotification(Long feedbackId, String status, String handleResult) {
+        try {
+            PortalFeedback feedback = feedbackMapper.selectById(feedbackId);
+            if (feedback == null || feedback.getUserId() == null) {
+                return;
+            }
+            SysNotification notification = new SysNotification();
+            notification.setType("system");
+            notification.setScope("user");
+            notification.setUserId(feedback.getUserId());
+            notification.setUserType("portal");
+            notification.setNoticeType("1");
+            notification.setStatus("0");
+            String statusLabel = "processing".equals(status) ? "处理中"
+                    : "resolved".equals(status) ? "已解决" : "已驳回";
+            notification.setTitle("您的反馈处理进度更新：" + statusLabel);
+            String content = "您提交的反馈（编号 #" + feedbackId + "）处理状态已更新为「" + statusLabel + "」";
+            if (handleResult != null && !handleResult.isEmpty()) {
+                content += "，处理说明：" + handleResult;
+            }
+            content += "。可在「我的反馈」中查看详情。";
+            notification.setContent(content);
+            notification.setData("{\"bizType\":\"feedback\",\"id\":" + feedbackId + ",\"status\":\"" + status + "\"}");
+            notificationService.insertNotification(notification);
+            log.info("反馈处理通知已发送，feedbackId={}, userId={}, status={}", feedbackId, feedback.getUserId(), status);
+        } catch (Exception e) {
+            log.error("反馈处理通知发送失败（不影响处理主流程），feedbackId={}, error={}", feedbackId, e.getMessage());
+        }
     }
 
     /**

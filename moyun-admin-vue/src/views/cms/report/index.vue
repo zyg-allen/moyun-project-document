@@ -60,7 +60,7 @@
     <pagination v-show="total > 0" :total="total" v-model:page="queryParams.pageNum" v-model:limit="queryParams.pageSize" @pagination="getList" />
 
     <!-- 详情对话框 -->
-    <el-dialog title="举报详情" v-model="viewOpen" width="640px" append-to-body>
+    <el-dialog title="举报详情" v-model="viewOpen" width="720px" append-to-body>
       <el-descriptions :column="2" border>
         <el-descriptions-item label="举报编号">{{ viewForm.id }}</el-descriptions-item>
         <el-descriptions-item label="举报类型">{{ getTypeLabel(viewForm.reportType) }}</el-descriptions-item>
@@ -73,6 +73,21 @@
           <span v-else>-</span>
         </el-descriptions-item>
         <el-descriptions-item label="问题描述" :span="2">{{ viewForm.description }}</el-descriptions-item>
+        <el-descriptions-item label="图片证据" :span="2">
+          <div v-if="parseImages(viewForm.images).length > 0" style="display: flex; flex-wrap: wrap; gap: 8px;">
+            <el-image
+              v-for="(img, idx) in parseImages(viewForm.images)"
+              :key="idx"
+              :src="img"
+              :preview-src-list="parseImages(viewForm.images)"
+              :initial-index="idx"
+              fit="cover"
+              style="width: 96px; height: 96px; border-radius: 6px; border: 1px solid var(--el-border-color);"
+              :preview-teleported="true"
+            />
+          </div>
+          <span v-else>-</span>
+        </el-descriptions-item>
         <el-descriptions-item label="处理状态">{{ getStatusLabel(viewForm.status) }}</el-descriptions-item>
         <el-descriptions-item label="处理人">{{ viewForm.handler || '-' }}</el-descriptions-item>
         <el-descriptions-item label="处理时间">{{ viewForm.handleTime ? parseTime(viewForm.handleTime) : '-' }}</el-descriptions-item>
@@ -98,6 +113,10 @@
         </el-form-item>
         <el-form-item label="处理结果" prop="handleResult">
           <el-input v-model="handleForm.handleResult" type="textarea" :rows="4" placeholder="请输入处理结果说明" />
+        </el-form-item>
+        <el-form-item label="通知用户">
+          <el-switch v-model="handleForm.notifyUser" active-text="站内信通知提交人" inactive-text="" />
+          <div style="font-size: 12px; color: #909399; margin-top: 4px;">开启后，处理结果将以站内通知发送给举报提交人</div>
         </el-form-item>
       </el-form>
       <template #footer>
@@ -198,20 +217,35 @@ function handleView(row) {
   })
 }
 function handleHandle(row) {
-  handleForm.value = { id: row.id, description: row.description, status: 'resolved', handleResult: '' }
+  handleForm.value = { id: row.id, description: row.description, status: 'resolved', handleResult: '', notifyUser: true }
   handleOpen.value = true
 }
 function submitHandle() {
   handleRef.value.validate(valid => {
     if (!valid) return
-    // 仅提交必要字段，防止字段篡改
-    const payload = { id: handleForm.value.id, status: handleForm.value.status, handleResult: handleForm.value.handleResult }
+    // 仅提交必要字段，防止字段篡改；notifyUser 控制是否发送站内通知
+    const payload = {
+      id: handleForm.value.id,
+      status: handleForm.value.status,
+      handleResult: handleForm.value.handleResult,
+      notifyUser: handleForm.value.notifyUser === true
+    }
     handleReport(payload).then(() => {
       proxy.$modal.msgSuccess('处理成功')
       handleOpen.value = false
       getList()
     })
   })
+}
+/** 解析后端 images 字段（JSON 数组字符串）为 URL 数组 */
+function parseImages(images) {
+  if (!images) return []
+  try {
+    const parsed = JSON.parse(images)
+    return Array.isArray(parsed) ? parsed : []
+  } catch {
+    return []
+  }
 }
 function handleDelete(row) {
   const delIds = row.id ? [row.id] : ids.value

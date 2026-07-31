@@ -1,14 +1,17 @@
 <script setup lang="ts">
 import { ref } from 'vue';
+import { useRouter } from 'vue-router';
 import { useHead } from '@vueuse/head';
-import { AlertTriangle, MessageSquare, CheckCircle } from 'lucide-vue-next';
+import { AlertTriangle, MessageSquare, CheckCircle, Upload, X, History } from 'lucide-vue-next';
 import SiteFooter from '@/components/SiteFooter.vue';
 import Breadcrumb from '@/components/Breadcrumb.vue';
 import { generateSeo } from '@/utils/seo';
 import { useToast } from '@/composables/useToast';
 import { useAuth } from '@/composables/useAuth';
 import { submitReport, submitFeedback } from '@/api/report';
+import { uploadImage } from '@/api/upload';
 
+const router = useRouter();
 const toast = useToast();
 const { isAuthenticated, requireAuth } = useAuth();
 
@@ -22,7 +25,6 @@ useHead(
 );
 
 const activeTab = ref('report'); // 'report' 或 'feedback'
-const showToast = ref(false);
 
 const reportForm = ref({
   reportType: 'spam',
@@ -40,6 +42,7 @@ const feedbackForm = ref({
 });
 
 const isSubmitting = ref(false);
+const isUploading = ref(false);
 const submitSuccess = ref(false);
 
 const reportTypes = [
@@ -56,6 +59,53 @@ const feedbackTypes = [
   { value: 'experience', label: '体验问题' },
   { value: 'other', label: '其他' }
 ];
+
+const MAX_IMAGES = 3;
+
+/** 选择/上传图片 */
+async function handleImageSelect(event: Event) {
+  const input = event.target as HTMLInputElement;
+  const files = input.files;
+  if (!files || files.length === 0) return;
+
+  const remain = MAX_IMAGES - reportForm.value.images.length;
+  if (remain <= 0) {
+    toast.warning(`最多上传 ${MAX_IMAGES} 张图片`);
+    input.value = '';
+    return;
+  }
+
+  const toUpload = Array.from(files).slice(0, remain);
+  isUploading.value = true;
+  try {
+    for (const file of toUpload) {
+      // 类型与大小校验
+      if (!file.type.startsWith('image/')) {
+        toast.error(`${file.name} 不是图片文件`);
+        continue;
+      }
+      if (file.size > 5 * 1024 * 1024) {
+        toast.error(`${file.name} 超过 5MB`);
+        continue;
+      }
+      const res = await uploadImage(file, { businessType: 'report' });
+      if (res.data?.fileUrl) {
+        reportForm.value.images.push(res.data.fileUrl);
+      }
+    }
+    toast.success('图片上传成功');
+  } catch (e: any) {
+    toast.error(e?.message || '图片上传失败');
+  } finally {
+    isUploading.value = false;
+    input.value = '';
+  }
+}
+
+/** 移除已上传图片 */
+function removeImage(idx: number) {
+  reportForm.value.images.splice(idx, 1);
+}
 
 const handleSubmitReport = async () => {
   if (!reportForm.value.description.trim()) {
@@ -78,11 +128,9 @@ const handleSubmitReport = async () => {
       images: reportForm.value.images
     });
     submitSuccess.value = true;
-    showToast.value = true;
     toast.success('举报提交成功，我们会尽快处理');
     setTimeout(() => {
       submitSuccess.value = false;
-      showToast.value = false;
       reportForm.value = {
         reportType: 'spam',
         targetUrl: '',
@@ -118,11 +166,9 @@ const handleSubmitFeedback = async () => {
       contact: feedbackForm.value.contact || undefined
     });
     submitSuccess.value = true;
-    showToast.value = true;
     toast.success('反馈提交成功，感谢您的支持');
     setTimeout(() => {
       submitSuccess.value = false;
-      showToast.value = false;
       feedbackForm.value = {
         feedbackType: 'suggestion',
         subject: '',
@@ -147,6 +193,14 @@ const handleSubmitFeedback = async () => {
     >
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between gap-4">
         <Breadcrumb :items="[{ label: '举报与反馈' }]" />
+        <button
+          @click="router.push(activeTab === 'report' ? '/my/reports' : '/my/feedback')"
+          class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm transition-colors hover:opacity-80"
+          style="color: var(--theme-primary); background-color: var(--theme-accent);"
+        >
+          <History class="w-4 h-4" />
+          <span class="hidden sm:inline">{{ activeTab === 'report' ? '我的举报' : '我的反馈' }}</span>
+        </button>
       </div>
     </div>
 
@@ -234,16 +288,44 @@ const handleSubmitFeedback = async () => {
 
           <!-- 上传图片 -->
           <div>
-            <label class="block text-sm font-medium mb-2" style="color: var(--theme-text);">上传图片（可选）</label>
-            <div 
-              class="border-2 border-dashed rounded-xl p-6 text-center cursor-pointer hover:border-primary"
-              style="border-color: var(--theme-border);"
-            >
-              <div class="text-sm" style="color: var(--theme-text-secondary);">
-                点击或拖拽图片到此处上传<br />
-                支持 JPG、PNG 格式，最多 3 张
+            <label class="block text-sm font-medium mb-2" style="color: var(--theme-text);">上传图片（可选，最多 {{ MAX_IMAGES }} 张）</label>
+            <div class="flex flex-wrap gap-3">
+              <!-- 已上传图片预览 -->
+              <div
+                v-for="(img, idx) in reportForm.images"
+                :key="idx"
+                class="relative w-24 h-24 rounded-xl overflow-hidden group"
+                style="border: 1px solid var(--theme-border);"
+              >
+                <img :src="img" :alt="`证据图${idx + 1}`" class="w-full h-full object-cover" />
+                <button
+                  type="button"
+                  @click="removeImage(idx)"
+                  class="absolute top-1 right-1 w-5 h-5 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                  style="background-color: rgba(0,0,0,0.6); color: white;"
+                >
+                  <X class="w-3 h-3" />
+                </button>
               </div>
+              <!-- 上传按钮 -->
+              <label
+                v-if="reportForm.images.length < MAX_IMAGES"
+                class="w-24 h-24 rounded-xl border-2 border-dashed flex flex-col items-center justify-center cursor-pointer hover:border-primary transition-colors"
+                style="border-color: var(--theme-border);"
+                :class="{ 'opacity-60 pointer-events-none': isUploading }"
+              >
+                <Upload class="w-5 h-5 mb-1" style="color: var(--theme-text-secondary);" />
+                <span class="text-xs" style="color: var(--theme-text-secondary);">{{ isUploading ? '上传中' : '添加图片' }}</span>
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/jpg,image/gif,image/webp"
+                  multiple
+                  class="hidden"
+                  @change="handleImageSelect"
+                />
+              </label>
             </div>
+            <p class="text-xs mt-2" style="color: var(--theme-text-secondary);">支持 JPG/PNG/GIF/WebP，单张最大 5MB</p>
           </div>
 
           <!-- 联系方式 -->

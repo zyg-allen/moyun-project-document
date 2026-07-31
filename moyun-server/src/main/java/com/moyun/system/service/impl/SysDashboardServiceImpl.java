@@ -110,7 +110,10 @@ public class SysDashboardServiceImpl implements ISysDashboardService {
     @Override
     public DashboardVO getDashboardData() {
         // 尝试命中完整缓存
-        DashboardVO cached = redisCache.getCacheObject(CACHE_KEY_FULL);
+        // 注意：旧版本曾将 List.subList() 视图直接序列化进 Redis，反序列化会抛
+        // SerializationException（ArrayList$SubList 无默认构造器）。这里做防御性
+        // 读取——若缓存数据损坏则删除脏 key 并回源重建，避免线上持续报错。
+        DashboardVO cached = readCacheSafely(CACHE_KEY_FULL);
         if (cached != null) {
             log.debug("[Dashboard] 命中完整缓存");
             return cached;
@@ -136,7 +139,7 @@ public class SysDashboardServiceImpl implements ISysDashboardService {
 
     @Override
     public DashboardVO getMetrics() {
-        DashboardVO cached = redisCache.getCacheObject(CACHE_KEY_METRICS);
+        DashboardVO cached = readCacheSafely(CACHE_KEY_METRICS);
         if (cached != null) return cached;
         DashboardVO vo = new DashboardVO();
         vo.setMetrics(buildMetrics());
@@ -146,7 +149,7 @@ public class SysDashboardServiceImpl implements ISysDashboardService {
 
     @Override
     public DashboardVO.TodayStats getTodayStats() {
-        DashboardVO.TodayStats cached = redisCache.getCacheObject(CACHE_KEY_TODAY);
+        DashboardVO.TodayStats cached = readCacheSafely(CACHE_KEY_TODAY);
         if (cached != null) return cached;
         DashboardVO.TodayStats stats = buildTodayStats();
         redisCache.setCacheObject(CACHE_KEY_TODAY, stats, (int) CACHE_TTL_SECONDS, TimeUnit.SECONDS);
@@ -155,7 +158,7 @@ public class SysDashboardServiceImpl implements ISysDashboardService {
 
     @Override
     public List<DashboardVO.TrendPoint> getLoginTrend() {
-        List<DashboardVO.TrendPoint> cached = redisCache.getCacheObject(CACHE_KEY_LOGIN_TREND);
+        List<DashboardVO.TrendPoint> cached = readCacheSafely(CACHE_KEY_LOGIN_TREND);
         if (cached != null) return cached;
         List<DashboardVO.TrendPoint> trend = buildLoginTrend();
         redisCache.setCacheObject(CACHE_KEY_LOGIN_TREND, trend, (int) CACHE_TTL_SECONDS, TimeUnit.SECONDS);
@@ -164,7 +167,7 @@ public class SysDashboardServiceImpl implements ISysDashboardService {
 
     @Override
     public List<DashboardVO.TrendPoint> getPublishTrend() {
-        List<DashboardVO.TrendPoint> cached = redisCache.getCacheObject(CACHE_KEY_PUBLISH_TREND);
+        List<DashboardVO.TrendPoint> cached = readCacheSafely(CACHE_KEY_PUBLISH_TREND);
         if (cached != null) return cached;
         List<DashboardVO.TrendPoint> trend = buildPublishTrend();
         redisCache.setCacheObject(CACHE_KEY_PUBLISH_TREND, trend, (int) CACHE_TTL_SECONDS, TimeUnit.SECONDS);
@@ -173,7 +176,7 @@ public class SysDashboardServiceImpl implements ISysDashboardService {
 
     @Override
     public List<DashboardVO.CategoryRank> getCategoryRanking() {
-        List<DashboardVO.CategoryRank> cached = redisCache.getCacheObject(CACHE_KEY_CATEGORY_RANK);
+        List<DashboardVO.CategoryRank> cached = readCacheSafely(CACHE_KEY_CATEGORY_RANK);
         if (cached != null) return cached;
         List<DashboardVO.CategoryRank> ranking = buildCategoryRanking();
         redisCache.setCacheObject(CACHE_KEY_CATEGORY_RANK, ranking, (int) CACHE_TTL_SECONDS, TimeUnit.SECONDS);
@@ -182,7 +185,7 @@ public class SysDashboardServiceImpl implements ISysDashboardService {
 
     @Override
     public List<DashboardVO.TaskItem> getTodoTasks() {
-        List<DashboardVO.TaskItem> cached = redisCache.getCacheObject(CACHE_KEY_TODO);
+        List<DashboardVO.TaskItem> cached = readCacheSafely(CACHE_KEY_TODO);
         if (cached != null) return cached;
         List<DashboardVO.TaskItem> tasks = buildTodoTasks();
         redisCache.setCacheObject(CACHE_KEY_TODO, tasks, (int) CACHE_TTL_SECONDS, TimeUnit.SECONDS);
@@ -191,7 +194,7 @@ public class SysDashboardServiceImpl implements ISysDashboardService {
 
     @Override
     public List<DashboardVO.TaskItem> getMyTasks() {
-        List<DashboardVO.TaskItem> cached = redisCache.getCacheObject(CACHE_KEY_MY_TASKS);
+        List<DashboardVO.TaskItem> cached = readCacheSafely(CACHE_KEY_MY_TASKS);
         if (cached != null) return cached;
         List<DashboardVO.TaskItem> tasks = buildMyTasks();
         redisCache.setCacheObject(CACHE_KEY_MY_TASKS, tasks, (int) CACHE_TTL_SECONDS, TimeUnit.SECONDS);
@@ -200,7 +203,7 @@ public class SysDashboardServiceImpl implements ISysDashboardService {
 
     @Override
     public List<DashboardVO.ActivityItem> getSystemActivities() {
-        List<DashboardVO.ActivityItem> cached = redisCache.getCacheObject(CACHE_KEY_ACTIVITIES);
+        List<DashboardVO.ActivityItem> cached = readCacheSafely(CACHE_KEY_ACTIVITIES);
         if (cached != null) return cached;
         List<DashboardVO.ActivityItem> activities = buildSystemActivities();
         redisCache.setCacheObject(CACHE_KEY_ACTIVITIES, activities, (int) CACHE_TTL_SECONDS, TimeUnit.SECONDS);
@@ -214,7 +217,7 @@ public class SysDashboardServiceImpl implements ISysDashboardService {
 
     @Override
     public DashboardVO.SystemConfigOverview getConfigOverview() {
-        DashboardVO.SystemConfigOverview cached = redisCache.getCacheObject(CACHE_KEY_CONFIG);
+        DashboardVO.SystemConfigOverview cached = readCacheSafely(CACHE_KEY_CONFIG);
         if (cached != null) return cached;
         DashboardVO.SystemConfigOverview overview = buildConfigOverview();
         redisCache.setCacheObject(CACHE_KEY_CONFIG, overview, (int) CACHE_TTL_SECONDS, TimeUnit.SECONDS);
@@ -234,6 +237,24 @@ public class SysDashboardServiceImpl implements ISysDashboardService {
         redisCache.redisTemplate.delete(ZSET_KEY_HOT_ARTICLES);
         redisCache.redisTemplate.delete(ZSET_KEY_CATEGORY_VIEWS);
         log.info("[Dashboard] 缓存已手动刷新（含 ZSet 排行榜）");
+    }
+
+    /**
+     * 防御性读取缓存：遇到反序列化异常（如历史脏数据含 ArrayList$SubList 视图）
+     * 时删除脏 key 并返回 null，触发回源重建，避免接口持续 500。
+     */
+    private <T> T readCacheSafely(String key) {
+        try {
+            return redisCache.getCacheObject(key);
+        } catch (org.springframework.data.redis.serializer.SerializationException e) {
+            log.warn("[Dashboard] 缓存 key={} 反序列化失败，删除脏数据并回源：{}", key, e.getMessage());
+            try {
+                redisCache.deleteObject(key);
+            } catch (Exception ignore) {
+                // 删除失败不影响主流程，等待 TTL 自动过期
+            }
+            return null;
+        }
     }
 
     // ========== 数据构建方法 ==========
@@ -566,7 +587,7 @@ public class SysDashboardServiceImpl implements ISysDashboardService {
                     item.setCreateTime(oper.getOperTime() != null ? oper.getOperTime().format(DATETIME_FMT) : "");
                     item.setSubmitter(oper.getOperName());
                     item.setPriority("low");
-                    item.setRoutePath("/monitor/operlog");
+                    item.setRoutePath("/monitor/operlog?operId=" + oper.getOperId());
                     tasks.add(item);
                 }
             }
@@ -681,7 +702,7 @@ public class SysDashboardServiceImpl implements ISysDashboardService {
         // 合并后按时间排序，取 Top 12
         activities.sort(Comparator.comparing(DashboardVO.ActivityItem::getCreateTime).reversed());
         if (activities.size() > 12) {
-            activities = activities.subList(0, 12);
+            activities = new ArrayList<>(activities.subList(0, 12));
         }
         return activities;
     }

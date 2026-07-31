@@ -1,5 +1,6 @@
 package com.moyun.portal.controller;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
@@ -96,7 +97,7 @@ public class PortalTagController extends BaseController {
         }
         List<PortalTag> list = portalTagService.selectPortalTagList(query);
         if (list.size() > 10) {
-            list = list.subList(0, 10);
+            list = new ArrayList<>(list.subList(0, 10));
         }
         redisCache.setCacheObject(cacheKey, list, RECOMMEND_CACHE_MINUTES, TimeUnit.MINUTES);
         return success(list);

@@ -316,9 +316,13 @@ const adviceTypeLabel: Record<string, string> = {
 // v5.9 阶段2：采纳建议 —— 将建议内容追加到自我介绍末尾
 // 设计权衡：建议为自然语言文本，无法精准定位到某个表单字段，
 // 自我介绍是承载改进点的最合适字段；采纳后切到编辑 Tab 由用户检查并保存
-function acceptAdvice(advice: { dimension?: string; content: string; priority?: string }, idx: number) {
+function acceptAdvice(advice: { dimension?: string; content?: string; priority?: string }, idx: number) {
   if (acceptedAdvices.value.has(idx)) {
     toast.info('该建议已采纳');
+    return;
+  }
+  if (!advice.content) {
+    toast.error('该建议内容为空，无法采纳');
     return;
   }
   const prefix = form.selfIntro?.trim() ? '\n\n' : '';

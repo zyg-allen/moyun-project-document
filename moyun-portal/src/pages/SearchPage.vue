@@ -101,7 +101,7 @@ async function performSearch() {
     const pageParams = {
       pageNum: currentPage.value,
       pageSize: itemsPerPage.value,
-      sortBy: sortBy.value === '热门' ? 'views' : 'createdAt'
+      sortBy: (sortBy.value === '热门' ? 'views' : 'createdAt') as 'views' | 'createdAt'
     };
 
     if (tagParam) {

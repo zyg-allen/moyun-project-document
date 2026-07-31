@@ -523,7 +523,6 @@ export interface FileInfo {
   uploadUserName?: string;
   status?: string;
   businessType?: string;
-  businessId?: string;
   createTime?: string;
   updateTime?: string;
 }
@@ -535,14 +534,12 @@ export interface FileListParams {
   fileType?: string;
   storageType?: string;
   businessType?: string;
-  businessId?: string;
   status?: string;
 }
 
 export interface UploadFileParams {
   file: File;
   businessType?: string;
-  businessId?: string;
 }
 
 // 通知相关类型

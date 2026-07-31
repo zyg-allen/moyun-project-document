@@ -24,9 +24,6 @@ public class PortalArticle extends BaseEntity
     @TableId(type = IdType.AUTO)
     private Long id;
 
-    /** 业务主键（前缀art_，用于跨表关联，避免自增id在TRUNCATE后错乱） */
-    private String businessId;
-
     @NotBlank(message = "文章标题不能为空")
     @Size(min = 0, max = 500, message = "文章标题长度不能超过500个字符")
     private String title;
@@ -48,21 +45,12 @@ public class PortalArticle extends BaseEntity
 
     private Long authorId;
 
-    /** 作者业务主键（关联 portal_user.business_id，双轨过渡） */
-    private String authorBusinessId;
-
     private Long categoryId;
-
-    /** 分类业务主键（关联 portal_category.business_id，双轨过渡） */
-    private String categoryBusinessId;
 
     /**
      * 顶级分类ID
      */
     private Long rootCategoryId;
-
-    /** 顶级分类业务主键（关联 portal_category.business_id，双轨过渡） */
-    private String rootCategoryBusinessId;
 
     /**
      * 分类路径，用逗号分隔，包含所有祖先分类ID，例如：1,3,5

@@ -24,14 +24,8 @@ public class PortalArticleTag extends BaseEntity
     @NotNull(message = "文章ID不能为空")
     private Long articleId;
 
-    /** 文章业务主键（关联 portal_article.business_id，双轨过渡） */
-    private String articleBusinessId;
-
     @NotNull(message = "标签ID不能为空")
     private Long tagId;
-
-    /** 标签业务主键（关联 portal_tag.business_id，双轨过渡） */
-    private String tagBusinessId;
 
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime createTime;

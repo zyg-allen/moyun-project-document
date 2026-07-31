@@ -30,14 +30,8 @@ public class PortalCommentLike extends BaseEntity {
     /** 评论ID */
     private Long commentId;
 
-    /** 评论业务主键（关联 portal_comment.business_id，双轨过渡） */
-    private String commentBusinessId;
-
     /** 用户ID */
     private Long userId;
-
-    /** 用户业务主键（关联 portal_user.business_id，双轨过渡） */
-    private String userBusinessId;
 
     /** 点赞时间 */
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")

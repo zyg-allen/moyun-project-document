@@ -20,9 +20,6 @@ public class PortalTag extends BaseEntity
     @TableId(type = IdType.AUTO)
     private Long id;
 
-    /** 业务主键（前缀tag_，用于跨表关联，避免自增id在TRUNCATE后错乱） */
-    private String businessId;
-
     @NotBlank(message = "标签名称不能为空")
     @Size(min = 0, max = 100, message = "标签名称长度不能超过100个字符")
     private String name;

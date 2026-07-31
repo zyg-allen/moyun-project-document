@@ -72,28 +72,6 @@ public class PortalReportFeedbackController extends BaseController {
         report.setStatus("pending");
         report.setCreateTime(LocalDateTime.now());
         report.setUpdateTime(LocalDateTime.now());
-        // v5.9 P1：双写 business_id 外键（user/target）
-        PortalUser reporter = portalUserMapper.selectById(loginUser.getId());
-        if (reporter != null) {
-            report.setUserBusinessId(reporter.getBusinessId());
-        }
-        // target_business_id 根据 target_type 关联不同父表
-        if ("article".equals(report.getTargetType())) {
-            PortalArticle targetArticle = portalArticleMapper.selectById(report.getTargetId());
-            if (targetArticle != null) {
-                report.setTargetBusinessId(targetArticle.getBusinessId());
-            }
-        } else if ("comment".equals(report.getTargetType())) {
-            PortalComment targetComment = portalCommentMapper.selectById(report.getTargetId());
-            if (targetComment != null) {
-                report.setTargetBusinessId(targetComment.getBusinessId());
-            }
-        } else if ("user".equals(report.getTargetType())) {
-            PortalUser targetUser = portalUserMapper.selectById(report.getTargetId());
-            if (targetUser != null) {
-                report.setTargetBusinessId(targetUser.getBusinessId());
-            }
-        }
         reportMapper.insert(report);
         return success("举报提交成功，我们会尽快处理");
     }

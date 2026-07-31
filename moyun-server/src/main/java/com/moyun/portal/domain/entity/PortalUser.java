@@ -159,9 +159,6 @@ public class PortalUser extends BaseEntity {
     @TableField(value = "del_flag")
     private String delFlag;
 
-    /** 业务主键（前缀usr_，用于跨表关联，避免自增id在TRUNCATE后错乱） */
-    private String businessId;
-
     /** 最后登录IP */
     private String loginIp;
 

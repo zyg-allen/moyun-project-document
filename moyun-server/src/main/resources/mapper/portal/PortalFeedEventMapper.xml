@@ -24,11 +24,9 @@
     <resultMap type="com.moyun.portal.domain.entity.PortalFeedEvent" id="PortalFeedEventResult">
         <id property="id" column="id"/>
         <result property="userId" column="user_id"/>
-        <result property="userBusinessId" column="user_business_id"/>
         <result property="eventType" column="event_type"/>
         <result property="targetType" column="target_type"/>
         <result property="targetId" column="target_id"/>
-        <result property="targetBusinessId" column="target_business_id"/>
         <result property="title" column="title"/>
         <result property="summary" column="summary"/>
         <result property="cover" column="cover"/>
@@ -36,7 +34,7 @@
     </resultMap>
 
     <sql id="selectFeedEventVo">
-        select id, user_id, user_business_id, event_type, target_type, target_id, target_business_id, title, summary, cover, created_time
+        select id, user_id, event_type, target_type, target_id, title, summary, cover, created_time
         from portal_feed_event
     </sql>
 
@@ -128,11 +126,9 @@
         insert into portal_feed_event
         <trim prefix="(" suffix=")" suffixOverrides=",">
             <if test="userId != null">user_id,</if>
-            <if test="userBusinessId != null">user_business_id,</if>
             <if test="eventType != null">event_type,</if>
             <if test="targetType != null">target_type,</if>
             <if test="targetId != null">target_id,</if>
-            <if test="targetBusinessId != null">target_business_id,</if>
             <if test="title != null">title,</if>
             <if test="summary != null">summary,</if>
             <if test="cover != null">cover,</if>
@@ -140,11 +136,9 @@
         </trim>
         <trim prefix="values (" suffix=")" suffixOverrides=",">
             <if test="userId != null">#{userId},</if>
-            <if test="userBusinessId != null">#{userBusinessId},</if>
             <if test="eventType != null">#{eventType},</if>
             <if test="targetType != null">#{targetType},</if>
             <if test="targetId != null">#{targetId},</if>
-            <if test="targetBusinessId != null">#{targetBusinessId},</if>
             <if test="title != null">#{title},</if>
             <if test="summary != null">#{summary},</if>
             <if test="cover != null">#{cover},</if>

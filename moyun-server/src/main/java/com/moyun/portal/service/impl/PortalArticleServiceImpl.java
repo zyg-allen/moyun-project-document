@@ -35,7 +35,6 @@ import com.moyun.portal.service.IPortalCategoryService;
 import com.moyun.portal.service.IPortalGrowthService;
 import com.moyun.portal.util.PortalSecurityUtils;
 import com.moyun.util.file.Base64ImageUtils;
-import com.moyun.util.uuid.BusinessIdGenerator;
 
 /**
  * 门户文章 业务层处理
@@ -177,34 +176,6 @@ public class PortalArticleServiceImpl extends ServiceImpl<PortalArticleMapper, P
         if (portalArticle.getPrice() == null) {
             portalArticle.setPrice(java.math.BigDecimal.ZERO);
         }
-        // v5.9 P1：新建文章时生成业务主键（更新场景不重新生成）
-        if (portalArticle.getId() == null
-                && (portalArticle.getBusinessId() == null || portalArticle.getBusinessId().isEmpty())) {
-            portalArticle.setBusinessId(BusinessIdGenerator.forArticle());
-        }
-        // v5.9 P1：双写作者业务主键
-        if (portalArticle.getAuthorId() != null
-                && (portalArticle.getAuthorBusinessId() == null || portalArticle.getAuthorBusinessId().isEmpty())) {
-            PortalUser author = portalUserMapper.selectById(portalArticle.getAuthorId());
-            if (author != null) {
-                portalArticle.setAuthorBusinessId(author.getBusinessId());
-            }
-        }
-        // v5.9 P1：双写分类业务主键
-        if (portalArticle.getCategoryId() != null
-                && (portalArticle.getCategoryBusinessId() == null || portalArticle.getCategoryBusinessId().isEmpty())) {
-            PortalCategory category = portalCategoryService.selectPortalCategoryById(portalArticle.getCategoryId());
-            if (category != null) {
-                portalArticle.setCategoryBusinessId(category.getBusinessId());
-            }
-        }
-        if (portalArticle.getRootCategoryId() != null
-                && (portalArticle.getRootCategoryBusinessId() == null || portalArticle.getRootCategoryBusinessId().isEmpty())) {
-            PortalCategory rootCategory = portalCategoryService.selectPortalCategoryById(portalArticle.getRootCategoryId());
-            if (rootCategory != null) {
-                portalArticle.setRootCategoryBusinessId(rootCategory.getBusinessId());
-            }
-        }
         // 幂等去重：有 id 走更新；无 id 但有 sessionToken 时按 token 查找已有记录
         // 保证一次编辑会话只产生一条文章记录（草稿→发布沿用同一条）
         if (portalArticle.getId() == null && portalArticle.getSessionToken() != null
@@ -328,35 +299,6 @@ public class PortalArticleServiceImpl extends ServiceImpl<PortalArticleMapper, P
         // 防止越权覆盖他人草稿（sessionToken 解析出的 id 已按 authorId 过滤，此处为二次兜底）
         if (portalArticle.getId() != null) {
             checkOwnership(portalArticle.getId(), PortalSecurityUtils.getUserId());
-        }
-
-        // v5.9 P1：新建文章时生成业务主键（更新场景不重新生成）
-        if (portalArticle.getId() == null
-                && (portalArticle.getBusinessId() == null || portalArticle.getBusinessId().isEmpty())) {
-            portalArticle.setBusinessId(BusinessIdGenerator.forArticle());
-        }
-        // v5.9 P1：双写作者业务主键
-        if (portalArticle.getAuthorId() != null
-                && (portalArticle.getAuthorBusinessId() == null || portalArticle.getAuthorBusinessId().isEmpty())) {
-            PortalUser author = portalUserMapper.selectById(portalArticle.getAuthorId());
-            if (author != null) {
-                portalArticle.setAuthorBusinessId(author.getBusinessId());
-            }
-        }
-        // v5.9 P1：双写分类业务主键
-        if (portalArticle.getCategoryId() != null
-                && (portalArticle.getCategoryBusinessId() == null || portalArticle.getCategoryBusinessId().isEmpty())) {
-            PortalCategory category = portalCategoryService.selectPortalCategoryById(portalArticle.getCategoryId());
-            if (category != null) {
-                portalArticle.setCategoryBusinessId(category.getBusinessId());
-            }
-        }
-        if (portalArticle.getRootCategoryId() != null
-                && (portalArticle.getRootCategoryBusinessId() == null || portalArticle.getRootCategoryBusinessId().isEmpty())) {
-            PortalCategory rootCategory = portalCategoryService.selectPortalCategoryById(portalArticle.getRootCategoryId());
-            if (rootCategory != null) {
-                portalArticle.setRootCategoryBusinessId(rootCategory.getBusinessId());
-            }
         }
 
         if (portalArticle.getId() == null) {

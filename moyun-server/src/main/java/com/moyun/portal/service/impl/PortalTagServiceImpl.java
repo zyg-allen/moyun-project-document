@@ -21,7 +21,6 @@ import com.moyun.portal.domain.vo.TagVO;
 import com.moyun.portal.mapper.PortalEntityTagMapper;
 import com.moyun.portal.mapper.PortalTagMapper;
 import com.moyun.portal.service.IPortalTagService;
-import com.moyun.util.uuid.BusinessIdGenerator;
 
 @Service
 public class PortalTagServiceImpl extends ServiceImpl<PortalTagMapper, PortalTag> implements IPortalTagService {
@@ -55,10 +54,6 @@ public class PortalTagServiceImpl extends ServiceImpl<PortalTagMapper, PortalTag
         // 防御性处理：去除 name 前缀的 # 符号（# 属于展示符号，不应入库）
         if (portalTag.getName() != null) {
             portalTag.setName(stripTagPrefix(portalTag.getName()));
-        }
-        // v5.9 P1：生成业务主键
-        if (portalTag.getBusinessId() == null || portalTag.getBusinessId().isEmpty()) {
-            portalTag.setBusinessId(BusinessIdGenerator.forTag());
         }
         return portalTagMapper.insertPortalTag(portalTag);
     }
@@ -115,8 +110,6 @@ public class PortalTagServiceImpl extends ServiceImpl<PortalTagMapper, PortalTag
                     tag.setReferenceCount(0L);
                     tag.setStatus("0");
                     tag.setCreateTime(LocalDateTime.now());
-                    // v5.9 P1：生成业务主键（bindTags 内创建新标签也需生成，避免绕过 insertPortalTag 导致 business_id 为 NULL）
-                    tag.setBusinessId(BusinessIdGenerator.forTag());
                     try {
                         portalTagMapper.insertPortalTag(tag);
                     } catch (DuplicateKeyException e) {

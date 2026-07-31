@@ -29,23 +29,14 @@ public class PortalTipOrder extends BaseEntity {
     /** 打赏者用户ID */
     private Long userId;
 
-    /** 打赏者业务主键（关联 portal_user.business_id，双轨过渡） */
-    private String userBusinessId;
-
     /** 被打赏者用户ID */
     private Long authorId;
-
-    /** 被打赏者业务主键（关联 portal_user.business_id，双轨过渡） */
-    private String authorBusinessId;
 
     /** 打赏对象类型 article/column/article_paid */
     private String targetType;
 
     /** 打赏对象ID */
     private Long targetId;
-
-    /** 打赏对象业务主键（关联 portal_article/portal_column 等父表 business_id，双轨过渡） */
-    private String targetBusinessId;
 
     /** 打赏金额 */
     private BigDecimal amount;

@@ -45,9 +45,6 @@ public class PortalReport implements Serializable {
     /** 举报目标ID（评论/文章/用户ID，配合 targetType 使用） */
     private Long targetId;
 
-    /** 举报目标业务主键（关联 portal_comment/portal_article/portal_user 等父表 business_id，双轨过渡） */
-    private String targetBusinessId;
-
     /** 举报描述（问题描述） */
     @NotBlank(message = "问题描述不能为空")
     @Size(max = 2000, message = "问题描述长度不能超过2000")
@@ -61,9 +58,6 @@ public class PortalReport implements Serializable {
 
     /** 举报人用户ID（登录用户） */
     private Long userId;
-
-    /** 举报人业务主键（关联 portal_user.business_id，双轨过渡） */
-    private String userBusinessId;
 
     /** 举报人用户名（冗余，便于后台展示） */
     private String username;

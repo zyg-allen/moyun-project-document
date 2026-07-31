@@ -81,22 +81,6 @@ public class PortalBookmarkServiceImpl extends ServiceImpl<PortalBookmarkMapper,
         if (portalBookmark.getUserId() == null) {
             portalBookmark.setUserId(PortalSecurityUtils.getUserId());
         }
-        // v5.9 P1：双写用户业务主键
-        if (portalBookmark.getUserId() != null
-                && (portalBookmark.getUserBusinessId() == null || portalBookmark.getUserBusinessId().isEmpty())) {
-            PortalUser user = portalUserMapper.selectById(portalBookmark.getUserId());
-            if (user != null) {
-                portalBookmark.setUserBusinessId(user.getBusinessId());
-            }
-        }
-        // v5.9 P1：双写文章业务主键
-        if (portalBookmark.getArticleId() != null
-                && (portalBookmark.getArticleBusinessId() == null || portalBookmark.getArticleBusinessId().isEmpty())) {
-            PortalArticle article = portalArticleMapper.selectById(portalBookmark.getArticleId());
-            if (article != null) {
-                portalBookmark.setArticleBusinessId(article.getBusinessId());
-            }
-        }
         return portalBookmarkMapper.insertPortalBookmark(portalBookmark);
     }
 

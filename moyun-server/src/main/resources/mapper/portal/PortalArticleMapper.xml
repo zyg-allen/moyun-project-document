@@ -376,11 +376,8 @@
         <trim prefix="values (" suffix=")" suffixOverrides=",">
             #{title}, #{slug}, #{content}, #{excerpt}, #{cover},
             <if test="authorId != null">#{authorId},</if>
-            <if test="authorBusinessId != null">#{authorBusinessId},</if>
             <if test="categoryId != null">#{categoryId},</if>
-            <if test="categoryBusinessId != null">#{categoryBusinessId},</if>
             <if test="rootCategoryId != null">#{rootCategoryId},</if>
-            <if test="rootCategoryBusinessId != null">#{rootCategoryBusinessId},</if>
             <if test="categoryPath != null">#{categoryPath},</if>
             <if test="status != null">#{status},</if>
             <if test="isFeatured != null">#{isFeatured},</if>
@@ -406,7 +403,6 @@
             <if test="updateBy != null">#{updateBy},</if>
             <if test="updateTime != null">#{updateTime},</if>
             <if test="remark != null">#{remark},</if>
-            <if test="businessId != null">#{businessId},</if>
         </trim>
     </insert>
 

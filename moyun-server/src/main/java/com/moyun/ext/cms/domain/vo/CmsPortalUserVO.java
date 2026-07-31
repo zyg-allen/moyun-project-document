@@ -23,9 +23,6 @@ public class CmsPortalUserVO extends BaseEntity {
     /** 用户ID */
     private Long id;
 
-    /** 业务主键（前缀usr_，跨表关联） */
-    private String businessId;
-
     /** 关联后台用户ID */
     private Long userId;
 

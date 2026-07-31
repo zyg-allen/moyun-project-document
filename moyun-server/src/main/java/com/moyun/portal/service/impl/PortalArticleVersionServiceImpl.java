@@ -69,14 +69,6 @@ public class PortalArticleVersionServiceImpl
         version.setExcerpt(article.getExcerpt());
         version.setOperatorId(operatorId);
         version.setCreatedTime(LocalDateTime.now());
-        // v5.9 P1：双写 business_id 外键
-        version.setArticleBusinessId(article.getBusinessId());
-        if (operatorId != null) {
-            PortalUser operator = portalUserMapper.selectById(operatorId);
-            if (operator != null) {
-                version.setOperatorBusinessId(operator.getBusinessId());
-            }
-        }
         baseMapper.insert(version);
         return version;
     }

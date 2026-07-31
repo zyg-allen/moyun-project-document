@@ -1,5 +1,6 @@
 package com.moyun.system.service.impl;
 
+import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.moyun.system.domain.entity.SysOperLog;
 import com.moyun.system.domain.query.OperLogQuery;
 import com.moyun.system.mapper.SysOperLogMapper;
@@ -39,6 +40,14 @@ public class SysOperLogServiceImpl implements ISysOperLogService {
     @Override
     public List<SysOperLog> selectOperLogList(OperLogQuery query) {
         return operLogMapper.selectOperLogList(query);
+    }
+
+    /**
+     * 分页查询操作日志（MyBatis-Plus 标准分页）
+     */
+    @Override
+    public IPage<SysOperLog> selectOperLogPage(IPage<SysOperLog> page, OperLogQuery query) {
+        return operLogMapper.selectOperLogPage(page, query);
     }
 
     /**

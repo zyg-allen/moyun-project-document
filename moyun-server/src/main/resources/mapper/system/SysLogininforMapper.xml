@@ -1,7 +1,7 @@
 ﻿<?xml version="1.0" encoding="UTF-8" ?>
 <!DOCTYPE mapper
-		PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
-		"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.moyun.system.mapper.SysLogininforMapper">
 
 	<resultMap type="com.moyun.system.domain.entity.SysLogininfor" id="SysLogininforResult">
@@ -47,15 +47,40 @@
 		order by info_id desc
 	</select>
 
+	<select id="selectLogininforPage" resultMap="SysLogininforResult">
+		select info_id, user_name, ipaddr, login_location, browser, os, status, user_type, msg, login_time from sys_logininfor
+		<where>
+			<if test="query.ipaddr != null and query.ipaddr != ''">
+				AND ipaddr like concat('%', #{query.ipaddr}, '%')
+			</if>
+			<if test="query.status != null and query.status != ''">
+				AND status = #{query.status}
+			</if>
+			<if test="query.userName != null and query.userName != ''">
+				AND user_name like concat('%', #{query.userName}, '%')
+			</if>
+			<if test="query.userType != null and query.userType != ''">
+				AND user_type = #{query.userType}
+			</if>
+			<if test="query.params.beginTime != null and query.params.beginTime != ''">
+				AND login_time &gt;= #{query.params.beginTime}
+			</if>
+			<if test="query.params.endTime != null and query.params.endTime != ''">
+				AND login_time &lt;= #{query.params.endTime}
+			</if>
+		</where>
+		order by info_id desc
+	</select>
+
 	<delete id="deleteLogininforByIds" parameterType="Long">
-		delete from sys_logininfor where info_id in
-		<foreach collection="array" item="infoId" open="(" separator="," close=")">
-			#{infoId}
-		</foreach>
-	</delete>
-
-	<update id="cleanLogininfor">
-		truncate table sys_logininfor
-	</update>
-
+ 		delete from sys_logininfor where info_id in
+ 		<foreach collection="array" item="infoId" open="(" separator="," close=")">
+ 			#{infoId}
+        </foreach> 
+ 	</delete>
+    
+    <update id="cleanLogininfor">
+        truncate table sys_logininfor
+    </update>
+    
 </mapper> 

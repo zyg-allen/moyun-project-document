@@ -153,8 +153,8 @@ const expressionList = ref([])
 function getList() {
   loading.value = true
   listExpression(queryParams.value).then(response => {
-    expressionList.value = response.rows
-    total.value = response.total
+    expressionList.value = response.data.records
+    total.value = response.data.total
     loading.value = false
   })
 }

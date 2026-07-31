@@ -1,8 +1,9 @@
 package com.moyun.ext.flowable.controller;
 
+import com.baomidou.mybatisplus.core.metadata.IPage;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.moyun.core.base.AjaxResult;
 import com.moyun.core.base.BaseController;
-import com.moyun.core.base.TableDataInfo;
 import com.moyun.ext.flowable.service.ISysDeployFormService;
 import com.moyun.ext.flowable.service.ISysFormService;
 import com.moyun.system.domain.entity.SysDeployForm;
@@ -43,10 +44,10 @@ public class SysFormController extends BaseController {
      */
     @PreAuthorize("@ss.hasPermi('flowable:form:list')")
     @GetMapping("/list")
-    public TableDataInfo list(SysForm sysForm) {
-        startPage();
-        List<SysForm> list = sysFormService.selectSysFormList(sysForm);
-        return getDataTable(list);
+    public AjaxResult list(SysForm sysForm) {
+        Page<SysForm> page = startPage();
+        IPage<SysForm> result = sysFormService.selectSysFormPage(page, sysForm);
+        return success(result);
     }
 
 

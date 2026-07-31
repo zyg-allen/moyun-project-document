@@ -1,5 +1,6 @@
 package com.moyun.system.service;
 
+import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.moyun.system.domain.entity.SysListener;
 
 import java.util.List;
@@ -27,6 +28,15 @@ public interface ISysListenerService {
      * @return 流程监听集合
      */
     List<SysListener> selectSysListenerList(SysListener sysListener);
+
+    /**
+     * 分页查询流程监听（MyBatis-Plus 标准分页，配合 PaginationInnerInterceptor）
+     *
+     * @param page        分页对象
+     * @param sysListener 流程监听查询条件
+     * @return 分页结果
+     */
+    IPage<SysListener> selectSysListenerPage(IPage<SysListener> page, SysListener sysListener);
 
     /**
      * 新增流程监听

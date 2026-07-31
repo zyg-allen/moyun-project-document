@@ -1,5 +1,6 @@
 package com.moyun.system.service;
 
+import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.moyun.system.domain.entity.SysOperLog;
 import com.moyun.system.domain.query.OperLogQuery;
 
@@ -26,6 +27,15 @@ public interface ISysOperLogService {
      * @return 操作日志集合
      */
     List<SysOperLog> selectOperLogList(OperLogQuery query);
+
+    /**
+     * 分页查询操作日志（MyBatis-Plus 标准分页，配合 PaginationInnerInterceptor）
+     *
+     * @param page  分页对象
+     * @param query 操作日志查询条件
+     * @return 分页结果
+     */
+    IPage<SysOperLog> selectOperLogPage(IPage<SysOperLog> page, OperLogQuery query);
 
     /**
      * 批量删除系统操作日志

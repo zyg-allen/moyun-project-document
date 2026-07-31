@@ -1,5 +1,6 @@
 package com.moyun.system.service.impl;
 
+import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.moyun.system.domain.entity.SysListener;
 import com.moyun.system.mapper.SysListenerMapper;
@@ -38,6 +39,14 @@ public class SysListenerServiceImpl extends ServiceImpl<SysListenerMapper, SysLi
     @Override
     public List<SysListener> selectSysListenerList(SysListener sysListener) {
         return baseMapper.selectSysListenerList(sysListener);
+    }
+
+    /**
+     * 分页查询流程监听（MyBatis-Plus 标准分页）
+     */
+    @Override
+    public IPage<SysListener> selectSysListenerPage(IPage<SysListener> page, SysListener sysListener) {
+        return baseMapper.selectSysListenerPage(page, sysListener);
     }
 
     /**

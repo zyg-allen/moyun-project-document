@@ -116,27 +116,6 @@ public class PortalTipServiceImpl implements IPortalTipService {
         order.setPayMethod("points");
         order.setPaidTime(LocalDateTime.now());
         order.setCreatedTime(LocalDateTime.now());
-        // v5.9 P1：双写 business_id 外键（user/author/target）
-        PortalUser tipper = portalUserMapper.selectById(tipperId);
-        if (tipper != null) {
-            order.setUserBusinessId(tipper.getBusinessId());
-        }
-        PortalUser authorUser = portalUserMapper.selectById(authorId);
-        if (authorUser != null) {
-            order.setAuthorBusinessId(authorUser.getBusinessId());
-        }
-        // target_business_id 根据 target_type 关联不同父表
-        if ("article".equals(order.getTargetType()) || "article_paid".equals(order.getTargetType())) {
-            PortalArticle targetArticle = portalArticleMapper.selectById(order.getTargetId());
-            if (targetArticle != null) {
-                order.setTargetBusinessId(targetArticle.getBusinessId());
-            }
-        } else if ("column".equals(order.getTargetType())) {
-            PortalColumn targetColumn = portalColumnMapper.selectById(order.getTargetId());
-            if (targetColumn != null) {
-                // column 暂未加 business_id（P2 批次），本批 target_business_id 保持 NULL
-            }
-        }
         portalTipOrderMapper.insert(order);
 
         // 8. 触发成长事件，接入激励闭环

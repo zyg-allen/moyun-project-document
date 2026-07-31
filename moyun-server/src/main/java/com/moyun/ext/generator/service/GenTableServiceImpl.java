@@ -2,6 +2,7 @@ package com.moyun.ext.generator.service;
 
 import com.alibaba.fastjson2.JSON;
 import com.alibaba.fastjson2.JSONObject;
+import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.moyun.common.constant.Constants;
 import com.moyun.common.constant.GenConstants;
 import com.moyun.common.exception.system.ServiceException;
@@ -77,6 +78,14 @@ public class GenTableServiceImpl implements IGenTableService {
     }
 
     /**
+     * 分页查询业务列表（MyBatis-Plus 标准分页）
+     */
+    @Override
+    public IPage<GenTable> selectGenTablePage(IPage<GenTable> page, GenTable genTable) {
+        return genTableMapper.selectGenTablePage(page, genTable);
+    }
+
+    /**
      * 查询据库列表
      *
      * @param genTable 业务信息
@@ -85,6 +94,14 @@ public class GenTableServiceImpl implements IGenTableService {
     @Override
     public List<GenTable> selectDbTableList(GenTable genTable) {
         return genTableMapper.selectDbTableList(genTable);
+    }
+
+    /**
+     * 分页查询据库列表（MyBatis-Plus 标准分页）
+     */
+    @Override
+    public IPage<GenTable> selectDbTablePage(IPage<GenTable> page, GenTable genTable) {
+        return genTableMapper.selectDbTablePage(page, genTable);
     }
 
     /**

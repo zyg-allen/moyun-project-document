@@ -6,7 +6,6 @@
 
     <resultMap type="com.moyun.portal.domain.entity.PortalTag" id="PortalTagResult">
         <id property="id" column="id"/>
-        <result property="businessId" column="business_id"/>
         <result property="name" column="name"/>
         <result property="slug" column="slug"/>
         <result property="sort" column="sort"/>
@@ -21,7 +20,7 @@
     </resultMap>
 
     <sql id="selectPortalTagVo">
-        select id, name, slug, sort, status, module, reference_count, create_by, create_time, update_by, update_time, remark, business_id from portal_tag
+        select id, name, slug, sort, status, module, reference_count, create_by, create_time, update_by, update_time, remark from portal_tag
     </sql>
 
     <!-- 通用查询条件片段 -->
@@ -95,7 +94,6 @@
             <if test="createBy != null">create_by,</if>
             <if test="createTime != null">create_time,</if>
             <if test="remark != null">remark,</if>
-            <if test="businessId != null">business_id,</if>
         </trim>
         <trim prefix="values (" suffix=")" suffixOverrides=",">
             <if test="name != null">#{name},</if>
@@ -107,7 +105,6 @@
             <if test="createBy != null">#{createBy},</if>
             <if test="createTime != null">#{createTime},</if>
             <if test="remark != null">#{remark},</if>
-            <if test="businessId != null">#{businessId},</if>
         </trim>
     </insert>
 
@@ -123,7 +120,6 @@
             <if test="updateBy != null">update_by = #{updateBy},</if>
             <if test="updateTime != null">update_time = #{updateTime},</if>
             <if test="remark != null">remark = #{remark},</if>
-            <if test="businessId != null">business_id = #{businessId},</if>
         </trim>
         where id = #{id}
     </update>

@@ -183,8 +183,8 @@ const listenerList = ref([])
 function getList() {
   loading.value = true
   listListener(queryParams.value).then(response => {
-    listenerList.value = response.rows
-    total.value = response.total
+    listenerList.value = response.data.records
+    total.value = response.data.total
     loading.value = false
   })
 }

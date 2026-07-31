@@ -1,5 +1,6 @@
 package com.moyun.ext.generator.service;
 
+import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.moyun.ext.generator.domain.GenTable;
 
 import java.util.List;
@@ -20,12 +21,30 @@ public interface IGenTableService {
     public List<GenTable> selectGenTableList(GenTable genTable);
 
     /**
+     * 分页查询业务列表（MyBatis-Plus 标准分页，配合 PaginationInnerInterceptor）
+     *
+     * @param page     分页对象
+     * @param genTable 业务信息
+     * @return 分页结果
+     */
+    public IPage<GenTable> selectGenTablePage(IPage<GenTable> page, GenTable genTable);
+
+    /**
      * 查询据库列表
      *
      * @param genTable 业务信息
      * @return 数据库表集合
      */
     public List<GenTable> selectDbTableList(GenTable genTable);
+
+    /**
+     * 分页查询据库列表（MyBatis-Plus 标准分页，配合 PaginationInnerInterceptor）
+     *
+     * @param page     分页对象
+     * @param genTable 业务信息
+     * @return 分页结果
+     */
+    public IPage<GenTable> selectDbTablePage(IPage<GenTable> page, GenTable genTable);
 
     /**
      * 查询据库列表

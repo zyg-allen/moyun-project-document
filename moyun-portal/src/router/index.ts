@@ -15,6 +15,8 @@ const HelpCenterPage = () => import('@/pages/HelpCenter.vue')
 const AboutUsPage = () => import('@/pages/AboutUs.vue')
 const UserAgreementPage = () => import('@/pages/UserAgreement.vue')
 const ReportFeedbackPage = () => import('@/pages/ReportFeedback.vue')
+const MyReportsPage = () => import('@/pages/MyReportsPage.vue')
+const MyFeedbackPage = () => import('@/pages/MyFeedbackPage.vue')
 const LoginPage = () => import('@/pages/LoginPage.vue')
 const RegisterPage = () => import('@/pages/RegisterPage.vue')
 const PublishPage = () => import('@/pages/PublishPage.vue')
@@ -482,6 +484,19 @@ const routes: RouteRecordRaw[] = [
     name: 'report',
     component: ReportFeedbackPage,
     meta: { title: '问题反馈', isPublic: true }
+  },
+  // 我的举报/反馈进度列表（需登录，仅本人可见）
+  {
+    path: '/my/reports',
+    name: 'my-reports',
+    component: MyReportsPage,
+    meta: { requiresAuth: true, title: '我的举报', robots: 'noindex,nofollow' }
+  },
+  {
+    path: '/my/feedback',
+    name: 'my-feedback',
+    component: MyFeedbackPage,
+    meta: { requiresAuth: true, title: '我的反馈', robots: 'noindex,nofollow' }
   },
   // ============ 认证页面（登录后重定向） ============
   {

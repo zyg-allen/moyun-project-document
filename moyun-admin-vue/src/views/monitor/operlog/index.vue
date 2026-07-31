@@ -145,7 +145,7 @@
          :total="total"
          v-model:page="queryParams.pageNum"
          v-model:limit="queryParams.pageSize"
-         @pagination="getList"
+         @pagination="() => getList()"
       />
 
       <!-- 操作日志详细 -->
@@ -231,11 +231,26 @@ const data = reactive({
 const { queryParams, form } = toRefs(data);
 
 /** 查询登录日志 */
-function getList() {
+function getList(autoloadDetail = false) {
   loading.value = true;
   list(proxy.addDateRange(queryParams.value, dateRange.value)).then(response => {
-    operlogList.value = response.rows;
-    total.value = response.total;
+    operlogList.value = response.data.records;
+    total.value = response.data.total;
+    // 从 URL 参数自动打开详情弹窗（dashboard "已办" 跳转场景）
+    // 仅在首屏初始化时触发，且打开后立即清除 URL 上的 operId，
+    // 防止后续分页/搜索时再次触发详情弹窗
+    if (autoloadDetail === true) {
+      const operId = proxy.$route.query.operId;
+      if (operId) {
+        const target = operlogList.value.find(item => String(item.operId) === String(operId));
+        if (target) {
+          handleView(target);
+        }
+        // 清除 URL 上的 operId，避免翻页时误触发
+        proxy.$router.replace({ query: {} });
+      }
+    }
+  }).finally(() => {
     loading.value = false;
   });
 }
@@ -297,5 +312,5 @@ function handleExport() {
   }, `config_${new Date().getTime()}.xlsx`);
 }
 
-getList();
+getList(true);
 </script>

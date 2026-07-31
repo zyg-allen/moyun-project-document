@@ -1,5 +1,6 @@
 package com.moyun.ext.job.service.impl;
 
+import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.moyun.ext.job.domain.entity.SysJobLog;
 import com.moyun.ext.job.mapper.SysJobLogMapper;
 import com.moyun.ext.job.service.ISysJobLogService;
@@ -22,6 +23,14 @@ public class SysJobLogServiceImpl implements ISysJobLogService {
     @Override
     public List<SysJobLog> selectJobLogList(SysJobLog jobLog) {
         return jobLogMapper.selectJobLogList(jobLog);
+    }
+
+    /**
+     * 分页查询定时任务调度日志（MyBatis-Plus 标准分页）
+     */
+    @Override
+    public IPage<SysJobLog> selectJobLogPage(IPage<SysJobLog> page, SysJobLog jobLog) {
+        return jobLogMapper.selectJobLogPage(page, jobLog);
     }
 
     @Override

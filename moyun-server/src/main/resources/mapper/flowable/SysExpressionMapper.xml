@@ -30,6 +30,15 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         </where>
     </select>
 
+    <select id="selectSysExpressionPage" resultMap="SysExpressionResult">
+        <include refid="selectSysExpressionVo"/>
+        <where>
+            <if test="query.name != null  and query.name != ''"> and name like concat('%', #{query.name}, '%')</if>
+            <if test="query.expression != null  and query.expression != ''"> and expression = #{query.expression}</if>
+            <if test="query.status != null "> and status = #{query.status}</if>
+        </where>
+    </select>
+
     <select id="selectSysExpressionById" parameterType="Long" resultMap="SysExpressionResult">
         <include refid="selectSysExpressionVo"/>
         where id = #{id}

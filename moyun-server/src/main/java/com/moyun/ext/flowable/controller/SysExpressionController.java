@@ -1,5 +1,7 @@
 package com.moyun.ext.flowable.controller;
 
+import com.baomidou.mybatisplus.core.metadata.IPage;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.moyun.core.base.AjaxResult;
 import com.moyun.core.base.BaseController;
 import com.moyun.core.base.TableDataInfo;
@@ -43,10 +45,10 @@ public class SysExpressionController extends BaseController {
                     content = @Content(mediaType = "application/json", schema = @Schema(implementation = TableDataInfo.class)))
     })
     @GetMapping("/list")
-    public TableDataInfo list(SysExpression sysExpression) {
-        startPage();
-        List<SysExpression> list = sysExpressionService.selectSysExpressionList(sysExpression);
-        return getDataTable(list);
+    public AjaxResult list(SysExpression sysExpression) {
+        Page<SysExpression> page = startPage();
+        IPage<SysExpression> result = sysExpressionService.selectSysExpressionPage(page, sysExpression);
+        return success(result);
     }
 
     /**

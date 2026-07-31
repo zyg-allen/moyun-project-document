@@ -27,9 +27,6 @@ public class PortalCategory extends BaseEntity {
     @TableId(type = IdType.AUTO)
     private Long id;
 
-    /** 业务主键（前缀cat_，用于跨表关联，避免自增id在TRUNCATE后错乱） */
-    private String businessId;
-
     /** 分类名称 */
     @NotBlank(message = "分类名称不能为空")
     @Size(min = 0, max = 100, message = "分类名称长度不能超过100个字符")
@@ -52,9 +49,6 @@ public class PortalCategory extends BaseEntity {
 
     /** 父分类ID */
     private Long parentId;
-
-    /** 父分类业务主键（关联 portal_category.business_id 自引用，双轨过渡） */
-    private String parentBusinessId;
 
     /** 状态（0正常 1停用） */
     private String status;

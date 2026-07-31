@@ -1,0 +1,112 @@
+2026-07-31 15:04:26.866  INFO 25608 --- [main] com.moyun.agent.LynxAiApplication        : Starting LynxAiApplication using Java 21.0.9 with PID 25608 (D:\zyg-work\moyun-project-document\moyun-ai-parent\moyun-ai-web\target\classes started by 19987 in D:\zyg-work\moyun-project-document)
+2026-07-31 15:04:26.868  INFO 25608 --- [main] com.moyun.agent.LynxAiApplication        : No active profile set, falling back to 1 default profile: "default"
+2026-07-31 15:04:32.969  INFO 25608 --- [main] c.m.agent.config.ElasticsearchConfig     : ✅ Elasticsearch客户端初始化成功, 连接地址: localhost:9200
+2026-07-31 15:04:33.125  INFO 25608 --- [main] c.m.a.store.ElasticsearchEmbeddingStore  : ElasticsearchEmbeddingStore初始化，索引名: ai-vectors
+2026-07-31 15:04:33.770  INFO 25608 --- [main] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Starting...
+2026-07-31 15:04:33.997  INFO 25608 --- [main] com.zaxxer.hikari.pool.HikariPool        : HikariPool-1 - Added connection com.mysql.cj.jdbc.ConnectionImpl@2e93f91d
+2026-07-31 15:04:33.999  INFO 25608 --- [main] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Start completed.
+2026-07-31 15:04:34.194  INFO 25608 --- [main] c.m.agent.config.EmbeddingStoreConfig    : ✅ 使用 Embedding 模型: text-embedding-v3, provider: dashscope
+2026-07-31 15:04:34.194  INFO 25608 --- [main] c.m.agent.config.EmbeddingStoreConfig    : ✅ Elasticsearch 向量存储初始化成功
+2026-07-31 15:04:34.403  INFO 25608 --- [main] com.moyun.agent.config.MinioConfig       : ✅ 初始化 MinIO 客户端: http://localhost:9001
+2026-07-31 15:04:35.043  INFO 25608 --- [main] c.m.agent.service.impl.MinioServiceImpl  : ✅ MinIO 存储桶初始化完成
+2026-07-31 15:04:35.330  INFO 25608 --- [main] c.m.a.s.impl.KnowledgeBaseServiceImpl    : ✅ 使用动态配置的 Embedding 模型: 通义千问-多模态Embedding (text-embedding-v3)
+2026-07-31 15:04:35.673  INFO 25608 --- [main] c.moyun.agent.engine.tool.ToolRegistry   : 📦 注册内置工具: calculator
+2026-07-31 15:04:35.673  INFO 25608 --- [main] c.moyun.agent.engine.tool.ToolRegistry   : 📦 注册内置工具: current_time
+2026-07-31 15:04:35.673  INFO 25608 --- [main] c.moyun.agent.engine.tool.ToolRegistry   : 📦 注册内置工具: database_query
+2026-07-31 15:04:35.673  INFO 25608 --- [main] c.moyun.agent.engine.tool.ToolRegistry   : 📦 注册内置工具: url_reader
+2026-07-31 15:04:35.673  INFO 25608 --- [main] c.moyun.agent.engine.tool.ToolRegistry   : 📦 注册内置工具: weather_query
+2026-07-31 15:04:35.674  INFO 25608 --- [main] c.moyun.agent.engine.tool.ToolRegistry   : 📦 注册内置工具: web_search
+2026-07-31 15:04:35.674  INFO 25608 --- [main] c.moyun.agent.engine.tool.ToolRegistry   : 📦 注册内置工具: execute_workflow
+2026-07-31 15:04:35.674  INFO 25608 --- [main] c.moyun.agent.engine.tool.ToolRegistry   : ✅ 工具注册中心初始化完成，已注册 7 个内置工具
+2026-07-31 15:04:35.859  INFO 25608 --- [main] c.m.a.s.impl.QueryExpansionServiceImpl   : 从数据库加载全局领域词典完成，共 3 个核心词
+2026-07-31 15:04:35.868  INFO 25608 --- [main] c.m.a.s.i.chat.RagRetrievalServiceImpl   : ✅ RagRetrievalService - 使用动态配置的 Embedding 模型: 通义千问-多模态Embedding (text-embedding-v3)
+2026-07-31 15:04:35.875  INFO 25608 --- [main] c.m.a.s.impl.ModelConfigServiceImpl      : 创建 DashScope Reranker 模型: qwen3-rerank
+2026-07-31 15:04:35.880  INFO 25608 --- [main] c.m.a.s.i.chat.RagRetrievalServiceImpl   : ✅ RagRetrievalService - 使用动态配置的 Reranker 模型: Qwen3-Reranker (qwen3-rerank)
+2026-07-31 15:04:35.911  INFO 25608 --- [main] com.moyun.agent.config.AsyncConfig       : ✅ 知识库处理线程池初始化完成: core=20, max=40, queue=50
+2026-07-31 15:04:36.203  INFO 25608 --- [main] c.m.a.engine.workflow.WorkflowEngine     : 📦 注册节点执行器: agent
+2026-07-31 15:04:36.203  INFO 25608 --- [main] c.m.a.engine.workflow.WorkflowEngine     : 📦 注册节点执行器: aggregator
+2026-07-31 15:04:36.203  INFO 25608 --- [main] c.m.a.engine.workflow.WorkflowEngine     : 📦 注册节点执行器: cache
+2026-07-31 15:04:36.203  INFO 25608 --- [main] c.m.a.engine.workflow.WorkflowEngine     : 📦 注册节点执行器: classifier
+2026-07-31 15:04:36.204  INFO 25608 --- [main] c.m.a.engine.workflow.WorkflowEngine     : 📦 注册节点执行器: code
+2026-07-31 15:04:36.204  INFO 25608 --- [main] c.m.a.engine.workflow.WorkflowEngine     : 📦 注册节点执行器: condition
+2026-07-31 15:04:36.204  INFO 25608 --- [main] c.m.a.engine.workflow.WorkflowEngine     : 📦 注册节点执行器: database
+2026-07-31 15:04:36.204  INFO 25608 --- [main] c.m.a.engine.workflow.WorkflowEngine     : 📦 注册节点执行器: delay
+2026-07-31 15:04:36.204  INFO 25608 --- [main] c.m.a.engine.workflow.WorkflowEngine     : 📦 注册节点执行器: email
+2026-07-31 15:04:36.204  INFO 25608 --- [main] c.m.a.engine.workflow.WorkflowEngine     : 📦 注册节点执行器: end
+2026-07-31 15:04:36.204  INFO 25608 --- [main] c.m.a.engine.workflow.WorkflowEngine     : 📦 注册节点执行器: extractor
+2026-07-31 15:04:36.204  INFO 25608 --- [main] c.m.a.engine.workflow.WorkflowEngine     : 📦 注册节点执行器: http
+2026-07-31 15:04:36.205  INFO 25608 --- [main] c.m.a.engine.workflow.WorkflowEngine     : 📦 注册节点执行器: iterator
+2026-07-31 15:04:36.205  INFO 25608 --- [main] c.m.a.engine.workflow.WorkflowEngine     : 📦 注册节点执行器: knowledge
+2026-07-31 15:04:36.205  INFO 25608 --- [main] c.m.a.engine.workflow.WorkflowEngine     : 📦 注册节点执行器: llm
+2026-07-31 15:04:36.205  INFO 25608 --- [main] c.m.a.engine.workflow.WorkflowEngine     : 📦 注册节点执行器: loop
+2026-07-31 15:04:36.205  INFO 25608 --- [main] c.m.a.engine.workflow.WorkflowEngine     : 📦 注册节点执行器: merge
+2026-07-31 15:04:36.205  INFO 25608 --- [main] c.m.a.engine.workflow.WorkflowEngine     : 📦 注册节点执行器: parallel
+2026-07-31 15:04:36.205  INFO 25608 --- [main] c.m.a.engine.workflow.WorkflowEngine     : 📦 注册节点执行器: question
+2026-07-31 15:04:36.205  INFO 25608 --- [main] c.m.a.engine.workflow.WorkflowEngine     : 📦 注册节点执行器: setvar
+2026-07-31 15:04:36.205  INFO 25608 --- [main] c.m.a.engine.workflow.WorkflowEngine     : 📦 注册节点执行器: start
+2026-07-31 15:04:36.205  INFO 25608 --- [main] c.m.a.engine.workflow.WorkflowEngine     : 📦 注册节点执行器: subflow
+2026-07-31 15:04:36.207  INFO 25608 --- [main] c.m.a.engine.workflow.WorkflowEngine     : 📦 注册节点执行器: template
+2026-07-31 15:04:36.207  INFO 25608 --- [main] c.m.a.engine.workflow.WorkflowEngine     : 📦 注册节点执行器: text
+2026-07-31 15:04:36.207  INFO 25608 --- [main] c.m.a.engine.workflow.WorkflowEngine     : 📦 注册节点执行器: tool
+2026-07-31 15:04:36.207  INFO 25608 --- [main] c.m.a.engine.workflow.WorkflowEngine     : 📦 注册节点执行器: webhook
+2026-07-31 15:04:36.207  INFO 25608 --- [main] c.m.a.engine.workflow.WorkflowEngine     : 📦 注册节点执行器: while
+2026-07-31 15:04:36.207  INFO 25608 --- [main] c.m.a.engine.workflow.WorkflowEngine     : ✅ 工作流引擎初始化完成，已注册 27 个节点类型
+2026-07-31 15:04:36.213  INFO 25608 --- [main] c.moyun.agent.config.LibreOfficeConfig   : ========== LibreOffice 本地配置 ==========
+2026-07-31 15:04:36.213  INFO 25608 --- [main] c.moyun.agent.config.LibreOfficeConfig   : 安装路径: D:/Program Files/LibreOffice
+2026-07-31 15:04:36.213  INFO 25608 --- [main] c.moyun.agent.config.LibreOfficeConfig   : 转换超时: 120秒
+2026-07-31 15:04:36.213  INFO 25608 --- [main] c.moyun.agent.config.LibreOfficeConfig   : 最大任务数: 5
+2026-07-31 15:04:36.213  WARN 25608 --- [main] c.moyun.agent.config.LibreOfficeConfig   : ⚠️ LibreOffice未安装在: D:/Program Files/LibreOffice
+2026-07-31 15:04:36.213  WARN 25608 --- [main] c.moyun.agent.config.LibreOfficeConfig   : ⚠️ 文档转换将使用备用方案（格式可能丢失）
+2026-07-31 15:04:36.213  INFO 25608 --- [main] c.moyun.agent.config.LibreOfficeConfig   : 💡 请安装LibreOffice或配置正确的安装路径
+2026-07-31 15:04:36.215  INFO 25608 --- [main] com.moyun.agent.config.AsyncConfig       : ✅ 通用异步线程池初始化完成: core=40, max=80, queue=200
+2026-07-31 15:04:39.865  INFO 25608 --- [main] com.moyun.agent.LynxAiApplication        : Started LynxAiApplication in 13.807 seconds (process running for 15.707)
+2026-07-31 15:04:39.878  INFO 25608 --- [main] com.moyun.agent.config.DataInitializer   : 管理员账号已存在: laomao
+2026-07-31 15:04:39.879  INFO 25608 --- [main] c.moyun.agent.config.StartupTaskRunner   : ========================================
+2026-07-31 15:04:39.879  INFO 25608 --- [main] c.moyun.agent.config.StartupTaskRunner   : 应用启动检查：检测处理中的知识库
+2026-07-31 15:04:39.879  INFO 25608 --- [main] c.moyun.agent.config.StartupTaskRunner   : ========================================
+2026-07-31 15:04:39.890  INFO 25608 --- [main] c.moyun.agent.config.StartupTaskRunner   : ✓ 没有发现处理中的知识库
+2026-07-31 15:04:39.890  INFO 25608 --- [main] c.m.a.l.KnowledgeProcessRecoveryListener : ========== 检查未完成的知识库处理任务 ==========
+2026-07-31 15:04:39.892  INFO 25608 --- [main] c.m.a.l.KnowledgeProcessRecoveryListener : ✅ 没有未完成的处理任务
+2026-07-31 15:17:00.582  INFO 25608 --- [http-nio-8080-exec-1] c.moyun.agent.controller.AuthController  : 用户登录成功: username=laomao, ip=0:0:0:0:0:0:0:1
+2026-07-31 15:17:04.180  WARN 25608 --- [http-nio-8080-exec-10] c.m.agent.config.GlobalExceptionHandler  : 非法参数: Name for argument of type [int] not specified, and parameter name information not available via reflection. Ensure that the compiler uses the '-parameters' flag.
+2026-07-31 15:17:33.075  WARN 25608 --- [http-nio-8080-exec-3] c.m.agent.config.GlobalExceptionHandler  : 非法参数: Name for argument of type [int] not specified, and parameter name information not available via reflection. Ensure that the compiler uses the '-parameters' flag.
+2026-07-31 15:18:32.748  WARN 25608 --- [http-nio-8080-exec-9] c.m.agent.config.GlobalExceptionHandler  : 非法参数: Name for argument of type [java.lang.Boolean] not specified, and parameter name information not available via reflection. Ensure that the compiler uses the '-parameters' flag.
+2026-07-31 15:18:33.823  WARN 25608 --- [http-nio-8080-exec-10] c.m.agent.config.GlobalExceptionHandler  : 非法参数: Name for argument of type [java.time.LocalDate] not specified, and parameter name information not available via reflection. Ensure that the compiler uses the '-parameters' flag.
+2026-07-31 15:18:35.607  WARN 25608 --- [http-nio-8080-exec-7] c.m.agent.config.GlobalExceptionHandler  : 非法参数: Name for argument of type [int] not specified, and parameter name information not available via reflection. Ensure that the compiler uses the '-parameters' flag.
+2026-07-31 15:24:13.224  WARN 25608 --- [http-nio-8080-exec-10] c.m.agent.config.GlobalExceptionHandler  : 非法参数: Name for argument of type [int] not specified, and parameter name information not available via reflection. Ensure that the compiler uses the '-parameters' flag.
+2026-07-31 15:25:29.014  INFO 25608 --- [SpringApplicationShutdownHook] c.m.a.s.impl.TokenUsageServiceImpl       : 应用关闭，开始刷新Token日志到数据库...
+2026-07-31 15:25:29.015 ERROR 25608 --- [SpringApplicationShutdownHook] c.m.a.s.impl.TokenUsageServiceImpl       : 关闭时刷新Token日志失败
+
+java.lang.IllegalStateException: LettuceConnectionFactory has been STOPPED. Use start() to initialize it
+	at org.springframework.data.redis.connection.lettuce.LettuceConnectionFactory.assertStarted(LettuceConnectionFactory.java:1443)
+	at org.springframework.data.redis.connection.lettuce.LettuceConnectionFactory.getConnection(LettuceConnectionFactory.java:1043)
+	at org.springframework.data.redis.core.RedisConnectionUtils.fetchConnection(RedisConnectionUtils.java:195)
+	at org.springframework.data.redis.core.RedisConnectionUtils.doGetConnection(RedisConnectionUtils.java:144)
+	at org.springframework.data.redis.core.RedisConnectionUtils.getConnection(RedisConnectionUtils.java:105)
+	at org.springframework.data.redis.core.RedisTemplate.execute(RedisTemplate.java:383)
+	at org.springframework.data.redis.core.RedisTemplate.execute(RedisTemplate.java:363)
+	at org.springframework.data.redis.core.AbstractOperations.execute(AbstractOperations.java:97)
+	at org.springframework.data.redis.core.DefaultListOperations.size(DefaultListOperations.java:152)
+	at com.moyun.agent.service.impl.TokenUsageServiceImpl.onShutdown(TokenUsageServiceImpl.java:282)
+	at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+	at org.springframework.beans.factory.annotation.InitDestroyAnnotationBeanPostProcessor$LifecycleMethod.invoke(InitDestroyAnnotationBeanPostProcessor.java:457)
+	at org.springframework.beans.factory.annotation.InitDestroyAnnotationBeanPostProcessor$LifecycleMetadata.invokeDestroyMethods(InitDestroyAnnotationBeanPostProcessor.java:415)
+	at org.springframework.beans.factory.annotation.InitDestroyAnnotationBeanPostProcessor.postProcessBeforeDestruction(InitDestroyAnnotationBeanPostProcessor.java:239)
+	at org.springframework.beans.factory.support.DisposableBeanAdapter.destroy(DisposableBeanAdapter.java:202)
+	at org.springframework.beans.factory.support.DefaultSingletonBeanRegistry.destroyBean(DefaultSingletonBeanRegistry.java:587)
+	at org.springframework.beans.factory.support.DefaultSingletonBeanRegistry.destroySingleton(DefaultSingletonBeanRegistry.java:559)
+	at org.springframework.beans.factory.support.DefaultListableBeanFactory.destroySingleton(DefaultListableBeanFactory.java:1202)
+	at org.springframework.beans.factory.support.DefaultSingletonBeanRegistry.destroySingletons(DefaultSingletonBeanRegistry.java:520)
+	at org.springframework.beans.factory.support.DefaultListableBeanFactory.destroySingletons(DefaultListableBeanFactory.java:1195)
+	at org.springframework.context.support.AbstractApplicationContext.destroyBeans(AbstractApplicationContext.java:1195)
+	at org.springframework.context.support.AbstractApplicationContext.doClose(AbstractApplicationContext.java:1156)
+	at org.springframework.boot.web.servlet.context.ServletWebServerApplicationContext.doClose(ServletWebServerApplicationContext.java:174)
+	at org.springframework.context.support.AbstractApplicationContext.close(AbstractApplicationContext.java:1102)
+	at org.springframework.boot.SpringApplicationShutdownHook.closeAndWait(SpringApplicationShutdownHook.java:145)
+	at java.base/java.lang.Iterable.forEach(Iterable.java:75)
+	at org.springframework.boot.SpringApplicationShutdownHook.run(SpringApplicationShutdownHook.java:114)
+	at java.base/java.lang.Thread.run(Thread.java:1583)
+
+2026-07-31 15:25:29.025  INFO 25608 --- [SpringApplicationShutdownHook] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Shutdown initiated...
+2026-07-31 15:25:29.034  INFO 25608 --- [SpringApplicationShutdownHook] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Shutdown completed.

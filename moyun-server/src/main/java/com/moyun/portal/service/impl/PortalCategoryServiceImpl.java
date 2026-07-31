@@ -14,7 +14,6 @@ import com.moyun.portal.domain.entity.PortalCategory;
 import com.moyun.portal.domain.query.CategoryQuery;
 import com.moyun.portal.mapper.PortalCategoryMapper;
 import com.moyun.portal.service.IPortalCategoryService;
-import com.moyun.util.uuid.BusinessIdGenerator;
 
 /**
  * 门户分类 业务层处理
@@ -134,18 +133,6 @@ public class PortalCategoryServiceImpl extends ServiceImpl<PortalCategoryMapper,
      */
     @Override
     public int insertPortalCategory(PortalCategory portalCategory) {
-        // v5.9 P1：生成业务主键
-        if (portalCategory.getBusinessId() == null || portalCategory.getBusinessId().isEmpty()) {
-            portalCategory.setBusinessId(BusinessIdGenerator.forCategory());
-        }
-        // v5.9 P1：双写父分类 business_id（自引用）
-        if (portalCategory.getParentId() != null && portalCategory.getParentId() > 0
-                && (portalCategory.getParentBusinessId() == null || portalCategory.getParentBusinessId().isEmpty())) {
-            PortalCategory parent = portalCategoryMapper.selectPortalCategoryById(portalCategory.getParentId());
-            if (parent != null) {
-                portalCategory.setParentBusinessId(parent.getBusinessId());
-            }
-        }
         return portalCategoryMapper.insertPortalCategory(portalCategory);
     }
 

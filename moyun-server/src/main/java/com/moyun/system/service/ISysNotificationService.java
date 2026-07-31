@@ -57,6 +57,15 @@ public interface ISysNotificationService extends IService<SysNotification> {
      */
     int sendBroadcastNotification(SysNotification notification);
 
+    /**
+     * 发送待办通知（type=todo）给所有系统用户 + 被系统用户绑定的前台用户
+     * 使用个人通知（scope=user）定向发送，未绑定的前台用户不可见
+     *
+     * @param template 通知模板（title/content/data 等，type 强制设为 todo）
+     * @return 发送条数
+     */
+    int sendTodoNotification(SysNotification template);
+
     // ==================== 用户通知查询（门户 + 系统） ====================
 
     /**

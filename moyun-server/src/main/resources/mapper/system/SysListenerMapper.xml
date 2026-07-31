@@ -43,4 +43,23 @@
         order by create_time desc
     </select>
 
+    <select id="selectSysListenerPage" resultMap="SysListenerResult">
+        <include refid="selectSysListenerVo"/>
+        <where>
+            <if test="query.name != null and query.name != ''">
+                AND name like concat('%', #{query.name}, '%')
+            </if>
+            <if test="query.type != null and query.type != ''">
+                AND type = #{query.type}
+            </if>
+            <if test="query.eventType != null and query.eventType != ''">
+                AND event_type = #{query.eventType}
+            </if>
+            <if test="query.status != null">
+                AND status = #{query.status}
+            </if>
+        </where>
+        order by create_time desc
+    </select>
+
 </mapper>

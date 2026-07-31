@@ -638,7 +638,7 @@ async function handleLikeComment(comment: Comment) {
       // 后端返回 { isLiked, likeCount }，用于更新本地状态
       // 之前 BUG：只调 API 不更新本地，导致点赞按钮"看起来没反应"
       const res = await commentApi.likeComment(comment.id);
-      const data = res.data || {};
+      const data = (res.data || {}) as { isLiked?: boolean; likeCount?: number };
       // 同步更新评论列表中所有该 id 的评论（根评论 + 它在各处的回复引用）
       updateCommentLikeState(comment.id, data.isLiked, data.likeCount);
     } catch (error) {

@@ -1,5 +1,6 @@
 package com.moyun.ext.job.service.impl;
 
+import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.moyun.common.constant.ScheduleConstants;
 import com.moyun.common.exception.system.job.TaskException;
 import com.moyun.ext.job.domain.entity.SysJob;
@@ -32,6 +33,14 @@ public class SysJobServiceImpl implements ISysJobService {
     @Override
     public List<SysJob> selectJobList(SysJob job) {
         return jobMapper.selectJobList(job);
+    }
+
+    /**
+     * 分页查询定时任务调度（MyBatis-Plus 标准分页）
+     */
+    @Override
+    public IPage<SysJob> selectJobPage(IPage<SysJob> page, SysJob job) {
+        return jobMapper.selectJobPage(page, job);
     }
 
     @Override

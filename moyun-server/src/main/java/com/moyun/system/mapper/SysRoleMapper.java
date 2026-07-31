@@ -1,8 +1,10 @@
 package com.moyun.system.mapper;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
+import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.moyun.core.base.entity.SysRole;
 import org.apache.ibatis.annotations.Mapper;
+import org.apache.ibatis.annotations.Param;
 
 import java.util.List;
 
@@ -21,6 +23,15 @@ public interface SysRoleMapper extends BaseMapper<SysRole> {
      * @return 角色数据集合信息
      */
     public List<SysRole> selectRoleList(SysRole role);
+
+    /**
+     * 根据条件分页查询角色数据（MyBatis-Plus 标准分页，配合 PaginationInnerInterceptor）
+     *
+     * @param page 分页对象
+     * @param role 角色信息
+     * @return 分页结果
+     */
+    IPage<SysRole> selectRolePage(IPage<SysRole> page, @Param("query") SysRole role);
 
     /**
      * 根据用户ID查询角色

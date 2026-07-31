@@ -2,9 +2,10 @@ package com.moyun.system.controller;
 
 import com.moyun.common.annotation.Log;
 import com.moyun.common.enums.BusinessType;
+import com.baomidou.mybatisplus.core.metadata.IPage;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.moyun.core.base.AjaxResult;
 import com.moyun.core.base.BaseController;
-import com.moyun.core.base.TableDataInfo;
 import com.moyun.system.domain.entity.SysConfig;
 import com.moyun.system.service.ISysConfigService;
 import com.moyun.util.file.ExcelUtil;
@@ -37,10 +38,10 @@ public class SysConfigController extends BaseController {
     @Operation(summary = "获取参数配置列表", description = "分页查询系统参数配置列表")
     @PreAuthorize("@ss.hasPermi('system:config:list')")
     @GetMapping("/list")
-    public TableDataInfo list(SysConfig config) {
-        startPage();
-        List<SysConfig> list = configService.selectConfigList(config);
-        return getDataTable(list);
+    public AjaxResult list(SysConfig config) {
+        Page<SysConfig> page = startPage();
+        IPage<SysConfig> result = configService.selectConfigPage(page, config);
+        return success(result);
     }
 
     @Operation(summary = "导出参数配置", description = "导出参数配置到Excel文件")

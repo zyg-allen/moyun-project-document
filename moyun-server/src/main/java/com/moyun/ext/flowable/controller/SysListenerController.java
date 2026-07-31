@@ -1,5 +1,7 @@
 package com.moyun.ext.flowable.controller;
 
+import com.baomidou.mybatisplus.core.metadata.IPage;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.moyun.core.base.AjaxResult;
 import com.moyun.core.base.BaseController;
 import com.moyun.core.base.TableDataInfo;
@@ -43,10 +45,10 @@ public class SysListenerController extends BaseController {
                     content = @Content(mediaType = "application/json", schema = @Schema(implementation = TableDataInfo.class)))
     })
     @GetMapping("/list")
-    public TableDataInfo list(SysListener sysListener) {
-        startPage();
-        List<SysListener> list = sysListenerService.selectSysListenerList(sysListener);
-        return getDataTable(list);
+    public AjaxResult list(SysListener sysListener) {
+        Page<SysListener> page = startPage();
+        IPage<SysListener> result = sysListenerService.selectSysListenerPage(page, sysListener);
+        return success(result);
     }
 
     /**

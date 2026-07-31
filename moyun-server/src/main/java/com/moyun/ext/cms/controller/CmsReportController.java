@@ -10,9 +10,13 @@ import com.moyun.core.base.BaseController;
 import com.moyun.core.base.TableDataInfo;
 import com.moyun.portal.domain.entity.PortalReport;
 import com.moyun.portal.mapper.PortalReportMapper;
+import com.moyun.system.domain.entity.SysNotification;
+import com.moyun.system.service.ISysNotificationService;
 import com.moyun.util.bean.PageUtils;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
@@ -30,8 +34,13 @@ import java.time.LocalDateTime;
 @RequestMapping("/cms/report")
 public class CmsReportController extends BaseController {
 
+    private static final Logger log = LoggerFactory.getLogger(CmsReportController.class);
+
     @Autowired
     private PortalReportMapper reportMapper;
+
+    @Autowired
+    private ISysNotificationService notificationService;
 
     /**
      * 查询举报列表（分页）
@@ -70,9 +79,10 @@ public class CmsReportController extends BaseController {
 
     /**
      * 处理举报（标记为已处理并记录处理结果）
-     * 仅允许更新 status/handleResult 两个字段，防止前端篡改 userId/username/description 等
+     * 仅允许更新 status/handleResult 两个字段，防止前端篡改 userId/username/description 等。
+     * 当请求携带 notifyUser=true 时，向举报提交人发送站内通知（默认不通知）。
      */
-    @Operation(summary = "处理举报", description = "处理举报记录，标记状态并记录处理结果")
+    @Operation(summary = "处理举报", description = "处理举报记录，标记状态并记录处理结果，可选通知提交人")
     @PreAuthorize("@ss.hasPermi('cms:report:handle')")
     @Log(title = "举报管理", businessType = BusinessType.UPDATE)
     @PutMapping("/handle")
@@ -95,7 +105,46 @@ public class CmsReportController extends BaseController {
                 .set(PortalReport::getHandler, getUsername())
                 .set(PortalReport::getHandleTime, LocalDateTime.now())
                 .set(PortalReport::getUpdateTime, LocalDateTime.now());
-        return toAjax(reportMapper.update(null, updateWrapper));
+        int rows = reportMapper.update(null, updateWrapper);
+        // 处理成功后，按需向举报提交人发送站内通知
+        if (rows > 0 && Boolean.TRUE.equals(report.getNotifyUser())) {
+            sendHandleNotification(report.getId(), status, report.getHandleResult());
+        }
+        return toAjax(rows);
+    }
+
+    /**
+     * 举报处理结果站内信通知提交人
+     * 通知失败不影响处理主流程
+     */
+    private void sendHandleNotification(Long reportId, String status, String handleResult) {
+        try {
+            PortalReport report = reportMapper.selectById(reportId);
+            if (report == null || report.getUserId() == null) {
+                return;
+            }
+            SysNotification notification = new SysNotification();
+            notification.setType("system");
+            notification.setScope("user");
+            notification.setUserId(report.getUserId());
+            notification.setUserType("portal");
+            notification.setNoticeType("1");
+            notification.setStatus("0");
+            String statusLabel = "processing".equals(status) ? "处理中"
+                    : "resolved".equals(status) ? "已解决" : "已驳回";
+            notification.setTitle("您的举报处理进度更新：" + statusLabel);
+            String content = "您提交的举报（编号 #" + reportId + "）处理状态已更新为「" + statusLabel + "」";
+            if (handleResult != null && !handleResult.isEmpty()) {
+                content += "，处理说明：" + handleResult;
+            }
+            content += "。可在「我的举报」中查看详情。";
+            notification.setContent(content);
+            notification.setData("{\"bizType\":\"report\",\"id\":" + reportId + ",\"status\":\"" + status + "\"}");
+            notificationService.insertNotification(notification);
+            log.info("举报处理通知已发送，reportId={}, userId={}, status={}", reportId, report.getUserId(), status);
+        } catch (Exception e) {
+            log.error("举报处理通知发送失败（不影响处理主流程），reportId={}, error={}", reportId, e.getMessage());
+        }
     }
 
     /**

@@ -1,7 +1,9 @@
 package com.moyun.ext.job.mapper;
 
+import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.moyun.ext.job.domain.entity.SysJobLog;
 import org.apache.ibatis.annotations.Mapper;
+import org.apache.ibatis.annotations.Param;
 
 import java.util.List;
 
@@ -20,6 +22,15 @@ public interface SysJobLogMapper {
      * @return 调度日志集合
      */
     List<SysJobLog> selectJobLogList(SysJobLog jobLog);
+
+    /**
+     * 分页查询定时任务调度日志（MyBatis-Plus 标准分页，配合 PaginationInnerInterceptor）
+     *
+     * @param page   分页对象
+     * @param jobLog 调度日志查询条件
+     * @return 分页结果
+     */
+    IPage<SysJobLog> selectJobLogPage(IPage<SysJobLog> page, @Param("query") SysJobLog jobLog);
 
     /**
      * 查询所有调度日志

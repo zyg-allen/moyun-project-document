@@ -391,17 +391,6 @@ public class PortalArticleController extends BaseController {
             like.setUserId(userId);
             like.setArticleId(id);
             like.setCreateTime(LocalDateTime.now());
-            // v5.9 P1：双写文章业务主键（article 已在前面查询，非空）
-            if (article.getBusinessId() != null && !article.getBusinessId().isEmpty()) {
-                like.setArticleBusinessId(article.getBusinessId());
-            }
-            // v5.9 P1：双写用户业务主键
-            if (like.getUserBusinessId() == null || like.getUserBusinessId().isEmpty()) {
-                PortalUser likeUser = portalUserMapper.selectById(userId);
-                if (likeUser != null) {
-                    like.setUserBusinessId(likeUser.getBusinessId());
-                }
-            }
             try {
                 portalLikeMapper.insert(like);
             } catch (DuplicateKeyException e) {
@@ -499,14 +488,6 @@ public class PortalArticleController extends BaseController {
             view.setIp(ip);
             view.setViewTime(LocalDateTime.now());
             view.setUserAgent(request.getHeader("User-Agent"));
-            // v5.9 P1：双写 business_id 外键
-            view.setArticleBusinessId(article.getBusinessId());
-            if (userId != null) {
-                PortalUser viewer = portalUserMapper.selectById(userId);
-                if (viewer != null) {
-                    view.setUserBusinessId(viewer.getBusinessId());
-                }
-            }
             portalArticleViewMapper.insert(view);
         }
 

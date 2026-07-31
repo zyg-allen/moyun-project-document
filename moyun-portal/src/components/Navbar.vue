@@ -4,7 +4,7 @@ import { RouterLink as Link, useRouter, useRoute } from 'vue-router';
 import {
   Search, Plus, LogOut, Menu, X, Palette, Sun, Moon, Eye,
   ChevronDown, ChevronRight, Settings, UserCircle, BookMarked,
-  HelpCircle, Lock, Bell
+  HelpCircle, Lock, Bell, Flag, MessageSquare
 } from 'lucide-vue-next';
 import { setTheme, getCurrentTheme, type Theme, themes } from '@/utils/theme';
 import { useUserStore } from '@/stores/user';
@@ -199,6 +199,22 @@ function handleGoToBookshelf() {
   router.push('/reading/bookshelf');
 }
 
+function handleGoToMyReports() {
+  isUserMenuOpen.value = false;
+  if (!requireAuth('/my/reports')) {
+    return;
+  }
+  router.push('/my/reports');
+}
+
+function handleGoToMyFeedback() {
+  isUserMenuOpen.value = false;
+  if (!requireAuth('/my/feedback')) {
+    return;
+  }
+  router.push('/my/feedback');
+}
+
 function handlePublish() {
   // 检查是否登录，未登录则跳转到登录页
   if (!requireAuth('/publish')) {
@@ -387,6 +403,22 @@ onUnmounted(() => document.removeEventListener('click', handleDocumentClick));
                   >
                     <BookMarked class="w-4 h-4" style="color: var(--theme-text-secondary);" />
                     <span class="text-sm" style="color: var(--theme-text);">我的书架</span>
+                  </button>
+
+                  <button
+                      @click="handleGoToMyReports"
+                      class="w-full flex items-center space-x-2 px-3 py-2 text-left transition-colors hover:opacity-80"
+                  >
+                    <Flag class="w-4 h-4" style="color: var(--theme-text-secondary);" />
+                    <span class="text-sm" style="color: var(--theme-text);">我的举报</span>
+                  </button>
+
+                  <button
+                      @click="handleGoToMyFeedback"
+                      class="w-full flex items-center space-x-2 px-3 py-2 text-left transition-colors hover:opacity-80"
+                  >
+                    <MessageSquare class="w-4 h-4" style="color: var(--theme-text-secondary);" />
+                    <span class="text-sm" style="color: var(--theme-text);">我的反馈</span>
                   </button>
 
                   <button

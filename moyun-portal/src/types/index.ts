@@ -13,6 +13,7 @@ export type NotificationType =
   | 'order'
   | 'notice'
   | 'announcement'
+  | 'todo'
 
 // 用户成就和徽章
 export interface Achievement {

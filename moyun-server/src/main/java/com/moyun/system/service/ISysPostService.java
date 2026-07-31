@@ -1,5 +1,6 @@
 package com.moyun.system.service;
 
+import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.moyun.system.domain.entity.SysPost;
 
 import java.util.List;
@@ -18,6 +19,15 @@ public interface ISysPostService {
      * @return 岗位信息集合
      */
     List<SysPost> selectPostList(SysPost post);
+
+    /**
+     * 分页查询岗位（MyBatis-Plus 标准分页，配合 PaginationInnerInterceptor）
+     *
+     * @param page 分页对象
+     * @param post 岗位信息
+     * @return 分页结果
+     */
+    IPage<SysPost> selectPostPage(IPage<SysPost> page, SysPost post);
 
     /**
      * 查询所有岗位

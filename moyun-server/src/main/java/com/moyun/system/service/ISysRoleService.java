@@ -1,5 +1,6 @@
 package com.moyun.system.service;
 
+import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.moyun.core.base.entity.SysRole;
 import com.moyun.system.domain.entity.SysUserRole;
 
@@ -19,6 +20,15 @@ public interface ISysRoleService {
      * @return 角色数据集合信息
      */
     public List<SysRole> selectRoleList(SysRole role);
+
+    /**
+     * 根据条件分页查询角色数据（MyBatis-Plus 标准分页，配合 PaginationInnerInterceptor）
+     *
+     * @param page 分页对象
+     * @param role 角色信息
+     * @return 分页结果
+     */
+    public IPage<SysRole> selectRolePage(IPage<SysRole> page, SysRole role);
 
     /**
      * 根据用户ID查询角色列表

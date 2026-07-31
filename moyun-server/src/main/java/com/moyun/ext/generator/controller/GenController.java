@@ -4,6 +4,8 @@ import com.alibaba.druid.DbType;
 import com.alibaba.druid.sql.SQLUtils;
 import com.alibaba.druid.sql.ast.SQLStatement;
 import com.alibaba.druid.sql.dialect.mysql.ast.statement.MySqlCreateTableStatement;
+import com.baomidou.mybatisplus.core.metadata.IPage;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.moyun.common.annotation.Log;
 import com.moyun.common.enums.BusinessType;
 import com.moyun.core.base.AjaxResult;
@@ -64,10 +66,10 @@ public class GenController extends BaseController {
     @Operation(summary = "查询代码生成列表", description = "根据条件查询代码生成列表")
     @PreAuthorize("@ss.hasPermi('tool:gen:list')")
     @GetMapping("/list")
-    public TableDataInfo genList(GenTable genTable) {
-        startPage();
-        List<GenTable> list = genTableService.selectGenTableList(genTable);
-        return getDataTable(list);
+    public AjaxResult genList(GenTable genTable) {
+        Page<GenTable> page = startPage();
+        IPage<GenTable> result = genTableService.selectGenTablePage(page, genTable);
+        return success(result);
     }
 
     /**
@@ -93,10 +95,10 @@ public class GenController extends BaseController {
     @Operation(summary = "查询数据库列表", description = "查询数据库中可导入的表列表")
     @PreAuthorize("@ss.hasPermi('tool:gen:list')")
     @GetMapping("/db/list")
-    public TableDataInfo dataList(GenTable genTable) {
-        startPage();
-        List<GenTable> list = genTableService.selectDbTableList(genTable);
-        return getDataTable(list);
+    public AjaxResult dataList(GenTable genTable) {
+        Page<GenTable> page = startPage();
+        IPage<GenTable> result = genTableService.selectDbTablePage(page, genTable);
+        return success(result);
     }
 
     /**

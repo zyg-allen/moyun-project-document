@@ -1,8 +1,10 @@
 package com.moyun.system.mapper;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
+import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.moyun.system.domain.entity.SysConfig;
 import org.apache.ibatis.annotations.Mapper;
+import org.apache.ibatis.annotations.Param;
 
 import java.util.List;
 
@@ -21,6 +23,15 @@ public interface SysConfigMapper extends BaseMapper<SysConfig> {
      * @return 参数配置信息
      */
     List<SysConfig> selectConfigList(SysConfig config);
+
+    /**
+     * 分页查询参数配置（MyBatis-Plus 标准分页，配合 PaginationInnerInterceptor）
+     *
+     * @param page   分页对象
+     * @param config 参数配置查询条件
+     * @return 分页结果
+     */
+    IPage<SysConfig> selectConfigPage(IPage<SysConfig> page, @Param("query") SysConfig config);
 
     /**
      * 通过键名查询参数配置信息

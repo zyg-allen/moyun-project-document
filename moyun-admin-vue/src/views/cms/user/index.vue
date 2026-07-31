@@ -389,7 +389,6 @@
             <el-descriptions-item label="最后登录IP">{{ profileData.user.loginIp || '-' }}</el-descriptions-item>
             <el-descriptions-item label="最后登录时间">{{ profileData.user.loginDate ? parseTime(profileData.user.loginDate) : '-' }}</el-descriptions-item>
             <el-descriptions-item label="注册时间">{{ profileData.user.createTime ? parseTime(profileData.user.createTime) : '-' }}</el-descriptions-item>
-            <el-descriptions-item label="业务ID">{{ profileData.user.businessId || '-' }}</el-descriptions-item>
           </el-descriptions>
         </div>
       </div>
@@ -681,7 +680,7 @@ function searchSysUser(query) {
   if (query) {
     sysUserLoading.value = true;
     listSysUser({ userName: query, pageNum: 1, pageSize: 20 }).then(response => {
-      sysUserOptions.value = response.rows || [];
+      sysUserOptions.value = response.data.records || [];
     }).finally(() => {
       sysUserLoading.value = false;
     });

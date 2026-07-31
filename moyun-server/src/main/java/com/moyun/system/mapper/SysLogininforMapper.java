@@ -1,6 +1,7 @@
 package com.moyun.system.mapper;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
+import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.moyun.system.domain.entity.SysLogininfor;
 import com.moyun.system.domain.query.LogininforQuery;
 import org.apache.ibatis.annotations.Mapper;
@@ -26,6 +27,15 @@ public interface SysLogininforMapper extends BaseMapper<SysLogininfor> {
      * @return 访问记录集合
      */
     List<SysLogininfor> selectLogininforList(LogininforQuery query);
+
+    /**
+     * 分页查询系统访问记录（MyBatis-Plus 标准分页，配合 PaginationInnerInterceptor）
+     *
+     * @param page  分页对象
+     * @param query 访问记录查询条件
+     * @return 分页结果
+     */
+    IPage<SysLogininfor> selectLogininforPage(IPage<SysLogininfor> page, @Param("query") LogininforQuery query);
 
     /**
      * 批量删除系统访问记录

@@ -34,9 +34,6 @@ public class PortalFeedEvent extends BaseEntity {
     /** 事件发布者 */
     private Long userId;
 
-    /** 事件发布者业务主键（关联 portal_user.business_id，双轨过渡） */
-    private String userBusinessId;
-
     /** 事件类型：publish_article/publish_experience/new_column/checkin 等 */
     private String eventType;
 
@@ -45,9 +42,6 @@ public class PortalFeedEvent extends BaseEntity {
 
     /** 目标对象ID */
     private Long targetId;
-
-    /** 目标对象业务主键（关联 portal_article/portal_interview_experience 等父表 business_id，双轨过渡） */
-    private String targetBusinessId;
 
     /** 目标标题 */
     private String title;

@@ -82,8 +82,8 @@ function handleSelectionChange(selection) {
 /** 查询表数据 */
 function getList() {
   listDbTable(queryParams).then(res => {
-    dbTableList.value = res.rows;
-    total.value = res.total;
+    dbTableList.value = res.data.records;
+    total.value = res.data.total;
   });
 }
 /** 搜索按钮操作 */

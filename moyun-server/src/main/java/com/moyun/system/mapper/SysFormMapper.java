@@ -2,7 +2,9 @@
 // ... existing code ...
 package com.moyun.system.mapper;
 
+import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.moyun.system.domain.entity.SysForm;
+import org.apache.ibatis.annotations.Param;
 
 import java.util.List;
 
@@ -29,6 +31,15 @@ public interface SysFormMapper
      * @return 流程表单集合
      */
     public List<SysForm> selectSysFormList(SysForm sysForm);
+
+    /**
+     * 分页查询流程表单列表（MyBatis-Plus 标准分页，配合 PaginationInnerInterceptor）
+     *
+     * @param page    分页对象
+     * @param sysForm 流程表单
+     * @return 分页结果
+     */
+    IPage<SysForm> selectSysFormPage(IPage<SysForm> page, @Param("query") SysForm sysForm);
 
     /**
      * 新增流程表单

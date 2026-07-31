@@ -28,9 +28,6 @@ public class PortalArticleVersion extends BaseEntity {
     /** 文章ID */
     private Long articleId;
 
-    /** 文章业务主键（关联 portal_article.business_id，双轨过渡） */
-    private String articleBusinessId;
-
     /** 版本号（同一文章内自增） */
     private Integer versionNo;
 
@@ -48,9 +45,6 @@ public class PortalArticleVersion extends BaseEntity {
 
     /** 操作人ID（保存/回滚的执行者） */
     private Long operatorId;
-
-    /** 操作人业务主键（关联 portal_user.business_id，双轨过渡） */
-    private String operatorBusinessId;
 
     /** 版本创建时间 */
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")

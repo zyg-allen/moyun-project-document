@@ -55,6 +55,8 @@ export interface User {
   privacyBookmark?: boolean;
   privacyEmail?: boolean;
   privacyPhone?: boolean;
+  /** 关联后台用户ID（非空表示已绑定系统用户，可查看待办通知） */
+  userId?: string | number;
 }
 
 export interface LoginParams {
@@ -521,7 +523,6 @@ export interface FileInfo {
   uploadUserName?: string;
   status?: string;
   businessType?: string;
-  businessId?: string;
   createTime?: string;
   updateTime?: string;
 }
@@ -533,21 +534,19 @@ export interface FileListParams {
   fileType?: string;
   storageType?: string;
   businessType?: string;
-  businessId?: string;
   status?: string;
 }
 
 export interface UploadFileParams {
   file: File;
   businessType?: string;
-  businessId?: string;
 }
 
 // 通知相关类型
 export interface Notification {
   id: string | number;
   userId?: string | number;
-  type: 'comment' | 'like' | 'follow' | 'system' | 'order' | 'notice' | 'announcement';
+  type: 'comment' | 'like' | 'follow' | 'system' | 'order' | 'notice' | 'announcement' | 'todo';
   title: string;
   content: string;
   data?: string | Record<string, any>;

@@ -1,5 +1,6 @@
 package com.moyun.system.service.impl;
 
+import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.moyun.system.domain.entity.SysLogininfor;
 import com.moyun.system.domain.query.LogininforQuery;
 import com.moyun.system.mapper.SysLogininforMapper;
@@ -33,12 +34,20 @@ public class SysLogininforServiceImpl implements ISysLogininforService {
     /**
      * 查询系统登录日志集合
      *
-     * @param query 访问日志查询条件
+     * @param query 访问记录查询条件
      * @return 登录记录集合
      */
     @Override
     public List<SysLogininfor> selectLogininforList(LogininforQuery query) {
         return logininforMapper.selectLogininforList(query);
+    }
+
+    /**
+     * 分页查询系统登录日志（MyBatis-Plus 标准分页）
+     */
+    @Override
+    public IPage<SysLogininfor> selectLogininforPage(IPage<SysLogininfor> page, LogininforQuery query) {
+        return logininforMapper.selectLogininforPage(page, query);
     }
 
     /**

@@ -29,7 +29,6 @@ import com.moyun.portal.service.IMentionService;
 import com.moyun.portal.service.IPortalCommentService;
 import com.moyun.portal.service.IPortalGrowthService;
 import com.moyun.portal.util.PortalSecurityUtils;
-import com.moyun.util.uuid.BusinessIdGenerator;
 
 /**
  * 门户评论 业务层处理
@@ -142,42 +141,6 @@ public class PortalCommentServiceImpl extends ServiceImpl<PortalCommentMapper, P
         // 初始化点赞数
         if (portalComment.getLikeCount() == null) {
             portalComment.setLikeCount(0L);
-        }
-
-        // v5.9 P1：生成评论业务主键
-        if (portalComment.getBusinessId() == null || portalComment.getBusinessId().isEmpty()) {
-            portalComment.setBusinessId(BusinessIdGenerator.forComment());
-        }
-        // v5.9 P1：双写文章业务主键
-        if (portalComment.getArticleId() != null
-                && (portalComment.getArticleBusinessId() == null || portalComment.getArticleBusinessId().isEmpty())) {
-            PortalArticle article = portalArticleMapper.selectById(portalComment.getArticleId());
-            if (article != null) {
-                portalComment.setArticleBusinessId(article.getBusinessId());
-            }
-        }
-        // v5.9 P1：双写作者业务主键（authorId 已在前面设置为当前用户）
-        if (portalComment.getAuthorId() != null
-                && (portalComment.getAuthorBusinessId() == null || portalComment.getAuthorBusinessId().isEmpty())) {
-            PortalUser author = portalUserMapper.selectById(portalComment.getAuthorId());
-            if (author != null) {
-                portalComment.setAuthorBusinessId(author.getBusinessId());
-            }
-        }
-        // v5.9 P1：双写父评论/根评论业务主键
-        if (portalComment.getParentId() != null && portalComment.getParentId() > 0
-                && (portalComment.getParentBusinessId() == null || portalComment.getParentBusinessId().isEmpty())) {
-            PortalComment parent = portalCommentMapper.selectPortalCommentById(portalComment.getParentId());
-            if (parent != null) {
-                portalComment.setParentBusinessId(parent.getBusinessId());
-            }
-        }
-        if (portalComment.getRootId() != null && portalComment.getRootId() > 0
-                && (portalComment.getRootBusinessId() == null || portalComment.getRootBusinessId().isEmpty())) {
-            PortalComment root = portalCommentMapper.selectPortalCommentById(portalComment.getRootId());
-            if (root != null) {
-                portalComment.setRootBusinessId(root.getBusinessId());
-            }
         }
 
         int rows = portalCommentMapper.insertPortalComment(portalComment);
@@ -558,17 +521,6 @@ public class PortalCommentServiceImpl extends ServiceImpl<PortalCommentMapper, P
             like.setCommentId(commentId);
             like.setUserId(userId);
             like.setCreateTime(LocalDateTime.now());
-            // v5.9 P1：双写评论业务主键（comment 已在前面查询，非空）
-            if (comment.getBusinessId() != null && !comment.getBusinessId().isEmpty()) {
-                like.setCommentBusinessId(comment.getBusinessId());
-            }
-            // v5.9 P1：双写用户业务主键
-            if (like.getUserBusinessId() == null || like.getUserBusinessId().isEmpty()) {
-                PortalUser likeUser = portalUserMapper.selectById(userId);
-                if (likeUser != null) {
-                    like.setUserBusinessId(likeUser.getBusinessId());
-                }
-            }
             try {
                 portalCommentLikeMapper.insert(like);
             } catch (DuplicateKeyException e) {

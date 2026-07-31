@@ -1,6 +1,7 @@
 package com.moyun.portal.domain.entity;
 
 import com.baomidou.mybatisplus.annotation.IdType;
+import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
 import com.fasterxml.jackson.annotation.JsonFormat;
@@ -78,4 +79,8 @@ public class PortalFeedback implements Serializable {
 
     /** 备注 */
     private String remark;
+
+    /** 处理后是否通知提交人（非持久化字段，仅用于后台处理请求传参） */
+    @TableField(exist = false)
+    private Boolean notifyUser;
 }

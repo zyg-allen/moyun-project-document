@@ -1351,15 +1351,10 @@ CREATE TABLE `portal_article_tag` (
                                       `update_by` varchar(64) COLLATE utf8mb4_0900_ai_ci DEFAULT '' COMMENT '更新者',
                                       `update_time` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
                                       `remark` varchar(500) COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '备注',
-                                      `article_business_id` varchar(32) COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '文章业务主键（关联 portal_article.business_id）',
-                                      `tag_business_id` varchar(32) COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '标签业务主键（关联 portal_tag.business_id）',
                                       PRIMARY KEY (`id`),
                                       UNIQUE KEY `uk_article_tag` (`article_id`,`tag_id`),
-                                      UNIQUE KEY `uk_article_tag_bid` (`article_business_id`,`tag_business_id`),
                                       KEY `idx_article_id` (`article_id`),
-                                      KEY `idx_tag_id` (`tag_id`),
-                                      KEY `idx_article_bid` (`article_business_id`),
-                                      KEY `idx_tag_bid` (`tag_business_id`)
+                                      KEY `idx_tag_id` (`tag_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='文章标签关联表';
 
 
@@ -1378,12 +1373,8 @@ CREATE TABLE `portal_article_version` (
                                           `excerpt` varchar(500) DEFAULT NULL COMMENT '版本摘要快照',
                                           `operator_id` bigint DEFAULT NULL COMMENT '操作人ID（保存/回滚的执行者）',
                                           `created_time` datetime DEFAULT CURRENT_TIMESTAMP COMMENT '版本创建时间',
-                                          `article_business_id` varchar(32) DEFAULT NULL COMMENT '文章业务主键（关联 portal_article.business_id）',
-                                          `operator_business_id` varchar(32) DEFAULT NULL COMMENT '操作人业务主键（关联 portal_user.business_id）',
                                           PRIMARY KEY (`id`),
-                                          KEY `idx_article_version` (`article_id`,`version_no`),
-                                          KEY `idx_article_bid` (`article_business_id`),
-                                          KEY `idx_operator_bid` (`operator_business_id`)
+                                          KEY `idx_article_version` (`article_id`,`version_no`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='文章版本快照';
 
 
@@ -1404,8 +1395,6 @@ CREATE TABLE `portal_article_view` (
                                        `update_by` varchar(64) COLLATE utf8mb4_0900_ai_ci DEFAULT '' COMMENT '更新者',
                                        `update_time` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
                                        `remark` varchar(500) COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '备注',
-                                       `article_business_id` varchar(32) COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '文章业务主键（关联 portal_article.business_id）',
-                                       `user_business_id` varchar(32) COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '用户业务主键（关联 portal_user.business_id，NULL=游客）',
                                        PRIMARY KEY (`id`),
                                        KEY `idx_article_id` (`article_id`),
                                        KEY `idx_user_id` (`user_id`),
@@ -1413,9 +1402,7 @@ CREATE TABLE `portal_article_view` (
                                        KEY `idx_view_time` (`view_time`),
                                        KEY `idx_article_user` (`article_id`,`user_id`),
                                        KEY `idx_article_ip` (`article_id`,`ip`),
-                                       KEY `idx_article_viewtime` (`article_id`,`view_time`),
-                                       KEY `idx_article_bid` (`article_business_id`),
-                                       KEY `idx_user_bid` (`user_business_id`)
+                                       KEY `idx_article_viewtime` (`article_id`,`view_time`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='文章浏览记录表';
 
 
@@ -1751,14 +1738,10 @@ CREATE TABLE `portal_bookmark` (
                                    `update_by` varchar(64) COLLATE utf8mb4_0900_ai_ci DEFAULT '' COMMENT '更新者',
                                    `update_time` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
                                    `remark` varchar(500) COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '备注',
-                                   `user_business_id` varchar(32) COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '用户业务主键（关联 portal_user.business_id）',
-                                   `article_business_id` varchar(32) COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '文章业务主键（关联 portal_article.business_id）',
                                    PRIMARY KEY (`id`),
                                    UNIQUE KEY `uk_user_article` (`user_id`,`article_id`),
                                    KEY `idx_user_id` (`user_id`),
-                                   KEY `idx_article_id` (`article_id`),
-                                   KEY `idx_user_bid` (`user_business_id`),
-                                   KEY `idx_article_bid` (`article_business_id`)
+                                   KEY `idx_article_id` (`article_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='门户收藏表';
 
 
@@ -1813,16 +1796,12 @@ CREATE TABLE `portal_category` (
                                    `update_time` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
                                    `remark` varchar(500) COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '备注',
                                    `del_flag` char(1) COLLATE utf8mb4_0900_ai_ci NOT NULL DEFAULT '0' COMMENT '删除标记（0=存在 2=删除）',
-                                   `business_id` varchar(32) COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '业务主键（前缀cat_）',
-                                   `parent_business_id` varchar(32) COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '父分类业务主键（自引用 portal_category.business_id）',
                                    PRIMARY KEY (`id`),
-                                   UNIQUE KEY `uk_business_id` (`business_id`),
                                    KEY `idx_parent_id` (`parent_id`),
                                    KEY `idx_slug` (`slug`),
                                    KEY `idx_show_in_nav` (`show_in_nav`),
                                    KEY `idx_category_type` (`category_type`),
-                                   KEY `idx_del_flag` (`del_flag`),
-                                   KEY `idx_parent_bid` (`parent_business_id`)
+                                   KEY `idx_del_flag` (`del_flag`)
 ) ENGINE=InnoDB AUTO_INCREMENT=51 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='门户分类表';
 
 --
@@ -1844,10 +1823,8 @@ CREATE TABLE `portal_tag` (
                               `update_time` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
                               `remark` varchar(500) COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '备注',
                               `del_flag` char(1) COLLATE utf8mb4_0900_ai_ci NOT NULL DEFAULT '0' COMMENT '删除标记（0=存在 2=删除）',
-                              `business_id` varchar(32) COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '业务主键（前缀tag_）',
                               PRIMARY KEY (`id`),
                               UNIQUE KEY `uk_name` (`name`),
-                              UNIQUE KEY `uk_business_id` (`business_id`),
                               KEY `idx_slug` (`slug`),
                               KEY `idx_module` (`module`),
                               KEY `idx_reference_count` (`reference_count` DESC),
@@ -2048,22 +2025,12 @@ CREATE TABLE `portal_comment` (
                                   `update_time` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
                                   `remark` varchar(500) COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '备注',
                                   `del_flag` char(1) COLLATE utf8mb4_0900_ai_ci NOT NULL DEFAULT '0' COMMENT '删除标记（0=存在 2=删除）',
-                                  `business_id` varchar(32) COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '业务主键（前缀com_）',
-                                  `article_business_id` varchar(32) COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '文章业务主键（关联 portal_article.business_id）',
-                                  `author_business_id` varchar(32) COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '作者业务主键（关联 portal_user.business_id）',
-                                  `parent_business_id` varchar(32) COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '父评论业务主键（自引用 portal_comment.business_id）',
-                                  `root_business_id` varchar(32) COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '根评论业务主键（自引用 portal_comment.business_id）',
                                   PRIMARY KEY (`id`),
-                                  UNIQUE KEY `uk_business_id` (`business_id`),
                                   KEY `idx_article_id` (`article_id`),
                                   KEY `idx_author_id` (`author_id`),
                                   KEY `idx_parent_id` (`parent_id`),
                                   KEY `idx_article_root` (`article_id`,`root_id`),
-                                  KEY `idx_del_flag` (`del_flag`),
-                                  KEY `idx_article_bid` (`article_business_id`),
-                                  KEY `idx_author_bid` (`author_business_id`),
-                                  KEY `idx_parent_bid` (`parent_business_id`),
-                                  KEY `idx_root_bid` (`root_business_id`)
+                                  KEY `idx_del_flag` (`del_flag`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='门户评论表';
 
 
@@ -2081,14 +2048,10 @@ CREATE TABLE `portal_comment_like` (
                                        `update_by` varchar(64) COLLATE utf8mb4_0900_ai_ci DEFAULT '' COMMENT '更新者',
                                        `update_time` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
                                        `remark` varchar(500) COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '备注',
-                                       `comment_business_id` varchar(32) COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '评论业务主键（关联 portal_comment.business_id）',
-                                       `user_business_id` varchar(32) COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '用户业务主键（关联 portal_user.business_id）',
                                        PRIMARY KEY (`id`),
                                        UNIQUE KEY `uk_user_comment` (`user_id`,`comment_id`),
                                        KEY `idx_user_id` (`user_id`),
-                                       KEY `idx_comment_id` (`comment_id`),
-                                       KEY `idx_comment_bid` (`comment_business_id`),
-                                       KEY `idx_user_bid` (`user_business_id`)
+                                       KEY `idx_comment_id` (`comment_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='门户评论点赞表';
 
 
@@ -2231,13 +2194,9 @@ CREATE TABLE `portal_feed_event` (
                                      `summary` varchar(500) COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '动态摘要',
                                      `cover` varchar(500) COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '封面图',
                                      `created_time` datetime NOT NULL,
-                                     `user_business_id` varchar(32) COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '发布者业务主键（关联 portal_user.business_id）',
-                                     `target_business_id` varchar(32) COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '目标业务主键（多态：根据 target_type 关联不同父表）',
                                      PRIMARY KEY (`id`),
                                      KEY `idx_user_time` (`user_id`,`created_time`),
-                                     KEY `idx_type_time` (`event_type`,`created_time`),
-                                     KEY `idx_user_bid` (`user_business_id`),
-                                     KEY `idx_target_bid` (`target_business_id`)
+                                     KEY `idx_type_time` (`event_type`,`created_time`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='动态事件流';
 
 
@@ -2881,14 +2840,10 @@ CREATE TABLE `portal_like` (
                                `update_by` varchar(64) COLLATE utf8mb4_0900_ai_ci DEFAULT '' COMMENT '更新者',
                                `update_time` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
                                `remark` varchar(500) COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '备注',
-                               `user_business_id` varchar(32) COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '用户业务主键（关联 portal_user.business_id）',
-                               `article_business_id` varchar(32) COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '文章业务主键（关联 portal_article.business_id）',
                                PRIMARY KEY (`id`),
                                UNIQUE KEY `uk_user_article` (`user_id`,`article_id`),
                                KEY `idx_user_id` (`user_id`),
-                               KEY `idx_article_id` (`article_id`),
-                               KEY `idx_user_bid` (`user_business_id`),
-                               KEY `idx_article_bid` (`article_business_id`)
+                               KEY `idx_article_id` (`article_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='门户点赞表（文章）';
 
 
@@ -3152,17 +3107,13 @@ CREATE TABLE `portal_report` (
                                  `update_time` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
                                  `remark` varchar(500) COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '备注',
                                  `del_flag` char(1) COLLATE utf8mb4_0900_ai_ci NOT NULL DEFAULT '0' COMMENT '删除标记（0=存在 2=删除）',
-                                 `user_business_id` varchar(32) COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '举报人业务主键（关联 portal_user.business_id）',
-                                 `target_business_id` varchar(32) COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '目标业务主键（多态：根据 target_type 关联不同父表）',
                                  PRIMARY KEY (`id`),
                                  KEY `idx_report_type` (`report_type`),
                                  KEY `idx_status` (`status`),
                                  KEY `idx_user_id` (`user_id`),
                                  KEY `idx_create_time` (`create_time`),
                                  KEY `idx_target` (`target_type`,`target_id`),
-                                 KEY `idx_del_flag` (`del_flag`),
-                                 KEY `idx_user_bid` (`user_business_id`),
-                                 KEY `idx_target_bid` (`target_business_id`)
+                                 KEY `idx_del_flag` (`del_flag`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='用户举报记录表';
 
 
@@ -3318,16 +3269,10 @@ CREATE TABLE `portal_tip_order` (
                                     `pay_method` varchar(32) DEFAULT NULL COMMENT '支付方式',
                                     `paid_time` datetime DEFAULT NULL COMMENT '支付时间',
                                     `created_time` datetime DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
-                                    `user_business_id` varchar(32) DEFAULT NULL COMMENT '打赏者业务主键（关联 portal_user.business_id）',
-                                    `author_business_id` varchar(32) DEFAULT NULL COMMENT '被打赏者业务主键（关联 portal_user.business_id）',
-                                    `target_business_id` varchar(32) DEFAULT NULL COMMENT '目标业务主键（多态：根据 target_type 关联不同父表）',
                                     PRIMARY KEY (`id`),
                                     KEY `idx_author` (`author_id`),
                                     KEY `idx_target` (`target_type`,`target_id`),
-                                    KEY `idx_user` (`user_id`),
-                                    KEY `idx_user_bid` (`user_business_id`),
-                                    KEY `idx_author_bid` (`author_business_id`),
-                                    KEY `idx_target_bid` (`target_business_id`)
+                                    KEY `idx_user` (`user_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='打赏订单（复用为付费阅读购买记录，target_type=article_paid）';
 
 
@@ -3513,10 +3458,8 @@ CREATE TABLE `portal_user` (
                                `update_by` varchar(64) COLLATE utf8mb4_0900_ai_ci DEFAULT '' COMMENT '更新者',
                                `update_time` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
                                `remark` varchar(500) COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '备注',
-                               `business_id` varchar(32) COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '业务主键（前缀usr_，TRUNCATE后仍可关联子表）',
                                PRIMARY KEY (`id`),
                                UNIQUE KEY `uk_username` (`username`),
-                               UNIQUE KEY `uk_business_id` (`business_id`),
                                KEY `idx_user_id` (`user_id`),
                                KEY `idx_email` (`email`),
                                KEY `idx_phone` (`phone`)

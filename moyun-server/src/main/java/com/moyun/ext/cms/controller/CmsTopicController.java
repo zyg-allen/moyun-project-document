@@ -83,6 +83,22 @@ public class CmsTopicController extends BaseController {
         }
     }
 
+    @Operation(summary = "审核话题", description = "审核待处理话题：active=通过 / rejected=驳回，支持审核意见，结果通知发起人")
+    @PreAuthorize("@ss.hasPermi('cms:topic:audit')")
+    @Log(title = "话题审核", businessType = BusinessType.UPDATE)
+    @PutMapping("/{id}/audit")
+    public AjaxResult audit(@PathVariable Long id, @RequestBody Map<String, Object> body) {
+        String status = body.get("status") == null ? null : String.valueOf(body.get("status"));
+        String auditRemark = body.get("auditRemark") == null ? null : String.valueOf(body.get("auditRemark"));
+        Long auditorId = getUserId();
+        try {
+            portalTopicService.auditTopic(id, status, auditRemark, auditorId);
+            return success();
+        } catch (RuntimeException e) {
+            return error(e.getMessage() != null ? e.getMessage() : "审核失败");
+        }
+    }
+
     @Operation(summary = "置顶/取消置顶", description = "更新话题 pinned 字段：0 否/1 是")
     @PreAuthorize("@ss.hasPermi('cms:topic:edit')")
     @Log(title = "话题管理", businessType = BusinessType.UPDATE)

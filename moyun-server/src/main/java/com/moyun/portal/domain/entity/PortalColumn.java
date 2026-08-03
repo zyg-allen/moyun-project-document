@@ -42,8 +42,20 @@ public class PortalColumn extends BaseEntity {
     /** 分类 */
     private Long categoryId;
 
-    /** 状态 draft/published/archived */
+    /**
+     * 状态：draft 草稿/pending 待审核/published 已发布/archived 归档/rejected 审核驳回
+     */
     private String status;
+
+    /** 审核人ID（系统用户ID，审核时写入） */
+    private Long auditorId;
+
+    /** 审核意见/驳回原因 */
+    private String auditRemark;
+
+    /** 审核时间 */
+    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
+    private LocalDateTime auditTime;
 
     /** 文章数 */
     private Integer articleCount;

@@ -45,6 +45,15 @@ export function delTopic(id) {
   });
 }
 
+// 审核话题：PUT /cms/topic/{id}/audit  body: { status: 'active'|'rejected', auditRemark? }
+export function auditTopic(id, data) {
+  return request({
+    url: '/cms/topic/' + id + '/audit',
+    method: 'put',
+    data: data
+  });
+}
+
 export function listPost(query) {
   return request({
     url: '/cms/topic/post/list',

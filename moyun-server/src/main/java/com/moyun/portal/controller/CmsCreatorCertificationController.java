@@ -1,6 +1,7 @@
 package com.moyun.portal.controller;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
@@ -51,6 +52,21 @@ public class CmsCreatorCertificationController extends BaseController {
         // 填充申请人昵称，便于后台展示
         Page<Map<String, Object>> resultPage = new Page<>(result.getCurrent(), result.getSize(), result.getTotal());
         java.util.List<Map<String, Object>> records = new java.util.ArrayList<>(result.getRecords().size());
+
+        // 批量查询申请人昵称，避免 N+1（分页 N 条原本 N 次查询 → 现在 1 次）
+        java.util.List<Long> userIds = result.getRecords().stream()
+                .map(PortalCreatorCertification::getUserId)
+                .filter(java.util.Objects::nonNull)
+                .distinct()
+                .toList();
+        Map<Long, String> nicknameMap = new HashMap<>();
+        if (!userIds.isEmpty()) {
+            List<PortalUser> users = portalUserMapper.selectBatchIds(userIds);
+            for (PortalUser u : users) {
+                nicknameMap.put(u.getId(), u.getNickname());
+            }
+        }
+
         for (PortalCreatorCertification c : result.getRecords()) {
             Map<String, Object> map = new HashMap<>();
             map.put("id", c.getId());
@@ -66,14 +82,7 @@ public class CmsCreatorCertificationController extends BaseController {
             map.put("auditRemark", c.getAuditRemark());
             map.put("createdTime", c.getCreatedTime());
             map.put("auditedTime", c.getAuditedTime());
-            String nickname = null;
-            if (c.getUserId() != null) {
-                PortalUser user = portalUserMapper.selectPortalUserById(c.getUserId());
-                if (user != null) {
-                    nickname = user.getNickname();
-                }
-            }
-            map.put("nickname", nickname);
+            map.put("nickname", c.getUserId() == null ? null : nicknameMap.get(c.getUserId()));
             records.add(map);
         }
         resultPage.setRecords(records);

@@ -1030,7 +1030,7 @@ const head = useHead(
                     <span class="font-medium text-sm">收藏</span>
                   </button>
                   <button
-                      v-if="!isArticleOwner"
+                      v-if="currentUser && !isArticleOwner"
                       @click="openTipModal"
                       class="flex items-center gap-2 px-4 py-2 rounded-full transition-all hover:scale-105 focus:outline-none"
                       style="background-color: var(--theme-surface); color: var(--theme-text-secondary);"

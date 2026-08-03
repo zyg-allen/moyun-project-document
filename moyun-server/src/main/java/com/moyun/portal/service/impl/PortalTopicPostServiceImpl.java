@@ -35,6 +35,7 @@ import com.moyun.portal.mapper.PortalUserMapper;
 import com.moyun.portal.service.IPortalGrowthService;
 import com.moyun.portal.service.IPortalTopicPostService;
 import com.moyun.portal.util.PortalSecurityUtils;
+import com.moyun.system.service.ISensitiveWordService;
 
 /**
  * 话题观点 服务实现
@@ -61,6 +62,9 @@ public class PortalTopicPostServiceImpl extends ServiceImpl<PortalTopicPostMappe
 
     @Autowired
     private PortalTopicCommentMapper portalTopicCommentMapper;
+
+    @Autowired
+    private ISensitiveWordService sensitiveWordService;
 
     @Override
     public Page<TopicPostVO> getPostsByTopic(Long topicId, Integer pageNum, Integer pageSize, Long currentUserId) {
@@ -95,6 +99,23 @@ public class PortalTopicPostServiceImpl extends ServiceImpl<PortalTopicPostMappe
         }
         if ("archived".equals(topic.getStatus())) {
             throw new ServiceException("话题已归档，无法发表观点");
+        }
+
+        // 敏感词检测：观点无审核流，命中即拦截（block）并写入审计日志便于复核。
+        // 拦截场景下观点不入库，日志 biz_id 留空，由 content 片段定位。
+        try {
+            List<String> hits = sensitiveWordService.find(post.getContent());
+            if (hits != null && !hits.isEmpty()) {
+                sensitiveWordService.detectAndLog(
+                        "topic_post", null, userId, post.getContent(), "block");
+                log.warn("观点命中敏感词已拦截：topicId={}, userId={}, hits={}", topicId, userId, hits);
+                throw new ServiceException("观点内容包含违规信息，请修改后重试");
+            }
+        } catch (ServiceException e) {
+            throw e;
+        } catch (Exception e) {
+            // 敏感词扫描异常不阻断主流程，仅记录日志
+            log.warn("观点敏感词扫描异常：topicId={}, err={}", topicId, e.getMessage());
         }
 
         // 获取下一楼层号（基于 MAX(floor)+1，配合行锁保证唯一）

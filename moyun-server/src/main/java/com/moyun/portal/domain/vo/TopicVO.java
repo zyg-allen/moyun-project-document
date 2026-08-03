@@ -46,8 +46,18 @@ public class TopicVO implements Serializable {
     @Schema(description = "发起人头像")
     private String creatorAvatar;
 
-    @Schema(description = "状态：active/archived/deleted")
+    @Schema(description = "状态：pending 待审核/active 活跃/archived 归档/deleted 删除/rejected 审核驳回")
     private String status;
+
+    @Schema(description = "审核人ID")
+    private Long auditorId;
+
+    @Schema(description = "审核意见/驳回原因")
+    private String auditRemark;
+
+    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
+    @Schema(description = "审核时间")
+    private LocalDateTime auditTime;
 
     @Schema(description = "是否置顶：0 否/1 是")
     private Integer pinned;

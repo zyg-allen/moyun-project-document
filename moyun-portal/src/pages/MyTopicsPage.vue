@@ -4,7 +4,7 @@ import { useRouter } from 'vue-router';
 import { useHead } from '@vueuse/head';
 import {
   MessageCircle, Eye, Heart, MessageSquare, Plus,
-  ChevronLeft, ChevronRight, Pencil, Pin,
+  ChevronLeft, ChevronRight, Pencil, Pin, Clock, XCircle,
 } from 'lucide-vue-next';
 import Breadcrumb from '@/components/Breadcrumb.vue';
 import SiteFooter from '@/components/SiteFooter.vue';
@@ -14,6 +14,7 @@ import { generateSeo } from '@/utils/seo';
 import { getSafeAvatar } from '@/utils/avatar';
 import { formatRelativeTime } from '@/utils/date';
 import { formatNumber } from '@/utils/number';
+import { getTopicStatusMeta, isPendingOrRejected } from '@/utils/topicStatus';
 import { getMyTopics } from '@/api/topic';
 import type { Topic } from '@/types/api';
 
@@ -191,6 +192,20 @@ function gotoPage(p: number) {
                 >
                   <Pin class="w-3 h-3 mr-1" />置顶
                 </span>
+                <!-- 审核状态标签（非 active 状态展示） -->
+                <span
+                  v-if="t.status !== 'active'"
+                  class="absolute top-3 right-3 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium"
+                  :style="{
+                    backgroundColor: getTopicStatusMeta(t.status).color.bg,
+                    color: getTopicStatusMeta(t.status).color.text,
+                    border: '1px solid ' + getTopicStatusMeta(t.status).color.border,
+                  }"
+                >
+                  <Clock v-if="t.status === 'pending'" class="w-3 h-3 mr-1" />
+                  <XCircle v-else-if="t.status === 'rejected'" class="w-3 h-3 mr-1" />
+                  {{ getTopicStatusMeta(t.status).label }}
+                </span>
               </div>
 
               <div class="p-5 flex flex-col flex-1">
@@ -208,6 +223,28 @@ function gotoPage(p: number) {
                 >
                   {{ t.description }}
                 </p>
+
+                <!-- 审核状态提示（待审核 / 驳回） -->
+                <div
+                  v-if="isPendingOrRejected(t.status)"
+                  class="rounded-lg p-2.5 mb-3 text-xs flex items-start gap-1.5"
+                  :style="{
+                    backgroundColor: getTopicStatusMeta(t.status).color.bg,
+                    border: '1px solid ' + getTopicStatusMeta(t.status).color.border,
+                  }"
+                >
+                  <Clock v-if="t.status === 'pending'" class="w-3.5 h-3.5 flex-shrink-0 mt-0.5" :style="{ color: getTopicStatusMeta(t.status).color.text }" />
+                  <XCircle v-else class="w-3.5 h-3.5 flex-shrink-0 mt-0.5" :style="{ color: getTopicStatusMeta(t.status).color.text }" />
+                  <div class="flex-1" :style="{ color: getTopicStatusMeta(t.status).color.text }">
+                    <p class="font-medium">
+                      {{ t.status === 'pending' ? '待审核，通过后将在话题广场展示' : '审核驳回' }}
+                    </p>
+                    <p v-if="t.status === 'rejected' && t.auditRemark" class="mt-0.5 break-words">
+                      驳回原因：{{ t.auditRemark }}
+                    </p>
+                  </div>
+                </div>
+
                 <div class="flex-1"></div>
 
                 <!-- 发起人 -->
@@ -255,12 +292,18 @@ function gotoPage(p: number) {
                   >
                     查看
                   </button>
+                  <!-- 仅 active/pending/rejected 状态可编辑（归档/删除不允许） -->
                   <button
+                    v-if="getTopicStatusMeta(t.status).editable"
                     @click="gotoEdit(t)"
                     class="inline-flex items-center px-2.5 py-1.5 rounded-lg text-xs transition hover:opacity-80"
-                    style="background-color: var(--theme-bg); color: var(--theme-primary); border: 1px solid var(--theme-border);"
+                    :style="{
+                      backgroundColor: 'var(--theme-bg)',
+                      color: t.status === 'rejected' ? '#dc2626' : 'var(--theme-primary)',
+                      border: '1px solid ' + (t.status === 'rejected' ? 'rgba(239, 68, 68, 0.3)' : 'var(--theme-border)'),
+                    }"
                   >
-                    <Pencil class="w-3 h-3 mr-1" />编辑
+                    <Pencil class="w-3 h-3 mr-1" />{{ t.status === 'rejected' ? '修改重提' : '编辑' }}
                   </button>
                 </div>
               </div>

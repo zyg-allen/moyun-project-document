@@ -3,6 +3,7 @@ package com.moyun.portal.domain.entity;
 import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
+import com.baomidou.mybatisplus.annotation.TableLogic;
 import com.baomidou.mybatisplus.annotation.TableName;
 import com.fasterxml.jackson.annotation.JsonFormat;
 import com.moyun.core.base.BaseEntity;
@@ -53,7 +54,15 @@ public class PortalTopicComment extends BaseEntity {
     /** 回复数（仅一级评论维护） */
     private Integer replyCount;
 
-    /** 软删：0 否/1 是 */
+    /**
+     * 软删：0 否/1 是
+     * <p>
+     * 本表使用 is_deleted（tinyint 0/1）而非全局 del_flag（char "0"/"2"）管理逻辑删除，
+     * 因此在字段上显式声明 @TableLogic 覆盖全局 logic-delete-field=delFlag 配置，
+     * 让 BaseMapper 通用方法（selectById/selectList/deleteById 等）自动追加 is_deleted = 0 过滤。
+     * Mapper 中已有的手写 SQL 不受影响（仍显式带 is_deleted = 0）。
+     */
+    @TableLogic(value = "0", delval = "1")
     private Integer isDeleted;
 
     /** 创建时间 */

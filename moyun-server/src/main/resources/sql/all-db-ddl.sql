@@ -1294,6 +1294,9 @@ CREATE TABLE `portal_article` (
                                   `category_id` bigint DEFAULT NULL COMMENT '分类ID',
                                   `root_category_id` bigint DEFAULT NULL COMMENT '顶级分类ID',
                                   `status` varchar(20) COLLATE utf8mb4_0900_ai_ci DEFAULT 'draft' COMMENT '状态：draft=草稿 / pending=待审核 / published=已发布 / rejected=已拒绝 / archived=已归档',
+                                  `auditor_id` bigint DEFAULT NULL COMMENT '审核人ID（系统用户ID）',
+                                  `audit_remark` varchar(500) COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '审核意见/驳回原因',
+                                  `audit_time` datetime DEFAULT NULL COMMENT '审核时间',
                                   `is_featured` tinyint(1) DEFAULT '0' COMMENT '是否精选',
                                   `is_top` tinyint(1) DEFAULT '0' COMMENT '是否置顶',
                                   `is_carousel` tinyint(1) DEFAULT '0' COMMENT '是否轮播',
@@ -1333,7 +1336,9 @@ CREATE TABLE `portal_article` (
                                   KEY `idx_root_category_id` (`root_category_id`),
                                   KEY `idx_category_path` (`category_path`(100)),
                                   KEY `idx_session_token` (`session_token`),
-                                  KEY `idx_del_flag` (`del_flag`)
+                                  KEY `idx_del_flag` (`del_flag`),
+                                  KEY `idx_auditor_id` (`auditor_id`),
+                                  KEY `idx_status_published_at` (`status`, `published_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='门户文章表';
 
 
@@ -1955,7 +1960,10 @@ CREATE TABLE `portal_column` (
                                  `description` text COMMENT '专栏简介',
                                  `cover` varchar(500) DEFAULT NULL COMMENT '封面',
                                  `category_id` bigint DEFAULT NULL COMMENT '分类',
-                                 `status` varchar(16) NOT NULL DEFAULT 'draft' COMMENT 'draft/published/archived',
+                                 `status` varchar(20) NOT NULL DEFAULT 'draft' COMMENT '状态：draft 草稿/pending 待审核/published 已发布/archived 归档/rejected 审核驳回',
+                                 `auditor_id` bigint DEFAULT NULL COMMENT '审核人ID（系统用户ID）',
+                                 `audit_remark` varchar(500) DEFAULT NULL COMMENT '审核意见/驳回原因',
+                                 `audit_time` datetime DEFAULT NULL COMMENT '审核时间',
                                  `article_count` int NOT NULL DEFAULT '0' COMMENT '文章数',
                                  `subscribe_count` int NOT NULL DEFAULT '0' COMMENT '订阅数',
                                  `view_count` int NOT NULL DEFAULT '0' COMMENT '浏览数',
@@ -1967,7 +1975,10 @@ CREATE TABLE `portal_column` (
                                  PRIMARY KEY (`id`),
                                  KEY `idx_user` (`user_id`),
                                  KEY `idx_status` (`status`),
-                                 KEY `idx_del_flag` (`del_flag`)
+                                 KEY `idx_del_flag` (`del_flag`),
+                                 KEY `idx_auditor_id` (`auditor_id`),
+                                 KEY `idx_status_created_time` (`status`, `created_time`),
+                                 KEY `idx_category_id` (`category_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='专栏';
 
 
@@ -2285,7 +2296,7 @@ CREATE TABLE `portal_friend_link` (
                                       `update_by` varchar(64) COLLATE utf8mb4_0900_ai_ci DEFAULT '' COMMENT '更新者',
                                       `update_time` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
                                       `remark` varchar(500) COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '备注',
-                                      `del_flag` char(1) DEFAULT '0' COMMENT '删除状态：0存在 1已删除',
+                                      `del_flag` char(1) DEFAULT '0' COMMENT '删除标记（0=存在 2=删除，与全局逻辑删除配置一致）',
                                       PRIMARY KEY (`id`),
                                       KEY `idx_status` (`status`)
 ) ENGINE=InnoDB AUTO_INCREMENT=4 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='门户友情链接表';
@@ -3287,7 +3298,10 @@ CREATE TABLE `portal_topic` (
                                 `description` varchar(500) DEFAULT NULL COMMENT '话题描述/导语',
                                 `cover` varchar(500) DEFAULT NULL COMMENT '封面图 URL',
                                 `creator_id` bigint NOT NULL COMMENT '发起人 portal_user.id（必须是认证创作者）',
-                                `status` varchar(20) NOT NULL DEFAULT 'active' COMMENT '状态：active 活跃/archived 归档/deleted 删除',
+                                `status` varchar(20) NOT NULL DEFAULT 'pending' COMMENT '状态：pending 待审核/active 活跃/archived 归档/deleted 删除/rejected 审核驳回',
+                                `auditor_id` bigint DEFAULT NULL COMMENT '审核人ID（系统用户ID）',
+                                `audit_remark` varchar(500) DEFAULT NULL COMMENT '审核意见/驳回原因',
+                                `audit_time` datetime DEFAULT NULL COMMENT '审核时间',
                                 `pinned` tinyint NOT NULL DEFAULT '0' COMMENT '是否置顶：0 否/1 是',
                                 `view_count` int NOT NULL DEFAULT '0' COMMENT '浏览数',
                                 `post_count` int NOT NULL DEFAULT '0' COMMENT '观点数',
@@ -3303,7 +3317,9 @@ CREATE TABLE `portal_topic` (
                                 KEY `idx_creator_time` (`creator_id`,`created_time`),
                                 KEY `idx_status_pinned_last` (`status`,`pinned`,`last_post_time`),
                                 KEY `idx_last_post` (`last_post_time`),
-                                KEY `idx_del_flag` (`del_flag`)
+                                KEY `idx_del_flag` (`del_flag`),
+                                KEY `idx_auditor_id` (`auditor_id`),
+                                KEY `idx_status_created_time` (`status`, `created_time`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='话题主表';
 
 
@@ -3450,7 +3466,7 @@ CREATE TABLE `portal_user` (
                                `is_wechat_verified` tinyint(1) DEFAULT '0' COMMENT '是否已验证微信',
                                `two_factor_enabled` tinyint(1) DEFAULT '0' COMMENT '是否开启两步验证',
                                `status` char(1) COLLATE utf8mb4_0900_ai_ci DEFAULT '0' COMMENT '帐号状态（0正常 1停用）',
-                               `del_flag` char(1) COLLATE utf8mb4_0900_ai_ci DEFAULT '0' COMMENT '删除标志（0代表存在 2代表删除）',
+                               `del_flag` char(1) COLLATE utf8mb4_0900_ai_ci DEFAULT '0' COMMENT '删除标记（0=存在 2=删除）',
                                `login_ip` varchar(128) COLLATE utf8mb4_0900_ai_ci DEFAULT '' COMMENT '最后登录IP',
                                `login_date` datetime DEFAULT NULL COMMENT '最后登录时间',
                                `create_by` varchar(64) COLLATE utf8mb4_0900_ai_ci DEFAULT '' COMMENT '创建者',
@@ -4035,7 +4051,7 @@ CREATE TABLE `sys_dept` (
                             `phone` varchar(11) COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '联系电话',
                             `email` varchar(50) COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '邮箱',
                             `status` char(1) COLLATE utf8mb4_0900_ai_ci DEFAULT '0' COMMENT '部门状态（0正常 1停用）',
-                            `del_flag` char(1) COLLATE utf8mb4_0900_ai_ci DEFAULT '0' COMMENT '删除标志（0代表存在 2代表删除）',
+                            `del_flag` char(1) COLLATE utf8mb4_0900_ai_ci DEFAULT '0' COMMENT '删除标记（0=存在 2=删除）',
                             `create_by` varchar(64) COLLATE utf8mb4_0900_ai_ci DEFAULT '' COMMENT '创建者',
                             `create_time` datetime DEFAULT NULL COMMENT '创建时间',
                             `update_by` varchar(64) COLLATE utf8mb4_0900_ai_ci DEFAULT '' COMMENT '更新者',
@@ -5153,7 +5169,7 @@ CREATE TABLE `sys_role` (
                             `menu_check_strictly` tinyint(1) DEFAULT '1' COMMENT '菜单树选择项是否关联显示',
                             `dept_check_strictly` tinyint(1) DEFAULT '1' COMMENT '部门树选择项是否关联显示',
                             `status` char(1) COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '角色状态（0正常 1停用）',
-                            `del_flag` char(1) COLLATE utf8mb4_0900_ai_ci DEFAULT '0' COMMENT '删除标志（0代表存在 2代表删除）',
+                            `del_flag` char(1) COLLATE utf8mb4_0900_ai_ci DEFAULT '0' COMMENT '删除标记（0=存在 2=删除）',
                             `create_by` varchar(64) COLLATE utf8mb4_0900_ai_ci DEFAULT '' COMMENT '创建者',
                             `create_time` datetime DEFAULT NULL COMMENT '创建时间',
                             `update_by` varchar(64) COLLATE utf8mb4_0900_ai_ci DEFAULT '' COMMENT '更新者',
@@ -5213,7 +5229,7 @@ CREATE TABLE `sys_user` (
                             `avatar` varchar(100) COLLATE utf8mb4_0900_ai_ci DEFAULT '' COMMENT '头像地址',
                             `password` varchar(100) COLLATE utf8mb4_0900_ai_ci DEFAULT '' COMMENT '密码',
                             `status` char(1) COLLATE utf8mb4_0900_ai_ci DEFAULT '0' COMMENT '账号状态（0正常 1停用）',
-                            `del_flag` char(1) COLLATE utf8mb4_0900_ai_ci DEFAULT '0' COMMENT '删除标志（0代表存在 2代表删除）',
+                            `del_flag` char(1) COLLATE utf8mb4_0900_ai_ci DEFAULT '0' COMMENT '删除标记（0=存在 2=删除）',
                             `login_ip` varchar(128) COLLATE utf8mb4_0900_ai_ci DEFAULT '' COMMENT '最后登录IP',
                             `login_date` datetime DEFAULT NULL COMMENT '最后登录时间',
                             `create_by` varchar(64) COLLATE utf8mb4_0900_ai_ci DEFAULT '' COMMENT '创建者',
@@ -5284,3 +5300,39 @@ INSERT INTO `sys_user_role` VALUES (2, 2,'admin', NOW(), '', NOW(), NULL);
 UNLOCK TABLES;
 
 SET FOREIGN_KEY_CHECKS=1;
+
+-- =============================================================================
+-- v6.7 新增：敏感词库表与命中记录表
+-- =============================================================================
+
+DROP TABLE IF EXISTS `sys_sensitive_word_log`;
+CREATE TABLE `sys_sensitive_word_log` (
+  `id`           BIGINT       NOT NULL AUTO_INCREMENT COMMENT '主键',
+  `biz_type`     VARCHAR(32)  NOT NULL COMMENT '业务类型：article/topic/column/comment/topic_post/topic_comment',
+  `biz_id`       BIGINT       NULL DEFAULT NULL COMMENT '业务ID（创建时可能未入库，NULL 表示拦截未入库）',
+  `user_id`      BIGINT       NULL DEFAULT NULL COMMENT '发布用户ID',
+  `content`      TEXT         NULL COMMENT '命中的内容片段（截断 1000 字）',
+  `hits`         VARCHAR(500) NULL DEFAULT NULL COMMENT '命中的敏感词列表（JSON 数组）',
+  `action`       VARCHAR(20)  NOT NULL COMMENT '处理动作：pending=转待审核/block=拦截/flag=仅标记',
+  `create_time`  DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '记录时间',
+  PRIMARY KEY (`id`),
+  KEY `idx_biz` (`biz_type`, `biz_id`),
+  KEY `idx_create_time` (`create_time`),
+  KEY `idx_user_id` (`user_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='敏感词命中记录';
+
+DROP TABLE IF EXISTS `sys_sensitive_word`;
+CREATE TABLE `sys_sensitive_word` (
+  `id`           BIGINT       NOT NULL AUTO_INCREMENT COMMENT '主键',
+  `word`         VARCHAR(128) NOT NULL COMMENT '敏感词',
+  `category`     VARCHAR(32)  NULL DEFAULT NULL COMMENT '分类：politics=政治/porn=色情/ad=广告/insult=辱骂/other=其他',
+  `status`       CHAR(1)      NOT NULL DEFAULT '0' COMMENT '状态：0=启用 1=禁用',
+  `create_by`    VARCHAR(64)  DEFAULT '' COMMENT '创建者',
+  `create_time`  DATETIME     DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `update_by`    VARCHAR(64)  DEFAULT '' COMMENT '更新者',
+  `update_time`  DATETIME     DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  `remark`       VARCHAR(500) DEFAULT NULL COMMENT '备注',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_word` (`word`),
+  KEY `idx_status` (`status`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='敏感词库';

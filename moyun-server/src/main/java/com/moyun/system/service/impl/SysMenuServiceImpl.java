@@ -129,7 +129,8 @@ public class SysMenuServiceImpl extends ServiceImpl<SysMenuMapper, SysMenu> impl
                 childrenList.add(children);
                 router.setChildren(childrenList);
             } else if (isInnerLink(menu)) {
-                if (menu.getParentId().intValue() == 0) {
+                // null 防御：历史脏数据 parent_id IS NULL 时按非顶级处理，避免 Long 拆箱 NPE
+                if (menu.getParentId() != null && menu.getParentId() == 0) {
                     router.setMeta(new MetaVo(menu.getMenuName(), menu.getIcon()));
                     router.setPath("/");
                     List<RouterVo> childrenList = new ArrayList<RouterVo>();
@@ -324,8 +325,8 @@ public class SysMenuServiceImpl extends ServiceImpl<SysMenuMapper, SysMenu> impl
      */
     private String getRouterPath(SysMenu menu) {
         String routerPath = menu.getPath();
-        // 非外链并且是一级目录（类型为目录）
-        if (0 == menu.getParentId().intValue() && "M".equals(menu.getMenuType())) {
+        // 非外链并且是一级目录（类型为目录）。null 防御：parent_id IS NULL 视为非顶级
+        if (menu.getParentId() != null && menu.getParentId() == 0 && "M".equals(menu.getMenuType())) {
             routerPath = "/" + menu.getPath();
         }
         // 非外链并且是一级目录（类型为菜单）
@@ -345,7 +346,8 @@ public class SysMenuServiceImpl extends ServiceImpl<SysMenuMapper, SysMenu> impl
         String component = "Layout";
         if (StringUtils.isNotEmpty(menu.getComponent()) && !isMenuFrame(menu)) {
             component = menu.getComponent();
-        } else if (StringUtils.isEmpty(menu.getComponent()) && menu.getParentId().intValue() != 0 && isInnerLink(menu)) {
+        // null 防御：parent_id IS NULL 视为非顶级，避免拆箱 NPE
+        } else if (StringUtils.isEmpty(menu.getComponent()) && (menu.getParentId() == null || menu.getParentId() != 0) && isInnerLink(menu)) {
             component = "InnerLink";
         } else if (StringUtils.isEmpty(menu.getComponent()) && isParentView(menu)) {
             component = "ParentView";
@@ -360,7 +362,8 @@ public class SysMenuServiceImpl extends ServiceImpl<SysMenuMapper, SysMenu> impl
      * @return 结果
      */
     private boolean isMenuFrame(SysMenu menu) {
-        return menu.getParentId().intValue() == 0 && "C".equals(menu.getMenuType())
+        // null 防御：parent_id IS NULL 视为非顶级（不视为菜单框架）
+        return menu.getParentId() != null && menu.getParentId() == 0 && "C".equals(menu.getMenuType())
                 && "0".equals(menu.getIsFrame());
     }
 
@@ -381,7 +384,8 @@ public class SysMenuServiceImpl extends ServiceImpl<SysMenuMapper, SysMenu> impl
      * @return 结果
      */
     private boolean isParentView(SysMenu menu) {
-        return menu.getParentId().intValue() != 0 && "M".equals(menu.getMenuType());
+        // null 防御：parent_id IS NULL 视为非顶级
+        return menu.getParentId() != null && menu.getParentId() != 0 && "M".equals(menu.getMenuType());
     }
 
     /**
@@ -416,7 +420,8 @@ public class SysMenuServiceImpl extends ServiceImpl<SysMenuMapper, SysMenu> impl
         List<SysMenu> returnList = new ArrayList<>();
         for (SysMenu t : list) {
             // 一、根据传入的某个父节点ID,遍历该父节点的所有子节点
-            if (t.getParentId() == parentId) {
+            // null 防御：历史脏数据 parent_id IS NULL 时跳过，避免 Long 自动拆箱 NPE 导致整个 getRouters 不可用
+            if (t.getParentId() != null && t.getParentId() == parentId) {
                 recursionFn(list, t);
                 returnList.add(t);
             }
@@ -446,8 +451,12 @@ public class SysMenuServiceImpl extends ServiceImpl<SysMenuMapper, SysMenu> impl
      */
     private List<SysMenu> getChildList(List<SysMenu> list, SysMenu t) {
         List<SysMenu> tlist = new ArrayList<>();
+        // null 防御：子节点 n 或父节点 t 的 id/parentId 为 null 时跳过，避免 Long 拆箱 NPE
+        if (t.getMenuId() == null) {
+            return tlist;
+        }
         for (SysMenu n : list) {
-            if (n.getParentId().longValue() == t.getMenuId().longValue()) {
+            if (n.getParentId() != null && n.getParentId().equals(t.getMenuId())) {
                 tlist.add(n);
             }
         }

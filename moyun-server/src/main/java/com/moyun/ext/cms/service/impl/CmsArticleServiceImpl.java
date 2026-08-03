@@ -20,6 +20,7 @@ import com.moyun.util.file.Base64ImageUtils;
 import com.moyun.util.security.SecurityUtils;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -51,6 +52,18 @@ public class CmsArticleServiceImpl implements ICmsArticleService {
 
     @Autowired
     private ISysNotificationService notificationService;
+
+    @Autowired
+    private com.moyun.system.service.ISensitiveWordService sensitiveWordService;
+
+    @Autowired
+    private com.moyun.portal.service.IPortalTagService portalTagService;
+
+    @Autowired
+    private com.moyun.portal.service.IPortalGrowthService portalGrowthService;
+
+    @Autowired
+    private ApplicationEventPublisher eventPublisher;
 
     // ==================== 查询方法 ====================
 
@@ -96,14 +109,50 @@ public class CmsArticleServiceImpl implements ICmsArticleService {
         if ("published".equals(article.getStatus()) && article.getPublishedAt() == null) {
             article.setPublishedAt(LocalDateTime.now());
         }
-        return portalArticleMapper.insert(article);
+        int rows = portalArticleMapper.insert(article);
+        // 敏感词轻量扫描：命中即写日志（action=pending），已 pending 的转人工重点审核，
+        // 直发 published 的命中文章强制回退 pending，避免违规内容绕过审核直接曝光
+        if (rows > 0 && article.getId() != null) {
+            try {
+                StringBuilder scanText = new StringBuilder();
+                if (article.getTitle() != null) scanText.append(article.getTitle());
+                if (article.getExcerpt() != null) scanText.append(" ").append(article.getExcerpt());
+                if (article.getContent() != null) scanText.append(" ").append(article.getContent());
+                List<String> hits = sensitiveWordService.detectAndLog(
+                        "article", article.getId(), article.getAuthorId(),
+                        scanText.toString(), "pending");
+                if (hits != null && !hits.isEmpty()) {
+                    log.warn("CMS 文章命中敏感词，强制转待审核：articleId={}, hits={}", article.getId(), hits);
+                    if ("published".equals(article.getStatus())) {
+                        LambdaUpdateWrapper<PortalArticle> uw = new LambdaUpdateWrapper<>();
+                        uw.eq(PortalArticle::getId, article.getId())
+                                .set(PortalArticle::getStatus, "pending");
+                        portalArticleMapper.update(null, uw);
+                        article.setStatus("pending");
+                    }
+                }
+            } catch (Exception e) {
+                log.warn("CMS 文章敏感词扫描异常：articleId={}, err={}", article.getId(), e.getMessage());
+            }
+        }
+        return rows;
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public int updateArticle(PortalArticle article) {
         if (article == null || article.getId() == null) {
             return 0;
         }
+        // ⚠️ 安全防护：剥离审核相关字段，禁止通过 edit 接口绕过 auditArticle 流程
+        // 仅 auditArticle 接口可修改这些字段（带乐观锁与审计日志）
+        article.setStatus(null);
+        article.setAuditorId(null);
+        article.setAuditTime(null);
+        article.setAuditRemark(null);
+        // publishedAt 仅在审核通过时由 auditArticle 写入，编辑时禁止修改
+        article.setPublishedAt(null);
+
         processArticleImages(article);
         // 编辑时同步维护分类路径（切换分类场景）
         fillCategoryPath(article);
@@ -112,9 +161,32 @@ public class CmsArticleServiceImpl implements ICmsArticleService {
         return portalArticleMapper.updateById(article);
     }
 
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public int insertArticleWithTags(PortalArticle article, List<Long> tagIds, List<String> tagNames) {
+        int rows = insertArticle(article);
+        // 标签绑定与文章插入在同一事务内，失败可回滚
+        if (rows > 0 && article.getId() != null) {
+            portalTagService.bindTags("article", article.getId(), tagIds, tagNames, "article");
+        }
+        return rows;
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public int updateArticleWithTags(PortalArticle article, List<Long> tagIds, List<String> tagNames) {
+        int rows = updateArticle(article);
+        // 标签绑定与文章更新在同一事务内
+        if (rows > 0 && article.getId() != null) {
+            portalTagService.bindTags("article", article.getId(), tagIds, tagNames, "article");
+        }
+        return rows;
+    }
+
     // ==================== 状态更新（使用 LambdaUpdateWrapper） ====================
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public int auditArticle(PortalArticle article) {
         if (article == null || article.getId() == null) {
             return 0;
@@ -136,21 +208,52 @@ public class CmsArticleServiceImpl implements ICmsArticleService {
         LambdaUpdateWrapper<PortalArticle> wrapper = new LambdaUpdateWrapper<>();
         wrapper.eq(PortalArticle::getId, article.getId())
                 .eq(PortalArticle::getStatus, "pending") // 乐观锁：仅 pending 可审核
-                .set(PortalArticle::getStatus, newStatus);
+                .set(PortalArticle::getStatus, newStatus)
+                .set(PortalArticle::getAuditorId, SecurityUtils.getUserId())   // 审核人
+                .set(PortalArticle::getAuditTime, LocalDateTime.now());        // 审核时间
         // 审核通过设置发布时间
         if ("published".equals(newStatus)) {
             wrapper.set(PortalArticle::getPublishedAt, LocalDateTime.now());
         }
-        // 审核意见（通过选填、驳回必填）一律写入 remark，便于"已办理"列表展示
-        if (article.getRemark() != null && !article.getRemark().isEmpty()) {
-            wrapper.set(PortalArticle::getRemark, article.getRemark());
+        // 审核意见统一写入 audit_remark（独立字段，不再复用通用 remark）
+        String auditRemark = article.getAuditRemark() != null ? article.getAuditRemark() : article.getRemark();
+        if (auditRemark != null && !auditRemark.isEmpty()) {
+            wrapper.set(PortalArticle::getAuditRemark, auditRemark);
         }
         int rows = portalArticleMapper.update(null, wrapper);
         if (rows == 0) {
             throw new com.moyun.common.exception.system.ServiceException("审核失败：文章状态已变更，请刷新后重试");
         }
+        // 审核驳回：回滚发布文章时获得的成长值
+        // 原始成长值在 PortalArticleServiceImpl.publishArticle 中通过 recordEvent("publish_article") 发放，
+        // 这里按 entity 精确回滚当初获得的 growthDelta（含 VIP 加成后的实际值），
+        // 幂等：通过 rollbackAction=publish_article_rollback 标记，避免重复扣减
+        if ("rejected".equals(newStatus) && existing.getAuthorId() != null) {
+            try {
+                portalGrowthService.deductGrowthForEntity(
+                        "article", "publish_article",
+                        existing.getAuthorId(), "article", existing.getId(),
+                        "publish_article_rollback");
+            } catch (Exception e) {
+                // 成长值回滚失败不应阻断审核主流程，但需记录便于人工对账
+                log.error("审核驳回成长值回滚失败（不影响审核主流程），articleId={}, authorId={}, err={}",
+                        existing.getId(), existing.getAuthorId(), e.getMessage());
+            }
+        }
+        // 审核通过：发布事件，触发 Feed 流补发 + 积分联动（监听器做幂等检查，避免重复）
+        // 设计：使用 Spring Event 解耦，监听器在事务提交后异步处理，不影响审核主流程响应
+        if ("published".equals(newStatus) && existing.getAuthorId() != null) {
+            eventPublisher.publishEvent(new com.moyun.ext.cms.event.ArticlePublishedEvent(
+                    this,
+                    existing.getId(),
+                    existing.getAuthorId(),
+                    existing.getTitle(),
+                    existing.getExcerpt(),
+                    existing.getCover()
+            ));
+        }
         // 审核结果通知作者（非阻塞，失败不影响主流程）
-        sendAuditNotification(existing, newStatus, article.getRemark());
+        sendAuditNotification(existing, newStatus, auditRemark);
         return rows;
     }
 
@@ -168,18 +271,21 @@ public class CmsArticleServiceImpl implements ICmsArticleService {
             }
             SysNotification notification = new SysNotification();
             notification.setType("system");
-            if ("published".equals(status)) {
-                notification.setTitle("文章审核通过");
-                notification.setContent("您的文章《" + article.getTitle() + "》已通过审核并发布。");
-            } else {
-                notification.setTitle("文章审核未通过");
-                String reason = StringUtils.hasText(remark) ? remark : "内容不符合平台规范";
-                notification.setContent("您的文章《" + article.getTitle() + "》未通过审核，原因：" + reason);
-            }
             notification.setScope("user");
             notification.setUserId(article.getAuthorId());
             notification.setUserType("portal");
+            notification.setNoticeType("1");
             notification.setStatus("0");
+            if ("published".equals(status)) {
+                notification.setTitle("文章审核通过：" + article.getTitle());
+                notification.setContent("您的文章《" + article.getTitle() + "》已通过审核并发布。可在「我的文章」中查看详情。");
+            } else {
+                notification.setTitle("文章审核未通过：" + article.getTitle());
+                String reason = StringUtils.hasText(remark) ? remark : "内容不符合平台规范";
+                notification.setContent("您的文章《" + article.getTitle() + "》未通过审核，原因：" + reason + "。可在「我的文章」中修改后重新提交。");
+            }
+            // data 字段供前端点击通知跳转到文章详情
+            notification.setData("{\"bizType\":\"article\",\"id\":" + article.getId() + ",\"status\":\"" + status + "\"}");
             notificationService.insertNotification(notification);
             log.info("审核通知已发送，articleId={}, authorId={}, status={}",
                     article.getId(), article.getAuthorId(), status);
@@ -190,15 +296,42 @@ public class CmsArticleServiceImpl implements ICmsArticleService {
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public int publishArticle(PortalArticle article) {
         if (article == null || article.getId() == null) {
             return 0;
         }
+        String newStatus = article.getStatus();
+        // 上下架仅允许在 published / archived 之间流转
+        // 禁止通过此接口把 pending/rejected 直接改为 published（必须走 auditArticle 审核流程）
+        if (!"published".equals(newStatus) && !"archived".equals(newStatus)) {
+            throw new com.moyun.common.exception.system.ServiceException(
+                    "上下架仅支持 published / archived 状态，待审核或被拒文章请走审核接口");
+        }
+        // 查询当前状态，校验流转合法性
+        PortalArticle existing = portalArticleMapper.selectById(article.getId());
+        if (existing == null) {
+            throw new com.moyun.common.exception.system.ServiceException("文章不存在");
+        }
+        String oldStatus = existing.getStatus();
+        // 允许：published → archived（下架）、archived → published（重新上架）
+        // 禁止：pending → published（必须审核）、rejected → published（必须重新提交审核）
+        if ("published".equals(newStatus) && ("pending".equals(oldStatus) || "rejected".equals(oldStatus))) {
+            throw new com.moyun.common.exception.system.ServiceException(
+                    "当前状态为 " + oldStatus + "，不可直接上架，请通过审核接口处理");
+        }
         LambdaUpdateWrapper<PortalArticle> wrapper = new LambdaUpdateWrapper<>();
         wrapper.eq(PortalArticle::getId, article.getId())
-                .set(PortalArticle::getStatus, article.getStatus())
-                .set(PortalArticle::getPublishedAt, LocalDateTime.now());
-        return portalArticleMapper.update(null, wrapper);
+                .eq(PortalArticle::getStatus, oldStatus) // 乐观锁：基于原状态
+                .set(PortalArticle::getStatus, newStatus);
+        if ("published".equals(newStatus)) {
+            wrapper.set(PortalArticle::getPublishedAt, LocalDateTime.now());
+        }
+        int rows = portalArticleMapper.update(null, wrapper);
+        if (rows == 0) {
+            throw new com.moyun.common.exception.system.ServiceException("上下架失败：文章状态已变更，请刷新后重试");
+        }
+        return rows;
     }
 
     @Override
@@ -242,6 +375,22 @@ public class CmsArticleServiceImpl implements ICmsArticleService {
             return 0;
         }
         return portalArticleMapper.deleteBatchIds(Arrays.asList(ids));
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public int deleteArticleWithTags(Long[] ids) {
+        if (ids == null || ids.length == 0) {
+            return 0;
+        }
+        int rows = portalArticleMapper.deleteBatchIds(Arrays.asList(ids));
+        // 标签解绑与文章删除在同一事务内，失败可回滚
+        if (rows > 0) {
+            for (Long id : ids) {
+                portalTagService.unbindTags("article", id);
+            }
+        }
+        return rows;
     }
 
     // ==================== 私有方法 ====================

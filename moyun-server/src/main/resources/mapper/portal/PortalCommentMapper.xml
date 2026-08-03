@@ -15,6 +15,9 @@
         <result property="replyToContent" column="reply_to_content"/>
         <result property="likeCount" column="like_count"/>
         <result property="status" column="status"/>
+        <result property="auditorId" column="auditor_id"/>
+        <result property="auditRemark" column="audit_remark"/>
+        <result property="auditTime" column="audit_time"/>
         <result property="createBy" column="create_by"/>
         <result property="createTime" column="create_time"/>
         <result property="updateBy" column="update_by"/>
@@ -24,7 +27,7 @@
     </resultMap>
 
     <sql id="selectPortalCommentVo">
-        select id, article_id, author_id, content, parent_id, root_id, reply_to, reply_to_content, like_count, status, create_by, create_time, update_by, update_time, remark, del_flag from portal_comment
+        select id, article_id, author_id, content, parent_id, root_id, reply_to, reply_to_content, like_count, status, auditor_id, audit_remark, audit_time, create_by, create_time, update_by, update_time, remark, del_flag from portal_comment
     </sql>
 
     <!-- 分页查询（排除已逻辑删除） -->
@@ -70,6 +73,9 @@
             <if test="replyToContent != null">reply_to_content,</if>
             <if test="likeCount != null">like_count,</if>
             <if test="status != null">status,</if>
+            <if test="auditorId != null">auditor_id,</if>
+            <if test="auditRemark != null">audit_remark,</if>
+            <if test="auditTime != null">audit_time,</if>
             <if test="createBy != null">create_by,</if>
             <if test="createTime != null">create_time,</if>
             <if test="remark != null">remark,</if>
@@ -84,6 +90,9 @@
             <if test="replyToContent != null">#{replyToContent},</if>
             <if test="likeCount != null">#{likeCount},</if>
             <if test="status != null">#{status},</if>
+            <if test="auditorId != null">#{auditorId},</if>
+            <if test="auditRemark != null">#{auditRemark},</if>
+            <if test="auditTime != null">#{auditTime},</if>
             <if test="createBy != null">#{createBy},</if>
             <if test="createTime != null">#{createTime},</if>
             <if test="remark != null">#{remark},</if>
@@ -102,6 +111,9 @@
             <if test="replyToContent != null">reply_to_content = #{replyToContent},</if>
             <if test="likeCount != null">like_count = #{likeCount},</if>
             <if test="status != null">status = #{status},</if>
+            <if test="auditorId != null">auditor_id = #{auditorId},</if>
+            <if test="auditRemark != null">audit_remark = #{auditRemark},</if>
+            <if test="auditTime != null">audit_time = #{auditTime},</if>
             <if test="updateBy != null">update_by = #{updateBy},</if>
             <if test="updateTime != null">update_time = #{updateTime},</if>
             <if test="remark != null">remark = #{remark},</if>

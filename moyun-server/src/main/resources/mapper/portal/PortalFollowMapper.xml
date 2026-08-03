@@ -97,4 +97,9 @@
     <select id="countFollowers" resultType="long">
         select count(1) from portal_follow where following_id = #{followingId}
     </select>
+
+    <!-- 统计指定用户的关注数量（该用户关注了多少人） -->
+    <select id="countFollowing" resultType="long">
+        select count(1) from portal_follow where follower_id = #{followerId}
+    </select>
 </mapper>

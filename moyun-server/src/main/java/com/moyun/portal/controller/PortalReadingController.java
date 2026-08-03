@@ -37,6 +37,7 @@ import com.moyun.portal.service.IPortalGrowthService;
 import com.moyun.portal.service.IPortalReadingProgressService;
 import com.moyun.portal.util.PortalSecurityUtils;
 import com.moyun.portal.domain.entity.PortalReadingProgress;
+import com.moyun.portal.mapper.PortalBookMapper;
 
 /**
  * 读书空间前台Controller
@@ -86,6 +87,9 @@ public class PortalReadingController extends BaseController {
 
     @Autowired
     private IPortalBookRecommendService bookRecommendService;
+
+    @Autowired
+    private PortalBookMapper portalBookMapper;
 
     /**
      * 获取读书空间首页数据
@@ -161,12 +165,26 @@ public class PortalReadingController extends BaseController {
             return AjaxResult.error("书单不存在");
         }
         List<PortalBookListItem> items = portalBookListService.selectBookListItems(id);
-        // 查询书籍详情
-        List<PortalBook> books = new java.util.ArrayList<>();
+        // 批量查询书籍详情，避免 N+1（书单 N 本书原本 N 次查询 → 现在 1 次）
+        List<Long> bookIds = items.stream()
+                .map(PortalBookListItem::getBookId)
+                .filter(java.util.Objects::nonNull)
+                .distinct()
+                .toList();
+        Map<Long, PortalBook> bookMap = new HashMap<>();
+        if (!bookIds.isEmpty()) {
+            for (PortalBook b : portalBookMapper.selectBatchIds(bookIds)) {
+                bookMap.put(b.getId(), b);
+            }
+        }
+        // 按书单内 items 的顺序组装书籍列表，保持与原逻辑一致
+        List<PortalBook> books = new java.util.ArrayList<>(items.size());
         for (PortalBookListItem item : items) {
-            PortalBook b = portalBookService.selectPortalBookById(item.getBookId());
-            if (b != null) {
-                books.add(b);
+            if (item.getBookId() != null) {
+                PortalBook b = bookMap.get(item.getBookId());
+                if (b != null) {
+                    books.add(b);
+                }
             }
         }
         Map<String, Object> result = new HashMap<>();

@@ -5,7 +5,7 @@ import { useHead } from '@vueuse/head';
 import {
   MessageCircle, Eye, Heart, MessageSquare, Send,
   Pin, ChevronLeft, ChevronRight, Trash2, Loader2, Pencil, BadgeCheck,
-  ChevronDown, Reply, X,
+  ChevronDown, Reply, X, Clock, XCircle,
 } from 'lucide-vue-next';
 import Breadcrumb from '@/components/Breadcrumb.vue';
 import SiteFooter from '@/components/SiteFooter.vue';
@@ -17,6 +17,7 @@ import { generateSeo } from '@/utils/seo';
 import { getSafeAvatar } from '@/utils/avatar';
 import { formatShortDate, formatRelativeTime } from '@/utils/date';
 import { formatNumber } from '@/utils/number';
+import { getTopicStatusMeta } from '@/utils/topicStatus';
 import {
   getTopicDetail, toggleTopicLike,
   getTopicPosts, createTopicPost, deleteTopicPost, toggleTopicPostLike,
@@ -73,6 +74,23 @@ const likingTopic = ref(false);
 const isOwner = computed(() => {
   if (!topic.value || !userStore.user) return false;
   return String(topic.value.creatorId) === String(userStore.user.id);
+});
+
+// 详情页状态元信息：active 显示「讨论中」，其他状态对应展示
+const detailStatusMeta = computed(() => {
+  const status = topic.value?.status;
+  if (status === 'active') {
+    // active 在详情页语义化为「讨论中」，与原 UI 文案保持一致
+    return {
+      label: '讨论中',
+      color: {
+        text: 'var(--theme-primary)',
+        bg: 'var(--theme-accent)',
+        border: 'var(--theme-border)',
+      },
+    };
+  }
+  return getTopicStatusMeta(status);
 });
 
 useHead(computed(() => generateSeo({
@@ -592,11 +610,12 @@ async function handleDeleteComment(
                 <span
                   class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium"
                   :style="{
-                    color: topic.status === 'closed' ? '#ef4444' : 'var(--theme-primary)',
-                    backgroundColor: topic.status === 'closed' ? 'rgba(239,68,68,0.1)' : 'var(--theme-accent)',
+                    color: detailStatusMeta.color.text,
+                    backgroundColor: detailStatusMeta.color.bg,
+                    border: '1px solid ' + detailStatusMeta.color.border,
                   }"
                 >
-                  {{ topic.status === 'closed' ? '已关闭' : '讨论中' }}
+                  {{ detailStatusMeta.label }}
                 </span>
               </div>
               <h1 class="text-2xl sm:text-3xl font-bold mb-3" style="color: var(--theme-text);">
@@ -609,6 +628,27 @@ async function handleDeleteComment(
               >
                 {{ topic.description }}
               </p>
+
+              <!-- 审核状态提示（仅发起人可见：待审核 / 驳回原因） -->
+              <div
+                v-if="isOwner && (topic.status === 'pending' || topic.status === 'rejected')"
+                class="rounded-lg p-3 mb-4 text-sm flex items-start gap-2"
+                :style="{
+                  backgroundColor: getTopicStatusMeta(topic.status).color.bg,
+                  border: '1px solid ' + getTopicStatusMeta(topic.status).color.border,
+                }"
+              >
+                <XCircle v-if="topic.status === 'rejected'" class="w-4 h-4 flex-shrink-0 mt-0.5" :style="{ color: getTopicStatusMeta(topic.status).color.text }" />
+                <Clock v-else class="w-4 h-4 flex-shrink-0 mt-0.5" :style="{ color: getTopicStatusMeta(topic.status).color.text }" />
+                <div class="flex-1" :style="{ color: getTopicStatusMeta(topic.status).color.text }">
+                  <p class="font-medium">
+                    {{ topic.status === 'pending' ? '该话题正在审核中，通过后将在话题广场展示' : '该话题审核未通过' }}
+                  </p>
+                  <p v-if="topic.status === 'rejected' && topic.auditRemark" class="mt-1 text-xs break-words">
+                    驳回原因：{{ topic.auditRemark }}
+                  </p>
+                </div>
+              </div>
 
               <!-- 发起人 + 时间 -->
               <div class="flex items-center justify-between flex-wrap gap-2 mb-4">

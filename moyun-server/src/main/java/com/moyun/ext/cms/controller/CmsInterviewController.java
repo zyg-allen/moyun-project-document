@@ -183,6 +183,22 @@ public class CmsInterviewController extends BaseController {
         return success(portalInterviewService.selectExperienceDetailById(id, null));
     }
 
+    @Operation(summary = "新增面经", description = "CMS 后台直接创建面经（后台发布默认已发布状态）")
+    @PreAuthorize("@ss.hasPermi('cms:interview:add')")
+    @Log(title = "面试面经", businessType = BusinessType.INSERT)
+    @PostMapping("/experience")
+    public AjaxResult addExperience(@RequestBody PortalInterviewExperience experience) {
+        return toAjax(portalInterviewService.insertExperience(experience, null));
+    }
+
+    @Operation(summary = "修改面经", description = "更新面经内容")
+    @PreAuthorize("@ss.hasPermi('cms:interview:edit')")
+    @Log(title = "面试面经", businessType = BusinessType.UPDATE)
+    @PutMapping("/experience")
+    public AjaxResult editExperience(@RequestBody PortalInterviewExperience experience) {
+        return toAjax(portalInterviewService.updateExperience(experience, null));
+    }
+
     @Operation(summary = "审核面经", description = "审核面经内容")
     @PreAuthorize("@ss.hasPermi('cms:interview:edit')")
     @Log(title = "面试面经", businessType = BusinessType.UPDATE)

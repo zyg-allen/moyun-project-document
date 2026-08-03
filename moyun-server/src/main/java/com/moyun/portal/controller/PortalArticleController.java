@@ -44,6 +44,9 @@ import com.moyun.portal.util.PortalSecurityUtils;
 import com.moyun.util.bean.PageUtils;
 
 import com.moyun.portal.domain.entity.PortalTipOrder;
+import com.moyun.system.domain.entity.SysNotification;
+import com.moyun.system.service.ISysNotificationService;
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * 门户文章 Controller
@@ -76,6 +79,7 @@ import com.moyun.portal.domain.entity.PortalTipOrder;
  *   - IPortalArticleViewService 已无调用方，注入与 import 一并移除
  */
 @Tag(name = "门户文章", description = "门户文章的增删改查操作接口")
+@Slf4j
 @RestController
 @RequestMapping("/portal/article")
 public class PortalArticleController extends BaseController {
@@ -106,6 +110,9 @@ public class PortalArticleController extends BaseController {
 
     @Autowired
     private IPortalTipService portalTipService;
+
+    @Autowired
+    private ISysNotificationService notificationService;
 
     @Operation(summary = "获取文章列表", description = "根据条件分页查询文章列表")
     @GetMapping("/list")
@@ -144,9 +151,20 @@ public class PortalArticleController extends BaseController {
             return success(null);
         }
 
+        // 草稿/待审核/被拒可见性校验：仅 published 文章可被公开访问
+        // 非发布状态仅允许作者本人查看（编辑/重新提交场景）
+        Long currentUserId = PortalSecurityUtils.getUserId();
+        String status = vo.getStatus();
+        if (status != null && !"published".equals(status) && !"archived".equals(status)) {
+            // draft / pending / rejected 状态
+            if (currentUserId == null || article.getAuthorId() == null
+                    || !currentUserId.equals(article.getAuthorId())) {
+                return AjaxResult.error(HttpStatus.NOT_FOUND, "文章不存在或暂未发布");
+            }
+        }
+
         // 填充当前用户的点赞 / 收藏状态（以服务端为准，避免前端 localStorage 跨账号污染）
         // 未登录时 isLiked / isBookmarked 默认 false，前端显示"未赞/未收藏"灰色状态
-        Long currentUserId = PortalSecurityUtils.getUserId();
         if (currentUserId != null) {
             LambdaQueryWrapper<PortalLike> likeWrapper = new LambdaQueryWrapper<>();
             likeWrapper.eq(PortalLike::getUserId, currentUserId)
@@ -364,6 +382,7 @@ public class PortalArticleController extends BaseController {
      */
     @Operation(summary = "文章点赞/取消点赞", description = "点赞或取消点赞文章，返回最新点赞数")
     @PostMapping("/{id}/like")
+    @Transactional(rollbackFor = Exception.class)
     public AjaxResult toggleLikeArticle(@PathVariable Long id) {
         Long userId = PortalSecurityUtils.getUserId();
         if (userId == null) {
@@ -416,6 +435,8 @@ public class PortalArticleController extends BaseController {
             if (article.getAuthorId() != null && !article.getAuthorId().equals(userId)) {
                 portalGrowthService.recordEventWithTarget("article", "receive_like",
                         article.getAuthorId(), userId, "article", id);
+                // 主动通知作者（非阻塞，失败不影响主流程）
+                sendInteractionNotification(article.getAuthorId(), userId, "like", id, article.getTitle());
             }
 
             isLiked = true;
@@ -450,6 +471,7 @@ public class PortalArticleController extends BaseController {
      */
     @Operation(summary = "增加浏览量", description = "增加文章浏览量，支持防刷逻辑")
     @PostMapping("/{id}/view")
+    @Transactional(rollbackFor = Exception.class)
     public AjaxResult incrementView(@PathVariable Long id, HttpServletRequest request) {
         PortalArticle article = portalArticleService.selectPortalArticleById(id);
         if (article == null) {
@@ -580,7 +602,7 @@ public class PortalArticleController extends BaseController {
                           List<ArticleVO> hotArticles, List<ArticleVO> latestArticles) {
             this.carouselArticles = carouselArticles;
             this.featuredArticles = featuredArticles;
-            this.hotArticles = latestArticles;
+            this.hotArticles = hotArticles;
             this.latestArticles = latestArticles;
         }
 
@@ -598,6 +620,55 @@ public class PortalArticleController extends BaseController {
 
         public List<ArticleVO> getLatestArticles() {
             return latestArticles;
+        }
+    }
+
+    /**
+     * 发送互动通知（点赞/收藏/评论）给文章作者
+     * <p>非阻塞：失败仅记日志，不影响主流程
+     *
+     * @param authorId   文章作者ID（接收方）
+     * @param fromUserId 操作者ID（发起方）
+     * @param bizType    互动类型：like/bookmark/comment
+     * @param articleId  文章ID
+     * @param articleTitle 文章标题
+     */
+    private void sendInteractionNotification(Long authorId, Long fromUserId,
+                                            String bizType, Long articleId, String articleTitle) {
+        try {
+            PortalUser fromUser = portalUserMapper.selectById(fromUserId);
+            String fromNickname = fromUser != null && fromUser.getNickname() != null
+                    ? fromUser.getNickname()
+                    : (fromUser != null ? fromUser.getUsername() : "用户" + fromUserId);
+            SysNotification notification = new SysNotification();
+            notification.setType(bizType);
+            notification.setScope("user");
+            notification.setUserId(authorId);
+            notification.setUserType("portal");
+            notification.setNoticeType("1");
+            notification.setStatus("0");
+            String action;
+            switch (bizType) {
+                case "like":
+                    action = "赞了";
+                    break;
+                case "bookmark":
+                    action = "收藏了";
+                    break;
+                case "comment":
+                    action = "评论了";
+                    break;
+                default:
+                    action = "操作了";
+            }
+            notification.setTitle(fromNickname + " " + action + "你的文章");
+            notification.setContent(fromNickname + " " + action + "你的文章《" + articleTitle + "》");
+            notification.setData("{\"bizType\":\"" + bizType + "\",\"articleId\":" + articleId
+                    + ",\"fromUserId\":" + fromUserId + "}");
+            notificationService.insertNotification(notification);
+        } catch (Exception e) {
+            log.warn("互动通知发送失败（不影响主流程）：authorId={}, bizType={}, articleId={}, err={}",
+                    authorId, bizType, articleId, e.getMessage());
         }
     }
 }

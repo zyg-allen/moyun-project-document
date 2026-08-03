@@ -564,6 +564,9 @@ public class SysDashboardServiceImpl implements ISysDashboardService {
 
     /**
      * 构建与我相关任务（已办）
+     * <p>数据源：当前用户最近的操作日志。
+     * 路由策略：优先按 operlog.title 智能跳转到对应业务页面，
+     * 未识别的业务回退到 operlog 详情弹窗（保留操作审计能力）。
      */
     private List<DashboardVO.TaskItem> buildMyTasks() {
         List<DashboardVO.TaskItem> tasks = new ArrayList<>();
@@ -587,7 +590,7 @@ public class SysDashboardServiceImpl implements ISysDashboardService {
                     item.setCreateTime(oper.getOperTime() != null ? oper.getOperTime().format(DATETIME_FMT) : "");
                     item.setSubmitter(oper.getOperName());
                     item.setPriority("low");
-                    item.setRoutePath("/monitor/operlog?operId=" + oper.getOperId());
+                    item.setRoutePath(resolveOperRoutePath(oper));
                     tasks.add(item);
                 }
             }
@@ -595,6 +598,24 @@ public class SysDashboardServiceImpl implements ISysDashboardService {
             log.error("[Dashboard] 构建已办任务失败", e);
         }
         return tasks;
+    }
+
+    /**
+     * 根据 operlog.title 解析详情路由：
+     * 识别到的业务跳转到对应业务页面，未识别的回退 operlog 详情弹窗。
+     * 新增业务审核入口时在此追加映射即可。
+     */
+    private String resolveOperRoutePath(SysOperLog oper) {
+        String title = oper.getTitle();
+        if (title == null) {
+            return "/monitor/operlog?operId=" + oper.getOperId();
+        }
+        switch (title) {
+            case "创作者认证":
+                return "/certification/audit";
+            default:
+                return "/monitor/operlog?operId=" + oper.getOperId();
+        }
     }
 
     /**

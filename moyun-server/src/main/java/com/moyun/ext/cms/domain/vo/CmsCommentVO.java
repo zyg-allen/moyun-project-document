@@ -46,8 +46,21 @@ public class CmsCommentVO extends BaseEntity {
     /** 点赞数 */
     private Long likeCount;
 
-    /** 状态 */
+    /** 状态：0=待审核 1=已发布 2=审核驳回 */
     private String status;
+
+    /** 审核人ID（sys_user.user_id） */
+    private Long auditorId;
+
+    /** 审核人昵称（sys_user.nick_name，CMS审核台展示用） */
+    private String auditorNickname;
+
+    /** 审核时间 */
+    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
+    private LocalDateTime auditTime;
+
+    /** 审核意见/驳回原因 */
+    private String auditRemark;
 
     /** 创建时间 */
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")

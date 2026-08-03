@@ -268,6 +268,8 @@ async function resubmitArticle(article: any) {
       id: article.id,
       title: article.title,
       content: article.content,
+      contentMarkdown: article.contentMarkdown,
+      editorMode: article.editorMode || 'richtext',
       excerpt: article.excerpt,
       cover: article.cover,
       categoryId: article.categoryId,

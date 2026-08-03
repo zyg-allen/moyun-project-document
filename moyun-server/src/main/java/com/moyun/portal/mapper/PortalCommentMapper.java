@@ -1,11 +1,13 @@
 package com.moyun.portal.mapper;
 
 import java.util.List;
+import java.util.Map;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
+import org.apache.ibatis.annotations.Select;
 import org.apache.ibatis.annotations.Update;
 
 import com.moyun.portal.domain.entity.PortalComment;
@@ -85,4 +87,30 @@ public interface PortalCommentMapper extends BaseMapper<PortalComment> {
      */
     @Update("UPDATE portal_comment SET like_count = like_count + #{delta} WHERE id = #{id} AND like_count + #{delta} >= 0")
     int incrementLikes(@Param("id") Long id, @Param("delta") long delta);
+
+    /**
+     * 统计指定用户发表的评论收到的总点赞数
+     * 用于成长统计 totalLikes 实时聚合（文章获赞 + 评论获赞），避免统计表不同步
+     * 仅统计已发布评论（status = '1'）
+     *
+     * @param authorId 评论者用户ID
+     * @return 评论获赞总数
+     */
+    @Select("SELECT coalesce(sum(like_count), 0) FROM portal_comment WHERE author_id = #{authorId} AND status = '1'")
+    long sumCommentLikeReceived(@Param("authorId") Long authorId);
+
+    /**
+     * 批量统计多个用户发表的评论收到的总点赞数（避免 N+1 查询）
+     * 仅统计已发布评论（status = '1'）
+     *
+     * @param authorIds 评论者用户ID集合
+     * @return 每个用户一行，字段：userId / cnt
+     */
+    @Select("<script>" +
+            "SELECT author_id AS userId, coalesce(sum(like_count), 0) AS cnt FROM portal_comment " +
+            "WHERE status = '1' AND author_id IN " +
+            "<foreach item='id' collection='authorIds' open='(' separator=',' close=')'>#{id}</foreach> " +
+            "GROUP BY author_id" +
+            "</script>")
+    List<Map<String, Object>> batchSumCommentLikeReceived(@Param("authorIds") List<Long> authorIds);
 }

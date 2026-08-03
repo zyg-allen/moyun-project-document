@@ -1,5 +1,6 @@
 package com.moyun.portal.service.impl;
 
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
@@ -7,6 +8,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 
 import com.moyun.portal.domain.entity.PortalAchievement;
 import com.moyun.portal.domain.entity.PortalGrowthLog;
@@ -21,6 +23,7 @@ import com.moyun.portal.domain.vo.UserGrowthVO;
 import com.moyun.portal.domain.vo.UserStatsVO;
 import com.moyun.portal.mapper.PortalAchievementMapper;
 import com.moyun.portal.mapper.PortalArticleMapper;
+import com.moyun.portal.mapper.PortalFollowMapper;
 import com.moyun.portal.mapper.PortalGrowthLogMapper;
 import com.moyun.portal.mapper.PortalGrowthRuleMapper;
 import com.moyun.portal.mapper.PortalUserBadgeMapper;
@@ -70,6 +73,12 @@ public class PortalGrowthServiceImpl implements IPortalGrowthService {
 
     @Autowired
     private PortalArticleMapper articleMapper;
+
+    @Autowired
+    private PortalFollowMapper followMapper;
+
+    @Autowired
+    private com.moyun.portal.mapper.PortalCommentMapper commentMapper;
 
     private static final ObjectMapper objectMapper = new ObjectMapper();
 
@@ -150,6 +159,87 @@ public class PortalGrowthServiceImpl implements IPortalGrowthService {
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
+    public int deductGrowth(Long userId, int delta) {
+        if (userId == null || delta <= 0) {
+            return 0;
+        }
+        // 确保用户成长记录存在
+        growthMapper.insertIfNotExists(userId);
+        // 原子扣减成长值（带下界保护，避免负数）
+        int rows = growthMapper.deductGrowth(userId, delta);
+        if (rows > 0) {
+            // 扣减成功后重新计算等级（可能降级）
+            updateLevel(userId);
+            log.info("成长值扣减成功：userId={}, delta={}", userId, delta);
+        } else {
+            log.warn("成长值扣减失败（余额不足或用户不存在）：userId={}, delta={}", userId, delta);
+        }
+        return rows > 0 ? delta : 0;
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public int deductGrowthForEntity(String module, String action, Long userId,
+                                     String entityType, Long entityId, String rollbackAction) {
+        if (userId == null || entityId == null || !StringUtils.hasText(action)
+                || !StringUtils.hasText(rollbackAction)) {
+            return 0;
+        }
+        // 1. 幂等校验：查询是否已存在相同 rollbackAction + entityId 的流水，避免重复回滚
+        Long existingRollback = logMapper.selectCount(
+                new LambdaQueryWrapper<PortalGrowthLog>()
+                        .eq(PortalGrowthLog::getUserId, userId)
+                        .eq(PortalGrowthLog::getAction, rollbackAction)
+                        .eq(PortalGrowthLog::getEntityType, entityType)
+                        .eq(PortalGrowthLog::getEntityId, entityId)
+        );
+        if (existingRollback != null && existingRollback > 0) {
+            log.info("成长值已回滚过，跳过：userId={}, entityId={}, rollbackAction={}",
+                    userId, entityId, rollbackAction);
+            return 0;
+        }
+        // 2. 查询原始流水获取当初实际获得的 growthDelta（含 VIP 加成后的实际值）
+        PortalGrowthLog originalLog = logMapper.selectOne(
+                new LambdaQueryWrapper<PortalGrowthLog>()
+                        .eq(PortalGrowthLog::getUserId, userId)
+                        .eq(PortalGrowthLog::getModule, module)
+                        .eq(PortalGrowthLog::getAction, action)
+                        .eq(PortalGrowthLog::getEntityType, entityType)
+                        .eq(PortalGrowthLog::getEntityId, entityId)
+                        .orderByDesc(PortalGrowthLog::getCreateTime)
+                        .last("LIMIT 1")
+        );
+        if (originalLog == null || originalLog.getGrowthDelta() == null
+                || originalLog.getGrowthDelta() <= 0) {
+            log.info("未找到原始成长流水或成长值为0，跳过回滚：userId={}, action={}, entityId={}",
+                    userId, action, entityId);
+            return 0;
+        }
+        int delta = originalLog.getGrowthDelta();
+        // 3. 原子扣减成长值
+        int deducted = deductGrowth(userId, delta);
+        if (deducted <= 0) {
+            log.warn("成长值扣减失败（余额不足）：userId={}, delta={}", userId, delta);
+            return 0;
+        }
+        // 4. 插入回滚流水（负向 delta，标记已回滚，便于幂等去重与对账）
+        PortalGrowthLog rollbackLog = new PortalGrowthLog();
+        rollbackLog.setUserId(userId);
+        rollbackLog.setModule(module);
+        rollbackLog.setAction(rollbackAction);
+        rollbackLog.setEntityType(entityType);
+        rollbackLog.setEntityId(entityId);
+        rollbackLog.setGrowthDelta(-delta);
+        rollbackLog.setDescription("审核驳回回滚: " + action + " (entityId=" + entityId + ")");
+        rollbackLog.setCreateTime(LocalDateTime.now());
+        logMapper.insert(rollbackLog);
+        log.info("成长值回滚成功：userId={}, action={}, entityId={}, delta={}",
+                userId, action, entityId, delta);
+        return delta;
+    }
+
+    @Override
     public UserGrowthVO getUserGrowth(Long userId) {
         growthMapper.insertIfNotExists(userId);
         PortalUserGrowth growth = growthMapper.selectByUserId(userId);
@@ -223,10 +313,36 @@ public class PortalGrowthServiceImpl implements IPortalGrowthService {
         vo.setNoteCount(stats.getNoteCount() != null ? stats.getNoteCount() : 0);
         vo.setExperienceCount(stats.getExperienceCount() != null ? stats.getExperienceCount() : 0);
         vo.setNoteAdopted(stats.getNoteAdopted() != null ? stats.getNoteAdopted() : 0);
-        vo.setFollowers(stats.getFollowerCount() != null ? stats.getFollowerCount() : 0);
-        vo.setFollowing(stats.getFollowingCount() != null ? stats.getFollowingCount() : 0);
-        vo.setComments(stats.getCommentCount() != null ? stats.getCommentCount() : 0);
-        vo.setTotalLikes(stats.getTotalLikeReceived() != null ? stats.getTotalLikeReceived() : 0L);
+        // 粉丝数、关注数从 portal_follow 表实时聚合（与文章统计同思路）
+        // portal_user_stats.follower_count / following_count 由于历史数据或异常未同步会不准
+        long followerCount = 0L;
+        long followingCount = 0L;
+        try {
+            followerCount = followMapper.countFollowers(userId);
+            followingCount = followMapper.countFollowing(userId);
+        } catch (Exception e) {
+            log.warn("聚合用户[{}]关注/粉丝数失败，回退到统计表数据: {}", userId, e.getMessage());
+            followerCount = stats.getFollowerCount() != null ? stats.getFollowerCount().longValue() : 0L;
+            followingCount = stats.getFollowingCount() != null ? stats.getFollowingCount().longValue() : 0L;
+        }
+        vo.setFollowers((int) followerCount);
+        vo.setFollowing((int) followingCount);
+        // 评论数（观点）：从文章表 commentSum 实时聚合（作者文章收到的评论数）
+        vo.setComments(articleStats != null ? toInt(articleStats.get("commentSum")) :
+                (stats.getCommentCount() != null ? stats.getCommentCount() : 0));
+        // 总获赞 = 文章获赞（likeSum）+ 评论获赞（实时聚合）
+        long articleLikeSum = articleStats != null ? toLong(articleStats.get("likeSum")) :
+                (stats.getArticleLikeSum() != null ? stats.getArticleLikeSum() : 0L);
+        long commentLikeSum = 0L;
+        try {
+            commentLikeSum = commentMapper.sumCommentLikeReceived(userId);
+        } catch (Exception e) {
+            log.warn("聚合用户[{}]评论获赞失败，回退到统计表数据: {}", userId, e.getMessage());
+            // 回退：总获赞减去文章获赞近似为评论获赞（统计表 totalLikeReceived 包含两者）
+            commentLikeSum = Math.max(0L,
+                    (stats.getTotalLikeReceived() != null ? stats.getTotalLikeReceived() : 0L) - articleLikeSum);
+        }
+        vo.setTotalLikes(articleLikeSum + commentLikeSum);
         vo.setCheckinStreak(stats.getCheckinStreak() != null ? stats.getCheckinStreak() : 0);
         vo.setLastCheckinDate(stats.getLastCheckinDate());
         return vo;

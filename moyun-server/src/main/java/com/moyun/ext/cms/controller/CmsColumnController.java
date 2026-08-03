@@ -75,12 +75,28 @@ public class CmsColumnController extends BaseController {
         return toAjax(cmsColumnService.deleteColumnByIds(ids));
     }
 
-    @Operation(summary = "审核专栏", description = "更新专栏状态：draft→published→archived")
+    @Operation(summary = "更新专栏状态", description = "状态流转（archived 等普通流转，不走审核字段写入）")
     @PreAuthorize("@ss.hasPermi('portal:column:edit')")
     @Log(title = "专栏", businessType = BusinessType.UPDATE)
     @PutMapping("/{id}/status")
     public AjaxResult changeStatus(@PathVariable Long id, @RequestBody Map<String, Object> body) {
         String status = body.get("status") == null ? null : String.valueOf(body.get("status"));
         return toAjax(cmsColumnService.updateColumnStatus(id, status));
+    }
+
+    @Operation(summary = "审核专栏", description = "审核待处理专栏：published=通过 / rejected=驳回，支持审核意见，结果通知作者")
+    @PreAuthorize("@ss.hasPermi('cms:column:audit')")
+    @Log(title = "专栏审核", businessType = BusinessType.UPDATE)
+    @PutMapping("/{id}/audit")
+    public AjaxResult audit(@PathVariable Long id, @RequestBody Map<String, Object> body) {
+        String status = body.get("status") == null ? null : String.valueOf(body.get("status"));
+        String auditRemark = body.get("auditRemark") == null ? null : String.valueOf(body.get("auditRemark"));
+        Long auditorId = getUserId();
+        try {
+            cmsColumnService.auditColumn(id, status, auditRemark, auditorId);
+            return success();
+        } catch (RuntimeException e) {
+            return error(e.getMessage() != null ? e.getMessage() : "审核失败");
+        }
     }
 }

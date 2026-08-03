@@ -21,6 +21,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.moyun.ext.cms.service.IFeedService;
 import com.moyun.common.exception.system.ServiceException;
+import com.moyun.system.domain.entity.SysNotification;
+import com.moyun.system.service.ISensitiveWordService;
+import com.moyun.system.service.ISysNotificationService;
 import com.moyun.portal.domain.entity.PortalTopic;
 import com.moyun.portal.domain.entity.PortalTopicLike;
 import com.moyun.portal.domain.entity.PortalTopicPost;
@@ -63,6 +66,12 @@ public class PortalTopicServiceImpl extends ServiceImpl<PortalTopicMapper, Porta
     @Autowired
     private PortalTopicCommentMapper portalTopicCommentMapper;
 
+    @Autowired
+    private ISysNotificationService notificationService;
+
+    @Autowired
+    private ISensitiveWordService sensitiveWordService;
+
     @Override
     public Page<TopicListVO> getTopicList(Integer pageNum, Integer pageSize, String sort, String keyword) {
         if (pageNum == null || pageNum <= 0) pageNum = 1;
@@ -95,6 +104,14 @@ public class PortalTopicServiceImpl extends ServiceImpl<PortalTopicMapper, Porta
         PortalTopic topic = baseMapper.selectById(id);
         if (topic == null || "deleted".equals(topic.getStatus())) {
             return null;
+        }
+        // pending/rejected 状态：仅创建者或 CMS 管理员可见，避免未审核内容通过直链曝光
+        if ("pending".equals(topic.getStatus()) || "rejected".equals(topic.getStatus())) {
+            boolean isCreator = currentUserId != null && currentUserId.equals(topic.getCreatorId());
+            boolean isCmsAdmin = isCmsAdminContext();
+            if (!isCreator && !isCmsAdmin) {
+                return null;
+            }
         }
         TopicVO vo = new TopicVO();
         BeanUtils.copyProperties(topic, vo);
@@ -139,7 +156,8 @@ public class PortalTopicServiceImpl extends ServiceImpl<PortalTopicMapper, Porta
         }
 
         topic.setCreatorId(userId);
-        topic.setStatus("active");
+        // 话题默认进入待审核状态，审核通过后由 auditTopic 触发 active 并推送 Feed/成长事件
+        topic.setStatus("pending");
         topic.setPinned(0);
         topic.setViewCount(0);
         topic.setPostCount(0);
@@ -148,21 +166,23 @@ public class PortalTopicServiceImpl extends ServiceImpl<PortalTopicMapper, Porta
         topic.setCreatedTime(LocalDateTime.now());
         baseMapper.insert(topic);
 
-        // 触发成长事件 create_topic
+        // 敏感词轻量扫描：标题+描述拼接检测。
+        // 命中即写入审计日志（action=pending），话题仍保持 pending 待人工/AI 审核；
+        // 不阻断创建，便于后续 AI/接口审核只记录通知、边界擦边转人工的策略落地。
+        String scanText = buildTopicScanText(topic);
         try {
-            portalGrowthService.recordEvent("topic", "create_topic", userId, "topic", topic.getId());
+            List<String> hits = sensitiveWordService.detectAndLog(
+                    "topic", topic.getId(), userId, scanText, "pending");
+            if (hits != null && !hits.isEmpty()) {
+                log.warn("话题命中敏感词，转人工审核：topicId={}, hits={}", topic.getId(), hits);
+            }
         } catch (Exception e) {
-            log.warn("话题创建成长事件触发失败: userId={}, topicId={}, err={}", userId, topic.getId(), e.getMessage());
+            // 敏感词扫描失败不阻断主流程，仅记录日志
+            log.warn("话题敏感词扫描异常：topicId={}, err={}", topic.getId(), e.getMessage());
         }
 
-        // 发布 Feed 事件 create_topic
-        try {
-            feedService.publishEvent(userId, "create_topic", "topic", topic.getId(),
-                    topic.getTitle(), topic.getDescription(), topic.getCover());
-        } catch (Exception e) {
-            log.warn("话题创建 Feed 事件发布失败: topicId={}, err={}", topic.getId(), e.getMessage());
-        }
-
+        // 注意：Feed 事件与成长事件延迟到审核通过（auditTopic 设为 active）时再触发，
+        // 避免 pending 状态的内容被推送曝光。
         return topic;
     }
 
@@ -344,6 +364,84 @@ public class PortalTopicServiceImpl extends ServiceImpl<PortalTopicMapper, Porta
 
     @Override
     @Transactional(rollbackFor = Exception.class)
+    public void auditTopic(Long id, String status, String auditRemark, Long auditorId) {
+        if (!"active".equals(status) && !"rejected".equals(status)) {
+            throw new ServiceException("审核状态仅支持 active=通过 / rejected=驳回");
+        }
+        PortalTopic existing = baseMapper.selectById(id);
+        if (existing == null) {
+            throw new ServiceException("话题不存在");
+        }
+        if (!"pending".equals(existing.getStatus())) {
+            throw new ServiceException("仅待审核（pending）状态的话题可审核，当前状态：" + existing.getStatus());
+        }
+
+        LambdaUpdateWrapper<PortalTopic> wrapper = new LambdaUpdateWrapper<>();
+        wrapper.eq(PortalTopic::getId, id)
+                .eq(PortalTopic::getStatus, "pending") // 乐观锁：仅 pending 可审核
+                .set(PortalTopic::getStatus, status)
+                .set(PortalTopic::getAuditorId, auditorId)
+                .set(PortalTopic::getAuditTime, LocalDateTime.now());
+        if (auditRemark != null && !auditRemark.isEmpty()) {
+            wrapper.set(PortalTopic::getAuditRemark, auditRemark);
+        }
+        int rows = baseMapper.update(null, wrapper);
+        if (rows == 0) {
+            throw new ServiceException("审核失败：话题状态已变更，请刷新后重试");
+        }
+
+        // 审核通过：触发 create_topic 成长事件与 Feed 推送（createTopic 中延迟到这里）
+        if ("active".equals(status)) {
+            try {
+                portalGrowthService.recordEvent("topic", "create_topic", existing.getCreatorId(), "topic", id);
+            } catch (Exception e) {
+                log.warn("话题审核通过成长事件触发失败: topicId={}, err={}", id, e.getMessage());
+            }
+            try {
+                feedService.publishEvent(existing.getCreatorId(), "create_topic", "topic", id,
+                        existing.getTitle(), existing.getDescription(), existing.getCover());
+            } catch (Exception e) {
+                log.warn("话题审核通过 Feed 事件发布失败: topicId={}, err={}", id, e.getMessage());
+            }
+        }
+
+        // 站内信通知发起人（非阻塞，失败不影响主流程）
+        sendTopicAuditNotification(existing, status, auditRemark);
+    }
+
+    /**
+     * 话题审核结果站内信通知发起人
+     */
+    private void sendTopicAuditNotification(PortalTopic topic, String status, String auditRemark) {
+        try {
+            if (topic.getCreatorId() == null) {
+                return;
+            }
+            SysNotification notification = new SysNotification();
+            notification.setType("system");
+            notification.setScope("user");
+            notification.setUserId(topic.getCreatorId());
+            notification.setUserType("portal");
+            notification.setNoticeType("1");
+            notification.setStatus("0");
+            if ("active".equals(status)) {
+                notification.setTitle("话题审核通过：" + topic.getTitle());
+                notification.setContent("您发起的话题《" + topic.getTitle() + "》已通过审核并发布。可在「我的话题」中查看详情。");
+            } else {
+                notification.setTitle("话题审核未通过：" + topic.getTitle());
+                String reason = (auditRemark != null && !auditRemark.isEmpty()) ? auditRemark : "内容不符合平台规范";
+                notification.setContent("您发起的话题《" + topic.getTitle() + "》未通过审核，原因：" + reason + "。可在「我的话题」中修改后重新提交。");
+            }
+            notification.setData("{\"bizType\":\"topic\",\"id\":" + topic.getId() + ",\"status\":\"" + status + "\"}");
+            notificationService.insertNotification(notification);
+            log.info("话题审核通知已发送，topicId={}, creatorId={}, status={}", topic.getId(), topic.getCreatorId(), status);
+        } catch (Exception e) {
+            log.error("话题审核通知发送失败（不影响审核主流程），topicId={}, error={}", topic.getId(), e.getMessage());
+        }
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
     public void updateTopicPinned(Long id, Integer pinned) {
         if (pinned == null || (pinned != 0 && pinned != 1)) {
             throw new ServiceException("pinned 仅支持 0 / 1");
@@ -390,6 +488,20 @@ public class PortalTopicServiceImpl extends ServiceImpl<PortalTopicMapper, Porta
     }
 
     // ==================== 私有工具方法 ====================
+
+    /**
+     * 构建话题敏感词扫描文本（标题+描述拼接）
+     */
+    private String buildTopicScanText(PortalTopic topic) {
+        StringBuilder sb = new StringBuilder();
+        if (topic.getTitle() != null) {
+            sb.append(topic.getTitle());
+        }
+        if (topic.getDescription() != null) {
+            sb.append(" ").append(topic.getDescription());
+        }
+        return sb.toString();
+    }
 
     /**
      * 将实体分页结果转换为 ListVO 分页结果，并批量填充创建者信息

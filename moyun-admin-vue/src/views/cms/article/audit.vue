@@ -525,13 +525,88 @@ onMounted(async () => {
   color: #303133;
   /* 移除 max-height 与内部滚动，改为自然撑开：
      外层 .audit-right 统一滚动，避免双层嵌套导致底部审核意见被挡住 */
-  padding: 8px;
+  padding: 16px 20px;
   background: #fafafa;
   border-radius: 4px;
 }
 
+/* 段落间距 */
+.article-content-preview :deep(p),
+.article-content-preview :deep(h1),
+.article-content-preview :deep(h2),
+.article-content-preview :deep(h3),
+.article-content-preview :deep(h4),
+.article-content-preview :deep(h5),
+.article-content-preview :deep(h6),
+.article-content-preview :deep(ul),
+.article-content-preview :deep(ol),
+.article-content-preview :deep(blockquote),
+.article-content-preview :deep(pre) {
+  margin: 0 0 0.5em;
+}
+.article-content-preview :deep(p:last-child),
+.article-content-preview :deep(h1:last-child),
+.article-content-preview :deep(h2:last-child),
+.article-content-preview :deep(h3:last-child),
+.article-content-preview :deep(h4:last-child),
+.article-content-preview :deep(h5:last-child),
+.article-content-preview :deep(h6:last-child),
+.article-content-preview :deep(ul:last-child),
+.article-content-preview :deep(ol:last-child),
+.article-content-preview :deep(blockquote:last-child),
+.article-content-preview :deep(pre:last-child) {
+  margin-bottom: 0;
+}
+/* 标题字号 */
+.article-content-preview :deep(h1) { font-size: 1.8em; font-weight: 700; margin-top: 0.5em; }
+.article-content-preview :deep(h2) { font-size: 1.5em; font-weight: 700; margin-top: 0.5em; }
+.article-content-preview :deep(h3) { font-size: 1.3em; font-weight: 700; margin-top: 0.5em; }
+.article-content-preview :deep(h4) { font-size: 1.2em; font-weight: 700; margin-top: 0.5em; }
+.article-content-preview :deep(h5) { font-size: 1em; font-weight: 700; }
+.article-content-preview :deep(h6) { font-size: 0.9em; font-weight: 700; }
+/* 引用 */
+.article-content-preview :deep(blockquote) {
+  border-left: 4px solid var(--el-color-primary);
+  padding: 4px 12px;
+  margin: 0.5em 0;
+  color: #606266;
+  background: #f5f7fa;
+}
+/* 代码块 */
+.article-content-preview :deep(pre) {
+  background: #f5f7fa;
+  padding: 8px 12px;
+  border-radius: 4px;
+  font-family: Menlo, Monaco, Consolas, "Courier New", monospace;
+  font-size: 0.9em;
+  white-space: pre-wrap;
+  word-break: break-all;
+  margin: 0.5em 0;
+}
+/* 图片自适应 */
 .article-content-preview :deep(img) {
   max-width: 100%;
+  height: auto;
+  margin: 0.5em 0;
+}
+/* 链接：覆盖全局 a 标签重置 */
+.article-content-preview :deep(a) {
+  color: var(--el-color-primary);
+  text-decoration: underline;
+}
+/* 列表样式 */
+.article-content-preview :deep(ul) {
+  list-style: disc;
+  padding-left: 2em;
+  margin: 0.5em 0;
+}
+.article-content-preview :deep(ol) {
+  list-style: decimal;
+  padding-left: 2em;
+  margin: 0.5em 0;
+}
+.article-content-preview :deep(li) {
+  margin: 0.2em 0;
 }
 
 .audit-result {

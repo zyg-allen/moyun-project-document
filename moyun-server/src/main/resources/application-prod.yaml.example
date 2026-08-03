@@ -62,8 +62,9 @@ spring:
         # 生产环境必须设置强密码，且通过 SecurityConfig 限制为 ADMIN 角色访问
         login-username: ${DRUID_USERNAME}
         login-password: ${DRUID_PASSWORD}
-        # 生产环境建议限定可访问 IP，例如：allow: 10.0.0.0/24
-        allow: ${DRUID_ALLOW_IP:}
+        # 生产环境限定可访问 IP，默认 127.0.0.1（仅本机），多机部署请通过 DRUID_ALLOW_IP 显式注入
+        # 例如：DRUID_ALLOW_IP=10.0.0.0/24,192.168.1.100
+        allow: ${DRUID_ALLOW_IP:127.0.0.1}
         deny: ""
       aop-patterns: com.moyun.system.service.*
 
@@ -86,9 +87,9 @@ spring:
           max-idle: 8
           min-idle: 0
 
-    # MongoDB 配置（可选）
+    # MongoDB 配置（可选，不使用时保持默认值即可，应用不会因连接失败而启动失败）
     mongodb:
-      uri: ${MONGODB_URI}
+      uri: ${MONGODB_URI:mongodb://localhost:27017/moyun}
       auto-index-creation: false
 
 # =============================================
@@ -139,11 +140,12 @@ user:
 
 # =============================================
 # 防止 XSS 攻击
+# urlPatterns 必须覆盖所有 UGC 入口（portal/cms），否则文章/评论/话题/私信等无 XSS 防护
 # =============================================
 xss:
   enabled: true
   excludes: /system/notification
-  urlPatterns: /system/*,/monitor/*,/tool/*
+  urlPatterns: /system/*,/monitor/*,/tool/*,/portal/*,/cms/*
 
 # =============================================
 # knife4j 配置
@@ -168,6 +170,16 @@ moyun:
   profile: ${MOYUN_PROFILE:/data/moyun/profile}
 
 # =============================================
+# 项目配置（兼容原 ruoyi 配置，部分旧代码可能读取）
+# =============================================
+ruoyi:
+  name: Moyun
+  version: 1.0.0
+  profile: ${MOYUN_PROFILE:/data/moyun/profile}
+  importPath: ${MOYUN_PROFILE:/data/moyun/profile}/import
+  captchaType: math
+
+# =============================================
 # MyBatis-Plus 配置
 # =============================================
 mybatis-plus:
@@ -180,9 +192,12 @@ mybatis-plus:
   global-config:
     db-config:
       id-type: auto
-      logic-delete-field: deleted
-      logic-delete-value: 1
-      logic-not-delete-value: 0
+      # 逻辑删除：与 dev/local 环境及 BaseEntity 的 @TableLogic 注解保持一致
+      # 字段 del_flag（char(1)），"0"=存在 "2"=删除（RuoYi 框架惯例）
+      # ⚠️ 切勿改为 deleted/1/0，否则与 BaseEntity 注解不一致会导致生产环境软删失效
+      logic-delete-field: delFlag
+      logic-delete-value: "2"
+      logic-not-delete-value: "0"
 
 # =============================================
 # Flowable 工作流配置

@@ -9,7 +9,6 @@ import com.moyun.ext.cms.domain.query.CmsArticleQuery;
 import com.moyun.ext.cms.domain.vo.CmsArticleVO;
 import com.moyun.ext.cms.service.ICmsArticleService;
 import com.moyun.portal.domain.entity.PortalArticle;
-import com.moyun.portal.service.IPortalTagService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -35,9 +34,6 @@ public class CmsArticleController extends BaseController {
 
     @Autowired
     private ICmsArticleService cmsArticleService;
-
-    @Autowired
-    private IPortalTagService portalTagService;
 
     /**
      * 获取文章列表（分页）
@@ -73,12 +69,9 @@ public class CmsArticleController extends BaseController {
     @Log(title = "文章管理", businessType = BusinessType.INSERT)
     @PostMapping
     public AjaxResult add(@Valid @RequestBody PortalArticle article) {
-        int result = cmsArticleService.insertArticle(article);
-        // 新增成功后绑定标签
-        if (result > 0 && article.getId() != null) {
-            portalTagService.bindTags("article", article.getId(),
-                    article.getTagIds(), article.getTagNames(), "article");
-        }
+        // 标签绑定下沉到 Service 层，与文章插入纳入同一事务
+        int result = cmsArticleService.insertArticleWithTags(
+                article, article.getTagIds(), article.getTagNames());
         return toAjax(result);
     }
 
@@ -90,20 +83,19 @@ public class CmsArticleController extends BaseController {
     @Log(title = "文章管理", businessType = BusinessType.UPDATE)
     @PutMapping
     public AjaxResult edit(@Valid @RequestBody PortalArticle article) {
-        int result = cmsArticleService.updateArticle(article);
-        // 修改成功后同步更新标签绑定
-        if (result > 0 && article.getId() != null) {
-            portalTagService.bindTags("article", article.getId(),
-                    article.getTagIds(), article.getTagNames(), "article");
-        }
+        // 标签绑定下沉到 Service 层，与文章更新纳入同一事务
+        int result = cmsArticleService.updateArticleWithTags(
+                article, article.getTagIds(), article.getTagNames());
         return toAjax(result);
     }
 
     /**
      * 审核文章
+     * <p>独立权限 cms:article:audit，与 cms:article:edit 分离，
+     * 支持审核员与编辑员角色独立配置。
      */
     @Operation(summary = "审核文章", description = "审核文章内容")
-    @PreAuthorize("@ss.hasPermi('cms:article:edit')")
+    @PreAuthorize("@ss.hasPermi('cms:article:audit')")
     @Log(title = "文章管理", businessType = BusinessType.UPDATE)
     @PutMapping("/audit")
     public AjaxResult audit(@RequestBody PortalArticle article) {
@@ -167,13 +159,8 @@ public class CmsArticleController extends BaseController {
     @Log(title = "文章管理", businessType = BusinessType.DELETE)
     @DeleteMapping("/batch")
     public AjaxResult removeBatch(@RequestBody Long[] ids) {
-        int result = cmsArticleService.deleteArticleByIds(ids);
-        // 删除成功后解绑标签
-        if (result > 0) {
-            for (Long id : ids) {
-                portalTagService.unbindTags("article", id);
-            }
-        }
+        // 标签解绑下沉到 Service 层，与文章删除纳入同一事务
+        int result = cmsArticleService.deleteArticleWithTags(ids);
         return toAjax(result);
     }
 
@@ -193,13 +180,8 @@ public class CmsArticleController extends BaseController {
                 .filter(s -> !s.isEmpty())
                 .map(Long::parseLong)
                 .toArray(Long[]::new);
-        int result = cmsArticleService.deleteArticleByIds(idArray);
-        // 删除成功后解绑标签
-        if (result > 0) {
-            for (Long id : idArray) {
-                portalTagService.unbindTags("article", id);
-            }
-        }
+        // 标签解绑下沉到 Service 层，与文章删除纳入同一事务
+        int result = cmsArticleService.deleteArticleWithTags(idArray);
         return toAjax(result);
     }
 }

@@ -243,6 +243,26 @@ public interface PortalArticleMapper extends BaseMapper<PortalArticle> {
             "WHERE author_id = #{authorId} AND status = 'published'")
     Map<String, Object> selectAuthorArticleStats(@Param("authorId") Long authorId);
 
+    /**
+     * 批量按作者聚合文章统计（避免 N+1 查询，作者列表页等场景使用）
+     * 仅统计已发布文章
+     *
+     * @param authorIds 作者用户ID集合
+     * @return 每个作者一行，字段：authorId / articleCount / viewSum / likeSum / bookmarkSum / commentSum
+     */
+    @Select("<script>" +
+            "SELECT author_id AS authorId, count(*) AS articleCount, " +
+            "coalesce(sum(views), 0) AS viewSum, " +
+            "coalesce(sum(likes), 0) AS likeSum, " +
+            "coalesce(sum(bookmark_count), 0) AS bookmarkSum, " +
+            "coalesce(sum(comments), 0) AS commentSum " +
+            "FROM portal_article " +
+            "WHERE status = 'published' AND author_id IN " +
+            "<foreach item='id' collection='authorIds' open='(' separator=',' close=')'>#{id}</foreach> " +
+            "GROUP BY author_id" +
+            "</script>")
+    List<Map<String, Object>> batchSelectAuthorArticleStats(@Param("authorIds") List<Long> authorIds);
+
     // ========== 运营首页聚合统计方法 ==========
 
     /**

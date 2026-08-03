@@ -66,6 +66,19 @@ public interface ISysNotificationService extends IService<SysNotification> {
      */
     int sendTodoNotification(SysNotification template);
 
+    /**
+     * 关闭待办：按 data JSON 字段中的 bizType + id 精确匹配所有 type=todo 的通知，
+     * 将 status 从 0（正常）更新为 1（关闭/已办）。
+     * <p>用于业务审核完成后，把对应的待办通知从用户的待办列表中移除。
+     * 调用方需在 {@link #sendTodoNotification} 时保证 data 字段包含
+     * {@code {"bizType":"xxx","id":123}} 结构，本方法才能正确匹配。
+     *
+     * @param bizType  业务类型（如 creator_certification）
+     * @param entityId 业务实体 ID（如认证申请 ID）
+     * @return 受影响行数（关闭的待办条数）
+     */
+    int completeTodoByBizData(String bizType, Long entityId);
+
     // ==================== 用户通知查询（门户 + 系统） ====================
 
     /**

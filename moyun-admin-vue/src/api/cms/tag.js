@@ -46,10 +46,9 @@ export function delTag(tagId) {
   })
 }
 
-// TODO 后端接口缺失，待补充：CmsTagController 无 /changeStatus，需后端新增
-// 标签状态修改
+// 标签状态修改（后端 PortalTag 主键为 id，此处映射 tagId → id）
 export function changeTagStatus(tagId, status) {
-  const data = { tagId, status }
+  const data = { id: tagId, status: status }
   return request({
     url: '/cms/tag/changeStatus',
     method: 'put',

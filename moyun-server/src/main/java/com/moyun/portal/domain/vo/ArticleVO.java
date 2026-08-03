@@ -125,10 +125,16 @@ public class ArticleVO implements Serializable {
     private List<String> tagNames;
 
     /**
-     * 状态（draft/published/archived）
+     * 状态（draft/pending/published/rejected/archived）
      */
     @Schema(description = "状态", example = "published")
     private String status;
+
+    /**
+     * 审核意见/驳回原因（审核驳回时填写，用于详情页展示给作者）
+     */
+    @Schema(description = "审核意见/驳回原因")
+    private String remark;
 
     /**
      * 是否精选

@@ -7,6 +7,7 @@ import { marked } from 'marked';
 import SiteFooter from '@/components/SiteFooter.vue';
 import Breadcrumb from '@/components/Breadcrumb.vue';
 import { generateSeo } from '@/utils/seo';
+import { sanitizeHTML } from '@/utils/security';
 import { publishExperience, updateExperience, getExperienceDetail } from '@/api/interview';
 import { useToast } from '@/composables/useToast';
 
@@ -41,7 +42,7 @@ marked.setOptions({
 const renderedContent = computed(() => {
   if (!content.value) return '';
   try {
-    return marked.parse(content.value) as string;
+    return sanitizeHTML(marked.parse(content.value) as string);
   } catch {
     return content.value;
   }

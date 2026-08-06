@@ -774,3 +774,27 @@ com.moyun.ext.ai.exception.BusinessException: 节点执行失败[LLM]: LLM调用
 2026-08-06 17:21:02.315  INFO 3260 --- [Thread-20] c.m.e.ai.engine.workflow.WorkflowEngine  : ▶ 执行节点: id=end_1, type=end, name=结束
 2026-08-06 17:21:02.316  INFO 3260 --- [Thread-20] c.m.e.a.e.workflow.node.EndNodeExecutor  : ✅ 工作流执行结束, workflowId=25
 2026-08-06 17:21:02.328  INFO 3260 --- [Thread-20] c.m.e.ai.engine.workflow.WorkflowEngine  : ✅ 工作流执行完成: id=25, duration=928ms
+2026-08-06 18:02:41.590  INFO 3260 --- [Thread-21] c.m.e.ai.engine.workflow.WorkflowEngine  : 🚀 开始执行工作流(SSE): id=25, name=新工作流
+2026-08-06 18:02:41.649  INFO 3260 --- [Thread-21] c.m.e.ai.engine.workflow.WorkflowEngine  : 🔍 工作流图结构 - 节点数: 3, 边数: 2
+2026-08-06 18:02:41.652  INFO 3260 --- [Thread-21] c.m.e.ai.engine.workflow.WorkflowEngine  : 🔍 节点列表: start_1(开始:start), end_1(结束:end), llm_2(LLM:llm)
+2026-08-06 18:02:41.652  INFO 3260 --- [Thread-21] c.m.e.ai.engine.workflow.WorkflowEngine  : 🔍 边列表: start_1 -> llm_2, llm_2 -> end_1
+2026-08-06 18:02:41.656  INFO 3260 --- [Thread-21] c.m.e.ai.engine.workflow.WorkflowEngine  : ▶ 执行节点: id=start_1, type=start, name=开始
+2026-08-06 18:02:41.659  INFO 3260 --- [Thread-21] c.m.e.a.e.w.node.StartNodeExecutor       : 🚀 工作流开始执行, workflowId=25
+2026-08-06 18:02:41.661  INFO 3260 --- [Thread-21] c.m.e.ai.engine.workflow.WorkflowEngine  : 🔍 节点 start_1 的下一个节点: 1 个
+2026-08-06 18:02:41.662  INFO 3260 --- [Thread-21] c.m.e.ai.engine.workflow.WorkflowEngine  :   下一步执行: llm_2(LLM)
+2026-08-06 18:02:41.665  INFO 3260 --- [Thread-21] c.m.e.ai.engine.workflow.WorkflowEngine  : ▶ 执行节点: id=llm_2, type=llm, name=LLM
+2026-08-06 18:02:41.668  INFO 3260 --- [Thread-21] c.m.e.a.e.workflow.node.LLMNodeExecutor  : 🤖 LLM节点执行: model=15, userPrompt=请根据以下信息，对候选人进行简历分析：
+
+【目标岗位JD】
+[在此处粘贴完整的岗位描述、任职要求、岗位职责等]
+
+【候选人简历】
+[在此处粘贴候选人的完整简历文本]
+
+请严格按照系统设定的5个模块（匹...
+2026-08-06 18:02:42.891  INFO 3260 --- [Thread-21] c.m.e.a.e.workflow.node.LLMNodeExecutor  : 🤖 LLM响应: tokens(in=667, out=20), 请提供【目标岗位JD】和【候选人简历】的具体内容，以便我进行分析。
+2026-08-06 18:02:42.892  INFO 3260 --- [Thread-21] c.m.e.ai.engine.workflow.WorkflowEngine  : 🔍 节点 llm_2 的下一个节点: 1 个
+2026-08-06 18:02:42.892  INFO 3260 --- [Thread-21] c.m.e.ai.engine.workflow.WorkflowEngine  :   下一步执行: end_1(结束)
+2026-08-06 18:02:42.895  INFO 3260 --- [Thread-21] c.m.e.ai.engine.workflow.WorkflowEngine  : ▶ 执行节点: id=end_1, type=end, name=结束
+2026-08-06 18:02:42.895  INFO 3260 --- [Thread-21] c.m.e.a.e.workflow.node.EndNodeExecutor  : ✅ 工作流执行结束, workflowId=25
+2026-08-06 18:02:42.906  INFO 3260 --- [Thread-21] c.m.e.ai.engine.workflow.WorkflowEngine  : ✅ 工作流执行完成: id=25, duration=1312ms

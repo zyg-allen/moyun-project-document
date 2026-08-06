@@ -30,75 +30,75 @@
       <!-- 内容容器 -->
       <div class="content-container">
         <div class="workflow-cards">
-        <TransitionGroup name="card-list">
-          <div v-for="wf in filteredWorkflows" :key="wf.id" class="workflow-card" @click="editWorkflow(wf)">
-            <!-- 卡片顶部装饰条 -->
-            <div class="card-accent" :class="wf.enabled ? 'active' : ''"></div>
+          <TransitionGroup name="card-list">
+            <div v-for="wf in filteredWorkflows" :key="wf.id" class="workflow-card" @click="editWorkflow(wf)">
+              <!-- 卡片顶部装饰条 -->
+              <div class="card-accent" :class="wf.enabled ? 'active' : ''"></div>
 
-            <!-- 卡片主体内容 -->
-            <div class="card-content">
-              <!-- 头部：图标 + 标题 + 状态 -->
-              <div class="card-top">
-                <div class="card-icon" :class="wf.enabled ? 'active' : ''">
-                  <i class="fa-solid fa-diagram-project"></i>
-                </div>
-                <div class="card-title-area">
-                  <div class="card-title-row">
-                    <span class="name">{{ wf.name }}</span>
-                    <el-tag :type="wf.enabled ? 'success' : 'info'" size="small" effect="plain" round class="status-tag">
-                      {{ wf.enabled ? '已启用' : '草稿' }}
-                    </el-tag>
+              <!-- 卡片主体内容 -->
+              <div class="card-content">
+                <!-- 头部：图标 + 标题 + 状态 -->
+                <div class="card-top">
+                  <div class="card-icon" :class="wf.enabled ? 'active' : ''">
+                    <i class="fa-solid fa-diagram-project"></i>
                   </div>
-                  <div class="desc">{{ wf.description || '暂无描述' }}</div>
+                  <div class="card-title-area">
+                    <div class="card-title-row">
+                      <span class="name">{{ wf.name }}</span>
+                      <el-tag :type="wf.enabled ? 'success' : 'info'" size="small" effect="plain" round class="status-tag">
+                        {{ wf.enabled ? '已启用' : '草稿' }}
+                      </el-tag>
+                    </div>
+                    <div class="desc">{{ wf.description || '暂无描述' }}</div>
+                  </div>
                 </div>
-              </div>
 
-              <!-- 底部：元信息 + 操作按钮 -->
-              <div class="card-bottom">
-                <div class="card-meta">
+                <!-- 底部：元信息 + 操作按钮 -->
+                <div class="card-bottom">
+                  <div class="card-meta">
                   <span class="meta-item">
                     <i class="fa-solid fa-code-branch"></i>
                     <span>v{{ wf.version || 1 }}</span>
                   </span>
-                  <span class="meta-item">
+                    <span class="meta-item">
                     <i class="fa-regular fa-clock"></i>
                     <span>{{ formatTime(wf.updateTime) }}</span>
                   </span>
-                  <span class="meta-item stat" v-if="wf.executeCount">
+                    <span class="meta-item stat" v-if="wf.executeCount">
                     <i class="fa-solid fa-bolt"></i>
                     <span>{{ wf.executeCount }} 次</span>
                   </span>
-                  <span class="meta-item success-rate" v-if="wf.successRate !== undefined">
+                    <span class="meta-item success-rate" v-if="wf.successRate !== undefined">
                     <i class="fa-solid fa-chart-pie"></i>
                     <span>{{ wf.successRate }}%</span>
                   </span>
-                </div>
-                <div class="card-actions" @click.stop>
-                  <el-tooltip content="运行" placement="top" :show-after="500">
-                    <button class="action-btn primary" @click="runWorkflow(wf)">
-                      <i class="fa-solid fa-play"></i>
-                    </button>
-                  </el-tooltip>
-                  <el-tooltip content="编辑" placement="top" :show-after="500">
-                    <button class="action-btn" @click="editWorkflow(wf)">
-                      <i class="fa-solid fa-pen-to-square"></i>
-                    </button>
-                  </el-tooltip>
-                  <el-tooltip content="复制" placement="top" :show-after="500">
-                    <button class="action-btn" @click="duplicateWorkflow(wf)">
-                      <i class="fa-solid fa-copy"></i>
-                    </button>
-                  </el-tooltip>
-                  <el-tooltip content="删除" placement="top" :show-after="500">
-                    <button class="action-btn danger" @click="deleteWorkflow(wf)">
-                      <i class="fa-solid fa-trash-can"></i>
-                    </button>
-                  </el-tooltip>
+                  </div>
+                  <div class="card-actions" @click.stop>
+                    <el-tooltip content="运行" placement="top" :show-after="500">
+                      <button class="action-btn primary" @click="runWorkflow(wf)">
+                        <i class="fa-solid fa-play"></i>
+                      </button>
+                    </el-tooltip>
+                    <el-tooltip content="编辑" placement="top" :show-after="500">
+                      <button class="action-btn" @click="editWorkflow(wf)">
+                        <i class="fa-solid fa-pen-to-square"></i>
+                      </button>
+                    </el-tooltip>
+                    <el-tooltip content="复制" placement="top" :show-after="500">
+                      <button class="action-btn" @click="duplicateWorkflow(wf)">
+                        <i class="fa-solid fa-copy"></i>
+                      </button>
+                    </el-tooltip>
+                    <el-tooltip content="删除" placement="top" :show-after="500">
+                      <button class="action-btn danger" @click="deleteWorkflow(wf)">
+                        <i class="fa-solid fa-trash-can"></i>
+                      </button>
+                    </el-tooltip>
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
-        </TransitionGroup>
+          </TransitionGroup>
           <!-- 加载中骨架屏 -->
           <template v-if="loadingWorkflows">
             <div v-for="i in 3" :key="'skeleton-'+i" class="workflow-card skeleton-card">
@@ -122,12 +122,12 @@
       <!-- 分页 -->
       <div v-if="!loadingWorkflows && totalWorkflows > 0" class="pagination-wrapper">
         <el-pagination
-          v-model:current-page="currentPage"
-          v-model:page-size="pageSize"
-          :page-sizes="[9, 18, 27, 36]"
-          :total="totalWorkflows"
-          layout="total, sizes, prev, pager, next, jumper"
-          background
+            v-model:current-page="currentPage"
+            v-model:page-size="pageSize"
+            :page-sizes="[9, 18, 27, 36]"
+            :total="totalWorkflows"
+            layout="total, sizes, prev, pager, next, jumper"
+            background
         />
       </div>
       <div v-if="!loadingWorkflows && !workflows.length" class="empty-state">
@@ -267,8 +267,8 @@
             <i class="fa-solid fa-play"></i> 测试运行
           </el-button>
           <el-tooltip content="显示执行日志" placement="bottom" v-if="executing">
-            <el-button @click="showExecutionLog = !showExecutionLog" 
-                       :type="showExecutionLog ? 'primary' : 'default'" 
+            <el-button @click="showExecutionLog = !showExecutionLog"
+                       :type="showExecutionLog ? 'primary' : 'default'"
                        class="action-btn">
               <i class="fa-solid fa-list-check"></i>
             </el-button>
@@ -393,8 +393,8 @@
               </el-button>
             </div>
             <div class="log-panel-content">
-              <div v-for="(log, idx) in executionLogs" :key="idx" 
-                   class="log-entry" 
+              <div v-for="(log, idx) in executionLogs" :key="idx"
+                   class="log-entry"
                    :class="log.type">
                 <div class="log-timestamp">{{ log.time }}</div>
                 <div class="log-icon">
@@ -409,18 +409,18 @@
             </div>
           </div>
         </Transition>
-        
+
         <div class="canvas" :class="{ executing: executing }" @dragover.prevent @drop="onDrop" @click="closeContextMenu">
           <VueFlow v-model:nodes="nodes" v-model:edges="edges" fit-view-on-init
-            @node-click="onNodeClick" @pane-click="selectedNode=null; closeContextMenu()" @connect="onConnect"
-            @node-context-menu="onNodeContextMenu" @edge-click="onEdgeClick"
-            @node-drag="onNodeDrag" @node-drag-stop="onNodeDragStop"
-            :nodes-connectable="!isLocked" :edges-updatable="!isLocked"
-            :default-edge-options="defaultEdgeOptions"
-            :connection-line-style="{ stroke: '#6366f1', strokeWidth: 2 }"
-            :snap-to-grid="true" :snap-grid="[15, 15]"
-            :zoom-on-scroll="!isLocked" :pan-on-scroll="false" :select-nodes-on-drag="false"
-            :nodes-draggable="!isLocked" :elements-selectable="!isLocked" :pan-on-drag="!isLocked">
+                   @node-click="onNodeClick" @pane-click="selectedNode=null; closeContextMenu()" @connect="onConnect"
+                   @node-context-menu="onNodeContextMenu" @edge-click="onEdgeClick"
+                   @node-drag="onNodeDrag" @node-drag-stop="onNodeDragStop"
+                   :nodes-connectable="!isLocked" :edges-updatable="!isLocked"
+                   :default-edge-options="defaultEdgeOptions"
+                   :connection-line-style="{ stroke: '#6366f1', strokeWidth: 2 }"
+                   :snap-to-grid="true" :snap-grid="[15, 15]"
+                   :zoom-on-scroll="!isLocked" :pan-on-scroll="false" :select-nodes-on-drag="false"
+                   :nodes-draggable="!isLocked" :elements-selectable="!isLocked" :pan-on-drag="!isLocked">
             <!-- 自定义边（连线）模板 -->
             <template #edge-custom="{ id, sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition, data, markerEnd, style }">
               <path :id="id" class="vue-flow__edge-path" :d="getEdgePath(sourceX, sourceY, targetX, targetY)" :style="style" :marker-end="markerEnd" />
@@ -712,10 +712,10 @@
             </template>
             <Background /><MiniMap />
             <!-- 智能对齐辅助线 -->
-            <div v-for="(y, idx) in alignmentLines.horizontal" :key="'h'+idx" 
-              class="alignment-line horizontal" :style="{ top: y + 'px' }"></div>
-            <div v-for="(x, idx) in alignmentLines.vertical" :key="'v'+idx" 
-              class="alignment-line vertical" :style="{ left: x + 'px' }"></div>
+            <div v-for="(y, idx) in alignmentLines.horizontal" :key="'h'+idx"
+                 class="alignment-line horizontal" :style="{ top: y + 'px' }"></div>
+            <div v-for="(x, idx) in alignmentLines.vertical" :key="'v'+idx"
+                 class="alignment-line vertical" :style="{ left: x + 'px' }"></div>
           </VueFlow>
           <div class="canvas-status">
             <span><i class="fa-solid fa-circle-nodes"></i> {{ nodes.length }} 节点</span>
@@ -908,17 +908,17 @@
                 </div>
               </div>
               <el-form-item label="模型" required>
-                <el-select 
-                  v-model="selectedNode.data.config.modelId" 
-                  placeholder="选择AI模型"
-                  clearable
-                  filterable
+                <el-select
+                    v-model="selectedNode.data.config.modelId"
+                    placeholder="选择AI模型"
+                    clearable
+                    filterable
                 >
-                  <el-option 
-                    v-for="m in models" 
-                    :key="m.id" 
-                    :label="m.modelName || m.name || `模型${m.id}`" 
-                    :value="String(m.id)"
+                  <el-option
+                      v-for="m in models"
+                      :key="m.id"
+                      :label="m.modelName || m.name || `模型${m.id}`"
+                      :value="String(m.id)"
                   >
                     <span style="float: left">{{ m.modelName || m.name || `模型${m.id}` }}</span>
                     <span style="float: right; color: #8492a6; font-size: 12px">ID: {{ m.id }}</span>
@@ -927,6 +927,9 @@
                 <div v-if="selectedNode.data.config.modelId" style="margin-top: 8px; font-size: 12px; color: #909399;">
                   <i class="fa-solid fa-check-circle" style="color: #67c23a;"></i>
                   已选择：{{ getModelName(selectedNode.data.config.modelId) }}
+                </div>
+                <div v-else class="param-hint" style="margin-top: 6px;">
+                  <i class="fa-solid fa-circle-info"></i> 请先在「AI管理 → 模型配置」中添加并启用模型
                 </div>
               </el-form-item>
               <el-form-item label="系统提示词">
@@ -972,6 +975,12 @@
               </div>
             </template>
             <template v-if="selectedNode.type==='condition'">
+              <div class="node-guide">
+                <div class="guide-header"><i class="fa-solid fa-circle-info"></i><span>条件分支节点说明</span></div>
+                <div class="guide-content">
+                  <p>根据表达式结果<strong>分流</strong>到不同分支，实现逻辑判断。</p>
+                </div>
+              </div>
               <el-form-item label="条件表达式" required>
                 <div class="var-input-wrapper">
                   <el-input v-model="selectedNode.data.config.expression" placeholder="{{count}} > 10" @input="e => handleVarInput(e, 'expression')" @keydown="handleVarKeydown" @blur="() => setTimeout(() => showVarSuggestions = false, 200)" />
@@ -986,6 +995,14 @@
                 <p style="margin-top:8px">从 <span style="color:#10b981">●绿色句柄</span> 连接 true 分支</p>
                 <p>从 <span style="color:#ef4444">●红色句柄</span> 连接 false 分支</p>
               </div>
+              <div class="example-box">
+                <div class="example-title"><i class="fa-solid fa-lightbulb"></i> 表达式示例</div>
+                <div class="example-content">
+                  <p><code v-pre>{{score}} &gt;= 80</code> - 数值比较</p>
+                  <p><code v-pre>{{input}} contains "紧急"</code> - 包含判断</p>
+                  <p><code v-pre>{{input}} isNotEmpty</code> - 非空判断</p>
+                </div>
+              </div>
             </template>
             <template v-if="selectedNode.type==='tool'">
               <div class="node-guide">
@@ -995,17 +1012,17 @@
                 </div>
               </div>
               <el-form-item label="工具" required>
-                <el-select 
-                  v-model="selectedNode.data.config.toolName" 
-                  placeholder="选择要调用的工具"
-                  clearable
-                  filterable
+                <el-select
+                    v-model="selectedNode.data.config.toolName"
+                    placeholder="选择要调用的工具"
+                    clearable
+                    filterable
                 >
-                  <el-option 
-                    v-for="t in tools" 
-                    :key="t.name" 
-                    :label="t.displayName || t.name" 
-                    :value="t.name"
+                  <el-option
+                      v-for="t in tools"
+                      :key="t.name"
+                      :label="t.displayName || t.name"
+                      :value="t.name"
                   >
                     <span style="float: left">{{ t.displayName || t.name }}</span>
                     <span style="float: right; color: #8492a6; font-size: 12px" v-if="t.id">ID: {{ t.id }}</span>
@@ -1074,17 +1091,17 @@
                 </div>
               </div>
               <el-form-item label="智能体" required>
-                <el-select 
-                  v-model="selectedNode.data.config.agentId" 
-                  placeholder="选择智能体"
-                  clearable
-                  filterable
+                <el-select
+                    v-model="selectedNode.data.config.agentId"
+                    placeholder="选择智能体"
+                    clearable
+                    filterable
                 >
-                  <el-option 
-                    v-for="a in agents" 
-                    :key="a.id" 
-                    :label="a.name || `智能体${a.id}`" 
-                    :value="String(a.id)"
+                  <el-option
+                      v-for="a in agents"
+                      :key="a.id"
+                      :label="a.name || `智能体${a.id}`"
+                      :value="String(a.id)"
                   >
                     <span style="float: left">{{ a.name || `智能体${a.id}` }}</span>
                     <span style="float: right; color: #8492a6; font-size: 12px">ID: {{ a.id }}</span>
@@ -1193,17 +1210,17 @@
                 </div>
               </div>
               <el-form-item label="知识库">
-                <el-select 
-                  v-model="selectedNode.data.config.knowledgeBaseId" 
-                  placeholder="选择知识库" 
-                  clearable
-                  filterable
+                <el-select
+                    v-model="selectedNode.data.config.knowledgeBaseId"
+                    placeholder="选择知识库"
+                    clearable
+                    filterable
                 >
-                  <el-option 
-                    v-for="kb in knowledgeBases" 
-                    :key="kb.id" 
-                    :label="kb.fileName || kb.file_name || kb.name || `知识库${kb.id}`" 
-                    :value="String(kb.id)"
+                  <el-option
+                      v-for="kb in knowledgeBases"
+                      :key="kb.id"
+                      :label="kb.fileName || kb.file_name || kb.name || `知识库${kb.id}`"
+                      :value="String(kb.id)"
                   >
                     <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
                       <span style="flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
@@ -2161,7 +2178,7 @@
           <p v-if="execResult?.errorMessage" class="error">{{ execResult.errorMessage }}</p>
         </div>
       </div>
-      
+
       <!-- 📊 执行统计信息 -->
       <div class="exec-stats" v-if="execResult?.stats">
         <h4><i class="fa-solid fa-chart-bar"></i> 执行统计</h4>
@@ -2183,7 +2200,7 @@
             <div class="stat-value">{{ execResult.stats.totalTime }}ms</div>
           </div>
         </div>
-        
+
         <!-- 节点耗时排行 -->
         <div class="node-timings" v-if="execResult.stats.nodeTimings && Object.keys(execResult.stats.nodeTimings).length">
           <h5><i class="fa-solid fa-clock"></i> 节点耗时详情</h5>
@@ -2198,7 +2215,7 @@
           </div>
         </div>
       </div>
-      
+
       <div class="result-output" v-if="execResult?.output">
         <h4><i class="fa-solid fa-file-code"></i> 输出结果</h4>
         <pre>{{ typeof execResult.output === 'string' ? execResult.output : JSON.stringify(execResult.output, null, 2) }}</pre>
@@ -2285,11 +2302,11 @@
       </el-table>
       <div class="history-pagination">
         <el-pagination
-          v-model:current-page="historyPage"
-          :page-size="10"
-          :total="historyTotal"
-          layout="prev, pager, next"
-          @current-change="loadHistory"
+            v-model:current-page="historyPage"
+            :page-size="10"
+            :total="historyTotal"
+            layout="prev, pager, next"
+            @current-change="loadHistory"
         />
       </div>
     </el-dialog>
@@ -2586,12 +2603,12 @@
         <el-button type="primary" @click="showGuideDialog = false">我知道了</el-button>
       </template>
     </el-dialog>
-    
+
     <!-- AI智能生成工作流对话框（隐藏默认触发按钮，通过ref调用open方法打开） -->
-    <WorkflowAIGenerator 
-      ref="aiGeneratorRef"
-      @generated="onAIGenerated"
-      @apply="applyAIWorkflow"
+    <WorkflowAIGenerator
+        ref="aiGeneratorRef"
+        @generated="onAIGenerated"
+        @apply="applyAIWorkflow"
     >
       <!-- 使用空的trigger slot隐藏默认按钮 -->
       <template #trigger></template>
@@ -2662,35 +2679,35 @@ const currentVersion = ref(null)
 const templateDialog = ref(false)
 const templates = ref([
   { id: 1, name: '简单对话', icon: 'fa-solid fa-comments', color: '#6366f1', desc: '基础的LLM对话流程', category: '基础', nodes: [
-    { id: 'start_1', type: 'start', positionX: 100, positionY: 200, name: '开始', config: {} },
-    { id: 'llm_1', type: 'llm', positionX: 350, positionY: 200, name: 'LLM', config: { userPrompt: '{{input}}', outputVariable: 'llm_output' } },
-    { id: 'end_1', type: 'end', positionX: 600, positionY: 200, name: '结束', config: { outputVariable: 'llm_output' } }
-  ], edges: [{ source: 'start_1', target: 'llm_1' }, { source: 'llm_1', target: 'end_1' }] },
+      { id: 'start_1', type: 'start', positionX: 100, positionY: 200, name: '开始', config: {} },
+      { id: 'llm_1', type: 'llm', positionX: 350, positionY: 200, name: 'LLM', config: { userPrompt: '{{input}}', outputVariable: 'llm_output' } },
+      { id: 'end_1', type: 'end', positionX: 600, positionY: 200, name: '结束', config: { outputVariable: 'llm_output' } }
+    ], edges: [{ source: 'start_1', target: 'llm_1' }, { source: 'llm_1', target: 'end_1' }] },
   { id: 2, name: '知识库问答', icon: 'fa-solid fa-book', color: '#0ea5e9', desc: 'RAG检索增强生成', category: '高级', nodes: [
-    { id: 'start_1', type: 'start', positionX: 100, positionY: 200, name: '开始', config: {} },
-    { id: 'knowledge_1', type: 'knowledge', positionX: 300, positionY: 200, name: '知识库检索', config: { query: '{{input}}', outputVariable: 'kb_result' } },
-    { id: 'llm_1', type: 'llm', positionX: 520, positionY: 200, name: 'LLM', config: { systemPrompt: '根据以下资料回答问题', userPrompt: '资料：{{kb_result}}\n\n问题：{{input}}', outputVariable: 'answer' } },
-    { id: 'end_1', type: 'end', positionX: 740, positionY: 200, name: '结束', config: { outputVariable: 'answer' } }
-  ], edges: [{ source: 'start_1', target: 'knowledge_1' }, { source: 'knowledge_1', target: 'llm_1' }, { source: 'llm_1', target: 'end_1' }] },
+      { id: 'start_1', type: 'start', positionX: 100, positionY: 200, name: '开始', config: {} },
+      { id: 'knowledge_1', type: 'knowledge', positionX: 300, positionY: 200, name: '知识库检索', config: { query: '{{input}}', outputVariable: 'kb_result' } },
+      { id: 'llm_1', type: 'llm', positionX: 520, positionY: 200, name: 'LLM', config: { systemPrompt: '根据以下资料回答问题', userPrompt: '资料：{{kb_result}}\n\n问题：{{input}}', outputVariable: 'answer' } },
+      { id: 'end_1', type: 'end', positionX: 740, positionY: 200, name: '结束', config: { outputVariable: 'answer' } }
+    ], edges: [{ source: 'start_1', target: 'knowledge_1' }, { source: 'knowledge_1', target: 'llm_1' }, { source: 'llm_1', target: 'end_1' }] },
   { id: 3, name: '条件分支', icon: 'fa-solid fa-code-branch', color: '#f59e0b', desc: '根据条件执行不同分支', category: '逻辑', nodes: [
-    { id: 'start_1', type: 'start', positionX: 100, positionY: 200, name: '开始', config: {} },
-    { id: 'condition_1', type: 'condition', positionX: 300, positionY: 200, name: '条件判断', config: { expression: '{{input}} contains 帮助' } },
-    { id: 'llm_1', type: 'llm', positionX: 520, positionY: 120, name: '帮助回复', config: { userPrompt: '用户需要帮助，请友好回复', outputVariable: 'help_output' } },
-    { id: 'llm_2', type: 'llm', positionX: 520, positionY: 280, name: '普通回复', config: { userPrompt: '{{input}}', outputVariable: 'normal_output' } },
-    { id: 'end_1', type: 'end', positionX: 740, positionY: 200, name: '结束', config: { outputVariable: 'output' } }
-  ], edges: [{ source: 'start_1', target: 'condition_1' }, { source: 'condition_1', target: 'llm_1', sourceHandle: 'true' }, { source: 'condition_1', target: 'llm_2', sourceHandle: 'false' }, { source: 'llm_1', target: 'end_1' }, { source: 'llm_2', target: 'end_1' }] },
+      { id: 'start_1', type: 'start', positionX: 100, positionY: 200, name: '开始', config: {} },
+      { id: 'condition_1', type: 'condition', positionX: 300, positionY: 200, name: '条件判断', config: { expression: '{{input}} contains 帮助' } },
+      { id: 'llm_1', type: 'llm', positionX: 520, positionY: 120, name: '帮助回复', config: { userPrompt: '用户需要帮助，请友好回复', outputVariable: 'help_output' } },
+      { id: 'llm_2', type: 'llm', positionX: 520, positionY: 280, name: '普通回复', config: { userPrompt: '{{input}}', outputVariable: 'normal_output' } },
+      { id: 'end_1', type: 'end', positionX: 740, positionY: 200, name: '结束', config: { outputVariable: 'output' } }
+    ], edges: [{ source: 'start_1', target: 'condition_1' }, { source: 'condition_1', target: 'llm_1', sourceHandle: 'true' }, { source: 'condition_1', target: 'llm_2', sourceHandle: 'false' }, { source: 'llm_1', target: 'end_1' }, { source: 'llm_2', target: 'end_1' }] },
   { id: 4, name: '意图分类', icon: 'fa-solid fa-tags', color: '#a855f7', desc: 'AI自动识别用户意图', category: '高级', nodes: [
-    { id: 'start_1', type: 'start', positionX: 100, positionY: 200, name: '开始', config: {} },
-    { id: 'classifier_1', type: 'classifier', positionX: 300, positionY: 200, name: '意图分类', config: { categories: ['咨询', '投诉', '其他'] } },
-    { id: 'llm_1', type: 'llm', positionX: 520, positionY: 200, name: 'LLM处理', config: { userPrompt: '用户意图：{{classifier_output}}\n内容：{{input}}', outputVariable: 'response' } },
-    { id: 'end_1', type: 'end', positionX: 740, positionY: 200, name: '结束', config: { outputVariable: 'response' } }
-  ], edges: [{ source: 'start_1', target: 'classifier_1' }, { source: 'classifier_1', target: 'llm_1' }, { source: 'llm_1', target: 'end_1' }] },
+      { id: 'start_1', type: 'start', positionX: 100, positionY: 200, name: '开始', config: {} },
+      { id: 'classifier_1', type: 'classifier', positionX: 300, positionY: 200, name: '意图分类', config: { categories: ['咨询', '投诉', '其他'] } },
+      { id: 'llm_1', type: 'llm', positionX: 520, positionY: 200, name: 'LLM处理', config: { userPrompt: '用户意图：{{classifier_output}}\n内容：{{input}}', outputVariable: 'response' } },
+      { id: 'end_1', type: 'end', positionX: 740, positionY: 200, name: '结束', config: { outputVariable: 'response' } }
+    ], edges: [{ source: 'start_1', target: 'classifier_1' }, { source: 'classifier_1', target: 'llm_1' }, { source: 'llm_1', target: 'end_1' }] },
   { id: 5, name: '数据处理', icon: 'fa-solid fa-database', color: '#10b981', desc: 'HTTP请求+数据处理', category: '工具', nodes: [
-    { id: 'start_1', type: 'start', positionX: 100, positionY: 200, name: '开始', config: {} },
-    { id: 'http_1', type: 'http', positionX: 300, positionY: 200, name: 'API请求', config: { method: 'GET', url: 'https://api.example.com/data?q={{input}}', outputVariable: 'api_data' } },
-    { id: 'llm_1', type: 'llm', positionX: 520, positionY: 200, name: '数据分析', config: { userPrompt: '分析以下数据：{{api_data}}', outputVariable: 'analysis' } },
-    { id: 'end_1', type: 'end', positionX: 740, positionY: 200, name: '结束', config: { outputVariable: 'analysis' } }
-  ], edges: [{ source: 'start_1', target: 'http_1' }, { source: 'http_1', target: 'llm_1' }, { source: 'llm_1', target: 'end_1' }] }
+      { id: 'start_1', type: 'start', positionX: 100, positionY: 200, name: '开始', config: {} },
+      { id: 'http_1', type: 'http', positionX: 300, positionY: 200, name: 'API请求', config: { method: 'GET', url: 'https://api.example.com/data?q={{input}}', outputVariable: 'api_data' } },
+      { id: 'llm_1', type: 'llm', positionX: 520, positionY: 200, name: '数据分析', config: { userPrompt: '分析以下数据：{{api_data}}', outputVariable: 'analysis' } },
+      { id: 'end_1', type: 'end', positionX: 740, positionY: 200, name: '结束', config: { outputVariable: 'analysis' } }
+    ], edges: [{ source: 'start_1', target: 'http_1' }, { source: 'http_1', target: 'llm_1' }, { source: 'llm_1', target: 'end_1' }] }
 ])
 const templateCategories = computed(() => [...new Set(templates.value.map(t => t.category))])
 // 调试模式
@@ -2733,8 +2750,8 @@ const filteredWorkflows = computed(() => {
   if (workflowSearch.value) {
     const s = workflowSearch.value.toLowerCase()
     filtered = filtered.filter(wf =>
-      wf.name.toLowerCase().includes(s) ||
-      (wf.description && wf.description.toLowerCase().includes(s))
+        wf.name.toLowerCase().includes(s) ||
+        (wf.description && wf.description.toLowerCase().includes(s))
     )
   }
   // 状态筛选
@@ -2753,8 +2770,8 @@ const totalWorkflows = computed(() => {
   if (workflowSearch.value) {
     const s = workflowSearch.value.toLowerCase()
     filtered = filtered.filter(wf =>
-      wf.name.toLowerCase().includes(s) ||
-      (wf.description && wf.description.toLowerCase().includes(s))
+        wf.name.toLowerCase().includes(s) ||
+        (wf.description && wf.description.toLowerCase().includes(s))
     )
   }
   if (workflowStatusFilter.value !== null && workflowStatusFilter.value !== '') {
@@ -3100,7 +3117,7 @@ const handleVarInput = (event, field) => {
   if (match) {
     const prefix = match[1].toLowerCase()
     const filtered = outputVariables.value.filter(v =>
-      v.toLowerCase().includes(prefix)
+        v.toLowerCase().includes(prefix)
     )
 
     if (filtered.length > 0) {
@@ -3407,8 +3424,8 @@ const handleVarKeydown = (event) => {
     case 'ArrowUp':
       event.preventDefault()
       varSuggestionIndex.value = varSuggestionIndex.value === 0
-        ? varSuggestions.value.length - 1
-        : varSuggestionIndex.value - 1
+          ? varSuggestions.value.length - 1
+          : varSuggestionIndex.value - 1
       break
     case 'Enter':
     case 'Tab':
@@ -3475,14 +3492,14 @@ const startResize = (e) => {
   resizeStartWidth.value = propsWidth.value
   document.body.style.cursor = 'ew-resize'
   document.body.style.userSelect = 'none'
-  
+
   const handleMouseMove = (e) => {
     if (!isResizing.value) return
     const deltaX = resizeStartX.value - e.clientX
     const newWidth = Math.max(400, Math.min(800, resizeStartWidth.value + deltaX))
     propsWidth.value = newWidth
   }
-  
+
   const handleMouseUp = () => {
     isResizing.value = false
     document.body.style.cursor = ''
@@ -3490,7 +3507,7 @@ const startResize = (e) => {
     document.removeEventListener('mousemove', handleMouseMove)
     document.removeEventListener('mouseup', handleMouseUp)
   }
-  
+
   document.addEventListener('mousemove', handleMouseMove)
   document.addEventListener('mouseup', handleMouseUp)
 }
@@ -3499,12 +3516,12 @@ onMounted(async () => {
   await loadWorkflows();
   loadModels(); loadTools(); loadAgents(); loadKnowledgeBases()
   window.addEventListener('keydown', handleKeydown)
-  
+
   // 检查URL参数，恢复编辑状态
   const urlParams = new URLSearchParams(window.location.search)
   const workflowId = urlParams.get('id')
   const mode = urlParams.get('mode')
-  
+
   if (workflowId) {
     // 有ID，加载工作流
     const wf = workflows.value.find(w => w.id === parseInt(workflowId))
@@ -3541,8 +3558,8 @@ const loadWorkflows = async () => {
     loadingWorkflows.value = false
   }
 }
-const loadModels = async () => { 
-  try { 
+const loadModels = async () => {
+  try {
     const r = await request({ url: '/cms/ai/model-config/list', method: 'get' })
     const list = r.data?.list || []
     models.value = list.map(m => ({
@@ -3551,13 +3568,13 @@ const loadModels = async () => {
       id: m.id || m.model_id
     }))
     console.log('加载模型成功:', models.value)
-  } catch(e) { 
+  } catch(e) {
     console.error('加载模型失败', e)
     ElMessage.error('加载模型失败')
-  } 
+  }
 }
-const loadTools = async () => { 
-  try { 
+const loadTools = async () => {
+  try {
     const r = await request({ url: '/cms/ai/tool/list', method: 'get' })
     const list = r.data || []
     tools.value = list.map(t => ({
@@ -3566,13 +3583,13 @@ const loadTools = async () => {
       name: t.name || t.tool_name || `tool_${t.id}`
     }))
     console.log('加载工具成功:', tools.value)
-  } catch(e) { 
+  } catch(e) {
     console.error('加载工具失败', e)
     ElMessage.error('加载工具失败')
-  } 
+  }
 }
-const loadAgents = async () => { 
-  try { 
+const loadAgents = async () => {
+  try {
     const r = await request({ url: '/cms/ai/agent/list', method: 'get' })
     const list = r.data?.list || []
     agents.value = list.map(a => ({
@@ -3581,13 +3598,13 @@ const loadAgents = async () => {
       id: a.id || a.agent_id
     }))
     console.log('加载智能体成功:', agents.value)
-  } catch(e) { 
+  } catch(e) {
     console.error('加载智能体失败', e)
     ElMessage.error('加载智能体失败')
-  } 
+  }
 }
-const loadKnowledgeBases = async () => { 
-  try { 
+const loadKnowledgeBases = async () => {
+  try {
     const r = await request({ url: '/cms/ai/knowledge-base/list', method: 'get' })
     const list = r.data?.list || []
     // 确保每个知识库都有必要的字段
@@ -3599,10 +3616,10 @@ const loadKnowledgeBases = async () => {
       name: kb.name || kb.title || kb.kb_name || kb.fileName || kb.file_name || `知识库${kb.id}`
     }))
     console.log('加载知识库成功:', knowledgeBases.value)
-  } catch(e) { 
+  } catch(e) {
     console.error('加载知识库失败', e)
     ElMessage.error('加载知识库失败')
-  } 
+  }
 }
 
 const createWorkflow = () => {
@@ -3639,9 +3656,9 @@ const applyAIWorkflow = (result) => {
   try {
     const graphData = JSON.parse(result.graphData)
     // 创建新工作流并应用AI生成的图
-    editingWorkflow.value = { 
-      name: result.workflowName || 'AI生成的工作流', 
-      description: result.workflowDescription || '' 
+    editingWorkflow.value = {
+      name: result.workflowName || 'AI生成的工作流',
+      description: result.workflowDescription || ''
     }
     // 转换节点格式
     nodes.value = (graphData.nodes || []).map(n => ({
@@ -3696,15 +3713,15 @@ const editWorkflow = (wf) => {
   }
 }
 
-const backToList = () => { 
-  editingWorkflow.value = null; 
-  selectedNode.value = null; 
+const backToList = () => {
+  editingWorkflow.value = null;
+  selectedNode.value = null;
   // 清除URL参数
   const url = new URL(window.location)
   url.searchParams.delete('id')
   url.searchParams.delete('mode')
   window.history.replaceState({}, '', url)
-  loadWorkflows() 
+  loadWorkflows()
 }
 
 const saveWorkflow = async (skipValidation = false) => {
@@ -3727,22 +3744,22 @@ const saveWorkflow = async (skipValidation = false) => {
   try {
     if (editingWorkflow.value.id) {
       await request({ url: '/cms/ai/workflow/update', method: 'put', data: {
-        id: editingWorkflow.value.id,
-        name: editingWorkflow.value.name,
-        description: editingWorkflow.value.description || '',
-        graphData,
-        status: editingWorkflow.value.status || 'draft',
-        enabled: editingWorkflow.value.enabled ?? true,
-        version: editingWorkflow.value.version
-      }})
+          id: editingWorkflow.value.id,
+          name: editingWorkflow.value.name,
+          description: editingWorkflow.value.description || '',
+          graphData,
+          status: editingWorkflow.value.status || 'draft',
+          enabled: editingWorkflow.value.enabled ?? true,
+          version: editingWorkflow.value.version
+        }})
     } else {
       const r = await request({ url: '/cms/ai/workflow/create', method: 'post', data: {
-        name: editingWorkflow.value.name || '新工作流',
-        description: editingWorkflow.value.description || '',
-        graphData,
-        status: 'draft',
-        enabled: true
-      }})
+          name: editingWorkflow.value.name || '新工作流',
+          description: editingWorkflow.value.description || '',
+          graphData,
+          status: 'draft',
+          enabled: true
+        }})
       editingWorkflow.value = r.data
       // 新建保存后，更新URL为编辑模式
       const url = new URL(window.location)
@@ -3761,16 +3778,16 @@ const saveWorkflow = async (skipValidation = false) => {
   }
 }
 
-const publishWorkflow = async () => { 
+const publishWorkflow = async () => {
   // 保存工作流
-  await saveWorkflow(); 
-  
+  await saveWorkflow();
+
   // 如果保存失败（验证未通过），不继续发布
   if (Object.keys(nodeErrors.value).length > 0) {
     return;
   }
-  
-  try { 
+
+  try {
     const response = await request({ url: `/cms/ai/workflow/${editingWorkflow.value.id}/publish`, method: 'post'});
 
     // 发布成功后，重新加载工作流数据以确保状态同步
@@ -3797,10 +3814,10 @@ const publishWorkflow = async () => {
     nodeErrors.value = {};
     validateAllNodes();
     ElMessage.success('发布成功');
-  } catch(e) { 
+  } catch(e) {
     console.error('发布失败:', e);
-    ElMessage.error('发布失败') 
-  } 
+    ElMessage.error('发布失败')
+  }
 }
 const testRun = () => { runningId.value = editingWorkflow.value.id; runInput.value = ''; runDialog.value = true }
 const runWorkflow = (wf) => { runningId.value = wf.id; runInput.value = ''; runDialog.value = true }
@@ -3826,7 +3843,7 @@ const addExecutionLog = (type, message) => {
   const logEntry = { type, message, time, timestamp: Date.now() }
   executionLogs.value.push(logEntry)
   console.log('📋 添加日志:', logEntry, '总数:', executionLogs.value.length)
-  
+
   // 最多保留50条
   if (executionLogs.value.length > 50) {
     executionLogs.value.shift()
@@ -3869,7 +3886,7 @@ const cancelExecution = () => {
   }
   executing.value = false
   ElMessage.warning('已取消执行')
-  
+
   // 标记所有运行中的节点为取消
   Object.keys(nodeExecutionStatus.value).forEach(id => {
     if (nodeExecutionStatus.value[id] === 'running') {
@@ -3946,13 +3963,13 @@ const execWorkflow = async () => {
     }
     const eventSource = createAuthEventSource(url)
     currentEventSource = eventSource  // 保存引用以便取消
-    
+
     // 🎬 立即关闭对话框，显示执行过程
     runDialog.value = false
-    
+
     let completedCount = 0
     const totalNodes = nodes.value.length
-    
+
     // 🔍 定期输出状态（用于调试） - 注释掉以提高性能
     // statusLogInterval = setInterval(() => {
     //   console.log('📊 当前节点状态:', JSON.parse(JSON.stringify(nodeExecutionStatus.value)))
@@ -3967,21 +3984,21 @@ const execWorkflow = async () => {
 
     // 记录节点开始时间（用于确保最小显示时长）
     const nodeStartTimes = {}
-    
+
     eventSource.addEventListener('node_start', (e) => {
       const event = JSON.parse(e.data)
       console.log('▶️  节点开始:', event.nodeName)
-      
+
       // 记录节点开始时间
       nodeStartTimes[event.nodeId] = Date.now()
-      
+
       // 📝 添加日志
       addExecutionLog('node-start', `开始执行节点: ${event.nodeName}`)
-      
+
       // ⚡ 更新节点状态为运行中
       nodeExecutionStatus.value[event.nodeId] = 'running'
       console.log(`🔵 节点 ${event.nodeId} 状态更新为: running`)
-      
+
       // 🎯 使用双重nextTick + 延迟确保DOM完全更新
       nextTick(() => {
         nextTick(() => {
@@ -4004,31 +4021,31 @@ const execWorkflow = async () => {
     eventSource.addEventListener('node_complete', (e) => {
       const event = JSON.parse(e.data)
       console.log('✅ 节点完成:', event.nodeName, event.durationMs + 'ms')
-      
+
       // 🛡️ 防止重复处理
       if (completedNodesSet.has(event.nodeId)) {
         console.warn(`⚠️ 节点 ${event.nodeId} 已完成，跳过重复处理`)
         return
       }
       completedNodesSet.add(event.nodeId)
-      
+
       // 🎯 智能延迟策略：只对快速节点延迟，慢节点立即更新
       const startTime = nodeStartTimes[event.nodeId] || Date.now()
       const elapsed = Date.now() - startTime
       const minDisplayTime = 600 // 最小显示时间
-      
+
       // 如果节点执行时间>=600ms，说明running状态已经显示够久了，立即更新
       // 如果<600ms，延迟到600ms确保running状态可见
       const delay = elapsed >= minDisplayTime ? 0 : (minDisplayTime - elapsed)
-      
+
       console.log(`⏱️ 节点 ${event.nodeId}: 执行${elapsed}ms, 延迟${delay}ms后更新completed`)
-      
+
       setTimeout(() => {
         // ✨ 更新节点状态为完成
         nodeExecutionStatus.value[event.nodeId] = 'completed'
         console.log(`🟢 节点 ${event.nodeId} 状态更新为: completed`)
         completedCount++
-        
+
         // 📊 更新执行进度和统计
         executionProgress.value = Math.round((completedCount / totalNodes) * 100)
         executionStats.value.completedNodes = completedCount
@@ -4036,13 +4053,13 @@ const execWorkflow = async () => {
           name: event.nodeName,
           duration: event.durationMs
         }
-        
+
         // 保存节点输出（用于调试）
         if (debugMode.value && event.output) {
           debugNodeOutputs.value[event.nodeId] = event.output
           debugCurrentNode.value = event.nodeId
         }
-        
+
         // 🎯 成功闪光动画 - 带重试机制确保CSS应用
         const tryPlayAnimation = (retryCount = 0) => {
           nextTick(() => {
@@ -4053,7 +4070,7 @@ const execWorkflow = async () => {
                 if (nodeEl) {
                   const hasCompleted = nodeEl.classList.contains('is-completed')
                   console.log(`🟢 ${event.nodeId}: is-completed=${hasCompleted} (尝试${retryCount + 1})`)
-                  
+
                   if (hasCompleted) {
                     // completed状态已应用，播放动画
                     nodeEl.classList.add('node-success-flash')
@@ -4069,10 +4086,10 @@ const execWorkflow = async () => {
           })
         }
         tryPlayAnimation(0)
-        
+
         // 📝 添加日志
         addExecutionLog('node-complete', `${event.nodeName} 完成 (${event.durationMs}ms)`)
-        
+
         // 只在重要节点显示提示（可选，减少干扰）
         // const avgTime = Object.values(executionStats.value.nodeTimings)
         //   .reduce((sum, t) => sum + t.duration, 0) / completedCount
@@ -4087,13 +4104,13 @@ const execWorkflow = async () => {
     eventSource.addEventListener('node_error', (e) => {
       const event = JSON.parse(e.data)
       console.error('❌ 节点错误:', event.nodeName, event.error)
-      
+
       // 📝 添加错误日志
       addExecutionLog('node-error', `${event.nodeName} 失败: ${event.error}`)
-      
+
       // 🔴 更新节点状态为错误
       nodeExecutionStatus.value[event.nodeId] = 'error'
-      
+
       // 错误抖动动画 - 查找内层 .cnode 元素
       const containerEl = document.querySelector(`[data-id="${event.nodeId}"]`)
       const nodeEl = containerEl?.querySelector('.cnode')
@@ -4101,7 +4118,7 @@ const execWorkflow = async () => {
         nodeEl.classList.add('node-error-shake')
         setTimeout(() => nodeEl.classList.remove('node-error-shake'), 600)
       }
-      
+
       // 显示错误通知
       ElNotification({
         title: '节点执行失败',
@@ -4114,13 +4131,13 @@ const execWorkflow = async () => {
     eventSource.addEventListener('complete', (e) => {
       const event = JSON.parse(e.data)
       console.log('🎉 工作流完成:', event.durationMs + 'ms')
-      
+
       const totalTime = Date.now() - executionStats.value.startTime
       const avgNodeTime = Math.round(
-        Object.values(executionStats.value.nodeTimings)
-          .reduce((sum, t) => sum + t.duration, 0) / executionStats.value.completedNodes
+          Object.values(executionStats.value.nodeTimings)
+              .reduce((sum, t) => sum + t.duration, 0) / executionStats.value.completedNodes
       )
-      
+
       execResult.value = {
         success: true,
         output: event.finalOutput,
@@ -4134,16 +4151,16 @@ const execWorkflow = async () => {
           nodeTimings: executionStats.value.nodeTimings
         }
       }
-      
+
       // 📝 添加完成日志
       addExecutionLog('complete', `✅ 工作流执行成功！总耗时: ${event.durationMs}ms`)
-      
+
       eventSource.close()
       currentEventSource = null
       clearStatusLog()  // 停止状态日志
       resultDialog.value = true
       executing.value = false
-      
+
       // 🎊 成功动画（显示详细统计）
       ElMessage.success({
         message: `🎉 工作流执行成功！总耗时:${event.durationMs}ms 节点平均:${avgNodeTime}ms`,
@@ -4155,21 +4172,21 @@ const execWorkflow = async () => {
       try {
         const event = JSON.parse(e.data)
         console.error('❌ 工作流失败:', event.error)
-        
+
         execResult.value = {
           success: false,
           errorMessage: event.error
         }
-        
+
         ElMessage.error('执行失败: ' + event.error)
       } catch (err) {
         console.error('解析错误事件失败', err)
       }
-      
+
       eventSource.close()
       clearStatusLog()  // 停止状态日志
       executing.value = false
-      
+
       // 标记所有运行中的节点为错误
       Object.keys(nodeExecutionStatus.value).forEach(id => {
         if (nodeExecutionStatus.value[id] === 'running') {
@@ -4182,11 +4199,11 @@ const execWorkflow = async () => {
       console.error('SSE连接错误:', error)
       eventSource.close()
       clearStatusLog()  // 停止状态日志
-      
+
       if (!execResult.value) {
         ElMessage.error('连接中断')
       }
-      
+
       executing.value = false
     }
 
@@ -4201,7 +4218,7 @@ const execWorkflow = async () => {
 const highlightOutgoingEdges = (nodeId) => {
   // 找到从该节点发出的所有连线
   const outgoingEdges = edges.value.filter(e => e.source === nodeId)
-  
+
   outgoingEdges.forEach(edge => {
     // 找到DOM元素并添加高亮class
     const edgeEl = document.querySelector(`[data-id="${edge.id}"]`)
@@ -4216,8 +4233,8 @@ const highlightOutgoingEdges = (nodeId) => {
 // 📊 获取排序后的节点耗时
 const getSortedTimings = (timings) => {
   return Object.entries(timings)
-    .sort((a, b) => b[1].duration - a[1].duration)
-    .map(([id, timing]) => ({ id, ...timing }))
+      .sort((a, b) => b[1].duration - a[1].duration)
+      .map(([id, timing]) => ({ id, ...timing }))
 }
 
 // 📏 计算耗时条宽度百分比
@@ -4299,9 +4316,9 @@ const saveAsNewVersion = async (description = '') => {
 
   try {
     const r = await request({ url: `/cms/ai/workflow/${editingWorkflow.value.id}/version`, method: 'post', data: {
-      graphData: JSON.stringify(gd),
-      description: description || `版本 ${(currentVersion.value || 0) + 1}`
-    }})
+        graphData: JSON.stringify(gd),
+        description: description || `版本 ${(currentVersion.value || 0) + 1}`
+      }})
     ElMessage.success('新版本保存成功')
     currentVersion.value = r.data?.version || (currentVersion.value + 1)
     showVersions()
@@ -4326,8 +4343,8 @@ const rollbackToVersion = async (version) => {
     await ElMessageBox.confirm(`确定要回滚到版本 ${version.version} 吗？当前未保存的更改将丢失。`, '版本回滚', { type: 'warning' })
 
     const r = await request({ url: `/cms/ai/workflow/${editingWorkflow.value.id}/rollback`, method: 'post', data: {
-      version: version.version
-    }})
+        version: version.version
+      }})
 
     if (r.data?.graphData) {
       const g = JSON.parse(r.data.graphData)
@@ -4469,9 +4486,9 @@ const searchedNodes = computed(() => {
   if (!nodeSearchQuery.value) return []
   const q = nodeSearchQuery.value.toLowerCase()
   return nodes.value.filter(n =>
-    n.data.label?.toLowerCase().includes(q) ||
-    n.type.includes(q) ||
-    n.id.includes(q)
+      n.data.label?.toLowerCase().includes(q) ||
+      n.type.includes(q) ||
+      n.id.includes(q)
   )
 })
 
@@ -4481,21 +4498,21 @@ const handleMoreAction = (command) => {
     case 'export': exportWorkflow(); break
     case 'import': importWorkflow(); break
     case 'search': nodeSearchDialog.value = true; nodeSearchQuery.value = ''; break
-    // case 'share': shareWorkflow(); break  // 分享功能已移除，集成到 admin 仅管理员可访问
+      // case 'share': shareWorkflow(); break  // 分享功能已移除，集成到 admin 仅管理员可访问
     case 'help': helpDialog.value = true; break
   }
 }
 
-const onDragStart = (e, nt) => { 
+const onDragStart = (e, nt) => {
   if (isLocked.value) {
     e.preventDefault()
     return
   }
-  e.dataTransfer.setData('nodeType', JSON.stringify(nt)) 
+  e.dataTransfer.setData('nodeType', JSON.stringify(nt))
 }
-const onDrop = (e) => { 
+const onDrop = (e) => {
   if (isLocked.value) return
-  const d = e.dataTransfer.getData('nodeType'); if (!d) return; const nt = JSON.parse(d); const pos = project({ x: e.clientX - 250, y: e.clientY - 100 }); addNodes([{ id: `${nt.type}_${nodeId++}`, type: nt.type, position: pos, data: { label: nt.label, config: getDefCfg(nt.type) } }]); saveHistory() 
+  const d = e.dataTransfer.getData('nodeType'); if (!d) return; const nt = JSON.parse(d); const pos = project({ x: e.clientX - 250, y: e.clientY - 100 }); addNodes([{ id: `${nt.type}_${nodeId++}`, type: nt.type, position: pos, data: { label: nt.label, config: getDefCfg(nt.type) } }]); saveHistory()
 }
 // 添加输入参数
 const addInputParam = () => {
@@ -4515,7 +4532,7 @@ const getDefCfg = (t) => {
     // 否则选择第一个模型
     return String(models.value[0].id)
   }
-  
+
   const configs = {
     start: { inputParams: [] },
     llm: { modelId: getDefaultModelId(), systemPrompt: '', userPrompt: '{{input}}', outputVariable: 'llm_output', temperature: 0.7, maxTokens: 2000 },
@@ -4655,24 +4672,24 @@ const onConnect = (p) => {
   }])
   saveHistory()
 }
-const deleteNode = () => { 
+const deleteNode = () => {
   if (isLocked.value) {
     ElMessage.warning('画布已锁定，无法删除')
     return
   }
-  if (selectedNode.value) { 
-    removeNodes([selectedNode.value.id]); 
+  if (selectedNode.value) {
+    removeNodes([selectedNode.value.id]);
     selectedNode.value = null;
     saveHistory()
-  } 
+  }
 }
 const formatTime = (t) => t ? new Date(t).toLocaleString('zh-CN') : '-'
 
 // 复制输出结果
 const copyOutput = () => {
   const text = typeof execResult.value?.output === 'string'
-    ? execResult.value.output
-    : JSON.stringify(execResult.value?.output, null, 2)
+      ? execResult.value.output
+      : JSON.stringify(execResult.value?.output, null, 2)
   navigator.clipboard.writeText(text).then(() => {
     ElMessage.success('已复制到剪贴板')
   })
@@ -4701,8 +4718,8 @@ const loadHistory = async () => {
     const success = all.filter(e => e.status === 'completed').length
     const failed = all.filter(e => e.status === 'failed').length
     const avgDuration = all.length > 0
-      ? Math.round(all.reduce((sum, e) => sum + (e.durationMs || 0), 0) / all.length)
-      : 0
+        ? Math.round(all.reduce((sum, e) => sum + (e.durationMs || 0), 0) / all.length)
+        : 0
     historyStats.value = { total: historyTotal.value, success, failed, avgDuration }
   } catch (e) {
     console.error('加载执行历史失败', e)
@@ -4742,21 +4759,21 @@ const ALIGNMENT_THRESHOLD = 8 // 对齐阈值（像素）
 // 节点拖拽时检测对齐
 const onNodeDrag = ({ node }) => {
   if (!node || nodes.value.length < 2) return
-  
+
   const lines = { horizontal: [], vertical: [] }
   const draggedCenter = {
     x: node.position.x + 75, // 节点宽度约150px
     y: node.position.y + 25  // 节点高度约50px
   }
-  
+
   nodes.value.forEach(n => {
     if (n.id === node.id) return
-    
+
     const otherCenter = {
       x: n.position.x + 75,
       y: n.position.y + 25
     }
-    
+
     // 水平对齐检测（Y轴对齐）
     if (Math.abs(draggedCenter.y - otherCenter.y) < ALIGNMENT_THRESHOLD) {
       lines.horizontal.push(otherCenter.y)
@@ -4765,7 +4782,7 @@ const onNodeDrag = ({ node }) => {
     if (Math.abs(node.position.y - n.position.y) < ALIGNMENT_THRESHOLD) {
       lines.horizontal.push(n.position.y)
     }
-    
+
     // 垂直对齐检测（X轴对齐）
     if (Math.abs(draggedCenter.x - otherCenter.x) < ALIGNMENT_THRESHOLD) {
       lines.vertical.push(otherCenter.x)
@@ -4775,7 +4792,7 @@ const onNodeDrag = ({ node }) => {
       lines.vertical.push(n.position.x)
     }
   })
-  
+
   alignmentLines.value = lines
 }
 
@@ -4819,8 +4836,8 @@ const autoLayout = () => {
         if (!visited.has(target) && !nextQueue.includes(target)) {
           // 检查所有前置节点是否已访问
           const allPrevVisited = edges.value
-            .filter(e => e.target === target)
-            .every(e => visited.has(e.source))
+              .filter(e => e.target === target)
+              .every(e => visited.has(e.source))
           if (allPrevVisited) {
             nextQueue.push(target)
           }

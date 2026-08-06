@@ -22,6 +22,15 @@ public interface ModelConfigService extends IService<ModelConfig> {
     ChatLanguageModel createChatModel(Long configId);
 
     /**
+     * 根据配置ID创建聊天模型（支持覆盖参数）
+     * <p>用于工作流节点等需要节点级参数覆盖的场景：节点配置的 temperature/maxTokens 优先于模型默认配置</p>
+     * @param configId 配置ID
+     * @param temperature 温度参数（null则使用配置中的值）
+     * @param maxTokens 最大token数（null则使用配置中的值）
+     */
+    ChatLanguageModel createChatModel(Long configId, Double temperature, Integer maxTokens);
+
+    /**
      * 根据配置ID创建流式聊天模型
      */
     StreamingChatLanguageModel createStreamingChatModel(Long configId);

@@ -20,9 +20,9 @@ import java.util.Map;
 
 /**
  * LLM 节点执行器
- * 
+ *
  * <p>调用大语言模型处理输入，支持变量替换和多轮Token统计</p>
- * 
+ *
  * <p>线程安全：无状态，Spring单例安全</p>
  *
  * @author laomao
@@ -50,18 +50,21 @@ public class LLMNodeExecutor extends BaseNodeExecutor {
 
         try {
             // 获取配置（使用基类的安全获取方法）
+            // 注意：前端默认 temperature=0.7、maxTokens=2000，这里作为节点级覆盖参数传入模型创建方法
+            // 若前端未配置或使用旧数据，则使用模型默认配置
             String modelId = getStringConfig(config, "modelId", "default");
             String systemPrompt = getStringConfig(config, "systemPrompt", "");
             String userPrompt = getStringConfig(config, "userPrompt", "{{input}}");
             String outputVariable = getStringConfig(config, "outputVariable", "llm_output");
-            Double temperature = getDoubleConfig(config, "temperature", 0.7);
-            Integer maxTokens = getIntConfig(config, "maxTokens", 2000);
+            Double temperature = getDoubleConfig(config, "temperature", null);
+            Integer maxTokens = getIntConfig(config, "maxTokens", null);
 
             // 替换变量
             systemPrompt = replaceVariables(systemPrompt, context);
             userPrompt = replaceVariables(userPrompt, context);
 
-            log.info("🤖 LLM节点执行: model={}, userPrompt={}", modelId,
+            log.info("🤖 LLM节点执行: model={}, temperature={}, maxTokens={}, userPrompt={}", modelId,
+                    temperature, maxTokens,
                     userPrompt.length() > 100 ? userPrompt.substring(0, 100) + "..." : userPrompt);
 
             // 获取模型配置ID
@@ -85,8 +88,8 @@ public class LLMNodeExecutor extends BaseNodeExecutor {
                 return NodeResult.fail("无法获取LLM模型配置");
             }
 
-            // 创建模型
-            ChatLanguageModel chatModel = modelConfigService.createChatModel(configId);
+            // 创建模型（传入节点级参数覆盖：temperature/maxTokens 优先于模型默认配置）
+            ChatLanguageModel chatModel = modelConfigService.createChatModel(configId, temperature, maxTokens);
             if (chatModel == null) {
                 return NodeResult.fail("无法创建LLM模型");
             }

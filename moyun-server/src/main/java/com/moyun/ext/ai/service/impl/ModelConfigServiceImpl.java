@@ -35,10 +35,10 @@ import jakarta.annotation.PostConstruct;
 
 /**
  * 模型配置服务实现
- * 
+ *
  * <p>提供模型配置的CRUD操作，支持创建各类AI模型实例。
  * 使用Redis缓存热点配置数据，提升查询性能。</p>
- * 
+ *
  * @author laomao
  */
 @Slf4j
@@ -66,9 +66,9 @@ public class ModelConfigServiceImpl extends ServiceImpl<ModelConfigMapper, Model
                     // 明文 apiKey，加密后更新 DB（直接走 mapper，避免触发缓存逻辑）
                     String encrypted = ApiKeyCryptoUtils.encrypt(apiKey);
                     this.lambdaUpdate()
-                        .set(ModelConfig::getApiKey, encrypted)
-                        .eq(ModelConfig::getId, config.getId())
-                        .update();
+                            .set(ModelConfig::getApiKey, encrypted)
+                            .eq(ModelConfig::getId, config.getId())
+                            .update();
                     migrated++;
                     log.info("🔐 已加密迁移 apiKey: configId={}, name={}", config.getId(), config.getName());
                 }
@@ -85,9 +85,37 @@ public class ModelConfigServiceImpl extends ServiceImpl<ModelConfigMapper, Model
 
     @Override
     public ChatLanguageModel createChatModel(Long configId) {
+        return createChatModel(configId, null, null);
+    }
+
+    @Override
+    public ChatLanguageModel createChatModel(Long configId, Double temperature, Integer maxTokens) {
         ModelConfig config = this.getById(configId);
         if (config == null || !config.getEnabled()) {
             throw new BusinessException(ErrorCode.MODEL_NOT_FOUND, "模型配置不存在或未启用");
+        }
+
+        // 如果提供了覆盖参数，创建新的配置对象（节点级参数优先于模型默认配置）
+        if (temperature != null || maxTokens != null) {
+            ModelConfig overriddenConfig = new ModelConfig();
+            // 复制所有字段
+            overriddenConfig.setId(config.getId());
+            overriddenConfig.setName(config.getName());
+            overriddenConfig.setProvider(config.getProvider());
+            overriddenConfig.setModelName(config.getModelName());
+            overriddenConfig.setApiKey(config.getApiKey());
+            overriddenConfig.setBaseUrl(config.getBaseUrl());
+            overriddenConfig.setModelType(config.getModelType());
+            overriddenConfig.setTimeout(config.getTimeout());
+            overriddenConfig.setStreamingSupported(config.getStreamingSupported());
+            overriddenConfig.setEnabled(config.getEnabled());
+            overriddenConfig.setIsDefault(config.getIsDefault());
+
+            // 覆盖参数
+            overriddenConfig.setTemperature(temperature != null ? temperature : config.getTemperature());
+            overriddenConfig.setMaxTokens(maxTokens != null ? maxTokens : config.getMaxTokens());
+
+            return createChatModelFromConfig(overriddenConfig);
         }
 
         return createChatModelFromConfig(config);
@@ -182,22 +210,22 @@ public class ModelConfigServiceImpl extends ServiceImpl<ModelConfigMapper, Model
     public ModelConfig getDefaultMultimodalConfig() {
         // 多模态模型统一使用 chat 类型，但需要支持图片（VL模型）
         ModelConfig defaultChat = getDefaultChatConfig();
-        
+
         // 检查默认 chat 模型是否支持图片（通过模型名判断）
         if (defaultChat != null && isVisionModel(defaultChat.getModelName())) {
             return defaultChat;
         }
-        
+
         // 如果默认模型不支持图片，查找第一个支持图片的 chat 模型
         log.info("🔍 默认chat模型不支持图片，查找VL模型...");
         LambdaQueryWrapper<ModelConfig> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(ModelConfig::getModelType, "chat")
-               .eq(ModelConfig::getEnabled, true)
-               .and(w -> w.like(ModelConfig::getModelName, "-vl")
-                         .or().like(ModelConfig::getModelName, "vl-")
-                         .or().like(ModelConfig::getModelName, "vision"))
-               .last("LIMIT 1");
-        
+                .eq(ModelConfig::getEnabled, true)
+                .and(w -> w.like(ModelConfig::getModelName, "-vl")
+                        .or().like(ModelConfig::getModelName, "vl-")
+                        .or().like(ModelConfig::getModelName, "vision"))
+                .last("LIMIT 1");
+
         ModelConfig vlModel = this.getOne(wrapper);
         if (vlModel != null) {
             // 解密 apiKey（DB 中是 ENC: 密文）
@@ -207,12 +235,12 @@ public class ModelConfigServiceImpl extends ServiceImpl<ModelConfigMapper, Model
             log.info("✅ 找到VL模型用于图片理解: {} ({})", vlModel.getName(), vlModel.getModelName());
             return vlModel;
         }
-        
+
         // 如果没有VL模型，返回默认chat模型（可能会失败，但让调用方处理）
         log.warn("⚠️ 未找到支持图片的VL模型，将使用默认chat模型（可能无法处理图片）");
         return defaultChat;
     }
-    
+
     /**
      * 判断模型是否支持图片（视觉模型）
      */
@@ -244,9 +272,9 @@ public class ModelConfigServiceImpl extends ServiceImpl<ModelConfigMapper, Model
         // 2. 从数据库查询
         LambdaQueryWrapper<ModelConfig> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(ModelConfig::getModelType, modelType)
-               .eq(ModelConfig::getIsDefault, true)
-               .eq(ModelConfig::getEnabled, true)
-               .last("LIMIT 1");
+                .eq(ModelConfig::getIsDefault, true)
+                .eq(ModelConfig::getEnabled, true)
+                .last("LIMIT 1");
 
         ModelConfig config = this.getOne(wrapper);
 
@@ -254,8 +282,8 @@ public class ModelConfigServiceImpl extends ServiceImpl<ModelConfigMapper, Model
         if (config == null) {
             wrapper = new LambdaQueryWrapper<>();
             wrapper.eq(ModelConfig::getModelType, modelType)
-                   .eq(ModelConfig::getEnabled, true)
-                   .last("LIMIT 1");
+                    .eq(ModelConfig::getEnabled, true)
+                    .last("LIMIT 1");
             config = this.getOne(wrapper);
         }
 
@@ -424,15 +452,15 @@ public class ModelConfigServiceImpl extends ServiceImpl<ModelConfigMapper, Model
 
         // 取消同类型的其他默认设置
         this.lambdaUpdate()
-            .set(ModelConfig::getIsDefault, false)
-            .eq(ModelConfig::getModelType, config.getModelType())
-            .update();
+                .set(ModelConfig::getIsDefault, false)
+                .eq(ModelConfig::getModelType, config.getModelType())
+                .update();
 
         // 设置新的默认配置
         boolean result = this.lambdaUpdate()
-            .set(ModelConfig::getIsDefault, true)
-            .eq(ModelConfig::getId, configId)
-            .update();
+                .set(ModelConfig::getIsDefault, true)
+                .eq(ModelConfig::getId, configId)
+                .update();
 
         // 清除默认配置缓存
         if (result) {
@@ -444,16 +472,16 @@ public class ModelConfigServiceImpl extends ServiceImpl<ModelConfigMapper, Model
 
     /**
      * 获取所有模型配置列表（按创建时间降序）
-     * 
+     *
      * <p>性能优化：添加合理的数量限制，避免一次查询过多数据</p>
-     * 
+     *
      * @return 模型配置列表
      */
     @Override
     public List<ModelConfig> listOrderByCreateTimeDesc() {
         LambdaQueryWrapper<ModelConfig> wrapper = new LambdaQueryWrapper<>();
         wrapper.orderByDesc(ModelConfig::getCreateTime)
-               .last("LIMIT 500"); // 限制最多返回500条，避免OOM
+                .last("LIMIT 500"); // 限制最多返回500条，避免OOM
         return this.list(wrapper);
     }
 
@@ -730,9 +758,9 @@ public class ModelConfigServiceImpl extends ServiceImpl<ModelConfigMapper, Model
     private RerankModel createDashScopeRerankModel(ModelConfig config) {
         log.info("创建 DashScope Reranker 模型: {}", config.getModelName());
         return new DashScopeRerankModel(
-            config.getApiKey(),
-            config.getBaseUrl(),
-            config.getModelName()
+                config.getApiKey(),
+                config.getBaseUrl(),
+                config.getModelName()
         );
     }
 

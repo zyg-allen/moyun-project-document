@@ -35,8 +35,21 @@ public class PortalTopic extends BaseEntity {
     /** 发起人 portal_user.id（必须是认证创作者） */
     private Long creatorId;
 
-    /** 状态：active 活跃/archived 归档/deleted 删除 */
+    /**
+     * 状态：pending 待审核/active 活跃/archived 归档/deleted 删除/rejected 审核驳回
+     * 新话题默认 pending，审核通过后 active
+     */
     private String status;
+
+    /** 审核人ID（系统用户ID，审核时写入） */
+    private Long auditorId;
+
+    /** 审核意见/驳回原因 */
+    private String auditRemark;
+
+    /** 审核时间 */
+    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
+    private LocalDateTime auditTime;
 
     /** 是否置顶：0 否/1 是 */
     private Integer pinned;

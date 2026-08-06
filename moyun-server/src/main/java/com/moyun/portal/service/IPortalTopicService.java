@@ -99,6 +99,18 @@ public interface IPortalTopicService extends IService<PortalTopic> {
     void updateTopicStatus(Long id, String status);
 
     /**
+     * CMS 审核话题（pending → active / rejected）
+     * <p>审核通过时触发 create_topic 成长事件与 Feed 推送；
+     * 审核驳回时记录驳回原因。审核结果通过站内信通知发起人。</p>
+     *
+     * @param id          话题ID
+     * @param status      新状态：active=通过 / rejected=驳回
+     * @param auditRemark 审核意见（驳回必填，通过选填）
+     * @param auditorId   审核人ID（系统用户ID）
+     */
+    void auditTopic(Long id, String status, String auditRemark, Long auditorId);
+
+    /**
      * CMS 置顶/取消置顶
      *
      * @param id     话题ID

@@ -1,5 +1,7 @@
 package com.moyun.core.base.entity;
 
+import com.baomidou.mybatisplus.annotation.TableField;
+import com.baomidou.mybatisplus.annotation.TableLogic;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
@@ -70,7 +72,11 @@ public class SysRole extends BaseEntity {
 
     /**
      * 删除标志（0代表存在 2代表删除）
+     * 注意：必须保留 @TableLogic 注解，否则会遮蔽父类 BaseEntity 的逻辑删除配置，
+     * 导致 MyBatis-Plus 对 SysRole 的 selectList/selectBatchIds 不过滤已删除记录。
      */
+    @TableLogic
+    @TableField(value = "del_flag")
     private String delFlag;
 
     /**

@@ -45,9 +45,23 @@ public interface ICmsArticleService {
     int insertArticle(PortalArticle article);
 
     /**
+     * 新增文章（含标签绑定，标签绑定纳入同一事务）
+     * @param article 文章
+     * @param tagIds  标签ID列表（可空）
+     * @param tagNames 标签名列表（可空）
+     * @return 影响行数
+     */
+    int insertArticleWithTags(PortalArticle article, List<Long> tagIds, List<String> tagNames);
+
+    /**
      * 修改文章
      */
     int updateArticle(PortalArticle article);
+
+    /**
+     * 修改文章（含标签绑定，标签绑定纳入同一事务）
+     */
+    int updateArticleWithTags(PortalArticle article, List<Long> tagIds, List<String> tagNames);
 
     /**
      * 审核文章
@@ -78,4 +92,9 @@ public interface ICmsArticleService {
      * 批量删除文章
      */
     int deleteArticleByIds(Long[] ids);
+
+    /**
+     * 批量删除文章（含标签解绑，标签解绑纳入同一事务）
+     */
+    int deleteArticleWithTags(Long[] ids);
 }

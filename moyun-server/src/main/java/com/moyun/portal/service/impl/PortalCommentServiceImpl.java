@@ -29,6 +29,9 @@ import com.moyun.portal.service.IMentionService;
 import com.moyun.portal.service.IPortalCommentService;
 import com.moyun.portal.service.IPortalGrowthService;
 import com.moyun.portal.util.PortalSecurityUtils;
+import com.moyun.system.domain.entity.SysNotification;
+import com.moyun.system.service.ISensitiveWordService;
+import com.moyun.system.service.ISysNotificationService;
 
 /**
  * 门户评论 业务层处理
@@ -56,6 +59,12 @@ public class PortalCommentServiceImpl extends ServiceImpl<PortalCommentMapper, P
 
     @Autowired
     private IMentionService mentionService;
+
+    @Autowired
+    private ISensitiveWordService sensitiveWordService;
+
+    @Autowired
+    private ISysNotificationService notificationService;
 
     /**
      * 根据条件分页查询评论列表
@@ -98,10 +107,31 @@ public class PortalCommentServiceImpl extends ServiceImpl<PortalCommentMapper, P
      * @return 结果
      */
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public int insertPortalComment(PortalComment portalComment) {
         // 强制覆写 authorId 为当前登录用户，不再信任前端传入的 authorId，防止伪造
         // 评论发布入口已由 SecurityConfig 强制 authenticated，此处 userId 必非空
         portalComment.setAuthorId(PortalSecurityUtils.getUserId());
+        // 敏感词拦截：评论是 UGC 主要入口，命中即拦截，不入库。
+        // 与话题评论（PortalTopicCommentServiceImpl）策略一致：block + ServiceException。
+        if (portalComment.getContent() != null && !portalComment.getContent().isEmpty()) {
+            try {
+                List<String> hits = sensitiveWordService.find(portalComment.getContent());
+                if (hits != null && !hits.isEmpty()) {
+                    sensitiveWordService.detectAndLog(
+                            "comment", null, portalComment.getAuthorId(),
+                            portalComment.getContent(), "block");
+                    log.warn("文章评论命中敏感词已拦截：articleId={}, userId={}, hits={}",
+                            portalComment.getArticleId(), portalComment.getAuthorId(), hits);
+                    throw new ServiceException("评论内容包含违规信息，请修改后重试");
+                }
+            } catch (ServiceException e) {
+                throw e;
+            } catch (Exception e) {
+                log.warn("文章评论敏感词扫描异常：articleId={}, err={}",
+                        portalComment.getArticleId(), e.getMessage());
+            }
+        }
         // 设置默认状态：0-待审核，1-已发布
         if (portalComment.getStatus() == null) {
             portalComment.setStatus("1");
@@ -157,6 +187,9 @@ public class PortalCommentServiceImpl extends ServiceImpl<PortalCommentMapper, P
                 portalGrowthService.recordEventWithTarget("article", "receive_comment",
                         article.getAuthorId(), portalComment.getAuthorId(),
                         "article", portalComment.getArticleId());
+                // 主动通知作者（非阻塞，失败不影响主流程）
+                sendCommentNotification(article.getAuthorId(), portalComment.getAuthorId(),
+                        portalComment.getArticleId(), article.getTitle());
             }
         }
 
@@ -192,15 +225,20 @@ public class PortalCommentServiceImpl extends ServiceImpl<PortalCommentMapper, P
      * @return 结果
      */
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public int deletePortalCommentById(Long id) {
         // 删除前查询评论，用于同步减少文章评论数
         PortalComment comment = portalCommentMapper.selectPortalCommentById(id);
         int rows = portalCommentMapper.deletePortalCommentById(id);
 
-        // 同步减少文章评论数（仅一级评论）
+        // 同步减少文章评论数（仅一级评论，下界保护避免负数）
         if (rows > 0 && comment != null && comment.getArticleId() != null
                 && (comment.getParentId() == null || comment.getParentId() == 0)) {
-            portalArticleMapper.incrementComments(comment.getArticleId(), -1);
+            // 查询文章当前评论数，> 0 才递减
+            PortalArticle article = portalArticleMapper.selectById(comment.getArticleId());
+            if (article != null && article.getComments() != null && article.getComments() > 0) {
+                portalArticleMapper.incrementComments(comment.getArticleId(), -1);
+            }
         }
 
         return rows;
@@ -552,5 +590,39 @@ public class PortalCommentServiceImpl extends ServiceImpl<PortalCommentMapper, P
         result.put("isLiked", isLiked);
         result.put("likeCount", comment.getLikeCount());
         return result;
+    }
+
+    /**
+     * 发送评论通知给文章作者
+     * <p>非阻塞：失败仅记日志，不影响主流程
+     *
+     * @param authorId     文章作者ID（接收方）
+     * @param fromUserId   评论者ID（发起方）
+     * @param articleId    文章ID
+     * @param articleTitle 文章标题
+     */
+    private void sendCommentNotification(Long authorId, Long fromUserId,
+                                         Long articleId, String articleTitle) {
+        try {
+            PortalUser fromUser = portalUserMapper.selectById(fromUserId);
+            String fromNickname = fromUser != null && fromUser.getNickname() != null
+                    ? fromUser.getNickname()
+                    : (fromUser != null ? fromUser.getUsername() : "用户" + fromUserId);
+            SysNotification notification = new SysNotification();
+            notification.setType("comment");
+            notification.setScope("user");
+            notification.setUserId(authorId);
+            notification.setUserType("portal");
+            notification.setNoticeType("1");
+            notification.setStatus("0");
+            notification.setTitle(fromNickname + " 评论了你的文章");
+            notification.setContent(fromNickname + " 评论了你的文章《" + articleTitle + "》");
+            notification.setData("{\"bizType\":\"comment\",\"articleId\":" + articleId
+                    + ",\"fromUserId\":" + fromUserId + "}");
+            notificationService.insertNotification(notification);
+        } catch (Exception e) {
+            log.warn("评论通知发送失败（不影响主流程）：authorId={}, articleId={}, err={}",
+                    authorId, articleId, e.getMessage());
+        }
     }
 }

@@ -4,7 +4,6 @@ import com.baomidou.mybatisplus.core.metadata.OrderItem;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.moyun.core.base.page.PageDomain;
 import com.moyun.core.base.page.TableSupport;
-import com.moyun.util.string.SqlUtil;
 import com.moyun.util.string.StringUtils;
 
 /**
@@ -26,25 +25,13 @@ public class PageUtils {
 
     public static <T> Page<T> startPage() {
         PageDomain pageDomain = TableSupport.buildPageRequest();
-        Integer pageNum = pageDomain.getPageNum();
-        Integer pageSize = pageDomain.getPageSize();
-        Page<T> page = new Page<>(pageNum, pageSize);
-
-        if (com.moyun.util.string.StringUtils.isNotEmpty(pageDomain.getOrderByColumn())) {
-            String orderBy = SqlUtil.escapeOrderBySql(pageDomain.getOrderBy());
-            String[] orderParts = orderBy.split("\\s+");
-            if (orderParts.length >= 2) {
-                String orderField = orderParts[0];
-                String orderDirection = orderParts[1].equalsIgnoreCase("asc") ? "asc" : "desc";
-                if ("asc".equals(orderDirection)) {
-                    page.addOrder(com.baomidou.mybatisplus.core.metadata.OrderItem.asc(orderField));
-                } else {
-                    page.addOrder(com.baomidou.mybatisplus.core.metadata.OrderItem.desc(orderField));
-                }
-            }
-
-        }
-         return page;
+        // 复用 buildPage 内部逻辑，统一：默认值兜底 + MAX_PAGE_SIZE 上限保护 + 排序驼峰转下划线
+        return buildPage(
+            pageDomain.getPageNum(),
+            pageDomain.getPageSize(),
+            pageDomain.getOrderByColumn(),
+            pageDomain.getIsAsc()
+        );
     }
 
     /**

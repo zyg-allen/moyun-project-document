@@ -62,8 +62,9 @@ spring:
         # 生产环境必须设置强密码，且通过 SecurityConfig 限制为 ADMIN 角色访问
         login-username: ${DRUID_USERNAME}
         login-password: ${DRUID_PASSWORD}
-        # 生产环境建议限定可访问 IP，例如：allow: 10.0.0.0/24
-        allow: ${DRUID_ALLOW_IP:}
+        # 生产环境限定可访问 IP，默认 127.0.0.1（仅本机），多机部署请通过 DRUID_ALLOW_IP 显式注入
+        # 例如：DRUID_ALLOW_IP=10.0.0.0/24,192.168.1.100
+        allow: ${DRUID_ALLOW_IP:127.0.0.1}
         deny: ""
       aop-patterns: com.moyun.system.service.*
 
@@ -86,9 +87,9 @@ spring:
           max-idle: 8
           min-idle: 0
 
-    # MongoDB 配置（可选）
+    # MongoDB 配置（可选，不使用时保持默认值即可，应用不会因连接失败而启动失败）
     mongodb:
-      uri: ${MONGODB_URI}
+      uri: ${MONGODB_URI:mongodb://localhost:27017/moyun}
       auto-index-creation: false
 
 # =============================================
@@ -139,11 +140,12 @@ user:
 
 # =============================================
 # 防止 XSS 攻击
+# urlPatterns 必须覆盖所有 UGC 入口（portal/cms），否则文章/评论/话题/私信等无 XSS 防护
 # =============================================
 xss:
   enabled: true
   excludes: /system/notification
-  urlPatterns: /system/*,/monitor/*,/tool/*
+  urlPatterns: /system/*,/monitor/*,/tool/*,/portal/*,/cms/*
 
 # =============================================
 # knife4j 配置
@@ -168,11 +170,21 @@ moyun:
   profile: ${MOYUN_PROFILE:/data/moyun/profile}
 
 # =============================================
+# 项目配置（兼容原 ruoyi 配置，部分旧代码可能读取）
+# =============================================
+ruoyi:
+  name: Moyun
+  version: 1.0.0
+  profile: ${MOYUN_PROFILE:/data/moyun/profile}
+  importPath: ${MOYUN_PROFILE:/data/moyun/profile}/import
+  captchaType: math
+
+# =============================================
 # MyBatis-Plus 配置
 # =============================================
 mybatis-plus:
   mapper-locations: classpath*:/mapper/**/*.xml
-  type-aliases-package: com.moyun.core.base.entity,com.moyun.system.domain.entity,com.moyun.portal.domain.entity,com.moyun.ext.cms.domain.entity,com.moyun.ext.job.domain.entity
+  type-aliases-package: com.moyun.core.base.entity,com.moyun.system.domain.entity,com.moyun.portal.domain.entity,com.moyun.ext.cms.domain.entity,com.moyun.ext.job.domain.entity,com.moyun.ext.ai.entity
   configuration:
     map-underscore-to-camel-case: true
     # 生产环境关闭 SQL 日志，避免性能损耗与敏感信息泄露
@@ -180,9 +192,12 @@ mybatis-plus:
   global-config:
     db-config:
       id-type: auto
-      logic-delete-field: deleted
-      logic-delete-value: 1
-      logic-not-delete-value: 0
+      # 逻辑删除：与 dev/local 环境及 BaseEntity 的 @TableLogic 注解保持一致
+      # 字段 del_flag（char(1)），"0"=存在 "2"=删除（RuoYi 框架惯例）
+      # ⚠️ 切勿改为 deleted/1/0，否则与 BaseEntity 注解不一致会导致生产环境软删失效
+      logic-delete-field: delFlag
+      logic-delete-value: "2"
+      logic-not-delete-value: "0"
 
 # =============================================
 # Flowable 工作流配置
@@ -217,3 +232,100 @@ minio:
   access-url: ${MINIO_ACCESS_URL}
   auto-fallback: false
   fallback-to-local: false
+
+# =============================================
+# 文件上传配置（与 AI 知识库文档 50MB 上限对齐）
+# =============================================
+spring.servlet.multipart:
+  max-file-size: 50MB
+  max-request-size: 50MB
+
+# =============================================
+# AI 模块配置（生产环境按需启用）
+# - 默认全部关闭，避免依赖中间件缺失导致启动失败
+# - 启用 AI 时需同步部署：MySQL（AI 表）/ Redis / Elasticsearch / LibreOffice
+# =============================================
+
+# LangChain4j 大模型对接（任选其一，按 ${PROVIDER}_ENABLED=true 启用）
+langchain4j:
+  enabled: ${AI_ENABLED:false}
+  open-ai:
+    enabled: ${OPENAI_ENABLED:false}
+    api-key: ${OPENAI_API_KEY:}
+    model-name: ${OPENAI_MODEL:gpt-4o-mini}
+    temperature: 0.7
+  ollama:
+    enabled: ${OLLAMA_ENABLED:false}
+    base-url: ${OLLAMA_BASE_URL:http://localhost:11434}
+    model-name: ${OLLAMA_MODEL:qwen2.5}
+    temperature: 0.7
+  dashscope:
+    enabled: ${DASHSCOPE_ENABLED:false}
+    api-key: ${DASHSCOPE_API_KEY:}
+    chat-model: ${DASHSCOPE_CHAT_MODEL:qwen-plus}
+    embedding-model: ${DASHSCOPE_EMBEDDING_MODEL:text-embedding-v3}
+    rerank-model: ${DASHSCOPE_RERANK_MODEL:gte-rerank}
+    temperature: 0.7
+
+# 向量存储配置（知识库 / RAG 检索底座）
+# type: redis（默认，复用 Redis 8.0+ RediSearch）/ es（独立 ES 集群）
+app:
+  embedding-store:
+    type: ${EMBEDDING_STORE_TYPE:redis}
+    index-name: ${EMBEDDING_STORE_INDEX_NAME:moyun_ai_vectors}
+    key-prefix: ${EMBEDDING_STORE_KEY_PREFIX:ai_vectors:}
+
+# Elasticsearch 配置（仅 app.embedding-store.type=es 时生效）
+elasticsearch:
+  uris: ${ES_URIS:http://localhost:9200}
+  username: ${ES_USERNAME:}
+  password: ${ES_PASSWORD:}
+  index-prefix: ${ES_INDEX_PREFIX:moyun_ai_}
+  index:
+    vector: ${ES_INDEX_VECTOR:moyun_ai_vectors}
+
+# LibreOffice 文档转 PDF（启用 AI 知识库 Office 文档解析时必填）
+jodconverter:
+  # 注意：local.enabled 必须与主开关同步，否则 JodConverterLocalAutoConfiguration 仍会触发 localOfficeManager 创建
+  enabled: ${LIBREOFFICE_ENABLED:false}
+  local:
+    enabled: ${LIBREOFFICE_ENABLED:false}
+    office-home: ${LIBREOFFICE_HOME:/usr/lib/libreoffice}
+    max-tasks-per-process: 200
+    task-execution-timeout: 120000
+    task-queue-timeout: 30000
+    port-numbers:
+      - 2002
+
+# 墨韵 AI 专用配置
+moyun-ai:
+  rag:
+    default-min-score: 0.7
+    default-max-results: 5
+    chunk-size: 512
+    chunk-overlap: 50
+    min-recall-count: 15
+    recall-multiplier: 2.0
+    enable-hybrid-search: true
+    enable-query-expansion: true
+    bm25-weight: 0.3
+    vector-weight: 0.7
+    verbose-logging: false
+    enable-query-rewriting: true
+    enable-self-rag: true
+    self-rag-min-relevance: 0.5
+    self-rag-max-verify-count: 5
+    enable-conversation-summary: true
+    summary-threshold: 20
+    summary-keep-recent: 10
+    enable-intent-recognition: true
+  storage:
+    knowledge-base-dir: ${MOYUN_KB_DIR:${MOYUN_PROFILE:/data/moyun/profile}/ai/knowledge}
+    image-dir: ${MOYUN_IMG_DIR:${MOYUN_PROFILE:/data/moyun/profile}/ai/images}
+  rate-limit:
+    chat-requests-per-minute: 60
+    knowledge-upload-mb-per-hour: 500
+
+# 对话上下文
+chat:
+  max-messages: 20

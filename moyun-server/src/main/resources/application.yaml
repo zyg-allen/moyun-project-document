@@ -10,11 +10,11 @@ spring:
     name: moyun-server
   profiles:
     active: dev
-  # 文件上传配置
+  # 文件上传配置（AI 知识库文档最大 50MB，与原 moyun-ai 配置对齐）
   servlet:
     multipart:
-      max-file-size: 10MB
-      max-request-size: 20MB
+      max-file-size: 50MB
+      max-request-size: 50MB
   # Jackson 配置 - 完整支持 Java8 日期时间
   jackson:
     serialization:
@@ -86,8 +86,8 @@ xss:
   enabled: true
   # 排除链接（多个用逗号分隔）
   excludes: /system/notification
-  # 匹配链接
-  urlPatterns: /system/*,/monitor/*,/tool/*
+  # 匹配链接（必须覆盖所有 UGC 入口：portal 文章/评论/话题/私信，cms 后台内容）
+  urlPatterns: /system/*,/monitor/*,/tool/*,/portal/*,/cms/*
 
 # knife4j的增强配置，不需要增强可以不配
 # 生产环境请设置环境变量 KNIFE4J_PRODUCTION=true 关闭 Swagger 文档，避免接口暴露
@@ -96,6 +96,14 @@ knife4j:
   setting:
     language: zh_cn
   production: ${KNIFE4J_PRODUCTION:false}
+
+# Actuator 健康检查配置
+management:
+  health:
+    # 默认向量存储为 Redis 8.0+ RediSearch，Elasticsearch 仅在 app.embedding-store.type=es 时启用
+    # 为避免无 ES 环境时 Actuator 健康检查持续报 Connection refused WARN，此处关闭 ES 健康指示器
+    elasticsearch:
+      enabled: false
 
 # 项目配置（兼容原来的 ruoyi 配置）
 ruoyi:

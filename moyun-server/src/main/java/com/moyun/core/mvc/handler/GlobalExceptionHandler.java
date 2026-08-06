@@ -10,6 +10,7 @@ import com.moyun.util.html.EscapeUtil;
 import com.moyun.util.string.StringUtils;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.validation.BindException;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
@@ -18,6 +19,8 @@ import org.springframework.web.bind.MissingPathVariableException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
+import org.springframework.web.servlet.NoHandlerFoundException;
 
 /**
  * 全局异常处理器
@@ -126,6 +129,47 @@ public class GlobalExceptionHandler {
         log.error(e.getMessage(), e);
         String message = e.getBindingResult().getFieldError().getDefaultMessage();
         return AjaxResult.error(message);
+    }
+
+    /**
+     * 请求接口不存在（404）
+     * 需配合 spring.mvc.throw-exception-if-no-handler-found=true 与 spring.web.resources.add-mappings=false
+     */
+    @ExceptionHandler(NoHandlerFoundException.class)
+    public AjaxResult handleNoHandlerFoundException(NoHandlerFoundException e, HttpServletRequest request) {
+        String requestURI = request.getRequestURI();
+        log.warn("请求地址'{}',接口不存在", requestURI);
+        return AjaxResult.error(HttpStatus.NOT_FOUND, "请求接口不存在");
+    }
+
+    /**
+     * 请求体解析失败（JSON 格式错误 / 缺失 Body）
+     */
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public AjaxResult handleHttpMessageNotReadableException(HttpMessageNotReadableException e, HttpServletRequest request) {
+        String requestURI = request.getRequestURI();
+        log.warn("请求地址'{}',请求体解析失败: {}", requestURI, e.getMessage());
+        return AjaxResult.error("请求参数格式错误，请检查 JSON 结构");
+    }
+
+    /**
+     * 上传文件大小超限
+     */
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    public AjaxResult handleMaxUploadSizeExceededException(MaxUploadSizeExceededException e, HttpServletRequest request) {
+        String requestURI = request.getRequestURI();
+        log.warn("请求地址'{}',上传文件大小超限: maxUploadSize={} bytes", requestURI, e.getMaxUploadSize());
+        return AjaxResult.error("上传文件大小超过限制");
+    }
+
+    /**
+     * 非法参数异常
+     */
+    @ExceptionHandler(IllegalArgumentException.class)
+    public AjaxResult handleIllegalArgumentException(IllegalArgumentException e, HttpServletRequest request) {
+        String requestURI = request.getRequestURI();
+        log.warn("请求地址'{}',非法参数: {}", requestURI, e.getMessage());
+        return AjaxResult.error(StringUtils.isNotEmpty(e.getMessage()) ? e.getMessage() : "参数错误");
     }
 
     /**

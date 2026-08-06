@@ -179,6 +179,21 @@ public class SysNotificationServiceImpl extends ServiceImpl<SysNotificationMappe
         return n;
     }
 
+    /**
+     * 关闭待办：按 data JSON 字段中的 bizType + id 精确匹配所有 type=todo 的通知，
+     * 将 status 从 0（正常）更新为 1（关闭/已办）。
+     * <p>调用方需在 sendTodoNotification 时保证 data 字段包含
+     * {@code {"bizType":"xxx","id":123}} 结构，本方法才能正确匹配。
+     */
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public int completeTodoByBizData(String bizType, Long entityId) {
+        if (bizType == null || bizType.isEmpty() || entityId == null) {
+            return 0;
+        }
+        return sysNotificationMapper.completeTodoByBizData(bizType, entityId);
+    }
+
     // ==================== 用户通知查询（门户 + 系统） ====================
 
     @Override

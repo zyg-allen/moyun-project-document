@@ -1,0 +1,4 @@
+2026-08-06 15:58:40.881  INFO 22548 --- [main] c.m.e.a.s.impl.KnowledgeBaseServiceImpl  : ✅ 使用动态配置的 Embedding 模型: 通义千问-多模态Embedding (text-embedding-v3)
+2026-08-06 16:01:32.875  INFO 22648 --- [main] c.m.e.a.s.impl.KnowledgeBaseServiceImpl  : ✅ 使用动态配置的 Embedding 模型: 通义千问-多模态Embedding (text-embedding-v3)
+2026-08-06 16:15:44.540  INFO 22336 --- [main] c.m.e.a.s.impl.KnowledgeBaseServiceImpl  : ✅ 使用动态配置的 Embedding 模型: 通义千问-多模态Embedding (text-embedding-v3)
+2026-08-06 16:38:29.027  INFO 3260 --- [main] c.m.e.a.s.impl.KnowledgeBaseServiceImpl  : ✅ 使用动态配置的 Embedding 模型: 通义千问-多模态Embedding (text-embedding-v3)

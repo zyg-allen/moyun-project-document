@@ -1,6 +1,7 @@
 package com.moyun.portal.controller;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
@@ -51,6 +52,21 @@ public class CmsCreatorCertificationController extends BaseController {
         // 填充申请人昵称，便于后台展示
         Page<Map<String, Object>> resultPage = new Page<>(result.getCurrent(), result.getSize(), result.getTotal());
         java.util.List<Map<String, Object>> records = new java.util.ArrayList<>(result.getRecords().size());
+
+        // 批量查询申请人昵称，避免 N+1（分页 N 条原本 N 次查询 → 现在 1 次）
+        java.util.List<Long> userIds = result.getRecords().stream()
+                .map(PortalCreatorCertification::getUserId)
+                .filter(java.util.Objects::nonNull)
+                .distinct()
+                .toList();
+        Map<Long, String> nicknameMap = new HashMap<>();
+        if (!userIds.isEmpty()) {
+            List<PortalUser> users = portalUserMapper.selectBatchIds(userIds);
+            for (PortalUser u : users) {
+                nicknameMap.put(u.getId(), u.getNickname());
+            }
+        }
+
         for (PortalCreatorCertification c : result.getRecords()) {
             Map<String, Object> map = new HashMap<>();
             map.put("id", c.getId());
@@ -66,18 +82,42 @@ public class CmsCreatorCertificationController extends BaseController {
             map.put("auditRemark", c.getAuditRemark());
             map.put("createdTime", c.getCreatedTime());
             map.put("auditedTime", c.getAuditedTime());
-            String nickname = null;
-            if (c.getUserId() != null) {
-                PortalUser user = portalUserMapper.selectPortalUserById(c.getUserId());
-                if (user != null) {
-                    nickname = user.getNickname();
-                }
-            }
-            map.put("nickname", nickname);
+            map.put("nickname", c.getUserId() == null ? null : nicknameMap.get(c.getUserId()));
             records.add(map);
         }
         resultPage.setRecords(records);
         return success(resultPage);
+    }
+
+    @Operation(summary = "认证申请详情", description = "按ID查询单条认证申请，含申请人昵称")
+    @PreAuthorize("@ss.hasPermi('cms:certification:audit')")
+    @GetMapping("/{id}")
+    public AjaxResult detail(@Parameter(description = "认证申请ID") @PathVariable Long id) {
+        PortalCreatorCertification c = certificationService.getById(id);
+        if (c == null) {
+            return AjaxResult.error("认证申请不存在");
+        }
+        Map<String, Object> map = new HashMap<>();
+        map.put("id", c.getId());
+        map.put("userId", c.getUserId());
+        map.put("realName", c.getRealName());
+        map.put("certType", c.getCertType());
+        map.put("certNo", c.getCertNo());
+        map.put("certImage", c.getCertImage());
+        map.put("intro", c.getIntro());
+        map.put("works", c.getWorks());
+        map.put("status", c.getStatus());
+        map.put("auditorId", c.getAuditorId());
+        map.put("auditRemark", c.getAuditRemark());
+        map.put("createdTime", c.getCreatedTime());
+        map.put("auditedTime", c.getAuditedTime());
+        if (c.getUserId() != null) {
+            PortalUser u = portalUserMapper.selectPortalUserById(c.getUserId());
+            map.put("nickname", u != null ? u.getNickname() : null);
+        } else {
+            map.put("nickname", null);
+        }
+        return AjaxResult.success(map);
     }
 
     @Operation(summary = "审核认证申请", description = "通过或驳回认证申请，status=approved/rejected")

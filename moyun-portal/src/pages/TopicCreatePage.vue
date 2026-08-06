@@ -3,7 +3,7 @@ import { ref, computed } from 'vue';
 import { useRouter } from 'vue-router';
 import { useHead } from '@vueuse/head';
 import {
-  ImagePlus, Loader2, Send, AlertCircle, ShieldCheck,
+  ImagePlus, Loader2, Send, AlertCircle, ShieldCheck, Clock,
 } from 'lucide-vue-next';
 import Breadcrumb from '@/components/Breadcrumb.vue';
 import SiteFooter from '@/components/SiteFooter.vue';
@@ -11,7 +11,7 @@ import LazyImage from '@/components/LazyImage.vue';
 import MarkdownEditor from '@/components/MarkdownEditor.vue';
 import { generateSeo } from '@/utils/seo';
 import { createTopic } from '@/api/topic';
-import { uploadPortalFile } from '@/api/file';
+import { uploadPortalFile, deletePortalFile } from '@/api/file';
 import { useToast } from '@/composables/useToast';
 
 const router = useRouter();
@@ -60,8 +60,17 @@ async function handleUploadCover(e: Event) {
   }
 }
 
-function handleRemoveCover() {
+async function handleRemoveCover() {
+  const oldCover = cover.value;
   cover.value = '';
+  // 清理已上传的封面文件，避免产生孤儿文件
+  if (oldCover) {
+    try {
+      await deletePortalFile(oldCover);
+    } catch (e) {
+      console.warn('删除封面文件失败:', e);
+    }
+  }
 }
 
 async function handleSubmit() {
@@ -83,7 +92,9 @@ async function handleSubmit() {
       cover: cover.value || undefined,
     });
     if (res.code === 200 && res.data) {
-      toast.success('话题已发起');
+      // 新话题默认 pending 待审核，审核通过后才会在话题广场曝光
+      // 此处明确告知用户审核状态，避免误以为已发布
+      toast.success('话题已提交，等待审核通过后将在话题广场展示');
       router.replace(`/topic/${res.data.id}`);
     } else {
       toast.error(res.message || '发起失败');
@@ -140,6 +151,23 @@ function goBack() {
               </router-link>
               。
             </p>
+          </div>
+        </div>
+
+        <!-- 审核流程提示 -->
+        <div
+          class="rounded-xl border p-4 mb-6 flex items-start gap-3"
+          style="background-color: rgba(245, 158, 11, 0.08); border-color: rgba(245, 158, 11, 0.3);"
+        >
+          <Clock class="w-5 h-5 flex-shrink-0 mt-0.5" style="color: #d97706;" />
+          <div class="flex-1 text-sm" style="color: var(--theme-text);">
+            <p class="font-medium mb-1" style="color: #d97706;">审核流程</p>
+            <ul class="text-xs leading-relaxed space-y-1" style="color: var(--theme-text-secondary);">
+              <li>· 提交后话题进入「待审核」状态，不会立即在话题广场展示</li>
+              <li>· 系统将进行敏感词轻量扫描，命中内容会转人工重点审核</li>
+              <li>· 审核通过后话题自动发布到广场，并通过站内信通知你</li>
+              <li>· 审核驳回会附驳回原因，可在「我的话题」查看并修改后重新提交</li>
+            </ul>
           </div>
         </div>
 

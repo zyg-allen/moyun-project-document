@@ -85,4 +85,14 @@ public interface PortalUserGrowthMapper extends BaseMapper<PortalUserGrowth> {
      */
     @Select("SELECT points FROM portal_user_growth WHERE user_id = #{userId}")
     Long selectPoints(@Param("userId") Long userId);
+
+    /**
+     * 原子扣减成长值（审核驳回等场景回滚，带下界保护避免负数）
+     * 注意：season_value 同步扣减，保持赛季值与成长值一致
+     *
+     * @return 影响行数，0 表示余额不足或用户不存在
+     */
+    @Update("UPDATE portal_user_growth SET growth_value = growth_value - #{delta}, season_value = season_value - #{delta} " +
+            "WHERE user_id = #{userId} AND growth_value >= #{delta}")
+    int deductGrowth(@Param("userId") Long userId, @Param("delta") int delta);
 }

@@ -215,4 +215,18 @@
           and n.scope = 'all'
         order by n.create_time desc
     </select>
+
+    <!--
+        关闭待办：按 data JSON 字段中的 bizType + id 精确匹配所有 type=todo 的通知，
+        将 status 从 0（正常）更新为 1（关闭/已办）。
+        使用 JSON_UNQUOTE(JSON_EXTRACT(...)) 保证 id=123 不会误匹配 id=1234。
+    -->
+    <update id="completeTodoByBizData">
+        update sys_notification
+        set status = '1', update_time = NOW()
+        where type = 'todo'
+          and status = '0'
+          and JSON_UNQUOTE(JSON_EXTRACT(data, '$.bizType')) = #{bizType}
+          and JSON_EXTRACT(data, '$.id') = #{entityId}
+    </update>
 </mapper>

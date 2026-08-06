@@ -15,6 +15,7 @@
  */
 package com.moyun.portal.controller;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -40,6 +41,8 @@ import com.moyun.portal.domain.entity.PortalUser;
 import com.moyun.portal.domain.query.UserQuery;
 import com.moyun.portal.domain.vo.UserStatsVO;
 import com.moyun.portal.mapper.PortalArticleMapper;
+import com.moyun.portal.mapper.PortalCommentMapper;
+import com.moyun.portal.mapper.PortalFollowMapper;
 import com.moyun.portal.service.IPortalGrowthService;
 import com.moyun.portal.service.IPortalUserService;
 import com.moyun.portal.util.PortalSecurityUtils;
@@ -61,6 +64,12 @@ public class PortalUserController extends BaseController {
 
     @Autowired
     private PortalArticleMapper articleMapper;
+
+    @Autowired
+    private PortalFollowMapper followMapper;
+
+    @Autowired
+    private PortalCommentMapper commentMapper;
 
     @Autowired
     private IUserDashboardService userDashboardService;
@@ -325,7 +334,64 @@ public class PortalUserController extends BaseController {
         UserQuery query = new UserQuery();
         query.setStatus("0");
         List<PortalUser> list = portalUserService.selectPortalUserList(query);
-        List<Map<String, Object>> result = list.stream().limit(limit).map(user -> {
+        List<PortalUser> limited = list.stream().limit(limit).toList();
+        if (limited.isEmpty()) {
+            return success(limited);
+        }
+
+        // 提取作者 ID 集合
+        List<Long> userIds = limited.stream().map(PortalUser::getId).toList();
+
+        // 一次性批量查询所有统计，避免 N+1（10 个作者原本 40 次查询 → 现在 4 次）
+        Map<Long, Map<String, Object>> articleStatsMap = new HashMap<>();
+        Map<Long, Long> commentLikeMap = new HashMap<>();
+        Map<Long, Long> followerMap = new HashMap<>();
+        Map<Long, Long> followingMap = new HashMap<>();
+        try {
+            List<Map<String, Object>> articleStatsList = articleMapper.batchSelectAuthorArticleStats(userIds);
+            if (articleStatsList != null) {
+                for (Map<String, Object> row : articleStatsList) {
+                    articleStatsMap.put(toLong(row.get("authorId")), row);
+                }
+            }
+        } catch (Exception e) {
+            log.warn("批量聚合文章统计失败: {}", e.getMessage());
+        }
+        try {
+            List<Map<String, Object>> commentLikeList = commentMapper.batchSumCommentLikeReceived(userIds);
+            if (commentLikeList != null) {
+                for (Map<String, Object> row : commentLikeList) {
+                    commentLikeMap.put(toLong(row.get("userId")), toLong(row.get("cnt")));
+                }
+            }
+        } catch (Exception e) {
+            log.warn("批量聚合评论获赞失败: {}", e.getMessage());
+        }
+        try {
+            List<Map<String, Object>> followerList = followMapper.batchCountFollowers(userIds);
+            if (followerList != null) {
+                for (Map<String, Object> row : followerList) {
+                    followerMap.put(toLong(row.get("userId")), toLong(row.get("cnt")));
+                }
+            }
+        } catch (Exception e) {
+            log.warn("批量聚合粉丝数失败: {}", e.getMessage());
+        }
+        try {
+            List<Map<String, Object>> followingList = followMapper.batchCountFollowing(userIds);
+            if (followingList != null) {
+                for (Map<String, Object> row : followingList) {
+                    followingMap.put(toLong(row.get("userId")), toLong(row.get("cnt")));
+                }
+            }
+        } catch (Exception e) {
+            log.warn("批量聚合关注数失败: {}", e.getMessage());
+        }
+
+        // 组装结果
+        java.time.LocalDateTime now = java.time.LocalDateTime.now();
+        List<Map<String, Object>> result = new ArrayList<>(limited.size());
+        for (PortalUser user : limited) {
             Map<String, Object> item = new HashMap<>();
             item.put("id", user.getId());
             item.put("username", user.getUsername());
@@ -333,33 +399,37 @@ public class PortalUserController extends BaseController {
             item.put("avatar", user.getAvatar());
             item.put("bio", user.getBio());
             item.put("position", user.getPosition());
-            // 真实统计：从文章表实时聚合
-            try {
-                java.util.Map<String, Object> stats = articleMapper.selectAuthorArticleStats(user.getId());
-                if (stats != null) {
-                    item.put("works", toInt(stats.get("articleCount")));
-                    item.put("views", toLong(stats.get("viewSum")));
-                    item.put("likes", toLong(stats.get("likeSum")));
-                } else {
-                    item.put("works", 0);
-                    item.put("views", 0L);
-                    item.put("likes", 0L);
-                }
-            } catch (Exception e) {
+
+            Map<String, Object> articleStats = articleStatsMap.get(user.getId());
+            long articleLikeSum = 0L;
+            if (articleStats != null) {
+                item.put("works", toInt(articleStats.get("articleCount")));
+                item.put("views", toLong(articleStats.get("viewSum")));
+                item.put("likes", toLong(articleStats.get("likeSum")));
+                // 评论数（观点）：与 getUserStats 保持一致，从文章表 commentSum 实时聚合
+                item.put("comments", toInt(articleStats.get("commentSum")));
+                articleLikeSum = toLong(articleStats.get("likeSum"));
+            } else {
                 item.put("works", 0);
                 item.put("views", 0L);
                 item.put("likes", 0L);
+                item.put("comments", 0);
             }
+            // 总获赞 = 文章获赞 + 评论获赞（与 getUserStats 同口径）
+            long commentLikeSum = commentLikeMap.getOrDefault(user.getId(), 0L);
+            item.put("totalLikes", articleLikeSum + commentLikeSum);
+            // 粉丝数、关注数（批量聚合，缺省为 0）
+            item.put("fansCount", followerMap.getOrDefault(user.getId(), 0L));
+            item.put("followCount", followingMap.getOrDefault(user.getId(), 0L));
             // 创作天数：从注册时间计算
             if (user.getCreateTime() != null) {
-                long days = java.time.Duration.between(
-                        user.getCreateTime(), java.time.LocalDateTime.now()).toDays();
+                long days = java.time.Duration.between(user.getCreateTime(), now).toDays();
                 item.put("days", days);
             } else {
                 item.put("days", 0L);
             }
-            return item;
-        }).toList();
+            result.add(item);
+        }
         return success(result);
     }
 

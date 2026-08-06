@@ -164,10 +164,23 @@ public class SecurityConfig {
                             // Swagger / Knife4j 文档：开发环境默认放行；生产环境应通过 KNIFE4J_PRODUCTION=true 关闭文档入口，
                             // 或在生产 SecurityConfig 中将以下 permitAll 改为 hasRole("ADMIN") / IP 白名单以避免接口暴露
                             .requestMatchers("/swagger-ui.html", "/swagger-resources/**", "/webjars/**", "/*/api-docs", "/doc.html", "/swagger-ui/**", "/v3/api-docs/**").permitAll()
-                            // Druid 监控页面仅管理员可访问，避免生产环境暴露数据库监控信息
-                            .requestMatchers("/druid/**").hasRole("ADMIN")
+                            // Druid 监控页面：整体放行，由 Druid StatViewServlet 自带的 SessionAuth 鉴权。
+                            // 依赖 application-*.yaml 中 stat-view-servlet.login-username/password 配置。
+                            // 两套鉴权机制不可混用：若 Spring Security 拦截 /druid/**，Druid 自带登录页
+                            // 的 session 无法创建 Spring Security Authentication，导致登录后仍 401。
+                            // 生产环境应同时配置 stat-view-servlet.allow 限定可访问 IP。
+                            .requestMatchers("/druid/**").permitAll()
                             // WebSocket 握手端点：放行 HTTP 升级请求，鉴权由 PortalWebSocketAuthInterceptor 处理
                             .requestMatchers("/ws-message/**").permitAll()
+                            // AI 模块 SSE 流式接口：不再 permitAll。
+                            // 历史遗留：原 moyun-ai-parent 使用 Sa-Token，迁移后已统一 Spring Security + JWT，
+                            // 前端通过 fetchStream（基于 fetch + ReadableStream）携带 Authorization: Bearer <token>，
+                            // EventSource 已被前端废弃，因此所有 AI 接口统一走 anyRequest().authenticated() 鉴权链。
+                            // 旧规则中 /cms/ai/diagram/stream/** 与 /cms/ai/workflow/generate/stream/**
+                            // 本就是无效规则（实际 Controller 路径不匹配），一并清除。
+                            // 知识库进度接口 /cms/ai/knowledge/progress/** 也需登录后访问。
+                            // AI 模块 Portal 侧的 /portal/ai/** 接口需要登录态（由 PortalSecurityConfig 鉴权），
+                            // 不在此处放行；如需对特定接口公开，使用 @Anonymous 注解精确控制。
                             // 除上面外的所有请求全部需要鉴权认证
                             .anyRequest().authenticated();
                 })

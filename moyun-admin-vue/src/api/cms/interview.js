@@ -128,7 +128,6 @@ export function topInterviewExperience(data) {
   });
 }
 
-// TODO 后端接口缺失，待补充：CmsInterviewController 无根路径 POST /experience，需后端新增
 // 新增面经
 export function addInterviewExperience(data) {
   return request({
@@ -138,7 +137,6 @@ export function addInterviewExperience(data) {
   });
 }
 
-// TODO 后端接口缺失，待补充：CmsInterviewController 无根路径 PUT /experience，需后端新增
 // 修改面经
 export function updateInterviewExperience(data) {
   return request({

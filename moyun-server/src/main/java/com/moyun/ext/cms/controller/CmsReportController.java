@@ -12,6 +12,7 @@ import com.moyun.portal.domain.entity.PortalReport;
 import com.moyun.portal.mapper.PortalReportMapper;
 import com.moyun.system.domain.entity.SysNotification;
 import com.moyun.system.service.ISysNotificationService;
+import com.moyun.ext.cms.service.IReportTakedownService;
 import com.moyun.util.bean.PageUtils;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -41,6 +42,9 @@ public class CmsReportController extends BaseController {
 
     @Autowired
     private ISysNotificationService notificationService;
+
+    @Autowired
+    private IReportTakedownService reportTakedownService;
 
     /**
      * 查询举报列表（分页）
@@ -80,9 +84,10 @@ public class CmsReportController extends BaseController {
     /**
      * 处理举报（标记为已处理并记录处理结果）
      * 仅允许更新 status/handleResult 两个字段，防止前端篡改 userId/username/description 等。
+     * 当 status=resolved（举报成立）且举报携带 targetType/targetId 时，联动下架被举报内容。
      * 当请求携带 notifyUser=true 时，向举报提交人发送站内通知（默认不通知）。
      */
-    @Operation(summary = "处理举报", description = "处理举报记录，标记状态并记录处理结果，可选通知提交人")
+    @Operation(summary = "处理举报", description = "处理举报记录，标记状态并记录处理结果，resolved 时联动下架被举报内容，可选通知提交人")
     @PreAuthorize("@ss.hasPermi('cms:report:handle')")
     @Log(title = "举报管理", businessType = BusinessType.UPDATE)
     @PutMapping("/handle")
@@ -106,6 +111,20 @@ public class CmsReportController extends BaseController {
                 .set(PortalReport::getHandleTime, LocalDateTime.now())
                 .set(PortalReport::getUpdateTime, LocalDateTime.now());
         int rows = reportMapper.update(null, updateWrapper);
+
+        // 举报成立（resolved）：联动下架被举报内容
+        // 仅当下架成功才视为处理完成；下架失败抛出异常触发事务回滚，避免举报已解决但内容未下架的不一致
+        if (rows > 0 && "resolved".equals(status)) {
+            PortalReport full = reportMapper.selectById(report.getId());
+            if (full != null && full.getTargetType() != null && !full.getTargetType().isEmpty()
+                    && full.getTargetId() != null) {
+                boolean takenDown = reportTakedownService.takedown(
+                        full.getTargetType(), full.getTargetId(), getUsername());
+                log.info("举报联动下架：reportId={}, targetType={}, targetId={}, result={}",
+                        report.getId(), full.getTargetType(), full.getTargetId(), takenDown);
+            }
+        }
+
         // 处理成功后，按需向举报提交人发送站内通知
         if (rows > 0 && Boolean.TRUE.equals(report.getNotifyUser())) {
             sendHandleNotification(report.getId(), status, report.getHandleResult());

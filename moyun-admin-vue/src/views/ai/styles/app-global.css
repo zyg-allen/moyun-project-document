@@ -1,0 +1,336 @@
+html,
+body {
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  height: 100%;
+}
+
+#app {
+  height: 100%;
+}
+
+.app-container {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+}
+
+/* 顶部导航栏 */
+.top-nav {
+  height: 60px;
+  background: #fff;
+  border-bottom: 1px solid #e5e7eb;
+  display: flex;
+  align-items: center;
+  padding: 0 24px;
+  gap: 32px;
+  flex-shrink: 0;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+/* Logo区域 */
+.logo-section {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+.logo-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.logo-icon i {
+  font-size: 18px;
+  color: white;
+}
+
+.logo-img {
+  width: 32px;
+  height: 32px;
+  object-fit: contain;
+}
+
+.logo-text {
+  font-size: 17px;
+  font-weight: 700;
+  color: #1f2937;
+  letter-spacing: -0.3px;
+}
+
+/* 导航菜单 */
+.nav-menu {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+}
+
+/* 中小屏幕时可滚动 */
+@media (max-width: 1200px) {
+  .nav-menu {
+    justify-content: flex-start;
+    overflow-x: auto;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  
+  .nav-menu::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-size: 14px;
+  font-weight: 500;
+  color: #6b7280;
+  user-select: none;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.nav-item i {
+  font-size: 16px;
+}
+
+.nav-item:hover {
+  background: #f3f4f6;
+  color: #374151;
+}
+
+.nav-item.active {
+  background: linear-gradient(135deg, #eef2ff 0%, #e0e7ff 100%);
+  color: #6366f1;
+  font-weight: 600;
+}
+
+.nav-item.active i {
+  color: #6366f1;
+}
+
+.new-tab-icon {
+  font-size: 11px !important;
+  opacity: 0.6;
+  margin-left: 2px;
+}
+
+/* 用户区域 */
+.user-section {
+  flex-shrink: 0;
+}
+
+.user-dropdown {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 12px;
+  border-radius: 24px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.user-dropdown:hover {
+  background: #f3f4f6;
+}
+
+.user-avatar {
+  background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+  color: white;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.user-name {
+  font-size: 14px;
+  color: #374151;
+  font-weight: 500;
+}
+
+.user-dropdown i.fa-chevron-down {
+  font-size: 10px;
+  color: #9ca3af;
+}
+
+/* 主内容区 */
+.main-view {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  background: #f8fafc;
+  /* 隐藏滚动条但保持可滚动 */
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE and Edge */
+}
+
+.main-view::-webkit-scrollbar {
+  display: none; /* Chrome, Safari, Opera */
+}
+
+.main-view.with-nav {
+  height: calc(100vh - 60px);
+}
+
+/* ============================================
+   响应式设计 - 小屏幕优化
+   ============================================ */
+
+/* 平板及以下 (< 1024px) */
+@media (max-width: 1024px) {
+  .top-nav {
+    padding: 0 16px;
+    gap: 16px;
+  }
+
+  .nav-menu {
+    gap: 2px;
+  }
+
+  .nav-item {
+    padding: 8px 12px;
+    font-size: 13px;
+    gap: 6px;
+  }
+
+  .nav-item i {
+    font-size: 15px;
+  }
+
+  .user-dropdown {
+    gap: 8px;
+    padding: 6px 10px;
+  }
+
+  .user-name {
+    font-size: 13px;
+  }
+}
+
+/* 小屏幕 (< 768px) - 隐藏文字，只显示图标 */
+@media (max-width: 768px) {
+  .top-nav {
+    padding: 0 12px;
+    gap: 8px;
+  }
+
+  .logo-text {
+    display: none;
+  }
+
+  .nav-menu {
+    gap: 0;
+    overflow-x: auto;
+    flex-shrink: 1;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+
+  .nav-menu::-webkit-scrollbar {
+    display: none;
+  }
+
+  .nav-item {
+    padding: 10px;
+    width: 40px;
+    height: 40px;
+    justify-content: center;
+    position: relative;
+    flex-shrink: 0;
+  }
+
+  .nav-item span {
+    display: none;
+  }
+
+  .nav-item i {
+    font-size: 18px;
+    margin: 0;
+  }
+
+  /* 鼠标悬停显示标签提示 */
+  .nav-item::after {
+    content: attr(data-title);
+    position: absolute;
+    bottom: -32px;
+    left: 50%;
+    transform: translateX(-50%) scale(0.8);
+    padding: 4px 8px;
+    background: rgba(0, 0, 0, 0.8);
+    color: white;
+    font-size: 11px;
+    border-radius: 4px;
+    white-space: nowrap;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s, transform 0.2s;
+    z-index: 1000;
+  }
+
+  .nav-item:hover::after {
+    opacity: 1;
+    transform: translateX(-50%) scale(1);
+  }
+
+  .user-name {
+    display: none;
+  }
+
+  .user-dropdown i.fa-chevron-down {
+    display: none;
+  }
+
+  .user-dropdown {
+    padding: 6px;
+  }
+}
+
+/* 超小屏幕 (< 480px) */
+@media (max-width: 480px) {
+  .top-nav {
+    padding: 0 8px;
+    gap: 4px;
+  }
+
+  .logo-section {
+    gap: 0;
+  }
+
+  .logo-icon {
+    width: 32px;
+    height: 32px;
+  }
+
+  .logo-icon i {
+    font-size: 16px;
+  }
+
+  .nav-item {
+    padding: 8px;
+    width: 36px;
+    height: 36px;
+  }
+
+  .nav-item i {
+    font-size: 16px;
+  }
+
+  .user-avatar {
+    width: 32px;
+    height: 32px;
+    font-size: 12px;
+  }
+}

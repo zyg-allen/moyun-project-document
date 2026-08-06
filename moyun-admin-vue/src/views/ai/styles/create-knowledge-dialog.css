@@ -1,0 +1,143 @@
+.step-content {
+  min-height: 300px;
+  padding: 20px 0;
+}
+
+.file-info {
+  margin-top: 20px;
+}
+
+.template-section {
+  padding: 10px 0;
+}
+
+.template-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+}
+
+.template-item {
+  width: 100%;
+  height: auto;
+  margin-right: 0 !important;
+  padding: 15px;
+}
+
+.template-item :deep(.el-radio__label) {
+  width: 100%;
+}
+
+.template-content {
+  width: 100%;
+}
+
+.template-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.template-header-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.detail-toggle {
+  font-size: 16px;
+  color: #909399;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.detail-toggle:hover {
+  color: #409eff;
+}
+
+.detail-toggle.active {
+  color: #409eff;
+  transform: scale(1.1);
+}
+
+.template-name {
+  font-size: 16px;
+  font-weight: bold;
+}
+
+.template-desc {
+  font-size: 14px;
+  color: #606266;
+}
+
+/* 展开/折叠动画 */
+.slide-fade-enter-active {
+  transition: all 0.3s ease-out;
+}
+
+.slide-fade-leave-active {
+  transition: all 0.2s ease-in;
+}
+
+.slide-fade-enter-from,
+.slide-fade-leave-to {
+  opacity: 0;
+  transform: translateY(-10px);
+  max-height: 0;
+}
+
+.slide-fade-enter-to,
+.slide-fade-leave-from {
+  opacity: 1;
+  transform: translateY(0);
+  max-height: 300px;
+}
+
+.template-details {
+  margin-top: 12px;
+  padding: 12px;
+  background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+  border-radius: 8px;
+  border-left: 3px solid #409eff;
+}
+
+.template-details .detail-item {
+  display: flex;
+  align-items: flex-start;
+  font-size: 12px;
+  color: #606266;
+  line-height: 1.6;
+  margin-bottom: 6px;
+}
+
+.template-details .detail-item:last-child {
+  margin-bottom: 0;
+}
+
+.template-details .detail-item i {
+  flex-shrink: 0;
+  margin-top: 3px;
+}
+
+.template-details .detail-item span {
+  flex: 1;
+}
+
+.template-item.is-checked .template-details {
+  background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%);
+  border-left-color: #67c23a;
+}
+
+.dialog-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+:deep(.el-checkbox-group) {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}

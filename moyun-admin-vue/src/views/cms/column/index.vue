@@ -108,10 +108,17 @@
           <el-button
             link
             type="warning"
+            icon="View"
+            @click="handleAuditPage(scope.row)"
+            v-hasPermi="['cms:column:audit']"
+          >审核</el-button>
+          <el-button
+            link
+            type="info"
             icon="Switch"
             @click="handleStatus(scope.row)"
             v-hasPermi="['portal:column:edit']"
-          >审核</el-button>
+          >状态</el-button>
           <el-button
             link
             type="danger"
@@ -238,6 +245,15 @@ import { getCurrentInstance, ref, reactive, onMounted } from "vue";
 import { listColumn, getColumn, addColumn, updateColumn, delColumn, changeColumnStatus } from "@/api/cms/column";
 
 const { proxy } = getCurrentInstance();
+const router = useRouter();
+
+/** 跳转到专栏审核页（与文章审核入口一致） */
+function handleAuditPage(row) {
+  router.push({
+    path: "/cms/column-audit",
+    query: { id: row.id }
+  });
+}
 
 const queryParams = reactive({
   pageNum: 1,

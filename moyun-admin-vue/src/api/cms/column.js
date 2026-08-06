@@ -52,3 +52,13 @@ export function changeColumnStatus(id, status) {
     data: { status: status }
   })
 }
+
+// 审核专栏（CMS 审核接口，写入 auditorId/auditRemark/auditTime 并通知作者）
+// PUT /cms/column/{id}/audit  body: { status: 'published'|'rejected', auditRemark? }
+export function auditColumn(id, data) {
+  return request({
+    url: '/cms/column/' + id + '/audit',
+    method: 'put',
+    data: data
+  })
+}

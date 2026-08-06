@@ -184,8 +184,8 @@
           <div class="section-header">
             <span>文章内容</span>
             <el-radio-group v-model="form.editorMode" size="small" @change="handleEditorModeChange">
-              <el-radio-button value="richtext">富文本</el-radio-button>
-              <el-radio-button value="markdown">Markdown</el-radio-button>
+              <el-radio-button label="richtext">富文本</el-radio-button>
+              <el-radio-button label="markdown">Markdown</el-radio-button>
             </el-radio-group>
           </div>
         </template>
@@ -702,14 +702,19 @@ function submitForm() {
   articleRef.value.validate(valid => {
     if (valid) {
       submitLoading.value = true;
-      
-      // 如果是 Markdown 模式，需要将 Markdown 转换为 HTML 存入 content
+
+      // 兜底：editorMode 必须有有效值，避免空字符串写入数据库
+      if (form.value.editorMode !== "markdown" && form.value.editorMode !== "richtext") {
+        form.value.editorMode = "richtext";
+      }
+
+      // Markdown 模式：将 Markdown 转换为 HTML 存入 content，同时保留 contentMarkdown 原文
       if (form.value.editorMode === "markdown" && form.value.contentMarkdown) {
         form.value.content = markdownPreview.value;
       }
-      
+
       const submitData = { ...form.value };
-      
+
       if (submitData.id !== undefined) {
         updateArticle(submitData).then(response => {
           proxy.$modal.msgSuccess("修改成功");
@@ -742,6 +747,9 @@ init();
 .article-edit-container {
   padding: 20px;
   background: var(--el-bg-color-page);
+  /* 内容区最大宽度与前台发布页 max-w-7xl 对齐 */
+  max-width: 1280px;
+  margin: 0 auto;
 }
 
 .editor-top-bar {
@@ -1080,6 +1088,16 @@ init();
 
 .editor-wrapper {
   width: 100%;
+  max-width: 100%;
+}
+/* 编辑器外层容器：与前台发布页 max-w-7xl 容器等宽 */
+:deep(.ql-toolbar) {
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
+}
+:deep(.ql-container) {
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
 }
 
 :deep(.el-row) {

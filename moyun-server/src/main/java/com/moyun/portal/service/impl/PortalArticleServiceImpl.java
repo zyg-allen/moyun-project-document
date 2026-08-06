@@ -34,6 +34,7 @@ import com.moyun.portal.service.IPortalArticleVersionService;
 import com.moyun.portal.service.IPortalCategoryService;
 import com.moyun.portal.service.IPortalGrowthService;
 import com.moyun.portal.util.PortalSecurityUtils;
+import com.moyun.system.service.ISensitiveWordService;
 import com.moyun.util.file.Base64ImageUtils;
 
 /**
@@ -64,6 +65,9 @@ public class PortalArticleServiceImpl extends ServiceImpl<PortalArticleMapper, P
 
     @Autowired
     private IPortalArticleVersionService articleVersionService;
+
+    @Autowired
+    private ISensitiveWordService sensitiveWordService;
 
     // 以下 Mapper 用于删除文章时级联清理关联数据（评论/点赞/收藏/版本/打赏订单）
     @Autowired
@@ -132,6 +136,12 @@ public class PortalArticleServiceImpl extends ServiceImpl<PortalArticleMapper, P
         // 归属校验：当 id 非空时（更新场景），校验当前用户为文章作者，防止越权修改他人文章
         if (portalArticle.getId() != null) {
             checkOwnership(portalArticle.getId(), PortalSecurityUtils.getUserId());
+        }
+        // 安全防护：前台编辑接口仅允许"重新提交审核"（status=pending），
+        // 禁止直接发布（status=published）以防绕过审核。
+        // draft 状态由 saveDraft 接口控制，其他状态值一律剥离。
+        if (!"pending".equals(portalArticle.getStatus())) {
+            portalArticle.setStatus(null);
         }
         // 自动处理Base64图片
         processArticleImages(portalArticle);
@@ -214,6 +224,28 @@ public class PortalArticleServiceImpl extends ServiceImpl<PortalArticleMapper, P
             rows = baseMapper.insertPortalArticle(portalArticle);
         } else {
             rows = baseMapper.updatePortalArticle(portalArticle);
+        }
+
+        // 敏感词轻量扫描：标题+摘要+正文拼接检测。
+        // 命中即写入审计日志（action=pending），文章已默认 pending，转人工/AI 重点审核。
+        // 不阻断发布，符合"AI/接口审核只记录通知、边界擦边转人工"策略。
+        if (rows > 0 && portalArticle.getId() != null) {
+            try {
+                StringBuilder scanText = new StringBuilder();
+                if (portalArticle.getTitle() != null) scanText.append(portalArticle.getTitle());
+                if (portalArticle.getExcerpt() != null) scanText.append(" ").append(portalArticle.getExcerpt());
+                if (portalArticle.getContent() != null) scanText.append(" ").append(portalArticle.getContent());
+                List<String> hits = sensitiveWordService.detectAndLog(
+                        "article", portalArticle.getId(), portalArticle.getAuthorId(),
+                        scanText.toString(), "pending");
+                if (hits != null && !hits.isEmpty()) {
+                    org.slf4j.LoggerFactory.getLogger(PortalArticleServiceImpl.class)
+                            .warn("文章命中敏感词，转人工审核：articleId={}, hits={}", portalArticle.getId(), hits);
+                }
+            } catch (Exception e) {
+                org.slf4j.LoggerFactory.getLogger(PortalArticleServiceImpl.class)
+                        .warn("文章敏感词扫描异常：articleId={}, err={}", portalArticle.getId(), e.getMessage());
+            }
         }
 
         // 记录成长事件 + 更新创作字数统计（首次发布时触发，避免重复加成长值）

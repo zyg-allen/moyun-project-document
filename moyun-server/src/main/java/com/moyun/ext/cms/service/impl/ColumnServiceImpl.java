@@ -1,6 +1,7 @@
 package com.moyun.ext.cms.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.moyun.common.exception.system.ServiceException;
@@ -19,8 +20,10 @@ import com.moyun.portal.mapper.PortalArticleMapper;
 import com.moyun.portal.mapper.PortalColumnArticleMapper;
 import com.moyun.portal.mapper.PortalColumnMapper;
 import com.moyun.portal.mapper.PortalColumnSubscribeMapper;
+import com.moyun.system.service.ISensitiveWordService;
 import com.moyun.util.bean.PageUtils;
 import com.moyun.util.string.StringUtils;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
@@ -35,6 +38,7 @@ import java.util.List;
  *
  * @author moyun
  */
+@Slf4j
 @Service
 public class ColumnServiceImpl implements IColumnService {
 
@@ -46,6 +50,7 @@ public class ColumnServiceImpl implements IColumnService {
     @Autowired private PortalColumnSubscribeMapper columnSubscribeMapper;
     @Autowired private PortalArticleMapper articleMapper;
     @Autowired(required = false) private IFeedService feedService;
+    @Autowired private ISensitiveWordService sensitiveWordService;
 
     // ========================================================================
     // 列表 / 详情
@@ -61,6 +66,14 @@ public class ColumnServiceImpl implements IColumnService {
         ColumnVO vo = columnMapper.selectDetailById(id);
         if (vo == null) {
             return null;
+        }
+        // 非 published 状态（draft/pending/rejected）：仅作者本人可见，
+        // 避免未审核专栏通过直链曝光。archived 保持可见（仅下架不公开展示，但可访问）。
+        if (!"published".equals(vo.getStatus()) && !"archived".equals(vo.getStatus())) {
+            boolean isOwner = currentUserId != null && currentUserId.equals(vo.getUserId());
+            if (!isOwner) {
+                return null;
+            }
         }
         // 当前用户是否已订阅（未登录视为未订阅）
         boolean subscribed = currentUserId != null
@@ -98,7 +111,9 @@ public class ColumnServiceImpl implements IColumnService {
             }
             entity = new PortalColumn();
             entity.setUserId(userId);
-            entity.setStatus(StringUtils.isNotEmpty(vo.getStatus()) ? vo.getStatus() : "draft");
+            // 安全防护：新建专栏强制 draft 状态，禁止前端直传 published 绕过审核。
+            // 专栏公开需经 CMS 后台审核（/cms/column/audit）流转为 published。
+            entity.setStatus("draft");
             entity.setArticleCount(0);
             entity.setSubscribeCount(0);
             entity.setViewCount(0);
@@ -114,9 +129,7 @@ public class ColumnServiceImpl implements IColumnService {
             if (!entity.getUserId().equals(userId)) {
                 throw new ServiceException("无权修改该专栏");
             }
-            if (vo.getStatus() != null) {
-                entity.setStatus(vo.getStatus());
-            }
+            // 安全防护：编辑接口禁止前端修改 status，状态流转仅由 CMS 审核接口控制
             if (vo.getIsFinished() != null) {
                 entity.setIsFinished(vo.getIsFinished());
             }
@@ -134,6 +147,10 @@ public class ColumnServiceImpl implements IColumnService {
 
         if (isNew) {
             columnMapper.insert(entity);
+            // 敏感词扫描：标题+副标题+简介拼接检测。
+            // 命中即写入审计日志（action=pending），专栏强制转 pending 待人工/AI 审核，
+            // 避免 published 状态下的违规内容曝光。
+            scanColumnSensitiveWords(entity, userId, true);
             // 仅新建时推送 Feed；修改不推送
             if (feedService != null && "published".equals(entity.getStatus())) {
                 feedService.publishEvent(userId, "new_column", "column", entity.getId(),
@@ -141,8 +158,47 @@ public class ColumnServiceImpl implements IColumnService {
             }
         } else {
             columnMapper.updateById(entity);
+            // 编辑后重新扫描；命中仅标记 flag，不强制改状态（编辑场景可能为已发布专栏的修订）
+            scanColumnSensitiveWords(entity, userId, false);
         }
         return entity.getId();
+    }
+
+    // ========================================================================
+    // 敏感词扫描（内部）
+    // ========================================================================
+    /**
+     * 专栏敏感词扫描：标题+副标题+简介拼接检测。
+     *
+     * @param entity    专栏实体（已入库，含 id）
+     * @param userId    创作者ID
+     * @param forcePending 命中时是否强制转为 pending（新建场景为 true，编辑场景为 false）
+     */
+    private void scanColumnSensitiveWords(PortalColumn entity, Long userId, boolean forcePending) {
+        StringBuilder sb = new StringBuilder();
+        if (entity.getTitle() != null) sb.append(entity.getTitle());
+        if (entity.getSubtitle() != null) sb.append(" ").append(entity.getSubtitle());
+        if (entity.getDescription() != null) sb.append(" ").append(entity.getDescription());
+        String scanText = sb.toString();
+        try {
+            String action = forcePending ? "pending" : "flag";
+            List<String> hits = sensitiveWordService.detectAndLog(
+                    "column", entity.getId(), userId, scanText, action);
+            if (hits != null && !hits.isEmpty()) {
+                log.warn("专栏命中敏感词：columnId={}, userId={}, hits={}, forcePending={}",
+                        entity.getId(), userId, hits, forcePending);
+                if (forcePending) {
+                    // 命中即转 pending，待人工/AI 审核；保持 draft 时也升级为 pending
+                    LambdaUpdateWrapper<PortalColumn> uw = Wrappers.<PortalColumn>lambdaUpdate()
+                            .eq(PortalColumn::getId, entity.getId())
+                            .set(PortalColumn::getStatus, "pending");
+                    columnMapper.update(null, uw);
+                    entity.setStatus("pending");
+                }
+            }
+        } catch (Exception e) {
+            log.warn("专栏敏感词扫描异常：columnId={}, err={}", entity.getId(), e.getMessage());
+        }
     }
 
     // ========================================================================

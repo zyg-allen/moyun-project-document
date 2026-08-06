@@ -57,7 +57,9 @@ async function sendSmsCode() {
   
   isSendingCode.value = true;
   try {
-    // 模拟发送短信
+    // ⚠️ Mock 实现：当前为开发环境模拟发送，未对接真实短信服务。
+    // 生产环境投产前需替换为真实短信 API 调用（如阿里云/腾讯云短信），
+    // 后端接口：POST /portal/login/sms/send（需后端补充短信发送接口）
     await new Promise(resolve => setTimeout(resolve, 1000));
     startCountdown();
   } catch (error) {

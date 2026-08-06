@@ -6,8 +6,10 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import com.moyun.portal.domain.entity.PortalCreatorCertification;
 import com.moyun.portal.domain.entity.PortalUser;
@@ -25,6 +27,7 @@ import com.moyun.system.service.ISysNotificationService;
  *
  * @author moyun
  */
+@Slf4j
 @Service
 public class PortalCreatorCertificationServiceImpl
         extends ServiceImpl<PortalCreatorCertificationMapper, PortalCreatorCertification>
@@ -82,6 +85,7 @@ public class PortalCreatorCertificationServiceImpl
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public PortalCreatorCertification audit(Long id, Long auditorId, String status, String remark) {
         PortalCreatorCertification entity = baseMapper.selectById(id);
         if (entity == null) {
@@ -105,7 +109,16 @@ public class PortalCreatorCertificationServiceImpl
                 .set(PortalUser::getIsCertifiedCreator, certified);
         portalUserMapper.update(null, userUpdate);
 
-        // 业务闭环：把审核结果通知申请人，让用户在前台消息中心看到反馈
+        // 业务闭环 1：关闭申请时下发的待办通知（type=todo）
+        // apply 阶段通过 sendTodoNotification 向所有审核员下发了待办，data 含 bizType+id；
+        // 此处按 bizType+id 精确匹配关闭，避免审核完成后待办仍残留在审核员的待办列表中。
+        try {
+            notificationService.completeTodoByBizData("creator_certification", id);
+        } catch (Exception e) {
+            log.warn("关闭创作者认证待办失败（不影响审核主流程）：id={}, err={}", id, e.getMessage());
+        }
+
+        // 业务闭环 2：把审核结果通知申请人，让用户在前台消息中心看到反馈
         try {
             SysNotification notice = new SysNotification();
             notice.setType("system");

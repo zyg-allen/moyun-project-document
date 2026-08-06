@@ -174,7 +174,7 @@ public class SysFileServiceImpl implements ISysFileService {
     }
 
     @Override
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public SysFile uploadFile(MultipartFile file, String businessType, String businessId) {
         return uploadFile(file, businessType, businessId, false);
     }
@@ -183,7 +183,7 @@ public class SysFileServiceImpl implements ISysFileService {
      * 上传文件（支持前台用户）
      */
     @Override
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public SysFile uploadFileForPortal(MultipartFile file, String businessType, String businessId) {
         return uploadFile(file, businessType, businessId, true);
     }
@@ -272,7 +272,7 @@ public class SysFileServiceImpl implements ISysFileService {
     }
 
     @Override
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public SysFile uploadBytes(byte[] bytes, String fileName, String contentType, String businessType, String businessId) {
         SysFile sysFile = new SysFile();
         try {
@@ -335,7 +335,7 @@ public class SysFileServiceImpl implements ISysFileService {
     }
 
     @Override
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public int deleteFileById(Long id) {
         SysFile file = selectFileById(id);
         if (file != null) {
@@ -346,7 +346,7 @@ public class SysFileServiceImpl implements ISysFileService {
     }
 
     @Override
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public int deleteFileByIds(Long[] ids) {
         for (Long id : ids) {
             deleteFileById(id);
@@ -397,7 +397,7 @@ public class SysFileServiceImpl implements ISysFileService {
      * 未找到记录返回 false（不抛异常），便于前端幂等调用（重复删除静默成功）。
      */
     @Override
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public boolean deleteFileByUrl(String fileUrl, Long expectUploadUserId) {
         if (fileUrl == null || fileUrl.trim().isEmpty()) {
             return false;

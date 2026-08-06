@@ -129,7 +129,7 @@ async function handleUpload(e: Event) {
   const oldCover = cover.value || null;
   uploading.value = true;
   try {
-    const res = await uploadImage(file);
+    const res = await uploadImage(file, { businessType: 'column_cover' });
     if (res.code === 200 && res.data) {
       cover.value = res.data.fileUrl;
       // 新封面上传成功后，删除旧封面（DB+存储），失败仅警告不影响新封面

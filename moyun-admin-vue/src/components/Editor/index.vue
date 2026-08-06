@@ -95,9 +95,14 @@ const options = ref({
 });
 
 const styles = computed(() => {
-  let style = {};
+  let style = {
+    width: '100%'
+  };
   if (props.minHeight) {
     style.minHeight = `${props.minHeight}px`;
+  } else {
+    // 默认最小高度，与前台发布页保持一致（180px 起步）
+    style.minHeight = '300px';
   }
   if (props.height) {
     style.height = `${props.height}px`;
@@ -108,7 +113,7 @@ const styles = computed(() => {
 const content = ref("");
 watch(() => props.modelValue, (v) => {
   if (v !== content.value) {
-    content.value = v === undefined ? "<p></p>" : v;
+    content.value = v === undefined || v === null ? "<p></p>" : v;
   }
 }, { immediate: true });
 
@@ -173,17 +178,115 @@ function handleUploadError() {
 }
 </script>
 
-<style>
+<style scoped>
 .editor-img-uploader {
   display: none;
 }
-.editor, .ql-toolbar {
+.editor {
+  width: 100%;
+}
+.editor :deep(.ql-toolbar) {
   white-space: pre-wrap !important;
   line-height: normal !important;
+  border-color: var(--el-border-color) !important;
+}
+.editor :deep(.ql-container) {
+  font-size: 14px;
+  border-color: var(--el-border-color) !important;
+}
+.editor :deep(.ql-editor) {
+  min-height: 300px;
+  padding: 12px 15px;
+  line-height: 1.7;
+  color: var(--el-text-color-primary);
+}
+/* 段落间距：Quill 默认 p margin 过大，统一为 0.8em，避免段落混乱拥挤 */
+.editor :deep(.ql-editor p),
+.editor :deep(.ql-editor h1),
+.editor :deep(.ql-editor h2),
+.editor :deep(.ql-editor h3),
+.editor :deep(.ql-editor h4),
+.editor :deep(.ql-editor h5),
+.editor :deep(.ql-editor h6),
+.editor :deep(.ql-editor ul),
+.editor :deep(.ql-editor ol),
+.editor :deep(.ql-editor blockquote),
+.editor :deep(.ql-editor pre) {
+  margin: 0 0 0.5em;
+}
+.editor :deep(.ql-editor p:last-child),
+.editor :deep(.ql-editor h1:last-child),
+.editor :deep(.ql-editor h2:last-child),
+.editor :deep(.ql-editor h3:last-child),
+.editor :deep(.ql-editor h4:last-child),
+.editor :deep(.ql-editor h5:last-child),
+.editor :deep(.ql-editor h6:last-child),
+.editor :deep(.ql-editor ul:last-child),
+.editor :deep(.ql-editor ol:last-child),
+.editor :deep(.ql-editor blockquote:last-child),
+.editor :deep(.ql-editor pre:last-child) {
+  margin-bottom: 0;
+}
+/* 标题字号：与前台展示一致 */
+.editor :deep(.ql-editor h1) { font-size: 1.8em; font-weight: 700; }
+.editor :deep(.ql-editor h2) { font-size: 1.5em; font-weight: 700; }
+.editor :deep(.ql-editor h3) { font-size: 1.3em; font-weight: 700; }
+.editor :deep(.ql-editor h4) { font-size: 1.2em; font-weight: 700; }
+.editor :deep(.ql-editor h5) { font-size: 1em; font-weight: 700; }
+.editor :deep(.ql-editor h6) { font-size: 0.9em; font-weight: 700; }
+/* 引用块样式 */
+.editor :deep(.ql-editor blockquote) {
+  border-left: 4px solid var(--el-color-primary);
+  padding-left: 12px;
+  color: var(--el-text-color-regular);
+  font-style: italic;
+}
+/* 代码块样式 */
+.editor :deep(.ql-editor pre) {
+  background: var(--el-fill-color-light);
+  padding: 8px 12px;
+  border-radius: 4px;
+  font-family: Menlo, Monaco, Consolas, "Courier New", monospace;
+  font-size: 0.9em;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+/* 图片自适应 */
+.editor :deep(.ql-editor img) {
+  max-width: 100%;
+  height: auto;
+}
+/* 链接样式：覆盖全局 a 标签重置（index.scss 中 a { color: inherit; text-decoration: none }） */
+.editor :deep(.ql-editor a) {
+  color: var(--el-color-primary);
+  text-decoration: underline;
+  cursor: pointer;
+}
+.editor :deep(.ql-editor a:hover) {
+  color: var(--el-color-primary-light-3);
+}
+/* 列表样式：Quill 默认 list-style 可能在 reset 后丢失 */
+.editor :deep(.ql-editor ul) {
+  list-style: disc;
+  padding-left: 2em;
+}
+.editor :deep(.ql-editor ol) {
+  list-style: decimal;
+  padding-left: 2em;
+}
+.editor :deep(.ql-editor li) {
+  margin: 0.2em 0;
+}
+.editor :deep(.ql-editor.ql-blank::before) {
+  color: var(--el-text-color-placeholder);
+  font-style: normal;
 }
 .quill-img {
   display: none;
 }
+</style>
+
+<style>
 .ql-snow .ql-tooltip[data-mode="link"]::before {
   content: "请输入链接地址:";
 }

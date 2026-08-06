@@ -54,9 +54,11 @@ public class CmsCommentController extends BaseController {
 
     /**
      * 审核评论
+     * <p>独立权限 cms:comment:audit，与 cms:comment:edit 分离，
+     * 支持审核员与编辑员角色独立配置。
      */
     @Operation(summary = "审核评论", description = "审核评论内容")
-    @PreAuthorize("@ss.hasPermi('cms:comment:edit')")
+    @PreAuthorize("@ss.hasPermi('cms:comment:audit')")
     @Log(title = "评论管理", businessType = BusinessType.UPDATE)
     @PutMapping("/audit")
     public AjaxResult audit(@RequestBody PortalComment comment) {

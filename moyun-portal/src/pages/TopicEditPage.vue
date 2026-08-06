@@ -11,7 +11,7 @@ import LazyImage from '@/components/LazyImage.vue';
 import MarkdownEditor from '@/components/MarkdownEditor.vue';
 import { generateSeo } from '@/utils/seo';
 import { getTopicDetail, updateTopic } from '@/api/topic';
-import { uploadPortalFile } from '@/api/file';
+import { uploadPortalFile, deletePortalFile } from '@/api/file';
 import { useToast } from '@/composables/useToast';
 import { useUserStore } from '@/stores/user';
 
@@ -98,8 +98,17 @@ async function handleUploadCover(e: Event) {
   }
 }
 
-function handleRemoveCover() {
+async function handleRemoveCover() {
+  const oldCover = cover.value;
   cover.value = '';
+  // 清理已上传的封面文件，避免产生孤儿文件
+  if (oldCover) {
+    try {
+      await deletePortalFile(oldCover);
+    } catch (e) {
+      console.warn('删除封面文件失败:', e);
+    }
+  }
 }
 
 async function handleSubmit() {

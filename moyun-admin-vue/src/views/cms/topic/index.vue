@@ -72,6 +72,7 @@
             v-model="row.pinned"
             :active-value="1"
             :inactive-value="0"
+            :disabled="!$auth.hasPermi('cms:topic:edit')"
             @change="handlePinnedChange(row)"
           />
         </template>
@@ -82,6 +83,7 @@
             v-model="row.isFeatured"
             :active-value="1"
             :inactive-value="0"
+            :disabled="!$auth.hasPermi('cms:topic:edit')"
             @change="handleFeaturedChange(row)"
           />
         </template>
@@ -109,9 +111,10 @@
       <el-table-column label="创建时间" width="180" prop="createdTime" />
       <el-table-column label="操作" width="280" fixed="right">
         <template #default="{ row }">
-          <el-button link type="primary" @click="handleView(row)">查看</el-button>
-          <el-button link type="warning" @click="handleChangeStatus(row)">状态</el-button>
-          <el-button link type="danger" @click="handleDelete(row)">删除</el-button>
+          <el-button link type="primary" @click="handleView(row)" v-hasPermi="['cms:topic:query']">查看</el-button>
+          <el-button link type="warning" @click="handleAuditPage(row)" v-hasPermi="['cms:topic:audit']">审核</el-button>
+          <el-button link type="info" @click="handleChangeStatus(row)" v-hasPermi="['cms:topic:edit']">状态</el-button>
+          <el-button link type="danger" @click="handleDelete(row)" v-hasPermi="['cms:topic:remove']">删除</el-button>
         </template>
       </el-table-column>
     </el-table>
@@ -132,6 +135,7 @@ import { ElMessage, ElMessageBox, ElSelect, ElOption } from 'element-plus';
 import { Search, Refresh, Delete } from '@element-plus/icons-vue';
 import { listTopic, getTopic, updateTopicStatus, updateTopicPinned, featureTopic, delTopic } from '@/api/cms/topic';
 
+const router = useRouter();
 const loading = ref(true);
 const topicList = ref<any[]>([]);
 const total = ref(0);
@@ -183,6 +187,14 @@ function resetQuery() {
   queryParams.status = '';
   queryParams.pageNum = 1;
   getList();
+}
+
+/** 跳转到话题审核页（与文章/专栏审核入口一致） */
+function handleAuditPage(row: any) {
+  router.push({
+    path: '/cms/topic-audit',
+    query: { id: row.id }
+  });
 }
 
 function handleView(row: any) {

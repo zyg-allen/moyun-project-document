@@ -65,7 +65,7 @@ moyun-server/
 │   │   │   ├── SecurityConfig.java
 │   │   │   ├── SensitiveJsonSerializer.java
 │   │   │   ├── ServerConfig.java
-│   │   │   ├── ThreadPoolConfig.java
+│   │   │   ├── AsyncTaskConfig.java
 │   │   │   └── TokenConfigValidator.java
 │   │   │
 │   │   ├── security/           # 安全认证

@@ -67,6 +67,16 @@ public class PortalArticle extends BaseEntity
     @Size(min = 0, max = 20, message = "状态长度不能超过20个字符")
     private String status;
 
+    /** 审核人ID（系统用户ID，审核时写入） */
+    private Long auditorId;
+
+    /** 审核意见/驳回原因（独立于通用 remark，专用于审核记录） */
+    private String auditRemark;
+
+    /** 审核时间 */
+    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
+    private LocalDateTime auditTime;
+
     private Boolean isFeatured;
 
     private Boolean isTop;

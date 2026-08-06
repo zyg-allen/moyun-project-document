@@ -33,43 +33,14 @@ public class XssHttpServletRequestWrapper extends HttpServletRequestWrapper {
 
     @Override
     public ServletInputStream getInputStream() throws IOException {
-        if (!isJsonRequest()) {
-            return super.getInputStream();
-        }
-
-        String json = IOUtils.toString(super.getInputStream(), "utf-8");
-        if (StringUtils.isEmpty(json)) {
-            return super.getInputStream();
-        }
-
-        json = EscapeUtil.clean(json).trim();
-        byte[] jsonBytes = json.getBytes("utf-8");
-        final ByteArrayInputStream bis = new ByteArrayInputStream(jsonBytes);
-        return new ServletInputStream() {
-            @Override
-            public boolean isFinished() {
-                return true;
-            }
-
-            @Override
-            public boolean isReady() {
-                return true;
-            }
-
-            @Override
-            public int available() throws IOException {
-                return jsonBytes.length;
-            }
-
-            @Override
-            public void setReadListener(ReadListener readListener) {
-            }
-
-            @Override
-            public int read() throws IOException {
-                return bis.read();
-            }
-        };
+        // JSON 请求体直接透传，不做 HTML 过滤。
+        // 原因：HTMLFilter 不理解 JSON 结构，会把 JSON 字符串值中转义的双引号 \"
+        // 误解为 HTML 属性边界，重建标签时破坏 JSON 转义，导致 Jackson 解析失败
+        // （如 <img src=\"url\"> 被重组为 <img src="\\"/>，双引号不再转义，JSON 字符串提前结束）。
+        // XSS 防护应在业务层针对具体字段做 HTML 净化（如对富文本 content 字段做标签白名单过滤），
+        // 而不是在 filter 层对整个 JSON 请求体做粗暴的 HTML 过滤。
+        // 表单参数（getParameterValues）仍保留 HTML 过滤。
+        return super.getInputStream();
     }
 
     public boolean isJsonRequest() {

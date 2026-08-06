@@ -104,7 +104,7 @@ moyun:
 # =============================================
 mybatis-plus:
   mapper-locations: classpath*:/mapper/**/*.xml
-  type-aliases-package: com.moyun.core.base.entity,com.moyun.system.domain.entity,com.moyun.portal.domain.entity,com.moyun.ext.cms.domain.entity,com.moyun.ext.job.domain.entity
+  type-aliases-package: com.moyun.core.base.entity,com.moyun.system.domain.entity,com.moyun.portal.domain.entity,com.moyun.ext.cms.domain.entity,com.moyun.ext.job.domain.entity,com.moyun.ext.ai.entity
   configuration:
     map-underscore-to-camel-case: true
     log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
@@ -154,3 +154,105 @@ minio:
   # 降级配置（运行期可调，无需重启；可通过 /system/file/storage/switch 接口切换）
   auto-fallback: true        # 自动降级：MinIO 上传/连接异常时自动切到本地存储（默认 true）
   fallback-to-local: false   # 手动强制降级到本地存储（true=强制走本地，忽略 MinIO 配置）
+
+# =============================================
+# AI 模块配置（LangChain4j + Elasticsearch + LibreOffice）
+# =============================================
+langchain4j:
+  # 全局开关（关闭时使用 Mock 实现避免启动报错）
+  enabled: ${AI_ENABLED:false}
+  open-ai:
+    enabled: ${OPENAI_ENABLED:false}
+    api-key: ${OPENAI_API_KEY:}
+    model-name: ${OPENAI_MODEL:gpt-4o-mini}
+    temperature: 0.7
+  ollama:
+    enabled: ${OLLAMA_ENABLED:false}
+    base-url: ${OLLAMA_BASE_URL:http://localhost:11434}
+    model-name: ${OLLAMA_MODEL:qwen2.5}
+    temperature: 0.7
+  dashscope:
+    enabled: ${DASHSCOPE_ENABLED:true}
+    api-key: ${DASHSCOPE_API_KEY:}
+    chat-model: ${DASHSCOPE_CHAT_MODEL:qwen-plus}
+    embedding-model: ${DASHSCOPE_EMBEDDING_MODEL:text-embedding-v3}
+    rerank-model: ${DASHSCOPE_RERANK_MODEL:gte-rerank}
+    temperature: 0.7
+
+# =============================================
+# 向量存储配置（知识库 / RAG 检索底座）
+# =============================================
+# type: 向量库类型
+#   - redis（默认）：复用 Redis 8.0+ 内置 RediSearch（HNSW 向量 + BM25 全文），零新增服务
+#   - es：独立 Elasticsearch 8.x 集群（此时下方 elasticsearch.* 配置生效）
+# index-name: 向量索引名（ES index 名 / RediSearch FT 索引名）
+# key-prefix: Redis Hash key 前缀（仅 redis 模式生效）
+app:
+  embedding-store:
+    type: ${EMBEDDING_STORE_TYPE:redis}
+    index-name: ${EMBEDDING_STORE_INDEX_NAME:moyun_ai_vectors}
+    key-prefix: ${EMBEDDING_STORE_KEY_PREFIX:ai_vectors:}
+
+# Elasticsearch 向量检索配置（仅 app.embedding-store.type=es 时生效）
+elasticsearch:
+  uris: ${ES_URIS:http://localhost:9200}
+  username: ${ES_USERNAME:}
+  password: ${ES_PASSWORD:}
+  index-prefix: ${ES_INDEX_PREFIX:moyun_ai_}
+  index:
+    vector: ${ES_INDEX_VECTOR:moyun_ai_vectors}
+
+# LibreOffice 文档转 PDF 配置（本地转换）
+jodconverter:
+  # 开发环境默认关闭 LibreOffice 文档转 PDF（本地通常未安装 LibreOffice）
+  # 如需启用，设环境变量 LIBREOFFICE_ENABLED=true 并配置 LIBREOFFICE_HOME 指向本机安装路径
+  # 注意：local.enabled 必须与主开关同步，否则 JodConverterLocalAutoConfiguration 仍会触发 localOfficeManager 创建
+  enabled: ${LIBREOFFICE_ENABLED:false}
+  local:
+    enabled: ${LIBREOFFICE_ENABLED:false}
+    office-home: ${LIBREOFFICE_HOME:/usr/lib/libreoffice}
+    max-tasks-per-process: 200
+    task-execution-timeout: 120000
+    task-queue-timeout: 30000
+    port-numbers:
+      - 2002
+
+# 墨韵 AI 专用配置
+moyun-ai:
+  # RAG 全局默认配置（与 RagConfig.java 字段对齐，避免依赖 Java 默认值）
+  rag:
+    # 基础检索参数
+    default-min-score: 0.7
+    default-max-results: 5
+    chunk-size: 512
+    chunk-overlap: 50
+    min-recall-count: 15
+    recall-multiplier: 2.0
+    # 混合检索
+    enable-hybrid-search: true
+    enable-query-expansion: true
+    bm25-weight: 0.3
+    vector-weight: 0.7
+    # 高级 RAG 能力
+    verbose-logging: true
+    enable-query-rewriting: true
+    enable-self-rag: true
+    self-rag-min-relevance: 0.5
+    self-rag-max-verify-count: 5
+    enable-conversation-summary: true
+    summary-threshold: 20
+    summary-keep-recent: 10
+    enable-intent-recognition: true
+
+  # 文件存储（与全局 minio/profile 对齐）
+  storage:
+    knowledge-base-dir: ${MOYUN_KB_DIR:${moyun.profile}/ai/knowledge}
+    image-dir: ${MOYUN_IMG_DIR:${moyun.profile}/ai/images}
+  # 速率限制
+  rate-limit:
+    chat-requests-per-minute: 60
+    knowledge-upload-mb-per-hour: 500
+
+# 对话上下文（RagConfig 通过 @Value("${chat.max-messages:20}") 读取）
+chat:
+  max-messages: 20

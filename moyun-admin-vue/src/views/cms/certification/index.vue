@@ -201,8 +201,10 @@
 </template>
 
 <script setup name="CmsCertification">
-import { listCertification, auditCertification } from "@/api/cms/certification";
+import { listCertification, getCertification, auditCertification } from "@/api/cms/certification";
 
+const route = useRoute();
+const router = useRouter();
 const { proxy } = getCurrentInstance();
 
 const dataList = ref([]);
@@ -267,7 +269,7 @@ function getCertTypeTagType(certType) {
 /** 查询列表 */
 function getList() {
   loading.value = true;
-  listCertification(queryParams.value).then(response => {
+  return listCertification(queryParams.value).then(response => {
     dataList.value = (response.data && response.data.records) || response.rows || [];
     total.value = (response.data && response.data.total) || response.total || 0;
     loading.value = false;
@@ -307,6 +309,42 @@ function handleAudit(row) {
   auditOpen.value = true;
   viewOpen.value = false;
 }
+/** 从 dashboard 跳转而来：通过 auditId 自动定位行并打开审核对话框 */
+function autoOpenAuditById(auditId) {
+  const row = dataList.value.find(it => String(it.id) === String(auditId));
+  if (row) {
+    if (row.status === 'pending') {
+      handleAudit(row);
+    } else {
+      // 已审核记录：打开详情对话框
+      currentRow.value = row;
+      viewOpen.value = true;
+    }
+  } else {
+    // 当前页未找到时拉取详情后打开（保证跨页跳转可用）
+    getCertification(auditId).then(res => {
+      if (res.data) {
+        const detail = res.data;
+        if (detail.status === 'pending') {
+          // 待审核：直接打开审核对话框
+          auditForm.value = {
+            id: detail.id,
+            status: 'approved',
+            remark: '',
+            nickname: detail.nickname,
+            realName: detail.realName,
+            certType: detail.certType
+          };
+          auditOpen.value = true;
+        } else {
+          // 已审核：打开详情对话框
+          currentRow.value = detail;
+          viewOpen.value = true;
+        }
+      }
+    });
+  }
+}
 
 /** 提交审核 */
 function submitAudit() {
@@ -332,7 +370,15 @@ function submitAudit() {
 }
 
 onMounted(() => {
-  getList();
+  getList().then(() => {
+    // 支持 dashboard 跳转：?auditId=xxx 自动打开审核对话框
+    const auditId = route.query.auditId;
+    if (auditId) {
+      autoOpenAuditById(auditId);
+      // 清除 URL 上的 auditId，避免后续翻页/搜索时误触发
+      router.replace({ query: {} });
+    }
+  });
 });
 </script>
 

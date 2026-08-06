@@ -20,10 +20,11 @@
         <lombok.version>1.18.42</lombok.version>
         <!-- 第三方依赖版本管理 -->
         <druid.version>1.2.23</druid.version>
-        <mybatis-plus.version>3.5.7</mybatis-plus.version>
+        <!-- MyBatis-Plus 升级至 3.5.11（AI 模块验证版本，向后兼容 3.5.7） -->
+        <mybatis-plus.version>3.5.11</mybatis-plus.version>
         <hutool.version>5.8.44</hutool.version>
-        <langchain4j.version>1.12.2</langchain4j.version>
-        <langchain4j-dashscope.version>1.12.1-beta21</langchain4j-dashscope.version>
+        <!-- LangChain4j 统一使用 moyun-ai-parent 验证版本 1.0.0-beta3 -->
+        <langchain4j.version>1.0.0-beta3</langchain4j.version>
         <jjwt.version>0.12.3</jjwt.version>
         <spring-security.version>6.3.1</spring-security.version>
         <poi.version>5.2.5</poi.version>
@@ -37,6 +38,15 @@
         <knife4j.version>4.4.0</knife4j.version>
         <aviator.version>5.3.3</aviator.version>
         <pdfbox.version>3.0.3</pdfbox.version>
+        <!-- AI 模块版本（新增） -->
+        <elasticsearch.version>8.14.3</elasticsearch.version>
+        <docx4j.version>11.4.9</docx4j.version>
+        <jodconverter.version>4.4.6</jodconverter.version>
+        <itextpdf.version>5.5.13.3</itextpdf.version>
+        <opencsv.version>5.9</opencsv.version>
+        <jsoup.version>1.17.2</jsoup.version>
+        <xdocreport.version>2.0.4</xdocreport.version>
+        <minio.version>8.5.12</minio.version>
     </properties>
     <dependencies>
         <dependency>
@@ -87,6 +97,12 @@
         <dependency>
             <groupId>com.baomidou</groupId>
             <artifactId>mybatis-plus-spring-boot3-starter</artifactId>
+            <version>${mybatis-plus.version}</version>
+        </dependency>
+        <!-- MyBatis-Plus JSqlParser 模块（3.5.9+ 拆分，含 PaginationInnerInterceptor 等基于 JSqlParser 的拦截器） -->
+        <dependency>
+            <groupId>com.baomidou</groupId>
+            <artifactId>mybatis-plus-jsqlparser</artifactId>
             <version>${mybatis-plus.version}</version>
         </dependency>
 
@@ -211,16 +227,124 @@
             <artifactId>knife4j-openapi3-jakarta-spring-boot-starter</artifactId>
             <version>${knife4j.version}</version>
         </dependency>
-<!--        <dependency>-->
-<!--            <groupId>dev.langchain4j</groupId>-->
-<!--            <artifactId>langchain4j-community-dashscope-spring-boot-starter</artifactId>-->
-<!--            <version>${langchain4j-dashscope.version}</version>-->
-<!--        </dependency>-->
-<!--        <dependency>-->
-<!--            <groupId>dev.langchain4j</groupId>-->
-<!--            <artifactId>langchain4j</artifactId>-->
-<!--            <version>${langchain4j.version}</version>-->
-<!--        </dependency>-->
+        <!-- ========== AI 模块依赖（整合自 moyun-ai-parent 1.0.0-beta3） ========== -->
+        <!-- LangChain4j - OpenAI / Ollama / 通义千问 -->
+        <dependency>
+            <groupId>dev.langchain4j</groupId>
+            <artifactId>langchain4j-open-ai-spring-boot-starter</artifactId>
+            <version>${langchain4j.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>dev.langchain4j</groupId>
+            <artifactId>langchain4j-ollama-spring-boot-starter</artifactId>
+            <version>${langchain4j.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>dev.langchain4j</groupId>
+            <artifactId>langchain4j-community-dashscope-spring-boot-starter</artifactId>
+            <version>${langchain4j.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>dev.langchain4j</groupId>
+            <artifactId>langchain4j-spring-boot-starter</artifactId>
+            <version>${langchain4j.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>dev.langchain4j</groupId>
+            <artifactId>langchain4j-easy-rag</artifactId>
+            <version>${langchain4j.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>dev.langchain4j</groupId>
+            <artifactId>langchain4j-reactor</artifactId>
+            <version>${langchain4j.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>dev.langchain4j</groupId>
+            <artifactId>langchain4j-document-parser-apache-poi</artifactId>
+            <version>${langchain4j.version}</version>
+        </dependency>
+        <!-- WebFlux - 仅用于 Flux SSE 流式输出（保留 Servlet MVC 为主） -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-webflux</artifactId>
+        </dependency>
+        <!-- Elasticsearch 客户端：仅 app.embedding-store.type=es 时使用 -->
+        <!-- redis 模式（默认）下无需 ES，但保留依赖以便两种模式可切换；@ConditionalOnProperty 控制运行时加载 -->
+        <dependency>
+            <groupId>co.elastic.clients</groupId>
+            <artifactId>elasticsearch-java</artifactId>
+            <version>${elasticsearch.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.elasticsearch.client</groupId>
+            <artifactId>elasticsearch-rest-client</artifactId>
+            <version>${elasticsearch.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>jakarta.json</groupId>
+            <artifactId>jakarta.json-api</artifactId>
+            <version>2.0.1</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.httpcomponents</groupId>
+            <artifactId>httpclient</artifactId>
+            <version>4.5.14</version>
+        </dependency>
+        <!-- 文档转 PDF：LibreOffice 本地转换 + Docx4j 兜底 -->
+        <dependency>
+            <groupId>org.jodconverter</groupId>
+            <artifactId>jodconverter-local</artifactId>
+            <version>${jodconverter.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.jodconverter</groupId>
+            <artifactId>jodconverter-spring-boot-starter</artifactId>
+            <version>${jodconverter.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.docx4j</groupId>
+            <artifactId>docx4j-JAXB-ReferenceImpl</artifactId>
+            <version>${docx4j.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.docx4j</groupId>
+            <artifactId>docx4j-export-fo</artifactId>
+            <version>${docx4j.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>fr.opensagres.xdocreport</groupId>
+            <artifactId>fr.opensagres.poi.xwpf.converter.pdf</artifactId>
+            <version>${xdocreport.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.itextpdf</groupId>
+            <artifactId>itextpdf</artifactId>
+            <version>${itextpdf.version}</version>
+        </dependency>
+        <!-- CSV 解析（AI 数据分析） -->
+        <dependency>
+            <groupId>com.opencsv</groupId>
+            <artifactId>opencsv</artifactId>
+            <version>${opencsv.version}</version>
+        </dependency>
+        <!-- HTML 解析（AI 工具 URL 阅读） -->
+        <dependency>
+            <groupId>org.jsoup</groupId>
+            <artifactId>jsoup</artifactId>
+            <version>${jsoup.version}</version>
+        </dependency>
+        <!-- 邮件发送（AI 工作流通知节点） -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-mail</artifactId>
+        </dependency>
+        <!-- POI scratchpad（Office 更多格式解析，已有 poi/ooxml 之上补充） -->
+        <dependency>
+            <groupId>org.apache.poi</groupId>
+            <artifactId>poi-scratchpad</artifactId>
+            <version>${poi.version}</version>
+        </dependency>
 
         <!-- Spring Security -->
         <dependency>

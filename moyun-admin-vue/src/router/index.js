@@ -326,6 +326,50 @@ export const dynamicRoutes = [
         meta: { title: '推荐位管理', activeMenu: '/portal/book' }
       }
     ]
+  },
+
+  // ========== AI 模块隐藏子路由（菜单动态加载主路由，这些是详情/子页面） ==========
+  {
+    path: '/ai/dashboard',
+    component: Layout,
+    hidden: true,
+    permissions: ['cms:ai:dashboard:view'],
+    children: [
+      {
+        path: 'index',
+        component: () => import('@/views/ai/dashboard/index'),
+        name: 'AiDashboardView',
+        meta: { title: 'AI数据大屏', activeMenu: '/ai/dashboard' }
+      }
+    ]
+  },
+  {
+    path: '/ai/chat',
+    component: Layout,
+    hidden: true,
+    permissions: ['cms:ai:chat:view'],
+    children: [
+      {
+        path: 'index/:agentId?',
+        component: () => import('@/views/ai/chat/index'),
+        name: 'AiChatView',
+        meta: { title: '智能对话', activeMenu: '/ai/agent' }
+      }
+    ]
+  },
+  {
+    path: '/ai/diagram',
+    component: Layout,
+    hidden: true,
+    permissions: ['cms:ai:diagram:view'],
+    children: [
+      {
+        path: 'chat',
+        component: () => import('@/views/ai/diagram/chat'),
+        name: 'AiDiagramChatView',
+        meta: { title: '架构图对话', activeMenu: '/ai/diagram' }
+      }
+    ]
   }
 ]
 

@@ -100,4 +100,17 @@ public interface SysNotificationMapper extends BaseMapper<SysNotification> {
     Page<SysNotification> selectBroadcastAll(Page<SysNotification> page,
                                              @Param("userId") Long userId,
                                              @Param("userType") String userType);
+
+    /**
+     * 关闭待办：按 data 字段中的 bizType + id 精确匹配所有 type=todo 的通知，
+     * 将 status 从 0（正常）更新为 1（关闭/已办）。
+     * <p>用于业务审核完成后，把对应的待办通知从用户的待办列表中移除。
+     * 依赖 data 字段 JSON 结构：{@code {"bizType":"xxx","id":123}}。
+     *
+     * @param bizType  业务类型（如 creator_certification）
+     * @param entityId 业务实体 ID（如认证申请 ID）
+     * @return 受影响行数
+     */
+    int completeTodoByBizData(@Param("bizType") String bizType,
+                              @Param("entityId") Long entityId);
 }

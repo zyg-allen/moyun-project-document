@@ -1856,7 +1856,17 @@ export interface Topic {
   cover?: string;
   creatorId: number;
   creator?: { id: number; nickname: string; avatar?: string; isCertifiedCreator?: boolean };
+  /**
+   * 状态：pending 待审核 / active 活跃 / archived 归档 / deleted 删除 / rejected 审核驳回
+   * 新话题默认 pending，审核通过后 active
+   */
   status: string;
+  /** 审核人ID（审核时写入） */
+  auditorId?: number;
+  /** 审核意见/驳回原因 */
+  auditRemark?: string;
+  /** 审核时间 */
+  auditTime?: string;
   pinned: number;
   viewCount: number;
   postCount: number;

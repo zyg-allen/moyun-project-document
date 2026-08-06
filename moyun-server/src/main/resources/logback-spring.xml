@@ -1,0 +1,136 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    墨韵 AI 模块日志配置（合并自 moyun-ai-parent/moyun-ai-web/src/main/resources/logback-spring.xml）
+    - 原包名 com.laomao.agent.* 已统一为 com.moyun.ext.ai.*
+    - 保留 RAG/知识库/工作流三类业务日志文件分离能力
+    - 整合到 moyun-server 后，与主框架 logging 配置共存（Spring Boot 优先加载 logback-spring.xml）
+-->
+<configuration>
+    <!-- 日志存储路径 -->
+    <property name="LOG_HOME" value="logs"/>
+    <!-- 应用名称（统一为 moyun） -->
+    <property name="APP_NAME" value="moyun-ai"/>
+
+    <!-- 彩色日志依赖的渲染类 -->
+    <conversionRule conversionWord="clr" converterClass="org.springframework.boot.logging.logback.ColorConverter"/>
+    <conversionRule conversionWord="wex" converterClass="org.springframework.boot.logging.logback.WhitespaceThrowableProxyConverter"/>
+    <conversionRule conversionWord="wEx" converterClass="org.springframework.boot.logging.logback.ExtendedWhitespaceThrowableProxyConverter"/>
+
+    <!-- 控制台输出格式（彩色） -->
+    <property name="CONSOLE_LOG_PATTERN"
+              value="%clr(%d{yyyy-MM-dd HH:mm:ss.SSS}){faint} %clr(%5p) %clr(${PID:- }){magenta} %clr(---){faint} %clr([%15.15t]){faint} %clr(%-40.40logger{39}){cyan} %clr(:){faint} %m%n%wEx"/>
+
+    <!-- 文件输出格式 -->
+    <property name="FILE_LOG_PATTERN"
+              value="%d{yyyy-MM-dd HH:mm:ss.SSS} %5p ${PID:- } --- [%t] %-40.40logger{39} : %m%n%wEx"/>
+
+    <!-- 控制台输出 -->
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>${CONSOLE_LOG_PATTERN}</pattern>
+            <charset>UTF-8</charset>
+        </encoder>
+    </appender>
+
+    <!-- ========== AI 业务日志配置 ========== -->
+
+    <!-- RAG检索日志 -->
+    <appender name="RAG_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${LOG_HOME}/${APP_NAME}-rag.log</file>
+        <encoder>
+            <pattern>${FILE_LOG_PATTERN}</pattern>
+            <charset>UTF-8</charset>
+        </encoder>
+        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+            <fileNamePattern>${LOG_HOME}/${APP_NAME}-rag.%d{yyyy-MM-dd}.%i.log</fileNamePattern>
+            <maxFileSize>100MB</maxFileSize>
+            <maxHistory>15</maxHistory>
+            <totalSizeCap>3GB</totalSizeCap>
+        </rollingPolicy>
+    </appender>
+
+    <!-- 知识库处理日志 -->
+    <appender name="KNOWLEDGE_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${LOG_HOME}/${APP_NAME}-knowledge.log</file>
+        <encoder>
+            <pattern>${FILE_LOG_PATTERN}</pattern>
+            <charset>UTF-8</charset>
+        </encoder>
+        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+            <fileNamePattern>${LOG_HOME}/${APP_NAME}-knowledge.%d{yyyy-MM-dd}.%i.log</fileNamePattern>
+            <maxFileSize>100MB</maxFileSize>
+            <maxHistory>15</maxHistory>
+            <totalSizeCap>3GB</totalSizeCap>
+        </rollingPolicy>
+    </appender>
+
+    <!-- 工作流执行日志 -->
+    <appender name="WORKFLOW_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${LOG_HOME}/${APP_NAME}-workflow.log</file>
+        <encoder>
+            <pattern>${FILE_LOG_PATTERN}</pattern>
+            <charset>UTF-8</charset>
+        </encoder>
+        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+            <fileNamePattern>${LOG_HOME}/${APP_NAME}-workflow.%d{yyyy-MM-dd}.%i.log</fileNamePattern>
+            <maxFileSize>50MB</maxFileSize>
+            <maxHistory>15</maxHistory>
+            <totalSizeCap>2GB</totalSizeCap>
+        </rollingPolicy>
+    </appender>
+
+    <!-- ========== AI 包级别日志配置 ========== -->
+
+    <!-- RAG相关服务（ChatService / RagService 等） -->
+    <logger name="com.moyun.ext.ai.service.chat" level="INFO" additivity="false">
+        <appender-ref ref="CONSOLE"/>
+        <appender-ref ref="RAG_FILE"/>
+    </logger>
+
+    <!-- 知识库服务 -->
+    <logger name="com.moyun.ext.ai.service.impl.KnowledgeBaseServiceImpl" level="INFO" additivity="false">
+        <appender-ref ref="CONSOLE"/>
+        <appender-ref ref="KNOWLEDGE_FILE"/>
+    </logger>
+
+    <!-- 工作流引擎 -->
+    <logger name="com.moyun.ext.ai.engine.workflow" level="INFO" additivity="false">
+        <appender-ref ref="CONSOLE"/>
+        <appender-ref ref="WORKFLOW_FILE"/>
+    </logger>
+
+    <!-- AI 模块整体日志级别 -->
+    <logger name="com.moyun.ext.ai" level="INFO"/>
+
+    <!-- 降低第三方库日志级别 -->
+    <logger name="org.apache" level="WARN"/>
+    <logger name="com.baomidou.mybatisplus" level="WARN"/>
+    <logger name="org.elasticsearch" level="WARN"/>
+    <logger name="co.elastic.clients" level="WARN"/>
+    <logger name="dev.langchain4j" level="INFO"/>
+    <logger name="io.minio" level="WARN"/>
+
+    <!-- MyBatis SQL日志 -->
+    <logger name="com.moyun.ext.ai.mapper" level="INFO"/>
+
+    <!-- ========== 环境特定配置 ========== -->
+
+    <!-- 开发环境：更详细的日志 -->
+    <springProfile name="dev">
+        <logger name="com.moyun.ext.ai" level="DEBUG"/>
+        <logger name="com.moyun.ext.ai.mapper" level="DEBUG"/>
+    </springProfile>
+
+    <!-- 生产环境：精简日志 -->
+    <springProfile name="prod">
+        <logger name="com.moyun.ext.ai" level="INFO"/>
+        <logger name="com.moyun.ext.ai.mapper" level="WARN"/>
+    </springProfile>
+
+    <!-- ========== 根 logger（必须配置，否则 Spring Boot 启动日志无处输出） ========== -->
+    <!-- 之前缺失导致：banner 后所有日志（含启动报错）被丢弃，控制台只见 banner 即退出 -->
+    <root level="INFO">
+        <appender-ref ref="CONSOLE"/>
+    </root>
+
+</configuration>

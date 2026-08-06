@@ -35,6 +35,7 @@ import com.moyun.portal.service.IMentionService;
 import com.moyun.portal.service.IPortalGrowthService;
 import com.moyun.portal.service.IPortalTopicCommentService;
 import com.moyun.portal.util.PortalSecurityUtils;
+import com.moyun.system.service.ISensitiveWordService;
 
 /**
  * 话题评论 服务实现
@@ -66,6 +67,9 @@ public class PortalTopicCommentServiceImpl extends ServiceImpl<PortalTopicCommen
 
     @Autowired
     private IMentionService mentionService;
+
+    @Autowired
+    private ISensitiveWordService sensitiveWordService;
 
     @Override
     public Page<TopicCommentVO> getComments(String targetType, Long targetId, Integer pageNum, Integer pageSize, Long currentUserId) {
@@ -162,6 +166,23 @@ public class PortalTopicCommentServiceImpl extends ServiceImpl<PortalTopicCommen
         }
         if (comment.getTargetId() == null) {
             throw new ServiceException("target_id 不能为空");
+        }
+
+        // 敏感词检测：评论无审核流，命中即拦截（block）并写入审计日志便于复核
+        try {
+            List<String> hits = sensitiveWordService.find(comment.getContent());
+            if (hits != null && !hits.isEmpty()) {
+                sensitiveWordService.detectAndLog(
+                        "topic_comment", null, userId, comment.getContent(), "block");
+                log.warn("话题评论命中敏感词已拦截：targetType={}, targetId={}, userId={}, hits={}",
+                        comment.getTargetType(), comment.getTargetId(), userId, hits);
+                throw new ServiceException("评论内容包含违规信息，请修改后重试");
+            }
+        } catch (ServiceException e) {
+            throw e;
+        } catch (Exception e) {
+            log.warn("话题评论敏感词扫描异常：targetType={}, targetId={}, err={}",
+                    comment.getTargetType(), comment.getTargetId(), e.getMessage());
         }
 
         // 校验目标存在

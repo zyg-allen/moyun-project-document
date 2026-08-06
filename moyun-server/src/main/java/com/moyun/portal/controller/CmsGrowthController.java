@@ -198,6 +198,21 @@ public class CmsGrowthController extends BaseController {
         List<PortalUserGrowth> records = page.getRecords();
         Page<Map<String, Object>> resultPage = new Page<>(page.getCurrent(), page.getSize(), page.getTotal());
         List<Map<String, Object>> resultRecords = new java.util.ArrayList<>(records.size());
+
+        // 批量查询用户昵称，避免 N+1（分页 N 条原本 N 次查询 → 现在 1 次）
+        List<Long> userIds = records.stream()
+                .map(PortalUserGrowth::getUserId)
+                .filter(java.util.Objects::nonNull)
+                .distinct()
+                .toList();
+        Map<Long, String> nicknameMap = new HashMap<>();
+        if (!userIds.isEmpty()) {
+            List<PortalUser> users = portalUserMapper.selectBatchIds(userIds);
+            for (PortalUser u : users) {
+                nicknameMap.put(u.getId(), u.getNickname());
+            }
+        }
+
         for (PortalUserGrowth growth : records) {
             Map<String, Object> map = new LinkedHashMap<>();
             map.put("id", growth.getId());
@@ -208,14 +223,7 @@ public class CmsGrowthController extends BaseController {
             map.put("seasonValue", growth.getSeasonValue());
             map.put("createTime", growth.getCreateTime());
             map.put("updateTime", growth.getUpdateTime());
-            String nickname = null;
-            if (growth.getUserId() != null) {
-                PortalUser user = portalUserMapper.selectPortalUserById(growth.getUserId());
-                if (user != null) {
-                    nickname = user.getNickname();
-                }
-            }
-            map.put("nickname", nickname);
+            map.put("nickname", growth.getUserId() == null ? null : nicknameMap.get(growth.getUserId()));
             resultRecords.add(map);
         }
         resultPage.setRecords(resultRecords);

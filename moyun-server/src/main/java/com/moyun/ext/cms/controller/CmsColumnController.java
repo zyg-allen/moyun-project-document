@@ -36,7 +36,7 @@ public class CmsColumnController extends BaseController {
     private ICmsColumnService cmsColumnService;
 
     @Operation(summary = "查询专栏列表", description = "分页查询专栏（含所有状态、作者信息）")
-    @PreAuthorize("@ss.hasPermi('portal:column:list')")
+    @PreAuthorize("@ss.hasAnyPermi('portal:column:list,cms:column:audit')")
     @GetMapping("/list")
     public AjaxResult list(ColumnQuery query) {
         Page<ColumnListItemVO> page = PageUtils.startPage();
@@ -45,7 +45,7 @@ public class CmsColumnController extends BaseController {
     }
 
     @Operation(summary = "获取专栏详情", description = "根据ID获取专栏详情")
-    @PreAuthorize("@ss.hasPermi('portal:column:query')")
+    @PreAuthorize("@ss.hasAnyPermi('portal:column:query,cms:column:audit')")
     @GetMapping("/{id}")
     public AjaxResult getInfo(@PathVariable Long id) {
         return success(cmsColumnService.selectColumnById(id));
@@ -75,12 +75,28 @@ public class CmsColumnController extends BaseController {
         return toAjax(cmsColumnService.deleteColumnByIds(ids));
     }
 
-    @Operation(summary = "审核专栏", description = "更新专栏状态：draft→published→archived")
+    @Operation(summary = "更新专栏状态", description = "状态流转（archived 等普通流转，不走审核字段写入）")
     @PreAuthorize("@ss.hasPermi('portal:column:edit')")
     @Log(title = "专栏", businessType = BusinessType.UPDATE)
     @PutMapping("/{id}/status")
     public AjaxResult changeStatus(@PathVariable Long id, @RequestBody Map<String, Object> body) {
         String status = body.get("status") == null ? null : String.valueOf(body.get("status"));
         return toAjax(cmsColumnService.updateColumnStatus(id, status));
+    }
+
+    @Operation(summary = "审核专栏", description = "审核待处理专栏：published=通过 / rejected=驳回，支持审核意见，结果通知作者")
+    @PreAuthorize("@ss.hasPermi('cms:column:audit')")
+    @Log(title = "专栏审核", businessType = BusinessType.UPDATE)
+    @PutMapping("/{id}/audit")
+    public AjaxResult audit(@PathVariable Long id, @RequestBody Map<String, Object> body) {
+        String status = body.get("status") == null ? null : String.valueOf(body.get("status"));
+        String auditRemark = body.get("auditRemark") == null ? null : String.valueOf(body.get("auditRemark"));
+        Long auditorId = getUserId();
+        try {
+            cmsColumnService.auditColumn(id, status, auditRemark, auditorId);
+            return success();
+        } catch (RuntimeException e) {
+            return error(e.getMessage() != null ? e.getMessage() : "审核失败");
+        }
     }
 }

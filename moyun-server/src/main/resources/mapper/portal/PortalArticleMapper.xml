@@ -84,6 +84,11 @@
         <result property="authorNickname" column="author_nickname"/>
         <result property="authorUsername" column="author_username"/>
         <result property="authorAvatar" column="author_avatar"/>
+        <!-- 审核信息（CMS审核台展示） -->
+        <result property="auditorId" column="auditor_id"/>
+        <result property="auditorNickname" column="auditor_nickname"/>
+        <result property="auditTime" column="audit_time"/>
+        <result property="auditRemark" column="audit_remark"/>
     </resultMap>
 
     <sql id="selectPortalArticleVo">
@@ -101,19 +106,22 @@
         left join portal_user pu on pa.author_id = pu.id
     </sql>
 
-    <!-- CMS文章查询，不限制状态，包含作者信息 -->
+    <!-- CMS文章查询，不限制状态，包含作者信息 + 审核人信息 -->
     <sql id="selectCmsArticleVo">
-        select pa.id, pa.title, pa.slug, pa.content, pa.excerpt, pa.cover, pa.author_id, pa.category_id, 
-               pa.root_category_id, pa.category_path, 
+        select pa.id, pa.title, pa.slug, pa.content, pa.excerpt, pa.cover, pa.author_id, pa.category_id,
+               pa.root_category_id, pa.category_path,
                pa.status,
+               pa.auditor_id, pa.audit_time, pa.audit_remark,
                pa.is_featured, pa.is_top, pa.is_carousel, pa.is_category_recommended, pa.views, pa.likes, pa.comments, pa.share_count,
                pa.bookmark_count, pa.published_at, pa.link, pa.editor_mode, pa.session_token, pa.content_markdown,
                pa.create_by, pa.create_time, pa.update_by, pa.update_time, pa.remark,
                pc.name as category_name, pc.slug as category_slug,
-               pu.nickname as author_nickname, pu.username as author_username, pu.avatar as author_avatar
+               pu.nickname as author_nickname, pu.username as author_username, pu.avatar as author_avatar,
+               su.nick_name as auditor_nickname
         from portal_article pa
         left join portal_category pc on pa.category_id = pc.id
         left join portal_user pu on pa.author_id = pu.id
+        left join sys_user su on pa.auditor_id = su.user_id
     </sql>
 
     <!-- 通用查询条件片段（前台，不限制状态由queryWhereCms处理） -->
@@ -187,6 +195,17 @@
             </if>
             <if test="params.isCategoryRecommended != null">
                 AND pa.is_category_recommended = #{params.isCategoryRecommended}
+            </if>
+            <!-- 审核台过滤：审核人 -->
+            <if test="params.auditorId != null">
+                AND pa.auditor_id = #{params.auditorId}
+            </if>
+            <!-- 审核台过滤：审核时间范围（含两端） -->
+            <if test="params.auditTimeStart != null">
+                AND pa.audit_time &gt;= #{params.auditTimeStart}
+            </if>
+            <if test="params.auditTimeEnd != null">
+                AND pa.audit_time &lt;= #{params.auditTimeEnd}
             </if>
         </where>
     </sql>

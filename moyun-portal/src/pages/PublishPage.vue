@@ -37,6 +37,14 @@ import SiteFooter from '@/components/SiteFooter.vue';
 import QuillEditor from '@/components/QuillEditor.vue';
 import MarkdownEditor from '@/components/MarkdownEditor.vue';
 import { extractExcerpt } from '@/utils/excerpt';
+import { marked } from 'marked';
+import { sanitizeHTML } from '@/utils/security';
+
+// 配置 marked（与 MarkdownRenderer 保持一致）
+marked.setOptions({
+  breaks: true,
+  gfm: true,
+});
 
 const router = useRouter();
 const route = useRoute();
@@ -185,15 +193,19 @@ const readingTime = computed(() => {
   return minutes;
 });
 
-// Markdown预览
+// Markdown预览：使用 marked 完整渲染 + sanitizeHTML 防 XSS（与 MarkdownRenderer 一致）
 const markdownPreview = computed(() => {
-  return content.value
-      .replace(/^### (.*$)/gim, '<h3>$1</h3>')
-      .replace(/^## (.*$)/gim, '<h2>$1</h2>')
-      .replace(/^# (.*$)/gim, '<h1>$1</h1>')
-      .replace(/\*\*(.*)\*\*/gim, '<strong>$1</strong>')
-      .replace(/\*(.*)\*/gim, '<em>$1</em>')
-      .replace(/\n/g, '<br>');
+  if (!content.value) return '';
+  try {
+    return sanitizeHTML(marked.parse(content.value) as string);
+  } catch {
+    return content.value;
+  }
+});
+
+// 富文本内容净化（用于 v-html 安全渲染，防止 XSS）
+const sanitizedContent = computed(() => {
+  return sanitizeHTML(content.value || '');
 });
 
 onMounted(async () => {
@@ -1160,7 +1172,7 @@ onBeforeRouteLeave(async () => {
                 <div v-if="isReadOnly" class="rounded-lg border p-4 sm:p-6 min-h-[300px]" style="background-color: var(--theme-surface); border-color: var(--theme-border);">
                   <div class="prose prose-lg max-w-none" style="color: var(--theme-text);">
                     <div v-if="editorMode === 'markdown'" v-html="markdownPreview"></div>
-                    <div v-else v-html="content || '<p>暂无内容</p>'"></div>
+                    <div v-else v-html="sanitizedContent || '<p>暂无内容</p>'"></div>
                   </div>
                 </div>
 
@@ -1174,7 +1186,7 @@ onBeforeRouteLeave(async () => {
                   </div>
                   <div class="prose prose-lg max-w-none" style="color: var(--theme-text-secondary);">
                     <div v-if="editorMode === 'markdown'" v-html="markdownPreview"></div>
-                    <div v-else v-html="content || '<p>在这里输入你的文章内容...</p>'"></div>
+                    <div v-else v-html="sanitizedContent || '<p>在这里输入你的文章内容...</p>'"></div>
                   </div>
                 </div>
 

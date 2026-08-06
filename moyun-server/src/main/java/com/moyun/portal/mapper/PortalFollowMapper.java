@@ -1,6 +1,7 @@
 package com.moyun.portal.mapper;
 
 import java.util.List;
+import java.util.Map;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
@@ -94,6 +95,43 @@ public interface PortalFollowMapper extends BaseMapper<PortalFollow> {
      * @return 粉丝数
      */
     long countFollowers(@Param("followingId") Long followingId);
+
+    /**
+     * 统计指定用户的关注数量（该用户关注了多少人）
+     * 用于成长统计页实时聚合，避免统计表 follower_count 不同步导致数据不准
+     *
+     * @param followerId 关注者ID
+     * @return 关注数
+     */
+    long countFollowing(@Param("followerId") Long followerId);
+
+    /**
+     * 批量统计多个用户的粉丝数（避免 N+1 查询）
+     *
+     * @param followingIds 被关注者ID集合
+     * @return 每个用户一行，字段：userId / cnt
+     */
+    @Select("<script>" +
+            "SELECT following_id AS userId, count(1) AS cnt FROM portal_follow " +
+            "WHERE following_id IN " +
+            "<foreach item='id' collection='followingIds' open='(' separator=',' close=')'>#{id}</foreach> " +
+            "GROUP BY following_id" +
+            "</script>")
+    List<Map<String, Object>> batchCountFollowers(@Param("followingIds") List<Long> followingIds);
+
+    /**
+     * 批量统计多个用户的关注数（避免 N+1 查询）
+     *
+     * @param followerIds 关注者ID集合
+     * @return 每个用户一行，字段：userId / cnt
+     */
+    @Select("<script>" +
+            "SELECT follower_id AS userId, count(1) AS cnt FROM portal_follow " +
+            "WHERE follower_id IN " +
+            "<foreach item='id' collection='followerIds' open='(' separator=',' close=')'>#{id}</foreach> " +
+            "GROUP BY follower_id" +
+            "</script>")
+    List<Map<String, Object>> batchCountFollowing(@Param("followerIds") List<Long> followerIds);
 
     /**
      * 查询指定用户的粉丝列表（JOIN portal_user，返回用户信息）

@@ -76,6 +76,23 @@ public class CmsTagController extends BaseController {
     }
 
     /**
+     * 修改标签状态
+     * <p>
+     * 前端 tag.js 调用，用于列表页快速切换启用/停用。
+     * status: "0"=正常 "1"=停用（RuoYi 框架惯例）
+     */
+    @Operation(summary = "修改标签状态", description = "切换标签启用/停用状态")
+    @PreAuthorize("@ss.hasPermi('cms:tag:edit')")
+    @Log(title = "标签管理", businessType = BusinessType.UPDATE)
+    @PutMapping("/changeStatus")
+    public AjaxResult changeStatus(@RequestBody PortalTag tag) {
+        PortalTag update = new PortalTag();
+        update.setId(tag.getId());
+        update.setStatus(tag.getStatus());
+        return toAjax(cmsTagService.updateTag(update));
+    }
+
+    /**
      * 删除标签
      */
     @Operation(summary = "删除标签", description = "批量删除标签")

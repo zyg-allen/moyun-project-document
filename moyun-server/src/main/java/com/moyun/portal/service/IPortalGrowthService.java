@@ -45,6 +45,33 @@ public interface IPortalGrowthService {
     int recordEventWithTarget(String module, String action, Long userId, Long targetUserId, String entityType, Long entityId);
 
     /**
+     * 扣减成长值（用于审核驳回等回滚场景）
+     * <p>原子扣减，带下界保护（growth_value 不会变为负数）。
+     * 同步扣减赛季值，并重新计算等级。
+     *
+     * @param userId 用户ID
+     * @param delta  扣减的成长值（正数）
+     * @return 实际扣减的成长值，0 表示余额不足或无成长记录
+     */
+    int deductGrowth(Long userId, int delta);
+
+    /**
+     * 按实体回滚成长值（审核驳回等场景）
+     * <p>查询该用户在该实体上获得的成长值流水，按当初实际获得的 growthDelta 精确扣减。
+     * 已扣减过的实体不重复扣减（通过插入负向流水实现幂等）。
+     *
+     * @param module      模块
+     * @param action      原行为编码（如 publish_article）
+     * @param userId      用户ID
+     * @param entityType  实体类型（如 article）
+     * @param entityId    实体ID
+     * @param rollbackAction 回滚流水 action 标识（如 publish_article_rollback），用于幂等去重
+     * @return 实际扣减的成长值，0 表示无原始流水或已回滚过
+     */
+    int deductGrowthForEntity(String module, String action, Long userId,
+                              String entityType, Long entityId, String rollbackAction);
+
+    /**
      * 获取用户成长信息
      */
     UserGrowthVO getUserGrowth(Long userId);

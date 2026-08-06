@@ -115,6 +115,9 @@
 <script setup name="Feedback">
 import { listFeedback, getFeedback, handleFeedback, delFeedback } from '@/api/cms/feedback'
 
+const route = useRoute()
+const router = useRouter()
+
 const { proxy } = getCurrentInstance()
 
 const feedbackList = ref([])
@@ -205,6 +208,27 @@ function handleHandle(row) {
   handleForm.value = { id: row.id, subject: row.subject, status: 'resolved', handleResult: '', notifyUser: true }
   handleOpen.value = true
 }
+/** 从 dashboard 跳转而来：通过 handleId 自动定位行并打开处理对话框 */
+function autoOpenHandleById(handleId) {
+  const row = feedbackList.value.find(it => String(it.id) === String(handleId))
+  if (row) {
+    handleHandle(row)
+  } else {
+    // 当前页未找到时拉取详情后打开（保证跨页跳转可用）
+    getFeedback(handleId).then(res => {
+      if (res.data) {
+        handleForm.value = {
+          id: res.data.id,
+          subject: res.data.subject,
+          status: 'resolved',
+          handleResult: '',
+          notifyUser: true
+        }
+        handleOpen.value = true
+      }
+    })
+  }
+}
 function submitHandle() {
   handleRef.value.validate(valid => {
     if (!valid) return
@@ -233,4 +257,14 @@ function handleDelete(row) {
 }
 
 getList()
+
+// 支持 dashboard 跳转：?handleId=xxx 自动打开处理对话框
+onMounted(() => {
+  const handleId = route.query.handleId
+  if (handleId) {
+    autoOpenHandleById(handleId)
+    // 清除 URL 上的 handleId，避免后续翻页/搜索时误触发
+    router.replace({ query: {} })
+  }
+})
 </script>

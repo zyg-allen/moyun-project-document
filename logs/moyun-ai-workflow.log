@@ -110,3 +110,667 @@
 2026-08-06 16:38:29.664  INFO 3260 --- [main] c.m.e.ai.engine.workflow.WorkflowEngine  : 📦 注册节点执行器: webhook
 2026-08-06 16:38:29.664  INFO 3260 --- [main] c.m.e.ai.engine.workflow.WorkflowEngine  : 📦 注册节点执行器: while
 2026-08-06 16:38:29.664  INFO 3260 --- [main] c.m.e.ai.engine.workflow.WorkflowEngine  : ✅ 工作流引擎初始化完成，已注册 27 个节点类型
+2026-08-06 17:06:05.481  INFO 3260 --- [Thread-11] c.m.e.ai.engine.workflow.WorkflowEngine  : 🚀 开始执行工作流(SSE): id=25, name=新工作流
+2026-08-06 17:06:05.548  INFO 3260 --- [Thread-11] c.m.e.ai.engine.workflow.WorkflowEngine  : 🔍 工作流图结构 - 节点数: 3, 边数: 2
+2026-08-06 17:06:05.550  INFO 3260 --- [Thread-11] c.m.e.ai.engine.workflow.WorkflowEngine  : 🔍 节点列表: start_1(开始:start), end_1(结束:end), llm_2(LLM:llm)
+2026-08-06 17:06:05.551  INFO 3260 --- [Thread-11] c.m.e.ai.engine.workflow.WorkflowEngine  : 🔍 边列表: start_1 -> llm_2, llm_2 -> end_1
+2026-08-06 17:06:05.553  INFO 3260 --- [Thread-11] c.m.e.ai.engine.workflow.WorkflowEngine  : ▶ 执行节点: id=start_1, type=start, name=开始
+2026-08-06 17:06:05.553  INFO 3260 --- [Thread-11] c.m.e.a.e.w.node.StartNodeExecutor       : 🚀 工作流开始执行, workflowId=25
+2026-08-06 17:06:05.565  INFO 3260 --- [Thread-11] c.m.e.ai.engine.workflow.WorkflowEngine  : 🔍 节点 start_1 的下一个节点: 1 个
+2026-08-06 17:06:05.569  INFO 3260 --- [Thread-11] c.m.e.ai.engine.workflow.WorkflowEngine  :   下一步执行: llm_2(LLM)
+2026-08-06 17:06:05.571  INFO 3260 --- [Thread-11] c.m.e.ai.engine.workflow.WorkflowEngine  : ▶ 执行节点: id=llm_2, type=llm, name=LLM
+2026-08-06 17:06:05.584  INFO 3260 --- [Thread-11] c.m.e.a.e.workflow.node.LLMNodeExecutor  : 🤖 LLM节点执行: model=15, userPrompt=请根据以下信息，对候选人进行简历分析：
+
+【目标岗位JD】
+[在此处粘贴完整的岗位描述、任职要求、岗位职责等]
+
+【候选人简历】
+[在此处粘贴候选人的完整简历文本]
+
+请严格按照系统设定的5个模块（匹...
+2026-08-06 17:06:06.768 ERROR 3260 --- [Thread-11] c.m.e.a.e.workflow.node.LLMNodeExecutor  : LLM节点执行失败
+
+dev.langchain4j.exception.ModelNotFoundException: 404 : "{"error":{"message":"The model `千问-3.7 max` does not exist or you do not have access to it.","type":"invalid_request_error","param":null,"code":"model_not_found"},"request_id":"fd5c74ce-d60d-9a5e-9183-c29647a5c366"}"
+	at dev.langchain4j.internal.ExceptionMapper$DefaultExceptionMapper.mapHttpStatusCode(ExceptionMapper.java:60)
+	at dev.langchain4j.internal.ExceptionMapper$DefaultExceptionMapper.mapException(ExceptionMapper.java:42)
+	at dev.langchain4j.internal.ExceptionMapper.withExceptionMapper(ExceptionMapper.java:29)
+	at dev.langchain4j.internal.RetryUtils.lambda$withRetryMappingExceptions$2(RetryUtils.java:307)
+	at dev.langchain4j.internal.RetryUtils$RetryPolicy.withRetry(RetryUtils.java:195)
+	at dev.langchain4j.internal.RetryUtils.withRetry(RetryUtils.java:247)
+	at dev.langchain4j.internal.RetryUtils.withRetryMappingExceptions(RetryUtils.java:307)
+	at dev.langchain4j.internal.RetryUtils.withRetryMappingExceptions(RetryUtils.java:291)
+	at dev.langchain4j.model.openai.OpenAiChatModel.doChat(OpenAiChatModel.java:151)
+	at dev.langchain4j.model.chat.ChatLanguageModel.chat(ChatLanguageModel.java:47)
+	at dev.langchain4j.model.chat.ChatLanguageModel.chat(ChatLanguageModel.java:98)
+	at com.moyun.ext.ai.engine.workflow.node.LLMNodeExecutor.execute(LLMNodeExecutor.java:102)
+	at com.moyun.ext.ai.engine.workflow.WorkflowEngine.executeNode(WorkflowEngine.java:406)
+	at com.moyun.ext.ai.engine.workflow.WorkflowEngine.executeNode(WorkflowEngine.java:467)
+	at com.moyun.ext.ai.engine.workflow.WorkflowEngine.executeWithCallback(WorkflowEngine.java:307)
+	at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+	at org.springframework.aop.support.AopUtils.invokeJoinpointUsingReflection(AopUtils.java:354)
+	at org.springframework.aop.framework.CglibAopProxy$DynamicAdvisedInterceptor.intercept(CglibAopProxy.java:716)
+	at com.moyun.ext.ai.engine.workflow.WorkflowEngine$$SpringCGLIB$$0.executeWithCallback(<generated>)
+	at com.moyun.ext.ai.service.impl.WorkflowServiceImpl.executeWithCallback(WorkflowServiceImpl.java:185)
+	at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+	at org.springframework.aop.support.AopUtils.invokeJoinpointUsingReflection(AopUtils.java:354)
+	at org.springframework.aop.framework.CglibAopProxy$DynamicAdvisedInterceptor.intercept(CglibAopProxy.java:716)
+	at com.moyun.ext.ai.service.impl.WorkflowServiceImpl$$SpringCGLIB$$0.executeWithCallback(<generated>)
+	at com.moyun.ext.ai.controller.WorkflowController.lambda$executeStream$1(WorkflowController.java:229)
+	at java.base/java.lang.Thread.run(Thread.java:1583)
+Caused by: dev.langchain4j.exception.HttpException: 404 : "{"error":{"message":"The model `千问-3.7 max` does not exist or you do not have access to it.","type":"invalid_request_error","param":null,"code":"model_not_found"},"request_id":"fd5c74ce-d60d-9a5e-9183-c29647a5c366"}"
+	at dev.langchain4j.http.client.spring.restclient.SpringRestClient.execute(SpringRestClient.java:77)
+	at dev.langchain4j.model.openai.internal.SyncRequestExecutor.execute(SyncRequestExecutor.java:20)
+	at dev.langchain4j.model.openai.internal.RequestExecutor.execute(RequestExecutor.java:39)
+	at dev.langchain4j.model.openai.OpenAiChatModel.lambda$doChat$3(OpenAiChatModel.java:152)
+	at dev.langchain4j.internal.ExceptionMapper.withExceptionMapper(ExceptionMapper.java:27)
+	... 25 common frames omitted
+
+2026-08-06 17:06:06.770 ERROR 3260 --- [Thread-11] c.m.e.ai.engine.workflow.WorkflowEngine  : ❌ 工作流执行失败: id=25
+
+com.moyun.ext.ai.exception.BusinessException: 节点执行失败[LLM]: LLM调用失败: 404 : "{"error":{"message":"The model `千问-3.7 max` does not exist or you do not have access to it.","type":"invalid_request_error","param":null,"code":"model_not_found"},"request_id":"fd5c74ce-d60d-9a5e-9183-c29647a5c366"}"
+	at com.moyun.ext.ai.engine.workflow.WorkflowEngine.executeNode(WorkflowEngine.java:436)
+	at com.moyun.ext.ai.engine.workflow.WorkflowEngine.executeNode(WorkflowEngine.java:467)
+	at com.moyun.ext.ai.engine.workflow.WorkflowEngine.executeWithCallback(WorkflowEngine.java:307)
+	at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+	at org.springframework.aop.support.AopUtils.invokeJoinpointUsingReflection(AopUtils.java:354)
+	at org.springframework.aop.framework.CglibAopProxy$DynamicAdvisedInterceptor.intercept(CglibAopProxy.java:716)
+	at com.moyun.ext.ai.engine.workflow.WorkflowEngine$$SpringCGLIB$$0.executeWithCallback(<generated>)
+	at com.moyun.ext.ai.service.impl.WorkflowServiceImpl.executeWithCallback(WorkflowServiceImpl.java:185)
+	at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+	at org.springframework.aop.support.AopUtils.invokeJoinpointUsingReflection(AopUtils.java:354)
+	at org.springframework.aop.framework.CglibAopProxy$DynamicAdvisedInterceptor.intercept(CglibAopProxy.java:716)
+	at com.moyun.ext.ai.service.impl.WorkflowServiceImpl$$SpringCGLIB$$0.executeWithCallback(<generated>)
+	at com.moyun.ext.ai.controller.WorkflowController.lambda$executeStream$1(WorkflowController.java:229)
+	at java.base/java.lang.Thread.run(Thread.java:1583)
+
+2026-08-06 17:06:21.218  INFO 3260 --- [Thread-12] c.m.e.ai.engine.workflow.WorkflowEngine  : 🚀 开始执行工作流(SSE): id=25, name=新工作流
+2026-08-06 17:06:21.229  INFO 3260 --- [Thread-12] c.m.e.ai.engine.workflow.WorkflowEngine  : 🔍 工作流图结构 - 节点数: 3, 边数: 2
+2026-08-06 17:06:21.230  INFO 3260 --- [Thread-12] c.m.e.ai.engine.workflow.WorkflowEngine  : 🔍 节点列表: start_1(开始:start), end_1(结束:end), llm_2(LLM:llm)
+2026-08-06 17:06:21.230  INFO 3260 --- [Thread-12] c.m.e.ai.engine.workflow.WorkflowEngine  : 🔍 边列表: start_1 -> llm_2, llm_2 -> end_1
+2026-08-06 17:06:21.231  INFO 3260 --- [Thread-12] c.m.e.ai.engine.workflow.WorkflowEngine  : ▶ 执行节点: id=start_1, type=start, name=开始
+2026-08-06 17:06:21.232  INFO 3260 --- [Thread-12] c.m.e.a.e.w.node.StartNodeExecutor       : 🚀 工作流开始执行, workflowId=25
+2026-08-06 17:06:21.232  INFO 3260 --- [Thread-12] c.m.e.ai.engine.workflow.WorkflowEngine  : 🔍 节点 start_1 的下一个节点: 1 个
+2026-08-06 17:06:21.232  INFO 3260 --- [Thread-12] c.m.e.ai.engine.workflow.WorkflowEngine  :   下一步执行: llm_2(LLM)
+2026-08-06 17:06:21.234  INFO 3260 --- [Thread-12] c.m.e.ai.engine.workflow.WorkflowEngine  : ▶ 执行节点: id=llm_2, type=llm, name=LLM
+2026-08-06 17:06:21.234  INFO 3260 --- [Thread-12] c.m.e.a.e.workflow.node.LLMNodeExecutor  : 🤖 LLM节点执行: model=15, userPrompt=请根据以下信息，对候选人进行简历分析：
+
+【目标岗位JD】
+[在此处粘贴完整的岗位描述、任职要求、岗位职责等]
+
+【候选人简历】
+[在此处粘贴候选人的完整简历文本]
+
+请严格按照系统设定的5个模块（匹...
+2026-08-06 17:06:21.453 ERROR 3260 --- [Thread-12] c.m.e.a.e.workflow.node.LLMNodeExecutor  : LLM节点执行失败
+
+dev.langchain4j.exception.ModelNotFoundException: 404 : "{"error":{"message":"The model `千问-3.7 max` does not exist or you do not have access to it.","type":"invalid_request_error","param":null,"code":"model_not_found"},"request_id":"a7e7ac1a-a20a-9442-a439-e4ac467d846e"}"
+	at dev.langchain4j.internal.ExceptionMapper$DefaultExceptionMapper.mapHttpStatusCode(ExceptionMapper.java:60)
+	at dev.langchain4j.internal.ExceptionMapper$DefaultExceptionMapper.mapException(ExceptionMapper.java:42)
+	at dev.langchain4j.internal.ExceptionMapper.withExceptionMapper(ExceptionMapper.java:29)
+	at dev.langchain4j.internal.RetryUtils.lambda$withRetryMappingExceptions$2(RetryUtils.java:307)
+	at dev.langchain4j.internal.RetryUtils$RetryPolicy.withRetry(RetryUtils.java:195)
+	at dev.langchain4j.internal.RetryUtils.withRetry(RetryUtils.java:247)
+	at dev.langchain4j.internal.RetryUtils.withRetryMappingExceptions(RetryUtils.java:307)
+	at dev.langchain4j.internal.RetryUtils.withRetryMappingExceptions(RetryUtils.java:291)
+	at dev.langchain4j.model.openai.OpenAiChatModel.doChat(OpenAiChatModel.java:151)
+	at dev.langchain4j.model.chat.ChatLanguageModel.chat(ChatLanguageModel.java:47)
+	at dev.langchain4j.model.chat.ChatLanguageModel.chat(ChatLanguageModel.java:98)
+	at com.moyun.ext.ai.engine.workflow.node.LLMNodeExecutor.execute(LLMNodeExecutor.java:102)
+	at com.moyun.ext.ai.engine.workflow.WorkflowEngine.executeNode(WorkflowEngine.java:406)
+	at com.moyun.ext.ai.engine.workflow.WorkflowEngine.executeNode(WorkflowEngine.java:467)
+	at com.moyun.ext.ai.engine.workflow.WorkflowEngine.executeWithCallback(WorkflowEngine.java:307)
+	at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+	at org.springframework.aop.support.AopUtils.invokeJoinpointUsingReflection(AopUtils.java:354)
+	at org.springframework.aop.framework.CglibAopProxy$DynamicAdvisedInterceptor.intercept(CglibAopProxy.java:716)
+	at com.moyun.ext.ai.engine.workflow.WorkflowEngine$$SpringCGLIB$$0.executeWithCallback(<generated>)
+	at com.moyun.ext.ai.service.impl.WorkflowServiceImpl.executeWithCallback(WorkflowServiceImpl.java:185)
+	at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+	at org.springframework.aop.support.AopUtils.invokeJoinpointUsingReflection(AopUtils.java:354)
+	at org.springframework.aop.framework.CglibAopProxy$DynamicAdvisedInterceptor.intercept(CglibAopProxy.java:716)
+	at com.moyun.ext.ai.service.impl.WorkflowServiceImpl$$SpringCGLIB$$0.executeWithCallback(<generated>)
+	at com.moyun.ext.ai.controller.WorkflowController.lambda$executeStream$1(WorkflowController.java:229)
+	at java.base/java.lang.Thread.run(Thread.java:1583)
+Caused by: dev.langchain4j.exception.HttpException: 404 : "{"error":{"message":"The model `千问-3.7 max` does not exist or you do not have access to it.","type":"invalid_request_error","param":null,"code":"model_not_found"},"request_id":"a7e7ac1a-a20a-9442-a439-e4ac467d846e"}"
+	at dev.langchain4j.http.client.spring.restclient.SpringRestClient.execute(SpringRestClient.java:77)
+	at dev.langchain4j.model.openai.internal.SyncRequestExecutor.execute(SyncRequestExecutor.java:20)
+	at dev.langchain4j.model.openai.internal.RequestExecutor.execute(RequestExecutor.java:39)
+	at dev.langchain4j.model.openai.OpenAiChatModel.lambda$doChat$3(OpenAiChatModel.java:152)
+	at dev.langchain4j.internal.ExceptionMapper.withExceptionMapper(ExceptionMapper.java:27)
+	... 25 common frames omitted
+
+2026-08-06 17:06:21.455 ERROR 3260 --- [Thread-12] c.m.e.ai.engine.workflow.WorkflowEngine  : ❌ 工作流执行失败: id=25
+
+com.moyun.ext.ai.exception.BusinessException: 节点执行失败[LLM]: LLM调用失败: 404 : "{"error":{"message":"The model `千问-3.7 max` does not exist or you do not have access to it.","type":"invalid_request_error","param":null,"code":"model_not_found"},"request_id":"a7e7ac1a-a20a-9442-a439-e4ac467d846e"}"
+	at com.moyun.ext.ai.engine.workflow.WorkflowEngine.executeNode(WorkflowEngine.java:436)
+	at com.moyun.ext.ai.engine.workflow.WorkflowEngine.executeNode(WorkflowEngine.java:467)
+	at com.moyun.ext.ai.engine.workflow.WorkflowEngine.executeWithCallback(WorkflowEngine.java:307)
+	at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+	at org.springframework.aop.support.AopUtils.invokeJoinpointUsingReflection(AopUtils.java:354)
+	at org.springframework.aop.framework.CglibAopProxy$DynamicAdvisedInterceptor.intercept(CglibAopProxy.java:716)
+	at com.moyun.ext.ai.engine.workflow.WorkflowEngine$$SpringCGLIB$$0.executeWithCallback(<generated>)
+	at com.moyun.ext.ai.service.impl.WorkflowServiceImpl.executeWithCallback(WorkflowServiceImpl.java:185)
+	at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+	at org.springframework.aop.support.AopUtils.invokeJoinpointUsingReflection(AopUtils.java:354)
+	at org.springframework.aop.framework.CglibAopProxy$DynamicAdvisedInterceptor.intercept(CglibAopProxy.java:716)
+	at com.moyun.ext.ai.service.impl.WorkflowServiceImpl$$SpringCGLIB$$0.executeWithCallback(<generated>)
+	at com.moyun.ext.ai.controller.WorkflowController.lambda$executeStream$1(WorkflowController.java:229)
+	at java.base/java.lang.Thread.run(Thread.java:1583)
+
+2026-08-06 17:07:05.358  INFO 3260 --- [Thread-13] c.m.e.ai.engine.workflow.WorkflowEngine  : 🚀 开始执行工作流(SSE): id=25, name=新工作流
+2026-08-06 17:07:05.367  INFO 3260 --- [Thread-13] c.m.e.ai.engine.workflow.WorkflowEngine  : 🔍 工作流图结构 - 节点数: 3, 边数: 2
+2026-08-06 17:07:05.368  INFO 3260 --- [Thread-13] c.m.e.ai.engine.workflow.WorkflowEngine  : 🔍 节点列表: start_1(开始:start), end_1(结束:end), llm_2(LLM:llm)
+2026-08-06 17:07:05.368  INFO 3260 --- [Thread-13] c.m.e.ai.engine.workflow.WorkflowEngine  : 🔍 边列表: start_1 -> llm_2, llm_2 -> end_1
+2026-08-06 17:07:05.369  INFO 3260 --- [Thread-13] c.m.e.ai.engine.workflow.WorkflowEngine  : ▶ 执行节点: id=start_1, type=start, name=开始
+2026-08-06 17:07:05.369  INFO 3260 --- [Thread-13] c.m.e.a.e.w.node.StartNodeExecutor       : 🚀 工作流开始执行, workflowId=25
+2026-08-06 17:07:05.370  INFO 3260 --- [Thread-13] c.m.e.ai.engine.workflow.WorkflowEngine  : 🔍 节点 start_1 的下一个节点: 1 个
+2026-08-06 17:07:05.371  INFO 3260 --- [Thread-13] c.m.e.ai.engine.workflow.WorkflowEngine  :   下一步执行: llm_2(LLM)
+2026-08-06 17:07:05.372  INFO 3260 --- [Thread-13] c.m.e.ai.engine.workflow.WorkflowEngine  : ▶ 执行节点: id=llm_2, type=llm, name=LLM
+2026-08-06 17:07:05.372  INFO 3260 --- [Thread-13] c.m.e.a.e.workflow.node.LLMNodeExecutor  : 🤖 LLM节点执行: model=15, userPrompt=请根据以下信息，对候选人进行简历分析：
+
+【目标岗位JD】
+[在此处粘贴完整的岗位描述、任职要求、岗位职责等]
+
+【候选人简历】
+[在此处粘贴候选人的完整简历文本]
+
+请严格按照系统设定的5个模块（匹...
+2026-08-06 17:07:05.617 ERROR 3260 --- [Thread-13] c.m.e.a.e.workflow.node.LLMNodeExecutor  : LLM节点执行失败
+
+dev.langchain4j.exception.ModelNotFoundException: 404 : "{"error":{"message":"The model `千问-3.7 max` does not exist or you do not have access to it.","type":"invalid_request_error","param":null,"code":"model_not_found"},"request_id":"30257553-2e2b-9cdf-b854-6cdbe5d0aa38"}"
+	at dev.langchain4j.internal.ExceptionMapper$DefaultExceptionMapper.mapHttpStatusCode(ExceptionMapper.java:60)
+	at dev.langchain4j.internal.ExceptionMapper$DefaultExceptionMapper.mapException(ExceptionMapper.java:42)
+	at dev.langchain4j.internal.ExceptionMapper.withExceptionMapper(ExceptionMapper.java:29)
+	at dev.langchain4j.internal.RetryUtils.lambda$withRetryMappingExceptions$2(RetryUtils.java:307)
+	at dev.langchain4j.internal.RetryUtils$RetryPolicy.withRetry(RetryUtils.java:195)
+	at dev.langchain4j.internal.RetryUtils.withRetry(RetryUtils.java:247)
+	at dev.langchain4j.internal.RetryUtils.withRetryMappingExceptions(RetryUtils.java:307)
+	at dev.langchain4j.internal.RetryUtils.withRetryMappingExceptions(RetryUtils.java:291)
+	at dev.langchain4j.model.openai.OpenAiChatModel.doChat(OpenAiChatModel.java:151)
+	at dev.langchain4j.model.chat.ChatLanguageModel.chat(ChatLanguageModel.java:47)
+	at dev.langchain4j.model.chat.ChatLanguageModel.chat(ChatLanguageModel.java:98)
+	at com.moyun.ext.ai.engine.workflow.node.LLMNodeExecutor.execute(LLMNodeExecutor.java:102)
+	at com.moyun.ext.ai.engine.workflow.WorkflowEngine.executeNode(WorkflowEngine.java:406)
+	at com.moyun.ext.ai.engine.workflow.WorkflowEngine.executeNode(WorkflowEngine.java:467)
+	at com.moyun.ext.ai.engine.workflow.WorkflowEngine.executeWithCallback(WorkflowEngine.java:307)
+	at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+	at org.springframework.aop.support.AopUtils.invokeJoinpointUsingReflection(AopUtils.java:354)
+	at org.springframework.aop.framework.CglibAopProxy$DynamicAdvisedInterceptor.intercept(CglibAopProxy.java:716)
+	at com.moyun.ext.ai.engine.workflow.WorkflowEngine$$SpringCGLIB$$0.executeWithCallback(<generated>)
+	at com.moyun.ext.ai.service.impl.WorkflowServiceImpl.executeWithCallback(WorkflowServiceImpl.java:185)
+	at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+	at org.springframework.aop.support.AopUtils.invokeJoinpointUsingReflection(AopUtils.java:354)
+	at org.springframework.aop.framework.CglibAopProxy$DynamicAdvisedInterceptor.intercept(CglibAopProxy.java:716)
+	at com.moyun.ext.ai.service.impl.WorkflowServiceImpl$$SpringCGLIB$$0.executeWithCallback(<generated>)
+	at com.moyun.ext.ai.controller.WorkflowController.lambda$executeStream$1(WorkflowController.java:229)
+	at java.base/java.lang.Thread.run(Thread.java:1583)
+Caused by: dev.langchain4j.exception.HttpException: 404 : "{"error":{"message":"The model `千问-3.7 max` does not exist or you do not have access to it.","type":"invalid_request_error","param":null,"code":"model_not_found"},"request_id":"30257553-2e2b-9cdf-b854-6cdbe5d0aa38"}"
+	at dev.langchain4j.http.client.spring.restclient.SpringRestClient.execute(SpringRestClient.java:77)
+	at dev.langchain4j.model.openai.internal.SyncRequestExecutor.execute(SyncRequestExecutor.java:20)
+	at dev.langchain4j.model.openai.internal.RequestExecutor.execute(RequestExecutor.java:39)
+	at dev.langchain4j.model.openai.OpenAiChatModel.lambda$doChat$3(OpenAiChatModel.java:152)
+	at dev.langchain4j.internal.ExceptionMapper.withExceptionMapper(ExceptionMapper.java:27)
+	... 25 common frames omitted
+
+2026-08-06 17:07:05.627 ERROR 3260 --- [Thread-13] c.m.e.ai.engine.workflow.WorkflowEngine  : ❌ 工作流执行失败: id=25
+
+com.moyun.ext.ai.exception.BusinessException: 节点执行失败[LLM]: LLM调用失败: 404 : "{"error":{"message":"The model `千问-3.7 max` does not exist or you do not have access to it.","type":"invalid_request_error","param":null,"code":"model_not_found"},"request_id":"30257553-2e2b-9cdf-b854-6cdbe5d0aa38"}"
+	at com.moyun.ext.ai.engine.workflow.WorkflowEngine.executeNode(WorkflowEngine.java:436)
+	at com.moyun.ext.ai.engine.workflow.WorkflowEngine.executeNode(WorkflowEngine.java:467)
+	at com.moyun.ext.ai.engine.workflow.WorkflowEngine.executeWithCallback(WorkflowEngine.java:307)
+	at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+	at org.springframework.aop.support.AopUtils.invokeJoinpointUsingReflection(AopUtils.java:354)
+	at org.springframework.aop.framework.CglibAopProxy$DynamicAdvisedInterceptor.intercept(CglibAopProxy.java:716)
+	at com.moyun.ext.ai.engine.workflow.WorkflowEngine$$SpringCGLIB$$0.executeWithCallback(<generated>)
+	at com.moyun.ext.ai.service.impl.WorkflowServiceImpl.executeWithCallback(WorkflowServiceImpl.java:185)
+	at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+	at org.springframework.aop.support.AopUtils.invokeJoinpointUsingReflection(AopUtils.java:354)
+	at org.springframework.aop.framework.CglibAopProxy$DynamicAdvisedInterceptor.intercept(CglibAopProxy.java:716)
+	at com.moyun.ext.ai.service.impl.WorkflowServiceImpl$$SpringCGLIB$$0.executeWithCallback(<generated>)
+	at com.moyun.ext.ai.controller.WorkflowController.lambda$executeStream$1(WorkflowController.java:229)
+	at java.base/java.lang.Thread.run(Thread.java:1583)
+
+2026-08-06 17:13:09.428  INFO 3260 --- [Thread-14] c.m.e.ai.engine.workflow.WorkflowEngine  : 🚀 开始执行工作流(SSE): id=25, name=新工作流
+2026-08-06 17:13:09.438  INFO 3260 --- [Thread-14] c.m.e.ai.engine.workflow.WorkflowEngine  : 🔍 工作流图结构 - 节点数: 3, 边数: 2
+2026-08-06 17:13:09.438  INFO 3260 --- [Thread-14] c.m.e.ai.engine.workflow.WorkflowEngine  : 🔍 节点列表: start_1(开始:start), end_1(结束:end), llm_2(LLM:llm)
+2026-08-06 17:13:09.439  INFO 3260 --- [Thread-14] c.m.e.ai.engine.workflow.WorkflowEngine  : 🔍 边列表: start_1 -> llm_2, llm_2 -> end_1
+2026-08-06 17:13:09.440  INFO 3260 --- [Thread-14] c.m.e.ai.engine.workflow.WorkflowEngine  : ▶ 执行节点: id=start_1, type=start, name=开始
+2026-08-06 17:13:09.441  INFO 3260 --- [Thread-14] c.m.e.a.e.w.node.StartNodeExecutor       : 🚀 工作流开始执行, workflowId=25
+2026-08-06 17:13:09.441  INFO 3260 --- [Thread-14] c.m.e.ai.engine.workflow.WorkflowEngine  : 🔍 节点 start_1 的下一个节点: 1 个
+2026-08-06 17:13:09.442  INFO 3260 --- [Thread-14] c.m.e.ai.engine.workflow.WorkflowEngine  :   下一步执行: llm_2(LLM)
+2026-08-06 17:13:09.443  INFO 3260 --- [Thread-14] c.m.e.ai.engine.workflow.WorkflowEngine  : ▶ 执行节点: id=llm_2, type=llm, name=LLM
+2026-08-06 17:13:09.443  INFO 3260 --- [Thread-14] c.m.e.a.e.workflow.node.LLMNodeExecutor  : 🤖 LLM节点执行: model=15, userPrompt=请根据以下信息，对候选人进行简历分析：
+
+【目标岗位JD】
+[在此处粘贴完整的岗位描述、任职要求、岗位职责等]
+
+【候选人简历】
+[在此处粘贴候选人的完整简历文本]
+
+请严格按照系统设定的5个模块（匹...
+2026-08-06 17:13:09.663 ERROR 3260 --- [Thread-14] c.m.e.a.e.workflow.node.LLMNodeExecutor  : LLM节点执行失败
+
+dev.langchain4j.exception.ModelNotFoundException: 404 : "{"error":{"message":"The model `千问-3.8 max` does not exist or you do not have access to it.","type":"invalid_request_error","param":null,"code":"model_not_found"},"request_id":"009e0463-fbad-9ab5-b7ff-9d39bf380932"}"
+	at dev.langchain4j.internal.ExceptionMapper$DefaultExceptionMapper.mapHttpStatusCode(ExceptionMapper.java:60)
+	at dev.langchain4j.internal.ExceptionMapper$DefaultExceptionMapper.mapException(ExceptionMapper.java:42)
+	at dev.langchain4j.internal.ExceptionMapper.withExceptionMapper(ExceptionMapper.java:29)
+	at dev.langchain4j.internal.RetryUtils.lambda$withRetryMappingExceptions$2(RetryUtils.java:307)
+	at dev.langchain4j.internal.RetryUtils$RetryPolicy.withRetry(RetryUtils.java:195)
+	at dev.langchain4j.internal.RetryUtils.withRetry(RetryUtils.java:247)
+	at dev.langchain4j.internal.RetryUtils.withRetryMappingExceptions(RetryUtils.java:307)
+	at dev.langchain4j.internal.RetryUtils.withRetryMappingExceptions(RetryUtils.java:291)
+	at dev.langchain4j.model.openai.OpenAiChatModel.doChat(OpenAiChatModel.java:151)
+	at dev.langchain4j.model.chat.ChatLanguageModel.chat(ChatLanguageModel.java:47)
+	at dev.langchain4j.model.chat.ChatLanguageModel.chat(ChatLanguageModel.java:98)
+	at com.moyun.ext.ai.engine.workflow.node.LLMNodeExecutor.execute(LLMNodeExecutor.java:102)
+	at com.moyun.ext.ai.engine.workflow.WorkflowEngine.executeNode(WorkflowEngine.java:406)
+	at com.moyun.ext.ai.engine.workflow.WorkflowEngine.executeNode(WorkflowEngine.java:467)
+	at com.moyun.ext.ai.engine.workflow.WorkflowEngine.executeWithCallback(WorkflowEngine.java:307)
+	at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+	at org.springframework.aop.support.AopUtils.invokeJoinpointUsingReflection(AopUtils.java:354)
+	at org.springframework.aop.framework.CglibAopProxy$DynamicAdvisedInterceptor.intercept(CglibAopProxy.java:716)
+	at com.moyun.ext.ai.engine.workflow.WorkflowEngine$$SpringCGLIB$$0.executeWithCallback(<generated>)
+	at com.moyun.ext.ai.service.impl.WorkflowServiceImpl.executeWithCallback(WorkflowServiceImpl.java:185)
+	at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+	at org.springframework.aop.support.AopUtils.invokeJoinpointUsingReflection(AopUtils.java:354)
+	at org.springframework.aop.framework.CglibAopProxy$DynamicAdvisedInterceptor.intercept(CglibAopProxy.java:716)
+	at com.moyun.ext.ai.service.impl.WorkflowServiceImpl$$SpringCGLIB$$0.executeWithCallback(<generated>)
+	at com.moyun.ext.ai.controller.WorkflowController.lambda$executeStream$1(WorkflowController.java:229)
+	at java.base/java.lang.Thread.run(Thread.java:1583)
+Caused by: dev.langchain4j.exception.HttpException: 404 : "{"error":{"message":"The model `千问-3.8 max` does not exist or you do not have access to it.","type":"invalid_request_error","param":null,"code":"model_not_found"},"request_id":"009e0463-fbad-9ab5-b7ff-9d39bf380932"}"
+	at dev.langchain4j.http.client.spring.restclient.SpringRestClient.execute(SpringRestClient.java:77)
+	at dev.langchain4j.model.openai.internal.SyncRequestExecutor.execute(SyncRequestExecutor.java:20)
+	at dev.langchain4j.model.openai.internal.RequestExecutor.execute(RequestExecutor.java:39)
+	at dev.langchain4j.model.openai.OpenAiChatModel.lambda$doChat$3(OpenAiChatModel.java:152)
+	at dev.langchain4j.internal.ExceptionMapper.withExceptionMapper(ExceptionMapper.java:27)
+	... 25 common frames omitted
+
+2026-08-06 17:13:09.665 ERROR 3260 --- [Thread-14] c.m.e.ai.engine.workflow.WorkflowEngine  : ❌ 工作流执行失败: id=25
+
+com.moyun.ext.ai.exception.BusinessException: 节点执行失败[LLM]: LLM调用失败: 404 : "{"error":{"message":"The model `千问-3.8 max` does not exist or you do not have access to it.","type":"invalid_request_error","param":null,"code":"model_not_found"},"request_id":"009e0463-fbad-9ab5-b7ff-9d39bf380932"}"
+	at com.moyun.ext.ai.engine.workflow.WorkflowEngine.executeNode(WorkflowEngine.java:436)
+	at com.moyun.ext.ai.engine.workflow.WorkflowEngine.executeNode(WorkflowEngine.java:467)
+	at com.moyun.ext.ai.engine.workflow.WorkflowEngine.executeWithCallback(WorkflowEngine.java:307)
+	at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+	at org.springframework.aop.support.AopUtils.invokeJoinpointUsingReflection(AopUtils.java:354)
+	at org.springframework.aop.framework.CglibAopProxy$DynamicAdvisedInterceptor.intercept(CglibAopProxy.java:716)
+	at com.moyun.ext.ai.engine.workflow.WorkflowEngine$$SpringCGLIB$$0.executeWithCallback(<generated>)
+	at com.moyun.ext.ai.service.impl.WorkflowServiceImpl.executeWithCallback(WorkflowServiceImpl.java:185)
+	at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+	at org.springframework.aop.support.AopUtils.invokeJoinpointUsingReflection(AopUtils.java:354)
+	at org.springframework.aop.framework.CglibAopProxy$DynamicAdvisedInterceptor.intercept(CglibAopProxy.java:716)
+	at com.moyun.ext.ai.service.impl.WorkflowServiceImpl$$SpringCGLIB$$0.executeWithCallback(<generated>)
+	at com.moyun.ext.ai.controller.WorkflowController.lambda$executeStream$1(WorkflowController.java:229)
+	at java.base/java.lang.Thread.run(Thread.java:1583)
+
+2026-08-06 17:13:21.362  INFO 3260 --- [Thread-15] c.m.e.ai.engine.workflow.WorkflowEngine  : 🚀 开始执行工作流(SSE): id=25, name=新工作流
+2026-08-06 17:13:21.368  INFO 3260 --- [Thread-15] c.m.e.ai.engine.workflow.WorkflowEngine  : 🔍 工作流图结构 - 节点数: 3, 边数: 2
+2026-08-06 17:13:21.369  INFO 3260 --- [Thread-15] c.m.e.ai.engine.workflow.WorkflowEngine  : 🔍 节点列表: start_1(开始:start), end_1(结束:end), llm_2(LLM:llm)
+2026-08-06 17:13:21.369  INFO 3260 --- [Thread-15] c.m.e.ai.engine.workflow.WorkflowEngine  : 🔍 边列表: start_1 -> llm_2, llm_2 -> end_1
+2026-08-06 17:13:21.370  INFO 3260 --- [Thread-15] c.m.e.ai.engine.workflow.WorkflowEngine  : ▶ 执行节点: id=start_1, type=start, name=开始
+2026-08-06 17:13:21.370  INFO 3260 --- [Thread-15] c.m.e.a.e.w.node.StartNodeExecutor       : 🚀 工作流开始执行, workflowId=25
+2026-08-06 17:13:21.374  INFO 3260 --- [Thread-15] c.m.e.ai.engine.workflow.WorkflowEngine  : 🔍 节点 start_1 的下一个节点: 1 个
+2026-08-06 17:13:21.375  INFO 3260 --- [Thread-15] c.m.e.ai.engine.workflow.WorkflowEngine  :   下一步执行: llm_2(LLM)
+2026-08-06 17:13:21.383  INFO 3260 --- [Thread-15] c.m.e.ai.engine.workflow.WorkflowEngine  : ▶ 执行节点: id=llm_2, type=llm, name=LLM
+2026-08-06 17:13:21.384  INFO 3260 --- [Thread-15] c.m.e.a.e.workflow.node.LLMNodeExecutor  : 🤖 LLM节点执行: model=15, userPrompt=请根据以下信息，对候选人进行简历分析：
+
+【目标岗位JD】
+[在此处粘贴完整的岗位描述、任职要求、岗位职责等]
+
+【候选人简历】
+[在此处粘贴候选人的完整简历文本]
+
+请严格按照系统设定的5个模块（匹...
+2026-08-06 17:13:21.636 ERROR 3260 --- [Thread-15] c.m.e.a.e.workflow.node.LLMNodeExecutor  : LLM节点执行失败
+
+dev.langchain4j.exception.ModelNotFoundException: 404 : "{"error":{"message":"The model `千问-3.8 max` does not exist or you do not have access to it.","type":"invalid_request_error","param":null,"code":"model_not_found"},"request_id":"4e8f8d08-2f78-97e2-9c78-53132c8582a1"}"
+	at dev.langchain4j.internal.ExceptionMapper$DefaultExceptionMapper.mapHttpStatusCode(ExceptionMapper.java:60)
+	at dev.langchain4j.internal.ExceptionMapper$DefaultExceptionMapper.mapException(ExceptionMapper.java:42)
+	at dev.langchain4j.internal.ExceptionMapper.withExceptionMapper(ExceptionMapper.java:29)
+	at dev.langchain4j.internal.RetryUtils.lambda$withRetryMappingExceptions$2(RetryUtils.java:307)
+	at dev.langchain4j.internal.RetryUtils$RetryPolicy.withRetry(RetryUtils.java:195)
+	at dev.langchain4j.internal.RetryUtils.withRetry(RetryUtils.java:247)
+	at dev.langchain4j.internal.RetryUtils.withRetryMappingExceptions(RetryUtils.java:307)
+	at dev.langchain4j.internal.RetryUtils.withRetryMappingExceptions(RetryUtils.java:291)
+	at dev.langchain4j.model.openai.OpenAiChatModel.doChat(OpenAiChatModel.java:151)
+	at dev.langchain4j.model.chat.ChatLanguageModel.chat(ChatLanguageModel.java:47)
+	at dev.langchain4j.model.chat.ChatLanguageModel.chat(ChatLanguageModel.java:98)
+	at com.moyun.ext.ai.engine.workflow.node.LLMNodeExecutor.execute(LLMNodeExecutor.java:102)
+	at com.moyun.ext.ai.engine.workflow.WorkflowEngine.executeNode(WorkflowEngine.java:406)
+	at com.moyun.ext.ai.engine.workflow.WorkflowEngine.executeNode(WorkflowEngine.java:467)
+	at com.moyun.ext.ai.engine.workflow.WorkflowEngine.executeWithCallback(WorkflowEngine.java:307)
+	at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+	at org.springframework.aop.support.AopUtils.invokeJoinpointUsingReflection(AopUtils.java:354)
+	at org.springframework.aop.framework.CglibAopProxy$DynamicAdvisedInterceptor.intercept(CglibAopProxy.java:716)
+	at com.moyun.ext.ai.engine.workflow.WorkflowEngine$$SpringCGLIB$$0.executeWithCallback(<generated>)
+	at com.moyun.ext.ai.service.impl.WorkflowServiceImpl.executeWithCallback(WorkflowServiceImpl.java:185)
+	at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+	at org.springframework.aop.support.AopUtils.invokeJoinpointUsingReflection(AopUtils.java:354)
+	at org.springframework.aop.framework.CglibAopProxy$DynamicAdvisedInterceptor.intercept(CglibAopProxy.java:716)
+	at com.moyun.ext.ai.service.impl.WorkflowServiceImpl$$SpringCGLIB$$0.executeWithCallback(<generated>)
+	at com.moyun.ext.ai.controller.WorkflowController.lambda$executeStream$1(WorkflowController.java:229)
+	at java.base/java.lang.Thread.run(Thread.java:1583)
+Caused by: dev.langchain4j.exception.HttpException: 404 : "{"error":{"message":"The model `千问-3.8 max` does not exist or you do not have access to it.","type":"invalid_request_error","param":null,"code":"model_not_found"},"request_id":"4e8f8d08-2f78-97e2-9c78-53132c8582a1"}"
+	at dev.langchain4j.http.client.spring.restclient.SpringRestClient.execute(SpringRestClient.java:77)
+	at dev.langchain4j.model.openai.internal.SyncRequestExecutor.execute(SyncRequestExecutor.java:20)
+	at dev.langchain4j.model.openai.internal.RequestExecutor.execute(RequestExecutor.java:39)
+	at dev.langchain4j.model.openai.OpenAiChatModel.lambda$doChat$3(OpenAiChatModel.java:152)
+	at dev.langchain4j.internal.ExceptionMapper.withExceptionMapper(ExceptionMapper.java:27)
+	... 25 common frames omitted
+
+2026-08-06 17:13:21.646 ERROR 3260 --- [Thread-15] c.m.e.ai.engine.workflow.WorkflowEngine  : ❌ 工作流执行失败: id=25
+
+com.moyun.ext.ai.exception.BusinessException: 节点执行失败[LLM]: LLM调用失败: 404 : "{"error":{"message":"The model `千问-3.8 max` does not exist or you do not have access to it.","type":"invalid_request_error","param":null,"code":"model_not_found"},"request_id":"4e8f8d08-2f78-97e2-9c78-53132c8582a1"}"
+	at com.moyun.ext.ai.engine.workflow.WorkflowEngine.executeNode(WorkflowEngine.java:436)
+	at com.moyun.ext.ai.engine.workflow.WorkflowEngine.executeNode(WorkflowEngine.java:467)
+	at com.moyun.ext.ai.engine.workflow.WorkflowEngine.executeWithCallback(WorkflowEngine.java:307)
+	at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+	at org.springframework.aop.support.AopUtils.invokeJoinpointUsingReflection(AopUtils.java:354)
+	at org.springframework.aop.framework.CglibAopProxy$DynamicAdvisedInterceptor.intercept(CglibAopProxy.java:716)
+	at com.moyun.ext.ai.engine.workflow.WorkflowEngine$$SpringCGLIB$$0.executeWithCallback(<generated>)
+	at com.moyun.ext.ai.service.impl.WorkflowServiceImpl.executeWithCallback(WorkflowServiceImpl.java:185)
+	at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+	at org.springframework.aop.support.AopUtils.invokeJoinpointUsingReflection(AopUtils.java:354)
+	at org.springframework.aop.framework.CglibAopProxy$DynamicAdvisedInterceptor.intercept(CglibAopProxy.java:716)
+	at com.moyun.ext.ai.service.impl.WorkflowServiceImpl$$SpringCGLIB$$0.executeWithCallback(<generated>)
+	at com.moyun.ext.ai.controller.WorkflowController.lambda$executeStream$1(WorkflowController.java:229)
+	at java.base/java.lang.Thread.run(Thread.java:1583)
+
+2026-08-06 17:14:12.718  INFO 3260 --- [Thread-16] c.m.e.ai.engine.workflow.WorkflowEngine  : 🚀 开始执行工作流(SSE): id=25, name=新工作流
+2026-08-06 17:14:12.727  INFO 3260 --- [Thread-16] c.m.e.ai.engine.workflow.WorkflowEngine  : 🔍 工作流图结构 - 节点数: 3, 边数: 2
+2026-08-06 17:14:12.727  INFO 3260 --- [Thread-16] c.m.e.ai.engine.workflow.WorkflowEngine  : 🔍 节点列表: start_1(开始:start), end_1(结束:end), llm_2(LLM:llm)
+2026-08-06 17:14:12.727  INFO 3260 --- [Thread-16] c.m.e.ai.engine.workflow.WorkflowEngine  : 🔍 边列表: start_1 -> llm_2, llm_2 -> end_1
+2026-08-06 17:14:12.728  INFO 3260 --- [Thread-16] c.m.e.ai.engine.workflow.WorkflowEngine  : ▶ 执行节点: id=start_1, type=start, name=开始
+2026-08-06 17:14:12.728  INFO 3260 --- [Thread-16] c.m.e.a.e.w.node.StartNodeExecutor       : 🚀 工作流开始执行, workflowId=25
+2026-08-06 17:14:12.729  INFO 3260 --- [Thread-16] c.m.e.ai.engine.workflow.WorkflowEngine  : 🔍 节点 start_1 的下一个节点: 1 个
+2026-08-06 17:14:12.729  INFO 3260 --- [Thread-16] c.m.e.ai.engine.workflow.WorkflowEngine  :   下一步执行: llm_2(LLM)
+2026-08-06 17:14:12.730  INFO 3260 --- [Thread-16] c.m.e.ai.engine.workflow.WorkflowEngine  : ▶ 执行节点: id=llm_2, type=llm, name=LLM
+2026-08-06 17:14:12.730  INFO 3260 --- [Thread-16] c.m.e.a.e.workflow.node.LLMNodeExecutor  : 🤖 LLM节点执行: model=15, userPrompt=请根据以下信息，对候选人进行简历分析：
+
+【目标岗位JD】
+[在此处粘贴完整的岗位描述、任职要求、岗位职责等]
+
+【候选人简历】
+[在此处粘贴候选人的完整简历文本]
+
+请严格按照系统设定的5个模块（匹...
+2026-08-06 17:14:13.016 ERROR 3260 --- [Thread-16] c.m.e.a.e.workflow.node.LLMNodeExecutor  : LLM节点执行失败
+
+dev.langchain4j.exception.ModelNotFoundException: 404 : "{"error":{"message":"The model `千问-3.8 max` does not exist or you do not have access to it.","type":"invalid_request_error","param":null,"code":"model_not_found"},"request_id":"1d8eaafe-64cf-9d3d-9956-faa590a3ce53"}"
+	at dev.langchain4j.internal.ExceptionMapper$DefaultExceptionMapper.mapHttpStatusCode(ExceptionMapper.java:60)
+	at dev.langchain4j.internal.ExceptionMapper$DefaultExceptionMapper.mapException(ExceptionMapper.java:42)
+	at dev.langchain4j.internal.ExceptionMapper.withExceptionMapper(ExceptionMapper.java:29)
+	at dev.langchain4j.internal.RetryUtils.lambda$withRetryMappingExceptions$2(RetryUtils.java:307)
+	at dev.langchain4j.internal.RetryUtils$RetryPolicy.withRetry(RetryUtils.java:195)
+	at dev.langchain4j.internal.RetryUtils.withRetry(RetryUtils.java:247)
+	at dev.langchain4j.internal.RetryUtils.withRetryMappingExceptions(RetryUtils.java:307)
+	at dev.langchain4j.internal.RetryUtils.withRetryMappingExceptions(RetryUtils.java:291)
+	at dev.langchain4j.model.openai.OpenAiChatModel.doChat(OpenAiChatModel.java:151)
+	at dev.langchain4j.model.chat.ChatLanguageModel.chat(ChatLanguageModel.java:47)
+	at dev.langchain4j.model.chat.ChatLanguageModel.chat(ChatLanguageModel.java:98)
+	at com.moyun.ext.ai.engine.workflow.node.LLMNodeExecutor.execute(LLMNodeExecutor.java:102)
+	at com.moyun.ext.ai.engine.workflow.WorkflowEngine.executeNode(WorkflowEngine.java:406)
+	at com.moyun.ext.ai.engine.workflow.WorkflowEngine.executeNode(WorkflowEngine.java:467)
+	at com.moyun.ext.ai.engine.workflow.WorkflowEngine.executeWithCallback(WorkflowEngine.java:307)
+	at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+	at org.springframework.aop.support.AopUtils.invokeJoinpointUsingReflection(AopUtils.java:354)
+	at org.springframework.aop.framework.CglibAopProxy$DynamicAdvisedInterceptor.intercept(CglibAopProxy.java:716)
+	at com.moyun.ext.ai.engine.workflow.WorkflowEngine$$SpringCGLIB$$0.executeWithCallback(<generated>)
+	at com.moyun.ext.ai.service.impl.WorkflowServiceImpl.executeWithCallback(WorkflowServiceImpl.java:185)
+	at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+	at org.springframework.aop.support.AopUtils.invokeJoinpointUsingReflection(AopUtils.java:354)
+	at org.springframework.aop.framework.CglibAopProxy$DynamicAdvisedInterceptor.intercept(CglibAopProxy.java:716)
+	at com.moyun.ext.ai.service.impl.WorkflowServiceImpl$$SpringCGLIB$$0.executeWithCallback(<generated>)
+	at com.moyun.ext.ai.controller.WorkflowController.lambda$executeStream$1(WorkflowController.java:229)
+	at java.base/java.lang.Thread.run(Thread.java:1583)
+Caused by: dev.langchain4j.exception.HttpException: 404 : "{"error":{"message":"The model `千问-3.8 max` does not exist or you do not have access to it.","type":"invalid_request_error","param":null,"code":"model_not_found"},"request_id":"1d8eaafe-64cf-9d3d-9956-faa590a3ce53"}"
+	at dev.langchain4j.http.client.spring.restclient.SpringRestClient.execute(SpringRestClient.java:77)
+	at dev.langchain4j.model.openai.internal.SyncRequestExecutor.execute(SyncRequestExecutor.java:20)
+	at dev.langchain4j.model.openai.internal.RequestExecutor.execute(RequestExecutor.java:39)
+	at dev.langchain4j.model.openai.OpenAiChatModel.lambda$doChat$3(OpenAiChatModel.java:152)
+	at dev.langchain4j.internal.ExceptionMapper.withExceptionMapper(ExceptionMapper.java:27)
+	... 25 common frames omitted
+
+2026-08-06 17:14:13.019 ERROR 3260 --- [Thread-16] c.m.e.ai.engine.workflow.WorkflowEngine  : ❌ 工作流执行失败: id=25
+
+com.moyun.ext.ai.exception.BusinessException: 节点执行失败[LLM]: LLM调用失败: 404 : "{"error":{"message":"The model `千问-3.8 max` does not exist or you do not have access to it.","type":"invalid_request_error","param":null,"code":"model_not_found"},"request_id":"1d8eaafe-64cf-9d3d-9956-faa590a3ce53"}"
+	at com.moyun.ext.ai.engine.workflow.WorkflowEngine.executeNode(WorkflowEngine.java:436)
+	at com.moyun.ext.ai.engine.workflow.WorkflowEngine.executeNode(WorkflowEngine.java:467)
+	at com.moyun.ext.ai.engine.workflow.WorkflowEngine.executeWithCallback(WorkflowEngine.java:307)
+	at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+	at org.springframework.aop.support.AopUtils.invokeJoinpointUsingReflection(AopUtils.java:354)
+	at org.springframework.aop.framework.CglibAopProxy$DynamicAdvisedInterceptor.intercept(CglibAopProxy.java:716)
+	at com.moyun.ext.ai.engine.workflow.WorkflowEngine$$SpringCGLIB$$0.executeWithCallback(<generated>)
+	at com.moyun.ext.ai.service.impl.WorkflowServiceImpl.executeWithCallback(WorkflowServiceImpl.java:185)
+	at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+	at org.springframework.aop.support.AopUtils.invokeJoinpointUsingReflection(AopUtils.java:354)
+	at org.springframework.aop.framework.CglibAopProxy$DynamicAdvisedInterceptor.intercept(CglibAopProxy.java:716)
+	at com.moyun.ext.ai.service.impl.WorkflowServiceImpl$$SpringCGLIB$$0.executeWithCallback(<generated>)
+	at com.moyun.ext.ai.controller.WorkflowController.lambda$executeStream$1(WorkflowController.java:229)
+	at java.base/java.lang.Thread.run(Thread.java:1583)
+
+2026-08-06 17:14:47.812  INFO 3260 --- [Thread-17] c.m.e.ai.engine.workflow.WorkflowEngine  : 🚀 开始执行工作流(SSE): id=25, name=新工作流
+2026-08-06 17:14:47.818  INFO 3260 --- [Thread-17] c.m.e.ai.engine.workflow.WorkflowEngine  : 🔍 工作流图结构 - 节点数: 3, 边数: 2
+2026-08-06 17:14:47.819  INFO 3260 --- [Thread-17] c.m.e.ai.engine.workflow.WorkflowEngine  : 🔍 节点列表: start_1(开始:start), end_1(结束:end), llm_2(LLM:llm)
+2026-08-06 17:14:47.819  INFO 3260 --- [Thread-17] c.m.e.ai.engine.workflow.WorkflowEngine  : 🔍 边列表: start_1 -> llm_2, llm_2 -> end_1
+2026-08-06 17:14:47.821  INFO 3260 --- [Thread-17] c.m.e.ai.engine.workflow.WorkflowEngine  : ▶ 执行节点: id=start_1, type=start, name=开始
+2026-08-06 17:14:47.821  INFO 3260 --- [Thread-17] c.m.e.a.e.w.node.StartNodeExecutor       : 🚀 工作流开始执行, workflowId=25
+2026-08-06 17:14:47.823  INFO 3260 --- [Thread-17] c.m.e.ai.engine.workflow.WorkflowEngine  : 🔍 节点 start_1 的下一个节点: 1 个
+2026-08-06 17:14:47.823  INFO 3260 --- [Thread-17] c.m.e.ai.engine.workflow.WorkflowEngine  :   下一步执行: llm_2(LLM)
+2026-08-06 17:14:47.824  INFO 3260 --- [Thread-17] c.m.e.ai.engine.workflow.WorkflowEngine  : ▶ 执行节点: id=llm_2, type=llm, name=LLM
+2026-08-06 17:14:47.824  INFO 3260 --- [Thread-17] c.m.e.a.e.workflow.node.LLMNodeExecutor  : 🤖 LLM节点执行: model=15, userPrompt=请根据以下信息，对候选人进行简历分析：
+
+【目标岗位JD】
+[在此处粘贴完整的岗位描述、任职要求、岗位职责等]
+
+【候选人简历】
+[在此处粘贴候选人的完整简历文本]
+
+请严格按照系统设定的5个模块（匹...
+2026-08-06 17:14:48.129 ERROR 3260 --- [Thread-17] c.m.e.a.e.workflow.node.LLMNodeExecutor  : LLM节点执行失败
+
+dev.langchain4j.exception.ModelNotFoundException: 404 : "{"error":{"message":"The model `千问-3.8 max` does not exist or you do not have access to it.","type":"invalid_request_error","param":null,"code":"model_not_found"},"request_id":"ac0c891b-0c0f-9ff8-bebd-19d876931598"}"
+	at dev.langchain4j.internal.ExceptionMapper$DefaultExceptionMapper.mapHttpStatusCode(ExceptionMapper.java:60)
+	at dev.langchain4j.internal.ExceptionMapper$DefaultExceptionMapper.mapException(ExceptionMapper.java:42)
+	at dev.langchain4j.internal.ExceptionMapper.withExceptionMapper(ExceptionMapper.java:29)
+	at dev.langchain4j.internal.RetryUtils.lambda$withRetryMappingExceptions$2(RetryUtils.java:307)
+	at dev.langchain4j.internal.RetryUtils$RetryPolicy.withRetry(RetryUtils.java:195)
+	at dev.langchain4j.internal.RetryUtils.withRetry(RetryUtils.java:247)
+	at dev.langchain4j.internal.RetryUtils.withRetryMappingExceptions(RetryUtils.java:307)
+	at dev.langchain4j.internal.RetryUtils.withRetryMappingExceptions(RetryUtils.java:291)
+	at dev.langchain4j.model.openai.OpenAiChatModel.doChat(OpenAiChatModel.java:151)
+	at dev.langchain4j.model.chat.ChatLanguageModel.chat(ChatLanguageModel.java:47)
+	at dev.langchain4j.model.chat.ChatLanguageModel.chat(ChatLanguageModel.java:98)
+	at com.moyun.ext.ai.engine.workflow.node.LLMNodeExecutor.execute(LLMNodeExecutor.java:102)
+	at com.moyun.ext.ai.engine.workflow.WorkflowEngine.executeNode(WorkflowEngine.java:406)
+	at com.moyun.ext.ai.engine.workflow.WorkflowEngine.executeNode(WorkflowEngine.java:467)
+	at com.moyun.ext.ai.engine.workflow.WorkflowEngine.executeWithCallback(WorkflowEngine.java:307)
+	at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+	at org.springframework.aop.support.AopUtils.invokeJoinpointUsingReflection(AopUtils.java:354)
+	at org.springframework.aop.framework.CglibAopProxy$DynamicAdvisedInterceptor.intercept(CglibAopProxy.java:716)
+	at com.moyun.ext.ai.engine.workflow.WorkflowEngine$$SpringCGLIB$$0.executeWithCallback(<generated>)
+	at com.moyun.ext.ai.service.impl.WorkflowServiceImpl.executeWithCallback(WorkflowServiceImpl.java:185)
+	at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+	at org.springframework.aop.support.AopUtils.invokeJoinpointUsingReflection(AopUtils.java:354)
+	at org.springframework.aop.framework.CglibAopProxy$DynamicAdvisedInterceptor.intercept(CglibAopProxy.java:716)
+	at com.moyun.ext.ai.service.impl.WorkflowServiceImpl$$SpringCGLIB$$0.executeWithCallback(<generated>)
+	at com.moyun.ext.ai.controller.WorkflowController.lambda$executeStream$1(WorkflowController.java:229)
+	at java.base/java.lang.Thread.run(Thread.java:1583)
+Caused by: dev.langchain4j.exception.HttpException: 404 : "{"error":{"message":"The model `千问-3.8 max` does not exist or you do not have access to it.","type":"invalid_request_error","param":null,"code":"model_not_found"},"request_id":"ac0c891b-0c0f-9ff8-bebd-19d876931598"}"
+	at dev.langchain4j.http.client.spring.restclient.SpringRestClient.execute(SpringRestClient.java:77)
+	at dev.langchain4j.model.openai.internal.SyncRequestExecutor.execute(SyncRequestExecutor.java:20)
+	at dev.langchain4j.model.openai.internal.RequestExecutor.execute(RequestExecutor.java:39)
+	at dev.langchain4j.model.openai.OpenAiChatModel.lambda$doChat$3(OpenAiChatModel.java:152)
+	at dev.langchain4j.internal.ExceptionMapper.withExceptionMapper(ExceptionMapper.java:27)
+	... 25 common frames omitted
+
+2026-08-06 17:14:48.132 ERROR 3260 --- [Thread-17] c.m.e.ai.engine.workflow.WorkflowEngine  : ❌ 工作流执行失败: id=25
+
+com.moyun.ext.ai.exception.BusinessException: 节点执行失败[LLM]: LLM调用失败: 404 : "{"error":{"message":"The model `千问-3.8 max` does not exist or you do not have access to it.","type":"invalid_request_error","param":null,"code":"model_not_found"},"request_id":"ac0c891b-0c0f-9ff8-bebd-19d876931598"}"
+	at com.moyun.ext.ai.engine.workflow.WorkflowEngine.executeNode(WorkflowEngine.java:436)
+	at com.moyun.ext.ai.engine.workflow.WorkflowEngine.executeNode(WorkflowEngine.java:467)
+	at com.moyun.ext.ai.engine.workflow.WorkflowEngine.executeWithCallback(WorkflowEngine.java:307)
+	at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+	at org.springframework.aop.support.AopUtils.invokeJoinpointUsingReflection(AopUtils.java:354)
+	at org.springframework.aop.framework.CglibAopProxy$DynamicAdvisedInterceptor.intercept(CglibAopProxy.java:716)
+	at com.moyun.ext.ai.engine.workflow.WorkflowEngine$$SpringCGLIB$$0.executeWithCallback(<generated>)
+	at com.moyun.ext.ai.service.impl.WorkflowServiceImpl.executeWithCallback(WorkflowServiceImpl.java:185)
+	at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+	at org.springframework.aop.support.AopUtils.invokeJoinpointUsingReflection(AopUtils.java:354)
+	at org.springframework.aop.framework.CglibAopProxy$DynamicAdvisedInterceptor.intercept(CglibAopProxy.java:716)
+	at com.moyun.ext.ai.service.impl.WorkflowServiceImpl$$SpringCGLIB$$0.executeWithCallback(<generated>)
+	at com.moyun.ext.ai.controller.WorkflowController.lambda$executeStream$1(WorkflowController.java:229)
+	at java.base/java.lang.Thread.run(Thread.java:1583)
+
+2026-08-06 17:16:58.160  INFO 3260 --- [Thread-18] c.m.e.ai.engine.workflow.WorkflowEngine  : 🚀 开始执行工作流(SSE): id=25, name=新工作流
+2026-08-06 17:16:58.171  INFO 3260 --- [Thread-18] c.m.e.ai.engine.workflow.WorkflowEngine  : 🔍 工作流图结构 - 节点数: 3, 边数: 2
+2026-08-06 17:16:58.171  INFO 3260 --- [Thread-18] c.m.e.ai.engine.workflow.WorkflowEngine  : 🔍 节点列表: start_1(开始:start), end_1(结束:end), llm_2(LLM:llm)
+2026-08-06 17:16:58.171  INFO 3260 --- [Thread-18] c.m.e.ai.engine.workflow.WorkflowEngine  : 🔍 边列表: start_1 -> llm_2, llm_2 -> end_1
+2026-08-06 17:16:58.172  INFO 3260 --- [Thread-18] c.m.e.ai.engine.workflow.WorkflowEngine  : ▶ 执行节点: id=start_1, type=start, name=开始
+2026-08-06 17:16:58.172  INFO 3260 --- [Thread-18] c.m.e.a.e.w.node.StartNodeExecutor       : 🚀 工作流开始执行, workflowId=25
+2026-08-06 17:16:58.173  INFO 3260 --- [Thread-18] c.m.e.ai.engine.workflow.WorkflowEngine  : 🔍 节点 start_1 的下一个节点: 1 个
+2026-08-06 17:16:58.173  INFO 3260 --- [Thread-18] c.m.e.ai.engine.workflow.WorkflowEngine  :   下一步执行: llm_2(LLM)
+2026-08-06 17:16:58.174  INFO 3260 --- [Thread-18] c.m.e.ai.engine.workflow.WorkflowEngine  : ▶ 执行节点: id=llm_2, type=llm, name=LLM
+2026-08-06 17:16:58.174  INFO 3260 --- [Thread-18] c.m.e.a.e.workflow.node.LLMNodeExecutor  : 🤖 LLM节点执行: model=15, userPrompt=请根据以下信息，对候选人进行简历分析：
+
+【目标岗位JD】
+[在此处粘贴完整的岗位描述、任职要求、岗位职责等]
+
+【候选人简历】
+[在此处粘贴候选人的完整简历文本]
+
+请严格按照系统设定的5个模块（匹...
+2026-08-06 17:16:58.397 ERROR 3260 --- [Thread-18] c.m.e.a.e.workflow.node.LLMNodeExecutor  : LLM节点执行失败
+
+dev.langchain4j.exception.ModelNotFoundException: 404 : "{"error":{"message":"The model `千问-3.8 max` does not exist or you do not have access to it.","type":"invalid_request_error","param":null,"code":"model_not_found"},"request_id":"4eee158f-5815-9343-915d-3f2eec822c7c"}"
+	at dev.langchain4j.internal.ExceptionMapper$DefaultExceptionMapper.mapHttpStatusCode(ExceptionMapper.java:60)
+	at dev.langchain4j.internal.ExceptionMapper$DefaultExceptionMapper.mapException(ExceptionMapper.java:42)
+	at dev.langchain4j.internal.ExceptionMapper.withExceptionMapper(ExceptionMapper.java:29)
+	at dev.langchain4j.internal.RetryUtils.lambda$withRetryMappingExceptions$2(RetryUtils.java:307)
+	at dev.langchain4j.internal.RetryUtils$RetryPolicy.withRetry(RetryUtils.java:195)
+	at dev.langchain4j.internal.RetryUtils.withRetry(RetryUtils.java:247)
+	at dev.langchain4j.internal.RetryUtils.withRetryMappingExceptions(RetryUtils.java:307)
+	at dev.langchain4j.internal.RetryUtils.withRetryMappingExceptions(RetryUtils.java:291)
+	at dev.langchain4j.model.openai.OpenAiChatModel.doChat(OpenAiChatModel.java:151)
+	at dev.langchain4j.model.chat.ChatLanguageModel.chat(ChatLanguageModel.java:47)
+	at dev.langchain4j.model.chat.ChatLanguageModel.chat(ChatLanguageModel.java:98)
+	at com.moyun.ext.ai.engine.workflow.node.LLMNodeExecutor.execute(LLMNodeExecutor.java:102)
+	at com.moyun.ext.ai.engine.workflow.WorkflowEngine.executeNode(WorkflowEngine.java:406)
+	at com.moyun.ext.ai.engine.workflow.WorkflowEngine.executeNode(WorkflowEngine.java:467)
+	at com.moyun.ext.ai.engine.workflow.WorkflowEngine.executeWithCallback(WorkflowEngine.java:307)
+	at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+	at org.springframework.aop.support.AopUtils.invokeJoinpointUsingReflection(AopUtils.java:354)
+	at org.springframework.aop.framework.CglibAopProxy$DynamicAdvisedInterceptor.intercept(CglibAopProxy.java:716)
+	at com.moyun.ext.ai.engine.workflow.WorkflowEngine$$SpringCGLIB$$0.executeWithCallback(<generated>)
+	at com.moyun.ext.ai.service.impl.WorkflowServiceImpl.executeWithCallback(WorkflowServiceImpl.java:185)
+	at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+	at org.springframework.aop.support.AopUtils.invokeJoinpointUsingReflection(AopUtils.java:354)
+	at org.springframework.aop.framework.CglibAopProxy$DynamicAdvisedInterceptor.intercept(CglibAopProxy.java:716)
+	at com.moyun.ext.ai.service.impl.WorkflowServiceImpl$$SpringCGLIB$$0.executeWithCallback(<generated>)
+	at com.moyun.ext.ai.controller.WorkflowController.lambda$executeStream$1(WorkflowController.java:229)
+	at java.base/java.lang.Thread.run(Thread.java:1583)
+Caused by: dev.langchain4j.exception.HttpException: 404 : "{"error":{"message":"The model `千问-3.8 max` does not exist or you do not have access to it.","type":"invalid_request_error","param":null,"code":"model_not_found"},"request_id":"4eee158f-5815-9343-915d-3f2eec822c7c"}"
+	at dev.langchain4j.http.client.spring.restclient.SpringRestClient.execute(SpringRestClient.java:77)
+	at dev.langchain4j.model.openai.internal.SyncRequestExecutor.execute(SyncRequestExecutor.java:20)
+	at dev.langchain4j.model.openai.internal.RequestExecutor.execute(RequestExecutor.java:39)
+	at dev.langchain4j.model.openai.OpenAiChatModel.lambda$doChat$3(OpenAiChatModel.java:152)
+	at dev.langchain4j.internal.ExceptionMapper.withExceptionMapper(ExceptionMapper.java:27)
+	... 25 common frames omitted
+
+2026-08-06 17:16:58.398 ERROR 3260 --- [Thread-18] c.m.e.ai.engine.workflow.WorkflowEngine  : ❌ 工作流执行失败: id=25
+
+com.moyun.ext.ai.exception.BusinessException: 节点执行失败[LLM]: LLM调用失败: 404 : "{"error":{"message":"The model `千问-3.8 max` does not exist or you do not have access to it.","type":"invalid_request_error","param":null,"code":"model_not_found"},"request_id":"4eee158f-5815-9343-915d-3f2eec822c7c"}"
+	at com.moyun.ext.ai.engine.workflow.WorkflowEngine.executeNode(WorkflowEngine.java:436)
+	at com.moyun.ext.ai.engine.workflow.WorkflowEngine.executeNode(WorkflowEngine.java:467)
+	at com.moyun.ext.ai.engine.workflow.WorkflowEngine.executeWithCallback(WorkflowEngine.java:307)
+	at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+	at org.springframework.aop.support.AopUtils.invokeJoinpointUsingReflection(AopUtils.java:354)
+	at org.springframework.aop.framework.CglibAopProxy$DynamicAdvisedInterceptor.intercept(CglibAopProxy.java:716)
+	at com.moyun.ext.ai.engine.workflow.WorkflowEngine$$SpringCGLIB$$0.executeWithCallback(<generated>)
+	at com.moyun.ext.ai.service.impl.WorkflowServiceImpl.executeWithCallback(WorkflowServiceImpl.java:185)
+	at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+	at org.springframework.aop.support.AopUtils.invokeJoinpointUsingReflection(AopUtils.java:354)
+	at org.springframework.aop.framework.CglibAopProxy$DynamicAdvisedInterceptor.intercept(CglibAopProxy.java:716)
+	at com.moyun.ext.ai.service.impl.WorkflowServiceImpl$$SpringCGLIB$$0.executeWithCallback(<generated>)
+	at com.moyun.ext.ai.controller.WorkflowController.lambda$executeStream$1(WorkflowController.java:229)
+	at java.base/java.lang.Thread.run(Thread.java:1583)
+
+2026-08-06 17:20:11.644  INFO 3260 --- [Thread-19] c.m.e.ai.engine.workflow.WorkflowEngine  : 🚀 开始执行工作流(SSE): id=25, name=新工作流
+2026-08-06 17:20:11.652  INFO 3260 --- [Thread-19] c.m.e.ai.engine.workflow.WorkflowEngine  : 🔍 工作流图结构 - 节点数: 3, 边数: 2
+2026-08-06 17:20:11.653  INFO 3260 --- [Thread-19] c.m.e.ai.engine.workflow.WorkflowEngine  : 🔍 节点列表: start_1(开始:start), end_1(结束:end), llm_2(LLM:llm)
+2026-08-06 17:20:11.653  INFO 3260 --- [Thread-19] c.m.e.ai.engine.workflow.WorkflowEngine  : 🔍 边列表: start_1 -> llm_2, llm_2 -> end_1
+2026-08-06 17:20:11.654  INFO 3260 --- [Thread-19] c.m.e.ai.engine.workflow.WorkflowEngine  : ▶ 执行节点: id=start_1, type=start, name=开始
+2026-08-06 17:20:11.654  INFO 3260 --- [Thread-19] c.m.e.a.e.w.node.StartNodeExecutor       : 🚀 工作流开始执行, workflowId=25
+2026-08-06 17:20:11.655  INFO 3260 --- [Thread-19] c.m.e.ai.engine.workflow.WorkflowEngine  : 🔍 节点 start_1 的下一个节点: 1 个
+2026-08-06 17:20:11.655  INFO 3260 --- [Thread-19] c.m.e.ai.engine.workflow.WorkflowEngine  :   下一步执行: llm_2(LLM)
+2026-08-06 17:20:11.655  INFO 3260 --- [Thread-19] c.m.e.ai.engine.workflow.WorkflowEngine  : ▶ 执行节点: id=llm_2, type=llm, name=LLM
+2026-08-06 17:20:11.656  INFO 3260 --- [Thread-19] c.m.e.a.e.workflow.node.LLMNodeExecutor  : 🤖 LLM节点执行: model=15, userPrompt=请根据以下信息，对候选人进行简历分析：
+
+【目标岗位JD】
+[在此处粘贴完整的岗位描述、任职要求、岗位职责等]
+
+【候选人简历】
+[在此处粘贴候选人的完整简历文本]
+
+请严格按照系统设定的5个模块（匹...
+2026-08-06 17:20:12.958  INFO 3260 --- [Thread-19] c.m.e.a.e.workflow.node.LLMNodeExecutor  : 🤖 LLM响应: tokens(in=667, out=20), 请提供【目标岗位JD】和【候选人简历】的具体内容，以便我进行分析。
+2026-08-06 17:20:12.959  INFO 3260 --- [Thread-19] c.m.e.ai.engine.workflow.WorkflowEngine  : 🔍 节点 llm_2 的下一个节点: 1 个
+2026-08-06 17:20:12.959  INFO 3260 --- [Thread-19] c.m.e.ai.engine.workflow.WorkflowEngine  :   下一步执行: end_1(结束)
+2026-08-06 17:20:12.960  INFO 3260 --- [Thread-19] c.m.e.ai.engine.workflow.WorkflowEngine  : ▶ 执行节点: id=end_1, type=end, name=结束
+2026-08-06 17:20:12.960  INFO 3260 --- [Thread-19] c.m.e.a.e.workflow.node.EndNodeExecutor  : ✅ 工作流执行结束, workflowId=25
+2026-08-06 17:20:12.969  INFO 3260 --- [Thread-19] c.m.e.ai.engine.workflow.WorkflowEngine  : ✅ 工作流执行完成: id=25, duration=1318ms
+2026-08-06 17:21:01.392  INFO 3260 --- [Thread-20] c.m.e.ai.engine.workflow.WorkflowEngine  : 🚀 开始执行工作流(SSE): id=25, name=新工作流
+2026-08-06 17:21:01.406  INFO 3260 --- [Thread-20] c.m.e.ai.engine.workflow.WorkflowEngine  : 🔍 工作流图结构 - 节点数: 3, 边数: 2
+2026-08-06 17:21:01.406  INFO 3260 --- [Thread-20] c.m.e.ai.engine.workflow.WorkflowEngine  : 🔍 节点列表: start_1(开始:start), end_1(结束:end), llm_2(LLM:llm)
+2026-08-06 17:21:01.407  INFO 3260 --- [Thread-20] c.m.e.ai.engine.workflow.WorkflowEngine  : 🔍 边列表: start_1 -> llm_2, llm_2 -> end_1
+2026-08-06 17:21:01.409  INFO 3260 --- [Thread-20] c.m.e.ai.engine.workflow.WorkflowEngine  : ▶ 执行节点: id=start_1, type=start, name=开始
+2026-08-06 17:21:01.410  INFO 3260 --- [Thread-20] c.m.e.a.e.w.node.StartNodeExecutor       : 🚀 工作流开始执行, workflowId=25
+2026-08-06 17:21:01.413  INFO 3260 --- [Thread-20] c.m.e.ai.engine.workflow.WorkflowEngine  : 🔍 节点 start_1 的下一个节点: 1 个
+2026-08-06 17:21:01.413  INFO 3260 --- [Thread-20] c.m.e.ai.engine.workflow.WorkflowEngine  :   下一步执行: llm_2(LLM)
+2026-08-06 17:21:01.415  INFO 3260 --- [Thread-20] c.m.e.ai.engine.workflow.WorkflowEngine  : ▶ 执行节点: id=llm_2, type=llm, name=LLM
+2026-08-06 17:21:01.416  INFO 3260 --- [Thread-20] c.m.e.a.e.workflow.node.LLMNodeExecutor  : 🤖 LLM节点执行: model=15, userPrompt=请根据以下信息，对候选人进行简历分析：
+
+【目标岗位JD】
+[在此处粘贴完整的岗位描述、任职要求、岗位职责等]
+
+【候选人简历】
+[在此处粘贴候选人的完整简历文本]
+
+请严格按照系统设定的5个模块（匹...
+2026-08-06 17:21:02.313  INFO 3260 --- [Thread-20] c.m.e.a.e.workflow.node.LLMNodeExecutor  : 🤖 LLM响应: tokens(in=667, out=21), 请提供【目标岗位JD】和【候选人简历】的具体内容，以便我进行详细的分析。
+2026-08-06 17:21:02.314  INFO 3260 --- [Thread-20] c.m.e.ai.engine.workflow.WorkflowEngine  : 🔍 节点 llm_2 的下一个节点: 1 个
+2026-08-06 17:21:02.314  INFO 3260 --- [Thread-20] c.m.e.ai.engine.workflow.WorkflowEngine  :   下一步执行: end_1(结束)
+2026-08-06 17:21:02.315  INFO 3260 --- [Thread-20] c.m.e.ai.engine.workflow.WorkflowEngine  : ▶ 执行节点: id=end_1, type=end, name=结束
+2026-08-06 17:21:02.316  INFO 3260 --- [Thread-20] c.m.e.a.e.workflow.node.EndNodeExecutor  : ✅ 工作流执行结束, workflowId=25
+2026-08-06 17:21:02.328  INFO 3260 --- [Thread-20] c.m.e.ai.engine.workflow.WorkflowEngine  : ✅ 工作流执行完成: id=25, duration=928ms

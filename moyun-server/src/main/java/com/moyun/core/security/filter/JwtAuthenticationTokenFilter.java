@@ -33,6 +33,18 @@ public class JwtAuthenticationTokenFilter extends OncePerRequestFilter {
     @Autowired
     private TokenService tokenService;
 
+    /**
+     * 对 ASYNC 分发也执行过滤。
+     * <p>SseEmitter / DeferredResult 等异步返回值在 complete() 时会触发 ASYNC 分发，
+     * 此时原始请求的 SecurityContext 已被清除，默认 OncePerRequestFilter 不处理 ASYNC 分发，
+     * 导致 AuthorizationFilter 检查到无认证信息抛 AccessDeniedException。
+     * 此处覆盖为 false，使 ASYNC 分发时也重新从 JWT token 恢复认证上下文。</p>
+     */
+    @Override
+    protected boolean shouldNotFilterAsyncDispatch() {
+        return false;
+    }
+
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain)
             throws ServletException, IOException {

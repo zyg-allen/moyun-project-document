@@ -1,8 +1,16 @@
 <template>
   <div class="navbar">
     <hamburger id="hamburger-container" :is-active="appStore.sidebar.opened" class="hamburger-container" @toggleClick="toggleSideBar" />
-    <breadcrumb id="breadcrumb-container" class="breadcrumb-container" v-if="!settingsStore.topNav" />
+
+    <!--
+      topNav（原 TopNav 独占模式）：开启后隐藏面包屑，整行横向菜单
+      topNavQuick（一级菜单快捷导航）：与面包屑共存，紧凑高度，复用 TopNav 切换侧边栏逻辑
+      两个开关互不依赖，可单独启用
+      布局顺序：hamburger → topNavQuick(快捷导航) → breadcrumb(面包屑) → 右侧功能区
+    -->
     <top-nav id="topmenu-container" class="topmenu-container" v-if="settingsStore.topNav" />
+    <top-nav id="topnav-quick-container" class="topnav-quick-container" :quick-mode="true" v-if="settingsStore.topNavQuick && !settingsStore.topNav && appStore.device !== 'mobile'" />
+    <breadcrumb id="breadcrumb-container" class="breadcrumb-container" v-if="!settingsStore.topNav" />
 
     <div class="right-menu">
       <template v-if="appStore.device !== 'mobile'">
@@ -138,6 +146,12 @@ function setLayout() {
     left: 50px;
   }
 
+  /* 一级菜单快捷导航：与面包屑共存，浮动布局，紧随面包屑 */
+  .topnav-quick-container {
+    float: left;
+    height: 100%;
+  }
+
   .errLog-container {
     display: inline-block;
     vertical-align: top;
@@ -195,5 +209,29 @@ function setLayout() {
       }
     }
   }
+}
+</style>
+
+<!--
+  一级菜单快捷导航模式（topNavQuick 启用时生效）
+  - navbar 整体高度从 50px 降至 44px（适当小一点）
+  - 联动调整 hamburger 行高、右侧菜单行高
+  - 默认 topNavQuick=false 时这些规则不生效，完全保持原状
+-->
+<style lang="scss">
+.topnav-quick-mode .navbar {
+  height: 44px;
+}
+.topnav-quick-mode .navbar .hamburger-container {
+  line-height: 40px;
+}
+.topnav-quick-mode .navbar .right-menu {
+  line-height: 44px;
+}
+.topnav-quick-mode .navbar .right-menu .avatar-container .avatar-wrapper {
+  margin-top: 2px;
+}
+.topnav-quick-mode .navbar .right-menu .avatar-container .avatar-wrapper i {
+  top: 20px;
 }
 </style>

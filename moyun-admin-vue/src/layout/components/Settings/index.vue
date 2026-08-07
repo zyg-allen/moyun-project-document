@@ -43,6 +43,18 @@
     </div>
 
     <div class="drawer-item">
+      <span>一级菜单快捷导航<br /><small style="color:#909399;">头部一级菜单条，点击切换左侧栏（保留面包屑）</small></span>
+      <span class="comp-style">
+        <el-switch
+          v-model="settingsStore.topNavQuick"
+          :disabled="settingsStore.topNav"
+          @change="topNavQuickChange"
+          class="drawer-switch"
+        />
+      </span>
+    </div>
+
+    <div class="drawer-item">
       <span>开启 Tags-Views</span>
       <span class="comp-style">
         <el-switch v-model="settingsStore.tagsView" class="drawer-switch" />
@@ -100,6 +112,17 @@ const predefineColors = ref(["#409EFF", "#ff4500", "#ff8c00", "#ffd700", "#90ee9
 
 /** 是否需要topnav */
 function topNavChange(val) {
+  if (val) {
+    // 开启 TopNav 独占模式时，自动关闭快捷导航（两者互斥，避免重复渲染）
+    settingsStore.topNavQuick = false;
+  } else {
+    appStore.toggleSideBarHide(false);
+    permissionStore.setSidebarRouters(permissionStore.defaultRoutes);
+  }
+}
+
+/** 关闭一级菜单快捷导航时，恢复左侧默认菜单 */
+function topNavQuickChange(val) {
   if (!val) {
     appStore.toggleSideBarHide(false);
     permissionStore.setSidebarRouters(permissionStore.defaultRoutes);
@@ -118,6 +141,7 @@ function saveSetting() {
   proxy.$modal.loading("正在保存到本地，请稍候...");
   let layoutSetting = {
     "topNav": storeSettings.value.topNav,
+    "topNavQuick": storeSettings.value.topNavQuick,
     "tagsView": storeSettings.value.tagsView,
     "fixedHeader": storeSettings.value.fixedHeader,
     "sidebarLogo": storeSettings.value.sidebarLogo,

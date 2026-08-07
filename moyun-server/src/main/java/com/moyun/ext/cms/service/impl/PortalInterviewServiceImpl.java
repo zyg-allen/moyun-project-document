@@ -13,11 +13,13 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.moyun.common.exception.system.ServiceException;
 import com.moyun.ext.cms.domain.vo.UserProfileSnapshotVO;
 import com.moyun.ext.cms.service.IUserProfileSnapshotService;
+import com.moyun.util.security.SecurityUtils;
 import com.moyun.util.string.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -41,7 +43,10 @@ import com.moyun.ext.cms.domain.vo.InterviewQuestionVO;
 import com.moyun.ext.cms.domain.vo.InterviewResumeTemplateVO;
 import com.moyun.ext.cms.domain.vo.InterviewSubmissionVO;
 import com.moyun.ext.cms.service.IFeedService;
+import com.moyun.system.domain.entity.SysNotification;
+import com.moyun.system.service.ISysNotificationService;
 import com.moyun.ext.cms.service.IPortalInterviewService;
+import com.moyun.system.service.ISensitiveWordService;
 import com.moyun.portal.domain.entity.PortalInterviewAttempt;
 import com.moyun.portal.domain.entity.PortalInterviewBookmark;
 import com.moyun.portal.domain.entity.PortalInterviewCategory;
@@ -107,7 +112,9 @@ public class PortalInterviewServiceImpl implements IPortalInterviewService {
     @Autowired private IPortalGrowthService portalGrowthService;
     @Autowired private com.moyun.portal.mapper.PortalUserMapper portalUserMapper;
     @Autowired private IFeedService feedService;
+    @Autowired private ISysNotificationService notificationService;
     @Autowired private IUserProfileSnapshotService profileSnapshotService;
+    @Autowired private ISensitiveWordService sensitiveWordService;
 
     // ========================================================================
     // 首页聚合
@@ -748,11 +755,67 @@ public class PortalInterviewServiceImpl implements IPortalInterviewService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public int auditExperience(Long id, String status, String remark) {
-        PortalInterviewExperience entity = experienceMapper.selectById(id);
-        if (entity == null) throw new ServiceException("面经不存在");
-        entity.setStatus(status);
-        entity.setUpdateTime(LocalDateTime.now());
-        return experienceMapper.updateById(entity);
+        // 1. 状态白名单校验：仅允许 published / rejected
+        if (!"published".equals(status) && !"rejected".equals(status)) {
+            throw new ServiceException("审核状态非法，仅允许 published 或 rejected");
+        }
+        // 2. 驳回时必填审核意见
+        if ("rejected".equals(status) && StringUtils.isEmpty(remark)) {
+            throw new ServiceException("驳回必须填写审核意见");
+        }
+        // 3. 存在性校验
+        PortalInterviewExperience existing = experienceMapper.selectById(id);
+        if (existing == null) {
+            throw new ServiceException("面经不存在");
+        }
+        // 4. 乐观锁 + 写入审核轨迹（对齐文章审核模式：仅 pending 可审核）
+        LambdaUpdateWrapper<PortalInterviewExperience> wrapper = new LambdaUpdateWrapper<>();
+        wrapper.eq(PortalInterviewExperience::getId, id)
+               .eq(PortalInterviewExperience::getStatus, "pending")
+               .set(PortalInterviewExperience::getStatus, status)
+               .set(PortalInterviewExperience::getAuditorId, SecurityUtils.getUserId())
+               .set(PortalInterviewExperience::getAuditTime, LocalDateTime.now())
+               .set(PortalInterviewExperience::getUpdateTime, LocalDateTime.now());
+        if (StringUtils.isNotEmpty(remark)) {
+            wrapper.set(PortalInterviewExperience::getAuditRemark, remark);
+        }
+        int rows = experienceMapper.update(null, wrapper);
+        if (rows == 0) {
+            // 乐观锁失败：非 pending 状态（已被他人审核过），给出明确提示
+            PortalInterviewExperience current = experienceMapper.selectById(id);
+            if (current == null) {
+                throw new ServiceException("面经不存在或已被删除");
+            }
+            throw new ServiceException("当前面经状态为「" + current.getStatus()
+                    + "」，仅待审核状态（pending）可执行审核操作");
+        }
+        // 5. 审核结果通知作者（非阻塞，失败不影响主流程）
+        try {
+            if (existing.getUserId() != null) {
+                String noticeContent = "您的面经《" +
+                        (existing.getTitle() != null && existing.getTitle().length() > 30
+                                ? existing.getTitle().substring(0, 30) + "…"
+                                : existing.getTitle()) + "》" +
+                        ("published".equals(status) ? "审核通过" : "审核未通过") +
+                        (StringUtils.isNotEmpty(remark) ? "，原因：" + remark : "");
+                try {
+                    SysNotification notification = new SysNotification();
+                    notification.setType("notice");
+                    notification.setTitle("面经审核结果");
+                    notification.setContent(noticeContent);
+                    notification.setScope("user");
+                    notification.setUserId(existing.getUserId());
+                    notification.setUserType("portal");
+                    notification.setStatus("0");
+                    notificationService.save(notification);
+                } catch (Throwable ignored) {
+                    log.debug("面经审核站内信接口不可用，已跳过: experienceId={}", id);
+                }
+            }
+        } catch (Exception e) {
+            log.warn("面经审核站内信发送失败，experienceId={}: {}", id, e.getMessage());
+        }
+        return rows;
     }
 
     @Override
@@ -827,6 +890,25 @@ public class PortalInterviewServiceImpl implements IPortalInterviewService {
         PortalInterviewExperience exp = experienceMapper.selectById(comment.getExperienceId());
         if (exp == null) throw new ServiceException("面经不存在");
         comment.setUserId(userId);
+        // 敏感词检查：命中即拦截，写审计日志（与文章评论发布侧策略一致）
+        if (comment.getContent() != null && !comment.getContent().isEmpty()) {
+            try {
+                List<String> hits = sensitiveWordService.find(comment.getContent());
+                if (hits != null && !hits.isEmpty()) {
+                    sensitiveWordService.detectAndLog(
+                            "interview_comment", null, userId,
+                            comment.getContent(), "block");
+                    log.warn("面经评论命中敏感词已拦截：experienceId={}, userId={}, hits={}",
+                            comment.getExperienceId(), userId, hits);
+                    throw new ServiceException("评论内容包含违规信息，请修改后重试");
+                }
+            } catch (ServiceException e) {
+                throw e;
+            } catch (Exception e) {
+                log.warn("面经评论敏感词扫描异常：experienceId={}, err={}",
+                        comment.getExperienceId(), e.getMessage());
+            }
+        }
         comment.setStatus(comment.getStatus() == null ? "published" : comment.getStatus());
         if (comment.getLikeCount() == null) comment.setLikeCount(0L);
         comment.setCreateTime(LocalDateTime.now());
@@ -851,9 +933,27 @@ public class PortalInterviewServiceImpl implements IPortalInterviewService {
     public int auditComment(Long id, String status, String remark) {
         PortalInterviewComment entity = commentMapper.selectById(id);
         if (entity == null) throw new ServiceException("评论不存在");
-        entity.setStatus(status);
-        entity.setUpdateTime(LocalDateTime.now());
-        return commentMapper.updateById(entity);
+        // 状态白名单：仅允许 published / rejected
+        if (!"published".equals(status) && !"rejected".equals(status)) {
+            throw new ServiceException("非法的审核状态：" + status);
+        }
+        // 驳回必须填写原因
+        if ("rejected".equals(status) && (remark == null || remark.trim().isEmpty())) {
+            throw new ServiceException("驳回必须填写原因");
+        }
+        // 乐观锁：仅 pending 状态可审核，避免并发重复审核
+        LambdaUpdateWrapper<PortalInterviewComment> uw = Wrappers.<PortalInterviewComment>lambdaUpdate()
+                .eq(PortalInterviewComment::getId, id)
+                .eq(PortalInterviewComment::getStatus, "pending")
+                .set(PortalInterviewComment::getStatus, status)
+                .set(PortalInterviewComment::getAuditRemark, remark)
+                .set(PortalInterviewComment::getAuditTime, LocalDateTime.now())
+                .set(PortalInterviewComment::getUpdateTime, LocalDateTime.now());
+        int rows = commentMapper.update(null, uw);
+        if (rows == 0) {
+            throw new ServiceException("审核失败：评论状态已变更或不存在待审核记录");
+        }
+        return rows;
     }
 
     @Override

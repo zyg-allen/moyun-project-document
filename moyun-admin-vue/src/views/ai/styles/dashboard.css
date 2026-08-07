@@ -1,5 +1,5 @@
 /* 基础 */
-.dashboard-container { width: 100vw; height: 100vh; background: linear-gradient(135deg, #020617 0%, #0a1628 50%, #020617 100%); display: flex; flex-direction: column; overflow: hidden; font-family: -apple-system, 'PingFang SC', sans-serif; position: relative; }
+.dashboard-container { width: 100%; min-height: calc(100vh - 84px); background: linear-gradient(135deg, #020617 0%, #0a1628 50%, #020617 100%); display: flex; flex-direction: column; overflow: hidden; font-family: -apple-system, 'PingFang SC', sans-serif; position: relative; }
 .bg-effects { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
 .grid-bg { position: absolute; inset: 0; background-image: linear-gradient(rgba(56,189,248,0.04) 1px, transparent 1px), linear-gradient(90deg, rgba(56,189,248,0.04) 1px, transparent 1px); background-size: 50px 50px; animation: gridMove 20s linear infinite; }
 @keyframes gridMove { to { background-position: 50px 50px; } }

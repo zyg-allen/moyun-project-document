@@ -118,26 +118,6 @@ mybatis-plus:
       logic-not-delete-value: "0"
 
 # =============================================
-# Flowable 工作流配置
-# =============================================
-flowable:
-  async-executor-activate: false
-  check-process-definitions: false
-  # ⚠️ 注意：本地开发时设置为 true 让 Flowable 自动建表
-  #        已有建表脚本则设为 false 避免重复创建
-  database-schema-update: true
-  history-level: audit
-  database-type: mysql
-  eventregistry:
-    enabled: false
-  cmmn:
-    enabled: false
-  dmn:
-    enabled: false
-  app:
-    enabled: false
-
-# =============================================
 # MinIO 文件存储配置
 # 凭据通过环境变量注入，默认值仅用于开发环境
 # =============================================

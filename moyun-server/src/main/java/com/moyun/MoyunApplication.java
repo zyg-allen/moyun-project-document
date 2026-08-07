@@ -10,11 +10,9 @@ import org.springframework.scheduling.annotation.EnableScheduling;
  * @author moyun
  */
 @SpringBootApplication(exclude = {
-    // 排除 MongoDB 自动配置（避免与 Flowable 冲突）
+    // 排除 MongoDB 自动配置（项目未使用 MongoDB）
     org.springframework.boot.autoconfigure.mongo.MongoAutoConfiguration.class,
-    org.springframework.boot.autoconfigure.data.mongo.MongoDataAutoConfiguration.class,
-    // 临时排除 Flowable 自动配置（调试用，问题解决后请注释掉）
-    // org.flowable.spring.boot.FlowableAutoConfiguration.class  // 已修复，重新启用
+    org.springframework.boot.autoconfigure.data.mongo.MongoDataAutoConfiguration.class
 })
 @EnableScheduling
 public class MoyunApplication {
@@ -23,7 +21,6 @@ public class MoyunApplication {
         SpringApplication.run(MoyunApplication.class, args);
         System.out.println("========================================");
         System.out.println("    墨韵·智库 启动成功！");
-        System.out.println("    Flowable 工作流引擎已就绪");
         System.out.println("========================================");
     }
 

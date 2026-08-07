@@ -165,6 +165,14 @@ export function listInterviewComment(query) {
   });
 }
 
+// 查询评论详情
+export function getInterviewComment(id) {
+  return request({
+    url: '/cms/interview/comment/' + id,
+    method: 'get'
+  });
+}
+
 // 审核评论
 export function auditInterviewComment(data) {
   return request({

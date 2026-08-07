@@ -52,7 +52,11 @@ public class PortalInterviewResumeTemplate extends BaseEntity
     /** 文件大小（字节） */
     private Long fileSize;
 
-    /** 是否付费 */
+    /**
+     * 是否付费
+     * 注意：历史字段名为 isPremium（VIP语义），前端使用 isPaid（通用付费语义），
+     *       实体保留 isPremium 列名，MyBatis-Plus 自动映射，前端传参 isPaid 已由 Service 层适配。
+     */
     private Boolean isPremium;
 
     /** 使用指南 */
@@ -70,7 +74,11 @@ public class PortalInterviewResumeTemplate extends BaseEntity
     /** 标签（逗号分隔，可选） */
     private String tags;
 
-    /** 状态：active/inactive */
+    /**
+     * 状态:draft 草稿/published 已发布
+     * 注意：历史注释为 active/inactive（启停语义），实际前端使用 draft/published（内容生命周期语义），
+     *       已修正注释与前端保持一致；存量数据兼容。
+     */
     @Size(min = 0, max = 20, message = "状态长度不能超过20个字符")
     private String status;
 

@@ -15,11 +15,8 @@ import java.util.concurrent.ThreadPoolExecutor;
  * 不再承担系统级 {@code applicationTaskExecutor} 职责（已迁至
  * {@code com.moyun.core.config.AsyncTaskConfig} 统一管理）。</p>
  *
- * <p>历史背景：早期 AI 模块为解决 Flowable 7.1.0 启动依赖
- * {@code @Qualifier("applicationTaskExecutor")} 的 {@code AsyncTaskExecutor}，
- * 在本类用 {@code @Bean(name = {"aiAsyncTaskExecutor", "applicationTaskExecutor"})}
- * 双别名"占位"。该方案导致 AI 模块越界承担系统级职责，一旦 AI 模块被移除/禁用，
- * Flowable 立即启动失败。重构后该职责回归 core 模块。</p>
+ * <p>历史背景：早期 AI 模块曾在本类用双别名"占位"注册 {@code applicationTaskExecutor}，
+ * 导致 AI 模块越界承担系统级职责。重构后该职责回归 core 模块。</p>
  *
  * <p>{@code @EnableAsync} 同步迁至 core 模块，避免本类被拆分/移除时
  * 项目内 {@code @Async} 方法（如 ToolRegistry#logToolCallAsync）静默退化为同步执行。</p>

@@ -1,5 +1,5 @@
 <template>
-  <div class="knowledge-manage">
+  <div class="knowledge-manage" :class="{ 'embedded-mode': embedded }">
     <!-- 页面头部 -->
     <div class="page-header">
       <div class="header-icon">
@@ -619,6 +619,10 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import KnowledgeConfigDialog from '../components/KnowledgeConfigDialog.vue'
 import CreateKnowledgeDialog from '../components/CreateKnowledgeDialog.vue'
 import VuePdfEmbed from 'vue-pdf-embed'
+
+// embedded: 在 Tab 容器中嵌入时为 true，隐藏外层冗余边距
+const props = defineProps({ embedded: { type: Boolean, default: false } })
+const embedded = props.embedded
 
 const knowledgeList = ref([])
 const loading = ref(false)

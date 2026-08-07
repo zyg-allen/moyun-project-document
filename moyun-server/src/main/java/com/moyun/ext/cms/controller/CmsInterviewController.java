@@ -37,6 +37,7 @@ import com.moyun.portal.domain.entity.PortalInterviewExperience;
 import com.moyun.portal.domain.entity.PortalInterviewQuestion;
 import com.moyun.portal.domain.entity.PortalInterviewResumeTemplate;
 import com.moyun.portal.domain.entity.PortalInterviewSubmission;
+import com.moyun.portal.mapper.PortalInterviewCommentMapper;
 import com.moyun.portal.mapper.PortalInterviewSubmissionMapper;
 import com.moyun.portal.mapper.PortalUserStatsMapper;
 import com.moyun.portal.service.IPortalGrowthService;
@@ -67,6 +68,9 @@ public class CmsInterviewController extends BaseController {
 
     @Autowired
     private IPortalTagService portalTagService;
+
+    @Autowired
+    private PortalInterviewCommentMapper commentMapper;
 
     // ========================================================================
     // 题目管理
@@ -244,6 +248,17 @@ public class CmsInterviewController extends BaseController {
         Page<InterviewCommentVO> page = PageUtils.buildPage(query);
         page = portalInterviewService.selectCommentPage(page, query, null);
         return success(page);
+    }
+
+    @Operation(summary = "获取评论详情", description = "根据评论ID获取详情（供审核工作台详情区渲染）")
+    @PreAuthorize("@ss.hasPermi('cms:interview:query')")
+    @GetMapping("/comment/{id}")
+    public AjaxResult getComment(@Parameter(description = "评论ID") @PathVariable Long id) {
+        PortalInterviewComment comment = commentMapper.selectById(id);
+        if (comment == null) {
+            return error("评论不存在");
+        }
+        return success(comment);
     }
 
     @Operation(summary = "审核评论", description = "审核评论内容")

@@ -1,5 +1,5 @@
 <template>
-  <div class="knowledge-library-manage">
+  <div class="knowledge-library-manage" :class="{ 'embedded-mode': embedded }">
     <!-- 页面头部 -->
     <div class="page-header">
       <div class="header-icon">
@@ -593,6 +593,10 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import VuePdfEmbed from 'vue-pdf-embed'
 import KnowledgeConfigDialog from '../components/KnowledgeConfigDialog.vue'
 import CreateKnowledgeDialog from '../components/CreateKnowledgeDialog.vue'
+
+// embedded: 在 Tab 容器中嵌入时为 true，隐藏外层冗余边距
+const props = defineProps({ embedded: { type: Boolean, default: false } })
+const embedded = props.embedded
 
 // 状态
 const loading = ref(false)
@@ -1296,6 +1300,13 @@ onMounted(() => {
   background: #f8fafc;
   padding: 40px 20px 100px;
   position: relative;
+}
+
+/* Tab 嵌入模式：去掉外层冗余 padding，由 Tab 容器统一控制边距 */
+.knowledge-library-manage.embedded-mode {
+  min-height: auto;
+  padding: 16px 16px 40px;
+  background: transparent;
 }
 
 /* 页面头部 - 居中布局 */

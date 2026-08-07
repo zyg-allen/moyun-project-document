@@ -5,6 +5,13 @@
   position: relative;
 }
 
+/* Tab 嵌入模式：去掉外层冗余 padding，由 Tab 容器统一控制边距 */
+.knowledge-manage.embedded-mode {
+  min-height: auto;
+  padding: 16px 16px 40px;
+  background: transparent;
+}
+
 /* 页面头部 - 居中布局 */
 .page-header {
   max-width: 1400px;

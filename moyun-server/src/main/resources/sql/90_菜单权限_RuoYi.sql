@@ -7,7 +7,6 @@ LOCK TABLES `sys_menu` WRITE;
 INSERT INTO sys_menu VALUES('1', '系统管理', '0', '1', 'system',           NULL, '', '', 1, 0, 'M', '0', '0', '', 'system',   'admin', NOW(), '', NULL, '系统管理目录', '0');
 INSERT INTO sys_menu VALUES('2', '系统监控', '0', '2', 'monitor',          NULL, '', '', 1, 0, 'M', '0', '0', '', 'monitor',  'admin', NOW(), '', NULL, '系统监控目录', '0');
 INSERT INTO sys_menu VALUES('3', '系统工具', '0', '3', 'tool',             NULL, '', '', 1, 0, 'M', '0', '0', '', 'tool',     'admin', NOW(), '', NULL, '系统工具目录', '0');
-INSERT INTO sys_menu VALUES('4', '流程管理', '0', '4', 'flowable',         NULL, '', '', 1, 0, 'M', '0', '0', '', 'tree',     'admin', NOW(), '', NULL, '流程管理目录', '0');
 -- 二级菜单
 INSERT INTO sys_menu VALUES('100',  '用户管理', '1',   '1', 'user',       'system/user/index',        '', '', 1, 0, 'C', '0', '0', 'system:user:list',        'user',          'admin', NOW(), '', NULL, '用户管理菜单', '0');
 INSERT INTO sys_menu VALUES('101',  '角色管理', '1',   '2', 'role',       'system/role/index',        '', '', 1, 0, 'C', '0', '0', 'system:role:list',        'peoples',       'admin', NOW(), '', NULL, '角色管理菜单', '0');
@@ -26,8 +25,6 @@ INSERT INTO sys_menu VALUES('114',  '缓存列表', '2',   '6', 'cacheList',  'm
 INSERT INTO sys_menu VALUES('115',  '表单构建', '3',   '1', 'build',      'tool/build/index',         '', '', 1, 0, 'C', '0', '0', 'tool:build:list',         'build',         'admin', NOW(), '', NULL, '表单构建菜单', '0');
 INSERT INTO sys_menu VALUES('116',  '代码生成', '3',   '2', 'gen',        'tool/gen/index',           '', '', 1, 0, 'C', '0', '0', 'tool:gen:list',           'code',          'admin', NOW(), '', NULL, '代码生成菜单', '0');
 INSERT INTO sys_menu VALUES('117',  '系统接口', '3',   '3', 'swagger',    'tool/swagger/index',       '', '', 1, 0, 'C', '0', '0', 'tool:swagger:list',       'swagger',       'admin', NOW(), '', NULL, '系统接口菜单', '0');
-INSERT INTO sys_menu VALUES('118',  '流程定义', '4',   '1', 'definition', 'flowable/definition/index', '', '', 1, 0, 'C', '0', '0', 'flowable:definition:list', 'tree',          'admin', NOW(), '', NULL, '流程定义菜单', '0');
-INSERT INTO sys_menu VALUES('119',  '流程任务', '4',   '2', 'task',       'flowable/task/index',      '', '', 1, 0, 'C', '0', '0', 'flowable:task:list',      'tree',          'admin', NOW(), '', NULL, '流程任务菜单', '0');
 -- 三级菜单
 INSERT INTO sys_menu VALUES('500',  '操作日志', '108', '1', 'operlog',    'monitor/operlog/index',    '', '', 1, 0, 'C', '0', '0', 'monitor:operlog:list',    'form',          'admin', NOW(), '', NULL, '操作日志菜单', '0');
 INSERT INTO sys_menu VALUES('501',  '登录日志', '108', '2', 'logininfor', 'monitor/logininfor/index', '', '', 1, 0, 'C', '0', '0', 'monitor:logininfor:list', 'logininfor',    'admin', NOW(), '', NULL, '登录日志菜单', '0');

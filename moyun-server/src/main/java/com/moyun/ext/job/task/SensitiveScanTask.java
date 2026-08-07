@@ -8,8 +8,12 @@ import org.springframework.stereotype.Component;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
+import com.moyun.portal.domain.entity.PortalComment;
+import com.moyun.portal.domain.entity.PortalInterviewComment;
 import com.moyun.portal.domain.entity.PortalTopic;
 import com.moyun.portal.domain.entity.PortalTopicPost;
+import com.moyun.portal.mapper.PortalCommentMapper;
+import com.moyun.portal.mapper.PortalInterviewCommentMapper;
 import com.moyun.portal.mapper.PortalTopicMapper;
 import com.moyun.portal.mapper.PortalTopicPostMapper;
 import com.moyun.system.domain.entity.SysNotification;
@@ -24,14 +28,17 @@ import lombok.extern.slf4j.Slf4j;
  * <ul>
  *   <li>{@code sensitiveScanTask.scanTopics()} —— 扫描已发布话题，命中转 pending 复审</li>
  *   <li>{@code sensitiveScanTask.scanTopicPosts()} —— 扫描已发布观点，命中软删并通知作者</li>
+ *   <li>{@code sensitiveScanTask.scanArticleComments()} —— 扫描已发布文章评论，命中转驳回(status=2)并通知作者</li>
+ *   <li>{@code sensitiveScanTask.scanInterviewComments()} —— 扫描已发布面经评论，命中转 rejected 并通知作者</li>
  * </ul>
  *
  * <p>设计要点：
  * <ul>
- *   <li>轻量级：仅扫 title+description（话题）/ content（观点），不解析富媒体。</li>
+ *   <li>轻量级：仅扫 title+description（话题）/ content（观点/评论），不解析富媒体。</li>
  *   <li>分批扫描：每批 200 条，避免大表全量加载导致内存压力。</li>
- *   <li>幂等：已 pending / 已软删的不再扫描。</li>
+ *   <li>幂等：已 pending / 已软删 / 已驳回的不再扫描。</li>
  *   <li>非阻断：单条扫描异常不影响整批，记录日志后继续。</li>
+ *   <li>评论类不审核：发布时已接入敏感词拦截，本任务作为存量/新词上线的兜底扫描。</li>
  * </ul>
  *
  * @author moyun
@@ -48,6 +55,12 @@ public class SensitiveScanTask {
 
     @Autowired
     private PortalTopicPostMapper topicPostMapper;
+
+    @Autowired
+    private PortalCommentMapper commentMapper;
+
+    @Autowired
+    private PortalInterviewCommentMapper interviewCommentMapper;
 
     @Autowired
     private ISensitiveWordService sensitiveWordService;
@@ -165,6 +178,116 @@ public class SensitiveScanTask {
             }
         }
         log.info("[敏感词扫描] 观点扫描结束，扫描 {} 条，命中 {} 条", total, hitCount);
+    }
+
+    /**
+     * 扫描已发布文章评论（portal_comment.status='1'），命中敏感词转驳回(status='2')并通知作者。
+     * <p>评论类不审核，发布时已接入敏感词拦截；本任务作为存量回溯与新词上线后的兜底扫描。
+     * <p>状态体系：0=待审核 1=已发布 2=审核驳回（数字字符串）。</p>
+     */
+    public void scanArticleComments() {
+        log.info("[敏感词扫描] 文章评论扫描开始");
+        long total = 0;
+        long hitCount = 0;
+        Long lastId = 0L;
+        while (true) {
+            LambdaQueryWrapper<PortalComment> qw = new LambdaQueryWrapper<>();
+            qw.eq(PortalComment::getStatus, "1")
+                    .gt(PortalComment::getId, lastId)
+                    .orderByAsc(PortalComment::getId)
+                    .last("LIMIT " + BATCH_SIZE);
+            List<PortalComment> batch = commentMapper.selectList(qw);
+            if (batch == null || batch.isEmpty()) {
+                break;
+            }
+            for (PortalComment comment : batch) {
+                lastId = comment.getId();
+                total++;
+                try {
+                    List<String> hits = sensitiveWordService.detectAndLog(
+                            "article_comment", comment.getId(), comment.getAuthorId(),
+                            comment.getContent(), "reject");
+                    if (hits != null && !hits.isEmpty()) {
+                        hitCount++;
+                        // 转驳回（乐观锁：仅 status='1' 可转，避免并发覆盖）
+                        LambdaUpdateWrapper<PortalComment> uw = new LambdaUpdateWrapper<>();
+                        uw.eq(PortalComment::getId, comment.getId())
+                                .eq(PortalComment::getStatus, "1")
+                                .set(PortalComment::getStatus, "2")
+                                .set(PortalComment::getAuditRemark,
+                                        "定时扫描命中敏感词，转驳回（命中：" + String.join(",", hits) + "）")
+                                .set(PortalComment::getAuditTime, LocalDateTime.now());
+                        int rows = commentMapper.update(null, uw);
+                        if (rows > 0) {
+                            log.warn("[敏感词扫描] 文章评论命中已驳回：commentId={}, hits={}", comment.getId(), hits);
+                            notifyCreator(comment.getAuthorId(), "article_comment", "评论", comment.getId(),
+                                    "评论 #" + comment.getId(), "因命中敏感词已被下架，如有异议请联系客服");
+                        }
+                    }
+                } catch (Exception e) {
+                    log.error("[敏感词扫描] 文章评论扫描异常：commentId={}, err={}", comment.getId(), e.getMessage());
+                }
+            }
+            if (batch.size() < BATCH_SIZE) {
+                break;
+            }
+        }
+        log.info("[敏感词扫描] 文章评论扫描结束，扫描 {} 条，命中 {} 条", total, hitCount);
+    }
+
+    /**
+     * 扫描已发布面经评论（portal_interview_comment.status='published'），命中敏感词转 rejected 并通知作者。
+     * <p>评论类不审核，发布时已接入敏感词拦截；本任务作为存量回溯与新词上线的兜底扫描。
+     * <p>状态体系：pending/published/rejected/deleted（字符串枚举）。</p>
+     */
+    public void scanInterviewComments() {
+        log.info("[敏感词扫描] 面经评论扫描开始");
+        long total = 0;
+        long hitCount = 0;
+        Long lastId = 0L;
+        while (true) {
+            LambdaQueryWrapper<PortalInterviewComment> qw = new LambdaQueryWrapper<>();
+            qw.eq(PortalInterviewComment::getStatus, "published")
+                    .gt(PortalInterviewComment::getId, lastId)
+                    .orderByAsc(PortalInterviewComment::getId)
+                    .last("LIMIT " + BATCH_SIZE);
+            List<PortalInterviewComment> batch = interviewCommentMapper.selectList(qw);
+            if (batch == null || batch.isEmpty()) {
+                break;
+            }
+            for (PortalInterviewComment comment : batch) {
+                lastId = comment.getId();
+                total++;
+                try {
+                    List<String> hits = sensitiveWordService.detectAndLog(
+                            "interview_comment", comment.getId(), comment.getUserId(),
+                            comment.getContent(), "reject");
+                    if (hits != null && !hits.isEmpty()) {
+                        hitCount++;
+                        // 转 rejected（乐观锁：仅 published 可转，避免并发覆盖）
+                        LambdaUpdateWrapper<PortalInterviewComment> uw = new LambdaUpdateWrapper<>();
+                        uw.eq(PortalInterviewComment::getId, comment.getId())
+                                .eq(PortalInterviewComment::getStatus, "published")
+                                .set(PortalInterviewComment::getStatus, "rejected")
+                                .set(PortalInterviewComment::getAuditRemark,
+                                        "定时扫描命中敏感词，转驳回（命中：" + String.join(",", hits) + "）")
+                                .set(PortalInterviewComment::getAuditTime, LocalDateTime.now());
+                        int rows = interviewCommentMapper.update(null, uw);
+                        if (rows > 0) {
+                            log.warn("[敏感词扫描] 面经评论命中已驳回：commentId={}, hits={}", comment.getId(), hits);
+                            notifyCreator(comment.getUserId(), "interview_comment", "评论", comment.getId(),
+                                    "评论 #" + comment.getId(), "因命中敏感词已被下架，如有异议请联系客服");
+                        }
+                    }
+                } catch (Exception e) {
+                    log.error("[敏感词扫描] 面经评论扫描异常：commentId={}, err={}", comment.getId(), e.getMessage());
+                }
+            }
+            if (batch.size() < BATCH_SIZE) {
+                break;
+            }
+        }
+        log.info("[敏感词扫描] 面经评论扫描结束，扫描 {} 条，命中 {} 条", total, hitCount);
     }
 
     /**

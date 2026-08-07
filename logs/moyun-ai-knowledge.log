@@ -1,9 +1,24 @@
-2026-08-06 15:58:40.881  INFO 22548 --- [main] c.m.e.a.s.impl.KnowledgeBaseServiceImpl  : ✅ 使用动态配置的 Embedding 模型: 通义千问-多模态Embedding (text-embedding-v3)
-2026-08-06 16:01:32.875  INFO 22648 --- [main] c.m.e.a.s.impl.KnowledgeBaseServiceImpl  : ✅ 使用动态配置的 Embedding 模型: 通义千问-多模态Embedding (text-embedding-v3)
-2026-08-06 16:15:44.540  INFO 22336 --- [main] c.m.e.a.s.impl.KnowledgeBaseServiceImpl  : ✅ 使用动态配置的 Embedding 模型: 通义千问-多模态Embedding (text-embedding-v3)
-2026-08-06 16:38:29.027  INFO 3260 --- [main] c.m.e.a.s.impl.KnowledgeBaseServiceImpl  : ✅ 使用动态配置的 Embedding 模型: 通义千问-多模态Embedding (text-embedding-v3)
-2026-08-06 17:00:28.929  INFO 3260 --- [http-nio-8080-exec-7] c.m.e.a.s.impl.KnowledgeBaseServiceImpl  : ========== 开始上传文件（不处理）==========
-2026-08-06 17:00:28.937  INFO 3260 --- [http-nio-8080-exec-7] c.m.e.a.s.impl.KnowledgeBaseServiceImpl  : 文件名: 邮箱设置指引.pdf, 大小: 3536915 bytes
-2026-08-06 17:00:29.838  INFO 3260 --- [http-nio-8080-exec-7] c.m.e.a.s.impl.KnowledgeBaseServiceImpl  : ✅ 文件已上传到 MinIO: 1786006828939_090ef113.pdf
-2026-08-06 17:00:30.012  INFO 3260 --- [http-nio-8080-exec-7] c.m.e.a.s.impl.KnowledgeBaseServiceImpl  : ✅ 文件哈希计算完成: 1374616a695f65000fa7b8d95f12147595a89f355921201f3a269c0aa35f2870
-2026-08-06 17:00:30.092  INFO 3260 --- [http-nio-8080-exec-7] c.m.e.a.s.impl.KnowledgeBaseServiceImpl  : ✅ 知识库记录已创建，ID=134, 状态=pending
+2026-08-07 11:10:26.927  INFO 196 --- [main] c.m.e.a.s.impl.KnowledgeBaseServiceImpl  : ✅ 使用动态配置的 Embedding 模型: 通义千问-多模态Embedding (text-embedding-v3)
+2026-08-07 16:17:32.133  INFO 196 --- [http-nio-8080-exec-5] c.m.e.a.s.impl.KnowledgeBaseServiceImpl  : 开始计算知识库统计信息
+2026-08-07 16:17:32.494  INFO 196 --- [http-nio-8080-exec-5] c.m.e.a.s.impl.KnowledgeBaseServiceImpl  : ✅ 统计计算完成 - 总数: 0, 已完成: 0, 总使用: 0, 平均命中率: 0.0%
+2026-08-07 16:17:56.204  INFO 196 --- [http-nio-8080-exec-10] c.m.e.a.s.impl.KnowledgeBaseServiceImpl  : ========== 开始上传文件（不处理）==========
+2026-08-07 16:17:56.204  INFO 196 --- [http-nio-8080-exec-10] c.m.e.a.s.impl.KnowledgeBaseServiceImpl  : 文件名: 邮箱设置指引.pdf, 大小: 3536915 bytes
+2026-08-07 16:17:56.778  INFO 196 --- [http-nio-8080-exec-10] c.m.e.a.s.impl.KnowledgeBaseServiceImpl  : ✅ 文件已上传到 MinIO: 1786090676206_81f27dc9.pdf
+2026-08-07 16:17:56.852  INFO 196 --- [http-nio-8080-exec-10] c.m.e.a.s.impl.KnowledgeBaseServiceImpl  : ✅ 文件哈希计算完成: 1374616a695f65000fa7b8d95f12147595a89f355921201f3a269c0aa35f2870
+2026-08-07 16:17:56.930  INFO 196 --- [http-nio-8080-exec-10] c.m.e.a.s.impl.KnowledgeBaseServiceImpl  : ✅ 知识库记录已创建，ID=135, 状态=pending
+2026-08-07 16:22:52.161  INFO 16772 --- [main] c.m.e.a.s.impl.KnowledgeBaseServiceImpl  : ✅ 使用动态配置的 Embedding 模型: 通义千问-多模态Embedding (text-embedding-v3)
+2026-08-07 18:00:42.795  INFO 16772 --- [http-nio-8080-exec-1] c.m.e.a.s.impl.KnowledgeBaseServiceImpl  : ========== 开始上传文件（不处理）==========
+2026-08-07 18:00:42.801  INFO 16772 --- [http-nio-8080-exec-1] c.m.e.a.s.impl.KnowledgeBaseServiceImpl  : 文件名: 邮箱设置指引.pdf, 大小: 3536915 bytes
+2026-08-07 18:00:43.410  INFO 16772 --- [http-nio-8080-exec-1] c.m.e.a.s.impl.KnowledgeBaseServiceImpl  : ✅ 文件已上传到 MinIO: 1786096842802_be6558c7.pdf
+2026-08-07 18:00:43.477  INFO 16772 --- [http-nio-8080-exec-1] c.m.e.a.s.impl.KnowledgeBaseServiceImpl  : ✅ 文件哈希计算完成: 1374616a695f65000fa7b8d95f12147595a89f355921201f3a269c0aa35f2870
+2026-08-07 18:00:43.561  INFO 16772 --- [http-nio-8080-exec-1] c.m.e.a.s.impl.KnowledgeBaseServiceImpl  : ✅ 知识库记录已创建，ID=136, 状态=pending
+2026-08-07 18:00:52.360  INFO 16772 --- [http-nio-8080-exec-5] c.m.e.a.s.impl.KnowledgeBaseServiceImpl  : ========== 开始上传文件（不处理）==========
+2026-08-07 18:00:52.362  INFO 16772 --- [http-nio-8080-exec-5] c.m.e.a.s.impl.KnowledgeBaseServiceImpl  : 文件名: 邮箱设置指引.pdf, 大小: 3536915 bytes
+2026-08-07 18:00:52.543  INFO 16772 --- [http-nio-8080-exec-5] c.m.e.a.s.impl.KnowledgeBaseServiceImpl  : ✅ 文件已上传到 MinIO: 1786096852362_04232733.pdf
+2026-08-07 18:00:52.597  INFO 16772 --- [http-nio-8080-exec-5] c.m.e.a.s.impl.KnowledgeBaseServiceImpl  : ✅ 文件哈希计算完成: 1374616a695f65000fa7b8d95f12147595a89f355921201f3a269c0aa35f2870
+2026-08-07 18:00:52.604  INFO 16772 --- [http-nio-8080-exec-5] c.m.e.a.s.impl.KnowledgeBaseServiceImpl  : ✅ 知识库记录已创建，ID=137, 状态=pending
+2026-08-07 18:01:04.873  INFO 16772 --- [http-nio-8080-exec-8] c.m.e.a.s.impl.KnowledgeBaseServiceImpl  : ========== 开始上传文件（不处理）==========
+2026-08-07 18:01:04.874  INFO 16772 --- [http-nio-8080-exec-8] c.m.e.a.s.impl.KnowledgeBaseServiceImpl  : 文件名: 邮箱设置指引.pdf, 大小: 3536915 bytes
+2026-08-07 18:01:05.049  INFO 16772 --- [http-nio-8080-exec-8] c.m.e.a.s.impl.KnowledgeBaseServiceImpl  : ✅ 文件已上传到 MinIO: 1786096864875_d6226874.pdf
+2026-08-07 18:01:05.113  INFO 16772 --- [http-nio-8080-exec-8] c.m.e.a.s.impl.KnowledgeBaseServiceImpl  : ✅ 文件哈希计算完成: 1374616a695f65000fa7b8d95f12147595a89f355921201f3a269c0aa35f2870
+2026-08-07 18:01:05.118  INFO 16772 --- [http-nio-8080-exec-8] c.m.e.a.s.impl.KnowledgeBaseServiceImpl  : ✅ 知识库记录已创建，ID=138, 状态=pending

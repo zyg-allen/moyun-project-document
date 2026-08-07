@@ -7,9 +7,9 @@
 
 ## 一、项目简介
 
-墨韵·智库后台管理系统是一个基于 **RuoYi-Vue** 和 **Flowable 工作流引擎** 的内容社区管理平台，为"一纸墨"前台应用提供完整的后台管理能力。
+墨韵·智库后台管理系统是一个基于 **RuoYi-Vue** 的内容社区管理平台，为"一纸墨"前台应用提供完整的后台管理能力。
 
-基于 Vue 3 + Element Plus 构建，采用前后端分离架构，支持灵活的权限管理和工作流配置。
+基于 Vue 3 + Element Plus 构建，采用前后端分离架构，支持灵活的权限管理。
 
 ---
 
@@ -24,7 +24,6 @@
 | Vue Router | 4.2.5 | 路由管理 |
 | axios | 0.27.2 | HTTP 请求库 |
 | ECharts | 5.4.3 | 数据可视化 |
-| bpmn-js | 11.1.0 | BPMN 流程设计器 |
 | @vueup/vue-quill | 1.2.0 | 富文本编辑器 |
 
 ---
@@ -59,18 +58,7 @@
 | **文件管理** | `system/file/index.vue` | 文件列表管理 |
 | **个人中心** | `system/user/profile/` | 个人信息、密码重置 |
 
-### 3.3 工作流管理 (views/flowable/)
-
-| 模块 | 页面 | 说明 |
-|------|------|------|
-| **流程定义** | `flowable/definition/` | 流程模型、BPMN 设计器 |
-| **流程实例** | `flowable/task/` | 运行实例、已办任务 |
-| **待办任务** | `flowable/task/todo/` | 我的待办、审批 |
-| **表单管理** | `flowable/task/form/` | 表单配置 |
-| **表达式** | `flowable/expression/` | 流程表达式管理 |
-| **监听器** | `flowable/listener/` | 流程监听器 |
-
-### 3.4 系统监控 (views/monitor/)
+### 3.3 系统监控 (views/monitor/)
 
 | 模块 | 页面 | 说明 |
 |------|------|------|
@@ -82,14 +70,14 @@
 | **操作日志** | `monitor/operlog/` | 操作记录查询 |
 | **登录日志** | `monitor/logininfor/` | 登录记录查询 |
 
-### 3.5 系统工具 (views/tool/)
+### 3.4 系统工具 (views/tool/)
 
 | 模块 | 页面 | 说明 |
 |------|------|------|
 | **代码生成** | `tool/gen/` | 数据库表生成代码 |
 | **接口文档** | `tool/swagger/` | Swagger API 文档 |
 
-### 3.6 读书管理 (views/portal/)
+### 3.5 读书管理 (views/portal/)
 
 | 模块 | 页面 | 说明 |
 |------|------|------|
@@ -97,7 +85,7 @@
 | **书单管理** | `portal/bookList/index.vue` | 书单列表 |
 | **摘录管理** | `portal/bookQuote/index.vue` | 读书摘录 |
 
-### 3.7 应用管理 (views/app/)
+### 3.6 应用管理 (views/app/)
 
 | 模块 | 页面 | 说明 |
 |------|------|------|
@@ -114,7 +102,6 @@ moyun-admin-vue/
 │   ├── api/                  # API 接口
 │   │   ├── app/             # 应用管理
 │   │   ├── cms/             # CMS 内容管理
-│   │   ├── flowable/        # 工作流
 │   │   ├── monitor/         # 系统监控
 │   │   ├── system/          # 系统管理
 │   │   ├── tool/            # 系统工具
@@ -130,7 +117,6 @@ moyun-admin-vue/
 │   │   ├── Editor/          # 富文本编辑器
 │   │   ├── FileUpload/      # 文件上传
 │   │   ├── ImageUpload/     # 图片上传
-│   │   ├── Process/         # 流程相关
 │   │   └── SvgIcon/
 │   ├── directive/           # 自定义指令
 │   ├── layout/              # 布局组件
@@ -149,7 +135,6 @@ moyun-admin-vue/
 │   ├── views/             # 页面视图
 │   │   ├── cms/
 │   │   ├── system/
-│   │   ├── flowable/
 │   │   ├── monitor/
 │   │   ├── tool/
 │   │   └── ...
@@ -293,7 +278,6 @@ const handleQuery = () => {
 ## 九、参考项目
 
 - [RuoYi-Vue](https://gitee.com/y_project/RuoYi-Vue)
-- [RuoYi-Flowable](https://gitee.com/tony2y/RuoYi-flowable)
 
 ---
 

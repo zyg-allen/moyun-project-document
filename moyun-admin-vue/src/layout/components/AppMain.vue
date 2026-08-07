@@ -51,6 +51,25 @@ const tagsViewStore = useTagsViewStore()
   }
 }
 
+/*
+  一级菜单快捷导航模式（topNavQuick 启用时生效）
+  navbar 从 50px 降至 44px，联动调整 AppMain 的 padding-top 和 min-height
+  - 不带 tagsView: 44px（原 50px）
+  - 带 tagsView: 78px（原 84px = 44 + 34）
+*/
+.topnav-quick-mode .app-main {
+  min-height: calc(100vh - 44px);
+}
+.topnav-quick-mode .fixed-header + .app-main {
+  padding-top: 44px;
+}
+.topnav-quick-mode.hasTagsView .app-main {
+  min-height: calc(100vh - 78px);
+}
+.topnav-quick-mode.hasTagsView .fixed-header + .app-main {
+  padding-top: 78px;
+}
+
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;

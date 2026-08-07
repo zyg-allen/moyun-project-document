@@ -27,7 +27,7 @@ import java.util.concurrent.ThreadPoolExecutor;
  *   <li><strong>职责分层</strong>：系统级线程池归 core 模块统一管理，不属任何业务模块；
  *       业务模块（如 AI）只保留自有专用线程池，避免越界</li>
  *   <li><strong>单一权威</strong>：{@code @EnableAsync} 与 {@code applicationTaskExecutor}
- *       只在此处声明一次，杜绝"AI 模块被禁用/移除后 Flowable 启动失败"的连锁问题</li>
+ *       只在此处声明一次，杜绝 AI 模块被禁用/移除后启动失败的连锁问题</li>
  *   <li><strong>Spring 容器管理</strong>：所有线程池显式 {@code initialize()}，
  *       支持 {@code waitForTasksToCompleteOnShutdown} 优雅停机</li>
  * </ul>
@@ -35,15 +35,10 @@ import java.util.concurrent.ThreadPoolExecutor;
  * <p>Bean 矩阵：</p>
  * <ul>
  *   <li>{@code applicationTaskExecutor}（{@code @Primary}）— Spring Boot 3.x 默认异步执行器约定名，
- *       满足 Flowable 7.1.0 {@code ProcessEngineAutoConfiguration} 通过
- *       {@code @Qualifier("applicationTaskExecutor")} 解析 {@code AsyncTaskExecutor} 的依赖；
  *       同时作为项目内 {@code @Async} 默认执行器（如 ToolRegistry#logToolCallAsync）</li>
  *   <li>{@code threadPoolTaskExecutor} — 通用业务线程池（保留 RuoYi 兼容）</li>
  *   <li>{@code scheduledExecutorService} — 定时任务调度池（AsyncManager 登录日志/操作日志）</li>
  * </ul>
- *
- * <p>说明：Flowable 的 {@code flowable.async-executor-activate: false} 保持关闭，
- * Flowable 不启用自身异步执行器，仅依赖本类提供的 {@code applicationTaskExecutor} Bean 完成启动注入。</p>
  *
  * @author laomao
  * @since 2026-08-06
@@ -61,8 +56,8 @@ public class AsyncTaskConfig {
      *
      * <p>同时满足两类调用方：</p>
      * <ol>
-     *   <li>Flowable 7.1.0 启动时通过 {@code @Qualifier("applicationTaskExecutor")}
-     *       解析 {@code AsyncTaskExecutor}（见 ProcessEngineAutoConfiguration#springProcessEngineConfiguration）</li>
+     *   <li>Spring Boot 3.x 自动配置通过 {@code @Qualifier("applicationTaskExecutor")}
+     *       解析 {@code AsyncTaskExecutor}</li>
      *   <li>项目内未显式指定 executor 的 {@code @Async} 方法（如 ToolRegistry#logToolCallAsync）</li>
      * </ol>
      *

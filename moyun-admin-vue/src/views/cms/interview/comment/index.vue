@@ -36,8 +36,6 @@
       <el-table-column label="时间" prop="createTime" width="180" />
       <el-table-column label="操作" width="220" fixed="right">
         <template #default="{ row }">
-          <el-button link type="success" @click="handleAudit(row, 'published')" v-if="row.status !== 'published'">通过</el-button>
-          <el-button link type="warning" @click="handleAudit(row, 'rejected')" v-if="row.status !== 'rejected'">拒绝</el-button>
           <el-button link type="danger" @click="handleDelete(row)">删除</el-button>
         </template>
       </el-table-column>
@@ -55,7 +53,7 @@
 import { ref, reactive, onMounted } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import {
-  listInterviewComment, auditInterviewComment, delInterviewComment
+  listInterviewComment, delInterviewComment
 } from '@/api/cms/interview';
 
 const loading = ref(true);
@@ -88,19 +86,6 @@ function handleQuery() { queryParams.pageNum = 1; getList(); }
 function resetQuery() {
   queryParams.status = ''; queryParams.keyword = ''; queryParams.experienceId = '';
   queryParams.pageNum = 1; getList();
-}
-
-async function handleAudit(row, status) {
-  try {
-    const remark = status === 'published' ? '审核通过' : '内容不适当';
-    await ElMessageBox.confirm(
-      `确认${status === 'published' ? '通过' : '拒绝'}该评论？`,
-      '提示', { type: 'warning' }
-    );
-    await auditInterviewComment({ id: row.id, status, remark });
-    ElMessage.success('操作成功');
-    getList();
-  } catch (e) { /* ignore */ }
 }
 
 async function handleDelete(row) {

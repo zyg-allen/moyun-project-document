@@ -68,11 +68,11 @@
           >查看</el-button>
           <el-button
             link
-            type="success"
-            icon="Check"
-            @click="handleAudit('0', scope.row)"
+            :type="scope.row.status === '0' ? 'danger' : 'success'"
+            :icon="scope.row.status === '0' ? 'CircleClose' : 'Check'"
+            @click="handleAudit(scope.row.status === '0' ? '1' : '0', scope.row)"
             v-hasPermi="['cms:comment:edit']"
-          >启用</el-button>
+          >{{ scope.row.status === '0' ? '停用' : '启用' }}</el-button>
           <el-button
             link
             type="primary"

@@ -17,7 +17,6 @@
 - **双形态内容**: 技术流和文学派两种内容展示风格
 - **独立认证体系**: 前后台用户完全独立，双 SecurityFilterChain 配置
 - **多主题支持**: 日间、夜间、护眼三种主题自由切换
-- **工作流引擎**: Flowable 集成，支持复杂的内容审核流程
 - **响应式设计**: 完美适配各种屏幕尺寸
 
 ---
@@ -66,7 +65,6 @@ moyun-project-document/
 | MyBatis-Plus | 3.5.7 | ORM 框架 |
 | MySQL | 8.0+ | 关系型数据库 |
 | Redis | 6.0+ | 缓存中间件 |
-| Flowable | 7.1.0 | 工作流引擎 |
 | Spring Security | 6.3.1 | 安全框架 |
 
 ### 前台门户 (moyun-portal)

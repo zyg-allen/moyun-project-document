@@ -95,7 +95,9 @@ public class PortalInterviewQuestion extends BaseEntity {
     private Integer sort;
 
     /**
-     * 状态:active,inactive
+     * 状态:draft 草稿/published 已发布/archived 已归档
+     * 注意：历史注释为 active/inactive（启停语义），实际前端使用 draft/published/archived（内容生命周期语义），
+     *       已修正注释与前端保持一致；存量数据兼容。
      */
     @Size(min = 0, max = 20, message = "状态长度不能超过20个字符")
     private String status;

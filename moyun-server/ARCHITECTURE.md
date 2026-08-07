@@ -215,16 +215,6 @@ moyun-server/
 │   │   │   ├── service/
 │   │   │   └── util/
 │   │   │
-│   │   └── flowable/       # 工作流扩展
-│   │       ├── config/
-│   │       ├── controller/
-│   │       ├── domain/
-│   │       ├── mapper/
-│   │       ├── service/
-│   │       ├── factory/
-│   │       ├── flow/
-│   │       └── listener/
-│   │
 │   └── MoyunApplication.java # 启动类
 │
 └── src/main/resources/
@@ -279,19 +269,16 @@ graph TD
     B --> F[modules/portal/]
     B --> G[ext/job/]
     B --> H[ext/generator/]
-    B --> I[ext/flowable/]
     
     C --> E
     C --> F
     C --> G
     C --> H
-    C --> I
     
     D --> E
     D --> F
     D --> G
     D --> H
-    D --> I
     
     E -.-> F
     F -.-> E
@@ -310,10 +297,9 @@ graph TD
 | **util/** | common/ | 所有模块 | 工具模块，仅依赖 common |
 | **core/** | common/, util/ | 业务/扩展模块 | 核心框架，提供安全、MVC等 |
 | **modules/system/** | common/, util/, core/ | 无（可选被portal依赖） | 系统管理业务 |
-| **modules/portal/** | common/, util/, core/ | 无（可选被ext/flowable依赖） | 门户业务，面向用户 |
+| **modules/portal/** | common/, util/, core/ | 无 | 门户业务，面向用户 |
 | **ext/job/** | common/, util/, core/ | 无（可选依赖system） | 定时任务扩展 |
 | **ext/generator/** | common/, util/, core/ | 无（可选依赖system） | 代码生成扩展 |
-| **ext/flowable/** | common/, util/, core/ | 无（可选依赖system/portal） | 工作流扩展 |
 
 ### 3️⃣ 模块边界清晰化
 
@@ -329,7 +315,6 @@ graph LR
     subgraph 扩展能力层
         C[ext/job/]
         D[ext/generator/]
-        E[ext/flowable/]
     end
     
     subgraph 基础设施层
@@ -551,16 +536,6 @@ portal/domain/
 - 模板管理（自定义生成模板）
 - 预览和下载
 
-#### 5.3 **ext/flowable** - 工作流扩展
-
-**功能**：
-- 流程定义（流程设计、部署、版本管理）
-- 流程实例（启动、审批、驳回、转交）
-- 流程任务（待办任务、已办任务、我的申请）
-- 表单配置（动态表单、流程表单）
-- 表达式配置（条件表达式、脚本）
-- 监听器配置（事件监听、执行监听）
-
 ---
 
 ## 🎯 DDD 分层设计
@@ -654,10 +629,6 @@ moyun:
   # 代码生成
   generator:
     enabled: true
-    
-  # 工作流
-  flowable:
-    enabled: true
 ```
 
 ### 3. 自定义扩展
@@ -688,8 +659,7 @@ ext/
 | **modules/portal** | ~90 | 门户业务 |
 | **ext/job** | ~20 | 定时任务 |
 | **ext/generator** | ~15 | 代码生成 |
-| **ext/flowable** | ~30 | 工作流 |
-| **总计** | **~390** | **完整的社区平台** |
+| **总计** | **~360** | **完整的社区平台** |
 
 ---
 

@@ -84,84 +84,6 @@ export const constantRoutes = [
       }
     ]
   },
-  {
-    path: '/flowable',
-    component: Layout,
-    hidden: true,
-    children: [
-      {
-        path: 'definition/model/',
-        component: () => import('@/views/flowable/definition/model'),
-        name: 'Model',
-        meta: { title: '流程设计', icon: '' }
-      }
-    ]
-  },
-  {
-    path: '/flowable',
-    component: Layout,
-    hidden: true,
-    children: [
-      {
-        path: 'task/finished/detail/index',
-        component: () => import('@/views/flowable/task/finished/detail/index'),
-        name: 'FinishedRecord',
-        meta: { title: '流程详情', icon: '' }
-      }
-    ]
-  },
-  {
-    path: '/flowable',
-    component: Layout,
-    hidden: true,
-    children: [
-      {
-        path: 'task/myProcess/detail/index',
-        component: () => import('@/views/flowable/task/myProcess/detail/index'),
-        name: 'MyProcessRecord',
-        meta: { title: '流程详情', icon: '' }
-      }
-    ]
-  },
-  {
-    path: '/flowable',
-    component: Layout,
-    hidden: true,
-    children: [
-      {
-        path: 'task/myProcess/send/index',
-        component: () => import('@/views/flowable/task/myProcess/send/index'),
-        name: 'SendRecord',
-        meta: { title: '流程发起', icon: '' }
-      }
-    ]
-  },
-  {
-    path: '/flowable',
-    component: Layout,
-    hidden: true,
-    children: [
-      {
-        path: 'task/todo/detail/index',
-        component: () => import('@/views/flowable/task/todo/detail/index'),
-        name: 'TodoRecord',
-        meta: { title: '流程处理', icon: '' }
-      }
-    ]
-  },
-  {
-    path: '/flowable',
-    component: Layout,
-    hidden: true,
-    children: [
-      {
-        path: 'task/flowForm/index',
-        component: () => import('@/views/flowable/task/flowForm/index'),
-        name: 'FlowForm',
-        meta: { title: '流程表单', icon: '' }
-      }
-    ]
-  },
   // 暂时注释：表单构建器功能未实现
   // {
   //   path: '/tool',
@@ -297,79 +219,21 @@ export const dynamicRoutes = [
       }
     ]
   },
-  // 读书空间-书架管理（动态路由，权限由后台菜单控制）
-  {
-    path: '/portal',
-    component: Layout,
-    hidden: true,
-    permissions: ['portal:bookshelf:list'],
-    children: [
-      {
-        path: 'bookshelf',
-        component: () => import('@/views/portal/bookshelf/index'),
-        name: 'Bookshelf',
-        meta: { title: '书架管理', activeMenu: '/portal/book' }
-      }
-    ]
-  },
-  // 读书空间-推荐位管理（动态路由，权限由后台菜单控制）
-  {
-    path: '/portal',
-    component: Layout,
-    hidden: true,
-    permissions: ['portal:bookRecommend:list'],
-    children: [
-      {
-        path: 'bookRecommend',
-        component: () => import('@/views/portal/bookRecommend/index'),
-        name: 'BookRecommend',
-        meta: { title: '推荐位管理', activeMenu: '/portal/book' }
-      }
-    ]
-  },
+  // 读书空间-书架管理 / 推荐位管理 已整合到「书单&推荐位」和「用户内容」Tab 容器，
+  //   不再需要独立隐藏路由（由 sys_menu 动态路由 + Tab 容器嵌入承载）
 
-  // ========== AI 模块隐藏子路由（菜单动态加载主路由，这些是详情/子页面） ==========
+  // ========== AI 模块隐藏子路由 ==========
+  // chat（智能对话）是独立全屏页面，由"开始对话"按钮 window.open 打开，
+  // 不使用 Layout 包裹避免双栏嵌套。权限标识用 :list 后缀对齐菜单注册。
+  // dashboard（概览大屏）和 diagram（架构图生成）走动态路由（Layout 包裹），
+  //   由侧边栏菜单进入，页面 CSS 自身处理高度撑满。
   {
-    path: '/ai/dashboard',
-    component: Layout,
+    path: '/ai/chat/index/:agentId?',
+    component: () => import('@/views/ai/chat/index'),
+    name: 'AiChatView',
     hidden: true,
-    permissions: ['cms:ai:dashboard:view'],
-    children: [
-      {
-        path: 'index',
-        component: () => import('@/views/ai/dashboard/index'),
-        name: 'AiDashboardView',
-        meta: { title: 'AI数据大屏', activeMenu: '/ai/dashboard' }
-      }
-    ]
-  },
-  {
-    path: '/ai/chat',
-    component: Layout,
-    hidden: true,
-    permissions: ['cms:ai:chat:view'],
-    children: [
-      {
-        path: 'index/:agentId?',
-        component: () => import('@/views/ai/chat/index'),
-        name: 'AiChatView',
-        meta: { title: '智能对话', activeMenu: '/ai/agent' }
-      }
-    ]
-  },
-  {
-    path: '/ai/diagram',
-    component: Layout,
-    hidden: true,
-    permissions: ['cms:ai:diagram:view'],
-    children: [
-      {
-        path: 'chat',
-        component: () => import('@/views/ai/diagram/chat'),
-        name: 'AiDiagramChatView',
-        meta: { title: '架构图对话', activeMenu: '/ai/diagram' }
-      }
-    ]
+    permissions: ['cms:ai:chat:list'],
+    meta: { title: '智能对话', activeMenu: '/ai/agent' }
   }
 ]
 

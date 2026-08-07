@@ -200,24 +200,6 @@ mybatis-plus:
       logic-not-delete-value: "0"
 
 # =============================================
-# Flowable 工作流配置
-# =============================================
-flowable:
-  async-executor-activate: false
-  check-process-definitions: false
-  database-schema-update: false
-  history-level: audit
-  database-type: mysql
-  eventregistry:
-    enabled: false
-  cmmn:
-    enabled: false
-  dmn:
-    enabled: false
-  app:
-    enabled: false
-
-# =============================================
 # MinIO 文件存储配置（生产环境必填）
 # - MINIO_ENDPOINT：MinIO 服务地址（建议内网地址）
 # - MINIO_ACCESS_KEY / MINIO_SECRET_KEY：访问凭据，建议使用最小权限账号

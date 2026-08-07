@@ -2,6 +2,7 @@
   <el-menu
     :default-active="activeMenu"
     mode="horizontal"
+    :class="{ 'topnav-quick': quickMode }"
     @select="handleSelect"
     :ellipsis="false"
   >
@@ -23,8 +24,8 @@
           :key="index"
           v-if="index >= visibleNumber">
         <svg-icon
-          v-if="item.meta && item.meta.icon && item.meta.icon !== '#'"
-          :icon-class="item.meta.icon"/>
+        v-if="item.meta && item.meta.icon && item.meta.icon !== '#'"
+        :icon-class="item.meta.icon"/>
         {{ item.meta.title }}
         </el-menu-item>
       </template>
@@ -38,6 +39,18 @@ import { isHttp } from '@/utils/validate'
 import useAppStore from '@/store/modules/app'
 import useSettingsStore from '@/store/modules/settings'
 import usePermissionStore from '@/store/modules/permission'
+
+/**
+ * quickMode：紧凑模式
+ * - 与面包屑共存时使用（topNavQuick 开启）
+ * - 高度更小（36px），不与原 TopNav 独占模式（50px）冲突
+ */
+const props = defineProps({
+  quickMode: {
+    type: Boolean,
+    default: false
+  }
+})
 
 // 顶部栏初始数
 const visibleNumber = ref(null);
@@ -114,7 +127,10 @@ const activeMenu = computed(() => {
 
 function setVisibleNumber() {
   const width = document.body.getBoundingClientRect().width / 3;
-  visibleNumber.value = parseInt(width / 85);
+  // quick-mode 下菜单项更紧凑（padding 8px、margin 4px、字号 13px），每项约 70px
+  // 原 TopNav 独占模式每项约 85px（padding 5px、margin 10px、字号默认）
+  const itemWidth = props.quickMode ? 70 : 85;
+  visibleNumber.value = parseInt(width / itemWidth);
 }
 
 function handleSelect(key, keyPath) {
@@ -209,6 +225,54 @@ onMounted(() => {
   position: static;
   vertical-align: middle;
   margin-left: 8px;
+  margin-top: 0px;
+}
+
+/* ============ 一级菜单快捷导航（紧凑模式，与面包屑共存）============ */
+/* 容器：高度 36px，不撑满整行，自适应内容宽度 */
+.topnav-quick-container {
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 60%;
+  overflow: hidden;
+}
+
+/* 菜单项：高度 36px，更紧凑的间距 */
+.topnav-quick-container.el-menu--horizontal > .el-menu-item,
+.topnav-quick-container.el-menu--horizontal > .el-sub-menu .el-sub-menu__title {
+  height: 36px !important;
+  line-height: 36px !important;
+  padding: 0 8px !important;
+  margin: 0 4px !important;
+  font-size: 13px;
+  border-bottom: 2px solid transparent !important;
+}
+
+/* 激活态：底部主题色横线 */
+.topnav-quick-container.el-menu--horizontal > .el-menu-item.is-active,
+.topnav-quick-container.el-menu--horizontal > .el-sub-menu.is-active .el-sub-menu__title {
+  border-bottom: 2px solid #{'var(--theme)'} !important;
+  color: #303133 !important;
+}
+
+/* hover 透明背景，避免与面包屑区域视觉冲突 */
+.topnav-quick-container.el-menu--horizontal > .el-menu-item:not(.is-disabled):hover,
+.topnav-quick-container.el-menu--horizontal > .el-sub-menu .el-sub-menu__title:hover {
+  background-color: transparent !important;
+  color: #303133 !important;
+}
+
+/* 图标更小 */
+.topnav-quick-container .svg-icon {
+  margin-right: 3px;
+  font-size: 13px;
+}
+
+/* 更多菜单箭头 */
+.topnav-quick-container .el-sub-menu .el-sub-menu__icon-arrow {
+  position: static;
+  vertical-align: middle;
+  margin-left: 4px;
   margin-top: 0px;
 }
 </style>

@@ -1587,13 +1587,13 @@ const loadAvailableTools = async () => {
 // 开始对话（在新标签页打开纯净聊天界面）
 const startChat = (agentId) => {
   console.log('在新标签页打开对话页面，智能体ID:', agentId)
-  // 使用router.resolve生成完整URL，自动包含base路径
+  // chat 路由已改为独立全屏页面（不使用 Layout，无系统菜单/顶部栏）
+  // agentId 通过 query 传递，chat 页面用 route.query.agentId 读取
   const { href } = router.resolve({
-    path: '/chat',
-    query: { agentId, hideMenu: 'true' }
+    path: '/ai/chat/index',
+    query: { agentId }
   })
-  const fullUrl = window.location.origin + href
-  window.open(fullUrl, '_blank')
+  window.open(href, '_blank')
 }
 
 // 预设问题操作

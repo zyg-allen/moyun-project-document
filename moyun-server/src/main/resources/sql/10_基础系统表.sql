@@ -21,25 +21,6 @@ CREATE TABLE `sys_config` (
 ) ENGINE=InnoDB AUTO_INCREMENT=110 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='参数配置表';
 
 
--- Table structure for table `sys_deploy_form`
-
-
-DROP TABLE IF EXISTS `sys_deploy_form`;
-CREATE TABLE `sys_deploy_form` (
-                                   `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键',
-                                   `form_id` bigint DEFAULT NULL COMMENT '表单主键',
-                                   `deploy_id` varchar(50) COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '流程实例主键',
-                                   `create_by` varchar(64) COLLATE utf8mb4_0900_ai_ci DEFAULT '' COMMENT '创建者',
-                                   `create_time` datetime DEFAULT NULL COMMENT '创建时间',
-                                   `update_by` varchar(64) COLLATE utf8mb4_0900_ai_ci DEFAULT '' COMMENT '更新者',
-                                   `update_time` datetime DEFAULT NULL COMMENT '更新时间',
-                                   `remark` varchar(500) COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '备注',
-                                   `del_flag` char(1) COLLATE utf8mb4_0900_ai_ci NOT NULL DEFAULT '0' COMMENT '删除标记（0=存在 2=删除）',
-                                   PRIMARY KEY (`id`),
-                                   KEY `idx_del_flag` (`del_flag`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='流程实例关联表单';
-
-
 -- Table structure for table `sys_dept`
 
 
@@ -109,27 +90,6 @@ CREATE TABLE `sys_dict_type` (
 ) ENGINE=InnoDB AUTO_INCREMENT=100 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='字典类型表';
 
 
--- Table structure for table `sys_expression`
-
-
-DROP TABLE IF EXISTS `sys_expression`;
-CREATE TABLE `sys_expression` (
-                                  `id` bigint NOT NULL AUTO_INCREMENT COMMENT '表单主键',
-                                  `name` varchar(50) COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '表达式名称',
-                                  `expression` varchar(255) COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '表达式内容',
-                                  `data_type` varchar(255) COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '表达式类型',
-                                  `create_time` datetime DEFAULT NULL COMMENT '创建时间',
-                                  `update_time` datetime DEFAULT NULL COMMENT '更新时间',
-                                  `create_by` bigint DEFAULT NULL COMMENT '创建人员',
-                                  `update_by` bigint DEFAULT NULL COMMENT '更新人员',
-                                  `status` tinyint DEFAULT '0' COMMENT '状态',
-                                  `remark` varchar(255) COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '备注',
-                                  `del_flag` char(1) COLLATE utf8mb4_0900_ai_ci NOT NULL DEFAULT '0' COMMENT '删除标记（0=存在 2=删除）',
-                                  PRIMARY KEY (`id`),
-                                  KEY `idx_del_flag` (`del_flag`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='流程表达式';
-
-
 -- Table structure for table `sys_file`
 
 
@@ -169,25 +129,6 @@ CREATE TABLE `sys_file` (
                             KEY `idx_fallback` (`fallback`),
                             KEY `idx_del_flag` (`del_flag`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='文件管理表';
-
-
--- Table structure for table `sys_form`
-
-
-DROP TABLE IF EXISTS `sys_form`;
-CREATE TABLE `sys_form` (
-                            `form_id` bigint NOT NULL AUTO_INCREMENT COMMENT '表单主键',
-                            `form_name` varchar(50) COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '表单名称',
-                            `form_content` longtext COLLATE utf8mb4_0900_ai_ci COMMENT '表单内容',
-                            `create_time` datetime DEFAULT NULL COMMENT '创建时间',
-                            `update_time` datetime DEFAULT NULL COMMENT '更新时间',
-                            `create_by` bigint DEFAULT NULL COMMENT '创建人员',
-                            `update_by` bigint DEFAULT NULL COMMENT '更新人员',
-                            `remark` varchar(255) COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '备注',
-                            `del_flag` char(1) COLLATE utf8mb4_0900_ai_ci NOT NULL DEFAULT '0' COMMENT '删除标记（0=存在 2=删除）',
-                            PRIMARY KEY (`form_id`),
-                            KEY `idx_del_flag` (`del_flag`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='流程表单';
 
 
 -- Table structure for table `sys_job`
@@ -233,29 +174,6 @@ CREATE TABLE `sys_job_log` (
                                `remark` varchar(500) COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '备注',
                                PRIMARY KEY (`job_log_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='定时任务调度日志表';
-
-
--- Table structure for table `sys_listener`
-
-
-DROP TABLE IF EXISTS `sys_listener`;
-CREATE TABLE `sys_listener` (
-                                `id` bigint NOT NULL AUTO_INCREMENT COMMENT '表单主键',
-                                `name` varchar(128) COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '名称',
-                                `type` varchar(64) COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '监听类型',
-                                `event_type` varchar(64) COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '监听事件类型',
-                                `value_type` varchar(64) COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '监听值类型',
-                                `value` varchar(255) COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '监听值',
-                                `create_time` datetime DEFAULT NULL COMMENT '创建时间',
-                                `update_time` datetime DEFAULT NULL COMMENT '更新时间',
-                                `create_by` bigint DEFAULT NULL COMMENT '创建人员',
-                                `update_by` bigint DEFAULT NULL COMMENT '更新人员',
-                                `status` tinyint DEFAULT '0' COMMENT '状态',
-                                `remark` varchar(255) COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '备注',
-                                `del_flag` char(1) COLLATE utf8mb4_0900_ai_ci NOT NULL DEFAULT '0' COMMENT '删除标记（0=存在 2=删除）',
-                                PRIMARY KEY (`id`),
-                                KEY `idx_del_flag` (`del_flag`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='流程监听';
 
 
 -- Table structure for table `sys_logininfor`

@@ -80,6 +80,17 @@ public class PortalInterviewExperience extends BaseEntity
     @Size(min = 0, max = 20, message = "状态长度不能超过20个字符")
     private String status;
 
+    /** 审核人ID（系统用户ID，CMS审核时写入），对齐文章/话题/专栏审核字段 */
+    private Long auditorId;
+
+    /** 审核意见/驳回原因（独立字段，不复用通用remark） */
+    @Size(max = 500, message = "审核意见长度不能超过500个字符")
+    private String auditRemark;
+
+    /** 审核时间 */
+    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
+    private LocalDateTime auditTime;
+
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime createTime;
 

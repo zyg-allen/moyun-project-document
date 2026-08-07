@@ -1285,7 +1285,7 @@ onUnmounted(() => {
 <style scoped>
 .diagram-chat {
   display: flex;
-  height: 100%;
+  min-height: calc(100vh - 84px);
   background: #f5f5f5;
 }
 

@@ -15,13 +15,26 @@ import java.time.LocalDateTime;
  * <p>对应数据库表 knowledge_base，存储知识库中的文档信息和处理状态</p>
  * <p>一个知识库(KnowledgeLibrary)可以包含多个文档(KnowledgeBase)</p>
  *
+ * <p>继承 {@link AiBaseEntity}，复用 createTime / updateTime / deleted 字段（P3-2 Phase 2）：
+ * <ul>
+ *   <li>{@code createTime} → {@code create_time} 列（原 {@code upload_time}，117 脚本重命名，
+ *       语义：记录创建=文档上传时刻）</li>
+ *   <li>{@code updateTime} → {@code update_time} 列（原 {@code process_time}，117 脚本重命名，
+ *       语义扩展为"最后修改时间"；处理路径仍由 ServiceImpl 显式 setUpdateTime 保留"最近处理"语义）</li>
+ *   <li>{@code deleted} → {@code deleted} 列（由 113 脚本添加）</li>
+ * </ul>
+ * 注意：{@code lastProcessedTime}（对应 {@code last_processed_time} 列）为独立语义字段，
+ * 不参与本次重命名，继续保留为本类字段。
+ * 时间字段的 {@code @TableField(fill=...)} 自动填充由 AiBaseEntity 统一提供，
+ * strictInsertFill 仅填 null，不覆盖 Service 层显式赋值（P0-1 兜底兼容）。</p>
+ *
  * @author laomao
  */
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
-@TableName("knowledge_base")
-public class KnowledgeBase {
+@TableName("ai_knowledge_base")
+public class KnowledgeBase extends AiBaseEntity {
     @TableId(type = IdType.AUTO)
     private Long id;
     
@@ -63,11 +76,9 @@ public class KnowledgeBase {
     // 错误信息
     private String errorMessage;
 
-    // 上传时间
-    private LocalDateTime uploadTime;
-
-    // 处理时间
-    private LocalDateTime processTime;
+    // createTime（原 upload_time，117 脚本重命名，记录创建=文档上传时刻）
+    // updateTime（原 process_time，117 脚本重命名，最后修改时间）
+    // 两个字段继承自 AiBaseEntity，不再在此声明
 
     // ========== 新增：分组和标签 ==========
     
@@ -121,4 +132,6 @@ public class KnowledgeBase {
      * 是否需要重新处理
      */
     private Boolean needReprocess;
+
+    // deleted 字段继承自 AiBaseEntity（对应 deleted 列，由 113 脚本添加）
 }

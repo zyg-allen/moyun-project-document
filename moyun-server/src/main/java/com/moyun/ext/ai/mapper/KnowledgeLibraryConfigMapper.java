@@ -17,6 +17,6 @@ public interface KnowledgeLibraryConfigMapper extends BaseMapper<KnowledgeLibrar
     /**
      * 根据知识库ID查询配置
      */
-    @Select("SELECT * FROM knowledge_library_config WHERE library_id = #{libraryId}")
+    @Select("SELECT * FROM ai_knowledge_library_config WHERE library_id = #{libraryId}")
     KnowledgeLibraryConfig selectByLibraryId(@Param("libraryId") Long libraryId);
 }

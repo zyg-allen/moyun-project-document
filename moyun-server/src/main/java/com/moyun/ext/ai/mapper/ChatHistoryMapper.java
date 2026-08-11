@@ -26,7 +26,7 @@ public interface ChatHistoryMapper extends BaseMapper<ChatHistory> {
      */
     @Select("SELECT session_id, MIN(create_time) as start_time, MAX(create_time) as last_time, " +
             "COUNT(*) as message_count, SUM(tokens_used) as total_tokens " +
-            "FROM chat_history WHERE agent_id = #{agentId} " +
+            "FROM ai_chat_history WHERE agent_id = #{agentId} " +
             "GROUP BY session_id ORDER BY last_time DESC LIMIT #{limit}")
     List<Map<String, Object>> getSessionsByAgentId(@Param("agentId") Long agentId, @Param("limit") int limit);
     
@@ -40,6 +40,6 @@ public interface ChatHistoryMapper extends BaseMapper<ChatHistory> {
             "COUNT(*) as message_count, " +
             "SUM(tokens_used) as total_tokens, " +
             "AVG(response_time) as avg_response_time " +
-            "FROM chat_history WHERE agent_id = #{agentId}")
+            "FROM ai_chat_history WHERE agent_id = #{agentId}")
     Map<String, Object> getStatsByAgentId(@Param("agentId") Long agentId);
 }

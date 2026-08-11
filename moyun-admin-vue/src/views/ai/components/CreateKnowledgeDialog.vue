@@ -46,6 +46,21 @@
           </template>
         </el-alert>
       </div>
+
+      <!-- 已上传文件信息展示 -->
+      <div v-if="uploadedFileInfo" class="file-info">
+        <el-alert type="success" :closable="false">
+          <template #title>
+            <i class="fa-solid fa-circle-check" style="color: #67c23a; margin-right: 6px;"></i>
+            文件已上传
+          </template>
+          <template #default>
+            <div>文件名: {{ uploadedFileInfo.fileName }}</div>
+            <div>访问URL: <span style="color: #409eff; word-break: break-all;">{{ uploadedFileInfo.url }}</span></div>
+            <div>文件ID: {{ uploadedFileInfo.fileId }}</div>
+          </template>
+        </el-alert>
+      </div>
     </div>
 
     <!-- 步骤2: 配置参数 -->
@@ -155,9 +170,10 @@
           v-if="currentStep === 0"
           type="primary"
           @click="nextStep"
+          :loading="uploading"
           :disabled="!selectedFile"
         >
-          下一步：配置参数
+          {{ uploadedFileInfo ? '下一步：配置参数' : '上传并下一步' }}
         </el-button>
         <el-button
           v-if="currentStep === 1"
@@ -199,6 +215,9 @@ const templates = ref([])
 const selectedTemplateId = ref(null)
 const configMode = ref('template')
 const submitting = ref(false)
+const uploading = ref(false) // 文件上传中状态
+const uploadedKnowledgeId = ref(null) // 已上传文件的 knowledgeId
+const uploadedFileInfo = ref(null) // 已上传文件信息（URL等）
 const expandedTemplateId = ref(null)  // 当前展开详情的模板ID
 
 // 切换模板详情展开/折叠
@@ -267,9 +286,11 @@ const getTemplateDetails = (templateName) => {
   return templateDetailsMap[templateName] || null
 }
 
-// 文件选择
+// 文件选择（重新选择文件时清理已上传状态）
 const handleFileChange = (file) => {
   selectedFile.value = file.raw
+  uploadedKnowledgeId.value = null
+  uploadedFileInfo.value = null
 }
 
 // 格式化文件大小
@@ -281,51 +302,91 @@ const formatFileSize = (bytes) => {
   return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i]
 }
 
-// 下一步
+// 下一步：先上传文件，返回 knowledgeId 和文件URL，再进入配置步骤
 const nextStep = async () => {
   if (!selectedFile.value) {
     ElMessage.warning('请选择文件')
     return
   }
 
-  // 获取推荐模板
+  // 如果已上传过，直接进入配置步骤
+  if (uploadedKnowledgeId.value) {
+    await loadTemplates()
+    currentStep.value = 1
+    return
+  }
+
+  // 1. 先上传文件，返回 knowledgeId 和文件URL
+  uploading.value = true
+  try {
+    const formData = new FormData()
+    formData.append('file', selectedFile.value)
+    if (props.libraryId) {
+      formData.append('libraryId', props.libraryId)
+    }
+
+    const uploadResponse = await request({
+      url: '/cms/ai/knowledge-base/upload',
+      method: 'post',
+      data: formData,
+      headers: { 'Content-Type': 'multipart/form-data' }
+    })
+
+    const data = uploadResponse.data
+    uploadedKnowledgeId.value = data.knowledgeId
+    // 保存上传返回的文件信息（与其他模块的统一上传返回字段对齐）
+    uploadedFileInfo.value = {
+      knowledgeId: data.knowledgeId,
+      fileName: data.fileName,
+      url: `/cms/ai/knowledge-base/${data.knowledgeId}/download`, // 文件访问URL
+      fileId: data.knowledgeId
+    }
+
+    ElMessage.success('文件上传成功，请配置处理参数')
+
+    // 2. 加载推荐模板，进入配置步骤
+    await loadTemplates()
+    currentStep.value = 1
+  } catch (error) {
+    console.error('上传失败:', error)
+    ElMessage.error('上传失败: ' + (error.response?.data?.message || error.message))
+  } finally {
+    uploading.value = false
+  }
+}
+
+// 加载推荐配置模板
+const loadTemplates = async () => {
   const fileType = selectedFile.value.name.split('.').pop()
   try {
-    const response = await request({ url: `/cms/ai/knowledge-base/templates/recommended?fileType=${fileType}`, method: 'get' })
+    const response = await request({
+      url: `/cms/ai/knowledge-base/templates/recommended?fileType=${fileType}`,
+      method: 'get'
+    })
     templates.value = response.data.templates || []
     if (templates.value.length > 0) {
       const recommended = templates.value.find(t => t.isRecommended)
       selectedTemplateId.value = recommended ? recommended.id : templates.value[0].id
     }
-    currentStep.value = 1
   } catch (error) {
     console.error('获取模板失败:', error)
     ElMessage.error('获取配置模板失败')
   }
 }
 
-// 提交
+// 提交：仅应用配置（文件已在 nextStep 上传完成）
 const handleSubmit = async () => {
+  if (!uploadedKnowledgeId.value) {
+    ElMessage.error('文件未上传，请返回第一步重新上传')
+    currentStep.value = 0
+    return
+  }
+
   submitting.value = true
-
   try {
-    // 1. 上传文件
-    const formData = new FormData()
-    formData.append('file', selectedFile.value)
-    // 如果有libraryId，添加到表单中
-    if (props.libraryId) {
-      formData.append('libraryId', props.libraryId)
-    }
-
-    const uploadResponse = await request({ url: '/cms/ai/knowledge-base/upload', method: 'post', data: formData, headers: {
-      'Content-Type': 'multipart/form-data'
-    } })
-
-    const knowledgeId = uploadResponse.data.knowledgeId
-
-    // 2. 应用配置
+    // 应用配置（不再上传文件，文件已在 nextStep 上传）
     let configData = {
-      knowledgeId: knowledgeId,
+      knowledgeId: uploadedKnowledgeId.value,
       startProcessing: true
     }
 
@@ -341,9 +402,13 @@ const handleSubmit = async () => {
       }
     }
 
-    const configResponse = await request({ url: '/cms/ai/knowledge-base/configure', method: 'post', data: configData})
+    const configResponse = await request({
+      url: '/cms/ai/knowledge-base/configure',
+      method: 'post',
+      data: configData
+    })
 
-    ElMessage.success('文档上传成功，正在处理中...')
+    ElMessage.success('文档配置成功，正在处理中...')
     emit('success', configResponse.data)
     visible.value = false
     resetDialog()
@@ -365,6 +430,9 @@ const handleClose = () => {
 const resetDialog = () => {
   currentStep.value = 0
   selectedFile.value = null
+  uploading.value = false
+  uploadedKnowledgeId.value = null
+  uploadedFileInfo.value = null
   if (uploadRef.value) {
     uploadRef.value.clearFiles()
   }

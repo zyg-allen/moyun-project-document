@@ -3,6 +3,7 @@ package com.moyun.core.config;
 import com.baomidou.mybatisplus.annotation.DbType;
 import com.baomidou.mybatisplus.autoconfigure.SpringBootVFS;
 import com.baomidou.mybatisplus.extension.plugins.MybatisPlusInterceptor;
+import com.baomidou.mybatisplus.extension.plugins.inner.BlockAttackInnerInterceptor;
 import com.baomidou.mybatisplus.extension.plugins.inner.PaginationInnerInterceptor;
 import com.baomidou.mybatisplus.extension.spring.MybatisSqlSessionFactoryBean;
 import com.moyun.util.string.StringUtils;
@@ -143,6 +144,10 @@ public class MyBatisConfig {
     @Bean
     public MybatisPlusInterceptor mybatisPlusInterceptor() {
         MybatisPlusInterceptor interceptor = new MybatisPlusInterceptor();
+        // 拦截器注册顺序：BlockAttack 必须在 Pagination 之前，确保全表 update/delete 在分页前被拦截
+        // 1) BlockAttackInnerInterceptor：阻断无 WHERE 条件的全表 UPDATE/DELETE，防止误操作（含 MyBatis-Plus Wrapper 与原生 SQL）
+        interceptor.addInnerInterceptor(new BlockAttackInnerInterceptor());
+        // 2) PaginationInnerInterceptor：分页
         interceptor.addInnerInterceptor(new PaginationInnerInterceptor(DbType.MYSQL));
         return interceptor;
     }

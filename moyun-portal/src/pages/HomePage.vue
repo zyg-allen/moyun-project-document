@@ -424,9 +424,11 @@ const handleWrite = () => {
 
 // ============ Hero 区：站点核心数据 ============
 // 用前端已加载数据的长度作为统计指标，无需新接口
+// 注意：「名家展示」是当前首页展示的名家数量（limit=10），非全站认证名家总数
+//       若需展示真实总数，需后端新增 /portal/user/authors/count 接口
 const siteStats = computed(() => [
   { label: '原创文章', value: latestArticles.value.length, suffix: '篇' },
-  { label: '认证名家', value: authors.value.length, suffix: '位' },
+  { label: '名家展示', value: authors.value.length, suffix: '位' },
   { label: '热门标签', value: tags.value.length, suffix: '个' }
 ])
 

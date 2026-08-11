@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.moyun.ext.ai.entity.Conversation;
 import com.moyun.ext.ai.entity.ConversationMessage;
+import com.moyun.ext.ai.enums.ConversationRole;
 import com.moyun.ext.ai.mapper.ConversationMapper;
 import com.moyun.ext.ai.mapper.ConversationMessageMapper;
 import com.moyun.ext.ai.service.ConversationService;
@@ -74,7 +75,7 @@ public class ConversationServiceImpl extends ServiceImpl<ConversationMapper, Con
             conversation.setUpdateTime(LocalDateTime.now());
 
             // 每次用户消息都更新标题为最新消息（排除"你好"）
-            if ("user".equals(role) && !"你好".equals(content.trim())) {
+            if (ConversationRole.USER.getCode().equals(role) && !"你好".equals(content.trim())) {
                 String title = generateTitle(content);
                 conversation.setTitle(title);
                 log.info("更新会话标题为最新消息: conversationId={}, title={}", conversationId, title);

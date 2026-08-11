@@ -1,5 +1,6 @@
 package com.moyun.portal.controller;
 
+import java.util.List;
 import java.util.Map;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
@@ -9,6 +10,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
 import com.moyun.common.annotation.Anonymous;
+import com.moyun.common.annotation.RepeatSubmit;
 import com.moyun.common.constant.HttpStatus;
 import com.moyun.core.base.AjaxResult;
 import com.moyun.core.base.BaseController;
@@ -31,6 +33,7 @@ import com.moyun.portal.domain.entity.PortalInterviewExperience;
 import com.moyun.portal.domain.entity.PortalInterviewQuestion;
 import com.moyun.portal.domain.entity.PortalInterviewResumeTemplate;
 import com.moyun.portal.util.PortalSecurityUtils;
+import com.moyun.system.service.ISensitiveWordService;
 import com.moyun.util.bean.PageUtils;
 
 /**
@@ -50,6 +53,9 @@ public class PortalInterviewController extends BaseController {
 
     @Autowired
     private IPortalInterviewService portalInterviewService;
+
+    @Autowired
+    private ISensitiveWordService sensitiveWordService;
 
     private Long currentUserId() {
         return PortalSecurityUtils.getUserId();
@@ -199,11 +205,20 @@ public class PortalInterviewController extends BaseController {
     }
 
     @Operation(summary = "发布面经", description = "用户发布面经，默认进入 pending 待审核状态")
+    @RepeatSubmit(interval = 5000, message = "请勿重复提交面经")
     @PostMapping("/experience")
     public AjaxResult publishExperience(@RequestBody PortalInterviewExperience experience) {
         Long userId = currentUserId();
         if (userId == null) {
             return AjaxResult.error(HttpStatus.UNAUTHORIZED, "登录已过期，请重新登录");
+        }
+        // 敏感词前置拦截
+        String scanText = (experience.getTitle() == null ? "" : experience.getTitle())
+                + " " + (experience.getContent() == null ? "" : experience.getContent());
+        if (sensitiveWordService.contains(scanText)) {
+            List<String> hitWords = sensitiveWordService.detectAndLog(
+                    "interview_experience", null, userId, scanText, "block");
+            return AjaxResult.error("内容包含敏感词：" + hitWords);
         }
         return AjaxResult.success(portalInterviewService.insertExperience(experience, userId));
     }
@@ -239,10 +254,18 @@ public class PortalInterviewController extends BaseController {
 
     @Operation(summary = "发表评论/回复")
     @PostMapping("/comment")
+    @RepeatSubmit(interval = 3000, message = "请勿重复提交评论")
     public AjaxResult publishComment(@RequestBody PortalInterviewComment comment) {
         Long userId = currentUserId();
         if (userId == null) {
             return AjaxResult.error(HttpStatus.UNAUTHORIZED, "登录已过期，请重新登录");
+        }
+        // 敏感词前置拦截
+        String scanText = comment.getContent() == null ? "" : comment.getContent();
+        if (sensitiveWordService.contains(scanText)) {
+            List<String> hitWords = sensitiveWordService.detectAndLog(
+                    "interview_comment", null, userId, scanText, "block");
+            return AjaxResult.error("内容包含敏感词：" + hitWords);
         }
         return AjaxResult.success(portalInterviewService.insertComment(comment, userId));
     }

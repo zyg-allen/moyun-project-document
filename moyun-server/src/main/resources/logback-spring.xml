@@ -79,6 +79,27 @@
         </rollingPolicy>
     </appender>
 
+    <!-- ========== 慢 SQL 治理：独立归档 ========== -->
+    <!-- 慢 SQL 独立日志文件，便于定期审计与治理 -->
+    <!-- 来源：
+         1) Druid Slf4jLogFilter 输出的慢 SQL WARN（application.yaml: filter.stat.log-slow-sql=true）
+         2) AI 模块 DataQueryServiceImpl 慢查询告警 log.warn
+         3) MyBatis Mapper 执行慢 SQL log
+    -->
+    <appender name="SLOW_SQL_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${LOG_HOME}/${APP_NAME}-slow-sql.log</file>
+        <encoder>
+            <pattern>${FILE_LOG_PATTERN}</pattern>
+            <charset>UTF-8</charset>
+        </encoder>
+        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+            <fileNamePattern>${LOG_HOME}/${APP_NAME}-slow-sql.%d{yyyy-MM-dd}.%i.log</fileNamePattern>
+            <maxFileSize>50MB</maxFileSize>
+            <maxHistory>30</maxHistory>
+            <totalSizeCap>2GB</totalSizeCap>
+        </rollingPolicy>
+    </appender>
+
     <!-- ========== AI 包级别日志配置 ========== -->
 
     <!-- RAG相关服务（ChatService / RagService 等） -->
@@ -112,6 +133,19 @@
 
     <!-- MyBatis SQL日志 -->
     <logger name="com.moyun.ext.ai.mapper" level="INFO"/>
+
+    <!-- ========== 慢 SQL 治理 logger 绑定 ========== -->
+    <!-- 1) Druid stat filter 的慢 SQL 通过 Slf4jLogFilter 输出，logger 名为 druid.sql.* -->
+    <!-- 2) AI 模块 DataQueryServiceImpl 慢查询告警通过 SLOW_SQL logger 输出（见代码中 LoggerFactory.getLogger("SLOW_SQL")) -->
+    <!-- 同时输出到 CONSOLE（便于开发期即时发现）和 SLOW_SQL_FILE（便于归档审计） -->
+    <logger name="druid.sql" level="WARN" additivity="false">
+        <appender-ref ref="CONSOLE"/>
+        <appender-ref ref="SLOW_SQL_FILE"/>
+    </logger>
+    <logger name="SLOW_SQL" level="WARN" additivity="false">
+        <appender-ref ref="CONSOLE"/>
+        <appender-ref ref="SLOW_SQL_FILE"/>
+    </logger>
 
     <!-- ========== 环境特定配置 ========== -->
 

@@ -13,6 +13,7 @@ import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 import com.moyun.common.annotation.Log;
+import com.moyun.common.annotation.RepeatSubmit;
 import com.moyun.common.constant.HttpStatus;
 import com.moyun.common.enums.BusinessType;
 import com.moyun.core.base.AjaxResult;
@@ -29,6 +30,7 @@ import com.moyun.portal.service.IPortalTopicCommentService;
 import com.moyun.portal.service.IPortalTopicPostService;
 import com.moyun.portal.service.IPortalTopicService;
 import com.moyun.portal.util.PortalSecurityUtils;
+import com.moyun.system.service.ISensitiveWordService;
 
 /**
  * 门户话题 Controller（前台）
@@ -53,6 +55,9 @@ public class PortalTopicController extends BaseController {
 
     @Autowired
     private IPortalTopicCommentService portalTopicCommentService;
+
+    @Autowired
+    private ISensitiveWordService sensitiveWordService;
 
     // ==================== 话题相关 ====================
 
@@ -84,11 +89,20 @@ public class PortalTopicController extends BaseController {
 
     @Operation(summary = "创建话题", description = "认证创作者发起话题")
     @Log(title = "门户话题", businessType = BusinessType.INSERT)
+    @RepeatSubmit(interval = 5000, message = "请勿重复提交话题")
     @PostMapping("/save")
     public AjaxResult save(@RequestBody PortalTopic topic) {
         Long userId = PortalSecurityUtils.getUserId();
         if (userId == null) {
             return AjaxResult.error(HttpStatus.UNAUTHORIZED, "请先登录");
+        }
+        // 敏感词前置拦截（P1-5）：扫描标题 + 描述
+        String scanText = (topic.getTitle() == null ? "" : topic.getTitle()) + " "
+                + (topic.getDescription() == null ? "" : topic.getDescription());
+        if (sensitiveWordService.contains(scanText)) {
+            List<String> hitWords = sensitiveWordService.detectAndLog(
+                    "topic", null, userId, scanText, "block");
+            return AjaxResult.error("内容包含敏感词：" + hitWords);
         }
         try {
             PortalTopic created = portalTopicService.createTopic(topic, userId);
@@ -171,12 +185,20 @@ public class PortalTopicController extends BaseController {
 
     @Operation(summary = "发表观点", description = "在某话题下发表观点（楼层号并发安全）")
     @Log(title = "话题观点", businessType = BusinessType.INSERT)
+    @RepeatSubmit(interval = 3000, message = "请勿重复提交观点")
     @PostMapping("/{id}/post")
     public AjaxResult createPost(@Parameter(description = "话题ID") @PathVariable Long id,
                                  @Validated @RequestBody TopicPostCreateDTO dto) {
         Long userId = PortalSecurityUtils.getUserId();
         if (userId == null) {
             return AjaxResult.error(HttpStatus.UNAUTHORIZED, "请先登录");
+        }
+        // 敏感词前置拦截（P1-5）
+        String scanText = dto.getContent() == null ? "" : dto.getContent();
+        if (sensitiveWordService.contains(scanText)) {
+            List<String> hitWords = sensitiveWordService.detectAndLog(
+                    "topic_post", null, userId, scanText, "block");
+            return AjaxResult.error("内容包含敏感词：" + hitWords);
         }
         PortalTopicPost post = new PortalTopicPost();
         post.setContent(dto.getContent());
@@ -258,11 +280,19 @@ public class PortalTopicController extends BaseController {
 
     @Operation(summary = "发表评论", description = "在话题或观点下发表评论")
     @Log(title = "话题评论", businessType = BusinessType.INSERT)
+    @RepeatSubmit(interval = 3000, message = "请勿重复提交评论")
     @PostMapping("/comment")
     public AjaxResult createComment(@RequestBody PortalTopicComment comment) {
         Long userId = PortalSecurityUtils.getUserId();
         if (userId == null) {
             return AjaxResult.error(HttpStatus.UNAUTHORIZED, "请先登录");
+        }
+        // 敏感词前置拦截（P1-5）
+        String scanText = comment.getContent() == null ? "" : comment.getContent();
+        if (sensitiveWordService.contains(scanText)) {
+            List<String> hitWords = sensitiveWordService.detectAndLog(
+                    "topic_comment", null, userId, scanText, "block");
+            return AjaxResult.error("内容包含敏感词：" + hitWords);
         }
         try {
             PortalTopicComment created = portalTopicCommentService.createComment(comment, userId);

@@ -71,8 +71,7 @@ public class ChatContextBuilderImpl implements ChatContextBuilderService {
      * 检查智能体是否配置了知识库
      */
     private boolean hasKnowledgeConfig(Agent agent) {
-        return (agent.getKnowledgeLibraryIds() != null && !agent.getKnowledgeLibraryIds().isEmpty())
-                || (agent.getKnowledgeBaseIds() != null && !agent.getKnowledgeBaseIds().isEmpty());
+        return (agent.getKnowledgeLibraryIds() != null && !agent.getKnowledgeLibraryIds().isEmpty());
     }
 
     /**

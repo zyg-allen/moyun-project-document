@@ -1,25 +1,14 @@
 <template>
-  <div class="app-container">
-    <el-tabs v-model="activeTab" @tab-change="handleTabChange">
-      <el-tab-pane label="成长规则" name="rule">
-        <growth-rule v-if="loaded.rule" v-show="activeTab === 'rule'" />
-      </el-tab-pane>
-      <el-tab-pane label="成就管理" name="achievement">
-        <growth-achievement v-if="loaded.achievement" v-show="activeTab === 'achievement'" />
-      </el-tab-pane>
-    </el-tabs>
-  </div>
+  <TabContainer :tabs="tabs" />
 </template>
 
 <script setup>
-import { ref, reactive } from 'vue'
+import TabContainer from '@/components/TabContainer'
 import GrowthRule from '../growth/rule/index.vue'
 import GrowthAchievement from '../growth/achievement/index.vue'
 
-const activeTab = ref('rule')
-const loaded = reactive({ rule: true, achievement: false })
-
-function handleTabChange(tabName) {
-  loaded[tabName] = true
-}
+const tabs = [
+  { name: 'rule', label: '成长规则', component: GrowthRule },
+  { name: 'achievement', label: '成就管理', component: GrowthAchievement }
+]
 </script>

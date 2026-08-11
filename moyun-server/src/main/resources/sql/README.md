@@ -1,121 +1,83 @@
-## 墨韵智库 - 数据库初始化脚本（拆分版）
+## 墨韵智库 - 数据库初始化脚本
 
-本目录由 `all-db-ddl.sql`（5335 行）按模块拆分为多个编号文件，按编号顺序执行即可完成空库初始化。
+本目录仅包含一个整合的初始化脚本 `init_v7.8.sql`，可在空库上一键完成建表 + 字段补齐 + 基础数据初始化。
 
-> **v6.1 变更**：调整执行顺序（系统表提前到门户表之前，系统种子提前到门户种子之前）；合并原 60+61 为 10；修复 91/92 的 menu_id 断裂导致前端空白问题。
-> **v7.12 变更**：移除 Flowable 工作流（原 20_工作流表_act.sql 及 act_* 表全部删除，相关菜单同步清理，详见 105_升级脚本_v7.12_清理Flowable.sql）。
-> **v7.15 变更**：修复脚本编号冲突（原 98_升级脚本_v7.5.sql 重命名为 54_AI模块表_v7.5.sql）；README 补全 93/95/96/97 脚本执行顺序（消息中心、敏感词管理、评论审核字段等菜单此前遗漏导致后台菜单不完整）。
+### 快速开始
 
-### 执行顺序
+```bash
+# 1. 创建数据库（MySQL 8.0+）
+mysql -uroot -p -e "CREATE DATABASE IF NOT EXISTS moyun DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci;"
 
-请按以下顺序依次执行 SQL 脚本（系统地基 → 框架表 → 业务表 → AI表 → 种子数据 → 菜单权限 → 增量升级 → 校验）：
+# 2. 执行初始化脚本
+mysql -uroot -p moyun < init_v7.8.sql
+```
 
-#### 一、空库初始化（全新部署）
+### 脚本内容
 
-| 序号 | 文件名 | 类型 | 说明 |
-|------|--------|------|------|
-| 00 | **00_开头设置.sql** | 设置 | `SET FOREIGN_KEY_CHECKS=0;` 关闭外键检查，最先执行 |
-| 10 | **10_基础系统表.sql** | DDL | 系统基础表（24 张 sys_* 表，含 sys_role_menu）。v6.1 合并原 60+61 |
-| 30 | **30_定时任务表_qrtz.sql** | DDL | Quartz 全部 11 张 `qrtz_*` 表 |
-| 40 | **40_代码生成表_gen.sql** | DDL | 代码生成业务表 `gen_table` + `gen_table_column` |
-| 50 | **50_门户核心表.sql** | DDL | portal_article* / book* / category / tag 等核心业务表 |
-| 51 | **51_门户扩展表.sql** | DDL | portal_comment* / feed_* / follow / friend_link / growth_* 等 |
-| 52 | **52_门户面试学习表.sql** | DDL | portal_interview_* 全系列 |
-| 53 | **53_门户互动社交表.sql** | DDL | portal_like / message* / order / report / topic_* / user* 等 |
-| 54 | **54_AI模块表_v7.5.sql** | DDL | AI 智能体/知识库/工作流/数据分析 全部表结构（原 98_升级脚本_v7.5.sql） |
-| 80 | **80_系统种子数据.sql** | 种子数据 | sys_config / dept / dict_* / role / user / user_role 等。v6.1 提前到门户种子之前 |
-| 81 | **81_门户种子数据.sql** | 种子数据 | portal_category（50 条）/ tag（28 条）/ book / task 等门户种子数据 |
-| 90 | **90_菜单权限_RuoYi.sql** | 种子数据 | sys_menu 第一段：RuoYi 框架菜单（显式 ID 1-1060） |
-| 91 | **91_菜单权限_CMS.sql** | 种子数据 | sys_menu 第二段：CMS 内容管理菜单（v6.1：AUTO_INCREMENT=2000，ID 2000+） |
-| 92 | **92_角色菜单关联.sql** | 种子数据 | sys_role_menu 种子数据（v6.1：role_id=1 改为动态子查询，匹配 menu_id >= 2000） |
-| 93 | **93_菜单权限_消息中心.sql** | 种子数据 | 消息中心 + 通知管理 菜单（私信/通知双 Tab，通知从 CMS 移入系统管理） |
-| 95 | **95_升级脚本_v6.4.sql** | 升级 | sys_logininfor 加 user_type / portal_category 加 category_type 字段 |
-| 96 | **96_升级脚本_v6.7.sql** | 升级 | 统一审核字段 + 话题审核流 + 举报扩展 + **敏感词管理菜单** + 敏感词定时扫描任务 |
-| 97 | **97_升级脚本_v6.8.sql** | 升级 | portal_comment 评论审核字段对齐文章审核模式 |
-| 98 | **98_校验查询.sql** | 校验 | CMS 菜单完整性校验 SELECT 查询 |
-| 99 | **99_结尾设置.sql** | 设置 | `SET FOREIGN_KEY_CHECKS=1;` 恢复外键检查，最后执行 |
+| 段 | 内容 | 说明 |
+|---|---|---|
+| 一、设置段 | 关闭外键检查 | 加速批量插入 |
+| 二、DDL 建表段 | CREATE TABLE IF NOT EXISTS | 系统表/qrtz/gen/门户/AI 全部表，幂等 |
+| 三、字段补齐段 | ALTER TABLE（幂等） | v6.4~v7.25 升级脚本中的表结构变更，兼容 MySQL 8.0 |
+| 四、基础数据段 | INSERT 基础数据 | 用户/角色/字典/栏目/标签等，不含业务测试数据 |
+| 五、菜单权限段 | sys_menu + sys_role_menu | RuoYi + CMS + 消息中心 + v7.7~v7.24 菜单注册 |
+| 六、校验段 | 完整性校验查询 | 表数量/菜单数量/角色用户校验 |
+| 七、结尾设置 | 恢复外键检查 | — |
 
-#### 二、增量升级脚本（v7.7+，按版本号顺序执行）
+### 保留的基础数据
 
-> 以下脚本针对已初始化的 v6.8+ 数据库增量升级，每个脚本均幂等可重复执行。
+**系统基础数据**：
+- `sys_config`（6条系统配置）
+- `sys_dept`（10条部门）
+- `sys_dict_type` + `sys_dict_data`（15+38条字典）
+- `sys_post`（4条岗位）
+- `sys_role`（2条角色：admin/common）
+- `sys_user`（2条用户：admin/ry）
+- `sys_role_dept` / `sys_user_post` / `sys_user_role`（关联关系）
+- `sys_job`（3条定时任务）
 
-| 序号 | 文件名 | 说明 |
-|------|--------|------|
-| 100 | **100_升级脚本_v7.7_菜单合并.sql** | 8 项菜单 Tab 容器化合并（推广位/反馈处理/帮助中心/成长配置/交易管理/缓存管理/日志审计/学习辅助） |
-| 101 | **101_升级脚本_v7.8_面经评论审核字段.sql** | portal_interview_comment 加审核字段 + 存量数据迁移 |
-| 102 | **102_升级脚本_v7.9_评论扫描定时任务.sql** | 文章评论 + 面经评论 敏感词定时扫描任务注册 |
-| 103 | **103_升级脚本_v7.10_内容审核中心菜单.sql** | 内容审核中心菜单注册（文章+专栏+话题审核 Tab 合并入口） |
-| 104 | **104_升级脚本_v7.11_监控接口菜单整合.sql** | 服务监控合并（服务器+Druid）+ 接口文档改名 |
-| 105 | **105_升级脚本_v7.12_清理Flowable.sql** | 删除 Flowable 工作流相关菜单 + act_* 表 |
-| 106 | **106_升级脚本_v7.13_面试指南与读书空间菜单注册.sql** | 面试指南 + 读书空间 一级目录及子菜单注册 |
-| 107 | **107_升级脚本_v7.14_面经审核字段补齐.sql** | portal_interview_experience 加审核字段 + 回填存量数据 |
-| 108 | **108_升级脚本_v7.15_面试指南与读书空间菜单重构.sql** | 面试指南 + 读书空间 Tab 容器化重构（先删 106 菜单后重建） |
-| 109 | **109_升级脚本_v7.16_AI模块菜单重构.sql** | AI 模块菜单从扁平 12 菜单重构为嵌套结构（知识中心/AI基础配置/运营监控 3个M目录 + 知识中心Tab容器） |
+**门户基础数据**：
+- `portal_category`（50条栏目：8一级 + 42二级）
+- `portal_tag`（28条标签：8人文 + 12技术 + 8通用）
+- `portal_friend_link`（3条友链）
+- `portal_growth_rule`（30条成长规则）
+- `portal_help_category`（4条帮助分类）
+- `portal_interview_category`（5条面试分类）
+- `portal_achievement`（23条成就定义）
+- `portal_interview_position`（3条岗位配置）
+- `portal_task`（7条任务定义）
 
-### v6.1 修复说明
+**菜单权限数据**：
+- `sys_menu`（RuoYi框架菜单 + CMS菜单 + 消息中心菜单 + v7.7~v7.24菜单注册）
+- `sys_role_menu`（admin 关联全部菜单）
 
-#### 问题：前端空白 / parentNode null
-- **根因**：91 用自增插入 73 条 CMS 菜单（实际 ID 1061+），但 92 硬编码引用 222 个 menu_id（2000-2228），两者对不上，导致 222 条角色菜单关联全部悬空，admin 登录后拿不到 CMS 菜单 → 前端路由表为空 → 组件渲染失败
-- **修复**：
-  1. 91 开头加 `ALTER TABLE sys_menu AUTO_INCREMENT = 2000`，CMS 菜单 ID 从 2000 开始
-  2. 92 的 role_id=1 改为动态子查询 `SELECT menu_id FROM sys_menu WHERE menu_id >= 2000`，不再依赖硬编码 ID
+### 已删除的业务测试数据
 
-#### 顺序调整
-- 系统基础表（10）提到门户表（50-53）之前：系统是地基，先建 sys_* 再建 portal_*
-- 系统种子数据（80）提到门户种子（81）之前：先有 sys_user/admin，门户数据的 create_by 才有语义
+以下业务测试数据已从脚本中剔除，部署后系统为干净状态：
+- `portal_book` / `portal_book_chapter` / `portal_book_quote` / `portal_book_recommend`（书籍测试数据）
+- `portal_help_article`（帮助文章测试数据）
+- `portal_shop_item`（商品测试数据）
+- `portal_user`（门户测试用户，admin 已在 sys_user 中）
+- `portal_writing_prompt`（写作提示测试数据）
 
-### 文件分类说明
+### 兼容性说明
 
-#### DDL 表结构（10-54 段）
-- **10 段**：系统基础表（RuoYi 系统表 + sys_role_menu 关联表）
-- **30-40 段**：框架表（Quartz / 代码生成器）
-- **50-53 段**：门户业务表（核心 / 扩展 / 面试学习 / 互动社交）
-- **54 段**：AI 模块表（智能体/知识库/工作流/数据分析，v7.5）
-- 所有 DDL 文件**仅包含 CREATE TABLE**，不包含 INSERT 种子数据
+- 适配 **MySQL 8.0+**（utf8mb4 / utf8mb4_0900_ai_ci）
+- 所有 `ALTER TABLE` 使用 `information_schema 校验 + PREPARE/EXECUTE` 动态 SQL 实现幂等，不使用 MariaDB 扩展语法（`ADD/DROP COLUMN IF EXISTS`）
+- 所有 `CREATE TABLE` 使用 `IF NOT EXISTS`，可重复执行
 
-#### 种子数据（80-99 段）
-- **80 段**：系统基础表种子数据（已调整依赖顺序：dict_type → dict_data；role → user → user_role）
-- **81 段**：门户业务表种子数据
-- **90-91 段**：菜单权限数据（RuoYi 框架菜单 ID 1-1060 + CMS 菜单 ID 2000+）
-- **92 段**：角色菜单关联数据（role_id=1 动态匹配 CMS 菜单，role_id=2 硬编码 RuoYi 菜单）
-- **93 段**：消息中心 + 通知管理 菜单权限（v6.2 通知从 CMS 移入系统管理）
-- **95-97 段**：增量升级脚本（v6.4 字段扩展 / v6.7 敏感词管理+话题审核 / v6.8 评论审核字段）
+### 部署后访问
 
-#### 增量升级脚本（100+ 段）
-- **100-108 段**：v7.7-v7.15 增量升级（菜单合并/审核体系/Flowable清理/面试指南与读书空间菜单等）
-- 所有升级脚本均**幂等可重复执行**
+| 入口 | 地址 | 账号 |
+|---|---|---|
+| 后台管理 | http://localhost:80 | admin / admin123 |
+| 前台门户 | http://localhost:5173 | admin / 123456 |
 
-### 依赖关系
+### 历史版本说明
 
-1. **DDL 必须先于种子数据**：所有 CREATE TABLE（10-54 段）必须在 INSERT（80-99 段）之前执行
-2. **系统种子数据内部依赖**（80 段已调整顺序）：
-   - `sys_dict_type` → `sys_dict_data`
-   - `sys_role` → `sys_user` → `sys_user_role`
-3. **菜单数据依赖**：90/91/93（sys_menu）必须在 92（sys_role_menu）之前执行
-4. **角色菜单关联**：80（sys_role）必须在 92/93（sys_role_menu）之前执行
-5. **升级脚本依赖**：95-97 必须在 90-93 菜单数据之后执行（部分脚本追加菜单/字段）
-6. **增量升级**：100-108 必须在初始化完成后按版本号顺序执行
-7. **校验查询**：98 在所有数据导入后执行
-
-### 注意事项
-
-1. **数据库要求**：MySQL 8.0+
-2. **字符集**：utf8mb4 / utf8mb4_0900_ai_ci
-3. **执行前准备**：
-   - 确保数据库已创建并具有相应权限
-   - 建议在执行前备份现有数据
-   - 按编号顺序执行，不要跳跃
-4. **源文件**：`all-db-ddl.sql` 为完整源文件（5335 行），本目录所有编号文件均从中提取
-5. **幂等性**：91 使用 `WHERE NOT EXISTS` 幂等插入，92 使用 `NOT EXISTS` 防重复，可重复执行
-
-### 初始化后访问信息
-
-- **后台管理系统地址**：`http://localhost:80`
-- **后台管理员账号**：`admin`
-- **后台管理员密码**：`admin123`
-- **前台地址**：`http://localhost:5173` 或配置的端口
-- **前台测试账号**：`admin` / `123456` 或 `zhangsan` / `123456`
-
-### 归档文件
-
-- `all-db-ddl.sql` - 完整源文件（5335 行），拆分前的原始 DDL 脚本，仅供参考
+本脚本由原 47 个分散 SQL 脚本整合而来（v6.1~v7.26），整合时：
+1. 合并全部建表语句（10/30/40/50-54）
+2. 合并全部升级脚本中的表结构变更（95/96/97/109_5/110-117）
+3. 合并全部菜单注册与重构脚本（100-108/109/114/116）
+4. 保留基础数据，剔除业务测试数据
+5. 修复 MySQL 8.0 兼容性问题（MariaDB 扩展语法）

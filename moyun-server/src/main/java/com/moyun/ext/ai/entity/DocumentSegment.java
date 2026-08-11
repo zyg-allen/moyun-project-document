@@ -20,7 +20,7 @@ import java.time.LocalDateTime;
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
-@TableName("document_segment")
+@TableName("ai_document_segment")
 public class DocumentSegment {
     @TableId(type = IdType.AUTO)
     private Long id;

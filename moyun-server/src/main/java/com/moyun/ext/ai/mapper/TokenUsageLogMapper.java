@@ -25,7 +25,7 @@ public interface TokenUsageLogMapper extends BaseMapper<WorkflowExecution.TokenU
             "SUM(total_tokens) as total_tokens, " +
             "SUM(cost) as total_cost, " +
             "COUNT(*) as request_count " +
-            "FROM token_usage_log " +
+            "FROM ai_token_usage_log " +
             "WHERE agent_id = #{agentId} " +
             "AND create_time BETWEEN #{startTime} AND #{endTime} " +
             "GROUP BY agent_id, model_name")
@@ -42,7 +42,7 @@ public interface TokenUsageLogMapper extends BaseMapper<WorkflowExecution.TokenU
             "SUM(total_tokens) as total_tokens, " +
             "SUM(cost) as total_cost, " +
             "COUNT(*) as request_count " +
-            "FROM token_usage_log " +
+            "FROM ai_token_usage_log " +
             "WHERE create_time BETWEEN #{startTime} AND #{endTime} " +
             "GROUP BY DATE(create_time), model_name " +
             "ORDER BY stat_date DESC")
@@ -58,7 +58,7 @@ public interface TokenUsageLogMapper extends BaseMapper<WorkflowExecution.TokenU
             "SUM(total_tokens) as total_tokens, " +
             "SUM(cost) as total_cost, " +
             "COUNT(*) as request_count " +
-            "FROM token_usage_log " +
+            "FROM ai_token_usage_log " +
             "WHERE create_time BETWEEN #{startTime} AND #{endTime} " +
             "GROUP BY model_name, model_provider")
     List<Map<String, Object>> statByModel(@Param("startTime") LocalDateTime startTime,
@@ -73,7 +73,7 @@ public interface TokenUsageLogMapper extends BaseMapper<WorkflowExecution.TokenU
             "COALESCE(SUM(total_tokens), 0) as total_tokens, " +
             "COALESCE(SUM(cost), 0) as total_cost, " +
             "COUNT(*) as request_count " +
-            "FROM token_usage_log " +
+            "FROM ai_token_usage_log " +
             "WHERE create_time BETWEEN #{startTime} AND #{endTime}")
     Map<String, Object> getTotalStats(@Param("startTime") LocalDateTime startTime,
                                       @Param("endTime") LocalDateTime endTime);
@@ -87,7 +87,7 @@ public interface TokenUsageLogMapper extends BaseMapper<WorkflowExecution.TokenU
             "COALESCE(SUM(total_tokens), 0) as total_tokens, " +
             "COALESCE(SUM(cost), 0) as total_cost, " +
             "COUNT(*) as request_count " +
-            "FROM token_usage_log " +
+            "FROM ai_token_usage_log " +
             "WHERE create_time BETWEEN #{startTime} AND #{endTime} " +
             "GROUP BY request_type")
     List<Map<String, Object>> statByRequestType(@Param("startTime") LocalDateTime startTime,

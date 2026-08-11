@@ -1,19 +1,23 @@
 package com.moyun.ext.ai.entity;
 
-import com.baomidou.mybatisplus.annotation.*;
+import com.baomidou.mybatisplus.annotation.IdType;
+import com.baomidou.mybatisplus.annotation.TableId;
+import com.baomidou.mybatisplus.annotation.TableName;
 import lombok.Data;
-import java.time.LocalDateTime;
 
 /**
  * 对话会话实体
  *
  * <p>对应数据库表 conversation，存储用户与智能体的对话会话</p>
  *
+ * <p>继承 {@link AiBaseEntity}，复用 createTime / updateTime / deleted 字段（P3-2 Phase 1）。
+ * 原有的 {@code @TableField(fill=...)} 自动填充注解由 AiBaseEntity 统一提供。</p>
+ *
  * @author laomao
  */
 @Data
-@TableName("conversation")
-public class Conversation {
+@TableName("ai_conversation")
+public class Conversation extends AiBaseEntity {
 
     @TableId(type = IdType.AUTO)
     private Long id;
@@ -37,16 +41,4 @@ public class Conversation {
      * 消息数量
      */
     private Integer messageCount;
-
-    /**
-     * 创建时间
-     */
-    @TableField(fill = FieldFill.INSERT)
-    private LocalDateTime createTime;
-
-    /**
-     * 更新时间
-     */
-    @TableField(fill = FieldFill.INSERT_UPDATE)
-    private LocalDateTime updateTime;
 }

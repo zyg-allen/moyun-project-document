@@ -79,7 +79,38 @@ public class DataSourceServiceImpl extends ServiceImpl<DataSourceConfigMapper, D
             return testMySQLConnection(config);
         }
     }
-    
+
+    /**
+     * 重写 save，兜底设置时间戳（P0-1）。
+     * <p>DataSourceConfig 经 {@code @RequestBody} Jackson 反序列化后，
+     * MyBatis-Plus 的 strictInsertFill 可能不生效，需显式赋值防止
+     * "Column 'create_time' cannot be null" 故障。</p>
+     */
+    @Override
+    public boolean save(DataSourceConfig entity) {
+        if (entity != null) {
+            LocalDateTime now = LocalDateTime.now();
+            if (entity.getCreateTime() == null) {
+                entity.setCreateTime(now);
+            }
+            if (entity.getUpdateTime() == null) {
+                entity.setUpdateTime(now);
+            }
+        }
+        return super.save(entity);
+    }
+
+    /**
+     * 重写 updateById，兜底设置时间戳（P0-1）。
+     */
+    @Override
+    public boolean updateById(DataSourceConfig entity) {
+        if (entity != null && entity.getUpdateTime() == null) {
+            entity.setUpdateTime(LocalDateTime.now());
+        }
+        return super.updateById(entity);
+    }
+
     /**
      * 测试MySQL连接
      */

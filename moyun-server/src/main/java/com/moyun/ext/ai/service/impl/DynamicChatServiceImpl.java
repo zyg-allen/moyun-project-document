@@ -186,7 +186,7 @@ public class DynamicChatServiceImpl implements DynamicChatService {
             log.info("智能体ID: {}", agent.getId());
             log.info("智能体名称: {}", agent.getName());
             log.info("系统提示词: {}", agent.getSystemPrompt());
-            log.info("关联知识库IDs字符串: {}", agent.getKnowledgeBaseIds());
+            log.info("关联知识库IDs: {}", agent.getKnowledgeLibraryIds());
             log.info("会话ID: {}", finalConversationId);
             log.info("用户消息: {}", userMessage);
             log.info("=".repeat(80));
@@ -284,8 +284,7 @@ public class DynamicChatServiceImpl implements DynamicChatService {
             log.info("已添加增强的系统提示词到消息列表");
 
             // 检查是否配置了知识库
-            boolean hasKnowledge = (agent.getKnowledgeLibraryIds() != null && !agent.getKnowledgeLibraryIds().isEmpty())
-                    || (agent.getKnowledgeBaseIds() != null && !agent.getKnowledgeBaseIds().isEmpty());
+            boolean hasKnowledge = (agent.getKnowledgeLibraryIds() != null && !agent.getKnowledgeLibraryIds().isEmpty());
 
             String processedUserMessage = userMessage;
             final List<Content> retrievedContents = new ArrayList<>();
@@ -293,7 +292,6 @@ public class DynamicChatServiceImpl implements DynamicChatService {
             // RAG - 知识库检索
             log.info("\n========== RAG 检索流程检查 ==========");
             log.info("agent.getKnowledgeLibraryIds() = {}", agent.getKnowledgeLibraryIds());
-            log.info("agent.getKnowledgeBaseIds() = {}", agent.getKnowledgeBaseIds());
             log.info("hasKnowledge = {}", hasKnowledge);
 
             if (hasKnowledge) {

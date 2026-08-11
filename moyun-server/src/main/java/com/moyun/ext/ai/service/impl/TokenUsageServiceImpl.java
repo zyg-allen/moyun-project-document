@@ -13,7 +13,6 @@ import com.moyun.ext.ai.service.TokenUsageService;
 import jakarta.annotation.PreDestroy;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.StringRedisTemplate;
-import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
@@ -200,7 +199,6 @@ public class TokenUsageServiceImpl implements TokenUsageService {
     }
 
     @Override
-    @Scheduled(fixedRate = 60000)
     public void flushLogsToDB() {
         long startTime = System.currentTimeMillis();
         int successCount = 0;
@@ -241,6 +239,10 @@ public class TokenUsageServiceImpl implements TokenUsageService {
 
                     try {
                         for (WorkflowExecution.TokenUsageLog usageLog : batch) {
+                            // 兜底设置时间戳（Jackson 反序列化对象 + TokenUsageLog 无 @TableField(fill) 注解）
+                            if (usageLog.getCreateTime() == null) {
+                                usageLog.setCreateTime(LocalDateTime.now());
+                            }
                             tokenUsageLogMapper.insert(usageLog);
                             successCount++;
                         }
@@ -286,6 +288,10 @@ public class TokenUsageServiceImpl implements TokenUsageService {
                     if (logJson == null) break;
                     try {
                         WorkflowExecution.TokenUsageLog usageLog = objectMapper.readValue(logJson, WorkflowExecution.TokenUsageLog.class);
+                        // 兜底设置时间戳（Jackson 反序列化对象 + TokenUsageLog 无 @TableField(fill) 注解）
+                        if (usageLog.getCreateTime() == null) {
+                            usageLog.setCreateTime(LocalDateTime.now());
+                        }
                         tokenUsageLogMapper.insert(usageLog);
                     } catch (Exception e) {
                         log.error("关闭时写入日志失败", e);

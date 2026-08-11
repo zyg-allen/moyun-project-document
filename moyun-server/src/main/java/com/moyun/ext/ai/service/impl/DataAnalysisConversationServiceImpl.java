@@ -7,7 +7,6 @@ import com.moyun.ext.ai.vo.DataQueryResponse;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
@@ -203,9 +202,9 @@ public class DataAnalysisConversationServiceImpl implements DataAnalysisConversa
     
     /**
      * 定时清理过期会话
-     * 每30分钟执行一次，清理超过1小时未访问的会话
+     * <p>调度：sys_job 每30分钟执行一次（cron 见 sys_job.cron_expression），
+     * 清理超过1小时未访问的会话。
      */
-    @Scheduled(fixedRate = 1800000) // 30分钟
     public void cleanExpiredSessions() {
         long now = System.currentTimeMillis();
         long expirationTime = 3600000; // 1小时

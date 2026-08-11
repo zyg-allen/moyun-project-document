@@ -6,6 +6,7 @@ import com.moyun.ext.ai.common.ListResponse;
 import com.moyun.ext.ai.dto.*;
 import com.moyun.ext.ai.entity.DocumentSegment;
 import com.moyun.ext.ai.entity.KnowledgeBase;
+import com.moyun.ext.ai.enums.ProcessingStatus;
 import com.moyun.ext.ai.service.DocumentSegmentService;
 import com.moyun.ext.ai.service.KnowledgeBaseService;
 import com.moyun.ext.ai.service.KnowledgeConfigService;
@@ -545,17 +546,17 @@ public class KnowledgeBaseController {
             }
 
             knowledge.setConfigCompleted(true);
-            knowledge.setProcessingStatus("configured");
+            knowledge.setProcessingStatus(ProcessingStatus.CONFIGURED.getCode());
             knowledgeBaseService.updateById(knowledge);
 
-            String processingStatus = "configured";
+            String processingStatus = ProcessingStatus.CONFIGURED.getCode();
             String message = "配置成功";
 
             if (Boolean.TRUE.equals(request.getStartProcessing())) {
                 log.info("开始处理知识库");
-                knowledge.setProcessingStatus("processing");
+                knowledge.setProcessingStatus(ProcessingStatus.PROCESSING.getCode());
                 knowledgeBaseService.updateById(knowledge);
-                processingStatus = "processing";
+                processingStatus = ProcessingStatus.PROCESSING.getCode();
                 message = "配置成功，开始处理";
 
                 final Long knowledgeId = knowledge.getId();
@@ -568,7 +569,7 @@ public class KnowledgeBaseController {
 
                         KnowledgeBase kb = knowledgeBaseService.getById(knowledgeId);
                         if (kb != null) {
-                            kb.setProcessingStatus("completed");
+                            kb.setProcessingStatus(ProcessingStatus.COMPLETED.getCode());
                             kb.setStatus(2);
                             kb.setErrorMessage(null);
                             knowledgeBaseService.updateById(kb);
@@ -579,7 +580,7 @@ public class KnowledgeBaseController {
 
                         KnowledgeBase kb = knowledgeBaseService.getById(knowledgeId);
                         if (kb != null) {
-                            kb.setProcessingStatus("failed");
+                            kb.setProcessingStatus(ProcessingStatus.FAILED.getCode());
                             kb.setStatus(3);
                             kb.setErrorMessage(e.getMessage());
                             knowledgeBaseService.updateById(kb);
@@ -613,17 +614,17 @@ public class KnowledgeBaseController {
             Integer progress = 0;
 
             String status = knowledge.getProcessingStatus();
-            if ("processing".equals(status)) {
+            if (ProcessingStatus.PROCESSING.getCode().equals(status)) {
                 statusText = "正在处理中...";
                 progress = 50;
-            } else if ("completed".equals(status)) {
+            } else if (ProcessingStatus.COMPLETED.getCode().equals(status)) {
                 statusText = "处理完成";
                 progress = 100;
-            } else if ("failed".equals(status)) {
+            } else if (ProcessingStatus.FAILED.getCode().equals(status)) {
                 statusText = "处理失败";
-            } else if ("pending".equals(status)) {
+            } else if (ProcessingStatus.PENDING.getCode().equals(status)) {
                 statusText = "等待配置";
-            } else if ("configured".equals(status)) {
+            } else if (ProcessingStatus.CONFIGURED.getCode().equals(status)) {
                 statusText = "已配置，等待处理";
             }
 
@@ -655,7 +656,7 @@ public class KnowledgeBaseController {
                 return AjaxResult.error("知识库不存在");
             }
 
-            knowledge.setProcessingStatus("configured");
+            knowledge.setProcessingStatus(ProcessingStatus.CONFIGURED.getCode());
             knowledge.setStatus(1);
             knowledge.setErrorMessage(null);
             knowledgeBaseService.updateById(knowledge);
@@ -689,7 +690,7 @@ public class KnowledgeBaseController {
                 return AjaxResult.error("配置不存在");
             }
 
-            knowledge.setProcessingStatus("processing");
+            knowledge.setProcessingStatus(ProcessingStatus.PROCESSING.getCode());
             knowledge.setStatus(1);
             knowledgeBaseService.updateById(knowledge);
 
@@ -703,7 +704,7 @@ public class KnowledgeBaseController {
 
                     KnowledgeBase kb = knowledgeBaseService.getById(finalKnowledgeId);
                     if (kb != null) {
-                        kb.setProcessingStatus("completed");
+                        kb.setProcessingStatus(ProcessingStatus.COMPLETED.getCode());
                         kb.setStatus(2);
                         kb.setErrorMessage(null);
                         knowledgeBaseService.updateById(kb);
@@ -714,7 +715,7 @@ public class KnowledgeBaseController {
 
                     KnowledgeBase kb = knowledgeBaseService.getById(finalKnowledgeId);
                     if (kb != null) {
-                        kb.setProcessingStatus("failed");
+                        kb.setProcessingStatus(ProcessingStatus.FAILED.getCode());
                         kb.setStatus(3);
                         kb.setErrorMessage(e.getMessage());
                         knowledgeBaseService.updateById(kb);
@@ -723,7 +724,7 @@ public class KnowledgeBaseController {
             });
 
             KnowledgeStatusResponse response = new KnowledgeStatusResponse(
-                knowledgeId, "processing", "正在处理中...", 50, 0, 0, null
+                knowledgeId, ProcessingStatus.PROCESSING.getCode(), "正在处理中...", 50, 0, 0, null
             );
             return AjaxResult.success("开始处理", response);
 

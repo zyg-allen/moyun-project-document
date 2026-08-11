@@ -18,6 +18,7 @@ import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 import com.moyun.common.annotation.Log;
+import com.moyun.common.annotation.RepeatSubmit;
 import com.moyun.common.constant.HttpStatus;
 import com.moyun.common.enums.BusinessType;
 import com.moyun.core.base.AjaxResult;
@@ -45,6 +46,7 @@ import com.moyun.util.bean.PageUtils;
 
 import com.moyun.portal.domain.entity.PortalTipOrder;
 import com.moyun.system.domain.entity.SysNotification;
+import com.moyun.system.service.ISensitiveWordService;
 import com.moyun.system.service.ISysNotificationService;
 import lombok.extern.slf4j.Slf4j;
 
@@ -113,6 +115,9 @@ public class PortalArticleController extends BaseController {
 
     @Autowired
     private ISysNotificationService notificationService;
+
+    @Autowired
+    private ISensitiveWordService sensitiveWordService;
 
     @Operation(summary = "获取文章列表", description = "根据条件分页查询文章列表")
     @GetMapping("/list")
@@ -267,8 +272,23 @@ public class PortalArticleController extends BaseController {
      */
     @Operation(summary = "前台发布文章", description = "用户在前台发布新文章，发布后进入待审核状态")
     @Log(title = "门户文章", businessType = BusinessType.INSERT)
+    @RepeatSubmit(interval = 5000, message = "请勿重复提交文章")
     @PostMapping("/publish")
     public AjaxResult publish(@Validated @RequestBody ArticlePublishDTO publishDTO) {
+        // 敏感词前置拦截（P1-5）：扫描标题 + 摘要 + 正文 + Markdown 原文
+        Long userId = PortalSecurityUtils.getUserId();
+        if (userId == null) {
+            return AjaxResult.error(HttpStatus.UNAUTHORIZED, "请先登录");
+        }
+        String scanText = (publishDTO.getTitle() == null ? "" : publishDTO.getTitle()) + " "
+                + (publishDTO.getExcerpt() == null ? "" : publishDTO.getExcerpt()) + " "
+                + (publishDTO.getContent() == null ? "" : publishDTO.getContent()) + " "
+                + (publishDTO.getContentMarkdown() == null ? "" : publishDTO.getContentMarkdown());
+        if (sensitiveWordService.contains(scanText)) {
+            List<String> hitWords = sensitiveWordService.detectAndLog(
+                    "article", null, userId, scanText, "block");
+            return AjaxResult.error("内容包含敏感词：" + hitWords);
+        }
         // 将 DTO 转换为实体
         PortalArticle article = new PortalArticle();
         // 沿用草稿记录（草稿转发布：有 id 走更新，避免重复生成记录）

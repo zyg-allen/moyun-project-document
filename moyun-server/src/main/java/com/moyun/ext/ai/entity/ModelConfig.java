@@ -8,20 +8,21 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
 
 /**
  * 模型配置实体类
  *
  * <p>对应数据库表 model_config，存储AI模型配置（Chat、Embedding、多模态）</p>
  *
+ * <p>继承 {@link AiBaseEntity}，复用 createTime / updateTime / deleted 字段（P3-2 Phase 1）。</p>
+ *
  * @author laomao
  */
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
-@TableName("model_config")
-public class ModelConfig {
+@TableName("ai_model_config")
+public class ModelConfig extends AiBaseEntity {
     @TableId(type = IdType.AUTO)
     private Long id;
 
@@ -69,10 +70,4 @@ public class ModelConfig {
 
     // 输出价格（元/1000 tokens）
     private BigDecimal outputPrice;
-
-    // 创建时间
-    private LocalDateTime createTime;
-
-    // 更新时间
-    private LocalDateTime updateTime;
 }

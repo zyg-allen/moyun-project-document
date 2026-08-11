@@ -198,6 +198,10 @@ public class PortalUserController extends BaseController {
         if (params.containsKey("privacyPhone")) {
             user.setPrivacyPhone(Boolean.TRUE.equals(params.get("privacyPhone")));
         }
+        // 是否公开主页（是否在名家录/作者列表展示）
+        if (params.containsKey("privacyProfile")) {
+            user.setPrivacyProfile(Boolean.TRUE.equals(params.get("privacyProfile")));
+        }
 
         int result = portalUserService.updatePortalUser(user);
         if (result > 0) {
@@ -328,13 +332,15 @@ public class PortalUserController extends BaseController {
         return success(stats);
     }
 
-    @Operation(summary = "获取名家列表", description = "获取首页展示的名家列表，含文章数/浏览/获赞/创作天数等统计")
+    @Operation(summary = "获取名家列表", description = "获取首页展示的名家列表（已认证 + 已开启公开主页 + 至少 1 篇已发布文章），含文章数/浏览/获赞/创作天数等统计")
     @GetMapping("/authors")
     public AjaxResult getAuthors(@Parameter(description = "每页数量") @RequestParam(defaultValue = "10") Integer limit) {
-        UserQuery query = new UserQuery();
-        query.setStatus("0");
-        List<PortalUser> list = portalUserService.selectPortalUserList(query);
-        List<PortalUser> limited = list.stream().limit(limit).toList();
+        // v7.8 名家录展示三条件（用户指令）：
+        //   1. privacy_profile=1（已开启公开主页）
+        //   2. is_certified_creator=1（创作者认证审核通过）
+        //   3. 至少 1 篇已发布文章（EXISTS portal_article status='published'）
+        // 详见 PortalUserMapper.selectAuthors
+        List<PortalUser> limited = portalUserService.selectAuthors(limit);
         if (limited.isEmpty()) {
             return success(limited);
         }
@@ -399,6 +405,8 @@ public class PortalUserController extends BaseController {
             item.put("avatar", user.getAvatar());
             item.put("bio", user.getBio());
             item.put("position", user.getPosition());
+            // 标记是否为认证创作者（前端可用于显示认证徽章）
+            item.put("isCertifiedCreator", user.getIsCertifiedCreator() != null && user.getIsCertifiedCreator() == 1);
 
             Map<String, Object> articleStats = articleStatsMap.get(user.getId());
             long articleLikeSum = 0L;
@@ -410,6 +418,8 @@ public class PortalUserController extends BaseController {
                 item.put("comments", toInt(articleStats.get("commentSum")));
                 articleLikeSum = toLong(articleStats.get("likeSum"));
             } else {
+                // 双保险：SQL 已通过 EXISTS 过滤，理论上不会落入此分支；
+                // 若数据不一致（如文章被删除的瞬时态），仍按 0 填充，不阻断列表渲染
                 item.put("works", 0);
                 item.put("views", 0L);
                 item.put("likes", 0L);
@@ -425,8 +435,11 @@ public class PortalUserController extends BaseController {
             if (user.getCreateTime() != null) {
                 long days = java.time.Duration.between(user.getCreateTime(), now).toDays();
                 item.put("days", days);
+                // 注册时间（ISO 字符串，前端 AuthorsPage 显示「加入于」）
+                item.put("createTime", user.getCreateTime().toString());
             } else {
                 item.put("days", 0L);
+                item.put("createTime", null);
             }
             result.add(item);
         }

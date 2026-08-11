@@ -18,12 +18,11 @@ import org.springframework.util.StringUtils;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
-import java.util.stream.Collectors;
 
 /**
  * 智能体服务实现类
@@ -92,13 +91,12 @@ public class AgentServiceImpl extends ServiceImpl<AgentMapper, Agent> implements
 
     /**
      * 获取智能体关联的文档ID列表（用于RAG检索）
-     * 
-     * <p>支持两种格式：</p>
-     * <ul>
-     *   <li>新版：knowledgeLibraryIds (JSON数组) - 先查询知识库下的所有文档ID</li>
-     *   <li>旧版：knowledgeBaseIds (逗号分隔) - 直接返回文档ID</li>
-     * </ul>
-     * 
+     *
+     * <p>使用 knowledgeLibraryIds (JSON数组) 格式：先查询知识库下的所有文档ID</p>
+     *
+     * <p>注：原 knowledge_base_ids 字段（逗号分隔字符串）已由 110 升级脚本 DROP，
+     * 旧版格式兼容代码已移除（P0-3 清理）</p>
+     *
      * @param agentId 智能体ID
      * @return 文档ID列表（knowledge_base表的id），用于检索过滤
      */
@@ -111,14 +109,14 @@ public class AgentServiceImpl extends ServiceImpl<AgentMapper, Agent> implements
         }
 
         List<Long> documentIds = new ArrayList<>();
-        
-        // 1. 优先使用新版格式：knowledgeLibraryIds (JSON数组)
+
+        // 使用 knowledgeLibraryIds (JSON数组) 格式
         String libraryIds = agent.getKnowledgeLibraryIds();
         if (StringUtils.hasText(libraryIds)) {
             try {
                 List<Long> libIds = objectMapper.readValue(libraryIds, new TypeReference<List<Long>>() {});
                 if (libIds != null && !libIds.isEmpty()) {
-                    log.info("📚 使用新版知识库格式，知识库IDs: {}", libIds);
+                    log.info("📚 知识库IDs: {}", libIds);
                     // 查询这些知识库下的所有文档ID
                     for (Long libId : libIds) {
                         List<KnowledgeBase> docs = knowledgeBaseMapper.selectList(
@@ -131,32 +129,13 @@ public class AgentServiceImpl extends ServiceImpl<AgentMapper, Agent> implements
                         }
                     }
                     log.info("📄 从 {} 个知识库中获取到 {} 个文档", libIds.size(), documentIds.size());
-                    // 新版格式配置了知识库，直接返回（即使为空也不回退到旧版）
                     return documentIds;
                 }
             } catch (Exception e) {
                 log.error("❌ 解析knowledgeLibraryIds失败: {}", libraryIds, e);
-                // 解析失败才尝试旧版格式
             }
         }
-        
-        // 2. 兼容旧版格式：knowledgeBaseIds (逗号分隔的文档ID)
-        // 只有当新版格式未配置或解析失败时才使用
-        String knowledgeBaseIds = agent.getKnowledgeBaseIds();
-        if (StringUtils.hasText(knowledgeBaseIds)) {
-            try {
-                documentIds = Arrays.stream(knowledgeBaseIds.split(","))
-                        .map(String::trim)
-                        .filter(StringUtils::hasText)
-                        .map(Long::parseLong)
-                        .collect(Collectors.toList());
-                log.info("📄 使用旧版格式，文档IDs: {}", documentIds);
-                return documentIds;
-            } catch (NumberFormatException e) {
-                log.error("❌ 解析knowledgeBaseIds失败: {}", knowledgeBaseIds, e);
-            }
-        }
-        
+
         return Collections.emptyList();
     }
 
@@ -236,6 +215,10 @@ public class AgentServiceImpl extends ServiceImpl<AgentMapper, Agent> implements
      */
     @Override
     public boolean updateById(Agent entity) {
+        // 兜底设置时间戳（Agent 无 @TableField(fill) 注解）
+        if (entity.getUpdateTime() == null) {
+            entity.setUpdateTime(LocalDateTime.now());
+        }
         boolean result = super.updateById(entity);
         if (result) {
             clearAgentCache(entity.getId());

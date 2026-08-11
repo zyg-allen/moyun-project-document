@@ -1,17 +1,22 @@
 package com.moyun.ext.ai.entity;
 
-import com.baomidou.mybatisplus.annotation.*;
+import com.baomidou.mybatisplus.annotation.IdType;
+import com.baomidou.mybatisplus.annotation.TableId;
+import com.baomidou.mybatisplus.annotation.TableName;
 import lombok.Data;
 import java.time.LocalDateTime;
 
 /**
  * 数据源配置实体
  *
+ * <p>继承 {@link AiBaseEntity}，复用 createTime / updateTime / deleted 字段（P3-2 Phase 1）。
+ * 原有的 {@code @TableField(fill=...)} 自动填充注解由 AiBaseEntity 统一提供。</p>
+ *
  * @author laomao
  */
 @Data
-@TableName("datasource_config")
-public class DataSourceConfig {
+@TableName("ai_datasource_config")
+public class DataSourceConfig extends AiBaseEntity {
 
     @TableId(type = IdType.AUTO)
     private Long id;
@@ -80,22 +85,4 @@ public class DataSourceConfig {
      * 创建人ID
      */
     private Long createUserId;
-
-    /**
-     * 创建时间
-     */
-    @TableField(fill = FieldFill.INSERT)
-    private LocalDateTime createTime;
-
-    /**
-     * 更新时间
-     */
-    @TableField(fill = FieldFill.INSERT_UPDATE)
-    private LocalDateTime updateTime;
-
-    /**
-     * 删除标记: 0-未删除, 1-已删除
-     */
-    @TableLogic
-    private Boolean deleted;
 }

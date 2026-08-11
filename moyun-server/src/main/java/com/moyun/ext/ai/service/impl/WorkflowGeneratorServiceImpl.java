@@ -1,6 +1,7 @@
 package com.moyun.ext.ai.service.impl;
 
 import com.fasterxml.jackson.core.type.TypeReference;
+import com.moyun.ext.ai.enums.WorkflowStatus;
 import com.moyun.ext.ai.exception.BusinessException;
 import com.moyun.ext.ai.exception.ErrorCode;
 import com.moyun.ext.ai.util.JsonUtils;
@@ -147,16 +148,19 @@ public class WorkflowGeneratorServiceImpl implements WorkflowGeneratorService {
         }
         
         // 创建工作流实体
+        // 注意：createTime / updateTime 已迁移到 AiBaseEntity（继承字段），@Builder 不含继承字段，
+        // 通过 setter 设置；AiBaseEntity 的 @TableField(fill=INSERT) 也会兜底自动填充
         Workflow workflow = Workflow.builder()
                 .name(workflowName != null ? workflowName : result.getWorkflowName())
                 .description(result.getWorkflowDescription())
                 .graphData(result.getGraphData())
-                .status("draft")
+                .status(WorkflowStatus.DRAFT.getCode())
                 .enabled(true)
                 .version(1)
-                .createTime(LocalDateTime.now())
-                .updateTime(LocalDateTime.now())
                 .build();
+        LocalDateTime now = LocalDateTime.now();
+        workflow.setCreateTime(now);
+        workflow.setUpdateTime(now);
         
         workflow = workflowService.create(workflow);
         

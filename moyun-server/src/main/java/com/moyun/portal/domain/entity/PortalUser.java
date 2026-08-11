@@ -131,6 +131,13 @@ public class PortalUser extends BaseEntity {
     /** 是否公开手机号 */
     private Boolean privacyPhone;
 
+    /**
+     * 是否公开主页（是否在名家录/作者列表中展示）
+     * true=公开，可在 /authors、首页名家录中展示；false=不公开，不出现在任何对外作者列表
+     * 默认 true（与历史行为兼容）；用户可在「账号设置-隐私设置」关闭
+     */
+    private Boolean privacyProfile;
+
     /** 角色：user/admin */
     @Size(min = 0, max = 20, message = "角色长度不能超过20个字符")
     private String role;

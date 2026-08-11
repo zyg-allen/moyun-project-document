@@ -11,6 +11,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDateTime;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
@@ -227,10 +228,14 @@ public class QueryExpansionServiceImpl implements QueryExpansionService {
             wrapper.eq("keyword", key);
             DomainDictionary existing = dictionaryMapper.selectOne(wrapper);
 
+            // 兜底设置时间戳（DomainDictionary 无 @TableField(fill) 注解）
+            LocalDateTime now = LocalDateTime.now();
+            dict.setUpdateTime(now);
             if (existing != null) {
                 dict.setId(existing.getId());
                 dictionaryMapper.updateById(dict);
             } else {
+                dict.setCreateTime(now);
                 dictionaryMapper.insert(dict);
             }
             

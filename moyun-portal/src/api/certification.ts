@@ -9,6 +9,10 @@ export interface CreatorCertification {
   certType: 'identity' | 'creator' | 'expert';
   certNo?: string;
   certImage?: string;
+  /** 身份证正面（人像面）URL */
+  certImageFront?: string;
+  /** 身份证背面（国徽面）URL */
+  certImageBack?: string;
   intro?: string;
   /** 代表作链接 */
   works?: string;
@@ -46,4 +50,43 @@ export const applyCertification = (data: CreatorCertification) => {
  */
 export const getMyCertification = () => {
   return httpGet<CreatorCertification | null>('/portal/creator/certification/my');
+};
+
+/** 身份证 OCR 识别结果（与后端 IdCardOcrResult 对齐） */
+export interface IdCardOcrResult {
+  /** 识别面：front=人像面 / back=国徽面 */
+  side: 'front' | 'back';
+  /** 姓名（仅 front） */
+  name?: string;
+  /** 性别：男 / 女（仅 front） */
+  gender?: string;
+  /** 民族（仅 front） */
+  nation?: string;
+  /** 出生日期：yyyy-MM-dd（仅 front） */
+  birthDate?: string;
+  /** 住址（仅 front） */
+  address?: string;
+  /** 公民身份号码（仅 front） */
+  idNo?: string;
+  /** 签发机关（仅 back） */
+  authority?: string;
+  /** 有效期限（仅 back） */
+  validPeriod?: string;
+  /** 是否识别成功 */
+  success: boolean;
+  /** 错误信息 */
+  errorMessage?: string;
+}
+
+/**
+ * 身份证 OCR 识别（需登录）
+ * POST /portal/ocr/id-card
+ *
+ * 当前后端为 STUB 实现，接入真实 OCR API 后会返回真实识别结果。
+ */
+export const recognizeIdCard = (file: File, side: 'front' | 'back') => {
+  const formData = new FormData();
+  formData.append('file', file);
+  formData.append('side', side);
+  return httpPost<IdCardOcrResult>('/portal/ocr/id-card', formData);
 };

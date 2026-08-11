@@ -9,6 +9,7 @@ import com.moyun.ext.cms.domain.query.CmsArticleQuery;
 import com.moyun.ext.cms.domain.vo.CmsArticleVO;
 import com.moyun.ext.cms.service.ICmsArticleService;
 import com.moyun.portal.domain.entity.PortalArticle;
+import com.moyun.system.service.ISensitiveWordService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -20,6 +21,7 @@ import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Arrays;
+import java.util.List;
 
 /**
  * CMS文章管理Controller
@@ -34,6 +36,9 @@ public class CmsArticleController extends BaseController {
 
     @Autowired
     private ICmsArticleService cmsArticleService;
+
+    @Autowired
+    private ISensitiveWordService sensitiveWordService;
 
     /**
      * 获取文章列表（分页）
@@ -69,6 +74,14 @@ public class CmsArticleController extends BaseController {
     @Log(title = "文章管理", businessType = BusinessType.INSERT)
     @PostMapping
     public AjaxResult add(@Valid @RequestBody PortalArticle article) {
+        // 敏感词前置拦截
+        String scanText = (article.getTitle() == null ? "" : article.getTitle())
+                + " " + (article.getContent() == null ? "" : article.getContent());
+        if (sensitiveWordService.contains(scanText)) {
+            List<String> hitWords = sensitiveWordService.detectAndLog(
+                    "article", null, getUserId(), scanText, "block");
+            return AjaxResult.error("内容包含敏感词：" + hitWords);
+        }
         // 标签绑定下沉到 Service 层，与文章插入纳入同一事务
         int result = cmsArticleService.insertArticleWithTags(
                 article, article.getTagIds(), article.getTagNames());

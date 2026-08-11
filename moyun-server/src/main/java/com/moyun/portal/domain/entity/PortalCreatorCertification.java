@@ -38,8 +38,14 @@ public class PortalCreatorCertification extends BaseEntity {
     /** 证件号 */
     private String certNo;
 
-    /** 证件照URL */
+    /** 证件照URL（兼容字段：旧单图，或新流程中的「人像面」URL 别名，建议优先使用 certImageFront） */
     private String certImage;
+
+    /** 身份证正面（人像面）URL */
+    private String certImageFront;
+
+    /** 身份证背面（国徽面）URL */
+    private String certImageBack;
 
     /** 自我介绍 */
     private String intro;

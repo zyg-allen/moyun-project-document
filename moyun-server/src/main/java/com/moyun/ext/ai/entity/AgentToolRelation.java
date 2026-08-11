@@ -21,7 +21,7 @@ import java.time.LocalDateTime;
 @Builder
 @AllArgsConstructor
 @NoArgsConstructor
-@TableName("agent_tool_relation")
+@TableName("ai_agent_tool_relation")
 public class AgentToolRelation {
     
     /**

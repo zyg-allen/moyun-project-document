@@ -26,16 +26,16 @@ public interface AgentToolMapper extends BaseMapper<AgentTool> {
      * @param agentId 智能体ID
      * @return 工具列表
      */
-    @Select("SELECT t.* FROM agent_tool t " +
-            "INNER JOIN agent_tool_relation r ON t.id = r.tool_id " +
+    @Select("SELECT t.* FROM ai_agent_tool t " +
+            "INNER JOIN ai_agent_tool_relation r ON t.id = r.tool_id " +
             "WHERE r.agent_id = #{agentId} AND r.enabled = 1 AND t.enabled = 1")
     List<AgentTool> selectToolsByAgentId(@Param("agentId") Long agentId);
-    
+
     /**
      * 查询所有启用的系统内置工具
      *
      * @return 工具列表
      */
-    @Select("SELECT * FROM agent_tool WHERE is_system = 1 AND enabled = 1")
+    @Select("SELECT * FROM ai_agent_tool WHERE is_system = 1 AND enabled = 1")
     List<AgentTool> selectSystemTools();
 }

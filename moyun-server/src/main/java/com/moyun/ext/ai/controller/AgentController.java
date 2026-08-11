@@ -103,9 +103,8 @@ public class AgentController {
             log.info("========== 创建智能体 ==========");
             log.info("名称: {}", agent.getName());
             log.info("知识库IDs(新): {}", agent.getKnowledgeLibraryIds());
-            log.info("知识库IDs(旧): {}", agent.getKnowledgeBaseIds());
             log.info("知识库权重: {}", agent.getKnowledgeBaseWeights());
-            
+
             agent.setCreateTime(LocalDateTime.now());
             agent.setUpdateTime(LocalDateTime.now());
             if (agent.getEnabled() == null) {
@@ -133,9 +132,8 @@ public class AgentController {
             log.info("ID: {}", agent.getId());
             log.info("名称: {}", agent.getName());
             log.info("知识库IDs(新): {}", agent.getKnowledgeLibraryIds());
-            log.info("知识库IDs(旧): {}", agent.getKnowledgeBaseIds());
             log.info("知识库权重: {}", agent.getKnowledgeBaseWeights());
-            
+
             agent.setUpdateTime(LocalDateTime.now());
             agentService.updateById(agent);
             

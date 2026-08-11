@@ -9,10 +9,13 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.moyun.core.mvc.handler.BusinessException;
 import com.moyun.portal.domain.entity.PortalArticle;
 import com.moyun.portal.domain.entity.PortalColumn;
 import com.moyun.portal.domain.entity.PortalTipOrder;
 import com.moyun.portal.domain.entity.PortalUser;
+import com.moyun.portal.enums.PaymentChannel;
+import com.moyun.portal.enums.PaymentStatus;
 import com.moyun.portal.mapper.PortalArticleMapper;
 import com.moyun.portal.mapper.PortalColumnMapper;
 import com.moyun.portal.mapper.PortalTipOrderMapper;
@@ -62,22 +65,22 @@ public class PortalTipServiceImpl implements IPortalTipService {
         // 1. 解析被打赏者 authorId（按 targetType 路由查询）
         Long authorId = resolveAuthorId(order.getTargetType(), order.getTargetId());
         if (authorId == null) {
-            throw new RuntimeException("打赏对象不存在");
+            throw new BusinessException("TIP_TARGET_NOT_FOUND", "打赏对象不存在");
         }
         order.setAuthorId(authorId);
 
         // 2. 校验金额/积分
         if (order.getAmount() == null || order.getAmount().compareTo(BigDecimal.ZERO) <= 0) {
-            throw new RuntimeException("打赏积分必须大于0");
+            throw new BusinessException("TIP_AMOUNT_INVALID", "打赏积分必须大于0");
         }
 
         // 付费阅读购买（article_paid）：拦截，待未来接入真实支付通道
         // 保留下方占位代码，但在进入前抛出友好错误，避免未扣费即发放付费阅读权限
         if ("article_paid".equals(order.getTargetType())) {
-            throw new RuntimeException("付费阅读功能正在接入支付通道，暂不可用");
+            throw new BusinessException("PAYMENT_NOT_AVAILABLE", "付费阅读功能正在接入支付通道，暂不可用");
             // 以下占位逻辑保留，待支付通道接入后启用
-            // order.setStatus("paid");
-            // order.setPayMethod("wallet");
+            // order.setStatus(PaymentStatus.PAID.getCode());
+            // order.setPayMethod(PaymentChannel.WALLET.getCode());
             // order.setPaidTime(LocalDateTime.now());
             // order.setCreatedTime(LocalDateTime.now());
             // portalTipOrderMapper.insert(order);
@@ -87,15 +90,15 @@ public class PortalTipServiceImpl implements IPortalTipService {
         // 3. 积分打赏（article/column）：不涉及真实资金，用积分账户扣减
         Long tipperId = order.getUserId();
         if (tipperId == null) {
-            throw new RuntimeException("请先登录");
+            throw new BusinessException("USER_NOT_LOGIN", "请先登录");
         }
         int points = order.getAmount().intValue();
         if (points <= 0) {
-            throw new RuntimeException("打赏积分必须为正整数");
+            throw new BusinessException("TIP_AMOUNT_INVALID", "打赏积分必须为正整数");
         }
         // 不能给自己打赏
         if (tipperId != null && tipperId.equals(authorId)) {
-            throw new RuntimeException("不能给自己打赏");
+            throw new BusinessException("TIP_SELF_NOT_ALLOWED", "不能给自己打赏");
         }
 
         // 4. 确保双方成长记录存在
@@ -105,15 +108,15 @@ public class PortalTipServiceImpl implements IPortalTipService {
         // 5. 原子扣减打赏者积分（deductPoints 带 points >= delta 条件，余额不足返回 0）
         int affected = growthMapper.deductPoints(tipperId, points);
         if (affected == 0) {
-            throw new RuntimeException("积分余额不足，可通过签到或完成任务获取积分");
+            throw new BusinessException("POINTS_INSUFFICIENT", "积分余额不足，可通过签到或完成任务获取积分");
         }
 
         // 6. 给被打赏者加积分（创作鼓励，积分可在商城兑换）
         growthMapper.addPoints(authorId, points);
 
-        // 7. 写订单：积分打赏直接置 paid，pay_method=points 区分
-        order.setStatus("paid");
-        order.setPayMethod("points");
+        // 7. 写订单：积分打赏直接置 PAID，pay_method=points 区分
+        order.setStatus(PaymentStatus.PAID.getCode());
+        order.setPayMethod(PaymentChannel.POINTS.getCode());
         order.setPaidTime(LocalDateTime.now());
         order.setCreatedTime(LocalDateTime.now());
         portalTipOrderMapper.insert(order);

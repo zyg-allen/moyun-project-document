@@ -10,7 +10,7 @@ import java.time.LocalDateTime;
  * @author laomao
  */
 @Data
-@TableName("table_metadata")
+@TableName("ai_table_metadata")
 public class TableMetadata {
 
     @TableId(type = IdType.AUTO)

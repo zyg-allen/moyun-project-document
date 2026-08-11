@@ -19,7 +19,7 @@ import java.time.LocalDateTime;
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
-@TableName("agent_dictionary_relation")
+@TableName("ai_agent_dictionary_relation")
 public class AgentDictionaryRelation {
 
     @TableId(type = IdType.AUTO)

@@ -21,7 +21,7 @@ import java.time.LocalDateTime;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-@TableName("agent_workflow_relation")
+@TableName("ai_agent_workflow_relation")
 public class AgentWorkflowRelation {
     
     @TableId(type = IdType.AUTO)

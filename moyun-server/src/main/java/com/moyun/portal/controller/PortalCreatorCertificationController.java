@@ -6,6 +6,7 @@ import com.moyun.core.base.BaseController;
 import com.moyun.portal.domain.entity.PortalCreatorCertification;
 import com.moyun.portal.service.IPortalCreatorCertificationService;
 import com.moyun.portal.util.PortalSecurityUtils;
+import com.moyun.util.string.IdCardUtil;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -45,6 +46,24 @@ public class PortalCreatorCertificationController extends BaseController {
         }
         if (dto.getCertType() == null || dto.getCertType().trim().isEmpty()) {
             return AjaxResult.error("证件类型不能为空");
+        }
+        // 身份证号校验：仅当证件类型为 identity 时强制校验，其他类型（创作者/专家）按可选处理
+        // 非法时返回 IdCardUtil 给出的具体错误原因，便于前端 toast 提示
+        if ("identity".equals(dto.getCertType())) {
+            if (dto.getCertNo() == null || dto.getCertNo().trim().isEmpty()) {
+                return AjaxResult.error("请输入身份证号");
+            }
+            String idCardError = IdCardUtil.validate(dto.getCertNo().trim());
+            if (idCardError != null) {
+                return AjaxResult.error(idCardError);
+            }
+            // 双面身份证照片必须上传（人像面 + 国徽面）
+            if (dto.getCertImageFront() == null || dto.getCertImageFront().trim().isEmpty()) {
+                return AjaxResult.error("请上传身份证正面（人像面）照片");
+            }
+            if (dto.getCertImageBack() == null || dto.getCertImageBack().trim().isEmpty()) {
+                return AjaxResult.error("请上传身份证背面（国徽面）照片");
+            }
         }
         try {
             return AjaxResult.success(certificationService.apply(userId, dto));

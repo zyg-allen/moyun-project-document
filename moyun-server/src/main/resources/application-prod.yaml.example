@@ -15,6 +15,12 @@ spring:
   # =============================================
   # MySQL 数据源配置（生产环境必填）
   # - MYSQL_URL：完整 JDBC 连接串，建议开启 useSSL=true
+  #   推荐追加以下性能参数（与 dev/local 对齐）：
+  #     rewriteBatchedStatements=true              批量 SQL 重写为 multi-value
+  #     cachePrepStmts=true&prepStmtCacheSize=250  PreparedStatement 缓存
+  #     useServerPrepStmts=true                    服务端 PreparedStatement
+  #     prepStmtCacheSqlLimit=2048                 缓存 SQL 最大长度
+  #   示例：jdbc:mysql://host:3306/db?useSSL=true&serverTimezone=Asia/Shanghai&rewriteBatchedStatements=true&cachePrepStmts=true&prepStmtCacheSize=250&prepStmtCacheSqlLimit=2048&useServerPrepStmts=true
   # - MYSQL_USERNAME / MYSQL_PASSWORD：数据库账号，建议使用最小权限账号
   # =============================================
   datasource:
@@ -168,6 +174,9 @@ moyun:
   demoEnabled: false
   addressEnabled: false
   profile: ${MOYUN_PROFILE:/data/moyun/profile}
+  # 慢 SQL 治理配置（生产环境更严格，建议 1000ms~2000ms）
+  slow-sql:
+    threshold-millis: ${SLOW_SQL_THRESHOLD_MILLIS:2000}
 
 # =============================================
 # 项目配置（兼容原 ruoyi 配置，部分旧代码可能读取）
@@ -304,6 +313,24 @@ moyun-ai:
   storage:
     knowledge-base-dir: ${MOYUN_KB_DIR:${MOYUN_PROFILE:/data/moyun/profile}/ai/knowledge}
     image-dir: ${MOYUN_IMG_DIR:${MOYUN_PROFILE:/data/moyun/profile}/ai/images}
+  # 知识库默认参数（P2-2 阶段 3：与 KnowledgeDefaults.java 字段对齐）
+  knowledge-defaults:
+    segment-mode: general
+    segment-separator: "\n\n"
+    segment-max-length: 800
+    segment-overlap-length: 100
+    chunking-strategy: fixed
+    document-type: general
+    faq-chunk-size: 400
+    technical-chunk-size: 1200
+    enable-smart-boundary: true
+    preprocess-replace-spaces: true
+    preprocess-remove-urls: true
+    preprocess-remove-extra-newlines: true
+    index-mode: high_quality
+    retrieval-mode: hybrid
+    retrieval-top-k: 10
+    rerank-enabled: false
   rate-limit:
     chat-requests-per-minute: 60
     knowledge-upload-mb-per-hour: 500

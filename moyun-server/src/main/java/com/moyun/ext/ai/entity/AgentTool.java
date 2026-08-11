@@ -9,12 +9,13 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.time.LocalDateTime;
-
 /**
  * 智能体工具实体类
  *
  * <p>对应数据库表 agent_tool，存储工具定义信息</p>
+ *
+ * <p>继承 {@link AiBaseEntity}，复用 createTime / updateTime / deleted 字段（P3-2 Phase 1）。
+ * 注意：{@code @Builder} 仅覆盖本类字段，不含继承字段；如需构建时设置时间，请用 setter。</p>
  *
  * @author laomao
  */
@@ -22,8 +23,8 @@ import java.time.LocalDateTime;
 @Builder
 @AllArgsConstructor
 @NoArgsConstructor
-@TableName("agent_tool")
-public class AgentTool {
+@TableName("ai_agent_tool")
+public class AgentTool extends AiBaseEntity {
     
     /**
      * 工具ID
@@ -86,14 +87,4 @@ public class AgentTool {
      */
     @TableField("is_system")
     private Boolean isSystem;
-
-    /**
-     * 创建时间
-     */
-    private LocalDateTime createTime;
-
-    /**
-     * 更新时间
-     */
-    private LocalDateTime updateTime;
 }

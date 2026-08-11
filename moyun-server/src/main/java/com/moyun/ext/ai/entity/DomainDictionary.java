@@ -7,20 +7,20 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.time.LocalDateTime;
-
 /**
  * 领域词典实体类
  *
  * <p>对应数据库表 domain_dictionary，存储领域知识词典用于查询扩展</p>
+ *
+ * <p>继承 {@link AiBaseEntity}，复用 createTime / updateTime / deleted 字段（P3-2 Phase 1）。</p>
  *
  * @author laomao
  */
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
-@TableName("domain_dictionary")
-public class DomainDictionary {
+@TableName("ai_domain_dictionary")
+public class DomainDictionary extends AiBaseEntity {
 
     @TableId(type = IdType.AUTO)
     private Long id;
@@ -45,10 +45,4 @@ public class DomainDictionary {
 
     // 优先级
     private Integer priority;
-
-    // 创建时间
-    private LocalDateTime createTime;
-
-    // 更新时间
-    private LocalDateTime updateTime;
 }

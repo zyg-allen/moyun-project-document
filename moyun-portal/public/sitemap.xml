@@ -1,11 +1,11 @@
-
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-  墨韵·智库 网站地图
-  注意：此文件为静态 sitemap，仅包含固定页面。
-  文章详情页 (/article/:id) 和分类页 (/category/:name) 的 URL
-  建议通过后端接口动态生成，以下为示例占位，实际请替换为正式域名。
-  正式环境请将 https://moyun.example.com 替换为实际域名。
+  墨韵·智库 静态网站地图（fallback）
+  说明：
+  1. 主用动态 sitemap：GET /portal/sitemap （由 PortalSitemapController 实时生成，覆盖文章/书籍/书单/话题/专栏/面经等）
+  2. 本静态文件仅作为后端不可用时的兜底，仅包含固定页面
+  3. 部署时请将 https://moyun.example.com 替换为实际正式域名（与后端 moyun.portal.domain 配置保持一致）
+  4. robots.txt 已将 Sitemap 行指向动态接口 /portal/sitemap
 -->
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <!-- 首页 -->
@@ -25,7 +25,7 @@
   <!-- 语义化标签列表页 -->
   <url>
     <loc>https://moyun.example.com/tag</loc>
-    <lastmod>2026-06-06-09</lastmod>
+    <lastmod>2026-06-09</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
@@ -41,6 +41,20 @@
     <loc>https://moyun.example.com/interview</loc>
     <lastmod>2026-06-09</lastmod>
     <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <!-- 话题列表页 -->
+  <url>
+    <loc>https://moyun.example.com/topics</loc>
+    <lastmod>2026-06-09</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <!-- 专栏列表页 -->
+  <url>
+    <loc>https://moyun.example.com/columns</loc>
+    <lastmod>2026-06-09</lastmod>
+    <changefreq>daily</changefreq>
     <priority>0.8</priority>
   </url>
   <!-- 搜索页 -->
@@ -77,8 +91,12 @@
     <priority>0.3</priority>
   </url>
   <!--
-    以下为文章详情页示例 URL，请通过后端 API 动态生成完整列表：
-    GET /portal/article/list?pageNum=1&pageSize=100
-    每篇文章对应: https://moyun.example.com/article/{id}
+    以下为动态 URL 占位说明（实际通过后端动态接口 /portal/sitemap 生成完整列表）：
+    - 文章详情页：    /article/{id} 或 /article/{id}/{slug}
+    - 书籍详情页：    /reading/book/{id}
+    - 书单详情页：    /reading/book-list/{id}
+    - 话题详情页：    /topic/{id}
+    - 专栏详情页：    /column/{id}
+    - 面经详情页：    /interview/experience/{id}
   -->
 </urlset>

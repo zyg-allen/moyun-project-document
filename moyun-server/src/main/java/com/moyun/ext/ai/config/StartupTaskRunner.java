@@ -2,6 +2,7 @@ package com.moyun.ext.ai.config;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.moyun.ext.ai.entity.KnowledgeBase;
+import com.moyun.ext.ai.enums.ProcessingStatus;
 import com.moyun.ext.ai.service.KnowledgeBaseService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -46,7 +47,7 @@ public class StartupTaskRunner implements ApplicationRunner {
         try {
             // 查询所有状态为"处理中"的知识库
             LambdaQueryWrapper<KnowledgeBase> queryWrapper = new LambdaQueryWrapper<>();
-            queryWrapper.eq(KnowledgeBase::getProcessingStatus, "processing")
+            queryWrapper.eq(KnowledgeBase::getProcessingStatus, ProcessingStatus.PROCESSING.getCode())
                        .or()
                        .eq(KnowledgeBase::getStatus, 1);
 
@@ -64,14 +65,15 @@ public class StartupTaskRunner implements ApplicationRunner {
                 log.warn("修复知识库ID={}, 文件名={}", knowledge.getId(), knowledge.getFileName());
 
                 // 检查是否超时（超过30分钟视为超时）
-                LocalDateTime uploadTime = knowledge.getUploadTime();
+                // createTime 字段继承自 AiBaseEntity（原 upload_time，117 脚本重命名，P3-2 Phase 2）
+                LocalDateTime uploadTime = knowledge.getCreateTime();
                 if (uploadTime != null) {
                     long minutes = ChronoUnit.MINUTES.between(uploadTime, LocalDateTime.now());
                     log.warn("  - 上传时间: {}, 已经过去 {} 分钟", uploadTime, minutes);
                 }
 
                 // 将状态改为失败
-                knowledge.setProcessingStatus("failed");
+                knowledge.setProcessingStatus(ProcessingStatus.FAILED.getCode());
                 knowledge.setStatus(3);
                 knowledge.setErrorMessage("系统重启导致处理中断，请重新处理");
                 knowledgeBaseService.updateById(knowledge);

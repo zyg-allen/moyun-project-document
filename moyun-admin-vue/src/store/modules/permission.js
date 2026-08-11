@@ -150,12 +150,26 @@ export function filterDynamicRoutes(routes) {
 }
 
 export const loadView = (view) => {
+  if (!view) {
+    console.warn('[loadView] 收到空 component 字段，路由将渲染为空（请检查 sys_menu.component）')
+    return undefined
+  }
   let res;
   for (const path in modules) {
-    const dir = path.split('views/')[1].split('.vue')[0];
+    const viewsIdx = path.indexOf('views/')
+    if (viewsIdx === -1) continue
+    const dir = path.slice(viewsIdx + 'views/'.length).replace(/\.vue$/, '')
     if (dir === view) {
       res = () => modules[path]();
+      break
     }
+  }
+  if (!res) {
+    // 常见原因：
+    //   1) sys_menu.component 路径写错（如 'tool/gen/index' 对应文件实际不存在）；
+    //   2) dev 模式新增 .vue 文件后未重启 vite dev server，import.meta.glob 缓存未刷新；
+    //   3) 部署版未重新执行 npm run build:prod。
+    console.warn(`[loadView] 未找到 component="${view}"，请确认 src/views/${view}.vue 存在；dev 模式请重启 vite，部署版请重新 build`)
   }
   return res;
 }

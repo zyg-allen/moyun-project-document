@@ -3,6 +3,8 @@ package com.moyun.ext.ai.service.impl;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.moyun.ext.ai.dto.WorkflowExecutionEvent;
+import com.moyun.ext.ai.enums.WorkflowExecutionStatus;
+import com.moyun.ext.ai.enums.WorkflowStatus;
 import com.moyun.ext.ai.exception.BusinessException;
 import com.moyun.ext.ai.exception.ErrorCode;
 import com.moyun.ext.ai.entity.AgentWorkflowRelation;
@@ -83,7 +85,7 @@ public class WorkflowServiceImpl extends ServiceImpl<WorkflowMapper, Workflow> i
         if (workflow.getName() == null || workflow.getName().isBlank()) {
             workflow.setName("未命名工作流_" + System.currentTimeMillis());
         }
-        workflow.setStatus("draft");
+        workflow.setStatus(WorkflowStatus.DRAFT.getCode());
         workflow.setVersion(1);
         workflow.setEnabled(false);
         workflow.setCreateTime(LocalDateTime.now());
@@ -135,7 +137,7 @@ public class WorkflowServiceImpl extends ServiceImpl<WorkflowMapper, Workflow> i
             throw new IllegalArgumentException("工作流不存在: " + workflowId);
         }
         
-        workflow.setStatus("published");
+        workflow.setStatus(WorkflowStatus.PUBLISHED.getCode());
         workflow.setEnabled(true);
         workflow.setVersion(workflow.getVersion() + 1);
         workflow.setUpdateTime(LocalDateTime.now());
@@ -290,12 +292,12 @@ public class WorkflowServiceImpl extends ServiceImpl<WorkflowMapper, Workflow> i
 
         long todaySuccess = executionMapper.selectCount(new LambdaQueryWrapper<WorkflowExecution>()
                 .ge(WorkflowExecution::getCreateTime, todayStart)
-                .eq(WorkflowExecution::getStatus, "completed"));
+                .eq(WorkflowExecution::getStatus, WorkflowExecutionStatus.COMPLETED.getCode()));
         stats.put("todaySuccess", todaySuccess);
 
         long todayFailed = executionMapper.selectCount(new LambdaQueryWrapper<WorkflowExecution>()
                 .ge(WorkflowExecution::getCreateTime, todayStart)
-                .eq(WorkflowExecution::getStatus, "failed"));
+                .eq(WorkflowExecution::getStatus, WorkflowExecutionStatus.FAILED.getCode()));
         stats.put("todayFailed", todayFailed);
 
         long totalExecutions = executionMapper.selectCount(new LambdaQueryWrapper<WorkflowExecution>());
@@ -331,8 +333,8 @@ public class WorkflowServiceImpl extends ServiceImpl<WorkflowMapper, Workflow> i
         // @Select("SELECT w.id, w.name, w.enabled, " +
         //         "COUNT(e.id) as execution_count, " +
         //         "SUM(CASE WHEN e.status = 'completed' THEN 1 ELSE 0 END) as success_count " +
-        //         "FROM workflow w " +
-        //         "LEFT JOIN workflow_execution e ON w.id = e.workflow_id " +
+        //         "FROM ai_workflow w " +
+        //         "LEFT JOIN ai_workflow_execution e ON w.id = e.workflow_id " +
         //         "GROUP BY w.id ORDER BY execution_count DESC LIMIT #{limit}")
         // List<Map<String, Object>> getExecutionRanking(@Param("limit") int limit);
         
@@ -348,7 +350,7 @@ public class WorkflowServiceImpl extends ServiceImpl<WorkflowMapper, Workflow> i
 
             long successCount = executionMapper.selectCount(new LambdaQueryWrapper<WorkflowExecution>()
                     .eq(WorkflowExecution::getWorkflowId, wf.getId())
-                    .eq(WorkflowExecution::getStatus, "completed"));
+                    .eq(WorkflowExecution::getStatus, WorkflowExecutionStatus.COMPLETED.getCode()));
             item.put("successCount", successCount);
 
             ranking.add(item);

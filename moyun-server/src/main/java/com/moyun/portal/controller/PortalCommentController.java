@@ -1,5 +1,6 @@
 package com.moyun.portal.controller;
 
+import java.util.List;
 import java.util.Map;
 
 import io.swagger.v3.oas.annotations.Operation;
@@ -11,6 +12,7 @@ import org.springframework.web.bind.annotation.*;
 
 import com.moyun.common.annotation.Log;
 import com.moyun.common.annotation.RateLimiter;
+import com.moyun.common.annotation.RepeatSubmit;
 import com.moyun.common.constant.HttpStatus;
 import com.moyun.common.enums.BusinessType;
 import com.moyun.core.base.AjaxResult;
@@ -18,6 +20,7 @@ import com.moyun.core.base.BaseController;
 import com.moyun.portal.domain.entity.PortalComment;
 import com.moyun.portal.service.IPortalCommentService;
 import com.moyun.portal.util.PortalSecurityUtils;
+import com.moyun.system.service.ISensitiveWordService;
 
 /**
  * 门户评论 Controller
@@ -37,6 +40,9 @@ public class PortalCommentController extends BaseController {
     @Autowired
     private IPortalCommentService portalCommentService;
 
+    @Autowired
+    private ISensitiveWordService sensitiveWordService;
+
     @Operation(summary = "获取文章的评论列表（含回复）", description = "获取文章的评论列表，包含回复内容，支持分页")
     @GetMapping("/article/{articleId}")
     public AjaxResult getArticleComments(
@@ -52,12 +58,20 @@ public class PortalCommentController extends BaseController {
     @Operation(summary = "新增评论", description = "创建新评论")
     @Log(title = "门户评论", businessType = BusinessType.INSERT)
     @RateLimiter(time = 60, count = 10)
+    @RepeatSubmit(interval = 3000, message = "请勿重复提交评论")
     @PostMapping
     public AjaxResult add(@Validated @RequestBody PortalComment portalComment) {
         // 发布评论需登录态校验（与 SecurityConfig 链 authenticated 双重防护）
         Long userId = PortalSecurityUtils.getUserId();
         if (userId == null) {
             return AjaxResult.error(HttpStatus.UNAUTHORIZED, "请先登录后再评论");
+        }
+        // 敏感词前置拦截（P1-5）
+        String scanText = portalComment.getContent() == null ? "" : portalComment.getContent();
+        if (sensitiveWordService.contains(scanText)) {
+            List<String> hitWords = sensitiveWordService.detectAndLog(
+                    "comment", null, userId, scanText, "block");
+            return AjaxResult.error("内容包含敏感词：" + hitWords);
         }
         return toAjax(portalCommentService.insertPortalComment(portalComment));
     }

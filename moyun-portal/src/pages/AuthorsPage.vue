@@ -59,9 +59,11 @@ const usersWithStats = computed<UserWithStats[]>(() => {
     return {
       ...user,
       _stats: {
-        articles: u?.articleCount || 0,
-        views: u?.viewCount || 0,
-        likes: u?.likeCount || 0,
+        // 后端 /portal/user/authors 返回字段：works / views / likes / fansCount / followCount
+        // 修复：原代码读取 articleCount/viewCount/likeCount 与后端字段不匹配，导致始终为 0
+        articles: u?.works || 0,
+        views: u?.views || 0,
+        likes: u?.likes || 0,
         following: u?.followCount || 0,
         followers: u?.fansCount || 0
       }
@@ -82,7 +84,7 @@ const filteredUsers = computed(() => {
 
   switch (sortBy.value) {
     case 'newest':
-      return result.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      return result.sort((a, b) => new Date(b.createTime).getTime() - new Date(a.createTime).getTime());
     case 'works':
       return result.sort((a, b) => b._stats.articles - a._stats.articles);
     case 'fans':
@@ -283,7 +285,7 @@ useHead(
               </p>
               <p class="text-xs" style="color: var(--theme-text-secondary);">
                 <Calendar class="w-3 h-3 inline mr-1" />
-                加入于 {{ user.createdAt }}
+                加入于 {{ user.createTime }}
               </p>
             </div>
           </div>

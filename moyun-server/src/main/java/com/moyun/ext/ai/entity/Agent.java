@@ -7,20 +7,20 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.time.LocalDateTime;
-
 /**
  * 智能体实体类
  *
  * <p>对应数据库表 agent，存储智能体配置信息</p>
+ *
+ * <p>继承 {@link AiBaseEntity}，复用 createTime / updateTime / deleted 字段（P3-2 Phase 1）。</p>
  *
  * @author laomao
  */
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
-@TableName("agent")
-public class Agent {
+@TableName("ai_agent")
+public class Agent extends AiBaseEntity {
     @TableId(type = IdType.AUTO)
     private Long id;
 
@@ -33,10 +33,9 @@ public class Agent {
     // 系统提示词
     private String systemPrompt;
 
-    // 关联的知识库ID（多个用逗号分隔）- 旧字段，兼容保留
-    private String knowledgeBaseIds;
-    
-    // 关联的知识库ID列表（JSON数组格式）- 新字段
+    // 关联的知识库ID列表（JSON数组格式）
+    // 注：原 knowledge_base_ids 列（逗号分隔字符串）已由 110 升级脚本 DROP，
+    // 实体字段同步移除（P0-3 清理），前端无引用
     private String knowledgeLibraryIds;
     
     // 知识库权重配置（JSON格式：{"1": 1.0, "2": 0.8, "3": 0.5}）
@@ -119,10 +118,4 @@ public class Agent {
     
     // 发布设置(JSON)
     private String publishSettings;
-
-    // 创建时间
-    private LocalDateTime createTime;
-
-    // 更新时间
-    private LocalDateTime updateTime;
 }

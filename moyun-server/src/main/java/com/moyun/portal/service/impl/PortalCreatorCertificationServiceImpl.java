@@ -56,6 +56,9 @@ public class PortalCreatorCertificationServiceImpl
         entity.setCertType(dto.getCertType());
         entity.setCertNo(dto.getCertNo());
         entity.setCertImage(dto.getCertImage());
+        // 身份证双面照片（人像面 / 国徽面），新增字段，老数据可空
+        entity.setCertImageFront(dto.getCertImageFront());
+        entity.setCertImageBack(dto.getCertImageBack());
         entity.setIntro(dto.getIntro());
         entity.setWorks(dto.getWorks());
         entity.setStatus("pending");

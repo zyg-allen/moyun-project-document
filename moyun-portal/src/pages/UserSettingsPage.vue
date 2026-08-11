@@ -14,7 +14,8 @@ import {
   UserCheck,
   Heart,
   MessageSquare,
-  ThumbsUp
+  ThumbsUp,
+  Globe
 } from 'lucide-vue-next';
 import { useUserStore } from '@/stores/user';
 import { generateSeo } from '@/utils/seo';
@@ -48,7 +49,9 @@ const privacySettings = ref({
   privacyBookmark: true,
   privacyFollow: true,
   privacyEmail: false,
-  privacyPhone: false
+  privacyPhone: false,
+  // 是否公开主页（是否在名家录/作者列表展示）。默认 true，与历史行为兼容
+  privacyProfile: true
 });
 
 // 状态
@@ -105,7 +108,8 @@ onMounted(async () => {
       privacyBookmark: user.privacyBookmark !== undefined ? user.privacyBookmark : true,
       privacyFollow: user.privacyFollow !== undefined ? user.privacyFollow : true,
       privacyEmail: user.privacyEmail !== undefined ? user.privacyEmail : false,
-      privacyPhone: user.privacyPhone !== undefined ? user.privacyPhone : false
+      privacyPhone: user.privacyPhone !== undefined ? user.privacyPhone : false,
+      privacyProfile: user.privacyProfile !== undefined ? user.privacyProfile : true
     };
   }
 });
@@ -510,6 +514,22 @@ function confirmDelete() {
                 </h3>
 
                 <div class="space-y-4">
+                  <!-- 公开主页（是否在名家录/作者列表展示） -->
+                  <div class="flex items-center justify-between p-4 rounded-xl" style="background-color: var(--theme-bg); border: 1px solid var(--theme-border);">
+                    <div class="flex items-center gap-3">
+                      <Globe class="w-5 h-5" style="color: var(--theme-text-secondary);" />
+                      <div>
+                        <p class="text-sm font-medium" style="color: var(--theme-text);">公开主页</p>
+                        <p class="text-xs" style="color: var(--theme-text-secondary);">开启后，你将出现在名家录和作者列表中（需已通过创作者认证且至少发布 1 篇文章）</p>
+                      </div>
+                    </div>
+                    <label class="relative inline-flex items-center cursor-pointer">
+                      <input type="checkbox" v-model="privacySettings.privacyProfile" class="sr-only peer" />
+                      <div class="w-11 h-6 rounded-full transition-colors" :style="privacySettings.privacyProfile ? { backgroundColor: 'var(--theme-primary)' } : { backgroundColor: 'var(--theme-border)' }"></div>
+                      <div class="absolute left-0.5 top-0.5 bg-white w-5 h-5 rounded-full transition-transform" :style="privacySettings.privacyProfile ? { transform: 'translateX(20px)' } : { transform: 'translateX(0)' }"></div>
+                    </label>
+                  </div>
+
                   <!-- 公开收藏夹 -->
                   <div class="flex items-center justify-between p-4 rounded-xl" style="background-color: var(--theme-bg); border: 1px solid var(--theme-border);">
                     <div class="flex items-center gap-3">

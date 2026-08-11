@@ -88,26 +88,31 @@ public class ImageExtractionServiceImpl implements ImageExtractionService {
         }
 
         // 从 MinIO 下载 PDF 文件到临时目录
-        java.io.InputStream inputStream = minioService.getFileStream(pdfObjectName, minioService.getKnowledgeBucket());
-        if (inputStream == null) {
-            log.error("无法从 MinIO 获取文件: {}", pdfObjectName);
-            return result;
-        }
-
+        // 使用 try-with-resources 确保 InputStream 在 Files.copy 抛异常时也能被关闭（旧版在 copy 后内联 close()，异常时泄漏）
         java.nio.file.Path tempPdfFile = null;
-        try {
+        try (java.io.InputStream inputStream = minioService.getFileStream(pdfObjectName, minioService.getKnowledgeBucket())) {
+            if (inputStream == null) {
+                log.error("无法从 MinIO 获取文件: {}", pdfObjectName);
+                return result;
+            }
+
             // 创建临时文件
             tempPdfFile = java.nio.file.Files.createTempFile("minio_pdf_extract_", ".pdf");
-            java.nio.file.Files.copy(inputStream, tempPdfFile, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
-            inputStream.close();
-            log.info("✓ PDF文件已下载到临时目录: {}", tempPdfFile);
+            try {
+                java.nio.file.Files.copy(inputStream, tempPdfFile, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+                log.info("✓ PDF文件已下载到临时目录: {}", tempPdfFile);
+            } catch (java.io.IOException copyEx) {
+                java.nio.file.Files.deleteIfExists(tempPdfFile);
+                tempPdfFile = null;
+                throw copyEx;
+            }
 
             try (PDDocument document = Loader.loadPDF(tempPdfFile.toFile())) {
                 int totalPages = document.getNumberOfPages();
                 log.info("开始提取PDF图片，共 {} 页", totalPages);
 
                 firstPassCollectHashes(document);
-                
+
                 for (int pageNum = 0; pageNum < totalPages; pageNum++) {
                     extractImagesFromPage(document.getPage(pageNum), pageNum, knowledge, embeddingModel, result);
                 }

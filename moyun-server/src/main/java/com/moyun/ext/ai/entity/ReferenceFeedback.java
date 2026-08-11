@@ -15,7 +15,7 @@ import java.time.LocalDateTime;
  * @author laomao
  */
 @Data
-@TableName("reference_feedback")
+@TableName("ai_reference_feedback")
 public class ReferenceFeedback {
 
     @TableId(type = IdType.AUTO)

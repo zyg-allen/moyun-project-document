@@ -1,20 +1,13 @@
 <template>
-  <div class="app-container">
-    <el-tabs v-model="activeTab" @tab-change="handleTabChange">
-      <el-tab-pane label="付费订单" name="order">
-        <order-manage v-if="loaded.order" v-show="activeTab === 'order'" />
-      </el-tab-pane>
-      <!-- 打赏管理 Tab 占位：原打赏功能已下线，如需恢复在此添加 -->
-    </el-tabs>
-  </div>
+  <TabContainer :tabs="tabs" />
+  <!-- 打赏管理 Tab 占位：原打赏功能已下线，如需恢复在 tabs 数组中新增一项即可 -->
 </template>
 
 <script setup>
-import { ref, reactive } from 'vue'
+import TabContainer from '@/components/TabContainer'
 import OrderManage from '../order/index.vue'
 
-const activeTab = ref('order')
-const loaded = reactive({ order: true })
-
-function handleTabChange() {}
+const tabs = [
+  { name: 'order', label: '付费订单', component: OrderManage }
+]
 </script>

@@ -55,6 +55,8 @@ export interface User {
   privacyBookmark?: boolean;
   privacyEmail?: boolean;
   privacyPhone?: boolean;
+  /** 是否公开主页（是否在名家录/作者列表展示） */
+  privacyProfile?: boolean;
   /** 关联后台用户ID（非空表示已绑定系统用户，可查看待办通知） */
   userId?: string | number;
 }
@@ -111,6 +113,8 @@ export interface UpdateUserProfileParams {
   privacyBookmark?: boolean;
   privacyEmail?: boolean;
   privacyPhone?: boolean;
+  /** 是否公开主页（是否在名家录/作者列表展示） */
+  privacyProfile?: boolean;
 }
 
 export interface UpdatePasswordParams {

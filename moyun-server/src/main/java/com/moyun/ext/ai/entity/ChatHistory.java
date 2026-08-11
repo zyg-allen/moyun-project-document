@@ -17,7 +17,7 @@ import java.time.LocalDateTime;
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
-@TableName("chat_history")
+@TableName("ai_chat_history")
 public class ChatHistory {
     
     @TableId(type = IdType.AUTO)

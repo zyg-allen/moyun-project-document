@@ -20,7 +20,7 @@ import java.time.LocalDateTime;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-@TableName("workflow_version")
+@TableName("ai_workflow_version")
 public class WorkflowVersion {
     
     @TableId(type = IdType.AUTO)

@@ -16,4 +16,7 @@ Disallow: /publish
 Disallow: /api/
 Disallow: /admin/
 
-Sitemap: https://moyun.example.com/sitemap.xml
+# Sitemap 指向后端动态接口（由 PortalSitemapController 生成）
+# 动态 sitemap 覆盖：首页/分类/标签/文章/书籍/书单/话题/专栏/面经 等公开内容 URL
+# 部署时请将 moyun.example.com 替换为实际正式域名（与后端 moyun.portal.domain 配置保持一致）
+Sitemap: https://moyun.example.com/portal/sitemap

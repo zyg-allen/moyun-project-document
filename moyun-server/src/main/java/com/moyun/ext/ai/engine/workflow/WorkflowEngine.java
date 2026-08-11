@@ -5,6 +5,7 @@ import com.moyun.ext.ai.exception.ErrorCode;
 import com.moyun.ext.ai.dto.WorkflowExecutionEvent;
 import com.moyun.ext.ai.entity.Workflow;
 import com.moyun.ext.ai.entity.WorkflowExecution;
+import com.moyun.ext.ai.enums.WorkflowExecutionStatus;
 import com.moyun.ext.ai.mapper.WorkflowExecutionMapper;
 import com.moyun.ext.ai.mapper.WorkflowMapper;
 import com.moyun.ext.ai.util.JsonUtils;
@@ -159,7 +160,7 @@ public class WorkflowEngine {
         // 创建执行记录
         WorkflowExecution execution = WorkflowExecution.builder()
                 .workflowId(workflowId)
-                .status("running")
+                .status(WorkflowExecutionStatus.RUNNING.getCode())
                 .inputData(JsonUtils.toJson(input))
                 .startTime(LocalDateTime.now())
                 .createTime(LocalDateTime.now())
@@ -193,7 +194,7 @@ public class WorkflowEngine {
 
             // 更新执行记录
             long duration = System.currentTimeMillis() - startTime;
-            execution.setStatus("completed");
+            execution.setStatus(WorkflowExecutionStatus.COMPLETED.getCode());
             execution.setOutputData(JsonUtils.toJson(context.getFinalOutput()));
             execution.setExecutionLog(JsonUtils.toJson(context.getLogs()));
             execution.setDurationMs(duration);
@@ -219,7 +220,7 @@ public class WorkflowEngine {
         } catch (Exception e) {
             log.error("❌ 工作流执行失败: id={}", workflowId, e);
 
-            execution.setStatus("failed");
+            execution.setStatus(WorkflowExecutionStatus.FAILED.getCode());
             execution.setErrorMessage(e.getMessage());
             execution.setExecutionLog(JsonUtils.toJson(context.getLogs()));
             execution.setDurationMs(System.currentTimeMillis() - startTime);
@@ -258,7 +259,7 @@ public class WorkflowEngine {
         // 创建执行记录
         WorkflowExecution execution = WorkflowExecution.builder()
                 .workflowId(workflowId)
-                .status("running")
+                .status(WorkflowExecutionStatus.RUNNING.getCode())
                 .inputData(JsonUtils.toJson(input))
                 .startTime(LocalDateTime.now())
                 .createTime(LocalDateTime.now())
@@ -308,7 +309,7 @@ public class WorkflowEngine {
             
             // 更新执行记录
             long duration = System.currentTimeMillis() - startTime;
-            execution.setStatus("completed");
+            execution.setStatus(WorkflowExecutionStatus.COMPLETED.getCode());
             execution.setOutputData(JsonUtils.toJson(context.getFinalOutput()));
             execution.setExecutionLog(JsonUtils.toJson(context.getLogs()));
             execution.setDurationMs(duration);
@@ -334,7 +335,7 @@ public class WorkflowEngine {
         } catch (Exception e) {
             log.error("❌ 工作流执行失败: id={}", workflowId, e);
             
-            execution.setStatus("failed");
+            execution.setStatus(WorkflowExecutionStatus.FAILED.getCode());
             execution.setErrorMessage(e.getMessage());
             execution.setExecutionLog(JsonUtils.toJson(context.getLogs()));
             execution.setDurationMs(System.currentTimeMillis() - startTime);
@@ -415,7 +416,7 @@ public class WorkflowEngine {
         nodeLog.setNodeId(node.getId());
         nodeLog.setNodeName(node.getName());
         nodeLog.setNodeType(node.getType());
-        nodeLog.setStatus(result.isSuccess() ? "completed" : "failed");
+        nodeLog.setStatus(result.isSuccess() ? WorkflowExecutionStatus.COMPLETED.getCode() : WorkflowExecutionStatus.FAILED.getCode());
         nodeLog.setInput(context.getInput());
         nodeLog.setOutput(result.getOutput());
         nodeLog.setErrorMessage(result.getErrorMessage());

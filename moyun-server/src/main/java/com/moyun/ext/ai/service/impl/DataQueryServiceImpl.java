@@ -10,7 +10,10 @@ import com.moyun.ext.ai.service.*;
 import com.moyun.ext.ai.vo.DataQueryResponse;
 import com.moyun.ext.ai.vo.TableSchemaVO;
 import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 
@@ -36,6 +39,21 @@ import java.util.*;
 @Slf4j
 @Service
 public class DataQueryServiceImpl implements DataQueryService {
+
+    /**
+     * 慢 SQL 专用 logger：独立归档到 ${APP_NAME}-slow-sql.log，与业务日志分离，便于定期审计与治理。
+     * 对应 logback-spring.xml 中的 SLOW_SQL_FILE appender。
+     */
+    private static final Logger SLOW_SQL_LOG = LoggerFactory.getLogger("SLOW_SQL");
+
+    /**
+     * 慢查询阈值（毫秒），通过外部配置注入，默认 3000ms。
+     * 配置项：moyun.slow-sql.threshold-millis（在 application*.yaml 中可调）
+     * - dev/local 默认 3000ms（开发期更容易触发，便于发现问题）
+     * - prod 建议 1000ms~2000ms（更严格）
+     */
+    @Value("${moyun.slow-sql.threshold-millis:3000}")
+    private long slowSqlThresholdMillis;
 
     @Autowired
     private DataSourceService dataSourceService;
@@ -351,10 +369,12 @@ public class DataQueryServiceImpl implements DataQueryService {
                 
                 long queryTime = System.currentTimeMillis() - queryStartTime;
                 log.info("SQL执行完成: 读取{}行数据, 耗时{}ms, SQL: {}", rowCount, queryTime, sql);
-                
-                // 慢查询告警（超过3秒）
-                if (queryTime > 3000) {
-                    log.warn("⚠️ 慢查询检测: SQL耗时{}ms, 建议优化。SQL: {}", queryTime, sql);
+
+                // 慢查询告警（超过 slowSqlThresholdMillis 毫秒）
+                // 通过 SLOW_SQL_LOG 专用 logger 输出，独立归档到 slow-sql.log，与业务日志分离
+                if (queryTime > slowSqlThresholdMillis) {
+                    SLOW_SQL_LOG.warn("慢查询检测: SQL耗时{}ms(阈值{}ms), 建议优化。datasourceId={}, SQL: {}",
+                            queryTime, slowSqlThresholdMillis, datasourceId, sql);
                 }
 
                 // 构建响应

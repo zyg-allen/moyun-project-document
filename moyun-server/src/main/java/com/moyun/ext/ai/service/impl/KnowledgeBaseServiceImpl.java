@@ -1,6 +1,7 @@
 package com.moyun.ext.ai.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.moyun.ext.ai.config.KnowledgeDefaults;
 import com.moyun.ext.ai.exception.BusinessException;
 import com.moyun.ext.ai.exception.ErrorCode;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
@@ -12,6 +13,7 @@ import com.moyun.ext.ai.entity.DocumentImage;
 import com.moyun.ext.ai.entity.DocumentSegment;
 import com.moyun.ext.ai.entity.KnowledgeBase;
 import com.moyun.ext.ai.entity.ModelConfig;
+import com.moyun.ext.ai.enums.ProcessingStatus;
 import com.moyun.ext.ai.mapper.KnowledgeBaseMapper;
 import com.moyun.ext.ai.dto.KnowledgeStatsResponse;
 import com.moyun.ext.ai.dto.RetrievalTestResult;
@@ -101,6 +103,13 @@ public class KnowledgeBaseServiceImpl extends ServiceImpl<KnowledgeBaseMapper, K
     @Autowired
     private LargeDocumentProcessor largeDocumentProcessor;
 
+    /**
+     * 知识库默认参数（P2-2 阶段 3）：统一 {@code getKnowledgeConfig} 的硬编码默认值，
+     * 与 {@code KnowledgeConfigServiceImpl.createDefaultConfigObject} 共用同一套默认值。
+     */
+    @Autowired
+    private KnowledgeDefaults knowledgeDefaults;
+
     // ==================== 配置属性 ====================
 
     /** JSON序列化工具 */
@@ -166,7 +175,7 @@ public class KnowledgeBaseServiceImpl extends ServiceImpl<KnowledgeBaseMapper, K
         knowledge.setFileName(file.getOriginalFilename());
         knowledge.setFileSize(file.getSize());
         knowledge.setFileType(getFileExtension(file.getOriginalFilename()));
-        knowledge.setUploadTime(LocalDateTime.now());
+        knowledge.setCreateTime(LocalDateTime.now());
         knowledge.setStatus(1); // 处理中
 
         // 上传文件到 MinIO
@@ -230,7 +239,7 @@ public class KnowledgeBaseServiceImpl extends ServiceImpl<KnowledgeBaseMapper, K
     @Override
     public List<KnowledgeBaseVO> listAllWithFormat() {
         LambdaQueryWrapper<KnowledgeBase> wrapper = new LambdaQueryWrapper<>();
-        wrapper.orderByDesc(KnowledgeBase::getUploadTime);
+        wrapper.orderByDesc(KnowledgeBase::getCreateTime);
         List<KnowledgeBase> list = this.list(wrapper);
         return list.stream().map(this::convertToVO).collect(Collectors.toList());
     }
@@ -309,14 +318,21 @@ public class KnowledgeBaseServiceImpl extends ServiceImpl<KnowledgeBaseMapper, K
         }
 
         knowledge.setStatus(1); // 处理中
+        knowledge.setUpdateTime(LocalDateTime.now());
         this.updateById(knowledge);
 
-        // 异步重新处理
+        // 异步重新处理 - 通过 resolveEffectiveConfig 解析有效配置后调 processKnowledge，
+        // 实现"硬编码默认 ← 文档级覆盖"合并，消除旧版 processVectorization → getKnowledgeConfig
+        // 硬编码默认值与 KnowledgeConfigServiceImpl.createDefaultConfigObject 不一致的隐患（P2-2 阶段 2）
+        //
+        // 注意：不能直接调 processKnowledgeWithConfig(id, null)，因为后者在 config=null 时会回调 reprocessFile
+        // 形成无限递归；这里直接调 resolveEffectiveConfig + processKnowledge 跳过 null 守卫
         CompletableFuture.runAsync(() -> {
             try {
                 log.info("开始重新处理文档，ID: {}", knowledge.getId());
 
-                // 如果没有 PDF 文件，先转换
+                // 如果没有 PDF 文件，先转换（processKnowledge 内部也会做转换，
+                // 但提前转换可避免异步任务中转换失败导致整流程中断）
                 if (knowledge.getPdfFilePath() == null || knowledge.getPdfFilePath().isEmpty()) {
                     String pdfFilePath = convertToPdfIfNeeded(knowledge.getFilePath(), knowledge.getFileType());
                     knowledge.setPdfFilePath(pdfFilePath);
@@ -324,11 +340,20 @@ public class KnowledgeBaseServiceImpl extends ServiceImpl<KnowledgeBaseMapper, K
                     log.info("PDF 转换完成，ID: {}", knowledge.getId());
                 }
 
-                // 处理向量化
-                processVectorization(knowledge);
+                // 解析有效配置（libraryConfig=null 表示仅使用文档级配置 + 硬编码默认，
+                // 与 processKnowledgeWithConfig 的非空路径保持一致的合并语义）
+                KnowledgeConfig effectiveConfig = knowledgeConfigService.resolveEffectiveConfig(knowledge.getId(), null);
+                log.info("✅ 重新处理使用有效配置: segmentMode={}, maxLength={}, overlap={}",
+                        effectiveConfig.getSegmentMode(),
+                        effectiveConfig.getSegmentMaxLength(),
+                        effectiveConfig.getSegmentOverlapLength());
+
+                // 调用主处理流程
+                processKnowledge(knowledge.getId(), effectiveConfig);
                 log.info("重新处理完成，ID: {}", knowledge.getId());
 
-                // 重新提取图片
+                // 重新提取图片（processKnowledge 内部已包含图片提取流程，
+                // 这里作为补救：仅当上方处理异常被吞掉或图片缺失时才执行）
                 if (embeddingModel != null) {
                     try {
                         log.info("重新提取和处理文档图片，ID: {}", knowledge.getId());
@@ -343,6 +368,7 @@ public class KnowledgeBaseServiceImpl extends ServiceImpl<KnowledgeBaseMapper, K
                 log.error("重新处理失败，ID: {}, 错误: {}", knowledge.getId(), e.getMessage(), e);
                 knowledge.setStatus(3); // 处理失败
                 knowledge.setErrorMessage(e.getMessage());
+                knowledge.setUpdateTime(LocalDateTime.now());
                 this.updateById(knowledge);
             }
         });
@@ -358,7 +384,7 @@ public class KnowledgeBaseServiceImpl extends ServiceImpl<KnowledgeBaseMapper, K
         if (embeddingModel == null) {
             log.error("❌ Embedding 模型未配置，无法进行向量化处理");
             knowledge.setStatus(3); // 处理失败
-            knowledge.setProcessTime(LocalDateTime.now());
+            knowledge.setUpdateTime(LocalDateTime.now());
             this.updateById(knowledge);
             throw new BusinessException(ErrorCode.EMBEDDING_MODEL_NOT_CONFIGURED, "Embedding 模型未配置，请在'模型配置管理'中添加并设置默认的向量模型");
         }
@@ -390,16 +416,17 @@ public class KnowledgeBaseServiceImpl extends ServiceImpl<KnowledgeBaseMapper, K
         } else if ("doc".equals(fileType) || "docx".equals(fileType)) {
             processWordDocument(knowledge);
         } else if ("xls".equals(fileType) || "xlsx".equals(fileType)) {
-            processExcelDocument(knowledge);
+            // legacy 路径：从 DB 取配置（与旧版行为保持一致），活跃路径走 processKnowledge(knowledgeId, config)
+            processExcelDocument(knowledge, getKnowledgeConfig(knowledge.getId()));
         } else if ("ppt".equals(fileType) || "pptx".equals(fileType)) {
-            processPowerPointDocument(knowledge);
+            processPowerPointDocument(knowledge, getKnowledgeConfig(knowledge.getId()));
         } else {
             processGenericDocument(knowledge);
         }
 
         // 更新状态（PDF 已在 processPdfDocument 中更新）
         knowledge.setStatus(2); // 处理成功
-        knowledge.setProcessTime(LocalDateTime.now());
+        knowledge.setUpdateTime(LocalDateTime.now());
         this.updateById(knowledge);
     }
 
@@ -463,7 +490,7 @@ public class KnowledgeBaseServiceImpl extends ServiceImpl<KnowledgeBaseMapper, K
                     
                     knowledge.setSegmentCount(segmentCount);
                     knowledge.setStatus(2); // 处理成功
-                    knowledge.setProcessTime(LocalDateTime.now());
+                    knowledge.setUpdateTime(LocalDateTime.now());
                     this.updateById(knowledge);
                 } else {
                     // 小文件：使用标准处理方式（带页面文本缓存优化）
@@ -652,7 +679,7 @@ public class KnowledgeBaseServiceImpl extends ServiceImpl<KnowledgeBaseMapper, K
 
         // 更新状态（向量维度已在循环中设置）
         knowledge.setStatus(2); // 处理成功
-        knowledge.setProcessTime(LocalDateTime.now());
+        knowledge.setUpdateTime(LocalDateTime.now());
         this.updateById(knowledge);
 
         log.info("✅ PDF 文档处理完成，共 {} 个分片，向量维度: {}", segments.size(), knowledge.getVectorDimension());
@@ -1059,16 +1086,24 @@ public class KnowledgeBaseServiceImpl extends ServiceImpl<KnowledgeBaseMapper, K
      * @return 临时文件路径
      */
     private Path downloadToTempFile(String objectName, String suffix) throws IOException {
-        java.io.InputStream inputStream = minioService.getFileStream(objectName, minioService.getKnowledgeBucket());
-        if (inputStream == null) {
-            throw new IOException("无法从 MinIO 获取文件: " + objectName);
-        }
+        // 使用 try-with-resources 确保 InputStream 在 Files.copy 抛异常时也能被关闭
+        // 旧版在 Files.copy 后内联 close()，若 copy 抛 IOException（如磁盘满/网络中断）会导致连接泄漏
+        try (java.io.InputStream inputStream = minioService.getFileStream(objectName, minioService.getKnowledgeBucket())) {
+            if (inputStream == null) {
+                throw new IOException("无法从 MinIO 获取文件: " + objectName);
+            }
 
-        Path tempFile = Files.createTempFile("minio_", suffix);
-        Files.copy(inputStream, tempFile, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
-        inputStream.close();
-        log.info("✓ 文件已下载到临时目录: {}", tempFile);
-        return tempFile;
+            Path tempFile = Files.createTempFile("minio_", suffix);
+            try {
+                Files.copy(inputStream, tempFile, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+                log.info("✓ 文件已下载到临时目录: {}", tempFile);
+                return tempFile;
+            } catch (IOException e) {
+                // Files.copy 失败时清理已创建的临时文件，避免磁盘垃圾堆积
+                Files.deleteIfExists(tempFile);
+                throw e;
+            }
+        }
     }
 
     /**
@@ -1133,24 +1168,35 @@ public class KnowledgeBaseServiceImpl extends ServiceImpl<KnowledgeBaseMapper, K
     }
 
     /**
-     * 检查知识库是否被智能体关联
+     * 检查知识库文档所属的 Library 是否被智能体关联
+     *
+     * <p>注：原方法基于已废弃的 agent.knowledgeBaseIds（逗号分隔文档ID）检查，
+     * 现 agent 改用 knowledgeLibraryIds（JSON数组，存储 library ID）。
+     * 删除文档时检查所属 Library 是否被 agent 关联，避免删除后 agent 检索失败（P0-3 清理）</p>
      */
     private List<com.moyun.ext.ai.entity.Agent> checkAgentAssociation(Long knowledgeBaseId) {
+        // 1. 查询文档所属的 libraryId
+        KnowledgeBase kb = this.getById(knowledgeBaseId);
+        if (kb == null || kb.getLibraryId() == null) {
+            return java.util.Collections.emptyList();
+        }
+        Long targetLibraryId = kb.getLibraryId();
+
+        // 2. 遍历所有 agent，检查 knowledgeLibraryIds 是否包含该 libraryId
         List<com.moyun.ext.ai.entity.Agent> allAgents = agentService.list();
         List<com.moyun.ext.ai.entity.Agent> associatedAgents = new ArrayList<>();
 
-        String targetId = String.valueOf(knowledgeBaseId);
-
         for (com.moyun.ext.ai.entity.Agent agent : allAgents) {
-            String knowledgeBaseIds = agent.getKnowledgeBaseIds();
-            if (knowledgeBaseIds != null && !knowledgeBaseIds.isEmpty()) {
-                // 解析知识库ID列表
-                String[] ids = knowledgeBaseIds.split(",");
-                for (String id : ids) {
-                    if (id.trim().equals(targetId)) {
+            String libraryIdsJson = agent.getKnowledgeLibraryIds();
+            if (libraryIdsJson != null && !libraryIdsJson.isEmpty()) {
+                try {
+                    List<Long> libraryIds = objectMapper.readValue(libraryIdsJson,
+                            new com.fasterxml.jackson.core.type.TypeReference<List<Long>>() {});
+                    if (libraryIds != null && libraryIds.contains(targetLibraryId)) {
                         associatedAgents.add(agent);
-                        break;
                     }
+                } catch (Exception e) {
+                    log.warn("解析 agent {} 的 knowledgeLibraryIds 失败: {}", agent.getId(), e.getMessage());
                 }
             }
         }
@@ -1207,8 +1253,11 @@ public class KnowledgeBaseServiceImpl extends ServiceImpl<KnowledgeBaseMapper, K
         vo.setProcessingStatus(knowledge.getProcessingStatus());
         vo.setConfigCompleted(knowledge.getConfigCompleted());
         vo.setErrorMessage(knowledge.getErrorMessage());
-        vo.setUploadTime(knowledge.getUploadTime());
-        vo.setProcessTime(knowledge.getProcessTime());
+        // VO 字段名保持不变以维持前端 API 契约（P3-2 Phase 2）：
+        //   uploadTime ← knowledge.createTime（原 upload_time，117 脚本重命名）
+        //   processTime ← knowledge.updateTime（原 process_time，117 脚本重命名）
+        vo.setUploadTime(knowledge.getCreateTime());
+        vo.setProcessTime(knowledge.getUpdateTime());
 
         // 新增字段
         vo.setCategory(knowledge.getCategory());
@@ -1383,8 +1432,8 @@ public class KnowledgeBaseServiceImpl extends ServiceImpl<KnowledgeBaseMapper, K
     /**
      * 处理 Excel 文档
      */
-    private void processExcelDocument(KnowledgeBase knowledge) throws Exception {
-        log.info("开始处理 Excel 文档: {}", knowledge.getFileName());
+    private void processExcelDocument(KnowledgeBase knowledge, com.moyun.ext.ai.entity.KnowledgeConfig config) throws Exception {
+        log.info("开始处理 Excel 文档（使用配置）: {}", knowledge.getFileName());
 
         // 从 MinIO 下载文件到临时目录
         Path tempFile = downloadToTempFile(knowledge.getFilePath(), "." + knowledge.getFileType());
@@ -1399,9 +1448,10 @@ public class KnowledgeBaseServiceImpl extends ServiceImpl<KnowledgeBaseMapper, K
                 document = parser.parse(fis);
             }
 
-            // 🚀 自适应分片策略（Excel 表格文档）
+            // 🚀 自适应分片策略（Excel 表格文档）- 使用外部传入的 config，
+            // 避免再次查 DB（getKnowledgeConfig）导致与 PDF/Word/Text 路径不一致（P2-2 阶段 2）
             String contentSample = document.text().substring(0, Math.min(1000, document.text().length()));
-            DocumentSplitter splitter = createAdaptiveDocumentSplitter(knowledge.getId(), knowledge.getFileName(), contentSample);
+            DocumentSplitter splitter = createAdaptiveDocumentSplitter(knowledge.getId(), knowledge.getFileName(), contentSample, config);
             List<TextSegment> segments = splitter.split(document);
 
             processExcelDocumentInternal(knowledge, segments);
@@ -1469,8 +1519,8 @@ public class KnowledgeBaseServiceImpl extends ServiceImpl<KnowledgeBaseMapper, K
     /**
      * 处理 PowerPoint 文档
      */
-    private void processPowerPointDocument(KnowledgeBase knowledge) throws Exception {
-        log.info("开始处理 PowerPoint 文档: {}", knowledge.getFileName());
+    private void processPowerPointDocument(KnowledgeBase knowledge, com.moyun.ext.ai.entity.KnowledgeConfig config) throws Exception {
+        log.info("开始处理 PowerPoint 文档（使用配置）: {}", knowledge.getFileName());
 
         // 从 MinIO 下载文件到临时目录
         Path tempFile = downloadToTempFile(knowledge.getFilePath(), "." + knowledge.getFileType());
@@ -1485,8 +1535,9 @@ public class KnowledgeBaseServiceImpl extends ServiceImpl<KnowledgeBaseMapper, K
                 document = parser.parse(fis);
             }
 
-            // 文档分割 - TODO: 应使用knowledge_config配置
-            DocumentSplitter splitter = DocumentSplitters.recursive(800, 100);
+            // 🚀 自适应分片策略 - 使用外部传入的 config，消除硬编码 DocumentSplitters.recursive(800, 100)（P2-2 阶段 2）
+            String contentSample = document.text().substring(0, Math.min(1000, document.text().length()));
+            DocumentSplitter splitter = createAdaptiveDocumentSplitter(knowledge.getId(), knowledge.getFileName(), contentSample, config);
             List<TextSegment> segments = splitter.split(document);
 
             processPowerPointDocumentInternal(knowledge, segments);
@@ -1560,6 +1611,8 @@ public class KnowledgeBaseServiceImpl extends ServiceImpl<KnowledgeBaseMapper, K
      * 从 MinIO 下载文件到临时目录，转换后再上传回 MinIO
      */
     private String convertToPdfIfNeeded(String originalObjectName, String fileType) {
+        Path tempSourceFile = null;
+        Path tempPdfFile = null;
         try {
             String type = fileType.toLowerCase();
             log.info("📄 开始文件类型转换检查 - 文件类型: {}, MinIO对象: {}", type, originalObjectName);
@@ -1571,22 +1624,30 @@ public class KnowledgeBaseServiceImpl extends ServiceImpl<KnowledgeBaseMapper, K
             }
 
             // 从 MinIO 下载文件到临时目录
-            java.io.InputStream inputStream = minioService.getFileStream(originalObjectName, minioService.getKnowledgeBucket());
-            if (inputStream == null) {
-                log.error("❌ 无法从 MinIO 获取文件: {}", originalObjectName);
-                return originalObjectName;
-            }
+            // 使用 try-with-resources 确保 InputStream 被关闭（旧版在 Files.copy 后内联 close()，异常时泄漏）
+            try (java.io.InputStream inputStream = minioService.getFileStream(originalObjectName, minioService.getKnowledgeBucket())) {
+                if (inputStream == null) {
+                    log.error("❌ 无法从 MinIO 获取文件: {}", originalObjectName);
+                    return originalObjectName;
+                }
 
-            // 创建临时文件
-            String extension = originalObjectName.contains(".") ?
-                    originalObjectName.substring(originalObjectName.lastIndexOf('.')) : "." + fileType;
-            Path tempSourceFile = Files.createTempFile("minio_source_", extension);
-            Files.copy(inputStream, tempSourceFile, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
-            inputStream.close();
-            log.info("✓ 文件已下载到临时目录: {}, 大小: {} bytes", tempSourceFile, Files.size(tempSourceFile));
+                // 创建临时文件
+                String extension = originalObjectName.contains(".") ?
+                        originalObjectName.substring(originalObjectName.lastIndexOf('.')) : "." + fileType;
+                tempSourceFile = Files.createTempFile("minio_source_", extension);
+                try {
+                    Files.copy(inputStream, tempSourceFile, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+                    log.info("✓ 文件已下载到临时目录: {}, 大小: {} bytes", tempSourceFile, Files.size(tempSourceFile));
+                } catch (IOException copyEx) {
+                    Files.deleteIfExists(tempSourceFile);
+                    tempSourceFile = null;
+                    throw copyEx;
+                }
+            }
+            // inputStream 已关闭，tempSourceFile 已就绪，后续逻辑使用 tempSourceFile
 
             // 生成临时 PDF 文件路径
-            Path tempPdfFile = Files.createTempFile("minio_pdf_", ".pdf");
+            tempPdfFile = Files.createTempFile("minio_pdf_", ".pdf");
 
             // 执行转换
             log.info("🔄 调用转换器: DocumentToPdfConverter.convertToPdf()");
@@ -1602,21 +1663,22 @@ public class KnowledgeBaseServiceImpl extends ServiceImpl<KnowledgeBaseMapper, K
                 log.info("✅ 文档转 PDF 成功并上传到 MinIO: {}, PDF大小: {} bytes",
                         pdfObjectName, Files.size(tempPdfFile));
 
-                // 清理临时文件
-                Files.deleteIfExists(tempSourceFile);
-                Files.deleteIfExists(tempPdfFile);
-
                 return pdfObjectName;
             } else {
                 log.warn("⚠️ 文档转 PDF 失败，使用原文件: {}", originalObjectName);
-                // 清理临时文件
-                Files.deleteIfExists(tempSourceFile);
-                Files.deleteIfExists(tempPdfFile);
                 return originalObjectName;
             }
         } catch (Exception e) {
             log.error("❌ 文档转 PDF 异常: {}, 堆栈: ", e.getMessage(), e);
             return originalObjectName;
+        } finally {
+            // 统一清理临时文件（无论成功/失败/异常）
+            if (tempSourceFile != null) {
+                try { Files.deleteIfExists(tempSourceFile); } catch (IOException ignored) {}
+            }
+            if (tempPdfFile != null) {
+                try { Files.deleteIfExists(tempPdfFile); } catch (IOException ignored) {}
+            }
         }
     }
 
@@ -1642,10 +1704,11 @@ public class KnowledgeBaseServiceImpl extends ServiceImpl<KnowledgeBaseMapper, K
         log.info("✅ 文件已上传到 MinIO: {}", filePath);
 
         // 2. 计算文件内容哈希（用于增量更新检测）
+        // 使用 try-with-resources 确保 InputStream 被关闭（旧版 file.getInputStream() 打开后未关闭，每次上传泄漏一个流）
         String contentHash = null;
         if (knowledgeIncrementalService != null) {
-            try {
-                contentHash = knowledgeIncrementalService.calculateContentHash(file.getInputStream());
+            try (java.io.InputStream hashStream = file.getInputStream()) {
+                contentHash = knowledgeIncrementalService.calculateContentHash(hashStream);
                 log.info("✅ 文件哈希计算完成: {}", contentHash);
             } catch (Exception e) {
                 log.warn("⚠️ 计算文件哈希失败: {}", e.getMessage());
@@ -1658,11 +1721,11 @@ public class KnowledgeBaseServiceImpl extends ServiceImpl<KnowledgeBaseMapper, K
         knowledge.setFilePath(filePath);
         knowledge.setFileType(fileType);
         knowledge.setFileSize(file.getSize());
-        knowledge.setUploadTime(LocalDateTime.now());
+        knowledge.setCreateTime(LocalDateTime.now());
         knowledge.setContentHash(contentHash); // 保存哈希值
 
         // 新字段：设置为待配置状态
-        knowledge.setProcessingStatus("pending");
+        knowledge.setProcessingStatus(ProcessingStatus.PENDING.getCode());
         knowledge.setConfigCompleted(false);
         knowledge.setStatus(0); // 兼容旧字段
 
@@ -1708,7 +1771,7 @@ public class KnowledgeBaseServiceImpl extends ServiceImpl<KnowledgeBaseMapper, K
             progressService.updateProgress(knowledgeId, 0, "开始处理", "初始化");
 
             // 更新状态为处理中
-            knowledge.setProcessingStatus("processing");
+            knowledge.setProcessingStatus(ProcessingStatus.PROCESSING.getCode());
             knowledge.setStatus(1);
             updateById(knowledge);
 
@@ -1736,11 +1799,11 @@ public class KnowledgeBaseServiceImpl extends ServiceImpl<KnowledgeBaseMapper, K
                     break;
                 case "xlsx":
                 case "xls":
-                    processExcelDocument(knowledge); // Excel暂时使用旧逻辑
+                    processExcelDocument(knowledge, config); // Excel 使用 config（P2-2 阶段 2 修复）
                     break;
                 case "pptx":
                 case "ppt":
-                    processPowerPointDocument(knowledge); // PPT使用POI解析
+                    processPowerPointDocument(knowledge, config); // PPT 使用 config（P2-2 阶段 2 修复）
                     break;
                 default:
                     log.warn("⚠️ 不支持的文件类型: {}", fileType);
@@ -1766,10 +1829,10 @@ public class KnowledgeBaseServiceImpl extends ServiceImpl<KnowledgeBaseMapper, K
 
             // 4. 更新数据库状态
             progressService.updateProgress(knowledgeId, 95, "保存处理结果", "完成");
-            knowledge.setProcessingStatus("completed");
+            knowledge.setProcessingStatus(ProcessingStatus.COMPLETED.getCode());
             knowledge.setStatus(2);
             knowledge.setErrorMessage(null); // 清除之前的错误信息
-            knowledge.setProcessTime(LocalDateTime.now());
+            knowledge.setUpdateTime(LocalDateTime.now());
             knowledge.setLastProcessedTime(LocalDateTime.now()); // 增量更新：记录处理时间
             knowledge.setNeedReprocess(false); // 增量更新：标记已处理
             updateById(knowledge);
@@ -1789,7 +1852,7 @@ public class KnowledgeBaseServiceImpl extends ServiceImpl<KnowledgeBaseMapper, K
             // 更新失败状态
             KnowledgeBase knowledge = getById(knowledgeId);
             if (knowledge != null) {
-                knowledge.setProcessingStatus("failed");
+                knowledge.setProcessingStatus(ProcessingStatus.FAILED.getCode());
                 knowledge.setStatus(3);
                 knowledge.setErrorMessage(e.getMessage());
                 updateById(knowledge);
@@ -2333,7 +2396,7 @@ public class KnowledgeBaseServiceImpl extends ServiceImpl<KnowledgeBaseMapper, K
 
         // 已完成数量
         long completed = allKnowledge.stream()
-            .filter(kb -> "completed".equals(kb.getProcessingStatus()))
+            .filter(kb -> ProcessingStatus.COMPLETED.getCode().equals(kb.getProcessingStatus()))
             .count();
         response.setCompleted((int) completed);
 
@@ -2357,7 +2420,7 @@ public class KnowledgeBaseServiceImpl extends ServiceImpl<KnowledgeBaseMapper, K
 
         // 热门知识库 Top 10
         List<KnowledgeBaseVO> topKnowledge = allKnowledge.stream()
-            .filter(kb -> "completed".equals(kb.getProcessingStatus()))
+            .filter(kb -> ProcessingStatus.COMPLETED.getCode().equals(kb.getProcessingStatus()))
             .sorted((a, b) -> {
                 int usageA = a.getUsageCount() != null ? a.getUsageCount() : 0;
                 int usageB = b.getUsageCount() != null ? b.getUsageCount() : 0;
@@ -2400,7 +2463,7 @@ public class KnowledgeBaseServiceImpl extends ServiceImpl<KnowledgeBaseMapper, K
             throw new BusinessException(ErrorCode.KNOWLEDGE_BASE_NOT_FOUND);
         }
 
-        if (!"completed".equals(knowledge.getProcessingStatus())) {
+        if (!ProcessingStatus.COMPLETED.getCode().equals(knowledge.getProcessingStatus())) {
             log.error("知识库未完成处理 - ID: {}, 状态: {}", id, knowledge.getProcessingStatus());
             throw new BusinessException(ErrorCode.DOCUMENT_NOT_READY, "知识库未完成处理，当前状态：" + knowledge.getProcessingStatus());
         }
@@ -2646,7 +2709,18 @@ public class KnowledgeBaseServiceImpl extends ServiceImpl<KnowledgeBaseMapper, K
     }
 
     /**
-     * 使用知识库配置处理文档
+     * 使用知识库配置处理文档（双轨合并入口）
+     *
+     * <p>双轨合并规则（P2-2 修复）：
+     * <ol>
+     *   <li>读取文档级配置 knowledge_config（实例级覆盖，可能为 null）；</li>
+     *   <li>合并入参 libraryConfig（库级默认）；</li>
+     *   <li>未设字段回退到硬编码默认，保证返回的 kc 永不为 null 且字段完整；</li>
+     *   <li>库级配置的所有冗余字段（含旧版有损转换遗漏的 embeddingModel / rerankModel）全部参与合并。</li>
+     * </ol>
+     *
+     * <p>注意：检索参数（retrievalMode/topK/rerank*）目前是死字段（检索侧实际读 agent 表 + RagConfig），
+     * 此处仅为前端表单兼容而保留，后续阶段会清理。
      */
     @Override
     public void processKnowledgeWithConfig(Long documentId, KnowledgeLibraryConfig config) {
@@ -2656,20 +2730,9 @@ public class KnowledgeBaseServiceImpl extends ServiceImpl<KnowledgeBaseMapper, K
             return;
         }
 
-        // 将KnowledgeLibraryConfig转换为KnowledgeConfig
-        KnowledgeConfig kc = new KnowledgeConfig();
-        kc.setKnowledgeId(documentId);
-        kc.setSegmentMode(config.getSegmentMode());
-        kc.setSegmentSeparator(config.getSegmentSeparator());
-        kc.setSegmentMaxLength(config.getSegmentMaxLength());
-        kc.setSegmentOverlapLength(config.getSegmentOverlapLength());
-        kc.setPreprocessReplaceSpaces(config.getPreprocessReplaceSpaces());
-        kc.setPreprocessRemoveUrls(config.getPreprocessRemoveUrls());
-        kc.setPreprocessRemoveExtraNewlines(config.getPreprocessRemoveExtraNewlines());
-        kc.setIndexMode(config.getIndexMode());
-        kc.setRetrievalMode(config.getRetrievalMode());
-        kc.setRetrievalTopK(config.getRetrievalTopK());
-        kc.setRerankEnabled(config.getRerankEnabled());
+        // 通过 KnowledgeConfigService.resolveEffectiveConfig 完成双轨合并：
+        // 硬编码默认 ← 库级默认 ← 文档级覆盖（修复旧版有损转换丢失 embeddingModel/rerankModel 的 bug）
+        KnowledgeConfig kc = knowledgeConfigService.resolveEffectiveConfig(documentId, config);
 
         try {
             processKnowledge(documentId, kc);
@@ -2814,7 +2877,7 @@ public class KnowledgeBaseServiceImpl extends ServiceImpl<KnowledgeBaseMapper, K
             } else {
                 // 查询所有已完成处理但向量维度为空的知识库
                 LambdaQueryWrapper<KnowledgeBase> wrapper = new LambdaQueryWrapper<>();
-                wrapper.eq(KnowledgeBase::getProcessingStatus, "completed")
+                wrapper.eq(KnowledgeBase::getProcessingStatus, ProcessingStatus.COMPLETED.getCode())
                        .and(w -> w.isNull(KnowledgeBase::getVectorDimension)
                                   .or()
                                   .eq(KnowledgeBase::getVectorDimension, 0));
@@ -2871,35 +2934,24 @@ public class KnowledgeBaseServiceImpl extends ServiceImpl<KnowledgeBaseMapper, K
         try {
             // 从数据库查询配置
             KnowledgeConfig config = knowledgeConfigService.getConfigByKnowledgeId(knowledgeId);
-            
+
             if (config == null) {
-                // 返回默认配置
-                config = new KnowledgeConfig();
+                // 返回默认配置（P2-2 阶段 3：硬编码统一到 KnowledgeDefaults，消除与
+                // KnowledgeConfigServiceImpl.createDefaultConfigObject 的分歧）
+                config = knowledgeDefaults.toKnowledgeConfig();
                 config.setKnowledgeId(knowledgeId);
-                config.setChunkingStrategy("fixed");
-                config.setDocumentType("general");
-                config.setSegmentMaxLength(800);
-                config.setSegmentOverlapLength(150);
-                config.setEnableSmartBoundary(true);
-                config.setFaqChunkSize(400);
-                config.setTechnicalChunkSize(1200);
-                log.debug("使用默认分片配置: 固定大小800字符");
+                log.debug("使用默认分片配置: 固定大小 {} 字符", config.getSegmentMaxLength());
             } else {
-                log.debug("使用知识库配置: 策略={}, 类型={}, 大小={}", 
+                log.debug("使用知识库配置: 策略={}, 类型={}, 大小={}",
                          config.getChunkingStrategy(), config.getDocumentType(), config.getSegmentMaxLength());
             }
-            
+
             return config;
         } catch (Exception e) {
             log.warn("获取知识库配置失败，使用默认配置: {}", e.getMessage());
-            // 返回默认配置
-            KnowledgeConfig config = new KnowledgeConfig();
+            // 返回默认配置（与上方 null 分支保持一致，统一从 KnowledgeDefaults 取值）
+            KnowledgeConfig config = knowledgeDefaults.toKnowledgeConfig();
             config.setKnowledgeId(knowledgeId);
-            config.setChunkingStrategy("fixed");
-            config.setDocumentType("general");
-            config.setSegmentMaxLength(800);
-            config.setSegmentOverlapLength(150);
-            config.setEnableSmartBoundary(true);
             return config;
         }
     }
@@ -2913,29 +2965,48 @@ public class KnowledgeBaseServiceImpl extends ServiceImpl<KnowledgeBaseMapper, K
      * @return 文档分片器
      */
     private DocumentSplitter createAdaptiveDocumentSplitter(Long knowledgeId, String fileName, String contentSample) {
+        // 旧版 3 参重载：内部查 DB 配置（含硬编码默认值）后委托给 4 参版本
+        // 仅被 legacy 路径（processPdfDocumentInternalWithCache / processTextDocument / processWordDocument）调用
+        // 活跃路径（processExcelDocument）已改为显式传 config，不再走此重载
+        KnowledgeConfig config = getKnowledgeConfig(knowledgeId);
+        return createAdaptiveDocumentSplitter(knowledgeId, fileName, contentSample, config);
+    }
+
+    /**
+     * 创建自适应文档分片器（4 参版本，接受外部传入的 config）
+     *
+     * <p>由活跃路径（processKnowledge → processExcelDocument）调用，避免再次查 DB 配置，
+     * 确保使用 resolveEffectiveConfig 解析出的统一配置，与 PDF/Word/Text 处理路径一致（P2-2 阶段 2）
+     *
+     * @param knowledgeId 知识库ID（仅用于日志）
+     * @param fileName 文件名（用于文档类型检测）
+     * @param contentSample 文档内容样本（用于类型检测）
+     * @param config 已解析的有效配置（不能为 null）
+     * @return 文档分片器
+     */
+    private DocumentSplitter createAdaptiveDocumentSplitter(Long knowledgeId, String fileName, String contentSample, KnowledgeConfig config) {
         try {
-            // 1. 获取知识库配置
-            KnowledgeConfig config = getKnowledgeConfig(knowledgeId);
-            
+            // 1. config 由外部传入（已通过 resolveEffectiveConfig 合并），不再查 DB
+
             // 2. 检测文档类型（如果配置为自适应）
             String documentType = config.getDocumentType();
             if ("adaptive".equals(config.getChunkingStrategy())) {
                 documentType = documentTypeDetector.detectDocumentType(fileName, contentSample);
                 log.info("✅ 自动检测文档类型: {} -> {}", fileName, documentType);
             }
-            
+
             // 3. 获取自适应分片大小
             int chunkSize = adaptiveChunkingService.getAdaptiveChunkSize(config, documentType, contentSample);
-            
+
             // 4. 计算重叠大小（15%重叠率）
             int overlapSize = (int) (chunkSize * 0.15);
-            
-            log.info("📄 分片配置: 策略={}, 类型={}, 大小={}, 重叠={}", 
+
+            log.info("📄 分片配置: 策略={}, 类型={}, 大小={}, 重叠={}",
                      config.getChunkingStrategy(), documentType, chunkSize, overlapSize);
-            
+
             // 5. 创建分片器
             return DocumentSplitters.recursive(chunkSize, overlapSize);
-            
+
         } catch (Exception e) {
             log.warn("创建自适应分片器失败，使用默认配置: {}", e.getMessage());
             // 降级到默认配置

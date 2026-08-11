@@ -3,6 +3,7 @@ package com.moyun.ext.ai.service;
 import com.moyun.ext.ai.dto.KnowledgeConfigRequest;
 import com.moyun.ext.ai.entity.KnowledgeConfig;
 import com.moyun.ext.ai.entity.KnowledgeConfigTemplate;
+import com.moyun.ext.ai.entity.KnowledgeLibraryConfig;
 
 import java.util.List;
 
@@ -10,6 +11,12 @@ import java.util.List;
  * 知识库配置服务接口
  *
  * <p>管理知识库处理配置，包括分片策略、预处理规则、配置模板等</p>
+ *
+ * <p><b>双轨配置说明（P2-2）：</b>
+ * 项目存在两套配置表：<code>knowledge_library_config</code>（库级默认）和 <code>knowledge_config</code>（文档级实例）。
+ * 文档级未设字段应继承库级默认，通过 {@link #resolveEffectiveConfig} 实现合并。
+ * 检索参数（retrievalMode/topK/rerank*）目前是死字段（检索侧实际读 agent 表 + 全局 RagConfig），后续会清理。
+ * </p>
  *
  * @author laomao
  */
@@ -54,4 +61,24 @@ public interface KnowledgeConfigService {
      * 根据配置处理文本（应用预处理规则）
      */
     String preprocessText(String text, KnowledgeConfig config);
+
+    /**
+     * 解析文档的"有效配置"（双轨合并）。
+     *
+     * <p>双轨合并规则：
+     * <ol>
+     *   <li>读取文档级配置 {@code knowledge_config}（通过 knowledgeId）；</li>
+     *   <li>读取库级配置 {@code knowledge_library_config}（通过 libraryConfig 参数）；</li>
+     *   <li>文档级非 null 字段优先，null 字段回退库级默认；</li>
+     *   <li>库级也未设的字段，回退到 {@link KnowledgeConfigServiceImpl#createDefaultConfigObject} 的硬编码默认；</li>
+     *   <li>返回合并后的 KnowledgeConfig，保证调用方拿到的配置是完整可用的。</li>
+     * </ol>
+     *
+     * <p>注意：本方法不持久化合并结果，调用方需要时自行 insert/update。
+     *
+     * @param knowledgeId   文档ID（必填，写入返回对象的 knowledgeId 字段）
+     * @param libraryConfig 库级默认配置（可为 null，表示无库级默认，全部回退到硬编码默认）
+     * @return 合并后的有效配置（永不为 null）
+     */
+    KnowledgeConfig resolveEffectiveConfig(Long knowledgeId, KnowledgeLibraryConfig libraryConfig);
 }

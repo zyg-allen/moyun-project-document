@@ -10,7 +10,7 @@ import java.time.LocalDateTime;
  * @author laomao
  */
 @Data
-@TableName("query_history")
+@TableName("ai_query_history")
 public class QueryHistory {
 
     @TableId(type = IdType.AUTO)

@@ -142,4 +142,19 @@ public interface IPortalUserService {
      * @return 绑定的门户用户；未绑定返回 null
      */
     public PortalUser findBoundPortalIdentity(Long sysUserId);
+
+    /**
+     * 查询「名家录」展示用户（首页 /authors 列表）
+     *
+     * <p>三个硬性条件：
+     * <ol>
+     *   <li>已开启公开主页（privacy_profile = 1）</li>
+     *   <li>已认证创作者且审核通过（is_certified_creator = 1）</li>
+     *   <li>至少发布过 1 篇已发布文章</li>
+     * </ol>
+     *
+     * @param limit 取前 N 条
+     * @return 符合条件的用户列表
+     */
+    List<PortalUser> selectAuthors(int limit);
 }

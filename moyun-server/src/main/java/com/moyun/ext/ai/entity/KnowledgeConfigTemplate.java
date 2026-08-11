@@ -12,7 +12,7 @@ import java.time.LocalDateTime;
  * @author laomao
  */
 @Data
-@TableName("knowledge_config_template")
+@TableName("ai_knowledge_config_template")
 public class KnowledgeConfigTemplate {
 
     @TableId(type = IdType.AUTO)

@@ -6,6 +6,7 @@ import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
+import org.apache.ibatis.annotations.Select;
 
 import com.moyun.portal.domain.entity.PortalUser;
 import com.moyun.portal.domain.query.UserQuery;
@@ -124,4 +125,36 @@ public interface PortalUserMapper extends BaseMapper<PortalUser> {
      * @return 前台用户ID列表
      */
     List<Long> selectBoundPortalUserIds();
+
+    /**
+     * 查询「名家录」展示用户（用于首页 /authors 列表）
+     *
+     * <p>三个硬性条件（用户指令）：
+     * <ol>
+     *   <li>已开启公开主页（privacy_profile = 1）</li>
+     *   <li>已认证创作者且审核通过（is_certified_creator = 1）</li>
+     *   <li>至少发布过 1 篇已发布文章（EXISTS 子查询 portal_article status='published'）</li>
+     * </ol>
+     * 另加常规状态过滤：账号正常（status='0'）+ 未删除（del_flag='0'）。
+     *
+     * <p>排序：按发布文章数倒序，让高产作者靠前；同数量按注册时间倒序。
+     * 文章数等统计字段由 Controller 调用 batchSelectAuthorArticleStats 批量聚合填充，
+     * 此处仅返回 PortalUser 基础字段，避免返回非实体列导致映射混乱。
+     *
+     * @param limit 取前 N 条（前端首页传 10，/authors 页传 100）
+     * @return 符合条件的用户列表
+     */
+    @Select("SELECT u.* " +
+            "FROM portal_user u " +
+            "WHERE u.status = '0' " +
+            "  AND u.del_flag = '0' " +
+            "  AND u.is_certified_creator = 1 " +
+            "  AND u.privacy_profile = 1 " +
+            "  AND EXISTS (" +
+            "    SELECT 1 FROM portal_article a " +
+            "    WHERE a.author_id = u.id AND a.status = 'published'" +
+            "  ) " +
+            "ORDER BY (SELECT COUNT(*) FROM portal_article a WHERE a.author_id = u.id AND a.status = 'published') DESC, u.create_time DESC " +
+            "LIMIT #{limit}")
+    List<PortalUser> selectAuthors(@Param("limit") int limit);
 }

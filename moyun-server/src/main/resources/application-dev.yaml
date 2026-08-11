@@ -6,7 +6,9 @@ spring:
   datasource:
     type: com.alibaba.druid.pool.DruidDataSource
     driver-class-name: com.mysql.cj.jdbc.Driver
-    url: ${MYSQL_URL:jdbc:mysql://localhost:3306/moyun-db?useUnicode=true&characterEncoding=utf-8&useSSL=false&serverTimezone=Asia/Shanghai}
+    # rewriteBatchedStatements=true：开启 MyBatis-Plus saveBatch/updateBatchById 批量重写为单条 multi-value SQL
+    # cachePrepStmts / prepStmtCacheSize / useServerPrepStmts：开启 PreparedStatement 服务端缓存，提升高频小查询性能
+    url: ${MYSQL_URL:jdbc:mysql://localhost:3306/moyun-db2?useUnicode=true&characterEncoding=utf-8&useSSL=false&serverTimezone=Asia/Shanghai&rewriteBatchedStatements=true&cachePrepStmts=true&prepStmtCacheSize=250&prepStmtCacheSqlLimit=2048&useServerPrepStmts=true&allowPublicKeyRetrieval=true}
     username: ${MYSQL_USERNAME:root}
     password: ${MYSQL_PASSWORD:123456}
     druid:
@@ -98,6 +100,13 @@ token:
 # =============================================
 moyun:
   profile: /profile            # 本地文件存储路径
+  # 慢 SQL 治理配置
+  slow-sql:
+    # 慢 SQL 告警阈值（毫秒）：
+    # - 用于 AI 模块 DataQueryServiceImpl 的 Text-to-SQL 执行耗时监控
+    # - 配合 Druid filter.stat.slow-sql-millis（5000ms）形成双重防护，DataQueryServiceImpl 阈值更严格以提前发现问题
+    # - 触发后输出到 SLOW_SQL 专用 logger，归档至 slow-sql.log
+    threshold-millis: 3000
 
 # =============================================
 # MyBatis-Plus 配置
@@ -228,6 +237,33 @@ moyun-ai:
   storage:
     knowledge-base-dir: ${MOYUN_KB_DIR:${moyun.profile}/ai/knowledge}
     image-dir: ${MOYUN_IMG_DIR:${moyun.profile}/ai/images}
+
+  # 知识库默认参数（P2-2 阶段 3：与 KnowledgeDefaults.java 字段对齐）
+  # 统一 KnowledgeConfigServiceImpl / KnowledgeBaseServiceImpl / KnowledgeLibraryServiceImpl 三处硬编码默认值
+  # 层级合并优先级：本配置（兜底基线）← 库级默认 ← 文档级覆盖
+  knowledge-defaults:
+    # 分片配置
+    segment-mode: general              # general(通用) / parent_child(父子分段)
+    segment-separator: "\n\n"
+    segment-max-length: 800            # 推荐 400-800
+    segment-overlap-length: 100        # 推荐 50-100
+    # 文档级类型化策略（仅文档级有效，库级无此字段）
+    chunking-strategy: fixed           # fixed(固定大小) / adaptive(自适应) / document_type(按文档类型)
+    document-type: general             # general / faq / table / code / technical
+    faq-chunk-size: 400
+    technical-chunk-size: 1200
+    enable-smart-boundary: true
+    # 预处理配置
+    preprocess-replace-spaces: true
+    preprocess-remove-urls: true
+    preprocess-remove-extra-newlines: true
+    # 索引配置
+    index-mode: high_quality           # high_quality(高质量) / economy(经济)
+    # 检索配置（注：检索侧实际读 agent 表 + rag 配置，本字段保留以兼容前端表单）
+    retrieval-mode: hybrid             # vector(向量) / keyword(关键词) / hybrid(混合)
+    retrieval-top-k: 10
+    rerank-enabled: false
+
   # 速率限制
   rate-limit:
     chat-requests-per-minute: 60

@@ -15,7 +15,7 @@ import java.time.LocalDateTime;
  * @author laomao
  */
 @Data
-@TableName("document_image")
+@TableName("ai_document_image")
 public class DocumentImage {
 
     @TableId(type = IdType.AUTO)

@@ -1,5 +1,6 @@
 package com.moyun.ext.ai.service.impl.chat;
 
+import com.moyun.ext.ai.enums.ConversationRole;
 import com.moyun.ext.ai.service.ChatHistoryService;
 import com.moyun.ext.ai.service.ConversationService;
 import com.moyun.ext.ai.service.chat.ChatMessagePersistenceService;
@@ -60,7 +61,7 @@ public class ChatMessagePersistenceImpl implements ChatMessagePersistenceService
         }
 
         try {
-            conversationService.addMessage(conversationId, "user", userMessage, null);
+            conversationService.addMessage(conversationId, ConversationRole.USER.getCode(), userMessage, null);
             log.info("✅ 保存用户消息到数据库");
         } catch (Exception e) {
             log.error("❌ 保存用户消息失败", e);
@@ -104,7 +105,7 @@ public class ChatMessagePersistenceImpl implements ChatMessagePersistenceService
             }
 
             // 保存到数据库
-            conversationService.addMessage(conversationId, "assistant", cleanedResponse, referenceSources);
+            conversationService.addMessage(conversationId, ConversationRole.ASSISTANT.getCode(), cleanedResponse, referenceSources);
             log.info("✅ 对话消息已保存到数据库: conversationId={}", conversationId);
 
             return cleanedResponse;

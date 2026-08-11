@@ -4,12 +4,14 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.moyun.ext.ai.config.KnowledgeDefaults;
 import com.moyun.ext.ai.dto.KnowledgeLibraryDTO;
 import com.moyun.ext.ai.exception.BusinessException;
 import com.moyun.ext.ai.exception.ErrorCode;
 import com.moyun.ext.ai.entity.KnowledgeBase;
 import com.moyun.ext.ai.entity.KnowledgeLibrary;
 import com.moyun.ext.ai.entity.KnowledgeLibraryConfig;
+import com.moyun.ext.ai.enums.ProcessingStatus;
 import com.moyun.ext.ai.mapper.KnowledgeLibraryConfigMapper;
 import com.moyun.ext.ai.mapper.KnowledgeLibraryMapper;
 import com.moyun.ext.ai.service.KnowledgeBaseService;
@@ -46,6 +48,13 @@ public class KnowledgeLibraryServiceImpl extends ServiceImpl<KnowledgeLibraryMap
     @Autowired
     private ObjectMapper objectMapper;
 
+    /**
+     * 知识库默认参数（P2-2 阶段 3）：统一 {@code createLibrary} 和 {@code applyTemplateConfig}
+     * 的硬编码默认值，与 {@code KnowledgeConfigServiceImpl.createDefaultConfigObject} 共用同一套默认值。
+     */
+    @Autowired
+    private KnowledgeDefaults knowledgeDefaults;
+
     @Override
     @Transactional(rollbackFor = Exception.class)
     public Long createLibrary(KnowledgeLibraryDTO dto) {
@@ -63,8 +72,8 @@ public class KnowledgeLibraryServiceImpl extends ServiceImpl<KnowledgeLibraryMap
         library.setHitCount(0);
         library.setStatus("active");
         library.setIsPublic(true);
-        library.setCreatedAt(LocalDateTime.now());
-        library.setUpdatedAt(LocalDateTime.now());
+        library.setCreateTime(LocalDateTime.now());
+        library.setUpdateTime(LocalDateTime.now());
 
         this.save(library);
         log.info("知识库创建成功, ID: {}", library.getId());
@@ -77,20 +86,21 @@ public class KnowledgeLibraryServiceImpl extends ServiceImpl<KnowledgeLibraryMap
         if (dto.getTemplateId() != null) {
             applyTemplateConfig(config, dto.getTemplateId());
         } else {
-            // 使用DTO中的配置或默认值
-            config.setSegmentMode(dto.getSegmentMode() != null ? dto.getSegmentMode() : "general");
-            config.setSegmentMaxLength(dto.getSegmentMaxLength() != null ? dto.getSegmentMaxLength() : 800);
-            config.setSegmentOverlapLength(dto.getSegmentOverlapLength() != null ? dto.getSegmentOverlapLength() : 100);
-            config.setIndexMode(dto.getIndexMode() != null ? dto.getIndexMode() : "high_quality");
-            config.setRetrievalMode(dto.getRetrievalMode() != null ? dto.getRetrievalMode() : "hybrid");
-            config.setRetrievalTopK(dto.getRetrievalTopK() != null ? dto.getRetrievalTopK() : 10);
-            config.setRerankEnabled(dto.getRerankEnabled() != null ? dto.getRerankEnabled() : false);
-            config.setPreprocessReplaceSpaces(dto.getPreprocessReplaceSpaces() != null ? dto.getPreprocessReplaceSpaces() : true);
-            config.setPreprocessRemoveUrls(dto.getPreprocessRemoveUrls() != null ? dto.getPreprocessRemoveUrls() : true);
-            config.setPreprocessRemoveExtraNewlines(dto.getPreprocessRemoveExtraNewlines() != null ? dto.getPreprocessRemoveExtraNewlines() : true);
+            // 使用DTO中的配置或默认值（P2-2 阶段 3：默认值统一从 KnowledgeDefaults 读取，
+            // 消除散落在 createLibrary / applyTemplateConfig / KnowledgeConfigServiceImpl 的硬编码分歧）
+            config.setSegmentMode(dto.getSegmentMode() != null ? dto.getSegmentMode() : knowledgeDefaults.getSegmentMode());
+            config.setSegmentMaxLength(dto.getSegmentMaxLength() != null ? dto.getSegmentMaxLength() : knowledgeDefaults.getSegmentMaxLength());
+            config.setSegmentOverlapLength(dto.getSegmentOverlapLength() != null ? dto.getSegmentOverlapLength() : knowledgeDefaults.getSegmentOverlapLength());
+            config.setIndexMode(dto.getIndexMode() != null ? dto.getIndexMode() : knowledgeDefaults.getIndexMode());
+            config.setRetrievalMode(dto.getRetrievalMode() != null ? dto.getRetrievalMode() : knowledgeDefaults.getRetrievalMode());
+            config.setRetrievalTopK(dto.getRetrievalTopK() != null ? dto.getRetrievalTopK() : knowledgeDefaults.getRetrievalTopK());
+            config.setRerankEnabled(dto.getRerankEnabled() != null ? dto.getRerankEnabled() : knowledgeDefaults.getRerankEnabled());
+            config.setPreprocessReplaceSpaces(dto.getPreprocessReplaceSpaces() != null ? dto.getPreprocessReplaceSpaces() : knowledgeDefaults.getPreprocessReplaceSpaces());
+            config.setPreprocessRemoveUrls(dto.getPreprocessRemoveUrls() != null ? dto.getPreprocessRemoveUrls() : knowledgeDefaults.getPreprocessRemoveUrls());
+            config.setPreprocessRemoveExtraNewlines(dto.getPreprocessRemoveExtraNewlines() != null ? dto.getPreprocessRemoveExtraNewlines() : knowledgeDefaults.getPreprocessRemoveExtraNewlines());
         }
 
-        config.setSegmentSeparator("\n\n");
+        config.setSegmentSeparator(knowledgeDefaults.getSegmentSeparator());
         config.setCreatedAt(LocalDateTime.now());
         config.setUpdatedAt(LocalDateTime.now());
 
@@ -119,7 +129,7 @@ public class KnowledgeLibraryServiceImpl extends ServiceImpl<KnowledgeLibraryMap
         if (dto.getIcon() != null) {
             library.setIcon(dto.getIcon());
         }
-        library.setUpdatedAt(LocalDateTime.now());
+        library.setUpdateTime(LocalDateTime.now());
 
         this.updateById(library);
 
@@ -186,7 +196,7 @@ public class KnowledgeLibraryServiceImpl extends ServiceImpl<KnowledgeLibraryMap
         List<KnowledgeBase> documents = knowledgeBaseService.list(
                 new LambdaQueryWrapper<KnowledgeBase>()
                         .eq(KnowledgeBase::getLibraryId, libraryId)
-                        .orderByDesc(KnowledgeBase::getUploadTime)
+                        .orderByDesc(KnowledgeBase::getCreateTime)
         );
 
         List<KnowledgeLibraryVO.DocumentVO> docVOs = documents.stream()
@@ -212,7 +222,7 @@ public class KnowledgeLibraryServiceImpl extends ServiceImpl<KnowledgeLibraryMap
             wrapper.and(w -> w.like(KnowledgeLibrary::getName, keyword)
                     .or().like(KnowledgeLibrary::getDescription, keyword));
         }
-        wrapper.orderByDesc(KnowledgeLibrary::getCreatedAt);
+        wrapper.orderByDesc(KnowledgeLibrary::getCreateTime);
 
         Page<KnowledgeLibrary> result = this.page(pageParam, wrapper);
 
@@ -355,6 +365,11 @@ public class KnowledgeLibraryServiceImpl extends ServiceImpl<KnowledgeLibraryMap
         // 格式化文件大小
         vo.setTotalSizeFormatted(formatFileSize(library.getTotalSize()));
 
+        // 时间字段显式映射：实体（createTime/updateTime，继承自 AiBaseEntity）
+        // → VO（createdAt/updatedAt，保持前端 API 契约，P3-2 Phase 2）
+        vo.setCreatedAt(library.getCreateTime());
+        vo.setUpdatedAt(library.getUpdateTime());
+
         return vo;
     }
 
@@ -370,8 +385,11 @@ public class KnowledgeLibraryServiceImpl extends ServiceImpl<KnowledgeLibraryMap
         vo.setStatus(doc.getStatus());
         vo.setProcessingStatus(doc.getProcessingStatus());
         vo.setErrorMessage(doc.getErrorMessage());
-        vo.setUploadTime(doc.getUploadTime());
-        vo.setProcessTime(doc.getProcessTime());
+        // VO 字段名保持不变以维持前端 API 契约（P3-2 Phase 2）：
+        //   uploadTime ← doc.createTime（原 upload_time，117 脚本重命名）
+        //   processTime ← doc.updateTime（原 process_time，117 脚本重命名）
+        vo.setUploadTime(doc.getCreateTime());
+        vo.setProcessTime(doc.getUpdateTime());
         return vo;
     }
 
@@ -389,17 +407,17 @@ public class KnowledgeLibraryServiceImpl extends ServiceImpl<KnowledgeLibraryMap
 
     private void applyTemplateConfig(KnowledgeLibraryConfig config, Long templateId) {
         // TODO: 从模板表获取配置并应用
-        // 这里先使用默认值
-        config.setSegmentMode("general");
-        config.setSegmentMaxLength(800);
-        config.setSegmentOverlapLength(100);
-        config.setIndexMode("high_quality");
-        config.setRetrievalMode("hybrid");
-        config.setRetrievalTopK(10);
-        config.setRerankEnabled(false);
-        config.setPreprocessReplaceSpaces(true);
-        config.setPreprocessRemoveUrls(true);
-        config.setPreprocessRemoveExtraNewlines(true);
+        // 这里先使用默认值（P2-2 阶段 3：统一从 KnowledgeDefaults 读取，与 createLibrary 保持一致）
+        config.setSegmentMode(knowledgeDefaults.getSegmentMode());
+        config.setSegmentMaxLength(knowledgeDefaults.getSegmentMaxLength());
+        config.setSegmentOverlapLength(knowledgeDefaults.getSegmentOverlapLength());
+        config.setIndexMode(knowledgeDefaults.getIndexMode());
+        config.setRetrievalMode(knowledgeDefaults.getRetrievalMode());
+        config.setRetrievalTopK(knowledgeDefaults.getRetrievalTopK());
+        config.setRerankEnabled(knowledgeDefaults.getRerankEnabled());
+        config.setPreprocessReplaceSpaces(knowledgeDefaults.getPreprocessReplaceSpaces());
+        config.setPreprocessRemoveUrls(knowledgeDefaults.getPreprocessRemoveUrls());
+        config.setPreprocessRemoveExtraNewlines(knowledgeDefaults.getPreprocessRemoveExtraNewlines());
     }
 
     @Override
@@ -413,7 +431,7 @@ public class KnowledgeLibraryServiceImpl extends ServiceImpl<KnowledgeLibraryMap
         // 获取知识库下所有已完成处理的文档ID
         LambdaQueryWrapper<KnowledgeBase> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(KnowledgeBase::getLibraryId, libraryId)
-               .eq(KnowledgeBase::getProcessingStatus, "completed");
+               .eq(KnowledgeBase::getProcessingStatus, ProcessingStatus.COMPLETED.getCode());
         List<KnowledgeBase> documents = knowledgeBaseService.list(wrapper);
 
         if (documents.isEmpty()) {
@@ -434,6 +452,9 @@ public class KnowledgeLibraryServiceImpl extends ServiceImpl<KnowledgeLibraryMap
         // 更新知识库使用统计
         library.setUsageCount((library.getUsageCount() != null ? library.getUsageCount() : 0) + 1);
         library.setLastUsedTime(LocalDateTime.now());
+        // 兜底设置时间戳（AiBaseEntity 的 @TableField(fill=INSERT_UPDATE) 也会兜底，
+        // 此处显式赋值保证语义明确，P3-2 Phase 2）
+        library.setUpdateTime(LocalDateTime.now());
         updateById(library);
 
         return results;

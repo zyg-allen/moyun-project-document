@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.moyun.ext.ai.constant.RedisKeys;
 import com.moyun.ext.ai.entity.ModelConfig;
+import com.moyun.ext.ai.enums.ModelType;
 import com.moyun.ext.ai.exception.BusinessException;
 import com.moyun.ext.ai.exception.ErrorCode;
 import com.moyun.ext.ai.mapper.ModelConfigMapper;
@@ -29,6 +30,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import java.time.Duration;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import jakarta.annotation.PostConstruct;
@@ -170,7 +172,7 @@ public class ModelConfigServiceImpl extends ServiceImpl<ModelConfigMapper, Model
             throw new BusinessException(ErrorCode.MODEL_NOT_FOUND, "模型配置不存在或未启用");
         }
 
-        if (!"embedding".equals(config.getModelType())) {
+        if (!ModelType.EMBEDDING.getCode().equals(config.getModelType())) {
             throw new BusinessException(ErrorCode.MODEL_CONFIG_INVALID, "该配置不是 Embedding 模型");
         }
 
@@ -184,7 +186,7 @@ public class ModelConfigServiceImpl extends ServiceImpl<ModelConfigMapper, Model
             throw new BusinessException(ErrorCode.MODEL_NOT_FOUND, "模型配置不存在或未启用");
         }
 
-        if (!"reranker".equals(config.getModelType())) {
+        if (!ModelType.RERANKER.getCode().equals(config.getModelType())) {
             throw new BusinessException(ErrorCode.MODEL_CONFIG_INVALID, "该配置不是 Reranker 模型");
         }
 
@@ -193,17 +195,17 @@ public class ModelConfigServiceImpl extends ServiceImpl<ModelConfigMapper, Model
 
     @Override
     public ModelConfig getDefaultChatConfig() {
-        return getDefaultConfigByType("chat");
+        return getDefaultConfigByType(ModelType.CHAT.getCode());
     }
 
     @Override
     public ModelConfig getDefaultEmbeddingConfig() {
-        return getDefaultConfigByType("embedding");
+        return getDefaultConfigByType(ModelType.EMBEDDING.getCode());
     }
 
     @Override
     public ModelConfig getDefaultRerankConfig() {
-        return getDefaultConfigByType("reranker");
+        return getDefaultConfigByType(ModelType.RERANKER.getCode());
     }
 
     @Override
@@ -219,7 +221,7 @@ public class ModelConfigServiceImpl extends ServiceImpl<ModelConfigMapper, Model
         // 如果默认模型不支持图片，查找第一个支持图片的 chat 模型
         log.info("🔍 默认chat模型不支持图片，查找VL模型...");
         LambdaQueryWrapper<ModelConfig> wrapper = new LambdaQueryWrapper<>();
-        wrapper.eq(ModelConfig::getModelType, "chat")
+        wrapper.eq(ModelConfig::getModelType, ModelType.CHAT.getCode())
                 .eq(ModelConfig::getEnabled, true)
                 .and(w -> w.like(ModelConfig::getModelName, "-vl")
                         .or().like(ModelConfig::getModelName, "vl-")
@@ -371,8 +373,18 @@ public class ModelConfigServiceImpl extends ServiceImpl<ModelConfigMapper, Model
      */
     @Override
     public boolean save(ModelConfig entity) {
-        if (entity != null && entity.getApiKey() != null) {
-            entity.setApiKey(ApiKeyCryptoUtils.encrypt(entity.getApiKey()));
+        if (entity != null) {
+            // 兜底设置时间戳（ModelConfig 无 @TableField(fill) 注解）
+            LocalDateTime now = LocalDateTime.now();
+            if (entity.getCreateTime() == null) {
+                entity.setCreateTime(now);
+            }
+            if (entity.getUpdateTime() == null) {
+                entity.setUpdateTime(now);
+            }
+            if (entity.getApiKey() != null) {
+                entity.setApiKey(ApiKeyCryptoUtils.encrypt(entity.getApiKey()));
+            }
         }
         return super.save(entity);
     }
@@ -383,9 +395,19 @@ public class ModelConfigServiceImpl extends ServiceImpl<ModelConfigMapper, Model
     @Override
     public boolean saveBatch(java.util.Collection<ModelConfig> entityList) {
         if (entityList != null) {
+            LocalDateTime now = LocalDateTime.now();
             entityList.forEach(e -> {
-                if (e != null && e.getApiKey() != null) {
-                    e.setApiKey(ApiKeyCryptoUtils.encrypt(e.getApiKey()));
+                if (e != null) {
+                    // 兜底设置时间戳（ModelConfig 无 @TableField(fill) 注解）
+                    if (e.getCreateTime() == null) {
+                        e.setCreateTime(now);
+                    }
+                    if (e.getUpdateTime() == null) {
+                        e.setUpdateTime(now);
+                    }
+                    if (e.getApiKey() != null) {
+                        e.setApiKey(ApiKeyCryptoUtils.encrypt(e.getApiKey()));
+                    }
                 }
             });
         }
@@ -404,7 +426,12 @@ public class ModelConfigServiceImpl extends ServiceImpl<ModelConfigMapper, Model
      */
     @Override
     public boolean updateById(ModelConfig entity) {
-        if (entity != null && entity.getApiKey() != null) {
+        if (entity != null) {
+            // 兜底设置时间戳（ModelConfig 无 @TableField(fill) 注解）
+            if (entity.getUpdateTime() == null) {
+                entity.setUpdateTime(LocalDateTime.now());
+            }
+            if (entity.getApiKey() != null) {
             String newApiKey = entity.getApiKey();
             // 掩码格式判断：含 **** 且非 ENC: 前缀
             boolean isMasked = newApiKey.contains("****") && !ApiKeyCryptoUtils.isEncrypted(newApiKey);
@@ -421,6 +448,7 @@ public class ModelConfigServiceImpl extends ServiceImpl<ModelConfigMapper, Model
                 entity.setApiKey(ApiKeyCryptoUtils.encrypt(newApiKey));
             }
             // 若已经是 ENC: 前缀（理论上不会从前端传入），原样保留
+            }
         }
         boolean result = super.updateById(entity);
         if (result) {

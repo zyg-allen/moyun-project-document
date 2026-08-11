@@ -1,6 +1,7 @@
 package com.moyun.portal.mapper;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
+import org.apache.ibatis.annotations.Insert;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
@@ -63,7 +64,7 @@ public interface PortalUserGrowthMapper extends BaseMapper<PortalUserGrowth> {
     /**
      * 插入（如果不存在）
      */
-    @Update("INSERT IGNORE INTO portal_user_growth (user_id, growth_value, level, title, season_value) VALUES (#{userId}, 0, 1, '初出茅庐', 0)")
+    @Insert("INSERT IGNORE INTO portal_user_growth (user_id, growth_value, level, title, season_value) VALUES (#{userId}, 0, 1, '初出茅庐', 0)")
     int insertIfNotExists(@Param("userId") Long userId);
 
     /**

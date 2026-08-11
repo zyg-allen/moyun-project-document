@@ -21,7 +21,7 @@ import java.time.LocalDateTime;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-@TableName("workflow_execution")
+@TableName("ai_workflow_execution")
 public class WorkflowExecution {
 
     @TableId(type = IdType.AUTO)
@@ -67,7 +67,7 @@ public class WorkflowExecution {
     @Builder
     @NoArgsConstructor
     @AllArgsConstructor
-    @TableName("token_usage_log")
+    @TableName("ai_token_usage_log")
     public static class TokenUsageLog {
 
         @TableId(type = IdType.AUTO)
@@ -156,7 +156,7 @@ public class WorkflowExecution {
     @Builder
     @NoArgsConstructor
     @AllArgsConstructor
-    @TableName("token_usage_summary")
+    @TableName("ai_token_usage_summary")
     public static class TokenUsageSummary {
 
         @TableId(type = IdType.AUTO)

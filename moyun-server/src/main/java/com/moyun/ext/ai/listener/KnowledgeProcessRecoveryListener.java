@@ -2,6 +2,7 @@ package com.moyun.ext.ai.listener;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.moyun.ext.ai.entity.KnowledgeBase;
+import com.moyun.ext.ai.enums.ProcessingStatus;
 import com.moyun.ext.ai.service.KnowledgeBaseService;
 import com.moyun.ext.ai.service.KnowledgeConfigService;
 import lombok.extern.slf4j.Slf4j;
@@ -43,7 +44,7 @@ public class KnowledgeProcessRecoveryListener {
         try {
             // 查询所有处理中的知识库
             LambdaQueryWrapper<KnowledgeBase> wrapper = new LambdaQueryWrapper<>();
-            wrapper.eq(KnowledgeBase::getProcessingStatus, "processing")
+            wrapper.eq(KnowledgeBase::getProcessingStatus, ProcessingStatus.PROCESSING.getCode())
                    .eq(KnowledgeBase::getConfigCompleted, true);
 
             List<KnowledgeBase> processingList = knowledgeBaseService.list(wrapper);
@@ -65,7 +66,7 @@ public class KnowledgeProcessRecoveryListener {
                 if (config == null) {
                     log.warn("⚠️ 配置不存在，跳过 - ID={}", knowledge.getId());
                     // 更新为失败状态
-                    knowledge.setProcessingStatus("failed");
+                    knowledge.setProcessingStatus(ProcessingStatus.FAILED.getCode());
                     knowledge.setStatus(3);
                     knowledge.setErrorMessage("配置丢失");
                     knowledgeBaseService.updateById(knowledge);
@@ -83,7 +84,7 @@ public class KnowledgeProcessRecoveryListener {
 
                         KnowledgeBase kb = knowledgeBaseService.getById(knowledgeId);
                         if (kb != null) {
-                            kb.setProcessingStatus("completed");
+                            kb.setProcessingStatus(ProcessingStatus.COMPLETED.getCode());
                             kb.setStatus(2);
                             kb.setErrorMessage(null);
                             knowledgeBaseService.updateById(kb);
@@ -94,7 +95,7 @@ public class KnowledgeProcessRecoveryListener {
 
                         KnowledgeBase kb = knowledgeBaseService.getById(knowledgeId);
                         if (kb != null) {
-                            kb.setProcessingStatus("failed");
+                            kb.setProcessingStatus(ProcessingStatus.FAILED.getCode());
                             kb.setStatus(3);
                             kb.setErrorMessage("恢复处理失败: " + e.getMessage());
                             knowledgeBaseService.updateById(kb);

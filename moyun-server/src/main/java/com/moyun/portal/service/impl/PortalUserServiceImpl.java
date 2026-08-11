@@ -251,6 +251,26 @@ public class PortalUserServiceImpl extends ServiceImpl<PortalUserMapper, PortalU
     }
 
     /**
+     * 查询「名家录」展示用户（首页 /authors 列表）
+     *
+     * <p>三个硬性条件：
+     * <ol>
+     *   <li>已开启公开主页（privacy_profile = 1）</li>
+     *   <li>已认证创作者且审核通过（is_certified_creator = 1）</li>
+     *   <li>至少发布过 1 篇已发布文章</li>
+     * </ol>
+     *
+     * @param limit 取前 N 条
+     * @return 符合条件的用户列表
+     */
+    @Override
+    public List<PortalUser> selectAuthors(int limit) {
+        List<PortalUser> list = portalUserMapper.selectAuthors(limit);
+        list.forEach(this::clearPassword);
+        return list;
+    }
+
+    /**
      * 清空用户对象的 password 字段（双重防护，防止接口泄露密码哈希）
      * 配合 PortalUser 实体上的 @JsonProperty(access = WRITE_ONLY) 使用
      *

@@ -45,9 +45,8 @@ public class AgentVO extends Agent {
         vo.setName(agent.getName());
         vo.setDescription(agent.getDescription());
         vo.setSystemPrompt(agent.getSystemPrompt());
-        vo.setKnowledgeBaseIds(agent.getKnowledgeBaseIds());
-        vo.setKnowledgeLibraryIds(agent.getKnowledgeLibraryIds());  // 新增：知识库ID列表
-        vo.setKnowledgeBaseWeights(agent.getKnowledgeBaseWeights());  // 新增：知识库权重
+        vo.setKnowledgeLibraryIds(agent.getKnowledgeLibraryIds());  // 知识库ID列表
+        vo.setKnowledgeBaseWeights(agent.getKnowledgeBaseWeights());  // 知识库权重
         vo.setModelConfigId(agent.getModelConfigId());  // 新增：模型配置ID
         vo.setTemperature(agent.getTemperature());
         vo.setMaxTokens(agent.getMaxTokens());

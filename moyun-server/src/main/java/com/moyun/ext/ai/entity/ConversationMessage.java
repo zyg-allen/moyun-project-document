@@ -12,7 +12,7 @@ import java.time.LocalDateTime;
  * @author laomao
  */
 @Data
-@TableName("conversation_message")
+@TableName("ai_conversation_message")
 public class ConversationMessage {
 
     @TableId(type = IdType.AUTO)

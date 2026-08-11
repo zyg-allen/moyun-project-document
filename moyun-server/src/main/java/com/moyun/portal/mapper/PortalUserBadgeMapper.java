@@ -1,6 +1,7 @@
 package com.moyun.portal.mapper;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
+import org.apache.ibatis.annotations.Insert;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
@@ -27,7 +28,7 @@ public interface PortalUserBadgeMapper extends BaseMapper<PortalUserBadge> {
     /**
      * 插入徽章（如果不存在）
      */
-    @Update("INSERT IGNORE INTO portal_user_badge (user_id, achievement_id) VALUES (#{userId}, #{achievementId})")
+    @Insert("INSERT IGNORE INTO portal_user_badge (user_id, achievement_id) VALUES (#{userId}, #{achievementId})")
     int insertIfNotExists(@Param("userId") Long userId, @Param("achievementId") Long achievementId);
 
     /**

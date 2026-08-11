@@ -19,7 +19,7 @@ import java.time.LocalDateTime;
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
-@TableName("knowledge_library_config")
+@TableName("ai_knowledge_library_config")
 public class KnowledgeLibraryConfig {
     
     @TableId(type = IdType.AUTO)

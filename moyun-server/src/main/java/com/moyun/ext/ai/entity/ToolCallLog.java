@@ -21,7 +21,7 @@ import java.time.LocalDateTime;
 @Builder
 @AllArgsConstructor
 @NoArgsConstructor
-@TableName("tool_call_log")
+@TableName("ai_tool_call_log")
 public class ToolCallLog {
     
     /**

@@ -60,23 +60,38 @@ public class ResourcesConfig implements WebMvcConfigurer
 
     /**
      * 跨域配置
+     * 通过环境变量 CORS_ALLOWED_ORIGINS 配置允许的源（逗号分隔），默认仅允许本地开发地址
      */
     @Bean
     public CorsFilter corsFilter()
     {
         CorsConfiguration config = new CorsConfiguration();
-        // 设置访问源地址
-        config.addAllowedOriginPattern("*");
+        // 从环境变量读取允许的源，默认仅本地开发
+        String allowedOrigins = System.getenv("CORS_ALLOWED_ORIGINS");
+        if (allowedOrigins != null && !allowedOrigins.trim().isEmpty()) {
+            for (String origin : allowedOrigins.split(",")) {
+                String trimmed = origin.trim();
+                if (!trimmed.isEmpty()) {
+                    config.addAllowedOriginPattern(trimmed);
+                }
+            }
+        } else {
+            // 本地开发默认白名单
+            config.addAllowedOriginPattern("http://localhost:*");
+            config.addAllowedOriginPattern("http://127.0.0.1:*");
+        }
         // 设置访问源请求头
         config.addAllowedHeader("*");
         // 设置访问源请求方法
         config.addAllowedMethod("*");
+        // 允许携带 Cookie
+        config.setAllowCredentials(true);
         // 有效期 1800秒
         config.setMaxAge(1800L);
         // 添加映射路径，拦截一切请求
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", config);
-        // 返回新的CorsFilter
+        // 返回新的 CorsFilter
         return new CorsFilter(source);
     }
 }

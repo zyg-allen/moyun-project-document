@@ -1,1 +1,0 @@
-2026-08-11 15:34:09.723  INFO 19812 --- [main] c.m.e.a.s.impl.KnowledgeBaseServiceImpl  : ✅ 使用动态配置的 Embedding 模型: 通义千问-多模态Embedding (text-embedding-v3)

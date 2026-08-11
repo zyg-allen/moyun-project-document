@@ -48,7 +48,7 @@ spring:
           log-slow-sql: true
         wall:
           config:
-            multi-statement-allow: true
+            multi-statement-allow: false
       # Druid Web 监控页
       web-stat-filter:
         enabled: true

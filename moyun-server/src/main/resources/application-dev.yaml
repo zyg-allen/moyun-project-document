@@ -37,7 +37,7 @@ spring:
           log-slow-sql: true
         wall:
           config:
-            multi-statement-allow: true
+            multi-statement-allow: false
       # Druid Web 监控页
       web-stat-filter:
         enabled: true
@@ -87,13 +87,13 @@ logging:
     org.hibernate.SQL: debug
 
 # =============================================
-# Token 配置（本地环境覆盖）
+# Token 配置（dev 环境覆盖）
 # =============================================
 token:
-  expireTime: 30              # 本地 30 分钟，生产建议 120
-  # 开发环境专用密钥默认值（至少64字符/512位，HS512算法要求），生产环境必须通过 TOKEN_SECRET 环境变量覆盖
-  # 如需自定义：设置环境变量 TOKEN_SECRET 即可覆盖此默认值
-  secret: ${TOKEN_SECRET:moyun-dev-only-secret-key-do-not-use-in-prod-env-at-least-64-chars-2026}
+  expireTime: 30              # dev 30 分钟，生产建议 120
+  # dev 环境必须通过 TOKEN_SECRET 环境变量配置强密钥（至少 64 字符），未配置将 fail-fast 拒绝启动
+  # 如需零配置启动，请使用 local profile：mvn spring-boot:run -Dspring-boot.run.profiles=local
+  secret: ${TOKEN_SECRET:}
 
 # =============================================
 # 墨韵框架配置（本地文件路径覆盖）

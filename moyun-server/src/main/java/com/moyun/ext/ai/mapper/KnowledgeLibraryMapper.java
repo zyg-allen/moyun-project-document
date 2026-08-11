@@ -49,6 +49,6 @@ public interface KnowledgeLibraryMapper extends BaseMapper<KnowledgeLibrary> {
     /**
      * 查询所有活跃的知识库（用于下拉选择）
      */
-    @Select("SELECT id, name, description, icon, category, document_count, status FROM ai_knowledge_library WHERE status = 'active' ORDER BY usage_count DESC, created_at DESC")
+    @Select("SELECT id, name, description, icon, category, document_count, status FROM ai_knowledge_library WHERE status = 'active' ORDER BY usage_count DESC, create_time DESC")
     List<KnowledgeLibrary> selectActiveLibraries();
 }

@@ -43,6 +43,13 @@ public class TokenService {
     @Value("${token.secret:}")
     private String secret;
 
+    // 当前激活 profile（与 TokenConfigValidator 策略对齐）
+    @Value("${spring.profiles.active:default}")
+    private String activeProfile;
+
+    // local 开发环境内置密钥（64字符，HS512），仅当 profile=local 且 TOKEN_SECRET 未配置时生效
+    private static final String LOCAL_DEV_SECRET = "moyun-local-dev-jwt-secret-please-change-this-in-production-env!";
+
     // 令牌有效期（默认30分钟）
     @Value("${token.expireTime}")
     private int expireTime;

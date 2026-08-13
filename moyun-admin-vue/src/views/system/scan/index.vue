@@ -20,17 +20,17 @@
     <el-form :model="queryParams" ref="queryRef" :inline="true" v-show="showSearch" class="search-form">
       <el-form-item label="问题类型" prop="issueType">
         <el-select v-model="queryParams.issueType" placeholder="全部类型" clearable style="width: 160px">
-          <el-option label="数据一致性" value="data_consistency" />
-          <el-option label="孤立记录" value="orphan_record" />
-          <el-option label="配置异常" value="config_error" />
+          <el-option label="敏感词" value="sensitive_word" />
+          <el-option label="待处理超期" value="pending_overdue" />
+          <el-option label="异常" value="anomaly" />
           <el-option label="其他" value="other" />
         </el-select>
       </el-form-item>
       <el-form-item label="状态" prop="status">
         <el-select v-model="queryParams.status" placeholder="全部" clearable style="width: 140px">
           <el-option label="待处理" value="pending" />
-          <el-option label="处理中" value="processing" />
-          <el-option label="已解决" value="resolved" />
+          <el-option label="已处理" value="handled" />
+          <el-option label="已忽略" value="ignored" />
         </el-select>
       </el-form-item>
       <el-form-item>
@@ -53,7 +53,7 @@
           <el-tag size="small" :type="issueTypeTagType(scope.row.issueType)">{{ issueTypeLabel(scope.row.issueType) }}</el-tag>
         </template>
       </el-table-column>
-      <el-table-column label="问题描述" align="left" prop="description" :show-overflow-tooltip="true" min-width="260" />
+      <el-table-column label="问题描述" align="left" prop="issueDesc" :show-overflow-tooltip="true" min-width="260" />
       <el-table-column label="关联任务" align="center" prop="jobName" width="140" />
       <el-table-column label="状态" align="center" width="100">
         <template #default="scope">
@@ -101,21 +101,21 @@ const queryParams = reactive({
 
 function issueTypeLabel(type) {
   const map = {
-    data_consistency: '数据一致性',
-    orphan_record: '孤立记录',
-    config_error: '配置异常',
+    sensitive_word: '敏感词',
+    pending_overdue: '待处理超期',
+    anomaly: '异常',
     other: '其他'
   }
   return map[type] || type || '-'
 }
 function issueTypeTagType(type) {
-  return { data_consistency: 'danger', orphan_record: 'warning', config_error: 'danger', other: 'info' }[type] || 'info'
+  return { sensitive_word: 'danger', pending_overdue: 'warning', anomaly: 'danger', other: 'info' }[type] || 'info'
 }
 function statusLabel(status) {
-  return { pending: '待处理', processing: '处理中', resolved: '已解决' }[status] || status
+  return { pending: '待处理', handled: '已处理', ignored: '已忽略' }[status] || status
 }
 function statusTagType(status) {
-  return { pending: 'warning', processing: 'primary', resolved: 'success' }[status] || 'info'
+  return { pending: 'warning', handled: 'success', ignored: 'info' }[status] || 'info'
 }
 
 async function getList() {

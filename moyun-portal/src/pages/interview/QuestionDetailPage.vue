@@ -8,6 +8,7 @@ import {
 } from 'lucide-vue-next';
 import Breadcrumb from '@/components/Breadcrumb.vue';
 import SiteFooter from '@/components/SiteFooter.vue';
+import CodeEditor from '@/components/CodeEditor.vue';
 import { generateSeo } from '@/utils/seo';
 import {
   getQuestionDetail, submitAnswer, toggleQuestionLike, toggleQuestionBookmark,
@@ -344,18 +345,20 @@ const breadcrumbs = computed(() => [
               </div>
             </div>
 
-            <textarea
+            <CodeEditor
               v-if="answerType === 'code'"
               v-model="codeContent"
-              class="w-full h-64 p-4 border rounded-lg font-mono text-sm bg-gray-900 text-gray-100 focus:outline-none focus:ring-2 focus:ring-[var(--theme-primary)]"
-              style="border-color: var(--theme-border);"
+              :language="language"
+              height="320px"
+              :submit-shortcut="true"
               placeholder="在此输入你的代码解... 例如:&#10;function twoSum(nums, target) {&#10;  // TODO: 你的答案&#10;}"
-            ></textarea>
+              @submit="handleSubmit"
+            />
 
             <textarea
               v-else
               v-model="textContent"
-              class="w-full h-64 p-4 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[var(--theme-primary)]"
+              class="w-full h-64 p-4 border rounded-lg text-sm input-focus"
               style="background-color: var(--theme-bg); color: var(--theme-text); border-color: var(--theme-border);"
               placeholder="在此输入你的分析或文字答案..."
             ></textarea>

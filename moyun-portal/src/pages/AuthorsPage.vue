@@ -44,6 +44,7 @@ const sortOptions = [
 
 // 预计算统计并缓存，避免模板中每张卡片重复调用
 interface UserWithStats extends User {
+  createTime?: string;
   _stats: {
     articles: number;
     views: number;

@@ -20,6 +20,7 @@
     "highlight.js": "^11.9.0",
     "lucide-vue-next": "^0.511.0",
     "marked": "^12.0.0",
+    "monaco-editor": "^0.56.0",
     "pinia": "^3.0.4",
     "quill": "^2.0.2",
     "tailwind-merge": "^3.3.0",

@@ -16,6 +16,7 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.moyun.common.exception.system.ServiceException;
 import com.moyun.ext.cms.domain.vo.UserProfileSnapshotVO;
 import com.moyun.ext.cms.service.IUserProfileSnapshotService;
@@ -85,6 +86,9 @@ import com.moyun.portal.service.IPortalTagService;
 public class PortalInterviewServiceImpl implements IPortalInterviewService {
 
     private static final Logger log = LoggerFactory.getLogger(PortalInterviewServiceImpl.class);
+
+    /** 结构化字段 JSON 解析复用 ObjectMapper（线程安全） */
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
     /** 画像推荐：薄弱点召回上限（避免单路刷屏） */
     private static final int RECO_WEAK_TAG_LIMIT = 3;
@@ -204,6 +208,8 @@ public class PortalInterviewServiceImpl implements IPortalInterviewService {
         qw.eq(PortalInterviewQuestion::getStatus, query.getStatus() == null ? "active" : query.getStatus());
         if (query.getCategoryId() != null) qw.eq(PortalInterviewQuestion::getCategoryId, query.getCategoryId());
         if (StringUtils.isNotEmpty(query.getDifficulty())) qw.eq(PortalInterviewQuestion::getDifficulty, query.getDifficulty());
+        // v6.3 题目结构化：按题型筛选
+        if (StringUtils.isNotEmpty(query.getQuestionType())) qw.eq(PortalInterviewQuestion::getQuestionType, query.getQuestionType());
         if (StringUtils.isNotEmpty(query.getKeyword())) {
             qw.like(PortalInterviewQuestion::getTitle, query.getKeyword()).or().like(PortalInterviewQuestion::getDescription, query.getKeyword());
         }
@@ -330,6 +336,14 @@ public class PortalInterviewServiceImpl implements IPortalInterviewService {
         vo.setHint(entity.getHint());
         vo.setSolution(entity.getSolution());
 
+        // v6.3 题目结构化：填充结构化字段（JSON 字符串解析为对象）
+        vo.setQuestionType(entity.getQuestionType());
+        vo.setExaminePoints(parseStringArray(entity.getExaminePoints()));
+        vo.setAnswerOutline(entity.getAnswerOutline());
+        vo.setScoringCriteria(parseScoringCriteria(entity.getScoringCriteria()));
+        vo.setReferenceAnswer(entity.getReferenceAnswer());
+        vo.setPrerequisiteIds(parseLongArray(entity.getPrerequisiteIds()));
+
         // 我的提交记录
         if (currentUserId != null) {
             List<PortalInterviewSubmission> submissions = submissionMapper.selectSubmissionsByQuestionAndUser(id, currentUserId);
@@ -341,6 +355,71 @@ public class PortalInterviewServiceImpl implements IPortalInterviewService {
             if (tagList != null) vo.setTagList(tagList);
         }
         return vo;
+    }
+
+    /**
+     * 解析 JSON 字符串数组为 List<String>，失败或空返回空列表
+     * 用于 examinePoints 等字段
+     */
+    private List<String> parseStringArray(String json) {
+        if (StringUtils.isEmpty(json)) return Collections.emptyList();
+        try {
+            List<String> list = OBJECT_MAPPER.readValue(json,
+                    OBJECT_MAPPER.getTypeFactory().constructCollectionType(List.class, String.class));
+            return list == null ? Collections.emptyList() : list;
+        } catch (Exception e) {
+            log.warn("[Question] 解析字符串数组失败，原值将忽略：{}", e.getMessage());
+            return Collections.emptyList();
+        }
+    }
+
+    /**
+     * 解析逗号分隔字符串为 List<Long>，用于 prerequisiteIds
+     */
+    private List<Long> parseLongArray(String csv) {
+        if (StringUtils.isEmpty(csv)) return Collections.emptyList();
+        List<Long> result = new ArrayList<>();
+        for (String part : csv.split(",")) {
+            String trimmed = part == null ? "" : part.trim();
+            if (trimmed.isEmpty()) continue;
+            try {
+                result.add(Long.valueOf(trimmed));
+            } catch (NumberFormatException ignored) {
+                // 非数字忽略，避免脏数据导致整列解析失败
+            }
+        }
+        return result;
+    }
+
+    /**
+     * 解析 scoringCriteria JSON 字符串为评分标准列表
+     * 兼容两种形态：字符串数组（仅维度名）与对象数组（dimension/weight/description）
+     */
+    private List<InterviewQuestionDetailVO.ScoringCriterionItem> parseScoringCriteria(String json) {
+        if (StringUtils.isEmpty(json)) return Collections.emptyList();
+        try {
+            List<InterviewQuestionDetailVO.ScoringCriterionItem> list = OBJECT_MAPPER.readValue(json,
+                    OBJECT_MAPPER.getTypeFactory().constructCollectionType(List.class, InterviewQuestionDetailVO.ScoringCriterionItem.class));
+            return list == null ? Collections.emptyList() : list;
+        } catch (Exception e) {
+            // 兼容历史字符串数组形态：尝试按字符串数组解析后降级为仅 dimension
+            try {
+                List<String> dims = OBJECT_MAPPER.readValue(json,
+                        OBJECT_MAPPER.getTypeFactory().constructCollectionType(List.class, String.class));
+                if (dims == null) return Collections.emptyList();
+                List<InterviewQuestionDetailVO.ScoringCriterionItem> fallback = new ArrayList<>();
+                for (String d : dims) {
+                    if (d == null || d.trim().isEmpty()) continue;
+                    InterviewQuestionDetailVO.ScoringCriterionItem item = new InterviewQuestionDetailVO.ScoringCriterionItem();
+                    item.setDimension(d.trim());
+                    fallback.add(item);
+                }
+                return fallback;
+            } catch (Exception ex) {
+                log.warn("[Question] 解析评分标准 JSON 失败，将忽略：{}", ex.getMessage());
+                return Collections.emptyList();
+            }
+        }
     }
 
     @Override

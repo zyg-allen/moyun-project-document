@@ -102,6 +102,43 @@ public class PortalInterviewQuestion extends BaseEntity {
     @Size(min = 0, max = 20, message = "状态长度不能超过20个字符")
     private String status;
 
+    // ============ 结构化字段（v6.3 题目结构化） ============
+
+    /**
+     * 题目类型：bagwen 八股 / algorithm 算法 / system_design 系统设计 / project 项目 / hr HR
+     * 用于题库按类型筛选与练习区交互模式切换（如 algorithm 默认代码作答，bagwen 默认文本作答）
+     */
+    @Size(min = 0, max = 50, message = "题目类型长度不能超过50个字符")
+    private String questionType;
+
+    /**
+     * 考察点列表（JSON 数组字符串，如 ["TCP 三次握手","拥塞控制"]）
+     * 详情页展示，便于面试者快速对齐面试官关注点
+     */
+    private String examinePoints;
+
+    /**
+     * 答题大纲（Markdown 结构化答题思路，如步骤/框架）
+     */
+    private String answerOutline;
+
+    /**
+     * 评分标准（JSON 数组字符串，每项含 dimension/weight/description，用于自评与精选笔记筛选）
+     */
+    private String scoringCriteria;
+
+    /**
+     * 官方参考答案（Markdown），区别于旧字段 solution（纯文本/代码片段）
+     * solution 保留用于代码题的参考代码；referenceAnswer 用于八股/设计/项目/HR 类题目的完整答案
+     */
+    private String referenceAnswer;
+
+    /**
+     * 前置题目 ID，逗号分隔（用于学习路径推荐：未通过前置题则提示先做前置题）
+     */
+    @Size(min = 0, max = 500, message = "前置题目ID长度不能超过500个字符")
+    private String prerequisiteIds;
+
     public PortalInterviewQuestion() {
     }
 

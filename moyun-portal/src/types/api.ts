@@ -1055,6 +1055,8 @@ export interface InterviewQuestionVO {
   title: string;
   description?: string;
   difficulty: 'easy' | 'medium' | 'hard';
+  /** 题目类型：bagwen 八股 / algorithm 算法 / system_design 系统设计 / project 项目 / hr HR（v6.3 题目结构化） */
+  questionType?: QuestionType | string;
   categoryId?: string | number;
   categoryName?: string;
   tags?: string[];
@@ -1076,10 +1078,43 @@ export interface InterviewQuestionVO {
   updateTime?: string;
 }
 
+/**
+ * 题目类型枚举（v6.3 题目结构化）
+ * - bagwen 八股：基础理论，文本作答
+ * - algorithm 算法：编程题，代码作答
+ * - system_design 系统设计：架构方案，文本/图示作答
+ * - project 项目：项目深挖，文本作答
+ * - hr HR：行为面试，文本作答
+ */
+export type QuestionType = 'bagwen' | 'algorithm' | 'system_design' | 'project' | 'hr';
+
+/** 评分标准单条项（v6.3 题目结构化） */
+export interface ScoringCriterionItem {
+  /** 评分维度名称，如"完整性"、"深度"、"代码质量" */
+  dimension: string;
+  /** 权重（百分比 0-100，前端按权重展示进度条） */
+  weight?: number;
+  /** 评分说明 */
+  description?: string;
+}
+
 export interface InterviewQuestionDetailVO extends InterviewQuestionVO {
   hint?: string;
+  /** 参考代码片段（algorithm 类型使用，兼容旧字段） */
   solution?: string;
   mySubmissions?: InterviewSubmissionVO[];
+
+  // ===== 结构化字段（v6.3 题目结构化） =====
+  /** 考察点列表 */
+  examinePoints?: string[];
+  /** 答题大纲（Markdown） */
+  answerOutline?: string;
+  /** 评分标准列表 */
+  scoringCriteria?: ScoringCriterionItem[];
+  /** 官方参考答案（Markdown，八股/设计/项目/HR 类完整答案） */
+  referenceAnswer?: string;
+  /** 前置题目 ID 列表（用于学习路径推荐） */
+  prerequisiteIds?: (string | number)[];
 }
 
 export interface InterviewQuestionQuery {
@@ -1087,6 +1122,8 @@ export interface InterviewQuestionQuery {
   pageSize?: number;
   categoryId?: string | number;
   difficulty?: string;
+  /** 题目类型筛选（v6.3 题目结构化） */
+  questionType?: QuestionType | string;
   keyword?: string;
   companyId?: string | number;
 }

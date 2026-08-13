@@ -4,11 +4,13 @@ import { useRoute, useRouter } from 'vue-router';
 import { useHead } from '@vueuse/head';
 import {
   ChevronDown, ChevronUp, ThumbsUp, Bookmark,
-  Code2, MessageSquare, CheckCircle, XCircle, Clock, Zap, Lightbulb, BookOpen, Star, Award
+  Code2, MessageSquare, CheckCircle, XCircle, Clock, Zap, Lightbulb, BookOpen, Star, Award,
+  Layers, Cpu, GitBranch, FolderKanban, Users, Target, ListChecks, FileText, Link2,
 } from 'lucide-vue-next';
 import Breadcrumb from '@/components/Breadcrumb.vue';
 import SiteFooter from '@/components/SiteFooter.vue';
 import CodeEditor from '@/components/CodeEditor.vue';
+import MarkdownRenderer from '@/components/MarkdownRenderer.vue';
 import { generateSeo } from '@/utils/seo';
 import {
   getQuestionDetail, submitAnswer, toggleQuestionLike, toggleQuestionBookmark,
@@ -32,6 +34,8 @@ const featuredNotes = ref<InterviewSubmissionVO[]>([]);
 
 const showHint = ref(false);
 const showSolution = ref(false);
+const showAnswerOutline = ref(false);
+const showReferenceAnswer = ref(false);
 
 const answerType = ref<'code' | 'text'>('code');
 const language = ref('javascript');
@@ -44,6 +48,24 @@ const difficultyMap: Record<string, { label: string; class: string }> = {
   hard: { label: '困难', class: 'bg-red-100 text-red-700' },
 };
 
+/** 题型展示映射（与题库列表保持一致） */
+const questionTypeMap: Record<string, { label: string; class: string; icon: any }> = {
+  algorithm: { label: '算法', class: 'bg-blue-50 text-blue-600 border border-blue-200', icon: Cpu },
+  bagwen: { label: '八股', class: 'bg-purple-50 text-purple-600 border border-purple-200', icon: BookOpen },
+  system_design: { label: '系统设计', class: 'bg-indigo-50 text-indigo-600 border border-indigo-200', icon: GitBranch },
+  project: { label: '项目', class: 'bg-emerald-50 text-emerald-600 border border-emerald-200', icon: FolderKanban },
+  hr: { label: 'HR', class: 'bg-amber-50 text-amber-600 border border-amber-200', icon: Users },
+};
+
+/** 是否展示结构化字段区（任一结构化字段非空即展示） */
+const hasStructuredFields = computed(() => {
+  if (!question.value) return false;
+  const q = question.value;
+  return !!(q.questionType || (q.examinePoints && q.examinePoints.length) || q.answerOutline
+    || (q.scoringCriteria && q.scoringCriteria.length) || q.referenceAnswer
+    || (q.prerequisiteIds && q.prerequisiteIds.length));
+});
+
 onMounted(() => {
   loadQuestionDetail();
 });
@@ -55,6 +77,12 @@ async function loadQuestionDetail() {
     if (res.code === 200 && res.data) {
       question.value = res.data;
       submissions.value = res.data.mySubmissions?.slice(0, 10) || [];
+      // v6.3 题目结构化：按题型自动切换作答模式（algorithm → 代码，其余 → 文本）
+      if (res.data.questionType && res.data.questionType !== 'algorithm') {
+        answerType.value = 'text';
+      } else {
+        answerType.value = 'code';
+      }
     } else {
       toast.error(res.message || '加载题目失败');
     }
@@ -188,6 +216,14 @@ const breadcrumbs = computed(() => [
               <div class="flex-1">
                 <div class="flex items-center flex-wrap gap-2 mb-3">
                   <span
+                    v-if="question.questionType && questionTypeMap[question.questionType]"
+                    class="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium"
+                    :class="questionTypeMap[question.questionType].class"
+                  >
+                    <component :is="questionTypeMap[question.questionType].icon" class="w-3 h-3 inline mr-1" />
+                    {{ questionTypeMap[question.questionType].label }}
+                  </span>
+                  <span
                     class="px-3 py-1 rounded-full text-xs font-medium"
                     :class="difficultyMap[question.difficulty]?.class || 'bg-[var(--theme-bg)] text-[var(--theme-text-secondary)]'"
                   >
@@ -266,6 +302,52 @@ const breadcrumbs = computed(() => [
             </div>
           </div>
 
+          <!-- 结构化字段：考察点 + 前置题目（v6.3 题目结构化） -->
+          <div
+            v-if="hasStructuredFields && ((question.examinePoints && question.examinePoints.length) || (question.prerequisiteIds && question.prerequisiteIds.length))"
+            class="rounded-xl shadow-sm p-6 mb-6"
+            style="background-color: var(--theme-surface); border: 1px solid var(--theme-border);"
+          >
+            <!-- 考察点 -->
+            <div v-if="question.examinePoints && question.examinePoints.length" class="mb-4 last:mb-0">
+              <h3 class="text-sm font-semibold mb-3 flex items-center" style="color: var(--theme-text);">
+                <Target class="w-4 h-4 mr-2" style="color: var(--theme-primary);" />
+                考察点
+              </h3>
+              <div class="flex flex-wrap gap-2">
+                <span
+                  v-for="(point, idx) in question.examinePoints"
+                  :key="idx"
+                  class="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium"
+                  style="background-color: var(--theme-accent); color: var(--theme-primary);"
+                >
+                  {{ point }}
+                </span>
+              </div>
+            </div>
+
+            <!-- 前置题目（学习路径） -->
+            <div v-if="question.prerequisiteIds && question.prerequisiteIds.length">
+              <h3 class="text-sm font-semibold mb-3 flex items-center" style="color: var(--theme-text);">
+                <Link2 class="w-4 h-4 mr-2" style="color: var(--theme-primary);" />
+                前置题目
+                <span class="text-xs font-normal ml-2" style="color: var(--theme-text-secondary);">建议先完成以下题目再挑战本题</span>
+              </h3>
+              <div class="flex flex-wrap gap-2">
+                <router-link
+                  v-for="pid in question.prerequisiteIds"
+                  :key="pid"
+                  :to="`/interview/question/${pid}`"
+                  class="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium transition hover:opacity-80"
+                  style="background-color: var(--theme-bg); color: var(--theme-text-secondary); border: 1px solid var(--theme-border);"
+                >
+                  <FileText class="w-3 h-3 mr-1" />
+                  题目 #{{ pid }}
+                </router-link>
+              </div>
+            </div>
+          </div>
+
           <!-- Hint -->
           <div v-if="question.hint" class="rounded-xl shadow-sm mb-6 overflow-hidden" style="background-color: var(--theme-surface); border: 1px solid var(--theme-border);">
             <button
@@ -294,13 +376,79 @@ const breadcrumbs = computed(() => [
             >
               <div class="flex items-center" style="color: var(--theme-text);">
                 <CheckCircle class="w-5 h-5 mr-2 text-green-500" />
-                <span class="font-medium">参考答案 (Solution)</span>
+                <span class="font-medium">参考代码 (Solution)</span>
               </div>
               <ChevronDown v-if="!showSolution" class="w-5 h-5" style="color: var(--theme-text-secondary);" />
               <ChevronUp v-else class="w-5 h-5" style="color: var(--theme-text-secondary);" />
             </button>
             <div v-if="showSolution" class="px-6 pb-6 border-t border-[var(--theme-border)] pt-4">
               <pre class="bg-gray-900 text-gray-100 rounded-lg p-4 text-xs overflow-x-auto"><code>{{ question.solution }}</code></pre>
+            </div>
+          </div>
+
+          <!-- 答题大纲（v6.3 题目结构化） -->
+          <div v-if="question.answerOutline" class="rounded-xl shadow-sm mb-6 overflow-hidden" style="background-color: var(--theme-surface); border: 1px solid var(--theme-border);">
+            <button
+              @click="showAnswerOutline = !showAnswerOutline"
+              class="w-full px-6 py-4 flex items-center justify-between hover:bg-[var(--theme-accent)] transition"
+            >
+              <div class="flex items-center" style="color: var(--theme-text);">
+                <ListChecks class="w-5 h-5 mr-2" style="color: var(--theme-primary);" />
+                <span class="font-medium">答题大纲</span>
+              </div>
+              <ChevronDown v-if="!showAnswerOutline" class="w-5 h-5" style="color: var(--theme-text-secondary);" />
+              <ChevronUp v-else class="w-5 h-5" style="color: var(--theme-text-secondary);" />
+            </button>
+            <div v-if="showAnswerOutline" class="px-6 pb-6 border-t border-[var(--theme-border)] pt-4">
+              <MarkdownRenderer editor-mode="markdown" :content-markdown="question.answerOutline" prose-width="normal" />
+            </div>
+          </div>
+
+          <!-- 评分标准（v6.3 题目结构化） -->
+          <div v-if="question.scoringCriteria && question.scoringCriteria.length" class="rounded-xl shadow-sm p-6 mb-6" style="background-color: var(--theme-surface); border: 1px solid var(--theme-border);">
+            <h2 class="text-lg font-semibold mb-4 flex items-center" style="color: var(--theme-text);">
+              <Layers class="w-5 h-5 mr-2" style="color: var(--theme-primary);" />
+              评分标准
+            </h2>
+            <div class="space-y-3">
+              <div
+                v-for="(crit, idx) in question.scoringCriteria"
+                :key="idx"
+                class="border rounded-lg p-4"
+                style="border-color: var(--theme-border); background-color: var(--theme-bg);"
+              >
+                <div class="flex items-center justify-between mb-2">
+                  <span class="text-sm font-medium" style="color: var(--theme-text);">{{ crit.dimension }}</span>
+                  <span
+                    v-if="crit.weight != null"
+                    class="px-2 py-0.5 rounded text-xs font-medium"
+                    style="background-color: var(--theme-accent); color: var(--theme-primary);"
+                  >
+                    权重 {{ crit.weight }}%
+                  </span>
+                </div>
+                <p v-if="crit.description" class="text-xs leading-relaxed" style="color: var(--theme-text-secondary);">
+                  {{ crit.description }}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <!-- 官方参考答案（v6.3 题目结构化） -->
+          <div v-if="question.referenceAnswer" class="rounded-xl shadow-sm mb-6 overflow-hidden" style="background-color: var(--theme-surface); border: 1px solid var(--theme-border);">
+            <button
+              @click="showReferenceAnswer = !showReferenceAnswer"
+              class="w-full px-6 py-4 flex items-center justify-between hover:bg-[var(--theme-accent)] transition"
+            >
+              <div class="flex items-center" style="color: var(--theme-text);">
+                <BookOpen class="w-5 h-5 mr-2 text-green-500" />
+                <span class="font-medium">官方参考答案</span>
+              </div>
+              <ChevronDown v-if="!showReferenceAnswer" class="w-5 h-5" style="color: var(--theme-text-secondary);" />
+              <ChevronUp v-else class="w-5 h-5" style="color: var(--theme-text-secondary);" />
+            </button>
+            <div v-if="showReferenceAnswer" class="px-6 pb-6 border-t border-[var(--theme-border)] pt-4">
+              <MarkdownRenderer editor-mode="markdown" :content-markdown="question.referenceAnswer" prose-width="normal" />
             </div>
           </div>
 

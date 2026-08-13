@@ -52,7 +52,7 @@ public class InterviewCommentAuditBizHandler implements AuditBizHandler {
         detail.put("content", c.getContent());
         detail.put("status", c.getStatus());
         detail.put("userId", c.getUserId());
-        detail.put("username", c.getUsername());
+        detail.put("experienceId", c.getExperienceId());
         detail.put("auditorId", c.getAuditorId());
         detail.put("auditRemark", c.getAuditRemark());
         detail.put("auditTime", c.getAuditTime());

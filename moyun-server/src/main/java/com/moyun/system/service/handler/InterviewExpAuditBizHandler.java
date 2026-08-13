@@ -54,7 +54,6 @@ public class InterviewExpAuditBizHandler implements AuditBizHandler {
         detail.put("content", e.getContent());
         detail.put("status", e.getStatus());
         detail.put("userId", e.getUserId());
-        detail.put("username", e.getUsername());
         detail.put("auditorId", e.getAuditorId());
         detail.put("auditRemark", e.getAuditRemark());
         detail.put("auditTime", e.getAuditTime());

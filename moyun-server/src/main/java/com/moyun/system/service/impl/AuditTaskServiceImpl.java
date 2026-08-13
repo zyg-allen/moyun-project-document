@@ -394,7 +394,27 @@ public class AuditTaskServiceImpl implements IAuditTaskService {
         vo.setPriorityLabel(priorityLabel(task.getPriority()));
         vo.setRoutePath(task.getRoutePath());
         vo.setBizDetail(bizDetail);
+        // 解析 extraData JSON 字段为 Map（举报图片、反馈联系方式等扩展信息）
+        vo.setExtra(parseExtra(task.getExtraData()));
         return vo;
+    }
+
+    /**
+     * 解析 extraData 字段（JSON 字符串）为 Map。
+     */
+    private Map<String, Object> parseExtra(String extraData) {
+        if (extraData == null || extraData.isBlank()) {
+            return null;
+        }
+        try {
+            com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+            @SuppressWarnings("unchecked")
+            Map<String, Object> parsed = mapper.readValue(extraData, Map.class);
+            return parsed;
+        } catch (Exception e) {
+            log.warn("[AuditTask] 解析 extraData 失败: {}", e.getMessage());
+            return null;
+        }
     }
 
     private String priorityLabel(String priority) {

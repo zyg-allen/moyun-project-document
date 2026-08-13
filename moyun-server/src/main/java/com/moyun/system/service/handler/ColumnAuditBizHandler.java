@@ -49,11 +49,13 @@ public class ColumnAuditBizHandler implements AuditBizHandler {
         }
         Map<String, Object> detail = new HashMap<>();
         detail.put("id", c.getId());
-        detail.put("name", c.getName());
+        detail.put("title", c.getTitle());
+        detail.put("subtitle", c.getSubtitle());
         detail.put("description", c.getDescription());
         detail.put("cover", c.getCover());
         detail.put("status", c.getStatus());
-        detail.put("creatorId", c.getCreatorId());
+        detail.put("userId", c.getUserId());
+        detail.put("categoryId", c.getCategoryId());
         detail.put("auditorId", c.getAuditorId());
         detail.put("auditRemark", c.getAuditRemark());
         detail.put("auditTime", c.getAuditTime());

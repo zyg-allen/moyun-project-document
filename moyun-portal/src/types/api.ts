@@ -1146,6 +1146,87 @@ export interface InterviewSubmissionVO {
   userNickname?: string;
   userAvatar?: string;
   createTime?: string;
+  // ===== OJ 判题字段（v6.3） =====
+  passedCaseCount?: number;
+  totalCaseCount?: number;
+  failedCaseId?: string | number;
+  failedCaseInput?: string;
+  failedCaseExpected?: string;
+  failedCaseActual?: string;
+  errorMessage?: string;
+}
+
+// ============ OJ 判题系统类型（v6.3） ============
+
+/** 判题状态码 */
+export type JudgeStatusCode =
+  | 'AC' | 'WA' | 'TLE' | 'MLE' | 'RE' | 'CE' | 'SE' | 'PENDING';
+
+/** 支持的编程语言 */
+export type JudgeLanguage =
+  | 'javascript' | 'typescript' | 'python'
+  | 'java' | 'go' | 'cpp' | 'rust';
+
+/** 测试用例 VO */
+export interface TestCaseVO {
+  id: string | number;
+  questionId: string | number;
+  /** 标准输入（样例可见，隐藏用例为 null） */
+  input?: string;
+  /** 期望输出（样例可见，隐藏用例为 null） */
+  expectedOutput?: string;
+  isSample?: boolean;
+  orderNum?: number;
+  explanation?: string;
+}
+
+/** 单用例判题结果 */
+export interface CaseResultItem {
+  caseId: string | number;
+  caseIndex: number;
+  isSample?: boolean;
+  passed: boolean;
+  runtime?: number;
+  /** 实际输出（仅失败且为样例时回填） */
+  actualOutput?: string;
+  /** 错误信息（仅 RE/TLE 时回填） */
+  errorMessage?: string;
+}
+
+/** 判题结果 VO */
+export interface JudgeResultVO {
+  submissionId?: string | number;
+  /** 判题状态码（AC/WA/TLE/MLE/RE/CE/SE/PENDING） */
+  status: JudgeStatusCode | string;
+  statusName?: string;
+  accepted?: boolean;
+  passedCount: number;
+  totalCount: number;
+  maxRuntime?: number;
+  maxMemory?: number;
+  failedCaseId?: string | number;
+  failedCaseInput?: string;
+  failedCaseExpected?: string;
+  failedCaseActual?: string;
+  errorMessage?: string;
+  caseResults?: CaseResultItem[];
+}
+
+/** 提交判题参数 */
+export interface JudgeSubmitParams {
+  questionId: string | number;
+  code: string;
+  language: JudgeLanguage | string;
+}
+
+/** 用例新增/修改参数（CMS 后台） */
+export interface TestCaseUpsertParams {
+  questionId: string | number;
+  input?: string;
+  expectedOutput: string;
+  isSample?: boolean;
+  orderNum?: number;
+  explanation?: string;
 }
 
 export interface InterviewExperienceVO {

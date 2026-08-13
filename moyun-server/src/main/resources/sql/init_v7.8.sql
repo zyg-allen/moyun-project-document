@@ -2228,6 +2228,13 @@ CREATE TABLE `portal_interview_submission` (
                                                `runtime` int DEFAULT NULL COMMENT '运行时间（毫秒）',
                                                `memory_usage` int DEFAULT NULL COMMENT '内存使用（KB）',
                                                `note` text COMMENT '备注/笔记',
+                                               `passed_case_count` int DEFAULT NULL COMMENT '通过用例数（v6.3 OJ判题）',
+                                               `total_case_count` int DEFAULT NULL COMMENT '总用例数（v6.3 OJ判题）',
+                                               `failed_case_id` bigint DEFAULT NULL COMMENT '首个失败用例ID（v6.3 OJ判题）',
+                                               `failed_case_input` text COMMENT '首个失败用例输入（v6.3 OJ判题，仅样例可见）',
+                                               `failed_case_expected` text COMMENT '首个失败用例期望输出（v6.3 OJ判题）',
+                                               `failed_case_actual` text COMMENT '首个失败用例实际输出（v6.3 OJ判题）',
+                                               `error_message` text COMMENT '编译/运行错误信息（v6.3 OJ判题）',
                                                `create_time` datetime DEFAULT CURRENT_TIMESTAMP COMMENT '提交时间',
                                                `create_by` varchar(64) DEFAULT '' COMMENT '创建者',
                                                `update_by` varchar(64) DEFAULT '' COMMENT '更新者',
@@ -2241,6 +2248,25 @@ CREATE TABLE `portal_interview_submission` (
                                                KEY `idx_user_question` (`user_id`,`question_id`),
                                                KEY `idx_del_flag` (`del_flag`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='题目提交记录表';
+
+--
+-- Table structure for table `portal_interview_question_test_case`
+-- v6.3 OJ 判题系统：题目测试用例表
+--
+DROP TABLE IF EXISTS `portal_interview_question_test_case`;
+CREATE TABLE `portal_interview_question_test_case` (
+                                                      `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键',
+                                                      `question_id` bigint NOT NULL COMMENT '题目ID',
+                                                      `input` text COMMENT '标准输入（运行时通过stdin传入）',
+                                                      `expected_output` text NOT NULL COMMENT '期望输出',
+                                                      `is_sample` tinyint(1) DEFAULT '0' COMMENT '是否样例:1=样例（前端展示）/0=隐藏',
+                                                      `order_num` int DEFAULT '0' COMMENT '用例排序',
+                                                      `explanation` varchar(1000) DEFAULT NULL COMMENT '用例说明',
+                                                      `create_time` datetime DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+                                                      `update_time` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+                                                      PRIMARY KEY (`id`),
+                                                      KEY `idx_question_id` (`question_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='面试题目测试用例表（OJ判题）';
 
 
 --
@@ -6188,6 +6214,95 @@ SET @sql := IF(
   (SELECT COUNT(*) FROM information_schema.STATISTICS
    WHERE TABLE_SCHEMA = @db AND TABLE_NAME = 'portal_interview_question' AND INDEX_NAME = 'idx_question_type') = 0,
   'ALTER TABLE portal_interview_question ADD INDEX idx_question_type (question_type)',
+  'SELECT 1');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+-- =====================================================================
+-- 来源: 119_升级脚本_v6.3_OJ判题系统.sql
+-- =====================================================================
+-- v6.3 升级脚本：OJ 在线判题系统
+-- 适配 MySQL 8.x
+-- 说明：本脚本幂等，可重复执行（使用 information_schema 判断列/表是否存在）
+-- 背景：
+--   1. 题目提交仅记录状态（isPass/score），无真实判题。代码答题无运行结果反馈。
+--   2. 本脚本新增：
+--      a) portal_interview_question_test_case 题目测试用例表（input/expected_output/is_sample/order_num）；
+--      b) portal_interview_submission 表追加 OJ 判题字段：
+--         passed_case_count/total_case_count/failed_case_id/
+--         failed_case_input/failed_case_expected/failed_case_actual/error_message。
+--   3. 业务层（PortalInterviewQuestionTestCase 实体 / PortalJudgeServiceImpl /
+--      ProcessJudgeEngine / PortalJudgeController）已同步实现：判题引擎、用例管理、提交判题。
+--   4. 判题引擎当前为 ProcessBuilder 实现（开发环境），生产环境应替换为 Docker/Firecracker 沙箱。
+-- =====================================================================
+
+-- 2.1 portal_interview_submission.passed_case_count
+SET @col := 'passed_case_count';
+SELECT COUNT(*) INTO @exists FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = @db AND TABLE_NAME = 'portal_interview_submission' AND COLUMN_NAME = @col;
+SET @sql := IF(@exists = 0,
+  'ALTER TABLE portal_interview_submission ADD COLUMN passed_case_count INT NULL COMMENT ''通过用例数'' AFTER note',
+  'SELECT 1');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+-- 2.2 portal_interview_submission.total_case_count
+SET @col := 'total_case_count';
+SELECT COUNT(*) INTO @exists FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = @db AND TABLE_NAME = 'portal_interview_submission' AND COLUMN_NAME = @col;
+SET @sql := IF(@exists = 0,
+  'ALTER TABLE portal_interview_submission ADD COLUMN total_case_count INT NULL COMMENT ''总用例数'' AFTER passed_case_count',
+  'SELECT 1');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+-- 2.3 portal_interview_submission.failed_case_id
+SET @col := 'failed_case_id';
+SELECT COUNT(*) INTO @exists FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = @db AND TABLE_NAME = 'portal_interview_submission' AND COLUMN_NAME = @col;
+SET @sql := IF(@exists = 0,
+  'ALTER TABLE portal_interview_submission ADD COLUMN failed_case_id BIGINT NULL COMMENT ''首个失败用例ID'' AFTER total_case_count',
+  'SELECT 1');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+-- 2.4 portal_interview_submission.failed_case_input
+SET @col := 'failed_case_input';
+SELECT COUNT(*) INTO @exists FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = @db AND TABLE_NAME = 'portal_interview_submission' AND COLUMN_NAME = @col;
+SET @sql := IF(@exists = 0,
+  'ALTER TABLE portal_interview_submission ADD COLUMN failed_case_input TEXT NULL COMMENT ''首个失败用例输入'' AFTER failed_case_id',
+  'SELECT 1');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+-- 2.5 portal_interview_submission.failed_case_expected
+SET @col := 'failed_case_expected';
+SELECT COUNT(*) INTO @exists FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = @db AND TABLE_NAME = 'portal_interview_submission' AND COLUMN_NAME = @col;
+SET @sql := IF(@exists = 0,
+  'ALTER TABLE portal_interview_submission ADD COLUMN failed_case_expected TEXT NULL COMMENT ''首个失败用例期望输出'' AFTER failed_case_input',
+  'SELECT 1');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+-- 2.6 portal_interview_submission.failed_case_actual
+SET @col := 'failed_case_actual';
+SELECT COUNT(*) INTO @exists FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = @db AND TABLE_NAME = 'portal_interview_submission' AND COLUMN_NAME = @col;
+SET @sql := IF(@exists = 0,
+  'ALTER TABLE portal_interview_submission ADD COLUMN failed_case_actual TEXT NULL COMMENT ''首个失败用例实际输出'' AFTER failed_case_expected',
+  'SELECT 1');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+-- 2.7 portal_interview_submission.error_message
+SET @col := 'error_message';
+SELECT COUNT(*) INTO @exists FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = @db AND TABLE_NAME = 'portal_interview_submission' AND COLUMN_NAME = @col;
+SET @sql := IF(@exists = 0,
+  'ALTER TABLE portal_interview_submission ADD COLUMN error_message TEXT NULL COMMENT ''编译/运行错误信息'' AFTER failed_case_actual',
+  'SELECT 1');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+-- 2.8 创建测试用例表（若不存在）
+SET @sql := IF(
+  (SELECT COUNT(*) FROM information_schema.TABLES
+   WHERE TABLE_SCHEMA = @db AND TABLE_NAME = 'portal_interview_question_test_case') = 0,
+  'CREATE TABLE portal_interview_question_test_case (id BIGINT NOT NULL AUTO_INCREMENT COMMENT ''主键'', question_id BIGINT NOT NULL COMMENT ''题目ID'', input TEXT COMMENT ''标准输入'', expected_output TEXT NOT NULL COMMENT ''期望输出'', is_sample TINYINT(1) DEFAULT 0 COMMENT ''是否样例:1=样例/0=隐藏'', order_num INT DEFAULT 0 COMMENT ''用例排序'', explanation VARCHAR(1000) DEFAULT NULL COMMENT ''用例说明'', create_time DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT ''创建时间'', update_time DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT ''更新时间'', PRIMARY KEY (id), KEY idx_question_id (question_id)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT=''面试题目测试用例表''',
   'SELECT 1');
 PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 

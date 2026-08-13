@@ -11,12 +11,17 @@ import Breadcrumb from '@/components/Breadcrumb.vue';
 import SiteFooter from '@/components/SiteFooter.vue';
 import CodeEditor from '@/components/CodeEditor.vue';
 import MarkdownRenderer from '@/components/MarkdownRenderer.vue';
+import JudgeResultPanel from '@/components/JudgeResultPanel.vue';
 import { generateSeo } from '@/utils/seo';
 import {
   getQuestionDetail, submitAnswer, toggleQuestionLike, toggleQuestionBookmark,
   getFeaturedNotes,
 } from '@/api/interview';
-import type { InterviewQuestionDetailVO, InterviewSubmissionVO } from '@/types/api';
+import { submitJudge, getSampleTestCases } from '@/api/judge';
+import type {
+  InterviewQuestionDetailVO, InterviewSubmissionVO,
+  JudgeResultVO, TestCaseVO,
+} from '@/types/api';
 import { getSafeAvatar } from '@/utils/avatar';
 import { useToast } from '@/composables/useToast';
 
@@ -41,6 +46,21 @@ const answerType = ref<'code' | 'text'>('code');
 const language = ref('javascript');
 const codeContent = ref('');
 const textContent = ref('');
+
+// ========== OJ 判题（v6.3） ==========
+const judging = ref(false);
+const judgeResult = ref<JudgeResultVO | null>(null);
+const sampleCases = ref<TestCaseVO[]>([]);
+
+/** 是否为算法题（走 OJ 判题流程，其它题型走文本提交） */
+const isAlgorithmQuestion = computed(() => {
+  if (!question.value) return false;
+  // 已结构化的题目按 questionType 判断；未结构化的旧题，若用户切换到 code 模式也走判题
+  if (question.value.questionType) {
+    return question.value.questionType === 'algorithm';
+  }
+  return answerType.value === 'code';
+});
 
 const difficultyMap: Record<string, { label: string; class: string }> = {
   easy: { label: '简单', class: 'bg-green-100 text-green-700' },
@@ -83,6 +103,10 @@ async function loadQuestionDetail() {
       } else {
         answerType.value = 'code';
       }
+      // v6.3 OJ 判题：算法题加载样例用例展示
+      if (isAlgorithmQuestion.value || !res.data.questionType) {
+        loadSampleCases();
+      }
     } else {
       toast.error(res.message || '加载题目失败');
     }
@@ -93,6 +117,22 @@ async function loadQuestionDetail() {
     toast.error(err?.message || '加载题目详情失败，请稍后重试');
   } finally {
     loading.value = false;
+  }
+}
+
+/**
+ * 加载题目样例用例（OJ 判题 v6.3）
+ */
+async function loadSampleCases() {
+  if (!question.value) return;
+  try {
+    const res = await getSampleTestCases(question.value.id);
+    if (res.code === 200 && res.data) {
+      sampleCases.value = res.data;
+    }
+  } catch (err) {
+    // 加载失败静默处理，不影响主流程
+    console.warn('加载样例用例失败:', err);
   }
 }
 
@@ -110,6 +150,12 @@ async function loadFeaturedNotes() {
 
 async function handleSubmit() {
   if (!question.value) return;
+
+  // 算法题（代码模式）走 OJ 判题流程；其它题型走原文本提交
+  if (isAlgorithmQuestion.value && answerType.value === 'code') {
+    return runJudge();
+  }
+
   const body: any = { answerType: answerType.value };
   if (answerType.value === 'code') {
     if (!codeContent.value.trim()) {
@@ -140,6 +186,41 @@ async function handleSubmit() {
     toast.error(err?.message || '提交失败，请稍后重试');
   } finally {
     submitting.value = false;
+  }
+}
+
+/**
+ * OJ 判题流程（v6.3）：调用判题引擎运行代码并展示结果
+ */
+async function runJudge() {
+  if (!question.value) return;
+  if (!codeContent.value.trim()) {
+    toast.error('请输入代码内容');
+    return;
+  }
+  try {
+    judging.value = true;
+    judgeResult.value = null;
+    const res = await submitJudge({
+      questionId: question.value.id,
+      code: codeContent.value,
+      language: language.value,
+    });
+    if (res.code === 200 && res.data) {
+      judgeResult.value = res.data;
+      if (res.data.accepted) {
+        toast.success(`通过全部 ${res.data.totalCount} 个用例！`);
+      } else {
+        toast.warning(`通过 ${res.data.passedCount}/${res.data.totalCount} 用例，${res.data.statusName || '未通过'}`);
+      }
+    } else {
+      toast.error(res.message || '判题失败');
+    }
+  } catch (err: any) {
+    console.error('判题失败:', err);
+    toast.error(err?.message || '判题失败，请稍后重试');
+  } finally {
+    judging.value = false;
   }
 }
 
@@ -512,16 +593,62 @@ const breadcrumbs = computed(() => [
             ></textarea>
 
             <div class="flex items-center justify-between mt-4">
-              <span class="text-xs" style="color: var(--theme-text-secondary);">提示：你可以多次提交，最近 10 次会在下方展示</span>
+              <span class="text-xs" style="color: var(--theme-text-secondary);">
+                {{ isAlgorithmQuestion && answerType === 'code' ? '提示：提交后将运行全部测试用例判题' : '提示：你可以多次提交，最近 10 次会在下方展示' }}
+              </span>
               <button
                 @click="handleSubmit"
-                :disabled="submitting"
+                :disabled="submitting || judging"
                 class="px-6 py-2 text-white rounded-lg text-sm font-medium transition flex items-center hover:opacity-90 disabled:bg-gray-400"
                 style="background-color: var(--theme-primary);"
               >
-                <span v-if="submitting" class="w-4 h-4 rounded-full border-2 border-white border-t-transparent animate-spin mr-2"></span>
-                {{ submitting ? '提交中...' : '提交答案' }}
+                <span v-if="submitting || judging" class="w-4 h-4 rounded-full border-2 border-white border-t-transparent animate-spin mr-2"></span>
+                {{ (isAlgorithmQuestion && answerType === 'code') ? (judging ? '判题中...' : '提交判题') : (submitting ? '提交中...' : '提交答案') }}
               </button>
+            </div>
+          </div>
+
+          <!-- OJ 判题结果（v6.3） -->
+          <JudgeResultPanel
+            v-if="isAlgorithmQuestion || judgeResult || judging"
+            :result="judgeResult"
+            :loading="judging"
+            class="mb-6"
+          />
+
+          <!-- 样例用例（v6.3 OJ 判题） -->
+          <div
+            v-if="sampleCases.length > 0"
+            class="rounded-xl shadow-sm p-6 mb-6"
+            style="background-color: var(--theme-surface); border: 1px solid var(--theme-border);"
+          >
+            <h2 class="text-lg font-semibold mb-4 flex items-center" style="color: var(--theme-text);">
+              <FileText class="w-5 h-5 mr-2" style="color: var(--theme-primary);" />
+              样例用例
+              <span class="text-xs font-normal ml-2" style="color: var(--theme-text-secondary);">提交后将运行这些样例与隐藏用例判题</span>
+            </h2>
+            <div class="space-y-3">
+              <div
+                v-for="(tc, idx) in sampleCases"
+                :key="tc.id"
+                class="border rounded-lg p-4"
+                style="border-color: var(--theme-border); background-color: var(--theme-bg);"
+              >
+                <div class="text-xs font-semibold mb-2" style="color: var(--theme-text);">
+                  用例 {{ idx + 1 }}
+                  <span v-if="tc.explanation" class="font-normal ml-2" style="color: var(--theme-text-secondary);">{{ tc.explanation }}</span>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div>
+                    <div class="text-xs font-medium mb-1" style="color: var(--theme-text-secondary);">输入</div>
+                    <pre class="text-xs p-2 rounded-lg overflow-x-auto" style="background-color: var(--theme-surface); color: var(--theme-text);">{{ tc.input || '(无输入)' }}</pre>
+                  </div>
+                  <div>
+                    <div class="text-xs font-medium mb-1" style="color: var(--theme-text-secondary);">输出</div>
+                    <pre class="text-xs p-2 rounded-lg overflow-x-auto" style="background-color: var(--theme-surface); color: var(--theme-text);">{{ tc.expectedOutput || '(无输出)' }}</pre>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
 

@@ -47,7 +47,10 @@ public class PortalJudgeController extends BaseController {
 
     // ==================== 判题 ====================
 
-    @Operation(summary = "提交代码判题", description = "运行用户代码并按测试用例判题，同步返回结果")
+    @Operation(summary = "提交代码判题",
+            description = "提交代码执行判题。同步场景立即返回完整结果；" +
+                    "异步场景（moyun.judge.async-enabled=true）立即返回 submissionId + status=PENDING，" +
+                    "前端调用 GET /portal/judge/result/{submissionId} 轮询最终结果（status 变为非 PENDING 即终态）")
     @PostMapping("/submit")
     @RepeatSubmit(interval = 2000, message = "请勿重复提交判题请求")
     public AjaxResult submit(@Valid @RequestBody JudgeSubmitDTO dto) {
@@ -55,7 +58,7 @@ public class PortalJudgeController extends BaseController {
         return AjaxResult.success(vo);
     }
 
-    @Operation(summary = "查询判题结果", description = "根据提交记录ID查询判题结果（用于异步场景轮询）")
+    @Operation(summary = "查询判题结果", description = "根据提交记录ID查询判题结果（异步场景轮询入口）")
     @GetMapping("/result/{submissionId}")
     public AjaxResult getResult(@PathVariable Long submissionId) {
         JudgeResultVO vo = portalJudgeService.getJudgeResult(submissionId, currentUserId());

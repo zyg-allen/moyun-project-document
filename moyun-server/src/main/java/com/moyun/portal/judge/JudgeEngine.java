@@ -5,13 +5,17 @@ import java.util.List;
 import com.moyun.portal.domain.entity.PortalInterviewQuestionTestCase;
 
 /**
- * OJ 判题引擎（v6.3 OJ 判题系统）
+ * OJ 判题引擎（v6.3 OJ 判题系统 / v8.0 沙箱演进）
  * <p>
  * 抽象判题执行细节，便于在不同环境替换实现：
  * <ul>
- *   <li>开发环境：{@link ProcessJudgeEngine} 基于 ProcessBuilder 直接运行，超时控制；</li>
- *   <li>生产环境：替换为基于 Docker / Firecracker MicroVM 的隔离沙箱实现（限制 CPU/内存/网络/文件系统）。</li>
+ *   <li>开发/测试环境：{@link ProcessJudgeEngine} 基于 ProcessBuilder 直接运行，超时控制
+ *       （默认，配置 moyun.judge.engine-type=process 或缺省启用）；</li>
+ *   <li>生产环境：{@link DockerJudgeEngine} 基于 Docker 沙箱的隔离运行，
+ *       限制 CPU/内存/网络/文件系统（配置 moyun.judge.engine-type=docker 启用）。</li>
  * </ul>
+ * 引擎切换通过 Spring {@code @ConditionalOnProperty} 自动选择，
+ * 业务层 {@code PortalJudgeServiceImpl} 仅依赖本接口，对具体实现透明。
  *
  * @author moyun
  */

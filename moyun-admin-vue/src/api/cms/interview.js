@@ -308,3 +308,39 @@ export function unfeatureSubmission(id) {
     data: { id }
   });
 }
+
+// ==================== 测试用例管理（v6.3 OJ 判题） ====================
+
+// 查询题目全部用例（含隐藏用例）
+export function listTestCase(questionId) {
+  return request({
+    url: '/portal/judge/admin/cases/' + questionId,
+    method: 'get'
+  });
+}
+
+// 新增测试用例
+export function addTestCase(data) {
+  return request({
+    url: '/portal/judge/admin/cases',
+    method: 'post',
+    data: data
+  });
+}
+
+// 修改测试用例
+export function updateTestCase(id, data) {
+  return request({
+    url: '/portal/judge/admin/cases/' + id,
+    method: 'put',
+    data: data
+  });
+}
+
+// 删除测试用例
+export function delTestCase(id) {
+  return request({
+    url: '/portal/judge/admin/cases/' + id,
+    method: 'delete'
+  });
+}

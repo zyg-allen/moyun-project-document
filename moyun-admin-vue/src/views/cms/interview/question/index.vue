@@ -75,9 +75,10 @@
         </template>
       </el-table-column>
       <el-table-column label="排序" prop="sort" width="80" />
-      <el-table-column label="操作" width="180" fixed="right">
+      <el-table-column label="操作" width="240" fixed="right">
         <template #default="{ row }">
           <el-button link type="primary" @click="handleEdit(row)">编辑</el-button>
+          <el-button link type="success" @click="handleTestCase(row)">用例</el-button>
           <el-button link type="danger" @click="handleDelete(row)">删除</el-button>
         </template>
       </el-table-column>
@@ -145,6 +146,7 @@
 
 <script setup>
 import { ref, reactive, computed, onMounted } from 'vue';
+import { useRouter } from 'vue-router';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import {
   listInterviewQuestion, getInterviewQuestion, addInterviewQuestion,
@@ -246,6 +248,12 @@ async function handleEdit(row) {
     };
     dialogVisible.value = true;
   } catch (e) { /* ignore */ }
+}
+
+const router = useRouter();
+
+function handleTestCase(row) {
+  router.push(`/cms/interview/testCase/${row.id}`);
 }
 
 async function submitForm() {

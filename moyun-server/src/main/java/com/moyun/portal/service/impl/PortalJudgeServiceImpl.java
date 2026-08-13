@@ -22,15 +22,18 @@ import com.moyun.portal.domain.vo.JudgeResultVO;
 import com.moyun.portal.domain.vo.TestCaseVO;
 import com.moyun.portal.judge.CaseJudgeResult;
 import com.moyun.portal.judge.JudgeEngine;
+import com.moyun.portal.judge.JudgeProperties;
+import com.moyun.portal.judge.JudgeQueueService;
 import com.moyun.portal.judge.JudgeResult;
 import com.moyun.portal.judge.JudgeStatus;
+import com.moyun.portal.judge.JudgeTask;
 import com.moyun.portal.mapper.PortalInterviewQuestionMapper;
 import com.moyun.portal.mapper.PortalInterviewQuestionTestCaseMapper;
 import com.moyun.portal.mapper.PortalInterviewSubmissionMapper;
 import com.moyun.portal.service.IPortalJudgeService;
 
 /**
- * OJ 判题业务实现（v6.3 OJ 判题系统）
+ * OJ 判题业务实现（v6.3 OJ 判题系统 / v8.0 沙箱与异步演进）
  *
  * @author moyun
  */
@@ -39,13 +42,12 @@ public class PortalJudgeServiceImpl implements IPortalJudgeService {
 
     private static final Logger log = LoggerFactory.getLogger(PortalJudgeServiceImpl.class);
 
-    /** 默认单用例运行超时（毫秒）：2 秒，与规划文档 TLE 限制一致 */
-    private static final long DEFAULT_TIMEOUT_MS = 2000L;
-
     @Autowired private JudgeEngine judgeEngine;
     @Autowired private PortalInterviewQuestionMapper questionMapper;
     @Autowired private PortalInterviewQuestionTestCaseMapper testCaseMapper;
     @Autowired private PortalInterviewSubmissionMapper submissionMapper;
+    @Autowired private JudgeProperties judgeProperties;
+    @Autowired private JudgeQueueService judgeQueueService;
 
     // ==================== 判题 ====================
 
@@ -62,8 +64,35 @@ public class PortalJudgeServiceImpl implements IPortalJudgeService {
             throw new ServiceException("题目尚未配置测试用例，无法判题");
         }
 
-        // 执行判题
-        JudgeResult result = judgeEngine.judge(dto.getLanguage(), dto.getCode(), cases, DEFAULT_TIMEOUT_MS);
+        long timeoutMs = judgeProperties.getTimeoutMs() > 0
+                ? judgeProperties.getTimeoutMs() : 2000L;
+
+        // 异步判题：先落库 PENDING 提交记录，再入队，前端轮询 /portal/judge/result/{id}
+        if (judgeProperties.isAsyncEnabled()) {
+            PortalInterviewSubmission pending = buildPendingSubmission(dto, userId);
+            submissionMapper.insert(pending);
+            // 题目提交数 +1；通过率由 Worker 完成后刷新
+            updateQuestionStats(question);
+
+            JudgeTask task = new JudgeTask(
+                    pending.getId(),
+                    dto.getQuestionId(),
+                    userId,
+                    dto.getLanguage(),
+                    dto.getCode(),
+                    timeoutMs,
+                    0,
+                    System.currentTimeMillis());
+            judgeQueueService.enqueue(task);
+            judgeQueueService.cacheStatus(pending.getId(), JudgeStatus.PENDING.getCode());
+
+            log.info("[OJ] 异步入队 userId={} qid={} lang={} submissionId={}",
+                    userId, dto.getQuestionId(), dto.getLanguage(), pending.getId());
+            return toPendingVO(pending);
+        }
+
+        // 同步判题（开发环境 / 默认）
+        JudgeResult result = judgeEngine.judge(dto.getLanguage(), dto.getCode(), cases, timeoutMs);
 
         // 落库提交记录
         PortalInterviewSubmission submission = buildSubmission(dto, userId, result);
@@ -86,6 +115,14 @@ public class PortalJudgeServiceImpl implements IPortalJudgeService {
         if (sub == null) throw new ServiceException("提交记录不存在");
         if (!userId.equals(sub.getUserId())) {
             throw new ServiceException("无权查看他人提交");
+        }
+        // 异步路径下，若状态缓存仍为 PENDING，直接返回 PENDING VO，避免每次回查 Worker 是否完成
+        JudgeStatus status = JudgeStatus.fromCode(sub.getStatus());
+        if (!status.isFinal() && judgeProperties.isAsyncEnabled()) {
+            String cached = judgeQueueService.readStatus(submissionId);
+            if (JudgeStatus.PENDING.getCode().equals(cached)) {
+                return toPendingVO(sub);
+            }
         }
         return toVO(submissionOnly(sub));
     }
@@ -152,6 +189,35 @@ public class PortalJudgeServiceImpl implements IPortalJudgeService {
     }
 
     // ==================== 私有辅助 ====================
+
+    /** 异步判题场景下构建 PENDING 提交记录（已落库，待 Worker 拉取执行后回写结果） */
+    private PortalInterviewSubmission buildPendingSubmission(JudgeSubmitDTO dto, Long userId) {
+        PortalInterviewSubmission s = new PortalInterviewSubmission();
+        s.setQuestionId(dto.getQuestionId());
+        s.setUserId(userId);
+        s.setCode(dto.getCode());
+        s.setLanguage(dto.getLanguage());
+        s.setAnswerType("code");
+        s.setStatus(JudgeStatus.PENDING.getCode());
+        s.setIsSuccess(false);
+        s.setPassedCaseCount(0);
+        s.setTotalCaseCount(0);
+        s.setCreateTime(LocalDateTime.now());
+        return s;
+    }
+
+    /** 异步路径下立即返回的 PENDING VO，前端按 submissionId 轮询最终结果 */
+    private JudgeResultVO toPendingVO(PortalInterviewSubmission s) {
+        JudgeResultVO vo = new JudgeResultVO();
+        vo.setSubmissionId(s.getId());
+        vo.setStatus(s.getStatus());
+        vo.setStatusName(JudgeStatus.PENDING.getDisplayName());
+        vo.setAccepted(false);
+        vo.setPassedCount(0);
+        vo.setTotalCount(0);
+        vo.setCaseResults(Collections.emptyList());
+        return vo;
+    }
 
     private PortalInterviewSubmission buildSubmission(JudgeSubmitDTO dto, Long userId, JudgeResult result) {
         PortalInterviewSubmission s = new PortalInterviewSubmission();

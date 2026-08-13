@@ -8,11 +8,11 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 import java.util.stream.Stream;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
 import com.moyun.portal.domain.entity.PortalInterviewQuestionTestCase;
@@ -39,6 +39,8 @@ import com.moyun.portal.domain.entity.PortalInterviewQuestionTestCase;
  * @author moyun
  */
 @Component
+@ConditionalOnProperty(prefix = "moyun.judge", name = "engine-type",
+        havingValue = "process", matchIfMissing = true)
 public class ProcessJudgeEngine implements JudgeEngine {
 
     private static final Logger log = LoggerFactory.getLogger(ProcessJudgeEngine.class);
@@ -57,7 +59,7 @@ public class ProcessJudgeEngine implements JudgeEngine {
         LanguageRuntime runtime = LanguageRuntime.of(language);
         if (runtime == null) {
             JudgeResult r = JudgeResult.of(JudgeStatus.SYSTEM_ERROR);
-            r.errorMessage = "不支持的语言: " + language;
+            r.setErrorMessage("不支持的语言: " + language);
             return r;
         }
 
@@ -84,9 +86,9 @@ public class ProcessJudgeEngine implements JudgeEngine {
                 String compileErr = compile(runtime, srcPath, outPath, outDir, workDir);
                 if (compileErr != null) {
                     JudgeResult r = JudgeResult.of(JudgeStatus.COMPILE_ERROR);
-                    r.errorMessage = compileErr;
-                    r.totalCount = cases.size();
-                    r.passedCount = 0;
+                    r.setErrorMessage(compileErr);
+                    r.setTotalCount(cases.size());
+                    r.setPassedCount(0);
                     return r;
                 }
             }
@@ -97,8 +99,8 @@ public class ProcessJudgeEngine implements JudgeEngine {
         } catch (Exception e) {
             log.error("[OJ] 判题引擎异常 lang={} err={}", language, e.getMessage(), e);
             JudgeResult r = JudgeResult.of(JudgeStatus.SYSTEM_ERROR);
-            r.errorMessage = "判题机异常: " + e.getMessage();
-            r.totalCount = cases == null ? 0 : cases.size();
+            r.setErrorMessage("判题机异常: " + e.getMessage());
+            r.setTotalCount(cases == null ? 0 : cases.size());
             return r;
         } finally {
             if (workDir != null) {
@@ -145,20 +147,20 @@ public class ProcessJudgeEngine implements JudgeEngine {
     private JudgeResult runCases(LanguageRuntime runtime, Path srcPath, Path outPath, Path outDir,
                                   Path workDir, List<PortalInterviewQuestionTestCase> cases, long timeoutMs) {
         JudgeResult result = new JudgeResult();
-        result.totalCount = cases.size();
-        result.passedCount = 0;
-        result.maxRuntimeMs = 0;
+        result.setTotalCount(cases.size());
+        result.setPassedCount(0);
+        result.setMaxRuntimeMs(0);
         List<CaseJudgeResult> caseResults = new ArrayList<>(cases.size());
 
         for (int i = 0; i < cases.size(); i++) {
             PortalInterviewQuestionTestCase tc = cases.get(i);
             CaseJudgeResult cr = runSingleCase(runtime, srcPath, outPath, outDir, workDir, tc, i + 1, timeoutMs);
             caseResults.add(cr);
-            if (cr.getRuntime() != null && cr.getRuntime() > result.maxRuntimeMs) {
-                result.maxRuntimeMs = cr.getRuntime();
+            if (cr.getRuntime() != null && cr.getRuntime() > result.getMaxRuntimeMs()) {
+                result.setMaxRuntimeMs(cr.getRuntime());
             }
             if (Boolean.TRUE.equals(cr.getPassed())) {
-                result.passedCount++;
+                result.setPassedCount(result.getPassedCount() + 1);
                 continue;
             }
             // 首个失败用例即停止，记录状态与失败详情

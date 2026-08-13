@@ -15,19 +15,29 @@ import com.moyun.portal.domain.vo.TestCaseVO;
 public interface IPortalJudgeService {
 
     /**
-     * 提交代码并执行判题，同步返回结果。
+     * 提交代码并执行判题。
      * <p>
-     * 当前实现为同步判题：调用 {@link com.moyun.portal.judge.JudgeEngine} 运行用例。
-     * 高并发场景可演进为：先写入 pending 提交记录，异步 Worker 消费，前端轮询结果。
+     * 行为根据 {@code moyun.judge.async-enabled} 切换：
+     * <ul>
+     *   <li>{@code false}（默认，开发环境）：同步调用 {@link com.moyun.portal.judge.JudgeEngine}
+     *       运行用例并立即返回完整结果；</li>
+     *   <li>{@code true}（生产环境）：先写入 PENDING 提交记录并落库，
+     *       通过 {@link com.moyun.portal.judge.JudgeQueueService#enqueue} 入队 Redis List，
+     *       {@link com.moyun.portal.judge.JudgeAsyncWorker} 异步消费，
+     *       本方法立即返回 submissionId + status=PENDING，前端按 {@link #getJudgeResult(Long, Long)} 轮询。</li>
+     * </ul>
      *
      * @param dto    提交参数（questionId/code/language）
      * @param userId 当前门户用户ID
-     * @return 判题结果（含逐用例明细）
+     * @return 判题结果（同步场景含逐用例明细；异步场景仅返回 submissionId 与 PENDING 状态）
      */
     JudgeResultVO submitJudge(JudgeSubmitDTO dto, Long userId);
 
     /**
-     * 查询某次提交的判题结果（用于轮询场景）。
+     * 查询某次提交的判题结果（轮询入口）。
+     * <p>
+     * 异步场景下若状态仍为 PENDING，则返回 PENDING VO；Worker 完成后回写终态，
+     * 调用方按返回的 status 判定是否继续轮询（PENDING → 继续轮询；AC/WA/... → 终止）。
      */
     JudgeResultVO getJudgeResult(Long submissionId, Long userId);
 

@@ -51,6 +51,9 @@ public class ColumnServiceImpl implements IColumnService {
     @Autowired private PortalArticleMapper articleMapper;
     @Autowired(required = false) private IFeedService feedService;
     @Autowired private ISensitiveWordService sensitiveWordService;
+    @Autowired @org.springframework.context.annotation.Lazy
+    private com.moyun.system.service.IAuditTaskService auditTaskService;
+    @Autowired private com.moyun.portal.mapper.PortalUserMapper portalUserMapper;
 
     // ========================================================================
     // 列表 / 详情
@@ -151,6 +154,10 @@ public class ColumnServiceImpl implements IColumnService {
             // 命中即写入审计日志（action=pending），专栏强制转 pending 待人工/AI 审核，
             // 避免 published 状态下的违规内容曝光。
             scanColumnSensitiveWords(entity, userId, true);
+            // v8.1：专栏进入待审核态时，提交统一审核任务（写 sys_audit_task），使首页/审核中心待办可见
+            if (entity.getId() != null && "pending".equals(entity.getStatus())) {
+                submitColumnAuditTask(entity, userId);
+            }
             // 仅新建时推送 Feed；修改不推送
             if (feedService != null && "published".equals(entity.getStatus())) {
                 feedService.publishEvent(userId, "new_column", "column", entity.getId(),
@@ -160,6 +167,10 @@ public class ColumnServiceImpl implements IColumnService {
             columnMapper.updateById(entity);
             // 编辑后重新扫描；命中仅标记 flag，不强制改状态（编辑场景可能为已发布专栏的修订）
             scanColumnSensitiveWords(entity, userId, false);
+            // v8.1：编辑后若被强制转为 pending，重新提交审核任务
+            if ("pending".equals(entity.getStatus())) {
+                submitColumnAuditTask(entity, userId);
+            }
         }
         return entity.getId();
     }
@@ -398,5 +409,28 @@ public class ColumnServiceImpl implements IColumnService {
             return 0;
         }
         return last.getSortOrder() + 1;
+    }
+
+    /**
+     * v8.1：提交专栏统一审核任务（事务内，异常回滚保证双写一致）。
+     */
+    private void submitColumnAuditTask(PortalColumn entity, Long userId) {
+        com.moyun.system.domain.dto.AuditTaskSubmitDTO dto = new com.moyun.system.domain.dto.AuditTaskSubmitDTO();
+        dto.setTaskType("column");
+        dto.setBizId(entity.getId());
+        dto.setTitle(entity.getTitle());
+        dto.setDescription(entity.getDescription());
+        dto.setSubmitterId(userId);
+        if (userId != null) {
+            try {
+                com.moyun.portal.domain.entity.PortalUser u = portalUserMapper.selectPortalUserById(userId);
+                if (u != null) {
+                    dto.setSubmitterName(u.getUsername());
+                }
+            } catch (Exception ignored) {
+                // submitterName 仅用于展示，查询失败不影响审核任务提交
+            }
+        }
+        auditTaskService.submit(dto);
     }
 }

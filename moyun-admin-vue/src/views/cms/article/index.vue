@@ -320,11 +320,11 @@ function handleSelectionChange(selection: any[]) {
   ids.value = selection.map((item: any) => item.id);
 }
 
-// 跳转到审核页
+// 跳转到统一审核中心（v8.1：独立审核页已整合到 audit-center）
 function handleAuditPage(row: any) {
   router.push({
-    path: '/cms/article/audit',
-    query: { id: row.id }
+    path: '/cms/audit-center',
+    query: { tab: 'article', bizId: row.id }
   });
 }
 

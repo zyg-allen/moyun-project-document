@@ -119,6 +119,8 @@ public class PortalInterviewServiceImpl implements IPortalInterviewService {
     @Autowired private ISysNotificationService notificationService;
     @Autowired private IUserProfileSnapshotService profileSnapshotService;
     @Autowired private ISensitiveWordService sensitiveWordService;
+    @Autowired @org.springframework.context.annotation.Lazy
+    private com.moyun.system.service.IAuditTaskService auditTaskService;
 
     // ========================================================================
     // 首页聚合
@@ -785,6 +787,12 @@ public class PortalInterviewServiceImpl implements IPortalInterviewService {
         }
         portalTagService.bindTags("interview_experience", experience.getId(), extractedTagIds, extractedTagNames, "interview_experience");
 
+        // v8.1：进入待审核态时，提交统一审核任务（写 sys_audit_task），使首页/审核中心待办可见
+        if (row > 0 && "pending".equals(experience.getStatus())) {
+            submitAuditTask("interview_exp", experience.getId(), experience.getTitle(),
+                    experience.getSummary(), userId);
+        }
+
         // 记录发布面经成长事件
         if (row > 0 && userId != null) {
             portalGrowthService.recordEvent("interview", "publish_experience",
@@ -995,6 +1003,11 @@ public class PortalInterviewServiceImpl implements IPortalInterviewService {
         int row = commentMapper.insert(comment);
         // 更新面经评论数
         experienceMapper.incrementCommentCount(comment.getExperienceId());
+        // v8.1：评论进入待审核态时提交统一审核任务（默认 published 不进审核）
+        if (row > 0 && "pending".equals(comment.getStatus())) {
+            submitAuditTask("interview_comment", comment.getId(), null,
+                    comment.getContent(), userId);
+        }
         return row;
     }
 
@@ -1311,5 +1324,35 @@ public class PortalInterviewServiceImpl implements IPortalInterviewService {
         org.springframework.beans.BeanUtils.copyProperties(entity, vo);
         vo.setId(entity.getId());
         return vo;
+    }
+
+    /**
+     * v8.1：提交统一审核任务到 sys_audit_task（事务内，异常回滚保证双写一致）。
+     *
+     * @param taskType    任务类型（interview_exp / interview_comment）
+     * @param bizId       业务记录ID
+     * @param title       任务标题（可空，空则由 Service 用类型名+ID 兜底）
+     * @param description 任务描述/摘要
+     * @param submitterId 提交人（门户用户ID）
+     */
+    private void submitAuditTask(String taskType, Long bizId, String title,
+                                  String description, Long submitterId) {
+        com.moyun.system.domain.dto.AuditTaskSubmitDTO dto = new com.moyun.system.domain.dto.AuditTaskSubmitDTO();
+        dto.setTaskType(taskType);
+        dto.setBizId(bizId);
+        dto.setTitle(title);
+        dto.setDescription(description);
+        dto.setSubmitterId(submitterId);
+        if (submitterId != null) {
+            try {
+                com.moyun.portal.domain.entity.PortalUser u = portalUserMapper.selectPortalUserById(submitterId);
+                if (u != null) {
+                    dto.setSubmitterName(u.getUsername());
+                }
+            } catch (Exception e) {
+                log.warn("[AuditTask] 查询提交人用户名失败 submitterId={} err={}", submitterId, e.getMessage());
+            }
+        }
+        auditTaskService.submit(dto);
     }
 }

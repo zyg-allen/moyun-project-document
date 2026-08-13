@@ -72,6 +72,10 @@ public class PortalTopicServiceImpl extends ServiceImpl<PortalTopicMapper, Porta
     @Autowired
     private ISensitiveWordService sensitiveWordService;
 
+    @Autowired
+    @org.springframework.context.annotation.Lazy
+    private com.moyun.system.service.IAuditTaskService auditTaskService;
+
     @Override
     public Page<TopicListVO> getTopicList(Integer pageNum, Integer pageSize, String sort, String keyword) {
         if (pageNum == null || pageNum <= 0) pageNum = 1;
@@ -165,6 +169,18 @@ public class PortalTopicServiceImpl extends ServiceImpl<PortalTopicMapper, Porta
         topic.setCommentCount(0);
         topic.setCreatedTime(LocalDateTime.now());
         baseMapper.insert(topic);
+
+        // v8.1：提交统一审核任务（写 sys_audit_task），使首页/审核中心待办可见
+        if (topic.getId() != null) {
+            com.moyun.system.domain.dto.AuditTaskSubmitDTO dto = new com.moyun.system.domain.dto.AuditTaskSubmitDTO();
+            dto.setTaskType("topic");
+            dto.setBizId(topic.getId());
+            dto.setTitle(topic.getTitle());
+            dto.setDescription(topic.getDescription());
+            dto.setSubmitterId(userId);
+            dto.setSubmitterName(user.getUsername());
+            auditTaskService.submit(dto);
+        }
 
         // 敏感词轻量扫描：标题+描述拼接检测。
         // 命中即写入审计日志（action=pending），话题仍保持 pending 待人工/AI 审核；

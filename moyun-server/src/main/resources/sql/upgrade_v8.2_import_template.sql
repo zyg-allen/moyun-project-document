@@ -138,10 +138,41 @@ INSERT INTO portal_import_template_config
 ('interview_question', 'scoringCriteria', '评分标准',    '可选，JSON 数组字符串，每项含 dimension/weight/description', NULL, 0, 'string', NULL,                       40, 13, '0', 'admin', NOW(), '评分标准，JSON 数组'),
 ('interview_question', 'prerequisiteIds','前置题目ID',   '可选，多个用英文逗号分隔', '12,15', 0, 'string', NULL,                                       20, 14, '0', 'admin', NOW(), '前置题目ID，逗号分隔'),
 ('interview_question', 'sort',           '排序',         '可选，数字越小越靠前，默认 0', '0', 0, 'number', NULL,                                                8, 15, '0', 'admin', NOW(), '排序号'),
-('interview_question', 'status',         '状态',         '可选，下拉：draft草稿/published已发布/archived已归档，默认 draft', 'draft', 0, 'dict', 'draft,published,archived', 14, 16, '0', 'admin', NOW(), '状态，影响前台展示');
+('interview_question', 'status',         '状态',         '可选，下拉：draft草稿/published已发布/archived已归档，默认 published（导入默认即发布可见）', 'published', 0, 'dict', 'draft,published,archived', 14, 16, '0', 'admin', NOW(), '状态，影响前台展示');
 
 SELECT CONCAT('题库默认导入模板配置完成，字段数: ',
   (SELECT COUNT(*) FROM portal_import_template_config WHERE business_key = 'interview_question')) AS info;
+
+
+-- =====================================================================
+-- 四-补、题库 status 历史数据兼容修复
+-- =====================================================================
+-- 背景：
+--   PortalInterviewQuestion.status 历史注释为 active/inactive（启停语义），
+--   实际前端与导入流程统一使用 draft/published/archived（内容生命周期语义）。
+--   v8.2 起 buildQuestionQueryWrapper 默认查询 published（与实体注释、
+--   导入默认值、前端筛选下拉一致），历史 active 数据需修正为 published 才能被默认列表查到。
+-- 处理：
+--   active → published（前台可见）
+--   inactive → archived（不可见，与"停用"语义最接近）
+--   draft / published / archived 保持不变
+UPDATE portal_interview_question SET status = 'published', update_time = NOW()
+WHERE status = 'active' AND del_flag = '0';
+
+UPDATE portal_interview_question SET status = 'archived', update_time = NOW()
+WHERE status = 'inactive' AND del_flag = '0';
+
+SELECT CONCAT('题库 status 历史数据修复完成：active→published ',
+  ROW_COUNT(), ' 行；inactive→archived ',
+  (SELECT COUNT(*) FROM portal_interview_question WHERE status = 'inactive' AND del_flag = '0'),
+  ' 行剩余（如未影响则不变）') AS info;
+
+-- 校验修复后状态分布
+SELECT status, COUNT(*) AS cnt
+FROM portal_interview_question
+WHERE del_flag = '0'
+GROUP BY status
+ORDER BY status;
 
 
 -- =====================================================================

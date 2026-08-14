@@ -219,12 +219,13 @@ public class PortalInterviewServiceImpl implements IPortalInterviewService {
 
     /**
      * 题目分页查询条件构造（与 selectQuestionList 共享，避免重复）
-     * - 未传 status 默认查 active（与历史行为一致）
+     * - 未传 status 默认查 published（与实体 status 枚举 draft/published/archived 一致；
+     *   历史曾用 active/inactive 已废弃，存量数据建议 UPDATE 修正为 published）
      * - 排序：sort 升序 + createTime 降序
      */
     private LambdaQueryWrapper<PortalInterviewQuestion> buildQuestionQueryWrapper(InterviewQuestionQuery query) {
         LambdaQueryWrapper<PortalInterviewQuestion> qw = Wrappers.lambdaQuery();
-        qw.eq(PortalInterviewQuestion::getStatus, query.getStatus() == null ? "active" : query.getStatus());
+        qw.eq(PortalInterviewQuestion::getStatus, query.getStatus() == null ? "published" : query.getStatus());
         if (query.getCategoryId() != null) qw.eq(PortalInterviewQuestion::getCategoryId, query.getCategoryId());
         if (StringUtils.isNotEmpty(query.getDifficulty())) qw.eq(PortalInterviewQuestion::getDifficulty, query.getDifficulty());
         // v6.3 题目结构化：按题型筛选

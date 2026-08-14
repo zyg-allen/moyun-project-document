@@ -14,6 +14,8 @@ export default defineConfig({
           'ui-vendor': ['lucide-vue-next'],
           'editor-vendor': ['marked', 'quill', '@vueup/vue-quill'],
           'utils-vendor': ['dayjs', '@vueuse/core', '@vueuse/head'],
+          // Monaco 单独成块，按需加载
+          'monaco-vendor': ['monaco-editor'],
         },
       },
     },

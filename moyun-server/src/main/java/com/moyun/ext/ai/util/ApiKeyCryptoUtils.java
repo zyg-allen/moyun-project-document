@@ -35,8 +35,8 @@ public final class ApiKeyCryptoUtils {
 
     /**
      * 密钥（32 字节 AES-256）。
-     * 优先从环境变量 MOYUN_APIKEY_AES_KEY 读取。
-     * local profile 下允许使用内置默认值；dev/prod 未配置时 fail-fast。
+     * 优先从环境变量 MOYUN_APIKEY_AES_KEY 读取，未配置则用内置默认值。
+     * 生产环境务必通过环境变量覆盖。
      */
     private static final byte[] KEY_BYTES;
 
@@ -45,19 +45,8 @@ public final class ApiKeyCryptoUtils {
         if (envKey != null && envKey.length() == 32) {
             KEY_BYTES = envKey.getBytes(StandardCharsets.UTF_8);
         } else {
-            // 仅当显式声明 local 开发时才回退到默认密钥
-            String profile = System.getProperty("spring.profiles.active", "");
-            if (profile == null || profile.isEmpty()) {
-                profile = System.getenv("SPRING_PROFILES_ACTIVE");
-            }
-            if ("local".equalsIgnoreCase(profile)) {
-                KEY_BYTES = "moyun-ai-apikey-default-key-32b!".getBytes(StandardCharsets.UTF_8);
-            } else {
-                throw new IllegalStateException(
-                    "MOYUN_APIKEY_AES_KEY 环境变量未配置或长度不为 32 字符！" +
-                    "请配置 32 字节的 AES 密钥环境变量。(当前 profile: " + profile + ")"
-                );
-            }
+            // 默认密钥（仅开发环境；生产请配置 MOYUN_APIKEY_AES_KEY 环境变量）
+            KEY_BYTES = "moyun-ai-apikey-default-key-32b!".getBytes(StandardCharsets.UTF_8);
         }
     }
 

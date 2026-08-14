@@ -5,6 +5,72 @@
 
 ---
 
+## v8.0 (2026-08-13) OJ 判题系统 v2：Docker 沙箱 + 异步判题 + CMS 用例管理
+
+### 主要变化
+
+- 🐳 Docker 沙箱判题引擎（生产环境替换 ProcessJudgeEngine）
+  - CPU/内存/PID 限制（`--cpus` / `--memory` / `--pids-limit`）
+  - 网络隔离（`--network=none`）、只读根文件系统（`--read-only` + tmpfs）
+  - 全 capability 丢弃（`--cap-drop=ALL`）+ no-new-privileges
+  - 通过 `@ConditionalOnProperty(moyun.judge.engine-type=docker)` 切换，无需改代码
+- ⚡ 异步判题（Redis 队列 + Worker + 前端轮询）
+  - `JudgeQueueService`：Redis List LPUSH/BLPOP
+  - `JudgeAsyncWorker`：固定线程池消费，支持重试与 SE 兜底
+  - PENDING 状态缓存（TTL 600s）避免每次回查 DB
+  - 复用既有 `GET /portal/judge/result/{id}` 轮询入口
+- 🛠️ CMS 用例管理界面（admin 仓库）
+  - 隐式路由 `/cms/interview/testCase/:questionId`
+  - 题目列表新增「用例」按钮跳转
+  - 用例增删改查 + 是否样例切换 + 排序
+- 🐛 异常报错修复
+  - `ProcessJudgeEngine` 9 处 JudgeResult private 字段直接访问 → setter 调用（编译错误）
+  - `JudgeQueueService` 反序列化回退路径（防御性 LinkedHashMap → POJO）
+  - `DockerJudgeEngine` 移除 `runCasesInContainer` 未使用的 `image` 参数
+
+### 新增文件
+
+- `moyun-server/.../portal/judge/JudgeProperties.java` — 判题配置（@ConfigurationProperties）
+- `moyun-server/.../portal/judge/JudgeTask.java` — 队列任务负载
+- `moyun-server/.../portal/judge/JudgeQueueService.java` — Redis 队列封装
+- `moyun-server/.../portal/judge/DockerJudgeEngine.java` — Docker 沙箱判题引擎
+- `moyun-server/.../portal/judge/JudgeAsyncWorker.java` — 异步判题 Worker
+- `moyun-admin-vue/src/views/cms/interview/testCase/index.vue` — CMS 用例管理页
+
+### 修改文件
+
+- `moyun-server/.../portal/judge/JudgeEngine.java` — 接口文档更新
+- `moyun-server/.../portal/judge/ProcessJudgeEngine.java` — 编译错误修复 + @ConditionalOnProperty
+- `moyun-server/.../portal/service/impl/PortalJudgeServiceImpl.java` — 同步/异步分支
+- `moyun-server/.../portal/service/IPortalJudgeService.java` — 接口文档
+- `moyun-server/.../portal/controller/PortalJudgeController.java` — Swagger 文档
+- `moyun-admin-vue/src/api/cms/interview.js` — 用例 CRUD API
+- `moyun-admin-vue/src/router/index.js` — 用例管理路由
+- `moyun-admin-vue/src/views/cms/interview/question/index.vue` — 「用例」按钮
+- `moyun-server/src/main/resources/application-dev.yaml` — moyun.judge 完整配置
+- `moyun-server/src/main/resources/application-prod.yaml.example` — 同上（生产环境变量化）
+- `docs/11_面试指南后续迭代规划.md` — 验收标准勾选 + v8.0 已交付清单
+
+### 配置示例（生产环境）
+
+```yaml
+moyun:
+  judge:
+    engine-type: docker            # 切换 Docker 沙箱
+    timeout-ms: 2000
+    memory-limit-mb: 256
+    async-enabled: true            # 启用异步判题
+    worker:
+      concurrency: 2
+    docker:
+      images:
+        javascript: node:20-alpine
+        python: python:3.11-slim
+        # ...
+```
+
+---
+
 ## v5.2 (2026-07-19) 安全加固 + SQL 整理 + 文档重建
 
 ### 主要变化

@@ -2098,9 +2098,15 @@ CREATE TABLE `portal_interview_question` (
                                              `submission_count` bigint DEFAULT '0' COMMENT '提交次数',
                                              `like_count` bigint DEFAULT '0' COMMENT '点赞数',
                                              `hint` text COMMENT '提示',
-                                             `solution` text COMMENT '参考答案',
+                                             `solution` text COMMENT '参考答案（代码题参考代码片段）',
                                              `sort` int DEFAULT '0' COMMENT '排序',
                                              `status` varchar(20) DEFAULT 'active' COMMENT '状态:active,inactive',
+                                             `question_type` varchar(50) DEFAULT NULL COMMENT '题目类型:bagwen八股/algorithm算法/system_design系统设计/project项目/hr',
+                                             `examine_points` text COMMENT '考察点列表JSON数组',
+                                             `answer_outline` text COMMENT '答题大纲Markdown',
+                                             `scoring_criteria` text COMMENT '评分标准JSON数组',
+                                             `reference_answer` text COMMENT '官方参考答案Markdown（八股/设计/项目/HR类完整答案）',
+                                             `prerequisite_ids` varchar(500) DEFAULT NULL COMMENT '前置题目ID，逗号分隔',
                                              `create_by` varchar(64) DEFAULT '' COMMENT '创建者',
                                              `create_time` datetime DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
                                              `update_by` varchar(64) DEFAULT '' COMMENT '更新者',
@@ -2110,6 +2116,7 @@ CREATE TABLE `portal_interview_question` (
                                              PRIMARY KEY (`id`),
                                              KEY `idx_category_id` (`category_id`),
                                              KEY `idx_difficulty` (`difficulty`),
+                                             KEY `idx_question_type` (`question_type`),
                                              KEY `idx_status` (`status`),
                                              KEY `idx_del_flag` (`del_flag`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='面试题目表';
@@ -2221,6 +2228,13 @@ CREATE TABLE `portal_interview_submission` (
                                                `runtime` int DEFAULT NULL COMMENT '运行时间（毫秒）',
                                                `memory_usage` int DEFAULT NULL COMMENT '内存使用（KB）',
                                                `note` text COMMENT '备注/笔记',
+                                               `passed_case_count` int DEFAULT NULL COMMENT '通过用例数（v6.3 OJ判题）',
+                                               `total_case_count` int DEFAULT NULL COMMENT '总用例数（v6.3 OJ判题）',
+                                               `failed_case_id` bigint DEFAULT NULL COMMENT '首个失败用例ID（v6.3 OJ判题）',
+                                               `failed_case_input` text COMMENT '首个失败用例输入（v6.3 OJ判题，仅样例可见）',
+                                               `failed_case_expected` text COMMENT '首个失败用例期望输出（v6.3 OJ判题）',
+                                               `failed_case_actual` text COMMENT '首个失败用例实际输出（v6.3 OJ判题）',
+                                               `error_message` text COMMENT '编译/运行错误信息（v6.3 OJ判题）',
                                                `create_time` datetime DEFAULT CURRENT_TIMESTAMP COMMENT '提交时间',
                                                `create_by` varchar(64) DEFAULT '' COMMENT '创建者',
                                                `update_by` varchar(64) DEFAULT '' COMMENT '更新者',
@@ -2234,6 +2248,25 @@ CREATE TABLE `portal_interview_submission` (
                                                KEY `idx_user_question` (`user_id`,`question_id`),
                                                KEY `idx_del_flag` (`del_flag`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='题目提交记录表';
+
+--
+-- Table structure for table `portal_interview_question_test_case`
+-- v6.3 OJ 判题系统：题目测试用例表
+--
+DROP TABLE IF EXISTS `portal_interview_question_test_case`;
+CREATE TABLE `portal_interview_question_test_case` (
+                                                      `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键',
+                                                      `question_id` bigint NOT NULL COMMENT '题目ID',
+                                                      `input` text COMMENT '标准输入（运行时通过stdin传入）',
+                                                      `expected_output` text NOT NULL COMMENT '期望输出',
+                                                      `is_sample` tinyint(1) DEFAULT '0' COMMENT '是否样例:1=样例（前端展示）/0=隐藏',
+                                                      `order_num` int DEFAULT '0' COMMENT '用例排序',
+                                                      `explanation` varchar(1000) DEFAULT NULL COMMENT '用例说明',
+                                                      `create_time` datetime DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+                                                      `update_time` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+                                                      PRIMARY KEY (`id`),
+                                                      KEY `idx_question_id` (`question_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='面试题目测试用例表（OJ判题）';
 
 
 --
@@ -6096,6 +6129,185 @@ PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 --     StartupTaskRunner 同步替换字段访问方法
 --   - VO（KnowledgeLibraryVO / KnowledgeBaseVO）字段名保持不变以维持前端 API 契约，
 --     仅更新 Entity→VO 的映射代码
+-- =====================================================================
+
+
+-- =====================================================================
+-- 来源: 118_升级脚本_v6.3_面试题目结构化字段.sql
+-- =====================================================================
+-- v6.3 升级脚本：面试题目结构化字段补齐
+-- 适配 MySQL 8.x
+-- 说明：本脚本幂等，可重复执行（使用 information_schema 判断列/索引是否存在）
+-- 背景：
+--   1. portal_interview_question 表仅有 title/description/difficulty 等基础字段，
+--      缺题目类型、考察点、答题大纲、评分标准、官方参考答案、前置题目等结构化字段，
+--      无法支撑题库按题型筛选、详情页结构化展示、学习路径推荐等能力。
+--   2. 本脚本为 portal_interview_question 增加：
+--      a) question_type 题目类型（bagwen/algorithm/system_design/project/hr）+ 索引；
+--      b) examine_points 考察点 JSON 数组；
+--      c) answer_outline 答题大纲 Markdown；
+--      d) scoring_criteria 评分标准 JSON 数组；
+--      e) reference_answer 官方参考答案 Markdown（区别于 solution 代码片段）；
+--      f) prerequisite_ids 前置题目 ID 逗号分隔。
+--   3. 业务层（PortalInterviewQuestion 实体 / InterviewQuestionDetailVO /
+--      PortalInterviewServiceImpl）已同步升级为：题型筛选、JSON 解析为对象、详情填充。
+-- =====================================================================
+
+SET @db := DATABASE();
+
+-- 1.1 portal_interview_question.question_type
+SET @col := 'question_type';
+SELECT COUNT(*) INTO @exists FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = @db AND TABLE_NAME = 'portal_interview_question' AND COLUMN_NAME = @col;
+SET @sql := IF(@exists = 0,
+  'ALTER TABLE portal_interview_question ADD COLUMN question_type VARCHAR(50) NULL COMMENT ''题目类型:bagwen八股/algorithm算法/system_design系统设计/project项目/hr'' AFTER status',
+  'SELECT ''portal_interview_question.question_type 已存在'' AS msg');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+-- 1.2 portal_interview_question.examine_points
+SET @col := 'examine_points';
+SELECT COUNT(*) INTO @exists FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = @db AND TABLE_NAME = 'portal_interview_question' AND COLUMN_NAME = @col;
+SET @sql := IF(@exists = 0,
+  'ALTER TABLE portal_interview_question ADD COLUMN examine_points TEXT NULL COMMENT ''考察点列表JSON数组'' AFTER question_type',
+  'SELECT ''portal_interview_question.examine_points 已存在'' AS msg');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+-- 1.3 portal_interview_question.answer_outline
+SET @col := 'answer_outline';
+SELECT COUNT(*) INTO @exists FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = @db AND TABLE_NAME = 'portal_interview_question' AND COLUMN_NAME = @col;
+SET @sql := IF(@exists = 0,
+  'ALTER TABLE portal_interview_question ADD COLUMN answer_outline TEXT NULL COMMENT ''答题大纲Markdown'' AFTER examine_points',
+  'SELECT ''portal_interview_question.answer_outline 已存在'' AS msg');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+-- 1.4 portal_interview_question.scoring_criteria
+SET @col := 'scoring_criteria';
+SELECT COUNT(*) INTO @exists FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = @db AND TABLE_NAME = 'portal_interview_question' AND COLUMN_NAME = @col;
+SET @sql := IF(@exists = 0,
+  'ALTER TABLE portal_interview_question ADD COLUMN scoring_criteria TEXT NULL COMMENT ''评分标准JSON数组'' AFTER answer_outline',
+  'SELECT ''portal_interview_question.scoring_criteria 已存在'' AS msg');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+-- 1.5 portal_interview_question.reference_answer
+SET @col := 'reference_answer';
+SELECT COUNT(*) INTO @exists FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = @db AND TABLE_NAME = 'portal_interview_question' AND COLUMN_NAME = @col;
+SET @sql := IF(@exists = 0,
+  'ALTER TABLE portal_interview_question ADD COLUMN reference_answer TEXT NULL COMMENT ''官方参考答案Markdown'' AFTER scoring_criteria',
+  'SELECT ''portal_interview_question.reference_answer 已存在'' AS msg');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+-- 1.6 portal_interview_question.prerequisite_ids
+SET @col := 'prerequisite_ids';
+SELECT COUNT(*) INTO @exists FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = @db AND TABLE_NAME = 'portal_interview_question' AND COLUMN_NAME = @col;
+SET @sql := IF(@exists = 0,
+  'ALTER TABLE portal_interview_question ADD COLUMN prerequisite_ids VARCHAR(500) NULL COMMENT ''前置题目ID，逗号分隔'' AFTER reference_answer',
+  'SELECT ''portal_interview_question.prerequisite_ids 已存在'' AS msg');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+-- 1.7 题目类型索引（题库按题型筛选）
+SET @sql := IF(
+  (SELECT COUNT(*) FROM information_schema.STATISTICS
+   WHERE TABLE_SCHEMA = @db AND TABLE_NAME = 'portal_interview_question' AND INDEX_NAME = 'idx_question_type') = 0,
+  'ALTER TABLE portal_interview_question ADD INDEX idx_question_type (question_type)',
+  'SELECT 1');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+-- =====================================================================
+-- 来源: 119_升级脚本_v6.3_OJ判题系统.sql
+-- =====================================================================
+-- v6.3 升级脚本：OJ 在线判题系统
+-- 适配 MySQL 8.x
+-- 说明：本脚本幂等，可重复执行（使用 information_schema 判断列/表是否存在）
+-- 背景：
+--   1. 题目提交仅记录状态（isPass/score），无真实判题。代码答题无运行结果反馈。
+--   2. 本脚本新增：
+--      a) portal_interview_question_test_case 题目测试用例表（input/expected_output/is_sample/order_num）；
+--      b) portal_interview_submission 表追加 OJ 判题字段：
+--         passed_case_count/total_case_count/failed_case_id/
+--         failed_case_input/failed_case_expected/failed_case_actual/error_message。
+--   3. 业务层（PortalInterviewQuestionTestCase 实体 / PortalJudgeServiceImpl /
+--      ProcessJudgeEngine / PortalJudgeController）已同步实现：判题引擎、用例管理、提交判题。
+--   4. 判题引擎当前为 ProcessBuilder 实现（开发环境），生产环境应替换为 Docker/Firecracker 沙箱。
+-- =====================================================================
+
+-- 2.1 portal_interview_submission.passed_case_count
+SET @col := 'passed_case_count';
+SELECT COUNT(*) INTO @exists FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = @db AND TABLE_NAME = 'portal_interview_submission' AND COLUMN_NAME = @col;
+SET @sql := IF(@exists = 0,
+  'ALTER TABLE portal_interview_submission ADD COLUMN passed_case_count INT NULL COMMENT ''通过用例数'' AFTER note',
+  'SELECT 1');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+-- 2.2 portal_interview_submission.total_case_count
+SET @col := 'total_case_count';
+SELECT COUNT(*) INTO @exists FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = @db AND TABLE_NAME = 'portal_interview_submission' AND COLUMN_NAME = @col;
+SET @sql := IF(@exists = 0,
+  'ALTER TABLE portal_interview_submission ADD COLUMN total_case_count INT NULL COMMENT ''总用例数'' AFTER passed_case_count',
+  'SELECT 1');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+-- 2.3 portal_interview_submission.failed_case_id
+SET @col := 'failed_case_id';
+SELECT COUNT(*) INTO @exists FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = @db AND TABLE_NAME = 'portal_interview_submission' AND COLUMN_NAME = @col;
+SET @sql := IF(@exists = 0,
+  'ALTER TABLE portal_interview_submission ADD COLUMN failed_case_id BIGINT NULL COMMENT ''首个失败用例ID'' AFTER total_case_count',
+  'SELECT 1');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+-- 2.4 portal_interview_submission.failed_case_input
+SET @col := 'failed_case_input';
+SELECT COUNT(*) INTO @exists FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = @db AND TABLE_NAME = 'portal_interview_submission' AND COLUMN_NAME = @col;
+SET @sql := IF(@exists = 0,
+  'ALTER TABLE portal_interview_submission ADD COLUMN failed_case_input TEXT NULL COMMENT ''首个失败用例输入'' AFTER failed_case_id',
+  'SELECT 1');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+-- 2.5 portal_interview_submission.failed_case_expected
+SET @col := 'failed_case_expected';
+SELECT COUNT(*) INTO @exists FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = @db AND TABLE_NAME = 'portal_interview_submission' AND COLUMN_NAME = @col;
+SET @sql := IF(@exists = 0,
+  'ALTER TABLE portal_interview_submission ADD COLUMN failed_case_expected TEXT NULL COMMENT ''首个失败用例期望输出'' AFTER failed_case_input',
+  'SELECT 1');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+-- 2.6 portal_interview_submission.failed_case_actual
+SET @col := 'failed_case_actual';
+SELECT COUNT(*) INTO @exists FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = @db AND TABLE_NAME = 'portal_interview_submission' AND COLUMN_NAME = @col;
+SET @sql := IF(@exists = 0,
+  'ALTER TABLE portal_interview_submission ADD COLUMN failed_case_actual TEXT NULL COMMENT ''首个失败用例实际输出'' AFTER failed_case_expected',
+  'SELECT 1');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+-- 2.7 portal_interview_submission.error_message
+SET @col := 'error_message';
+SELECT COUNT(*) INTO @exists FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = @db AND TABLE_NAME = 'portal_interview_submission' AND COLUMN_NAME = @col;
+SET @sql := IF(@exists = 0,
+  'ALTER TABLE portal_interview_submission ADD COLUMN error_message TEXT NULL COMMENT ''编译/运行错误信息'' AFTER failed_case_actual',
+  'SELECT 1');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+-- 2.8 创建测试用例表（若不存在）
+SET @sql := IF(
+  (SELECT COUNT(*) FROM information_schema.TABLES
+   WHERE TABLE_SCHEMA = @db AND TABLE_NAME = 'portal_interview_question_test_case') = 0,
+  'CREATE TABLE portal_interview_question_test_case (id BIGINT NOT NULL AUTO_INCREMENT COMMENT ''主键'', question_id BIGINT NOT NULL COMMENT ''题目ID'', input TEXT COMMENT ''标准输入'', expected_output TEXT NOT NULL COMMENT ''期望输出'', is_sample TINYINT(1) DEFAULT 0 COMMENT ''是否样例:1=样例/0=隐藏'', order_num INT DEFAULT 0 COMMENT ''用例排序'', explanation VARCHAR(1000) DEFAULT NULL COMMENT ''用例说明'', create_time DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT ''创建时间'', update_time DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT ''更新时间'', PRIMARY KEY (id), KEY idx_question_id (question_id)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT=''面试题目测试用例表''',
+  'SELECT 1');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+-- =====================================================================
+-- 升级完成
 -- =====================================================================
 
 

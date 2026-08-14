@@ -9,6 +9,9 @@ import type {
   UpdatePasswordParams,
   UserStats,
   UserDashboard,
+  CaptchaImage,
+  SendEmailCodeParams,
+  ResetPasswordParams,
 } from '@/types/api';
 
 // 用户登录
@@ -19,6 +22,30 @@ export const login = (params: LoginParams) => {
 // 用户注册
 export const register = (params: RegisterParams) => {
   return httpPost<RegisterResponse>('/portal/register', params);
+};
+
+// 发送邮箱验证码（注册 / 找回密码两种场景）
+export const sendEmailCode = (params: SendEmailCodeParams) => {
+  return httpPost('/portal/email/code', params);
+};
+
+// 找回密码（邮箱验证码重置密码）
+export const resetPassword = (params: ResetPasswordParams) => {
+  return httpPost('/portal/email/reset-password', params);
+};
+
+// 获取图形验证码
+// 注意：/captchaImage 返回的 captchaEnabled/uuid/img 位于响应顶层（非 data 内），
+// 不能复用 httpGet（其仅取 data 字段），故直接用 fetch 解析顶层字段。
+export const getCaptchaImage = async (): Promise<CaptchaImage> => {
+  const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api';
+  const response = await fetch(`${API_BASE_URL}/captchaImage`, { method: 'GET' });
+  const data = await response.json();
+  return {
+    captchaEnabled: data.captchaEnabled ?? true,
+    uuid: data.uuid || '',
+    img: data.img ? `data:image/jpeg;base64,${data.img}` : ''
+  };
 };
 
 // 退出登录

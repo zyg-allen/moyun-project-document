@@ -72,6 +72,10 @@ public class PortalTopicServiceImpl extends ServiceImpl<PortalTopicMapper, Porta
     @Autowired
     private ISensitiveWordService sensitiveWordService;
 
+    @Autowired
+    @org.springframework.context.annotation.Lazy
+    private com.moyun.system.service.IAuditTaskService auditTaskService;
+
     @Override
     public Page<TopicListVO> getTopicList(Integer pageNum, Integer pageSize, String sort, String keyword) {
         if (pageNum == null || pageNum <= 0) pageNum = 1;
@@ -145,15 +149,7 @@ public class PortalTopicServiceImpl extends ServiceImpl<PortalTopicMapper, Porta
         if (topic.getTitle() == null || topic.getTitle().trim().isEmpty()) {
             throw new ServiceException("话题标题不能为空");
         }
-        // 校验认证创作者
-        PortalUser user = portalUserMapper.selectById(userId);
-        if (user == null) {
-            throw new ServiceException("用户不存在");
-        }
-        Integer isCertified = user.getIsCertifiedCreator();
-        if (isCertified == null || isCertified != 1) {
-            throw new ServiceException("仅认证创作者可发起话题");
-        }
+        // 话题属低门槛互动，登录用户即可发起（内容仍走敏感词 + 待审核）
 
         topic.setCreatorId(userId);
         // 话题默认进入待审核状态，审核通过后由 auditTopic 触发 active 并推送 Feed/成长事件
@@ -165,6 +161,19 @@ public class PortalTopicServiceImpl extends ServiceImpl<PortalTopicMapper, Porta
         topic.setCommentCount(0);
         topic.setCreatedTime(LocalDateTime.now());
         baseMapper.insert(topic);
+
+        // v8.1：提交统一审核任务（写 sys_audit_task），使首页/审核中心待办可见
+        if (topic.getId() != null) {
+            com.moyun.system.domain.dto.AuditTaskSubmitDTO dto = new com.moyun.system.domain.dto.AuditTaskSubmitDTO();
+            dto.setTaskType("topic");
+            dto.setBizId(topic.getId());
+            dto.setTitle(topic.getTitle());
+            dto.setDescription(topic.getDescription());
+            dto.setSubmitterId(userId);
+            PortalUser portalUser = portalUserMapper.selectPortalUserById(userId);
+            dto.setSubmitterName(portalUser.getUsername());
+            auditTaskService.submit(dto);
+        }
 
         // 敏感词轻量扫描：标题+描述拼接检测。
         // 命中即写入审计日志（action=pending），话题仍保持 pending 待人工/AI 审核；

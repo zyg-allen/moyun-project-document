@@ -56,30 +56,33 @@ export function changeTagStatus(tagId, status) {
   })
 }
 
-// ==================== Portal 通用标签系统（新增） ====================
+// ==================== 通用标签系统（后台版） ====================
+// 注意：后台管理页统一走 /cms/tag/* 接口，使用后台 token 体系（SysLoginController 签发）。
+// 切勿调用 /portal/tag/*：那是前台门户接口，使用门户 token 体系，后台 token 调用会被认证拦截返回 401
+// （表现为"登录状态已过期"）。后端 CmsTagController 已提供 hot/bind 后台同源接口。
 
-// 拉取标签列表（前端门户/通用），支持关键字与 module 过滤
+// 拉取标签列表（后台通用），支持关键字与 module 过滤
 export function listPortalTag(query) {
   return request({
-    url: '/portal/tag/list',
+    url: '/cms/tag/list',
     method: 'get',
     params: query
   })
 }
 
-// 热门标签（按 module 分类）
+// 热门标签（按 module 分类）— 后台版，走 /cms/tag/hot
 export function getHotTags(module, limit) {
   return request({
-    url: '/portal/tag/hot',
+    url: '/cms/tag/hot',
     method: 'get',
     params: { module, limit }
   })
 }
 
-// 为实体绑定标签（entityType, entityId, tagIds / tagNames, module）
+// 为实体绑定标签（entityType, entityId, tagIds / tagNames, module）— 后台版，走 /cms/tag/bind
 export function bindTagsToEntity(data) {
   return request({
-    url: '/portal/tag/bind',
+    url: '/cms/tag/bind',
     method: 'post',
     data: data
   })

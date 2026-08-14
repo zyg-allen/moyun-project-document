@@ -177,6 +177,47 @@ moyun:
   # 慢 SQL 治理配置（生产环境更严格，建议 1000ms~2000ms）
   slow-sql:
     threshold-millis: ${SLOW_SQL_THRESHOLD_MILLIS:2000}
+  # OJ 判题配置（v8.0 沙箱 + 异步判题）
+  # - engine-type=docker：使用 Docker 沙箱隔离运行用户代码（生产环境推荐）
+  # - async-enabled=true：高并发场景使用 Redis 队列 + Worker 异步判题，前端轮询
+  # - 部署前置条件：宿主机需安装 docker CLI，且 moyun-server 运行账号具备 docker 调用权限
+  #   （推荐与 docker daemon 同机部署，或挂载只读 /var/run/docker.sock）
+  judge:
+    engine-type: ${JUDGE_ENGINE_TYPE:docker}
+    timeout-ms: ${JUDGE_TIMEOUT_MS:2000}
+    memory-limit-mb: ${JUDGE_MEMORY_LIMIT_MB:256}
+    async-enabled: ${JUDGE_ASYNC_ENABLED:true}
+    queue:
+      name: ${JUDGE_QUEUE_NAME:moyun:judge:queue}
+      result-key-prefix: ${JUDGE_RESULT_KEY_PREFIX:moyun:judge:result:}
+      result-ttl-seconds: ${JUDGE_RESULT_TTL_SECONDS:600}
+    worker:
+      concurrency: ${JUDGE_WORKER_CONCURRENCY:2}
+      pop-timeout-seconds: ${JUDGE_WORKER_POP_TIMEOUT:5}
+      max-retry: ${JUDGE_WORKER_MAX_RETRY:1}
+      shutdown-await-ms: ${JUDGE_WORKER_SHUTDOWN_AWAIT_MS:5000}
+    docker:
+      binary: ${DOCKER_BIN:docker}
+      # 各语言运行时镜像（按需替换为内网镜像仓库地址）
+      images:
+        javascript: ${JUDGE_IMG_JS:node:20-alpine}
+        typescript: ${JUDGE_IMG_TS:node:20-alpine}
+        python: ${JUDGE_IMG_PY:python:3.11-slim}
+        java: ${JUDGE_IMG_JAVA:eclipse-temurin:21-jre-alpine}
+        go: ${JUDGE_IMG_GO:golang:1.22-alpine}
+        cpp: ${JUDGE_IMG_CPP:gcc:13-bookworm}
+        rust: ${JUDGE_IMG_RUST:rust:1.78-slim}
+      cpus: ${JUDGE_DOCKER_CPUS:1.0}
+      cpu-period: ${JUDGE_DOCKER_CPU_PERIOD:100000}
+      cpu-quota: ${JUDGE_DOCKER_CPU_QUOTA:-1}
+      pids-limit: ${JUDGE_DOCKER_PIDS_LIMIT:100}
+      network-disabled: ${JUDGE_DOCKER_NETWORK_DISABLED:true}
+      read-only-root: ${JUDGE_DOCKER_READ_ONLY_ROOT:true}
+      tmpfs: ${JUDGE_DOCKER_TMPFS:/tmp:rw,size=64m}
+      work-dir: ${JUDGE_DOCKER_WORK_DIR:/sandbox}
+      seccomp-unconfined: false
+      drop-all-caps: true
+      container-timeout-seconds: ${JUDGE_DOCKER_CONTAINER_TIMEOUT:30}
 
 # =============================================
 # 项目配置（兼容原 ruoyi 配置，部分旧代码可能读取）

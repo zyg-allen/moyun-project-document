@@ -39,6 +39,10 @@ public class PortalCreatorCertificationServiceImpl
     @Autowired
     private ISysNotificationService notificationService;
 
+    @Autowired
+    @org.springframework.context.annotation.Lazy
+    private com.moyun.system.service.IAuditTaskService auditTaskService;
+
     @Override
     public PortalCreatorCertification apply(Long userId, PortalCreatorCertification dto) {
         // 已通过认证的用户不允许再次申请
@@ -64,6 +68,25 @@ public class PortalCreatorCertificationServiceImpl
         entity.setStatus("pending");
         entity.setCreatedTime(LocalDateTime.now());
         baseMapper.insert(entity);
+
+        // v8.1：提交统一审核任务（写 sys_audit_task），使首页/审核中心待办可见
+        com.moyun.system.domain.dto.AuditTaskSubmitDTO auditDto = new com.moyun.system.domain.dto.AuditTaskSubmitDTO();
+        auditDto.setTaskType("certification");
+        auditDto.setBizId(entity.getId());
+        auditDto.setTitle("创作者认证申请-" + entity.getRealName());
+        auditDto.setDescription(entity.getIntro());
+        auditDto.setSubmitterId(userId);
+        if (userId != null) {
+            try {
+                PortalUser u = portalUserMapper.selectPortalUserById(userId);
+                if (u != null) {
+                    auditDto.setSubmitterName(u.getUsername());
+                }
+            } catch (Exception ignored) {
+                // submitterName 仅用于展示，查询失败不影响审核任务提交
+            }
+        }
+        auditTaskService.submit(auditDto);
 
         // 业务闭环：发送"待审核"待办通知给所有系统用户 + 被系统用户绑定的前台用户
         // 使用 type=todo 个人通知（scope=user）定向发送，未绑定前台用户不可见

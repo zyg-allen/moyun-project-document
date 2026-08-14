@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.moyun.system.mapper.SysAuditTaskMapper">
+
+    <resultMap id="SysAuditTaskResult" type="com.moyun.system.domain.entity.SysAuditTask">
+        <id     property="id"             column="id"/>
+        <result property="taskType"       column="task_type"/>
+        <result property="bizType"        column="biz_type"/>
+        <result property="bizId"           column="biz_id"/>
+        <result property="title"          column="title"/>
+        <result property="description"    column="description"/>
+        <result property="submitterId"    column="submitter_id"/>
+        <result property="submitterName"  column="submitter_name"/>
+        <result property="status"         column="status"/>
+        <result property="auditorId"      column="auditor_id"/>
+        <result property="auditorName"    column="auditor_name"/>
+        <result property="auditOpinion"   column="audit_opinion"/>
+        <result property="auditAction"    column="audit_action"/>
+        <result property="submitTime"     column="submit_time"/>
+        <result property="auditTime"     column="audit_time"/>
+        <result property="priority"       column="priority"/>
+        <result property="routePath"      column="route_path"/>
+        <result property="extraData"      column="extra_data"/>
+        <result property="createTime"     column="create_time"/>
+        <result property="updateTime"     column="update_time"/>
+    </resultMap>
+
+    <sql id="selectSysAuditTaskVo">
+        SELECT id, task_type, biz_type, biz_id, title, description, submitter_id, submitter_name,
+               status, auditor_id, auditor_name, audit_opinion, audit_action,
+               submit_time, audit_time, priority, route_path, extra_data, create_time, update_time
+          FROM sys_audit_task
+    </sql>
+
+    <select id="selectByBiz" resultMap="SysAuditTaskResult">
+        <include refid="selectSysAuditTaskVo"/>
+         WHERE task_type = #{taskType} AND biz_id = #{bizId}
+         LIMIT 1
+    </select>
+
+    <select id="countByStatus" resultType="java.util.Map">
+        SELECT status, COUNT(*) AS cnt
+          FROM sys_audit_task
+         GROUP BY status
+    </select>
+
+    <select id="countPendingByType" resultType="java.util.Map">
+        SELECT task_type AS taskType, COUNT(*) AS cnt
+          FROM sys_audit_task
+         WHERE status = 'pending'
+         GROUP BY task_type
+    </select>
+
+</mapper>

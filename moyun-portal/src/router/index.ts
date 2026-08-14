@@ -19,6 +19,7 @@ const MyReportsPage = () => import('@/pages/MyReportsPage.vue')
 const MyFeedbackPage = () => import('@/pages/MyFeedbackPage.vue')
 const LoginPage = () => import('@/pages/LoginPage.vue')
 const RegisterPage = () => import('@/pages/RegisterPage.vue')
+const ForgotPasswordPage = () => import('@/pages/ForgotPasswordPage.vue')
 const PublishPage = () => import('@/pages/PublishPage.vue')
 const MyArticlesPage = () => import('@/pages/MyArticlesPage.vue')
 const NotFoundPage = () => import('@/pages/NotFoundPage.vue')
@@ -510,6 +511,12 @@ const routes: RouteRecordRaw[] = [
     name: 'register',
     component: RegisterPage,
     meta: { title: '注册', isPublic: true, robots: 'noindex,follow' }
+  },
+  {
+    path: '/forgot-password',
+    name: 'forgot-password',
+    component: ForgotPasswordPage,
+    meta: { title: '找回密码', isPublic: true, robots: 'noindex,follow' }
   },
   // ============ 需要登录的页面 ============
   {

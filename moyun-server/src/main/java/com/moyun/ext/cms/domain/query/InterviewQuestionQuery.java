@@ -26,4 +26,10 @@ public class InterviewQuestionQuery extends PageDomain implements Serializable {
     private Long companyId;           // 公司ID
 
     private String status;            // 状态
+
+    /**
+     * 题目类型：bagwen/algorithm/system_design/project/hr
+     * 用于题库按类型筛选（v6.3 题目结构化）
+     */
+    private String questionType;
 }

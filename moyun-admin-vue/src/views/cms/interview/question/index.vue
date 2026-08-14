@@ -40,6 +40,8 @@
     <div class="button-group">
       <el-button type="primary" @click="handleAdd">新增</el-button>
       <el-button type="danger" :disabled="multiple" @click="handleDelete">删除</el-button>
+      <el-button type="success" :icon="Upload" v-hasPermi="['cms:interview:import']" @click="handleImport">导入</el-button>
+      <el-button type="warning" :icon="Download" v-hasPermi="['cms:interview:export']" @click="handleExport">导出</el-button>
     </div>
 
     <el-table
@@ -75,9 +77,10 @@
         </template>
       </el-table-column>
       <el-table-column label="排序" prop="sort" width="80" />
-      <el-table-column label="操作" width="180" fixed="right">
+      <el-table-column label="操作" width="240" fixed="right">
         <template #default="{ row }">
           <el-button link type="primary" @click="handleEdit(row)">编辑</el-button>
+          <el-button link type="success" @click="handleTestCase(row)">用例</el-button>
           <el-button link type="danger" @click="handleDelete(row)">删除</el-button>
         </template>
       </el-table-column>
@@ -140,19 +143,40 @@
         <el-button type="primary" @click="submitForm">确定</el-button>
       </template>
     </el-dialog>
+
+    <!-- Excel 导入弹窗 -->
+    <ImportDialog
+      v-model="importVisible"
+      title="题库批量导入"
+      business-key="interview_question"
+      tip="请使用「下载导入模板」按钮获取最新模板格式，按字段说明填写后上传；导入失败的行可下载 Excel 修正后重导。"
+      template-file-name="面试题库导入模板"
+      fail-rows-file-name="面试题库导入失败行"
+      :import-api="importInterviewQuestionData"
+      :template-api="downloadInterviewQuestionTemplate"
+      :fail-rows-api="exportInterviewQuestionFailRows"
+      @success="handleImportSuccess"
+    />
   </div>
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted } from 'vue';
+import { ref, reactive, computed, onMounted, getCurrentInstance } from 'vue';
+import { useRouter } from 'vue-router';
 import { ElMessage, ElMessageBox } from 'element-plus';
+import { Upload, Download } from '@element-plus/icons-vue';
 import {
   listInterviewQuestion, getInterviewQuestion, addInterviewQuestion,
-  updateInterviewQuestion, delInterviewQuestion
+  updateInterviewQuestion, delInterviewQuestion,
+  exportInterviewQuestion, downloadInterviewQuestionTemplate,
+  importInterviewQuestionData, exportInterviewQuestionFailRows
 } from '@/api/cms/interview';
 import { listInterviewCategory } from '@/api/cms/interview';
 import { bindTagsToEntity, getHotTags } from '@/api/cms/tag';
 import TagSelect from '@/components/TagSelect.vue';
+import ImportDialog from '@/components/ImportDialog/index.vue';
+
+const { proxy } = getCurrentInstance();
 
 const loading = ref(true);
 const questionList = ref([]);
@@ -169,6 +193,9 @@ const queryParams = reactive({
 
 const dialogVisible = ref(false);
 const dialogTitle = computed(() => form.value.id ? '编辑题目' : '新增题目');
+
+// Excel 导入弹窗
+const importVisible = ref(false);
 const form = ref({
   id: null, title: '', description: '', difficulty: 'easy', categoryId: null,
   tags: [], companies: '', hint: '', solution: '', sort: 0, status: 'published'
@@ -248,6 +275,12 @@ async function handleEdit(row) {
   } catch (e) { /* ignore */ }
 }
 
+const router = useRouter();
+
+function handleTestCase(row) {
+  router.push(`/cms/interview/testCase/${row.id}`);
+}
+
 async function submitForm() {
   if (!form.value.title) {
     ElMessage.warning('请输入标题');
@@ -291,6 +324,34 @@ async function handleDelete(row) {
     ElMessage.success('删除成功');
     getList();
   } catch (e) { /* cancel */ }
+}
+
+// 打开导入弹窗
+function handleImport() {
+  importVisible.value = true;
+}
+
+// 导入成功回调：刷新列表
+function handleImportSuccess(result) {
+  // 仅当有成功记录时刷新
+  if (result && result.successCount > 0) {
+    getList();
+  }
+}
+
+// 导出按钮：按当前筛选条件导出 Excel
+function handleExport() {
+  proxy.download(
+    '/cms/interview/question/export',
+    { ...queryParams },
+    `面试题目_${formatNow()}.xlsx`
+  );
+}
+
+function formatNow() {
+  const d = new Date();
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}`;
 }
 
 function handleSelectionChange(selection) {

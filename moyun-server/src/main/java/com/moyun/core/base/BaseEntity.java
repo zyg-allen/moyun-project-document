@@ -11,7 +11,6 @@ import java.io.Serializable;
 import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.regex.Pattern;
 
 /**
  * Entity基类
@@ -21,11 +20,6 @@ import java.util.regex.Pattern;
 @Data
 public class BaseEntity implements Serializable {
     private static final long serialVersionUID = 1L;
-
-    /** 排序字段白名单正则：仅允许字母开头，含字母数字下划点和表别名前缀（如 pa.create_time） */
-    private static final Pattern ORDER_BY_PATTERN = Pattern.compile("^[a-zA-Z][a-zA-Z0-9_.]{0,63}$");
-    /** 排序方向白名单：仅允许 asc/desc（不区分大小写） */
-    private static final Pattern IS_ASC_PATTERN = Pattern.compile("^(?i)(asc|desc)$");
 
     /**
      * 搜索值
@@ -111,30 +105,7 @@ public class BaseEntity implements Serializable {
         if (params == null) {
             params = new HashMap<>();
         }
-        // 安全校验：拦截 orderByColumn / isAsc 的 SQL 注入
-        sanitizeOrderByParam("orderByColumn");
-        sanitizeOrderByParam("isAsc");
         return params;
-    }
-
-    /**
-     * 校验 params 中的排序参数，不合法直接移除（防止 ${} 拼接注入）
-     */
-    private void sanitizeOrderByParam(String key) {
-        Object val = params.get(key);
-        if (val == null) {
-            return;
-        }
-        String strVal = String.valueOf(val).trim();
-        boolean valid;
-        if ("isAsc".equals(key)) {
-            valid = IS_ASC_PATTERN.matcher(strVal).matches();
-        } else {
-            valid = ORDER_BY_PATTERN.matcher(strVal).matches();
-        }
-        if (!valid) {
-            params.remove(key);
-        }
     }
 
 }

@@ -85,6 +85,13 @@ public class PortalArticleServiceImpl extends ServiceImpl<PortalArticleMapper, P
     @Autowired
     private PortalTipOrderMapper portalTipOrderMapper;
 
+    @Autowired
+    @org.springframework.context.annotation.Lazy
+    private com.moyun.system.service.IAuditTaskService auditTaskService;
+
+    @Autowired
+    private com.moyun.portal.util.CreatorPermissionChecker creatorPermissionChecker;
+
     /**
      * 根据条件分页查询文章列表
      *
@@ -143,6 +150,11 @@ public class PortalArticleServiceImpl extends ServiceImpl<PortalArticleMapper, P
         if (!"pending".equals(portalArticle.getStatus())) {
             portalArticle.setStatus(null);
         }
+        // "重新提交审核"（status=pending）属高价值创作行为，需认证创作者，
+        // 防止未认证用户通过编辑接口绕过 publishArticle 的发布校验。
+        if ("pending".equals(portalArticle.getStatus())) {
+            creatorPermissionChecker.checkCreator(PortalSecurityUtils.getUserId());
+        }
         // 自动处理Base64图片
         processArticleImages(portalArticle);
         // 切换分类或新建分类时同步维护 category_path 与 root_category_id
@@ -162,6 +174,8 @@ public class PortalArticleServiceImpl extends ServiceImpl<PortalArticleMapper, P
     @Override
     @Transactional(rollbackFor = Exception.class)
     public int publishArticle(PortalArticle portalArticle) {
+        // 创作者认证校验：发布文章属高价值创作，仅认证创作者可发布
+        creatorPermissionChecker.checkCreator(PortalSecurityUtils.getUserId());
         // 自动处理Base64图片
         processArticleImages(portalArticle);
         // 自动设置前台作者信息
@@ -224,6 +238,11 @@ public class PortalArticleServiceImpl extends ServiceImpl<PortalArticleMapper, P
             rows = baseMapper.insertPortalArticle(portalArticle);
         } else {
             rows = baseMapper.updatePortalArticle(portalArticle);
+        }
+
+        // v8.1：进入待审核态时，提交统一审核任务（写 sys_audit_task），使首页/审核中心待办可见
+        if (rows > 0 && "pending".equals(portalArticle.getStatus()) && portalArticle.getId() != null) {
+            submitArticleAuditTask(portalArticle);
         }
 
         // 敏感词轻量扫描：标题+摘要+正文拼接检测。
@@ -606,5 +625,28 @@ public class PortalArticleServiceImpl extends ServiceImpl<PortalArticleMapper, P
         portalTipOrderMapper.delete(new LambdaQueryWrapper<PortalTipOrder>()
                 .eq(PortalTipOrder::getTargetId, articleId)
                 .in(PortalTipOrder::getTargetType, "article", "article_paid"));
+    }
+
+    /**
+     * v8.1：提交文章统一审核任务（事务内，异常回滚保证双写一致）。
+     */
+    private void submitArticleAuditTask(PortalArticle article) {
+        com.moyun.system.domain.dto.AuditTaskSubmitDTO dto = new com.moyun.system.domain.dto.AuditTaskSubmitDTO();
+        dto.setTaskType("article");
+        dto.setBizId(article.getId());
+        dto.setTitle(article.getTitle());
+        dto.setDescription(article.getExcerpt());
+        dto.setSubmitterId(article.getAuthorId());
+        if (article.getAuthorId() != null) {
+            try {
+                PortalUser author = portalUserMapper.selectPortalUserById(article.getAuthorId());
+                if (author != null) {
+                    dto.setSubmitterName(author.getUsername());
+                }
+            } catch (Exception ignored) {
+                // submitterName 仅用于展示，查询失败不影响审核任务提交
+            }
+        }
+        auditTaskService.submit(dto);
     }
 }

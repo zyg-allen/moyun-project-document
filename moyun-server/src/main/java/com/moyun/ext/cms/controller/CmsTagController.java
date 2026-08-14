@@ -16,8 +16,12 @@ import com.moyun.core.base.BaseController;
 import com.moyun.ext.cms.domain.query.CmsTagQuery;
 import com.moyun.ext.cms.domain.vo.CmsTagVO;
 import com.moyun.ext.cms.service.ICmsTagService;
+import com.moyun.portal.domain.dto.PortalTagBindDTO;
 import com.moyun.portal.domain.entity.PortalTag;
+import com.moyun.portal.service.IPortalTagService;
 import com.moyun.util.bean.PageUtils;
+
+import java.util.Collections;
 
 /**
  * CMS标签管理Controller
@@ -30,6 +34,13 @@ import com.moyun.util.bean.PageUtils;
 public class CmsTagController extends BaseController {
     @Autowired
     private ICmsTagService cmsTagService;
+
+    /**
+     * 门户通用标签服务（热门标签查询、实体标签绑定）
+     * 复用前台同一套标签数据与绑定逻辑，保证后台管理结果与门户展示一致。
+     */
+    @Autowired
+    private IPortalTagService portalTagService;
 
     /**
      * 获取标签列表
@@ -101,5 +112,47 @@ public class CmsTagController extends BaseController {
     @DeleteMapping("/{ids}")
     public AjaxResult remove(@Parameter(description = "标签ID数组") @PathVariable Long[] ids) {
         return toAjax(cmsTagService.deleteTagByIds(ids));
+    }
+
+    /**
+     * 获取热门标签（后台版）
+     * <p>
+     * 与前台 /portal/tag/hot 同源，供后台管理页（题库/面经/简历模板等）拉取可选标签。
+     * 走后台权限体系（cms:tag:list），避免后台 token 调前台接口被认证拦截返回 401。
+     *
+     * @param module 标签所属模块（如 interview_question / interview_experience），可选
+     * @param limit  返回数量，默认 20
+     */
+    @Operation(summary = "获取热门标签", description = "按引用次数排行获取热门标签，支持按 module 过滤（后台版）")
+    @PreAuthorize("@ss.hasPermi('cms:tag:list')")
+    @GetMapping("/hot")
+    public AjaxResult getHotTags(
+            @Parameter(description = "所属模块") @RequestParam(required = false) String module,
+            @Parameter(description = "返回数量") @RequestParam(defaultValue = "20") Integer limit) {
+        return success(portalTagService.getHotTags(module, limit));
+    }
+
+    /**
+     * 绑定标签到实体（后台版）
+     * <p>
+     * 与前台 /portal/tag/bind 同源，供后台管理页在新增/编辑实体后绑定标签。
+     * 走后台权限体系（cms:tag:edit），避免后台 token 调前台接口被认证拦截返回 401。
+     * 后台操作不依赖前台登录态，由 @PreAuthorize 保证权限，无需 PortalSecurityUtils 校验。
+     *
+     * @param dto 绑定参数：entityType / entityId / tagIds 或 tagNames / module
+     */
+    @Operation(summary = "绑定标签到实体", description = "根据 entityType/entityId 绑定标签，支持按 id 或名称自动创建（后台版）")
+    @PreAuthorize("@ss.hasPermi('cms:tag:edit')")
+    @Log(title = "标签管理-绑定", businessType = BusinessType.UPDATE)
+    @PostMapping("/bind")
+    public AjaxResult bindTags(@Validated @RequestBody PortalTagBindDTO dto) {
+        portalTagService.bindTags(
+                dto.getEntityType(),
+                dto.getEntityId(),
+                dto.getTagIds() == null ? Collections.emptyList() : dto.getTagIds(),
+                dto.getTagNames() == null ? Collections.emptyList() : dto.getTagNames(),
+                dto.getModule()
+        );
+        return success();
     }
 }

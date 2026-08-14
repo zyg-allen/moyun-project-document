@@ -65,6 +65,10 @@ public class CmsArticleServiceImpl implements ICmsArticleService {
     @Autowired
     private ApplicationEventPublisher eventPublisher;
 
+    @Autowired
+    @org.springframework.context.annotation.Lazy
+    private com.moyun.system.service.IAuditTaskService auditTaskService;
+
     // ==================== 查询方法 ====================
 
     @Override
@@ -134,6 +138,10 @@ public class CmsArticleServiceImpl implements ICmsArticleService {
             } catch (Exception e) {
                 log.warn("CMS 文章敏感词扫描异常：articleId={}, err={}", article.getId(), e.getMessage());
             }
+        }
+        // v8.1：进入待审核态时，提交统一审核任务（写 sys_audit_task），使首页/审核中心待办可见
+        if (rows > 0 && "pending".equals(article.getStatus()) && article.getId() != null) {
+            submitArticleAuditTask(article);
         }
         return rows;
     }
@@ -593,5 +601,28 @@ public class CmsArticleServiceImpl implements ICmsArticleService {
         if (StringUtils.hasText(article.getContentMarkdown()) && article.getContentMarkdown().contains("data:image")) {
             article.setContentMarkdown(base64ImageUtils.processContentImages(article.getContentMarkdown()));
         }
+    }
+
+    /**
+     * v8.1：提交文章统一审核任务（事务内，异常回滚保证双写一致）。
+     */
+    private void submitArticleAuditTask(PortalArticle article) {
+        com.moyun.system.domain.dto.AuditTaskSubmitDTO dto = new com.moyun.system.domain.dto.AuditTaskSubmitDTO();
+        dto.setTaskType("article");
+        dto.setBizId(article.getId());
+        dto.setTitle(article.getTitle());
+        dto.setDescription(article.getExcerpt());
+        dto.setSubmitterId(article.getAuthorId());
+        if (article.getAuthorId() != null) {
+            try {
+                PortalUser author = portalUserMapper.selectPortalUserById(article.getAuthorId());
+                if (author != null) {
+                    dto.setSubmitterName(author.getUsername());
+                }
+            } catch (Exception ignored) {
+                // submitterName 仅用于展示，查询失败不影响审核任务提交
+            }
+        }
+        auditTaskService.submit(dto);
     }
 }

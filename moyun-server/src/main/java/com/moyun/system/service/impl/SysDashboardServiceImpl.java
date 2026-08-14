@@ -2,14 +2,8 @@ package com.moyun.system.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.moyun.core.config.redis.RedisCache;
-import com.moyun.portal.domain.entity.PortalCreatorCertification;
-import com.moyun.portal.domain.entity.PortalFeedback;
-import com.moyun.portal.domain.entity.PortalReport;
 import com.moyun.portal.mapper.PortalArticleMapper;
 import com.moyun.portal.mapper.PortalArticleViewMapper;
-import com.moyun.portal.mapper.PortalCreatorCertificationMapper;
-import com.moyun.portal.mapper.PortalFeedbackMapper;
-import com.moyun.portal.mapper.PortalReportMapper;
 import com.moyun.system.domain.entity.SysNotification;
 import com.moyun.system.domain.entity.SysOperLog;
 import com.moyun.system.domain.query.OperLogQuery;
@@ -84,15 +78,6 @@ public class SysDashboardServiceImpl implements ISysDashboardService {
     private SysNotificationMapper notificationMapper;
 
     @Autowired
-    private PortalReportMapper reportMapper;
-
-    @Autowired
-    private PortalFeedbackMapper feedbackMapper;
-
-    @Autowired
-    private PortalCreatorCertificationMapper creatorCertificationMapper;
-
-    @Autowired
     private com.moyun.portal.mapper.PortalUserMapper portalUserMapper;
 
     @Autowired
@@ -106,6 +91,9 @@ public class SysDashboardServiceImpl implements ISysDashboardService {
 
     @Autowired
     private RedisCache redisCache;
+
+    @Autowired
+    private com.moyun.system.service.IAuditTaskService auditTaskService;
 
     @Override
     public DashboardVO getDashboardData() {
@@ -430,127 +418,19 @@ public class SysDashboardServiceImpl implements ISysDashboardService {
 
     /**
      * 构建待办任务列表
+     * <p>v8.1：统一从 sys_audit_task 聚合（status=pending），覆盖文章/面经/专栏/话题/
+     * 创作者认证/反馈/举报/面经评论等全部业务类型，替代分散的业务表查询。
+     * <p>点击跳转审核中心对应 Tab 并打开详情（routePath=/cms/audit-center?taskId=xx）。
      */
     private List<DashboardVO.TaskItem> buildTodoTasks() {
         List<DashboardVO.TaskItem> tasks = new ArrayList<>();
         try {
-            // 1. 待审核文章
-            List<Map<String, Object>> pending = articleMapper.selectPendingArticles(8);
-            for (Map<String, Object> row : pending) {
-                DashboardVO.TaskItem item = new DashboardVO.TaskItem();
-                item.setId(toLong(row.get("id")));
-                item.setType("article_audit");
-                item.setTitle(String.valueOf(row.get("title")));
-                item.setDescription("文章待审核");
-                item.setStatus("pending");
-                // 注意：MyBatis 开启 map-underscore-to-camel-case，@Select 返回 Map 时
-                // create_time 列会被转为 createTime 键，不能用 row.get("create_time")
-                Object createTime = row.get("createTime");
-                if (createTime == null) {
-                    createTime = row.get("create_time");
-                }
-                item.setCreateTime(createTime != null ? String.valueOf(createTime) : "");
-                String nickname = row.get("authorNickname") != null ? String.valueOf(row.get("authorNickname")) : String.valueOf(row.get("authorUsername"));
-                item.setSubmitter(nickname);
-                item.setPriority("high");
-                // audit.vue 读取 route.query.id，必须用 query 形式跳转
-                item.setRoutePath("/cms/article/audit?id=" + item.getId());
-                tasks.add(item);
+            List<com.moyun.system.domain.vo.AuditTaskVO> list = auditTaskService.listTodoSummary(8);
+            if (list == null || list.isEmpty()) {
+                return tasks;
             }
-
-            // 2. 待处理举报（pending 状态）
-            try {
-                LambdaQueryWrapper<PortalReport> reportWrapper = new LambdaQueryWrapper<>();
-                reportWrapper.eq(PortalReport::getStatus, "pending")
-                        .orderByDesc(PortalReport::getCreateTime).last("limit 5");
-                List<PortalReport> pendingReports = reportMapper.selectList(reportWrapper);
-                for (PortalReport r : pendingReports) {
-                    DashboardVO.TaskItem item = new DashboardVO.TaskItem();
-                    item.setId(r.getId());
-                    item.setType("report");
-                    item.setTitle("举报：" + (r.getReportType() != null ? r.getReportType() : "其他"));
-                    item.setDescription(r.getDescription() != null ? truncate(r.getDescription(), 60) : "");
-                    item.setStatus("pending");
-                    item.setCreateTime(r.getCreateTime() != null ? r.getCreateTime().format(DATETIME_FMT) : "");
-                    item.setSubmitter(r.getUsername() != null ? r.getUsername() : "匿名");
-                    item.setPriority("high");
-                    // 跳转到举报列表，并通过 handleId 参数自动打开处理对话框
-                    item.setRoutePath("/cms/report?handleId=" + r.getId());
-                    tasks.add(item);
-                }
-            } catch (Exception ex) {
-                log.warn("[Dashboard] 构建举报待办失败：{}", ex.getMessage());
-            }
-
-            // 3. 待处理反馈（pending 状态）
-            try {
-                LambdaQueryWrapper<PortalFeedback> feedbackWrapper = new LambdaQueryWrapper<>();
-                feedbackWrapper.eq(PortalFeedback::getStatus, "pending")
-                        .orderByDesc(PortalFeedback::getCreateTime).last("limit 5");
-                List<PortalFeedback> pendingFeedbacks = feedbackMapper.selectList(feedbackWrapper);
-                for (PortalFeedback f : pendingFeedbacks) {
-                    DashboardVO.TaskItem item = new DashboardVO.TaskItem();
-                    item.setId(f.getId());
-                    item.setType("feedback");
-                    item.setTitle("反馈：" + (f.getSubject() != null ? f.getSubject() : f.getFeedbackType()));
-                    item.setDescription(f.getDescription() != null ? truncate(f.getDescription(), 60) : "");
-                    item.setStatus("pending");
-                    item.setCreateTime(f.getCreateTime() != null ? f.getCreateTime().format(DATETIME_FMT) : "");
-                    item.setSubmitter(f.getUsername() != null ? f.getUsername() : "匿名");
-                    item.setPriority("medium");
-                    // 跳转到反馈列表，并通过 handleId 参数自动打开处理对话框
-                    item.setRoutePath("/cms/feedback?handleId=" + f.getId());
-                    tasks.add(item);
-                }
-            } catch (Exception ex) {
-                log.warn("[Dashboard] 构建反馈待办失败：{}", ex.getMessage());
-            }
-
-            // 4. 创作者认证待审核（pending 状态）
-            try {
-                LambdaQueryWrapper<PortalCreatorCertification> certWrapper = new LambdaQueryWrapper<>();
-                certWrapper.eq(PortalCreatorCertification::getStatus, "pending")
-                        .orderByDesc(PortalCreatorCertification::getCreatedTime).last("limit 5");
-                List<PortalCreatorCertification> pendingCerts = creatorCertificationMapper.selectList(certWrapper);
-                // 批量查询申请人昵称，避免 N+1
-                Map<Long, String> certUserNicknameMap = new HashMap<>();
-                if (!pendingCerts.isEmpty()) {
-                    List<Long> certUserIds = pendingCerts.stream()
-                            .map(PortalCreatorCertification::getUserId)
-                            .filter(java.util.Objects::nonNull)
-                            .distinct()
-                            .collect(Collectors.toList());
-                    if (!certUserIds.isEmpty()) {
-                        List<com.moyun.portal.domain.entity.PortalUser> certUsers = portalUserMapper.selectBatchIds(certUserIds);
-                        for (com.moyun.portal.domain.entity.PortalUser u : certUsers) {
-                            certUserNicknameMap.put(u.getId(), u.getNickname() != null ? u.getNickname() : u.getUsername());
-                        }
-                    }
-                }
-                for (PortalCreatorCertification c : pendingCerts) {
-                    DashboardVO.TaskItem item = new DashboardVO.TaskItem();
-                    item.setId(c.getId());
-                    item.setType("creator_certification");
-                    item.setTitle("认证申请：" + c.getRealName());
-                    item.setDescription("创作者认证待审核（" + (c.getCertType() != null ? c.getCertType() : "creator") + "）");
-                    item.setStatus("pending");
-                    item.setCreateTime(c.getCreatedTime() != null ? c.getCreatedTime().format(DATETIME_FMT) : "");
-                    // 申请人昵称（如查不到则用 realName 兜底）
-                    String submitter = c.getRealName();
-                    if (c.getUserId() != null) {
-                        String nickname = certUserNicknameMap.get(c.getUserId());
-                        if (nickname != null) {
-                            submitter = nickname;
-                        }
-                    }
-                    item.setSubmitter(submitter);
-                    item.setPriority("medium");
-                    // 修正路径：实际审核页为 /certification/audit（顶级 certification 目录 + audit 子菜单），通过 auditId 参数自动打开审核对话框
-                    item.setRoutePath("/certification/audit?auditId=" + c.getId());
-                    tasks.add(item);
-                }
-            } catch (Exception ex) {
-                log.warn("[Dashboard] 构建创作者认证待办失败：{}", ex.getMessage());
+            for (com.moyun.system.domain.vo.AuditTaskVO vo : list) {
+                tasks.add(toTaskItem(vo, true));
             }
         } catch (Exception e) {
             log.error("[Dashboard] 构建待办任务失败", e);
@@ -560,163 +440,56 @@ public class SysDashboardServiceImpl implements ISysDashboardService {
 
     /**
      * 构建与我相关任务（已办）
-     * <p>数据源：从业务表实时查询当前用户处理过的审核任务。
-     * <p>覆盖范围：已审核文章、已处理举报、已处理反馈、已审核创作者认证。
-     * <p>路由策略：每条已办记录都跳转到对应业务页（与待办同口径），
-     * 通过 query 参数自动打开详情/处理弹窗，避免再回退到操作日志列表。
+     * <p>v8.1：统一从 sys_audit_task 聚合（auditor_id=当前用户，status in approved/rejected），
+     * 替代分散的业务表按 handler/auditor 查询。
+     * <p>点击跳转审核中心对应 Tab 并打开详情（routePath=/cms/audit-center?taskId=xx）。
      */
     private List<DashboardVO.TaskItem> buildMyTasks() {
         List<DashboardVO.TaskItem> tasks = new ArrayList<>();
         try {
             Long currentUserId = SecurityUtils.getUserId();
-            String username = SecurityUtils.getUsername();
-            if (currentUserId == null && username == null) {
+            if (currentUserId == null) {
                 return tasks;
             }
-
-            // 1. 已审核文章：当前用户作为 auditor 审核过的文章（published / rejected）
-            try {
-                LambdaQueryWrapper<com.moyun.portal.domain.entity.PortalArticle> articleWrapper = new LambdaQueryWrapper<>();
-                articleWrapper.eq(com.moyun.portal.domain.entity.PortalArticle::getAuditorId, currentUserId)
-                        .in(com.moyun.portal.domain.entity.PortalArticle::getStatus, "published", "rejected")
-                        .orderByDesc(com.moyun.portal.domain.entity.PortalArticle::getAuditTime)
-                        .last("limit 3");
-                List<com.moyun.portal.domain.entity.PortalArticle> auditedArticles = articleMapper.selectList(articleWrapper);
-                // 批量查询作者昵称，避免 N+1（selectList 不返回 JOIN 字段 authorNickname）
-                Map<Long, String> authorNicknameMap = new HashMap<>();
-                if (!auditedArticles.isEmpty()) {
-                    List<Long> authorIds = auditedArticles.stream()
-                            .map(com.moyun.portal.domain.entity.PortalArticle::getAuthorId)
-                            .filter(java.util.Objects::nonNull)
-                            .distinct()
-                            .collect(Collectors.toList());
-                    if (!authorIds.isEmpty()) {
-                        List<com.moyun.portal.domain.entity.PortalUser> authors = portalUserMapper.selectBatchIds(authorIds);
-                        for (com.moyun.portal.domain.entity.PortalUser u : authors) {
-                            authorNicknameMap.put(u.getId(), u.getNickname() != null ? u.getNickname() : u.getUsername());
-                        }
-                    }
-                }
-                for (com.moyun.portal.domain.entity.PortalArticle a : auditedArticles) {
-                    DashboardVO.TaskItem item = new DashboardVO.TaskItem();
-                    item.setId(a.getId());
-                    item.setType("article_audit");
-                    item.setTitle(a.getTitle() != null ? a.getTitle() : "文章审核");
-                    String statusLabel = "published".equals(a.getStatus()) ? "已通过" : "已驳回";
-                    item.setDescription("文章审核" + statusLabel);
-                    item.setStatus(a.getStatus());
-                    item.setCreateTime(a.getAuditTime() != null ? a.getAuditTime().format(DATETIME_FMT)
-                            : (a.getCreateTime() != null ? a.getCreateTime().format(DATETIME_FMT) : ""));
-                    String author = a.getAuthorId() != null ? authorNicknameMap.get(a.getAuthorId()) : null;
-                    item.setSubmitter(author != null ? author : "-");
-                    item.setPriority("low");
-                    item.setRoutePath("/cms/article/audit?id=" + a.getId());
-                    tasks.add(item);
-                }
-            } catch (Exception ex) {
-                log.warn("[Dashboard] 构建已审核文章已办失败：{}", ex.getMessage());
+            List<com.moyun.system.domain.vo.AuditTaskVO> list = auditTaskService.listMyHandledSummary(8);
+            if (list == null || list.isEmpty()) {
+                return tasks;
             }
-
-            // 2. 已处理举报：当前用户作为 handler 处理过的举报（非 pending）
-            try {
-                if (username != null) {
-                    LambdaQueryWrapper<PortalReport> reportWrapper = new LambdaQueryWrapper<>();
-                    reportWrapper.eq(PortalReport::getHandler, username)
-                            .ne(PortalReport::getStatus, "pending")
-                            .orderByDesc(PortalReport::getHandleTime)
-                            .last("limit 3");
-                    List<PortalReport> handledReports = reportMapper.selectList(reportWrapper);
-                    for (PortalReport r : handledReports) {
-                        DashboardVO.TaskItem item = new DashboardVO.TaskItem();
-                        item.setId(r.getId());
-                        item.setType("report");
-                        item.setTitle("举报：" + (r.getReportType() != null ? r.getReportType() : "其他"));
-                        String statusLabel = "resolved".equals(r.getStatus()) ? "已解决"
-                                : ("rejected".equals(r.getStatus()) ? "已驳回" : "处理中");
-                        item.setDescription("举报处理" + statusLabel);
-                        item.setStatus(r.getStatus());
-                        item.setCreateTime(r.getHandleTime() != null ? r.getHandleTime().format(DATETIME_FMT)
-                                : (r.getCreateTime() != null ? r.getCreateTime().format(DATETIME_FMT) : ""));
-                        item.setSubmitter(r.getUsername() != null ? r.getUsername() : "匿名");
-                        item.setPriority("low");
-                        item.setRoutePath("/cms/report?handleId=" + r.getId());
-                        tasks.add(item);
-                    }
-                }
-            } catch (Exception ex) {
-                log.warn("[Dashboard] 构建已处理举报已办失败：{}", ex.getMessage());
-            }
-
-            // 3. 已处理反馈：当前用户作为 handler 处理过的反馈（非 pending）
-            try {
-                if (username != null) {
-                    LambdaQueryWrapper<PortalFeedback> feedbackWrapper = new LambdaQueryWrapper<>();
-                    feedbackWrapper.eq(PortalFeedback::getHandler, username)
-                            .ne(PortalFeedback::getStatus, "pending")
-                            .orderByDesc(PortalFeedback::getHandleTime)
-                            .last("limit 3");
-                    List<PortalFeedback> handledFeedbacks = feedbackMapper.selectList(feedbackWrapper);
-                    for (PortalFeedback f : handledFeedbacks) {
-                        DashboardVO.TaskItem item = new DashboardVO.TaskItem();
-                        item.setId(f.getId());
-                        item.setType("feedback");
-                        item.setTitle("反馈：" + (f.getSubject() != null ? f.getSubject() : f.getFeedbackType()));
-                        String statusLabel = "resolved".equals(f.getStatus()) ? "已解决"
-                                : ("rejected".equals(f.getStatus()) ? "已驳回" : "处理中");
-                        item.setDescription("反馈处理" + statusLabel);
-                        item.setStatus(f.getStatus());
-                        item.setCreateTime(f.getHandleTime() != null ? f.getHandleTime().format(DATETIME_FMT)
-                                : (f.getCreateTime() != null ? f.getCreateTime().format(DATETIME_FMT) : ""));
-                        item.setSubmitter(f.getUsername() != null ? f.getUsername() : "匿名");
-                        item.setPriority("low");
-                        item.setRoutePath("/cms/feedback?handleId=" + f.getId());
-                        tasks.add(item);
-                    }
-                }
-            } catch (Exception ex) {
-                log.warn("[Dashboard] 构建已处理反馈已办失败：{}", ex.getMessage());
-            }
-
-            // 4. 已审核创作者认证：当前用户作为 auditor 审核过的认证（approved / rejected）
-            try {
-                LambdaQueryWrapper<PortalCreatorCertification> certWrapper = new LambdaQueryWrapper<>();
-                certWrapper.eq(PortalCreatorCertification::getAuditorId, currentUserId)
-                        .in(PortalCreatorCertification::getStatus, "approved", "rejected")
-                        .orderByDesc(PortalCreatorCertification::getAuditedTime)
-                        .last("limit 3");
-                List<PortalCreatorCertification> auditedCerts = creatorCertificationMapper.selectList(certWrapper);
-                for (PortalCreatorCertification c : auditedCerts) {
-                    DashboardVO.TaskItem item = new DashboardVO.TaskItem();
-                    item.setId(c.getId());
-                    item.setType("creator_certification");
-                    item.setTitle("认证申请：" + c.getRealName());
-                    String statusLabel = "approved".equals(c.getStatus()) ? "已通过" : "已驳回";
-                    item.setDescription("认证审核" + statusLabel);
-                    item.setStatus(c.getStatus());
-                    item.setCreateTime(c.getAuditedTime() != null ? c.getAuditedTime().format(DATETIME_FMT)
-                            : (c.getCreatedTime() != null ? c.getCreatedTime().format(DATETIME_FMT) : ""));
-                    item.setSubmitter(c.getRealName() != null ? c.getRealName() : "-");
-                    item.setPriority("low");
-                    item.setRoutePath("/certification/audit?auditId=" + c.getId());
-                    tasks.add(item);
-                }
-            } catch (Exception ex) {
-                log.warn("[Dashboard] 构建已审核认证已办失败：{}", ex.getMessage());
-            }
-
-            // 按时间倒序统一排序，最多返回 8 条
-            tasks.sort((a, b) -> {
-                String ta = a.getCreateTime() == null ? "" : a.getCreateTime();
-                String tb = b.getCreateTime() == null ? "" : b.getCreateTime();
-                return tb.compareTo(ta);
-            });
-            if (tasks.size() > 8) {
-                tasks = new ArrayList<>(tasks.subList(0, 8));
+            for (com.moyun.system.domain.vo.AuditTaskVO vo : list) {
+                tasks.add(toTaskItem(vo, false));
             }
         } catch (Exception e) {
             log.error("[Dashboard] 构建已办任务失败", e);
         }
         return tasks;
+    }
+
+    /**
+     * v8.1：将 AuditTaskVO 转换为首页 TaskItem。
+     * <p>待办跳审核中心打开详情（routePath=/cms/audit-center?taskId=xx）；
+     * 已办同样跳审核中心（查看审核记录）。审核中心详情弹窗的「查看原帖」按钮再用
+     * AuditTaskVO.routePath 跳转到各业务管理页（如 /cms/article）。
+     *
+     * @param vo    审核任务 VO
+     * @param todo  true=待办（按提交时间）；false=已办（按处理时间）
+     */
+    private DashboardVO.TaskItem toTaskItem(com.moyun.system.domain.vo.AuditTaskVO vo, boolean todo) {
+        DashboardVO.TaskItem item = new DashboardVO.TaskItem();
+        item.setId(vo.getId());
+        item.setType(vo.getTaskType());
+        item.setTitle(vo.getTitle() != null ? vo.getTitle() : vo.getTaskTypeLabel());
+        item.setDescription(vo.getTaskTypeLabel() + (todo ? " 待处理" : ("：" + vo.getStatusLabel())));
+        item.setStatus(vo.getStatus());
+        java.time.LocalDateTime time = todo ? vo.getSubmitTime() : vo.getAuditTime();
+        if (time == null) {
+            time = vo.getSubmitTime();
+        }
+        item.setCreateTime(time != null ? time.format(DATETIME_FMT) : "");
+        item.setSubmitter(vo.getSubmitterName() != null ? vo.getSubmitterName() : "-");
+        item.setPriority(vo.getPriority() != null ? vo.getPriority() : "medium");
+        // 首页待办/已办点击 → 审核中心对应 Tab + 打开详情
+        item.setRoutePath("/cms/audit-center?taskId=" + vo.getId() + "&tab=" + vo.getTaskType());
+        return item;
     }
 
     /**
@@ -1041,11 +814,6 @@ public class SysDashboardServiceImpl implements ISysDashboardService {
         } catch (NumberFormatException e) {
             return 0L;
         }
-    }
-
-    private String truncate(String str, int maxLen) {
-        if (str == null) return "";
-        return str.length() > maxLen ? str.substring(0, maxLen) + "..." : str;
     }
 
     private String buildOperDesc(SysOperLog oper) {

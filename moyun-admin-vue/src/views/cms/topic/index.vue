@@ -112,7 +112,7 @@
       <el-table-column label="操作" width="280" fixed="right">
         <template #default="{ row }">
           <el-button link type="primary" @click="handleView(row)" v-hasPermi="['cms:topic:query']">查看</el-button>
-          <el-button link type="warning" @click="handleAuditPage(row)" v-hasPermi="['cms:topic:audit']">审核</el-button>
+          <el-button link type="warning" @click="handleAuditPage(row)" v-hasPermi="['system:auditTask:list']">审核</el-button>
           <el-button link type="info" @click="handleChangeStatus(row)" v-hasPermi="['cms:topic:edit']">状态</el-button>
           <el-button link type="danger" @click="handleDelete(row)" v-hasPermi="['cms:topic:remove']">删除</el-button>
         </template>
@@ -192,8 +192,8 @@ function resetQuery() {
 /** 跳转到话题审核页（与文章/专栏审核入口一致） */
 function handleAuditPage(row: any) {
   router.push({
-    path: '/cms/topic-audit',
-    query: { id: row.id }
+    path: '/cms/audit-center',
+    query: { tab: 'topic', bizId: row.id }
   });
 }
 

@@ -25,6 +25,12 @@ public class InterviewQuestionVO implements Serializable {
 
     private String difficulty; // easy/medium/hard
 
+    /**
+     * 题目类型：bagwen 八股 / algorithm 算法 / system_design 系统设计 / project 项目 / hr HR
+     * 列表页用于题型筛选徽章展示（v6.3 题目结构化）
+     */
+    private String questionType;
+
     private Long categoryId;
 
     private String categoryName;

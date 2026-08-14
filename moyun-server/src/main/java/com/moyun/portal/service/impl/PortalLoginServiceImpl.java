@@ -12,6 +12,7 @@ import org.springframework.stereotype.Service;
 import com.moyun.common.constant.Constants;
 import com.moyun.core.base.AjaxResult;
 import com.moyun.core.base.model.LoginBody;
+import com.moyun.core.config.redis.RedisCache;
 import com.moyun.core.manager.AsyncManager;
 import com.moyun.core.manager.factory.AsyncFactory;
 import com.moyun.portal.controller.PortalLoginController;
@@ -19,6 +20,7 @@ import com.moyun.portal.domain.entity.PortalUser;
 import com.moyun.portal.domain.model.PortalLoginUser;
 import com.moyun.portal.security.auth.PortalTokenService;
 import com.moyun.portal.service.IPortalUserService;
+import com.moyun.system.service.ISysConfigService;
 import com.moyun.util.http.ServletUtils;
 import com.moyun.util.ip.IpUtils;
 import com.moyun.util.string.StringUtils;
@@ -46,6 +48,12 @@ public class PortalLoginServiceImpl {
     @Qualifier("portalUserServiceImpl")
     private IPortalUserService portalUserService;
 
+    @Autowired
+    private RedisCache redisCache;
+
+    @Autowired
+    private ISysConfigService configService;
+
     /**
      * 登录验证
      *
@@ -55,6 +63,12 @@ public class PortalLoginServiceImpl {
     public AjaxResult login(LoginBody loginBody) {
         String username = loginBody.getUsername();
         String password = loginBody.getPassword();
+
+        // 验证码校验（受 sys.account.captchaEnabled 开关控制，关闭时跳过，登录流程不受影响）
+        String captchaError = validateCaptcha(loginBody.getCode(), loginBody.getUuid());
+        if (captchaError != null) {
+            return AjaxResult.error(captchaError);
+        }
 
         // 登录前置校验
         loginPreCheck(username, password);
@@ -134,6 +148,34 @@ public class PortalLoginServiceImpl {
         if (username.length() < 2 || username.length() > 50) {
             throw new RuntimeException("用户名长度必须在2-50个字符之间");
         }
+    }
+
+    /**
+     * 校验图形验证码
+     * <p>
+     * 与后台登录保持一致：受 sys.account.captchaEnabled 开关控制。
+     * 开关关闭时直接放行（返回 null），不影响现有登录/注册流程；
+     * 开关开启时按 Redis 中 captcha_codes:{uuid} 的值做一次性校验。
+     *
+     * @param code 用户输入的验证码
+     * @param uuid 验证码唯一标识
+     * @return 校验失败时的错误提示；成功返回 null
+     */
+    public String validateCaptcha(String code, String uuid) {
+        if (!configService.selectCaptchaEnabled()) {
+            return null;
+        }
+        String verifyKey = Constants.CAPTCHA_CODE_KEY + StringUtils.nvl(uuid, "");
+        String captcha = redisCache.getCacheObject(verifyKey);
+        // 一次性使用，无论成功失败都清除
+        redisCache.deleteObject(verifyKey);
+        if (captcha == null) {
+            return "验证码已失效，请重新获取";
+        }
+        if (StringUtils.isEmpty(code) || !code.equalsIgnoreCase(captcha)) {
+            return "验证码错误";
+        }
+        return null;
     }
 
     /**

@@ -6,6 +6,7 @@ import {
   Briefcase, Search, Star, CheckCircle, Zap,
   ChevronLeft, ChevronRight, BookOpen,
   Sparkles, Target, TrendingUp, RefreshCw, FileText,
+  Layers, Cpu, GitBranch, FolderKanban, Users,
 } from 'lucide-vue-next';
 import LazyImage from '@/components/LazyImage.vue';
 import Breadcrumb from '@/components/Breadcrumb.vue';
@@ -30,6 +31,7 @@ const activeCategoryId = ref<string | number | null>(
   (route.query.categoryId as string) || null
 );
 const activeDifficulty = ref<string>((route.query.difficulty as string) || '');
+const activeQuestionType = ref<string>((route.query.questionType as string) || '');
 const keyword = ref<string>((route.query.keyword as string) || '');
 const searchInput = ref(keyword.value);
 
@@ -65,6 +67,25 @@ const difficultyMap: Record<string, { label: string; class: string }> = {
   hard: { label: '困难', class: 'bg-red-100 text-red-700' },
 };
 
+// ========== 题型配置（v6.3 题目结构化） ==========
+const questionTypeOptions: { key: string; label: string; icon: any }[] = [
+  { key: '', label: '全部', icon: Layers },
+  { key: 'algorithm', label: '算法', icon: Cpu },
+  { key: 'bagwen', label: '八股', icon: BookOpen },
+  { key: 'system_design', label: '系统设计', icon: GitBranch },
+  { key: 'project', label: '项目', icon: FolderKanban },
+  { key: 'hr', label: 'HR', icon: Users },
+];
+
+/** 题型展示映射：徽章文案 + 颜色类 + 图标（用于列表卡片与详情页徽章） */
+const questionTypeMap: Record<string, { label: string; class: string; icon: any }> = {
+  algorithm: { label: '算法', class: 'bg-blue-50 text-blue-600 border border-blue-200', icon: Cpu },
+  bagwen: { label: '八股', class: 'bg-purple-50 text-purple-600 border border-purple-200', icon: BookOpen },
+  system_design: { label: '系统设计', class: 'bg-indigo-50 text-indigo-600 border border-indigo-200', icon: GitBranch },
+  project: { label: '项目', class: 'bg-emerald-50 text-emerald-600 border border-emerald-200', icon: FolderKanban },
+  hr: { label: 'HR', class: 'bg-amber-50 text-amber-600 border border-amber-200', icon: Users },
+};
+
 // ========== 推荐来源映射 ==========
 const reasonMap: Record<string, { label: string; class: string; icon: any }> = {
   weak_tag: { label: '薄弱点', class: 'bg-red-50 text-red-600 border border-red-200', icon: Target },
@@ -92,7 +113,7 @@ onMounted(() => {
   loadRecommendations();
 });
 
-watch([activeCategoryId, activeDifficulty, keyword, page], () => {
+watch([activeCategoryId, activeDifficulty, activeQuestionType, keyword, page], () => {
   loadQuestions();
 });
 
@@ -118,6 +139,7 @@ async function loadQuestions() {
     };
     if (activeCategoryId.value) params.categoryId = activeCategoryId.value;
     if (activeDifficulty.value) params.difficulty = activeDifficulty.value;
+    if (activeQuestionType.value) params.questionType = activeQuestionType.value;
     if (keyword.value) params.keyword = keyword.value;
     const res = await getQuestionList(params);
     if (res.code === 200 && res.data) {
@@ -173,6 +195,11 @@ function selectCategory(id: string | number | null) {
 
 function selectDifficulty(d: string) {
   activeDifficulty.value = d;
+  page.value = 1;
+}
+
+function selectQuestionType(t: string) {
+  activeQuestionType.value = t;
   page.value = 1;
 }
 
@@ -444,7 +471,7 @@ function gotoPage(p: number) {
 
             <!-- 难度筛选 -->
             <div
-              class="rounded-xl shadow-sm p-4"
+              class="rounded-xl shadow-sm p-4 mb-4"
               style="background-color: var(--theme-surface); border: 1px solid var(--theme-border);"
             >
               <h3 class="text-sm font-semibold mb-3 flex items-center" style="color: var(--theme-text);">
@@ -460,6 +487,29 @@ function gotoPage(p: number) {
                   :class="{ active: activeDifficulty === d.key }"
                 >
                   {{ d.label }}
+                </button>
+              </div>
+            </div>
+
+            <!-- 题型筛选（v6.3 题目结构化） -->
+            <div
+              class="rounded-xl shadow-sm p-4"
+              style="background-color: var(--theme-surface); border: 1px solid var(--theme-border);"
+            >
+              <h3 class="text-sm font-semibold mb-3 flex items-center" style="color: var(--theme-text);">
+                <Layers class="w-4 h-4 mr-2" />
+                题型
+              </h3>
+              <div class="space-y-1">
+                <button
+                  v-for="t in questionTypeOptions"
+                  :key="t.key || 'all'"
+                  @click="selectQuestionType(t.key)"
+                  class="filter-btn w-full text-left px-3 py-2 rounded-lg text-sm transition flex items-center"
+                  :class="{ active: activeQuestionType === t.key }"
+                >
+                  <component :is="t.icon" class="w-3.5 h-3.5 mr-2 flex-shrink-0" />
+                  <span>{{ t.label }}</span>
                 </button>
               </div>
             </div>
@@ -517,6 +567,14 @@ function gotoPage(p: number) {
                 >
                   <!-- 标签行 -->
                   <div class="flex items-center flex-wrap gap-2 mb-2">
+                    <span
+                      v-if="q.questionType && questionTypeMap[q.questionType]"
+                      class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium"
+                      :class="questionTypeMap[q.questionType].class"
+                    >
+                      <component :is="questionTypeMap[q.questionType].icon" class="w-3 h-3 mr-1" />
+                      {{ questionTypeMap[q.questionType].label }}
+                    </span>
                     <span
                       class="px-2.5 py-1 rounded-full text-xs font-medium"
                       :class="difficultyMap[q.difficulty]?.class"

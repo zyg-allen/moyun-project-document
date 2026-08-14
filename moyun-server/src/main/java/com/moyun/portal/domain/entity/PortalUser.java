@@ -173,6 +173,18 @@ public class PortalUser extends BaseEntity {
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime loginDate;
 
+    /** 图形验证码（仅用于注册接口入参，不落库） */
+    @TableField(exist = false)
+    private String code;
+
+    /** 验证码唯一标识（仅用于注册接口入参，不落库） */
+    @TableField(exist = false)
+    private String uuid;
+
+    /** 邮箱验证码（注册时校验邮箱真实性，仅用于接口入参，不落库） */
+    @TableField(exist = false)
+    private String emailCode;
+
     public PortalUser() {
 
     }

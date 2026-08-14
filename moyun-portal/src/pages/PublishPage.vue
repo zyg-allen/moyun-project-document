@@ -37,6 +37,7 @@ import SiteFooter from '@/components/SiteFooter.vue';
 import QuillEditor from '@/components/QuillEditor.vue';
 import MarkdownEditor from '@/components/MarkdownEditor.vue';
 import { extractExcerpt } from '@/utils/excerpt';
+import { requireCreator } from '@/utils/creatorPermission';
 import { marked } from 'marked';
 import { sanitizeHTML } from '@/utils/security';
 
@@ -545,6 +546,9 @@ async function handlePublish() {
     toast.warning('请选择文章分类');
     return;
   }
+
+  // 发布文章需创作者认证（草稿不限）
+  if (!requireCreator()) return;
 
   isPublishing.value = true;
 

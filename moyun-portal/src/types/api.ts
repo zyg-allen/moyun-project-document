@@ -36,6 +36,8 @@ export interface User {
   updatedAt?: string;
   isPhoneVerified?: boolean;
   isWechatVerified?: boolean;
+  /** 是否为认证创作者（0=否 / 1=是），认证通过后由审核流程维护。控制文章/专栏/面经等高价值创作权限 */
+  isCertifiedCreator?: number | boolean;
   twoFactorEnabled?: boolean;
   status?: 'active' | 'banned' | 'inactive';
   gender?: string;
@@ -64,7 +66,8 @@ export interface User {
 export interface LoginParams {
   username: string;
   password: string;
-  captcha?: string;
+  code?: string;
+  uuid?: string;
 }
 
 export interface LoginResponse {
@@ -78,13 +81,24 @@ export interface RegisterParams {
   email: string;
   password: string;
   confirmPassword: string;
-  captcha?: string;
+  code?: string;
+  uuid?: string;
+  /** 邮箱验证码（注册时校验邮箱真实性） */
+  emailCode?: string;
 }
 
 export interface RegisterResponse {
   token: string;
   refreshToken: string;
   user: User;
+}
+
+// 图形验证码（/captchaImage 返回，字段位于响应顶层而非 data 内）
+export interface CaptchaImage {
+  captchaEnabled: boolean;
+  uuid: string;
+  /** base64 编码的验证码图片（可直接作为 <img :src="base64"> 使用） */
+  img: string;
 }
 
 export interface UpdateUserProfileParams {
@@ -126,6 +140,20 @@ export interface UpdatePasswordParams {
 export interface SendSmsCodeParams {
   phone: string;
   type: 'register' | 'login' | 'bind' | 'reset_password';
+}
+
+// 发送邮箱验证码
+export interface SendEmailCodeParams {
+  email: string;
+  /** 场景：register 注册校验邮箱 / reset_password 找回密码 */
+  type: 'register' | 'reset_password';
+}
+
+// 找回密码（邮箱验证码重置）
+export interface ResetPasswordParams {
+  email: string;
+  code: string;
+  newPassword: string;
 }
 
 // 文章相关类型
@@ -1055,6 +1083,8 @@ export interface InterviewQuestionVO {
   title: string;
   description?: string;
   difficulty: 'easy' | 'medium' | 'hard';
+  /** 题目类型：bagwen 八股 / algorithm 算法 / system_design 系统设计 / project 项目 / hr HR（v6.3 题目结构化） */
+  questionType?: QuestionType | string;
   categoryId?: string | number;
   categoryName?: string;
   tags?: string[];
@@ -1076,10 +1106,43 @@ export interface InterviewQuestionVO {
   updateTime?: string;
 }
 
+/**
+ * 题目类型枚举（v6.3 题目结构化）
+ * - bagwen 八股：基础理论，文本作答
+ * - algorithm 算法：编程题，代码作答
+ * - system_design 系统设计：架构方案，文本/图示作答
+ * - project 项目：项目深挖，文本作答
+ * - hr HR：行为面试，文本作答
+ */
+export type QuestionType = 'bagwen' | 'algorithm' | 'system_design' | 'project' | 'hr';
+
+/** 评分标准单条项（v6.3 题目结构化） */
+export interface ScoringCriterionItem {
+  /** 评分维度名称，如"完整性"、"深度"、"代码质量" */
+  dimension: string;
+  /** 权重（百分比 0-100，前端按权重展示进度条） */
+  weight?: number;
+  /** 评分说明 */
+  description?: string;
+}
+
 export interface InterviewQuestionDetailVO extends InterviewQuestionVO {
   hint?: string;
+  /** 参考代码片段（algorithm 类型使用，兼容旧字段） */
   solution?: string;
   mySubmissions?: InterviewSubmissionVO[];
+
+  // ===== 结构化字段（v6.3 题目结构化） =====
+  /** 考察点列表 */
+  examinePoints?: string[];
+  /** 答题大纲（Markdown） */
+  answerOutline?: string;
+  /** 评分标准列表 */
+  scoringCriteria?: ScoringCriterionItem[];
+  /** 官方参考答案（Markdown，八股/设计/项目/HR 类完整答案） */
+  referenceAnswer?: string;
+  /** 前置题目 ID 列表（用于学习路径推荐） */
+  prerequisiteIds?: (string | number)[];
 }
 
 export interface InterviewQuestionQuery {
@@ -1087,6 +1150,8 @@ export interface InterviewQuestionQuery {
   pageSize?: number;
   categoryId?: string | number;
   difficulty?: string;
+  /** 题目类型筛选（v6.3 题目结构化） */
+  questionType?: QuestionType | string;
   keyword?: string;
   companyId?: string | number;
 }
@@ -1109,6 +1174,87 @@ export interface InterviewSubmissionVO {
   userNickname?: string;
   userAvatar?: string;
   createTime?: string;
+  // ===== OJ 判题字段（v6.3） =====
+  passedCaseCount?: number;
+  totalCaseCount?: number;
+  failedCaseId?: string | number;
+  failedCaseInput?: string;
+  failedCaseExpected?: string;
+  failedCaseActual?: string;
+  errorMessage?: string;
+}
+
+// ============ OJ 判题系统类型（v6.3） ============
+
+/** 判题状态码 */
+export type JudgeStatusCode =
+  | 'AC' | 'WA' | 'TLE' | 'MLE' | 'RE' | 'CE' | 'SE' | 'PENDING';
+
+/** 支持的编程语言 */
+export type JudgeLanguage =
+  | 'javascript' | 'typescript' | 'python'
+  | 'java' | 'go' | 'cpp' | 'rust';
+
+/** 测试用例 VO */
+export interface TestCaseVO {
+  id: string | number;
+  questionId: string | number;
+  /** 标准输入（样例可见，隐藏用例为 null） */
+  input?: string;
+  /** 期望输出（样例可见，隐藏用例为 null） */
+  expectedOutput?: string;
+  isSample?: boolean;
+  orderNum?: number;
+  explanation?: string;
+}
+
+/** 单用例判题结果 */
+export interface CaseResultItem {
+  caseId: string | number;
+  caseIndex: number;
+  isSample?: boolean;
+  passed: boolean;
+  runtime?: number;
+  /** 实际输出（仅失败且为样例时回填） */
+  actualOutput?: string;
+  /** 错误信息（仅 RE/TLE 时回填） */
+  errorMessage?: string;
+}
+
+/** 判题结果 VO */
+export interface JudgeResultVO {
+  submissionId?: string | number;
+  /** 判题状态码（AC/WA/TLE/MLE/RE/CE/SE/PENDING） */
+  status: JudgeStatusCode | string;
+  statusName?: string;
+  accepted?: boolean;
+  passedCount: number;
+  totalCount: number;
+  maxRuntime?: number;
+  maxMemory?: number;
+  failedCaseId?: string | number;
+  failedCaseInput?: string;
+  failedCaseExpected?: string;
+  failedCaseActual?: string;
+  errorMessage?: string;
+  caseResults?: CaseResultItem[];
+}
+
+/** 提交判题参数 */
+export interface JudgeSubmitParams {
+  questionId: string | number;
+  code: string;
+  language: JudgeLanguage | string;
+}
+
+/** 用例新增/修改参数（CMS 后台） */
+export interface TestCaseUpsertParams {
+  questionId: string | number;
+  input?: string;
+  expectedOutput: string;
+  isSample?: boolean;
+  orderNum?: number;
+  explanation?: string;
 }
 
 export interface InterviewExperienceVO {

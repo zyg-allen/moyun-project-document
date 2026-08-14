@@ -3,6 +3,8 @@ package com.moyun.core.config;
 import com.moyun.common.config.RuoYiConfig;
 import com.moyun.common.constant.Constants;
 import com.moyun.core.mvc.interceptors.RepeatSubmitInterceptor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -18,12 +20,14 @@ import java.util.concurrent.TimeUnit;
 
 /**
  * 通用配置
- * 
+ *
  * @author ruoyi
  */
 @Configuration
 public class ResourcesConfig implements WebMvcConfigurer
 {
+    private static final Logger log = LoggerFactory.getLogger(ResourcesConfig.class);
+
     @Autowired
     private RepeatSubmitInterceptor repeatSubmitInterceptor;
 
@@ -61,6 +65,7 @@ public class ResourcesConfig implements WebMvcConfigurer
     /**
      * 跨域配置
      * 通过环境变量 CORS_ALLOWED_ORIGINS 配置允许的源（逗号分隔），默认仅允许本地开发地址
+     * 注意：Origin 头中默认端口（80/443）通常被省略，需同时放行带端口通配符和无端口两种模式
      */
     @Bean
     public CorsFilter corsFilter()
@@ -75,10 +80,16 @@ public class ResourcesConfig implements WebMvcConfigurer
                     config.addAllowedOriginPattern(trimmed);
                 }
             }
+            log.info("CORS allowed origins 已从环境变量加载：{}", config.getAllowedOriginPatterns());
         } else {
-            // 本地开发默认白名单
+            // 本地开发默认白名单：同时覆盖带端口与无端口两种 Origin 头形式
             config.addAllowedOriginPattern("http://localhost:*");
+            config.addAllowedOriginPattern("http://localhost");
             config.addAllowedOriginPattern("http://127.0.0.1:*");
+            config.addAllowedOriginPattern("http://127.0.0.1");
+            config.addAllowedOriginPattern("https://localhost:*");
+            config.addAllowedOriginPattern("https://localhost");
+            log.info("CORS 未配置 CORS_ALLOWED_ORIGINS，使用本地开发白名单：{}", config.getAllowedOriginPatterns());
         }
         // 设置访问源请求头
         config.addAllowedHeader("*");

@@ -125,7 +125,7 @@ export const useUserStore = defineStore('user', () => {
   /**
    * 登录
    */
-  async function loginWithApi(params: { username: string; password: string }): Promise<{ success: boolean; message?: string }> {
+  async function loginWithApi(params: { username: string; password: string; code?: string; uuid?: string }): Promise<{ success: boolean; message?: string }> {
     isLoading.value = true
     try {
       const response = await userApi.login(params)
@@ -148,7 +148,7 @@ export const useUserStore = defineStore('user', () => {
   /**
    * 注册
    */
-  async function registerWithApi(params: { username: string; email: string; password: string; confirmPassword?: string }): Promise<{ success: boolean; message?: string }> {
+  async function registerWithApi(params: { username: string; email: string; password: string; confirmPassword?: string; code?: string; uuid?: string; emailCode?: string }): Promise<{ success: boolean; message?: string }> {
     isLoading.value = true
     try {
       // 如果没有提供 confirmPassword，则使用 password 作为默认值
@@ -186,6 +186,39 @@ export const useUserStore = defineStore('user', () => {
       user.value = null
       persistUserToStorage(null)
       removeToken()
+    }
+  }
+
+  /**
+   * 发送邮箱验证码（注册 / 找回密码场景）
+   * 返回 success/message，前端根据 message 提示并启动倒计时
+   */
+  async function sendEmailCodeWithApi(email: string, type: 'register' | 'reset_password'): Promise<{ success: boolean; message?: string }> {
+    try {
+      const response = await userApi.sendEmailCode({ email, type })
+      if (response.code === 200) {
+        return { success: true, message: response.message }
+      }
+      return { success: false, message: response.message }
+    } catch (error) {
+      console.error('发送邮箱验证码失败:', error)
+      return { success: false, message: '发送失败，请稍后重试' }
+    }
+  }
+
+  /**
+   * 找回密码（邮箱验证码重置）
+   */
+  async function resetPasswordWithApi(email: string, code: string, newPassword: string): Promise<{ success: boolean; message?: string }> {
+    try {
+      const response = await userApi.resetPassword({ email, code, newPassword })
+      if (response.code === 200) {
+        return { success: true, message: response.message }
+      }
+      return { success: false, message: response.message }
+    } catch (error) {
+      console.error('重置密码失败:', error)
+      return { success: false, message: '重置失败，请稍后重试' }
     }
   }
 
@@ -230,6 +263,8 @@ export const useUserStore = defineStore('user', () => {
     loginWithApi,
     registerWithApi,
     logoutWithApi,
-    updateUserWithApi
+    updateUserWithApi,
+    sendEmailCodeWithApi,
+    resetPasswordWithApi
   }
 })

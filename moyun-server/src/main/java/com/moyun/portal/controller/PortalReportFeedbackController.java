@@ -44,6 +44,10 @@ public class PortalReportFeedbackController extends BaseController {
     @Autowired
     private PortalFeedbackMapper feedbackMapper;
 
+    @Autowired
+    @org.springframework.context.annotation.Lazy
+    private com.moyun.system.service.IAuditTaskService auditTaskService;
+
     /**
      * 提交举报
      */
@@ -61,6 +65,11 @@ public class PortalReportFeedbackController extends BaseController {
         report.setCreateTime(LocalDateTime.now());
         report.setUpdateTime(LocalDateTime.now());
         reportMapper.insert(report);
+        // v8.1：提交统一审核任务，使首页/审核中心待办可见
+        submitAuditTask("report", report.getId(), null,
+                report.getDescription(), report.getReportType(),
+                loginUser.getId(), loginUser.getUsername(),
+                buildReportExtra(report));
         return success("举报提交成功，我们会尽快处理");
     }
 
@@ -81,6 +90,10 @@ public class PortalReportFeedbackController extends BaseController {
         feedback.setCreateTime(LocalDateTime.now());
         feedback.setUpdateTime(LocalDateTime.now());
         feedbackMapper.insert(feedback);
+        // v8.1：提交统一审核任务，使首页/审核中心待办可见
+        submitAuditTask("feedback", feedback.getId(), feedback.getSubject(),
+                feedback.getDescription(), feedback.getFeedbackType(),
+                loginUser.getId(), loginUser.getUsername(), null);
         return success("反馈提交成功，感谢您的支持");
     }
 
@@ -146,5 +159,43 @@ public class PortalReportFeedbackController extends BaseController {
             ip = ip.split(",")[0].trim();
         }
         return ip;
+    }
+
+    /**
+     * v8.1：提交统一审核任务到 sys_audit_task。
+     * <p>Controller 非事务方法，调用方需自行保证业务 insert 已成功；submit 内部幂等。
+     */
+    private void submitAuditTask(String taskType, Long bizId, String title,
+                                 String description, String bizType,
+                                 Long submitterId, String submitterName, String extraData) {
+        com.moyun.system.domain.dto.AuditTaskSubmitDTO dto = new com.moyun.system.domain.dto.AuditTaskSubmitDTO();
+        dto.setTaskType(taskType);
+        dto.setBizId(bizId);
+        dto.setTitle(title);
+        dto.setDescription(description);
+        dto.setBizType(bizType);
+        dto.setSubmitterId(submitterId);
+        dto.setSubmitterName(submitterName);
+        dto.setExtraData(extraData);
+        // 举报/反馈优先级默认 medium
+        dto.setPriority("medium");
+        auditTaskService.submit(dto);
+    }
+
+    /**
+     * 构造举报扩展数据 JSON（举报目标类型/ID/URL，便于审核中心详情展示）
+     */
+    private String buildReportExtra(PortalReport report) {
+        try {
+            com.fasterxml.jackson.databind.ObjectMapper om = new com.fasterxml.jackson.databind.ObjectMapper();
+            java.util.Map<String, Object> extra = new java.util.HashMap<>();
+            extra.put("targetType", report.getTargetType());
+            extra.put("targetId", report.getTargetId());
+            extra.put("targetUrl", report.getTargetUrl());
+            extra.put("contact", report.getContact());
+            return om.writeValueAsString(extra);
+        } catch (Exception e) {
+            return null;
+        }
     }
 }

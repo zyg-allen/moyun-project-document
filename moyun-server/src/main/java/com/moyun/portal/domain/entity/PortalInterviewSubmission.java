@@ -67,6 +67,29 @@ public class PortalInterviewSubmission extends BaseEntity {
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime featuredTime;
 
+    // ============ OJ 判题字段（v6.3 OJ 判题系统） ============
+
+    /** 通过用例数 */
+    private Integer passedCaseCount;
+
+    /** 总用例数 */
+    private Integer totalCaseCount;
+
+    /** 首个失败用例 ID（用于定位失败点，全 AC 时为 null） */
+    private Long failedCaseId;
+
+    /** 首个失败用例的输入（用于前端展示调试） */
+    private String failedCaseInput;
+
+    /** 首个失败用例的期望输出 */
+    private String failedCaseExpected;
+
+    /** 首个失败用例的实际输出 */
+    private String failedCaseActual;
+
+    /** 编译/运行错误信息（CE/RE 时填写） */
+    private String errorMessage;
+
     /** 提交时间 */
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime createTime;

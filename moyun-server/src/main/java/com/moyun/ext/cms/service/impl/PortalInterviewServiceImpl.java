@@ -160,7 +160,7 @@ public class PortalInterviewServiceImpl implements IPortalInterviewService {
         vo.setHotCompanies(hotCompanies.stream().map(this::toCompanyVO).collect(Collectors.toList()));
 
         // 平台统计
-        vo.setTotalQuestionCount((long) questionMapper.selectCount(Wrappers.<PortalInterviewQuestion>lambdaQuery().eq(PortalInterviewQuestion::getStatus, "active")));
+        vo.setTotalQuestionCount((long) questionMapper.selectCount(Wrappers.<PortalInterviewQuestion>lambdaQuery().eq(PortalInterviewQuestion::getStatus, "published")));
         vo.setTotalSubmissionCount(submissionMapper.selectCount(null) == null ? 0L : submissionMapper.selectCount(null).longValue());
 
         return vo;
@@ -452,7 +452,7 @@ public class PortalInterviewServiceImpl implements IPortalInterviewService {
         // 4. 路径3：热门兜底，按点赞数 + 提交数补齐
         if (result.size() < target) {
             LambdaQueryWrapper<PortalInterviewQuestion> qw = Wrappers.<PortalInterviewQuestion>lambdaQuery()
-                    .eq(PortalInterviewQuestion::getStatus, "active");
+                    .eq(PortalInterviewQuestion::getStatus, "published");
             if (!pickedIds.isEmpty()) {
                 qw.notIn(PortalInterviewQuestion::getId, pickedIds);
             }
@@ -467,11 +467,11 @@ public class PortalInterviewServiceImpl implements IPortalInterviewService {
         return result;
     }
 
-    /** 按标签精确匹配（LIKE %tag%）查询启用状态的题目，按点赞数倒序 */
+    /** 按标签精确匹配（LIKE %tag%）查询已发布题目，按点赞数倒序 */
     private List<PortalInterviewQuestion> queryActiveByTag(String tag, int limit) {
         if (StringUtils.isEmpty(tag) || limit <= 0) return Collections.emptyList();
         LambdaQueryWrapper<PortalInterviewQuestion> qw = Wrappers.<PortalInterviewQuestion>lambdaQuery()
-                .eq(PortalInterviewQuestion::getStatus, "active")
+                .eq(PortalInterviewQuestion::getStatus, "published")
                 .like(PortalInterviewQuestion::getTags, tag.trim())
                 .orderByDesc(PortalInterviewQuestion::getLikeCount)
                 .orderByDesc(PortalInterviewQuestion::getSubmissionCount)
@@ -600,7 +600,7 @@ public class PortalInterviewServiceImpl implements IPortalInterviewService {
     public int insertQuestion(PortalInterviewQuestion question) {
         question.setCreateTime(LocalDateTime.now());
         question.setUpdateTime(LocalDateTime.now());
-        if (question.getStatus() == null) question.setStatus("active");
+        if (question.getStatus() == null) question.setStatus("published");
         if (question.getAcceptanceRate() == null) question.setAcceptanceRate(BigDecimal.ZERO);
         if (question.getSubmissionCount() == null) question.setSubmissionCount(0L);
         if (question.getLikeCount() == null) question.setLikeCount(0L);

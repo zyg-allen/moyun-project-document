@@ -293,7 +293,7 @@ public class MockInterviewServiceImpl implements IMockInterviewService {
         // 路径3：随机兜底，补齐到 count
         if (result.size() < count) {
             LambdaQueryWrapper<PortalInterviewQuestion> qw = Wrappers.<PortalInterviewQuestion>lambdaQuery()
-                    .eq(PortalInterviewQuestion::getStatus, "active");
+                    .eq(PortalInterviewQuestion::getStatus, "published");
             if (!pickedIds.isEmpty()) {
                 qw.notIn(PortalInterviewQuestion::getId, pickedIds);
             }
@@ -310,7 +310,7 @@ public class MockInterviewServiceImpl implements IMockInterviewService {
     private List<PortalInterviewQuestion> queryByTag(String tag, int limit) {
         if (StringUtils.isEmpty(tag) || limit <= 0) return new ArrayList<>();
         LambdaQueryWrapper<PortalInterviewQuestion> qw = Wrappers.<PortalInterviewQuestion>lambdaQuery()
-                .eq(PortalInterviewQuestion::getStatus, "active")
+                .eq(PortalInterviewQuestion::getStatus, "published")
                 .like(PortalInterviewQuestion::getTags, tag.trim())
                 .last("ORDER BY RAND() LIMIT " + Math.max(1, limit));
         return questionMapper.selectList(qw);
@@ -353,8 +353,9 @@ public class MockInterviewServiceImpl implements IMockInterviewService {
     }
 
     private List<PortalInterviewQuestion> queryQuestions(String scene, String position, int count) {
+        // status 取 published（与实体枚举 draft/published/archived 一致；历史 active 已由 SQL 升级脚本修正）
         LambdaQueryWrapper<PortalInterviewQuestion> qw = Wrappers.<PortalInterviewQuestion>lambdaQuery()
-                .eq(PortalInterviewQuestion::getStatus, "active");
+                .eq(PortalInterviewQuestion::getStatus, "published");
         if (StringUtils.isNotEmpty(scene)) {
             // scene 匹配 tags 或 description
             String s = scene.trim();

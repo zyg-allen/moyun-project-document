@@ -312,7 +312,7 @@ public class PortalPkChallengeServiceImpl implements IPkService {
     /** 抽取 5 道随机题目；scene=company 时优先取该公司关联题目，不足时回退到全题库 */
     private List<PortalInterviewQuestion> drawRandomQuestions(Long companyId, String scene) {
         LambdaQueryWrapper<PortalInterviewQuestion> wrapper = new LambdaQueryWrapper<PortalInterviewQuestion>()
-                .eq(PortalInterviewQuestion::getStatus, "active")
+                .eq(PortalInterviewQuestion::getStatus, "published")
                 .last("ORDER BY RAND() LIMIT " + QUESTION_COUNT);
         return questionMapper.selectList(wrapper);
     }

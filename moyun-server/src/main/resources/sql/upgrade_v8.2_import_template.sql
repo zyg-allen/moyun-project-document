@@ -176,6 +176,49 @@ ORDER BY status;
 
 
 -- =====================================================================
+-- 四-补2、portal_interview_submission 补精选笔记字段
+-- =====================================================================
+-- 背景：
+--   PortalInterviewSubmissionMapper.selectFeaturedByQuestion 使用了 is_featured / featured_time 两列，
+--   但 init_v7.8.sql 建表语句未包含这两列，导致"精选笔记"接口抛
+--   java.sql.SQLSyntaxErrorException: Unknown column 'is_featured'，前端报"操作失败"。
+--   实体 PortalInterviewSubmission 已定义 isFeatured / featuredTime 字段，仅需补列。
+-- 策略：幂等 ADD COLUMN（COLUMN 已存在时跳过）
+SET @col := 'is_featured';
+SET @sql := (
+  SELECT IF(COUNT(*) = 0,
+    'ALTER TABLE portal_interview_submission ADD COLUMN is_featured TINYINT(1) DEFAULT 0 COMMENT ''是否精选笔记：1=是 0=否'' AFTER note',
+    'SELECT ''is_featured 已存在，跳过'' AS info')
+  FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'portal_interview_submission' AND COLUMN_NAME = @col
+);
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+SET @col := 'featured_time';
+SET @sql := (
+  SELECT IF(COUNT(*) = 0,
+    'ALTER TABLE portal_interview_submission ADD COLUMN featured_time DATETIME DEFAULT NULL COMMENT ''精选时间'' AFTER is_featured',
+    'SELECT ''featured_time 已存在，跳过'' AS info')
+  FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'portal_interview_submission' AND COLUMN_NAME = @col
+);
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+-- 索引（用于精选笔记查询：WHERE question_id=? AND is_featured=1 ORDER BY featured_time DESC）
+SET @idx := 'idx_submission_featured';
+SET @sql := (
+  SELECT IF(COUNT(*) = 0,
+    'ALTER TABLE portal_interview_submission ADD INDEX idx_submission_featured (question_id, is_featured, featured_time)',
+    'SELECT ''idx_submission_featured 已存在，跳过'' AS info')
+  FROM information_schema.STATISTICS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'portal_interview_submission' AND INDEX_NAME = @idx
+);
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+SELECT CONCAT('portal_interview_submission 精选笔记字段补齐：is_featured / featured_time / idx_submission_featured') AS info;
+
+
+-- =====================================================================
 -- 五、导入模板配置管理菜单（运营维护入口）
 -- =====================================================================
 -- 挂在"系统管理"或"内容管理"一级菜单下，运营在此维护各业务 Excel 导入模板字段

@@ -86,18 +86,52 @@ const initMonaco = async () => {
     monaco = await import('monaco-editor');
 
     // 注册 Worker（Vite 环境）
-    // @ts-ignore - Vite 静态导入 worker
+    // 说明：
+    //   - 旧实现使用 cdn.jsdelivr.net 在线加载 monaco-editor@0.52.2/min/vs/base/worker/workerMain.js，
+    //     内网/离线/沙箱环境无法访问 CDN 会导致 NetworkError，编辑器卡死。
+    //   - 新实现通过 Vite 的 ?worker 语法本地打包 worker，无外网依赖，且版本跟随 package.json。
+    //   - 各语言 worker（ts/json/css/html）一并本地化，未命中语言时回退到 base worker。
     self.MonacoEnvironment = {
       getWorker(_workerId: string, label: string) {
-        // 简化：使用 fallback worker，避免 worker 文件路径问题
-        // 性能略差但兼容性最好
-        return new Worker(
-          // @ts-ignore
-          `data:text/javascript;base64,${btoa(`
-            self.MonacoEnvironment = { baseUrl: 'https://cdn.jsdelivr.net/npm/monaco-editor@0.52.2/min/' };
-            importScripts('https://cdn.jsdelivr.net/npm/monaco-editor@0.52.2/min/vs/base/worker/workerMain.js');
-          `)}`
-        );
+        try {
+          switch (label) {
+            case 'json':
+              return new Worker(
+                new URL('monaco-editor/esm/vs/language/json/json.worker.js', import.meta.url),
+                { type: 'module' }
+              );
+            case 'css':
+            case 'scss':
+            case 'less':
+              return new Worker(
+                new URL('monaco-editor/esm/vs/language/css/css.worker.js', import.meta.url),
+                { type: 'module' }
+              );
+            case 'html':
+            case 'handlebars':
+            case 'razor':
+              return new Worker(
+                new URL('monaco-editor/esm/vs/language/html/html.worker.js', import.meta.url),
+                { type: 'module' }
+              );
+            case 'typescript':
+            case 'javascript':
+              return new Worker(
+                new URL('monaco-editor/esm/vs/language/typescript/ts.worker.js', import.meta.url),
+                { type: 'module' }
+              );
+            default:
+              return new Worker(
+                new URL('monaco-editor/esm/vs/editor/editor.worker.js', import.meta.url),
+                { type: 'module' }
+              );
+          }
+        } catch (e) {
+          // 兜底：worker 创建失败时返回一个空 Worker，Monaco 会退化为无 worker 模式
+          // （语法高亮、补全仍可用，仅失去后台语法检查能力，不阻塞编辑）
+          console.warn('[CodeEditor] 创建 Monaco worker 失败，退化为无 worker 模式:', e);
+          return new Worker('data:text/javascript;base64,');
+        }
       },
     };
 

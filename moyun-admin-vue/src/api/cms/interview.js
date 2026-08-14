@@ -46,6 +46,58 @@ export function delInterviewQuestion(ids) {
   });
 }
 
+// ==================== 题库导入导出（v8.2 通用导入模板） ====================
+// 说明：
+//   - exportInterviewQuestion：导出当前筛选条件下的题目到 Excel（POST blob）
+//   - downloadInterviewQuestionTemplate：下载动态模板（优先 portal_import_template_config 配置）
+//   - importInterviewQuestionData：上传 Excel 批量导入，返回 ImportResult
+//       { totalRows, successCount, failCount, failRows:[{rowNo,reason,rowData}], msg }
+//   - exportInterviewQuestionFailRows：将导入失败行导出 Excel，便于修正后重导
+//   - 三按钮均挂 cms:interview:import / cms:interview:export 权限
+// ----------------------------------------------------------------
+
+// 导出题目（按筛选条件，POST 触发后端 blob 响应）
+export function exportInterviewQuestion(query) {
+  return request({
+    url: '/cms/interview/question/export',
+    method: 'post',
+    data: query,
+    responseType: 'blob'
+  });
+}
+
+// 下载导入模板（动态字段配置优先，回退 @Excel 注解）
+export function downloadInterviewQuestionTemplate() {
+  return request({
+    url: '/cms/interview/question/importTemplate',
+    method: 'post',
+    responseType: 'blob'
+  });
+}
+
+// 上传题目 Excel 导入（multipart/form-data）
+// formData: 包含 file 字段的 FormData 对象
+// 返回：AjaxResult<ImportResult>
+export function importInterviewQuestionData(formData, onUploadProgress) {
+  return request({
+    url: '/cms/interview/question/importData',
+    method: 'post',
+    data: formData,
+    headers: { 'Content-Type': 'multipart/form-data' },
+    onUploadProgress
+  });
+}
+
+// 下载导入失败行 Excel（POST JSON：failRows 数组）
+export function exportInterviewQuestionFailRows(failRows) {
+  return request({
+    url: '/cms/interview/question/exportFailRows',
+    method: 'post',
+    data: { failRows: failRows || [] },
+    responseType: 'blob'
+  });
+}
+
 // ==================== 分类管理 ====================
 
 // 查询分类列表

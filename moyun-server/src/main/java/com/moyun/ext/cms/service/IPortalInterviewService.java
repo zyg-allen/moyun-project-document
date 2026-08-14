@@ -75,6 +75,28 @@ public interface IPortalInterviewService {
 
     int deleteQuestionByIds(Long[] ids);
 
+    /**
+     * 查询题目列表（不分页，用于导出）
+     *
+     * @param query 查询条件
+     * @return 题目实体列表
+     */
+    List<PortalInterviewQuestion> selectQuestionList(InterviewQuestionQuery query);
+
+    /**
+     * 批量导入题目（统一返回 ImportResult，含成功/失败统计与失败明细）
+     * <p>
+     * 实现要点：
+     * 1. 逐行校验（必填、长度、枚举合法性），失败行保留原始数据与原因
+     * 2. 校验通过的行批量 insert
+     * 3. tags 字段每行调用 portalTagService.bindTags 同步标签引用计数
+     *
+     * @param rows           解析后的行数据（fieldName→value）
+     * @param operName       操作人
+     * @return 导入结果
+     */
+    com.moyun.core.base.dto.ImportResult importQuestions(List<Map<String, String>> rows, String operName);
+
     InterviewSubmissionVO submitAnswer(Long questionId, Long userId, Map<String, Object> body);
 
     Map<String, Object> toggleQuestionLike(Long questionId, Long userId);

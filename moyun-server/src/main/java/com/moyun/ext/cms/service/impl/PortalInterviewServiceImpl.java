@@ -208,6 +208,21 @@ public class PortalInterviewServiceImpl implements IPortalInterviewService {
     // ========================================================================
     @Override
     public Page<InterviewQuestionVO> selectQuestionPage(Page<InterviewQuestionVO> page, InterviewQuestionQuery query, Long currentUserId) {
+        LambdaQueryWrapper<PortalInterviewQuestion> qw = buildQuestionQueryWrapper(query);
+        Page<PortalInterviewQuestion> entityPage = new Page<>(page.getCurrent(), page.getSize());
+        questionMapper.selectPage(entityPage, qw);
+        List<InterviewQuestionVO> vos = entityPage.getRecords().stream().map(entity -> toQuestionVO(entity, currentUserId)).collect(Collectors.toList());
+        page.setRecords(vos);
+        page.setTotal(entityPage.getTotal());
+        return page;
+    }
+
+    /**
+     * 题目分页查询条件构造（与 selectQuestionList 共享，避免重复）
+     * - 未传 status 默认查 active（与历史行为一致）
+     * - 排序：sort 升序 + createTime 降序
+     */
+    private LambdaQueryWrapper<PortalInterviewQuestion> buildQuestionQueryWrapper(InterviewQuestionQuery query) {
         LambdaQueryWrapper<PortalInterviewQuestion> qw = Wrappers.lambdaQuery();
         qw.eq(PortalInterviewQuestion::getStatus, query.getStatus() == null ? "active" : query.getStatus());
         if (query.getCategoryId() != null) qw.eq(PortalInterviewQuestion::getCategoryId, query.getCategoryId());
@@ -218,14 +233,167 @@ public class PortalInterviewServiceImpl implements IPortalInterviewService {
             qw.like(PortalInterviewQuestion::getTitle, query.getKeyword()).or().like(PortalInterviewQuestion::getDescription, query.getKeyword());
         }
         qw.orderByAsc(PortalInterviewQuestion::getSort).orderByDesc(PortalInterviewQuestion::getCreateTime);
+        return qw;
+    }
 
-        Page<PortalInterviewQuestion> entityPage = new Page<>(page.getCurrent(), page.getSize());
-        questionMapper.selectPage(entityPage, qw);
+    @Override
+    public List<PortalInterviewQuestion> selectQuestionList(InterviewQuestionQuery query) {
+        LambdaQueryWrapper<PortalInterviewQuestion> qw = buildQuestionQueryWrapper(query);
+        // 导出场景：未传 status 时查全部（与分页列表"默认 active"不同，导出应覆盖草稿/归档）
+        if (query.getStatus() == null) {
+            qw = Wrappers.lambdaQuery();
+            if (query.getCategoryId() != null) qw.eq(PortalInterviewQuestion::getCategoryId, query.getCategoryId());
+            if (StringUtils.isNotEmpty(query.getDifficulty())) qw.eq(PortalInterviewQuestion::getDifficulty, query.getDifficulty());
+            if (StringUtils.isNotEmpty(query.getQuestionType())) qw.eq(PortalInterviewQuestion::getQuestionType, query.getQuestionType());
+            if (StringUtils.isNotEmpty(query.getKeyword())) {
+                qw.like(PortalInterviewQuestion::getTitle, query.getKeyword()).or().like(PortalInterviewQuestion::getDescription, query.getKeyword());
+            }
+            qw.orderByAsc(PortalInterviewQuestion::getSort).orderByDesc(PortalInterviewQuestion::getCreateTime);
+        }
+        return questionMapper.selectList(qw);
+    }
 
-        List<InterviewQuestionVO> vos = entityPage.getRecords().stream().map(entity -> toQuestionVO(entity, currentUserId)).collect(Collectors.toList());
-        page.setRecords(vos);
-        page.setTotal(entityPage.getTotal());
-        return page;
+    /**
+     * 批量导入题目
+     * <p>
+     * 校验规则：
+     * - title 必填，长度 ≤ 500
+     * - difficulty 非空时必须为 easy/medium/hard
+     * - questionType 非空时必须为 bagwen/algorithm/system_design/project/hr
+     * - status 非空时必须为 draft/published/archived（兼容 active/inactive）
+     * <p>
+     * 失败行处理：
+     * - 保留原始 rowData 便于前端下载失败行 Excel 修正后重导
+     * - 行号从 1 开始（1 = 第一条数据行，对应 Excel 第 4 行；表头/说明/示例各占 1 行）
+     * <p>
+     * 成功行：批量 insert，并同步标签引用计数
+     */
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public com.moyun.core.base.dto.ImportResult importQuestions(List<Map<String, String>> rows, String operName) {
+        com.moyun.core.base.dto.ImportResult result = new com.moyun.core.base.dto.ImportResult();
+        if (rows == null || rows.isEmpty()) {
+            result.setTotalRows(0);
+            result.setSuccessCount(0);
+            result.setFailCount(0);
+            result.setMsg("导入数据为空");
+            return result;
+        }
+
+        List<com.moyun.core.base.dto.ImportResult.FailRow> failRows = new java.util.ArrayList<>();
+        int successCount = 0;
+        java.time.LocalDateTime now = java.time.LocalDateTime.now();
+
+        // 合法枚举（与 PortalInterviewQuestion 字段注释一致）
+        java.util.Set<String> validDifficulty = java.util.Set.of("easy", "medium", "hard");
+        java.util.Set<String> validQuestionType = java.util.Set.of("bagwen", "algorithm", "system_design", "project", "hr");
+        java.util.Set<String> validStatus = java.util.Set.of("draft", "published", "archived", "active", "inactive");
+
+        for (int i = 0; i < rows.size(); i++) {
+            Map<String, String> row = rows.get(i);
+            int rowNo = i + 1; // 1=第一条数据行
+            try {
+                String title = trimToEmpty(row.get("title"));
+                if (title.isEmpty()) {
+                    throw new IllegalArgumentException("题目标题不能为空");
+                }
+                if (title.length() > 500) {
+                    throw new IllegalArgumentException("题目标题长度超过 500 字");
+                }
+
+                String difficulty = trimToEmpty(row.get("difficulty"));
+                if (!difficulty.isEmpty() && !validDifficulty.contains(difficulty)) {
+                    throw new IllegalArgumentException("难度非法，应为 easy/medium/hard");
+                }
+
+                String questionType = trimToEmpty(row.get("questionType"));
+                if (!questionType.isEmpty() && !validQuestionType.contains(questionType)) {
+                    throw new IllegalArgumentException("题目类型非法，应为 bagwen/algorithm/system_design/project/hr");
+                }
+
+                String status = trimToEmpty(row.get("status"));
+                if (status.isEmpty()) {
+                    status = "published"; // 默认发布
+                }
+                if (!validStatus.contains(status)) {
+                    throw new IllegalArgumentException("状态非法，应为 draft/published/archived");
+                }
+
+                String tags = trimToEmpty(row.get("tags"));
+
+                PortalInterviewQuestion q = new PortalInterviewQuestion();
+                q.setTitle(title);
+                q.setDescription(trimToEmpty(row.get("description")));
+                q.setDifficulty(difficulty.isEmpty() ? null : difficulty);
+                q.setTags(tags);
+                q.setCompanies(trimToEmpty(row.get("companies")));
+                q.setHint(trimToEmpty(row.get("hint")));
+                q.setSolution(trimToEmpty(row.get("solution")));
+                q.setReferenceAnswer(trimToEmpty(row.get("referenceAnswer")));
+                q.setAnswerOutline(trimToEmpty(row.get("answerOutline")));
+                q.setExaminePoints(trimToEmpty(row.get("examinePoints")));
+                q.setScoringCriteria(trimToEmpty(row.get("scoringCriteria")));
+                q.setPrerequisiteIds(trimToEmpty(row.get("prerequisiteIds")));
+                q.setQuestionType(questionType.isEmpty() ? null : questionType);
+                // 数值类字段：空字符串保持默认，非空才解析
+                String sortStr = trimToEmpty(row.get("sort"));
+                if (!sortStr.isEmpty()) {
+                    try {
+                        q.setSort(Integer.parseInt(sortStr));
+                    } catch (NumberFormatException ex) {
+                        throw new IllegalArgumentException("排序必须为整数");
+                    }
+                }
+                String catStr = trimToEmpty(row.get("categoryId"));
+                if (!catStr.isEmpty()) {
+                    try {
+                        q.setCategoryId(Long.parseLong(catStr));
+                    } catch (NumberFormatException ex) {
+                        throw new IllegalArgumentException("分类ID必须为数字");
+                    }
+                }
+                q.setStatus(status);
+                q.setAcceptanceRate(java.math.BigDecimal.ZERO);
+                q.setSubmissionCount(0L);
+                q.setLikeCount(0L);
+                q.setCreateBy(operName);
+                q.setCreateTime(now);
+                q.setUpdateBy(operName);
+                q.setUpdateTime(now);
+
+                questionMapper.insert(q);
+                successCount++;
+
+                // 同步标签引用计数（与 insertQuestion 一致）
+                if (!tags.isEmpty()) {
+                    List<String> tagNames = new java.util.ArrayList<>();
+                    for (String p : tags.split(",")) {
+                        if (!p.trim().isEmpty()) tagNames.add(p.trim());
+                    }
+                    if (!tagNames.isEmpty()) {
+                        portalTagService.bindTags("interview_question", q.getId(),
+                                java.util.Collections.emptyList(), tagNames, "interview_question");
+                    }
+                }
+            } catch (Exception e) {
+                failRows.add(new com.moyun.core.base.dto.ImportResult.FailRow(
+                        rowNo,
+                        e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage(),
+                        new java.util.LinkedHashMap<>(row)
+                ));
+            }
+        }
+
+        result.setTotalRows(rows.size());
+        result.setSuccessCount(successCount);
+        result.setFailCount(failRows.size());
+        result.setFailRows(failRows);
+        result.setMsg(String.format("共 %d 条，成功 %d 条，失败 %d 条", rows.size(), successCount, failRows.size()));
+        return result;
+    }
+
+    private static String trimToEmpty(String s) {
+        return s == null ? "" : s.trim();
     }
 
     // ========================================================================

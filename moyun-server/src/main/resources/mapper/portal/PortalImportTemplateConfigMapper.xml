@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.moyun.portal.mapper.PortalImportTemplateConfigMapper">
+
+    <resultMap id="PortalImportTemplateConfigResult" type="com.moyun.portal.domain.entity.PortalImportTemplateConfig">
+        <id     property="id"            column="id"/>
+        <result property="businessKey"   column="business_key"/>
+        <result property="fieldName"     column="field_name"/>
+        <result property="columnName"    column="column_name"/>
+        <result property="description"   column="description"/>
+        <result property="exampleValue"  column="example_value"/>
+        <result property="required"      column="required"/>
+        <result property="fieldType"     column="field_type"/>
+        <result property="dictType"      column="dict_type"/>
+        <result property="comboValues"   column="combo_values"/>
+        <result property="columnWidth"   column="column_width"/>
+        <result property="sort"          column="sort"/>
+        <result property="status"        column="status"/>
+        <result property="createBy"      column="create_by"/>
+        <result property="createTime"    column="create_time"/>
+        <result property="updateBy"      column="update_by"/>
+        <result property="updateTime"    column="update_time"/>
+        <result property="remark"        column="remark"/>
+    </resultMap>
+
+    <sql id="selectColumns">
+        id, business_key, field_name, column_name, description, example_value, required,
+        field_type, dict_type, combo_values, column_width, sort, status,
+        create_by, create_time, update_by, update_time, remark
+    </sql>
+
+    <select id="selectEnabledByBusinessKey" resultMap="PortalImportTemplateConfigResult">
+        SELECT <include refid="selectColumns"/>
+        FROM portal_import_template_config
+        WHERE business_key = #{businessKey}
+          AND status = '0'
+        ORDER BY sort ASC, id ASC
+    </select>
+
+    <select id="selectAllByBusinessKey" resultMap="PortalImportTemplateConfigResult">
+        SELECT <include refid="selectColumns"/>
+        FROM portal_import_template_config
+        WHERE business_key = #{businessKey}
+        ORDER BY sort ASC, id ASC
+    </select>
+
+    <delete id="deleteByBusinessKey">
+        DELETE FROM portal_import_template_config
+        WHERE business_key = #{businessKey}
+    </delete>
+
+</mapper>

@@ -382,6 +382,78 @@ WHERE perms IN ('system:auditTask:todo', 'system:auditTask:done', 'system:scan:l
    OR menu_id = @task_menu_id;
 SELECT CONCAT('admin 角色已关联 ', ROW_COUNT(), ' 个新菜单') AS info;
 
+-- =====================================================================
+-- 4.9 冗余审核菜单下线（v8.1 已整合到统一审核中心）
+-- =====================================================================
+-- 设计：专栏审核、话题审核独立菜单页已删除（前端 audit.vue 已清理），
+--      审核入口统一收敛到「内容审核中心」(audit-center)，避免菜单重复、跳转混乱。
+--      删除时先解绑 sys_role_menu 关联，再删菜单本身（含按钮型子菜单）。
+SET @audit_redundant_menu_ids := (
+  SELECT GROUP_CONCAT(menu_id) FROM sys_menu
+  WHERE perms IN ('cms:column:audit', 'cms:topic:audit')
+     OR (parent_id IN (SELECT menu_id FROM sys_menu WHERE perms IN ('cms:column:audit', 'cms:topic:audit')) AND menu_type = 'F')
+);
+
+-- 4.9.1 解绑角色关联
+DELETE FROM sys_role_menu
+WHERE FIND_IN_SET(menu_id, IFNULL(@audit_redundant_menu_ids, ''));
+SELECT CONCAT('冗余审核菜单角色关联已解绑') AS info;
+
+-- 4.9.2 删除按钮型子菜单（menu_type=F）
+DELETE FROM sys_menu
+WHERE parent_id IN (SELECT menu_id FROM (SELECT menu_id FROM sys_menu WHERE perms IN ('cms:column:audit', 'cms:topic:audit')) tmp)
+  AND menu_type = 'F';
+
+-- 4.9.3 删除专栏审核、话题审核主菜单
+DELETE FROM sys_menu WHERE perms IN ('cms:column:audit', 'cms:topic:audit');
+SELECT CONCAT('专栏审核、话题审核菜单已删除（统一收敛到内容审核中心）') AS info;
+
+-- =====================================================================
+-- 4.10 创作者认证目录从顶级一级菜单降级到「内容管理」下
+-- =====================================================================
+-- 设计：原为独立顶级目录（parent_id=0, menu_type=M），与内容管理平级；
+--      v8.1 调整：归并到「内容管理」目录下，作为子目录，统一内容类管理入口。
+--      保留 menu_type=M（其下仍有「认证审核」子菜单），path 保持 'certification'。
+SET @cms_parent_id_for_move := (SELECT menu_id FROM sys_menu WHERE menu_name = '内容管理' AND parent_id = 0 LIMIT 1);
+SET @cert_top_menu_id := (SELECT menu_id FROM sys_menu WHERE menu_name = '创作者认证' AND parent_id = 0 LIMIT 1);
+
+UPDATE sys_menu
+SET parent_id = @cms_parent_id_for_move,
+    order_num = 16,
+    update_by = 'admin',
+    update_time = NOW(),
+    remark = CONCAT(IFNULL(remark, ''),
+                    IF(IFNULL(remark, '') = '', '', ' '),
+                    '【v8.1】从顶级目录降级到内容管理下')
+WHERE menu_name = '创作者认证' AND parent_id = 0
+  AND @cms_parent_id_for_move IS NOT NULL;
+SELECT CONCAT('创作者认证菜单已移至内容管理下（menu_id=', @cert_top_menu_id, ' → parent_id=', @cms_parent_id_for_move, '）') AS info;
+
+-- =====================================================================
+-- 4.11 话题管理位置确认（幂等：确保挂在「内容管理」下）
+-- =====================================================================
+UPDATE sys_menu
+SET parent_id = @cms_parent_id_for_move,
+    update_by = 'admin',
+    update_time = NOW()
+WHERE perms = 'cms:topic:list'
+  AND @cms_parent_id_for_move IS NOT NULL
+  AND (parent_id IS NULL OR parent_id != @cms_parent_id_for_move);
+SELECT '话题管理位置已确认（内容管理下）' AS info;
+
+-- =====================================================================
+-- 4.12 敏感词管理位置确认（幂等：确保挂在「系统管理」下）
+-- =====================================================================
+SET @sys_parent_id_for_word := (SELECT menu_id FROM sys_menu WHERE menu_name = '系统管理' AND parent_id = 0 LIMIT 1);
+UPDATE sys_menu
+SET parent_id = @sys_parent_id_for_word,
+    update_by = 'admin',
+    update_time = NOW()
+WHERE perms = 'system:sensitiveWord:list'
+  AND @sys_parent_id_for_word IS NOT NULL
+  AND (parent_id IS NULL OR parent_id != @sys_parent_id_for_word);
+SELECT '敏感词管理位置已确认（系统管理下）' AS info;
+
 
 -- =====================================================================
 -- 五、校验段
@@ -406,6 +478,15 @@ SELECT
   (SELECT menu_id FROM sys_menu WHERE perms = 'system:auditTask:done') AS done_menu_id,
   (SELECT menu_id FROM sys_menu WHERE perms = 'system:scan:list') AS scan_menu_id,
   (SELECT parent_id FROM sys_menu WHERE menu_id = 110) AS job_new_parent;
+
+-- v8.1 菜单调整结果校验：专栏审核/话题审核应已删除，创作者认证应挂在内容管理下
+SELECT 'v8.1 菜单调整校验' AS info;
+SELECT
+  (SELECT COUNT(*) FROM sys_menu WHERE perms IN ('cms:column:audit', 'cms:topic:audit')) AS deleted_audit_menus,
+  (SELECT parent_id FROM sys_menu WHERE menu_name = '创作者认证' LIMIT 1) AS cert_new_parent,
+  (SELECT menu_name FROM sys_menu WHERE menu_id = (SELECT parent_id FROM sys_menu WHERE menu_name = '创作者认证' LIMIT 1) LIMIT 1) AS cert_parent_name,
+  (SELECT parent_id FROM sys_menu WHERE perms = 'cms:topic:list' LIMIT 1) AS topic_parent,
+  (SELECT parent_id FROM sys_menu WHERE perms = 'system:sensitiveWord:list' LIMIT 1) AS sensitive_word_parent;
 
 SELECT '================================================' AS info;
 SELECT '墨韵智库 v8.1 审核模块统一整合升级完成' AS info;

@@ -110,7 +110,7 @@
             type="warning"
             icon="View"
             @click="handleAuditPage(scope.row)"
-            v-hasPermi="['cms:column:audit']"
+            v-hasPermi="['system:auditTask:list']"
           >审核</el-button>
           <el-button
             link
@@ -250,8 +250,8 @@ const router = useRouter();
 /** 跳转到专栏审核页（与文章审核入口一致） */
 function handleAuditPage(row) {
   router.push({
-    path: "/cms/column-audit",
-    query: { id: row.id }
+    path: "/cms/audit-center",
+    query: { tab: "column", bizId: row.id }
   });
 }
 

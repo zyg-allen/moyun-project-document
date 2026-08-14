@@ -1,13 +1,14 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import { RouterLink as Link, useRouter } from 'vue-router';
 import {
-  Eye, EyeOff, Lock, User, ArrowRight, AlertCircle, Mail, ShieldCheck
+  Eye, EyeOff, Lock, User, ArrowRight, AlertCircle, Mail, ShieldCheck, RefreshCw
 } from 'lucide-vue-next';
 import loginBackground from '@/assets/images/login-background.jpg';
 import { useUserStore } from '@/stores/user';
 import { registerSchema, validateForm } from '@/utils/validation';
 import { useToast } from '@/composables/useToast';
+import { getCaptchaImage } from '@/api/user';
 
 const router = useRouter();
 const userStore = useUserStore();
@@ -27,6 +28,36 @@ const isLoading = ref(false);
 const errors = ref<Record<string, string>>({});
 const serverError = ref('');
 const agreeTerms = ref(false);
+
+// 图形验证码（受后端 sys.account.captchaEnabled 开关控制；接口固定返回 captchaEnabled=true）
+const captchaEnabled = ref(false);
+const captchaImg = ref('');
+const captchaUuid = ref('');
+const captchaCode = ref('');
+const captchaLoading = ref(false);
+
+async function refreshCaptcha() {
+  captchaLoading.value = true;
+  try {
+    const data = await getCaptchaImage();
+    captchaEnabled.value = data.captchaEnabled;
+    captchaImg.value = data.img;
+    captchaUuid.value = data.uuid;
+    captchaCode.value = '';
+  } catch (error) {
+    // 验证码拉取失败时不阻断注册（降级：不展示验证码）
+    console.warn('获取验证码失败:', error);
+    captchaEnabled.value = false;
+    captchaImg.value = '';
+    captchaUuid.value = '';
+  } finally {
+    captchaLoading.value = false;
+  }
+}
+
+onMounted(() => {
+  refreshCaptcha();
+});
 
 // 密码强度实时计算（供 UI 提示，最终校验仍由 zod 完成）
 type StrengthLevel = { level: 0 | 1 | 2 | 3; label: string; color: string };
@@ -70,6 +101,12 @@ async function handleRegister() {
     return;
   }
 
+  // 验证码前端校验：仅在开关开启时强制
+  if (captchaEnabled.value && !captchaCode.value.trim()) {
+    errors.value.code = '请输入验证码';
+    return;
+  }
+
   isLoading.value = true;
 
   try {
@@ -77,7 +114,9 @@ async function handleRegister() {
       username: form.value.username,
       email: form.value.email,
       password: form.value.password,
-      confirmPassword: form.value.confirmPassword
+      confirmPassword: form.value.confirmPassword,
+      code: captchaEnabled.value ? captchaCode.value.trim() : undefined,
+      uuid: captchaEnabled.value ? captchaUuid.value : undefined
     });
     if (success) {
       toast.success('注册成功，请使用新账户登录');
@@ -85,10 +124,13 @@ async function handleRegister() {
       router.push('/login');
     } else {
       serverError.value = message || '注册失败，请稍后重试';
+      // 验证码为一次性凭证，失败后刷新
+      refreshCaptcha();
     }
   } catch (error) {
     console.error('注册失败:', error);
     serverError.value = '注册失败，请稍后重试';
+    refreshCaptcha();
   } finally {
     isLoading.value = false;
   }
@@ -288,6 +330,48 @@ const copyrightYear = computed(() => new Date().getFullYear());
                 <p v-if="errors.confirmPassword" class="mt-2 text-xs text-red-500 flex items-center gap-1 ml-1">
                   <AlertCircle class="w-3.5 h-3.5" />
                   {{ errors.confirmPassword }}
+                </p>
+              </div>
+
+              <!-- Captcha -->
+              <div v-if="captchaEnabled" class="group">
+                <label for="register-captcha" class="block text-xs font-medium text-slate-600 mb-2 ml-1 tracking-wider">验证码</label>
+                <div class="flex gap-3">
+                  <div class="relative flex-1">
+                    <ShieldCheck class="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 group-focus-within:text-amber-500 transition-colors" />
+                    <input
+                      id="register-captcha"
+                      v-model="captchaCode"
+                      type="text"
+                      placeholder="请输入图中结果"
+                      autocomplete="off"
+                      maxlength="10"
+                      @input="clearError('code')"
+                      class="w-full pl-12 pr-4 py-4 bg-slate-50 border-2 rounded-2xl focus:outline-none focus:ring-0 transition-all duration-300 placeholder:text-slate-400 text-slate-800"
+                      :class="{
+                        'border-red-300 focus:border-red-400 bg-red-50': errors.code,
+                        'border-slate-200 focus:border-amber-400 focus:shadow-lg focus:shadow-amber-500/10': !errors.code
+                      }"
+                      :disabled="isLoading"
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    @click="refreshCaptcha"
+                    :disabled="captchaLoading || isLoading"
+                    class="relative h-[58px] w-[120px] flex-shrink-0 overflow-hidden rounded-2xl border-2 border-slate-200 bg-slate-50 hover:border-amber-400 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+                    aria-label="点击刷新验证码"
+                  >
+                    <img v-if="captchaImg" :src="captchaImg" alt="验证码" class="w-full h-full object-cover" />
+                    <RefreshCw v-else class="w-5 h-5 text-slate-400 animate-spin" />
+                    <span v-if="captchaLoading" class="absolute inset-0 bg-white/60 flex items-center justify-center">
+                      <RefreshCw class="w-5 h-5 text-amber-500 animate-spin" />
+                    </span>
+                  </button>
+                </div>
+                <p v-if="errors.code" class="mt-2 text-xs text-red-500 flex items-center gap-1 ml-1">
+                  <AlertCircle class="w-3.5 h-3.5" />
+                  {{ errors.code }}
                 </p>
               </div>
 

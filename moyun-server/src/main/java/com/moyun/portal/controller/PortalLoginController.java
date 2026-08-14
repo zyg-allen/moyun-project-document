@@ -76,6 +76,12 @@ public class PortalLoginController {
     @PostMapping("/register")
     public AjaxResult register(
             @Parameter(description = "用户信息") @RequestBody PortalUser portalUser) {
+        // 验证码校验（受 sys.account.captchaEnabled 开关控制，关闭时跳过）
+        String captchaError = portalLoginService.validateCaptcha(portalUser.getCode(), portalUser.getUuid());
+        if (captchaError != null) {
+            return AjaxResult.error(captchaError);
+        }
+
         if (StringUtils.isEmpty(portalUser.getUsername()) || StringUtils.isEmpty(portalUser.getPassword())) {
             return AjaxResult.error("用户名或密码不能为空");
         }

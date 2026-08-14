@@ -125,7 +125,7 @@ export const useUserStore = defineStore('user', () => {
   /**
    * 登录
    */
-  async function loginWithApi(params: { username: string; password: string }): Promise<{ success: boolean; message?: string }> {
+  async function loginWithApi(params: { username: string; password: string; code?: string; uuid?: string }): Promise<{ success: boolean; message?: string }> {
     isLoading.value = true
     try {
       const response = await userApi.login(params)
@@ -148,7 +148,7 @@ export const useUserStore = defineStore('user', () => {
   /**
    * 注册
    */
-  async function registerWithApi(params: { username: string; email: string; password: string; confirmPassword?: string }): Promise<{ success: boolean; message?: string }> {
+  async function registerWithApi(params: { username: string; email: string; password: string; confirmPassword?: string; code?: string; uuid?: string }): Promise<{ success: boolean; message?: string }> {
     isLoading.value = true
     try {
       // 如果没有提供 confirmPassword，则使用 password 作为默认值

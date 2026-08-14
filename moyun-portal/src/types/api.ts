@@ -64,7 +64,8 @@ export interface User {
 export interface LoginParams {
   username: string;
   password: string;
-  captcha?: string;
+  code?: string;
+  uuid?: string;
 }
 
 export interface LoginResponse {
@@ -78,13 +79,22 @@ export interface RegisterParams {
   email: string;
   password: string;
   confirmPassword: string;
-  captcha?: string;
+  code?: string;
+  uuid?: string;
 }
 
 export interface RegisterResponse {
   token: string;
   refreshToken: string;
   user: User;
+}
+
+// 图形验证码（/captchaImage 返回，字段位于响应顶层而非 data 内）
+export interface CaptchaImage {
+  captchaEnabled: boolean;
+  uuid: string;
+  /** base64 编码的验证码图片（可直接作为 <img :src="base64"> 使用） */
+  img: string;
 }
 
 export interface UpdateUserProfileParams {

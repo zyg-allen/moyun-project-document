@@ -175,7 +175,6 @@ import { listInterviewCategory } from '@/api/cms/interview';
 import { bindTagsToEntity, getHotTags } from '@/api/cms/tag';
 import TagSelect from '@/components/TagSelect.vue';
 import ImportDialog from '@/components/ImportDialog/index.vue';
-import { saveAs } from 'file-saver';
 
 const { proxy } = getCurrentInstance();
 

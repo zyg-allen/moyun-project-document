@@ -89,6 +89,9 @@ public class PortalArticleServiceImpl extends ServiceImpl<PortalArticleMapper, P
     @org.springframework.context.annotation.Lazy
     private com.moyun.system.service.IAuditTaskService auditTaskService;
 
+    @Autowired
+    private com.moyun.portal.util.CreatorPermissionChecker creatorPermissionChecker;
+
     /**
      * 根据条件分页查询文章列表
      *
@@ -166,6 +169,8 @@ public class PortalArticleServiceImpl extends ServiceImpl<PortalArticleMapper, P
     @Override
     @Transactional(rollbackFor = Exception.class)
     public int publishArticle(PortalArticle portalArticle) {
+        // 创作者认证校验：发布文章属高价值创作，仅认证创作者可发布
+        creatorPermissionChecker.checkCreator(PortalSecurityUtils.getUserId());
         // 自动处理Base64图片
         processArticleImages(portalArticle);
         // 自动设置前台作者信息

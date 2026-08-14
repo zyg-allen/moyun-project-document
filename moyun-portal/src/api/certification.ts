@@ -26,10 +26,15 @@ export interface CreatorCertification {
   nickname?: string;
 }
 
-/** 认证类型下拉选项 */
+/**
+ * 认证类型下拉选项
+ * 注意：desc 必须与后端实际权限拦截一致。
+ * 当前后端拦截：文章发布 / 专栏创建 / 面经发布 需"创作者认证"；
+ * 话题创建、评论、点赞、收藏等对任何登录用户开放。
+ */
 export const CERT_TYPE_OPTIONS: { value: CreatorCertification['certType']; label: string; desc: string }[] = [
-  { value: 'identity', label: '身份认证', desc: '基础实名身份认证' },
-  { value: 'creator', label: '创作者认证', desc: '认证为平台创作者，可发布专栏、连载' },
+  { value: 'identity', label: '身份认证', desc: '基础实名身份认证（满足平台实名要求）' },
+  { value: 'creator', label: '创作者认证', desc: '认证为平台创作者，可发布文章、创建专栏、发布面经' },
   { value: 'expert', label: '专家认证', desc: '专业领域权威认证，可申请专家专栏' },
 ];
 

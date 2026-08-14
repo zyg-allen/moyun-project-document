@@ -149,15 +149,7 @@ public class PortalTopicServiceImpl extends ServiceImpl<PortalTopicMapper, Porta
         if (topic.getTitle() == null || topic.getTitle().trim().isEmpty()) {
             throw new ServiceException("话题标题不能为空");
         }
-        // 校验认证创作者
-        PortalUser user = portalUserMapper.selectById(userId);
-        if (user == null) {
-            throw new ServiceException("用户不存在");
-        }
-        Integer isCertified = user.getIsCertifiedCreator();
-        if (isCertified == null || isCertified != 1) {
-            throw new ServiceException("仅认证创作者可发起话题");
-        }
+        // 话题属低门槛互动，登录用户即可发起（内容仍走敏感词 + 待审核）
 
         topic.setCreatorId(userId);
         // 话题默认进入待审核状态，审核通过后由 auditTopic 触发 active 并推送 Feed/成长事件

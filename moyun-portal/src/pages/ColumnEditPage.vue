@@ -15,6 +15,7 @@ import { deletePortalFile } from '@/api/file';
 import { getColumnDetail, saveColumn, addArticle, removeArticle } from '@/api/column';
 import type { ColumnSaveBody } from '@/types/api';
 import { useToast } from '@/composables/useToast';
+import { requireCreator } from '@/utils/creatorPermission';
 
 const route = useRoute();
 const router = useRouter();
@@ -207,6 +208,8 @@ async function submit() {
     toast.error(errMsg);
     return;
   }
+  // 新建专栏需创作者认证（编辑已有专栏不限）
+  if (!isEdit.value && !requireCreator()) return;
   submitting.value = true;
   try {
     const res = await saveColumn(buildPayload());

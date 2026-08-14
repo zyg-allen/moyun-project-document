@@ -36,6 +36,8 @@ export interface User {
   updatedAt?: string;
   isPhoneVerified?: boolean;
   isWechatVerified?: boolean;
+  /** 是否为认证创作者（0=否 / 1=是），认证通过后由审核流程维护。控制文章/专栏/面经等高价值创作权限 */
+  isCertifiedCreator?: number | boolean;
   twoFactorEnabled?: boolean;
   status?: 'active' | 'banned' | 'inactive';
   gender?: string;

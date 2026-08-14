@@ -119,6 +119,8 @@ public class PortalInterviewServiceImpl implements IPortalInterviewService {
     @Autowired private ISysNotificationService notificationService;
     @Autowired private IUserProfileSnapshotService profileSnapshotService;
     @Autowired private ISensitiveWordService sensitiveWordService;
+    @Autowired private com.moyun.portal.util.CreatorPermissionChecker creatorPermissionChecker;
+
     @Autowired @org.springframework.context.annotation.Lazy
     private com.moyun.system.service.IAuditTaskService auditTaskService;
 
@@ -770,6 +772,8 @@ public class PortalInterviewServiceImpl implements IPortalInterviewService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public int insertExperience(PortalInterviewExperience experience, Long userId) {
+        // 发布面经属高价值创作，仅认证创作者可发布
+        creatorPermissionChecker.checkCreator(userId);
         experience.setUserId(userId);
         experience.setCreateTime(LocalDateTime.now());
         experience.setUpdateTime(LocalDateTime.now());

@@ -9,6 +9,7 @@ import Breadcrumb from '@/components/Breadcrumb.vue';
 import { generateSeo } from '@/utils/seo';
 import { sanitizeHTML } from '@/utils/security';
 import { publishExperience, updateExperience, getExperienceDetail } from '@/api/interview';
+import { requireCreator } from '@/utils/creatorPermission';
 import { useToast } from '@/composables/useToast';
 
 const route = useRoute();
@@ -100,6 +101,8 @@ async function submit(status: 'draft' | 'pending') {
     toast.error(errMsg);
     return;
   }
+  // 发布面经需创作者认证（草稿不限）
+  if (status === 'pending' && !requireCreator()) return;
   try {
     submitting.value = true;
     if (isEdit.value && editId.value) {

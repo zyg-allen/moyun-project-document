@@ -55,6 +55,8 @@ public class ColumnServiceImpl implements IColumnService {
     private com.moyun.system.service.IAuditTaskService auditTaskService;
     @Autowired private com.moyun.portal.mapper.PortalUserMapper portalUserMapper;
 
+    @Autowired private com.moyun.portal.util.CreatorPermissionChecker creatorPermissionChecker;
+
     // ========================================================================
     // 列表 / 详情
     // ========================================================================
@@ -107,6 +109,8 @@ public class ColumnServiceImpl implements IColumnService {
         boolean isNew = vo.getId() == null || vo.getId() <= 0;
         PortalColumn entity;
         if (isNew) {
+            // 创建专栏属高价值创作，仅认证创作者可创建（编辑已有专栏不限）
+            creatorPermissionChecker.checkCreator(userId);
             // 创建：校验同用户专栏数量上限
             int existCount = columnMapper.countByUserId(userId);
             if (existCount >= MAX_COLUMN_PER_USER) {

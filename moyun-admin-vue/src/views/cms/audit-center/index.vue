@@ -217,9 +217,17 @@ function onHandleSuccess() {
 /** 从首页/业务页跳转：
  *  - ?taskId=xxx&tab=article  → 打开该任务详情（tab 为 taskType，用于过滤）
  *  - ?tab=article&bizId=123   → 按任务类型过滤列表（从业务管理页跳入）
+ *  - ?activeTab=pending|done|all → 切换顶部 Tab（首页"更多"入口使用）
+ *    注意：activeTab 与 tab 语义不同——activeTab 切换待办/已办/全部视图，
+ *    tab 是 taskType 列表过滤；两者可共存（如 ?activeTab=done&tab=article）。
  */
 function handleRouteQuery() {
-  const { taskId, tab, bizId } = route.query
+  const { taskId, tab, bizId, activeTab: tabParam } = route.query
+  // activeTab：切换 pending/done/all 视图（合法值才生效，防注入）
+  // 注意：解构重命名为 tabParam，避免与 ref 变量 activeTab 同名冲突
+  if (tabParam === 'pending' || tabParam === 'done' || tabParam === 'all') {
+    activeTab.value = tabParam
+  }
   // tab 实际是 taskType（如 article/feedback），用于过滤列表
   if (tab && typeof tab === 'string') {
     queryParams.taskType = tab
@@ -238,7 +246,7 @@ function handleRouteQuery() {
 }
 
 onMounted(() => {
-  if (route.query.taskId || route.query.tab) {
+  if (route.query.taskId || route.query.tab || route.query.activeTab) {
     handleRouteQuery()
   } else {
     getList()

@@ -126,7 +126,10 @@
           <template #header>
             <div class="card-header">
               <span><el-icon><Bell /></el-icon> 待办任务</span>
-              <el-tag type="warning" size="small">{{ todoTasks.length }}</el-tag>
+              <div class="header-right">
+                <el-tag type="warning" size="small">{{ todoTasks.length }}</el-tag>
+                <el-link type="primary" :underline="false" class="more-link" @click="goAuditCenter('pending')">更多<el-icon class="more-arrow"><ArrowRight /></el-icon></el-link>
+              </div>
             </div>
           </template>
           <div v-loading="loading" class="task-list">
@@ -149,7 +152,10 @@
           <template #header>
             <div class="card-header">
               <span><el-icon><CircleCheck /></el-icon> 与我相关（已办）</span>
-              <el-tag type="success" size="small">{{ myTasks.length }}</el-tag>
+              <div class="header-right">
+                <el-tag type="success" size="small">{{ myTasks.length }}</el-tag>
+                <el-link type="primary" :underline="false" class="more-link" @click="goAuditCenter('done')">更多<el-icon class="more-arrow"><ArrowRight /></el-icon></el-link>
+              </div>
             </div>
           </template>
           <div v-loading="loading" class="task-list">
@@ -422,6 +428,16 @@ function goTask(task) {
   })
 }
 
+/** 跳转到统一审核中心
+ *  @param {('pending'|'done')} tab - 待办/已办视图
+ *  审核中心支持 ?activeTab=pending|done|all 切换顶部 Tab
+ */
+function goAuditCenter(tab) {
+  router.push({ path: '/cms/audit-center', query: { activeTab: tab } }).catch(() => {
+    ElMessage.warning('审核中心页面不可达')
+  })
+}
+
 function goArticle(article) {
   if (!article || !article.id) return
   // edit.vue 读取 route.query.id，必须用 query 形式跳转
@@ -589,6 +605,12 @@ onBeforeUnmount(() => {
   font-weight: 600; color: #303133;
   span { display: flex; align-items: center; gap: 6px; }
   .tip-icon { color: #909399; cursor: help; }
+  .header-right { display: flex; align-items: center; gap: 10px; }
+  .more-link {
+    font-size: 13px; font-weight: normal;
+    display: inline-flex; align-items: center; gap: 2px;
+    .more-arrow { font-size: 12px; }
+  }
 }
 
 /* 图表 */

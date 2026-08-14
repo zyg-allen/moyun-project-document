@@ -107,6 +107,18 @@ spring:
       auto-index-creation: true
 
 # =============================================
+# Actuator 健康检查配置（本地环境覆盖）
+# =============================================
+# dev 环境默认不配置 MAIL_PASSWORD（spring.mail.password 为空），
+# 与 spring.mail 注释的"未配置时邮件功能自动降级为不发件"语义对齐，
+# 关闭 MailHealthIndicator 避免启动时连接 163 SMTP 抛 535 认证失败 WARN。
+# 配置 MAIL_PASSWORD 后邮件发送功能本身不受影响，需要监控时可将此项改回 true。
+management:
+  health:
+    mail:
+      enabled: false
+
+# =============================================
 # 日志配置（本地环境覆盖）
 # =============================================
 logging:

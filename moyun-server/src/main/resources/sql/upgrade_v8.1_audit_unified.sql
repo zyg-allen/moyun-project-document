@@ -110,6 +110,7 @@ CREATE TABLE IF NOT EXISTS sys_job_scan_issue (
 --   - route_path 回填为对应业务管理页
 
 -- 3.1 文章待审核回填
+-- 注：portal_article 仅有 author_id，author_name 非持久化字段，需 LEFT JOIN portal_user 取 username
 INSERT INTO sys_audit_task (task_type, biz_type, biz_id, title, description,
   submitter_id, submitter_name, status, priority, route_path, submit_time, create_time)
 SELECT
@@ -119,13 +120,14 @@ SELECT
   a.title AS title,
   a.excerpt AS description,
   a.author_id AS submitter_id,
-  a.author_name AS submitter_name,
+  u.username AS submitter_name,
   'pending' AS status,
   'high' AS priority,
   '/cms/article' AS route_path,
   a.create_time AS submit_time,
   NOW() AS create_time
 FROM portal_article a
+LEFT JOIN portal_user u ON u.id = a.author_id
 WHERE a.status = 'pending'
   AND NOT EXISTS (
     SELECT 1 FROM sys_audit_task t
@@ -133,22 +135,24 @@ WHERE a.status = 'pending'
   );
 
 -- 3.2 专栏待审核回填
+-- 注：portal_column 字段为 title（非 name）、user_id（非 creator_id）、created_time（非 create_time）
 INSERT INTO sys_audit_task (task_type, biz_type, biz_id, title, description,
   submitter_id, submitter_name, status, priority, route_path, submit_time, create_time)
 SELECT
   'column' AS task_type,
   NULL AS biz_type,
   c.id AS biz_id,
-  c.name AS title,
+  c.title AS title,
   c.description AS description,
-  c.creator_id AS submitter_id,
-  c.creator_name AS submitter_name,
+  c.user_id AS submitter_id,
+  u.username AS submitter_name,
   'pending' AS status,
   'medium' AS priority,
   '/cms/column' AS route_path,
-  c.create_time AS submit_time,
+  c.created_time AS submit_time,
   NOW() AS create_time
 FROM portal_column c
+LEFT JOIN portal_user u ON u.id = c.user_id
 WHERE c.status = 'pending'
   AND NOT EXISTS (
     SELECT 1 FROM sys_audit_task t
@@ -156,6 +160,7 @@ WHERE c.status = 'pending'
   );
 
 -- 3.3 话题待审核回填
+-- 注：portal_topic 字段为 creator_id（存在）、created_time（非 create_time）；creator_name 非持久化，需 JOIN
 INSERT INTO sys_audit_task (task_type, biz_type, biz_id, title, description,
   submitter_id, submitter_name, status, priority, route_path, submit_time, create_time)
 SELECT
@@ -165,13 +170,14 @@ SELECT
   t.title AS title,
   t.description AS description,
   t.creator_id AS submitter_id,
-  t.creator_name AS submitter_name,
+  u.username AS submitter_name,
   'pending' AS status,
   'medium' AS priority,
   '/cms/topic' AS route_path,
-  t.create_time AS submit_time,
+  t.created_time AS submit_time,
   NOW() AS create_time
 FROM portal_topic t
+LEFT JOIN portal_user u ON u.id = t.creator_id
 WHERE t.status = 'pending'
   AND NOT EXISTS (
     SELECT 1 FROM sys_audit_task at
@@ -179,6 +185,7 @@ WHERE t.status = 'pending'
   );
 
 -- 3.4 面经待审核回填
+-- 注：portal_interview_experience 仅有 user_id，username 非持久化字段，需 LEFT JOIN portal_user
 INSERT INTO sys_audit_task (task_type, biz_type, biz_id, title, description,
   submitter_id, submitter_name, status, priority, route_path, submit_time, create_time)
 SELECT
@@ -186,15 +193,16 @@ SELECT
   NULL AS biz_type,
   e.id AS biz_id,
   e.title AS title,
-  LEFT(IFNULL(e.content, ''), 500) AS description,
+  LEFT(IFNULL(e.summary, IFNULL(e.content, '')), 500) AS description,
   e.user_id AS submitter_id,
-  e.username AS submitter_name,
+  u.username AS submitter_name,
   'pending' AS status,
   'high' AS priority,
   '/cms/interview/experience' AS route_path,
   e.create_time AS submit_time,
   NOW() AS create_time
 FROM portal_interview_experience e
+LEFT JOIN portal_user u ON u.id = e.user_id
 WHERE e.status = 'pending'
   AND NOT EXISTS (
     SELECT 1 FROM sys_audit_task t
@@ -202,6 +210,7 @@ WHERE e.status = 'pending'
   );
 
 -- 3.5 面经评论待审核回填
+-- 注：portal_interview_comment 仅有 user_id，username 非持久化字段，需 LEFT JOIN portal_user
 INSERT INTO sys_audit_task (task_type, biz_type, biz_id, title, description,
   submitter_id, submitter_name, status, priority, route_path, submit_time, create_time)
 SELECT
@@ -211,13 +220,14 @@ SELECT
   CONCAT('面经评论 #', c.id) AS title,
   LEFT(IFNULL(c.content, ''), 500) AS description,
   c.user_id AS submitter_id,
-  c.username AS submitter_name,
+  u.username AS submitter_name,
   'pending' AS status,
   'low' AS priority,
   '/cms/interview/comment' AS route_path,
   c.create_time AS submit_time,
   NOW() AS create_time
 FROM portal_interview_comment c
+LEFT JOIN portal_user u ON u.id = c.user_id
 WHERE c.status = 'pending'
   AND NOT EXISTS (
     SELECT 1 FROM sys_audit_task t
@@ -225,22 +235,25 @@ WHERE c.status = 'pending'
   );
 
 -- 3.6 创作者认证待审核回填
+-- 注：portal_creator_certification 仅有 user_id，username 非持久化字段，需 LEFT JOIN portal_user；
+--     时间字段为 created_time（非 create_time）；描述用 intro（自我介绍）更合理
 INSERT INTO sys_audit_task (task_type, biz_type, biz_id, title, description,
   submitter_id, submitter_name, status, priority, route_path, submit_time, create_time)
 SELECT
   'certification' AS task_type,
   NULL AS biz_type,
   cert.id AS biz_id,
-  CONCAT('创作者认证申请 #', cert.id) AS title,
-  LEFT(IFNULL(cert.real_name, ''), 500) AS description,
+  CONCAT('创作者认证申请-', IFNULL(cert.real_name, CONCAT('#', cert.id))) AS title,
+  LEFT(IFNULL(cert.intro, ''), 500) AS description,
   cert.user_id AS submitter_id,
-  cert.username AS submitter_name,
+  u.username AS submitter_name,
   'pending' AS status,
   'medium' AS priority,
   '/certification/audit' AS route_path,
-  cert.create_time AS submit_time,
+  cert.created_time AS submit_time,
   NOW() AS create_time
 FROM portal_creator_certification cert
+LEFT JOIN portal_user u ON u.id = cert.user_id
 WHERE cert.status = 'pending'
   AND NOT EXISTS (
     SELECT 1 FROM sys_audit_task t
@@ -248,6 +261,7 @@ WHERE cert.status = 'pending'
   );
 
 -- 3.7 意见反馈待处理回填
+-- 注：portal_feedback 已冗余 username 字段，无需 JOIN
 INSERT INTO sys_audit_task (task_type, biz_type, biz_id, title, description,
   submitter_id, submitter_name, status, priority, route_path, submit_time, create_time)
 SELECT
@@ -271,6 +285,7 @@ WHERE f.status = 'pending'
   );
 
 -- 3.8 举报待处理回填
+-- 注：portal_report 已冗余 username 字段，无需 JOIN
 INSERT INTO sys_audit_task (task_type, biz_type, biz_id, title, description,
   submitter_id, submitter_name, status, priority, route_path, submit_time, create_time)
 SELECT
@@ -387,8 +402,8 @@ SELECT
 
 SELECT
   (SELECT menu_id FROM sys_menu WHERE menu_name = '任务管理' AND parent_id = 0) AS task_menu_id,
-  (SELECT menu_id FROM sys_menu WHERE perms = 'system:audit:todo') AS todo_menu_id,
-  (SELECT menu_id FROM sys_menu WHERE perms = 'system:audit:done') AS done_menu_id,
+  (SELECT menu_id FROM sys_menu WHERE perms = 'system:auditTask:todo') AS todo_menu_id,
+  (SELECT menu_id FROM sys_menu WHERE perms = 'system:auditTask:done') AS done_menu_id,
   (SELECT menu_id FROM sys_menu WHERE perms = 'system:scan:list') AS scan_menu_id,
   (SELECT parent_id FROM sys_menu WHERE menu_id = 110) AS job_new_parent;
 

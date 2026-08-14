@@ -9,8 +9,9 @@ spring:
     host: smtp.163.com
     port: 465
     username: ${MAIL_USERNAME:19987671567@163.com}
-    # 授权码（非登录密码），通过环境变量 MAIL_PASSWORD 注入；未配置时邮件功能自动降级为不发件
-    password: ${MAIL_PASSWORD:}
+    # 授权码（非登录密码），16 位独立字符串，登录 mail.163.com → 设置 → POP3/SMTP/IMAP → 开启 SMTP 生成
+    # dev 默认值便于零配置启动；生产环境务必通过 MAIL_PASSWORD 环境变量覆盖
+    password: ${MAIL_PASSWORD:YTgU8Dk2jT7BEL87}
     default-encoding: UTF-8
     protocol: smtps
     properties:
@@ -109,14 +110,12 @@ spring:
 # =============================================
 # Actuator 健康检查配置（本地环境覆盖）
 # =============================================
-# dev 环境默认不配置 MAIL_PASSWORD（spring.mail.password 为空），
-# 与 spring.mail 注释的"未配置时邮件功能自动降级为不发件"语义对齐，
-# 关闭 MailHealthIndicator 避免启动时连接 163 SMTP 抛 535 认证失败 WARN。
-# 配置 MAIL_PASSWORD 后邮件发送功能本身不受影响，需要监控时可将此项改回 true。
+# dev 已配置默认 MAIL_PASSWORD 授权码，启用 MailHealthIndicator 验证 SMTP 连通性。
+# 若临时移除授权码导致 535 认证失败 WARN，可将此处改为 false 临时关闭健康检查。
 management:
   health:
     mail:
-      enabled: false
+      enabled: true
 
 # =============================================
 # 日志配置（本地环境覆盖）

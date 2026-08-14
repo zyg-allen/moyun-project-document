@@ -150,6 +150,11 @@ public class PortalArticleServiceImpl extends ServiceImpl<PortalArticleMapper, P
         if (!"pending".equals(portalArticle.getStatus())) {
             portalArticle.setStatus(null);
         }
+        // "重新提交审核"（status=pending）属高价值创作行为，需认证创作者，
+        // 防止未认证用户通过编辑接口绕过 publishArticle 的发布校验。
+        if ("pending".equals(portalArticle.getStatus())) {
+            creatorPermissionChecker.checkCreator(PortalSecurityUtils.getUserId());
+        }
         // 自动处理Base64图片
         processArticleImages(portalArticle);
         // 切换分类或新建分类时同步维护 category_path 与 root_category_id

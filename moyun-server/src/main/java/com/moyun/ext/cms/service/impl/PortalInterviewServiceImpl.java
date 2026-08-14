@@ -772,12 +772,18 @@ public class PortalInterviewServiceImpl implements IPortalInterviewService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public int insertExperience(PortalInterviewExperience experience, Long userId) {
-        // 发布面经属高价值创作，仅认证创作者可发布
-        creatorPermissionChecker.checkCreator(userId);
+        if (userId == null) {
+            throw new ServiceException("请先登录");
+        }
+        // 草稿（draft）不校验认证，与文章 saveDraft 行为一致；
+        // 仅"提交发布"（status=pending 或为空默认 pending）属高价值创作，需认证创作者。
+        experience.setStatus(experience.getStatus() == null ? "pending" : experience.getStatus());
+        if ("pending".equals(experience.getStatus())) {
+            creatorPermissionChecker.checkCreator(userId);
+        }
         experience.setUserId(userId);
         experience.setCreateTime(LocalDateTime.now());
         experience.setUpdateTime(LocalDateTime.now());
-        experience.setStatus(experience.getStatus() == null ? "pending" : experience.getStatus());
         if (experience.getViewCount() == null) experience.setViewCount(0L);
         if (experience.getLikeCount() == null) experience.setLikeCount(0L);
         if (experience.getCommentCount() == null) experience.setCommentCount(0L);
@@ -797,8 +803,8 @@ public class PortalInterviewServiceImpl implements IPortalInterviewService {
                     experience.getSummary(), userId);
         }
 
-        // 记录发布面经成长事件
-        if (row > 0 && userId != null) {
+        // 记录发布面经成长事件（仅"提交发布"触发，草稿不计入成长与 Feed）
+        if (row > 0 && userId != null && "pending".equals(experience.getStatus())) {
             portalGrowthService.recordEvent("interview", "publish_experience",
                     userId, "experience", experience.getId());
 
@@ -819,9 +825,17 @@ public class PortalInterviewServiceImpl implements IPortalInterviewService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public int updateExperience(PortalInterviewExperience experience, Long userId) {
+        if (userId == null) {
+            throw new ServiceException("请先登录");
+        }
         PortalInterviewExperience db = experienceMapper.selectById(experience.getId());
         if (db == null) throw new ServiceException("面经不存在");
         if (!db.getUserId().equals(userId)) throw new ServiceException("无权修改他人的面经");
+        // 通过编辑"提交发布"（status=pending）也属高价值创作，需认证创作者，
+        // 防止未认证用户绕过 insertExperience 的发布校验。
+        if (experience.getStatus() != null && "pending".equals(experience.getStatus())) {
+            creatorPermissionChecker.checkCreator(userId);
+        }
         experience.setUpdateTime(LocalDateTime.now());
         int row = experienceMapper.updateById(experience);
         java.util.List<Long> extractedTagIds = new java.util.ArrayList<>();

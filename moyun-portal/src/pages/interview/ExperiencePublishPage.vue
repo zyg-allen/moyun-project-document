@@ -106,8 +106,12 @@ async function submit(status: 'draft' | 'pending') {
   try {
     submitting.value = true;
     if (isEdit.value && editId.value) {
-      await updateExperience(editId.value, buildPayload());
-      toast.success(status === 'draft' ? '草稿已保存' : '面经已更新');
+      // 编辑场景下也透传 status：发布（pending）时由后端走创作者认证校验并更新状态；
+      // 保存草稿（draft）时不传 status，保留原状态避免误改。
+      const editPayload = buildPayload();
+      if (status === 'pending') editPayload.status = 'pending';
+      await updateExperience(editId.value, editPayload);
+      toast.success(status === 'draft' ? '草稿已保存' : '面经已更新，等待审核');
     } else {
       await publishExperience({ ...buildPayload(), status });
       if (status === 'pending') {

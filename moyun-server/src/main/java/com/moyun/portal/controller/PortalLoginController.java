@@ -57,6 +57,9 @@ public class PortalLoginController {
     @Autowired
     private PortalLoginServiceImpl portalLoginService;
 
+    @Autowired
+    private com.moyun.portal.service.PortalEmailService portalEmailService;
+
     /**
      * 登录方法
      */
@@ -82,6 +85,14 @@ public class PortalLoginController {
             return AjaxResult.error(captchaError);
         }
 
+        // 邮箱验证码校验：保证邮箱真实可用（一次性消费，校验后失效）
+        if (StringUtils.isEmpty(portalUser.getEmail()) || StringUtils.isEmpty(portalUser.getEmailCode())) {
+            return AjaxResult.error("请填写邮箱并获取邮箱验证码");
+        }
+        if (!portalEmailService.verifyCode(portalUser.getEmail(), portalUser.getEmailCode(), "register")) {
+            return AjaxResult.error("邮箱验证码错误或已过期");
+        }
+
         if (StringUtils.isEmpty(portalUser.getUsername()) || StringUtils.isEmpty(portalUser.getPassword())) {
             return AjaxResult.error("用户名或密码不能为空");
         }
@@ -102,6 +113,8 @@ public class PortalLoginController {
 
         boolean success = portalUserService.registerPortalUser(portalUser);
         if (success) {
+            // 注册成功：消费邮箱验证码使其失效（一次性使用）
+            portalEmailService.consumeCode(portalUser.getEmail(), "register");
             // 注册成功后，直接登录并返回 token
             // 注意：此处使用注册前的明文密码做认证，BCryptPasswordEncoder.matches 会自动完成校验
             Authentication authentication = authenticationManager.authenticate(

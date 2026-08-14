@@ -117,11 +117,6 @@ async function handlePasswordLogin() {
   }
 }
 
-// 忘记密码（暂未实现，给出友好提示）
-function handleForgotPassword() {
-  toast.info('如需重置密码，请联系管理员或在注册页重新创建账户');
-}
-
 function clearError(field: string) {
   if (errors.value[field]) {
     errors.value[field] = '';
@@ -296,7 +291,7 @@ const copyrightYear = computed(() => new Date().getFullYear());
                   </div>
                   <span class="ml-2 text-sm text-slate-500 group-hover:text-slate-700 transition-colors">记住我</span>
                 </label>
-                <button type="button" @click="handleForgotPassword" class="text-sm text-amber-600 hover:text-amber-700 font-medium transition-colors hover:underline underline-offset-4">忘记密码？</button>
+                <Link to="/forgot-password" class="text-sm text-amber-600 hover:text-amber-700 font-medium transition-colors hover:underline underline-offset-4">忘记密码？</Link>
               </div>
 
               <!-- Submit -->

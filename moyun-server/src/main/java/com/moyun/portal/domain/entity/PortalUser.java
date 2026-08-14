@@ -181,6 +181,10 @@ public class PortalUser extends BaseEntity {
     @TableField(exist = false)
     private String uuid;
 
+    /** 邮箱验证码（注册时校验邮箱真实性，仅用于接口入参，不落库） */
+    @TableField(exist = false)
+    private String emailCode;
+
     public PortalUser() {
 
     }

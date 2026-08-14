@@ -81,6 +81,8 @@ export interface RegisterParams {
   confirmPassword: string;
   code?: string;
   uuid?: string;
+  /** 邮箱验证码（注册时校验邮箱真实性） */
+  emailCode?: string;
 }
 
 export interface RegisterResponse {
@@ -136,6 +138,20 @@ export interface UpdatePasswordParams {
 export interface SendSmsCodeParams {
   phone: string;
   type: 'register' | 'login' | 'bind' | 'reset_password';
+}
+
+// 发送邮箱验证码
+export interface SendEmailCodeParams {
+  email: string;
+  /** 场景：register 注册校验邮箱 / reset_password 找回密码 */
+  type: 'register' | 'reset_password';
+}
+
+// 找回密码（邮箱验证码重置）
+export interface ResetPasswordParams {
+  email: string;
+  code: string;
+  newPassword: string;
 }
 
 // 文章相关类型

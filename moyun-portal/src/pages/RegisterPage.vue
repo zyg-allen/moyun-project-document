@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { RouterLink as Link, useRouter } from 'vue-router';
 import {
   Eye, EyeOff, Lock, User, ArrowRight, AlertCircle, Mail, ShieldCheck, RefreshCw
@@ -14,12 +14,13 @@ const router = useRouter();
 const userStore = useUserStore();
 const toast = useToast();
 
-// 邮箱注册表单（与后端 RegisterParams 对齐：username/email/password/confirmPassword）
+// 邮箱注册表单（与后端 RegisterParams 对齐：username/email/password/confirmPassword/emailCode）
 const form = ref({
   username: '',
   email: '',
   password: '',
-  confirmPassword: ''
+  confirmPassword: '',
+  emailCode: ''
 });
 
 const showPassword = ref(false);
@@ -28,6 +29,57 @@ const isLoading = ref(false);
 const errors = ref<Record<string, string>>({});
 const serverError = ref('');
 const agreeTerms = ref(false);
+
+// 邮箱验证码发送：倒计时 + 防重发
+const isSendingCode = ref(false);
+const countdown = ref(0);
+let countdownTimer: ReturnType<typeof setInterval> | null = null;
+
+function startCountdown(seconds: number) {
+  countdown.value = seconds;
+  if (countdownTimer) clearInterval(countdownTimer);
+  countdownTimer = setInterval(() => {
+    countdown.value--;
+    if (countdown.value <= 0) {
+      if (countdownTimer) {
+        clearInterval(countdownTimer);
+        countdownTimer = null;
+      }
+    }
+  }, 1000);
+}
+
+onUnmounted(() => {
+  if (countdownTimer) clearInterval(countdownTimer);
+});
+
+// 发送邮箱验证码
+async function handleSendEmailCode() {
+  errors.value.email = '';
+  // 前端先校验邮箱格式，避免无效请求
+  const email = form.value.email.trim();
+  if (!email) {
+    errors.value.email = '请先填写邮箱';
+    return;
+  }
+  if (!/^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/.test(email)) {
+    errors.value.email = '邮箱格式不正确';
+    return;
+  }
+
+  isSendingCode.value = true;
+  try {
+    const { success, message } = await userStore.sendEmailCodeWithApi(email, 'register');
+    if (success) {
+      toast.success(message || '验证码已发送，请查收邮件');
+      startCountdown(60);
+    } else {
+      toast.error(message || '验证码发送失败');
+    }
+  } finally {
+    isSendingCode.value = false;
+  }
+}
 
 // 图形验证码（受后端 sys.account.captchaEnabled 开关控制；接口固定返回 captchaEnabled=true）
 const captchaEnabled = ref(false);
@@ -107,6 +159,12 @@ async function handleRegister() {
     return;
   }
 
+  // 邮箱验证码前端校验
+  if (!form.value.emailCode.trim()) {
+    errors.value.emailCode = '请输入邮箱验证码';
+    return;
+  }
+
   isLoading.value = true;
 
   try {
@@ -116,7 +174,8 @@ async function handleRegister() {
       password: form.value.password,
       confirmPassword: form.value.confirmPassword,
       code: captchaEnabled.value ? captchaCode.value.trim() : undefined,
-      uuid: captchaEnabled.value ? captchaUuid.value : undefined
+      uuid: captchaEnabled.value ? captchaUuid.value : undefined,
+      emailCode: form.value.emailCode.trim()
     });
     if (success) {
       toast.success('注册成功，请使用新账户登录');
@@ -222,26 +281,67 @@ const copyrightYear = computed(() => new Date().getFullYear());
               <!-- Email -->
               <div class="group">
                 <label for="register-email" class="block text-xs font-medium text-slate-600 mb-2 ml-1 tracking-wider">邮箱</label>
-                <div class="relative">
-                  <Mail class="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 group-focus-within:text-amber-500 transition-colors" />
-                  <input
-                    id="register-email"
-                    v-model="form.email"
-                    type="email"
-                    placeholder="请输入有效邮箱（用于找回密码）"
-                    autocomplete="email"
-                    @input="clearError('email')"
-                    class="w-full pl-12 pr-4 py-4 bg-slate-50 border-2 rounded-2xl focus:outline-none focus:ring-0 transition-all duration-300 placeholder:text-slate-400 text-slate-800"
-                    :class="{
-                      'border-red-300 focus:border-red-400 bg-red-50': errors.email,
-                      'border-slate-200 focus:border-amber-400 focus:shadow-lg focus:shadow-amber-500/10': !errors.email
-                    }"
-                    :disabled="isLoading"
-                  />
+                <div class="flex gap-3">
+                  <div class="relative flex-1">
+                    <Mail class="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 group-focus-within:text-amber-500 transition-colors" />
+                    <input
+                      id="register-email"
+                      v-model="form.email"
+                      type="email"
+                      placeholder="请输入有效邮箱（用于接收验证码）"
+                      autocomplete="email"
+                      @input="clearError('email')"
+                      class="w-full pl-12 pr-4 py-4 bg-slate-50 border-2 rounded-2xl focus:outline-none focus:ring-0 transition-all duration-300 placeholder:text-slate-400 text-slate-800"
+                      :class="{
+                        'border-red-300 focus:border-red-400 bg-red-50': errors.email,
+                        'border-slate-200 focus:border-amber-400 focus:shadow-lg focus:shadow-amber-500/10': !errors.email
+                      }"
+                      :disabled="isLoading"
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    @click="handleSendEmailCode"
+                    :disabled="isSendingCode || countdown > 0 || isLoading"
+                    class="flex-shrink-0 px-5 py-4 rounded-2xl border-2 text-sm font-medium transition-all duration-300 disabled:cursor-not-allowed"
+                    :class="countdown > 0
+                      ? 'border-slate-200 text-slate-400 bg-slate-50'
+                      : 'border-amber-400 text-amber-600 bg-amber-50 hover:bg-amber-100'"
+                  >
+                    {{ countdown > 0 ? `${countdown}s 后重发` : (isSendingCode ? '发送中…' : '获取验证码') }}
+                  </button>
                 </div>
                 <p v-if="errors.email" class="mt-2 text-xs text-red-500 flex items-center gap-1 ml-1">
                   <AlertCircle class="w-3.5 h-3.5" />
                   {{ errors.email }}
+                </p>
+              </div>
+
+              <!-- Email Verification Code -->
+              <div class="group">
+                <label for="register-email-code" class="block text-xs font-medium text-slate-600 mb-2 ml-1 tracking-wider">邮箱验证码</label>
+                <div class="relative">
+                  <ShieldCheck class="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 group-focus-within:text-amber-500 transition-colors" />
+                  <input
+                    id="register-email-code"
+                    v-model="form.emailCode"
+                    type="text"
+                    inputmode="numeric"
+                    placeholder="请输入邮箱收到的 6 位验证码"
+                    autocomplete="one-time-code"
+                    maxlength="6"
+                    @input="clearError('emailCode')"
+                    class="w-full pl-12 pr-4 py-4 bg-slate-50 border-2 rounded-2xl focus:outline-none focus:ring-0 transition-all duration-300 placeholder:text-slate-400 text-slate-800 tracking-widest"
+                    :class="{
+                      'border-red-300 focus:border-red-400 bg-red-50': errors.emailCode,
+                      'border-slate-200 focus:border-amber-400 focus:shadow-lg focus:shadow-amber-500/10': !errors.emailCode
+                    }"
+                    :disabled="isLoading"
+                  />
+                </div>
+                <p v-if="errors.emailCode" class="mt-2 text-xs text-red-500 flex items-center gap-1 ml-1">
+                  <AlertCircle class="w-3.5 h-3.5" />
+                  {{ errors.emailCode }}
                 </p>
               </div>
 

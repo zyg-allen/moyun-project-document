@@ -10,6 +10,8 @@ import type {
   UserStats,
   UserDashboard,
   CaptchaImage,
+  SendEmailCodeParams,
+  ResetPasswordParams,
 } from '@/types/api';
 
 // 用户登录
@@ -20,6 +22,16 @@ export const login = (params: LoginParams) => {
 // 用户注册
 export const register = (params: RegisterParams) => {
   return httpPost<RegisterResponse>('/portal/register', params);
+};
+
+// 发送邮箱验证码（注册 / 找回密码两种场景）
+export const sendEmailCode = (params: SendEmailCodeParams) => {
+  return httpPost('/portal/email/code', params);
+};
+
+// 找回密码（邮箱验证码重置密码）
+export const resetPassword = (params: ResetPasswordParams) => {
+  return httpPost('/portal/email/reset-password', params);
 };
 
 // 获取图形验证码

@@ -127,13 +127,13 @@ onMounted(() => {
       class="border-b sticky top-0 z-30 backdrop-blur-sm py-3"
       style="background-color: var(--theme-surface); border-color: var(--theme-border);"
     >
-      <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between gap-4">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between gap-4">
         <Breadcrumb :items="[{ label: '个人中心', path: '/user' }, { label: '我的反馈' }]" />
       </div>
     </div>
 
     <div class="flex-1 py-6 sm:py-8">
-      <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <!-- 标题 + 新建 -->
         <div class="flex items-center justify-between mb-6">
           <div class="flex items-center gap-3">

@@ -160,7 +160,7 @@ moyun:
     # 异步队列与 Worker（async-enabled=false 时不会启用，保持空配置即可）
     queue:
       name: moyun:judge:queue
-      result-key-prefix: moyun:judge:result:
+      result-key-prefix: moyun:judge:result
       result-ttl-seconds: 600
     worker:
       concurrency: 1

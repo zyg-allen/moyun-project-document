@@ -3,7 +3,7 @@ import { ref, computed } from 'vue';
 import { useRouter } from 'vue-router';
 import { useHead } from '@vueuse/head';
 import {
-  ImagePlus, Loader2, Send, AlertCircle, ShieldCheck, Clock,
+  ImagePlus, Loader2, Send, Clock,
 } from 'lucide-vue-next';
 import Breadcrumb from '@/components/Breadcrumb.vue';
 import SiteFooter from '@/components/SiteFooter.vue';
@@ -131,25 +131,15 @@ function goBack() {
 
     <div class="flex-1 py-8">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <!-- 创作者认证提示 -->
+        <!-- 话题发起说明 -->
         <div
           class="rounded-xl border p-4 mb-6 flex items-start gap-3"
           style="background-color: var(--theme-accent); border-color: var(--theme-border);"
         >
-          <AlertCircle class="w-5 h-5 flex-shrink-0 mt-0.5" style="color: var(--theme-primary);" />
           <div class="flex-1 text-sm" style="color: var(--theme-text);">
             <p class="font-medium mb-1">话题发起说明</p>
             <p class="text-xs leading-relaxed" style="color: var(--theme-text-secondary);">
-              发起话题需为认证创作者。如未通过认证，请先
-              <router-link
-                to="/creator/certification"
-                class="inline-flex items-center underline font-medium"
-                style="color: var(--theme-primary);"
-              >
-                <ShieldCheck class="w-3 h-3 mr-0.5" />
-                申请创作者认证
-              </router-link>
-              。
+              登录后即可发起话题，内容提交后将进入审核流程。
             </p>
           </div>
         </div>

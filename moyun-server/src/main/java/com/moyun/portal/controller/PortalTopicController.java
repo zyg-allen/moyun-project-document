@@ -87,7 +87,7 @@ public class PortalTopicController extends BaseController {
         return success(vo);
     }
 
-    @Operation(summary = "创建话题", description = "认证创作者发起话题")
+    @Operation(summary = "创建话题", description = "登录用户发起话题")
     @Log(title = "门户话题", businessType = BusinessType.INSERT)
     @RepeatSubmit(interval = 5000, message = "请勿重复提交话题")
     @PostMapping("/save")

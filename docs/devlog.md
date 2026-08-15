@@ -5,7 +5,55 @@
 
 ---
 
-## v8.0 (2026-08-13) OJ 判题系统 v2：Docker 沙箱 + 异步判题 + CMS 用例管理
+## v9.0 (2026-08-15) 平台重构：删除PK/圈子 + 首页改版 + 认证分级 + Admin增强
+
+### 主要变化
+
+- 🗑️ **模块删除**（彻底删除：代码 + 数据库表 + 菜单）
+  - PK 对战模块：5个Java文件 + learnStats.ts PK代码
+  - 圈子社交模块：17个Java文件（Controller/Service/Entity/Mapper/VO/Query）
+  - Tip Admin 残留：3个Java文件 + 2个前端文件（保留Portal端付费阅读）
+- 🎨 **首页5屏改版**（从9屏精简为5屏）
+  - 双态 Hero（游客看平台价值3卡片+CTA / 登录看成长仪表盘4指标+CTA）
+  - 面试+学习左右并列（AI模拟面试入口+热门题目+刷题日历+知识图谱+排行榜）
+  - 读书+文章+话题三栏内容空间
+  - 成长时间线（情感锚点，登录看月度数据+时间线，游客看注册引导）
+  - 社区动态+热门标签+友情链接精简收尾
+  - 删除：名家录（冷启动无数据）、按主题探索（合并到文章）
+- 📱 **MobileTabBar 改版**
+  - "读书"标签改为"面试"标签（path: /interview, icon: briefcase）
+- 🔐 **认证分级**
+  - 话题发布从"需创作者认证"降级为"仅需登录"
+  - 文章/专栏/面试经验保持创作者认证要求不变
+- 🛠️ **Admin 后台新增**
+  - VIP套餐管理：CmsVipController + vip.js + vip/index.vue
+  - 钱包管理：CmsWalletController + wallet.js + wallet/index.vue（双Tab：钱包列表+交易流水）
+  - 业务仪表板：dashboard/index.vue（核心指标+登录趋势+发布趋势+分类排名+热门文章+审计待办）
+  - growth-config 5 Tab 统一：规则+成就+徽章+日志+用户
+- 🗃️ **SQL 彻底清理**
+  - DROP TABLE：portal_pk_challenge / portal_circle_post / portal_circle_member / portal_circle
+  - 物理删除 sys_menu + sys_role_menu（tip/pk/circle）
+  - init_v7.8.sql 清理PK建表语句
+  - 新增菜单：VIP/钱包/仪表板 + 按钮权限 + 角色分配 + 菜单重新排序
+
+### 新增文件
+
+- `moyun-server/.../ext/cms/controller/CmsVipController.java` — VIP套餐CRUD
+- `moyun-server/.../ext/cms/controller/CmsWalletController.java` — 钱包+交易流水查询
+- `moyun-admin-vue/src/api/cms/vip.js` — VIP API
+- `moyun-admin-vue/src/api/cms/wallet.js` — 钱包 API
+- `moyun-admin-vue/src/views/cms/vip/index.vue` — VIP套餐管理页
+- `moyun-admin-vue/src/views/cms/wallet/index.vue` — 钱包管理页（双Tab）
+- `moyun-admin-vue/src/views/cms/dashboard/index.vue` — 业务仪表板
+- `moyun-server/src/main/resources/sql/upgrade_v9.0_admin_refactor.sql` — v9.0升级脚本（14部分，幂等）
+- `REVIEW_REPORT.md` — 全栈代码评审报告（10章）
+- `moyun-admin-refactor-v9.patch` — v9.0完整变更补丁（10985行，43个文件）
+
+### 删除文件
+
+- PK模块：PortalPkController / IPkService / PortalPkChallengeServiceImpl / PortalPkChallenge / PortalPkChallengeMapper
+- 圈子模块：PortalCircleController / CmsCircleController / ICircleService / CircleServiceImpl / PortalCircle / PortalCircleMember / PortalCirclePost / PortalCircleMapper / PortalCircleMemberMapper / PortalCirclePostMapper / PortalCircleMapper.xml / PortalCirclePostMapper.xml / CircleVO / CircleListItemVO / CircleMemberVO / CirclePostVO / CircleQuery
+- Tip Admin：CmsTipController / ICmsTipService / CmsTipServiceImpl / tip.js / tip/index.vue
 
 ### 主要变化
 

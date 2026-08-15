@@ -2279,7 +2279,7 @@ CREATE TABLE `portal_interview_question_test_case` (
 -- 来源: 53_门户互动社交表.sql
 -- ---------------------------------------------------------------
 -- 来源：all-db-ddl.sql 行2872-3835（已剔除 INSERT 种子数据，种子数据见 80 段）
--- 用途：门户互动社交表 DDL（portal_like / portal_message* / portal_mock_interview* / portal_order / portal_pk_challenge / portal_reading_* / portal_report / portal_shop_* / portal_study_plan* / portal_task / portal_tip_order / portal_topic_* / portal_user* / portal_vip_package / portal_wallet* / portal_writing_* / portal_wrong_question）
+-- 用途：门户互动社交表 DDL（portal_like / portal_message* / portal_mock_interview* / portal_order / portal_reading_* / portal_report / portal_shop_* / portal_study_plan* / portal_task / portal_tip_order / portal_topic_* / portal_user* / portal_vip_package / portal_wallet* / portal_writing_* / portal_wrong_question）
 -- [v7.8 已删除] portal_notification_bak 表（历史遗留备份表，消息中心合并时创建，代码已无引用，下方第 5300 行有 DROP 语句）
 
 DROP TABLE IF EXISTS `portal_like`;
@@ -2426,30 +2426,8 @@ CREATE TABLE `portal_order` (
 
 
 --
--- Table structure for table `portal_pk_challenge`
+-- [v9.0] portal_pk_challenge 表已删除（PK对战模块移除）
 --
-
-DROP TABLE IF EXISTS `portal_pk_challenge`;
-CREATE TABLE `portal_pk_challenge` (
-                                       `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键',
-                                       `challenger_id` bigint NOT NULL COMMENT '发起方用户ID',
-                                       `opponent_id` bigint NOT NULL COMMENT '应战方用户ID',
-                                       `status` varchar(20) NOT NULL DEFAULT 'pending' COMMENT '状态:pending/accepted/declined/ongoing/finished',
-                                       `winner_id` bigint DEFAULT NULL COMMENT '胜者用户ID（平局为NULL）',
-                                       `challenger_score` int NOT NULL DEFAULT '0' COMMENT '发起方得分（通过题数）',
-                                       `opponent_score` int NOT NULL DEFAULT '0' COMMENT '应战方得分（通过题数）',
-                                       `question_ids` varchar(500) NOT NULL COMMENT '题目ID列表，逗号分隔',
-                                       `scene` varchar(20) NOT NULL DEFAULT '1v1' COMMENT '场景:1v1=好友PK / company=公司题目挑战',
-                                       `company_id` bigint DEFAULT NULL COMMENT '公司ID（scene=company 时关联 portal_interview_company）',
-                                       `created_time` datetime DEFAULT CURRENT_TIMESTAMP COMMENT '发起时间',
-                                       `finished_time` datetime DEFAULT NULL COMMENT '结束时间',
-                                       PRIMARY KEY (`id`),
-                                       KEY `idx_challenger_id` (`challenger_id`),
-                                       KEY `idx_opponent_id` (`opponent_id`),
-                                       KEY `idx_status` (`status`),
-                                       KEY `idx_company_id` (`company_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='PK 对战表（异步对战）';
-
 
 --
 -- Table structure for table `portal_reading_preference`
@@ -6722,7 +6700,7 @@ INSERT INTO sys_menu VALUES('1060', '生成代码', '116', '6', '#', '', '', '',
 --     ├─ 举报管理       (cms:report)          order 10
 --     ├─ 反馈管理       (cms:feedback)        order 11
 --     ├─ 专栏管理       (portal:column)       order 12
---     └─ 打赏管理       (portal:tip)          order 13  visible=1 隐藏（已下线）
+--     └─ 打赏管理       (portal:tip)          [v9.0] 已删除
 --   一级：创作者认证 (certification)
 --     └─ 认证审核       (cms:certification)   order 1
 --   一级：财务 (finance)  visible=1 隐藏（已下线）
@@ -7057,18 +7035,8 @@ SELECT '专栏删除', @column_menu_id, 4, '', NULL, NULL, 1, 0, 'F', '0', '0', 
 FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM sys_menu WHERE perms = 'portal:column:remove');
 
 -- =============================================================================
--- 十四、打赏管理（portal:tip）  来自 79  已下线 visible=1 隐藏
+-- 十四、[v9.0] 打赏管理菜单已删除（portal:tip） — 后台管理移除，portal_tip_order 表保留（付费阅读依赖）
 -- =============================================================================
-INSERT INTO sys_menu (menu_name, parent_id, order_num, path, component, query, is_frame, is_cache,
-                      menu_type, visible, status, perms, icon, create_by, create_time, remark)
-SELECT '打赏管理', @cms_parent_id, 13, 'tip', 'cms/tip/index', NULL, 1, 0, 'C', '1', '0', 'portal:tip:list', 'money', 'admin', NOW(), '【已下线】前台打赏功能移除，菜单隐藏保留以兼容历史数据'
-FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM sys_menu WHERE perms = 'portal:tip:list');
-SELECT @tip_menu_id := menu_id FROM sys_menu WHERE perms = 'portal:tip:list' LIMIT 1;
-
-INSERT INTO sys_menu (menu_name, parent_id, order_num, path, component, query, is_frame, is_cache,
-                      menu_type, visible, status, perms, icon, create_by, create_time, remark)
-SELECT '打赏查询', @tip_menu_id, 1, '', NULL, NULL, 1, 0, 'F', '1', '0', 'portal:tip:query', '#', 'admin', NOW(), '【已下线】'
-FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM sys_menu WHERE perms = 'portal:tip:query');
 
 -- =============================================================================
 -- 十五、独立一级目录：创作者认证（certification）  来自 63

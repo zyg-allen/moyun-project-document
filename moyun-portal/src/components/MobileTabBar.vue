@@ -28,10 +28,10 @@ const tabs: TabItem[] = [
     matchPrefix: ['/'],
   },
   {
-    key: 'reading',
-    label: '读书',
-    path: '/reading',
-    matchPrefix: ['/reading'],
+    key: 'interview',
+    label: '面试',
+    path: '/interview',
+    matchPrefix: ['/interview'],
   },
   {
     key: 'publish',
@@ -116,9 +116,10 @@ function handleTabClick(tab: TabItem) {
           <path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
           <polyline points="9 22 9 12 15 12 15 22" />
         </svg>
-        <!-- 读书 book -->
-        <svg v-else-if="tab.key === 'reading'" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20" />
+        <!-- 面试 briefcase -->
+        <svg v-else-if="tab.key === 'interview'" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect width="20" height="14" x="2" y="7" rx="2" ry="2" />
+          <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" />
         </svg>
         <!-- 学习 graduation-cap -->
         <svg v-else-if="tab.key === 'learn'" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">

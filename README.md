@@ -1,126 +1,109 @@
-# 墨韵·智库 - 文学+技术社区平台
+# 墨韵·智库 — AI 驱动的个人成长平台
 
-**项目版本**: v5.2
-**最后更新**: 2026-07-19
-**项目状态**: ✅ v5.2 安全加固完成 | ⏳ 真实支付通道待接入
-
----
-
-## 📖 项目简介
-
-**一纸墨**是一个面向年轻创作者、技术学习者、文学爱好者的**文学+技术双内容形态共存的社区平台**。
-
-**品牌口号**: 在浮躁的世界，留一页纸给灵魂。
-
-### 核心特性
-
-- **双形态内容**: 技术流和文学派两种内容展示风格
-- **独立认证体系**: 前后台用户完全独立，双 SecurityFilterChain 配置
-- **多主题支持**: 日间、夜间、护眼三种主题自由切换
-- **响应式设计**: 完美适配各种屏幕尺寸
+**项目版本**：v9.0  
+**最后更新**：2026-08-15  
+**项目状态**：✅ v9.0 重构完成 | ⏳ 数据填充与商业化待接入
 
 ---
 
-## 🏗️ 项目结构
+## 项目简介
 
-```
-moyun-project-document/
-├── docs/                        # 📚 项目文档（核心文档目录）
-│   ├── 01_项目概述.md           # 项目整体介绍
-│   ├── 02_技术架构.md           # 技术选型、架构设计
-│   ├── 03_开发指南.md           # 开发规范与最佳实践
-│   ├── 04_部署指南.md           # 环境部署与验证
-│   └── 05_测试清单.md           # 功能测试用例
-│
-├── moyun-server/               # ☕ 后端服务
-│   ├── src/main/java/com/moyun/
-│   ├── ARCHITECTURE.md         # 后端架构详细文档
-│   └── 独立认证方案说明.md      # 前后台独立认证方案
-│
-├── moyun-portal/               # 🎨 用户前台
-│   ├── src/
-│   ├── README.md               # 前台模块文档
-│   └── 网站名称设计.md          # 品牌设计文档
-│
-├── moyun-admin-vue/            # 🔧 后台管理
-│   ├── src/
-│   └── README.md               # 后台模块文档
-│
-├── scripts/
-│   └── dev.sh                  # 开发环境启动脚本
-│
-└── README.md                   # 项目总览（本文档）
-```
+**墨韵·智库**是一个以用户个人视角为核心的成长平台——将学习、刷题、面试、阅读、写作整合为一条成长时间线，利用 AI 赋能帮助用户持续成长。
+
+**品牌口号**：让成长有迹可循。
+
+### 核心差异化
+
+- **AI 模拟面试**：基于 LangChain4j 的多轮对话式面试，AI 智能评分与弱项分析
+- **OJ 在线判题**：Docker 沙箱 + 异步队列，支持多语言的真实判题系统
+- **成长时间线**：统一事件追踪，学习/面试/阅读/写作全量记录，可视化回溯
+
+### 保留模块
+
+| 模块 | 定位 | 说明 |
+|------|------|------|
+| 面试指南 | **核心** | 题库 + OJ判题 + 面经复盘 + AI模拟面试 |
+| 学习工具 | **核心** | 刷题日历 + 知识图谱 + 排行榜 + 错题本 |
+| 成长系统 | **核心** | 成长规则 + 徽章 + 时间线 + 等级 |
+| 文章系统 | **内容** | 原创/转载/专栏/付费阅读/版本管理 |
+| 话题讨论 | **互动** | 话题广场 + 观点/评论（登录即可发起） |
+| 读书空间 | **内容** | 书籍/书单/金句/书架（版权待处理） |
+| AI 模块 | **赋能** | 知识库RAG + 图表分析 + 工作流 + Agent |
+| 广告系统 | **商业化** | 广告位管理（预留联盟SDK接入） |
+
+### v9.0 已移除模块
+
+| 模块 | 原因 |
+|------|------|
+| PK 对战 | 业务定义不清晰，已彻底删除（代码+表+菜单） |
+| 圈子社交 | 无前端实现，已彻底删除（代码+表+菜单） |
 
 ---
 
-## 🛠️ 技术栈
+## 技术栈
 
-### 后端服务 (moyun-server)
+### 后端 (moyun-server)
 
-| 技术 | 版本 | 说明 |
+| 技术 | 版本 | 用途 |
 |------|------|------|
 | Spring Boot | 3.3.2 | 核心框架 |
 | Java | 21 | 编程语言 |
-| MyBatis-Plus | 3.5.7 | ORM 框架 |
-| MySQL | 8.0+ | 关系型数据库 |
-| Redis | 6.0+ | 缓存中间件 |
-| Spring Security | 6.3.1 | 安全框架 |
+| MyBatis-Plus | 3.5.11 | ORM |
+| Spring Security | 6.3.1 | 双FilterChain认证 |
+| LangChain4j | 1.0.0-beta3 | AI能力（面试/RAG/工作流） |
+| Redis | 6.0+ | 缓存/限流/异步队列 |
+| Docker | — | OJ判题沙箱 |
+| MinIO | 8.5.12 | 对象存储 |
 
-### 前台门户 (moyun-portal)
+### 前端门户 (moyun-portal)
 
-| 技术 | 版本 | 说明 |
+| 技术 | 版本 | 用途 |
 |------|------|------|
-| Vue | 3.4.15 | 前端框架 |
-| Vite | 5.0.12 | 构建工具 |
-| TypeScript | 5.3.3 | 编程语言 |
-| Pinia | 3.0.4 | 状态管理 |
-| Tailwind CSS | 3.4.1 | CSS 框架 |
+| Vue | 3.4 | Composition API + script setup |
+| Vite | 5.0 | 构建工具 |
+| TypeScript | 5.3 | 类型安全 |
+| Pinia | 3.0 | 状态管理 |
+| Tailwind CSS | — | 原子化CSS + 主题变量 |
 
-### 后台管理 (moyun-admin-vue)
+### 管理后台 (moyun-admin-vue)
 
-| 技术 | 版本 | 说明 |
+| 技术 | 版本 | 用途 |
 |------|------|------|
-| Vue | 3.4.0 | 前端框架 |
-| Element Plus | 2.4.3 | UI 组件库 |
-| Vite | 5.0.4 | 构建工具 |
-| Pinia | 2.1.7 | 状态管理 |
+| Vue | 3.4 | 前端框架 |
+| Element Plus | 2.4.3 | 企业级UI |
+| ECharts | 5.4.3 | 数据可视化 |
+| 基础框架 | RuoYi-Vue 3.8.7 | 后台脚手架 |
 
 ---
 
-## 🚀 快速开始
+## 快速开始
 
 ### 环境要求
 
-| 软件 | 版本要求 |
-|------|----------|
+| 软件 | 版本 |
+|------|------|
 | JDK | 21+ |
 | Node.js | 18+ |
 | MySQL | 8.0+ |
 | Redis | 6.0+ |
+| Maven | 3.8+ |
+| Docker | 20+（OJ判题需要） |
 
-### 启动命令
+### 启动
 
 ```bash
-cd moyun-project-document
+# 后端
+cd moyun-server
+export TOKEN_SECRET="your-secret-key-at-least-64-characters-long"
+mvn spring-boot:run
 
-# 查看帮助
-./scripts/dev.sh status
+# 前端门户
+cd moyun-portal
+pnpm install && pnpm run dev
 
-# 安装前端依赖
-./scripts/dev.sh install
-
-# 启动前台 (3000端口)
-./scripts/dev.sh portal
-
-# 启动后台 (80端口)
-./scripts/dev.sh admin
-
-# 启动后端 (8080端口)
-./scripts/dev.sh server
-
-# 同时启动所有服务
-./scripts/dev.sh all
+# 管理后台
+cd moyun-admin-vue
+pnpm install && pnpm run dev
 ```
 
 ### 访问地址
@@ -130,68 +113,77 @@ cd moyun-project-document
 | 前台门户 | http://localhost:3000 |
 | 后台管理 | http://localhost:80 |
 | 后端API | http://localhost:8080 |
-| Swagger文档 | http://localhost:8080/doc.html |
+| Swagger | http://localhost:8080/doc.html |
 
-**默认后台账号**: admin / admin123
+**默认后台账号**：admin / admin123
 
 ---
 
-## 📚 文档导航
+## 项目结构
 
-### 核心文档（docs/ 目录）
+```
+moyun-project-document/
+├── moyun-server/               # 后端 Spring Boot 服务
+│   ├── src/main/java/com/moyun/
+│   │   ├── portal/             # 门户前台（Controller/Service/Mapper/Judge）
+│   │   ├── ext/cms/            # 后台内容管理
+│   │   ├── ext/ai/             # AI模块（328文件）
+│   │   ├── system/             # 系统基础
+│   │   └── core/               # 核心配置（Security/Filter/Base）
+│   └── src/main/resources/
+│       ├── sql/                # SQL脚本（init_v7.8 + upgrade_v9.0）
+│       └── application*.yaml   # 配置文件
+│
+├── moyun-portal/               # 前端门户（Vue3 + TS + Tailwind）
+│   └── src/
+│       ├── pages/              # 40+ 页面
+│       ├── components/         # 公共组件
+│       ├── api/                # 33 个 API 模块
+│       └── stores/             # Pinia 状态管理
+│
+├── moyun-admin-vue/            # 管理后台（Vue3 + Element Plus）
+│   └── src/views/              # cms/ai/portal/system 四大模块
+│
+├── docs/                       # 项目文档
+├── REVIEW_REPORT.md            # 代码评审报告
+├── moyun-admin-refactor-v9.patch  # v9.0完整变更补丁
+└── README.md                   # 本文档
+```
+
+---
+
+## 文档导航
 
 | 文档 | 说明 |
 |------|------|
-| [docs/01_项目概述.md](docs/01_项目概述.md) | 项目简介、结构、模块划分 |
+| [docs/01_项目介绍.md](docs/01_项目介绍.md) | 项目定位、模块清单、核心特性 |
 | [docs/02_技术架构.md](docs/02_技术架构.md) | 技术选型、架构设计、模块依赖 |
-| [docs/03_开发指南.md](docs/03_开发指南.md) | 环境配置、代码规范、开发流程 |
-| [docs/04_部署指南.md](docs/04_部署指南.md) | 环境准备、部署步骤、问题排查 |
-| [docs/05_测试清单.md](docs/05_测试清单.md) | 功能测试用例、数据一致性验证 |
-
-### 子项目文档
-
-| 模块 | 文档 | 说明 |
-|------|------|------|
-| 后端服务 | [moyun-server/ARCHITECTURE.md](moyun-server/ARCHITECTURE.md) | 后端详细架构、模块依赖图 |
-| 后端服务 | [moyun-server/独立认证方案说明.md](moyun-server/独立认证方案说明.md) | 前后台独立认证方案 |
-| 前台门户 | [moyun-portal/README.md](moyun-portal/README.md) | 前台功能、组件、API |
-| 前台门户 | [moyun-portal/网站名称设计.md](moyun-portal/网站名称设计.md) | 品牌定位、口号、文案 |
-| 前台门户 | [moyun-portal/API文档.md](moyun-portal/API文档.md) | 前台 API 接口文档 |
-| 后台管理 | [moyun-admin-vue/README.md](moyun-admin-vue/README.md) | 后台功能、模块、开发规范 |
+| [docs/03_开发指南.md](docs/03_开发指南.md) | 环境配置、代码规范 |
+| [docs/04_部署指南.md](docs/04_部署指南.md) | 环境部署、SQL初始化 |
+| [docs/09_开发进度与规划.md](docs/09_开发进度与规划.md) | 当前进度、未来路线图 |
+| [docs/10_功能排查清单.md](docs/10_功能排查清单.md) | 按业务链路的功能测试 |
+| [docs/11_面试指南后续迭代规划.md](docs/11_面试指南后续迭代规划.md) | 面试模块迭代计划 |
+| [docs/devlog.md](docs/devlog.md) | 版本变更日志 |
+| [docs/开发规范.md](docs/墨韵·智库项目开发规范.md) | 全项目代码规范 |
+| [REVIEW_REPORT.md](REVIEW_REPORT.md) | 全栈代码评审报告 |
+| [第三方服务申请指导文档.md](第三方服务申请指导文档.md) | 域名/备案/短信/支付申请指南 |
 
 ---
 
-## 📊 项目阶段
+## 版本历史
 
-| 阶段 | 名称 | 状态 | 完成时间 |
-|------|------|------|----------|
-| 第一阶段 | 前台基础功能 | ✅ 已完成 | 2026-05-24 |
-| 第二阶段 | 后台管理系统 | ✅ 已完成 | 2026-05-27 |
-| 第三阶段 | 性能与SEO优化 | ⏳ 规划中 | 待定 |
-| 第四阶段 | Nuxt 3 SSR | ⏳ 规划中 | 待定 |
-| 第五阶段 | 第三方集成 | ⏳ 规划中 | 待定 |
-| 第六阶段 | 高级功能 | ⏳ 规划中 | 待定 |
-
----
-
-## 🔗 相关链接
-
-- **项目仓库**: https://github.com/zyg-allen/moyun-project-document
-- **问题反馈**: 通过 GitHub Issues
+| 版本 | 日期 | 里程碑 |
+|------|------|--------|
+| v1.0 | 2026-05-24 | 基础框架搭建 |
+| v3.0 | 2026-05-28 | 读书空间 + 面试空间初版 |
+| v5.0 | 2026-07-01 | 积分打赏 + 广告位基建 |
+| v5.2 | 2026-07-19 | 安全加固（22项修复） |
+| v7.8 | 2026-08-13 | OJ判题Docker沙箱 + AI模块完善 |
+| **v9.0** | **2026-08-15** | **重构：删除PK/圈子，首页5屏改版，认证分级，Admin新增VIP/钱包/仪表板** |
 
 ---
 
-## 🤝 贡献指南
+## 相关链接
 
-欢迎提交 Issue 和 Pull Request！
-
-1. Fork 本仓库
-2. 创建特性分支 (`git checkout -b feature/AmazingFeature`)
-3. 提交更改 (`git commit -m 'feat: Add some AmazingFeature'`)
-4. 推送到分支 (`git push origin feature/AmazingFeature`)
-5. 创建 Pull Request
-
----
-
-**项目维护者**: 一纸墨开发团队
-**最后更新**: 2026-06-15
+- **项目仓库**：https://github.com/zyg-allen/moyun-project-document
+- **问题反馈**：通过 GitHub Issues

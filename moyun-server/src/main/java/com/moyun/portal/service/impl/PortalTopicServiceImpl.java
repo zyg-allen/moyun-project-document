@@ -170,8 +170,7 @@ public class PortalTopicServiceImpl extends ServiceImpl<PortalTopicMapper, Porta
             dto.setTitle(topic.getTitle());
             dto.setDescription(topic.getDescription());
             dto.setSubmitterId(userId);
-            PortalUser portalUser = portalUserMapper.selectPortalUserById(userId);
-            dto.setSubmitterName(portalUser.getUsername());
+            dto.setSubmitterName(user.getUsername());
             auditTaskService.submit(dto);
         }
 

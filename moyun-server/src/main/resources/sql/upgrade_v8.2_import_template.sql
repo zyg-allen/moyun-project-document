@@ -43,27 +43,27 @@ SELECT '================================================' AS info;
 --   - sort：列顺序（升序）
 --   - status：0=启用 1=停用
 CREATE TABLE IF NOT EXISTS portal_import_template_config (
-                                                             id              BIGINT       NOT NULL AUTO_INCREMENT COMMENT '主键',
-                                                             business_key    VARCHAR(64) NOT NULL                COMMENT '业务标识（interview_question/interview_experience/article/tag/note）',
-                                                             field_name      VARCHAR(64) NOT NULL                COMMENT '实体字段名（Java 属性名，如 title/difficulty）',
-                                                             column_name     VARCHAR(64) NOT NULL                COMMENT 'Excel 列名（中文表头，如"题目标题"）',
-                                                             description     VARCHAR(255) DEFAULT NULL            COMMENT '字段说明（模板第2行说明文字）',
-                                                             example_value   VARCHAR(255) DEFAULT NULL            COMMENT '示例值（模板第3行示例数据）',
-                                                             required        TINYINT      DEFAULT 0               COMMENT '是否必填：1=必填 0=可选',
-                                                             field_type      VARCHAR(20) DEFAULT 'string'        COMMENT '字段类型：string/number/date/dict',
-                                                             dict_type       VARCHAR(64) DEFAULT NULL             COMMENT '字典 type（field_type=dict 时生效）',
-                                                             combo_values    VARCHAR(500) DEFAULT NULL            COMMENT '下拉可选值（逗号分隔，优先于 dict_type）',
-                                                             column_width    INT          DEFAULT 20              COMMENT 'Excel 列宽',
-                                                             sort            INT          DEFAULT 0                COMMENT '列排序号（升序生成列）',
-                                                             status          CHAR(1)      DEFAULT '0'              COMMENT '状态：0=启用 1=停用',
-                                                             create_by       VARCHAR(64) DEFAULT ''               COMMENT '创建者',
-                                                             create_time     DATETIME     DEFAULT NULL            COMMENT '创建时间',
-                                                             update_by       VARCHAR(64) DEFAULT ''               COMMENT '更新者',
-                                                             update_time     DATETIME     DEFAULT NULL            COMMENT '更新时间',
-                                                             remark          VARCHAR(500) DEFAULT NULL            COMMENT '备注（运营维护说明）',
-                                                             PRIMARY KEY (id),
-                                                             KEY idx_business_key_status_sort (business_key, status, sort),
-                                                             KEY idx_business_key_field (business_key, field_name)
+  id              BIGINT       NOT NULL AUTO_INCREMENT COMMENT '主键',
+  business_key    VARCHAR(64) NOT NULL                COMMENT '业务标识（interview_question/interview_experience/article/tag/note）',
+  field_name      VARCHAR(64) NOT NULL                COMMENT '实体字段名（Java 属性名，如 title/difficulty）',
+  column_name     VARCHAR(64) NOT NULL                COMMENT 'Excel 列名（中文表头，如"题目标题"）',
+  description     VARCHAR(255) DEFAULT NULL            COMMENT '字段说明（模板第2行说明文字）',
+  example_value   VARCHAR(255) DEFAULT NULL            COMMENT '示例值（模板第3行示例数据）',
+  required        TINYINT      DEFAULT 0               COMMENT '是否必填：1=必填 0=可选',
+  field_type      VARCHAR(20) DEFAULT 'string'        COMMENT '字段类型：string/number/date/dict',
+  dict_type       VARCHAR(64) DEFAULT NULL             COMMENT '字典 type（field_type=dict 时生效）',
+  combo_values    VARCHAR(500) DEFAULT NULL            COMMENT '下拉可选值（逗号分隔，优先于 dict_type）',
+  column_width    INT          DEFAULT 20              COMMENT 'Excel 列宽',
+  sort            INT          DEFAULT 0                COMMENT '列排序号（升序生成列）',
+  status          CHAR(1)      DEFAULT '0'              COMMENT '状态：0=启用 1=停用',
+  create_by       VARCHAR(64) DEFAULT ''               COMMENT '创建者',
+  create_time     DATETIME     DEFAULT NULL            COMMENT '创建时间',
+  update_by       VARCHAR(64) DEFAULT ''               COMMENT '更新者',
+  update_time     DATETIME     DEFAULT NULL            COMMENT '更新时间',
+  remark          VARCHAR(500) DEFAULT NULL            COMMENT '备注（运营维护说明）',
+  PRIMARY KEY (id),
+  KEY idx_business_key_status_sort (business_key, status, sort),
+  KEY idx_business_key_field (business_key, field_name)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='导入模板字段配置（动态模板）';
 
 SELECT CONCAT('portal_import_template_config 表创建完成，行数: ', (SELECT COUNT(*) FROM portal_import_template_config)) AS info;
@@ -106,7 +106,7 @@ FROM sys_menu m
 WHERE m.perms IN ('cms:interview:import', 'cms:interview:export')
   AND NOT EXISTS (
     SELECT 1 FROM sys_role_menu rm WHERE rm.role_id = 1 AND rm.menu_id = m.menu_id
-);
+  );
 
 SELECT CONCAT('admin 角色已分配题库导入导出按钮，新增: ', ROW_COUNT()) AS info;
 
@@ -123,25 +123,25 @@ DELETE FROM portal_import_template_config WHERE business_key = 'interview_questi
 
 INSERT INTO portal_import_template_config
 (business_key, field_name, column_name, description, example_value, required, field_type, combo_values, column_width, sort, status, create_by, create_time, remark) VALUES
-                                                                                                                                                                        ('interview_question', 'title',          '题目标题',     '必填，不超过500字。题目的核心提问，如"请实现一个 LRU 缓存"', '请实现一个 LRU 缓存', 1, 'string', NULL,                            40,  1, '0', 'admin', NOW(), '题目标题，主键索引列'),
-                                                                                                                                                                        ('interview_question', 'description',    '题目描述',     '可选，题目背景与详细说明', '设计一个符合 LRU 缓存淘汰策略的数据结构', 0, 'string', NULL,                            50,  2, '0', 'admin', NOW(), '题目描述，富文本/纯文本'),
-                                                                                                                                                                        ('interview_question', 'questionType',   '题目类型',     '可选，下拉：bagwen八股/algorithm算法/system_design系统设计/project项目/hr', 'algorithm', 0, 'dict', 'bagwen,algorithm,system_design,project,hr', 16, 3, '0', 'admin', NOW(), '题目类型，决定作答模式'),
-                                                                                                                                                                        ('interview_question', 'difficulty',    '难度',         '可选，下拉：easy简单/medium中等/hard困难', 'medium', 0, 'dict', 'easy,medium,hard', 12,  4, '0', 'admin', NOW(), '难度，影响推荐排序'),
-                                                                                                                                                                        ('interview_question', 'categoryId',     '分类ID',       '可选，对应 portal_interview_category.id，留空则不归类', '10', 0, 'number', NULL,                           10,  5, '0', 'admin', NOW(), '分类ID，可空'),
-                                                                                                                                                                        ('interview_question', 'tags',           '标签',         '可选，多个用英文逗号分隔，会同步标签引用计数', 'LRU,哈希表,链表', 0, 'string', NULL,                        30,  6, '0', 'admin', NOW(), '标签，逗号分隔'),
-                                                                                                                                                                        ('interview_question', 'companies',      '公司',         '可选，多个用英文逗号分隔', '字节跳动,阿里巴巴', 0, 'string', NULL,                              30,  7, '0', 'admin', NOW(), '关联公司，逗号分隔'),
-                                                                                                                                                                        ('interview_question', 'hint',           '提示',         '可选，作答提示', '注意考虑 O(1) 时间复杂度', 0, 'string', NULL,                                 30,  8, '0', 'admin', NOW(), '作答提示'),
-                                                                                                                                                                        ('interview_question', 'solution',      '参考答案',     '可选，代码题填参考代码；其他题型建议填 referenceAnswer', NULL, 0, 'string', NULL,                            50,  9, '0', 'admin', NOW(), '旧字段：参考代码片段'),
-                                                                                                                                                                        ('interview_question', 'referenceAnswer','官方参考答案', '可选，Markdown 格式，推荐用于八股/设计/项目/HR 题型完整答案', '## 解题思路\n使用哈希表 + 双向链表...', 0, 'string', NULL, 50, 10, '0', 'admin', NOW(), '官方参考答案，Markdown'),
-                                                                                                                                                                        ('interview_question', 'examinePoints',  '考察点',       '可选，JSON 数组字符串，如 ["TCP三次握手"]', '["LRU策略","双向链表"]', 0, 'string', NULL,                     30, 11, '0', 'admin', NOW(), '考察点，JSON 数组'),
-                                                                                                                                                                        ('interview_question', 'answerOutline',  '答题大纲',     '可选，Markdown 结构化答题思路', '## 步骤1\n...\n## 步骤2\n...', 0, 'string', NULL, 40, 12, '0', 'admin', NOW(), '答题大纲，Markdown'),
-                                                                                                                                                                        ('interview_question', 'scoringCriteria', '评分标准',    '可选，JSON 数组字符串，每项含 dimension/weight/description', NULL, 0, 'string', NULL,                       40, 13, '0', 'admin', NOW(), '评分标准，JSON 数组'),
-                                                                                                                                                                        ('interview_question', 'prerequisiteIds','前置题目ID',   '可选，多个用英文逗号分隔', '12,15', 0, 'string', NULL,                                       20, 14, '0', 'admin', NOW(), '前置题目ID，逗号分隔'),
-                                                                                                                                                                        ('interview_question', 'sort',           '排序',         '可选，数字越小越靠前，默认 0', '0', 0, 'number', NULL,                                                8, 15, '0', 'admin', NOW(), '排序号'),
-                                                                                                                                                                        ('interview_question', 'status',         '状态',         '可选，下拉：draft草稿/published已发布/archived已归档，默认 published（导入默认即发布可见）', 'published', 0, 'dict', 'draft,published,archived', 14, 16, '0', 'admin', NOW(), '状态，影响前台展示');
+('interview_question', 'title',          '题目标题',     '必填，不超过500字。题目的核心提问，如"请实现一个 LRU 缓存"', '请实现一个 LRU 缓存', 1, 'string', NULL,                            40,  1, '0', 'admin', NOW(), '题目标题，主键索引列'),
+('interview_question', 'description',    '题目描述',     '可选，题目背景与详细说明', '设计一个符合 LRU 缓存淘汰策略的数据结构', 0, 'string', NULL,                            50,  2, '0', 'admin', NOW(), '题目描述，富文本/纯文本'),
+('interview_question', 'questionType',   '题目类型',     '可选，下拉：bagwen八股/algorithm算法/system_design系统设计/project项目/hr', 'algorithm', 0, 'dict', 'bagwen,algorithm,system_design,project,hr', 16, 3, '0', 'admin', NOW(), '题目类型，决定作答模式'),
+('interview_question', 'difficulty',    '难度',         '可选，下拉：easy简单/medium中等/hard困难', 'medium', 0, 'dict', 'easy,medium,hard', 12,  4, '0', 'admin', NOW(), '难度，影响推荐排序'),
+('interview_question', 'categoryId',     '分类ID',       '可选，对应 portal_interview_category.id，留空则不归类', '10', 0, 'number', NULL,                           10,  5, '0', 'admin', NOW(), '分类ID，可空'),
+('interview_question', 'tags',           '标签',         '可选，多个用英文逗号分隔，会同步标签引用计数', 'LRU,哈希表,链表', 0, 'string', NULL,                        30,  6, '0', 'admin', NOW(), '标签，逗号分隔'),
+('interview_question', 'companies',      '公司',         '可选，多个用英文逗号分隔', '字节跳动,阿里巴巴', 0, 'string', NULL,                              30,  7, '0', 'admin', NOW(), '关联公司，逗号分隔'),
+('interview_question', 'hint',           '提示',         '可选，作答提示', '注意考虑 O(1) 时间复杂度', 0, 'string', NULL,                                 30,  8, '0', 'admin', NOW(), '作答提示'),
+('interview_question', 'solution',      '参考答案',     '可选，代码题填参考代码；其他题型建议填 referenceAnswer', NULL, 0, 'string', NULL,                            50,  9, '0', 'admin', NOW(), '旧字段：参考代码片段'),
+('interview_question', 'referenceAnswer','官方参考答案', '可选，Markdown 格式，推荐用于八股/设计/项目/HR 题型完整答案', '## 解题思路\n使用哈希表 + 双向链表...', 0, 'string', NULL, 50, 10, '0', 'admin', NOW(), '官方参考答案，Markdown'),
+('interview_question', 'examinePoints',  '考察点',       '可选，JSON 数组字符串，如 ["TCP三次握手"]', '["LRU策略","双向链表"]', 0, 'string', NULL,                     30, 11, '0', 'admin', NOW(), '考察点，JSON 数组'),
+('interview_question', 'answerOutline',  '答题大纲',     '可选，Markdown 结构化答题思路', '## 步骤1\n...\n## 步骤2\n...', 0, 'string', NULL, 40, 12, '0', 'admin', NOW(), '答题大纲，Markdown'),
+('interview_question', 'scoringCriteria', '评分标准',    '可选，JSON 数组字符串，每项含 dimension/weight/description', NULL, 0, 'string', NULL,                       40, 13, '0', 'admin', NOW(), '评分标准，JSON 数组'),
+('interview_question', 'prerequisiteIds','前置题目ID',   '可选，多个用英文逗号分隔', '12,15', 0, 'string', NULL,                                       20, 14, '0', 'admin', NOW(), '前置题目ID，逗号分隔'),
+('interview_question', 'sort',           '排序',         '可选，数字越小越靠前，默认 0', '0', 0, 'number', NULL,                                                8, 15, '0', 'admin', NOW(), '排序号'),
+('interview_question', 'status',         '状态',         '可选，下拉：draft草稿/published已发布/archived已归档，默认 published（导入默认即发布可见）', 'published', 0, 'dict', 'draft,published,archived', 14, 16, '0', 'admin', NOW(), '状态，影响前台展示');
 
 SELECT CONCAT('题库默认导入模板配置完成，字段数: ',
-              (SELECT COUNT(*) FROM portal_import_template_config WHERE business_key = 'interview_question')) AS info;
+  (SELECT COUNT(*) FROM portal_import_template_config WHERE business_key = 'interview_question')) AS info;
 
 
 -- =====================================================================
@@ -163,9 +163,9 @@ UPDATE portal_interview_question SET status = 'archived', update_time = NOW()
 WHERE status = 'inactive' AND del_flag = '0';
 
 SELECT CONCAT('题库 status 历史数据修复完成：active→published ',
-              ROW_COUNT(), ' 行；inactive→archived ',
-              (SELECT COUNT(*) FROM portal_interview_question WHERE status = 'inactive' AND del_flag = '0'),
-              ' 行剩余（如未影响则不变）') AS info;
+  ROW_COUNT(), ' 行；inactive→archived ',
+  (SELECT COUNT(*) FROM portal_interview_question WHERE status = 'inactive' AND del_flag = '0'),
+  ' 行剩余（如未影响则不变）') AS info;
 
 -- 校验修复后状态分布
 SELECT status, COUNT(*) AS cnt
@@ -173,6 +173,49 @@ FROM portal_interview_question
 WHERE del_flag = '0'
 GROUP BY status
 ORDER BY status;
+
+
+-- =====================================================================
+-- 四-补2、portal_interview_submission 补精选笔记字段
+-- =====================================================================
+-- 背景：
+--   PortalInterviewSubmissionMapper.selectFeaturedByQuestion 使用了 is_featured / featured_time 两列，
+--   但 init_v7.8.sql 建表语句未包含这两列，导致"精选笔记"接口抛
+--   java.sql.SQLSyntaxErrorException: Unknown column 'is_featured'，前端报"操作失败"。
+--   实体 PortalInterviewSubmission 已定义 isFeatured / featuredTime 字段，仅需补列。
+-- 策略：幂等 ADD COLUMN（COLUMN 已存在时跳过）
+SET @col := 'is_featured';
+SET @sql := (
+  SELECT IF(COUNT(*) = 0,
+    'ALTER TABLE portal_interview_submission ADD COLUMN is_featured TINYINT(1) DEFAULT 0 COMMENT ''是否精选笔记：1=是 0=否'' AFTER note',
+    'SELECT ''is_featured 已存在，跳过'' AS info')
+  FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'portal_interview_submission' AND COLUMN_NAME = @col
+);
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+SET @col := 'featured_time';
+SET @sql := (
+  SELECT IF(COUNT(*) = 0,
+    'ALTER TABLE portal_interview_submission ADD COLUMN featured_time DATETIME DEFAULT NULL COMMENT ''精选时间'' AFTER is_featured',
+    'SELECT ''featured_time 已存在，跳过'' AS info')
+  FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'portal_interview_submission' AND COLUMN_NAME = @col
+);
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+-- 索引（用于精选笔记查询：WHERE question_id=? AND is_featured=1 ORDER BY featured_time DESC）
+SET @idx := 'idx_submission_featured';
+SET @sql := (
+  SELECT IF(COUNT(*) = 0,
+    'ALTER TABLE portal_interview_submission ADD INDEX idx_submission_featured (question_id, is_featured, featured_time)',
+    'SELECT ''idx_submission_featured 已存在，跳过'' AS info')
+  FROM information_schema.STATISTICS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'portal_interview_submission' AND INDEX_NAME = @idx
+);
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+SELECT CONCAT('portal_interview_submission 精选笔记字段补齐：is_featured / featured_time / idx_submission_featured') AS info;
 
 
 -- =====================================================================
@@ -211,7 +254,7 @@ FROM sys_menu m
 WHERE m.perms IN ('cms:importTemplate:list', 'cms:importTemplate:edit')
   AND NOT EXISTS (
     SELECT 1 FROM sys_role_menu rm WHERE rm.role_id = 1 AND rm.menu_id = m.menu_id
-);
+  );
 
 SELECT CONCAT('导入模板配置菜单 menu_id: ', IFNULL(@import_tpl_menu_id, '未创建')) AS info;
 
@@ -238,7 +281,7 @@ WHERE perms LIKE 'cms:importTemplate:%';
 SELECT '校验：admin 角色已分配权限' AS info;
 SELECT m.perms, rm.role_id
 FROM sys_menu m
-         JOIN sys_role_menu rm ON rm.menu_id = m.menu_id
+JOIN sys_role_menu rm ON rm.menu_id = m.menu_id
 WHERE m.perms IN ('cms:interview:import', 'cms:interview:export',
                   'cms:importTemplate:list', 'cms:importTemplate:edit') AND rm.role_id = 1;
 

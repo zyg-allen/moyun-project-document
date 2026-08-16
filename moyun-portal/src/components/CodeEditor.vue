@@ -97,33 +97,33 @@ const initMonaco = async () => {
           switch (label) {
             case 'json':
               return new Worker(
-                  new URL('monaco-editor/esm/vs/language/json/json.worker.js', import.meta.url),
-                  { type: 'module' }
+                new URL('monaco-editor/esm/vs/language/json/json.worker.js', import.meta.url),
+                { type: 'module' }
               );
             case 'css':
             case 'scss':
             case 'less':
               return new Worker(
-                  new URL('monaco-editor/esm/vs/language/css/css.worker.js', import.meta.url),
-                  { type: 'module' }
+                new URL('monaco-editor/esm/vs/language/css/css.worker.js', import.meta.url),
+                { type: 'module' }
               );
             case 'html':
             case 'handlebars':
             case 'razor':
               return new Worker(
-                  new URL('monaco-editor/esm/vs/language/html/html.worker.js', import.meta.url),
-                  { type: 'module' }
+                new URL('monaco-editor/esm/vs/language/html/html.worker.js', import.meta.url),
+                { type: 'module' }
               );
             case 'typescript':
             case 'javascript':
               return new Worker(
-                  new URL('monaco-editor/esm/vs/language/typescript/ts.worker.js', import.meta.url),
-                  { type: 'module' }
+                new URL('monaco-editor/esm/vs/language/typescript/ts.worker.js', import.meta.url),
+                { type: 'module' }
               );
             default:
               return new Worker(
-                  new URL('monaco-editor/esm/vs/editor/editor.worker.js', import.meta.url),
-                  { type: 'module' }
+                new URL('monaco-editor/esm/vs/editor/editor.worker.js', import.meta.url),
+                { type: 'module' }
               );
           }
         } catch (e) {
@@ -274,17 +274,17 @@ onBeforeUnmount(() => {
   <div class="code-editor-wrapper relative w-full" :style="{ height }">
     <!-- Monaco 容器 -->
     <div
-        v-if="!fallback"
-        ref="containerRef"
-        class="absolute inset-0 rounded-lg overflow-hidden"
-        style="border: 1px solid var(--theme-border);"
+      v-if="!fallback"
+      ref="containerRef"
+      class="absolute inset-0 rounded-lg overflow-hidden"
+      style="border: 1px solid var(--theme-border);"
     ></div>
 
     <!-- 加载中 -->
     <div
-        v-if="!fallback && loading"
-        class="absolute inset-0 flex items-center justify-center rounded-lg"
-        style="background-color: var(--theme-surface); border: 1px solid var(--theme-border);"
+      v-if="!fallback && loading"
+      class="absolute inset-0 flex items-center justify-center rounded-lg"
+      style="background-color: var(--theme-surface); border: 1px solid var(--theme-border);"
     >
       <div class="flex items-center gap-2 text-sm" style="color: var(--theme-text-secondary);">
         <div class="w-4 h-4 rounded-full border-2 animate-spin" style="border-color: var(--theme-primary); border-top-color: transparent;"></div>
@@ -294,13 +294,13 @@ onBeforeUnmount(() => {
 
     <!-- 降级：移动端 textarea -->
     <textarea
-        v-if="fallback"
-        :value="modelValue"
-        @input="onTextareaInput"
-        @keydown="onTextareaKeydown"
-        class="w-full h-full p-4 rounded-lg font-mono text-sm input-focus"
-        style="background-color: var(--theme-bg); color: var(--theme-text); border: 1px solid var(--theme-border);"
-        :placeholder="placeholder"
+      v-if="fallback"
+      :value="modelValue"
+      @input="onTextareaInput"
+      @keydown="onTextareaKeydown"
+      class="w-full h-full p-4 rounded-lg font-mono text-sm input-focus"
+      style="background-color: var(--theme-bg); color: var(--theme-text); border: 1px solid var(--theme-border);"
+      :placeholder="placeholder"
     ></textarea>
   </div>
 </template>

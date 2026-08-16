@@ -13,9 +13,7 @@
       </el-form-item>
       <el-form-item label="状态" prop="status">
         <el-select v-model="queryParams.status" placeholder="请选择状态" clearable style="width: 200px">
-          <el-option label="待复习" value="wrong" />
-          <el-option label="复习中" value="reviewing" />
-          <el-option label="已掌握" value="mastered" />
+          <el-option v-for="d in portal_wrong_question_status" :key="d.value" :label="d.label" :value="d.value" />
         </el-select>
       </el-form-item>
       <el-form-item label="标签" prop="tag">
@@ -67,7 +65,7 @@
       </el-table-column>
       <el-table-column label="状态" align="center" prop="status" width="100">
         <template #default="scope">
-          <el-tag :type="getStatusTagType(scope.row.status)">{{ getStatusText(scope.row.status) }}</el-tag>
+          <dict-tag :options="portal_wrong_question_status" :value="scope.row.status" />
         </template>
       </el-table-column>
       <el-table-column label="答错次数" align="center" prop="wrongCount" width="100" />
@@ -119,7 +117,7 @@
           <el-tag :type="getDifficultyTagType(currentRow.questionDifficulty)">{{ getDifficultyText(currentRow.questionDifficulty) }}</el-tag>
         </el-descriptions-item>
         <el-descriptions-item label="状态">
-          <el-tag :type="getStatusTagType(currentRow.status)">{{ getStatusText(currentRow.status) }}</el-tag>
+          <dict-tag :options="portal_wrong_question_status" :value="currentRow.status" />
         </el-descriptions-item>
         <el-descriptions-item label="题目标签" :span="2">{{ currentRow.questionTags || '—' }}</el-descriptions-item>
         <el-descriptions-item label="答错次数">{{ currentRow.wrongCount }}</el-descriptions-item>
@@ -141,6 +139,7 @@
 import { listWrongQuestion } from "@/api/portal/learn";
 
 const { proxy } = getCurrentInstance();
+const { portal_wrong_question_status } = proxy.useDict("portal_wrong_question_status");
 
 const dataList = ref([]);
 const loading = ref(true);
@@ -161,18 +160,6 @@ const data = reactive({
 });
 
 const { queryParams } = toRefs(data);
-
-/** 状态文本 */
-function getStatusText(status) {
-  const map = { wrong: '待复习', reviewing: '复习中', mastered: '已掌握' };
-  return map[status] || status || '-';
-}
-
-/** 状态标签类型 */
-function getStatusTagType(status) {
-  const map = { wrong: 'danger', reviewing: 'warning', mastered: 'success' };
-  return map[status] || 'info';
-}
 
 /** 难度文本 */
 function getDifficultyText(difficulty) {

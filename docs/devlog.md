@@ -5,6 +5,124 @@
 
 ---
 
+## v9.6 (2026-08-16) 后台全面体检：菜单收敛 + 27类业务字典 + 前台字典化（"前台数据皆有后台管理"）
+
+### 体检发现（三线并行分析）
+
+- 后台 9 个一级目录、~40 个 C 菜单、8 个 Tab 容器；SQL 注册但 views 缺失 = 0（无空白页风险）
+- 完全孤儿页面 2 个：cms/contest（征文活动，前台 /contests 正在消费其数据）、cms/prompt（写作提示词）
+- 系统字典仅 15 个 RuoYi 框架自带，业务字典 0；cms/portal/ai 页面 useDict 使用 0 处（全硬编码）
+- 后端 PaymentStatus 枚举 5 态 vs 前端订单/打赏下拉仅 3 态（closed/failed 缺失，无法筛选）
+
+### 菜单收敛（upgrade_v9.6_admin_optimize.sql 第一~四节）
+
+- 🐛 **知识中心 M→C**：init 注册为 M 目录但填了 component → RuoYi M 类型不加载页面，Tab 容器永不渲染，点击空白；改为 C 菜单
+- 🗑️ **审核入口三重冗余收敛**：内容审核中心（内部已含待办/已办/全部 3 Tab，查 sys_audit_task）vs 任务管理>我的待办/我的已办同表同逻辑 → 后两者隐藏（保留路由权限），唯一入口=内容审核中心
+- 🗑️ **创作者认证目录扁平化**：目录下单挂 1 个子菜单冗余 → 认证审核直挂内容管理（path=certification），删空目录
+- ✨ **孤儿页面注册菜单**：征文活动（cms:contest:list + 4 按钮）、写作提示词（cms:writing-prompt:list + 4 按钮）挂内容管理——前台 /contests 数据从此有后台维护入口
+- ℹ️ 消息中心 vs 通知管理：查证消息中心已是"私信/通知"双 Tab，通知管理独有 CRUD+广播发送，定位不同（用户消息处理 vs 内容发布），**保留不合并**
+
+### 业务字典 27 类（upgrade_v9.6_admin_optimize.sql 第五节，104 条数据）
+
+- 支付/交易域：portal_pay_status(5态补全closed/failed)/portal_pay_channel/portal_tip_target_type/portal_wallet_txn_type
+- 内容域：cms_article_status/cms_column_status/cms_topic_status(5态)/cms_contest_status
+- 审核域：cms_audit_task_type(8类对齐枚举)/cms_audit_task_status
+- 反馈举报域：cms_feedback_type/cms_report_type/cms_handle_status(反馈+举报共用)
+- 读书域：portal_book_type/portal_book_serial_status/portal_access_type/portal_common_status
+- 学习域：portal_study_plan_type/portal_study_plan_status/portal_wrong_question_status
+- 面试域：portal_question_difficulty/portal_question_type/portal_resume_category/portal_mock_scene
+- 运营域：portal_ad_slot_key/cms_vip_status/sys_login_type
+- 字典值与后端枚举 code 一一对齐（新增状态改字典即可，前后台同步生效）
+
+### 后端新增
+
+- `com.moyun.portal.controller.PortalDictController` — 前台免登录字典接口
+  - GET /portal/dict/{dictType}、GET /portal/dict/types?types=a,b,c（批量）
+  - 安全：白名单仅放行 portal_/cms_ 前缀字典（防泄露系统字典）；@Anonymous + PortalSecurityConfig GET /portal/dict/** permitAll 双通道；走 DictUtils 缓存
+- PortalSecurityConfig 增加字典接口白名单
+
+### Admin 字典化改造（18 个页面）
+
+cms/order、tip、vip、wallet、ad、audit-center、feedback、report、article、topic、column、contest、interview/question、portal/book、bookList、studyPlan、wrongQuestion、monitor/logininfor
+- 硬编码 el-option/JS 常量数组 → proxy.useDict() + dict-tag，删除各页面本地映射函数（statusLabel/getStatusText/taskTypeOptions 等）
+
+### Portal 前台字典化 + 清理
+
+- 新增 `src/api/dict.ts` + `src/composables/useDictData.ts`（模块级缓存、失败静默、本地 DEFAULT 兜底、dictBadgeClass 色彩映射）
+- 6 页面接入字典：QuestionListPage/QuestionDetailPage/InterviewPage（难度+题型，消除 3 处重复硬编码）、ResumeTemplatePage（分类）、ReportFeedback（举报/反馈类型）、MockInterviewPage（场景预设）
+- PublishPage 分类：查证已是后端优先（categories.ts 此前零引用），本轮补充三级兜底链路（后端失败/空数据/过滤后为空 → 本地 categories.ts 兜底）
+- 删除 `src/data/mockData.ts`（grep 实测零代码引用）
+
+### 验证
+
+- ✅ moyun-server `mvn compile` 通过
+- ✅ moyun-admin-vue `npm run build:prod` 通过
+- ✅ moyun-portal `npm run build`（vue-tsc + vite）通过
+
+### SQL 执行顺序（线下部署）
+
+`init_v7.8.sql` → `upgrade_v8.1_audit_unified.sql` → `upgrade_v8.2_import_template.sql` → `upgrade_v9.0_admin_refactor.sql` → `upgrade_v9.5_merge.sql` → `upgrade_v9.6_admin_optimize.sql`（均幂等）
+
+---
+
+## v9.5 (2026-08-16) 分支合并：main-dev-article × moyun-dev-kouzi（后续开发基线）
+
+### 合并决策
+
+- **策略**：不使用 `git merge`（避免回引已删除的圈子/PK），采用精确文件抽取
+- **定位**：内容先行引流 → 体验留存 → 优质内容促进消费；游客首页必须内容丰富
+- **圈子/PK**：保持 v9.0 删除状态，本次未回引任何残留
+
+### 主要变化
+
+- 🏠 **首页回归内容型**（从 main-dev-article 抽取 `HomePage.vue`）
+  - 文章轮播 + 精选文章 + 热门文章 + 分类导航 + 作者榜 + 读书/面试双导流 + 友情链接
+  - 游客未登录即可看到丰富内容，解决"扣子版首页内容太少且混乱"的问题
+- 💰 **打赏流水恢复**（从 v5.2 抽取 Tip Admin，挂载方式变更）
+  - 不建独立菜单，作为"交易管理"页第二个 Tab（付费订单 + 打赏流水）
+  - 后端：CmsTipController / ICmsTipService / CmsTipServiceImpl（复用现有 PortalTipOrderMapper，未新增 Mapper）
+  - 权限：`upgrade_v9.5_merge.sql` 幂等恢复 `portal:tip:list/query` 为"交易管理"菜单下 F 按钮权限
+- 🐛 **修复 CodeEditor.vue 构建阻断**（既有 bug，与合并无关但阻断编译）
+  - monaco-editor 0.53+ 的 exports 重写子路径：`monaco-editor/esm/vs/...` → `monaco-editor/...`
+  - `new URL(裸模块, import.meta.url)` 改为 Vite 官方 `?worker` 动态导入（getWorker 返回 Promise<Worker>）
+- 🐛 **修复"学习辅助"菜单 404 + 归属错位**（init_v7.8 脚本历史遗留，线下验证发现）
+  - 根因：第8节兜底在"内容管理"下注册 `path=learn-aux`（perms=portal:learn-aux:list），v7.13/7.15 又在"读书空间"下注册同名 path → RuoYi-Vue3 按 path 生成同名路由（Learn-aux），vue-router 4 同名 addRoute 移除先注册者 → `/cms/learn-aux` 被 `/book/learn-aux` 覆盖，点击 404
+  - 修复：init_v7.8.sql 末尾追加"六(补)"清理段 + upgrade_v9.5_merge.sql 第五节，删除重复菜单并将角色授权转移给正式菜单（均幂等）
+  - 归属调整：学习辅助（学习计划"每日刷题"为主 + 错题本 100% 源于题库）数据产自面试指南题库体系 → 正式菜单迁至"面试指南"目录（order=9），路由变为 `/interview/learn-aux`
+- 🐛 **去重交易入口：删除"财务/付费订单"独立菜单**（线下验证发现）
+  - 根因：init 第十六节注册"财务(finance)/付费订单"（component=cms/order/index，已下线），v9.0 第七节迁移条件为 parent_id=内容管理，而其挂财务目录 → 未迁移成死角；"交易管理"Tab 第一个 Tab 引用同一组件 → 功能完全重复
+  - 修复（v9.5 第六节）：`portal:order:list/query` 由独立菜单转为"交易管理"下 F 按钮（CmsOrderController 接口依赖，Tab 内付费订单 Tab 需要，非超管 403 防护）；物理删除"财务"目录及残余 C 菜单
+  - 附带修正：v9.5 第一节 tip 按钮挂载点由"付费订单"改为"交易管理"菜单（原挂载点为已下线菜单，非超管授权入口不可达）
+  - 前端组件无冗余：cms/order/index.vue 与 cms/tip/index.vue 均被交易管理 Tab 容器引用（共用），不删
+
+### 新增文件
+
+- `moyun-portal/src/pages/HomePage.vue` — 内容型首页（替换）
+- `moyun-admin-vue/src/api/cms/tip.js` — 打赏流水 API
+- `moyun-admin-vue/src/views/cms/tip/index.vue` — 打赏流水管理页（Tab）
+- `moyun-server/.../ext/cms/controller/CmsTipController.java` — 打赏流水查询接口
+- `moyun-server/.../ext/cms/service/ICmsTipService.java` + `impl/CmsTipServiceImpl.java`
+- `moyun-server/src/main/resources/sql/upgrade_v9.5_merge.sql` — 权限恢复脚本（幂等）
+- `docs/05_测试清单.md`、`docs/07_工程质量检讨与开发进度_v5.2.md`、`docs/08_项目优缺点与改进建议.md`（自 main-dev-article 抽取）
+
+### 修改文件
+
+- `moyun-admin-vue/src/views/cms/transaction/index.vue` — 增加打赏流水 Tab
+- `moyun-portal/src/components/CodeEditor.vue` — monaco worker 导入修复
+
+### 验证
+
+- ✅ moyun-server `mvn compile` 通过
+- ✅ moyun-admin-vue `npm run build:prod` 通过
+- ✅ moyun-portal `npm run build`（vue-tsc + vite）通过
+- ✅ 遗漏检查 8/8：首页依赖 18 文件/12 方法、7 个后端接口、商业化三件套、无圈子/PK 残留路由与引用
+
+### SQL 执行顺序（线下部署）
+
+`init_v7.8.sql` → `upgrade_v8.1_audit_unified.sql` → `upgrade_v8.2_import_template.sql` → `upgrade_v9.0_admin_refactor.sql` → `upgrade_v9.5_merge.sql` → `upgrade_v9.6_admin_optimize.sql`（均幂等；v9.6 起补齐 27 类业务字典）
+
+---
+
 ## v9.0 (2026-08-15) 平台重构：删除PK/圈子 + 首页改版 + 认证分级 + Admin增强
 
 ### 主要变化
@@ -118,6 +236,22 @@ moyun:
 ```
 
 ---
+
+## v8.2 (2026-08-14) 通用导入模板 + 题库导入导出
+
+- 新建 `portal_import_template_config` 表：各业务（题库/标签/文章/面经/笔记）导入模板字段动态配置，无需改代码即可调整列名/必填/下拉值
+- 新增题库导入导出按钮权限：`cms:interview:import` / `cms:interview:export`
+- 失败行可重导：ImportResult 返回成功/失败统计 + 失败明细，修正后可重导
+- 脚本：`upgrade_v8.2_import_template.sql`（幂等）
+
+## v8.1 (2026-08-14) 审核模块统一整合
+
+- 新建统一审核任务表 `sys_audit_task`（替代分散的各业务表 status 聚合），提交/处理审核时与业务表 status 双写
+- 新建定时任务扫描结果表 `sys_job_scan_issue`（定时任务异常/待处理项记录）
+- 数据回填：各业务表现有 pending 记录回填至 sys_audit_task
+- 菜单调整：新增「任务管理」一级菜单（定时任务/我的待办/我的已办/扫描结果），audit-center 保留为「全部审核」入口
+- 依赖提示：Admin 业务仪表板"审计待办"依赖 sys_audit_task，**不执行此脚本仪表板会报错**
+- 脚本：`upgrade_v8.1_audit_unified.sql`（幂等）
 
 ## v5.2 (2026-07-19) 安全加固 + SQL 整理 + 文档重建
 

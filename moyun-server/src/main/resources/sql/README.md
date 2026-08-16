@@ -1,6 +1,6 @@
 ## 墨韵智库 - 数据库初始化脚本
 
-本目录仅包含一个整合的初始化脚本 `init_v7.8.sql`，可在空库上一键完成建表 + 字段补齐 + 基础数据初始化。
+本目录包含一个整合的初始化脚本 `init_v7.8.sql`（空库一键建表 + 字段补齐 + 基础数据）和 4 个版本升级脚本，**必须按顺序全部执行**。
 
 ### 快速开始
 
@@ -8,8 +8,13 @@
 # 1. 创建数据库（MySQL 8.0+）
 mysql -uroot -p -e "CREATE DATABASE IF NOT EXISTS moyun DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci;"
 
-# 2. 执行初始化脚本
+# 2. 按顺序执行（全部幂等，可重复执行）
 mysql -uroot -p moyun < init_v7.8.sql
+mysql -uroot -p moyun < upgrade_v8.1_audit_unified.sql    # 审核模块统一整合（sys_audit_task + 任务管理菜单）
+mysql -uroot -p moyun < upgrade_v8.2_import_template.sql  # 通用导入模板 + 题库导入导出权限
+mysql -uroot -p moyun < upgrade_v9.0_admin_refactor.sql   # v9.0 后台重构（删PK/圈子菜单，新增VIP/钱包/仪表板）
+mysql -uroot -p moyun < upgrade_v9.5_merge.sql            # v9.5 合并版（恢复打赏流水Tab权限）
+mysql -uroot -p moyun < upgrade_v9.6_admin_optimize.sql   # v9.6 菜单收敛 + 27类业务字典（前后台字典驱动）
 ```
 
 ### 脚本内容

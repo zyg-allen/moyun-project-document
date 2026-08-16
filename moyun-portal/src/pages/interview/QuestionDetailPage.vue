@@ -24,6 +24,7 @@ import type {
 } from '@/types/api';
 import { getSafeAvatar } from '@/utils/avatar';
 import { useToast } from '@/composables/useToast';
+import { useDictData, dictBadgeClass } from '@/composables/useDictData';
 
 const route = useRoute();
 const router = useRouter();
@@ -62,20 +63,47 @@ const isAlgorithmQuestion = computed(() => {
   return answerType.value === 'code';
 });
 
-const difficultyMap: Record<string, { label: string; class: string }> = {
+// ========== 难度/题型展示映射（字典驱动，本地默认兜底；与题库列表保持一致） ==========
+const dictMap = useDictData(['portal_question_difficulty', 'portal_question_type']);
+
+const DEFAULT_DIFFICULTY_MAP: Record<string, { label: string; class: string }> = {
   easy: { label: '简单', class: 'bg-green-100 text-green-700' },
   medium: { label: '中等', class: 'bg-yellow-100 text-yellow-700' },
   hard: { label: '困难', class: 'bg-red-100 text-red-700' },
 };
 
-/** 题型展示映射（与题库列表保持一致） */
-const questionTypeMap: Record<string, { label: string; class: string; icon: any }> = {
+const DEFAULT_QUESTION_TYPE_MAP: Record<string, { label: string; class: string; icon: any }> = {
   algorithm: { label: '算法', class: 'bg-blue-50 text-blue-600 border border-blue-200', icon: Cpu },
   bagwen: { label: '八股', class: 'bg-purple-50 text-purple-600 border border-purple-200', icon: BookOpen },
   system_design: { label: '系统设计', class: 'bg-indigo-50 text-indigo-600 border border-indigo-200', icon: GitBranch },
   project: { label: '项目', class: 'bg-emerald-50 text-emerald-600 border border-emerald-200', icon: FolderKanban },
   hr: { label: 'HR', class: 'bg-amber-50 text-amber-600 border border-amber-200', icon: Users },
 };
+
+/** 难度徽章映射（label 优先取字典；颜色优先取字典 listClass 映射） */
+const difficultyMap = computed<Record<string, { label: string; class: string }>>(() => {
+  const map: Record<string, { label: string; class: string }> = { ...DEFAULT_DIFFICULTY_MAP };
+  (dictMap['portal_question_difficulty'] || []).forEach(i => {
+    map[i.dictValue] = {
+      label: i.dictLabel,
+      class: dictBadgeClass(i.listClass) || map[i.dictValue]?.class || 'bg-gray-100 text-gray-700',
+    };
+  });
+  return map;
+});
+
+/** 题型展示映射（label 优先取字典，颜色/图标沿用本地） */
+const questionTypeMap = computed<Record<string, { label: string; class: string; icon: any }>>(() => {
+  const map: Record<string, { label: string; class: string; icon: any }> = { ...DEFAULT_QUESTION_TYPE_MAP };
+  (dictMap['portal_question_type'] || []).forEach(i => {
+    map[i.dictValue] = {
+      label: i.dictLabel,
+      class: map[i.dictValue]?.class || 'bg-gray-100 text-gray-700',
+      icon: map[i.dictValue]?.icon || Layers,
+    };
+  });
+  return map;
+});
 
 /** 是否展示结构化字段区（任一结构化字段非空即展示） */
 const hasStructuredFields = computed(() => {

@@ -13,11 +13,7 @@
       <el-form-item label="文章状态">
         <el-select v-model="queryParams.status" placeholder="请选择状态" clearable>
           <el-option label="全部" value="" />
-          <el-option label="草稿" value="draft" />
-          <el-option label="待审核" value="pending" />
-          <el-option label="已发布" value="published" />
-          <el-option label="已拒绝" value="rejected" />
-          <el-option label="已归档" value="archived" />
+          <el-option v-for="d in cms_article_status" :key="d.value" :label="d.label" :value="d.value" />
         </el-select>
       </el-form-item>
       <el-form-item label="分类">
@@ -86,9 +82,7 @@
       </el-table-column>
       <el-table-column label="状态" width="100">
         <template #default="{ row }">
-          <el-tag :type="getStatusType(row.status)">
-            {{ getStatusLabel(row.status) }}
-          </el-tag>
+          <dict-tag :options="cms_article_status" :value="row.status" />
         </template>
       </el-table-column>
       <el-table-column label="浏览" width="80">
@@ -166,6 +160,7 @@ import { listArticle, delArticle, delArticleBatch, updateArticle, setFeatured, s
 import { listCategory } from '@/api/cms/category';
 
 const { proxy } = getCurrentInstance() as any;
+const { cms_article_status } = proxy.useDict('cms_article_status');
 
 const router = useRouter();
 
@@ -187,23 +182,6 @@ const queryParams = reactive({
 // 选中行
 const ids = ref<number[]>([]);
 const multiple = computed(() => ids.value.length === 0);
-
-// 状态映射（补充 pending / rejected）
-const statusMap = {
-  draft: { label: '草稿', type: 'info' },
-  pending: { label: '待审核', type: 'warning' },
-  published: { label: '已发布', type: 'success' },
-  rejected: { label: '已拒绝', type: 'danger' },
-  archived: { label: '已归档', type: 'warning' }
-};
-
-function getStatusLabel(status: string) {
-  return statusMap[status]?.label || status;
-}
-
-function getStatusType(status: string) {
-  return statusMap[status]?.type || 'info';
-}
 
 // 加载分类选项（构建为树结构，支持二级分类层级选择）
 async function loadCategories() {

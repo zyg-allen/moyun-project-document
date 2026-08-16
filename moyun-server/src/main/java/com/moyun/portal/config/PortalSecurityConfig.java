@@ -113,6 +113,10 @@ public class PortalSecurityConfig {
                         permitAllUrl.getUrls().forEach(url -> authorizeRequests.requestMatchers(url).permitAll());
                         // 门户登录、注册、验证码允许匿名访问
                         authorizeRequests.requestMatchers("/portal/login", "/portal/register", "/portal/captchaImage", "/portal/debug/**").permitAll()
+                        // 公开业务字典（题目难度/题型、简历分类、AI场景、举报/反馈类型等），仅 GET 放行；
+                        // Controller（PortalDictController，@Anonymous）内部限制只返回 portal_/cms_ 前缀字典，
+                        // 防止泄露 sys_user_sex 等系统字典；该前缀下无需要登录的窄规则，不涉及顺序问题
+                        .requestMatchers(HttpMethod.GET, "/portal/dict/**").permitAll()
                         // 文章查看、点赞、浏览允许所有人访问（GET 全放开，POST view/like 公开，写操作需登录）
                         // 注意：/portal/article/my 是 GET 但需登录，必须在 permitAll 之前声明
                         .requestMatchers(HttpMethod.GET, "/portal/article/my").authenticated()

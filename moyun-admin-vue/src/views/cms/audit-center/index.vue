@@ -4,7 +4,7 @@
     <el-form :model="queryParams" ref="queryRef" :inline="true" v-show="showSearch" class="search-form">
       <el-form-item label="任务类型" prop="taskType">
         <el-select v-model="queryParams.taskType" placeholder="全部类型" clearable style="width: 160px">
-          <el-option v-for="opt in taskTypeOptions" :key="opt.value" :label="opt.label" :value="opt.value" />
+          <el-option v-for="d in cms_audit_task_type" :key="d.value" :label="d.label" :value="d.value" />
         </el-select>
       </el-form-item>
       <el-form-item label="标题" prop="title">
@@ -87,10 +87,13 @@
 </template>
 
 <script setup name="CmsAuditCenter">
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, onMounted, getCurrentInstance } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { listPending, listMyHandled, listAll, countByType } from '@/api/system/auditTask'
 import AuditTaskDetailDialog from '@/components/AuditTaskDetailDialog/index.vue'
+
+const { proxy } = getCurrentInstance()
+const { cms_audit_task_type } = proxy.useDict('cms_audit_task_type')
 
 const route = useRoute()
 const router = useRouter()
@@ -104,17 +107,6 @@ const pendingCount = ref(0)
 
 const detailOpen = ref(false)
 const detailTaskId = ref(null)
-
-const taskTypeOptions = [
-  { value: 'article', label: '文章审核' },
-  { value: 'column', label: '专栏审核' },
-  { value: 'topic', label: '话题审核' },
-  { value: 'interview_exp', label: '面经审核' },
-  { value: 'interview_comment', label: '面经评论审核' },
-  { value: 'certification', label: '创作者认证' },
-  { value: 'feedback', label: '意见反馈' },
-  { value: 'report', label: '举报' }
-]
 
 const queryParams = reactive({
   pageNum: 1,

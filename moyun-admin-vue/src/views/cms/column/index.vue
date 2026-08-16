@@ -13,9 +13,7 @@
       </el-form-item>
       <el-form-item label="状态" prop="status">
         <el-select v-model="queryParams.status" placeholder="状态" clearable style="width: 160px">
-          <el-option label="草稿" value="draft" />
-          <el-option label="已发布" value="published" />
-          <el-option label="已归档" value="archived" />
+          <el-option v-for="d in cms_column_status" :key="d.value" :label="d.label" :value="d.value" />
         </el-select>
       </el-form-item>
       <el-form-item>
@@ -86,9 +84,7 @@
       </el-table-column>
       <el-table-column label="状态" align="center" prop="status" width="100">
         <template #default="scope">
-          <el-tag :type="getStatusTagType(scope.row.status)" size="small">
-            {{ getStatusText(scope.row.status) }}
-          </el-tag>
+          <dict-tag :options="cms_column_status" :value="scope.row.status" />
         </template>
       </el-table-column>
       <el-table-column label="创建时间" align="center" prop="createdTime" width="160">
@@ -190,9 +186,7 @@
           <el-col :span="12">
             <el-form-item label="状态" prop="status">
               <el-radio-group v-model="form.status">
-                <el-radio label="draft">草稿</el-radio>
-                <el-radio label="published">已发布</el-radio>
-                <el-radio label="archived">已归档</el-radio>
+                <el-radio v-for="d in cms_column_status" :key="d.value" :label="d.value">{{ d.label }}</el-radio>
               </el-radio-group>
             </el-form-item>
           </el-col>
@@ -220,13 +214,11 @@
           <span>{{ currentRow.title }}</span>
         </el-form-item>
         <el-form-item label="当前状态">
-          <el-tag :type="getStatusTagType(currentRow.status)">{{ getStatusText(currentRow.status) }}</el-tag>
+          <dict-tag :options="cms_column_status" :value="currentRow.status" />
         </el-form-item>
         <el-form-item label="新状态">
           <el-select v-model="statusForm.status" placeholder="请选择状态" style="width: 100%">
-            <el-option label="草稿" value="draft" />
-            <el-option label="已发布" value="published" />
-            <el-option label="已归档" value="archived" />
+            <el-option v-for="d in cms_column_status" :key="d.value" :label="d.label" :value="d.value" />
           </el-select>
         </el-form-item>
       </el-form>
@@ -245,6 +237,7 @@ import { getCurrentInstance, ref, reactive, onMounted } from "vue";
 import { listColumn, getColumn, addColumn, updateColumn, delColumn, changeColumnStatus } from "@/api/cms/column";
 
 const { proxy } = getCurrentInstance();
+const { cms_column_status } = proxy.useDict("cms_column_status");
 const router = useRouter();
 
 /** 跳转到专栏审核页（与文章审核入口一致） */
@@ -296,16 +289,6 @@ const rules = {
   userId: [{ required: true, message: "作者ID不能为空", trigger: "blur" }],
   status: [{ required: true, message: "状态不能为空", trigger: "change" }]
 };
-
-function getStatusText(status) {
-  const map = { draft: "草稿", published: "已发布", archived: "已归档" };
-  return map[status] || status || "-";
-}
-
-function getStatusTagType(status) {
-  const map = { draft: "info", published: "success", archived: "warning" };
-  return map[status] || "info";
-}
 
 function getList() {
   loading.value = true;

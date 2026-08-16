@@ -12,9 +12,7 @@
       <el-form-item label="状态">
         <el-select v-model="queryParams.status" placeholder="请选择状态" clearable>
           <el-option label="全部" value="" />
-          <el-option label="活跃" value="active" />
-          <el-option label="归档" value="archived" />
-          <el-option label="删除" value="deleted" />
+          <el-option v-for="d in cms_topic_status" :key="d.value" :label="d.label" :value="d.value" />
         </el-select>
       </el-form-item>
       <el-form-item>
@@ -61,9 +59,7 @@
       </el-table-column>
       <el-table-column label="状态" width="100">
         <template #default="{ row }">
-          <el-tag :type="getStatusType(row.status)">
-            {{ getStatusLabel(row.status) }}
-          </el-tag>
+          <dict-tag :options="cms_topic_status" :value="row.status" />
         </template>
       </el-table-column>
       <el-table-column label="置顶" width="80">
@@ -130,10 +126,13 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted, computed } from 'vue';
+import { ref, reactive, onMounted, computed, getCurrentInstance } from 'vue';
 import { ElMessage, ElMessageBox, ElSelect, ElOption } from 'element-plus';
 import { Search, Refresh, Delete } from '@element-plus/icons-vue';
 import { listTopic, getTopic, updateTopicStatus, updateTopicPinned, featureTopic, delTopic } from '@/api/cms/topic';
+
+const { proxy }: any = getCurrentInstance();
+const { cms_topic_status } = proxy.useDict('cms_topic_status');
 
 const router = useRouter();
 const loading = ref(true);
@@ -149,20 +148,6 @@ const queryParams = reactive({
 
 const ids = ref<number[]>([]);
 const multiple = computed(() => ids.value.length === 0);
-
-const statusMap = {
-  active: { label: '活跃', type: 'success' },
-  archived: { label: '归档', type: 'warning' },
-  deleted: { label: '删除', type: 'danger' }
-};
-
-function getStatusLabel(status: string) {
-  return statusMap[status]?.label || status;
-}
-
-function getStatusType(status: string) {
-  return statusMap[status]?.type || 'info';
-}
 
 async function getList() {
   loading.value = true;

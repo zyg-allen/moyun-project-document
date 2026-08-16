@@ -14,6 +14,7 @@ import {
 } from '@/api/interview';
 import type { InterviewResumeTemplateVO } from '@/types/api';
 import { useToast } from '@/composables/useToast';
+import { useDictData } from '@/composables/useDictData';
 
 const toast = useToast();
 const loading = ref(false);
@@ -25,7 +26,10 @@ const keyword = ref('');
 const searchInput = ref('');
 const activeCategory = ref('all');
 
-const categories = [
+// 分类 Tab（字典 portal_resume_category 驱动，本地默认兜底；"全部"始终在最前）
+const dictMap = useDictData(['portal_resume_category']);
+
+const DEFAULT_CATEGORIES = [
   { key: 'all', label: '全部' },
   { key: '技术岗', label: '技术岗' },
   { key: '产品岗', label: '产品岗' },
@@ -34,6 +38,17 @@ const categories = [
   { key: '实习', label: '实习' },
   { key: '简历', label: '简历' },
 ];
+
+const categories = computed(() => {
+  const items = dictMap['portal_resume_category'];
+  if (items && items.length > 0) {
+    return [
+      { key: 'all', label: '全部' },
+      ...items.map(i => ({ key: i.dictValue, label: i.dictLabel })),
+    ];
+  }
+  return DEFAULT_CATEGORIES;
+});
 
 useHead(computed(() => generateSeo({
   title: '简历模板库',

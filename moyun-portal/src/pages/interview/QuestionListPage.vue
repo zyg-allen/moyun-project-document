@@ -15,6 +15,7 @@ import { generateSeo } from '@/utils/seo';
 import { getQuestionList, getInterviewCategoryList, getRecommendedQuestions } from '@/api/interview';
 import { getMyMockProfile } from '@/api/mockInterview';
 import { useAuth } from '@/composables/useAuth';
+import { useDictData, dictBadgeClass } from '@/composables/useDictData';
 import type {
   InterviewQuestionVO,
   InterviewCategoryVO,
@@ -53,38 +54,101 @@ const recoQuestions = ref<InterviewQuestionVO[]>([]);
 const profile = ref<UserProfileSnapshotVO | null>(null);
 const showRecommend = computed(() => isAuthenticated() && recoQuestions.value.length > 0);
 
-// ========== 难度配置 ==========
-const difficultyOptions = [
-  { key: '', label: '全部' },
-  { key: 'easy', label: '简单' },
-  { key: 'medium', label: '中等' },
-  { key: 'hard', label: '困难' },
+// ========== 难度/题型配置（v6.3 题目结构化；字典驱动，本地默认兜底） ==========
+const dictMap = useDictData(['portal_question_difficulty', 'portal_question_type']);
+
+// 本地默认（字典未加载/加载失败时兜底）
+const DEFAULT_DIFFICULTY_OPTIONS = [
+  { label: '全部', value: '' },
+  { label: '简单', value: 'easy' },
+  { label: '中等', value: 'medium' },
+  { label: '困难', value: 'hard' },
 ];
 
-const difficultyMap: Record<string, { label: string; class: string }> = {
+const DEFAULT_DIFFICULTY_MAP: Record<string, { label: string; class: string }> = {
   easy: { label: '简单', class: 'bg-green-100 text-green-700' },
   medium: { label: '中等', class: 'bg-yellow-100 text-yellow-700' },
   hard: { label: '困难', class: 'bg-red-100 text-red-700' },
 };
 
-// ========== 题型配置（v6.3 题目结构化） ==========
-const questionTypeOptions: { key: string; label: string; icon: any }[] = [
-  { key: '', label: '全部', icon: Layers },
-  { key: 'algorithm', label: '算法', icon: Cpu },
-  { key: 'bagwen', label: '八股', icon: BookOpen },
-  { key: 'system_design', label: '系统设计', icon: GitBranch },
-  { key: 'project', label: '项目', icon: FolderKanban },
-  { key: 'hr', label: 'HR', icon: Users },
+// 题型图标（字典不提供图标，保留本地映射）
+const QUESTION_TYPE_ICONS: Record<string, any> = {
+  algorithm: Cpu,
+  bagwen: BookOpen,
+  system_design: GitBranch,
+  project: FolderKanban,
+  hr: Users,
+};
+
+const DEFAULT_QUESTION_TYPE_OPTIONS: { label: string; value: string; icon: any }[] = [
+  { label: '全部', value: '', icon: Layers },
+  { label: '算法', value: 'algorithm', icon: Cpu },
+  { label: '八股', value: 'bagwen', icon: BookOpen },
+  { label: '系统设计', value: 'system_design', icon: GitBranch },
+  { label: '项目', value: 'project', icon: FolderKanban },
+  { label: 'HR', value: 'hr', icon: Users },
 ];
 
-/** 题型展示映射：徽章文案 + 颜色类 + 图标（用于列表卡片与详情页徽章） */
-const questionTypeMap: Record<string, { label: string; class: string; icon: any }> = {
+const DEFAULT_QUESTION_TYPE_MAP: Record<string, { label: string; class: string; icon: any }> = {
   algorithm: { label: '算法', class: 'bg-blue-50 text-blue-600 border border-blue-200', icon: Cpu },
   bagwen: { label: '八股', class: 'bg-purple-50 text-purple-600 border border-purple-200', icon: BookOpen },
   system_design: { label: '系统设计', class: 'bg-indigo-50 text-indigo-600 border border-indigo-200', icon: GitBranch },
   project: { label: '项目', class: 'bg-emerald-50 text-emerald-600 border border-emerald-200', icon: FolderKanban },
   hr: { label: 'HR', class: 'bg-amber-50 text-amber-600 border border-amber-200', icon: Users },
 };
+
+/** 难度筛选项（字典 portal_question_difficulty 加载成功后覆盖本地默认） */
+const difficultyOptions = computed(() => {
+  const items = dictMap['portal_question_difficulty'];
+  if (items && items.length > 0) {
+    return [
+      { label: '全部', value: '' },
+      ...items.map(i => ({ label: i.dictLabel, value: i.dictValue })),
+    ];
+  }
+  return DEFAULT_DIFFICULTY_OPTIONS;
+});
+
+/** 难度徽章映射（label 优先取字典；颜色优先取字典 listClass 映射） */
+const difficultyMap = computed<Record<string, { label: string; class: string }>>(() => {
+  const map: Record<string, { label: string; class: string }> = { ...DEFAULT_DIFFICULTY_MAP };
+  (dictMap['portal_question_difficulty'] || []).forEach(i => {
+    map[i.dictValue] = {
+      label: i.dictLabel,
+      class: dictBadgeClass(i.listClass) || map[i.dictValue]?.class || 'bg-gray-100 text-gray-700',
+    };
+  });
+  return map;
+});
+
+/** 题型筛选项（字典 portal_question_type 加载成功后覆盖本地默认，图标沿用本地映射） */
+const questionTypeOptions = computed(() => {
+  const items = dictMap['portal_question_type'];
+  if (items && items.length > 0) {
+    return [
+      { label: '全部', value: '', icon: Layers },
+      ...items.map(i => ({
+        label: i.dictLabel,
+        value: i.dictValue,
+        icon: QUESTION_TYPE_ICONS[i.dictValue] || Layers,
+      })),
+    ];
+  }
+  return DEFAULT_QUESTION_TYPE_OPTIONS;
+});
+
+/** 题型展示映射：徽章文案 + 颜色类 + 图标（label 优先取字典，颜色/图标沿用本地） */
+const questionTypeMap = computed<Record<string, { label: string; class: string; icon: any }>>(() => {
+  const map: Record<string, { label: string; class: string; icon: any }> = { ...DEFAULT_QUESTION_TYPE_MAP };
+  (dictMap['portal_question_type'] || []).forEach(i => {
+    map[i.dictValue] = {
+      label: i.dictLabel,
+      class: map[i.dictValue]?.class || 'bg-gray-100 text-gray-700',
+      icon: map[i.dictValue]?.icon || Layers,
+    };
+  });
+  return map;
+});
 
 // ========== 推荐来源映射 ==========
 const reasonMap: Record<string, { label: string; class: string; icon: any }> = {
@@ -481,10 +545,10 @@ function gotoPage(p: number) {
               <div class="space-y-1">
                 <button
                   v-for="d in difficultyOptions"
-                  :key="d.key"
-                  @click="selectDifficulty(d.key)"
+                  :key="d.value || 'all'"
+                  @click="selectDifficulty(d.value)"
                   class="filter-btn w-full text-left px-3 py-2 rounded-lg text-sm transition"
-                  :class="{ active: activeDifficulty === d.key }"
+                  :class="{ active: activeDifficulty === d.value }"
                 >
                   {{ d.label }}
                 </button>
@@ -503,10 +567,10 @@ function gotoPage(p: number) {
               <div class="space-y-1">
                 <button
                   v-for="t in questionTypeOptions"
-                  :key="t.key || 'all'"
-                  @click="selectQuestionType(t.key)"
+                  :key="t.value || 'all'"
+                  @click="selectQuestionType(t.value)"
                   class="filter-btn w-full text-left px-3 py-2 rounded-lg text-sm transition flex items-center"
-                  :class="{ active: activeQuestionType === t.key }"
+                  :class="{ active: activeQuestionType === t.value }"
                 >
                   <component :is="t.icon" class="w-3.5 h-3.5 mr-2 flex-shrink-0" />
                   <span>{{ t.label }}</span>

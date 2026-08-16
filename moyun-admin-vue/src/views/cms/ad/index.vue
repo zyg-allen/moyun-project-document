@@ -10,8 +10,7 @@
           allow-create
           style="width: 200px"
         >
-          <el-option label="文章详情底部" value="article_detail_bottom" />
-          <el-option label="首页侧栏" value="home_sidebar" />
+          <el-option v-for="d in portal_ad_slot_key" :key="d.value" :label="d.label" :value="d.value" />
         </el-select>
       </el-form-item>
       <el-form-item label="标题" prop="title">
@@ -63,7 +62,7 @@
       <el-table-column label="编号" align="center" prop="id" width="80" />
       <el-table-column label="广告位" align="center" prop="slotKey" width="180" :show-overflow-tooltip="true">
         <template #default="scope">
-          {{ slotKeyLabel(scope.row.slotKey) }}
+          {{ proxy.selectDictLabel(portal_ad_slot_key.value, scope.row.slotKey) || '-' }}
         </template>
       </el-table-column>
       <el-table-column label="标题" align="center" prop="title" min-width="160" :show-overflow-tooltip="true" />
@@ -131,8 +130,7 @@
             default-first-option
             style="width: 100%"
           >
-            <el-option label="文章详情底部" value="article_detail_bottom" />
-            <el-option label="首页侧栏" value="home_sidebar" />
+            <el-option v-for="d in portal_ad_slot_key" :key="d.value" :label="d.label" :value="d.value" />
           </el-select>
         </el-form-item>
         <el-form-item label="标题" prop="title">
@@ -174,6 +172,7 @@
 import { listAdSlot, getAdSlot, addAdSlot, updateAdSlot, delAdSlot } from "@/api/cms/ad";
 
 const { proxy } = getCurrentInstance();
+const { portal_ad_slot_key } = proxy.useDict("portal_ad_slot_key");
 
 const adList = ref([]);
 const open = ref(false);
@@ -184,16 +183,6 @@ const single = ref(true);
 const multiple = ref(true);
 const total = ref(0);
 const title = ref("");
-
-const slotKeyOptions = [
-  { value: "article_detail_bottom", label: "文章详情底部" },
-  { value: "home_sidebar", label: "首页侧栏" }
-];
-
-function slotKeyLabel(key) {
-  const opt = slotKeyOptions.find(o => o.value === key);
-  return opt ? opt.label : (key || "-");
-}
 
 const columns = ref([
   { key: 0, label: `编号`, visible: true },

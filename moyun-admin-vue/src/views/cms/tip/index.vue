@@ -2,8 +2,13 @@
   <div class="app-container">
     <!-- 搜索表单 -->
     <el-form :model="queryParams" ref="queryRef" :inline="true" v-show="showSearch" label-width="90px">
+      <el-form-item label="目标类型" prop="targetType">
+        <el-select v-model="queryParams.targetType" placeholder="目标类型" clearable style="width: 160px">
+          <el-option v-for="d in portal_tip_target_type" :key="d.value" :label="d.label" :value="d.value" />
+        </el-select>
+      </el-form-item>
       <el-form-item label="状态" prop="status">
-        <el-select v-model="queryParams.status" placeholder="状态" clearable style="width: 160px">
+        <el-select v-model="queryParams.status" placeholder="状态" clearable style="width: 140px">
           <el-option v-for="d in portal_pay_status" :key="d.value" :label="d.label" :value="d.value" />
         </el-select>
       </el-form-item>
@@ -35,20 +40,25 @@
     <!-- 数据表格 -->
     <el-table v-loading="loading" :data="dataList">
       <el-table-column label="编号" align="center" prop="id" width="70" />
-      <el-table-column label="购买用户" align="center" prop="userNickname" width="140" :show-overflow-tooltip="true">
+      <el-table-column label="打赏者" align="center" prop="userNickname" width="140" :show-overflow-tooltip="true">
         <template #default="scope">
           <span>{{ scope.row.userNickname || '-' }}</span>
           <div style="font-size: 12px; color: #909399;">ID: {{ scope.row.userId }}</div>
         </template>
       </el-table-column>
-      <el-table-column label="文章标题" align="center" prop="targetTitle" min-width="220" :show-overflow-tooltip="true">
+      <el-table-column label="被打赏者" align="center" prop="authorNickname" width="140" :show-overflow-tooltip="true">
         <template #default="scope">
-          <span>{{ scope.row.targetTitle || '-' }}</span>
-          <div style="font-size: 12px; color: #909399;">文章ID: {{ scope.row.targetId }}</div>
+          <span>{{ scope.row.authorNickname || '-' }}</span>
+          <div style="font-size: 12px; color: #909399;">ID: {{ scope.row.authorId }}</div>
         </template>
       </el-table-column>
-      <el-table-column label="作者ID" align="center" prop="authorId" width="90" />
-      <el-table-column label="金额" align="center" prop="amount" width="110">
+      <el-table-column label="目标类型" align="center" prop="targetType" width="110">
+        <template #default="scope">
+          <dict-tag :options="portal_tip_target_type" :value="scope.row.targetType" />
+        </template>
+      </el-table-column>
+      <el-table-column label="目标ID" align="center" prop="targetId" width="90" />
+      <el-table-column label="金额" align="center" prop="amount" width="100">
         <template #default="scope">
           <span style="color: #f56c6c; font-weight: 600;">¥{{ scope.row.amount }}</span>
         </template>
@@ -58,19 +68,10 @@
           <dict-tag :options="portal_pay_status" :value="scope.row.status" />
         </template>
       </el-table-column>
-      <el-table-column label="支付方式" align="center" prop="payMethod" width="100">
-        <template #default="scope">
-          <dict-tag :options="portal_pay_channel" :value="scope.row.payMethod" />
-        </template>
-      </el-table-column>
+      <el-table-column label="支付方式" align="center" prop="payMethod" width="100" />
       <el-table-column label="创建时间" align="center" prop="createdTime" width="160">
         <template #default="scope">
           <span>{{ parseTime(scope.row.createdTime) }}</span>
-        </template>
-      </el-table-column>
-      <el-table-column label="支付时间" align="center" prop="paidTime" width="160">
-        <template #default="scope">
-          <span>{{ scope.row.paidTime ? parseTime(scope.row.paidTime) : '-' }}</span>
         </template>
       </el-table-column>
       <el-table-column label="操作" align="center" class-name="small-padding fixed-width" width="100" fixed="right">
@@ -80,7 +81,7 @@
             type="primary"
             icon="View"
             @click="handleView(scope.row)"
-            v-hasPermi="['portal:order:query']"
+            v-hasPermi="['portal:tip:query']"
           >详情</el-button>
         </template>
       </el-table-column>
@@ -96,23 +97,30 @@
     />
 
     <!-- 详情对话框 -->
-    <el-dialog title="付费阅读订单详情" v-model="viewOpen" width="640px" append-to-body>
+    <el-dialog title="打赏订单详情" v-model="viewOpen" width="640px" append-to-body>
       <el-descriptions v-if="currentRow" :column="2" border>
         <el-descriptions-item label="订单ID">{{ currentRow.id }}</el-descriptions-item>
         <el-descriptions-item label="状态">
           <dict-tag :options="portal_pay_status" :value="currentRow.status" />
         </el-descriptions-item>
-        <el-descriptions-item label="购买用户">{{ currentRow.userNickname || '-' }}</el-descriptions-item>
-        <el-descriptions-item label="用户ID">{{ currentRow.userId }}</el-descriptions-item>
-        <el-descriptions-item label="作者ID">{{ currentRow.authorId }}</el-descriptions-item>
-        <el-descriptions-item label="文章ID">{{ currentRow.targetId }}</el-descriptions-item>
-        <el-descriptions-item label="文章标题" :span="2">{{ currentRow.targetTitle || '-' }}</el-descriptions-item>
+        <el-descriptions-item label="打赏者">{{ currentRow.userNickname || '-' }}</el-descriptions-item>
+        <el-descriptions-item label="打赏者ID">{{ currentRow.userId }}</el-descriptions-item>
+        <el-descriptions-item label="被打赏者">{{ currentRow.authorNickname || '-' }}</el-descriptions-item>
+        <el-descriptions-item label="被打赏者ID">{{ currentRow.authorId }}</el-descriptions-item>
+        <el-descriptions-item label="目标类型">
+          <dict-tag :options="portal_tip_target_type" :value="currentRow.targetType" />
+        </el-descriptions-item>
+        <el-descriptions-item label="目标ID">{{ currentRow.targetId }}</el-descriptions-item>
         <el-descriptions-item label="金额">
           <span style="color: #f56c6c; font-weight: 600;">¥{{ currentRow.amount }}</span>
         </el-descriptions-item>
         <el-descriptions-item label="支付方式">{{ currentRow.payMethod || '-' }}</el-descriptions-item>
         <el-descriptions-item label="创建时间">{{ parseTime(currentRow.createdTime) }}</el-descriptions-item>
         <el-descriptions-item label="支付时间">{{ currentRow.paidTime ? parseTime(currentRow.paidTime) : '-' }}</el-descriptions-item>
+        <el-descriptions-item label="留言" :span="2">
+          <span v-if="currentRow.message">{{ currentRow.message }}</span>
+          <span v-else style="color: #c0c4cc;">（无）</span>
+        </el-descriptions-item>
       </el-descriptions>
       <template #footer>
         <div class="dialog-footer">
@@ -123,12 +131,12 @@
   </div>
 </template>
 
-<script setup name="CmsOrder">
+<script setup name="CmsTip">
 import { getCurrentInstance, ref, reactive, onMounted } from "vue";
-import { listOrder } from "@/api/cms/order";
+import { listTip } from "@/api/cms/tip";
 
 const { proxy } = getCurrentInstance();
-const { portal_pay_status, portal_pay_channel } = proxy.useDict("portal_pay_status", "portal_pay_channel");
+const { portal_pay_status, portal_tip_target_type } = proxy.useDict("portal_pay_status", "portal_tip_target_type");
 
 const dataList = ref([]);
 const loading = ref(true);
@@ -141,6 +149,7 @@ const currentRow = ref(null);
 const queryParams = reactive({
   pageNum: 1,
   pageSize: 10,
+  targetType: undefined,
   status: undefined
 });
 
@@ -151,7 +160,7 @@ function getList() {
     params.startTime = dateRange.value[0];
     params.endTime = dateRange.value[1];
   }
-  listOrder(params).then((response) => {
+  listTip(params).then((response) => {
     dataList.value = response.data.records || [];
     total.value = response.data.total || 0;
     loading.value = false;
@@ -166,6 +175,7 @@ function handleQuery() {
 }
 
 function resetQuery() {
+  queryParams.targetType = undefined;
   queryParams.status = undefined;
   dateRange.value = [];
   handleQuery();

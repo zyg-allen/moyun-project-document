@@ -17,6 +17,7 @@ import {
   getRecommendTags
 } from '@/api/tag';
 import { getCategoryTree, filterCategoryTree } from '@/api/category';
+import { categories as fallbackCategories } from '@/data/categories';
 import { publishArticle, saveDraft as saveDraftApi, getArticleDetail } from '@/api/article';
 import { uploadPortalFile, deletePortalFile } from '@/api/file';
 import { getTodayPrompt } from '@/api/prompt';
@@ -292,21 +293,41 @@ async function loadArticleForEdit(id: string) {
   }
 }
 
-// 加载分类
+// 加载分类（后端优先，本地 categories.ts 兜底）
 async function loadCategories() {
   loadingCategories.value = true;
   try {
     const response = await getCategoryTree();
-    if (response.code === 200 && response.data) {
-      // 过滤掉非文章分类（static/home/external 类型 + 非文章一级栏目）
-      // 只保留 category 类型的分类供文章归类选择
-      categories.value = filterCategoryTree(response.data);
+    if (response.code === 200 && response.data && response.data.length > 0) {
+      // 过滤掉非文章分类（special/home 类型 + 隐藏分类）
+      // 只保留 categoryType==='article' 的分类供文章归类选择
+      const filtered = filterCategoryTree(response.data);
+      categories.value = filtered.length > 0 ? filtered : buildFallbackCategories();
+    } else {
+      categories.value = buildFallbackCategories();
     }
   } catch (error) {
     console.error('Failed to load categories:', error);
+    categories.value = buildFallbackCategories();
   } finally {
     loadingCategories.value = false;
   }
+}
+
+// 后端分类树不可用时，用本地硬编码分类兜底（转换为后端 Category 结构，保持二级联动交互不变）
+function buildFallbackCategories(): Category[] {
+  return fallbackCategories.map(c => ({
+    id: c.id,
+    name: c.name,
+    slug: c.key,
+    createdAt: '',
+    children: c.children.map(ch => ({
+      id: ch.id,
+      name: ch.name,
+      slug: ch.id,
+      createdAt: '',
+    })),
+  }));
 }
 
 // 加载热门标签

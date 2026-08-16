@@ -1,17 +1,15 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue'
-import { useRouter } from 'vue-router'
+import { RouterLink as Link, useRouter } from 'vue-router'
 import { useHead } from '@vueuse/head'
 import {
   ChevronRight, ChevronLeft, Star, Flame,
   User, Eye, Tag, BookOpen,
   Quote, ArrowRight, Sparkles,
-  Book, Briefcase,
+  Book, Briefcase, Users,
   AlertCircle, RefreshCw,
-  Network, TrendingUp,
-  MessageCircle, Activity, Crown, Target,
-  Brain, Trophy, Calendar, Zap, LogIn,
-  Link as LinkIcon
+  BarChart3, Network, TrendingUp,
+  MessageCircle, Activity, Crown, Target
 } from 'lucide-vue-next'
 import LazyImage from '@/components/LazyImage.vue'
 import SiteFooter from '@/components/SiteFooter.vue'
@@ -59,20 +57,25 @@ const categories = ref<Category[]>([])
 const authors = ref<any[]>([])
 const loading = ref(true)
 const error = ref<string | null>(null)
+// 主数据（推荐/轮播等）局部错误，独立于其他 section，避免单点失败阻塞整页
 const mainDataError = ref<string | null>(null)
 const categoryArticles = ref<Record<string, any[]>>({})
 
+// 读书空间首页数据
 const readingBooks = ref<any[]>([])
 const readingBookLists = ref<any[]>([])
 const readingQuotes = ref<any[]>([])
 
+// 面试空间首页数据
 const interviewQuestions = ref<any[]>([])
 const interviewExperiences = ref<any[]>([])
 const interviewCategories = ref<any[]>([])
 const interviewTotalQuestions = ref(0)
 
+// 学习中心首页数据（阶段三核心展示）
 const leaderboardTop3 = ref<any[]>([])
 
+// 社区动态预览数据（营造社区氛围）
 const hotFeedList = ref<any[]>([])
 
 const loadHomeData = async () => {
@@ -97,10 +100,12 @@ const loadHomeData = async () => {
         }))
       }
     } else {
+      // 接口返回非 200，标记主数据错误但不影响其他 section
       mainDataError.value = homeResponse.message || '主内容加载失败'
     }
   } catch (err) {
     console.error('加载首页主数据失败:', err)
+    // 不再设置全局 error，改为局部错误状态，允许其他 section 正常展示
     mainDataError.value = '推荐内容加载失败，可点击重试'
   }
 }
@@ -137,6 +142,7 @@ const loadAuthors = async () => {
   try {
     const response = await getAuthors(10)
     if (response.code === 200 && response.data) {
+      // 后端 /portal/user/authors 已返回真实统计字段 works/views/likes/days
       authors.value = response.data.map((user: any) => ({
         id: String(user.id),
         name: user.nickname || user.username,
@@ -195,6 +201,7 @@ const loadLeaderboardData = async () => {
   try {
     const response = await getLeaderboard('question', 3)
     if (response.code === 200 && response.data) {
+      // 接口返回 Leaderboard，含 list 字段
       const list = (response.data as any).list || response.data || []
       leaderboardTop3.value = Array.isArray(list) ? list.slice(0, 3) : []
     }
@@ -208,14 +215,17 @@ const loadHotFeedData = async () => {
   try {
     const response = await getHotFeed({ pageNum: 1, pageSize: 3 })
     if (response.code === 200 && response.data) {
+      // httpGetList 已统一返回 { list, total, page, pageSize }
       hotFeedList.value = (response.data.list || []).slice(0, 3)
     }
   } catch (err) {
+    // 游客或冷启动可能无数据，静默失败
     console.error('加载社区动态失败:', err)
     hotFeedList.value = []
   }
 }
 
+// 动态卡片的目标跳转路径
 const getFeedTargetPath = (item: any): string => {
   if (!item) return '/feed'
   const t = item.targetType || item.eventType
@@ -227,6 +237,7 @@ const getFeedTargetPath = (item: any): string => {
   return '/feed'
 }
 
+// 动态事件类型展示文案
 const getFeedActionText = (item: any): string => {
   const t = item.eventType
   switch (t) {
@@ -247,6 +258,7 @@ const nextHero = () => {
   currentHeroIndex.value = (currentHeroIndex.value + 1) % heroImages.value.length
 }
 
+// 轮播定时器（仅当有多张图时启动）
 let heroTimer: ReturnType<typeof setInterval> | null = null
 
 const startHeroAutoplay = () => {
@@ -278,12 +290,14 @@ const themes = computed(() => {
 })
 
 const activeTheme = ref('')
+
 const trendingArticles = computed(() => hotArticles.value.slice(0, 6))
-const isLoggedIn = computed(() => userStore.isAuthenticated)
 
 const loadAll = async () => {
   try {
     loading.value = true
+    // 所有 section 并行加载，各自的错误已在 loadXxx 内部 try-catch 处理
+    // 任一 section 失败不会阻塞其他 section，避免单点失败导致整页不可用
     await Promise.allSettled([
       loadHomeData(),
       loadCategories(),
@@ -301,16 +315,19 @@ const loadAll = async () => {
     } else {
       activeTheme.value = '散文'
     }
+    // 仅当主数据出错且其他 section 也都为空时才显示全局错误
     if (mainDataError.value && !carouselArticles.value.length && !featuredArticles.value.length) {
       error.value = mainDataError.value
     }
   } catch (e) {
     console.error('加载首页数据失败:', e)
+    // 极端情况：loadAll 整体异常（如网络断开）
     if (!error.value) {
       error.value = '加载首页数据失败，请稍后重试'
     }
   } finally {
     loading.value = false
+    // 数据加载完成后启动轮播（仅当有多张图时）
     startHeroAutoplay()
   }
 }
@@ -324,8 +341,10 @@ onUnmounted(() => {
 })
 
 const selectTheme = async (themeId: string, themeName: string) => {
+  // 检查是否为外部链接
   const theme = themes.value.find(t => t.id === themeId)
   if (theme && theme.isExternal && theme.path) {
+    // 外部链接直接跳转
     window.open(theme.path, '_blank', 'noopener,noreferrer')
     return
   }
@@ -368,16 +387,32 @@ const getThemeArticles = (themeName: string): any[] => {
 
 const getTrendingItemStyle = (index: number) => {
   if (index < 3) {
-    return { backgroundColor: 'var(--theme-primary)', color: 'white' }
+    return {
+      backgroundColor: 'var(--theme-primary)',
+      color: 'white'
+    }
   }
-  return { backgroundColor: 'var(--theme-bg)', color: 'var(--theme-text-secondary)' }
+  return {
+    backgroundColor: 'var(--theme-bg)',
+    color: 'var(--theme-text-secondary)'
+  }
 }
 
 const getThemeTabStyle = (themeName: string) => {
   if (activeTheme.value === themeName) {
-    return { backgroundColor: 'var(--theme-primary)', color: 'white' }
+    return {
+      backgroundColor: 'var(--theme-primary)',
+      color: 'white'
+    }
   }
-  return { backgroundColor: 'var(--theme-surface)', color: 'var(--theme-text-secondary)' }
+  return {
+    backgroundColor: 'var(--theme-surface)',
+    color: 'var(--theme-text-secondary)'
+  }
+}
+
+const getThemeCode = (themeName: string) => {
+  return themeName.substring(0, 2)
 }
 
 const handleWrite = () => {
@@ -387,39 +422,10 @@ const handleWrite = () => {
   router.push('/publish');
 }
 
-const handleStartInterview = () => {
-  if (!requireAuth('/interview/mock')) {
-    return;
-  }
-  router.push('/interview/mock');
-}
-
-const handleStartLearn = () => {
-  if (!requireAuth('/learn')) {
-    return;
-  }
-  router.push('/learn');
-}
-
-const handleRegister = () => {
-  router.push('/register');
-}
-
-// 成长指标（登录用户）
-const growthStats = computed(() => [
-  { label: '今日刷题', value: '0/5', icon: Target, color: 'text-blue-500' },
-  { label: '面试均分', value: '--', icon: Brain, color: 'text-purple-500' },
-  { label: '阅读进度', value: '--', icon: BookOpen, color: 'text-green-500' },
-  { label: '成长等级', value: 'Lv.1', icon: Crown, color: 'text-orange-500' }
-])
-
-// 游客价值展示
-const guestFeatures = [
-  { icon: Brain, title: 'AI 模拟面试', desc: '真实对话场景，AI 智能评分' },
-  { icon: Target, title: '面试题库', desc: '海量题目 + OJ 在线判题' },
-  { icon: TrendingUp, title: '成长轨迹', desc: '可视化时间线，进步看得见' }
-]
-
+// ============ Hero 区：站点核心数据 ============
+// 用前端已加载数据的长度作为统计指标，无需新接口
+// 注意：「名家展示」是当前首页展示的名家数量（limit=10），非全站认证名家总数
+//       若需展示真实总数，需后端新增 /portal/user/authors/count 接口
 const siteStats = computed(() => [
   { label: '原创文章', value: latestArticles.value.length, suffix: '篇' },
   { label: '名家展示', value: authors.value.length, suffix: '位' },
@@ -429,8 +435,8 @@ const siteStats = computed(() => [
 useHead(
     generateSeo({
       title: '首页',
-      description: '墨韵·智库 - AI 驱动的个人成长平台，学习、刷题、面试、记录，让成长有迹可循',
-      keywords: ['AI面试', '成长平台', '学习', '刷题', '面试', '文学', '散文', '创作', '阅读'],
+      description: '墨韵·智库 - 为文学爱好者和技术开发者提供一个纯净的创作与阅读空间，在这里分享技术与生活之美',
+      keywords: ['文学', '散文', '技术', '编程', '创作', '阅读', '分享'],
       type: 'website',
       canonicalPath: '/'
     })
@@ -459,461 +465,756 @@ useHead(
       </div>
     </div>
     <template v-else>
-
-    <!-- ═══════════════════════════════════════════════════════════════
-         第 1 屏：Hero 区（双态：游客看价值 / 登录用户看成长仪表盘）
-    ════════════════════════════════════════════════════════════════ -->
     <div class="py-6 sm:py-8" style="background-color: var(--theme-bg);">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-
-        <!-- 游客态：平台价值展示 -->
-        <div v-if="!isLoggedIn" class="text-center mb-5">
+        <!-- Hero 区：站点定位标语 + 数据指标（搜索入口已在头部，此处不再重复） -->
+        <div class="text-center mb-5 sm:mb-6">
           <h1 class="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight" style="color: var(--theme-text);">
-            AI 驱动的<span style="color: var(--theme-primary);">个人成长平台</span>
+            每天进步一点点，<span style="color: var(--theme-primary);">遇见更好的自己</span>
           </h1>
           <p class="text-xs sm:text-sm md:text-base mt-2" style="color: var(--theme-text-secondary);">
-            学习 · 刷题 · 面试 · 记录，让成长有迹可循
+            坚持的力量，时间看得见 · 在这里读、写、学、思，让成长有迹可循
           </p>
 
-          <!-- 三大核心价值 -->
-          <div class="grid grid-cols-3 gap-3 sm:gap-6 mt-6 max-w-2xl mx-auto">
-            <div v-for="feature in guestFeatures" :key="feature.title" class="flex flex-col items-center gap-1.5">
-              <div class="w-10 h-10 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center" style="background-color: var(--theme-accent);">
-                <component :is="feature.icon" class="w-5 h-5 sm:w-6 sm:h-6" style="color: var(--theme-primary);" />
-              </div>
-              <h3 class="text-xs sm:text-sm font-semibold" style="color: var(--theme-text);">{{ feature.title }}</h3>
-              <p class="text-xs hidden sm:block" style="color: var(--theme-text-secondary);">{{ feature.desc }}</p>
-            </div>
-          </div>
-
-          <div class="flex items-center justify-center gap-3 mt-6">
-            <button @click="handleStartInterview" class="inline-flex items-center gap-2 px-5 sm:px-6 py-2.5 rounded-full text-sm font-medium text-white" style="background-color: var(--theme-primary);">
-              <Brain class="w-4 h-4" />
-              开始 AI 模拟面试
-            </button>
-            <button @click="router.push('/interview')" class="inline-flex items-center gap-2 px-5 sm:px-6 py-2.5 rounded-full text-sm font-medium border" style="border-color: var(--theme-border); color: var(--theme-text);">
-              浏览题库
-            </button>
-          </div>
-
-          <!-- 平台数据 -->
-          <div class="flex items-center justify-center gap-6 sm:gap-8 mt-6">
+          <!-- 数据指标横条：3 个核心数据，手机端紧凑展示 -->
+          <div class="flex items-center justify-center gap-4 sm:gap-8 mt-4 sm:mt-5">
             <div v-for="stat in siteStats" :key="stat.label" class="text-center">
-              <span class="text-lg sm:text-xl font-bold" style="color: var(--theme-primary);">{{ stat.value }}</span>
-              <span class="text-xs" style="color: var(--theme-text-secondary);">{{ stat.suffix }}</span>
-              <p class="text-xs mt-0.5" style="color: var(--theme-text-secondary);">{{ stat.label }}</p>
+              <div class="flex items-baseline justify-center gap-0.5">
+                <span class="text-xl sm:text-2xl md:text-3xl font-bold" style="color: var(--theme-primary);">{{ stat.value }}</span>
+                <span class="text-xs sm:text-sm" style="color: var(--theme-text-secondary);">{{ stat.suffix }}</span>
+              </div>
+              <p class="text-xs sm:text-sm mt-0.5" style="color: var(--theme-text-secondary);">{{ stat.label }}</p>
             </div>
           </div>
         </div>
 
-        <!-- 登录态：成长仪表盘 -->
-        <div v-else class="mb-5">
-          <div class="rounded-2xl p-4 sm:p-6 shadow-lg" style="background: linear-gradient(135deg, var(--theme-primary) 0%, var(--theme-primary-dark, #4f46e5) 100%);">
-            <div class="flex items-center justify-between mb-4">
-              <div>
-                <h2 class="text-lg sm:text-xl font-bold text-white">
-                  {{ userStore.userInfo?.nickname || userStore.userInfo?.username || '你好' }}，继续成长吧
-                </h2>
-                <p class="text-white/80 text-xs sm:text-sm mt-1">你已连续学习 0 天，保持节奏</p>
+        <div
+          class="relative h-[280px] sm:h-[320px] md:h-[380px] overflow-hidden rounded-xl shadow-lg"
+          style="background-color: var(--theme-accent);"
+          @mouseenter="stopHeroAutoplay"
+          @mouseleave="startHeroAutoplay"
+        >
+          <div v-if="heroImages.length > 0">
+            <div class="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-black/70"></div>
+            <LazyImage
+                :key="currentHeroIndex"
+                :src="heroImages[currentHeroIndex].image"
+                :alt="heroImages[currentHeroIndex].title"
+                class="w-full h-full object-cover"
+            />
+            <div class="absolute inset-0 flex flex-col justify-end pb-8 sm:pb-10 md:pb-12">
+              <div class="px-6 sm:px-8 md:px-10">
+                <div class="max-w-3xl">
+                  <div class="inline-flex items-center space-x-2 px-3 py-1 rounded-full text-xs font-medium mb-3 sm:mb-4" style="background-color: var(--theme-primary); color: white;">
+                    <span class="w-2 h-2 bg-yellow-400 rounded-full animate-pulse"></span>
+                    {{ heroImages[currentHeroIndex].tag }}
+                  </div>
+                  <h1 class="text-lg sm:text-xl md:text-2xl lg:text-3xl font-bold text-white mb-2 sm:mb-3">
+                    {{ heroImages[currentHeroIndex].title }}
+                  </h1>
+                  <p class="text-sm sm:text-base text-gray-200 mb-3 sm:mb-4 line-clamp-2">
+                    {{ heroImages[currentHeroIndex].subtitle }}
+                  </p>
+                  <div v-if="heroImages[currentHeroIndex].tags && heroImages[currentHeroIndex].tags.length > 0" class="flex items-center space-x-2 mb-3 sm:mb-4">
+                    <span
+                        v-for="(tag, index) in heroImages[currentHeroIndex].tags"
+                        :key="index"
+                        class="inline-flex px-2.5 py-1 text-xs rounded-full bg-white/20 backdrop-blur text-white"
+                    >
+                      {{ tag }}
+                    </span>
+                  </div>
+                  <div class="flex items-center justify-between">
+                    <span class="text-gray-300 text-sm">{{ heroImages[currentHeroIndex].author }}</span>
+                    <button
+                        @click="router.push(`/article/${heroImages[currentHeroIndex].articleId}`)"
+                        class="inline-flex items-center space-x-2 px-4 sm:px-5 py-2 sm:py-2.5 rounded-full text-sm font-medium hover:opacity-90 transition-opacity"
+                        style="background-color: var(--theme-primary); color: white;"
+                    >
+                      <span>阅读全文</span>
+                      <ChevronRight class="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
               </div>
-              <Zap class="w-6 h-6 text-yellow-300" />
             </div>
-
-            <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              <div v-for="stat in growthStats" :key="stat.label" class="bg-white/15 backdrop-blur rounded-xl p-3 text-center">
-                <component :is="stat.icon" class="w-5 h-5 mx-auto mb-1" :class="stat.color" />
-                <p class="text-lg sm:text-xl font-bold text-white">{{ stat.value }}</p>
-                <p class="text-white/70 text-xs">{{ stat.label }}</p>
-              </div>
-            </div>
-
-            <div class="flex items-center gap-3 mt-4">
-              <button @click="handleStartLearn" class="flex-1 py-2.5 rounded-xl text-sm font-medium text-white bg-white/20 backdrop-blur hover:bg-white/30 transition-colors flex items-center justify-center gap-2">
-                <Target class="w-4 h-4" />
-                继续今日学习
+            <button
+                @click="prevHero"
+                aria-label="上一张"
+                class="absolute left-2 sm:left-3 top-1/2 -translate-y-1/2 w-11 h-11 bg-black/30 backdrop-blur text-white rounded-full flex items-center justify-center hover:bg-black/50 transition-colors"
+            >
+              <ChevronLeft class="w-4 h-4 sm:w-5 sm:h-5" />
+            </button>
+            <button
+                @click="nextHero"
+                aria-label="下一张"
+                class="absolute right-2 sm:right-3 top-1/2 -translate-y-1/2 w-11 h-11 bg-black/30 backdrop-blur text-white rounded-full flex items-center justify-center hover:bg-black/50 transition-colors"
+            >
+              <ChevronRight class="w-4 h-4 sm:w-5 sm:h-5" />
+            </button>
+            <div class="absolute bottom-2 right-4 sm:bottom-3 sm:right-6 flex space-x-1.5">
+              <button
+                  v-for="(_, index) in heroImages"
+                  :key="index"
+                  @click="currentHeroIndex = index"
+                  class="p-2 flex items-center justify-center"
+                  :aria-label="`切换到第 ${index + 1} 张`"
+              >
+                <span
+                    :class="['block rounded-full transition-all', currentHeroIndex === index ? 'w-5 h-1.5' : 'w-1.5 h-1.5 bg-white/50 hover:bg-white/70']"
+                    :style="currentHeroIndex === index ? { backgroundColor: 'var(--theme-primary)' } : {}"
+                ></span>
               </button>
-              <button @click="handleStartInterview" class="flex-1 py-2.5 rounded-xl text-sm font-medium bg-white hover:bg-gray-100 transition-colors flex items-center justify-center gap-2" style="color: var(--theme-primary);">
-                <Brain class="w-4 h-4" />
-                AI 模拟面试
-              </button>
             </div>
+          </div>
+          <div v-else class="w-full h-full flex items-center justify-center bg-gray-200">
+            <p class="text-gray-500">暂无轮播文章</p>
           </div>
         </div>
+      </div>
+    </div>
 
-        <!-- 名言 + 写作 CTA -->
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-0 rounded-xl shadow-lg overflow-hidden border" style="border-color: var(--theme-border);">
-          <div class="py-3 sm:py-4 px-4" style="background-color: var(--theme-surface);">
-            <div class="flex items-start gap-2 sm:gap-3">
-              <Quote class="w-5 h-5 sm:w-6 sm:h-6 opacity-30 flex-shrink-0 mt-0.5" style="color: var(--theme-primary);" />
-              <div>
-                <p class="text-sm sm:text-base italic" style="color: var(--theme-text);">
-                  "世间所有的相遇，都是久别重逢。"
-                </p>
-                <p class="text-xs mt-1" style="color: var(--theme-text-secondary);">—— 木心</p>
-              </div>
-            </div>
-          </div>
-          <button @click="handleWrite" class="flex items-center justify-between py-3 sm:py-4 px-4 text-left hover:opacity-90 transition-opacity" style="background-color: var(--theme-primary);">
+    <!-- 名言 + 写作 CTA：用负 margin 消除轮播图外层底部 padding，紧贴轮播图底部，圆角+阴影制造浮起感 -->
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 -mt-6 sm:-mt-8 relative z-10">
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-0 rounded-xl shadow-xl overflow-hidden border" style="border-color: var(--theme-border);">
+        <div class="py-3 sm:py-4 px-4" style="background-color: var(--theme-surface);">
+          <div class="flex items-start gap-2 sm:gap-3">
+            <Quote class="w-5 h-5 sm:w-6 sm:h-6 opacity-30 flex-shrink-0 mt-0.5" style="color: var(--theme-primary);" />
             <div>
-              <p class="text-white font-semibold text-sm sm:text-base">写下今天的成长</p>
-              <p class="text-red-100 text-xs">写下即是沉淀，分享即是力量。</p>
+              <p class="text-sm sm:text-base italic" style="color: var(--theme-text);">
+                "世间所有的相遇，都是久别重逢。"
+              </p>
+              <p class="text-xs mt-1" style="color: var(--theme-text-secondary);">—— 木心</p>
             </div>
-            <div class="w-7 h-7 sm:w-8 sm:h-8 bg-white/20 rounded-full flex items-center justify-center">
-              <Sparkles class="w-3.5 h-3.5 sm:w-4 sm:h-4 text-white" />
+          </div>
+        </div>
+        <button
+            @click="handleWrite"
+            class="flex items-center justify-between py-3 sm:py-4 px-4 text-left hover:opacity-90 transition-opacity"
+            style="background-color: var(--theme-primary);"
+        >
+          <div>
+            <p class="text-white font-semibold text-sm sm:text-base">今天，写点什么？</p>
+            <p class="text-red-100 text-xs">写下即是沉淀，分享即是力量。</p>
+          </div>
+          <div class="w-7 h-7 sm:w-8 sm:h-8 bg-white/20 rounded-full flex items-center justify-center">
+            <Sparkles class="w-3.5 h-3.5 sm:w-4 sm:h-4 text-white" />
+          </div>
+        </button>
+      </div>
+    </div>
+
+    <div class="py-6 sm:py-8" style="background-color: var(--theme-bg);">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="grid lg:grid-cols-[2fr_1fr] gap-4 sm:gap-6">
+          <div>
+            <div class="flex items-center justify-between mb-3 sm:mb-4">
+              <div class="flex items-center gap-2">
+                <Star class="w-4 h-4 sm:w-5 sm:h-5 text-yellow-500" />
+                <h2 class="text-base sm:text-lg font-bold" style="color: var(--theme-text);">本栏推荐</h2>
+              </div>
+              <button @click="router.push('/category')" class="flex items-center gap-1 text-xs sm:text-sm font-medium" style="color: var(--theme-text-secondary);">
+                <span>更多</span>
+                <ArrowRight class="w-3 h-3 sm:w-4 sm:h-4" />
+              </button>
             </div>
+            <div class="space-y-2 sm:space-y-3">
+              <button
+                  type="button"
+                  v-for="(article, index) in featuredArticles.slice(0, 8)"
+                  :key="article.id"
+                  @click.stop="router.push('/article/' + article.id)"
+                  class="group flex gap-2 sm:gap-3 p-2 sm:p-3 rounded-lg cursor-pointer transition-colors w-full text-left"
+                  :style="{ backgroundColor: 'var(--theme-surface)' }"
+              >
+                <div class="relative w-20 h-14 sm:w-24 sm:h-16 flex-shrink-0">
+                  <LazyImage
+                      :src="article.cover || 'https://images.unsplash.com/photo-1504198453319-5ce911bafcde?w=200&h=150&fit=crop'"
+                      :alt="article.title"
+                      class="w-full h-full object-cover rounded-lg"
+                  />
+                  <span
+                      v-if="index === 0"
+                      class="absolute top-1 left-1 px-1.5 py-0.5 text-white text-xs rounded"
+                      style="background-color: var(--theme-primary);"
+                  >
+                    置顶
+                  </span>
+                </div>
+                <div class="flex-1 min-w-0 flex flex-col justify-between">
+                  <div>
+                    <h3 class="font-medium text-xs sm:text-sm line-clamp-1" style="color: var(--theme-text);">
+                      {{ article.title }}
+                    </h3>
+                    <p class="text-xs mt-0.5 line-clamp-1" style="color: var(--theme-text-secondary);">
+                      {{ article.excerpt }}
+                    </p>
+                  </div>
+                  <div class="flex items-center justify-end gap-1.5 sm:gap-2 mt-1 text-xs" style="color: var(--theme-text-secondary);">
+                    <span>{{ article.author?.username || article.author?.nickname || '作者' }}</span>
+                    <span>{{ article.createdAt }}</span>
+                    <span>{{ article.views }} 阅读</span>
+                  </div>
+                </div>
+              </button>
+            </div>
+          </div>
+
+          <div class="space-y-4 sm:space-y-6">
+            <div class="p-3 sm:p-4 rounded-xl" style="background-color: var(--theme-surface);">
+              <div class="flex items-center gap-2 mb-3 sm:mb-4">
+                <Flame class="w-4 h-4 sm:w-5 sm:h-5 text-orange-500" />
+                <h3 class="font-semibold text-sm sm:text-base" style="color: var(--theme-text);">热门推荐</h3>
+              </div>
+              <div class="space-y-2 sm:space-y-3">
+                <button
+                    type="button"
+                    v-for="(article, index) in trendingArticles"
+                    :key="article.id"
+                    @click.stop="router.push('/article/' + article.id)"
+                    class="flex items-start gap-2 cursor-pointer w-full text-left"
+                >
+                  <span
+                      class="w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0"
+                      :style="getTrendingItemStyle(index)"
+                  >
+                    {{ index + 1 }}
+                  </span>
+                  <div class="flex-1 min-w-0">
+                    <div class="flex items-center justify-between gap-2">
+                      <h4 class="font-medium text-xs sm:text-sm line-clamp-1 flex-1 text-left" style="color: var(--theme-text);">
+                        {{ article.title }}
+                      </h4>
+                      <span class="text-xs flex items-center gap-1 flex-shrink-0" style="color: var(--theme-text-secondary);">
+                        <Eye class="w-3 h-3" />
+                        {{ article.views }}
+                      </span>
+                    </div>
+                  </div>
+                </button>
+              </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-3">
+              <button
+                  @click="router.push('/reading')"
+                  class="p-4 rounded-xl flex flex-col items-center justify-center gap-2 text-center transition-all hover:scale-105"
+                  style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);"
+              >
+                <BookOpen class="w-6 h-6 text-white" />
+                <span class="text-white text-sm font-medium">读书空间</span>
+                <span class="text-white/80 text-xs">精选好书</span>
+              </button>
+              <button
+                  @click="router.push('/interview')"
+                  class="p-4 rounded-xl flex flex-col items-center justify-center gap-2 text-center transition-all hover:scale-105"
+                  style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);"
+              >
+                <Briefcase class="w-6 h-6 text-white" />
+                <span class="text-white text-sm font-medium">面试指南</span>
+                <span class="text-white/80 text-xs">大厂面经</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="py-6 sm:py-8" style="background-color: var(--theme-bg);">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="p-4 sm:p-5 rounded-xl" style="background-color: var(--theme-surface);">
+          <div class="flex items-center justify-between mb-4">
+            <div class="flex items-center gap-2">
+              <div class="w-8 h-8 rounded-lg bg-green-100 flex items-center justify-center">
+                <Book class="w-4 h-4 text-green-600" />
+              </div>
+              <div>
+                <h3 class="font-semibold text-sm sm:text-base" style="color: var(--theme-text);">读书空间</h3>
+                <p class="text-xs" style="color: var(--theme-text-secondary);">精选好书伴你阅读</p>
+              </div>
+            </div>
+            <button @click="router.push('/reading')" class="flex items-center gap-1 text-xs sm:text-sm font-medium" style="color: var(--theme-primary);">
+              <span>进入读书空间</span>
+              <ArrowRight class="w-3 h-3 sm:w-4 sm:h-4" />
+            </button>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-4 gap-3 sm:gap-4">
+            <!-- 精选书籍 -->
+            <button
+                type="button"
+                v-if="readingBooks.length > 0"
+                class="relative h-28 sm:h-32 rounded-xl overflow-hidden cursor-pointer w-full text-left"
+                @click="router.push(`/reading/book/${readingBooks[0].id}`)"
+            >
+              <LazyImage
+                  :src="readingBooks[0].cover"
+                  :alt="readingBooks[0].title"
+                  class="absolute inset-0 w-full h-full object-cover"
+              />
+              <div class="absolute inset-0 bg-gradient-to-br from-green-600/80 to-green-800/80 p-3 sm:p-4">
+                <span class="inline-block px-2 py-0.5 bg-white/20 backdrop-blur text-white text-xs rounded mb-2">精选好书</span>
+                <h4 class="text-white font-bold text-sm sm:text-base mb-1 line-clamp-1">{{ readingBooks[0].title }}</h4>
+                <p class="text-white/80 text-xs mb-3">{{ readingBooks[0].author }}</p>
+                <span class="px-3 py-1 bg-white text-green-700 rounded-full text-xs font-medium">立即阅读</span>
+              </div>
+            </button>
+            <div v-else class="relative h-28 sm:h-32 rounded-xl overflow-hidden">
+              <div class="absolute inset-0 bg-gradient-to-br from-green-600 to-green-800"></div>
+              <div class="absolute inset-0 p-3 sm:p-4">
+                <span class="inline-block px-2 py-0.5 bg-white/20 backdrop-blur text-white text-xs rounded mb-2">精选好书</span>
+                <h4 class="text-white font-bold text-sm sm:text-base mb-1">暂无推荐</h4>
+              </div>
+            </div>
+
+            <!-- 热门书单 -->
+            <div class="p-3 sm:p-4 rounded-xl" style="background-color: var(--theme-bg);">
+              <div class="flex items-center gap-2 mb-3">
+                <div class="w-7 h-7 rounded-lg bg-orange-100 flex items-center justify-center">
+                  <Flame class="w-3.5 h-3.5 text-orange-500" />
+                </div>
+                <span class="font-medium text-xs sm:text-sm" style="color: var(--theme-text);">热门书单</span>
+              </div>
+              <div class="space-y-2.5">
+                <button
+                    type="button"
+                    v-for="bl in readingBookLists"
+                    :key="bl.id"
+                    class="flex items-center gap-2 cursor-pointer hover:text-orange-500 transition-colors w-full text-left"
+                    @click="router.push(`/reading/book-list/${bl.id}`)"
+                >
+                  <div class="w-1.5 h-1.5 rounded-full bg-orange-500"></div>
+                  <span class="text-xs line-clamp-1" style="color: var(--theme-text-secondary);">{{ bl.title }}</span>
+                </button>
+                <div v-if="readingBookLists.length === 0" class="text-xs" style="color: var(--theme-text-secondary);">暂无书单</div>
+              </div>
+            </div>
+
+            <!-- 金句摘录 -->
+            <div class="p-3 sm:p-4 rounded-xl" style="background-color: var(--theme-bg);">
+              <div class="flex items-center gap-2 mb-3">
+                <div class="w-7 h-7 rounded-lg bg-purple-100 flex items-center justify-center">
+                  <Quote class="w-3.5 h-3.5 text-purple-500" />
+                </div>
+                <span class="font-medium text-xs sm:text-sm" style="color: var(--theme-text);">金句摘录</span>
+              </div>
+              <p v-if="readingQuotes.length > 0" class="text-xs sm:text-sm italic line-clamp-3" style="color: var(--theme-text-secondary);">
+                "{{ readingQuotes[0].content }}"
+              </p>
+              <p v-else class="text-xs" style="color: var(--theme-text-secondary);">暂无金句</p>
+            </div>
+
+            <!-- 读书统计 -->
+            <div class="p-3 sm:p-4 rounded-xl" style="background-color: var(--theme-bg);">
+              <div class="flex items-center gap-2 mb-3">
+                <div class="w-7 h-7 rounded-lg bg-pink-100 flex items-center justify-center">
+                  <Users class="w-3.5 h-3.5 text-pink-500" />
+                </div>
+                <span class="font-medium text-xs sm:text-sm" style="color: var(--theme-text);">读书统计</span>
+              </div>
+              <div class="text-center">
+                <p class="text-2xl sm:text-3xl font-bold text-green-600">{{ readingBooks.length + readingBookLists.length }}</p>
+                <p class="text-xs mt-1" style="color: var(--theme-text-secondary);">本精选好书</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="py-6 sm:py-8" style="background-color: var(--theme-bg);">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="p-4 sm:p-5 rounded-xl" style="background-color: var(--theme-surface);">
+          <div class="flex items-center justify-between mb-4">
+            <div class="flex items-center gap-2">
+              <div class="w-8 h-8 rounded-lg bg-purple-100 flex items-center justify-center">
+                <Briefcase class="w-4 h-4 text-purple-600" />
+              </div>
+              <div>
+                <h3 class="font-semibold text-sm sm:text-base" style="color: var(--theme-text);">面试指南</h3>
+                <p class="text-xs" style="color: var(--theme-text-secondary);">助力职场进阶</p>
+              </div>
+            </div>
+            <button @click="router.push('/interview')" class="flex items-center gap-1 text-xs sm:text-sm font-medium" style="color: var(--theme-primary);">
+              <span>进入面试指南</span>
+              <ArrowRight class="w-3 h-3 sm:w-4 sm:h-4" />
+            </button>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-3 sm:gap-4">
+            <!-- 热门题目 -->
+            <div class="p-3 sm:p-4 rounded-xl" style="background-color: var(--theme-bg);">
+              <div class="flex items-center justify-between mb-3">
+                <span class="font-medium text-xs sm:text-sm" style="color: var(--theme-text);">热门题目</span>
+                <span class="px-2 py-0.5 bg-red-100 text-red-600 rounded text-xs">hot</span>
+              </div>
+              <div class="space-y-2.5">
+                <button
+                    type="button"
+                    v-for="q in interviewQuestions"
+                    :key="q.id"
+                    class="flex items-center justify-between cursor-pointer hover:text-blue-500 transition-colors w-full text-left"
+                    @click="router.push(`/interview/question/${q.id}`)"
+                >
+                  <span class="text-xs line-clamp-1" style="color: var(--theme-text-secondary);">{{ q.title }}</span>
+                  <span class="text-xs flex-shrink-0 ml-2" style="color: var(--theme-text-secondary);">{{ q.submissionCount || 0 }}提交</span>
+                </button>
+                <div v-if="interviewQuestions.length === 0" class="text-xs" style="color: var(--theme-text-secondary);">暂无题目</div>
+              </div>
+            </div>
+
+            <!-- 热门面经 -->
+            <div class="p-3 sm:p-4 rounded-xl" style="background-color: var(--theme-bg);">
+              <div class="flex items-center justify-between mb-3">
+                <span class="font-medium text-xs sm:text-sm" style="color: var(--theme-text);">面经复盘</span>
+                <span class="px-2 py-0.5 bg-blue-100 text-blue-600 rounded text-xs">new</span>
+              </div>
+              <div class="space-y-2.5">
+                <button
+                    type="button"
+                    v-for="exp in interviewExperiences"
+                    :key="exp.id"
+                    class="flex items-center justify-between cursor-pointer hover:text-blue-500 transition-colors w-full text-left"
+                    @click="router.push(`/interview/experience/${exp.id}`)"
+                >
+                  <span class="text-xs line-clamp-1" style="color: var(--theme-text-secondary);">{{ exp.title }}</span>
+                  <span v-if="exp.company" class="text-xs flex-shrink-0 ml-2" style="color: var(--theme-text-secondary);">{{ exp.company }}</span>
+                </button>
+                <div v-if="interviewExperiences.length === 0" class="text-xs" style="color: var(--theme-text-secondary);">暂无面经</div>
+              </div>
+            </div>
+
+            <!-- 题目分类 -->
+            <div class="p-3 sm:p-4 rounded-xl" style="background-color: var(--theme-bg);">
+              <div class="flex items-center justify-between mb-3">
+                <span class="font-medium text-xs sm:text-sm" style="color: var(--theme-text);">题目分类</span>
+              </div>
+              <div class="space-y-2.5">
+                <button
+                    type="button"
+                    v-for="cat in interviewCategories"
+                    :key="cat.id"
+                    class="flex items-center justify-between cursor-pointer hover:text-blue-500 transition-colors w-full text-left"
+                    @click="router.push('/interview/questions')"
+                >
+                  <span class="text-xs line-clamp-1" style="color: var(--theme-text-secondary);">{{ cat.name }}</span>
+                  <span class="text-xs flex-shrink-0 ml-2" style="color: var(--theme-text-secondary);">{{ cat.questionCount || 0 }}道</span>
+                </button>
+                <div v-if="interviewCategories.length === 0" class="text-xs" style="color: var(--theme-text-secondary);">暂无分类</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="py-6 sm:py-8" style="background-color: var(--theme-bg);">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="rounded-2xl overflow-hidden shadow-lg" style="background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);">
+          <!-- 学习中心 标题栏 -->
+          <div class="flex items-center justify-between px-5 sm:px-7 py-4 sm:py-5">
+            <div class="flex items-center gap-2 sm:gap-3">
+              <div class="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-white/20 backdrop-blur flex items-center justify-center">
+                <Target class="w-5 h-5 text-white" />
+              </div>
+              <div>
+                <h2 class="text-base sm:text-lg font-bold text-white">学习中心</h2>
+                <p class="text-white/80 text-xs">刷题有计划 · 学习有同伴 · 成长看得见</p>
+              </div>
+            </div>
+            <button
+                @click="router.push('/learn')"
+                class="inline-flex items-center gap-1 px-3 sm:px-4 py-1.5 sm:py-2 rounded-full text-xs sm:text-sm font-medium bg-white text-indigo-700 hover:bg-indigo-50 transition-colors"
+            >
+              <span>进入学习中心</span>
+              <ArrowRight class="w-3 h-3 sm:w-4 sm:h-4" />
+            </button>
+          </div>
+
+          <!-- 三栏卡片 -->
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-0 bg-white/5 backdrop-blur">
+            <!-- 1. 刷题排行榜 Top3 -->
+            <div class="p-4 sm:p-5 border-t md:border-t-0 md:border-r border-white/10">
+              <div class="flex items-center gap-2 mb-3">
+                <Crown class="w-4 h-4 text-yellow-300" />
+                <h3 class="font-semibold text-sm text-white">刷题排行榜</h3>
+              </div>
+              <div v-if="leaderboardTop3.length > 0" class="space-y-2">
+                <button
+                    v-for="(item, idx) in leaderboardTop3"
+                    :key="item.userId"
+                    @click="router.push(`/learn/leaderboard`)"
+                    class="w-full flex items-center gap-3 px-2 py-2 rounded-lg hover:bg-white/10 transition-colors text-left"
+                >
+                  <span
+                      class="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0"
+                      :class="idx === 0 ? 'bg-yellow-400 text-yellow-900' : idx === 1 ? 'bg-gray-300 text-gray-800' : 'bg-orange-400 text-orange-900'"
+                  >
+                    {{ idx + 1 }}
+                  </span>
+                  <span class="text-sm text-white flex-1 truncate">{{ item.nickname }}</span>
+                  <span class="text-xs text-white/70 flex-shrink-0">{{ item.value }} 题</span>
+                </button>
+              </div>
+              <div v-else class="py-6 text-center">
+                <p class="text-white/60 text-xs">榜单空缺中，等你来登顶</p>
+                <button
+                    @click="router.push('/learn/leaderboard')"
+                    class="mt-2 inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-xs bg-white/20 text-white hover:bg-white/30 transition-colors"
+                >
+                  查看完整榜单
+                  <ArrowRight class="w-3 h-3" />
+                </button>
+              </div>
+            </div>
+
+            <!-- 2. 知识图谱入口 -->
+            <button
+                @click="router.push('/learn/knowledge')"
+                class="p-4 sm:p-5 border-t md:border-t-0 md:border-r border-white/10 text-left hover:bg-white/10 transition-colors group"
+            >
+              <div class="flex items-center gap-2 mb-3">
+                <Network class="w-4 h-4 text-cyan-300" />
+                <h3 class="font-semibold text-sm text-white">知识图谱</h3>
+              </div>
+              <p class="text-white/80 text-xs leading-relaxed mb-3">
+                可视化你的知识结构，发现薄弱点，按图谱强化复习
+              </p>
+              <div class="flex items-center gap-2">
+                <BarChart3 class="w-3.5 h-3.5 text-cyan-300" />
+                <span class="text-xs text-cyan-200 group-hover:underline">查看我的知识网络 →</span>
+              </div>
+            </button>
+
+            <!-- 3. 刷题日历入口（登录后可见热力图，未登录引导登录） -->
+            <button
+                @click="router.push(userStore.isAuthenticated ? '/learn/calendar' : '/login')"
+                class="p-4 sm:p-5 border-t md:border-t-0 border-white/10 text-left hover:bg-white/10 transition-colors group"
+            >
+              <div class="flex items-center gap-2 mb-3">
+                <Activity class="w-4 h-4 text-pink-300" />
+                <h3 class="font-semibold text-sm text-white">刷题日历</h3>
+              </div>
+              <p class="text-white/80 text-xs leading-relaxed mb-3">
+                连续打卡，让坚持可见。每一次提交都是成长的足迹
+              </p>
+              <div class="flex items-center gap-2">
+                <TrendingUp class="w-3.5 h-3.5 text-pink-300" />
+                <span class="text-xs text-pink-200 group-hover:underline">
+                  {{ userStore.isAuthenticated ? '查看我的热力图 →' : '登录开启打卡记录 →' }}
+                </span>
+              </div>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="py-6 sm:py-8 border-t" style="background-color: var(--theme-bg); border-color: var(--theme-border);">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="flex items-center justify-between mb-3 sm:mb-4">
+          <div class="flex items-center gap-2">
+            <BookOpen class="w-4 h-4 sm:w-5 sm:h-5" style="color: var(--theme-primary);" />
+            <h2 class="text-base sm:text-lg font-bold" style="color: var(--theme-text);">按主题探索</h2>
+          </div>
+        </div>
+
+        <div class="flex flex-wrap gap-1.5 sm:gap-2 mb-3 sm:mb-4">
+          <button
+              v-for="theme in (themes.length > 0 ? themes : [{ id: '1', name: '散文', key: 'prose' }])"
+              :key="theme.id"
+              @click="selectTheme(theme.id, theme.name)"
+              class="px-3 sm:px-4 py-1 sm:py-1.5 rounded-full text-xs sm:text-sm font-medium transition-all"
+              :style="getThemeTabStyle(theme.name)"
+          >
+            {{ theme.name }}
+          </button>
+        </div>
+
+        <div class="p-3 sm:p-4 rounded-xl" style="background-color: var(--theme-surface);">
+          <div class="flex items-center justify-between mb-3">
+            <h3 class="font-semibold text-sm sm:text-base" style="color: var(--theme-text);">
+              <span style="color: var(--theme-primary);">{{ getThemeCode(activeTheme) }}</span>
+              {{ activeTheme }}精选
+            </h3>
+            <button @click="viewMore(activeTheme)" class="flex items-center gap-1 text-xs sm:text-sm" style="color: var(--theme-text-secondary);">
+              <span>查看更多</span>
+              <ArrowRight class="w-3 h-3 sm:w-4 sm:h-4" />
+            </button>
+          </div>
+          <div class="grid sm:grid-cols-2 gap-4 sm:gap-6">
+            <button
+                type="button"
+                v-for="article in getThemeArticles(activeTheme)"
+                :key="article.id"
+                @click.stop="router.push('/article/' + article.id)"
+                class="flex items-center gap-2 cursor-pointer w-full text-left"
+            >
+              <div class="w-1 h-1 rounded-full" style="background-color: var(--theme-primary);"></div>
+              <span class="text-xs sm:text-sm line-clamp-1 flex-1" style="color: var(--theme-text);">
+                {{ article.title }}
+              </span>
+              <span class="text-xs flex-shrink-0" style="color: var(--theme-text-secondary);">{{ article.createdAt }}</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="py-6 sm:py-8" style="background-color: var(--theme-bg);">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="flex items-center justify-between mb-3 sm:mb-4">
+          <div class="flex items-center gap-2">
+            <User class="w-4 h-4 sm:w-5 sm:h-5 text-blue-600" />
+            <h2 class="text-base sm:text-lg font-bold" style="color: var(--theme-text);">墨韵名家录</h2>
+          </div>
+          <div class="flex items-center gap-1.5 sm:gap-2">
+            <Link to="/authors" class="flex items-center gap-1.5 text-xs sm:text-sm" style="color: var(--theme-text-secondary);">
+              <span>全部作者</span>
+              <ArrowRight class="w-3 h-3 sm:w-4 sm:h-4" />
+            </Link>
+          </div>
+        </div>
+
+        <div v-if="authors.length > 0" class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3 sm:gap-4">
+          <button
+              type="button"
+              v-for="author in authors"
+              :key="author.id"
+              @click="goToAuthor(author.id)"
+              class="text-center p-3 sm:p-4 rounded-xl cursor-pointer transition-colors w-full"
+              :style="{ backgroundColor: 'var(--theme-surface)' }"
+          >
+            <div class="w-10 h-10 sm:w-12 sm:h-12 mx-auto mb-2 rounded-full bg-gradient-to-br from-red-100 to-orange-100 flex items-center justify-center">
+              <span class="text-sm font-bold" style="color: var(--theme-primary);">{{ author.avatar }}</span>
+            </div>
+            <p class="font-medium text-xs sm:text-sm mb-1" style="color: var(--theme-text);">{{ author.name }}</p>
+            <p class="text-xs" style="color: var(--theme-text-secondary);">已创作 {{ author.works }} 篇</p>
+            <p class="text-xs" style="color: var(--theme-text-secondary);">{{ author.likes }} 喜欢</p>
+            <p class="text-xs" style="color: var(--theme-text-secondary);">坚持 {{ author.days }} 天</p>
+          </button>
+        </div>
+        <div v-else class="py-8 text-center" style="color: var(--theme-text-secondary);">
+          <p class="text-sm">暂无名家数据</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- 社区动态预览：营造"有人正在创作/学习"的社区氛围 -->
+    <div class="py-6 sm:py-8" style="background-color: var(--theme-bg);">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="flex items-center justify-between mb-3 sm:mb-4">
+          <div class="flex items-center gap-2">
+            <MessageCircle class="w-4 h-4 sm:w-5 sm:h-5" style="color: var(--theme-primary);" />
+            <div>
+              <h2 class="text-base sm:text-lg font-bold" style="color: var(--theme-text);">墨韵动态</h2>
+              <p class="text-xs" style="color: var(--theme-text-secondary);">看看大家都在做什么</p>
+            </div>
+          </div>
+          <button @click="router.push('/feed')" class="flex items-center gap-1 text-xs sm:text-sm font-medium" style="color: var(--theme-primary);">
+            <span>动态广场</span>
+            <ArrowRight class="w-3 h-3 sm:w-4 sm:h-4" />
+          </button>
+        </div>
+
+        <div v-if="hotFeedList.length > 0" class="grid grid-cols-1 md:grid-cols-3 gap-3 sm:gap-4">
+          <button
+              v-for="feed in hotFeedList"
+              :key="feed.eventId"
+              @click="router.push(getFeedTargetPath(feed))"
+              class="p-4 rounded-xl border text-left transition-all hover:scale-105 hover:shadow-md"
+              style="background-color: var(--theme-surface); border-color: var(--theme-border);"
+          >
+            <div class="flex items-center gap-2 mb-2">
+              <div class="w-8 h-8 rounded-full bg-gradient-to-br from-red-100 to-orange-100 flex items-center justify-center flex-shrink-0">
+                <span class="text-xs font-bold" style="color: var(--theme-primary);">
+                  {{ (feed.userNickname || 'A').charAt(0) }}
+                </span>
+              </div>
+              <div class="flex-1 min-w-0">
+                <p class="text-sm font-medium truncate" style="color: var(--theme-text);">
+                  {{ feed.userNickname || '匿名' }}
+                </p>
+                <p class="text-xs" style="color: var(--theme-text-secondary);">
+                  {{ getFeedActionText(feed) }}
+                </p>
+              </div>
+            </div>
+            <p v-if="feed.summary" class="text-xs line-clamp-2 mt-2" style="color: var(--theme-text-secondary);">
+              {{ feed.summary }}
+            </p>
+          </button>
+        </div>
+        <div v-else class="p-6 sm:p-8 rounded-xl text-center" style="background-color: var(--theme-surface);">
+          <MessageCircle class="w-8 h-8 mx-auto mb-2 opacity-30" style="color: var(--theme-text-secondary);" />
+          <p class="text-sm mb-1" style="color: var(--theme-text);">社区还很安静</p>
+          <p class="text-xs" style="color: var(--theme-text-secondary);">第一批创作者正在赶来，期待他们的故事</p>
+          <button
+              @click="handleWrite"
+              class="mt-3 inline-flex items-center gap-1 px-4 py-2 rounded-full text-xs font-medium text-white"
+              style="background-color: var(--theme-primary);"
+          >
+            <Sparkles class="w-3.5 h-3.5" />
+            成为第一位创作者
           </button>
         </div>
       </div>
     </div>
 
-    <!-- ═══════════════════════════════════════════════════════════════
-         第 2 屏：成长工具（面试 + 学习，左右并列）
-    ════════════════════════════════════════════════════════════════ -->
-    <div class="py-6 sm:py-8" style="background-color: var(--theme-bg);">
+    <div class="py-6 sm:py-8 border-t" style="background-color: var(--theme-surface); border-color: var(--theme-border);">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div class="grid lg:grid-cols-2 gap-4 sm:gap-6">
-
-          <!-- 面试成长 -->
-          <div class="p-4 sm:p-5 rounded-xl" style="background-color: var(--theme-surface);">
-            <div class="flex items-center justify-between mb-4">
-              <div class="flex items-center gap-2">
-                <div class="w-8 h-8 rounded-lg bg-purple-100 flex items-center justify-center">
-                  <Briefcase class="w-4 h-4 text-purple-600" />
-                </div>
-                <div>
-                  <h3 class="font-semibold text-sm sm:text-base" style="color: var(--theme-text);">面试成长</h3>
-                  <p class="text-xs" style="color: var(--theme-text-secondary);">AI 面试官 + 题库 + 面经</p>
-                </div>
-              </div>
-              <button @click="router.push('/interview')" class="flex items-center gap-1 text-xs sm:text-sm font-medium" style="color: var(--theme-primary);">
-                <span>进入</span>
-                <ArrowRight class="w-3 h-3 sm:w-4 sm:h-4" />
+        <div class="space-y-6 sm:space-y-8">
+          <div class="rounded-xl p-4 sm:p-5" style="background-color: var(--theme-bg);">
+            <div class="flex items-center gap-2 mb-3">
+              <Star class="w-4 h-4 sm:w-5 sm:h-5 text-yellow-500" />
+              <h3 class="font-semibold text-sm sm:text-base" style="color: var(--theme-text);">热门标签</h3>
+            </div>
+            <nav class="flex flex-wrap gap-1.5 sm:gap-2">
+              <button
+                  type="button"
+                  v-for="tag in (tags.length > 0 ? tags : [{ id: '1', name: '文学' }, { id: '2', name: '散文' }, { id: '3', name: '随笔' }])"
+                  :key="tag.id || tag"
+                  @click="router.push(`/tag/${encodeURIComponent(tag.name || tag)}`)"
+                  class="inline-flex items-center gap-1 px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-full text-xs cursor-pointer transition-all hover:opacity-80"
+                  :style="{ backgroundColor: 'var(--theme-accent)', color: 'var(--theme-primary)' }"
+              >
+                <Tag class="w-3 h-3" />
+                {{ tag.name || tag }}
               </button>
-            </div>
-
-            <!-- AI 模拟面试入口 -->
-            <button @click="handleStartInterview" class="w-full p-3 rounded-xl mb-3 flex items-center justify-between text-left transition-all hover:scale-[1.02]" style="background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);">
-              <div>
-                <div class="flex items-center gap-2 mb-1">
-                  <Brain class="w-4 h-4 text-white" />
-                  <span class="text-white font-semibold text-sm">AI 模拟面试</span>
-                </div>
-                <p class="text-white/80 text-xs">真实对话场景 · AI 智能评分 · 弱项分析</p>
-              </div>
-              <div class="px-3 py-1.5 bg-white/20 backdrop-blur rounded-full">
-                <span class="text-white text-xs font-medium">开始</span>
-              </div>
-            </button>
-
-            <div class="grid grid-cols-2 gap-3">
-              <!-- 热门题目 -->
-              <div class="p-3 rounded-lg" style="background-color: var(--theme-bg);">
-                <div class="flex items-center justify-between mb-2">
-                  <span class="font-medium text-xs" style="color: var(--theme-text);">热门题目</span>
-                  <span class="px-1.5 py-0.5 bg-red-100 text-red-600 rounded text-xs">hot</span>
-                </div>
-                <div class="space-y-2">
-                  <button v-for="q in interviewQuestions" :key="q.id" @click="router.push(`/interview/question/${q.id}`)" class="flex items-center justify-between w-full text-left cursor-pointer hover:text-blue-500 transition-colors">
-                    <span class="text-xs line-clamp-1" style="color: var(--theme-text-secondary);">{{ q.title }}</span>
-                    <span class="text-xs flex-shrink-0 ml-1" style="color: var(--theme-text-secondary);">{{ q.submissionCount || 0 }}提</span>
-                  </button>
-                  <p v-if="interviewQuestions.length === 0" class="text-xs" style="color: var(--theme-text-secondary);">暂无题目</p>
-                </div>
-              </div>
-
-              <!-- 面经复盘 -->
-              <div class="p-3 rounded-lg" style="background-color: var(--theme-bg);">
-                <div class="flex items-center justify-between mb-2">
-                  <span class="font-medium text-xs" style="color: var(--theme-text);">面经复盘</span>
-                  <span class="px-1.5 py-0.5 bg-blue-100 text-blue-600 rounded text-xs">new</span>
-                </div>
-                <div class="space-y-2">
-                  <button v-for="exp in interviewExperiences" :key="exp.id" @click="router.push(`/interview/experience/${exp.id}`)" class="flex items-center justify-between w-full text-left cursor-pointer hover:text-blue-500 transition-colors">
-                    <span class="text-xs line-clamp-1" style="color: var(--theme-text-secondary);">{{ exp.title }}</span>
-                    <span v-if="exp.company" class="text-xs flex-shrink-0 ml-1" style="color: var(--theme-text-secondary);">{{ exp.company }}</span>
-                  </button>
-                  <p v-if="interviewExperiences.length === 0" class="text-xs" style="color: var(--theme-text-secondary);">暂无面经</p>
-                </div>
-              </div>
-            </div>
+            </nav>
           </div>
 
-          <!-- 学习工具 -->
-          <div class="p-4 sm:p-5 rounded-xl" style="background-color: var(--theme-surface);">
-            <div class="flex items-center justify-between mb-4">
-              <div class="flex items-center gap-2">
-                <div class="w-8 h-8 rounded-lg bg-blue-100 flex items-center justify-center">
-                  <Target class="w-4 h-4 text-blue-600" />
-                </div>
-                <div>
-                  <h3 class="font-semibold text-sm sm:text-base" style="color: var(--theme-text);">学习工具</h3>
-                  <p class="text-xs" style="color: var(--theme-text-secondary);">刷题 · 日历 · 排行榜</p>
-                </div>
-              </div>
-              <button @click="router.push('/learn')" class="flex items-center gap-1 text-xs sm:text-sm font-medium" style="color: var(--theme-primary);">
-                <span>进入</span>
-                <ArrowRight class="w-3 h-3 sm:w-4 sm:h-4" />
-              </button>
+          <div class="rounded-xl p-4 sm:p-5" style="background-color: var(--theme-bg);">
+            <div class="flex items-center gap-2 mb-3">
+              <BookOpen class="w-4 h-4 sm:w-5 sm:h-5" style="color: var(--theme-primary);" />
+              <h3 class="font-semibold text-sm sm:text-base" style="color: var(--theme-text);">友情链接</h3>
             </div>
-
-            <div class="grid grid-cols-2 gap-3">
-              <!-- 刷题日历 -->
-              <button @click="router.push('/learn')" class="p-3 rounded-lg text-left transition-all hover:scale-[1.02]" style="background-color: var(--theme-bg);">
-                <Calendar class="w-5 h-5 text-green-500 mb-1.5" />
-                <h4 class="font-medium text-xs sm:text-sm" style="color: var(--theme-text);">刷题日历</h4>
-                <p class="text-xs mt-0.5" style="color: var(--theme-text-secondary);">连续打卡，坚持可见</p>
-              </button>
-
-              <!-- 知识图谱 -->
-              <button @click="router.push('/learn/knowledge-map')" class="p-3 rounded-lg text-left transition-all hover:scale-[1.02]" style="background-color: var(--theme-bg);">
-                <Network class="w-5 h-5 text-purple-500 mb-1.5" />
-                <h4 class="font-medium text-xs sm:text-sm" style="color: var(--theme-text);">知识图谱</h4>
-                <p class="text-xs mt-0.5" style="color: var(--theme-text-secondary);">发现薄弱点</p>
-              </button>
-            </div>
-
-            <!-- 排行榜 Top3 -->
-            <div class="mt-3 p-3 rounded-lg" style="background-color: var(--theme-bg);">
-              <div class="flex items-center gap-2 mb-2">
-                <Trophy class="w-4 h-4 text-yellow-500" />
-                <span class="font-medium text-xs" style="color: var(--theme-text);">排行榜 Top3</span>
-              </div>
-              <div class="space-y-1.5">
-                <div v-for="(item, index) in leaderboardTop3" :key="item.userId || index" class="flex items-center gap-2">
-                  <span class="w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0" :style="getTrendingItemStyle(index)">
-                    {{ index + 1 }}
-                  </span>
-                  <span class="text-xs flex-1 line-clamp-1" style="color: var(--theme-text-secondary);">{{ item.nickname || item.username || '匿名用户' }}</span>
-                  <span class="text-xs flex-shrink-0" style="color: var(--theme-text-secondary);">{{ item.questionCount || item.score || 0 }}题</span>
-                </div>
-                <p v-if="leaderboardTop3.length === 0" class="text-xs" style="color: var(--theme-text-secondary);">暂无数据</p>
-              </div>
-            </div>
+            <nav class="flex flex-wrap gap-2 sm:gap-3">
+              <a
+                  v-for="link in (friendLinks.length > 0 ? friendLinks : [{ id: '1', name: '中国作家网', url: '#' }])"
+                  :key="link.id"
+                  :href="link.url"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  class="inline-flex items-center gap-2 px-3 sm:px-4 py-2 sm:py-2.5 rounded-lg text-xs sm:text-sm cursor-pointer border transition-all hover:opacity-80"
+                  :style="{ backgroundColor: 'var(--theme-surface)', borderColor: 'var(--theme-border)', color: 'var(--theme-text-secondary)' }"
+              >
+                <span>{{ link.name }}</span>
+              </a>
+            </nav>
           </div>
-
         </div>
       </div>
     </div>
 
-    <!-- ═══════════════════════════════════════════════════════════════
-         第 3 屏：内容空间（读书 + 文章 + 话题，三栏）
-    ════════════════════════════════════════════════════════════════ -->
-    <div class="py-6 sm:py-8" style="background-color: var(--theme-bg);">
-      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div class="grid lg:grid-cols-3 gap-4 sm:gap-6">
-
-          <!-- 读书空间 -->
-          <div class="p-4 rounded-xl" style="background-color: var(--theme-surface);">
-            <div class="flex items-center justify-between mb-3">
-              <div class="flex items-center gap-2">
-                <Book class="w-4 h-4 text-green-600" />
-                <h3 class="font-semibold text-sm" style="color: var(--theme-text);">读书空间</h3>
-              </div>
-              <button @click="router.push('/reading')" class="text-xs font-medium" style="color: var(--theme-primary);">进入 →</button>
-            </div>
-
-            <button v-if="readingBooks.length > 0" @click="router.push(`/reading/book/${readingBooks[0].id}`)" class="w-full relative h-24 rounded-lg overflow-hidden mb-2 cursor-pointer">
-              <LazyImage :src="readingBooks[0].cover" :alt="readingBooks[0].title" class="absolute inset-0 w-full h-full object-cover" />
-              <div class="absolute inset-0 bg-gradient-to-br from-green-600/80 to-green-800/80 p-2.5">
-                <span class="text-white text-xs">{{ readingBooks[0].title }}</span>
-                <p class="text-white/70 text-xs">{{ readingBooks[0].author }}</p>
-              </div>
-            </button>
-            <div v-else class="w-full h-24 rounded-lg mb-2 flex items-center justify-center bg-green-50">
-              <p class="text-xs text-green-400">暂无推荐</p>
-            </div>
-
-            <div class="space-y-1.5">
-              <button v-for="bl in readingBookLists" :key="bl.id" @click="router.push(`/reading/book-list/${bl.id}`)" class="flex items-center gap-1.5 w-full text-left cursor-pointer hover:text-green-500 transition-colors">
-                <div class="w-1 h-1 rounded-full bg-green-500"></div>
-                <span class="text-xs line-clamp-1" style="color: var(--theme-text-secondary);">{{ bl.title }}</span>
-              </button>
-            </div>
-
-            <p v-if="readingQuotes.length > 0" class="text-xs italic mt-2 pt-2 border-t" style="border-color: var(--theme-border); color: var(--theme-text-secondary);">
-              "{{ readingQuotes[0].content }}"
-            </p>
-          </div>
-
-          <!-- 文章精选 -->
-          <div class="p-4 rounded-xl" style="background-color: var(--theme-surface);">
-            <div class="flex items-center justify-between mb-3">
-              <div class="flex items-center gap-2">
-                <Star class="w-4 h-4 text-yellow-500" />
-                <h3 class="font-semibold text-sm" style="color: var(--theme-text);">文章精选</h3>
-              </div>
-              <button @click="router.push('/category')" class="text-xs font-medium" style="color: var(--theme-primary);">更多 →</button>
-            </div>
-
-            <div class="space-y-2">
-              <button v-for="article in featuredArticles.slice(0, 5)" :key="article.id" @click="router.push('/article/' + article.id)" class="flex gap-2 p-1.5 rounded-lg cursor-pointer transition-colors w-full text-left" style="background-color: var(--theme-bg);">
-                <LazyImage v-if="article.cover" :src="article.cover" :alt="article.title" class="w-14 h-10 rounded object-cover flex-shrink-0" />
-                <div class="flex-1 min-w-0">
-                  <h4 class="font-medium text-xs line-clamp-1" style="color: var(--theme-text);">{{ article.title }}</h4>
-                  <p class="text-xs mt-0.5 line-clamp-1" style="color: var(--theme-text-secondary);">{{ article.author?.username || '作者' }} · {{ article.views }} 阅读</p>
-                </div>
-              </button>
-              <p v-if="featuredArticles.length === 0" class="text-xs" style="color: var(--theme-text-secondary);">暂无文章</p>
-            </div>
-          </div>
-
-          <!-- 话题讨论 -->
-          <div class="p-4 rounded-xl" style="background-color: var(--theme-surface);">
-            <div class="flex items-center justify-between mb-3">
-              <div class="flex items-center gap-2">
-                <MessageCircle class="w-4 h-4 text-blue-500" />
-                <h3 class="font-semibold text-sm" style="color: var(--theme-text);">话题讨论</h3>
-              </div>
-              <button @click="router.push('/topic')" class="text-xs font-medium" style="color: var(--theme-primary);">更多 →</button>
-            </div>
-
-            <div class="space-y-2">
-              <button @click="router.push('/topic')" class="w-full p-2 rounded-lg text-left cursor-pointer transition-colors" style="background-color: var(--theme-bg);">
-                <p class="text-xs font-medium" style="color: var(--theme-text);"># 技术与文学的交叉点</p>
-                <p class="text-xs mt-0.5" style="color: var(--theme-text-secondary);">32 人参与讨论</p>
-              </button>
-              <button @click="router.push('/topic')" class="w-full p-2 rounded-lg text-left cursor-pointer transition-colors" style="background-color: var(--theme-bg);">
-                <p class="text-xs font-medium" style="color: var(--theme-text);"># 你的面试复盘</p>
-                <p class="text-xs mt-0.5" style="color: var(--theme-text-secondary);">18 人参与讨论</p>
-              </button>
-              <button @click="router.push('/topic')" class="w-full p-2 rounded-lg text-left cursor-pointer transition-colors" style="background-color: var(--theme-bg);">
-                <p class="text-xs font-medium" style="color: var(--theme-text);"># 本周读了什么书</p>
-                <p class="text-xs mt-0.5" style="color: var(--theme-text-secondary);">15 人参与讨论</p>
-              </button>
-            </div>
-
-            <button @click="router.push('/topic/create')" class="w-full mt-2 py-2 rounded-lg text-xs font-medium border border-dashed transition-colors hover:opacity-80" style="border-color: var(--theme-border); color: var(--theme-text-secondary);">
-              + 发起话题
-            </button>
-          </div>
-
-        </div>
-      </div>
+    <div class="mt-6 sm:mt-8">
+      <SiteFooter />
     </div>
 
-    <!-- ═══════════════════════════════════════════════════════════════
-         第 4 屏：成长时间线（情感锚点）
-    ════════════════════════════════════════════════════════════════ -->
-    <div class="py-6 sm:py-8" style="background-color: var(--theme-surface);">
-      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div class="rounded-2xl p-5 sm:p-6" style="background: linear-gradient(135deg, #f0f4ff 0%, #e0e7ff 100%);">
-
-          <div class="flex items-center justify-between mb-4">
-            <div class="flex items-center gap-2">
-              <TrendingUp class="w-5 h-5" style="color: var(--theme-primary);" />
-              <h3 class="font-bold text-base sm:text-lg" style="color: var(--theme-text);">成长轨迹</h3>
-            </div>
-            <button v-if="isLoggedIn" @click="router.push('/growth')" class="flex items-center gap-1 text-xs sm:text-sm font-medium" style="color: var(--theme-primary);">
-              <span>完整时间线</span>
-              <ArrowRight class="w-3 h-3 sm:w-4 sm:h-4" />
-            </button>
-          </div>
-
-          <!-- 登录用户：成长数据预览 -->
-          <div v-if="isLoggedIn" class="grid grid-cols-3 gap-4 mb-4">
-            <div class="text-center">
-              <p class="text-2xl font-bold" style="color: var(--theme-primary);">0</p>
-              <p class="text-xs" style="color: var(--theme-text-secondary);">本月解题</p>
-            </div>
-            <div class="text-center">
-              <p class="text-2xl font-bold" style="color: var(--theme-primary);">0</p>
-              <p class="text-xs" style="color: var(--theme-text-secondary);">本月阅读</p>
-            </div>
-            <div class="text-center">
-              <p class="text-2xl font-bold" style="color: var(--theme-primary);">0</p>
-              <p class="text-xs" style="color: var(--theme-text-secondary);">本月写作</p>
-            </div>
-          </div>
-
-          <!-- 时间线可视化 -->
-          <div v-if="isLoggedIn" class="flex items-center justify-between gap-1 mb-2 overflow-x-auto pb-2">
-            <div class="flex flex-col items-center gap-1 flex-shrink-0">
-              <div class="w-3 h-3 rounded-full" style="background-color: var(--theme-primary);"></div>
-              <span class="text-xs whitespace-nowrap" style="color: var(--theme-text-secondary);">8/1</span>
-            </div>
-            <div class="flex-1 h-0.5" style="background-color: var(--theme-border);"></div>
-            <div class="flex flex-col items-center gap-1 flex-shrink-0">
-              <div class="w-3 h-3 rounded-full" style="background-color: var(--theme-primary);"></div>
-              <span class="text-xs whitespace-nowrap" style="color: var(--theme-text-secondary);">8/5</span>
-            </div>
-            <div class="flex-1 h-0.5" style="background-color: var(--theme-border);"></div>
-            <div class="flex flex-col items-center gap-1 flex-shrink-0">
-              <div class="w-3 h-3 rounded-full" style="background-color: var(--theme-primary);"></div>
-              <span class="text-xs whitespace-nowrap" style="color: var(--theme-text-secondary);">8/10</span>
-            </div>
-            <div class="flex-1 h-0.5" style="background-color: var(--theme-border);"></div>
-            <div class="flex flex-col items-center gap-1 flex-shrink-0">
-              <div class="w-3 h-3 rounded-full" style="background-color: var(--theme-accent); border: 2px solid var(--theme-primary);"></div>
-              <span class="text-xs whitespace-nowrap font-medium" style="color: var(--theme-primary);">今天</span>
-            </div>
-          </div>
-
-          <!-- 游客：引导注册 -->
-          <div v-else class="text-center py-4">
-            <p class="text-sm" style="color: var(--theme-text-secondary);">注册后，你的每一步成长都会被记录</p>
-            <button @click="handleRegister" class="inline-flex items-center gap-2 mt-3 px-5 py-2.5 rounded-full text-sm font-medium text-white" style="background-color: var(--theme-primary);">
-              <LogIn class="w-4 h-4" />
-              立即注册
-            </button>
-          </div>
-
-        </div>
-      </div>
-    </div>
-
-    <!-- ═══════════════════════════════════════════════════════════════
-         第 5 屏：社区动态 + 热门标签 + 友情链接（精简收尾）
-    ════════════════════════════════════════════════════════════════ -->
-    <div class="py-6 sm:py-8" style="background-color: var(--theme-bg);">
-      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-
-        <!-- 社区动态 -->
-        <div v-if="hotFeedList.length > 0" class="mb-6">
-          <div class="flex items-center gap-2 mb-3">
-            <Activity class="w-4 h-4 sm:w-5 sm:h-5" style="color: var(--theme-primary);" />
-            <h3 class="font-semibold text-sm sm:text-base" style="color: var(--theme-text);">墨韵动态</h3>
-          </div>
-          <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <button v-for="item in hotFeedList" :key="item.id || item.eventType" @click="router.push(getFeedTargetPath(item))" class="p-3 rounded-xl cursor-pointer transition-colors text-left" style="background-color: var(--theme-surface);">
-              <p class="text-xs" style="color: var(--theme-text-secondary);">
-                <span class="font-medium" style="color: var(--theme-text);">{{ item.username || item.nickname || '用户' }}</span>
-                {{ getFeedActionText(item) }}
-              </p>
-            </button>
-          </div>
-        </div>
-
-        <!-- 热门标签 -->
-        <div v-if="tags.length > 0" class="mb-6">
-          <div class="flex items-center gap-2 mb-3">
-            <Tag class="w-4 h-4" style="color: var(--theme-primary);" />
-            <span class="font-semibold text-sm" style="color: var(--theme-text);">热门标签</span>
-          </div>
-          <div class="flex flex-wrap gap-2">
-            <button v-for="tag in tags" :key="tag.id || tag.name" @click="router.push(`/tag/${encodeURIComponent(tag.name)}`)" class="px-3 py-1 rounded-full text-xs font-medium transition-colors" style="background-color: var(--theme-surface); color: var(--theme-text-secondary);">
-              {{ tag.name }}
-            </button>
-          </div>
-        </div>
-
-        <!-- 友情链接 -->
-        <div v-if="friendLinks.length > 0" class="pt-4 border-t" style="border-color: var(--theme-border);">
-          <div class="flex items-center gap-2 mb-2">
-            <LinkIcon class="w-3.5 h-3.5" style="color: var(--theme-text-secondary);" />
-            <span class="text-xs font-medium" style="color: var(--theme-text-secondary);">友情链接</span>
-          </div>
-          <div class="flex flex-wrap gap-3">
-            <a v-for="link in friendLinks" :key="link.id" :href="link.url" target="_blank" rel="noopener noreferrer" class="text-xs hover:underline" style="color: var(--theme-text-secondary);">
-              {{ link.name }}
-            </a>
-          </div>
-        </div>
-
-      </div>
-    </div>
-
-    <SiteFooter />
     <BackToTop />
     </template>
   </div>
 </template>
+
+<style scoped>
+</style>

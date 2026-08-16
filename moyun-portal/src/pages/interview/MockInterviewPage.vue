@@ -20,6 +20,7 @@ import type {
   InterviewPositionVO,
 } from '@/types/api';
 import { useToast } from '@/composables/useToast';
+import { useDictData } from '@/composables/useDictData';
 
 const router = useRouter();
 const toast = useToast();
@@ -68,7 +69,18 @@ const finishing = ref(false);
 const history = ref<MockInterviewVO[]>([]);
 const historyLoading = ref(false);
 
-const scenePresets = ['算法', '系统设计', '前端', '后端', '数据库', '项目深挖'];
+// 面试场景预设（字典 portal_mock_scene 驱动，本地默认兜底；value 为中文场景名）
+const dictMap = useDictData(['portal_mock_scene']);
+
+const DEFAULT_SCENE_PRESETS = ['算法', '系统设计', '前端', '后端', '数据库', '项目深挖'];
+
+const scenePresets = computed<string[]>(() => {
+  const items = dictMap['portal_mock_scene'];
+  if (items && items.length > 0) {
+    return items.map(i => i.dictValue);
+  }
+  return DEFAULT_SCENE_PRESETS;
+});
 
 const currentQa = computed(() => {
   if (!interview.value || !interview.value.qaList) return null;

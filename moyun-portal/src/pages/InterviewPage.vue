@@ -13,6 +13,7 @@ import { generateSeo } from '@/utils/seo';
 import { getSafeAvatar } from '@/utils/avatar';
 import { getInterviewHome } from '@/api/interview';
 import { useToast } from '@/composables/useToast';
+import { useDictData, dictBadgeClass } from '@/composables/useDictData';
 import type {
   InterviewCategoryVO, InterviewQuestionVO,
   InterviewExperienceVO, InterviewResumeTemplateVO, InterviewCompanyVO,
@@ -58,7 +59,15 @@ async function loadInterviewHome() {
   }
 }
 
+// 难度展示（字典 portal_question_difficulty 驱动，本地默认兜底）
+const dictMap = useDictData(['portal_question_difficulty']);
+
+function findDifficultyItem(difficulty: string) {
+  return (dictMap['portal_question_difficulty'] || []).find(d => d.dictValue === difficulty);
+}
 function getDifficultyColor(difficulty: string) {
+  const dictClass = dictBadgeClass(findDifficultyItem(difficulty)?.listClass);
+  if (dictClass) return dictClass;
   switch (difficulty) {
     case 'easy': return 'bg-green-100 text-green-700';
     case 'medium': return 'bg-yellow-100 text-yellow-700';
@@ -67,6 +76,8 @@ function getDifficultyColor(difficulty: string) {
   }
 }
 function getDifficultyText(difficulty: string) {
+  const dictLabel = findDifficultyItem(difficulty)?.dictLabel;
+  if (dictLabel) return dictLabel;
   switch (difficulty) {
     case 'easy': return '简单';
     case 'medium': return '中等';

@@ -19,9 +19,12 @@
       </el-form-item>
       <el-form-item label="难度">
         <el-select v-model="queryParams.difficulty" placeholder="请选择难度" clearable>
-          <el-option label="简单" value="easy" />
-          <el-option label="中等" value="medium" />
-          <el-option label="困难" value="hard" />
+          <el-option
+          v-for="d in portal_question_difficulty"
+          :key="d.value"
+          :label="d.label"
+          :value="d.value"
+          />
         </el-select>
       </el-form-item>
       <el-form-item label="状态">
@@ -54,7 +57,7 @@
       <el-table-column label="标题" prop="title" min-width="180" show-overflow-tooltip />
       <el-table-column label="难度" width="100">
         <template #default="{ row }">
-          <el-tag :type="difficultyType(row.difficulty)">{{ difficultyLabel(row.difficulty) }}</el-tag>
+          <dict-tag :options="portal_question_difficulty" :value="row.difficulty" />
         </template>
       </el-table-column>
       <el-table-column label="分类" width="120">
@@ -102,9 +105,7 @@
         </el-form-item>
         <el-form-item label="难度">
           <el-select v-model="form.difficulty" placeholder="请选择难度">
-            <el-option label="简单" value="easy" />
-            <el-option label="中等" value="medium" />
-            <el-option label="困难" value="hard" />
+            <el-option v-for="d in portal_question_difficulty" :key="d.value" :label="d.label" :value="d.value" />
           </el-select>
         </el-form-item>
         <el-form-item label="分类">
@@ -178,6 +179,8 @@ import ImportDialog from '@/components/ImportDialog/index.vue';
 
 const { proxy } = getCurrentInstance();
 
+const { portal_question_difficulty } = proxy.useDict("portal_question_difficulty");
+
 const loading = ref(true);
 const questionList = ref([]);
 const total = ref(0);
@@ -201,8 +204,6 @@ const form = ref({
   tags: [], companies: '', hint: '', solution: '', sort: 0, status: 'published'
 });
 
-function difficultyLabel(d) { return { easy: '简单', medium: '中等', hard: '困难' }[d] || d; }
-function difficultyType(d) { return { easy: 'success', medium: 'warning', hard: 'danger' }[d] || 'info'; }
 function statusLabel(s) { return { draft: '草稿', published: '已发布', archived: '已归档' }[s] || s; }
 function statusType(s) { return { draft: 'info', published: 'success', archived: 'warning' }[s] || 'info'; }
 function tagList(tags) { return tags ? String(tags).split(',').map(s => s.trim()).filter(Boolean) : []; }

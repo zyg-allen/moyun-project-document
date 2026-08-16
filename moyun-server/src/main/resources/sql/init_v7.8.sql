@@ -9582,6 +9582,106 @@ WHERE r.role_id IN (1, 2)
 GROUP BY r.role_id, r.role_name;
 
 -- =====================================================================
+-- 六(补)、菜单收敛（与 upgrade_v9.5_merge.sql 终态一致）
+-- =====================================================================
+-- 1) 学习辅助：删除重复菜单 + 迁移至"面试指南"（修复 /cms/learn-aux 404 与归属错位）
+--    背景：第8节兜底在"内容管理"下注册 path=learn-aux（perms=portal:learn-aux:list），
+--          v7.13/7.15 又在"读书空间"下注册 path=learn-aux（perms=portal:learn:list）。
+--          两个同 path C 菜单 → RuoYi-Vue3 生成同名路由 → vue-router 4 同名
+--          addRoute 移除先注册者 → /cms/learn-aux 被 /book/learn-aux 覆盖 → 404。
+--    归属：学习辅助=学习计划（每日刷题为主）+错题本（100% 源于题库），
+--          数据产自面试指南题库体系 → 迁至"面试指南"目录。
+-- 2) 交易入口去重：删除"财务/付费订单"独立菜单（与"商业化/交易管理"Tab 功能完全重复，
+--    同一组件 cms/order/index），portal:order:list/query 权限转为"交易管理"下 F 按钮
+--    （CmsOrderController 接口依赖，Tab 内"付费订单"Tab 需要）。
+-- 幂等：可重复执行
+-- =====================================================================
+
+-- ---------- 1. 学习辅助收敛 ----------
+SELECT @learnaux_dup_id := menu_id FROM sys_menu WHERE perms = 'portal:learn-aux:list' AND menu_type = 'C' LIMIT 1;
+SELECT @learnaux_keep_id := menu_id FROM sys_menu WHERE perms = 'portal:learn:list' AND menu_type = 'C' LIMIT 1;
+
+-- 授权转移：曾有重复菜单的角色 → 补正式菜单权限
+INSERT INTO sys_role_menu (role_id, menu_id)
+SELECT rm.role_id, @learnaux_keep_id
+  FROM sys_role_menu rm
+ WHERE rm.menu_id = @learnaux_dup_id
+   AND @learnaux_dup_id IS NOT NULL
+   AND @learnaux_keep_id IS NOT NULL
+   AND @learnaux_keep_id <> @learnaux_dup_id
+   AND NOT EXISTS (SELECT 1 FROM sys_role_menu x WHERE x.role_id = rm.role_id AND x.menu_id = @learnaux_keep_id);
+
+-- 删除重复菜单及其角色关联
+DELETE FROM sys_role_menu WHERE menu_id = @learnaux_dup_id AND @learnaux_dup_id IS NOT NULL;
+DELETE FROM sys_menu WHERE menu_id = @learnaux_dup_id AND @learnaux_dup_id IS NOT NULL;
+
+-- 迁移归属：学习辅助 → 面试指南目录
+SELECT @interview_dir_id := menu_id FROM sys_menu WHERE path = 'interview' AND parent_id = 0 AND menu_type = 'M' LIMIT 1;
+UPDATE sys_menu
+SET parent_id = @interview_dir_id, order_num = 9,
+    remark = 'v9.5: 迁移至面试指南（错题本/学习计划数据源于题库刷题）',
+    update_by = 'admin', update_time = NOW()
+WHERE menu_id = @learnaux_keep_id
+  AND @interview_dir_id IS NOT NULL
+  AND (parent_id <> @interview_dir_id OR order_num <> 9);
+
+-- ---------- 2. 交易入口去重 ----------
+-- 定位"交易管理"菜单（Tab 容器）
+SELECT @txn_menu_id := menu_id FROM sys_menu WHERE perms = 'cms:transaction:list' AND menu_type = 'C' LIMIT 1;
+SELECT @commerce_parent_id := menu_id FROM sys_menu WHERE menu_name = '商业化' AND parent_id = 0 LIMIT 1;
+SET @txn_menu_id := IFNULL(@txn_menu_id, IFNULL(@commerce_parent_id, 0));
+
+-- 2.1 portal:order:list/query 转为"交易管理"下 F 按钮（存在即归位，幂等）
+UPDATE sys_menu
+SET menu_name = '付费订单Tab查询', parent_id = @txn_menu_id, order_num = 10,
+    menu_type = 'F', path = '', component = NULL, visible = '0', status = '0',
+    update_by = 'admin', update_time = NOW(), remark = 'v9.5: 交易管理Tab-付费订单组件查询权限'
+WHERE perms = 'portal:order:list'
+  AND (menu_type <> 'F' OR parent_id <> @txn_menu_id OR visible = '1' OR status = '1');
+
+UPDATE sys_menu
+SET menu_name = '付费订单Tab详情', parent_id = @txn_menu_id, order_num = 11,
+    menu_type = 'F', path = '', component = NULL, visible = '0', status = '0',
+    update_by = 'admin', update_time = NOW(), remark = 'v9.5: 交易管理Tab-付费订单组件详情权限'
+WHERE perms = 'portal:order:query'
+  AND (parent_id <> @txn_menu_id OR visible = '1' OR status = '1' OR menu_type <> 'F');
+
+-- 2.2 兜底：权限项缺失时重建 F 按钮
+INSERT INTO sys_menu (menu_name, parent_id, order_num, path, component, query, is_frame, is_cache, menu_type, visible, status, perms, icon, create_by, create_time, remark)
+SELECT '付费订单Tab查询', @txn_menu_id, 10, '', NULL, NULL, 1, 0, 'F', '0', '0', 'portal:order:list', '#', 'admin', NOW(), 'v9.5: 交易管理Tab-付费订单组件查询权限'
+FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM sys_menu WHERE perms = 'portal:order:list');
+
+INSERT INTO sys_menu (menu_name, parent_id, order_num, path, component, query, is_frame, is_cache, menu_type, visible, status, perms, icon, create_by, create_time, remark)
+SELECT '付费订单Tab详情', @txn_menu_id, 11, '', NULL, NULL, 1, 0, 'F', '0', '0', 'portal:order:query', '#', 'admin', NOW(), 'v9.5: 交易管理Tab-付费订单组件详情权限'
+FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM sys_menu WHERE perms = 'portal:order:query');
+
+-- 2.3 物理删除"财务"目录及其下残余 C 菜单（重复路由入口消除）
+SELECT @finance_dir_id := menu_id FROM sys_menu WHERE menu_name = '财务' AND parent_id = 0 AND menu_type = 'M' LIMIT 1;
+
+DELETE FROM sys_role_menu
+WHERE @finance_dir_id IS NOT NULL
+  AND menu_id IN (
+    SELECT menu_id FROM (
+      SELECT menu_id FROM sys_menu WHERE parent_id = @finance_dir_id AND menu_type = 'C'
+    ) t
+  );
+DELETE FROM sys_menu WHERE parent_id = @finance_dir_id AND menu_type = 'C' AND @finance_dir_id IS NOT NULL;
+
+-- 删除目录本身
+DELETE FROM sys_role_menu WHERE menu_id = @finance_dir_id AND @finance_dir_id IS NOT NULL;
+DELETE FROM sys_menu WHERE menu_id = @finance_dir_id AND @finance_dir_id IS NOT NULL;
+
+-- ---------- 验证 ----------
+SELECT '菜单收敛验证：' AS info;
+SELECT menu_id, menu_name, path, perms, parent_id FROM sys_menu WHERE path = 'learn-aux';
+SELECT '财务目录残留' AS check_item, IF(COUNT(*) = 0, 'OK', 'ERROR') AS result
+FROM sys_menu WHERE menu_name = '财务' AND parent_id = 0 AND menu_type = 'M';
+SELECT '交易管理权限链(应4条F)' AS check_item, COUNT(*) AS cnt
+FROM sys_menu WHERE parent_id = @txn_menu_id
+  AND perms IN ('portal:order:list','portal:order:query','portal:tip:list','portal:tip:query')
+  AND menu_type = 'F';
+
+-- =====================================================================
 -- 七、结尾设置：恢复外键检查
 -- =====================================================================
 -- 来源：all-db-ddl.sql 行5335

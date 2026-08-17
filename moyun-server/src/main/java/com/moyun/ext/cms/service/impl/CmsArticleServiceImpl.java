@@ -5,6 +5,7 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.moyun.common.exception.system.ServiceException;
 import com.moyun.ext.cms.domain.query.CmsArticleQuery;
 import com.moyun.ext.cms.domain.vo.CmsArticleVO;
 import com.moyun.ext.cms.service.ICmsArticleService;
@@ -202,15 +203,15 @@ public class CmsArticleServiceImpl implements ICmsArticleService {
         // 状态校验：仅允许审核为 published / rejected
         String newStatus = article.getStatus();
         if (!"published".equals(newStatus) && !"rejected".equals(newStatus)) {
-            throw new com.moyun.common.exception.system.ServiceException("审核状态仅支持 published / rejected");
+            throw new ServiceException("审核状态仅支持 published / rejected");
         }
         // 仅 pending 状态的文章可被审核（防止重复审核已发布/已拒绝的文章）
         PortalArticle existing = portalArticleMapper.selectById(article.getId());
         if (existing == null) {
-            throw new com.moyun.common.exception.system.ServiceException("文章不存在");
+            throw new ServiceException("文章不存在");
         }
         if (!"pending".equals(existing.getStatus())) {
-            throw new com.moyun.common.exception.system.ServiceException("仅待审核（pending）状态的文章可审核，当前状态：" + existing.getStatus());
+            throw new ServiceException("仅待审核（pending）状态的文章可审核，当前状态：" + existing.getStatus());
         }
 
         LambdaUpdateWrapper<PortalArticle> wrapper = new LambdaUpdateWrapper<>();
@@ -230,7 +231,7 @@ public class CmsArticleServiceImpl implements ICmsArticleService {
         }
         int rows = portalArticleMapper.update(null, wrapper);
         if (rows == 0) {
-            throw new com.moyun.common.exception.system.ServiceException("审核失败：文章状态已变更，请刷新后重试");
+            throw new ServiceException("审核失败：文章状态已变更，请刷新后重试");
         }
         // 审核驳回：回滚发布文章时获得的成长值
         // 原始成长值在 PortalArticleServiceImpl.publishArticle 中通过 recordEvent("publish_article") 发放，
@@ -313,19 +314,19 @@ public class CmsArticleServiceImpl implements ICmsArticleService {
         // 上下架仅允许在 published / archived 之间流转
         // 禁止通过此接口把 pending/rejected 直接改为 published（必须走 auditArticle 审核流程）
         if (!"published".equals(newStatus) && !"archived".equals(newStatus)) {
-            throw new com.moyun.common.exception.system.ServiceException(
+            throw new ServiceException(
                     "上下架仅支持 published / archived 状态，待审核或被拒文章请走审核接口");
         }
         // 查询当前状态，校验流转合法性
         PortalArticle existing = portalArticleMapper.selectById(article.getId());
         if (existing == null) {
-            throw new com.moyun.common.exception.system.ServiceException("文章不存在");
+            throw new ServiceException("文章不存在");
         }
         String oldStatus = existing.getStatus();
         // 允许：published → archived（下架）、archived → published（重新上架）
         // 禁止：pending → published（必须审核）、rejected → published（必须重新提交审核）
         if ("published".equals(newStatus) && ("pending".equals(oldStatus) || "rejected".equals(oldStatus))) {
-            throw new com.moyun.common.exception.system.ServiceException(
+            throw new ServiceException(
                     "当前状态为 " + oldStatus + "，不可直接上架，请通过审核接口处理");
         }
         LambdaUpdateWrapper<PortalArticle> wrapper = new LambdaUpdateWrapper<>();
@@ -337,7 +338,7 @@ public class CmsArticleServiceImpl implements ICmsArticleService {
         }
         int rows = portalArticleMapper.update(null, wrapper);
         if (rows == 0) {
-            throw new com.moyun.common.exception.system.ServiceException("上下架失败：文章状态已变更，请刷新后重试");
+            throw new ServiceException("上下架失败：文章状态已变更，请刷新后重试");
         }
         return rows;
     }

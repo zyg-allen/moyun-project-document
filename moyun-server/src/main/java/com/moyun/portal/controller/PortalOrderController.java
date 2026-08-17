@@ -1,5 +1,6 @@
 package com.moyun.portal.controller;
 
+import com.moyun.common.exception.system.ServiceException;
 import jakarta.servlet.http.HttpServletResponse;
 import java.util.List;
 
@@ -57,7 +58,7 @@ public class PortalOrderController extends BaseController {
     @PostMapping("/export")
     public void export(HttpServletResponse response, OrderQuery query) {
         if (!PortalSecurityUtils.isAdmin()) {
-            throw new com.moyun.common.exception.system.ServiceException("无权限，仅管理员可操作");
+            throw new ServiceException("无权限，仅管理员可操作");
         }
         List<PortalOrder> list = portalOrderService.selectPortalOrderList(query);
         ExcelUtil<PortalOrder> util = new ExcelUtil<PortalOrder>(PortalOrder.class);

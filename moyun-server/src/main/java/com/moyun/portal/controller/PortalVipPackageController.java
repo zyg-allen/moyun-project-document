@@ -1,5 +1,6 @@
 package com.moyun.portal.controller;
 
+import com.moyun.common.exception.system.ServiceException;
 import jakarta.servlet.http.HttpServletResponse;
 import java.util.List;
 
@@ -50,7 +51,7 @@ public class PortalVipPackageController extends BaseController {
     @PostMapping("/export")
     public void export(HttpServletResponse response, VipPackageQuery query) {
         if (!PortalSecurityUtils.isAdmin()) {
-            throw new com.moyun.common.exception.system.ServiceException("无权限，仅管理员可操作");
+            throw new ServiceException("无权限，仅管理员可操作");
         }
         List<PortalVipPackage> list = portalVipPackageService.selectPortalVipPackageList(query);
         ExcelUtil<PortalVipPackage> util = new ExcelUtil<PortalVipPackage>(PortalVipPackage.class);

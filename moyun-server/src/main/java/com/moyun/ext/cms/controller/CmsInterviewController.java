@@ -5,6 +5,7 @@ import java.util.Map;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.moyun.util.security.SecurityUtils;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -331,7 +332,8 @@ public class CmsInterviewController extends BaseController {
     @Log(title = "面试面经", businessType = BusinessType.INSERT)
     @PostMapping("/experience")
     public AjaxResult addExperience(@RequestBody PortalInterviewExperience experience) {
-        return toAjax(portalInterviewService.insertExperience(experience, null));
+        Long userId = SecurityUtils.getUserId();
+        return toAjax(portalInterviewService.insertExperience(experience, userId));
     }
 
     @Operation(summary = "修改面经", description = "更新面经内容")
@@ -339,7 +341,8 @@ public class CmsInterviewController extends BaseController {
     @Log(title = "面试面经", businessType = BusinessType.UPDATE)
     @PutMapping("/experience")
     public AjaxResult editExperience(@RequestBody PortalInterviewExperience experience) {
-        return toAjax(portalInterviewService.updateExperience(experience, null));
+        Long userId = SecurityUtils.getUserId();
+        return toAjax(portalInterviewService.updateExperience(experience, userId));
     }
 
     @Operation(summary = "审核面经", description = "审核面经内容")

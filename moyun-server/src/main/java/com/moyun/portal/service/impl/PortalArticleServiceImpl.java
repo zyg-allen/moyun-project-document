@@ -7,6 +7,7 @@ import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.moyun.common.exception.system.ServiceException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -115,7 +116,7 @@ public class PortalArticleServiceImpl extends ServiceImpl<PortalArticleMapper, P
     @Override
     public Page<PortalArticle> selectMyArticlesPage(Page<PortalArticle> page, ArticleQuery query) {
         if (query.getAuthorId() == null) {
-            throw new com.moyun.common.exception.system.ServiceException("查询我的文章必须提供作者ID");
+            throw new ServiceException("查询我的文章必须提供作者ID");
         }
         return baseMapper.selectMyArticlesPage(page, query);
     }

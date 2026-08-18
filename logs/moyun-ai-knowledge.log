@@ -1,1 +1,112 @@
 2026-08-18 13:42:12.401  INFO 13748 --- [main] c.m.e.a.s.impl.KnowledgeBaseServiceImpl  : ✅ 使用动态配置的 Embedding 模型: 通义千问-多模态Embedding (text-embedding-v3)
+2026-08-18 14:20:52.704  INFO 12444 --- [main] c.m.e.a.s.impl.KnowledgeBaseServiceImpl  : ✅ 使用动态配置的 Embedding 模型: 通义千问-多模态Embedding (text-embedding-v3)
+2026-08-18 17:36:37.538  INFO 17668 --- [main] c.m.e.a.s.impl.KnowledgeBaseServiceImpl  : ✅ 使用动态配置的 Embedding 模型: 通义千问-多模态Embedding (text-embedding-v3)
+2026-08-18 18:30:39.901  INFO 17668 --- [http-nio-8080-exec-6] c.m.e.a.s.impl.KnowledgeBaseServiceImpl  : ========== 开始上传文件（不处理）==========
+2026-08-18 18:30:39.902  INFO 17668 --- [http-nio-8080-exec-6] c.m.e.a.s.impl.KnowledgeBaseServiceImpl  : 文件名: 01_项目介绍.md, 大小: 11499 bytes
+2026-08-18 18:30:39.976  INFO 17668 --- [http-nio-8080-exec-6] c.m.e.a.s.impl.KnowledgeBaseServiceImpl  : ✅ 文件已上传到 MinIO: 1787049039902_d94f1711.md
+2026-08-18 18:30:39.978  INFO 17668 --- [http-nio-8080-exec-6] c.m.e.a.s.impl.KnowledgeBaseServiceImpl  : ✅ 文件哈希计算完成: 76ec2bc2bd58b50170e4a5fc75a931931fcb3b5020df144a39117ef9ba0415a0
+2026-08-18 18:30:40.013  INFO 17668 --- [http-nio-8080-exec-6] c.m.e.a.s.impl.KnowledgeBaseServiceImpl  : ✅ 知识库记录已创建，ID=134, 状态=pending
+2026-08-18 18:30:40.069  INFO 17668 --- [http-nio-8080-exec-6] c.m.e.a.s.impl.KnowledgeBaseServiceImpl  : ✅ 默认配置已创建
+2026-08-18 18:30:40.069  INFO 17668 --- [http-nio-8080-exec-6] c.m.e.a.s.impl.KnowledgeBaseServiceImpl  : ========== 文件上传完成（等待配置）==========
+2026-08-18 18:30:47.353  INFO 17668 --- [knowledge-1] c.m.e.a.s.impl.KnowledgeBaseServiceImpl  : ========== 开始处理知识库 ==========
+2026-08-18 18:30:47.353  INFO 17668 --- [knowledge-1] c.m.e.a.s.impl.KnowledgeBaseServiceImpl  : 知识库ID: 134
+2026-08-18 18:30:47.353  INFO 17668 --- [knowledge-1] c.m.e.a.s.impl.KnowledgeBaseServiceImpl  : 配置: 分段模式=general, 最大长度=500, 重叠长度=50
+2026-08-18 18:30:47.353  INFO 17668 --- [knowledge-1] c.m.e.a.s.impl.KnowledgeBaseServiceImpl  : 当前线程: knowledge-1
+2026-08-18 18:30:47.379  INFO 17668 --- [knowledge-1] c.m.e.a.s.impl.KnowledgeBaseServiceImpl  : 📄 开始文件类型转换检查 - 文件类型: md, MinIO对象: 1787049039902_d94f1711.md
+2026-08-18 18:30:47.450  INFO 17668 --- [knowledge-1] c.m.e.a.s.impl.KnowledgeBaseServiceImpl  : ✓ 文件已下载到临时目录: C:\Users\19987\AppData\Local\Temp\minio_source_12460049127311859605.md, 大小: 11499 bytes
+2026-08-18 18:30:47.454  INFO 17668 --- [knowledge-1] c.m.e.a.s.impl.KnowledgeBaseServiceImpl  : 🔄 调用转换器: DocumentToPdfConverter.convertToPdf()
+2026-08-18 18:30:48.181  INFO 17668 --- [knowledge-1] c.m.e.a.s.impl.KnowledgeBaseServiceImpl  : 📊 转换结果: 失败
+2026-08-18 18:30:48.181  WARN 17668 --- [knowledge-1] c.m.e.a.s.impl.KnowledgeBaseServiceImpl  : ⚠️ 文档转 PDF 失败，使用原文件: 1787049039902_d94f1711.md
+2026-08-18 18:30:48.200  INFO 17668 --- [knowledge-1] c.m.e.a.s.impl.KnowledgeBaseServiceImpl  : ✅ PDF转换完成: 1787049039902_d94f1711.md
+2026-08-18 18:30:48.202  INFO 17668 --- [knowledge-1] c.m.e.a.s.impl.KnowledgeBaseServiceImpl  : 开始处理文本文档（使用配置）: 01_项目介绍.md
+2026-08-18 18:30:48.215  INFO 17668 --- [knowledge-1] c.m.e.a.s.impl.KnowledgeBaseServiceImpl  : ✓ 文件已下载到临时目录: C:\Users\19987\AppData\Local\Temp\minio_11825810637971410998.md
+2026-08-18 18:30:48.217  INFO 17668 --- [knowledge-1] c.m.e.a.s.impl.KnowledgeBaseServiceImpl  : 原始文本长度: 7492 字符
+2026-08-18 18:30:48.225  INFO 17668 --- [knowledge-1] c.m.e.a.s.impl.KnowledgeBaseServiceImpl  : 预处理后文本长度: 6960 字符
+2026-08-18 18:30:48.225  INFO 17668 --- [knowledge-1] c.m.e.a.s.impl.KnowledgeBaseServiceImpl  : 使用配置进行文本分段
+2026-08-18 18:30:48.225  INFO 17668 --- [knowledge-1] c.m.e.a.s.impl.KnowledgeBaseServiceImpl  : 分段参数: maxLength=500, overlap=50, separator=null
+2026-08-18 18:30:48.351  INFO 17668 --- [knowledge-1] c.m.e.a.s.impl.KnowledgeBaseServiceImpl  : 分段完成，共 17 个分片
+2026-08-18 18:30:48.352  INFO 17668 --- [knowledge-1] c.m.e.a.s.impl.KnowledgeBaseServiceImpl  : 开始向量化，共 17 个分片
+2026-08-18 18:30:48.820 ERROR 17668 --- [knowledge-1] c.m.e.a.s.impl.KnowledgeBaseServiceImpl  : ❌ 处理知识库失败
+
+com.moyun.ext.ai.exception.BusinessException: 添加向量到 Redis 失败
+	at com.moyun.ext.ai.store.RedisEmbeddingStore.addInternal(RedisEmbeddingStore.java:278)
+	at com.moyun.ext.ai.store.RedisEmbeddingStore.add(RedisEmbeddingStore.java:225)
+	at com.moyun.ext.ai.store.RedisEmbeddingStore.add(RedisEmbeddingStore.java:69)
+	at com.moyun.ext.ai.service.impl.KnowledgeBaseServiceImpl.vectorizeAndStore(KnowledgeBaseServiceImpl.java:2127)
+	at com.moyun.ext.ai.service.impl.KnowledgeBaseServiceImpl.processTextDocumentWithConfig(KnowledgeBaseServiceImpl.java:2010)
+	at com.moyun.ext.ai.service.impl.KnowledgeBaseServiceImpl.processKnowledge(KnowledgeBaseServiceImpl.java:1798)
+	at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+	at org.springframework.aop.support.AopUtils.invokeJoinpointUsingReflection(AopUtils.java:354)
+	at org.springframework.aop.framework.CglibAopProxy$DynamicAdvisedInterceptor.intercept(CglibAopProxy.java:716)
+	at com.moyun.ext.ai.service.impl.KnowledgeBaseServiceImpl$$SpringCGLIB$$0.processKnowledge(<generated>)
+	at com.moyun.ext.ai.controller.KnowledgeBaseController.lambda$configureKnowledge$5(KnowledgeBaseController.java:568)
+	at java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1144)
+	at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:642)
+	at java.base/java.lang.Thread.run(Thread.java:1583)
+Caused by: com.moyun.ext.ai.exception.BusinessException: 初始化 Redis 索引失败: RedisEmbeddingStore 仅支持 Lettuce 连接，当前: jdk.proxy2.$Proxy368
+	at com.moyun.ext.ai.store.RedisEmbeddingStore.ensureIndexExists(RedisEmbeddingStore.java:166)
+	at com.moyun.ext.ai.store.RedisEmbeddingStore.addInternal(RedisEmbeddingStore.java:251)
+	... 14 common frames omitted
+Caused by: com.moyun.ext.ai.exception.BusinessException: RedisEmbeddingStore 仅支持 Lettuce 连接，当前: jdk.proxy2.$Proxy368
+	at com.moyun.ext.ai.store.RedisEmbeddingStore.lambda$dispatchFt$0(RedisEmbeddingStore.java:136)
+	at org.springframework.data.redis.core.RedisTemplate.execute(RedisTemplate.java:396)
+	at org.springframework.data.redis.core.RedisTemplate.execute(RedisTemplate.java:363)
+	at org.springframework.data.redis.core.RedisTemplate.execute(RedisTemplate.java:350)
+	at com.moyun.ext.ai.store.RedisEmbeddingStore.dispatchFt(RedisEmbeddingStore.java:133)
+	at com.moyun.ext.ai.store.RedisEmbeddingStore.createIndex(RedisEmbeddingStore.java:202)
+	at com.moyun.ext.ai.store.RedisEmbeddingStore.ensureIndexExists(RedisEmbeddingStore.java:156)
+	... 15 common frames omitted
+
+2026-08-18 18:31:07.499  INFO 17668 --- [http-nio-8080-exec-11] c.m.e.a.s.impl.KnowledgeBaseServiceImpl  : 更新知识库元数据 - ID: 134, 分组: null, 标签数: 无
+2026-08-18 18:31:07.509  INFO 17668 --- [http-nio-8080-exec-11] c.m.e.a.s.impl.KnowledgeBaseServiceImpl  : ✅ 元数据更新成功 - ID: 134
+2026-08-18 18:31:28.875  INFO 17668 --- [knowledge-2] c.m.e.a.s.impl.KnowledgeBaseServiceImpl  : ========== 开始处理知识库 ==========
+2026-08-18 18:31:28.875  INFO 17668 --- [knowledge-2] c.m.e.a.s.impl.KnowledgeBaseServiceImpl  : 知识库ID: 134
+2026-08-18 18:31:28.875  INFO 17668 --- [knowledge-2] c.m.e.a.s.impl.KnowledgeBaseServiceImpl  : 配置: 分段模式=general, 最大长度=800, 重叠长度=100
+2026-08-18 18:31:28.875  INFO 17668 --- [knowledge-2] c.m.e.a.s.impl.KnowledgeBaseServiceImpl  : 当前线程: knowledge-2
+2026-08-18 18:31:28.894  INFO 17668 --- [knowledge-2] c.m.e.a.s.impl.KnowledgeBaseServiceImpl  : 📄 开始文件类型转换检查 - 文件类型: md, MinIO对象: 1787049039902_d94f1711.md
+2026-08-18 18:31:28.941  INFO 17668 --- [knowledge-2] c.m.e.a.s.impl.KnowledgeBaseServiceImpl  : ✓ 文件已下载到临时目录: C:\Users\19987\AppData\Local\Temp\minio_source_12240262053815651687.md, 大小: 11499 bytes
+2026-08-18 18:31:28.944  INFO 17668 --- [knowledge-2] c.m.e.a.s.impl.KnowledgeBaseServiceImpl  : 🔄 调用转换器: DocumentToPdfConverter.convertToPdf()
+2026-08-18 18:31:28.957  INFO 17668 --- [knowledge-2] c.m.e.a.s.impl.KnowledgeBaseServiceImpl  : 📊 转换结果: 失败
+2026-08-18 18:31:28.957  WARN 17668 --- [knowledge-2] c.m.e.a.s.impl.KnowledgeBaseServiceImpl  : ⚠️ 文档转 PDF 失败，使用原文件: 1787049039902_d94f1711.md
+2026-08-18 18:31:28.984  INFO 17668 --- [knowledge-2] c.m.e.a.s.impl.KnowledgeBaseServiceImpl  : ✅ PDF转换完成: 1787049039902_d94f1711.md
+2026-08-18 18:31:28.985  INFO 17668 --- [knowledge-2] c.m.e.a.s.impl.KnowledgeBaseServiceImpl  : 开始处理文本文档（使用配置）: 01_项目介绍.md
+2026-08-18 18:31:29.000  INFO 17668 --- [knowledge-2] c.m.e.a.s.impl.KnowledgeBaseServiceImpl  : ✓ 文件已下载到临时目录: C:\Users\19987\AppData\Local\Temp\minio_1876082437753364486.md
+2026-08-18 18:31:29.002  INFO 17668 --- [knowledge-2] c.m.e.a.s.impl.KnowledgeBaseServiceImpl  : 原始文本长度: 7492 字符
+2026-08-18 18:31:29.003  INFO 17668 --- [knowledge-2] c.m.e.a.s.impl.KnowledgeBaseServiceImpl  : 预处理后文本长度: 6960 字符
+2026-08-18 18:31:29.004  INFO 17668 --- [knowledge-2] c.m.e.a.s.impl.KnowledgeBaseServiceImpl  : 使用配置进行文本分段
+2026-08-18 18:31:29.004  INFO 17668 --- [knowledge-2] c.m.e.a.s.impl.KnowledgeBaseServiceImpl  : 分段参数: maxLength=800, overlap=100, separator=null
+2026-08-18 18:31:29.030  INFO 17668 --- [knowledge-2] c.m.e.a.s.impl.KnowledgeBaseServiceImpl  : 分段完成，共 11 个分片
+2026-08-18 18:31:29.030  INFO 17668 --- [knowledge-2] c.m.e.a.s.impl.KnowledgeBaseServiceImpl  : 开始向量化，共 11 个分片
+2026-08-18 18:31:29.218 ERROR 17668 --- [knowledge-2] c.m.e.a.s.impl.KnowledgeBaseServiceImpl  : ❌ 处理知识库失败
+
+com.moyun.ext.ai.exception.BusinessException: 添加向量到 Redis 失败
+	at com.moyun.ext.ai.store.RedisEmbeddingStore.addInternal(RedisEmbeddingStore.java:278)
+	at com.moyun.ext.ai.store.RedisEmbeddingStore.add(RedisEmbeddingStore.java:225)
+	at com.moyun.ext.ai.store.RedisEmbeddingStore.add(RedisEmbeddingStore.java:69)
+	at com.moyun.ext.ai.service.impl.KnowledgeBaseServiceImpl.vectorizeAndStore(KnowledgeBaseServiceImpl.java:2127)
+	at com.moyun.ext.ai.service.impl.KnowledgeBaseServiceImpl.processTextDocumentWithConfig(KnowledgeBaseServiceImpl.java:2010)
+	at com.moyun.ext.ai.service.impl.KnowledgeBaseServiceImpl.processKnowledge(KnowledgeBaseServiceImpl.java:1798)
+	at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+	at org.springframework.aop.support.AopUtils.invokeJoinpointUsingReflection(AopUtils.java:354)
+	at org.springframework.aop.framework.CglibAopProxy$DynamicAdvisedInterceptor.intercept(CglibAopProxy.java:716)
+	at com.moyun.ext.ai.service.impl.KnowledgeBaseServiceImpl$$SpringCGLIB$$0.processKnowledge(<generated>)
+	at com.moyun.ext.ai.controller.KnowledgeBaseController.lambda$configureKnowledge$5(KnowledgeBaseController.java:568)
+	at java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1144)
+	at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:642)
+	at java.base/java.lang.Thread.run(Thread.java:1583)
+Caused by: com.moyun.ext.ai.exception.BusinessException: 初始化 Redis 索引失败: RedisEmbeddingStore 仅支持 Lettuce 连接，当前: jdk.proxy2.$Proxy368
+	at com.moyun.ext.ai.store.RedisEmbeddingStore.ensureIndexExists(RedisEmbeddingStore.java:166)
+	at com.moyun.ext.ai.store.RedisEmbeddingStore.addInternal(RedisEmbeddingStore.java:251)
+	... 14 common frames omitted
+Caused by: com.moyun.ext.ai.exception.BusinessException: RedisEmbeddingStore 仅支持 Lettuce 连接，当前: jdk.proxy2.$Proxy368
+	at com.moyun.ext.ai.store.RedisEmbeddingStore.lambda$dispatchFt$0(RedisEmbeddingStore.java:136)
+	at org.springframework.data.redis.core.RedisTemplate.execute(RedisTemplate.java:396)
+	at org.springframework.data.redis.core.RedisTemplate.execute(RedisTemplate.java:363)
+	at org.springframework.data.redis.core.RedisTemplate.execute(RedisTemplate.java:350)
+	at com.moyun.ext.ai.store.RedisEmbeddingStore.dispatchFt(RedisEmbeddingStore.java:133)
+	at com.moyun.ext.ai.store.RedisEmbeddingStore.createIndex(RedisEmbeddingStore.java:202)
+	at com.moyun.ext.ai.store.RedisEmbeddingStore.ensureIndexExists(RedisEmbeddingStore.java:156)
+	... 15 common frames omitted
+

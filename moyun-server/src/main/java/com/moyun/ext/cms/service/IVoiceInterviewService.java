@@ -66,4 +66,10 @@ public interface IVoiceInterviewService {
      * 面试详情（含问答列表）
      */
     VoiceInterviewVO getDetail(Long interviewId, Long userId);
+
+    /**
+     * 通过 qaId 查询面试详情（用于错题本桥接，校验 qaId 归属当前用户）
+     * <p>返回的 VoiceInterviewVO 中 currentQa 为该 qaId 对应的问答记录
+     */
+    VoiceInterviewVO getDetailByQaId(Long qaId, Long userId);
 }

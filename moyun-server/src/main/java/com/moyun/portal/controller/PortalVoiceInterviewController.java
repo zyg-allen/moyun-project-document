@@ -9,6 +9,7 @@ import com.moyun.ext.cms.domain.vo.VoiceInterviewReportVO;
 import com.moyun.ext.cms.domain.vo.VoiceInterviewVO;
 import com.moyun.ext.cms.domain.vo.VoiceStartConfig;
 import com.moyun.ext.cms.service.IVoiceInterviewService;
+import com.moyun.ext.cms.service.IWrongQuestionService;
 import com.moyun.portal.util.PortalSecurityUtils;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -32,6 +33,9 @@ public class PortalVoiceInterviewController extends BaseController {
 
     @Autowired
     private IVoiceInterviewService voiceInterviewService;
+
+    @Autowired
+    private IWrongQuestionService wrongQuestionService;
 
     private Long currentUserId() {
         return PortalSecurityUtils.getUserId();
@@ -153,6 +157,26 @@ public class PortalVoiceInterviewController extends BaseController {
         }
         VoiceInterviewVO vo = voiceInterviewService.getDetail(id, userId);
         return AjaxResult.success(vo);
+    }
+
+    /**
+     * 8. 薄弱题一键加入错题本
+     * <p>通过 qaId 回查 questionId，调用 IWrongQuestionService.recordWrongQuestion（幂等）
+     */
+    @Operation(summary = "薄弱题加入错题本", description = "通过语音面试问答ID关联题目加入错题本（幂等）")
+    @PostMapping("/qa/{qaId}/toWrongBook")
+    public AjaxResult toWrongBook(@PathVariable("qaId") Long qaId) {
+        Long userId = currentUserId();
+        if (userId == null) {
+            return AjaxResult.error(HttpStatus.UNAUTHORIZED, "登录已过期，请重新登录");
+        }
+        VoiceInterviewVO vo = voiceInterviewService.getDetailByQaId(qaId, userId);
+        if (vo == null || vo.getCurrentQa() == null || vo.getCurrentQa().getQuestionId() == null) {
+            return AjaxResult.error("无法关联题目，加入错题本失败");
+        }
+        Long questionId = vo.getCurrentQa().getQuestionId();
+        Long wrongId = wrongQuestionService.recordWrongQuestion(userId, questionId, qaId);
+        return AjaxResult.success(wrongId);
     }
 
     /** 提交答案请求体 */

@@ -198,6 +198,21 @@ export const dynamicRoutes = [
       }
     ]
   },
+  // 语音面试复盘（只读管理页，权限由后台菜单控制；此处仅作为常驻页面入口备份）
+  {
+    path: '/cms/voice-interview',
+    component: Layout,
+    hidden: true,
+    permissions: ['cms:voiceInterview:list'],
+    children: [
+      {
+        path: '',
+        component: () => import('@/views/cms/voiceInterview/index'),
+        name: 'VoiceInterview',
+        meta: { title: '语音面试复盘', icon: 'documentation' }
+      }
+    ]
+  },
   // 读书空间-章节管理（动态路由，权限由后台菜单控制；此处仅作为常驻页面入口备份）
   {
     path: '/portal',

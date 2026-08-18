@@ -101,6 +101,8 @@ export interface QuestionReview {
   userAnswer?: string;
   /** 问题深度分析（后端可能暂未返回，可选，优先展示 analysis，否则 fallback 到 feedback） */
   analysis?: string;
+  /** 问答ID（用于加入错题本） */
+  qaId?: number;
 }
 
 /** 亮点/薄弱点条目（兼容纯字符串或带原文引用的对象） */
@@ -298,4 +300,12 @@ export const getMyVoiceInterviewList = (params: { pageNum?: number; pageSize?: n
  */
 export const getVoiceInterviewDetail = (interviewId: number | string) => {
   return httpGet<VoiceInterviewVO>(`/portal/interview/voice/${interviewId}`);
+};
+
+/**
+ * 8. 薄弱题一键加入错题本
+ * POST /portal/interview/voice/qa/{qaId}/toWrongBook
+ */
+export const addQaToWrongBook = (qaId: number | string) => {
+  return httpPost<number>(`/portal/interview/voice/qa/${qaId}/toWrongBook`);
 };

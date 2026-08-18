@@ -467,6 +467,19 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
         return vo;
     }
 
+    @Override
+    public VoiceInterviewVO getDetailByQaId(Long qaId, Long userId) {
+        PortalVoiceInterviewQA qa = qaMapper.selectById(qaId);
+        if (qa == null || "2".equals(qa.getDelFlag())) {
+            return null;
+        }
+        // 校验归属：通过 interviewId 反查面试主表，确认属于当前用户
+        PortalVoiceInterview interview = mustOwnInterview(qa.getInterviewId(), userId);
+        VoiceInterviewVO vo = toVO(interview);
+        vo.setCurrentQa(toQaVO(qa));
+        return vo;
+    }
+
     // ========================================================================
     // 出题逻辑（复用 MockInterview 模式）
     // ========================================================================
@@ -592,11 +605,17 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
         double lengthBonus = Math.min(answer.length() / 200.0, 1.0) * 20;
         int score = (int) Math.min(100, Math.round(coverage * 80 + lengthBonus));
 
-        // 维度分
+        // 维度分（6 维，对齐前端雷达图：relevance/professionalism/fluency/interactivity/confidence/logic）
         Map<String, Integer> dimensions = new LinkedHashMap<>();
-        dimensions.put("coverage", (int) Math.round(coverage * 100));
-        dimensions.put("length", (int) Math.min(100, answer.length() / 2));
-        dimensions.put("structure", matched >= 2 ? 70 : 40);
+        int coverageScore = (int) Math.round(coverage * 100);
+        int lengthScore = (int) Math.min(100, answer.length() / 2);
+        int structureScore = matched >= 2 ? 70 : 40;
+        dimensions.put("relevance", coverageScore);                                   // 回答相关性 = 关键词覆盖率
+        dimensions.put("professionalism", structureScore);                             // 专业度 = 结构化命中
+        dimensions.put("fluency", lengthScore);                                       // 表达流畅度 = 答案长度
+        dimensions.put("interactivity", matched >= 1 ? 65 : 40);                      // 面试互动性 = 是否命中关键词
+        dimensions.put("confidence", Math.min(100, 50 + (int) lengthBonus));          // 自信度 = 长度奖励基线
+        dimensions.put("logic", matched >= 2 ? 75 : (matched >= 1 ? 55 : 35));         // 逻辑清晰 = 关键词结构化程度
 
         String feedback = buildFeedback(score, matched, keywords.size(), answer.length());
         return new ScoreResult(score, feedback, dimensions);
@@ -709,9 +728,9 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
         followup.setTranscriptionEdited(0);
         followup.setCreateTime(LocalDateTime.now());
 
-        // 追问话术：基于评分反馈引导补充
+        // 追问话术：基于评分反馈引导补充（对齐 6 维：relevance 回答相关性）
         String followupQuestion = "你的回答覆盖了部分要点，但还有补充空间。"
-                + (sr.dimensions.get("coverage") < 50 ? "建议围绕核心概念再展开说明。" : "能否举一个具体例子说明？");
+                + (sr.dimensions.get("relevance") < 50 ? "建议围绕核心概念再展开说明。" : "能否举一个具体例子说明？");
         followup.setQuestion(followupQuestion);
         followup.setSpeakText(followupQuestion);
         qaMapper.insert(followup);
@@ -732,7 +751,7 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
                 userMsg.append("题目：").append(question == null ? "未知" : question.getTitle()).append("\n");
                 userMsg.append("考生回答：").append(answer).append("\n");
                 userMsg.append("得分：").append(sr.score).append("/100\n");
-                userMsg.append("关键词覆盖：").append(sr.dimensions.get("coverage")).append("%\n");
+                userMsg.append("关键词覆盖：").append(sr.dimensions.get("relevance")).append("%\n");
                 userMsg.append("请作为面试官给出简短回应（50字以内），");
                 switch (nextAction) {
                     case "followup":

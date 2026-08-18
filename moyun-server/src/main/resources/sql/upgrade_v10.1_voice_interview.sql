@@ -120,7 +120,7 @@ CREATE TABLE IF NOT EXISTS `portal_voice_interview_qa` (
                                                            `ai_feedback` text COMMENT 'AI 反馈（规则化生成）',
                                                            `speak_text` text COMMENT 'AI 面试官话术（TTS 播报内容，区别于 question 纯文本）',
                                                            `score` int DEFAULT NULL COMMENT '本题评分（0-100）',
-                                                           `rule_dimensions_json` text COMMENT '规则维度分 JSON（如 {"coverage":80,"length":60,"structure":70}）',
+                                                           `rule_dimensions_json` text COMMENT '规则维度分 JSON（6维对齐雷达图：{"relevance":80,"professionalism":70,"fluency":60,"interactivity":65,"confidence":70,"logic":75}）',
                                                            `hint_used` int DEFAULT '0' COMMENT '已使用提示次数（0~3）',
                                                            `latency_ms` int DEFAULT NULL COMMENT '答题耗时（毫秒，从题目展示到提交答案）',
                                                            `next_action` varchar(20) DEFAULT NULL COMMENT '下一步动作 followup/hint/next/report',

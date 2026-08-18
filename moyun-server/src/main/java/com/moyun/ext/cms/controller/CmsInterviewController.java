@@ -18,6 +18,7 @@ import com.moyun.common.annotation.Log;
 import com.moyun.common.enums.BusinessType;
 import com.moyun.core.base.AjaxResult;
 import com.moyun.core.base.BaseController;
+import com.moyun.core.base.dto.ImportResult;
 import com.moyun.ext.cms.domain.query.InterviewCommentQuery;
 import com.moyun.ext.cms.domain.query.InterviewCompanyQuery;
 import com.moyun.ext.cms.domain.query.InterviewExperienceQuery;
@@ -220,7 +221,7 @@ public class CmsInterviewController extends BaseController {
                     row.put("status", q.getStatus() == null ? "" : q.getStatus());
                     rows.add(row);
                 }
-                com.moyun.core.base.dto.ImportResult result = portalInterviewService.importQuestions(rows, getUsername());
+                ImportResult result = portalInterviewService.importQuestions(rows, getUsername());
                 return success(result);
             } catch (Exception e) {
                 return error("导入失败：" + e.getMessage());
@@ -228,7 +229,7 @@ public class CmsInterviewController extends BaseController {
         }
         // 动态模板：用 ImportExportHelper 解析（保留字段名映射，便于失败回导）
         List<Map<String, String>> rows = com.moyun.util.file.ImportExportHelper.readRows(file.getInputStream(), configs);
-        com.moyun.core.base.dto.ImportResult result = portalInterviewService.importQuestions(rows, getUsername());
+        ImportResult result = portalInterviewService.importQuestions(rows, getUsername());
         return success(result);
     }
 
@@ -261,7 +262,7 @@ public class CmsInterviewController extends BaseController {
     @lombok.Data
     public static class ExportFailRowsBody {
         @io.swagger.v3.oas.annotations.media.Schema(description = "失败明细列表")
-        private java.util.List<com.moyun.core.base.dto.ImportResult.FailRow> failRows;
+        private java.util.List<ImportResult.FailRow> failRows;
     }
 
     // ========================================================================

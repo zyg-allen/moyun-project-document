@@ -20,6 +20,7 @@ import com.moyun.portal.mapper.PortalArticleMapper;
 import com.moyun.portal.mapper.PortalColumnArticleMapper;
 import com.moyun.portal.mapper.PortalColumnMapper;
 import com.moyun.portal.mapper.PortalColumnSubscribeMapper;
+import com.moyun.system.domain.dto.AuditTaskSubmitDTO;
 import com.moyun.system.service.ISensitiveWordService;
 import com.moyun.util.bean.PageUtils;
 import com.moyun.util.string.StringUtils;
@@ -419,7 +420,7 @@ public class ColumnServiceImpl implements IColumnService {
      * v8.1：提交专栏统一审核任务（事务内，异常回滚保证双写一致）。
      */
     private void submitColumnAuditTask(PortalColumn entity, Long userId) {
-        com.moyun.system.domain.dto.AuditTaskSubmitDTO dto = new com.moyun.system.domain.dto.AuditTaskSubmitDTO();
+        AuditTaskSubmitDTO dto = new AuditTaskSubmitDTO();
         dto.setTaskType("column");
         dto.setBizId(entity.getId());
         dto.setTitle(entity.getTitle());

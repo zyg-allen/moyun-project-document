@@ -18,6 +18,7 @@ import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.moyun.common.exception.system.ServiceException;
+import com.moyun.core.base.dto.ImportResult;
 import com.moyun.ext.cms.domain.vo.UserProfileSnapshotVO;
 import com.moyun.ext.cms.service.IUserProfileSnapshotService;
 import com.moyun.util.security.SecurityUtils;
@@ -44,6 +45,7 @@ import com.moyun.ext.cms.domain.vo.InterviewQuestionVO;
 import com.moyun.ext.cms.domain.vo.InterviewResumeTemplateVO;
 import com.moyun.ext.cms.domain.vo.InterviewSubmissionVO;
 import com.moyun.ext.cms.service.IFeedService;
+import com.moyun.system.domain.dto.AuditTaskSubmitDTO;
 import com.moyun.system.domain.entity.SysNotification;
 import com.moyun.system.service.ISysNotificationService;
 import com.moyun.ext.cms.service.IPortalInterviewService;
@@ -271,8 +273,8 @@ public class PortalInterviewServiceImpl implements IPortalInterviewService {
      */
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public com.moyun.core.base.dto.ImportResult importQuestions(List<Map<String, String>> rows, String operName) {
-        com.moyun.core.base.dto.ImportResult result = new com.moyun.core.base.dto.ImportResult();
+    public ImportResult importQuestions(List<Map<String, String>> rows, String operName) {
+        ImportResult result = new ImportResult();
         if (rows == null || rows.isEmpty()) {
             result.setTotalRows(0);
             result.setSuccessCount(0);
@@ -281,7 +283,7 @@ public class PortalInterviewServiceImpl implements IPortalInterviewService {
             return result;
         }
 
-        List<com.moyun.core.base.dto.ImportResult.FailRow> failRows = new java.util.ArrayList<>();
+        List<ImportResult.FailRow> failRows = new java.util.ArrayList<>();
         int successCount = 0;
         java.time.LocalDateTime now = java.time.LocalDateTime.now();
 
@@ -377,7 +379,7 @@ public class PortalInterviewServiceImpl implements IPortalInterviewService {
                     }
                 }
             } catch (Exception e) {
-                failRows.add(new com.moyun.core.base.dto.ImportResult.FailRow(
+                failRows.add(new ImportResult.FailRow(
                         rowNo,
                         e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage(),
                         new java.util.LinkedHashMap<>(row)
@@ -1524,7 +1526,7 @@ public class PortalInterviewServiceImpl implements IPortalInterviewService {
      */
     private void submitAuditTask(String taskType, Long bizId, String title,
                                  String description, Long submitterId) {
-        com.moyun.system.domain.dto.AuditTaskSubmitDTO dto = new com.moyun.system.domain.dto.AuditTaskSubmitDTO();
+        AuditTaskSubmitDTO dto = new AuditTaskSubmitDTO();
         dto.setTaskType(taskType);
         dto.setBizId(bizId);
         dto.setTitle(title);

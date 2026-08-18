@@ -16,6 +16,7 @@ import com.moyun.portal.domain.entity.PortalUser;
 import com.moyun.portal.mapper.PortalCreatorCertificationMapper;
 import com.moyun.portal.mapper.PortalUserMapper;
 import com.moyun.portal.service.IPortalCreatorCertificationService;
+import com.moyun.system.domain.dto.AuditTaskSubmitDTO;
 import com.moyun.system.domain.entity.SysNotification;
 import com.moyun.system.service.ISysNotificationService;
 
@@ -70,7 +71,7 @@ public class PortalCreatorCertificationServiceImpl
         baseMapper.insert(entity);
 
         // v8.1：提交统一审核任务（写 sys_audit_task），使首页/审核中心待办可见
-        com.moyun.system.domain.dto.AuditTaskSubmitDTO auditDto = new com.moyun.system.domain.dto.AuditTaskSubmitDTO();
+        AuditTaskSubmitDTO auditDto = new AuditTaskSubmitDTO();
         auditDto.setTaskType("certification");
         auditDto.setBizId(entity.getId());
         auditDto.setTitle("创作者认证申请-" + entity.getRealName());

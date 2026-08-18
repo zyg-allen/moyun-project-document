@@ -8,6 +8,7 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.moyun.common.exception.system.ServiceException;
 import com.moyun.ext.cms.domain.query.CmsArticleQuery;
 import com.moyun.ext.cms.domain.vo.CmsArticleVO;
+import com.moyun.ext.cms.event.ArticlePublishedEvent;
 import com.moyun.ext.cms.service.ICmsArticleService;
 import com.moyun.portal.domain.entity.PortalArticle;
 import com.moyun.portal.domain.entity.PortalUser;
@@ -15,6 +16,7 @@ import com.moyun.portal.domain.query.ArticleQuery;
 import com.moyun.portal.mapper.PortalArticleMapper;
 import com.moyun.portal.mapper.PortalUserMapper;
 import com.moyun.portal.service.IPortalCategoryService;
+import com.moyun.system.domain.dto.AuditTaskSubmitDTO;
 import com.moyun.system.domain.entity.SysNotification;
 import com.moyun.system.service.ISysNotificationService;
 import com.moyun.util.file.Base64ImageUtils;
@@ -252,7 +254,7 @@ public class CmsArticleServiceImpl implements ICmsArticleService {
         // 审核通过：发布事件，触发 Feed 流补发 + 积分联动（监听器做幂等检查，避免重复）
         // 设计：使用 Spring Event 解耦，监听器在事务提交后异步处理，不影响审核主流程响应
         if ("published".equals(newStatus) && existing.getAuthorId() != null) {
-            eventPublisher.publishEvent(new com.moyun.ext.cms.event.ArticlePublishedEvent(
+            eventPublisher.publishEvent(new ArticlePublishedEvent(
                     this,
                     existing.getId(),
                     existing.getAuthorId(),
@@ -608,7 +610,7 @@ public class CmsArticleServiceImpl implements ICmsArticleService {
      * v8.1：提交文章统一审核任务（事务内，异常回滚保证双写一致）。
      */
     private void submitArticleAuditTask(PortalArticle article) {
-        com.moyun.system.domain.dto.AuditTaskSubmitDTO dto = new com.moyun.system.domain.dto.AuditTaskSubmitDTO();
+        AuditTaskSubmitDTO dto = new AuditTaskSubmitDTO();
         dto.setTaskType("article");
         dto.setBizId(article.getId());
         dto.setTitle(article.getTitle());

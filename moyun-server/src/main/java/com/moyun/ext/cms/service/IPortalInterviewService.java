@@ -5,6 +5,7 @@ import java.util.Map;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 
+import com.moyun.core.base.dto.ImportResult;
 import com.moyun.ext.cms.domain.query.InterviewCommentQuery;
 import com.moyun.ext.cms.domain.query.InterviewCompanyQuery;
 import com.moyun.ext.cms.domain.query.InterviewExperienceQuery;
@@ -95,7 +96,7 @@ public interface IPortalInterviewService {
      * @param operName       操作人
      * @return 导入结果
      */
-    com.moyun.core.base.dto.ImportResult importQuestions(List<Map<String, String>> rows, String operName);
+    ImportResult importQuestions(List<Map<String, String>> rows, String operName);
 
     InterviewSubmissionVO submitAnswer(Long questionId, Long userId, Map<String, Object> body);
 

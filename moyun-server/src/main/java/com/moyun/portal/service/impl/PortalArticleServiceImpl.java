@@ -35,6 +35,7 @@ import com.moyun.portal.service.IPortalArticleVersionService;
 import com.moyun.portal.service.IPortalCategoryService;
 import com.moyun.portal.service.IPortalGrowthService;
 import com.moyun.portal.util.PortalSecurityUtils;
+import com.moyun.system.domain.dto.AuditTaskSubmitDTO;
 import com.moyun.system.service.ISensitiveWordService;
 import com.moyun.util.file.Base64ImageUtils;
 
@@ -632,7 +633,7 @@ public class PortalArticleServiceImpl extends ServiceImpl<PortalArticleMapper, P
      * v8.1：提交文章统一审核任务（事务内，异常回滚保证双写一致）。
      */
     private void submitArticleAuditTask(PortalArticle article) {
-        com.moyun.system.domain.dto.AuditTaskSubmitDTO dto = new com.moyun.system.domain.dto.AuditTaskSubmitDTO();
+        AuditTaskSubmitDTO dto = new AuditTaskSubmitDTO();
         dto.setTaskType("article");
         dto.setBizId(article.getId());
         dto.setTitle(article.getTitle());

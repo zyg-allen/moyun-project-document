@@ -21,6 +21,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.moyun.ext.cms.service.IFeedService;
 import com.moyun.common.exception.system.ServiceException;
+import com.moyun.system.domain.dto.AuditTaskSubmitDTO;
 import com.moyun.system.domain.entity.SysNotification;
 import com.moyun.system.service.ISensitiveWordService;
 import com.moyun.system.service.ISysNotificationService;
@@ -164,7 +165,7 @@ public class PortalTopicServiceImpl extends ServiceImpl<PortalTopicMapper, Porta
 
         // v8.1：提交统一审核任务（写 sys_audit_task），使首页/审核中心待办可见
         if (topic.getId() != null) {
-            com.moyun.system.domain.dto.AuditTaskSubmitDTO dto = new com.moyun.system.domain.dto.AuditTaskSubmitDTO();
+            AuditTaskSubmitDTO dto = new AuditTaskSubmitDTO();
             dto.setTaskType("topic");
             dto.setBizId(topic.getId());
             dto.setTitle(topic.getTitle());

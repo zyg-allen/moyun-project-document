@@ -4,7 +4,7 @@ import { useRouter } from 'vue-router';
 import { useHead } from '@vueuse/head';
 import {
   FileText, Plus, Pencil, Trash2, Copy, Download, Star, Clock, CheckCircle,
-  Send, Archive, History, X,
+  Send, Archive, History, X, Sparkles,
 } from 'lucide-vue-next';
 import SiteFooter from '@/components/SiteFooter.vue';
 import Breadcrumb from '@/components/Breadcrumb.vue';
@@ -84,6 +84,11 @@ async function loadResumes() {
 
 function gotoCreate() {
   router.push('/interview/resume/edit');
+}
+
+// v10.0 P0-2: 跳转到简历模板库,引导用户基于模板快速创建(语音面试官题源前置)
+function gotoCreateWithTemplate() {
+  router.push('/interview/resume-templates');
 }
 
 function gotoEdit(id: string | number | undefined) {
@@ -328,14 +333,40 @@ function gotoPage(p: number) {
         >
           <FileText class="w-12 h-12 mx-auto mb-3" style="color: var(--theme-text-secondary); opacity: 0.5;" />
           <p class="text-sm mb-4" style="color: var(--theme-text-secondary);">还没有简历，立即创建</p>
-          <button
-            @click="gotoCreate"
-            class="inline-flex items-center px-4 py-2 text-white rounded-lg text-sm transition hover:opacity-90"
-            style="background-color: var(--theme-primary);"
+
+          <!-- v10.0 P0-2: 语音面试官场景引导 - 简历是语音面试 40% 题源 -->
+          <div
+            class="mb-5 mx-auto max-w-md p-4 rounded-lg text-left text-sm"
+            style="background-color: var(--theme-bg); border: 1px dashed var(--theme-border);"
           >
-            <Plus class="w-4 h-4 mr-1" />
-            创建第一份简历
-          </button>
+            <p class="font-semibold mb-2" style="color: var(--theme-primary);">
+              🎙️ AI 语音面试官即将上线
+            </p>
+            <p style="color: var(--theme-text-secondary); line-height: 1.6;">
+              简历是语音面试官的核心题源——约 <strong style="color: var(--theme-text);">40% 的题目</strong>
+              会基于你简历中的项目经历深挖提问。先创建一份含至少 1 个项目的简版简历，
+              解锁更精准的语音模拟面试体验。
+            </p>
+          </div>
+
+          <div class="flex items-center justify-center gap-3">
+            <button
+              @click="gotoCreate"
+              class="inline-flex items-center px-4 py-2 text-white rounded-lg text-sm transition hover:opacity-90"
+              style="background-color: var(--theme-primary);"
+            >
+              <Plus class="w-4 h-4 mr-1" />
+              创建第一份简历
+            </button>
+            <button
+              @click="gotoCreateWithTemplate"
+              class="inline-flex items-center px-4 py-2 rounded-lg text-sm transition border"
+              style="color: var(--theme-text); border-color: var(--theme-border); background-color: var(--theme-surface);"
+            >
+              <Sparkles class="w-4 h-4 mr-1" />
+              使用模板快速创建
+            </button>
+          </div>
         </div>
 
         <!-- 简历列表 -->

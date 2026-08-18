@@ -5,6 +5,55 @@
 
 ---
 
+## v10.0 Phase 0 (2026-08-18) AI 语音面试官前置依赖就绪
+
+### 背景
+
+基于 [14_AI语音面试官评估与落地计划.md](file:///d:/zyg_new_work/moyun-project-document/docs/14_AI语音面试官评估与落地计划.md) 评估文档，启动 Phase 0 前置依赖任务，为 V10.0~V10.3 语音面试官开发奠定数据与环境基座。本阶段不含功能代码开发，仅交付 SQL 脚本、前端引导增强、部署文档。
+
+### 交付内容
+
+**P0-1 面试题库数据回填**（1000 道种子题）
+- 脚本：`moyun-server/src/main/resources/sql/upgrade_v10.0_interview_question_seed.sql`
+- 分布：Java后端 200 + 前端 200 + 数据库 100 + 算法 200 + 系统设计 100 + 网络 100 + HR软技能 100
+- 幂等：基于 title 去重，可重复执行
+- 含 2 道完整高质量示范题（Java ==/equals、HashMap 底层原理）+ 998 道模板题（存储过程批量生成）
+- 每题填充：title/description/difficulty/category_id/tags/question_type/examine_points/answer_outline/reference_answer/hint
+- 验证段：总数检查、按分类统计、按题型统计、字段完整率、三路召回标签覆盖检查
+- 遗留 TODO：模板题替换为真实高质量题（运营跟进，优先替换高频考点）
+
+**P0-2 简历项目数据引导**（前端空状态增强）
+- 文件：[MyResumesPage.vue](file:///d:/zyg_new_work/moyun-project-document/moyun-portal/src/pages/interview/MyResumesPage.vue)
+- 改动：无简历空状态新增"🎙️ AI 语音面试官即将上线"引导卡（说明简历是 40% 题源）+ "使用模板快速创建"按钮（跳转简历模板库）
+- 新增方法：`gotoCreateWithTemplate()`、新增 import：`Sparkles` 图标
+
+**P0-3 行业知识库初始化**（3 个 RAG 知识库）
+- 脚本：`moyun-server/src/main/resources/sql/upgrade_v10.0_interview_knowledge_library_seed.sql`
+- 库1：Java后端面试热题库（☕，hybrid 检索 + Rerank，Top5）
+- 库2：前端面试热题库（🎨，同上策略）
+- 库3：通用软技能与HR题库（💬，段落稍大 1200 字符适配 STAR 故事）
+- 每库配套 `ai_knowledge_library_config` 记录，分片 800 字符 + 100 重叠 + high_quality 索引
+- 遗留 TODO：运营上传 md 文档（每库至少 5 篇）并触发向量化，V10.3 启用前需 `vectorized_docs >= 5`
+
+**P0-4 JDK 21 环境验证**（部署文档补充）
+- 文件：[04_部署指南.md](file:///d:/zyg_new_work/moyun-project-document/docs/04_部署指南.md) §1.5
+- 内容：JDK 21 环境排查步骤（PowerShell `where.exe java/mvn`）、修复方法（临时/永久环境变量）、编译验证命令（全路径 mvn + JAVA21，已验证 1190 源文件 BUILD SUCCESS）、生产环境注意（Docker/K8s 基础镜像选择）
+
+### 文档同步（四同步原则）
+
+- [09_开发进度与规划.md](file:///d:/zyg_new_work/moyun-project-document/docs/09_开发进度与规划.md) Phase 1 任务表新增"状态"列，标注 4 项已完成 + 5 项待办 + 语音面试官路线图
+- [14_AI语音面试官评估与落地计划.md](file:///d:/zyg_new_work/moyun-project-document/docs/14_AI语音面试官评估与落地计划.md) 评估文档（前序会话已交付）
+- 本 devlog 新增 v10.0 Phase 0 记录
+
+### 后续路线
+
+- V10.0 引擎脚手架（1 天）：HintEngine + useSpeechSynthesis/Recognition + 字典
+- V10.1 语音面试官 MVP（5-7 天）：2 表 + 7 接口 + VoiceInterviewPage
+- V10.2 LLM 面试官（4-5 天）：speak/data 双通道 + 追问链 + 报告
+- V10.3 专业语音升级（3-4 天）：paraformer ASR + cosyvoice TTS + 行业 RAG
+
+---
+
 ## v9.6 (2026-08-16) 后台全面体检：菜单收敛 + 27类业务字典 + 前台字典化（"前台数据皆有后台管理"）
 
 ### 体检发现（三线并行分析）

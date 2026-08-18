@@ -389,6 +389,27 @@ function formatTime(t?: string): string {
       </div>
     </div>
 
+    <!-- V10.1 语音面试官导流横幅 -->
+    <div
+      v-if="stage === 'start'"
+      class="border-b"
+      style="background: linear-gradient(90deg, #dbeafe, #ede9fe); border-color: var(--theme-border);"
+    >
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2 flex items-center justify-between">
+        <div class="flex items-center gap-2 text-sm">
+          <Sparkles :size="16" class="text-blue-600" />
+          <span>AI 语音面试官体验升级，沉浸式语音面试 + 智能评分反馈</span>
+        </div>
+        <button
+          class="text-sm font-semibold text-blue-600 hover:text-blue-700 flex items-center gap-1"
+          @click="router.push('/interview/voice')"
+        >
+          立即体验
+          <ChevronRight :size="14" />
+        </button>
+      </div>
+    </div>
+
     <!-- ============ 开始页 ============ -->
     <template v-if="stage === 'start'">
       <div class="flex-1 py-8">

@@ -54,6 +54,161 @@
 
 ---
 
+## v10.0 引擎脚手架 (2026-08-18) 语音面试官三引擎链路就绪
+
+### 背景
+
+承接 Phase 0 前置依赖，落地 V10.0 引擎脚手架：后端 HintEngine 规则版 + 前端 TTS/ASR/Hint 三 composable + 联调验证页，构成语音面试官最小可运行链路。本阶段不含会话表与正式页面（V10.1 交付），仅验证"浏览器端语音能力 + 规则提示引擎"可行性。
+
+### 后端
+
+**HintEngine 规则引擎**
+- 接口 [HintEngine.java](file:///d:/zyg_new_work/moyun-project-document/moyun-server/src/main/java/com/moyun/ext/cms/service/interview/HintEngine.java)：`generateKeywords` + `generateHint(question, level)`
+- 实现 [HintEngineImpl.java](file:///d:/zyg_new_work/moyun-project-document/moyun-server/src/main/java/com/moyun/ext/cms/service/interview/impl/HintEngineImpl.java)：复用 MockInterviewServiceImpl 关键词提取逻辑（tags + solution + referenceAnswer + answerOutline），按题目类型（hr/project/system_design/algorithm/bagwen）匹配不同结构框架（STAR / 系统设计四步 / 算法四步 / 总分总）
+- [HintVO.java](file:///d:/zyg_new_work/moyun-project-document/moyun-server/src/main/java/com/moyun/ext/cms/domain/vo/HintVO.java)：level/title/keywords/structureHint/examinePoints/speakText，speakText 可直接驱动 TTS
+- 三级提示：L1 切入点（1~2 关键词）/ L2 结构（STAR+大纲）/ L3 全量（关键词+考察点+结构）
+
+**Controller**
+- [PortalVoiceInterviewController.java](file:///d:/zyg_new_work/moyun-project-document/moyun-server/src/main/java/com/moyun/portal/controller/PortalVoiceInterviewController.java)：路径 `/portal/interview/voice`
+  - GET `/hint?questionId=&level=` 分级提示
+  - GET `/keywords?questionId=` 仅关键词（轻量）
+
+**ModelType 枚举扩展**
+- [ModelType.java](file:///d:/zyg_new_work/moyun-project-document/moyun-server/src/main/java/com/moyun/ext/ai/enums/ModelType.java) 新增 `ASR("asr","语音识别模型")` / `TTS("tts","语音合成模型")`，为 V10.3 服务端 ASR/TTS 模型配置预留
+
+### SQL
+
+- [upgrade_v10.1_voice_interview.sql](file:///d:/zyg_new_work/moyun-project-document/moyun-server/src/main/resources/sql/upgrade_v10.1_voice_interview.sql)：
+  - ALTER `ai_model_config.model_type` 注释补充 asr/tts
+  - 3 类字典（WHERE NOT EXISTS 幂等）：
+    - `voice_interview_status`：idle/listening/speaking/scoring/done
+    - `voice_interview_style`：professional/friendly/strict
+    - `voice_interview_hint_level`：1切入点/2结构/3全量
+
+### 前端
+
+**TTS 语音合成**
+- [useSpeechSynthesis.ts](file:///d:/zyg_new_work/moyun-project-document/moyun-portal/src/composables/useSpeechSynthesis.ts)：基于 SpeechSynthesis API
+  - 队列播报（长文本按句切分）/ 暂停 / 恢复 / cancel
+  - 中文语音优选（zh-CN 优先）/ keepAlive 定时器缓解 Chrome 长时间播报卡死
+  - 组件卸载自动清理，避免孤儿音频
+
+**ASR 语音识别**
+- [useSpeechRecognition.ts](file:///d:/zyg_new_work/moyun-project-document/moyun-portal/src/composables/useSpeechRecognition.ts)：基于 webkitSpeechRecognition
+  - interim（实时中间结果）+ final（累积最终结果）
+  - 55s 续期（早于 Chrome 60s 停止主动重启）/ 异常自动重连（最多 3 次）
+  - 麦克风权限拒绝不重连，降级回调 onUnsupported
+
+**HintEngine 调用 + 缓存**
+- [useInterviewHint.ts](file:///d:/zyg_new_work/moyun-project-document/moyun-portal/src/composables/useInterviewHint.ts) + [voiceInterview.ts](file:///d:/zyg_new_work/moyun-project-document/moyun-portal/src/api/voiceInterview.ts)
+  - fetchHint / fetchKeywords（Map 本地缓存，同 questionId+level 只请求一次）
+  - upgradeHint / downgradeHint 逐级升降
+  - 静默错误处理（useApiCall silent 模式）
+
+**联调验证页**
+- [VoiceEngineDemoPage.vue](file:///d:/zyg_new_work/moyun-project-document/moyun-portal/src/pages/interview/VoiceEngineDemoPage.vue) + 路由 `/interview/voice-demo`
+  - 三引擎联动按钮：获取提示 → TTS 播报引导语 → ASR 聆听
+  - TTS 控件（播报/暂停/恢复/停止）、ASR 控件（开始/停止/实时+最终展示）、HintEngine 三级切换 + 播报提示
+  - 引擎支持状态徽章（TTS/ASR/HintEngine）
+
+### 验证方式
+
+1. 启动后端，执行 `upgrade_v10.1_voice_interview.sql`
+2. 访问 `/interview/voice-demo`（需登录，Chrome/Edge 浏览器，HTTPS 或 localhost）
+3. 输入题目 ID → 点击"启动联动" → 观察 TTS 播报 + ASR 聆听 + 提示展示
+4. 单独测试各引擎：TTS 播报自定义文本、ASR 实时识别、HintEngine 三级切换
+
+### 遗留 TODO
+
+- VoiceEngineDemoPage 验证通过后将在 V10.1 被正式 VoiceInterviewPage 替代
+- HintEngine 规则版关键词质量依赖题目 tags/solution 完整度，模板题（Phase 0 种子）质量较低，V10.3 前需运营替换真实题
+- 浏览器兼容性：仅 Chrome/Edge 完整支持 Web Speech API，Safari/Firefox 需走服务端 ASR/TTS（V10.3）
+
+---
+
+## v10.1 (2026-08-18) 语音面试官 MVP
+
+### 背景
+
+承接 V10.0 三引擎链路，落地语音面试官最小可用产品：2 张会话表 + 7 个接口 + SSE 流式评分 + 前端状态机驱动页，跑通"出题 → 语音作答 → 规则评分 → TTS 反馈 → 下一题/报告"完整闭环。本阶段规则评分为主（复用 HintEngine），LLM 话术与报告为 V10.2 范围。
+
+### SQL
+
+[upgrade_v10.1_voice_interview.sql](file:///d:/zyg_new_work/moyun-project-document/moyun-server/src/main/resources/sql/upgrade_v10.1_voice_interview.sql) 在 V10.0 字典基础上扩充：
+- **portal_voice_interview**（会话主表）：user_id/position/scene/resume_id/status/style/difficulty/total_qa/current_idx/score/summary/report/config_json/is_personalized/profile_snapshot；索引 idx_user_time/idx_status/idx_del_flag
+- **portal_voice_interview_qa**（问答明细）：interview_id/question_id/question_snapshot/transcript/score/feedback/hint_used/latency_ms/idx；索引 idx_interview_id/idx_question_id
+- 菜单：前台"AI 语音面试官"（path=interview/voice，路由 /interview/voice，免菜单注册直接路由可达）+ 后台"语音面试记录"管理菜单 + 5 按钮权限
+- 状态字段对齐字典 voice_interview_status：in_progress/completed/abandoned
+
+### 后端
+
+**Entity / Mapper**（com.moyun.portal）
+- [PortalVoiceInterview.java](file:///d:/zyg_new_work/moyun-project-document/moyun-server/src/main/java/com/moyun/portal/domain/entity/PortalVoiceInterview.java) + [PortalVoiceInterviewQA.java](file:///d:/zyg_new_work/moyun-project-document/moyun-server/src/main/java/com/moyun/portal/domain/entity/PortalVoiceInterviewQA.java)
+- [PortalVoiceInterviewMapper.java](file:///d:/zyg_new_work/moyun-project-document/moyun-server/src/main/java/com/moyun/portal/mapper/PortalVoiceInterviewMapper.java) + [PortalVoiceInterviewQAMapper.java](file:///d:/zyg_new_work/moyun-project-document/moyun-server/src/main/java/com/moyun/portal/mapper/PortalVoiceInterviewQAMapper.java)
+
+**VO**（com.moyun.ext.cms.domain.vo，3 个）
+- [VoiceInterviewVO.java](file:///d:/zyg_new_work/moyun-project-document/moyun-server/src/main/java/com/moyun/ext/cms/domain/vo/VoiceInterviewVO.java)：会话主视图，含 totalQa/currentIdx/score/status + qaList
+- [VoiceInterviewQaVO.java](file:///d:/zyg_new_work/moyun-project-document/moyun-server/src/main/java/com/moyun/ext/cms/domain/vo/VoiceInterviewQaVO.java)：单题视图，含 transcript/score/feedback/hintUsed
+- [VoiceInterviewReportVO.java](file:///d:/zyg_new_work/moyun-project-document/moyun-server/src/main/java/com/moyun/ext/cms/domain/vo/VoiceInterviewReportVO.java)：报告视图，含总分/维度分/总结/建议
+
+**Service**（com.moyun.ext.cms.service）
+- 接口 [IVoiceInterviewService.java](file:///d:/zyg_new_work/moyun-project-document/moyun-server/src/main/java/com/moyun/ext/cms/service/IVoiceInterviewService.java)：start/answer(SSE)/hint/next/finish/list/detail
+- 实现 [VoiceInterviewServiceImpl.java](file:///d:/zyg_new_work/moyun-project-document/moyun-server/src/main/java/com/moyun/ext/cms/service/impl/VoiceInterviewServiceImpl.java)：
+  - 出题：从 portal_interview_question 按 category/scene 抽题，支持 resume_id 关联简历题源（V10.1 预留，未接 RAG）
+  - 评分：复用 HintEngine 关键词提取 + 规则打分（关键词命中率 + 结构完整性 + 长度档位），0-100
+  - SSE 双通道：score 事件（规则分）+ speak 事件（TTS 话术）+ data 事件（完整数据）+ end 事件
+  - 独立 sseExecutor 线程池，SSE_TIMEOUT 5min，异常 completeWithError
+  - finish：聚合 QA 明细生成 summary + report（V10.1 规则版，LLM 版 V10.2）
+
+**Controller**（com.moyun.portal.controller）
+- [PortalVoiceInterviewController.java](file:///d:/zyg_new_work/moyun-project-document/moyun-server/src/main/java/com/moyun/portal/controller/PortalVoiceInterviewController.java)：路径 `/portal/interview/voice`，7 接口
+  - POST `/start` 限流 5 次/天（@RateLimiter）
+  - POST `/{id}/answer` 限流 60 次/小时，返回 `text/event-stream`（SseEmitter）
+  - POST `/{id}/hint` 触发提示（不耗题次）
+  - POST `/{id}/next` 推进下一题
+  - POST `/{id}/finish` 结束并生成报告
+  - GET `/my/list` 我的面试历史
+  - GET `/{id}` 面试详情
+  - 内联 3 个 Request 体：AnswerRequest(qaId/transcript/latencyMs)、HintRequest(level)、NextRequest(skip)
+  - 权限校验：start/list 需登录；answer/hint/next/finish/detail 校验会话归属（mustOwnInterview）
+
+### 前端
+
+**API**
+- [voiceInterview.ts](file:///d:/zyg_new_work/moyun-project-document/moyun-portal/src/api/voiceInterview.ts) 扩展：
+  - 7 接口封装（startVoiceInterview/submitVoiceAnswer/getVoiceHint/nextVoiceQuestion/finishVoiceInterview/getMyVoiceInterviews/getVoiceInterviewDetail）
+  - SSE 流式解析：fetch + ReadableStream + TextDecoder 按 `\n\n` 切块，parseSseBlock 解析 event/data，callbacks 分发（onScore/onSpeak/onData/onEnd/onError）
+  - 统一 useApiCall.run() 包装，success 解包，错误静默/提示可配
+
+**页面**
+- [VoiceInterviewPage.vue](file:///d:/zyg_new_work/moyun-project-document/moyun-portal/src/pages/interview/VoiceInterviewPage.vue) + 路由 `/interview/voice`（requiresAuth）
+  - 状态机 Phase：setup → asking → listening → analyzing → report
+  - setup：岗位/场景/难度/风格/题量配置 + 引擎支持检测（TTS/ASR 可用性徽章）
+  - asking：展示题目 + TTS 播报考官开场白 + "开始作答"按钮
+  - listening：useSpeechRecognition 实时转写（interim + final）+ 55s 续期 + 停止按钮 + latency 计时
+  - analyzing：SSE 接收 score/speak/data 事件，TTS 播报反馈话术，展示规则分 + 关键词命中
+  - report：总分 + 维度分 + QA 明细列表 + 重新开始/返回
+  - 三引擎联动：useSpeechSynthesis（播报）+ useSpeechRecognition（聆听）+ useInterviewHint（提示降级）
+- [MockInterviewPage.vue](file:///d:/zyg_new_work/moyun-project-document/moyun-portal/src/pages/interview/MockInterviewPage.vue) 顶部新增 V10.1 导流横幅（仅 start 阶段显示，跳转 /interview/voice）
+- 路由 [router/index.ts](file:///d:/zyg_new_work/moyun-project-document/moyun-portal/src/router/index.ts) 新增 `/interview/voice` 路由（V10.0 的 `/interview/voice-demo` 验证页保留）
+
+### 验证
+
+1. 执行 `upgrade_v10.1_voice_interview.sql`（含 V10.0 字典段，幂等）
+2. 后端 `mvn compile` 通过
+3. 前端 `npm run build`（vue-tsc + vite）通过
+4. 登录后访问 `/interview/voice`（Chrome/Edge + HTTPS/localhost），配置 → 开始 → 语音作答 → 查看评分反馈 → 完成 → 查看报告
+
+### 遗留 TODO
+
+- 评分质量依赖题库 tags/answer 完整度，Phase 0 模板题质量低，V10.3 前需运营替换真实题
+- 报告为规则聚合版，LLM 总结与追问链待 V10.2
+- 浏览器兼容：仅 Chrome/Edge 完整支持 Web Speech API，Safari/Firefox 需走服务端 ASR/TTS（V10.3）
+- resume_id 题源关联未接 RAG，V10.3 行业知识库向量化后启用
+- 清理：已删除 com.moyun.portal.domain.vo 下 3 个遗留重复 VO（VoiceInterviewVO/QaVO/ReportVO），统一使用 com.moyun.ext.cms.domain.vo
+
+---
+
 ## v9.6 (2026-08-16) 后台全面体检：菜单收敛 + 27类业务字典 + 前台字典化（"前台数据皆有后台管理"）
 
 ### 体检发现（三线并行分析）

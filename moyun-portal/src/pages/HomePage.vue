@@ -9,7 +9,8 @@ import {
   Book, Briefcase, Users,
   AlertCircle, RefreshCw,
   BarChart3, Network, TrendingUp,
-  MessageCircle, Activity, Crown, Target
+  MessageCircle, Activity, Crown, Target,
+  Mic, PlayCircle, Clock
 } from 'lucide-vue-next'
 import LazyImage from '@/components/LazyImage.vue'
 import SiteFooter from '@/components/SiteFooter.vue'
@@ -421,6 +422,11 @@ const handleWrite = () => {
   }
   router.push('/publish');
 }
+
+const goVoiceInterview = () => {
+  if (!requireAuth('/interview/voice')) return;
+  router.push('/interview/voice');
+};
 
 // ============ Hero 区：站点核心数据 ============
 // 用前端已加载数据的长度作为统计指标，无需新接口
@@ -840,6 +846,46 @@ useHead(
               <ArrowRight class="w-3 h-3 sm:w-4 sm:h-4" />
             </button>
           </div>
+
+          <!-- AI 语音面试官 · 首页入口 CTA -->
+          <button
+            type="button"
+            @click="goVoiceInterview"
+            class="w-full mb-4 sm:mb-5 overflow-hidden rounded-xl text-left transition-all hover:-translate-y-0.5 hover:shadow-lg"
+            style="background: linear-gradient(135deg,#0F766E 0%,#3FA86F 55%,#F0B429 140%); color:#fff;"
+          >
+            <div class="flex items-center justify-between gap-4 px-4 sm:px-6 py-3.5 sm:py-4">
+              <div class="flex items-center gap-3 sm:gap-4 min-w-0">
+                <div class="shrink-0 w-10 h-10 sm:w-12 sm:h-12 rounded-2xl flex items-center justify-center" style="background: rgba(255,255,255,0.18);">
+                  <Mic class="w-5 h-5 sm:w-6 sm:h-6" />
+                </div>
+                <div class="min-w-0">
+                  <div class="flex items-center gap-2 mb-0.5">
+                    <h4 class="text-sm sm:text-base font-bold truncate">AI 语音面试官</h4>
+                    <span class="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-bold text-white shrink-0" style="background: linear-gradient(90deg,#ef4444,#f97316);">NEW</span>
+                  </div>
+                  <p class="text-xs sm:text-sm truncate" style="color: rgba(255,255,255,0.9);">
+                    🎙 麦克风对练 · 实时追问 · 五维雷达报告
+                  </p>
+                </div>
+              </div>
+              <div class="hidden sm:flex items-center gap-5 shrink-0 text-xs">
+                <div class="text-center">
+                  <div class="flex items-center gap-1 opacity-90"><PlayCircle class="w-3.5 h-3.5" /> 1次</div>
+                  <div class="opacity-75 mt-0.5">约15分钟/场</div>
+                </div>
+                <div class="text-center">
+                  <div class="flex items-center gap-1 opacity-90"><Clock class="w-3.5 h-3.5" /> 5主问+追问</div>
+                  <div class="opacity-75 mt-0.5">完赛预计</div>
+                </div>
+                <span class="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-bold" style="background:#fff;color:#0F766E;">
+                  立即体验
+                  <ArrowRight class="w-4 h-4" />
+                </span>
+              </div>
+              <ArrowRight class="sm:hidden w-5 h-5 shrink-0 opacity-90" />
+            </div>
+          </button>
 
           <div class="grid grid-cols-1 md:grid-cols-3 gap-3 sm:gap-4">
             <!-- 热门题目 -->

@@ -4,7 +4,8 @@ import { useRouter } from 'vue-router';
 import { useHead } from '@vueuse/head';
 import {
   Briefcase, BookOpen, Star, ArrowRight, Trophy, FileText,
-  TrendingUp, Users, CheckCircle, Target, Zap, Building2, Lightbulb
+  TrendingUp, Users, CheckCircle, Target, Zap, Building2, Lightbulb,
+  Mic, Sparkles, PlayCircle, Clock, BarChart3, MessageSquare
 } from 'lucide-vue-next';
 import SiteFooter from '@/components/SiteFooter.vue';
 import Breadcrumb from '@/components/Breadcrumb.vue';
@@ -14,6 +15,7 @@ import { getSafeAvatar } from '@/utils/avatar';
 import { getInterviewHome } from '@/api/interview';
 import { useToast } from '@/composables/useToast';
 import { useDictData, dictBadgeClass } from '@/composables/useDictData';
+import { useAuth } from '@/composables/useAuth';
 import type {
   InterviewCategoryVO, InterviewQuestionVO,
   InterviewExperienceVO, InterviewResumeTemplateVO, InterviewCompanyVO,
@@ -21,6 +23,7 @@ import type {
 
 const router = useRouter();
 const toast = useToast();
+const { requireAuth } = useAuth();
 const loading = ref(false);
 const error = ref<string | null>(null);
 const categories = ref<InterviewCategoryVO[]>([]);
@@ -110,6 +113,14 @@ function goResume() {
 }
 function goMyResume() {
   router.push('/interview/my/resumes');
+}
+function goVoiceInterview() {
+  if (!requireAuth('/interview/voice')) return;
+  router.push('/interview/voice');
+}
+function goMyAttempts() {
+  if (!requireAuth('/interview/my/attempts')) return;
+  router.push('/interview/my/attempts');
 }
 
 function formatNumber(n: number) {
@@ -204,6 +215,256 @@ const breadcrumbs = computed(() => [
           </button>
         </div>
       </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ========== AI 语音面试官（V10.1 功能入口横幅） ========== -->
+    <div class="pb-8">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="relative overflow-hidden rounded-2xl border shadow-sm"
+             style="background: linear-gradient(135deg,#0F766E 0%,#3FA86F 55%,#F0B429 130%); border-color: color-mix(in srgb, var(--theme-primary) 35%, transparent);">
+          <!-- 装饰：麦克风音波 -->
+          <div class="absolute inset-0 opacity-10 pointer-events-none select-none" aria-hidden="true">
+            <svg class="absolute -right-8 -top-8 w-64 h-64 text-white" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 14a3 3 0 0 0 3-3V5a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V21h2v-3.08A7 7 0 0 0 19 11h-2z"/>
+            </svg>
+            <svg class="absolute left-10 bottom-4 w-40 h-40 text-yellow-200" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
+              <path d="M3 12h2M7 8v8M11 5v14M15 9v6M19 11v2M21 12h-2"/>
+            </svg>
+          </div>
+
+          <div class="relative px-6 py-8 sm:px-10 sm:py-10 text-white grid md:grid-cols-[1.2fr,1fr] gap-8 items-center">
+            <div>
+              <div class="inline-flex items-center gap-2 rounded-full bg-white/15 backdrop-blur px-3.5 py-1.5 text-xs font-semibold mb-5 border border-white/25">
+                <Sparkles class="w-3.5 h-3.5" />
+                V10.1 · AI 语音面试官 · NEW
+              </div>
+              <h2 class="text-3xl sm:text-4xl font-extrabold tracking-tight mb-3">
+                像真人一样，和 AI 对练一场面试
+              </h2>
+              <p class="text-base sm:text-lg mb-6 max-w-2xl" style="color: rgba(255,255,255,0.92);">
+                题目 TTS 朗读、麦克风实时语音识别转写、智能追问、每题规则分+大模型反馈、
+                结束自动生成 5 维雷达图报告与逐题复盘，一站式陪你到 Offer。
+              </p>
+
+              <!-- 四大能力 -->
+              <div class="grid sm:grid-cols-2 gap-3 mb-7">
+                <div class="flex items-start gap-2.5 bg-white/10 backdrop-blur rounded-xl p-3 border border-white/15">
+                  <div class="shrink-0 w-8 h-8 rounded-lg flex items-center justify-center" style="background: rgba(255,255,255,0.18);">
+                    <Mic class="w-4.5 h-4.5" style="width:18px;height:18px;" />
+                  </div>
+                  <div>
+                    <div class="font-semibold mb-0.5">语音问答</div>
+                    <div class="text-xs" style="color: rgba(255,255,255,0.85);">TTS 读题 + ASR 实时转写（支持编辑）</div>
+                  </div>
+                </div>
+                <div class="flex items-start gap-2.5 bg-white/10 backdrop-blur rounded-xl p-3 border border-white/15">
+                  <div class="shrink-0 w-8 h-8 rounded-lg flex items-center justify-center" style="background: rgba(255,255,255,0.18);">
+                    <MessageSquare class="w-4.5 h-4.5" style="width:18px;height:18px;" />
+                  </div>
+                  <div>
+                    <div class="font-semibold mb-0.5">智能追问</div>
+                    <div class="text-xs" style="color: rgba(255,255,255,0.85);">根据回答自动跟进，模拟真实场景</div>
+                  </div>
+                </div>
+                <div class="flex items-start gap-2.5 bg-white/10 backdrop-blur rounded-xl p-3 border border-white/15">
+                  <div class="shrink-0 w-8 h-8 rounded-lg flex items-center justify-center" style="background: rgba(255,255,255,0.18);">
+                    <BarChart3 class="w-4.5 h-4.5" style="width:18px;height:18px;" />
+                  </div>
+                  <div>
+                    <div class="font-semibold mb-0.5">双轨评分</div>
+                    <div class="text-xs" style="color: rgba(255,255,255,0.85);">规则引擎先打分 · LLM 深度反馈</div>
+                  </div>
+                </div>
+                <div class="flex items-start gap-2.5 bg-white/10 backdrop-blur rounded-xl p-3 border border-white/15">
+                  <div class="shrink-0 w-8 h-8 rounded-lg flex items-center justify-center" style="background: rgba(255,255,255,0.18);">
+                    <Clock class="w-4.5 h-4.5" style="width:18px;height:18px;" />
+                  </div>
+                  <div>
+                    <div class="font-semibold mb-0.5">完整报告</div>
+                    <div class="text-xs" style="color: rgba(255,255,255,0.85);">5 维雷达图 · 逐题 · 优缺点 · 行动建议</div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- 操作按钮 -->
+              <div class="flex flex-wrap items-center gap-3">
+                <button
+                  @click="goVoiceInterview"
+                  class="inline-flex items-center gap-2 px-7 py-3.5 rounded-xl font-semibold text-base shadow-lg transition hover:-translate-y-0.5 hover:shadow-xl"
+                  style="background: #fff; color: #0F766E;"
+                >
+                  <PlayCircle class="w-5 h-5" />
+                  立即开始面试
+                  <span class="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-bold text-white" style="background: linear-gradient(90deg,#0F766E,#F0B429);">FREE</span>
+                </button>
+                <button
+                  @click="goMyAttempts"
+                  class="inline-flex items-center gap-2 px-6 py-3.5 rounded-xl font-semibold text-base transition hover:bg-white/15 border border-white/30 backdrop-blur-sm"
+                >
+                  <Trophy class="w-5 h-5" />
+                  我的面试记录
+                </button>
+              </div>
+            </div>
+
+            <!-- 右侧：产品形态预览（模拟手机界面） -->
+            <div class="hidden md:block">
+              <div class="mx-auto max-w-sm rounded-[28px] border border-white/20 bg-white/10 backdrop-blur-md p-3 shadow-2xl">
+                <div class="rounded-[22px] bg-white text-slate-700 overflow-hidden">
+                  <!-- 模拟面试页顶部 -->
+                  <div class="flex items-center justify-between px-4 py-2.5 border-b border-slate-100">
+                    <div class="flex items-center gap-2">
+                      <div class="w-8 h-8 rounded-full flex items-center justify-center bg-emerald-50 text-emerald-600">
+                        <Mic class="w-4 h-4" />
+                      </div>
+                      <div>
+                        <div class="text-sm font-bold">AI 面试官</div>
+                        <div class="text-[11px] text-slate-400">Java 后端 · 专业风格</div>
+                      </div>
+                    </div>
+                    <span class="text-[10px] rounded-full bg-red-50 text-red-500 px-2 py-0.5 font-semibold border border-red-100">录音中</span>
+                  </div>
+                  <!-- 模拟气泡 -->
+                  <div class="px-3.5 py-3 space-y-2 bg-slate-50">
+                    <div class="max-w-[85%] mr-auto bg-white border border-slate-100 rounded-2xl rounded-tl-sm px-3 py-2 text-xs shadow-sm">
+                      你好，欢迎参加本次面试～ 请先做一个 2 分钟的自我介绍。
+                    </div>
+                    <div class="max-w-[85%] ml-auto bg-emerald-600 text-white rounded-2xl rounded-tr-sm px-3 py-2 text-xs shadow-sm">
+                      您好！我是 xxx，3 年 Java 后端开发经验，主要做微服务架构…
+                    </div>
+                    <div class="max-w-[85%] mr-auto bg-white border border-slate-100 rounded-2xl rounded-tl-sm px-3 py-2 text-xs shadow-sm">
+                      <span class="font-semibold text-emerald-600 mr-1">追问：</span>
+                      你提到 Spring Cloud Gateway，请说说它的过滤器执行顺序和常用扩展点。
+                    </div>
+                  </div>
+                  <!-- 模拟底部输入条 -->
+                  <div class="px-3.5 py-3 border-t border-slate-100">
+                    <div class="flex items-center gap-2">
+                      <div class="flex-1 h-9 rounded-full bg-slate-50 border border-slate-100 flex items-center px-3 text-[11px] text-slate-400">
+                        按住麦克风说话，或在此输入文字…
+                      </div>
+                      <div class="w-10 h-10 rounded-full bg-emerald-600 flex items-center justify-center shadow-lg">
+                        <Mic class="w-5 h-5 text-white" />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ========== STAR 核心功能矩阵（需求 §界面参考补充-13，V10.1 入口就位） ========== -->
+    <div class="pb-6">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="mb-4 flex items-end justify-between gap-4">
+          <div>
+            <h2 class="text-xl sm:text-2xl font-bold flex items-center gap-2" style="color: var(--theme-text);">
+              <Sparkles class="w-5 h-5 sm:w-6 sm:h-6" style="color: var(--theme-primary);" />
+              面试空间 · 核心功能
+            </h2>
+            <p class="mt-1 text-xs sm:text-sm" style="color: var(--theme-text-secondary);">从练习到复盘的完整漏斗：刷题 → 文本快练 → 语音对练 → 复盘报告</p>
+          </div>
+        </div>
+        <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
+          <!-- 1. 实时 AI 语音面试（对应文档"实时面试提醒"，V10.1 已交付 MVP） -->
+          <button
+            @click="goVoiceInterview"
+            class="group relative text-left rounded-2xl border p-4 sm:p-5 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-lg overflow-hidden"
+            :style="{
+              borderColor: 'color-mix(in srgb, var(--theme-primary) 40%, transparent)',
+              background: 'linear-gradient(160deg, color-mix(in srgb, var(--theme-primary) 10%, var(--theme-surface)) 0%, var(--theme-surface) 100%)',
+            }"
+          >
+            <span class="absolute top-3 right-3 inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-bold text-white" style="background: linear-gradient(90deg,#ef4444,#f97316);">NEW</span>
+            <div class="w-11 h-11 rounded-xl mb-3 flex items-center justify-center" style="background-color: var(--theme-primary); color:#fff;">
+              <Mic class="w-5.5 h-5.5" style="width:22px;height:22px;" />
+            </div>
+            <div class="font-bold mb-1" style="color: var(--theme-text);">实时面试提醒</div>
+            <div class="text-xs leading-relaxed mb-3" style="color: var(--theme-text-secondary);">
+              进入语音面试，实时对练 · 智能追问
+            </div>
+            <div class="inline-flex items-center gap-1 text-xs font-semibold" style="color: var(--theme-primary);">
+              进入体验 <ArrowRight class="w-3 h-3 transition-transform group-hover:translate-x-0.5" />
+            </div>
+          </button>
+
+          <!-- 2. AI 模拟面试（文本快练版） -->
+          <button
+            @click="router.push('/interview/mock')"
+            class="group text-left rounded-2xl border p-4 sm:p-5 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md"
+            style="background-color: var(--theme-surface); border-color: var(--theme-border);"
+          >
+            <div class="w-11 h-11 rounded-xl mb-3 flex items-center justify-center bg-indigo-50 text-indigo-600">
+              <Target class="w-5 h-5" />
+            </div>
+            <div class="font-bold mb-1" style="color: var(--theme-text);">AI 模拟面试</div>
+            <div class="text-xs leading-relaxed mb-3" style="color: var(--theme-text-secondary);">
+              文本快练版 · 5分钟5题 · 规则评分
+            </div>
+            <div class="inline-flex items-center gap-1 text-xs font-semibold" style="color: var(--theme-primary);">
+              开始快练 <ArrowRight class="w-3 h-3 transition-transform group-hover:translate-x-0.5" />
+            </div>
+          </button>
+
+          <!-- 3. 一键 AI 简历（复用简历编辑页已有 AI 建议 Tab） -->
+          <button
+            @click="goMyResume"
+            class="group text-left rounded-2xl border p-4 sm:p-5 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md"
+            style="background-color: var(--theme-surface); border-color: var(--theme-border);"
+          >
+            <div class="w-11 h-11 rounded-xl mb-3 flex items-center justify-center bg-amber-50 text-amber-600">
+              <FileText class="w-5 h-5" />
+            </div>
+            <div class="font-bold mb-1" style="color: var(--theme-text);">一键 AI 简历</div>
+            <div class="text-xs leading-relaxed mb-3" style="color: var(--theme-text-secondary);">
+              结构化编辑器 · AI 评分与改写建议
+            </div>
+            <div class="inline-flex items-center gap-1 text-xs font-semibold" style="color: var(--theme-primary);">
+              维护简历 <ArrowRight class="w-3 h-3 transition-transform group-hover:translate-x-0.5" />
+            </div>
+          </button>
+
+          <!-- 4. 深度面试复盘（历史答题列表） -->
+          <button
+            @click="goMyAttempts"
+            class="group text-left rounded-2xl border p-4 sm:p-5 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md"
+            style="background-color: var(--theme-surface); border-color: var(--theme-border);"
+          >
+            <div class="w-11 h-11 rounded-xl mb-3 flex items-center justify-center bg-emerald-50 text-emerald-600">
+              <BarChart3 class="w-5 h-5" />
+            </div>
+            <div class="font-bold mb-1" style="color: var(--theme-text);">深度面试复盘</div>
+            <div class="text-xs leading-relaxed mb-3" style="color: var(--theme-text-secondary);">
+              历史答题 · 薄弱点 · 错题本闭环
+            </div>
+            <div class="inline-flex items-center gap-1 text-xs font-semibold" style="color: var(--theme-primary);">
+              查看记录 <ArrowRight class="w-3 h-3 transition-transform group-hover:translate-x-0.5" />
+            </div>
+          </button>
+
+          <!-- 5. 多语言面试支持（V10.3 · 置灰，框架位占位） -->
+          <button
+            disabled
+            class="relative text-left rounded-2xl border p-4 sm:p-5 shadow-sm cursor-not-allowed opacity-75"
+            style="background-color: var(--theme-surface); border-color: var(--theme-border);"
+          >
+            <span class="absolute top-3 right-3 inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-semibold" style="background-color: color-mix(in srgb, var(--theme-text-secondary) 20%, transparent); color: var(--theme-text-secondary);">V10.3</span>
+            <div class="w-11 h-11 rounded-xl mb-3 flex items-center justify-center bg-slate-50 text-slate-500">
+              <Lightbulb class="w-5 h-5" />
+            </div>
+            <div class="font-bold mb-1" style="color: var(--theme-text);">多语言面试支持</div>
+            <div class="text-xs leading-relaxed mb-3" style="color: var(--theme-text-secondary);">
+              DashScope CosyVoice 多音色 · 中英混练（敬请期待）
+            </div>
+            <div class="inline-flex items-center gap-1 text-xs font-semibold" style="color: var(--theme-text-secondary);">
+              开发中 <Clock class="w-3 h-3" />
+            </div>
+          </button>
         </div>
       </div>
     </div>

@@ -61,6 +61,8 @@ const KnowledgeGraphPage = () => import('@/pages/learn/KnowledgeGraphPage.vue')
 const LeaderboardPage = () => import('@/pages/learn/LeaderboardPage.vue')
 const CodeRunnerPage = () => import('@/pages/tools/CodeRunnerPage.vue')
 const MockInterviewPage = () => import('@/pages/interview/MockInterviewPage.vue')
+const VoiceEngineDemoPage = () => import('@/pages/interview/VoiceEngineDemoPage.vue')
+const VoiceInterviewPage = () => import('@/pages/interview/VoiceInterviewPage.vue')
 
 // ============ 路由配置 ============
 
@@ -280,6 +282,20 @@ const routes: RouteRecordRaw[] = [
     name: 'interview-mock',
     component: MockInterviewPage,
     meta: { requiresAuth: true, title: 'AI 模拟面试', robots: 'noindex,nofollow' }
+  },
+  // ============ 语音引擎验证页（V10.0 临时验证） ============
+  {
+    path: '/interview/voice-demo',
+    name: 'interview-voice-demo',
+    component: VoiceEngineDemoPage,
+    meta: { requiresAuth: true, title: '语音引擎验证', robots: 'noindex,nofollow' }
+  },
+  // ============ 语音面试官（V10.1 MVP） ============
+  {
+    path: '/interview/voice',
+    name: 'interview-voice',
+    component: VoiceInterviewPage,
+    meta: { requiresAuth: true, title: 'AI 语音面试官', robots: 'noindex,nofollow' }
   },
   // ============ 在线代码运行（阶段三 3.6） ============
   {

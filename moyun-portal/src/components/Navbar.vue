@@ -4,7 +4,7 @@ import { RouterLink as Link, useRouter, useRoute } from 'vue-router';
 import {
   Search, Plus, LogOut, Menu, X, Palette, Sun, Moon, Eye,
   ChevronDown, ChevronRight, Settings, UserCircle, BookMarked,
-  HelpCircle, Lock, Bell, Flag, MessageSquare
+  HelpCircle, Lock, Bell, Flag, MessageSquare, Mic, FileText
 } from 'lucide-vue-next';
 import { setTheme, getCurrentTheme, type Theme, themes } from '@/utils/theme';
 import { useUserStore } from '@/stores/user';
@@ -98,7 +98,7 @@ function categoryToNavItem(cat: Category): NavItem {
 // 导航项（从后端动态加载 + 登录态过滤）
 const navItems = computed<NavItem[]>(() => {
   const isLoggedIn = userStore.isAuthenticated;
-  return navCategories.value
+  const items = navCategories.value
     .map(categoryToNavItem)
     .filter(item => {
       // 未登录用户：过滤掉所有子项都需登录的菜单（避免空菜单）
@@ -108,6 +108,26 @@ const navItems = computed<NavItem[]>(() => {
       }
       return true;
     });
+
+  // V10.1：将 AI 语音面试官入口注入到「面试指南」类栏目下
+  const voiceEntry = {
+    name: 'AI 语音面试官',
+    path: '/interview/voice',
+    isExternal: false,
+    requiresAuth: true,
+  };
+  for (const item of items) {
+    // 匹配 path 包含 /interview 或名字包含"面试"的栏目
+    if ((item.path && item.path.includes('/interview')) || item.name.includes('面试')) {
+      // 避免重复注入
+      if (!item.children.some(c => c.path === '/interview/voice')) {
+        item.children.unshift(voiceEntry);
+      }
+      break;
+    }
+  }
+
+  return items;
 });
 
 // 加载导航栏目树（带内存缓存，由 category.ts 统一管理）
@@ -207,6 +227,12 @@ function handleGoToMyReports() {
   router.push('/my/reports');
 }
 
+function handleGoToMyAttempts() {
+  isUserMenuOpen.value = false;
+  if (!requireAuth('/interview/my/attempts')) return;
+  router.push('/interview/my/attempts');
+}
+
 function handleGoToMyFeedback() {
   isUserMenuOpen.value = false;
   if (!requireAuth('/my/feedback')) {
@@ -221,6 +247,12 @@ function handlePublish() {
     return;
   }
   router.push('/publish');
+}
+
+/** 语音面试官：固定功能入口（需登录，直接由路由 requiresAuth 兜底） */
+function handleGoVoiceInterview() {
+  if (!requireAuth('/interview/voice')) return;
+  router.push('/interview/voice');
 }
 
 function closeAllMenus() {
@@ -406,6 +438,17 @@ onUnmounted(() => document.removeEventListener('click', handleDocumentClick));
                   </button>
 
                   <button
+                      @click="handleGoToMyAttempts"
+                      class="w-full flex items-center justify-between px-3 py-2 text-left transition-colors hover:opacity-80"
+                  >
+                    <span class="flex items-center space-x-2">
+                      <FileText class="w-4 h-4" style="color: var(--theme-text-secondary);" />
+                      <span class="text-sm" style="color: var(--theme-text);">我的面试答题</span>
+                    </span>
+                    <span class="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-bold text-white" style="background: linear-gradient(90deg,#ef4444,#f97316);">NEW</span>
+                  </button>
+
+                  <button
                       @click="handleGoToMyReports"
                       class="w-full flex items-center space-x-2 px-3 py-2 text-left transition-colors hover:opacity-80"
                   >
@@ -547,7 +590,14 @@ onUnmounted(() => document.removeEventListener('click', handleDocumentClick));
                             borderTop: idx > 0 ? '1px solid var(--theme-border)' : 'none'
                           }"
                       >
-                        <span>{{ child.name }}</span>
+                        <span class="flex items-center gap-1.5">
+                          {{ child.name }}
+                          <span
+                            v-if="child.path === '/interview/voice'"
+                            class="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-bold text-white"
+                            style="background: linear-gradient(90deg,#ef4444,#f97316);"
+                          >NEW</span>
+                        </span>
                         <!-- 需登录的子项：醒目锁标记 -->
                         <Lock
                             v-if="child.requiresAuth"
@@ -584,7 +634,7 @@ onUnmounted(() => document.removeEventListener('click', handleDocumentClick));
         data-menu-content
     >
       <div class="px-4 py-3 space-y-2">
-        <!-- 帮助中心入口（醒目置顶） -->
+        <!-- 移动端顶部功能入口（固定） -->
         <Link
             to="/help"
             @click="isMenuOpen = false"
@@ -597,6 +647,8 @@ onUnmounted(() => document.removeEventListener('click', handleDocumentClick));
           </span>
           <ChevronRight class="w-4 h-4" />
         </Link>
+
+        <!-- 移动端：AI 面试官入口已注入面试指南下拉 -->
 
         <div v-for="item in navItems" :key="item.key" class="mb-2">
           <!-- 首页直接跳转 -->
@@ -680,7 +732,14 @@ onUnmounted(() => document.removeEventListener('click', handleDocumentClick));
                       borderTop: idx > 0 ? '1px solid var(--theme-border)' : 'none'
                     }"
                 >
-                  <span>{{ child.name }}</span>
+                  <span class="flex items-center gap-1.5">
+                    {{ child.name }}
+                    <span
+                      v-if="child.path === '/interview/voice'"
+                      class="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-bold text-white"
+                      style="background: linear-gradient(90deg,#ef4444,#f97316);"
+                    >NEW</span>
+                  </span>
                   <Lock
                       v-if="child.requiresAuth"
                       class="w-3 h-3 opacity-60 group-hover:opacity-100 transition-opacity"

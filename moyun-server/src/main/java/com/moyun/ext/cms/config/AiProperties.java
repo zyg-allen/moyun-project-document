@@ -52,7 +52,4 @@ public class AiProperties {
 
     /** 简历 AI 建议是否启用 AI 模型（独立开关，受全局 enabled 约束） */
     private boolean resumeAdviceEnabled = false;
-
-    /** 模拟面试 AI 反馈是否启用（独立开关，受全局 enabled 约束） */
-    private boolean mockInterviewFeedbackEnabled = false;
 }

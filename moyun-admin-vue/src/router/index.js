@@ -117,6 +117,20 @@ export const dynamicRoutes = [
     ]
   },
   {
+    path: '/system/user-resume',
+    component: Layout,
+    hidden: true,
+    permissions: ['system:user:resume'],
+    children: [
+      {
+        path: 'list/:userId(\\d+)',
+        component: () => import('@/views/system/user/userResume'),
+        name: 'UserResume',
+        meta: { title: '用户简历', activeMenu: '/system/user' }
+      }
+    ]
+  },
+  {
     path: '/system/role-auth',
     component: Layout,
     hidden: true,

@@ -1,0 +1,941 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI 语音面试系统 · Vue 项目技术规格</title>
+<style>
+:root {
+  --bg: #ffffff;
+  --bg-secondary: #f8f9fa;
+  --bg-code: #1e1e2e;
+  --text: #1a1a2e;
+  --text-secondary: #4a4a6a;
+  --text-muted: #8888a0;
+  --border: #e2e4e8;
+  --accent: #DC2626;
+  --accent-light: #FEF2F2;
+  --green: #10b981;
+  --green-bg: #ecfdf5;
+  --blue: #2563eb;
+  --blue-bg: #eff6ff;
+  --orange: #f59e0b;
+  --orange-bg: #fffbeb;
+  --purple: #8b5cf6;
+  --purple-bg: #f5f3ff;
+}
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", "Microsoft YaHei", sans-serif;
+  color: var(--text); background: var(--bg); line-height: 1.75;
+  -webkit-font-smoothing: antialiased; max-width: 920px; margin: 0 auto; padding: 3rem 2rem 6rem;
+}
+h1 { font-size: 2rem; font-weight: 800; margin-bottom: 0.5rem; letter-spacing: -0.02em; }
+h1 span { color: var(--accent); }
+.subtitle { font-size: 1rem; color: var(--text-muted); margin-bottom: 2.5rem; padding-bottom: 1.5rem; border-bottom: 1px solid var(--border); }
+h2 { font-size: 1.5rem; font-weight: 700; margin-top: 3rem; margin-bottom: 1rem; padding-bottom: 0.5rem; border-bottom: 2px solid var(--accent); display: inline-block; }
+h3 { font-size: 1.15rem; font-weight: 600; margin-top: 2rem; margin-bottom: 0.625rem; color: var(--text); }
+h4 { font-size: 1rem; font-weight: 600; margin-top: 1.5rem; margin-bottom: 0.5rem; color: var(--text-secondary); }
+p, li { font-size: 0.9375rem; color: var(--text-secondary); line-height: 1.8; }
+ul, ol { padding-left: 1.5rem; margin-bottom: 1rem; }
+li { margin-bottom: 0.375rem; }
+strong { color: var(--text); font-weight: 600; }
+code {
+  font-family: "JetBrains Mono", "Fira Code", Consolas, monospace;
+  font-size: 0.8125rem; background: var(--bg-secondary); padding: 0.15rem 0.4rem;
+  border-radius: 4px; color: var(--accent); border: 1px solid var(--border);
+}
+pre {
+  background: var(--bg-code); color: #cdd6f4; padding: 1.25rem 1.5rem;
+  border-radius: 10px; overflow-x: auto; margin: 1rem 0 1.5rem; line-height: 1.7;
+  font-size: 0.8125rem; position: relative;
+}
+pre code { background: none; border: none; padding: 0; color: inherit; font-size: inherit; }
+.kw { color: #cba6f7; }
+.fn { color: #89b4fa; }
+.str { color: #a6e3a1; }
+.cm { color: #6c7086; font-style: italic; }
+.num { color: #fab387; }
+.type { color: #f9e2af; }
+.op { color: #89dceb; }
+.file-label {
+  display: inline-block; font-size: 0.75rem; color: var(--text-muted);
+  background: var(--bg-secondary); padding: 0.25rem 0.625rem; border-radius: 4px;
+  border: 1px solid var(--border); margin-bottom: 0.375rem; font-family: monospace;
+}
+.tag {
+  display: inline-block; padding: 0.125rem 0.5rem; border-radius: 9999px;
+  font-size: 0.6875rem; font-weight: 600; margin-right: 0.375rem;
+}
+.tag-vue { background: var(--green-bg); color: var(--green); }
+.tag-ts { background: var(--blue-bg); color: var(--blue); }
+.tag-pinia { background: var(--purple-bg); color: var(--purple); }
+.tag-css { background: var(--orange-bg); color: var(--orange); }
+.note {
+  padding: 1rem 1.25rem; border-radius: 8px; margin: 1rem 0;
+  font-size: 0.875rem; line-height: 1.7;
+}
+.note-info { background: var(--blue-bg); border-left: 3px solid var(--blue); color: #1e40af; }
+.note-warn { background: var(--orange-bg); border-left: 3px solid var(--orange); color: #92400e; }
+.note-tip { background: var(--green-bg); border-left: 3px solid var(--green); color: #065f46; }
+table { width: 100%; border-collapse: collapse; margin: 1rem 0 1.5rem; font-size: 0.875rem; }
+th { text-align: left; padding: 0.625rem 0.875rem; background: var(--bg-secondary); border: 1px solid var(--border); font-weight: 600; color: var(--text); font-size: 0.8125rem; }
+td { padding: 0.625rem 0.875rem; border: 1px solid var(--border); color: var(--text-secondary); vertical-align: top; }
+.divider { border: none; border-top: 1px solid var(--border); margin: 2.5rem 0; }
+.toc { background: var(--bg-secondary); padding: 1.5rem 2rem; border-radius: 10px; margin-bottom: 2.5rem; border: 1px solid var(--border); }
+.toc h3 { margin-top: 0; margin-bottom: 0.75rem; font-size: 1rem; }
+.toc ol { margin-bottom: 0; }
+.toc li { font-size: 0.875rem; margin-bottom: 0.25rem; }
+.toc a { color: var(--accent); text-decoration: none; }
+.toc a:hover { text-decoration: underline; }
+.page-section { margin-top: 2.5rem; padding-top: 1.5rem; border-top: 1px dashed var(--border); }
+.page-section:first-of-type { border-top: none; }
+.component-tree { font-family: monospace; font-size: 0.8125rem; background: var(--bg-secondary); padding: 1.25rem 1.5rem; border-radius: 8px; line-height: 2; border: 1px solid var(--border); margin: 1rem 0; }
+.component-tree .folder { color: var(--blue); font-weight: 600; }
+.component-tree .file { color: var(--text-secondary); }
+.component-tree .highlight { color: var(--accent); font-weight: 600; }
+@media print { body { max-width: 100%; padding: 1rem; } pre { white-space: pre-wrap; } }
+</style>
+</head>
+<body>
+
+<h1>AI 语音面试系统 · <span>Vue 项目技术规格</span></h1>
+<p class="subtitle">本文档为 AI 编码工具（Cursor / Copilot 等）的输入规格，用于生成完整的 Vue 3 前端项目。覆盖项目结构、设计系统、4 个核心页面的组件拆分、数据结构、状态管理、路由、API 契约及交互细节。</p>
+
+<div class="toc">
+<h3>目录</h3>
+<ol>
+  <li><a href="#sec1">技术栈与工程配置</a></li>
+  <li><a href="#sec2">项目目录结构</a></li>
+  <li><a href="#sec3">全局设计系统（Design Tokens）</a></li>
+  <li><a href="#sec4">TypeScript 类型定义</a></li>
+  <li><a href="#sec5">Pinia 状态管理</a></li>
+  <li><a href="#sec6">路由设计</a></li>
+  <li><a href="#sec7">Page 1 — 面试模块首页</a></li>
+  <li><a href="#sec8">Page 2 — 面试前置准备页</a></li>
+  <li><a href="#sec9">Page 3 — AI 面试进行页</a></li>
+  <li><a href="#sec10">Page 4 — 面试复盘报告页</a></li>
+  <li><a href="#sec11">可复用组件清单</a></li>
+  <li><a href="#sec12">API 接口契约（Mock）</a></li>
+  <li><a href="#sec13">交互逻辑汇总</a></li>
+  <li><a href="#sec14">响应式与动画</a></li>
+</ol>
+</div>
+
+<!-- ===================== 1. 技术栈 ===================== -->
+<h2 id="sec1">1. 技术栈与工程配置</h2>
+
+<table>
+<tr><th style="width:180px;">项</th><th>选型</th><th>备注</th></tr>
+<tr><td>框架</td><td><strong>Vue 3.4+</strong>（Composition API + &lt;script setup&gt;）</td><td>禁止使用 Options API</td></tr>
+<tr><td>语言</td><td><strong>TypeScript 5.x</strong>（strict 模式）</td><td>所有组件 props / emits 必须有类型</td></tr>
+<tr><td>构建</td><td><strong>Vite 5.x</strong></td><td>默认配置即可</td></tr>
+<tr><td>路由</td><td><strong>Vue Router 4</strong></td><td>hash 模式</td></tr>
+<tr><td>状态管理</td><td><strong>Pinia 2</strong></td><td>按功能拆分 store</td></tr>
+<tr><td>CSS 方案</td><td><strong>UnoCSS</strong>（或 Tailwind CSS）</td><td>搭配 CSS 变量做主题</td></tr>
+<tr><td>图标</td><td><strong>Iconify</strong> / emoji</td><td>Demo 阶段可直接用 emoji</td></tr>
+<tr><td>图表</td><td><strong>ECharts</strong>（雷达图）</td><td>或手写 SVG 雷达图</td></tr>
+<tr><td>HTTP</td><td><strong>axios</strong></td><td>封装 request.ts</td></tr>
+<tr><td>代码规范</td><td>ESLint + Prettier</td><td>@antfu/eslint-config</td></tr>
+</table>
+
+<!-- ===================== 2. 目录结构 ===================== -->
+<h2 id="sec2">2. 项目目录结构</h2>
+
+<div class="component-tree">
+<span class="folder">src/</span><br>
+├── <span class="folder">assets/</span><br>
+│   ├── <span class="file">styles/variables.css</span> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <span class="highlight">// 全局 CSS 变量（Design Tokens）</span><br>
+│   ├── <span class="file">styles/global.css</span> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <span class="highlight">// reset + 全局排版</span><br>
+│   └── <span class="file">styles/transitions.css</span> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <span class="highlight">// 页面/组件过渡动画</span><br>
+│<br>
+├── <span class="folder">components/</span> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <span class="highlight">// 全局可复用组件</span><br>
+│   ├── <span class="folder">common/</span><br>
+│   │   ├── <span class="file">AppButton.vue</span> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <span class="highlight">// 通用按钮（primary/ghost/danger）</span><br>
+│   │   ├── <span class="file">AppToggle.vue</span> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <span class="highlight">// 开关 Toggle</span><br>
+│   │   ├── <span class="file">AppSelect.vue</span> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <span class="highlight">// 下拉选择器</span><br>
+│   │   ├── <span class="file">AppBadge.vue</span> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <span class="highlight">// 状态徽标</span><br>
+│   │   └── <span class="file">AppUpload.vue</span> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <span class="highlight">// 拖拽上传区</span><br>
+│   │<br>
+│   ├── <span class="folder">interview/</span> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <span class="highlight">// 面试业务组件</span><br>
+│   │   ├── <span class="file">FeatureCard.vue</span> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <span class="highlight">// 首页功能卡片</span><br>
+│   │   ├── <span class="file">StepIndicator.vue</span> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <span class="highlight">// 准备页步骤条</span><br>
+│   │   ├── <span class="file">DeviceChecker.vue</span> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <span class="highlight">// 设备检测卡片</span><br>
+│   │   ├── <span class="file">PositionSelector.vue</span> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <span class="highlight">// 岗位选择器</span><br>
+│   │   ├── <span class="file">ResumeUploader.vue</span> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <span class="highlight">// 简历上传+预览</span><br>
+│   │   ├── <span class="file">InterviewerCard.vue</span> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <span class="highlight">// 面试官信息卡</span><br>
+│   │   ├── <span class="file">ChatBubble.vue</span> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <span class="highlight">// 对话气泡（4 种类型）</span><br>
+│   │   ├── <span class="file">CodeBlock.vue</span> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <span class="highlight">// 代码块（语法高亮）</span><br>
+│   │   ├── <span class="file">RadarChart.vue</span> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <span class="highlight">// SVG 雷达图</span><br>
+│   │   ├── <span class="file">ProgressTimeline.vue</span> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <span class="highlight">// 题目进度时间线</span><br>
+│   │   ├── <span class="file">DimensionTags.vue</span> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <span class="highlight">// 维度标签组</span><br>
+│   │   ├── <span class="file">ReportTabs.vue</span> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <span class="highlight">// 复盘页胶囊 Tab</span><br>
+│   │   ├── <span class="file">ScoreBar.vue</span> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <span class="highlight">// 分数进度条</span><br>
+│   │   ├── <span class="file">ProsConsList.vue</span> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <span class="highlight">// 优缺点列表（可锚点回跳）</span><br>
+│   │   └── <span class="file">KnowledgeCard.vue</span> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <span class="highlight">// 知识点卡片</span><br>
+│<br>
+├── <span class="folder">views/</span> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <span class="highlight">// 页面级组件</span><br>
+│   ├── <span class="file">InterviewHome.vue</span> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <span class="highlight">// Page 1 首页</span><br>
+│   ├── <span class="file">InterviewPrep.vue</span> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <span class="highlight">// Page 2 准备页</span><br>
+│   ├── <span class="file">InterviewSession.vue</span> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <span class="highlight">// Page 3 面试进行</span><br>
+│   └── <span class="file">InterviewReport.vue</span> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <span class="highlight">// Page 4 复盘报告</span><br>
+│<br>
+├── <span class="folder">stores/</span><br>
+│   ├── <span class="file">interview.ts</span> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <span class="highlight">// 面试会话状态</span><br>
+│   └── <span class="file">report.ts</span> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <span class="highlight">// 复盘报告状态</span><br>
+│<br>
+├── <span class="folder">types/</span><br>
+│   └── <span class="file">interview.ts</span> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <span class="highlight">// 所有 TS 类型定义</span><br>
+│<br>
+├── <span class="folder">router/</span><br>
+│   └── <span class="file">index.ts</span><br>
+│<br>
+├── <span class="folder">api/</span><br>
+│   ├── <span class="file">request.ts</span> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <span class="highlight">// axios 封装</span><br>
+│   └── <span class="file">interview.ts</span> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <span class="highlight">// 面试相关 API</span><br>
+│<br>
+├── <span class="folder">composables/</span> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <span class="highlight">// 组合式函数</span><br>
+│   ├── <span class="file">useTimer.ts</span> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <span class="highlight">// 计时器逻辑</span><br>
+│   ├── <span class="file">useDeviceCheck.ts</span> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <span class="highlight">// 设备检测逻辑</span><br>
+│   └── <span class="file">useMicrophone.ts</span> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <span class="highlight">// 麦克风录音逻辑</span><br>
+│<br>
+├── <span class="folder">mock/</span> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <span class="highlight">// Mock 数据</span><br>
+│   ├── <span class="file">positions.ts</span><br>
+│   ├── <span class="file">questions.ts</span><br>
+│   └── <span class="file">report.ts</span><br>
+│<br>
+├── <span class="file">App.vue</span><br>
+└── <span class="file">main.ts</span>
+</div>
+
+<!-- ===================== 3. 设计系统 ===================== -->
+<h2 id="sec3">3. 全局设计系统（Design Tokens）</h2>
+
+<p>所有设计变量写入 <code>assets/styles/variables.css</code>，通过 <code>:root</code> 全局注入，组件中通过 <code>var(--xxx)</code> 引用。</p>
+
+<pre><code><span class="cm">/* ===== 主题色：红色系 ===== */</span>
+<span class="op">:root</span> {
+  <span class="cm">/* 主色 */</span>
+  <span class="type">--primary</span>: <span class="str">#DC2626</span>;
+  <span class="type">--primary-light</span>: <span class="str">#EF4444</span>;
+  <span class="type">--primary-dark</span>: <span class="str">#B91C1C</span>;
+  <span class="type">--primary-bg</span>: <span class="str">#FEF2F2</span>;
+  <span class="type">--primary-border</span>: <span class="str">#FECACA</span>;
+  <span class="type">--primary-gradient</span>: <span class="fn">linear-gradient</span>(<span class="num">135deg</span>, <span class="str">#DC2626</span> <span class="num">0%</span>, <span class="str">#991B1B</span> <span class="num">100%</span>);
+
+  <span class="cm">/* 语义色 */</span>
+  <span class="type">--success</span>: <span class="str">#10b981</span>;    <span class="type">--success-bg</span>: <span class="str">#ecfdf5</span>;
+  <span class="type">--warning</span>: <span class="str">#f59e0b</span>;    <span class="type">--warning-bg</span>: <span class="str">#fffbeb</span>;
+  <span class="type">--error</span>: <span class="str">#ef4444</span>;      <span class="type">--error-bg</span>: <span class="str">#fef2f2</span>;
+
+  <span class="cm">/* 灰阶 */</span>
+  <span class="type">--gray-50</span>: <span class="str">#f9fafb</span>;   <span class="type">--gray-100</span>: <span class="str">#f3f4f6</span>;
+  <span class="type">--gray-200</span>: <span class="str">#e5e7eb</span>;  <span class="type">--gray-300</span>: <span class="str">#d1d5db</span>;
+  <span class="type">--gray-400</span>: <span class="str">#9ca3af</span>;  <span class="type">--gray-500</span>: <span class="str">#6b7280</span>;
+  <span class="type">--gray-600</span>: <span class="str">#4b5563</span>;  <span class="type">--gray-700</span>: <span class="str">#374151</span>;
+  <span class="type">--gray-800</span>: <span class="str">#1f2937</span>;  <span class="type">--gray-900</span>: <span class="str">#111827</span>;
+
+  <span class="cm">/* 气泡色（面试对话区专用） */</span>
+  <span class="type">--ai-bubble</span>: <span class="str">#fafafa</span>;           <span class="type">--ai-bubble-border</span>: <span class="str">#e5e7eb</span>;
+  <span class="type">--user-bubble</span>: <span class="str">#FEF2F2</span>;         <span class="type">--user-bubble-border</span>: <span class="str">#FECACA</span>;
+  <span class="type">--question-bubble</span>: <span class="str">#fffbeb</span>;     <span class="type">--question-bubble-border</span>: <span class="str">#fde68a</span>;
+  <span class="type">--analysis-bubble</span>: <span class="str">#f0fdf4</span>;     <span class="type">--analysis-bubble-border</span>: <span class="str">#bbf7d0</span>;
+
+  <span class="cm">/* 字体 */</span>
+  <span class="type">--font-sans</span>: -apple-system, BlinkMacSystemFont, <span class="str">"Segoe UI"</span>, Roboto,
+    <span class="str">"PingFang SC"</span>, <span class="str">"Microsoft YaHei"</span>, sans-serif;
+  <span class="type">--font-mono</span>: <span class="str">"JetBrains Mono"</span>, <span class="str">"Fira Code"</span>, Consolas, monospace;
+
+  <span class="cm">/* 阴影 */</span>
+  <span class="type">--shadow-sm</span>: <span class="num">0 1px 2px 0</span> <span class="fn">rgba</span>(<span class="num">0,0,0,0.05</span>);
+  <span class="type">--shadow-md</span>: <span class="num">0 4px 6px -1px</span> <span class="fn">rgba</span>(<span class="num">0,0,0,0.08</span>), <span class="num">0 2px 4px -1px</span> <span class="fn">rgba</span>(<span class="num">0,0,0,0.04</span>);
+  <span class="type">--shadow-lg</span>: <span class="num">0 10px 25px -3px</span> <span class="fn">rgba</span>(<span class="num">0,0,0,0.08</span>), <span class="num">0 4px 6px -2px</span> <span class="fn">rgba</span>(<span class="num">0,0,0,0.04</span>);
+  <span class="type">--shadow-xl</span>: <span class="num">0 20px 40px -5px</span> <span class="fn">rgba</span>(<span class="num">0,0,0,0.12</span>);
+
+  <span class="cm">/* 圆角 */</span>
+  <span class="type">--radius-sm</span>: <span class="num">6px</span>;
+  <span class="type">--radius-md</span>: <span class="num">10px</span>;
+  <span class="type">--radius-lg</span>: <span class="num">14px</span>;
+  <span class="type">--radius-xl</span>: <span class="num">20px</span>;
+  <span class="type">--radius-full</span>: <span class="num">9999px</span>;
+}</code></pre>
+
+<div class="note note-info">
+<strong>排版规则：</strong>基础字号 16px，行高 1.6。标题用 font-weight 700/800，正文用 400/500。字号层级：页面标题 2rem~2.75rem → 卡片标题 1.125rem → 正文 0.9375rem → 辅助 0.8125rem → 徽标 0.75rem。
+</div>
+
+<!-- ===================== 4. 类型定义 ===================== -->
+<h2 id="sec4">4. TypeScript 类型定义</h2>
+
+<p>所有类型集中定义在 <code>src/types/interview.ts</code>。</p>
+
+<pre><code><span class="cm">// ===== 岗位 =====</span>
+<span class="kw">interface</span> <span class="type">Position</span> {
+  id: <span class="type">string</span>
+  title: <span class="type">string</span>           <span class="cm">// "Java 后端开发工程师"</span>
+  experience: <span class="type">string</span>      <span class="cm">// "3-5 年经验"</span>
+  city: <span class="type">string</span>            <span class="cm">// "北京"</span>
+  industry: <span class="type">string</span>        <span class="cm">// "互联网"</span>
+}
+
+<span class="cm">// ===== 简历 =====</span>
+<span class="kw">interface</span> <span class="type">Resume</span> {
+  id: <span class="type">string</span>
+  fileName: <span class="type">string</span>
+  fileType: <span class="str">'pdf'</span> | <span class="str">'docx'</span> | <span class="str">'image'</span>
+  updatedAt: <span class="type">string</span>       <span class="cm">// ISO date</span>
+  tags: <span class="type">string</span>[]           <span class="cm">// ["Java", "Spring Boot", "MySQL"]</span>
+  previewUrl?: <span class="type">string</span>
+}
+
+<span class="cm">// ===== 面试配置 =====</span>
+<span class="kw">interface</span> <span class="type">InterviewConfig</span> {
+  positionId: <span class="type">string</span>
+  resumeId?: <span class="type">string</span>
+  interviewerStyle: <span class="str">'gentle'</span> | <span class="str">'standard'</span> | <span class="str">'pressure'</span>
+  difficulty: <span class="str">'junior'</span> | <span class="str">'mid'</span> | <span class="str">'senior'</span> | <span class="str">'expert'</span>
+  scenario: <span class="str">'technical'</span> | <span class="str">'project'</span> | <span class="str">'hr'</span> | <span class="str">'comprehensive'</span>
+  questionCount: <span class="num">3</span> | <span class="num">5</span> | <span class="num">8</span>
+  smartHint: <span class="type">boolean</span>
+  muteMode: <span class="type">boolean</span>
+}
+
+<span class="cm">// ===== 对话消息（4 种类型） =====</span>
+<span class="kw">type</span> <span class="type">MessageRole</span> = <span class="str">'question'</span> | <span class="str">'user'</span> | <span class="str">'analysis'</span> | <span class="str">'ai'</span>
+
+<span class="kw">interface</span> <span class="type">ChatMessage</span> {
+  id: <span class="type">string</span>
+  role: <span class="type">MessageRole</span>
+  content: <span class="type">string</span>
+  timestamp: <span class="type">number</span>
+  <span class="cm">// 问题类型专有</span>
+  questionIndex?: <span class="type">number</span>
+  questionTotal?: <span class="type">number</span>
+  source?: <span class="type">string</span>          <span class="cm">// "题库随机" / "AI 追问"</span>
+  <span class="cm">// AI 解答专有：可能含代码块</span>
+  codeBlocks?: <span class="type">CodeBlock</span>[]
+  <span class="cm">// 实时分析专有</span>
+  highlights?: <span class="type">string</span>[]
+  gaps?: <span class="type">string</span>[]
+  dimensionScores?: <span class="type">DimensionScore</span>[]
+}
+
+<span class="kw">interface</span> <span class="type">CodeBlock</span> {
+  language: <span class="type">string</span>         <span class="cm">// "Python" / "Java" / "JavaScript"</span>
+  code: <span class="type">string</span>
+}
+
+<span class="cm">// ===== 维度评分 =====</span>
+<span class="kw">interface</span> <span class="type">DimensionScore</span> {
+  key: <span class="str">'relevance'</span> | <span class="str">'professionalism'</span> | <span class="str">'fluency'</span> | <span class="str">'interactivity'</span> | <span class="str">'confidence'</span> | <span class="str">'logic'</span>
+  label: <span class="type">string</span>            <span class="cm">// "回答相关性" / "专业度" / "表达流畅度" ...</span>
+  score: <span class="type">number</span>            <span class="cm">// 0-100</span>
+}
+
+<span class="cm">// ===== 题目进度 =====</span>
+<span class="kw">interface</span> <span class="type">QuestionProgress</span> {
+  index: <span class="type">number</span>
+  title: <span class="type">string</span>            <span class="cm">// "自我介绍" / "算法题：爬楼梯"</span>
+  status: <span class="str">'completed'</span> | <span class="str">'active'</span> | <span class="str">'pending'</span>
+}
+
+<span class="cm">// ===== 复盘报告 =====</span>
+<span class="kw">interface</span> <span class="type">InterviewReport</span> {
+  id: <span class="type">string</span>
+  summary: <span class="type">string</span>          <span class="cm">// 面试概要文字</span>
+  radarScores: <span class="type">DimensionScore</span>[]
+  pros: <span class="type">ReportItem</span>[]        <span class="cm">// 优点列表</span>
+  cons: <span class="type">ReportItem</span>[]        <span class="cm">// 缺点列表</span>
+  analysisList: <span class="type">AnalysisItem</span>[]
+  interviewerComment: <span class="type">string</span>
+  suggestions: <span class="type">Suggestion</span>[]
+  knowledgeCards: <span class="type">KnowledgeCard</span>[]
+}
+
+<span class="kw">interface</span> <span class="type">ReportItem</span> {
+  id: <span class="type">string</span>
+  title: <span class="type">string</span>
+  quote: <span class="type">string</span>            <span class="cm">// 面试对话中的锚点引用原文</span>
+  relatedMessageId?: <span class="type">string</span> <span class="cm">// 可点击跳回对应对话位置</span>
+}
+
+<span class="kw">interface</span> <span class="type">AnalysisItem</span> {
+  id: <span class="type">string</span>
+  title: <span class="type">string</span>
+  content: <span class="type">string</span>
+  score: <span class="type">number</span>            <span class="cm">// 0-100</span>
+  type: <span class="str">'strong'</span> | <span class="str">'weak'</span>
+}
+
+<span class="kw">interface</span> <span class="type">Suggestion</span> {
+  index: <span class="type">number</span>
+  title: <span class="type">string</span>
+  content: <span class="type">string</span>
+}
+
+<span class="kw">interface</span> <span class="type">KnowledgeCard</span> {
+  id: <span class="type">string</span>
+  title: <span class="type">string</span>
+  description: <span class="type">string</span>
+  linkText: <span class="type">string</span>         <span class="cm">// "查看相关题目 →"</span>
+  linkUrl: <span class="type">string</span>
+}</code></pre>
+
+<!-- ===================== 5. 状态管理 ===================== -->
+<h2 id="sec5">5. Pinia 状态管理</h2>
+
+<h3>stores/interview.ts</h3>
+<pre><code><span class="kw">import</span> { defineStore } <span class="kw">from</span> <span class="str">'pinia'</span>
+
+<span class="kw">export const</span> <span class="fn">useInterviewStore</span> = <span class="fn">defineStore</span>(<span class="str">'interview'</span>, () => {
+  <span class="cm">// ===== 准备页状态 =====</span>
+  <span class="kw">const</span> currentStep = <span class="fn">ref</span>&lt;<span class="num">1</span> | <span class="num">2</span> | <span class="num">3</span>&gt;(<span class="num">1</span>)
+  <span class="kw">const</span> selectedPosition = <span class="fn">ref</span>&lt;<span class="type">Position</span> | <span class="kw">null</span>&gt;(<span class="kw">null</span>)
+  <span class="kw">const</span> uploadedResume = <span class="fn">ref</span>&lt;<span class="type">Resume</span> | <span class="kw">null</span>&gt;(<span class="kw">null</span>)
+  <span class="kw">const</span> onlineResume = <span class="fn">ref</span>&lt;<span class="type">Resume</span> | <span class="kw">null</span>&gt;(<span class="kw">null</span>)  <span class="cm">// 系统已有在线简历</span>
+  <span class="kw">const</span> config = <span class="fn">reactive</span>&lt;<span class="type">InterviewConfig</span>&gt;({
+    positionId: <span class="str">''</span>,
+    interviewerStyle: <span class="str">'standard'</span>,
+    difficulty: <span class="str">'mid'</span>,
+    scenario: <span class="str">'technical'</span>,
+    questionCount: <span class="num">5</span>,
+    smartHint: <span class="kw">true</span>,
+    muteMode: <span class="kw">false</span>,
+  })
+  <span class="kw">const</span> deviceStatus = <span class="fn">reactive</span>({
+    mic: <span class="str">'checking'</span>,     <span class="cm">// 'ok' | 'checking' | 'error'</span>
+    speaker: <span class="str">'checking'</span>,
+    headphone: <span class="str">'not_detected'</span>,
+  })
+
+  <span class="cm">// ===== 面试进行中状态 =====</span>
+  <span class="kw">const</span> sessionStatus = <span class="fn">ref</span>&lt;<span class="str">'idle'</span> | <span class="str">'active'</span> | <span class="str">'paused'</span> | <span class="str">'ended'</span>&gt;(<span class="str">'idle'</span>)
+  <span class="kw">const</span> timerSeconds = <span class="fn">ref</span>(&lt;<span class="type">number</span>&gt;<span class="num">0</span>)
+  <span class="kw">const</span> messages = <span class="fn">ref</span>&lt;<span class="type">ChatMessage</span>[]&gt;([])
+  <span class="kw">const</span> questionProgress = <span class="fn">ref</span>&lt;<span class="type">QuestionProgress</span>[]&gt;([])
+  <span class="kw">const</span> currentQuestionIndex = <span class="fn">ref</span>(&lt;<span class="type">number</span>&gt;<span class="num">0</span>)
+  <span class="kw">const</span> isRecording = <span class="fn">ref</span>(&lt;<span class="type">boolean</span>&gt;<span class="kw">false</span>)
+  <span class="kw">const</span> answerTimer = <span class="fn">ref</span>&lt;<span class="type">number</span>&gt;(<span class="num">0</span>)    <span class="cm">// 单题作答倒计时</span>
+  <span class="kw">const</span> realTimeDimensions = <span class="fn">ref</span>&lt;<span class="type">DimensionScore</span>[]&gt;([])
+
+  <span class="cm">// ===== Actions =====</span>
+  <span class="kw">function</span> <span class="fn">startSession</span>() { <span class="cm">/* ... */</span> }
+  <span class="kw">function</span> <span class="fn">pauseSession</span>() { <span class="cm">/* ... */</span> }
+  <span class="kw">function</span> <span class="fn">resumeSession</span>() { <span class="cm">/* ... */</span> }
+  <span class="kw">function</span> <span class="fn">endSession</span>() { <span class="cm">/* ... */</span> }
+  <span class="kw">function</span> <span class="fn">submitAnswer</span>(text: <span class="type">string</span>) { <span class="cm">/* ... */</span> }
+  <span class="kw">function</span> <span class="fn">skipQuestion</span>() { <span class="cm">/* ... */</span> }
+  <span class="kw">function</span> <span class="fn">addMessage</span>(msg: <span class="type">ChatMessage</span>) { <span class="cm">/* ... */</span> }
+
+  <span class="kw">return</span> { <span class="cm">/* ...全部导出... */</span> }
+})</code></pre>
+
+<h3>stores/report.ts</h3>
+<pre><code><span class="kw">export const</span> <span class="fn">useReportStore</span> = <span class="fn">defineStore</span>(<span class="str">'report'</span>, () => {
+  <span class="kw">const</span> report = <span class="fn">ref</span>&lt;<span class="type">InterviewReport</span> | <span class="kw">null</span>&gt;(<span class="kw">null</span>)
+  <span class="kw">const</span> activeTab = <span class="fn">ref</span>&lt;<span class="str">'summary'</span> | <span class="str">'analysis'</span> | <span class="str">'interviewer'</span> | <span class="str">'knowledge'</span>&gt;(<span class="str">'summary'</span>)
+
+  <span class="kw">async function</span> <span class="fn">fetchReport</span>(sessionId: <span class="type">string</span>) { <span class="cm">/* GET /api/report/:id */</span> }
+  <span class="kw">function</span> <span class="fn">switchTab</span>(tab: <span class="kw">typeof</span> activeTab.value) { activeTab.value = tab }
+  <span class="kw">function</span> <span class="fn">addToWrongBook</span>(itemIds: <span class="type">string</span>[]) { <span class="cm">/* ... */</span> }
+
+  <span class="kw">return</span> { report, activeTab, fetchReport, switchTab, addToWrongBook }
+})</code></pre>
+
+<!-- ===================== 6. 路由 ===================== -->
+<h2 id="sec6">6. 路由设计</h2>
+
+<pre><code><span class="cm">// router/index.ts</span>
+<span class="kw">const</span> routes = [
+  {
+    path: <span class="str">'/'</span>,
+    name: <span class="str">'InterviewHome'</span>,
+    component: () => <span class="kw">import</span>(<span class="str">'@/views/InterviewHome.vue'</span>),
+    meta: { title: <span class="str">'面试学习中心'</span> },
+  },
+  {
+    path: <span class="str">'/interview/prep'</span>,
+    name: <span class="str">'InterviewPrep'</span>,
+    component: () => <span class="kw">import</span>(<span class="str">'@/views/InterviewPrep.vue'</span>),
+    meta: { title: <span class="str">'面试准备'</span> },
+  },
+  {
+    path: <span class="str">'/interview/session'</span>,
+    name: <span class="str">'InterviewSession'</span>,
+    component: () => <span class="kw">import</span>(<span class="str">'@/views/InterviewSession.vue'</span>),
+    meta: { title: <span class="str">'面试进行中'</span> },
+  },
+  {
+    path: <span class="str">'/interview/report/:id'</span>,
+    name: <span class="str">'InterviewReport'</span>,
+    component: () => <span class="kw">import</span>(<span class="str">'@/views/InterviewReport.vue'</span>),
+    meta: { title: <span class="str">'面试复盘报告'</span> },
+    props: <span class="kw">true</span>,
+  },
+]
+
+<span class="cm">// 全局路由守卫：未配置岗位时不能进入面试进行页</span>
+router.<span class="fn">beforeEach</span>((to, from, next) => {
+  <span class="kw">const</span> store = <span class="fn">useInterviewStore</span>()
+  <span class="kw">if</span> (to.name === <span class="str">'InterviewSession'</span> && !store.selectedPosition) {
+    next({ name: <span class="str">'InterviewPrep'</span> })
+  } <span class="kw">else</span> {
+    next()
+  }
+})</code></pre>
+
+<hr class="divider">
+
+<!-- ===================== 7. Page 1 首页 ===================== -->
+<div class="page-section">
+<h2 id="sec7">7. Page 1 — 面试模块首页</h2>
+
+<p><strong>文件：</strong><code>views/InterviewHome.vue</code></p>
+<p><strong>路由：</strong><code>/</code></p>
+
+<h3>页面结构</h3>
+<table>
+<tr><th>区域</th><th>说明</th></tr>
+<tr><td><strong>全页背景</strong></td><td><code>var(--primary-gradient)</code> 红色渐变全屏；两个伪元素 ::before / ::after 做大尺寸 radial-gradient 光晕（白色 4%~6% 透明度），增加层次感</td></tr>
+<tr><td><strong>品牌徽章</strong></td><td>居中，半透明白底 + backdrop-filter blur，圆角胶囊，内含绿点脉冲动画 + "AI 驱动 · 智能面试" 文字</td></tr>
+<tr><td><strong>主标题</strong></td><td>"面试学习中心"，白色，2.75rem，font-weight 800</td></tr>
+<tr><td><strong>副标题</strong></td><td>"从刷题到实战，全方位提升你的面试竞争力"，白色 85% 透明度</td></tr>
+<tr><td><strong>功能卡片网格</strong></td><td>2×2 grid，max-width 960px，4 张卡片</td></tr>
+</table>
+
+<h3>功能卡片（FeatureCard.vue）</h3>
+<table>
+<tr><th>属性</th><th>说明</th></tr>
+<tr><td>白底 + shadow-lg</td><td>圆角 var(--radius-lg)，border 1px gray-100，hover 时 translateY(-6px) + shadow-xl + 顶部 3px 红色渐变条出现</td></tr>
+<tr><td>图标区</td><td>52×52 圆角方块，灰底/红底（featured 时）+ emoji</td></tr>
+<tr><td>标题 + 描述</td><td>标题 1.125rem/700，描述 0.875rem/gray-500</td></tr>
+<tr><td>标签</td><td>胶囊徽标，如 "✨ NEW"（红底红字）、"🔥 HOT"（橙底橙字）</td></tr>
+</table>
+
+<h3>4 张卡片内容</h3>
+<table>
+<tr><th>卡片</th><th>标题</th><th>描述</th><th>标签</th><th>点击行为</th></tr>
+<tr><td>1（featured）</td><td>🎙️ AI 语音面试官</td><td>真实对话体验，AI 智能追问，实时维度分析，深度复盘报告</td><td>✨ NEW</td><td>→ router.push('/interview/prep')</td></tr>
+<tr><td>2</td><td>💬 AI 模拟面试</td><td>文本快练模式，5 分钟过 5 题，快速扫描知识盲区</td><td>🔥 HOT</td><td>alert('开发中…') 或占位页</td></tr>
+<tr><td>3</td><td>📄 一键 AI 简历</td><td>智能简历编辑，AI 评分建议，多模板套用，导出专业 PDF</td><td>无</td><td>alert('开发中…')</td></tr>
+<tr><td>4</td><td>📊 深度面试复盘</td><td>五维能力雷达，优缺点分析，逐题点评回放，薄弱点错题本</td><td>无</td><td>→ router.push('/interview/report/demo')</td></tr>
+</table>
+</div>
+
+<!-- ===================== 8. Page 2 准备页 ===================== -->
+<div class="page-section">
+<h2 id="sec8">8. Page 2 — 面试前置准备页</h2>
+
+<p><strong>文件：</strong><code>views/InterviewPrep.vue</code></p>
+<p><strong>路由：</strong><code>/interview/prep</code></p>
+
+<h3>页面整体布局</h3>
+<table>
+<tr><th>区域</th><th>说明</th></tr>
+<tr><td>顶部导航栏</td><td>白底，左侧 Logo "🎙️ OfferGoose" + 面包屑 "首页 / AI 语音面试"；右侧 "← 返回首页" 按钮</td></tr>
+<tr><td>内容区</td><td>max-width 720px 居中，上下 padding 充裕</td></tr>
+<tr><td>页面标题</td><td>居中 "AI 语音面试准备" + 副标题 "完成以下准备步骤，开始你的模拟面试"</td></tr>
+<tr><td>步骤条</td><td>圆形数字 + 连接线 + 文字标签，横向排列</td></tr>
+<tr><td>卡片 1~3 + 偏好设置 + 开始按钮</td><td>纵向堆叠</td></tr>
+</table>
+
+<h3>步骤条组件（StepIndicator.vue）</h3>
+<table>
+<tr><th>步骤</th><th>状态</th><th>圆形样式</th></tr>
+<tr><td>1. 设备检测</td><td>completed</td><td>绿底白字 ✓</td></tr>
+<tr><td>2. 岗位与简历</td><td>active</td><td>红底白字 "2" + 红色外圈光晕 shadow</td></tr>
+<tr><td>3. 开始面试</td><td>pending</td><td>灰边灰字 "3"</td></tr>
+</table>
+<p>步骤之间用 <code>step-connector</code> 连接（2px 横线，已完成变绿色）。</p>
+
+<h3>卡片 1：设备检测（DeviceChecker.vue）</h3>
+<table>
+<tr><th>设备项</th><th>默认状态</th><th>操作</th></tr>
+<tr><td>🎤 麦克风</td><td>"✓ 已授权" 绿色 badge</td><td>"测试" 按钮 → 点击后 1.5s 变 "✓ 通过" 绿色</td></tr>
+<tr><td>🔊 扬声器</td><td>"✓ 正常" 绿色 badge</td><td>"测试" 按钮 → 同上</td></tr>
+<tr><td>🎧 耳机（推荐）</td><td>"⚠ 未检测到" 黄色 badge</td><td>无按钮</td></tr>
+</table>
+<p>底部提示条：黄色左边框，"💡 建议佩戴耳机，避免回声干扰。首次使用建议试说一段话测试双向通道。"</p>
+
+<div class="note note-warn">
+<strong>真实实现要点：</strong>麦克风检测用 <code>navigator.mediaDevices.getUserMedia({ audio: true })</code>，通过 Web Audio API 的 AnalyserNode 检测音量阈值判断是否正常工作。扬声器检测播放一段测试音。
+</div>
+
+<h3>卡片 2：岗位与简历</h3>
+<p>此卡片内包含三部分，纵向排列：</p>
+
+<h4>① 岗位选择（PositionSelector.vue）</h4>
+<p>标题 "🎯 选择面试岗位"，选项为 radio 列表，每项包含：</p>
+<ul>
+  <li>左侧：圆形 radio（选中时红底白圆点）</li>
+  <li>右侧：岗位名 + 元信息（经验·城市·行业）</li>
+  <li>选中态：红色边框 + 红色浅底</li>
+</ul>
+<p><strong>MVP 阶段硬编码 3 个选项：</strong></p>
+<table>
+<tr><td>Java 后端开发工程师</td><td>3-5 年经验 · 北京 · 互联网</td></tr>
+<tr><td>前端开发工程师</td><td>2-4 年经验 · 上海 · 电商</td></tr>
+<tr><td>算法工程师</td><td>3-5 年经验 · 深圳 · AI</td></tr>
+</table>
+
+<h4>② 配置项（2×2 grid）</h4>
+<table>
+<tr><th>配置项</th><th>选项</th><th>默认值</th></tr>
+<tr><td>面试官风格</td><td>温和型 / 标准型 / 压力型</td><td>标准型</td></tr>
+<tr><td>难度等级</td><td>初级 / 中级 / 高级 / 专家</td><td>中级</td></tr>
+<tr><td>面试场景</td><td>技术面 / 项目面 / HR面 / 综合面</td><td>技术面</td></tr>
+<tr><td>题目数量</td><td>3题（快速版）/ 5题（标准版）/ 8题（深度版）</td><td>5题</td></tr>
+</table>
+<p>下拉选择器样式：白底 + 灰边 + 右侧 chevron-down SVG 图标，focus 时红色边框 + 浅红光晕。</p>
+
+<h4>③ 简历上传 + 预览（ResumeUploader.vue）</h4>
+<p>标题 "📄 上传简历"</p>
+<ul>
+  <li><strong>上传区</strong>：虚线边框 2px dashed，灰底，支持拖拽 + 点击。内含上传图标 + "点击或拖拽上传简历" + "支持 PDF / Word / 图片，最大 10MB"。上传成功后变绿色实线边框 + 绿底 + "简历已上传"。</li>
+  <li><strong>分隔线</strong>："或"，两侧灰线</li>
+  <li><strong>在线简历预览</strong>：标题 "📋 在线简历预览"，灰色卡片，内含：
+    <ul>
+      <li>左侧缩略图（64×80 白底卡片，内含 📄 emoji）</li>
+      <li>中间信息：文件名、更新时间/经验/学历、技术标签（胶囊灰底）</li>
+      <li>右侧按钮："预览" + "编辑"（两个小按钮，竖排）</li>
+    </ul>
+  </li>
+</ul>
+
+<h3>偏好设置卡片</h3>
+<p>两个 toggle 开关：</p>
+<ul>
+  <li>"💡 开启智能提示（卡壳时自动提示关键词）" → 默认开启</li>
+  <li>"🔇 静音模式（仅文字，不播放语音）" → 默认关闭</li>
+</ul>
+
+<h3>开始按钮</h3>
+<p>全宽，红色渐变背景，白色文字 "🚀 开始 AI 语音面试"，底部红色 shadow。hover 时 translateY(-2px) + shadow 加深。</p>
+<p>点击 → <code>router.push('/interview/session')</code>，同时调用 <code>interviewStore.startSession()</code>。</p>
+</div>
+
+<!-- ===================== 9. Page 3 面试进行页 ===================== -->
+<div class="page-section">
+<h2 id="sec9">9. Page 3 — AI 面试进行页</h2>
+
+<p><strong>文件：</strong><code>views/InterviewSession.vue</code></p>
+<p><strong>路由：</strong><code>/interview/session</code></p>
+
+<div class="note note-info">
+<strong>这是整个系统最复杂的页面。</strong>三栏布局：左 220px + 中自适应 + 右 260px，最大宽度 1400px 居中。
+</div>
+
+<h3>顶部导航栏（TopBar）</h3>
+<table>
+<tr><th>左侧</th><th>右侧</th></tr>
+<tr><td>Logo "🎙️ OfferGoose" + 计时器（等宽字体，⏱️ 00:07:34 格式，灰底灰边胶囊）</td><td>3 个按钮："⏸️ 暂停" / "⏭️ 下一题" / "⏹️ 结束面试"（结束按钮红色）</td></tr>
+</table>
+
+<h3>左面板（220px）</h3>
+
+<h4>面试官卡片（InterviewerCard.vue）</h4>
+<ul>
+  <li>100×100 圆形头像，红色渐变背景 + 👨‍💼 emoji</li>
+  <li>头像外圈 3px 绿色边框 + pulse-ring 呼吸动画</li>
+  <li>下方："AI 面试官" + 风格标签（如"标准型"，绿底绿字胶囊）</li>
+</ul>
+
+<h4>题目进度卡片（ProgressTimeline.vue）</h4>
+<p>标题 "题目进度"（大写灰色 + letter-spacing），下方为时间线列表：</p>
+<ul>
+  <li>completed 项：绿色圆点 ✓ + 灰色文字</li>
+  <li>active 项：红色圆点（pulse 动画）+ 红色文字加粗 + 红色浅底背景</li>
+  <li>pending 项：灰色圆点 + 灰色文字</li>
+</ul>
+<p><strong>MVP 硬编码 5 题：</strong></p>
+<table>
+<tr><td>✓ 自我介绍</td><td>completed</td></tr>
+<tr><td>✓ 跨部门协作</td><td>completed</td></tr>
+<tr><td>3 算法题：爬楼梯</td><td>active</td></tr>
+<tr><td>4 系统设计</td><td>pending</td></tr>
+<tr><td>5 综合评价</td><td>pending</td></tr>
+</table>
+
+<h3>中间面板（自适应）</h3>
+
+<h4>对话头部</h4>
+<p>"💬 面试对话" + 右侧状态指示器 "🟢 AI 正在分析..."</p>
+
+<h4>对话体（ChatBody）</h4>
+<p>纵向 flex，overflow-y auto，max-height = calc(100vh - 260px)。消息气泡从下往上增长，新消息滚动到底部。</p>
+
+<h4>4 种气泡类型（ChatBubble.vue）</h4>
+
+<table>
+<tr><th>类型</th><th>role</th><th>对齐</th><th>视觉特征</th></tr>
+<tr><td><strong>题目气泡</strong></td><td>question</td><td>左对齐，max-width 92%</td><td>黄色背景 + 黄色左边框 4px + 头部 "📌 问题 3/5 · 题源：题库随机"</td></tr>
+<tr><td><strong>用户回答</strong></td><td>user</td><td>右对齐，max-width 85%</td><td>红色浅底 + 红色浅边框，圆角右上小</td></tr>
+<tr><td><strong>AI 实时分析</strong></td><td>analysis</td><td>左对齐，max-width 92%</td><td>绿色浅底 + 绿色边框，头部 "✅ 实时分析" + 亮点/缺口 + 四维度小分</td></tr>
+<tr><td><strong>AI 解答/面试官发言</strong></td><td>ai</td><td>左对齐，max-width 85%</td><td>灰色底 + 灰色边框，可包含加粗文字 + 代码块</td></tr>
+</table>
+
+<h4>代码块组件（CodeBlock.vue）</h4>
+<ul>
+  <li>深色背景 <code>#1a1a2e</code>，圆角，1rem padding</li>
+  <li>等宽字体，语法高亮：关键字紫色、函数蓝色、字符串绿色、数字橙色、注释灰色</li>
+  <li>右上角显示语言标签（如 "Python"）</li>
+  <li>真实项目建议集成 <code>highlight.js</code> 或 <code>shiki</code> 做语法高亮</li>
+</ul>
+
+<h4>输入区（ChatInput）</h4>
+<ul>
+  <li><strong>倒计时提示</strong>："⚠️ 69 秒内作答"，黄色，位于输入框上方</li>
+  <li><strong>文本输入</strong>：textarea，placeholder "面试官你好，我认为..."，min-height 48px，max-height 120px 可拉伸，focus 时红色边框 + 浅红光晕</li>
+  <li><strong>麦克风按钮</strong>：48×48 圆形，红色渐变背景，白色 🎙️，录音中变红色 + pulse 动画 + 图标变 ⏹️</li>
+  <li><strong>底部操作</strong>："🗑️ 清空文本" + "✓ 回答完毕"（红色主按钮）</li>
+</ul>
+
+<div class="note note-tip">
+<strong>真实语音实现路径：</strong>
+<br>① 浏览器原生 Web Speech API（<code>SpeechRecognition</code>）做 ASR，Chrome 支持最好但有 60s 限制
+<br>② TTS 用 <code>SpeechSynthesis</code> API 播放 AI 发言
+<br>③ 回声消除：TTS 播放时自动 mute 麦克风（硬互斥），或检测 TTS 播放状态忽略该时段音频输入
+<br>④ MVP 阶段可以先用 textarea 手动输入模拟，后端对接 LLM 生成面试官回复
+</div>
+
+<h3>右面板（260px）</h3>
+
+<h4>实时维度分析卡片</h4>
+<ul>
+  <li><strong>雷达图</strong>（RadarChart.vue）：SVG 手写或 ECharts，6 维度：回答相关性 / 专业度 / 表达流畅度 / 面试互动性 / 自信度 / 逻辑清晰</li>
+  <li>红色半透明填充区域 + 红色描边</li>
+  <li>下方维度标签组（DimensionTags.vue）：
+    <ul>
+      <li>highlight 标签：绿底绿字（如 "✓ 动态规划识别准确"）</li>
+      <li>gap 标签：红底红字（如 "✗ 边界条件未提及"）</li>
+      <li>普通标签：灰底灰字</li>
+    </ul>
+  </li>
+</ul>
+
+<h4>面试官提示卡片</h4>
+<p>标题 "💡 面试官提示"，内容灰色文字，关键信息加粗高亮。显示 AI 对当前回答的实时分析建议。</p>
+</div>
+
+<!-- ===================== 10. Page 4 复盘报告页 ===================== -->
+<div class="page-section">
+<h2 id="sec10">10. Page 4 — 面试复盘报告页</h2>
+
+<p><strong>文件：</strong><code>views/InterviewReport.vue</code></p>
+<p><strong>路由：</strong><code>/interview/report/:id</code></p>
+
+<h3>页面结构</h3>
+<table>
+<tr><th>区域</th><th>说明</th></tr>
+<tr><td>顶部</td><td>左侧 "📊 面试复盘报告" 标题 + 右侧 "← 返回首页" 按钮</td></tr>
+<tr><td>Tab 栏</td><td>白底胶囊容器，内含 4 个 Tab 按钮，选中态为红色浅底红字</td></tr>
+<tr><td>Tab 内容区</td><td>4 个 tab-content，切换时 fade-in 动画</td></tr>
+<tr><td>底部操作栏</td><td>白底卡片，4 个按钮居中排列</td></tr>
+</table>
+
+<h3>Tab 栏组件（ReportTabs.vue）</h3>
+<p>容器：白底 + shadow-sm + 圆角 + 0.375rem padding，内部 4 个按钮水平排列。</p>
+<table>
+<tr><th>Tab</th><th>标签</th><th>图标</th></tr>
+<tr><td>summary</td><td>面试概要</td><td>📋</td></tr>
+<tr><td>analysis</td><td>问题分析</td><td>🔍</td></tr>
+<tr><td>interviewer</td><td>面试官剖析</td><td>💡</td></tr>
+<tr><td>knowledge</td><td>相关知识点</td><td>📚</td></tr>
+</table>
+<p>选中态：红色浅底 <code>var(--primary-bg)</code> + 红字 <code>var(--primary)</code> + font-weight 600。未选中：灰字，hover 变深灰 + 浅灰底。</p>
+
+<h3>Tab 1：面试概要（summary）</h3>
+<p>三栏 grid：<code>1fr 2fr 1fr</code>，gap 1.5rem</p>
+
+<h4>左栏：五维雷达图</h4>
+<p>与面试进行页右侧雷达图同组件，但更大（max-width 180px）。</p>
+
+<h4>中栏：面试概要文字</h4>
+<p>白底卡片，标题 "面试概要"，正文段落，0.9375rem，line-height 1.85，color gray-600。内容为 AI 对整场面试的综合概述。</p>
+
+<h4>右栏：缺点 + 优点列表（ProsConsList.vue）</h4>
+<p>两个上下堆叠的卡片：</p>
+<ul>
+  <li><strong>缺点卡</strong>（⚠️ 缺点，红色标题）：每条包含标题 + 引用原文（左侧 2px 灰竖线，灰色斜体字）。点击可跳转到面试对话的对应位置。</li>
+  <li><strong>优点卡</strong>（✅ 优点，绿色标题）：同上结构。</li>
+</ul>
+<p>每条 hover 时：白底 + 灰边 + shadow-sm。</p>
+
+<h3>Tab 2：问题分析（analysis）</h3>
+<p>自适应网格 <code>repeat(auto-fit, minmax(300px, 1fr))</code>，每个分析项为白底卡片：</p>
+<ul>
+  <li>头部：图标（⚠️ 红色 / ✅ 绿色）+ 标题</li>
+  <li>内容：灰色分析文字，line-height 1.65</li>
+  <li>底部：分数条（ScoreBar.vue）— "65 分" 红色 / "85 分" 绿色 + 进度条（红/黄/绿根据分数段）</li>
+</ul>
+<p><strong>MVP 硬编码 4 项：</strong></p>
+<table>
+<tr><td>⚠️ 动态规划边界条件</td><td>65 分（low）</td></tr>
+<tr><td>✅ 跨部门协作经验</td><td>85 分（high）</td></tr>
+<tr><td>⚠️ 项目深度挖掘</td><td>70 分（medium）</td></tr>
+<tr><td>✅ 自我介绍结构</td><td>90 分（high）</td></tr>
+</table>
+
+<h3>Tab 3：面试官剖析（interviewer）</h3>
+<p>单个白底大卡片，包含：</p>
+<ul>
+  <li><strong>标题</strong>："👨‍💼 面试官整体评价"</li>
+  <li><strong>评价段落</strong>：灰底 + 红色左边框 4px，0.9375rem，line-height 1.85</li>
+  <li><strong>改进建议</strong>：标题 "📋 改进建议"，下方列表。每条建议：左侧红色圆形序号 + 右侧文字内容（含加粗标题 + 正文）</li>
+</ul>
+<p><strong>MVP 硬编码 4 条建议：</strong></p>
+<ol>
+  <li><strong>深化技术细节</strong>：回答算法题时分析复杂度 + 优化方向</li>
+  <li><strong>使用 STAR 法则</strong>：Situation / Task / Action / Result 结构化表达</li>
+  <li><strong>补充运维知识</strong>：Linux 命令 / Docker / CI/CD</li>
+  <li><strong>准备追问应对</strong>：简历每个技术点准备被追问 2-3 层</li>
+</ol>
+
+<h3>Tab 4：相关知识点（knowledge）</h3>
+<p>自适应网格 <code>repeat(auto-fit, minmax(280px, 1fr))</code>，每个知识点为白底卡片（KnowledgeCard.vue）：</p>
+<ul>
+  <li>顶部红色 3px 色条</li>
+  <li>标题（emoji + 文字）</li>
+  <li>描述段落</li>
+  <li>底部链接："查看相关题目 →"（红色，hover 下划线）</li>
+  <li>hover 效果：translateY(-2px) + shadow-md</li>
+</ul>
+<p><strong>MVP 硬编码 6 张卡片：</strong></p>
+<table>
+<tr><td>🧮 动态规划基础</td><td>查看相关题目 →</td></tr>
+<tr><td>🏗️ 系统设计：分布式缓存</td><td>查看相关题目 →</td></tr>
+<tr><td>🤝 跨团队协作最佳实践</td><td>查看面经分享 →</td></tr>
+<tr><td>🐧 Linux 基础运维</td><td>查看学习路径 →</td></tr>
+<tr><td>📦 Docker 容器化部署</td><td>查看相关题目 →</td></tr>
+<tr><td>⚙️ CI/CD 持续集成部署</td><td>查看学习路径 →</td></tr>
+</table>
+
+<h3>底部操作栏</h3>
+<p>白底卡片，4 个按钮居中：</p>
+<table>
+<tr><td>📚 薄弱点入错题本</td><td>普通按钮</td></tr>
+<tr><td>📥 下载 PDF 报告</td><td>普通按钮</td></tr>
+<tr><td>🔗 分享报告</td><td>普通按钮</td></tr>
+<tr><td>🔄 开始新的面试</td><td>红色主按钮 → 跳转回 /interview/prep</td></tr>
+</table>
+</div>
+
+<!-- ===================== 11. 可复用组件 ===================== -->
+<div class="page-section">
+<h2 id="sec11">11. 可复用组件清单</h2>
+
+<table>
+<tr><th>组件</th><th>位置</th><th>Props</th><th>说明</th></tr>
+<tr><td><code>AppButton</code></td><td>common/</td><td>variant: 'primary' | 'ghost' | 'danger', size, disabled, loading</td><td>通用按钮，红色渐变 / 灰边透明 / 红色危险三种变体</td></tr>
+<tr><td><code>AppToggle</code></td><td>common/</td><td>modelValue: boolean, label: string</td><td>开关组件，44×24，红色激活态</td></tr>
+<tr><td><code>AppSelect</code></td><td>common/</td><td>modelValue, options: {label, value}[], placeholder</td><td>下拉选择，自定义样式替换原生 select</td></tr>
+<tr><td><code>AppBadge</code></td><td>common/</td><td>status: 'ok' | 'checking' | 'error', text</td><td>状态徽标，胶囊圆角</td></tr>
+<tr><td><code>AppUpload</code></td><td>common/</td><td>accept, maxSize, modelValue: File|null</td><td>拖拽上传区，虚线边框，支持拖放+点击</td></tr>
+<tr><td><code>ChatBubble</code></td><td>interview/</td><td>message: ChatMessage</td><td>核心对话气泡，根据 role 自动切换 4 种样式</td></tr>
+<tr><td><code>CodeBlock</code></td><td>interview/</td><td>language, code</td><td>代码块，深色背景 + 语法高亮</td></tr>
+<tr><td><code>RadarChart</code></td><td>interview/</td><td>scores: DimensionScore[], size?</td><td>SVG 雷达图，支持 5~6 维度</td></tr>
+<tr><td><code>ScoreBar</code></td><td>interview/</td><td>score: number, label?</td><td>分数进度条，颜色根据分数段自动切换</td></tr>
+</table>
+</div>
+
+<!-- ===================== 12. API ===================== -->
+<div class="page-section">
+<h2 id="sec12">12. API 接口契约（Mock 阶段）</h2>
+
+<p>MVP 阶段使用 <code>mock/</code> 目录下的静态数据模拟，接口签名如下，后续对接真实后端时只需替换实现：</p>
+
+<pre><code><span class="cm">// api/interview.ts</span>
+
+<span class="cm">/** 获取岗位列表 */</span>
+<span class="kw">export async function</span> <span class="fn">getPositions</span>(): <span class="type">Promise</span>&lt;<span class="type">Position</span>[]&gt;
+
+<span class="cm">/** 上传简历，返回解析结果 */</span>
+<span class="kw">export async function</span> <span class="fn">uploadResume</span>(file: <span class="type">File</span>): <span class="type">Promise</span>&lt;<span class="type">Resume</span>&gt;
+
+<span class="cm">/** 获取用户在线简历 */</span>
+<span class="kw">export async function</span> <span class="fn">getOnlineResume</span>(): <span class="type">Promise</span>&lt;<span class="type">Resume</span> | <span class="kw">null</span>&gt;
+
+<span class="cm">/** 创建面试会话 */</span>
+<span class="kw">export async function</span> <span class="fn">createSession</span>(config: <span class="type">InterviewConfig</span>): <span class="type">Promise</span>&lt;{ sessionId: <span class="type">string</span> }&gt;
+
+<span class="cm">/** 提交用户回答，获取 AI 面试官的下一条消息 */</span>
+<span class="kw">export async function</span> <span class="fn">submitAnswer</span>(
+  sessionId: <span class="type">string</span>,
+  answer: <span class="type">string</span>
+): <span class="type">Promise</span>&lt;{
+  aiReply: <span class="type">ChatMessage</span>        <span class="cm">// 面试官回复/解答</span>
+  analysis: <span class="type">ChatMessage</span>       <span class="cm">// 实时分析</span>
+  dimensions: <span class="type">DimensionScore</span>[] <span class="cm">// 更新后的维度评分</span>
+  nextQuestion?: <span class="type">ChatMessage</span>   <span class="cm">// 如果是下一题则返回</span>
+}&gt;
+
+<span class="cm">/** 结束面试，触发报告生成 */</span>
+<span class="kw">export async function</span> <span class="fn">endSession</span>(sessionId: <span class="type">string</span>): <span class="type">Promise</span>&lt;{ reportId: <span class="type">string</span> }&gt;
+
+<span class="cm">/** 获取复盘报告 */</span>
+<span class="kw">export async function</span> <span class="fn">getReport</span>(reportId: <span class="type">string</span>): <span class="type">Promise</span>&lt;<span class="type">InterviewReport</span>&gt;</code></pre>
+</div>
+
+<!-- ===================== 13. 交互逻辑 ===================== -->
+<div class="page-section">
+<h2 id="sec13">13. 交互逻辑汇总</h2>
+
+<table>
+<tr><th>场景</th><th>触发</th><th>行为</th></tr>
+<tr><td>首页卡片点击</td><td>click "AI 语音面试官"</td><td>router.push('/interview/prep')</td></tr>
+<tr><td>设备测试</td><td>click "测试"</td><td>调用 getUserMedia → 检测音量 → 1.5s 后按钮变"✓ 通过"绿色</td></tr>
+<tr><td>岗位选择</td><td>click 选项</td><td>单选切换，更新 store.selectedPosition</td></tr>
+<tr><td>简历上传</td><td>drop / click 上传区</td><td>调用 uploadResume API → 成功后上传区变绿色"简历已上传"</td></tr>
+<tr><td>开始面试</td><td>click "开始 AI 语音面试"</td><td>校验岗位已选 → createSession → router.push('/interview/session')</td></tr>
+<tr><td>计时器</td><td>面试开始</td><td>setInterval 每秒 +1，格式 MM:SS，暂停时 clearInterval</td></tr>
+<tr><td>麦克风录音</td><td>click 🎙️ 按钮</td><td>切换 recording 状态，按钮变 ⏹️ + pulse 动画。实际项目中启动 SpeechRecognition</td></tr>
+<tr><td>提交回答</td><td>click "回答完毕"</td><td>校验文本非空 → submitAnswer API → 追加 analysis + ai 气泡 → 滚动到底部</td></tr>
+<tr><td>下一题</td><td>click "下一题"</td><td>confirm 确认 → 更新 questionProgress → 追加新 question 气泡</td></tr>
+<tr><td>结束面试</td><td>click "结束面试"</td><td>confirm → endSession API → router.push(`/interview/report/${reportId}`)</td></tr>
+<tr><td>Tab 切换</td><td>click report-tab</td><td>切换 activeTab → 对应 tab-content fade-in 显示</td></tr>
+<tr><td>优缺点锚点跳转</td><td>click 缺点/优点条目</td><td>跳转回面试进行页的对应消息位置（或高亮闪烁）</td></tr>
+<tr><td>薄弱点入错题本</td><td>click 按钮</td><td>调用 addToWrongBook API → toast 提示</td></tr>
+</table>
+</div>
+
+<!-- ===================== 14. 响应式与动画 ===================== -->
+<div class="page-section">
+<h2 id="sec14">14. 响应式与动画</h2>
+
+<h3>响应式断点</h3>
+<table>
+<tr><th>断点</th><th>变化</th></tr>
+<tr><td>≤ 1024px</td><td>面试进行页三栏 → 单栏堆叠（左/右面板在上，中间在下）；报告页三栏 → 单栏</td></tr>
+<tr><td>≤ 768px</td><td>首页卡片 2×2 → 1 列；步骤条横排 → 竖排（连接线隐藏）；配置 2 列 → 1 列；Tab 横向滚动</td></tr>
+</table>
+
+<h3>动画清单</h3>
+<table>
+<tr><th>动画名</th><th>触发场景</th><th>CSS</th></tr>
+<tr><td>pulse-dot</td><td>品牌徽章绿点 / 聊天状态绿点</td><td>opacity 1→0.4→1，2s 循环</td></tr>
+<tr><td>pulse-ring</td><td>面试官头像外圈 / active 进度圆点 / 录音按钮</td><td>opacity 1→0.5 + scale 1→1.05，2s 循环</td></tr>
+<tr><td>msg-in</td><td>新消息气泡出现</td><td>opacity 0→1 + translateY(8px→0)，0.3s ease</td></tr>
+<tr><td>卡片 hover</td><td>鼠标悬停 FeatureCard / KnowledgeCard</td><td>translateY(-6px/-2px) + shadow 升级，0.35s cubic-bezier</td></tr>
+<tr><td>tab-content 切换</td><td>Tab 切换</td><td>复用 msg-in 动画，0.3s</td></tr>
+<tr><td>按钮 active</td><td>按下开始按钮</td><td>translateY(0) 回弹</td></tr>
+</table>
+
+<h3>打印样式</h3>
+<pre><code><span class="op">@media</span> print {
+  .top-bar, .chat-input-area, .report-actions { display: none; }
+  body { background: white; }
+}</code></pre>
+
+<div class="note note-tip">
+<strong>给 AI 编码工具的提示：</strong>
+<br>1. 先搭项目骨架（Vite + Vue 3 + TS + Router + Pinia + UnoCSS），确保能跑起来
+<br>2. 写入 CSS 变量文件 <code>variables.css</code>，后续所有颜色/间距/圆角引用变量
+<br>3. 从 types/ 开始定义数据结构，再写 mock 数据
+<br>4. 按 Page 1 → 2 → 3 → 4 的顺序逐页实现，每页先搭结构再填细节
+<br>5. 面试进行页最复杂，建议先用静态 mock 数据渲染，再逐步接入真实 API 和语音能力
+<br>6. 组件拆分遵循"一个组件一个职责"，ChatBubble 是最核心的复用组件
+</div>
+
+</div>
+</body>
+</html>

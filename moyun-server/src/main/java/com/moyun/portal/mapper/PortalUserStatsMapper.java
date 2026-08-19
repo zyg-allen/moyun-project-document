@@ -136,10 +136,4 @@ public interface PortalUserStatsMapper extends BaseMapper<PortalUserStats> {
      */
     @Update("UPDATE portal_user_stats SET weak_tags = #{weakTags}, weak_tags_updated_time = NOW() WHERE user_id = #{userId}")
     int updateWeakTags(@Param("userId") Long userId, @Param("weakTags") String weakTags);
-
-    /**
-     * v5.9 阶段0：更新面试统计（次数与平均分）
-     */
-    @Update("UPDATE portal_user_stats SET mock_interview_count = #{count}, avg_mock_score = #{avgScore} WHERE user_id = #{userId}")
-    int updateMockInterviewStats(@Param("userId") Long userId, @Param("count") int count, @Param("avgScore") int avgScore);
 }

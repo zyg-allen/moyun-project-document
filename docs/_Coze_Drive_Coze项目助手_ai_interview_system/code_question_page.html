@@ -1,0 +1,1124 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OfferGoose - #1 两数之和</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+--primary:#DC2626;--primary-light:#EF4444;--primary-dark:#B91C1C;--primary-bg:#FEF2F2;
+--code-bg:#1E1E2E;--code-gutter:#252538;
+--gray-50:#F9FAFB;--gray-100:#F3F4F6;--gray-200:#E5E7EB;--gray-300:#D1D5DB;
+--gray-400:#9CA3AF;--gray-500:#6B7280;--gray-600:#4B5563;--gray-700:#374151;
+--gray-800:#1F2937;--gray-900:#111827;
+--success:#059669;--warning:#D97706;
+--easy:#00B379;--medium:#F59E0B;--hard:#EF4444;
+--font-mono:'SF Mono',Monaco,'Cascadia Code','Fira Code',Consolas,monospace;
+--font-body:system-ui,-apple-system,'PingFang SC','Microsoft YaHei',sans-serif;
+}
+html,body{height:100%;font-family:var(--font-body);background:#f0f0f0;color:var(--gray-900);overflow:hidden}
+
+/* === NAV === */
+.top-nav{height:54px;background:linear-gradient(135deg,var(--primary),var(--primary-dark));display:flex;align-items:center;padding:0 20px;color:#fff;position:relative;z-index:100}
+.top-nav .logo{font-size:20px;font-weight:800;letter-spacing:-.5px;margin-right:32px;display:flex;align-items:center;gap:8px}
+.top-nav .logo i{font-size:18px}
+.top-nav nav{display:flex;gap:4px}
+.top-nav nav a{color:rgba(255,255,255,.8);text-decoration:none;padding:8px 14px;border-radius:6px;font-size:14px;font-weight:500;transition:all .2s}
+.top-nav nav a:hover,.top-nav nav a.active{background:rgba(255,255,255,.18);color:#fff}
+.top-nav .nav-right{margin-left:auto;display:flex;align-items:center;gap:16px}
+.timer{background:rgba(255,255,255,.15);padding:5px 12px;border-radius:6px;font-size:13px;font-family:var(--font-mono);letter-spacing:.5px}
+.btn-save{background:rgba(255,255,255,.15);color:#fff;border:1px solid rgba(255,255,255,.25);padding:5px 14px;border-radius:6px;font-size:13px;cursor:pointer;transition:all .15s}
+.btn-save:hover{background:rgba(255,255,255,.25)}
+.btn-save:active{transform:scale(.97)}
+.avatar{width:32px;height:32px;border-radius:50%;background:rgba(255,255,255,.25);display:flex;align-items:center;justify-content:center;font-size:14px;cursor:pointer}
+
+/* === SUB NAV === */
+.sub-nav{height:46px;background:#fff;display:flex;align-items:center;padding:0 20px;box-shadow:0 1px 3px rgba(0,0,0,.08);position:relative;z-index:90}
+.breadcrumb{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--gray-500)}
+.breadcrumb a{color:var(--gray-500);text-decoration:none}
+.breadcrumb a:hover{color:var(--primary)}
+.breadcrumb .sep{margin:0 2px}
+.breadcrumb .current{color:var(--gray-900);font-weight:600}
+.sub-nav .center{flex:1;display:flex;justify-content:center}
+.difficulty-badge{padding:3px 12px;border-radius:20px;font-size:12px;font-weight:600;color:#fff}
+.difficulty-badge.easy{background:var(--easy)}
+.difficulty-badge.medium{background:var(--medium)}
+.difficulty-badge.hard{background:var(--hard)}
+.sub-nav .right{display:flex;gap:8px}
+.sub-nav .right button{background:none;border:1px solid var(--gray-200);padding:5px 12px;border-radius:6px;font-size:13px;cursor:pointer;color:var(--gray-600);transition:all .15s}
+.sub-nav .right button:hover{border-color:var(--primary);color:var(--primary)}
+.sub-nav .right button:active{transform:scale(.97)}
+
+/* === MAIN LAYOUT === */
+.main-container{display:flex;height:calc(100vh - 100px);overflow:hidden}
+.left-panel{width:50%;min-width:320px;background:#fff;display:flex;flex-direction:column;overflow:hidden}
+.divider{width:4px;background:var(--gray-200);cursor:col-resize;transition:background .15s;flex-shrink:0;position:relative;z-index:10}
+.divider:hover,.divider.active{background:var(--primary)}
+.right-panel{flex:1;min-width:400px;display:flex;flex-direction:column;background:var(--code-bg)}
+
+/* === LEFT PANEL === */
+.problem-header{padding:20px 24px 12px;border-bottom:1px solid var(--gray-100)}
+.problem-title{font-size:20px;font-weight:700;display:flex;align-items:center;gap:10px;margin-bottom:8px}
+.problem-meta{display:flex;gap:16px;font-size:13px;color:var(--gray-500)}
+.problem-meta span{display:flex;align-items:center;gap:4px}
+
+/* TABS */
+.tab-bar{display:flex;border-bottom:1px solid var(--gray-200);padding:0 24px}
+.tab-bar button{background:none;border:none;padding:10px 16px;font-size:13px;color:var(--gray-500);cursor:pointer;border-bottom:2px solid transparent;font-weight:500;transition:all .15s}
+.tab-bar button.active{color:var(--primary);border-bottom-color:var(--primary)}
+.tab-bar button:hover{color:var(--primary)}
+
+.tab-content{flex:1;overflow-y:auto;display:none}
+.tab-content.active{display:block}
+
+/* Description */
+.problem-desc{padding:20px 24px 40px;font-size:14.5px;line-height:1.75;color:var(--gray-800)}
+.problem-desc p{margin-bottom:14px}
+.problem-desc code{background:var(--gray-100);padding:2px 6px;border-radius:4px;font-family:var(--font-mono);font-size:13px;color:var(--primary-dark)}
+.example-card{background:var(--gray-50);border:1px solid var(--gray-200);border-radius:8px;padding:14px 16px;margin-bottom:12px}
+.example-card .ex-title{font-weight:700;font-size:13px;margin-bottom:8px;color:var(--gray-700)}
+.example-card .ex-line{font-family:var(--font-mono);font-size:13px;margin-bottom:4px;color:var(--gray-700)}
+.example-card .ex-line strong{color:var(--gray-900);min-width:38px;display:inline-block}
+.example-card .ex-explain{margin-top:8px;font-size:13px;color:var(--gray-600);font-style:italic}
+.constraint-section{margin-top:18px}
+.constraint-section h2{font-size:14px;font-weight:700;margin-bottom:8px;color:var(--gray-800)}
+.constraint-section ul{padding-left:20px;font-size:14px;color:var(--gray-700)}
+.constraint-section li{margin-bottom:4px}
+.constraint-section li code{background:var(--gray-100);padding:1px 5px;border-radius:3px;font-family:var(--font-mono);font-size:12.5px}
+.tags-row{display:flex;gap:8px;margin-top:20px;flex-wrap:wrap}
+.tag{background:var(--primary-bg);color:var(--primary);padding:4px 12px;border-radius:20px;font-size:12px;font-weight:500}
+
+/* Editorial tab */
+.editorial-content{padding:20px 24px 40px}
+.editorial-content h2{font-size:16px;font-weight:700;margin-bottom:12px;color:var(--gray-900)}
+.editorial-content p{font-size:14px;line-height:1.75;color:var(--gray-700);margin-bottom:12px}
+.editorial-code{background:var(--code-bg);color:#cdd6f4;border-radius:8px;padding:16px;font-family:var(--font-mono);font-size:13px;line-height:1.6;overflow-x:auto;margin:14px 0}
+.complexity-box{background:var(--primary-bg);border:1px solid #fecaca;border-radius:8px;padding:14px 16px;margin:14px 0}
+.complexity-box .c-title{font-weight:700;font-size:13px;color:var(--primary-dark);margin-bottom:6px}
+.complexity-box .c-line{font-size:13px;color:var(--gray-700);margin-bottom:3px}
+.complexity-box .c-line code{font-family:var(--font-mono);color:var(--primary-dark);font-weight:600}
+.video-links{margin-top:16px}
+.video-links a{display:flex;align-items:center;gap:8px;color:var(--primary);text-decoration:none;font-size:13px;padding:6px 0}
+.video-links a:hover{text-decoration:underline}
+
+/* Submissions tab */
+.submissions-list{padding:12px 24px 40px}
+.sub-item{border:1px solid var(--gray-200);border-radius:8px;margin-bottom:10px;overflow:hidden}
+.sub-header{display:flex;align-items:center;gap:10px;padding:10px 14px;cursor:pointer;font-size:13px;transition:background .15s}
+.sub-header:hover{background:var(--gray-50)}
+.sub-status{padding:2px 10px;border-radius:12px;font-size:11px;font-weight:700;color:#fff;min-width:42px;text-align:center}
+.sub-status.ac{background:var(--success);animation:pulse-green 2s infinite}
+.sub-status.wa{background:var(--hard)}
+.sub-status.tle{background:var(--warning);animation:pulse-orange 2s infinite}
+.sub-status.re{background:#7c3aed}
+.sub-status.ce{background:var(--gray-500)}
+.sub-info{flex:1;display:flex;gap:14px;color:var(--gray-500);font-size:12px}
+.sub-time{color:var(--gray-400);font-size:12px;font-family:var(--font-mono)}
+.sub-expand-icon{color:var(--gray-400);transition:transform .2s}
+.sub-item.expanded .sub-expand-icon{transform:rotate(180deg)}
+.sub-code{display:none;padding:12px 14px;background:var(--gray-50);border-top:1px solid var(--gray-200);font-family:var(--font-mono);font-size:12px;line-height:1.5;color:var(--gray-700);overflow-x:auto}
+.sub-item.expanded .sub-code{display:block}
+.sub-beat{font-size:12px;color:var(--success);font-weight:600}
+
+@keyframes pulse-green{0%,100%{box-shadow:0 0 0 0 rgba(5,150,105,.3)}50%{box-shadow:0 0 0 6px rgba(5,150,105,0)}}
+@keyframes pulse-orange{0%,100%{box-shadow:0 0 0 0 rgba(217,119,6,.3)}50%{box-shadow:0 0 0 6px rgba(217,119,6,0)}}
+
+/* === RIGHT PANEL === */
+/* Toolbar */
+.editor-toolbar{background:var(--code-gutter);padding:8px 14px;display:flex;align-items:center;gap:10px;border-bottom:1px solid #313244}
+.editor-toolbar select{background:#313244;color:#cdd6f4;border:1px solid #45475a;border-radius:5px;padding:5px 10px;font-size:13px;cursor:pointer;outline:none}
+.editor-toolbar select:focus{border-color:var(--primary)}
+.toolbar-btn{background:none;border:1px solid #45475a;color:#a6adc8;padding:5px 12px;border-radius:5px;font-size:12px;cursor:pointer;transition:all .15s}
+.toolbar-btn:hover{border-color:#cdd6f4;color:#cdd6f4}
+.toolbar-btn:active{transform:scale(.97)}
+.toolbar-spacer{flex:1}
+
+/* Syntax check bar */
+.syntax-bar{background:#181825;padding:6px 14px;font-size:12px;display:flex;align-items:center;gap:8px;border-bottom:1px solid #313244;transition:all .3s}
+.syntax-bar .indicator{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.syntax-bar.waiting{color:#6c7086}
+.syntax-bar.waiting .indicator{background:#6c7086}
+.syntax-bar.pass{color:#a6e3a1}
+.syntax-bar.pass .indicator{background:#a6e3a1}
+.syntax-bar.fail{color:#f38ba8}
+.syntax-bar.fail .indicator{background:#f38ba8}
+
+/* Code area */
+.code-area{flex:1;display:flex;overflow:hidden;position:relative}
+.line-numbers{background:var(--code-gutter);color:#6c7086;font-family:var(--font-mono);font-size:14px;line-height:1.6;padding:12px 0;text-align:right;user-select:none;overflow:hidden;min-width:44px}
+.line-numbers .ln{padding:0 12px 0 8px;display:block}
+.code-editor{flex:1;background:var(--code-bg);color:#cdd6f4;border:none;outline:none;resize:none;font-family:var(--font-mono);font-size:14px;line-height:1.6;padding:12px 16px;tab-size:4;overflow:auto}
+.code-editor::placeholder{color:#585b70}
+
+/* Test cases */
+.test-section{background:#181825;border-top:1px solid #313244;flex-shrink:0}
+.test-tabs{display:flex;padding:0 10px;background:#11111b}
+.test-tab{background:none;border:none;color:#6c7086;padding:8px 14px;font-size:12px;cursor:pointer;border-bottom:2px solid transparent;transition:all .15s}
+.test-tab.active{color:#cdd6f4;border-bottom-color:var(--primary-light)}
+.test-tab.add-tab{color:#585b70;font-size:14px}
+.test-tab.add-tab:hover{color:#a6adc8}
+.test-case-content{padding:10px 14px;font-family:var(--font-mono);font-size:12.5px;color:#a6adc8;line-height:1.7;max-height:100px;overflow-y:auto;display:none}
+.test-case-content.active{display:block}
+.test-case-content .tc-label{color:#6c7086;font-size:11px;text-transform:uppercase;letter-spacing:.5px}
+.test-case-content .tc-value{color:#a6e3a1}
+
+/* Action bar */
+.action-bar{background:var(--code-gutter);padding:10px 14px;display:flex;align-items:center;gap:10px;border-top:1px solid #313244}
+.btn-run{background:none;border:1.5px solid #a6adc8;color:#a6adc8;padding:7px 18px;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;transition:all .15s;display:flex;align-items:center;gap:6px}
+.btn-run:hover{border-color:#fff;color:#fff}
+.btn-run:active{transform:scale(.97)}
+.btn-submit{background:var(--primary);border:none;color:#fff;padding:7px 22px;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;transition:all .15s;display:flex;align-items:center;gap:6px}
+.btn-submit:hover{background:var(--primary-light)}
+.btn-submit:active{transform:scale(.97)}
+.shortcut-hint{margin-left:auto;font-size:11px;color:#6c7086}
+
+/* === EXECUTION RESULTS === */
+.result-panel{background:var(--code-bg);border-top:1px solid #313244;overflow:hidden;max-height:0;transition:max-height .4s ease,padding .3s;padding:0 14px}
+.result-panel.show{max-height:480px;padding:14px;overflow-y:auto}
+
+/* Steps */
+.exec-steps{display:flex;align-items:center;gap:0;margin-bottom:16px;padding:10px 0}
+.exec-step{display:flex;align-items:center;gap:8px;font-size:12px;color:#585b70;position:relative}
+.exec-step .step-circle{width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;border:2px solid #45475a;color:#6c7086;transition:all .3s}
+.exec-step.done .step-circle{background:var(--success);border-color:var(--success);color:#fff}
+.exec-step.running .step-circle{background:var(--warning);border-color:var(--warning);color:#fff;animation:step-pulse .6s infinite}
+.exec-step .step-text{white-space:nowrap}
+.exec-step.done .step-text{color:#a6e3a1}
+.exec-step.running .step-text{color:#f9e2af}
+.step-connector{width:40px;height:2px;background:#45475a;margin:0 6px;flex-shrink:0;position:relative;overflow:hidden}
+.step-connector.done::after{content:'';position:absolute;inset:0;background:var(--success);animation:connector-fill .3s forwards}
+@keyframes step-pulse{0%,100%{opacity:1}50%{opacity:.5}}
+@keyframes connector-fill{from{width:0}to{width:100%}}
+
+/* Result status */
+.result-status{padding:12px 16px;border-radius:8px;margin-bottom:12px;display:flex;align-items:center;gap:10px;font-size:14px;font-weight:600}
+.result-status.pass{background:rgba(166,227,161,.1);border:1px solid rgba(166,227,161,.25);color:#a6e3a1}
+.result-status.fail{background:rgba(243,139,168,.1);border:1px solid rgba(243,139,168,.25);color:#f38ba8}
+.result-status .status-detail{font-size:12px;font-weight:400;margin-left:auto;display:flex;gap:14px;color:#a6adc8}
+
+/* Result toggle */
+.result-toggle{display:flex;align-items:center;gap:8px;margin-bottom:12px;font-size:12px;color:#6c7086}
+.toggle-switch{position:relative;width:36px;height:20px;cursor:pointer}
+.toggle-switch input{display:none}
+.toggle-track{position:absolute;inset:0;background:#45475a;border-radius:10px;transition:background .2s}
+.toggle-switch input:checked+.toggle-track{background:var(--primary)}
+.toggle-knob{position:absolute;top:2px;left:2px;width:16px;height:16px;background:#fff;border-radius:50%;transition:transform .2s}
+.toggle-switch input:checked~.toggle-knob{transform:translateX(16px)}
+
+/* Case results */
+.case-result{border:1px solid #313244;border-radius:8px;margin-bottom:8px;overflow:hidden}
+.case-header{display:flex;align-items:center;gap:8px;padding:8px 12px;font-size:13px;cursor:pointer;color:#cdd6f4;transition:background .15s}
+.case-header:hover{background:rgba(255,255,255,.03)}
+.case-header .case-icon{font-size:14px}
+.case-header .case-icon.pass{color:#a6e3a1}
+.case-header .case-icon.fail{color:#f38ba8}
+.case-header .case-icon.tle{color:#f9e2af}
+.case-detail{display:none;padding:10px 12px;background:rgba(0,0,0,.2);font-family:var(--font-mono);font-size:12px;line-height:1.8;color:#a6adc8}
+.case-result.expanded .case-detail{display:block}
+.case-detail .label{color:#6c7086}
+.case-detail .diff{background:rgba(243,139,168,.2);color:#f38ba8;padding:1px 4px;border-radius:3px}
+.case-detail .timeout{color:#585b70}
+
+/* === SUBMIT MODAL === */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:200;display:none;align-items:center;justify-content:center;backdrop-filter:blur(4px)}
+.modal-overlay.show{display:flex}
+.modal{background:#fff;border-radius:14px;padding:32px;width:420px;max-width:90vw;text-align:center;animation:modal-bounce .4s}
+@keyframes modal-bounce{0%{transform:scale(.8);opacity:0}60%{transform:scale(1.03)}100%{transform:scale(1);opacity:1}}
+.modal .modal-icon{font-size:48px;margin-bottom:12px}
+.modal .modal-icon.pass{color:var(--success)}
+.modal .modal-icon.fail{color:var(--hard)}
+.modal h2{font-size:22px;font-weight:800;margin-bottom:4px}
+.modal .modal-subtitle{font-size:14px;color:var(--gray-500);margin-bottom:20px}
+.modal .modal-stats{text-align:left;margin-bottom:20px}
+.modal .stat-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.modal .stat-label{font-size:13px;color:var(--gray-600)}
+.modal .stat-value{font-size:14px;font-weight:700;color:var(--gray-900)}
+.progress-bar{height:6px;background:var(--gray-200);border-radius:3px;margin-top:4px;overflow:hidden}
+.progress-fill{height:100%;border-radius:3px;transition:width .8s ease}
+.progress-fill.green{background:var(--success)}
+.progress-fill.red{background:var(--hard)}
+.modal .modal-actions{display:flex;gap:10px;justify-content:center}
+.modal .btn-modal{padding:8px 20px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;transition:all .15s;border:none}
+.modal .btn-modal:active{transform:scale(.97)}
+.modal .btn-modal.primary{background:var(--primary);color:#fff}
+.modal .btn-modal.primary:hover{background:var(--primary-light)}
+.modal .btn-modal.secondary{background:var(--gray-100);color:var(--gray-700)}
+.modal .btn-modal.secondary:hover{background:var(--gray-200)}
+
+/* === TOAST === */
+.toast{position:fixed;top:70px;right:20px;z-index:300;display:flex;flex-direction:column;gap:8px}
+.toast-item{background:#fff;border:1px solid var(--gray-200);border-radius:8px;padding:10px 16px;box-shadow:0 4px 12px rgba(0,0,0,.1);font-size:13px;display:flex;align-items:center;gap:8px;animation:toast-in .3s ease;min-width:200px}
+.toast-item.success{border-left:3px solid var(--success)}
+.toast-item.success i{color:var(--success)}
+.toast-item.info{border-left:3px solid var(--primary)}
+.toast-item.info i{color:var(--primary)}
+@keyframes toast-in{from{transform:translateX(100%);opacity:0}to{transform:translateX(0);opacity:1}}
+@keyframes toast-out{from{transform:translateX(0);opacity:1}to{transform:translateX(100%);opacity:0}}
+
+/* Loading spinner */
+.spinner{width:14px;height:14px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .6s linear infinite;display:none}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* Scrollbar */
+::-webkit-scrollbar{width:6px;height:6px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--gray-300);border-radius:3px}
+.right-panel ::-webkit-scrollbar-thumb{background:#45475a}
+
+.top-nav nav span{display:inline-block;color:rgba(255,255,255,.8);text-decoration:none;padding:8px 14px;border-radius:6px;font-size:14px;font-weight:500;transition:all .2s;cursor:pointer}
+.top-nav nav span:hover,.top-nav nav span.active{background:rgba(255,255,255,.18);color:#fff}
+.breadcrumb span[role="link"]{cursor:pointer;transition:color .15s}
+.breadcrumb span[role="link"]:hover{color:var(--primary)}
+.video-link-btn{background:none;border:none;color:var(--primary);font-size:13px;cursor:pointer;padding:6px 0;display:block;text-align:left}
+.video-link-btn:hover{text-decoration:underline}
+:focus-visible{outline:2px solid var(--primary);outline-offset:2px;border-radius:3px}
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}}
+@media print{.top-nav,.sub-nav,.action-bar,.editor-toolbar,.syntax-bar,.test-section,.result-panel{display:none!important}.main-container{height:auto}.left-panel,.right-panel{width:100%!important;min-width:0!important}}
+
+/* === 功能描述面板 === */
+.feature-info-bar {
+  background: linear-gradient(135deg, #FFF5F5 0%, #FEF2F2 100%);
+  border-bottom: 1px solid #FECACA;
+  padding: 14px 28px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.feature-info-bar .fib-left { display:flex; align-items:center; gap:14px; }
+.feature-info-bar .fib-icon {
+  width:36px; height:36px; border-radius:10px;
+  background: linear-gradient(135deg, #DC2626, #991B1B);
+  color:#fff; display:flex; align-items:center; justify-content:center;
+  font-size:16px; flex-shrink:0;
+}
+.feature-info-bar .fib-title { font-size:15px; font-weight:700; color:#1F2937; line-height:1.3; }
+.feature-info-bar .fib-desc { font-size:12px; color:#6B7280; line-height:1.4; margin-top:2px; }
+.feature-info-bar .fib-tags { display:flex; gap:6px; flex-wrap:wrap; align-items:center; }
+.feature-info-bar .fib-tag {
+  display:inline-flex; align-items:center; gap:4px;
+  padding:4px 10px; border-radius:6px; font-size:11px; font-weight:600;
+  background:#fff; border:1px solid #E5E7EB; color:#374151;
+  transition: all .15s ease;
+}
+.feature-info-bar .fib-tag:hover { border-color:#DC2626; color:#DC2626; background:#FFF5F5; }
+.feature-info-bar .fib-tag .tag-dot { width:6px; height:6px; border-radius:50%; }
+</style>
+</head>
+<body>
+<!-- 功能描述面板 -->
+<div class="feature-info-bar">
+  <div class="fib-left">
+    <div class="fib-icon"><i class="fas fa-code"></i></div>
+    <div>
+      <div class="fib-title">编程题在线做题</div>
+      <div class="fib-desc">仿 LeetCode 风格的编程题做题平台，支持多语言编辑、语法预检查、沙箱执行与提交记录</div>
+    </div>
+  </div>
+  <div class="fib-tags">
+    <span class="fib-tag"><i class="fas fa-shield-alt" style="font-size:10px;color:#DC2626"></i> 语法预检查</span><span class="fib-tag"><i class="fas fa-play" style="font-size:10px;color:#DC2626"></i> 沙箱执行</span><span class="fib-tag"><i class="fas fa-lightbulb" style="font-size:10px;color:#DC2626"></i> 官方题解</span><span class="fib-tag"><i class="fas fa-history" style="font-size:10px;color:#DC2626"></i> 提交记录</span><span class="fib-tag"><i class="fas fa-columns" style="font-size:10px;color:#DC2626"></i> 三栏布局</span>
+  </div>
+</div>
+
+
+<!-- TOP NAV -->
+<header class="top-nav">
+  <div class="logo"><i class="fa-solid fa-code"></i> OfferGoose</div>
+  <nav>
+    <span class="active" role="link" tabindex="0">题库</span>
+    <span role="link" tabindex="0">在线笔试</span>
+    <span role="link" tabindex="0">面试</span>
+    <span role="link" tabindex="0">简历</span>
+  </nav>
+  <div class="nav-right">
+    <div class="timer" id="timer">00:00:00</div>
+    <button class="btn-save" onclick="showToast('草稿已保存','success')"><i class="fa-regular fa-floppy-disk"></i> 保存草稿</button>
+    <div class="avatar"><i class="fa-solid fa-user"></i></div>
+  </div>
+</header>
+
+<!-- SUB NAV -->
+<div class="sub-nav">
+  <div class="breadcrumb">
+    <span role="link" tabindex="0">编程题库</span><span class="sep"><i class="fa-solid fa-chevron-right" style="font-size:10px"></i></span>
+    <span role="link" tabindex="0">数组</span><span class="sep"><i class="fa-solid fa-chevron-right" style="font-size:10px"></i></span>
+    <span class="current">#1 两数之和</span>
+  </div>
+  <div class="center">
+    <span class="difficulty-badge easy">简单</span>
+  </div>
+  <div class="right">
+    <button><i class="fa-solid fa-list"></i> 题目列表</button>
+    <button onclick="this.querySelector('i').classList.toggle('fa-solid');this.querySelector('i').classList.toggle('fa-regular');showToast('已收藏','info')"><i class="fa-regular fa-star"></i> 收藏</button>
+  </div>
+</div>
+
+<!-- MAIN -->
+<main class="main-container">
+
+  <!-- LEFT PANEL -->
+  <section class="left-panel" id="leftPanel">
+    <div class="problem-header">
+      <h1 class="problem-title">1. 两数之和 <span class="difficulty-badge easy">简单</span></h1>
+      <div class="problem-meta">
+        <span><i class="fa-solid fa-chart-pie"></i> 通过率 52.3%</span>
+        <span><i class="fa-solid fa-paper-plane"></i> 提交 1.2M</span>
+        <span><i class="fa-regular fa-star"></i> 收藏 18.5K</span>
+      </div>
+    </div>
+
+    <div class="tab-bar">
+      <button class="active" data-tab="desc">题目描述</button>
+      <button data-tab="editorial">官方题解</button>
+      <button data-tab="submissions">我的提交记录</button>
+    </div>
+
+    <!-- Tab: Description -->
+    <div class="tab-content active" id="tab-desc">
+      <div class="problem-desc">
+        <p>给你一个整数数组 <code>nums</code> 和一个整数目标值 <code>target</code>，请你在该数组中找出和为目标值 <code>target</code> 的那<strong>两个</strong>整数，并返回它们的数组下标。</p>
+        <p>你可以假设每种输入只会对应一个答案，并且你不能使用两次相同的元素。</p>
+        <p>你可以按任意顺序返回答案。</p>
+
+        <div class="example-card">
+          <div class="ex-title">示例 1</div>
+          <div class="ex-line"><strong>输入：</strong>nums = [2,7,11,15], target = 9</div>
+          <div class="ex-line"><strong>输出：</strong>[0,1]</div>
+          <div class="ex-explain">解释：因为 nums[0] + nums[1] == 9，返回 [0, 1]。</div>
+        </div>
+        <div class="example-card">
+          <div class="ex-title">示例 2</div>
+          <div class="ex-line"><strong>输入：</strong>nums = [3,2,4], target = 6</div>
+          <div class="ex-line"><strong>输出：</strong>[1,2]</div>
+        </div>
+        <div class="example-card">
+          <div class="ex-title">示例 3</div>
+          <div class="ex-line"><strong>输入：</strong>nums = [3,3], target = 6</div>
+          <div class="ex-line"><strong>输出：</strong>[0,1]</div>
+        </div>
+
+        <div class="constraint-section">
+          <h2>约束条件</h2>
+          <ul>
+            <li><code>2 &lt;= nums.length &lt;= 10<sup>4</sup></code></li>
+            <li><code>-10<sup>9</sup> &lt;= nums[i] &lt;= 10<sup>9</sup></code></li>
+            <li><code>-10<sup>9</sup> &lt;= target &lt;= 10<sup>9</sup></code></li>
+            <li>只会存在一个有效答案</li>
+          </ul>
+        </div>
+
+        <div class="tags-row">
+          <span class="tag">数组</span>
+          <span class="tag">哈希表</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tab: Editorial -->
+    <div class="tab-content" id="tab-editorial">
+      <div class="editorial-content">
+        <h2>解题思路</h2>
+        <p>最直接的方法是使用暴力枚举，遍历数组中每一对元素，检查它们的和是否等于目标值。这种方法的时间复杂度为 O(n²)，在数组较大时效率较低。</p>
+        <p>更高效的方法是使用<strong>哈希表</strong>。我们边遍历数组边将元素存入哈希表中，对于每个元素 <code>num</code>，先检查 <code>target - num</code> 是否已存在于哈希表中。如果存在，说明我们找到了答案；如果不存在，则将当前元素及其下标存入哈希表。</p>
+        <p>由于哈希表的查找操作平均时间复杂度为 O(1)，因此该方法只需遍历数组一次，总时间复杂度为 O(n)。</p>
+
+        <h2 style="margin-top:20px">代码示例</h2>
+        <div class="editorial-code">
+<span style="color:#cba6f7">def</span> <span style="color:#89b4fa">twoSum</span>(self, nums: List[int], target: int) -> List[int]:
+    num_map = {}  <span style="color:#6c7086"># 值 -> 下标</span>
+    <span style="color:#cba6f7">for</span> i, num <span style="color:#cba6f7">in</span> <span style="color:#89b4fa">enumerate</span>(nums):
+        complement = target - num
+        <span style="color:#cba6f7">if</span> complement <span style="color:#cba6f7">in</span> num_map:
+            <span style="color:#cba6f7">return</span> [num_map[complement], i]
+        num_map[num] = i
+    <span style="color:#cba6f7">return</span> []</div>
+
+        <div class="complexity-box">
+          <div class="c-title">复杂度分析</div>
+          <div class="c-line">时间复杂度：<code>O(n)</code> — 只需遍历数组一次，每次哈希查找 O(1)</div>
+          <div class="c-line">空间复杂度：<code>O(n)</code> — 最坏情况下需要存储 n-1 个元素到哈希表</div>
+        </div>
+
+        <div class="video-links">
+          <button class="video-link-btn"><i class="fa-solid fa-play-circle"></i> 视频讲解：哈希表解法详解</button>
+          <button class="video-link-btn"><i class="fa-solid fa-image"></i> 图文讲解：从暴力到最优解</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tab: Submissions -->
+    <div class="tab-content" id="tab-submissions">
+      <div class="submissions-list">
+        <div class="sub-item" onclick="this.classList.toggle('expanded')">
+          <div class="sub-header">
+            <span class="sub-status ac">AC</span>
+            <span class="sub-info"><span>Python 3</span><span>28ms</span><span>15.2MB</span><span class="sub-beat">击败 92.3%</span></span>
+            <span class="sub-time">2026-01-15 14:23</span>
+            <i class="fa-solid fa-chevron-down sub-expand-icon"></i>
+          </div>
+          <div class="sub-code">class Solution:
+    def twoSum(self, nums, target):
+        num_map = {}
+        for i, num in enumerate(nums):
+            if target - num in num_map:
+                return [num_map[target-num], i]
+            num_map[num] = i</div>
+        </div>
+
+        <div class="sub-item" onclick="this.classList.toggle('expanded')">
+          <div class="sub-header">
+            <span class="sub-status ac">AC</span>
+            <span class="sub-info"><span>Python 3</span><span>35ms</span><span>15.0MB</span><span class="sub-beat">击败 85.1%</span></span>
+            <span class="sub-time">2026-01-15 13:50</span>
+            <i class="fa-solid fa-chevron-down sub-expand-icon"></i>
+          </div>
+          <div class="sub-code">class Solution:
+    def twoSum(self, nums, target):
+        for i in range(len(nums)):
+            for j in range(i+1, len(nums)):
+                if nums[i] + nums[j] == target:
+                    return [i, j]</div>
+        </div>
+
+        <div class="sub-item" onclick="this.classList.toggle('expanded')">
+          <div class="sub-header">
+            <span class="sub-status wa">WA</span>
+            <span class="sub-info"><span>Python 3</span><span>--</span><span>--</span><span style="color:var(--gray-400)">用例2错误</span></span>
+            <span class="sub-time">2026-01-15 13:42</span>
+            <i class="fa-solid fa-chevron-down sub-expand-icon"></i>
+          </div>
+          <div class="sub-code">class Solution:
+    def twoSum(self, nums, target):
+        for i in range(len(nums)):
+            if target - nums[i] in nums:
+                return [i, nums.index(target-nums[i])]</div>
+        </div>
+
+        <div class="sub-item" onclick="this.classList.toggle('expanded')">
+          <div class="sub-header">
+            <span class="sub-status tle">TLE</span>
+            <span class="sub-info"><span>Python 3</span><span>>2000ms</span><span>256MB</span><span style="color:var(--gray-400)">超时</span></span>
+            <span class="sub-time">2026-01-14 22:10</span>
+            <i class="fa-solid fa-chevron-down sub-expand-icon"></i>
+          </div>
+          <div class="sub-code">class Solution:
+    def twoSum(self, nums, target):
+        import itertools
+        for a, b in itertools.combinations(enumerate(nums), 2):
+            if a[1] + b[1] == target:
+                return [a[0], b[0]]</div>
+        </div>
+
+        <div class="sub-item" onclick="this.classList.toggle('expanded')">
+          <div class="sub-header">
+            <span class="sub-status ce">CE</span>
+            <span class="sub-info"><span>Python 3</span><span>--</span><span>--</span><span style="color:var(--gray-400)">语法错误</span></span>
+            <span class="sub-time">2026-01-14 21:55</span>
+            <i class="fa-solid fa-chevron-down sub-expand-icon"></i>
+          </div>
+          <div class="sub-code">class Solution:
+    def twoSum(self, nums: List[int], target: int) -> List[int]:
+        num_map = {}
+        for i, num in enumerate(nums)
+            # SyntaxError: expected ':'</div>
+        </div>
+
+        <div class="sub-item" onclick="this.classList.toggle('expanded')">
+          <div class="sub-header">
+            <span class="sub-status re">RE</span>
+            <span class="sub-info"><span>Python 3</span><span>--</span><span>--</span><span style="color:var(--gray-400)">KeyError</span></span>
+            <span class="sub-time">2026-01-14 20:30</span>
+            <i class="fa-solid fa-chevron-down sub-expand-icon"></i>
+          </div>
+          <div class="sub-code">class Solution:
+    def twoSum(self, nums, target):
+        num_map = {}
+        for i, num in enumerate(nums):
+            num_map[num] = i
+        for i in range(len(nums)):
+            j = num_map[target - nums[i]]
+            return [i, j]</div>
+        </div>
+
+        <div class="sub-item" onclick="this.classList.toggle('expanded')">
+          <div class="sub-header">
+            <span class="sub-status ac">AC</span>
+            <span class="sub-info"><span>Java</span><span>2ms</span><span>41.5MB</span><span class="sub-beat">击败 88.7%</span></span>
+            <span class="sub-time">2026-01-14 19:15</span>
+            <i class="fa-solid fa-chevron-down sub-expand-icon"></i>
+          </div>
+          <div class="sub-code">class Solution {
+    public int[] twoSum(int[] nums, int target) {
+        Map&lt;Integer, Integer&gt; map = new HashMap&lt;&gt;();
+        for (int i = 0; i &lt; nums.length; i++) {
+            int comp = target - nums[i];
+            if (map.containsKey(comp))
+                return new int[]{map.get(comp), i};
+            map.put(nums[i], i);
+        }
+        return new int[0];
+    }
+}</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- DIVIDER -->
+  <div class="divider" id="divider"></div>
+
+  <!-- RIGHT PANEL -->
+  <section class="right-panel" id="rightPanel">
+    <!-- Toolbar -->
+    <div class="editor-toolbar">
+      <select id="langSelect" onchange="switchLang()">
+        <option value="python">Python 3</option>
+        <option value="cpp">C++</option>
+        <option value="java">Java</option>
+        <option value="js">JavaScript</option>
+        <option value="go">Go</option>
+        <option value="rust">Rust</option>
+      </select>
+      <button class="toolbar-btn" onclick="resetCode()"><i class="fa-solid fa-rotate-left"></i> 重置代码</button>
+      <div class="toolbar-spacer"></div>
+      <button class="toolbar-btn"><i class="fa-solid fa-gear"></i> 设置</button>
+    </div>
+
+    <!-- Syntax check bar -->
+    <div class="syntax-bar waiting" id="syntaxBar">
+      <span class="indicator"></span>
+      <span id="syntaxText">等待检查...</span>
+    </div>
+
+    <!-- Code area -->
+    <div class="code-area">
+      <div class="line-numbers" id="lineNumbers"></div>
+      <textarea class="code-editor" id="codeEditor" spellcheck="false" placeholder="在此输入代码..."></textarea>
+    </div>
+
+    <!-- Test cases -->
+    <div class="test-section">
+      <div class="test-tabs">
+        <button class="test-tab active" data-case="0">用例 1</button>
+        <button class="test-tab" data-case="1">用例 2</button>
+        <button class="test-tab" data-case="2">用例 3</button>
+        <button class="test-tab add-tab">+ 自定义</button>
+      </div>
+      <div class="test-case-content active" id="tc-0">
+        <div><span class="tc-label">输入: </span> nums = [<span class="tc-value">2, 7, 11, 15</span>], target = <span class="tc-value">9</span></div>
+        <div><span class="tc-label">输出: </span> <span class="tc-value">[0, 1]</span></div>
+      </div>
+      <div class="test-case-content" id="tc-1">
+        <div><span class="tc-label">输入: </span> nums = [<span class="tc-value">3, 2, 4</span>], target = <span class="tc-value">6</span></div>
+        <div><span class="tc-label">输出: </span> <span class="tc-value">[1, 2]</span></div>
+      </div>
+      <div class="test-case-content" id="tc-2">
+        <div><span class="tc-label">输入: </span> nums = [<span class="tc-value">3, 3</span>], target = <span class="tc-value">6</span></div>
+        <div><span class="tc-label">输出: </span> <span class="tc-value">[0, 1]</span></div>
+      </div>
+    </div>
+
+    <!-- Action bar -->
+    <div class="action-bar">
+      <button class="btn-run" id="btnRun" onclick="runCode()"><i class="fa-solid fa-play"></i> 执行代码 <span class="spinner" id="runSpinner"></span></button>
+      <button class="btn-submit" id="btnSubmit" onclick="submitCode()"><i class="fa-solid fa-paper-plane"></i> 提交 <span class="spinner" id="submitSpinner"></span></button>
+      <span class="shortcut-hint"><i class="fa-solid fa-keyboard"></i> Ctrl+Enter 执行</span>
+    </div>
+
+    <!-- Execution result panel -->
+    <div class="result-panel" id="resultPanel">
+      <div class="exec-steps" id="execSteps">
+        <div class="exec-step" id="step1">
+          <div class="step-circle">1</div>
+          <div class="step-text">语法预检查</div>
+        </div>
+        <div class="step-connector" id="conn1"></div>
+        <div class="exec-step" id="step2">
+          <div class="step-circle">2</div>
+          <div class="step-text">沙箱执行</div>
+        </div>
+        <div class="step-connector" id="conn2"></div>
+        <div class="exec-step" id="step3">
+          <div class="step-circle">3</div>
+          <div class="step-text">结果比对</div>
+        </div>
+      </div>
+
+      <!-- Toggle pass/fail -->
+      <div class="result-toggle">
+        <label class="toggle-switch">
+          <input type="checkbox" id="resultToggle" onchange="toggleResultMode()">
+          <div class="toggle-track"></div>
+          <div class="toggle-knob"></div>
+        </label>
+        <span>模拟错误结果</span>
+      </div>
+
+      <!-- Result content -->
+      <div id="resultContent"></div>
+    </div>
+  </section>
+</main>
+
+<!-- Submit modal -->
+<div class="modal-overlay" id="modalOverlay" onclick="if(event.target===this)closeModal()">
+  <div class="modal" id="modal">
+    <div class="modal-icon pass" id="modalIcon"><i class="fa-solid fa-circle-check"></i></div>
+    <h2 id="modalTitle">解答通过!</h2>
+    <p class="modal-subtitle" id="modalSubtitle">通过用例 15/15</p>
+    <div class="modal-stats" id="modalStats">
+      <div>
+        <div class="stat-row">
+          <span class="stat-label">执行用时</span>
+          <span class="stat-value">28 ms</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--gray-500);margin-bottom:14px">
+          <span>击败</span>
+          <div class="progress-bar" style="flex:1"><div class="progress-fill green" style="width:92%"></div></div>
+          <span>92.3%</span>
+        </div>
+        <div class="stat-row">
+          <span class="stat-label">内存消耗</span>
+          <span class="stat-value">14.8 MB</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--gray-500)">
+          <span>击败</span>
+          <div class="progress-bar" style="flex:1"><div class="progress-fill green" style="width:78%"></div></div>
+          <span>78.5%</span>
+        </div>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-modal secondary" onclick="closeModal()">查看提交记录</button>
+      <button class="btn-modal primary" onclick="closeModal();showToast('已跳转下一题','info')">下一题 →</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toastContainer"></div>
+
+<script>
+// ===== Code Templates =====
+const codeTemplates = {
+  python: `class Solution:
+    def twoSum(self, nums: List[int], target: int) -> List[int]:
+        """
+        给定一个整数数组 nums 和一个整数目标值 target，
+        找出数组中和为目标值的两个整数，返回其下标。
+        """
+        num_map = {}  # 值 -> 下标 的哈希表
+        for i, num in enumerate(nums):
+            complement = target - num
+            if complement in num_map:
+                return [num_map[complement], i]
+            num_map[num] = i
+        return []`,
+  cpp: `class Solution {
+public:
+    vector<int> twoSum(vector<int>& nums, int target) {
+        unordered_map<int, int> numMap;
+        for (int i = 0; i < nums.size(); i++) {
+            int complement = target - nums[i];
+            if (numMap.count(complement)) {
+                return {numMap[complement], i};
+            }
+            numMap[nums[i]] = i;
+        }
+        return {};
+    }
+};`,
+  java: `class Solution {
+    public int[] twoSum(int[] nums, int target) {
+        Map<Integer, Integer> map = new HashMap<>();
+        for (int i = 0; i < nums.length; i++) {
+            int complement = target - nums[i];
+            if (map.containsKey(complement)) {
+                return new int[]{map.get(complement), i};
+            }
+            map.put(nums[i], i);
+        }
+        return new int[0];
+    }
+}`,
+  js: `/**
+ * @param {number[]} nums
+ * @param {number[]} target
+ * @return {number[]}
+ */
+var twoSum = function(nums, target) {
+    const numMap = new Map();
+    for (let i = 0; i < nums.length; i++) {
+        const complement = target - nums[i];
+        if (numMap.has(complement)) {
+            return [numMap.get(complement), i];
+        }
+        numMap.set(nums[i], i);
+    }
+    return [];
+};`,
+  go: `func twoSum(nums []int, target int) []int {
+    numMap := make(map[int]int)
+    for i, num := range nums {
+        if j, ok := numMap[target-num]; ok {
+            return []int{j, i}
+        }
+        numMap[num] = i
+    }
+    return nil
+}`,
+  rust: `use std::collections::HashMap;
+
+impl Solution {
+    pub fn two_sum(nums: Vec<i32>, target: i32) -> Vec<i32> {
+        let mut map: HashMap<i32, usize> = HashMap::new();
+        for (i, &num) in nums.iter().enumerate() {
+            let complement = target - num;
+            if let Some(&j) = map.get(&complement) {
+                return vec![j as i32, i as i32];
+            }
+            map.insert(num, i);
+        }
+        vec![]
+    }
+}`
+};
+
+// ===== Init =====
+const editor = document.getElementById('codeEditor');
+const lineNums = document.getElementById('lineNumbers');
+const syntaxBar = document.getElementById('syntaxBar');
+const syntaxText = document.getElementById('syntaxText');
+
+function initEditor() {
+  editor.value = codeTemplates.python;
+  updateLineNumbers();
+  runSyntaxCheck();
+}
+
+function updateLineNumbers() {
+  const lines = editor.value.split('\n').length;
+  let html = '';
+  for (let i = 1; i <= lines; i++) {
+    html += '<span class="ln">' + i + '</span>';
+  }
+  lineNums.innerHTML = html;
+}
+
+editor.addEventListener('input', () => {
+  updateLineNumbers();
+  clearTimeout(window._syntaxTimer);
+  syntaxBar.className = 'syntax-bar waiting';
+  syntaxText.textContent = '等待检查...';
+  window._syntaxTimer = setTimeout(runSyntaxCheck, 500);
+});
+
+editor.addEventListener('scroll', () => {
+  lineNums.scrollTop = editor.scrollTop;
+});
+
+function switchLang() {
+  const lang = document.getElementById('langSelect').value;
+  editor.value = codeTemplates[lang];
+  updateLineNumbers();
+  runSyntaxCheck();
+}
+
+function resetCode() {
+  const lang = document.getElementById('langSelect').value;
+  editor.value = codeTemplates[lang];
+  updateLineNumbers();
+  runSyntaxCheck();
+  showToast('代码已重置', 'info');
+}
+
+// ===== Syntax Check (simulated) =====
+const dangerPatterns = ['eval(', 'exec(', '__import__', 'os.system', 'subprocess', 'rm -rf'];
+
+function runSyntaxCheck() {
+  const code = editor.value;
+  const found = dangerPatterns.filter(p => code.includes(p));
+  if (found.length > 0) {
+    syntaxBar.className = 'syntax-bar fail';
+    syntaxText.textContent = `检测到危险函数 ${found[0]}，请移除后重试`;
+  } else if (code.trim().length === 0) {
+    syntaxBar.className = 'syntax-bar waiting';
+    syntaxText.textContent = '等待检查...';
+  } else {
+    syntaxBar.className = 'syntax-bar pass';
+    syntaxText.textContent = '语法检查通过，无安全风险';
+  }
+}
+
+// ===== Tabs =====
+document.querySelectorAll('.tab-bar button').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tab-bar button').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
+  });
+});
+
+// ===== Test Case Tabs =====
+document.querySelectorAll('.test-tab[data-case]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.test-tab').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.test-case-content').forEach(c => c.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('tc-' + btn.dataset.case).classList.add('active');
+  });
+});
+
+// ===== Divider Drag =====
+const divider = document.getElementById('divider');
+const leftPanel = document.getElementById('leftPanel');
+const mainContainer = document.querySelector('.main-container');
+let isDragging = false;
+
+divider.addEventListener('mousedown', (e) => {
+  isDragging = true;
+  divider.classList.add('active');
+  document.body.style.cursor = 'col-resize';
+  document.body.style.userSelect = 'none';
+  e.preventDefault();
+});
+
+document.addEventListener('mousemove', (e) => {
+  if (!isDragging) return;
+  const rect = mainContainer.getBoundingClientRect();
+  const x = e.clientX - rect.left;
+  const pct = (x / rect.width) * 100;
+  if (pct > 20 && pct < 80) {
+    leftPanel.style.width = pct + '%';
+    leftPanel.style.flexShrink = '0';
+    leftPanel.style.flexGrow = '0';
+  }
+});
+
+document.addEventListener('mouseup', () => {
+  if (isDragging) {
+    isDragging = false;
+    divider.classList.remove('active');
+    document.body.style.cursor = '';
+    document.body.style.userSelect = '';
+  }
+});
+
+// ===== Timer =====
+let seconds = 0;
+setInterval(() => {
+  seconds++;
+  const h = String(Math.floor(seconds / 3600)).padStart(2, '0');
+  const m = String(Math.floor((seconds % 3600) / 60)).padStart(2, '0');
+  const s = String(seconds % 60).padStart(2, '0');
+  document.getElementById('timer').textContent = `${h}:${m}:${s}`;
+}, 1000);
+
+// ===== Run Code =====
+function runCode() {
+  const btn = document.getElementById('btnRun');
+  const spinner = document.getElementById('runSpinner');
+  btn.disabled = true;
+  btn.style.opacity = '.7';
+  spinner.style.display = 'inline-block';
+
+  // Reset steps
+  ['step1','step2','step3'].forEach(id => {
+    document.getElementById(id).className = 'exec-step';
+  });
+  ['conn1','conn2'].forEach(id => {
+    document.getElementById(id).className = 'step-connector';
+  });
+
+  const panel = document.getElementById('resultPanel');
+  panel.classList.remove('show');
+
+  // Step 1
+  setTimeout(() => {
+    document.getElementById('step1').className = 'exec-step done';
+    document.getElementById('conn1').className = 'step-connector done';
+  }, 400);
+
+  // Step 2
+  setTimeout(() => {
+    document.getElementById('step1').className = 'exec-step done';
+    document.getElementById('step2').className = 'exec-step done';
+    document.getElementById('conn2').className = 'step-connector done';
+  }, 900);
+
+  // Step 3
+  setTimeout(() => {
+    document.getElementById('step3').className = 'exec-step done';
+    btn.disabled = false;
+    btn.style.opacity = '1';
+    spinner.style.display = 'none';
+    panel.classList.add('show');
+    renderResultContent();
+  }, 1400);
+}
+
+function renderResultContent() {
+  const isFail = document.getElementById('resultToggle').checked;
+  const container = document.getElementById('resultContent');
+
+  if (!isFail) {
+    container.innerHTML = `
+      <div class="result-status pass">
+        <i class="fa-solid fa-circle-check"></i> 通过
+        <span class="status-detail">
+          <span>执行用时 28ms</span>
+          <span>内存消耗 14.8MB</span>
+          <span>击败 92.3%</span>
+        </span>
+      </div>
+      <div class="case-result expanded">
+        <div class="case-header" onclick="this.parentElement.classList.toggle('expanded')">
+          <span class="case-icon pass"><i class="fa-solid fa-circle-check"></i></span>
+          用例 1 — 通过
+        </div>
+        <div class="case-detail">
+          <div><span class="label">输入: </span>nums=[2,7,11,15], target=9</div>
+          <div><span class="label">期望: </span>[0, 1]</div>
+          <div><span class="label">实际: </span>[0, 1]</div>
+          <div><span class="label">用时: </span>12ms <span class="label">| 内存: </span>14.8MB</div>
+        </div>
+      </div>
+      <div class="case-result expanded">
+        <div class="case-header" onclick="this.parentElement.classList.toggle('expanded')">
+          <span class="case-icon pass"><i class="fa-solid fa-circle-check"></i></span>
+          用例 2 — 通过
+        </div>
+        <div class="case-detail">
+          <div><span class="label">输入: </span>nums=[3,2,4], target=6</div>
+          <div><span class="label">期望: </span>[1, 2]</div>
+          <div><span class="label">实际: </span>[1, 2]</div>
+          <div><span class="label">用时: </span>8ms <span class="label">| 内存: </span>14.6MB</div>
+        </div>
+      </div>
+      <div class="case-result expanded">
+        <div class="case-header" onclick="this.parentElement.classList.toggle('expanded')">
+          <span class="case-icon pass"><i class="fa-solid fa-circle-check"></i></span>
+          用例 3 — 通过
+        </div>
+        <div class="case-detail">
+          <div><span class="label">输入: </span>nums=[3,3], target=6</div>
+          <div><span class="label">期望: </span>[0, 1]</div>
+          <div><span class="label">实际: </span>[0, 1]</div>
+          <div><span class="label">用时: </span>10ms <span class="label">| 内存: </span>14.7MB</div>
+        </div>
+      </div>`;
+  } else {
+    container.innerHTML = `
+      <div class="result-status fail">
+        <i class="fa-solid fa-circle-xmark"></i> 解答错误
+        <span class="status-detail">
+          <span>第 2 个用例出错</span>
+        </span>
+      </div>
+      <div class="case-result expanded">
+        <div class="case-header" onclick="this.parentElement.classList.toggle('expanded')">
+          <span class="case-icon pass"><i class="fa-solid fa-circle-check"></i></span>
+          用例 1 — 通过
+        </div>
+        <div class="case-detail">
+          <div><span class="label">输入: </span>nums=[2,7,11,15], target=9</div>
+          <div><span class="label">期望: </span>[0, 1]</div>
+          <div><span class="label">实际: </span>[0, 1]</div>
+          <div><span class="label">用时: </span>12ms <span class="label">| 内存: </span>14.8MB</div>
+        </div>
+      </div>
+      <div class="case-result expanded">
+        <div class="case-header" onclick="this.parentElement.classList.toggle('expanded')">
+          <span class="case-icon fail"><i class="fa-solid fa-circle-xmark"></i></span>
+          用例 2 — 解答错误
+        </div>
+        <div class="case-detail">
+          <div><span class="label">输入: </span>nums=[3,2,4], target=6</div>
+          <div><span class="label">期望: </span>[1, 2]</div>
+          <div><span class="label">实际: </span><span class="diff">[0, 1]</span></div>
+          <div><span class="label">用时: </span>5ms <span class="label">| 内存: </span>14.2MB</div>
+        </div>
+      </div>
+      <div class="case-result expanded">
+        <div class="case-header" onclick="this.parentElement.classList.toggle('expanded')">
+          <span class="case-icon tle"><i class="fa-solid fa-clock"></i></span>
+          用例 3 — 超出时间限制
+        </div>
+        <div class="case-detail">
+          <div><span class="label">输入: </span>nums=[3,3], target=6</div>
+          <div><span class="label">期望: </span>[0, 1]</div>
+          <div><span class="label">实际: </span><span class="timeout">(超时终止)</span></div>
+          <div><span class="label">用时: </span>&gt;2000ms <span class="label">| 内存: </span>256.0MB</div>
+        </div>
+      </div>`;
+  }
+}
+
+function toggleResultMode() {
+  if (document.getElementById('resultPanel').classList.contains('show')) {
+    renderResultContent();
+  }
+}
+
+// ===== Submit =====
+function submitCode() {
+  const btn = document.getElementById('btnSubmit');
+  const spinner = document.getElementById('submitSpinner');
+  btn.disabled = true;
+  btn.style.opacity = '.7';
+  spinner.style.display = 'inline-block';
+
+  setTimeout(() => {
+    btn.disabled = false;
+    btn.style.opacity = '1';
+    spinner.style.display = 'none';
+    document.getElementById('modalOverlay').classList.add('show');
+  }, 1500);
+}
+
+function closeModal() {
+  document.getElementById('modalOverlay').classList.remove('show');
+}
+
+// ===== Toast =====
+function showToast(msg, type) {
+  const container = document.getElementById('toastContainer');
+  const item = document.createElement('div');
+  item.className = 'toast-item ' + type;
+  item.innerHTML = '<i class="fa-solid fa-' + (type === 'success' ? 'check-circle' : 'info-circle') + '"></i> ' + msg;
+  container.appendChild(item);
+  setTimeout(() => {
+    item.style.animation = 'toast-out .3s forwards';
+    setTimeout(() => item.remove(), 300);
+  }, 2500);
+}
+
+// ===== Keyboard =====
+document.addEventListener('keydown', (e) => {
+  if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+    e.preventDefault();
+    runCode();
+  }
+});
+
+// ===== Tab key in editor =====
+editor.addEventListener('keydown', (e) => {
+  if (e.key === 'Tab') {
+    e.preventDefault();
+    const start = editor.selectionStart;
+    const end = editor.selectionEnd;
+    editor.value = editor.value.substring(0, start) + '    ' + editor.value.substring(end);
+    editor.selectionStart = editor.selectionEnd = start + 4;
+    updateLineNumbers();
+  }
+});
+
+// ===== Init =====
+initEditor();
+</script>
+</body>
+</html>

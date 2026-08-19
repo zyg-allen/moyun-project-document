@@ -313,7 +313,7 @@ const breadcrumbs = computed(() => [
             <div class="hidden md:block">
               <div class="mx-auto max-w-sm rounded-[28px] border border-white/20 bg-white/10 backdrop-blur-md p-3 shadow-2xl">
                 <div class="rounded-[22px] bg-white text-slate-700 overflow-hidden">
-                  <!-- 模拟面试页顶部 -->
+                  <!-- 语音面试页顶部 -->
                   <div class="flex items-center justify-between px-4 py-2.5 border-b border-slate-100">
                     <div class="flex items-center gap-2">
                       <div class="w-8 h-8 rounded-full flex items-center justify-center bg-emerald-50 text-emerald-600">
@@ -367,10 +367,10 @@ const breadcrumbs = computed(() => [
               <Sparkles class="w-5 h-5 sm:w-6 sm:h-6" style="color: var(--theme-primary);" />
               面试空间 · 核心功能
             </h2>
-            <p class="mt-1 text-xs sm:text-sm" style="color: var(--theme-text-secondary);">从练习到复盘的完整漏斗：刷题 → 文本快练 → 语音对练 → 复盘报告</p>
+            <p class="mt-1 text-xs sm:text-sm" style="color: var(--theme-text-secondary);">从练习到复盘的完整漏斗：刷题 → 语音对练 → 复盘报告</p>
           </div>
         </div>
-        <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
           <!-- 1. 实时 AI 语音面试（对应文档"实时面试提醒"，V10.1 已交付 MVP） -->
           <button
             @click="goVoiceInterview"
@@ -393,25 +393,7 @@ const breadcrumbs = computed(() => [
             </div>
           </button>
 
-          <!-- 2. AI 模拟面试（文本快练版） -->
-          <button
-            @click="router.push('/interview/mock')"
-            class="group text-left rounded-2xl border p-4 sm:p-5 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md"
-            style="background-color: var(--theme-surface); border-color: var(--theme-border);"
-          >
-            <div class="w-11 h-11 rounded-xl mb-3 flex items-center justify-center bg-indigo-50 text-indigo-600">
-              <Target class="w-5 h-5" />
-            </div>
-            <div class="font-bold mb-1" style="color: var(--theme-text);">AI 模拟面试</div>
-            <div class="text-xs leading-relaxed mb-3" style="color: var(--theme-text-secondary);">
-              文本快练版 · 5分钟5题 · 规则评分
-            </div>
-            <div class="inline-flex items-center gap-1 text-xs font-semibold" style="color: var(--theme-primary);">
-              开始快练 <ArrowRight class="w-3 h-3 transition-transform group-hover:translate-x-0.5" />
-            </div>
-          </button>
-
-          <!-- 3. 一键 AI 简历（复用简历编辑页已有 AI 建议 Tab） -->
+          <!-- 2. 一键 AI 简历（复用简历编辑页已有 AI 建议 Tab） -->
           <button
             @click="goMyResume"
             class="group text-left rounded-2xl border p-4 sm:p-5 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md"
@@ -447,7 +429,7 @@ const breadcrumbs = computed(() => [
             </div>
           </button>
 
-          <!-- 5. 多语言面试支持（V10.3 · 置灰，框架位占位） -->
+          <!-- 4. 多语言面试支持（V10.3 · 置灰，框架位占位） -->
           <button
             disabled
             class="relative text-left rounded-2xl border p-4 sm:p-5 shadow-sm cursor-not-allowed opacity-75"

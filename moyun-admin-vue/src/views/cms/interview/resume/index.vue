@@ -34,6 +34,20 @@
           <span v-else>-</span>
         </template>
       </el-table-column>
+      <el-table-column label="预览图" width="140">
+        <template #default="{ row }">
+          <div v-if="parsePreviewImages(row.previewImages).length" style="display:flex; align-items:center; gap:4px;">
+            <el-image
+              :src="parsePreviewImages(row.previewImages)[0]"
+              fit="cover"
+              style="width: 60px; height: 45px; border-radius: 4px;"
+              :preview-src-list="parsePreviewImages(row.previewImages)"
+            />
+            <el-tag size="small" type="info">×{{ parsePreviewImages(row.previewImages).length }}</el-tag>
+          </div>
+          <span v-else>-</span>
+        </template>
+      </el-table-column>
       <el-table-column label="标题" prop="title" min-width="200" show-overflow-tooltip />
       <el-table-column label="标签" width="200">
         <template #default="{ row }">
@@ -79,6 +93,10 @@
       <el-form :model="form" label-width="100px">
         <el-form-item label="封面">
           <image-upload v-model="form.cover" :limit="1" :file-size="5" />
+        </el-form-item>
+        <el-form-item label="预览图">
+          <image-upload v-model="form.previewImagesStr" :limit="9" :file-size="5" />
+          <div style="font-size: 12px; color: #909399; margin-top: 4px;">支持上传最多 9 张预览图，用于前台图片列表展示</div>
         </el-form-item>
         <el-form-item label="标题"><el-input v-model="form.title" placeholder="请输入标题" /></el-form-item>
         <el-form-item label="分类">
@@ -158,13 +176,27 @@ const queryParams = reactive({
 const dialogVisible = ref(false);
 const dialogTitle = computed(() => form.value.id ? '编辑简历模板' : '新增简历模板');
 const form = ref({
-  id: null, title: '', cover: '', categoryId: null, tags: [],
+  id: null, title: '', cover: '', previewImagesStr: '', categoryId: null, tags: [],
   fileType: 'pdf', downloadUrl: '', isPaid: false, price: 0,
   description: '', sort: 0, status: 'draft'
 });
 
 function tagList(tags) { return tags ? String(tags).split(',').map(s => s.trim()).filter(Boolean) : []; }
 function tagsToStr(tags) { return (tags || []).join(','); }
+
+// 预览图 JSON 数组 ↔ 逗号分隔字符串互转
+function parsePreviewImages(json) {
+  if (!json) return [];
+  try {
+    const arr = typeof json === 'string' ? JSON.parse(json) : json;
+    return Array.isArray(arr) ? arr.filter(Boolean) : [];
+  } catch { return []; }
+}
+function imagesToStr(json) { return parsePreviewImages(json).join(','); }
+function strToImagesJson(str) {
+  const arr = (str || '').split(',').map(s => s.trim()).filter(Boolean);
+  return arr.length ? JSON.stringify(arr) : '';
+}
 
 async function loadCategories() {
   try {
@@ -202,7 +234,7 @@ function resetQuery() {
 
 function handleAdd() {
   form.value = {
-    id: null, title: '', cover: '', categoryId: null, tags: [],
+    id: null, title: '', cover: '', previewImagesStr: '', categoryId: null, tags: [],
     fileType: 'pdf', downloadUrl: '', isPaid: false, price: 0,
     description: '', sort: 0, status: 'draft'
   };
@@ -215,6 +247,7 @@ async function handleEdit(row) {
     const data = res.data || {};
     form.value = {
       id: data.id, title: data.title || '', cover: data.cover || '',
+      previewImagesStr: imagesToStr(data.previewImages),
       categoryId: data.categoryId, tags: tagList(data.tags),
       fileType: data.fileType || 'pdf',
       downloadUrl: data.downloadUrl || '', isPaid: !!data.isPaid,
@@ -228,7 +261,12 @@ async function handleEdit(row) {
 async function submitForm() {
   if (!form.value.title) { ElMessage.warning('请输入标题'); return; }
   try {
-    const submitData = { ...form.value, tags: tagsToStr(form.value.tags) };
+    const submitData = {
+      ...form.value,
+      tags: tagsToStr(form.value.tags),
+      previewImages: strToImagesJson(form.value.previewImagesStr)
+    };
+    delete submitData.previewImagesStr;
     let entityId = form.value.id;
 
     if (form.value.id) {

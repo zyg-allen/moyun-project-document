@@ -60,7 +60,6 @@ const StudyCalendarPage = () => import('@/pages/learn/StudyCalendarPage.vue')
 const KnowledgeGraphPage = () => import('@/pages/learn/KnowledgeGraphPage.vue')
 const LeaderboardPage = () => import('@/pages/learn/LeaderboardPage.vue')
 const CodeRunnerPage = () => import('@/pages/tools/CodeRunnerPage.vue')
-const MockInterviewPage = () => import('@/pages/interview/MockInterviewPage.vue')
 const VoiceEngineDemoPage = () => import('@/pages/interview/VoiceEngineDemoPage.vue')
 const VoiceInterviewPage = () => import('@/pages/interview/VoiceInterviewPage.vue')
 
@@ -275,13 +274,6 @@ const routes: RouteRecordRaw[] = [
     name: 'interview-company',
     component: CompanyPage,
     meta: { title: '公司主页', isPublic: true }
-  },
-  // ============ AI 模拟面试官（阶段三 3.10） ============
-  {
-    path: '/interview/mock',
-    name: 'interview-mock',
-    component: MockInterviewPage,
-    meta: { requiresAuth: true, title: 'AI 模拟面试', robots: 'noindex,nofollow' }
   },
   // ============ 语音引擎验证页（V10.0 临时验证） ============
   {

@@ -64,6 +64,10 @@ public class PortalCategory extends BaseEntity {
     @Size(min = 0, max = 200, message = "路由路径长度不能超过200个字符")
     private String navRoutePath;
 
+    /** 导航徽章（NEW/HOT，仅 Mega Menu 展示） */
+    @Size(min = 0, max = 20, message = "导航徽章长度不能超过20个字符")
+    private String navBadge;
+
     /** 栏目内容类型（article=文章栏目可发布文章 special=特殊页面不发布文章） */
     @Size(min = 0, max = 20, message = "栏目内容类型长度不能超过20个字符")
     private String categoryType;

@@ -12,6 +12,7 @@
     "lint:fix": "eslint . --ext .ts,.vue --fix"
   },
   "dependencies": {
+    "@fortawesome/fontawesome-free": "^7.3.1",
     "@vueup/vue-quill": "^1.2.0",
     "@vueuse/core": "^10.9.0",
     "@vueuse/head": "^2.0.0",

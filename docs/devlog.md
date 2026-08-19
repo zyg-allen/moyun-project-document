@@ -209,6 +209,238 @@
 
 ---
 
+## v10.2 (2026-08-19) 简历模块升级：模板管理 + 用户简历入口 + 维护页三栏重构
+
+### 背景
+简历模块原有：admin 无独立模板管理菜单、用户管理无简历关联入口、模板列表为纯文本、简历维护页单栏简陋。本次全面升级，对标静态原型 `resume_optimizer_page.html` 与 `vue_resume_spec.md`。
+
+### 交付内容
+
+**问题1：admin 简历模板管理独立菜单 + 独立权限**
+- 脚本：[upgrade_v10.2_resume_module.sql](file:///d:/zyg_new_work/moyun-project-document/moyun-server/src/main/resources/sql/upgrade_v10.2_resume_module.sql)
+- 新增 C 菜单「简历模板管理」挂在面试指南下，独立权限码 `cms:interview:resume:list/query/add/edit/remove`（与题库 `cms:interview:*` 解耦）
+- 后端 [CmsInterviewController.java](file:///d:/zyg_new_work/moyun-project-document/moyun-server/src/main/java/com/moyun/ext/cms/controller/CmsInterviewController.java) 简历模板接口 `@PreAuthorize` 改用独立权限码
+
+**问题2：admin 用户管理加「简历」入口（独立权限 + 审计）**
+- 业内调研：拉勾/BOSS/智联均将简历查看放独立人才库模块，不在账号管理页；简历含 PII 需审计
+- 方案：用户管理操作列加「简历」按钮（独立权限 `system:user:resume`，不复用 `system:user:edit`），跳转独立只读列表页
+- 后端新增 `GET /cms/interview/user-resume/{userId}/list` + `/{userId}/{id}`（只读 + `@Log` 审计）
+- 前端新增 [userResume.vue](file:///d:/zyg_new_work/moyun-project-document/moyun-admin-vue/src/views/system/user/userResume.vue)（只读列表 + 详情弹窗）+ 路由 + API
+
+**问题3：resume-templates 改造为附件图片列表**
+- 表字段扩展：`portal_interview_resume_template` 新增 `preview_images`（JSON 数组，多图）
+- 前台 [ResumeTemplatePage.vue](file:///d:/zyg_new_work/moyun-project-document/moyun-portal/src/pages/interview/ResumeTemplatePage.vue) 改为大图列表布局 + 多图预览弹窗 + 免费下载（预留付费检查位）
+- admin [resume/index.vue](file:///d:/zyg_new_work/moyun-project-document/moyun-admin-vue/src/views/cms/interview/resume/index.vue) 加多图上传组件
+
+**问题4：简历维护页三栏重构**
+- 拆分子组件：[SectionCard](file:///d:/zyg_new_work/moyun-project-document/moyun-portal/src/components/resume/SectionCard.vue) / [ResumeSidebar](file:///d:/zyg_new_work/moyun-project-document/moyun-portal/src/components/resume/ResumeSidebar.vue) / [ScorePanel](file:///d:/zyg_new_work/moyun-project-document/moyun-portal/src/components/resume/ScorePanel.vue) / [ResumeActionBar](file:///d:/zyg_new_work/moyun-project-document/moyun-portal/src/components/resume/ResumeActionBar.vue) / [ResumePreviewModal](file:///d:/zyg_new_work/moyun-project-document/moyun-portal/src/components/resume/ResumePreviewModal.vue)
+- [ResumeEditPage.vue](file:///d:/zyg_new_work/moyun-project-document/moyun-portal/src/pages/interview/ResumeEditPage.vue) 重构为三栏（左导航+中表单+右评分面板）+ 底部固定操作栏 + 技能标签云交互
+- 字典补齐：`portal_resume_category`（技术岗/产品岗/应届生/社招/实习）
+
+### 验证
+- vue-tsc 类型检查通过（exit 0）；后端 mvn compile 通过
+
+---
+
+## v10.3 (2026-08-19) 旧版 AI 模拟面试（MockInterview）下线清理
+
+### 背景
+AI 模拟面试（文本快练版 MockInterview）已被 AI 语音面试官（VoiceInterview）完全替代。按"整合用新的"原则，删除旧代码/逻辑/脚本，画像能力迁移到语音面试官统一入口。
+
+### 交付内容
+
+**画像接口迁移**
+- `GET /portal/interview/mock/my/profile` → `GET /portal/interview/profile`（迁至 [PortalInterviewController](file:///d:/zyg_new_work/moyun-project-document/moyun-server/src/main/java/com/moyun/portal/controller/PortalInterviewController.java)）
+- 前端 `getMyMockProfile` → `getMyProfile`（迁至 [interview.ts](file:///d:/zyg_new_work/moyun-project-document/moyun-portal/src/api/interview.ts)），KnowledgeGraphPage / QuestionListPage 同步更新 import
+
+**统计字段直接删除**（按决策，后续如需统计语音面试另建 voice 字段）
+- `PortalUserStats` 实体移除 `mockInterviewCount` / `avgMockScore`
+- `PortalUserStatsMapper.updateMockInterviewStats` 删除
+- `UserProfileSnapshotVO` 移除对应字段
+- `IUserProfileSnapshotService.updateMockInterviewStats` 方法删除
+- 前端 types/api.ts + QuestionListPage 移除 mockInterviewCount/avgMockScore UI 展示
+
+**删除旧代码（10 文件）**
+- 后端 8 文件：PortalMockInterviewController / IMockInterviewService / MockInterviewServiceImpl / PortalMockInterview / PortalMockInterviewQA / 2 个 Mapper / MockInterviewDetailVO
+- 前端 2 文件：MockInterviewPage.vue / mockInterview.ts
+- AiProperties 移除 `mockInterviewFeedbackEnabled` 字段
+
+**前端清理**
+- [router/index.ts](file:///d:/zyg_new_work/moyun-project-document/moyun-portal/src/router/index.ts) 删除 `/interview/mock` 路由
+- [InterviewPage.vue](file:///d:/zyg_new_work/moyun-project-document/moyun-portal/src/pages/InterviewPage.vue) 删除「AI 模拟面试」卡片，STAR 矩阵 5 卡 → 4 卡（grid 调整为 md:grid-cols-4）
+- [types/api.ts](file:///d:/zyg_new_work/moyun-project-document/moyun-portal/src/types/api.ts) 删除 MockInterviewQaVO / MockInterviewVO / MockInterviewDetailVO
+
+**SQL 清理脚本**
+- [upgrade_v10.3_drop_mock_interview.sql](file:///d:/zyg_new_work/moyun-project-document/moyun-server/src/main/resources/sql/upgrade_v10.3_drop_mock_interview.sql)
+- DROP 2 张表（portal_mock_interview / portal_mock_interview_qa）
+- ALTER portal_user_stats DROP 2 列（mock_interview_count / avg_mock_score）
+- 软删除 portal_category 中 interview-mock 分类
+- DELETE portal_mock_scene 字典（类型 + 6 条数据）
+
+### 验证
+- 后端 mvn compile 通过（exit 0）；前端 vue-tsc 通过（exit 0）
+- VoiceInterview 与 MockInterview 无代码级依赖，删除后语音面试主链路不受影响
+
+### 四同步：文档更新
+- [01_项目介绍.md](file:///d:/zyg_new_work/moyun-project-document/docs/01_项目介绍.md)：「AI 模拟面试」→「AI 语音面试官」（核心拉新引擎 / 求职者 / LangChain4j 能力行）
+- [02_技术架构.md](file:///d:/zyg_new_work/moyun-project-document/docs/02_技术架构.md) §5.1：子模块「AI 模拟面试 + WebSocket」→「AI 语音面试官 + SseEmitter + 三引擎链路」
+- [08_项目优缺点与改进建议.md](file:///d:/zyg_new_work/moyun-project-document/docs/08_项目优缺点与改进建议.md)：AI 能力集成行更名
+- [11_面试指南后续迭代规划.md](file:///d:/zyg_new_work/moyun-project-document/docs/11_面试指南后续迭代规划.md) §2.3：LLM 对话式面试标记「✅ 已交付」，删除已删文件引用，验收标准全部勾选
+- [14_AI语音面试官评估与落地计划.md](file:///d:/zyg_new_work/moyun-project-document/docs/14_AI语音面试官评估与落地计划.md) §1.1：文本模拟面试行标记已下线，修正 updateMockInterviewStats/portal_mock_scene 等过期引用
+- [vue_interview_spec_simple.md](file:///d:/zyg_new_work/moyun-project-document/docs/vue_interview_spec_simple.md)（含 _Coze_Drive 副本）：首页 2×2 卡片移除独立「AI 模拟面试」卡片
+- 07_工程质量检讨_v5.2 为版本化历史快照，保留不动
+
+### 遗留 TODO
+- 语音面试完赛统计：VoiceInterviewServiceImpl.finish() 暂未回写面试次数/平均分，后续如需统计新建 voice_interview_count / avg_voice_score 字段
+
+---
+
+## v10.4 (2026-08-19) 栏目菜单重构：前台 Mega Menu + 移动端 5 Tab + 后台 7 一级菜单
+
+### 背景
+
+依据 [_Coze_Drive_Coze项目助手_ai_interview_system/nav_redesign_proposal.html](file:///d:/zyg_new_work/moyun-project-document/docs/_Coze_Drive_Coze项目助手_ai_interview_system/nav_redesign_proposal.html) 与 [admin_redesign_proposal.html](file:///d:/zyg_new_work/moyun-project-document/docs/_Coze_Drive_Coze项目助手_ai_interview_system/admin_redesign_proposal.html) 两份方案文档，对前后台栏目菜单进行业务运营导向重组：前台从"按内容类型分类"转为"按用户意图分类"，后台从"按代码模块分类"转为"按业务域聚合"。
+
+### 前台导航重构（PC + 移动端）
+
+**数据驱动基础**
+- SQL 脚本：`moyun-server/src/main/resources/sql/upgrade_v10.4_nav_restructure.sql`
+- `portal_category` 新增 `nav_badge` 字段（NEW/HOT 徽章，Mega Menu 直接渲染）
+- 新建 3 个一级栏目：学习中心(learn) / 阅读空间(reading-space) / 创作互动(create)
+- 旧 5 个一级栏目（散文/技术/读书/社区/创作者）退出导航（show_in_nav=0）
+- 面试指南→面试专区（重命名+图标+排序）；个人空间→我的
+- 学习类子项从「面试指南」迁至「学习中心」；散文/技术/读书降为「阅读空间」二级
+- 社区互动+创作者中心合并为「创作互动」
+- AI 语音面试官从硬编码改为数据驱动（新增 interview-voice 子项，nav_badge='NEW'）
+- 后端实体 [PortalCategory.java](file:///d:/zyg_new_work/moyun-project-document/moyun-server/src/main/java/com/moyun/portal/domain/entity/PortalCategory.java) 新增 `navBadge` 字段
+- 前端类型 [api.ts](file:///d:/zyg_new_work/moyun-project-document/moyun-portal/src/types/api.ts) `Category` 接口新增 `navBadge?: string`
+
+**Navbar.vue PC 端 Mega Menu 重构**
+- 文件：[Navbar.vue](file:///d:/zyg_new_work/moyun-project-document/moyun-portal/src/components/Navbar.vue)
+- 旧下拉：纵向列表 `w-72`，仅展示名称
+- 新下拉：Mega Menu 网格布局（`grid grid-cols-2 min-w-[520px]`）
+- 每项展示：小图标（emoji）+ 标题（含 NEW/HOT 徽章）+ 一句话描述
+- 头部：大图标（红色渐变背景）+ 标题 + 描述
+- 居中对齐（`left-1/2 -translate-x-1/2`），避免溢出
+- 移除硬编码 `child.path === '/interview/voice'` 的 NEW 徽章，改用 `child.badge === 'NEW'` 数据驱动
+
+**Navbar.vue 移动端重构**
+- [MobileTabBar.vue](file:///d:/zyg_new_work/moyun-project-document/moyun-portal/src/components/MobileTabBar.vue) 5 Tab：首页 / 面试 / 创作（凸起圆形按钮） / 学习 / 我的
+- 中间"创作"按钮凸起设计（`-mt-18px` + 圆形渐变背景 + 阴影）
+- 修复 matchPrefix 不准确：学习 Tab 移除 `/interview` 冲突，新增 `/reading` `/reading-space` `/category/散文` `/category/技术`（方案建议：移动端阅读入口合在学习里更紧凑）
+- 创作 Tab matchPrefix 扩展 `/feed` `/topics`（创作互动栏目子项）
+- [Layout.vue](file:///d:/zyg_new_work/moyun-project-document/moyun-portal/src/components/Layout.vue) 主内容区新增 `pb-16 md:pb-0`，避免被底部 TabBar 遮挡
+- 移动端抽屉式菜单（汉堡按钮）保留，提供完整栏目访问入口
+
+### 后台菜单重构（sys_menu 业务域聚合）
+
+**SQL 脚本**：`moyun-server/src/main/resources/sql/upgrade_v10.4_admin_menu_rebuild.sql`
+
+**新 7 个一级菜单**（按业务运营导向）
+1. 工作台（新建，原 cms/业务看板提升为一级菜单并置顶）
+2. 内容管理（保留，对应前台「阅读空间」文章/专栏/分类/标签/审核/征文）
+3. 面试管理（重命名自「面试指南」，AI 面试官/题库/面经/简历模板/面试记录）
+4. 学习管理（重命名自「读书空间」，书籍/书单/书摘/知识图谱/刷题/学习计划/错题）
+5. 用户运营（重命名自「商业化」，用户/认证/VIP/钱包/广告/成长/通知/创作者）
+6. AI 能力（重命名自「智能AI」，知识库/模型/工作流/Agent/Token/提示词）
+7. 系统设置（重命名自「系统管理」，合并 系统监控/系统工具/任务管理）
+
+**重构策略**
+- 重命名 5 个一级菜单（不删除，保留权限和路由）
+- 新建 1 个一级菜单：工作台
+- 隐藏 4 个旧一级菜单（visible='1' status='1'）：系统监控/系统工具/任务管理/创作者认证
+- 二级菜单迁移：系统监控/系统工具/任务管理 的子项 → 系统设置
+- 商业化相关二级菜单（VIP/钱包/广告/成长/用户/认证/交易）从内容管理 → 用户运营
+- 业务看板从内容管理 → 工作台
+- 重排 order_num：工作台1 / 内容管理2 / 面试管理3 / 学习管理4 / 用户运营5 / AI能力6 / 系统设置7
+- 不修改视图目录和路由（零代码层变更，仅重组菜单树）
+
+### 验证
+
+- vue-tsc 类型检查通过（exit 0）
+- 前后台导航栏目数据结构对齐（nav_badge 字段贯通后端实体、SQL、前端类型、UI 渲染）
+- 移动端 5 Tab 与 PC 6 栏目逻辑一致（首页/面试/创作/学习/我的 ↔ 首页/面试专区/创作互动/学习中心/我的，阅读空间在移动端合入学习 Tab）
+
+### 相关文件
+
+- 前端：[Navbar.vue](file:///d:/zyg_new_work/moyun-project-document/moyun-portal/src/components/Navbar.vue)、[MobileTabBar.vue](file:///d:/zyg_new_work/moyun-project-document/moyun-portal/src/components/MobileTabBar.vue)、[Layout.vue](file:///d:/zyg_new_work/moyun-project-document/moyun-portal/src/components/Layout.vue)、[api.ts](file:///d:/zyg_new_work/moyun-project-document/moyun-portal/src/types/api.ts)
+- 后端：[PortalCategory.java](file:///d:/zyg_new_work/moyun-project-document/moyun-server/src/main/java/com/moyun/portal/domain/entity/PortalCategory.java)
+- SQL：[upgrade_v10.4_nav_restructure.sql](file:///d:/zyg_new_work/moyun-project-document/moyun-server/src/main/resources/sql/upgrade_v10.4_nav_restructure.sql)、[upgrade_v10.4_admin_menu_rebuild.sql](file:///d:/zyg_new_work/moyun-project-document/moyun-server/src/main/resources/sql/upgrade_v10.4_admin_menu_rebuild.sql)
+- 文档：[nav_redesign_proposal.html](file:///d:/zyg_new_work/moyun-project-document/docs/_Coze_Drive_Coze项目助手_ai_interview_system/nav_redesign_proposal.html)、[admin_redesign_proposal.html](file:///d:/zyg_new_work/moyun-project-document/docs/_Coze_Drive_Coze项目助手_ai_interview_system/admin_redesign_proposal.html)
+
+### 遗留 TODO
+- 后台菜单重构脚本需在实际数据库执行后，根据校验 SQL 输出调整二级菜单的精确归属（部分 menu_name 可能因历史版本不同存在差异）
+- 工作台页面内容增强：将原 cms/dashboard 业务看板提升为独立路由 /dashboard 并增强与前台成长数据的联动
+- 内容管理「审核队列」聚合入口：v9.6 已有审核收敛能力，需在菜单层显式提供聚合入口
+
+### v10.4 后台菜单策略调整：旧 4 菜单全部打开，暂不删除
+
+**用户决策（2026-08-19）**：不要隐藏 4 个旧一级菜单，先全部打开，后续根据实际使用情况再决定删除哪些（含代码）。
+
+**SQL 脚本调整**：[upgrade_v10.4_admin_menu_rebuild.sql](file:///d:/zyg_new_work/moyun-project-document/moyun-server/src/main/resources/sql/upgrade_v10.4_admin_menu_rebuild.sql)
+- 第 3 步：旧 4 个一级菜单（系统监控/系统工具/任务管理/创作者认证）从"隐藏+迁移子项"改为"全部打开（visible='0' status='0'），不迁移子项"
+- 第 4-5 步：商业化二级菜单迁移、业务看板迁移均注释为"暂缓执行"
+- 第 6 步：order_num 调整为新 7 个（1-7）+ 旧 4 个（8-11）= 共 11 个一级菜单全部可见
+- 第 8 步：新增"待审查菜单清单"查询，辅助后续决策
+
+**冗余分析结论**（供后续删除决策参考）：
+
+| 旧菜单 | 重复情况 | 删除建议 | 理由 |
+|---|---|---|---|
+| 系统监控 (monitor) | 不重复 | 保留 | 系统设置下无监控功能；丢失将影响在线用户/缓存/服务器/日志/定时任务运维 |
+| 系统工具 (tool) | 不重复 | 保留 | 代码生成器、Swagger 是开发期工具，系统设置下无对应 |
+| 任务管理 (task) | 严重冗余 | 建议删除 | 定时任务已在 monitor 下重复；待办/已办 v9.6 已隐藏（与内容审核中心重复）；扫描结果是占位页 |
+| 创作者认证 (certification) | 完全冗余 | 建议删除 | v9.6 已降级到内容管理下，一级菜单已无子项（空壳） |
+
+**待删除清单（用户确认后再执行）**：
+- SQL：`sys_menu` 中"任务管理"一级菜单 + 3 个子菜单（定时任务子菜单 parent_id 改回 monitor）、"创作者认证"空壳一级菜单
+- Vue 文件：`views/system/audit/todo.vue`、`views/system/audit/done.vue`（功能被 `views/cms/audit-center/index.vue` 覆盖）、`views/system/scan/index.vue`（占位页无后端）
+- 路由注释：`moyun-admin-vue/src/router/index.js` 第 87-95 行表单构建注释
+- **必须保留**：后端 `AuditTaskController`（被 audit-center 引用）、`views/cms/certification/index.vue`、`views/cms/dashboard/index.vue`、`views/cms/` 下商业化 vue 文件（vip/wallet/ad 等，v9.0 已迁到用户运营下）
+
+### init_v7.8.sql 升级为 V10.0 整合版
+
+**用户决策**：删除所有表重新执行脚本，将 init_v7.8.sql + 8 个 upgrade 脚本（v8.1~v10.4）的表结构变更和数据合并为一个文件。
+
+**文件**：[init_v7.8.sql](file:///d:/zyg_new_work/moyun-project-document/moyun-server/src/main/resources/sql/init_v7.8.sql)（原 732KB → 757.67KB，9983 行）
+
+**合并内容**：
+
+1. **文件头注释**：v7.8 → V10.0，新增版本合并历史（v7.8~v10.4）
+
+2. **删除废弃表**（v9.0/v10.3）：
+   - `portal_mock_interview` / `portal_mock_interview_qa`（v10.3 AI 模拟面试下线）
+   - `portal_pk_challenge` / `portal_circle*`（v9.0 已在之前版本移除，仅注释）
+
+3. **修改表结构**（4 张表）：
+   - `portal_category`：+ `nav_badge varchar(20)` 字段（v10.4 导航徽章）
+   - `portal_interview_resume_template`：+ `preview_images text` 字段（v10.2 多图预览）
+   - `portal_user_stats`：- `mock_interview_count` / `avg_mock_score` 2 字段（v10.3 删除）
+   - `ai_model_config`：`model_type` 注释更新为含 `asr/tts`（v10.1 语音面试官）
+
+4. **追加 5 张新表**（v8.1~v10.1）：
+   - `sys_audit_task`（v8.1 统一审核任务表）
+   - `sys_job_scan_issue`（v8.1 定时任务扫描结果表）
+   - `portal_import_template_config`（v8.2 导入模板字段配置表）
+   - `portal_voice_interview`（v10.1 语音面试会话主表）
+   - `portal_voice_interview_qa`（v10.1 语音面试问答表，含追问链）
+
+5. **V10.x 数据合并段**（幂等 INSERT，位于结尾设置之前）：
+   - **菜单重组**（v10.4）：5 个一级菜单重命名（智能AI→AI能力 / 系统管理→系统设置 / 面试指南→面试管理 / 读书空间→学习管理 / 商业化→用户运营）+ 新建工作台一级菜单
+   - **栏目重构**（v10.4）：新建 3 个一级栏目（学习中心/阅读空间/创作互动）+ AI 语音面试官子项（带 NEW 徽章）
+   - **字典注册**（v9.6+v10.1+v10.2）：29 类字典类型注册（sys_dict_type）+ 核心字典数据（sys_dict_data，含支付状态/支付渠道/语音面试状态/面试官风格/提示级别/简历模板分类等）
+
+**保留的基础数据**：系统配置/部门/角色/用户/岗位/菜单/栏目/标签/字典/友链/成长规则/帮助分类/面试分类/成就/岗位/任务
+
+**备份**：原文件备份为 `init_v7.8.sql.bak`
+
+**遗留 TODO**：
+- 完整的 29 类字典数据（v9.6 注册了 27 类，每类有多个 dict_data 值）当前仅注册了核心几类（支付状态/支付渠道/语音面试/简历分类），其余字典的 dict_data 值需要从 upgrade_v9.6_admin_optimize.sql 补充
+- v8.1~v10.2 新增的菜单项（VIP/钱包/征文/提示词/语音面试/简历模板/导入模板等二级菜单和按钮）尚未合并到 init 脚本，需要从对应 upgrade 脚本补充
+- v10.0 面试题种子数据（1000 道）和知识库种子数据（3 个库）保留为独立脚本，未合并到 init
+
+---
+
 ## v9.6 (2026-08-16) 后台全面体检：菜单收敛 + 27类业务字典 + 前台字典化（"前台数据皆有后台管理"）
 
 ### 体检发现（三线并行分析）

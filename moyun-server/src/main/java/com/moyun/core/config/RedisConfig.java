@@ -5,12 +5,14 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.databind.jsontype.impl.LaissezFaireSubTypeValidator;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
-import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.aop.framework.AopProxyUtils;
+import org.springframework.aop.support.AopUtils;
 import org.springframework.cache.annotation.CachingConfigurerSupport;
 import org.springframework.cache.annotation.EnableCaching;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
+import org.springframework.data.redis.connection.lettuce.LettuceConnectionFactory;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.data.redis.serializer.GenericJackson2JsonRedisSerializer;
@@ -25,13 +27,22 @@ import org.springframework.data.redis.serializer.StringRedisSerializer;
 @EnableCaching
 public class RedisConfig extends CachingConfigurerSupport {
 
-    // 注入 RedisConnectionFactory
-    @Autowired
-    private RedisConnectionFactory redisConnectionFactory;
     @Bean
     public RedisTemplate<String, Object> redisTemplate(RedisConnectionFactory connectionFactory) {
         RedisTemplate<String, Object> template = new RedisTemplate<>();
-        template.setConnectionFactory(connectionFactory);
+
+        // 【核心修复代码】：解决 LangChain4j 强转 Lettuce 失败的问题
+        // 如果传入的 connectionFactory 被 Spring AOP 代理了，强制解开代理获取原生对象
+        RedisConnectionFactory nativeFactory = connectionFactory;
+        if (AopUtils.isAopProxy(connectionFactory)) {
+            Object target = AopProxyUtils.getSingletonTarget(connectionFactory);
+            if (target instanceof LettuceConnectionFactory) {
+                nativeFactory = (LettuceConnectionFactory) target;
+            }
+        }
+
+        // 将解开代理后的原生工厂设置给 RedisTemplate
+        template.setConnectionFactory(nativeFactory);
 
         // 创建 ObjectMapper 并注册 JavaTimeModule 以支持 Java 8 日期时间类型
         ObjectMapper objectMapper = new ObjectMapper();
@@ -82,6 +93,4 @@ public class RedisConfig extends CachingConfigurerSupport {
                 "end\n" +
                 "return tonumber(current);";
     }
-
 }
-

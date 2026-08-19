@@ -27,7 +27,7 @@ withDefaults(defineProps<Props>(), {
     >
       跳到主内容
     </a>
-    <main id="main-content" class="flex-1">
+    <main id="main-content" class="flex-1 pb-16 md:pb-0">
       <slot />
     </main>
   </div>

@@ -5,7 +5,6 @@ import java.util.Map;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
-import com.moyun.util.security.SecurityUtils;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -19,27 +18,17 @@ import com.moyun.common.enums.BusinessType;
 import com.moyun.core.base.AjaxResult;
 import com.moyun.core.base.BaseController;
 import com.moyun.core.base.dto.ImportResult;
-import com.moyun.ext.cms.domain.query.InterviewCommentQuery;
 import com.moyun.ext.cms.domain.query.InterviewCompanyQuery;
-import com.moyun.ext.cms.domain.query.InterviewExperienceQuery;
 import com.moyun.ext.cms.domain.query.InterviewQuestionQuery;
-import com.moyun.ext.cms.domain.query.InterviewResumeTemplateQuery;
 import com.moyun.ext.cms.domain.vo.InterviewCategoryVO;
-import com.moyun.ext.cms.domain.vo.InterviewCommentVO;
 import com.moyun.ext.cms.domain.vo.InterviewCompanyVO;
-import com.moyun.ext.cms.domain.vo.InterviewExperienceVO;
 import com.moyun.ext.cms.domain.vo.InterviewQuestionDetailVO;
 import com.moyun.ext.cms.domain.vo.InterviewQuestionVO;
-import com.moyun.ext.cms.domain.vo.InterviewResumeTemplateVO;
 import com.moyun.ext.cms.service.IPortalInterviewService;
 import com.moyun.portal.domain.entity.PortalInterviewCategory;
-import com.moyun.portal.domain.entity.PortalInterviewComment;
 import com.moyun.portal.domain.entity.PortalInterviewCompany;
-import com.moyun.portal.domain.entity.PortalInterviewExperience;
 import com.moyun.portal.domain.entity.PortalInterviewQuestion;
-import com.moyun.portal.domain.entity.PortalInterviewResumeTemplate;
 import com.moyun.portal.domain.entity.PortalInterviewSubmission;
-import com.moyun.portal.mapper.PortalInterviewCommentMapper;
 import com.moyun.portal.mapper.PortalInterviewSubmissionMapper;
 import com.moyun.portal.mapper.PortalUserStatsMapper;
 import com.moyun.portal.service.IPortalGrowthService;
@@ -50,6 +39,11 @@ import com.moyun.util.file.ExcelUtil;
 
 /**
  * CMS面试模块管理Controller
+ * <p>
+ * 物理拆分后仅承载题库资源相关接口（题目/分类/公司/精选笔记），
+ * 面经与评论管理见 {@link CmsInterviewExperienceController}，
+ * 简历模板与用户简历见 {@link CmsInterviewResumeController}。
+ * 三个 Controller 共享类级 @RequestMapping("/cms/interview")，方法级路径互不冲突。
  *
  * @author moyun
  */
@@ -78,9 +72,6 @@ public class CmsInterviewController extends BaseController {
      */
     @Autowired
     private IPortalImportTemplateConfigService importTemplateConfigService;
-
-    @Autowired
-    private PortalInterviewCommentMapper commentMapper;
 
     // ========================================================================
     // 题目管理
@@ -306,172 +297,6 @@ public class CmsInterviewController extends BaseController {
     @DeleteMapping("/category/{ids}")
     public AjaxResult removeCategory(@Parameter(description = "分类ID数组") @PathVariable Long[] ids) {
         return toAjax(portalInterviewService.deleteCategoryByIds(ids));
-    }
-
-    // ========================================================================
-    // 面经管理
-    // ========================================================================
-
-    @Operation(summary = "获取面经分页列表", description = "根据条件分页查询面经列表")
-    @PreAuthorize("@ss.hasPermi('cms:interview:list')")
-    @GetMapping("/experience/list")
-    public AjaxResult listExperience(InterviewExperienceQuery query) {
-        Page<InterviewExperienceVO> page = PageUtils.buildPage(query);
-        page = portalInterviewService.selectExperiencePage(page, query, null);
-        return success(page);
-    }
-
-    @Operation(summary = "获取面经详情", description = "根据面经ID获取详细信息")
-    @PreAuthorize("@ss.hasPermi('cms:interview:query')")
-    @GetMapping("/experience/{id}")
-    public AjaxResult getExperience(@Parameter(description = "面经ID") @PathVariable Long id) {
-        return success(portalInterviewService.selectExperienceDetailById(id, null));
-    }
-
-    @Operation(summary = "新增面经", description = "CMS 后台直接创建面经（后台发布默认已发布状态）")
-    @PreAuthorize("@ss.hasPermi('cms:interview:add')")
-    @Log(title = "面试面经", businessType = BusinessType.INSERT)
-    @PostMapping("/experience")
-    public AjaxResult addExperience(@RequestBody PortalInterviewExperience experience) {
-        Long userId = SecurityUtils.getUserId();
-        return toAjax(portalInterviewService.insertExperience(experience, userId));
-    }
-
-    @Operation(summary = "修改面经", description = "更新面经内容")
-    @PreAuthorize("@ss.hasPermi('cms:interview:edit')")
-    @Log(title = "面试面经", businessType = BusinessType.UPDATE)
-    @PutMapping("/experience")
-    public AjaxResult editExperience(@RequestBody PortalInterviewExperience experience) {
-        Long userId = SecurityUtils.getUserId();
-        return toAjax(portalInterviewService.updateExperience(experience, userId));
-    }
-
-    @Operation(summary = "审核面经", description = "审核面经内容")
-    @PreAuthorize("@ss.hasPermi('cms:interview:edit')")
-    @Log(title = "面试面经", businessType = BusinessType.UPDATE)
-    @PutMapping("/experience/audit")
-    public AjaxResult auditExperience(@RequestBody Map<String, Object> body) {
-        Long id = Long.valueOf(String.valueOf(body.get("id")));
-        String status = String.valueOf(body.get("status"));
-        String remark = body.get("remark") != null ? String.valueOf(body.get("remark")) : null;
-        return toAjax(portalInterviewService.auditExperience(id, status, remark));
-    }
-
-    @Operation(summary = "面经置顶", description = "设置面经是否置顶")
-    @PreAuthorize("@ss.hasPermi('cms:interview:edit')")
-    @Log(title = "面试面经", businessType = BusinessType.UPDATE)
-    @PutMapping("/experience/top")
-    public AjaxResult topExperience(@RequestBody Map<String, Object> body) {
-        Long id = Long.valueOf(String.valueOf(body.get("id")));
-        Boolean isTop = Boolean.valueOf(String.valueOf(body.get("isTop")));
-        return toAjax(portalInterviewService.topExperience(id, isTop));
-    }
-
-    @Operation(summary = "删除面经", description = "删除面经")
-    @PreAuthorize("@ss.hasPermi('cms:interview:remove')")
-    @Log(title = "面试面经", businessType = BusinessType.DELETE)
-    @DeleteMapping("/experience/{id}")
-    public AjaxResult removeExperience(@Parameter(description = "面经ID") @PathVariable Long id) {
-        int result = portalInterviewService.deleteExperienceById(id, null);
-        // 删除成功后解绑标签
-        if (result > 0) {
-            portalTagService.unbindTags("interview_experience", id);
-        }
-        return toAjax(result);
-    }
-
-    // ========================================================================
-    // 评论管理
-    // ========================================================================
-
-    @Operation(summary = "获取评论分页列表", description = "根据条件分页查询评论列表")
-    @PreAuthorize("@ss.hasPermi('cms:interview:list')")
-    @GetMapping("/comment/list")
-    public AjaxResult listComment(InterviewCommentQuery query) {
-        Page<InterviewCommentVO> page = PageUtils.buildPage(query);
-        page = portalInterviewService.selectCommentPage(page, query, null);
-        return success(page);
-    }
-
-    @Operation(summary = "获取评论详情", description = "根据评论ID获取详情（供审核工作台详情区渲染）")
-    @PreAuthorize("@ss.hasPermi('cms:interview:query')")
-    @GetMapping("/comment/{id}")
-    public AjaxResult getComment(@Parameter(description = "评论ID") @PathVariable Long id) {
-        PortalInterviewComment comment = commentMapper.selectById(id);
-        if (comment == null) {
-            return error("评论不存在");
-        }
-        return success(comment);
-    }
-
-    @Operation(summary = "审核评论", description = "审核评论内容")
-    @PreAuthorize("@ss.hasPermi('cms:interview:edit')")
-    @Log(title = "面试评论", businessType = BusinessType.UPDATE)
-    @PutMapping("/comment/audit")
-    public AjaxResult auditComment(@RequestBody Map<String, Object> body) {
-        Long id = Long.valueOf(String.valueOf(body.get("id")));
-        String status = String.valueOf(body.get("status"));
-        String remark = body.get("remark") != null ? String.valueOf(body.get("remark")) : null;
-        return toAjax(portalInterviewService.auditComment(id, status, remark));
-    }
-
-    @Operation(summary = "删除评论", description = "删除评论")
-    @PreAuthorize("@ss.hasPermi('cms:interview:remove')")
-    @Log(title = "面试评论", businessType = BusinessType.DELETE)
-    @DeleteMapping("/comment/{id}")
-    public AjaxResult removeComment(@Parameter(description = "评论ID") @PathVariable Long id) {
-        return toAjax(portalInterviewService.deleteCommentById(id, null));
-    }
-
-    // ========================================================================
-    // 简历模板管理
-    // ========================================================================
-
-    @Operation(summary = "获取简历模板分页列表", description = "根据条件分页查询简历模板列表")
-    @PreAuthorize("@ss.hasPermi('cms:interview:list')")
-    @GetMapping("/resume/list")
-    public AjaxResult listResume(InterviewResumeTemplateQuery query) {
-        Page<InterviewResumeTemplateVO> page = PageUtils.buildPage(query);
-        page = portalInterviewService.selectResumeTemplatePage(page, query, null);
-        return success(page);
-    }
-
-    @Operation(summary = "获取简历模板详情", description = "根据ID获取简历模板详细信息")
-    @PreAuthorize("@ss.hasPermi('cms:interview:query')")
-    @GetMapping("/resume/{id}")
-    public AjaxResult getResume(@Parameter(description = "模板ID") @PathVariable Long id) {
-        return success(portalInterviewService.selectResumeTemplateById(id));
-    }
-
-    @Operation(summary = "新增简历模板", description = "创建新简历模板")
-    @PreAuthorize("@ss.hasPermi('cms:interview:add')")
-    @Log(title = "简历模板", businessType = BusinessType.INSERT)
-    @PostMapping("/resume")
-    public AjaxResult addResume(@Validated @RequestBody PortalInterviewResumeTemplate template) {
-        return toAjax(portalInterviewService.insertResumeTemplate(template));
-    }
-
-    @Operation(summary = "修改简历模板", description = "更新简历模板信息")
-    @PreAuthorize("@ss.hasPermi('cms:interview:edit')")
-    @Log(title = "简历模板", businessType = BusinessType.UPDATE)
-    @PutMapping("/resume")
-    public AjaxResult editResume(@Validated @RequestBody PortalInterviewResumeTemplate template) {
-        return toAjax(portalInterviewService.updateResumeTemplate(template));
-    }
-
-    @Operation(summary = "删除简历模板", description = "删除简历模板")
-    @PreAuthorize("@ss.hasPermi('cms:interview:remove')")
-    @Log(title = "简历模板", businessType = BusinessType.DELETE)
-    @DeleteMapping("/resume/{ids}")
-    public AjaxResult removeResume(@Parameter(description = "模板ID数组") @PathVariable Long[] ids) {
-        int result = portalInterviewService.deleteResumeTemplateByIds(ids);
-        // 删除成功后解绑标签
-        if (result > 0) {
-            for (Long id : ids) {
-                portalTagService.unbindTags("interview_resume_template", id);
-            }
-        }
-        return toAjax(result);
     }
 
     // ========================================================================

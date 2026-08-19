@@ -23,7 +23,7 @@ import com.moyun.portal.service.IPortalBookRecommendService;
  */
 @Tag(name = "读书空间-书籍推荐管理", description = "后台书籍推荐（运营位）管理接口")
 @RestController
-@RequestMapping("/portal/admin/bookRecommend")
+@RequestMapping("/portal/admin/book-recommends")
 public class PortalBookRecommendAdminController extends BaseController {
 
     @Autowired

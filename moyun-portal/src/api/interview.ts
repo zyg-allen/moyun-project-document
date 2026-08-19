@@ -17,6 +17,7 @@ import type {
   ResumeAiAdviceVO,
   TagVO,
   PageResult,
+  UserProfileSnapshotVO,
 } from '@/types/api';
 
 // ==================== 首页数据 ====================
@@ -58,6 +59,15 @@ export const getQuestionList = (params?: InterviewQuestionQuery) => {
  */
 export const getRecommendedQuestions = (limit = 6) => {
   return httpGet<InterviewQuestionVO[]>('/portal/interview/question/recommend', { limit });
+};
+
+/**
+ * 我的画像快照（迁移自 mockInterview.ts，AI 面试官统一入口）
+ * GET /portal/interview/profile?position=&scene=
+ * 返回薄弱知识点 + 岗位必备技能，用于题库页/知识图谱页画像展示与语音面试画像抽题。
+ */
+export const getMyProfile = (params?: { position?: string; scene?: string }) => {
+  return httpGet<UserProfileSnapshotVO>('/portal/interview/profile', params);
 };
 
 export const getQuestionDetail = (questionId: string | number) => {

@@ -41,7 +41,7 @@
           plain
           icon="Plus"
           @click="handleAdd"
-          v-hasPermi="['portal:ad:add']"
+          v-hasPermi="['cms:ad:add']"
         >新增</el-button>
       </el-col>
       <el-col :span="1.5">
@@ -51,7 +51,7 @@
           icon="Delete"
           :disabled="multiple"
           @click="handleDelete"
-          v-hasPermi="['portal:ad:remove']"
+          v-hasPermi="['cms:ad:remove']"
         >删除</el-button>
       </el-col>
       <right-toolbar v-model:showSearch="showSearch" @queryTable="getList" :columns="columns"></right-toolbar>
@@ -98,14 +98,14 @@
             type="primary"
             icon="Edit"
             @click="handleUpdate(scope.row)"
-            v-hasPermi="['portal:ad:edit']"
+            v-hasPermi="['cms:ad:edit']"
           >修改</el-button>
           <el-button
             link
             type="primary"
             icon="Delete"
             @click="handleDelete(scope.row)"
-            v-hasPermi="['portal:ad:remove']"
+            v-hasPermi="['cms:ad:remove']"
           >删除</el-button>
         </template>
       </el-table-column>

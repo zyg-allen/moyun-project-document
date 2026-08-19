@@ -1,14 +1,24 @@
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted, watch, nextTick } from 'vue';
+/**
+ * 简历维护页 ResumeEditPage
+ * 三栏布局：左侧导航 + 中间表单 + 右侧评分面板 + 底部固定操作栏
+ * 对应 vue_resume_spec.md §五 + resume_optimizer_page.html page-resume-edit
+ */
+import { ref, reactive, computed, onMounted, onBeforeUnmount, watch, nextTick } from 'vue';
 import { useRoute, useRouter, onBeforeRouteLeave } from 'vue-router';
 import { useHead } from '@vueuse/head';
 import {
   Save, Download, Star, Plus, Trash2, User, Briefcase, GraduationCap,
   Code, FileText, Target, Sparkles, CheckCircle2, XCircle, AlertCircle,
-  Eye, ArrowRight, PenLine,
+  ArrowRight, PenLine, UploadCloud, Terminal, FolderKanban, X,
 } from 'lucide-vue-next';
 import SiteFooter from '@/components/SiteFooter.vue';
 import Breadcrumb from '@/components/Breadcrumb.vue';
+import SectionCard from '@/components/resume/SectionCard.vue';
+import ResumeSidebar, { type SidebarSection } from '@/components/resume/ResumeSidebar.vue';
+import ScorePanel from '@/components/resume/ScorePanel.vue';
+import ResumeActionBar from '@/components/resume/ResumeActionBar.vue';
+import ResumePreviewModal from '@/components/resume/ResumePreviewModal.vue';
 import { generateSeo } from '@/utils/seo';
 import {
   getResumeDetail, saveResume, exportResumePdf, scoreResume, getResumeAiAdvice,
@@ -35,24 +45,25 @@ const loadingDetail = ref(false);
 const pageError = ref<string | null>(null);
 const exporting = ref(false);
 const scoring = ref(false);
-// v5.9 阶段2：AI 改进建议
 const adviceLoading = ref(false);
 const aiAdvice = ref<ResumeAiAdviceVO | null>(null);
-// 自动保存指示：idle / saving / saved
 const saveStatus = ref<'idle' | 'saving' | 'saved'>('idle');
-// 保存互斥锁：防止并发保存产生重复创建/后写覆盖
 const saving = ref(false);
-
-// 加载完成标记：用于离开页时判断是否有未保存内容
 const loaded = ref(false);
 
-// v5.9 阶段2：Tab 切换（编辑 / 预览 / AI建议 / AI评分）
-// 取代原吸顶栏 + 底部 4 按钮重复布局：编辑为默认，预览/建议/评分通过 Tab 进入
-type ResumeTab = 'edit' | 'preview' | 'advice' | 'score';
-const activeTab = ref<ResumeTab>('edit');
+// 弹窗控制：预览弹窗 / AI 建议弹窗
+const previewVisible = ref(false);
+const adviceVisible = ref(false);
 
-// 已采纳建议的索引集合（避免重复采纳；采纳即将建议内容追加到自我介绍）
+// 已采纳建议索引集合
 const acceptedAdvices = ref<Set<number>>(new Set());
+
+// 左侧导航当前高亮项（scroll spy）
+const activeSection = ref('sec-personal');
+const mainScrollRef = ref<HTMLElement | null>(null);
+
+// 技能输入框（chip cloud 添加）
+const skillInput = ref('');
 
 // 表单
 const form = reactive<UserResumeVO>({
@@ -92,39 +103,101 @@ useHead(computed(() => generateSeo({
   robots: 'noindex,nofollow',
 })));
 
-// 动态数组增删辅助
+// ========== 左侧导航配置 ==========
+const sections = computed<SidebarSection[]>(() => [
+  { id: 'sec-personal', label: '个人信息', icon: User, status: form.name?.trim() ? 'done' : 'partial' },
+  { id: 'sec-objective', label: '求职意向', icon: Target, status: form.jobIntention?.position?.trim() ? 'done' : 'empty' },
+  { id: 'sec-education', label: '教育背景', icon: GraduationCap, status: (form.educations?.length ?? 0) > 0 ? 'done' : 'empty' },
+  { id: 'sec-work', label: '工作经历', icon: Briefcase, status: (form.works?.length ?? 0) > 0 ? 'done' : 'empty' },
+  { id: 'sec-project', label: '项目经历', icon: FolderKanban, status: (form.projects?.length ?? 0) > 0 ? 'done' : 'empty' },
+  { id: 'sec-skills', label: '专业技能', icon: Terminal, status: (form.skills?.length ?? 0) > 0 ? 'partial' : 'empty' },
+  { id: 'sec-eval', label: '自我评价', icon: PenLine, status: form.selfIntro?.trim() ? 'partial' : 'empty' },
+]);
+
+// 完善进度
+const progress = computed(() => {
+  let filled = 0;
+  const total = 7;
+  if (form.name?.trim()) filled++;
+  if (form.jobIntention?.position?.trim() || form.jobIntention?.city?.trim()) filled++;
+  if (form.educations && form.educations.length > 0) filled++;
+  if (form.works && form.works.length > 0) filled++;
+  if (form.projects && form.projects.length > 0) filled++;
+  if (form.skills && form.skills.length > 0) filled++;
+  if (form.selfIntro?.trim()) filled++;
+  return { filled, total, percent: Math.round((filled / total) * 100) };
+});
+
+// 可优化项数（用于右侧洞察提示）
+const optimizeCount = computed(() => {
+  const s = form.score ?? 0;
+  if (s === 0) return 0;
+  if (s >= 85) return 0;
+  if (s >= 70) return 2;
+  return 4;
+});
+
+// 面包屑
+const breadcrumbs = computed(() => [
+  { label: '面试指南', path: '/interview' },
+  { label: '我的简历', path: '/interview/my/resumes' },
+  { label: isEdit.value ? '编辑' : '创建' },
+]);
+
+// 简历完成度（预览弹窗用）
+const resumeCompleteness = computed(() => progress.value.percent);
+
+// ========== 动态数组增删 ==========
 function addEducation() {
   form.educations!.push({
     school: '', major: '', degree: '', startDate: '', endDate: '', description: '',
   } as UserResumeEducationItem);
 }
-function removeEducation(idx: number) {
-  form.educations!.splice(idx, 1);
-}
+function removeEducation(idx: number) { form.educations!.splice(idx, 1); }
 function addWork() {
   form.works!.push({
     company: '', position: '', startDate: '', endDate: '', description: '',
   } as UserResumeWorkItem);
 }
-function removeWork(idx: number) {
-  form.works!.splice(idx, 1);
-}
+function removeWork(idx: number) { form.works!.splice(idx, 1); }
 function addProject() {
   form.projects!.push({
     name: '', role: '', startDate: '', endDate: '', description: '', url: '',
   } as UserResumeProjectItem);
 }
-function removeProject(idx: number) {
-  form.projects!.splice(idx, 1);
-}
-function addSkill() {
-  form.skills!.push({ name: '', level: '', category: '' } as UserResumeSkillItem);
-}
-function removeSkill(idx: number) {
-  form.skills!.splice(idx, 1);
-}
+function removeProject(idx: number) { form.projects!.splice(idx, 1); }
 
-// 求职意向默认值，避免 null
+// ========== 技能 chip cloud ==========
+// 数据模型仍为 UserResumeSkillItem[]，UI 用 chip 展示；Enter 添加，点击 chip 切换熟练度，点 x 删除
+const SKILL_LEVELS = ['了解', '一般', '熟练', '精通'];
+const DEFAULT_LEVEL = '熟练';
+
+function addSkillFromInput() {
+  const name = skillInput.value.trim();
+  if (!name) return;
+  if (form.skills!.some(s => s.name === name)) {
+    toast.info('该技能已添加');
+    return;
+  }
+  form.skills!.push({ name, level: DEFAULT_LEVEL, category: '' } as UserResumeSkillItem);
+  skillInput.value = '';
+}
+function onSkillKeydown(e: KeyboardEvent) {
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    addSkillFromInput();
+  }
+}
+function cycleSkillLevel(idx: number) {
+  const skill = form.skills![idx];
+  if (!skill) return;
+  const cur = skill.level || DEFAULT_LEVEL;
+  const i = SKILL_LEVELS.indexOf(cur);
+  skill.level = SKILL_LEVELS[(i + 1) % SKILL_LEVELS.length];
+}
+function removeSkill(idx: number) { form.skills!.splice(idx, 1); }
+
+// 求职意向默认值兜底
 function ensureJobIntention(): UserResumeJobIntention {
   if (!form.jobIntention) {
     form.jobIntention = {
@@ -135,22 +208,14 @@ function ensureJobIntention(): UserResumeJobIntention {
   return form.jobIntention;
 }
 
-// 面包屑
-const breadcrumbs = computed(() => [
-  { label: '面试指南', path: '/interview' },
-  { label: '我的简历', path: '/interview/my/resumes' },
-  { label: isEdit.value ? '编辑' : '创建' },
-]);
-
-// 进度条百分比
+// 评分进度条百分比
 function scorePercent(item: UserResumeScoreItem): number {
   if (!item.maxScore || item.maxScore <= 0) return 0;
   return Math.max(0, Math.min(100, (item.score / item.maxScore) * 100));
 }
 
-// 保存：silent 时不显示成功 toast，错误始终提示
+// ========== 保存 ==========
 async function doSave(silent = false): Promise<boolean> {
-  // 互斥锁：已有保存在途时跳过（手动保存提示稍候）
   if (saving.value) {
     if (!silent) toast.error('正在保存中，请稍候');
     return false;
@@ -166,15 +231,12 @@ async function doSave(silent = false): Promise<boolean> {
     if (res.code === 200) {
       if (form.id === undefined || form.id === null || form.id === '') {
         form.id = res.data as string | number;
-        // 新建后切换到编辑模式 URL，避免刷新重复创建
         if (!isEdit.value) {
           router.replace(`/interview/resume/edit/${form.id}`);
         }
       }
       saveStatus.value = 'saved';
       if (!silent) toast.success('保存成功');
-      // 等待 form.id 变化触发的 watch 执行完（被 saving 标志跳过），
-      // 再返回，避免 watch 在 nextTick 把 saveStatus 覆盖回 idle
       await nextTick();
       return true;
     } else {
@@ -191,12 +253,9 @@ async function doSave(silent = false): Promise<boolean> {
   }
 }
 
-// 手动保存草稿
-async function handleSaveDraft() {
-  await doSave(false);
-}
+function handleSaveDraft() { return doSave(false); }
 
-// 认证下载 PDF（fetch blob + a 标签，避免 window.open 无法携带 token）
+// 认证下载 PDF
 async function downloadPdfAuth(url: string) {
   const token = getToken();
   const baseUrl = import.meta.env.VITE_API_BASE_URL || '/api';
@@ -217,16 +276,17 @@ async function downloadPdfAuth(url: string) {
   URL.revokeObjectURL(a.href);
 }
 
-// 导出 PDF：先保存再导出
 async function handleExportPdf() {
   if (exporting.value) return;
   const ok = await doSave(true);
-  if (!ok || !form.id) return;
+  if (!ok || !form.id) {
+    toast.error('请先保存简历再导出');
+    return;
+  }
   try {
     exporting.value = true;
     const res = await exportResumePdf(form.id);
     if (res.code === 200 && res.data?.fileUrl) {
-      // fileUrl 为认证下载端点，需带 token 下载
       await downloadPdfAuth(res.data.fileUrl);
       toast.success('PDF 导出成功');
       form.fileUrl = res.data.fileUrl;
@@ -241,11 +301,14 @@ async function handleExportPdf() {
   }
 }
 
-// 评分：先保存再评分
+// 评分
 async function handleScore() {
   if (scoring.value) return;
   const ok = await doSave(true);
-  if (!ok || !form.id) return;
+  if (!ok || !form.id) {
+    toast.error('请先保存简历再评分');
+    return;
+  }
   try {
     scoring.value = true;
     const res = await scoreResume(form.id);
@@ -253,12 +316,9 @@ async function handleScore() {
       form.score = res.data.score;
       form.scoreDetail = res.data.scoreDetail || [];
       form.scoredTime = res.data.scoredTime || '';
-      // 评分变化后清空旧建议，避免展示过期内容
       aiAdvice.value = null;
       acceptedAdvices.value.clear();
       toast.success(`评分完成：${form.score} 分`);
-      // 切换到 AI 评分 Tab 展示结果（取代原滚动到评分面板）
-      activeTab.value = 'score';
     } else {
       toast.error(res.message || '评分失败，请稍后重试');
     }
@@ -269,14 +329,25 @@ async function handleScore() {
   }
 }
 
-// v5.9 阶段2：获取 AI 改进建议（基于当前评分明细 + 岗位匹配度）
+// AI 建议：打开建议弹窗并加载
+async function handleOptimize() {
+  // 未评分时先评分
+  if (form.score === undefined || form.score === 0) {
+    await handleScore();
+    if (form.score === undefined || form.score === 0) return;
+  }
+  adviceVisible.value = true;
+  if (!aiAdvice.value) {
+    await handleGetAdvice();
+  }
+}
+
 async function handleGetAdvice() {
   if (adviceLoading.value) return;
   if (!form.id) {
     toast.error('请先保存简历再获取建议');
     return;
   }
-  // 若未评分或内容已变更，先评分（后端也会兜底实时评分，但前端先调用保证一致性）
   if (!form.scoreDetail || form.scoreDetail.length === 0) {
     const ok = await doSave(true);
     if (!ok || !form.id) return;
@@ -287,8 +358,6 @@ async function handleGetAdvice() {
     if (res.code === 200 && res.data) {
       aiAdvice.value = res.data;
       acceptedAdvices.value.clear();
-      // 切换到 AI 建议 Tab 展示结果（取代原滚动到建议面板）
-      activeTab.value = 'advice';
     } else {
       toast.error(res.message || '生成建议失败，请稍后重试');
     }
@@ -299,23 +368,21 @@ async function handleGetAdvice() {
   }
 }
 
-// 优先级样式映射
+// 优先级 / 建议类型样式
 const priorityStyle: Record<string, { label: string; class: string }> = {
   high: { label: '高优先级', class: 'bg-red-50 text-red-600 border border-red-200' },
   medium: { label: '中优先级', class: 'bg-amber-50 text-amber-600 border border-amber-200' },
   low: { label: '低优先级', class: 'bg-gray-50 text-gray-600 border border-gray-200' },
 };
-
-// 建议类型样式映射
-const adviceTypeLabel: Record<string, string> = {
-  fill: '补充缺失',
-  refine: '优化已有',
-  match: '岗位匹配',
+const adviceTypeLabel: Record<string, string> = { fill: '补充缺失', refine: '优化已有', match: '岗位匹配' };
+const gradeStyle: Record<string, string> = {
+  A: 'bg-green-50 text-green-600 border border-green-200',
+  B: 'bg-blue-50 text-blue-600 border border-blue-200',
+  C: 'bg-amber-50 text-amber-600 border border-amber-200',
+  D: 'bg-red-50 text-red-600 border border-red-200',
 };
 
-// v5.9 阶段2：采纳建议 —— 将建议内容追加到自我介绍末尾
-// 设计权衡：建议为自然语言文本，无法精准定位到某个表单字段，
-// 自我介绍是承载改进点的最合适字段；采纳后切到编辑 Tab 由用户检查并保存
+// 采纳建议 —— 追加到自我介绍
 function acceptAdvice(advice: { dimension?: string; content?: string; priority?: string }, idx: number) {
   if (acceptedAdvices.value.has(idx)) {
     toast.info('该建议已采纳');
@@ -329,42 +396,44 @@ function acceptAdvice(advice: { dimension?: string; content?: string; priority?:
   const tag = `[${advice.dimension || '改进建议'}] ${advice.content}`;
   form.selfIntro = (form.selfIntro || '') + prefix + tag;
   acceptedAdvices.value.add(idx);
-  toast.success('已采纳到自我介绍，请切换到「编辑」检查并保存');
+  toast.success('已采纳到自我介绍');
 }
 
-// 跳转到学习中心（评分 Tab 的"建立学习计划"入口）
+// 撤销（mock：提示用户使用浏览器快捷键）
+function handleUndo() {
+  toast.info('请使用 Ctrl+Z 撤销输入');
+}
+
 function gotoStudyPlan() {
   router.push('/learn');
 }
 
-// 简历完成度计算（用于预览 Tab 展示填写进度）
-const resumeCompleteness = computed(() => {
-  let filled = 0;
-  let total = 8;
-  if (form.title?.trim()) filled++;
-  if (form.name?.trim()) filled++;
-  if (form.jobIntention?.position?.trim() || form.jobIntention?.city?.trim()) filled++;
-  if (form.educations && form.educations.length > 0) filled++;
-  if (form.works && form.works.length > 0) filled++;
-  if (form.projects && form.projects.length > 0) filled++;
-  if (form.skills && form.skills.length > 0) filled++;
-  if (form.selfIntro?.trim()) filled++;
-  return Math.round((filled / total) * 100);
-});
+// ========== Scroll Spy ==========
+function scrollToSection(id: string) {
+  const el = document.getElementById(id);
+  if (el) {
+    el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+}
 
-// 评分等级样式映射
-const gradeStyle: Record<string, string> = {
-  A: 'bg-green-50 text-green-600 border border-green-200',
-  B: 'bg-blue-50 text-blue-600 border border-blue-200',
-  C: 'bg-amber-50 text-amber-600 border border-amber-200',
-  D: 'bg-red-50 text-red-600 border border-red-200',
-};
+function handleScrollSpy() {
+  // 找到距离视口顶部最近（top 最小且 > 80）的 section
+  const ids = sections.value.map(s => s.id);
+  let current = activeSection.value;
+  for (const id of ids) {
+    const el = document.getElementById(id);
+    if (!el) continue;
+    const rect = el.getBoundingClientRect();
+    if (rect.top <= 120) {
+      current = id;
+    } else {
+      break;
+    }
+  }
+  activeSection.value = current;
+}
 
-// 注：已移除表单自动保存。为避免用户中途放弃时产生难以清理的脏数据，
-// 简历仅在用户手动点击「保存草稿」「导出PDF」「评分」时才入库。
-// 但仍需跟踪"是否有未保存修改"，用于离开页提示：用户编辑后 saveStatus 重置为 idle，
-// 保存成功后恢复 saved。加载阶段（loaded=false）与保存流程（saving=true）跳过，
-// 避免回填数据 / 保存后 form.id 回填触发误判。
+// ========== watch / 生命周期 ==========
 watch(
   form,
   () => {
@@ -375,7 +444,6 @@ watch(
   { deep: true },
 );
 
-// 加载详情；返回是否成功
 async function loadDetail(): Promise<boolean> {
   if (!editId.value) return false;
   try {
@@ -408,8 +476,6 @@ async function loadDetail(): Promise<boolean> {
       form.exportTime = d.exportTime || '';
       form.status = d.status || 'draft';
       form.versionNo = d.versionNo;
-      // 等待本轮 form 变化触发的 watch 执行完（此时 loaded=false 被跳过），
-      // 再标记为已同步，避免回填数据被误判为"有未保存修改"
       await nextTick();
       saveStatus.value = 'saved';
       return true;
@@ -428,18 +494,21 @@ async function loadDetail(): Promise<boolean> {
 onMounted(() => {
   if (isEdit.value && editId.value) {
     loadDetail().then((ok) => {
-      // 加载成功后标记 loaded，用于离开页时判断未保存内容
       if (ok) nextTick(() => { loaded.value = true; });
     });
   } else {
     nextTick(() => { loaded.value = true; });
   }
+  window.addEventListener('scroll', handleScrollSpy, { passive: true });
 });
 
-// 路由 :id 变更时（同组件复用）重新加载详情，避免数据错位
+onBeforeUnmount(() => {
+  window.removeEventListener('scroll', handleScrollSpy);
+});
+
+// 路由 :id 变更时重新加载
 watch(() => route.params.id, (newId, oldId) => {
   if (newId === oldId) return;
-  // 仅在切换到另一份已有简历时重新加载；从编辑切回创建（无 id）则重置为空白草稿
   if (!newId) {
     loaded.value = false;
     form.id = undefined;
@@ -454,7 +523,7 @@ watch(() => route.params.id, (newId, oldId) => {
   });
 });
 
-// 离开页面前提示：表单有标题且有内容、且最近未成功保存时
+// 离开页提示
 onBeforeRouteLeave((to, from, next) => {
   const hasContent = !!form.title?.trim();
   const unsaved = saveStatus.value !== 'saved' && hasContent && loaded.value;
@@ -467,1095 +536,1148 @@ onBeforeRouteLeave((to, from, next) => {
 </script>
 
 <template>
-  <div class="min-h-screen flex flex-col" style="background-color: var(--theme-bg);">
-    <!-- 吸顶面包屑栏 -->
-    <div
-      class="border-b sticky top-0 z-30 backdrop-blur-sm py-3"
-      style="background-color: var(--theme-surface); border-color: var(--theme-border);"
-    >
-      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between gap-4">
+  <div class="re-page" style="background-color: var(--theme-bg);">
+    <!-- 吸顶栏：面包屑 + 保存状态 -->
+    <div class="re-topbar">
+      <div class="re-topbar-inner">
         <Breadcrumb :items="breadcrumbs" />
-        <!-- 保存状态指示（操作按钮统一移至 Tab 区，吸顶栏仅保留状态提示） -->
-        <span
-          v-if="saveStatus !== 'idle'"
-          class="text-xs hidden sm:inline-flex items-center"
-          style="color: var(--theme-text-secondary);"
-        >
-          <span v-if="saveStatus === 'saving'">保存中...</span>
-          <span v-else-if="saveStatus === 'saved'" class="flex items-center">
-            <span
-              class="w-1.5 h-1.5 rounded-full mr-1"
-              style="background-color: var(--theme-primary);"
-            ></span>
-            已保存
-          </span>
-        </span>
-        <span v-else class="w-12"></span>
+        <div class="re-topbar-actions">
+          <!-- 标题输入（紧凑） -->
+          <input
+            v-model="form.title"
+            type="text"
+            placeholder="简历标题，如：张三 - Java 工程师简历"
+            maxlength="100"
+            class="re-title-input"
+          />
+          <span
+            v-if="saveStatus === 'saving'"
+            class="re-save-badge saving"
+          >保存中...</span>
+          <span
+            v-else-if="saveStatus === 'saved'"
+            class="re-save-badge saved"
+          >已保存</span>
+        </div>
       </div>
     </div>
 
-    <!-- 内容区 -->
-    <div class="flex-1 py-8">
-      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <!-- 加载详情中 -->
-        <div
-          v-if="loadingDetail"
-          class="rounded-xl border p-12 text-center"
-          style="background-color: var(--theme-surface); border-color: var(--theme-border);"
-        >
-          <div
-            class="animate-spin rounded-full h-10 w-10 border-2 mx-auto"
-            style="border-color: var(--theme-border); border-top-color: var(--theme-primary);"
-          ></div>
-          <p class="mt-4 text-sm" style="color: var(--theme-text-secondary);">加载中...</p>
-        </div>
+    <!-- 加载中 -->
+    <div v-if="loadingDetail" class="re-loading">
+      <div class="re-loading-spinner"></div>
+      <p>加载中...</p>
+    </div>
 
-        <!-- 加载失败 -->
-        <div
-          v-else-if="pageError"
-          class="rounded-xl border p-8 text-center"
-          style="background-color: var(--theme-surface); border-color: var(--theme-border);"
+    <!-- 加载失败 -->
+    <div v-else-if="pageError" class="re-error">
+      <p>{{ pageError }}</p>
+      <button @click="loadDetail" class="re-retry-btn">重试</button>
+    </div>
+
+    <!-- 三栏布局 -->
+    <div v-else class="re-layout">
+      <!-- 左侧导航 -->
+      <ResumeSidebar
+        :sections="sections"
+        :active-id="activeSection"
+        :progress="progress"
+        :score="form.score"
+        @navigate="scrollToSection"
+        @optimize="handleOptimize"
+      />
+
+      <!-- 中间主区：表单 -->
+      <main class="re-main">
+        <!-- 个人信息 -->
+        <SectionCard
+          section-id="sec-personal"
+          :icon="User"
+          icon-color="red"
+          title="个人信息"
+          desc="基础联系方式，方便 HR 与你取得联系"
+          :status="form.name?.trim() ? 'complete' : 'partial'"
         >
-          <p class="mb-4 text-sm" style="color: var(--theme-text);">{{ pageError }}</p>
-          <button
-            @click="loadDetail"
-            class="px-4 py-2 text-white rounded-lg text-sm transition hover:opacity-90"
-            style="background-color: var(--theme-primary);"
-          >
-            重试
+          <!-- 简历标题（独立字段，spec 中无但数据模型需要） -->
+          <div class="re-form-row cols-1" style="margin-bottom: 16px;">
+            <div class="re-field">
+              <label class="re-field-label"><span class="re-req">*</span> 简历标题</label>
+              <input
+                v-model="form.title"
+                type="text"
+                placeholder="如：张三 - Java 开发工程师简历"
+                class="re-input"
+              />
+              <div class="re-field-hint">用于简历列表展示，建议包含姓名与目标岗位</div>
+            </div>
+          </div>
+
+          <div class="re-form-row cols-2">
+            <div class="re-field">
+              <label class="re-field-label"><span class="re-req">*</span> 姓名</label>
+              <input v-model="form.name" type="text" placeholder="请输入真实姓名" class="re-input" />
+            </div>
+            <div class="re-field">
+              <label class="re-field-label"><span class="re-req">*</span> 手机号码</label>
+              <input v-model="form.phone" type="text" placeholder="请输入 11 位手机号" class="re-input" />
+            </div>
+          </div>
+          <div class="re-form-row cols-2">
+            <div class="re-field">
+              <label class="re-field-label"><span class="re-req">*</span> 电子邮箱</label>
+              <input v-model="form.email" type="email" placeholder="your@email.com" class="re-input" />
+              <div class="re-field-hint">建议使用常用邮箱，部分 HR 会通过邮件发送面试邀请</div>
+            </div>
+            <div class="re-field">
+              <label class="re-field-label">性别</label>
+              <select v-model="form.gender" class="re-select">
+                <option value="">请选择</option>
+                <option value="男">男</option>
+                <option value="女">女</option>
+                <option value="保密">保密</option>
+              </select>
+            </div>
+          </div>
+          <div class="re-form-row cols-2">
+            <div class="re-field">
+              <label class="re-field-label">出生日期</label>
+              <input v-model="form.birthDate" type="date" class="re-input" />
+            </div>
+            <div class="re-field">
+              <label class="re-field-label">头像 URL</label>
+              <input v-model="form.avatar" type="text" placeholder="https://..." class="re-input" />
+            </div>
+          </div>
+        </SectionCard>
+
+        <!-- 求职意向 -->
+        <SectionCard
+          section-id="sec-objective"
+          :icon="Target"
+          icon-color="blue"
+          title="求职意向"
+          desc="明确的求职目标有助于精准匹配岗位"
+          :status="ensureJobIntention().position?.trim() ? 'complete' : 'empty'"
+        >
+          <div class="re-form-row cols-3">
+            <div class="re-field">
+              <label class="re-field-label"><span class="re-req">*</span> 期望职位</label>
+              <input v-model="ensureJobIntention().position" type="text" placeholder="如：Java 开发工程师" class="re-input" />
+              <div class="re-field-hint">建议与招聘 JD 岗位名称保持一致</div>
+            </div>
+            <div class="re-field">
+              <label class="re-field-label">期望城市</label>
+              <input v-model="ensureJobIntention().city" type="text" placeholder="如：深圳" class="re-input" />
+            </div>
+            <div class="re-field">
+              <label class="re-field-label">工作性质</label>
+              <select v-model="ensureJobIntention().jobType" class="re-select">
+                <option value="">请选择</option>
+                <option value="全职">全职</option>
+                <option value="兼职">兼职</option>
+                <option value="实习">实习</option>
+              </select>
+            </div>
+          </div>
+          <div class="re-form-row cols-3">
+            <div class="re-field">
+              <label class="re-field-label">最低薪资（K）</label>
+              <input v-model.number="ensureJobIntention().salaryMin" type="number" min="0" placeholder="如：15" class="re-input" />
+            </div>
+            <div class="re-field">
+              <label class="re-field-label">最高薪资（K）</label>
+              <input v-model.number="ensureJobIntention().salaryMax" type="number" min="0" placeholder="如：25" class="re-input" />
+            </div>
+            <div class="re-field">
+              <label class="re-field-label">到岗时间</label>
+              <input v-model="ensureJobIntention().availableTime" type="text" placeholder="如：随时 / 1个月内" class="re-input" />
+            </div>
+          </div>
+        </SectionCard>
+
+        <!-- 教育背景 -->
+        <SectionCard
+          section-id="sec-education"
+          :icon="GraduationCap"
+          icon-color="green"
+          title="教育背景"
+          desc="从最高学历开始填写"
+          :status="(form.educations?.length ?? 0) > 0 ? 'complete' : 'empty'"
+        >
+          <div v-if="form.educations!.length === 0" class="re-empty-tip">暂无教育经历，点击下方按钮添加</div>
+          <div v-for="(edu, idx) in form.educations" :key="'edu-'+idx" class="re-entry">
+            <div class="re-entry-head">
+              <span class="re-entry-badge"><span class="re-entry-dot"></span>教育经历 #{{ idx + 1 }}</span>
+              <div class="re-entry-actions">
+                <button class="re-entry-btn danger" @click="removeEducation(idx)" title="删除">
+                  <Trash2 class="w-3 h-3" />
+                </button>
+              </div>
+            </div>
+            <div class="re-form-row cols-3">
+              <div class="re-field">
+                <label class="re-field-label"><span class="re-req">*</span> 学校</label>
+                <input v-model="edu.school" type="text" placeholder="如：北京大学" class="re-input" />
+              </div>
+              <div class="re-field">
+                <label class="re-field-label"><span class="re-req">*</span> 专业</label>
+                <input v-model="edu.major" type="text" placeholder="如：计算机科学" class="re-input" />
+              </div>
+              <div class="re-field">
+                <label class="re-field-label">学历</label>
+                <select v-model="edu.degree" class="re-select">
+                  <option value="">请选择</option>
+                  <option value="大专">大专</option>
+                  <option value="本科">本科</option>
+                  <option value="硕士">硕士</option>
+                  <option value="博士">博士</option>
+                </select>
+              </div>
+            </div>
+            <div class="re-form-row cols-2">
+              <div class="re-field">
+                <label class="re-field-label">入学时间</label>
+                <input v-model="edu.startDate" type="month" class="re-input" />
+              </div>
+              <div class="re-field">
+                <label class="re-field-label">毕业时间</label>
+                <input v-model="edu.endDate" type="month" class="re-input" />
+              </div>
+            </div>
+            <div class="re-form-row cols-1">
+              <div class="re-field">
+                <label class="re-field-label">经历描述</label>
+                <textarea v-model="edu.description" rows="2" placeholder="主修课程、荣誉、绩点等" class="re-textarea"></textarea>
+              </div>
+            </div>
+          </div>
+          <button class="re-add-entry" @click="addEducation">
+            <Plus class="w-3 h-3" /> 添加教育经历
           </button>
-        </div>
+        </SectionCard>
 
-        <template v-else>
-          <!-- Tab 切换栏：编辑 / 预览 / AI建议 / AI评分 -->
-          <div class="mb-6 flex items-center gap-1 rounded-xl p-1 overflow-x-auto" style="background-color: var(--theme-surface); border: 1px solid var(--theme-border);">
-            <button
-              @click="activeTab = 'edit'"
-              class="flex-1 min-w-[80px] inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition whitespace-nowrap"
-              :style="activeTab === 'edit' ? { backgroundColor: 'var(--theme-primary)', color: '#fff' } : { color: 'var(--theme-text-secondary)' }"
-            >
-              <PenLine class="w-4 h-4" />
-              编辑
-            </button>
-            <button
-              @click="activeTab = 'preview'"
-              class="flex-1 min-w-[80px] inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition whitespace-nowrap"
-              :style="activeTab === 'preview' ? { backgroundColor: 'var(--theme-primary)', color: '#fff' } : { color: 'var(--theme-text-secondary)' }"
-            >
-              <Eye class="w-4 h-4" />
-              预览
-            </button>
-            <button
-              @click="activeTab = 'advice'"
-              class="flex-1 min-w-[80px] inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition whitespace-nowrap"
-              :style="activeTab === 'advice' ? { backgroundColor: 'var(--theme-primary)', color: '#fff' } : { color: 'var(--theme-text-secondary)' }"
-            >
-              <Sparkles class="w-4 h-4" />
-              AI 建议
-            </button>
-            <button
-              @click="activeTab = 'score'"
-              class="flex-1 min-w-[80px] inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition whitespace-nowrap"
-              :style="activeTab === 'score' ? { backgroundColor: 'var(--theme-primary)', color: '#fff' } : { color: 'var(--theme-text-secondary)' }"
-            >
-              <Star class="w-4 h-4" />
-              AI 评分
-            </button>
+        <!-- 工作经历 -->
+        <SectionCard
+          section-id="sec-work"
+          :icon="Briefcase"
+          icon-color="purple"
+          title="工作经历"
+          desc="用数据量化你的成果，HR 最关注「做了什么」和「效果如何」"
+          :status="(form.works?.length ?? 0) > 0 ? 'complete' : 'empty'"
+        >
+          <div v-if="form.works!.length === 0" class="re-empty-tip">暂无工作经历，点击下方按钮添加</div>
+          <div v-for="(w, idx) in form.works" :key="'work-'+idx" class="re-entry">
+            <div class="re-entry-head">
+              <span class="re-entry-badge"><span class="re-entry-dot"></span>工作经历 #{{ idx + 1 }}</span>
+              <div class="re-entry-actions">
+                <button class="re-entry-btn danger" @click="removeWork(idx)" title="删除">
+                  <Trash2 class="w-3 h-3" />
+                </button>
+              </div>
+            </div>
+            <div class="re-form-row cols-2">
+              <div class="re-field">
+                <label class="re-field-label"><span class="re-req">*</span> 公司名称</label>
+                <input v-model="w.company" type="text" placeholder="公司全称" class="re-input" />
+              </div>
+              <div class="re-field">
+                <label class="re-field-label"><span class="re-req">*</span> 担任职位</label>
+                <input v-model="w.position" type="text" placeholder="如：高级开发工程师" class="re-input" />
+              </div>
+            </div>
+            <div class="re-form-row cols-2">
+              <div class="re-field">
+                <label class="re-field-label">入职时间</label>
+                <input v-model="w.startDate" type="month" class="re-input" />
+              </div>
+              <div class="re-field">
+                <label class="re-field-label">离职时间</label>
+                <input v-model="w.endDate" type="month" class="re-input" />
+              </div>
+            </div>
+            <div class="re-form-row cols-1">
+              <div class="re-field">
+                <label class="re-field-label"><span class="re-req">*</span> 工作描述</label>
+                <textarea v-model="w.description" rows="4" placeholder="用「动词 + 量化结果」格式描述核心职责与业绩" class="re-textarea"></textarea>
+                <div class="re-field-hint">推荐使用 STAR 法则：情境 → 任务 → 行动 → 结果</div>
+              </div>
+            </div>
           </div>
+          <button class="re-add-entry" @click="addWork">
+            <Plus class="w-3 h-3" /> 添加工作经历
+          </button>
+        </SectionCard>
 
-          <!-- ==================== 编辑 Tab ==================== -->
-          <div v-show="activeTab === 'edit'">
-          <!-- 1. 简历标题 -->
-          <div
-            class="rounded-xl border p-6 mb-5"
-            style="background-color: var(--theme-surface); border-color: var(--theme-border);"
-          >
-            <h3 class="text-base font-semibold mb-4 flex items-center" style="color: var(--theme-text);">
-              <FileText class="w-4 h-4 mr-2" style="color: var(--theme-primary);" />
-              简历标题
-            </h3>
+        <!-- 项目经历 -->
+        <SectionCard
+          section-id="sec-project"
+          :icon="FolderKanban"
+          icon-color="amber"
+          title="项目经历"
+          desc="突出技术难点和你的核心贡献"
+          :status="(form.projects?.length ?? 0) > 0 ? 'complete' : 'empty'"
+        >
+          <div v-if="form.projects!.length === 0" class="re-empty-tip">暂无项目经历，点击下方按钮添加</div>
+          <div v-for="(p, idx) in form.projects" :key="'proj-'+idx" class="re-entry">
+            <div class="re-entry-head">
+              <span class="re-entry-badge"><span class="re-entry-dot"></span>项目 #{{ idx + 1 }}</span>
+              <div class="re-entry-actions">
+                <button class="re-entry-btn danger" @click="removeProject(idx)" title="删除">
+                  <Trash2 class="w-3 h-3" />
+                </button>
+              </div>
+            </div>
+            <div class="re-form-row cols-2">
+              <div class="re-field">
+                <label class="re-field-label"><span class="re-req">*</span> 项目名称</label>
+                <input v-model="p.name" type="text" placeholder="项目名称" class="re-input" />
+              </div>
+              <div class="re-field">
+                <label class="re-field-label">担任角色</label>
+                <input v-model="p.role" type="text" placeholder="如：技术负责人" class="re-input" />
+              </div>
+            </div>
+            <div class="re-form-row cols-2">
+              <div class="re-field">
+                <label class="re-field-label">开始时间</label>
+                <input v-model="p.startDate" type="month" class="re-input" />
+              </div>
+              <div class="re-field">
+                <label class="re-field-label">结束时间</label>
+                <input v-model="p.endDate" type="month" class="re-input" />
+              </div>
+            </div>
+            <div class="re-form-row cols-1">
+              <div class="re-field">
+                <label class="re-field-label">项目链接</label>
+                <input v-model="p.url" type="text" placeholder="如：https://github.com/..." class="re-input" />
+              </div>
+            </div>
+            <div class="re-form-row cols-1">
+              <div class="re-field">
+                <label class="re-field-label"><span class="re-req">*</span> 项目描述</label>
+                <textarea v-model="p.description" rows="4" placeholder="技术栈、职责与成果" class="re-textarea"></textarea>
+              </div>
+            </div>
+          </div>
+          <button class="re-add-entry" @click="addProject">
+            <Plus class="w-3 h-3" /> 添加项目经历
+          </button>
+        </SectionCard>
+
+        <!-- 专业技能 -->
+        <SectionCard
+          section-id="sec-skills"
+          :icon="Terminal"
+          icon-color="red"
+          title="专业技能"
+          desc="建议按熟练程度排列，点击 chip 可切换熟练度"
+          :status="(form.skills?.length ?? 0) > 0 ? 'partial' : 'empty'"
+        >
+          <div class="re-skill-cloud">
+            <span
+              v-for="(s, idx) in form.skills"
+              :key="'skill-'+idx"
+              class="re-skill-chip"
+              @click="cycleSkillLevel(idx)"
+              :title="'点击切换熟练度（当前：'+(s.level||'熟练')+'）'"
+            >
+              {{ s.name }}
+              <span v-if="s.level" class="re-skill-level">{{ s.level }}</span>
+              <span class="re-skill-remove" @click.stop="removeSkill(idx)">
+                <X class="w-2.5 h-2.5" />
+              </span>
+            </span>
+          </div>
+          <div class="re-skill-input-row">
             <input
-              v-model="form.title"
+              v-model="skillInput"
               type="text"
-              placeholder="例如：张三 - 前端开发工程师简历"
-              maxlength="100"
-              class="w-full px-3 py-2 rounded-lg text-sm focus:outline-none"
-              style="background-color: var(--theme-bg); border: 1px solid var(--theme-border); color: var(--theme-text);"
+              placeholder="输入技能后按 Enter 添加，如：Spring Boot"
+              class="re-input"
+              @keydown="onSkillKeydown"
             />
+            <button class="re-skill-add-btn" @click="addSkillFromInput">
+              <Plus class="w-3.5 h-3.5" /> 添加
+            </button>
           </div>
+          <div class="re-field-hint">建议 5-10 个，点击 chip 可在「了解/一般/熟练/精通」间切换熟练度</div>
+        </SectionCard>
 
-          <!-- 2. 基本信息 -->
-          <div
-            class="rounded-xl border p-6 mb-5"
-            style="background-color: var(--theme-surface); border-color: var(--theme-border);"
-          >
-            <h3 class="text-base font-semibold mb-4 flex items-center" style="color: var(--theme-text);">
-              <User class="w-4 h-4 mr-2" style="color: var(--theme-primary);" />
-              基本信息
-            </h3>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label class="block text-sm font-medium mb-1.5" style="color: var(--theme-text);">姓名</label>
-                <input
-                  v-model="form.name"
-                  type="text"
-                  placeholder="请输入姓名"
-                  class="w-full px-3 py-2 rounded-lg text-sm focus:outline-none"
-                  style="background-color: var(--theme-bg); border: 1px solid var(--theme-border); color: var(--theme-text);"
-                />
-              </div>
-              <div>
-                <label class="block text-sm font-medium mb-1.5" style="color: var(--theme-text);">性别</label>
-                <select
-                  v-model="form.gender"
-                  class="w-full px-3 py-2 rounded-lg text-sm focus:outline-none"
-                  style="background-color: var(--theme-bg); border: 1px solid var(--theme-border); color: var(--theme-text);"
-                >
-                  <option value="">请选择</option>
-                  <option value="男">男</option>
-                  <option value="女">女</option>
-                  <option value="保密">保密</option>
-                </select>
-              </div>
-              <div>
-                <label class="block text-sm font-medium mb-1.5" style="color: var(--theme-text);">出生日期</label>
-                <input
-                  v-model="form.birthDate"
-                  type="date"
-                  class="w-full px-3 py-2 rounded-lg text-sm focus:outline-none"
-                  style="background-color: var(--theme-bg); border: 1px solid var(--theme-border); color: var(--theme-text);"
-                />
-              </div>
-              <div>
-                <label class="block text-sm font-medium mb-1.5" style="color: var(--theme-text);">手机</label>
-                <input
-                  v-model="form.phone"
-                  type="text"
-                  placeholder="请输入手机号"
-                  class="w-full px-3 py-2 rounded-lg text-sm focus:outline-none"
-                  style="background-color: var(--theme-bg); border: 1px solid var(--theme-border); color: var(--theme-text);"
-                />
-              </div>
-              <div class="md:col-span-2">
-                <label class="block text-sm font-medium mb-1.5" style="color: var(--theme-text);">邮箱</label>
-                <input
-                  v-model="form.email"
-                  type="email"
-                  placeholder="请输入邮箱"
-                  class="w-full px-3 py-2 rounded-lg text-sm focus:outline-none"
-                  style="background-color: var(--theme-bg); border: 1px solid var(--theme-border); color: var(--theme-text);"
-                />
-              </div>
-            </div>
-          </div>
-
-          <!-- 3. 求职意向 -->
-          <div
-            class="rounded-xl border p-6 mb-5"
-            style="background-color: var(--theme-surface); border-color: var(--theme-border);"
-          >
-            <h3 class="text-base font-semibold mb-4 flex items-center" style="color: var(--theme-text);">
-              <Target class="w-4 h-4 mr-2" style="color: var(--theme-primary);" />
-              求职意向
-            </h3>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label class="block text-sm font-medium mb-1.5" style="color: var(--theme-text);">期望职位</label>
-                <input
-                  v-model="ensureJobIntention().position"
-                  type="text"
-                  placeholder="例如：前端开发工程师"
-                  class="w-full px-3 py-2 rounded-lg text-sm focus:outline-none"
-                  style="background-color: var(--theme-bg); border: 1px solid var(--theme-border); color: var(--theme-text);"
-                />
-              </div>
-              <div>
-                <label class="block text-sm font-medium mb-1.5" style="color: var(--theme-text);">期望城市</label>
-                <input
-                  v-model="ensureJobIntention().city"
-                  type="text"
-                  placeholder="例如：北京"
-                  class="w-full px-3 py-2 rounded-lg text-sm focus:outline-none"
-                  style="background-color: var(--theme-bg); border: 1px solid var(--theme-border); color: var(--theme-text);"
-                />
-              </div>
-              <div>
-                <label class="block text-sm font-medium mb-1.5" style="color: var(--theme-text);">最低薪资（K）</label>
-                <input
-                  v-model.number="ensureJobIntention().salaryMin"
-                  type="number"
-                  min="0"
-                  placeholder="例如：15"
-                  class="w-full px-3 py-2 rounded-lg text-sm focus:outline-none"
-                  style="background-color: var(--theme-bg); border: 1px solid var(--theme-border); color: var(--theme-text);"
-                />
-              </div>
-              <div>
-                <label class="block text-sm font-medium mb-1.5" style="color: var(--theme-text);">最高薪资（K）</label>
-                <input
-                  v-model.number="ensureJobIntention().salaryMax"
-                  type="number"
-                  min="0"
-                  placeholder="例如：25"
-                  class="w-full px-3 py-2 rounded-lg text-sm focus:outline-none"
-                  style="background-color: var(--theme-bg); border: 1px solid var(--theme-border); color: var(--theme-text);"
-                />
-              </div>
-              <div>
-                <label class="block text-sm font-medium mb-1.5" style="color: var(--theme-text);">工作性质</label>
-                <select
-                  v-model="ensureJobIntention().jobType"
-                  class="w-full px-3 py-2 rounded-lg text-sm focus:outline-none"
-                  style="background-color: var(--theme-bg); border: 1px solid var(--theme-border); color: var(--theme-text);"
-                >
-                  <option value="">请选择</option>
-                  <option value="全职">全职</option>
-                  <option value="兼职">兼职</option>
-                  <option value="实习">实习</option>
-                </select>
-              </div>
-              <div>
-                <label class="block text-sm font-medium mb-1.5" style="color: var(--theme-text);">到岗时间</label>
-                <input
-                  v-model="ensureJobIntention().availableTime"
-                  type="text"
-                  placeholder="例如：随时 / 1个月内"
-                  class="w-full px-3 py-2 rounded-lg text-sm focus:outline-none"
-                  style="background-color: var(--theme-bg); border: 1px solid var(--theme-border); color: var(--theme-text);"
-                />
-              </div>
-            </div>
-          </div>
-
-          <!-- 4. 教育经历 -->
-          <div
-            class="rounded-xl border p-6 mb-5"
-            style="background-color: var(--theme-surface); border-color: var(--theme-border);"
-          >
-            <div class="flex items-center justify-between mb-4">
-              <h3 class="text-base font-semibold flex items-center" style="color: var(--theme-text);">
-                <GraduationCap class="w-4 h-4 mr-2" style="color: var(--theme-primary);" />
-                教育经历
-              </h3>
-              <button
-                @click="addEducation"
-                class="inline-flex items-center px-3 py-1.5 rounded-lg text-xs text-white transition hover:opacity-90"
-                style="background-color: var(--theme-primary);"
-              >
-                <Plus class="w-3.5 h-3.5 mr-1" />
-                添加
-              </button>
-            </div>
-            <div v-if="form.educations!.length === 0" class="text-sm py-3 text-center" style="color: var(--theme-text-secondary);">
-              暂无教育经历，点击右上角添加
-            </div>
-            <div v-else class="space-y-4">
-              <div
-                v-for="(edu, idx) in form.educations"
-                :key="'edu-' + idx"
-                class="rounded-lg p-4 relative"
-                style="background-color: var(--theme-bg); border: 1px solid var(--theme-border);"
-              >
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  <div>
-                    <label class="block text-sm font-medium mb-1.5" style="color: var(--theme-text);">学校</label>
-                    <input v-model="edu.school" type="text" placeholder="学校名称" class="w-full px-3 py-2 rounded-lg text-sm focus:outline-none" style="background-color: var(--theme-surface); border: 1px solid var(--theme-border); color: var(--theme-text);" />
-                  </div>
-                  <div>
-                    <label class="block text-sm font-medium mb-1.5" style="color: var(--theme-text);">专业</label>
-                    <input v-model="edu.major" type="text" placeholder="专业" class="w-full px-3 py-2 rounded-lg text-sm focus:outline-none" style="background-color: var(--theme-surface); border: 1px solid var(--theme-border); color: var(--theme-text);" />
-                  </div>
-                  <div>
-                    <label class="block text-sm font-medium mb-1.5" style="color: var(--theme-text);">学历</label>
-                    <select v-model="edu.degree" class="w-full px-3 py-2 rounded-lg text-sm focus:outline-none" style="background-color: var(--theme-surface); border: 1px solid var(--theme-border); color: var(--theme-text);">
-                      <option value="">请选择</option>
-                      <option value="大专">大专</option>
-                      <option value="本科">本科</option>
-                      <option value="硕士">硕士</option>
-                      <option value="博士">博士</option>
-                    </select>
-                  </div>
-                  <div class="grid grid-cols-2 gap-3">
-                    <div>
-                      <label class="block text-sm font-medium mb-1.5" style="color: var(--theme-text);">开始</label>
-                      <input v-model="edu.startDate" type="month" class="w-full px-3 py-2 rounded-lg text-sm focus:outline-none" style="background-color: var(--theme-surface); border: 1px solid var(--theme-border); color: var(--theme-text);" />
-                    </div>
-                    <div>
-                      <label class="block text-sm font-medium mb-1.5" style="color: var(--theme-text);">结束</label>
-                      <input v-model="edu.endDate" type="month" class="w-full px-3 py-2 rounded-lg text-sm focus:outline-none" style="background-color: var(--theme-surface); border: 1px solid var(--theme-border); color: var(--theme-text);" />
-                    </div>
-                  </div>
-                  <div class="md:col-span-2">
-                    <label class="block text-sm font-medium mb-1.5" style="color: var(--theme-text);">经历描述</label>
-                    <textarea v-model="edu.description" rows="2" placeholder="主修课程、荣誉、绩点等" class="w-full px-3 py-2 rounded-lg text-sm focus:outline-none resize-y" style="background-color: var(--theme-surface); border: 1px solid var(--theme-border); color: var(--theme-text);"></textarea>
-                  </div>
-                </div>
-                <button
-                  @click="removeEducation(idx)"
-                  class="absolute -top-2 -right-2 w-6 h-6 rounded-full flex items-center justify-center text-white shadow"
-                  style="background-color: #ef4444;"
-                  aria-label="删除该教育经历"
-                >
-                  <Trash2 class="w-3 h-3" />
-                </button>
-              </div>
-            </div>
-          </div>
-
-          <!-- 5. 工作经历 -->
-          <div
-            class="rounded-xl border p-6 mb-5"
-            style="background-color: var(--theme-surface); border-color: var(--theme-border);"
-          >
-            <div class="flex items-center justify-between mb-4">
-              <h3 class="text-base font-semibold flex items-center" style="color: var(--theme-text);">
-                <Briefcase class="w-4 h-4 mr-2" style="color: var(--theme-primary);" />
-                工作经历
-              </h3>
-              <button
-                @click="addWork"
-                class="inline-flex items-center px-3 py-1.5 rounded-lg text-xs text-white transition hover:opacity-90"
-                style="background-color: var(--theme-primary);"
-              >
-                <Plus class="w-3.5 h-3.5 mr-1" />
-                添加
-              </button>
-            </div>
-            <div v-if="form.works!.length === 0" class="text-sm py-3 text-center" style="color: var(--theme-text-secondary);">
-              暂无工作经历，点击右上角添加
-            </div>
-            <div v-else class="space-y-4">
-              <div
-                v-for="(w, idx) in form.works"
-                :key="'work-' + idx"
-                class="rounded-lg p-4 relative"
-                style="background-color: var(--theme-bg); border: 1px solid var(--theme-border);"
-              >
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  <div>
-                    <label class="block text-sm font-medium mb-1.5" style="color: var(--theme-text);">公司</label>
-                    <input v-model="w.company" type="text" placeholder="公司名称" class="w-full px-3 py-2 rounded-lg text-sm focus:outline-none" style="background-color: var(--theme-surface); border: 1px solid var(--theme-border); color: var(--theme-text);" />
-                  </div>
-                  <div>
-                    <label class="block text-sm font-medium mb-1.5" style="color: var(--theme-text);">职位</label>
-                    <input v-model="w.position" type="text" placeholder="职位" class="w-full px-3 py-2 rounded-lg text-sm focus:outline-none" style="background-color: var(--theme-surface); border: 1px solid var(--theme-border); color: var(--theme-text);" />
-                  </div>
-                  <div class="grid grid-cols-2 gap-3 md:col-span-2">
-                    <div>
-                      <label class="block text-sm font-medium mb-1.5" style="color: var(--theme-text);">开始</label>
-                      <input v-model="w.startDate" type="month" class="w-full px-3 py-2 rounded-lg text-sm focus:outline-none" style="background-color: var(--theme-surface); border: 1px solid var(--theme-border); color: var(--theme-text);" />
-                    </div>
-                    <div>
-                      <label class="block text-sm font-medium mb-1.5" style="color: var(--theme-text);">结束</label>
-                      <input v-model="w.endDate" type="month" class="w-full px-3 py-2 rounded-lg text-sm focus:outline-none" style="background-color: var(--theme-surface); border: 1px solid var(--theme-border); color: var(--theme-text);" />
-                    </div>
-                  </div>
-                  <div class="md:col-span-2">
-                    <label class="block text-sm font-medium mb-1.5" style="color: var(--theme-text);">工作描述</label>
-                    <textarea v-model="w.description" rows="2" placeholder="主要职责与成果" class="w-full px-3 py-2 rounded-lg text-sm focus:outline-none resize-y" style="background-color: var(--theme-surface); border: 1px solid var(--theme-border); color: var(--theme-text);"></textarea>
-                  </div>
-                </div>
-                <button
-                  @click="removeWork(idx)"
-                  class="absolute -top-2 -right-2 w-6 h-6 rounded-full flex items-center justify-center text-white shadow"
-                  style="background-color: #ef4444;"
-                  aria-label="删除该工作经历"
-                >
-                  <Trash2 class="w-3 h-3" />
-                </button>
-              </div>
-            </div>
-          </div>
-
-          <!-- 6. 项目经历 -->
-          <div
-            class="rounded-xl border p-6 mb-5"
-            style="background-color: var(--theme-surface); border-color: var(--theme-border);"
-          >
-            <div class="flex items-center justify-between mb-4">
-              <h3 class="text-base font-semibold flex items-center" style="color: var(--theme-text);">
-                <Code class="w-4 h-4 mr-2" style="color: var(--theme-primary);" />
-                项目经历
-              </h3>
-              <button
-                @click="addProject"
-                class="inline-flex items-center px-3 py-1.5 rounded-lg text-xs text-white transition hover:opacity-90"
-                style="background-color: var(--theme-primary);"
-              >
-                <Plus class="w-3.5 h-3.5 mr-1" />
-                添加
-              </button>
-            </div>
-            <div v-if="form.projects!.length === 0" class="text-sm py-3 text-center" style="color: var(--theme-text-secondary);">
-              暂无项目经历，点击右上角添加
-            </div>
-            <div v-else class="space-y-4">
-              <div
-                v-for="(p, idx) in form.projects"
-                :key="'proj-' + idx"
-                class="rounded-lg p-4 relative"
-                style="background-color: var(--theme-bg); border: 1px solid var(--theme-border);"
-              >
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  <div>
-                    <label class="block text-sm font-medium mb-1.5" style="color: var(--theme-text);">项目名称</label>
-                    <input v-model="p.name" type="text" placeholder="项目名称" class="w-full px-3 py-2 rounded-lg text-sm focus:outline-none" style="background-color: var(--theme-surface); border: 1px solid var(--theme-border); color: var(--theme-text);" />
-                  </div>
-                  <div>
-                    <label class="block text-sm font-medium mb-1.5" style="color: var(--theme-text);">担任角色</label>
-                    <input v-model="p.role" type="text" placeholder="例如：前端负责人" class="w-full px-3 py-2 rounded-lg text-sm focus:outline-none" style="background-color: var(--theme-surface); border: 1px solid var(--theme-border); color: var(--theme-text);" />
-                  </div>
-                  <div class="grid grid-cols-2 gap-3 md:col-span-2">
-                    <div>
-                      <label class="block text-sm font-medium mb-1.5" style="color: var(--theme-text);">开始</label>
-                      <input v-model="p.startDate" type="month" class="w-full px-3 py-2 rounded-lg text-sm focus:outline-none" style="background-color: var(--theme-surface); border: 1px solid var(--theme-border); color: var(--theme-text);" />
-                    </div>
-                    <div>
-                      <label class="block text-sm font-medium mb-1.5" style="color: var(--theme-text);">结束</label>
-                      <input v-model="p.endDate" type="month" class="w-full px-3 py-2 rounded-lg text-sm focus:outline-none" style="background-color: var(--theme-surface); border: 1px solid var(--theme-border); color: var(--theme-text);" />
-                    </div>
-                  </div>
-                  <div class="md:col-span-2">
-                    <label class="block text-sm font-medium mb-1.5" style="color: var(--theme-text);">项目链接</label>
-                    <input v-model="p.url" type="text" placeholder="例如：https://github.com/..." class="w-full px-3 py-2 rounded-lg text-sm focus:outline-none" style="background-color: var(--theme-surface); border: 1px solid var(--theme-border); color: var(--theme-text);" />
-                  </div>
-                  <div class="md:col-span-2">
-                    <label class="block text-sm font-medium mb-1.5" style="color: var(--theme-text);">项目描述</label>
-                    <textarea v-model="p.description" rows="3" placeholder="技术栈、职责与成果" class="w-full px-3 py-2 rounded-lg text-sm focus:outline-none resize-y" style="background-color: var(--theme-surface); border: 1px solid var(--theme-border); color: var(--theme-text);"></textarea>
-                  </div>
-                </div>
-                <button
-                  @click="removeProject(idx)"
-                  class="absolute -top-2 -right-2 w-6 h-6 rounded-full flex items-center justify-center text-white shadow"
-                  style="background-color: #ef4444;"
-                  aria-label="删除该项目经历"
-                >
-                  <Trash2 class="w-3 h-3" />
-                </button>
-              </div>
-            </div>
-          </div>
-
-          <!-- 7. 技能列表 -->
-          <div
-            class="rounded-xl border p-6 mb-5"
-            style="background-color: var(--theme-surface); border-color: var(--theme-border);"
-          >
-            <div class="flex items-center justify-between mb-4">
-              <h3 class="text-base font-semibold flex items-center" style="color: var(--theme-text);">
-                <Star class="w-4 h-4 mr-2" style="color: var(--theme-primary);" />
-                技能列表
-              </h3>
-              <button
-                @click="addSkill"
-                class="inline-flex items-center px-3 py-1.5 rounded-lg text-xs text-white transition hover:opacity-90"
-                style="background-color: var(--theme-primary);"
-              >
-                <Plus class="w-3.5 h-3.5 mr-1" />
-                添加
-              </button>
-            </div>
-            <div v-if="form.skills!.length === 0" class="text-sm py-3 text-center" style="color: var(--theme-text-secondary);">
-              暂无技能，点击右上角添加
-            </div>
-            <div v-else class="space-y-3">
-              <div
-                v-for="(s, idx) in form.skills"
-                :key="'skill-' + idx"
-                class="grid grid-cols-1 md:grid-cols-3 gap-3 relative rounded-lg p-3"
-                style="background-color: var(--theme-bg); border: 1px solid var(--theme-border);"
-              >
-                <div>
-                  <label class="block text-sm font-medium mb-1.5" style="color: var(--theme-text);">技能名称</label>
-                  <input v-model="s.name" type="text" placeholder="例如：Vue" class="w-full px-3 py-2 rounded-lg text-sm focus:outline-none" style="background-color: var(--theme-surface); border: 1px solid var(--theme-border); color: var(--theme-text);" />
-                </div>
-                <div>
-                  <label class="block text-sm font-medium mb-1.5" style="color: var(--theme-text);">熟练度</label>
-                  <select v-model="s.level" class="w-full px-3 py-2 rounded-lg text-sm focus:outline-none" style="background-color: var(--theme-surface); border: 1px solid var(--theme-border); color: var(--theme-text);">
-                    <option value="">请选择</option>
-                    <option value="了解">了解</option>
-                    <option value="一般">一般</option>
-                    <option value="熟练">熟练</option>
-                    <option value="精通">精通</option>
-                  </select>
-                </div>
-                <div>
-                  <label class="block text-sm font-medium mb-1.5" style="color: var(--theme-text);">分类</label>
-                  <input v-model="s.category" type="text" placeholder="例如：前端框架" class="w-full px-3 py-2 rounded-lg text-sm focus:outline-none" style="background-color: var(--theme-surface); border: 1px solid var(--theme-border); color: var(--theme-text);" />
-                </div>
-                <button
-                  @click="removeSkill(idx)"
-                  class="absolute -top-2 -right-2 w-6 h-6 rounded-full flex items-center justify-center text-white shadow"
-                  style="background-color: #ef4444;"
-                  aria-label="删除该技能"
-                >
-                  <Trash2 class="w-3 h-3" />
-                </button>
-              </div>
-            </div>
-          </div>
-
-          <!-- 8. 自我介绍 -->
-          <div
-            class="rounded-xl border p-6 mb-6"
-            style="background-color: var(--theme-surface); border-color: var(--theme-border);"
-          >
-            <h3 class="text-base font-semibold mb-4 flex items-center" style="color: var(--theme-text);">
-              <FileText class="w-4 h-4 mr-2" style="color: var(--theme-primary);" />
-              自我介绍
-            </h3>
+        <!-- 自我评价 -->
+        <SectionCard
+          section-id="sec-eval"
+          :icon="PenLine"
+          icon-color="blue"
+          title="自我评价"
+          desc="用「数字 + 成果」代替空泛描述，突出差异化优势"
+          :status="form.selfIntro?.trim() ? 'partial' : 'empty'"
+        >
+          <div class="re-field">
             <textarea
               v-model="form.selfIntro"
-              rows="6"
-              placeholder="简要介绍自己的优势、职业规划与兴趣方向..."
-              class="w-full px-3 py-2 rounded-lg text-sm focus:outline-none resize-y"
-              style="background-color: var(--theme-bg); border: 1px solid var(--theme-border); color: var(--theme-text);"
+              rows="5"
+              placeholder="100-300 字为宜，结构建议：定位 + 核心成果 + 技术深度 + 职业态度"
+              class="re-textarea"
+              maxlength="500"
             ></textarea>
+            <div class="re-field-counter">{{ (form.selfIntro || '').length }} / 500</div>
           </div>
+        </SectionCard>
 
-          <!-- ==================== 编辑 Tab 结束 ==================== -->
-          </div>
-
-          <!-- ==================== 预览 Tab ==================== -->
-          <div v-show="activeTab === 'preview'">
-            <!-- 预览工具栏：导出 PDF -->
-            <div
-              class="rounded-xl border p-4 mb-4 flex items-center justify-between flex-wrap gap-3"
-              style="background-color: var(--theme-surface); border-color: var(--theme-border);"
-            >
-              <div class="flex items-center gap-3">
-                <span class="text-sm font-medium" style="color: var(--theme-text);">
-                  <FileText class="w-4 h-4 inline mr-1" style="color: var(--theme-primary);" />
-                  简历完成度 {{ resumeCompleteness }}%
-                </span>
-                <div class="w-32 h-1.5 rounded-full" style="background-color: var(--theme-bg);">
-                  <div
-                    class="h-1.5 rounded-full transition-all"
-                    :style="{ width: resumeCompleteness + '%', backgroundColor: 'var(--theme-primary)' }"
-                  ></div>
-                </div>
-              </div>
-              <button
-                @click="handleExportPdf"
-                :disabled="exporting"
-                class="inline-flex items-center px-4 py-2 rounded-lg text-sm font-medium text-white transition hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
-                style="background-color: var(--theme-primary);"
-              >
-                <Download class="w-4 h-4 mr-1.5" />
-                {{ exporting ? '导出中...' : '导出 PDF' }}
-              </button>
+        <!-- 上传简历 -->
+        <SectionCard
+          section-id="sec-upload"
+          :icon="UploadCloud"
+          icon-color="purple"
+          title="上传简历"
+          desc="上传已有简历，可同步至在线简历或直接用于 AI 优化"
+          status="empty"
+        >
+          <div class="re-upload-zone">
+            <div class="re-upload-icon">
+              <UploadCloud class="w-5 h-5" />
             </div>
-
-            <!-- 简历预览（只读渲染） -->
-            <div
-              class="rounded-xl border p-8"
-              style="background-color: var(--theme-surface); border-color: var(--theme-border);"
-            >
-              <!-- 标题 -->
-              <h1 class="text-2xl font-bold mb-1" style="color: var(--theme-text);">
-                {{ form.title || '未命名简历' }}
-              </h1>
-              <p v-if="form.name" class="text-sm mb-4" style="color: var(--theme-text-secondary);">
-                {{ form.name }}<span v-if="form.gender"> · {{ form.gender }}</span><span v-if="form.birthDate"> · {{ form.birthDate }}</span>
-              </p>
-              <div v-if="form.phone || form.email" class="text-xs mb-6 flex flex-wrap gap-4" style="color: var(--theme-text-secondary);">
-                <span v-if="form.phone">{{ form.phone }}</span>
-                <span v-if="form.email">{{ form.email }}</span>
-              </div>
-
-              <hr class="mb-6" style="border-color: var(--theme-border);" />
-
-              <!-- 求职意向 -->
-              <section v-if="form.jobIntention && (form.jobIntention.position || form.jobIntention.city)" class="mb-6">
-                <h2 class="text-base font-semibold mb-2 flex items-center" style="color: var(--theme-text);">
-                  <Target class="w-4 h-4 mr-2" style="color: var(--theme-primary);" />
-                  求职意向
-                </h2>
-                <div class="text-sm grid grid-cols-2 gap-1" style="color: var(--theme-text-secondary);">
-                  <span v-if="form.jobIntention.position">期望职位：{{ form.jobIntention.position }}</span>
-                  <span v-if="form.jobIntention.city">期望城市：{{ form.jobIntention.city }}</span>
-                  <span v-if="form.jobIntention.salaryMin">薪资：{{ form.jobIntention.salaryMin }}K - {{ form.jobIntention.salaryMax }}K</span>
-                  <span v-if="form.jobIntention.jobType">性质：{{ form.jobIntention.jobType }}</span>
-                  <span v-if="form.jobIntention.availableTime">到岗：{{ form.jobIntention.availableTime }}</span>
-                </div>
-              </section>
-
-              <!-- 教育经历 -->
-              <section v-if="form.educations && form.educations.length > 0" class="mb-6">
-                <h2 class="text-base font-semibold mb-2 flex items-center" style="color: var(--theme-text);">
-                  <GraduationCap class="w-4 h-4 mr-2" style="color: var(--theme-primary);" />
-                  教育经历
-                </h2>
-                <div v-for="(edu, i) in form.educations" :key="'pe-'+i" class="mb-3 text-sm" style="color: var(--theme-text-secondary);">
-                  <div class="font-medium" style="color: var(--theme-text);">
-                    {{ edu.school }}<span v-if="edu.major"> · {{ edu.major }}</span><span v-if="edu.degree"> · {{ edu.degree }}</span>
-                  </div>
-                  <div class="text-xs">{{ edu.startDate }} ~ {{ edu.endDate }}</div>
-                  <p v-if="edu.description" class="mt-1 text-xs whitespace-pre-line">{{ edu.description }}</p>
-                </div>
-              </section>
-
-              <!-- 工作经历 -->
-              <section v-if="form.works && form.works.length > 0" class="mb-6">
-                <h2 class="text-base font-semibold mb-2 flex items-center" style="color: var(--theme-text);">
-                  <Briefcase class="w-4 h-4 mr-2" style="color: var(--theme-primary);" />
-                  工作经历
-                </h2>
-                <div v-for="(w, i) in form.works" :key="'pw-'+i" class="mb-3 text-sm" style="color: var(--theme-text-secondary);">
-                  <div class="font-medium" style="color: var(--theme-text);">
-                    {{ w.company }}<span v-if="w.position"> · {{ w.position }}</span>
-                  </div>
-                  <div class="text-xs">{{ w.startDate }} ~ {{ w.endDate }}</div>
-                  <p v-if="w.description" class="mt-1 text-xs whitespace-pre-line">{{ w.description }}</p>
-                </div>
-              </section>
-
-              <!-- 项目经历 -->
-              <section v-if="form.projects && form.projects.length > 0" class="mb-6">
-                <h2 class="text-base font-semibold mb-2 flex items-center" style="color: var(--theme-text);">
-                  <Code class="w-4 h-4 mr-2" style="color: var(--theme-primary);" />
-                  项目经历
-                </h2>
-                <div v-for="(p, i) in form.projects" :key="'pp-'+i" class="mb-3 text-sm" style="color: var(--theme-text-secondary);">
-                  <div class="font-medium" style="color: var(--theme-text);">
-                    {{ p.name }}<span v-if="p.role"> · {{ p.role }}</span>
-                  </div>
-                  <div class="text-xs">{{ p.startDate }} ~ {{ p.endDate }}</div>
-                  <p v-if="p.description" class="mt-1 text-xs whitespace-pre-line">{{ p.description }}</p>
-                </div>
-              </section>
-
-              <!-- 技能 -->
-              <section v-if="form.skills && form.skills.length > 0" class="mb-6">
-                <h2 class="text-base font-semibold mb-2 flex items-center" style="color: var(--theme-text);">
-                  <Star class="w-4 h-4 mr-2" style="color: var(--theme-primary);" />
-                  技能列表
-                </h2>
-                <div class="flex flex-wrap gap-2">
-                  <span
-                    v-for="(s, i) in form.skills"
-                    :key="'ps-'+i"
-                    class="inline-flex items-center px-2.5 py-1 rounded-full text-xs"
-                    style="background-color: var(--theme-bg); color: var(--theme-text-secondary);"
-                  >
-                    {{ s.name }}<span v-if="s.level" class="ml-1 opacity-70">· {{ s.level }}</span>
-                  </span>
-                </div>
-              </section>
-
-              <!-- 自我介绍 -->
-              <section v-if="form.selfIntro" class="mb-2">
-                <h2 class="text-base font-semibold mb-2 flex items-center" style="color: var(--theme-text);">
-                  <User class="w-4 h-4 mr-2" style="color: var(--theme-primary);" />
-                  自我介绍
-                </h2>
-                <p class="text-sm whitespace-pre-line" style="color: var(--theme-text-secondary);">
-                  {{ form.selfIntro }}
-                </p>
-              </section>
+            <div class="re-upload-title">点击或拖拽文件到此处上传</div>
+            <div class="re-upload-desc">上传后可预览、同步至在线简历，或直接进入 AI 优化</div>
+            <div class="re-upload-formats">
+              <span class="re-format-tag">PDF</span>
+              <span class="re-format-tag">DOCX</span>
+              <span class="re-format-tag">≤ 10MB</span>
             </div>
           </div>
+          <div class="re-field-hint" style="margin-top: 8px;">
+            <AlertCircle class="w-3 h-3 inline" />
+            上传功能开发中，当前请使用在线简历编辑
+          </div>
+        </SectionCard>
 
-          <!-- ==================== AI 建议 Tab ==================== -->
-          <div v-show="activeTab === 'advice'">
-            <!-- 空状态：未生成建议 -->
-            <div
-              v-if="!aiAdvice"
-              class="rounded-xl border p-10 text-center"
-              style="background-color: var(--theme-surface); border-color: var(--theme-border);"
-            >
-              <Sparkles class="w-10 h-10 mx-auto mb-3" style="color: var(--theme-primary); opacity: 0.6;" />
-              <p class="text-sm mb-4" style="color: var(--theme-text-secondary);">
-                基于当前简历评分与目标岗位匹配度，生成针对性改进建议
-              </p>
+        <!-- 底部留白，避免被 fixed action bar 遮挡 -->
+        <div style="height: 80px;"></div>
+      </main>
+
+      <!-- 右侧评分面板 -->
+      <ScorePanel
+        :score="form.score"
+        :score-detail="form.scoreDetail"
+        :scored-time="form.scoredTime"
+        :scoring="scoring"
+        :optimize-count="optimizeCount"
+        @optimize="handleOptimize"
+        @rescore="handleScore"
+      />
+    </div>
+
+    <!-- 底部固定操作栏 -->
+    <ResumeActionBar
+      :save-status="saveStatus"
+      :saving="saving"
+      :exporting="exporting"
+      :has-id="!!form.id"
+      @undo="handleUndo"
+      @preview="previewVisible = true"
+      @download="handleExportPdf"
+      @save="handleSaveDraft"
+      @optimize="handleOptimize"
+    />
+
+    <!-- 预览弹窗 -->
+    <ResumePreviewModal
+      :visible="previewVisible"
+      :form="form"
+      :completeness="resumeCompleteness"
+      :exporting="exporting"
+      @close="previewVisible = false"
+      @export-pdf="handleExportPdf"
+    />
+
+    <!-- AI 建议弹窗 -->
+    <Teleport to="body">
+      <div v-if="adviceVisible" class="re-advice-mask" @click.self="adviceVisible = false">
+        <div class="re-advice-box">
+          <!-- 头部 -->
+          <div class="re-advice-head">
+            <h3>
+              <Sparkles class="w-4 h-4" style="color: var(--theme-primary);" />
+              AI 深度优化建议
+              <span v-if="aiAdvice?.grade" class="re-advice-grade" :class="gradeStyle[aiAdvice.grade] || gradeStyle.D">
+                等级 {{ aiAdvice.grade }}
+              </span>
+            </h3>
+            <div class="re-advice-head-actions">
               <button
-                @click="handleGetAdvice"
+                class="re-advice-refresh-btn"
                 :disabled="adviceLoading"
-                class="inline-flex items-center px-5 py-2.5 rounded-lg text-sm font-medium text-white transition hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
-                style="background: linear-gradient(135deg, var(--theme-primary), color-mix(in srgb, var(--theme-primary) 70%, #7c3aed));"
-              >
-                <Sparkles class="w-4 h-4 mr-1.5" />
-                {{ adviceLoading ? '生成中...' : '获取 AI 建议' }}
+                @click="handleGetAdvice"
+              >{{ adviceLoading ? '刷新中...' : '刷新建议' }}</button>
+              <button class="re-advice-close" @click="adviceVisible = false">
+                <X class="w-4 h-4" />
               </button>
-            </div>
-
-            <!-- 有数据：左右布局 -->
-            <div v-else class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <!-- 左侧：简历预览（紧凑版） -->
-              <div
-                class="rounded-xl border p-5 lg:sticky lg:top-20 lg:self-start lg:max-h-[calc(100vh-6rem)] lg:overflow-y-auto"
-                style="background-color: var(--theme-surface); border-color: var(--theme-border);"
-              >
-                <h3 class="text-base font-semibold mb-3 flex items-center" style="color: var(--theme-text);">
-                  <FileText class="w-4 h-4 mr-2" style="color: var(--theme-primary);" />
-                  简历预览
-                </h3>
-                <div class="text-sm">
-                  <div class="font-semibold mb-1" style="color: var(--theme-text);">{{ form.title || '未命名简历' }}</div>
-                  <p v-if="form.name" class="text-xs mb-3" style="color: var(--theme-text-secondary);">
-                    {{ form.name }}<span v-if="form.jobIntention?.position"> · 目标：{{ form.jobIntention.position }}</span>
-                  </p>
-                  <div v-if="form.skills && form.skills.length > 0" class="flex flex-wrap gap-1 mb-3">
-                    <span
-                      v-for="(s, i) in form.skills"
-                      :key="'as-'+i"
-                      class="px-1.5 py-0.5 rounded text-[10px]"
-                      style="background-color: var(--theme-bg); color: var(--theme-text-secondary);"
-                    >{{ s.name }}</span>
-                  </div>
-                  <p v-if="form.selfIntro" class="text-xs whitespace-pre-line line-clamp-[12]" style="color: var(--theme-text-secondary);">
-                    {{ form.selfIntro }}
-                  </p>
-                </div>
-              </div>
-
-              <!-- 右侧：建议列表 -->
-              <div>
-                <!-- 标题行 + 等级 + 重新生成 -->
-                <div class="flex items-center justify-between mb-3 flex-wrap gap-2">
-                  <h3 class="text-base font-semibold flex items-center" style="color: var(--theme-text);">
-                    <Sparkles class="w-4 h-4 mr-2" style="color: var(--theme-primary);" />
-                    AI 改进建议
-                    <span
-                      v-if="aiAdvice.grade"
-                      class="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium"
-                      :class="gradeStyle[aiAdvice.grade] || gradeStyle.D"
-                    >等级 {{ aiAdvice.grade }}</span>
-                    <span
-                      v-if="aiAdvice.aiPowered === false"
-                      class="ml-2 text-xs px-2 py-0.5 rounded-full"
-                      style="background-color: var(--theme-bg); color: var(--theme-text-secondary);"
-                    >规则化生成</span>
-                  </h3>
-                  <button
-                    @click="handleGetAdvice"
-                    :disabled="adviceLoading"
-                    class="text-xs px-2.5 py-1 rounded-lg transition disabled:opacity-50"
-                    style="background-color: var(--theme-bg); color: var(--theme-text-secondary); border: 1px solid var(--theme-border);"
-                  >
-                    {{ adviceLoading ? '刷新中...' : '刷新建议' }}
-                  </button>
-                </div>
-
-                <!-- 整体总结 -->
-                <div
-                  v-if="aiAdvice.summary"
-                  class="rounded-lg p-3 mb-3 text-sm leading-relaxed"
-                  style="background-color: var(--theme-bg); color: var(--theme-text);"
-                >
-                  {{ aiAdvice.summary }}
-                </div>
-
-                <!-- 缺失技能提示 -->
-                <div
-                  v-if="aiAdvice.missingSkills && aiAdvice.missingSkills.length > 0"
-                  class="mb-3 rounded-lg p-3"
-                  style="background-color: rgba(239,68,68,0.06); border: 1px solid rgba(239,68,68,0.15);"
-                >
-                  <div class="text-xs font-medium mb-2 flex items-center" style="color: #ef4444;">
-                    <AlertCircle class="w-3.5 h-3.5 mr-1" />
-                    岗位必备技能缺失（{{ aiAdvice.missingSkills.length }} 项）
-                  </div>
-                  <div class="flex flex-wrap gap-1.5">
-                    <span
-                      v-for="skill in aiAdvice.missingSkills"
-                      :key="skill"
-                      class="px-2 py-0.5 rounded-full text-xs"
-                      style="background-color: rgba(239,68,68,0.08); color: #ef4444; border: 1px solid rgba(239,68,68,0.2);"
-                    >{{ skill }}</span>
-                  </div>
-                </div>
-
-                <!-- 建议列表（带采纳按钮） -->
-                <div v-if="aiAdvice.advices && aiAdvice.advices.length > 0" class="space-y-3">
-                  <div
-                    v-for="(advice, idx) in aiAdvice.advices"
-                    :key="idx"
-                    class="rounded-lg p-3 relative"
-                    style="background-color: var(--theme-bg);"
-                  >
-                    <div class="flex items-center gap-2 mb-1.5 flex-wrap">
-                      <span class="text-xs font-medium" style="color: var(--theme-text);">
-                        {{ advice.dimension || '综合' }}
-                      </span>
-                      <span
-                        v-if="advice.priority && priorityStyle[advice.priority]"
-                        class="text-xs px-1.5 py-0.5 rounded"
-                        :class="priorityStyle[advice.priority].class"
-                      >
-                        {{ priorityStyle[advice.priority].label }}
-                      </span>
-                      <span
-                        v-if="advice.type && adviceTypeLabel[advice.type]"
-                        class="text-xs px-1.5 py-0.5 rounded"
-                        style="background-color: var(--theme-surface); color: var(--theme-text-secondary); border: 1px solid var(--theme-border);"
-                      >
-                        {{ adviceTypeLabel[advice.type] }}
-                      </span>
-                    </div>
-                    <p class="text-sm leading-relaxed pr-20" style="color: var(--theme-text-secondary);">
-                      {{ advice.content }}
-                    </p>
-                    <!-- 采纳按钮 -->
-                    <button
-                      v-if="acceptedAdvices.has(idx)"
-                      disabled
-                      class="absolute top-3 right-3 text-xs px-2.5 py-1 rounded-lg flex items-center"
-                      style="background-color: rgba(22,163,74,0.1); color: #16a34a; border: 1px solid rgba(22,163,74,0.2);"
-                    >
-                      <CheckCircle2 class="w-3 h-3 mr-1" />
-                      已采纳
-                    </button>
-                    <button
-                      v-else
-                      @click="acceptAdvice(advice, idx)"
-                      class="absolute top-3 right-3 text-xs px-2.5 py-1 rounded-lg transition flex items-center"
-                      style="background-color: var(--theme-primary); color: #fff;"
-                    >
-                      <Plus class="w-3 h-3 mr-1" />
-                      采纳
-                    </button>
-                  </div>
-                </div>
-                <p v-else class="text-sm text-center py-4" style="color: var(--theme-text-secondary);">
-                  <CheckCircle2 class="w-5 h-5 inline mr-1" style="color: #16a34a;" />
-                  各维度得分率良好，暂无改进建议
-                </p>
-
-                <!-- 采纳后提示 -->
-                <div
-                  v-if="acceptedAdvices.size > 0"
-                  class="mt-4 rounded-lg p-3 text-xs flex items-center justify-between flex-wrap gap-2"
-                  style="background-color: rgba(22,163,74,0.06); border: 1px solid rgba(22,163,74,0.2);"
-                >
-                  <span style="color: #16a34a;">
-                    <CheckCircle2 class="w-3.5 h-3.5 inline mr-1" />
-                    已采纳 {{ acceptedAdvices.size }} 条建议到「自我介绍」
-                  </span>
-                  <button
-                    @click="activeTab = 'edit'"
-                    class="text-xs px-2.5 py-1 rounded-lg"
-                    style="background-color: var(--theme-primary); color: #fff;"
-                  >
-                    去编辑检查
-                  </button>
-                </div>
-              </div>
             </div>
           </div>
 
-          <!-- ==================== AI 评分 Tab ==================== -->
-          <div v-show="activeTab === 'score'">
-            <!-- 空状态：未评分 -->
-            <div
-              v-if="!(form.scoreDetail && form.scoreDetail.length > 0)"
-              class="rounded-xl border p-10 text-center"
-              style="background-color: var(--theme-surface); border-color: var(--theme-border);"
-            >
-              <Star class="w-10 h-10 mx-auto mb-3" style="color: var(--theme-primary); opacity: 0.6;" />
-              <p class="text-sm mb-4" style="color: var(--theme-text-secondary);">
-                基于简历完整度、岗位匹配度等维度智能评分，发现个人短板
-              </p>
-              <button
-                @click="handleScore"
-                :disabled="scoring"
-                class="inline-flex items-center px-5 py-2.5 rounded-lg text-sm font-medium text-white transition hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
-                style="background-color: var(--theme-primary);"
-              >
-                <Star class="w-4 h-4 mr-1.5" />
-                {{ scoring ? '评分中...' : '开始 AI 评分' }}
-              </button>
+          <!-- 加载中 -->
+          <div v-if="adviceLoading && !aiAdvice" class="re-advice-loading">
+            <div class="re-loading-spinner"></div>
+            <p>正在生成 AI 优化建议...</p>
+          </div>
+
+          <!-- 内容 -->
+          <div v-else-if="aiAdvice" class="re-advice-body">
+            <!-- 总结 -->
+            <div v-if="aiAdvice.summary" class="re-advice-summary">
+              {{ aiAdvice.summary }}
             </div>
 
-            <!-- 评分结果 -->
-            <div v-else>
-              <!-- 综合评分 -->
-              <div
-                class="rounded-xl border p-6 mb-4"
-                style="background: linear-gradient(135deg, var(--theme-surface), color-mix(in srgb, var(--theme-primary) 6%, var(--theme-surface))); border-color: var(--theme-border);"
-              >
-                <div class="flex items-center justify-between flex-wrap gap-4">
-                  <div class="flex items-center gap-4">
-                    <div
-                      class="w-20 h-20 rounded-full flex flex-col items-center justify-center"
-                      style="background-color: var(--theme-primary); color: #fff;"
-                    >
-                      <span class="text-2xl font-bold leading-none">{{ form.score ?? 0 }}</span>
-                      <span class="text-[10px] mt-1 opacity-90">综合分</span>
-                    </div>
-                    <div>
-                      <h3 class="text-base font-semibold flex items-center" style="color: var(--theme-text);">
-                        <Star class="w-4 h-4 mr-2" style="color: var(--theme-primary);" />
-                        AI 综合评分
-                      </h3>
-                      <div class="flex items-center gap-2 mt-1">
-                        <span
-                          v-if="aiAdvice?.grade"
-                          class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium"
-                          :class="gradeStyle[aiAdvice.grade] || gradeStyle.D"
-                        >等级 {{ aiAdvice.grade }}</span>
-                        <span
-                          v-if="form.scoredTime"
-                          class="text-xs"
-                          style="color: var(--theme-text-secondary);"
-                        >{{ form.scoredTime }}</span>
-                      </div>
-                    </div>
-                  </div>
-                  <button
-                    @click="handleScore"
-                    :disabled="scoring"
-                    class="text-xs px-3 py-1.5 rounded-lg transition disabled:opacity-50"
-                    style="background-color: var(--theme-bg); color: var(--theme-text-secondary); border: 1px solid var(--theme-border);"
-                  >
-                    {{ scoring ? '重新评分中...' : '重新评分' }}
-                  </button>
-                </div>
+            <!-- 缺失技能 -->
+            <div v-if="aiAdvice.missingSkills && aiAdvice.missingSkills.length > 0" class="re-advice-missing">
+              <div class="re-advice-missing-title">
+                <AlertCircle class="w-3.5 h-3.5" />
+                岗位必备技能缺失（{{ aiAdvice.missingSkills.length }} 项）
               </div>
-
-              <!-- 各维度评分 -->
-              <div
-                class="rounded-xl border p-5 mb-4"
-                style="background-color: var(--theme-surface); border-color: var(--theme-border);"
-              >
-                <h3 class="text-sm font-semibold mb-4 flex items-center" style="color: var(--theme-text);">
-                  <Target class="w-4 h-4 mr-2" style="color: var(--theme-primary);" />
-                  各维度评分明细
-                </h3>
-                <div class="space-y-3">
-                  <div v-for="(item, idx) in form.scoreDetail" :key="idx">
-                    <div class="flex items-center justify-between text-sm mb-1">
-                      <span style="color: var(--theme-text);">{{ item.item }}</span>
-                      <span style="color: var(--theme-text-secondary);">
-                        {{ item.score }} / {{ item.maxScore }}
-                      </span>
-                    </div>
-                    <div class="w-full h-2 rounded-full" style="background-color: var(--theme-bg);">
-                      <div
-                        class="h-2 rounded-full transition-all"
-                        :style="{ width: scorePercent(item) + '%', backgroundColor: scorePercent(item) < 60 ? '#ef4444' : 'var(--theme-primary)' }"
-                      ></div>
-                    </div>
-                    <p v-if="item.message" class="text-xs mt-1" style="color: var(--theme-text-secondary);">
-                      {{ item.message }}
-                    </p>
-                    <!-- 岗位匹配度子项明细 -->
-                    <div
-                      v-if="item.subItems && item.subItems.length > 0"
-                      class="mt-2 flex flex-wrap gap-1.5"
-                    >
-                      <span
-                        v-for="sub in item.subItems"
-                        :key="sub.name"
-                        class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs"
-                        :style="sub.hit
-                          ? { backgroundColor: 'rgba(22,163,74,0.1)', color: '#16a34a', border: '1px solid rgba(22,163,74,0.2)' }
-                          : { backgroundColor: 'rgba(239,68,68,0.08)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.2)' }"
-                        :title="sub.message"
-                      >
-                        <CheckCircle2 v-if="sub.hit" class="w-3 h-3" />
-                        <XCircle v-else class="w-3 h-3" />
-                        {{ sub.name }}
-                      </span>
-                    </div>
-                  </div>
-                </div>
+              <div class="re-advice-missing-chips">
+                <span v-for="skill in aiAdvice.missingSkills" :key="skill" class="re-advice-missing-chip">{{ skill }}</span>
               </div>
+            </div>
 
-              <!-- 行业分析：岗位必备技能缺失 -->
-              <div
-                v-if="aiAdvice?.missingSkills && aiAdvice.missingSkills.length > 0"
-                class="rounded-xl border p-5 mb-4"
-                style="background-color: rgba(239,68,68,0.04); border-color: rgba(239,68,68,0.2);"
-              >
-                <h3 class="text-sm font-semibold mb-3 flex items-center" style="color: #ef4444;">
-                  <AlertCircle class="w-4 h-4 mr-2" />
-                  行业分析 · 岗位必备技能缺失
-                </h3>
-                <p class="text-xs mb-3" style="color: var(--theme-text-secondary);">
-                  以下技能为目标岗位高频要求，但你的简历中未体现，建议补充或通过学习计划加强。
-                </p>
-                <div class="flex flex-wrap gap-2">
-                  <span
-                    v-for="skill in aiAdvice.missingSkills"
-                    :key="skill"
-                    class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs"
-                    style="background-color: rgba(239,68,68,0.08); color: #ef4444; border: 1px solid rgba(239,68,68,0.2);"
-                  >
-                    <XCircle class="w-3 h-3" />
-                    {{ skill }}
+            <!-- 建议列表 -->
+            <div v-if="aiAdvice.advices && aiAdvice.advices.length > 0" class="re-advice-list">
+              <div v-for="(advice, idx) in aiAdvice.advices" :key="idx" class="re-advice-item">
+                <div class="re-advice-item-head">
+                  <span class="re-advice-dim">{{ advice.dimension || '综合' }}</span>
+                  <span v-if="advice.priority && priorityStyle[advice.priority]" class="re-advice-pri" :class="priorityStyle[advice.priority].class">
+                    {{ priorityStyle[advice.priority].label }}
+                  </span>
+                  <span v-if="advice.type && adviceTypeLabel[advice.type]" class="re-advice-type">
+                    {{ adviceTypeLabel[advice.type] }}
                   </span>
                 </div>
-              </div>
-
-              <!-- 个人短板：高优先级改进建议 -->
-              <div
-                v-if="aiAdvice?.advices && aiAdvice.advices.filter(a => a.priority === 'high').length > 0"
-                class="rounded-xl border p-5 mb-4"
-                style="background-color: var(--theme-surface); border-color: var(--theme-border);"
-              >
-                <h3 class="text-sm font-semibold mb-3 flex items-center" style="color: var(--theme-text);">
-                  <Target class="w-4 h-4 mr-2" style="color: #ef4444;" />
-                  个人短板 · 优先改进项
-                </h3>
-                <div class="space-y-2">
-                  <div
-                    v-for="(advice, idx) in aiAdvice.advices.filter(a => a.priority === 'high')"
-                    :key="'weak-'+idx"
-                    class="text-sm rounded-lg p-3"
-                    style="background-color: var(--theme-bg);"
-                  >
-                    <div class="flex items-center gap-2 mb-1">
-                      <span class="text-xs font-medium" style="color: var(--theme-text);">{{ advice.dimension || '综合' }}</span>
-                      <span class="text-xs px-1.5 py-0.5 rounded bg-red-50 text-red-600 border border-red-200">高优先级</span>
-                    </div>
-                    <p class="text-xs leading-relaxed" style="color: var(--theme-text-secondary);">
-                      {{ advice.content }}
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              <!-- 去学习中心建立学习计划入口 -->
-              <div
-                class="rounded-xl border p-5 flex items-center justify-between flex-wrap gap-3"
-                style="background: linear-gradient(135deg, var(--theme-primary), color-mix(in srgb, var(--theme-primary) 70%, #7c3aed)); color: #fff;"
-              >
-                <div>
-                  <h3 class="text-sm font-semibold flex items-center mb-1">
-                    <Sparkles class="w-4 h-4 mr-2" />
-                    针对短板生成学习计划
-                  </h3>
-                  <p class="text-xs opacity-90">基于你的画像与薄弱点，自动生成针对性学习计划，逐项突破</p>
-                </div>
+                <p class="re-advice-content">{{ advice.content }}</p>
                 <button
-                  @click="gotoStudyPlan"
-                  class="inline-flex items-center px-4 py-2 rounded-lg text-sm font-medium transition hover:opacity-90"
-                  style="background-color: #fff; color: var(--theme-primary);"
+                  v-if="acceptedAdvices.has(idx)"
+                  disabled
+                  class="re-advice-accepted"
                 >
-                  去建立学习计划
-                  <ArrowRight class="w-4 h-4 ml-1.5" />
+                  <CheckCircle2 class="w-3 h-3" /> 已采纳
+                </button>
+                <button
+                  v-else
+                  class="re-advice-accept-btn"
+                  @click="acceptAdvice(advice, idx)"
+                >
+                  <Plus class="w-3 h-3" /> 采纳
                 </button>
               </div>
             </div>
+            <div v-else class="re-advice-empty">
+              <CheckCircle2 class="w-5 h-5" style="color: #16a34a;" />
+              各维度得分率良好，暂无改进建议
+            </div>
+
+            <!-- 采纳后提示 -->
+            <div v-if="acceptedAdvices.size > 0" class="re-advice-accepted-tip">
+              <span><CheckCircle2 class="w-3.5 h-3.5 inline" /> 已采纳 {{ acceptedAdvices.size }} 条建议到「自我评价」</span>
+              <button @click="adviceVisible = false" class="re-advice-back-edit">去编辑检查</button>
+            </div>
           </div>
 
-          <!-- ==================== 底部保存按钮（全局，所有 Tab 可见） ==================== -->
-          <div class="mt-6 flex justify-center">
-            <button
-              @click="handleSaveDraft"
-              :disabled="saving"
-              class="inline-flex items-center justify-center px-8 py-2.5 rounded-lg text-sm font-medium text-white transition hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
-              style="background-color: var(--theme-primary);"
-            >
-              <Save class="w-4 h-4 mr-2" />
-              {{ saving ? '保存中...' : '保存草稿' }}
+          <!-- 底部：建立学习计划 -->
+          <div v-if="aiAdvice" class="re-advice-footer">
+            <div>
+              <div class="re-advice-ft-title">针对短板生成学习计划</div>
+              <div class="re-advice-ft-desc">基于薄弱点自动生成针对性学习计划</div>
+            </div>
+            <button @click="gotoStudyPlan" class="re-advice-study-btn">
+              去建立学习计划 <ArrowRight class="w-3.5 h-3.5" />
             </button>
           </div>
-        </template>
+        </div>
       </div>
-    </div>
+    </Teleport>
 
     <SiteFooter />
   </div>
 </template>
+
+<style scoped>
+.re-page {
+  min-height: 100vh;
+}
+
+/* ===== 吸顶栏 ===== */
+.re-topbar {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  background: rgba(255,255,255,0.92);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border-bottom: 1px solid var(--theme-border);
+}
+.re-topbar-inner {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 12px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.re-topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+  justify-content: flex-end;
+}
+.re-title-input {
+  flex: 1;
+  max-width: 360px;
+  padding: 6px 12px;
+  font-size: 13px;
+  border: 1px solid var(--theme-border);
+  border-radius: 8px;
+  outline: none;
+  background: #fff;
+  color: var(--theme-text);
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.re-title-input:focus {
+  border-color: var(--theme-primary);
+  box-shadow: 0 0 0 3px rgba(220,38,38,0.08);
+}
+.re-save-badge {
+  font-size: 12px;
+  padding: 3px 10px;
+  border-radius: 10px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.re-save-badge.saving { background: #fffbeb; color: #d97706; }
+.re-save-badge.saved { background: #ecfdf5; color: #059669; }
+
+/* ===== 加载 / 错误 ===== */
+.re-loading, .re-error {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 80px 24px;
+  text-align: center;
+  background: #fff;
+  border: 1px solid var(--theme-border);
+  border-radius: 14px;
+  margin: 24px auto;
+}
+.re-loading p, .re-error p { margin-top: 12px; color: #6b7280; font-size: 14px; }
+.re-loading-spinner {
+  width: 36px;
+  height: 36px;
+  border: 3px solid var(--theme-border);
+  border-top-color: var(--theme-primary);
+  border-radius: 50%;
+  animation: re-spin 0.8s linear infinite;
+  margin: 0 auto;
+}
+@keyframes re-spin { to { transform: rotate(360deg); } }
+.re-retry-btn {
+  margin-top: 16px;
+  padding: 8px 20px;
+  background: var(--theme-primary);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-size: 13px;
+  cursor: pointer;
+}
+.re-retry-btn:hover { background: #b91c1c; }
+
+/* ===== 三栏布局 ===== */
+.re-layout {
+  display: flex;
+  max-width: 1280px;
+  margin: 0 auto;
+  min-height: calc(100vh - 60px);
+}
+
+/* 中间主区 */
+.re-main {
+  flex: 1;
+  padding: 24px 32px 0;
+  min-width: 0;
+}
+
+/* ===== 表单元素 ===== */
+.re-form-row { display: grid; gap: 16px; margin-bottom: 16px; }
+.re-form-row.cols-1 { grid-template-columns: 1fr; }
+.re-form-row.cols-2 { grid-template-columns: 1fr 1fr; }
+.re-form-row.cols-3 { grid-template-columns: 1fr 1fr 1fr; }
+.re-form-row:last-child { margin-bottom: 0; }
+
+.re-field { display: flex; flex-direction: column; gap: 5px; }
+.re-field-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--theme-text);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.re-req { color: var(--theme-primary); font-size: 14px; line-height: 1; }
+.re-field-hint {
+  font-size: 11px;
+  color: #9ca3af;
+  line-height: 1.5;
+  display: flex;
+  align-items: flex-start;
+  gap: 4px;
+}
+.re-field-counter { font-size: 11px; color: #9ca3af; text-align: right; }
+
+.re-input, .re-select, .re-textarea {
+  width: 100%;
+  padding: 9px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  font-size: 13px;
+  transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+  outline: none;
+  background: #fff;
+  color: var(--theme-text);
+  font-family: inherit;
+}
+.re-input:hover, .re-select:hover, .re-textarea:hover { border-color: #9ca3af; }
+.re-input:focus, .re-select:focus, .re-textarea:focus {
+  border-color: var(--theme-primary);
+  box-shadow: 0 0 0 3px rgba(220,38,38,0.08);
+}
+.re-input::placeholder, .re-textarea::placeholder { color: #9ca3af; }
+.re-textarea { resize: vertical; min-height: 80px; line-height: 1.65; }
+.re-select { appearance: none; cursor: pointer; padding-right: 32px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath d='M3 4.5L6 7.5L9 4.5' stroke='%239CA3AF' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+}
+
+/* ===== 经历条目 ===== */
+.re-entry {
+  border: 1px solid var(--theme-border);
+  border-radius: 10px;
+  padding: 18px;
+  margin-bottom: 12px;
+  transition: all 0.2s;
+  background: #fff;
+}
+.re-entry:hover { border-color: #d1d5db; box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
+.re-entry-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+.re-entry-badge {
+  font-size: 11px;
+  font-weight: 600;
+  color: #6b7280;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.re-entry-dot { width: 6px; height: 6px; border-radius: 50%; background: #10b981; }
+.re-entry-actions { display: flex; gap: 4px; }
+.re-entry-btn {
+  width: 28px; height: 28px;
+  display: flex; align-items: center; justify-content: center;
+  border: none; border-radius: 6px;
+  cursor: pointer; font-size: 11px;
+  background: transparent;
+  color: #9ca3af;
+  transition: all 0.15s;
+}
+.re-entry-btn:hover { background: #f3f4f6; color: var(--theme-text); }
+.re-entry-btn.danger:hover { background: #fee2e2; color: var(--theme-primary); }
+
+.re-add-entry {
+  width: 100%;
+  padding: 10px;
+  border: 1px dashed #d1d5db;
+  border-radius: 10px;
+  background: transparent;
+  color: #6b7280;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-weight: 500;
+}
+.re-add-entry:hover {
+  border-color: var(--theme-primary);
+  color: var(--theme-primary);
+  background: #fef2f2;
+}
+
+.re-empty-tip {
+  font-size: 13px;
+  color: #9ca3af;
+  text-align: center;
+  padding: 12px;
+}
+
+/* ===== 技能 chip cloud ===== */
+.re-skill-cloud {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 10px;
+  min-height: 28px;
+}
+.re-skill-chip {
+  padding: 4px 8px 4px 12px;
+  background: #f3f4f6;
+  color: var(--theme-text);
+  border-radius: 16px;
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.15s;
+  border: 1px solid var(--theme-border);
+  font-weight: 500;
+  cursor: pointer;
+  user-select: none;
+}
+.re-skill-chip:hover {
+  border-color: #fecaca;
+  background: #fef2f2;
+}
+.re-skill-level {
+  font-size: 10px;
+  color: #9ca3af;
+  font-weight: 400;
+}
+.re-skill-remove {
+  width: 14px; height: 14px;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 50%;
+  cursor: pointer;
+  color: #9ca3af;
+  transition: all 0.15s;
+}
+.re-skill-remove:hover { background: var(--theme-primary); color: #fff; }
+.re-skill-input-row {
+  display: flex;
+  gap: 6px;
+}
+.re-skill-add-btn {
+  padding: 8px 14px;
+  background: #fff;
+  border: 1px solid #d1d5db;
+  color: var(--theme-text);
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+.re-skill-add-btn:hover {
+  border-color: var(--theme-primary);
+  color: var(--theme-primary);
+  background: #fef2f2;
+}
+
+/* ===== 上传区 ===== */
+.re-upload-zone {
+  border: 2px dashed #d1d5db;
+  border-radius: 14px;
+  padding: 36px 24px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.25s;
+  background: #fff;
+}
+.re-upload-zone:hover {
+  border-color: var(--theme-primary);
+  background: #fef2f2;
+}
+.re-upload-icon {
+  width: 48px; height: 48px;
+  background: #f3f4f6;
+  border-radius: 14px;
+  display: flex; align-items: center; justify-content: center;
+  margin: 0 auto 14px;
+  color: #9ca3af;
+  transition: all 0.2s;
+}
+.re-upload-zone:hover .re-upload-icon {
+  background: #fef2f2;
+  color: var(--theme-primary);
+}
+.re-upload-title { font-size: 14px; font-weight: 600; color: var(--theme-text); margin-bottom: 4px; }
+.re-upload-desc { font-size: 12px; color: #9ca3af; }
+.re-upload-formats { display: flex; gap: 6px; justify-content: center; margin-top: 12px; }
+.re-format-tag {
+  font-size: 10px;
+  padding: 2px 8px;
+  background: #f3f4f6;
+  color: #6b7280;
+  border-radius: 4px;
+  font-weight: 600;
+}
+
+/* ===== AI 建议弹窗 ===== */
+.re-advice-mask {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.4);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  animation: re-advice-fade 0.2s;
+  padding: 20px;
+}
+@keyframes re-advice-fade { from { opacity: 0; } to { opacity: 1; } }
+.re-advice-box {
+  background: #fff;
+  border-radius: 20px;
+  width: 100%;
+  max-width: 640px;
+  max-height: 85vh;
+  overflow-y: auto;
+  box-shadow: 0 20px 25px -5px rgba(0,0,0,0.08), 0 8px 10px -6px rgba(0,0,0,0.04);
+  animation: re-advice-slide 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+@keyframes re-advice-slide { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+.re-advice-head {
+  padding: 18px 24px;
+  border-bottom: 1px solid var(--theme-border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: sticky;
+  top: 0;
+  background: #fff;
+  z-index: 1;
+  border-radius: 20px 20px 0 0;
+}
+.re-advice-head h3 {
+  font-size: 15px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--theme-text);
+}
+.re-advice-grade {
+  margin-left: 8px;
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-weight: 600;
+}
+.re-advice-head-actions { display: flex; align-items: center; gap: 8px; }
+.re-advice-refresh-btn {
+  padding: 5px 12px;
+  font-size: 12px;
+  border-radius: 6px;
+  background: #f9fafb;
+  color: #6b7280;
+  border: 1px solid var(--theme-border);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.re-advice-refresh-btn:hover:not(:disabled) { border-color: var(--theme-primary); color: var(--theme-primary); }
+.re-advice-refresh-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.re-advice-close {
+  width: 32px; height: 32px;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 8px;
+  border: 1px solid var(--theme-border);
+  background: #fff;
+  color: #6b7280;
+  cursor: pointer;
+}
+.re-advice-close:hover { border-color: #d1d5db; background: #f9fafb; color: var(--theme-text); }
+
+.re-advice-loading {
+  padding: 60px 24px;
+  text-align: center;
+  color: #6b7280;
+  font-size: 14px;
+}
+.re-advice-body { padding: 20px 24px; }
+
+.re-advice-summary {
+  background: #f9fafb;
+  border-radius: 10px;
+  padding: 12px 14px;
+  font-size: 13px;
+  color: var(--theme-text);
+  line-height: 1.6;
+  margin-bottom: 14px;
+}
+.re-advice-missing {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 10px;
+  padding: 12px 14px;
+  margin-bottom: 14px;
+}
+.re-advice-missing-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--theme-primary);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+.re-advice-missing-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.re-advice-missing-chip {
+  font-size: 11px;
+  padding: 2px 10px;
+  background: #fee2e2;
+  color: var(--theme-primary);
+  border: 1px solid #fecaca;
+  border-radius: 12px;
+}
+
+.re-advice-list { display: flex; flex-direction: column; gap: 10px; }
+.re-advice-item {
+  background: #f9fafb;
+  border-radius: 10px;
+  padding: 12px 14px;
+  position: relative;
+}
+.re-advice-item-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 6px;
+  flex-wrap: wrap;
+}
+.re-advice-dim { font-size: 12px; font-weight: 600; color: var(--theme-text); }
+.re-advice-pri { font-size: 11px; padding: 1px 8px; border-radius: 8px; font-weight: 600; }
+.re-advice-type {
+  font-size: 11px;
+  padding: 1px 8px;
+  border-radius: 8px;
+  background: #fff;
+  color: #6b7280;
+  border: 1px solid var(--theme-border);
+}
+.re-advice-content {
+  font-size: 13px;
+  color: #4b5563;
+  line-height: 1.6;
+  padding-right: 80px;
+}
+.re-advice-accept-btn {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  font-size: 11px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  background: var(--theme-primary);
+  color: #fff;
+  border: none;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-weight: 600;
+  transition: all 0.15s;
+}
+.re-advice-accept-btn:hover { background: #b91c1c; }
+.re-advice-accepted {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  font-size: 11px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  background: rgba(22,163,74,0.1);
+  color: #16a34a;
+  border: 1px solid rgba(22,163,74,0.2);
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-weight: 600;
+}
+.re-advice-empty {
+  text-align: center;
+  padding: 24px;
+  color: #16a34a;
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+.re-advice-accepted-tip {
+  margin-top: 14px;
+  padding: 10px 14px;
+  background: rgba(22,163,74,0.06);
+  border: 1px solid rgba(22,163,74,0.2);
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 12px;
+  color: #16a34a;
+}
+.re-advice-back-edit {
+  font-size: 11px;
+  padding: 3px 10px;
+  border-radius: 6px;
+  background: var(--theme-primary);
+  color: #fff;
+  border: none;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.re-advice-footer {
+  padding: 16px 24px;
+  background: linear-gradient(135deg, var(--theme-primary), #7c3aed);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border-radius: 0 0 20px 20px;
+  flex-wrap: wrap;
+}
+.re-advice-ft-title { font-size: 14px; font-weight: 700; }
+.re-advice-ft-desc { font-size: 12px; opacity: 0.9; margin-top: 2px; }
+.re-advice-study-btn {
+  padding: 8px 16px;
+  background: #fff;
+  color: var(--theme-primary);
+  border: none;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.re-advice-study-btn:hover { opacity: 0.9; }
+
+/* ===== 响应式 ===== */
+@media (max-width: 768px) {
+  .re-main { padding: 16px 14px 0; }
+  .re-form-row.cols-2, .re-form-row.cols-3 { grid-template-columns: 1fr; }
+  .re-topbar-inner { padding: 10px 14px; }
+  .re-title-input { max-width: none; }
+}
+</style>

@@ -1,0 +1,1487 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OfferGoose - 在线笔试 - 选择题</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<style>
+:root {
+  --primary: #DC2626;
+  --primary-light: #EF4444;
+  --primary-dark: #B91C1C;
+  --primary-bg: #FEF2F2;
+  --primary-border: #FECACA;
+  --success: #059669;
+  --success-bg: #ECFDF5;
+  --success-border: #A7F3D0;
+  --warning: #D97706;
+  --warning-bg: #FFFBEB;
+  --warning-border: #FDE68A;
+  --error-bg: #FEF2F2;
+  --error-border: #FECACA;
+  --gray-50: #F9FAFB;
+  --gray-100: #F3F4F6;
+  --gray-200: #E5E7EB;
+  --gray-300: #D1D5DB;
+  --gray-400: #9CA3AF;
+  --gray-500: #6B7280;
+  --gray-600: #4B5563;
+  --gray-700: #374151;
+  --gray-800: #1F2937;
+  --gray-900: #111827;
+  --radius: 10px;
+  --radius-lg: 14px;
+  --radius-sm: 6px;
+  --shadow: 0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.06);
+  --shadow-md: 0 4px 6px rgba(0,0,0,0.07), 0 2px 4px rgba(0,0,0,0.06);
+  --shadow-lg: 0 10px 15px rgba(0,0,0,0.1), 0 4px 6px rgba(0,0,0,0.05);
+  --font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: var(--font-family);
+  background: var(--gray-50);
+  color: var(--gray-800);
+  line-height: 1.6;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow-x: hidden;
+}
+
+/* ===== Top Navigation ===== */
+.top-nav {
+  height: 54px;
+  background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+  display: flex;
+  align-items: center;
+  padding: 0 24px;
+  color: #fff;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  box-shadow: 0 2px 8px rgba(220,38,38,0.3);
+}
+
+.nav-logo {
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -0.5px;
+  margin-right: 36px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.nav-logo i { font-size: 22px; }
+
+.nav-links {
+  display: flex;
+  gap: 4px;
+  list-style: none;
+}
+
+.nav-link-item {
+  color: rgba(255,255,255,0.8);
+  padding: 6px 16px;
+  border-radius: var(--radius-sm);
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.2s;
+  cursor: pointer;
+  display: inline-block;
+}
+
+.nav-link-item:hover { color: #fff; background: rgba(255,255,255,0.12); }
+.nav-link-item.active { color: #fff; background: rgba(255,255,255,0.2); }
+
+.nav-right {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.timer {
+  background: rgba(255,255,255,0.15);
+  padding: 5px 14px;
+  border-radius: 20px;
+  font-size: 14px;
+  font-weight: 600;
+  font-family: var(--font-mono);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.timer i { font-size: 13px; }
+
+.btn-draft {
+  background: rgba(255,255,255,0.15);
+  border: 1px solid rgba(255,255,255,0.3);
+  color: #fff;
+  padding: 5px 14px;
+  border-radius: 20px;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-draft:hover { background: rgba(255,255,255,0.25); }
+.btn-draft:active { transform: scale(0.97); }
+
+.nav-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.25);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+/* ===== Secondary Navigation ===== */
+.sub-nav {
+  height: 46px;
+  background: #fff;
+  border-bottom: 1px solid var(--gray-200);
+  display: flex;
+  align-items: center;
+  padding: 0 24px;
+  box-shadow: var(--shadow);
+}
+
+.breadcrumb {
+  font-size: 13px;
+  color: var(--gray-500);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.breadcrumb span { color: var(--gray-800); font-weight: 600; }
+
+.sub-nav-right {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 10px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.badge-easy { background: var(--success-bg); color: var(--success); border: 1px solid var(--success-border); }
+.badge-medium { background: var(--warning-bg); color: var(--warning); border: 1px solid var(--warning-border); }
+.badge-hard { background: var(--error-bg); color: var(--primary); border: 1px solid var(--error-border); }
+
+.badge-type {
+  background: var(--gray-100);
+  color: var(--gray-600);
+  border: 1px solid var(--gray-200);
+}
+
+.btn-topic-list {
+  background: var(--gray-100);
+  border: 1px solid var(--gray-200);
+  padding: 4px 12px;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  color: var(--gray-600);
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.btn-topic-list:hover { background: var(--gray-200); }
+
+/* ===== Main Content ===== */
+.main-content {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+}
+
+/* ===== Left: Question Area ===== */
+.question-area {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  background: #fff;
+}
+
+.question-scroll {
+  flex: 1;
+  overflow-y: auto;
+  padding: 28px 32px;
+}
+
+.question-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+
+.question-number {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--gray-800);
+}
+
+.question-text {
+  font-size: 16px;
+  line-height: 1.8;
+  color: var(--gray-800);
+  margin-bottom: 24px;
+  padding: 20px 24px;
+  background: var(--gray-50);
+  border-radius: var(--radius);
+  border-left: 4px solid var(--primary);
+}
+
+.question-text code {
+  background: var(--gray-200);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-family: var(--font-mono);
+  font-size: 14px;
+  color: var(--primary-dark);
+}
+
+/* ===== Options ===== */
+.options-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.option-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 16px 20px;
+  border: 2px solid var(--gray-200);
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: all 0.25s ease;
+  background: #fff;
+}
+
+.option-card:hover {
+  border-color: var(--gray-300);
+  background: var(--gray-50);
+  box-shadow: var(--shadow);
+}
+
+.option-card.selected {
+  border-color: var(--primary);
+  background: var(--primary-bg);
+  box-shadow: 0 0 0 1px var(--primary-border);
+}
+
+.option-card.correct {
+  border-color: var(--success);
+  background: var(--success-bg);
+  box-shadow: 0 0 0 1px var(--success-border);
+}
+
+.option-card.wrong {
+  border-color: var(--primary);
+  background: var(--error-bg);
+  box-shadow: 0 0 0 1px var(--error-border);
+}
+
+.option-letter {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 14px;
+  background: var(--gray-100);
+  color: var(--gray-600);
+  border: 2px solid var(--gray-200);
+  flex-shrink: 0;
+  transition: all 0.25s ease;
+}
+
+.option-card.selected .option-letter {
+  background: var(--primary);
+  color: #fff;
+  border-color: var(--primary);
+}
+
+.option-card.correct .option-letter {
+  background: var(--success);
+  color: #fff;
+  border-color: var(--success);
+}
+
+.option-card.wrong .option-letter {
+  background: var(--primary);
+  color: #fff;
+  border-color: var(--primary);
+}
+
+.option-content {
+  flex: 1;
+  padding-top: 4px;
+}
+
+.option-text {
+  font-size: 15px;
+  color: var(--gray-700);
+  line-height: 1.6;
+}
+
+.option-icon {
+  margin-left: auto;
+  font-size: 18px;
+  flex-shrink: 0;
+  align-self: center;
+  display: none;
+}
+
+.option-card.correct .option-icon { display: block; color: var(--success); }
+.option-card.wrong .option-icon { display: block; color: var(--primary); }
+
+/* ===== Analysis Section ===== */
+.analysis-section {
+  display: none;
+  margin-top: 20px;
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  animation: slideDown 0.4s ease;
+}
+
+@keyframes slideDown {
+  from { opacity: 0; max-height: 0; transform: translateY(-10px); }
+  to { opacity: 1; max-height: 2000px; transform: translateY(0); }
+}
+
+.analysis-section.show { display: block; }
+
+.analysis-header {
+  padding: 14px 20px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.analysis-header.correct-header { background: var(--success-bg); }
+.analysis-header.wrong-header { background: var(--error-bg); }
+
+.analysis-status {
+  font-weight: 700;
+  font-size: 15px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.analysis-header.correct-header .analysis-status { color: var(--success); }
+.analysis-header.wrong-header .analysis-status { color: var(--primary); }
+
+.analysis-body { padding: 20px; }
+
+.analysis-correct-answer {
+  background: var(--success-bg);
+  border: 1px solid var(--success-border);
+  border-radius: var(--radius);
+  padding: 12px 16px;
+  margin-bottom: 16px;
+  font-size: 14px;
+  color: var(--success);
+  font-weight: 600;
+}
+
+.analysis-options {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.analysis-option-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 14px;
+  border-radius: var(--radius-sm);
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.analysis-option-item.is-correct {
+  background: var(--success-bg);
+  border: 1px solid var(--success-border);
+  color: var(--gray-700);
+}
+
+.analysis-option-item.is-wrong {
+  background: var(--gray-50);
+  border: 1px solid var(--gray-200);
+  color: var(--gray-600);
+}
+
+.analysis-option-item .ao-icon {
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.analysis-option-item.is-correct .ao-icon { color: var(--success); }
+.analysis-option-item.is-wrong .ao-icon { color: var(--gray-400); }
+
+.analysis-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--gray-200);
+}
+
+.tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  background: var(--primary-bg);
+  color: var(--primary);
+  border: 1px solid var(--primary-border);
+  border-radius: 14px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.btn-collapse {
+  display: block;
+  margin-top: 16px;
+  background: none;
+  border: 1px solid var(--gray-200);
+  padding: 8px 20px;
+  border-radius: var(--radius-sm);
+  color: var(--gray-500);
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-collapse:hover { background: var(--gray-100); color: var(--gray-700); }
+
+/* ===== Bottom Action Bar ===== */
+.bottom-bar {
+  padding: 14px 32px;
+  border-top: 1px solid var(--gray-200);
+  background: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-shrink: 0;
+}
+
+.btn-nav {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 18px;
+  border-radius: var(--radius-sm);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  border: 1px solid var(--gray-200);
+  background: #fff;
+  color: var(--gray-600);
+  transition: all 0.2s;
+}
+
+.btn-nav:hover { border-color: var(--gray-300); background: var(--gray-50); }
+.btn-nav:active { transform: scale(0.97); }
+.btn-nav:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.btn-submit-answer {
+  background: var(--primary);
+  color: #fff;
+  border: none;
+  padding: 8px 24px;
+  border-radius: var(--radius-sm);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.btn-submit-answer:hover { background: var(--primary-dark); }
+.btn-submit-answer:active { transform: scale(0.97); }
+.btn-submit-answer:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.btn-clear {
+  background: none;
+  border: 1px solid var(--gray-200);
+  padding: 8px 16px;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  color: var(--gray-500);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-clear:hover { border-color: var(--gray-300); background: var(--gray-50); }
+
+.question-indicator {
+  font-size: 14px;
+  color: var(--gray-500);
+  font-weight: 600;
+}
+
+/* ===== Right: Answer Card ===== */
+.answer-card-area {
+  width: 300px;
+  background: var(--gray-50);
+  border-left: 1px solid var(--gray-200);
+  padding: 20px;
+  overflow-y: auto;
+  flex-shrink: 0;
+}
+
+.ac-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--gray-800);
+  margin-bottom: 14px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ac-stats {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 18px;
+}
+
+.ac-stat {
+  flex: 1;
+  text-align: center;
+  padding: 10px 6px;
+  border-radius: var(--radius);
+  background: #fff;
+  border: 1px solid var(--gray-200);
+}
+
+.ac-stat-num {
+  font-size: 20px;
+  font-weight: 700;
+  display: block;
+}
+
+.ac-stat-label {
+  font-size: 11px;
+  color: var(--gray-500);
+  margin-top: 2px;
+}
+
+.ac-stat.answered .ac-stat-num { color: var(--success); }
+.ac-stat.unanswered .ac-stat-num { color: var(--gray-400); }
+.ac-stat.correct-stat .ac-stat-num { color: var(--primary); }
+
+.ac-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 8px;
+  margin-bottom: 18px;
+}
+
+.ac-cell {
+  aspect-ratio: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  border: 2px solid var(--gray-200);
+  background: #fff;
+  color: var(--gray-600);
+  transition: all 0.2s;
+}
+
+.ac-cell:hover { border-color: var(--gray-300); background: var(--gray-100); }
+.ac-cell.current { border-color: var(--primary); background: var(--primary-bg); color: var(--primary); }
+.ac-cell.answered-cell { background: var(--success); border-color: var(--success); color: #fff; }
+.ac-cell.wrong-cell { background: var(--primary); border-color: var(--primary); color: #fff; }
+.ac-cell.current.answered-cell { border-color: var(--primary-dark); box-shadow: 0 0 0 2px var(--primary-border); }
+.ac-cell.current.wrong-cell { border-color: var(--primary-dark); box-shadow: 0 0 0 2px var(--primary-border); }
+
+.ac-progress {
+  margin-bottom: 18px;
+}
+
+.ac-progress-bar {
+  height: 8px;
+  background: var(--gray-200);
+  border-radius: 4px;
+  overflow: hidden;
+  margin-top: 6px;
+}
+
+.ac-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--primary), var(--primary-light));
+  border-radius: 4px;
+  transition: width 0.5s ease;
+}
+
+.ac-progress-text {
+  font-size: 12px;
+  color: var(--gray-500);
+  display: flex;
+  justify-content: space-between;
+}
+
+.btn-submit-all {
+  width: 100%;
+  padding: 12px;
+  background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+  color: #fff;
+  border: none;
+  border-radius: var(--radius);
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.btn-submit-all:hover { box-shadow: var(--shadow-md); transform: translateY(-1px); }
+.btn-submit-all:active { transform: scale(0.97); }
+
+/* ===== Toast ===== */
+.toast {
+  position: fixed;
+  top: 70px;
+  right: 24px;
+  background: #fff;
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-lg);
+  padding: 14px 20px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 14px;
+  z-index: 1000;
+  transform: translateX(120%);
+  transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+  border-left: 4px solid var(--primary);
+}
+
+.toast.show { transform: translateX(0); }
+.toast.success { border-left-color: var(--success); }
+.toast i { font-size: 18px; }
+.toast.success i { color: var(--success); }
+
+/* ===== Modal ===== */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.5);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+  backdrop-filter: blur(4px);
+}
+
+.modal-overlay.show { display: flex; }
+
+.modal {
+  background: #fff;
+  border-radius: var(--radius-lg);
+  padding: 36px;
+  width: 420px;
+  max-width: 90vw;
+  box-shadow: var(--shadow-lg);
+  animation: modalBounce 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+  text-align: center;
+}
+
+@keyframes modalBounce {
+  from { transform: scale(0.8); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+.modal h2 {
+  font-size: 22px;
+  color: var(--gray-800);
+  margin-bottom: 24px;
+}
+
+.score-ring {
+  position: relative;
+  width: 160px;
+  height: 160px;
+  margin: 0 auto 24px;
+}
+
+.score-ring svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+
+.score-ring-bg { fill: none; stroke: var(--gray-200); stroke-width: 10; }
+.score-ring-fill { fill: none; stroke: var(--primary); stroke-width: 10; stroke-linecap: round; transition: stroke-dashoffset 1.5s ease; }
+
+.score-value {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.score-num {
+  font-size: 42px;
+  font-weight: 800;
+  color: var(--primary);
+  line-height: 1;
+}
+
+.score-label {
+  font-size: 13px;
+  color: var(--gray-500);
+  margin-top: 4px;
+}
+
+.modal-stats {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.modal-stat {
+  flex: 1;
+  padding: 12px;
+  background: var(--gray-50);
+  border-radius: var(--radius);
+  border: 1px solid var(--gray-200);
+}
+
+.modal-stat-val {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--gray-800);
+}
+
+.modal-stat-lbl {
+  font-size: 12px;
+  color: var(--gray-500);
+  margin-top: 2px;
+}
+
+.modal-actions {
+  display: flex;
+  gap: 12px;
+}
+
+.modal-actions button {
+  flex: 1;
+  padding: 10px;
+  border-radius: var(--radius-sm);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.modal-actions button:active { transform: scale(0.97); }
+
+.btn-modal-primary {
+  background: var(--primary);
+  color: #fff;
+  border: none;
+}
+
+.btn-modal-primary:hover { background: var(--primary-dark); }
+
+.btn-modal-secondary {
+  background: #fff;
+  color: var(--gray-600);
+  border: 1px solid var(--gray-200);
+}
+
+.btn-modal-secondary:hover { background: var(--gray-50); }
+
+.modal-rank {
+  font-size: 13px;
+  color: var(--gray-500);
+  margin-bottom: 20px;
+}
+
+.modal-rank strong { color: var(--primary); }
+
+/* ===== Responsive ===== */
+@media (max-width: 900px) {
+  .answer-card-area { display: none; }
+  .question-scroll { padding: 20px 16px; }
+  .bottom-bar { padding: 12px 16px; }
+  .nav-links { display: none; }
+}
+
+@media (max-width: 600px) {
+  .top-nav { padding: 0 12px; }
+  .sub-nav { padding: 0 12px; flex-wrap: wrap; height: auto; padding: 8px 12px; }
+  .question-text { padding: 14px 16px; font-size: 15px; }
+  .option-card { padding: 12px 14px; }
+}
+
+/* Focus visible */
+a:focus-visible,
+button:focus-visible,
+.ac-cell:focus-visible,
+.option-card:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Print */
+@media print {
+  .top-nav, .sub-nav, .bottom-bar, .answer-card-area, .modal-overlay, .toast { display: none !important; }
+  .question-area { border: none; }
+  body { background: #fff; }
+}
+
+/* === 功能描述面板 === */
+.feature-info-bar {
+  background: linear-gradient(135deg, #FFF5F5 0%, #FEF2F2 100%);
+  border-bottom: 1px solid #FECACA;
+  padding: 14px 28px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.feature-info-bar .fib-left { display:flex; align-items:center; gap:14px; }
+.feature-info-bar .fib-icon {
+  width:36px; height:36px; border-radius:10px;
+  background: linear-gradient(135deg, #DC2626, #991B1B);
+  color:#fff; display:flex; align-items:center; justify-content:center;
+  font-size:16px; flex-shrink:0;
+}
+.feature-info-bar .fib-title { font-size:15px; font-weight:700; color:#1F2937; line-height:1.3; }
+.feature-info-bar .fib-desc { font-size:12px; color:#6B7280; line-height:1.4; margin-top:2px; }
+.feature-info-bar .fib-tags { display:flex; gap:6px; flex-wrap:wrap; align-items:center; }
+.feature-info-bar .fib-tag {
+  display:inline-flex; align-items:center; gap:4px;
+  padding:4px 10px; border-radius:6px; font-size:11px; font-weight:600;
+  background:#fff; border:1px solid #E5E7EB; color:#374151;
+  transition: all .15s ease;
+}
+.feature-info-bar .fib-tag:hover { border-color:#DC2626; color:#DC2626; background:#FFF5F5; }
+.feature-info-bar .fib-tag .tag-dot { width:6px; height:6px; border-radius:50%; }
+</style>
+</head>
+<body>
+<!-- 功能描述面板 -->
+<div class="feature-info-bar">
+  <div class="fib-left">
+    <div class="fib-icon"><i class="fas fa-list-ol"></i></div>
+    <div>
+      <div class="fib-title">选择题在线做题</div>
+      <div class="fib-desc">计算机基础知识选择题题库，支持逐题作答、即时判定、详细题解与答题卡导航</div>
+    </div>
+  </div>
+  <div class="fib-tags">
+    <span class="fib-tag"><i class="fas fa-check-double" style="font-size:10px;color:#DC2626"></i> 即时判定</span><span class="fib-tag"><i class="fas fa-book-open" style="font-size:10px;color:#DC2626"></i> 详细题解</span><span class="fib-tag"><i class="fas fa-th" style="font-size:10px;color:#DC2626"></i> 答题卡导航</span><span class="fib-tag"><i class="fas fa-clock" style="font-size:10px;color:#DC2626"></i> 计时器</span><span class="fib-tag"><i class="fas fa-chart-pie" style="font-size:10px;color:#DC2626"></i> 成绩分析</span>
+  </div>
+</div>
+
+
+<!-- Top Navigation -->
+<header class="top-nav">
+  <div class="nav-logo">
+    <i class="fas fa-feather-alt" aria-hidden="true"></i>
+    OfferGoose
+  </div>
+  <nav>
+    <ul class="nav-links">
+      <li><span class="nav-link-item">题库</span></li>
+      <li><span class="nav-link-item active">在线笔试</span></li>
+      <li><span class="nav-link-item">面试</span></li>
+      <li><span class="nav-link-item">简历</span></li>
+    </ul>
+  </nav>
+  <div class="nav-right">
+    <div class="timer">
+      <i class="fas fa-clock"></i>
+      <span id="timerDisplay">00:00:00</span>
+    </div>
+    <button class="btn-draft" onclick="showToast('草稿已保存')">
+      <i class="fas fa-save"></i> 保存草稿
+    </button>
+    <div class="nav-avatar">Z</div>
+  </div>
+</header>
+
+<!-- Secondary Navigation -->
+<div class="sub-nav">
+  <h1 style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;">在线笔试 - 选择题答题页面</h1>
+  <div class="breadcrumb">
+    选择题库 &gt; 数据结构与算法 &gt; 第 <span id="currentQNum">1</span> 题 / 共 15 题
+  </div>
+  <div class="sub-nav-right">
+    <span id="difficultyBadge" class="badge badge-medium"><i class="fas fa-signal"></i> 中等</span>
+    <span class="badge badge-type"><i class="fas fa-dot-circle"></i> 单选题</span>
+    <button class="btn-topic-list"><i class="fas fa-th"></i> 题目列表</button>
+  </div>
+</div>
+
+<!-- Main Content -->
+<main class="main-content">
+  <!-- Left: Question Area -->
+  <section class="question-area">
+    <div class="question-scroll" id="questionScroll">
+      <div class="question-header">
+        <span class="question-number" id="qNumLabel">第 1 题</span>
+        <span id="qTypeBadge" class="badge badge-type">单选题</span>
+        <span id="qDiffBadge" class="badge badge-medium">中等</span>
+      </div>
+      <div class="question-text" id="questionText"></div>
+      <div class="options-list" id="optionsList"></div>
+      <div class="analysis-section" id="analysisSection"></div>
+    </div>
+
+    <!-- Bottom Action Bar -->
+    <div class="bottom-bar">
+      <div style="display:flex;gap:8px;align-items:center;">
+        <button class="btn-nav" id="btnPrev" onclick="goQuestion(currentIndex-1)">
+          <i class="fas fa-chevron-left"></i> 上一题
+        </button>
+        <button class="btn-nav" id="btnNext" onclick="goQuestion(currentIndex+1)">
+          下一题 <i class="fas fa-chevron-right"></i>
+        </button>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <button class="btn-clear" onclick="clearSelection()"><i class="fas fa-eraser"></i> 清除选择</button>
+        <button class="btn-submit-answer" id="btnSubmitAnswer" onclick="submitAnswer()">
+          <i class="fas fa-paper-plane"></i> 提交答案
+        </button>
+      </div>
+      <div class="question-indicator" id="indicator">1 / 5</div>
+    </div>
+  </section>
+
+  <!-- Right: Answer Card -->
+  <aside class="answer-card-area">
+    <div class="ac-title"><i class="fas fa-th-list"></i> 答题卡</div>
+    <div class="ac-stats">
+      <div class="ac-stat answered">
+        <span class="ac-stat-num" id="statAnswered">0</span>
+        <span class="ac-stat-label">已答</span>
+      </div>
+      <div class="ac-stat unanswered">
+        <span class="ac-stat-num" id="statUnanswered">5</span>
+        <span class="ac-stat-label">未答</span>
+      </div>
+      <div class="ac-stat correct-stat">
+        <span class="ac-stat-num" id="statCorrect">0</span>
+        <span class="ac-stat-label">正确</span>
+      </div>
+    </div>
+    <div class="ac-grid" id="acGrid"></div>
+    <div class="ac-progress">
+      <div class="ac-progress-text">
+        <span>完成进度</span>
+        <span id="progressPercent">0%</span>
+      </div>
+      <div class="ac-progress-bar">
+        <div class="ac-progress-fill" id="progressFill" style="width:0%"></div>
+      </div>
+    </div>
+    <button class="btn-submit-all" onclick="submitAll()">
+      <i class="fas fa-check-circle"></i> 交卷
+    </button>
+  </aside>
+</main>
+
+<!-- Score Modal -->
+<div class="modal-overlay" id="scoreModal">
+  <div class="modal">
+    <h2><i class="fas fa-trophy" style="color:var(--warning);margin-right:8px;"></i>考试完成</h2>
+    <div class="score-ring">
+      <svg viewBox="0 0 120 120" role="img" aria-label="成绩环形进度图">
+        <title>成绩环形进度图</title>
+        <desc>显示考试总分的环形进度指示器</desc>
+        <circle class="score-ring-bg" cx="60" cy="60" r="52"/>
+        <circle class="score-ring-fill" id="scoreRingFill" cx="60" cy="60" r="52"
+          stroke-dasharray="326.73" stroke-dashoffset="326.73"/>
+      </svg>
+      <div class="score-value">
+        <span class="score-num" id="scoreNum">0</span>
+        <span class="score-label">总分</span>
+      </div>
+    </div>
+    <div class="modal-stats">
+      <div class="modal-stat">
+        <div class="modal-stat-val" id="modalCorrect">0</div>
+        <div class="modal-stat-lbl">答对</div>
+      </div>
+      <div class="modal-stat">
+        <div class="modal-stat-val" id="modalWrong">0</div>
+        <div class="modal-stat-lbl">答错</div>
+      </div>
+      <div class="modal-stat">
+        <div class="modal-stat-val" id="modalAccuracy">0%</div>
+        <div class="modal-stat-lbl">正确率</div>
+      </div>
+    </div>
+    <div class="modal-rank">你的成绩超过了 <strong id="rankPercent">0%</strong> 的参赛者</div>
+    <div class="modal-actions">
+      <button class="btn-modal-secondary" onclick="closeModal()">收起</button>
+      <button class="btn-modal-primary" onclick="viewAnalysis()"><i class="fas fa-search"></i> 查看解析</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast">
+  <i class="fas fa-check-circle"></i>
+  <span id="toastText"></span>
+</div>
+
+<script>
+// ===== Question Data =====
+const questions = [
+  {
+    id: 1,
+    difficulty: 'easy',
+    diffLabel: '简单',
+    text: 'HTTP 状态码 <code>404</code> 表示什么含义？当客户端向服务器发送请求时，如果服务器无法找到客户端请求的资源，会返回哪个状态码？',
+    options: [
+      { letter: 'A', text: '500 Internal Server Error — 服务器内部遇到了一个未预期到的错误，导致无法完成对请求的处理' },
+      { letter: 'B', text: '404 Not Found — 服务器无法找到客户端请求的资源，URL 可能不正确或资源已被移除' },
+      { letter: 'C', text: '301 Moved Permanently — 请求的资源已被永久移动到新位置，后续请求应使用新的 URL' },
+      { letter: 'D', text: '401 Unauthorized — 请求要求用户的身份认证，客户端未提供有效的认证凭据' }
+    ],
+    correct: 'B',
+    analysis: 'HTTP 404 Not Found 是最常见的客户端错误状态码之一，表示服务器能够理解请求，但找不到对应的资源。这通常意味着 URL 路径错误、资源已被删除或移动但未设置重定向。',
+    optionAnalysis: [
+      { letter: 'A', correct: false, reason: '500 是服务器内部错误码，表示服务器端代码执行出错，与资源未找到无关' },
+      { letter: 'B', correct: true, reason: '404 专门表示服务器无法定位客户端请求的资源，是标准的"未找到"状态码' },
+      { letter: 'C', correct: false, reason: '301 是重定向状态码，表示资源已永久迁移，服务器会同时返回新地址' },
+      { letter: 'D', correct: false, reason: '401 表示认证失败，需要用户提供有效的身份凭据才能访问资源' }
+    ],
+    tags: ['HTTP协议', '状态码', 'Web基础', '网络']
+  },
+  {
+    id: 2,
+    difficulty: 'medium',
+    diffLabel: '中等',
+    text: '在 Python 中，以下哪种数据结构最适合实现"判断一个元素是否存在"的操作，且平均时间复杂度为 <code>O(1)</code>？',
+    options: [
+      { letter: 'A', text: '链表（LinkedList）— 需要从头节点开始逐个遍历，最坏情况下需要访问所有节点才能确认元素存在与否' },
+      { letter: 'B', text: '哈希表（Hash Table / dict）— 通过哈希函数直接计算元素存储位置，平均情况下可以常数时间完成查找' },
+      { letter: 'C', text: '二叉搜索树（BST）— 需要从根节点开始比较，逐层向下查找，时间复杂度为 O(log n)' },
+      { letter: 'D', text: '栈（Stack）— 只允许在栈顶进行插入和删除操作，查找元素需要弹出所有上方元素' }
+    ],
+    correct: 'B',
+    analysis: '哈希表（在 Python 中对应 dict 和 set）通过哈希函数将键映射到数组索引，实现了平均 O(1) 的查找时间复杂度。这就是为什么 Python 中的 in 操作符对 set/dict 非常高效。',
+    optionAnalysis: [
+      { letter: 'A', correct: false, reason: '链表的查找时间复杂度为 O(n)，因为不支持随机访问，必须线性遍历' },
+      { letter: 'B', correct: true, reason: '哈希表通过哈希函数直接定位，平均查找复杂度为 O(1)，是最高效的存在性检查方案' },
+      { letter: 'C', correct: false, reason: '二叉搜索树查找复杂度为 O(log n)，虽然高效但不满足题目 O(1) 的要求' },
+      { letter: 'D', correct: false, reason: '栈是 LIFO 结构，查找操作的时间复杂度为 O(n)，且会破坏原有数据' }
+    ],
+    tags: ['数据结构', '哈希表', '时间复杂度', 'Python']
+  },
+  {
+    id: 3,
+    difficulty: 'medium',
+    diffLabel: '中等',
+    text: 'TCP 三次握手的正确顺序是？请选出客户端与服务器之间建立可靠连接的报文交换顺序。',
+    options: [
+      { letter: 'A', text: '客户端发送 SYN → 服务器回复 ACK → 服务器再发送 SYN — 服务器先完成确认再发起同步，逻辑不通' },
+      { letter: 'B', text: '客户端发送 SYN → 服务器回复 SYN+ACK → 客户端发送 ACK — 客户端发起连接请求，服务器同步并确认，客户端最终确认' },
+      { letter: 'C', text: '客户端发送 ACK → 服务器回复 SYN → 客户端发送 SYN+ACK — 以确认报文开始，不符合连接建立流程' },
+      { letter: 'D', text: '服务器发送 SYN+ACK → 客户端回复 SYN → 服务器发送 ACK — 服务器主动发起，但TCP连接应由客户端发起' }
+    ],
+    correct: 'B',
+    analysis: 'TCP 三次握手的标准流程：第一次握手由客户端发起 SYN 报文；第二次握手服务器回复 SYN+ACK，表示同意建立连接；第三次握手客户端发送 ACK 确认，连接正式建立。三次握手确保双方收发能力都正常。',
+    optionAnalysis: [
+      { letter: 'A', correct: false, reason: 'SYN→ACK→SYN 的顺序逻辑不通，服务器无法在未同步的情况下先确认' },
+      { letter: 'B', correct: true, reason: 'SYN→SYN+ACK→ACK 是标准三次握手顺序，确保双方都确认了对方的收发能力' },
+      { letter: 'C', correct: false, reason: '以 ACK 开始不合理，因为连接尚未建立，没有需要确认的内容' },
+      { letter: 'D', correct: false, reason: 'TCP 连接由客户端主动发起（发送第一个 SYN），而非服务器' }
+    ],
+    tags: ['TCP/IP', '三次握手', '网络协议', '传输层']
+  },
+  {
+    id: 4,
+    difficulty: 'hard',
+    diffLabel: '困难',
+    text: '在 B+ 树（B+ Tree）这种数据结构中，所有的数据记录（实际的关键字和对应的值）存储在树的哪个位置？',
+    options: [
+      { letter: 'A', text: '根节点（Root Node）— 根节点仅存储用于导航的索引键值和子节点指针，不存储实际数据记录' },
+      { letter: 'B', text: '内部节点（Internal Nodes）— 内部节点只存储索引键值和子节点指针，用于引导搜索路径，不保存数据' },
+      { letter: 'C', text: '叶子节点（Leaf Nodes）— 所有实际的数据记录仅存储在叶子层，且叶子节点通过指针相连形成有序链表' },
+      { letter: 'D', text: '所有节点均匀分布 — 数据并非均匀分布，B+树的设计就是将所有数据集中到叶子层' }
+    ],
+    correct: 'C',
+    analysis: 'B+树的核心特征是：所有实际数据记录只存储在叶子节点中，内部节点仅存储索引信息用于导航。叶子节点之间通过双向链表相连，非常适合范围查询。这也是 B+树被广泛用于数据库索引的根本原因。',
+    optionAnalysis: [
+      { letter: 'A', correct: false, reason: '根节点只包含索引键值和指针，用于从顶部开始引导搜索方向' },
+      { letter: 'B', correct: false, reason: '内部节点（包括根节点）仅存储索引信息，不保存实际数据记录' },
+      { letter: 'C', correct: true, reason: 'B+树的所有数据记录都存储在叶子节点，这是它与B树的核心区别，利于顺序访问和范围查询' },
+      { letter: 'D', correct: false, reason: '数据并非均匀分布，B+树的设计原则就是数据全部集中在叶子层' }
+    ],
+    tags: ['B+树', '数据库索引', '数据结构', '范围查询']
+  },
+  {
+    id: 5,
+    difficulty: 'easy',
+    diffLabel: '简单',
+    text: '在 SQL 查询语句中，用于去除结果集中重复记录、只保留唯一值的关键字是？',
+    options: [
+      { letter: 'A', text: 'UNIQUE — 这是用于定义表约束的关键字，确保列中所有值都不重复，用在 CREATE TABLE 或 ALTER TABLE 中' },
+      { letter: 'B', text: 'DISTINCT — 放在 SELECT 后面，用于返回唯一不同的值，自动去除查询结果中的重复行' },
+      { letter: 'C', text: 'DIFFERENT — 这不是标准的 SQL 关键字，SQL 中不存在此保留字' },
+      { letter: 'D', text: 'REMOVE — 这不是 SQL 标准关键字，SQL 中删除数据使用 DELETE 而非 REMOVE' }
+    ],
+    correct: 'B',
+    analysis: 'DISTINCT 关键字用于 SELECT 语句中，告诉数据库引擎只返回唯一的行，自动过滤掉结果集中的重复记录。例如 SELECT DISTINCT city FROM users 会返回所有不重复的城市名。',
+    optionAnalysis: [
+      { letter: 'A', correct: false, reason: 'UNIQUE 是表约束关键字，用于保证列值的唯一性，不用于查询去重' },
+      { letter: 'B', correct: true, reason: 'DISTINCT 是 SELECT 语句中的去重关键字，直接作用于查询结果集' },
+      { letter: 'C', correct: false, reason: 'DIFFERENT 不是 SQL 标准中的关键字，属于干扰选项' },
+      { letter: 'D', correct: false, reason: 'REMOVE 不是 SQL 关键字，删除数据应使用 DELETE 语句' }
+    ],
+    tags: ['SQL', 'DISTINCT', '查询语法', '数据库']
+  }
+];
+
+// ===== State =====
+let currentIndex = 0;
+let userAnswers = new Array(questions.length).fill(null);
+let submittedQuestions = new Array(questions.length).fill(false);
+let correctCount = 0;
+let timerSeconds = 0;
+let timerInterval;
+
+// ===== Timer =====
+function startTimer() {
+  timerInterval = setInterval(() => {
+    timerSeconds++;
+    const h = String(Math.floor(timerSeconds / 3600)).padStart(2, '0');
+    const m = String(Math.floor((timerSeconds % 3600) / 60)).padStart(2, '0');
+    const s = String(timerSeconds % 60).padStart(2, '0');
+    document.getElementById('timerDisplay').textContent = `${h}:${m}:${s}`;
+  }, 1000);
+}
+
+// ===== Render Question =====
+function renderQuestion() {
+  const q = questions[currentIndex];
+  document.getElementById('currentQNum').textContent = q.id;
+  document.getElementById('qNumLabel').textContent = `第 ${q.id} 题`;
+  
+  const diffBadge = document.getElementById('qDiffBadge');
+  const navDiffBadge = document.getElementById('difficultyBadge');
+  diffBadge.className = `badge badge-${q.difficulty}`;
+  diffBadge.innerHTML = `<i class="fas fa-signal"></i> ${q.diffLabel}`;
+  navDiffBadge.className = `badge badge-${q.difficulty}`;
+  navDiffBadge.innerHTML = `<i class="fas fa-signal"></i> ${q.diffLabel}`;
+
+  document.getElementById('questionText').innerHTML = q.text;
+
+  // Render options
+  const optList = document.getElementById('optionsList');
+  optList.innerHTML = '';
+  q.options.forEach(opt => {
+    const card = document.createElement('div');
+    card.className = 'option-card';
+    card.dataset.letter = opt.letter;
+    
+    if (userAnswers[currentIndex] === opt.letter) card.classList.add('selected');
+    if (submittedQuestions[currentIndex]) {
+      card.classList.remove('selected');
+      if (opt.letter === q.correct) card.classList.add('correct');
+      else if (userAnswers[currentIndex] === opt.letter && opt.letter !== q.correct) card.classList.add('wrong');
+    }
+
+    let iconHtml = '';
+    if (submittedQuestions[currentIndex]) {
+      if (opt.letter === q.correct) iconHtml = '<span class="option-icon"><i class="fas fa-check-circle"></i></span>';
+      else if (userAnswers[currentIndex] === opt.letter && opt.letter !== q.correct) iconHtml = '<span class="option-icon"><i class="fas fa-times-circle"></i></span>';
+    }
+
+    card.innerHTML = `
+      <div class="option-letter">${opt.letter}</div>
+      <div class="option-content"><div class="option-text">${opt.text}</div></div>
+      ${iconHtml}
+    `;
+    card.addEventListener('click', () => selectOption(opt.letter));
+    optList.appendChild(card);
+  });
+
+  // Analysis
+  renderAnalysis();
+
+  // Bottom bar state
+  document.getElementById('btnPrev').disabled = currentIndex === 0;
+  document.getElementById('btnNext').disabled = currentIndex === questions.length - 1;
+  document.getElementById('indicator').textContent = `${currentIndex + 1} / ${questions.length}`;
+
+  const btnSubmit = document.getElementById('btnSubmitAnswer');
+  if (submittedQuestions[currentIndex]) {
+    btnSubmit.disabled = true;
+    btnSubmit.innerHTML = '<i class="fas fa-check"></i> 已提交';
+  } else {
+    btnSubmit.disabled = false;
+    btnSubmit.innerHTML = '<i class="fas fa-paper-plane"></i> 提交答案';
+  }
+
+  updateAnswerCard();
+}
+
+// ===== Select Option =====
+function selectOption(letter) {
+  if (submittedQuestions[currentIndex]) return;
+  if (userAnswers[currentIndex] === letter) {
+    userAnswers[currentIndex] = null;
+  } else {
+    userAnswers[currentIndex] = letter;
+  }
+  renderQuestion();
+}
+
+// ===== Clear Selection =====
+function clearSelection() {
+  if (submittedQuestions[currentIndex]) return;
+  userAnswers[currentIndex] = null;
+  renderQuestion();
+  showToast('已清除选择', 'success');
+}
+
+// ===== Submit Answer =====
+function submitAnswer() {
+  if (userAnswers[currentIndex] === null) {
+    showToast('请先选择一个答案');
+    return;
+  }
+  if (submittedQuestions[currentIndex]) return;
+
+  submittedQuestions[currentIndex] = true;
+  const q = questions[currentIndex];
+  if (userAnswers[currentIndex] === q.correct) {
+    correctCount++;
+    showToast('回答正确！', 'success');
+  } else {
+    showToast('回答错误，查看解析吧');
+  }
+  renderQuestion();
+}
+
+// ===== Render Analysis =====
+function renderAnalysis() {
+  const section = document.getElementById('analysisSection');
+  if (!submittedQuestions[currentIndex]) {
+    section.classList.remove('show');
+    section.innerHTML = '';
+    return;
+  }
+
+  const q = questions[currentIndex];
+  const isCorrect = userAnswers[currentIndex] === q.correct;
+
+  let optionsHtml = '';
+  q.optionAnalysis.forEach(oa => {
+    const cls = oa.correct ? 'is-correct' : 'is-wrong';
+    const icon = oa.correct ? '<i class="fas fa-check-circle ao-icon"></i>' : '<i class="fas fa-minus-circle ao-icon"></i>';
+    optionsHtml += `<div class="analysis-option-item ${cls}">${icon}<div><strong>${oa.letter}.</strong> ${oa.reason}</div></div>`;
+  });
+
+  let tagsHtml = '';
+  q.tags.forEach(t => { tagsHtml += `<span class="tag"><i class="fas fa-tag"></i> ${t}</span>`; });
+
+  section.innerHTML = `
+    <div class="analysis-header ${isCorrect ? 'correct-header' : 'wrong-header'}">
+      <div class="analysis-status">
+        <i class="fas ${isCorrect ? 'fa-check-circle' : 'fa-times-circle'}"></i>
+        ${isCorrect ? '回答正确' : '回答错误'}
+      </div>
+    </div>
+    <div class="analysis-body">
+      <div class="analysis-correct-answer">
+        <i class="fas fa-lightbulb"></i> 正确答案：${q.correct}
+      </div>
+      <p style="font-size:14px;color:var(--gray-600);margin-bottom:14px;line-height:1.7;">${q.analysis}</p>
+      <div class="analysis-options">${optionsHtml}</div>
+      <div class="analysis-tags">
+        <span style="font-size:12px;color:var(--gray-500);margin-right:4px;"><i class="fas fa-bookmark"></i> 关联知识点：</span>
+        ${tagsHtml}
+      </div>
+      <button class="btn-collapse" onclick="toggleAnalysis()"><i class="fas fa-chevron-up"></i> 收起解析</button>
+    </div>
+  `;
+  section.classList.add('show');
+}
+
+function toggleAnalysis() {
+  const section = document.getElementById('analysisSection');
+  section.classList.toggle('show');
+}
+
+// ===== Navigate Questions =====
+function goQuestion(idx) {
+  if (idx < 0 || idx >= questions.length) return;
+  currentIndex = idx;
+  renderQuestion();
+  document.getElementById('questionScroll').scrollTop = 0;
+}
+
+// ===== Answer Card =====
+function updateAnswerCard() {
+  const grid = document.getElementById('acGrid');
+  grid.innerHTML = '';
+  let answeredCount = 0;
+
+  for (let i = 0; i < questions.length; i++) {
+    const cell = document.createElement('div');
+    cell.className = 'ac-cell';
+    cell.textContent = i + 1;
+
+    if (i === currentIndex) cell.classList.add('current');
+    if (submittedQuestions[i]) {
+      answeredCount++;
+      if (userAnswers[i] === questions[i].correct) {
+        cell.classList.add('answered-cell');
+      } else {
+        cell.classList.add('wrong-cell');
+      }
+    } else if (userAnswers[i] !== null) {
+      answeredCount++;
+      cell.classList.add('answered-cell');
+    }
+
+    cell.addEventListener('click', () => goQuestion(i));
+    grid.appendChild(cell);
+  }
+
+  const unanswered = questions.length - answeredCount;
+  document.getElementById('statAnswered').textContent = answeredCount;
+  document.getElementById('statUnanswered').textContent = unanswered;
+  document.getElementById('statCorrect').textContent = correctCount;
+
+  const pct = Math.round((answeredCount / questions.length) * 100);
+  document.getElementById('progressPercent').textContent = pct + '%';
+  document.getElementById('progressFill').style.width = pct + '%';
+}
+
+// ===== Submit All =====
+function submitAll() {
+  const unanswered = userAnswers.filter((a, i) => a === null && !submittedQuestions[i]).length;
+  if (unanswered > 0) {
+    if (!confirm(`还有 ${unanswered} 题未作答，确定交卷吗？`)) return;
+  } else {
+    if (!confirm('确定要交卷吗？')) return;
+  }
+  showScoreModal();
+}
+
+// ===== Score Modal =====
+function showScoreModal() {
+  clearInterval(timerInterval);
+
+  // Auto-submit unanswered
+  for (let i = 0; i < questions.length; i++) {
+    if (!submittedQuestions[i] && userAnswers[i] !== null) {
+      submittedQuestions[i] = true;
+      if (userAnswers[i] === questions[i].correct) correctCount++;
+    }
+  }
+
+  const total = questions.length;
+  const score = Math.round((correctCount / total) * 100);
+  const wrong = total - correctCount;
+  const accuracy = Math.round((correctCount / total) * 100);
+  const rank = Math.min(95, Math.max(10, score + Math.floor(Math.random() * 10) - 5));
+
+  document.getElementById('scoreNum').textContent = score;
+  document.getElementById('modalCorrect').textContent = correctCount;
+  document.getElementById('modalWrong').textContent = wrong;
+  document.getElementById('modalAccuracy').textContent = accuracy + '%';
+  document.getElementById('rankPercent').textContent = rank + '%';
+
+  const modal = document.getElementById('scoreModal');
+  modal.classList.add('show');
+
+  // Animate ring
+  setTimeout(() => {
+    const circumference = 2 * Math.PI * 52;
+    const offset = circumference - (score / 100) * circumference;
+    document.getElementById('scoreRingFill').style.strokeDashoffset = offset;
+  }, 100);
+}
+
+function closeModal() {
+  document.getElementById('scoreModal').classList.remove('show');
+}
+
+function viewAnalysis() {
+  closeModal();
+  currentIndex = 0;
+  renderQuestion();
+}
+
+// ===== Toast =====
+function showToast(text, type) {
+  const toast = document.getElementById('toast');
+  const toastText = document.getElementById('toastText');
+  toastText.textContent = text;
+  toast.className = 'toast' + (type === 'success' ? ' success' : '');
+  setTimeout(() => toast.classList.add('show'), 10);
+  setTimeout(() => toast.classList.remove('show'), 2500);
+}
+
+// ===== Init =====
+startTimer();
+renderQuestion();
+</script>
+</body>
+</html>

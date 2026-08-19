@@ -3,7 +3,7 @@ import { ref, onMounted, computed, watch } from 'vue';
 import { useHead } from '@vueuse/head';
 import {
   ChevronLeft, Search, Download, ThumbsUp, FileText,
-  ChevronRight, Star, Tag
+  ChevronRight, Star, Tag, X, ChevronLeft as ChevronLeftIcon
 } from 'lucide-vue-next';
 import SiteFooter from '@/components/SiteFooter.vue';
 import Breadcrumb from '@/components/Breadcrumb.vue';
@@ -25,6 +25,45 @@ const pageSize = 12;
 const keyword = ref('');
 const searchInput = ref('');
 const activeCategory = ref('all');
+
+// 图片预览状态（点击卡片图片时全屏预览多图）
+const previewVisible = ref(false);
+const previewImages = ref<string[]>([]);
+const previewIndex = ref(0);
+
+// 解析模板预览图 JSON 数组
+function parsePreviewImages(json?: string | null): string[] {
+  if (!json) return [];
+  try {
+    const arr = typeof json === 'string' ? JSON.parse(json) : json;
+    return Array.isArray(arr) ? arr.filter(Boolean) : [];
+  } catch { return []; }
+}
+
+// 获取模板的主图（预览图第一张 > 封面）
+function getMainImage(t: InterviewResumeTemplateVO): string {
+  const imgs = parsePreviewImages((t as any).previewImages);
+  return imgs[0] || t.cover || '';
+}
+
+// 获取模板所有图片（预览图 + 封面兜底）
+function getAllImages(t: InterviewResumeTemplateVO): string[] {
+  const imgs = parsePreviewImages((t as any).previewImages);
+  return imgs.length ? imgs : (t.cover ? [t.cover] : []);
+}
+
+// 打开图片预览
+function openPreview(t: InterviewResumeTemplateVO) {
+  const imgs = getAllImages(t);
+  if (!imgs.length) return;
+  previewImages.value = imgs;
+  previewIndex.value = 0;
+  previewVisible.value = true;
+}
+
+function closePreview() { previewVisible.value = false; }
+function previewPrev() { previewIndex.value = (previewIndex.value - 1 + previewImages.value.length) % previewImages.value.length; }
+function previewNext() { previewIndex.value = (previewIndex.value + 1) % previewImages.value.length; }
 
 // 分类 Tab（字典 portal_resume_category 驱动，本地默认兜底；"全部"始终在最前）
 const dictMap = useDictData(['portal_resume_category']);
@@ -97,6 +136,11 @@ async function loadTemplates() {
 }
 
 async function handleDownload(t: InterviewResumeTemplateVO) {
+  // 付费检查预留位（当前全免费，后续接入钱包系统后启用）
+  // if (t.isPremium) {
+  //   toast.info('付费内容，敬请期待');
+  //   return;
+  // }
   try {
     const res = await downloadResumeTemplate(t.id);
     if (res.code === 200 && res.data?.downloadUrl) {
@@ -206,33 +250,55 @@ function gotoPage(p: number) {
             <div
               v-for="t in templates"
               :key="t.id"
-              class="rounded-xl shadow-sm hover:shadow-lg transition overflow-hidden flex flex-col"
+              class="rounded-xl shadow-sm hover:shadow-lg transition overflow-hidden flex flex-col group"
               style="background-color: var(--theme-surface); border: 1px solid var(--theme-border);"
             >
-              <div class="h-48 relative" style="background-color: var(--theme-bg);">
+              <!-- 大图区（优先预览图第一张 > 封面） -->
+              <div
+                class="h-64 relative cursor-pointer overflow-hidden"
+                style="background-color: var(--theme-bg);"
+                @click="openPreview(t)"
+              >
                 <LazyImage
-                  v-if="t.cover"
-                  :src="t.cover"
+                  v-if="getMainImage(t)"
+                  :src="getMainImage(t)"
                   :alt="t.title"
-                  class="w-full h-full object-cover"
+                  class="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
                 />
                 <div v-else class="flex items-center justify-center h-full" style="background-color: var(--theme-accent);">
-                  <FileText class="w-12 h-12 text-blue-400" />
+                  <FileText class="w-14 h-14 text-blue-400" />
                 </div>
+                <!-- 分类角标 -->
                 <span
                   v-if="t.category"
-                  class="absolute top-3 left-3 px-2 py-1 rounded-full text-xs font-medium shadow-sm"
-                  style="background-color: var(--theme-bg); color: var(--theme-primary);"
+                  class="absolute top-3 left-3 px-2.5 py-1 rounded-full text-xs font-medium shadow-sm"
+                  style="background-color: rgba(255,255,255,0.92); color: var(--theme-primary);"
                 >
                   {{ t.category }}
                 </span>
+                <!-- 精选角标（付费预留，当前仅标记） -->
                 <span
                   v-if="t.isPremium"
-                  class="absolute top-3 right-3 px-2 py-1 bg-yellow-400 text-yellow-900 rounded-full text-xs font-medium"
+                  class="absolute top-3 right-3 px-2 py-1 bg-yellow-400 text-yellow-900 rounded-full text-xs font-medium flex items-center"
                 >
-                  <Star class="w-3 h-3 inline mr-1" /> 精选
+                  <Star class="w-3 h-3 inline mr-0.5" />精选
                 </span>
+                <!-- 多图预览角标 -->
+                <span
+                  v-if="getAllImages(t).length > 1"
+                  class="absolute bottom-3 right-3 px-2 py-1 rounded-full text-xs font-medium flex items-center"
+                  style="background-color: rgba(0,0,0,0.6); color: white;"
+                >
+                  <FileText class="w-3 h-3 inline mr-1" />{{ getAllImages(t).length }} 张预览
+                </span>
+                <!-- 悬停提示 -->
+                <div class="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition" style="background-color: rgba(0,0,0,0.3);">
+                  <span class="text-white text-sm font-medium flex items-center gap-1">
+                    <Search class="w-4 h-4" />点击查看预览
+                  </span>
+                </div>
               </div>
+              <!-- 信息区 -->
               <div class="p-5 flex flex-col flex-1">
                 <h3 class="text-lg font-semibold mb-2 line-clamp-1" style="color: var(--theme-text);">{{ t.title }}</h3>
                 <p class="text-sm mb-3 line-clamp-2 flex-1" style="color: var(--theme-text-secondary);">
@@ -241,26 +307,17 @@ function gotoPage(p: number) {
                 <div class="flex items-center text-sm mb-4" style="color: var(--theme-text-secondary);">
                   <span class="flex items-center mr-3"><ThumbsUp class="w-4 h-4 mr-1" />{{ t.likeCount }}</span>
                   <span class="flex items-center"><Download class="w-4 h-4 mr-1" />{{ t.downloadCount }}</span>
-                  <span v-if="t.fileType" class="ml-auto text-xs uppercase" style="color: var(--theme-text-secondary);">{{ t.fileType }}</span>
+                  <span v-if="t.fileType" class="ml-auto text-xs uppercase px-2 py-0.5 rounded" style="background-color: var(--theme-accent); color: var(--theme-text-secondary);">{{ t.fileType }}</span>
                 </div>
-                <div class="flex items-center gap-2">
-                  <button
-                    @click="handleLike(t)"
-                    class="flex-1 py-2 text-sm rounded-lg border transition flex items-center justify-center"
-                    :class="t.liked ? 'bg-[var(--theme-accent)] text-[var(--theme-primary)] border-[var(--theme-border)]' : 'border-[var(--theme-border)] text-[var(--theme-text-secondary)] hover:border-[var(--theme-primary)]'"
-                  >
-                    <ThumbsUp class="w-4 h-4 mr-1" />
-                    {{ t.liked ? '已赞' : '点赞' }}
-                  </button>
-                  <button
-                    @click="handleDownload(t)"
-                    class="flex-1 py-2 text-white text-sm rounded-lg transition flex items-center justify-center hover:opacity-90"
-                    style="background-color: var(--theme-primary);"
-                  >
-                    <Download class="w-4 h-4 mr-1" />
-                    下载
-                  </button>
-                </div>
+                <!-- 免费下载按钮（突出） -->
+                <button
+                  @click="handleDownload(t)"
+                  class="w-full py-2.5 text-white text-sm rounded-lg transition flex items-center justify-center hover:opacity-90 font-medium"
+                  style="background-color: var(--theme-primary);"
+                >
+                  <Download class="w-4 h-4 mr-1.5" />
+                  免费下载
+                </button>
               </div>
             </div>
           </div>
@@ -299,5 +356,31 @@ function gotoPage(p: number) {
     </div>
 
     <SiteFooter />
+
+    <!-- 图片预览弹窗（全屏多图轮播） -->
+    <div
+      v-if="previewVisible"
+      class="fixed inset-0 z-50 flex items-center justify-center"
+      style="background-color: rgba(0,0,0,0.9);"
+      @click.self="closePreview"
+    >
+      <button class="absolute top-4 right-4 p-2 rounded-full hover:bg-white/10 transition" @click="closePreview">
+        <X class="w-6 h-6 text-white" />
+      </button>
+      <button v-if="previewImages.length > 1" class="absolute left-4 p-2 rounded-full hover:bg-white/10 transition" @click="previewPrev">
+        <ChevronLeftIcon class="w-8 h-8 text-white" />
+      </button>
+      <img
+        :src="previewImages[previewIndex]"
+        class="max-w-[90vw] max-h-[85vh] object-contain rounded-lg shadow-2xl"
+        @click.stop
+      />
+      <button v-if="previewImages.length > 1" class="absolute right-4 p-2 rounded-full hover:bg-white/10 transition" @click="previewNext">
+        <ChevronRight class="w-8 h-8 text-white" />
+      </button>
+      <div v-if="previewImages.length > 1" class="absolute bottom-4 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full text-sm text-white" style="background-color: rgba(0,0,0,0.6);">
+        {{ previewIndex + 1 }} / {{ previewImages.length }}
+      </div>
+    </div>
   </div>
 </template>

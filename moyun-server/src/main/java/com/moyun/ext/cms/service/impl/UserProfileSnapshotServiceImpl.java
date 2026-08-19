@@ -1,15 +1,11 @@
 package com.moyun.ext.cms.service.impl;
 
-import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.moyun.ext.cms.domain.vo.UserProfileSnapshotVO;
 import com.moyun.ext.cms.service.IPortalInterviewPositionService;
 import com.moyun.ext.cms.service.IUserProfileSnapshotService;
 import com.moyun.portal.domain.entity.PortalInterviewPosition;
-import com.moyun.portal.domain.entity.PortalMockInterview;
-import com.moyun.portal.domain.entity.PortalUserStats;
 import com.moyun.portal.mapper.PortalEntityTagMapper;
-import com.moyun.portal.mapper.PortalMockInterviewMapper;
 import com.moyun.portal.mapper.PortalUserStatsMapper;
 import com.moyun.util.string.StringUtils;
 import org.slf4j.Logger;
@@ -51,7 +47,6 @@ public class UserProfileSnapshotServiceImpl implements IUserProfileSnapshotServi
     @Autowired private IPortalInterviewPositionService positionService;
     @Autowired private PortalEntityTagMapper entityTagMapper;
     @Autowired private PortalUserStatsMapper userStatsMapper;
-    @Autowired private PortalMockInterviewMapper mockInterviewMapper;
     @Autowired private ObjectMapper objectMapper;
 
     // ========================================================================
@@ -72,14 +67,7 @@ public class UserProfileSnapshotServiceImpl implements IUserProfileSnapshotServi
         List<UserProfileSnapshotVO.WeakTagItem> weakTags = computeWeakTags(userId);
         snapshot.setWeakTags(weakTags);
 
-        // 3. 面试统计
-        PortalUserStats stats = userStatsMapper.selectByUserId(userId);
-        if (stats != null) {
-            snapshot.setMockInterviewCount(stats.getMockInterviewCount());
-            snapshot.setAvgMockScore(stats.getAvgMockScore());
-        }
-
-        // 4. 是否命中画像驱动：薄弱点 ≥ 1 或必备技能 ≥ 1
+        // 3. 是否命中画像驱动：薄弱点 ≥ 1 或必备技能 ≥ 1
         boolean personalized = (weakTags != null && !weakTags.isEmpty())
                 || (requiredSkills != null && !requiredSkills.isEmpty());
         snapshot.setPersonalized(personalized);
@@ -100,36 +88,6 @@ public class UserProfileSnapshotServiceImpl implements IUserProfileSnapshotServi
             userStatsMapper.updateWeakTags(userId, json);
         } catch (Exception e) {
             log.warn("[WeakTags] 刷新用户 {} 薄弱点失败：{}", userId, e.getMessage());
-        }
-    }
-
-    // ========================================================================
-    // 更新面试统计（次数 + 平均分）
-    // ========================================================================
-    @Override
-    public void updateMockInterviewStats(Long userId) {
-        if (userId == null) return;
-        try {
-            // 统计该用户所有已结束的面试
-            LambdaQueryWrapper<PortalMockInterview> qw = new LambdaQueryWrapper<>();
-            qw.eq(PortalMockInterview::getUserId, userId)
-                    .eq(PortalMockInterview::getStatus, "finished");
-            List<PortalMockInterview> list = mockInterviewMapper.selectList(qw);
-            int count = list.size();
-            int avg = 0;
-            if (count > 0) {
-                int sum = 0;
-                for (PortalMockInterview m : list) {
-                    if (m.getScore() != null) {
-                        sum += m.getScore();
-                    }
-                }
-                avg = (int) Math.round((double) sum / count);
-            }
-            userStatsMapper.insertIfNotExists(userId);
-            userStatsMapper.updateMockInterviewStats(userId, count, avg);
-        } catch (Exception e) {
-            log.warn("[MockStats] 更新用户 {} 面试统计失败：{}", userId, e.getMessage());
         }
     }
 

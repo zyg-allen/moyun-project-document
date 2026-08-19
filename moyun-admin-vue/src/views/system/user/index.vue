@@ -151,7 +151,7 @@
                      <span>{{ parseTime(scope.row.createTime) }}</span>
                   </template>
                </el-table-column>
-               <el-table-column label="操作" align="center" width="150" class-name="small-padding fixed-width">
+               <el-table-column label="操作" align="center" width="180" class-name="small-padding fixed-width">
                   <template #default="scope">
                      <el-tooltip content="修改" placement="top" v-if="scope.row.userId !== 1">
                         <el-button link type="primary" icon="Edit" @click="handleUpdate(scope.row)" v-hasPermi="['system:user:edit']"></el-button>
@@ -164,6 +164,9 @@
                      </el-tooltip>
                      <el-tooltip content="分配角色" placement="top" v-if="scope.row.userId !== 1">
                         <el-button link type="primary" icon="CircleCheck" @click="handleAuthRole(scope.row)" v-hasPermi="['system:user:edit']"></el-button>
+                     </el-tooltip>
+                     <el-tooltip content="查看简历" placement="top" v-if="scope.row.userId !== 1">
+                        <el-button link type="primary" icon="Document" @click="handleViewResume(scope.row)" v-hasPermi="['system:user:resume']"></el-button>
                      </el-tooltip>
                   </template>
                </el-table-column>
@@ -485,6 +488,11 @@ function handleCommand(command, row) {
 function handleAuthRole(row) {
   const userId = row.userId;
   router.push("/system/user-auth/role/" + userId);
+};
+/** 跳转用户简历列表（只读，独立权限 system:user:resume） */
+function handleViewResume(row) {
+  const userId = row.userId;
+  router.push("/system/user-resume/list/" + userId);
 };
 /** 重置密码按钮操作 */
 function handleResetPwd(row) {

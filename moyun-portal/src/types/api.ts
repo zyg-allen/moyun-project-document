@@ -487,6 +487,8 @@ export interface Category {
   navRouteType?: string;
   /** 静态/外链路由路径（仅 static/external 类型使用） */
   navRoutePath?: string;
+  /** 导航徽章（NEW/HOT，仅 Mega Menu 展示） */
+  navBadge?: string;
   /** 栏目类型：article=文章栏目（可发布文章） special=特殊页面（不参与排行榜/发布） */
   categoryType?: string;
   /** 是否需要登录（0否/1是） */
@@ -1316,6 +1318,8 @@ export interface InterviewResumeTemplateVO {
   description?: string;
   cover?: string;
   downloadUrl?: string;
+  /** 预览图 JSON 数组字符串（多图，问题3图片列表展示） */
+  previewImages?: string;
   category?: string;
   fileType?: string;
   fileSize?: number;
@@ -1916,51 +1920,6 @@ export interface CodeRunVO {
   createTime?: string;
 }
 
-// ==================== AI 模拟面试官（任务 3.10）====================
-
-/** 模拟面试问答 VO */
-export interface MockInterviewQaVO {
-  id: string | number;
-  interviewId: string | number;
-  questionId?: string | number;
-  /** 题目序号（从 0 开始） */
-  questionIdx: number;
-  /** 面试问题（快照自题目标题） */
-  question: string;
-  userAnswer?: string;
-  aiFeedback?: string;
-  /** 本题评分（0-100），未作答为空 */
-  score?: number;
-  createTime?: string;
-}
-
-/** 模拟面试会话 VO */
-export interface MockInterviewVO {
-  id: string | number;
-  userId?: string | number;
-  position?: string;
-  scene?: string;
-  /** in_progress/finished */
-  status: string;
-  totalQa: number;
-  score?: number;
-  summary?: string;
-  /** 是否基于画像抽题（0随机 1画像驱动） */
-  isPersonalized?: number;
-  /** 抽题时的画像快照 JSON（含薄弱点列表，便于回溯分析） */
-  profileSnapshot?: string;
-  createTime?: string;
-  updateTime?: string;
-}
-
-/** 模拟面试详情 VO（含问答列表） */
-export interface MockInterviewDetailVO extends MockInterviewVO {
-  /** 问答列表（按 question_idx 升序） */
-  qaList: MockInterviewQaVO[];
-  /** 已答完题数 */
-  answeredCount?: number;
-}
-
 // ==================== 用户画像快照（v5.9 阶段0：画像驱动抽题） ====================
 
 /** 薄弱知识点条目 */
@@ -1988,10 +1947,6 @@ export interface UserProfileSnapshotVO {
   requiredSkills?: string[];
   /** 薄弱知识点列表（按 failRate 降序） */
   weakTags?: WeakTagItem[];
-  /** 模拟面试次数 */
-  mockInterviewCount?: number;
-  /** 模拟面试平均分 */
-  avgMockScore?: number;
   /** 是否命中画像驱动（薄弱点 ≥ 1 或必备技能 ≥ 1） */
   personalized: boolean;
 }

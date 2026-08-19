@@ -1500,11 +1500,18 @@ const chatStatusText = computed(() => {
 
   max-width: 1280px;
   margin: 0 auto;
+  padding: 0 1rem;
   min-height: 100vh;
   font-family: var(--font-sans);
   color: var(--gray-800);
   line-height: 1.6;
   -webkit-font-smoothing: antialiased;
+}
+@media (min-width: 640px) {
+  .vi-shell { padding: 0 1.5rem; }
+}
+@media (min-width: 1024px) {
+  .vi-shell { padding: 0 2rem; }
 }
 .vi-shell button { font-family: inherit; }
 .vi-shell * { box-sizing: border-box; }
@@ -1518,7 +1525,7 @@ const chatStatusText = computed(() => {
 .prep-breadcrumb span { color: var(--gray-700); font-weight: 500; }
 .prep-back-btn { padding: 0.5rem 1rem; border: 1px solid var(--gray-200); background: white; border-radius: var(--radius-md); cursor: pointer; font-size: 0.875rem; color: var(--gray-600); display: flex; align-items: center; gap: 0.375rem; transition: all 0.2s; }
 .prep-back-btn:hover { background: var(--gray-50); border-color: var(--gray-300); }
-.prep-container { max-width: 720px; margin: 0 auto; padding: 2rem 1.5rem 3rem; }
+.prep-container { padding: 2rem 0 3rem; }
 .prep-header { text-align: center; margin-bottom: 2rem; }
 .prep-header h1 { font-size: 1.625rem; font-weight: 700; color: var(--gray-900); margin-bottom: 0.375rem; }
 .prep-header p { color: var(--gray-500); font-size: 0.9375rem; }
@@ -1609,7 +1616,7 @@ const chatStatusText = computed(() => {
 
 /* ========== 面试进行页 ========== */
 .interview-page { background: var(--gray-100); min-height: 100vh; display: flex; flex-direction: column; }
-.top-bar { background: white; padding: 0.75rem 1.5rem; display: flex; align-items: center; justify-content: space-between; box-shadow: var(--shadow-sm); border-bottom: 1px solid var(--gray-200); position: sticky; top: 0; z-index: 10; }
+.top-bar { background: white; padding: 0.75rem 0; display: flex; align-items: center; justify-content: space-between; box-shadow: var(--shadow-sm); border-bottom: 1px solid var(--gray-200); position: sticky; top: 0; z-index: 10; }
 .top-bar-left { display: flex; align-items: center; gap: 1rem; }
 .top-bar-logo { font-size: 1.125rem; font-weight: 700; color: var(--primary); display: flex; align-items: center; gap: 0.375rem; }
 .timer-display { display: flex; align-items: center; gap: 0.375rem; padding: 0.375rem 0.875rem; background: var(--gray-50); border: 1px solid var(--gray-200); border-radius: var(--radius-full); font-family: var(--font-mono); font-size: 0.875rem; color: var(--gray-600); }
@@ -1619,7 +1626,7 @@ const chatStatusText = computed(() => {
 .control-btn:disabled { opacity: 0.6; cursor: not-allowed; }
 .control-btn.danger { border-color: var(--primary-border); color: var(--primary); }
 .control-btn.danger:hover { background: var(--primary-bg); }
-.interview-main { display: grid; grid-template-columns: 220px 1fr 260px; gap: 1rem; padding: 1rem; flex: 1; width: 100%; }
+.interview-main { display: grid; grid-template-columns: 220px 1fr 260px; gap: 1rem; padding: 1rem 0; flex: 1; width: 100%; }
 
 .left-panel { display: flex; flex-direction: column; gap: 1rem; }
 .interviewer-card { background: white; border-radius: var(--radius-lg); padding: 1.5rem; text-align: center; box-shadow: var(--shadow-sm); border: 1px solid var(--gray-100); }
@@ -1695,8 +1702,8 @@ const chatStatusText = computed(() => {
 .hint-text { font-size: 0.8125rem; color: var(--gray-500); line-height: 1.65; white-space: pre-wrap; }
 
 /* ========== 复盘报告页 ========== */
-.report-page { background: var(--gray-50); min-height: 100vh; padding: 2rem; }
-.report-container { max-width: 1100px; margin: 0 auto; }
+.report-page { background: var(--gray-50); min-height: 100vh; padding: 2rem 0; }
+.report-container { width: 100%; }
 .report-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.75rem; }
 .report-title { font-size: 1.375rem; font-weight: 700; color: var(--gray-900); display: flex; align-items: center; gap: 0.5rem; }
 .report-loading { font-size: 0.875rem; color: var(--gray-400); font-weight: 400; }
@@ -1786,8 +1793,12 @@ const chatStatusText = computed(() => {
   .summary-grid { grid-template-columns: 1fr; }
 }
 @media (max-width: 768px) {
-  .prep-steps { flex-direction: column; align-items: flex-start; }
-  .step-connector { display: none; }
+  /* 步骤条保持横向（手机端与 PC 一致），仅缩小间距适配窄屏 */
+  .prep-steps { gap: 0; flex-wrap: nowrap; }
+  .prep-step { gap: 0.375rem; }
+  .step-circle { width: 30px; height: 30px; font-size: 0.8rem; }
+  .step-label { font-size: 0.75rem; }
+  .step-connector { width: 24px; margin: 0 0.25rem; }
   .config-row { grid-template-columns: 1fr; }
   .report-tabs { flex-wrap: nowrap; overflow-x: auto; }
   .top-bar { flex-wrap: wrap; gap: 0.5rem; }

@@ -1,5 +1,5 @@
 -- =====================================================================
--- 墨韵智库 v7.8 · 数据库初始化脚本（整合版）
+-- 墨韵智库 V10.0 · 数据库初始化脚本（整合版）
 -- =====================================================================
 -- 用途：空库一键初始化（建表 + 字段补齐 + 基础数据）
 -- 适配：MySQL 8.0+（utf8mb4 / utf8mb4_0900_ai_ci）
@@ -7,22 +7,37 @@
 --   mysql -uroot -p<密码> <数据库名> < init_v7.8.sql
 -- 内容：
 --   1. 设置段（关闭 FK 检查）
---   2. DDL 建表（CREATE TABLE IF NOT EXISTS，幂等）
+--   2. DDL 建表（DROP TABLE IF EXISTS + CREATE TABLE，强制重建，空库初始化用）
 --   3. 字段补齐（ALTER TABLE，幂等，兼容 MySQL 8.0）
 --   4. 基础数据（用户/角色/菜单/栏目/标签/字典/部门/岗位，不含业务测试数据）
 --   5. 校验段
 --   6. 结尾设置（恢复 FK 检查）
+-- 版本合并历史：
+--   v7.8 基础版本
+--   v8.1 统一审核任务（sys_audit_task / sys_job_scan_issue）
+--   v8.2 导入模板配置（portal_import_template_config）
+--   v9.0 删除 PK/圈子表，新增商业化目录
+--   v9.5 合并财务目录，打赏/订单入口收敛
+--   v9.6 27类业务字典，认证扁平化
+--   v10.0 面试题/知识库种子数据（独立脚本）
+--   v10.1 语音面试官（portal_voice_interview / portal_voice_interview_qa）
+--   v10.2 简历模板预览图（preview_images）
+--   v10.3 删除模拟面试表（portal_mock_interview*），移除 mock_interview_count/avg_mock_score
+--   v10.4 前台导航重构（nav_badge 字段+3新栏目），后台菜单重组（7+4 一级菜单）
 -- 保留的基础数据：
 --   - 系统：sys_config/sys_dept/sys_dict_type/sys_dict_data/sys_post/sys_role/
 --           sys_user/sys_role_dept/sys_role_menu/sys_user_post/sys_user_role/sys_job
---   - 门户：portal_category(50栏目)/portal_tag(28标签)/portal_friend_link(3友链)/
+--   - 门户：portal_category(6一级栏目+子项)/portal_tag(28标签)/portal_friend_link(3友链)/
 --           portal_growth_rule(30成长规则)/portal_help_category(4帮助分类)/
 --           portal_interview_category(5面试分类)/portal_achievement(23成就)/
 --           portal_interview_position(3岗位)/portal_task(7任务)
---   - 菜单：sys_menu（RuoYi+CMS+消息中心+v7.7~v7.24 菜单注册）
+--   - 菜单：sys_menu（RuoYi+CMS+消息中心+v7.7~v10.4 菜单注册，7+4 一级菜单）
+--   - 字典：sys_dict_type/sys_dict_data（含 v9.6 新增 27 类 + v10.1 语音面试 3 类）
 -- 删除的业务测试数据：
 --   portal_book/portal_book_chapter/portal_book_quote/portal_book_recommend/
 --   portal_help_article/portal_shop_item/portal_user/portal_writing_prompt
+-- 删除的废弃表（v9.0/v10.3）：
+--   portal_pk_challenge / portal_circle* / portal_mock_interview*
 -- 访问信息：
 --   后台管理：http://localhost:80   账号 admin / admin123
 --   前台门户：http://localhost:5173  账号 admin / 123456
@@ -47,7 +62,7 @@ SELECT '================================================' AS info;
 SET FOREIGN_KEY_CHECKS=0;
 
 -- =====================================================================
--- 二、DDL 建表段（CREATE TABLE IF NOT EXISTS，幂等）
+-- 二、DDL 建表段（DROP TABLE IF EXISTS + CREATE TABLE，强制重建）
 -- =====================================================================
 
 
@@ -1322,7 +1337,8 @@ CREATE TABLE `portal_category` (
                                    `show_in_nav` tinyint(1) NOT NULL DEFAULT '0' COMMENT '是否在头部栏目展示（0否/1是）',
                                    `nav_route_type` varchar(20) COLLATE utf8mb4_0900_ai_ci NOT NULL DEFAULT 'category' COMMENT '路由类型（home/category/static/external）',
                                    `nav_route_path` varchar(200) COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '静态/外链路由路径（仅 static/external 类型使用）',
-                                   `category_type` varchar(20) COLLATE utf8mb4_0900_ai_ci NOT NULL DEFAULT 'article' COMMENT '栏目内容类型（article=文章栏目可发布文章 special=特殊页面不发布文章）',
+                                   `nav_badge` varchar(20) COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '导航徽章（NEW/HOT，仅 Mega Menu 展示）',
+                                   `category_type` varchar(20) COLLATE utf8mb4_0900_ai_ci NOT NULL DEFAULT 'article' COMMENT '栏目内容类型（article=文章分类可发布文章 directory=目录容器仅组织子栏目不发布文章 special=静态页面不发布文章）',
                                    `requires_auth` tinyint(1) NOT NULL DEFAULT '0' COMMENT '是否需要登录（0否/1是）',
                                    `create_by` varchar(64) COLLATE utf8mb4_0900_ai_ci DEFAULT '' COMMENT '创建者',
                                    `create_time` datetime DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
@@ -2183,6 +2199,7 @@ CREATE TABLE `portal_interview_resume_template` (
                                                     `create_time` datetime DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
                                                     `update_by` varchar(64) DEFAULT '' COMMENT '更新者',
                                                     `update_time` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+                                                    `preview_images` text COMMENT '模板预览图 JSON 数组（多图，V10.2 新增）',
                                                     `remark` varchar(500) DEFAULT NULL COMMENT '备注',
                                                     `del_flag` char(1) NOT NULL DEFAULT '0' COMMENT '删除标记（0=存在 2=删除）',
                                                     PRIMARY KEY (`id`),
@@ -2348,52 +2365,9 @@ CREATE TABLE `portal_message_session` (
 
 
 --
--- Table structure for table `portal_mock_interview`
+-- [v10.3] portal_mock_interview / portal_mock_interview_qa 表已删除（AI 模拟面试模块下线，整合到 AI 语音面试官）
 --
 
-DROP TABLE IF EXISTS `portal_mock_interview`;
-CREATE TABLE `portal_mock_interview` (
-                                         `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键',
-                                         `user_id` bigint NOT NULL COMMENT '面试用户ID',
-                                         `position` varchar(64) DEFAULT NULL COMMENT '面试岗位（如 后端开发/前端开发）',
-                                         `scene` varchar(64) DEFAULT NULL COMMENT '面试场景（如 算法/系统设计/项目深挖，对应题目分类）',
-                                         `status` varchar(16) NOT NULL DEFAULT 'in_progress' COMMENT '状态 in_progress/finished',
-                                         `total_qa` int NOT NULL DEFAULT '0' COMMENT '题目总数',
-                                         `score` int DEFAULT NULL COMMENT '面试总分（0-100，结束面试时计算）',
-                                         `summary` text COMMENT 'AI 生成的面试总结',
-                                         `create_time` datetime DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
-                                         `update_time` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
-                                         `is_personalized` tinyint(1) DEFAULT '0' COMMENT '是否基于画像抽题（0随机 1画像驱动）',
-                                         `profile_snapshot` text COMMENT '抽题时的画像快照 JSON（含薄弱点列表，便于回溯分析）',
-                                         `del_flag` char(1) NOT NULL DEFAULT '0' COMMENT '删除标记（0=存在 2=删除）',
-                                         PRIMARY KEY (`id`),
-                                         KEY `idx_user_time` (`user_id`,`create_time`),
-                                         KEY `idx_status` (`status`),
-                                         KEY `idx_del_flag` (`del_flag`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='模拟面试会话';
-
-
---
--- Table structure for table `portal_mock_interview_qa`
---
-
-DROP TABLE IF EXISTS `portal_mock_interview_qa`;
-CREATE TABLE `portal_mock_interview_qa` (
-                                            `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键',
-                                            `interview_id` bigint NOT NULL COMMENT '面试会话ID',
-                                            `question_id` bigint DEFAULT NULL COMMENT '关联题目ID（portal_interview_question.id）',
-                                            `question_idx` int NOT NULL COMMENT '题目序号（从 0 开始）',
-                                            `question` varchar(1000) NOT NULL COMMENT '面试问题（快照自题目标题）',
-                                            `user_answer` text COMMENT '用户回答',
-                                            `ai_feedback` text COMMENT 'AI 反馈（规则化生成）',
-                                            `score` int DEFAULT NULL COMMENT '本题评分（0-100）',
-                                            `create_time` datetime DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
-                                            `del_flag` char(1) NOT NULL DEFAULT '0' COMMENT '删除标记（0=存在 2=删除）',
-                                            PRIMARY KEY (`id`),
-                                            KEY `idx_interview` (`interview_id`),
-                                            KEY `idx_question_idx` (`interview_id`,`question_idx`),
-                                            KEY `idx_del_flag` (`del_flag`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='模拟面试问答';
 
 -- [v7.8 已删除] portal_notification_bak 表（历史遗留备份表，消息中心合并时创建，代码已无引用）
 -- 该表的 DROP 语句保留在第 5302 行（属于"历史遗留表清理"段，DROP IF EXISTS 对新库幂等无害）
@@ -2979,8 +2953,6 @@ CREATE TABLE `portal_user_stats` (
                                      `update_by` varchar(64) DEFAULT '' COMMENT '更新者',
                                      `update_time` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
                                      `remark` varchar(500) DEFAULT NULL COMMENT '备注',
-                                     `mock_interview_count` int DEFAULT '0' COMMENT '模拟面试次数',
-                                     `avg_mock_score` int DEFAULT '0' COMMENT '模拟面试平均分',
                                      `weak_tags` text COMMENT '薄弱知识点 JSON 数组（如 [{"tagId":1,"tagName":"Spring","failRate":0.6}]）',
                                      `weak_tags_updated_time` datetime DEFAULT NULL COMMENT '薄弱点最后计算时间',
                                      PRIMARY KEY (`id`),
@@ -3170,7 +3142,8 @@ CREATE TABLE `portal_wrong_question` (
 -- ----------------------------
 -- Table structure for agent
 -- ----------------------------
-CREATE TABLE IF NOT EXISTS `ai_agent`  (
+DROP TABLE IF EXISTS `ai_agent`;
+CREATE TABLE `ai_agent`  (
   `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键ID',
   `name` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '智能体名称',
   `description` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL COMMENT '智能体描述',
@@ -3217,7 +3190,8 @@ CREATE TABLE IF NOT EXISTS `ai_agent`  (
 -- ----------------------------
 -- Table structure for agent_dictionary_relation
 -- ----------------------------
-CREATE TABLE IF NOT EXISTS `ai_agent_dictionary_relation`  (
+DROP TABLE IF EXISTS `ai_agent_dictionary_relation`;
+CREATE TABLE `ai_agent_dictionary_relation`  (
   `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键ID',
   `agent_id` bigint NOT NULL COMMENT '智能体ID',
   `dictionary_id` bigint NOT NULL COMMENT '词典ID',
@@ -3236,7 +3210,8 @@ CREATE TABLE IF NOT EXISTS `ai_agent_dictionary_relation`  (
 -- ----------------------------
 -- Table structure for agent_tool
 -- ----------------------------
-CREATE TABLE IF NOT EXISTS `ai_agent_tool`  (
+DROP TABLE IF EXISTS `ai_agent_tool`;
+CREATE TABLE `ai_agent_tool`  (
   `id` bigint NOT NULL AUTO_INCREMENT COMMENT '工具ID',
   `name` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '工具标识（英文）',
   `display_name` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '显示名称（中文）',
@@ -3272,7 +3247,8 @@ INSERT INTO `ai_agent_tool` VALUES (8, 'database_query', '数据库查询', '执
 -- ----------------------------
 -- Table structure for agent_tool_relation
 -- ----------------------------
-CREATE TABLE IF NOT EXISTS `ai_agent_tool_relation`  (
+DROP TABLE IF EXISTS `ai_agent_tool_relation`;
+CREATE TABLE `ai_agent_tool_relation`  (
   `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键ID',
   `agent_id` bigint NOT NULL COMMENT '智能体ID',
   `tool_id` bigint NOT NULL COMMENT '工具ID',
@@ -3292,7 +3268,8 @@ CREATE TABLE IF NOT EXISTS `ai_agent_tool_relation`  (
 -- ----------------------------
 -- Table structure for agent_workflow_relation
 -- ----------------------------
-CREATE TABLE IF NOT EXISTS `ai_agent_workflow_relation`  (
+DROP TABLE IF EXISTS `ai_agent_workflow_relation`;
+CREATE TABLE `ai_agent_workflow_relation`  (
   `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键ID',
   `agent_id` bigint NOT NULL COMMENT '智能体ID',
   `workflow_id` bigint NOT NULL COMMENT '工作流ID',
@@ -3312,7 +3289,8 @@ CREATE TABLE IF NOT EXISTS `ai_agent_workflow_relation`  (
 -- ----------------------------
 -- Table structure for analysis_report
 -- ----------------------------
-CREATE TABLE IF NOT EXISTS `ai_analysis_report`  (
+DROP TABLE IF EXISTS `ai_analysis_report`;
+CREATE TABLE `ai_analysis_report`  (
   `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键ID',
   `datasource_id` bigint NOT NULL COMMENT '数据源ID',
   `user_id` bigint NULL DEFAULT NULL COMMENT '用户ID',
@@ -3346,7 +3324,8 @@ CREATE TABLE IF NOT EXISTS `ai_analysis_report`  (
 -- ----------------------------
 -- Table structure for chart_recommendation_rule
 -- ----------------------------
-CREATE TABLE IF NOT EXISTS `ai_chart_recommendation_rule`  (
+DROP TABLE IF EXISTS `ai_chart_recommendation_rule`;
+CREATE TABLE `ai_chart_recommendation_rule`  (
   `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键ID',
   `rule_name` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '规则名称',
   `data_pattern` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '数据模式: time_series, distribution, category, correlation',
@@ -3378,7 +3357,8 @@ INSERT INTO `ai_chart_recommendation_rule` VALUES (7, '多维对比-雷达图', 
 -- ----------------------------
 -- Table structure for chat_history
 -- ----------------------------
-CREATE TABLE IF NOT EXISTS `ai_chat_history`  (
+DROP TABLE IF EXISTS `ai_chat_history`;
+CREATE TABLE `ai_chat_history`  (
   `id` bigint NOT NULL AUTO_INCREMENT,
   `agent_id` bigint NOT NULL COMMENT '智能体ID',
   `session_id` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '会话ID',
@@ -3402,7 +3382,8 @@ CREATE TABLE IF NOT EXISTS `ai_chat_history`  (
 -- ----------------------------
 -- Table structure for conversation
 -- ----------------------------
-CREATE TABLE IF NOT EXISTS `ai_conversation`  (
+DROP TABLE IF EXISTS `ai_conversation`;
+CREATE TABLE `ai_conversation`  (
   `id` bigint NOT NULL AUTO_INCREMENT COMMENT '会话ID',
   `agent_id` bigint NOT NULL COMMENT '智能体ID',
   `title` varchar(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT '新对话' COMMENT '会话标题（自动生成或用户修改）',
@@ -3425,7 +3406,8 @@ CREATE TABLE IF NOT EXISTS `ai_conversation`  (
 -- ----------------------------
 -- Table structure for conversation_message
 -- ----------------------------
-CREATE TABLE IF NOT EXISTS `ai_conversation_message`  (
+DROP TABLE IF EXISTS `ai_conversation_message`;
+CREATE TABLE `ai_conversation_message`  (
   `id` bigint NOT NULL AUTO_INCREMENT COMMENT '消息ID',
   `conversation_id` bigint NOT NULL COMMENT '会话ID',
   `role` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '角色：user/assistant',
@@ -3445,7 +3427,8 @@ CREATE TABLE IF NOT EXISTS `ai_conversation_message`  (
 -- ----------------------------
 -- Table structure for data_insight
 -- ----------------------------
-CREATE TABLE IF NOT EXISTS `ai_data_insight`  (
+DROP TABLE IF EXISTS `ai_data_insight`;
+CREATE TABLE `ai_data_insight`  (
   `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键ID',
   `datasource_id` bigint NOT NULL COMMENT '数据源ID',
   `query_id` bigint NULL DEFAULT NULL COMMENT '查询ID',
@@ -3479,7 +3462,8 @@ CREATE TABLE IF NOT EXISTS `ai_data_insight`  (
 -- ----------------------------
 -- Table structure for datasource_config
 -- ----------------------------
-CREATE TABLE IF NOT EXISTS `ai_datasource_config`  (
+DROP TABLE IF EXISTS `ai_datasource_config`;
+CREATE TABLE `ai_datasource_config`  (
   `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键ID',
   `name` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '数据源名称',
   `type` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '数据源类型: mysql, elasticsearch, mongodb',
@@ -3510,7 +3494,8 @@ CREATE TABLE IF NOT EXISTS `ai_datasource_config`  (
 -- ----------------------------
 -- Table structure for document_chunk_metadata
 -- ----------------------------
-CREATE TABLE IF NOT EXISTS `ai_document_chunk_metadata`  (
+DROP TABLE IF EXISTS `ai_document_chunk_metadata`;
+CREATE TABLE `ai_document_chunk_metadata`  (
   `id` bigint NOT NULL AUTO_INCREMENT COMMENT '分片ID',
   `segment_id` bigint NOT NULL COMMENT '文档分片ID（关联document_segment表）',
   `knowledge_id` bigint NOT NULL COMMENT '知识库ID',
@@ -3539,7 +3524,8 @@ CREATE TABLE IF NOT EXISTS `ai_document_chunk_metadata`  (
 -- ----------------------------
 -- Table structure for document_image
 -- ----------------------------
-CREATE TABLE IF NOT EXISTS `ai_document_image`  (
+DROP TABLE IF EXISTS `ai_document_image`;
+CREATE TABLE `ai_document_image`  (
   `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键ID',
   `knowledge_base_id` bigint NOT NULL COMMENT '关联的知识库ID',
   `image_path` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '图片文件路径',
@@ -3564,7 +3550,8 @@ CREATE TABLE IF NOT EXISTS `ai_document_image`  (
 -- ----------------------------
 -- Table structure for document_segment
 -- ----------------------------
-CREATE TABLE IF NOT EXISTS `ai_document_segment`  (
+DROP TABLE IF EXISTS `ai_document_segment`;
+CREATE TABLE `ai_document_segment`  (
   `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键ID',
   `knowledge_base_id` bigint NOT NULL COMMENT '关联的知识库ID',
   `segment_index` int NOT NULL COMMENT '分片索引（第几个分片）',
@@ -3592,7 +3579,8 @@ CREATE TABLE IF NOT EXISTS `ai_document_segment`  (
 -- ----------------------------
 -- Table structure for domain_dictionary
 -- ----------------------------
-CREATE TABLE IF NOT EXISTS `ai_domain_dictionary`  (
+DROP TABLE IF EXISTS `ai_domain_dictionary`;
+CREATE TABLE `ai_domain_dictionary`  (
   `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键ID',
   `keyword` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '核心词',
   `related_terms` text CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '相关词列表（逗号分隔）',
@@ -3634,7 +3622,8 @@ INSERT INTO `ai_domain_dictionary` VALUES (17, '人力资源', '招聘,面试,�
 -- ----------------------------
 -- Table structure for knowledge_base
 -- ----------------------------
-CREATE TABLE IF NOT EXISTS `ai_knowledge_base`  (
+DROP TABLE IF EXISTS `ai_knowledge_base`;
+CREATE TABLE `ai_knowledge_base`  (
   `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键ID',
   `library_id` bigint NULL DEFAULT NULL COMMENT '所属知识库ID',
   `file_name` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '文件名',
@@ -3678,7 +3667,8 @@ CREATE TABLE IF NOT EXISTS `ai_knowledge_base`  (
 -- ----------------------------
 -- Table structure for knowledge_config
 -- ----------------------------
-CREATE TABLE IF NOT EXISTS `ai_knowledge_config`  (
+DROP TABLE IF EXISTS `ai_knowledge_config`;
+CREATE TABLE `ai_knowledge_config`  (
   `id` bigint NOT NULL AUTO_INCREMENT COMMENT '配置ID',
   `knowledge_id` bigint NOT NULL COMMENT '知识库ID',
   `segment_mode` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL DEFAULT 'general' COMMENT '分段模式：general(通用), parent_child(父子分段)',
@@ -3735,7 +3725,8 @@ INSERT INTO `ai_knowledge_config` VALUES (96, 133, 'general', '\n\n', 500, 50, '
 -- ----------------------------
 -- Table structure for knowledge_config_template
 -- ----------------------------
-CREATE TABLE IF NOT EXISTS `ai_knowledge_config_template`  (
+DROP TABLE IF EXISTS `ai_knowledge_config_template`;
+CREATE TABLE `ai_knowledge_config_template`  (
   `id` bigint NOT NULL AUTO_INCREMENT COMMENT '模板ID',
   `template_name` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '模板名称',
   `template_desc` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL COMMENT '模板描述',
@@ -3763,7 +3754,8 @@ INSERT INTO `ai_knowledge_config_template` VALUES (5, '经济快速模式', '降
 -- ----------------------------
 -- Table structure for knowledge_library
 -- ----------------------------
-CREATE TABLE IF NOT EXISTS `ai_knowledge_library`  (
+DROP TABLE IF EXISTS `ai_knowledge_library`;
+CREATE TABLE `ai_knowledge_library`  (
   `id` bigint NOT NULL AUTO_INCREMENT COMMENT '知识库ID',
   `name` varchar(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '知识库名称',
   `description` varchar(1000) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL COMMENT '知识库描述',
@@ -3794,7 +3786,8 @@ CREATE TABLE IF NOT EXISTS `ai_knowledge_library`  (
 -- ----------------------------
 -- Table structure for knowledge_library_config
 -- ----------------------------
-CREATE TABLE IF NOT EXISTS `ai_knowledge_library_config`  (
+DROP TABLE IF EXISTS `ai_knowledge_library_config`;
+CREATE TABLE `ai_knowledge_library_config`  (
   `id` bigint NOT NULL AUTO_INCREMENT COMMENT '配置ID',
   `library_id` bigint NOT NULL COMMENT '知识库ID',
   `segment_mode` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL DEFAULT 'general' COMMENT '分段模式：general(通用), qa(问答), code(代码)',
@@ -3824,11 +3817,12 @@ CREATE TABLE IF NOT EXISTS `ai_knowledge_library_config`  (
 -- ----------------------------
 -- Table structure for model_config
 -- ----------------------------
-CREATE TABLE IF NOT EXISTS `ai_model_config`  (
+DROP TABLE IF EXISTS `ai_model_config`;
+CREATE TABLE `ai_model_config`  (
   `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键ID',
   `name` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '配置名称',
   `provider` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '模型提供商(openai/ollama/dashscope)',
-  `model_type` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT 'chat' COMMENT '模型类型(chat/embedding/multimodal/reranker)',
+  `model_type` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT 'chat' COMMENT '模型类型(chat/embedding/multimodal/reranker/asr/tts)，asr=语音识别，tts=语音合成，V10.0 语音面试官使用',
   `model_name` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '模型名称',
   `api_key` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL COMMENT 'API密钥',
   `base_url` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL COMMENT 'API基础URL',
@@ -3859,7 +3853,8 @@ INSERT INTO `ai_model_config` VALUES (15, 'Qwen3-Reranker', 'dashscope', 'rerank
 -- ----------------------------
 -- Table structure for query_history
 -- ----------------------------
-CREATE TABLE IF NOT EXISTS `ai_query_history`  (
+DROP TABLE IF EXISTS `ai_query_history`;
+CREATE TABLE `ai_query_history`  (
   `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键ID',
   `datasource_id` bigint NOT NULL COMMENT '数据源ID',
   `user_id` bigint NULL DEFAULT NULL COMMENT '用户ID',
@@ -3892,7 +3887,8 @@ CREATE TABLE IF NOT EXISTS `ai_query_history`  (
 -- ----------------------------
 -- Table structure for reference_feedback
 -- ----------------------------
-CREATE TABLE IF NOT EXISTS `ai_reference_feedback`  (
+DROP TABLE IF EXISTS `ai_reference_feedback`;
+CREATE TABLE `ai_reference_feedback`  (
   `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键ID',
   `knowledge_base_id` bigint NULL DEFAULT NULL COMMENT '知识库ID',
   `file_name` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT NULL COMMENT '文件名',
@@ -3918,7 +3914,8 @@ CREATE TABLE IF NOT EXISTS `ai_reference_feedback`  (
 -- ----------------------------
 -- Table structure for sql_template
 -- ----------------------------
-CREATE TABLE IF NOT EXISTS `ai_sql_template`  (
+DROP TABLE IF EXISTS `ai_sql_template`;
+CREATE TABLE `ai_sql_template`  (
   `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键ID',
   `template_name` varchar(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '模板名称',
   `natural_query` text CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '自然语言示例',
@@ -3951,7 +3948,8 @@ INSERT INTO `ai_sql_template` VALUES (5, '多条件筛选', '查询价格大于1
 -- ----------------------------
 -- Table structure for table_metadata
 -- ----------------------------
-CREATE TABLE IF NOT EXISTS `ai_table_metadata`  (
+DROP TABLE IF EXISTS `ai_table_metadata`;
+CREATE TABLE `ai_table_metadata`  (
   `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键ID',
   `datasource_id` bigint NOT NULL COMMENT '数据源ID',
   `table_name` varchar(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '表名',
@@ -3982,7 +3980,8 @@ CREATE TABLE IF NOT EXISTS `ai_table_metadata`  (
 -- ----------------------------
 -- Table structure for token_usage_log
 -- ----------------------------
-CREATE TABLE IF NOT EXISTS `ai_token_usage_log`  (
+DROP TABLE IF EXISTS `ai_token_usage_log`;
+CREATE TABLE `ai_token_usage_log`  (
   `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键ID',
   `conversation_id` bigint NULL DEFAULT NULL COMMENT '会话ID',
   `message_id` bigint NULL DEFAULT NULL COMMENT '消息ID',
@@ -4016,7 +4015,8 @@ CREATE TABLE IF NOT EXISTS `ai_token_usage_log`  (
 -- ----------------------------
 -- Table structure for token_usage_summary
 -- ----------------------------
-CREATE TABLE IF NOT EXISTS `ai_token_usage_summary`  (
+DROP TABLE IF EXISTS `ai_token_usage_summary`;
+CREATE TABLE `ai_token_usage_summary`  (
   `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键ID',
   `agent_id` bigint NULL DEFAULT NULL COMMENT '智能体ID',
   `user_id` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NULL DEFAULT NULL COMMENT '用户ID',
@@ -4041,7 +4041,8 @@ CREATE TABLE IF NOT EXISTS `ai_token_usage_summary`  (
 -- ----------------------------
 -- Table structure for tool_call_log
 -- ----------------------------
-CREATE TABLE IF NOT EXISTS `ai_tool_call_log`  (
+DROP TABLE IF EXISTS `ai_tool_call_log`;
+CREATE TABLE `ai_tool_call_log`  (
   `id` bigint NOT NULL AUTO_INCREMENT COMMENT '日志ID',
   `conversation_id` bigint NULL DEFAULT NULL COMMENT '会话ID',
   `message_id` bigint NULL DEFAULT NULL COMMENT '消息ID',
@@ -4069,7 +4070,8 @@ CREATE TABLE IF NOT EXISTS `ai_tool_call_log`  (
 -- ----------------------------
 -- Table structure for workflow
 -- ----------------------------
-CREATE TABLE IF NOT EXISTS `ai_workflow`  (
+DROP TABLE IF EXISTS `ai_workflow`;
+CREATE TABLE `ai_workflow`  (
   `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键ID',
   `name` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '工作流名称',
   `description` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT NULL COMMENT '工作流描述',
@@ -4092,7 +4094,8 @@ CREATE TABLE IF NOT EXISTS `ai_workflow`  (
 -- ----------------------------
 -- Table structure for workflow_execution
 -- ----------------------------
-CREATE TABLE IF NOT EXISTS `ai_workflow_execution`  (
+DROP TABLE IF EXISTS `ai_workflow_execution`;
+CREATE TABLE `ai_workflow_execution`  (
   `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键ID',
   `workflow_id` bigint NOT NULL COMMENT '工作流ID',
   `status` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NULL DEFAULT 'running' COMMENT '执行状态: running-执行中, completed-已完成, failed-失败, cancelled-已取消',
@@ -4118,7 +4121,8 @@ CREATE TABLE IF NOT EXISTS `ai_workflow_execution`  (
 -- ----------------------------
 -- Table structure for workflow_version
 -- ----------------------------
-CREATE TABLE IF NOT EXISTS `ai_workflow_version`  (
+DROP TABLE IF EXISTS `ai_workflow_version`;
+CREATE TABLE `ai_workflow_version`  (
   `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键ID',
   `workflow_id` bigint NOT NULL COMMENT '工作流ID',
   `version` int NOT NULL COMMENT '版本号',
@@ -4555,7 +4559,7 @@ SET @col_exists := (
       AND COLUMN_NAME = 'category_type'
 );
 SET @sql := IF(@col_exists = 0,
-               'ALTER TABLE portal_category ADD COLUMN category_type varchar(20) NOT NULL DEFAULT ''article'' COMMENT ''栏目内容类型（article=文章栏目可发布文章 special=特殊页面不发布文章）'' AFTER nav_route_path',
+               'ALTER TABLE portal_category ADD COLUMN category_type varchar(20) NOT NULL DEFAULT ''article'' COMMENT ''栏目内容类型（article=文章栏目可发布文章 special=特殊页面不发布文章）'' AFTER nav_badge',
                'SELECT ''portal_category.category_type 已存在，跳过'' AS msg');
 PREPARE stmt FROM @sql;
 EXECUTE stmt;
@@ -4706,7 +4710,8 @@ ALTER TABLE portal_report MODIFY COLUMN target_type VARCHAR(32) NULL DEFAULT NUL
 -- 3. 敏感词过滤基础设施
 -- 3.1 敏感词库表：sys_sensitive_word（管理员可维护，运行时加载到内存）
 -- ----------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS sys_sensitive_word (
+DROP TABLE IF EXISTS sys_sensitive_word;
+CREATE TABLE sys_sensitive_word (
   id           BIGINT       NOT NULL AUTO_INCREMENT COMMENT '主键',
   word         VARCHAR(128) NOT NULL COMMENT '敏感词',
   category     VARCHAR(32)  NULL DEFAULT NULL COMMENT '分类：politics=政治/porn=色情/ad=广告/insult=辱骂/other=其他',
@@ -4723,7 +4728,8 @@ CREATE TABLE IF NOT EXISTS sys_sensitive_word (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='敏感词库';
 
 -- 3.2 敏感词命中记录表：sys_sensitive_word_log（用于审计与误判复核）
-CREATE TABLE IF NOT EXISTS sys_sensitive_word_log (
+DROP TABLE IF EXISTS sys_sensitive_word_log;
+CREATE TABLE sys_sensitive_word_log (
   id            BIGINT       NOT NULL AUTO_INCREMENT COMMENT '主键',
   biz_type      VARCHAR(32)  NOT NULL COMMENT '业务类型：article/column/topic/topic_post/topic_comment/report',
   biz_id        BIGINT       NULL DEFAULT NULL COMMENT '业务主键ID',
@@ -4737,6 +4743,165 @@ CREATE TABLE IF NOT EXISTS sys_sensitive_word_log (
   KEY idx_biz (biz_type, biz_id),
   KEY idx_create_time (create_time)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='敏感词命中记录';
+
+
+-- =====================================================================
+-- V10.x 新增表（合并自 upgrade 脚本）
+-- =====================================================================
+
+-- ---------------------------------------------------------------
+-- [v8.1] 统一审核任务表 sys_audit_task
+-- 来源：upgrade_v8.1_audit_unified.sql
+-- ---------------------------------------------------------------
+DROP TABLE IF EXISTS sys_audit_task;
+CREATE TABLE sys_audit_task (
+  id              BIGINT       NOT NULL AUTO_INCREMENT COMMENT '主键',
+  task_type       VARCHAR(32)  NOT NULL                COMMENT '任务类型：article/column/topic/interview_exp/interview_comment/certification/feedback/report',
+  biz_type        VARCHAR(32)  DEFAULT NULL            COMMENT '业务子类型（如 report 的 spam/infringement）',
+  biz_id          BIGINT       NOT NULL                COMMENT '业务记录ID',
+  title           VARCHAR(255) NOT NULL                COMMENT '任务标题',
+  description     TEXT         DEFAULT NULL            COMMENT '任务描述/摘要',
+  submitter_id    BIGINT       DEFAULT NULL            COMMENT '提交人ID（门户用户ID）',
+  submitter_name  VARCHAR(64)  DEFAULT NULL            COMMENT '提交人用户名',
+  status          VARCHAR(20)  NOT NULL DEFAULT 'pending' COMMENT '状态：pending/approved/rejected',
+  auditor_id      BIGINT       DEFAULT NULL            COMMENT '处理人ID（系统用户ID）',
+  auditor_name    VARCHAR(64)  DEFAULT NULL            COMMENT '处理人用户名',
+  audit_opinion   VARCHAR(1000) DEFAULT NULL           COMMENT '审核意见（驳回时必填）',
+  audit_action    VARCHAR(20)  DEFAULT NULL            COMMENT '审核操作类型：approve/reject',
+  submit_time     DATETIME     DEFAULT NULL            COMMENT '提交时间',
+  audit_time      DATETIME     DEFAULT NULL            COMMENT '处理时间',
+  priority        VARCHAR(10)  NOT NULL DEFAULT 'medium' COMMENT '优先级：high/medium/low',
+  route_path      VARCHAR(255) DEFAULT NULL            COMMENT '查看详情跳转路径',
+  extra_data      TEXT         DEFAULT NULL            COMMENT '扩展数据 JSON',
+  create_time     DATETIME     DEFAULT NULL            COMMENT '创建时间',
+  update_time     DATETIME     DEFAULT NULL            COMMENT '更新时间',
+  PRIMARY KEY (id),
+  KEY idx_audit_status (status),
+  KEY idx_audit_auditor (auditor_id),
+  KEY idx_audit_submitter (submitter_id),
+  KEY idx_audit_biz (biz_type, biz_id),
+  KEY idx_audit_task_type (task_type, status),
+  KEY idx_audit_submit_time (submit_time)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='统一审核任务表（v8.1）';
+
+-- ---------------------------------------------------------------
+-- [v8.1] 定时任务扫描结果表 sys_job_scan_issue
+-- 来源：upgrade_v8.1_audit_unified.sql
+-- ---------------------------------------------------------------
+DROP TABLE IF EXISTS sys_job_scan_issue;
+CREATE TABLE sys_job_scan_issue (
+  id              BIGINT       NOT NULL AUTO_INCREMENT COMMENT '主键',
+  job_id          BIGINT       DEFAULT NULL            COMMENT '触发扫描的定时任务ID',
+  job_name        VARCHAR(64)  DEFAULT NULL            COMMENT '定时任务名称',
+  issue_type      VARCHAR(32)  NOT NULL                COMMENT '问题类型：sensitive_word/pending_overdue/anomaly/other',
+  issue_desc      VARCHAR(500) NOT NULL                COMMENT '问题描述',
+  target_type     VARCHAR(32)  DEFAULT NULL            COMMENT '目标对象类型',
+  target_id       BIGINT       DEFAULT NULL            COMMENT '目标对象ID',
+  target_title    VARCHAR(255) DEFAULT NULL            COMMENT '目标对象标题/摘要',
+  log_excerpt     TEXT         DEFAULT NULL            COMMENT '日志摘要',
+  status          VARCHAR(20)  NOT NULL DEFAULT 'pending' COMMENT '状态：pending/handled/ignored',
+  handler_id      BIGINT       DEFAULT NULL            COMMENT '处理人ID',
+  handler_name    VARCHAR(64)  DEFAULT NULL            COMMENT '处理人用户名',
+  handle_result   VARCHAR(500) DEFAULT NULL            COMMENT '处理结果说明',
+  handle_time     DATETIME     DEFAULT NULL            COMMENT '处理时间',
+  create_time     DATETIME     DEFAULT NULL            COMMENT '扫描发现时间',
+  PRIMARY KEY (id),
+  KEY idx_scan_status (status),
+  KEY idx_scan_job (job_id),
+  KEY idx_scan_target (target_type, target_id),
+  KEY idx_scan_create_time (create_time)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='定时任务扫描结果表（v8.1）';
+
+-- ---------------------------------------------------------------
+-- [v8.2] 导入模板字段配置表 portal_import_template_config
+-- 来源：upgrade_v8.2_import_template.sql
+-- ---------------------------------------------------------------
+DROP TABLE IF EXISTS portal_import_template_config;
+CREATE TABLE portal_import_template_config (
+  id              BIGINT       NOT NULL AUTO_INCREMENT COMMENT '主键',
+  business_key    VARCHAR(64) NOT NULL                COMMENT '业务标识（interview_question/interview_experience/article/tag/note）',
+  field_name      VARCHAR(64) NOT NULL                COMMENT '实体字段名（Java 属性名）',
+  column_name     VARCHAR(64) NOT NULL                COMMENT 'Excel 列名（中文表头）',
+  description     VARCHAR(255) DEFAULT NULL            COMMENT '字段说明',
+  example_value   VARCHAR(255) DEFAULT NULL            COMMENT '示例值',
+  required        TINYINT      DEFAULT 0               COMMENT '是否必填：1=必填 0=可选',
+  field_type      VARCHAR(20) DEFAULT 'string'        COMMENT '字段类型：string/number/date/dict',
+  dict_type       VARCHAR(64) DEFAULT NULL             COMMENT '字典 type（field_type=dict 时生效）',
+  combo_values    VARCHAR(500) DEFAULT NULL            COMMENT '下拉可选值（逗号分隔）',
+  column_width    INT          DEFAULT 20              COMMENT 'Excel 列宽',
+  sort            INT          DEFAULT 0                COMMENT '列排序号',
+  status          CHAR(1)      DEFAULT '0'              COMMENT '状态：0=启用 1=停用',
+  create_by       VARCHAR(64) DEFAULT ''               COMMENT '创建者',
+  create_time     DATETIME     DEFAULT NULL            COMMENT '创建时间',
+  update_by       VARCHAR(64) DEFAULT ''               COMMENT '更新者',
+  update_time     DATETIME     DEFAULT NULL            COMMENT '更新时间',
+  remark          VARCHAR(500) DEFAULT NULL            COMMENT '备注',
+  PRIMARY KEY (id),
+  KEY idx_business_key_status_sort (business_key, status, sort),
+  KEY idx_business_key_field (business_key, field_name)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='导入模板字段配置（动态模板）';
+
+-- ---------------------------------------------------------------
+-- [v10.1] 语音面试会话主表 portal_voice_interview
+-- 来源：upgrade_v10.1_voice_interview.sql
+-- ---------------------------------------------------------------
+DROP TABLE IF EXISTS `portal_voice_interview`;
+CREATE TABLE `portal_voice_interview` (
+  `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键',
+  `user_id` bigint NOT NULL COMMENT '面试用户ID',
+  `position` varchar(64) DEFAULT NULL COMMENT '面试岗位',
+  `scene` varchar(64) DEFAULT NULL COMMENT '面试场景',
+  `resume_id` bigint DEFAULT NULL COMMENT '简历ID（有简历时启用项目深挖题源）',
+  `status` varchar(16) NOT NULL DEFAULT 'in_progress' COMMENT '状态 in_progress/finished',
+  `style` varchar(20) DEFAULT 'professional' COMMENT '面试官风格（字典 voice_interview_style）',
+  `difficulty` varchar(20) DEFAULT 'medium' COMMENT '难度 easy/medium/hard',
+  `total_qa` int NOT NULL DEFAULT '0' COMMENT '主问题目总数（不含追问）',
+  `current_idx` int NOT NULL DEFAULT '0' COMMENT '当前主问题目序号',
+  `score` int DEFAULT NULL COMMENT '面试总分（0-100）',
+  `summary` text COMMENT 'AI 生成的面试总结',
+  `report` text COMMENT '报告 JSON（含维度分/亮点/薄弱点/逐题点评）',
+  `config_json` text COMMENT '配置 JSON（hintsEnabled/stuckThreshold/style/difficulty）',
+  `is_personalized` tinyint(1) DEFAULT '0' COMMENT '是否基于画像抽题',
+  `profile_snapshot` text COMMENT '抽题时的画像快照 JSON',
+  `create_time` datetime DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `update_time` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  `del_flag` char(1) NOT NULL DEFAULT '0' COMMENT '删除标记（0=存在 2=删除）',
+  PRIMARY KEY (`id`),
+  KEY `idx_user_time` (`user_id`,`create_time`),
+  KEY `idx_status` (`status`),
+  KEY `idx_del_flag` (`del_flag`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='语音面试会话主表（V10.1）';
+
+-- ---------------------------------------------------------------
+-- [v10.1] 语音面试问答表 portal_voice_interview_qa（含追问链）
+-- 来源：upgrade_v10.1_voice_interview.sql
+-- ---------------------------------------------------------------
+DROP TABLE IF EXISTS `portal_voice_interview_qa`;
+CREATE TABLE `portal_voice_interview_qa` (
+  `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键',
+  `interview_id` bigint NOT NULL COMMENT '面试会话ID',
+  `question_id` bigint DEFAULT NULL COMMENT '关联题目ID（portal_interview_question.id）',
+  `question_idx` int NOT NULL COMMENT '主问题目序号（从0开始）',
+  `parent_qa_id` bigint DEFAULT NULL COMMENT '追问父问答ID（NULL=主问）',
+  `question` varchar(1000) NOT NULL COMMENT '面试问题',
+  `user_answer` text COMMENT '用户回答（ASR 转写后可编辑）',
+  `transcription_edited` tinyint(1) DEFAULT '0' COMMENT '转写是否被用户编辑',
+  `ai_feedback` text COMMENT 'AI 反馈',
+  `speak_text` text COMMENT 'AI 面试官话术（TTS 播报内容）',
+  `score` int DEFAULT NULL COMMENT '本题评分（0-100）',
+  `rule_dimensions_json` text COMMENT '规则维度分 JSON（6维对齐雷达图）',
+  `hint_used` int DEFAULT '0' COMMENT '已使用提示次数（0~3）',
+  `latency_ms` int DEFAULT NULL COMMENT '答题耗时（毫秒）',
+  `next_action` varchar(20) DEFAULT NULL COMMENT '下一步动作 followup/hint/next/report',
+  `create_time` datetime DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `update_time` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  `del_flag` char(1) NOT NULL DEFAULT '0' COMMENT '删除标记',
+  PRIMARY KEY (`id`),
+  KEY `idx_interview` (`interview_id`),
+  KEY `idx_question_idx` (`interview_id`,`question_idx`),
+  KEY `idx_parent` (`parent_qa_id`),
+  KEY `idx_del_flag` (`del_flag`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='语音面试问答表（V10.1，含追问链）';
 
 -- 3.3 初始化少量示例敏感词（生产环境请导入完整词库）
 INSERT INTO sys_sensitive_word (word, category, status, create_by, create_time, remark) VALUES
@@ -5835,100 +6000,187 @@ ORDER BY TABLE_NAME;
 -- =============================================================================
 
 -- -----------------------------------------------------------------------------
--- 通用幂等工具：为指定表追加一列（若不存在）
--- 调用方式：CALL add_column_if_missing('table_name', 'col_name', 'col_def_sql', 'after_col');
--- 其中 col_def_sql 是完整的列定义（含类型/默认值/注释），after_col 为 AFTER 子句的列名（NULL 表示不加 AFTER）
+-- v7.23 升级脚本：支付订单字段补齐（为未来接入真实支付渠道预留）
+-- 改用 information_schema 校验 + PREPARE/EXECUTE 动态 SQL 实现幂等
+-- 兼容 DataGrip/Navicat/DBeaver 等图形客户端（不使用 DELIMITER / 存储过程）
 -- -----------------------------------------------------------------------------
-DROP PROCEDURE IF EXISTS `p_add_column_if_missing`;
-DELIMITER $$
-CREATE PROCEDURE `p_add_column_if_missing`(
-    IN p_table VARCHAR(64),
-    IN p_column VARCHAR(64),
-    IN p_def TEXT,
-    IN p_after VARCHAR(64)
-)
-BEGIN
-    DECLARE col_count INT;
-    SELECT COUNT(*) INTO col_count
-    FROM information_schema.COLUMNS
-    WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = p_table AND COLUMN_NAME = p_column;
-    IF col_count = 0 THEN
-        IF p_after IS NULL OR p_after = '' THEN
-            SET @ddl := CONCAT('ALTER TABLE `', p_table, '` ADD COLUMN `', p_column, '` ', p_def);
-        ELSE
-            SET @ddl := CONCAT('ALTER TABLE `', p_table, '` ADD COLUMN `', p_column, '` ', p_def, ' AFTER `', p_after, '`');
-        END IF;
-        PREPARE stmt FROM @ddl; EXECUTE stmt; DEALLOCATE PREPARE stmt;
-    END IF;
-END$$
-DELIMITER ;
-
--- -----------------------------------------------------------------------------
--- 通用幂等工具：为指定表追加一个索引（若不存在）
--- 调用方式：CALL add_index_if_missing('table_name', 'index_name', 'index_columns');
--- -----------------------------------------------------------------------------
-DROP PROCEDURE IF EXISTS `p_add_index_if_missing`;
-DELIMITER $$
-CREATE PROCEDURE `p_add_index_if_missing`(
-    IN p_table VARCHAR(64),
-    IN p_index VARCHAR(64),
-    IN p_columns VARCHAR(255)
-)
-BEGIN
-    DECLARE idx_count INT;
-    SELECT COUNT(*) INTO idx_count
-    FROM information_schema.STATISTICS
-    WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = p_table AND INDEX_NAME = p_index;
-    IF idx_count = 0 THEN
-        SET @ddl := CONCAT('ALTER TABLE `', p_table, '` ADD INDEX `', p_index, '`(', p_columns, ')');
-        PREPARE stmt FROM @ddl; EXECUTE stmt; DEALLOCATE PREPARE stmt;
-    END IF;
-END$$
-DELIMITER ;
 
 -- =============================================================================
--- 1. portal_order 表：补齐支付/退款相关字段
+-- 1. portal_order 表：补齐支付/退款相关字段（8 列 + 2 索引）
 -- =============================================================================
-CALL p_add_column_if_missing('portal_order', 'trade_no',       "varchar(64) DEFAULT NULL COMMENT '第三方交易号（支付宝/微信返回的交易号）'", 'pay_method');
-CALL p_add_column_if_missing('portal_order', 'pay_channel',    "varchar(20) DEFAULT 'points' COMMENT '支付渠道：points-积分/alipay-支付宝/wechat-微信支付'", 'trade_no');
-CALL p_add_column_if_missing('portal_order', 'notify_id',       "varchar(64) DEFAULT NULL COMMENT '支付回调ID（用于回调验签与幂等去重）'", 'pay_channel');
-CALL p_add_column_if_missing('portal_order', 'notify_time',     "datetime DEFAULT NULL COMMENT '支付回调时间'", 'notify_id');
-CALL p_add_column_if_missing('portal_order', 'refund_no',        "varchar(64) DEFAULT NULL COMMENT '退款单号'", 'notify_time');
-CALL p_add_column_if_missing('portal_order', 'refund_amount',    "decimal(10,2) DEFAULT NULL COMMENT '退款金额'", 'refund_no');
-CALL p_add_column_if_missing('portal_order', 'refund_time',     "datetime DEFAULT NULL COMMENT '退款时间'", 'refund_amount');
-CALL p_add_column_if_missing('portal_order', 'refund_reason',   "varchar(255) DEFAULT NULL COMMENT '退款原因'", 'refund_time');
+-- 1.1 trade_no（第三方交易号）
+SET @col_exists := (SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'portal_order' AND COLUMN_NAME = 'trade_no');
+SET @sql := IF(@col_exists = 0,
+    'ALTER TABLE portal_order ADD COLUMN trade_no varchar(64) DEFAULT NULL COMMENT ''第三方交易号（支付宝/微信返回的交易号）'' AFTER pay_method',
+    'SELECT ''portal_order.trade_no 已存在，跳过'' AS msg');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 
--- 1.1 为常用查询场景建立索引
-CALL p_add_index_if_missing('portal_order', 'idx_trade_no',          '`trade_no`');
-CALL p_add_index_if_missing('portal_order', 'idx_pay_channel_status', '`pay_channel`, `status`');
+-- 1.2 pay_channel（支付渠道）
+SET @col_exists := (SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'portal_order' AND COLUMN_NAME = 'pay_channel');
+SET @sql := IF(@col_exists = 0,
+    'ALTER TABLE portal_order ADD COLUMN pay_channel varchar(20) DEFAULT ''points'' COMMENT ''支付渠道：points-积分/alipay-支付宝/wechat-微信支付'' AFTER trade_no',
+    'SELECT ''portal_order.pay_channel 已存在，跳过'' AS msg');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+-- 1.3 notify_id（支付回调ID，用于回调验签与幂等去重）
+SET @col_exists := (SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'portal_order' AND COLUMN_NAME = 'notify_id');
+SET @sql := IF(@col_exists = 0,
+    'ALTER TABLE portal_order ADD COLUMN notify_id varchar(64) DEFAULT NULL COMMENT ''支付回调ID（用于回调验签与幂等去重）'' AFTER pay_channel',
+    'SELECT ''portal_order.notify_id 已存在，跳过'' AS msg');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+-- 1.4 notify_time（支付回调时间）
+SET @col_exists := (SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'portal_order' AND COLUMN_NAME = 'notify_time');
+SET @sql := IF(@col_exists = 0,
+    'ALTER TABLE portal_order ADD COLUMN notify_time datetime DEFAULT NULL COMMENT ''支付回调时间'' AFTER notify_id',
+    'SELECT ''portal_order.notify_time 已存在，跳过'' AS msg');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+-- 1.5 refund_no（退款单号）
+SET @col_exists := (SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'portal_order' AND COLUMN_NAME = 'refund_no');
+SET @sql := IF(@col_exists = 0,
+    'ALTER TABLE portal_order ADD COLUMN refund_no varchar(64) DEFAULT NULL COMMENT ''退款单号'' AFTER notify_time',
+    'SELECT ''portal_order.refund_no 已存在，跳过'' AS msg');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+-- 1.6 refund_amount（退款金额）
+SET @col_exists := (SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'portal_order' AND COLUMN_NAME = 'refund_amount');
+SET @sql := IF(@col_exists = 0,
+    'ALTER TABLE portal_order ADD COLUMN refund_amount decimal(10,2) DEFAULT NULL COMMENT ''退款金额'' AFTER refund_no',
+    'SELECT ''portal_order.refund_amount 已存在，跳过'' AS msg');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+-- 1.7 refund_time（退款时间）
+SET @col_exists := (SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'portal_order' AND COLUMN_NAME = 'refund_time');
+SET @sql := IF(@col_exists = 0,
+    'ALTER TABLE portal_order ADD COLUMN refund_time datetime DEFAULT NULL COMMENT ''退款时间'' AFTER refund_amount',
+    'SELECT ''portal_order.refund_time 已存在，跳过'' AS msg');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+-- 1.8 refund_reason（退款原因）
+SET @col_exists := (SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'portal_order' AND COLUMN_NAME = 'refund_reason');
+SET @sql := IF(@col_exists = 0,
+    'ALTER TABLE portal_order ADD COLUMN refund_reason varchar(255) DEFAULT NULL COMMENT ''退款原因'' AFTER refund_time',
+    'SELECT ''portal_order.refund_reason 已存在，跳过'' AS msg');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+-- 1.9 idx_trade_no（交易号索引，用于回调对账查询）
+SET @idx_exists := (SELECT COUNT(*) FROM information_schema.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'portal_order' AND INDEX_NAME = 'idx_trade_no');
+SET @sql := IF(@idx_exists = 0,
+    'ALTER TABLE portal_order ADD INDEX idx_trade_no (trade_no)',
+    'SELECT ''portal_order.idx_trade_no 已存在，跳过'' AS msg');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+-- 1.10 idx_pay_channel_status（渠道+状态复合索引，用于商户对账查询）
+SET @idx_exists := (SELECT COUNT(*) FROM information_schema.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'portal_order' AND INDEX_NAME = 'idx_pay_channel_status');
+SET @sql := IF(@idx_exists = 0,
+    'ALTER TABLE portal_order ADD INDEX idx_pay_channel_status (pay_channel, status)',
+    'SELECT ''portal_order.idx_pay_channel_status 已存在，跳过'' AS msg');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 
 -- =============================================================================
 -- 2. portal_tip_order 表：补齐支付/退款相关字段（与 portal_order 对齐）
 -- =============================================================================
-CALL p_add_column_if_missing('portal_tip_order', 'trade_no',       "varchar(64) DEFAULT NULL COMMENT '第三方交易号（支付宝/微信返回的交易号）'", 'pay_method');
-CALL p_add_column_if_missing('portal_tip_order', 'pay_channel',    "varchar(20) DEFAULT 'points' COMMENT '支付渠道：points-积分/alipay-支付宝/wechat-微信支付'", 'trade_no');
-CALL p_add_column_if_missing('portal_tip_order', 'notify_id',       "varchar(64) DEFAULT NULL COMMENT '支付回调ID（用于回调验签与幂等去重）'", 'pay_channel');
-CALL p_add_column_if_missing('portal_tip_order', 'notify_time',     "datetime DEFAULT NULL COMMENT '支付回调时间'", 'notify_id');
-CALL p_add_column_if_missing('portal_tip_order', 'refund_no',        "varchar(64) DEFAULT NULL COMMENT '退款单号'", 'notify_time');
-CALL p_add_column_if_missing('portal_tip_order', 'refund_amount',    "decimal(10,2) DEFAULT NULL COMMENT '退款金额'", 'refund_no');
-CALL p_add_column_if_missing('portal_tip_order', 'refund_time',     "datetime DEFAULT NULL COMMENT '退款时间'", 'refund_amount');
-CALL p_add_column_if_missing('portal_tip_order', 'refund_reason',   "varchar(255) DEFAULT NULL COMMENT '退款原因'", 'refund_time');
+-- 2.1 trade_no
+SET @col_exists := (SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'portal_tip_order' AND COLUMN_NAME = 'trade_no');
+SET @sql := IF(@col_exists = 0,
+    'ALTER TABLE portal_tip_order ADD COLUMN trade_no varchar(64) DEFAULT NULL COMMENT ''第三方交易号（支付宝/微信返回的交易号）'' AFTER pay_method',
+    'SELECT ''portal_tip_order.trade_no 已存在，跳过'' AS msg');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 
-CALL p_add_index_if_missing('portal_tip_order', 'idx_trade_no',          '`trade_no`');
-CALL p_add_index_if_missing('portal_tip_order', 'idx_pay_channel_status', '`pay_channel`, `status`');
+-- 2.2 pay_channel
+SET @col_exists := (SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'portal_tip_order' AND COLUMN_NAME = 'pay_channel');
+SET @sql := IF(@col_exists = 0,
+    'ALTER TABLE portal_tip_order ADD COLUMN pay_channel varchar(20) DEFAULT ''points'' COMMENT ''支付渠道：points-积分/alipay-支付宝/wechat-微信支付'' AFTER trade_no',
+    'SELECT ''portal_tip_order.pay_channel 已存在，跳过'' AS msg');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+-- 2.3 notify_id
+SET @col_exists := (SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'portal_tip_order' AND COLUMN_NAME = 'notify_id');
+SET @sql := IF(@col_exists = 0,
+    'ALTER TABLE portal_tip_order ADD COLUMN notify_id varchar(64) DEFAULT NULL COMMENT ''支付回调ID（用于回调验签与幂等去重）'' AFTER pay_channel',
+    'SELECT ''portal_tip_order.notify_id 已存在，跳过'' AS msg');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+-- 2.4 notify_time
+SET @col_exists := (SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'portal_tip_order' AND COLUMN_NAME = 'notify_time');
+SET @sql := IF(@col_exists = 0,
+    'ALTER TABLE portal_tip_order ADD COLUMN notify_time datetime DEFAULT NULL COMMENT ''支付回调时间'' AFTER notify_id',
+    'SELECT ''portal_tip_order.notify_time 已存在，跳过'' AS msg');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+-- 2.5 refund_no
+SET @col_exists := (SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'portal_tip_order' AND COLUMN_NAME = 'refund_no');
+SET @sql := IF(@col_exists = 0,
+    'ALTER TABLE portal_tip_order ADD COLUMN refund_no varchar(64) DEFAULT NULL COMMENT ''退款单号'' AFTER notify_time',
+    'SELECT ''portal_tip_order.refund_no 已存在，跳过'' AS msg');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+-- 2.6 refund_amount
+SET @col_exists := (SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'portal_tip_order' AND COLUMN_NAME = 'refund_amount');
+SET @sql := IF(@col_exists = 0,
+    'ALTER TABLE portal_tip_order ADD COLUMN refund_amount decimal(10,2) DEFAULT NULL COMMENT ''退款金额'' AFTER refund_no',
+    'SELECT ''portal_tip_order.refund_amount 已存在，跳过'' AS msg');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+-- 2.7 refund_time
+SET @col_exists := (SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'portal_tip_order' AND COLUMN_NAME = 'refund_time');
+SET @sql := IF(@col_exists = 0,
+    'ALTER TABLE portal_tip_order ADD COLUMN refund_time datetime DEFAULT NULL COMMENT ''退款时间'' AFTER refund_amount',
+    'SELECT ''portal_tip_order.refund_time 已存在，跳过'' AS msg');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+-- 2.8 refund_reason
+SET @col_exists := (SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'portal_tip_order' AND COLUMN_NAME = 'refund_reason');
+SET @sql := IF(@col_exists = 0,
+    'ALTER TABLE portal_tip_order ADD COLUMN refund_reason varchar(255) DEFAULT NULL COMMENT ''退款原因'' AFTER refund_time',
+    'SELECT ''portal_tip_order.refund_reason 已存在，跳过'' AS msg');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+-- 2.9 idx_trade_no
+SET @idx_exists := (SELECT COUNT(*) FROM information_schema.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'portal_tip_order' AND INDEX_NAME = 'idx_trade_no');
+SET @sql := IF(@idx_exists = 0,
+    'ALTER TABLE portal_tip_order ADD INDEX idx_trade_no (trade_no)',
+    'SELECT ''portal_tip_order.idx_trade_no 已存在，跳过'' AS msg');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+-- 2.10 idx_pay_channel_status
+SET @idx_exists := (SELECT COUNT(*) FROM information_schema.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'portal_tip_order' AND INDEX_NAME = 'idx_pay_channel_status');
+SET @sql := IF(@idx_exists = 0,
+    'ALTER TABLE portal_tip_order ADD INDEX idx_pay_channel_status (pay_channel, status)',
+    'SELECT ''portal_tip_order.idx_pay_channel_status 已存在，跳过'' AS msg');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 
 -- =============================================================================
--- 3. portal_wallet_transaction 表：补齐第三方交易号与渠道字段
+-- 3. portal_wallet_transaction 表：补齐第三方交易号与渠道字段（3 列 + 1 索引）
 -- =============================================================================
-CALL p_add_column_if_missing('portal_wallet_transaction', 'trade_no',   "varchar(64) DEFAULT NULL COMMENT '第三方交易号（充值/提现场景的渠道方流水号）'", 'order_id');
-CALL p_add_column_if_missing('portal_wallet_transaction', 'channel',    "varchar(20) DEFAULT NULL COMMENT '资金渠道：alipay/wechat/bank'", 'trade_no');
-CALL p_add_column_if_missing('portal_wallet_transaction', 'refund_no',  "varchar(64) DEFAULT NULL COMMENT '退款单号'", 'channel');
+-- 3.1 trade_no
+SET @col_exists := (SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'portal_wallet_transaction' AND COLUMN_NAME = 'trade_no');
+SET @sql := IF(@col_exists = 0,
+    'ALTER TABLE portal_wallet_transaction ADD COLUMN trade_no varchar(64) DEFAULT NULL COMMENT ''第三方交易号（充值/提现场景的渠道方流水号）'' AFTER order_id',
+    'SELECT ''portal_wallet_transaction.trade_no 已存在，跳过'' AS msg');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 
-CALL p_add_index_if_missing('portal_wallet_transaction', 'idx_trade_no', '`trade_no`');
+-- 3.2 channel
+SET @col_exists := (SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'portal_wallet_transaction' AND COLUMN_NAME = 'channel');
+SET @sql := IF(@col_exists = 0,
+    'ALTER TABLE portal_wallet_transaction ADD COLUMN channel varchar(20) DEFAULT NULL COMMENT ''资金渠道：alipay/wechat/bank'' AFTER trade_no',
+    'SELECT ''portal_wallet_transaction.channel 已存在，跳过'' AS msg');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 
--- 清理临时存储过程
-DROP PROCEDURE IF EXISTS `p_add_column_if_missing`;
-DROP PROCEDURE IF EXISTS `p_add_index_if_missing`;
+-- 3.3 refund_no
+SET @col_exists := (SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'portal_wallet_transaction' AND COLUMN_NAME = 'refund_no');
+SET @sql := IF(@col_exists = 0,
+    'ALTER TABLE portal_wallet_transaction ADD COLUMN refund_no varchar(64) DEFAULT NULL COMMENT ''退款单号'' AFTER channel',
+    'SELECT ''portal_wallet_transaction.refund_no 已存在，跳过'' AS msg');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+-- 3.4 idx_trade_no
+SET @idx_exists := (SELECT COUNT(*) FROM information_schema.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'portal_wallet_transaction' AND INDEX_NAME = 'idx_trade_no');
+SET @sql := IF(@idx_exists = 0,
+    'ALTER TABLE portal_wallet_transaction ADD INDEX idx_trade_no (trade_no)',
+    'SELECT ''portal_wallet_transaction.idx_trade_no 已存在，跳过'' AS msg');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 
 -- =============================================================================
 -- 字段补齐后，应用代码（PortalOrder / PortalTipOrder / PortalWalletTransaction 实体）
@@ -6454,62 +6706,107 @@ UNLOCK TABLES;
 
 -- portal_category（50 条栏目）+ portal_tag（28 条标签）种子数据
 -- -----------------------------------------------------------------------------
--- 种子数据：portal_category（50 项：8 一级 + 42 二级）+ portal_tag（28 项）
+-- 种子数据：portal_category（V10.5 前台导航重构：6 一级 + 35 二级/三级）
 -- 说明：二级栏目 parent_id 通过 slug 反查一级栏目 id，无需硬编码；直接初始化，不做幂等判断
+-- category_type 规则（三分法）：
+--   - article   = 文章分类（叶子节点），可发布文章，路由为 /category/{slug}
+--   - directory = 目录容器（中间节点），仅组织子栏目不发布文章，路由跳转到聚合页
+--   - special   = 静态页面，不发布文章，路由跳转到 nav_route_path 指定页面
+-- nav_route_path 规则：所有栏目必须设置路由路径，article 类型统一为 /category/{slug}
+-- 导航结构：首页 / 面试专区 / 学习中心 / 阅读空间 / 创作互动 / 我的
 -- -----------------------------------------------------------------------------
 
--- 一级栏目（8 项，parent_id = 0）
-INSERT INTO `portal_category` (`name`, `slug`, `description`, `icon`, `sort`, `parent_id`, `status`, `show_in_nav`, `nav_route_type`, `nav_route_path`, `requires_auth`, `create_by`) VALUES ('首页', 'home', '精选推荐、双轨轮播', 'fa-home', 1, 0, '0', 1, 'home', '/', 0, 'admin');
-INSERT INTO `portal_category` (`name`, `slug`, `description`, `icon`, `sort`, `parent_id`, `status`, `show_in_nav`, `nav_route_type`, `nav_route_path`, `requires_auth`, `create_by`) VALUES ('散文天地', 'prose', '人文书写与情感表达', 'fa-pen-fancy', 2, 0, '0', 1, 'category', NULL, 0, 'admin');
-INSERT INTO `portal_category` (`name`, `slug`, `description`, `icon`, `sort`, `parent_id`, `status`, `show_in_nav`, `nav_route_type`, `nav_route_path`, `requires_auth`, `create_by`) VALUES ('技术笔记', 'tech-notes', '开发记录、技术解析、AI编程实践', 'fa-code', 3, 0, '0', 1, 'category', NULL, 0, 'admin');
-INSERT INTO `portal_category` (`name`, `slug`, `description`, `icon`, `sort`, `parent_id`, `status`, `show_in_nav`, `nav_route_type`, `nav_route_path`, `requires_auth`, `create_by`) VALUES ('读书空间', 'reading', '读书心得、精选好书、书单推荐', 'fa-book', 4, 0, '0', 1, 'static', '/reading', 0, 'admin');
-INSERT INTO `portal_category` (`name`, `slug`, `description`, `icon`, `sort`, `parent_id`, `status`, `show_in_nav`, `nav_route_type`, `nav_route_path`, `requires_auth`, `create_by`) VALUES ('面试指南', 'interview', '真题整理、面经复盘、简历优化', 'fa-briefcase', 5, 0, '0', 1, 'static', '/interview', 0, 'admin');
-INSERT INTO `portal_category` (`name`, `slug`, `description`, `icon`, `sort`, `parent_id`, `status`, `show_in_nav`, `nav_route_type`, `nav_route_path`, `requires_auth`, `create_by`) VALUES ('社区互动', 'interaction', '话题讨论、动态广场', 'fa-users', 6, 0, '0', 1, 'category', NULL, 0, 'admin');
-INSERT INTO `portal_category` (`name`, `slug`, `description`, `icon`, `sort`, `parent_id`, `status`, `show_in_nav`, `nav_route_type`, `nav_route_path`, `requires_auth`, `create_by`) VALUES ('创作者中心', 'creator', '发布文章、专栏、征文、认证', 'fa-feather', 7, 0, '0', 1, 'category', NULL, 0, 'admin');
-INSERT INTO `portal_category` (`name`, `slug`, `description`, `icon`, `sort`, `parent_id`, `status`, `show_in_nav`, `nav_route_type`, `nav_route_path`, `requires_auth`, `create_by`) VALUES ('个人空间', 'mine', '个人中心、成长时间线、我的内容', 'fa-user', 8, 0, '0', 1, 'category', NULL, 0, 'admin');
+-- =============================================================
+-- 一级栏目（6 项，parent_id = 0）
+-- 首页=special，其余 5 个=directory（目录容器，跳转到聚合页）
+-- =============================================================
+INSERT INTO `portal_category` (`name`, `slug`, `description`, `icon`, `sort`, `parent_id`, `status`, `show_in_nav`, `nav_route_type`, `nav_route_path`, `category_type`, `requires_auth`, `nav_badge`, `create_by`) VALUES ('首页', 'home', '精选推荐、双轨轮播', 'fa-home', 1, 0, '0', 1, 'home', '/', 'special', 0, NULL, 'admin');
+INSERT INTO `portal_category` (`name`, `slug`, `description`, `icon`, `sort`, `parent_id`, `status`, `show_in_nav`, `nav_route_type`, `nav_route_path`, `category_type`, `requires_auth`, `nav_badge`, `create_by`) VALUES ('面试专区', 'interview', 'AI 语音面试、面经复盘、简历优化', 'fa-briefcase', 2, 0, '0', 1, 'static', '/interview', 'directory', 0, NULL, 'admin');
+INSERT INTO `portal_category` (`name`, `slug`, `description`, `icon`, `sort`, `parent_id`, `status`, `show_in_nav`, `nav_route_type`, `nav_route_path`, `category_type`, `requires_auth`, `nav_badge`, `create_by`) VALUES ('学习中心', 'learn', '题库、刷题、错题本、学习计划', 'fa-graduation-cap', 3, 0, '0', 1, 'static', '/learn', 'directory', 0, NULL, 'admin');
+INSERT INTO `portal_category` (`name`, `slug`, `description`, `icon`, `sort`, `parent_id`, `status`, `show_in_nav`, `nav_route_type`, `nav_route_path`, `category_type`, `requires_auth`, `nav_badge`, `create_by`) VALUES ('阅读空间', 'reading', '散文天地、技术笔记、读书空间', 'fa-book', 4, 0, '0', 1, 'static', '/reading', 'directory', 0, NULL, 'admin');
+INSERT INTO `portal_category` (`name`, `slug`, `description`, `icon`, `sort`, `parent_id`, `status`, `show_in_nav`, `nav_route_type`, `nav_route_path`, `category_type`, `requires_auth`, `nav_badge`, `create_by`) VALUES ('创作互动', 'creation', '话题、动态、专栏、征文、发布', 'fa-feather', 5, 0, '0', 1, 'static', '/creation', 'directory', 0, NULL, 'admin');
+INSERT INTO `portal_category` (`name`, `slug`, `description`, `icon`, `sort`, `parent_id`, `status`, `show_in_nav`, `nav_route_type`, `nav_route_path`, `category_type`, `requires_auth`, `nav_badge`, `create_by`) VALUES ('我的', 'mine', '个人中心、成长时间线、我的内容', 'fa-user', 6, 0, '0', 1, 'static', '/user', 'directory', 1, NULL, 'admin');
 
-INSERT INTO `portal_category` (`name`, `slug`, `description`, `icon`, `sort`, `parent_id`, `status`, `show_in_nav`, `nav_route_type`, `nav_route_path`, `requires_auth`, `create_by`) select '人间烟火', 'life-stories', '饮食、市井、生活琐记', 'fa-utensils', 1, (SELECT `id` FROM `portal_category` WHERE `slug` = 'prose' AND `parent_id` = 0), '0', 1, 'category', NULL, 0, 'admin';
-INSERT INTO `portal_category` (`name`, `slug`, `description`, `icon`, `sort`, `parent_id`, `status`, `show_in_nav`, `nav_route_type`, `nav_route_path`, `requires_auth`, `create_by`) select '山河行吟', 'travel-nature', '游记、自然书写、生态散文', 'fa-mountain', 2, (SELECT `id` FROM `portal_category` WHERE `slug` = 'prose' AND `parent_id` = 0), '0', 1, 'category', NULL, 0, 'admin';
-INSERT INTO `portal_category` (`name`, `slug`, `description`, `icon`, `sort`, `parent_id`, `status`, `show_in_nav`, `nav_route_type`, `nav_route_path`, `requires_auth`, `create_by`) select '心灵独白', 'inner-thoughts', '孤独、成长、疗愈随笔', 'fa-heart', 3, (SELECT `id` FROM `portal_category` WHERE `slug` = 'prose' AND `parent_id` = 0), '0', 1, 'category', NULL, 0, 'admin';
-INSERT INTO `portal_category` (`name`, `slug`, `description`, `icon`, `sort`, `parent_id`, `status`, `show_in_nav`, `nav_route_type`, `nav_route_path`, `requires_auth`, `create_by`) select '城市笔记', 'city-notes', '北上广深、小镇观察', 'fa-city', 4, (SELECT `id` FROM `portal_category` WHERE `slug` = 'prose' AND `parent_id` = 0), '0', 1, 'category', NULL, 0, 'admin';
-INSERT INTO `portal_category` (`name`, `slug`, `description`, `icon`, `sort`, `parent_id`, `status`, `show_in_nav`, `nav_route_type`, `nav_route_path`, `requires_auth`, `create_by`) select '四季专栏', 'seasons', '春之思、夏之躁、秋之静、冬之藏', 'fa-leaf', 5, (SELECT `id` FROM `portal_category` WHERE `slug` = 'prose' AND `parent_id` = 0), '0', 1, 'category', NULL, 0, 'admin';
-INSERT INTO `portal_category` (`name`, `slug`, `description`, `icon`, `sort`, `parent_id`, `status`, `show_in_nav`, `nav_route_type`, `nav_route_path`, `requires_auth`, `create_by`) select '声音散文', 'audio-prose', '作者自读、背景音效沉浸体验', 'fa-volume-up', 6, (SELECT `id` FROM `portal_category` WHERE `slug` = 'prose' AND `parent_id` = 0), '0', 1, 'category', NULL, 0, 'admin';
-INSERT INTO `portal_category` (`name`, `slug`, `description`, `icon`, `sort`, `parent_id`, `status`, `show_in_nav`, `nav_route_type`, `nav_route_path`, `requires_auth`, `create_by`) select '读者来信', 'reader-letters', '短篇心声刊发与回声计划', 'fa-envelope', 7, (SELECT `id` FROM `portal_category` WHERE `slug` = 'prose' AND `parent_id` = 0), '0', 1, 'category', NULL, 0, 'admin';
-INSERT INTO `portal_category` (`name`, `slug`, `description`, `icon`, `sort`, `parent_id`, `status`, `show_in_nav`, `nav_route_type`, `nav_route_path`, `requires_auth`, `create_by`) select '技术栈手册', 'tech-stack', 'Java/SpringBoot、React/Vue、Flutter/UniApp', 'fa-book-open', 1, (SELECT `id` FROM `portal_category` WHERE `slug` = 'tech-notes' AND `parent_id` = 0), '0', 1, 'category', NULL, 0, 'admin';
-INSERT INTO `portal_category` (`name`, `slug`, `description`, `icon`, `sort`, `parent_id`, `status`, `show_in_nav`, `nav_route_type`, `nav_route_path`, `requires_auth`, `create_by`) select '架构札记', 'architecture', '微服务、缓存策略、分布式事务', 'fa-project-diagram', 2, (SELECT `id` FROM `portal_category` WHERE `slug` = 'tech-notes' AND `parent_id` = 0), '0', 1, 'category', NULL, 0, 'admin';
-INSERT INTO `portal_category` (`name`, `slug`, `description`, `icon`, `sort`, `parent_id`, `status`, `show_in_nav`, `nav_route_type`, `nav_route_path`, `requires_auth`, `create_by`) select '性能日志', 'performance', 'SQL优化、前端加载、JVM调优', 'fa-tachometer-alt', 3, (SELECT `id` FROM `portal_category` WHERE `slug` = 'tech-notes' AND `parent_id` = 0), '0', 1, 'category', NULL, 0, 'admin';
-INSERT INTO `portal_category` (`name`, `slug`, `description`, `icon`, `sort`, `parent_id`, `status`, `show_in_nav`, `nav_route_type`, `nav_route_path`, `requires_auth`, `create_by`) select 'AI编程', 'ai-coding', 'Cursor使用、ChatGPT提示工程、AI排错记录', 'fa-robot', 4, (SELECT `id` FROM `portal_category` WHERE `slug` = 'tech-notes' AND `parent_id` = 0), '0', 1, 'category', NULL, 0, 'admin';
-INSERT INTO `portal_category` (`name`, `slug`, `description`, `icon`, `sort`, `parent_id`, `status`, `show_in_nav`, `nav_route_type`, `nav_route_path`, `requires_auth`, `create_by`) select '开源日志', 'open-source', 'PR提交、Issue解决、源码阅读', 'fa-code-branch', 5, (SELECT `id` FROM `portal_category` WHERE `slug` = 'tech-notes' AND `parent_id` = 0), '0', 1, 'category', NULL, 0, 'admin';
-INSERT INTO `portal_category` (`name`, `slug`, `description`, `icon`, `sort`, `parent_id`, `status`, `show_in_nav`, `nav_route_type`, `nav_route_path`, `requires_auth`, `create_by`) select '新手入门', 'beginner', '环境配置、第一行代码实录', 'fa-play-circle', 6, (SELECT `id` FROM `portal_category` WHERE `slug` = 'tech-notes' AND `parent_id` = 0), '0', 1, 'category', NULL, 0, 'admin';
-INSERT INTO `portal_category` (`name`, `slug`, `description`, `icon`, `sort`, `parent_id`, `status`, `show_in_nav`, `nav_route_type`, `nav_route_path`, `requires_auth`, `create_by`) select '读书首页', 'reading-home', '读书空间总入口', 'fa-book-reader', 1, (SELECT `id` FROM `portal_category` WHERE `slug` = 'reading' AND `parent_id` = 0), '0', 1, 'static', '/reading', 0, 'admin';
-INSERT INTO `portal_category` (`name`, `slug`, `description`, `icon`, `sort`, `parent_id`, `status`, `show_in_nav`, `nav_route_type`, `nav_route_path`, `requires_auth`, `create_by`) select '发现好书', 'reading-discover', '发现好书、书单推荐', 'fa-list', 2, (SELECT `id` FROM `portal_category` WHERE `slug` = 'reading' AND `parent_id` = 0), '0', 1, 'static', '/reading/discover', 0, 'admin';
-INSERT INTO `portal_category` (`name`, `slug`, `description`, `icon`, `sort`, `parent_id`, `status`, `show_in_nav`, `nav_route_type`, `nav_route_path`, `requires_auth`, `create_by`) select '金句摘录', 'reading-quotes', '高光语句+个人批注', 'fa-quote-left', 3, (SELECT `id` FROM `portal_category` WHERE `slug` = 'reading' AND `parent_id` = 0), '0', 1, 'static', '/reading/quotes', 0, 'admin';
-INSERT INTO `portal_category` (`name`, `slug`, `description`, `icon`, `sort`, `parent_id`, `status`, `show_in_nav`, `nav_route_type`, `nav_route_path`, `requires_auth`, `create_by`) select '我的书架', 'reading-bookshelf', '个人书架管理', 'fa-bookmark', 4, (SELECT `id` FROM `portal_category` WHERE `slug` = 'reading' AND `parent_id` = 0), '0', 1, 'static', '/reading/bookshelf', 1, 'admin';
-INSERT INTO `portal_category` (`name`, `slug`, `description`, `icon`, `sort`, `parent_id`, `status`, `show_in_nav`, `nav_route_type`, `nav_route_path`, `requires_auth`, `create_by`) select '面试题库', 'interview-questions', '算法题、系统设计、行为面试', 'fa-clipboard-list', 1, (SELECT `id` FROM `portal_category` WHERE `slug` = 'interview' AND `parent_id` = 0), '0', 1, 'static', '/interview/questions', 0, 'admin';
-INSERT INTO `portal_category` (`name`, `slug`, `description`, `icon`, `sort`, `parent_id`, `status`, `show_in_nav`, `nav_route_type`, `nav_route_path`, `requires_auth`, `create_by`) select '面试经验', 'interview-experiences', '大厂面试全流程还原', 'fa-chart-line', 2, (SELECT `id` FROM `portal_category` WHERE `slug` = 'interview' AND `parent_id` = 0), '0', 1, 'static', '/interview/experiences', 0, 'admin';
-INSERT INTO `portal_category` (`name`, `slug`, `description`, `icon`, `sort`, `parent_id`, `status`, `show_in_nav`, `nav_route_type`, `nav_route_path`, `requires_auth`, `create_by`) select '简历模板', 'interview-resume-templates', '技术亮点提炼、项目描述技巧', 'fa-file-alt', 3, (SELECT `id` FROM `portal_category` WHERE `slug` = 'interview' AND `parent_id` = 0), '0', 1, 'static', '/interview/resume-templates', 0, 'admin';
-INSERT INTO `portal_category` (`name`, `slug`, `description`, `icon`, `sort`, `parent_id`, `status`, `show_in_nav`, `nav_route_type`, `nav_route_path`, `requires_auth`, `create_by`) select 'AI 模拟面试', 'interview-mock', '自测题集、答题思路拆解', 'fa-microphone', 4, (SELECT `id` FROM `portal_category` WHERE `slug` = 'interview' AND `parent_id` = 0), '0', 1, 'static', '/interview/mock', 1, 'admin';
-INSERT INTO `portal_category` (`name`, `slug`, `description`, `icon`, `sort`, `parent_id`, `status`, `show_in_nav`, `nav_route_type`, `nav_route_path`, `requires_auth`, `create_by`) select '学习中心', 'learn-center', '学习中心总入口', 'fa-graduation-cap', 5, (SELECT `id` FROM `portal_category` WHERE `slug` = 'interview' AND `parent_id` = 0), '0', 1, 'static', '/learn', 0, 'admin';
-INSERT INTO `portal_category` (`name`, `slug`, `description`, `icon`, `sort`, `parent_id`, `status`, `show_in_nav`, `nav_route_type`, `nav_route_path`, `requires_auth`, `create_by`) select '知识图谱', 'learn-knowledge', '知识体系可视化', 'fa-project-diagram', 6, (SELECT `id` FROM `portal_category` WHERE `slug` = 'interview' AND `parent_id` = 0), '0', 1, 'static', '/learn/knowledge', 0, 'admin';
-INSERT INTO `portal_category` (`name`, `slug`, `description`, `icon`, `sort`, `parent_id`, `status`, `show_in_nav`, `nav_route_type`, `nav_route_path`, `requires_auth`, `create_by`) select '刷题排行榜', 'learn-leaderboard', '刷题榜、学习榜', 'fa-trophy', 7, (SELECT `id` FROM `portal_category` WHERE `slug` = 'interview' AND `parent_id` = 0), '0', 1, 'static', '/learn/leaderboard', 0, 'admin';
-INSERT INTO `portal_category` (`name`, `slug`, `description`, `icon`, `sort`, `parent_id`, `status`, `show_in_nav`, `nav_route_type`, `nav_route_path`, `requires_auth`, `create_by`) select '学习计划', 'learn-plan', '个人学习计划管理', 'fa-calendar-alt', 8, (SELECT `id` FROM `portal_category` WHERE `slug` = 'interview' AND `parent_id` = 0), '0', 1, 'static', '/learn/plan', 1, 'admin';
-INSERT INTO `portal_category` (`name`, `slug`, `description`, `icon`, `sort`, `parent_id`, `status`, `show_in_nav`, `nav_route_type`, `nav_route_path`, `requires_auth`, `create_by`) select '错题本', 'learn-wrong', '错题归集与复习', 'fa-times-circle', 9, (SELECT `id` FROM `portal_category` WHERE `slug` = 'interview' AND `parent_id` = 0), '0', 1, 'static', '/learn/wrong', 1, 'admin';
-INSERT INTO `portal_category` (`name`, `slug`, `description`, `icon`, `sort`, `parent_id`, `status`, `show_in_nav`, `nav_route_type`, `nav_route_path`, `requires_auth`, `create_by`) select '刷题日历', 'learn-calendar', '刷题打卡日历', 'fa-calendar-check', 10, (SELECT `id` FROM `portal_category` WHERE `slug` = 'interview' AND `parent_id` = 0), '0', 1, 'static', '/learn/calendar', 1, 'admin';
-INSERT INTO `portal_category` (`name`, `slug`, `description`, `icon`, `sort`, `parent_id`, `status`, `show_in_nav`, `nav_route_type`, `nav_route_path`, `requires_auth`, `create_by`) select '话题广场', 'topics', '话题讨论列表', 'fa-comments', 1, (SELECT `id` FROM `portal_category` WHERE `slug` = 'interaction' AND `parent_id` = 0), '0', 1, 'static', '/topics', 0, 'admin';
-INSERT INTO `portal_category` (`name`, `slug`, `description`, `icon`, `sort`, `parent_id`, `status`, `show_in_nav`, `nav_route_type`, `nav_route_path`, `requires_auth`, `create_by`) select '动态广场', 'feed', '用户动态流', 'fa-stream', 2, (SELECT `id` FROM `portal_category` WHERE `slug` = 'interaction' AND `parent_id` = 0), '0', 1, 'static', '/feed', 0, 'admin';
-INSERT INTO `portal_category` (`name`, `slug`, `description`, `icon`, `sort`, `parent_id`, `status`, `show_in_nav`, `nav_route_type`, `nav_route_path`, `requires_auth`, `create_by`) select '发布文章', 'publish', '发布新文章', 'fa-edit', 1, (SELECT `id` FROM `portal_category` WHERE `slug` = 'creator' AND `parent_id` = 0), '0', 1, 'static', '/publish', 1, 'admin';
-INSERT INTO `portal_category` (`name`, `slug`, `description`, `icon`, `sort`, `parent_id`, `status`, `show_in_nav`, `nav_route_type`, `nav_route_path`, `requires_auth`, `create_by`) select '专栏广场', 'columns', '专栏列表与订阅', 'fa-columns', 2, (SELECT `id` FROM `portal_category` WHERE `slug` = 'creator' AND `parent_id` = 0), '0', 1, 'static', '/columns', 0, 'admin';
-INSERT INTO `portal_category` (`name`, `slug`, `description`, `icon`, `sort`, `parent_id`, `status`, `show_in_nav`, `nav_route_type`, `nav_route_path`, `requires_auth`, `create_by`) select '征文活动', 'contests', '征文活动、技术挑战赛', 'fa-file-upload', 3, (SELECT `id` FROM `portal_category` WHERE `slug` = 'creator' AND `parent_id` = 0), '0', 1, 'static', '/contests', 0, 'admin';
-INSERT INTO `portal_category` (`name`, `slug`, `description`, `icon`, `sort`, `parent_id`, `status`, `show_in_nav`, `nav_route_type`, `nav_route_path`, `requires_auth`, `create_by`) select '创作者认证', 'creator-certification', '申请创作者认证', 'fa-certificate', 4, (SELECT `id` FROM `portal_category` WHERE `slug` = 'creator' AND `parent_id` = 0), '0', 1, 'static', '/creator/certification', 1, 'admin';
-INSERT INTO `portal_category` (`name`, `slug`, `description`, `icon`, `sort`, `parent_id`, `status`, `show_in_nav`, `nav_route_type`, `nav_route_path`, `requires_auth`, `create_by`) select '创作者列表', 'authors', '认证创作者列表', 'fa-users-cog', 5, (SELECT `id` FROM `portal_category` WHERE `slug` = 'creator' AND `parent_id` = 0), '0', 1, 'static', '/authors', 0, 'admin';
-INSERT INTO `portal_category` (`name`, `slug`, `description`, `icon`, `sort`, `parent_id`, `status`, `show_in_nav`, `nav_route_type`, `nav_route_path`, `requires_auth`, `create_by`) select '成长排行榜', 'ranking', '成长值排行榜', 'fa-trophy', 6, (SELECT `id` FROM `portal_category` WHERE `slug` = 'creator' AND `parent_id` = 0), '0', 1, 'static', '/ranking', 0, 'admin';
-INSERT INTO `portal_category` (`name`, `slug`, `description`, `icon`, `sort`, `parent_id`, `status`, `show_in_nav`, `nav_route_type`, `nav_route_path`, `requires_auth`, `create_by`) select '个人中心', 'user', '个人中心主页', 'fa-user-circle', 1, (SELECT `id` FROM `portal_category` WHERE `slug` = 'mine' AND `parent_id` = 0), '0', 1, 'static', '/user', 1, 'admin';
-INSERT INTO `portal_category` (`name`, `slug`, `description`, `icon`, `sort`, `parent_id`, `status`, `show_in_nav`, `nav_route_type`, `nav_route_path`, `requires_auth`, `create_by`) select '成长时间线', 'growth-timeline', '成长记录时间线', 'fa-chart-line', 2, (SELECT `id` FROM `portal_category` WHERE `slug` = 'mine' AND `parent_id` = 0), '0', 1, 'static', '/growth/timeline', 1, 'admin';
-INSERT INTO `portal_category` (`name`, `slug`, `description`, `icon`, `sort`, `parent_id`, `status`, `show_in_nav`, `nav_route_type`, `nav_route_path`, `requires_auth`, `create_by`) select '我的专栏', 'column-my', '我创建的专栏', 'fa-columns', 3, (SELECT `id` FROM `portal_category` WHERE `slug` = 'mine' AND `parent_id` = 0), '0', 1, 'static', '/column/my', 1, 'admin';
-INSERT INTO `portal_category` (`name`, `slug`, `description`, `icon`, `sort`, `parent_id`, `status`, `show_in_nav`, `nav_route_type`, `nav_route_path`, `requires_auth`, `create_by`) select '我的文章', 'my-articles', '我发布的文章', 'fa-file-alt', 4, (SELECT `id` FROM `portal_category` WHERE `slug` = 'mine' AND `parent_id` = 0), '0', 1, 'static', '/my/articles', 1, 'admin';
-INSERT INTO `portal_category` (`name`, `slug`, `description`, `icon`, `sort`, `parent_id`, `status`, `show_in_nav`, `nav_route_type`, `nav_route_path`, `requires_auth`, `create_by`) select '我的话题', 'topic-my-topics', '我发起的话题', 'fa-comments', 5, (SELECT `id` FROM `portal_category` WHERE `slug` = 'mine' AND `parent_id` = 0), '0', 1, 'static', '/topic/my/topics', 1, 'admin';
-INSERT INTO `portal_category` (`name`, `slug`, `description`, `icon`, `sort`, `parent_id`, `status`, `show_in_nav`, `nav_route_type`, `nav_route_path`, `requires_auth`, `create_by`) select '我的观点', 'topic-my-posts', '我发表的观点', 'fa-comment', 6, (SELECT `id` FROM `portal_category` WHERE `slug` = 'mine' AND `parent_id` = 0), '0', 1, 'static', '/topic/my/posts', 1, 'admin';
-INSERT INTO `portal_category` (`name`, `slug`, `description`, `icon`, `sort`, `parent_id`, `status`, `show_in_nav`, `nav_route_type`, `nav_route_path`, `requires_auth`, `create_by`) select '我的成就', 'achievements', '我的成就与徽章', 'fa-award', 7, (SELECT `id` FROM `portal_category` WHERE `slug` = 'mine' AND `parent_id` = 0), '0', 1, 'static', '/achievements', 1, 'admin';
+-- =============================================================
+-- 二级栏目：面试专区（3 项，均为 special）
+-- =============================================================
+INSERT INTO `portal_category` (`name`, `slug`, `description`, `icon`, `sort`, `parent_id`, `status`, `show_in_nav`, `nav_route_type`, `nav_route_path`, `category_type`, `requires_auth`, `nav_badge`, `create_by`) SELECT 'AI 语音面试官', 'interview-voice', 'AI 语音面试官，真实面试场景模拟', 'fa-microphone', 1, (SELECT `id` FROM `portal_category` WHERE `slug` = 'interview' AND `parent_id` = 0), '0', 1, 'static', '/interview/voice', 'special', 1, 'NEW', 'admin';
+INSERT INTO `portal_category` (`name`, `slug`, `description`, `icon`, `sort`, `parent_id`, `status`, `show_in_nav`, `nav_route_type`, `nav_route_path`, `category_type`, `requires_auth`, `nav_badge`, `create_by`) SELECT '面试经验', 'interview-experiences', '大厂面试全流程还原', 'fa-chart-line', 2, (SELECT `id` FROM `portal_category` WHERE `slug` = 'interview' AND `parent_id` = 0), '0', 1, 'static', '/interview/experiences', 'special', 0, NULL, 'admin';
+INSERT INTO `portal_category` (`name`, `slug`, `description`, `icon`, `sort`, `parent_id`, `status`, `show_in_nav`, `nav_route_type`, `nav_route_path`, `category_type`, `requires_auth`, `nav_badge`, `create_by`) SELECT '简历模板', 'interview-resume-templates', '技术亮点提炼、项目描述技巧', 'fa-file-alt', 3, (SELECT `id` FROM `portal_category` WHERE `slug` = 'interview' AND `parent_id` = 0), '0', 1, 'static', '/interview/resume-templates', 'special', 0, NULL, 'admin';
+
+-- =============================================================
+-- 二级栏目：学习中心（7 项）
+-- 刷题中心=directory（目录容器，下面有选择题/编程题）
+-- 其余=special（静态页面）
+-- =============================================================
+INSERT INTO `portal_category` (`name`, `slug`, `description`, `icon`, `sort`, `parent_id`, `status`, `show_in_nav`, `nav_route_type`, `nav_route_path`, `category_type`, `requires_auth`, `nav_badge`, `create_by`) SELECT '面试题库', 'learn-questions', '算法题、系统设计、行为面试', 'fa-clipboard-list', 1, (SELECT `id` FROM `portal_category` WHERE `slug` = 'learn' AND `parent_id` = 0), '0', 1, 'static', '/learn/questions', 'special', 0, NULL, 'admin';
+INSERT INTO `portal_category` (`name`, `slug`, `description`, `icon`, `sort`, `parent_id`, `status`, `show_in_nav`, `nav_route_type`, `nav_route_path`, `category_type`, `requires_auth`, `nav_badge`, `create_by`) SELECT '刷题中心', 'learn-practice', '在线编程、选择题练习', 'fa-laptop-code', 2, (SELECT `id` FROM `portal_category` WHERE `slug` = 'learn' AND `parent_id` = 0), '0', 1, 'static', '/learn/practice', 'directory', 0, 'HOT', 'admin';
+INSERT INTO `portal_category` (`name`, `slug`, `description`, `icon`, `sort`, `parent_id`, `status`, `show_in_nav`, `nav_route_type`, `nav_route_path`, `category_type`, `requires_auth`, `nav_badge`, `create_by`) SELECT '错题本', 'learn-wrong', '错题归集与复习', 'fa-times-circle', 3, (SELECT `id` FROM `portal_category` WHERE `slug` = 'learn' AND `parent_id` = 0), '0', 1, 'static', '/learn/wrong', 'special', 1, NULL, 'admin';
+INSERT INTO `portal_category` (`name`, `slug`, `description`, `icon`, `sort`, `parent_id`, `status`, `show_in_nav`, `nav_route_type`, `nav_route_path`, `category_type`, `requires_auth`, `nav_badge`, `create_by`) SELECT '知识图谱', 'learn-knowledge', '知识体系可视化', 'fa-project-diagram', 4, (SELECT `id` FROM `portal_category` WHERE `slug` = 'learn' AND `parent_id` = 0), '0', 1, 'static', '/learn/knowledge', 'special', 0, NULL, 'admin';
+INSERT INTO `portal_category` (`name`, `slug`, `description`, `icon`, `sort`, `parent_id`, `status`, `show_in_nav`, `nav_route_type`, `nav_route_path`, `category_type`, `requires_auth`, `nav_badge`, `create_by`) SELECT '刷题排行榜', 'learn-leaderboard', '刷题榜、学习榜', 'fa-trophy', 5, (SELECT `id` FROM `portal_category` WHERE `slug` = 'learn' AND `parent_id` = 0), '0', 1, 'static', '/learn/leaderboard', 'special', 0, NULL, 'admin';
+INSERT INTO `portal_category` (`name`, `slug`, `description`, `icon`, `sort`, `parent_id`, `status`, `show_in_nav`, `nav_route_type`, `nav_route_path`, `category_type`, `requires_auth`, `nav_badge`, `create_by`) SELECT '刷题日历', 'learn-calendar', '刷题打卡日历', 'fa-calendar-check', 6, (SELECT `id` FROM `portal_category` WHERE `slug` = 'learn' AND `parent_id` = 0), '0', 1, 'static', '/learn/calendar', 'special', 1, NULL, 'admin';
+INSERT INTO `portal_category` (`name`, `slug`, `description`, `icon`, `sort`, `parent_id`, `status`, `show_in_nav`, `nav_route_type`, `nav_route_path`, `category_type`, `requires_auth`, `nav_badge`, `create_by`) SELECT '学习计划', 'learn-plan', '个人学习计划管理', 'fa-calendar-alt', 7, (SELECT `id` FROM `portal_category` WHERE `slug` = 'learn' AND `parent_id` = 0), '0', 1, 'static', '/learn/plan', 'special', 1, NULL, 'admin';
+
+-- 三级栏目：刷题中心（2 项，均为 special）
+INSERT INTO `portal_category` (`name`, `slug`, `description`, `icon`, `sort`, `parent_id`, `status`, `show_in_nav`, `nav_route_type`, `nav_route_path`, `category_type`, `requires_auth`, `nav_badge`, `create_by`) SELECT '选择题', 'learn-practice-choice', '选择题在线练习', 'fa-check-square', 1, (SELECT `id` FROM `portal_category` WHERE `slug` = 'learn-practice' AND `parent_id` != 0), '0', 1, 'static', '/learn/practice/choice', 'special', 0, NULL, 'admin';
+INSERT INTO `portal_category` (`name`, `slug`, `description`, `icon`, `sort`, `parent_id`, `status`, `show_in_nav`, `nav_route_type`, `nav_route_path`, `category_type`, `requires_auth`, `nav_badge`, `create_by`) SELECT '编程题', 'learn-practice-coding', '编程题在线练习', 'fa-code', 2, (SELECT `id` FROM `portal_category` WHERE `slug` = 'learn-practice' AND `parent_id` != 0), '0', 1, 'static', '/learn/practice/coding', 'special', 0, NULL, 'admin';
+
+-- =============================================================
+-- 二级栏目：阅读空间（4 项：2 目录容器 directory + 2 静态 special）
+-- 散文天地/技术笔记=directory（目录容器，下面有子分类，本身不发布文章）
+-- 读书空间=directory（目录容器，下面有静态子项）
+-- 金句摘录=special（静态页面）
+-- =============================================================
+-- 散文天地（目录容器，跳转到 /category/prose 展示子分类文章）
+INSERT INTO `portal_category` (`name`, `slug`, `description`, `icon`, `sort`, `parent_id`, `status`, `show_in_nav`, `nav_route_type`, `nav_route_path`, `category_type`, `requires_auth`, `nav_badge`, `create_by`) SELECT '散文天地', 'prose', '人文书写与情感表达', 'fa-pen-fancy', 1, (SELECT `id` FROM `portal_category` WHERE `slug` = 'reading' AND `parent_id` = 0), '0', 1, 'category', '/category/prose', 'directory', 0, NULL, 'admin';
+-- 技术笔记（目录容器，跳转到 /category/tech-notes 展示子分类文章）
+INSERT INTO `portal_category` (`name`, `slug`, `description`, `icon`, `sort`, `parent_id`, `status`, `show_in_nav`, `nav_route_type`, `nav_route_path`, `category_type`, `requires_auth`, `nav_badge`, `create_by`) SELECT '技术笔记', 'tech-notes', '开发记录、技术解析、AI编程实践', 'fa-code', 2, (SELECT `id` FROM `portal_category` WHERE `slug` = 'reading' AND `parent_id` = 0), '0', 1, 'category', '/category/tech-notes', 'directory', 0, NULL, 'admin';
+-- 读书空间（目录容器，跳转到聚合页）
+INSERT INTO `portal_category` (`name`, `slug`, `description`, `icon`, `sort`, `parent_id`, `status`, `show_in_nav`, `nav_route_type`, `nav_route_path`, `category_type`, `requires_auth`, `nav_badge`, `create_by`) SELECT '读书空间', 'reading-space', '发现好书、我的书架、金句摘录', 'fa-book-reader', 3, (SELECT `id` FROM `portal_category` WHERE `slug` = 'reading' AND `parent_id` = 0), '0', 1, 'static', '/reading/space', 'directory', 0, NULL, 'admin';
+-- 金句摘录（跨分区精选，静态页）
+INSERT INTO `portal_category` (`name`, `slug`, `description`, `icon`, `sort`, `parent_id`, `status`, `show_in_nav`, `nav_route_type`, `nav_route_path`, `category_type`, `requires_auth`, `nav_badge`, `create_by`) SELECT '金句摘录', 'reading-quotes', '跨分区高光语句精选', 'fa-quote-left', 4, (SELECT `id` FROM `portal_category` WHERE `slug` = 'reading' AND `parent_id` = 0), '0', 1, 'static', '/reading/quotes', 'special', 0, NULL, 'admin';
+
+-- 三级栏目：散文天地（7 项，article 类型，可发布文章，路由统一为 /category/{slug}）
+INSERT INTO `portal_category` (`name`, `slug`, `description`, `icon`, `sort`, `parent_id`, `status`, `show_in_nav`, `nav_route_type`, `nav_route_path`, `category_type`, `requires_auth`, `nav_badge`, `create_by`) SELECT '人间烟火', 'life-stories', '饮食、市井、生活琐记', 'fa-utensils', 1, (SELECT `id` FROM `portal_category` WHERE `slug` = 'prose' AND `parent_id` != 0), '0', 1, 'category', '/category/life-stories', 'article', 0, NULL, 'admin';
+INSERT INTO `portal_category` (`name`, `slug`, `description`, `icon`, `sort`, `parent_id`, `status`, `show_in_nav`, `nav_route_type`, `nav_route_path`, `category_type`, `requires_auth`, `nav_badge`, `create_by`) SELECT '山河行吟', 'travel-nature', '游记、自然书写、生态散文', 'fa-mountain', 2, (SELECT `id` FROM `portal_category` WHERE `slug` = 'prose' AND `parent_id` != 0), '0', 1, 'category', '/category/travel-nature', 'article', 0, NULL, 'admin';
+INSERT INTO `portal_category` (`name`, `slug`, `description`, `icon`, `sort`, `parent_id`, `status`, `show_in_nav`, `nav_route_type`, `nav_route_path`, `category_type`, `requires_auth`, `nav_badge`, `create_by`) SELECT '心灵独白', 'inner-thoughts', '孤独、成长、疗愈随笔', 'fa-heart', 3, (SELECT `id` FROM `portal_category` WHERE `slug` = 'prose' AND `parent_id` != 0), '0', 1, 'category', '/category/inner-thoughts', 'article', 0, NULL, 'admin';
+INSERT INTO `portal_category` (`name`, `slug`, `description`, `icon`, `sort`, `parent_id`, `status`, `show_in_nav`, `nav_route_type`, `nav_route_path`, `category_type`, `requires_auth`, `nav_badge`, `create_by`) SELECT '城市笔记', 'city-notes', '北上广深、小镇观察', 'fa-city', 4, (SELECT `id` FROM `portal_category` WHERE `slug` = 'prose' AND `parent_id` != 0), '0', 1, 'category', '/category/city-notes', 'article', 0, NULL, 'admin';
+INSERT INTO `portal_category` (`name`, `slug`, `description`, `icon`, `sort`, `parent_id`, `status`, `show_in_nav`, `nav_route_type`, `nav_route_path`, `category_type`, `requires_auth`, `nav_badge`, `create_by`) SELECT '四季专栏', 'seasons', '春之思、夏之躁、秋之静、冬之藏', 'fa-leaf', 5, (SELECT `id` FROM `portal_category` WHERE `slug` = 'prose' AND `parent_id` != 0), '0', 1, 'category', '/category/seasons', 'article', 0, NULL, 'admin';
+INSERT INTO `portal_category` (`name`, `slug`, `description`, `icon`, `sort`, `parent_id`, `status`, `show_in_nav`, `nav_route_type`, `nav_route_path`, `category_type`, `requires_auth`, `nav_badge`, `create_by`) SELECT '声音散文', 'audio-prose', '作者自读、背景音效沉浸体验', 'fa-volume-up', 6, (SELECT `id` FROM `portal_category` WHERE `slug` = 'prose' AND `parent_id` != 0), '0', 1, 'category', '/category/audio-prose', 'article', 0, NULL, 'admin';
+INSERT INTO `portal_category` (`name`, `slug`, `description`, `icon`, `sort`, `parent_id`, `status`, `show_in_nav`, `nav_route_type`, `nav_route_path`, `category_type`, `requires_auth`, `nav_badge`, `create_by`) SELECT '读者来信', 'reader-letters', '短篇心声刊发与回声计划', 'fa-envelope', 7, (SELECT `id` FROM `portal_category` WHERE `slug` = 'prose' AND `parent_id` != 0), '0', 1, 'category', '/category/reader-letters', 'article', 0, NULL, 'admin';
+
+-- 三级栏目：技术笔记（6 项，article 类型，可发布文章，路由统一为 /category/{slug}）
+INSERT INTO `portal_category` (`name`, `slug`, `description`, `icon`, `sort`, `parent_id`, `status`, `show_in_nav`, `nav_route_type`, `nav_route_path`, `category_type`, `requires_auth`, `nav_badge`, `create_by`) SELECT '技术栈手册', 'tech-stack', 'Java/SpringBoot、React/Vue、Flutter/UniApp', 'fa-book-open', 1, (SELECT `id` FROM `portal_category` WHERE `slug` = 'tech-notes' AND `parent_id` != 0), '0', 1, 'category', '/category/tech-stack', 'article', 0, NULL, 'admin';
+INSERT INTO `portal_category` (`name`, `slug`, `description`, `icon`, `sort`, `parent_id`, `status`, `show_in_nav`, `nav_route_type`, `nav_route_path`, `category_type`, `requires_auth`, `nav_badge`, `create_by`) SELECT '架构札记', 'architecture', '微服务、缓存策略、分布式事务', 'fa-project-diagram', 2, (SELECT `id` FROM `portal_category` WHERE `slug` = 'tech-notes' AND `parent_id` != 0), '0', 1, 'category', '/category/architecture', 'article', 0, NULL, 'admin';
+INSERT INTO `portal_category` (`name`, `slug`, `description`, `icon`, `sort`, `parent_id`, `status`, `show_in_nav`, `nav_route_type`, `nav_route_path`, `category_type`, `requires_auth`, `nav_badge`, `create_by`) SELECT '性能日志', 'performance', 'SQL优化、前端加载、JVM调优', 'fa-tachometer-alt', 3, (SELECT `id` FROM `portal_category` WHERE `slug` = 'tech-notes' AND `parent_id` != 0), '0', 1, 'category', '/category/performance', 'article', 0, NULL, 'admin';
+INSERT INTO `portal_category` (`name`, `slug`, `description`, `icon`, `sort`, `parent_id`, `status`, `show_in_nav`, `nav_route_type`, `nav_route_path`, `category_type`, `requires_auth`, `nav_badge`, `create_by`) SELECT 'AI编程', 'ai-coding', 'Cursor使用、ChatGPT提示工程、AI排错记录', 'fa-robot', 4, (SELECT `id` FROM `portal_category` WHERE `slug` = 'tech-notes' AND `parent_id` != 0), '0', 1, 'category', '/category/ai-coding', 'article', 0, NULL, 'admin';
+INSERT INTO `portal_category` (`name`, `slug`, `description`, `icon`, `sort`, `parent_id`, `status`, `show_in_nav`, `nav_route_type`, `nav_route_path`, `category_type`, `requires_auth`, `nav_badge`, `create_by`) SELECT '开源日志', 'open-source', 'PR提交、Issue解决、源码阅读', 'fa-code-branch', 5, (SELECT `id` FROM `portal_category` WHERE `slug` = 'tech-notes' AND `parent_id` != 0), '0', 1, 'category', '/category/open-source', 'article', 0, NULL, 'admin';
+INSERT INTO `portal_category` (`name`, `slug`, `description`, `icon`, `sort`, `parent_id`, `status`, `show_in_nav`, `nav_route_type`, `nav_route_path`, `category_type`, `requires_auth`, `nav_badge`, `create_by`) SELECT '新手入门', 'beginner', '环境配置、第一行代码实录', 'fa-play-circle', 6, (SELECT `id` FROM `portal_category` WHERE `slug` = 'tech-notes' AND `parent_id` != 0), '0', 1, 'category', '/category/beginner', 'article', 0, NULL, 'admin';
+
+-- 三级栏目：读书空间（3 项，静态页面 special）
+INSERT INTO `portal_category` (`name`, `slug`, `description`, `icon`, `sort`, `parent_id`, `status`, `show_in_nav`, `nav_route_type`, `nav_route_path`, `category_type`, `requires_auth`, `nav_badge`, `create_by`) SELECT '发现好书', 'reading-discover', '发现好书、书单推荐', 'fa-list', 1, (SELECT `id` FROM `portal_category` WHERE `slug` = 'reading-space' AND `parent_id` != 0), '0', 1, 'static', '/reading/discover', 'special', 0, NULL, 'admin';
+INSERT INTO `portal_category` (`name`, `slug`, `description`, `icon`, `sort`, `parent_id`, `status`, `show_in_nav`, `nav_route_type`, `nav_route_path`, `category_type`, `requires_auth`, `nav_badge`, `create_by`) SELECT '我的书架', 'reading-bookshelf', '个人书架管理', 'fa-bookmark', 2, (SELECT `id` FROM `portal_category` WHERE `slug` = 'reading-space' AND `parent_id` != 0), '0', 1, 'static', '/reading/bookshelf', 'special', 1, NULL, 'admin';
+INSERT INTO `portal_category` (`name`, `slug`, `description`, `icon`, `sort`, `parent_id`, `status`, `show_in_nav`, `nav_route_type`, `nav_route_path`, `category_type`, `requires_auth`, `nav_badge`, `create_by`) SELECT '金句摘录', 'reading-space-quotes', '读书空间内的金句摘录', 'fa-quote-left', 3, (SELECT `id` FROM `portal_category` WHERE `slug` = 'reading-space' AND `parent_id` != 0), '0', 1, 'static', '/reading/space/quotes', 'special', 0, NULL, 'admin';
+
+-- =============================================================
+-- 二级栏目：创作互动（6 项，均为 special）
+-- =============================================================
+INSERT INTO `portal_category` (`name`, `slug`, `description`, `icon`, `sort`, `parent_id`, `status`, `show_in_nav`, `nav_route_type`, `nav_route_path`, `category_type`, `requires_auth`, `nav_badge`, `create_by`) SELECT '话题广场', 'topics', '话题讨论列表', 'fa-comments', 1, (SELECT `id` FROM `portal_category` WHERE `slug` = 'creation' AND `parent_id` = 0), '0', 1, 'static', '/topics', 'special', 0, NULL, 'admin';
+INSERT INTO `portal_category` (`name`, `slug`, `description`, `icon`, `sort`, `parent_id`, `status`, `show_in_nav`, `nav_route_type`, `nav_route_path`, `category_type`, `requires_auth`, `nav_badge`, `create_by`) SELECT '动态广场', 'feed', '用户动态流', 'fa-stream', 2, (SELECT `id` FROM `portal_category` WHERE `slug` = 'creation' AND `parent_id` = 0), '0', 1, 'static', '/feed', 'special', 0, NULL, 'admin';
+INSERT INTO `portal_category` (`name`, `slug`, `description`, `icon`, `sort`, `parent_id`, `status`, `show_in_nav`, `nav_route_type`, `nav_route_path`, `category_type`, `requires_auth`, `nav_badge`, `create_by`) SELECT '专栏广场', 'columns', '专栏列表与订阅', 'fa-columns', 3, (SELECT `id` FROM `portal_category` WHERE `slug` = 'creation' AND `parent_id` = 0), '0', 1, 'static', '/columns', 'special', 0, NULL, 'admin';
+INSERT INTO `portal_category` (`name`, `slug`, `description`, `icon`, `sort`, `parent_id`, `status`, `show_in_nav`, `nav_route_type`, `nav_route_path`, `category_type`, `requires_auth`, `nav_badge`, `create_by`) SELECT '征文活动', 'contests', '征文活动、技术挑战赛', 'fa-file-upload', 4, (SELECT `id` FROM `portal_category` WHERE `slug` = 'creation' AND `parent_id` = 0), '0', 1, 'static', '/contests', 'special', 0, NULL, 'admin';
+INSERT INTO `portal_category` (`name`, `slug`, `description`, `icon`, `sort`, `parent_id`, `status`, `show_in_nav`, `nav_route_type`, `nav_route_path`, `category_type`, `requires_auth`, `nav_badge`, `create_by`) SELECT '发布文章', 'publish', '发布新文章（快捷入口）', 'fa-edit', 5, (SELECT `id` FROM `portal_category` WHERE `slug` = 'creation' AND `parent_id` = 0), '0', 1, 'static', '/publish', 'special', 1, NULL, 'admin';
+INSERT INTO `portal_category` (`name`, `slug`, `description`, `icon`, `sort`, `parent_id`, `status`, `show_in_nav`, `nav_route_type`, `nav_route_path`, `category_type`, `requires_auth`, `nav_badge`, `create_by`) SELECT '成长排行榜', 'ranking', '成长值排行榜', 'fa-trophy', 6, (SELECT `id` FROM `portal_category` WHERE `slug` = 'creation' AND `parent_id` = 0), '0', 1, 'static', '/ranking', 'special', 0, NULL, 'admin';
+
+-- =============================================================
+-- 二级栏目：我的（6 项，均为 special）
+-- =============================================================
+INSERT INTO `portal_category` (`name`, `slug`, `description`, `icon`, `sort`, `parent_id`, `status`, `show_in_nav`, `nav_route_type`, `nav_route_path`, `category_type`, `requires_auth`, `nav_badge`, `create_by`) SELECT '个人中心', 'user', '个人中心主页', 'fa-user-circle', 1, (SELECT `id` FROM `portal_category` WHERE `slug` = 'mine' AND `parent_id` = 0), '0', 1, 'static', '/user', 'special', 1, NULL, 'admin';
+INSERT INTO `portal_category` (`name`, `slug`, `description`, `icon`, `sort`, `parent_id`, `status`, `show_in_nav`, `nav_route_type`, `nav_route_path`, `category_type`, `requires_auth`, `nav_badge`, `create_by`) SELECT '成长时间线', 'growth-timeline', '成长记录时间线', 'fa-chart-line', 2, (SELECT `id` FROM `portal_category` WHERE `slug` = 'mine' AND `parent_id` = 0), '0', 1, 'static', '/growth/timeline', 'special', 1, NULL, 'admin';
+INSERT INTO `portal_category` (`name`, `slug`, `description`, `icon`, `sort`, `parent_id`, `status`, `show_in_nav`, `nav_route_type`, `nav_route_path`, `category_type`, `requires_auth`, `nav_badge`, `create_by`) SELECT '我的文章', 'my-articles', '我发布的文章', 'fa-file-alt', 3, (SELECT `id` FROM `portal_category` WHERE `slug` = 'mine' AND `parent_id` = 0), '0', 1, 'static', '/my/articles', 'special', 1, NULL, 'admin';
+INSERT INTO `portal_category` (`name`, `slug`, `description`, `icon`, `sort`, `parent_id`, `status`, `show_in_nav`, `nav_route_type`, `nav_route_path`, `category_type`, `requires_auth`, `nav_badge`, `create_by`) SELECT '我的专栏', 'column-my', '我创建的专栏', 'fa-columns', 4, (SELECT `id` FROM `portal_category` WHERE `slug` = 'mine' AND `parent_id` = 0), '0', 1, 'static', '/column/my', 'special', 1, NULL, 'admin';
+INSERT INTO `portal_category` (`name`, `slug`, `description`, `icon`, `sort`, `parent_id`, `status`, `show_in_nav`, `nav_route_type`, `nav_route_path`, `category_type`, `requires_auth`, `nav_badge`, `create_by`) SELECT '我的成就', 'achievements', '我的成就与徽章', 'fa-award', 5, (SELECT `id` FROM `portal_category` WHERE `slug` = 'mine' AND `parent_id` = 0), '0', 1, 'static', '/achievements', 'special', 1, NULL, 'admin';
+INSERT INTO `portal_category` (`name`, `slug`, `description`, `icon`, `sort`, `parent_id`, `status`, `show_in_nav`, `nav_route_type`, `nav_route_path`, `category_type`, `requires_auth`, `nav_badge`, `create_by`) SELECT '我的话题观点', 'topic-my', '我发起的话题与观点', 'fa-comments', 6, (SELECT `id` FROM `portal_category` WHERE `slug` = 'mine' AND `parent_id` = 0), '0', 1, 'static', '/topic/my', 'special', 1, NULL, 'admin';
 
 -- 标签种子数据（28 项：8 人文 + 12 技术 + 8 通用）
 INSERT INTO `portal_tag` (`name`, `slug`, `sort`, `status`, `create_by`, `remark`) VALUES ('生活哲思', 'life-philosophy', 1, '0', 'admin', '人文类');
@@ -9682,6 +9979,287 @@ FROM sys_menu WHERE parent_id = @txn_menu_id
   AND menu_type = 'F';
 
 -- =====================================================================
+-- 六(V10.x)、V10.x 数据合并段（菜单/字典/栏目，幂等 INSERT）
+-- 合并自 upgrade_v8.1~v10.4 脚本的数据部分
+-- =====================================================================
+
+-- -------------------------------------------------------------------
+-- V10.4 后台菜单重组段已废弃
+-- 说明：后台菜单重组逻辑已由 V10.5 段（见本文件末尾）统一处理
+--       V10.5 新增"门户管理"一级菜单作为容器，将内容管理/用户运营/审核中心/
+--       面试管理/学习管理 5 个原一级菜单降级为二级目录，并将系统监控/系统工具/
+--       任务管理/创作者认证 4 个旧一级菜单合并到系统设置下
+-- -------------------------------------------------------------------
+
+-- -------------------------------------------------------------------
+-- V10.4 前台导航栏目重构段已废弃
+-- 说明：portal_category 种子数据已在 V10.5 重写为 6 一级 + 35 二级/三级结构
+--       （见本文件第 6709 行附近），原 V10.4 的栏目创建语句已删除，避免重复
+-- -------------------------------------------------------------------
+
+-- -------------------------------------------------------------------
+-- V9.6 新增 27 类业务字典 + V10.1 语音面试 3 类字典
+-- 字典类型注册（sys_dict_type）
+-- -------------------------------------------------------------------
+INSERT INTO sys_dict_type (dict_name, dict_type, status, create_by, create_time, remark)
+SELECT * FROM (
+  SELECT '支付状态' AS dict_name, 'portal_pay_status' AS dict_type, '0' AS status, 'admin' AS create_by, NOW() AS create_time, 'v9.6 支付状态' AS remark
+  UNION ALL SELECT '支付渠道', 'portal_pay_channel', '0', 'admin', NOW(), 'v9.6 支付渠道'
+  UNION ALL SELECT '打赏目标类型', 'portal_tip_target_type', '0', 'admin', NOW(), 'v9.6 打赏目标类型'
+  UNION ALL SELECT '钱包交易类型', 'portal_wallet_txn_type', '0', 'admin', NOW(), 'v9.6 钱包交易类型'
+  UNION ALL SELECT '文章状态', 'cms_article_status', '0', 'admin', NOW(), 'v9.6 文章状态'
+  UNION ALL SELECT '专栏状态', 'cms_column_status', '0', 'admin', NOW(), 'v9.6 专栏状态'
+  UNION ALL SELECT '话题状态', 'cms_topic_status', '0', 'admin', NOW(), 'v9.6 话题状态'
+  UNION ALL SELECT '征文活动状态', 'cms_contest_status', '0', 'admin', NOW(), 'v9.6 征文活动状态'
+  UNION ALL SELECT '审核任务类型', 'cms_audit_task_type', '0', 'admin', NOW(), 'v9.6 审核任务类型'
+  UNION ALL SELECT '审核任务状态', 'cms_audit_task_status', '0', 'admin', NOW(), 'v9.6 审核任务状态'
+  UNION ALL SELECT '反馈类型', 'cms_feedback_type', '0', 'admin', NOW(), 'v9.6 反馈类型'
+  UNION ALL SELECT '举报类型', 'cms_report_type', '0', 'admin', NOW(), 'v9.6 举报类型'
+  UNION ALL SELECT '处理状态', 'cms_handle_status', '0', 'admin', NOW(), 'v9.6 处理状态'
+  UNION ALL SELECT '书籍类型', 'portal_book_type', '0', 'admin', NOW(), 'v9.6 书籍类型'
+  UNION ALL SELECT '书籍连载状态', 'portal_book_serial_status', '0', 'admin', NOW(), 'v9.6 书籍连载状态'
+  UNION ALL SELECT '访问级别', 'portal_access_type', '0', 'admin', NOW(), 'v9.6 访问级别'
+  UNION ALL SELECT '业务通用状态', 'portal_common_status', '0', 'admin', NOW(), 'v9.6 业务通用状态'
+  UNION ALL SELECT '学习计划类型', 'portal_study_plan_type', '0', 'admin', NOW(), 'v9.6 学习计划类型'
+  UNION ALL SELECT '学习计划状态', 'portal_study_plan_status', '0', 'admin', NOW(), 'v9.6 学习计划状态'
+  UNION ALL SELECT '错题状态', 'portal_wrong_question_status', '0', 'admin', NOW(), 'v9.6 错题状态'
+  UNION ALL SELECT '题目难度', 'portal_question_difficulty', '0', 'admin', NOW(), 'v9.6 题目难度'
+  UNION ALL SELECT '题目类型', 'portal_question_type', '0', 'admin', NOW(), 'v9.6 题目类型'
+  UNION ALL SELECT '简历模板分类', 'portal_resume_category', '0', 'admin', NOW(), 'v10.2 简历模板分类（英文值）'
+  UNION ALL SELECT '广告位标识', 'portal_ad_slot_key', '0', 'admin', NOW(), 'v9.6 广告位标识'
+  UNION ALL SELECT 'VIP套餐状态', 'cms_vip_status', '0', 'admin', NOW(), 'v9.6 VIP套餐状态'
+  UNION ALL SELECT '登录端类型', 'sys_login_type', '0', 'admin', NOW(), 'v9.6 登录端类型'
+  UNION ALL SELECT '语音面试状态', 'voice_interview_status', '0', 'admin', NOW(), 'v10.1 语音面试状态'
+  UNION ALL SELECT '面试官风格', 'voice_interview_style', '0', 'admin', NOW(), 'v10.1 面试官风格'
+  UNION ALL SELECT '提示级别', 'voice_interview_hint_level', '0', 'admin', NOW(), 'v10.1 提示级别'
+) t
+WHERE NOT EXISTS (SELECT 1 FROM sys_dict_type WHERE dict_type = t.dict_type);
+
+-- 字典数据注册（sys_dict_data）- 每类字典的选项值
+-- 支付状态
+INSERT INTO sys_dict_data (dict_sort, dict_label, dict_value, dict_type, css_class, list_class, is_default, status, create_by, create_time)
+SELECT 1, '待支付', 'pending', 'portal_pay_status', '', 'warning', 'N', '0', 'admin', NOW() FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM sys_dict_data WHERE dict_type='portal_pay_status' AND dict_value='pending');
+INSERT INTO sys_dict_data (dict_sort, dict_label, dict_value, dict_type, css_class, list_class, is_default, status, create_by, create_time)
+SELECT 2, '已支付', 'paid', 'portal_pay_status', '', 'success', 'N', '0', 'admin', NOW() FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM sys_dict_data WHERE dict_type='portal_pay_status' AND dict_value='paid');
+INSERT INTO sys_dict_data (dict_sort, dict_label, dict_value, dict_type, css_class, list_class, is_default, status, create_by, create_time)
+SELECT 3, '已退款', 'refunded', 'portal_pay_status', '', 'info', 'N', '0', 'admin', NOW() FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM sys_dict_data WHERE dict_type='portal_pay_status' AND dict_value='refunded');
+INSERT INTO sys_dict_data (dict_sort, dict_label, dict_value, dict_type, css_class, list_class, is_default, status, create_by, create_time)
+SELECT 4, '已关闭', 'closed', 'portal_pay_status', '', 'danger', 'N', '0', 'admin', NOW() FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM sys_dict_data WHERE dict_type='portal_pay_status' AND dict_value='closed');
+INSERT INTO sys_dict_data (dict_sort, dict_label, dict_value, dict_type, css_class, list_class, is_default, status, create_by, create_time)
+SELECT 5, '支付失败', 'failed', 'portal_pay_status', '', 'danger', 'N', '0', 'admin', NOW() FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM sys_dict_data WHERE dict_type='portal_pay_status' AND dict_value='failed');
+
+-- 支付渠道
+INSERT INTO sys_dict_data (dict_sort, dict_label, dict_value, dict_type, css_class, list_class, is_default, status, create_by, create_time)
+SELECT 1, '积分', 'points', 'portal_pay_channel', '', 'info', 'N', '0', 'admin', NOW() FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM sys_dict_data WHERE dict_type='portal_pay_channel' AND dict_value='points');
+INSERT INTO sys_dict_data (dict_sort, dict_label, dict_value, dict_type, css_class, list_class, is_default, status, create_by, create_time)
+SELECT 2, '支付宝', 'alipay', 'portal_pay_channel', '', 'primary', 'N', '0', 'admin', NOW() FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM sys_dict_data WHERE dict_type='portal_pay_channel' AND dict_value='alipay');
+INSERT INTO sys_dict_data (dict_sort, dict_label, dict_value, dict_type, css_class, list_class, is_default, status, create_by, create_time)
+SELECT 3, '微信', 'wechat', 'portal_pay_channel', '', 'success', 'N', '0', 'admin', NOW() FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM sys_dict_data WHERE dict_type='portal_pay_channel' AND dict_value='wechat');
+INSERT INTO sys_dict_data (dict_sort, dict_label, dict_value, dict_type, css_class, list_class, is_default, status, create_by, create_time)
+SELECT 4, '钱包', 'wallet', 'portal_pay_channel', '', 'warning', 'N', '0', 'admin', NOW() FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM sys_dict_data WHERE dict_type='portal_pay_channel' AND dict_value='wallet');
+
+-- 语音面试状态
+INSERT INTO sys_dict_data (dict_sort, dict_label, dict_value, dict_type, css_class, list_class, is_default, status, create_by, create_time)
+SELECT 1, '待开始', 'idle', 'voice_interview_status', '', 'info', 'Y', '0', 'admin', NOW() FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM sys_dict_data WHERE dict_type='voice_interview_status' AND dict_value='idle');
+INSERT INTO sys_dict_data (dict_sort, dict_label, dict_value, dict_type, css_class, list_class, is_default, status, create_by, create_time)
+SELECT 2, '聆听中', 'listening', 'voice_interview_status', '', 'primary', 'N', '0', 'admin', NOW() FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM sys_dict_data WHERE dict_type='voice_interview_status' AND dict_value='listening');
+INSERT INTO sys_dict_data (dict_sort, dict_label, dict_value, dict_type, css_class, list_class, is_default, status, create_by, create_time)
+SELECT 3, '播报中', 'speaking', 'voice_interview_status', '', 'success', 'N', '0', 'admin', NOW() FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM sys_dict_data WHERE dict_type='voice_interview_status' AND dict_value='speaking');
+INSERT INTO sys_dict_data (dict_sort, dict_label, dict_value, dict_type, css_class, list_class, is_default, status, create_by, create_time)
+SELECT 4, '评分中', 'scoring', 'voice_interview_status', '', 'warning', 'N', '0', 'admin', NOW() FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM sys_dict_data WHERE dict_type='voice_interview_status' AND dict_value='scoring');
+INSERT INTO sys_dict_data (dict_sort, dict_label, dict_value, dict_type, css_class, list_class, is_default, status, create_by, create_time)
+SELECT 5, '已结束', 'done', 'voice_interview_status', '', 'info', 'N', '0', 'admin', NOW() FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM sys_dict_data WHERE dict_type='voice_interview_status' AND dict_value='done');
+
+-- 面试官风格
+INSERT INTO sys_dict_data (dict_sort, dict_label, dict_value, dict_type, css_class, list_class, is_default, status, create_by, create_time)
+SELECT 1, '专业', 'professional', 'voice_interview_style', '', 'primary', 'Y', '0', 'admin', NOW() FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM sys_dict_data WHERE dict_type='voice_interview_style' AND dict_value='professional');
+INSERT INTO sys_dict_data (dict_sort, dict_label, dict_value, dict_type, css_class, list_class, is_default, status, create_by, create_time)
+SELECT 2, '亲和', 'friendly', 'voice_interview_style', '', 'success', 'N', '0', 'admin', NOW() FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM sys_dict_data WHERE dict_type='voice_interview_style' AND dict_value='friendly');
+INSERT INTO sys_dict_data (dict_sort, dict_label, dict_value, dict_type, css_class, list_class, is_default, status, create_by, create_time)
+SELECT 3, '严格', 'strict', 'voice_interview_style', '', 'danger', 'N', '0', 'admin', NOW() FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM sys_dict_data WHERE dict_type='voice_interview_style' AND dict_value='strict');
+
+-- 提示级别
+INSERT INTO sys_dict_data (dict_sort, dict_label, dict_value, dict_type, css_class, list_class, is_default, status, create_by, create_time)
+SELECT 1, '切入点提示', '1', 'voice_interview_hint_level', '', 'info', 'N', '0', 'admin', NOW() FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM sys_dict_data WHERE dict_type='voice_interview_hint_level' AND dict_value='1');
+INSERT INTO sys_dict_data (dict_sort, dict_label, dict_value, dict_type, css_class, list_class, is_default, status, create_by, create_time)
+SELECT 2, '结构提示', '2', 'voice_interview_hint_level', '', 'warning', 'N', '0', 'admin', NOW() FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM sys_dict_data WHERE dict_type='voice_interview_hint_level' AND dict_value='2');
+INSERT INTO sys_dict_data (dict_sort, dict_label, dict_value, dict_type, css_class, list_class, is_default, status, create_by, create_time)
+SELECT 3, '全量提示', '3', 'voice_interview_hint_level', '', 'danger', 'N', '0', 'admin', NOW() FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM sys_dict_data WHERE dict_type='voice_interview_hint_level' AND dict_value='3');
+
+-- 简历模板分类（v10.2 英文值）
+INSERT INTO sys_dict_data (dict_sort, dict_label, dict_value, dict_type, css_class, list_class, is_default, status, create_by, create_time)
+SELECT 1, '技术岗', 'tech', 'portal_resume_category', '', 'primary', 'Y', '0', 'admin', NOW() FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM sys_dict_data WHERE dict_type='portal_resume_category' AND dict_value='tech');
+INSERT INTO sys_dict_data (dict_sort, dict_label, dict_value, dict_type, css_class, list_class, is_default, status, create_by, create_time)
+SELECT 2, '产品岗', 'product', 'portal_resume_category', '', 'success', 'N', '0', 'admin', NOW() FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM sys_dict_data WHERE dict_type='portal_resume_category' AND dict_value='product');
+INSERT INTO sys_dict_data (dict_sort, dict_label, dict_value, dict_type, css_class, list_class, is_default, status, create_by, create_time)
+SELECT 3, '应届生', 'fresh', 'portal_resume_category', '', 'info', 'N', '0', 'admin', NOW() FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM sys_dict_data WHERE dict_type='portal_resume_category' AND dict_value='fresh');
+INSERT INTO sys_dict_data (dict_sort, dict_label, dict_value, dict_type, css_class, list_class, is_default, status, create_by, create_time)
+SELECT 4, '社招', 'social', 'portal_resume_category', '', 'warning', 'N', '0', 'admin', NOW() FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM sys_dict_data WHERE dict_type='portal_resume_category' AND dict_value='social');
+INSERT INTO sys_dict_data (dict_sort, dict_label, dict_value, dict_type, css_class, list_class, is_default, status, create_by, create_time)
+SELECT 5, '实习', 'intern', 'portal_resume_category', '', 'info', 'N', '0', 'admin', NOW() FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM sys_dict_data WHERE dict_type='portal_resume_category' AND dict_value='intern');
+
+-- =====================================================================
+-- 六(V10.5)、V10.5 后台菜单重组段（与前台 portal_category 6 大栏目对齐）
+-- 设计依据：docs/栏目重构设计-20260819.md
+-- 重组目标：8 大一级菜单（工作台/门户管理-内容管理/门户管理-用户运营/门户管理-审核中心/
+--          门户管理-面试管理/门户管理-学习管理/AI 能力/系统设置）
+-- 兼容性：标准 MySQL 8.0，兼容 DataGrip/Navicat/DBeaver
+-- 幂等性：基于 path 定位一级菜单，可重复执行
+-- =====================================================================
+
+-- --------------------------------------------------------------
+-- 0. 定位现有各一级菜单（按 path 或 menu_name）
+-- --------------------------------------------------------------
+SELECT @menu_system := menu_id FROM sys_menu WHERE path = 'system' AND parent_id = 0 AND menu_type = 'M' LIMIT 1;
+SELECT @menu_cms := menu_id FROM sys_menu WHERE menu_name = '内容管理' AND parent_id = 0 AND menu_type = 'M' LIMIT 1;
+SELECT @menu_ai := menu_id FROM sys_menu WHERE path = 'ai' AND parent_id = 0 AND menu_type = 'M' LIMIT 1;
+SELECT @menu_interview := menu_id FROM sys_menu WHERE path = 'interview' AND parent_id = 0 AND menu_type = 'M' LIMIT 1;
+SELECT @menu_book := menu_id FROM sys_menu WHERE path = 'book' AND parent_id = 0 AND menu_type = 'M' LIMIT 1;
+SELECT @menu_commerce := menu_id FROM sys_menu WHERE menu_name IN ('商业化', '用户运营') AND parent_id = 0 AND menu_type = 'M' LIMIT 1;
+SELECT @menu_monitor := menu_id FROM sys_menu WHERE path = 'monitor' AND parent_id = 0 AND menu_type = 'M' LIMIT 1;
+SELECT @menu_tool := menu_id FROM sys_menu WHERE path = 'tool' AND parent_id = 0 AND menu_type = 'M' LIMIT 1;
+SELECT @menu_task := menu_id FROM sys_menu WHERE path = 'task' AND parent_id = 0 AND menu_type = 'M' LIMIT 1;
+SELECT @menu_cert := menu_id FROM sys_menu WHERE path = 'certification' AND parent_id = 0 AND menu_type = 'M' LIMIT 1;
+SELECT @menu_dashboard := menu_id FROM sys_menu WHERE menu_name = '工作台' AND parent_id = 0 AND menu_type = 'M' LIMIT 1;
+
+-- --------------------------------------------------------------
+-- 1. 工作台（一级菜单，如不存在则创建）
+-- --------------------------------------------------------------
+INSERT INTO sys_menu (menu_name, parent_id, order_num, path, component, query, is_frame, is_cache, menu_type, visible, status, perms, icon, create_by, create_time, remark)
+SELECT '工作台', 0, 1, 'dashboard', NULL, NULL, 1, 0, 'M', '0', '0', '', 'dashboard', 'admin', NOW(), 'V10.5: 工作台一级目录'
+FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM sys_menu WHERE menu_name = '工作台' AND parent_id = 0 AND menu_type = 'M');
+SELECT @menu_dashboard := menu_id FROM sys_menu WHERE menu_name = '工作台' AND parent_id = 0 AND menu_type = 'M' LIMIT 1;
+
+-- --------------------------------------------------------------
+-- 2. 门户管理（一级菜单容器，如不存在则创建）
+--    将 内容管理/用户运营/审核中心/面试管理/学习管理 5 个原一级菜单降级为"门户管理"下的二级目录
+-- --------------------------------------------------------------
+INSERT INTO sys_menu (menu_name, parent_id, order_num, path, component, query, is_frame, is_cache, menu_type, visible, status, perms, icon, create_by, create_time, remark)
+SELECT '门户管理', 0, 2, 'portal', NULL, NULL, 1, 0, 'M', '0', '0', '', 'portal', 'admin', NOW(), 'V10.5: 门户管理一级目录（聚合内容/用户/审核/面试/学习）'
+FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM sys_menu WHERE menu_name = '门户管理' AND parent_id = 0 AND menu_type = 'M');
+SELECT @menu_portal := menu_id FROM sys_menu WHERE menu_name = '门户管理' AND parent_id = 0 AND menu_type = 'M' LIMIT 1;
+
+-- --------------------------------------------------------------
+-- 3. 5 个原一级菜单降级为"门户管理"下二级目录，重命名+调整 parent_id 和 order_num
+-- --------------------------------------------------------------
+-- 3.1 内容管理（order=1，保留名称）
+UPDATE sys_menu SET parent_id = @menu_portal, order_num = 1
+  WHERE menu_id = @menu_cms AND @menu_cms IS NOT NULL AND parent_id = 0;
+
+-- 3.2 用户运营（原"商业化"，order=2）
+UPDATE sys_menu SET menu_name = '用户运营', parent_id = @menu_portal, order_num = 2, icon = 'peoples',
+       remark = CONCAT(IFNULL(remark, ''), ' | V10.5: 降级为门户管理下二级目录，重命名为 用户运营')
+  WHERE menu_id = @menu_commerce AND @menu_commerce IS NOT NULL AND parent_id = 0;
+
+-- 3.3 审核中心（新建二级目录，order=3）
+INSERT INTO sys_menu (menu_name, parent_id, order_num, path, component, query, is_frame, is_cache, menu_type, visible, status, perms, icon, create_by, create_time, remark)
+SELECT '审核中心', @menu_portal, 3, 'audit-center', 'cms/audit-center/index', NULL, 1, 0, 'C', '0', '0', 'system:auditTask:list', 'audit', 'admin', NOW(), 'V10.5: 审核中心（统一审核入口，Tab 容器，权限 system:auditTask:*）'
+FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM sys_menu WHERE perms = 'system:auditTask:list' AND parent_id = @menu_portal);
+
+-- 3.4 面试管理（原"面试指南"，降级为二级目录，order=4）
+UPDATE sys_menu SET menu_name = '面试管理', parent_id = @menu_portal, order_num = 4, icon = 'guide',
+       remark = CONCAT(IFNULL(remark, ''), ' | V10.5: 降级为门户管理下二级目录，重命名为 面试管理')
+  WHERE menu_id = @menu_interview AND @menu_interview IS NOT NULL AND parent_id = 0;
+
+-- 3.5 学习管理（原"读书空间"，降级为二级目录，order=5）
+UPDATE sys_menu SET menu_name = '学习管理', parent_id = @menu_portal, order_num = 5, icon = 'education',
+       remark = CONCAT(IFNULL(remark, ''), ' | V10.5: 降级为门户管理下二级目录，重命名为 学习管理')
+  WHERE menu_id = @menu_book AND @menu_book IS NOT NULL AND parent_id = 0;
+
+-- --------------------------------------------------------------
+-- 4. AI 能力（一级菜单，order=6，保留，仅更新名称和排序）
+-- --------------------------------------------------------------
+UPDATE sys_menu SET menu_name = 'AI 能力', order_num = 6, icon = 'chart'
+  WHERE menu_id = @menu_ai AND @menu_ai IS NOT NULL AND parent_id = 0;
+
+-- --------------------------------------------------------------
+-- 5. 系统设置（合并 系统管理 + 系统监控 + 系统工具 + 任务管理 + 创作者认证）
+-- --------------------------------------------------------------
+-- 5.1 系统管理 → 系统设置（一级菜单，order=7）
+UPDATE sys_menu SET menu_name = '系统设置', order_num = 7
+  WHERE menu_id = @menu_system AND @menu_system IS NOT NULL AND parent_id = 0;
+
+-- 5.2 系统监控：降级为"系统设置"下二级目录（order=8）
+UPDATE sys_menu SET parent_id = @menu_system, order_num = 8, visible = '0', status = '0'
+  WHERE menu_id = @menu_monitor AND @menu_monitor IS NOT NULL AND parent_id = 0;
+
+-- 5.3 系统工具：降级为"系统设置"下二级目录（order=9）
+UPDATE sys_menu SET parent_id = @menu_system, order_num = 9, visible = '0', status = '0'
+  WHERE menu_id = @menu_tool AND @menu_tool IS NOT NULL AND parent_id = 0;
+
+-- 5.4 任务管理：降级为"系统设置"下二级目录（order=10）
+UPDATE sys_menu SET parent_id = @menu_system, order_num = 10, visible = '0', status = '0'
+  WHERE menu_id = @menu_task AND @menu_task IS NOT NULL AND parent_id = 0;
+
+-- 5.5 创作者认证：降级为"系统设置"下二级目录（order=11）
+UPDATE sys_menu SET parent_id = @menu_system, order_num = 11, visible = '0', status = '0'
+  WHERE menu_id = @menu_cert AND @menu_cert IS NOT NULL AND parent_id = 0;
+
+-- --------------------------------------------------------------
+-- 6. 内容管理下二级菜单归位（用户运营相关菜单迁移到 用户运营 下）
+--    依据：docs/栏目重构设计-20260819.md 用户运营章节
+-- --------------------------------------------------------------
+-- 6.1 门户用户（cms:user → 用户运营下）
+UPDATE sys_menu SET parent_id = @menu_commerce
+  WHERE parent_id = @menu_cms AND @menu_cms IS NOT NULL AND @menu_commerce IS NOT NULL
+  AND perms = 'cms:portal-user:list';
+
+-- 6.2 话题管理（cms:topic → 用户运营下）
+UPDATE sys_menu SET parent_id = @menu_commerce
+  WHERE parent_id = @menu_cms AND @menu_cms IS NOT NULL AND @menu_commerce IS NOT NULL
+  AND perms LIKE 'cms:topic%';
+
+-- 6.3 交易管理（cms:order → 用户运营下）
+UPDATE sys_menu SET parent_id = @menu_commerce
+  WHERE parent_id = @menu_cms AND @menu_cms IS NOT NULL AND @menu_commerce IS NOT NULL
+  AND perms LIKE 'cms:order%';
+
+-- 6.4 成长配置（cms:growth → 用户运营下）
+UPDATE sys_menu SET parent_id = @menu_commerce
+  WHERE parent_id = @menu_cms AND @menu_cms IS NOT NULL AND @menu_commerce IS NOT NULL
+  AND perms LIKE 'cms:growth%';
+
+-- 6.5 反馈中心（cms:feedback-center + cms:feedback + cms:report → 用户运营下）
+UPDATE sys_menu SET parent_id = @menu_commerce
+  WHERE parent_id = @menu_cms AND @menu_cms IS NOT NULL AND @menu_commerce IS NOT NULL
+  AND (perms LIKE 'cms:feedback%' OR perms LIKE 'cms:report%');
+
+-- --------------------------------------------------------------
+-- 7. 面试管理下二级菜单归位（学习辅助迁移到 学习管理 下）
+--    依据：docs/栏目重构设计-20260819.md 学习管理章节
+-- --------------------------------------------------------------
+-- 7.1 学习辅助（learn-aux → 学习管理下）
+UPDATE sys_menu SET parent_id = @menu_book
+  WHERE parent_id = @menu_interview AND @menu_interview IS NOT NULL AND @menu_book IS NOT NULL
+  AND path = 'learn-aux';
+
+-- --------------------------------------------------------------
+-- 8. 旧一级菜单下孤儿子项归位（系统监控/系统工具/任务管理/创作者认证 的子项随父菜单迁移）
+--    由于父菜单已降级为"系统设置"下二级目录，其子项保持原 parent_id 不变，自动跟随
+-- --------------------------------------------------------------
+
+-- --------------------------------------------------------------
+-- 9. 验证：查询重组后的一级菜单结构
+-- --------------------------------------------------------------
+SELECT '== V10.5 后台菜单重组后一级菜单结构 ==' AS section;
+SELECT menu_id, menu_name, order_num, path, icon, visible, status
+  FROM sys_menu
+  WHERE parent_id = 0 AND menu_type = 'M' AND visible = '0' AND status = '0'
+  ORDER BY order_num;
+
+SELECT '== 门户管理下二级菜单 ==' AS section;
+SELECT menu_id, menu_name, order_num, path, icon
+  FROM sys_menu
+  WHERE parent_id = @menu_portal AND menu_type IN ('C','M')
+  ORDER BY order_num;
+
+SELECT '== 系统设置下二级菜单（含降级的旧一级菜单） ==' AS section;
+SELECT menu_id, menu_name, order_num, path, icon
+  FROM sys_menu
+  WHERE parent_id = @menu_system AND menu_type = 'M'
+  ORDER BY order_num;
+
+-- =====================================================================
 -- 七、结尾设置：恢复外键检查
 -- =====================================================================
 -- 来源：all-db-ddl.sql 行5335
@@ -9692,7 +10270,7 @@ SET FOREIGN_KEY_CHECKS=1;
 -- 初始化完成
 -- =====================================================================
 SELECT '================================================' AS info;
-SELECT '墨韵智库 v7.8 数据库初始化完成' AS info;
+SELECT '墨韵智库 V10.0 数据库初始化完成' AS info;
 SELECT CONCAT('完成时间: ', NOW()) AS info;
 SELECT '================================================' AS info;
 SELECT '后台管理: http://localhost:80  账号 admin / admin123' AS info;

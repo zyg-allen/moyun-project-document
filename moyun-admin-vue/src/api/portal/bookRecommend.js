@@ -3,7 +3,7 @@ import request from '@/utils/request'
 // 查询推荐位列表（后台分页）
 export function listBookRecommend(query) {
   return request({
-    url: '/portal/admin/bookRecommend/list',
+    url: '/portal/admin/book-recommends/list',
     method: 'get',
     params: query
   })
@@ -12,7 +12,7 @@ export function listBookRecommend(query) {
 // 推荐位详情
 export function getBookRecommend(id) {
   return request({
-    url: '/portal/admin/bookRecommend/' + id,
+    url: '/portal/admin/book-recommends/' + id,
     method: 'get'
   })
 }
@@ -20,7 +20,7 @@ export function getBookRecommend(id) {
 // 新增推荐位
 export function addBookRecommend(data) {
   return request({
-    url: '/portal/admin/bookRecommend',
+    url: '/portal/admin/book-recommends',
     method: 'post',
     data: data
   })
@@ -29,7 +29,7 @@ export function addBookRecommend(data) {
 // 修改推荐位
 export function updateBookRecommend(data) {
   return request({
-    url: '/portal/admin/bookRecommend',
+    url: '/portal/admin/book-recommends',
     method: 'put',
     data: data
   })
@@ -38,7 +38,7 @@ export function updateBookRecommend(data) {
 // 删除推荐位
 export function delBookRecommend(ids) {
   return request({
-    url: '/portal/admin/bookRecommend/' + ids,
+    url: '/portal/admin/book-recommends/' + ids,
     method: 'delete'
   })
 }
@@ -46,7 +46,7 @@ export function delBookRecommend(ids) {
 // 上下架切换
 export function toggleBookRecommendActive(id) {
   return request({
-    url: '/portal/admin/bookRecommend/' + id + '/toggle',
+    url: '/portal/admin/book-recommends/' + id + '/toggle',
     method: 'put'
   })
 }
@@ -54,7 +54,7 @@ export function toggleBookRecommendActive(id) {
 // 批量排序
 export function batchUpdateSort(list) {
   return request({
-    url: '/portal/admin/bookRecommend/sort',
+    url: '/portal/admin/book-recommends/sort',
     method: 'put',
     data: list
   })

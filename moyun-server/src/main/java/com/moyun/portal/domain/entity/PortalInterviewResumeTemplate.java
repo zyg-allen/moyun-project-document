@@ -43,6 +43,9 @@ public class PortalInterviewResumeTemplate extends BaseEntity
     /** 下载地址 */
     private String downloadUrl;
 
+    /** 预览图 JSON 数组（多图，问题3图片列表展示） */
+    private String previewImages;
+
     /** 分类 */
     private String category;
 

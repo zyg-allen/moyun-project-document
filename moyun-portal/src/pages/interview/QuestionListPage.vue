@@ -12,8 +12,7 @@ import LazyImage from '@/components/LazyImage.vue';
 import Breadcrumb from '@/components/Breadcrumb.vue';
 import SiteFooter from '@/components/SiteFooter.vue';
 import { generateSeo } from '@/utils/seo';
-import { getQuestionList, getInterviewCategoryList, getRecommendedQuestions } from '@/api/interview';
-import { getMyMockProfile } from '@/api/mockInterview';
+import { getQuestionList, getInterviewCategoryList, getRecommendedQuestions, getMyProfile } from '@/api/interview';
 import { useAuth } from '@/composables/useAuth';
 import { useDictData, dictBadgeClass } from '@/composables/useDictData';
 import type {
@@ -228,7 +227,7 @@ async function loadRecommendations() {
     // 并行拉取推荐题目与画像快照
     const [recoRes, profileRes] = await Promise.all([
       getRecommendedQuestions(6),
-      getMyMockProfile({}).catch(() => null),
+      getMyProfile({}).catch(() => null),
     ]);
     if (recoRes.code === 200 && recoRes.data) {
       recoQuestions.value = recoRes.data;
@@ -371,24 +370,10 @@ function gotoPage(p: number) {
                 必备技能 {{ profile.requiredSkills.length }}
               </span>
               <span
-                v-if="profile.mockInterviewCount != null && profile.mockInterviewCount > 0"
-                class="flex items-center gap-1 px-2 py-1 rounded-full bg-white/15"
-              >
-                <CheckCircle class="w-3 h-3" />
-                模拟面试 {{ profile.mockInterviewCount }} 次
-              </span>
-              <span
-                v-if="profile.avgMockScore != null && profile.avgMockScore > 0"
-                class="flex items-center gap-1 px-2 py-1 rounded-full bg-white/15"
-              >
-                <Star class="w-3 h-3" />
-                平均分 {{ profile.avgMockScore }}
-              </span>
-              <span
                 v-if="!profile.personalized"
                 class="px-2 py-1 rounded-full bg-white/15"
               >
-                暂无画像数据，先答题或模拟面试以激活个性化推荐
+                暂无画像数据，先答题以激活个性化推荐
               </span>
             </div>
 

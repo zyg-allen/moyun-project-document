@@ -7,7 +7,7 @@ import SiteFooter from '@/components/SiteFooter.vue';
 import Breadcrumb from '@/components/Breadcrumb.vue';
 import { generateSeo } from '@/utils/seo';
 import { getKnowledgeGraph } from '@/api/learnStats';
-import { getMyMockProfile } from '@/api/mockInterview';
+import { getMyProfile } from '@/api/interview';
 import { useAuth } from '@/composables/useAuth';
 import type { KnowledgeGraph, KnowledgeNode } from '@/api/learnStats';
 import type { UserProfileSnapshotVO } from '@/types/api';
@@ -65,7 +65,7 @@ async function loadGraph() {
     // 不传 userId：后端在已登录时回退到当前用户，未登录时返回全局标签云
     const [graphRes, profileRes] = await Promise.all([
       getKnowledgeGraph(),
-      isAuthenticated() ? getMyMockProfile({}).catch(() => null) : Promise.resolve(null),
+      isAuthenticated() ? getMyProfile({}).catch(() => null) : Promise.resolve(null),
     ]);
     if (graphRes.code === 200) {
       graph.value = graphRes.data;

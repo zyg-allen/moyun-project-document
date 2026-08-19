@@ -13,6 +13,8 @@ import io.lettuce.core.output.ArrayOutput;
 import io.lettuce.core.output.CommandOutput;
 import io.lettuce.core.output.StatusOutput;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.aop.framework.Advised;
+import org.springframework.aop.support.AopUtils;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.data.redis.connection.lettuce.LettuceConnection;
@@ -128,15 +130,35 @@ public class RedisEmbeddingStore implements VectorStoreExtension {
      * 默认 {@code execute(String, byte[]...)} 对 integer 返回值会抛
      * {@code ByteArrayOutput does not support set(long)}。</p>
      */
-    @SuppressWarnings({"rawtypes", "unchecked"})
+    @SuppressWarnings({"rawtypes"})
     private Object dispatchFt(String command, CommandOutput outputHint, byte[]... args) {
         return redisTemplate.execute((RedisCallback<Object>) connection -> {
-            if (!(connection instanceof LettuceConnection)) {
-                throw new BusinessException(ErrorCode.ES_QUERY_FAILED,
-                        "RedisEmbeddingStore 仅支持 Lettuce 连接，当前: " + connection.getClass().getName());
+            LettuceConnection lettuceConnection = null;
+
+            // 2. 替换原来的 instanceof 检查逻辑
+            try {
+                // 如果 connection 本身是 LettuceConnection
+                if (connection instanceof LettuceConnection) {
+                    lettuceConnection = (LettuceConnection) connection;
+                }
+                // 如果 connection 是一个代理，尝试获取其目标对象
+                else if (AopUtils.isAopProxy(connection) && connection instanceof Advised) {
+                    Object target = ((Advised) connection).getTargetSource().getTarget();
+                    if (target instanceof LettuceConnection) {
+                        lettuceConnection = (LettuceConnection) target;
+                    }
+                }
+
+                if (lettuceConnection == null) {
+                    throw new BusinessException(ErrorCode.ES_QUERY_FAILED, "RedisEmbeddingStore 无法获取 Lettuce 连接，当前类型: " + connection.getClass().getName());
+                }
+
+                return lettuceConnection.execute(command, outputHint, args);
+
+            } catch (Exception e) {
+                // 包装异常，保持原有逻辑
+                throw new BusinessException(ErrorCode.ES_QUERY_FAILED, "执行 Redis 命令失败: " + e.getMessage(), e);
             }
-            LettuceConnection lettuce = (LettuceConnection) connection;
-            return lettuce.execute(command, outputHint, args);
         });
     }
 

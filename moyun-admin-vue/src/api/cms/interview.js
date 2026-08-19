@@ -287,6 +287,27 @@ export function delInterviewResume(ids) {
   });
 }
 
+// ==================== 用户简历管理（Admin 只读查看 + 审计） ====================
+// 独立权限 system:user:resume，挂在用户管理操作列，跳转独立只读列表页
+// 设计：不复用 system:user:edit，权限解耦；后端 @Log 记录审计日志
+
+// Admin 分页查询指定用户的简历列表（只读）
+export function listUserResume(userId, query) {
+  return request({
+    url: '/cms/interview/user-resume/' + userId + '/list',
+    method: 'get',
+    params: query
+  });
+}
+
+// Admin 查看指定用户的简历详情（只读）
+export function getUserResumeDetail(userId, id) {
+  return request({
+    url: '/cms/interview/user-resume/' + userId + '/' + id,
+    method: 'get'
+  });
+}
+
 // ==================== 公司标签管理 ====================
 
 // 查询公司列表

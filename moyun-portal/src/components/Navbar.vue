@@ -548,7 +548,7 @@ onUnmounted(() => document.removeEventListener('click', handleDocumentClick));
         <div class="flex items-center justify-between py-1.5">
           <!-- PC端导航 -->
           <nav class="hidden lg:flex items-center space-x-2">
-            <template v-for="item in navItems" :key="item.key">
+            <template v-for="(item, idx) in navItems" :key="item.key">
               <!-- 首页直接跳转 -->
               <template v-if="item.key === 'home'">
                 <Link
@@ -599,15 +599,15 @@ onUnmounted(() => document.removeEventListener('click', handleDocumentClick));
                     <span>{{ item.name }}</span>
                     <ChevronDown class="w-3.5 h-3.5 transition-transform duration-200" :class="{ 'rotate-180': activeNavItem === item.key }" />
                   </button>
-                  <!-- PC端 Mega Menu（左对齐 + 加大左边距，避免左外溢） -->
+                  <!-- PC端 Mega Menu（左对齐 + grid 二列布局，换行后同级首字对齐） -->
                   <div
                       v-if="activeNavItem === item.key"
-                      class="absolute top-full left-0 mt-2 shadow-2xl border rounded-2xl pl-8 pr-5 py-3 z-50 transform transition-all duration-200 mega-menu-panel max-h-[85vh] overflow-y-auto"
+                      class="absolute top-full left-0 mt-2 shadow-2xl border rounded-2xl px-5 py-3 z-50 transform transition-all duration-200 mega-menu-panel max-h-[85vh] overflow-y-auto"
                       style="background-color: var(--theme-bg); border-color: var(--theme-border);"
                       data-menu-content
                   >
-                    <!-- Mega Menu 头部：大图标 + 标题 + 描述 -->
-                    <div class="flex items-center gap-2 pb-2 mb-2 border-b" style="border-color: var(--theme-border);">
+                    <!-- Mega Menu 头部：图标 + 标题 + 描述 -->
+                    <div class="flex items-center gap-2 pb-2 mb-3 border-b" style="border-color: var(--theme-border);">
                       <div
                           class="w-7 h-7 rounded-md flex items-center justify-center text-xs flex-shrink-0 text-white"
                           style="background: linear-gradient(135deg, var(--theme-primary), #B91C1C);"
@@ -619,73 +619,80 @@ onUnmounted(() => document.removeEventListener('click', handleDocumentClick));
                         <div v-if="item.description" class="text-[11px] truncate" style="color: var(--theme-text-secondary);">{{ item.description }}</div>
                       </div>
                     </div>
-                    <!-- 内容区：左对齐，二级标题后加冒号，三级项 inline 跟随 -->
-                    <div class="flex flex-col items-start gap-1.5 min-w-[560px]">
+                    <!-- 内容区：grid 二列布局，二级标题占左列(固定宽)，三级项占右列(flex-wrap 换行后首字自动对齐) -->
+                    <div class="grid grid-cols-[120px_1fr] gap-x-5 gap-y-3 min-w-[540px]">
                       <template v-for="(child, cidx) in item.children" :key="child.name">
-                        <!-- 二级有三级子项：二级标题 + 冒号 + 三级项 inline 排列 -->
-                        <div v-if="child.children && child.children.length > 0" class="flex flex-wrap items-center gap-x-2 gap-y-1 w-full">
-                          <span class="inline-flex items-center gap-1 text-sm font-bold flex-shrink-0" :style="{ color: 'var(--theme-text-secondary)' }">
-                            <span v-if="child.icon" class="w-4 h-4 rounded flex items-center justify-center text-[10px] text-white" :style="{ background: getIconColor(cidx) }"><IconRender :icon="child.icon" /></span>
-                            <span>{{ child.name }}：</span>
-                          </span>
-                          <template v-for="(grandchild, gidx) in child.children" :key="grandchild.name">
-                            <!-- 三级外部链接 -->
-                            <a
-                                v-if="grandchild.isExternal"
-                                :href="grandchild.path"
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                @click="activeNavItem = null"
-                                class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded transition-colors group hover:bg-black/5"
-                                style="color: var(--theme-text);"
-                            >
-                              <span class="w-4 h-4 rounded flex items-center justify-center text-[10px] text-white flex-shrink-0" :style="{ background: getIconColor(gidx) }"><IconRender :icon="grandchild.icon" fallback="🔗" /></span>
-                              <span class="text-xs font-medium whitespace-nowrap">{{ grandchild.name }} ↗</span>
-                            </a>
-                            <!-- 三级内部路由 -->
-                            <Link
-                                v-else
-                                :to="grandchild.path"
-                                @click="activeNavItem = null"
-                                class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded transition-colors group mega-menu-item hover:bg-black/5"
-                                style="color: var(--theme-text);"
-                            >
-                              <span class="w-4 h-4 rounded flex items-center justify-center text-[10px] text-white flex-shrink-0 mega-menu-item-icon" :style="{ background: getIconColor(gidx) }"><IconRender :icon="grandchild.icon" fallback="📄" /></span>
-                              <span class="text-xs font-medium whitespace-nowrap">{{ grandchild.name }}</span>
-                              <span v-if="grandchild.badge === 'NEW'" class="inline-flex items-center px-1 py-0.5 rounded-full text-[9px] font-bold text-white flex-shrink-0" style="background: linear-gradient(90deg,#ef4444,#f97316);">NEW</span>
-                              <span v-else-if="grandchild.badge === 'HOT'" class="inline-flex items-center px-1 py-0.5 rounded-full text-[9px] font-bold text-white flex-shrink-0" style="background-color: #D97706;">HOT</span>
-                              <Lock v-if="grandchild.requiresAuth" class="w-2.5 h-2.5 opacity-50 group-hover:opacity-100 transition-opacity flex-shrink-0" style="color: var(--theme-primary);" />
-                            </Link>
-                          </template>
-                        </div>
-                        <!-- 二级无三级子项：inline 排列 -->
+                        <!-- 二级有三级子项：左列标题，右列三级项流式排列 -->
+                        <template v-if="child.children && child.children.length > 0">
+                          <!-- 左列：二级标题（大字号粗体，垂直顶部对齐） -->
+                          <div class="flex items-start gap-1.5 pt-0.5">
+                            <span v-if="child.icon" class="w-4 h-4 rounded flex items-center justify-center text-[10px] text-white flex-shrink-0 mt-0.5" :style="{ background: getIconColor(cidx) }"><IconRender :icon="child.icon" /></span>
+                            <span class="text-sm font-bold leading-tight" :style="{ color: 'var(--theme-text-secondary)' }">{{ child.name }}</span>
+                          </div>
+                          <!-- 右列：三级项 flex-wrap，换行后首字自动对齐到右列起始 -->
+                          <div class="flex flex-wrap gap-x-3 gap-y-1.5">
+                            <template v-for="(grandchild, gidx) in child.children" :key="grandchild.name">
+                              <!-- 三级外部链接 -->
+                              <a
+                                  v-if="grandchild.isExternal"
+                                  :href="grandchild.path"
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  @click="activeNavItem = null"
+                                  class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded transition-colors group hover:bg-black/5"
+                                  style="color: var(--theme-text);"
+                              >
+                                <span class="w-4 h-4 rounded flex items-center justify-center text-[10px] text-white flex-shrink-0" :style="{ background: getIconColor(gidx) }"><IconRender :icon="grandchild.icon" fallback="🔗" /></span>
+                                <span class="text-xs font-semibold whitespace-nowrap">{{ grandchild.name }} ↗</span>
+                              </a>
+                              <!-- 三级内部路由 -->
+                              <Link
+                                  v-else
+                                  :to="grandchild.path"
+                                  @click="activeNavItem = null"
+                                  class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded transition-colors group mega-menu-item hover:bg-black/5"
+                                  style="color: var(--theme-text);"
+                              >
+                                <span class="w-4 h-4 rounded flex items-center justify-center text-[10px] text-white flex-shrink-0 mega-menu-item-icon" :style="{ background: getIconColor(gidx) }"><IconRender :icon="grandchild.icon" fallback="📄" /></span>
+                                <span class="text-xs font-semibold whitespace-nowrap">{{ grandchild.name }}</span>
+                                <span v-if="grandchild.badge === 'NEW'" class="inline-flex items-center px-1 py-0.5 rounded-full text-[9px] font-bold text-white flex-shrink-0" style="background: linear-gradient(90deg,#ef4444,#f97316);">NEW</span>
+                                <span v-else-if="grandchild.badge === 'HOT'" class="inline-flex items-center px-1 py-0.5 rounded-full text-[9px] font-bold text-white flex-shrink-0" style="background-color: #D97706;">HOT</span>
+                                <Lock v-if="grandchild.requiresAuth" class="w-2.5 h-2.5 opacity-50 group-hover:opacity-100 transition-opacity flex-shrink-0" style="color: var(--theme-primary);" />
+                              </Link>
+                            </template>
+                          </div>
+                        </template>
+                        <!-- 二级无三级子项（末级）：占满两列，加粗显示 -->
                         <template v-else>
-                          <!-- 二级外部链接 -->
+                          <!-- 末级外部链接 -->
                           <a
                               v-if="child.isExternal"
                               :href="child.path"
                               target="_blank"
                               rel="noopener noreferrer"
                               @click="activeNavItem = null"
-                              class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded transition-colors group hover:bg-black/5"
+                              class="col-span-2 inline-flex items-center gap-1.5 px-1.5 py-1 rounded transition-colors group hover:bg-black/5"
                               style="color: var(--theme-text);"
                           >
                             <span class="w-4 h-4 rounded flex items-center justify-center text-[10px] text-white flex-shrink-0" :style="{ background: getIconColor(cidx) }"><IconRender :icon="child.icon" fallback="🔗" /></span>
-                            <span class="text-xs font-medium whitespace-nowrap">{{ child.name }} ↗</span>
+                            <span class="text-sm font-bold whitespace-nowrap">{{ child.name }} ↗</span>
+                            <span v-if="child.badge === 'NEW'" class="inline-flex items-center px-1 py-0.5 rounded-full text-[9px] font-bold text-white flex-shrink-0" style="background: linear-gradient(90deg,#ef4444,#f97316);">NEW</span>
+                            <span v-else-if="child.badge === 'HOT'" class="inline-flex items-center px-1 py-0.5 rounded-full text-[9px] font-bold text-white flex-shrink-0" style="background-color: #D97706;">HOT</span>
+                            <Lock v-if="child.requiresAuth" class="w-3 h-3 opacity-50 group-hover:opacity-100 transition-opacity flex-shrink-0" style="color: var(--theme-primary);" />
                           </a>
-                          <!-- 二级内部路由 -->
+                          <!-- 末级内部路由 -->
                           <Link
                               v-else
                               :to="child.path"
                               @click="activeNavItem = null"
-                              class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded transition-colors group mega-menu-item hover:bg-black/5"
+                              class="col-span-2 inline-flex items-center gap-1.5 px-1.5 py-1 rounded transition-colors group mega-menu-item hover:bg-black/5"
                               style="color: var(--theme-text);"
                           >
                             <span class="w-4 h-4 rounded flex items-center justify-center text-[10px] text-white flex-shrink-0 mega-menu-item-icon" :style="{ background: getIconColor(cidx) }"><IconRender :icon="child.icon" fallback="📄" /></span>
-                            <span class="text-xs font-medium whitespace-nowrap">{{ child.name }}</span>
+                            <span class="text-sm font-bold whitespace-nowrap">{{ child.name }}</span>
                             <span v-if="child.badge === 'NEW'" class="inline-flex items-center px-1 py-0.5 rounded-full text-[9px] font-bold text-white flex-shrink-0" style="background: linear-gradient(90deg,#ef4444,#f97316);">NEW</span>
                             <span v-else-if="child.badge === 'HOT'" class="inline-flex items-center px-1 py-0.5 rounded-full text-[9px] font-bold text-white flex-shrink-0" style="background-color: #D97706;">HOT</span>
-                            <Lock v-if="child.requiresAuth" class="w-2.5 h-2.5 opacity-50 group-hover:opacity-100 transition-opacity flex-shrink-0" style="color: var(--theme-primary);" />
+                            <Lock v-if="child.requiresAuth" class="w-3 h-3 opacity-50 group-hover:opacity-100 transition-opacity flex-shrink-0" style="color: var(--theme-primary);" />
                           </Link>
                         </template>
                       </template>

@@ -42,11 +42,19 @@ export function shouldShowCategory(cat: Category | null | undefined): boolean {
   const name = (cat.name || '').trim();
   if (!name) return false;
 
-  // 条件2：优先使用 category_type 字段（新增字段，标识文章栏目 vs 特殊页面）
+  // 条件2：优先使用 category_type 字段（新增字段，标识文章栏目 vs 特殊页面 + 目录）
   const categoryType = (cat.categoryType || '').toLowerCase();
   if (categoryType) {
-    // 字段已回填：article 展示，其余（special）隐藏
-    return categoryType === 'article';
+    // article 文章栏目：展示
+    if (categoryType === 'article') return true;
+    // directory 目录：仅当 nav_route_type=category（文章栏目目录，如「散文天地」「技术笔记」）时保留作为父级；
+    // 导航分组目录（nav_route_type=static/home）不保留，由 filterCategoryTree 穿透提升其下文章栏目
+    if (categoryType === 'directory') {
+      const routeType = (cat.navRouteType || '').toLowerCase();
+      return routeType === 'category';
+    }
+    // special 等其余类型隐藏
+    return false;
   }
 
   // 降级兜底：categoryType 缺失时（历史脏数据），沿用名称黑名单 + 路由类型过滤
@@ -66,14 +74,22 @@ export function shouldShowCategory(cat: Category | null | undefined): boolean {
  */
 export function filterCategoryTree(categories: Category[] | null | undefined): Category[] {
   if (!categories || !Array.isArray(categories)) return [];
-  return categories
-      .filter(shouldShowCategory)
-      .map(cat => ({
-        ...cat,
-        children: cat.children && cat.children.length > 0
-            ? filterCategoryTree(cat.children)
-            : []
-      }));
+  const result: Category[] = [];
+  for (const cat of categories) {
+    if (!cat) continue;
+    // 先递归过滤子级
+    const filteredChildren = cat.children && cat.children.length > 0
+        ? filterCategoryTree(cat.children)
+        : [];
+    if (shouldShowCategory(cat)) {
+      // 当前节点应展示：保留并附带过滤后的子级
+      result.push({ ...cat, children: filteredChildren });
+    } else if (filteredChildren.length > 0) {
+      // 当前节点不展示（导航分组目录/special），但其下存在应展示的文章栏目：穿透提升子级
+      result.push(...filteredChildren);
+    }
+  }
+  return result;
 }
 
 /**

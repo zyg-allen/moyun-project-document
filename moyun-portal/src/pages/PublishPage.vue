@@ -80,6 +80,16 @@ const selectedCategory = computed(() => {
   return selectedChildCategory.value || selectedParentCategory.value || '';
 });
 
+// 将选中分类转为后端可接受的数字字符串 categoryId。
+// 本地兜底分类（categories.ts）的 id 是语义字符串（如 'daily'），不能作为后端 Long 字段传入；
+// 仅当选中值为纯数字（后端真实分类）时才返回数字字符串，否则返回 undefined。
+function resolveCategoryId(): string | undefined {
+  const raw = selectedCategory.value;
+  if (!raw) return undefined;
+  const num = Number(raw);
+  return Number.isInteger(num) ? String(num) : undefined;
+}
+
 // 获取当前分类的子分类
 const childCategories = computed(() => {
   const parent = categories.value.find(c => c.id === selectedParentCategory.value);
@@ -493,7 +503,7 @@ async function saveDraft(isAuto = false) {
       editorMode: editorMode.value,
       excerpt: excerpt.value,
       cover: coverImage.value || '',
-      categoryId: selectedCategory.value ? String(selectedCategory.value) : undefined,
+      categoryId: resolveCategoryId(),
       tagNames: tags.value,
     });
 
@@ -586,7 +596,7 @@ async function handlePublish() {
       contentMarkdown: editorMode.value === 'markdown' ? content.value : undefined,
       excerpt: excerpt.value || content.value.substring(0, 200) + '...',
       cover: coverImage.value || '',
-      categoryId: selectedCategory.value,
+      categoryId: resolveCategoryId(),
       tagNames: tags.value,
       status: 'published', // 前端标记意图为发布，后端会转为 pending 待审核
       // 同步编辑器模式，详情页据此渲染内容

@@ -23,6 +23,7 @@ import {
   Flag,
   AlertCircle,
   CheckCircle2,
+  ShieldCheck,
   // 数据看板相关图标
   BarChart3,
   Eye,
@@ -87,6 +88,12 @@ import { getSafeAvatar } from '@/utils/avatar';
 const router = useRouter();
 const route = useRoute();
 const userStore = useUserStore();
+
+// 是否已通过创作者认证（后端 isCertifiedCreator 为 Integer 0/1，兼容 boolean）
+const isCertifiedCreator = computed(() => {
+  const v = userStore.user?.isCertifiedCreator;
+  return v === 1 || v === true;
+});
 
 // ============ 基础数据 ============
 const currentUser = ref<UserType | null>(null);
@@ -2248,6 +2255,29 @@ const dashboardCards = computed(() => {
                       <div class="min-w-0">
                         <p class="font-semibold mb-1" style="color: var(--theme-text);">账号设置</p>
                         <p class="text-xs" style="color: var(--theme-text-secondary);">密码、通知、隐私等设置</p>
+                      </div>
+                      <ChevronRight class="w-5 h-5 ml-auto flex-shrink-0" style="color: var(--theme-text-secondary);" />
+                    </button>
+
+                    <!-- 创作者认证 -->
+                    <button
+                      @click="router.push('/creator/certification')"
+                      class="flex items-center gap-4 p-5 rounded-2xl text-left transition-colors hover:opacity-90"
+                      style="background-color: var(--theme-surface); border: 1px solid var(--theme-border);"
+                    >
+                      <div class="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0" style="background-color: #fefce8;">
+                        <ShieldCheck class="w-6 h-6" style="color: #f59e0b;" />
+                      </div>
+                      <div class="min-w-0">
+                        <p class="font-semibold mb-1 flex items-center gap-2" style="color: var(--theme-text);">
+                          创作者认证
+                          <span
+                            v-if="isCertifiedCreator"
+                            class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium"
+                            style="background-color: #dcfce7; color: #16a34a;"
+                          >已认证</span>
+                        </p>
+                        <p class="text-xs" style="color: var(--theme-text-secondary);">{{ isCertifiedCreator ? '已通过创作者认证，解锁全部创作能力' : '申请认证，解锁发布文章、创建专栏等创作权限' }}</p>
                       </div>
                       <ChevronRight class="w-5 h-5 ml-auto flex-shrink-0" style="color: var(--theme-text-secondary);" />
                     </button>

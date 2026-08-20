@@ -59,6 +59,11 @@ const WrongBookPage = () => import('@/pages/learn/WrongBookPage.vue')
 const StudyCalendarPage = () => import('@/pages/learn/StudyCalendarPage.vue')
 const KnowledgeGraphPage = () => import('@/pages/learn/KnowledgeGraphPage.vue')
 const LeaderboardPage = () => import('@/pages/learn/LeaderboardPage.vue')
+const PracticeChoiceListPage = () => import('@/pages/learn/PracticeChoiceListPage.vue')
+const PracticeCodingListPage = () => import('@/pages/learn/PracticeCodingListPage.vue')
+const PracticeCenterPage = () => import('@/pages/learn/PracticeCenterPage.vue')
+const ChoicePracticePage = () => import('@/pages/learn/ChoicePracticePage.vue')
+const CodingPracticePage = () => import('@/pages/learn/CodingPracticePage.vue')
 const CodeRunnerPage = () => import('@/pages/tools/CodeRunnerPage.vue')
 const VoiceEngineDemoPage = () => import('@/pages/interview/VoiceEngineDemoPage.vue')
 const VoiceInterviewPage = () => import('@/pages/interview/VoiceInterviewPage.vue')
@@ -190,11 +195,47 @@ const routes: RouteRecordRaw[] = [
     component: LeaderboardPage,
     meta: { title: '刷题排行榜', isPublic: true }
   },
+  // ============ 刷题中心：选择题 / 编程题在线练习 ============
+  {
+    path: '/learn/practice',
+    name: 'learn-practice',
+    component: PracticeCenterPage,
+    meta: { title: '刷题中心', isPublic: true }
+  },
+  {
+    path: '/learn/practice/choice',
+    name: 'learn-practice-choice',
+    component: PracticeChoiceListPage,
+    meta: { title: '选择题练习', isPublic: true }
+  },
+  {
+    path: '/learn/practice/choice/:id',
+    name: 'learn-practice-choice-do',
+    component: ChoicePracticePage,
+    meta: { title: '选择题做题', isPublic: true }
+  },
+  {
+    path: '/learn/practice/coding',
+    name: 'learn-practice-coding',
+    component: PracticeCodingListPage,
+    meta: { title: '编程题练习', isPublic: true }
+  },
+  {
+    path: '/learn/practice/coding/:id',
+    name: 'learn-practice-coding-do',
+    component: CodingPracticePage,
+    meta: { title: '编程题做题', isPublic: true }
+  },
   {
     path: '/interview/questions',
     name: 'interview-questions',
     component: QuestionListPage,
     meta: { title: '题目列表', isPublic: true }
+  },
+  // v10.6：学习中心「面试题库」栏目路由（与 portal_category.nav_route_path 对齐）
+  {
+    path: '/learn/questions',
+    redirect: '/interview/questions'
   },
   {
     path: '/interview/experiences',

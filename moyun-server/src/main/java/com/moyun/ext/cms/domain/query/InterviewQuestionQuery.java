@@ -32,4 +32,10 @@ public class InterviewQuestionQuery extends PageDomain implements Serializable {
      * 用于题库按类型筛选（v6.3 题目结构化）
      */
     private String questionType;
+
+    /**
+     * 练习模式：reading/choice/coding（v10.6 题库重构·阶段2）
+     * 与 questionType 正交：questionType 描述内容分类，practiceMode 描述作答方式
+     */
+    private String practiceMode;
 }

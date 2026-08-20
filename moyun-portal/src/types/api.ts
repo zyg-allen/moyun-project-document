@@ -1145,6 +1145,18 @@ export interface InterviewQuestionDetailVO extends InterviewQuestionVO {
   referenceAnswer?: string;
   /** 前置题目 ID 列表（用于学习路径推荐） */
   prerequisiteIds?: (string | number)[];
+
+  // ===== 练习模式扩展字段（v10.6 题库重构·阶段2） =====
+  /** 练习模式：reading 展示阅读 / choice 选择题 / coding 编程题 */
+  practiceMode?: string;
+  /** 选择题选项（JSON 字符串，前端 JSON.parse 为 [{label,text,is_correct}]） */
+  options?: string;
+  /** 正确答案（选择题：选项 label 如 B） */
+  correctAnswer?: string;
+  /** 题目解析（做题后展示） */
+  analysis?: string;
+  /** 知识点标签（逗号分隔） */
+  knowledgeTags?: string;
 }
 
 export interface InterviewQuestionQuery {
@@ -1154,6 +1166,8 @@ export interface InterviewQuestionQuery {
   difficulty?: string;
   /** 题目类型筛选（v6.3 题目结构化） */
   questionType?: QuestionType | string;
+  /** 练习模式筛选（v10.6 题库重构·阶段2）：reading/choice/coding */
+  practiceMode?: string;
   keyword?: string;
   companyId?: string | number;
 }

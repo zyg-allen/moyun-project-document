@@ -7,6 +7,16 @@
           @keyup.enter="handleQuery"
         />
       </el-form-item>
+      <el-form-item label="练习模式">
+        <el-select v-model="queryParams.practiceMode" placeholder="请选择练习模式" clearable>
+          <el-option
+            v-for="m in portal_practice_mode"
+            :key="m.value"
+            :label="m.label"
+            :value="m.value"
+          />
+        </el-select>
+      </el-form-item>
       <el-form-item label="分类">
         <el-select v-model="queryParams.categoryId" placeholder="请选择分类" clearable filterable>
           <el-option
@@ -55,6 +65,11 @@
       <el-table-column type="selection" width="55" align="center" />
       <el-table-column label="ID" prop="id" width="80" />
       <el-table-column label="标题" prop="title" min-width="180" show-overflow-tooltip />
+      <el-table-column label="练习模式" width="100">
+        <template #default="{ row }">
+          <dict-tag :options="portal_practice_mode" :value="row.practiceMode" />
+        </template>
+      </el-table-column>
       <el-table-column label="难度" width="100">
         <template #default="{ row }">
           <dict-tag :options="portal_question_difficulty" :value="row.difficulty" />
@@ -83,7 +98,7 @@
       <el-table-column label="操作" width="240" fixed="right">
         <template #default="{ row }">
           <el-button link type="primary" @click="handleEdit(row)">编辑</el-button>
-          <el-button link type="success" @click="handleTestCase(row)">用例</el-button>
+          <el-button v-if="row.practiceMode === 'coding'" link type="success" @click="handleTestCase(row)">用例</el-button>
           <el-button link type="danger" @click="handleDelete(row)">删除</el-button>
         </template>
       </el-table-column>
@@ -97,9 +112,27 @@
       @pagination="getList"
     />
 
-    <el-dialog v-model="dialogVisible" :title="dialogTitle" width="720px">
+    <!-- 新增/编辑弹窗：根据练习模式显示不同字段 -->
+    <el-dialog v-model="dialogVisible" :title="dialogTitle" width="820px" :close-on-click-modal="false">
       <el-form :model="form" label-width="100px">
-        <el-form-item label="标题"><el-input v-model="form.title" placeholder="请输入标题" /></el-form-item>
+        <!-- 练习模式选择（顶部，决定后续表单） -->
+        <el-form-item label="练习模式" required>
+          <el-radio-group v-model="form.practiceMode" @change="onPracticeModeChange">
+            <el-radio-button
+              v-for="m in portal_practice_mode"
+              :key="m.value"
+              :label="m.value"
+            >{{ m.label }}</el-radio-button>
+          </el-radio-group>
+          <div class="form-tip">
+            <span v-if="form.practiceMode === 'reading'">展示阅读题：用户看题+参考答案，不做判分</span>
+            <span v-else-if="form.practiceMode === 'choice'">选择题：用户选择选项，系统判分，需配置选项</span>
+            <span v-else-if="form.practiceMode === 'coding'">编程题：用户写代码，测试用例判定，需配置用例</span>
+          </div>
+        </el-form-item>
+
+        <!-- 基础字段（所有模式通用） -->
+        <el-form-item label="标题" required><el-input v-model="form.title" placeholder="请输入标题" /></el-form-item>
         <el-form-item label="描述">
           <el-input v-model="form.description" type="textarea" :rows="3" placeholder="请输入题目描述" />
         </el-form-item>
@@ -109,7 +142,7 @@
           </el-select>
         </el-form-item>
         <el-form-item label="分类">
-          <el-select v-model="form.categoryId" placeholder="请选择分类" filterable>
+          <el-select v-model="form.categoryId" placeholder="请选择分类" filterable clearable>
             <el-option v-for="c in categoryOptions" :key="c.id" :label="c.name" :value="c.id" />
           </el-select>
         </el-form-item>
@@ -125,11 +158,67 @@
           <el-input v-model="form.companies" placeholder="多个公司用英文逗号分隔" />
         </el-form-item>
         <el-form-item label="提示">
-          <el-input v-model="form.hint" type="textarea" :rows="2" placeholder="请输入提示" />
+          <el-input v-model="form.hint" type="textarea" :rows="2" placeholder="请输入提示（选填）" />
         </el-form-item>
-        <el-form-item label="参考答案">
-          <el-input v-model="form.solution" type="textarea" :rows="4" placeholder="请输入参考答案" />
+
+        <!-- ========== 展示阅读题（reading）字段 ========== -->
+        <template v-if="form.practiceMode === 'reading'">
+          <el-divider content-position="left">展示阅读题专属</el-divider>
+          <el-form-item label="参考答案">
+            <el-input v-model="form.solution" type="textarea" :rows="5" placeholder="请输入参考答案（用户看题后展示）" />
+          </el-form-item>
+          <el-form-item label="题目解析">
+            <el-input v-model="form.analysis" type="textarea" :rows="4" placeholder="请输入题目解析（选填）" />
+          </el-form-item>
+        </template>
+
+        <!-- ========== 选择题（choice）字段：动态选项配置 ========== -->
+        <template v-else-if="form.practiceMode === 'choice'">
+          <el-divider content-position="left">选择题选项配置</el-divider>
+          <div v-for="(opt, idx) in form.optionList" :key="idx" class="option-row">
+            <el-form-item :label="'选项 ' + opt.label" style="flex: 1; margin-bottom: 12px;">
+              <div class="option-input-group">
+                <el-input v-model="opt.text" placeholder="请输入选项内容" style="flex: 1;" />
+                <el-radio-group v-model="form.correctAnswer" class="option-correct-radio">
+                  <el-radio :label="opt.label">正确</el-radio>
+                </el-radio-group>
+                <el-button type="danger" :icon="Delete" circle size="small" @click="removeOption(idx)" :disabled="form.optionList.length <= 2" />
+              </div>
+            </el-form-item>
+          </div>
+          <el-form-item>
+            <el-button type="primary" plain :icon="Plus" @click="addOption">添加选项</el-button>
+            <span class="form-tip" style="margin-left: 12px;">至少 2 个选项，单选模式下选择一个正确答案</span>
+          </el-form-item>
+          <el-form-item label="题目解析">
+            <el-input v-model="form.analysis" type="textarea" :rows="4" placeholder="做题后展示的解析" />
+          </el-form-item>
+        </template>
+
+        <!-- ========== 编程题（coding）字段 ========== -->
+        <template v-else-if="form.practiceMode === 'coding'">
+          <el-divider content-position="left">编程题专属</el-divider>
+          <el-form-item label="参考代码">
+            <el-input v-model="form.solution" type="textarea" :rows="6" placeholder="参考代码（题解展示，选填）" style="font-family: monospace;" />
+          </el-form-item>
+          <el-form-item label="题目解析">
+            <el-input v-model="form.analysis" type="textarea" :rows="4" placeholder="做题后展示的解析" />
+          </el-form-item>
+          <el-form-item>
+            <el-alert type="info" :closable="false" show-icon>
+              <template #title>
+                编程题的测试用例请保存题目后，点击列表「用例」按钮进行配置。
+              </template>
+            </el-alert>
+          </el-form-item>
+        </template>
+
+        <!-- 知识点标签（所有模式通用） -->
+        <el-form-item label="知识点">
+          <el-input v-model="form.knowledgeTags" placeholder="多个知识点用英文逗号分隔，如：TCP,网络,三次握手" />
         </el-form-item>
+
+        <!-- 通用尾部字段 -->
         <el-form-item label="排序"><el-input-number v-model="form.sort" :min="0" /></el-form-item>
         <el-form-item label="状态">
           <el-select v-model="form.status">
@@ -165,7 +254,7 @@
 import { ref, reactive, computed, onMounted, getCurrentInstance } from 'vue';
 import { useRouter } from 'vue-router';
 import { ElMessage, ElMessageBox } from 'element-plus';
-import { Upload, Download } from '@element-plus/icons-vue';
+import { Upload, Download, Delete, Plus } from '@element-plus/icons-vue';
 import {
   listInterviewQuestion, getInterviewQuestion, addInterviewQuestion,
   updateInterviewQuestion, delInterviewQuestion,
@@ -180,6 +269,7 @@ import ImportDialog from '@/components/ImportDialog/index.vue';
 const { proxy } = getCurrentInstance();
 
 const { portal_question_difficulty } = proxy.useDict("portal_question_difficulty");
+const { portal_practice_mode } = proxy.useDict("portal_practice_mode");
 
 const loading = ref(true);
 const questionList = ref([]);
@@ -191,7 +281,7 @@ const multiple = computed(() => ids.value.length === 0);
 
 const queryParams = reactive({
   pageNum: 1, pageSize: 10,
-  keyword: '', categoryId: '', difficulty: '', status: ''
+  keyword: '', categoryId: '', difficulty: '', status: '', practiceMode: ''
 });
 
 const dialogVisible = ref(false);
@@ -199,15 +289,86 @@ const dialogTitle = computed(() => form.value.id ? '编辑题目' : '新增题�
 
 // Excel 导入弹窗
 const importVisible = ref(false);
-const form = ref({
-  id: null, title: '', description: '', difficulty: 'easy', categoryId: null,
-  tags: [], companies: '', hint: '', solution: '', sort: 0, status: 'published'
-});
+
+// 选项列表（选择题动态选项）
+function makeDefaultForm() {
+  return {
+    id: null,
+    title: '',
+    description: '',
+    difficulty: 'easy',
+    categoryId: null,
+    tags: [],
+    companies: '',
+    hint: '',
+    solution: '',
+    sort: 0,
+    status: 'published',
+    // v10.6 题库重构：练习模式扩展字段
+    practiceMode: 'reading',
+    optionList: makeDefaultOptions(),  // 选择题选项数组（前端临时态）
+    correctAnswer: '',                 // 正确答案（选择题 label）
+    analysis: '',                      // 题目解析
+    knowledgeTags: '',                  // 知识点标签
+  };
+}
+
+// 默认 4 个选项 A/B/C/D
+function makeDefaultOptions() {
+  return [
+    { label: 'A', text: '', is_correct: false },
+    { label: 'B', text: '', is_correct: false },
+    { label: 'C', text: '', is_correct: false },
+    { label: 'D', text: '', is_correct: false },
+  ];
+}
+
+const form = ref(makeDefaultForm());
 
 function statusLabel(s) { return { draft: '草稿', published: '已发布', archived: '已归档' }[s] || s; }
 function statusType(s) { return { draft: 'info', published: 'success', archived: 'warning' }[s] || 'info'; }
 function tagList(tags) { return tags ? String(tags).split(',').map(s => s.trim()).filter(Boolean) : []; }
 function tagsToStr(tags) { return (tags || []).join(','); }
+
+// 选项 label 序列：A B C D E F G H
+function nextOptionLabel() {
+  const labels = ['A','B','C','D','E','F','G','H','I','J'];
+  return labels[form.value.optionList.length] || String.fromCharCode(65 + form.value.optionList.length);
+}
+
+function addOption() {
+  form.value.optionList.push({ label: nextOptionLabel(), text: '', is_correct: false });
+}
+
+function removeOption(idx) {
+  if (form.value.optionList.length <= 2) {
+    ElMessage.warning('至少保留 2 个选项');
+    return;
+  }
+  const removed = form.value.optionList[idx];
+  form.value.optionList.splice(idx, 1);
+  // 重新排序 label
+  form.value.optionList.forEach((opt, i) => {
+    opt.label = String.fromCharCode(65 + i);
+  });
+  // 若删除的是正确答案，清空
+  if (form.value.correctAnswer === removed.label) {
+    form.value.correctAnswer = '';
+  } else {
+    // 重新映射 correctAnswer
+    const oldIdx = idx;
+    form.value.optionList.forEach((opt, i) => {
+      // label 已重新赋值，无需处理
+    });
+  }
+}
+
+// 练习模式切换时重置选项
+function onPracticeModeChange(newMode) {
+  if (newMode === 'choice' && form.value.optionList.length === 0) {
+    form.value.optionList = makeDefaultOptions();
+  }
+}
 
 async function loadCategories() {
   try {
@@ -243,15 +404,13 @@ function resetQuery() {
   queryParams.categoryId = '';
   queryParams.difficulty = '';
   queryParams.status = '';
+  queryParams.practiceMode = '';
   queryParams.pageNum = 1;
   getList();
 }
 
 function handleAdd() {
-  form.value = {
-    id: null, title: '', description: '', difficulty: 'easy', categoryId: null,
-    tags: [], companies: '', hint: '', solution: '', sort: 0, status: 'published'
-  };
+  form.value = makeDefaultForm();
   dialogVisible.value = true;
 }
 
@@ -259,6 +418,20 @@ async function handleEdit(row) {
   try {
     const res = await getInterviewQuestion(row.id);
     const data = res.data || {};
+    // 解析 options JSON 字符串为数组
+    let optionList = makeDefaultOptions();
+    if (data.options) {
+      try {
+        const parsed = typeof data.options === 'string' ? JSON.parse(data.options) : data.options;
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          optionList = parsed.map((o, i) => ({
+            label: o.label || String.fromCharCode(65 + i),
+            text: o.text || '',
+            is_correct: !!o.is_correct || o.isCorrect || false,
+          }));
+        }
+      } catch { /* JSON 解析失败，用默认空选项 */ }
+    }
     form.value = {
       id: data.id,
       title: data.title || '',
@@ -270,7 +443,13 @@ async function handleEdit(row) {
       hint: data.hint || '',
       solution: data.solution || '',
       sort: data.sort || 0,
-      status: data.status || 'published'
+      status: data.status || 'published',
+      // v10.6 扩展字段
+      practiceMode: data.practiceMode || 'reading',
+      optionList,
+      correctAnswer: data.correctAnswer || '',
+      analysis: data.analysis || '',
+      knowledgeTags: data.knowledgeTags || '',
     };
     dialogVisible.value = true;
   } catch (e) { /* ignore */ }
@@ -287,10 +466,45 @@ async function submitForm() {
     ElMessage.warning('请输入标题');
     return;
   }
+  // 选择题校验
+  if (form.value.practiceMode === 'choice') {
+    const validOpts = form.value.optionList.filter(o => o.text.trim());
+    if (validOpts.length < 2) {
+      ElMessage.warning('选择题至少需要 2 个有效选项');
+      return;
+    }
+    if (!form.value.correctAnswer) {
+      ElMessage.warning('请标记一个正确答案');
+      return;
+    }
+  }
   try {
-    const submitData = { ...form.value, tags: tagsToStr(form.value.tags) };
-    let entityId = form.value.id;
+    // 构造提交数据：optionList 序列化为 options JSON 字符串
+    const submitData = {
+      ...form.value,
+      tags: tagsToStr(form.value.tags),
+    };
+    // 选择题：optionList → options JSON 字符串
+    if (form.value.practiceMode === 'choice') {
+      submitData.options = JSON.stringify(
+        form.value.optionList
+          .filter(o => o.text.trim())
+          .map(o => ({
+            label: o.label,
+            text: o.text.trim(),
+            is_correct: o.label === form.value.correctAnswer,
+          }))
+      );
+    } else {
+      submitData.options = null;
+      if (form.value.practiceMode !== 'choice') {
+        submitData.correctAnswer = null;
+      }
+    }
+    // 移除前端临时态字段（optionList 已序列化为 options；tags 已转字符串保留）
+    delete submitData.optionList;
 
+    let entityId = form.value.id;
     if (form.value.id) {
       await updateInterviewQuestion(submitData);
       ElMessage.success('修改成功');
@@ -369,4 +583,21 @@ onMounted(() => {
 <style scoped>
 .app-container { padding: 20px; }
 .search-form, .button-group { margin-bottom: 16px; }
+.form-tip {
+  font-size: 12px;
+  color: #909399;
+  margin-top: 4px;
+  line-height: 1.4;
+}
+.option-row {
+  margin-bottom: 4px;
+}
+.option-input-group {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.option-correct-radio {
+  flex-shrink: 0;
+}
 </style>

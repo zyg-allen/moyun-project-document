@@ -232,6 +232,8 @@ public class PortalInterviewServiceImpl implements IPortalInterviewService {
         if (StringUtils.isNotEmpty(query.getDifficulty())) qw.eq(PortalInterviewQuestion::getDifficulty, query.getDifficulty());
         // v6.3 题目结构化：按题型筛选
         if (StringUtils.isNotEmpty(query.getQuestionType())) qw.eq(PortalInterviewQuestion::getQuestionType, query.getQuestionType());
+        // v10.6 题库重构：按练习模式筛选（reading/choice/coding）
+        if (StringUtils.isNotEmpty(query.getPracticeMode())) qw.eq(PortalInterviewQuestion::getPracticeMode, query.getPracticeMode());
         if (StringUtils.isNotEmpty(query.getKeyword())) {
             qw.like(PortalInterviewQuestion::getTitle, query.getKeyword()).or().like(PortalInterviewQuestion::getDescription, query.getKeyword());
         }
@@ -291,6 +293,7 @@ public class PortalInterviewServiceImpl implements IPortalInterviewService {
         java.util.Set<String> validDifficulty = java.util.Set.of("easy", "medium", "hard");
         java.util.Set<String> validQuestionType = java.util.Set.of("bagwen", "algorithm", "system_design", "project", "hr");
         java.util.Set<String> validStatus = java.util.Set.of("draft", "published", "archived", "active", "inactive");
+        java.util.Set<String> validPracticeMode = java.util.Set.of("reading", "choice", "coding");
 
         for (int i = 0; i < rows.size(); i++) {
             Map<String, String> row = rows.get(i);
@@ -312,6 +315,27 @@ public class PortalInterviewServiceImpl implements IPortalInterviewService {
                 String questionType = trimToEmpty(row.get("questionType"));
                 if (!questionType.isEmpty() && !validQuestionType.contains(questionType)) {
                     throw new IllegalArgumentException("题目类型非法，应为 bagwen/algorithm/system_design/project/hr");
+                }
+
+                // 练习模式校验（v10.6 新增）
+                String practiceMode = trimToEmpty(row.get("practiceMode"));
+                if (!practiceMode.isEmpty() && !validPracticeMode.contains(practiceMode)) {
+                    throw new IllegalArgumentException("练习模式非法，应为 reading/choice/coding");
+                }
+
+                // 选择题选项 JSON 校验（practiceMode=choice 时必填）
+                String options = trimToEmpty(row.get("options"));
+                String correctAnswer = trimToEmpty(row.get("correctAnswer"));
+                if ("choice".equals(practiceMode)) {
+                    if (options.isEmpty()) {
+                        throw new IllegalArgumentException("练习模式为 choice 时，选择题选项不能为空");
+                    }
+                    try {
+                        com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+                        mapper.readTree(options); // 校验 JSON 格式
+                    } catch (Exception ex) {
+                        throw new IllegalArgumentException("选择题选项不是合法的 JSON 格式");
+                    }
                 }
 
                 String status = trimToEmpty(row.get("status"));
@@ -338,6 +362,12 @@ public class PortalInterviewServiceImpl implements IPortalInterviewService {
                 q.setScoringCriteria(trimToEmpty(row.get("scoringCriteria")));
                 q.setPrerequisiteIds(trimToEmpty(row.get("prerequisiteIds")));
                 q.setQuestionType(questionType.isEmpty() ? null : questionType);
+                // v10.6 新增字段
+                q.setPracticeMode(practiceMode.isEmpty() ? "reading" : practiceMode);
+                q.setOptions(options.isEmpty() ? null : options);
+                q.setCorrectAnswer(correctAnswer.isEmpty() ? null : correctAnswer);
+                q.setAnalysis(trimToEmpty(row.get("analysis")));
+                q.setKnowledgeTags(trimToEmpty(row.get("knowledgeTags")));
                 // 数值类字段：空字符串保持默认，非空才解析
                 String sortStr = trimToEmpty(row.get("sort"));
                 if (!sortStr.isEmpty()) {
@@ -518,6 +548,13 @@ public class PortalInterviewServiceImpl implements IPortalInterviewService {
         vo.setScoringCriteria(parseScoringCriteria(entity.getScoringCriteria()));
         vo.setReferenceAnswer(entity.getReferenceAnswer());
         vo.setPrerequisiteIds(parseLongArray(entity.getPrerequisiteIds()));
+
+        // v10.6 题库重构·阶段2：填充练习模式扩展字段
+        vo.setPracticeMode(entity.getPracticeMode());
+        vo.setOptions(entity.getOptions());
+        vo.setCorrectAnswer(entity.getCorrectAnswer());
+        vo.setAnalysis(entity.getAnalysis());
+        vo.setKnowledgeTags(entity.getKnowledgeTags());
 
         // 我的提交记录
         if (currentUserId != null) {

@@ -5,6 +5,124 @@
 
 ---
 
+## v10.6 (2026-08-20) 题库模块重构·阶段1+2：刷题中心上线 + 选择题做题闭环
+
+### 背景
+数据库 `portal_category` 已配置「学习中心 → 刷题中心 → 选择题/编程题」三级栏目，
+路由 `/learn/practice`、`/learn/practice/choice`、`/learn/practice/coding` 在前端缺失导致 404。
+结合 `20260820题库模块重构考虑.md` 与 Coze 原型页面，制定分阶段重构方案。
+
+### 交付内容
+
+**阶段1：列表页 + 路由修复**
+1. **新增 3 个前端页面**：
+   - `PracticeCenterPage.vue` — 刷题中心入口（/learn/practice）
+   - `PracticeChoiceListPage.vue` — 选择题列表（/learn/practice/choice）
+   - `PracticeCodingListPage.vue` — 编程题列表（/learn/practice/coding）
+2. **路由注册**：`router/index.ts` 新增路由，均 `isPublic: true`
+
+**阶段2：后端字段扩展 + 选择题做题闭环**
+3. **SQL 扩展**（`init_v7.8.sql` 表定义 + `1-1_20260820_practice.sql` 增量脚本）：
+   - `portal_interview_question` 新增 5 字段：`practice_mode`/`options`/`correct_answer`/`analysis`/`knowledge_tags`
+   - 新增 `idx_practice_mode` 索引
+   - 插入 5 道示例选择题 + 3 道示例编程题 + 9 条测试用例
+   - 注册 `portal_practice_mode` 字典
+4. **后端扩展**（Entity/VO/Query/Service 全链路）：
+   - `PortalInterviewQuestion` Entity 新增 5 字段
+   - `InterviewQuestionDetailVO` VO 新增 5 字段
+   - `InterviewQuestionQuery` Query 新增 `practiceMode` 筛选
+   - `buildQuestionQueryWrapper` 支持 `practice_mode` 条件
+   - `selectQuestionDetailById` 填充练习模式扩展字段
+5. **前端选择题做题页** `ChoicePracticePage.vue`（/learn/practice/choice/:id）：
+   - 参考 `choice_question_page.html` 原型设计
+   - 选项渲染、提交判定、正确/错误反馈、题目解析展示、再做一次
+   - 红色主题、面包屑、返回列表
+6. **列表页筛选优化**：改用 `practiceMode=choice/coding` 筛选（比 questionType 更准确）
+
+### 重构设计文档
+- 新增 `docs/题库模块重构方案-20260820.md`，明确两阶段方案与正交设计
+
+### 验证
+- 前端 `vue-tsc -b` 编译通过（exit 0）
+- 后端 `mvn compile` 编译通过（exit 0）
+
+### 遗留 TODO（阶段3b）
+- [ ] 后端 `/portal/interview/question/{id}/testcases` 接口（当前从题目描述解析示例用例）
+- [ ] 后端做题提交 API + 判分逻辑持久化（当前前端本地判定）
+- [ ] 后端沙箱执行其他语言（Python/Java/Go）
+- [ ] `user_question_record` 表（做题记录：对错/用时/提交代码）
+- [ ] 错题本对接：练习模式提交错误时自动写入错题本
+
+---
+
+## v10.6 阶段3b (2026-08-20) admin 后台题库管理多类型表单 + 路由修复
+
+### 交付内容
+
+**1. 修复 /learn/questions 404**
+- 数据库 `portal_category` 的 `nav_route_path` 是 `/learn/questions`，但前端无此路由
+- 新增路由重定向 `/learn/questions` → `/interview/questions`
+
+**2. admin 后台题库管理页面改造**（[index.vue](file:///d:/zyg_new_work/moyun-project-document/moyun-admin-vue/src/views/cms/interview/question/index.vue)）
+- **列表页**：搜索栏新增「练习模式」筛选，表格新增「练习模式」列，用 `dict-tag` 渲染
+- **统一入口**：一个题目管理页面，通过「练习模式」单选切换不同表单
+- **多类型表单**（根据 practiceMode 动态显示）：
+  - `reading` 展示阅读题：参考答案 + 解析
+  - `choice` 选择题：动态选项配置（增删改，A/B/C/D 自动编号）+ 正确答案单选 + 解析
+  - `coding` 编程题：参考代码 + 解析 + 提示"保存后配置测试用例"
+- **选择题选项**：前端 `optionList` 数组 ↔ 后端 `options` JSON 字符串互转
+- **列表「用例」按钮**：仅 `practiceMode=coding` 时显示
+
+**3. 后端 VO 扩展**
+- `InterviewQuestionVO` 新增 `practiceMode` 字段（列表查询返回）
+- `BeanUtils.copyProperties` 自动映射 Entity → VO
+
+### 验证
+- admin 前端 `vite build` 编译通过（exit 0）
+- 后端 `mvn compile` 编译通过（exit 0）
+
+### 字段覆盖对照（前台 ↔ 后台）
+| 前台字段 | 后台表单字段 | 说明 |
+|---|---|---|
+| question.title | 标题 | 所有模式通用 |
+| question.description | 描述 | 所有模式通用 |
+| question.difficulty | 难度 | 所有模式通用 |
+| question.options | 选项配置 | 仅选择题，JSON 字符串 |
+| question.correctAnswer | 正确答案 | 仅选择题 |
+| question.solution | 参考答案/参考代码 | reading/coding |
+| question.analysis | 题目解析 | 所有模式可选 |
+| question.knowledgeTags | 知识点 | 所有模式可选 |
+| question.practiceMode | 练习模式 | 决定表单类型 |
+| testCases | 用例按钮跳转 | 仅编程题 |
+
+---
+
+## v10.6 阶段3 (2026-08-20) 编程题做题页上线
+
+### 交付内容
+1. **新增编程题做题页** `CodingPracticePage.vue`（/learn/practice/coding/:id）：
+   - 参考 `code_question_page.html` 原型设计
+   - 左右分栏布局（左题目描述 | 右代码编辑器 + 运行结果）
+   - 复用现有 `CodeEditor.vue`（Monaco Editor）
+   - 4 种语言支持（JavaScript/TypeScript/Python/Java）
+   - 前端 JS 沙箱执行测试用例（new Function 隔离作用域）
+   - 左侧三 Tab：题目描述/题解/提交记录
+   - 运行/提交按钮，运行结果实时展示（通过/未通过/错误/耗时）
+   - 计时器、面包屑、重置代码、返回列表
+2. **路由注册**：`/learn/practice/coding/:id`
+3. **列表页跳转更新**：点击编程题跳转做题页
+
+### 技术方案
+- 代码编辑器：复用 Monaco Editor（项目已配置，7 种语言语法高亮）
+- 判定逻辑：前端 JS 沙箱（new Function 包装用户代码，传入测试用例输入，比对输出）
+- 测试用例：当前从题目描述解析示例（阶段3b 接后端 testcases 接口）
+- 其他语言：提示切换到 JavaScript（阶段3b 后端沙箱支持）
+
+### 验证
+- `vue-tsc -b` 编译通过（exit 0）
+
+---
+
 ## v10.0 Phase 0 (2026-08-18) AI 语音面试官前置依赖就绪
 
 ### 背景

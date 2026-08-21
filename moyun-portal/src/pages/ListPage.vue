@@ -211,9 +211,15 @@ async function loadArticles() {
     const params: any = {
       pageNum: currentPage.value,
       pageSize: itemsPerPage.value,
-      categoryName: selectedCategory.value !== '全部' ? selectedCategory.value : undefined,
       isCategoryRecommended: isCategoryRecommended.value ? true : undefined
     };
+
+    // 根据列表类型区分传参：分类传 categoryName，标签传 tagName
+    if (listType.value === 'tag' && selectedCategory.value !== '全部') {
+      params.tagName = selectedCategory.value;
+    } else if (selectedCategory.value !== '全部') {
+      params.categoryName = selectedCategory.value;
+    }
 
     const response = await articleApi.getArticleList(params);
 

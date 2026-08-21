@@ -10,7 +10,7 @@ import {
   AlertCircle, RefreshCw,
   BarChart3, Network, TrendingUp,
   MessageCircle, Activity, Crown, Target,
-  Mic, PlayCircle, Clock
+  Mic, PlayCircle, Clock, X
 } from 'lucide-vue-next'
 import LazyImage from '@/components/LazyImage.vue'
 import SiteFooter from '@/components/SiteFooter.vue'
@@ -78,6 +78,9 @@ const leaderboardTop3 = ref<any[]>([])
 
 // 社区动态预览数据（营造社区氛围）
 const hotFeedList = ref<any[]>([])
+
+// 首页广告位（可关闭）
+const showAdBanner = ref(true)
 
 const loadHomeData = async () => {
   try {
@@ -441,8 +444,8 @@ const siteStats = computed(() => [
 useHead(
     generateSeo({
       title: '首页',
-      description: '墨韵·智库 - 为文学爱好者和技术开发者提供一个纯净的创作与阅读空间，在这里分享技术与生活之美',
-      keywords: ['文学', '散文', '技术', '编程', '创作', '阅读', '分享'],
+      description: '旭林知行 - AI 驱动的求职面试与学习成长平台，为求职者提供面试技巧、题库刷题、简历优化与成长路径',
+      keywords: ['面试', '求职', '刷题', '算法', '简历', '面经', '题库', '学习', '成长'],
       type: 'website',
       canonicalPath: '/'
     })
@@ -701,25 +704,43 @@ useHead(
               </div>
             </div>
 
-            <div class="grid grid-cols-2 gap-3">
+            <!-- 首页广告位（可关闭） -->
+            <div
+                v-if="showAdBanner"
+                class="relative rounded-xl overflow-hidden shadow-md transition-all hover:shadow-lg"
+            >
               <button
-                  @click="router.push('/reading')"
-                  class="p-4 rounded-xl flex flex-col items-center justify-center gap-2 text-center transition-all hover:scale-105"
-                  style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);"
+                  type="button"
+                  @click="showAdBanner = false"
+                  class="absolute top-1.5 right-1.5 z-10 w-6 h-6 rounded-full bg-black/40 hover:bg-black/60 flex items-center justify-center text-white transition-colors backdrop-blur"
+                  aria-label="关闭广告"
               >
-                <BookOpen class="w-6 h-6 text-white" />
-                <span class="text-white text-sm font-medium">读书空间</span>
-                <span class="text-white/80 text-xs">精选好书</span>
+                <X class="w-3.5 h-3.5" />
               </button>
-              <button
-                  @click="router.push('/interview')"
-                  class="p-4 rounded-xl flex flex-col items-center justify-center gap-2 text-center transition-all hover:scale-105"
-                  style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);"
+              <div
+                  class="flex items-stretch gap-3 p-3 sm:p-4 cursor-pointer"
+                  style="background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 50%, #ec4899 100%);"
+                  @click="router.push('/vip')"
               >
-                <Briefcase class="w-6 h-6 text-white" />
-                <span class="text-white text-sm font-medium">面试指南</span>
-                <span class="text-white/80 text-xs">大厂面经</span>
-              </button>
+                <div class="hidden sm:flex w-16 h-16 sm:w-20 sm:h-20 rounded-lg overflow-hidden flex-shrink-0 bg-white/10">
+                  <img
+                      src="https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=VIP%20membership%20premium%20card%20design%20with%20gold%20and%20purple%20gradient%20luxury%20style&image_size=square"
+                      alt="VIP会员"
+                      class="w-full h-full object-cover"
+                  />
+                </div>
+                <div class="flex-1 flex flex-col justify-center min-w-0 text-white py-1">
+                  <div class="flex items-center gap-2 mb-1">
+                    <span class="text-[10px] font-medium px-1.5 py-0.5 bg-white/25 rounded backdrop-blur flex-shrink-0">推广</span>
+                    <h4 class="text-sm sm:text-base font-bold truncate">加入旭林知行会员</h4>
+                  </div>
+                  <p class="text-xs sm:text-sm opacity-90 line-clamp-2">解锁VIP专属内容、AI面试官、成长1.5倍加成等特权</p>
+                  <span class="inline-flex items-center gap-1 mt-1.5 px-2.5 py-0.5 bg-white text-indigo-700 rounded-full text-xs font-medium w-fit">
+                    立即开通
+                    <ArrowRight class="w-3 h-3" />
+                  </span>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -1112,7 +1133,7 @@ useHead(
         <div class="flex items-center justify-between mb-3 sm:mb-4">
           <div class="flex items-center gap-2">
             <User class="w-4 h-4 sm:w-5 sm:h-5 text-blue-600" />
-            <h2 class="text-base sm:text-lg font-bold" style="color: var(--theme-text);">墨韵名家录</h2>
+            <h2 class="text-base sm:text-lg font-bold" style="color: var(--theme-text);">旭林名家录</h2>
           </div>
           <div class="flex items-center gap-1.5 sm:gap-2">
             <Link to="/authors" class="flex items-center gap-1.5 text-xs sm:text-sm" style="color: var(--theme-text-secondary);">
@@ -1153,7 +1174,7 @@ useHead(
           <div class="flex items-center gap-2">
             <MessageCircle class="w-4 h-4 sm:w-5 sm:h-5" style="color: var(--theme-primary);" />
             <div>
-              <h2 class="text-base sm:text-lg font-bold" style="color: var(--theme-text);">墨韵动态</h2>
+              <h2 class="text-base sm:text-lg font-bold" style="color: var(--theme-text);">旭林动态</h2>
               <p class="text-xs" style="color: var(--theme-text-secondary);">看看大家都在做什么</p>
             </div>
           </div>

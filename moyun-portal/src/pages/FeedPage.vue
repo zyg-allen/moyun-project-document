@@ -87,8 +87,8 @@ function gotoTarget(ev: FeedEventVO) {
 
 useHead(computed(() => generateSeo({
   title: '动态广场',
-  description: '墨韵动态广场，关注创作者的最新文章、面经与专栏，发现全站热门动态',
-  keywords: ['动态', '关注', '热门', '创作者', '墨韵'],
+  description: '旭林动态广场，关注创作者的最新文章、面经与专栏，发现全站热门动态',
+  keywords: ['动态', '关注', '热门', '创作者', '旭林'],
   canonicalPath: '/feed',
 })));
 

@@ -1043,6 +1043,9 @@ onMounted(async () => {
   if (!userStore.isUserInitialized) {
     await userStore.initializeUser();
   }
+  // 刷新用户信息：确保 isCertifiedCreator 等后端可变字段与最新状态一致
+  // 场景：创作者认证审核通过后，用户进入个人中心需立即看到"已认证"标识
+  await userStore.fetchCurrentUser();
   await loadUserData();
 });
 
@@ -1135,6 +1138,15 @@ const dashboardCards = computed(() => {
                         <h1 class="text-2xl sm:text-3xl font-bold" style="color: var(--theme-text);">
                           {{ currentUser.nickname || currentUser.username }}
                         </h1>
+                        <!-- 创作者实名认证徽章 -->
+                        <span
+                          v-if="isCertifiedCreator"
+                          class="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs sm:text-sm font-medium"
+                          style="background-color: #dcfce7; color: #16a34a; border: 1px solid #86efac;"
+                        >
+                          <ShieldCheck class="w-3 h-3 sm:w-4 sm:h-4" />
+                          已认证创作者
+                        </span>
                         <!-- 成长等级徽章 -->
                         <span v-if="myGrowth || dashboard" class="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs sm:text-sm font-medium" style="background: linear-gradient(135deg, #f59e0b 0%, #ef4444 100%); color: white;">
                           <Star class="w-3 h-3 sm:w-4 sm:h-4" />

@@ -175,7 +175,7 @@ function goToAuthor(userId: string) {
 useHead(
   generateSeo({
     title: '名家录',
-    description: '墨韵名家录 - 探索优秀创作者的精彩世界。',
+    description: '旭林名家录 - 探索优秀创作者的精彩世界。',
     keywords: ['名家录', '作者', '创作者', '作家'],
     type: 'website'
   })
@@ -198,7 +198,7 @@ useHead(
     <div class="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
       <!-- 页面标题 -->
       <div class="mb-6 sm:mb-8">
-        <h1 class="text-2xl sm:text-3xl font-bold mb-2" style="color: var(--theme-text);">墨韵名家录</h1>
+        <h1 class="text-2xl sm:text-3xl font-bold mb-2" style="color: var(--theme-text);">旭林名家录</h1>
         <p class="text-sm sm:text-base" style="color: var(--theme-text-secondary);">
           发现优秀创作者，关注他们的精彩作品
         </p>

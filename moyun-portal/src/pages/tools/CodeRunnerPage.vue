@@ -20,8 +20,8 @@ type Lang = 'java' | 'python' | 'javascript';
 
 // 各语言默认模板
 const STARTER_CODE: Record<Lang, string> = {
-  python: `# Python 在线运行示例\nname = input("请输入你的名字：")\nprint(f"你好，{name}！欢迎使用墨韵代码沙箱")\nprint("1+1 =", 1+1)`,
-  javascript: `// JavaScript 在线运行示例\nconst greeting = "Hello from Moyun sandbox";\nconsole.log(greeting);\nconsole.log("1+1 =", 1+1);\n[1,2,3].map(x => x*2).forEach(x => console.log(x));`,
+  python: `# Python 在线运行示例\nname = input("请输入你的名字：")\nprint(f"你好，{name}！欢迎使用旭林代码沙箱")\nprint("1+1 =", 1+1)`,
+  javascript: `// JavaScript 在线运行示例\nconst greeting = "Hello from Xulin sandbox";\nconsole.log(greeting);\nconsole.log("1+1 =", 1+1);\n[1,2,3].map(x => x*2).forEach(x => console.log(x));`,
   java: `// Java 在线运行示例（类名须为 Main）\nimport java.util.Scanner;\n\npublic class Main {\n    public static void main(String[] args) {\n        Scanner sc = new Scanner(System.in);\n        String name = sc.hasNext() ? sc.next() : "World";\n        System.out.println("Hello, " + name + "!");\n        System.out.println("1+1 = " + (1+1));\n    }\n}`,
 };
 
@@ -63,7 +63,7 @@ const statusColor = computed(() => statusColorValue(result.value?.status));
 useHead(computed(() => generateSeo({
   title: '在线代码运行',
   description: '在线运行 Java / Python / JavaScript 代码，沙箱执行，超时 5 秒，输出截断 1MB',
-  keywords: ['在线代码运行', '代码沙箱', 'Python', 'Java', 'JavaScript', '墨韵'],
+  keywords: ['在线代码运行', '代码沙箱', 'Python', 'Java', 'JavaScript', '旭林'],
   canonicalPath: '/tools/code',
   robots: 'noindex,nofollow',
 })));

@@ -105,7 +105,7 @@ token:
   secret: ${TOKEN_SECRET:moyun-dev-only-secret-key-do-not-use-in-prod-env-at-least-64-chars-2026}
 
 # =============================================
-# 墨韵框架配置（本地文件路径覆盖）
+# 旭林框架配置（本地文件路径覆盖）
 # =============================================
 moyun:
   profile: /profile            # 本地文件存储路径

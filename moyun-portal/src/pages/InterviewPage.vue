@@ -131,7 +131,7 @@ function formatNumber(n: number) {
 
 useHead(computed(() => generateSeo({
   title: '面试指南 - 题库/面经/简历模板',
-  description: '墨韵智库面试指南 - 精选算法题库、面试经验分享、简历模板下载',
+  description: '旭林知行面试指南 - 精选算法题库、面试经验分享、简历模板下载',
 })));
 
 // 面包屑
@@ -168,7 +168,7 @@ const breadcrumbs = computed(() => [
       </div>
       <div class="relative px-6 py-8 sm:px-10 sm:py-10 text-center">
         <div class="inline-flex items-center bg-white/10 backdrop-blur-sm px-4 py-1.5 rounded-full text-sm mb-6">
-          <Briefcase class="w-4 h-4 mr-2" /> 墨韵 · 面试指南
+          <Briefcase class="w-4 h-4 mr-2" /> 旭林 · 面试指南
         </div>
         <div class="flex items-center justify-center mb-4">
           <h1 class="text-5xl font-bold tracking-tight">备战面试，直通 Offer</h1>

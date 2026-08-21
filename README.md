@@ -1,16 +1,16 @@
-# 墨韵·智库 — AI 驱动的个人成长平台
+# 旭林知行 — AI 驱动的求职面试与学习成长平台
 
-**项目版本**：v9.5（main-dev-article × moyun-dev-kouzi 合并版，后续开发基线）  
-**最后更新**：2026-08-16  
-**项目状态**：✅ v9.5 分支合并完成（三端编译通过） | ⏳ 数据填充与商业化待接入
+**项目版本**：v10.6（题库模块重构 + 审核接口收敛 + SQL DDL/DML 拆分）  
+**最后更新**：2026-08-20  
+**项目状态**：✅ v10.6 题库重构 + 话题/专栏审核收敛 + SQL 拆分完成（三端编译通过） | ⏳ 数据填充与商业化待接入
 
 ---
 
 ## 项目简介
 
-**墨韵·智库**是一个以优质内容优先吸引流量、再驱动用户成长的平台——游客首页即可浏览丰富的文章信息流（精选/热门/分类/作者榜/读书与面试导流），登录后解锁学习、刷题、面试、阅读、写作整合的成长时间线，并通过付费阅读/VIP/打赏实现内容变现。
+**旭林知行**是一个以优质内容优先吸引流量、再驱动用户成长的平台——游客首页即可浏览丰富的文章信息流（精选/热门/分类/作者榜/读书与面试导流），登录后解锁学习、刷题、面试、阅读、写作整合的成长时间线，并通过付费阅读/VIP/打赏实现内容变现。
 
-**品牌口号**：让成长有迹可循。
+**品牌口号**：知行合一，助你上岸。
 
 **产品策略（v9.5 确立）**：内容先行引流 → 体验留存 → 优质内容促进消费。
 
@@ -123,21 +123,14 @@ pnpm install && pnpm run dev
 ### SQL 初始化（按顺序执行，全部幂等可重复执行）
 
 ```bash
-# 1. 基础库（用户/菜单/角色 + 门户全部业务表）
-mysql -u root -p moyun < moyun-server/src/main/resources/sql/init_v7.8.sql
+# 1. 建表（157 张表，按业务模块分组：ai_* → gen_* → portal_* → qrtz_* → sys_* → 其他，含 DROP TABLE IF EXISTS 可重复执行）
+mysql -u root -p moyun-db < moyun-server/src/main/resources/sql/moyun-db-ddl-202608201435.sql
 
-# 2. v8.1 审核模块统一整合（sys_audit_task 统一审核 + 任务管理菜单，仪表板审计待办依赖此表）
-mysql -u root -p moyun < moyun-server/src/main/resources/sql/upgrade_v8.1_audit_unified.sql
-
-# 3. v8.2 通用导入模板（portal_import_template_config + 题库导入导出权限）
-mysql -u root -p moyun < moyun-server/src/main/resources/sql/upgrade_v8.2_import_template.sql
-
-# 4. v9.0 后台重构（删PK/圈子菜单，新增VIP/钱包/仪表板菜单）
-mysql -u root -p moyun < moyun-server/src/main/resources/sql/upgrade_v9.0_admin_refactor.sql
-
-# 5. v9.5 合并版（恢复打赏流水查询权限，挂载为"交易管理"页Tab按钮）
-mysql -u root -p moyun < moyun-server/src/main/resources/sql/upgrade_v9.5_merge.sql
+# 2. 初始化数据（33 张含数据表，幂等：每表先 DELETE FROM 再 INSERT）
+mysql -u root -p moyun-db < moyun-server/src/main/resources/sql/moyun-db-dml-202608201435.sql
 ```
+
+> 说明：`moyun-db-ddl-moyun-db-202608201435.sql` 为拆分前的整合源文件（归档留存）；日常初始化使用上方拆分后的 DDL + DML。后续表结构变更，在 DDL 文件对应模块末尾追加增量 `ALTER TABLE`，不改动原 `CREATE TABLE`。
 
 ---
 
@@ -153,7 +146,7 @@ moyun-project-document/
 │   │   ├── system/             # 系统基础
 │   │   └── core/               # 核心配置（Security/Filter/Base）
 │   └── src/main/resources/
-│       ├── sql/                # SQL脚本（init_v7.8 + upgrade_v8.1/v8.2/v9.0/v9.5/v9.6）
+│       ├── sql/                # SQL脚本（DDL/DML 分离 + 拆分/校验工具脚本）
 │       └── application*.yaml   # 配置文件
 │
 ├── moyun-portal/               # 前端门户（Vue3 + TS + Tailwind）
@@ -166,9 +159,7 @@ moyun-project-document/
 ├── moyun-admin-vue/            # 管理后台（Vue3 + Element Plus）
 │   └── src/views/              # cms/ai/portal/system 四大模块
 │
-├── docs/                       # 项目文档
-├── REVIEW_REPORT.md            # 代码评审报告
-├── moyun-admin-refactor-v9.patch  # v9.0完整变更补丁
+├── docs/                       # 项目文档（01-09 分类目录，见 docs/README.md）
 └── README.md                   # 本文档
 ```
 
@@ -176,19 +167,19 @@ moyun-project-document/
 
 ## 文档导航
 
+完整文档清单见 [docs/README.md](docs/README.md)（文档索引）。
+
 | 文档 | 说明 |
 |------|------|
-| [docs/01_项目介绍.md](docs/01_项目介绍.md) | 项目定位、模块清单、核心特性 |
-| [docs/02_技术架构.md](docs/02_技术架构.md) | 技术选型、架构设计、模块依赖 |
-| [docs/03_开发指南.md](docs/03_开发指南.md) | 环境配置、代码规范 |
-| [docs/04_部署指南.md](docs/04_部署指南.md) | 环境部署、SQL初始化 |
-| [docs/09_开发进度与规划.md](docs/09_开发进度与规划.md) | 当前进度、未来路线图 |
-| [docs/10_功能排查清单.md](docs/10_功能排查清单.md) | 按业务链路的功能测试 |
-| [docs/11_面试指南后续迭代规划.md](docs/11_面试指南后续迭代规划.md) | 面试模块迭代计划 |
-| [docs/devlog.md](docs/devlog.md) | 版本变更日志 |
-| [docs/开发规范.md](docs/墨韵·智库项目开发规范.md) | 全项目代码规范 |
-| [REVIEW_REPORT.md](REVIEW_REPORT.md) | 全栈代码评审报告 |
-| [第三方服务申请指导文档.md](第三方服务申请指导文档.md) | 域名/备案/短信/支付申请指南 |
+| [docs/README.md](docs/README.md) | 项目文档总索引（按分类组织） |
+| [项目介绍](docs/01-架构设计/项目介绍.md) | 项目定位、模块清单、核心特性 |
+| [技术架构](docs/01-架构设计/技术架构.md) | 技术选型、架构设计、模块依赖 |
+| [开发指南](docs/02-开发指南/开发指南.md) | 环境配置、代码规范 |
+| [项目开发规范](docs/02-开发指南/项目开发规范.md) | 全项目代码规范 |
+| [部署指南](docs/03-部署运维/部署指南.md) | 环境部署、SQL初始化 |
+| [功能排查清单](docs/04-测试验收/功能排查清单.md) | 按业务链路的功能测试 |
+| [开发进度与规划](docs/06-规划路线/开发进度与规划.md) | 当前进度、未来路线图 |
+| [devlog](docs/07-变更日志/devlog.md) | 版本变更日志 |
 
 ---
 
@@ -205,6 +196,7 @@ moyun-project-document/
 | v8.2 | 2026-08-14 | 通用导入模板 + 题库导入导出 |
 | v9.0 | 2026-08-15 | 重构：删除PK/圈子，首页5屏改版，认证分级，Admin新增VIP/钱包/仪表板 |
 | **v9.5** | **2026-08-16** | **main-dev-article × moyun-dev-kouzi 合并：内容型首页回归、打赏流水恢复为交易管理Tab、确立"内容引流→促进消费"定位（后续开发基线）** |
+| **v10.6** | **2026-08-20** | **题库模块重构（刷题中心 + 选择题/编程题闭环）、话题/专栏审核接口收敛、SQL 脚本 DDL/DML 拆分** |
 
 ---
 

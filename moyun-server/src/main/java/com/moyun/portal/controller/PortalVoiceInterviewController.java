@@ -61,7 +61,7 @@ public class PortalVoiceInterviewController extends BaseController {
      * <p>事件流：score（规则分）→ speak（LLM话术）→ data（完整数据）→ end
      */
     @Operation(summary = "提交答案", description = "SSE 流式返回规则分与LLM话术")
-    @PostMapping(value = "/{id}/answer", produces = org.springframework.http.MediaType.TEXT_EVENT_STREAM_VALUE)
+    @PostMapping(value = "/{id:[0-9]+}/answer", produces = org.springframework.http.MediaType.TEXT_EVENT_STREAM_VALUE)
     @RateLimiter(key = "voice:answer", time = 3600, count = 60)
     public SseEmitter answer(@PathVariable("id") Long id, @RequestBody AnswerRequest body) {
         Long userId = currentUserId();
@@ -90,7 +90,7 @@ public class PortalVoiceInterviewController extends BaseController {
      * 3. 请求分级提示
      */
     @Operation(summary = "请求提示", description = "调用 HintEngine 生成分级提示，hint 使用次数+1")
-    @PostMapping("/{id}/hint")
+    @PostMapping("/{id:[0-9]+}/hint")
     @RateLimiter(key = "voice:hint", time = 3600, count = 30)
     public AjaxResult hint(@PathVariable("id") Long id, @RequestBody HintRequest body) {
         Long userId = currentUserId();
@@ -107,7 +107,7 @@ public class PortalVoiceInterviewController extends BaseController {
      * 4. 强制下一题
      */
     @Operation(summary = "强制下一题", description = "用户点'下一题'，跳过追问直接推进")
-    @PostMapping("/{id}/next")
+    @PostMapping("/{id:[0-9]+}/next")
     @RateLimiter(key = "voice:next", time = 3600, count = 30)
     public AjaxResult next(@PathVariable("id") Long id, @RequestBody(required = false) NextRequest body) {
         Long userId = currentUserId();
@@ -122,7 +122,7 @@ public class PortalVoiceInterviewController extends BaseController {
      * 5. 结束面试
      */
     @Operation(summary = "结束面试", description = "聚合分数 + 生成报告（维度/亮点/薄弱点/逐题点评）")
-    @PostMapping("/{id}/finish")
+    @PostMapping("/{id:[0-9]+}/finish")
     public AjaxResult finish(@PathVariable("id") Long id) {
         Long userId = currentUserId();
         if (userId == null) {
@@ -149,7 +149,7 @@ public class PortalVoiceInterviewController extends BaseController {
      * 7. 面试详情
      */
     @Operation(summary = "面试详情", description = "查询面试会话详情（含问答列表与当前题目）")
-    @GetMapping("/{id}")
+    @GetMapping("/{id:[0-9]+}")
     public AjaxResult detail(@PathVariable("id") Long id) {
         Long userId = currentUserId();
         if (userId == null) {

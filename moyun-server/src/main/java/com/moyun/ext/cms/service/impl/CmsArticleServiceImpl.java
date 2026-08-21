@@ -263,6 +263,26 @@ public class CmsArticleServiceImpl implements ICmsArticleService {
                     existing.getCover()
             ));
         }
+        // 业务闭环：关闭申请时下发给审核员的待办通知（type=todo）
+        // submitArticleAuditTask 阶段通过 sendTodoNotification 向所有审核员下发了待办，data 含 bizType=article+id；
+        // 此处按 bizType+id 精确匹配关闭，避免审核完成后待办仍残留在审核员的待办列表中。
+        try {
+            notificationService.completeTodoByBizData("article", article.getId());
+        } catch (Exception e) {
+            log.warn("关闭文章审核待办失败（不影响审核主流程）：articleId={}, err={}", article.getId(), e.getMessage());
+        }
+        // 业务闭环：同步 sys_audit_task 为终态
+        // 当审核从 CMS 文章管理直接发起时（非走统一审核中心 handle 流程），
+        // sys_audit_task 不会被更新，导致审核中心/首页待办仍显示为待处理。
+        // 映射：文章 published → approved，rejected → rejected。
+        try {
+            String taskFinalStatus = "published".equals(newStatus) ? "approved" : "rejected";
+            Long auditorId = SecurityUtils.getUserId();
+            String auditorName = SecurityUtils.getUsername();
+            auditTaskService.syncTaskStatusByBiz("article", article.getId(), taskFinalStatus, auditorId, auditorName, auditRemark);
+        } catch (Exception e) {
+            log.warn("同步文章审核任务状态失败（不影响审核主流程）：articleId={}, err={}", article.getId(), e.getMessage());
+        }
         // 审核结果通知作者（非阻塞，失败不影响主流程）
         sendAuditNotification(existing, newStatus, auditRemark);
         return rows;
@@ -278,6 +298,13 @@ public class CmsArticleServiceImpl implements ICmsArticleService {
         try {
             if (article.getAuthorId() == null) {
                 log.warn("文章 author_id 为空，跳过审核通知：articleId={}", article.getId());
+                return;
+            }
+            // 验证 portal_user 是否存在
+            PortalUser portalUser = portalUserMapper.selectPortalUserById(article.getAuthorId());
+            if (portalUser == null) {
+                log.warn("作者 portal_user 不存在，跳过审核通知：articleId={}, authorId={}",
+                        article.getId(), article.getAuthorId());
                 return;
             }
             SysNotification notification = new SysNotification();

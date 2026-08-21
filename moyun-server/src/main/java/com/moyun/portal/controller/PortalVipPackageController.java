@@ -59,7 +59,7 @@ public class PortalVipPackageController extends BaseController {
     }
 
     @Operation(summary = "获取VIP套餐详情", description = "根据VIP套餐ID获取VIP套餐详细信息")
-    @GetMapping(value = "/{id}")
+    @GetMapping(value = "/{id:[0-9]+}")
     public AjaxResult getInfo(@Parameter(description = "VIP套餐ID") @PathVariable Long id) {
         return success(portalVipPackageService.selectPortalVipPackageById(id));
     }

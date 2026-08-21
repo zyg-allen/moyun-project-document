@@ -587,7 +587,7 @@ useHead(
       if (!chapter.value) {
         return generateSeo({
           title: '章节阅读',
-          description: '墨韵·智库读书空间 - 章节阅读',
+          description: '旭林知行读书空间 - 章节阅读',
           type: 'article',
           canonicalPath: '/reading',
         })

@@ -96,7 +96,7 @@ public class PortalEmailServiceImpl implements PortalEmailService {
             SimpleMailMessage message = new SimpleMailMessage();
             message.setFrom(from);
             message.setTo(email);
-            message.setSubject("register".equals(type) ? "墨韵智库 - 注册验证码" : "墨韵智库 - 找回密码验证码");
+            message.setSubject("register".equals(type) ? "旭林知行 - 注册验证码" : "旭林知行 - 找回密码验证码");
             message.setText(buildContent(code, type));
             mailSender.send(message);
             log.info("📧 邮件验证码已发送: email={}, type={}", email, type);
@@ -180,6 +180,6 @@ public class PortalEmailServiceImpl implements PortalEmailService {
                 + "    " + code + "\n\n"
                 + "验证码 5 分钟内有效，请勿向他人泄露。\n"
                 + "如非本人操作，请忽略此邮件。\n\n"
-                + "—— 墨韵智库";
+                + "—— 旭林知行";
     }
 }

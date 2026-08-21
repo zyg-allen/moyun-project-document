@@ -135,7 +135,7 @@ token:
   secret: ${TOKEN_SECRET:moyun-dev-only-secret-key-do-not-use-in-prod-env-at-least-64-chars-2026}
 
 # =============================================
-# 墨韵框架配置（本地文件路径覆盖）
+# 旭林框架配置（本地文件路径覆盖）
 # =============================================
 moyun:
   profile: /profile            # 本地文件存储路径
@@ -288,7 +288,7 @@ jodconverter:
     port-numbers:
       - 2002
 
-# 墨韵 AI 专用配置
+# 旭林 AI 专用配置
 moyun-ai:
   # RAG 全局默认配置（与 RagConfig.java 字段对齐，避免依赖 Java 默认值）
   rag:

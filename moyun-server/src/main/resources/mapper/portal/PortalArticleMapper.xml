@@ -144,6 +144,24 @@
             <if test="params.categoryName != null and params.categoryName != ''">
                 AND pc.name = #{params.categoryName}
             </if>
+            <if test="params.tagName != null and params.tagName != ''">
+                AND pa.id IN (
+                    SELECT et.entity_id FROM portal_entity_tag et
+                    LEFT JOIN portal_tag pt ON et.tag_id = pt.id
+                    WHERE pt.name = #{params.tagName} AND et.entity_type = 'article'
+                )
+            </if>
+            <if test="params.tag != null and params.tag != '' and (params.tagName == null or params.tagName == '')">
+                AND pa.id IN (
+                    SELECT et.entity_id FROM portal_entity_tag et
+                    LEFT JOIN portal_tag pt ON et.tag_id = pt.id
+                    WHERE pt.name = #{params.tag} AND et.entity_type = 'article'
+                )
+            </if>
+            <if test="params.keyword != null and params.keyword != ''">
+                AND (pa.title like concat('%', #{params.keyword}, '%')
+                     OR pa.excerpt like concat('%', #{params.keyword}, '%'))
+            </if>
             <if test="params.status != null and params.status != ''">
                 AND pa.status = #{params.status}
             </if>

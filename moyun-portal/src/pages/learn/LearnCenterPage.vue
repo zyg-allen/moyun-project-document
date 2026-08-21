@@ -22,8 +22,8 @@ const dashboard = ref<LearnDashboard | null>(null);
 
 useHead(computed(() => generateSeo({
   title: '学习中心',
-  description: '墨韵智库学习中心 - 今日计划进度、连续打卡、错题本入口、学习统计一站式聚合',
-  keywords: ['学习中心', '刷题', '错题本', '学习计划', '打卡', '墨韵'],
+  description: '旭林知行学习中心 - 今日计划进度、连续打卡、错题本入口、学习统计一站式聚合',
+  keywords: ['学习中心', '刷题', '错题本', '学习计划', '打卡', '旭林'],
   canonicalPath: '/learn',
 })));
 

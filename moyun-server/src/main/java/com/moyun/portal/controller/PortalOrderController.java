@@ -66,7 +66,7 @@ public class PortalOrderController extends BaseController {
     }
 
     @Operation(summary = "获取订单详情", description = "根据订单ID获取订单详细信息")
-    @GetMapping(value = "/{id}")
+    @GetMapping(value = "/{id:[0-9]+}")
     public AjaxResult getInfo(@Parameter(description = "订单ID") @PathVariable Long id) {
         Long userId = PortalSecurityUtils.getUserId();
         if (userId == null) {

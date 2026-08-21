@@ -67,8 +67,8 @@ const sortedArticles = computed<ArticleSimpleVO[]>(() => {
 
 useHead(computed(() => generateSeo({
   title: column.value?.title || '专栏详情',
-  description: column.value?.description || column.value?.subtitle || '墨韵专栏，持续连载，订阅追更',
-  keywords: ['专栏', column.value?.title || '墨韵'].filter(Boolean) as string[],
+  description: column.value?.description || column.value?.subtitle || '旭林专栏，持续连载，订阅追更',
+  keywords: ['专栏', column.value?.title || '旭林'].filter(Boolean) as string[],
   canonicalPath: `/column/${columnId.value}`,
 })));
 

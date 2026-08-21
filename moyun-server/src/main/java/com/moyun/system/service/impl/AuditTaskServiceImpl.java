@@ -425,4 +425,41 @@ public class AuditTaskServiceImpl implements IAuditTaskService {
             default -> "普通";
         };
     }
+
+    @Override
+    public void syncTaskStatusByBiz(String taskType, Long bizId, String finalStatus,
+                                    Long auditorId, String auditorName, String opinion) {
+        if (taskType == null || bizId == null || finalStatus == null) {
+            return;
+        }
+        // 仅 approved / rejected 为合法终态
+        if (!AuditTaskStatus.APPROVED.getCode().equals(finalStatus)
+                && !AuditTaskStatus.REJECTED.getCode().equals(finalStatus)) {
+            return;
+        }
+        SysAuditTask existing = auditTaskMapper.selectByBiz(taskType, bizId);
+        if (existing == null) {
+            // 未提交过审核任务，无需同步
+            return;
+        }
+        // 幂等：仅当任务为 pending 时才更新
+        if (!AuditTaskStatus.PENDING.getCode().equals(existing.getStatus())) {
+            log.debug("[AuditTask] 任务已处理，跳过同步 taskId={} status={}", existing.getId(), existing.getStatus());
+            return;
+        }
+        AuditTaskStatus statusEnum = AuditTaskStatus.fromCode(finalStatus);
+        AuditAction action = AuditTaskStatus.APPROVED.getCode().equals(finalStatus)
+                ? AuditAction.APPROVE : AuditAction.REJECT;
+        LocalDateTime now = LocalDateTime.now();
+        existing.setStatus(statusEnum.getCode());
+        existing.setAuditorId(auditorId);
+        existing.setAuditorName(auditorName);
+        existing.setAuditOpinion(opinion);
+        existing.setAuditAction(action.getCode());
+        existing.setAuditTime(now);
+        existing.setUpdateTime(now);
+        auditTaskMapper.updateById(existing);
+        log.info("[AuditTask] 业务侧同步审核状态 taskId={} taskType={} bizId={} status={} auditor={}",
+                existing.getId(), taskType, bizId, finalStatus, auditorName);
+    }
 }

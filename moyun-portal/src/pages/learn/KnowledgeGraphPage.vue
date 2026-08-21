@@ -17,7 +17,7 @@ const { isAuthenticated } = useAuth();
 
 useHead(computed(() => generateSeo({
   title: '知识图谱',
-  description: '墨韵智库知识图谱与标签云 - 可视化面试题知识点分布与你的掌握度。',
+  description: '旭林知行知识图谱与标签云 - 可视化面试题知识点分布与你的掌握度。',
   canonicalPath: '/learn/knowledge',
 })));
 

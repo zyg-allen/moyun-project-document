@@ -42,8 +42,8 @@ async function handleToggleLike() {
       liked.value = resp.data.liked;
       bookList.value.likeCount = resp.data.likeCount;
     }
-  } catch {
-    toast.error('点赞失败，请稍后重试');
+  } catch (error) {
+    toast.error((error as Error)?.message || '点赞失败，请稍后重试');
   } finally {
     likeLoading.value = false;
   }
@@ -135,13 +135,13 @@ useHead(
     if (!bookList.value) {
       return generateSeo({
         title: '书单详情',
-        description: '墨韵·智库读书空间书单详情，发现精选好书',
+        description: '旭林知行读书空间书单详情，发现精选好书',
         canonicalPath: '/reading'
       });
     }
     return generateSeo({
       title: bookList.value.title,
-      description: bookList.value.description || '墨韵·智库读书空间书单详情',
+      description: bookList.value.description || '旭林知行读书空间书单详情',
       image: bookList.value.cover,
       type: 'article',
       keywords: tagList.value,

@@ -34,7 +34,7 @@ const questions = ref<InterviewQuestionVO[]>([]);
 useHead(computed(() => generateSeo({
   title: '编程题练习',
   description: '在线编程题练习 - 算法题、数据结构、在线 IDE、测试用例判定',
-  keywords: ['编程题', '算法', '在线练习', 'IDE', '墨韵'],
+  keywords: ['编程题', '算法', '在线练习', 'IDE', '旭林'],
   canonicalPath: '/learn/practice/coding',
 })));
 

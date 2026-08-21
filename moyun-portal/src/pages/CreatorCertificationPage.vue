@@ -76,7 +76,7 @@ const breadcrumbs = computed(() => [{ label: '创作者认证' }]);
 useHead(computed(() => generateSeo({
   title: '创作者认证',
   description: '提交创作者认证申请，认证后可发布专栏、连载等内容',
-  keywords: ['创作者认证', '身份认证', '专家认证', '墨韵智库'],
+  keywords: ['创作者认证', '身份认证', '专家认证', '旭林知行'],
   canonicalPath: '/creator/certification',
   robots: 'noindex,nofollow',
 })));

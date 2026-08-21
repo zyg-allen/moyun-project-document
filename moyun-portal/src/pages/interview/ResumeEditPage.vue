@@ -96,7 +96,7 @@ const form = reactive<UserResumeVO>({
 useHead(computed(() => generateSeo({
   title: pageTitle.value,
   description: '创建与编辑结构化简历，支持教育、工作、项目经历及技能、AI 评分与 PDF 导出',
-  keywords: ['简历编辑', '创建简历', '求职简历', '简历评分', '墨韵'],
+  keywords: ['简历编辑', '创建简历', '求职简历', '简历评分', '旭林'],
   canonicalPath: isEdit.value
     ? `/interview/resume/edit/${editId.value}`
     : '/interview/resume/edit',

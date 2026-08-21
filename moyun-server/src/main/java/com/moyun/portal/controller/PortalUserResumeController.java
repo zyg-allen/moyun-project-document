@@ -58,7 +58,7 @@ public class PortalUserResumeController extends BaseController {
     }
 
     @Operation(summary = "简历详情", description = "查询指定简历详情（仅作者可访问）")
-    @GetMapping("/{id}")
+    @GetMapping("/{id:[0-9]+}")
     public AjaxResult getResumeDetail(@PathVariable("id") Long id) {
         Long userId = currentUserId();
         if (userId == null) {
@@ -83,7 +83,7 @@ public class PortalUserResumeController extends BaseController {
     }
 
     @Operation(summary = "删除简历", description = "仅作者可删除自己的简历")
-    @DeleteMapping("/{id}")
+    @DeleteMapping("/{id:[0-9]+}")
     public AjaxResult deleteResume(@PathVariable("id") Long id) {
         Long userId = currentUserId();
         if (userId == null) {
@@ -93,7 +93,7 @@ public class PortalUserResumeController extends BaseController {
     }
 
     @Operation(summary = "复制为新版本", description = "基于现有简历复制为新版本（versionNo 自增）")
-    @PostMapping("/{id}/copy")
+    @PostMapping("/{id:[0-9]+}/copy")
     public AjaxResult copyResume(@PathVariable("id") Long id) {
         Long userId = currentUserId();
         if (userId == null) {
@@ -103,7 +103,7 @@ public class PortalUserResumeController extends BaseController {
     }
 
     @Operation(summary = "简历版本历史", description = "查询某简历的全部历史版本")
-    @GetMapping("/{id}/versions")
+    @GetMapping("/{id:[0-9]+}/versions")
     public AjaxResult getVersionHistory(@PathVariable("id") Long id) {
         Long userId = currentUserId();
         if (userId == null) {
@@ -113,7 +113,7 @@ public class PortalUserResumeController extends BaseController {
     }
 
     @Operation(summary = "导出 PDF", description = "将简历渲染为 PDF 并返回文件 URL")
-    @PostMapping("/{id}/export")
+    @PostMapping("/{id:[0-9]+}/export")
     public AjaxResult exportPdf(@PathVariable("id") Long id) {
         Long userId = currentUserId();
         if (userId == null) {
@@ -123,7 +123,7 @@ public class PortalUserResumeController extends BaseController {
     }
 
     @Operation(summary = "规则评分", description = "对简历进行规则评分，返回评分明细（含岗位匹配度子项）")
-    @PostMapping("/{id}/score")
+    @PostMapping("/{id:[0-9]+}/score")
     public AjaxResult scoreResume(@PathVariable("id") Long id) {
         Long userId = currentUserId();
         if (userId == null) {
@@ -133,7 +133,7 @@ public class PortalUserResumeController extends BaseController {
     }
 
     @Operation(summary = "AI 改进建议", description = "基于评分明细与岗位匹配度生成改进建议（当前规则化，后期接入 AI 模型）")
-    @PostMapping("/{id}/ai-advice")
+    @PostMapping("/{id:[0-9]+}/ai-advice")
     public AjaxResult getAiAdvice(@PathVariable("id") Long id) {
         Long userId = currentUserId();
         if (userId == null) {
@@ -143,7 +143,7 @@ public class PortalUserResumeController extends BaseController {
     }
 
     @Operation(summary = "更新状态", description = "更新简历状态：draft/published/archived")
-    @PutMapping("/{id}/status")
+    @PutMapping("/{id:[0-9]+}/status")
     public AjaxResult updateStatus(@PathVariable("id") Long id, @RequestBody Map<String, String> body) {
         Long userId = currentUserId();
         if (userId == null) {

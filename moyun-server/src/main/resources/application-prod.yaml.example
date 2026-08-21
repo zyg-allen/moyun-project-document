@@ -1,5 +1,5 @@
 # =============================================================================
-# 墨韵后端生产环境配置模板（application-prod.yaml.example）
+# 旭林后端生产环境配置模板（application-prod.yaml.example）
 # -----------------------------------------------------------------------------
 # 使用说明：
 # 1. 复制本文件为 application-prod.yaml：cp application-prod.yaml.example application-prod.yaml
@@ -164,7 +164,7 @@ knife4j:
   production: ${KNIFE4J_PRODUCTION:true}
 
 # =============================================
-# 墨韵框架配置
+# 旭林框架配置
 # - MOYUN_PROFILE：本地文件存储根路径（生产环境建议使用独立挂载盘）
 # =============================================
 moyun:
@@ -329,7 +329,7 @@ jodconverter:
     port-numbers:
       - 2002
 
-# 墨韵 AI 专用配置
+# 旭林 AI 专用配置
 moyun-ai:
   rag:
     default-min-score: 0.7

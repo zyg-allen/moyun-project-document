@@ -47,7 +47,7 @@ const fileInput = ref<HTMLInputElement | null>(null);
 useHead(computed(() => generateSeo({
   title: isEdit.value ? '编辑专栏' : '创建专栏',
   description: '创建或编辑你的专栏，按主题聚合文章，持续连载',
-  keywords: ['创建专栏', '编辑专栏', '专栏', '墨韵'],
+  keywords: ['创建专栏', '编辑专栏', '专栏', '旭林'],
   canonicalPath: isEdit.value ? `/column/edit/${editId.value}` : '/column/create',
   robots: 'noindex,nofollow',
 })));
@@ -171,7 +171,7 @@ async function clearCover() {
   try {
     await deletePortalFile(oldCover);
   } catch (e) {
-    toast.error('文件记录清理失败，请稍后在文件管理中处理');
+    toast.error((e as Error)?.message || '文件记录清理失败，请稍后在文件管理中处理');
     console.warn('封面清理失败：', e);
   }
 }

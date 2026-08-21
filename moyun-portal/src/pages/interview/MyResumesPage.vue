@@ -45,7 +45,7 @@ const statusMap: Record<string, { label: string; class: string }> = {
 useHead(computed(() => generateSeo({
   title: '我的简历',
   description: '管理我的简历，支持创建、编辑、复制版本、导出 PDF 与 AI 评分',
-  keywords: ['我的简历', '简历管理', '导出PDF', '简历评分', '墨韵'],
+  keywords: ['我的简历', '简历管理', '导出PDF', '简历评分', '旭林'],
   canonicalPath: '/interview/my/resumes',
   robots: 'noindex,nofollow',
 })));

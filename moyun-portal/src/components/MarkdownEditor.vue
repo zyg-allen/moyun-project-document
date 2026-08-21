@@ -282,11 +282,11 @@ const insertImage = async () => {
         if (response.code === 200 && response.data) {
           insertText('![图片](', `${response.data.fileUrl})`);
         } else {
-          toast.error('图片上传失败');
+          toast.error((error as Error)?.message || '图片上传失败');
         }
       } catch (error) {
         console.error('图片上传失败:', error);
-        toast.error('图片上传失败');
+        toast.error((error as Error)?.message || '图片上传失败');
       }
     }
   };

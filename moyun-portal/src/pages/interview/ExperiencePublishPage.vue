@@ -55,7 +55,7 @@ const contentCount = computed(() => content.value.replace(/\s/g, '').length);
 useHead(computed(() => generateSeo({
   title: isEdit.value ? '编辑面经' : '发布面经',
   description: '分享你的真实面试经验，帮助更多求职者备战面试、直通 Offer',
-  keywords: ['发布面经', '面经', '面试经验', '面经投稿', '墨韵'],
+  keywords: ['发布面经', '面经', '面试经验', '面经投稿', '旭林'],
   canonicalPath: isEdit.value
     ? `/interview/experience/edit/${editId.value}`
     : '/interview/experience/publish',

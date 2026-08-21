@@ -112,7 +112,7 @@ async function performSearch() {
       response = await articleApi.getArticleList({ keyword: searchQuery.value.trim(), ...pageParams });
     } else if (selectedCategory.value) {
       // 按分类搜索
-      response = await articleApi.getArticleList({ category: selectedCategory.value, ...pageParams });
+      response = await articleApi.getArticleList({ categoryName: selectedCategory.value, ...pageParams });
     }
 
     if (response && response.code === 200 && response.data) {
@@ -183,7 +183,7 @@ function handleTagClick(tag: string) {
 useHead(
   computed(() => {
     let title = '搜索'
-    let description = '搜索墨韵·智库中的文章、标签和作者'
+    let description = '搜索旭林知行中的文章、标签和作者'
 
     if (searchQuery.value) {
       title = `搜索: ${searchQuery.value}`

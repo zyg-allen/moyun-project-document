@@ -1,8 +1,8 @@
 {
   "name": "moyun-admin-vue",
   "version": "1.0.0",
-  "description": "墨韵管理系统",
-  "author": "墨韵",
+  "description": "旭林知行管理系统",
+  "author": "旭林",
   "license": "MIT",
   "type": "module",
   "scripts": {

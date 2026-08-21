@@ -87,7 +87,7 @@ function getCategoryIcon(iconName: string) {
 useHead(
   generateSeo({
     title: '帮助中心',
-    description: '墨韵帮助中心，解答您在使用过程中遇到的各种问题。',
+    description: '旭林帮助中心，解答您在使用过程中遇到的各种问题。',
     keywords: ['帮助中心', 'FAQ', '常见问题'],
     type: 'website'
   })

@@ -34,7 +34,7 @@ const uploadingCover = ref(false);
 useHead(computed(() => generateSeo({
   title: '编辑话题',
   description: '编辑话题内容',
-  keywords: ['编辑话题', '话题管理', '墨韵'],
+  keywords: ['编辑话题', '话题管理', '旭林'],
   canonicalPath: `/topic/edit/${topicId.value}`,
   robots: 'noindex,nofollow',
 })));

@@ -72,7 +72,7 @@ public class PortalTopicController extends BaseController {
     }
 
     @Operation(summary = "话题详情", description = "根据ID获取话题详情")
-    @GetMapping("/{id}")
+    @GetMapping("/{id:[0-9]+}")
     public AjaxResult getInfo(@Parameter(description = "话题ID") @PathVariable Long id) {
         Long currentUserId = PortalSecurityUtils.getUserId();
         TopicVO vo = portalTopicService.getTopicDetail(id, currentUserId);
@@ -114,7 +114,7 @@ public class PortalTopicController extends BaseController {
 
     @Operation(summary = "编辑话题", description = "仅话题发起人可编辑")
     @Log(title = "门户话题", businessType = BusinessType.UPDATE)
-    @PutMapping("/{id}")
+    @PutMapping("/{id:[0-9]+}")
     public AjaxResult edit(@PathVariable Long id, @RequestBody PortalTopic topic) {
         Long userId = PortalSecurityUtils.getUserId();
         if (userId == null) {
@@ -130,7 +130,7 @@ public class PortalTopicController extends BaseController {
 
     @Operation(summary = "删除话题", description = "creator 或 admin 可删除（软删）")
     @Log(title = "门户话题", businessType = BusinessType.DELETE)
-    @DeleteMapping("/{id}")
+    @DeleteMapping("/{id:[0-9]+}")
     public AjaxResult remove(@PathVariable Long id) {
         Long userId = PortalSecurityUtils.getUserId();
         if (userId == null) {
@@ -145,7 +145,7 @@ public class PortalTopicController extends BaseController {
     }
 
     @Operation(summary = "话题点赞/取消", description = "幂等 toggle，返回 isLiked 和 likeCount")
-    @PostMapping("/{id}/like")
+    @PostMapping("/{id:[0-9]+}/like")
     public AjaxResult toggleTopicLike(@PathVariable Long id) {
         Long userId = PortalSecurityUtils.getUserId();
         if (userId == null) {
@@ -174,7 +174,7 @@ public class PortalTopicController extends BaseController {
     // ==================== 观点相关 ====================
 
     @Operation(summary = "话题观点列表", description = "分页查询某话题的观点（按楼层正序）")
-    @GetMapping("/{id}/posts")
+    @GetMapping("/{id:[0-9]+}/posts")
     public AjaxResult getPosts(@Parameter(description = "话题ID") @PathVariable Long id,
                                @RequestParam(defaultValue = "1") Integer pageNum,
                                @RequestParam(defaultValue = "10") Integer pageSize) {
@@ -186,7 +186,7 @@ public class PortalTopicController extends BaseController {
     @Operation(summary = "发表观点", description = "在某话题下发表观点（楼层号并发安全）")
     @Log(title = "话题观点", businessType = BusinessType.INSERT)
     @RepeatSubmit(interval = 3000, message = "请勿重复提交观点")
-    @PostMapping("/{id}/post")
+    @PostMapping("/{id:[0-9]+}/post")
     public AjaxResult createPost(@Parameter(description = "话题ID") @PathVariable Long id,
                                  @Validated @RequestBody TopicPostCreateDTO dto) {
         Long userId = PortalSecurityUtils.getUserId();

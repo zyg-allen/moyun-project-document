@@ -42,8 +42,8 @@ const isLoggedIn = computed(() => !!userStore.user);
 
 useHead(computed(() => generateSeo({
   title: contest.value?.title || '活动详情',
-  description: contest.value?.description || contest.value?.theme || '墨韵创作挑战活动详情',
-  keywords: ['创作挑战', contest.value?.title || '墨韵'].filter(Boolean) as string[],
+  description: contest.value?.description || contest.value?.theme || '旭林创作挑战活动详情',
+  keywords: ['创作挑战', contest.value?.title || '旭林'].filter(Boolean) as string[],
   canonicalPath: `/contest/${contestId.value}`,
 })));
 

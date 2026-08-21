@@ -11,7 +11,7 @@ import type { Leaderboard, LeaderboardType } from '@/api/learnStats';
 
 useHead(computed(() => generateSeo({
   title: '刷题排行榜',
-  description: '墨韵智库刷题排行榜 - 通过题目数与刷题积分双榜，看看谁在领跑。',
+  description: '旭林知行刷题排行榜 - 通过题目数与刷题积分双榜，看看谁在领跑。',
   canonicalPath: '/learn/leaderboard',
 })));
 

@@ -5,7 +5,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.scheduling.annotation.EnableScheduling;
 
 /**
- * 墨韵·智库 应用启动类
+ * 旭林知行 应用启动类
  * 
  * @author moyun
  */
@@ -20,7 +20,7 @@ public class MoyunApplication {
     public static void main(String[] args) {
         SpringApplication.run(MoyunApplication.class, args);
         System.out.println("========================================");
-        System.out.println("    墨韵·智库 启动成功！");
+        System.out.println("    旭林知行 启动成功！");
         System.out.println("========================================");
     }
 

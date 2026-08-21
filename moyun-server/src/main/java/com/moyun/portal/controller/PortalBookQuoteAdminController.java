@@ -43,7 +43,7 @@ public class PortalBookQuoteAdminController extends BaseController {
 
     @Operation(summary = "获取金句详情")
     @PreAuthorize("@ss.hasPermi('portal:bookQuote:query')")
-    @GetMapping("/{id}")
+    @GetMapping("/{id:[0-9]+}")
     public AjaxResult getById(@PathVariable Long id) {
         PortalBookQuote quote = portalBookQuoteService.selectPortalBookQuoteById(id);
         return success(quote);
@@ -70,7 +70,7 @@ public class PortalBookQuoteAdminController extends BaseController {
     @Operation(summary = "删除金句")
     @PreAuthorize("@ss.hasPermi('portal:bookQuote:remove')")
     @Log(title = "读书空间-金句", businessType = BusinessType.DELETE)
-    @DeleteMapping("/{id}")
+    @DeleteMapping("/{id:[0-9]+}")
     public AjaxResult delete(@PathVariable Long id) {
         int result = portalBookQuoteService.deletePortalBookQuoteById(id);
         return result > 0 ? success("删除成功") : error("删除失败");

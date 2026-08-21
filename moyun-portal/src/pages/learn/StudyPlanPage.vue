@@ -58,8 +58,8 @@ const breadcrumbs = computed(() => [
 
 useHead(computed(() => generateSeo({
   title: '学习计划',
-  description: '墨韵智库学习计划 - 创建刷题/阅读计划，跟踪进度，记录每日完成',
-  keywords: ['学习计划', '刷题计划', '目标', '进度跟踪', '墨韵'],
+  description: '旭林知行学习计划 - 创建刷题/阅读计划，跟踪进度，记录每日完成',
+  keywords: ['学习计划', '刷题计划', '目标', '进度跟踪', '旭林'],
   canonicalPath: '/learn/plan',
   robots: 'noindex,nofollow',
 })));

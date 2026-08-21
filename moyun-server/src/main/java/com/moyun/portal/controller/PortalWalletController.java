@@ -65,7 +65,7 @@ public class PortalWalletController extends BaseController {
     }
 
     @Operation(summary = "获取钱包详情", description = "根据钱包ID获取钱包详细信息")
-    @GetMapping(value = "/{id}")
+    @GetMapping(value = "/{id:[0-9]+}")
     public AjaxResult getInfo(@Parameter(description = "钱包ID") @PathVariable Long id) {
         Long userId = PortalSecurityUtils.getUserId();
         if (userId == null) {

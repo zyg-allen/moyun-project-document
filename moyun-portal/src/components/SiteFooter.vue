@@ -20,7 +20,7 @@ function handlePrivacyPolicy() {
 
 // QQ 群号暂未配置，给出友好提示
 function handleQQGroup() {
-  toast.info('QQ 群号暂未配置，如需联系请发邮件至 contact@moyun.com');
+  toast.info('QQ 群号暂未配置，如需联系请发邮件至 contact@xulin.com');
 }
 </script>
 
@@ -30,15 +30,15 @@ function handleQQGroup() {
       <div class="grid grid-cols-1 md:grid-cols-4 gap-6 sm:gap-8">
         <!-- 关于我们 -->
         <div class="md:col-span-2">
-          <h3 class="font-semibold mb-2 text-sm" style="color: var(--theme-text);">一纸墨</h3>
+          <h3 class="font-semibold mb-2 text-sm" style="color: var(--theme-text);">旭林知行</h3>
           <p class="text-xs leading-relaxed mb-1" style="color: var(--theme-text-secondary);">
-            在浮躁的世界，留一页纸给灵魂。
+            知行合一，助你上岸
           </p>
           <p class="text-xs leading-relaxed" style="color: var(--theme-text-secondary);">
-            学习·记录·散文·分享
+            面试 · 刷题 · 简历 · 成长
           </p>
           <p class="text-xs mt-2" style="color: var(--theme-text-secondary);">
-            Copyright © {{ currentYear }} 一纸墨 · 好文字，自有回响。
+            Copyright © {{ currentYear }} 旭林知行 · 知行合一，助你上岸
           </p>
         </div>
 
@@ -46,8 +46,8 @@ function handleQQGroup() {
         <div>
           <h3 class="font-semibold mb-2 text-sm" style="color: var(--theme-text);">联系我们</h3>
           <div class="text-xs space-y-1" style="color: var(--theme-text-secondary);">
-            <p>投稿邮箱：tougao@moyun.com</p>
-            <p>商务合作：business@moyun.com</p>
+            <p>投稿邮箱：tougao@xulin.com</p>
+            <p>商务合作：business@xulin.com</p>
           </div>
         </div>
 
@@ -56,7 +56,7 @@ function handleQQGroup() {
           <h3 class="font-semibold mb-2 text-sm" style="color: var(--theme-text);">关注我们</h3>
           <div class="flex items-center gap-2">
             <a
-              href="https://github.com/moyun"
+              href="https://github.com/xulin-zhixing"
               target="_blank"
               rel="noopener noreferrer"
               class="w-8 h-8 rounded-lg flex items-center justify-center transition-colors hover:opacity-80"
@@ -66,7 +66,7 @@ function handleQQGroup() {
               <Github class="w-4 h-4" />
             </a>
             <a
-              href="mailto:contact@moyun.com"
+              href="mailto:contact@xulin.com"
               class="w-8 h-8 rounded-lg flex items-center justify-center transition-colors hover:opacity-80"
               style="background-color: var(--theme-bg); color: var(--theme-text-secondary);"
               title="邮箱"

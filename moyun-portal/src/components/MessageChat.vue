@@ -298,7 +298,7 @@ async function handleSend() {
     } catch (error) {
         console.error('发送消息失败:', error);
         removeTemp(tempId);
-        toast.error('发送失败，请重试');
+        toast.error((error as Error)?.message || '发送失败，请重试');
     } finally {
         sending.value = false;
         nextTick(() => inputEl.value?.focus());

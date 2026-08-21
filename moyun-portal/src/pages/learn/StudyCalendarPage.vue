@@ -11,7 +11,7 @@ import StudyCalendarCard from './StudyCalendarCard.vue';
 
 useHead(computed(() => generateSeo({
   title: '刷题日历',
-  description: '墨韵智库刷题日历热力图 - 一眼回顾过去一年的刷题足迹与坚持。',
+  description: '旭林知行刷题日历热力图 - 一眼回顾过去一年的刷题足迹与坚持。',
   canonicalPath: '/learn/calendar',
 })));
 

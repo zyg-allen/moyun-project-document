@@ -913,7 +913,7 @@ const chatStatusText = computed(() => {
     <div v-if="phase === 'setup'" class="prep-page">
       <div class="prep-top-bar">
         <div class="prep-top-left">
-          <div class="prep-logo">🎙️ OfferGoose</div>
+          <div class="prep-logo">🎙️ 旭林知行</div>
           <div class="prep-breadcrumb">首页 / <span>AI 语音面试</span></div>
         </div>
         <button class="prep-back-btn" @click="goHome">← 返回首页</button>
@@ -1089,7 +1089,7 @@ const chatStatusText = computed(() => {
     <div v-else-if="phase === 'interview'" class="interview-page">
       <div class="top-bar">
         <div class="top-bar-left">
-          <div class="top-bar-logo">🎙️ OfferGoose</div>
+          <div class="top-bar-logo">🎙️ 旭林知行</div>
           <div class="timer-display"><span>⏱️</span><span>{{ formatElapsed(elapsedSec) }}</span></div>
         </div>
         <div class="top-bar-right">

@@ -111,7 +111,7 @@ useHead(
     computed(() => {
       return generateSeo({
         title: '发现好书',
-        description: '墨韵智库发现页，热门排行、限免专区、最近更新，发现你的下一本好书'
+        description: '旭林知行发现页，热门排行、限免专区、最近更新，发现你的下一本好书'
       });
     })
 );

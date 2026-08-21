@@ -43,8 +43,8 @@ const breadcrumbs = computed(() => [{ label: '专栏广场' }]);
 
 useHead(computed(() => generateSeo({
   title: '专栏广场',
-  description: '墨韵专栏广场，发现优质专栏，按主题聚合文章，持续连载，订阅追更',
-  keywords: ['专栏', '专栏订阅', '连载', '文章合集', '墨韵'],
+  description: '旭林专栏广场，发现优质专栏，按主题聚合文章，持续连载，订阅追更',
+  keywords: ['专栏', '专栏订阅', '连载', '文章合集', '旭林'],
   canonicalPath: '/columns',
 })));
 
@@ -151,7 +151,7 @@ function gotoPage(p: number) {
           </div>
           <div class="relative px-6 py-8 sm:px-10 sm:py-10 text-center">
             <div class="inline-flex items-center bg-white/10 backdrop-blur-sm px-4 py-1.5 rounded-full text-sm mb-5">
-              <BookOpen class="w-4 h-4 mr-2" /> 墨韵 · 专栏
+              <BookOpen class="w-4 h-4 mr-2" /> 旭林 · 专栏
             </div>
             <p class="text-base md:text-lg text-white/90 max-w-2xl mx-auto mb-8">
               按主题聚合文章，持续连载，订阅追更，构建你的知识体系

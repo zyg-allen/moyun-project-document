@@ -326,18 +326,35 @@ onUnmounted(() => document.removeEventListener('click', handleDocumentClick));
           <!-- 左侧：Logo + 今日主题 -->
           <div class="flex items-center gap-2 sm:gap-3">
             <Link to="/" class="flex items-center space-x-1 sm:space-x-2 flex-shrink-0">
-              <div class="w-6 h-6 sm:w-10 sm:h-10 bg-gradient-to-br from-red-600 to-orange-500 rounded-full flex items-center justify-center">
-                <span class="text-white font-bold text-xs sm:text-lg">墨</span>
+              <div class="w-6 h-6 sm:w-10 sm:h-10 flex-shrink-0" aria-label="旭林知行">
+                <svg viewBox="0 0 64 64" class="w-full h-full" xmlns="http://www.w3.org/2000/svg">
+                  <defs>
+                    <linearGradient id="nav-logo-bg" x1="0" y1="0" x2="64" y2="64" gradientUnits="userSpaceOnUse">
+                      <stop stop-color="#fb923c"/>
+                      <stop offset="1" stop-color="#dc2626"/>
+                    </linearGradient>
+                  </defs>
+                  <circle cx="32" cy="32" r="32" fill="url(#nav-logo-bg)"/>
+                  <path d="M25.5 44 Q 26 34.5 32 34 Q 38 34.5 38.5 44 Z" fill="#ffffff"/>
+                  <circle cx="32" cy="26" r="6" fill="#ffffff"/>
+                  <path d="M13 43 L 32 38 L 51 43 L 51 47 L 32 42 L 13 47 Z" fill="#ffffff" opacity="0.95"/>
+                  <path d="M13 43 L 32 38 L 51 43" fill="none" stroke="#fde68a" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+                  <rect x="39" y="10" width="14" height="10" rx="5" fill="#ffffff"/>
+                  <path d="M43 20 L 43 24 L 47 20 Z" fill="#ffffff"/>
+                  <circle cx="42.5" cy="15" r="1.4" fill="#dc2626"/>
+                  <circle cx="46" cy="15" r="1.4" fill="#dc2626"/>
+                  <circle cx="49.5" cy="15" r="1.4" fill="#dc2626"/>
+                </svg>
               </div>
               <div>
-                <h1 class="hidden sm:block text-base sm:text-xl font-bold" style="color: var(--theme-text);">墨韵</h1>
+                <h1 class="hidden sm:block text-base sm:text-xl font-bold" style="color: var(--theme-text);">旭林知行</h1>
               </div>
             </Link>
 
             <span class="hidden sm:inline" style="color: var(--theme-text-secondary);">|</span>
             <span class="text-xs sm:text-sm" style="color: var(--theme-text);">
-              <span class="sm:hidden">听松看云</span>
-              <span class="hidden sm:inline">今日主题：听松看云</span>
+              <span class="sm:hidden">助你上岸</span>
+              <span class="hidden sm:inline">今日主题：助你上岸</span>
             </span>
           </div>
 

@@ -1,7 +1,29 @@
-# 墨韵智库 · 开发日志
+# 旭林知行 · 开发日志
 
-本文件记录墨韵智库项目核心版本变更，作为代码提交与发布的参考记录。
+本文件记录旭林知行项目核心版本变更，作为代码提交与发布的参考记录。
 日期采用 `YYYY-MM-DD` 格式。
+
+---
+
+## v10.6 阶段4 (2026-08-20) 话题/专栏审核接口收敛 + SQL 脚本拆分重组
+
+### 交付内容
+
+**1. 删除话题/专栏独立审核接口（审核入口统一收敛到内容审核中心）**
+- 后端 [CmsColumnController.java](file:///d:/zyg_new_work/moyun-project-document/moyun-server/src/main/java/com/moyun/ext/cms/controller/CmsColumnController.java)：删除 `PUT /cms/column/{id}/audit`；`list`/`getInfo` 权限由 `hasAnyPermi('portal:column:list,cms:column:audit')` 收敛为 `hasPermi('portal:column:list')/hasPermi('portal:column:query')`
+- 后端 [CmsTopicController.java](file:///d:/zyg_new_work/moyun-project-document/moyun-server/src/main/java/com/moyun/ext/cms/controller/CmsTopicController.java)：删除 `PUT /cms/topic/{id}/audit`；`list`/`getInfo` 权限由 `hasAnyPermi('cms:topic:list,cms:topic:audit')` 收敛为 `hasPermi('cms:topic:list')/hasPermi('cms:topic:query')`
+- 前端 [column.js](file:///d:/zyg_new_work/moyun-project-document/moyun-admin-vue/src/api/cms/column.js) / [topic.js](file:///d:/zyg_new_work/moyun-project-document/moyun-admin-vue/src/api/cms/topic.js)：删除 `auditColumn` / `auditTopic` 方法
+
+**2. SQL 脚本重组为 DDL/DML 分离（幂等可重复执行）**
+- `moyun-db-ddl-moyun-db-202608201435.sql`（V10.0 整合版源文件，9983 行）拆分为：
+  - `moyun-db-ddl-202608201435.sql`（157 张表结构，按业务模块分组：ai_* → gen_* → portal_* → qrtz_* → sys_* → 其他）
+  - `moyun-db-dml-202608201435.sql`（33 张含数据表，943 条 INSERT，每表前加 `DELETE FROM` 实现幂等）
+- 拆分工具：`_split_ddl_dml.ps1` + 校验脚本 `_diff.ps1`（保留在 sql 目录）
+- 后续表结构变更：在 DDL 文件对应模块末尾追加增量 `ALTER TABLE`，不改动原 `CREATE TABLE`
+
+### 验证
+- 后端 `mvn compile` 通过
+- admin 前端 `vite build` 通过
 
 ---
 

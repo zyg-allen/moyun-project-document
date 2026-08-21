@@ -244,7 +244,7 @@ async function startChat() {
     }
   } catch (error) {
     console.error('发起私信失败:', error);
-    toast.error('发起私信失败，请重试');
+    toast.error((error as Error)?.message || '发起私信失败，请重试');
   }
 }
 

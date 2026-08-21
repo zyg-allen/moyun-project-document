@@ -648,7 +648,7 @@ router.beforeEach(async (to, _from, next) => {
 
   // 2. 设置页面标题
   if (to.meta.title) {
-    document.title = `${to.meta.title} - 墨韵智库`
+    document.title = `${to.meta.title} - 旭林知行`
   }
 
   // 3. 登录后访问登录/注册页：重定向到首页

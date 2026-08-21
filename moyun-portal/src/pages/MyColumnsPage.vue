@@ -39,7 +39,7 @@ const breadcrumbs = computed(() => [
 useHead(computed(() => generateSeo({
   title: '我的专栏',
   description: '管理我创建的专栏与我订阅的专栏',
-  keywords: ['我的专栏', '专栏管理', '订阅专栏', '墨韵'],
+  keywords: ['我的专栏', '专栏管理', '订阅专栏', '旭林'],
   canonicalPath: '/column/my',
   robots: 'noindex,nofollow',
 })));

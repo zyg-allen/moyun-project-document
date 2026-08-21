@@ -84,7 +84,7 @@ async function handleClick() {
       emit('change', inBookshelf.value);
     }
   } catch (err) {
-    toast.error('操作失败，请稍后重试');
+    toast.error((err as Error)?.message || '操作失败，请稍后重试');
   } finally {
     loading.value = false;
   }

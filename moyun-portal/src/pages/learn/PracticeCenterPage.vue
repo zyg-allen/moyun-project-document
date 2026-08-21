@@ -12,7 +12,7 @@ const router = useRouter();
 useHead(computed(() => generateSeo({
   title: '刷题中心',
   description: '在线刷题中心 - 选择题练习、编程题练习，全面提升技术能力',
-  keywords: ['刷题', '选择题', '编程题', '在线练习', '墨韵'],
+  keywords: ['刷题', '选择题', '编程题', '在线练习', '旭林'],
   canonicalPath: '/learn/practice',
 })));
 

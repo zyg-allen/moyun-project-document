@@ -47,6 +47,24 @@ public class ArticleQuery extends PageDomain {
     private String categoryName;
 
     /**
+     * 标签名称（精确匹配，通过 portal_article_tag 关联查询）
+     */
+    @Schema(description = "标签名称", example = "Java")
+    private String tagName;
+
+    /**
+     * 关键词（标题或摘要模糊查询）
+     */
+    @Schema(description = "搜索关键词", example = "Spring")
+    private String keyword;
+
+    /**
+     * 标签（兼容前端 tag 参数，等同于 tagName）
+     */
+    @Schema(description = "标签", example = "Java")
+    private String tag;
+
+    /**
      * 文章状态
      */
     @Schema(description = "文章状态", example = "published")

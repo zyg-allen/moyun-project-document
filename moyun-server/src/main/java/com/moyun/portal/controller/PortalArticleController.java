@@ -148,7 +148,7 @@ public class PortalArticleController extends BaseController {
     }
 
     @Operation(summary = "获取文章详情", description = "根据文章ID获取文章详细信息")
-    @GetMapping(value = "/{id}")
+    @GetMapping(value = "/{id:[0-9]+}")
     public AjaxResult getInfo(@Parameter(description = "文章ID") @PathVariable Long id) {
         PortalArticle article = portalArticleService.selectPortalArticleById(id);
         ArticleVO vo = ArticleConvertUtil.toArticleVO(article);
@@ -213,7 +213,7 @@ public class PortalArticleController extends BaseController {
      * 复用打赏订单表 portal_tip_order，target_type='article_paid'，amount=文章价格
      */
     @Operation(summary = "购买付费阅读", description = "购买付费文章阅读权限，复用打赏订单表")
-    @PostMapping("/{id}/purchase")
+    @PostMapping("/{id:[0-9]+}/purchase")
     @Transactional(rollbackFor = Exception.class)
     public AjaxResult purchase(@Parameter(description = "文章ID") @PathVariable Long id) {
         Long userId = PortalSecurityUtils.getUserId();
@@ -401,7 +401,7 @@ public class PortalArticleController extends BaseController {
      * 4. 返回最新点赞数和点赞状态
      */
     @Operation(summary = "文章点赞/取消点赞", description = "点赞或取消点赞文章，返回最新点赞数")
-    @PostMapping("/{id}/like")
+    @PostMapping("/{id:[0-9]+}/like")
     @Transactional(rollbackFor = Exception.class)
     public AjaxResult toggleLikeArticle(@PathVariable Long id) {
         Long userId = PortalSecurityUtils.getUserId();
@@ -490,7 +490,7 @@ public class PortalArticleController extends BaseController {
      * 3. 记录每次浏览历史，用于数据分析
      */
     @Operation(summary = "增加浏览量", description = "增加文章浏览量，支持防刷逻辑")
-    @PostMapping("/{id}/view")
+    @PostMapping("/{id:[0-9]+}/view")
     @Transactional(rollbackFor = Exception.class)
     public AjaxResult incrementView(@PathVariable Long id, HttpServletRequest request) {
         PortalArticle article = portalArticleService.selectPortalArticleById(id);

@@ -120,7 +120,7 @@ async function loadNotifications() {
         }
     } catch (error) {
         console.error('加载通知失败:', error);
-        toast.error('加载通知失败，请稍后重试');
+        toast.error((error as Error)?.message || '加载通知失败，请稍后重试');
     } finally {
         notifLoading.value = false;
     }
@@ -140,7 +140,7 @@ async function markNotifRead(n: Notification) {
         messageStore.decNotifUnread();
     } catch (error) {
         console.error('标记已读失败:', error);
-        toast.error('标记已读失败');
+        toast.error((error as Error)?.message || '标记已读失败');
     }
 }
 
@@ -160,7 +160,7 @@ async function markAllNotifRead() {
         toast.success('已全部标记为已读');
     } catch (error) {
         console.error('全部已读失败:', error);
-        toast.error('操作失败');
+        toast.error((error as Error)?.message || '操作失败');
     }
 }
 
@@ -178,7 +178,7 @@ async function loadTodos() {
         }
     } catch (error) {
         console.error('加载待办失败:', error);
-        toast.error('加载待办失败，请稍后重试');
+        toast.error((error as Error)?.message || '加载待办失败，请稍后重试');
     } finally {
         todoLoading.value = false;
     }
@@ -192,7 +192,7 @@ async function markTodoRead(n: Notification) {
         messageStore.decNotifUnread();
     } catch (error) {
         console.error('标记已读失败:', error);
-        toast.error('标记已读失败');
+        toast.error((error as Error)?.message || '标记已读失败');
     }
 }
 
@@ -211,7 +211,7 @@ async function markAllTodoRead() {
         toast.success('已全部标记为已读');
     } catch (error) {
         console.error('全部已读失败:', error);
-        toast.error('操作失败');
+        toast.error((error as Error)?.message || '操作失败');
     }
 }
 
@@ -226,6 +226,51 @@ const announcementFilter = ref<string>(''); // 全部为空
 // 公告详情弹窗
 const showAnnouncementModal = ref(false);
 const selectedAnnouncement = ref<Notification | null>(null);
+
+// ============ 通知/待办详情弹窗（统一复用） ============
+const showNotificationModal = ref(false);
+const selectedNotification = ref<Notification | null>(null);
+// 解析通知 data 字段（如 {"bizType":"article","id":2}）为可读描述
+const notificationDataText = computed(() => {
+    const n = selectedNotification.value;
+    if (!n || !n.data) return '';
+    try {
+        const obj = typeof n.data === 'string' ? JSON.parse(n.data) : n.data;
+        if (obj && typeof obj === 'object') {
+            const parts: string[] = [];
+            if (obj.bizType) parts.push('业务类型：' + obj.bizType);
+            if (obj.id) parts.push('业务ID：' + obj.id);
+            return parts.join('，');
+        }
+    } catch (e) {
+        // data 不是 JSON，返回原值
+        return String(n.data);
+    }
+    return '';
+});
+
+async function openNotificationDetail(n: Notification) {
+    selectedNotification.value = n;
+    showNotificationModal.value = true;
+    // 同步标记已读
+    if (!n.isRead) {
+        await markNotifRead(n);
+    }
+}
+
+function closeNotificationDetail() {
+    showNotificationModal.value = false;
+    selectedNotification.value = null;
+}
+
+async function openTodoDetail(n: Notification) {
+    selectedNotification.value = n;
+    showNotificationModal.value = true;
+    // 同步标记已读
+    if (!n.isRead) {
+        await markTodoRead(n);
+    }
+}
 
 const announcementFilterOptions = [
     { label: '全部', value: '' },
@@ -276,7 +321,7 @@ async function loadAnnouncements() {
         }
     } catch (error) {
         console.error('加载公告失败:', error);
-        toast.error('加载公告失败，请稍后重试');
+        toast.error((error as Error)?.message || '加载公告失败，请稍后重试');
     } finally {
         announcementLoading.value = false;
     }
@@ -319,7 +364,7 @@ async function loadSessions() {
         }
     } catch (error) {
         console.error('加载会话列表失败:', error);
-        toast.error('加载会话列表失败，请稍后重试');
+        toast.error((error as Error)?.message || '加载会话列表失败，请稍后重试');
     } finally {
         sessionLoading.value = false;
     }
@@ -568,8 +613,8 @@ watch(isChatMode, (isChat) => {
               <button
                 v-for="n in filteredNotifications"
                 :key="n.id"
-                @click="markNotifRead(n)"
-                class="w-full text-left flex items-start gap-3 p-4 rounded-2xl transition-colors"
+                @click="openNotificationDetail(n)"
+                class="w-full text-left flex items-start gap-3 p-4 rounded-2xl transition-colors hover:opacity-90"
                 :style="{
                   backgroundColor: 'var(--theme-surface)',
                   border: '1px solid var(--theme-border)',
@@ -616,8 +661,8 @@ watch(isChatMode, (isChat) => {
               <button
                 v-for="n in todos"
                 :key="n.id"
-                @click="markTodoRead(n)"
-                class="w-full text-left flex items-start gap-3 p-4 rounded-2xl transition-colors"
+                @click="openTodoDetail(n)"
+                class="w-full text-left flex items-start gap-3 p-4 rounded-2xl transition-colors hover:opacity-90"
                 :style="{
                   backgroundColor: 'var(--theme-surface)',
                   border: '1px solid var(--theme-border)',
@@ -769,6 +814,56 @@ watch(isChatMode, (isChat) => {
           <p class="text-xs sm:text-sm mt-6 flex items-center gap-1" style="color: var(--theme-text-secondary);">
             <Calendar class="w-3 h-3" />
             {{ formatRelativeTime(selectedAnnouncement?.createTime) }}
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <!-- 通知/待办详情弹窗（统一复用） -->
+    <div
+      v-if="showNotificationModal"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="notification-modal-title"
+      @keydown.esc.prevent="closeNotificationDetail"
+      class="fixed inset-0 z-50 flex items-center justify-center p-4"
+    >
+      <div class="absolute inset-0 bg-black/50" @click="closeNotificationDetail"></div>
+      <div class="relative rounded-lg shadow-xl w-full max-w-lg sm:max-w-2xl max-h-[85vh] overflow-y-auto" style="background-color: var(--theme-surface);">
+        <div class="sticky top-0 flex items-center justify-between p-4 sm:p-6 border-b" style="background-color: var(--theme-surface); border-color: var(--theme-border);">
+          <div class="flex items-center gap-2 min-w-0">
+            <component
+              v-if="selectedNotification?.type === 'todo'"
+              :is="getTodoIcon()"
+              class="w-5 h-5 flex-shrink-0"
+              style="color: var(--theme-primary);"
+            />
+            <component
+              v-else
+              :is="getNotifIcon(selectedNotification?.type)"
+              class="w-5 h-5 flex-shrink-0"
+              :style="{ color: getNotifIconColor(selectedNotification?.type) }"
+            />
+            <h3 id="notification-modal-title" class="font-bold text-lg sm:text-xl truncate" style="color: var(--theme-text);">{{ selectedNotification?.title }}</h3>
+          </div>
+          <button
+            type="button"
+            @click="closeNotificationDetail"
+            aria-label="关闭"
+            class="p-2 rounded-full transition-colors flex-shrink-0"
+            style="color: var(--theme-text-secondary);"
+          >
+            <X class="w-5 h-5" />
+          </button>
+        </div>
+        <div class="p-4 sm:p-6">
+          <p class="text-sm sm:text-base leading-relaxed whitespace-pre-wrap" style="color: var(--theme-text-secondary);">{{ selectedNotification?.content }}</p>
+          <div v-if="notificationDataText" class="mt-4 p-3 rounded-lg text-xs" style="background-color: var(--theme-accent); color: var(--theme-text-secondary);">
+            {{ notificationDataText }}
+          </div>
+          <p class="text-xs sm:text-sm mt-6 flex items-center gap-1" style="color: var(--theme-text-secondary);">
+            <Calendar class="w-3 h-3" />
+            {{ formatRelativeTime(selectedNotification?.createTime) }}
           </p>
         </div>
       </div>

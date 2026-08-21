@@ -29,7 +29,7 @@ const orderBy = ref<'latest' | 'recent' | 'sort'>('latest');
 useHead(
   computed(() => generateSeo({
     title: '我的书架',
-    description: '墨韵·智库读书空间 - 我的书架，收藏的好书都在这里',
+    description: '旭林知行读书空间 - 我的书架，收藏的好书都在这里',
     type: 'article',
     canonicalPath: '/reading/bookshelf',
   }))
@@ -87,7 +87,7 @@ async function handleRemove(item: BookshelfItem & { book?: Book }) {
       loadBookshelf();
     }
   } catch (err) {
-    toast.error('操作失败，请稍后重试');
+    toast.error((err as Error)?.message || '操作失败，请稍后重试');
   }
 }
 

@@ -49,8 +49,8 @@ const breadcrumbs = computed(() => [
 
 useHead(computed(() => generateSeo({
   title: '话题广场',
-  description: '墨韵话题广场，发起讨论、表达观点，与社区成员一起交流思想',
-  keywords: ['话题', '讨论', '社区', '观点', '墨韵'],
+  description: '旭林话题广场，发起讨论、表达观点，与社区成员一起交流思想',
+  keywords: ['话题', '讨论', '社区', '观点', '旭林'],
   canonicalPath: '/topics',
 })));
 
@@ -143,7 +143,7 @@ function gotoPage(p: number) {
           </div>
           <div class="relative px-6 py-8 sm:px-10 sm:py-10 text-center">
             <div class="inline-flex items-center bg-white/10 backdrop-blur-sm px-4 py-1.5 rounded-full text-sm mb-4">
-              <MessageCircle class="w-4 h-4 mr-2" /> 墨韵 · 话题广场
+              <MessageCircle class="w-4 h-4 mr-2" /> 旭林 · 话题广场
             </div>
             <h1 class="text-3xl md:text-4xl font-bold mb-3">话题广场</h1>
             <p class="text-sm opacity-90">发起讨论，表达观点，与社区成员一起交流思想</p>

@@ -82,7 +82,7 @@ public class PortalNotificationController extends BaseController {
 
     @Operation(summary = "标记单条通知已读", description = "将指定通知标记为已读（INSERT IGNORE 防重复，幂等操作）")
     @Log(title = "门户通知", businessType = BusinessType.UPDATE)
-    @PostMapping("/{id}/read")
+    @PostMapping("/{id:[0-9]+}/read")
     public AjaxResult markAsRead(@Parameter(description = "通知ID") @PathVariable("id") Long id) {
         PortalUser currentUser = PortalSecurityUtils.getUser();
         if (currentUser == null) {

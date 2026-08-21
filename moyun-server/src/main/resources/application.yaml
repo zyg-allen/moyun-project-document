@@ -42,7 +42,7 @@ security:
   # 后台管理需要排除的路径模块（这些路径使用独立的认证配置）
   exclude-modules:  /portal/**,/external/**,/doc.html,/swagger-ui.html
 
-# 墨韵框架配置（公共部分）
+# 旭林框架配置（公共部分）
 moyun:
   name: moyun
   version: 4.x
@@ -55,9 +55,9 @@ moyun:
   portal:
     # 站点正式域名（用于 sitemap.xml / og:url / canonical 等绝对 URL 生成）
     # 必须以 http:// 或 https:// 开头，结尾不要带 /
-    # 本地默认占位为 https://moyun.example.com；生产环境必须通过环境变量 PORTAL_DOMAIN 覆盖
+    # 本地默认占位为 https://xulin.example.com；生产环境必须通过环境变量 PORTAL_DOMAIN 覆盖
     # 同步要求：moyun-portal/public/robots.txt 与 moyun-portal/public/sitemap.xml 中的占位域名一并替换
-    domain: ${PORTAL_DOMAIN:https://moyun.example.com}
+    domain: ${PORTAL_DOMAIN:https://xulin.example.com}
 
 # Token 配置
 # secret 通过环境变量 ${TOKEN_SECRET:} 注入，各环境不同密钥

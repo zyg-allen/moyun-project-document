@@ -51,7 +51,7 @@ public class CmsCreatorSettlementController extends BaseController {
 
     @Operation(summary = "结算单详情", description = "查询结算单详情（含创作者信息）")
     @PreAuthorize("@ss.hasPermi('portal:settlement:list')")
-    @GetMapping("/{id}")
+    @GetMapping("/{id:[0-9]+}")
     public AjaxResult detail(@PathVariable("id") Long id) {
         try {
             return AjaxResult.success(settlementService.detail(id));
@@ -63,7 +63,7 @@ public class CmsCreatorSettlementController extends BaseController {
     @Operation(summary = "确认结算单", description = "pending -> confirmed")
     @PreAuthorize("@ss.hasPermi('portal:settlement:confirm')")
     @Log(title = "创作者分成结算", businessType = BusinessType.UPDATE)
-    @PutMapping("/{id}/confirm")
+    @PutMapping("/{id:[0-9]+}/confirm")
     public AjaxResult confirm(@PathVariable("id") Long id) {
         try {
             return AjaxResult.success(settlementService.confirm(id));
@@ -75,7 +75,7 @@ public class CmsCreatorSettlementController extends BaseController {
     @Operation(summary = "标记已打款", description = "confirmed -> paid")
     @PreAuthorize("@ss.hasPermi('portal:settlement:pay')")
     @Log(title = "创作者分成结算", businessType = BusinessType.UPDATE)
-    @PutMapping("/{id}/pay")
+    @PutMapping("/{id:[0-9]+}/pay")
     public AjaxResult markPaid(@PathVariable("id") Long id) {
         try {
             return AjaxResult.success(settlementService.markPaid(id));

@@ -11,17 +11,17 @@ package com.moyun.system.enums;
 public enum AuditTaskType {
 
     /** 文章审核 */
-    ARTICLE("article", "文章审核", "/cms/article", "cms:article:audit"),
+    ARTICLE("article", "文章审核", "/portal/audit-center", "cms:article:audit"),
     /** 专栏审核 */
-    COLUMN("column", "专栏审核", "/cms/column", "cms:column:audit"),
+    COLUMN("column", "专栏审核", "/portal/audit-center", "cms:column:audit"),
     /** 话题审核 */
-    TOPIC("topic", "话题审核", "/cms/topic", "cms:topic:audit"),
+    TOPIC("topic", "话题审核", "/portal/audit-center", "cms:topic:audit"),
     /** 面经审核 */
-    INTERVIEW_EXP("interview_exp", "面经审核", "/cms/interview/experience", "cms:interview:audit"),
+    INTERVIEW_EXP("interview_exp", "面经审核", "/portal/audit-center", "cms:interview:audit"),
     /** 面经评论审核 */
-    INTERVIEW_COMMENT("interview_comment", "面经评论审核", "/cms/interview/comment", "cms:interview:comment:audit"),
+    INTERVIEW_COMMENT("interview_comment", "面经评论审核", "/portal/audit-center", "cms:interview:comment:audit"),
     /** 创作者认证审核 */
-    CERTIFICATION("certification", "创作者认证审核", "/certification/audit", "cms:certification:audit"),
+    CERTIFICATION("certification", "创作者认证审核", "/portal/audit-center", "cms:certification:audit"),
     /** 意见反馈处理 */
     FEEDBACK("feedback", "意见反馈处理", "/cms/feedback", "cms:feedback:handle"),
     /** 举报处理 */

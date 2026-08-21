@@ -36,7 +36,9 @@ import com.moyun.portal.service.IPortalCategoryService;
 import com.moyun.portal.service.IPortalGrowthService;
 import com.moyun.portal.util.PortalSecurityUtils;
 import com.moyun.system.domain.dto.AuditTaskSubmitDTO;
+import com.moyun.system.domain.entity.SysNotification;
 import com.moyun.system.service.ISensitiveWordService;
+import com.moyun.system.service.ISysNotificationService;
 import com.moyun.util.file.Base64ImageUtils;
 
 /**
@@ -93,6 +95,10 @@ public class PortalArticleServiceImpl extends ServiceImpl<PortalArticleMapper, P
 
     @Autowired
     private com.moyun.portal.util.CreatorPermissionChecker creatorPermissionChecker;
+
+    @Autowired
+    @org.springframework.context.annotation.Lazy
+    private ISysNotificationService notificationService;
 
     /**
      * 根据条件分页查询文章列表
@@ -163,7 +169,13 @@ public class PortalArticleServiceImpl extends ServiceImpl<PortalArticleMapper, P
         fillCategoryPath(portalArticle);
         // 维护 slug 唯一性（允许用户自定义时校验）
         fillSlug(portalArticle);
-        return baseMapper.updatePortalArticle(portalArticle);
+        int rows = baseMapper.updatePortalArticle(portalArticle);
+        // v8.1：重新提交审核（status=pending）时，提交统一审核任务（写 sys_audit_task），使首页/审核中心待办可见
+        // 修复 BUG：草稿/被拒文章通过 edit 接口重新提交时，审核任务不会创建，导致审核中心不显示
+        if (rows > 0 && "pending".equals(portalArticle.getStatus()) && portalArticle.getId() != null) {
+            submitArticleAuditTask(portalArticle);
+        }
+        return rows;
     }
     
     /**
@@ -631,6 +643,7 @@ public class PortalArticleServiceImpl extends ServiceImpl<PortalArticleMapper, P
 
     /**
      * v8.1：提交文章统一审核任务（事务内，异常回滚保证双写一致）。
+     * 同时下发待办通知给所有审核员，使后台首页待办与消息中心可见。
      */
     private void submitArticleAuditTask(PortalArticle article) {
         AuditTaskSubmitDTO dto = new AuditTaskSubmitDTO();
@@ -650,5 +663,20 @@ public class PortalArticleServiceImpl extends ServiceImpl<PortalArticleMapper, P
             }
         }
         auditTaskService.submit(dto);
+
+        // 业务闭环：发送"待审核"待办通知给所有系统用户 + 被系统用户绑定的前台用户
+        // data 携带 bizType=article + 文章ID，审核完成后据此精确关闭待办
+        try {
+            SysNotification notice = new SysNotification();
+            notice.setTitle("新文章待审核：" + article.getTitle());
+            String submitter = dto.getSubmitterName() != null ? dto.getSubmitterName() : ("用户#" + article.getAuthorId());
+            notice.setContent("作者 " + submitter + " 提交了文章《" + article.getTitle() + "》，请尽快审核");
+            notice.setNoticeType("1");
+            notice.setStatus("0");
+            notice.setData("{\"bizType\":\"article\",\"id\":" + article.getId() + "}");
+            notificationService.sendTodoNotification(notice);
+        } catch (Exception ignored) {
+            // 通知发送失败不应阻断文章提交主流程
+        }
     }
 }

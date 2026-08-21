@@ -35,7 +35,7 @@ const isCorrect = ref(false);
 useHead(computed(() => generateSeo({
   title: question.value ? `选择题练习 - ${question.value.title}` : '选择题练习',
   description: '在线选择题练习，即时判定与解析',
-  keywords: ['选择题', '练习', '墨韵'],
+  keywords: ['选择题', '练习', '旭林'],
   canonicalPath: `/learn/practice/choice/${route.params.id}`,
 })));
 

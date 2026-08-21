@@ -109,7 +109,7 @@ export function useViewport() {
 /**
  * 文档标题管理
  */
-export function useDocumentTitle(defaultTitle: string = '墨韵') {
+export function useDocumentTitle(defaultTitle: string = '旭林知行') {
   const setTitle = (title: string) => {
     if (typeof document !== 'undefined') {
       document.title = title ? `${title} - ${defaultTitle}` : defaultTitle

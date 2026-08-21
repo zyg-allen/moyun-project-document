@@ -299,7 +299,7 @@ async function loadArticleForEdit(id: string) {
     }
   } catch (error) {
     console.error('加载文章失败:', error);
-    toast.error('加载文章失败，请重试');
+    toast.error((error as Error)?.message || '加载文章失败，请重试');
   }
 }
 
@@ -801,7 +801,7 @@ async function extractExcerptFromContent() {
     excerpt.value = await extractExcerpt(content.value, editorMode.value);
   } catch (error) {
     console.error('摘要提取失败:', error);
-    toast.error('摘要提取失败，请重试');
+    toast.error((error as Error)?.message || '摘要提取失败，请重试');
   } finally {
     isExtractingExcerpt.value = false;
   }
@@ -841,7 +841,7 @@ async function removeCover() {
     try {
       await deletePortalFile(oldCover);
     } catch (e) {
-      toast.error('文件记录清理失败，请稍后在文件管理中处理');
+      toast.error((e as Error)?.message || '文件记录清理失败，请稍后在文件管理中处理');
       console.warn('封面清理失败：', e);
     }
   }
@@ -890,12 +890,12 @@ async function handleFile(file: File) {
     } else {
       // 上传失败：恢复旧封面（替换语义——不丢失原封面），用户可重试或改用「删除」
       coverImage.value = oldCover || '';
-      toast.error('封面上传失败，请重试');
+      toast.error((error as Error)?.message || '封面上传失败，请重试');
     }
   } catch (error) {
     console.error('封面上传失败:', error);
     coverImage.value = oldCover || '';
-    toast.error('封面上传失败，请重试');
+    toast.error((error as Error)?.message || '封面上传失败，请重试');
   } finally {
     // 释放本地预览 blob URL（成功时已被 fileUrl 覆盖，失败时已恢复为 oldCover）
     URL.revokeObjectURL(objectUrl);

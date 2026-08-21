@@ -38,7 +38,7 @@ public class PortalBookshelfAdminController extends BaseController {
 
     @Operation(summary = "书架详情")
     @PreAuthorize("@ss.hasPermi('portal:bookshelf:query')")
-    @GetMapping("/{id}")
+    @GetMapping("/{id:[0-9]+}")
     public AjaxResult getInfo(@PathVariable Long id) {
         return AjaxResult.success(bookshelfService.selectBookshelfById(id));
     }

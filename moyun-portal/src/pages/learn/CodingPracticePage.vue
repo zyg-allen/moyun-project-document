@@ -148,7 +148,7 @@ function formatTime(s: number): string {
 useHead(computed(() => generateSeo({
   title: question.value ? `编程练习 - ${question.value.title}` : '编程题练习',
   description: '在线编程题练习，多语言 IDE，测试用例判定',
-  keywords: ['编程题', '在线练习', 'IDE', '墨韵'],
+  keywords: ['编程题', '在线练习', 'IDE', '旭林'],
   canonicalPath: `/learn/practice/coding/${route.params.id}`,
 })));
 

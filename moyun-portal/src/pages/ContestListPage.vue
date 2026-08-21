@@ -36,8 +36,8 @@ const breadcrumbs = computed(() => [{ label: '创作挑战' }]);
 
 useHead(computed(() => generateSeo({
   title: '创作挑战',
-  description: '墨韵创作挑战广场，参加主题征文活动，赢取奖品，结识同好',
-  keywords: ['创作挑战', '征文', '写作比赛', '墨韵'],
+  description: '旭林创作挑战广场，参加主题征文活动，赢取奖品，结识同好',
+  keywords: ['创作挑战', '征文', '写作比赛', '旭林'],
   canonicalPath: '/contests',
 })));
 

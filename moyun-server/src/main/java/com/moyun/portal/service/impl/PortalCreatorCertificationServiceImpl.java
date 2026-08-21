@@ -145,6 +145,22 @@ public class PortalCreatorCertificationServiceImpl
             log.warn("关闭创作者认证待办失败（不影响审核主流程）：id={}, err={}", id, e.getMessage());
         }
 
+        // 业务闭环 1.5：同步 sys_audit_task 为终态
+        // 当审核从旧入口（/cms/creator/certification/{id}/audit）直接发起时，
+        // sys_audit_task 不会被 AuditTaskServiceImpl.handle() 更新，导致审核中心仍显示为待办。
+        // 此处按 taskType=certification + bizId 精确匹配同步，幂等：仅 pending 可更新。
+        try {
+            String auditorName = auditorId != null ? String.valueOf(auditorId) : "系统";
+            try {
+                auditorName = com.moyun.util.security.SecurityUtils.getUsername();
+            } catch (Exception ignored) {
+                // SecurityContext 不可用时回退为 ID
+            }
+            auditTaskService.syncTaskStatusByBiz("certification", id, status, auditorId, auditorName, remark);
+        } catch (Exception e) {
+            log.warn("同步认证审核任务状态失败（不影响审核主流程）：id={}, err={}", id, e.getMessage());
+        }
+
         // 业务闭环 2：把审核结果通知申请人，让用户在前台消息中心看到反馈
         try {
             SysNotification notice = new SysNotification();

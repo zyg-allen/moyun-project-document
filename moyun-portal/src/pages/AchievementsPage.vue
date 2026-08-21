@@ -30,7 +30,7 @@ const isMyself = computed(() => !targetUserId.value);
 useHead(
   generateSeo({
     title: '成就徽章',
-    description: '墨韵智库成就体系，记录每一次成长与突破。',
+    description: '旭林知行成就体系，记录每一次成长与突破。',
     keywords: ['成就', '徽章', '成长', '勋章'],
     type: 'website'
   })

@@ -8,7 +8,7 @@ import { generateSeo } from '@/utils/seo';
 useHead(
   generateSeo({
     title: '用户协议',
-    description: '墨韵用户服务协议，了解您的权利和义务。',
+    description: '旭林用户服务协议，了解您的权利和义务。',
     keywords: ['用户协议', '服务条款'],
     type: 'website'
   })
@@ -41,7 +41,7 @@ useHead(
           <div>
             <h2 class="text-lg sm:text-xl font-semibold mb-3 sm:mb-4" style="color: var(--theme-text);">1. 协议的接受</h2>
             <p class="text-sm sm:text-base" style="color: var(--theme-text-secondary);">
-              欢迎使用墨韵平台！在使用我们的服务之前，请您仔细阅读本用户服务协议。本协议是您与墨韵之间关于使用本平台服务的法律协议。
+              欢迎使用旭林平台！在使用我们的服务之前，请您仔细阅读本用户服务协议。本协议是您与旭林之间关于使用本平台服务的法律协议。
               注册或使用我们的服务即表示您已阅读、理解并同意接受本协议的所有条款。
             </p>
           </div>
@@ -134,7 +134,7 @@ useHead(
             <h3 class="text-base sm:text-lg font-semibold mb-3" style="color: var(--theme-text);">联系我们</h3>
             <p class="text-sm" style="color: var(--theme-text-secondary);">
               如您对本协议有任何疑问，请通过以下方式联系我们：
-              邮箱：support@moyun.com
+              邮箱：support@xulin.com
               客服热线：400-888-8888
             </p>
           </div>

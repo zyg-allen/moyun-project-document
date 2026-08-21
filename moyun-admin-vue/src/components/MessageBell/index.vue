@@ -211,7 +211,8 @@ function formatTime(time) {
 function goAll() {
   showDropdown.value = false
   // 点击铃铛直接跳转消息中心，并定位到当前 Tab
-  router.push({ path: '/system/message', query: { tab: activeTab.value } })
+  // 实际路由：系统设置(system) → 消息通知(notice) → 消息中心(message)
+  router.push({ path: '/system/notice/message', query: { tab: activeTab.value } })
 }
 
 async function goChat(s) {
@@ -226,7 +227,7 @@ async function goChat(s) {
     }
   }
   showDropdown.value = false
-  router.push({ path: '/system/message', query: { session: s.id, tab: 'message' } })
+  router.push({ path: '/system/notice/message', query: { session: s.id, tab: 'message' } })
 }
 
 async function goNotification(n) {
@@ -241,7 +242,7 @@ async function goNotification(n) {
     }
   }
   showDropdown.value = false
-  router.push({ path: '/system/message', query: { tab: 'notification', nid: n.id } })
+  router.push({ path: '/system/notice/message', query: { tab: 'notification', nid: n.id } })
 }
 
 function startPolling() {

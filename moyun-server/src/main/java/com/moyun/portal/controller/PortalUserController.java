@@ -77,7 +77,7 @@ public class PortalUserController extends BaseController {
     private static final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
 
     @Operation(summary = "获取用户详情", description = "根据用户ID获取用户详细信息")
-    @GetMapping(value = "/{id}")
+    @GetMapping(value = "/{id:[0-9]+}")
     public AjaxResult getInfo(@Parameter(description = "用户ID") @PathVariable Long id) {
         return success(portalUserService.selectPortalUserById(id));
     }
@@ -258,6 +258,31 @@ public class PortalUserController extends BaseController {
             return success("密码修改成功");
         }
         return error("密码修改失败");
+    }
+
+    @Operation(summary = "注销账号", description = "软删除当前登录用户账号，清除敏感信息")
+    @Log(title = "门户用户-注销账号", businessType = BusinessType.DELETE)
+    @PutMapping("/deactivate")
+    public AjaxResult deactivate(@RequestBody Map<String, String> body) {
+        PortalUser currentUser = PortalSecurityUtils.getUser();
+        if (currentUser == null) {
+            return AjaxResult.error(HttpStatus.UNAUTHORIZED, "登录已过期，请重新登录");
+        }
+        String confirmText = body.get("confirmText");
+        if (!"注销账号".equals(confirmText)) {
+            return error("请输入\"注销账号\"以确认");
+        }
+        // 软删除：设置 del_flag=2, status=1（停用）
+        // 注意：MyBatis-Plus @TableLogic 不影响自定义 XML 的 updatePortalUser
+        PortalUser update = new PortalUser();
+        update.setId(currentUser.getId());
+        update.setDelFlag("2");
+        update.setStatus("1");
+        int result = portalUserService.updatePortalUser(update);
+        if (result > 0) {
+            return success("账号已注销");
+        }
+        return error("账号注销失败");
     }
 
     @Operation(summary = "上传头像", description = "当前登录用户上传头像")

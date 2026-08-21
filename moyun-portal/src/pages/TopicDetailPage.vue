@@ -95,7 +95,7 @@ const detailStatusMeta = computed(() => {
 
 useHead(computed(() => generateSeo({
   title: topic.value?.title ? `${topic.value.title} - 话题详情` : '话题详情',
-  description: topic.value?.description || '墨韵话题详情，参与话题讨论，发表你的观点',
+  description: topic.value?.description || '旭林话题详情，参与话题讨论，发表你的观点',
   keywords: ['话题', '讨论', '观点', topic.value?.title].filter(Boolean) as string[],
   canonicalPath: `/topic/${topicId.value}`,
 })));

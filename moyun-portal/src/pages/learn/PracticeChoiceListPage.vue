@@ -34,7 +34,7 @@ const questions = ref<InterviewQuestionVO[]>([]);
 useHead(computed(() => generateSeo({
   title: '选择题练习',
   description: '在线选择题练习 - 计算机基础、八股文选择题库，即时判定与解析',
-  keywords: ['选择题', '练习', '八股', '计算机基础', '墨韵'],
+  keywords: ['选择题', '练习', '八股', '计算机基础', '旭林'],
   canonicalPath: '/learn/practice/choice',
 })));
 

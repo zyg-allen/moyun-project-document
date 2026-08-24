@@ -118,60 +118,44 @@
               </div>
               <div class="card-actions" @click.stop>
                 <!-- 待配置状态：显示配置按钮 -->
-                <el-tooltip v-if="kb.processingStatus === 'pending'" content="配置" placement="top" :show-after="200">
-                  <button class="action-btn primary" @click="openConfigForKnowledge(kb)">
-                    <i class="fa-solid fa-gear"></i>
-                  </button>
-                </el-tooltip>
-                
+                <el-button v-if="kb.processingStatus === 'pending'" link type="primary" @click="openConfigForKnowledge(kb)">
+                  <i class="fa-solid fa-gear"></i> 配置
+                </el-button>
+
                 <!-- 已配置未处理：显示开始处理按钮 -->
-                <el-tooltip v-if="kb.processingStatus === 'configured'" content="开始处理" placement="top" :show-after="200">
-                  <button class="action-btn primary" @click="startProcessing(kb.id)">
-                    <i class="fa-solid fa-play"></i>
-                  </button>
-                </el-tooltip>
-                
+                <el-button v-if="kb.processingStatus === 'configured'" link type="success" @click="startProcessing(kb.id)">
+                  <i class="fa-solid fa-play"></i> 开始处理
+                </el-button>
+
                 <!-- 预览按钮 -->
-                <el-tooltip v-if="isCompleted(kb)" content="预览" placement="top" :show-after="200">
-                  <button class="action-btn" @click="previewFile(kb)">
-                    <i class="fa-solid fa-eye"></i>
-                  </button>
-                </el-tooltip>
-                
+                <el-button v-if="isCompleted(kb)" link type="primary" @click="previewFile(kb)">
+                  <i class="fa-solid fa-eye"></i> 预览
+                </el-button>
+
                 <!-- 详情按钮 -->
-                <el-tooltip v-if="isCompleted(kb)" content="详情" placement="top" :show-after="200">
-                  <button class="action-btn" @click="viewDetail(kb)">
-                    <i class="fa-solid fa-list"></i>
-                  </button>
-                </el-tooltip>
-                
+                <el-button v-if="isCompleted(kb)" link type="primary" @click="viewDetail(kb)">
+                  <i class="fa-solid fa-list"></i> 详情
+                </el-button>
+
                 <!-- 检索测试按钮 -->
-                <el-tooltip v-if="isCompleted(kb)" content="检索测试" placement="top" :show-after="200">
-                  <button class="action-btn" @click="openRetrievalTest(kb)">
-                    <i class="fa-solid fa-magnifying-glass"></i>
-                  </button>
-                </el-tooltip>
-                
+                <el-button v-if="isCompleted(kb)" link type="warning" @click="openRetrievalTest(kb)">
+                  <i class="fa-solid fa-magnifying-glass"></i> 检索测试
+                </el-button>
+
                 <!-- 编辑按钮 -->
-                <el-tooltip content="编辑" placement="top" :show-after="200">
-                  <button class="action-btn" @click="editKnowledge(kb)">
-                    <i class="fa-solid fa-pen"></i>
-                  </button>
-                </el-tooltip>
-                
+                <el-button link type="primary" @click="editKnowledge(kb)">
+                  <i class="fa-solid fa-pen"></i> 编辑
+                </el-button>
+
                 <!-- 重试按钮 -->
-                <el-tooltip v-if="isFailed(kb)" content="重试" placement="top" :show-after="200">
-                  <button class="action-btn" @click="reprocess(kb)">
-                    <i class="fa-solid fa-rotate-right"></i>
-                  </button>
-                </el-tooltip>
-                
+                <el-button v-if="isFailed(kb)" link type="warning" @click="reprocess(kb)">
+                  <i class="fa-solid fa-rotate-right"></i> 重试
+                </el-button>
+
                 <!-- 删除按钮 -->
-                <el-tooltip content="删除" placement="top" :show-after="200">
-                  <button class="action-btn danger" @click="deleteKnowledge(kb.id)">
-                    <i class="fa-solid fa-trash-can"></i>
-                  </button>
-                </el-tooltip>
+                <el-button link type="danger" @click="deleteKnowledge(kb.id)">
+                  <i class="fa-solid fa-trash-can"></i> 删除
+                </el-button>
               </div>
             </div>
           </div>
@@ -1406,23 +1390,27 @@ const previewFile = async (knowledge) => {
   
   try {
     // 使用预览接口获取 PDF 文件
-    const response = await request({ url: `/cms/ai/knowledge-base/${knowledge.id}/preview`, method: 'get', responseType: 'blob'})
-    
+    // 注意：request.js 响应拦截器对 blob 请求直接返回 res.data，
+    // 因此这里拿到的 response 本身就是 Blob（含 content-type），不是 axios 的完整响应对象
+    const blob = await request({ url: `/cms/ai/knowledge-base/${knowledge.id}/preview`, method: 'get', responseType: 'blob'})
+
     console.log('文件下载响应:', {
-      status: response.status,
-      contentType: response.headers['content-type'],
-      size: response.data.size
+      contentType: blob.type,
+      size: blob.size
     })
-    
+
     // 检查响应是否有效
-    if (!response.data || response.data.size === 0) {
+    if (!blob || blob.size === 0) {
       throw new Error('文件内容为空')
     }
-    
-    // 创建 Blob URL
-    const blob = new Blob([response.data], { 
-      type: response.headers['content-type'] || 'application/octet-stream' 
-    })
+
+    // 后端异常时可能返回 JSON 错误（blob 类型为 application/json），提示错误信息
+    if (blob.type && blob.type.includes('application/json')) {
+      const text = await blob.text()
+      let msg = '文件加载失败'
+      try { msg = JSON.parse(text).msg || msg } catch (ignored) { /* 保持默认提示 */ }
+      throw new Error(msg)
+    }
     
     // 所有文件都转换为 PDF 预览
     previewFileUrl.value = URL.createObjectURL(blob)

@@ -268,8 +268,7 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-webflux</artifactId>
         </dependency>
-        <!-- Elasticsearch 客户端：仅 app.embedding-store.type=es 时使用 -->
-        <!-- redis 模式（默认）下无需 ES，但保留依赖以便两种模式可切换；@ConditionalOnProperty 控制运行时加载 -->
+        <!-- Elasticsearch 客户端：向量存储（知识库 / RAG 检索底座）唯一实现，必需依赖 -->
         <dependency>
             <groupId>co.elastic.clients</groupId>
             <artifactId>elasticsearch-java</artifactId>

@@ -350,7 +350,7 @@ const sendMessage = async () => {
     // 获取认证 Token
     const token = userStore.token
     
-    const response = await fetch('/cms/ai/diagram/chat/stream', {
+    const response = await fetch(import.meta.env.VITE_APP_BASE_API + '/cms/ai/diagram/chat/stream', {
       signal: controller.signal,
       method: 'POST',
       headers: {

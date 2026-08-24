@@ -1,0 +1,8 @@
+一、大模型 配置相关：开发时暂存
+
+	1、百度百炼模型
+		模型名称：qwen3.8-max
+	    多模态测试
+		Base url: https://dashscope.aliyuncs.com/compatible-mode/v1
+		API KEY: sk-ws-H.EYRIPIH.hEdS.MEUCIQDeAnZC0RAE6D6i92zqByYnpdRklE9jUTiDQBjPJ7g8mQIgGRUhhG_zlKRP4SVmOdWlS-iAcJNg1xFbOeDbNZPwT14
+		

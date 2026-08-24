@@ -87,16 +87,12 @@
                 </span>
               </div>
               <div class="card-actions" @click.stop>
-                <el-tooltip content="编辑" placement="top" :show-after="200">
-                  <button class="action-btn" @click="editDictionary(dict)">
-                    <i class="fa-solid fa-pen-to-square"></i>
-                  </button>
-                </el-tooltip>
-                <el-tooltip content="删除" placement="top" :show-after="200">
-                  <button class="action-btn danger" @click="deleteDictionary(dict.id)">
-                    <i class="fa-solid fa-trash-can"></i>
-                  </button>
-                </el-tooltip>
+                <el-button link type="primary" @click="editDictionary(dict)">
+                  <i class="fa-solid fa-pen-to-square"></i> 编辑
+                </el-button>
+                <el-button link type="danger" @click="deleteDictionary(dict.id)">
+                  <i class="fa-solid fa-trash-can"></i> 删除
+                </el-button>
               </div>
             </div>
           </div>

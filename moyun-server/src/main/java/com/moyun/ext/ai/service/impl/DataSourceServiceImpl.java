@@ -1069,7 +1069,7 @@ public class DataSourceServiceImpl extends ServiceImpl<DataSourceConfigMapper, D
         HikariConfig hikari = new HikariConfig();
 
         String jdbcUrl = String.format(
-            "jdbc:mysql://%s:%d/%s?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai",
+            "jdbc:mysql://%s:%d/%s?useUnicode=true&characterEncoding=utf8&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Shanghai",
             config.getHost(),
             config.getPort(),
             config.getDatabaseName()

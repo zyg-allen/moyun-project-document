@@ -253,18 +253,14 @@ langchain4j:
 # =============================================
 # 向量存储配置（知识库 / RAG 检索底座）
 # =============================================
-# type: 向量库类型
-#   - redis（默认）：复用 Redis 8.0+ 内置 RediSearch（HNSW 向量 + BM25 全文），零新增服务
-#   - es：独立 Elasticsearch 8.x 集群（此时下方 elasticsearch.* 配置生效）
-# index-name: 向量索引名（ES index 名 / RediSearch FT 索引名）
-# key-prefix: Redis Hash key 前缀（仅 redis 模式生效）
+# 向量存储统一使用 Elasticsearch 8.x（dense_vector + cosine，支持 BM25 全文检索）
+# Redis 仅承担缓存 / 分布式锁 / 处理进度等职责，不参与向量存储
+# index-name: ES 向量索引名
 app:
   embedding-store:
-    type: ${EMBEDDING_STORE_TYPE:redis}
     index-name: ${EMBEDDING_STORE_INDEX_NAME:moyun_ai_vectors}
-    key-prefix: ${EMBEDDING_STORE_KEY_PREFIX:ai_vectors:}
 
-# Elasticsearch 向量检索配置（仅 app.embedding-store.type=es 时生效）
+# Elasticsearch 向量检索配置
 elasticsearch:
   uris: ${ES_URIS:http://localhost:9200}
   username: ${ES_USERNAME:}

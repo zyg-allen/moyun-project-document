@@ -107,8 +107,8 @@ knife4j:
 # Actuator 健康检查配置
 management:
   health:
-    # 默认向量存储为 Redis 8.0+ RediSearch，Elasticsearch 仅在 app.embedding-store.type=es 时启用
-    # 为避免无 ES 环境时 Actuator 健康检查持续报 Connection refused WARN，此处关闭 ES 健康指示器
+    # 向量存储使用 Elasticsearch 8.x；此处关闭 Actuator 的 ES 健康指示器，
+    # 避免 ES 未启动时健康检查持续报 Connection refused WARN（向量写入时 ESStore 会自行报错并中断任务）
     elasticsearch:
       enabled: false
 

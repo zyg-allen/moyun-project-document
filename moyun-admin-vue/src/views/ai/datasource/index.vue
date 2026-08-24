@@ -80,31 +80,22 @@
                   </span>
                 </div>
                 <div class="card-actions" @click.stop>
-                  <el-tooltip content="查看表" placement="top" :show-after="200">
-                    <button class="action-btn primary" @click="viewTables(ds)">
-                      <i class="fa-solid fa-table"></i>
-                    </button>
-                  </el-tooltip>
-                  <el-tooltip content="同步" placement="top" :show-after="200">
-                    <button class="action-btn" @click="syncMetadata(ds)">
-                      <i class="fa-solid fa-sync"></i>
-                    </button>
-                  </el-tooltip>
-                  <el-tooltip content="编辑" placement="top" :show-after="200">
-                    <button class="action-btn" @click="editDataSource(ds)">
-                      <i class="fa-solid fa-edit"></i>
-                    </button>
-                  </el-tooltip>
-                  <el-tooltip :content="ds.enabled ? '禁用' : '启用'" placement="top" :show-after="200">
-                    <button class="action-btn" @click="toggleEnabled(ds)">
-                      <i :class="ds.enabled ? 'fa-solid fa-toggle-on' : 'fa-solid fa-toggle-off'"></i>
-                    </button>
-                  </el-tooltip>
-                  <el-tooltip content="删除" placement="top" :show-after="200">
-                    <button class="action-btn danger" @click="deleteDataSource(ds)">
-                      <i class="fa-solid fa-trash"></i>
-                    </button>
-                  </el-tooltip>
+                  <el-button link type="primary" @click="viewTables(ds)">
+                    <i class="fa-solid fa-table"></i> 查看表
+                  </el-button>
+                  <el-button link type="primary" @click="syncMetadata(ds)">
+                    <i class="fa-solid fa-sync"></i> 同步
+                  </el-button>
+                  <el-button link type="primary" @click="editDataSource(ds)">
+                    <i class="fa-solid fa-edit"></i> 编辑
+                  </el-button>
+                  <el-button link type="primary" @click="toggleEnabled(ds)">
+                    <i :class="ds.enabled ? 'fa-solid fa-toggle-on' : 'fa-solid fa-toggle-off'"></i>
+                    {{ ds.enabled ? '禁用' : '启用' }}
+                  </el-button>
+                  <el-button link type="danger" @click="deleteDataSource(ds)">
+                    <i class="fa-solid fa-trash"></i> 删除
+                  </el-button>
                 </div>
               </div>
             </div>

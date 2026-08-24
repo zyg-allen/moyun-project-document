@@ -83,6 +83,14 @@ public class DatabaseQueryTool implements ToolExecutor {
             // 1. 解析参数
             Long datasourceId = getLong(params, "datasource_id");
             String query = getString(params, "query");
+
+            // 参数缺失时给出明确提示，而非 NPE
+            if (datasourceId == null) {
+                return ToolResult.fail("缺少必填参数 datasource_id（数据源ID，须为'数据源管理'中已配置的数据源）");
+            }
+            if (query == null || query.trim().isEmpty()) {
+                return ToolResult.fail("缺少必填参数 query（自然语言查询问题，如：统计工具表中已启用的工具数量）");
+            }
             Boolean needAnalysis = getBoolean(params, "need_analysis", true);
             Boolean needChart = getBoolean(params, "need_chart", true);
 
@@ -164,6 +172,9 @@ public class DatabaseQueryTool implements ToolExecutor {
 
     private Long getLong(Map<String, Object> params, String key) {
         Object value = params.get(key);
+        if (value == null) {
+            return null;
+        }
         if (value instanceof Number) {
             return ((Number) value).longValue();
         }

@@ -11,7 +11,6 @@ import org.apache.http.auth.UsernamePasswordCredentials;
 import org.apache.http.impl.client.BasicCredentialsProvider;
 import org.elasticsearch.client.RestClient;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -20,17 +19,15 @@ import java.net.URI;
 /**
  * Elasticsearch 配置类
  *
- * <p>配置 Elasticsearch 8.x 客户端连接，用于向量存储和检索。
- * 仅在 app.embedding-store.type=es 时加载，避免未部署 ES 时启动失败。</p>
+ * <p>配置 Elasticsearch 8.x 客户端连接，用于向量存储和检索（知识库 / RAG 底座）。
+ * ES 为唯一向量存储实现，随应用启动加载。</p>
  *
- * <p>向量库切换：app.embedding-store.type=redis（默认，复用 Redis 8.0+ RediSearch）
- * 或 es（独立 Elasticsearch 集群）。</p>
+ * <p>Redis 仅承担缓存 / 分布式锁 / 处理进度等职责，不参与向量存储。</p>
  *
  * @author laomao
  */
 @Slf4j
 @Configuration
-@ConditionalOnProperty(name = "app.embedding-store.type", havingValue = "es")
 public class ElasticsearchConfig {
 
     @Value("${elasticsearch.uris:http://localhost:9200}")

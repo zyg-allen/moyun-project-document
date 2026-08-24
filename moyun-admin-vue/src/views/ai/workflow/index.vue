@@ -74,26 +74,18 @@
                   </span>
                   </div>
                   <div class="card-actions" @click.stop>
-                    <el-tooltip content="运行" placement="top" :show-after="500">
-                      <button class="action-btn primary" @click="runWorkflow(wf)">
-                        <i class="fa-solid fa-play"></i>
-                      </button>
-                    </el-tooltip>
-                    <el-tooltip content="编辑" placement="top" :show-after="500">
-                      <button class="action-btn" @click="editWorkflow(wf)">
-                        <i class="fa-solid fa-pen-to-square"></i>
-                      </button>
-                    </el-tooltip>
-                    <el-tooltip content="复制" placement="top" :show-after="500">
-                      <button class="action-btn" @click="duplicateWorkflow(wf)">
-                        <i class="fa-solid fa-copy"></i>
-                      </button>
-                    </el-tooltip>
-                    <el-tooltip content="删除" placement="top" :show-after="500">
-                      <button class="action-btn danger" @click="deleteWorkflow(wf)">
-                        <i class="fa-solid fa-trash-can"></i>
-                      </button>
-                    </el-tooltip>
+                    <el-button link type="primary" @click="runWorkflow(wf)">
+                      <i class="fa-solid fa-play"></i> 运行
+                    </el-button>
+                    <el-button link type="primary" @click="editWorkflow(wf)">
+                      <i class="fa-solid fa-pen-to-square"></i> 编辑
+                    </el-button>
+                    <el-button link type="primary" @click="duplicateWorkflow(wf)">
+                      <i class="fa-solid fa-copy"></i> 复制
+                    </el-button>
+                    <el-button link type="danger" @click="deleteWorkflow(wf)">
+                      <i class="fa-solid fa-trash-can"></i> 删除
+                    </el-button>
                   </div>
                 </div>
               </div>

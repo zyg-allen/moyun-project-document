@@ -18,7 +18,8 @@
             <i class="fa-solid fa-eraser"></i>
           </el-button>
         </el-tooltip>
-        <el-button @click="createNewConversation" type="primary" :size="isMobile ? 'small' : 'default'">
+        <el-button @click="createNewConversation" type="primary" :size="isMobile ? 'small' : 'default'"
+                   :loading="isCreatingConversation" :disabled="isCreatingConversation">
           <i class="fa-solid fa-plus"></i>
           <span v-if="!isMobile">&nbsp;新会话</span>
         </el-button>
@@ -48,15 +49,20 @@
               <span class="message-count">
                 <i class="fa-solid fa-comments"></i>
                 {{ conv.messageCount || 0 }}条
+                <span class="conv-time">{{ formatConvTime(conv.updateTime || conv.createTime) }}</span>
               </span>
-              <el-button
-                size="small"
-                text
-                @click.stop="deleteConversation(conv.id)"
-                class="delete-btn"
-              >
-                <i class="fa-solid fa-trash"></i>
-              </el-button>
+              <span class="conv-actions" @click.stop>
+                <el-tooltip content="重命名" placement="top" :show-after="300">
+                  <button class="conv-action-btn" @click="renameConversation(conv)">
+                    <i class="fa-solid fa-pen"></i>
+                  </button>
+                </el-tooltip>
+                <el-tooltip content="删除" placement="top" :show-after="300">
+                  <button class="conv-action-btn danger" @click="deleteConversation(conv.id)">
+                    <i class="fa-solid fa-trash"></i>
+                  </button>
+                </el-tooltip>
+              </span>
             </div>
           </div>
           <div v-if="conversations.length === 0" class="empty-state">
@@ -393,9 +399,13 @@ const uploadedImages = ref([])  // { url: base64, name: string, file: File }
 const imageInputRef = ref(null)
 const isDragging = ref(false)  // 拖拽状态
 const selectedAgentId = ref(null)
+// 当前流式请求句柄（用于停止生成时本地中断 fetch）
+const currentStreamHandle = ref(null)
 const baseUuid = ref()  // 基础UUID
 const conversations = ref([])  // 会话列表
 const currentConversationId = ref(null)  // 当前会话ID
+const isCreatingConversation = ref(false)  // 会话创建防重入标记（避免一次点击/并发触发产生多个会话）
+let ensureConversationPromise = null  // 进行中的创建请求（并发去重：多处同时调用只发一次请求）
 
 // 当前智能体对象
 const currentAgent = computed(() => {
@@ -616,13 +626,12 @@ const loadAgents = async () => {
     const urlAgentId = route.query.agentId
 
     if (urlAgentId) {
-      // 使用URL指定的智能体
-      const agentIdNum = parseInt(urlAgentId)
-      const agent = agentList.value.find(a => a.id === agentIdNum)
+      // 使用URL指定的智能体（后端 Long 序列化为字符串，统一按字符串比较避免 "47" !== 47）
+      const agent = agentList.value.find(a => String(a.id) === String(urlAgentId))
 
       if (agent) {
-        selectedAgentId.value = agentIdNum
-        console.log('从URL参数加载智能体:', agentIdNum)
+        selectedAgentId.value = agent.id
+        console.log('从URL参数加载智能体:', agent.id)
         await loadConversations()
       } else {
         ElMessage.warning('指定的智能体不存在，已切换到默认智能体')
@@ -645,32 +654,36 @@ const loadAgents = async () => {
 }
 
 // 加载会话列表
-const loadConversations = async () => {
+// @param {boolean} options.silent 静默模式：不切换加载状态、不自动选中会话（用于流结束后的列表刷新）
+const loadConversations = async (options = {}) => {
+  const { silent = false } = options
   if (!selectedAgentId.value) return
-  
-  isLoadingMessages.value = true  // 开始加载，避免欢迎页闪烁
-  
+
+  if (!silent) {
+    isLoadingMessages.value = true  // 开始加载，避免欢迎页闪烁
+  }
+
   try {
     const response = await request({ url: '/cms/ai/conversation/list', method: 'get', params: {
         agentId: selectedAgentId.value,
         userId: null  // 暂不支持多用户
       }
     })
-    
+
     // 后端返回的是 ListResponse 格式：{ list: [], total: n }
     conversations.value = response.data?.list || []
-    console.log(`加载了 ${conversations.value.length} 个会话`)
 
-    // 如果有会话，自动选择第一个
-    if (conversations.value.length > 0 && !currentConversationId.value) {
+    // 仅非静默模式（页面初始化）才自动选中第一个会话；静默刷新不打扰当前会话状态
+    if (!silent && conversations.value.length > 0 && !currentConversationId.value) {
       await switchConversation(conversations.value[0].id)
-    } else if (conversations.value.length === 0) {
-      // 没有会话，显示欢迎页
-      isLoadingMessages.value = false
     }
   } catch (error) {
     console.error('加载会话列表失败:', error)
-    isLoadingMessages.value = false
+  } finally {
+    // 无论走哪个分支都复位加载状态（此前自动选中分支外的路径会泄漏为 true）
+    if (!silent) {
+      isLoadingMessages.value = false
+    }
   }
 }
 
@@ -692,16 +705,63 @@ const clearCurrentChat = async () => {
   }
 }
 
-// 创建新会话
+// 确保存在可用会话：无会话时创建（带并发去重，多处同时调用只发一次创建请求）
+// @returns {Promise<Long>} 可用的会话ID；创建失败返回 null
+const ensureConversation = async () => {
+  if (currentConversationId.value) {
+    return currentConversationId.value
+  }
+
+  // 并发去重：同一时刻只允许一个创建请求在途（双击/多触发也不会产生多个会话）
+  if (ensureConversationPromise) {
+    return ensureConversationPromise
+  }
+
+  isCreatingConversation.value = true
+  ensureConversationPromise = (async () => {
+    try {
+      const response = await request({ url: '/cms/ai/conversation/create', method: 'post', data: { agentId: selectedAgentId.value }})
+      const newConv = response.data
+
+      conversations.value.unshift(newConv)  // 添加到列表开头
+      currentConversationId.value = newConv.id
+      uuid.value = newConv.id  // 使用会话ID作为memoryId
+      console.log(`✅ 创建会话成功: ${newConv.id}`)
+      return newConv.id
+    } catch (error) {
+      console.error('❌ 创建会话异常:', error)
+      return null
+    } finally {
+      isCreatingConversation.value = false
+      ensureConversationPromise = null
+    }
+  })()
+
+  return ensureConversationPromise
+}
+
+// 创建新会话（手动点击"新会话"按钮）
 const createNewConversation = async () => {
   if (!selectedAgentId.value) {
     ElMessage.warning('请先选择智能体')
     return
   }
-  
+
+  // 防重入：上一次创建还在进行中则忽略本次点击
+  if (isCreatingConversation.value) {
+    console.log('⏳ 会话创建中，忽略重复点击')
+    return
+  }
+
+  // 中断进行中的流式请求，避免旧会话的回复写入新会话界面
+  if (currentStreamHandle.value) {
+    currentStreamHandle.value.abort()
+    currentStreamHandle.value = null
+    isSending.value = false
+  }
+
   try {
-    const response = await request({ url: '/cms/ai/conversation/create', method: 'post'})
-    
+    const response = await request({ url: '/cms/ai/conversation/create', method: 'post', data: { agentId: selectedAgentId.value }})
     const newConv = response.data
     conversations.value.unshift(newConv)  // 添加到列表开头
     currentConversationId.value = newConv.id
@@ -720,7 +780,14 @@ const createNewConversation = async () => {
 // 切换会话
 const switchConversation = async (conversationId) => {
   if (currentConversationId.value === conversationId) return
-  
+
+  // 切换前中断进行中的流式请求，避免旧会话的回复串到新会话界面
+  if (currentStreamHandle.value) {
+    currentStreamHandle.value.abort()
+    currentStreamHandle.value = null
+  }
+  isSending.value = false
+
   currentConversationId.value = conversationId
   uuid.value = conversationId  // 使用会话ID作为memoryId
   isLoadingMessages.value = true  // 开始加载
@@ -795,7 +862,51 @@ const switchConversation = async (conversationId) => {
   }
 }
 
-// 删除会话
+// 重命名会话
+const renameConversation = async (conv) => {
+  try {
+    const { value } = await ElMessageBox.prompt('请输入新的会话标题', '重命名会话', {
+      confirmButtonText: '保存',
+      cancelButtonText: '取消',
+      inputValue: conv.title || '',
+      inputPattern: /\S+/,
+      inputErrorMessage: '标题不能为空',
+      inputValidator: (v) => (v || '').trim().length <= 50 || '标题不能超过50个字符'
+    })
+
+    const newTitle = value.trim()
+    if (!newTitle || newTitle === conv.title) return
+
+    await request({
+      url: `/cms/ai/conversation/${conv.id}/title`,
+      method: 'put',
+      data: { title: newTitle }
+    })
+
+    // 本地同步更新，避免整列表刷新闪烁
+    conv.title = newTitle
+    ElMessage.success('会话已重命名')
+  } catch (error) {
+    if (error !== 'cancel') {
+      console.error('重命名会话失败:', error)
+      ElMessage.error('重命名失败，请重试')
+    }
+  }
+}
+
+// 会话时间格式化：今天显示时分，其他显示月-日
+const formatConvTime = (timeStr) => {
+  if (!timeStr) return ''
+  const d = new Date(timeStr.replace(/-/g, '/'))
+  if (isNaN(d.getTime())) return ''
+  const now = new Date()
+  const pad = (n) => String(n).padStart(2, '0')
+  const sameDay = d.toDateString() === now.toDateString()
+  if (sameDay) return `${pad(d.getHours())}:${pad(d.getMinutes())}`
+  if (d.getFullYear() === now.getFullYear()) return `${d.getMonth() + 1}-${pad(d.getDate())}`
+  return `${d.getFullYear()}-${d.getMonth() + 1}-${pad(d.getDate())}`
+}
+
 const deleteConversation = async (conversationId) => {
   try {
     await ElMessageBox.confirm('确定删除此会话吗？删除后无法恢复。', '确认删除', {
@@ -809,12 +920,14 @@ const deleteConversation = async (conversationId) => {
     // 从列表中移除
     conversations.value = conversations.value.filter(c => c.id !== conversationId)
 
-    // 如果删除的是当前会话，切换到第一个会话或创建新会话
+    // 如果删除的是当前会话，切换到剩余的第一个会话；没有剩余会话则回到欢迎页
+    // （不自动新建会话：下次发送消息时 ensureConversation 会按需创建，避免"删完自动多出一个会话"）
     if (currentConversationId.value === conversationId) {
+      currentConversationId.value = null
+      uuid.value = baseUuid.value
+      messages.value = []
       if (conversations.value.length > 0) {
         await switchConversation(conversations.value[0].id)
-      } else {
-        await createNewConversation()
       }
     }
 
@@ -864,7 +977,7 @@ onMounted(() => {
   window.addEventListener('keydown', handleKeydown)
   
   initUUID()
-  loadAgents()  // hello() 会在 loadAgents 完成后自动调用
+  loadAgents()  // 加载智能体后自动加载会话列表并选中最近会话（不自动打招呼）
   
   // 智能滚动：只在用户位于底部时自动滚动
   watch(messages, () => {
@@ -1102,16 +1215,17 @@ const openOriginalFile = async (knowledgeBaseId, segmentIndex) => {
     const lineStart = currentReference.value.lineStart
 
     // 使用预览接口获取 PDF 文件
-    const fileResponse = await request({ url: `/cms/ai/knowledge-base/${knowledgeBaseId}/preview`, method: 'get', responseType: 'blob'})
+    // 注意：响应拦截器对 responseType: 'blob' 的请求直接返回 Blob 本身（非 axios response 对象），
+    // content-type 需从 blob.type 读取，不能再访问 response.headers
+    const blobData = await request({ url: `/cms/ai/knowledge-base/${knowledgeBaseId}/preview`, method: 'get', responseType: 'blob'})
 
     console.log('参考原文下载响应:', {
-      status: fileResponse.status,
-      contentType: fileResponse.headers['content-type'],
-      size: fileResponse.data.size
+      contentType: blobData.type,
+      size: blobData.size
     })
 
     // 创建 Blob URL（所有文件都转换为 PDF）
-    const blob = new Blob([fileResponse.data], {
+    const blob = new Blob([blobData], {
       type: 'application/pdf'
     })
     const blobUrl = URL.createObjectURL(blob)
@@ -1399,15 +1513,30 @@ const stopGeneration = async () => {
   if (!isSending.value || !currentConversationId.value) {
     return
   }
-  
+
+  // 1. 本地中断 fetch 流（立即停止读取，结束打字动画）
+  if (currentStreamHandle.value) {
+    currentStreamHandle.value.abort()
+    currentStreamHandle.value = null
+    console.log('⏹️ 已中断本地流读取')
+  }
+
+  // 2. 通知后端中断生成（若流已结束，后端返回 false 属正常）
   try {
     console.log('⏹️ 请求停止生成...')
-    const response = await request({ url: `/cms/ai/chat/abort/${currentConversationId.value}`, method: 'post'})
-    
+    await request({ url: `/cms/ai/chat/abort/${currentConversationId.value}`, method: 'post'})
     console.log('✅ 已发送停止信号')
-    ElMessage.info('已停止生成')
   } catch (error) {
     console.error('停止生成失败:', error)
+  } finally {
+    isSending.value = false
+    // 结束最后一条消息的加载动画
+    const lastMsg = messages.value[messages.value.length - 1]
+    if (lastMsg && !lastMsg.isUser) {
+      lastMsg.isTyping = false
+      if (!lastMsg.content) lastMsg.content = '已停止生成'
+    }
+    ElMessage.info('已停止生成')
   }
 }
 
@@ -1463,19 +1592,11 @@ const sendRequest = async (message, isGreeting = false, images = []) => {
     return
   }
 
-  // 🔧 修复：如果没有会话，先创建一个
+  // 🔧 修复：如果没有会话，先创建一个（ensureConversation 带并发去重，不会重复创建）
   if (!currentConversationId.value) {
-    try {
-      console.log('📝 没有会话，自动创建新会话...')
-      const response = await request({ url: '/cms/ai/conversation/create', method: 'post'})
-      
-      const newConv = response.data
-      conversations.value.unshift(newConv)
-      currentConversationId.value = newConv.id
-      uuid.value = newConv.id
-      console.log(`✅ 自动创建会话成功: ${newConv.id}`)
-    } catch (error) {
-      console.error('❌ 创建会话异常:', error)
+    console.log('📝 没有会话，自动创建新会话...')
+    const conversationId = await ensureConversation()
+    if (!conversationId) {
       ElMessage.error('创建会话失败，请重试')
       return
     }
@@ -1516,7 +1637,7 @@ const sendRequest = async (message, isGreeting = false, images = []) => {
   // 使用框架提供的 fetchStream（基于 fetch + ReadableStream，自动注入 Authorization: Bearer <token>），
   // 替代原裸 axios.post（原代码未导入 axios 且绕过请求拦截器，token 无法注入，导致后端 401）。
   let fullText = ''
-  fetchStream('/cms/ai/chat/stream', {
+  currentStreamHandle.value = fetchStream('/cms/ai/chat/stream', {
     method: 'POST',
     data: {
       conversationId: currentConversationId.value,
@@ -1527,6 +1648,20 @@ const sendRequest = async (message, isGreeting = false, images = []) => {
     },
     onMessage: (chunk) => {
       fullText += chunk
+
+      // 🆕 后端兜底创建会话时下发的协议帧：采用该会话ID，避免"幽灵会话"
+      // 格式：[NEW_CONVERSATION_ID]123[/NEW_CONVERSATION_ID]
+      const newConvMatch = fullText.match(/\[NEW_CONVERSATION_ID\](\d+)\[\/NEW_CONVERSATION_ID\]/)
+      if (newConvMatch && String(currentConversationId.value) !== newConvMatch[1]) {
+        const adoptedId = Number(newConvMatch[1])
+        console.log(`🆕 采用后端创建的会话: ${adoptedId}`)
+        currentConversationId.value = adoptedId
+        uuid.value = adoptedId
+        // 若列表中尚无该会话，刷新列表使其可见
+        if (!conversations.value.some(c => String(c.id) === newConvMatch[1])) {
+          loadConversations({ silent: true })
+        }
+      }
 
       // 🖼️ 提取并处理图片HTML映射（持续检查直到提取成功）
       if (!imageMapExtracted) {
@@ -1544,8 +1679,10 @@ const sendRequest = async (message, isGreeting = false, images = []) => {
         }
       }
 
-      // 移除IMAGE_HTML_MAP标记
-      let displayText = fullText.replace(/\[IMAGE_HTML_MAP\].*?\[\/IMAGE_HTML_MAP\]/gs, '')
+      // 移除IMAGE_HTML_MAP标记与会话协议帧
+      let displayText = fullText
+        .replace(/\[IMAGE_HTML_MAP\].*?\[\/IMAGE_HTML_MAP\]/gs, '')
+        .replace(/\[NEW_CONVERSATION_ID\]\d+\[\/NEW_CONVERSATION_ID\]/g, '')
 
       // 🔄 替换图片占位符为实际HTML（后备方案，后端应该已替换）
       let imageReplaced = false
@@ -1581,28 +1718,24 @@ const sendRequest = async (message, isGreeting = false, images = []) => {
     onDone: () => {
       // 流结束后隐藏加载动画
       lastMsg.isTyping = false
-      console.log('✅ AI回答完成')
+      currentStreamHandle.value = null
+      // isSending 仅在此处复位：流真正结束后才允许发送下一条消息
+      isSending.value = false
+      console.log('✅ AI回答完成，isSending已复位')
 
-      // 刷新会话列表以更新标题
-      loadConversations()
+      // 静默刷新会话列表以更新标题/消息数（不切换加载状态、不自动选中）
+      loadConversations({ silent: true })
     },
     onError: (error) => {
       console.error('流式错误:', error)
       lastMsg.content = '请求失败，请重试'
       lastMsg.isTyping = false
+      currentStreamHandle.value = null
       // 错误时立即重置发送状态
       isSending.value = false
       console.log('🔄 isSending已重置为false（错误分支），可以继续发送')
     }
   })
-
-  // 确保无论成功失败都重置发送状态
-  // fetchStream 返回 { abort } 控制器对象而非 Promise，
-  // 通过 onDone/onError 回调已处理流结束逻辑，此处用 setTimeout 兜底确保 isSending 重置
-  setTimeout(() => {
-    isSending.value = false
-    console.log('🔄 isSending已重置为false，可以继续发送')
-  }, 500)
 }
 
 // 初始化 UUID
@@ -1643,6 +1776,7 @@ const convertStreamOutput = (output) => {
 const newChat = () => {
   createNewConversation()
 }
+// 注：newChat 为兼容保留入口；hello() 已不再自动调用（创建会话后直接显示欢迎页）
 
 // 在新标签页打开
 const openInNewTab = () => {

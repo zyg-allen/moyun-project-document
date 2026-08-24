@@ -155,31 +155,21 @@
                 </span>
               </div>
               <div class="card-actions" @click.stop>
-                <el-tooltip content="对话" placement="top" :show-after="200">
-                  <button class="action-btn primary" @click="startChat(agent.id)">
-                    <i class="fa-solid fa-comment"></i>
-                  </button>
-                </el-tooltip>
-                <el-tooltip content="统计" placement="top" :show-after="200">
-                  <button class="action-btn" @click="showAgentStats(agent)">
-                    <i class="fa-solid fa-chart-line"></i>
-                  </button>
-                </el-tooltip>
-                <el-tooltip content="复制" placement="top" :show-after="200">
-                  <button class="action-btn" @click="duplicateAgent(agent)">
-                    <i class="fa-solid fa-copy"></i>
-                  </button>
-                </el-tooltip>
-                <el-tooltip content="编辑" placement="top" :show-after="200">
-                  <button class="action-btn" @click="editAgent(agent)">
-                    <i class="fa-solid fa-pen-to-square"></i>
-                  </button>
-                </el-tooltip>
-                <el-tooltip content="删除" placement="top" :show-after="200">
-                  <button class="action-btn danger" @click="deleteAgent(agent.id)">
-                    <i class="fa-solid fa-trash-can"></i>
-                  </button>
-                </el-tooltip>
+                <el-button link type="primary" @click="startChat(agent.id)">
+                  <i class="fa-solid fa-comment"></i> 对话
+                </el-button>
+                <el-button link type="primary" @click="showAgentStats(agent)">
+                  <i class="fa-solid fa-chart-line"></i> 统计
+                </el-button>
+                <el-button link type="primary" @click="duplicateAgent(agent)">
+                  <i class="fa-solid fa-copy"></i> 复制
+                </el-button>
+                <el-button link type="primary" @click="editAgent(agent)">
+                  <i class="fa-solid fa-pen-to-square"></i> 编辑
+                </el-button>
+                <el-button link type="danger" @click="deleteAgent(agent.id)">
+                  <i class="fa-solid fa-trash-can"></i> 删除
+                </el-button>
               </div>
             </div>
           </div>

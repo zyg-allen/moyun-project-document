@@ -300,14 +300,12 @@ langchain4j:
     temperature: 0.7
 
 # 向量存储配置（知识库 / RAG 检索底座）
-# type: redis（默认，复用 Redis 8.0+ RediSearch）/ es（独立 ES 集群）
+# 向量存储统一使用 Elasticsearch 8.x；Redis 仅承担缓存 / 分布式锁等职责，不参与向量存储
 app:
   embedding-store:
-    type: ${EMBEDDING_STORE_TYPE:redis}
     index-name: ${EMBEDDING_STORE_INDEX_NAME:moyun_ai_vectors}
-    key-prefix: ${EMBEDDING_STORE_KEY_PREFIX:ai_vectors:}
 
-# Elasticsearch 配置（仅 app.embedding-store.type=es 时生效）
+# Elasticsearch 配置
 elasticsearch:
   uris: ${ES_URIS:http://localhost:9200}
   username: ${ES_USERNAME:}

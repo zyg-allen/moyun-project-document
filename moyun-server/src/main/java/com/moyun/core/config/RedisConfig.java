@@ -31,8 +31,8 @@ public class RedisConfig extends CachingConfigurerSupport {
     public RedisTemplate<String, Object> redisTemplate(RedisConnectionFactory connectionFactory) {
         RedisTemplate<String, Object> template = new RedisTemplate<>();
 
-        // 【核心修复代码】：解决 LangChain4j 强转 Lettuce 失败的问题
-        // 如果传入的 connectionFactory 被 Spring AOP 代理了，强制解开代理获取原生对象
+        // 【防御性处理】：如果传入的 connectionFactory 被 Spring AOP 代理了，
+        // 解开代理获取原生 LettuceConnectionFactory，避免下游强转 Lettuce 相关类型失败
         RedisConnectionFactory nativeFactory = connectionFactory;
         if (AopUtils.isAopProxy(connectionFactory)) {
             Object target = AopProxyUtils.getSingletonTarget(connectionFactory);

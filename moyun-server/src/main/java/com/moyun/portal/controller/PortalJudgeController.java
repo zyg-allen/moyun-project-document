@@ -6,11 +6,9 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -20,7 +18,6 @@ import com.moyun.common.annotation.RepeatSubmit;
 import com.moyun.core.base.AjaxResult;
 import com.moyun.core.base.BaseController;
 import com.moyun.portal.domain.dto.JudgeSubmitDTO;
-import com.moyun.portal.domain.dto.TestCaseUpsertDTO;
 import com.moyun.portal.domain.vo.JudgeResultVO;
 import com.moyun.portal.domain.vo.TestCaseVO;
 import com.moyun.portal.service.IPortalJudgeService;
@@ -76,34 +73,7 @@ public class PortalJudgeController extends BaseController {
     }
 
     // ==================== 测试用例（CMS 后台管理） ====================
-    // 注：以下接口的鉴权由 Spring Security 全局规则保证（仅管理员可访问），
-    // 此处未单独加 @PreAuthorize，与现有 CMS Controller 风格保持一致。
-
-    @Operation(summary = "CMS-获取题目全部用例", description = "后台获取题目全部用例（含隐藏用例）")
-    @GetMapping("/admin/cases/{questionId}")
-    public AjaxResult listAllCases(@PathVariable Long questionId) {
-        List<TestCaseVO> list = portalJudgeService.listAllCases(questionId);
-        return AjaxResult.success(list);
-    }
-
-    @Operation(summary = "CMS-新增测试用例", description = "为题目新增测试用例")
-    @PostMapping("/admin/cases")
-    public AjaxResult createCase(@Valid @RequestBody TestCaseUpsertDTO dto) {
-        TestCaseVO vo = portalJudgeService.createTestCase(dto);
-        return AjaxResult.success(vo);
-    }
-
-    @Operation(summary = "CMS-修改测试用例", description = "修改指定测试用例")
-    @PutMapping("/admin/cases/{id}")
-    public AjaxResult updateCase(@PathVariable Long id, @Valid @RequestBody TestCaseUpsertDTO dto) {
-        TestCaseVO vo = portalJudgeService.updateTestCase(id, dto);
-        return AjaxResult.success(vo);
-    }
-
-    @Operation(summary = "CMS-删除测试用例", description = "删除指定测试用例")
-    @DeleteMapping("/admin/cases/{id}")
-    public AjaxResult deleteCase(@PathVariable Long id) {
-        portalJudgeService.deleteTestCase(id);
-        return AjaxResult.success();
-    }
+    // 已迁移至 PortalJudgeAdminController（/portal/admin/judge/cases/**）：
+    // 原路径 /portal/judge/admin/** 被门户安全链处理（仅识别门户用户 token），
+    // CMS 后台携带 admin token 访问会 401，迁移后由核心 SecurityConfig 统一鉴权。
 }

@@ -252,7 +252,7 @@
 
 <script setup>
 import { ref, reactive, computed, onMounted, getCurrentInstance } from 'vue';
-import { useRouter } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { Upload, Download, Delete, Plus } from '@element-plus/icons-vue';
 import {
@@ -456,9 +456,11 @@ async function handleEdit(row) {
 }
 
 const router = useRouter();
+const route = useRoute();
 
 function handleTestCase(row) {
-  router.push(`/cms/interview/testCase/${row.id}`);
+  // 携带来源路径，测试用例页返回时动态回跳（菜单调整后无需改代码）
+  router.push({ path: `/cms/interview/testCase/${row.id}`, query: { from: route.fullPath } });
 }
 
 async function submitForm() {

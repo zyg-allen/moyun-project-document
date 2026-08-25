@@ -1286,3 +1286,11 @@ INSERT INTO `moyun-db`.sys_user_role (user_id, role_id, create_by, create_time, 
 -- Dump completed on 2026-08-20 14:35:02
 
 
+
+-- ==================== 增量变更（2026-08-25） ====================
+-- 删除 RuoYi 模板残留菜单：表单构建（menu_id=115）
+-- 原因：项目精简时已删除前端页面 src/views/tool/build/index.vue，
+--       但菜单数据未同步，导致路由生成时报
+--       [loadView] 未找到 component="tool/build/index" 警告
+DELETE FROM sys_role_menu WHERE menu_id = 115;
+DELETE FROM sys_menu WHERE menu_id = 115 AND component = 'tool/build/index';

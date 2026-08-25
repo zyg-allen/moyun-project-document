@@ -5,6 +5,38 @@
 
 ---
 
+## v10.6.1 (2026-08-25) 精选笔记 500 修复 + 测试用例管理接口迁移 + 题目收藏展示修复
+
+### 交付内容
+
+**0. 清理控制台警告：loadView 警告 + WebSocket 连接失败**
+- loadView 警告：RuoYi 模板残留菜单"表单构建"（menu_id=115）指向已删除的页面 `tool/build/index.vue`；且管理员路径 `selectMenuList` 不过滤 status，仅停用无法消除警告，故删除菜单及 sys_role_menu 关联（DML 脚本末尾追加增量 DELETE）
+- WebSocket：[layout/index.vue](file:///d:/zyg_new_work/moyun-project-document/moyun-admin-vue/src/layout/index.vue) 移除 `useWebsocketCto` 调用——后端无 `/websocket/message` 端点（仅门户 STOMP），`wsdata` store 无任何消费者，属模板残留代码
+- 验证：浏览器实测控制台两类报错均已消失
+
+**1. 修复 `GET /portal/interview/question/{id}/featured-notes` 500 错误**
+- 根因：实体 `PortalInterviewSubmission` 含 `isFeatured`/`featuredTime` 字段，但 `portal_interview_submission` 表缺 `is_featured`/`featured_time` 列，SQL 报 Unknown column
+- SQL：DDL 文件对应模块末尾追加增量 `ALTER TABLE`（新增 2 列 + `idx_is_featured` 索引），本地库已同步执行
+- 验证：接口返回 200
+
+**2. 测试用例管理接口迁移（修复 CMS 后台访问 401"登录状态已过期"）**
+- 根因：原路径 `/portal/judge/admin/**` 被门户安全链（PortalSecurityConfig）处理，仅识别门户用户 token，CMS 后台携带 admin token 访问被拒
+- 后端：新建 [PortalJudgeAdminController.java](file:///d:/zyg_new_work/moyun-project-document/moyun-server/src/main/java/com/moyun/portal/controller/PortalJudgeAdminController.java)（前缀 `/portal/admin/judge`，由核心 SecurityConfig 处理 admin token），4 个接口迁入并补齐 `@PreAuthorize("@ss.hasPermi('cms:interview:*')")` 权限（与题库管理一致）；[PortalJudgeController.java](file:///d:/zyg_new_work/moyun-project-document/moyun-server/src/main/java/com/moyun/portal/controller/PortalJudgeController.java) 移除 CMS 接口
+- 前端：[interview.js](file:///d:/zyg_new_work/moyun-project-document/moyun-admin-vue/src/api/cms/interview.js) 与 [judge.ts](file:///d:/zyg_new_work/moyun-project-document/moyun-portal/src/api/judge.ts) 4 个用例管理 URL 同步改为 `/portal/admin/judge/cases/**`
+- 验证：后端 `mvn compile` 通过；admin 前端 `vite build` 通过
+
+**3. 测试用例页跳转链路解耦（菜单路径不再硬编码）**
+- [question/index.vue](file:///d:/zyg_new_work/moyun-project-document/moyun-admin-vue/src/views/cms/interview/question/index.vue) 跳转用例页携带 `query.from` 来源路径
+- [testCase/index.vue](file:///d:/zyg_new_work/moyun-project-document/moyun-admin-vue/src/views/cms/interview/testCase/index.vue) 返回按钮三级回退（from > activeMenu > 默认题库页）
+- [router/index.js](file:///d:/zyg_new_work/moyun-project-document/moyun-admin-vue/src/router/index.js)：`/cms` 静态路由 permissions 补充 `cms:interview:list`（仅有题库权限的角色也可访问用例页）；testCase `activeMenu` 更新为 `/portal/interview/questionTab`（跟随 V10.5 菜单迁移）
+
+**4. 修复个人中心"题目收藏"不更新且渲染空白**
+- 根因 1：后端 `/portal/interview/bookmark/my` 返回 `InterviewBookmarkVO`（嵌套 `question` 对象），前端模板直接读题目字段（`q.title` 等）导致空白
+- 根因 2：`UserPage.vue` 收藏 Tab 双重缓存（`tabLoaded` + 列表非空判断），收藏后回到页面不重新拉取
+- 前端：[UserPage.vue](file:///d:/zyg_new_work/moyun-project-document/moyun-portal/src/pages/UserPage.vue) 提取 `bookmark.question` 渲染；收藏 Tab 每次激活/切换子 Tab 都重新加载
+
+---
+
 ## v10.6 阶段4 (2026-08-20) 话题/专栏审核接口收敛 + SQL 脚本拆分重组
 
 ### 交付内容

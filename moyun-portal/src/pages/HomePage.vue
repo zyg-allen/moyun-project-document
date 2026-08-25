@@ -752,108 +752,6 @@ useHead(
         <div class="p-4 sm:p-5 rounded-xl" style="background-color: var(--theme-surface);">
           <div class="flex items-center justify-between mb-4">
             <div class="flex items-center gap-2">
-              <div class="w-8 h-8 rounded-lg bg-green-100 flex items-center justify-center">
-                <Book class="w-4 h-4 text-green-600" />
-              </div>
-              <div>
-                <h3 class="font-semibold text-sm sm:text-base" style="color: var(--theme-text);">读书空间</h3>
-                <p class="text-xs" style="color: var(--theme-text-secondary);">精选好书伴你阅读</p>
-              </div>
-            </div>
-            <button @click="router.push('/reading')" class="flex items-center gap-1 text-xs sm:text-sm font-medium" style="color: var(--theme-primary);">
-              <span>进入读书空间</span>
-              <ArrowRight class="w-3 h-3 sm:w-4 sm:h-4" />
-            </button>
-          </div>
-
-          <div class="grid grid-cols-1 md:grid-cols-4 gap-3 sm:gap-4">
-            <!-- 精选书籍 -->
-            <button
-                type="button"
-                v-if="readingBooks.length > 0"
-                class="relative h-28 sm:h-32 rounded-xl overflow-hidden cursor-pointer w-full text-left"
-                @click="router.push(`/reading/book/${readingBooks[0].id}`)"
-            >
-              <LazyImage
-                  :src="readingBooks[0].cover"
-                  :alt="readingBooks[0].title"
-                  class="absolute inset-0 w-full h-full object-cover"
-              />
-              <div class="absolute inset-0 bg-gradient-to-br from-green-600/80 to-green-800/80 p-3 sm:p-4">
-                <span class="inline-block px-2 py-0.5 bg-white/20 backdrop-blur text-white text-xs rounded mb-2">精选好书</span>
-                <h4 class="text-white font-bold text-sm sm:text-base mb-1 line-clamp-1">{{ readingBooks[0].title }}</h4>
-                <p class="text-white/80 text-xs mb-3">{{ readingBooks[0].author }}</p>
-                <span class="px-3 py-1 bg-white text-green-700 rounded-full text-xs font-medium">立即阅读</span>
-              </div>
-            </button>
-            <div v-else class="relative h-28 sm:h-32 rounded-xl overflow-hidden">
-              <div class="absolute inset-0 bg-gradient-to-br from-green-600 to-green-800"></div>
-              <div class="absolute inset-0 p-3 sm:p-4">
-                <span class="inline-block px-2 py-0.5 bg-white/20 backdrop-blur text-white text-xs rounded mb-2">精选好书</span>
-                <h4 class="text-white font-bold text-sm sm:text-base mb-1">暂无推荐</h4>
-              </div>
-            </div>
-
-            <!-- 热门书单 -->
-            <div class="p-3 sm:p-4 rounded-xl" style="background-color: var(--theme-bg);">
-              <div class="flex items-center gap-2 mb-3">
-                <div class="w-7 h-7 rounded-lg bg-orange-100 flex items-center justify-center">
-                  <Flame class="w-3.5 h-3.5 text-orange-500" />
-                </div>
-                <span class="font-medium text-xs sm:text-sm" style="color: var(--theme-text);">热门书单</span>
-              </div>
-              <div class="space-y-2.5">
-                <button
-                    type="button"
-                    v-for="bl in readingBookLists"
-                    :key="bl.id"
-                    class="flex items-center gap-2 cursor-pointer hover:text-orange-500 transition-colors w-full text-left"
-                    @click="router.push(`/reading/book-list/${bl.id}`)"
-                >
-                  <div class="w-1.5 h-1.5 rounded-full bg-orange-500"></div>
-                  <span class="text-xs line-clamp-1" style="color: var(--theme-text-secondary);">{{ bl.title }}</span>
-                </button>
-                <div v-if="readingBookLists.length === 0" class="text-xs" style="color: var(--theme-text-secondary);">暂无书单</div>
-              </div>
-            </div>
-
-            <!-- 金句摘录 -->
-            <div class="p-3 sm:p-4 rounded-xl" style="background-color: var(--theme-bg);">
-              <div class="flex items-center gap-2 mb-3">
-                <div class="w-7 h-7 rounded-lg bg-purple-100 flex items-center justify-center">
-                  <Quote class="w-3.5 h-3.5 text-purple-500" />
-                </div>
-                <span class="font-medium text-xs sm:text-sm" style="color: var(--theme-text);">金句摘录</span>
-              </div>
-              <p v-if="readingQuotes.length > 0" class="text-xs sm:text-sm italic line-clamp-3" style="color: var(--theme-text-secondary);">
-                "{{ readingQuotes[0].content }}"
-              </p>
-              <p v-else class="text-xs" style="color: var(--theme-text-secondary);">暂无金句</p>
-            </div>
-
-            <!-- 读书统计 -->
-            <div class="p-3 sm:p-4 rounded-xl" style="background-color: var(--theme-bg);">
-              <div class="flex items-center gap-2 mb-3">
-                <div class="w-7 h-7 rounded-lg bg-pink-100 flex items-center justify-center">
-                  <Users class="w-3.5 h-3.5 text-pink-500" />
-                </div>
-                <span class="font-medium text-xs sm:text-sm" style="color: var(--theme-text);">读书统计</span>
-              </div>
-              <div class="text-center">
-                <p class="text-2xl sm:text-3xl font-bold text-green-600">{{ readingBooks.length + readingBookLists.length }}</p>
-                <p class="text-xs mt-1" style="color: var(--theme-text-secondary);">本精选好书</p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <div class="py-6 sm:py-8" style="background-color: var(--theme-bg);">
-      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div class="p-4 sm:p-5 rounded-xl" style="background-color: var(--theme-surface);">
-          <div class="flex items-center justify-between mb-4">
-            <div class="flex items-center gap-2">
               <div class="w-8 h-8 rounded-lg bg-purple-100 flex items-center justify-center">
                 <Briefcase class="w-4 h-4 text-purple-600" />
               </div>
@@ -968,6 +866,108 @@ useHead(
                   <span class="text-xs flex-shrink-0 ml-2" style="color: var(--theme-text-secondary);">{{ cat.questionCount || 0 }}道</span>
                 </button>
                 <div v-if="interviewCategories.length === 0" class="text-xs" style="color: var(--theme-text-secondary);">暂无分类</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="py-6 sm:py-8" style="background-color: var(--theme-bg);">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="p-4 sm:p-5 rounded-xl" style="background-color: var(--theme-surface);">
+          <div class="flex items-center justify-between mb-4">
+            <div class="flex items-center gap-2">
+              <div class="w-8 h-8 rounded-lg bg-green-100 flex items-center justify-center">
+                <Book class="w-4 h-4 text-green-600" />
+              </div>
+              <div>
+                <h3 class="font-semibold text-sm sm:text-base" style="color: var(--theme-text);">读书空间</h3>
+                <p class="text-xs" style="color: var(--theme-text-secondary);">精选好书伴你阅读</p>
+              </div>
+            </div>
+            <button @click="router.push('/reading')" class="flex items-center gap-1 text-xs sm:text-sm font-medium" style="color: var(--theme-primary);">
+              <span>进入读书空间</span>
+              <ArrowRight class="w-3 h-3 sm:w-4 sm:h-4" />
+            </button>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-4 gap-3 sm:gap-4">
+            <!-- 精选书籍 -->
+            <button
+                type="button"
+                v-if="readingBooks.length > 0"
+                class="relative h-28 sm:h-32 rounded-xl overflow-hidden cursor-pointer w-full text-left"
+                @click="router.push(`/reading/book/${readingBooks[0].id}`)"
+            >
+              <LazyImage
+                  :src="readingBooks[0].cover"
+                  :alt="readingBooks[0].title"
+                  class="absolute inset-0 w-full h-full object-cover"
+              />
+              <div class="absolute inset-0 bg-gradient-to-br from-green-600/80 to-green-800/80 p-3 sm:p-4">
+                <span class="inline-block px-2 py-0.5 bg-white/20 backdrop-blur text-white text-xs rounded mb-2">精选好书</span>
+                <h4 class="text-white font-bold text-sm sm:text-base mb-1 line-clamp-1">{{ readingBooks[0].title }}</h4>
+                <p class="text-white/80 text-xs mb-3">{{ readingBooks[0].author }}</p>
+                <span class="px-3 py-1 bg-white text-green-700 rounded-full text-xs font-medium">立即阅读</span>
+              </div>
+            </button>
+            <div v-else class="relative h-28 sm:h-32 rounded-xl overflow-hidden">
+              <div class="absolute inset-0 bg-gradient-to-br from-green-600 to-green-800"></div>
+              <div class="absolute inset-0 p-3 sm:p-4">
+                <span class="inline-block px-2 py-0.5 bg-white/20 backdrop-blur text-white text-xs rounded mb-2">精选好书</span>
+                <h4 class="text-white font-bold text-sm sm:text-base mb-1">暂无推荐</h4>
+              </div>
+            </div>
+
+            <!-- 热门书单 -->
+            <div class="p-3 sm:p-4 rounded-xl" style="background-color: var(--theme-bg);">
+              <div class="flex items-center gap-2 mb-3">
+                <div class="w-7 h-7 rounded-lg bg-orange-100 flex items-center justify-center">
+                  <Flame class="w-3.5 h-3.5 text-orange-500" />
+                </div>
+                <span class="font-medium text-xs sm:text-sm" style="color: var(--theme-text);">热门书单</span>
+              </div>
+              <div class="space-y-2.5">
+                <button
+                    type="button"
+                    v-for="bl in readingBookLists"
+                    :key="bl.id"
+                    class="flex items-center gap-2 cursor-pointer hover:text-orange-500 transition-colors w-full text-left"
+                    @click="router.push(`/reading/book-list/${bl.id}`)"
+                >
+                  <div class="w-1.5 h-1.5 rounded-full bg-orange-500"></div>
+                  <span class="text-xs line-clamp-1" style="color: var(--theme-text-secondary);">{{ bl.title }}</span>
+                </button>
+                <div v-if="readingBookLists.length === 0" class="text-xs" style="color: var(--theme-text-secondary);">暂无书单</div>
+              </div>
+            </div>
+
+            <!-- 金句摘录 -->
+            <div class="p-3 sm:p-4 rounded-xl" style="background-color: var(--theme-bg);">
+              <div class="flex items-center gap-2 mb-3">
+                <div class="w-7 h-7 rounded-lg bg-purple-100 flex items-center justify-center">
+                  <Quote class="w-3.5 h-3.5 text-purple-500" />
+                </div>
+                <span class="font-medium text-xs sm:text-sm" style="color: var(--theme-text);">金句摘录</span>
+              </div>
+              <p v-if="readingQuotes.length > 0" class="text-xs sm:text-sm italic line-clamp-3" style="color: var(--theme-text-secondary);">
+                "{{ readingQuotes[0].content }}"
+              </p>
+              <p v-else class="text-xs" style="color: var(--theme-text-secondary);">暂无金句</p>
+            </div>
+
+            <!-- 读书统计 -->
+            <div class="p-3 sm:p-4 rounded-xl" style="background-color: var(--theme-bg);">
+              <div class="flex items-center gap-2 mb-3">
+                <div class="w-7 h-7 rounded-lg bg-pink-100 flex items-center justify-center">
+                  <Users class="w-3.5 h-3.5 text-pink-500" />
+                </div>
+                <span class="font-medium text-xs sm:text-sm" style="color: var(--theme-text);">读书统计</span>
+              </div>
+              <div class="text-center">
+                <p class="text-2xl sm:text-3xl font-bold text-green-600">{{ readingBooks.length + readingBookLists.length }}</p>
+                <p class="text-xs mt-1" style="color: var(--theme-text-secondary);">本精选好书</p>
               </div>
             </div>
           </div>

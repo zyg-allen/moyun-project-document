@@ -151,7 +151,11 @@ function typeLabel(t) { return { algorithm: '算法', bagwen: '八股', system_d
 function typeTagType(t) { return { algorithm: 'primary', bagwen: 'warning', system_design: 'info', project: 'success', hr: 'danger' }[t] || 'info'; }
 
 function goBack() {
-  router.push('/cms/interview/question');
+  // 返回路径三级回退：来源路径（query.from）> activeMenu > 默认题库页
+  // 菜单调整后来源路径自动跟随，无需改代码
+  const from = route.query.from;
+  const fallback = (route.meta && route.meta.activeMenu) || '/portal/interview/questionTab';
+  router.push(typeof from === 'string' && from ? from : fallback);
 }
 
 async function loadQuestion() {

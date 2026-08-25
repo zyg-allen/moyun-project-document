@@ -3617,6 +3617,15 @@ LOCK TABLES `portal_interview_submission` WRITE;
 /*!40000 ALTER TABLE `portal_interview_submission` ENABLE KEYS */;
 UNLOCK TABLES;
 
+-- ==================== 增量变更（2026-08-25） ====================
+-- 精选笔记功能：portal_interview_submission 增加精选标记与精选时间
+-- 修复：实体 PortalInterviewSubmission 含 isFeatured/featuredTime 字段，但表缺列导致
+--       GET /portal/interview/question/{id}/featured-notes 报 500（Unknown column）
+ALTER TABLE `portal_interview_submission`
+  ADD COLUMN `is_featured` tinyint(1) DEFAULT 0 COMMENT '是否精选（后台采纳为优质笔记）：0=否 1=是' AFTER `note`,
+  ADD COLUMN `featured_time` datetime DEFAULT NULL COMMENT '精选时间' AFTER `is_featured`,
+  ADD KEY `idx_is_featured` (`is_featured`);
+
 --
 -- Table structure for table `portal_like`
 --

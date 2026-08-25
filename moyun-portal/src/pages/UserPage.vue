@@ -310,8 +310,11 @@ async function loadUserData() {
 
 // 各 Tab 懒加载入口
 async function loadTabData(tabId: string) {
-  if (tabLoaded[tabId]) return;
-  tabLoaded[tabId] = true;
+  // 收藏 Tab 数据轻量且时效性强（收藏/取消后需立即反映），每次激活都重新加载
+  if (tabId !== 'saved') {
+    if (tabLoaded[tabId]) return;
+    tabLoaded[tabId] = true;
+  }
   try {
     switch (tabId) {
       case 'dashboard':
@@ -413,7 +416,10 @@ async function loadSavedSubTab(sub: 'articles' | 'questions' | 'booklists' | 'qu
     try {
       const resp = await getMyQuestionBookmarks({ pageNum: 1, pageSize: 20 });
       if (resp.code === 200 && resp.data) {
-        bookmarkedQuestions.value = resp.data.list || [];
+        // 后端返回 InterviewBookmarkVO（含嵌套 question 对象），提取题目字段供模板渲染
+        bookmarkedQuestions.value = (resp.data.list || [])
+          .map((b: any) => (b && b.question ? b.question : null))
+          .filter((q: any): q is InterviewQuestionVO => q !== null);
       } else {
         bookmarkedQuestions.value = [];
       }
@@ -989,14 +995,8 @@ function handleTabChange(tabId: string) {
 function handleSavedSubTab(sub: 'articles' | 'questions' | 'booklists' | 'quotes') {
   if (savedSubTab.value === sub) return;
   savedSubTab.value = sub;
-  // 子 Tab 数据懒加载（booklists/quotes 无接口，仅 articles/questions 触发）
-  if (sub === 'articles' && bookmarkedArticles.value.length === 0 && !tabLoaded['saved:articles']) {
-    tabLoaded['saved:articles'] = true;
-    loadSavedSubTab('articles');
-  } else if (sub === 'questions' && bookmarkedQuestions.value.length === 0 && !tabLoaded['saved:questions']) {
-    tabLoaded['saved:questions'] = true;
-    loadSavedSubTab('questions');
-  }
+  // 每次切换子 Tab 都拉取最新数据（收藏/取消操作后列表需立即反映变化）
+  loadSavedSubTab(sub);
 }
 
 function handleFollowSubTab(sub: 'following' | 'followers') {

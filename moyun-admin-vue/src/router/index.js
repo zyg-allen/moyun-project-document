@@ -112,7 +112,7 @@ export const dynamicRoutes = [
         path: 'role/:userId(\\d+)',
         component: () => import('@/views/system/user/authRole'),
         name: 'AuthRole',
-        meta: { title: '分配角色', activeMenu: '/system/user' }
+        meta: { title: '分配角色', activeMenu: '/system/base/user' }
       }
     ]
   },
@@ -126,7 +126,7 @@ export const dynamicRoutes = [
         path: 'list/:userId(\\d+)',
         component: () => import('@/views/system/user/userResume'),
         name: 'UserResume',
-        meta: { title: '用户简历', activeMenu: '/system/user' }
+        meta: { title: '用户简历', activeMenu: '/system/base/user' }
       }
     ]
   },
@@ -190,7 +190,7 @@ export const dynamicRoutes = [
     path: '/cms',
     component: Layout,
     hidden: true,
-    permissions: ['cms:article:list'],
+    permissions: ['cms:article:list', 'cms:interview:list'],
     children: [
       {
         path: 'article/edit',
@@ -208,7 +208,7 @@ export const dynamicRoutes = [
         path: 'interview/testCase/:questionId(\\d+)',
         component: () => import('@/views/cms/interview/testCase/index'),
         name: 'InterviewTestCase',
-        meta: { title: '测试用例管理', activeMenu: '/cms/interview/question' }
+        meta: { title: '测试用例管理', activeMenu: '/portal/interview/questionTab' }
       }
     ]
   },

@@ -383,11 +383,13 @@ export function unfeatureSubmission(id) {
 }
 
 // ==================== 测试用例管理（v6.3 OJ 判题） ====================
+// 路径前缀 /portal/admin/ 由核心安全链识别 admin token；
+// 原 /portal/judge/admin/** 走门户安全链（仅识别门户用户 token），后台访问会 401
 
 // 查询题目全部用例（含隐藏用例）
 export function listTestCase(questionId) {
   return request({
-    url: '/portal/judge/admin/cases/' + questionId,
+    url: '/portal/admin/judge/cases/' + questionId,
     method: 'get'
   });
 }
@@ -395,7 +397,7 @@ export function listTestCase(questionId) {
 // 新增测试用例
 export function addTestCase(data) {
   return request({
-    url: '/portal/judge/admin/cases',
+    url: '/portal/admin/judge/cases',
     method: 'post',
     data: data
   });
@@ -404,7 +406,7 @@ export function addTestCase(data) {
 // 修改测试用例
 export function updateTestCase(id, data) {
   return request({
-    url: '/portal/judge/admin/cases/' + id,
+    url: '/portal/admin/judge/cases/' + id,
     method: 'put',
     data: data
   });
@@ -413,7 +415,7 @@ export function updateTestCase(id, data) {
 // 删除测试用例
 export function delTestCase(id) {
   return request({
-    url: '/portal/judge/admin/cases/' + id,
+    url: '/portal/admin/judge/cases/' + id,
     method: 'delete'
   });
 }

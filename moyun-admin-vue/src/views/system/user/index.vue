@@ -337,6 +337,7 @@ import { getToken } from "@/utils/auth";
 import { changeUserStatus, listUser, resetUserPwd, delUser, getUser, updateUser, addUser, deptTreeSelect } from "@/api/system/user";
 
 const router = useRouter();
+const route = useRoute();
 const { proxy } = getCurrentInstance();
 const { sys_normal_disable, sys_user_sex } = proxy.useDict("sys_normal_disable", "sys_user_sex");
 
@@ -487,12 +488,13 @@ function handleCommand(command, row) {
 /** 跳转角色分配 */
 function handleAuthRole(row) {
   const userId = row.userId;
-  router.push("/system/user-auth/role/" + userId);
+  // 携带来源路径：子页面返回时动态使用，避免菜单调整后硬编码路径失效
+  router.push({ path: "/system/user-auth/role/" + userId, query: { from: route.path } });
 };
 /** 跳转用户简历列表（只读，独立权限 system:user:resume） */
 function handleViewResume(row) {
   const userId = row.userId;
-  router.push("/system/user-resume/list/" + userId);
+  router.push({ path: "/system/user-resume/list/" + userId, query: { from: route.path } });
 };
 /** 重置密码按钮操作 */
 function handleResetPwd(row) {

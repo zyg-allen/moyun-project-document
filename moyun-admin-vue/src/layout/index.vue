@@ -21,8 +21,6 @@ import defaultSettings from '@/settings'
 
 import useAppStore from '@/store/modules/app'
 import useSettingsStore from '@/store/modules/settings'
-// websocket
-import useWebsocketCto from '@/utils/websocket.js'
 
 const settingsStore = useSettingsStore()
 const theme = computed(() => settingsStore.theme);
@@ -63,9 +61,6 @@ const settingRef = ref(null);
 function setLayout() {
   settingRef.value.openSetting();
 }
-
-// 连接websocket
-useWebsocketCto().then(websocketCto => { websocketCto.GetWsConn() })
 </script>
 
 <style lang="scss" scoped>

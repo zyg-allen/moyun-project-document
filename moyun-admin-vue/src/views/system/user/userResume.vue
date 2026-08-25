@@ -198,7 +198,10 @@ function handleViewDetail(row) {
 }
 
 function handleBack() {
-   router.push("/system/user");
+  // 优先使用列表页跳转时携带的来源路径（query.from），菜单调整后无需改此处；
+  // 兜底使用路由 meta.activeMenu（用户直接输 URL 进入等场景）
+   const backPath = route.query.from || route.meta.activeMenu || "/system/base/user";
+   router.push(backPath);
 }
 
 function statusLabel(s) {

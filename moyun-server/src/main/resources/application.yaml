@@ -15,6 +15,7 @@ spring:
     multipart:
       max-file-size: 50MB
       max-request-size: 50MB
+
   # Jackson 配置 - 完整支持 Java8 日期时间
   jackson:
     serialization:

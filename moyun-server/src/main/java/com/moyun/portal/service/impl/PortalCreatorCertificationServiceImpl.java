@@ -1,5 +1,7 @@
 package com.moyun.portal.service.impl;
 
+import java.io.Serializable;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
@@ -11,14 +13,18 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.moyun.portal.config.CertSecurityProperties;
 import com.moyun.portal.domain.entity.PortalCreatorCertification;
 import com.moyun.portal.domain.entity.PortalUser;
 import com.moyun.portal.mapper.PortalCreatorCertificationMapper;
 import com.moyun.portal.mapper.PortalUserMapper;
 import com.moyun.portal.service.IPortalCreatorCertificationService;
+import com.moyun.portal.service.realname.RealNameVerifier;
 import com.moyun.system.domain.dto.AuditTaskSubmitDTO;
 import com.moyun.system.domain.entity.SysNotification;
 import com.moyun.system.service.ISysNotificationService;
+import com.moyun.util.crypto.AesGcmUtils;
+import com.moyun.util.string.IdCardUtil;
 
 /**
  * 创作者认证 业务层实现
@@ -41,6 +47,12 @@ public class PortalCreatorCertificationServiceImpl
     private ISysNotificationService notificationService;
 
     @Autowired
+    private CertSecurityProperties certSecurityProperties;
+
+    @Autowired
+    private RealNameVerifier realNameVerifier;
+
+    @Autowired
     @org.springframework.context.annotation.Lazy
     private com.moyun.system.service.IAuditTaskService auditTaskService;
 
@@ -59,7 +71,21 @@ public class PortalCreatorCertificationServiceImpl
         entity.setUserId(userId);
         entity.setRealName(dto.getRealName());
         entity.setCertType(dto.getCertType());
-        entity.setCertNo(dto.getCertNo());
+        // v10.8 实名合规：证件号只存密文 + 脱敏展示值，明文一律不落库
+        String certNoPlain = dto.getCertNo() == null ? null : dto.getCertNo().trim();
+        if (certNoPlain != null && !certNoPlain.isEmpty()) {
+            entity.setCertNoEnc(AesGcmUtils.encrypt(certNoPlain, certSecurityProperties.getCertNoEncryptKey()));
+            entity.setCertNoMask(IdCardUtil.mask(certNoPlain));
+            // 由身份证号推导性别与出生日期，存于认证表供审核/风控使用，不回填公开资料
+            if ("identity".equals(dto.getCertType())) {
+                LocalDate birth = IdCardUtil.getBirthDate(certNoPlain);
+                entity.setDerivedBirth(birth);
+                String gender = IdCardUtil.getGender(certNoPlain);
+                entity.setDerivedGender("M".equals(gender) ? "男" : "F".equals(gender) ? "女" : null);
+            }
+        }
+        // 实名核验渠道（当前 manual，后期接入第三方 API 时自动切换）
+        entity.setVerifyChannel(realNameVerifier.channel());
         entity.setCertImage(dto.getCertImage());
         // 身份证双面照片（人像面 / 国徽面），新增字段，老数据可空
         entity.setCertImageFront(dto.getCertImageFront());
@@ -108,7 +134,43 @@ public class PortalCreatorCertificationServiceImpl
 
     @Override
     public PortalCreatorCertification getMy(Long userId) {
-        return baseMapper.selectLatestByUserId(userId);
+        PortalCreatorCertification cert = baseMapper.selectLatestByUserId(userId);
+        applyMasking(cert);
+        return cert;
+    }
+
+    /**
+     * 重写 getById：所有按 ID 查询统一脱敏后返回（后台详情、审核等入口共用）
+     */
+    @Override
+    public PortalCreatorCertification getById(Serializable id) {
+        PortalCreatorCertification cert = super.getById(id);
+        applyMasking(cert);
+        return cert;
+    }
+
+    /**
+     * 统一脱敏：
+     * <ul>
+     *   <li>新数据：certNo 替换为 certNoMask 脱敏值</li>
+     *   <li>存量明文数据：运行时脱敏后返回</li>
+     *   <li>certNoEnc 密文永不外泄（实体已 @JsonIgnore，此处双保险置空）</li>
+     * </ul>
+     */
+    private void applyMasking(PortalCreatorCertification cert) {
+        if (cert == null) {
+            return;
+        }
+        if (cert.getCertNoMask() != null && !cert.getCertNoMask().isEmpty()) {
+            cert.setCertNo(cert.getCertNoMask());
+        } else if (cert.getCertNo() != null && !cert.getCertNo().isEmpty()
+                && !AesGcmUtils.isEncrypted(cert.getCertNo())) {
+            // 存量明文兼容：运行时脱敏
+            cert.setCertNo(IdCardUtil.mask(cert.getCertNo()));
+        } else {
+            cert.setCertNo(null);
+        }
+        cert.setCertNoEnc(null);
     }
 
     @Override
@@ -182,6 +244,7 @@ public class PortalCreatorCertificationServiceImpl
         } catch (Exception ignored) {
             // 通知发送失败不应阻断审核流程
         }
+        applyMasking(entity);
         return entity;
     }
 
@@ -201,6 +264,8 @@ public class PortalCreatorCertificationServiceImpl
             wrapper.like(PortalCreatorCertification::getRealName, query.getRealName());
         }
         wrapper.orderByDesc(PortalCreatorCertification::getId);
-        return baseMapper.selectPage(page, wrapper);
+        Page<PortalCreatorCertification> result = baseMapper.selectPage(page, wrapper);
+        result.getRecords().forEach(this::applyMasking);
+        return result;
     }
 }

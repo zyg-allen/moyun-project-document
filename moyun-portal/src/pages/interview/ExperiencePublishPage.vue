@@ -9,7 +9,7 @@ import Breadcrumb from '@/components/Breadcrumb.vue';
 import { generateSeo } from '@/utils/seo';
 import { sanitizeHTML } from '@/utils/security';
 import { publishExperience, updateExperience, getExperienceDetail } from '@/api/interview';
-import { requireCreator } from '@/utils/creatorPermission';
+import { promptRealNameOptional } from '@/utils/creatorPermission';
 import { useToast } from '@/composables/useToast';
 
 const route = useRoute();
@@ -121,7 +121,8 @@ async function submit(status: 'draft' | 'pending') {
       }
     }
     setTimeout(() => {
-      router.push('/interview/my/experiences');
+      // 跳转列表并直接定位到对应状态 Tab：发布→待审核 / 草稿→草稿
+      router.push(`/interview/my/experiences?status=${status}`);
     }, 800);
   } catch (err: any) {
     toast.error(err?.message || '提交失败，请稍后重试');

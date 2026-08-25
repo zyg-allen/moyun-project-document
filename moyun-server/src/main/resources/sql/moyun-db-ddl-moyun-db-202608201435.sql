@@ -3626,6 +3626,23 @@ ALTER TABLE `portal_interview_submission`
   ADD COLUMN `featured_time` datetime DEFAULT NULL COMMENT '精选时间' AFTER `is_featured`,
   ADD KEY `idx_is_featured` (`is_featured`);
 
+-- ==================== 增量变更：创作者认证实名合规改造（2026-08-25） ====================
+-- 背景：portal_creator_certification.cert_no 原为明文存储，不符合个保法最小必要与敏感信息安全要求。
+-- 方案（合规基线）：
+--   1) 新数据证件号只存密文（cert_no_enc，AES-GCM）+ 脱敏展示值（cert_no_mask）；
+--      原 cert_no 字段仅兼容存量明文数据，新写入一律置 NULL。
+--   2) 由身份证号推导性别（derived_gender）与出生日期（derived_birth），存于认证表，
+--      不回填 portal_user（实名数据仅限审核/风控使用，不进入公开资料）。
+--   3) 预留第三方实名核验字段：verify_channel（manual=人工审核）/ verify_serial（核验流水号），
+--      后期接入阿里云/腾讯云实名核验 API 时填充。
+ALTER TABLE `portal_creator_certification`
+  ADD COLUMN `cert_no_enc` varchar(512) DEFAULT NULL COMMENT '证件号密文（AES-GCM，格式 enc:v1:iv:cipher，base64）' AFTER `cert_no`,
+  ADD COLUMN `cert_no_mask` varchar(32) DEFAULT NULL COMMENT '证件号脱敏展示值（如 110***********1234）' AFTER `cert_no_enc`,
+  ADD COLUMN `derived_gender` varchar(8) DEFAULT NULL COMMENT '由证件号推导的性别（男/女），仅身份认证类型' AFTER `cert_no_mask`,
+  ADD COLUMN `derived_birth` date DEFAULT NULL COMMENT '由证件号推导的出生日期' AFTER `derived_gender`,
+  ADD COLUMN `verify_channel` varchar(32) DEFAULT 'manual' COMMENT '实名核验渠道：manual=人工审核（默认），后期可扩展 aliyun/tencent 等' AFTER `derived_birth`,
+  ADD COLUMN `verify_serial` varchar(64) DEFAULT NULL COMMENT '第三方实名核验流水号（预留，接入核验API后填充）' AFTER `verify_channel`;
+
 --
 -- Table structure for table `portal_like`
 --

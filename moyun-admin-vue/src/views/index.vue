@@ -524,8 +524,8 @@ function rankPercent(item) {
 }
 function activityTagType(bt) {
   return {
-    INSERT: 'success', UPDATE: 'primary', DELETE: 'danger', EXPORT: 'warning', OTHER: 'info',
-    PUBLISH: 'success', REGISTER: 'warning', NOTIFICATION: 'primary'
+    INSERT: 'success', UPDATE: 'warning', DELETE: 'danger', EXPORT: 'warning', OTHER: 'info',
+    PUBLISH: 'success', REGISTER: 'warning', NOTIFICATION: 'info'
   }[bt] || 'info'
 }
 

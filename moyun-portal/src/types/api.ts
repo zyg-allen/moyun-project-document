@@ -271,6 +271,8 @@ export interface ArticleListParams {
   pageSize?: number;
   category?: string;
   categoryId?: string;
+  /** 分类名（后端 ArticleQuery.categoryName，按分类名筛选） */
+  categoryName?: string;
   tag?: string;
   keyword?: string;
   authorId?: string;
@@ -1292,6 +1294,8 @@ export interface InterviewExperienceVO {
   commentCount: number;
   status?: string;
   liked?: boolean;
+  /** 审核备注（驳回原因，rejected 时展示） */
+  auditRemark?: string;
   userNickname?: string;
   userAvatar?: string;
   user?: { id: string; nickname: string; avatar?: string };
@@ -1306,6 +1310,8 @@ export interface InterviewExperienceQuery {
   keyword?: string;
   year?: number;
   userId?: string | number;
+  /** 状态筛选（我的面经支持：draft/pending/published/rejected，空=全部） */
+  status?: string;
 }
 
 export interface InterviewCommentVO {
@@ -1463,12 +1469,35 @@ export interface ResumeAiAdviceVO {
   generatedTime?: string;
 }
 
+/** 简历附件解析结果（v10.12，与后端 ResumeParseVO 对齐，字段语义同 UserResumeVO） */
+export interface ResumeParseVO {
+  name?: string;
+  gender?: string;
+  /** yyyy-MM-dd（原文只有年月时后端补 01） */
+  birthDate?: string;
+  phone?: string;
+  email?: string;
+  title?: string;
+  jobIntention?: UserResumeJobIntention;
+  educations?: UserResumeEducationItem[];
+  works?: UserResumeWorkItem[];
+  projects?: UserResumeProjectItem[];
+  skills?: UserResumeSkillItem[];
+  selfIntro?: string;
+  /** 是否由 LLM 结构化解析（false = 规则粗解析，字段覆盖度低） */
+  aiPowered?: boolean;
+  /** 附件抽取文本长度 */
+  textLength?: number;
+}
+
 /** 单条改进建议 */
 export interface ResumeAiAdviceItem {
   /** 建议维度（如 "基本信息"、"岗位匹配度"） */
   dimension?: string;
   /** 优先级 high/medium/low */
   priority?: 'high' | 'medium' | 'low' | string;
+  /** AI 优化结果（可直接采纳的优化后文本，按 dimension 映射填充到简历对应字段） */
+  optimized?: string;
   /** 建议内容 */
   content?: string;
   /** 建议类型 fill（补充缺失）/ refine（优化已有）/ match（岗位匹配） */

@@ -73,8 +73,14 @@ public class CmsCreatorCertificationController extends BaseController {
             map.put("userId", c.getUserId());
             map.put("realName", c.getRealName());
             map.put("certType", c.getCertType());
+            // v10.8 实名合规：证件号仅返回脱敏值（service 层已统一处理）
             map.put("certNo", c.getCertNo());
+            map.put("derivedGender", c.getDerivedGender());
+            map.put("derivedBirth", c.getDerivedBirth());
+            map.put("verifyChannel", c.getVerifyChannel());
             map.put("certImage", c.getCertImage());
+            map.put("certImageFront", c.getCertImageFront());
+            map.put("certImageBack", c.getCertImageBack());
             map.put("intro", c.getIntro());
             map.put("works", c.getWorks());
             map.put("status", c.getStatus());
@@ -102,8 +108,14 @@ public class CmsCreatorCertificationController extends BaseController {
         map.put("userId", c.getUserId());
         map.put("realName", c.getRealName());
         map.put("certType", c.getCertType());
+        // v10.8 实名合规：证件号仅返回脱敏值（service 层 getById 已统一处理）
         map.put("certNo", c.getCertNo());
+        map.put("derivedGender", c.getDerivedGender());
+        map.put("derivedBirth", c.getDerivedBirth());
+        map.put("verifyChannel", c.getVerifyChannel());
         map.put("certImage", c.getCertImage());
+        map.put("certImageFront", c.getCertImageFront());
+        map.put("certImageBack", c.getCertImageBack());
         map.put("intro", c.getIntro());
         map.put("works", c.getWorks());
         map.put("status", c.getStatus());

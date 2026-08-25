@@ -84,6 +84,7 @@ import type {
   FollowUserItem,
 } from '@/types/api';
 import { getSafeAvatar } from '@/utils/avatar';
+import { getMyCertification, type CreatorCertification } from '@/api/certification';
 
 const router = useRouter();
 const route = useRoute();
@@ -94,6 +95,31 @@ const isCertifiedCreator = computed(() => {
   const v = userStore.user?.isCertifiedCreator;
   return v === 1 || v === true;
 });
+
+// ============ 实名认证状态（v10.8 实名合规） ============
+const myCertification = ref<CreatorCertification | null>(null);
+// 已实名：身份认证类型且审核通过（证件号后端已脱敏，前端仅展示脱敏姓名）
+const isRealNameVerified = computed(() =>
+  myCertification.value?.status === 'approved' && myCertification.value?.certType === 'identity'
+);
+// 脱敏姓名：首字保留，其余打码（如 张三 → 张*）
+const maskedRealName = computed(() => {
+  const name = myCertification.value?.realName?.trim();
+  if (!name) return '';
+  if (name.length === 1) return name;
+  return name.charAt(0) + '*'.repeat(Math.min(name.length - 1, 2));
+});
+// 加载实名认证记录（失败静默，不影响个人中心主流程）
+async function loadMyCertification() {
+  try {
+    const res = await getMyCertification();
+    if (res.code === 200) {
+      myCertification.value = res.data || null;
+    }
+  } catch (err) {
+    console.warn('加载实名认证状态失败:', err);
+  }
+}
 
 // ============ 基础数据 ============
 const currentUser = ref<UserType | null>(null);
@@ -1047,6 +1073,8 @@ onMounted(async () => {
   // 场景：创作者认证审核通过后，用户进入个人中心需立即看到"已认证"标识
   await userStore.fetchCurrentUser();
   await loadUserData();
+  // 实名认证状态与用户信息无依赖，并行加载（失败静默）
+  loadMyCertification();
 });
 
 // 跳转
@@ -1146,6 +1174,16 @@ const dashboardCards = computed(() => {
                         >
                           <ShieldCheck class="w-3 h-3 sm:w-4 sm:h-4" />
                           已认证创作者
+                        </span>
+                        <!-- 实名认证徽章（v10.8：身份认证通过，仅展示脱敏姓名） -->
+                        <span
+                          v-if="isRealNameVerified"
+                          class="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs sm:text-sm font-medium"
+                          style="background-color: #dbeafe; color: #2563eb; border: 1px solid #93c5fd;"
+                          :title="`实名信息已加密存储：${maskedRealName}`"
+                        >
+                          <ShieldCheck class="w-3 h-3 sm:w-4 sm:h-4" />
+                          已实名 {{ maskedRealName }}
                         </span>
                         <!-- 成长等级徽章 -->
                         <span v-if="myGrowth || dashboard" class="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs sm:text-sm font-medium" style="background: linear-gradient(135deg, #f59e0b 0%, #ef4444 100%); color: white;">
@@ -2288,8 +2326,13 @@ const dashboardCards = computed(() => {
                             class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium"
                             style="background-color: #dcfce7; color: #16a34a;"
                           >已认证</span>
+                          <span
+                            v-if="isRealNameVerified"
+                            class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium"
+                            style="background-color: #dbeafe; color: #2563eb;"
+                          >已实名 {{ maskedRealName }}</span>
                         </p>
-                        <p class="text-xs" style="color: var(--theme-text-secondary);">{{ isCertifiedCreator ? '已通过创作者认证，解锁全部创作能力' : '申请认证，解锁发布文章、创建专栏等创作权限' }}</p>
+                        <p class="text-xs" style="color: var(--theme-text-secondary);">{{ isCertifiedCreator ? '已通过创作者认证，账号可信度更高' : '完成实名认证提升账号可信度；发布文章/面经/专栏无需认证，打赏与积分消费需实名' }}</p>
                       </div>
                       <ChevronRight class="w-5 h-5 ml-auto flex-shrink-0" style="color: var(--theme-text-secondary);" />
                     </button>

@@ -552,6 +552,14 @@ function statusLabel(status?: string) {
               <p v-else-if="isIdentityType" class="mt-2 text-xs" style="color: var(--theme-text-secondary);">
                 18 位居民身份证号，支持末位 X；将通过校验位 MOD 11-2 算法验证
               </p>
+              <!-- 隐私安全提示 -->
+              <div
+                class="mt-2 flex items-start gap-1.5 text-xs p-2 rounded-lg"
+                style="background-color: color-mix(in srgb, var(--theme-primary) 6%, var(--theme-bg)); color: var(--theme-text-secondary);"
+              >
+                <ShieldCheck class="w-3.5 h-3.5 flex-shrink-0 mt-0.5" style="color: var(--theme-primary);" />
+                <span>证件号将采用国密级 AES-GCM 加密存储，仅用于平台审核与风控，不会向任何第三方披露，页面展示时自动脱敏。</span>
+              </div>
             </div>
 
             <!-- 身份证双面上传（仅 certType=identity 时显示，含示例图 + OCR） -->
@@ -814,7 +822,18 @@ function statusLabel(status?: string) {
             </div>
             <div v-if="current?.certNo">
               <span style="color: var(--theme-text-secondary);">证件号：</span>
-              <span style="color: var(--theme-text);">{{ current.certNo }}</span>
+              <span class="inline-flex items-center gap-1" style="color: var(--theme-text);">
+                {{ current.certNo }}
+                <ShieldCheck class="w-3.5 h-3.5" style="color: var(--theme-primary);" title="已加密存储，展示为脱敏值" />
+              </span>
+            </div>
+            <div v-if="current?.derivedGender">
+              <span style="color: var(--theme-text-secondary);">性别：</span>
+              <span style="color: var(--theme-text);">{{ current.derivedGender }}</span>
+            </div>
+            <div v-if="current?.derivedBirth">
+              <span style="color: var(--theme-text-secondary);">出生日期：</span>
+              <span style="color: var(--theme-text);">{{ current.derivedBirth }}</span>
             </div>
             <div v-if="current?.createdTime">
               <span style="color: var(--theme-text-secondary);">申请时间：</span>
@@ -848,6 +867,13 @@ function statusLabel(status?: string) {
               style="border-color: var(--theme-border);"
             />
           </div>
+          <p
+            class="mt-6 text-xs flex items-center gap-1.5 p-3 rounded-lg"
+            style="background-color: color-mix(in srgb, var(--theme-primary) 6%, var(--theme-bg)); color: var(--theme-text-secondary);"
+          >
+            <ShieldCheck class="w-3.5 h-3.5 flex-shrink-0" style="color: var(--theme-primary);" />
+            您的证件信息已加密存储（核验渠道：{{ current?.verifyChannel === 'manual' ? '人工审核' : current?.verifyChannel || '人工审核' }}），页面仅展示脱敏值。如需注销实名信息，请联系平台客服。
+          </p>
         </div>
       </div>
     </div>

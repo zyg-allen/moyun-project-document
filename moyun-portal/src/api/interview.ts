@@ -15,6 +15,7 @@ import type {
   UserResumeVO,
   UserResumeQuery,
   ResumeAiAdviceVO,
+  ResumeParseVO,
   TagVO,
   PageResult,
   UserProfileSnapshotVO,
@@ -316,6 +317,17 @@ export const scoreResume = (id: string | number) => {
  */
 export const getResumeAiAdvice = (id: string | number) => {
   return httpPost<ResumeAiAdviceVO>(`/portal/interview/resume/user/${id}/ai-advice`);
+};
+
+/**
+ * 解析简历附件（v10.12）
+ * POST /portal/interview/resume/user/parse（multipart）
+ * 上传 PDF/Word/TXT，后端抽取文本并结构化解析，字段语义对齐在线简历表单
+ */
+export const parseResumeAttachment = (file: File) => {
+  const formData = new FormData();
+  formData.append('file', file);
+  return httpPost<ResumeParseVO>('/portal/interview/resume/user/parse', formData);
 };
 
 export const updateResumeStatus = (id: string | number, status: string) => {

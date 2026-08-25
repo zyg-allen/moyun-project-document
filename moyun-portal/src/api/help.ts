@@ -36,6 +36,11 @@ export const getHelpHome = () => {
   return httpGet<HelpHomeData>('/portal/help/home');
 };
 
+/** 按分类查询已发布文章 */
+export const getHelpArticlesByCategory = (categoryId: number) => {
+  return httpGet<HelpArticle[]>(`/portal/help/category/${categoryId}`);
+};
+
 /** 搜索帮助文章 */
 export const searchHelpArticles = (keyword: string) => {
   return httpGet<HelpArticle[]>(`/portal/help/search?keyword=${encodeURIComponent(keyword)}`);

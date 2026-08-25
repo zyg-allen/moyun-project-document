@@ -15,7 +15,7 @@ import { deletePortalFile } from '@/api/file';
 import { getColumnDetail, saveColumn, addArticle, removeArticle } from '@/api/column';
 import type { ColumnSaveBody } from '@/types/api';
 import { useToast } from '@/composables/useToast';
-import { requireCreator } from '@/utils/creatorPermission';
+import { promptRealNameOptional } from '@/utils/creatorPermission';
 
 const route = useRoute();
 const router = useRouter();

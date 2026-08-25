@@ -5,6 +5,376 @@
 
 ---
 
+## v10.12 (2026-08-25) 简历附件上传实装：单文件上传 + 解析覆盖填充到在线简历
+
+### 需求
+`/interview/resume/edit` 上传区"点击或拖拽上传"无反应（原为占位符）。需要：单独文件上传作为附件简历；可解析附件并按字段语义映射覆盖填充到在线文档。
+
+### 后端（新增）
+- [ResumeParseVO.java](file:///d:/zyg_new_work/moyun-project-document/moyun-server/src/main/java/com/moyun/ext/cms/domain/vo/ResumeParseVO.java)：解析结果 VO，字段语义对齐 UserResumeVO（birthDate 用 String 承载避免不完整日期反序列化失败）
+- [ResumeParseService.java](file:///d:/zyg_new_work/moyun-project-document/moyun-server/src/main/java/com/moyun/ext/cms/service/ResumeParseService.java)：
+  - 文本抽取：PDF（PDFBox 3.x Loader）/ DOCX（POI XWPF）/ DOC（POI HWPF）/ TXT·MD（UTF-8→GBK 探测）；≤10MB；超长截断 12000 字符
+  - LLM 结构化解析（复用简历建议的 AI 开关）：prompt 限定字段结构 + "只抽取原文明确存在信息禁止编造"；markdown 围栏剥离（同 v10.11 extractJson 策略）
+  - 规则粗解析兜底（AI 未启用/失败）：正则抽取邮箱/电话/出生日期/姓名（2-4 汉字行）/常见技术栈关键词
+  - 归一化 normalize()：日期→yyyy-MM-dd（缺日补 01）、性别"男性"→"男"、薪资非正值/空串→null（前端 null 保留原表单值）
+- [PortalUserResumeController.java](file:///d:/zyg_new_work/moyun-project-document/moyun-server/src/main/java/com/moyun/portal/controller/PortalUserResumeController.java)：新增 `POST /portal/interview/resume/user/parse`（multipart，需登录）
+
+### 前端（ResumeEditPage.vue + api/interview.ts + types/api.ts）
+- **上传区实装**：隐藏 input（点击）+ dragover/drop（拖拽，高亮反馈）；类型限制 pdf/doc/docx/txt/md + 10MB 校验；上传走统一 `/portal/file/upload`，fileUrl 持久化到简历（保存时提交）
+- **附件卡片**：文件名 + 大小 + 「解析并填充」+「预览」（新窗口）+「移除」；编辑已有简历时历史附件回显（本地 File 不可恢复，标注"重新上传后可解析"）
+- **解析确认弹窗**：识别摘要表（姓名/性别/生日/电话/邮箱/求职意向/教育/工作/项目/技能条数）+ AI/规则解析标识 + 覆盖规则说明；确认后填充，不自动保存（dirty 状态提醒手动保存）
+- **字段语义映射覆盖**：标量字段非空覆盖；jobIntention 子字段逐个覆盖；educations/works/projects/skills 非空数组整体替换；解析为空的字段保留原值
+
+### 验证
+- moyun-server mvn compile ✓ / moyun-portal vite build ✓
+
+### 需要操作
+1. 重启后端（新增 parse 端点与服务）
+2. 验证：上传 PDF/Word → 附件卡片出现 → 解析并填充 → 确认弹窗摘要 → 确认后表单覆盖 → 检查保存
+3. AI 未启用时走规则粗解析（仅基础字段）；启用 moyun.ai 后为完整结构化解析
+
+---
+
+## v10.11 (2026-08-25) 简历 AI 建议重构：对齐原型（模块 Tab + 采纳自动填充字段）；LLM 返回 markdown 包裹修复
+
+### 需求
+1. 简历 AI 改进建议页面对照原型 `docs/08-原型设计/ai_interview_system/resume_optimizer_page.html` 重构
+2. 建议按模块 Tab 分组展示，采纳按钮自动填充到对应表单字段（注意字段映射）
+
+### LLM JSON 解析修复（前置问题）
+- 报错 `Unexpected character ('`' (code 96))`：LLM 返回被 markdown 代码块包裹
+- [ResumeAiAdviceService.java](file:///d:/zyg_new_work/moyun-project-document/moyun-server/src/main/java/com/moyun/ext/cms/service/ResumeAiAdviceService.java) 新增 `extractJson()`：剥离 ``` 围栏 + 截取首尾大括号（兼容前后说明文字）；system prompt 追加"禁止 markdown 包裹"双保险
+
+### 后端变更
+- [ResumeAiAdviceVO.java](file:///d:/zyg_new_work/moyun-project-document/moyun-server/src/main/java/com/moyun/ext/cms/domain/vo/ResumeAiAdviceVO.java)：AdviceItem 新增 `optimized` 字段（AI 优化结果，可直接采纳的文本；与 content"为什么改"区分）
+- LLM prompt：要求每条建议返回 optimized（基于现有简历改写，无依据量化用 [X%] 占位符），dimension 取值限定 8 个维度
+- 规则化兜底：`buildDimensionOptimized()` 按维度生成结构模板（教育/工作/项目/技能/自评）；基本信息/求职意向为结构化字段返回 null（前端引导手动完善）；岗位匹配 optimized="了解：缺失技能列表"
+
+### 前端变更（ResumeEditPage.vue + types/api.ts）
+- **评分总览**（对齐原型 analysis-overview）：大号评分数字 + 等级描述 + summary + AI 生成标识 + 各维度评分进度条（scoreDetail，颜色按得分率 4 级分色）
+- **模块 Tab 栏**：全部 / 基本信息 / 求职意向 / 教育背景 / 工作经历 / 项目经历 / 专业技能 / 自我评价 / 岗位匹配（仅显示有建议的维度，固定顺序）
+- **建议卡片**（对齐原型 a-card）：卡头（模块名+维度得分徽章+优先级+类型）→"优化建议"黄色反馈块（content）→"AI 优化结果"绿色 diff 块（optimized，含占位符提示）→ 采纳按钮
+- **采纳字段映射**（核心）：
+  | dimension | 填充目标 |
+  |---|---|
+  | 自我介绍 | form.selfIntro（整体替换） |
+  | 教育经历 | educations[0].description（无记录引导先添加） |
+  | 工作经历 | works[0].description（同上） |
+  | 项目经历 | projects[0].description（同上） |
+  | 技能列表 / 岗位匹配度 | 解析"精通：A、B"分级文本追加 skills 条目（去重） |
+  | 基本信息 / 求职意向 | 结构化字段，关闭弹窗滚动到对应锚点手动完善 |
+- **缺失技能**：新增"一键加入技能清单"按钮（level=了解 避免虚标）
+- 采纳状态 key 由列表索引改为 dimension+内容（Tab 过滤后索引不稳定）
+
+### 验证
+- moyun-server mvn compile ✓ / moyun-portal vite build ✓
+
+### 需要操作
+1. 重启后端（LLM prompt 与 VO 变更）
+2. 简历编辑页 → 评分 → AI 建议：确认评分总览/Tab/卡片/优化结果块展示；采纳各模块建议验证字段填充；无记录时引导提示
+
+---
+
+## v10.10 (2026-08-25) 实名策略分层重构：发布开放+敏感场景强制实名；面经草稿/发布链路修复；简历编辑页增强
+
+### 需求
+1. `/interview/my/experiences` 保存草稿后列表消失，链路断裂
+2. 面经/文章发布不应强制实名（"这样谁还敢发"），未实名可发布仅提示可跳过；打赏、积分消费等敏感场景才强制实名
+3. 各模块草稿列表 + 重新编辑 + 审核状态查看需连贯（参考文章模块）
+4. 简历编辑页：到岗时间改字典下拉（可存文本）；已有简历反显最新版本续编
+
+### 根因与修复
+**面经草稿消失（核心 BUG）**
+- 根因：`selectMyExperienceList` 复用 `selectExperiencePage`，后者对 null status 默认只查 `published`，把草稿/待审核全部过滤
+- 修复：改为独立查询（默认全状态 + 支持状态筛选）
+- 连带修复①：公开列表关键词搜索 `like(title).or().like(content)` 打断 status 过滤，草稿可泄露到公开搜索 → `and()` 包裹
+- 连带修复②：草稿/被拒面经通过编辑"提交发布"时不创建审核任务（永远停在 pending 且审核中心不可见）→ 补齐 submitAuditTask + 成长事件 + Feed 动态（已 pending 的编辑不重复提交）
+
+**实名策略分层（前后端对齐）**
+- 发布文章/面经/创建专栏：后端移除 `CreatorPermissionChecker.checkCreator` 拦截（类已删除）；前端 `promptRealNameOptional()` 弹窗提示可跳过
+- 打赏/积分兑换：新建 [RealNameChecker.java](file:///d:/zyg_new_work/moyun-project-document/moyun-server/src/main/java/com/moyun/portal/util/RealNameChecker.java) 强制校验（certType=identity 且 approved）；`PortalTipServiceImpl`、`ShopServiceImpl.exchange` 接入；前端 TipModal 调 `requireRealName()` 预检
+- 实名判定：认证表 identity+approved；前端接口失败降级 isCertifiedCreator 兜底
+
+### 变更清单
+**后端**
+- [PortalInterviewServiceImpl.java](file:///d:/zyg_new_work/moyun-project-document/moyun-server/src/main/java/com/moyun/ext/cms/service/impl/PortalInterviewServiceImpl.java)：selectMyExperienceList 独立实现；selectExperiencePage 关键词 and() 包裹；insert/updateExperience 移除认证拦截；updateExperience 补齐发布链路
+- [PortalArticleServiceImpl.java](file:///d:/zyg_new_work/moyun-project-document/moyun-server/src/main/java/com/moyun/portal/service/impl/PortalArticleServiceImpl.java)：publishArticle / updatePortalArticle 移除认证拦截
+- [ColumnServiceImpl.java](file:///d:/zyg_new_work/moyun-project-document/moyun-server/src/main/java/com/moyun/ext/cms/service/impl/ColumnServiceImpl.java)：saveColumn 新建分支移除认证拦截
+- [InterviewExperienceVO.java](file:///d:/zyg_new_work/moyun-project-document/moyun-server/src/main/java/com/moyun/ext/cms/domain/vo/InterviewExperienceVO.java)：新增 auditRemark（驳回原因回显）
+- 删除 CreatorPermissionChecker.java（无调用方）
+
+**前端（moyun-portal）**
+- [creatorPermission.ts](file:///d:/zyg_new_work/moyun-project-document/moyun-portal/src/utils/creatorPermission.ts)：重写为 `promptRealNameOptional()`（提示可跳过）+ `requireRealName()`（强制）
+- PublishPage / ExperiencePublishPage / ColumnEditPage：requireCreator → promptRealNameOptional
+- [TipModal.vue](file:///d:/zyg_new_work/moyun-project-document/moyun-portal/src/components/TipModal.vue)：打赏前 requireRealName 预检
+- [MyExperiencesPage.vue](file:///d:/zyg_new_work/moyun-project-document/moyun-portal/src/pages/interview/MyExperiencesPage.vue)：状态筛选 Tab（全部/草稿/待审核/已发布/已驳回，支持 ?status= 直达）+ 驳回原因展示
+- ExperiencePublishPage：保存/发布后跳转带 `?status=` 定位对应 Tab
+- [ResumeEditPage.vue](file:///d:/zyg_new_work/moyun-project-document/moyun-portal/src/pages/interview/ResumeEditPage.vue)：
+  - 到岗时间：文本输入 → `portal_available_time` 字典下拉（字典未配置时本地默认兜底；历史存量值动态补入选项；值直接存文本）
+  - 反显：无 :id 进入时若已有简历，取列表第一份（updateTime 倒序=最新）拉详情续编（form.id 带上，保存即更新不重复建）；无简历才走个人中心预填
+- 认证相关文案更新（certification.ts CERT_TYPE_OPTIONS、UserPage 认证入口描述）
+
+**SQL（moyun-db-dml-202608201435.sql）**
+- 新增字典：sys_dict_type(130, portal_available_time) + sys_dict_data(128-133，6 项中文文本值)
+
+### 验证
+- moyun-server mvn compile ✓ / moyun-portal vite build ✓
+
+### 需要操作
+1. 执行 DML：portal_available_time 字典 7 条 INSERT
+2. 重启后端
+3. 验证链路：发布面经存草稿 → 列表"草稿"Tab 可见 → 编辑 → 提交发布 → "待审核"Tab + 审核中心可见 → 审核通过/驳回 → 状态流转 + 驳回原因展示
+4. 未实名发布文章/面经：弹窗提示可跳过；未实名打赏：拦截并引导认证
+5. /interview/resume/edit：到岗时间下拉可选；已有简历进入自动反显最新一版
+
+---
+
+## v10.9 (2026-08-25) 创作者认证实名合规改造：证件号加密存储 + 脱敏展示 + 数据联动
+
+### 需求
+1. 简历编辑页生日反显出现非法格式（如 `1995-0705`）导致 `<input type="date">` 报错、保存接口 500（用户确认脏数据自行处理，系统不做归一化）
+2. 创作者认证（实名制）改造：实名后保留姓名/性别/身份证号等数据，按业内合规做法（个保法最小必要 + 敏感信息加密）设计存储与展示，并使简历、个人中心数据联动连贯；预留后期真实实名核验接口接入
+
+### 方案设计（业内合规基线）
+- **加密存储**：证件号只存 AES-GCM 密文（`cert_no_enc`，格式 `enc:v1:iv:cipher`），明文不落库；原 `cert_no` 字段仅兼容存量数据，新写入置 NULL
+- **脱敏展示**：所有查询/详情/审核接口统一返回脱敏值（`110***********1234`），存量明文运行时脱敏兼容
+- **信息推导**：由身份证号推导性别（`derived_gender`）与出生日期（`derived_birth`），存认证表供审核/风控使用，不回填 portal_user 公开资料（隐私边界）
+- **核验渠道抽象**：`RealNameVerifier` 接口 + manual（人工审核）默认实现，后期接入阿里云/腾讯云实名 API 只需新增实现类
+
+### 变更清单
+**数据库（moyun-db-ddl-moyun-db-202608201435.sql）**
+- `portal_creator_certification` 增量 ALTER：`cert_no_enc` / `cert_no_mask` / `derived_gender` / `derived_birth` / `verify_channel`（默认 manual）/ `verify_serial`（预留）
+
+**后端（moyun-server）**
+- 新建 [AesGcmUtils.java](file:///d:/zyg_new_work/moyun-project-document/moyun-server/src/main/java/com/moyun/util/crypto/AesGcmUtils.java)：AES-GCM 加解密（随机 IV + 128 位 Tag，口令 SHA-256 派生密钥），支持密文格式识别与存量明文兼容
+- 新建 [CertSecurityProperties.java](file:///d:/zyg_new_work/moyun-project-document/moyun-server/src/main/java/com/moyun/portal/config/CertSecurityProperties.java)：`moyun.security.cert-no-encrypt-key` 加密口令配置
+- 新建 realname 包：[RealNameVerifier](file:///d:/zyg_new_work/moyun-project-document/moyun-server/src/main/java/com/moyun/portal/service/realname/RealNameVerifier.java) 接口 / [RealNameVerifyResult](file:///d:/zyg_new_work/moyun-project-document/moyun-server/src/main/java/com/moyun/portal/service/realname/RealNameVerifyResult.java) / [ManualRealNameVerifier](file:///d:/zyg_new_work/moyun-project-document/moyun-server/src/main/java/com/moyun/portal/service/realname/ManualRealNameVerifier.java)
+- [IdCardUtil.java](file:///d:/zyg_new_work/moyun-project-document/moyun-server/src/main/java/com/moyun/util/string/IdCardUtil.java)：新增 `mask()` 脱敏方法（前 3 后 4）
+- [PortalCreatorCertification.java](file:///d:/zyg_new_work/moyun-project-document/moyun-server/src/main/java/com/moyun/portal/domain/entity/PortalCreatorCertification.java)：新增加密/脱敏/推导/核验字段，`certNoEnc` 加 `@JsonIgnore` 防密文外泄
+- [PortalCreatorCertificationServiceImpl.java](file:///d:/zyg_new_work/moyun-project-document/moyun-server/src/main/java/com/moyun/portal/service/impl/PortalCreatorCertificationServiceImpl.java)：
+  - apply()：证件号加密 + 脱敏值 + 身份证推导性别生日 + 核验渠道落库，明文 cert_no 不再写入
+  - 统一脱敏：getMy()/getById()/list()/audit() 出口全部走 applyMasking()（新数据用 cert_no_mask，存量明文运行时脱敏，密文置空）
+- [CmsCreatorCertificationController.java](file:///d:/zyg_new_work/moyun-project-document/moyun-server/src/main/java/com/moyun/portal/controller/CmsCreatorCertificationController.java)：列表/详情返回新增 derivedGender/derivedBirth/verifyChannel/certImageFront/Back 字段（证件号为脱敏值）
+- [CertificationAuditBizHandler.java](file:///d:/zyg_new_work/moyun-project-document/moyun-server/src/main/java/com/moyun/system/service/handler/CertificationAuditBizHandler.java)：审核中心详情同步脱敏 + 补充推导/核验/双面照片字段
+- application-dev.yaml：新增 `moyun.security.cert-no-encrypt-key`（生产环境须环境变量注入）
+
+**前台（moyun-portal）**
+- [api/certification.ts](file:///d:/zyg_new_work/moyun-project-document/moyun-portal/src/api/certification.ts)：类型对齐（certNo 脱敏语义注释 + derivedGender/derivedBirth/verifyChannel）
+- [CreatorCertificationPage.vue](file:///d:/zyg_new_work/moyun-project-document/moyun-portal/src/pages/CreatorCertificationPage.vue)：
+  - 证件号输入区新增隐私安全提示（AES-GCM 加密存储说明）
+  - 已认证信息区：证件号带盾牌图标（加密标识）+ 性别/出生日期推导展示 + 核验渠道与注销指引说明
+- [UserPage.vue](file:///d:/zyg_new_work/moyun-project-document/moyun-portal/src/pages/UserPage.vue)：个人中心头部与认证入口新增"已实名 {脱敏姓名}"蓝色徽标（张* 格式），挂载时并行加载认证记录
+- [ResumeEditPage.vue](file:///d:/zyg_new_work/moyun-project-document/moyun-portal/src/pages/interview/ResumeEditPage.vue)：姓名字段新增"使用实名姓名"一键填充按钮（已实名用户专属；主动选择不自动回填，性别/生日仅空值时补全）
+
+### 数据联动设计
+- 实名数据仅存认证表（密文+脱敏+推导），不回填 portal_user 公开资料 → 隐私边界清晰
+- 简历页：实名姓名由用户主动一键填充（非自动），满足求职场景真实性需求又不越界
+- 个人中心：实名徽标 + 脱敏姓名，与创作者认证徽标（绿色）区分（蓝色）
+- 后台审核：全链路脱敏展示，审核员比对身份证照片保障真实性
+
+### 验证
+- moyun-server mvn compile ✓ / moyun-portal npm run build ✓
+
+### 需要操作
+1. 执行 DDL：portal_creator_certification 的 6 个增量 ALTER（moyun-db-ddl-moyun-db-202608201435.sql 末尾认证模块段）
+2. 重启后端（加载新实体字段与配置）
+3. 前台 /creator/certification 提交身份认证 → 查库确认 cert_no 为 NULL、cert_no_enc 有密文、cert_no_mask/derived_* 有值
+4. 后台认证列表/详情、审核中心确认证件号只显示脱敏值
+5. 前台个人中心确认"已实名"徽标与脱敏姓名；简历新建页测试"使用实名姓名"按钮
+6. 存量明文数据无需处理（运行时自动脱敏）；如需彻底清理可后续提供迁移脚本
+
+---
+
+## v10.8 (2026-08-25) 门户 AI 内容分析统一接口 + 发布页摘要/SEO 智能提取
+
+### 需求
+发布页（/publish）"摘要"与"SEO 设置"字段支持一键 AI 智能提取并自动填充；AI 接口做成统一的内容分析入口，供多处复用。
+
+### 方案设计
+- **统一接口**：`POST /portal/ai/analyze` 单端点 + 场景（scene）注册表。新增分析能力（标签提取、分类建议、评论摘要等）只需注册一个 SceneHandler（提示词模板 + 输出解析 + 本地兜底），无需新增接口。
+- **不引入前端 NLP 框架**：摘要截取已有本地实现（excerpt.ts）作兜底；关键词/SEO 描述属语义任务，复用后端 AI 模块 LLMService（默认聊天模型）最优。
+- **兜底策略**：AI 未配置/失败/解析失败 → 本地兜底（摘要取正文前 160 字、SEO 标题用文章标题），返回 source=fallback 标识，按钮始终可用。
+
+### 变更清单
+**后端（moyun-server）**
+- 新建 [PortalAiController.java](file:///d:/zyg_new_work/moyun-project-document/moyun-server/src/main/java/com/moyun/portal/controller/PortalAiController.java)：
+  - 统一入口 `POST /portal/ai/analyze`（需登录，Token 消耗型接口不放公开）
+  - 场景 `article-meta`：摘要/SEO标题/SEO描述/关键词（四行结构化输出 + 正则解析）
+  - 场景 `tags`：内容标签提取（3~8 个，逗号分隔）
+  - 通用能力：HTML/Markdown 统一转纯文本、正文截断 3000 字控 Token、LLMService 可选注入
+
+**前台（moyun-portal）**
+- 新建 [api/ai.ts](file:///d:/zyg_new_work/moyun-project-document/moyun-portal/src/api/ai.ts)：统一 AI 分析 API（scene 类型约束 + 各场景结果类型）
+- [PublishPage.vue](file:///d:/zyg_new_work/moyun-project-document/moyun-portal/src/pages/PublishPage.vue)：
+  - 摘要区"智能提取"→"AI 智能提取"：调用统一接口，一次填充摘要 + SEO 标题/描述/关键词四字段
+  - SEO 设置折叠头新增"AI 生成"按钮（同一函数，共用 loading 态）
+  - AI 接口异常时回退本地 extractExcerpt 摘要提取
+
+### 验证
+- moyun-server mvn compile ✓ / moyun-portal npm run build ✓
+
+### 补充：简历 AI 建议通道统一（同日）
+- 摸底：门户已有 `POST /portal/resume/{id}/ai-advice`（PortalUserResumeController，v5.9 双模式设计：规则化兜底 + LLM 可选），但 LlmClient 唯一实现是 NoopLlmClient 空壳，yaml 中 moyun.ai 未配置 → 简历建议实际一直走规则化，真实 AI 从未接通
+- 修复：新建 [AiModuleLlmClient.java](file:///d:/zyg_new_work/moyun-project-document/moyun-server/src/main/java/com/moyun/ext/cms/service/AiModuleLlmClient.java)（moyun.ai.enabled=true 时注册，Noop 自动退位）：桥接到 AI 模块 LLMService（复用「模型配置」默认聊天模型，无需在本模块配 api-key），调用失败返回 null 保持规则化兜底语义
+- 至此 AI 能力统一：LLMService（AI 模块）→ 门户统一分析接口（/portal/ai/analyze）+ 简历 AI 建议（LlmClient 桥接）两条链路同源
+- moyun-server mvn compile ✓
+
+### 补充：简历头像改为上传组件 + 预览展示（同日）
+- 需求：简历编辑页"头像 URL"文本框改为文件上传组件（字段名"头像"），简历预览头部展示头像
+- 实现：
+  - [ResumeEditPage.vue](file:///d:/zyg_new_work/moyun-project-document/moyun-portal/src/pages/interview/ResumeEditPage.vue)：头像字段改为"预览圆图 + 上传/更换/移除按钮"，复用 /portal/file/upload 统一上传（module=resume），仅限图片类型，上传后回填 fileUrl 到 form.avatar
+  - [ResumePreviewModal.vue](file:///d:/zyg_new_work/moyun-project-document/moyun-portal/src/components/resume/ResumePreviewModal.vue)：预览头部有头像时左图右文布局（64px 圆形头像 + 标题/联系信息），无头像保持原居中布局
+- moyun-portal npm run build ✓
+
+### 补充：简历编辑页个人信息反显（同日）
+- 需求：新建简历（/interview/resume/edit）自动带入个人中心信息，简历与个人资料打通
+- 实现：[ResumeEditPage.vue](file:///d:/zyg_new_work/moyun-project-document/moyun-portal/src/pages/interview/ResumeEditPage.vue) 新增 prefillFromProfile()：
+  - 新建态（含从编辑切回新建）调用 getCurrentUser 反显：姓名(昵称→用户名兜底)/性别/生日/电话/邮箱/头像 + 求职意向岗位(个人中心职位)
+  - 标题默认"{姓名}的简历"
+  - 仅填空字段不覆盖已有输入；未登录/接口失败静默跳过，不影响创建流程
+- 编辑已有简历不预填（以简历本身数据为准，避免覆盖）
+- moyun-portal npm run build ✓
+
+### 需要操作
+1. 重启后端加载 /portal/ai/analyze 接口与 AiModuleLlmClient
+2. 前台 /publish 写入正文与标题后点"AI 智能提取"验证（需已配置默认聊天模型；未配置返回本地兜底并 toast 提示）
+3. 简历 AI 建议启用真实模型：application-dev.yaml 已配置 `moyun.ai.enabled: true` 与 `moyun.ai.resume-advice-enabled: true`（模型走 AI 模块「模型配置」的默认聊天模型）
+4. 前台 /interview/resume/edit 验证个人信息反显（需已登录且个人中心资料完善）
+
+---
+
+## v10.7 (2026-08-25) 写作提示模块增强：AI 定时生成 + 特殊日期感知 + 前后台一体化
+
+### 需求
+完善 portal_writing_prompt（每日写作提示）模块：结合日历特殊日期生成主题、AI + 定时器自动生成、完善后台管理与前台发布页"今日主题"体验。
+
+### 方案设计
+- **特殊日期感知**：新建 `SpecialDateProvider`（公历节日 14 个 + 周序节日 3 个 + 二十四节气通用近似公式），生成 prompt 时注入"今天是什么日子"上下文；农历节日（春节/中秋）由 AI 模型知识自行判断，不做硬编码换算。
+- **AI 生成 + 兜底**：调用 AI 模块 `LLMService.generate()`（默认聊天模型）生成三行结构化输出（标题/分类/描述）；AI 不可用/失败/解析失败时回退内置主题池（10 个主题按年内天数轮换），保证每天稳定有产出。
+- **定时调度**：复用 sys_job（Quartz）统一调度，`writingPromptTask.generateDailyPrompt()` 每天 00:10 为"今天+明天"生成（提前一天备份数据，任务偶发失败仍有兜底）。
+
+### 变更清单
+**后端（moyun-server）**
+- 新建 [SpecialDateProvider.java](file:///d:/zyg_new_work/moyun-project-document/moyun-server/src/main/java/com/moyun/portal/util/SpecialDateProvider.java)：特殊日期工具
+- 新建 [WritingPromptTask.java](file:///d:/zyg_new_work/moyun-project-document/moyun-server/src/main/java/com/moyun/ext/cms/task/WritingPromptTask.java)：sys_job 调度入口
+- [CmsWritingPromptServiceImpl.java](file:///d:/zyg_new_work/moyun-project-document/moyun-server/src/main/java/com/moyun/ext/cms/service/impl/CmsWritingPromptServiceImpl.java)：新增 `aiGenerateForDate`（幂等）、`aiGenerateRange`（批量补生成 1-30 天）、`aiRegenerate`（覆盖式重生成）；insertPrompt 加唯一键兜底防重
+- [CmsWritingPromptController.java](file:///d:/zyg_new_work/moyun-project-document/moyun-server/src/main/java/com/moyun/ext/cms/controller/CmsWritingPromptController.java)：新增 3 个 AI 接口（POST /ai-generate、POST /ai-generate-range、PUT /ai-regenerate/{id}），权限复用 add/edit
+- 实体 PortalWritingPrompt 加 festivalName/source 字段
+
+**后台（moyun-admin-vue）**
+- [prompt/index.vue](file:///d:/zyg_new_work/moyun-project-document/moyun-admin-vue/src/views/cms/prompt/index.vue)：工具栏加"AI 生成今日/AI 批量生成"按钮；表格加"特殊日期"（warning tag）、"来源"（AI 生成/手动 tag）列；操作列加"AI 重生成"；新增批量生成对话框（起始日期 + 1-30 天）
+- [prompt.js](file:///d:/zyg_new_work/moyun-project-document/moyun-admin-vue/src/api/cms/prompt.js)：新增 3 个 AI API
+
+**前台（moyun-portal）**
+- [PublishPage.vue](file:///d:/zyg_new_work/moyun-project-document/moyun-portal/src/pages/PublishPage.vue)：prompt 卡片加节日徽标（琥珀色）；新增"换一批灵感"（拉取历史 5 条，点击直接应用为主题与标题）
+- [prompt.ts](file:///d:/zyg_new_work/moyun-project-document/moyun-portal/src/api/prompt.ts)：VO 加 festivalName/source 字段
+
+**SQL 增量**
+- DDL：`portal_writing_prompt` 加 `festival_name`/`source` 列（ALTER 追加于表定义后）
+- DML：sys_job 注册 `AI每日写作Prompt生成`（cron 0 10 0 * * ?，默认暂停状态 status='0' 为启用，见脚本）
+
+### 顺带修复（portal 预存 TS 构建错误）
+- PublishPage/MarkdownEditor/QuillEditor：3 处 else 分支引用未定义 `error` 变量 → 改为固定文案
+- types/api.ts：ArticleListParams 补 `categoryName` 字段（后端 ArticleQuery 已有该字段）
+
+### 对齐复查补充（同日二次检查）
+- 后台搜索区"分类"文本输入 → 改为下拉框（五分类与后端归一化口径一致），并新增"来源"下拉筛选（ai/manual）
+- 后端 selectPromptPage 补 `source` 条件过滤（与前端新增的来源筛选对齐）
+- 复查确认：Controller 3 个 AI 接口与前端 prompt.js 路径/方法/参数一一对应；权限串复用 add/edit 无新增菜单按钮权限；sys_job invoke_target `writingPromptTask.generateDailyPrompt()` 与 @Component bean 名一致（job_id 自增无需指定）；实体 festivalName/source 与 DDL ALTER 列一致；门户端 VO 字段与实体序列化字段一致
+- moyun-server mvn compile ✓ / moyun-admin-vue vite build ✓
+
+### 验证
+- moyun-server mvn compile ✓ / moyun-admin-vue vite build ✓ / moyun-portal npm run build ✓
+
+### 严重缺陷修复（同日三次检查，RAMJobStore 任务全量丢失）
+- **现象**：重启后所有定时任务"执行一次"均报 `The job (DEFAULT.TASK_CLASS_NAME100) referenced by the trigger does not exist`
+- **根因**：SysJobServiceImpl 从若依迁移时丢失了 `@PostConstruct init()` 启动初始化方法——全工程无任何位置在启动时把 sys_job 表任务注册进 Quartz（RAMJobStore 内存模式），导致重启后调度器内存为空、cron 触发与手动执行全部失效
+- **修复**：[SysJobServiceImpl.java](file:///d:/zyg_new_work/moyun-project-document/moyun-server/src/main/java/com/moyun/ext/job/service/impl/SysJobServiceImpl.java) 补回标准初始化：启动时 `scheduler.clear()` 后遍历 `selectJobList` 全量 `createScheduleJob` 重建（暂停任务照常注册仅暂停，cron 无效任务跳过不中断）
+- moyun-server mvn compile ✓
+
+### 需要操作
+1. 执行 DDL/DML 末尾新增的增量变更块（ALTER + sys_job INSERT）
+2. 重启后端（启动时 init() 会把 sys_job 全表任务自动注册进 Quartz，含 SQL 插入的 108 号任务；之后"立即执行"正常）
+3. 确认 AI 模块已配置默认聊天模型（模型配置页），否则 AI 生成走内置主题池兜底
+4. 后台「监控 → 定时任务」可查看/暂停/立即执行"AI每日写作Prompt生成"任务
+5. 后台「写作 Prompt」页可手动"AI 生成今日/AI 批量生成"验证效果
+
+---
+
+## v10.6.3 (2026-08-25) 待审核文章口径统一：首页指标与审核中心待办同源
+
+### 问题
+后台首页"待审核文章"卡片显示 1，但审核中心（/portal/audit-center?activeTab=pending）待办列表为空。
+
+### 根因
+两处统计口径不同源：
+- 首页指标：`portal_article.status = 'pending'` 直接计数（SysDashboardServiceImpl.buildMetrics → selectArticleMetrics）
+- 审核中心待办：`sys_audit_task.status = 'pending'`（统一审核任务表）
+
+历史数据存在**孤儿 pending 文章**（文章状态为 pending 但 sys_audit_task 无对应任务，产生于 v8.1 双写机制上线前或任务处理后文章状态未同步），导致首页有数、待办为空。
+
+### 修复
+**1. 代码：统一统计口径**
+- [SysDashboardServiceImpl.java](file:///d:/zyg_new_work/moyun-project-document/moyun-server/src/main/java/com/moyun/system/service/impl/SysDashboardServiceImpl.java) buildMetrics：`pendingArticles` 改为 `auditTaskService.countPendingByType().getOrDefault("article", 0L)`，与审核中心待办列表完全同源，两处数字永远一致。
+
+**2. SQL：孤儿任务补建（DML 增量）**
+- 为 `status='pending'` 且无审核任务的文章补建 sys_audit_task 记录（INSERT...SELECT，携带标题/摘要/作者/routePath=/portal/audit-center）
+- 审核任务已处理但文章仍是 pending 的，任务重置为 pending（与"重新提交审核"幂等语义一致）
+
+### 验证
+- moyun-server mvn compile ✓
+
+### 需要操作
+1. 执行 DML 末尾新增的增量变更块（孤儿任务补建两条语句）
+2. 重启后端（加载新的统计口径）
+3. 首页"刷新缓存"（或等待 5 分钟缓存过期），两处数字将一致
+
+### 补充修复（同日）：审核完成即时清缓存
+**问题**：审核通过后，首页"待审核文章/待办列表"仍显示旧数据（用户实际验证发现）。
+**根因**：数据层双写完整（业务表 + sys_audit_task 均同步终态），但 dashboard 的 Redis 缓存（full/metrics/todoTasks/myTasks，5 分钟 TTL）无人清理，首页持续读旧缓存。
+**修复**：[AuditTaskServiceImpl.java](file:///d:/zyg_new_work/moyun-project-document/moyun-server/src/main/java/com/moyun/system/service/impl/AuditTaskServiceImpl.java)
+- 注入 RedisCache（不注入 ISysDashboardService，避免与 SysDashboardServiceImpl 循环依赖）
+- `handle()`（审核中心处理）与 `syncTaskStatusByBiz()`（CMS 侧直接审核）到达终态后调用 `evictDashboardCache()` 清理 4 个 dashboard 缓存键
+- 清理失败仅 warn 不影响审核主流程（兜底 TTL 5 分钟自然过期）
+- moyun-server mvn compile ✓
+- 需重启后端生效
+
+---
+
+## v10.6.2 (2026-08-25) 帮助中心前后台一体化优化：后台菜单合并 + 前台分类过滤
+
+### 交付内容
+
+**1. 后台菜单合并：帮助分类 + 帮助文章 → 帮助中心（Tab 管理）**
+- 原"帮助分类"(/cms/help-category, menu_id=5104)、"帮助文章"(/cms/help-article, menu_id=5109)两个菜单隐藏（visible='1'，保留路由与按钮权限 5105-5108/5110-5113），统一入口为"帮助中心"(/cms/help-center, menu_id=5146)
+- admin 角色补充 5146 菜单授权（sys_role_menu 增量 INSERT）
+- [help-center/index.vue](file:///d:/zyg_new_work/moyun-project-document/moyun-admin-vue/src/views/cms/help-center/index.vue) 改用 `variant="borderless"`，避免 Tab 容器与子页面 app-container 双重 padding
+- SQL：DML 脚本末尾追加增量变更块（UPDATE 隐藏 + INSERT 授权）
+
+**2. 后台表单字段下拉化**
+- [help-category/index.vue](file:///d:/zyg_new_work/moyun-project-document/moyun-admin-vue/src/views/cms/help-category/index.vue)：图标字段由文本输入改为下拉选择（12 个 lucide 图标选项，与前台 iconMap 同源），表格图标列改为 el-tag 展示；状态由 radio 改为下拉
+- [help-article/index.vue](file:///d:/zyg_new_work/moyun-project-document/moyun-admin-vue/src/views/cms/help-article/index.vue)：精选、状态由 radio 改为下拉
+
+**3. 后端恢复按分类查询接口**
+- [PortalHelpController.java](file:///d:/zyg_new_work/moyun-project-document/moyun-server/src/main/java/com/moyun/portal/controller/PortalHelpController.java) 恢复 `GET /portal/help/category/{id}`（Service/Mapper 实现原本就在，仅补 Controller 入口），支撑前台分类卡片点击过滤
+
+**4. 前台帮助中心页面优化**
+- [HelpCenter.vue](file:///d:/zyg_new_work/moyun-project-document/moyun-portal/src/pages/HelpCenter.vue)：
+  - 分类卡片可点击：调用分类接口过滤文章列表，选中卡片高亮（accent 背景 + primary 边框）
+  - 新增"全部问题"入口卡片（LayoutGrid 图标），点击回到精选视图
+  - 搜索增加 300ms 防抖，列表标题动态化（搜索结果 / {分类名}相关问题 / 常见问题）
+  - 列表区增加加载中状态（搜索/分类切换时）
+  - iconMap 扩展至 12 个图标，与后台图标下拉选项保持同源
+- [help.ts](file:///d:/zyg_new_work/moyun-project-document/moyun-portal/src/api/help.ts) 新增 `getHelpArticlesByCategory` API
+
+### 验证
+- admin-vue vite build ✓（59.27s）
+- portal vite build ✓（49.18s）
+- moyun-server mvn compile ✓
+- portal vue-tsc 存在 4 个预存类型错误（MarkdownEditor/QuillEditor/PublishPage/SearchPage），与本次修改无关，待后续统一清理
+
+---
+
 ## v10.6.1 (2026-08-25) 精选笔记 500 修复 + 测试用例管理接口迁移 + 题目收藏展示修复
 
 ### 交付内容

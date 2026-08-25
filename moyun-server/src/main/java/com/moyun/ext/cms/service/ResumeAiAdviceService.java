@@ -76,8 +76,12 @@ public class ResumeAiAdviceService {
      */
     private ResumeAiAdviceVO generateAdviceWithLlm(UserResumeVO vo, List<ScoreItem> scoreItems, String targetPosition) {
         String systemPrompt = "你是一名资深 HR 与简历顾问，擅长基于评分明细给出可执行的改进建议。"
-                + "请返回 JSON 格式，字段：summary(整体总结), advices(数组，每项含 dimension/priority(high/medium/low)/content/type(fill/refine/match)), missingSkills(字符串数组)。"
-                + "建议要具体、可执行，优先关注得分率低于60%的维度与岗位匹配度缺失技能。";
+                + "请返回 JSON 格式，字段：summary(整体总结), advices(数组，每项含 dimension/priority(high/medium/low)/content/type(fill/refine/match)/optimized), missingSkills(字符串数组)。"
+                + "content 为该维度的改进思路说明；optimized 为优化后的完整可用文本（可直接替换简历对应模块内容），"
+                + "必须基于用户简历现有信息改写而非凭空编造，量化数据无依据时可使用占位符如 [X%] 供用户填写；"
+                + "dimension 取值限定：基本信息/求职意向/教育经历/工作经历/项目经历/技能列表/自我介绍/岗位匹配度。"
+                + "建议要具体、可执行，优先关注得分率低于60%的维度与岗位匹配度缺失技能。"
+                + "只输出 JSON 本体，禁止使用 markdown 代码块（```）包裹，禁止在 JSON 前后添加任何说明文字。";
 
         StringBuilder userMessage = new StringBuilder();
         userMessage.append("目标岗位：").append(StringUtils.isNotEmpty(targetPosition) ? targetPosition : "未设置").append("\n");
@@ -101,8 +105,8 @@ public class ResumeAiAdviceService {
         }
 
         try {
-            // 解析 LLM 返回的 JSON 为 VO
-            ResumeAiAdviceVO result = objectMapper.readValue(llmResponse, ResumeAiAdviceVO.class);
+            // 解析 LLM 返回的 JSON 为 VO（先剥离 markdown 代码块等包装）
+            ResumeAiAdviceVO result = objectMapper.readValue(extractJson(llmResponse), ResumeAiAdviceVO.class);
             result.setResumeId(vo.getId());
             result.setGeneratedTime(LocalDateTime.now());
             result.setAiPowered(true);
@@ -115,6 +119,45 @@ public class ResumeAiAdviceService {
             log.warn("[ResumeAiAdvice] LLM 返回 JSON 解析失败：{}", e.getMessage());
             return null;
         }
+    }
+
+    /**
+     * 从 LLM 返回文本中提取 JSON 字符串
+     * <p>
+     * LLM 常见返回形态（按顺序处理）：
+     * <ul>
+     *     <li>markdown 代码块包裹：```json ... ``` 或 ``` ... ```</li>
+     *     <li>JSON 前后带说明文字："以下是建议：{...} 希望有帮助"</li>
+     *     <li>纯 JSON（直接返回）</li>
+     * </ul>
+     * 提取策略：截取第一个 '{' 到最后一个 '}' 之间的内容；
+     * 无大括号时原样返回（由调用方 JSON 解析失败走规则化兜底）。
+     */
+    private String extractJson(String llmResponse) {
+        if (llmResponse == null) {
+            return "";
+        }
+        String text = llmResponse.trim();
+        // 剥离 markdown 代码块围栏（```json 开头 / ``` 结尾）
+        if (text.startsWith("```")) {
+            // 去掉首行围栏（可能带 json/jsonc 语言标记）
+            int firstLineEnd = text.indexOf('\n');
+            if (firstLineEnd > 0) {
+                text = text.substring(firstLineEnd + 1).trim();
+            }
+            // 去掉结尾围栏
+            int fenceEnd = text.lastIndexOf("```");
+            if (fenceEnd >= 0) {
+                text = text.substring(0, fenceEnd).trim();
+            }
+        }
+        // 截取首尾大括号之间的内容（兼容 JSON 前后的说明文字）
+        int start = text.indexOf('{');
+        int end = text.lastIndexOf('}');
+        if (start >= 0 && end > start) {
+            return text.substring(start, end + 1);
+        }
+        return text;
     }
 
     /** 计算总分 */
@@ -170,6 +213,7 @@ public class ResumeAiAdviceService {
                 advice.setType(rate < 0.3 ? "fill" : "refine");
                 advice.setPriority(rate < 0.3 ? "high" : "medium");
                 advice.setContent(buildDimensionAdvice(item, rate));
+                advice.setOptimized(buildDimensionOptimized(item, rate));
                 advices.add(advice);
             }
         }
@@ -206,6 +250,8 @@ public class ResumeAiAdviceService {
                     + String.join("、", missingSkills.size() > 5 ? missingSkills.subList(0, 5) : missingSkills)
                     + (missingSkills.size() > 5 ? "等" : "")
                     + "），建议优先补充相关项目经验或技能证明");
+            // optimized：缺失技能整理为按熟练度分级的技能清单模板（可直接采纳到技能列表）
+            advice.setOptimized("了解：" + String.join("、", missingSkills));
             advices.add(advice);
         }
     }
@@ -235,6 +281,38 @@ public class ResumeAiAdviceService {
                 case "技能列表": return "技能列表可优化，建议标注熟练度（了解/一般/熟练/精通）与分类";
                 case "自我介绍": return "自我介绍可优化，建议结合目标岗位突出差异化优势";
                 default: return name + "维度可进一步优化（" + msg + "）";
+            }
+        }
+    }
+
+    /**
+     * 根据维度名生成 optimized（优化后可直接采纳的文本模板）
+     * <p>规则化兜底无改写能力，生成"结构模板 + 占位符"供用户采纳后微调；
+     * [X]/[X%] 等占位符由前端提示用户填写。</p>
+     */
+    private String buildDimensionOptimized(ScoreItem item, double rate) {
+        String name = item.getItem();
+        if (rate < 0.3) {
+            switch (name) {
+                case "基本信息": return null; // 基本信息为结构化字段（姓名/电话等），无文本可替换，前端引导手动完善
+                case "求职意向": return null; // 同上：期望职位/城市/薪资为结构化字段
+                case "教育经历": return "[学校名称] · [专业] · [学历] · [起止年份]\n主修课程：[课程1]、[课程2]、[课程3]\n荣誉亮点：[GPA/奖学金/竞赛，无则删除本行]";
+                case "工作经历": return "1. [负责/主导][业务模块]，通过[技术方案]，实现[量化成果，如效率提升 X%]\n2. [第二项职责成果，突出个人贡献]\n3. [第三项职责成果，突出团队协作或技术深度]";
+                case "项目经历": return "[项目名称] · [担任角色]\n项目背景：[一句话说明业务规模与价值]\n1. [技术难点] → [解决方案与选型思路]\n2. [量化成果，如性能提升 X%、覆盖用户 X 万]";
+                case "技能列表": return "精通：[核心技术1]、[核心技术2]\n熟练：[技术3]、[技术4]、[技术5]\n了解：[技术6]、[技术7]";
+                case "自我介绍": return "[X 年][领域]经验，专注[核心方向]。[主导/参与]过[代表性项目/业务]，实现[量化成果]。熟悉[技术栈/方法论]，具备[软实力亮点]。期望在[目标岗位]方向持续深耕。";
+                default: return null;
+            }
+        } else {
+            switch (name) {
+                case "基本信息": return null;
+                case "求职意向": return null;
+                case "教育经历": return "主修课程：[课程1]、[课程2]、[课程3]\n荣誉亮点：[GPA/奖学金/竞赛]";
+                case "工作经历": return "1. [现有职责]升级表述：负责[业务]，通过[方案]，使[指标]提升[X%]\n2. [补充第二条量化成果]";
+                case "项目经历": return "项目角色：[角色]\n技术难点：[难点] → 解决方案：[方案]\n量化成果：[指标]从[X]提升至[Y]";
+                case "技能列表": return "精通：[最高频使用的核心技术]\n熟练：[常用技术]\n了解：[接触过的扩展技术]";
+                case "自我介绍": return "在原有自评基础上补充：[X 年]经验 + [核心成果] + [技术深度] + [职业态度]，删除形容词堆砌，每个论点配一个数字。";
+                default: return null;
             }
         }
     }

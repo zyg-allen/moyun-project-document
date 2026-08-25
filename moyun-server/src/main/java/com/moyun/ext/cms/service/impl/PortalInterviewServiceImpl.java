@@ -121,8 +121,6 @@ public class PortalInterviewServiceImpl implements IPortalInterviewService {
     @Autowired private ISysNotificationService notificationService;
     @Autowired private IUserProfileSnapshotService profileSnapshotService;
     @Autowired private ISensitiveWordService sensitiveWordService;
-    @Autowired private com.moyun.portal.util.CreatorPermissionChecker creatorPermissionChecker;
-
     @Autowired @org.springframework.context.annotation.Lazy
     private com.moyun.system.service.IAuditTaskService auditTaskService;
 
@@ -875,14 +873,34 @@ public class PortalInterviewServiceImpl implements IPortalInterviewService {
 
     @Override
     public Page<InterviewExperienceVO> selectMyExperienceList(Page<InterviewExperienceVO> page, InterviewExperienceQuery query, Long userId) {
-        // 复用 selectExperiencePage，强制按 userId 过滤
-        if (query == null) {
-            query = new InterviewExperienceQuery();
+        // 不复用 selectExperiencePage：公开列表对 null status 默认只查 published，
+        // 会把草稿/待审核过滤掉（v10.10 修复"保存草稿后列表消失"问题）。
+        // 我的面经默认可见所有状态（含 draft/pending/rejected），并支持按状态筛选。
+        LambdaQueryWrapper<PortalInterviewExperience> qw = Wrappers.lambdaQuery();
+        if (query != null) {
+            if (StringUtils.isNotEmpty(query.getStatus())) {
+                qw.eq(PortalInterviewExperience::getStatus, query.getStatus());
+            }
+            if (StringUtils.isNotEmpty(query.getKeyword())) {
+                qw.and(w -> w.like(PortalInterviewExperience::getTitle, query.getKeyword())
+                        .or().like(PortalInterviewExperience::getContent, query.getKeyword()));
+            }
+            if (StringUtils.isNotEmpty(query.getCompany())) {
+                qw.like(PortalInterviewExperience::getCompany, query.getCompany());
+            }
+            if (query.getYear() != null) {
+                qw.eq(PortalInterviewExperience::getYear, query.getYear());
+            }
         }
-        query.setUserId(userId);
-        // 我的面经可见所有状态（含 draft/pending/rejected）
-        query.setStatus(null);
-        return selectExperiencePage(page, query, userId);
+        qw.eq(PortalInterviewExperience::getUserId, userId);
+        qw.orderByDesc(PortalInterviewExperience::getIsTop).orderByDesc(PortalInterviewExperience::getCreateTime);
+        Page<PortalInterviewExperience> entityPage = new Page<>(page.getCurrent(), page.getSize());
+        experienceMapper.selectPage(entityPage, qw);
+        List<InterviewExperienceVO> vos = entityPage.getRecords().stream()
+                .map(e -> toExperienceVO(e, userId)).collect(Collectors.toList());
+        page.setRecords(vos);
+        page.setTotal(entityPage.getTotal());
+        return page;
     }
 
     /**
@@ -947,7 +965,9 @@ public class PortalInterviewServiceImpl implements IPortalInterviewService {
         LambdaQueryWrapper<PortalInterviewExperience> qw = Wrappers.lambdaQuery();
         qw.eq(PortalInterviewExperience::getStatus, query.getStatus() == null ? "published" : query.getStatus());
         if (StringUtils.isNotEmpty(query.getKeyword())) {
-            qw.like(PortalInterviewExperience::getTitle, query.getKeyword()).or().like(PortalInterviewExperience::getContent, query.getKeyword());
+            // and() 包裹 OR 条件，避免 or() 打断外层 status 过滤导致草稿/待审核泄露到公开搜索
+            qw.and(w -> w.like(PortalInterviewExperience::getTitle, query.getKeyword())
+                    .or().like(PortalInterviewExperience::getContent, query.getKeyword()));
         }
         if (StringUtils.isNotEmpty(query.getCompany())) qw.like(PortalInterviewExperience::getCompany, query.getCompany());
         if (query.getYear() != null) qw.eq(PortalInterviewExperience::getYear, query.getYear());
@@ -983,12 +1003,9 @@ public class PortalInterviewServiceImpl implements IPortalInterviewService {
         if (userId == null) {
             throw new ServiceException("请先登录");
         }
-        // 草稿（draft）不校验认证，与文章 saveDraft 行为一致；
-        // 仅"提交发布"（status=pending 或为空默认 pending）属高价值创作，需认证创作者。
+        // v10.10 实名策略：发布面经不再强制创作者认证（未实名也可发布），
+        // 由前端弹窗提示实名（可跳过），仅打赏/积分消费等敏感场景强制实名。
         experience.setStatus(experience.getStatus() == null ? "pending" : experience.getStatus());
-        if ("pending".equals(experience.getStatus())) {
-            creatorPermissionChecker.checkCreator(userId);
-        }
         experience.setUserId(userId);
         experience.setCreateTime(LocalDateTime.now());
         experience.setUpdateTime(LocalDateTime.now());
@@ -1039,11 +1056,12 @@ public class PortalInterviewServiceImpl implements IPortalInterviewService {
         PortalInterviewExperience db = experienceMapper.selectById(experience.getId());
         if (db == null) throw new ServiceException("面经不存在");
         if (!db.getUserId().equals(userId)) throw new ServiceException("无权修改他人的面经");
-        // 通过编辑"提交发布"（status=pending）也属高价值创作，需认证创作者，
-        // 防止未认证用户绕过 insertExperience 的发布校验。
-        if (experience.getStatus() != null && "pending".equals(experience.getStatus())) {
-            creatorPermissionChecker.checkCreator(userId);
-        }
+        // v10.10 实名策略：发布不再强制创作者认证（前端弹窗提示可跳过）
+        // 判断是否为"提交发布"：新状态为 pending 且原状态不是 pending（草稿/被拒 → 发布）。
+        // 已是 pending 的编辑不重复提交审核任务，避免重复待办。
+        boolean submitForReview = experience.getStatus() != null
+                && "pending".equals(experience.getStatus())
+                && !"pending".equals(db.getStatus());
         experience.setUpdateTime(LocalDateTime.now());
         int row = experienceMapper.updateById(experience);
         java.util.List<Long> extractedTagIds = new java.util.ArrayList<>();
@@ -1053,6 +1071,24 @@ public class PortalInterviewServiceImpl implements IPortalInterviewService {
             for (String p : parts) if (p != null && !p.trim().isEmpty()) extractedTagNames.add(p.trim());
         }
         portalTagService.bindTags("interview_experience", experience.getId(), extractedTagIds, extractedTagNames, "interview_experience");
+
+        // v10.10 修复链路断裂：草稿/被拒面经通过编辑"提交发布"时，
+        // 此前未提交审核任务，导致面经永远停在 pending 且审核中心不可见。
+        if (row > 0 && submitForReview) {
+            submitAuditTask("interview_exp", experience.getId(), experience.getTitle(),
+                    experience.getSummary(), userId);
+            // 与 insertExperience 发布路径对齐：记录成长事件 + Feed 动态
+            portalGrowthService.recordEvent("interview", "publish_experience",
+                    userId, "experience", experience.getId());
+            try {
+                feedService.publishEvent(userId, "publish_experience", "experience",
+                        experience.getId(), experience.getTitle(),
+                        experience.getSummary(), experience.getCoverImage());
+            } catch (Exception e) {
+                org.slf4j.LoggerFactory.getLogger(PortalInterviewServiceImpl.class)
+                        .error("[Feed] 面经发布动态事件失败：experienceId={}", experience.getId(), e);
+            }
+        }
         return row;
     }
 

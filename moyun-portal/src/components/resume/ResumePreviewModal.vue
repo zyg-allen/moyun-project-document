@@ -54,13 +54,16 @@ const jobIntention = computed(() => props.form.jobIntention || {});
           <div class="re-pm-doc">
             <!-- 头部信息 -->
             <div class="re-pm-doc-header">
-              <h2>{{ form.title || '未命名简历' }}</h2>
-              <div v-if="form.name || form.phone || form.email" class="re-pm-contact">
-                <span v-if="form.name">{{ form.name }}</span>
-                <span v-if="form.gender">· {{ form.gender }}</span>
-                <span v-if="form.birthDate">· {{ form.birthDate }}</span>
-                <span v-if="form.phone">· {{ form.phone }}</span>
-                <span v-if="form.email">· {{ form.email }}</span>
+              <img v-if="form.avatar" :src="form.avatar" alt="头像" class="re-pm-avatar" />
+              <div class="re-pm-header-text">
+                <h2>{{ form.title || '未命名简历' }}</h2>
+                <div v-if="form.name || form.phone || form.email" class="re-pm-contact">
+                  <span v-if="form.name">{{ form.name }}</span>
+                  <span v-if="form.gender">· {{ form.gender }}</span>
+                  <span v-if="form.birthDate">· {{ form.birthDate }}</span>
+                  <span v-if="form.phone">· {{ form.phone }}</span>
+                  <span v-if="form.email">· {{ form.email }}</span>
+                </div>
               </div>
             </div>
 
@@ -205,9 +208,30 @@ const jobIntention = computed(() => props.form.jobIntention || {});
 
 .re-pm-body { padding: 24px; }
 
-.re-pm-doc-header { text-align: center; padding-bottom: 18px; border-bottom: 2px solid var(--theme-primary); margin-bottom: 18px; }
+.re-pm-doc-header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding-bottom: 18px;
+  border-bottom: 2px solid var(--theme-primary);
+  margin-bottom: 18px;
+}
+.re-pm-avatar {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+  border: 1px solid #e5e7eb;
+}
+/* 无头像时保持原居中布局 */
+.re-pm-doc-header:not(:has(.re-pm-avatar)) { justify-content: center; text-align: center; }
+.re-pm-header-text { min-width: 0; }
 .re-pm-doc-header h2 { font-size: 22px; font-weight: 800; color: var(--theme-text); }
 .re-pm-contact { font-size: 12px; color: #6b7280; margin-top: 6px; display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
+.re-pm-doc-header:not(:has(.re-pm-avatar)) .re-pm-contact { justify-content: center; }
+.re-pm-doc-header:has(.re-pm-avatar) .re-pm-contact { justify-content: flex-start; }
+.re-pm-doc-header:has(.re-pm-avatar) h2 { text-align: left; }
 
 .re-pm-doc-section { margin-bottom: 18px; }
 .re-pm-doc-section h4 {

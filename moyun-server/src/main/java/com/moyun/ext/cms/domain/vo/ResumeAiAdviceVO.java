@@ -56,5 +56,11 @@ public class ResumeAiAdviceVO implements Serializable {
         private String content;
         /** 建议类型 fill（补充缺失）/ refine（优化已有）/ match（岗位匹配） */
         private String type;
+        /**
+         * AI 优化结果（v10.11：可直接采纳的优化后文本）
+         * <p>与 content（"为什么改"的建议说明）区分，optimized 是"改完后长什么样"，
+         * 前端"采纳"按钮将其按 dimension 映射填充到简历对应字段。</p>
+         */
+        private String optimized;
     }
 }

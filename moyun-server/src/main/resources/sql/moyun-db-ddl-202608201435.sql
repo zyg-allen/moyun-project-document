@@ -3734,6 +3734,12 @@ CREATE TABLE `portal_writing_prompt` (
 -- Dumping data for table `portal_writing_prompt`
 --
 
+-- ==================== 增量变更：写作提示模块增强（2026-08-25） ====================
+-- 说明：支持 AI 定时生成 + 特殊日期（节日/节气）关联
+ALTER TABLE `portal_writing_prompt`
+  ADD COLUMN `festival_name` varchar(64) DEFAULT NULL COMMENT '关联特殊日期名称（节日/节气/纪念日，AI 生成时自动识别）' AFTER `category`,
+  ADD COLUMN `source` varchar(16) NOT NULL DEFAULT 'manual' COMMENT '来源：ai=AI生成 / manual=手动创建' AFTER `festival_name`;
+
 
 DROP TABLE IF EXISTS `portal_wrong_question`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;

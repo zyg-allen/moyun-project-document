@@ -1,5 +1,5 @@
 <template>
-  <TabContainer :tabs="tabs" />
+  <TabContainer :tabs="tabs" variant="borderless" />
 </template>
 
 <script setup>

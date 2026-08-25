@@ -139,6 +139,18 @@ token:
 # =============================================
 moyun:
   profile: /profile            # 本地文件存储路径
+  # AI 能力统一开关（v10.8）：
+  # - enabled=true 时简历 AI 建议等走 AiModuleLlmClient（桥接 AI 模块 LLMService）
+  # - 模型/密钥在后台「AI 模块 → 模型配置」中管理（默认聊天模型），此处无需配置 api-key
+  # - LLM 调用失败时自动回退规则化逻辑，开关打开无副作用
+  ai:
+    enabled: true
+    resume-advice-enabled: true
+  # 认证信息安全配置（v10.8 实名合规）：
+  # - 证件号 AES-GCM 加密口令，生产环境务必通过环境变量 MOYUN_SECURITY_CERTNOENCRYPTKEY 注入并妥善保管
+  # - 口令变更会导致已加密证件号无法解密（脱敏展示值不受影响）
+  security:
+    cert-no-encrypt-key: moyun-dev-cert-key-2026
   # 慢 SQL 治理配置
   slow-sql:
     # 慢 SQL 告警阈值（毫秒）：

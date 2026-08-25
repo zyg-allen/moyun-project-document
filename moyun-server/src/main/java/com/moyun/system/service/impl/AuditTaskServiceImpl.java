@@ -51,6 +51,15 @@ public class AuditTaskServiceImpl implements IAuditTaskService {
     @Autowired
     private SysAuditTaskMapper auditTaskMapper;
 
+    /** 用于审核完成后清理 dashboard 缓存（不注入 ISysDashboardService，避免循环依赖） */
+    @Autowired
+    private com.moyun.core.config.redis.RedisCache redisCache;
+
+    /** 首页 dashboard 缓存键（与 SysDashboardServiceImpl 保持一致），终态后清理使首页数据立即一致 */
+    private static final String[] DASHBOARD_CACHE_KEYS = {
+            "dashboard:full", "dashboard:metrics", "dashboard:todoTasks", "dashboard:myTasks"
+    };
+
     /** 所有审核业务处理器（Spring 自动注入所有 AuditBizHandler 实现 Bean） */
     @Autowired
     private List<AuditBizHandler> handlers;
@@ -212,6 +221,9 @@ public class AuditTaskServiceImpl implements IAuditTaskService {
 
         log.info("[AuditTask] 审核完成 taskId={} taskType={} bizId={} action={} auditor={}",
                 task.getId(), task.getTaskType(), task.getBizId(), action.getCode(), auditorName);
+
+        // 审核到达终态，清理 dashboard 缓存，使首页"待审核文章/待办列表"立即与审核中心一致（无需等 5 分钟 TTL）
+        evictDashboardCache();
 
         return toVO(task, null);
     }
@@ -461,5 +473,19 @@ public class AuditTaskServiceImpl implements IAuditTaskService {
         auditTaskMapper.updateById(existing);
         log.info("[AuditTask] 业务侧同步审核状态 taskId={} taskType={} bizId={} status={} auditor={}",
                 existing.getId(), taskType, bizId, finalStatus, auditorName);
+
+        // 业务侧（如 CMS 文章管理）直接审核到达终态，同样清理 dashboard 缓存
+        evictDashboardCache();
+    }
+
+    /**
+     * 清理 dashboard 缓存键。失败不影响审核主流程（缓存最多 5 分钟后自然过期）。
+     */
+    private void evictDashboardCache() {
+        try {
+            redisCache.deleteObject(java.util.Arrays.asList(DASHBOARD_CACHE_KEYS));
+        } catch (Exception e) {
+            log.warn("[AuditTask] 清理 dashboard 缓存失败（不影响审核，等待 TTL 过期）: {}", e.getMessage());
+        }
     }
 }

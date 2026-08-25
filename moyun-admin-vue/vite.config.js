@@ -35,6 +35,20 @@ export default defineConfig(({ mode, command }) => {
           // target: 'https://api.wzs.pub/mock/13',
           changeOrigin: true,
           rewrite: (p) => p.replace(/^\/dev-api/, '')
+        },
+        // Knife4j/Swagger UI iframe 内部资源代理
+        // doc.html 内 Swagger UI 会请求 /v3/api-docs（相对于 iframe origin），需代理到后端
+        '/v3/api-docs': {
+          target: 'http://localhost:8080',
+          changeOrigin: true
+        },
+        '/swagger-resources': {
+          target: 'http://localhost:8080',
+          changeOrigin: true
+        },
+        '/webjars': {
+          target: 'http://localhost:8080',
+          changeOrigin: true
         }
       }
     },

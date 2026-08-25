@@ -7,7 +7,7 @@ import {
   Sparkles, Globe, Lock, Tag as TagIcon, BookOpen,
   ChevronDown, Check, Type, Plus, ChevronRight, Code,
   Lightbulb, ChevronRight as ChevronRightIcon,
-  History, GitCompare, RotateCcw
+  History, GitCompare, RotateCcw, RefreshCw
 } from 'lucide-vue-next';
 import Breadcrumb from '@/components/Breadcrumb.vue';
 import {
@@ -19,8 +19,10 @@ import {
 import { getCategoryTree, filterCategoryTree } from '@/api/category';
 import { categories as fallbackCategories } from '@/data/categories';
 import { publishArticle, saveDraft as saveDraftApi, getArticleDetail } from '@/api/article';
+import { aiAnalyze } from '@/api/ai';
+import type { ArticleMetaResult } from '@/api/ai';
 import { uploadPortalFile, deletePortalFile } from '@/api/file';
-import { getTodayPrompt } from '@/api/prompt';
+import { getTodayPrompt, getPromptHistory } from '@/api/prompt';
 import type { WritingPromptVO } from '@/api/prompt';
 import {
   getArticleVersions,
@@ -38,7 +40,7 @@ import SiteFooter from '@/components/SiteFooter.vue';
 import QuillEditor from '@/components/QuillEditor.vue';
 import MarkdownEditor from '@/components/MarkdownEditor.vue';
 import { extractExcerpt } from '@/utils/excerpt';
-import { requireCreator } from '@/utils/creatorPermission';
+import { promptRealNameOptional } from '@/utils/creatorPermission';
 import { marked } from 'marked';
 import { sanitizeHTML } from '@/utils/security';
 
@@ -134,6 +136,8 @@ const lastSaved = ref<string | null>(null);
 // 今日写作 prompt（页面顶部提示卡片）
 const todayPrompt = ref<WritingPromptVO | null>(null);
 const promptExpanded = ref(false);
+// 历史灵感（"换一批灵感"拉取的历史 prompt，点击可直接应用）
+const promptHistory = ref<WritingPromptVO[]>([]);
 async function loadTodayPrompt() {
   try {
     const res = await getTodayPrompt();
@@ -152,6 +156,29 @@ function applyPromptAsTitle() {
   if (!todayPrompt.value) return;
   if (!title.value.trim()) {
     title.value = todayPrompt.value.title;
+  }
+}
+/** 换一批灵感：拉取历史 prompt 列表展示，供创作者选择 */
+async function shufflePrompt() {
+  if (promptHistory.value.length > 0) {
+    promptHistory.value = []; // 再点一次收起
+    return;
+  }
+  try {
+    const res = await getPromptHistory({ pageNum: 1, pageSize: 5 });
+    if (res.code === 200 && res.data) {
+      promptHistory.value = (res.data.list || []).filter(p => p.id !== todayPrompt.value?.id);
+    }
+  } catch (err) {
+    console.warn('加载历史 prompt 失败:', err);
+  }
+}
+/** 点击历史灵感：直接应用到当前 prompt 卡片与标题 */
+function usePrompt(p: WritingPromptVO) {
+  todayPrompt.value = p;
+  promptHistory.value = [];
+  if (!title.value.trim()) {
+    title.value = p.title;
   }
 }
 
@@ -578,8 +605,8 @@ async function handlePublish() {
     return;
   }
 
-  // 发布文章需创作者认证（草稿不限）
-  if (!requireCreator()) return;
+  // v10.10 实名策略：发布不再强制创作者认证，未实名弹窗提示（可跳过直接发布）
+  if (!(await promptRealNameOptional())) return;
 
   isPublishing.value = true;
 
@@ -789,19 +816,37 @@ function closeVersionDrawer() {
   diffV2.value = null;
 }
 
-// 摘要提取状态
+// 摘要/SEO 智能提取状态
 const isExtractingExcerpt = ref(false);
 
-// 从正文提取摘要
-async function extractExcerptFromContent() {
-  if (!content.value) return;
+// AI 智能提取：一次性生成摘要 + SEO 标题/描述/关键词并填充
+async function aiExtractMeta() {
+  if (!content.value || isExtractingExcerpt.value) return;
 
   isExtractingExcerpt.value = true;
   try {
-    excerpt.value = await extractExcerpt(content.value, editorMode.value);
+    const res = await aiAnalyze<ArticleMetaResult>({
+      scene: 'article-meta',
+      title: title.value,
+      content: content.value,
+    });
+    if (res.code === 200 && res.data) {
+      const d = res.data;
+      excerpt.value = d.summary || '';
+      if (d.seoTitle) seoTitle.value = d.seoTitle;
+      if (d.seoDescription) seoDescription.value = d.seoDescription;
+      if (d.seoKeywords) seoKeywords.value = d.seoKeywords;
+      toast.success(d.source === 'ai' ? 'AI 提取完成，已填充摘要与 SEO 信息' : 'AI 未配置，已使用本地提取结果');
+    }
   } catch (error) {
-    console.error('摘要提取失败:', error);
-    toast.error((error as Error)?.message || '摘要提取失败，请重试');
+    console.error('AI 智能提取失败:', error);
+    // AI 接口失败时回退本地摘要提取，保证按钮始终可用
+    try {
+      excerpt.value = await extractExcerpt(content.value, editorMode.value);
+      toast.error('AI 提取失败，已回退本地摘要提取');
+    } catch {
+      toast.error((error as Error)?.message || '智能提取失败，请重试');
+    }
   } finally {
     isExtractingExcerpt.value = false;
   }
@@ -890,7 +935,7 @@ async function handleFile(file: File) {
     } else {
       // 上传失败：恢复旧封面（替换语义——不丢失原封面），用户可重试或改用「删除」
       coverImage.value = oldCover || '';
-      toast.error((error as Error)?.message || '封面上传失败，请重试');
+      toast.error('封面上传失败，请重试');
     }
   } catch (error) {
     console.error('封面上传失败:', error);
@@ -1049,6 +1094,13 @@ onBeforeRouteLeave(async () => {
                     今日写作 Prompt：{{ todayPrompt.title }}
                   </span>
                   <span
+                    v-if="todayPrompt.festivalName"
+                    class="px-1.5 py-0.5 rounded text-xs flex-shrink-0"
+                    style="background-color: color-mix(in srgb, #f59e0b 15%, transparent); color: #d97706;"
+                  >
+                    {{ todayPrompt.festivalName }}
+                  </span>
+                  <span
                     v-if="todayPrompt.category"
                     class="px-1.5 py-0.5 rounded text-xs flex-shrink-0"
                     style="background-color: color-mix(in srgb, var(--theme-primary) 12%, transparent); color: var(--theme-primary);"
@@ -1075,9 +1127,31 @@ onBeforeRouteLeave(async () => {
                     <Sparkles class="w-3.5 h-3.5 mr-1" />
                     用它作为标题
                   </button>
+                  <button
+                    @click="shufflePrompt"
+                    class="inline-flex items-center px-3 py-1.5 rounded-md text-xs font-medium transition hover:opacity-80"
+                    style="background-color: color-mix(in srgb, var(--theme-primary) 10%, transparent); color: var(--theme-primary);"
+                  >
+                    <RefreshCw class="w-3.5 h-3.5 mr-1" />
+                    换一批灵感
+                  </button>
                   <span v-if="todayPrompt.promptDate" class="text-xs" style="color: var(--theme-text-secondary);">
                     {{ todayPrompt.promptDate }}
                   </span>
+                </div>
+                <!-- 历史灵感列表（换一批后展示） -->
+                <div v-if="promptHistory.length > 0" class="mt-3 space-y-1.5">
+                  <div
+                    v-for="p in promptHistory"
+                    :key="p.id"
+                    class="flex items-center gap-2 px-2.5 py-1.5 rounded-md cursor-pointer text-sm transition hover:opacity-80"
+                    style="background-color: color-mix(in srgb, var(--theme-primary) 6%, transparent);"
+                    @click="usePrompt(p)"
+                  >
+                    <span class="truncate flex-1" style="color: var(--theme-text);">{{ p.title }}</span>
+                    <span v-if="p.festivalName" class="text-xs flex-shrink-0" style="color: #d97706;">{{ p.festivalName }}</span>
+                    <span v-if="p.category" class="text-xs flex-shrink-0" style="color: var(--theme-text-secondary);">{{ p.category }}</span>
+                  </div>
                 </div>
               </div>
             </div>
@@ -1250,7 +1324,7 @@ onBeforeRouteLeave(async () => {
                   </h3>
                   <button
                       v-if="!isReadOnly"
-                      @click="extractExcerptFromContent"
+                      @click="aiExtractMeta"
                       :disabled="isExtractingExcerpt"
                       class="text-xs px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1"
                       style="color: var(--theme-primary); background-color: var(--theme-accent);"
@@ -1260,7 +1334,7 @@ onBeforeRouteLeave(async () => {
                       <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                     </svg>
                     <Sparkles v-else class="w-3 h-3" />
-                    <span>{{ isExtractingExcerpt ? '提取中...' : '智能提取' }}</span>
+                    <span>{{ isExtractingExcerpt ? 'AI 生成中...' : 'AI 智能提取' }}</span>
                   </button>
                 </div>
 
@@ -1479,13 +1553,25 @@ onBeforeRouteLeave(async () => {
               <div v-if="showAdvanced" class="px-3 sm:px-4 pb-4 space-y-3">
                 <!-- SEO设置 -->
                 <div class="border-t pt-3" style="border-color: var(--theme-border);">
-                  <button
-                      @click="showSeoSettings = !showSeoSettings"
-                      class="flex items-center justify-between w-full mb-2"
-                  >
-                    <span class="font-medium text-sm" style="color: var(--theme-text);">SEO 设置</span>
-                    <ChevronRight class="w-4 h-4" :class="{ 'rotate-90': showSeoSettings }" style="color: var(--theme-text-secondary);" />
-                  </button>
+                  <div class="flex items-center justify-between mb-2">
+                    <button
+                        @click="showSeoSettings = !showSeoSettings"
+                        class="flex items-center gap-1"
+                    >
+                      <span class="font-medium text-sm" style="color: var(--theme-text);">SEO 设置</span>
+                      <ChevronRight class="w-4 h-4" :class="{ 'rotate-90': showSeoSettings }" style="color: var(--theme-text-secondary);" />
+                    </button>
+                    <button
+                        v-if="!isReadOnly"
+                        @click="aiExtractMeta"
+                        :disabled="isExtractingExcerpt"
+                        class="text-xs px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1"
+                        style="color: var(--theme-primary); background-color: var(--theme-accent);"
+                    >
+                      <Sparkles class="w-3 h-3" />
+                      <span>{{ isExtractingExcerpt ? 'AI 生成中...' : 'AI 生成' }}</span>
+                    </button>
+                  </div>
                   <div v-if="showSeoSettings" class="space-y-2 pl-2">
                     <div>
                       <label class="block text-xs mb-1" style="color: var(--theme-text-secondary);">SEO 标题</label>

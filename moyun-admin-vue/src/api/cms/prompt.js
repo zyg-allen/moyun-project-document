@@ -24,3 +24,18 @@ export function updatePrompt(data) {
 export function delPrompt(id) {
   return request({ url: '/cms/writing-prompt/' + id, method: 'delete' })
 }
+
+// AI 为指定日期生成 prompt（已存在则跳过）
+export function aiGeneratePrompt(date) {
+  return request({ url: '/cms/writing-prompt/ai-generate', method: 'post', params: { date } })
+}
+
+// AI 批量补生成（从起始日起连续 N 天，已存在跳过）
+export function aiGeneratePromptRange(startDate, days) {
+  return request({ url: '/cms/writing-prompt/ai-generate-range', method: 'post', params: { startDate, days } })
+}
+
+// AI 重新生成指定 prompt（覆盖内容）
+export function aiRegeneratePrompt(id) {
+  return request({ url: '/cms/writing-prompt/ai-regenerate/' + id, method: 'put' })
+}

@@ -15,12 +15,12 @@ import java.util.Map;
 /**
  * 门户帮助中心 Controller（前台公开访问）
  *
- * 清理说明：本 Controller 曾包含以下接口，经核查前端无调用，已作为死接口删除：
- *   - GET /portal/help/categories          查询所有分类（home 已聚合返回，无需单独调用）
- *   - GET /portal/help/category/{id}       按分类查询文章（前端未使用）
- *   - GET /portal/help/featured            查询精选文章（home 已聚合返回，无需单独调用）
- *   - GET /portal/help/article/{id}        查询文章详情（前端未使用）
- * 保留接口：home（首页聚合）、search（搜索）。
+ * 接口说明：
+ *   - GET /portal/help/home            首页聚合（分类 + 精选问题）
+ *   - GET /portal/help/category/{id}   按分类查询已发布文章（前台分类卡片点击过滤）
+ *   - GET /portal/help/search          关键词搜索
+ * 历史清理说明：categories/featured/article/{id} 等接口曾因前端无调用被删除，
+ *   其中 category/{id} 因前台分类过滤需求恢复。
  * 注意：对应的 Service / Mapper / XML 实现保持不变，仅删除 Controller 层入口。
  *
  * @author moyun
@@ -43,6 +43,15 @@ public class PortalHelpController extends BaseController {
         data.put("categories", portalHelpService.selectActiveCategoryList());
         data.put("featuredArticles", portalHelpService.selectFeaturedArticles(5));
         return success(data);
+    }
+
+    /**
+     * 按分类查询已发布文章
+     */
+    @Operation(summary = "按分类查询文章", description = "根据分类ID查询该分类下所有已发布文章")
+    @GetMapping("/category/{id}")
+    public AjaxResult listByCategory(@Parameter(description = "分类ID") @PathVariable("id") Long id) {
+        return success(portalHelpService.selectArticlesByCategory(id));
     }
 
     /**

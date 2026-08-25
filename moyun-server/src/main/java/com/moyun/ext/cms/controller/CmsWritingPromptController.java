@@ -69,4 +69,37 @@ public class CmsWritingPromptController extends BaseController {
     public AjaxResult remove(@PathVariable Long[] ids) {
         return toAjax(cmsWritingPromptService.deletePromptByIds(ids));
     }
+
+    @Operation(summary = "AI 生成 prompt", description = "AI 为指定日期生成写作提示（已存在则跳过）；结合节日/节气上下文，AI 失败回退内置主题池")
+    @PreAuthorize("@ss.hasPermi('cms:writing-prompt:add')")
+    @Log(title = "写作Prompt", businessType = BusinessType.INSERT)
+    @PostMapping("/ai-generate")
+    public AjaxResult aiGenerate(@RequestParam(value = "date", required = false)
+                                 @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE)
+                                 java.time.LocalDate date) {
+        java.time.LocalDate target = date != null ? date : java.time.LocalDate.now();
+        return success(cmsWritingPromptService.aiGenerateForDate(target));
+    }
+
+    @Operation(summary = "AI 批量补生成", description = "从起始日起连续 N 天补生成缺失的写作提示（已存在跳过），用于初始化或补漏")
+    @PreAuthorize("@ss.hasPermi('cms:writing-prompt:add')")
+    @Log(title = "写作Prompt", businessType = BusinessType.INSERT)
+    @PostMapping("/ai-generate-range")
+    public AjaxResult aiGenerateRange(@RequestParam(value = "startDate", required = false)
+                                      @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE)
+                                      java.time.LocalDate startDate,
+                                      @RequestParam(value = "days", defaultValue = "7") Integer days) {
+        java.time.LocalDate start = startDate != null ? startDate : java.time.LocalDate.now();
+        int bounded = Math.max(1, Math.min(days, 30));
+        int count = cmsWritingPromptService.aiGenerateRange(start, bounded);
+        return success(count);
+    }
+
+    @Operation(summary = "AI 重新生成", description = "AI 覆盖式重新生成指定 prompt 的内容（保留日期与ID）")
+    @PreAuthorize("@ss.hasPermi('cms:writing-prompt:edit')")
+    @Log(title = "写作Prompt", businessType = BusinessType.UPDATE)
+    @PutMapping("/ai-regenerate/{id}")
+    public AjaxResult aiRegenerate(@PathVariable Long id) {
+        return success(cmsWritingPromptService.aiRegenerate(id));
+    }
 }

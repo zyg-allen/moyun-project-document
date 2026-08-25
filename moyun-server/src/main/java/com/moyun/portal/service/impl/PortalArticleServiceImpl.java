@@ -94,9 +94,6 @@ public class PortalArticleServiceImpl extends ServiceImpl<PortalArticleMapper, P
     private com.moyun.system.service.IAuditTaskService auditTaskService;
 
     @Autowired
-    private com.moyun.portal.util.CreatorPermissionChecker creatorPermissionChecker;
-
-    @Autowired
     @org.springframework.context.annotation.Lazy
     private ISysNotificationService notificationService;
 
@@ -158,11 +155,6 @@ public class PortalArticleServiceImpl extends ServiceImpl<PortalArticleMapper, P
         if (!"pending".equals(portalArticle.getStatus())) {
             portalArticle.setStatus(null);
         }
-        // "重新提交审核"（status=pending）属高价值创作行为，需认证创作者，
-        // 防止未认证用户通过编辑接口绕过 publishArticle 的发布校验。
-        if ("pending".equals(portalArticle.getStatus())) {
-            creatorPermissionChecker.checkCreator(PortalSecurityUtils.getUserId());
-        }
         // 自动处理Base64图片
         processArticleImages(portalArticle);
         // 切换分类或新建分类时同步维护 category_path 与 root_category_id
@@ -188,8 +180,8 @@ public class PortalArticleServiceImpl extends ServiceImpl<PortalArticleMapper, P
     @Override
     @Transactional(rollbackFor = Exception.class)
     public int publishArticle(PortalArticle portalArticle) {
-        // 创作者认证校验：发布文章属高价值创作，仅认证创作者可发布
-        creatorPermissionChecker.checkCreator(PortalSecurityUtils.getUserId());
+        // v10.10 实名策略：发布文章不再强制创作者认证（未实名也可发布），
+        // 由前端弹窗提示实名（可跳过），仅打赏/积分消费等敏感场景强制实名。
         // 自动处理Base64图片
         processArticleImages(portalArticle);
         // 自动设置前台作者信息

@@ -9,6 +9,7 @@ import com.moyun.ext.job.service.ISysJobService;
 import com.moyun.ext.job.util.CronUtils;
 import com.moyun.ext.job.util.ScheduleUtils;
 import com.moyun.util.string.StringUtils;
+import jakarta.annotation.PostConstruct;
 import org.quartz.Scheduler;
 import org.quartz.SchedulerException;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -29,6 +30,19 @@ public class SysJobServiceImpl implements ISysJobService {
 
     @Autowired
     private Scheduler scheduler;
+
+    /**
+     * 项目启动时初始化定时器：清空 Quartz 内存任务后，从 sys_job 表全量重新注册。
+     * （RAMJobStore 内存模式下 JobDetail 仅存于内存，SQL 直接插入的任务必须重启后经此重建才能触发）
+     */
+    @PostConstruct
+    public void init() throws SchedulerException, TaskException {
+        scheduler.clear();
+        List<SysJob> jobList = jobMapper.selectJobList(new SysJob());
+        for (SysJob job : jobList) {
+            ScheduleUtils.createScheduleJob(scheduler, job);
+        }
+    }
 
     @Override
     public List<SysJob> selectJobList(SysJob job) {

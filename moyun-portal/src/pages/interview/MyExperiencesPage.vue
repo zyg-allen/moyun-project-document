@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted, watch, computed } from 'vue';
-import { useRouter } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 import { useHead } from '@vueuse/head';
 import {
   Plus, Edit3, Trash2, Eye, Star, Briefcase,
@@ -13,6 +13,7 @@ import { getMyExperienceList, deleteExperience } from '@/api/interview';
 import type { InterviewExperienceVO } from '@/types/api';
 import { useToast } from '@/composables/useToast';
 
+const route = useRoute();
 const router = useRouter();
 const toast = useToast();
 
@@ -23,6 +24,16 @@ const total = ref(0);
 const page = ref(1);
 const pageSize = 10;
 const deletingId = ref<string | number | null>(null);
+
+// 状态筛选（参考文章模块「我的文章」），支持 URL ?status= 直达
+const activeStatus = ref<string>((route.query.status as string) || 'all');
+const statusTabs: { value: string; label: string }[] = [
+  { value: 'all', label: '全部' },
+  { value: 'draft', label: '草稿' },
+  { value: 'pending', label: '待审核' },
+  { value: 'published', label: '已发布' },
+  { value: 'rejected', label: '已驳回' },
+];
 
 const totalPages = computed(() => Math.max(1, Math.ceil(total.value / pageSize)));
 
@@ -56,11 +67,22 @@ watch(page, () => {
   loadExperiences();
 });
 
+// 切换状态筛选时回到第一页重新加载
+watch(activeStatus, () => {
+  if (page.value === 1) {
+    loadExperiences();
+  } else {
+    page.value = 1; // 触发上面的 watch 重新加载
+  }
+});
+
 async function loadExperiences() {
   try {
     loading.value = true;
     error.value = null;
-    const res = await getMyExperienceList({ pageNum: page.value, pageSize });
+    const params: Record<string, unknown> = { pageNum: page.value, pageSize };
+    if (activeStatus.value !== 'all') params.status = activeStatus.value;
+    const res = await getMyExperienceList(params);
     if (res.code === 200 && res.data) {
       experiences.value = res.data.list || [];
       total.value = res.data.total || 0;
@@ -155,6 +177,21 @@ function gotoPage(p: number) {
     <!-- 内容区 -->
     <div class="flex-1 py-8">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <!-- 状态筛选 Tab（参考文章模块） -->
+        <div class="flex items-center flex-wrap gap-2 mb-6">
+          <button
+            v-for="tab in statusTabs"
+            :key="tab.value"
+            @click="activeStatus = tab.value"
+            class="px-4 py-1.5 rounded-full text-sm transition"
+            :style="activeStatus === tab.value
+              ? 'background-color: var(--theme-primary); color: #fff;'
+              : 'background-color: var(--theme-surface); color: var(--theme-text-secondary); border: 1px solid var(--theme-border);'"
+          >
+            {{ tab.label }}
+          </button>
+        </div>
+
         <!-- 加载状态 -->
         <div v-if="loading" class="text-center py-16">
           <div
@@ -255,6 +292,15 @@ function gotoPage(p: number) {
                 style="color: var(--theme-text-secondary);"
               >
                 {{ exp.summary || exp.content }}
+              </p>
+
+              <!-- 驳回原因（与文章模块一致，rejected 时展示） -->
+              <p
+                v-if="exp.status === 'rejected' && exp.auditRemark"
+                class="text-xs mb-3 px-3 py-2 rounded-lg"
+                style="background-color: #fef2f2; color: #dc2626;"
+              >
+                驳回原因：{{ exp.auditRemark }}
               </p>
 
               <!-- 底部：统计 + 操作 -->

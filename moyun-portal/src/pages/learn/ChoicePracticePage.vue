@@ -137,7 +137,7 @@ onMounted(() => {
       </div>
 
       <!-- 做题区 -->
-      <div v-else-if="question" class="max-w-3xl mx-auto">
+      <div v-else-if="question">
         <!-- 题目卡片 -->
         <div class="p-6 rounded-2xl border shadow-sm"
              style="background-color: var(--theme-card-bg); border-color: var(--theme-border);">

@@ -264,10 +264,13 @@ public class SysDashboardServiceImpl implements ISysDashboardService {
             Map<String, Object> stats = articleMapper.selectArticleMetrics();
             long totalArticles = toLong(stats.get("totalArticles"));
             long publishedArticles = toLong(stats.get("publishedArticles"));
-            long pendingArticles = toLong(stats.get("pendingArticles"));
             long totalViews = toLong(stats.get("totalViews"));
             long totalLikes = toLong(stats.get("totalLikes"));
             long totalComments = toLong(stats.get("totalComments"));
+
+            // 口径统一：待审核文章从统一审核任务表统计（taskType=article 且 status=pending），
+            // 与审核中心待办列表同源，避免业务表存在孤儿 pending 文章（无对应审核任务）导致两处数字不一致
+            long pendingArticles = auditTaskService.countPendingByType().getOrDefault("article", 0L);
 
             cards.add(buildCard("articleCount", "文章总数", totalArticles, "Document", null));
             cards.add(buildCard("publishedArticles", "已发布文章", publishedArticles, "CircleCheck", null));

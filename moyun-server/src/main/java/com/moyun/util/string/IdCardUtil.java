@@ -113,6 +113,25 @@ public final class IdCardUtil {
     }
 
     /**
+     * 身份证号脱敏展示：保留前 3 位与后 4 位，中间以 * 填充
+     * <p>例：110101199001011234 → 110***********1234</p>
+     *
+     * @param idCard 身份证号（不做合法性校验，长度不足时全脱敏）
+     * @return 脱敏值；入参为空返回 null
+     */
+    public static String mask(String idCard) {
+        if (StringUtils.isBlank(idCard)) {
+            return null;
+        }
+        String id = idCard.trim();
+        if (id.length() < 8) {
+            // 过短无法安全脱敏，全量打码
+            return "*".repeat(id.length());
+        }
+        return id.substring(0, 3) + "*".repeat(id.length() - 7) + id.substring(id.length() - 4);
+    }
+
+    /**
      * 计算校验位（前 17 位 → 第 18 位）
      */
     private static char calculateCheckCode(String idCard17) {

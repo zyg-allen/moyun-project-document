@@ -1294,3 +1294,63 @@ INSERT INTO `moyun-db`.sys_user_role (user_id, role_id, create_by, create_time, 
 --       [loadView] 未找到 component="tool/build/index" 警告
 DELETE FROM sys_role_menu WHERE menu_id = 115;
 DELETE FROM sys_menu WHERE menu_id = 115 AND component = 'tool/build/index';
+
+-- ==================== 增量变更：帮助中心后台菜单合并（2026-08-25） ====================
+-- 说明：帮助分类(5104)、帮助文章(5109)两个菜单隐藏，统一使用帮助中心(5146)合并页（Tab 管理）
+-- 子按钮权限(5105-5108, 5110-5113)保留不变，合并页内嵌组件继续使用原权限字符
+UPDATE `moyun-db`.sys_menu SET visible = '1', update_by = 'admin', update_time = '2026-08-25 00:00:00', remark = '已合并至帮助中心(5146)，菜单隐藏保留路由' WHERE menu_id = 5104;
+UPDATE `moyun-db`.sys_menu SET visible = '1', update_by = 'admin', update_time = '2026-08-25 00:00:00', remark = '已合并至帮助中心(5146)，菜单隐藏保留路由' WHERE menu_id = 5109;
+-- admin 角色补充帮助中心(5146)菜单授权
+INSERT INTO `moyun-db`.sys_role_menu (role_id, menu_id, create_by, create_time, update_by, update_time, remark) VALUES (1, 5146, 'admin', '2026-08-25 00:00:00', '', null, null);
+
+-- ==================== 增量变更：待审核文章口径统一·孤儿任务补建（2026-08-25） ====================
+-- 背景：首页"待审核文章"原按 portal_article.status='pending' 统计，审核中心待办按
+--       sys_audit_task.status='pending' 统计，历史数据存在孤儿 pending 文章（无审核任务）导致两处不一致。
+-- 方案：代码侧已改为统一从 sys_audit_task 统计（见 SysDashboardServiceImpl.buildMetrics）；
+--       数据侧补建/重置孤儿任务，使真实待审核文章进入审核中心待办列表。
+-- 1) 无审核任务的 pending 文章 → 补建审核任务
+INSERT INTO sys_audit_task (task_type, biz_id, title, description, submitter_id, submitter_name, status, priority, route_path, submit_time, create_time, update_time)
+SELECT 'article', a.id, a.title, LEFT(COALESCE(a.excerpt, ''), 1000), a.author_id, u.username, 'pending', 'medium', '/portal/audit-center',
+       COALESCE(a.update_time, a.create_time), NOW(), NOW()
+FROM portal_article a
+LEFT JOIN sys_audit_task t ON t.task_type = 'article' AND t.biz_id = a.id
+LEFT JOIN portal_user u ON u.id = a.author_id
+WHERE a.status = 'pending' AND a.del_flag = '0' AND t.id IS NULL;
+
+-- 2) 审核任务已处理（approved/rejected）但文章仍是 pending → 任务重置为 pending（与"重新提交审核"语义一致）
+UPDATE sys_audit_task t
+JOIN portal_article a ON a.id = t.biz_id
+SET t.status = 'pending', t.audit_opinion = NULL, t.audit_action = NULL,
+    t.auditor_id = NULL, t.auditor_name = NULL, t.audit_time = NULL,
+    t.submit_time = NOW(), t.update_time = NOW()
+WHERE t.task_type = 'article' AND a.status = 'pending' AND a.del_flag = '0' AND t.status <> 'pending';
+
+-- ==================== 增量变更：AI 每日写作 Prompt 定时生成任务（2026-08-25） ====================
+-- 说明：每天 00:10 自动为"今天+明天"生成写作提示（结合节日/节气，AI 失败时回退内置主题池）。
+--       前置条件：已在 AI 模块（模型配置）中启用默认聊天模型；未配置时任务记 warn 并跳过（不报错）。
+--       可在后台「监控 → 定时任务」中暂停/立即执行/调整 cron。
+-- 重要：Quartz 使用 RAMJobStore（内存模式），任务仅在应用启动时从 sys_job 表加载。
+--       本 INSERT 执行后必须【重启后端】，或在后台定时任务页面对该任务执行一次"修改→保存"
+--       （updateJob 会重新注册 JobDetail 到 Quartz），否则"立即执行"会报
+--       "The job referenced by the trigger does not exist"。
+INSERT INTO `moyun-db`.sys_job (job_name, job_group, invoke_target, cron_expression, misfire_policy, concurrent, status, create_by, create_time, update_by, update_time, remark, del_flag)
+VALUES ('AI每日写作Prompt生成', 'DEFAULT', 'writingPromptTask.generateDailyPrompt()', '0 10 0 * * ?', '3', '1', '0', 'admin', '2026-08-25 00:00:00', '', null, '每天00:10为今天+明天生成写作提示（结合节日节气，AI失败回退内置主题池）', '0');
+
+-- ==================== 增量变更：简历到岗时间字典（2026-08-25 v10.10） ====================
+-- 说明：简历编辑页"到岗时间"由文本输入改为字典下拉（portal_available_time）。
+--       dict_value 直接存中文文本，前端原样入库（不存字典码），历史自由文本值由前端动态兼容。
+INSERT INTO `moyun-db`.sys_dict_type (dict_id, dict_name, dict_type, status, create_by, create_time, update_by, update_time, remark, del_flag)
+VALUES (130, '简历到岗时间', 'portal_available_time', '0', 'admin', '2026-08-25 00:00:00', '', null, 'v10.10 简历求职意向-到岗时间（值为中文文本，直接入库）', '0');
+
+INSERT INTO `moyun-db`.sys_dict_data (dict_code, dict_sort, dict_label, dict_value, dict_type, css_class, list_class, is_default, status, create_by, create_time, update_by, update_time, remark, del_flag)
+VALUES (128, 1, '随时到岗', '随时到岗', 'portal_available_time', '', 'primary', 'Y', '0', 'admin', '2026-08-25 00:00:00', '', null, null, '0');
+INSERT INTO `moyun-db`.sys_dict_data (dict_code, dict_sort, dict_label, dict_value, dict_type, css_class, list_class, is_default, status, create_by, create_time, update_by, update_time, remark, del_flag)
+VALUES (129, 2, '一周内到岗', '一周内到岗', 'portal_available_time', '', 'success', 'N', '0', 'admin', '2026-08-25 00:00:00', '', null, null, '0');
+INSERT INTO `moyun-db`.sys_dict_data (dict_code, dict_sort, dict_label, dict_value, dict_type, css_class, list_class, is_default, status, create_by, create_time, update_by, update_time, remark, del_flag)
+VALUES (130, 3, '两周内到岗', '两周内到岗', 'portal_available_time', '', 'info', 'N', '0', 'admin', '2026-08-25 00:00:00', '', null, null, '0');
+INSERT INTO `moyun-db`.sys_dict_data (dict_code, dict_sort, dict_label, dict_value, dict_type, css_class, list_class, is_default, status, create_by, create_time, update_by, update_time, remark, del_flag)
+VALUES (131, 4, '一个月内到岗', '一个月内到岗', 'portal_available_time', '', 'warning', 'N', '0', 'admin', '2026-08-25 00:00:00', '', null, null, '0');
+INSERT INTO `moyun-db`.sys_dict_data (dict_code, dict_sort, dict_label, dict_value, dict_type, css_class, list_class, is_default, status, create_by, create_time, update_by, update_time, remark, del_flag)
+VALUES (132, 5, '三个月内到岗', '三个月内到岗', 'portal_available_time', '', 'info', 'N', '0', 'admin', '2026-08-25 00:00:00', '', null, null, '0');
+INSERT INTO `moyun-db`.sys_dict_data (dict_code, dict_sort, dict_label, dict_value, dict_type, css_class, list_class, is_default, status, create_by, create_time, update_by, update_time, remark, del_flag)
+VALUES (133, 6, '面议', '面议', 'portal_available_time', '', 'default', 'N', '0', 'admin', '2026-08-25 00:00:00', '', null, null, '0');

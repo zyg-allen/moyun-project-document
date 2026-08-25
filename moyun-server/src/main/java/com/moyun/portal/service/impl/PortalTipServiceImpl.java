@@ -59,6 +59,9 @@ public class PortalTipServiceImpl implements IPortalTipService {
     @Autowired
     private IPortalGrowthService portalGrowthService;
 
+    @Autowired
+    private com.moyun.portal.util.RealNameChecker realNameChecker;
+
     @Override
     @Transactional(rollbackFor = Exception.class)
     public PortalTipOrder toggleTipOrList(PortalTipOrder order) {
@@ -92,6 +95,8 @@ public class PortalTipServiceImpl implements IPortalTipService {
         if (tipperId == null) {
             throw new BusinessException("USER_NOT_LOGIN", "请先登录");
         }
+        // v10.10 实名策略：打赏属积分消费敏感场景，强制实名（防滥用与纠纷可溯源）
+        realNameChecker.checkRealName(tipperId);
         int points = order.getAmount().intValue();
         if (points <= 0) {
             throw new BusinessException("TIP_AMOUNT_INVALID", "打赏积分必须为正整数");

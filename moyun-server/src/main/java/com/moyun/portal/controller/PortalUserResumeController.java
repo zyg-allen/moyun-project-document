@@ -42,6 +42,9 @@ public class PortalUserResumeController extends BaseController {
     @Autowired
     private IUserResumeService userResumeService;
 
+    @Autowired
+    private com.moyun.ext.cms.service.ResumeParseService resumeParseService;
+
     private Long currentUserId() {
         return PortalSecurityUtils.getUserId();
     }
@@ -55,6 +58,17 @@ public class PortalUserResumeController extends BaseController {
         }
         Page<UserResumeVO> page = PageUtils.buildPage(query);
         return AjaxResult.success(userResumeService.selectMyResumePage(page, userId, query));
+    }
+
+    @Operation(summary = "解析简历附件（v10.12）",
+            description = "上传 PDF/Word/TXT 附件，抽取文本并结构化解析（LLM 优先，规则兜底），返回字段语义对齐在线简历的结果")
+    @PostMapping(value = "/parse", consumes = org.springframework.http.MediaType.MULTIPART_FORM_DATA_VALUE)
+    public AjaxResult parseAttachment(@org.springframework.web.bind.annotation.RequestParam("file") org.springframework.web.multipart.MultipartFile file) {
+        Long userId = currentUserId();
+        if (userId == null) {
+            return AjaxResult.error(HttpStatus.UNAUTHORIZED, "登录已过期，请重新登录");
+        }
+        return AjaxResult.success(resumeParseService.parse(file));
     }
 
     @Operation(summary = "简历详情", description = "查询指定简历详情（仅作者可访问）")

@@ -123,6 +123,7 @@ import { ref, watch } from 'vue';
 import { Gift, X } from 'lucide-vue-next';
 import { tipTarget } from '@/api/tip';
 import { getSafeAvatar } from '@/utils/avatar';
+import { requireRealName } from '@/utils/creatorPermission';
 import type { TipTargetType } from '@/types';
 
 const props = defineProps<{
@@ -165,6 +166,8 @@ async function handleTip() {
     emit('error', '请输入有效的积分数量');
     return;
   }
+  // v10.10 实名策略：打赏属积分消费敏感场景，前端先强制实名校验（后端同步兜底）
+  if (!(await requireRealName())) return;
   tipping.value = true;
   try {
     const res = await tipTarget(props.targetType, props.targetId, {

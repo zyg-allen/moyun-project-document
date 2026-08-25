@@ -92,16 +92,16 @@
           <el-input-number v-model="form.sort" controls-position="right" :min="0" />
         </el-form-item>
         <el-form-item label="精选" prop="isFeatured">
-          <el-radio-group v-model="form.isFeatured">
-            <el-radio :label="1">是</el-radio>
-            <el-radio :label="0">否</el-radio>
-          </el-radio-group>
+          <el-select v-model="form.isFeatured" placeholder="请选择是否精选" style="width: 100%">
+            <el-option label="是" :value="1" />
+            <el-option label="否" :value="0" />
+          </el-select>
         </el-form-item>
         <el-form-item label="状态" prop="status">
-          <el-radio-group v-model="form.status">
-            <el-radio label="published">已发布</el-radio>
-            <el-radio label="draft">草稿</el-radio>
-          </el-radio-group>
+          <el-select v-model="form.status" placeholder="请选择状态" style="width: 100%">
+            <el-option label="已发布" value="published" />
+            <el-option label="草稿" value="draft" />
+          </el-select>
         </el-form-item>
         <el-form-item label="备注" prop="remark">
           <el-input v-model="form.remark" type="textarea" placeholder="请输入内容" />

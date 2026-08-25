@@ -10,7 +10,7 @@ import { useHead } from '@vueuse/head';
 import {
   Save, Download, Star, Plus, Trash2, User, Briefcase, GraduationCap,
   Code, FileText, Target, Sparkles, CheckCircle2, XCircle, AlertCircle,
-  ArrowRight, PenLine, UploadCloud, Terminal, FolderKanban, X,
+  ArrowRight, PenLine, UploadCloud, Terminal, FolderKanban, X, ShieldCheck,
 } from 'lucide-vue-next';
 import SiteFooter from '@/components/SiteFooter.vue';
 import Breadcrumb from '@/components/Breadcrumb.vue';
@@ -22,12 +22,18 @@ import ResumePreviewModal from '@/components/resume/ResumePreviewModal.vue';
 import { generateSeo } from '@/utils/seo';
 import {
   getResumeDetail, saveResume, exportResumePdf, scoreResume, getResumeAiAdvice,
+  getMyResumeList, parseResumeAttachment,
 } from '@/api/interview';
+import { useDictData } from '@/composables/useDictData';
+import type { ResumeParseVO } from '@/types/api';
+import { getCurrentUser } from '@/api/user';
+import { getMyCertification, type CreatorCertification } from '@/api/certification';
+import { uploadFile } from '@/api/upload';
 import { getToken } from '@/api/client';
 import type {
   UserResumeVO, UserResumeJobIntention, UserResumeEducationItem, UserResumeWorkItem,
   UserResumeProjectItem, UserResumeSkillItem, UserResumeScoreItem,
-  ResumeAiAdviceVO,
+  ResumeAiAdviceVO, ResumeAiAdviceItem,
 } from '@/types/api';
 import { useToast } from '@/composables/useToast';
 
@@ -38,7 +44,24 @@ const toast = useToast();
 const editId = computed(() => route.params.id as string | undefined);
 const isEdit = computed(() => !!editId.value);
 
-const pageTitle = computed(() => isEdit.value ? '编辑简历' : '创建简历');
+// 到岗时间字典下拉（portal_available_time；字典未配置时用本地默认兜底，值为文本可直接入库）
+const dictMap = useDictData(['portal_available_time']);
+const AVAILABLE_TIME_FALLBACK = ['随时到岗', '一周内到岗', '两周内到岗', '一个月内到岗', '三个月内到岗', '面议'];
+const availableTimeOptions = computed(() => {
+  const dictItems = dictMap['portal_available_time'] || [];
+  const opts = dictItems.length > 0
+    ? dictItems.map((d) => d.dictLabel)
+    : AVAILABLE_TIME_FALLBACK;
+  // 历史存量值不在字典中时动态补入，保证反显不丢失
+  const current = ensureJobIntention().availableTime?.trim();
+  if (current && !opts.includes(current)) opts.unshift(current);
+  return opts;
+});
+
+// 无 :id 进入时若已写过简历，反显最新一版续编（form.id 带上后续保存即为更新）
+const hasReflectedResume = ref(false);
+
+const pageTitle = computed(() => (isEdit.value || hasReflectedResume.value) ? '编辑简历' : '创建简历');
 
 // 加载 / 状态
 const loadingDetail = ref(false);
@@ -56,7 +79,7 @@ const previewVisible = ref(false);
 const adviceVisible = ref(false);
 
 // 已采纳建议索引集合
-const acceptedAdvices = ref<Set<number>>(new Set());
+const acceptedAdvices = ref<Set<string>>(new Set());
 
 // 左侧导航当前高亮项（scroll spy）
 const activeSection = ref('sec-personal');
@@ -64,6 +87,47 @@ const mainScrollRef = ref<HTMLElement | null>(null);
 
 // 技能输入框（chip cloud 添加）
 const skillInput = ref('');
+
+// 头像上传
+const avatarUploading = ref(false);
+const avatarInputRef = ref<HTMLInputElement | null>(null);
+
+function triggerAvatarUpload() {
+  avatarInputRef.value?.click();
+}
+
+function onAvatarChange(e: Event) {
+  const input = e.target as HTMLInputElement;
+  const file = input.files?.[0];
+  if (!file) return;
+  // 仅允许图片类型
+  if (!file.type.startsWith('image/')) {
+    toast.error('请选择图片文件');
+    input.value = '';
+    return;
+  }
+  avatarUploading.value = true;
+  uploadFile(file, { module: 'resume' })
+    .then((res) => {
+      if (res.code === 200 && res.data?.fileUrl) {
+        form.avatar = res.data.fileUrl;
+        toast.success('头像上传成功');
+      } else {
+        toast.error(res.message || '头像上传失败');
+      }
+    })
+    .catch((err) => {
+      toast.error((err as Error)?.message || '头像上传失败');
+    })
+    .finally(() => {
+      avatarUploading.value = false;
+      input.value = ''; // 允许重复选择同一文件
+    });
+}
+
+function removeAvatar() {
+  form.avatar = '';
+}
 
 // 表单
 const form = reactive<UserResumeVO>({
@@ -358,6 +422,7 @@ async function handleGetAdvice() {
     if (res.code === 200 && res.data) {
       aiAdvice.value = res.data;
       acceptedAdvices.value.clear();
+      activeAdviceTab.value = 'all';
     } else {
       toast.error(res.message || '生成建议失败，请稍后重试');
     }
@@ -382,21 +447,342 @@ const gradeStyle: Record<string, string> = {
   D: 'bg-red-50 text-red-600 border border-red-200',
 };
 
-// 采纳建议 —— 追加到自我介绍
-function acceptAdvice(advice: { dimension?: string; content?: string; priority?: string }, idx: number) {
-  if (acceptedAdvices.value.has(idx)) {
+// ============ AI 建议：模块 Tab + 采纳自动填充（v10.11 对齐原型） ============
+
+// 维度元信息：Tab 显示名 / 页面锚点（无 optimized 的结构化字段引导手动完善）
+const DIMENSION_META: Record<string, { label: string; anchor: string }> = {
+  '基本信息': { label: '基本信息', anchor: 'sec-personal' },
+  '求职意向': { label: '求职意向', anchor: 'sec-objective' },
+  '教育经历': { label: '教育背景', anchor: 'sec-education' },
+  '工作经历': { label: '工作经历', anchor: 'sec-work' },
+  '项目经历': { label: '项目经历', anchor: 'sec-project' },
+  '技能列表': { label: '专业技能', anchor: 'sec-skills' },
+  '自我介绍': { label: '自我评价', anchor: 'sec-eval' },
+  '岗位匹配度': { label: '岗位匹配', anchor: 'sec-skills' },
+};
+// Tab 固定顺序（含全部）
+const ADVICE_TAB_ORDER = ['基本信息', '求职意向', '教育经历', '工作经历', '项目经历', '技能列表', '自我介绍', '岗位匹配度'];
+
+// 当前激活 Tab（'all' = 全部）
+const activeAdviceTab = ref('all');
+
+// 出现过建议的维度 Tab（固定顺序过滤）
+const adviceTabs = computed(() => {
+  const dims = new Set((aiAdvice.value?.advices || []).map(a => a.dimension || ''));
+  return [
+    { value: 'all', label: `全部 (${(aiAdvice.value?.advices || []).length})` },
+    ...ADVICE_TAB_ORDER.filter(d => dims.has(d)).map(d => ({
+      value: d,
+      label: DIMENSION_META[d]?.label || d,
+    })),
+  ];
+});
+
+// 当前 Tab 过滤后的建议列表
+const filteredAdvices = computed(() => {
+  const list = aiAdvice.value?.advices || [];
+  return activeAdviceTab.value === 'all'
+    ? list
+    : list.filter(a => (a.dimension || '') === activeAdviceTab.value);
+});
+
+// 建议唯一 key（Tab 过滤后索引不稳定，用内容做 key）
+function adviceKey(a: ResumeAiAdviceItem): string {
+  return `${a.dimension || ''}|${(a.content || '').slice(0, 24)}`;
+}
+
+// 从 scoreDetail 取维度得分（用于卡片徽章）
+function dimensionScore(dim: string): { score: number; maxScore: number; rate: number } | null {
+  const item = (form.scoreDetail || []).find(s => s.item === dim);
+  if (!item || !item.maxScore) return null;
+  return { score: item.score, maxScore: item.maxScore, rate: item.score / item.maxScore };
+}
+
+// 维度得分徽章颜色
+function scoreBadgeClass(rate: number): string {
+  if (rate >= 0.8) return 'bg-green-50 text-green-600 border border-green-200';
+  if (rate >= 0.6) return 'bg-blue-50 text-blue-600 border border-blue-200';
+  if (rate >= 0.4) return 'bg-amber-50 text-amber-600 border border-amber-200';
+  return 'bg-red-50 text-red-600 border border-red-200';
+}
+
+// 维度评分条颜色（按得分率分级）
+function metricColor(rate: number): string {
+  if (rate >= 0.8) return '#059669';
+  if (rate >= 0.6) return '#2563eb';
+  if (rate >= 0.4) return '#d97706';
+  return '#dc2626';
+}
+
+/**
+ * 解析 optimized 技能文本并追加到技能列表（去重）
+ * 格式："精通：A、B\n熟练：C\n了解：D、E" 或纯顿号列表（默认"了解"）
+ */
+function appendSkillsFromText(text: string): number {
+  const existing = new Set((form.skills || []).map(s => (s.name || '').trim()).filter(Boolean));
+  let added = 0;
+  for (const rawLine of text.split('\n')) {
+    const line = rawLine.trim();
+    if (!line) continue;
+    let level = '了解';
+    let namesPart = line;
+    // "精通：/熟练：/了解："前缀 → level
+    const m = line.match(/^(精通|熟练|了解|一般)[:：]\s*(.+)$/);
+    if (m) {
+      level = m[1];
+      namesPart = m[2];
+    }
+    for (const raw of namesPart.split(/[、,，;；\/]/)) {
+      const name = raw.trim().replace(/[。.\s]+$/, '');
+      if (!name || name.length > 30 || existing.has(name) || /^\[.*\]$/.test(name)) continue;
+      (form.skills = form.skills || []).push({ name, level, category: '' });
+      existing.add(name);
+      added++;
+    }
+  }
+  return added;
+}
+
+/**
+ * 采纳建议 —— optimized 按维度映射自动填充到对应表单字段
+ * <p>字段映射（注意与简历表单结构对齐）：
+ * <ul>
+ *   <li>自我介绍 → form.selfIntro（整体替换）</li>
+ *   <li>教育经历 → educations[0].description（无记录则引导先添加）</li>
+ *   <li>工作经历 → works[0].description（同上）</li>
+ *   <li>项目经历 → projects[0].description（同上）</li>
+ *   <li>技能列表 / 岗位匹配度 → 解析文本追加 skills 条目（去重，含熟练度分级）</li>
+ *   <li>基本信息 / 求职意向 → 结构化字段无法文本填充，滚动到对应区块手动完善</li>
+ * </ul></p>
+ */
+function acceptAdvice(advice: ResumeAiAdviceItem) {
+  const key = adviceKey(advice);
+  if (acceptedAdvices.value.has(key)) {
     toast.info('该建议已采纳');
     return;
   }
-  if (!advice.content) {
-    toast.error('该建议内容为空，无法采纳');
+  const dim = advice.dimension || '';
+  const meta = DIMENSION_META[dim];
+  const text = advice.optimized?.trim();
+
+  // 无优化文本（结构化字段维度）：引导到对应区块手动完善
+  if (!text) {
+    if (meta) scrollToSection(meta.anchor);
+    adviceVisible.value = false;
+    toast.info('该维度需在表单中手动完善，已为您定位到对应区块');
     return;
   }
-  const prefix = form.selfIntro?.trim() ? '\n\n' : '';
-  const tag = `[${advice.dimension || '改进建议'}] ${advice.content}`;
-  form.selfIntro = (form.selfIntro || '') + prefix + tag;
-  acceptedAdvices.value.add(idx);
-  toast.success('已采纳到自我介绍');
+
+  switch (dim) {
+    case '自我介绍':
+      form.selfIntro = text;
+      break;
+    case '教育经历':
+      if (!form.educations?.length) {
+        toast.error('请先添加一条教育背景记录，再采纳该建议');
+        scrollToSection('sec-education');
+        adviceVisible.value = false;
+        return;
+      }
+      form.educations[0].description = text;
+      break;
+    case '工作经历':
+      if (!form.works?.length) {
+        toast.error('请先添加一条工作经历记录，再采纳该建议');
+        scrollToSection('sec-work');
+        adviceVisible.value = false;
+        return;
+      }
+      form.works[0].description = text;
+      break;
+    case '项目经历':
+      if (!form.projects?.length) {
+        toast.error('请先添加一条项目经历记录，再采纳该建议');
+        scrollToSection('sec-project');
+        adviceVisible.value = false;
+        return;
+      }
+      form.projects[0].description = text;
+      break;
+    case '技能列表':
+    case '岗位匹配度': {
+      const added = appendSkillsFromText(text);
+      if (added === 0) {
+        toast.info('优化文本暂无可识别的技能条目，请手动复制到技能列表');
+        return;
+      }
+      toast.success(`已追加 ${added} 项技能到「专业技能」`);
+      acceptedAdvices.value.add(key);
+      return;
+    }
+    default:
+      // 未知维度兜底：追加到自我评价
+      form.selfIntro = (form.selfIntro || '') + (form.selfIntro?.trim() ? '\n\n' : '') + text;
+  }
+  acceptedAdvices.value.add(key);
+  toast.success(`已填充到「${meta?.label || dim}」`);
+}
+
+// 一键把缺失技能加入技能清单（level=了解，避免虚标）
+function addMissingSkills() {
+  const skills = aiAdvice.value?.missingSkills || [];
+  if (!skills.length) return;
+  const text = '了解：' + skills.join('、');
+  const added = appendSkillsFromText(text);
+  toast.success(added > 0 ? `已将 ${added} 项缺失技能加入「专业技能」（熟练度：了解）` : '缺失技能均已存在');
+}
+
+// ============ 附件简历：上传 + 解析 + 覆盖填充（v10.12） ============
+
+const ACCEPT_EXTS = ['.pdf', '.doc', '.docx', '.txt', '.md'];
+const UPLOAD_MAX_SIZE = 10 * 1024 * 1024; // 10MB（与后端一致）
+
+const attachmentInput = ref<HTMLInputElement | null>(null);
+const uploading = ref(false);
+const parsing = ref(false);
+const dragOver = ref(false);
+/** 已上传附件信息（本地状态；fileUrl 持久化在 form.fileUrl） */
+const attachment = ref<{ name: string; size: number; file: File | null; fileUrl: string } | null>(null);
+/** 解析结果预览（确认后覆盖填充） */
+const parseResult = ref<ResumeParseVO | null>(null);
+const parsePreviewVisible = ref(false);
+
+// 文件校验：类型 + 大小
+function validateFile(file: File): string | null {
+  const ext = '.' + (file.name.split('.').pop() || '').toLowerCase();
+  if (!ACCEPT_EXTS.includes(ext)) {
+    return `不支持的文件类型 ${ext}，仅支持 PDF / Word / TXT / Markdown`;
+  }
+  if (file.size > UPLOAD_MAX_SIZE) {
+    return `文件超过 10MB（当前 ${(file.size / 1024 / 1024).toFixed(1)}MB）`;
+  }
+  return null;
+}
+
+// 上传附件（点击 / 拖拽统一入口）
+async function handleAttachmentFile(file: File) {
+  const err = validateFile(file);
+  if (err) {
+    toast.error(err);
+    return;
+  }
+  try {
+    uploading.value = true;
+    const res = await uploadFile(file, { module: 'resume' });
+    if (res.code === 200 && res.data?.fileUrl) {
+      form.fileUrl = res.data.fileUrl;
+      attachment.value = { name: file.name, size: file.size, file, fileUrl: res.data.fileUrl };
+      toast.success('附件上传成功，可解析后同步至在线简历');
+    } else {
+      toast.error(res.message || '附件上传失败');
+    }
+  } catch (e) {
+    toast.error((e as Error)?.message || '附件上传失败');
+  } finally {
+    uploading.value = false;
+  }
+}
+
+function onAttachmentChange(e: Event) {
+  const input = e.target as HTMLInputElement;
+  const file = input.files?.[0];
+  if (file) handleAttachmentFile(file);
+  input.value = ''; // 允许重复选择同一文件
+}
+
+function onDrop(e: DragEvent) {
+  dragOver.value = false;
+  const file = e.dataTransfer?.files?.[0];
+  if (file) handleAttachmentFile(file);
+}
+
+function removeAttachment() {
+  attachment.value = null;
+  form.fileUrl = '';
+}
+
+// 文件大小格式化
+function fmtSize(bytes: number): string {
+  if (bytes < 1024) return bytes + 'B';
+  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(0) + 'KB';
+  return (bytes / 1024 / 1024).toFixed(1) + 'MB';
+}
+
+// 解析附件 → 预览确认
+async function parseAttachment() {
+  const file = attachment.value?.file;
+  if (!file) {
+    // 刷新后本地 File 丢失：提示重新上传再解析
+    toast.error('附件为历史记录，请重新上传后再解析');
+    return;
+  }
+  try {
+    parsing.value = true;
+    const res = await parseResumeAttachment(file);
+    if (res.code === 200 && res.data) {
+      parseResult.value = res.data;
+      parsePreviewVisible.value = true;
+    } else {
+      toast.error(res.message || '附件解析失败');
+    }
+  } catch (e) {
+    toast.error((e as Error)?.message || '附件解析失败');
+  } finally {
+    parsing.value = false;
+  }
+}
+
+// 解析结果摘要（预览弹窗用）
+const parseSummary = computed(() => {
+  const p = parseResult.value;
+  if (!p) return [];
+  const items: { label: string; value: string }[] = [];
+  if (p.name) items.push({ label: '姓名', value: p.name });
+  if (p.gender) items.push({ label: '性别', value: p.gender });
+  if (p.birthDate) items.push({ label: '出生日期', value: p.birthDate });
+  if (p.phone) items.push({ label: '电话', value: p.phone });
+  if (p.email) items.push({ label: '邮箱', value: p.email });
+  if (p.jobIntention?.position) items.push({ label: '期望职位', value: p.jobIntention.position });
+  if (p.jobIntention?.city) items.push({ label: '期望城市', value: p.jobIntention.city });
+  if (p.educations?.length) items.push({ label: '教育经历', value: `${p.educations.length} 条` });
+  if (p.works?.length) items.push({ label: '工作经历', value: `${p.works.length} 条` });
+  if (p.projects?.length) items.push({ label: '项目经历', value: `${p.projects.length} 条` });
+  if (p.skills?.length) items.push({ label: '专业技能', value: `${p.skills.length} 项` });
+  if (p.selfIntro) items.push({ label: '自我评价', value: '已识别' });
+  return items;
+});
+
+/**
+ * 确认覆盖填充：解析结果按语义映射覆盖在线简历表单
+ * 规则：null/空字段不覆盖（保留原值）；数组字段非空时整体替换
+ */
+function applyParseResult() {
+  const p = parseResult.value;
+  if (!p) return;
+  if (p.name) form.name = p.name;
+  if (p.gender) form.gender = p.gender;
+  if (p.birthDate) form.birthDate = p.birthDate;
+  if (p.phone) form.phone = p.phone;
+  if (p.email) form.email = p.email;
+  if (p.title && !form.title) form.title = p.title;
+  if (p.selfIntro) form.selfIntro = p.selfIntro;
+  if (p.jobIntention) {
+    const ji = ensureJobIntention();
+    if (p.jobIntention.position) ji.position = p.jobIntention.position;
+    if (p.jobIntention.city) ji.city = p.jobIntention.city;
+    if (p.jobIntention.salaryMin != null) ji.salaryMin = p.jobIntention.salaryMin;
+    if (p.jobIntention.salaryMax != null) ji.salaryMax = p.jobIntention.salaryMax;
+    if (p.jobIntention.jobType) ji.jobType = p.jobIntention.jobType;
+    if (p.jobIntention.availableTime) ji.availableTime = p.jobIntention.availableTime;
+  }
+  if (p.educations?.length) form.educations = p.educations;
+  if (p.works?.length) form.works = p.works;
+  if (p.projects?.length) form.projects = p.projects;
+  if (p.skills?.length) form.skills = p.skills;
+
+  parsePreviewVisible.value = false;
+  saveStatus.value = 'dirty';
+  toast.success('已将附件内容覆盖填充到在线简历，请检查后保存');
 }
 
 // 撤销（mock：提示用户使用浏览器快捷键）
@@ -444,6 +830,38 @@ watch(
   { deep: true },
 );
 
+/** 将简历详情填充进表单（编辑加载与"反显最新一版"共用） */
+function fillFromDetail(d: any) {
+  form.id = d.id;
+  form.title = d.title || '';
+  form.name = d.name || '';
+  form.gender = d.gender || '';
+  form.birthDate = d.birthDate || '';
+  form.phone = d.phone || '';
+  form.email = d.email || '';
+  form.avatar = d.avatar || '';
+  form.jobIntention = d.jobIntention || {
+    position: '', city: '', salaryMin: undefined, salaryMax: undefined,
+    jobType: '', availableTime: '',
+  };
+  form.educations = d.educations || [];
+  form.works = d.works || [];
+  form.projects = d.projects || [];
+  form.skills = d.skills || [];
+  form.selfIntro = d.selfIntro || '';
+  form.score = d.score;
+  form.scoreDetail = d.scoreDetail || [];
+  form.scoredTime = d.scoredTime || '';
+  form.fileUrl = d.fileUrl || '';
+  form.exportTime = d.exportTime || '';
+  form.status = d.status || 'draft';
+  form.versionNo = d.versionNo;
+  // 历史附件回显（本地 File 不可恢复，仅展示；解析需重新上传）
+  if (d.fileUrl) {
+    attachment.value = { name: '历史附件简历', size: 0, file: null, fileUrl: d.fileUrl };
+  }
+}
+
 async function loadDetail(): Promise<boolean> {
   if (!editId.value) return false;
   try {
@@ -451,31 +869,7 @@ async function loadDetail(): Promise<boolean> {
     pageError.value = null;
     const res = await getResumeDetail(editId.value);
     if (res.code === 200 && res.data) {
-      const d = res.data;
-      form.id = d.id;
-      form.title = d.title || '';
-      form.name = d.name || '';
-      form.gender = d.gender || '';
-      form.birthDate = d.birthDate || '';
-      form.phone = d.phone || '';
-      form.email = d.email || '';
-      form.avatar = d.avatar || '';
-      form.jobIntention = d.jobIntention || {
-        position: '', city: '', salaryMin: undefined, salaryMax: undefined,
-        jobType: '', availableTime: '',
-      };
-      form.educations = d.educations || [];
-      form.works = d.works || [];
-      form.projects = d.projects || [];
-      form.skills = d.skills || [];
-      form.selfIntro = d.selfIntro || '';
-      form.score = d.score;
-      form.scoreDetail = d.scoreDetail || [];
-      form.scoredTime = d.scoredTime || '';
-      form.fileUrl = d.fileUrl || '';
-      form.exportTime = d.exportTime || '';
-      form.status = d.status || 'draft';
-      form.versionNo = d.versionNo;
+      fillFromDetail(res.data);
       await nextTick();
       saveStatus.value = 'saved';
       return true;
@@ -491,16 +885,103 @@ async function loadDetail(): Promise<boolean> {
   }
 }
 
+/**
+ * 反显最新一版简历（无 :id 进入创建页时调用）
+ * 列表按 updateTime 倒序，取第一份即最新；拉详情填充表单并带上 form.id，
+ * 后续保存即为"续编该简历"而不是新建，避免产生大量重复简历。
+ * 无简历 / 未登录 / 加载失败时返回 false，走个人中心信息预填。
+ */
+async function reflectLatestResume(): Promise<boolean> {
+  if (!getToken()) return false;
+  try {
+    const listRes = await getMyResumeList({ pageNum: 1, pageSize: 1 });
+    if (listRes.code === 200 && listRes.data?.list?.length) {
+      const latest = listRes.data.list[0];
+      const detailRes = await getResumeDetail(latest.id!);
+      if (detailRes.code === 200 && detailRes.data) {
+        fillFromDetail(detailRes.data);
+        hasReflectedResume.value = true;
+        await nextTick();
+        saveStatus.value = 'saved';
+        return true;
+      }
+    }
+  } catch (err) {
+    // 反显失败静默：回退到个人中心预填
+    console.warn('反显最新简历失败:', err);
+  }
+  return false;
+}
+
 onMounted(() => {
   if (isEdit.value && editId.value) {
     loadDetail().then((ok) => {
       if (ok) nextTick(() => { loaded.value = true; });
     });
   } else {
-    nextTick(() => { loaded.value = true; });
+    // 无 :id 进入：若已写过简历则反显最新一版续编（带 form.id，保存即更新）；
+    // 没有简历才走个人中心基础信息预填（仅填空字段不覆盖）
+    reflectLatestResume().then((reflected) => {
+      if (!reflected) prefillFromProfile();
+      nextTick(() => { loaded.value = true; });
+    });
   }
+  // 实名认证状态（用于姓名字段的可选实名填充，失败静默）
+  loadCertifiedInfo();
   window.addEventListener('scroll', handleScrollSpy, { passive: true });
 });
+
+/** 新建简历时用个人中心信息预填基础字段（只填空值，不覆盖用户已输入内容） */
+async function prefillFromProfile() {
+  if (!getToken()) return; // 未登录不预填（编辑页本身需要登录，此处兜底）
+  try {
+    const res = await getCurrentUser();
+    if (res.code !== 200 || !res.data) return;
+    const u = res.data;
+    if (!form.name?.trim()) form.name = u.nickname || u.username || '';
+    if (!form.gender?.trim()) form.gender = u.gender || '';
+    if (!form.birthDate?.trim()) form.birthDate = u.birthday || '';
+    if (!form.phone?.trim()) form.phone = u.phone || '';
+    if (!form.email?.trim()) form.email = u.email || '';
+    if (!form.avatar?.trim()) form.avatar = u.avatar || '';
+    // 个人中心的职位可作为求职意向的默认岗位
+    if (!form.jobIntention.position?.trim()) form.jobIntention.position = u.position || '';
+    if (!form.title?.trim()) form.title = form.name ? `${form.name}的简历` : '';
+  } catch (err) {
+    // 预填失败静默处理，不影响创建流程
+    console.warn('个人信息预填失败:', err);
+  }
+}
+
+// ============ 实名姓名可选填充（v10.8 实名合规） ============
+// 已通过身份认证的用户可在姓名字段一键使用实名姓名（主动选择，不自动回填，保护隐私边界）
+const certifiedInfo = ref<CreatorCertification | null>(null);
+const hasApprovedIdentity = computed(() =>
+  certifiedInfo.value?.status === 'approved'
+  && certifiedInfo.value?.certType === 'identity'
+  && !!certifiedInfo.value?.realName?.trim()
+);
+// 加载实名认证记录（失败静默，仅影响可选填充按钮的显隐）
+async function loadCertifiedInfo() {
+  if (!getToken()) return;
+  try {
+    const res = await getMyCertification();
+    if (res.code === 200) {
+      certifiedInfo.value = res.data || null;
+    }
+  } catch (err) {
+    console.warn('加载实名认证状态失败:', err);
+  }
+}
+// 一键填充实名姓名；性别/出生日期仅在为空时顺带补全（来自证件号推导，均为本人可见数据）
+function useCertifiedName() {
+  const cert = certifiedInfo.value;
+  if (!cert?.realName?.trim()) return;
+  form.name = cert.realName.trim();
+  if (!form.gender?.trim() && cert.derivedGender) form.gender = cert.derivedGender;
+  if (!form.birthDate?.trim() && cert.derivedBirth) form.birthDate = cert.derivedBirth;
+  toast.success('已填充实名姓名');
+}
 
 onBeforeUnmount(() => {
   window.removeEventListener('scroll', handleScrollSpy);
@@ -513,6 +994,7 @@ watch(() => route.params.id, (newId, oldId) => {
     loaded.value = false;
     form.id = undefined;
     form.title = '';
+    prefillFromProfile(); // 切回新建态同样反显个人中心信息
     nextTick(() => { loaded.value = true; });
     return;
   }
@@ -615,6 +1097,17 @@ onBeforeRouteLeave((to, from, next) => {
             <div class="re-field">
               <label class="re-field-label"><span class="re-req">*</span> 姓名</label>
               <input v-model="form.name" type="text" placeholder="请输入真实姓名" class="re-input" />
+              <!-- 已实名用户可选一键填充实名姓名（主动选择，不自动回填） -->
+              <button
+                v-if="hasApprovedIdentity"
+                type="button"
+                class="re-certified-fill"
+                title="使用实名认证预留的姓名，性别与出生日期仅在为空时补全"
+                @click="useCertifiedName"
+              >
+                <ShieldCheck class="w-3.5 h-3.5" />
+                使用实名姓名
+              </button>
             </div>
             <div class="re-field">
               <label class="re-field-label"><span class="re-req">*</span> 手机号码</label>
@@ -643,8 +1136,24 @@ onBeforeRouteLeave((to, from, next) => {
               <input v-model="form.birthDate" type="date" class="re-input" />
             </div>
             <div class="re-field">
-              <label class="re-field-label">头像 URL</label>
-              <input v-model="form.avatar" type="text" placeholder="https://..." class="re-input" />
+              <label class="re-field-label">头像</label>
+              <div class="re-avatar-field">
+                <div class="re-avatar-preview" @click="triggerAvatarUpload" title="点击上传头像">
+                  <img v-if="form.avatar" :src="form.avatar" alt="头像" class="re-avatar-img" />
+                  <User v-else class="re-avatar-placeholder" />
+                  <div v-if="avatarUploading" class="re-avatar-loading">上传中…</div>
+                </div>
+                <div class="re-avatar-actions">
+                  <button type="button" class="re-avatar-btn" :disabled="avatarUploading" @click="triggerAvatarUpload">
+                    {{ avatarUploading ? '上传中…' : (form.avatar ? '更换头像' : '上传头像') }}
+                  </button>
+                  <button v-if="form.avatar" type="button" class="re-avatar-btn re-avatar-btn-danger" @click="removeAvatar">
+                    移除
+                  </button>
+                </div>
+              </div>
+              <input ref="avatarInputRef" type="file" accept="image/*" class="hidden" @change="onAvatarChange" />
+              <div class="re-field-hint">支持 jpg/png/webp，建议正方形照片；也会在简历预览中展示</div>
             </div>
           </div>
         </SectionCard>
@@ -689,7 +1198,10 @@ onBeforeRouteLeave((to, from, next) => {
             </div>
             <div class="re-field">
               <label class="re-field-label">到岗时间</label>
-              <input v-model="ensureJobIntention().availableTime" type="text" placeholder="如：随时 / 1个月内" class="re-input" />
+              <select v-model="ensureJobIntention().availableTime" class="re-input">
+                <option value="" disabled>请选择到岗时间</option>
+                <option v-for="opt in availableTimeOptions" :key="opt" :value="opt">{{ opt }}</option>
+              </select>
             </div>
           </div>
         </SectionCard>
@@ -933,21 +1445,58 @@ onBeforeRouteLeave((to, from, next) => {
           desc="上传已有简历，可同步至在线简历或直接用于 AI 优化"
           status="empty"
         >
-          <div class="re-upload-zone">
+          <!-- 附件上传区（点击 / 拖拽，v10.12 实装） -->
+          <div
+            class="re-upload-zone"
+            :class="{ 're-upload-dragover': dragOver, 're-upload-disabled': uploading }"
+            @click="!uploading && attachmentInput?.click()"
+            @dragover.prevent="dragOver = true"
+            @dragleave.prevent="dragOver = false"
+            @drop.prevent="onDrop"
+          >
+            <input
+              ref="attachmentInput"
+              type="file"
+              :accept="ACCEPT_EXTS.join(',')"
+              class="hidden"
+              @change="onAttachmentChange"
+            />
             <div class="re-upload-icon">
               <UploadCloud class="w-5 h-5" />
             </div>
-            <div class="re-upload-title">点击或拖拽文件到此处上传</div>
-            <div class="re-upload-desc">上传后可预览、同步至在线简历，或直接进入 AI 优化</div>
+            <div class="re-upload-title">{{ uploading ? '正在上传…' : '点击或拖拽文件到此处上传' }}</div>
+            <div class="re-upload-desc">上传后可作为附件简历，并可解析内容覆盖填充到在线简历</div>
             <div class="re-upload-formats">
               <span class="re-format-tag">PDF</span>
-              <span class="re-format-tag">DOCX</span>
+              <span class="re-format-tag">DOC/DOCX</span>
+              <span class="re-format-tag">TXT/MD</span>
               <span class="re-format-tag">≤ 10MB</span>
             </div>
           </div>
+
+          <!-- 已上传附件卡片 -->
+          <div v-if="attachment" class="re-attach-card">
+            <div class="re-attach-icon"><FileText class="w-4 h-4" /></div>
+            <div class="re-attach-info">
+              <div class="re-attach-name">{{ attachment.name }}</div>
+              <div class="re-attach-meta">
+                附件简历
+                <template v-if="attachment.size"> · {{ fmtSize(attachment.size) }}</template>
+                <template v-if="!attachment.file"> · 历史记录（重新上传后可解析）</template>
+              </div>
+            </div>
+            <div class="re-attach-actions">
+              <button class="re-attach-btn primary" :disabled="parsing || !attachment.file" @click="parseAttachment">
+                <Sparkles class="w-3 h-3" /> {{ parsing ? '解析中…' : '解析并填充' }}
+              </button>
+              <a v-if="attachment.fileUrl" :href="attachment.fileUrl" target="_blank" class="re-attach-btn">预览</a>
+              <button class="re-attach-btn danger" @click="removeAttachment">移除</button>
+            </div>
+          </div>
+
           <div class="re-field-hint" style="margin-top: 8px;">
             <AlertCircle class="w-3 h-3 inline" />
-            上传功能开发中，当前请使用在线简历编辑
+            解析结果会覆盖填充到在线简历对应字段（空字段保留原值），填充后请检查并保存
           </div>
         </SectionCard>
 
@@ -1023,9 +1572,34 @@ onBeforeRouteLeave((to, from, next) => {
 
           <!-- 内容 -->
           <div v-else-if="aiAdvice" class="re-advice-body">
-            <!-- 总结 -->
-            <div v-if="aiAdvice.summary" class="re-advice-summary">
-              {{ aiAdvice.summary }}
+            <!-- 评分总览（对齐原型 analysis-overview） -->
+            <div class="re-advice-overview">
+              <div class="re-ao-top">
+                <div class="re-ao-score-block">
+                  <div class="re-ao-score-num">{{ aiAdvice.score ?? form.score ?? '-' }}</div>
+                  <div class="re-ao-score-label">综合评分 / {{ aiAdvice.grade ? '按等级 ' + aiAdvice.grade : '100' }}</div>
+                  <div class="re-ao-score-desc">{{ aiAdvice.grade === 'A' ? '优秀 · 竞争力强' : aiAdvice.grade === 'B' ? '良好 · 仍有提升空间' : aiAdvice.grade === 'C' ? '合格 · 需重点优化' : '待完善 · 建议全面补充' }}</div>
+                </div>
+                <div class="re-ao-detail">
+                  <p v-if="aiAdvice.summary" class="re-ao-summary">{{ aiAdvice.summary }}</p>
+                  <div v-if="aiAdvice.aiPowered" class="re-ao-source">
+                    <Sparkles class="w-3 h-3 inline" /> AI 模型生成
+                  </div>
+                </div>
+              </div>
+              <!-- 维度评分条（来自评分明细） -->
+              <div v-if="form.scoreDetail && form.scoreDetail.length" class="re-ao-metrics">
+                <div v-for="sd in form.scoreDetail" :key="sd.item" class="re-metric-row">
+                  <span class="re-metric-label">{{ sd.item }}</span>
+                  <div class="re-metric-bar">
+                    <div
+                      class="re-metric-fill"
+                      :style="{ width: Math.round((sd.score / sd.maxScore) * 100) + '%', background: metricColor(sd.score / sd.maxScore) }"
+                    ></div>
+                  </div>
+                  <span class="re-metric-val" :style="{ color: metricColor(sd.score / sd.maxScore) }">{{ sd.score }}/{{ sd.maxScore }}</span>
+                </div>
+              </div>
             </div>
 
             <!-- 缺失技能 -->
@@ -1033,17 +1607,41 @@ onBeforeRouteLeave((to, from, next) => {
               <div class="re-advice-missing-title">
                 <AlertCircle class="w-3.5 h-3.5" />
                 岗位必备技能缺失（{{ aiAdvice.missingSkills.length }} 项）
+                <button class="re-missing-add-btn" @click="addMissingSkills">
+                  <Plus class="w-3 h-3" /> 一键加入技能清单
+                </button>
               </div>
               <div class="re-advice-missing-chips">
                 <span v-for="skill in aiAdvice.missingSkills" :key="skill" class="re-advice-missing-chip">{{ skill }}</span>
               </div>
             </div>
 
-            <!-- 建议列表 -->
-            <div v-if="aiAdvice.advices && aiAdvice.advices.length > 0" class="re-advice-list">
-              <div v-for="(advice, idx) in aiAdvice.advices" :key="idx" class="re-advice-item">
-                <div class="re-advice-item-head">
-                  <span class="re-advice-dim">{{ advice.dimension || '综合' }}</span>
+            <!-- 模块 Tab 栏 -->
+            <div v-if="adviceTabs.length > 2" class="re-advice-tabs">
+              <button
+                v-for="tab in adviceTabs"
+                :key="tab.value"
+                class="re-advice-tab"
+                :class="{ active: activeAdviceTab === tab.value }"
+                @click="activeAdviceTab = tab.value"
+              >
+                {{ tab.label }}
+                <span v-if="tab.value === activeAdviceTab" class="re-tab-dot"></span>
+              </button>
+            </div>
+
+            <!-- 建议卡片列表（对齐原型 a-card） -->
+            <div v-if="filteredAdvices.length > 0" class="re-advice-list">
+              <div v-for="advice in filteredAdvices" :key="adviceKey(advice)" class="re-advice-card">
+                <div class="re-advice-card-head">
+                  <span class="re-advice-dim">{{ DIMENSION_META[advice.dimension || '']?.label || advice.dimension || '综合' }}</span>
+                  <span
+                    v-if="dimensionScore(advice.dimension || '')"
+                    class="re-advice-score-badge"
+                    :class="scoreBadgeClass(dimensionScore(advice.dimension || '')!.rate)"
+                  >
+                    {{ dimensionScore(advice.dimension || '')!.score }} 分
+                  </span>
                   <span v-if="advice.priority && priorityStyle[advice.priority]" class="re-advice-pri" :class="priorityStyle[advice.priority].class">
                     {{ priorityStyle[advice.priority].label }}
                   </span>
@@ -1051,22 +1649,44 @@ onBeforeRouteLeave((to, from, next) => {
                     {{ adviceTypeLabel[advice.type] }}
                   </span>
                 </div>
-                <p class="re-advice-content">{{ advice.content }}</p>
-                <button
-                  v-if="acceptedAdvices.has(idx)"
-                  disabled
-                  class="re-advice-accepted"
-                >
-                  <CheckCircle2 class="w-3 h-3" /> 已采纳
-                </button>
-                <button
-                  v-else
-                  class="re-advice-accept-btn"
-                  @click="acceptAdvice(advice, idx)"
-                >
-                  <Plus class="w-3 h-3" /> 采纳
-                </button>
+                <div class="re-advice-card-body">
+                  <!-- 优化建议（content：为什么改） -->
+                  <div v-if="advice.content" class="re-feedback-tip">
+                    <div class="re-fb-label"><AlertCircle class="w-3 h-3" /> 优化建议</div>
+                    <p>{{ advice.content }}</p>
+                  </div>
+                  <!-- AI 优化结果（optimized：改完后长什么样，可直接采纳） -->
+                  <div v-if="advice.optimized" class="re-diff-block">
+                    <div class="re-diff-header">
+                      <span><Sparkles class="w-3 h-3 inline" style="color: var(--theme-primary);" /> AI 优化结果</span>
+                      <span class="re-diff-sub">可直接采纳</span>
+                    </div>
+                    <pre class="re-diff-body">{{ advice.optimized }}</pre>
+                    <p v-if="advice.optimized.includes('[')" class="re-diff-ph">[ ] 内为占位符，采纳后请在表单中替换为真实数据</p>
+                  </div>
+                  <!-- 操作按钮 -->
+                  <div class="re-card-actions">
+                    <button
+                      v-if="acceptedAdvices.has(adviceKey(advice))"
+                      disabled
+                      class="re-advice-accepted"
+                    >
+                      <CheckCircle2 class="w-3 h-3" /> 已采纳
+                    </button>
+                    <button
+                      v-else
+                      class="re-advice-accept-btn"
+                      @click="acceptAdvice(advice)"
+                    >
+                      <CheckCircle2 class="w-3 h-3" /> {{ advice.optimized ? '采纳填充' : '去完善' }}
+                    </button>
+                  </div>
+                </div>
               </div>
+            </div>
+            <div v-else-if="aiAdvice.advices && aiAdvice.advices.length > 0" class="re-advice-empty">
+              <CheckCircle2 class="w-5 h-5" style="color: #16a34a;" />
+              该模块暂无建议，看看其他 Tab
             </div>
             <div v-else class="re-advice-empty">
               <CheckCircle2 class="w-5 h-5" style="color: #16a34a;" />
@@ -1075,7 +1695,7 @@ onBeforeRouteLeave((to, from, next) => {
 
             <!-- 采纳后提示 -->
             <div v-if="acceptedAdvices.size > 0" class="re-advice-accepted-tip">
-              <span><CheckCircle2 class="w-3.5 h-3.5 inline" /> 已采纳 {{ acceptedAdvices.size }} 条建议到「自我评价」</span>
+              <span><CheckCircle2 class="w-3.5 h-3.5 inline" /> 已采纳 {{ acceptedAdvices.size }} 条建议并填充到对应字段</span>
               <button @click="adviceVisible = false" class="re-advice-back-edit">去编辑检查</button>
             </div>
           </div>
@@ -1089,6 +1709,70 @@ onBeforeRouteLeave((to, from, next) => {
             <button @click="gotoStudyPlan" class="re-advice-study-btn">
               去建立学习计划 <ArrowRight class="w-3.5 h-3.5" />
             </button>
+          </div>
+        </div>
+      </div>
+    </Teleport>
+
+    <!-- 附件解析结果预览弹窗（v10.12） -->
+    <Teleport to="body">
+      <div v-if="parsePreviewVisible" class="re-advice-mask" @click.self="parsePreviewVisible = false">
+        <div class="re-advice-box" style="max-width: 560px;">
+          <div class="re-advice-head">
+            <h3>
+              <FileText class="w-4 h-4" style="color: var(--theme-primary);" />
+              解析结果确认
+              <span v-if="parseResult?.aiPowered" class="re-advice-grade" :class="gradeStyle.A">
+                <Sparkles class="w-3 h-3 inline" /> AI 结构化解析
+              </span>
+              <span v-else class="re-advice-grade" :class="gradeStyle.C">规则粗解析</span>
+            </h3>
+            <div class="re-advice-head-actions">
+              <button class="re-advice-close" @click="parsePreviewVisible = false">
+                <X class="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+
+          <div class="re-advice-body">
+            <!-- 识别摘要 -->
+            <div v-if="parseSummary.length" class="re-parse-summary">
+              <div v-for="item in parseSummary" :key="item.label" class="re-parse-row">
+                <span class="re-parse-label">{{ item.label }}</span>
+                <span class="re-parse-value">{{ item.value }}</span>
+              </div>
+            </div>
+            <div v-else class="re-advice-empty">
+              <AlertCircle class="w-5 h-5" style="color: #d97706;" />
+              未能识别出有效字段，请检查附件内容或换用文本版简历
+            </div>
+
+            <div v-if="!parseResult?.aiPowered" class="re-field-hint" style="margin-top: 10px;">
+              <AlertCircle class="w-3 h-3 inline" />
+              当前为规则粗解析（AI 未启用或调用失败），仅能识别基础字段；启用 AI 模型后可完整解析教育/工作/项目经历
+            </div>
+
+            <div class="re-field-hint" style="margin-top: 10px;">
+              <AlertCircle class="w-3 h-3 inline" />
+              确认后将覆盖填充到在线简历对应字段（解析为空的字段保留原值），此操作不会自动保存，请检查后手动保存
+            </div>
+          </div>
+
+          <div class="re-advice-footer" style="border-top: 1px solid var(--theme-border); padding: 14px 20px;">
+            <div>
+              <div class="re-advice-ft-title">覆盖填充到在线简历</div>
+              <div class="re-advice-ft-desc">{{ parseSummary.length }} 项字段待填充</div>
+            </div>
+            <div style="display: flex; gap: 8px;">
+              <button class="re-attach-btn" @click="parsePreviewVisible = false">取消</button>
+              <button
+                class="re-advice-study-btn"
+                :disabled="!parseSummary.length"
+                @click="applyParseResult"
+              >
+                <CheckCircle2 class="w-3.5 h-3.5" /> 确认填充
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -1230,7 +1914,71 @@ onBeforeRouteLeave((to, from, next) => {
   align-items: flex-start;
   gap: 4px;
 }
+/* 实名姓名一键填充按钮（v10.8：已实名用户专属，主动选择填充） */
+.re-certified-fill {
+  margin-top: 6px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: 8px;
+  border: 1px solid #93c5fd;
+  background-color: #dbeafe;
+  color: #2563eb;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: opacity 0.15s ease;
+}
+.re-certified-fill:hover { opacity: 0.85; }
 .re-field-counter { font-size: 11px; color: #9ca3af; text-align: right; }
+
+/* 头像上传组件 */
+.re-avatar-field { display: flex; align-items: center; gap: 12px; }
+.re-avatar-preview {
+  position: relative;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  border: 1px dashed #d1d5db;
+  overflow: hidden;
+  flex-shrink: 0;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f9fafb;
+  transition: border-color 0.15s;
+}
+.re-avatar-preview:hover { border-color: var(--theme-primary); }
+.re-avatar-img { width: 100%; height: 100%; object-fit: cover; }
+.re-avatar-placeholder { width: 22px; height: 22px; color: #9ca3af; }
+.re-avatar-loading {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  color: #fff;
+  background: rgba(0, 0, 0, 0.45);
+}
+.re-avatar-actions { display: flex; flex-direction: column; gap: 6px; }
+.re-avatar-btn {
+  padding: 4px 12px;
+  border-radius: 6px;
+  border: 1px solid #d1d5db;
+  background: #fff;
+  font-size: 12px;
+  color: var(--theme-text);
+  cursor: pointer;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+.re-avatar-btn:hover:not(:disabled) { border-color: var(--theme-primary); color: var(--theme-primary); }
+.re-avatar-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+.re-avatar-btn-danger:hover:not(:disabled) { border-color: #dc2626; color: #dc2626; }
+.hidden { display: none; }
 
 .re-input, .re-select, .re-textarea {
   width: 100%;
@@ -1549,21 +2297,200 @@ onBeforeRouteLeave((to, from, next) => {
   border-radius: 12px;
 }
 
-.re-advice-list { display: flex; flex-direction: column; gap: 10px; }
-.re-advice-item {
-  background: #f9fafb;
-  border-radius: 10px;
-  padding: 12px 14px;
-  position: relative;
+.re-advice-list { display: flex; flex-direction: column; gap: 12px; }
+
+/* ===== 附件上传区交互态（v10.12） ===== */
+.re-upload-zone { cursor: pointer; transition: all 0.15s; }
+.re-upload-dragover {
+  border-color: var(--theme-primary) !important;
+  background: color-mix(in srgb, var(--theme-primary) 6%, #fff) !important;
+  transform: scale(1.01);
 }
-.re-advice-item-head {
+.re-upload-disabled { pointer-events: none; opacity: 0.6; }
+
+/* ===== 已上传附件卡片 ===== */
+.re-attach-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 12px;
+  padding: 12px 14px;
+  background: #fff;
+  border: 1px solid var(--theme-border);
+  border-radius: 10px;
+}
+.re-attach-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  background: #f3f4f6;
+  color: #6b7280;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.re-attach-info { flex: 1; min-width: 0; }
+.re-attach-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--theme-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.re-attach-meta { font-size: 11px; color: #9ca3af; margin-top: 2px; }
+.re-attach-actions { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+.re-attach-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  padding: 5px 12px;
+  border-radius: 6px;
+  border: 1px solid var(--theme-border);
+  background: #fff;
+  color: #4b5563;
+  cursor: pointer;
+  text-decoration: none;
+  transition: all 0.15s;
+}
+.re-attach-btn:hover { border-color: var(--theme-primary); color: var(--theme-primary); }
+.re-attach-btn.primary {
+  background: var(--theme-primary);
+  border-color: var(--theme-primary);
+  color: #fff;
+  font-weight: 600;
+}
+.re-attach-btn.primary:hover { opacity: 0.9; }
+.re-attach-btn.primary:disabled { opacity: 0.5; cursor: not-allowed; }
+.re-attach-btn.danger { color: #dc2626; }
+.re-attach-btn.danger:hover { border-color: #dc2626; color: #dc2626; background: #fef2f2; }
+
+/* ===== 解析结果摘要 ===== */
+.re-parse-summary {
+  background: #f9fafb;
+  border: 1px solid var(--theme-border);
+  border-radius: 10px;
+  padding: 6px 14px;
+}
+.re-parse-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 0;
+  border-bottom: 1px dashed var(--theme-border);
+}
+.re-parse-row:last-child { border-bottom: none; }
+.re-parse-label { font-size: 12px; color: #6b7280; }
+.re-parse-value { font-size: 13px; font-weight: 600; color: var(--theme-text); }
+
+/* ===== 评分总览（对齐原型 analysis-overview） ===== */
+.re-advice-overview {
+  background: #f9fafb;
+  border: 1px solid var(--theme-border);
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 14px;
+}
+.re-ao-top { display: flex; gap: 20px; align-items: flex-start; }
+.re-ao-score-block {
+  flex-shrink: 0;
+  text-align: center;
+  min-width: 96px;
+  padding: 8px 12px;
+  background: #fff;
+  border-radius: 10px;
+  border: 1px solid var(--theme-border);
+}
+.re-ao-score-num {
+  font-size: 34px;
+  font-weight: 800;
+  line-height: 1.1;
+  color: var(--theme-primary);
+}
+.re-ao-score-label { font-size: 11px; color: #6b7280; margin-top: 2px; }
+.re-ao-score-desc { font-size: 11px; color: #6b7280; margin-top: 4px; font-weight: 600; }
+.re-ao-detail { flex: 1; min-width: 0; }
+.re-ao-summary { font-size: 13px; color: #374151; line-height: 1.6; }
+.re-ao-source {
+  margin-top: 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--theme-primary);
+  background: color-mix(in srgb, var(--theme-primary) 8%, #fff);
+  padding: 2px 10px;
+  border-radius: 10px;
+}
+.re-ao-metrics { margin-top: 14px; display: flex; flex-direction: column; gap: 8px; }
+.re-metric-row { display: flex; align-items: center; gap: 10px; }
+.re-metric-label { width: 72px; flex-shrink: 0; font-size: 12px; color: #6b7280; text-align: right; }
+.re-metric-bar {
+  flex: 1;
+  height: 8px;
+  background: #e5e7eb;
+  border-radius: 4px;
+  overflow: hidden;
+}
+.re-metric-fill { height: 100%; border-radius: 4px; transition: width 0.4s ease; }
+.re-metric-val { width: 52px; flex-shrink: 0; font-size: 11px; font-weight: 600; }
+
+/* ===== 模块 Tab 栏 ===== */
+.re-advice-tabs {
   display: flex;
   align-items: center;
   gap: 6px;
-  margin-bottom: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--theme-border);
+}
+.re-advice-tab {
+  position: relative;
+  font-size: 12px;
+  padding: 5px 14px;
+  border-radius: 16px;
+  background: #f9fafb;
+  color: #6b7280;
+  border: 1px solid var(--theme-border);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.re-advice-tab:hover { color: var(--theme-primary); border-color: var(--theme-primary); }
+.re-advice-tab.active {
+  background: var(--theme-primary);
+  color: #fff;
+  border-color: var(--theme-primary);
+  font-weight: 600;
+}
+.re-tab-dot { display: none; }
+
+/* ===== 建议卡片（对齐原型 a-card） ===== */
+.re-advice-card {
+  background: #fff;
+  border: 1px solid var(--theme-border);
+  border-radius: 12px;
+  overflow: hidden;
+}
+.re-advice-card-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  background: #f9fafb;
+  border-bottom: 1px solid var(--theme-border);
   flex-wrap: wrap;
 }
-.re-advice-dim { font-size: 12px; font-weight: 600; color: var(--theme-text); }
+.re-advice-dim { font-size: 13px; font-weight: 700; color: var(--theme-text); }
+.re-advice-score-badge {
+  font-size: 11px;
+  padding: 1px 8px;
+  border-radius: 8px;
+  font-weight: 600;
+}
 .re-advice-pri { font-size: 11px; padding: 1px 8px; border-radius: 8px; font-weight: 600; }
 .re-advice-type {
   font-size: 11px;
@@ -1573,12 +2500,75 @@ onBeforeRouteLeave((to, from, next) => {
   color: #6b7280;
   border: 1px solid var(--theme-border);
 }
-.re-advice-content {
-  font-size: 13px;
-  color: #4b5563;
-  line-height: 1.6;
-  padding-right: 80px;
+.re-advice-card-body { padding: 12px 14px; }
+
+/* 优化建议反馈块（原型 feedback-block tip） */
+.re-feedback-tip {
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+  border-radius: 8px;
+  padding: 10px 12px;
+  margin-bottom: 10px;
 }
+.re-fb-label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #b45309;
+  margin-bottom: 4px;
+}
+.re-feedback-tip p { font-size: 12.5px; color: #92400e; line-height: 1.6; }
+
+/* AI 优化结果块（原型 diff-block） */
+.re-diff-block {
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: 8px;
+  padding: 10px 12px;
+  margin-bottom: 10px;
+}
+.re-diff-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 11px;
+  font-weight: 700;
+  color: #15803d;
+  margin-bottom: 6px;
+}
+.re-diff-sub { font-weight: 400; opacity: 0.7; }
+.re-diff-body {
+  font-family: inherit;
+  font-size: 12.5px;
+  color: #166534;
+  line-height: 1.7;
+  white-space: pre-wrap;
+  word-break: break-word;
+  margin: 0;
+}
+.re-diff-ph { font-size: 11px; color: #65a30d; margin-top: 6px; }
+.re-card-actions { display: flex; align-items: center; gap: 8px; }
+.re-card-actions .re-advice-accepted,
+.re-card-actions .re-advice-accept-btn { position: static; }
+/* 缺失技能一键加入按钮 */
+.re-missing-add-btn {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 6px;
+  background: #fff;
+  color: var(--theme-primary);
+  border: 1px solid var(--theme-primary);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.re-missing-add-btn:hover { background: color-mix(in srgb, var(--theme-primary) 8%, #fff); }
 .re-advice-accept-btn {
   position: absolute;
   top: 12px;

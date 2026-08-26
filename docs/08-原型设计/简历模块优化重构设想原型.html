@@ -709,7 +709,16 @@ function showToast(msg, type = 'success') {
     const icons = { success: 'fa-check-circle', info: 'fa-info-circle' };
     const toast = document.createElement('div');
     toast.className = `toast ${type}`;
-    toast.innerHTML = `<span style="color:${type === 'success' ? '#059669' : '#DC2626'}"><i class="fas ${icons[type] || icons.success}"></i></span> ${msg}`;
+
+    const iconWrap = document.createElement('span');
+    iconWrap.style.color = type === 'success' ? '#059669' : '#DC2626';
+    const icon = document.createElement('i');
+    icon.className = `fas ${icons[type] || icons.success}`;
+    iconWrap.appendChild(icon);
+
+    toast.appendChild(iconWrap);
+    toast.appendChild(document.createTextNode(' ' + msg));
+
     container.appendChild(toast);
     setTimeout(() => toast.remove(), 3000);
 }

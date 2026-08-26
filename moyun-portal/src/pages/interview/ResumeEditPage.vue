@@ -28,6 +28,7 @@ import { useDictData } from '@/composables/useDictData';
 import type { ResumeParseVO } from '@/types/api';
 import { getCurrentUser } from '@/api/user';
 import { getMyCertification, type CreatorCertification } from '@/api/certification';
+import { aiFieldAssist, type FieldAssistSuggestion } from '@/api/resumeOptimize';
 import { uploadFile } from '@/api/upload';
 import { getToken } from '@/api/client';
 import type {
@@ -70,7 +71,7 @@ const exporting = ref(false);
 const scoring = ref(false);
 const adviceLoading = ref(false);
 const aiAdvice = ref<ResumeAiAdviceVO | null>(null);
-const saveStatus = ref<'idle' | 'saving' | 'saved'>('idle');
+const saveStatus = ref<'idle' | 'saving' | 'saved' | 'dirty'>('idle');
 const saving = ref(false);
 const loaded = ref(false);
 
@@ -621,6 +622,85 @@ function acceptAdvice(advice: ResumeAiAdviceItem) {
   }
   acceptedAdvices.value.add(key);
   toast.success(`已填充到「${meta?.label || dim}」`);
+  // v10.14 修复断裂点「AI建议采纳后未联动保存」：已保存过的简历自动静默保存
+  autoSaveAfterAdopt();
+}
+
+/** 采纳 AI 建议后联动保存：已有 id 的简历静默保存；新建简历靠 dirty 提示兜底 */
+function autoSaveAfterAdopt() {
+  if (form.id) {
+    doSave(true);
+  }
+}
+
+// ============ AI 实时辅助编辑（v10.14 设计文档 P0 需求#2） ============
+// 字段级 AI 优化：工作/项目描述、自我评价旁「✨AI优化」→ 3 个差异化版本 → 采纳替换
+
+const assistVisible = ref(false);
+const assistLoading = ref(false);
+const assistSuggestions = ref<FieldAssistSuggestion[]>([]);
+/** 采纳写入目标：type + 列表索引（selfIntro 为标量） */
+const assistTarget = ref<{ type: 'work' | 'project' | 'selfIntro'; index: number } | null>(null);
+/** 辅助目标的当前原文（弹窗中展示） */
+const assistOriginal = ref('');
+
+const ASSIST_VERSION_LABELS = ['版本 1 · 成果量化（推荐）', '版本 2 · 技术深度', '版本 3 · 业务价值'];
+
+async function openFieldAssist(type: 'work' | 'project' | 'selfIntro', index: number) {
+  let text = '';
+  let field: 'work_description' | 'project_description' | 'self_intro';
+  if (type === 'work') {
+    text = form.works?.[index]?.description || '';
+    field = 'work_description';
+  } else if (type === 'project') {
+    text = form.projects?.[index]?.description || '';
+    field = 'project_description';
+  } else {
+    text = form.selfIntro || '';
+    field = 'self_intro';
+  }
+  if (!text.trim()) {
+    toast.error('请先输入内容，AI 才能帮你优化');
+    return;
+  }
+  assistTarget.value = { type, index };
+  assistOriginal.value = text;
+  assistVisible.value = true;
+  assistLoading.value = true;
+  assistSuggestions.value = [];
+  try {
+    const res = await aiFieldAssist({
+      field,
+      originalText: text,
+      position: form.jobIntention?.position || undefined,
+      skillNames: form.skills?.map(s => s.name).filter(Boolean),
+    });
+    if (res.code === 200 && res.data) {
+      assistSuggestions.value = res.data;
+    } else {
+      toast.error(res.message || 'AI 辅助生成失败');
+    }
+  } catch (err: any) {
+    toast.error(err?.message || 'AI 辅助生成失败，请稍后重试');
+  } finally {
+    assistLoading.value = false;
+  }
+}
+
+/** 采纳版本：替换目标字段内容并联动保存 */
+function adoptAssist(text: string) {
+  const t = assistTarget.value;
+  if (!t) return;
+  if (t.type === 'work') {
+    form.works![t.index].description = text;
+  } else if (t.type === 'project') {
+    form.projects![t.index].description = text;
+  } else {
+    form.selfIntro = text;
+  }
+  assistVisible.value = false;
+  toast.success('已替换为 AI 优化版本');
+  autoSaveAfterAdopt();
 }
 
 // 一键把缺失技能加入技能清单（level=了解，避免虚标）
@@ -918,6 +998,12 @@ onMounted(() => {
     loadDetail().then((ok) => {
       if (ok) nextTick(() => { loaded.value = true; });
     });
+  } else if (route.query.fromTemplate) {
+    // 模板入口（v10.13）：跳过最新简历反显，个人中心预填 + 模板标题/岗位预填
+    prefillFromProfile().then(() => {
+      applyTemplateQuery();
+      nextTick(() => { loaded.value = true; });
+    });
   } else {
     // 无 :id 进入：若已写过简历则反显最新一版续编（带 form.id，保存即更新）；
     // 没有简历才走个人中心基础信息预填（仅填空字段不覆盖）
@@ -950,6 +1036,18 @@ async function prefillFromProfile() {
   } catch (err) {
     // 预填失败静默处理，不影响创建流程
     console.warn('个人信息预填失败:', err);
+  }
+}
+
+/** 模板入口预填：基于模板创建新简历（标题+期望岗位），模板文件可通过模板库下载参考 */
+function applyTemplateQuery() {
+  const templateTitle = String(route.query.templateTitle || '');
+  const templateCategory = String(route.query.templateCategory || '');
+  if (templateTitle && !form.title?.trim()) {
+    form.title = `${templateTitle}风格 · 我的简历`;
+  }
+  if (templateCategory && !form.jobIntention.position?.trim()) {
+    form.jobIntention.position = templateCategory;
   }
 }
 
@@ -1070,6 +1168,28 @@ onBeforeRouteLeave((to, from, next) => {
 
       <!-- 中间主区：表单 -->
       <main class="re-main">
+        <!-- 岗位优化入口（v10.13） -->
+        <div
+          v-if="form.id"
+          class="flex items-center justify-between gap-3 rounded-xl border p-3.5 mb-4"
+          style="background: linear-gradient(90deg, rgba(124,58,237,0.06), rgba(124,58,237,0.01)); border-color: rgba(124,58,237,0.25);"
+        >
+          <div class="flex items-center gap-2.5">
+            <span class="text-lg">🎯</span>
+            <div>
+              <div class="text-sm font-semibold" style="color: #7c3aed;">有了目标岗位？试试岗位精准优化</div>
+              <div class="text-xs text-gray-500 mt-0.5">粘贴 JD 匹配评分 → AI 逐项优化前后对比 → 一键采纳</div>
+            </div>
+          </div>
+          <button
+            class="shrink-0 text-xs font-medium px-4 py-2 rounded-lg text-white"
+            style="background: #7c3aed;"
+            @click="router.push(`/interview/resume/optimize?resumeId=${form.id}`)"
+          >
+            进入优化工作台 →
+          </button>
+        </div>
+
         <!-- 个人信息 -->
         <SectionCard
           section-id="sec-personal"
@@ -1308,7 +1428,12 @@ onBeforeRouteLeave((to, from, next) => {
             </div>
             <div class="re-form-row cols-1">
               <div class="re-field">
-                <label class="re-field-label"><span class="re-req">*</span> 工作描述</label>
+                <label class="re-field-label">
+                  <span class="re-req">*</span> 工作描述
+                  <button type="button" class="re-ai-assist-btn" title="AI 生成3个优化版本" @click="openFieldAssist('work', idx)">
+                    <Sparkles class="w-3 h-3" /> AI优化
+                  </button>
+                </label>
                 <textarea v-model="w.description" rows="4" placeholder="用「动词 + 量化结果」格式描述核心职责与业绩" class="re-textarea"></textarea>
                 <div class="re-field-hint">推荐使用 STAR 法则：情境 → 任务 → 行动 → 结果</div>
               </div>
@@ -1366,7 +1491,12 @@ onBeforeRouteLeave((to, from, next) => {
             </div>
             <div class="re-form-row cols-1">
               <div class="re-field">
-                <label class="re-field-label"><span class="re-req">*</span> 项目描述</label>
+                <label class="re-field-label">
+                  <span class="re-req">*</span> 项目描述
+                  <button type="button" class="re-ai-assist-btn" title="AI 生成3个优化版本" @click="openFieldAssist('project', idx)">
+                    <Sparkles class="w-3 h-3" /> AI优化
+                  </button>
+                </label>
                 <textarea v-model="p.description" rows="4" placeholder="技术栈、职责与成果" class="re-textarea"></textarea>
               </div>
             </div>
@@ -1425,6 +1555,11 @@ onBeforeRouteLeave((to, from, next) => {
           :status="form.selfIntro?.trim() ? 'partial' : 'empty'"
         >
           <div class="re-field">
+            <div class="re-field-label" style="display:flex;align-items:center;gap:6px;margin-bottom:6px;">
+              <button type="button" class="re-ai-assist-btn" title="AI 生成3个优化版本" @click="openFieldAssist('selfIntro', 0)">
+                <Sparkles class="w-3 h-3" /> AI优化
+              </button>
+            </div>
             <textarea
               v-model="form.selfIntro"
               rows="5"
@@ -1714,6 +1849,63 @@ onBeforeRouteLeave((to, from, next) => {
       </div>
     </Teleport>
 
+    <!-- AI 实时辅助弹窗（v10.14 设计文档 P0 需求#2：字段级 3 版本建议） -->
+    <Teleport to="body">
+      <div v-if="assistVisible" class="re-advice-mask" @click.self="assistVisible = false">
+        <div class="re-advice-box" style="max-width: 640px;">
+          <div class="re-advice-head">
+            <h3>
+              <Sparkles class="w-4 h-4" style="color: var(--theme-primary);" />
+              AI 实时优化
+              <span class="re-advice-grade" style="background: rgba(124,58,237,0.1); color: #7c3aed;">
+                {{ assistTarget?.type === 'work' ? '工作描述' : assistTarget?.type === 'project' ? '项目描述' : '自我评价' }}
+              </span>
+            </h3>
+            <div class="re-advice-head-actions">
+              <button class="re-advice-close" @click="assistVisible = false">
+                <X class="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+
+          <!-- 原文（对比基准） -->
+          <div v-if="assistOriginal" class="re-assist-original">
+            <div class="re-assist-label">📌 原始内容</div>
+            <p>{{ assistOriginal }}</p>
+          </div>
+
+          <!-- 加载中 -->
+          <div v-if="assistLoading" class="re-advice-loading">
+            <div class="re-loading-spinner"></div>
+            <p>AI 正在生成 3 个优化版本...</p>
+          </div>
+
+          <!-- 版本列表 -->
+          <div v-else class="re-advice-body">
+            <div
+              v-for="(s, i) in assistSuggestions"
+              :key="i"
+              class="re-assist-version"
+              :class="{ 're-assist-recommend': i === 0 }"
+            >
+              <div class="re-assist-version-head">
+                <span class="re-assist-version-tag">{{ ASSIST_VERSION_LABELS[i] || `版本 ${i + 1}` }}</span>
+                <span v-if="s.reason" class="re-assist-reason">💡 {{ s.reason }}</span>
+              </div>
+              <p class="re-assist-text">{{ s.text }}</p>
+              <button class="re-assist-adopt-btn" @click="adoptAssist(s.text)">采纳此版本</button>
+            </div>
+            <div v-if="!assistSuggestions.length" class="re-empty-tip" style="padding: 24px 0;">
+              AI 未生成有效建议，请补充内容后重试
+            </div>
+            <div class="re-field-hint" style="margin-top: 8px;">
+              提示：AI 可能使用 [X%]、[X万] 等占位符标记需你确认的数据，采纳后请替换为真实数值
+            </div>
+          </div>
+        </div>
+      </div>
+    </Teleport>
+
     <!-- 附件解析结果预览弹窗（v10.12） -->
     <Teleport to="body">
       <div v-if="parsePreviewVisible" class="re-advice-mask" @click.self="parsePreviewVisible = false">
@@ -1913,6 +2105,104 @@ onBeforeRouteLeave((to, from, next) => {
   display: flex;
   align-items: flex-start;
   gap: 4px;
+}
+/* 字段级 AI 优化按钮（v10.14 P0 需求#2：AI 实时辅助编辑） */
+.re-ai-assist-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  margin-left: auto;
+  padding: 2px 8px;
+  font-size: 11px;
+  font-weight: 500;
+  color: #7c3aed;
+  background: rgba(124, 58, 237, 0.08);
+  border: 1px solid rgba(124, 58, 237, 0.25);
+  border-radius: 999px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.re-ai-assist-btn:hover {
+  background: rgba(124, 58, 237, 0.15);
+  border-color: rgba(124, 58, 237, 0.45);
+}
+/* AI 实时辅助弹窗 */
+.re-assist-original {
+  margin: 12px 16px 0;
+  padding: 10px 12px;
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+}
+.re-assist-original p {
+  font-size: 12px;
+  color: #6b7280;
+  line-height: 1.6;
+  white-space: pre-line;
+  max-height: 90px;
+  overflow-y: auto;
+  margin: 4px 0 0;
+}
+.re-assist-label {
+  font-size: 11px;
+  color: #9ca3af;
+  font-weight: 500;
+}
+.re-assist-version {
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 12px 14px;
+  margin-bottom: 10px;
+  transition: border-color 0.15s;
+}
+.re-assist-version:hover {
+  border-color: rgba(124, 58, 237, 0.4);
+}
+.re-assist-recommend {
+  border-color: rgba(124, 58, 237, 0.4);
+  background: rgba(124, 58, 237, 0.03);
+}
+.re-assist-version-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 8px;
+}
+.re-assist-version-tag {
+  font-size: 11px;
+  font-weight: 600;
+  color: #7c3aed;
+  background: rgba(124, 58, 237, 0.08);
+  padding: 2px 8px;
+  border-radius: 999px;
+  flex-shrink: 0;
+}
+.re-assist-reason {
+  font-size: 11px;
+  color: #6b7280;
+}
+.re-assist-text {
+  font-size: 13px;
+  color: #374151;
+  line-height: 1.7;
+  white-space: pre-line;
+  margin: 0 0 10px;
+}
+.re-assist-adopt-btn {
+  font-size: 12px;
+  font-weight: 500;
+  color: #fff;
+  background: #7c3aed;
+  border: none;
+  border-radius: 6px;
+  padding: 5px 14px;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+.re-assist-adopt-btn:hover {
+  opacity: 0.85;
 }
 /* 实名姓名一键填充按钮（v10.8：已实名用户专属，主动选择填充） */
 .re-certified-fill {

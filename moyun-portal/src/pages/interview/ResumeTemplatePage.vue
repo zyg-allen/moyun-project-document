@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import { ref, onMounted, computed, watch } from 'vue';
+import { useRouter } from 'vue-router';
 import { useHead } from '@vueuse/head';
 import {
   ChevronLeft, Search, Download, ThumbsUp, FileText,
-  ChevronRight, Star, Tag, X, ChevronLeft as ChevronLeftIcon
+  ChevronRight, Star, Tag, X, ChevronLeft as ChevronLeftIcon, Sparkles
 } from 'lucide-vue-next';
 import SiteFooter from '@/components/SiteFooter.vue';
 import Breadcrumb from '@/components/Breadcrumb.vue';
@@ -14,6 +15,8 @@ import {
 } from '@/api/interview';
 import type { InterviewResumeTemplateVO } from '@/types/api';
 import { useToast } from '@/composables/useToast';
+
+const router = useRouter();
 import { useDictData } from '@/composables/useDictData';
 
 const toast = useToast();
@@ -153,6 +156,18 @@ async function handleDownload(t: InterviewResumeTemplateVO) {
   } catch (err: any) {
     toast.error(err?.message || '下载失败');
   }
+}
+
+// 基于模板创建在线简历：跳转编辑页并预填标题/期望岗位（模板为文件资源，无结构化内容）
+function useTemplate(t: InterviewResumeTemplateVO) {
+  router.push({
+    path: '/interview/resume/edit',
+    query: {
+      fromTemplate: String(t.id || ''),
+      templateTitle: t.title || '',
+      templateCategory: (t as any).category || '',
+    },
+  });
 }
 
 async function handleLike(t: InterviewResumeTemplateVO) {
@@ -317,6 +332,14 @@ function gotoPage(p: number) {
                 >
                   <Download class="w-4 h-4 mr-1.5" />
                   免费下载
+                </button>
+                <button
+                  @click="useTemplate(t)"
+                  class="w-full py-2.5 text-sm rounded-lg transition flex items-center justify-center hover:opacity-80 font-medium mt-2"
+                  style="color: var(--theme-primary); border: 1px solid var(--theme-primary);"
+                >
+                  <Sparkles class="w-4 h-4 mr-1.5" />
+                  基于此模板创建简历
                 </button>
               </div>
             </div>

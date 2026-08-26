@@ -8,7 +8,7 @@ import { computed } from 'vue';
 import { Undo2, Eye, Download, Save, Sparkles } from 'lucide-vue-next';
 
 const props = defineProps<{
-  saveStatus?: 'idle' | 'saving' | 'saved';
+  saveStatus?: 'idle' | 'saving' | 'saved' | 'dirty';
   saving?: boolean;
   exporting?: boolean;
   hasId?: boolean;
@@ -25,6 +25,7 @@ const emit = defineEmits<{
 const statusText = computed(() => {
   if (props.saveStatus === 'saving') return '保存中...';
   if (props.saveStatus === 'saved') return '已自动保存';
+  if (props.saveStatus === 'dirty') return '有未保存修改';
   return '未保存';
 });
 const statusDotClass = computed(() => {

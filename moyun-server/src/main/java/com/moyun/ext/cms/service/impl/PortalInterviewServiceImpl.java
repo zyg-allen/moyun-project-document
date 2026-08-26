@@ -1345,7 +1345,7 @@ public class PortalInterviewServiceImpl implements IPortalInterviewService {
     @Override
     public Page<InterviewResumeTemplateVO> selectResumeTemplatePage(Page<InterviewResumeTemplateVO> page, InterviewResumeTemplateQuery query, Long currentUserId) {
         LambdaQueryWrapper<PortalInterviewResumeTemplate> qw = Wrappers.lambdaQuery();
-        qw.eq(PortalInterviewResumeTemplate::getStatus, query.getStatus() == null ? "active" : query.getStatus());
+        qw.eq(PortalInterviewResumeTemplate::getStatus, query.getStatus() == null ? "" : query.getStatus());
         if (StringUtils.isNotEmpty(query.getCategory())) qw.eq(PortalInterviewResumeTemplate::getCategory, query.getCategory());
         if (StringUtils.isNotEmpty(query.getFileType())) qw.eq(PortalInterviewResumeTemplate::getFileType, query.getFileType());
         if (query.getIsPremium() != null) qw.eq(PortalInterviewResumeTemplate::getIsPremium, query.getIsPremium());

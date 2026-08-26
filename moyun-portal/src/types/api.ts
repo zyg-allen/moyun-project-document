@@ -1469,6 +1469,67 @@ export interface ResumeAiAdviceVO {
   generatedTime?: string;
 }
 
+/** 岗位目标（v10.13，与后端 PortalResumeJobTarget 对齐） */
+export interface ResumeJobTarget {
+  id?: number | string;
+  position: string;
+  company?: string;
+  city?: string;
+  jobType?: string;
+  /** 岗位描述/JD 原文（匹配分析核心输入） */
+  jdText: string;
+  jdKeywords?: string;
+  isDefault?: number;
+  createTime?: string;
+  updateTime?: string;
+}
+
+/** 匹配报告维度评分（与后端 dimensions JSON 对齐） */
+export interface JobMatchDimension {
+  score: number;
+  suggestions?: string[];
+}
+
+/** 岗位匹配报告（与后端 PortalResumeJobMatch 对齐） */
+export interface ResumeJobMatchReport {
+  id?: number | string;
+  resumeId?: number | string;
+  jobTargetId?: number | string;
+  matchScore: number;
+  grade?: 'excellent' | 'good' | 'medium' | 'poor' | string;
+  matchedKeywords?: string;
+  missingKeywords?: string;
+  dimensions?: {
+    keywordMatch?: JobMatchDimension;
+    experienceMatch?: JobMatchDimension;
+    skillMatch?: JobMatchDimension;
+    structureMatch?: JobMatchDimension;
+  };
+  summary?: string;
+  aiPowered?: number | boolean;
+  createTime?: string;
+}
+
+/** 深度优化建议单项（与后端 ResumeDeepOptimizeVO.OptimizeItem 对齐） */
+export interface ResumeOptimizeItem {
+  /** objective/education/work/project/skills/selfIntro */
+  section: string;
+  index?: number;
+  field?: string;
+  original?: string;
+  optimized: string;
+  reason?: string;
+}
+
+/** 深度优化结果（与后端 ResumeDeepOptimizeVO 对齐） */
+export interface ResumeDeepOptimizeVO {
+  resumeId?: number | string;
+  jobTargetId?: number | string;
+  summary?: string;
+  items: ResumeOptimizeItem[];
+  aiPowered?: boolean;
+}
+
 /** 简历附件解析结果（v10.12，与后端 ResumeParseVO 对齐，字段语义同 UserResumeVO） */
 export interface ResumeParseVO {
   name?: string;

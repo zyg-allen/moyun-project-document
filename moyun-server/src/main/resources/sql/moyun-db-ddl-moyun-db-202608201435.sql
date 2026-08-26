@@ -6759,3 +6759,62 @@ INSERT INTO `moyun-db`.sys_user_role (user_id, role_id, create_by, create_time, 
 
 
 -- Dump completed on 2026-08-20 14:35:02
+
+-- ==================== 增量变更：简历优化重构——岗位目标/匹配报告/优化历史（2026-08-26） ====================
+-- 设计文档：docs/简历编辑和优化模块重构设计-20260826.md
+-- 链路：选岗位(填JD) → 选简历 → AI岗位匹配评分(存报告) → 深度优化(前后对比逐项采纳) → 预览微调 → 保存新版本 → 重新评分
+
+-- 1) 岗位目标表：用户管理的目标岗位与 JD（岗位匹配评分核心输入）
+CREATE TABLE `portal_resume_job_target` (
+  `id` bigint NOT NULL AUTO_INCREMENT COMMENT '岗位目标ID',
+  `user_id` bigint NOT NULL COMMENT '用户ID（门户用户ID）',
+  `position` varchar(100) NOT NULL COMMENT '目标岗位名称（如 Java开发工程师）',
+  `company` varchar(100) DEFAULT NULL COMMENT '目标公司（选填）',
+  `city` varchar(50) DEFAULT NULL COMMENT '期望城市（选填）',
+  `job_type` varchar(20) DEFAULT NULL COMMENT '岗位类型（全职/兼职/实习）',
+  `jd_text` text NOT NULL COMMENT '岗位描述/JD原文（匹配分析核心输入）',
+  `jd_keywords` varchar(1000) DEFAULT NULL COMMENT 'AI提取的JD核心关键词（逗号分隔，冗余加速展示）',
+  `is_default` tinyint(1) DEFAULT 0 COMMENT '是否默认岗位：0=否 1=是',
+  `create_time` datetime DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `update_time` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  PRIMARY KEY (`id`),
+  KEY `idx_user_id` (`user_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='简历优化-岗位目标表';
+
+-- 2) 岗位匹配报告表：每次匹配分析结果存档（可追溯历史评分）
+CREATE TABLE `portal_resume_job_match` (
+  `id` bigint NOT NULL AUTO_INCREMENT COMMENT '报告ID',
+  `user_id` bigint NOT NULL COMMENT '用户ID',
+  `resume_id` bigint NOT NULL COMMENT '简历ID（portal_user_resume.id）',
+  `job_target_id` bigint NOT NULL COMMENT '岗位目标ID',
+  `match_score` int NOT NULL COMMENT '综合匹配度 0-100',
+  `grade` varchar(20) DEFAULT NULL COMMENT '评级：excellent/good/medium/poor',
+  `matched_keywords` varchar(1000) DEFAULT NULL COMMENT '已匹配关键词（逗号分隔）',
+  `missing_keywords` varchar(1000) DEFAULT NULL COMMENT '缺失关键词（逗号分隔）',
+  `dimensions` json DEFAULT NULL COMMENT '各维度评分明细（关键词/经验/技能/结构匹配）',
+  `summary` text COMMENT 'AI分析总结',
+  `ai_powered` tinyint(1) DEFAULT 0 COMMENT '是否LLM生成：0=规则 1=LLM',
+  `create_time` datetime DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  PRIMARY KEY (`id`),
+  KEY `idx_resume_id` (`resume_id`),
+  KEY `idx_user_id` (`user_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='简历优化-岗位匹配报告表';
+
+-- 3) 优化历史表：深度优化采纳后记录轨迹（版本对比数据）
+CREATE TABLE `portal_resume_optimize_history` (
+  `id` bigint NOT NULL AUTO_INCREMENT COMMENT '优化记录ID',
+  `user_id` bigint NOT NULL COMMENT '用户ID',
+  `resume_id` bigint NOT NULL COMMENT '被优化的简历ID',
+  `from_resume_id` bigint NOT NULL COMMENT '优化前简历ID（同一简历冗余记录，便于追溯）',
+  `job_target_id` bigint DEFAULT NULL COMMENT '关联岗位目标ID',
+  `score_before` int DEFAULT NULL COMMENT '优化前评分',
+  `score_after` int DEFAULT NULL COMMENT '优化后评分',
+  `match_score_before` int DEFAULT NULL COMMENT '优化前匹配度',
+  `match_score_after` int DEFAULT NULL COMMENT '优化后匹配度',
+  `adopted_count` int DEFAULT 0 COMMENT '采纳建议数',
+  `total_count` int DEFAULT 0 COMMENT '生成建议总数',
+  `optimize_data` json DEFAULT NULL COMMENT '优化明细快照（逐项 original/optimized/status）',
+  `create_time` datetime DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  PRIMARY KEY (`id`),
+  KEY `idx_resume_id` (`resume_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='简历优化-优化历史表';

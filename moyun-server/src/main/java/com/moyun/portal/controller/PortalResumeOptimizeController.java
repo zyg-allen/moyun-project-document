@@ -1,0 +1,257 @@
+package com.moyun.portal.controller;
+
+import com.moyun.common.constant.HttpStatus;
+import com.moyun.core.base.AjaxResult;
+import com.moyun.core.base.BaseController;
+import com.moyun.ext.cms.domain.vo.ResumeDeepOptimizeVO;
+import com.moyun.ext.cms.domain.vo.UserResumeVO;
+import com.moyun.ext.cms.service.IUserResumeService;
+import com.moyun.ext.cms.service.ResumeDeepOptimizeService;
+import com.moyun.ext.cms.service.ResumeJobMatchService;
+import com.moyun.portal.domain.entity.PortalResumeJobMatch;
+import com.moyun.portal.domain.entity.PortalResumeJobTarget;
+import com.moyun.portal.mapper.PortalResumeJobTargetMapper;
+import com.moyun.portal.util.PortalSecurityUtils;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+import java.util.Map;
+
+/**
+ * 简历优化工作台 Controller（门户端，v10.13 简历优化重构）
+ * <p>
+ * 链路：选岗位(填JD) → 选简历 → AI岗位匹配评分(存报告) → 深度优化(前后对比逐项采纳)
+ *       → 预览微调 → 保存新版本 → 重新评分。
+ * <p>
+ * 接口列表：
+ *   GET/POST/PUT/DELETE  /portal/resume/optimize/job-target    岗位目标 CRUD
+ *   POST  /portal/resume/optimize/match/{resumeId}/{jobTargetId}  执行匹配分析
+ *   GET   /portal/resume/optimize/match/{resumeId}/latest        最近匹配报告
+ *   POST  /portal/resume/optimize/deep/{resumeId}/{jobTargetId}   生成深度优化建议
+ *   POST  /portal/resume/optimize/deep/apply                      采纳建议并保存新版本
+ *   GET   /portal/resume/optimize/history/{resumeId}              优化历史
+ *
+ * @author moyun
+ */
+@Tag(name = "简历优化工作台", description = "岗位匹配评分与深度优化闭环")
+@RestController
+@RequestMapping("/portal/resume/optimize")
+public class PortalResumeOptimizeController extends BaseController {
+
+    @Autowired
+    private PortalResumeJobTargetMapper jobTargetMapper;
+
+    @Autowired
+    private ResumeJobMatchService jobMatchService;
+
+    @Autowired
+    private ResumeDeepOptimizeService deepOptimizeService;
+
+    @Autowired
+    private IUserResumeService userResumeService;
+
+    @Autowired
+    private com.fasterxml.jackson.databind.ObjectMapper objectMapper;
+
+    private Long currentUserId() {
+        return PortalSecurityUtils.getUserId();
+    }
+
+    // ==================== 岗位目标 CRUD ====================
+
+    @Operation(summary = "我的岗位目标列表")
+    @GetMapping("/job-target")
+    public AjaxResult listJobTargets() {
+        Long userId = currentUserId();
+        if (userId == null) {
+            return AjaxResult.error(HttpStatus.UNAUTHORIZED, "登录已过期，请重新登录");
+        }
+        List<PortalResumeJobTarget> list = jobTargetMapper.selectList(
+                new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<PortalResumeJobTarget>()
+                        .eq(PortalResumeJobTarget::getUserId, userId)
+                        .orderByDesc(PortalResumeJobTarget::getIsDefault)
+                        .orderByDesc(PortalResumeJobTarget::getId));
+        return AjaxResult.success(list);
+    }
+
+    @Operation(summary = "新建岗位目标", description = "岗位名称与JD为必填")
+    @PostMapping("/job-target")
+    public AjaxResult createJobTarget(@RequestBody PortalResumeJobTarget dto) {
+        Long userId = currentUserId();
+        if (userId == null) {
+            return AjaxResult.error(HttpStatus.UNAUTHORIZED, "登录已过期，请重新登录");
+        }
+        if (dto.getPosition() == null || dto.getPosition().trim().isEmpty()) {
+            return AjaxResult.error("请填写目标岗位名称");
+        }
+        if (dto.getJdText() == null || dto.getJdText().trim().isEmpty()) {
+            return AjaxResult.error("请粘贴岗位JD描述（匹配分析的核心输入）");
+        }
+        // 设为默认时清除原默认
+        if (dto.getIsDefault() != null && dto.getIsDefault() == 1) {
+            clearDefault(userId);
+        }
+        dto.setId(null);
+        dto.setUserId(userId);
+        jobTargetMapper.insert(dto);
+        return AjaxResult.success(dto.getId());
+    }
+
+    @Operation(summary = "更新岗位目标")
+    @PutMapping("/job-target/{id}")
+    public AjaxResult updateJobTarget(@PathVariable Long id, @RequestBody PortalResumeJobTarget dto) {
+        Long userId = currentUserId();
+        if (userId == null) {
+            return AjaxResult.error(HttpStatus.UNAUTHORIZED, "登录已过期，请重新登录");
+        }
+        PortalResumeJobTarget exist = jobTargetMapper.selectById(id);
+        if (exist == null || !exist.getUserId().equals(userId)) {
+            return AjaxResult.error("岗位目标不存在或无权访问");
+        }
+        if (dto.getIsDefault() != null && dto.getIsDefault() == 1) {
+            clearDefault(userId);
+        }
+        dto.setId(id);
+        dto.setUserId(userId);
+        jobTargetMapper.updateById(dto);
+        return AjaxResult.success();
+    }
+
+    @Operation(summary = "删除岗位目标")
+    @DeleteMapping("/job-target/{id}")
+    public AjaxResult deleteJobTarget(@PathVariable Long id) {
+        Long userId = currentUserId();
+        if (userId == null) {
+            return AjaxResult.error(HttpStatus.UNAUTHORIZED, "登录已过期，请重新登录");
+        }
+        PortalResumeJobTarget exist = jobTargetMapper.selectById(id);
+        if (exist == null || !exist.getUserId().equals(userId)) {
+            return AjaxResult.error("岗位目标不存在或无权访问");
+        }
+        jobTargetMapper.deleteById(id);
+        return AjaxResult.success();
+    }
+
+    private void clearDefault(Long userId) {
+        PortalResumeJobTarget upd = new PortalResumeJobTarget();
+        upd.setIsDefault(0);
+        jobTargetMapper.update(upd,
+                new com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper<PortalResumeJobTarget>()
+                        .eq(PortalResumeJobTarget::getUserId, userId)
+                        .eq(PortalResumeJobTarget::getIsDefault, 1));
+    }
+
+    // ==================== 岗位匹配分析 ====================
+
+    @Operation(summary = "执行岗位匹配分析", description = "LLM 四维分析（关键词/经验/技能/结构）+ 规则兜底，结果存档可追溯")
+    @PostMapping("/match/{resumeId}/{jobTargetId}")
+    public AjaxResult match(@PathVariable Long resumeId, @PathVariable Long jobTargetId) {
+        Long userId = currentUserId();
+        if (userId == null) {
+            return AjaxResult.error(HttpStatus.UNAUTHORIZED, "登录已过期，请重新登录");
+        }
+        UserResumeVO resume = userResumeService.selectResumeDetail(resumeId, userId);
+        if (resume == null) {
+            return AjaxResult.error("简历不存在或无权访问");
+        }
+        try {
+            PortalResumeJobMatch report = jobMatchService.analyze(userId, resume, jobTargetId);
+            return AjaxResult.success(report);
+        } catch (RuntimeException e) {
+            return AjaxResult.error(e.getMessage());
+        }
+    }
+
+    @Operation(summary = "最近匹配报告", description = "查询简历最近一次匹配分析结果（无则 data 为 null）")
+    @GetMapping("/match/{resumeId}/latest")
+    public AjaxResult latestMatch(@PathVariable Long resumeId) {
+        Long userId = currentUserId();
+        if (userId == null) {
+            return AjaxResult.error(HttpStatus.UNAUTHORIZED, "登录已过期，请重新登录");
+        }
+        return AjaxResult.success(jobMatchService.latestReport(userId, resumeId));
+    }
+
+    // ==================== 深度优化 ====================
+
+    @Operation(summary = "生成深度优化建议", description = "LLM 基于JD逐项生成优化建议（需 AI 模型）")
+    @PostMapping("/deep/{resumeId}/{jobTargetId}")
+    public AjaxResult deepOptimize(@PathVariable Long resumeId, @PathVariable Long jobTargetId) {
+        Long userId = currentUserId();
+        if (userId == null) {
+            return AjaxResult.error(HttpStatus.UNAUTHORIZED, "登录已过期，请重新登录");
+        }
+        UserResumeVO resume = userResumeService.selectResumeDetail(resumeId, userId);
+        if (resume == null) {
+            return AjaxResult.error("简历不存在或无权访问");
+        }
+        try {
+            ResumeDeepOptimizeVO vo = deepOptimizeService.generate(resume, jobTargetId);
+            return AjaxResult.success(vo);
+        } catch (RuntimeException e) {
+            return AjaxResult.error(e.getMessage());
+        }
+    }
+
+    @Operation(summary = "采纳建议并保存优化结果",
+            description = "参数：resumeId、jobTargetId、optimize(完整建议列表)、adopted(采纳的下标数组)；直接更新原简历（幂等）并记录优化历史")
+    @PostMapping("/deep/apply")
+    public AjaxResult applyOptimize(@RequestBody Map<String, Object> params) {
+        Long userId = currentUserId();
+        if (userId == null) {
+            return AjaxResult.error(HttpStatus.UNAUTHORIZED, "登录已过期，请重新登录");
+        }
+        try {
+            Long resumeId = Long.valueOf(String.valueOf(params.get("resumeId")));
+            UserResumeVO resume = userResumeService.selectResumeDetail(resumeId, userId);
+            if (resume == null) {
+                return AjaxResult.error("简历不存在或无权访问");
+            }
+            ResumeDeepOptimizeVO optimize = objectMapper.convertValue(params.get("optimize"), ResumeDeepOptimizeVO.class);
+            @SuppressWarnings("unchecked")
+            List<Integer> adopted = (List<Integer>) params.get("adopted");
+            Long newId = deepOptimizeService.applyAndSave(userId, resume, optimize, adopted,
+                    (vo, uid) -> userResumeService.saveResume(vo, uid));
+            return AjaxResult.success(newId);
+        } catch (RuntimeException e) {
+            return AjaxResult.error(e.getMessage());
+        } catch (Exception e) {
+            return AjaxResult.error("参数解析失败：" + e.getMessage());
+        }
+    }
+
+    @Operation(summary = "优化历史列表")
+    @GetMapping("/history/{resumeId}")
+    public AjaxResult history(@PathVariable Long resumeId) {
+        Long userId = currentUserId();
+        if (userId == null) {
+            return AjaxResult.error(HttpStatus.UNAUTHORIZED, "登录已过期，请重新登录");
+        }
+        return AjaxResult.success(deepOptimizeService.listHistory(userId, resumeId));
+    }
+
+    // ==================== AI 实时辅助编辑（v10.14 设计文档 P0 需求#2） ====================
+
+    @Operation(summary = "字段级 AI 实时辅助",
+            description = "编辑页字段旁「✨AI优化」：对工作/项目描述、自我评价、技能清单生成3个差异化优化版本，用户采纳替换")
+    @PostMapping("/ai-assist")
+    public AjaxResult aiAssist(@RequestBody Map<String, Object> params) {
+        Long userId = currentUserId();
+        if (userId == null) {
+            return AjaxResult.error(HttpStatus.UNAUTHORIZED, "登录已过期，请重新登录");
+        }
+        try {
+            String field = String.valueOf(params.get("field"));
+            String originalText = params.get("originalText") == null ? "" : String.valueOf(params.get("originalText"));
+            String position = params.get("position") == null ? null : String.valueOf(params.get("position"));
+            @SuppressWarnings("unchecked")
+            List<String> skillNames = (List<String>) params.get("skillNames");
+            return AjaxResult.success(deepOptimizeService.fieldAssist(field, originalText, position, skillNames));
+        } catch (RuntimeException e) {
+            return AjaxResult.error(e.getMessage());
+        }
+    }
+}

@@ -5,6 +5,69 @@
 
 ---
 
+## v10.14 (2026-08-26) 简历编辑页 AI 实时辅助编辑（设计文档 P0 需求#2）+ 编译错误修复
+
+### 需求
+按《简历编辑和优化模块重构设计-20260826.md》P0 需求#2：编辑简历时字段级 AI 优化建议。工作/项目经历描述、自我评价旁新增「✨AI优化」按钮 → 弹窗展示原文 + 3 个差异化版本（成果量化/技术深度/业务价值，STAR 法则+量化占位符）→ 一键采纳替换并联动自动保存。
+
+### 后端
+- [ResumeDeepOptimizeService.java](file:///d:/zyg_new_work/moyun-project-document/moyun-server/src/main/java/com/moyun/ext/cms/service/ResumeDeepOptimizeService.java)：新增 `fieldAssist(field, originalText, position, skillNames)`，按字段类型差异化提示词，返回 3 版建议（text+reason）；AI 未启用/原文为空抛明确提示
+- [PortalResumeOptimizeController.java](file:///d:/zyg_new_work/moyun-project-document/moyun-server/src/main/java/com/moyun/portal/controller/PortalResumeOptimizeController.java)：新增 `POST /portal/resume/optimize/ai-assist`
+- 深度优化输出截断修复（JsonEOFException）：提示词不再要求 LLM 回显 original（原文由 `fillOriginal` 服务端按 section/index/field 回填），items 限 3-6 项、optimized 限 50-200 字、reason 限 30 字；JSON 解析失败时给出可操作提示（引导调大模型 maxTokens）
+- 编译修复：`objectMapper.createArray()` → `createArrayNode()`（ResumeDeepOptimizeService/ResumeJobMatchService 共 6 处）；`Arrays.stream(boolean[])` 不存在 → 改为循环计数（ResumeJobMatchService 结构完整度）
+
+### 前端（moyun-portal）
+- [resumeOptimize.ts](file:///d:/zyg_new_work/moyun-project-document/moyun-portal/src/api/resumeOptimize.ts)：新增 `aiFieldAssist` + `FieldAssistSuggestion` 类型
+- [ResumeEditPage.vue](file:///d:/zyg_new_work/moyun-project-document/moyun-portal/src/pages/interview/ResumeEditPage.vue)：
+  - 工作经历/项目经历描述、自我评价区块旁 ✨AI优化 按钮（紫色胶囊样式，对比度达标）
+  - 辅助弹窗：原文对比基准（限高滚动）+ 3 版本卡片（版本标签+优化理由+采纳按钮）+ 空态/加载态 + 占位符提示（[X%]/[X万] 需替换真实数值）
+  - `adoptAssist` 采纳后 `autoSaveAfterAdopt` 联动静默保存（有 id 时）；评分进度条修复为 `:style` 动态绑定
+- [ResumeActionBar.vue](file:///d:/zyg_new_work/moyun-project-document/moyun-portal/src/components/resume/ResumeActionBar.vue)：saveStatus 扩展 `dirty` 状态（"有未保存修改"提示）
+
+### 验证
+- moyun-server mvn compile ✓ / moyun-portal vite build ✓
+- 无新增 SQL；需重启后端生效
+
+---
+
+## v10.13 (2026-08-26) 简历优化重构：岗位匹配评分 + 深度优化前后对比闭环（5步工作台）
+
+### 需求
+按《简历编辑和优化模块重构设计-20260826.md》重构简历优化链路：岗位目标管理 → JD 匹配评分 → AI 逐项优化（前后对比采纳）→ 预览（完整度）→ 保存 → 重新评分/匹配。参考熊猫简历预览页的完整度百分比 + 待核对清单设计。无版本概念：优化直接更新原简历（幂等），优化历史快照可追溯。
+
+### 数据库（DDL 增量，moyun-db-ddl-moyun-db-202608201435.sql 末尾）
+- `portal_resume_job_target`：岗位目标（position/jdText 核心，jd_keywords 冗余，is_default）
+- `portal_resume_job_match`：匹配报告存档（match_score/grade/matched+missing keywords/dimensions JSON 四维/ai_powered）
+- `portal_resume_optimize_history`：优化历史（score/match 前后对比 + optimize_data 全量建议快照含采纳状态）
+
+### 后端（新增）
+- 实体+Mapper：PortalResumeJobTarget / PortalResumeJobMatch / PortalResumeOptimizeHistory（dimensions·optimize_data 走 JacksonTypeHandler，autoResultMap）
+- [LlmJsonExtractor.java](file:///d:/zyg_new_work/moyun-project-document/moyun-server/src/main/java/com/moyun/ext/cms/service/LlmJsonExtractor.java)：LLM 返回 JSON 提取统一工具（剥围栏+截取{}本体）
+- [ResumeJobMatchService.java](file:///d:/zyg_new_work/moyun-project-document/moyun-server/src/main/java/com/moyun/ext/cms/service/ResumeJobMatchService.java)：LLM 四维匹配分析（关键词/经验/技能/结构）+ 规则兜底（JD 关键词表+结构完整度 6:4 加权）；报告入库可追溯
+- [ResumeDeepOptimizeService.java](file:///d:/zyg_new_work/moyun-project-document/moyun-server/src/main/java/com/moyun/ext/cms/service/ResumeDeepOptimizeService.java)：LLM 逐项优化建议（section+index+field 定位，original/optimized/reason）；采纳→应用到简历→saveResume 幂等更新（无版本概念）；skills 分级文本解析合并去重；LLM 幻觉 section 防御；优化历史快照记录
+- [PortalResumeOptimizeController.java](file:///d:/zyg_new_work/moyun-project-document/moyun-server/src/main/java/com/moyun/portal/controller/PortalResumeOptimizeController.java)：岗位 CRUD（/portal/resume/optimize/job-target）+ 匹配（match/{resumeId}/{jobTargetId}）+ 深度优化（deep 生成/apply 采纳）+ 历史查询；全部校验归属
+
+### 前端（moyun-portal）
+- [resumeOptimize.ts](file:///d:/zyg_new_work/moyun-project-document/moyun-portal/src/api/resumeOptimize.ts) + types/api.ts：岗位目标/匹配报告/深度优化 VO 类型与 API
+- [ResumeOptimizePage.vue](file:///d:/zyg_new_work/moyun-project-document/moyun-portal/src/pages/interview/ResumeOptimizePage.vue)（路由 /interview/resume/optimize）：5 步向导
+  - STEP1 岗位：卡片选择+新建弹窗（JD 必填）+删除+默认标识
+  - STEP2 简历：网格选择（带版本/评分/更新时间），支持 ?resumeId= 直达
+  - STEP3 分析：进度弹窗（5 阶段动画+真实接口）
+  - STEP4 对比：匹配度大数字+四维进度条+已匹配/缺失关键词标签+summary；深度优化建议卡片（优化前/后双栏+理由+逐项采纳/全部采纳）
+  - STEP5 预览：简历完整度%（9 项核对清单，参考熊猫简历）+ 最终简历预览（前端预演应用采纳项）+ 保存优化结果（幂等更新原简历）+ 重新匹配（前后匹配度对比展示）+ 重新评分 + 去微调
+- 入口：MyResumesPage 卡片"岗位优化"按钮；ResumeEditPage 顶部紫色引导条（有 id 时）；ResumeTemplatePage"基于此模板创建简历"（fromTemplate query 预填标题/期望岗位，跳过最新简历反显）
+
+### 设计取舍
+- 无版本概念（用户决策）：优化直接更新原简历，幂等；优化历史表保留前后快照满足可追溯
+- 深度优化无规则兜底：文本改写必须 LLM，未配置 AI 时明确提示；匹配分析保留规则兜底（关键词命中可无 LLM 计算）
+- 模板无结构化内容字段：模板套用降级为预填标题+岗位，模板文件可下载参考（结构化模板内容列为后续扩展）
+
+### 验证
+- moyun-server mvn compile ✓ / moyun-portal vite build ✓
+- 需执行 DDL 三张新表 + 重启后端
+
+---
+
 ## v10.12 (2026-08-25) 简历附件上传实装：单文件上传 + 解析覆盖填充到在线简历
 
 ### 需求

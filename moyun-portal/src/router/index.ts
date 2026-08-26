@@ -38,6 +38,7 @@ const ResumeTemplatePage = () => import('@/pages/interview/ResumeTemplatePage.vu
 const QuestionListPage = () => import('@/pages/interview/QuestionListPage.vue')
 const ExperienceListPage = () => import('@/pages/interview/ExperienceListPage.vue')
 const MyResumesPage = () => import('@/pages/interview/MyResumesPage.vue')
+const ResumeOptimizePage = () => import('@/pages/interview/ResumeOptimizePage.vue')
 const ResumeEditPage = () => import('@/pages/interview/ResumeEditPage.vue')
 const CompanyPage = () => import('@/pages/interview/CompanyPage.vue')
 
@@ -302,6 +303,12 @@ const routes: RouteRecordRaw[] = [
     name: 'interview-resume-editor-create',
     component: ResumeEditPage,
     meta: { title: '创建简历', requiresAuth: true, robots: 'noindex,nofollow' }
+  },
+  {
+    path: '/interview/resume/optimize',
+    name: 'interview-resume-optimize',
+    component: ResumeOptimizePage,
+    meta: { title: 'AI 简历优化工作台', requiresAuth: true, robots: 'noindex,nofollow' }
   },
   {
     path: '/interview/resume/edit/:id',

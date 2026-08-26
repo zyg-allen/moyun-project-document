@@ -453,6 +453,13 @@ function gotoPage(p: number) {
                   <Star class="w-3 h-3 mr-1" />评分
                 </button>
                 <button
+                  @click="router.push(`/interview/resume/optimize?resumeId=${r.id}`)"
+                  class="inline-flex items-center px-2.5 py-1.5 rounded-lg text-xs transition hover:opacity-80"
+                  style="background-color: var(--theme-bg); color: #7c3aed; border: 1px solid var(--theme-border);"
+                >
+                  <Sparkles class="w-3 h-3 mr-1" />岗位优化
+                </button>
+                <button
                   @click="handleExportPdf(r)"
                   :disabled="actionId === r.id"
                   class="inline-flex items-center px-2.5 py-1.5 rounded-lg text-xs transition hover:opacity-80 disabled:opacity-50 disabled:cursor-not-allowed"

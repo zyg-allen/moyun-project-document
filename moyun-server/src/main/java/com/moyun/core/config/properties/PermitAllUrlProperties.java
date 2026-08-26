@@ -18,7 +18,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
 /**
  * 设置Anonymous注解允许匿名访问的url
  *
- * @author ruoyi
+ * @author allen-zyg
  */
 @Configuration
 public class PermitAllUrlProperties implements InitializingBean, ApplicationContextAware {

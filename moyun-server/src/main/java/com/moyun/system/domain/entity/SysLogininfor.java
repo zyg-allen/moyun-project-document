@@ -13,7 +13,7 @@ import java.time.LocalDateTime;
 /**
  * 系统访问记录表 sys_logininfor
  *
- * @author ruoyi
+ * @author allen-zyg
  */
 @Data
 @TableName("sys_logininfor")

@@ -11,7 +11,7 @@ import com.moyun.util.string.StringUtils;
  * params.beginTime / params.endTime 能正常被 Spring 绑定与 OGNL 解析，
  * 修复登录日志/操作日志等列表的时间范围筛选失效问题。
  *
- * @author ruoyi
+ * @author allen-zyg
  */
 public class PageDomain extends BaseEntity {
     /**

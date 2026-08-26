@@ -30,7 +30,7 @@ import java.util.List;
 /**
  * spring security配置
  *
- * @author ruoyi
+ * @author allen-zyg
  */
 @EnableMethodSecurity(prePostEnabled = true, securedEnabled = true)
 @Configuration

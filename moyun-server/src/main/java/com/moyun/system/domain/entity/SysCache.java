@@ -7,7 +7,7 @@ import lombok.Data;
 /**
  * 缓存信息
  *
- * @author ruoyi
+ * @author allen-zyg
  */
 @Data
 public class SysCache {

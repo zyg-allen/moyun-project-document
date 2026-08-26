@@ -14,7 +14,7 @@ import java.util.List;
 /**
  * 部门数据传输对象
  *
- * @author ruoyi
+ * @author allen-zyg
  */
 @Data
 @Schema(description = "部门DTO")

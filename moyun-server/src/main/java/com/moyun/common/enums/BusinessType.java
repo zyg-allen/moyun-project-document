@@ -3,7 +3,7 @@ package com.moyun.common.enums;
 /**
  * 业务操作类型
  *
- * @author ruoyi
+ * @author allen-zyg
  */
 public enum BusinessType {
     /**

@@ -33,7 +33,7 @@ import java.util.List;
  * 使用 MybatisSqlSessionFactoryBean 替代原生 SqlSessionFactoryBean
  * 以支持 MyBatis-Plus 的增强功能
  *
- * @author ruoyi
+ * @author allen-zyg
  */
 @Configuration
 @Slf4j

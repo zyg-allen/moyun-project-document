@@ -11,7 +11,7 @@ import java.util.List;
 /**
  * 用户视图对象
  *
- * @author ruoyi
+ * @author allen-zyg
  */
 @Data
 @Schema(description = "用户VO")

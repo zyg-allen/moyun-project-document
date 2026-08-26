@@ -23,7 +23,7 @@ import com.moyun.util.html.Xss;
 /**
  * 用户对象 sys_user
  *
- * @author ruoyi
+ * @author allen-zyg
  */
 @JsonIgnoreProperties(ignoreUnknown = true)
 @Data

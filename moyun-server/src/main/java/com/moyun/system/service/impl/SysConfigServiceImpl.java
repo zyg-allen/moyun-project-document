@@ -22,7 +22,7 @@ import java.util.List;
  * - selectConfigByKey：先查缓存，未命中回源 DB 并回填
  * - 增删改后调用 clearConfigCache 或 resetConfigCache 刷新
  *
- * @author ruoyi
+ * @author allen-zyg
  */
 @Service
 public class SysConfigServiceImpl extends ServiceImpl<SysConfigMapper, SysConfig> implements ISysConfigService {

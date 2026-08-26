@@ -12,7 +12,7 @@ import java.io.Serializable;
 /**
  * 用户创建数据传输对象
  *
- * @author ruoyi
+ * @author allen-zyg
  */
 @Data
 @Schema(description = "用户创建DTO")

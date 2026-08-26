@@ -17,7 +17,7 @@ import java.util.Objects;
 /**
  * 数据脱敏序列化过滤
  *
- * @author ruoyi
+ * @author allen-zyg
  */
 public class SensitiveJsonSerializer extends JsonSerializer<String> implements ContextualSerializer
 {

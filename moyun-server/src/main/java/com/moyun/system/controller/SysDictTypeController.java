@@ -23,7 +23,7 @@ import java.util.List;
 /**
  * 数据字典信息
  *
- * @author ruoyi
+ * @author allen-zyg
  */
 @Tag(name = "字典类型管理", description = "字典类型的增删改查、导出、缓存刷新等操作接口")
 @RestController

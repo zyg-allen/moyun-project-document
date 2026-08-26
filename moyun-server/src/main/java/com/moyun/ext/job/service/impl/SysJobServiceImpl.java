@@ -20,7 +20,7 @@ import java.util.List;
 /**
  * 定时任务调度服务实现
  *
- * @author ruoyi
+ * @author allen-zyg
  */
 @Service
 public class SysJobServiceImpl implements ISysJobService {

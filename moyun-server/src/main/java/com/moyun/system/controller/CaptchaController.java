@@ -22,7 +22,7 @@ import java.util.concurrent.TimeUnit;
 /**
  * 验证码操作处理
  *
- * @author ruoyi
+ * @author allen-zyg
  */
 @Tag(name = "验证码管理", description = "验证码生成和获取接口")
 @RestController

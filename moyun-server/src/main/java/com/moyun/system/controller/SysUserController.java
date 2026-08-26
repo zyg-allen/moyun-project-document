@@ -33,7 +33,7 @@ import java.util.stream.Collectors;
 /**
  * 用户信息
  *
- * @author ruoyi
+ * @author allen-zyg
  */
 @Tag(name = "用户管理", description = "用户信息的增删改查、授权、导出等操作接口")
 @RestController

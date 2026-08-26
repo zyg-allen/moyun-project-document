@@ -5,7 +5,7 @@ import com.moyun.util.bean.Arith;
 /**
  * 內存相关信息
  *
- * @author ruoyi
+ * @author allen-zyg
  */
 public class Mem {
     /**

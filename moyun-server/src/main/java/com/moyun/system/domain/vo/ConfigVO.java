@@ -10,7 +10,7 @@ import java.time.LocalDateTime;
 /**
  * 参数配置视图对象
  *
- * @author ruoyi
+ * @author allen-zyg
  */
 @Data
 @Schema(description = "参数配置VO")

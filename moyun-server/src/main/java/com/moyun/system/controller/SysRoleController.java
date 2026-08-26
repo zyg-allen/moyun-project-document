@@ -32,7 +32,7 @@ import java.util.List;
 /**
  * 角色信息
  *
- * @author ruoyi
+ * @author allen-zyg
  */
 @Tag(name = "角色管理", description = "角色信息的增删改查、授权等操作接口")
 @RestController

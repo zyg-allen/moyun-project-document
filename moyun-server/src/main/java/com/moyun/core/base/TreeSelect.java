@@ -14,7 +14,7 @@ import com.moyun.core.base.entity.SysMenu;
 /**
  * Treeselect树结构实体类
  *
- * @author ruoyi
+ * @author allen-zyg
  */
 @Data
 public class TreeSelect implements Serializable {

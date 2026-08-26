@@ -11,7 +11,7 @@ import java.util.Set;
 /**
  * 菜单 数据层
  *
- * @author ruoyi
+ * @author allen-zyg
  */
 @Mapper
 public interface SysMenuMapper extends BaseMapper<SysMenu> {

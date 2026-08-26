@@ -23,7 +23,7 @@ import java.util.List;
 /**
  * 系统访问记录
  *
- * @author ruoyi
+ * @author allen-zyg
  */
 @Tag(name = "登录日志管理", description = "系统登录日志相关接口")
 @RestController

@@ -4,7 +4,7 @@ package com.moyun.common.constant;
  * 返回状态码
  * 与旭林前端兼容
  *
- * @author ruoyi
+ * @author allen-zyg
  */
 public class HttpStatus {
     /**

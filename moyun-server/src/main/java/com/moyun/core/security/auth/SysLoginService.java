@@ -29,7 +29,7 @@ import java.time.LocalDateTime;
 /**
  * 登录校验方法
  *
- * @author ruoyi
+ * @author allen-zyg
  */
 @Component
 public class SysLoginService {

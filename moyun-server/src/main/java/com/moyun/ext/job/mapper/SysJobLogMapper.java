@@ -10,7 +10,7 @@ import java.util.List;
 /**
  * 定时任务调度日志Mapper接口
  *
- * @author ruoyi
+ * @author allen-zyg
  */
 @Mapper
 public interface SysJobLogMapper {

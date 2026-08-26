@@ -11,7 +11,7 @@ import org.springframework.web.bind.annotation.RestController;
 /**
  * 首页
  *
- * @author ruoyi
+ * @author allen-zyg
  */
 @Tag(name = "系统首页", description = "系统首页信息接口")
 @RestController

@@ -8,7 +8,7 @@ import java.util.List;
 /**
  * 岗位 业务层
  *
- * @author ruoyi
+ * @author allen-zyg
  */
 public interface ISysPostService {
 

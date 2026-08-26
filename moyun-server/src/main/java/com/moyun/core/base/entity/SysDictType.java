@@ -13,7 +13,7 @@ import com.moyun.core.base.BaseEntity;
 /**
  * 字典类型表 sys_dict_type
  *
- * @author ruoyi
+ * @author allen-zyg
  */
 @Data
 public class SysDictType extends BaseEntity {

@@ -15,7 +15,7 @@ import java.util.Map;
 /**
  * 系统访问记录 数据层
  *
- * @author ruoyi
+ * @author allen-zyg
  */
 @Mapper
 public interface SysLogininforMapper extends BaseMapper<SysLogininfor> {

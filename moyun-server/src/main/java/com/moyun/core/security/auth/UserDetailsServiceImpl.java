@@ -22,7 +22,7 @@ import java.util.Set;
 /**
  * 用户验证处理
  *
- * @author ruoyi
+ * @author allen-zyg
  */
 @Service
 @Primary

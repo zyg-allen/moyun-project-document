@@ -24,7 +24,7 @@ import java.util.Map;
 /**
  * 个人信息 业务处理
  *
- * @author ruoyi
+ * @author allen-zyg
  */
 @Tag(name = "个人信息管理", description = "个人信息查看、修改、密码重置、头像上传等操作接口")
 @RestController

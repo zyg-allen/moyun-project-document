@@ -16,7 +16,7 @@ import org.springframework.web.bind.annotation.RestController;
 /**
  * 注册验证
  *
- * @author ruoyi
+ * @author allen-zyg
  */
 @Tag(name = "用户注册", description = "用户注册相关接口")
 @RestController

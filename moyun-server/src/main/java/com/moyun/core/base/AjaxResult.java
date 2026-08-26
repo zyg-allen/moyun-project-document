@@ -9,7 +9,7 @@ import com.moyun.util.string.StringUtils;
 /**
  * 操作消息提醒
  *
- * @author ruoyi
+ * @author allen-zyg
  */
 public class AjaxResult extends HashMap<String, Object> {
     private static final long serialVersionUID = 1L;

@@ -5,6 +5,59 @@
 
 ---
 
+## v10.18 (2026-09-01) AI 面试官 LLM 驱动动态追问体系
+
+> 补丁：`moyun-llm-followup-v10.4.patch`（交付轮次编号 V10.4，下同）
+
+**后端 `VoiceInterviewServiceImpl.java`**：
+- 新增 LLM 分析协议 `analyzeAnswerByLlm`：一次调用同时产出评分校正、漏洞识别（≤3条）、水平评估（junior/mid/senior）、针对性追问建议（必须引用候选人原话）、引导提示；LLM 不可用/失败时全链路回退规则评分，可用性永不中断
+- LLM 分与规则分按 0.7/0.3 加权融合，避免单边极端
+- 上下文系统提示词 `buildContextualSystemPrompt`：岗位+难度+简历项目摘要+累积薄弱点+风格，替代原单句提示词
+- start 时 `buildResumeDigest` 提取简历项目摘要（≤3个：项目名/技术栈/亮点）写入 configJson，作为追问上下文底座
+- 动态追问决策：LLM followupWorth 优先 + 追问总预算 `FOLLOWUP_BUDGET`（4次）+ 链深限制 `FOLLOWUP_MAX_DEPTH`（2层防死循环），预算耗尽自动降级推进
+- 追问问题 `generateFollowupQuestion`：优先 LLM 针对漏洞生成（引用候选人原话），播报话术先点明漏洞再追问；规则模板保留兜底
+- 水平画像累积 `accumulateProfile`：每轮漏洞写回 configJson.profileGaps（≤8条），驱动后续追问覆盖验证
+- finish 报告增强：薄弱点并入画像真实漏洞；总评写入水平画像（junior→初级/mid→中级/senior→高级）
+- SSE data 事件新增 `guidance` 字段：回答跑偏时下发引导提示
+
+**前端**：
+- `VoiceInterviewPage.vue`：guidance 以「引导」标签气泡展示并语音播报，引导用户回答而非直接判死
+- `api/voiceInterview.ts`：onData 类型扩展 guidance
+
+## v10.17 (2026-09-01) 简历→语音面试全链路打通 + 历史面试留存
+
+> 补丁：`moyun-voice-link-v10.3.patch`
+
+**修复 4 个断链**：
+- 假简历上传（仅改 UI 状态+硬编码假数据）→ 真实简历库选择器：进页拉取简历列表（名称/评分/更新时间/状态徽章）单选，空库引导维护，登录门禁，未选禁开
+- startSession payload 缺 resumeId 致后端简历深挖出题路死代码 → payload 接通，出题配比「简历项目 2 题+画像 2 题+兜底 1 题」生效
+- 目标岗位硬编码 3 项 → 从所选简历求职意向自动带出+快捷选项+自定义任意岗位；报告头部回显岗位/风格/难度/时间元信息
+- 历史面试零入口（后端接口存在但无页面消费）→ 新建 `MyVoiceInterviewsPage.vue`（评分环形/岗位/题数/时长/删除/分页），路由 `/interview/voice/history`，「我的答题记录」页导流卡，报告页顶部返回链，报告新增第 4 Tab「对话回放」完整回看 QA 问答流
+
+**部署归档**：`moyun-voice-interview-menu-20260901.sql`（sys_menu 语音面试管理菜单+4 按钮权限，修复新环境 Admin 空白页）
+
+## v10.16 (2026-08-31) 编程题接入真实 OJ 判题（题库练习链路收口）
+
+> 补丁：`moyun-oj-v10.2.patch`
+
+**后端 `ProcessJudgeEngine.java`（防作弊加固）**：首败即停逻辑中隐藏用例的 input/expected/actual 明文下发 → 仅样例用例回填，隐藏用例只下发状态码（与选择题答案剥离同标准）
+
+**前端 `CodingPracticePage.vue` 完全重写（655 行）**：
+- 关键修复：判题引擎为 stdin/stdout ACM 模式，旧页面 LeetCode 函数式模板必然 WA → 新模板 7 语言全覆盖（JS/TS/Python/Java/Go/C++/Rust）均为完整可跑的 ACM 解法
+- 真实判题接入：运行/提交均走服务端权威评测（POST /portal/judge/submit，dev 同步模式），提交入历史并跳转记录 Tab
+- 用例明细：样例失败展示输入/期望/实际（后端回填+前端 orderNum 匹配），隐藏用例仅状态+耗时
+- 判题状态元数据 AC/WA/TLE/MLE/RE/CE/SE/PENDING 中文标签配色；多语言代码槽；Ctrl+Enter 提交
+
+**至此题库练习四大断链全部修复**（判分形同虚设/答案明文下发/选择题纯本地/编程题纯前端模拟）。
+
+## v10.15 (2026-08-31) AI 语音面试对话可视化增强（对标 HireVue/面试鸭AI）
+
+> 补丁：`moyun-voice-ui-v10.1.patch`
+
+- 新增 `useAudioLevel.ts`：getUserMedia+AudioContext+AnalyserNode 频域分析，10 柱人声主频段分桶（85Hz~3.8kHz），attack/release 平滑，全量资源清理（stop tracks/关闭 ctx/取消 RAF）
+- VoiceInterviewPage 六项增强：聆听实时音浪条（watch(listening) 统一驱动覆盖全部路径）、四态状态环（聆听红/分析黄/播报蓝/空闲绿）、AI 头像播报声波动画、顶栏静音切换、停止播报按钮、播报结束自动开麦（对话节奏闭环，setup 可关）
+- 前置轮次（V10.0 语音 MVP）已含：ASR 实时转写边说边打印、SSE 流式打字机渲染、TTS 队列播报、用户说话自动打断 TTS
+
 ## v10.14 (2026-08-26) 简历编辑页 AI 实时辅助编辑（设计文档 P0 需求#2）+ 编译错误修复
 
 ### 需求

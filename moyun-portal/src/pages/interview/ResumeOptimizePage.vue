@@ -1,11 +1,11 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useHead } from '@vueuse/head';
 import {
   Target, FolderOpen, Bot, GitCompare, Eye, Plus, ArrowRight, ArrowLeft,
   CheckCircle2, X, Sparkles, Save, Star, RefreshCw, FileText, Trash2, Rocket,
-  AlertCircle, PartyPopper, Pencil as PencilIcon,
+  AlertCircle, PartyPopper, Pencil as PencilIcon, History,
 } from 'lucide-vue-next';
 import SiteFooter from '@/components/SiteFooter.vue';
 import Breadcrumb from '@/components/Breadcrumb.vue';
@@ -13,11 +13,11 @@ import { generateSeo } from '@/utils/seo';
 import { getMyResumeList, scoreResume, getResumeDetail } from '@/api/interview';
 import {
   getJobTargets, createJobTarget, deleteJobTarget, runJobMatch,
-  generateDeepOptimize, applyDeepOptimize,
+  generateDeepOptimize, applyDeepOptimize, getOptimizeHistory,
 } from '@/api/resumeOptimize';
 import type {
   UserResumeVO, ResumeJobTarget, ResumeJobMatchReport,
-  ResumeDeepOptimizeVO, ResumeOptimizeItem,
+  ResumeDeepOptimizeVO, ResumeOptimizeItem, ResumeOptimizeHistory,
 } from '@/types/api';
 import { useToast } from '@/composables/useToast';
 
@@ -85,6 +85,46 @@ const selectedResume = computed(() => resumes.value.find(r => r.id === selectedR
 
 const JOB_TYPE_OPTIONS = ['全职', '兼职', '实习', '校招'];
 
+// ==================== 优化历史 ====================
+const historyLoading = ref(false);
+const optimizeHistory = ref<ResumeOptimizeHistory[]>([]);
+const historyVisibleCount = ref(5);
+
+async function loadOptimizeHistory() {
+  if (!selectedResumeId.value) {
+    optimizeHistory.value = [];
+    return;
+  }
+  historyLoading.value = true;
+  try {
+    const res = await getOptimizeHistory(selectedResumeId.value);
+    optimizeHistory.value = res.code === 200 ? (res.data ?? []) : [];
+  } catch (e) {
+    console.warn('[optimize] 历史加载失败', e);
+  } finally {
+    historyLoading.value = false;
+  }
+}
+
+const visibleHistory = computed(() => optimizeHistory.value.slice(0, historyVisibleCount.value));
+
+function formatHistoryTime(dt?: string | null): string {
+  if (!dt) return '';
+  const d = new Date(dt);
+  if (Number.isNaN(d.getTime())) return dt;
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+}
+
+function scoreDelta(h: ResumeOptimizeHistory): number {
+  const after = h.scoreAfter ?? 0;
+  const before = h.scoreBefore ?? 0;
+  return after - before;
+}
+
+function goEditFromHistory(h: ResumeOptimizeHistory) {
+  router.push({ name: 'ResumeEdit', query: { id: String(h.resumeId) } });
+}
+
 // ==================== 数据加载 ====================
 onMounted(async () => {
   loadJobTargets();
@@ -94,6 +134,11 @@ onMounted(async () => {
   if (q && resumes.value.some(r => String(r.id) === q)) {
     selectedResumeId.value = q;
   }
+  loadOptimizeHistory();
+});
+
+watch(selectedResumeId, () => {
+  loadOptimizeHistory();
 });
 
 async function loadJobTargets() {
@@ -358,6 +403,7 @@ async function saveOptimize() {
     if (res.code === 200 && res.data) {
       savedResumeId.value = res.data as string | number;
       toast.success('优化结果已保存');
+      loadOptimizeHistory();
     } else {
       toast.error(res.message || '保存失败');
     }
@@ -842,6 +888,32 @@ function dimRows() {
               >
                 <Star class="w-4 h-4" /> {{ rescoredScore !== null ? `最终评分 ${rescoredScore} 分` : '重新评分' }}
               </button>
+            </div>
+
+            <!-- 优化历史：评分前后对比 -->
+            <div v-if="optimizeHistory.length" class="border-t border-theme-border pt-4 mt-4">
+              <div class="flex items-center justify-between mb-2">
+                <h4 class="text-sm font-semibold text-theme-text flex items-center gap-1.5">
+                  <History class="w-4 h-4" style="color: var(--theme-primary);" /> 优化历史（{{ optimizeHistory.length }} 次）
+                </h4>
+                <button class="text-xs text-theme-text-secondary hover:text-theme-primary" :disabled="historyLoading" @click="loadOptimizeHistory">刷新</button>
+              </div>
+              <div class="max-h-48 overflow-y-auto divide-y divide-theme-border">
+                <div v-for="h in visibleHistory" :key="h.id" class="py-2 flex items-center justify-between text-xs cursor-pointer hover:bg-theme-muted/40 px-1 rounded" @click="goEditFromHistory(h)">
+                  <span class="text-theme-text-secondary">{{ formatHistoryTime(h.createTime) }}</span>
+                  <div class="flex items-center gap-3">
+                    <span v-if="h.scoreBefore != null || h.scoreAfter != null" class="text-theme-text">
+                      评分 {{ h.scoreBefore ?? '-' }} → <span class="font-semibold" :style="{ color: scoreDelta(h) > 0 ? 'var(--theme-success)' : scoreDelta(h) < 0 ? 'var(--theme-danger)' : 'inherit' }">{{ h.scoreAfter ?? '-' }}</span>
+                    </span>
+                    <span v-if="h.matchScoreBefore != null || h.matchScoreAfter != null" class="text-theme-text-secondary">
+                      匹配 {{ h.matchScoreBefore ?? '-' }}% → {{ h.matchScoreAfter ?? '-' }}%
+                    </span>
+                  </div>
+                </div>
+                <button v-if="optimizeHistory.length > historyVisibleCount" class="w-full py-2 text-xs text-theme-primary hover:underline" @click="historyVisibleCount += 5">
+                  展开更多（{{ optimizeHistory.length - historyVisibleCount }} 条）
+                </button>
+              </div>
             </div>
           </div>
         </div>

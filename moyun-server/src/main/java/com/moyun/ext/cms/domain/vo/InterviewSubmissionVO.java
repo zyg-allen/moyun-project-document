@@ -58,6 +58,15 @@ public class InterviewSubmissionVO implements Serializable {
     /** 提交者昵称（精选笔记展示用） */
     private String userNickname;
 
+    /** 正确答案（仅选择题判分后返回，用于展示） */
+    private String correctAnswer;
+
+    /** 题目解析（仅选择题判分后返回） */
+    private String analysis;
+
+    /** 题目练习模式：reading/choice/coding */
+    private String practiceMode;
+
     /** 提交者头像（精选笔记展示用） */
     private String userAvatar;
 

@@ -4,7 +4,7 @@ import { useRouter } from 'vue-router';
 import { useHead } from '@vueuse/head';
 import {
   CheckCircle, XCircle, ChevronLeft, ChevronRight,
-  Code, FileText, PenTool, Clock, Mic, Sparkles,
+  Code, FileText, PenTool, Clock, Mic, Sparkles, History,
 } from 'lucide-vue-next';
 import SiteFooter from '@/components/SiteFooter.vue';
 import Breadcrumb from '@/components/Breadcrumb.vue';
@@ -138,6 +138,19 @@ function passLabel(sub: InterviewSubmissionVO) {
     >
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between gap-4">
         <Breadcrumb :items="breadcrumbs" />
+        <button
+          @click="router.push('/interview/voice/history')"
+          class="shrink-0 inline-flex items-center gap-1.5 px-3.5 py-2 text-sm font-semibold rounded-lg transition-all hover:scale-[1.02]"
+          :style="{
+            color: 'var(--theme-primary)',
+            backgroundColor: 'color-mix(in srgb, var(--theme-primary) 8%, transparent)',
+            border: '1px solid color-mix(in srgb, var(--theme-primary) 25%, transparent)',
+          }"
+        >
+          <History class="w-4 h-4" />
+          <span class="hidden sm:inline">我的面试记录</span>
+          <span class="inline sm:hidden">记录</span>
+        </button>
         <button
           @click="router.push('/interview/voice')"
           class="shrink-0 inline-flex items-center gap-1.5 px-3.5 py-2 text-sm font-semibold rounded-lg transition-all hover:scale-[1.02]"

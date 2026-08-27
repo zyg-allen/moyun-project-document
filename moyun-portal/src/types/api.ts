@@ -1200,6 +1200,17 @@ export interface InterviewSubmissionVO {
   failedCaseExpected?: string;
   failedCaseActual?: string;
   errorMessage?: string;
+  // ===== 选择题服务端权威判分字段（v9.1） =====
+  /** 是否通过（服务端权威判分结果） */
+  passed?: boolean;
+  /** 用户得分（选择题 0-100） */
+  userScore?: number;
+  /** 练习模式：reading/choice/coding */
+  practiceMode?: string;
+  /** 正确答案（提交后下发，用于复盘） */
+  correctAnswer?: string;
+  /** 答案解析（提交后下发） */
+  analysis?: string;
 }
 
 // ============ OJ 判题系统类型（v6.3） ============
@@ -1507,6 +1518,26 @@ export interface ResumeJobMatchReport {
   };
   summary?: string;
   aiPowered?: number | boolean;
+  createTime?: string;
+}
+
+/** 优化历史记录（与后端 PortalResumeOptimizeHistory 对齐，v10.15 评分闭环） */
+export interface ResumeOptimizeHistory {
+  id?: number | string;
+  resumeId?: number | string;
+  jobTargetId?: number | string;
+  /** 优化前总分（规则评分，apply 时后端自动落库） */
+  scoreBefore?: number;
+  /** 优化后总分（规则评分，apply 时后端自动落库） */
+  scoreAfter?: number;
+  /** 优化前岗位匹配分（取最近一次匹配报告） */
+  matchScoreBefore?: number;
+  /** 优化后岗位匹配分（当前留空，需手动重跑匹配） */
+  matchScoreAfter?: number;
+  /** 采纳的建议项 ID 列表 */
+  adoptedItems?: string;
+  /** 优化说明摘要 */
+  summary?: string;
   createTime?: string;
 }
 

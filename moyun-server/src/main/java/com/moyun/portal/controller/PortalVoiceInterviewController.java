@@ -13,9 +13,13 @@ import com.moyun.ext.cms.service.IWrongQuestionService;
 import com.moyun.portal.util.PortalSecurityUtils;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
+
+
 
 /**
  * 语音面试官 Controller（V10.1 MVP）
@@ -29,6 +33,7 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 @Tag(name = "语音面试官", description = "V10.1 语音面试官 MVP 接口")
 @RestController
 @RequestMapping("/portal/interview/voice")
+@Validated
 public class PortalVoiceInterviewController extends BaseController {
 
     @Autowired
@@ -48,7 +53,7 @@ public class PortalVoiceInterviewController extends BaseController {
     @Operation(summary = "开始语音面试", description = "按岗位/场景/画像抽取5题，生成首问与开场话术")
     @PostMapping("/start")
     @RateLimiter(key = "voice:start", time = 86400, count = 5)
-    public AjaxResult start(@RequestBody VoiceStartConfig config) {
+    public AjaxResult start(@Valid @RequestBody VoiceStartConfig config) {
         Long userId = currentUserId();
         if (userId == null) {
             return AjaxResult.error(HttpStatus.UNAUTHORIZED, "登录已过期，请重新登录");

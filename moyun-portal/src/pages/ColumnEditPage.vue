@@ -208,8 +208,8 @@ async function submit() {
     toast.error(errMsg);
     return;
   }
-  // 新建专栏需创作者认证（编辑已有专栏不限）
-  if (!isEdit.value && !requireCreator()) return;
+  // 新建专栏提示实名认证（v10.10：创作行为不强制，可跳过）
+  if (!isEdit.value && !(await promptRealNameOptional())) return;
   submitting.value = true;
   try {
     const res = await saveColumn(buildPayload());

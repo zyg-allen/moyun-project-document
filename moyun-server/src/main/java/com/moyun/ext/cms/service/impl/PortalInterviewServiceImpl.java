@@ -550,9 +550,18 @@ public class PortalInterviewServiceImpl implements IPortalInterviewService {
         // v10.6 题库重构·阶段2：填充练习模式扩展字段
         vo.setPracticeMode(entity.getPracticeMode());
         vo.setOptions(entity.getOptions());
-        vo.setCorrectAnswer(entity.getCorrectAnswer());
-        vo.setAnalysis(entity.getAnalysis());
         vo.setKnowledgeTags(entity.getKnowledgeTags());
+        // 防作弊：练习模式（choice/coding）的 correct_answer/analysis 不在详情下发，
+        // 仅在提交作答后由 submitAnswer 权威返回（行业标准：LeetCode 同款策略）
+        if ("choice".equals(entity.getPracticeMode()) || "coding".equals(entity.getPracticeMode())) {
+            vo.setCorrectAnswer(null);
+            vo.setAnalysis(null);
+            // options JSON 中的 is_correct 标记同样脱敏，仅保留 label/text
+            vo.setOptions(sanitizeOptionsForClient(entity.getOptions()));
+        } else {
+            vo.setCorrectAnswer(entity.getCorrectAnswer());
+            vo.setAnalysis(entity.getAnalysis());
+        }
 
         // 我的提交记录
         if (currentUserId != null) {
@@ -690,10 +699,32 @@ public class PortalInterviewServiceImpl implements IPortalInterviewService {
         submission.setLanguage(body.get("language") != null ? body.get("language").toString() : "text");
         submission.setAnswerType(body.get("answerType") != null ? body.get("answerType").toString() : "text");
         submission.setNote(body.get("note") != null ? body.get("note").toString() : null);
-        // 简单策略：非空答案视为通过，后续可集成代码评测系统
-        boolean isSuccess = StringUtils.isNotEmpty(submission.getCode()) || StringUtils.isNotEmpty(submission.getContent());
+
+        // 按题型权威判分（行业标准：服务端判定，客户端不可信）
+        String practiceMode = question.getPracticeMode() != null ? question.getPracticeMode() : "reading";
+        boolean isChoice = "choice".equals(practiceMode);
+        boolean isSuccess;
+        if (isChoice) {
+            // 选择题：服务端比对 correct_answer（单选直接比，多选排序后比）
+            String userAnswer = body.get("answer") != null ? body.get("answer").toString() : "";
+            String correctAnswer = question.getCorrectAnswer() != null ? question.getCorrectAnswer().trim() : "";
+            isSuccess = isChoiceAnswerCorrect(userAnswer, correctAnswer);
+            // 选择题答案统一落 content，answerType 标记 choice
+            if (submission.getContent() == null || submission.getContent().isEmpty()) {
+                submission.setContent(userAnswer);
+            }
+            if (!"choice".equals(submission.getAnswerType())) {
+                submission.setAnswerType("choice");
+            }
+        } else if ("coding".equals(practiceMode)) {
+            // 编程题：提交受理即记录，判定交由 OJ 判题（Docker 沙箱异步评测）
+            isSuccess = StringUtils.isNotEmpty(submission.getCode());
+        } else {
+            // 阅读/八股等文本主观题：无法自动判分，提交有效内容即完成作答
+            isSuccess = StringUtils.isNotEmpty(submission.getCode()) || StringUtils.isNotEmpty(submission.getContent());
+        }
         submission.setIsSuccess(isSuccess);
-        submission.setStatus(isSuccess ? "accepted" : "pending");
+        submission.setStatus(isSuccess ? "accepted" : "wrong_answer");
         submission.setRuntime(null);
         submission.setMemoryUsage(null);
         submission.setCreateTime(LocalDateTime.now());
@@ -758,7 +789,14 @@ public class PortalInterviewServiceImpl implements IPortalInterviewService {
                     userId, "submission", submission.getId());
         }
 
-        return toSubmissionVO(submission);
+        InterviewSubmissionVO vo = toSubmissionVO(submission);
+        // v9.1：选择题练习模式返回服务端权威判分结果 + 正确答案 + 解析（仅判分后下发，防作弊）
+        if (isChoice) {
+            vo.setCorrectAnswer(question.getCorrectAnswer());
+            vo.setAnalysis(question.getAnalysis());
+            vo.setPracticeMode(question.getPracticeMode());
+        }
+        return vo;
     }
 
     @Override
@@ -1616,5 +1654,62 @@ public class PortalInterviewServiceImpl implements IPortalInterviewService {
             }
         }
         auditTaskService.submit(dto);
+    }
+
+    /**
+     * 选择题服务端权威判分：归一化比对用户答案与正确答案。
+     * 支持多选（逗号/空格分隔，忽略顺序与大小写），如 "A,C" 与 "c,a" 视为一致。
+     */
+    private boolean isChoiceAnswerCorrect(String userAnswer, String correctAnswer) {
+        if (correctAnswer == null || correctAnswer.trim().isEmpty()) {
+            return false;
+        }
+        if (userAnswer == null || userAnswer.trim().isEmpty()) {
+            return false;
+        }
+        Set<String> expected = normalizeChoiceAnswer(correctAnswer);
+        Set<String> actual = normalizeChoiceAnswer(userAnswer);
+        return expected.equals(actual);
+    }
+
+    /**
+     * 将选择题答案归一化为选项字母集合：去除空白、统一大写、按非字母字符切分。
+     */
+    private Set<String> normalizeChoiceAnswer(String answer) {
+        Set<String> result = new java.util.TreeSet<>();
+        for (String token : answer.trim().toUpperCase().split("[^A-Z]+")) {
+            if (!token.isEmpty()) {
+                result.add(token);
+            }
+        }
+        return result;
+    }
+
+    /**
+     * 下发给前端的选项 JSON 脱敏：剥离 is_correct 标记，防止答案泄露。
+     * 入参为空或非法 JSON 时原样返回（由前端兜底解析）。
+     */
+    private String sanitizeOptionsForClient(String optionsJson) {
+        if (optionsJson == null || optionsJson.trim().isEmpty()) {
+            return optionsJson;
+        }
+        try {
+            com.fasterxml.jackson.databind.JsonNode arr = OBJECT_MAPPER.readTree(optionsJson);
+            if (arr == null || !arr.isArray()) {
+                return optionsJson;
+            }
+            com.fasterxml.jackson.databind.node.ArrayNode safe = OBJECT_MAPPER.createArrayNode();
+            for (com.fasterxml.jackson.databind.JsonNode item : arr) {
+                if (item != null && item.isObject()) {
+                    com.fasterxml.jackson.databind.node.ObjectNode node = item.deepCopy();
+                    node.remove("is_correct");
+                    node.remove("isCorrect");
+                    safe.add(node);
+                }
+            }
+            return safe.toString();
+        } catch (Exception e) {
+            return optionsJson;
+        }
     }
 }

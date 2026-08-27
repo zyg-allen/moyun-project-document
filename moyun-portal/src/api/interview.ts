@@ -81,8 +81,10 @@ export const submitAnswer = (
     code?: string;
     content?: string;
     language?: string;
-    answerType?: 'code' | 'text' | 'design';
+    answerType?: 'code' | 'text' | 'design' | 'choice';
     note?: string;
+    /** 选择题作答：单选如 "A"，多选如 "A,B,C"（服务端权威判分） */
+    answer?: string;
   }
 ) => {
   return httpPost<InterviewSubmissionVO>(

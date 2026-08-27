@@ -101,8 +101,8 @@ async function submit(status: 'draft' | 'pending') {
     toast.error(errMsg);
     return;
   }
-  // 发布面经需创作者认证（草稿不限）
-  if (status === 'pending' && !requireCreator()) return;
+  // 发布面经提示实名认证（v10.10：创作行为不强制，可跳过；草稿不限）
+  if (status === 'pending' && !(await promptRealNameOptional())) return;
   try {
     submitting.value = true;
     if (isEdit.value && editId.value) {

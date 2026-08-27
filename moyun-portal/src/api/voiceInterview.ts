@@ -145,6 +145,8 @@ export interface SseCallbacks {
     nextQaId?: number;
     nextQuestion?: string;
     nextSpeakText?: string;
+    /** V10.4：LLM 引导提示（回答跑偏时） */
+    guidance?: string;
   }) => void;
   /** 结束 */
   onEnd?: () => void;

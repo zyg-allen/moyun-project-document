@@ -9,7 +9,7 @@ import {
 import Breadcrumb from '@/components/Breadcrumb.vue';
 import SiteFooter from '@/components/SiteFooter.vue';
 import { generateSeo } from '@/utils/seo';
-import { getQuestionDetail } from '@/api/interview';
+import { getQuestionDetail, submitAnswer as submitAnswerApi } from '@/api/interview';
 import type { InterviewQuestionDetailVO } from '@/types/api';
 
 const route = useRoute();
@@ -23,7 +23,7 @@ const question = ref<InterviewQuestionDetailVO | null>(null);
 interface QuestionOption {
   label: string;
   text: string;
-  is_correct?: boolean;
+  is_correct?: boolean; // 仅本地预填态展示用，判分以服务端返回为准
 }
 const options = ref<QuestionOption[]>([]);
 
@@ -31,6 +31,10 @@ const options = ref<QuestionOption[]>([]);
 const selectedAnswer = ref<string | null>(null);
 const submitted = ref(false);
 const isCorrect = ref(false);
+const submitting = ref(false);
+const submitError = ref<string | null>(null);
+const serverAnalysis = ref('');
+const serverCorrectAnswer = ref('');
 
 useHead(computed(() => generateSeo({
   title: question.value ? `选择题练习 - ${question.value.title}` : '选择题练习',
@@ -83,16 +87,35 @@ function selectOption(label: string) {
   selectedAnswer.value = label;
 }
 
-function submitAnswer() {
-  if (!selectedAnswer.value || !question.value) return;
-  submitted.value = true;
-  isCorrect.value = selectedAnswer.value === question.value.correctAnswer;
+async function submitAnswer() {
+  if (!selectedAnswer.value || !question.value || submitting.value) return;
+  submitting.value = true;
+  submitError.value = null;
+  try {
+    const res = await submitAnswerApi(question.value.id, {
+      answerType: 'choice',
+      answer: selectedAnswer.value,
+    });
+    if (res.code === 200 && res.data) {
+      submitted.value = true;
+      // 服务端权威判分结果（后端已隐藏正确答案，客户端无法比对）
+      isCorrect.value = !!res.data.passed;
+      serverAnalysis.value = res.data.analysis || '';
+      serverCorrectAnswer.value = res.data.correctAnswer || '';
+    }
+  } catch (err: any) {
+    submitError.value = err?.message || '提交失败，请稍后重试';
+  } finally {
+    submitting.value = false;
+  }
 }
 
 function resetAnswer() {
   selectedAnswer.value = null;
   submitted.value = false;
   isCorrect.value = false;
+  serverAnalysis.value = '';
+  serverCorrectAnswer.value = '';
 }
 
 function gotoList() {
@@ -173,8 +196,8 @@ onMounted(() => {
               :class="[
                 'w-full flex items-center gap-3 p-3 rounded-xl border transition-all text-left',
                 selectedAnswer === opt.label ? 'border-2' : '',
-                submitted && opt.is_correct ? 'border-green-500 bg-green-50' : '',
-                submitted && selectedAnswer === opt.label && !opt.is_correct ? 'border-red-500 bg-red-50' : '',
+                submitted && selectedAnswer === opt.label && isCorrect ? 'border-green-500 bg-green-50' : '',
+                submitted && selectedAnswer === opt.label && !isCorrect ? 'border-red-500 bg-red-50' : '',
                 !submitted && selectedAnswer !== opt.label ? 'hover:shadow-sm' : '',
               ]"
               :style="selectedAnswer === opt.label && !submitted
@@ -185,27 +208,25 @@ onMounted(() => {
               <div
                 :class="[
                   'w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0',
-                  submitted && opt.is_correct ? 'bg-green-500 text-white' : '',
-                  submitted && selectedAnswer === opt.label && !opt.is_correct ? 'bg-red-500 text-white' : '',
-                  selectedAnswer === opt.label && !submitted ? 'text-white' : '',
+                  submitted && selectedAnswer === opt.label ? 'text-white' : '',
                 ]"
-                :style="selectedAnswer === opt.label && !submitted
-                  ? { backgroundColor: 'var(--theme-primary)' }
-                  : (submitted && opt.is_correct) || (submitted && selectedAnswer === opt.label && !opt.is_correct)
-                    ? {}
+                :style="submitted && selectedAnswer === opt.label
+                  ? { backgroundColor: isCorrect ? '#10B981' : '#EF4444' }
+                  : selectedAnswer === opt.label && !submitted
+                    ? { backgroundColor: 'var(--theme-primary)' }
                     : { backgroundColor: 'var(--theme-bg)', color: 'var(--theme-text-secondary)', border: '1px solid var(--theme-border)' }"
               >
                 {{ opt.label }}
               </div>
               <!-- 选项文本 -->
               <span class="flex-1 text-sm" style="color: var(--theme-text);">{{ opt.text }}</span>
-              <!-- 判定图标 -->
-              <CheckCircle2 v-if="submitted && opt.is_correct" class="w-5 h-5 text-green-500 flex-shrink-0" />
-              <XCircle v-else-if="submitted && selectedAnswer === opt.label && !opt.is_correct" class="w-5 h-5 text-red-500 flex-shrink-0" />
+              <!-- 判定图标（基于服务端判定：仅标出用户所选） -->
+              <CheckCircle2 v-if="submitted && selectedAnswer === opt.label && isCorrect" class="w-5 h-5 text-green-500 flex-shrink-0" />
+              <XCircle v-else-if="submitted && selectedAnswer === opt.label && !isCorrect" class="w-5 h-5 text-red-500 flex-shrink-0" />
             </button>
           </div>
 
-          <!-- 提交后判定结果 -->
+          <!-- 提交后判定结果（服务端权威判分） -->
           <div v-if="submitted" class="mt-4 p-3 rounded-xl" :style="{
             backgroundColor: isCorrect ? '#ECFDF5' : '#FEF2F2',
             border: `1px solid ${isCorrect ? '#A7F3D0' : '#FECACA'}`
@@ -217,20 +238,20 @@ onMounted(() => {
                 {{ isCorrect ? '回答正确！' : '回答错误' }}
               </span>
             </div>
-            <p v-if="!isCorrect && question.correctAnswer" class="text-xs" style="color: var(--theme-text-secondary);">
-              正确答案：{{ question.correctAnswer }}
+            <p v-if="!isCorrect && serverCorrectAnswer" class="text-xs" style="color: var(--theme-text-secondary);">
+              正确答案：{{ serverCorrectAnswer }}
             </p>
           </div>
 
-          <!-- 解析 -->
-          <div v-if="submitted && question.analysis" class="mt-4 p-4 rounded-xl border"
+          <!-- 解析（服务端判分后下发，做题前不下发防作弊） -->
+          <div v-if="submitted && serverAnalysis" class="mt-4 p-4 rounded-xl border"
                style="background-color: var(--theme-bg); border-color: var(--theme-border);">
             <div class="flex items-center gap-1.5 mb-2">
               <Lightbulb class="w-4 h-4" style="color: #D97706;" />
               <span class="text-sm font-bold" style="color: var(--theme-text);">题目解析</span>
             </div>
             <p class="text-xs leading-relaxed whitespace-pre-wrap" style="color: var(--theme-text);">
-              {{ question.analysis }}
+              {{ serverAnalysis }}
             </p>
           </div>
 

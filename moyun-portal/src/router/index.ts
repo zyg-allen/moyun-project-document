@@ -68,6 +68,7 @@ const CodingPracticePage = () => import('@/pages/learn/CodingPracticePage.vue')
 const CodeRunnerPage = () => import('@/pages/tools/CodeRunnerPage.vue')
 const VoiceEngineDemoPage = () => import('@/pages/interview/VoiceEngineDemoPage.vue')
 const VoiceInterviewPage = () => import('@/pages/interview/VoiceInterviewPage.vue')
+const MyVoiceInterviewsPage = () => import('@/pages/interview/MyVoiceInterviewsPage.vue')
 
 // ============ 路由配置 ============
 
@@ -336,6 +337,13 @@ const routes: RouteRecordRaw[] = [
     name: 'interview-voice',
     component: VoiceInterviewPage,
     meta: { requiresAuth: true, title: 'AI 语音面试官', robots: 'noindex,nofollow' }
+  },
+  // ============ 我的面试记录（V10.3） ============
+  {
+    path: '/interview/voice/history',
+    name: 'interview-voice-history',
+    component: MyVoiceInterviewsPage,
+    meta: { requiresAuth: true, title: '我的面试记录', robots: 'noindex,nofollow' }
   },
   // ============ 在线代码运行（阶段三 3.6） ============
   {

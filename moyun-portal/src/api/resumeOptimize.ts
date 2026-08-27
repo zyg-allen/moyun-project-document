@@ -1,6 +1,6 @@
 import { httpGet, httpPost, httpPut, httpDelete } from './client';
 import type {
-  ResumeJobTarget, ResumeJobMatchReport, ResumeDeepOptimizeVO,
+  ResumeJobTarget, ResumeJobMatchReport, ResumeDeepOptimizeVO, ResumeOptimizeHistory,
 } from '@/types/api';
 
 /**
@@ -52,9 +52,9 @@ export const applyDeepOptimize = (params: {
   return httpPost<number>('/portal/resume/optimize/deep/apply', params as unknown as Record<string, unknown>);
 };
 
-/** 优化历史列表 */
+/** 优化历史列表（v10.15：返回带评分对比的历史记录） */
 export const getOptimizeHistory = (resumeId: number | string) => {
-  return httpGet<unknown[]>(`/portal/resume/optimize/history/${resumeId}`);
+  return httpGet<ResumeOptimizeHistory[]>(`/portal/resume/optimize/history/${resumeId}`);
 };
 
 /** AI 实时辅助建议项（v10.14 字段级） */

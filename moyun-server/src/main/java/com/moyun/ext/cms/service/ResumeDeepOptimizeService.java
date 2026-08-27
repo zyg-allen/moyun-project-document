@@ -7,16 +7,21 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.moyun.ext.cms.config.AiProperties;
 import com.moyun.ext.cms.domain.vo.ResumeDeepOptimizeVO;
 import com.moyun.ext.cms.domain.vo.UserResumeVO;
+import com.moyun.portal.domain.entity.PortalResumeJobMatch;
 import com.moyun.portal.domain.entity.PortalResumeJobTarget;
 import com.moyun.portal.domain.entity.PortalResumeOptimizeHistory;
+import com.moyun.portal.domain.entity.PortalUserResume;
 import com.moyun.portal.mapper.PortalResumeJobTargetMapper;
+import com.moyun.portal.mapper.PortalResumeJobMatchMapper;
 import com.moyun.portal.mapper.PortalResumeOptimizeHistoryMapper;
+import com.moyun.portal.mapper.PortalUserResumeMapper;
 import com.moyun.common.exception.system.ServiceException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -52,6 +57,15 @@ public class ResumeDeepOptimizeService {
 
     @Autowired
     private PortalResumeOptimizeHistoryMapper optimizeHistoryMapper;
+
+    @Autowired
+    private ResumeScoringService resumeScoringService;
+
+    @Autowired
+    private IUserResumeService userResumeService;
+
+    @Autowired
+    private PortalResumeJobMatchMapper jobMatchMapper;
 
     /**
      * AI 实时辅助编辑（v10.14 设计文档 P0 需求#2）：字段级多版本优化建议
@@ -216,7 +230,33 @@ public class ResumeDeepOptimizeService {
         Integer oldScore = resume.getScore();
         resume.setScore(null);
         resume.setScoreDetail(null);
+        // 优化前最近一次 JD 匹配分（若存在），用于历史对比展示
+        Integer matchScoreBefore = null;
+        try {
+            PortalResumeJobMatch lastMatch = jobMatchMapper.selectOne(
+                    new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<PortalResumeJobMatch>()
+                            .eq(PortalResumeJobMatch::getUserId, userId)
+                            .eq(PortalResumeJobMatch::getResumeId, optimize.getResumeId())
+                            .orderByDesc(PortalResumeJobMatch::getId)
+                            .last("LIMIT 1"));
+            if (lastMatch != null) {
+                matchScoreBefore = lastMatch.getMatchScore();
+            }
+        } catch (Exception e) {
+            log.warn("[DeepOptimize] 查询优化前匹配分失败（忽略）：{}", e.getMessage());
+        }
         Long newResumeId = saver.apply(resume, userId);
+
+        // 优化保存成功后立即重评：规则评分零 LLM 成本，同步完成评分闭环
+        Integer newScore = null;
+        try {
+            UserResumeVO rescored = userResumeService.scoreResume(newResumeId, userId);
+            if (rescored != null) {
+                newScore = rescored.getScore();
+            }
+        } catch (Exception e) {
+            log.warn("[DeepOptimize] 优化后重评失败（不影响保存结果）：{}", e.getMessage());
+        }
 
         // 记录优化历史（含全部建议快照与采纳状态）
         try {
@@ -226,6 +266,9 @@ public class ResumeDeepOptimizeService {
             history.setFromResumeId(optimize.getResumeId());
             history.setJobTargetId(optimize.getJobTargetId());
             history.setScoreBefore(oldScore);
+            history.setScoreAfter(newScore);
+            history.setMatchScoreBefore(matchScoreBefore);
+            // matchScoreAfter 不自动填充：JD 匹配依赖 LLM，成本高，留待用户主动重新匹配
             history.setAdoptedCount(adopted.size());
             history.setTotalCount(items.size());
             history.setOptimizeData(buildHistoryData(optimize, adopted));

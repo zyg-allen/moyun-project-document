@@ -54,3 +54,4 @@ build/
 ### 日志 ###
 logs/
 /logs/
+pnpm-lock.yaml

@@ -8,6 +8,7 @@ import { useToast } from '@/composables/useToast';
 import { useApiCall } from '@/composables/useApiCall';
 import { useSpeechSynthesis } from '@/composables/useSpeechSynthesis';
 import { useSpeechRecognition } from '@/composables/useSpeechRecognition';
+import { useAudioLevel } from '@/composables/useAudioLevel';
 import { useInterviewHint } from '@/composables/useInterviewHint';
 import {
   startVoiceInterview,
@@ -18,6 +19,9 @@ import {
   getVoiceInterviewDetail,
   addQaToWrongBook,
 } from '@/api/voiceInterview';
+import { getMyResumeList } from '@/api/interview';
+import type { UserResumeVO } from '@/types/api';
+import { useUserStore } from '@/stores/user';
 import type {
   VoiceInterviewVO,
   VoiceInterviewReportVO,
@@ -39,6 +43,7 @@ const toast = useToast();
 const { run } = useApiCall();
 const route = useRoute();
 const router = useRouter();
+const userStore = useUserStore();
 
 // ==================== 6 维度元数据（与后端 dimensions key 对齐） ====================
 interface DimMeta {
@@ -111,7 +116,7 @@ const liveDimensions = ref<Record<string, number>>({});
 
 // 报告
 const report = ref<VoiceInterviewReportVO | null>(null);
-const reportTab = ref<'summary' | 'analysis' | 'interviewer' | 'knowledge'>('summary');
+const reportTab = ref<'summary' | 'dialog' | 'analysis' | 'interviewer' | 'knowledge'>('summary');
 const historyLoading = ref(false);
 
 // 答案编辑
@@ -200,6 +205,43 @@ const {
   },
 });
 
+// 实时音浪（聆听可视化增强）：生命周期与 listening 严格绑定，
+// 由 watch 统一驱动，覆盖开麦/关麦/提交/结束/异常中断所有路径
+const {
+  levels: waveLevels,
+  start: startWave,
+  stop: stopWave,
+} = useAudioLevel({ bars: 10 });
+watch(listening, (on) => {
+  if (on) {
+    void startWave();
+  } else {
+    stopWave();
+  }
+});
+/** 用户是否正在出声（活跃度阈值 0.06，用于 UI 提示） */
+const userSpeaking = computed(() => waveLevels.value.reduce((a, b) => a + b, 0) / Math.max(1, waveLevels.value.length) > 0.06);
+
+/**
+ * 对话节奏闭环（行业标准"真人对聊"体验）：
+ * AI 播报结束 → 自动开启麦克风聆听用户作答，免去每题手动点麦克风。
+ * 用户点麦克风即可打断播报（toggleMic 内已有 ttsCancel），随时可抢话。
+ */
+watch(speaking, (now, before) => {
+  if (
+    before && !now &&
+    autoListen.value &&
+    asrSupported.value &&
+    phase.value === 'interview' &&
+    !submitting.value &&
+    !timerPaused.value &&
+    !listening.value
+  ) {
+    answerStartTime.value = Date.now();
+    startAsr();
+  }
+});
+
 const {
   currentLevel: hintLevel,
   currentHint,
@@ -266,6 +308,8 @@ const config = ref<VoiceStartConfig>({
 const questionCount = ref(5);
 const hintsEnabled = ref(true);
 const muteMode = ref(false);
+/** 自动聆听：AI 播报结束后自动开启麦克风，形成"真人对聊"节奏（行业标准） */
+const autoListen = ref(true);
 
 // 设备检测
 const micStatus = computed(() => (asrSupported.value ? 'ok' : 'error'));
@@ -301,23 +345,60 @@ async function testDevice(device: 'mic' | 'speaker') {
   }, 1500);
 }
 
-// 简历上传
-const resumeUploaded = ref(true);
-const resumeName = ref('张三的简历 - Java后端');
-function triggerUpload() {
-  const input = document.createElement('input');
-  input.type = 'file';
-  input.accept = '.pdf,.doc,.docx,.png,.jpg,.jpeg';
-  input.onchange = () => {
-    const file = input.files?.[0];
-    if (file) {
-      resumeUploaded.value = true;
-      resumeName.value = file.name;
-      toast.success('简历已上传');
+// ==================== 简历库（真实数据：AI 面试题源依赖） ====================
+const resumeList = ref<UserResumeVO[]>([]);
+const resumeLoading = ref(false);
+const selectedResumeId = ref<number | null>(null);
+/** 自定义岗位（当预设岗位都不匹配时） */
+const useCustomPosition = ref(false);
+const customPosition = ref('');
+
+async function loadResumeList() {
+  if (!userStore.isAuthenticated) return;
+  resumeLoading.value = true;
+  try {
+    const res = await getMyResumeList({ pageNum: 1, pageSize: 50 });
+    if (res.code === 200 && res.data) {
+      resumeList.value = res.data.list || [];
+      // 默认选中第一份有效简历，并带入其求职意向岗位
+      const first = resumeList.value.find((r) => r.id);
+      if (first?.id) {
+        selectResume(first);
+      }
     }
-  };
-  input.click();
+  } catch {
+    /* 未登录/网络异常时静默：岗位预设仍可用 */
+  } finally {
+    resumeLoading.value = false;
+  }
 }
+
+function selectResume(r: UserResumeVO) {
+  if (!r.id) return;
+  selectedResumeId.value = Number(r.id);
+  const intentPos = r.jobIntention?.position?.trim();
+  if (intentPos) {
+    // 简历求职意向优先作为面试岗位（个性化出题）
+    const matched = POSITION_OPTIONS.find((o) => o.position === intentPos);
+    if (!matched) {
+      useCustomPosition.value = true;
+      customPosition.value = intentPos;
+    } else {
+      useCustomPosition.value = false;
+      config.value.position = intentPos;
+    }
+  }
+}
+
+/** 实际生效的面试岗位 */
+const effectivePosition = computed(() => {
+  if (useCustomPosition.value) return customPosition.value.trim() || config.value.position;
+  return config.value.position;
+});
+
+onMounted(() => {
+  loadResumeList();
+});
 
 // ==================== 计时器 ====================
 function startElapsedTimer() {
@@ -579,6 +660,8 @@ async function handleStart() {
   try {
     const payload: VoiceStartConfig = {
       ...config.value,
+      position: effectivePosition.value,
+      resumeId: selectedResumeId.value ?? undefined,
       personalized: true,
       hintsEnabled: hintsEnabled.value,
       stuckThreshold: 30,
@@ -634,6 +717,12 @@ function clearAnswer() {
   resetAsr();
 }
 
+/** 静音切换：开启时立即停止当前播报，关闭时恢复后续播报 */
+function toggleMute() {
+  muteMode.value = !muteMode.value;
+  if (muteMode.value) ttsCancel();
+}
+
 // ==================== 提交答案（SSE） ====================
 async function handleSubmitAnswer() {
   if (!interview.value || !currentQaId.value) return;
@@ -677,6 +766,11 @@ async function handleSubmitAnswer() {
       },
       onData: (data) => {
         submitting.value = false;
+        // V10.4：LLM 引导提示（回答跑偏时面试官给出的方向引导）
+        if (data.guidance) {
+          pushChat('ai', data.guidance, { tag: '引导' });
+          if (!muteMode.value && ttsSupported.value) ttsSpeak(data.guidance);
+        }
         if (data.nextAction === 'next' && data.nextQaId) {
           currentQaId.value = data.nextQaId;
           if (data.nextQuestion) {
@@ -900,10 +994,12 @@ function startNewInterview() {
   handleRestart();
 }
 
-const chatStatusText = computed(() => {
-  if (submitting.value) return 'AI 正在分析...';
-  if (listening.value) return '正在聆听...';
-  return '在线 · 等待回答';
+/** 对话状态机：聆听（红）/ 分析（黄）/ 播报（蓝）/ 空闲（绿）—— 对标行业标准三态环 */
+const chatStatus = computed(() => {
+  if (submitting.value) return { mode: 'analyzing' as const, text: 'AI 正在分析', icon: '🧠' };
+  if (listening.value) return { mode: 'listening' as const, text: '正在聆听', icon: '🎧' };
+  if (speaking.value) return { mode: 'speaking' as const, text: '正在播报', icon: '🔊' };
+  return { mode: 'idle' as const, text: '在线 · 等待回答', icon: '💬' };
 });
 </script>
 
@@ -916,7 +1012,10 @@ const chatStatusText = computed(() => {
           <div class="prep-logo">🎙️ 旭林知行</div>
           <div class="prep-breadcrumb">首页 / <span>AI 语音面试</span></div>
         </div>
-        <button class="prep-back-btn" @click="goHome">← 返回首页</button>
+        <div class="prep-top-right">
+          <button class="prep-back-btn" @click="router.push('/interview/voice/history')">📋 我的面试记录</button>
+          <button class="prep-back-btn" @click="goHome">← 返回首页</button>
+        </div>
       </div>
       <div class="prep-container">
         <div class="prep-header">
@@ -980,13 +1079,30 @@ const chatStatusText = computed(() => {
               <div
                 v-for="opt in POSITION_OPTIONS"
                 :key="opt.position"
-                :class="['position-option', { selected: config.position === opt.position }]"
-                @click="config.position = opt.position"
+                :class="['position-option', { selected: !useCustomPosition && config.position === opt.position }]"
+                @click="useCustomPosition = false; config.position = opt.position"
               >
                 <div class="option-radio"></div>
                 <div class="option-content">
                   <div class="option-title">{{ opt.title }}</div>
                   <div class="option-meta">{{ opt.meta }}</div>
+                </div>
+              </div>
+              <!-- 自定义岗位：跟随简历求职意向或手动输入 -->
+              <div
+                :class="['position-option custom', { selected: useCustomPosition }]"
+                @click="useCustomPosition = true"
+              >
+                <div class="option-radio"></div>
+                <div class="option-content">
+                  <div class="option-title">{{ useCustomPosition ? '自定义岗位' : '自定义岗位（跟随简历求职意向）' }}</div>
+                  <input
+                    v-model="customPosition"
+                    class="custom-position-input"
+                    placeholder="输入目标岗位，如：Go 后端开发工程师"
+                    @click.stop
+                    @input="useCustomPosition = true"
+                  />
                 </div>
               </div>
             </div>
@@ -1022,41 +1138,51 @@ const chatStatusText = computed(() => {
           </div>
 
           <div class="resume-section" style="margin-top: 1.5rem;">
-            <div class="section-label">📄 上传简历</div>
-            <div
-              :class="['resume-upload-zone', { 'has-file': resumeUploaded }]"
-              @click="triggerUpload"
-            >
-              <template v-if="resumeUploaded">
-                <div class="upload-icon">✅</div>
-                <div class="upload-text">简历已上传</div>
-                <div class="upload-hint">点击重新上传 · 支持 PDF / Word / 图片</div>
-              </template>
-              <template v-else>
-                <div class="upload-icon">📤</div>
-                <div class="upload-text">点击或拖拽上传简历</div>
-                <div class="upload-hint">支持 PDF / Word / 图片，最大 10MB</div>
-              </template>
+            <div class="section-label">📄 选择简历（AI 将基于简历项目经历深挖提问）</div>
+
+            <!-- 简历库加载中 -->
+            <div v-if="resumeLoading" class="resume-empty">
+              <div class="empty-icon">⏳</div>
+              <div class="empty-title">正在加载简历库…</div>
             </div>
-            <div class="upload-or">或</div>
-            <div class="section-label" style="margin-bottom: 0.625rem;">📋 在线简历预览</div>
-            <div class="resume-preview-card">
-              <div class="resume-preview-thumb">📄</div>
-              <div class="resume-preview-info">
-                <div class="resume-preview-name">{{ resumeName }}</div>
-                <div class="resume-preview-meta">最近更新：2026-08-15 · 3 年经验 · 硕士</div>
-                <div class="resume-preview-tags">
-                  <span class="resume-preview-tag">Java</span>
-                  <span class="resume-preview-tag">Spring Boot</span>
-                  <span class="resume-preview-tag">MySQL</span>
-                  <span class="resume-preview-tag">Redis</span>
+
+            <!-- 简历库为空：引导创建 -->
+            <div v-else-if="resumeList.length === 0" class="resume-empty">
+              <div class="empty-icon">📋</div>
+              <div class="empty-title">还没有在线简历</div>
+              <div class="empty-desc">上传或创建简历后，AI 面试官将针对你的项目经历个性化出题</div>
+              <div class="empty-actions">
+                <button class="resume-action-btn primary" @click="router.push('/interview/my/resumes')">去创建 / 上传简历</button>
+              </div>
+            </div>
+
+            <!-- 简历库选择列表 -->
+            <template v-else>
+              <div class="resume-select-list">
+                <div
+                  v-for="r in resumeList"
+                  :key="r.id"
+                  :class="['resume-option', { selected: selectedResumeId === Number(r.id) }]"
+                  @click="selectResume(r)"
+                >
+                  <div class="resume-option-main">
+                    <div class="resume-option-name">
+                      {{ r.title || `${r.name || '我的'}的简历` }}
+                      <span v-if="r.score" class="resume-option-score">AI评分 {{ r.score }}</span>
+                    </div>
+                    <div class="resume-option-meta">
+                      期望岗位：{{ r.jobIntention?.position || '未设置' }}
+                      <template v-if="r.updateTime"> · 更新于 {{ (r.updateTime || '').slice(0, 10) }}</template>
+                    </div>
+                  </div>
+                  <div class="option-radio"></div>
                 </div>
               </div>
-              <div class="resume-preview-actions">
-                <button class="resume-action-btn" @click="toast.info('📄 预览完整简历')">预览</button>
-                <button class="resume-action-btn" @click="toast.info('✏️ 进入简历编辑')">编辑</button>
+              <div class="resume-manage-row">
+                <button class="resume-action-btn" @click="router.push('/interview/my/resumes')">管理简历库</button>
+                <span class="resume-manage-hint">不选简历也可面试，AI 将按岗位通用题库出题</span>
               </div>
-            </div>
+            </template>
           </div>
         </div>
 
@@ -1077,6 +1203,13 @@ const chatStatusText = computed(() => {
               <span class="toggle-slider"></span>
             </label>
           </div>
+          <div class="device-row">
+            <span class="toggle-label">🎧 自动聆听（面试官说完自动开麦，随时可打断）</span>
+            <label class="toggle-switch">
+              <input v-model="autoListen" type="checkbox">
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
         </div>
 
         <button class="start-btn" :disabled="loading" @click="handleStart">
@@ -1093,6 +1226,11 @@ const chatStatusText = computed(() => {
           <div class="timer-display"><span>⏱️</span><span>{{ formatElapsed(elapsedSec) }}</span></div>
         </div>
         <div class="top-bar-right">
+          <button
+            :class="['control-btn', { muted: muteMode }]"
+            :title="muteMode ? '开启语音播报' : '静音模式'"
+            @click="toggleMute"
+          >{{ muteMode ? '🔇 已静音' : '🔈 播报中' }}</button>
           <button class="control-btn" @click="togglePause">
             {{ timerPaused ? '▶️ 继续' : '⏸️ 暂停' }}
           </button>
@@ -1104,9 +1242,16 @@ const chatStatusText = computed(() => {
         <!-- 左面板 -->
         <div class="left-panel">
           <div class="interviewer-card">
-            <div class="interviewer-avatar">👨‍💼</div>
+            <div :class="['interviewer-avatar', { speaking: speaking }]">
+              <span class="interviewer-emoji">👨‍💼</span>
+              <div v-if="speaking" class="ai-sound-wave">
+                <span></span><span></span><span></span><span></span>
+              </div>
+            </div>
             <div class="interviewer-name">AI 面试官</div>
             <span class="interviewer-style">{{ STYLE_LABEL[config.style ?? 'professional'] || '标准型' }}</span>
+            <div v-if="speaking" class="interviewer-state">🔊 正在播报</div>
+            <div v-else-if="submitting" class="interviewer-state thinking">🧠 分析中</div>
           </div>
           <div class="progress-card">
             <div class="progress-title">题目进度</div>
@@ -1127,10 +1272,16 @@ const chatStatusText = computed(() => {
         <div class="center-panel">
           <div class="chat-header">
             <div class="chat-header-title">💬 面试对话</div>
-            <div class="chat-status">
+            <div :class="['chat-status', `is-${chatStatus.mode}`]">
               <div class="chat-status-dot"></div>
-              <span>{{ chatStatusText }}</span>
+              <span>{{ chatStatus.icon }} {{ chatStatus.text }}</span>
             </div>
+            <button
+              v-if="speaking"
+              class="stop-speak-btn"
+              title="停止播报"
+              @click="ttsCancel"
+            >⏹ 停止播报</button>
           </div>
           <div ref="chatScroll" class="chat-body">
             <div
@@ -1165,6 +1316,18 @@ const chatStatusText = computed(() => {
             </div>
           </div>
           <div class="chat-input-area">
+            <!-- 聆听实时音浪：10 柱频段分桶，随说话音量跳动 -->
+            <div v-show="listening" :class="['voice-wave', { active: userSpeaking }]">
+              <div class="wave-bars">
+                <span
+                  v-for="(lv, i) in waveLevels"
+                  :key="i"
+                  class="wave-bar"
+                  :style="{ height: `${12 + lv * 88}%` }"
+                ></span>
+              </div>
+              <span class="wave-label">{{ userSpeaking ? '请继续作答' : '请开始说话' }}</span>
+            </div>
             <div class="input-timer">
               <span>⚠️</span><span>{{ answerRemain }} 秒内作答</span>
               <span v-if="interimText" class="interim-hint">· 实时识别：{{ interimText }}</span>
@@ -1264,13 +1427,47 @@ const chatStatusText = computed(() => {
             📊 面试复盘报告
             <span v-if="historyLoading" class="report-loading">加载中...</span>
           </div>
-          <button class="back-btn" @click="goHome">← 返回首页</button>
+          <div class="report-header-actions">
+            <button class="back-btn" @click="router.push('/interview/voice/history')">📋 我的面试记录</button>
+            <button class="back-btn" @click="goHome">← 返回首页</button>
+          </div>
+        </div>
+        <!-- 历史保留元信息：岗位/风格/难度/时间 -->
+        <div class="report-meta-bar">
+          <div class="meta-chip">
+            <span class="meta-label">目标岗位</span>
+            <span class="meta-value">{{ interview?.position || '未指定' }}</span>
+          </div>
+          <div class="meta-chip">
+            <span class="meta-label">面试官风格</span>
+            <span class="meta-value">{{ interview?.style || '温和' }}</span>
+          </div>
+          <div class="meta-chip">
+            <span class="meta-label">难度</span>
+            <span class="meta-value">{{ interview?.difficulty || '中等' }}</span>
+          </div>
+          <div class="meta-chip">
+            <span class="meta-label">题源</span>
+            <span class="meta-value">{{ interview?.resumeId ? '简历深挖' : '岗位画像' }}</span>
+          </div>
+          <div class="meta-chip">
+            <span class="meta-label">面试时间</span>
+            <span class="meta-value">{{ interview?.createTime || '-' }}</span>
+          </div>
+          <div class="meta-chip">
+            <span class="meta-label">答题数</span>
+            <span class="meta-value">{{ interview?.qaList?.filter(q => q.userAnswer).length ?? 0 }} / {{ interview?.totalQa ?? 0 }}</span>
+          </div>
         </div>
         <div class="report-tabs">
           <button
             :class="['report-tab', { active: reportTab === 'summary' }]"
             @click="reportTab = 'summary'"
           >📋 面试概要</button>
+          <button
+            :class="['report-tab', { active: reportTab === 'dialog' }]"
+            @click="reportTab = 'dialog'"
+          >💬 对话回放</button>
           <button
             :class="['report-tab', { active: reportTab === 'analysis' }]"
             @click="reportTab = 'analysis'"
@@ -1283,6 +1480,41 @@ const chatStatusText = computed(() => {
             :class="['report-tab', { active: reportTab === 'knowledge' }]"
             @click="reportTab = 'knowledge'"
           >📚 相关知识点</button>
+        </div>
+
+        <!-- Tab 0: 对话回放（历史面试完整对话） -->
+        <div v-if="reportTab === 'dialog'" class="tab-content active">
+          <div v-if="!interview?.qaList?.length" class="dialog-empty">
+            本次面试没有保存对话内容。
+          </div>
+          <div v-else class="replay-list">
+            <div v-for="qa in interview.qaList" :key="qa.id" class="replay-item">
+              <!-- 面试官 -->
+              <div class="replay-row interviewer">
+                <div class="replay-avatar">AI</div>
+                <div class="replay-bubble ai">
+                  <div class="replay-idx">问题 {{ qa.questionIdx }}<span v-if="qa.parentQaId" class="replay-tag">追问</span></div>
+                  <MarkdownRenderer :content="qa.question || ''" />
+                </div>
+              </div>
+              <!-- 用户回答 -->
+              <div v-if="qa.userAnswer" class="replay-row user">
+                <div class="replay-bubble user">
+                  <div class="replay-score" v-if="qa.score != null">本问 {{ qa.score }} 分</div>
+                  <MarkdownRenderer :content="qa.userAnswer" />
+                </div>
+                <div class="replay-avatar">我</div>
+              </div>
+              <!-- AI 点评 -->
+              <div v-if="qa.aiFeedback" class="replay-row interviewer">
+                <div class="replay-avatar">AI</div>
+                <div class="replay-bubble feedback">
+                  <div class="replay-feedback-title">点评</div>
+                  <MarkdownRenderer :content="qa.aiFeedback" />
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
 
         <!-- Tab 1: 面试概要 -->
@@ -1468,6 +1700,8 @@ const chatStatusText = computed(() => {
   --warning-bg: #fffbeb;
   --error: #ef4444;
   --error-bg: #fef2f2;
+  --info: #3b82f6;
+  --info-bg: #eff6ff;
   --gray-50: #f9fafb;
   --gray-100: #f3f4f6;
   --gray-200: #e5e7eb;
@@ -1520,6 +1754,8 @@ const chatStatusText = computed(() => {
 .prep-page { background: var(--gray-50); min-height: 100vh; }
 .prep-top-bar { background: white; padding: 1rem 2rem; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--gray-200); }
 .prep-top-left { display: flex; align-items: center; gap: 0.75rem; }
+.prep-top-right { display: flex; align-items: center; gap: 0.75rem; }
+.report-header-actions { display: flex; align-items: center; gap: 0.75rem; }
 .prep-logo { font-size: 1.125rem; font-weight: 700; color: var(--primary); display: flex; align-items: center; gap: 0.375rem; }
 .prep-breadcrumb { font-size: 0.875rem; color: var(--gray-400); }
 .prep-breadcrumb span { color: var(--gray-700); font-weight: 500; }
@@ -1574,23 +1810,30 @@ const chatStatusText = computed(() => {
 .option-title { font-weight: 500; color: var(--gray-800); margin-bottom: 0.125rem; font-size: 0.9375rem; }
 .option-meta { font-size: 0.75rem; color: var(--gray-400); }
 
-.resume-upload-zone { border: 2px dashed var(--gray-200); border-radius: var(--radius-md); padding: 1.5rem; text-align: center; cursor: pointer; transition: all 0.25s; background: var(--gray-50); margin-bottom: 1rem; }
-.resume-upload-zone:hover { border-color: var(--primary); background: var(--primary-bg); }
-.resume-upload-zone.has-file { border-style: solid; border-color: var(--success); background: var(--success-bg); }
-.upload-icon { font-size: 2rem; margin-bottom: 0.5rem; }
-.upload-text { font-size: 0.9375rem; color: var(--gray-600); margin-bottom: 0.25rem; }
-.upload-hint { font-size: 0.75rem; color: var(--gray-400); }
-.upload-or { display: flex; align-items: center; gap: 1rem; margin: 1rem 0; color: var(--gray-400); font-size: 0.8125rem; }
-.upload-or::before, .upload-or::after { content: ''; flex: 1; height: 1px; background: var(--gray-200); }
+/* ==================== V10.3 简历库选择器 ==================== */
+.resume-empty { border: 2px dashed var(--gray-200); border-radius: var(--radius-md); padding: 2rem 1.5rem; text-align: center; background: var(--gray-50); }
+.empty-icon { font-size: 2rem; margin-bottom: 0.5rem; }
+.empty-title { font-size: 0.9375rem; font-weight: 600; color: var(--gray-700); margin-bottom: 0.375rem; }
+.empty-desc { font-size: 0.8125rem; color: var(--gray-400); margin-bottom: 1rem; }
+.empty-actions { display: flex; justify-content: center; gap: 0.625rem; }
 
-.resume-preview-card { background: var(--gray-50); border: 1px solid var(--gray-100); border-radius: var(--radius-md); padding: 1.25rem; display: flex; gap: 1rem; align-items: flex-start; }
-.resume-preview-thumb { width: 64px; height: 80px; background: white; border: 1px solid var(--gray-200); border-radius: var(--radius-sm); display: flex; align-items: center; justify-content: center; font-size: 1.75rem; flex-shrink: 0; }
-.resume-preview-info { flex: 1; }
-.resume-preview-name { font-weight: 600; color: var(--gray-800); margin-bottom: 0.25rem; font-size: 0.9375rem; }
-.resume-preview-meta { font-size: 0.75rem; color: var(--gray-400); margin-bottom: 0.5rem; }
-.resume-preview-tags { display: flex; gap: 0.375rem; flex-wrap: wrap; }
-.resume-preview-tag { padding: 2px 8px; border-radius: var(--radius-full); font-size: 0.6875rem; background: white; border: 1px solid var(--gray-200); color: var(--gray-500); }
-.resume-preview-actions { display: flex; flex-direction: column; gap: 0.375rem; }
+.resume-select-list { display: flex; flex-direction: column; gap: 0.5rem; max-height: 260px; overflow-y: auto; }
+.resume-option { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; padding: 0.875rem 1rem; border: 1px solid var(--gray-200); border-radius: var(--radius-md); cursor: pointer; transition: all 0.2s; background: white; }
+.resume-option:hover { border-color: var(--primary); background: var(--primary-bg); }
+.resume-option.selected { border-color: var(--primary); background: var(--primary-bg); }
+.resume-option-main { flex: 1; min-width: 0; }
+.resume-option-name { font-size: 0.875rem; font-weight: 600; color: var(--gray-800); display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+.resume-option-score { font-size: 0.6875rem; color: var(--warning); background: var(--warning-bg, rgba(245, 158, 11, 0.1)); padding: 1px 8px; border-radius: var(--radius-full); font-weight: 500; }
+.resume-option-meta { font-size: 0.75rem; color: var(--gray-400); margin-top: 0.25rem; }
+
+.resume-manage-row { display: flex; align-items: center; gap: 0.875rem; margin-top: 0.75rem; }
+.resume-manage-hint { font-size: 0.75rem; color: var(--gray-400); }
+.resume-action-btn.primary { border-color: var(--primary); color: var(--primary); }
+
+.position-option.custom .option-content { flex: 1; }
+.custom-position-input { width: 100%; margin-top: 0.375rem; padding: 0.4375rem 0.625rem; border: 1px solid var(--gray-200); border-radius: var(--radius-sm); font-size: 0.8125rem; color: var(--gray-700); background: white; outline: none; transition: border-color 0.2s; }
+.custom-position-input:focus { border-color: var(--primary); }
+
 .resume-action-btn { padding: 0.375rem 0.75rem; border: 1px solid var(--gray-200); background: white; border-radius: var(--radius-sm); cursor: pointer; font-size: 0.75rem; color: var(--gray-600); transition: all 0.2s; white-space: nowrap; }
 .resume-action-btn:hover { border-color: var(--primary); color: var(--primary); }
 
@@ -1710,10 +1953,34 @@ const chatStatusText = computed(() => {
 .back-btn { padding: 0.5rem 1rem; border: 1px solid var(--gray-200); background: white; border-radius: var(--radius-md); cursor: pointer; font-size: 0.875rem; display: flex; align-items: center; gap: 0.375rem; transition: all 0.2s; color: var(--gray-600); }
 .back-btn:hover { background: var(--gray-50); border-color: var(--gray-300); }
 
+/* V10.4 报告元信息条 */
+.report-meta-bar { display: flex; flex-wrap: wrap; gap: 0.625rem; margin-bottom: 1.5rem; padding: 0.875rem 1.125rem; background: white; border-radius: var(--radius-md); box-shadow: var(--shadow-sm); border: 1px solid var(--gray-100); }
+.meta-chip { display: flex; align-items: center; gap: 0.375rem; padding: 0.3125rem 0.75rem; background: var(--gray-50); border-radius: var(--radius-full); font-size: 0.8125rem; }
+.meta-label { color: var(--gray-500); }
+.meta-value { color: var(--gray-900); font-weight: 600; max-width: 10rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
 .report-tabs { display: flex; gap: 0.25rem; margin-bottom: 1.75rem; background: white; padding: 0.375rem; border-radius: var(--radius-md); box-shadow: var(--shadow-sm); border: 1px solid var(--gray-100); width: fit-content; }
 .report-tab { padding: 0.625rem 1.25rem; border: none; background: none; cursor: pointer; font-size: 0.875rem; color: var(--gray-500); border-radius: var(--radius-sm); white-space: nowrap; transition: all 0.2s; font-weight: 500; }
 .report-tab:hover { color: var(--gray-700); background: var(--gray-50); }
 .report-tab.active { color: var(--primary); background: var(--primary-bg); font-weight: 600; }
+
+/* ==================== V10.4 对话回放与历史保留 ==================== */
+.replay-list { display: flex; flex-direction: column; gap: 1.25rem; }
+.replay-item { display: flex; flex-direction: column; gap: 0.625rem; }
+.replay-item + .replay-item { padding-top: 1.25rem; border-top: 1px dashed var(--gray-100); }
+.replay-row { display: flex; gap: 0.625rem; align-items: flex-start; }
+.replay-row.user { justify-content: flex-end; }
+.replay-avatar { flex-shrink: 0; width: 2rem; height: 2rem; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.6875rem; font-weight: 600; }
+.replay-row.interviewer .replay-avatar { background: var(--primary); color: white; }
+.replay-bubble { max-width: 82%; padding: 0.75rem 1rem; border-radius: var(--radius-md); font-size: 0.875rem; line-height: 1.6; }
+.replay-bubble.ai { background: var(--gray-50); border: 1px solid var(--gray-100); border-top-left-radius: var(--radius-xs); }
+.replay-bubble.user { background: var(--primary-bg); border: 1px solid rgba(220, 38, 38, 0.15); border-top-right-radius: var(--radius-xs); }
+.replay-bubble.feedback { background: var(--info-bg); border: 1px solid rgba(37, 99, 235, 0.15); border-top-left-radius: var(--radius-xs); }
+.replay-idx { font-size: 0.75rem; color: var(--gray-500); font-weight: 600; margin-bottom: 0.375rem; }
+.replay-tag { display: inline-block; margin-left: 0.375rem; padding: 0.0625rem 0.4375rem; border-radius: var(--radius-full); background: var(--warning); color: white; font-size: 0.6875rem; font-weight: 500; }
+.replay-score { font-size: 0.75rem; color: var(--primary); font-weight: 600; margin-bottom: 0.375rem; }
+.replay-feedback-title { font-size: 0.75rem; color: var(--info); font-weight: 600; margin-bottom: 0.375rem; }
+.dialog-empty { text-align: center; padding: 3rem 1rem; color: var(--gray-400); font-size: 0.9375rem; }
 .tab-content.active { display: block; animation: msg-in 0.3s ease; }
 
 .summary-grid { display: grid; grid-template-columns: 1fr 2fr 1fr; gap: 1.5rem; }
@@ -1810,4 +2077,106 @@ const chatStatusText = computed(() => {
   .top-bar, .chat-input-area, .report-actions, .report-tabs { display: none; }
   .report-page { background: white; padding: 0; }
 }
+
+/* ==================== V10.1 语音对话可视化增强 ==================== */
+
+/* --- 实时音浪条（聆听状态） --- */
+.voice-wave {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.5rem 0.875rem;
+  margin-bottom: 0.5rem;
+  border-radius: var(--radius-md);
+  background: rgba(220, 38, 38, 0.06);
+  border: 1px solid rgba(220, 38, 38, 0.18);
+}
+.wave-bars {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  height: 28px;
+  flex: 1;
+}
+.wave-bar {
+  flex: 1;
+  min-width: 3px;
+  max-width: 10px;
+  height: 12%;
+  border-radius: 2px;
+  background: rgba(220, 38, 38, 0.25);
+  transition: height 0.08s linear, background 0.3s ease;
+}
+.voice-wave.active .wave-bar { background: var(--primary); }
+.wave-label {
+  font-size: 0.75rem;
+  color: var(--gray-500);
+  white-space: nowrap;
+  font-weight: 500;
+}
+.voice-wave.active .wave-label { color: var(--primary); }
+
+/* --- 三态状态环（聆听红 / 分析黄 / 播报蓝 / 空闲绿） --- */
+.chat-status.is-listening { color: var(--primary); }
+.chat-status.is-listening .chat-status-dot { background: var(--primary); }
+.chat-status.is-analyzing { color: var(--warning); }
+.chat-status.is-analyzing .chat-status-dot { background: var(--warning); animation-duration: 0.7s; }
+.chat-status.is-speaking { color: var(--info); }
+.chat-status.is-speaking .chat-status-dot { background: var(--info); }
+
+/* --- 停止播报按钮 --- */
+.stop-speak-btn {
+  padding: 0.25rem 0.625rem;
+  font-size: 0.75rem;
+  border-radius: var(--radius-full);
+  border: 1px solid rgba(59, 130, 246, 0.35);
+  background: rgba(59, 130, 246, 0.08);
+  color: var(--info);
+  cursor: pointer;
+  font-weight: 500;
+  transition: all 0.2s;
+}
+.stop-speak-btn:hover { background: rgba(59, 130, 246, 0.16); }
+
+/* --- 静音切换按钮态 --- */
+.control-btn.muted { opacity: 0.65; }
+
+/* --- AI 头像播报声波 --- */
+.interviewer-emoji { position: relative; z-index: 1; }
+.ai-sound-wave {
+  position: absolute;
+  bottom: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 16px;
+  z-index: 2;
+}
+.ai-sound-wave span {
+  width: 3px;
+  border-radius: 2px;
+  background: white;
+  animation: ai-wave 0.9s ease-in-out infinite;
+}
+.ai-sound-wave span:nth-child(1) { height: 6px; animation-delay: 0s; }
+.ai-sound-wave span:nth-child(2) { height: 14px; animation-delay: 0.15s; }
+.ai-sound-wave span:nth-child(3) { height: 9px; animation-delay: 0.3s; }
+.ai-sound-wave span:nth-child(4) { height: 12px; animation-delay: 0.45s; }
+@keyframes ai-wave {
+  0%, 100% { transform: scaleY(0.4); }
+  50% { transform: scaleY(1); }
+}
+.interviewer-avatar.speaking::after { border-color: var(--info); }
+
+/* --- 面试官实时状态标签 --- */
+.interviewer-state {
+  margin-top: 0.5rem;
+  font-size: 0.6875rem;
+  color: var(--info);
+  font-weight: 600;
+  animation: pulse-dot 1.5s ease-in-out infinite;
+}
+.interviewer-state.thinking { color: var(--warning); }
 </style>

@@ -20,7 +20,13 @@ export default {
           text: "var(--theme-text)",
           "text-secondary": "var(--theme-text-secondary)",
           danger: "var(--theme-danger)",
+          "danger-bg": "var(--theme-danger-bg)",
           success: "var(--theme-success)",
+          "success-bg": "var(--theme-success-bg)",
+          warning: "var(--theme-warning)",
+          "warning-bg": "var(--theme-warning-bg)",
+          info: "var(--theme-info)",
+          "info-bg": "var(--theme-info-bg)",
         },
       },
       // 统一的最大宽度容器（与各页面 max-w-7xl 一致）

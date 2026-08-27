@@ -281,7 +281,7 @@ function gotoPage(p: number) {
                   class="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
                 />
                 <div v-else class="flex items-center justify-center h-full" style="background-color: var(--theme-accent);">
-                  <FileText class="w-14 h-14 text-blue-400" />
+                  <FileText class="w-14 h-14 text-theme-text-secondary" />
                 </div>
                 <!-- 分类角标 -->
                 <span
@@ -294,7 +294,7 @@ function gotoPage(p: number) {
                 <!-- 精选角标（付费预留，当前仅标记） -->
                 <span
                   v-if="t.isPremium"
-                  class="absolute top-3 right-3 px-2 py-1 bg-yellow-400 text-yellow-900 rounded-full text-xs font-medium flex items-center"
+                  class="absolute top-3 right-3 px-2 py-1 bg-theme-warning-bg text-theme-warning rounded-full text-xs font-medium flex items-center"
                 >
                   <Star class="w-3 h-3 inline mr-0.5" />精选
                 </span>
@@ -360,7 +360,7 @@ function gotoPage(p: number) {
               :key="p"
               @click="gotoPage(p)"
               class="min-w-[40px] px-3 py-2 rounded-lg text-sm transition"
-              :class="page === p ? 'bg-blue-600 text-white' : 'bg-[var(--theme-surface)] border border-[var(--theme-border)] text-[var(--theme-text-secondary)] hover:bg-[var(--theme-accent)]'"
+              :class="page === p ? 'bg-theme-primary text-white' : 'bg-[var(--theme-surface)] border border-[var(--theme-border)] text-[var(--theme-text-secondary)] hover:bg-[var(--theme-accent)]'"
             >
               {{ p }}
             </button>

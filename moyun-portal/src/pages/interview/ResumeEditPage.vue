@@ -436,16 +436,16 @@ async function handleGetAdvice() {
 
 // 优先级 / 建议类型样式
 const priorityStyle: Record<string, { label: string; class: string }> = {
-  high: { label: '高优先级', class: 'bg-red-50 text-red-600 border border-red-200' },
-  medium: { label: '中优先级', class: 'bg-amber-50 text-amber-600 border border-amber-200' },
-  low: { label: '低优先级', class: 'bg-gray-50 text-gray-600 border border-gray-200' },
+  high: { label: '高优先级', class: 'bg-theme-danger-bg text-theme-danger' },
+  medium: { label: '中优先级', class: 'bg-theme-warning-bg text-theme-warning' },
+  low: { label: '低优先级', class: 'bg-theme-surface text-theme-text-secondary' },
 };
 const adviceTypeLabel: Record<string, string> = { fill: '补充缺失', refine: '优化已有', match: '岗位匹配' };
 const gradeStyle: Record<string, string> = {
-  A: 'bg-green-50 text-green-600 border border-green-200',
-  B: 'bg-blue-50 text-blue-600 border border-blue-200',
-  C: 'bg-amber-50 text-amber-600 border border-amber-200',
-  D: 'bg-red-50 text-red-600 border border-red-200',
+  A: 'bg-theme-success-bg text-theme-success',
+  B: 'bg-theme-info-bg text-theme-info',
+  C: 'bg-theme-warning-bg text-theme-warning',
+  D: 'bg-theme-danger-bg text-theme-danger',
 };
 
 // ============ AI 建议：模块 Tab + 采纳自动填充（v10.11 对齐原型） ============
@@ -501,18 +501,18 @@ function dimensionScore(dim: string): { score: number; maxScore: number; rate: n
 
 // 维度得分徽章颜色
 function scoreBadgeClass(rate: number): string {
-  if (rate >= 0.8) return 'bg-green-50 text-green-600 border border-green-200';
-  if (rate >= 0.6) return 'bg-blue-50 text-blue-600 border border-blue-200';
-  if (rate >= 0.4) return 'bg-amber-50 text-amber-600 border border-amber-200';
-  return 'bg-red-50 text-red-600 border border-red-200';
+  if (rate >= 0.8) return 'bg-theme-success-bg text-theme-success';
+  if (rate >= 0.6) return 'bg-theme-info-bg text-theme-info';
+  if (rate >= 0.4) return 'bg-theme-warning-bg text-theme-warning';
+  return 'bg-theme-danger-bg text-theme-danger';
 }
 
 // 维度评分条颜色（按得分率分级）
 function metricColor(rate: number): string {
-  if (rate >= 0.8) return '#059669';
-  if (rate >= 0.6) return '#2563eb';
-  if (rate >= 0.4) return '#d97706';
-  return '#dc2626';
+  if (rate >= 0.8) return 'var(--theme-success)';
+  if (rate >= 0.6) return 'var(--theme-info)';
+  if (rate >= 0.4) return 'var(--theme-warning)';
+  return 'var(--theme-danger)';
 }
 
 /**
@@ -1172,18 +1172,18 @@ onBeforeRouteLeave((to, from, next) => {
         <div
           v-if="form.id"
           class="flex items-center justify-between gap-3 rounded-xl border p-3.5 mb-4"
-          style="background: linear-gradient(90deg, rgba(124,58,237,0.06), rgba(124,58,237,0.01)); border-color: rgba(124,58,237,0.25);"
+          style="background: linear-gradient(90deg, color-mix(in srgb, var(--theme-primary) 6%, transparent), color-mix(in srgb, var(--theme-primary) 1%, transparent)); border-color: color-mix(in srgb, var(--theme-primary) 25%, var(--theme-border));"
         >
           <div class="flex items-center gap-2.5">
             <span class="text-lg">🎯</span>
             <div>
-              <div class="text-sm font-semibold" style="color: #7c3aed;">有了目标岗位？试试岗位精准优化</div>
-              <div class="text-xs text-gray-500 mt-0.5">粘贴 JD 匹配评分 → AI 逐项优化前后对比 → 一键采纳</div>
+              <div class="text-sm font-semibold" style="color: var(--theme-primary);">有了目标岗位？试试岗位精准优化</div>
+              <div class="text-xs text-theme-text-secondary mt-0.5">粘贴 JD 匹配评分 → AI 逐项优化前后对比 → 一键采纳</div>
             </div>
           </div>
           <button
             class="shrink-0 text-xs font-medium px-4 py-2 rounded-lg text-white"
-            style="background: #7c3aed;"
+            style="background: var(--theme-primary);"
             @click="router.push(`/interview/resume/optimize?resumeId=${form.id}`)"
           >
             进入优化工作台 →
@@ -1820,11 +1820,11 @@ onBeforeRouteLeave((to, from, next) => {
               </div>
             </div>
             <div v-else-if="aiAdvice.advices && aiAdvice.advices.length > 0" class="re-advice-empty">
-              <CheckCircle2 class="w-5 h-5" style="color: #16a34a;" />
+              <CheckCircle2 class="w-5 h-5" style="color: var(--theme-success);" />
               该模块暂无建议，看看其他 Tab
             </div>
             <div v-else class="re-advice-empty">
-              <CheckCircle2 class="w-5 h-5" style="color: #16a34a;" />
+              <CheckCircle2 class="w-5 h-5" style="color: var(--theme-success);" />
               各维度得分率良好，暂无改进建议
             </div>
 
@@ -1857,7 +1857,7 @@ onBeforeRouteLeave((to, from, next) => {
             <h3>
               <Sparkles class="w-4 h-4" style="color: var(--theme-primary);" />
               AI 实时优化
-              <span class="re-advice-grade" style="background: rgba(124,58,237,0.1); color: #7c3aed;">
+              <span class="re-advice-grade" style="background: color-mix(in srgb, var(--theme-primary) 10%, transparent); color: var(--theme-primary);">
                 {{ assistTarget?.type === 'work' ? '工作描述' : assistTarget?.type === 'project' ? '项目描述' : '自我评价' }}
               </span>
             </h3>
@@ -1935,7 +1935,7 @@ onBeforeRouteLeave((to, from, next) => {
               </div>
             </div>
             <div v-else class="re-advice-empty">
-              <AlertCircle class="w-5 h-5" style="color: #d97706;" />
+              <AlertCircle class="w-5 h-5" style="color: var(--theme-warning);" />
               未能识别出有效字段，请检查附件内容或换用文本版简历
             </div>
 
@@ -2014,7 +2014,7 @@ onBeforeRouteLeave((to, from, next) => {
   border: 1px solid var(--theme-border);
   border-radius: 8px;
   outline: none;
-  background: #fff;
+  background: var(--theme-surface);
   color: var(--theme-text);
   transition: border-color 0.15s, box-shadow 0.15s;
 }
@@ -2029,8 +2029,8 @@ onBeforeRouteLeave((to, from, next) => {
   font-weight: 600;
   white-space: nowrap;
 }
-.re-save-badge.saving { background: #fffbeb; color: #d97706; }
-.re-save-badge.saved { background: #ecfdf5; color: #059669; }
+.re-save-badge.saving { background: var(--theme-warning-bg); color: var(--theme-warning); }
+.re-save-badge.saved { background: var(--theme-success-bg); color: var(--theme-success); }
 
 /* ===== 加载 / 错误 ===== */
 .re-loading, .re-error {
@@ -2038,12 +2038,12 @@ onBeforeRouteLeave((to, from, next) => {
   margin: 0 auto;
   padding: 80px 24px;
   text-align: center;
-  background: #fff;
+  background: var(--theme-surface);
   border: 1px solid var(--theme-border);
   border-radius: 14px;
   margin: 24px auto;
 }
-.re-loading p, .re-error p { margin-top: 12px; color: #6b7280; font-size: 14px; }
+.re-loading p, .re-error p { margin-top: 12px; color: var(--theme-text-secondary); font-size: 14px; }
 .re-loading-spinner {
   width: 36px;
   height: 36px;
@@ -2064,7 +2064,7 @@ onBeforeRouteLeave((to, from, next) => {
   font-size: 13px;
   cursor: pointer;
 }
-.re-retry-btn:hover { background: #b91c1c; }
+.re-retry-btn:hover { background: var(--theme-danger); }
 
 /* ===== 三栏布局 ===== */
 .re-layout {
@@ -2100,7 +2100,7 @@ onBeforeRouteLeave((to, from, next) => {
 .re-req { color: var(--theme-primary); font-size: 14px; line-height: 1; }
 .re-field-hint {
   font-size: 11px;
-  color: #9ca3af;
+  color: var(--theme-text-secondary);
   line-height: 1.5;
   display: flex;
   align-items: flex-start;
@@ -2115,7 +2115,7 @@ onBeforeRouteLeave((to, from, next) => {
   padding: 2px 8px;
   font-size: 11px;
   font-weight: 500;
-  color: #7c3aed;
+  color: var(--theme-primary);
   background: rgba(124, 58, 237, 0.08);
   border: 1px solid rgba(124, 58, 237, 0.25);
   border-radius: 999px;
@@ -2130,13 +2130,13 @@ onBeforeRouteLeave((to, from, next) => {
 .re-assist-original {
   margin: 12px 16px 0;
   padding: 10px 12px;
-  background: #f9fafb;
-  border: 1px solid #e5e7eb;
+  background: var(--theme-accent);
+  border: 1px solid var(--theme-border);
   border-radius: 8px;
 }
 .re-assist-original p {
   font-size: 12px;
-  color: #6b7280;
+  color: var(--theme-text-secondary);
   line-height: 1.6;
   white-space: pre-line;
   max-height: 90px;
@@ -2145,11 +2145,11 @@ onBeforeRouteLeave((to, from, next) => {
 }
 .re-assist-label {
   font-size: 11px;
-  color: #9ca3af;
+  color: var(--theme-text-secondary);
   font-weight: 500;
 }
 .re-assist-version {
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--theme-border);
   border-radius: 10px;
   padding: 12px 14px;
   margin-bottom: 10px;
@@ -2173,7 +2173,7 @@ onBeforeRouteLeave((to, from, next) => {
 .re-assist-version-tag {
   font-size: 11px;
   font-weight: 600;
-  color: #7c3aed;
+  color: var(--theme-primary);
   background: rgba(124, 58, 237, 0.08);
   padding: 2px 8px;
   border-radius: 999px;
@@ -2181,11 +2181,11 @@ onBeforeRouteLeave((to, from, next) => {
 }
 .re-assist-reason {
   font-size: 11px;
-  color: #6b7280;
+  color: var(--theme-text-secondary);
 }
 .re-assist-text {
   font-size: 13px;
-  color: #374151;
+  color: var(--theme-text);
   line-height: 1.7;
   white-space: pre-line;
   margin: 0 0 10px;
@@ -2194,7 +2194,7 @@ onBeforeRouteLeave((to, from, next) => {
   font-size: 12px;
   font-weight: 500;
   color: #fff;
-  background: #7c3aed;
+  background: var(--theme-primary);
   border: none;
   border-radius: 6px;
   padding: 5px 14px;
@@ -2212,16 +2212,16 @@ onBeforeRouteLeave((to, from, next) => {
   gap: 4px;
   padding: 4px 10px;
   border-radius: 8px;
-  border: 1px solid #93c5fd;
-  background-color: #dbeafe;
-  color: #2563eb;
+  border: 1px solid color-mix(in srgb, var(--theme-info) 40%, transparent);
+  background-color: var(--theme-info-bg);
+  color: var(--theme-info);
   font-size: 12px;
   font-weight: 500;
   cursor: pointer;
   transition: opacity 0.15s ease;
 }
 .re-certified-fill:hover { opacity: 0.85; }
-.re-field-counter { font-size: 11px; color: #9ca3af; text-align: right; }
+.re-field-counter { font-size: 11px; color: var(--theme-text-secondary); text-align: right; }
 
 /* 头像上传组件 */
 .re-avatar-field { display: flex; align-items: center; gap: 12px; }
@@ -2230,19 +2230,19 @@ onBeforeRouteLeave((to, from, next) => {
   width: 56px;
   height: 56px;
   border-radius: 50%;
-  border: 1px dashed #d1d5db;
+  border: 1px dashed var(--theme-border);
   overflow: hidden;
   flex-shrink: 0;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #f9fafb;
+  background: var(--theme-accent);
   transition: border-color 0.15s;
 }
 .re-avatar-preview:hover { border-color: var(--theme-primary); }
 .re-avatar-img { width: 100%; height: 100%; object-fit: cover; }
-.re-avatar-placeholder { width: 22px; height: 22px; color: #9ca3af; }
+.re-avatar-placeholder { width: 22px; height: 22px; color: var(--theme-text-secondary); }
 .re-avatar-loading {
   position: absolute;
   inset: 0;
@@ -2257,8 +2257,8 @@ onBeforeRouteLeave((to, from, next) => {
 .re-avatar-btn {
   padding: 4px 12px;
   border-radius: 6px;
-  border: 1px solid #d1d5db;
-  background: #fff;
+  border: 1px solid var(--theme-border);
+  background: var(--theme-surface);
   font-size: 12px;
   color: var(--theme-text);
   cursor: pointer;
@@ -2267,27 +2267,27 @@ onBeforeRouteLeave((to, from, next) => {
 }
 .re-avatar-btn:hover:not(:disabled) { border-color: var(--theme-primary); color: var(--theme-primary); }
 .re-avatar-btn:disabled { opacity: 0.6; cursor: not-allowed; }
-.re-avatar-btn-danger:hover:not(:disabled) { border-color: #dc2626; color: #dc2626; }
+.re-avatar-btn-danger:hover:not(:disabled) { border-color: var(--theme-danger); color: var(--theme-danger); }
 .hidden { display: none; }
 
 .re-input, .re-select, .re-textarea {
   width: 100%;
   padding: 9px 12px;
-  border: 1px solid #d1d5db;
+  border: 1px solid var(--theme-border);
   border-radius: 8px;
   font-size: 13px;
   transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
   outline: none;
-  background: #fff;
+  background: var(--theme-surface);
   color: var(--theme-text);
   font-family: inherit;
 }
-.re-input:hover, .re-select:hover, .re-textarea:hover { border-color: #9ca3af; }
+.re-input:hover, .re-select:hover, .re-textarea:hover { border-color: var(--theme-text-secondary); }
 .re-input:focus, .re-select:focus, .re-textarea:focus {
   border-color: var(--theme-primary);
   box-shadow: 0 0 0 3px rgba(220,38,38,0.08);
 }
-.re-input::placeholder, .re-textarea::placeholder { color: #9ca3af; }
+.re-input::placeholder, .re-textarea::placeholder { color: var(--theme-text-secondary); }
 .re-textarea { resize: vertical; min-height: 80px; line-height: 1.65; }
 .re-select { appearance: none; cursor: pointer; padding-right: 32px;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath d='M3 4.5L6 7.5L9 4.5' stroke='%239CA3AF' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
@@ -2302,9 +2302,9 @@ onBeforeRouteLeave((to, from, next) => {
   padding: 18px;
   margin-bottom: 12px;
   transition: all 0.2s;
-  background: #fff;
+  background: var(--theme-surface);
 }
-.re-entry:hover { border-color: #d1d5db; box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
+.re-entry:hover { border-color: var(--theme-border); box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
 .re-entry-head {
   display: flex;
   align-items: center;
@@ -2314,12 +2314,12 @@ onBeforeRouteLeave((to, from, next) => {
 .re-entry-badge {
   font-size: 11px;
   font-weight: 600;
-  color: #6b7280;
+  color: var(--theme-text-secondary);
   display: flex;
   align-items: center;
   gap: 6px;
 }
-.re-entry-dot { width: 6px; height: 6px; border-radius: 50%; background: #10b981; }
+.re-entry-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--theme-success); }
 .re-entry-actions { display: flex; gap: 4px; }
 .re-entry-btn {
   width: 28px; height: 28px;
@@ -2327,19 +2327,19 @@ onBeforeRouteLeave((to, from, next) => {
   border: none; border-radius: 6px;
   cursor: pointer; font-size: 11px;
   background: transparent;
-  color: #9ca3af;
+  color: var(--theme-text-secondary);
   transition: all 0.15s;
 }
-.re-entry-btn:hover { background: #f3f4f6; color: var(--theme-text); }
-.re-entry-btn.danger:hover { background: #fee2e2; color: var(--theme-primary); }
+.re-entry-btn:hover { background: var(--theme-accent); color: var(--theme-text); }
+.re-entry-btn.danger:hover { background: var(--theme-danger-bg); color: var(--theme-primary); }
 
 .re-add-entry {
   width: 100%;
   padding: 10px;
-  border: 1px dashed #d1d5db;
+  border: 1px dashed var(--theme-border);
   border-radius: 10px;
   background: transparent;
-  color: #6b7280;
+  color: var(--theme-text-secondary);
   font-size: 13px;
   cursor: pointer;
   transition: all 0.2s;
@@ -2352,12 +2352,12 @@ onBeforeRouteLeave((to, from, next) => {
 .re-add-entry:hover {
   border-color: var(--theme-primary);
   color: var(--theme-primary);
-  background: #fef2f2;
+  background: var(--theme-danger-bg);
 }
 
 .re-empty-tip {
   font-size: 13px;
-  color: #9ca3af;
+  color: var(--theme-text-secondary);
   text-align: center;
   padding: 12px;
 }
@@ -2372,7 +2372,7 @@ onBeforeRouteLeave((to, from, next) => {
 }
 .re-skill-chip {
   padding: 4px 8px 4px 12px;
-  background: #f3f4f6;
+  background: var(--theme-accent);
   color: var(--theme-text);
   border-radius: 16px;
   font-size: 12px;
@@ -2386,12 +2386,12 @@ onBeforeRouteLeave((to, from, next) => {
   user-select: none;
 }
 .re-skill-chip:hover {
-  border-color: #fecaca;
-  background: #fef2f2;
+  border-color: color-mix(in srgb, var(--theme-danger) 40%, transparent);
+  background: var(--theme-danger-bg);
 }
 .re-skill-level {
   font-size: 10px;
-  color: #9ca3af;
+  color: var(--theme-text-secondary);
   font-weight: 400;
 }
 .re-skill-remove {
@@ -2399,7 +2399,7 @@ onBeforeRouteLeave((to, from, next) => {
   display: flex; align-items: center; justify-content: center;
   border-radius: 50%;
   cursor: pointer;
-  color: #9ca3af;
+  color: var(--theme-text-secondary);
   transition: all 0.15s;
 }
 .re-skill-remove:hover { background: var(--theme-primary); color: #fff; }
@@ -2409,8 +2409,8 @@ onBeforeRouteLeave((to, from, next) => {
 }
 .re-skill-add-btn {
   padding: 8px 14px;
-  background: #fff;
-  border: 1px solid #d1d5db;
+  background: var(--theme-surface);
+  border: 1px solid var(--theme-border);
   color: var(--theme-text);
   border-radius: 8px;
   font-size: 12px;
@@ -2425,44 +2425,44 @@ onBeforeRouteLeave((to, from, next) => {
 .re-skill-add-btn:hover {
   border-color: var(--theme-primary);
   color: var(--theme-primary);
-  background: #fef2f2;
+  background: var(--theme-danger-bg);
 }
 
 /* ===== 上传区 ===== */
 .re-upload-zone {
-  border: 2px dashed #d1d5db;
+  border: 2px dashed var(--theme-border);
   border-radius: 14px;
   padding: 36px 24px;
   text-align: center;
   cursor: pointer;
   transition: all 0.25s;
-  background: #fff;
+  background: var(--theme-surface);
 }
 .re-upload-zone:hover {
   border-color: var(--theme-primary);
-  background: #fef2f2;
+  background: var(--theme-danger-bg);
 }
 .re-upload-icon {
   width: 48px; height: 48px;
-  background: #f3f4f6;
+  background: var(--theme-accent);
   border-radius: 14px;
   display: flex; align-items: center; justify-content: center;
   margin: 0 auto 14px;
-  color: #9ca3af;
+  color: var(--theme-text-secondary);
   transition: all 0.2s;
 }
 .re-upload-zone:hover .re-upload-icon {
-  background: #fef2f2;
+  background: var(--theme-danger-bg);
   color: var(--theme-primary);
 }
 .re-upload-title { font-size: 14px; font-weight: 600; color: var(--theme-text); margin-bottom: 4px; }
-.re-upload-desc { font-size: 12px; color: #9ca3af; }
+.re-upload-desc { font-size: 12px; color: var(--theme-text-secondary); }
 .re-upload-formats { display: flex; gap: 6px; justify-content: center; margin-top: 12px; }
 .re-format-tag {
   font-size: 10px;
   padding: 2px 8px;
-  background: #f3f4f6;
-  color: #6b7280;
+  background: var(--theme-accent);
+  color: var(--theme-text-secondary);
   border-radius: 4px;
   font-weight: 600;
 }
@@ -2483,7 +2483,7 @@ onBeforeRouteLeave((to, from, next) => {
 }
 @keyframes re-advice-fade { from { opacity: 0; } to { opacity: 1; } }
 .re-advice-box {
-  background: #fff;
+  background: var(--theme-surface);
   border-radius: 20px;
   width: 100%;
   max-width: 640px;
@@ -2501,7 +2501,7 @@ onBeforeRouteLeave((to, from, next) => {
   justify-content: space-between;
   position: sticky;
   top: 0;
-  background: #fff;
+  background: var(--theme-surface);
   z-index: 1;
   border-radius: 20px 20px 0 0;
 }
@@ -2525,8 +2525,8 @@ onBeforeRouteLeave((to, from, next) => {
   padding: 5px 12px;
   font-size: 12px;
   border-radius: 6px;
-  background: #f9fafb;
-  color: #6b7280;
+  background: var(--theme-accent);
+  color: var(--theme-text-secondary);
   border: 1px solid var(--theme-border);
   cursor: pointer;
   transition: all 0.15s;
@@ -2538,22 +2538,22 @@ onBeforeRouteLeave((to, from, next) => {
   display: flex; align-items: center; justify-content: center;
   border-radius: 8px;
   border: 1px solid var(--theme-border);
-  background: #fff;
-  color: #6b7280;
+  background: var(--theme-surface);
+  color: var(--theme-text-secondary);
   cursor: pointer;
 }
-.re-advice-close:hover { border-color: #d1d5db; background: #f9fafb; color: var(--theme-text); }
+.re-advice-close:hover { border-color: var(--theme-border); background: var(--theme-accent); color: var(--theme-text); }
 
 .re-advice-loading {
   padding: 60px 24px;
   text-align: center;
-  color: #6b7280;
+  color: var(--theme-text-secondary);
   font-size: 14px;
 }
 .re-advice-body { padding: 20px 24px; }
 
 .re-advice-summary {
-  background: #f9fafb;
+  background: var(--theme-accent);
   border-radius: 10px;
   padding: 12px 14px;
   font-size: 13px;
@@ -2562,8 +2562,8 @@ onBeforeRouteLeave((to, from, next) => {
   margin-bottom: 14px;
 }
 .re-advice-missing {
-  background: #fef2f2;
-  border: 1px solid #fecaca;
+  background: var(--theme-danger-bg);
+  border: 1px solid color-mix(in srgb, var(--theme-danger) 40%, transparent);
   border-radius: 10px;
   padding: 12px 14px;
   margin-bottom: 14px;
@@ -2581,9 +2581,9 @@ onBeforeRouteLeave((to, from, next) => {
 .re-advice-missing-chip {
   font-size: 11px;
   padding: 2px 10px;
-  background: #fee2e2;
+  background: var(--theme-danger-bg);
   color: var(--theme-primary);
-  border: 1px solid #fecaca;
+  border: 1px solid color-mix(in srgb, var(--theme-danger) 40%, transparent);
   border-radius: 12px;
 }
 
@@ -2593,7 +2593,7 @@ onBeforeRouteLeave((to, from, next) => {
 .re-upload-zone { cursor: pointer; transition: all 0.15s; }
 .re-upload-dragover {
   border-color: var(--theme-primary) !important;
-  background: color-mix(in srgb, var(--theme-primary) 6%, #fff) !important;
+  background: color-mix(in srgb, var(--theme-primary) 6%, var(--theme-surface)) !important;
   transform: scale(1.01);
 }
 .re-upload-disabled { pointer-events: none; opacity: 0.6; }
@@ -2605,7 +2605,7 @@ onBeforeRouteLeave((to, from, next) => {
   gap: 12px;
   margin-top: 12px;
   padding: 12px 14px;
-  background: #fff;
+  background: var(--theme-surface);
   border: 1px solid var(--theme-border);
   border-radius: 10px;
 }
@@ -2613,8 +2613,8 @@ onBeforeRouteLeave((to, from, next) => {
   width: 36px;
   height: 36px;
   border-radius: 8px;
-  background: #f3f4f6;
-  color: #6b7280;
+  background: var(--theme-accent);
+  color: var(--theme-text-secondary);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -2629,7 +2629,7 @@ onBeforeRouteLeave((to, from, next) => {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.re-attach-meta { font-size: 11px; color: #9ca3af; margin-top: 2px; }
+.re-attach-meta { font-size: 11px; color: var(--theme-text-secondary); margin-top: 2px; }
 .re-attach-actions { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
 .re-attach-btn {
   display: inline-flex;
@@ -2639,8 +2639,8 @@ onBeforeRouteLeave((to, from, next) => {
   padding: 5px 12px;
   border-radius: 6px;
   border: 1px solid var(--theme-border);
-  background: #fff;
-  color: #4b5563;
+  background: var(--theme-surface);
+  color: var(--theme-text);
   cursor: pointer;
   text-decoration: none;
   transition: all 0.15s;
@@ -2654,12 +2654,12 @@ onBeforeRouteLeave((to, from, next) => {
 }
 .re-attach-btn.primary:hover { opacity: 0.9; }
 .re-attach-btn.primary:disabled { opacity: 0.5; cursor: not-allowed; }
-.re-attach-btn.danger { color: #dc2626; }
-.re-attach-btn.danger:hover { border-color: #dc2626; color: #dc2626; background: #fef2f2; }
+.re-attach-btn.danger { color: var(--theme-danger); }
+.re-attach-btn.danger:hover { border-color: var(--theme-danger); color: var(--theme-danger); background: var(--theme-danger-bg); }
 
 /* ===== 解析结果摘要 ===== */
 .re-parse-summary {
-  background: #f9fafb;
+  background: var(--theme-accent);
   border: 1px solid var(--theme-border);
   border-radius: 10px;
   padding: 6px 14px;
@@ -2672,12 +2672,12 @@ onBeforeRouteLeave((to, from, next) => {
   border-bottom: 1px dashed var(--theme-border);
 }
 .re-parse-row:last-child { border-bottom: none; }
-.re-parse-label { font-size: 12px; color: #6b7280; }
+.re-parse-label { font-size: 12px; color: var(--theme-text-secondary); }
 .re-parse-value { font-size: 13px; font-weight: 600; color: var(--theme-text); }
 
 /* ===== 评分总览（对齐原型 analysis-overview） ===== */
 .re-advice-overview {
-  background: #f9fafb;
+  background: var(--theme-accent);
   border: 1px solid var(--theme-border);
   border-radius: 12px;
   padding: 16px;
@@ -2689,7 +2689,7 @@ onBeforeRouteLeave((to, from, next) => {
   text-align: center;
   min-width: 96px;
   padding: 8px 12px;
-  background: #fff;
+  background: var(--theme-surface);
   border-radius: 10px;
   border: 1px solid var(--theme-border);
 }
@@ -2699,10 +2699,10 @@ onBeforeRouteLeave((to, from, next) => {
   line-height: 1.1;
   color: var(--theme-primary);
 }
-.re-ao-score-label { font-size: 11px; color: #6b7280; margin-top: 2px; }
-.re-ao-score-desc { font-size: 11px; color: #6b7280; margin-top: 4px; font-weight: 600; }
+.re-ao-score-label { font-size: 11px; color: var(--theme-text-secondary); margin-top: 2px; }
+.re-ao-score-desc { font-size: 11px; color: var(--theme-text-secondary); margin-top: 4px; font-weight: 600; }
 .re-ao-detail { flex: 1; min-width: 0; }
-.re-ao-summary { font-size: 13px; color: #374151; line-height: 1.6; }
+.re-ao-summary { font-size: 13px; color: var(--theme-text); line-height: 1.6; }
 .re-ao-source {
   margin-top: 8px;
   display: inline-flex;
@@ -2711,17 +2711,17 @@ onBeforeRouteLeave((to, from, next) => {
   font-size: 11px;
   font-weight: 600;
   color: var(--theme-primary);
-  background: color-mix(in srgb, var(--theme-primary) 8%, #fff);
+  background: color-mix(in srgb, var(--theme-primary) 8%, var(--theme-surface));
   padding: 2px 10px;
   border-radius: 10px;
 }
 .re-ao-metrics { margin-top: 14px; display: flex; flex-direction: column; gap: 8px; }
 .re-metric-row { display: flex; align-items: center; gap: 10px; }
-.re-metric-label { width: 72px; flex-shrink: 0; font-size: 12px; color: #6b7280; text-align: right; }
+.re-metric-label { width: 72px; flex-shrink: 0; font-size: 12px; color: var(--theme-text-secondary); text-align: right; }
 .re-metric-bar {
   flex: 1;
   height: 8px;
-  background: #e5e7eb;
+  background: var(--theme-border);
   border-radius: 4px;
   overflow: hidden;
 }
@@ -2743,8 +2743,8 @@ onBeforeRouteLeave((to, from, next) => {
   font-size: 12px;
   padding: 5px 14px;
   border-radius: 16px;
-  background: #f9fafb;
-  color: #6b7280;
+  background: var(--theme-accent);
+  color: var(--theme-text-secondary);
   border: 1px solid var(--theme-border);
   cursor: pointer;
   transition: all 0.15s;
@@ -2760,7 +2760,7 @@ onBeforeRouteLeave((to, from, next) => {
 
 /* ===== 建议卡片（对齐原型 a-card） ===== */
 .re-advice-card {
-  background: #fff;
+  background: var(--theme-surface);
   border: 1px solid var(--theme-border);
   border-radius: 12px;
   overflow: hidden;
@@ -2770,7 +2770,7 @@ onBeforeRouteLeave((to, from, next) => {
   align-items: center;
   gap: 8px;
   padding: 10px 14px;
-  background: #f9fafb;
+  background: var(--theme-accent);
   border-bottom: 1px solid var(--theme-border);
   flex-wrap: wrap;
 }
@@ -2786,16 +2786,16 @@ onBeforeRouteLeave((to, from, next) => {
   font-size: 11px;
   padding: 1px 8px;
   border-radius: 8px;
-  background: #fff;
-  color: #6b7280;
+  background: var(--theme-surface);
+  color: var(--theme-text-secondary);
   border: 1px solid var(--theme-border);
 }
 .re-advice-card-body { padding: 12px 14px; }
 
 /* 优化建议反馈块（原型 feedback-block tip） */
 .re-feedback-tip {
-  background: #fffbeb;
-  border: 1px solid #fde68a;
+  background: var(--theme-warning-bg);
+  border: 1px solid color-mix(in srgb, var(--theme-warning) 40%, transparent);
   border-radius: 8px;
   padding: 10px 12px;
   margin-bottom: 10px;
@@ -2806,15 +2806,15 @@ onBeforeRouteLeave((to, from, next) => {
   gap: 4px;
   font-size: 11px;
   font-weight: 700;
-  color: #b45309;
+  color: var(--theme-warning);
   margin-bottom: 4px;
 }
-.re-feedback-tip p { font-size: 12.5px; color: #92400e; line-height: 1.6; }
+.re-feedback-tip p { font-size: 12.5px; color: var(--theme-warning); line-height: 1.6; }
 
 /* AI 优化结果块（原型 diff-block） */
 .re-diff-block {
-  background: #f0fdf4;
-  border: 1px solid #bbf7d0;
+  background: var(--theme-success-bg);
+  border: 1px solid color-mix(in srgb, var(--theme-success) 40%, transparent);
   border-radius: 8px;
   padding: 10px 12px;
   margin-bottom: 10px;
@@ -2825,20 +2825,20 @@ onBeforeRouteLeave((to, from, next) => {
   justify-content: space-between;
   font-size: 11px;
   font-weight: 700;
-  color: #15803d;
+  color: var(--theme-success);
   margin-bottom: 6px;
 }
 .re-diff-sub { font-weight: 400; opacity: 0.7; }
 .re-diff-body {
   font-family: inherit;
   font-size: 12.5px;
-  color: #166534;
+  color: var(--theme-success);
   line-height: 1.7;
   white-space: pre-wrap;
   word-break: break-word;
   margin: 0;
 }
-.re-diff-ph { font-size: 11px; color: #65a30d; margin-top: 6px; }
+.re-diff-ph { font-size: 11px; color: var(--theme-success); margin-top: 6px; }
 .re-card-actions { display: flex; align-items: center; gap: 8px; }
 .re-card-actions .re-advice-accepted,
 .re-card-actions .re-advice-accept-btn { position: static; }
@@ -2852,13 +2852,13 @@ onBeforeRouteLeave((to, from, next) => {
   font-weight: 600;
   padding: 3px 10px;
   border-radius: 6px;
-  background: #fff;
+  background: var(--theme-surface);
   color: var(--theme-primary);
   border: 1px solid var(--theme-primary);
   cursor: pointer;
   transition: all 0.15s;
 }
-.re-missing-add-btn:hover { background: color-mix(in srgb, var(--theme-primary) 8%, #fff); }
+.re-missing-add-btn:hover { background: color-mix(in srgb, var(--theme-primary) 8%, var(--theme-surface)); }
 .re-advice-accept-btn {
   position: absolute;
   top: 12px;
@@ -2876,7 +2876,7 @@ onBeforeRouteLeave((to, from, next) => {
   font-weight: 600;
   transition: all 0.15s;
 }
-.re-advice-accept-btn:hover { background: #b91c1c; }
+.re-advice-accept-btn:hover { background: var(--theme-danger); }
 .re-advice-accepted {
   position: absolute;
   top: 12px;
@@ -2885,7 +2885,7 @@ onBeforeRouteLeave((to, from, next) => {
   padding: 4px 10px;
   border-radius: 6px;
   background: rgba(22,163,74,0.1);
-  color: #16a34a;
+  color: var(--theme-success);
   border: 1px solid rgba(22,163,74,0.2);
   display: inline-flex;
   align-items: center;
@@ -2895,7 +2895,7 @@ onBeforeRouteLeave((to, from, next) => {
 .re-advice-empty {
   text-align: center;
   padding: 24px;
-  color: #16a34a;
+  color: var(--theme-success);
   font-size: 13px;
   display: flex;
   align-items: center;
@@ -2912,7 +2912,7 @@ onBeforeRouteLeave((to, from, next) => {
   align-items: center;
   justify-content: space-between;
   font-size: 12px;
-  color: #16a34a;
+  color: var(--theme-success);
 }
 .re-advice-back-edit {
   font-size: 11px;
@@ -2927,7 +2927,7 @@ onBeforeRouteLeave((to, from, next) => {
 
 .re-advice-footer {
   padding: 16px 24px;
-  background: linear-gradient(135deg, var(--theme-primary), #7c3aed);
+  background: linear-gradient(135deg, var(--theme-primary), var(--theme-primary));
   color: #fff;
   display: flex;
   align-items: center;
@@ -2940,7 +2940,7 @@ onBeforeRouteLeave((to, from, next) => {
 .re-advice-ft-desc { font-size: 12px; opacity: 0.9; margin-top: 2px; }
 .re-advice-study-btn {
   padding: 8px 16px;
-  background: #fff;
+  background: var(--theme-surface);
   color: var(--theme-primary);
   border: none;
   border-radius: 8px;

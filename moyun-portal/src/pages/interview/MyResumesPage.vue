@@ -37,9 +37,9 @@ const totalPages = computed(() => Math.max(1, Math.ceil(total.value / pageSize))
 
 // 状态映射：草稿=info色，已发布=success色，已归档=warning色
 const statusMap: Record<string, { label: string; class: string }> = {
-  draft: { label: '草稿', class: 'bg-blue-100 text-blue-700' },
-  published: { label: '已发布', class: 'bg-green-100 text-green-700' },
-  archived: { label: '已归档', class: 'bg-yellow-100 text-yellow-700' },
+  draft: { label: '草稿', class: 'bg-theme-info-bg text-theme-info' },
+  published: { label: '已发布', class: 'bg-theme-success-bg text-theme-success' },
+  archived: { label: '已归档', class: 'bg-theme-warning-bg text-theme-warning' },
 };
 
 useHead(computed(() => generateSeo({
@@ -106,7 +106,7 @@ function statusLabel(r: UserResumeVO) {
 
 function statusClass(r: UserResumeVO) {
   const s = r.status || '';
-  return statusMap[s]?.class || 'bg-gray-100 text-gray-600';
+  return statusMap[s]?.class || 'bg-theme-surface text-theme-text-secondary';
 }
 
 function formatTime(t?: string) {
@@ -455,7 +455,7 @@ function gotoPage(p: number) {
                 <button
                   @click="router.push(`/interview/resume/optimize?resumeId=${r.id}`)"
                   class="inline-flex items-center px-2.5 py-1.5 rounded-lg text-xs transition hover:opacity-80"
-                  style="background-color: var(--theme-bg); color: #7c3aed; border: 1px solid var(--theme-border);"
+                  style="background-color: var(--theme-bg); color: var(--theme-primary); border: 1px solid var(--theme-border);"
                 >
                   <Sparkles class="w-3 h-3 mr-1" />岗位优化
                 </button>
@@ -489,7 +489,7 @@ function gotoPage(p: number) {
                   @click="handleToggleStatus(r, 'published')"
                   :disabled="actionId === r.id"
                   class="inline-flex items-center px-2.5 py-1.5 rounded-lg text-xs text-white transition hover:opacity-80 disabled:opacity-50 disabled:cursor-not-allowed"
-                  style="background-color: #16a34a;"
+                  style="background-color: var(--theme-success);"
                 >
                   <Send class="w-3 h-3 mr-1" />发布
                 </button>
@@ -498,7 +498,7 @@ function gotoPage(p: number) {
                   @click="handleToggleStatus(r, 'archived')"
                   :disabled="actionId === r.id"
                   class="inline-flex items-center px-2.5 py-1.5 rounded-lg text-xs text-white transition hover:opacity-80 disabled:opacity-50 disabled:cursor-not-allowed"
-                  style="background-color: #d97706;"
+                  style="background-color: var(--theme-warning);"
                 >
                   <Archive class="w-3 h-3 mr-1" />归档
                 </button>
@@ -507,7 +507,7 @@ function gotoPage(p: number) {
                   @click="handleToggleStatus(r, 'draft')"
                   :disabled="actionId === r.id"
                   class="inline-flex items-center px-2.5 py-1.5 rounded-lg text-xs text-white transition hover:opacity-80 disabled:opacity-50 disabled:cursor-not-allowed"
-                  style="background-color: #2563eb;"
+                  style="background-color: var(--theme-info);"
                 >
                   <Archive class="w-3 h-3 mr-1" />恢复
                 </button>
@@ -515,7 +515,7 @@ function gotoPage(p: number) {
                   @click="handleDelete(r)"
                   :disabled="actionId === r.id"
                   class="inline-flex items-center px-2.5 py-1.5 rounded-lg text-xs text-white transition hover:opacity-80 disabled:opacity-50 disabled:cursor-not-allowed"
-                  style="background-color: #ef4444;"
+                  style="background-color: var(--theme-danger);"
                 >
                   <Trash2 class="w-3 h-3 mr-1" />删除
                 </button>

@@ -2160,3 +2160,124 @@ export interface TopicComment {
   isLiked?: boolean;
   replies?: TopicComment[];
 }
+
+// ==================== V11.0 支付中心类型 ====================
+
+/** 微信打赏下单返回（收银台参数） */
+export interface PayCashierResult {
+  /** 支付单号 */
+  payNo: string;
+  /** 微信 native 支付二维码链接 */
+  codeUrl: string;
+  /** 金额（元） */
+  amount: number;
+  /** 订单过期时间 */
+  expireTime?: string;
+  /** 打赏单ID */
+  tipOrderId?: number | string;
+  /** mock 模拟支付开关 */
+  mockEnabled?: boolean;
+}
+
+/** 支付状态轮询结果 */
+export interface PayStatusResult {
+  payNo: string;
+  /** CREATED/PAID/SETTLED/CLOSED */
+  status: string;
+  /** 金额（分） */
+  amount: number;
+  /** 金额（元） */
+  amountYuan: number;
+  expireTime?: string;
+  codeUrl?: string;
+  mockEnabled?: boolean;
+}
+
+/** 账户总览 */
+export interface PayAccountOverview {
+  userId: number | string;
+  /** 余额（分） */
+  balance: number;
+  /** 余额（元） */
+  balanceYuan: number;
+  totalIncome: number;
+  totalIncomeYuan: number;
+  totalWithdraw: number;
+  totalWithdrawYuan: number;
+}
+
+/** 资金流水条目 */
+export interface PayLedgerEntry {
+  id?: number | string;
+  settleNo?: string;
+  payNo?: string;
+  bizType?: string;
+  bizNo?: string;
+  /** PLATFORM/USER */
+  accountRole?: string;
+  userId?: number | string;
+  /** credit=收入 debit=支出 */
+  direction?: string;
+  /** 金额（分） */
+  amount?: number;
+  /** 金额（元） */
+  amountYuan?: number;
+  balanceAfter?: number;
+  balanceAfterYuan?: number;
+  summary?: string;
+  createTime?: string;
+}
+
+/** 资金流水分页结果 */
+export interface PayLedgerListResult {
+  records: PayLedgerEntry[];
+  total: number;
+  current: number;
+  size: number;
+}
+
+/** 银行卡（脱敏，密文从不下发） */
+export interface UserBankCard {
+  id: number | string;
+  holderName: string;
+  cardNoMasked: string;
+  phoneMasked?: string;
+  bankCode?: string;
+  bankName?: string;
+  cardType?: string;
+  /** PENDING/VERIFIED/REJECTED */
+  verifyStatus?: string;
+  isDefault?: number;
+}
+
+/** 绑定银行卡表单 */
+export interface BankCardForm {
+  holderName: string;
+  cardNo: string;
+  phone: string;
+  bankCode?: string;
+  bankName?: string;
+}
+
+/** 支付站内通知 */
+export interface PayNotification {
+  id: number | string;
+  userId?: number | string;
+  /** pay/withdraw/account */
+  notifyType?: string;
+  refNo?: string;
+  title: string;
+  content?: string;
+  /** 0=未读 1=已读 */
+  readFlag?: number;
+  createTime?: string;
+}
+
+/** 支付通知分页结果 */
+export interface PayNotificationListResult {
+  records: PayNotification[];
+  total: number;
+  current: number;
+  size: number;
+  unreadCount?: number;
+}

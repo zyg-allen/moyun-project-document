@@ -66,6 +66,31 @@ public class PortalTipController extends BaseController {
     }
 
     /**
+     * 发起微信支付打赏（V11.0 公共支付通道，需登录）
+     * 返回收银台参数：payNo/codeUrl/amount(元)/expireTime/tipOrderId/mockEnabled
+     */
+    @Operation(summary = "发起微信打赏", description = "对文章/专栏发起微信支付打赏，amount 为金额（元），返回收银台二维码参数")
+    @PostMapping("/{targetType}/{targetId}/wechat")
+    public AjaxResult createWechatTip(@PathVariable("targetType") String targetType,
+                                      @PathVariable("targetId") Long targetId,
+                                      @RequestBody PortalTipOrder body) {
+        Long userId = currentUserId();
+        if (userId == null) {
+            return AjaxResult.error(HttpStatus.UNAUTHORIZED, "登录已过期，请重新登录");
+        }
+        PortalTipOrder order = new PortalTipOrder();
+        order.setTargetType(targetType);
+        order.setTargetId(targetId);
+        order.setAmount(body.getAmount());
+        order.setMessage(body.getMessage());
+        try {
+            return AjaxResult.success(portalTipService.createWechatTipOrder(userId, order));
+        } catch (RuntimeException e) {
+            return AjaxResult.error(e.getMessage());
+        }
+    }
+
+    /**
      * 我打赏的（需登录）
      */
     @Operation(summary = "我打赏的", description = "分页查询当前用户发起的打赏记录")

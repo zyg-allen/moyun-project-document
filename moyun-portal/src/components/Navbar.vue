@@ -4,7 +4,7 @@ import { RouterLink as Link, useRouter, useRoute } from 'vue-router';
 import {
   Search, Plus, LogOut, Menu, X, Palette, Sun, Moon, Eye,
   ChevronDown, ChevronRight, Settings, UserCircle, BookMarked,
-  HelpCircle, Lock, Bell, Flag, MessageSquare, Mic, FileText
+  HelpCircle, Lock, Bell, Flag, MessageSquare, Mic, FileText, Wallet
 } from 'lucide-vue-next';
 import { setTheme, getCurrentTheme, type Theme, themes } from '@/utils/theme';
 import { useUserStore } from '@/stores/user';
@@ -253,6 +253,22 @@ function handleGoToSettings() {
   router.push('/user/settings');
 }
 
+function handleGoToWallet() {
+  isUserMenuOpen.value = false;
+  if (!requireAuth('/pay/wallet')) {
+    return;
+  }
+  router.push('/pay/wallet');
+}
+
+function handleGoToPayNotifications() {
+  isUserMenuOpen.value = false;
+  if (!requireAuth('/pay/notifications')) {
+    return;
+  }
+  router.push('/pay/notifications');
+}
+
 function handleGoToBookshelf() {
   isUserMenuOpen.value = false;
   if (!requireAuth('/reading/bookshelf')) {
@@ -498,6 +514,14 @@ onUnmounted(() => document.removeEventListener('click', handleDocumentClick));
                   </button>
 
                   <button
+                      @click="handleGoToWallet"
+                      class="w-full flex items-center space-x-2 px-3 py-2 text-left transition-colors hover:opacity-80"
+                  >
+                    <Wallet class="w-4 h-4" style="color: var(--theme-text-secondary);" />
+                    <span class="text-sm" style="color: var(--theme-text);">我的钱包</span>
+                  </button>
+
+                  <button
                       @click="handleGoToMyAttempts"
                       class="w-full flex items-center justify-between px-3 py-2 text-left transition-colors hover:opacity-80"
                   >
@@ -522,6 +546,14 @@ onUnmounted(() => document.removeEventListener('click', handleDocumentClick));
                   >
                     <MessageSquare class="w-4 h-4" style="color: var(--theme-text-secondary);" />
                     <span class="text-sm" style="color: var(--theme-text);">我的反馈</span>
+                  </button>
+
+                  <button
+                      @click="handleGoToPayNotifications"
+                      class="w-full flex items-center space-x-2 px-3 py-2 text-left transition-colors hover:opacity-80"
+                  >
+                    <Bell class="w-4 h-4" style="color: var(--theme-text-secondary);" />
+                    <span class="text-sm" style="color: var(--theme-text);">支付通知</span>
                   </button>
 
                   <button

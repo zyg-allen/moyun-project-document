@@ -23,6 +23,9 @@ import com.moyun.portal.mapper.PortalUserGrowthMapper;
 import com.moyun.portal.mapper.PortalUserMapper;
 import com.moyun.portal.service.IPortalGrowthService;
 import com.moyun.portal.service.IPortalTipService;
+import com.moyun.pay.config.PayProperties;
+import com.moyun.pay.domain.entity.PayOrder;
+import com.moyun.pay.gateway.IPayGateway;
 
 /**
  * 打赏 业务实现
@@ -61,6 +64,12 @@ public class PortalTipServiceImpl implements IPortalTipService {
 
     @Autowired
     private com.moyun.portal.util.RealNameChecker realNameChecker;
+
+    @Autowired
+    private IPayGateway payGateway;
+
+    @Autowired
+    private PayProperties payProperties;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -180,5 +189,61 @@ public class PortalTipServiceImpl implements IPortalTipService {
             default:
                 return null;
         }
+    }
+
+    /**
+     * 发起微信支付打赏（V11.0 公共支付通道接入）
+     *
+     * <p>业务前置校验（实名/对象存在/防自赏/金额区间）→ pending 打赏单 → 网关统一下单。
+     * 金额单位转换：前端元 → 内部分，整型链路。
+     */
+    @Override
+    public java.util.Map<String, Object> createWechatTipOrder(Long userId, PortalTipOrder order) {
+        if (userId == null) {
+            throw new BusinessException("USER_NOT_LOGIN", "请先登录");
+        }
+        // 1. 打赏对象校验
+        Long authorId = resolveAuthorId(order.getTargetType(), order.getTargetId());
+        if (authorId == null) {
+            throw new BusinessException("TIP_TARGET_NOT_FOUND", "打赏对象不存在");
+        }
+        // 2. 实名校验（资金敏感场景强制实名）
+        realNameChecker.checkRealName(userId);
+        // 3. 防自我打赏
+        if (userId.equals(authorId)) {
+            throw new BusinessException("TIP_SELF_NOT_ALLOWED", "不能给自己打赏");
+        }
+        // 4. 金额区间校验（0.01 ~ 10000 元）
+        if (order.getAmount() == null || order.getAmount().compareTo(BigDecimal.ZERO) <= 0) {
+            throw new BusinessException("TIP_AMOUNT_INVALID", "打赏金额必须大于0");
+        }
+        if (order.getAmount().compareTo(new BigDecimal("10000")) > 0) {
+            throw new BusinessException("TIP_AMOUNT_INVALID", "单笔打赏不可超过 10000 元");
+        }
+        // 元 → 分（整型链路）
+        long amountFen = order.getAmount().movePointRight(2).setScale(0, java.math.RoundingMode.HALF_UP).longValue();
+
+        // 5. 落 pending 打赏单（微信支付通道）
+        order.setUserId(userId);
+        order.setAuthorId(authorId);
+        order.setStatus(PaymentStatus.PENDING.getCode());
+        order.setPayMethod(PaymentChannel.WECHAT.getCode());
+        order.setCreatedTime(LocalDateTime.now());
+        portalTipOrderMapper.insert(order);
+
+        // 6. 网关统一下单（幂等：同 bizNo 未支付单复用）
+        String subject = "墨韵打赏-" + order.getTargetType();
+        PayOrder payOrder = payGateway.createOrder("tip", String.valueOf(order.getId()), "wechat",
+                amountFen, subject);
+
+        // 7. 返回收银台参数
+        java.util.Map<String, Object> result = new java.util.HashMap<>();
+        result.put("payNo", payOrder.getPayNo());
+        result.put("codeUrl", payOrder.getCodeUrl());
+        result.put("amount", order.getAmount());
+        result.put("expireTime", payOrder.getExpireTime());
+        result.put("tipOrderId", order.getId());
+        result.put("mockEnabled", payProperties.getWechat().isMockEnabled());
+        return result;
     }
 }

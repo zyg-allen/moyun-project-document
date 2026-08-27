@@ -5,6 +5,68 @@
 
 ---
 
+## v11.0 (2026-09-02) 微信支付公共通道 + 打赏分账体系
+
+> 补丁：`moyun-pay-gateway-v11.0.patch`
+> SQL：`moyun-server/src/main/resources/sql/moyun-pay-gateway-20260902.sql`
+
+### 架构：公共支付通道（SPI 扩展）
+
+- **通道层** `PayChannel` SPI：`prepay / query / verifyNotify / parseNotify / close` 五方法，新增渠道（支付宝/云闪付）实现接口即可，业务代码零改动
+- **网关层** `PayGatewayImpl`：统一下单/查单/关单/回调分发，状态机 `CREATED → PAID → SETTLED / CLOSED`，幂等（同 bizType+bizNo 未支付单复用），`TransactionTemplate` 事务包裹「验签→落流水→标记PAID→业务分发→SETTLED推进」
+- **业务层** `PayCallbackHandler` SPI：按 `bizType` 分发（本期实现 `tip` 打赏），业务方只关心支付成功事件
+- **微信通道** `WechatPayChannel`：mock 模拟模式与真实模式同构（验签/回调/分账/通知全流程一致），`wechatpay-java` SDK 接入点 TODO 标注，商户参数（appId/mchId/merchantSerial/privateKeyPath/apiV3Key/notifyUrl）配置位完整保留
+
+### 分账（业内成熟做法：复式记账）
+
+- 每笔支付成功拆两条流水：**平台抽成**（PLATFORM/credit）+ **用户所得**（USER/credit），金额守恒校验（platform + user == total，偏差即抛异常回滚）
+- 费率双轨：`sys_config("pay.platform.fee-rate")` 运行时可调 > `yaml(moyun.pay.platform-fee-rate)` 兜底（默认 10%）
+- 金额全链路**分**（long 整型），展示层才转元（`amountYuan` transient 字段）
+- 账户余额变动全部走原子 SQL（`balance >=` 条件更新 + 乐观锁），杜绝读改写竞态
+
+### 安全（企业级红线）
+
+- 银行卡号/手机号 AES-GCM 加密落库，任何接口只下发脱敏字段（Controller 层强制剥离密文）
+- 回调 `@Anonymous` + 渠道验签，验签失败直接拒绝；原始报文落 `pay_notify_log` 审计留痕
+- 商户密钥仅返回"已配置"布尔状态，值永不下发
+- 金额区间校验（0.01~10000 元）、防自我打赏、实名校验（`RealNameChecker`）、银行卡绑定数上限
+
+### 后端文件（com.moyun.pay 模块 36 文件 + 打赏扩展）
+
+- `channel/`：PayChannel + Request/Response/NotifyMessage + WechatPayChannel（mock + 真实 TODO）
+- `gateway/`：IPayGateway / PayGatewayImpl / PayCallbackHandler
+- `domain/entity/`：PayOrder（STATUS_ 常量）、UserAccount、LedgerEntry、UserBankCard、WithdrawOrder、PayNotification、PayNotifyLog
+- `mapper/`：7 Mapper（UserAccountMapper 含原子余额 SQL）
+- `service/`：UserAccount / Ledger / BankCard / Notification 四服务
+- `controller/`：PortalPayController（下单/状态轮询/账户总览/流水）、PayCallbackController（@Anonymous 回调）、PortalBankCardController（绑定/列表/删除/默认）、PortalPayNotificationController（通知列表/未读数/已读）
+- 打赏接入：`PortalTipServiceImpl.createWechatTipOrder` + `TipPayCallbackHandler`（bizType=tip：打赏单 PAID → 分账 → 双方站内通知）+ `PortalTipController` 新端点 `POST /portal/tip/{targetType}/{targetId}/wechat`
+- CMS 后台：`CmsPayOrderController`（分页/详情/手动关单）、`CmsPayLedgerController`（双视角流水/单笔明细/汇总）、`CmsPayBankCardController`（脱敏列表）、`CmsPayConfigController`（配置总览/费率调整写 sys_config）
+- `application-dev.yaml`：`moyun.pay` 配置段（enabled/orderExpireMinutes/platformFeeRate/security/wechat）
+
+### 前端
+
+**Portal（Vue3 + TS + Pinia）**：
+- `api/pay.ts`：下单/状态/账户/流水/银行卡/通知全套接口
+- `pages/pay/PayCashierPage.vue`：收银台（qrcode 本地渲染二维码 + 3s 轮询 + mock 模拟支付按钮 + 支付成功动画）
+- `pages/pay/WalletPage.vue`：我的钱包（余额总览/流水分页/银行卡管理）
+- `pages/pay/PayNotificationsPage.vue`：支付通知中心（未读数/已读）
+- `TipModal.vue`：积分/微信双模式打赏（快捷金额元、0.01~10000 校验、跳转收银台）
+- Navbar 注入「我的钱包 / 支付通知」登录态入口；路由 `/pay/cashier` `/pay/wallet` `/pay/notifications`（requiresAuth）
+- 依赖：+ `qrcode` `@types/qrcode`
+
+**Admin（Element Plus）**：
+- `api/cms/pay.js` + 四页面：`pay/order`（状态筛选/详情抽屉含分账明细/手动关单）、`pay/ledger`（平台/用户双视角 + 汇总卡片）、`pay/bankcard`（脱敏列表）、`pay/config`（配置总览/费率调整）
+- 权限标识：`cms:payOrder:query|close`、`cms:payConfig:edit`（菜单 SQL 已含 sys_menu）
+
+### 验证
+
+- Java 36 文件静态审查（引号奇偶/括号配平/重复方法/类名一致）全部通过
+- Portal `vue-tsc` 零错误；`vite build` 通过（NODE_OPTIONS 堆内存调优）
+- Admin `vite build` 通过
+- 数据库 7 张新表 + sys_config 费率 + sys_menu 后台菜单 SQL 交付于 `sql/moyun-pay-gateway-20260902.sql`
+
+---
+
 ## v10.18 (2026-09-01) AI 面试官 LLM 驱动动态追问体系
 
 > 补丁：`moyun-llm-followup-v10.4.patch`（交付轮次编号 V10.4，下同）

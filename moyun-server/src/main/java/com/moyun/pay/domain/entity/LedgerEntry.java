@@ -16,7 +16,7 @@ import java.time.LocalDateTime;
  *
  * @author moyun
  */
-@TableName("ledger_entry")
+@TableName("pay_ledger_entry")
 public class LedgerEntry {
 
     /** 账户角色：平台 */
@@ -30,9 +30,6 @@ public class LedgerEntry {
 
     @TableId(type = IdType.AUTO)
     private Long id;
-
-    /** 结算单号（一组分账流水共享）：STL + 时间戳 + 随机 */
-    private String settleNo;
 
     /** 关联支付单号 */
     private String payNo;
@@ -73,8 +70,6 @@ public class LedgerEntry {
 
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
-    public String getSettleNo() { return settleNo; }
-    public void setSettleNo(String settleNo) { this.settleNo = settleNo; }
     public String getPayNo() { return payNo; }
     public void setPayNo(String payNo) { this.payNo = payNo; }
     public String getBizType() { return bizType; }

@@ -23,7 +23,7 @@ import java.util.Map;
  * 门户银行卡控制器（V11.0）
  *
  * <p>安全红线：所有出参一律剥离密文字段（cardNoEncrypted/phoneEncrypted），
- * 仅下发脱敏 cardNoMasked/phoneMasked。
+ * 仅下发脱敏 cardNoMasked。
  *
  * @author moyun
  */
@@ -40,7 +40,7 @@ public class PortalBankCardController {
         Long userId = PortalSecurityUtils.getUserId();
         UserBankCard card = bankCardService.bind(userId,
                 body.get("holderName"), body.get("cardNo"), body.get("phone"),
-                body.get("bankCode"), body.get("bankName"));
+                body.get("bankCode"), body.get("bankName"), body.get("smsCode"));
         return AjaxResult.success(stripEncrypted(card));
     }
 
@@ -81,10 +81,8 @@ public class PortalBankCardController {
         safe.put("id", card.getId());
         safe.put("holderName", card.getHolderName());
         safe.put("cardNoMasked", card.getCardNoMasked());
-        safe.put("phoneMasked", card.getPhoneMasked());
         safe.put("bankCode", card.getBankCode());
         safe.put("bankName", card.getBankName());
-        safe.put("cardType", card.getCardType());
         safe.put("verifyStatus", card.getVerifyStatus());
         safe.put("isDefault", card.getIsDefault());
         return safe;

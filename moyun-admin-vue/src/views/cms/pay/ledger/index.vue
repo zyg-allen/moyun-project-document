@@ -17,7 +17,7 @@
       <el-col :span="8">
         <el-card shadow="never">
           <template #header>流水总笔数</template>
-          <div style="font-size: 24px; font-weight: 700;">{{ summary.totalCount || 0 }}</div>
+          <div style="font-size: 24px; font-weight: 700;">{{ summary.totalEntries || 0 }}</div>
         </el-card>
       </el-col>
     </el-row>
@@ -54,7 +54,6 @@
 
     <!-- 数据表格 -->
     <el-table v-loading="loading" :data="dataList">
-      <el-table-column label="结算单号" align="center" prop="settleNo" width="220" :show-overflow-tooltip="true" />
       <el-table-column label="支付单号" align="center" prop="payNo" width="230" :show-overflow-tooltip="true" />
       <el-table-column label="业务类型" align="center" prop="bizType" width="90">
         <template #default="scope">

@@ -188,7 +188,7 @@ function handleView(row) {
   viewOpen.value = true;
   // 详情 + 分账明细
   getPayOrder(row.payNo).then((response) => {
-    if (response.data) currentRow.value = response.data;
+    if (response.data && response.data.order) currentRow.value = response.data.order;
   });
   getPayLedgerDetail(row.payNo).then((response) => {
     ledgerEntries.value = response.data || [];

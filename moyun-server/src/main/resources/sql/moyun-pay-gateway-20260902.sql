@@ -5,14 +5,16 @@
 -- 幂等：建表 IF NOT EXISTS；菜单/配置先 DELETE 再 INSERT，可重复执行
 -- 说明：
 --   1) 金额一律用"分"（BIGINT）存储，避免浮点误差；展示层再转元
---   2) 复式记账：ledger_entry 每笔支付拆两条分录（平台抽成 + 用户所得，金额守恒）
+--   2) 复式记账：pay_ledger_entry 每笔支付拆两条分录（平台抽成 + 用户所得，金额守恒）
 --   3) 费率双轨制：sys_config(pay.platform.fee-rate) 运行时配置 优先于 yaml 兜底值
 -- =====================================================================
 
 -- ---------------------------------------------------------------------
 -- 1. 支付订单表（公共支付通道核心单据）
 -- ---------------------------------------------------------------------
+drop table if exists pay_order;
 CREATE TABLE IF NOT EXISTS `pay_order` (
+                     `id`            BIGINT       NOT NULL AUTO_INCREMENT COMMENT 'id',
   `pay_no`           VARCHAR(40)  NOT NULL COMMENT '支付单号（全局唯一，如 PAY20260902xxxx）',
   `biz_type`         VARCHAR(32)  NOT NULL COMMENT '业务类型：tip=打赏 / member=会员 / course=课程（后续扩展）',
   `biz_no`           VARCHAR(64)  NOT NULL COMMENT '业务单号（如打赏单ID）',
@@ -30,7 +32,8 @@ CREATE TABLE IF NOT EXISTS `pay_order` (
   `close_reason`     VARCHAR(64)  NULL COMMENT '关单原因：TIMEOUT / ADMIN_MANUAL_CLOSE',
   `create_time`      DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
   `update_time`      DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
-  PRIMARY KEY (`pay_no`),
+  primary KEY (`id`),
+  unique KEY (`pay_no`),
   KEY `idx_biz` (`biz_type`, `biz_no`),
   KEY `idx_status_expire` (`status`, `expire_time`),
   KEY `idx_channel_order` (`channel_order_no`)
@@ -39,7 +42,7 @@ CREATE TABLE IF NOT EXISTS `pay_order` (
 -- ---------------------------------------------------------------------
 -- 2. 用户资金账户表（钱包余额，单位：分）
 -- ---------------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS `user_account` (
+CREATE TABLE IF NOT EXISTS `pay_user_account` (
   `user_id`        BIGINT   NOT NULL COMMENT '用户ID（sys_user.user_id）',
   `balance`        BIGINT   NOT NULL DEFAULT 0 COMMENT '可用余额（分）',
   `total_income`   BIGINT   NOT NULL DEFAULT 0 COMMENT '累计收入（分，含打赏所得）',
@@ -53,7 +56,7 @@ CREATE TABLE IF NOT EXISTS `user_account` (
 -- ---------------------------------------------------------------------
 -- 3. 分账流水表（复式记账：平台抽成 / 用户所得）
 -- ---------------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS `ledger_entry` (
+CREATE TABLE IF NOT EXISTS `pay_ledger_entry` (
   `id`            BIGINT       NOT NULL AUTO_INCREMENT COMMENT '流水ID',
   `pay_no`        VARCHAR(40)  NOT NULL COMMENT '关联支付单号',
   `biz_type`      VARCHAR(32)  NOT NULL COMMENT '业务类型：tip / withdraw',
@@ -74,7 +77,8 @@ CREATE TABLE IF NOT EXISTS `ledger_entry` (
 -- ---------------------------------------------------------------------
 -- 4. 用户银行卡表（卡号 AES-GCM 加密存储）
 -- ---------------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS `user_bank_card` (
+
+CREATE TABLE IF NOT EXISTS `pay_user_bank_card` (
   `id`                BIGINT       NOT NULL AUTO_INCREMENT COMMENT '银行卡ID',
   `user_id`           BIGINT       NOT NULL COMMENT '所属用户',
   `holder_name`       VARCHAR(64)  NOT NULL COMMENT '持卡人姓名',
@@ -86,6 +90,7 @@ CREATE TABLE IF NOT EXISTS `user_bank_card` (
   `is_default`        TINYINT      NOT NULL DEFAULT 0 COMMENT '是否默认卡：1=是 0=否',
   `verify_status`     VARCHAR(16)  NOT NULL DEFAULT 'VERIFIED' COMMENT '验证状态：VERIFIED=已验证 / PENDING=待验证',
   `create_time`       DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `update_time`       DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '修改时间',
   PRIMARY KEY (`id`),
   KEY `idx_user` (`user_id`),
   UNIQUE KEY `uk_user_card` (`user_id`, `card_no_masked`)
@@ -94,7 +99,7 @@ CREATE TABLE IF NOT EXISTS `user_bank_card` (
 -- ---------------------------------------------------------------------
 -- 5. 提现订单表（本期预留：钱包余额 → 银行卡）
 -- ---------------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS `withdraw_order` (
+CREATE TABLE IF NOT EXISTS `pay_withdraw_order` (
   `id`            BIGINT       NOT NULL AUTO_INCREMENT COMMENT '提现单ID',
   `withdraw_no`   VARCHAR(40)  NOT NULL COMMENT '提现单号',
   `user_id`       BIGINT       NOT NULL COMMENT '用户ID',
@@ -167,6 +172,9 @@ INSERT INTO `moyun-db`.sys_menu (menu_id, menu_name, parent_id, order_num, path,
 -- 分账流水（页面）
 INSERT INTO `moyun-db`.sys_menu (menu_id, menu_name, parent_id, order_num, path, component, query, route_name, is_frame, is_cache, menu_type, visible, status, perms, icon, create_by, create_time, update_by, update_time, remark, del_flag) VALUES (5302, '分账流水', 5300, 2, 'ledger', 'cms/pay/ledger/index', null, '', 1, 0, 'C', '0', '0', 'cms:payLedger:list', 'money', 'admin', NOW(), '', null, '平台抽成/用户所得复式记账', '0');
 
+INSERT INTO `moyun-db`.sys_menu (menu_id, menu_name, parent_id, order_num, path, component, query, route_name, is_frame, is_cache, menu_type, visible, status, perms, icon, create_by, create_time, update_by, update_time, remark, del_flag) VALUES (5315, '分账明细', 5302, 1, '', null, null, '', 1, 0, 'F', '0', '0', 'cms:payLedger:query', '#', 'admin', NOW(), '', null, '单笔支付单分账明细', '0');
+INSERT INTO `moyun-db`.sys_menu (menu_id, menu_name, parent_id, order_num, path, component, query, route_name, is_frame, is_cache, menu_type, visible, status, perms, icon, create_by, create_time, update_by, update_time, remark, del_flag) VALUES (5316, '分账汇总', 5302, 2, '', null, null, '', 1, 0, 'F', '0', '0', 'cms:payLedger:summary', '#', 'admin', NOW(), '', null, '平台抽成/用户所得汇总卡片', '0');
+
 -- 用户银行卡（页面）
 INSERT INTO `moyun-db`.sys_menu (menu_id, menu_name, parent_id, order_num, path, component, query, route_name, is_frame, is_cache, menu_type, visible, status, perms, icon, create_by, create_time, update_by, update_time, remark, del_flag) VALUES (5303, '用户银行卡', 5300, 3, 'bankcard', 'cms/pay/bankcard/index', null, '', 1, 0, 'C', '0', '0', 'cms:payBankCard:list', 'card', 'admin', NOW(), '', null, '脱敏审计视角', '0');
 INSERT INTO `moyun-db`.sys_menu (menu_id, menu_name, parent_id, order_num, path, component, query, route_name, is_frame, is_cache, menu_type, visible, status, perms, icon, create_by, create_time, update_by, update_time, remark, del_flag) VALUES (5313, '银行卡详情', 5303, 1, '', null, null, '', 1, 0, 'F', '0', '0', 'cms:payBankCard:query', '#', 'admin', NOW(), '', null, '', '0');
@@ -176,7 +184,7 @@ INSERT INTO `moyun-db`.sys_menu (menu_id, menu_name, parent_id, order_num, path,
 INSERT INTO `moyun-db`.sys_menu (menu_id, menu_name, parent_id, order_num, path, component, query, route_name, is_frame, is_cache, menu_type, visible, status, perms, icon, create_by, create_time, update_by, update_time, remark, del_flag) VALUES (5314, '费率调整', 5304, 1, '', null, null, '', 1, 0, 'F', '0', '0', 'cms:payConfig:edit', '#', 'admin', NOW(), '', null, '', '0');
 
 -- 菜单授权给超级管理员（role_id=1）
-DELETE FROM `moyun-db`.sys_role_menu WHERE role_id = 1 AND menu_id IN (5300, 5301, 5302, 5303, 5304, 5311, 5312, 5313, 5314);
+DELETE FROM `moyun-db`.sys_role_menu WHERE role_id = 1 AND menu_id IN (5300, 5301, 5302, 5303, 5304, 5311, 5312, 5313, 5314, 5315, 5316);
 INSERT INTO `moyun-db`.sys_role_menu (role_id, menu_id) VALUES
   (1, 5300), (1, 5301), (1, 5302), (1, 5303), (1, 5304),
-  (1, 5311), (1, 5312), (1, 5313), (1, 5314);
+  (1, 5311), (1, 5312), (1, 5313), (1, 5314), (1, 5315), (1, 5316);

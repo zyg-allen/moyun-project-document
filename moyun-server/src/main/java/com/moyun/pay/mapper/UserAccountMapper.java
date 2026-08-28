@@ -22,7 +22,7 @@ public interface UserAccountMapper extends BaseMapper<UserAccount> {
      *
      * @return 影响行数（0=账户不存在）
      */
-    @Update("UPDATE user_account SET balance = balance + #{amount}, total_income = total_income + #{amount}, "
+    @Update("UPDATE pay_user_account SET balance = balance + #{amount}, total_income = total_income + #{amount}, "
             + "version = version + 1, update_time = NOW() WHERE user_id = #{userId}")
     int creditBalance(@Param("userId") Long userId, @Param("amount") long amount);
 
@@ -31,7 +31,7 @@ public interface UserAccountMapper extends BaseMapper<UserAccount> {
      *
      * @return 影响行数（0=余额不足或账户不存在）
      */
-    @Update("UPDATE user_account SET balance = balance - #{amount}, total_withdraw = total_withdraw + #{amount}, "
+    @Update("UPDATE pay_user_account SET balance = balance - #{amount}, total_withdraw = total_withdraw + #{amount}, "
             + "version = version + 1, update_time = NOW() WHERE user_id = #{userId} AND balance >= #{amount}")
     int debitBalance(@Param("userId") Long userId, @Param("amount") long amount);
 }

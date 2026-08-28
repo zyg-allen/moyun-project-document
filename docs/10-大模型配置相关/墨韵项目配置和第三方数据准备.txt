@@ -1,0 +1,27 @@
+一、大模型 配置相关：开发时暂存
+
+	1、百度百炼模型
+		模型名称：qwen3.8-max
+	    chat 测试
+		Base url: https://dashscope.aliyuncs.com/compatible-mode/v1
+		API KEY: sk-ws-H.EYRIPIH.hEdS.MEUCIQDeAnZC0RAE6D6i92zqByYnpdRklE9jUTiDQBjPJ7g8mQIgGRUhhG_zlKRP4SVmOdWlS-iAcJNg1xFbOeDbNZPwT14
+		
+		
+		
+		
+		多模态，向量模型
+		
+		
+		模型名称：tongyi-embedding-vision-flash
+	    chat 测试
+		Base url: https://dashscope.aliyuncs.com/compatible-mode/v1
+		API KEY: sk-ws-H.EYRIPIH.hEdS.MEUCIQDeAnZC0RAE6D6i92zqByYnpdRklE9jUTiDQBjPJ7g8mQIgGRUhhG_zlKRP4SVmOdWlS-iAcJNg1xFbOeDbNZPwT14
+		
+		
+		
+		1、后台文章发布后，跳转 http://localhost/cms/article  404；
+2、数据调整：http://localhost/cms/article/edit  文章分类，只要首页和 文章类型的，其他特殊页面不要展示，
+3、http://localhost/cms/article/edit?id=7  修改发布状态 成功，但是字段不生效，请检查，草稿--》已发布：  始终是草稿
+4、首页本栏推荐对应的后台管理系统的发布页的：分类推荐，如果推荐，必须选封面；
+5、http://localhost:3000/  加入旭林广告位，要可以后台编辑，http://localhost/portal/cms/promotion 编辑页面，广告插图要可以上传文件，外链方式，打开新页面，两个位置都需要调整，
+6、首页热门推荐，列表的行之间间隔加大一点，这里要用atl 的方式，鼠标移入能显示全部标题内容

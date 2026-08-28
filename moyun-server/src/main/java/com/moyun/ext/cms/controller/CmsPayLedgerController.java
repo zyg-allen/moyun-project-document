@@ -20,6 +20,7 @@ import org.springframework.web.bind.annotation.RestController;
 import java.math.BigDecimal;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.List;
 
 /**
  * CMS 分账流水后台管理 Controller（V11.0）
@@ -37,7 +38,7 @@ public class CmsPayLedgerController extends BaseController {
     private LedgerEntryMapper ledgerEntryMapper;
 
     @Operation(summary = "分账流水列表", description = "分页查询全平台资金流水，支持账户角色/方向/支付单号筛选")
-    @PreAuthorize("@ss.hasPermi('pay:ledger:list')")
+    @PreAuthorize("@ss.hasPermi('cms:payLedger:list')")
     @GetMapping("/list")
     public AjaxResult list(@RequestParam(required = false) String accountRole,
                            @RequestParam(required = false) String direction,
@@ -56,16 +57,18 @@ public class CmsPayLedgerController extends BaseController {
     }
 
     @Operation(summary = "单笔支付分账明细", description = "按支付单号查询该单全部分账流水（守恒可见）")
-    @PreAuthorize("@ss.hasPermi('pay:ledger:query')")
+    @PreAuthorize("@ss.hasPermi('cms:payLedger:query')")
     @GetMapping("/{payNo}/detail")
     public AjaxResult detail(@PathVariable String payNo) {
-        return success(ledgerEntryMapper.selectList(new LambdaQueryWrapper<LedgerEntry>()
+        List<LedgerEntry> entries = ledgerEntryMapper.selectList(new LambdaQueryWrapper<LedgerEntry>()
                 .eq(LedgerEntry::getPayNo, payNo)
-                .orderByAsc(LedgerEntry::getId)));
+                .orderByAsc(LedgerEntry::getId));
+        entries.forEach(this::fillYuan);
+        return success(entries);
     }
 
     @Operation(summary = "分账汇总", description = "平台抽成总额 / 用户所得总额 / 流水笔数")
-    @PreAuthorize("@ss.hasPermi('pay:ledger:summary')")
+    @PreAuthorize("@ss.hasPermi('cms:payLedger:summary')")
     @GetMapping("/summary")
     public AjaxResult summary() {
         long platformTotal = sumAmount(LedgerEntry.ROLE_PLATFORM);

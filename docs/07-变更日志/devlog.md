@@ -5,6 +5,131 @@
 
 ---
 
+## v11.3 (2026-09-02) 支付表统一 pay_ 前缀 + 钱包页重构 + 支付通知并入消息中心
+
+> 补丁：`moyun-pay-v11.3-refactor.patch`
+
+### 1. 支付模块表统一 `pay_` 前缀（两处线上报错根治）
+
+**报错根因**：v11.0 建表与 v11.3 迁移 SQL 已将表改为 `pay_` 前缀新结构，但实体类未同步，导致 `Unknown column 'id' in 'user_account'`（钱包总览）与 `Unknown column 'settle_no' in 'ledger_entry'`（后台流水汇总）。
+
+- **表重命名**（存量库迁移脚本 `sql/moyun-pay-v11.3-rename-20260902.sql`）：
+  - `user_account` → `pay_user_account`（主键改为 `user_id`，删除 `id`，无 `version`）
+  - `ledger_entry` → `pay_ledger_entry`（删除 `settle_no` 列——单笔记账以 `pay_no`/`biz_no` 关联即可定位，结算批次概念收敛到订单维度）
+  - `user_bank_card` → `pay_user_bank_card`（删除 `phone_masked`/`card_type`/`update_time` 冗余列）
+  - `withdraw_order` → `pay_withdraw_order`（状态机简化为 `AUDITING`/`PAID`/`REJECTED`，新增 `fee` 手续费列）
+  - 主建表脚本 `sql/moyun-pay-gateway-20260902.sql` 同步为最终结构
+- **实体对齐**（4 个实体 + 3 个服务 + 2 个 Controller + Mapper）：
+  - `UserAccount`：删 `id`，`userId` 改 `@TableId(type = INPUT)`（开户幂等天然依赖主键冲突回读）
+  - `LedgerEntry`：删 `settleNo` 字段；`LedgerServiceImpl` 删 `generateSettleNo()` 全链及无用 import
+  - `UserBankCard`：删 `phoneMasked`/`cardType`/`updateTime`；`BankCardServiceImpl` 与两个 Controller 的 safe map 同步清理（后台/门户均不下发已删字段）
+  - `WithdrawOrder`：按新表结构整文件重写
+  - `UserAccountMapper`：原子更新 SQL 表名同步 `pay_user_account`
+- **前端对齐**：Admin 流水页删「结算单号」列；Admin 银行卡页删「手机号/卡类型」列；Portal `types/api.ts` 同步删除对应字段
+
+### 2. 钱包页重构（宽度对齐 + UI 升级）
+
+- **布局修复**：移除挤压宽度的多余嵌套 div，采用与首页/列表页一致的标准骨架（`Breadcrumb` 吸顶面包屑栏 + `max-w-7xl` 主容器）
+- **UI 重设计**：
+  - 余额总览卡：金额大字突出 + 累计收入/累计提现/待结算三指标卡
+  - 流水列表：时间线式渲染，收入/支出方向色区分（credit 绿 / debit 灰），含摘要与余额快照
+  - 银行卡：卡片式布局 + 默认卡标识 + 解绑确认，绑定表单收进 Drawer
+  - 加载骨架屏 + 空状态 + 分页加载更多
+
+### 3. 支付通知并入消息中心（独立页删除）
+
+- **Portal `/messages`**：新增「支付通知」Tab（与互动/系统消息并列），复用 `payNotification` API 分页加载、单条已读、全部已读
+- **头部统一提醒**：`messageStore` 新增 `payUnreadCount`（`loadAllUnread` 并行拉取，登出 `reset` 清零），Navbar 铃铛角标 = 互动 + 系统 + 支付通知合计（单一消息中心入口）
+- **删除独立页**：`PayNotificationsPage.vue`、`/pay/notifications` 路由、Navbar 旧入口全部移除
+
+### 验证
+
+- Java 静态审查（引号/括号配平/重复方法/旧表名与已删字段零残留）通过
+- Portal `vue-tsc` 类型检查通过；Portal/Admin `vite build` 双端构建通过
+
+> 补丁：`moyun-pay-v11.2-fix.patch`
+
+### 修复：打赏按钮不可见
+
+- **文章详情页**：打赏按钮 `v-if="currentUser && !isArticleOwner"` 改为 `v-if="!isArticleOwner"`——未登录也显示入口，点击走 `requireAuth` 登录引导（登录后回跳原页面继续打赏），登录转化链路完整
+- 专栏详情页核查：同条件已正确（未登录可见）
+
+### 后台契约对齐（4 处 404/403 修复）
+
+- **权限标识对齐**：4 个 CMS 支付 Controller 的 `@PreAuthorize` 由 `pay:order:*` 等补全 `cms:` 前缀，与 sys_menu 按钮权限（`cms:payOrder:*`/`cms:payLedger:*`/`cms:payBankCard:*`/`cms:payConfig:*`）及前端 `v-hasPermi` 三方一致——修复非超管角色全部 403
+- **银行卡路径**：前端 `/cms/pay/bankcard/list` → `/cms/pay/bank-card/list`（修复 404）
+- **费率更新方法**：前端 PUT → POST（与后端 `@PostMapping` 对齐，修复 405）
+- **SQL 按钮权限补齐**：新增 `cms:payLedger:query`（5315 分账明细）/ `cms:payLedger:summary`（5316 分账汇总）按钮及角色关联（修复流水明细/汇总 403）
+
+### 后台数据展示修复（3 处空值）
+
+- **订单详情抽屉**：详情接口返回 `{order, ledgerEntries}` 包装结构，页面直接读 `response.data` 导致全字段 undefined → 改为 `response.data.order`
+- **分账明细元转换**：`CmsPayLedgerController.detail` 补 `fillYuan`（修复详情抽屉分账金额显示空）
+- **流水汇总卡片**：`summary.totalCount` → `summary.totalEntries`（与后端返回字段一致）
+
+### 支付配置页重写（对齐后端真实字段）
+
+- 旧页面读取不存在的 `effectiveFeeRate`/`wechatMockEnabled` 等字段（会误显示"生产通道"且保存必失败）→ 按后端 `/cms/pay/config/view` 真实结构重写：`feeRateConfigValue`（sys_config 运行时值）/`feeRateYamlFallback`（yaml 兜底值）/`wechatMockEnabled`（mock 开关，从通道配置读取）/`merchantConfigured`（商户参数是否已配置，布尔不下发密钥）
+- 费率调整入参对齐：`{feeRate}`（0~1 小数，后端校验）
+
+### 安全加固
+
+- `/portal/pay/status/{payNo}` 与 `/portal/pay/mock/{payNo}` 补登录校验（资金相关接口全部要求登录态，mock 仅 dev 环境可用的双保险不变）
+
+### 验证
+
+- Java 47 文件静态审查通过（pay + sms + 4 CMS Controller + tip 回调）
+- Portal：vue-tsc 零错误 + vite build 通过
+- Admin：vite build 通过
+
+---
+
+## v11.1 (2026-09-02) 支付闭环走查修复 + 短信验证码 + 旧订单模块清理
+
+> 补丁：`moyun-pay-v11.1-cleanup.patch`
+> SQL：`moyun-server/src/main/resources/sql/moyun-pay-v11.1-cleanup-20260902.sql`
+
+### 修复：误删页面恢复
+
+- 恢复 `moyun-admin-vue/src/views/cms/growth/log/index.vue`（上游提交误删该文件导致 growth-config 五 Tab 容器构建失败），成长日志查询功能回归
+
+### 新增：短信验证码模块（真实 API 配置位 + 模拟实现）
+
+- **模块** `com.moyun.core.sms`：`SmsSender` SPI（mock/阿里云双实现条件装配）
+  - `MockSmsSender`：验证码写日志（联调可见），频控/存储/校验/防枚举全流程与真实通道一致
+  - `AliyunSmsSender`：阿里云配置位（AccessKey/签名/模板）+ SDK 接入点 TODO 标注；配置不完整时明确拒绝发送，绝不伪装成功
+- **服务** `SmsCodeServiceImpl`：企业级安全要点全量落地
+  - 频控：60s 发送间隔 + 每日上限（Redis 计数，按自然日过期）
+  - 一次性：验证通过立即删除，防重放
+  - 防枚举：连续错误 5 次作废当前验证码
+  - 手机号格式校验 + 日志脱敏（138****5678）
+- **接口** `POST /portal/sms/code/send|verify`：登录态 + scene 白名单（bankcard/member）
+- **配置** `moyun.sms.*`（application-dev.yaml）：mock 开关/有效期/频控参数/阿里云配置位
+- **接入银行卡绑定闭环**：`moyun.pay.security.bank-card-sms-verify=true`（默认开启）时绑定强制校验短信验证码；Portal 钱包页绑定表单新增验证码输入 + 60s 倒计时发送按钮（`api/sms.ts`）
+
+### 会员支付架构预留（本期只留位，不实现）
+
+- 支付通道天然支持：新业务（模拟面试会员/简历优化额度）实现 `PayCallbackHandler`（bizType=member）即可接入，网关/分账/通知零改动
+- 短信 scene 白名单已含 `member`（会员开通短信核验预留）
+- `WithdrawOrder` 状态机与提现链路完整保留，额度类商品（简历优化次数）可直接复用 pay_order + ledger_entry 复式记账
+
+### 清理：删除旧通用订单模块（未被使用，与支付中心功能重复）
+
+- **后端删 9 文件**：`PortalOrderController` / `IPortalOrderService` / `PortalOrderServiceImpl` / `PortalOrderMapper`(+XML) / `PortalOrder` 实体 / `OrderQuery` / `CmsOrderController` / `ICmsOrderService` / `CmsOrderServiceImpl`
+- **Admin 删 3 处**：`views/cms/order/` / `views/cms/transaction/`（v9.5 隐藏菜单页）/ `api/cms/order.js`
+- **SQL 清理**：删除 sys_menu 旧交易管理菜单（5148）及按钮权限（5132/5133）+ 角色关联
+- **误提交产物清理**：删除误入仓库的 `moyun-pay-gateway-v11.0.patch`
+- 保留：PortalTipOrder 打赏全链、CreatorSettlement 结算链、PaymentStatus/PaymentChannel 枚举（支付中心在用）
+- Portal 前端本就零调用旧接口，无涉及
+
+### 验证
+
+- Java 42 文件静态审查（pay + sms + tip 回调）全部通过
+- Portal：vue-tsc 零错误 + vite build 通过
+- Admin：删除页面后 vite build 通过（growth/log 恢复生效）
+
+---
+
 ## v11.0 (2026-09-02) 微信支付公共通道 + 打赏分账体系
 
 > 补丁：`moyun-pay-gateway-v11.0.patch`

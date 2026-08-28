@@ -15,9 +15,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
-import java.security.SecureRandom;
 import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -36,8 +34,6 @@ public class LedgerServiceImpl implements ILedgerService {
 
     private static final Logger log = LoggerFactory.getLogger(LedgerServiceImpl.class);
     private static final String FEE_RATE_CONFIG_KEY = "pay.platform.fee-rate";
-    private static final SecureRandom RANDOM = new SecureRandom();
-    private static final DateTimeFormatter TS = DateTimeFormatter.ofPattern("yyyyMMddHHmmss");
 
     @Autowired
     private LedgerEntryMapper ledgerEntryMapper;
@@ -64,14 +60,11 @@ public class LedgerServiceImpl implements ILedgerService {
                     + " platform=" + platformAmount + " user=" + userAmount + " total=" + amount);
         }
 
-        String settleNo = generateSettleNo();
-
         // 1. 用户入账（原子）并取回 balanceAfter
         long balanceAfter = userAccountService.credit(userId, userAmount);
 
         // 2. 平台分录
         LedgerEntry platformEntry = new LedgerEntry();
-        platformEntry.setSettleNo(settleNo);
         platformEntry.setPayNo(payNo);
         platformEntry.setBizType(bizType);
         platformEntry.setBizNo(bizNo);
@@ -86,7 +79,6 @@ public class LedgerServiceImpl implements ILedgerService {
 
         // 3. 用户分录（回填 balanceAfter）
         LedgerEntry userEntry = new LedgerEntry();
-        userEntry.setSettleNo(settleNo);
         userEntry.setPayNo(payNo);
         userEntry.setBizType(bizType);
         userEntry.setBizNo(bizNo);
@@ -99,8 +91,8 @@ public class LedgerServiceImpl implements ILedgerService {
         userEntry.setCreateTime(LocalDateTime.now());
         ledgerEntryMapper.insert(userEntry);
 
-        log.info("[ledger] 分账完成 payNo={} settleNo={} amount={}分 platform={}分({}%) user={}分 balanceAfter={}分",
-                payNo, settleNo, amount, platformAmount, feeRate * 100, userAmount, balanceAfter);
+        log.info("[ledger] 分账完成 payNo={} amount={}分 platform={}分({}%) user={}分 balanceAfter={}分",
+                payNo, amount, platformAmount, feeRate * 100, userAmount, balanceAfter);
 
         List<LedgerEntry> entries = new ArrayList<>();
         entries.add(platformEntry);
@@ -144,11 +136,4 @@ public class LedgerServiceImpl implements ILedgerService {
         }
     }
 
-    private String generateSettleNo() {
-        StringBuilder sb = new StringBuilder("STL").append(TS.format(LocalDateTime.now()));
-        for (int i = 0; i < 6; i++) {
-            sb.append(RANDOM.nextInt(10));
-        }
-        return sb.toString();
-    }
 }

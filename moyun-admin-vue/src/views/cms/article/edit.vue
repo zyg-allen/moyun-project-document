@@ -21,7 +21,7 @@
             <span>基本信息</span>
           </div>
         </template>
-        
+
         <el-form-item label="文章标题" prop="title" class="title-item">
           <el-input
             v-model="form.title"
@@ -31,7 +31,7 @@
             show-word-limit
           />
         </el-form-item>
-        
+
         <el-row :gutter="20">
           <el-col :span="12">
             <el-form-item label="文章分类" prop="categoryId">
@@ -61,7 +61,7 @@
             </el-form-item>
           </el-col>
         </el-row>
-        
+
         <el-row :gutter="20">
           <el-col :span="12">
             <el-form-item label="封面图片" prop="cover">
@@ -189,11 +189,11 @@
             </el-radio-group>
           </div>
         </template>
-        
+
         <el-form-item prop="content" class="content-item">
           <!-- 富文本编辑器 -->
           <Editor v-if="form.editorMode === 'richtext'" v-model="form.content" class="editor-wrapper" />
-          
+
           <!-- Markdown 编辑器 - 工具栏 + 左右分栏预览 -->
           <div v-else class="markdown-editor-wrapper">
             <!-- 工具栏 -->
@@ -293,7 +293,7 @@
             <span>其他设置</span>
           </div>
         </template>
-        
+
         <el-form-item label="备注" prop="remark">
           <el-input
             v-model="form.remark"
@@ -438,7 +438,7 @@ function init() {
   getCategoryList();
   getTagList();
   getAuthorList();
-  
+
   // 如果有 ID，说明是编辑模式，加载数据
   if (route.query.id) {
     getArticle(route.query.id).then(response => {
@@ -761,13 +761,13 @@ init();
   border-radius: 8px;
   margin-bottom: 20px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
-  
+
   .editor-info {
     display: flex;
     gap: 10px;
     align-items: center;
   }
-  
+
   .editor-actions {
     display: flex;
     gap: 10px;
@@ -778,18 +778,18 @@ init();
   .form-section {
     margin-bottom: 20px;
     border-radius: 8px;
-    
+
     :deep(.el-card__header) {
       padding: 12px 20px;
       background: var(--el-fill-color-light);
       border-bottom: 1px solid var(--el-border-color-lighter);
     }
-    
+
     :deep(.el-card__body) {
       padding: 20px;
     }
   }
-  
+
   .section-header {
     display: flex;
     justify-content: space-between;
@@ -797,7 +797,7 @@ init();
     font-weight: 600;
     color: var(--el-text-color-primary);
   }
-  
+
   .title-item {
     :deep(.el-input__inner) {
       font-size: 16px;
@@ -857,7 +857,7 @@ init();
       padding: 0;
     }
   }
-  
+
   .content-item {
     margin: 0;
     :deep(.el-form-item__content) {

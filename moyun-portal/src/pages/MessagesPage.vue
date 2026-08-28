@@ -3,11 +3,12 @@ import { ref, computed, onMounted, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useHead } from '@vueuse/head';
 import {
-    Bell, MessageSquare, Heart, UserPlus, CheckCheck, Loader2, Inbox, Megaphone, Tag, X, Calendar, ClipboardList
+    Bell, MessageSquare, Heart, UserPlus, CheckCheck, Loader2, Inbox, Megaphone, Tag, X, Calendar, ClipboardList, Wallet, Coins, BadgeCheck
 } from 'lucide-vue-next';
-import type { Notification, MessageSessionVO, PeerUser } from '@/types/api';
+import type { Notification, MessageSessionVO, PeerUser, PayNotification } from '@/types/api';
 import * as notificationApi from '@/api/notification';
 import * as messageApi from '@/api/message';
+import * as payApi from '@/api/pay';
 import { useUserStore } from '@/stores/user';
 import { useMessageStore } from '@/stores/message';
 import { getSafeAvatar } from '@/utils/avatar';
@@ -42,7 +43,7 @@ const isBoundSysUser = computed(() => {
     const u = userStore.user;
     return !!(u && u.userId);
 });
-type TabKey = 'notification' | 'message' | 'announcement' | 'todo';
+type TabKey = 'notification' | 'pay' | 'message' | 'announcement' | 'todo';
 // 游客默认公告 Tab；登录用户默认通知 Tab；支持 ?tab= 深链
 const initialTab: TabKey = (route.query.tab as TabKey)
     || (isAuthenticated.value ? 'notification' : 'announcement');
@@ -157,6 +158,96 @@ async function markAllNotifRead() {
         unread.forEach((n) => (n.isRead = true));
         // 清空通知未读数（store 同步给 Navbar）
         messageStore.clearNotifUnread();
+        toast.success('已全部标记为已读');
+    } catch (error) {
+        console.error('全部已读失败:', error);
+        toast.error((error as Error)?.message || '操作失败');
+    }
+}
+
+// ============ 支付通知相关（V11.3：整合进消息中心） ============
+const payNotifs = ref<PayNotification[]>([]);
+const payLoading = ref(false);
+const payCurrent = ref(1);
+const payTotal = ref(0);
+const payHasMore = computed(() => payNotifs.value.length < payTotal.value);
+// 支付通知未读数从消息 store 取，与 Navbar 头部铃铛跨组件同步
+const payUnreadCount = computed(() => messageStore.payUnreadCount);
+
+function getPayIcon(type?: string) {
+    switch (type) {
+        case 'withdraw':
+            return Coins;
+        case 'account':
+            return BadgeCheck;
+        default:
+            return Wallet;
+    }
+}
+
+function getPayIconColor(type?: string): string {
+    switch (type) {
+        case 'withdraw':
+            return '#f59e0b';
+        case 'account':
+            return '#10b981';
+        default:
+            return 'var(--theme-primary)';
+    }
+}
+
+async function loadPayNotifs(page = 1) {
+    payLoading.value = true;
+    try {
+        const resp = await payApi.getPayNotifications({ current: page, size: 20 });
+        if (resp.code === 200 && resp.data) {
+            const records = resp.data.records || [];
+            if (page === 1) {
+                payNotifs.value = records;
+            } else {
+                payNotifs.value.push(...records);
+            }
+            payTotal.value = Number(resp.data.total ?? 0);
+            payCurrent.value = page;
+        }
+    } catch (error) {
+        console.error('加载支付通知失败:', error);
+        toast.error((error as Error)?.message || '加载支付通知失败，请稍后重试');
+    } finally {
+        payLoading.value = false;
+    }
+}
+
+async function loadPayUnread() {
+    await messageStore.loadPayUnread();
+}
+
+async function markPayRead(n: PayNotification) {
+    if (n.readFlag === 1) return;
+    try {
+        await payApi.markNotificationRead(n.id);
+        n.readFlag = 1;
+        // 本地未读数 -1（store 同步给 Navbar 头部铃铛）
+        messageStore.decPayUnread();
+    } catch (error) {
+        console.error('标记已读失败:', error);
+        toast.error((error as Error)?.message || '标记已读失败');
+    }
+}
+
+async function markAllPayRead() {
+    const unread = payNotifs.value.filter((n) => n.readFlag !== 1);
+    if (unread.length === 0) {
+        toast.info('没有未读支付通知');
+        return;
+    }
+    try {
+        await Promise.all(
+            unread.map((n) => payApi.markNotificationRead(n.id).catch(() => null))
+        );
+        unread.forEach((n) => (n.readFlag = 1));
+        // 清空支付通知未读数（store 同步给 Navbar 头部铃铛）
+        messageStore.clearPayUnread();
         toast.success('已全部标记为已读');
     } catch (error) {
         console.error('全部已读失败:', error);
@@ -427,6 +518,9 @@ function switchTab(tab: TabKey) {
     if (tab === 'todo' && todos.value.length === 0 && isBoundSysUser.value) {
         loadTodos();
     }
+    if (tab === 'pay' && payNotifs.value.length === 0 && isAuthenticated.value) {
+        loadPayNotifs(1);
+    }
 }
 
 // 面包屑
@@ -454,6 +548,8 @@ onMounted(async () => {
     // 通知/私信相关仅登录用户加载
     if (isAuthenticated.value) {
         tasks.push(loadNotifications(), loadNotifUnread(), loadSessions(), loadMsgUnread());
+        // 支付通知（V11.3 整合进消息中心）
+        tasks.push(loadPayNotifs(1), loadPayUnread());
         // 绑定系统用户的前台用户加载待办通知
         if (isBoundSysUser.value) {
             tasks.push(loadTodos());
@@ -528,6 +624,20 @@ watch(isChatMode, (isChat) => {
                 通知
                 <span v-if="notifUnreadCount > 0" class="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full text-xs flex items-center justify-center" style="background-color: #ef4444; color: white;">
                   {{ notifUnreadCount > 99 ? '99+' : notifUnreadCount }}
+                </span>
+              </button>
+              <button
+                v-if="isAuthenticated"
+                @click="switchTab('pay')"
+                class="flex items-center gap-2 px-4 sm:px-6 py-3 text-sm sm:text-base font-medium border-b-2 transition-colors relative"
+                :style="activeTab === 'pay'
+                  ? 'border-color: var(--theme-primary); color: var(--theme-primary);'
+                  : 'border-color: transparent; color: var(--theme-text-secondary);'"
+              >
+                <Wallet class="w-4 h-4" />
+                支付
+                <span v-if="payUnreadCount > 0" class="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full text-xs flex items-center justify-center" style="background-color: #ef4444; color: white;">
+                  {{ payUnreadCount > 99 ? '99+' : payUnreadCount }}
                 </span>
               </button>
               <button
@@ -633,6 +743,70 @@ watch(isChatMode, (isChat) => {
                   <p class="text-xs mt-1.5" style="color: var(--theme-text-secondary);">{{ formatRelativeTime(n.createTime) }}</p>
                 </div>
               </button>
+            </div>
+          </div>
+
+          <!-- 支付通知 Tab（V11.3 整合进消息中心） -->
+          <div v-else-if="activeTab === 'pay'">
+            <div class="flex items-center justify-between mb-4 gap-2 flex-wrap">
+              <p class="text-sm" style="color: var(--theme-text-secondary);">打赏到账、支付结果与提现进度通知</p>
+              <button
+                @click="markAllPayRead"
+                class="flex items-center gap-1 text-xs sm:text-sm px-3 py-1.5 rounded-full transition-colors"
+                style="color: var(--theme-primary); background-color: var(--theme-surface); border: 1px solid var(--theme-border);"
+              >
+                <CheckCheck class="w-4 h-4" />
+                全部已读
+              </button>
+            </div>
+
+            <div v-if="payLoading && payNotifs.length === 0" class="text-center py-12">
+              <Loader2 class="w-8 h-8 mx-auto animate-spin" style="color: var(--theme-primary);" />
+            </div>
+            <div v-else-if="payNotifs.length === 0" class="py-16 text-center rounded-2xl" style="background-color: var(--theme-surface); border: 1px solid var(--theme-border);">
+              <Wallet class="w-12 h-12 mx-auto mb-3" style="color: var(--theme-text-secondary);" />
+              <p class="text-sm" style="color: var(--theme-text-secondary);">暂无支付通知</p>
+              <p class="text-xs mt-1" style="color: var(--theme-text-secondary);">打赏到账与支付结果会第一时间通知你</p>
+            </div>
+            <div v-else class="space-y-2">
+              <button
+                v-for="n in payNotifs"
+                :key="'pay-' + String(n.id)"
+                @click="markPayRead(n)"
+                class="w-full text-left flex items-start gap-3 p-4 rounded-2xl transition-colors hover:opacity-90"
+                :style="{
+                  backgroundColor: 'var(--theme-surface)',
+                  border: '1px solid var(--theme-border)',
+                  opacity: n.readFlag === 1 ? 0.7 : 1
+                }"
+              >
+                <div class="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0" :style="{ backgroundColor: 'var(--theme-accent)' }">
+                  <component :is="getPayIcon(n.notifyType)" class="w-4 h-4" :style="{ color: getPayIconColor(n.notifyType) }" />
+                </div>
+                <div class="flex-1 min-w-0">
+                  <div class="flex items-center gap-2">
+                    <span v-if="n.readFlag !== 1" class="w-2 h-2 rounded-full flex-shrink-0" style="background-color: #ef4444;"></span>
+                    <span class="font-medium text-sm truncate" style="color: var(--theme-text);">{{ n.title }}</span>
+                  </div>
+                  <p class="text-sm mt-1 line-clamp-2" style="color: var(--theme-text-secondary);">{{ n.content }}</p>
+                  <div class="flex items-center gap-3 mt-1.5 text-xs flex-wrap" style="color: var(--theme-text-secondary);">
+                    <span v-if="n.refNo">单号：{{ n.refNo }}</span>
+                    <span>{{ formatRelativeTime(n.createTime) }}</span>
+                  </div>
+                </div>
+              </button>
+              <!-- 加载更多 -->
+              <div v-if="payHasMore" class="text-center pt-2">
+                <button
+                  @click="loadPayNotifs(payCurrent + 1)"
+                  class="px-5 py-2 rounded-lg text-sm border transition-colors inline-flex items-center gap-1.5"
+                  style="color: var(--theme-text); border-color: var(--theme-border);"
+                  :disabled="payLoading"
+                >
+                  <Loader2 v-if="payLoading" class="w-3.5 h-3.5 animate-spin" />
+                  {{ payLoading ? '加载中…' : '加载更多' }}
+                </button>
+              </div>
             </div>
           </div>
 

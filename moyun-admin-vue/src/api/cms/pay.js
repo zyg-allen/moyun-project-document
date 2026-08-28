@@ -55,7 +55,7 @@ export function payLedgerSummary() {
 // 用户银行卡列表（脱敏）
 export function listBankCard(query) {
   return request({
-    url: '/cms/pay/bankcard/list',
+    url: '/cms/pay/bank-card/list',
     method: 'get',
     params: query
   })
@@ -73,7 +73,7 @@ export function getPayConfig() {
 export function updateFeeRate(data) {
   return request({
     url: '/cms/pay/config/fee-rate',
-    method: 'put',
+    method: 'post',
     data: data
   })
 }

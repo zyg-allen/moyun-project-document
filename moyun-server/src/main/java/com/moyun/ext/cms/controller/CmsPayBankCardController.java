@@ -17,7 +17,6 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -39,7 +38,7 @@ public class CmsPayBankCardController extends BaseController {
     private UserBankCardMapper bankCardMapper;
 
     @Operation(summary = "银行卡列表", description = "分页查询用户绑定银行卡（脱敏），支持用户ID/核验状态筛选")
-    @PreAuthorize("@ss.hasPermi('pay:bankcard:list')")
+    @PreAuthorize("@ss.hasPermi('cms:payBankCard:list')")
     @GetMapping("/list")
     public AjaxResult list(@RequestParam(required = false) Long userId,
                            @RequestParam(required = false) String verifyStatus) {
@@ -61,7 +60,7 @@ public class CmsPayBankCardController extends BaseController {
     }
 
     @Operation(summary = "银行卡详情（脱敏）", description = "按 ID 查询银行卡（脱敏）")
-    @PreAuthorize("@ss.hasPermi('pay:bankcard:query')")
+    @PreAuthorize("@ss.hasPermi('cms:payBankCard:query')")
     @GetMapping("/{cardId}")
     public AjaxResult detail(@PathVariable Long cardId) {
         UserBankCard card = bankCardMapper.selectById(cardId);
@@ -77,10 +76,8 @@ public class CmsPayBankCardController extends BaseController {
         safe.put("userId", card.getUserId());
         safe.put("holderName", card.getHolderName());
         safe.put("cardNoMasked", card.getCardNoMasked());
-        safe.put("phoneMasked", card.getPhoneMasked());
         safe.put("bankCode", card.getBankCode());
         safe.put("bankName", card.getBankName());
-        safe.put("cardType", card.getCardType());
         safe.put("verifyStatus", card.getVerifyStatus());
         safe.put("isDefault", card.getIsDefault());
         safe.put("createTime", card.getCreateTime());

@@ -261,14 +261,6 @@ function handleGoToWallet() {
   router.push('/pay/wallet');
 }
 
-function handleGoToPayNotifications() {
-  isUserMenuOpen.value = false;
-  if (!requireAuth('/pay/notifications')) {
-    return;
-  }
-  router.push('/pay/notifications');
-}
-
 function handleGoToBookshelf() {
   isUserMenuOpen.value = false;
   if (!requireAuth('/reading/bookshelf')) {
@@ -398,7 +390,7 @@ onUnmounted(() => document.removeEventListener('click', handleDocumentClick));
               <Search class="w-4 h-4 sm:w-5 sm:h-5" />
             </button>
 
-            <!-- 消息中心入口（单一入口：公告/通知/私信，未登录用户可看公告） -->
+            <!-- 消息中心入口（单一入口：公告/通知/支付/私信，未登录用户可看公告；未读数含支付通知） -->
             <Link
                 to="/messages"
                 class="p-2.5 rounded-lg transition-colors relative"
@@ -546,14 +538,6 @@ onUnmounted(() => document.removeEventListener('click', handleDocumentClick));
                   >
                     <MessageSquare class="w-4 h-4" style="color: var(--theme-text-secondary);" />
                     <span class="text-sm" style="color: var(--theme-text);">我的反馈</span>
-                  </button>
-
-                  <button
-                      @click="handleGoToPayNotifications"
-                      class="w-full flex items-center space-x-2 px-3 py-2 text-left transition-colors hover:opacity-80"
-                  >
-                    <Bell class="w-4 h-4" style="color: var(--theme-text-secondary);" />
-                    <span class="text-sm" style="color: var(--theme-text);">支付通知</span>
                   </button>
 
                   <button

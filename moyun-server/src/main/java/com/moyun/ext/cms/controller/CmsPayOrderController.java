@@ -48,7 +48,7 @@ public class CmsPayOrderController extends BaseController {
     private IPayGateway payGateway;
 
     @Operation(summary = "支付订单列表", description = "分页查询统一支付单，支持状态/业务类型/支付单号筛选")
-    @PreAuthorize("@ss.hasPermi('pay:order:list')")
+    @PreAuthorize("@ss.hasPermi('cms:payOrder:list')")
     @GetMapping("/list")
     public AjaxResult list(@RequestParam(required = false) String status,
                            @RequestParam(required = false) String bizType,
@@ -65,7 +65,7 @@ public class CmsPayOrderController extends BaseController {
     }
 
     @Operation(summary = "支付订单详情（含分账明细）", description = "支付单详情 + 该单全部分账流水")
-    @PreAuthorize("@ss.hasPermi('pay:order:query')")
+    @PreAuthorize("@ss.hasPermi('cms:payOrder:query')")
     @GetMapping("/{payNo}")
     public AjaxResult detail(@PathVariable String payNo) {
         PayOrder order = payGateway.getByPayNo(payNo);
@@ -91,7 +91,7 @@ public class CmsPayOrderController extends BaseController {
     }
 
     @Operation(summary = "手动关单", description = "对待支付订单手动关单（原因 ADMIN_MANUAL_CLOSE），已支付/已分账单不可关")
-    @PreAuthorize("@ss.hasPermi('pay:order:close')")
+    @PreAuthorize("@ss.hasPermi('cms:payOrder:close')")
     @PostMapping("/{payNo}/close")
     public AjaxResult close(@PathVariable String payNo) {
         PayOrder before = payGateway.getByPayNo(payNo);

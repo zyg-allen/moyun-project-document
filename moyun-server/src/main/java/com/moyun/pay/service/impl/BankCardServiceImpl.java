@@ -38,9 +38,12 @@ public class BankCardServiceImpl implements IBankCardService {
     @Autowired
     private PayProperties payProperties;
 
+    @Autowired
+    private com.moyun.core.sms.SmsCodeService smsCodeService;
+
     @Override
     public UserBankCard bind(Long userId, String holderName, String cardNo, String phone,
-                             String bankCode, String bankName) {
+                             String bankCode, String bankName, String smsCode) {
         if (holderName == null || holderName.isBlank()) {
             throw new IllegalArgumentException("持卡人姓名不能为空");
         }
@@ -49,6 +52,15 @@ public class BankCardServiceImpl implements IBankCardService {
         }
         if (phone == null || !phone.matches("1\\d{10}")) {
             throw new IllegalArgumentException("手机号格式不正确");
+        }
+        // 短信验证码闭环（V11.1：开关开启时强校验；一次性消费+防枚举见 SmsCodeServiceImpl）
+        if (payProperties.getSecurity().isBankCardSmsVerify()) {
+            if (smsCode == null || smsCode.isBlank()) {
+                throw new IllegalArgumentException("请输入短信验证码");
+            }
+            if (!smsCodeService.verifyCode(phone, "bankcard", smsCode)) {
+                throw new IllegalArgumentException("短信验证码错误或已过期");
+            }
         }
         // 卡数上限
         Long count = bankCardMapper.selectCount(new LambdaQueryWrapper<UserBankCard>()
@@ -68,14 +80,11 @@ public class BankCardServiceImpl implements IBankCardService {
         card.setCardNoEncrypted(AesGcmUtils.encrypt(cardNo, encryptKey));
         card.setCardNoMasked(maskCardNo(cardNo));
         card.setPhoneEncrypted(AesGcmUtils.encrypt(phone, encryptKey));
-        card.setPhoneMasked(maskPhone(phone));
         card.setBankCode(bankCode);
         card.setBankName(bankName);
-        card.setCardType("DEBIT");
         card.setVerifyStatus(realNameOk ? "VERIFIED" : "PENDING");
         card.setIsDefault(count == null || count == 0 ? 1 : 0);
         card.setCreateTime(LocalDateTime.now());
-        card.setUpdateTime(LocalDateTime.now());
         bankCardMapper.insert(card);
         log.info("[bank-card] 绑卡成功 userId={} cardId={} masked={} verify={}",
                 userId, card.getId(), card.getCardNoMasked(), card.getVerifyStatus());
@@ -138,10 +147,4 @@ public class BankCardServiceImpl implements IBankCardService {
         return cardNo.substring(0, 4) + " **** **** " + cardNo.substring(cardNo.length() - 4);
     }
 
-    private String maskPhone(String phone) {
-        if (phone == null || phone.length() != 11) {
-            return "****";
-        }
-        return phone.substring(0, 3) + "****" + phone.substring(7);
-    }
 }

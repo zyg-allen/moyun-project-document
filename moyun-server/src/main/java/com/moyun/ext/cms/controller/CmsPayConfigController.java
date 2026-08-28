@@ -40,7 +40,7 @@ public class CmsPayConfigController extends BaseController {
     private ISysConfigService configService;
 
     @Operation(summary = "支付配置总览", description = "通道开关/超时/费率/微信商户参数配置状态（脱敏，仅布尔）")
-    @PreAuthorize("@ss.hasPermi('pay:config:view')")
+    @PreAuthorize("@ss.hasPermi('cms:payConfig:view')")
     @GetMapping("/view")
     public AjaxResult view() {
         PayProperties.Wechat wechat = payProperties.getWechat();
@@ -63,7 +63,7 @@ public class CmsPayConfigController extends BaseController {
     }
 
     @Operation(summary = "调整平台抽成费率", description = "运行时调整（写 sys_config），范围 [0, 0.5]，立即生效于新订单")
-    @PreAuthorize("@ss.hasPermi('pay:config:edit')")
+    @PreAuthorize("@ss.hasPermi('cms:payConfig:edit')")
     @PostMapping("/fee-rate")
     public AjaxResult updateFeeRate(@RequestBody Map<String, Object> body) {
         Object rateObj = body.get("platformFeeRate");

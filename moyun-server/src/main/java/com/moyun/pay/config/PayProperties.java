@@ -38,7 +38,11 @@ public class PayProperties {
         private String bankCardEncryptKey;
         /** 单用户银行卡绑定上限 */
         private int bankCardMaxCount = 5;
+        /** 绑定银行卡是否强制短信验证码（V11.1 企业级默认开启） */
+        private boolean bankCardSmsVerify = true;
 
+        public boolean isBankCardSmsVerify() { return bankCardSmsVerify; }
+        public void setBankCardSmsVerify(boolean bankCardSmsVerify) { this.bankCardSmsVerify = bankCardSmsVerify; }
         public String getBankCardEncryptKey() { return bankCardEncryptKey; }
         public void setBankCardEncryptKey(String bankCardEncryptKey) { this.bankCardEncryptKey = bankCardEncryptKey; }
         public int getBankCardMaxCount() { return bankCardMaxCount; }

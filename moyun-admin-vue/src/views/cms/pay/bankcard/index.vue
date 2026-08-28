@@ -34,18 +34,8 @@
       <el-table-column label="用户ID" align="center" prop="userId" width="90" />
       <el-table-column label="持卡人" align="center" prop="holderName" width="110" />
       <el-table-column label="卡号（脱敏）" align="center" prop="cardNoMasked" width="190" />
-      <el-table-column label="手机号（脱敏）" align="center" prop="phoneMasked" width="140">
-        <template #default="scope">{{ scope.row.phoneMasked || '-' }}</template>
-      </el-table-column>
       <el-table-column label="银行" align="center" prop="bankName" width="130" :show-overflow-tooltip="true">
         <template #default="scope">{{ scope.row.bankName || scope.row.bankCode || '-' }}</template>
-      </el-table-column>
-      <el-table-column label="卡类型" align="center" prop="cardType" width="90">
-        <template #default="scope">
-          <el-tag :type="scope.row.cardType === 'DEBIT' ? 'primary' : 'warning'" size="small">
-            {{ scope.row.cardType === 'DEBIT' ? '借记卡' : '信用卡' }}
-          </el-tag>
-        </template>
       </el-table-column>
       <el-table-column label="核验状态" align="center" prop="verifyStatus" width="100">
         <template #default="scope">

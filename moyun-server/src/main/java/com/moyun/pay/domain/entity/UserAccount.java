@@ -15,13 +15,11 @@ import java.time.LocalDateTime;
  *
  * @author moyun
  */
-@TableName("user_account")
+@TableName("pay_user_account")
 public class UserAccount {
 
-    @TableId(type = IdType.AUTO)
-    private Long id;
-
-    /** 用户 ID（唯一） */
+    /** 用户 ID（主键，一对一账户） */
+    @TableId(type = IdType.INPUT)
     private Long userId;
 
     /** 可用余额（分） */
@@ -41,8 +39,6 @@ public class UserAccount {
 
     private LocalDateTime updateTime;
 
-    public Long getId() { return id; }
-    public void setId(Long id) { this.id = id; }
     public Long getUserId() { return userId; }
     public void setUserId(Long userId) { this.userId = userId; }
     public Long getBalance() { return balance; }

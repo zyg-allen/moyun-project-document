@@ -2209,7 +2209,6 @@ export interface PayAccountOverview {
 /** 资金流水条目 */
 export interface PayLedgerEntry {
   id?: number | string;
-  settleNo?: string;
   payNo?: string;
   bizType?: string;
   bizNo?: string;
@@ -2241,10 +2240,8 @@ export interface UserBankCard {
   id: number | string;
   holderName: string;
   cardNoMasked: string;
-  phoneMasked?: string;
   bankCode?: string;
   bankName?: string;
-  cardType?: string;
   /** PENDING/VERIFIED/REJECTED */
   verifyStatus?: string;
   isDefault?: number;
@@ -2257,6 +2254,8 @@ export interface BankCardForm {
   phone: string;
   bankCode?: string;
   bankName?: string;
+  /** 短信验证码（V11.1 银行卡绑定强校验） */
+  smsCode?: string;
 }
 
 /** 支付站内通知 */

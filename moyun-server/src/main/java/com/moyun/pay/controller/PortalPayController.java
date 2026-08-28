@@ -50,6 +50,9 @@ public class PortalPayController {
      */
     @GetMapping("/status/{payNo}")
     public AjaxResult status(@PathVariable String payNo) {
+        if (PortalSecurityUtils.getUserId() == null) {
+            return AjaxResult.error(401, "登录已过期，请重新登录");
+        }
         PayOrder order = payGateway.queryStatus(payNo);
         Map<String, Object> data = new HashMap<>();
         data.put("payNo", order.getPayNo());
@@ -67,6 +70,9 @@ public class PortalPayController {
      */
     @PostMapping("/mock/{payNo}")
     public AjaxResult mockPay(@PathVariable String payNo) {
+        if (PortalSecurityUtils.getUserId() == null) {
+            return AjaxResult.error(401, "登录已过期，请重新登录");
+        }
         if (!payProperties.getWechat().isMockEnabled()) {
             return AjaxResult.error("mock 支付未开启");
         }

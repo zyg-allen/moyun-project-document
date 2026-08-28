@@ -3,6 +3,9 @@ package com.moyun.pay.domain.entity;
 import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
+import com.fasterxml.jackson.annotation.JsonFormat;
+import com.moyun.core.base.BaseEntity;
+import lombok.Data;
 
 import java.time.LocalDateTime;
 
@@ -14,7 +17,8 @@ import java.time.LocalDateTime;
  *
  * @author moyun
  */
-@TableName("user_bank_card")
+@Data
+@TableName("pay_user_bank_card")
 public class UserBankCard {
 
     @TableId(type = IdType.AUTO)
@@ -34,17 +38,11 @@ public class UserBankCard {
     /** 手机号密文（AES-GCM） */
     private String phoneEncrypted;
 
-    /** 手机号脱敏（138****5678） */
-    private String phoneMasked;
-
     /** 银行编码（ICBC/CCB/...） */
     private String bankCode;
 
     /** 银行名称 */
     private String bankName;
-
-    /** 卡类型：DEBIT(借记卡) / CREDIT(信用卡)——仅支持借记卡提现 */
-    private String cardType;
 
     /** 核验状态：PENDING / VERIFIED / REJECTED */
     private String verifyStatus;
@@ -54,34 +52,10 @@ public class UserBankCard {
 
     private LocalDateTime createTime;
 
+    /**
+     * 更新时间
+     */
+    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime updateTime;
 
-    public Long getId() { return id; }
-    public void setId(Long id) { this.id = id; }
-    public Long getUserId() { return userId; }
-    public void setUserId(Long userId) { this.userId = userId; }
-    public String getHolderName() { return holderName; }
-    public void setHolderName(String holderName) { this.holderName = holderName; }
-    public String getCardNoEncrypted() { return cardNoEncrypted; }
-    public void setCardNoEncrypted(String cardNoEncrypted) { this.cardNoEncrypted = cardNoEncrypted; }
-    public String getCardNoMasked() { return cardNoMasked; }
-    public void setCardNoMasked(String cardNoMasked) { this.cardNoMasked = cardNoMasked; }
-    public String getPhoneEncrypted() { return phoneEncrypted; }
-    public void setPhoneEncrypted(String phoneEncrypted) { this.phoneEncrypted = phoneEncrypted; }
-    public String getPhoneMasked() { return phoneMasked; }
-    public void setPhoneMasked(String phoneMasked) { this.phoneMasked = phoneMasked; }
-    public String getBankCode() { return bankCode; }
-    public void setBankCode(String bankCode) { this.bankCode = bankCode; }
-    public String getBankName() { return bankName; }
-    public void setBankName(String bankName) { this.bankName = bankName; }
-    public String getCardType() { return cardType; }
-    public void setCardType(String cardType) { this.cardType = cardType; }
-    public String getVerifyStatus() { return verifyStatus; }
-    public void setVerifyStatus(String verifyStatus) { this.verifyStatus = verifyStatus; }
-    public Integer getIsDefault() { return isDefault; }
-    public void setIsDefault(Integer isDefault) { this.isDefault = isDefault; }
-    public LocalDateTime getCreateTime() { return createTime; }
-    public void setCreateTime(LocalDateTime createTime) { this.createTime = createTime; }
-    public LocalDateTime getUpdateTime() { return updateTime; }
-    public void setUpdateTime(LocalDateTime updateTime) { this.updateTime = updateTime; }
 }

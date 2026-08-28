@@ -70,7 +70,6 @@ const VoiceEngineDemoPage = () => import('@/pages/interview/VoiceEngineDemoPage.
 const VoiceInterviewPage = () => import('@/pages/interview/VoiceInterviewPage.vue')
 const PayCashierPage = () => import('@/pages/pay/PayCashierPage.vue')
 const WalletPage = () => import('@/pages/pay/WalletPage.vue')
-const PayNotificationsPage = () => import('@/pages/pay/PayNotificationsPage.vue')
 const MyVoiceInterviewsPage = () => import('@/pages/interview/MyVoiceInterviewsPage.vue')
 
 // ============ 路由配置 ============
@@ -642,12 +641,7 @@ const routes: RouteRecordRaw[] = [
     component: WalletPage,
     meta: { requiresAuth: true, title: '我的钱包', robots: 'noindex,nofollow' }
   },
-  {
-    path: '/pay/notifications',
-    name: 'pay-notifications',
-    component: PayNotificationsPage,
-    meta: { requiresAuth: true, title: '支付通知', robots: 'noindex,nofollow' }
-  },
+  // V11.3：支付通知整合进 /messages 消息中心（?tab=pay），独立页面已移除
   // ============ 404 页面 ============
   {
     path: '/:pathMatch(.*)*',

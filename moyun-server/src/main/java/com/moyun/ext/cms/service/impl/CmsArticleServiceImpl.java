@@ -152,14 +152,15 @@ public class CmsArticleServiceImpl implements ICmsArticleService {
         if (article == null || article.getId() == null) {
             return 0;
         }
-        // ⚠️ 安全防护：剥离审核相关字段，禁止通过 edit 接口绕过 auditArticle 流程
-        // 仅 auditArticle 接口可修改这些字段（带乐观锁与审计日志）
-        article.setStatus(null);
+        // 后台 CMS 管理员可直接修改发布状态（draft/published/archived），
+        // 但审核信息字段（审核人/审核时间/审核备注）仍由 auditArticle 接口独占管理
         article.setAuditorId(null);
         article.setAuditTime(null);
         article.setAuditRemark(null);
-        // publishedAt 仅在审核通过时由 auditArticle 写入，编辑时禁止修改
-        article.setPublishedAt(null);
+        // 当状态变更为 published 且未设置发布时间时，自动填充当前时间
+        if ("published".equals(article.getStatus()) && article.getPublishedAt() == null) {
+            article.setPublishedAt(LocalDateTime.now());
+        }
 
         processArticleImages(article);
         // 编辑时同步维护分类路径（切换分类场景）

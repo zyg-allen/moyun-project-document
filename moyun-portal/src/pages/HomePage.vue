@@ -12,6 +12,7 @@ import {
   MessageCircle, Activity, Crown, Target
 } from 'lucide-vue-next'
 import LazyImage from '@/components/LazyImage.vue'
+import AdCard from '@/components/AdCard.vue'
 import SiteFooter from '@/components/SiteFooter.vue'
 import BackToTop from '@/components/BackToTop.vue'
 import { generateSeo } from '@/utils/seo'
@@ -661,16 +662,20 @@ useHead(
           </div>
 
           <div class="space-y-4 sm:space-y-6">
+            <!-- 旭林广告位 -->
+            <AdCard slot-key="home_xulin_banner" :limit="1" />
+
             <div class="p-3 sm:p-4 rounded-xl" style="background-color: var(--theme-surface);">
               <div class="flex items-center gap-2 mb-3 sm:mb-4">
                 <Flame class="w-4 h-4 sm:w-5 sm:h-5 text-orange-500" />
                 <h3 class="font-semibold text-sm sm:text-base" style="color: var(--theme-text);">热门推荐</h3>
               </div>
-              <div class="space-y-2 sm:space-y-3">
+              <div class="space-y-3 sm:space-y-4">
                 <button
                     type="button"
                     v-for="(article, index) in trendingArticles"
                     :key="article.id"
+                    :title="article.title"
                     @click.stop="router.push('/article/' + article.id)"
                     class="flex items-start gap-2 cursor-pointer w-full text-left"
                 >

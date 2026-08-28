@@ -160,7 +160,7 @@
           <el-col :span="8">
             <el-form-item label="分类推荐" prop="isCategoryRecommended">
               <el-switch v-model="form.isCategoryRecommended" />
-              <div class="field-tip">开启后在所属分类页推荐展示</div>
+              <div class="field-tip">开启后在所属分类页推荐展示，<span class="text-danger">必须上传封面</span></div>
             </el-form-item>
           </el-col>
         </el-row>
@@ -405,13 +405,18 @@ const markdownPreview = computed(() => {
 });
 
 // 查询分类列表（构建为树结构，支持二级分类层级选择）
+// 仅展示首页（navRouteType=home）和文章栏目（categoryType=article），排除特殊页面（categoryType=special）
 function getCategoryList() {
   listCategory({ pageNum: 1, pageSize: 100 }).then(response => {
     const listData = (response.data && Array.isArray(response.data)) ? response.data
                    : (response.rows && Array.isArray(response.rows)) ? response.rows
                    : [];
+    // 过滤掉特殊页面（categoryType=special），只保留首页和文章栏目
+    const filtered = listData.filter(item =>
+      item.navRouteType === 'home' || item.categoryType !== 'special'
+    );
     // 构建树结构（一级栏目 → 二级栏目）
-    categoryOptions.value = proxy.handleTree(listData, "id");
+    categoryOptions.value = proxy.handleTree(filtered, "id");
   });
 }
 
@@ -701,6 +706,11 @@ function handleEditorModeChange(newMode) {
 function submitForm() {
   articleRef.value.validate(valid => {
     if (valid) {
+      // 分类推荐必须选封面
+      if (form.value.isCategoryRecommended && !form.value.cover) {
+        proxy.$modal.msgWarning("开启「分类推荐」时必须上传封面图片");
+        return;
+      }
       submitLoading.value = true;
 
       // 兜底：editorMode 必须有有效值，避免空字符串写入数据库
@@ -736,7 +746,7 @@ function submitForm() {
 
 // 返回列表（关闭当前编辑器标签页，跳转到文章列表）
 function goBack() {
-  proxy.$tab.closeOpenPage('/cms/article');
+  proxy.$tab.closeOpenPage({ path: '/cms/article' });
 }
 
 // 初始化

@@ -2,18 +2,19 @@
   <div class="app-container">
     <el-form :model="queryParams" ref="queryRef" :inline="true" v-show="showSearch" label-width="68px">
       <el-form-item label="广告位" prop="slotKey">
-        <el-select
-          v-model="queryParams.slotKey"
-          placeholder="请选择广告位"
-          clearable
-          filterable
-          allow-create
-          style="width: 200px"
-        >
-          <el-option label="文章详情底部" value="article_detail_bottom" />
-          <el-option label="首页侧栏" value="home_sidebar" />
-        </el-select>
-      </el-form-item>
+          <el-select
+            v-model="queryParams.slotKey"
+            placeholder="请选择广告位"
+            clearable
+            filterable
+            allow-create
+            style="width: 200px"
+          >
+            <el-option label="文章详情底部" value="article_detail_bottom" />
+            <el-option label="首页侧栏" value="home_sidebar" />
+            <el-option label="首页旭林广告位" value="home_xulin_banner" />
+          </el-select>
+        </el-form-item>
       <el-form-item label="标题" prop="title">
         <el-input
           v-model="queryParams.title"
@@ -133,13 +134,14 @@
           >
             <el-option label="文章详情底部" value="article_detail_bottom" />
             <el-option label="首页侧栏" value="home_sidebar" />
+            <el-option label="首页旭林广告位" value="home_xulin_banner" />
           </el-select>
         </el-form-item>
         <el-form-item label="标题" prop="title">
           <el-input v-model="form.title" placeholder="请输入标题" />
         </el-form-item>
         <el-form-item label="广告图" prop="image">
-          <el-input v-model="form.image" placeholder="请输入广告图地址" />
+          <ImageUpload v-model="form.image" :limit="1" />
         </el-form-item>
         <el-form-item label="跳转链接" prop="link">
           <el-input v-model="form.link" placeholder="请输入跳转链接" />
@@ -187,7 +189,8 @@ const title = ref("");
 
 const slotKeyOptions = [
   { value: "article_detail_bottom", label: "文章详情底部" },
-  { value: "home_sidebar", label: "首页侧栏" }
+  { value: "home_sidebar", label: "首页侧栏" },
+  { value: "home_xulin_banner", label: "首页旭林广告位" }
 ];
 
 function slotKeyLabel(key) {

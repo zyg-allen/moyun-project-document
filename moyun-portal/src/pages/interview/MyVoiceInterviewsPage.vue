@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue';
+import { formatDate } from '@/utils/date';
 import { useRouter } from 'vue-router';
 import { useHead } from '@vueuse/head';
 import {
@@ -57,11 +58,6 @@ const difficultyMeta: Record<string, string> = {
 
 function statusOf(v: VoiceInterviewVO) {
   return statusMeta[v.status] || { label: v.status || '-', class: 'bg-theme-surface text-theme-text-secondary' };
-}
-
-function formatTime(t?: string) {
-  if (!t) return '-';
-  return t.slice(0, 16).replace('T', ' ');
 }
 
 async function loadList() {
@@ -195,7 +191,7 @@ onMounted(() => {
               <div class="flex items-center gap-4 mt-2 text-xs flex-wrap" style="color: var(--theme-text-secondary);">
                 <span class="inline-flex items-center gap-1">
                   <Clock :size="12" />
-                  {{ formatTime(item.createTime) }}
+                  {{ formatDate(item.createTime, 'YYYY-MM-DD HH:mm') }}
                 </span>
                 <span class="inline-flex items-center gap-1">
                   <Target :size="12" />

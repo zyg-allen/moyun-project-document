@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted, watch, computed } from 'vue';
+import { formatDate } from '@/utils/date';
 import { useConfirmModal } from '@/composables/useConfirmModal';
 import { useRoute, useRouter } from 'vue-router';
 import { useHead } from '@vueuse/head';
@@ -126,10 +127,6 @@ function formatNumber(n: number) {
   if (n >= 10000) return (n / 10000).toFixed(1) + 'w';
   if (n >= 1000) return (n / 1000).toFixed(1) + 'k';
   return String(n || 0);
-}
-
-async function publishTime(exp: InterviewExperienceVO) {
-  return exp.createTime || exp.updateTime || '';
 }
 
 async function handleDelete(exp: InterviewExperienceVO) {
@@ -318,8 +315,8 @@ function gotoPage(p: number) {
                     <Star class="w-3 h-3 mr-1" style="color: var(--theme-primary);" />
                     {{ formatNumber(exp.likeCount) }} 点赞
                   </span>
-                  <span v-if="publishTime(exp)" class="flex items-center">
-                    {{ publishTime(exp) }}
+                  <span v-if="formatDate((exp.createTime || exp.updateTime, 'YYYY-MM-DD'), 'YYYY-MM-DD HH:mm')" class="flex items-center">
+                    {{ formatDate((exp.createTime || exp.updateTime, 'YYYY-MM-DD'), 'YYYY-MM-DD HH:mm') }}
                   </span>
                 </div>
                 <div class="flex items-center gap-2">

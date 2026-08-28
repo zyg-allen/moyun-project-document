@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { RouterLink as Link, useRouter } from 'vue-router';
+import { formatDate } from '@/utils/date';
 import { Clock, Tag } from 'lucide-vue-next';
 import LazyImage from '@/components/LazyImage.vue';
 import Avatar from '@/components/Avatar.vue';
@@ -12,17 +13,6 @@ interface Props {
 }
 
 const props = defineProps<Props>();
-
-function formatDateTime(dateStr: string | undefined) {
-  if (!dateStr) return '';
-  const date = new Date(dateStr);
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  const hours = String(date.getHours()).padStart(2, '0');
-  const minutes = String(date.getMinutes()).padStart(2, '0');
-  return `${year}-${month}-${day} ${hours}:${minutes}`;
-}
 
 // 获取作者用户名
 function getAuthorUsername(article: Article): string {
@@ -136,7 +126,7 @@ function goToAuthor(authorId: string | number | undefined) {
           <!-- 日期时间 -->
           <div class="flex items-center gap-1 text-xs flex-shrink-0" style="color: var(--theme-text-secondary);">
             <Clock class="w-3 h-3" aria-hidden="true" />
-            <span>{{ formatDateTime(article.createdAt) }}</span>
+            <span>{{ formatDate(article.createdAt, 'YYYY-MM-DD HH:mm') }}</span>
           </div>
         </div>
       </div>

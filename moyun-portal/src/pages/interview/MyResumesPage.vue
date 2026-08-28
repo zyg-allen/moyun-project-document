@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted, watch, computed } from 'vue';
+import { formatDate } from '@/utils/date';
 import { useConfirmModal } from '@/composables/useConfirmModal';
 import { useRouter } from 'vue-router';
 import { useHead } from '@vueuse/head';
@@ -111,11 +112,6 @@ function statusLabel(r: UserResumeVO) {
 function statusClass(r: UserResumeVO) {
   const s = r.status || '';
   return statusMap[s]?.class || 'bg-theme-surface text-theme-text-secondary';
-}
-
-async function formatTime(t?: string) {
-  if (!t) return '-';
-  return t.slice(0, 16).replace('T', ' ');
 }
 
 async function handleCopy(r: UserResumeVO) {
@@ -431,7 +427,7 @@ function gotoPage(p: number) {
               <div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs pt-3 border-t mb-3" style="border-color: var(--theme-border); color: var(--theme-text-secondary);">
                 <span class="flex items-center">
                   <Clock class="w-3 h-3 mr-1" />
-                  {{ formatTime(r.updateTime || r.createTime) }}
+                  {{ formatDate(r.updateTime || r.createTime, 'YYYY-MM-DD HH:mm') }}
                 </span>
                 <span class="flex items-center">
                   <CheckCircle class="w-3 h-3 mr-1" />
@@ -610,7 +606,7 @@ function gotoPage(p: number) {
                   {{ v.title || '未命名简历' }}
                 </p>
                 <p class="text-xs mt-0.5" style="color: var(--theme-text-secondary);">
-                  更新：{{ formatTime(v.updateTime || v.createTime) }}
+                  更新：{{ formatDate(v.updateTime || v.createTime, 'YYYY-MM-DD HH:mm', 'YYYY-MM-DD') }}
                 </p>
               </div>
               <button

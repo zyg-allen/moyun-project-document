@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { useToast } from '@/composables/useToast';
+import { formatDate } from '@/utils/date';
 import { useConfirmModal } from '@/composables/useConfirmModal';
 import { ref, computed, onMounted } from 'vue';
 import { useHead } from '@vueuse/head';
@@ -20,6 +21,7 @@ import {
   Nfc,
 } from 'lucide-vue-next';
 import Breadcrumb from '@/components/Breadcrumb.vue';
+import SiteFooter from '@/components/SiteFooter.vue';
 import { generateSeo } from '@/utils/seo';
 import {
   getAccountOverview,
@@ -88,12 +90,6 @@ const switchTab = (key: 'ledger' | 'bankcard') => {
 const bizTypeLabel = (bizType?: string) => {
   const map: Record<string, string> = { tip: '打赏', withdraw: '提现', member: '会员' };
   return map[bizType || ''] || bizType || '-';
-};
-
-const formatTime = async (time?: string) => {
-  if (!time) return '-';
-  // 精简到 分
-  return time.length >= 16 ? time.slice(0, 16) : time;
 };
 
 const handleSendSms = async () => {
@@ -417,7 +413,7 @@ onMounted(async () => {
                   class="border-b last:border-b-0 transition-colors hover:bg-black/[0.02]"
                   style="border-color: var(--theme-border);"
                 >
-                  <td class="px-5 py-3.5 whitespace-nowrap text-xs" style="color: var(--theme-text-secondary);">{{ formatTime(entry.createTime) }}</td>
+                  <td class="px-5 py-3.5 whitespace-nowrap text-xs" style="color: var(--theme-text-secondary);">{{ formatDate(entry.createTime, 'YYYY-MM-DD HH:mm') }}</td>
                   <td class="px-5 py-3.5">
                     <span class="inline-flex px-2 py-0.5 rounded text-[10px] font-medium whitespace-nowrap"
                           :style="entry.bizType === 'tip'
@@ -458,7 +454,7 @@ onMounted(async () => {
                   </span>
                 </div>
                 <div class="flex items-center justify-between mt-1.5 text-[11px]" style="color: var(--theme-text-secondary);">
-                  <span>{{ formatTime(entry.createTime) }}</span>
+                  <span>{{ formatDate(entry.createTime, 'YYYY-MM-DD HH:mm') }}</span>
                   <span v-if="entry.balanceAfterYuan != null">余额 ¥{{ entry.balanceAfterYuan.toFixed(2) }}</span>
                 </div>
               </div>
@@ -665,6 +661,7 @@ onMounted(async () => {
         </div>
       </div>
     </div>
+    <SiteFooter />
   </div>
 </template>
 

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
+import { formatDate } from '@/utils/date';
 import { useRouter } from 'vue-router';
 import { useHead } from '@vueuse/head';
 import {
@@ -99,12 +100,6 @@ function formatWordCount(wordCount?: number): string {
   if (!wordCount) return '0';
   if (wordCount >= 10000) return (wordCount / 10000).toFixed(1) + '万字';
   return wordCount + '字';
-}
-
-function formatTime(time?: string): string {
-  if (!time) return '';
-  // 简化的相对时间展示：仅取日期
-  return time.substring(0, 10);
 }
 
 useHead(
@@ -274,7 +269,7 @@ useHead(
                 </div>
                 <h3 class="font-medium text-sm mb-1 line-clamp-2 group-hover:opacity-80" style="color: var(--theme-text);">{{ item.bookTitle }}</h3>
                 <p v-if="item.endTime" class="text-xs" style="color: var(--theme-text-secondary);">
-                  截止：{{ formatTime(item.endTime) }}
+                  截止：{{ formatDate(item.endTime, 'YYYY-MM-DD HH:mm') }}
                 </p>
               </div>
             </div>
@@ -306,7 +301,7 @@ useHead(
                 <p class="text-xs mb-1" style="color: var(--theme-text-secondary);">{{ book.author }}</p>
                 <div class="flex items-center justify-between text-xs" style="color: var(--theme-text-secondary);">
                   <span v-if="book.latestChapterTitle" class="truncate mr-2">{{ book.latestChapterTitle }}</span>
-                  <span v-if="book.lastUpdateTime">{{ formatTime(book.lastUpdateTime) }}</span>
+                  <span v-if="book.lastUpdateTime">{{ formatDate(book.lastUpdateTime, 'YYYY-MM-DD HH:mm') }}</span>
                 </div>
               </div>
             </div>

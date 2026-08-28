@@ -260,8 +260,8 @@ useHead(
         </div>
       </div>
 
-
-
+      <!-- flex-1 内容区（始终渲染，确保 footer 贴底） -->
+      <div class="flex-1 flex flex-col">
       <!-- Results Header -->
       <div class="border-b py-3 sm:py-4" v-if="hasQuery" style="background-color: var(--theme-bg); border-color: var(--theme-border);">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -286,7 +286,7 @@ useHead(
       </div>
 
       <!-- Results -->
-      <div class="py-6 sm:py-8 flex-1" v-if="hasQuery">
+      <div class="py-6 sm:py-8" v-if="hasQuery">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div class="grid lg:grid-cols-[1fr_300px] gap-6 lg:gap-8">
             <!-- 主列表区 -->
@@ -410,6 +410,8 @@ useHead(
           </div>
         </div>
       </div>
+
+      </div><!-- /flex-1 内容区 -->
 
     <!-- 公共Footer组件 -->
     <SiteFooter />

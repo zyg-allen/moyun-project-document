@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue';
+
 import { ArrowLeft, Send, Loader2, ChevronUp } from 'lucide-vue-next';
 import type { MessageVO, PeerUser, MessageType } from '@/types/api';
 import * as messageApi from '@/api/message';
@@ -52,7 +53,7 @@ function isMine(msg: MessageVO): boolean {
     return String(msg.senderId) === currentUserId.value;
 }
 
-function formatTime(time?: string): string {
+function formatDate(time?: string): string {
     if (!time) return '';
     const d = new Date(time);
     if (Number.isNaN(d.getTime())) return time;
@@ -473,7 +474,7 @@ watch(
               class="text-[10px] mt-1"
               :style="isMine(msg) ? { color: 'rgba(255,255,255,0.8)' } : { color: 'var(--theme-text-secondary)' }"
             >
-              {{ formatTime(msg.createdTime || msg.createTime) }}
+              {{ formatDate(msg.createdTime || msg.createTime) }}
             </div>
           </div>
         </div>

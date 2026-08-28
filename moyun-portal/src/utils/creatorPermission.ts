@@ -14,19 +14,18 @@ import { useToast } from '@/composables/useToast';
 import router from '@/router';
 import { getMyCertification } from '@/api/certification';
 
-/** 跳转登录页（带 redirect 回跳） */
-function gotoLogin(): boolean {
-  
 const confirmModal = useConfirmModal();
 
-const toast = useToast();
+/** 跳转登录页（带 redirect 回跳） */
+function gotoLogin(): boolean {
+  const toast = useToast();
   toast.info('请先登录');
   router.push({ path: '/login', query: { redirect: router.currentRoute.value.fullPath } });
   return false;
 }
 
 /** 跳转实名认证页（带 redirect 回跳） */
-async function gotoCertification(): void {
+function gotoCertification(): void {
   router.push({ path: '/creator/certification', query: { redirect: router.currentRoute.value.fullPath } });
 }
 
@@ -57,9 +56,9 @@ async function isRealNameVerified(): Promise<boolean> {
  */
 export async function requireRealName(): Promise<boolean> {
   const userStore = useUserStore();
-  const toast = useToast();
   if (!userStore.user) return gotoLogin();
   if (await isRealNameVerified()) return true;
+  const toast = useToast();
   toast.info('该操作需要先完成实名认证，正在前往认证页');
   setTimeout(() => gotoCertification(), 1200);
   return false;
@@ -77,8 +76,10 @@ export async function promptRealNameOptional(): Promise<boolean> {
   const userStore = useUserStore();
   if (!userStore.user) return gotoLogin();
   if (await isRealNameVerified()) return true;
-  const goCert = await confirmModal.confirm('建议完成实名认证后发布，有助于提升内容可信度与曝光。\n\n是否现在前往实名认证？\n（点击「取消」将跳过认证，直接继续发布，未实名不影响发布）'
-  , { title: '确认操作'});
+  const goCert = await confirmModal.confirm(
+    '建议完成实名认证后发布，有助于提升内容可信度与曝光。\n\n是否现在前往实名认证？\n（点击「取消」将跳过认证，直接继续发布，未实名不影响发布）',
+    { title: '确认操作' }
+  );
   if (goCert) {
     gotoCertification();
     return false;

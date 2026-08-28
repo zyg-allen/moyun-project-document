@@ -128,6 +128,7 @@ public class PortalCreatorCertificationServiceImpl
             notificationService.sendTodoNotification(notice);
         } catch (Exception ignored) {
             // 通知发送失败不应阻断申请提交流程
+            log.error("发送待审核通知失败", ignored);
         }
         return entity;
     }

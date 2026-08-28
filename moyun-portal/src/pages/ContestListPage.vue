@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue';
+import { formatDate } from '@/utils/date';
 import { useRouter } from 'vue-router';
 import { useHead } from '@vueuse/head';
 import {
@@ -95,11 +96,6 @@ function statusMeta(status?: string) {
   return opt || statusOptions[0];
 }
 
-function formatDate(t?: string) {
-  if (!t) return '';
-  // 取 YYYY-MM-DD 部分
-  return t.length >= 10 ? t.slice(0, 10) : t;
-}
 </script>
 
 <template>
@@ -225,7 +221,7 @@ function formatDate(t?: string) {
                 <div class="flex items-center justify-between pt-3 border-t text-xs flex-wrap gap-2" style="border-color: var(--theme-border); color: var(--theme-text-secondary);">
                   <span v-if="c.startTime || c.endTime" class="flex items-center">
                     <Calendar class="w-3 h-3 mr-0.5" />
-                    {{ formatDate(c.startTime) }} ~ {{ formatDate(c.endTime) }}
+                    {{ formatDate(c.startTime, 'YYYY-MM-DD') }} ~ {{ formatDate(c.endTime, 'YYYY-MM-DD') }}
                   </span>
                   <span v-if="c.prize" class="flex items-center" style="color: #d97706;">
                     <Gift class="w-3 h-3 mr-0.5" />

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue';
+import { formatDate } from '@/utils/date';
 import { useRoute, useRouter } from 'vue-router';
 import { useHead } from '@vueuse/head';
 import {
@@ -455,10 +456,6 @@ function gotoEditResume() {
   if (savedResumeId.value) router.push(`/interview/resume/edit/${savedResumeId.value}`);
 }
 
-function formatTime(t?: string) {
-  return t ? t.slice(0, 10) : '-';
-}
-
 function keywordsOf(s?: string): string[] {
   return s ? s.split('、').filter(Boolean) : [];
 }
@@ -584,7 +581,7 @@ function dimRows() {
               <FileText class="w-4 h-4 text-theme-text-secondary" /> {{ r.title }}
             </div>
             <div class="text-xs text-theme-text-secondary mt-1">
-              v{{ r.versionNo || 1 }} · 更新于 {{ formatTime(r.updateTime) }}
+              v{{ r.versionNo || 1 }} · 更新于 {{ formatDate(r.updateTime, 'YYYY-MM-DD HH:mm') }}
               <span v-if="r.score" class="ml-1 text-theme-warning">⭐ {{ r.score }}分</span>
             </div>
           </label>

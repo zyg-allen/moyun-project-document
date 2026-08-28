@@ -2,7 +2,7 @@
   <el-dialog
     v-model="visible"
     title="⚙️ 配置知识库处理参数"
-    width="700px"
+    width="880px"
     :close-on-click-modal="false"
     @close="handleClose"
   >

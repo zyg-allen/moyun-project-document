@@ -93,7 +93,7 @@
                <span>{{ parseTime(scope.row.createTime) }}</span>
             </template>
          </el-table-column>
-         <el-table-column label="操作" width="180" align="center" class-name="small-padding fixed-width">
+         <el-table-column label="操作" width="180" align="right" class-name="small-padding fixed-width">
             <template #default="scope">
                <el-button link type="primary" icon="Edit" @click="handleUpdate(scope.row)" v-hasPermi="['system:post:edit']">修改</el-button>
                <el-button link type="primary" icon="Delete" @click="handleDelete(scope.row)" v-hasPermi="['system:post:remove']">删除</el-button>
@@ -110,7 +110,7 @@
       />
 
       <!-- 添加或修改岗位对话框 -->
-      <el-dialog :title="title" v-model="open" width="500px" append-to-body>
+      <el-dialog :title="title" v-model="open" width="620px" append-to-body>
          <el-form ref="postRef" :model="form" :rules="rules" label-width="80px">
             <el-form-item label="岗位名称" prop="postName">
                <el-input v-model="form.postName" placeholder="请输入岗位名称" />

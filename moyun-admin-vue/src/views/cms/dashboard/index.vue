@@ -140,7 +140,7 @@ function loadPendingAudit() {
 }
 
 function goToAudit() {
-  router.push('/cms/audit-center');
+  router.push('/portal/audit-center');
 }
 
 onMounted(() => {

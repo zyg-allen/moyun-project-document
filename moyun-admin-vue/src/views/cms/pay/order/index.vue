@@ -63,7 +63,7 @@
       <el-table-column label="创建时间" align="center" prop="createTime" width="160">
         <template #default="scope">{{ parseTime(scope.row.createTime) }}</template>
       </el-table-column>
-      <el-table-column label="操作" align="center" width="180" class-name="small-padding fixed-width">
+      <el-table-column label="操作" align="right" width="180" class-name="small-padding fixed-width">
         <template #default="scope">
           <el-button link type="primary" icon="View" @click="handleView(scope.row)" v-hasPermi="['cms:payOrder:query']">详情</el-button>
           <el-button

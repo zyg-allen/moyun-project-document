@@ -86,7 +86,7 @@
           <span>{{ parseTime(scope.row.createTime) }}</span>
         </template>
       </el-table-column>
-      <el-table-column label="操作" align="center" class-name="small-padding fixed-width" width="260">
+      <el-table-column label="操作" align="right" class-name="small-padding fixed-width" width="260">
         <template #default="scope">
           <el-button link type="primary" icon="Edit" @click="handleUpdate(scope.row)" v-hasPermi="['portal:bookList:edit']">修改</el-button>
           <el-button link type="success" icon="Reading" @click="handleManageBooks(scope.row)" v-hasPermi="['portal:bookList:query']">管理书籍</el-button>
@@ -97,7 +97,7 @@
 
     <pagination v-show="total > 0" :total="total" v-model:page="queryParams.pageNum" v-model:limit="queryParams.pageSize" @pagination="getList" />
 
-    <el-dialog :title="title" v-model="open" width="720px" append-to-body>
+    <el-dialog :title="title" v-model="open" width="900px" append-to-body>
       <el-form ref="refEl" :model="form" :rules="rules" label-width="100px">
         <el-row :gutter="20">
           <el-col :span="24">

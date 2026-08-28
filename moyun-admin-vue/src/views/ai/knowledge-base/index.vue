@@ -180,7 +180,7 @@
     <el-dialog
       v-model="showUploadDialog"
       title="上传文件"
-      width="500px"
+      width="620px"
       :close-on-click-modal="false"
     >
       <el-upload
@@ -266,7 +266,7 @@
               </template>
             </el-table-column>
             <el-table-column prop="vectorDimension" label="向量维度" width="100" />
-            <el-table-column label="操作" width="180" fixed="right">
+            <el-table-column label="操作" width="180" fixed="right" align="right">
               <template #default="scope">
                 <el-button
                   size="small"
@@ -295,7 +295,7 @@
     <el-dialog
       v-model="showVectorDialog"
       title="向量数据"
-      width="600px"
+      width="760px"
     >
       <div v-if="currentVector">
         <p><strong>分片索引：</strong>{{ currentVector.segmentIndex }}</p>
@@ -315,7 +315,7 @@
     <el-dialog
       v-model="showContentDialog"
       title="📄 分片原文内容"
-      width="700px"
+      width="880px"
       class="content-detail-dialog"
     >
       <div v-if="currentContent" class="content-detail-wrapper">
@@ -438,7 +438,7 @@
     <el-dialog
       v-model="showEditDialog"
       title="编辑知识库"
-      width="500px"
+      width="620px"
     >
       <el-form :model="editForm" label-width="80px">
         <el-form-item label="文件名">
@@ -465,7 +465,7 @@
     <el-dialog
       v-model="showRetrievalTestDialog"
       title="检索测试"
-      width="800px"
+      width="1000px"
     >
       <div class="retrieval-test-container">
         <!-- 测试表单 -->

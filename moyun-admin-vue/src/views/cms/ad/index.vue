@@ -91,7 +91,7 @@
           <span>{{ parseTime(scope.row.createTime) }}</span>
         </template>
       </el-table-column>
-      <el-table-column label="操作" align="center" class-name="small-padding fixed-width" width="180">
+      <el-table-column label="操作" align="right" class-name="small-padding fixed-width" width="180">
         <template #default="scope">
           <el-button
             link
@@ -119,7 +119,7 @@
       @pagination="getList"
     />
 
-    <el-dialog :title="title" v-model="open" width="600px" append-to-body>
+    <el-dialog :title="title" v-model="open" width="760px" append-to-body>
       <el-form ref="adRef" :model="form" :rules="rules" label-width="80px">
         <el-form-item label="广告位" prop="slotKey">
           <el-select

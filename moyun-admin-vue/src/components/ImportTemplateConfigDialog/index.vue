@@ -125,7 +125,7 @@
           <el-switch v-model="row.status" active-value="0" inactive-value="1" size="small" />
         </template>
       </el-table-column>
-      <el-table-column label="操作" width="80" align="center" fixed="right">
+      <el-table-column label="操作" width="80" align="right" fixed="right">
         <template #default="{ $index }">
           <el-button type="danger" link size="small" @click="handleRemove($index)">删除</el-button>
         </template>

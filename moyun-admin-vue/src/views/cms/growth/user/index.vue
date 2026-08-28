@@ -47,7 +47,7 @@
           <span>{{ parseTime(scope.row.updateTime) }}</span>
         </template>
       </el-table-column>
-      <el-table-column label="操作" align="center" class-name="small-padding fixed-width" width="120">
+      <el-table-column label="操作" align="right" class-name="small-padding fixed-width" width="120">
         <template #default="scope">
           <el-button
             link
@@ -70,7 +70,7 @@
     />
 
     <!-- 用户成长详情对话框 -->
-    <el-dialog title="用户成长详情" v-model="viewOpen" width="780px" append-to-body>
+    <el-dialog title="用户成长详情" v-model="viewOpen" width="980px" append-to-body>
       <el-descriptions title="成长信息" :column="2" border>
         <el-descriptions-item label="用户ID">{{ detailData.userId }}</el-descriptions-item>
         <el-descriptions-item label="成长值">{{ detailData.growthValue }}</el-descriptions-item>

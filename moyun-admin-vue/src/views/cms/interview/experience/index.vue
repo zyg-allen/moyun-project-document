@@ -51,7 +51,7 @@
           <el-switch v-model="row.isTop" :active-value="true" :inactive-value="false" @change="handleTop(row)" />
         </template>
       </el-table-column>
-      <el-table-column label="操作" width="260" fixed="right">
+      <el-table-column label="操作" width="260" fixed="right" align="right">
         <template #default="{ row }">
           <el-button link type="primary" @click="handleView(row)">详情</el-button>
           <el-button link type="primary" @click="handleEdit(row)">编辑</el-button>
@@ -68,7 +68,7 @@
       @pagination="getList"
     />
 
-    <el-dialog v-model="detailVisible" title="面经详情" width="720px">
+    <el-dialog v-model="detailVisible" title="面经详情" width="900px">
       <el-descriptions :column="2" border>
         <el-descriptions-item label="标题">{{ detail.title }}</el-descriptions-item>
         <el-descriptions-item label="公司">{{ detail.company }}</el-descriptions-item>
@@ -85,7 +85,7 @@
       </el-descriptions>
     </el-dialog>
 
-    <el-dialog v-model="dialogVisible" :title="dialogTitle" width="720px">
+    <el-dialog v-model="dialogVisible" :title="dialogTitle" width="900px">
       <el-form :model="form" label-width="100px">
         <el-form-item label="标题"><el-input v-model="form.title" placeholder="请输入标题" /></el-form-item>
         <el-form-item label="公司"><el-input v-model="form.company" placeholder="请输入公司" /></el-form-item>

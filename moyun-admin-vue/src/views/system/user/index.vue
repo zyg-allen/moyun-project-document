@@ -151,7 +151,7 @@
                      <span>{{ parseTime(scope.row.createTime) }}</span>
                   </template>
                </el-table-column>
-               <el-table-column label="操作" align="center" width="180" class-name="small-padding fixed-width">
+               <el-table-column label="操作" align="right" width="180" class-name="small-padding fixed-width">
                   <template #default="scope">
                      <el-tooltip content="修改" placement="top" v-if="scope.row.userId !== 1">
                         <el-button link type="primary" icon="Edit" @click="handleUpdate(scope.row)" v-hasPermi="['system:user:edit']"></el-button>
@@ -182,7 +182,7 @@
       </el-row>
 
       <!-- 添加或修改用户配置对话框 -->
-      <el-dialog :title="title" v-model="open" width="600px" append-to-body>
+      <el-dialog :title="title" v-model="open" width="760px" append-to-body>
          <el-form :model="form" :rules="rules" ref="userRef" label-width="80px">
             <el-row>
                <el-col :span="12">
@@ -297,7 +297,7 @@
       </el-dialog>
 
       <!-- 用户导入对话框 -->
-      <el-dialog :title="upload.title" v-model="upload.open" width="400px" append-to-body>
+      <el-dialog :title="upload.title" v-model="upload.open" width="500px" append-to-body>
          <el-upload
             ref="uploadRef"
             :limit="1"

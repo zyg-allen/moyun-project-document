@@ -117,7 +117,7 @@
                <span>{{ parseTime(scope.row.createTime) }}</span>
             </template>
          </el-table-column>
-         <el-table-column label="操作" align="center" class-name="small-padding fixed-width">
+         <el-table-column label="操作" align="right" class-name="small-padding fixed-width">
             <template #default="scope">
                <el-button link type="primary" icon="View" @click="handleView(scope.row)" v-hasPermi="['monitor:job:query']">详细</el-button>
             </template>
@@ -133,7 +133,7 @@
       />
 
       <!-- 调度日志详细 -->
-      <el-dialog title="调度日志详细" v-model="open" width="700px" append-to-body>
+      <el-dialog title="调度日志详细" v-model="open" width="880px" append-to-body>
          <el-form :model="form" label-width="100px">
             <el-row>
                <el-col :span="12">

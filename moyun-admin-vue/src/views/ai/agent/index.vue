@@ -1122,7 +1122,7 @@
     <el-dialog
       v-model="showStatsDialog"
       :title="'📊 ' + (currentStatsAgent?.name || '') + ' - 使用统计'"
-      width="700px"
+      width="880px"
       destroy-on-close
     >
       <div v-loading="statsLoading" class="stats-container">

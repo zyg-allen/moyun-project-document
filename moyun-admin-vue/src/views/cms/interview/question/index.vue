@@ -95,7 +95,7 @@
         </template>
       </el-table-column>
       <el-table-column label="排序" prop="sort" width="80" />
-      <el-table-column label="操作" width="240" fixed="right">
+      <el-table-column label="操作" width="240" fixed="right" align="right">
         <template #default="{ row }">
           <el-button link type="primary" @click="handleEdit(row)">编辑</el-button>
           <el-button v-if="row.practiceMode === 'coding'" link type="success" @click="handleTestCase(row)">用例</el-button>
@@ -113,7 +113,7 @@
     />
 
     <!-- 新增/编辑弹窗：根据练习模式显示不同字段 -->
-    <el-dialog v-model="dialogVisible" :title="dialogTitle" width="820px" :close-on-click-modal="false">
+    <el-dialog v-model="dialogVisible" :title="dialogTitle" width="1020px" :close-on-click-modal="false">
       <el-form :model="form" label-width="100px">
         <!-- 练习模式选择（顶部，决定后续表单） -->
         <el-form-item label="练习模式" required>

@@ -44,7 +44,7 @@
             <el-table-column
               label="操作"
               width="60"
-              align="center"
+              align="right"
               class-name="small-padding fixed-width"
             >
               <template #default="scope">
@@ -95,7 +95,7 @@
             <el-table-column
               label="操作"
               width="60"
-              align="center"
+              align="right"
               class-name="small-padding fixed-width"
             >
               <template #default="scope">

@@ -120,7 +120,7 @@
     <el-dialog 
       v-model="dialogVisible" 
       :title="dialogTitle"
-      width="600px">
+      width="760px">
       <el-form :model="formData" :rules="rules" ref="formRef" label-width="120px">
         <el-form-item label="数据源名称" prop="name">
           <el-input v-model="formData.name" placeholder="请输入数据源名称" />
@@ -221,7 +221,7 @@
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="220" fixed="right">
+        <el-table-column label="操作" width="220" fixed="right" align="right">
           <template #default="scope">
             <!-- 所有数据源都显示查看字段按钮 -->
             <el-button size="small" type="primary" @click="viewColumns(scope.row.tableName)">

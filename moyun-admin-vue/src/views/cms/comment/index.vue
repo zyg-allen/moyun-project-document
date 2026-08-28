@@ -57,7 +57,7 @@
           <span>{{ parseTime(scope.row.createTime) }}</span>
         </template>
       </el-table-column>
-      <el-table-column label="操作" align="center" class-name="small-padding fixed-width" width="240">
+      <el-table-column label="操作" align="right" class-name="small-padding fixed-width" width="240">
         <template #default="scope">
           <el-button
             link
@@ -94,7 +94,7 @@
     />
 
     <!-- 查看评论对话框 -->
-    <el-dialog title="评论详情" v-model="viewOpen" width="600px" append-to-body>
+    <el-dialog title="评论详情" v-model="viewOpen" width="760px" append-to-body>
       <el-descriptions :column="1" border>
         <el-descriptions-item label="评论编号">{{ viewForm.id }}</el-descriptions-item>
         <el-descriptions-item label="用户昵称">{{ viewForm.authorNickname || '-' }}</el-descriptions-item>

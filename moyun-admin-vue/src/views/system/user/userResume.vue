@@ -49,7 +49,7 @@
                <span>{{ scope.row.scoredTime ? parseTime(scope.row.scoredTime) : '-' }}</span>
             </template>
          </el-table-column>
-         <el-table-column label="操作" align="center" width="120" class-name="small-padding fixed-width">
+         <el-table-column label="操作" align="right" width="120" class-name="small-padding fixed-width">
             <template #default="scope">
                <el-button link type="primary" icon="View" @click="handleViewDetail(scope.row)">查看详情</el-button>
             </template>
@@ -65,7 +65,7 @@
       />
 
       <!-- 简历详情弹窗（只读） -->
-      <el-dialog title="简历详情（只读）" v-model="detailOpen" width="820px" append-to-body>
+      <el-dialog title="简历详情（只读）" v-model="detailOpen" width="1020px" append-to-body>
          <div v-loading="detailLoading">
             <div v-if="detail" class="resume-detail">
                <div class="detail-header">

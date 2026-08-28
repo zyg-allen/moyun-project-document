@@ -74,7 +74,7 @@
                <span>{{ parseTime(scope.row.createTime) }}</span>
             </template>
          </el-table-column>
-         <el-table-column label="操作" align="center" width="210" class-name="small-padding fixed-width">
+         <el-table-column label="操作" align="right" width="210" class-name="small-padding fixed-width">
             <template #default="scope">
                <el-button link type="primary" icon="Edit" @click="handleUpdate(scope.row)" v-hasPermi="['system:menu:edit']">修改</el-button>
                <el-button link type="primary" icon="Plus" @click="handleAdd(scope.row)" v-hasPermi="['system:menu:add']">新增</el-button>
@@ -84,7 +84,7 @@
       </el-table>
 
       <!-- 添加或修改菜单对话框 -->
-      <el-dialog :title="title" v-model="open" width="680px" append-to-body>
+      <el-dialog :title="title" v-model="open" width="860px" append-to-body>
          <el-form ref="menuRef" :model="form" :rules="rules" label-width="100px">
             <el-row>
                <el-col :span="24">

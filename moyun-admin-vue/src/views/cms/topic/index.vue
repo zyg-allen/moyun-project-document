@@ -105,7 +105,7 @@
         </template>
       </el-table-column>
       <el-table-column label="创建时间" width="180" prop="createdTime" />
-      <el-table-column label="操作" width="280" fixed="right">
+      <el-table-column label="操作" width="280" fixed="right" align="right">
         <template #default="{ row }">
           <el-button link type="primary" @click="handleView(row)" v-hasPermi="['cms:topic:query']">查看</el-button>
           <el-button link type="warning" @click="handleAuditPage(row)" v-hasPermi="['system:auditTask:list']">审核</el-button>
@@ -177,7 +177,7 @@ function resetQuery() {
 /** 跳转到话题审核页（与文章/专栏审核入口一致） */
 function handleAuditPage(row: any) {
   router.push({
-    path: '/cms/audit-center',
+    path: '/portal/audit-center',
     query: { tab: 'topic', bizId: row.id }
   });
 }

@@ -128,7 +128,7 @@
     <el-dialog
       v-model="showCreateDialog"
       :title="editMode ? '编辑模型配置' : '新建模型配置'"
-      width="700px"
+      width="880px"
       :close-on-click-modal="false"
     >
       <el-form :model="formData" label-width="120px">

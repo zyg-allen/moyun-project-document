@@ -74,7 +74,7 @@
           <span>{{ parseTime(scope.row.createdTime) }}</span>
         </template>
       </el-table-column>
-      <el-table-column label="操作" align="center" class-name="small-padding fixed-width" width="100" fixed="right">
+      <el-table-column label="操作" align="right" class-name="small-padding fixed-width" width="100" fixed="right">
         <template #default="scope">
           <el-button
             link
@@ -97,7 +97,7 @@
     />
 
     <!-- 详情对话框 -->
-    <el-dialog title="打赏订单详情" v-model="viewOpen" width="640px" append-to-body>
+    <el-dialog title="打赏订单详情" v-model="viewOpen" width="800px" append-to-body>
       <el-descriptions v-if="currentRow" :column="2" border>
         <el-descriptions-item label="订单ID">{{ currentRow.id }}</el-descriptions-item>
         <el-descriptions-item label="状态">

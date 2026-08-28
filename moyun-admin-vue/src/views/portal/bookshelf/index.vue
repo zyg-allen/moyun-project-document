@@ -56,7 +56,7 @@
           <span>{{ parseTime(scope.row.updateTime) }}</span>
         </template>
       </el-table-column>
-      <el-table-column label="操作" align="center" width="120" class-name="small-padding fixed-width">
+      <el-table-column label="操作" align="right" width="120" class-name="small-padding fixed-width">
         <template #default="scope">
           <el-button link type="primary" icon="Delete" @click="handleDelete(scope.row)" v-hasPermi="['portal:bookshelf:remove']">移出</el-button>
         </template>

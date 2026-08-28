@@ -65,7 +65,7 @@
           <span>{{ scope.row.createdTime || '-' }}</span>
         </template>
       </el-table-column>
-      <el-table-column label="操作" align="center" width="220" class-name="small-padding fixed-width">
+      <el-table-column label="操作" align="right" width="220" class-name="small-padding fixed-width">
         <template #default="scope">
           <el-button link type="warning" icon="MagicStick" :loading="scope.row.aiRegenerating" @click="handleAiRegenerate(scope.row)" v-hasPermi="['cms:writing-prompt:edit']">AI重生成</el-button>
           <el-button link type="primary" icon="Edit" @click="handleUpdate(scope.row)" v-hasPermi="['cms:writing-prompt:edit']">修改</el-button>
@@ -76,7 +76,7 @@
 
     <pagination v-show="total > 0" :total="total" v-model:page="queryParams.pageNum" v-model:limit="queryParams.pageSize" @pagination="getList" />
 
-    <el-dialog :title="title" v-model="open" width="560px" append-to-body>
+    <el-dialog :title="title" v-model="open" width="700px" append-to-body>
       <el-form ref="promptRef" :model="form" :rules="rules" label-width="80px">
         <el-form-item label="日期" prop="promptDate">
           <el-date-picker v-model="form.promptDate" type="date" placeholder="选择日期" value-format="YYYY-MM-DD" style="width: 100%" />
@@ -106,7 +106,7 @@
     </el-dialog>
 
     <!-- AI 批量生成对话框 -->
-    <el-dialog title="AI 批量生成写作提示" v-model="rangeOpen" width="480px" append-to-body>
+    <el-dialog title="AI 批量生成写作提示" v-model="rangeOpen" width="600px" append-to-body>
       <el-form label-width="90px">
         <el-form-item label="起始日期">
           <el-date-picker v-model="rangeForm.startDate" type="date" placeholder="选择起始日期" value-format="YYYY-MM-DD" style="width: 100%" />

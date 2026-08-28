@@ -52,6 +52,14 @@
   left: 0;
   position: relative;
   margin: 0 auto;
+  // PC 端弹框不超出屏幕
+  max-width: calc(100vw - 48px);
+
+  // 内容超高时在弹框内滚动，不撑出屏幕
+  .el-dialog__body {
+    max-height: calc(100vh - 240px);
+    overflow-y: auto;
+  }
 }
 
 // refine element ui upload

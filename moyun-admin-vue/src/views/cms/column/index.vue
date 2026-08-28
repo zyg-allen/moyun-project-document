@@ -92,7 +92,7 @@
           <span>{{ parseTime(scope.row.createdTime) }}</span>
         </template>
       </el-table-column>
-      <el-table-column label="操作" align="center" class-name="small-padding fixed-width" width="220" fixed="right">
+      <el-table-column label="操作" align="right" class-name="small-padding fixed-width" width="220" fixed="right">
         <template #default="scope">
           <el-button
             link
@@ -136,7 +136,7 @@
     />
 
     <!-- 添加或修改专栏对话框 -->
-    <el-dialog :title="title" v-model="open" width="720px" append-to-body>
+    <el-dialog :title="title" v-model="open" width="900px" append-to-body>
       <el-form ref="columnRef" :model="form" :rules="rules" label-width="100px">
         <el-row :gutter="20">
           <el-col :span="12">
@@ -208,7 +208,7 @@
     </el-dialog>
 
     <!-- 状态变更对话框 -->
-    <el-dialog title="专栏状态变更" v-model="statusOpen" width="420px" append-to-body>
+    <el-dialog title="专栏状态变更" v-model="statusOpen" width="520px" append-to-body>
       <el-form label-width="100px">
         <el-form-item label="专栏名">
           <span>{{ currentRow.title }}</span>
@@ -243,7 +243,7 @@ const router = useRouter();
 /** 跳转到专栏审核页（与文章审核入口一致） */
 function handleAuditPage(row) {
   router.push({
-    path: "/cms/audit-center",
+    path: "/portal/audit-center",
     query: { tab: "column", bizId: row.id }
   });
 }

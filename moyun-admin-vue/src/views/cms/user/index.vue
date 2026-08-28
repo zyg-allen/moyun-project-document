@@ -128,7 +128,7 @@
           <span>{{ parseTime(scope.row.createTime) }}</span>
         </template>
       </el-table-column>
-      <el-table-column label="操作" align="center" class-name="small-padding fixed-width" width="300">
+      <el-table-column label="操作" align="right" class-name="small-padding fixed-width" width="300">
         <template #default="scope">
           <el-button
               link
@@ -179,7 +179,7 @@
     />
 
     <!-- 添加或修改用户对话框 -->
-    <el-dialog :title="title" v-model="open" width="600px" append-to-body>
+    <el-dialog :title="title" v-model="open" width="760px" append-to-body>
       <el-form ref="userRef" :model="form" :rules="rules" label-width="80px">
         <el-form-item label="用户名" prop="username" v-if="!form.id">
           <el-input v-model="form.username" placeholder="请输入用户名" />
@@ -395,7 +395,7 @@
     </el-drawer>
 
     <!-- 绑定系统用户对话框 -->
-    <el-dialog :title="bindTitle" v-model="bindOpen" width="520px" append-to-body>
+    <el-dialog :title="bindTitle" v-model="bindOpen" width="660px" append-to-body>
       <el-form v-loading="bindLoading" label-width="120px">
         <el-form-item label="门户用户">
           <span>{{ bindForm.portalUserLabel }}</span>

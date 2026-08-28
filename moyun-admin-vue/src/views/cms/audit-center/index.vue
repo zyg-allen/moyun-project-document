@@ -60,7 +60,7 @@
       <el-table-column label="处理人" align="center" prop="auditorName" width="100" />
       <el-table-column label="提交时间" align="center" prop="submitTime" width="160" />
       <el-table-column label="处理时间" align="center" prop="auditTime" width="160" />
-      <el-table-column label="操作" align="center" width="160" class-name="small-padding fixed-width">
+      <el-table-column label="操作" align="right" width="160" class-name="small-padding fixed-width">
         <template #default="scope">
           <el-button link type="primary" icon="View" @click.stop="handleView(scope.row)">详情</el-button>
           <el-button v-if="scope.row.status === 'pending'" link type="success" icon="Check" @click.stop="handleView(scope.row)">处理</el-button>
@@ -208,7 +208,7 @@ function onHandleSuccess() {
 
 /** 从首页/业务页跳转：
  *  - ?taskId=xxx&tab=article  → 打开该任务详情（tab 为 taskType，用于过滤）
- *  - ?tab=article&bizId=123   → 按任务类型过滤列表（从业务管理页跳入）
+ *  - ?tab=article&bizId=123   → 按任务类型过滤列表并打开该业务对应的任务详情（从业务管理页跳入）
  *  - ?activeTab=pending|done|all → 切换顶部 Tab（首页"更多"入口使用）
  *    注意：activeTab 与 tab 语义不同——activeTab 切换待办/已办/全部视图，
  *    tab 是 taskType 列表过滤；两者可共存（如 ?activeTab=done&tab=article）。
@@ -229,6 +229,15 @@ function handleRouteQuery() {
     if (taskId) {
       detailTaskId.value = Number(taskId)
       detailOpen.value = true
+    } else if (bizId) {
+      // 从业务管理页（文章/专栏/话题列表）跳入：按 bizId 匹配任务并打开详情
+      const matched = taskList.value.find(
+        (t) => String(t.bizId) === String(bizId)
+      )
+      if (matched) {
+        detailTaskId.value = matched.id
+        detailOpen.value = true
+      }
     }
   })
   // 清除 URL query，避免刷新重复触发

@@ -110,7 +110,7 @@
     </div>
 
     <!-- 测试工具对话框 -->
-    <el-dialog v-model="showTestDialog" title="🧪 测试工具" width="600px" destroy-on-close>
+    <el-dialog v-model="showTestDialog" title="🧪 测试工具" width="760px" destroy-on-close>
       <el-form label-width="100px">
         <el-form-item label="选择工具">
           <el-select v-model="testForm.toolName" placeholder="请选择工具" style="width: 100%;">

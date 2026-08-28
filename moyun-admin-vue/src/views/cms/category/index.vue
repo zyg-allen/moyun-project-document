@@ -107,7 +107,7 @@
           <span>{{ parseTime(scope.row.createTime) }}</span>
         </template>
       </el-table-column>
-      <el-table-column label="操作" align="center" width="280" class-name="small-padding fixed-width">
+      <el-table-column label="操作" align="right" width="280" class-name="small-padding fixed-width">
         <template #default="scope">
           <!-- 一级栏目操作 -->
           <template v-if="scope.row.parentId === 0 || scope.row.parentId === null">
@@ -155,7 +155,7 @@
     </el-table>
 
     <!-- 添加或修改栏目对话框 -->
-    <el-dialog :title="title" v-model="open" width="600px" append-to-body>
+    <el-dialog :title="title" v-model="open" width="760px" append-to-body>
       <el-form ref="categoryRef" :model="form" :rules="rules" label-width="100px">
         <el-form-item label="上级栏目">
           <el-tree-select

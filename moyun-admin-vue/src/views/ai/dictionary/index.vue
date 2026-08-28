@@ -117,7 +117,7 @@
     <el-dialog
       v-model="showCreateDialog"
       :title="editMode ? '编辑词典' : '新建词典'"
-      width="600px"
+      width="760px"
     >
       <el-form :model="formData" label-width="100px">
         <el-form-item label="核心词" required>

@@ -56,7 +56,7 @@
         </template>
       </el-table-column>
       <el-table-column label="描述" align="center" prop="description" :show-overflow-tooltip="true" min-width="150" />
-      <el-table-column label="操作" align="center" width="160" class-name="small-padding fixed-width">
+      <el-table-column label="操作" align="right" width="160" class-name="small-padding fixed-width">
         <template #default="scope">
           <el-button link type="primary" icon="Edit" @click="handleUpdate(scope.row)" v-hasPermi="['cms:vip:edit']">修改</el-button>
           <el-button link type="primary" icon="Delete" @click="handleDelete(scope.row)" v-hasPermi="['cms:vip:remove']">删除</el-button>
@@ -66,7 +66,7 @@
 
     <pagination v-show="total > 0" :total="total" v-model:page="queryParams.pageNum" v-model:limit="queryParams.pageSize" @pagination="getList" />
 
-    <el-dialog :title="title" v-model="open" width="640px" append-to-body>
+    <el-dialog :title="title" v-model="open" width="800px" append-to-body>
       <el-form ref="vipRef" :model="form" :rules="rules" label-width="100px">
         <el-form-item label="套餐名称" prop="name">
           <el-input v-model="form.name" placeholder="请输入套餐名称" />

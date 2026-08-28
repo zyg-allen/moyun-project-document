@@ -121,7 +121,7 @@
         </template>
       </el-table-column>
       <el-table-column label="创建时间" width="180" prop="createTime" />
-      <el-table-column label="操作" width="360" fixed="right">
+      <el-table-column label="操作" width="360" fixed="right" align="right">
         <template #default="{ row }">
           <el-button link type="primary" @click="handleView(row)">
             查看
@@ -301,7 +301,7 @@ function handleSelectionChange(selection: any[]) {
 // 跳转到统一审核中心（v8.1：独立审核页已整合到 audit-center）
 function handleAuditPage(row: any) {
   router.push({
-    path: '/cms/audit-center',
+    path: '/portal/audit-center',
     query: { tab: 'article', bizId: row.id }
   });
 }

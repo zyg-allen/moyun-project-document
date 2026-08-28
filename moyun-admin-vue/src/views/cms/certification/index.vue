@@ -87,7 +87,7 @@
           <span>{{ scope.row.auditedTime ? parseTime(scope.row.auditedTime) : '-' }}</span>
         </template>
       </el-table-column>
-      <el-table-column label="操作" align="center" class-name="small-padding fixed-width" width="200" fixed="right">
+      <el-table-column label="操作" align="right" class-name="small-padding fixed-width" width="200" fixed="right">
         <template #default="scope">
           <el-button
             link
@@ -117,7 +117,7 @@
     />
 
     <!-- 详情对话框 -->
-    <el-dialog title="认证申请详情" v-model="viewOpen" width="640px" append-to-body>
+    <el-dialog title="认证申请详情" v-model="viewOpen" width="800px" append-to-body>
       <el-descriptions v-if="currentRow" :column="2" border>
         <el-descriptions-item label="申请人">{{ currentRow.nickname || '-' }}</el-descriptions-item>
         <el-descriptions-item label="用户ID">{{ currentRow.userId }}</el-descriptions-item>
@@ -167,7 +167,7 @@
     </el-dialog>
 
     <!-- 审核对话框 -->
-    <el-dialog title="认证审核" v-model="auditOpen" width="520px" append-to-body>
+    <el-dialog title="认证审核" v-model="auditOpen" width="660px" append-to-body>
       <el-form ref="auditRef" :model="auditForm" :rules="auditRules" label-width="100px">
         <el-form-item label="申请人">
           <span>{{ auditForm.nickname || '-' }}（{{ auditForm.realName }}）</span>

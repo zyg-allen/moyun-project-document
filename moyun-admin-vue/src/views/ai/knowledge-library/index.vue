@@ -144,7 +144,7 @@
     </div>
 
     <!-- 创建知识库对话框 -->
-    <el-dialog v-model="showCreateDialog" title="新建知识库" width="540px" :close-on-click-modal="false" class="create-library-dialog">
+    <el-dialog v-model="showCreateDialog" title="新建知识库" width="680px" :close-on-click-modal="false" class="create-library-dialog">
       <el-form :model="createForm" label-width="0px">
         <div class="form-section">
           <div class="icon-name-row">
@@ -194,7 +194,7 @@
     </el-dialog>
 
     <!-- 编辑知识库对话框 -->
-    <el-dialog v-model="showEditDialog" title="编辑知识库" width="540px" :close-on-click-modal="false" class="create-library-dialog">
+    <el-dialog v-model="showEditDialog" title="编辑知识库" width="680px" :close-on-click-modal="false" class="create-library-dialog">
       <el-form :model="editForm" label-width="0px">
         <div class="form-section">
           <div class="icon-name-row">
@@ -305,7 +305,7 @@
                 </el-tag>
               </template>
             </el-table-column>
-            <el-table-column label="操作" width="220" align="center">
+            <el-table-column label="操作" width="220" align="right">
               <template #default="{ row }">
                 <!-- 待配置：显示配置按钮 -->
                 <el-button v-if="row.processingStatus === 'pending'" text type="primary" size="small" @click="openDocConfig(row)">
@@ -462,7 +462,7 @@
               </template>
             </el-table-column>
             <el-table-column prop="vectorDimension" label="维度" width="70" align="center" />
-            <el-table-column label="操作" width="100" align="center">
+            <el-table-column label="操作" width="100" align="right">
               <template #default="scope">
                 <el-button size="small" link type="primary" @click="showVectorData(scope.row)" v-if="scope.row.vectorData">
                   查看向量
@@ -476,7 +476,7 @@
     </el-dialog>
 
     <!-- 向量数据对话框 -->
-    <el-dialog v-model="showVectorDialog" title="向量数据" width="600px">
+    <el-dialog v-model="showVectorDialog" title="向量数据" width="760px">
       <div v-if="currentVector">
         <p><strong>分片索引：</strong>{{ currentVector.segmentIndex }}</p>
         <p><strong>嵌入ID：</strong>{{ currentVector.embeddingId }}</p>
@@ -487,7 +487,7 @@
     </el-dialog>
 
     <!-- 文档检索测试对话框 -->
-    <el-dialog v-model="showRetrievalTestDialog" title="检索测试" width="800px">
+    <el-dialog v-model="showRetrievalTestDialog" title="检索测试" width="1000px">
       <div class="retrieval-test-container">
         <el-form :model="retrievalTestForm" label-width="100px">
           <el-form-item label="查询文本">

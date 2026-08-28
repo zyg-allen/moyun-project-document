@@ -52,7 +52,7 @@
           <span>{{ parseTime(scope.row.createTime) }}</span>
         </template>
       </el-table-column>
-      <el-table-column label="操作" align="center" width="180" class-name="small-padding fixed-width">
+      <el-table-column label="操作" align="right" width="180" class-name="small-padding fixed-width">
         <template #default="scope">
           <el-button link type="primary" icon="View" @click="handleView(scope.row)" v-hasPermi="['cms:feedback:query']">详情</el-button>
           <el-button link type="primary" icon="Edit" @click="handleHandle(scope.row)" v-hasPermi="['cms:feedback:handle']">处理</el-button>
@@ -63,7 +63,7 @@
     <pagination v-show="total > 0" :total="total" v-model:page="queryParams.pageNum" v-model:limit="queryParams.pageSize" @pagination="getList" />
 
     <!-- 详情对话框 -->
-    <el-dialog title="反馈详情" v-model="viewOpen" width="720px" append-to-body>
+    <el-dialog title="反馈详情" v-model="viewOpen" width="900px" append-to-body>
       <el-descriptions :column="2" border>
         <el-descriptions-item label="反馈编号">{{ viewForm.id }}</el-descriptions-item>
         <el-descriptions-item label="反馈类型">
@@ -85,7 +85,7 @@
     </el-dialog>
 
     <!-- 处理对话框 -->
-    <el-dialog title="处理反馈" v-model="handleOpen" width="560px" append-to-body>
+    <el-dialog title="处理反馈" v-model="handleOpen" width="700px" append-to-body>
       <el-form ref="handleRef" :model="handleForm" :rules="handleRules" label-width="100px">
         <el-form-item label="反馈编号">
           <span>{{ handleForm.id }}</span>

@@ -84,7 +84,7 @@
           <span>{{ parseTime(scope.row.createdTime) }}</span>
         </template>
       </el-table-column>
-      <el-table-column label="操作" align="center" class-name="small-padding fixed-width" width="120" fixed="right">
+      <el-table-column label="操作" align="right" class-name="small-padding fixed-width" width="120" fixed="right">
         <template #default="scope">
           <el-button
             link
@@ -106,7 +106,7 @@
     />
 
     <!-- 详情对话框（只读） -->
-    <el-dialog title="错题详情" v-model="viewOpen" width="640px" append-to-body>
+    <el-dialog title="错题详情" v-model="viewOpen" width="800px" append-to-body>
       <el-descriptions v-if="currentRow" :column="2" border>
         <el-descriptions-item label="错题ID">{{ currentRow.id }}</el-descriptions-item>
         <el-descriptions-item label="用户ID">{{ currentRow.userId }}</el-descriptions-item>

@@ -3,7 +3,7 @@
     <el-dialog
       v-model="visible"
       title="📚 查询模板库"
-      width="800px"
+      width="1000px"
       :close-on-click-modal="false">
       
       <div class="templates-container">
@@ -63,7 +63,7 @@
     <el-dialog
       v-model="showSQLPreview"
       title="SQL预览"
-      width="600px">
+      width="760px">
       <pre class="sql-preview">{{ previewSQLContent }}</pre>
       <template #footer>
         <el-button type="primary" @click="copySQLToClipboard">复制SQL</el-button>

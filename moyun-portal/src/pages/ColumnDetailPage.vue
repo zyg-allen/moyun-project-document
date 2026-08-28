@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue';
+import { useConfirmModal } from '@/composables/useConfirmModal';
 import { useRoute, useRouter } from 'vue-router';
 import { useHead } from '@vueuse/head';
 import {
@@ -24,6 +25,9 @@ import { useUserStore } from '@/stores/user';
 import { useAuth } from '@/composables/useAuth';
 import { useToast } from '@/composables/useToast';
 import type { ColumnVO, ArticleSimpleVO, ColumnArticleSortItem, Article } from '@/types/api';
+
+
+const confirmModal = useConfirmModal();
 
 const route = useRoute();
 const router = useRouter();
@@ -133,7 +137,7 @@ async function handleSubscribe() {
 async function handleToggleFinish() {
   if (!column.value || managing.value) return;
   const action = column.value.isFinished ? '恢复连载' : '完结专栏';
-  if (!window.confirm(`确定${action}「${column.value.title}」吗？`)) return;
+  if (!await confirmModal.confirm(`确定${action}「${column.value.title}」吗？`, { title: '确认操作'})) return;
   managing.value = true;
   try {
     const res = await toggleColumnFinish(column.value.id);
@@ -155,7 +159,7 @@ async function handleToggleFinish() {
 
 async function handleDelete() {
   if (!column.value) return;
-  if (!window.confirm(`确定删除专栏「${column.value.title}」吗？删除后不可恢复。`)) return;
+  if (!await confirmModal.confirm(`确定删除专栏「${column.value.title}」吗？删除后不可恢复。`, { danger: true,  title: '确认操作'})) return;
   managing.value = true;
   try {
     const res = await deleteColumn(column.value.id);
@@ -210,7 +214,7 @@ function moveDown(index: number) {
   sortDirty.value = true;
 }
 
-function reassignSortOrder() {
+async function reassignSortOrder() {
   const arr = column.value?.articles;
   if (!arr) return;
   // 按当前数组顺序重新分配 sortOrder（升序）
@@ -221,7 +225,7 @@ function reassignSortOrder() {
 
 async function handleRemoveArticle(a: ArticleSimpleVO) {
   if (!column.value) return;
-  if (!window.confirm(`确定将文章「${a.title}」移出专栏吗？`)) return;
+  if (!await confirmModal.confirm(`确定将文章「${a.title}」移出专栏吗？`, { title: '确认操作'})) return;
   try {
     const res = await removeArticle(column.value.id, a.id);
     if (res.code === 200) {

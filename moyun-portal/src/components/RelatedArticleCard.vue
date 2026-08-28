@@ -7,9 +7,13 @@ import type { Article } from '@/types/api';
 
 interface Props {
   article: Article;
+  /** 是否显示封面图（默认 true），文章详情页的"相关推荐"会传入 false 隐藏图片 */
+  showCover?: boolean;
 }
 
-const props = defineProps<Props>();
+const props = withDefaults(defineProps<Props>(), {
+  showCover: true,
+});
 
 // 获取作者用户名
 function getAuthorUsername(article: Article): string {
@@ -53,8 +57,8 @@ function getTags(article: Article): string[] {
         class="block"
         :aria-label="'查看文章: ' + article.title"
     >
-      <!-- Cover Image -->
-      <div v-if="article.cover" class="relative aspect-[16/9] overflow-hidden">
+      <!-- Cover Image（详情页相关推荐传入 showCover=false 可隐藏封面） -->
+      <div v-if="showCover && article.cover" class="relative aspect-[16/9] overflow-hidden">
         <LazyImage
             :src="article.cover"
             :alt="article.title"
@@ -70,6 +74,12 @@ function getTags(article: Article): string[] {
 
       <!-- Content -->
       <div class="p-4">
+        <!-- 不显示封面时，把分类徽标移到标题上方（避免丢失分类信息） -->
+        <div v-if="!showCover && getCategoryName(article)" class="mb-2">
+          <span class="inline-block px-2.5 py-1 text-white text-xs font-medium rounded-full" style="background-color: var(--theme-primary);">
+            {{ getCategoryName(article) }}
+          </span>
+        </div>
         <Link
             :to="`/article/${article.id}`"
             class="block text-base font-bold mb-2 line-clamp-2 transition-colors hover:opacity-80"

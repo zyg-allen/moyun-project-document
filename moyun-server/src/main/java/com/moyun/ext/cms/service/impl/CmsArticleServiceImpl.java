@@ -155,14 +155,30 @@ public class CmsArticleServiceImpl implements ICmsArticleService {
         if (article == null || article.getId() == null) {
             return 0;
         }
+        // 先查当前文章状态，用于判断草稿是否允许直接发布
+        PortalArticle existing = portalArticleMapper.selectById(article.getId());
+        String oldStatus = existing != null ? existing.getStatus() : null;
+        String newStatus = article.getStatus();
+        boolean draftDirectPublish = "draft".equals(oldStatus)
+                && ("published".equals(newStatus) || "archived".equals(newStatus));
+
         // ⚠️ 安全防护：剥离审核相关字段，禁止通过 edit 接口绕过 auditArticle 流程
         // 仅 auditArticle 接口可修改这些字段（带乐观锁与审计日志）
-        article.setStatus(null);
+        // —— 例外：管理员在草稿态直接"发布/归档"是允许的，保留 status 和 publishedAt
+        if (!draftDirectPublish) {
+            article.setStatus(null);
+        }
         article.setAuditorId(null);
         article.setAuditTime(null);
         article.setAuditRemark(null);
-        // publishedAt 仅在审核通过时由 auditArticle 写入，编辑时禁止修改
-        article.setPublishedAt(null);
+        // publishedAt：草稿直发 published 时写入当前时间（若前端未传）；其余编辑场景剥离
+        if (draftDirectPublish && "published".equals(newStatus)) {
+            if (article.getPublishedAt() == null) {
+                article.setPublishedAt(LocalDateTime.now());
+            }
+        } else {
+            article.setPublishedAt(null);
+        }
 
         processArticleImages(article);
         // 编辑时同步维护分类路径（切换分类场景）

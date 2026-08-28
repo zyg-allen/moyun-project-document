@@ -5,6 +5,7 @@
  * 对应 vue_resume_spec.md §五 + resume_optimizer_page.html page-resume-edit
  */
 import { ref, reactive, computed, onMounted, onBeforeUnmount, watch, nextTick } from 'vue';
+import { useConfirmModal } from '@/composables/useConfirmModal';
 import { useRoute, useRouter, onBeforeRouteLeave } from 'vue-router';
 import { useHead } from '@vueuse/head';
 import {
@@ -37,6 +38,9 @@ import type {
   ResumeAiAdviceVO, ResumeAiAdviceItem,
 } from '@/types/api';
 import { useToast } from '@/composables/useToast';
+
+
+const confirmModal = useConfirmModal();
 
 const route = useRoute();
 const router = useRouter();
@@ -1104,10 +1108,10 @@ watch(() => route.params.id, (newId, oldId) => {
 });
 
 // 离开页提示
-onBeforeRouteLeave((to, from, next) => {
+onBeforeRouteLeave(async (to, from, next) => {
   const hasContent = !!form.title?.trim();
   const unsaved = saveStatus.value !== 'saved' && hasContent && loaded.value;
-  if (unsaved && !window.confirm('有未保存的内容，确定离开吗？')) {
+  if (unsaved && !(await confirmModal.confirm('有未保存的内容，确定离开吗？', { danger: true, title: '确认操作' }))) {
     next(false);
   } else {
     next();

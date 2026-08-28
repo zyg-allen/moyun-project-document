@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue';
+import { usePromptModal } from '@/composables/usePromptModal';
+import { useConfirmModal } from '@/composables/useConfirmModal';
 import { useRoute, useRouter } from 'vue-router';
 import { useHead } from '@vueuse/head';
 import MarkdownRenderer from '@/components/MarkdownRenderer.vue';
@@ -38,6 +40,12 @@ useHead({
     description: '沉浸式语音面试，TTS 播报 + ASR 识别 + 智能评分反馈',
   }),
 });
+
+
+
+const promptModal = usePromptModal();
+
+const confirmModal = useConfirmModal();
 
 const toast = useToast();
 const { run } = useApiCall();
@@ -900,8 +908,8 @@ async function handleFinish() {
   }
 }
 
-function confirmEnd() {
-  if (window.confirm('确定要结束面试吗？将生成复盘报告。')) {
+async function confirmEnd() {
+  if (await confirmModal.confirm('确定要结束面试吗？将生成复盘报告。', { danger: true,  title: '确认操作'})) {
     handleFinish();
   }
 }
@@ -970,7 +978,7 @@ async function addAllWeakToWrongBook() {
 }
 
 // ==================== 报告操作 ====================
-function downloadReport() {
+async function downloadReport() {
   toast.info('正在生成 PDF 报告，请稍候...');
   setTimeout(() => window.print(), 300);
 }
@@ -986,7 +994,7 @@ async function shareReport() {
     await navigator.clipboard.writeText(url);
     toast.success('分享链接已复制到剪贴板');
   } catch {
-    window.prompt('复制分享链接：', url);
+    await promptModal.prompt('复制分享链接：', { title: '请输入', defaultValue: (url) });
   }
 }
 

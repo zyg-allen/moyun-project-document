@@ -9,20 +9,24 @@
  * 接口异常时降级用 isCertifiedCreator（创作者认证含实名信息）兜底，避免误拦。
  */
 import { useUserStore } from '@/stores/user';
+import { useConfirmModal } from '@/composables/useConfirmModal';
 import { useToast } from '@/composables/useToast';
 import router from '@/router';
 import { getMyCertification } from '@/api/certification';
 
 /** 跳转登录页（带 redirect 回跳） */
 function gotoLogin(): boolean {
-  const toast = useToast();
+  
+const confirmModal = useConfirmModal();
+
+const toast = useToast();
   toast.info('请先登录');
   router.push({ path: '/login', query: { redirect: router.currentRoute.value.fullPath } });
   return false;
 }
 
 /** 跳转实名认证页（带 redirect 回跳） */
-function gotoCertification(): void {
+async function gotoCertification(): void {
   router.push({ path: '/creator/certification', query: { redirect: router.currentRoute.value.fullPath } });
 }
 
@@ -73,9 +77,8 @@ export async function promptRealNameOptional(): Promise<boolean> {
   const userStore = useUserStore();
   if (!userStore.user) return gotoLogin();
   if (await isRealNameVerified()) return true;
-  const goCert = window.confirm(
-    '建议完成实名认证后发布，有助于提升内容可信度与曝光。\n\n是否现在前往实名认证？\n（点击「取消」将跳过认证，直接继续发布，未实名不影响发布）'
-  );
+  const goCert = await confirmModal.confirm('建议完成实名认证后发布，有助于提升内容可信度与曝光。\n\n是否现在前往实名认证？\n（点击「取消」将跳过认证，直接继续发布，未实名不影响发布）'
+  , { title: '确认操作'});
   if (goCert) {
     gotoCertification();
     return false;

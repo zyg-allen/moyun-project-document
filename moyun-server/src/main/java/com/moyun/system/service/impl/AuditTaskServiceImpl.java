@@ -273,8 +273,12 @@ public class AuditTaskServiceImpl implements IAuditTaskService {
 
     @Override
     public List<AuditTaskVO> listTodoSummary(int limit) {
+        Long currentUserId = SecurityUtils.getUserId();
         LambdaQueryWrapper<SysAuditTask> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(SysAuditTask::getStatus, AuditTaskStatus.PENDING.getCode())
+                // 未指派的公共待办池 + 明确指派给"我"的任务 均可见
+                .and(w -> w.isNull(SysAuditTask::getAuditorId)
+                        .or(currentUserId != null, w2 -> w2.eq(SysAuditTask::getAuditorId, currentUserId)))
                 .orderByDesc(SysAuditTask::getPriority)
                 .orderByAsc(SysAuditTask::getSubmitTime)
                 .last("LIMIT " + Math.max(1, limit));

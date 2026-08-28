@@ -193,6 +193,12 @@ export const dynamicRoutes = [
     permissions: ['cms:article:list', 'cms:interview:list'],
     children: [
       {
+        path: 'article',
+        component: () => import('@/views/cms/article/index'),
+        name: 'CmsArticleList',
+        meta: { title: '文章管理', icon: 'documentation' }
+      },
+      {
         path: 'article/edit',
         component: () => import('@/views/cms/article/edit'),
         name: 'ArticleEdit',

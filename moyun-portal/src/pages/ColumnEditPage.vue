@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue';
+import { useConfirmModal } from '@/composables/useConfirmModal';
 import { useRoute, useRouter } from 'vue-router';
 import { useHead } from '@vueuse/head';
 import {
@@ -16,6 +17,9 @@ import { getColumnDetail, saveColumn, addArticle, removeArticle } from '@/api/co
 import type { ColumnSaveBody } from '@/types/api';
 import { useToast } from '@/composables/useToast';
 import { promptRealNameOptional } from '@/utils/creatorPermission';
+
+
+const confirmModal = useConfirmModal();
 
 const route = useRoute();
 const router = useRouter();
@@ -116,7 +120,7 @@ async function loadDetail() {
   }
 }
 
-function triggerUpload() {
+async function triggerUpload() {
   fileInput.value?.click();
 }
 
@@ -164,7 +168,7 @@ async function clearCover() {
     cover.value = '';
     return;
   }
-  const ok = window.confirm('删除后将永久清除该封面的存储与记录，且无法恢复，是否确认？');
+  const ok = await confirmModal.confirm('删除后将永久清除该封面的存储与记录，且无法恢复，是否确认？', { danger: true,  title: '确认操作'});
   if (!ok) return;
   const oldCover = cover.value;
   cover.value = '';

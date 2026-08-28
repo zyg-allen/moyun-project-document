@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, reactive, onMounted, watch } from 'vue';
+import { useConfirmModal } from '@/composables/useConfirmModal';
 import { useRoute, useRouter } from 'vue-router';
 import { useHead } from '@vueuse/head';
 import {
@@ -27,6 +28,9 @@ import { useUserStore } from '@/stores/user';
 import { useAuth } from '@/composables/useAuth';
 import { useToast } from '@/composables/useToast';
 import type { Topic, TopicPost, TopicComment } from '@/types/api';
+
+
+const confirmModal = useConfirmModal();
 
 const route = useRoute();
 const router = useRouter();
@@ -64,7 +68,7 @@ function togglePostEditor() {
   }
 }
 
-function switchPostEditorMode(mode: 'plain' | 'richtext') {
+async function switchPostEditorMode(mode: 'plain' | 'richtext') {
   postEditorMode.value = mode;
 }
 
@@ -244,7 +248,7 @@ async function handleTogglePostLike(post: TopicPost) {
 
 async function handleDeletePost(post: TopicPost) {
   if (!requireAuth(route.fullPath)) return;
-  if (!window.confirm('确定删除这条观点吗？删除后不可恢复。')) return;
+  if (!await confirmModal.confirm('确定删除这条观点吗？删除后不可恢复。', { danger: true,  title: '确认操作'})) return;
   if (actionPostId.value) return;
   actionPostId.value = post.id;
   try {
@@ -430,7 +434,7 @@ function startReply(
   state.replyContent = '';
 }
 
-function cancelReply(targetType: string, targetId: number | string) {
+async function cancelReply(targetType: string, targetId: number | string) {
   const state = getCommentState(targetType, targetId);
   state.replyingRoot = null;
   state.replyingTo = null;
@@ -498,7 +502,7 @@ async function handleDeleteComment(
   comment: TopicComment,
 ) {
   if (!requireAuth(route.fullPath)) return;
-  if (!window.confirm('确认删除该评论？')) return;
+  if (!await confirmModal.confirm('确认删除该评论？', { danger: true,  title: '确认操作'})) return;
   const state = getCommentState(targetType, targetId);
   if (state.actioningId) return;
   state.actioningId = comment.id;

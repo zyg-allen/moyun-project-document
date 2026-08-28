@@ -878,7 +878,11 @@ function handleDrop(event: DragEvent) {
 // 删除封面：二次确认后调后端清理（仅 http URL 入库过需删；Base64 未入库直接清空）
 async function removeCover() {
   if (!coverImage.value) return;
-  const ok = window.confirm('删除后将永久清除该封面的存储与记录，且无法恢复，是否确认？');
+  const ok = await confirmModal.confirm('删除后将永久清除该封面的存储与记录，且无法恢复，是否确认？', {
+    title: '删除封面',
+    confirmText: '删除',
+    danger: true,
+  });
   if (!ok) return;
   const oldCover = coverImage.value;
   coverImage.value = '';

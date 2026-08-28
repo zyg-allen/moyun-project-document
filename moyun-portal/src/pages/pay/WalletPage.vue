@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { useToast } from '@/composables/useToast';
+import { useConfirmModal } from '@/composables/useConfirmModal';
 import { ref, computed, onMounted } from 'vue';
 import { useHead } from '@vueuse/head';
 import {
@@ -39,6 +40,9 @@ useHead(
     type: 'website',
   })
 );
+
+
+const confirmModal = useConfirmModal();
 
 const toast = useToast();
 
@@ -86,7 +90,7 @@ const bizTypeLabel = (bizType?: string) => {
   return map[bizType || ''] || bizType || '-';
 };
 
-const formatTime = (time?: string) => {
+const formatTime = async (time?: string) => {
   if (!time) return '-';
   // 精简到 分
   return time.length >= 16 ? time.slice(0, 16) : time;
@@ -212,7 +216,7 @@ const handleSetDefault = async (card: UserBankCard) => {
 };
 
 const handleDeleteCard = async (card: UserBankCard) => {
-  if (!window.confirm('确认删除该银行卡？')) return;
+  if (!await confirmModal.confirm('确认删除该银行卡？', { danger: true,  title: '确认操作'})) return;
   try {
     await deleteBankCard(card.id);
     toast.success('删除成功');

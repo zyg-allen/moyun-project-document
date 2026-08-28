@@ -50,27 +50,36 @@ public final class SpecialDateProvider {
     }
 
     /**
-     * 获取指定日期的全部特殊日期名称（节日/纪念日/节气），无则返回空列表。
+     * 获取指定日期前后三天（共7天）内出现的所有特殊日期名称（节日/纪念日/节气）。
+     * 用于写作灵感触发。无特殊日期则返回空列表。
      */
     public static List<String> getSpecialDates(LocalDate date) {
-        List<String> result = new ArrayList<>();
         if (date == null) {
-            return result;
+            return new ArrayList<>();
         }
-        // 1. 公历固定节日
-        String fixed = FIXED_DATES.get(MonthDay.from(date));
-        if (fixed != null) {
-            result.add(fixed);
-        }
-        // 2. 周序节日
-        String weekly = getWeeklyHoliday(date);
-        if (weekly != null) {
-            result.add(weekly);
-        }
-        // 3. 二十四节气（近似公式）
-        String term = getSolarTerm(date);
-        if (term != null) {
-            result.add(term);
+        List<String> result = new ArrayList<>();
+        // 从 date-3 到 date+3，共 7 天
+        for (int offset = -3; offset <= 3; offset++) {
+            LocalDate current = date.plusDays(offset);
+
+            // 1. 公历固定节日
+            MonthDay monthDay = MonthDay.from(current);
+            String fixed = FIXED_DATES.get(monthDay);
+            if (fixed != null && !result.contains(fixed)) {
+                result.add(fixed);
+            }
+
+            // 2. 周序节日（如母亲节、感恩节等）
+            String weekly = getWeeklyHoliday(current);
+            if (weekly != null && !result.contains(weekly)) {
+                result.add(weekly);
+            }
+
+            // 3. 二十四节气（近似公式）
+            String term = getSolarTerm(current);
+            if (term != null && !result.contains(term)) {
+                result.add(term);
+            }
         }
         return result;
     }

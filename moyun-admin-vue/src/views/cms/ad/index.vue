@@ -62,7 +62,7 @@
       <el-table-column label="编号" align="center" prop="id" width="80" />
       <el-table-column label="广告位" align="center" prop="slotKey" width="180" :show-overflow-tooltip="true">
         <template #default="scope">
-          {{ proxy.selectDictLabel(portal_ad_slot_key.value, scope.row.slotKey) || '-' }}
+          {{ proxy.selectDictLabel(portal_ad_slot_key || [], scope.row.slotKey) || '-' }}
         </template>
       </el-table-column>
       <el-table-column label="标题" align="center" prop="title" min-width="160" :show-overflow-tooltip="true" />
@@ -137,10 +137,17 @@
           <el-input v-model="form.title" placeholder="请输入标题" />
         </el-form-item>
         <el-form-item label="广告图" prop="image">
-          <el-input v-model="form.image" placeholder="请输入广告图地址" />
+          <ImageUpload v-model="form.image" :limit="1" />
+          <div class="el-form-item__tip" style="font-size:12px;color:#909399;margin-top:4px;">建议尺寸 800×200（4:1 横幅），支持 JPG/PNG/WebP，单张 ≤ 2MB</div>
         </el-form-item>
         <el-form-item label="跳转链接" prop="link">
-          <el-input v-model="form.link" placeholder="请输入跳转链接" />
+          <el-input v-model="form.link" placeholder="请输入外链地址（含 http:// 或 https://）" />
+        </el-form-item>
+        <el-form-item label="打开方式" prop="openTarget">
+          <el-radio-group v-model="form.openTarget">
+            <el-radio label="_blank">新窗口打开（外链推荐）</el-radio>
+            <el-radio label="_self">当前页打开</el-radio>
+          </el-radio-group>
         </el-form-item>
         <el-form-item label="文案" prop="content">
           <el-input v-model="form.content" type="textarea" :rows="3" placeholder="请输入文案" />
@@ -170,6 +177,7 @@
 
 <script setup name="CmsAd">
 import { listAdSlot, getAdSlot, addAdSlot, updateAdSlot, delAdSlot } from "@/api/cms/ad";
+import ImageUpload from "@/components/ImageUpload/index.vue";
 
 const { proxy } = getCurrentInstance();
 const { portal_ad_slot_key } = proxy.useDict("portal_ad_slot_key");
@@ -233,6 +241,7 @@ function reset() {
     title: null,
     image: null,
     link: null,
+    openTarget: "_blank",
     content: null,
     sort: 0,
     status: "0",

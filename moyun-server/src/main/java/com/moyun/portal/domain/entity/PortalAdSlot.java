@@ -40,6 +40,10 @@ public class PortalAdSlot extends BaseEntity {
     @Size(min = 0, max = 1, message = "状态长度不能超过1个字符")
     private String status;
 
+    /** 链接打开方式：_blank=新窗口（默认），_self=当前页 */
+    @Size(min = 0, max = 10, message = "链接打开方式长度不能超过10个字符")
+    private String openTarget;
+
     public PortalAdSlot() {
     }
 

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue';
+import { useConfirmModal } from '@/composables/useConfirmModal';
 import { useRouter } from 'vue-router';
 import { useHead } from '@vueuse/head';
 import {
@@ -12,6 +13,9 @@ import { generateSeo } from '@/utils/seo';
 import { runCode, getMyCodeRuns } from '@/api/codeRun';
 import { useToast } from '@/composables/useToast';
 import type { CodeRunVO } from '@/types/api';
+
+
+const confirmModal = useConfirmModal();
 
 const router = useRouter();
 const toast = useToast();
@@ -143,8 +147,8 @@ function loadFromHistory(item: CodeRunVO) {
   historyOpen.value = false;
 }
 
-function clearEditor() {
-  if (!window.confirm('确定清空当前代码与输入吗？')) return;
+async function clearEditor() {
+  if (!await confirmModal.confirm('确定清空当前代码与输入吗？', { danger: true,  title: '确认操作'})) return;
   code.value = '';
   stdin.value = '';
   result.value = null;

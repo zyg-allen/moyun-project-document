@@ -7,6 +7,8 @@ export interface AdSlot {
     title: string;
     image: string;
     link: string;
+    /** 链接打开方式：_blank=新窗口（默认），_self=当前页 */
+    openTarget?: string;
     content: string;
     sort: number;
     status: string; // 0启用 1停用

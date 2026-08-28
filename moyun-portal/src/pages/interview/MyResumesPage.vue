@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted, watch, computed } from 'vue';
+import { useConfirmModal } from '@/composables/useConfirmModal';
 import { useRouter } from 'vue-router';
 import { useHead } from '@vueuse/head';
 import {
@@ -16,6 +17,9 @@ import {
 import { getToken } from '@/api/client';
 import type { UserResumeVO } from '@/types/api';
 import { useToast } from '@/composables/useToast';
+
+
+const confirmModal = useConfirmModal();
 
 const router = useRouter();
 const toast = useToast();
@@ -109,7 +113,7 @@ function statusClass(r: UserResumeVO) {
   return statusMap[s]?.class || 'bg-theme-surface text-theme-text-secondary';
 }
 
-function formatTime(t?: string) {
+async function formatTime(t?: string) {
   if (!t) return '-';
   return t.slice(0, 16).replace('T', ' ');
 }
@@ -210,7 +214,7 @@ async function handleScore(r: UserResumeVO) {
 async function handleToggleStatus(r: UserResumeVO, target: 'published' | 'archived' | 'draft') {
   if (!r.id || actionId.value) return;
   const actionText = target === 'published' ? '发布' : (target === 'archived' ? '归档' : '恢复为草稿');
-  if (!window.confirm(`确定${actionText}简历「${r.title || r.name || ''}」吗？`)) return;
+  if (!await confirmModal.confirm(`确定${actionText}简历「${r.title || r.name || ''}」吗？`, { title: '确认操作'})) return;
   try {
     actionId.value = r.id;
     await updateResumeStatus(r.id, target);
@@ -247,13 +251,13 @@ async function handleShowVersions(r: UserResumeVO) {
   }
 }
 
-function closeVersionModal() {
+async function closeVersionModal() {
   versionModal.value.open = false;
 }
 
 async function handleDelete(r: UserResumeVO) {
   if (!r.id || actionId.value) return;
-  if (!window.confirm(`确定删除简历「${r.title || r.name || ''}」吗？删除后不可恢复，且会同时删除其所有历史版本。`)) return;
+  if (!await confirmModal.confirm(`确定删除简历「${r.title || r.name || ''}」吗？删除后不可恢复，且会同时删除其所有历史版本。`, { danger: true,  title: '确认操作'})) return;
   try {
     actionId.value = r.id;
     await deleteResume(r.id);

@@ -120,8 +120,13 @@ public class SysDashboardServiceImpl implements ISysDashboardService {
         vo.setHotArticles(buildHotArticles());
         vo.setConfigOverview(buildConfigOverview());
 
-        // 写入缓存
-        redisCache.setCacheObject(CACHE_KEY_FULL, vo, (int) CACHE_TTL_SECONDS, TimeUnit.SECONDS);
+        // 写入缓存：若待办/已办为空（可能首次启动或审核任务索引未回填），
+        // 仅短缓存 20s，避免空列表被缓存 5 分钟导致"实际有数据但首页待办空"的感知；
+        // 数据齐全时仍缓存 5 分钟以保护数据库。
+        boolean hasAnyTask = (vo.getTodoTasks() != null && !vo.getTodoTasks().isEmpty())
+                || (vo.getMyTasks() != null && !vo.getMyTasks().isEmpty());
+        long ttl = hasAnyTask ? CACHE_TTL_SECONDS : 20L;
+        redisCache.setCacheObject(CACHE_KEY_FULL, vo, (int) ttl, TimeUnit.SECONDS);
         return vo;
     }
 
@@ -176,7 +181,11 @@ public class SysDashboardServiceImpl implements ISysDashboardService {
         List<DashboardVO.TaskItem> cached = readCacheSafely(CACHE_KEY_TODO);
         if (cached != null) return cached;
         List<DashboardVO.TaskItem> tasks = buildTodoTasks();
-        redisCache.setCacheObject(CACHE_KEY_TODO, tasks, (int) CACHE_TTL_SECONDS, TimeUnit.SECONDS);
+        // 空列表不缓存（兼容历史脏数据：sys_audit_task 索引行缺失但业务表有 pending 时，
+        // 补数/回填后下次即可立即命中，不会被空列表缓存挡 5 分钟）
+        if (tasks != null && !tasks.isEmpty()) {
+            redisCache.setCacheObject(CACHE_KEY_TODO, tasks, (int) CACHE_TTL_SECONDS, TimeUnit.SECONDS);
+        }
         return tasks;
     }
 
@@ -188,7 +197,10 @@ public class SysDashboardServiceImpl implements ISysDashboardService {
         List<DashboardVO.TaskItem> cached = readCacheSafely(cacheKey);
         if (cached != null) return cached;
         List<DashboardVO.TaskItem> tasks = buildMyTasks();
-        redisCache.setCacheObject(cacheKey, tasks, (int) CACHE_TTL_SECONDS, TimeUnit.SECONDS);
+        // 空列表不缓存
+        if (tasks != null && !tasks.isEmpty()) {
+            redisCache.setCacheObject(cacheKey, tasks, (int) CACHE_TTL_SECONDS, TimeUnit.SECONDS);
+        }
         return tasks;
     }
 

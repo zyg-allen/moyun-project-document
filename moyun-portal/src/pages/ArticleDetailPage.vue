@@ -1246,6 +1246,7 @@ const head = useHead(
                 v-for="rel in relatedArticles"
                 :key="rel.id"
                 :article="rel"
+                :show-cover="false"
               />
             </div>
           </section>

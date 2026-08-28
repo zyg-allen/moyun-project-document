@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch, reactive } from 'vue';
+import { useConfirmModal } from '@/composables/useConfirmModal';
 import { useRouter } from 'vue-router';
 import { useHead } from '@vueuse/head';
 import {
@@ -15,6 +16,9 @@ import {
 } from '@/api/learn';
 import type { StudyPlanVO, StudyPlanSaveBody } from '@/api/learn';
 import { useToast } from '@/composables/useToast';
+
+
+const confirmModal = useConfirmModal();
 
 const router = useRouter();
 const toast = useToast();
@@ -156,7 +160,7 @@ function openEdit(plan: StudyPlanVO) {
   formOpen.value = true;
 }
 
-function closeForm() {
+async function closeForm() {
   if (formLoading.value) return;
   formOpen.value = false;
 }
@@ -191,7 +195,7 @@ async function submitForm() {
 }
 
 async function removePlan(plan: StudyPlanVO) {
-  if (!window.confirm(`确定删除计划「${plan.title}」？该操作不可恢复，相关进度日志将一并删除。`)) return;
+  if (!await confirmModal.confirm(`确定删除计划「${plan.title}」？该操作不可恢复，相关进度日志将一并删除。`, { danger: true,  title: '确认操作'})) return;
   actionId.value = plan.id;
   try {
     await deleteStudyPlan(plan.id);

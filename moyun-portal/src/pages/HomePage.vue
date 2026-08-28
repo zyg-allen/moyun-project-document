@@ -15,6 +15,7 @@ import {
 import LazyImage from '@/components/LazyImage.vue'
 import SiteFooter from '@/components/SiteFooter.vue'
 import BackToTop from '@/components/BackToTop.vue'
+import AdCard from '@/components/AdCard.vue'
 import { generateSeo } from '@/utils/seo'
 import { transformArticle } from '@/utils/articleTransform'
 import * as articleApi from '@/api/article'
@@ -670,18 +671,23 @@ useHead(
           </div>
 
           <div class="space-y-4 sm:space-y-6">
+            <!-- 旭林广告位（后台运营配置，slotKey=home_xulin_ad） -->
+            <AdCard slot-key="home_xulin_ad" />
+            <div class="h-4 sm:h-6"></div>
+
             <div class="p-3 sm:p-4 rounded-xl" style="background-color: var(--theme-surface);">
               <div class="flex items-center gap-2 mb-3 sm:mb-4">
                 <Flame class="w-4 h-4 sm:w-5 sm:h-5 text-orange-500" />
                 <h3 class="font-semibold text-sm sm:text-base" style="color: var(--theme-text);">热门推荐</h3>
               </div>
-              <div class="space-y-2 sm:space-y-3">
+              <div class="space-y-3 sm:space-y-5">
                 <button
                     type="button"
                     v-for="(article, index) in trendingArticles"
                     :key="article.id"
                     @click.stop="router.push('/article/' + article.id)"
                     class="flex items-start gap-2 cursor-pointer w-full text-left"
+                    :title="article.title"
                 >
                   <span
                       class="w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0"
@@ -691,7 +697,7 @@ useHead(
                   </span>
                   <div class="flex-1 min-w-0">
                     <div class="flex items-center justify-between gap-2">
-                      <h4 class="font-medium text-xs sm:text-sm line-clamp-1 flex-1 text-left" style="color: var(--theme-text);">
+                      <h4 class="font-medium text-xs sm:text-sm line-clamp-1 flex-1 text-left" style="color: var(--theme-text);" :title="article.title">
                         {{ article.title }}
                       </h4>
                       <span class="text-xs flex items-center gap-1 flex-shrink-0" style="color: var(--theme-text-secondary);">
@@ -704,44 +710,8 @@ useHead(
               </div>
             </div>
 
-            <!-- 首页广告位（可关闭） -->
-            <div
-                v-if="showAdBanner"
-                class="relative rounded-xl overflow-hidden shadow-md transition-all hover:shadow-lg"
-            >
-              <button
-                  type="button"
-                  @click="showAdBanner = false"
-                  class="absolute top-1.5 right-1.5 z-10 w-6 h-6 rounded-full bg-black/40 hover:bg-black/60 flex items-center justify-center text-white transition-colors backdrop-blur"
-                  aria-label="关闭广告"
-              >
-                <X class="w-3.5 h-3.5" />
-              </button>
-              <div
-                  class="flex items-stretch gap-3 p-3 sm:p-4 cursor-pointer"
-                  style="background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 50%, #ec4899 100%);"
-                  @click="router.push('/vip')"
-              >
-                <div class="hidden sm:flex w-16 h-16 sm:w-20 sm:h-20 rounded-lg overflow-hidden flex-shrink-0 bg-white/10">
-                  <img
-                      src="https://trae-api-cn.mchost.guru/api/ide/v1/text_to_image?prompt=VIP%20membership%20premium%20card%20design%20with%20gold%20and%20purple%20gradient%20luxury%20style&image_size=square"
-                      alt="VIP会员"
-                      class="w-full h-full object-cover"
-                  />
-                </div>
-                <div class="flex-1 flex flex-col justify-center min-w-0 text-white py-1">
-                  <div class="flex items-center gap-2 mb-1">
-                    <span class="text-[10px] font-medium px-1.5 py-0.5 bg-white/25 rounded backdrop-blur flex-shrink-0">推广</span>
-                    <h4 class="text-sm sm:text-base font-bold truncate">加入旭林知行会员</h4>
-                  </div>
-                  <p class="text-xs sm:text-sm opacity-90 line-clamp-2">解锁VIP专属内容、AI面试官、成长1.5倍加成等特权</p>
-                  <span class="inline-flex items-center gap-1 mt-1.5 px-2.5 py-0.5 bg-white text-indigo-700 rounded-full text-xs font-medium w-fit">
-                    立即开通
-                    <ArrowRight class="w-3 h-3" />
-                  </span>
-                </div>
-              </div>
-            </div>
+            <!-- VIP 推广广告位（后台运营配置，slotKey=home_vip_banner） -->
+            <AdCard slot-key="home_vip_banner" />
           </div>
         </div>
       </div>

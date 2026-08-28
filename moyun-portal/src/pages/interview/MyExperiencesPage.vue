@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted, watch, computed } from 'vue';
+import { useConfirmModal } from '@/composables/useConfirmModal';
 import { useRoute, useRouter } from 'vue-router';
 import { useHead } from '@vueuse/head';
 import {
@@ -12,6 +13,9 @@ import { generateSeo } from '@/utils/seo';
 import { getMyExperienceList, deleteExperience } from '@/api/interview';
 import type { InterviewExperienceVO } from '@/types/api';
 import { useToast } from '@/composables/useToast';
+
+
+const confirmModal = useConfirmModal();
 
 const route = useRoute();
 const router = useRouter();
@@ -124,12 +128,12 @@ function formatNumber(n: number) {
   return String(n || 0);
 }
 
-function publishTime(exp: InterviewExperienceVO) {
+async function publishTime(exp: InterviewExperienceVO) {
   return exp.createTime || exp.updateTime || '';
 }
 
 async function handleDelete(exp: InterviewExperienceVO) {
-  if (!window.confirm(`确定删除面经「${exp.title}」吗？删除后不可恢复。`)) return;
+  if (!await confirmModal.confirm(`确定删除面经「${exp.title}」吗？删除后不可恢复。`, { danger: true,  title: '确认操作'})) return;
   try {
     deletingId.value = exp.id;
     await deleteExperience(exp.id);

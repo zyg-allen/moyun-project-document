@@ -8,6 +8,7 @@ import com.moyun.ext.cms.service.ICmsWritingPromptService;
 import com.moyun.portal.domain.entity.PortalWritingPrompt;
 import com.moyun.portal.mapper.PortalWritingPromptMapper;
 import com.moyun.portal.util.SpecialDateProvider;
+import com.moyun.util.string.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -197,7 +198,7 @@ public class CmsWritingPromptServiceImpl implements ICmsWritingPromptService {
             applyFallbackContent(prompt, date);
         }
         prompt.setFestivalName(festivalName);
-        prompt.setSource("ai");
+        prompt.setSource(StringUtils.hasText(prompt.getSource()) ? prompt.getSource() : "manual");
         promptMapper.updateById(prompt);
         return prompt;
     }
@@ -226,21 +227,42 @@ public class CmsWritingPromptServiceImpl implements ICmsWritingPromptService {
 
     /**
      * 构造 AI 提示词：日期 + 星期 + 特殊日期上下文 + 输出格式约束。
+     * 优化点：
+     * 1. 明确主题必须“具体可写”，避免空泛；
+     * 2. 分类严格限定，确保后台管理一致；
+     * 3. 描述部分提供写作切入点和示例角度，激发用户灵感；
+     * 4. 特殊日期要求“自然关联”，而非生硬命题；
+     * 5. 无特殊日期时，以“节气/季节/自然物候”作为核心素材，提供具体可写的季节主题。
      */
     private String buildAiPrompt(LocalDate date, List<String> specialDates) {
         StringBuilder sb = new StringBuilder();
-        sb.append("你是社区写作平台的编辑，负责为每天设计一个\"今日写作主题\"，激励创作者写文章。\n");
+        sb.append("你是社区写作平台的编辑，负责为每天设计一个“今日写作主题”，激励创作者写出真实、有感染力的文章。\n");
         sb.append("今天是").append(date.format(DATE_FMT))
-                .append("，星期").append(WEEK_CN.get(date.getDayOfWeek().getValue() - 1)).append("。");
+                .append("，星期").append(WEEK_CN.get(date.getDayOfWeek().getValue() - 1)).append("。\n");
+
+        // ========== 核心改动：特殊日期判断，无则走季节主题 ==========
         if (!specialDates.isEmpty()) {
             sb.append("今天恰逢：").append(String.join("、", specialDates))
-                    .append("。请务必让主题与这个特殊日子自然相关（不要生硬点题）。");
+                    .append("。请将主题与这个特殊日子自然关联（避免生硬点题），可结合该日的氛围、情感或常见活动来设计。");
         } else {
-            sb.append("今天不是特别的节日，请结合季节、星期或日常生活给出一个亲切有共鸣的主题。");
+            // ✅ 精确描述：明确告诉 AI 去取“这个季节”的素材，而非泛泛而谈
+            sb.append("今天不是特别的节日，请以当前的【节气/季节/自然物候】为核心素材库来设计主题。\n");
+            sb.append("例如：这个季节有什么典型的花、果、天气现象（雨/雪/风/霜）、农事活动、自然景观？\n");
+            sb.append("有哪些因季节而产生的生活场景（如换季整理、时令饮食、户外活动）？\n");
+            sb.append("将这些自然元素融入主题，让内容有“季节感”，而非凭空抒情。\n");
+            // 补充一个具体示例，让 AI 理解“结合季节”是什么样子
+            sb.append("示例：");
+            sb.append("· 若秋季：枫叶、银杏、桂花、秋雨、丰收\n");
+            sb.append("· 若冬季：雪、炉火、腊梅、年末总结\n");
+            sb.append("· 若春季：樱花、春雨、清明、新芽\n");
+            sb.append("· 若夏季：蝉鸣、荷花、暴雨、西瓜\n");
         }
-        sb.append("\n要求：主题面向中文创作者，亲切、有画面感、能激发真实表达；标题 20 字以内；描述 100 字以内，给出具体可写的切入点。\n");
-        sb.append("分类限定为以下之一：生活/职场/情感/虚构/哲思。\n");
-        sb.append("严格按如下三行格式输出，不要任何多余内容：\n");
+        sb.append("\n要求：\n");
+        sb.append("1. 主题必须具体、可写，能激发真实表达，避免“人生”“梦想”等大词，最好聚焦一个场景、一段回忆或一种情绪。\n");
+        sb.append("2. 标题在 30 字以内，简洁有力，吸引点击。\n");
+        sb.append("3. 描述在 100 字以内，必须包含“写作切入点”，例如“可以写一次雨中的等待”、“试着描述你通勤路上看到的一个人”等具体引导。\n");
+        sb.append("4. 分类严格限定为以下之一：生活/职场/情感/虚构/哲思，不要输出其他分类。\n");
+        sb.append("严格按如下三行格式输出，不要任何多余内容（包括解释、前缀、序号）：\n");
         sb.append("标题：xxx\n分类：xx\n描述：xxx");
         return sb.toString();
     }
@@ -252,7 +274,7 @@ public class CmsWritingPromptServiceImpl implements ICmsWritingPromptService {
         prompt.setTitle(item[1]);
         prompt.setCategory(item[0]);
         prompt.setDescription(item[2]);
-        prompt.setSource("ai");
+        prompt.setSource("manual");
     }
 
     /** 分类归一化：映射到标准五分类，非法值归入"生活" */

@@ -52,8 +52,7 @@ const toolbarOptions = {
     [{ 'list': 'ordered' }, { 'list': 'bullet' }],
     [{ 'header': [1, 2, 3, 4, 5, 6, false] }],
     ['link', 'image', 'video'],
-    ['clean'],
-    ['undo', 'redo']
+    ['clean']
   ],
   handlers: {
     image: imageHandler

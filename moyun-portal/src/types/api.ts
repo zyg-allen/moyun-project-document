@@ -1174,6 +1174,20 @@ export interface InterviewQuestionQuery {
   companyId?: string | number;
 }
 
+/** 相邻题目导航（v12.0 做题页上一题/下一题） */
+export interface InterviewQuestionNeighborVO {
+  /** 上一题 ID（结果集首位时为 null） */
+  prevId?: string | number | null;
+  prevTitle?: string | null;
+  /** 下一题 ID（结果集末位时为 null） */
+  nextId?: string | number | null;
+  nextTitle?: string | null;
+  /** 当前题目在筛选结果集中的序号（1 起，不在结果集时为 null） */
+  currentIndex?: number | null;
+  /** 筛选结果集总数 */
+  total?: number;
+}
+
 export interface InterviewSubmissionVO {
   id: string | number;
   questionId: string | number;
@@ -1181,7 +1195,7 @@ export interface InterviewSubmissionVO {
   code?: string;
   content?: string;
   language?: string;
-  answerType?: 'code' | 'text' | 'design';
+  answerType?: 'choice' | 'code' | 'text' | 'design' | 'reading';
   status?: string;
   isSuccess?: boolean;
   runtime?: number;
@@ -1201,10 +1215,8 @@ export interface InterviewSubmissionVO {
   failedCaseActual?: string;
   errorMessage?: string;
   // ===== 选择题服务端权威判分字段（v9.1） =====
-  /** 是否通过（服务端权威判分结果） */
+  /** 是否通过（服务端权威判分结果，与 isSuccess 同源） */
   passed?: boolean;
-  /** 用户得分（选择题 0-100） */
-  userScore?: number;
   /** 练习模式：reading/choice/coding */
   practiceMode?: string;
   /** 正确答案（提交后下发，用于复盘） */
@@ -1274,6 +1286,11 @@ export interface JudgeSubmitParams {
   questionId: string | number;
   code: string;
   language: JudgeLanguage | string;
+  /**
+   * 提交意图：run=运行（仅样例自测，不落记录不计成长）
+   * submit=提交（全量判定+落记录+成长闭环），缺省按 submit 处理
+   */
+  mode?: 'run' | 'submit';
 }
 
 /** 用例新增/修改参数（CMS 后台） */

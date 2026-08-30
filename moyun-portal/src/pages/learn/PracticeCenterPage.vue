@@ -2,7 +2,7 @@
 import { computed } from 'vue';
 import { useHead } from '@vueuse/head';
 import { useRouter } from 'vue-router';
-import { CheckSquare, Code2, ChevronRight } from 'lucide-vue-next';
+import { CheckSquare, Code2, BookOpen, ChevronRight } from 'lucide-vue-next';
 import Breadcrumb from '@/components/Breadcrumb.vue';
 import SiteFooter from '@/components/SiteFooter.vue';
 import { generateSeo } from '@/utils/seo';
@@ -11,8 +11,8 @@ const router = useRouter();
 
 useHead(computed(() => generateSeo({
   title: '刷题中心',
-  description: '在线刷题中心 - 选择题练习、编程题练习，全面提升技术能力',
-  keywords: ['刷题', '选择题', '编程题', '在线练习', '旭林'],
+  description: '在线刷题中心 - 题库阅读、选择题练习、编程题练习三种模式，学习行为计入成长记录',
+  keywords: ['刷题', '选择题', '编程题', '题库阅读', '在线练习', '旭林'],
   canonicalPath: '/learn/practice',
 })));
 
@@ -24,7 +24,7 @@ const breadcrumbs = computed(() => [
 const practiceModules = [
   {
     name: '选择题练习',
-    desc: '计算机基础、八股文选择题库，即时判定与解析',
+    desc: '选项作答 · 服务端判分，即时给出答案与解析',
     icon: CheckSquare,
     color: 'linear-gradient(135deg, #DC2626, #B91C1C)',
     path: '/learn/practice/choice',
@@ -32,11 +32,19 @@ const practiceModules = [
   },
   {
     name: '编程题练习',
-    desc: '算法题、数据结构，在线 IDE 编写代码，测试用例判定',
+    desc: '在线 IDE 编写代码，运行全部测试用例判定',
     icon: Code2,
     color: 'linear-gradient(135deg, #7C3AED, #5B21B6)',
     path: '/learn/practice/coding',
     badge: 'NEW',
+  },
+  {
+    name: '题库阅读',
+    desc: '直接查看题目、参考答案与解析，适合复习速查',
+    icon: BookOpen,
+    color: 'linear-gradient(135deg, #0EA5E9, #0369A1)',
+    path: '/interview/questions',
+    badge: '',
   },
 ];
 
@@ -53,11 +61,11 @@ function goto(path: string) {
       <!-- 页头 -->
       <div class="mt-4 mb-8 text-center">
         <h1 class="text-2xl font-bold mb-2" style="color: var(--theme-text);">刷题中心</h1>
-        <p class="text-sm" style="color: var(--theme-text-secondary);">选择练习模式，开始你的刷题之旅</p>
+        <p class="text-sm" style="color: var(--theme-text-secondary);">阅读、选择、编程三种练习模式，学习行为均计入成长记录</p>
       </div>
 
       <!-- 练习模式卡片 -->
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-3xl mx-auto">
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4 max-w-4xl mx-auto">
         <div
           v-for="m in practiceModules"
           :key="m.name"

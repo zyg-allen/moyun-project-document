@@ -64,7 +64,7 @@ async function loadQuestions() {
     const params: InterviewQuestionQuery = {
       pageNum: page.value,
       pageSize,
-      // v10.6：按练习模式筛选编程题（practice_mode=coding）
+      // 按练习模式筛选（权威字段）：coding=代码作答+OJ 测试用例判定
       practiceMode: 'coding',
     };
     if (activeDifficulty.value) params.difficulty = activeDifficulty.value;
@@ -94,8 +94,19 @@ function selectDifficulty(d: string) {
 }
 
 function gotoQuestion(id: string | number) {
-  // v10.6 阶段3：跳转编程题做题页
-  router.push(`/learn/practice/coding/${id}`);
+  // 练习入口：携带当前筛选条件，做题页"上一题/下一题"导航与列表顺序保持一致
+  router.push({
+    path: `/learn/practice/coding/${id}`,
+    query: buildFilterQuery(),
+  });
+}
+
+/** 当前筛选条件（难度/关键词）透传给做题页，用于相邻题目导航同源筛选 */
+function buildFilterQuery() {
+  const query: Record<string, string> = {};
+  if (activeDifficulty.value) query.difficulty = activeDifficulty.value;
+  if (keyword.value) query.keyword = keyword.value;
+  return query;
 }
 
 function gotoPage(p: number) {
@@ -127,7 +138,7 @@ onMounted(() => {
         </div>
         <div>
           <h1 class="text-xl font-bold" style="color: var(--theme-text);">编程题练习</h1>
-          <p class="text-xs" style="color: var(--theme-text-secondary);">在线编程 · 多语言 IDE · 测试用例判定</p>
+          <p class="text-xs" style="color: var(--theme-text-secondary);">代码作答 · 测试用例判定 · 通过计入成长记录</p>
         </div>
       </div>
 
@@ -196,8 +207,13 @@ onMounted(() => {
       <!-- 空状态 -->
       <div v-else-if="questions.length === 0" class="flex flex-col items-center justify-center py-16">
         <BookOpen class="w-10 h-10 mb-3" style="color: var(--theme-text-secondary); opacity: 0.5;" />
-        <p class="text-sm mb-1" style="color: var(--theme-text);">暂无编程题</p>
-        <p class="text-xs" style="color: var(--theme-text-secondary);">题库正在建设中，敬请期待</p>
+        <p class="text-sm mb-1" style="color: var(--theme-text);">暂无符合条件的题目</p>
+        <p class="text-xs mb-4" style="color: var(--theme-text-secondary);">换个难度或关键词试试，或前往题库浏览全部题目</p>
+        <button
+          @click="router.push('/interview/questions')"
+          class="px-3 py-1.5 text-xs text-white rounded-md"
+          style="background-color: var(--theme-primary);"
+        >去题库看看</button>
       </div>
 
       <!-- 题目列表 -->
@@ -228,7 +244,7 @@ onMounted(() => {
                 {{ q.title }}
               </h3>
               <p v-if="q.description" class="text-xs mt-1 line-clamp-2"
-                 style="color: var(--theme-text-secondary);" v-html="q.description.slice(0, 120) + (q.description.length > 120 ? '...' : '')"></p>
+                 style="color: var(--theme-text-secondary);">{{ q.description }}</p>
               <div class="flex items-center gap-3 mt-2 text-[10px]" style="color: var(--theme-text-secondary);">
                 <span v-if="q.companies && q.companies.length">🏢 {{ q.companies.map(c => c.name).join('、') }}</span>
                 <span v-if="q.submissionCount">📝 {{ q.submissionCount }} 人练过</span>

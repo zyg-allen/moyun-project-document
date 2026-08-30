@@ -682,6 +682,7 @@ public class PortalGrowthServiceImpl implements IPortalGrowthService {
             case "finish_book": return "读完一本书";
             // 面试
             case "solve_question": return "答对题目";
+            case "read_question": return "阅读题目";
             case "write_note": return "提交笔记";
             case "note_adopted": return "笔记被精选";
             case "publish_experience": return "发布面经";

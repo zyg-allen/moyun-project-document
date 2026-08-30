@@ -183,7 +183,7 @@ onUnmounted(() => {
           加载中...
         </div>
         <div v-else-if="timeline.length === 0">
-          <Empty description="还没有成长记录，去读书或做题吧" />
+          <Empty description="还没有成长记录，去阅读题目、刷题或读书吧，学习行为都会记录在这里" />
         </div>
         <template v-else>
           <!-- 时间线 -->

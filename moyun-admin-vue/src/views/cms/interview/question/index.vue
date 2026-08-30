@@ -125,9 +125,9 @@
             >{{ m.label }}</el-radio-button>
           </el-radio-group>
           <div class="form-tip">
-            <span v-if="form.practiceMode === 'reading'">展示阅读题：用户看题+参考答案，不做判分</span>
-            <span v-else-if="form.practiceMode === 'choice'">选择题：用户选择选项，系统判分，需配置选项</span>
-            <span v-else-if="form.practiceMode === 'coding'">编程题：用户写代码，测试用例判定，需配置用例</span>
+            <span v-if="form.practiceMode === 'reading'">展示阅读题：用户看题+参考答案，不做判分，阅读行为计入成长</span>
+            <span v-else-if="form.practiceMode === 'choice'">选择题：用户选择选项，系统判分；支持单选与多选</span>
+            <span v-else-if="form.practiceMode === 'coding'">编程题：用户在线写代码，沙箱运行全部测试用例判定</span>
           </div>
         </el-form-item>
 
@@ -179,19 +179,23 @@
             <el-form-item :label="'选项 ' + opt.label" style="flex: 1; margin-bottom: 12px;">
               <div class="option-input-group">
                 <el-input v-model="opt.text" placeholder="请输入选项内容" style="flex: 1;" />
-                <el-radio-group v-model="form.correctAnswer" class="option-correct-radio">
-                  <el-radio :label="opt.label">正确</el-radio>
-                </el-radio-group>
+                <el-checkbox
+                  :model-value="form.correctAnswerArr.includes(opt.label)"
+                  class="option-correct-radio"
+                  @change="(val) => toggleCorrect(opt.label, val)"
+                >正确项</el-checkbox>
                 <el-button type="danger" :icon="Delete" circle size="small" @click="removeOption(idx)" :disabled="form.optionList.length <= 2" />
               </div>
             </el-form-item>
           </div>
           <el-form-item>
             <el-button type="primary" plain :icon="Plus" @click="addOption">添加选项</el-button>
-            <span class="form-tip" style="margin-left: 12px;">至少 2 个选项，单选模式下选择一个正确答案</span>
+            <span class="form-tip" style="margin-left: 12px;">
+              至少 2 个选项；勾选 1 项为单选题，勾选多项为多选题（用户需全部选对方可判对）
+            </span>
           </el-form-item>
           <el-form-item label="题目解析">
-            <el-input v-model="form.analysis" type="textarea" :rows="4" placeholder="做题后展示的解析" />
+            <el-input v-model="form.analysis" type="textarea" :rows="4" placeholder="提交作答后展示的解析" />
           </el-form-item>
         </template>
 
@@ -307,7 +311,8 @@ function makeDefaultForm() {
     // v10.6 题库重构：练习模式扩展字段
     practiceMode: 'reading',
     optionList: makeDefaultOptions(),  // 选择题选项数组（前端临时态）
-    correctAnswer: '',                 // 正确答案（选择题 label）
+    correctAnswer: '',                 // 正确答案（提交值：选项字母，多选逗号分隔）
+    correctAnswerArr: [],              // 正确答案勾选集（前端临时态，提交时序列化）
     analysis: '',                      // 题目解析
     knowledgeTags: '',                  // 知识点标签
   };
@@ -340,33 +345,46 @@ function addOption() {
   form.value.optionList.push({ label: nextOptionLabel(), text: '', is_correct: false });
 }
 
+/** 勾选/取消正确项：维护勾选集并同步提交值（多选逗号拼接） */
+function toggleCorrect(label, checked) {
+  const arr = form.value.correctAnswerArr;
+  const idx = arr.indexOf(label);
+  if (checked && idx === -1) arr.push(label);
+  else if (!checked && idx >= 0) arr.splice(idx, 1);
+  form.value.correctAnswer = arr.join(',');
+}
+
 function removeOption(idx) {
   if (form.value.optionList.length <= 2) {
     ElMessage.warning('至少保留 2 个选项');
     return;
   }
-  const removed = form.value.optionList[idx];
+  // 先按位置记录勾选项（删除后 label 会整体前移，不能按旧 label 匹配）
+  const checkedIdx = form.value.optionList
+    .map((opt, i) => form.value.correctAnswerArr.includes(opt.label) ? i : -1)
+    .filter(i => i !== -1)
+    .filter(i => i !== idx);
   form.value.optionList.splice(idx, 1);
   // 重新排序 label
   form.value.optionList.forEach((opt, i) => {
     opt.label = String.fromCharCode(65 + i);
   });
-  // 若删除的是正确答案，清空
-  if (form.value.correctAnswer === removed.label) {
-    form.value.correctAnswer = '';
-  } else {
-    // 重新映射 correctAnswer
-    const oldIdx = idx;
-    form.value.optionList.forEach((opt, i) => {
-      // label 已重新赋值，无需处理
-    });
-  }
+  // 勾选位置前移一位后映射到新 label
+  form.value.correctAnswerArr = checkedIdx
+    .map(i => (i > idx ? i - 1 : i))
+    .map(i => form.value.optionList[i]?.label)
+    .filter(Boolean);
+  form.value.correctAnswer = form.value.correctAnswerArr.join(',');
 }
 
-// 练习模式切换时重置选项
+// 练习模式切换：进入 choice 初始化选项，离开 choice 清空选择题临时态
 function onPracticeModeChange(newMode) {
   if (newMode === 'choice' && form.value.optionList.length === 0) {
     form.value.optionList = makeDefaultOptions();
+  }
+  if (newMode !== 'choice') {
+    form.value.correctAnswerArr = [];
+    form.value.correctAnswer = '';
   }
 }
 
@@ -432,6 +450,12 @@ async function handleEdit(row) {
         }
       } catch { /* JSON 解析失败，用默认空选项 */ }
     }
+    // 正确答案勾选集：correctAnswer（支持 "A" / "A,B" 多选写法）优先，
+    // 兼容历史数据仅 options 标记 is_correct 而 correctAnswer 为空的情况
+    const answerStr = (data.correctAnswer || '').toUpperCase();
+    let correctAnswerArr = answerStr
+      ? answerStr.split(/[^A-Z]+/).filter(Boolean)
+      : optionList.filter(o => o.is_correct).map(o => o.label);
     form.value = {
       id: data.id,
       title: data.title || '',
@@ -447,7 +471,8 @@ async function handleEdit(row) {
       // v10.6 扩展字段
       practiceMode: data.practiceMode || 'reading',
       optionList,
-      correctAnswer: data.correctAnswer || '',
+      correctAnswer: correctAnswerArr.join(','),
+      correctAnswerArr,
       analysis: data.analysis || '',
       knowledgeTags: data.knowledgeTags || '',
     };
@@ -475,9 +500,32 @@ async function submitForm() {
       ElMessage.warning('选择题至少需要 2 个有效选项');
       return;
     }
-    if (!form.value.correctAnswer) {
-      ElMessage.warning('请标记一个正确答案');
+    if (!form.value.correctAnswerArr.length) {
+      ElMessage.warning('请勾选正确项（1 项为单选题，多项为多选题）');
       return;
+    }
+    // 勾选正确项的选项内容不能为空
+    const emptyCorrect = form.value.correctAnswerArr.find(
+      (label) => !form.value.optionList.find(o => o.label === label && o.text.trim())
+    );
+    if (emptyCorrect) {
+      ElMessage.warning(`选项 ${emptyCorrect} 已勾选为正确项，请补充其内容`);
+      return;
+    }
+    // 同步勾选集到提交值（多选逗号拼接，与判分归一化规则一致）
+    form.value.correctAnswer = form.value.correctAnswerArr.join(',');
+  }
+  // 阅读题提示：无参考答案时给出非阻断提醒
+  if (form.value.practiceMode === 'reading' && !form.value.solution && !form.value.analysis) {
+    ElMessage.warning('建议填写参考答案或题目解析，供用户阅读时查看');
+  }
+  // 编程题提示：无测试用例时给出非阻断提醒
+  if (form.value.practiceMode === 'coding') {
+    if (!form.value.solution) {
+      ElMessage.warning('建议填写参考代码，供用户提交后查看题解');
+    }
+    if (!form.value.id) {
+      ElMessage.info('保存后请及时配置测试用例，未配置用例的编程题无法判题');
     }
   }
   try {
@@ -486,7 +534,7 @@ async function submitForm() {
       ...form.value,
       tags: tagsToStr(form.value.tags),
     };
-    // 选择题：optionList → options JSON 字符串
+    // 选择题：optionList → options JSON 字符串（is_correct 支持多选）
     if (form.value.practiceMode === 'choice') {
       submitData.options = JSON.stringify(
         form.value.optionList
@@ -494,17 +542,16 @@ async function submitForm() {
           .map(o => ({
             label: o.label,
             text: o.text.trim(),
-            is_correct: o.label === form.value.correctAnswer,
+            is_correct: form.value.correctAnswerArr.includes(o.label),
           }))
       );
     } else {
       submitData.options = null;
-      if (form.value.practiceMode !== 'choice') {
-        submitData.correctAnswer = null;
-      }
+      submitData.correctAnswer = null;
     }
-    // 移除前端临时态字段（optionList 已序列化为 options；tags 已转字符串保留）
+    // 移除前端临时态字段（optionList 已序列化为 options；correctAnswerArr 已序列化为 correctAnswer）
     delete submitData.optionList;
+    delete submitData.correctAnswerArr;
 
     let entityId = form.value.id;
     if (form.value.id) {

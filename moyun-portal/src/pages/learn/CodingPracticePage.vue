@@ -9,28 +9,33 @@
  *       - 隐藏用例内容不下发（防作弊，与选择题答案剥离同标准）
  * 复用：CodeEditor.vue（Monaco Editor）
  */
-import { ref, computed, onMounted, onBeforeUnmount } from 'vue';
+import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useHead } from '@vueuse/head';
 import {
   Play, Send, Loader2, AlertCircle,
   CheckCircle2, XCircle, Clock, List, RefreshCw, Lightbulb,
-  FileText, BookOpen, History, Terminal,
+  FileText, BookOpen, History, Terminal, ChevronLeft, ChevronRight,
 } from 'lucide-vue-next';
 import Breadcrumb from '@/components/Breadcrumb.vue';
 import CodeEditor from '@/components/CodeEditor.vue';
 import { generateSeo } from '@/utils/seo';
-import { getQuestionDetail } from '@/api/interview';
+import { getQuestionDetail, getQuestionNeighbor } from '@/api/interview';
 import { submitJudge, getSampleTestCases } from '@/api/judge';
-import type { InterviewQuestionDetailVO, JudgeResultVO, TestCaseVO } from '@/types/api';
+import type { InterviewQuestionDetailVO, InterviewQuestionNeighborVO, JudgeResultVO, TestCaseVO } from '@/types/api';
+import { useToast } from '@/composables/useToast';
 
 const route = useRoute();
 const router = useRouter();
+const toast = useToast();
 
 // ========== 题目数据 ==========
 const loading = ref(true);
 const error = ref<string | null>(null);
 const question = ref<InterviewQuestionDetailVO | null>(null);
+
+// 相邻题目导航（与来源列表页筛选同源：sort 升序 + createTime 降序）
+const neighbor = ref<InterviewQuestionNeighborVO | null>(null);
 
 // 样例用例（后端真实数据，判题结果回填展示用）
 const sampleCases = ref<TestCaseVO[]>([]);
@@ -370,6 +375,47 @@ async function loadQuestion() {
   } finally {
     loading.value = false;
   }
+  loadNeighbor();
+}
+
+/** 相邻题目导航：与来源列表页同源筛选（difficulty/keyword 由列表页跳转时透传） */
+async function loadNeighbor() {
+  neighbor.value = null;
+  try {
+    const params: { practiceMode: string; difficulty?: string; keyword?: string } = {
+      practiceMode: 'coding',
+    };
+    const q = route.query;
+    if (typeof q.difficulty === 'string' && q.difficulty) params.difficulty = q.difficulty;
+    if (typeof q.keyword === 'string' && q.keyword) params.keyword = q.keyword;
+    const res = await getQuestionNeighbor(route.params.id as string | number, params);
+    if (res.code === 200 && res.data) {
+      neighbor.value = res.data;
+    }
+  } catch {
+    // 导航数据加载失败不影响做题主流程
+  }
+}
+
+/** 切题跳转（保留筛选上下文）；未提交的代码不跨题保留，确认防误触 */
+function gotoNeighbor(id: string | number | null | undefined, dir: 'prev' | 'next') {
+  if (id == null) return;
+  const hasUnsavedCode = !submissionHistory.value.some(
+    (r) => r.language === selectedLanguage.value
+  ) && userCode.value.trim() !== (CODE_TEMPLATES[selectedLanguage.value] || '').trim();
+  if (hasUnsavedCode) {
+    if (!window.confirm('当前代码尚未提交，切换题目后不会保留，确定切换吗？')) return;
+  }
+  if (isRunning.value || isSubmitting.value) {
+    toast.info('判题进行中，请等待完成后再切换');
+    return;
+  }
+  const query: Record<string, string> = {};
+  if (typeof route.query.difficulty === 'string' && route.query.difficulty) query.difficulty = route.query.difficulty;
+  if (typeof route.query.keyword === 'string' && route.query.keyword) query.keyword = route.query.keyword;
+  toast.info(dir === 'prev' ? '已切换到上一题' : '已切换到下一题');
+  router.push({ path: `/learn/practice/coding/${id}`, query });
+  window.scrollTo({ top: 0 });
 }
 
 async function loadSampleCases(questionId: string | number) {
@@ -403,6 +449,8 @@ async function executeJudge(mode: 'run' | 'submit'): Promise<JudgeResultVO | nul
       questionId: q.id,
       code,
       language: selectedLanguage.value,
+      // run=仅样例自测（不落提交记录）；submit=全量判定（计统计+成长闭环）
+      mode,
     });
     if (res.code === 200 && res.data) {
       return res.data;
@@ -467,6 +515,13 @@ function gotoList() {
   router.push('/learn/practice/coding');
 }
 
+/** 提交后跳转详情页：查看答题大纲、参考代码与评分标准（与选择题做题页入口一致） */
+function gotoDetail() {
+  if (question.value) {
+    router.push(`/interview/question/${question.value.id}`);
+  }
+}
+
 /** 样例用例展示列表（左侧示例区）：优先后端数据，降级为空 */
 const displaySampleCases = computed(() => sampleCases.value);
 
@@ -479,6 +534,25 @@ onMounted(() => {
 onBeforeUnmount(() => {
   stopTimer();
 });
+
+// 同页面切题（上一题/下一题）：路由参数变化时重置做题状态并加载新题
+watch(() => route.params.id, (newId, oldId) => {
+  if (newId && newId !== oldId) {
+    // 判题进行中不允许切题（gotoNeighbor 已拦截，此处兜底）
+    if (isRunning.value || isSubmitting.value) return;
+    question.value = null;
+    sampleCases.value = [];
+    judgeResult.value = null;
+    resultMode.value = 'run';
+    submissionHistory.value = [];
+    // 代码按语言分槽跨题不保留：重置为模板
+    codeByLang.value = { javascript: CODE_TEMPLATES.javascript };
+    selectedLanguage.value = 'javascript';
+    activeTab.value = 'desc';
+    error.value = null;
+    loadQuestion();
+  }
+});
 </script>
 
 <template>
@@ -487,6 +561,31 @@ onBeforeUnmount(() => {
     <div class="flex items-center justify-between px-4 py-2 border-b" style="border-color: var(--theme-border); background-color: var(--theme-card-bg);">
       <Breadcrumb :items="breadcrumbs" />
       <div class="flex items-center gap-2">
+        <!-- 上一题/下一题（与来源列表页同源筛选，连续练习） -->
+        <button
+          @click="gotoNeighbor(neighbor?.prevId, 'prev')"
+          :disabled="!neighbor?.prevId"
+          :title="neighbor?.prevTitle ? `上一题：${neighbor.prevTitle}` : '已是第一题'"
+          class="inline-flex items-center gap-1 text-xs px-2 py-1 rounded border disabled:opacity-40 disabled:cursor-not-allowed max-w-[160px]"
+          style="border-color: var(--theme-border); color: var(--theme-text-secondary);"
+        >
+          <ChevronLeft class="w-3 h-3 flex-shrink-0" />
+          <span class="truncate">上一题</span>
+        </button>
+        <span v-if="neighbor?.currentIndex" class="text-xs font-mono px-2 py-0.5 rounded"
+              style="background-color: var(--theme-bg); color: var(--theme-text-secondary);">
+          {{ neighbor.currentIndex }}/{{ neighbor.total }}
+        </span>
+        <button
+          @click="gotoNeighbor(neighbor?.nextId, 'next')"
+          :disabled="!neighbor?.nextId"
+          :title="neighbor?.nextTitle ? `下一题：${neighbor.nextTitle}` : '已是最后一题'"
+          class="inline-flex items-center gap-1 text-xs px-2 py-1 rounded border disabled:opacity-40 disabled:cursor-not-allowed max-w-[160px]"
+          style="border-color: var(--theme-border); color: var(--theme-text-secondary);"
+        >
+          <span class="truncate">下一题</span>
+          <ChevronRight class="w-3 h-3 flex-shrink-0" />
+        </button>
         <span class="text-xs font-mono px-2 py-0.5 rounded" style="background-color: var(--theme-bg); color: var(--theme-text-secondary);">
           <Clock class="w-3 h-3 inline mr-0.5" />{{ formatTime(elapsed) }}
         </span>
@@ -585,6 +684,36 @@ onBeforeUnmount(() => {
                 {{ tag }}
               </span>
             </div>
+
+            <!-- 底部上一题/下一题导航（连续练习） -->
+            <div class="mt-6 pt-4 border-t flex items-center justify-between gap-3"
+                 style="border-color: var(--theme-border);">
+              <button
+                @click="gotoNeighbor(neighbor?.prevId, 'prev')"
+                :disabled="!neighbor?.prevId"
+                :title="neighbor?.prevTitle ? `上一题：${neighbor.prevTitle}` : '已是第一题'"
+                class="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border transition-colors disabled:opacity-40 disabled:cursor-not-allowed max-w-[45%]"
+                style="border-color: var(--theme-border); color: var(--theme-text);"
+              >
+                <ChevronLeft class="w-4 h-4 flex-shrink-0" />
+                <span class="truncate">{{ neighbor?.prevTitle || '上一题' }}</span>
+              </button>
+              <button
+                @click="gotoNeighbor(neighbor?.nextId, 'next')"
+                :disabled="!neighbor?.nextId"
+                :title="neighbor?.nextTitle ? `下一题：${neighbor.nextTitle}` : '已是最后一题'"
+                class="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border transition-colors disabled:opacity-40 disabled:cursor-not-allowed max-w-[45%]"
+                :style="neighbor?.nextId
+                  ? { borderColor: 'var(--theme-primary)', color: 'var(--theme-primary)' }
+                  : { borderColor: 'var(--theme-border)', color: 'var(--theme-text)' }"
+              >
+                <span class="truncate">{{ neighbor?.nextTitle || '下一题' }}</span>
+                <ChevronRight class="w-4 h-4 flex-shrink-0" />
+              </button>
+            </div>
+            <p v-if="neighbor && !neighbor.nextId" class="mt-2 text-[11px]" style="color: var(--theme-text-secondary);">
+              已是当前筛选范围内的最后一题，可返回列表换个难度继续练习
+            </p>
           </div>
 
           <!-- 题解 -->
@@ -684,7 +813,7 @@ onBeforeUnmount(() => {
         </div>
 
         <!-- 判题结果面板（服务端真实评测） -->
-        <div v-if="judgeResult" class="border-t" style="background-color: #181825; border-color: #313244; max-height: 40%;">
+          <div v-if="judgeResult" class="border-t" style="background-color: #181825; border-color: #313244; max-height: 40%;">
           <!-- 结果头部：状态徽章 + 统计 -->
           <div class="px-3 py-2 flex items-center gap-2 border-b flex-wrap" style="border-color: #313244;">
             <span class="text-xs font-bold" style="color: #cdd6f4;">{{ resultMode === 'run' ? '运行结果' : '提交结果' }}</span>
@@ -701,6 +830,17 @@ onBeforeUnmount(() => {
             <span v-if="judgeResult.maxMemory != null" class="text-[10px] font-mono" style="color: #6c7086;">
               {{ (judgeResult.maxMemory / 1024).toFixed(1) }}MB
             </span>
+            <!-- 提交后引导：查看答题大纲、参考代码等完整内容 -->
+            <button
+              v-if="resultMode === 'submit' && question"
+              @click="gotoDetail"
+              title="查看题目解析、参考代码与评分标准"
+              class="ml-auto inline-flex items-center gap-1 text-[10px] px-2 py-1 rounded transition-colors"
+              style="color: #cdd6f4; border: 1px solid #45475a;"
+            >
+              <BookOpen class="w-3 h-3" />
+              查看完整解析
+            </button>
           </div>
 
           <div class="overflow-y-auto p-2 space-y-1.5" style="max-height: calc(40vh - 44px);">

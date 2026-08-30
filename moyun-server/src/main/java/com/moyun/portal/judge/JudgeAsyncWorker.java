@@ -12,6 +12,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
+import com.moyun.ext.cms.service.IPortalInterviewService;
 import com.moyun.portal.domain.entity.PortalInterviewQuestion;
 import com.moyun.portal.domain.entity.PortalInterviewQuestionTestCase;
 import com.moyun.portal.domain.entity.PortalInterviewSubmission;
@@ -58,6 +59,8 @@ public class JudgeAsyncWorker {
     private PortalInterviewQuestionMapper questionMapper;
     @Autowired
     private PortalInterviewQuestionTestCaseMapper testCaseMapper;
+    @Autowired
+    private IPortalInterviewService interviewService;
 
     private final AtomicBoolean running = new AtomicBoolean(false);
     private ExecutorService executor;
@@ -197,6 +200,15 @@ public class JudgeAsyncWorker {
             }
         } catch (Exception e) {
             log.warn("[OJ-Worker] 题目通过率刷新失败 qid={} err={}", task.getQuestionId(), e.getMessage());
+        }
+
+        // 判题终态回调：更新做题记录 + 首次通过成长事件 + 答题动态（失败不阻断判题主流程）
+        try {
+            interviewService.finalizeJudgeResult(task.getQuestionId(),
+                    submission.getUserId(), result.getStatus().isAccepted());
+        } catch (Exception e) {
+            log.error("[OJ-Worker] 判题终态成长回调失败 submissionId={} qid={} err={}",
+                    task.getSubmissionId(), task.getQuestionId(), e.getMessage(), e);
         }
     }
 

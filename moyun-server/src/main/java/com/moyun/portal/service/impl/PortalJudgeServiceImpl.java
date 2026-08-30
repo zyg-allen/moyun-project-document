@@ -13,6 +13,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.moyun.common.exception.system.ServiceException;
+import com.moyun.ext.cms.service.IPortalInterviewService;
 import com.moyun.portal.domain.dto.JudgeSubmitDTO;
 import com.moyun.portal.domain.dto.TestCaseUpsertDTO;
 import com.moyun.portal.domain.entity.PortalInterviewQuestion;
@@ -48,6 +49,7 @@ public class PortalJudgeServiceImpl implements IPortalJudgeService {
     @Autowired private PortalInterviewSubmissionMapper submissionMapper;
     @Autowired private JudgeProperties judgeProperties;
     @Autowired private JudgeQueueService judgeQueueService;
+    @Autowired private IPortalInterviewService interviewService;
 
     // ==================== 判题 ====================
 
@@ -57,6 +59,23 @@ public class PortalJudgeServiceImpl implements IPortalJudgeService {
         if (userId == null) throw new ServiceException("请登录后提交");
         PortalInterviewQuestion question = questionMapper.selectById(dto.getQuestionId());
         if (question == null) throw new ServiceException("题目不存在");
+
+        boolean runOnly = "run".equals(dto.getMode());
+
+        // run（样例自测）：仅执行样例用例，不落提交记录、不计统计、不触发成长闭环
+        if (runOnly) {
+            List<PortalInterviewQuestionTestCase> samples = casesForRun(dto.getQuestionId());
+            if (samples.isEmpty()) {
+                throw new ServiceException("该题目暂无样例用例，可直接提交全量判定");
+            }
+            long timeoutMs = judgeProperties.getTimeoutMs() > 0
+                    ? judgeProperties.getTimeoutMs() : 2000L;
+            JudgeResult result = judgeEngine.judge(dto.getLanguage(), dto.getCode(), samples, timeoutMs);
+            log.info("[OJ] 样例自测 userId={} qid={} lang={} pass={}/{}",
+                    userId, dto.getQuestionId(), dto.getLanguage(),
+                    result.getPassedCount(), result.getTotalCount());
+            return toVO(result);
+        }
 
         // 拉取题目用例（按 order 升序）
         List<PortalInterviewQuestionTestCase> cases = testCaseMapper.selectByQuestionId(dto.getQuestionId());
@@ -101,11 +120,32 @@ public class PortalJudgeServiceImpl implements IPortalJudgeService {
         // 更新题目统计（提交数 + 通过率）
         updateQuestionStats(question);
 
+        // 判题终态回调：与选择题共享「做题记录 + 首次通过成长事件 + 答题动态」闭环
+        finalizeCallback(dto.getQuestionId(), userId, result.getStatus().isAccepted());
+
         log.info("[OJ] 判题完成 userId={} qid={} lang={} status={} pass={}/{}",
                 userId, dto.getQuestionId(), dto.getLanguage(),
                 result.getStatus().getCode(), result.getPassedCount(), result.getTotalCount());
 
         return toVO(submission, result);
+    }
+
+    /** run 模式取样例用例（is_sample=1）；无样例时回退全量用例首条，保证可自测 */
+    private List<PortalInterviewQuestionTestCase> casesForRun(Long questionId) {
+        List<PortalInterviewQuestionTestCase> samples = testCaseMapper.selectSamplesByQuestionId(questionId);
+        if (samples != null && !samples.isEmpty()) return samples;
+        List<PortalInterviewQuestionTestCase> all = testCaseMapper.selectByQuestionId(questionId);
+        return all == null ? Collections.emptyList() : all;
+    }
+
+    /** 判题终态回调：成长闭环失败不阻断判题主流程（结果已落库） */
+    private void finalizeCallback(Long questionId, Long userId, boolean accepted) {
+        try {
+            interviewService.finalizeJudgeResult(questionId, userId, accepted);
+        } catch (Exception e) {
+            log.error("[OJ] 判题终态成长回调失败 qid={} userId={} accepted={} err={}",
+                    questionId, userId, accepted, e.getMessage(), e);
+        }
     }
 
     @Override

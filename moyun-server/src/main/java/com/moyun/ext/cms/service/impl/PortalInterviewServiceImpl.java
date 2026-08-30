@@ -76,6 +76,8 @@ import com.moyun.portal.mapper.PortalInterviewQuestionMapper;
 import com.moyun.portal.mapper.PortalInterviewResumeTemplateLikeMapper;
 import com.moyun.portal.mapper.PortalInterviewResumeTemplateMapper;
 import com.moyun.portal.mapper.PortalInterviewSubmissionMapper;
+import com.moyun.portal.domain.entity.PortalGrowthLog;
+import com.moyun.portal.mapper.PortalGrowthLogMapper;
 import com.moyun.portal.service.IPortalGrowthService;
 import com.moyun.portal.service.IPortalTagService;
 
@@ -116,6 +118,7 @@ public class PortalInterviewServiceImpl implements IPortalInterviewService {
     @Autowired private PortalInterviewCompanyMapper companyMapper;
     @Autowired private IPortalTagService portalTagService;
     @Autowired private IPortalGrowthService portalGrowthService;
+    @Autowired private PortalGrowthLogMapper growthLogMapper;
     @Autowired private com.moyun.portal.mapper.PortalUserMapper portalUserMapper;
     @Autowired private IFeedService feedService;
     @Autowired private ISysNotificationService notificationService;
@@ -232,8 +235,10 @@ public class PortalInterviewServiceImpl implements IPortalInterviewService {
         if (StringUtils.isNotEmpty(query.getQuestionType())) qw.eq(PortalInterviewQuestion::getQuestionType, query.getQuestionType());
         // v10.6 题库重构：按练习模式筛选（reading/choice/coding）
         if (StringUtils.isNotEmpty(query.getPracticeMode())) qw.eq(PortalInterviewQuestion::getPracticeMode, query.getPracticeMode());
+        // 关键词需嵌套分组：裸 .or() 会提升优先级，绕过 status/practiceMode 等前置 AND 条件
         if (StringUtils.isNotEmpty(query.getKeyword())) {
-            qw.like(PortalInterviewQuestion::getTitle, query.getKeyword()).or().like(PortalInterviewQuestion::getDescription, query.getKeyword());
+            qw.and(w -> w.like(PortalInterviewQuestion::getTitle, query.getKeyword())
+                    .or().like(PortalInterviewQuestion::getDescription, query.getKeyword()));
         }
         qw.orderByAsc(PortalInterviewQuestion::getSort).orderByDesc(PortalInterviewQuestion::getCreateTime);
         return qw;
@@ -242,14 +247,17 @@ public class PortalInterviewServiceImpl implements IPortalInterviewService {
     @Override
     public List<PortalInterviewQuestion> selectQuestionList(InterviewQuestionQuery query) {
         LambdaQueryWrapper<PortalInterviewQuestion> qw = buildQuestionQueryWrapper(query);
-        // 导出场景：未传 status 时查全部（与分页列表"默认 active"不同，导出应覆盖草稿/归档）
+        // 导出场景：未传 status 时查全部（与分页列表"默认 published"不同，导出应覆盖草稿/归档）
         if (query.getStatus() == null) {
             qw = Wrappers.lambdaQuery();
             if (query.getCategoryId() != null) qw.eq(PortalInterviewQuestion::getCategoryId, query.getCategoryId());
             if (StringUtils.isNotEmpty(query.getDifficulty())) qw.eq(PortalInterviewQuestion::getDifficulty, query.getDifficulty());
             if (StringUtils.isNotEmpty(query.getQuestionType())) qw.eq(PortalInterviewQuestion::getQuestionType, query.getQuestionType());
+            // 与分页列表字段对齐：导出同样支持按练习模式筛选
+            if (StringUtils.isNotEmpty(query.getPracticeMode())) qw.eq(PortalInterviewQuestion::getPracticeMode, query.getPracticeMode());
             if (StringUtils.isNotEmpty(query.getKeyword())) {
-                qw.like(PortalInterviewQuestion::getTitle, query.getKeyword()).or().like(PortalInterviewQuestion::getDescription, query.getKeyword());
+                qw.and(w -> w.like(PortalInterviewQuestion::getTitle, query.getKeyword())
+                        .or().like(PortalInterviewQuestion::getDescription, query.getKeyword()));
             }
             qw.orderByAsc(PortalInterviewQuestion::getSort).orderByDesc(PortalInterviewQuestion::getCreateTime);
         }
@@ -549,19 +557,14 @@ public class PortalInterviewServiceImpl implements IPortalInterviewService {
 
         // v10.6 题库重构·阶段2：填充练习模式扩展字段
         vo.setPracticeMode(entity.getPracticeMode());
-        vo.setOptions(entity.getOptions());
         vo.setKnowledgeTags(entity.getKnowledgeTags());
-        // 防作弊：练习模式（choice/coding）的 correct_answer/analysis 不在详情下发，
-        // 仅在提交作答后由 submitAnswer 权威返回（行业标准：LeetCode 同款策略）
-        if ("choice".equals(entity.getPracticeMode()) || "coding".equals(entity.getPracticeMode())) {
-            vo.setCorrectAnswer(null);
-            vo.setAnalysis(null);
-            // options JSON 中的 is_correct 标记同样脱敏，仅保留 label/text
-            vo.setOptions(sanitizeOptionsForClient(entity.getOptions()));
-        } else {
-            vo.setCorrectAnswer(entity.getCorrectAnswer());
-            vo.setAnalysis(entity.getAnalysis());
-        }
+        // 阅读定位（v12.0）：详情页即"直接查看模式"，correct_answer/analysis 正常下发，
+        // 供学习/复习场景查阅（与 LeetCode 公开题解同理；判分有效性由做题页提交链路保证）。
+        vo.setCorrectAnswer(entity.getCorrectAnswer());
+        vo.setAnalysis(entity.getAnalysis());
+        // options JSON 中的 is_correct 标记脱敏：详情页阅读无需该字段，
+        // 避免被用于做题页未提交时的本地比对，做题判分一律以服务端 submitAnswer 返回为准。
+        vo.setOptions(sanitizeOptionsForClient(entity.getOptions()));
 
         // 我的提交记录
         if (currentUserId != null) {
@@ -574,6 +577,61 @@ public class PortalInterviewServiceImpl implements IPortalInterviewService {
             if (tagList != null) vo.setTagList(tagList);
         }
         return vo;
+    }
+
+    @Override
+    public Map<String, Object> selectQuestionNeighbor(Long questionId, InterviewQuestionQuery query) {
+        Map<String, Object> result = new HashMap<>();
+        result.put("prevId", null);
+        result.put("prevTitle", null);
+        result.put("nextId", null);
+        result.put("nextTitle", null);
+        result.put("currentIndex", null);
+        result.put("total", 0);
+        if (questionId == null) {
+            return result;
+        }
+
+        // 查询条件与列表页 buildQuestionQueryWrapper 同源：categoryId/questionType/
+        // practiceMode/difficulty/keyword 全支持，排序保持 sort 升序 + createTime 降序，
+        // 保证"上一题/下一题"与用户在来源列表页的浏览顺序一致
+        if (query == null) {
+            query = new InterviewQuestionQuery();
+        }
+        // 门户导航仅在已发布题目内切换（忽略调用方传入的 status）
+        query.setStatus("published");
+        LambdaQueryWrapper<PortalInterviewQuestion> qw = buildQuestionQueryWrapper(query);
+        qw.select(PortalInterviewQuestion::getId, PortalInterviewQuestion::getTitle,
+                PortalInterviewQuestion::getSort, PortalInterviewQuestion::getCreateTime);
+
+        List<PortalInterviewQuestion> list = questionMapper.selectList(qw);
+        if (list == null || list.isEmpty()) {
+            return result;
+        }
+        result.put("total", list.size());
+
+        int idx = -1;
+        for (int i = 0; i < list.size(); i++) {
+            if (questionId.equals(list.get(i).getId())) {
+                idx = i;
+                break;
+            }
+        }
+
+        // 当前题不在结果集（未发布 / 筛选条件变化）：不提供导航，避免顺序错乱
+        if (idx == -1) {
+            return result;
+        }
+        result.put("currentIndex", idx + 1);
+        if (idx > 0) {
+            result.put("prevId", list.get(idx - 1).getId());
+            result.put("prevTitle", list.get(idx - 1).getTitle());
+        }
+        if (idx < list.size() - 1) {
+            result.put("nextId", list.get(idx + 1).getId());
+            result.put("nextTitle", list.get(idx + 1).getTitle());
+        }
+        return result;
     }
 
     /**
@@ -644,9 +702,16 @@ public class PortalInterviewServiceImpl implements IPortalInterviewService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public int insertQuestion(PortalInterviewQuestion question) {
+        // 服务端兜底校验（与后台表单校验对齐）：选择题必须有选项与正确答案
+        validateQuestionByPracticeMode(question);
         question.setCreateTime(LocalDateTime.now());
         question.setUpdateTime(LocalDateTime.now());
-        if (question.getStatus() == null) question.setStatus("active");
+        // 状态枚举 draft/published/archived（历史 active/inactive 已废弃，前台默认查 published）
+        if (question.getStatus() == null) question.setStatus("published");
+        // 练习模式缺省按阅读题处理，保证前台三模式筛选均可命中
+        if (question.getPracticeMode() == null || question.getPracticeMode().trim().isEmpty()) {
+            question.setPracticeMode("reading");
+        }
         if (question.getAcceptanceRate() == null) question.setAcceptanceRate(BigDecimal.ZERO);
         if (question.getSubmissionCount() == null) question.setSubmissionCount(0L);
         if (question.getLikeCount() == null) question.setLikeCount(0L);
@@ -665,7 +730,12 @@ public class PortalInterviewServiceImpl implements IPortalInterviewService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public int updateQuestion(PortalInterviewQuestion question) {
+        // 更新同样校验：防止把选择题的选项/正确答案清空后造成前台判分失效
+        validateQuestionByPracticeMode(question, true);
         question.setUpdateTime(LocalDateTime.now());
+        if (question.getPracticeMode() != null && question.getPracticeMode().trim().isEmpty()) {
+            question.setPracticeMode(null);
+        }
         int row = questionMapper.updateById(question);
         java.util.List<Long> extractedTagIds = new java.util.ArrayList<>();
         java.util.List<String> extractedTagNames = new java.util.ArrayList<>();
@@ -700,7 +770,7 @@ public class PortalInterviewServiceImpl implements IPortalInterviewService {
         submission.setAnswerType(body.get("answerType") != null ? body.get("answerType").toString() : "text");
         submission.setNote(body.get("note") != null ? body.get("note").toString() : null);
 
-        // 按题型权威判分（行业标准：服务端判定，客户端不可信）
+        // 按练习模式权威判分（行业标准：服务端判定，客户端不可信）
         String practiceMode = question.getPracticeMode() != null ? question.getPracticeMode() : "reading";
         boolean isChoice = "choice".equals(practiceMode);
         boolean isSuccess;
@@ -717,8 +787,9 @@ public class PortalInterviewServiceImpl implements IPortalInterviewService {
                 submission.setAnswerType("choice");
             }
         } else if ("coding".equals(practiceMode)) {
-            // 编程题：提交受理即记录，判定交由 OJ 判题（Docker 沙箱异步评测）
-            isSuccess = StringUtils.isNotEmpty(submission.getCode());
+            // v12.0 双轨合一：编程题统一走 OJ 判题（沙箱运行全部测试用例），
+            // 本接口不再受理编程题提交，避免出现"提交即通过"的假判分记录
+            throw new ServiceException("编程题请通过在线判题提交，提交后将运行全部测试用例评测");
         } else {
             // 阅读/八股等文本主观题：无法自动判分，提交有效内容即完成作答
             isSuccess = StringUtils.isNotEmpty(submission.getCode()) || StringUtils.isNotEmpty(submission.getContent());
@@ -738,7 +809,100 @@ public class PortalInterviewServiceImpl implements IPortalInterviewService {
         question.setAcceptanceRate(rate);
         questionMapper.updateById(question);
 
-        // 3. 更新做题记录
+        // 3. 更新做题记录 + 成长事件（choice/reading 与 OJ 判题共享同一闭环）
+        recordAttemptAndGrowth(question, userId, isSuccess, submission.getId());
+
+        InterviewSubmissionVO vo = toSubmissionVO(submission);
+        // v9.1：选择题练习模式返回服务端权威判分结果 + 正确答案 + 解析（仅判分后下发，防作弊）
+        vo.setPassed(isSuccess);
+        if (isChoice) {
+            vo.setCorrectAnswer(question.getCorrectAnswer());
+            vo.setAnalysis(question.getAnalysis());
+            vo.setPracticeMode(question.getPracticeMode());
+        }
+        return vo;
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void finalizeJudgeResult(Long questionId, Long userId, boolean accepted) {
+        PortalInterviewQuestion question = questionMapper.selectById(questionId);
+        if (question == null) {
+            log.warn("[OJ] 判题终态回调：题目不存在 questionId={}", questionId);
+            return;
+        }
+        if (userId == null) {
+            return;
+        }
+        // 编程题判题终态：与选择题共享「做题记录 + 首次通过成长事件 + 答题动态」闭环
+        recordAttemptAndGrowth(question, userId, accepted, null);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public Map<String, Object> recordQuestionRead(Long questionId, Long userId, Map<String, Object> body) {
+        PortalInterviewQuestion question = questionMapper.selectById(questionId);
+        if (question == null) throw new ServiceException("题目不存在");
+        if (userId == null) throw new ServiceException("登录后才能记录学习行为");
+
+        Map<String, Object> result = new HashMap<>();
+
+        // 1. 阅读事件幂等：同用户 + 同题目 + 同一天只记一次
+        boolean readRecorded = false;
+        Long existToday = growthLogMapper.selectCount(
+                new LambdaQueryWrapper<PortalGrowthLog>()
+                        .eq(PortalGrowthLog::getUserId, userId)
+                        .eq(PortalGrowthLog::getModule, "interview")
+                        .eq(PortalGrowthLog::getAction, "read_question")
+                        .eq(PortalGrowthLog::getEntityType, "question")
+                        .eq(PortalGrowthLog::getEntityId, questionId)
+                        .ge(PortalGrowthLog::getCreateTime, LocalDateTime.now().toLocalDate().atStartOfDay()));
+        if (existToday == null || existToday == 0) {
+            portalGrowthService.recordEvent("interview", "read_question",
+                    userId, "question", questionId);
+            readRecorded = true;
+        }
+        result.put("readRecorded", readRecorded);
+
+        // 2. 附带笔记：落一条阅读提交（answerType=reading，不计数入题目提交数），并记写笔记成长事件
+        boolean noteRecorded = false;
+        String note = body != null && body.get("note") != null ? body.get("note").toString().trim() : null;
+        if (StringUtils.isNotEmpty(note)) {
+            PortalInterviewSubmission submission = new PortalInterviewSubmission();
+            submission.setQuestionId(questionId);
+            submission.setUserId(userId);
+            submission.setAnswerType("reading");
+            submission.setLanguage("text");
+            submission.setNote(note);
+            submission.setContent(note);
+            submission.setIsSuccess(true);
+            submission.setStatus("accepted");
+            submission.setCreateTime(LocalDateTime.now());
+            submissionMapper.insert(submission);
+            // entityType=question：成长时间线点击可跳转题目详情（submission 类型无对应路由）
+            portalGrowthService.recordEvent("interview", "write_note",
+                    userId, "question", questionId);
+            noteRecorded = true;
+        }
+        result.put("noteRecorded", noteRecorded);
+        return result;
+    }
+
+    /**
+     * 做题记录与成长闭环（choice 提交 / reading 提交 / OJ 判题终态 共用）
+     * <p>
+     * - 更新 portal_interview_attempt（attempt_count / status / 首次通过时间）
+     * - 首次通过时发 solve_question 成长事件（成长时间线可见）
+     * - 首次通过时发答题动态（Feed 流），失败静默不影响主流程
+     *
+     * @param question     题目实体（用于标题/难度等动态字段）
+     * @param userId       做题用户
+     * @param isSuccess    本次是否通过
+     * @param submissionId 关联提交记录ID（OJ 判题回调场景可为 null）
+     */
+    private void recordAttemptAndGrowth(PortalInterviewQuestion question, Long userId,
+                                         boolean isSuccess, Long submissionId) {
+        Long questionId = question.getId();
         PortalInterviewAttempt attempt = attemptMapper.selectAttempt(questionId, userId);
         boolean firstSolve = false;
         if (attempt == null) {
@@ -768,35 +932,29 @@ public class PortalInterviewServiceImpl implements IPortalInterviewService {
             attemptMapper.updateById(attempt);
         }
 
-        // 4. 记录成长事件
+        // 首次通过：成长事件 + 答题动态
         if (firstSolve) {
             portalGrowthService.recordEvent("interview", "solve_question",
                     userId, "question", questionId);
 
-            // 发布动态事件（Feed 流）
+            // 发布动态事件（Feed 流），失败不影响主流程
             try {
                 feedService.publishEvent(userId, "solve_question", "question",
                         questionId, question.getTitle(),
                         question.getDifficulty(), null);
             } catch (Exception e) {
-                org.slf4j.LoggerFactory.getLogger(PortalInterviewServiceImpl.class)
-                        .error("[Feed] 答题动态事件失败：questionId={}", questionId, e);
+                log.error("[Feed] 答题动态事件失败：questionId={}", questionId, e);
             }
         }
-        // 如果提交包含笔记，记录写笔记成长事件
-        if (StringUtils.isNotEmpty(submission.getNote())) {
-            portalGrowthService.recordEvent("interview", "write_note",
-                    userId, "submission", submission.getId());
+        // 提交包含笔记时，记录写笔记成长事件（判题回调无笔记场景）
+        if (submissionId != null) {
+            PortalInterviewSubmission submission = submissionMapper.selectById(submissionId);
+            if (submission != null && StringUtils.isNotEmpty(submission.getNote())) {
+                // entityType=question：成长时间线点击可跳转题目详情（submission 类型无对应路由）
+                portalGrowthService.recordEvent("interview", "write_note",
+                        userId, "question", questionId);
+            }
         }
-
-        InterviewSubmissionVO vo = toSubmissionVO(submission);
-        // v9.1：选择题练习模式返回服务端权威判分结果 + 正确答案 + 解析（仅判分后下发，防作弊）
-        if (isChoice) {
-            vo.setCorrectAnswer(question.getCorrectAnswer());
-            vo.setAnalysis(question.getAnalysis());
-            vo.setPracticeMode(question.getPracticeMode());
-        }
-        return vo;
     }
 
     @Override
@@ -1683,6 +1841,56 @@ public class PortalInterviewServiceImpl implements IPortalInterviewService {
             }
         }
         return result;
+    }
+
+    /**
+     * 按练习模式校验判分材料完整性（与后台表单校验对齐，服务端兜底）。
+     * isUpdate=true 的部分更新场景：未携带 practiceMode 时跳过（判分材料以库内已有数据为准）。
+     */
+    private void validateQuestionByPracticeMode(PortalInterviewQuestion question) {
+        validateQuestionByPracticeMode(question, false);
+    }
+
+    private void validateQuestionByPracticeMode(PortalInterviewQuestion question, boolean isUpdate) {
+        String mode = question.getPracticeMode() == null ? null : question.getPracticeMode().trim();
+        if (mode == null || mode.isEmpty()) {
+            if (isUpdate) return;
+            mode = "reading";
+        }
+        if (!"reading".equals(mode) && !"choice".equals(mode) && !"coding".equals(mode)) {
+            throw new ServiceException("练习模式非法：仅支持 reading/choice/coding");
+        }
+        if (!"choice".equals(mode)) {
+            return;
+        }
+        if (StringUtils.isEmpty(question.getOptions())) {
+            throw new ServiceException("选择题必须配置选项");
+        }
+        if (StringUtils.isEmpty(question.getCorrectAnswer())) {
+            throw new ServiceException("选择题必须配置正确答案");
+        }
+        // options 结构与正确答案字母交叉校验：防脏数据导致前台判分永远失败
+        try {
+            com.fasterxml.jackson.databind.JsonNode arr = OBJECT_MAPPER.readTree(question.getOptions());
+            if (arr == null || !arr.isArray() || arr.size() < 2) {
+                throw new ServiceException("选择题至少需要 2 个选项");
+            }
+            java.util.Set<String> labels = new java.util.HashSet<>();
+            for (com.fasterxml.jackson.databind.JsonNode item : arr) {
+                if (item != null && item.isObject() && item.has("label")) {
+                    labels.add(item.get("label").asText().toUpperCase());
+                }
+            }
+            Set<String> answers = normalizeChoiceAnswer(question.getCorrectAnswer());
+            if (answers.isEmpty() || !labels.containsAll(answers)) {
+                throw new ServiceException("正确答案 " + question.getCorrectAnswer()
+                        + " 引用了未配置的选项，请检查选项字母");
+            }
+        } catch (ServiceException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new ServiceException("选择题选项 JSON 格式非法，请检查后重试");
+        }
     }
 
     /**

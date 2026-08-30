@@ -267,7 +267,13 @@ function selectQuestionType(t: string) {
 }
 
 function gotoQuestion(id: string | number) {
-  router.push(`/interview/question/${id}`);
+  // 携带当前筛选条件：详情页"上一题/下一题"导航按同源筛选取相邻题
+  const query: Record<string, string> = {};
+  if (activeCategoryId.value) query.categoryId = String(activeCategoryId.value);
+  if (activeDifficulty.value) query.difficulty = activeDifficulty.value;
+  if (activeQuestionType.value) query.questionType = activeQuestionType.value;
+  if (keyword.value) query.keyword = keyword.value;
+  router.push({ path: `/interview/question/${id}`, query });
 }
 
 function gotoPage(p: number) {

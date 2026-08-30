@@ -30,14 +30,17 @@ public class InterviewSubmissionVO implements Serializable {
     /** 编程语言 */
     private String language;
 
-    /** 答案类型：code/text/design */
+    /** 答案类型：choice/code/text/design/reading */
     private String answerType;
 
     /** 状态：accepted/wrong_answer/time_limit/compile_error/pending */
     private String status;
 
-    /** 是否通过 */
+    /** 是否通过（记录原始判定） */
     private Boolean isSuccess;
+
+    /** 是否通过（服务端权威判分结果，与 isSuccess 同源，前端语义化字段） */
+    private Boolean passed;
 
     /** 运行时间（毫秒） */
     private Integer runtime;

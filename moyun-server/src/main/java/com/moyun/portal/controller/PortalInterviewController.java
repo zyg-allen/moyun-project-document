@@ -123,6 +123,20 @@ public class PortalInterviewController extends BaseController {
         return AjaxResult.success(portalInterviewService.selectQuestionDetailById(id, currentUserId()));
     }
 
+    /**
+     * 相邻题目导航（v12.0 做题页连续练习）
+     * <p>
+     * 按来源列表页的筛选条件（practiceMode/difficulty/keyword）返回上一题/下一题，
+     * 排序与列表一致（sort 升序 + createTime 降序）；同时返回当前序号与总数，
+     * 供前端展示"第 x / 共 n 题"进度。
+     */
+    @Operation(summary = "获取相邻题目", description = "返回当前题目在筛选结果集中的上一题/下一题，用于做题页连续导航")
+    @GetMapping("/question/{id}/neighbor")
+    @Anonymous
+    public AjaxResult getQuestionNeighbor(@PathVariable("id") Long questionId, InterviewQuestionQuery query) {
+        return AjaxResult.success(portalInterviewService.selectQuestionNeighbor(questionId, query));
+    }
+
     @Operation(summary = "提交答案")
     @PostMapping("/question/{id}/submit")
     public AjaxResult submitAnswer(@PathVariable("id") Long questionId, @RequestBody Map<String, Object> body) {
@@ -131,6 +145,23 @@ public class PortalInterviewController extends BaseController {
             return AjaxResult.error(HttpStatus.UNAUTHORIZED, "登录已过期，请重新登录");
         }
         return AjaxResult.success(portalInterviewService.submitAnswer(questionId, userId, body));
+    }
+
+    /**
+     * 记录题目阅读行为（v12.0 阅读闭环）
+     * <p>
+     * 详情页加载/停留时上报：同用户同题目同一天仅记一次成长事件（read_question）。
+     * 若 body 携带 note，则同时落一条阅读笔记提交并记 write_note 成长事件。
+     */
+    @Operation(summary = "记录题目阅读", description = "记录阅读学习行为（每日同题幂等），可选携带学习笔记")
+    @PostMapping("/question/{id}/read")
+    public AjaxResult recordQuestionRead(@PathVariable("id") Long questionId,
+                                         @RequestBody(required = false) Map<String, Object> body) {
+        Long userId = currentUserId();
+        if (userId == null) {
+            return AjaxResult.error(HttpStatus.UNAUTHORIZED, "登录已过期，请重新登录");
+        }
+        return AjaxResult.success(portalInterviewService.recordQuestionRead(questionId, userId, body));
     }
 
     @Operation(summary = "点赞/取消点赞 题目")

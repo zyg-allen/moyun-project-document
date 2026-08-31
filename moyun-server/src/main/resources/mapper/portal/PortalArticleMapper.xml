@@ -89,6 +89,8 @@
         <result property="auditorNickname" column="auditor_nickname"/>
         <result property="auditTime" column="audit_time"/>
         <result property="auditRemark" column="audit_remark"/>
+        <!-- 标签名称（由子查询 group_concat 聚合，逗号分隔字符串） -->
+        <result property="tagNames" column="tag_names"/>
     </resultMap>
 
     <sql id="selectPortalArticleVo">
@@ -106,7 +108,8 @@
         left join portal_user pu on pa.author_id = pu.id
     </sql>
 
-    <!-- CMS文章查询，不限制状态，包含作者信息 + 审核人信息 -->
+
+    <!-- CMS文章查询，不限制状态，包含作者信息 + 审核人信息 + 标签名称（子查询聚合） -->
     <sql id="selectCmsArticleVo">
         select pa.id, pa.title, pa.slug, pa.content, pa.excerpt, pa.cover, pa.author_id, pa.category_id,
                pa.root_category_id, pa.category_path,
@@ -117,7 +120,11 @@
                pa.create_by, pa.create_time, pa.update_by, pa.update_time, pa.remark,
                pc.name as category_name, pc.slug as category_slug,
                pu.nickname as author_nickname, pu.username as author_username, pu.avatar as author_avatar,
-               su.nick_name as auditor_nickname
+               su.nick_name as auditor_nickname,
+               (select group_concat(pt.name separator ',')
+                from portal_entity_tag et
+                left join portal_tag pt on et.tag_id = pt.id
+                where et.entity_type = 'article' and et.entity_id = pa.id) as tag_names
         from portal_article pa
         left join portal_category pc on pa.category_id = pc.id
         left join portal_user pu on pa.author_id = pu.id
@@ -189,6 +196,10 @@
             </if>
             <if test="params.authorId != null">
                 AND pa.author_id = #{params.authorId}
+            </if>
+            <if test="params.authorName != null and params.authorName != ''">
+                AND (pu.nickname like concat('%', #{params.authorName}, '%')
+                     OR pu.username like concat('%', #{params.authorName}, '%'))
             </if>
             <if test="params.categoryId != null">
                 AND pa.category_id = #{params.categoryId}

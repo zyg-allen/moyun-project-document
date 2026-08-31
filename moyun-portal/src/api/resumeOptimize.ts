@@ -1,6 +1,7 @@
 import { httpGet, httpPost, httpPut, httpDelete } from './client';
 import type {
   ResumeJobTarget, ResumeJobMatchReport, ResumeDeepOptimizeVO, ResumeOptimizeHistory,
+  ResumeScoreReport,
 } from '@/types/api';
 
 /**
@@ -76,3 +77,36 @@ export const aiFieldAssist = (params: {
 }) => {
   return httpPost<FieldAssistSuggestion[]>('/portal/resume/optimize/ai-assist', params as unknown as Record<string, unknown>);
 };
+
+// ===== v10.18 阶段五：评分报告存档 =====
+
+/**
+ * 保存评分报告（触发评分 + 入库存档）
+ * 后端会先调用 scoreResume 写 portal_user_resume 评分字段并自动入库 source=manual，
+ * 若 source 传入非 manual 或带 jobTargetId/position，则补全刚插入的报告记录。
+ */
+export const saveScoreReport = (params: {
+  resumeId: number | string;
+  source?: 'manual' | 'optimize' | 'template';
+  jobTargetId?: number | string;
+  position?: string;
+}) => {
+  return httpPost<ResumeScoreReport>('/portal/resume/optimize/score-report', params as unknown as Record<string, unknown>);
+};
+
+/** 评分报告列表（按时间倒序，可追溯历史评分） */
+export const getScoreReports = (resumeId: number | string) => {
+  return httpGet<ResumeScoreReport[]>(`/portal/resume/optimize/score-report/${resumeId}`);
+};
+
+// ===== v10.18 阶段一：模板套用打通 =====
+
+/**
+ * 模板套用：拉取模板详情（含 sampleData 结构化示例数据）
+ * 后端 GET /portal/interview/resume/{id} 直接返回 sampleData 字段（实体已扩展）。
+ * 前端拿到后由 stores/resume.ts 的 fillFromTemplate 解析填充到编辑页表单。
+ *
+ * 注：此处复用 interview.ts 的 getResumeTemplateDetail，仅为类型对齐与文档命名一致而导出别名。
+ * 页面 useTemplate 局部函数请直接 import { getResumeTemplateDetail } from '@/api/interview' 或此处别名。
+ */
+export { getResumeTemplateDetail as getTemplateDetail } from './interview';

@@ -11,15 +11,17 @@ import Breadcrumb from '@/components/Breadcrumb.vue';
 import LazyImage from '@/components/LazyImage.vue';
 import { generateSeo } from '@/utils/seo';
 import {
-  getResumeTemplateList, downloadResumeTemplate, toggleResumeTemplateLike,
+  getResumeTemplateList, getResumeTemplateDetail, downloadResumeTemplate, toggleResumeTemplateLike,
 } from '@/api/interview';
 import type { InterviewResumeTemplateVO } from '@/types/api';
 import { useToast } from '@/composables/useToast';
+import { useResumeStore } from '@/stores/resume';
 
 const router = useRouter();
 import { useDictData } from '@/composables/useDictData';
 
 const toast = useToast();
+const resumeStore = useResumeStore();
 const loading = ref(false);
 const templates = ref<InterviewResumeTemplateVO[]>([]);
 const total = ref(0);
@@ -158,14 +160,31 @@ async function handleDownload(t: InterviewResumeTemplateVO) {
   }
 }
 
-// 基于模板创建在线简历：跳转编辑页并预填标题/期望岗位（模板为文件资源，无结构化内容）
-function useTemplate(t: InterviewResumeTemplateVO) {
+// 基于模板创建在线简历：拉取模板详情（含 sampleData 结构化示例数据）→ 暂存到 resumeStore
+// → 跳转编辑页带 source=template 标识 → 编辑页 onMounted 消费 store 填充 form 后清空
+// sampleData 为空时回退到 query 参数预填标题/期望岗位（模板为纯文件资源场景）
+async function useTemplate(t: InterviewResumeTemplateVO) {
+  const templateId = t.id;
+  const templateTitle = t.title || '';
+  const templateCategory = (t as any).category || '';
+  try {
+    // 拉详情拿 sampleData（列表接口可能未返回该字段，详情接口直传）
+    const res = await getResumeTemplateDetail(templateId);
+    const detail = res.code === 200 ? res.data : null;
+    if (detail) {
+      resumeStore.fillFromTemplate(detail);
+    }
+  } catch (e) {
+    // 详情拉取失败不阻断流程，编辑页会回退到 query 预填
+    console.warn('[useTemplate] 模板详情拉取失败，回退到 query 预填', e);
+  }
   router.push({
     path: '/interview/resume/edit',
     query: {
-      fromTemplate: String(t.id || ''),
-      templateTitle: t.title || '',
-      templateCategory: (t as any).category || '',
+      source: 'template',
+      templateId: String(templateId || ''),
+      templateTitle,
+      templateCategory,
     },
   });
 }

@@ -78,6 +78,14 @@ public class PortalInterviewResumeTemplate extends BaseEntity
     private String tags;
 
     /**
+     * 模板结构化示例数据（JSON 字符串）
+     * 字段：name/phone/email/city/avatar/jobIntention/educations/works/projects/skills/selfIntro
+     * 用途：「基于此模板创建简历」一键套用，前端 fillFromTemplate 解析后填充编辑页表单
+     * 可选字段：未配置时回退到原 query 参数预填标题/期望岗位流程
+     */
+    private String sampleData;
+
+    /**
      * 状态:draft 草稿/published 已发布
      * 注意：历史注释为 active/inactive（启停语义），实际前端使用 draft/published（内容生命周期语义），
      *       已修正注释与前端保持一致；存量数据兼容。

@@ -1,6 +1,7 @@
 package com.moyun.portal.mapper;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.moyun.ext.cms.domain.vo.ArticleSimpleVO;
 import com.moyun.portal.domain.entity.PortalColumnArticle;
 import org.apache.ibatis.annotations.Mapper;
@@ -24,6 +25,19 @@ public interface PortalColumnArticleMapper extends BaseMapper<PortalColumnArticl
      * @return 文章目录（按 sort_order 升序）
      */
     List<ArticleSimpleVO> selectArticlesByColumn(@Param("columnId") Long columnId);
+
+    /**
+     * CMS后台：分页查询专栏已绑定的文章列表（关联 portal_article + portal_user，含作者昵称/用户名）
+     *
+     * @param page     分页参数
+     * @param columnId 专栏ID
+     * @param keyword  文章标题关键词（可空）
+     * @return 分页结果
+     */
+    Page<ArticleSimpleVO> selectColumnArticlesPage(
+            Page<ArticleSimpleVO> page,
+            @Param("columnId") Long columnId,
+            @Param("keyword") String keyword);
 
     /**
      * 统计专栏文章数

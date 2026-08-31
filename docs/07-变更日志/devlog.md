@@ -5,6 +5,96 @@
 
 ---
 
+## v11.5 (2026-08-31) CMS 文章+专栏管理合并：Tab 入口 + 批量加入专栏 + 维护文章弹窗 + 标签展示
+
+> 用户反馈：①文章管理列表操作栏过宽、缺用户名搜索；②列表/详情未关联 portal_tag 标签；③缺「批量加入专栏」能力；④文章管理与专栏管理分菜单割裂。统一收口为「文章管理 Tab 入口 + 专栏管理 Tab 复用 + 维护文章弹窗」的合并形态。
+
+### 1. 文章列表优化（操作栏收窄 + 用户名搜索 + 标签展示）
+- **后端**：
+  - [CmsArticleQuery](file:///d:/zyg_new_work/moyun-project-document/moyun-server/src/main/java/com/moyun/ext/cms/domain/query/CmsArticleQuery.java)：新增 `authorName` 查询字段（昵称/用户名 OR 模糊）
+  - [CmsArticleVO](file:///d:/zyg_new_work/moyun-project-document/moyun-server/src/main/java/com/moyun/ext/cms/domain/vo/CmsArticleVO.java)：新增 `tagNames` 字段（逗号分隔字符串，由 Mapper 子查询 group_concat 聚合）
+  - [PortalArticleMapper.xml](file:///d:/zyg_new_work/moyun-project-document/moyun-server/src/main/resources/mapper/portal/PortalArticleMapper.xml)：列表/详情 SQL 关联 `portal_entity_tag` + `portal_tag` 取标签名；新增 `authorName` 筛选条件（昵称 OR 用户名）
+- **前端**（[ArticleListTab.vue](file:///d:/zyg_new_work/moyun-project-document/moyun-admin-vue/src/views/cms/article/components/ArticleListTab.vue)）：操作栏由 360px 收窄至 180px（去掉多余空白）；新增「用户名称」搜索项；新增「标签」列（最多展示 3 个 tag，超出折叠为 +N tooltip）；作者列展示「昵称 + 用户名」双行
+
+### 2. 批量加入专栏
+- **后端**：[CmsColumnController](file:///d:/zyg_new_work/moyun-project-document/moyun-server/src/main/java/com/moyun/ext/cms/controller/CmsColumnController.java) 新增 3 端点
+  - `POST /cms/column/{id}/articles`：批量绑定文章（自动跳过已绑定，事务内同步 column.article_count）
+  - `GET /cms/column/{id}/articles`：分页查询专栏已绑定文章（含作者昵称/用户名）
+  - `DELETE /cms/column/{id}/articles/{articleId}`：移出文章（同步 article_count）
+- **Service**：[ICmsColumnService](file:///d:/zyg_new_work/moyun-project-document/moyun-server/src/main/java/com/moyun/ext/cms/service/ICmsColumnService.java) + Impl 新增 `batchBindArticles` / `selectColumnArticlesPage` / `removeColumnArticle`；批量插入时计算 max(sort_order)+1 延续顺序
+- **Mapper**：[PortalColumnArticleMapper](file:///d:/zyg_new_work/moyun-project-document/moyun-server/src/main/java/com/moyun/portal/mapper/PortalColumnArticleMapper.java) + XML 新增 `selectColumnArticlesPage`，关联 `portal_article` + `portal_user` 取作者信息
+- **VO**：[ArticleSimpleVO](file:///d:/zyg_new_work/moyun-project-document/moyun-server/src/main/java/com/moyun/ext/cms/domain/vo/ArticleSimpleVO.java) 新增 `userId` / `authorName` / `authorUsername` 三个非持久字段
+- **前端 API**：[api/cms/column.js](file:///d:/zyg_new_work/moyun-project-document/moyun-admin-vue/src/api/cms/column.js) 新增 `listColumnArticles` / `bindColumnArticles` / `removeColumnArticle`
+- **弹窗**（ArticleListTab.vue）：左侧展示已选文章（标题+作者昵称），右侧专栏列表支持「按作者昵称 + 专栏名」搜索 + 分页 + radio 单选；保存调 `bindColumnArticles` 批量绑定
+
+### 3. 菜单合并（文章管理入口 + 专栏管理 Tab）
+- **路由复用**（以文章为主）：[article/index.vue](file:///d:/zyg_new_work/moyun-project-document/moyun-admin-vue/src/views/cms/article/index.vue) 改造为 `TabContainer` 容器（borderless 变体），文章 Tab 为默认（ArticleListTab），专栏 Tab 复用 [cms/column/index.vue](file:///d:/zyg_new_work/moyun-project-document/moyun-admin-vue/src/views/cms/column/index.vue)
+- **菜单隐藏**（[补丁 SQL](file:///d:/zyg_new_work/moyun-project-document/moyun-server/src/main/resources/sql/moyun-cms-article-column-merge-20260831.sql)）：`UPDATE sys_menu SET visible='1' WHERE menu_id=5122`（侧边栏隐藏但路由保留供 Tab 组件复用），`INSERT IGNORE sys_role_menu (1, 5122)` 兜底 admin 权限
+
+### 4. 专栏管理 Tab 优化（用户名搜索 + 审核按钮条件显示 + 隐藏分类ID + 维护文章弹窗）
+- **ColumnQuery + PortalColumnMapper.xml**：新增 `authorName` 字段 + SQL 关联 portal_user.username 映射 authorUsername
+- **审核按钮条件显示**：列表操作栏 `v-if="scope.row.status === 'pending'"` 才显示「审核」按钮（与文章一致；审核通过后自动隐藏）；CmsColumnServiceImpl.insertColumn/updateColumn 在 pending 态自动调用 `auditTaskService.submit` 写入 sys_audit_task，使首页/审核中心待办可见
+- **修改弹窗**：隐藏「分类ID」表单项（注释保留）；「作者ID」旁新增「创建者」只读项（展示 authorName/authorUsername，详情未返回时回退到列表 row 数据）
+- **维护文章弹窗**（column/index.vue）：操作栏新增「维护文章」按钮
+  - 上半部分：el-descriptions 展示专栏基本信息（ID/名/作者/状态/文章数/订阅数）
+  - 下半部分：已绑定文章列表（标题/作者/浏览/点赞/顺序/加入时间），支持标题搜索 + 分页 + 「移出」操作
+  - 嵌套弹窗：「新增文章绑定」复用 listArticle 接口（可按标题+作者搜索+分页+多选），保存调 `bindColumnArticles`
+
+### 设计取舍
+- 复用文章菜单路径而非新增父菜单：用户明确选择「以文章为主」，避免菜单层级加深；专栏菜单隐藏但路由保留以最小代价支持 Tab 复用
+- 维护文章弹窗的「新增文章绑定」复用 listArticle 接口而非新建端点：管理员可绑定任意已发布文章，无需新建查询；列表已自动过滤重复绑定（前端勾选 + 后端 batchBindArticles 二次校验）
+- 批量加入专栏与维护文章弹窗都走相同的 `bindColumnArticles` 后端逻辑，保证幂等（已绑定的自动跳过）
+- 标签展示取逗号分隔字符串而非 List：避免引入 CommaStringToListTypeHandler，前端 `split(',').filter(Boolean)` 简单处理即可
+
+### 验证
+- moyun-admin-vue `npm run build:prod`：构建成功，0 报错
+- moyun-server `mvn compile -q -DskipTests`：编译成功，0 报错
+- 需执行菜单补丁 [moyun-cms-article-column-merge-20260831.sql](file:///d:/zyg_new_work/moyun-project-document/moyun-server/src/main/resources/sql/moyun-cms-article-column-merge-20260831.sql)（幂等：UPDATE visible + INSERT IGNORE role_menu）+ 重启后端
+
+---
+
+## v11.4 (2026-08-31) 简历模块重构补丁：模板套用打通 + 子组件抽离 + 评分报告归档（设计文档 4 处偏差收口）
+
+> 对照《简历编辑和优化模块重构设计-20260826.md》走查，收口 v10.13 落地时遗留的 4 处偏差：①模板套用仅预填标题（无结构化内容）②ResumeOptimizePage 内联 UI 未抽组件 ③缺跨页数据传递 ④评分无归档可追溯。
+
+### 1. 模板套用打通（sampleData 结构化示例数据）
+- **DDL 增量**（`moyun-db-ddl-moyun-db-202608201435.sql` 末尾）：`portal_interview_resume_template` 新增 `sample_data` 字段（TEXT，存 JSON 字符串，字段语义对齐 UserResumeVO：name/phone/email/avatar/jobIntention/educations/works/projects/skills/selfIntro）
+- **后端**：`PortalInterviewResumeTemplate` 实体 + Mapper 增加 sampleData 字段，`GET /portal/interview/resume/{id}` 详情接口直传
+- **前端 store**：[stores/resume.ts](file:///d:/zyg_new_work/moyun-project-document/moyun-portal/src/stores/resume.ts) Pinia store 承担跨页传递——`fillFromTemplate` 解析 sampleData 暂存，编辑页 `onMounted` 消费后 `clearTemplateSource`（避免刷新残留）
+- **ResumeTemplatePage**：[useTemplate](file:///d:/zyg_new_work/moyun-project-document/moyun-portal/src/pages/interview/ResumeTemplatePage.vue#L163-L190) 改为拉详情 → 填 store → 跳转带 `source=template` 标识；sampleData 为空时回退 query 预填标题/岗位
+- **ResumeEditPage**：[applyTemplateQuery](file:///d:/zyg_new_work/moyun-project-document/moyun-portal/src/pages/interview/ResumeEditPage.vue#L1146-L1192) 优先消费 store 结构化字段（标量填空、列表覆盖），回退 query；顶栏新增「基于模板：xxx」徽章
+
+### 2. 子组件抽离（阶段二，ResumeOptimizePage + ResumeEditPage 内联 UI 抽 6 个独立组件）
+- [AIHelperDialog.vue](file:///d:/zyg_new_work/moyun-project-document/moyun-portal/src/components/resume/AIHelperDialog.vue)：字段级 3 版本 AI 优化弹窗（纯展示+事件回传，调用方负责 openFieldAssist/adoptAssist/autoSave）
+- [JobTargetForm.vue](file:///d:/zyg_new_work/moyun-project-document/moyun-portal/src/components/resume/JobTargetForm.vue)：新建岗位目标弹窗
+- [JobMatchPanel.vue](file:///d:/zyg_new_work/moyun-project-document/moyun-portal/src/components/resume/JobMatchPanel.vue)：JD 匹配结果摘要（匹配度+四维+关键词）
+- [OptimizeProgress.vue](file:///d:/zyg_new_work/moyun-project-document/moyun-portal/src/components/resume/OptimizeProgress.vue)：5 阶段分析进度
+- [OptimizeCompare.vue](file:///d:/zyg_new_work/moyun-project-document/moyun-portal/src/components/resume/OptimizeCompare.vue)：深度优化前后对比+逐项采纳
+- [ScoreReportDialog.vue](file:///d:/zyg_new_work/moyun-project-document/moyun-portal/src/components/resume/ScoreReportDialog.vue)：评分报告+优化历史双列表（见下节）
+- **接入**：ResumeOptimizePage 替换 5 处内联 UI 为组件标签；ResumeEditPage 内联 AI 实时辅助弹窗替换为 `<AIHelperDialog>`，保留原 adoptAssist/autoSaveAfterAdopt 逻辑
+
+### 3. 评分报告归档（阶段五，独立可追溯）
+- **DDL 增量**：`portal_resume_score_report` 新表（resume_id/user_id/job_target_id/position_snapshot/score/score_detail/source[manual/optimize/template]/create_time）
+- **后端**：`PortalResumeScoreReport` 实体 + Mapper + Controller 端点
+  - `POST /portal/resume/optimize/score-report`：`saveScoreReport`（source=manual 触发归档；source 非 manual 或带 jobTargetId 时后端先 scoreResume 再补全报告记录）
+  - `GET /portal/resume/optimize/score-report/{resumeId}`：`getScoreReports` 按时间倒序
+- **前端**：
+  - [ResumeOptimizePage.rescore](file:///d:/zyg_new_work/moyun-project-document/moyun-portal/src/pages/interview/ResumeOptimizePage.vue)：重新评分调 saveScoreReport(source=optimize) 并 refreshScoreReports
+  - [ResumeEditPage.handleScore](file:///d:/zyg_new_work/moyun-project-document/moyun-portal/src/pages/interview/ResumeEditPage.vue#L389-L428)：评分成功后归档 saveScoreReport(source=manual)，失败不阻断主流程
+  - **ScoreReportDialog**：评分报告列表（点击回显快照分数）+ 优化历史列表（点击跳转优化工作台）；ResumeActionBar 新增「评分报告」入口按钮
+
+### 设计取舍
+- store 仅承担"跨页面"数据传递，编辑页内表单状态仍由页面 ref 管理（避免过度中心化）；消费即清空，杜绝刷新残留
+- 标量字段（姓名/电话/邮箱）仅填空避免覆盖个人中心真实信息；结构化列表（教育/工作/项目/技能）模板示例直接覆盖（模板套用即采用模板结构与示例表述）
+- 评分报告归档失败静默（console.warn），不影响评分主流程可用性
+
+### 验证
+- moyun-portal `npx vue-tsc -b`：全量 0 编译错误
+  - 附带修复 [utils/date.ts](file:///d:/zyg_new_work/moyun-project-document/moyun-portal/src/utils/date.ts) `formatDate`：补可选第 3 参 `dateOnlyFormat`（时间部分为 00:00:00 时改用日期型模板），根治 MyReportsPage/MyFeedbackPage/MyResumesPage 7 处 3 参调用历史遗留错误
+- 需执行 DDL 增量补丁 [moyun-db-patch-resume-template-and-score-report-20260831.sql](file:///d:/zyg_new_work/moyun-project-document/moyun-server/src/main/resources/sql/moyun-db-patch-resume-template-and-score-report-20260831.sql)（幂等：sample_data 字段 + portal_resume_score_report 表；主库 DDL 末尾亦已同步）+ 重启后端
+
+---
+
 ## v11.3 (2026-09-02) 支付表统一 pay_ 前缀 + 钱包页重构 + 支付通知并入消息中心
 
 > 补丁：`moyun-pay-v11.3-refactor.patch`

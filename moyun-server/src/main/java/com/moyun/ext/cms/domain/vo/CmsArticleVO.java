@@ -136,4 +136,7 @@ public class CmsArticleVO extends BaseEntity {
     /** 创建时间 */
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime createTime;
+
+    /** 标签名称（逗号分隔，CMS后台列表/详情展示用，非持久字段，由 Mapper 子查询填充） */
+    private String tagNames;
 }

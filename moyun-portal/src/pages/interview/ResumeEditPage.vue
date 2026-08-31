@@ -20,6 +20,8 @@ import ResumeSidebar, { type SidebarSection } from '@/components/resume/ResumeSi
 import ScorePanel from '@/components/resume/ScorePanel.vue';
 import ResumeActionBar from '@/components/resume/ResumeActionBar.vue';
 import ResumePreviewModal from '@/components/resume/ResumePreviewModal.vue';
+import AIHelperDialog from '@/components/resume/AIHelperDialog.vue';
+import ScoreReportDialog from '@/components/resume/ScoreReportDialog.vue';
 import { generateSeo } from '@/utils/seo';
 import {
   getResumeDetail, saveResume, exportResumePdf, scoreResume, getResumeAiAdvice,
@@ -29,15 +31,20 @@ import { useDictData } from '@/composables/useDictData';
 import type { ResumeParseVO } from '@/types/api';
 import { getCurrentUser } from '@/api/user';
 import { getMyCertification, type CreatorCertification } from '@/api/certification';
-import { aiFieldAssist, type FieldAssistSuggestion } from '@/api/resumeOptimize';
+import {
+  aiFieldAssist, type FieldAssistSuggestion,
+  saveScoreReport, getScoreReports, getOptimizeHistory,
+} from '@/api/resumeOptimize';
 import { uploadFile } from '@/api/upload';
 import { getToken } from '@/api/client';
 import type {
   UserResumeVO, UserResumeJobIntention, UserResumeEducationItem, UserResumeWorkItem,
   UserResumeProjectItem, UserResumeSkillItem, UserResumeScoreItem,
   ResumeAiAdviceVO, ResumeAiAdviceItem,
+  ResumeScoreReport, ResumeOptimizeHistory,
 } from '@/types/api';
 import { useToast } from '@/composables/useToast';
+import { useResumeStore } from '@/stores/resume';
 
 
 const confirmModal = useConfirmModal();
@@ -45,6 +52,7 @@ const confirmModal = useConfirmModal();
 const route = useRoute();
 const router = useRouter();
 const toast = useToast();
+const resumeStore = useResumeStore();
 
 const editId = computed(() => route.params.id as string | undefined);
 const isEdit = computed(() => !!editId.value);
@@ -85,6 +93,15 @@ const adviceVisible = ref(false);
 
 // 已采纳建议索引集合
 const acceptedAdvices = ref<Set<string>>(new Set());
+
+// ============ 评分报告与优化历史（v10.18 阶段五） ============
+// 评分后归档为可追溯报告；弹窗同时承载优化历史，便于回看采纳前后对比
+const scoreReports = ref<ResumeScoreReport[]>([]);
+const optimizeHistory = ref<ResumeOptimizeHistory[]>([]);
+const scoreReportVisible = ref(false);
+const scoreReportLoading = ref(false);
+// 模板来源标识（fromTemplate 入口时展示，便于用户感知本简历由模板派生）
+const templateSource = ref<string>('');
 
 // 左侧导航当前高亮项（scroll spy）
 const activeSection = ref('sec-personal');
@@ -387,6 +404,19 @@ async function handleScore() {
       form.scoredTime = res.data.scoredTime || '';
       aiAdvice.value = null;
       acceptedAdvices.value.clear();
+      // 评分成功后归档为评分报告（source=manual），便于后续追溯
+      // 后端 saveScoreReport 在 source 非 manual 或带 jobTargetId 时会补全报告记录；
+      // 这里显式传 manual 触发归档，失败不影响主流程
+      try {
+        await saveScoreReport({
+          resumeId: form.id,
+          source: 'manual',
+          position: form.jobIntention?.position || undefined,
+        });
+        refreshScoreReports();
+      } catch (e) {
+        console.warn('评分报告归档失败:', e);
+      }
       toast.success(`评分完成：${form.score} 分`);
     } else {
       toast.error(res.message || '评分失败，请稍后重试');
@@ -396,6 +426,75 @@ async function handleScore() {
   } finally {
     scoring.value = false;
   }
+}
+
+// ============ 评分报告与优化历史（v10.18 阶段五） ============
+/** 加载评分报告列表（按时间倒序） */
+async function loadScoreReports() {
+  if (!form.id) { scoreReports.value = []; return; }
+  scoreReportLoading.value = true;
+  try {
+    const res = await getScoreReports(form.id);
+    scoreReports.value = res.code === 200 ? (res.data ?? []) : [];
+  } catch (e) {
+    console.warn('加载评分报告失败:', e);
+    scoreReports.value = [];
+  } finally {
+    scoreReportLoading.value = false;
+  }
+}
+
+/** 加载优化历史列表（按时间倒序） */
+async function loadOptimizeHistoryList() {
+  if (!form.id) { optimizeHistory.value = []; return; }
+  try {
+    const res = await getOptimizeHistory(form.id);
+    optimizeHistory.value = res.code === 200 ? (res.data ?? []) : [];
+  } catch (e) {
+    console.warn('加载优化历史失败:', e);
+    optimizeHistory.value = [];
+  }
+}
+
+/** 刷新评分报告 + 优化历史（弹窗内「刷新」按钮与评分后调用） */
+async function refreshScoreReports() {
+  await Promise.all([loadScoreReports(), loadOptimizeHistoryList()]);
+}
+
+/** 打开评分报告弹窗：先加载列表再展示 */
+async function openScoreReportDialog() {
+  if (!form.id) { toast.error('请先保存简历再查看评分报告'); return; }
+  scoreReportVisible.value = true;
+  await refreshScoreReports();
+}
+
+/** 点击某条评分报告：将快照分数回显到当前页面（不覆盖已保存内容） */
+function applyReportSnapshot(report: ResumeScoreReport) {
+  if (report.score != null) {
+    form.score = report.score;
+  }
+  if (report.scoreDetail) {
+    try {
+      form.scoreDetail = typeof report.scoreDetail === 'string'
+        ? JSON.parse(report.scoreDetail)
+        : report.scoreDetail;
+    } catch (e) {
+      console.warn('评分明细解析失败:', e);
+    }
+  }
+  toast.success(`已回显 ${report.score} 分报告快照`);
+}
+
+/** 点击某条优化历史：跳转到对应简历的优化工作台继续优化 */
+function goOptimizeFromHistory(h: ResumeOptimizeHistory) {
+  if (!h.resumeId) return;
+  const targetId = String(h.resumeId);
+  if (String(form.id ?? '') === targetId) {
+    scoreReportVisible.value = false;
+    toast.info('当前简历即为该优化记录来源，可直接继续优化');
+    return;
+  }
+  router.push(`/interview/resume/optimize?resumeId=${targetId}`);
 }
 
 // AI 建议：打开建议弹窗并加载
@@ -1002,8 +1101,9 @@ onMounted(() => {
     loadDetail().then((ok) => {
       if (ok) nextTick(() => { loaded.value = true; });
     });
-  } else if (route.query.fromTemplate) {
-    // 模板入口（v10.13）：跳过最新简历反显，个人中心预填 + 模板标题/岗位预填
+  } else if (route.query.fromTemplate || route.query.source === 'template') {
+    // 模板入口（v10.13 起 fromTemplate，v10.18 改为 source=template）：
+    // 跳过最新简历反显；先个人中心预填基础信息，再 applyTemplateQuery 消费 resumeStore 结构化字段
     prefillFromProfile().then(() => {
       applyTemplateQuery();
       nextTick(() => { loaded.value = true; });
@@ -1043,10 +1143,48 @@ async function prefillFromProfile() {
   }
 }
 
-/** 模板入口预填：基于模板创建新简历（标题+期望岗位），模板文件可通过模板库下载参考 */
+/**
+ * 模板入口预填（v10.18 阶段一打通模板套用）：
+ * 优先消费 resumeStore.templateSource（含 sampleData 解析出的结构化字段），
+ * 回退到 query 参数预填标题/期望岗位（模板为纯文件资源、sampleData 为空时）。
+ * 消费后立即 clearTemplateSource，避免刷新页面残留旧模板数据。
+ */
 function applyTemplateQuery() {
   const templateTitle = String(route.query.templateTitle || '');
   const templateCategory = String(route.query.templateCategory || '');
+  // 模板来源标识：用于在页头展示「基于模板：xxx」徽章，让用户感知本简历由模板派生
+  if (templateTitle) {
+    templateSource.value = templateTitle;
+  }
+  // 1) 优先消费 store 中的结构化示例字段（ educations/works/projects/skills/selfIntro 等）
+  if (resumeStore.hasTemplateSource()) {
+    const src = resumeStore.templateSource;
+    const f = src?.fields;
+    if (f) {
+      // 标量字段：仅填空，避免覆盖个人中心已预填的真实信息
+      if (!form.name?.trim()) form.name = f.name || '';
+      if (!form.phone?.trim()) form.phone = f.phone || '';
+      if (!form.email?.trim()) form.email = f.email || '';
+      if (!form.avatar?.trim()) form.avatar = f.avatar || '';
+      if (f.jobIntention) {
+        if (!form.jobIntention.position?.trim()) form.jobIntention.position = f.jobIntention.position || '';
+        if (!form.jobIntention.city?.trim()) form.jobIntention.city = f.jobIntention.city || '';
+        if (!form.jobIntention.jobType?.trim()) form.jobIntention.jobType = f.jobIntention.jobType || '';
+        if (f.jobIntention.salaryMin != null) form.jobIntention.salaryMin = f.jobIntention.salaryMin;
+        if (f.jobIntention.salaryMax != null) form.jobIntention.salaryMax = f.jobIntention.salaryMax;
+        if (f.jobIntention.availableTime && !form.jobIntention.availableTime?.trim()) form.jobIntention.availableTime = f.jobIntention.availableTime;
+      }
+      // 结构化列表字段：模板示例直接覆盖（模板套用即采用模板的结构与示例表述）
+      if (Array.isArray(f.educations) && f.educations.length) form.educations = f.educations;
+      if (Array.isArray(f.works) && f.works.length) form.works = f.works;
+      if (Array.isArray(f.projects) && f.projects.length) form.projects = f.projects;
+      if (Array.isArray(f.skills) && f.skills.length) form.skills = f.skills;
+      if (f.selfIntro?.trim()) form.selfIntro = f.selfIntro;
+    }
+    resumeStore.clearTemplateSource();
+    return;
+  }
+  // 2) 回退：sampleData 为空时仅预填标题/期望岗位
   if (templateTitle && !form.title?.trim()) {
     form.title = `${templateTitle}风格 · 我的简历`;
   }
@@ -1126,6 +1264,15 @@ onBeforeRouteLeave(async (to, from, next) => {
       <div class="re-topbar-inner">
         <Breadcrumb :items="breadcrumbs" />
         <div class="re-topbar-actions">
+          <!-- 模板来源标识（v10.18 阶段一）：基于模板创建时展示派生关系 -->
+          <span
+            v-if="templateSource"
+            class="re-template-source"
+            title="本简历基于该模板创建"
+          >
+            <FileText class="w-3 h-3" />
+            基于模板：{{ templateSource }}
+          </span>
           <!-- 标题输入（紧凑） -->
           <input
             v-model="form.title"
@@ -1666,6 +1813,7 @@ onBeforeRouteLeave(async (to, from, next) => {
       @download="handleExportPdf"
       @save="handleSaveDraft"
       @optimize="handleOptimize"
+      @report="openScoreReportDialog"
     />
 
     <!-- 预览弹窗 -->
@@ -1853,62 +2001,28 @@ onBeforeRouteLeave(async (to, from, next) => {
       </div>
     </Teleport>
 
-    <!-- AI 实时辅助弹窗（v10.14 设计文档 P0 需求#2：字段级 3 版本建议） -->
-    <Teleport to="body">
-      <div v-if="assistVisible" class="re-advice-mask" @click.self="assistVisible = false">
-        <div class="re-advice-box" style="max-width: 640px;">
-          <div class="re-advice-head">
-            <h3>
-              <Sparkles class="w-4 h-4" style="color: var(--theme-primary);" />
-              AI 实时优化
-              <span class="re-advice-grade" style="background: color-mix(in srgb, var(--theme-primary) 10%, transparent); color: var(--theme-primary);">
-                {{ assistTarget?.type === 'work' ? '工作描述' : assistTarget?.type === 'project' ? '项目描述' : '自我评价' }}
-              </span>
-            </h3>
-            <div class="re-advice-head-actions">
-              <button class="re-advice-close" @click="assistVisible = false">
-                <X class="w-4 h-4" />
-              </button>
-            </div>
-          </div>
+    <!-- AI 实时辅助弹窗（v10.18 阶段二抽离为 AIHelperDialog 组件：字段级 3 版本建议） -->
+    <AIHelperDialog
+      :visible="assistVisible"
+      :loading="assistLoading"
+      :suggestions="assistSuggestions"
+      :original-text="assistOriginal"
+      :version-labels="ASSIST_VERSION_LABELS"
+      :target-type="assistTarget?.type"
+      @close="assistVisible = false"
+      @adopt="adoptAssist"
+    />
 
-          <!-- 原文（对比基准） -->
-          <div v-if="assistOriginal" class="re-assist-original">
-            <div class="re-assist-label">📌 原始内容</div>
-            <p>{{ assistOriginal }}</p>
-          </div>
-
-          <!-- 加载中 -->
-          <div v-if="assistLoading" class="re-advice-loading">
-            <div class="re-loading-spinner"></div>
-            <p>AI 正在生成 3 个优化版本...</p>
-          </div>
-
-          <!-- 版本列表 -->
-          <div v-else class="re-advice-body">
-            <div
-              v-for="(s, i) in assistSuggestions"
-              :key="i"
-              class="re-assist-version"
-              :class="{ 're-assist-recommend': i === 0 }"
-            >
-              <div class="re-assist-version-head">
-                <span class="re-assist-version-tag">{{ ASSIST_VERSION_LABELS[i] || `版本 ${i + 1}` }}</span>
-                <span v-if="s.reason" class="re-assist-reason">💡 {{ s.reason }}</span>
-              </div>
-              <p class="re-assist-text">{{ s.text }}</p>
-              <button class="re-assist-adopt-btn" @click="adoptAssist(s.text)">采纳此版本</button>
-            </div>
-            <div v-if="!assistSuggestions.length" class="re-empty-tip" style="padding: 24px 0;">
-              AI 未生成有效建议，请补充内容后重试
-            </div>
-            <div class="re-field-hint" style="margin-top: 8px;">
-              提示：AI 可能使用 [X%]、[X万] 等占位符标记需你确认的数据，采纳后请替换为真实数值
-            </div>
-          </div>
-        </div>
-      </div>
-    </Teleport>
+    <!-- 评分报告弹窗（v10.18 阶段五抽离为 ScoreReportDialog 组件：评分快照 + 优化历史） -->
+    <ScoreReportDialog
+      v-model:visible="scoreReportVisible"
+      :reports="scoreReports"
+      :history="optimizeHistory"
+      :loading="scoreReportLoading"
+      @refresh="refreshScoreReports"
+      @select-report="applyReportSnapshot"
+      @select-history="goOptimizeFromHistory"
+    />
 
     <!-- 附件解析结果预览弹窗（v10.12） -->
     <Teleport to="body">
@@ -2035,6 +2149,22 @@ onBeforeRouteLeave(async (to, from, next) => {
 }
 .re-save-badge.saving { background: var(--theme-warning-bg); color: var(--theme-warning); }
 .re-save-badge.saved { background: var(--theme-success-bg); color: var(--theme-success); }
+/* 模板来源标识徽章（v10.18 阶段一） */
+.re-template-source {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  padding: 3px 10px;
+  border-radius: 10px;
+  white-space: nowrap;
+  background: color-mix(in srgb, var(--theme-primary) 10%, transparent);
+  color: var(--theme-primary);
+  font-weight: 600;
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 
 /* ===== 加载 / 错误 ===== */
 .re-loading, .re-error {

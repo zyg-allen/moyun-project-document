@@ -54,6 +54,9 @@ public class ColumnVO implements Serializable {
     /** 作者昵称 */
     private String authorName;
 
+    /** 作者用户名 */
+    private String authorUsername;
+
     /** 作者头像 */
     private String authorAvatar;
 

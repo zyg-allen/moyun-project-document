@@ -1381,6 +1381,12 @@ export interface InterviewResumeTemplateVO {
   status: string;
   liked?: boolean;
   createTime?: string;
+  /**
+   * 模板结构化示例数据（JSON 字符串，v10.18 阶段一模板套用打通）
+   * 字段：name/phone/email/city/avatar/jobIntention/educations/works/projects/skills/selfIntro
+   * 后端 PortalInterviewResumeTemplate.sampleData 直传；前端 fillFromTemplate 解析后填充编辑页
+   */
+  sampleData?: string;
 }
 
 export interface InterviewResumeTemplateQuery {
@@ -1576,6 +1582,27 @@ export interface ResumeDeepOptimizeVO {
   summary?: string;
   items: ResumeOptimizeItem[];
   aiPowered?: boolean;
+}
+
+/**
+ * 评分报告（与后端 PortalResumeScoreReport 对齐，v10.18 阶段五）
+ * 每次评分（单独评分 / 优化后重新评分 / 模板套用评分）结果存档，可追溯历史评分
+ */
+export interface ResumeScoreReport {
+  id?: number | string;
+  userId?: number | string;
+  resumeId: number | string;
+  /** 关联岗位目标ID（可选，纯规则评分时为空） */
+  jobTargetId?: number | string;
+  /** 评分时的目标岗位快照（便于报告独立解读） */
+  positionSnapshot?: string;
+  /** 综合评分 0-100 */
+  score: number;
+  /** 各维度评分明细 JSON 字符串（与 portal_user_resume.score_detail 字段格式一致，复用前端解析） */
+  scoreDetail?: string;
+  /** 评分来源：manual 单独评分 / optimize 优化后重新评分 / template 模板套用评分 */
+  source?: 'manual' | 'optimize' | 'template' | string;
+  createTime?: string;
 }
 
 /** 简历附件解析结果（v10.12，与后端 ResumeParseVO 对齐，字段语义同 UserResumeVO） */

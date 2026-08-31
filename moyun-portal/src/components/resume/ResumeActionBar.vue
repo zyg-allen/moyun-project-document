@@ -5,7 +5,7 @@
  * 左侧：自动保存状态；右侧：撤销/预览/下载/保存/AI优化
  */
 import { computed } from 'vue';
-import { Undo2, Eye, Download, Save, Sparkles } from 'lucide-vue-next';
+import { Undo2, Eye, Download, Save, Sparkles, History } from 'lucide-vue-next';
 
 const props = defineProps<{
   saveStatus?: 'idle' | 'saving' | 'saved' | 'dirty';
@@ -20,6 +20,7 @@ const emit = defineEmits<{
   (e: 'download'): void;
   (e: 'save'): void;
   (e: 'optimize'): void;
+  (e: 'report'): void;
 }>();
 
 const statusText = computed(() => {
@@ -51,6 +52,16 @@ const statusDotClass = computed(() => {
       <button type="button" class="re-ab-btn outline" @click="emit('preview')">
         <Eye class="w-4 h-4" />
         预览
+      </button>
+      <button
+        type="button"
+        class="re-ab-btn outline"
+        :disabled="!hasId"
+        @click="emit('report')"
+        title="评分报告与优化历史"
+      >
+        <History class="w-4 h-4" />
+        评分报告
       </button>
       <button
         type="button"

@@ -12,8 +12,10 @@ import com.moyun.ext.cms.service.IUserResumeService;
 import com.moyun.ext.cms.service.ResumeAiAdviceService;
 import com.moyun.ext.cms.service.ResumePdfExporter;
 import com.moyun.ext.cms.service.ResumeScoringService;
+import com.moyun.portal.domain.entity.PortalResumeScoreReport;
 import com.moyun.portal.domain.entity.PortalUser;
 import com.moyun.portal.domain.entity.PortalUserResume;
+import com.moyun.portal.mapper.PortalResumeScoreReportMapper;
 import com.moyun.portal.mapper.PortalUserMapper;
 import com.moyun.portal.mapper.PortalUserResumeMapper;
 import com.moyun.util.string.StringUtils;
@@ -45,6 +47,8 @@ public class UserResumeServiceImpl implements IUserResumeService {
     @Autowired private ObjectMapper objectMapper;
     @Autowired private PortalUserMapper portalUserMapper;
     @Autowired private ResumeAiAdviceService aiAdviceService;
+    /** 评分报告存档（v10.18 阶段五） */
+    @Autowired private PortalResumeScoreReportMapper scoreReportMapper;
 
     // ========================================================================
     // 列表 / 详情
@@ -295,6 +299,16 @@ public class UserResumeServiceImpl implements IUserResumeService {
         entity.setScoredTime(LocalDateTime.now());
         entity.setUpdateTime(LocalDateTime.now());
         userResumeMapper.updateById(entity);
+
+        // v10.18 阶段五：评分结果同步存档到 portal_resume_score_report，可追溯历史评分
+        PortalResumeScoreReport report = new PortalResumeScoreReport();
+        report.setUserId(userId);
+        report.setResumeId(id);
+        report.setPositionSnapshot(targetPosition);
+        report.setScore(total);
+        report.setScoreDetail(toJson(items));
+        report.setSource("manual");
+        scoreReportMapper.insert(report);
 
         vo.setScore(total);
         vo.setScoreDetail(items);

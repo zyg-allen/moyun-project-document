@@ -10,14 +10,22 @@ dayjs.extend(relativeTime);
  * 格式化日期
  * @param date 日期字符串或 Date 对象
  * @param format 格式化模板，默认为 'YYYY-MM-DD HH:mm:ss'
+ * @param dateOnlyFormat 可选，日期型兜底模板（如 'YYYY-MM-DD'）：
+ *   当时间部分为 00:00:00（仅日期、无精确时刻）时改用此模板，
+ *   避免「2024-01-15 00:00」这类无意义时刻占用展示空间；不传则始终用 format
  * @returns 格式化后的日期字符串
  */
 export function formatDate(
   date: string | Date,
-  format: string = 'YYYY-MM-DD HH:mm:ss'
+  format: string = 'YYYY-MM-DD HH:mm:ss',
+  dateOnlyFormat?: string
 ): string {
   if (!date) return '';
-  return dayjs(date).format(format);
+  const d = dayjs(date);
+  if (dateOnlyFormat && d.hour() === 0 && d.minute() === 0 && d.second() === 0) {
+    return d.format(dateOnlyFormat);
+  }
+  return d.format(format);
 }
 
 /**

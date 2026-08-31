@@ -10,15 +10,22 @@ import {
 } from 'lucide-vue-next';
 import SiteFooter from '@/components/SiteFooter.vue';
 import Breadcrumb from '@/components/Breadcrumb.vue';
+import JobTargetForm from '@/components/resume/JobTargetForm.vue';
+import JobMatchPanel from '@/components/resume/JobMatchPanel.vue';
+import OptimizeProgress from '@/components/resume/OptimizeProgress.vue';
+import OptimizeCompare from '@/components/resume/OptimizeCompare.vue';
+import ScoreReportDialog from '@/components/resume/ScoreReportDialog.vue';
 import { generateSeo } from '@/utils/seo';
 import { getMyResumeList, scoreResume, getResumeDetail } from '@/api/interview';
 import {
   getJobTargets, createJobTarget, deleteJobTarget, runJobMatch,
   generateDeepOptimize, applyDeepOptimize, getOptimizeHistory,
+  saveScoreReport, getScoreReports,
 } from '@/api/resumeOptimize';
 import type {
   UserResumeVO, ResumeJobTarget, ResumeJobMatchReport,
   ResumeDeepOptimizeVO, ResumeOptimizeItem, ResumeOptimizeHistory,
+  ResumeScoreReport,
 } from '@/types/api';
 import { useToast } from '@/composables/useToast';
 
@@ -105,6 +112,37 @@ async function loadOptimizeHistory() {
   } finally {
     historyLoading.value = false;
   }
+}
+
+// ==================== 评分报告存档（v10.18 阶段五） ====================
+const scoreReports = ref<ResumeScoreReport[]>([]);
+const scoreReportVisible = ref(false);
+const scoreReportLoading = ref(false);
+
+async function loadScoreReports(resumeId?: number | string | null) {
+  const id = resumeId ?? savedResumeId.value ?? selectedResumeId.value;
+  if (!id) {
+    scoreReports.value = [];
+    return;
+  }
+  scoreReportLoading.value = true;
+  try {
+    const res = await getScoreReports(id);
+    scoreReports.value = res.code === 200 ? (res.data ?? []) : [];
+  } catch (e) {
+    console.warn('[optimize] 评分报告加载失败', e);
+  } finally {
+    scoreReportLoading.value = false;
+  }
+}
+
+async function openScoreReportDialog() {
+  await Promise.all([loadOptimizeHistory(), loadScoreReports(savedResumeId.value)]);
+  scoreReportVisible.value = true;
+}
+
+async function refreshScoreReports() {
+  await Promise.all([loadOptimizeHistory(), loadScoreReports(savedResumeId.value)]);
 }
 
 const visibleHistory = computed(() => optimizeHistory.value.slice(0, historyVisibleCount.value));
@@ -413,17 +451,26 @@ async function saveOptimize() {
   }
 }
 
-// 重新评分（以最终结果为准）
+// 重新评分（以最终结果为准，v10.18 同步入库存档为 source=optimize 报告）
 async function rescore() {
   if (!savedResumeId.value) {
     toast.error('请先保存优化结果');
     return;
   }
   try {
-    const res = await scoreResume(savedResumeId.value);
+    // 调用 saveScoreReport：后端先 scoreResume 触发评分（自动入库 source=manual），
+    // 再 UPDATE 刚插入的报告 source=optimize + jobTargetId + position（标记为优化后重新评分）
+    const res = await saveScoreReport({
+      resumeId: savedResumeId.value,
+      source: 'optimize',
+      jobTargetId: selectedTargetId.value ?? undefined,
+      position: selectedTarget.value?.position,
+    });
     if (res.code === 200 && res.data) {
-      rescoredScore.value = (res.data as UserResumeVO).score ?? null;
-      toast.success('重新评分完成');
+      rescoredScore.value = res.data.score ?? null;
+      toast.success('重新评分完成（已存档为评分报告）');
+      // 刷新评分报告与历史（不阻塞主流程）
+      refreshScoreReports();
     } else {
       toast.error(res.message || '评分失败');
     }
@@ -602,149 +649,30 @@ function dimRows() {
         </div>
       </div>
 
-      <!-- ==================== STEP 3：分析进度 ==================== -->
-      <div v-else-if="step === 3" class="bg-theme-surface rounded-xl border border-theme-border p-10 text-center">
-        <div class="text-5xl mb-3">🤖</div>
-        <h3 class="text-lg font-semibold mb-1">AI 正在深度分析你的简历</h3>
-        <p class="text-sm text-theme-text-secondary mb-6">
-          目标岗位：<strong class="text-theme-text">{{ selectedTarget?.position }}</strong>
-        </p>
-
-        <div v-if="analyzing" class="max-w-md mx-auto">
-          <div class="flex items-center justify-between text-sm mb-2">
-            <span class="text-theme-text-secondary">分析进度</span>
-            <span class="font-bold" style="color: var(--theme-primary);">{{ Math.round(progressPercent) }}%</span>
-          </div>
-          <div class="h-2 bg-theme-surface rounded-full overflow-hidden mb-5">
-            <div class="h-full rounded-full transition-all duration-500" :style="{ background: 'var(--theme-primary)', width: progressPercent + '%' }"></div>
-          </div>
-          <div class="text-left space-y-2 text-sm">
-            <div v-for="i in 5" :key="i" class="flex items-center gap-2">
-              <CheckCircle2 v-if="progressStep > i" class="w-4 h-4 text-theme-success" />
-              <RefreshCw v-else-if="progressStep === i" class="w-4 h-4 animate-spin" style="color: var(--theme-primary);" />
-              <span v-else class="w-4 h-4 rounded-full border border-theme-border inline-block" />
-              <span :class="progressStep >= i ? 'text-theme-text' : 'text-theme-text-secondary'">
-                {{ ['加载并解析简历结构', '提取关键信息与技能', '对比岗位要求进行分析', '生成匹配评分报告', '输出分析结果'][i - 1] }}
-              </span>
-            </div>
-          </div>
-        </div>
-      </div>
+      <!-- ==================== STEP 3：分析进度（v10.18 抽离为 OptimizeProgress 组件） ==================== -->
+      <OptimizeProgress
+        v-else-if="step === 3"
+        :analyzing="analyzing"
+        :percent="progressPercent"
+        :step="progressStep"
+        :target-position="selectedTarget?.position"
+      />
 
       <!-- ==================== STEP 4：匹配结果 + 深度优化对比 ==================== -->
       <div v-else-if="step === 4" class="space-y-4">
-        <!-- 匹配摘要 -->
-        <div v-if="matchReport" class="bg-theme-surface rounded-xl border border-theme-border p-6">
-          <div class="flex items-center justify-between flex-wrap gap-3 mb-4">
-            <h3 class="font-semibold flex items-center gap-2">
-              <Target class="w-4 h-4" style="color: var(--theme-primary);" /> 岗位匹配结果
-            </h3>
-            <span v-if="matchReport.aiPowered" class="text-[11px] inline-flex items-center gap-1 px-2 py-1 rounded-full bg-theme-accent text-theme-primary border border-theme-border">
-              <Sparkles class="w-3 h-3" /> AI 深度分析
-            </span>
-            <span v-else class="text-[11px] px-2 py-1 rounded-full bg-theme-bg text-theme-text-secondary border border-theme-border">规则分析（配置 AI 后更精准）</span>
-          </div>
+        <!-- 匹配摘要（v10.18 抽离为 JobMatchPanel 组件） -->
+        <JobMatchPanel :report="matchReport" />
 
-          <div class="flex items-center gap-6 flex-wrap mb-4">
-            <div class="text-center">
-              <div class="text-4xl font-extrabold" :style="{ color: matchReport.matchScore >= 70 ? 'var(--theme-success)' : matchReport.matchScore >= 50 ? 'var(--theme-warning)' : 'var(--theme-danger)' }">
-                {{ matchReport.matchScore }}%
-              </div>
-              <div class="text-xs text-theme-text-secondary mt-1">{{ gradeLabel[matchReport.grade || ''] || '综合匹配度' }}</div>
-            </div>
-            <div class="flex-1 min-w-[240px] space-y-2">
-              <div v-for="row in dimRows()" :key="row.key" class="flex items-center gap-3 text-xs">
-                <span class="w-16 text-right text-theme-text-secondary flex-shrink-0">{{ row.label }}</span>
-                <div class="flex-1 h-2 bg-theme-surface rounded-full overflow-hidden">
-                  <div class="h-full rounded-full" :style="{ width: row.dim!.score + '%', background: row.dim!.score >= 70 ? 'var(--theme-success)' : row.dim!.score >= 50 ? 'var(--theme-warning)' : 'var(--theme-danger)' }"></div>
-                </div>
-                <span class="w-8 font-semibold" :style="{ color: row.dim!.score >= 70 ? 'var(--theme-success)' : row.dim!.score >= 50 ? 'var(--theme-warning)' : 'var(--theme-danger)' }">{{ row.dim!.score }}</span>
-              </div>
-            </div>
-          </div>
-
-          <!-- 关键词 -->
-          <div v-if="keywordsOf(matchReport.matchedKeywords).length" class="mb-3">
-            <div class="text-xs text-theme-text-secondary mb-1.5">✅ 已匹配关键词（{{ keywordsOf(matchReport.matchedKeywords).length }}）</div>
-            <div class="flex flex-wrap gap-1.5">
-              <span v-for="k in keywordsOf(matchReport.matchedKeywords)" :key="k" class="text-xs px-2 py-0.5 rounded bg-theme-success-bg text-theme-success border border-theme-success-bg">{{ k }}</span>
-            </div>
-          </div>
-          <div v-if="keywordsOf(matchReport.missingKeywords).length" class="mb-3">
-            <div class="text-xs text-theme-text-secondary mb-1.5">⚠️ 缺失关键词（{{ keywordsOf(matchReport.missingKeywords).length }}）</div>
-            <div class="flex flex-wrap gap-1.5">
-              <span v-for="k in keywordsOf(matchReport.missingKeywords)" :key="k" class="text-xs px-2 py-0.5 rounded bg-theme-warning-bg text-theme-warning border border-theme-warning-bg">{{ k }}</span>
-            </div>
-          </div>
-          <p v-if="matchReport.summary" class="text-sm text-theme-text-secondary bg-theme-bg rounded-lg p-3 leading-relaxed">{{ matchReport.summary }}</p>
-        </div>
-
-        <!-- 深度优化建议 -->
-        <div class="bg-theme-surface rounded-xl border border-theme-border p-6">
-          <div class="flex items-center justify-between flex-wrap gap-3 mb-4">
-            <h3 class="font-semibold flex items-center gap-2">
-              <GitCompare class="w-4 h-4" style="color: var(--theme-primary);" /> 深度优化 · 前后对比
-            </h3>
-            <div class="flex gap-2">
-              <button
-                v-if="!optimizeResult"
-                class="inline-flex items-center gap-1.5 text-sm px-4 py-2 rounded-lg text-white font-medium disabled:opacity-50"
-                style="background: var(--theme-primary);"
-                :disabled="optimizing"
-                @click="generateOptimize"
-              >
-                <Sparkles class="w-4 h-4" /> {{ optimizing ? 'AI 生成中...' : '生成深度优化建议' }}
-              </button>
-              <template v-else>
-                <button class="inline-flex items-center gap-1.5 text-sm px-4 py-2 rounded-lg border border-theme-primary text-theme-primary font-medium" @click="adoptAll">
-                  <CheckCircle2 class="w-4 h-4" /> 全部采纳
-                </button>
-                <button class="text-sm px-3 py-2 rounded-lg border border-theme-border text-theme-text-secondary" @click="generateOptimize" :disabled="optimizing">重新生成</button>
-              </template>
-            </div>
-          </div>
-
-          <p v-if="optimizeResult?.summary" class="text-sm text-theme-text-secondary bg-theme-accent border border-theme-border rounded-lg p-3 mb-4">{{ optimizeResult.summary }}</p>
-
-          <div v-if="!optimizeResult" class="py-8 text-center text-sm text-theme-text-secondary border border-dashed border-theme-border rounded-lg">
-            基于「{{ selectedTarget?.position }}」的岗位要求，AI 将逐项改写简历内容（STAR 法则 + 量化数据）
-          </div>
-
-          <div v-else class="space-y-3">
-            <div
-              v-for="(item, i) in optimizeResult.items"
-              :key="i"
-              class="rounded-lg border transition-all"
-              :class="adoptedSet.has(i) ? 'border-theme-success bg-theme-success-bg/30' : 'border-theme-border'"
-            >
-              <div class="flex items-center justify-between px-4 py-2.5 bg-theme-bg rounded-t-lg">
-                <div class="flex items-center gap-2 text-sm font-medium">
-                  <component :is="adoptedSet.has(i) ? CheckCircle2 : AlertCircle" class="w-4 h-4" :class="adoptedSet.has(i) ? 'text-theme-success' : 'text-theme-text-secondary'" />
-                  {{ sectionLabel(item) }}
-                </div>
-                <button
-                  class="text-xs px-3 py-1.5 rounded-md font-medium"
-                  :class="adoptedSet.has(i) ? 'bg-theme-accent text-theme-text-secondary' : 'text-white'"
-                  :style="adoptedSet.has(i) ? '' : 'background: var(--theme-primary);'"
-                  @click="toggleAdopted(i)"
-                >
-                  {{ adoptedSet.has(i) ? '取消采纳' : '采纳' }}
-                </button>
-              </div>
-              <div class="p-4 grid md:grid-cols-2 gap-3 text-sm">
-                <div>
-                  <div class="text-xs text-theme-text-secondary mb-1.5">📌 优化前</div>
-                  <p class="text-theme-text-secondary leading-relaxed bg-theme-bg rounded-lg p-2.5 whitespace-pre-line">{{ item.original || '（空）' }}</p>
-                </div>
-                <div>
-                  <div class="text-xs text-theme-success mb-1.5 flex items-center gap-1"><Sparkles class="w-3 h-3" /> AI 优化后</div>
-                  <p class="text-theme-text leading-relaxed bg-theme-success-bg rounded-lg p-2.5 whitespace-pre-line">{{ item.optimized }}</p>
-                </div>
-              </div>
-              <p v-if="item.reason" class="px-4 pb-3 text-xs text-theme-text-secondary">💡 {{ item.reason }}</p>
-            </div>
-          </div>
-        </div>
+        <!-- 深度优化建议（v10.18 抽离为 OptimizeCompare 组件） -->
+        <OptimizeCompare
+          :result="optimizeResult"
+          :adopted-set="adoptedSet"
+          :optimizing="optimizing"
+          :target-position="selectedTarget?.position"
+          @generate="generateOptimize"
+          @toggle="toggleAdopted"
+          @adopt-all="adoptAll"
+        />
 
         <div class="flex justify-between">
           <button class="inline-flex items-center gap-1.5 text-sm px-4 py-2 rounded-lg border border-theme-border text-theme-text-secondary" @click="step = 2">
@@ -917,50 +845,24 @@ function dimRows() {
       </div>
     </div>
 
-    <!-- 新建岗位弹窗 -->
-    <Teleport to="body">
-      <div v-if="jobModalVisible" class="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" @click.self="jobModalVisible = false">
-        <div class="bg-theme-surface rounded-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
-          <div class="flex items-center justify-between px-5 py-4 border-b sticky top-0 bg-theme-surface">
-            <h3 class="font-semibold flex items-center gap-2"><Plus class="w-4 h-4" style="color: var(--theme-primary);" /> 新建目标岗位</h3>
-            <button class="text-theme-text-secondary hover:text-theme-text-secondary" @click="jobModalVisible = false"><X class="w-4 h-4" /></button>
-          </div>
-          <div class="p-5 space-y-4">
-            <div>
-              <label class="text-sm font-medium text-theme-text">目标岗位名称 <span class="text-theme-danger">*</span></label>
-              <input v-model="jobForm.position" placeholder="如：Java 开发工程师" class="mt-1 w-full border border-theme-border rounded-lg px-3 py-2 text-sm outline-none focus:border-theme-primary" />
-            </div>
-            <div class="grid grid-cols-3 gap-3">
-              <div>
-                <label class="text-sm font-medium text-theme-text">目标公司</label>
-                <input v-model="jobForm.company" placeholder="选填" class="mt-1 w-full border border-theme-border rounded-lg px-3 py-2 text-sm outline-none focus:border-theme-primary" />
-              </div>
-              <div>
-                <label class="text-sm font-medium text-theme-text">城市</label>
-                <input v-model="jobForm.city" placeholder="选填" class="mt-1 w-full border border-theme-border rounded-lg px-3 py-2 text-sm outline-none focus:border-theme-primary" />
-              </div>
-              <div>
-                <label class="text-sm font-medium text-theme-text">岗位类型</label>
-                <select v-model="jobForm.jobType" class="mt-1 w-full border border-theme-border rounded-lg px-3 py-2 text-sm outline-none focus:border-theme-primary">
-                  <option v-for="t in JOB_TYPE_OPTIONS" :key="t" :value="t">{{ t }}</option>
-                </select>
-              </div>
-            </div>
-            <div>
-              <label class="text-sm font-medium text-theme-text">岗位描述（JD）<span class="text-theme-danger">*</span></label>
-              <textarea v-model="jobForm.jdText" rows="7" placeholder="粘贴 BOSS直聘/拉勾等平台的岗位描述...&#10;例如：&#10;1. 5年以上Java开发经验，精通Spring Boot&#10;2. 熟悉微服务架构..." class="mt-1 w-full border border-theme-border rounded-lg px-3 py-2 text-sm outline-none focus:border-theme-primary resize-y" />
-              <p class="text-xs text-theme-text-secondary mt-1">JD 越完整，匹配分析与优化建议越精准</p>
-            </div>
-          </div>
-          <div class="flex justify-end gap-2 px-5 py-4 border-t">
-            <button class="text-sm px-4 py-2 rounded-lg border border-theme-border text-theme-text-secondary" @click="jobModalVisible = false">取消</button>
-            <button class="text-sm px-5 py-2 rounded-lg text-white font-medium disabled:opacity-50" style="background: var(--theme-primary);" :disabled="jobSaving" @click="saveJobTarget">
-              {{ jobSaving ? '保存中...' : '保存岗位' }}
-            </button>
-          </div>
-        </div>
-      </div>
-    </Teleport>
+    <!-- 新建岗位弹窗（v10.18 抽离为 JobTargetForm 组件） -->
+    <JobTargetForm
+      v-model:visible="jobModalVisible"
+      v-model:form="jobForm"
+      :saving="jobSaving"
+      :job-type-options="JOB_TYPE_OPTIONS"
+      @save="saveJobTarget"
+    />
+
+    <!-- 评分报告弹窗（v10.18 阶段五：评分报告存档 + 优化历史整合） -->
+    <ScoreReportDialog
+      v-model:visible="scoreReportVisible"
+      :reports="scoreReports"
+      :history="optimizeHistory"
+      :loading="scoreReportLoading"
+      @refresh="refreshScoreReports"
+      @select-history="goEditFromHistory"
+    />
 
     <SiteFooter />
   </div>

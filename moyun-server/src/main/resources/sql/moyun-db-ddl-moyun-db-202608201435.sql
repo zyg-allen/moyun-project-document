@@ -6821,3 +6821,25 @@ CREATE TABLE `portal_resume_optimize_history` (
   PRIMARY KEY (`id`),
   KEY `idx_resume_id` (`resume_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='简历优化-优化历史表';
+
+-- ==================== 增量变更：简历模板套用打通 + 评分报告存档（2026-08-31） ====================
+-- 设计文档：docs/简历编辑和优化模块重构设计-20260826.md 阶段一/阶段五
+-- 1) 模板表增加结构化示例数据字段（可选，便于"基于此模板创建简历"快速填充表单）
+ALTER TABLE `portal_interview_resume_template`
+  ADD COLUMN `sample_data` json DEFAULT NULL COMMENT '模板结构化示例数据（JSON：name/phone/email/jobIntention/educations/works/projects/skills/selfIntro，用于一键套用填充编辑页）' AFTER `tags`;
+
+-- 2) 评分报告表：保存每次评分结果为可追溯报告（含岗位快照与各维度明细）
+CREATE TABLE `portal_resume_score_report` (
+  `id` bigint NOT NULL AUTO_INCREMENT COMMENT '报告ID',
+  `user_id` bigint NOT NULL COMMENT '用户ID（门户用户ID）',
+  `resume_id` bigint NOT NULL COMMENT '简历ID（portal_user_resume.id）',
+  `job_target_id` bigint DEFAULT NULL COMMENT '关联岗位目标ID（可选，纯规则评分时为空）',
+  `position_snapshot` varchar(100) DEFAULT NULL COMMENT '评分时的目标岗位快照（便于报告独立解读）',
+  `score` int NOT NULL COMMENT '综合评分 0-100',
+  `score_detail` text COMMENT '各维度评分明细 JSON（基本信息/求职意向/教育/工作/项目/技能/自我评价/岗位匹配度）',
+  `source` varchar(20) DEFAULT 'manual' COMMENT '评分来源：manual 单独评分 / optimize 优化后重新评分 / template 模板套用评分',
+  `create_time` datetime DEFAULT CURRENT_TIMESTAMP COMMENT '评分时间',
+  PRIMARY KEY (`id`),
+  KEY `idx_resume_id` (`resume_id`),
+  KEY `idx_user_id` (`user_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='简历优化-评分报告存档表';

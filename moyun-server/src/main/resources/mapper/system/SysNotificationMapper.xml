@@ -176,15 +176,20 @@
         order by n.create_time desc
     </select>
 
-    <!-- 统计用户未读数 -->
+    <!--
+        统计用户未读数（"通知"tab 专用）
+        排除 type='todo' 待办通知（在"待办"tab 单独统计）和 scope='all' 广播公告（在"公告"tab 单独统计），
+        只统计 scope='user' 的个人通知（comment/like/follow/system 等），
+        避免头部铃铛 totalUnread 与消息中心"通知"tab 显示的未读数不一致。
+    -->
     <select id="countUnreadByUserId" resultType="int">
         select count(*)
         from sys_notification n
         where n.status = '0'
-        and (
-            (n.scope = 'user' and n.user_id = #{userId} and n.user_type = #{userType})
-            or n.scope = 'all'
-        )
+        and n.scope = 'user'
+        and n.user_id = #{userId}
+        and n.user_type = #{userType}
+        and n.type != 'todo'
         and not exists (
             select 1 from sys_notification_read r
             where r.notification_id = n.id

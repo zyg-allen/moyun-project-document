@@ -52,3 +52,29 @@ export function changeColumnStatus(id, status) {
     data: { status: status }
   })
 }
+
+// 分页查询专栏已绑定的文章列表（维护文章弹窗用）
+export function listColumnArticles(id, params) {
+  return request({
+    url: '/cms/column/' + id + '/articles',
+    method: 'get',
+    params: params
+  })
+}
+
+// 批量绑定文章到专栏
+export function bindColumnArticles(id, articleIds) {
+  return request({
+    url: '/cms/column/' + id + '/articles',
+    method: 'post',
+    data: { articleIds: articleIds }
+  })
+}
+
+// 将文章移出专栏
+export function removeColumnArticle(id, articleId) {
+  return request({
+    url: '/cms/column/' + id + '/articles/' + articleId,
+    method: 'delete'
+  })
+}

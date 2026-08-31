@@ -69,6 +69,13 @@ export const useMessageStore = defineStore('message', () => {
     loading.value = true;
     try {
       await Promise.all([loadNotifUnread(), loadMsgUnread(), loadPayUnread()]);
+      // 诊断日志：用于排查头部铃铛 totalUnread 与消息中心各 tab 未读数不一致的问题
+      console.log('[message-store] unread breakdown:', {
+        notif: notifUnreadCount.value,
+        msg: msgUnreadCount.value,
+        pay: payUnreadCount.value,
+        total: notifUnreadCount.value + msgUnreadCount.value + payUnreadCount.value,
+      });
     } finally {
       loading.value = false;
     }

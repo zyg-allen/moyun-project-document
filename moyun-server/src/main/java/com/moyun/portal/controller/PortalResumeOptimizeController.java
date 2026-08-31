@@ -10,7 +10,9 @@ import com.moyun.ext.cms.service.ResumeDeepOptimizeService;
 import com.moyun.ext.cms.service.ResumeJobMatchService;
 import com.moyun.portal.domain.entity.PortalResumeJobMatch;
 import com.moyun.portal.domain.entity.PortalResumeJobTarget;
+import com.moyun.portal.domain.entity.PortalResumeScoreReport;
 import com.moyun.portal.mapper.PortalResumeJobTargetMapper;
+import com.moyun.portal.mapper.PortalResumeScoreReportMapper;
 import com.moyun.portal.util.PortalSecurityUtils;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -55,6 +57,10 @@ public class PortalResumeOptimizeController extends BaseController {
 
     @Autowired
     private com.fasterxml.jackson.databind.ObjectMapper objectMapper;
+
+    /** 评分报告存档 Mapper（v10.18 阶段五） */
+    @Autowired
+    private PortalResumeScoreReportMapper scoreReportMapper;
 
     private Long currentUserId() {
         return PortalSecurityUtils.getUserId();
@@ -253,5 +259,85 @@ public class PortalResumeOptimizeController extends BaseController {
         } catch (RuntimeException e) {
             return AjaxResult.error(e.getMessage());
         }
+    }
+
+    // ==================== 评分报告存档（v10.18 设计文档 P1 需求#4） ====================
+
+    @Operation(summary = "保存评分报告",
+            description = "触发评分（同步写 portal_user_resume 评分字段）并存档为可追溯报告；"
+                    + "可选参数 source（manual/optimize/template，默认 manual）、jobTargetId、position 用于标记评分来源与关联岗位")
+    @PostMapping("/score-report")
+    public AjaxResult saveScoreReport(@RequestBody Map<String, Object> params) {
+        Long userId = currentUserId();
+        if (userId == null) {
+            return AjaxResult.error(HttpStatus.UNAUTHORIZED, "登录已过期，请重新登录");
+        }
+        try {
+            Long resumeId = Long.valueOf(String.valueOf(params.get("resumeId")));
+            UserResumeVO resume = userResumeService.selectResumeDetail(resumeId, userId);
+            if (resume == null) {
+                return AjaxResult.error("简历不存在或无权访问");
+            }
+            // 触发评分（内部已自动入库 source=manual）
+            userResumeService.scoreResume(resumeId, userId);
+
+            // 取刚插入的报告（按 id 倒序第一条）
+            PortalResumeScoreReport latest = scoreReportMapper.selectOne(
+                    new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<PortalResumeScoreReport>()
+                            .eq(PortalResumeScoreReport::getUserId, userId)
+                            .eq(PortalResumeScoreReport::getResumeId, resumeId)
+                            .orderByDesc(PortalResumeScoreReport::getId)
+                            .last("LIMIT 1"));
+            if (latest == null) {
+                return AjaxResult.error("评分失败：未生成报告");
+            }
+
+            // 若调用方指定了 source（非 manual）/jobTargetId/position，补全这条报告
+            String source = params.get("source") == null ? null : String.valueOf(params.get("source")).trim();
+            Object jobTargetIdObj = params.get("jobTargetId");
+            String position = params.get("position") == null ? null : String.valueOf(params.get("position")).trim();
+
+            boolean needUpdate = false;
+            if (source != null && !source.isEmpty() && !"manual".equals(source)) {
+                latest.setSource(source);
+                needUpdate = true;
+            }
+            if (jobTargetIdObj != null && !"".equals(String.valueOf(jobTargetIdObj))) {
+                try {
+                    latest.setJobTargetId(Long.valueOf(String.valueOf(jobTargetIdObj)));
+                    needUpdate = true;
+                } catch (NumberFormatException ignore) {
+                    // 非数字 jobTargetId 忽略
+                }
+            }
+            if (position != null && !position.isEmpty()) {
+                latest.setPositionSnapshot(position);
+                needUpdate = true;
+            }
+            if (needUpdate) {
+                scoreReportMapper.updateById(latest);
+            }
+            return AjaxResult.success(latest);
+        } catch (RuntimeException e) {
+            return AjaxResult.error(e.getMessage());
+        } catch (Exception e) {
+            return AjaxResult.error("参数解析失败：" + e.getMessage());
+        }
+    }
+
+    @Operation(summary = "评分报告列表", description = "查询简历的评分历史报告，按时间倒序（可追溯历史评分）")
+    @GetMapping("/score-report/{resumeId}")
+    public AjaxResult listScoreReports(@PathVariable Long resumeId) {
+        Long userId = currentUserId();
+        if (userId == null) {
+            return AjaxResult.error(HttpStatus.UNAUTHORIZED, "登录已过期，请重新登录");
+        }
+        List<PortalResumeScoreReport> list = scoreReportMapper.selectList(
+                new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<PortalResumeScoreReport>()
+                        .eq(PortalResumeScoreReport::getUserId, userId)
+                        .eq(PortalResumeScoreReport::getResumeId, resumeId)
+                        .orderByDesc(PortalResumeScoreReport::getCreateTime)
+                        .orderByDesc(PortalResumeScoreReport::getId));
+        return AjaxResult.success(list);
     }
 }

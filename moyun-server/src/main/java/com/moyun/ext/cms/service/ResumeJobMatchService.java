@@ -112,10 +112,15 @@ public class ResumeJobMatchService {
                 + "summary(2-3句总体评价与改进方向)。"
                 + "评估要客观，基于简历真实内容，缺失项如实指出；关键词控制在20个以内。"
                 + "只输出 JSON 本体，禁止使用 markdown 代码块（```）包裹，禁止在 JSON 前后添加任何说明文字。";
+        // v10.22 阶段3：AI 分析优先使用 full_text 全文纯文本，上下文更完整；
+        // fullText 为空时降级为结构化 JSON（兼容旧简历或未拼接 full_text 的场景）
+        String resumeContent = (resume.getFullText() != null && !resume.getFullText().isBlank())
+                ? resume.getFullText()
+                : objectMapper.writeValueAsString(resume);
         String userPrompt = "【目标岗位】" + target.getPosition()
                 + (target.getCompany() != null ? " · " + target.getCompany() : "")
                 + "\n【岗位JD】\n" + target.getJdText()
-                + "\n\n【候选人简历 JSON】\n" + objectMapper.writeValueAsString(resume);
+                + "\n\n【候选人简历】\n" + resumeContent;
 
         String response = llmClient.chat(systemPrompt, userPrompt);
         JsonNode node = objectMapper.readTree(LlmJsonExtractor.extract(response));

@@ -17,7 +17,7 @@ DROP TABLE IF EXISTS `ledger_entry`;
 DROP TABLE IF EXISTS `user_bank_card`;
 DROP TABLE IF EXISTS `withdraw_order`;
 
--- 2. 创建 pay_ 前缀新表（与主 SQL moyun-pay-gateway-20260902.sql 一致）
+-- 2. 创建 pay_ 前缀新表（与主 SQL 20260902-moyun-pay-gateway.sql 一致）
 CREATE TABLE IF NOT EXISTS `pay_user_account` (
   `user_id`        BIGINT   NOT NULL COMMENT '用户ID（sys_user.user_id）',
   `balance`        BIGINT   NOT NULL DEFAULT 0 COMMENT '可用余额（分）',
@@ -81,7 +81,7 @@ CREATE TABLE IF NOT EXISTS `pay_withdraw_order` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='提现订单（预留）';
 
 -- 3. 若曾手工建过旧结构的 pay_ 前缀表（列名不一致），一并重建：
---    先 DROP 再执行主 SQL moyun-pay-gateway-20260902.sql 全量建表即可。
+--    先 DROP 再执行主 SQL 20260902-moyun-pay-gateway.sql 全量建表即可。
 
 -- 验证
 SHOW TABLES LIKE 'pay_%';

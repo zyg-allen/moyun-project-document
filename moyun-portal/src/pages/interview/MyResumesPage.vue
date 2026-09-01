@@ -13,7 +13,7 @@ import Breadcrumb from '@/components/Breadcrumb.vue';
 import { generateSeo } from '@/utils/seo';
 import {
   getMyResumeList, deleteResume, copyResume, exportResumePdf, scoreResume,
-  updateResumeStatus, getResumeVersions,
+  updateResumeStatus, getResumeVersions, convertAttachmentToOnline,
 } from '@/api/interview';
 import { getToken } from '@/api/client';
 import type { UserResumeVO } from '@/types/api';
@@ -270,6 +270,37 @@ async function handleDelete(r: UserResumeVO) {
   }
 }
 
+// v10.22：附件简历下载源文件（认证下载流，window.open 新标签打开）
+function handleDownloadAttachment(r: UserResumeVO) {
+  if (!r.id) return;
+  window.open(`/portal/interview/resume/user/${r.id}/download-attachment`, '_blank');
+}
+
+// v10.22：附件简历转为在线简历（后端将解析结果写入在线表单字段，返回新在线简历 ID）
+async function handleConvertToOnline(r: UserResumeVO) {
+  if (!r.id || actionId.value) return;
+  if (!await confirmModal.confirm(`确定将附件简历「${r.sourceFileName || r.title || ''}」转为在线简历吗？转换后可编辑各字段内容。`, { title: '确认操作' })) return;
+  try {
+    actionId.value = r.id;
+    const res = await convertAttachmentToOnline(r.id);
+    if (res.code === 200 && res.data) {
+      toast.success('已转为在线简历，正在跳转编辑页');
+      router.push(`/interview/resume/edit/${res.data}`);
+    } else {
+      toast.error(res.message || '转换失败，请稍后重试');
+    }
+  } catch (err: any) {
+    toast.error(err?.message || '转换失败，请稍后重试');
+  } finally {
+    actionId.value = null;
+  }
+}
+
+// 判断是否附件简历（sourceType=attachment）
+function isAttachment(r: UserResumeVO): boolean {
+  return r.sourceType === 'attachment';
+}
+
 function gotoPage(p: number) {
   if (p < 1 || p > totalPages.value) return;
   page.value = p;
@@ -378,7 +409,7 @@ function gotoPage(p: number) {
               class="rounded-xl shadow-sm hover:shadow-md transition flex flex-col p-5"
               style="background-color: var(--theme-surface); border: 1px solid var(--theme-border);"
             >
-              <!-- 头部：标题 + 状态 -->
+              <!-- 头部：标题 + 来源标签 + 状态 -->
               <div class="flex items-start justify-between gap-2 mb-2">
                 <h3
                   @click="gotoEdit(r.id)"
@@ -387,12 +418,32 @@ function gotoPage(p: number) {
                 >
                   {{ r.title || '未命名简历' }}
                 </h3>
-                <span
-                  class="shrink-0 px-2.5 py-1 rounded-full text-xs font-medium"
-                  :class="statusClass(r)"
-                >
-                  {{ statusLabel(r) }}
-                </span>
+                <div class="shrink-0 flex items-center gap-1">
+                  <!-- v10.22：附件简历标签 -->
+                  <span
+                    v-if="isAttachment(r)"
+                    class="px-2 py-1 rounded-full text-xs font-medium"
+                    style="background-color: var(--theme-info-bg); color: var(--theme-info);"
+                  >
+                    附件
+                  </span>
+                  <span
+                    class="px-2.5 py-1 rounded-full text-xs font-medium"
+                    :class="statusClass(r)"
+                  >
+                    {{ statusLabel(r) }}
+                  </span>
+                </div>
+              </div>
+
+              <!-- 附件文件名（v10.22：附件简历显示源文件名） -->
+              <div
+                v-if="isAttachment(r) && r.sourceFileName"
+                class="flex items-center text-sm mb-2"
+                style="color: var(--theme-text-secondary);"
+              >
+                <FileText class="w-3.5 h-3.5 mr-1.5" />
+                <span class="line-clamp-1">文件：{{ r.sourceFileName }}</span>
               </div>
 
               <!-- 姓名 -->
@@ -443,6 +494,24 @@ function gotoPage(p: number) {
                   style="background-color: var(--theme-bg); color: var(--theme-text); border: 1px solid var(--theme-border);"
                 >
                   <Pencil class="w-3 h-3 mr-1" />编辑
+                </button>
+                <!-- v10.22：附件简历专属操作——下载源文件 + 转为在线 -->
+                <button
+                  v-if="isAttachment(r)"
+                  @click="handleDownloadAttachment(r)"
+                  class="inline-flex items-center px-2.5 py-1.5 rounded-lg text-xs transition hover:opacity-80"
+                  style="background-color: var(--theme-bg); color: var(--theme-text); border: 1px solid var(--theme-border);"
+                >
+                  <Download class="w-3 h-3 mr-1" />下载源文件
+                </button>
+                <button
+                  v-if="isAttachment(r)"
+                  @click="handleConvertToOnline(r)"
+                  :disabled="actionId === r.id"
+                  class="inline-flex items-center px-2.5 py-1.5 rounded-lg text-xs transition hover:opacity-80 disabled:opacity-50 disabled:cursor-not-allowed"
+                  style="background-color: var(--theme-bg); color: var(--theme-primary); border: 1px solid var(--theme-border);"
+                >
+                  <Sparkles class="w-3 h-3 mr-1" />转为在线
                 </button>
                 <button
                   @click="handleScore(r)"

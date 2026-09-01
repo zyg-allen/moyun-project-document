@@ -1,9 +1,9 @@
 $ErrorActionPreference = 'Stop'
 
 $base = Split-Path -Parent $MyInvocation.MyCommand.Path
-$src    = Join-Path $base 'moyun-db-ddl-moyun-db-202608201435.sql'
+$src    = Join-Path $base '202608201435-moyun-db-ddl-moyun-db.sql'
 $ddlOut = Join-Path $base 'moyun-db-ddl-202608201435.sql'
-$dmlOut = Join-Path $base 'moyun-db-dml-202608201435.sql'
+$dmlOut = Join-Path $base '202608201435-moyun-db-dml.sql'
 
 $raw = [System.IO.File]::ReadAllText($src, [System.Text.Encoding]::UTF8)
 $lines = $raw -split "`r?`n"
@@ -106,7 +106,7 @@ $ddlSb = New-Object System.Text.StringBuilder
 [void]$ddlSb.Append($header.ToString())
 [void]$ddlSb.Append("`r`n-- =============================================================`r`n")
 [void]$ddlSb.Append("-- DDL (Data Definition Language): table structures, grouped by module`r`n")
-[void]$ddlSb.Append("-- Source: moyun-db-ddl-moyun-db-202608201435.sql`r`n")
+[void]$ddlSb.Append("-- Source: 202608201435-moyun-db-ddl-moyun-db.sql`r`n")
 [void]$ddlSb.Append("-- For future schema changes, keep the original DDL below and append incremental ALTER TABLE statements to the matching module`r`n")
 [void]$ddlSb.Append("-- =============================================================`r`n`r`n")
 
@@ -130,7 +130,7 @@ $dmlSb = New-Object System.Text.StringBuilder
 [void]$dmlSb.Append("-- DML (Data Manipulation Language): table data, grouped by module`r`n")
 [void]$dmlSb.Append("-- Only tables with actual data (INSERT) are included; empty tables are omitted`r`n")
 [void]$dmlSb.Append("-- Idempotent: each table is cleared with DELETE FROM before re-inserting its data`r`n")
-[void]$dmlSb.Append("-- Source: moyun-db-ddl-moyun-db-202608201435.sql`r`n")
+[void]$dmlSb.Append("-- Source: 202608201435-moyun-db-ddl-moyun-db.sql`r`n")
 [void]$dmlSb.Append("-- =============================================================`r`n`r`n")
 
 foreach ($mod in $moduleOrder) {

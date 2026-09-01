@@ -10,8 +10,8 @@ import { useRoute, useRouter, onBeforeRouteLeave } from 'vue-router';
 import { useHead } from '@vueuse/head';
 import {
   Save, Download, Star, Plus, Trash2, User, Briefcase, GraduationCap,
-  Code, FileText, Target, Sparkles, CheckCircle2, XCircle, AlertCircle,
-  ArrowRight, PenLine, UploadCloud, Terminal, FolderKanban, X, ShieldCheck,
+  Code, FileText, Target, Sparkles, XCircle, AlertCircle,
+  PenLine, UploadCloud, Terminal, FolderKanban, X, ShieldCheck,
 } from 'lucide-vue-next';
 import SiteFooter from '@/components/SiteFooter.vue';
 import Breadcrumb from '@/components/Breadcrumb.vue';
@@ -24,23 +24,21 @@ import AIHelperDialog from '@/components/resume/AIHelperDialog.vue';
 import ScoreReportDialog from '@/components/resume/ScoreReportDialog.vue';
 import { generateSeo } from '@/utils/seo';
 import {
-  getResumeDetail, saveResume, exportResumePdf, scoreResume, getResumeAiAdvice,
+  getResumeDetail, saveResume, exportResumePdf, scoreResume,
   getMyResumeList, parseResumeAttachment,
 } from '@/api/interview';
 import { useDictData } from '@/composables/useDictData';
-import type { ResumeParseVO } from '@/types/api';
 import { getCurrentUser } from '@/api/user';
 import { getMyCertification, type CreatorCertification } from '@/api/certification';
 import {
   aiFieldAssist, type FieldAssistSuggestion,
-  saveScoreReport, getScoreReports, getOptimizeHistory,
+  saveScoreReport, getScoreReports, getOptimizeHistory, aiDraftEmptyFields,
 } from '@/api/resumeOptimize';
 import { uploadFile } from '@/api/upload';
 import { getToken } from '@/api/client';
 import type {
   UserResumeVO, UserResumeJobIntention, UserResumeEducationItem, UserResumeWorkItem,
   UserResumeProjectItem, UserResumeSkillItem, UserResumeScoreItem,
-  ResumeAiAdviceVO, ResumeAiAdviceItem,
   ResumeScoreReport, ResumeOptimizeHistory,
 } from '@/types/api';
 import { useToast } from '@/composables/useToast';
@@ -81,18 +79,12 @@ const loadingDetail = ref(false);
 const pageError = ref<string | null>(null);
 const exporting = ref(false);
 const scoring = ref(false);
-const adviceLoading = ref(false);
-const aiAdvice = ref<ResumeAiAdviceVO | null>(null);
 const saveStatus = ref<'idle' | 'saving' | 'saved' | 'dirty'>('idle');
 const saving = ref(false);
 const loaded = ref(false);
 
-// 弹窗控制：预览弹窗 / AI 建议弹窗
+// 弹窗控制：预览弹窗
 const previewVisible = ref(false);
-const adviceVisible = ref(false);
-
-// 已采纳建议索引集合
-const acceptedAdvices = ref<Set<string>>(new Set());
 
 // ============ 评分报告与优化历史（v10.18 阶段五） ============
 // 评分后归档为可追溯报告；弹窗同时承载优化历史，便于回看采纳前后对比
@@ -402,8 +394,6 @@ async function handleScore() {
       form.score = res.data.score;
       form.scoreDetail = res.data.scoreDetail || [];
       form.scoredTime = res.data.scoredTime || '';
-      aiAdvice.value = null;
-      acceptedAdvices.value.clear();
       // 评分成功后归档为评分报告（source=manual），便于后续追溯
       // 后端 saveScoreReport 在 source 非 manual 或带 jobTargetId 时会补全报告记录；
       // 这里显式传 manual 触发归档，失败不影响主流程
@@ -497,244 +487,22 @@ function goOptimizeFromHistory(h: ResumeOptimizeHistory) {
   router.push(`/interview/resume/optimize?resumeId=${targetId}`);
 }
 
-// AI 建议：打开建议弹窗并加载
-async function handleOptimize() {
-  // 未评分时先评分
-  if (form.score === undefined || form.score === 0) {
-    await handleScore();
-    if (form.score === undefined || form.score === 0) return;
-  }
-  adviceVisible.value = true;
-  if (!aiAdvice.value) {
-    await handleGetAdvice();
-  }
-}
-
-async function handleGetAdvice() {
-  if (adviceLoading.value) return;
+// AI 优化：统一跳转到岗位优化工作台（v10.22 统一入口，原 aiAdvice 弹窗已移除）
+function handleOptimize() {
   if (!form.id) {
-    toast.error('请先保存简历再获取建议');
+    toast.error('请先保存简历再进行 AI 优化');
     return;
   }
-  if (!form.scoreDetail || form.scoreDetail.length === 0) {
-    const ok = await doSave(true);
-    if (!ok || !form.id) return;
-  }
-  try {
-    adviceLoading.value = true;
-    const res = await getResumeAiAdvice(form.id);
-    if (res.code === 200 && res.data) {
-      aiAdvice.value = res.data;
-      acceptedAdvices.value.clear();
-      activeAdviceTab.value = 'all';
-    } else {
-      toast.error(res.message || '生成建议失败，请稍后重试');
-    }
-  } catch (err: any) {
-    toast.error(err?.message || '生成建议失败，请稍后重试');
-  } finally {
-    adviceLoading.value = false;
-  }
+  router.push(`/interview/resume/optimize?resumeId=${form.id}`);
 }
 
-// 优先级 / 建议类型样式
-const priorityStyle: Record<string, { label: string; class: string }> = {
-  high: { label: '高优先级', class: 'bg-theme-danger-bg text-theme-danger' },
-  medium: { label: '中优先级', class: 'bg-theme-warning-bg text-theme-warning' },
-  low: { label: '低优先级', class: 'bg-theme-surface text-theme-text-secondary' },
-};
-const adviceTypeLabel: Record<string, string> = { fill: '补充缺失', refine: '优化已有', match: '岗位匹配' };
+// 评分等级样式（附件解析预览弹窗复用）
 const gradeStyle: Record<string, string> = {
   A: 'bg-theme-success-bg text-theme-success',
   B: 'bg-theme-info-bg text-theme-info',
   C: 'bg-theme-warning-bg text-theme-warning',
   D: 'bg-theme-danger-bg text-theme-danger',
 };
-
-// ============ AI 建议：模块 Tab + 采纳自动填充（v10.11 对齐原型） ============
-
-// 维度元信息：Tab 显示名 / 页面锚点（无 optimized 的结构化字段引导手动完善）
-const DIMENSION_META: Record<string, { label: string; anchor: string }> = {
-  '基本信息': { label: '基本信息', anchor: 'sec-personal' },
-  '求职意向': { label: '求职意向', anchor: 'sec-objective' },
-  '教育经历': { label: '教育背景', anchor: 'sec-education' },
-  '工作经历': { label: '工作经历', anchor: 'sec-work' },
-  '项目经历': { label: '项目经历', anchor: 'sec-project' },
-  '技能列表': { label: '专业技能', anchor: 'sec-skills' },
-  '自我介绍': { label: '自我评价', anchor: 'sec-eval' },
-  '岗位匹配度': { label: '岗位匹配', anchor: 'sec-skills' },
-};
-// Tab 固定顺序（含全部）
-const ADVICE_TAB_ORDER = ['基本信息', '求职意向', '教育经历', '工作经历', '项目经历', '技能列表', '自我介绍', '岗位匹配度'];
-
-// 当前激活 Tab（'all' = 全部）
-const activeAdviceTab = ref('all');
-
-// 出现过建议的维度 Tab（固定顺序过滤）
-const adviceTabs = computed(() => {
-  const dims = new Set((aiAdvice.value?.advices || []).map(a => a.dimension || ''));
-  return [
-    { value: 'all', label: `全部 (${(aiAdvice.value?.advices || []).length})` },
-    ...ADVICE_TAB_ORDER.filter(d => dims.has(d)).map(d => ({
-      value: d,
-      label: DIMENSION_META[d]?.label || d,
-    })),
-  ];
-});
-
-// 当前 Tab 过滤后的建议列表
-const filteredAdvices = computed(() => {
-  const list = aiAdvice.value?.advices || [];
-  return activeAdviceTab.value === 'all'
-    ? list
-    : list.filter(a => (a.dimension || '') === activeAdviceTab.value);
-});
-
-// 建议唯一 key（Tab 过滤后索引不稳定，用内容做 key）
-function adviceKey(a: ResumeAiAdviceItem): string {
-  return `${a.dimension || ''}|${(a.content || '').slice(0, 24)}`;
-}
-
-// 从 scoreDetail 取维度得分（用于卡片徽章）
-function dimensionScore(dim: string): { score: number; maxScore: number; rate: number } | null {
-  const item = (form.scoreDetail || []).find(s => s.item === dim);
-  if (!item || !item.maxScore) return null;
-  return { score: item.score, maxScore: item.maxScore, rate: item.score / item.maxScore };
-}
-
-// 维度得分徽章颜色
-function scoreBadgeClass(rate: number): string {
-  if (rate >= 0.8) return 'bg-theme-success-bg text-theme-success';
-  if (rate >= 0.6) return 'bg-theme-info-bg text-theme-info';
-  if (rate >= 0.4) return 'bg-theme-warning-bg text-theme-warning';
-  return 'bg-theme-danger-bg text-theme-danger';
-}
-
-// 维度评分条颜色（按得分率分级）
-function metricColor(rate: number): string {
-  if (rate >= 0.8) return 'var(--theme-success)';
-  if (rate >= 0.6) return 'var(--theme-info)';
-  if (rate >= 0.4) return 'var(--theme-warning)';
-  return 'var(--theme-danger)';
-}
-
-/**
- * 解析 optimized 技能文本并追加到技能列表（去重）
- * 格式："精通：A、B\n熟练：C\n了解：D、E" 或纯顿号列表（默认"了解"）
- */
-function appendSkillsFromText(text: string): number {
-  const existing = new Set((form.skills || []).map(s => (s.name || '').trim()).filter(Boolean));
-  let added = 0;
-  for (const rawLine of text.split('\n')) {
-    const line = rawLine.trim();
-    if (!line) continue;
-    let level = '了解';
-    let namesPart = line;
-    // "精通：/熟练：/了解："前缀 → level
-    const m = line.match(/^(精通|熟练|了解|一般)[:：]\s*(.+)$/);
-    if (m) {
-      level = m[1];
-      namesPart = m[2];
-    }
-    for (const raw of namesPart.split(/[、,，;；\/]/)) {
-      const name = raw.trim().replace(/[。.\s]+$/, '');
-      if (!name || name.length > 30 || existing.has(name) || /^\[.*\]$/.test(name)) continue;
-      (form.skills = form.skills || []).push({ name, level, category: '' });
-      existing.add(name);
-      added++;
-    }
-  }
-  return added;
-}
-
-/**
- * 采纳建议 —— optimized 按维度映射自动填充到对应表单字段
- * <p>字段映射（注意与简历表单结构对齐）：
- * <ul>
- *   <li>自我介绍 → form.selfIntro（整体替换）</li>
- *   <li>教育经历 → educations[0].description（无记录则引导先添加）</li>
- *   <li>工作经历 → works[0].description（同上）</li>
- *   <li>项目经历 → projects[0].description（同上）</li>
- *   <li>技能列表 / 岗位匹配度 → 解析文本追加 skills 条目（去重，含熟练度分级）</li>
- *   <li>基本信息 / 求职意向 → 结构化字段无法文本填充，滚动到对应区块手动完善</li>
- * </ul></p>
- */
-function acceptAdvice(advice: ResumeAiAdviceItem) {
-  const key = adviceKey(advice);
-  if (acceptedAdvices.value.has(key)) {
-    toast.info('该建议已采纳');
-    return;
-  }
-  const dim = advice.dimension || '';
-  const meta = DIMENSION_META[dim];
-  const text = advice.optimized?.trim();
-
-  // 无优化文本（结构化字段维度）：引导到对应区块手动完善
-  if (!text) {
-    if (meta) scrollToSection(meta.anchor);
-    adviceVisible.value = false;
-    toast.info('该维度需在表单中手动完善，已为您定位到对应区块');
-    return;
-  }
-
-  switch (dim) {
-    case '自我介绍':
-      form.selfIntro = text;
-      break;
-    case '教育经历':
-      if (!form.educations?.length) {
-        toast.error('请先添加一条教育背景记录，再采纳该建议');
-        scrollToSection('sec-education');
-        adviceVisible.value = false;
-        return;
-      }
-      form.educations[0].description = text;
-      break;
-    case '工作经历':
-      if (!form.works?.length) {
-        toast.error('请先添加一条工作经历记录，再采纳该建议');
-        scrollToSection('sec-work');
-        adviceVisible.value = false;
-        return;
-      }
-      form.works[0].description = text;
-      break;
-    case '项目经历':
-      if (!form.projects?.length) {
-        toast.error('请先添加一条项目经历记录，再采纳该建议');
-        scrollToSection('sec-project');
-        adviceVisible.value = false;
-        return;
-      }
-      form.projects[0].description = text;
-      break;
-    case '技能列表':
-    case '岗位匹配度': {
-      const added = appendSkillsFromText(text);
-      if (added === 0) {
-        toast.info('优化文本暂无可识别的技能条目，请手动复制到技能列表');
-        return;
-      }
-      toast.success(`已追加 ${added} 项技能到「专业技能」`);
-      acceptedAdvices.value.add(key);
-      return;
-    }
-    default:
-      // 未知维度兜底：追加到自我评价
-      form.selfIntro = (form.selfIntro || '') + (form.selfIntro?.trim() ? '\n\n' : '') + text;
-  }
-  acceptedAdvices.value.add(key);
-  toast.success(`已填充到「${meta?.label || dim}」`);
-  // v10.14 修复断裂点「AI建议采纳后未联动保存」：已保存过的简历自动静默保存
-  autoSaveAfterAdopt();
-}
-
-/** 采纳 AI 建议后联动保存：已有 id 的简历静默保存；新建简历靠 dirty 提示兜底 */
-function autoSaveAfterAdopt() {
-  if (form.id) {
-    doSave(true);
-  }
-}
 
 // ============ AI 实时辅助编辑（v10.14 设计文档 P0 需求#2） ============
 // 字段级 AI 优化：工作/项目描述、自我评价旁「✨AI优化」→ 3 个差异化版本 → 采纳替换
@@ -806,13 +574,57 @@ function adoptAssist(text: string) {
   autoSaveAfterAdopt();
 }
 
-// 一键把缺失技能加入技能清单（level=了解，避免虚标）
-function addMissingSkills() {
-  const skills = aiAdvice.value?.missingSkills || [];
-  if (!skills.length) return;
-  const text = '了解：' + skills.join('、');
-  const added = appendSkillsFromText(text);
-  toast.success(added > 0 ? `已将 ${added} 项缺失技能加入「专业技能」（熟练度：了解）` : '缺失技能均已存在');
+/** 采纳 AI 辅助建议后联动保存：已有 id 的简历静默保存；新建简历靠 dirty 提示兜底 */
+function autoSaveAfterAdopt() {
+  if (form.id) {
+    doSave(true);
+  }
+}
+
+// ============ AI 填充空字段草稿（v10.22 阶段二） ============
+// 当工作经历/项目经历/自我介绍为空时，一键调用 AI 生成草稿填充
+
+const drafting = ref(false);
+/** 是否存在可生成草稿的空字段（works/projects/selfIntro 任一为空） */
+const hasEmptyDraftFields = computed(() => {
+  return (form.works?.length ?? 0) === 0
+    || (form.projects?.length ?? 0) === 0
+    || !form.selfIntro?.trim();
+});
+
+async function generateDraft() {
+  if (!form.id) {
+    toast.error('请先保存简历再生成草稿');
+    return;
+  }
+  drafting.value = true;
+  try {
+    const res = await aiDraftEmptyFields(form.id);
+    if (res.code === 200 && res.data) {
+      const d = res.data;
+      const beforeWorks = form.works?.length ?? 0;
+      const beforeProjects = form.projects?.length ?? 0;
+      const hadSelfIntro = !!form.selfIntro?.trim();
+      if (d.works?.length) form.works.push(...d.works);
+      if (d.projects?.length) form.projects.push(...d.projects);
+      if (d.selfIntro && !hadSelfIntro) form.selfIntro = d.selfIntro;
+      const changed = (form.works?.length ?? 0) > beforeWorks
+        || (form.projects?.length ?? 0) > beforeProjects
+        || (!hadSelfIntro && !!form.selfIntro?.trim());
+      if (changed) {
+        toast.success(d.message || '已生成草稿');
+        autoSaveAfterAdopt();
+      } else {
+        toast.info(d.message || '暂无可生成的草稿内容');
+      }
+    } else {
+      toast.error(res.message || 'AI 生成草稿失败');
+    }
+  } catch (err: any) {
+    toast.error(err?.message || 'AI 生成草稿失败，请稍后重试');
+  } finally {
+    drafting.value = false;
+  }
 }
 
 // ============ 附件简历：上传 + 解析 + 覆盖填充（v10.12） ============
@@ -822,13 +634,9 @@ const UPLOAD_MAX_SIZE = 10 * 1024 * 1024; // 10MB（与后端一致）
 
 const attachmentInput = ref<HTMLInputElement | null>(null);
 const uploading = ref(false);
-const parsing = ref(false);
 const dragOver = ref(false);
 /** 已上传附件信息（本地状态；fileUrl 持久化在 form.fileUrl） */
 const attachment = ref<{ name: string; size: number; file: File | null; fileUrl: string } | null>(null);
-/** 解析结果预览（确认后覆盖填充） */
-const parseResult = ref<ResumeParseVO | null>(null);
-const parsePreviewVisible = ref(false);
 
 // 文件校验：类型 + 大小
 function validateFile(file: File): string | null {
@@ -842,7 +650,8 @@ function validateFile(file: File): string | null {
   return null;
 }
 
-// 上传附件（点击 / 拖拽统一入口）
+// 上传附件（点击 / 拖拽统一入口）：v10.22 闭环——直接解析并跳转附件简历编辑页
+// 后端 parseResumeAttachment 会保存附件文件 + 创建附件简历记录 + 结构化解析结果
 async function handleAttachmentFile(file: File) {
   const err = validateFile(file);
   if (err) {
@@ -851,16 +660,15 @@ async function handleAttachmentFile(file: File) {
   }
   try {
     uploading.value = true;
-    const res = await uploadFile(file, { module: 'resume' });
-    if (res.code === 200 && res.data?.fileUrl) {
-      form.fileUrl = res.data.fileUrl;
-      attachment.value = { name: file.name, size: file.size, file, fileUrl: res.data.fileUrl };
-      toast.success('附件上传成功，可解析后同步至在线简历');
+    const res = await parseResumeAttachment(file);
+    if (res.code === 200 && res.data?.attachmentResumeId) {
+      toast.success('简历解析完成，正在跳转编辑页');
+      router.replace(`/interview/resume/edit?resumeId=${res.data.attachmentResumeId}`);
     } else {
-      toast.error(res.message || '附件上传失败');
+      toast.error(res.message || '附件解析失败');
     }
   } catch (e) {
-    toast.error((e as Error)?.message || '附件上传失败');
+    toast.error((e as Error)?.message || '附件解析失败');
   } finally {
     uploading.value = false;
   }
@@ -891,90 +699,9 @@ function fmtSize(bytes: number): string {
   return (bytes / 1024 / 1024).toFixed(1) + 'MB';
 }
 
-// 解析附件 → 预览确认
-async function parseAttachment() {
-  const file = attachment.value?.file;
-  if (!file) {
-    // 刷新后本地 File 丢失：提示重新上传再解析
-    toast.error('附件为历史记录，请重新上传后再解析');
-    return;
-  }
-  try {
-    parsing.value = true;
-    const res = await parseResumeAttachment(file);
-    if (res.code === 200 && res.data) {
-      parseResult.value = res.data;
-      parsePreviewVisible.value = true;
-    } else {
-      toast.error(res.message || '附件解析失败');
-    }
-  } catch (e) {
-    toast.error((e as Error)?.message || '附件解析失败');
-  } finally {
-    parsing.value = false;
-  }
-}
-
-// 解析结果摘要（预览弹窗用）
-const parseSummary = computed(() => {
-  const p = parseResult.value;
-  if (!p) return [];
-  const items: { label: string; value: string }[] = [];
-  if (p.name) items.push({ label: '姓名', value: p.name });
-  if (p.gender) items.push({ label: '性别', value: p.gender });
-  if (p.birthDate) items.push({ label: '出生日期', value: p.birthDate });
-  if (p.phone) items.push({ label: '电话', value: p.phone });
-  if (p.email) items.push({ label: '邮箱', value: p.email });
-  if (p.jobIntention?.position) items.push({ label: '期望职位', value: p.jobIntention.position });
-  if (p.jobIntention?.city) items.push({ label: '期望城市', value: p.jobIntention.city });
-  if (p.educations?.length) items.push({ label: '教育经历', value: `${p.educations.length} 条` });
-  if (p.works?.length) items.push({ label: '工作经历', value: `${p.works.length} 条` });
-  if (p.projects?.length) items.push({ label: '项目经历', value: `${p.projects.length} 条` });
-  if (p.skills?.length) items.push({ label: '专业技能', value: `${p.skills.length} 项` });
-  if (p.selfIntro) items.push({ label: '自我评价', value: '已识别' });
-  return items;
-});
-
-/**
- * 确认覆盖填充：解析结果按语义映射覆盖在线简历表单
- * 规则：null/空字段不覆盖（保留原值）；数组字段非空时整体替换
- */
-function applyParseResult() {
-  const p = parseResult.value;
-  if (!p) return;
-  if (p.name) form.name = p.name;
-  if (p.gender) form.gender = p.gender;
-  if (p.birthDate) form.birthDate = p.birthDate;
-  if (p.phone) form.phone = p.phone;
-  if (p.email) form.email = p.email;
-  if (p.title && !form.title) form.title = p.title;
-  if (p.selfIntro) form.selfIntro = p.selfIntro;
-  if (p.jobIntention) {
-    const ji = ensureJobIntention();
-    if (p.jobIntention.position) ji.position = p.jobIntention.position;
-    if (p.jobIntention.city) ji.city = p.jobIntention.city;
-    if (p.jobIntention.salaryMin != null) ji.salaryMin = p.jobIntention.salaryMin;
-    if (p.jobIntention.salaryMax != null) ji.salaryMax = p.jobIntention.salaryMax;
-    if (p.jobIntention.jobType) ji.jobType = p.jobIntention.jobType;
-    if (p.jobIntention.availableTime) ji.availableTime = p.jobIntention.availableTime;
-  }
-  if (p.educations?.length) form.educations = p.educations;
-  if (p.works?.length) form.works = p.works;
-  if (p.projects?.length) form.projects = p.projects;
-  if (p.skills?.length) form.skills = p.skills;
-
-  parsePreviewVisible.value = false;
-  saveStatus.value = 'dirty';
-  toast.success('已将附件内容覆盖填充到在线简历，请检查后保存');
-}
-
 // 撤销（mock：提示用户使用浏览器快捷键）
 function handleUndo() {
   toast.info('请使用 Ctrl+Z 撤销输入');
-}
-
-function gotoStudyPlan() {
-  router.push('/learn');
 }
 
 // ========== Scroll Spy ==========
@@ -1332,13 +1059,26 @@ onBeforeRouteLeave(async (to, from, next) => {
               <div class="text-xs text-theme-text-secondary mt-0.5">粘贴 JD 匹配评分 → AI 逐项优化前后对比 → 一键采纳</div>
             </div>
           </div>
-          <button
-            class="shrink-0 text-xs font-medium px-4 py-2 rounded-lg text-white"
-            style="background: var(--theme-primary);"
-            @click="router.push(`/interview/resume/optimize?resumeId=${form.id}`)"
-          >
-            进入优化工作台 →
-          </button>
+          <div class="flex items-center gap-2 shrink-0">
+            <!-- v10.22 阶段二：工作/项目/自我介绍为空时，一键 AI 生成草稿 -->
+            <button
+              v-if="hasEmptyDraftFields"
+              class="shrink-0 inline-flex items-center gap-1.5 text-xs font-medium px-4 py-2 rounded-lg border"
+              style="border-color: color-mix(in srgb, var(--theme-primary) 35%, var(--theme-border)); color: var(--theme-primary);"
+              :disabled="drafting"
+              :title="'为空的工作/项目/自我介绍生成草稿'"
+              @click="generateDraft"
+            >
+              <Sparkles class="w-3.5 h-3.5" /> {{ drafting ? '生成中...' : 'AI 填充空字段' }}
+            </button>
+            <button
+              class="shrink-0 text-xs font-medium px-4 py-2 rounded-lg text-white disabled:opacity-50"
+              style="background: var(--theme-primary);"
+              @click="router.push(`/interview/resume/optimize?resumeId=${form.id}`)"
+            >
+              进入优化工作台 →
+            </button>
+          </div>
         </div>
 
         <!-- 个人信息 -->
@@ -1772,9 +1512,6 @@ onBeforeRouteLeave(async (to, from, next) => {
               </div>
             </div>
             <div class="re-attach-actions">
-              <button class="re-attach-btn primary" :disabled="parsing || !attachment.file" @click="parseAttachment">
-                <Sparkles class="w-3 h-3" /> {{ parsing ? '解析中…' : '解析并填充' }}
-              </button>
               <a v-if="attachment.fileUrl" :href="attachment.fileUrl" target="_blank" class="re-attach-btn">预览</a>
               <button class="re-attach-btn danger" @click="removeAttachment">移除</button>
             </div>
@@ -1826,181 +1563,6 @@ onBeforeRouteLeave(async (to, from, next) => {
       @export-pdf="handleExportPdf"
     />
 
-    <!-- AI 建议弹窗 -->
-    <Teleport to="body">
-      <div v-if="adviceVisible" class="re-advice-mask" @click.self="adviceVisible = false">
-        <div class="re-advice-box">
-          <!-- 头部 -->
-          <div class="re-advice-head">
-            <h3>
-              <Sparkles class="w-4 h-4" style="color: var(--theme-primary);" />
-              AI 深度优化建议
-              <span v-if="aiAdvice?.grade" class="re-advice-grade" :class="gradeStyle[aiAdvice.grade] || gradeStyle.D">
-                等级 {{ aiAdvice.grade }}
-              </span>
-            </h3>
-            <div class="re-advice-head-actions">
-              <button
-                class="re-advice-refresh-btn"
-                :disabled="adviceLoading"
-                @click="handleGetAdvice"
-              >{{ adviceLoading ? '刷新中...' : '刷新建议' }}</button>
-              <button class="re-advice-close" @click="adviceVisible = false">
-                <X class="w-4 h-4" />
-              </button>
-            </div>
-          </div>
-
-          <!-- 加载中 -->
-          <div v-if="adviceLoading && !aiAdvice" class="re-advice-loading">
-            <div class="re-loading-spinner"></div>
-            <p>正在生成 AI 优化建议...</p>
-          </div>
-
-          <!-- 内容 -->
-          <div v-else-if="aiAdvice" class="re-advice-body">
-            <!-- 评分总览（对齐原型 analysis-overview） -->
-            <div class="re-advice-overview">
-              <div class="re-ao-top">
-                <div class="re-ao-score-block">
-                  <div class="re-ao-score-num">{{ aiAdvice.score ?? form.score ?? '-' }}</div>
-                  <div class="re-ao-score-label">综合评分 / {{ aiAdvice.grade ? '按等级 ' + aiAdvice.grade : '100' }}</div>
-                  <div class="re-ao-score-desc">{{ aiAdvice.grade === 'A' ? '优秀 · 竞争力强' : aiAdvice.grade === 'B' ? '良好 · 仍有提升空间' : aiAdvice.grade === 'C' ? '合格 · 需重点优化' : '待完善 · 建议全面补充' }}</div>
-                </div>
-                <div class="re-ao-detail">
-                  <p v-if="aiAdvice.summary" class="re-ao-summary">{{ aiAdvice.summary }}</p>
-                  <div v-if="aiAdvice.aiPowered" class="re-ao-source">
-                    <Sparkles class="w-3 h-3 inline" /> AI 模型生成
-                  </div>
-                </div>
-              </div>
-              <!-- 维度评分条（来自评分明细） -->
-              <div v-if="form.scoreDetail && form.scoreDetail.length" class="re-ao-metrics">
-                <div v-for="sd in form.scoreDetail" :key="sd.item" class="re-metric-row">
-                  <span class="re-metric-label">{{ sd.item }}</span>
-                  <div class="re-metric-bar">
-                    <div
-                      class="re-metric-fill"
-                      :style="{ width: Math.round((sd.score / sd.maxScore) * 100) + '%', background: metricColor(sd.score / sd.maxScore) }"
-                    ></div>
-                  </div>
-                  <span class="re-metric-val" :style="{ color: metricColor(sd.score / sd.maxScore) }">{{ sd.score }}/{{ sd.maxScore }}</span>
-                </div>
-              </div>
-            </div>
-
-            <!-- 缺失技能 -->
-            <div v-if="aiAdvice.missingSkills && aiAdvice.missingSkills.length > 0" class="re-advice-missing">
-              <div class="re-advice-missing-title">
-                <AlertCircle class="w-3.5 h-3.5" />
-                岗位必备技能缺失（{{ aiAdvice.missingSkills.length }} 项）
-                <button class="re-missing-add-btn" @click="addMissingSkills">
-                  <Plus class="w-3 h-3" /> 一键加入技能清单
-                </button>
-              </div>
-              <div class="re-advice-missing-chips">
-                <span v-for="skill in aiAdvice.missingSkills" :key="skill" class="re-advice-missing-chip">{{ skill }}</span>
-              </div>
-            </div>
-
-            <!-- 模块 Tab 栏 -->
-            <div v-if="adviceTabs.length > 2" class="re-advice-tabs">
-              <button
-                v-for="tab in adviceTabs"
-                :key="tab.value"
-                class="re-advice-tab"
-                :class="{ active: activeAdviceTab === tab.value }"
-                @click="activeAdviceTab = tab.value"
-              >
-                {{ tab.label }}
-                <span v-if="tab.value === activeAdviceTab" class="re-tab-dot"></span>
-              </button>
-            </div>
-
-            <!-- 建议卡片列表（对齐原型 a-card） -->
-            <div v-if="filteredAdvices.length > 0" class="re-advice-list">
-              <div v-for="advice in filteredAdvices" :key="adviceKey(advice)" class="re-advice-card">
-                <div class="re-advice-card-head">
-                  <span class="re-advice-dim">{{ DIMENSION_META[advice.dimension || '']?.label || advice.dimension || '综合' }}</span>
-                  <span
-                    v-if="dimensionScore(advice.dimension || '')"
-                    class="re-advice-score-badge"
-                    :class="scoreBadgeClass(dimensionScore(advice.dimension || '')!.rate)"
-                  >
-                    {{ dimensionScore(advice.dimension || '')!.score }} 分
-                  </span>
-                  <span v-if="advice.priority && priorityStyle[advice.priority]" class="re-advice-pri" :class="priorityStyle[advice.priority].class">
-                    {{ priorityStyle[advice.priority].label }}
-                  </span>
-                  <span v-if="advice.type && adviceTypeLabel[advice.type]" class="re-advice-type">
-                    {{ adviceTypeLabel[advice.type] }}
-                  </span>
-                </div>
-                <div class="re-advice-card-body">
-                  <!-- 优化建议（content：为什么改） -->
-                  <div v-if="advice.content" class="re-feedback-tip">
-                    <div class="re-fb-label"><AlertCircle class="w-3 h-3" /> 优化建议</div>
-                    <p>{{ advice.content }}</p>
-                  </div>
-                  <!-- AI 优化结果（optimized：改完后长什么样，可直接采纳） -->
-                  <div v-if="advice.optimized" class="re-diff-block">
-                    <div class="re-diff-header">
-                      <span><Sparkles class="w-3 h-3 inline" style="color: var(--theme-primary);" /> AI 优化结果</span>
-                      <span class="re-diff-sub">可直接采纳</span>
-                    </div>
-                    <pre class="re-diff-body">{{ advice.optimized }}</pre>
-                    <p v-if="advice.optimized.includes('[')" class="re-diff-ph">[ ] 内为占位符，采纳后请在表单中替换为真实数据</p>
-                  </div>
-                  <!-- 操作按钮 -->
-                  <div class="re-card-actions">
-                    <button
-                      v-if="acceptedAdvices.has(adviceKey(advice))"
-                      disabled
-                      class="re-advice-accepted"
-                    >
-                      <CheckCircle2 class="w-3 h-3" /> 已采纳
-                    </button>
-                    <button
-                      v-else
-                      class="re-advice-accept-btn"
-                      @click="acceptAdvice(advice)"
-                    >
-                      <CheckCircle2 class="w-3 h-3" /> {{ advice.optimized ? '采纳填充' : '去完善' }}
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-            <div v-else-if="aiAdvice.advices && aiAdvice.advices.length > 0" class="re-advice-empty">
-              <CheckCircle2 class="w-5 h-5" style="color: var(--theme-success);" />
-              该模块暂无建议，看看其他 Tab
-            </div>
-            <div v-else class="re-advice-empty">
-              <CheckCircle2 class="w-5 h-5" style="color: var(--theme-success);" />
-              各维度得分率良好，暂无改进建议
-            </div>
-
-            <!-- 采纳后提示 -->
-            <div v-if="acceptedAdvices.size > 0" class="re-advice-accepted-tip">
-              <span><CheckCircle2 class="w-3.5 h-3.5 inline" /> 已采纳 {{ acceptedAdvices.size }} 条建议并填充到对应字段</span>
-              <button @click="adviceVisible = false" class="re-advice-back-edit">去编辑检查</button>
-            </div>
-          </div>
-
-          <!-- 底部：建立学习计划 -->
-          <div v-if="aiAdvice" class="re-advice-footer">
-            <div>
-              <div class="re-advice-ft-title">针对短板生成学习计划</div>
-              <div class="re-advice-ft-desc">基于薄弱点自动生成针对性学习计划</div>
-            </div>
-            <button @click="gotoStudyPlan" class="re-advice-study-btn">
-              去建立学习计划 <ArrowRight class="w-3.5 h-3.5" />
-            </button>
-          </div>
-        </div>
-      </div>
-    </Teleport>
-
     <!-- AI 实时辅助弹窗（v10.18 阶段二抽离为 AIHelperDialog 组件：字段级 3 版本建议） -->
     <AIHelperDialog
       :visible="assistVisible"
@@ -2023,70 +1585,6 @@ onBeforeRouteLeave(async (to, from, next) => {
       @select-report="applyReportSnapshot"
       @select-history="goOptimizeFromHistory"
     />
-
-    <!-- 附件解析结果预览弹窗（v10.12） -->
-    <Teleport to="body">
-      <div v-if="parsePreviewVisible" class="re-advice-mask" @click.self="parsePreviewVisible = false">
-        <div class="re-advice-box" style="max-width: 560px;">
-          <div class="re-advice-head">
-            <h3>
-              <FileText class="w-4 h-4" style="color: var(--theme-primary);" />
-              解析结果确认
-              <span v-if="parseResult?.aiPowered" class="re-advice-grade" :class="gradeStyle.A">
-                <Sparkles class="w-3 h-3 inline" /> AI 结构化解析
-              </span>
-              <span v-else class="re-advice-grade" :class="gradeStyle.C">规则粗解析</span>
-            </h3>
-            <div class="re-advice-head-actions">
-              <button class="re-advice-close" @click="parsePreviewVisible = false">
-                <X class="w-4 h-4" />
-              </button>
-            </div>
-          </div>
-
-          <div class="re-advice-body">
-            <!-- 识别摘要 -->
-            <div v-if="parseSummary.length" class="re-parse-summary">
-              <div v-for="item in parseSummary" :key="item.label" class="re-parse-row">
-                <span class="re-parse-label">{{ item.label }}</span>
-                <span class="re-parse-value">{{ item.value }}</span>
-              </div>
-            </div>
-            <div v-else class="re-advice-empty">
-              <AlertCircle class="w-5 h-5" style="color: var(--theme-warning);" />
-              未能识别出有效字段，请检查附件内容或换用文本版简历
-            </div>
-
-            <div v-if="!parseResult?.aiPowered" class="re-field-hint" style="margin-top: 10px;">
-              <AlertCircle class="w-3 h-3 inline" />
-              当前为规则粗解析（AI 未启用或调用失败），仅能识别基础字段；启用 AI 模型后可完整解析教育/工作/项目经历
-            </div>
-
-            <div class="re-field-hint" style="margin-top: 10px;">
-              <AlertCircle class="w-3 h-3 inline" />
-              确认后将覆盖填充到在线简历对应字段（解析为空的字段保留原值），此操作不会自动保存，请检查后手动保存
-            </div>
-          </div>
-
-          <div class="re-advice-footer" style="border-top: 1px solid var(--theme-border); padding: 14px 20px;">
-            <div>
-              <div class="re-advice-ft-title">覆盖填充到在线简历</div>
-              <div class="re-advice-ft-desc">{{ parseSummary.length }} 项字段待填充</div>
-            </div>
-            <div style="display: flex; gap: 8px;">
-              <button class="re-attach-btn" @click="parsePreviewVisible = false">取消</button>
-              <button
-                class="re-advice-study-btn"
-                :disabled="!parseSummary.length"
-                @click="applyParseResult"
-              >
-                <CheckCircle2 class="w-3.5 h-3.5" /> 确认填充
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-    </Teleport>
 
     <SiteFooter />
   </div>

@@ -1,7 +1,7 @@
 import { httpGet, httpPost, httpPut, httpDelete } from './client';
 import type {
   ResumeJobTarget, ResumeJobMatchReport, ResumeDeepOptimizeVO, ResumeOptimizeHistory,
-  ResumeScoreReport,
+  ResumeScoreReport, UserResumeVO,
 } from '@/types/api';
 
 /**
@@ -39,9 +39,37 @@ export const getLatestMatch = (resumeId: number | string) => {
   return httpGet<ResumeJobMatchReport | null>(`/portal/resume/optimize/match/${resumeId}/latest`);
 };
 
-/** 生成深度优化建议（需 AI 模型） */
+/** 生成深度优化建议（同步，兼容旧版；长耗时场景建议改用 submitDeepOptimizeTask） */
 export const generateDeepOptimize = (resumeId: number | string, jobTargetId: number | string) => {
   return httpPost<ResumeDeepOptimizeVO>(`/portal/resume/optimize/deep/${resumeId}/${jobTargetId}`);
+};
+
+// ===== v10.19：异步任务化（解决大模型调用超时） =====
+
+/** 深度优化异步任务状态（前端轮询返回结构） */
+export interface ResumeOptimizeTaskVO {
+  taskId: number;
+  /** pending/running/success/failed */
+  status: 'pending' | 'running' | 'success' | 'failed';
+  /** 进度百分比 0-100 */
+  progress: number;
+  /** 优化结果（status=success 时填充，对应 ResumeDeepOptimizeVO） */
+  result?: ResumeDeepOptimizeVO | null;
+  /** 失败原因（status=failed 时填充） */
+  errorMsg?: string | null;
+}
+
+/**
+ * 提交深度优化异步任务（v10.19 推荐）
+ * 立即返回任务ID，后端异步调用 LLM 生成建议。前端通过 getDeepOptimizeTaskStatus 轮询。
+ */
+export const submitDeepOptimizeTask = (resumeId: number | string, jobTargetId: number | string) => {
+  return httpPost<number>(`/portal/resume/optimize/deep/${resumeId}/${jobTargetId}/async`);
+};
+
+/** 查询深度优化任务状态（前端轮询，建议 3-5 秒一次） */
+export const getDeepOptimizeTaskStatus = (taskId: number | string) => {
+  return httpGet<ResumeOptimizeTaskVO>(`/portal/resume/optimize/deep/task/${taskId}`);
 };
 
 /** 采纳建议并保存新版本（版本号+1，记录优化历史） */
@@ -110,3 +138,15 @@ export const getScoreReports = (resumeId: number | string) => {
  * 页面 useTemplate 局部函数请直接 import { getResumeTemplateDetail } from '@/api/interview' 或此处别名。
  */
 export { getResumeTemplateDetail as getTemplateDetail } from './interview';
+
+// ===== v10.22 阶段二：AI 填充空字段草稿 =====
+
+/** v10.22：AI 填充空字段（为空的工作/项目/自我介绍生成草稿） */
+export const aiDraftEmptyFields = (resumeId: number | string, jobTargetId?: number | string) => {
+  return httpPost<{
+    works?: UserResumeVO['works'];
+    projects?: UserResumeVO['projects'];
+    selfIntro?: string;
+    message?: string;
+  }>(`/portal/resume/optimize/ai-draft/${resumeId}?jobTargetId=${jobTargetId ?? ''}`);
+};

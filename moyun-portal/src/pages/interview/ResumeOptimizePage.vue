@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue';
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
 import { formatDate } from '@/utils/date';
 import { useRoute, useRouter } from 'vue-router';
 import { useHead } from '@vueuse/head';
@@ -15,12 +15,15 @@ import JobMatchPanel from '@/components/resume/JobMatchPanel.vue';
 import OptimizeProgress from '@/components/resume/OptimizeProgress.vue';
 import OptimizeCompare from '@/components/resume/OptimizeCompare.vue';
 import ScoreReportDialog from '@/components/resume/ScoreReportDialog.vue';
+import FieldRegenerateDialog from '@/components/resume/FieldRegenerateDialog.vue';
+import { aiFieldAssist } from '@/api/resumeOptimize';
 import { generateSeo } from '@/utils/seo';
 import { getMyResumeList, scoreResume, getResumeDetail } from '@/api/interview';
 import {
   getJobTargets, createJobTarget, deleteJobTarget, runJobMatch,
-  generateDeepOptimize, applyDeepOptimize, getOptimizeHistory,
+  applyDeepOptimize, getOptimizeHistory,
   saveScoreReport, getScoreReports,
+  submitDeepOptimizeTask, getDeepOptimizeTaskStatus,
 } from '@/api/resumeOptimize';
 import type {
   UserResumeVO, ResumeJobTarget, ResumeJobMatchReport,
@@ -80,6 +83,8 @@ const matchReport = ref<ResumeJobMatchReport | null>(null);
 const optimizing = ref(false);
 const optimizeResult = ref<ResumeDeepOptimizeVO | null>(null);
 const adoptedSet = ref<Set<number>>(new Set());
+/** v10.21：当前深度优化异步任务ID（用于刷新页面后恢复轮询） */
+const currentAsyncTaskId = ref<number | string | null>(null);
 
 // 保存
 const saving = ref(false);
@@ -87,6 +92,84 @@ const savedResumeId = ref<number | string | null>(null);
 const rescoredScore = ref<number | null>(null);
 const rematchedScore = ref<number | null>(null);
 const rematching = ref(false);
+
+// ==================== v10.21：页面状态持久化（刷新后恢复原状态） ====================
+// 持久化关键状态到 localStorage，按 resumeId 分 key 避免多简历串扰。
+// 含 step/selectedTargetId/matchReport/optimizeResult/adoptedSet/savedResumeId/currentAsyncTaskId
+// 若异步任务进行中刷新，恢复后自动继续轮询任务状态直到 success/failed。
+const STATE_STORAGE_PREFIX = 'moyun:resume-optimize:state:';
+const STATE_STORAGE_TTL = 2 * 60 * 60 * 1000; // 2 小时过期（防止陈旧状态误恢复）
+
+interface PersistedState {
+  ts: number;
+  step: number;
+  selectedTargetId: number | string | null;
+  matchReport: ResumeJobMatchReport | null;
+  optimizeResult: ResumeDeepOptimizeVO | null;
+  adoptedIndexes: number[];
+  savedResumeId: number | string | null;
+  asyncTaskId: number | string | null;
+}
+
+function stateStorageKey(resumeId: number | string | null): string | null {
+  if (resumeId === null || resumeId === undefined || resumeId === '') return null;
+  return `${STATE_STORAGE_PREFIX}${resumeId}`;
+}
+
+function saveStateToStorage() {
+  const key = stateStorageKey(selectedResumeId.value);
+  if (!key) return;
+  const state: PersistedState = {
+    ts: Date.now(),
+    step: step.value,
+    selectedTargetId: selectedTargetId.value,
+    matchReport: matchReport.value,
+    optimizeResult: optimizeResult.value,
+    adoptedIndexes: Array.from(adoptedSet.value),
+    savedResumeId: savedResumeId.value,
+    asyncTaskId: currentAsyncTaskId.value,
+  };
+  try {
+    localStorage.setItem(key, JSON.stringify(state));
+  } catch {
+    // 容量超限或隐私模式，静默忽略（不影响功能）
+  }
+}
+
+function loadStateFromStorage(resumeId: number | string | null): PersistedState | null {
+  const key = stateStorageKey(resumeId);
+  if (!key) return null;
+  try {
+    const raw = localStorage.getItem(key);
+    if (!raw) return null;
+    const state = JSON.parse(raw) as PersistedState;
+    if (Date.now() - state.ts > STATE_STORAGE_TTL) {
+      localStorage.removeItem(key);
+      return null;
+    }
+    return state;
+  } catch {
+    return null;
+  }
+}
+
+function clearStateFromStorage(resumeId: number | string | null) {
+  const key = stateStorageKey(resumeId);
+  if (key) localStorage.removeItem(key);
+}
+
+/** 将持久化的状态恢复到各 ref */
+function applyRestoredState(state: PersistedState) {
+  step.value = state.step;
+  if (state.selectedTargetId !== null && state.selectedTargetId !== undefined) {
+    selectedTargetId.value = state.selectedTargetId;
+  }
+  matchReport.value = state.matchReport;
+  optimizeResult.value = state.optimizeResult;
+  adoptedSet.value = new Set(state.adoptedIndexes || []);
+  savedResumeId.value = state.savedResumeId;
+  currentAsyncTaskId.value = state.asyncTaskId;
+}
 
 const selectedTarget = computed(() => jobTargets.value.find(t => t.id === selectedTargetId.value) || null);
 const selectedResume = computed(() => resumes.value.find(r => r.id === selectedResumeId.value) || null);
@@ -173,11 +256,44 @@ onMounted(async () => {
   if (q && resumes.value.some(r => String(r.id) === q)) {
     selectedResumeId.value = q;
   }
+
+  // v10.21：刷新页面后恢复原状态（不重新开始）
+  // 必须在 selectedResumeId 设置之后（持久化 key 按 resumeId 分）
+  const restored = loadStateFromStorage(selectedResumeId.value);
+  if (restored) {
+    applyRestoredState(restored);
+    // 若异步任务进行中（pending/running），恢复轮询
+    if (restored.asyncTaskId !== null && restored.asyncTaskId !== undefined
+        && restored.asyncTaskId !== '' && restored.step === 4) {
+      resumeAsyncPolling(restored.asyncTaskId);
+    }
+  }
+
   loadOptimizeHistory();
 });
 
-watch(selectedResumeId, () => {
+watch(selectedResumeId, (newId, oldId) => {
   loadOptimizeHistory();
+  // v10.21：切换简历时恢复对应的状态快照（或重置）
+  if (newId === oldId) return;
+  const restored = loadStateFromStorage(newId);
+  if (restored) {
+    applyRestoredState(restored);
+    if (restored.asyncTaskId !== null && restored.asyncTaskId !== undefined
+        && restored.asyncTaskId !== '' && restored.step === 4) {
+      resumeAsyncPolling(restored.asyncTaskId);
+    }
+  } else {
+    // 新简历无快照：重置到 step1（避免上一简历状态残留）
+    step.value = 1;
+    matchReport.value = null;
+    optimizeResult.value = null;
+    adoptedSet.value = new Set();
+    savedResumeId.value = null;
+    currentAsyncTaskId.value = null;
+    stopOptimizePolling();
+    optimizing.value = false;
+  }
 });
 
 async function loadJobTargets() {
@@ -185,8 +301,9 @@ async function loadJobTargets() {
     const res = await getJobTargets();
     if (res.code === 200 && res.data) {
       jobTargets.value = res.data;
+      // v10.21：仅在未选中时设置默认岗位（避免覆盖已从持久化恢复的 selectedTargetId）
       const def = res.data.find(t => t.isDefault === 1) || res.data[0];
-      if (def?.id) selectedTargetId.value = def.id;
+      if (def?.id && !selectedTargetId.value) selectedTargetId.value = def.id;
     }
   } catch { /* 静默 */ }
 }
@@ -301,22 +418,138 @@ const gradeLabel: Record<string, string> = {
   excellent: '优秀匹配', good: '良好匹配', medium: '中等匹配', poor: '匹配较弱',
 };
 
-async function generateOptimize() {
-  if (!selectedResumeId.value || !selectedTargetId.value) return;
-  try {
-    optimizing.value = true;
-    const res = await generateDeepOptimize(selectedResumeId.value, selectedTargetId.value);
-    if (res.code === 200 && res.data) {
-      optimizeResult.value = res.data;
-      adoptedSet.value = new Set();
-      toast.success(`已生成 ${res.data.items.length} 项优化建议`);
-    } else {
-      toast.error(res.message || '生成失败');
-    }
-  } finally {
-    optimizing.value = false;
+// v10.19：深度优化异步任务轮询定时器（组件卸载时需清理）
+let optimizePollingTimer: ReturnType<typeof setInterval> | null = null;
+let optimizeProgressTimer: ReturnType<typeof setInterval> | null = null;
+
+function stopOptimizePolling() {
+  if (optimizeProgressTimer) {
+    clearInterval(optimizeProgressTimer);
+    optimizeProgressTimer = null;
+  }
+  if (optimizePollingTimer) {
+    clearInterval(optimizePollingTimer);
+    optimizePollingTimer = null;
   }
 }
+
+async function generateOptimize() {
+  if (!selectedResumeId.value || !selectedTargetId.value) return;
+  // 清理上一次的轮询（防止重复触发）
+  stopOptimizePolling();
+
+  optimizing.value = true;
+  optimizeResult.value = null;
+  adoptedSet.value = new Set();
+  currentAsyncTaskId.value = null;
+  progressPercent.value = 0;
+  progressStep.value = 1;
+
+  try {
+    // 1. 提交异步任务（立即返回 taskId）
+    const submitRes = await submitDeepOptimizeTask(selectedResumeId.value, selectedTargetId.value);
+    if (submitRes.code !== 200 || !submitRes.data) {
+      optimizing.value = false;
+      toast.error(submitRes.message || '提交失败');
+      return;
+    }
+    const taskId = submitRes.data;
+    // v10.21：记录 taskId 到 ref + 持久化，刷新页面后可据此恢复轮询
+    currentAsyncTaskId.value = taskId;
+    saveStateToStorage();
+
+    // 2. 进度动画（pending→running 阶段渐进，给用户视觉反馈）
+    optimizeProgressTimer = setInterval(() => {
+      if (progressPercent.value < 90) {
+        progressPercent.value += Math.random() * 5 + 1;
+        progressStep.value = Math.min(4, Math.floor(progressPercent.value / 25) + 1);
+      }
+    }, 800);
+
+    // 3. 任务状态轮询（4 秒一次）
+    optimizePollingTimer = setInterval(() => pollOptimizeTaskStatus(taskId), 4000);
+    // 立即触发一次（避免等 4 秒才看到状态变化）
+    pollOptimizeTaskStatus(taskId);
+  } catch (e: unknown) {
+    optimizing.value = false;
+    currentAsyncTaskId.value = null;
+    stopOptimizePolling();
+    toast.error((e as Error)?.message || '提交失败');
+  }
+}
+
+/** 轮询深度优化任务状态 */
+async function pollOptimizeTaskStatus(taskId: number | string) {
+  try {
+    const res = await getDeepOptimizeTaskStatus(taskId);
+    if (res.code !== 200 || !res.data) return;
+
+    const task = res.data;
+    // 同步后端进度（取后端返回与前端动画的较大值，避免倒退）
+    if (task.progress > progressPercent.value) {
+      progressPercent.value = task.progress;
+      progressStep.value = Math.min(4, Math.floor(progressPercent.value / 25) + 1);
+    }
+
+    if (task.status === 'success' && task.result) {
+      stopOptimizePolling();
+      progressPercent.value = 100;
+      progressStep.value = 5;
+      optimizeResult.value = task.result;
+      adoptedSet.value = new Set();
+      // v10.21：任务完成，清除 taskId（不再需要恢复轮询），持久化最新结果
+      currentAsyncTaskId.value = null;
+      saveStateToStorage();
+      toast.success(`已生成 ${task.result.items.length} 项优化建议`);
+      setTimeout(() => { optimizing.value = false; }, 500);
+    } else if (task.status === 'failed') {
+      stopOptimizePolling();
+      optimizing.value = false;
+      currentAsyncTaskId.value = null;
+      saveStateToStorage();
+      toast.error(task.errorMsg || 'AI 生成失败，请稍后重试');
+    }
+    // pending / running 继续轮询
+  } catch (e: unknown) {
+    // 网络偶发异常不中断轮询，下次自动重试
+    console.warn('[optimize] 轮询失败，将重试', e);
+  }
+}
+
+/**
+ * v10.21：恢复异步轮询（页面刷新后，若 taskId 仍 pending/running 则继续轮询）
+ * 用于 onMounted 中检测到持久化的 asyncTaskId 时重建轮询
+ */
+function resumeAsyncPolling(taskId: number | string) {
+  optimizing.value = true;
+  progressPercent.value = 10; // 至少给个起始进度
+  progressStep.value = 1;
+  currentAsyncTaskId.value = taskId;
+
+  // 进度动画（与 generateOptimize 一致，上限 90 等待后端确认）
+  optimizeProgressTimer = setInterval(() => {
+    if (progressPercent.value < 90) {
+      progressPercent.value += Math.random() * 5 + 1;
+      progressStep.value = Math.min(4, Math.floor(progressPercent.value / 25) + 1);
+    }
+  }, 800);
+
+  optimizePollingTimer = setInterval(() => pollOptimizeTaskStatus(taskId), 4000);
+  // 立即触发一次，确认任务实际状态（可能已完成，直接收尾）
+  pollOptimizeTaskStatus(taskId);
+}
+
+onUnmounted(() => {
+  stopOptimizePolling();
+});
+
+// v10.21：关键状态变化时自动持久化（刷新页面可恢复）
+// 深度监听对象/集合内部变化，保存最新快照到 localStorage
+watch(
+  [step, selectedTargetId, matchReport, optimizeResult, adoptedSet, savedResumeId, currentAsyncTaskId],
+  () => { saveStateToStorage(); },
+  { deep: true },
+);
 
 function toggleAdopted(idx: number) {
   const s = new Set(adoptedSet.value);
@@ -349,6 +582,69 @@ function sectionLabel(item: ResumeOptimizeItem): string {
 // ==================== STEP5：预览保存（含完整度，参考熊猫简历） ====================
 const previewResume = ref<UserResumeVO | null>(null);
 
+// v10.20：step4 内就地预览面板（不跳转 step5）
+const quickPreviewVisible = ref(false);
+const quickPreviewBaseResume = ref<UserResumeVO | null>(null);
+const quickPreviewLoading = ref(false);
+const quickPreviewResume = computed<UserResumeVO | null>(() => {
+  if (!quickPreviewVisible.value || !quickPreviewBaseResume.value) return null;
+  // 复用 applyOptimizes 计算采纳后的简历（每次 adoptedSet 变化自动重算）
+  return applyOptimizes(quickPreviewBaseResume.value);
+});
+
+async function toggleQuickPreview() {
+  quickPreviewVisible.value = !quickPreviewVisible.value;
+  if (quickPreviewVisible.value && !quickPreviewBaseResume.value && selectedResumeId.value) {
+    // 首次展开加载完整简历详情
+    quickPreviewLoading.value = true;
+    try {
+      const res = await getResumeDetail(selectedResumeId.value);
+      if (res.code === 200 && res.data) {
+        quickPreviewBaseResume.value = res.data;
+      }
+    } catch (e) {
+      toast.error((e as Error)?.message || '加载简历失败');
+      quickPreviewVisible.value = false;
+    } finally {
+      quickPreviewLoading.value = false;
+    }
+  }
+}
+
+// v10.20：单字段重新生成候选弹窗状态
+const regenDialogVisible = ref(false);
+const regenLoading = ref(false);
+const regenCandidates = ref<string[]>([]);
+const regenErrorMsg = ref('');
+const regenTargetIdx = ref(-1);
+const regeneratingIdx = ref(-1); // 卡片级 loading 索引
+
+const SECTION_LABEL_FOR_REGEN: Record<string, string> = {
+  objective: '求职意向', education: '教育背景', work: '工作经历',
+  project: '项目经历', skills: '专业技能', selfIntro: '自我评价',
+};
+
+const FIELD_LABEL_FOR_REGEN: Record<string, string> = {
+  position: '岗位', description: '描述', name: '名称',
+};
+
+const regenDialogTitle = computed(() => {
+  if (!optimizeResult.value || regenTargetIdx.value < 0) return '';
+  const item = optimizeResult.value.items[regenTargetIdx.value];
+  if (!item) return '';
+  const base = SECTION_LABEL_FOR_REGEN[item.section] || item.section;
+  const idxPart = (item.section === 'selfIntro' || item.section === 'objective' || item.section === 'skills')
+    ? '' : ` #${(item.index ?? 0) + 1}`;
+  const fieldPart = item.field ? ` · ${FIELD_LABEL_FOR_REGEN[item.field] || item.field}` : '';
+  return `${base}${idxPart}${fieldPart}`;
+});
+
+const regenOriginalText = computed(() => {
+  if (!optimizeResult.value || regenTargetIdx.value < 0) return '';
+  const item = optimizeResult.value.items[regenTargetIdx.value];
+  return item?.original || '';
+});
+
 async function goPreview() {
   if (!adoptedSet.value.size) {
     toast.error('请至少采纳一项优化建议');
@@ -365,6 +661,96 @@ async function goPreview() {
   }
 }
 
+// v10.20：单字段重新生成（拉取 3 候选版本弹窗）
+async function regenerateItem(idx: number) {
+  if (!optimizeResult.value || idx < 0) return;
+  const item = optimizeResult.value.items[idx];
+  if (!item) return;
+
+  // 映射 section+field 到 aiFieldAssist 支持的 field 类型
+  const fieldKey = item.section === 'selfIntro'
+    ? 'self_intro'
+    : item.section === 'skills'
+      ? 'skills'
+      : item.section === 'work'
+        ? 'work_description'
+        : item.section === 'project'
+          ? 'project_description'
+          : null;
+
+  if (!fieldKey) {
+    toast.error('该字段暂不支持单字段重新生成');
+    return;
+  }
+
+  regenTargetIdx.value = idx;
+  regenCandidates.value = [];
+  regenErrorMsg.value = '';
+  regenDialogVisible.value = true;
+  regenLoading.value = true;
+  regeneratingIdx.value = idx;
+
+  try {
+    const res = await aiFieldAssist({
+      field: fieldKey as 'work_description' | 'project_description' | 'self_intro' | 'skills',
+      originalText: item.original || '',
+      position: selectedTarget.value?.position,
+      skillNames: item.section === 'skills' ? extractSkillNames(item.original) : undefined,
+    });
+    if (res.code === 200 && res.data && res.data.length) {
+      regenCandidates.value = res.data.map(s => s.text);
+    } else {
+      regenErrorMsg.value = res.message || 'AI 未返回候选版本';
+    }
+  } catch (e) {
+    regenErrorMsg.value = (e as Error)?.message || 'AI 调用失败，请稍后重试';
+  } finally {
+    regenLoading.value = false;
+    regeneratingIdx.value = -1;
+  }
+}
+
+/** 从原文提取技能名（用于 skills 重新生成时传给 AI） */
+function extractSkillNames(text: string): string[] {
+  if (!text) return [];
+  const names: string[] = [];
+  for (const rawLine of text.split('\n')) {
+    const line = rawLine.trim();
+    if (!line) continue;
+    const m = line.match(/^(精通|熟练|了解|一般)[:：]\s*(.+)$/);
+    if (m) {
+      for (const n of m[2].split(/[、,，]/)) {
+        const t = n.trim();
+        if (t) names.push(t);
+      }
+    } else {
+      for (const n of line.split(/[、,，]/)) {
+        const t = n.trim();
+        if (t) names.push(t);
+      }
+    }
+  }
+  return names;
+}
+
+/** 应用重新生成的候选版本（替换该条建议的 optimized 内容） */
+function applyRegenCandidate(text: string) {
+  if (!optimizeResult.value || regenTargetIdx.value < 0) return;
+  const idx = regenTargetIdx.value;
+  const item = optimizeResult.value.items[idx];
+  if (!item) return;
+  // 不可变替换：重建 items 数组，触发 Vue 响应式更新
+  const newItem = { ...item, optimized: text };
+  const newItems = optimizeResult.value.items.slice();
+  newItems[idx] = newItem;
+  optimizeResult.value = { ...optimizeResult.value, items: newItems };
+  // 同步刷新就地预览
+  if (quickPreviewBaseResume.value) {
+    quickPreviewBaseResume.value = { ...quickPreviewBaseResume.value };
+  }
+  toast.success('已应用新版本');
+}
+
 /** 前端预演：将采纳的建议应用到简历副本（用于预览与完整度计算） */
 function applyOptimizes(source: UserResumeVO): UserResumeVO {
   const r: UserResumeVO = JSON.parse(JSON.stringify(source));
@@ -373,24 +759,66 @@ function applyOptimizes(source: UserResumeVO): UserResumeVO {
     if (!adoptedSet.value.has(i)) return;
     const text = item.optimized.trim();
     const idx = item.index ?? 0;
-    switch (item.section) {
+    // v10.20：section 归一化（与后端 normalizeSection 保持一致，兼容 LLM 返回 works/projects 等变体）
+    const section = normalizeSection(item.section);
+    const field = (item.field ?? '').trim();
+    switch (section) {
       case 'selfIntro': r.selfIntro = text; break;
       case 'objective':
-        if (r.jobIntention && item.field === 'position') r.jobIntention.position = text;
+        if (r.jobIntention && field === 'position') r.jobIntention.position = text;
         break;
       case 'education':
-        if (r.educations?.[idx] && item.field === 'description') r.educations[idx].description = text;
+        if (r.educations?.[idx] && field === 'description') r.educations[idx].description = text;
         break;
       case 'work':
-        if (r.works?.[idx] && item.field === 'description') r.works[idx].description = text;
+        if (r.works?.[idx] && field === 'description') r.works[idx].description = text;
         break;
       case 'project':
-        if (r.projects?.[idx] && item.field === 'description') r.projects[idx].description = text;
+        if (r.projects?.[idx] && field === 'description') r.projects[idx].description = text;
         break;
       case 'skills': appendSkills(r, text); break;
     }
   });
   return r;
+}
+
+/**
+ * v10.20：section 归一化（与后端 ResumeDeepOptimizeService.normalizeSection 保持一致）
+ * 兼容 LLM 返回 works/projects/experience/self_intro 等变体，避免 case 走不到导致采纳无效
+ */
+function normalizeSection(raw?: string | null): string {
+  if (!raw) return '';
+  const s = raw.trim().toLowerCase();
+  switch (s) {
+    case 'works':
+    case 'experience':
+    case 'experiences':
+    case 'working':
+      return 'work';
+    case 'projects':
+    case 'project_experience':
+      return 'project';
+    case 'educations':
+    case 'education_experience':
+      return 'education';
+    case 'self_intro':
+    case 'selfintro':
+    case 'selfintroduction':
+    case 'introduction':
+    case 'intro':
+    case 'summary':
+      return 'selfIntro';
+    case 'job_intention':
+    case 'jobintention':
+    case 'intention':
+      return 'objective';
+    case 'skill':
+    case 'skill_list':
+    case 'skilllist':
+      return 'skills';
+    default:
+      return s;
+  }
 }
 
 function appendSkills(r: UserResumeVO, text: string) {
@@ -663,30 +1091,107 @@ function dimRows() {
         <!-- 匹配摘要（v10.18 抽离为 JobMatchPanel 组件） -->
         <JobMatchPanel :report="matchReport" />
 
-        <!-- 深度优化建议（v10.18 抽离为 OptimizeCompare 组件） -->
+        <!-- 深度优化建议（v10.18 抽离为 OptimizeCompare 组件 / v10.20 交互优化） -->
         <OptimizeCompare
           :result="optimizeResult"
           :adopted-set="adoptedSet"
           :optimizing="optimizing"
           :target-position="selectedTarget?.position"
+          :preview-visible="quickPreviewVisible"
+          :regenerating-idx="regeneratingIdx"
           @generate="generateOptimize"
           @toggle="toggleAdopted"
           @adopt-all="adoptAll"
+          @regenerate="regenerateItem"
+          @preview="toggleQuickPreview"
         />
+
+        <!-- v10.20：step4 内就地预览面板（不跳转 step5，采纳后实时反映） -->
+        <div v-if="quickPreviewVisible" class="bg-theme-surface rounded-xl border border-theme-border p-6 mt-4">
+          <div class="flex items-center justify-between mb-4">
+            <h3 class="font-semibold flex items-center gap-2">
+              <Eye class="w-4 h-4" style="color: var(--theme-primary);" /> 采纳结果预览（{{ adoptedSet.size }} 项已应用）
+            </h3>
+            <button class="text-xs text-theme-text-secondary hover:text-theme-primary" @click="quickPreviewVisible = false">收起</button>
+          </div>
+          <div v-if="quickPreviewLoading" class="py-10 text-center text-sm text-theme-text-secondary">加载简历中...</div>
+          <div v-else-if="quickPreviewResume" class="border border-theme-border rounded-lg p-6 max-h-[480px] overflow-y-auto">
+            <div class="text-center border-b pb-3 mb-4">
+              <div class="text-xl font-bold">{{ quickPreviewResume.name || '未填写姓名' }}</div>
+              <div class="text-xs text-theme-text-secondary mt-1">
+                {{ quickPreviewResume.phone || '未填手机' }} · {{ quickPreviewResume.email || '未填邮箱' }}
+                <template v-if="quickPreviewResume.jobIntention?.city"> · {{ quickPreviewResume.jobIntention.city }}</template>
+              </div>
+              <div v-if="quickPreviewResume.jobIntention?.position" class="text-sm mt-1.5" style="color: var(--theme-primary); font-weight: 600;">
+                求职意向：{{ quickPreviewResume.jobIntention.position }}
+              </div>
+            </div>
+            <div v-if="quickPreviewResume.works?.length" class="mb-4">
+              <div class="text-sm font-bold border-b-2 pb-1 mb-2" style="border-color: var(--theme-primary);">工作经历</div>
+              <div v-for="(w, i) in quickPreviewResume.works" :key="i" class="mb-3">
+                <div class="text-sm font-medium flex justify-between">
+                  <span>{{ w.company }} · {{ w.position }}</span>
+                  <span class="text-xs text-theme-text-secondary">{{ w.startDate }} - {{ w.endDate || '至今' }}</span>
+                </div>
+                <p class="text-xs text-theme-text-secondary mt-1 leading-relaxed whitespace-pre-line">{{ w.description }}</p>
+              </div>
+            </div>
+            <div v-if="quickPreviewResume.projects?.length" class="mb-4">
+              <div class="text-sm font-bold border-b-2 pb-1 mb-2" style="border-color: var(--theme-primary);">项目经历</div>
+              <div v-for="(p, i) in quickPreviewResume.projects" :key="i" class="mb-3">
+                <div class="text-sm font-medium">{{ p.name }}<span v-if="p.role" class="text-theme-text-secondary font-normal"> · {{ p.role }}</span></div>
+                <p class="text-xs text-theme-text-secondary mt-1 leading-relaxed whitespace-pre-line">{{ p.description }}</p>
+              </div>
+            </div>
+            <div v-if="quickPreviewResume.skills?.length" class="mb-4">
+              <div class="text-sm font-bold border-b-2 pb-1 mb-2" style="border-color: var(--theme-primary);">专业技能</div>
+              <div class="flex flex-wrap gap-1.5">
+                <span v-for="(s, i) in quickPreviewResume.skills" :key="i" class="text-xs px-2 py-1 rounded bg-theme-surface text-theme-text">
+                  {{ s.name }}<span v-if="s.level" class="text-theme-text-secondary">（{{ s.level }}）</span>
+                </span>
+              </div>
+            </div>
+            <div v-if="quickPreviewResume.selfIntro">
+              <div class="text-sm font-bold border-b-2 pb-1 mb-2" style="border-color: var(--theme-primary);">自我评价</div>
+              <p class="text-xs text-theme-text-secondary leading-relaxed whitespace-pre-line">{{ quickPreviewResume.selfIntro }}</p>
+            </div>
+          </div>
+          <div v-else class="py-10 text-center text-sm text-theme-text-secondary">请先采纳至少一项优化建议</div>
+        </div>
 
         <div class="flex justify-between">
           <button class="inline-flex items-center gap-1.5 text-sm px-4 py-2 rounded-lg border border-theme-border text-theme-text-secondary" @click="step = 2">
             <ArrowLeft class="w-4 h-4" /> 重新选择
           </button>
-          <button
-            class="inline-flex items-center gap-1.5 text-sm px-5 py-2 rounded-lg text-white font-medium disabled:opacity-50"
-            style="background: var(--theme-primary);"
-            :disabled="!optimizeResult || !adoptedSet.size"
-            @click="goPreview"
-          >
-            预览最终结果 <ArrowRight class="w-4 h-4" />
-          </button>
+          <div class="flex gap-2">
+            <button
+              class="inline-flex items-center gap-1.5 text-sm px-4 py-2 rounded-lg border border-theme-primary text-theme-primary font-medium"
+              :disabled="!optimizeResult || !adoptedSet.size"
+              @click="goPreview"
+            >
+              <Eye class="w-4 h-4" /> 完整预览
+            </button>
+            <button
+              class="inline-flex items-center gap-1.5 text-sm px-5 py-2 rounded-lg text-white font-medium disabled:opacity-50"
+              style="background: var(--theme-primary);"
+              :disabled="!optimizeResult || !adoptedSet.size"
+              @click="saveOptimize"
+            >
+              <Save class="w-4 h-4" /> 保存优化结果
+            </button>
+          </div>
         </div>
+
+        <!-- v10.20：单字段重新生成候选弹窗（Teleport 到 body，放 step4 内部不打断 v-else-if 链） -->
+        <FieldRegenerateDialog
+          v-model:visible="regenDialogVisible"
+          :section-title="regenDialogTitle"
+          :original-text="regenOriginalText"
+          :candidates="regenCandidates"
+          :loading="regenLoading"
+          :error-msg="regenErrorMsg"
+          @select="applyRegenCandidate"
+        />
       </div>
 
       <!-- ==================== STEP 5：预览保存 ==================== -->

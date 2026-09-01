@@ -24,7 +24,7 @@
 -- DML (Data Manipulation Language): table data, grouped by module
 -- Only tables with actual data (INSERT) are included; empty tables are omitted
 -- Idempotent: each table is cleared with DELETE FROM before re-inserting its data
--- Source: moyun-db-ddl-moyun-db-202608201435.sql
+-- Source: 202608201435-moyun-db-ddl-moyun-db.sql
 -- =============================================================
 
 -- ------------------------------------------------------------

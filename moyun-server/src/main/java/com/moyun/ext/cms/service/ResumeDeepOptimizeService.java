@@ -6,14 +6,17 @@ import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.moyun.ext.cms.config.AiProperties;
 import com.moyun.ext.cms.domain.vo.ResumeDeepOptimizeVO;
+import com.moyun.ext.cms.domain.vo.ResumeOptimizeTaskVO;
 import com.moyun.ext.cms.domain.vo.UserResumeVO;
 import com.moyun.portal.domain.entity.PortalResumeJobMatch;
 import com.moyun.portal.domain.entity.PortalResumeJobTarget;
 import com.moyun.portal.domain.entity.PortalResumeOptimizeHistory;
+import com.moyun.portal.domain.entity.PortalResumeOptimizeTask;
 import com.moyun.portal.domain.entity.PortalUserResume;
 import com.moyun.portal.mapper.PortalResumeJobTargetMapper;
 import com.moyun.portal.mapper.PortalResumeJobMatchMapper;
 import com.moyun.portal.mapper.PortalResumeOptimizeHistoryMapper;
+import com.moyun.portal.mapper.PortalResumeOptimizeTaskMapper;
 import com.moyun.portal.mapper.PortalUserResumeMapper;
 import com.moyun.common.exception.system.ServiceException;
 import org.slf4j.Logger;
@@ -29,12 +32,18 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * 简历深度优化服务（v10.13 简历优化重构）
+ * 简历深度优化服务（v10.13 简历优化重构 / v10.19：抽出 Generator 解决循环依赖）
  * <p>
  * 链路：LLM 基于 JD 对简历逐项生成优化建议（前后对比）→ 用户逐项/批量采纳 →
  * 应用到简历表单 → 保存为新版本（版本号+1）→ 记录优化历史（评分/匹配度前后对比）。
  * </p>
  * <p>依赖 AI 模型，未启用/调用失败时抛出明确提示（深度优化无规则兜底——规则无法改写文本）。</p>
+ *
+ * <p><strong>v10.19 结构调整</strong>：原 {@code generate()} 及其私有方法（buildResumeContext/
+ * fillOriginal/safe）和 LLM 相关依赖已迁到 {@link ResumeDeepOptimizeGenerator}，本类仅保留
+ * 对外门面方法（generate/submitTask/getTaskStatus/applyAndSave），通过 generator 委托调用。
+ * 这样异步执行器 {@link ResumeOptimizeAsyncExecutor} 依赖 generator 而非本类，
+ * 依赖图变成 Service → Executor → Generator（单向无环），消除 A→B→A 循环依赖。</p>
  *
  * @author moyun
  */
@@ -66,6 +75,18 @@ public class ResumeDeepOptimizeService {
 
     @Autowired
     private PortalResumeJobMatchMapper jobMatchMapper;
+
+    /** v10.19：异步任务 Mapper */
+    @Autowired
+    private PortalResumeOptimizeTaskMapper optimizeTaskMapper;
+
+    /** v10.19：异步执行器（独立 Bean，保证 @Async 通过 Spring 代理生效） */
+    @Autowired
+    private ResumeOptimizeAsyncExecutor asyncExecutor;
+
+    /** v10.19：生成器（抽出 generate 能力，打破循环依赖） */
+    @Autowired
+    private ResumeDeepOptimizeGenerator generator;
 
     /**
      * AI 实时辅助编辑（v10.14 设计文档 P0 需求#2）：字段级多版本优化建议
@@ -135,72 +156,292 @@ public class ResumeDeepOptimizeService {
     }
 
     /**
+     * AI 填充空字段（v10.22）：为空的工作经历/项目经历/自我介绍生成初始草稿
+     *
+     * <p>与 {@link #fieldAssist} 的区别：fieldAssist 是对已有内容生成 3 个优化版本；
+     * 本方法是为空字段生成初始内容，供用户采纳填充到表单。</p>
+     *
+     * <p>流程：</p>
+     * <ol>
+     *   <li>查询简历详情，识别 works/projects/selfIntro 中为空的字段</li>
+     *   <li>若无空字段，返回"无可填充字段"</li>
+     *   <li>LLM 未启用/失败时返回空结果 + 提示信息（不抛异常，前端可正常渲染）</li>
+     *   <li>构造 prompt：已有信息（name/skills/jobIntention/educations）+ 可选 JD（jobTargetId 查询），
+     *       让 LLM 为空字段生成初始草稿</li>
+     *   <li>返回 Map：works(List&lt;WorkItem&gt;)/projects(List&lt;ProjectItem&gt;)/selfIntro(String)/message</li>
+     * </ol>
+     *
+     * @param resumeId    简历ID
+     * @param userId      用户ID（权限校验）
+     * @param jobTargetId 岗位目标ID（可选，提供时带入 JD 上下文）
+     * @return 草稿结果 Map
+     */
+    public Map<String, Object> aiDraftEmptyFields(Long resumeId, Long userId, Long jobTargetId) {
+        Map<String, Object> result = new HashMap<>();
+        // 空字段占位，前端按 key 渲染
+        result.put("works", new ArrayList<UserResumeVO.WorkItem>());
+        result.put("projects", new ArrayList<UserResumeVO.ProjectItem>());
+        result.put("selfIntro", "");
+
+        // 1. 查询简历详情
+        UserResumeVO resume = userResumeService.selectResumeDetail(resumeId, userId);
+        if (resume == null) {
+            result.put("message", "简历不存在或无权访问");
+            return result;
+        }
+
+        // 2. 识别空字段
+        boolean worksEmpty = resume.getWorks() == null || resume.getWorks().isEmpty();
+        boolean projectsEmpty = resume.getProjects() == null || resume.getProjects().isEmpty();
+        boolean selfIntroEmpty = resume.getSelfIntro() == null || resume.getSelfIntro().isBlank();
+        if (!worksEmpty && !projectsEmpty && !selfIntroEmpty) {
+            result.put("message", "无可填充字段：工作经历、项目经历、自我介绍均已填写");
+            return result;
+        }
+
+        // 3. LLM 未启用/不可用时返回空结果 + 提示
+        if (!aiProperties.isEnabled() || !aiProperties.isResumeAdviceEnabled() || !llmClient.isEnabled()) {
+            result.put("message", "AI 填充需要 AI 模型支持，请管理员在后台配置 AI 模型后使用");
+            return result;
+        }
+
+        // 4. 查询可选 JD（jobTargetId 非空时）
+        String jdText = "";
+        String jdPosition = "";
+        if (jobTargetId != null) {
+            PortalResumeJobTarget target = jobTargetMapper.selectById(jobTargetId);
+            if (target != null && target.getUserId() != null && target.getUserId().equals(userId)) {
+                jdText = target.getJdText() == null ? "" : target.getJdText();
+                jdPosition = target.getPosition() == null ? "" : target.getPosition();
+            }
+        }
+
+        // 需要生成的字段清单（仅空字段）
+        List<String> needFields = new ArrayList<>();
+        if (worksEmpty) needFields.add("工作经历");
+        if (projectsEmpty) needFields.add("项目经历");
+        if (selfIntroEmpty) needFields.add("自我介绍");
+
+        String systemPrompt = "你是一名简历撰写专家。根据用户已有信息，为空缺的字段生成初始草稿。"
+                + "生成原则：STAR 法则（情境-任务-行动-结果）、量化数据（无依据数据用 [X%][X万] 占位符供用户填写）、"
+                + "突出与目标岗位相关的能力、专业商务表达避免口语化。"
+                + "工作经历 2-3 条，每条描述 50-150 字；项目经历 2-3 条，每条描述 50-150 字；"
+                + "自我介绍 100-200 字，突出技能和经验。"
+                + "保持语义合理，禁止编造具体公司名（用 [公司名] 占位符）。"
+                + "返回 JSON：{works:[{company,position,startDate,endDate,description}],"
+                + "projects:[{name,role,startDate,endDate,description}],selfIntro:\"\"}。"
+                + "仅生成空缺字段，已有字段不输出。"
+                + "只输出 JSON 本体，禁止 markdown 代码块包裹，禁止前后说明文字。";
+
+        StringBuilder userPrompt = new StringBuilder();
+        userPrompt.append("【已有信息】\n");
+        userPrompt.append("- 姓名：").append(safeDraft(resume.getName())).append('\n');
+        // 技能
+        if (resume.getSkills() != null && !resume.getSkills().isEmpty()) {
+            StringBuilder skills = new StringBuilder();
+            for (int i = 0; i < resume.getSkills().size(); i++) {
+                UserResumeVO.SkillItem s = resume.getSkills().get(i);
+                if (i > 0) skills.append("、");
+                skills.append(safeDraft(s.getName()));
+                if (s.getLevel() != null && !s.getLevel().isBlank()) {
+                    skills.append("(").append(s.getLevel()).append(")");
+                }
+            }
+            userPrompt.append("- 技能：").append(skills).append('\n');
+        }
+        // 求职意向
+        if (resume.getJobIntention() != null) {
+            UserResumeVO.JobIntention ji = resume.getJobIntention();
+            userPrompt.append("- 求职意向：岗位=").append(safeDraft(ji.getPosition()))
+                    .append(", 城市=").append(safeDraft(ji.getCity()))
+                    .append(", 类型=").append(safeDraft(ji.getJobType()))
+                    .append('\n');
+        }
+        // 教育经历
+        if (resume.getEducations() != null && !resume.getEducations().isEmpty()) {
+            userPrompt.append("- 教育经历：");
+            for (int i = 0; i < resume.getEducations().size(); i++) {
+                UserResumeVO.EducationItem e = resume.getEducations().get(i);
+                if (i > 0) userPrompt.append("；");
+                userPrompt.append(safeDraft(e.getSchool())).append("·")
+                        .append(safeDraft(e.getMajor())).append("·")
+                        .append(safeDraft(e.getDegree()));
+            }
+            userPrompt.append('\n');
+        }
+        // 目标岗位 JD（如有）
+        if (!jdText.isBlank()) {
+            userPrompt.append("\n【目标岗位】").append(jdPosition).append('\n');
+            userPrompt.append("【岗位JD】\n").append(jdText).append('\n');
+        }
+        userPrompt.append("\n【需要生成的字段（仅生成空缺的）】\n");
+        for (int i = 0; i < needFields.size(); i++) {
+            userPrompt.append(i + 1).append(". ").append(needFields.get(i)).append('\n');
+        }
+
+        try {
+            String response = llmClient.chat(systemPrompt, userPrompt.toString());
+            if (response == null || response.isBlank()) {
+                result.put("message", "AI 未生成有效草稿，请稍后重试");
+                return result;
+            }
+            JsonNode node = objectMapper.readTree(LlmJsonExtractor.extract(response));
+
+            int draftCount = 0;
+            // 解析工作经历
+            if (worksEmpty) {
+                JsonNode worksArr = node.path("works");
+                if (worksArr.isArray()) {
+                    List<UserResumeVO.WorkItem> works = new ArrayList<>();
+                    for (JsonNode wNode : worksArr) {
+                        UserResumeVO.WorkItem w = new UserResumeVO.WorkItem();
+                        w.setCompany(wNode.path("company").asText(""));
+                        w.setPosition(wNode.path("position").asText(""));
+                        w.setStartDate(wNode.path("startDate").asText(""));
+                        w.setEndDate(wNode.path("endDate").asText(""));
+                        w.setDescription(wNode.path("description").asText(""));
+                        if (!w.getDescription().isBlank()) {
+                            works.add(w);
+                        }
+                    }
+                    result.put("works", works);
+                    draftCount += works.size();
+                }
+            }
+            // 解析项目经历
+            if (projectsEmpty) {
+                JsonNode projectsArr = node.path("projects");
+                if (projectsArr.isArray()) {
+                    List<UserResumeVO.ProjectItem> projects = new ArrayList<>();
+                    for (JsonNode pNode : projectsArr) {
+                        UserResumeVO.ProjectItem p = new UserResumeVO.ProjectItem();
+                        p.setName(pNode.path("name").asText(""));
+                        p.setRole(pNode.path("role").asText(""));
+                        p.setStartDate(pNode.path("startDate").asText(""));
+                        p.setEndDate(pNode.path("endDate").asText(""));
+                        p.setDescription(pNode.path("description").asText(""));
+                        if (!p.getDescription().isBlank()) {
+                            projects.add(p);
+                        }
+                    }
+                    result.put("projects", projects);
+                    draftCount += projects.size();
+                }
+            }
+            // 解析自我介绍
+            if (selfIntroEmpty) {
+                String selfIntro = node.path("selfIntro").asText("");
+                if (!selfIntro.isBlank()) {
+                    result.put("selfIntro", selfIntro.trim());
+                    draftCount += 1;
+                }
+            }
+
+            if (draftCount == 0) {
+                result.put("message", "AI 未生成有效草稿，请稍后重试");
+            } else {
+                result.put("message", "已生成 " + draftCount + " 项草稿，点击采纳后填充到表单");
+            }
+            return result;
+        } catch (Exception e) {
+            log.error("[AiDraftEmptyFields] LLM 生成失败 resumeId={}", resumeId, e);
+            result.put("message", "AI 草稿生成失败：" + e.getMessage());
+            return result;
+        }
+    }
+
+    /** 空值安全处理：null/空字符串统一显示为"未填写"（aiDraftEmptyFields 专用，避免与 Generator 同名方法混淆） */
+    private String safeDraft(String s) {
+        return (s == null || s.isBlank()) ? "未填写" : s.trim();
+    }
+
+    /**
      * 生成深度优化建议（逐项前后对比）
+     *
+     * <p>v10.19：实现已迁到 {@link ResumeDeepOptimizeGenerator}，本方法为门面委托。
+     * 保留公共 API 不变，避免影响 {@code PortalResumeOptimizeController} 等调用方。</p>
      *
      * @param resume      简历详情
      * @param jobTargetId 岗位目标ID
      */
     public ResumeDeepOptimizeVO generate(UserResumeVO resume, Long jobTargetId) {
-        PortalResumeJobTarget target = jobTargetMapper.selectById(jobTargetId);
-        if (target == null) {
+        return generator.generate(resume, jobTargetId);
+    }
+
+    // ==================== v10.19：异步任务化（解决大模型调用超时） ====================
+
+    /**
+     * 提交深度优化异步任务：同步入库返回任务ID，调用方立即响应前端。
+     *
+     * <p>不阻塞等待 LLM 结果，前端通过 {@link #getTaskStatus(Long, Long)} 轮询任务进度。
+     * 异步执行由独立 Bean {@link ResumeOptimizeAsyncExecutor} 承担，保证 @Async 通过 Spring 代理生效。</p>
+     *
+     * @param userId     用户ID
+     * @param resume     简历详情
+     * @param jobTargetId 岗位目标ID
+     * @return 任务ID
+     */
+    public Long submitTask(Long userId, UserResumeVO resume, Long jobTargetId) {
+        // v10.19：前置校验委托给 generator（避免重复实现 AI 可用性与岗位校验逻辑）
+        if (generator.getJobTarget(jobTargetId) == null) {
             throw new ServiceException("岗位目标不存在");
         }
-        if (!aiProperties.isEnabled() || !aiProperties.isResumeAdviceEnabled() || !llmClient.isEnabled()) {
+        if (!generator.isAiAvailable()) {
             throw new ServiceException("深度优化需要 AI 模型支持，请管理员在后台配置 AI 模型后使用");
         }
 
-        String systemPrompt = "你是一名资深简历优化专家，基于目标岗位JD对简历进行逐项深度优化。"
-                + "返回 JSON：summary(总体优化说明，50字内), items(优化建议数组，3-6项)。每项含："
-                + "section(objective/education/work/project/skills/selfIntro), "
-                + "index(列表条目索引，从0开始；skills 填 0), field(position/description/name), "
-                + "optimized(优化后完整文本，可直接替换，50-200字), reason(优化理由，一句话，30字内)。"
-                + "不要输出 original 字段（原文由系统回填）。"
-                + "优化原则：STAR法则+量化数据+[X%]占位符（无依据数据用占位符供用户填写）；"
-                + "skills 的 optimized 用\"精通：A、B\\n熟练：C\"格式；"
-                + "保持语义一致禁止编造经历。只输出 JSON 本体，禁止 markdown 代码块包裹，"
-                + "输出务必完整，禁止中途截断。";
-        String userPrompt = "【目标岗位】" + target.getPosition()
-                + "\n【岗位JD】\n" + target.getJdText()
-                + "\n\n【简历 JSON】\n" + objectMapper.valueToTree(resume).toString();
+        // 同步入库任务记录（pending），调用方立即返回
+        PortalResumeOptimizeTask task = new PortalResumeOptimizeTask();
+        task.setUserId(userId);
+        task.setResumeId(resume.getId());
+        task.setJobTargetId(jobTargetId);
+        task.setStatus("pending");
+        task.setAiPowered(1);
+        task.setCreateTime(LocalDateTime.now());
+        optimizeTaskMapper.insert(task);
 
+        // 触发异步执行（独立 Bean 调用，确保 @Async 生效）
         try {
-            String response = llmClient.chat(systemPrompt, userPrompt);
-            JsonNode node = objectMapper.readTree(LlmJsonExtractor.extract(response));
-            ResumeDeepOptimizeVO vo = new ResumeDeepOptimizeVO();
-            vo.setResumeId(resume.getId());
-            vo.setJobTargetId(jobTargetId);
-            vo.setSummary(node.path("summary").asText(null));
-            vo.setAiPowered(true);
-            List<ResumeDeepOptimizeVO.OptimizeItem> items = new ArrayList<>();
-            JsonNode arr = node.path("items");
-            if (arr.isArray()) {
-                for (JsonNode itemNode : arr) {
-                    ResumeDeepOptimizeVO.OptimizeItem item = new ResumeDeepOptimizeVO.OptimizeItem();
-                    item.setSection(itemNode.path("section").asText(null));
-                    item.setIndex(itemNode.path("index").asInt(0));
-                    item.setField(itemNode.path("field").asText(null));
-                    item.setOptimized(itemNode.path("optimized").asText(null));
-                    item.setReason(itemNode.path("reason").asText(null));
-                    if (item.getSection() != null && item.getOptimized() != null) {
-                        fillOriginal(resume, item);
-                        items.add(item);
-                    }
-                }
-            }
-            if (items.isEmpty()) {
-                throw new ServiceException("AI 未生成有效优化建议，请稍后重试");
-            }
-            vo.setItems(items);
-            return vo;
-        } catch (ServiceException e) {
-            throw e;
-        } catch (com.fasterxml.jackson.core.JsonProcessingException e) {
-            log.error("[DeepOptimize] LLM 返回 JSON 解析失败（疑似输出被截断）", e);
-            throw new ServiceException("AI 输出被截断或格式异常，请管理员在后台「AI 模块 → 模型配置」调大最大 Token 数后重试");
+            asyncExecutor.executeTask(task.getId(), resume, jobTargetId);
         } catch (Exception e) {
-            log.error("[DeepOptimize] LLM 生成失败", e);
-            throw new ServiceException("深度优化生成失败：" + e.getMessage());
+            // 异步触发失败（如线程池满）回写失败状态，不阻塞调用方
+            log.error("[DeepOptimizeTask] 异步任务触发失败 taskId={}", task.getId(), e);
+            PortalResumeOptimizeTask fail = new PortalResumeOptimizeTask();
+            fail.setId(task.getId());
+            fail.setStatus("failed");
+            fail.setErrorMsg("任务触发失败：" + e.getMessage());
+            fail.setFinishTime(LocalDateTime.now());
+            optimizeTaskMapper.updateById(fail);
         }
+        return task.getId();
+    }
+
+    /**
+     * 查询任务状态（前端轮询调用）
+     *
+     * @param taskId 任务ID
+     * @param userId 用户ID（权限校验，防止越权查询他人任务）
+     * @return 任务状态 VO（含进度、结果、错误信息）
+     */
+    public ResumeOptimizeTaskVO getTaskStatus(Long taskId, Long userId) {
+        PortalResumeOptimizeTask task = optimizeTaskMapper.selectById(taskId);
+        if (task == null || !task.getUserId().equals(userId)) {
+            throw new ServiceException("任务不存在或无权访问");
+        }
+        ResumeOptimizeTaskVO vo = new ResumeOptimizeTaskVO();
+        vo.setTaskId(task.getId());
+        vo.setStatus(task.getStatus());
+        vo.setResult(task.getResultJson());
+        vo.setErrorMsg(task.getErrorMsg());
+        // 粗粒度进度估算
+        switch (task.getStatus() == null ? "" : task.getStatus()) {
+            case "pending":  vo.setProgress(10); break;
+            case "running":   vo.setProgress(50); break;
+            case "success":   vo.setProgress(100); break;
+            case "failed":    vo.setProgress(0); break;
+            default:          vo.setProgress(0);
+        }
+        return vo;
     }
 
     /**
@@ -219,11 +460,20 @@ public class ResumeDeepOptimizeService {
             throw new ServiceException("请至少选择一项优化建议");
         }
         List<ResumeDeepOptimizeVO.OptimizeItem> items = optimize.getItems();
+        log.info("[DeepOptimize] applyAndSave 开始：resumeId={} 简历含 works={}/projects={}/educations={}，采纳索引={}",
+                resume.getId(),
+                resume.getWorks() == null ? 0 : resume.getWorks().size(),
+                resume.getProjects() == null ? 0 : resume.getProjects().size(),
+                resume.getEducations() == null ? 0 : resume.getEducations().size(),
+                adopted);
         for (Integer idx : adopted) {
             if (idx == null || idx < 0 || idx >= items.size()) {
                 throw new ServiceException("优化建议索引非法：" + idx);
             }
-            applyItem(resume, items.get(idx));
+            ResumeDeepOptimizeVO.OptimizeItem item = items.get(idx);
+            log.info("[DeepOptimize] 应用建议[{}]：section={}, index={}, field={}",
+                    idx, item.getSection(), item.getIndex(), item.getField());
+            applyItem(resume, item);
         }
 
         // 无版本概念：直接更新原简历（幂等，saveResume 更新路径会自动清除陈旧评分）
@@ -283,94 +533,100 @@ public class ResumeDeepOptimizeService {
     private void applyItem(UserResumeVO resume, ResumeDeepOptimizeVO.OptimizeItem item) {
         String text = item.getOptimized().trim();
         int idx = item.getIndex() == null ? 0 : item.getIndex();
-        switch (item.getSection() == null ? "" : item.getSection()) {
+        // v10.20：section 归一化（trim+lowercase，兼容 LLM 返回 works/projects/experience 等变体）
+        String section = normalizeSection(item.getSection());
+        String field = item.getField() == null ? "" : item.getField().trim();
+        switch (section) {
             case "selfIntro":
                 resume.setSelfIntro(text);
                 break;
             case "objective":
-                if (resume.getJobIntention() != null && "position".equals(item.getField())) {
+                if (resume.getJobIntention() != null && "position".equals(field)) {
                     resume.getJobIntention().setPosition(text);
                 }
                 break;
             case "education":
-                if (resume.getEducations() != null && idx < resume.getEducations().size()) {
-                    UserResumeVO.EducationItem e = resume.getEducations().get(idx);
-                    if ("description".equals(item.getField())) {
-                        e.setDescription(text);
-                    }
+                if (resume.getEducations() == null || idx >= resume.getEducations().size()) {
+                    throw new ServiceException("教育经历索引越界：" + idx + "（简历只有 "
+                            + (resume.getEducations() == null ? 0 : resume.getEducations().size()) + " 条）");
+                }
+                UserResumeVO.EducationItem e = resume.getEducations().get(idx);
+                if ("description".equals(field)) {
+                    e.setDescription(text);
                 }
                 break;
             case "work":
-                if (resume.getWorks() != null && idx < resume.getWorks().size()) {
-                    UserResumeVO.WorkItem w = resume.getWorks().get(idx);
-                    if ("description".equals(item.getField())) {
-                        w.setDescription(text);
-                    }
+                if (resume.getWorks() == null || idx >= resume.getWorks().size()) {
+                    throw new ServiceException("工作经历索引越界：" + idx + "（简历只有 "
+                            + (resume.getWorks() == null ? 0 : resume.getWorks().size()) + " 条）");
+                }
+                UserResumeVO.WorkItem w = resume.getWorks().get(idx);
+                if ("description".equals(field)) {
+                    w.setDescription(text);
                 }
                 break;
             case "project":
-                if (resume.getProjects() != null && idx < resume.getProjects().size()) {
-                    UserResumeVO.ProjectItem p = resume.getProjects().get(idx);
-                    if ("description".equals(item.getField())) {
-                        p.setDescription(text);
-                    }
+                if (resume.getProjects() == null || idx >= resume.getProjects().size()) {
+                    throw new ServiceException("项目经历索引越界：" + idx + "（简历只有 "
+                            + (resume.getProjects() == null ? 0 : resume.getProjects().size()) + " 条）");
+                }
+                UserResumeVO.ProjectItem p = resume.getProjects().get(idx);
+                if ("description".equals(field)) {
+                    p.setDescription(text);
                 }
                 break;
             case "skills":
                 applySkills(resume, text);
                 break;
             default:
-                // 未知 section 忽略（防御 LLM 幻觉）
+                // 未知 section 抛错（而非静默忽略），让用户知道 LLM 返回异常可重试
+                throw new ServiceException("无法识别的优化字段类型：" + item.getSection()
+                        + "（建议重新生成，AI 返回了未预期的字段标识）");
         }
     }
 
-    /** 服务端回填原文（v10.14：LLM 不再回显 original，避免输出 token 超限被截断） */
-    private void fillOriginal(UserResumeVO resume, ResumeDeepOptimizeVO.OptimizeItem item) {
-        int idx = item.getIndex() == null ? 0 : item.getIndex();
-        String original = null;
-        switch (item.getSection() == null ? "" : item.getSection()) {
-            case "selfIntro":
-                original = resume.getSelfIntro();
-                break;
-            case "objective":
-                if (resume.getJobIntention() != null && "position".equals(item.getField())) {
-                    original = resume.getJobIntention().getPosition();
-                }
-                break;
-            case "education":
-                if (resume.getEducations() != null && idx < resume.getEducations().size()
-                        && "description".equals(item.getField())) {
-                    original = resume.getEducations().get(idx).getDescription();
-                }
-                break;
-            case "work":
-                if (resume.getWorks() != null && idx < resume.getWorks().size()
-                        && "description".equals(item.getField())) {
-                    original = resume.getWorks().get(idx).getDescription();
-                }
-                break;
-            case "project":
-                if (resume.getProjects() != null && idx < resume.getProjects().size()
-                        && "description".equals(item.getField())) {
-                    original = resume.getProjects().get(idx).getDescription();
-                }
-                break;
-            case "skills":
-                if (resume.getSkills() != null && !resume.getSkills().isEmpty()) {
-                    StringBuilder sb = new StringBuilder();
-                    for (UserResumeVO.SkillItem s : resume.getSkills()) {
-                        if (sb.length() > 0) {
-                            sb.append('、');
-                        }
-                        sb.append(s.getName());
-                    }
-                    original = sb.toString();
-                }
-                break;
+    /**
+     * v10.20：section 归一化，兼容 LLM 返回的常见变体
+     * <ul>
+     *   <li>去前后空白 + 转小写</li>
+     *   <li>works→work、projects→project、educations→education、experiences→experience→work</li>
+     *   <li>self_intro→selfIntro、selfIntroduction→selfIntro、intro→selfIntro</li>
+     *   <li>objective→objective、jobIntention→objective</li>
+     * </ul>
+     */
+    private String normalizeSection(String raw) {
+        if (raw == null) return "";
+        String s = raw.trim().toLowerCase();
+        switch (s) {
+            case "works":
+            case "experience":
+            case "experiences":
+            case "working":
+                return "work";
+            case "projects":
+            case "project_experience":
+                return "project";
+            case "educations":
+            case "education_experience":
+                return "education";
+            case "self_intro":
+            case "selfintro":
+            case "selfintroduction":
+            case "introduction":
+            case "intro":
+            case "summary":
+                return "selfIntro";
+            case "job_intention":
+            case "jobintention":
+            case "intention":
+                return "objective";
+            case "skill":
+            case "skill_list":
+            case "skilllist":
+                return "skills";
             default:
-                // 未知 section：original 留空（防御 LLM 幻觉）
+                return s;
         }
-        item.setOriginal(original);
     }
 
     /** skills 建议为"精通：A、B\n熟练：C"分级文本：解析合并（去重） */

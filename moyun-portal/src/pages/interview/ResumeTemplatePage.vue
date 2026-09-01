@@ -287,9 +287,9 @@ function gotoPage(p: number) {
               class="rounded-xl shadow-sm hover:shadow-lg transition overflow-hidden flex flex-col group"
               style="background-color: var(--theme-surface); border: 1px solid var(--theme-border);"
             >
-              <!-- 大图区（优先预览图第一张 > 封面） -->
+              <!-- 大图区（优先预览图第一张 > 封面）v10.21：高度调矮 h-64→h-44，突出预览 -->
               <div
-                class="h-64 relative cursor-pointer overflow-hidden"
+                class="h-44 relative cursor-pointer overflow-hidden"
                 style="background-color: var(--theme-bg);"
                 @click="openPreview(t)"
               >
@@ -305,7 +305,7 @@ function gotoPage(p: number) {
                 <!-- 分类角标 -->
                 <span
                   v-if="t.category"
-                  class="absolute top-3 left-3 px-2.5 py-1 rounded-full text-xs font-medium shadow-sm"
+                  class="absolute top-2.5 left-2.5 px-2 py-0.5 rounded-full text-xs font-medium shadow-sm"
                   style="background-color: rgba(255,255,255,0.92); color: var(--theme-primary);"
                 >
                   {{ t.category }}
@@ -313,53 +313,58 @@ function gotoPage(p: number) {
                 <!-- 精选角标（付费预留，当前仅标记） -->
                 <span
                   v-if="t.isPremium"
-                  class="absolute top-3 right-3 px-2 py-1 bg-theme-warning-bg text-theme-warning rounded-full text-xs font-medium flex items-center"
+                  class="absolute top-2.5 left-2.5 px-2 py-0.5 bg-theme-warning-bg text-theme-warning rounded-full text-xs font-medium flex items-center"
+                  :style="t.category ? 'left: auto; right: 2.5rem;' : 'left: auto; right: 0.625rem;'"
                 >
                   <Star class="w-3 h-3 inline mr-0.5" />精选
                 </span>
                 <!-- 多图预览角标 -->
                 <span
                   v-if="getAllImages(t).length > 1"
-                  class="absolute bottom-3 right-3 px-2 py-1 rounded-full text-xs font-medium flex items-center"
+                  class="absolute bottom-2.5 left-2.5 px-2 py-0.5 rounded-full text-xs font-medium flex items-center"
                   style="background-color: rgba(0,0,0,0.6); color: white;"
                 >
-                  <FileText class="w-3 h-3 inline mr-1" />{{ getAllImages(t).length }} 张预览
+                  <FileText class="w-3 h-3 inline mr-1" />{{ getAllImages(t).length }} 张
                 </span>
-                <!-- 悬停提示 -->
-                <div class="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition" style="background-color: rgba(0,0,0,0.3);">
-                  <span class="text-white text-sm font-medium flex items-center gap-1">
-                    <Search class="w-4 h-4" />点击查看预览
+                <!-- v10.21：操作按钮组（hover 显示，小按钮叠在图片右上角） -->
+                <div class="absolute top-2.5 right-2.5 flex gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                  <button
+                    @click.stop="handleDownload(t)"
+                    title="免费下载"
+                    class="px-2.5 py-1 text-xs text-white rounded-md font-medium flex items-center gap-1 shadow-sm hover:opacity-90 transition"
+                    style="background-color: var(--theme-primary);"
+                  >
+                    <Download class="w-3 h-3" />
+                    下载
+                  </button>
+                  <button
+                    @click.stop="useTemplate(t)"
+                    title="基于此模板创建简历"
+                    class="px-2.5 py-1 text-xs rounded-md font-medium flex items-center gap-1 shadow-sm backdrop-blur-sm transition hover:opacity-90"
+                    style="background-color: rgba(255,255,255,0.92); color: var(--theme-primary); border: 1px solid var(--theme-primary);"
+                  >
+                    <Sparkles class="w-3 h-3" />
+                    用此模板
+                  </button>
+                </div>
+                <!-- 悬停提示（底部，不与按钮冲突） -->
+                <div class="absolute inset-x-0 bottom-0 h-12 flex items-end justify-center pb-2 opacity-0 group-hover:opacity-100 transition" style="background: linear-gradient(to top, rgba(0,0,0,0.4), transparent);">
+                  <span class="text-white text-xs font-medium flex items-center gap-1">
+                    <Search class="w-3.5 h-3.5" />点击查看预览
                   </span>
                 </div>
               </div>
-              <!-- 信息区 -->
-              <div class="p-5 flex flex-col flex-1">
-                <h3 class="text-lg font-semibold mb-2 line-clamp-1" style="color: var(--theme-text);">{{ t.title }}</h3>
-                <p class="text-sm mb-3 line-clamp-2 flex-1" style="color: var(--theme-text-secondary);">
+              <!-- 信息区 v10.21：padding 调小 p-5→p-3.5，突出标题与点赞收藏 -->
+              <div class="p-3.5 flex flex-col flex-1">
+                <h3 class="text-base font-semibold mb-1 line-clamp-1" style="color: var(--theme-text);">{{ t.title }}</h3>
+                <p class="text-xs mb-2.5 line-clamp-1 flex-1" style="color: var(--theme-text-secondary);">
                   {{ t.description || '优质简历模板，助力你的求职之路' }}
                 </p>
-                <div class="flex items-center text-sm mb-4" style="color: var(--theme-text-secondary);">
-                  <span class="flex items-center mr-3"><ThumbsUp class="w-4 h-4 mr-1" />{{ t.likeCount }}</span>
-                  <span class="flex items-center"><Download class="w-4 h-4 mr-1" />{{ t.downloadCount }}</span>
-                  <span v-if="t.fileType" class="ml-auto text-xs uppercase px-2 py-0.5 rounded" style="background-color: var(--theme-accent); color: var(--theme-text-secondary);">{{ t.fileType }}</span>
+                <div class="flex items-center text-xs" style="color: var(--theme-text-secondary);">
+                  <span class="flex items-center mr-3"><ThumbsUp class="w-3.5 h-3.5 mr-1" />{{ t.likeCount }}</span>
+                  <span class="flex items-center"><Download class="w-3.5 h-3.5 mr-1" />{{ t.downloadCount }}</span>
+                  <span v-if="t.fileType" class="ml-auto text-[10px] uppercase px-1.5 py-0.5 rounded font-medium" style="background-color: var(--theme-accent); color: var(--theme-text-secondary);">{{ t.fileType }}</span>
                 </div>
-                <!-- 免费下载按钮（突出） -->
-                <button
-                  @click="handleDownload(t)"
-                  class="w-full py-2.5 text-white text-sm rounded-lg transition flex items-center justify-center hover:opacity-90 font-medium"
-                  style="background-color: var(--theme-primary);"
-                >
-                  <Download class="w-4 h-4 mr-1.5" />
-                  免费下载
-                </button>
-                <button
-                  @click="useTemplate(t)"
-                  class="w-full py-2.5 text-sm rounded-lg transition flex items-center justify-center hover:opacity-80 font-medium mt-2"
-                  style="color: var(--theme-primary); border: 1px solid var(--theme-primary);"
-                >
-                  <Sparkles class="w-4 h-4 mr-1.5" />
-                  基于此模板创建简历
-                </button>
               </div>
             </div>
           </div>

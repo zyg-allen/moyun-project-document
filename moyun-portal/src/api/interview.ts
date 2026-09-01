@@ -374,3 +374,24 @@ export const updateResumeStatus = (id: string | number, status: string) => {
   );
 };
 
+// ==================== 附件简历（v10.22） ====================
+
+/**
+ * 附件简历列表（v10.22）
+ * GET /portal/interview/resume/user/attachments
+ * 返回当前用户的附件简历记录（sourceType=attachment），含 sourceFileUrl/sourceFileName
+ */
+export const getAttachmentList = () => {
+  return httpGet<UserResumeVO[]>('/portal/interview/resume/user/attachments');
+};
+
+/**
+ * 附件转在线简历（v10.22）
+ * POST /portal/interview/resume/user/{id}/convert-to-online
+ * 将附件简历的结构化解析结果写入在线简历表单字段，转为可编辑的在线简历
+ * 返回新在线简历 ID
+ */
+export const convertAttachmentToOnline = (id: number | string) => {
+  return httpPost<number>(`/portal/interview/resume/user/${id}/convert-to-online`);
+};
+

@@ -1483,6 +1483,12 @@ export interface UserResumeVO {
   mine?: boolean;
   createTime?: string;
   updateTime?: string;
+  /** 简历来源类型（v10.22）：online=在线简历（默认），attachment=附件简历 */
+  sourceType?: 'online' | 'attachment' | string;
+  /** 附件源文件 URL（sourceType=attachment 时有值，认证下载流） */
+  sourceFileUrl?: string;
+  /** 附件源文件名（sourceType=attachment 时有值） */
+  sourceFileName?: string;
 }
 
 /** 简历 AI 改进建议 VO（v5.9 阶段2） */
@@ -1624,6 +1630,12 @@ export interface ResumeParseVO {
   aiPowered?: boolean;
   /** 附件抽取文本长度 */
   textLength?: number;
+  /** v10.22：后端创建的附件简历记录 ID（上传解析成功后返回，前端据此跳转编辑页） */
+  attachmentResumeId?: string | number;
+  /** v10.22：附件源文件 URL（认证下载流） */
+  sourceFileUrl?: string;
+  /** v10.22：附件源文件名 */
+  sourceFileName?: string;
 }
 
 /** 单条改进建议 */

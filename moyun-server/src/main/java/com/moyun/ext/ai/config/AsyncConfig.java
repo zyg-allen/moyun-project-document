@@ -116,6 +116,44 @@ public class AsyncConfig {
     }
 
     /**
+     * 简历深度优化异步任务线程池（v10.19：解决大模型调用超时问题）。
+     *
+     * <p>用于异步执行简历深度优化任务，避免阻塞 HTTP 请求线程。
+     * 任务状态持久化到 portal_resume_optimize_task 表，前端通过轮询查询进度。</p>
+     *
+     * <p>线程池配置：</p>
+     * <ul>
+     *   <li>核心线程数：2（深度优化为低频长耗时任务，避免占用过多资源）</li>
+     *   <li>最大线程数：4</li>
+     *   <li>队列容量：20（有界队列，防止任务堆积）</li>
+     *   <li>拒绝策略：带日志的 CallerRunsPolicy（降级到调用线程执行）</li>
+     * </ul>
+     *
+     * @return 简历深度优化异步任务线程池
+     */
+    @Bean(name = "resumeOptimizeExecutor")
+    public ThreadPoolTaskExecutor resumeOptimizeExecutor() {
+        int corePoolSize = 2;
+        int maxPoolSize = 4;
+
+        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
+        executor.setCorePoolSize(corePoolSize);
+        executor.setMaxPoolSize(maxPoolSize);
+        executor.setQueueCapacity(20);
+        executor.setThreadNamePrefix("resume-optimize-");
+        executor.setRejectedExecutionHandler(new LoggingCallerRunsPolicy());
+        executor.setKeepAliveSeconds(120);
+        executor.setAllowCoreThreadTimeOut(true);
+        executor.setWaitForTasksToCompleteOnShutdown(true);
+        executor.setAwaitTerminationSeconds(60);
+        executor.initialize();
+
+        log.info("✅ 简历深度优化异步任务线程池初始化完成: core={}, max={}, queue={}",
+                corePoolSize, maxPoolSize, 20);
+        return executor;
+    }
+
+    /**
      * 自定义拒绝策略：带日志的 CallerRunsPolicy。
      *
      * <p>在任务被拒绝时记录日志，便于监控和调优；随后降级到调用线程执行，避免任务丢失。</p>

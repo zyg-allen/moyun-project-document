@@ -1,9 +1,9 @@
 package com.moyun.portal.controller;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
-import com.moyun.common.constant.HttpStatus;
 import com.moyun.common.config.RuoYiConfig;
 import com.moyun.common.constant.Constants;
+import com.moyun.common.constant.HttpStatus;
 import com.moyun.core.base.AjaxResult;
 import com.moyun.core.base.BaseController;
 import com.moyun.ext.cms.domain.query.UserResumeQuery;
@@ -68,7 +68,7 @@ public class PortalUserResumeController extends BaseController {
         if (userId == null) {
             return AjaxResult.error(HttpStatus.UNAUTHORIZED, "登录已过期，请重新登录");
         }
-        return AjaxResult.success(resumeParseService.parse(file));
+        return AjaxResult.success(resumeParseService.parse(file, userId));
     }
 
     @Operation(summary = "简历详情", description = "查询指定简历详情（仅作者可访问）")
@@ -196,4 +196,49 @@ public class PortalUserResumeController extends BaseController {
                 .contentLength(file.length())
                 .body(new FileSystemResource(file));
     }
+
+    @Operation(summary = "附件简历列表", description = "查询当前用户的附件简历（source_type=attachment）")
+    @GetMapping("/attachments")
+    public AjaxResult getAttachmentList() {
+        Long userId = currentUserId();
+        if (userId == null) return AjaxResult.error(HttpStatus.UNAUTHORIZED, "登录已过期");
+        return AjaxResult.success(userResumeService.selectAttachmentList(userId));
+    }
+
+    @Operation(summary = "下载附件源文件", description = "下载附件简历的原始上传文件")
+    @GetMapping("/{id:[0-9]+}/download-attachment")
+    public ResponseEntity<Resource> downloadAttachment(@PathVariable("id") Long id) {
+        Long userId = currentUserId();
+        if (userId == null) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        UserResumeVO vo = userResumeService.selectResumeDetail(id, userId);
+        if (vo == null || !"attachment".equals(vo.getSourceType()) || vo.getSourceFileUrl() == null) {
+            return ResponseEntity.notFound().build();
+        }
+        // 将 URL 转磁盘路径（复用 downloadPdf 的逻辑）
+        String diskUrl = vo.getSourceFileUrl();
+        String diskPath;
+        if (diskUrl.startsWith(Constants.RESOURCE_PREFIX)) {
+            diskPath = RuoYiConfig.getProfile() + diskUrl.substring(Constants.RESOURCE_PREFIX.length());
+        } else {
+            diskPath = diskUrl;
+        }
+        File f = new File(diskPath);
+        if (!f.exists() || !f.isFile()) return ResponseEntity.notFound().build();
+        String fileName = vo.getSourceFileName() != null ? vo.getSourceFileName() : f.getName();
+        String encoded = URLEncoder.encode(fileName, StandardCharsets.UTF_8).replace("+", "%20");
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + encoded + "\"")
+                .contentType(MediaType.APPLICATION_OCTET_STREAM)
+                .contentLength(f.length())
+                .body(new FileSystemResource(f));
+    }
+
+    @Operation(summary = "附件转在线简历", description = "将附件简历转为在线简历（source_type 改为 online，保留解析数据）")
+    @PostMapping("/{id:[0-9]+}/convert-to-online")
+    public AjaxResult convertToOnline(@PathVariable("id") Long id) {
+        Long userId = currentUserId();
+        if (userId == null) return AjaxResult.error(HttpStatus.UNAUTHORIZED, "登录已过期");
+        return AjaxResult.success(userResumeService.convertAttachmentToOnline(id, userId));
+    }
 }
+

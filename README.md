@@ -127,10 +127,10 @@ pnpm install && pnpm run dev
 mysql -u root -p moyun-db < moyun-server/src/main/resources/sql/moyun-db-ddl-202608201435.sql
 
 # 2. 初始化数据（33 张含数据表，幂等：每表先 DELETE FROM 再 INSERT）
-mysql -u root -p moyun-db < moyun-server/src/main/resources/sql/moyun-db-dml-202608201435.sql
+mysql -u root -p moyun-db < moyun-server/src/main/resources/sql/202608201435-moyun-db-dml.sql
 ```
 
-> 说明：`moyun-db-ddl-moyun-db-202608201435.sql` 为拆分前的整合源文件（归档留存）；日常初始化使用上方拆分后的 DDL + DML。后续表结构变更，在 DDL 文件对应模块末尾追加增量 `ALTER TABLE`，不改动原 `CREATE TABLE`。
+> 说明：`202608201435-moyun-db-ddl-moyun-db.sql` 为拆分前的整合源文件（归档留存）；日常初始化使用上方拆分后的 DDL + DML。后续表结构变更，在 DDL 文件对应模块末尾追加增量 `ALTER TABLE`，不改动原 `CREATE TABLE`。
 
 ---
 

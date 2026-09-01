@@ -32,7 +32,9 @@ import java.util.Map;
  *   GET/POST/PUT/DELETE  /portal/resume/optimize/job-target    岗位目标 CRUD
  *   POST  /portal/resume/optimize/match/{resumeId}/{jobTargetId}  执行匹配分析
  *   GET   /portal/resume/optimize/match/{resumeId}/latest        最近匹配报告
- *   POST  /portal/resume/optimize/deep/{resumeId}/{jobTargetId}   生成深度优化建议
+ *   POST  /portal/resume/optimize/deep/{resumeId}/{jobTargetId}   生成深度优化建议（同步，兼容旧版）
+ *   POST  /portal/resume/optimize/deep/{resumeId}/{jobTargetId}/async  提交深度优化异步任务（v10.19 推荐）
+ *   GET   /portal/resume/optimize/deep/task/{taskId}              查询深度优化任务状态（前端轮询）
  *   POST  /portal/resume/optimize/deep/apply                      采纳建议并保存新版本
  *   GET   /portal/resume/optimize/history/{resumeId}              优化历史
  *
@@ -183,7 +185,7 @@ public class PortalResumeOptimizeController extends BaseController {
 
     // ==================== 深度优化 ====================
 
-    @Operation(summary = "生成深度优化建议", description = "LLM 基于JD逐项生成优化建议（需 AI 模型）")
+    @Operation(summary = "生成深度优化建议（同步，兼容旧版）", description = "LLM 基于JD逐项生成优化建议（需 AI 模型）。注意：长耗时场景建议改用 /deep/{resumeId}/{jobTargetId}/async 异步接口")
     @PostMapping("/deep/{resumeId}/{jobTargetId}")
     public AjaxResult deepOptimize(@PathVariable Long resumeId, @PathVariable Long jobTargetId) {
         Long userId = currentUserId();
@@ -197,6 +199,43 @@ public class PortalResumeOptimizeController extends BaseController {
         try {
             ResumeDeepOptimizeVO vo = deepOptimizeService.generate(resume, jobTargetId);
             return AjaxResult.success(vo);
+        } catch (RuntimeException e) {
+            return AjaxResult.error(e.getMessage());
+        }
+    }
+
+    @Operation(summary = "提交深度优化异步任务（v10.19 推荐）",
+            description = "立即返回任务ID，后端异步调用 LLM 生成建议。前端通过 GET /deep/task/{taskId} 轮询任务状态，"
+                    + "status=success 时 result 字段为优化结果（ResumeDeepOptimizeVO）。"
+                    + "解决大模型调用超时问题，支持关闭页面后回来查看。")
+    @PostMapping("/deep/{resumeId}/{jobTargetId}/async")
+    public AjaxResult deepOptimizeAsync(@PathVariable Long resumeId, @PathVariable Long jobTargetId) {
+        Long userId = currentUserId();
+        if (userId == null) {
+            return AjaxResult.error(HttpStatus.UNAUTHORIZED, "登录已过期，请重新登录");
+        }
+        UserResumeVO resume = userResumeService.selectResumeDetail(resumeId, userId);
+        if (resume == null) {
+            return AjaxResult.error("简历不存在或无权访问");
+        }
+        try {
+            Long taskId = deepOptimizeService.submitTask(userId, resume, jobTargetId);
+            return AjaxResult.success(taskId);
+        } catch (RuntimeException e) {
+            return AjaxResult.error(e.getMessage());
+        }
+    }
+
+    @Operation(summary = "查询深度优化任务状态",
+            description = "前端轮询调用：返回 status(pending/running/success/failed)、progress(0-100)、result(成功时为优化结果)、errorMsg(失败时)。")
+    @GetMapping("/deep/task/{taskId}")
+    public AjaxResult deepOptimizeTaskStatus(@PathVariable Long taskId) {
+        Long userId = currentUserId();
+        if (userId == null) {
+            return AjaxResult.error(HttpStatus.UNAUTHORIZED, "登录已过期，请重新登录");
+        }
+        try {
+            return AjaxResult.success(deepOptimizeService.getTaskStatus(taskId, userId));
         } catch (RuntimeException e) {
             return AjaxResult.error(e.getMessage());
         }
@@ -256,6 +295,25 @@ public class PortalResumeOptimizeController extends BaseController {
             @SuppressWarnings("unchecked")
             List<String> skillNames = (List<String>) params.get("skillNames");
             return AjaxResult.success(deepOptimizeService.fieldAssist(field, originalText, position, skillNames));
+        } catch (RuntimeException e) {
+            return AjaxResult.error(e.getMessage());
+        }
+    }
+
+    @Operation(summary = "AI 填充空字段（v10.22）",
+            description = "为空的工作经历/项目经历/自我介绍生成初始草稿，基于已有信息（姓名/技能/求职意向/教育经历）+ 可选目标岗位JD。"
+                    + "与 ai-assist 区别：ai-assist 是对已有内容生成3个优化版本，本接口为空字段生成初始内容供用户采纳填充到表单。"
+                    + "返回结构：{works:[WorkItem...], projects:[ProjectItem...], selfIntro:String, message:String}")
+    @PostMapping("/ai-draft/{resumeId:[0-9]+}")
+    public AjaxResult aiDraftEmptyFields(
+            @PathVariable("resumeId") Long resumeId,
+            @RequestParam(value = "jobTargetId", required = false) Long jobTargetId) {
+        Long userId = currentUserId();
+        if (userId == null) {
+            return AjaxResult.error(HttpStatus.UNAUTHORIZED, "登录已过期，请重新登录");
+        }
+        try {
+            return AjaxResult.success(deepOptimizeService.aiDraftEmptyFields(resumeId, userId, jobTargetId));
         } catch (RuntimeException e) {
             return AjaxResult.error(e.getMessage());
         }

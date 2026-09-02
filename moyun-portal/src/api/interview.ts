@@ -16,7 +16,6 @@ import type {
   UserResumeVO,
   UserResumeQuery,
   ResumeAiAdviceVO,
-  ResumeParseVO,
   TagVO,
   PageResult,
   UserProfileSnapshotVO,
@@ -357,14 +356,22 @@ export const getResumeAiAdvice = (id: string | number) => {
 };
 
 /**
- * 解析简历附件（v10.12）
+ * 上传附件简历（v10.23 异步化改造）
  * POST /portal/interview/resume/user/parse（multipart）
- * 上传 PDF/Word/TXT，后端抽取文本并结构化解析，字段语义对齐在线简历表单
+ * 上传后仅保存附件文件 + 创建附件简历记录，并提交后台 AI 解析任务；
+ * 返回 {resumeId, taskId, fileName}，解析结果通过 /portal/ai/task/{taskId} 轮询获取（taskType=resume_parse）
  */
 export const parseResumeAttachment = (file: File) => {
   const formData = new FormData();
   formData.append('file', file);
-  return httpPost<ResumeParseVO>('/portal/interview/resume/user/parse', formData);
+  return httpPost<{
+    /** 附件简历记录 ID */
+    resumeId: string | number;
+    /** 后台 AI 解析任务 ID（轮询用） */
+    taskId: number;
+    /** 附件文件名 */
+    fileName?: string;
+  }>('/portal/interview/resume/user/parse', formData);
 };
 
 export const updateResumeStatus = (id: string | number, status: string) => {

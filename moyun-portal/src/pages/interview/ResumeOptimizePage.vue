@@ -20,11 +20,12 @@ import { aiFieldAssist } from '@/api/resumeOptimize';
 import { generateSeo } from '@/utils/seo';
 import { getMyResumeList, scoreResume, getResumeDetail } from '@/api/interview';
 import {
-  getJobTargets, createJobTarget, deleteJobTarget, runJobMatch,
+  getJobTargets, createJobTarget, deleteJobTarget,
   applyDeepOptimize, getOptimizeHistory,
   saveScoreReport, getScoreReports,
   submitDeepOptimizeTask, getDeepOptimizeTaskStatus,
 } from '@/api/resumeOptimize';
+import { submitAiTask, pollAiTask } from '@/api/aiTask';
 import type {
   UserResumeVO, ResumeJobTarget, ResumeJobMatchReport,
   ResumeDeepOptimizeVO, ResumeOptimizeItem, ResumeOptimizeHistory,
@@ -78,6 +79,8 @@ const analyzing = ref(false);
 const progressPercent = ref(0);
 const progressStep = ref(1);
 const matchReport = ref<ResumeJobMatchReport | null>(null);
+/** v10.23：岗位匹配异步任务 ID（用于 URL 参数化与刷新恢复轮询） */
+const matchTaskId = ref<number | string | null>(null);
 
 // 深度优化
 const optimizing = ref(false);
@@ -109,6 +112,8 @@ interface PersistedState {
   adoptedIndexes: number[];
   savedResumeId: number | string | null;
   asyncTaskId: number | string | null;
+  /** v10.23：岗位匹配异步任务 ID（刷新恢复轮询用；旧快照可能缺失） */
+  matchTaskId?: number | string | null;
 }
 
 function stateStorageKey(resumeId: number | string | null): string | null {
@@ -128,6 +133,7 @@ function saveStateToStorage() {
     adoptedIndexes: Array.from(adoptedSet.value),
     savedResumeId: savedResumeId.value,
     asyncTaskId: currentAsyncTaskId.value,
+    matchTaskId: matchTaskId.value,
   };
   try {
     localStorage.setItem(key, JSON.stringify(state));
@@ -169,6 +175,9 @@ function applyRestoredState(state: PersistedState) {
   adoptedSet.value = new Set(state.adoptedIndexes || []);
   savedResumeId.value = state.savedResumeId;
   currentAsyncTaskId.value = state.asyncTaskId;
+  matchTaskId.value = state.matchTaskId ?? null;
+  // v10.23：报告已就绪但停在分析页（任务完成瞬间的快照），直接进步骤4
+  if (matchReport.value && step.value === 3) step.value = 4;
 }
 
 const selectedTarget = computed(() => jobTargets.value.find(t => t.id === selectedTargetId.value) || null);
@@ -262,14 +271,34 @@ onMounted(async () => {
   const restored = loadStateFromStorage(selectedResumeId.value);
   if (restored) {
     applyRestoredState(restored);
-    // 若异步任务进行中（pending/running），恢复轮询
-    if (restored.asyncTaskId !== null && restored.asyncTaskId !== undefined
-        && restored.asyncTaskId !== '' && restored.step === 4) {
-      resumeAsyncPolling(restored.asyncTaskId);
-    }
+  }
+
+  // v10.23：URL 参数优先于 localStorage 快照（支持多次刷新/分享恢复）
+  const qStep = Number(route.query.step);
+  if (Number.isInteger(qStep) && qStep >= 1 && qStep <= 5) step.value = qStep;
+  const qTargetId = route.query.targetId as string | undefined;
+  if (qTargetId) selectedTargetId.value = qTargetId;
+  const qTaskId = route.query.taskId as string | undefined;
+  if (qTaskId) currentAsyncTaskId.value = qTaskId;
+  const qMatchTaskId = route.query.matchTaskId as string | undefined;
+  if (qMatchTaskId) matchTaskId.value = qMatchTaskId;
+
+  // 深度优化异步任务进行中（pending/running），恢复轮询
+  if (currentAsyncTaskId.value !== null && currentAsyncTaskId.value !== undefined
+      && currentAsyncTaskId.value !== '' && step.value === 4) {
+    resumeAsyncPolling(currentAsyncTaskId.value);
+  }
+  // v10.23：匹配任务进行中且尚无报告，恢复轮询（含进度动画）
+  if (matchTaskId.value !== null && matchTaskId.value !== undefined
+      && matchTaskId.value !== '' && !matchReport.value) {
+    resumeMatchPolling(matchTaskId.value);
   }
 
   loadOptimizeHistory();
+
+  // v10.23：恢复完成后开启 URL 同步并做一次初始同步
+  urlSyncReady = true;
+  syncStateToUrl();
 });
 
 watch(selectedResumeId, (newId, oldId) => {
@@ -283,6 +312,11 @@ watch(selectedResumeId, (newId, oldId) => {
         && restored.asyncTaskId !== '' && restored.step === 4) {
       resumeAsyncPolling(restored.asyncTaskId);
     }
+    // v10.23：匹配任务进行中且尚无报告，恢复轮询
+    if (restored.matchTaskId !== null && restored.matchTaskId !== undefined
+        && restored.matchTaskId !== '' && !restored.matchReport) {
+      resumeMatchPolling(restored.matchTaskId);
+    }
   } else {
     // 新简历无快照：重置到 step1（避免上一简历状态残留）
     step.value = 1;
@@ -291,8 +325,11 @@ watch(selectedResumeId, (newId, oldId) => {
     adoptedSet.value = new Set();
     savedResumeId.value = null;
     currentAsyncTaskId.value = null;
+    matchTaskId.value = null; // v10.23：旧匹配任务结果作废（轮询回调会丢弃）
     stopOptimizePolling();
+    stopMatchProgress();
     optimizing.value = false;
+    analyzing.value = false;
   }
 });
 
@@ -369,6 +406,91 @@ function goStep2() {
   step.value = 2;
 }
 
+// ==================== STEP2 → STEP3：分析（v10.23 岗位匹配异步任务化） ====================
+
+// 匹配进度动画定时器（组件卸载/任务结束时清理）
+let matchProgressTimer: ReturnType<typeof setInterval> | null = null;
+/** 匹配任务轮询进行中标志（防止刷新恢复逻辑重复触发轮询） */
+let matchPollingActive = false;
+
+function stopMatchProgress() {
+  if (matchProgressTimer) {
+    clearInterval(matchProgressTimer);
+    matchProgressTimer = null;
+  }
+}
+
+/** 启动匹配进度动画（上限 90 等待后端确认） */
+function startMatchProgress() {
+  matchProgressTimer = setInterval(() => {
+    if (progressPercent.value < 90) {
+      progressPercent.value += Math.random() * 8 + 2;
+      progressStep.value = Math.min(4, Math.floor(progressPercent.value / 25) + 1);
+    }
+  }, 600);
+}
+
+/**
+ * v10.23：岗位匹配通用 AI 异步任务（startAnalyze / rematch 公共方法）
+ * 提交 job_match 任务 → 轮询到 success 返回匹配报告；失败/超时抛错（含任务 error 信息）
+ */
+async function runMatchAsync(resumeId: number | string, jobTargetId: number | string): Promise<ResumeJobMatchReport> {
+  const submitRes = await submitAiTask('job_match', { resumeId, jobTargetId });
+  if (submitRes.code !== 200 || !submitRes.data?.taskId) {
+    throw new Error(submitRes.message || '提交匹配任务失败');
+  }
+  // 记录 taskId（URL/持久化恢复用）
+  matchTaskId.value = submitRes.data.taskId;
+  saveStateToStorage();
+  try {
+    return await pollAiTask<ResumeJobMatchReport>(submitRes.data.taskId);
+  } finally {
+    // 任务结束（成功/失败）后清 taskId
+    matchTaskId.value = null;
+    saveStateToStorage();
+  }
+}
+
+/**
+ * v10.23：刷新恢复匹配轮询（URL/storage 里的 matchTaskId 仍 pending/running 时）
+ * 恢复 loading 动画 + 继续轮询；完成写回 matchReport 并清 matchTaskId
+ */
+function resumeMatchPolling(taskId: number | string) {
+  if (matchPollingActive) return; // 已在轮询，避免重复恢复
+  matchPollingActive = true;
+  analyzing.value = true;
+  progressPercent.value = 10; // 至少给个起始进度
+  progressStep.value = 1;
+  matchTaskId.value = taskId;
+  stopMatchProgress();
+  startMatchProgress();
+
+  pollAiTask<ResumeJobMatchReport>(taskId)
+    .then((report) => {
+      matchPollingActive = false;
+      if (matchTaskId.value !== taskId) return; // 已切换简历/取消，丢弃过期结果
+      stopMatchProgress();
+      matchReport.value = report;
+      matchTaskId.value = null;
+      progressPercent.value = 100;
+      progressStep.value = 5;
+      saveStateToStorage();
+      setTimeout(() => {
+        analyzing.value = false;
+        step.value = 4;
+      }, 500);
+    })
+    .catch((e: unknown) => {
+      matchPollingActive = false;
+      if (matchTaskId.value !== taskId) return; // 已切换简历/取消，不弹错误
+      stopMatchProgress();
+      analyzing.value = false;
+      matchTaskId.value = null;
+      saveStateToStorage();
+      toast.error((e as Error)?.message || '匹配任务失败');
+    });
+}
+
 async function startAnalyze() {
   if (!selectedResumeId.value) {
     toast.error('请选择要优化的简历');
@@ -379,38 +501,28 @@ async function startAnalyze() {
   progressPercent.value = 0;
   progressStep.value = 1;
   matchReport.value = null;
-
-  // 进度动画（分析通常 5-20s）
-  const timer = setInterval(() => {
-    if (progressPercent.value < 90) {
-      progressPercent.value += Math.random() * 8 + 2;
-      progressStep.value = Math.min(4, Math.floor(progressPercent.value / 25) + 1);
-    }
-  }, 600);
+  matchTaskId.value = null;
+  stopMatchProgress();
+  startMatchProgress();
 
   try {
-    const res = await runJobMatch(selectedResumeId.value, selectedTargetId.value!);
-    if (res.code === 200 && res.data) {
-      matchReport.value = res.data;
-      progressPercent.value = 100;
-      progressStep.value = 5;
-      setTimeout(() => {
-        analyzing.value = false;
-        step.value = 4;
-      }, 500);
-    } else {
+    // v10.23：岗位匹配改为通用 AI 异步任务（提交 → 轮询）
+    const report = await runMatchAsync(selectedResumeId.value, selectedTargetId.value!);
+    matchReport.value = report;
+    progressPercent.value = 100;
+    progressStep.value = 5;
+    setTimeout(() => {
       analyzing.value = false;
-      toast.error(res.message || '分析失败');
-      step.value = 2;
-    }
+      step.value = 4;
+    }, 500);
   } catch (e: unknown) {
     analyzing.value = false;
-    clearInterval(timer);
+    stopMatchProgress();
     toast.error((e as Error)?.message || '分析失败');
     step.value = 2;
     return;
   }
-  clearInterval(timer);
+  stopMatchProgress();
 }
 
 // ==================== STEP4：深度优化对比 ====================
@@ -437,6 +549,7 @@ async function generateOptimize() {
   if (!selectedResumeId.value || !selectedTargetId.value) return;
   // 清理上一次的轮询（防止重复触发）
   stopOptimizePolling();
+  optimizePollingActive = false;
 
   optimizing.value = true;
   optimizeResult.value = null;
@@ -493,6 +606,7 @@ async function pollOptimizeTaskStatus(taskId: number | string) {
 
     if (task.status === 'success' && task.result) {
       stopOptimizePolling();
+      optimizePollingActive = false;
       progressPercent.value = 100;
       progressStep.value = 5;
       optimizeResult.value = task.result;
@@ -504,6 +618,7 @@ async function pollOptimizeTaskStatus(taskId: number | string) {
       setTimeout(() => { optimizing.value = false; }, 500);
     } else if (task.status === 'failed') {
       stopOptimizePolling();
+      optimizePollingActive = false;
       optimizing.value = false;
       currentAsyncTaskId.value = null;
       saveStateToStorage();
@@ -519,8 +634,13 @@ async function pollOptimizeTaskStatus(taskId: number | string) {
 /**
  * v10.21：恢复异步轮询（页面刷新后，若 taskId 仍 pending/running 则继续轮询）
  * 用于 onMounted 中检测到持久化的 asyncTaskId 时重建轮询
+ * v10.23：加 active 守卫，避免 onMounted 与切换简历 watch 双触发导致重复轮询
  */
+let optimizePollingActive = false;
+
 function resumeAsyncPolling(taskId: number | string) {
+  if (optimizePollingActive) return; // 已在轮询，避免重复恢复
+  optimizePollingActive = true;
   optimizing.value = true;
   progressPercent.value = 10; // 至少给个起始进度
   progressStep.value = 1;
@@ -541,14 +661,59 @@ function resumeAsyncPolling(taskId: number | string) {
 
 onUnmounted(() => {
   stopOptimizePolling();
+  stopMatchProgress();
 });
 
 // v10.21：关键状态变化时自动持久化（刷新页面可恢复）
 // 深度监听对象/集合内部变化，保存最新快照到 localStorage
+// v10.23：新增 matchTaskId（岗位匹配异步任务恢复用）
 watch(
-  [step, selectedTargetId, matchReport, optimizeResult, adoptedSet, savedResumeId, currentAsyncTaskId],
+  [step, selectedTargetId, matchReport, optimizeResult, adoptedSet, savedResumeId, currentAsyncTaskId, matchTaskId],
   () => { saveStateToStorage(); },
   { deep: true },
+);
+
+// ==================== v10.23：URL 参数化（关键状态同步到 query，支持多次刷新恢复） ====================
+// watch 监听的是本地 ref，router.replace 只改 query 不会再次触发本 watch，无死循环；
+// onMounted 恢复阶段（urlSyncReady=false）跳过，避免恢复值反向覆盖 URL。
+
+/** onMounted 恢复完成前不同步 URL */
+let urlSyncReady = false;
+
+/** 将关键状态同步到 URL query（router.replace 保持不产生历史记录，保留无关参数） */
+function syncStateToUrl() {
+  // 保留当前 query 中的无关参数（如外链带参）
+  const next: Record<string, string> = {};
+  for (const [k, v] of Object.entries(route.query)) {
+    if (typeof v === 'string' && v) next[k] = v;
+  }
+  const apply = (key: string, val: unknown) => {
+    if (val !== null && val !== undefined && val !== '') {
+      next[key] = String(val);
+    } else {
+      delete next[key]; // 值为空时从 query 中删除该键
+    }
+  };
+  apply('step', step.value);
+  apply('resumeId', selectedResumeId.value);
+  apply('targetId', selectedTargetId.value);
+  apply('taskId', currentAsyncTaskId.value);
+  apply('matchTaskId', matchTaskId.value);
+  // query 无变化时跳过，避免无效 replace
+  const currentKeys = Object.keys(route.query).filter((k) => typeof route.query[k] === 'string');
+  const nextKeys = Object.keys(next);
+  const unchanged = currentKeys.length === nextKeys.length
+    && nextKeys.every((k) => route.query[k] === next[k]);
+  if (unchanged) return;
+  router.replace({ query: next });
+}
+
+watch(
+  [step, selectedResumeId, selectedTargetId, currentAsyncTaskId, matchTaskId],
+  () => {
+    if (!urlSyncReady) return;
+    syncStateToUrl();
+  },
 );
 
 function toggleAdopted(idx: number) {
@@ -907,7 +1072,7 @@ async function rescore() {
   }
 }
 
-// 重新匹配分析（对比优化前后匹配度变化）
+// 重新匹配分析（对比优化前后匹配度变化；v10.23 改为通用 AI 异步任务）
 async function rematch() {
   if (!savedResumeId.value || !selectedTargetId.value) {
     toast.error('请先保存优化结果');
@@ -915,13 +1080,11 @@ async function rematch() {
   }
   try {
     rematching.value = true;
-    const res = await runJobMatch(savedResumeId.value, selectedTargetId.value);
-    if (res.code === 200 && res.data) {
-      rematchedScore.value = res.data.matchScore;
-      toast.success('重新匹配完成');
-    } else {
-      toast.error(res.message || '匹配失败');
-    }
+    const report = await runMatchAsync(savedResumeId.value, selectedTargetId.value);
+    rematchedScore.value = report.matchScore;
+    toast.success('重新匹配完成');
+  } catch (e) {
+    toast.error((e as Error)?.message || '匹配失败');
   } finally {
     rematching.value = false;
   }

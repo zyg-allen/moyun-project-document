@@ -1,5 +1,6 @@
 import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router'
 import { useUserStore } from '@/stores/user'
+import { hasPendingAiRequests } from '@/api/client'
 
 // ============ 页面组件导入 ============
 const HomePage = () => import('@/pages/HomePage.vue')
@@ -32,10 +33,10 @@ const DiscoverPage = () => import('@/pages/reading/DiscoverPage.vue')
 const QuoteListPage = () => import('@/pages/reading/QuoteListPage.vue')
 const GrowthTimelinePage = () => import('@/pages/GrowthTimelinePage.vue')
 const InterviewPage = () => import('@/pages/InterviewPage.vue')
-const QuestionDetailPage = () => import('@/pages/interview/QuestionDetailPage.vue')
+const QuestionDetailPage = () => import('@/pages/learn/QuestionDetailPage.vue')
 const ExperienceDetailPage = () => import('@/pages/interview/ExperienceDetailPage.vue')
 const ResumeTemplatePage = () => import('@/pages/interview/ResumeTemplatePage.vue')
-const QuestionListPage = () => import('@/pages/interview/QuestionListPage.vue')
+const QuestionListPage = () => import('@/pages/learn/QuestionListPage.vue')
 const ExperienceListPage = () => import('@/pages/interview/ExperienceListPage.vue')
 const MyResumesPage = () => import('@/pages/interview/MyResumesPage.vue')
 const ResumeOptimizePage = () => import('@/pages/interview/ResumeOptimizePage.vue')
@@ -232,14 +233,14 @@ const routes: RouteRecordRaw[] = [
   },
   {
     path: '/interview/questions',
+    redirect: '/learn/questions'
+  },
+  // 学习中心「面试题库」主路由（与 portal_category.nav_route_path 对齐；v11.13 归属学习中心）
+  {
+    path: '/learn/questions',
     name: 'interview-questions',
     component: QuestionListPage,
     meta: { title: '题目列表', isPublic: true }
-  },
-  // v10.6：学习中心「面试题库」栏目路由（与 portal_category.nav_route_path 对齐）
-  {
-    path: '/learn/questions',
-    redirect: '/interview/questions'
   },
   {
     path: '/interview/experiences',
@@ -700,6 +701,18 @@ router.beforeEach(async (to, _from, next) => {
 
   // 5. 正常访问
   next()
+})
+
+// ============ v10.23：AI 慢请求离开确认 ============
+// 仅拦截页面间跳转（首次进入 from.name 为空不拦）；
+// AI 慢请求（附件解析上传、字段辅助、草稿/匹配/深度优化同步接口、语音面试 LLM 调用等）
+// 进行中时离开将中断当前生成，需用户确认。
+router.beforeEach((_to, from) => {
+  if (from.name && hasPendingAiRequests()) {
+    const leave = window.confirm('AI 任务正在进行中，离开将中断当前生成，确定离开吗？')
+    if (!leave) return false
+  }
+  return true
 })
 
 export default router

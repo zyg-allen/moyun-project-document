@@ -87,7 +87,7 @@ onMounted(loadGraph);
 
 /** 跳转到该标签的题目列表（按关键词搜索） */
 function gotoTagQuestions(tagName: string) {
-  router.push({ path: '/interview/questions', query: { keyword: tagName } });
+  router.push({ path: '/learn/questions', query: { keyword: tagName } });
 }
 
 // ==================== 标签云：尺寸 / 颜色 ====================

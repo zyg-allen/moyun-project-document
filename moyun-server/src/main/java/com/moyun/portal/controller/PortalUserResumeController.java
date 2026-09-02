@@ -8,7 +8,11 @@ import com.moyun.core.base.AjaxResult;
 import com.moyun.core.base.BaseController;
 import com.moyun.ext.cms.domain.query.UserResumeQuery;
 import com.moyun.ext.cms.domain.vo.UserResumeVO;
+import com.moyun.ext.cms.service.AiTaskService;
 import com.moyun.ext.cms.service.IUserResumeService;
+import com.moyun.ext.cms.service.ResumeParseTaskHandler;
+import com.moyun.ext.file.domain.entity.SysFile;
+import com.moyun.ext.file.service.ISysFileService;
 import com.moyun.portal.util.PortalSecurityUtils;
 import com.moyun.util.bean.PageUtils;
 import io.swagger.v3.oas.annotations.Operation;
@@ -24,6 +28,7 @@ import org.springframework.web.bind.annotation.*;
 import java.io.File;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.util.HashMap;
 import java.util.Map;
 
 /**
@@ -45,6 +50,14 @@ public class PortalUserResumeController extends BaseController {
     @Autowired
     private com.moyun.ext.cms.service.ResumeParseService resumeParseService;
 
+    /** v10.23：附件文件存储（上传接口快速路径：同步保存源文件） */
+    @Autowired
+    private ISysFileService sysFileService;
+
+    /** v10.23：通用 AI 异步任务服务（LLM 解析改为异步任务） */
+    @Autowired
+    private AiTaskService aiTaskService;
+
     private Long currentUserId() {
         return PortalSecurityUtils.getUserId();
     }
@@ -60,15 +73,38 @@ public class PortalUserResumeController extends BaseController {
         return AjaxResult.success(userResumeService.selectMyResumePage(page, userId, query));
     }
 
-    @Operation(summary = "解析简历附件（v10.12）",
-            description = "上传 PDF/Word/TXT 附件，抽取文本并结构化解析（LLM 优先，规则兜底），返回字段语义对齐在线简历的结果")
+    @Operation(summary = "解析简历附件（v10.12；v10.23 改异步任务化）",
+            description = "快速路径：校验文件 → 保存源文件 → 创建附件简历草稿记录（不调 LLM）→ 提交 resume_parse 异步任务。"
+                    + "返回 {resumeId, taskId, fileName}，前端通过 GET /portal/ai/task/{taskId} 轮询解析结果。")
     @PostMapping(value = "/parse", consumes = org.springframework.http.MediaType.MULTIPART_FORM_DATA_VALUE)
     public AjaxResult parseAttachment(@org.springframework.web.bind.annotation.RequestParam("file") org.springframework.web.multipart.MultipartFile file) {
         Long userId = currentUserId();
         if (userId == null) {
             return AjaxResult.error(HttpStatus.UNAUTHORIZED, "登录已过期，请重新登录");
         }
-        return AjaxResult.success(resumeParseService.parse(file, userId));
+        try {
+            // 1. 保存源文件 + 2. 创建附件简历记录（同步快操作，内部校验文件大小/类型）
+            SysFile sysFile = sysFileService.uploadFileForPortal(file, "resume_attachment", null);
+            String fileUrl = sysFile.getFileUrl();
+            Long resumeId = resumeParseService.prepareAttachmentResume(userId, file, fileUrl);
+
+            // 3. 提交 AI 异步解析任务（LLM 部分耗时，交给后台线程池）
+            String originalName = file.getOriginalFilename();
+            Map<String, Object> bizRef = new HashMap<>();
+            bizRef.put("resumeId", resumeId);
+            bizRef.put("fileUrl", fileUrl);
+            bizRef.put("fileName", originalName);
+            Long taskId = aiTaskService.submitTask(userId, ResumeParseTaskHandler.TASK_TYPE, bizRef);
+
+            // 4. 立即返回，前端轮询任务进度
+            Map<String, Object> data = new HashMap<>();
+            data.put("resumeId", resumeId);
+            data.put("taskId", taskId);
+            data.put("fileName", originalName);
+            return AjaxResult.success(data);
+        } catch (RuntimeException e) {
+            return AjaxResult.error(e.getMessage());
+        }
     }
 
     @Operation(summary = "简历详情", description = "查询指定简历详情（仅作者可访问）")

@@ -11,7 +11,7 @@ import { useHead } from '@vueuse/head';
 import {
   Save, Download, Star, Plus, Trash2, User, Briefcase, GraduationCap,
   Code, FileText, Target, Sparkles, XCircle, AlertCircle,
-  PenLine, UploadCloud, Terminal, FolderKanban, X, ShieldCheck,
+  PenLine, UploadCloud, Terminal, FolderKanban, X, ShieldCheck, Loader2,
 } from 'lucide-vue-next';
 import SiteFooter from '@/components/SiteFooter.vue';
 import Breadcrumb from '@/components/Breadcrumb.vue';
@@ -32,14 +32,15 @@ import { getCurrentUser } from '@/api/user';
 import { getMyCertification, type CreatorCertification } from '@/api/certification';
 import {
   aiFieldAssist, type FieldAssistSuggestion,
-  saveScoreReport, getScoreReports, getOptimizeHistory, aiDraftEmptyFields,
+  saveScoreReport, getScoreReports, getOptimizeHistory,
 } from '@/api/resumeOptimize';
+import { submitAiTask, pollAiTask } from '@/api/aiTask';
 import { uploadFile } from '@/api/upload';
 import { getToken } from '@/api/client';
 import type {
   UserResumeVO, UserResumeJobIntention, UserResumeEducationItem, UserResumeWorkItem,
   UserResumeProjectItem, UserResumeSkillItem, UserResumeScoreItem,
-  ResumeScoreReport, ResumeOptimizeHistory,
+  ResumeScoreReport, ResumeOptimizeHistory, ResumeParseVO,
 } from '@/types/api';
 import { useToast } from '@/composables/useToast';
 import { useResumeStore } from '@/stores/resume';
@@ -599,9 +600,19 @@ async function generateDraft() {
   }
   drafting.value = true;
   try {
-    const res = await aiDraftEmptyFields(form.id);
-    if (res.code === 200 && res.data) {
-      const d = res.data;
+    // v10.23：草稿生成改为通用 AI 异步任务（提交 ai_draft → 轮询到 success）
+    const submitRes = await submitAiTask('ai_draft', { resumeId: form.id });
+    if (submitRes.code !== 200 || !submitRes.data?.taskId) {
+      toast.error(submitRes.message || '提交 AI 草稿任务失败');
+      return;
+    }
+    const d = await pollAiTask<{
+      works?: UserResumeVO['works'];
+      projects?: UserResumeVO['projects'];
+      selfIntro?: string;
+      message?: string;
+    }>(submitRes.data.taskId);
+    if (d) {
       const beforeWorks = form.works?.length ?? 0;
       const beforeProjects = form.projects?.length ?? 0;
       const hadSelfIntro = !!form.selfIntro?.trim();
@@ -618,7 +629,7 @@ async function generateDraft() {
         toast.info(d.message || '暂无可生成的草稿内容');
       }
     } else {
-      toast.error(res.message || 'AI 生成草稿失败');
+      toast.info('暂无可生成的草稿内容');
     }
   } catch (err: any) {
     toast.error(err?.message || 'AI 生成草稿失败，请稍后重试');
@@ -650,8 +661,56 @@ function validateFile(file: File): string | null {
   return null;
 }
 
-// 上传附件（点击 / 拖拽统一入口）：v10.22 闭环——直接解析并跳转附件简历编辑页
-// 后端 parseResumeAttachment 会保存附件文件 + 创建附件简历记录 + 结构化解析结果
+// ============ v10.23：附件解析异步任务（上传后 AI 后台解析，前端轮询） ============
+// 上传只建附件简历记录 + 提交后台解析任务；URL 带 parseTaskId，刷新页面可恢复轮询
+
+/** 进行中的解析任务 ID（非空时上传区显示"AI 解析中"状态） */
+const parsingTaskId = ref<number | string | null>(null);
+/** 解析进度文案（轮询 onTick 有 progressMsg 时更新） */
+const parsingMsg = ref('');
+
+/** 从 URL 移除 parseTaskId（轮询失败/完成未跳转时清理） */
+function clearParseTaskQuery() {
+  if (!route.query.parseTaskId) return;
+  const q: Record<string, string> = {};
+  for (const [k, v] of Object.entries(route.query)) {
+    if (k !== 'parseTaskId' && typeof v === 'string' && v) q[k] = v;
+  }
+  router.replace({ query: q });
+}
+
+/**
+ * 启动/恢复解析任务轮询（上传后与刷新恢复共用）：
+ * success → toast + 跳转附件简历编辑页；failed/超时 → 提示附件已保存可手动编辑
+ */
+async function pollParseTask(taskId: number | string, resumeId?: string | number | null) {
+  parsingTaskId.value = taskId;
+  parsingMsg.value = 'AI 正在解析简历，通常需要 10-60 秒，请勿关闭页面';
+  try {
+    const result = await pollAiTask<ResumeParseVO>(taskId, {
+      onTick: (t) => {
+        if (t.progressMsg) parsingMsg.value = t.progressMsg;
+      },
+    });
+    parsingTaskId.value = null;
+    toast.success('简历解析完成');
+    // 优先用任务结果里的附件简历 ID，兜底用上传响应返回的 resumeId
+    const rid = result?.attachmentResumeId ?? resumeId;
+    if (rid) {
+      router.replace(`/interview/resume/edit?resumeId=${rid}`);
+    } else {
+      clearParseTaskQuery();
+    }
+  } catch (e) {
+    parsingTaskId.value = null;
+    clearParseTaskQuery();
+    toast.error((e as Error)?.message || '简历解析失败');
+    toast.info('附件简历已保存，可到「我的简历」中手动编辑');
+  }
+}
+
+// 上传附件（点击 / 拖拽统一入口）：v10.23 上传后提交后台 AI 解析任务并轮询
+// 后端 parseResumeAttachment 保存附件文件 + 创建附件简历记录，返回 {resumeId, taskId, fileName}
 async function handleAttachmentFile(file: File) {
   const err = validateFile(file);
   if (err) {
@@ -661,14 +720,18 @@ async function handleAttachmentFile(file: File) {
   try {
     uploading.value = true;
     const res = await parseResumeAttachment(file);
-    if (res.code === 200 && res.data?.attachmentResumeId) {
-      toast.success('简历解析完成，正在跳转编辑页');
-      router.replace(`/interview/resume/edit?resumeId=${res.data.attachmentResumeId}`);
+    if (res.code === 200 && res.data?.taskId) {
+      const { resumeId, taskId } = res.data;
+      uploading.value = false;
+      // URL 带 parseTaskId：刷新页面后据此恢复轮询
+      router.replace({ query: { ...route.query, parseTaskId: String(taskId) } });
+      // 后台轮询解析任务（不阻塞上传状态）
+      pollParseTask(taskId, resumeId);
     } else {
-      toast.error(res.message || '附件解析失败');
+      toast.error(res.message || '附件上传失败');
     }
   } catch (e) {
-    toast.error((e as Error)?.message || '附件解析失败');
+    toast.error((e as Error)?.message || '附件上传失败');
   } finally {
     uploading.value = false;
   }
@@ -824,6 +887,11 @@ async function reflectLatestResume(): Promise<boolean> {
 }
 
 onMounted(() => {
+  // v10.23：刷新恢复解析任务（URL 带 parseTaskId 时继续轮询，完成后跳附件简历编辑页）
+  const qParseTaskId = route.query.parseTaskId as string | undefined;
+  if (qParseTaskId) {
+    pollParseTask(qParseTaskId, route.query.resumeId as string | undefined);
+  }
   if (isEdit.value && editId.value) {
     loadDetail().then((ok) => {
       if (ok) nextTick(() => { loaded.value = true; });
@@ -974,6 +1042,13 @@ watch(() => route.params.id, (newId, oldId) => {
 
 // 离开页提示
 onBeforeRouteLeave(async (to, from, next) => {
+  // v10.23：AI 解析任务进行中，离开将丢失轮询进度（刷新可恢复），需确认
+  if (parsingTaskId.value) {
+    if (!(await confirmModal.confirm('AI 正在解析简历，离开将中断解析进度展示，确定离开吗？', { danger: true, title: '确认操作' }))) {
+      next(false);
+      return;
+    }
+  }
   const hasContent = !!form.title?.trim();
   const unsaved = saveStatus.value !== 'saved' && hasContent && loaded.value;
   if (unsaved && !(await confirmModal.confirm('有未保存的内容，确定离开吗？', { danger: true, title: '确认操作' }))) {
@@ -1471,11 +1546,11 @@ onBeforeRouteLeave(async (to, from, next) => {
           desc="上传已有简历，可同步至在线简历或直接用于 AI 优化"
           status="empty"
         >
-          <!-- 附件上传区（点击 / 拖拽，v10.12 实装） -->
+          <!-- 附件上传区（点击 / 拖拽，v10.12 实装；v10.23 解析异步化） -->
           <div
             class="re-upload-zone"
-            :class="{ 're-upload-dragover': dragOver, 're-upload-disabled': uploading }"
-            @click="!uploading && attachmentInput?.click()"
+            :class="{ 're-upload-dragover': dragOver, 're-upload-disabled': uploading || !!parsingTaskId }"
+            @click="!uploading && !parsingTaskId && attachmentInput?.click()"
             @dragover.prevent="dragOver = true"
             @dragleave.prevent="dragOver = false"
             @drop.prevent="onDrop"
@@ -1490,7 +1565,7 @@ onBeforeRouteLeave(async (to, from, next) => {
             <div class="re-upload-icon">
               <UploadCloud class="w-5 h-5" />
             </div>
-            <div class="re-upload-title">{{ uploading ? '正在上传…' : '点击或拖拽文件到此处上传' }}</div>
+            <div class="re-upload-title">{{ uploading ? '正在上传…' : parsingTaskId ? 'AI 解析中…' : '点击或拖拽文件到此处上传' }}</div>
             <div class="re-upload-desc">上传后可作为附件简历，并可解析内容覆盖填充到在线简历</div>
             <div class="re-upload-formats">
               <span class="re-format-tag">PDF</span>
@@ -1498,6 +1573,12 @@ onBeforeRouteLeave(async (to, from, next) => {
               <span class="re-format-tag">TXT/MD</span>
               <span class="re-format-tag">≤ 10MB</span>
             </div>
+          </div>
+
+          <!-- v10.23：AI 后台解析中状态（异步任务轮询，进度文案来自任务 progressMsg） -->
+          <div v-if="parsingTaskId" class="re-parse-status">
+            <Loader2 class="w-4 h-4 animate-spin flex-shrink-0" />
+            <span>{{ parsingMsg || 'AI 正在解析简历，通常需要 10-60 秒，请勿关闭页面' }}</span>
           </div>
 
           <!-- 已上传附件卡片 -->
@@ -2229,6 +2310,20 @@ onBeforeRouteLeave(async (to, from, next) => {
   transform: scale(1.01);
 }
 .re-upload-disabled { pointer-events: none; opacity: 0.6; }
+
+/* ===== v10.23：AI 后台解析中状态条 ===== */
+.re-parse-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+  padding: 10px 14px;
+  border-radius: 8px;
+  font-size: 13px;
+  background: color-mix(in srgb, var(--theme-primary) 8%, var(--theme-surface));
+  color: var(--theme-primary);
+}
+.re-parse-status svg { color: var(--theme-primary); }
 
 /* ===== 已上传附件卡片 ===== */
 .re-attach-card {

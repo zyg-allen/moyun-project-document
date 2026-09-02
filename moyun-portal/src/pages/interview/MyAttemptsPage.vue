@@ -234,7 +234,7 @@ function passLabel(sub: InterviewSubmissionVO) {
           <p class="text-sm mb-4" style="color: var(--theme-text-secondary);">还没有答题记录</p>
           <div class="flex flex-wrap items-center justify-center gap-3">
             <button
-              @click="router.push('/interview/questions')"
+              @click="router.push('/learn/questions')"
               class="px-4 py-2 text-white rounded-lg text-sm transition hover:opacity-90"
               style="background-color: var(--theme-primary);"
             >

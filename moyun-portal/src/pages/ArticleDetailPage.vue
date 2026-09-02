@@ -809,11 +809,11 @@ const head = useHead(
 </script>
 
 <template>
-  <div class="min-h-screen flex flex-col" style="background-color: var(--theme-bg);">
+  <div class="min-h-screen flex flex-col bg-theme-bg">
 
     <!-- 吸顶面包屑栏 - 统一详情页顶部样式 -->
-    <div class="border-b sticky top-0 z-30 backdrop-blur-sm py-3" style="background-color: var(--theme-surface); border-color: var(--theme-border);">
-      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div class="border-b border-theme-border sticky top-0 z-30 backdrop-blur-sm py-3 bg-theme-surface/95">
+      <div class="content-container">
         <div class="flex items-center justify-between gap-4">
           <Breadcrumb :items="breadcrumbs"/>
         </div>
@@ -822,22 +822,20 @@ const head = useHead(
 
     <!-- Loading State -->
     <div v-if="loading" class="flex-1 py-16">
-      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="content-container">
         <div class="text-center">
-          <div class="inline-block w-12 h-12 border-4 border-t-4 border-gray-300 rounded-full animate-spin"
-               style="border-top-color: var(--theme-primary);"></div>
-          <p class="mt-4" style="color: var(--theme-text-secondary);">加载中...</p>
+          <div class="inline-block w-12 h-12 border-4 border-t-4 border-gray-300 rounded-full animate-spin border-t-theme-primary"></div>
+          <p class="mt-4 text-theme-text-secondary">加载中...</p>
         </div>
       </div>
     </div>
 
     <!-- Error State -->
     <div v-else-if="error" class="flex-1 py-16">
-      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="content-container">
         <div class="text-center">
-          <p class="text-lg mb-4" style="color: var(--theme-text);">{{ error }}</p>
-          <button @click="loadArticle" class="px-6 py-2 rounded-lg font-medium transition-colors"
-                  style="background-color: var(--theme-primary); color: white;">
+          <p class="text-lg mb-4 text-theme-text">{{ error }}</p>
+          <button @click="loadArticle" class="theme-btn theme-btn-primary px-6 py-2.5">
             重试
           </button>
         </div>
@@ -845,19 +843,18 @@ const head = useHead(
     </div>
 
     <!-- 文章内容区域 -->
-    <div v-else class="py-6 flex-1">
-      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div v-else class="py-5 sm:py-6 flex-1">
+      <div class="content-container">
         <!-- Article exists - show content -->
         <template v-if="article">
         <!-- 双栏布局：左主区（文章） + 右侧栏（作者画像 + 小广告） -->
-        <div class="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-6 items-start mb-4">
+        <div class="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-5 lg:gap-6 items-start mb-5">
           <!-- 左侧主区 -->
           <div class="min-w-0">
           <article
-              class="rounded-2xl mb-4 w-full"
-              style="background-color: var(--theme-surface); border: 1px solid var(--theme-border);"
-              role="article"
-              :aria-labelledby="'article-title-' + article.id"
+            class="rounded-2xl mb-5 w-full theme-card"
+            role="article"
+            :aria-labelledby="'article-title-' + article.id"
           >
             <div class="p-4 sm:p-6 md:p-8 w-full flex flex-col">
 
@@ -893,58 +890,56 @@ const head = useHead(
               </div>
 
               <!-- 标题区域 -->
-              <div class="text-center mb-3">
+              <div class="text-center mb-4">
                 <h1
-                    :id="'article-title-' + article.id"
-                    class="text-xl md:text-2xl lg:text-3xl font-bold leading-tight"
-                    style="color: var(--theme-text);"
+                  :id="'article-title-' + article.id"
+                  class="article-title"
                 >
                   {{ article.title }}
                 </h1>
               </div>
 
               <!-- 文章信息行 - 左边信息，右边标签 -->
-              <div class="flex items-center justify-between py-4 mb-6 border-t border-b flex-wrap gap-4"
-                   style="border-color: var(--theme-border);">
+              <div class="flex items-center justify-between py-3 mb-5 border-t border-b border-theme-border flex-wrap gap-3">
                 <!-- 左边：发布人、时间、阅读量 -->
-                <div class="flex items-center gap-6">
+                <div class="flex items-center gap-4 sm:gap-5">
                   <!-- 作者信息 - 可点击跳转作者中心（仅当 authorId 有效时） -->
                   <Link
-                      v-if="articleAuthor && (articleAuthor.id || article?.authorId)"
-                      :to="`/author/${articleAuthor.id || article?.authorId}`"
-                      class="flex items-center gap-3 hover:opacity-80 transition-opacity"
+                    v-if="articleAuthor && (articleAuthor.id || article?.authorId)"
+                    :to="`/author/${articleAuthor.id || article?.authorId}`"
+                    class="flex items-center gap-2 hover:opacity-80 transition-opacity"
                   >
                     <img
-                        :src="getSafeAvatar(articleAuthor.avatar, articleAuthor.id)"
-                        :alt="articleAuthor.username"
-                        class="w-10 h-10 rounded-full"
-                        loading="lazy"
-                        @error="(e: Event) => (e.target as HTMLImageElement).src = getSafeAvatar(null, articleAuthor.id)"
+                      :src="getSafeAvatar(articleAuthor.avatar, articleAuthor.id)"
+                      :alt="articleAuthor.username"
+                      class="w-8 h-8 rounded-full"
+                      loading="lazy"
+                      @error="(e: Event) => (e.target as HTMLImageElement).src = getSafeAvatar(null, articleAuthor.id)"
                     />
-                    <span class="font-medium text-base" style="color: var(--theme-text);">
+                    <span class="font-medium meta-text text-theme-text">
                       {{ articleAuthor.nickname || articleAuthor.username || '匿名作者' }}
                     </span>
                   </Link>
                   <!-- 作者信息 - 无 authorId 时仅展示不可点击 -->
-                  <div v-else-if="articleAuthor" class="flex items-center gap-3">
+                  <div v-else-if="articleAuthor" class="flex items-center gap-2">
                     <img
-                        :src="getSafeAvatar(articleAuthor.avatar, articleAuthor.id)"
-                        :alt="articleAuthor.username"
-                        class="w-10 h-10 rounded-full"
-                        loading="lazy"
+                      :src="getSafeAvatar(articleAuthor.avatar, articleAuthor.id)"
+                      :alt="articleAuthor.username"
+                      class="w-8 h-8 rounded-full"
+                      loading="lazy"
                     />
-                    <span class="font-medium text-base" style="color: var(--theme-text);">
+                    <span class="font-medium meta-text text-theme-text">
                       {{ articleAuthor.nickname || articleAuthor.username || '匿名作者' }}
                     </span>
                   </div>
 
                   <!-- 时间 -->
-                  <span class="text-base" style="color: var(--theme-text-secondary);">
+                  <span class="meta-text">
                     {{ articleDate }}
                   </span>
 
                   <!-- 阅读量 -->
-                  <span class="text-base" style="color: var(--theme-text-secondary);">
+                  <span class="meta-text">
                     {{ articleViews }} 阅读
                   </span>
                 </div>
@@ -954,35 +949,34 @@ const head = useHead(
               </div>
 
               <!-- 内容区域 - 启用阅读列宽约束提升长文体验 -->
-              <div class="flex-1 py-6">
+              <div class="flex-1 py-4">
                 <MarkdownRenderer
-                    :content="article.content"
-                    :content-markdown="article.contentMarkdown"
-                    :editor-mode="article.editorMode"
-                    prose-width="normal"
+                  :content="article.content"
+                  :content-markdown="article.contentMarkdown"
+                  :editor-mode="article.editorMode"
+                  prose-width="normal"
                 />
               </div>
 
               <!-- 付费解锁全文提示（付费文章 + 未购买 + 非作者） -->
               <div
                 v-if="needPurchase"
-                class="relative rounded-xl overflow-hidden mb-6"
-                style="background: linear-gradient(135deg, var(--theme-accent), color-mix(in srgb, var(--theme-accent) 60%, var(--theme-primary))); border: 1px solid var(--theme-border);"
+                class="relative rounded-xl overflow-hidden mb-5 theme-card"
+                style="background: linear-gradient(135deg, var(--theme-accent), color-mix(in srgb, var(--theme-accent) 60%, var(--theme-primary)));"
               >
-                <div class="p-6 text-center">
-                  <div class="w-12 h-12 mx-auto mb-3 rounded-full flex items-center justify-center" style="background-color: var(--theme-primary);">
-                    <Lock class="w-6 h-6 text-white" aria-hidden="true" />
+                <div class="p-5 text-center">
+                  <div class="w-12 h-12 mx-auto mb-3 rounded-full flex items-center justify-center bg-theme-primary">
+                    <Lock class="w-6 h-6 text-theme-on-primary" aria-hidden="true" />
                   </div>
-                  <h3 class="text-lg font-bold mb-2" style="color: var(--theme-text);">该文章为付费内容</h3>
-                  <p class="text-sm mb-4" style="color: var(--theme-text-secondary);">
-                    支付 <span class="font-bold" style="color: var(--theme-primary);">¥{{ Number(article.price || 0).toFixed(2) }}</span> 解锁全文
+                  <h3 class="text-lg font-bold mb-2 text-theme-text">该文章为付费内容</h3>
+                  <p class="text-sm mb-4 text-theme-text-secondary">
+                    支付 <span class="font-bold text-theme-primary">¥{{ Number(article.price || 0).toFixed(2) }}</span> 解锁全文
                     <span v-if="article.previewLength">（当前为试读部分）</span>
                   </p>
                   <button
                     @click="handlePurchase"
                     :disabled="purchasing"
-                    class="inline-flex items-center gap-2 px-6 py-2.5 rounded-full font-medium text-sm transition-colors disabled:opacity-50"
-                    style="background-color: var(--theme-primary); color: white;"
+                    class="theme-btn theme-btn-primary px-6 py-2.5 rounded-full text-sm disabled:opacity-50"
                   >
                     <Lock v-if="!purchasing" class="w-4 h-4" aria-hidden="true" />
                     <svg v-else class="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none">
@@ -997,121 +991,113 @@ const head = useHead(
               <!-- 已购买提示 -->
               <div
                 v-else-if="isPaidArticle && article.isPurchased && !isArticleOwner"
-                class="rounded-xl p-3 mb-6 text-center text-sm"
-                style="background-color: #dcfce7; color: #16a34a;"
+                class="rounded-xl p-3 mb-5 text-center text-sm bg-theme-success-bg text-theme-success"
               >
                 您已购买该文章，可阅读完整内容
               </div>
 
               <!-- 互动区域 -->
-              <div class="flex items-center justify-center pt-4 mt-auto border-t flex-wrap"
-                   style="border-color: var(--theme-border);">
-                <div class="flex items-center gap-4">
+              <div class="flex items-center justify-center pt-4 mt-auto border-t border-theme-border flex-wrap">
+                <div class="flex items-center gap-3 sm:gap-4">
                   <button
-                      @click="handleLike"
-                      class="flex items-center gap-2 px-4 py-2 rounded-full transition-all hover:scale-105 focus:outline-none"
-                      :style="getLikeButtonStyle()"
-                      :aria-pressed="isLiked"
-                      :aria-label="isLiked ? '取消点赞' : '点赞文章'"
+                    @click="handleLike"
+                    class="flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 rounded-full transition-all hover:scale-105 focus:outline-none text-sm font-medium"
+                    :style="getLikeButtonStyle()"
+                    :aria-pressed="isLiked"
+                    :aria-label="isLiked ? '取消点赞' : '点赞文章'"
                   >
-                    <Heart class="w-5 h-5 transition-transform" :class="{ 'fill-current': isLiked }"
-                           aria-hidden="true"/>
-                    <span class="font-medium text-sm">{{ articleLikes }}</span>
+                    <Heart class="w-5 h-5 transition-transform" :class="{ 'fill-current': isLiked }" aria-hidden="true"/>
+                    <span>{{ articleLikes }}</span>
                   </button>
                   <button
-                      @click="handleBookmark"
-                      class="flex items-center gap-2 px-4 py-2 rounded-full transition-all hover:scale-105 focus:outline-none"
-                      :style="getBookmarkButtonStyle()"
-                      :aria-pressed="isBookmarked"
-                      :aria-label="isBookmarked ? '取消收藏' : '收藏文章'"
+                    @click="handleBookmark"
+                    class="flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 rounded-full transition-all hover:scale-105 focus:outline-none text-sm font-medium"
+                    :style="getBookmarkButtonStyle()"
+                    :aria-pressed="isBookmarked"
+                    :aria-label="isBookmarked ? '取消收藏' : '收藏文章'"
                   >
-                    <Bookmark class="w-5 h-5 transition-transform" :class="{ 'fill-current': isBookmarked }"
-                              aria-hidden="true"/>
-                    <span class="font-medium text-sm">收藏</span>
+                    <Bookmark class="w-5 h-5 transition-transform" :class="{ 'fill-current': isBookmarked }" aria-hidden="true"/>
+                    <span>收藏</span>
                   </button>
                   <button
-                      v-if="!isArticleOwner"
-                      @click="openTipModal"
-                      class="flex items-center gap-2 px-4 py-2 rounded-full transition-all hover:scale-105 focus:outline-none"
-                      style="background-color: var(--theme-surface); color: var(--theme-text-secondary);"
-                      :aria-label="'打赏作者'"
+                    v-if="!isArticleOwner"
+                    @click="openTipModal"
+                    class="flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 rounded-full transition-all hover:scale-105 focus:outline-none text-sm font-medium bg-theme-surface text-theme-text-secondary"
+                    :aria-label="'打赏作者'"
                   >
                     <Gift class="w-5 h-5 transition-transform" aria-hidden="true"/>
-                    <span class="font-medium text-sm">打赏</span>
+                    <span>打赏</span>
                   </button>
                   <button
-                      @click="handleShare"
-                      class="flex items-center gap-2 px-4 py-2 rounded-full transition-all hover:scale-105 focus:outline-none relative share-menu-container"
-                      style="background-color: var(--theme-surface); color: var(--theme-text-secondary);"
-                      :aria-label="'分享文章'"
+                    @click="handleShare"
+                    class="flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 rounded-full transition-all hover:scale-105 focus:outline-none relative share-menu-container text-sm font-medium bg-theme-surface text-theme-text-secondary"
+                    :aria-label="'分享文章'"
                   >
                     <Share2 class="w-5 h-5 transition-transform" aria-hidden="true"/>
-                    <span class="font-medium text-sm">{{ articleShareCount }}</span>
+                    <span>{{ articleShareCount }}</span>
                     <!-- 分享菜单 -->
                     <div
-                        v-if="isShareMenuOpen"
-                        class="absolute right-0 top-full mt-2 w-56 rounded-xl shadow-xl border py-2 z-50"
-                        style="background-color: var(--theme-bg); border-color: var(--theme-border);"
-                        @click.stop
+                      v-if="isShareMenuOpen"
+                      class="absolute right-0 top-full mt-2 w-56 rounded-xl shadow-xl border border-theme-border py-2 z-50 bg-theme-bg"
+                      @click.stop
                     >
                       <!-- 复制链接 -->
                       <button
-                          @click="copyLink"
-                          class="w-full flex items-center space-x-3 px-4 py-3 text-left transition-colors hover:opacity-80"
-                          :style="{ backgroundColor: 'var(--theme-surface)' }"
+                        @click="copyLink"
+                        class="w-full flex items-center space-x-3 px-4 py-3 text-left transition-colors hover:bg-theme-surface-highlight"
                       >
                         <span class="text-lg">🔗</span>
-                        <span class="text-sm" style="color: var(--theme-text);">复制链接</span>
+                        <span class="text-sm text-theme-text">复制链接</span>
                       </button>
                       <!-- 原生分享（移动端） -->
                       <button
-                          v-if="supportsNativeShare"
-                          @click="nativeShare"
-                          class="w-full flex items-center space-x-3 px-4 py-3 text-left transition-colors hover:opacity-80"
+                        v-if="supportsNativeShare"
+                        @click="nativeShare"
+                        class="w-full flex items-center space-x-3 px-4 py-3 text-left transition-colors hover:bg-theme-surface-highlight"
                       >
                         <span class="text-lg">📱</span>
-                        <span class="text-sm" style="color: var(--theme-text);">原生分享</span>
+                        <span class="text-sm text-theme-text">原生分享</span>
                       </button>
-                      <div class="border-t my-1" style="border-color: var(--theme-border);"></div>
+                      <div class="border-t border-theme-border my-1"></div>
                       <!-- 分享到微信好友 -->
                       <button
-                          @click="shareToWechat"
-                          class="w-full flex items-center space-x-3 px-4 py-3 text-left transition-colors hover:opacity-80"
+                        @click="shareToWechat"
+                        class="w-full flex items-center space-x-3 px-4 py-3 text-left transition-colors hover:bg-theme-surface-highlight"
                       >
                         <span class="text-lg">💬</span>
-                        <span class="text-sm" style="color: var(--theme-text);">微信好友</span>
+                        <span class="text-sm text-theme-text">微信好友</span>
                       </button>
                       <!-- 分享到微信朋友圈 -->
                       <button
-                          @click="shareToWechatMoments"
-                          class="w-full flex items-center space-x-3 px-4 py-3 text-left transition-colors hover:opacity-80"
+                        @click="shareToWechatMoments"
+                        class="w-full flex items-center space-x-3 px-4 py-3 text-left transition-colors hover:bg-theme-surface-highlight"
                       >
                         <span class="text-lg">📷</span>
-                        <span class="text-sm" style="color: var(--theme-text);">微信朋友圈</span>
+                        <span class="text-sm text-theme-text">微信朋友圈</span>
                       </button>
                       <!-- 分享到微博 -->
                       <button
-                          @click="shareToWeibo"
-                          class="w-full flex items-center space-x-3 px-4 py-3 text-left transition-colors hover:opacity-80"
+                        @click="shareToWeibo"
+                        class="w-full flex items-center space-x-3 px-4 py-3 text-left transition-colors hover:bg-theme-surface-highlight"
                       >
                         <span class="text-lg">📝</span>
-                        <span class="text-sm" style="color: var(--theme-text);">分享到微博</span>
+                        <span class="text-sm text-theme-text">分享到微博</span>
                       </button>
                       <!-- 分享到QQ -->
                       <button
-                          @click="shareToQQ"
-                          class="w-full flex items-center space-x-3 px-4 py-3 text-left transition-colors hover:opacity-80"
+                        @click="shareToQQ"
+                        class="w-full flex items-center space-x-3 px-4 py-3 text-left transition-colors hover:bg-theme-surface-highlight"
                       >
                         <span class="text-lg">💬</span>
-                        <span class="text-sm" style="color: var(--theme-text);">分享到QQ</span>
+                        <span class="text-sm text-theme-text">分享到QQ</span>
                       </button>
                       <!-- 分享到QQ空间 -->
                       <button
-                          @click="shareToQzone"
-                          class="w-full flex items-center space-x-3 px-4 py-3 text-left transition-colors hover:opacity-80"
+                        @click="shareToQzone"
+                        class="w-full flex items-center space-x-3 px-4 py-3 text-left transition-colors hover:bg-theme-surface-highlight"
                       >
                         <span class="text-lg">🌐</span>
-                        <span class="text-sm" style="color: var(--theme-text);">分享到QQ空间</span>
+                        <span class="text-sm text-theme-text">分享到QQ空间</span>
                       </button>
                     </div>
                   </button>
@@ -1126,50 +1112,45 @@ const head = useHead(
           <aside class="space-y-4 lg:sticky lg:top-20 self-start w-full">
             <!-- 作者画像卡 -->
             <div
-                v-if="articleAuthor"
-                class="rounded-2xl p-5 author-card"
-                style="background-color: var(--theme-surface); border: 1px solid var(--theme-border);"
+              v-if="articleAuthor"
+              class="rounded-2xl p-4 sm:p-5 author-card theme-card"
             >
               <!-- 头像 + 名字 -->
               <div class="flex flex-col items-center text-center">
                 <Link
-                    v-if="articleAuthor.id || article?.authorId"
-                    :to="`/author/${articleAuthor.id || article?.authorId}`"
-                    class="block hover:opacity-90 transition-opacity"
+                  v-if="articleAuthor.id || article?.authorId"
+                  :to="`/author/${articleAuthor.id || article?.authorId}`"
+                  class="block hover:opacity-90 transition-opacity"
                 >
                   <img
-                      :src="getSafeAvatar(articleAuthor.avatar, articleAuthor.id)"
-                      :alt="articleAuthor.username"
-                      class="w-20 h-20 rounded-full ring-2"
-                      style="--tw-ring-color: var(--theme-accent);"
-                      loading="lazy"
-                      @error="(e: Event) => (e.target as HTMLImageElement).src = getSafeAvatar(null, articleAuthor.id)"
+                    :src="getSafeAvatar(articleAuthor.avatar, articleAuthor.id)"
+                    :alt="articleAuthor.username"
+                    class="w-16 h-16 sm:w-20 sm:h-20 rounded-full ring-2 ring-theme-accent"
+                    loading="lazy"
+                    @error="(e: Event) => (e.target as HTMLImageElement).src = getSafeAvatar(null, articleAuthor.id)"
                   />
                 </Link>
                 <img
-                    v-else
-                    :src="getSafeAvatar(articleAuthor.avatar, articleAuthor.id)"
-                    :alt="articleAuthor.username"
-                    class="w-20 h-20 rounded-full ring-2"
-                    style="--tw-ring-color: var(--theme-accent);"
-                    loading="lazy"
+                  v-else
+                  :src="getSafeAvatar(articleAuthor.avatar, articleAuthor.id)"
+                  :alt="articleAuthor.username"
+                  class="w-16 h-16 sm:w-20 sm:h-20 rounded-full ring-2 ring-theme-accent"
+                  loading="lazy"
                 />
                 <Link
-                    v-if="articleAuthor.id || article?.authorId"
-                    :to="`/author/${articleAuthor.id || article?.authorId}`"
-                    class="mt-3 font-bold text-base hover:underline"
-                    style="color: var(--theme-text);"
+                  v-if="articleAuthor.id || article?.authorId"
+                  :to="`/author/${articleAuthor.id || article?.authorId}`"
+                  class="mt-3 card-title hover:underline"
                 >
                   {{ articleAuthor.nickname || articleAuthor.username || '匿名作者' }}
                 </Link>
-                <span v-else class="mt-3 font-bold text-base" style="color: var(--theme-text);">
+                <span v-else class="mt-3 card-title">
                   {{ articleAuthor.nickname || articleAuthor.username || '匿名作者' }}
                 </span>
                 <!-- 简介 -->
                 <p
-                    v-if="articleAuthor.bio"
-                    class="mt-2 text-sm leading-relaxed line-clamp-3"
-                    style="color: var(--theme-text-secondary);"
+                  v-if="articleAuthor.bio"
+                  class="mt-2 card-summary line-clamp-3"
                 >
                   {{ articleAuthor.bio }}
                 </p>
@@ -1178,22 +1159,22 @@ const head = useHead(
               <!-- 统计指标 2x2 网格 -->
               <div class="grid grid-cols-2 gap-2 mt-4">
                 <div class="stat-cell">
-                  <FileText class="w-4 h-4 mb-1" aria-hidden="true"/>
+                  <FileText class="w-4 h-4 mb-1 text-theme-primary" aria-hidden="true"/>
                   <div class="stat-value">{{ authorStats?.articles ?? 0 }}</div>
                   <div class="stat-label">文章</div>
                 </div>
                 <div class="stat-cell">
-                  <ThumbsUp class="w-4 h-4 mb-1" aria-hidden="true"/>
+                  <ThumbsUp class="w-4 h-4 mb-1 text-theme-primary" aria-hidden="true"/>
                   <div class="stat-value">{{ authorStats?.totalLikes ?? authorStats?.likes ?? 0 }}</div>
                   <div class="stat-label">被点赞</div>
                 </div>
                 <div class="stat-cell">
-                  <Users class="w-4 h-4 mb-1" aria-hidden="true"/>
+                  <Users class="w-4 h-4 mb-1 text-theme-primary" aria-hidden="true"/>
                   <div class="stat-value">{{ authorStats?.followers ?? 0 }}</div>
                   <div class="stat-label">粉丝</div>
                 </div>
                 <div class="stat-cell">
-                  <MessageSquare class="w-4 h-4 mb-1" aria-hidden="true"/>
+                  <MessageSquare class="w-4 h-4 mb-1 text-theme-primary" aria-hidden="true"/>
                   <div class="stat-value">{{ authorStats?.comments ?? 0 }}</div>
                   <div class="stat-label">观点</div>
                 </div>
@@ -1201,13 +1182,13 @@ const head = useHead(
 
               <!-- 关注按钮（作者本人不显示） -->
               <button
-                  v-if="!isSelfAuthor && (articleAuthor.id || article?.authorId)"
-                  @click="toggleFollow"
-                  :disabled="followLoading"
-                  class="mt-4 w-full flex items-center justify-center gap-2 px-4 py-2 rounded-full font-medium text-sm transition-colors disabled:opacity-60 focus:outline-none"
-                  :style="isFollowingAuthor
-                    ? { backgroundColor: 'var(--theme-surface)', color: 'var(--theme-text-secondary)', border: '1px solid var(--theme-border)' }
-                    : { backgroundColor: 'var(--theme-primary)', color: 'white' }"
+                v-if="!isSelfAuthor && (articleAuthor.id || article?.authorId)"
+                @click="toggleFollow"
+                :disabled="followLoading"
+                class="mt-4 w-full flex items-center justify-center gap-2 px-4 py-2 rounded-full font-medium text-sm transition-colors disabled:opacity-60 focus:outline-none"
+                :class="isFollowingAuthor
+                  ? 'bg-theme-surface text-theme-text-secondary border border-theme-border'
+                  : 'bg-theme-primary text-theme-on-primary'"
                   :aria-pressed="isFollowingAuthor"
                   :aria-label="isFollowingAuthor ? '取消关注作者' : '关注作者'"
               >
@@ -1218,10 +1199,9 @@ const head = useHead(
 
               <!-- 查看主页 -->
               <Link
-                  v-if="articleAuthor.id || article?.authorId"
-                  :to="`/author/${articleAuthor.id || article?.authorId}`"
-                  class="mt-2 block text-center text-sm font-medium hover:underline"
-                  style="color: var(--theme-primary);"
+                v-if="articleAuthor.id || article?.authorId"
+                :to="`/author/${articleAuthor.id || article?.authorId}`"
+                class="mt-2 block text-center text-sm font-medium hover:underline text-theme-primary"
               >
                 查看作者主页 →
               </Link>
@@ -1236,9 +1216,8 @@ const head = useHead(
         <!-- /双栏布局 -->
 
           <!-- 相关推荐 -->
-          <section v-if="relatedArticles.length > 0" class="mb-4">
-            <h2 class="text-lg font-bold mb-4 flex items-center space-x-3"
-                style="color: var(--theme-text);">
+          <section v-if="relatedArticles.length > 0" class="mb-5">
+            <h2 class="section-title mb-4 flex items-center space-x-3">
               <span>相关推荐</span>
             </h2>
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -1252,54 +1231,49 @@ const head = useHead(
           </section>
 
           <!-- 广告位 -->
-          <AdCard slot-key="article_detail_bottom" class="mb-4" />
+          <AdCard slot-key="article_detail_bottom" class="mb-5" />
 
-          <section class="rounded-2xl p-4 sm:p-6 md:p-8 mb-4"
-                   style="background-color: var(--theme-surface); border: 1px solid var(--theme-border);"
+          <section class="rounded-2xl p-4 sm:p-6 md:p-8 mb-5 theme-card"
                    aria-labelledby="comments-heading">
-            <h2 id="comments-heading" class="text-lg font-bold mb-4 flex items-center space-x-3"
-                style="color: var(--theme-text);">
-              <MessageSquare class="w-6 h-6" style="color: var(--theme-primary);" aria-hidden="true"/>
+            <h2 id="comments-heading" class="section-title mb-5 flex items-center space-x-3">
+              <MessageSquare class="w-5 h-5 text-theme-primary" aria-hidden="true"/>
               <span>评论 ({{ totalCommentsCount }})</span>
             </h2>
 
-            <div v-if="currentUser" class="mb-6">
+            <div v-if="currentUser" class="mb-5">
               <div class="flex gap-3">
                 <img
-                    :src="getSafeAvatar(currentUser?.avatar, currentUser?.id)"
-                    :alt="currentUser?.username"
-                    class="w-10 h-10 rounded-full flex-shrink-0"
-                    loading="lazy"
-                    @error="(e: Event) => (e.target as HTMLImageElement).src = getSafeAvatar(null, currentUser?.id)"
+                  :src="getSafeAvatar(currentUser?.avatar, currentUser?.id)"
+                  :alt="currentUser?.username"
+                  class="w-9 h-9 sm:w-10 sm:h-10 rounded-full flex-shrink-0"
+                  loading="lazy"
+                  @error="(e: Event) => (e.target as HTMLImageElement).src = getSafeAvatar(null, currentUser?.id)"
                 />
                 <div class="flex-1 flex gap-3 items-end">
                   <label for="comment-input" class="sr-only">写下你的评论</label>
                   <textarea
-                      id="comment-input"
-                      v-model="newComment"
-                      placeholder="写评论..."
-                      class="flex-1 p-3 border rounded-xl text-base resize-none focus:outline-none focus:ring-2"
-                      style="border-color: var(--theme-border); background-color: var(--theme-bg); color: var(--theme-text);"
-                      rows="1"
+                    id="comment-input"
+                    v-model="newComment"
+                    placeholder="写评论..."
+                    class="flex-1 p-3 border rounded-xl text-sm sm:text-base resize-none focus:outline-none focus:ring-2 border-theme-border bg-theme-bg text-theme-text"
+                    rows="1"
                   />
                   <button
-                      @click="handleSubmitComment"
-                      :disabled="!newComment.trim() || submitting"
-                      class="px-6 py-3 rounded-full font-medium text-sm transition-colors flex items-center gap-2 disabled:opacity-50 focus:outline-none flex-shrink-0"
-                      style="background-color: var(--theme-primary); color: white;"
+                    @click="handleSubmitComment"
+                    :disabled="!newComment.trim() || submitting"
+                    class="theme-btn theme-btn-primary px-5 sm:px-6 py-2.5 sm:py-3 text-sm disabled:opacity-50 flex-shrink-0"
                   >
                     <Send class="w-4 h-4" aria-hidden="true"/>
-                    <span>发表评论</span>
+                    <span>发表</span>
                   </button>
                 </div>
               </div>
             </div>
-            <div v-else class="mb-8 p-6 rounded-xl text-center" style="background-color: var(--theme-accent);">
-              <p class="text-base mb-4" style="color: var(--theme-text-secondary);">登录后发表评论</p>
+            <div v-else class="mb-6 p-5 rounded-xl text-center bg-theme-accent">
+              <p class="text-sm sm:text-base mb-4 text-theme-text-secondary">登录后发表评论</p>
               <Link
-                  to="/login"
-                  class="inline-flex items-center px-6 py-2 rounded-full font-medium text-base transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2"
-                  style="background-color: var(--theme-primary); color: white;"
+                to="/login"
+                class="theme-btn theme-btn-primary px-6 py-2.5 text-sm"
               >
                 立即登录
               </Link>
@@ -1315,35 +1289,33 @@ const head = useHead(
                 <!-- 一级评论 -->
                 <div class="flex gap-3">
                   <img
-                      :src="getCommentAuthorAvatar(rootComment)"
-                      :alt="getCommentAuthorName(rootComment)"
-                      class="w-10 h-10 rounded-full flex-shrink-0"
-                      loading="lazy"
+                    :src="getCommentAuthorAvatar(rootComment)"
+                    :alt="getCommentAuthorName(rootComment)"
+                    class="w-9 h-9 sm:w-10 sm:h-10 rounded-full flex-shrink-0"
+                    loading="lazy"
                   />
                   <div class="flex-1 min-w-0">
-                    <div class="flex items-center gap-3 mb-2">
-                      <span class="font-medium text-base"
-                            style="color: var(--theme-text);">{{ getCommentAuthorName(rootComment) }}</span>
-                      <span class="text-sm" style="color: var(--theme-text-secondary);">
+                    <div class="flex items-center gap-2 sm:gap-3 mb-1.5 flex-wrap">
+                      <span class="font-medium text-sm sm:text-base text-theme-text">{{ getCommentAuthorName(rootComment) }}</span>
+                      <span class="meta-text">
                         {{ formatShortDate(rootComment.createTime || rootComment.createdAt || '') }}
                       </span>
                     </div>
-                    <p class="text-base mb-3" style="color: var(--theme-text);">{{ rootComment.content }}</p>
-                    <div class="flex items-center gap-4 mb-3">
+                    <p class="body-text mb-2.5">{{ rootComment.content }}</p>
+                    <div class="flex items-center gap-3 sm:gap-4 mb-2.5">
                       <button
-                          @click="handleLikeComment(rootComment)"
-                          class="flex items-center gap-2 transition-colors focus:outline-none text-sm"
-                          :style="getCommentLikeButtonStyle(!!rootComment.isLiked)"
-                          :aria-label="rootComment.isLiked ? '取消点赞' : '点赞评论'"
+                        @click="handleLikeComment(rootComment)"
+                        class="flex items-center gap-1.5 transition-colors focus:outline-none text-sm"
+                        :style="getCommentLikeButtonStyle(!!rootComment.isLiked)"
+                        :aria-label="rootComment.isLiked ? '取消点赞' : '点赞评论'"
                       >
                         <Heart class="w-4 h-4" :class="{ 'fill-current': rootComment.isLiked }" aria-hidden="true"/>
                         <span>{{ rootComment.likeCount || 0 }}</span>
                       </button>
                       <button
-                          @click="handleReply(rootComment)"
-                          class="flex items-center gap-2 transition-colors focus:outline-none text-sm"
-                          style="color: var(--theme-text-secondary);"
-                          :aria-label="'回复评论'"
+                        @click="handleReply(rootComment)"
+                        class="flex items-center gap-1.5 transition-colors focus:outline-none text-sm text-theme-text-secondary hover:text-theme-primary"
+                        :aria-label="'回复评论'"
                       >
                         <Reply class="w-4 h-4" aria-hidden="true"/>
                         <span>回复</span>
@@ -1353,8 +1325,7 @@ const head = useHead(
                 </div>
 
                 <!-- 回复输入框 -->
-                <div v-if="replyingTo?.id === rootComment.id && replyingToRoot" class="mt-4 mb-4 ml-13 p-4 rounded-xl"
-                     style="background-color: var(--theme-bg);">
+                <div v-if="replyingTo?.id === rootComment.id && replyingToRoot" class="mt-3 mb-3 ml-13 p-3 sm:p-4 rounded-xl bg-theme-bg">
                   <div class="flex gap-3">
                     <img
                         :src="getSafeAvatar(currentUser?.avatar, currentUser?.id)"
@@ -1364,29 +1335,24 @@ const head = useHead(
                         @error="(e: Event) => (e.target as HTMLImageElement).src = getSafeAvatar(null, currentUser?.id)"
                     />
                     <div class="flex-1">
-                      <div class="text-sm mb-2" style="color: var(--theme-text-secondary);">回复
-                        {{ getCommentAuthorName(rootComment) }}
-                      </div>
+                      <div class="meta-text mb-2">回复 {{ getCommentAuthorName(rootComment) }}</div>
                       <textarea
-                          v-model="replyContent"
-                          placeholder="写回复..."
-                          class="w-full p-3 border rounded-xl text-base resize-none focus:outline-none focus:ring-2"
-                          style="border-color: var(--theme-border); background-color: var(--theme-bg); color: var(--theme-text);"
-                          rows="2"
+                        v-model="replyContent"
+                        placeholder="写回复..."
+                        class="w-full p-3 border rounded-xl text-sm sm:text-base resize-none focus:outline-none focus:ring-2 border-theme-border bg-theme-bg text-theme-text"
+                        rows="2"
                       />
                       <div class="flex justify-end mt-3 gap-3">
                         <button
-                            @click="handleCancelReply"
-                            class="px-4 py-2 rounded-full font-medium text-sm transition-colors focus:outline-none"
-                            style="color: var(--theme-text-secondary);"
+                          @click="handleCancelReply"
+                          class="px-4 py-2 rounded-full font-medium text-sm transition-colors focus:outline-none text-theme-text-secondary hover:text-theme-text"
                         >
                           取消
                         </button>
                         <button
-                            @click="handleSubmitReply"
-                            :disabled="!replyContent.trim() || submitting"
-                            class="px-4 py-2 rounded-full font-medium text-sm transition-colors flex items-center gap-2 disabled:opacity-50 focus:outline-none"
-                            style="background-color: var(--theme-primary); color: white;"
+                          @click="handleSubmitReply"
+                          :disabled="!replyContent.trim() || submitting"
+                          class="theme-btn theme-btn-primary px-4 py-2 text-sm disabled:opacity-50"
                         >
                           回复
                         </button>
@@ -1403,23 +1369,20 @@ const head = useHead(
                       class="reply-item"
                   >
                     <div class="flex gap-3">
-                      <div class="w-1 rounded-full ml-5 mt-2 flex-shrink-0"
-                           style="background-color: var(--theme-border);"></div>
+                      <div class="w-1 rounded-full ml-5 mt-2 flex-shrink-0 bg-theme-border"></div>
                       <img
-                          :src="getCommentAuthorAvatar(reply)"
-                          :alt="getCommentAuthorName(reply)"
-                          class="w-8 h-8 rounded-full flex-shrink-0"
-                          loading="lazy"
+                        :src="getCommentAuthorAvatar(reply)"
+                        :alt="getCommentAuthorName(reply)"
+                        class="w-8 h-8 rounded-full flex-shrink-0"
+                        loading="lazy"
                       />
                       <div class="flex-1 min-w-0">
-                        <div class="flex items-center gap-3 mb-2 flex-wrap">
-                          <span class="font-medium text-sm"
-                                style="color: var(--theme-text);">{{ getCommentAuthorName(reply) }}</span>
-                          <span v-if="getReplyToName(reply)" class="text-sm reply-to"
-                                style="color: var(--theme-primary);">
+                        <div class="flex items-center gap-2 sm:gap-3 mb-1.5 flex-wrap">
+                          <span class="font-medium text-sm text-theme-text">{{ getCommentAuthorName(reply) }}</span>
+                          <span v-if="getReplyToName(reply)" class="text-sm text-theme-primary">
                             回复 @{{ getReplyToName(reply) }}
                           </span>
-                          <span class="text-sm" style="color: var(--theme-text-secondary);">
+                          <span class="meta-text">
                             {{ formatShortDate(reply.createTime || reply.createdAt || '') }}
                           </span>
                         </div>
@@ -1427,20 +1390,19 @@ const head = useHead(
                         <div v-if="reply.replyToContent" class="reply-quote mb-2">
                           引用: {{ reply.replyToContent }}
                         </div>
-                        <p class="text-sm mb-3" style="color: var(--theme-text);">{{ reply.content }}</p>
-                        <div class="flex items-center gap-3">
+                        <p class="text-sm sm:text-base text-theme-text mb-2.5">{{ reply.content }}</p>
+                        <div class="flex items-center gap-3 sm:gap-4">
                           <button
-                              @click="handleLikeComment(reply)"
-                              class="flex items-center gap-2 transition-colors focus:outline-none text-sm"
-                              :style="getCommentLikeButtonStyle(!!reply.isLiked)"
+                            @click="handleLikeComment(reply)"
+                            class="flex items-center gap-1.5 transition-colors focus:outline-none text-sm"
+                            :style="getCommentLikeButtonStyle(!!reply.isLiked)"
                           >
                             <Heart class="w-4 h-4" :class="{ 'fill-current': reply.isLiked }" aria-hidden="true"/>
                             <span>{{ reply.likeCount || 0 }}</span>
                           </button>
                           <button
-                              @click="handleReply(rootComment, reply)"
-                              class="flex items-center gap-2 transition-colors focus:outline-none text-sm"
-                              style="color: var(--theme-text-secondary);"
+                            @click="handleReply(rootComment, reply)"
+                            class="flex items-center gap-1.5 transition-colors focus:outline-none text-sm text-theme-text-secondary hover:text-theme-primary"
                           >
                             <Reply class="w-4 h-4" aria-hidden="true"/>
                             <span>回复</span>
@@ -1450,8 +1412,7 @@ const head = useHead(
                     </div>
 
                     <!-- 回复输入框 - 在回复列表中 -->
-                    <div v-if="replyingTo?.id === reply.id && !replyingToRoot" class="mt-3 mb-3 ml-13 p-3 rounded-lg"
-                         style="background-color: var(--theme-bg);">
+                    <div v-if="replyingTo?.id === reply.id && !replyingToRoot" class="mt-3 mb-3 ml-13 p-3 rounded-lg bg-theme-bg">
                       <div class="flex gap-3">
                         <img
                             :src="getSafeAvatar(currentUser?.avatar, currentUser?.id)"
@@ -1461,29 +1422,26 @@ const head = useHead(
                             @error="(e: Event) => (e.target as HTMLImageElement).src = getSafeAvatar(null, currentUser?.id)"
                         />
                         <div class="flex-1">
-                          <div class="text-xs mb-2" style="color: var(--theme-text-secondary);">
+                          <div class="caption-text mb-2 text-theme-text-secondary">
                             回复 {{ getReplyToName(reply) || getCommentAuthorName(reply) }}
                           </div>
                           <textarea
-                              v-model="replyContent"
-                              placeholder="写回复..."
-                              class="w-full p-2 border rounded-lg text-sm resize-none focus:outline-none focus:ring-2"
-                              style="border-color: var(--theme-border); background-color: var(--theme-bg); color: var(--theme-text);"
-                              rows="2"
+                            v-model="replyContent"
+                            placeholder="写回复..."
+                            class="w-full p-2 border rounded-lg text-sm resize-none focus:outline-none focus:ring-2 border-theme-border bg-theme-bg text-theme-text"
+                            rows="2"
                           />
                           <div class="flex justify-end mt-2 gap-2">
                             <button
-                                @click="handleCancelReply"
-                                class="px-3 py-1 rounded-full text-xs transition-colors focus:outline-none"
-                                style="color: var(--theme-text-secondary);"
+                              @click="handleCancelReply"
+                              class="px-3 py-1 rounded-full caption-text transition-colors focus:outline-none text-theme-text-secondary hover:text-theme-text"
                             >
                               取消
                             </button>
                             <button
-                                @click="handleSubmitReply"
-                                :disabled="!replyContent.trim() || submitting"
-                                class="px-3 py-1 rounded-full text-xs transition-colors flex items-center gap-1 disabled:opacity-50 focus:outline-none"
-                                style="background-color: var(--theme-primary); color: white;"
+                              @click="handleSubmitReply"
+                              :disabled="!replyContent.trim() || submitting"
+                              class="theme-btn theme-btn-primary px-3 py-1 caption-text disabled:opacity-50"
                             >
                               回复
                             </button>
@@ -1496,17 +1454,16 @@ const head = useHead(
               </div>
             </div>
 
-            <div v-if="hasMoreComments" class="text-center mt-6">
+            <div v-if="hasMoreComments" class="text-center mt-5">
               <button
-                  v-if="hasMoreComments"
-                  @click="loadMoreComments"
-                  :disabled="commentsLoading"
-                  class="px-6 py-2 rounded-full font-medium text-sm transition-colors focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
-                  style="background-color: var(--theme-surface); color: var(--theme-text-secondary);"
+                v-if="hasMoreComments"
+                @click="loadMoreComments"
+                :disabled="commentsLoading"
+                class="theme-btn px-6 py-2 text-sm transition-colors focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed bg-theme-surface text-theme-text-secondary border border-theme-border hover:bg-theme-surface-highlight"
               >
                 {{ commentsLoading ? '加载中...' : '加载更多评论' }}
               </button>
-              <p v-else-if="comments.length > 0" class="text-center text-sm" style="color: var(--theme-text-secondary);">
+              <p v-else-if="comments.length > 0" class="text-center meta-text">
                 已显示全部评论
               </p>
             </div>
@@ -1516,7 +1473,7 @@ const head = useHead(
         <!-- No data state -->
         <template v-else>
           <div class="text-center py-16">
-            <p class="text-lg" style="color: var(--theme-text-secondary);">暂无数据</p>
+            <p class="text-lg text-theme-text-secondary">暂无数据</p>
           </div>
         </template>
 
@@ -1546,22 +1503,22 @@ const head = useHead(
 
 <style scoped>
 .comment-root {
-  margin-bottom: 24px;
+  margin-bottom: var(--space-5);
   border-bottom: 1px solid var(--theme-border);
-  padding-bottom: 16px;
+  padding-bottom: var(--space-4);
 }
 
 .reply-list {
   margin-left: 52px;
-  margin-top: 12px;
+  margin-top: var(--space-3);
   background-color: var(--theme-bg);
-  border-radius: 8px;
-  padding: 12px;
+  border-radius: var(--radius-lg);
+  padding: var(--space-3);
 }
 
 .reply-item {
-  margin-bottom: 12px;
-  padding-bottom: 12px;
+  margin-bottom: var(--space-3);
+  padding-bottom: var(--space-3);
   border-bottom: 1px solid var(--theme-border);
 }
 
@@ -1572,17 +1529,13 @@ const head = useHead(
 }
 
 .reply-quote {
-  font-size: 13px;
+  font-size: 0.8125rem;
   color: var(--theme-text-secondary);
   background: var(--theme-surface);
-  padding: 4px 8px;
-  border-radius: 4px;
-  margin: 6px 0;
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-sm);
+  margin: var(--space-1) 0;
   border-left: 2px solid var(--theme-primary);
-}
-
-.reply-to {
-  color: var(--theme-primary);
 }
 
 .ml-13 {
@@ -1594,34 +1547,22 @@ const head = useHead(
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 10px 6px;
-  border-radius: 10px;
+  padding: var(--space-2) var(--space-1);
+  border-radius: var(--radius-lg);
   background-color: var(--theme-accent);
   text-align: center;
 }
 
-.author-card .stat-cell svg {
-  color: var(--theme-primary);
-}
-
 .author-card .stat-value {
-  font-size: 16px;
-  font-weight: 700;
+  font-size: 1rem;
+  font-weight: var(--font-weight-bold);
   line-height: 1.2;
   color: var(--theme-text);
 }
 
 .author-card .stat-label {
-  font-size: 12px;
+  font-size: 0.75rem;
   color: var(--theme-text-secondary);
   margin-top: 2px;
-}
-
-/* 简介 3 行截断 */
-.line-clamp-3 {
-  display: -webkit-box;
-  -webkit-line-clamp: 3;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
 }
 </style>

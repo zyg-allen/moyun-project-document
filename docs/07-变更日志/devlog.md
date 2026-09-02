@@ -5,6 +5,64 @@
 
 ***
 
+## v11.13 (2026-09-02) 面试题库归属学习中心：路由反转 + 面包屑修正
+
+> 用户反馈：题库页 URL 为 `/interview/questions`，面包屑显示"首页/面试指南/面试题库"，但题库实际归属学习中心（与 portal_category.nav_route_path 及学习中心栏目对齐）。修正为 URL `/learn/questions`、面包屑"首页/学习中心/面试题库"。
+
+### 改动内容
+- **路由反转**：[router/index.ts](file:///d:/zyg_new_work/moyun-project-document/moyun-portal/src/router/index.ts#L234-L244) — `/learn/questions` 升为主路由（name `interview-questions` 保留，无站内 name 导航引用）；`/interview/questions` 改为 redirect 兼容旧收藏/外链
+- **面包屑**：[QuestionListPage.vue](file:///d:/zyg_new_work/moyun-project-document/moyun-portal/src/pages/learn/QuestionListPage.vue#L166-L170) 改"首页/学习中心/面试题库"；[QuestionDetailPage.vue](file:///d:/zyg_new_work/moyun-project-document/moyun-portal/src/pages/learn/QuestionDetailPage.vue#L265-L270) 同步为"首页/学习中心/面试题库/题目详情"
+- **SEO canonicalPath**：QuestionListPage 规范化 URL 改 `/learn/questions`
+- **站内 11 处跳转引用同步**：HomePage/InterviewPage（3 处含 categoryId 透传）/MyBookmarksPage/MyAttemptsPage/KnowledgeGraphPage（keyword 透传）/LeaderboardPage/PracticeCenterPage/PracticeChoiceListPage/PracticeCodingListPage/QuestionDetailPage 返回按钮/StudyCalendarPage，全部改指 `/learn/questions`；query 透传不受影响，相邻题导航逻辑同源正常
+
+### 验证
+- `vue-tsc -b`：类型检查通过（0 错误）
+
+### 部署
+仅前端改动，无 SQL/后端变更，`npm run build:prod` 重新构建部署。旧链接 `/interview/questions*`（含 query）自动 302 到 `/learn/questions*`。
+
+---
+
+## v11.12 (2026-09-02) 通用 AI 异步任务基础设施 + 全局慢请求保护 + URL 状态参数化（v10.23）
+
+> 用户反馈三个问题：① 门户 LLM 接口多为同步调用，大输入场景（简历解析/岗位匹配等）直接超时且前台无感；② 慢接口等待中用户切页/刷新无提示，结果静默丢失；③ 有状态页面（如优化工作台 step/选中岗位）刷新后回到初始步，要求状态参数放 URL 支持多次刷新。评估结论：三个问题全部成立；流式输出（SSE）不适合本项目（LLM 输出为结构化 JSON，半截 JSON 无法渲染），统一采用"异步任务 + 前端轮询"，已在深度优化场景验证过。
+
+### 问题1：LLM 同步接口超时 → 通用 AI 异步任务基础设施
+
+全项目 8 处 llmClient.chat 调用点风险分级后，4 个高风险场景统一接入新建的通用任务表：
+
+- **DDL**：[20260902-01-moyun-ai-task-unify.sql](file:///d:/zyg_new_work/moyun-project-document/moyun-server/src/main/resources/sql/20260902-01-moyun-ai-task-unify.sql) — 新建 portal_ai_task（task_type/biz_ref/status/progress_msg/result/error）；旧表 portal_resume_optimize_task 保留不写入
+- **基础设施**（新建 7 类）：PortalAiTask/PortalAiTaskMapper/AiTaskVO/AiTaskHandler 接口/AiTaskService（提交+查询，handlerMap 校验 taskType）/AiTaskAsyncExecutor（@Async("aiTaskExecutor")，pending→running→success/failed，error 截断 900 字符）/PortalAiTaskController（`POST /portal/ai/task/submit`、`GET /portal/ai/task/{id}`）
+- **四个 Handler**：ResumeParseTaskHandler(resume_parse)/JobMatchTaskHandler(job_match)/AiDraftTaskHandler(ai_draft)/DeepOptimizeTaskHandler(deep_optimize)，bizRef 分别为 {resumeId,fileUrl,fileName}/{resumeId,jobTargetId}/{resumeId,jobTargetId?}/{resumeId,jobTargetId}
+- **简历解析快路径**：[PortalUserResumeController](file:///d:/zyg_new_work/moyun-project-document/moyun-server/src/main/java/com/moyun/portal/controller/PortalUserResumeController.java) parse 接口改为秒回（保存文件+建附件简历记录+提交任务，返回 {resumeId, taskId, fileName}），LLM 解析挪入 executeParse 异步执行
+- **深度优化迁移**：/deep/.../async 与 /deep/task/{taskId} 内部切换到 portal_ai_task，返回结构映射为旧 ResumeOptimizeTaskVO（前端零改动）；删除旧 ResumeOptimizeAsyncExecutor/PortalResumeOptimizeTask/PortalResumeOptimizeTaskMapper；线程池 resumeOptimizeExecutor 改名 aiTaskExecutor
+- **保持同步**：fieldAssist（单字段输出小）、语音面试（自有 SSE 逻辑）
+
+### 问题2：慢接口切页/关页无提示 → 全局追踪 + 双守卫
+
+- **请求追踪**：[client.ts](file:///d:/zyg_new_work/moyun-project-document/moyun-portal/src/api/client.ts) isAiSlowUrl 判定 POST 慢接口（parse/ai-assist/ai-draft/match/deep 同步版/语音面试 start/finish/answer），request() 内自动登记/finally 清理；语音面试 SSE 用 trackAiSlowRequest 手动登记
+- **路由守卫**：[router/index.ts](file:///d:/zyg_new_work/moyun-project-document/moyun-portal/src/router/index.ts) beforeEach——AI 慢请求进行中跳转页面弹确认框（离开将中断生成）
+- **关页提醒**：[main.ts](file:///d:/zyg_new_work/moyun-project-document/moyun-portal/src/main.ts) beforeunload——进行中刷新/关闭触发浏览器原生确认
+- **异步任务豁免**：异步任务轮询期间离开是安全的（任务后端继续跑，回来可恢复），不进拦截名单，符合"能恢复的不拦、会丢的拦"原则
+
+### 问题3：刷新后回不到原位 → URL 参数化（URL 优先于 localStorage）
+
+- **前端 API**：[aiTask.ts](file:///d:/zyg_new_work/moyun-project-document/moyun-portal/src/api/aiTask.ts) — submitAiTask/getAiTask/pollAiTask（onTick 进度回调，resolve 任务结果内容）
+- **优化工作台**：[ResumeOptimizePage.vue](file:///d:/zyg_new_work/moyun-project-document/moyun-portal/src/pages/interview/ResumeOptimizePage.vue) — step/resumeId/targetId/taskId/matchTaskId 五参数 router.replace 同步到 URL；刷新时 URL 优先、localStorage 兜底；匹配任务改 runMatchAsync（提交 job_match 任务+轮询+进度动画），refresh 可恢复轮询（resumeMatchPolling）
+- **编辑页**：[ResumeEditPage.vue](file:///d:/zyg_new_work/moyun-project-document/moyun-portal/src/pages/interview/ResumeEditPage.vue) — 上传解析 URL 带 parseTaskId，刷新后继续轮询，完成后跳附件简历编辑页；AI 填充空字段改异步任务（提交 ai_draft+轮询）
+
+### 验证
+- moyun-server `mvn compile`：编译成功（exit 0）
+- moyun-portal `vue-tsc -b`：类型检查通过（0 错误）
+
+### 部署
+1. 执行 SQL 补丁 `20260902-01-moyun-ai-task-unify.sql`
+2. 重启 moyun-server
+3. 前端 `npm run build:prod` 重新构建
+4. 验证：上传简历秒回并显示解析进度→切页弹确认→刷新后 URL 恢复 step/岗位→匹配/深度优化全程可刷新续轮询
+
+---
+
 ## v11.11 (2026-09-01) 简历模块重构：上传闭环+解析反显+附件版本+AI填空+全文分析+diff回放（v10.22）
 
 > 用户反馈：简历模块不合理不完善——上传简历只是临时解析不保存源文件、解析结果没反显表单、空字段无 AI 填充、AI 分析用结构化 JSON 而非全文、优化结果无 diff 回放、编辑页多个 AI 优化入口重复。本次重构按"上传→解析→维护→AI分析→反显修改"完整闭环重新设计。

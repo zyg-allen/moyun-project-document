@@ -48,25 +48,24 @@ function getTags(article: Article): string[] {
 
 <template>
   <article
-      class="group rounded-2xl overflow-hidden border shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-300"
-      style="background-color: var(--theme-bg); border-color: var(--theme-border);"
-      :aria-label="'相关文章: ' + article.title"
+    class="group rounded-xl overflow-hidden border shadow-sm hover:shadow-theme-md hover:-translate-y-0.5 transition-all duration-300 bg-theme-surface border-theme-border"
+    :aria-label="'相关文章: ' + article.title"
   >
     <Link
-        :to="`/article/${article.id}`"
-        class="block"
-        :aria-label="'查看文章: ' + article.title"
+      :to="`/article/${article.id}`"
+      class="block"
+      :aria-label="'查看文章: ' + article.title"
     >
       <!-- Cover Image（详情页相关推荐传入 showCover=false 可隐藏封面） -->
       <div v-if="showCover && article.cover" class="relative aspect-[16/9] overflow-hidden">
         <LazyImage
-            :src="article.cover"
-            :alt="article.title"
-            :aspect-ratio="16/9"
+          :src="article.cover"
+          :alt="article.title"
+          :aspect-ratio="16/9"
         />
         <div class="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
         <div class="absolute top-3 left-3" v-if="getCategoryName(article)">
-          <span class="px-2.5 py-1 text-white text-xs font-medium rounded-full" style="background-color: var(--theme-primary);">
+          <span class="px-2 py-0.5 text-white caption-text rounded-full bg-theme-primary">
             {{ getCategoryName(article) }}
           </span>
         </div>
@@ -76,40 +75,35 @@ function getTags(article: Article): string[] {
       <div class="p-4">
         <!-- 不显示封面时，把分类徽标移到标题上方（避免丢失分类信息） -->
         <div v-if="!showCover && getCategoryName(article)" class="mb-2">
-          <span class="inline-block px-2.5 py-1 text-white text-xs font-medium rounded-full" style="background-color: var(--theme-primary);">
+          <span class="inline-block px-2 py-0.5 text-white caption-text rounded-full bg-theme-primary">
             {{ getCategoryName(article) }}
           </span>
         </div>
-        <Link
-            :to="`/article/${article.id}`"
-            class="block text-base font-bold mb-2 line-clamp-2 transition-colors hover:opacity-80"
-            style="color: var(--theme-text);"
-        >
+        <h3 class="card-title mb-2 line-clamp-2 group-hover:text-theme-primary transition-colors">
           {{ article.title }}
-        </Link>
+        </h3>
 
-        <p class="text-sm mb-3 line-clamp-2" style="color: var(--theme-text-secondary);">
+        <p class="card-summary mb-3 line-clamp-2">
           {{ article.excerpt || '' }}
         </p>
 
         <div class="flex flex-wrap gap-1.5 mb-3">
           <span
-              v-for="tag in getTags(article).slice(0, 2)"
-              :key="tag"
-              class="inline-flex items-center px-2 py-0.5 text-xs rounded-full"
-              style="background-color: var(--theme-surface); color: var(--theme-text-secondary);"
+            v-for="tag in getTags(article).slice(0, 2)"
+            :key="tag"
+            class="inline-flex items-center px-2 py-0.5 caption-text rounded-full bg-theme-bg text-theme-text-secondary"
           >
             <Tag class="w-3 h-3 mr-1" aria-hidden="true" />
             {{ tag }}
           </span>
         </div>
 
-        <div class="flex items-center justify-between text-xs" style="color: var(--theme-text-secondary);">
+        <div class="flex items-center justify-between meta-text">
           <div class="flex items-center space-x-1">
             <Avatar
-                :src="getAuthorAvatar(article)"
-                :name="getAuthorUsername(article)"
-                size="sm"
+              :src="getAuthorAvatar(article)"
+              :name="getAuthorUsername(article)"
+              size="sm"
             />
             <span>{{ getAuthorUsername(article) }}</span>
           </div>

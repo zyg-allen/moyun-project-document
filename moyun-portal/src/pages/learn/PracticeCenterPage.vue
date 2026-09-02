@@ -43,7 +43,7 @@ const practiceModules = [
     desc: '直接查看题目、参考答案与解析，适合复习速查',
     icon: BookOpen,
     color: 'linear-gradient(135deg, #0EA5E9, #0369A1)',
-    path: '/interview/questions',
+    path: '/learn/questions',
     badge: '',
   },
 ];

@@ -326,11 +326,11 @@ onUnmounted(() => document.removeEventListener('click', handleDocumentClick));
 </script>
 
 <template>
-  <header class="sticky top-0 z-50 shadow-md" style="background-color: var(--theme-bg);" @keydown.esc="closeAllMenus">
+  <header class="sticky top-0 z-50 bg-theme-bg border-b border-theme-border shadow-theme-sm" @keydown.esc="closeAllMenus">
     <!-- 顶部栏 -->
-    <div class="border-b" style="background: linear-gradient(135deg, var(--theme-surface) 0%, var(--theme-bg) 100%); border-color: var(--theme-border);">
-      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div class="flex items-center justify-between py-1 sm:py-1.5 text-sm">
+    <div class="bg-theme-bg-elevated border-b border-theme-border">
+      <div class="content-container">
+        <div class="flex items-center justify-between py-2 text-sm">
           <!-- 左侧：Logo + 今日主题 -->
           <div class="flex items-center gap-2 sm:gap-3">
             <Link to="/" class="flex items-center space-x-1 sm:space-x-2 flex-shrink-0">
@@ -355,54 +355,50 @@ onUnmounted(() => document.removeEventListener('click', handleDocumentClick));
                 </svg>
               </div>
               <div>
-                <h1 class="hidden sm:block text-base sm:text-xl font-bold" style="color: var(--theme-text);">旭林知行</h1>
+                <h1 class="hidden sm:block text-base sm:text-xl font-bold text-theme-text font-heading">旭林知行</h1>
               </div>
             </Link>
 
-            <span class="hidden sm:inline" style="color: var(--theme-text-secondary);">|</span>
-            <span class="text-xs sm:text-sm" style="color: var(--theme-text);">
+            <span class="hidden sm:inline text-theme-text-secondary">|</span>
+            <span class="text-xs sm:text-sm text-theme-text">
               <span class="sm:hidden">助你上岸</span>
               <span class="hidden sm:inline">今日主题：助你上岸</span>
             </span>
           </div>
 
           <!-- 右侧：搜索和操作 -->
-          <div class="flex items-center space-x-1 sm:space-x-3">
-            <!-- 帮助中心入口（醒目但不占主导航位置） -->
+          <div class="flex items-center gap-1 sm:gap-2">
+            <!-- 帮助中心入口 -->
             <Link
                 to="/help"
-                class="p-2.5 rounded-lg transition-all duration-200 hover:scale-110 relative group"
-                style="color: var(--theme-primary);"
+                class="p-2 rounded-theme-lg text-theme-primary hover:bg-theme-primary-soft transition-theme-fast relative group"
                 title="帮助中心"
                 aria-label="帮助中心"
             >
               <HelpCircle class="w-4 h-4 sm:w-5 sm:h-5" />
-              <span class="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full animate-pulse" style="background-color: var(--theme-primary);"></span>
+              <span class="absolute top-1 right-1 w-2 h-2 rounded-full bg-theme-primary animate-pulse"></span>
             </Link>
 
             <!-- 搜索图标按钮 -->
             <button
                 @click="router.push('/search')"
-                class="p-2.5 rounded-lg transition-colors"
-                style="color: var(--theme-text-secondary);"
+                class="p-2 rounded-theme-lg text-theme-text-secondary hover:bg-theme-surface-highlight transition-theme-fast"
                 title="搜索"
             >
               <Search class="w-4 h-4 sm:w-5 sm:h-5" />
             </button>
 
-            <!-- 消息中心入口（单一入口：公告/通知/支付/私信，未登录用户可看公告；未读数含支付通知） -->
+            <!-- 消息中心入口 -->
             <Link
                 to="/messages"
-                class="p-2.5 rounded-lg transition-colors relative"
-                style="color: var(--theme-text-secondary);"
+                class="p-2 rounded-theme-lg text-theme-text-secondary hover:bg-theme-surface-highlight transition-theme-fast relative"
                 title="消息中心"
                 aria-label="消息中心"
             >
               <Bell class="w-4 h-4 sm:w-5 sm:h-5" />
               <span
                 v-if="totalUnread > 0"
-                class="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full text-xs flex items-center justify-center"
-                style="background-color: #ef4444; color: white;"
+                class="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full text-xs flex items-center justify-center bg-theme-danger text-white font-mono"
               >
                 {{ totalUnread > 99 ? '99+' : totalUnread }}
               </span>
@@ -412,31 +408,26 @@ onUnmounted(() => document.removeEventListener('click', handleDocumentClick));
             <div class="relative">
               <button
                   @click="isThemeMenuOpen = !isThemeMenuOpen"
-                  class="p-2.5 rounded-full transition-colors"
-                  style="color: var(--theme-text);"
+                  class="p-2 rounded-theme-full text-theme-text hover:bg-theme-surface-highlight transition-theme-fast"
                   data-menu-trigger
               >
                 <Palette class="w-4 h-4" />
               </button>
               <div
                   v-if="isThemeMenuOpen"
-                  class="absolute right-0 mt-2 w-40 rounded-lg shadow-lg border py-2 z-50"
-                  style="background-color: var(--theme-bg); border-color: var(--theme-border);"
+                  class="absolute right-0 mt-2 w-44 theme-panel py-2 z-50"
                   data-menu-content
               >
                 <button
                     v-for="theme in ['light', 'dark', 'eye'] as Theme[]"
                     :key="theme"
                     @click="selectTheme(theme)"
-                    class="w-full flex items-center space-x-2 px-3 py-2 text-left transition-colors"
-                    :style="{ backgroundColor: 'var(--theme-surface)' }"
+                    class="w-full flex items-center gap-2 px-3 py-2 text-left text-sm text-theme-text hover:bg-theme-surface-highlight transition-theme-fast"
                 >
-                  <Sun v-if="theme === 'light'" class="w-4 h-4 text-yellow-500" />
-                  <Moon v-else-if="theme === 'dark'" class="w-4 h-4 text-indigo-500" />
-                  <Eye v-else-if="theme === 'eye'" class="w-4 h-4 text-green-600" />
-                  <span class="text-sm" style="color: var(--theme-text);">
-                    {{ themes[theme].name }}
-                  </span>
+                  <Sun v-if="theme === 'light'" class="w-4 h-4 text-theme-warning" />
+                  <Moon v-else-if="theme === 'dark'" class="w-4 h-4 text-theme-info" />
+                  <Eye v-else-if="theme === 'eye'" class="w-4 h-4 text-theme-success" />
+                  <span>{{ themes[theme].name }}</span>
                 </button>
               </div>
             </div>
@@ -445,8 +436,7 @@ onUnmounted(() => document.removeEventListener('click', handleDocumentClick));
             <template v-if="currentUser">
               <button
                   @click="handlePublish"
-                  class="flex items-center space-x-1 px-2 sm:px-3 py-1.5 rounded-full text-sm font-medium transition-colors flex-shrink-0"
-                  style="background-color: var(--theme-primary); color: white;"
+                  class="flex items-center gap-1 px-3 py-1.5 rounded-theme-full text-sm font-medium bg-theme-primary text-theme-on-primary hover:bg-theme-primary-hover transition-theme-fast flex-shrink-0"
               >
                 <Plus class="w-4 h-4" />
                 <span class="hidden sm:inline">创作</span>
@@ -456,106 +446,104 @@ onUnmounted(() => document.removeEventListener('click', handleDocumentClick));
               <div class="relative">
                 <button
                     @click="isUserMenuOpen = !isUserMenuOpen"
-                    class="flex items-center space-x-2 hover:opacity-80 transition-opacity flex-shrink-0"
+                    class="flex items-center gap-2 p-1 pr-2 rounded-theme-full hover:bg-theme-surface-highlight transition-theme-fast flex-shrink-0"
                     data-menu-trigger
                 >
                   <img
                       :src="getSafeAvatar(currentUser.avatar, currentUser.id)"
                       :alt="currentUser.username"
-                      class="w-8 h-8 rounded-full"
+                      class="w-7 h-7 rounded-theme-full"
                       loading="lazy"
                       @error="(e: Event) => (e.target as HTMLImageElement).src = getSafeAvatar(null, currentUser.id)"
                   />
-                  <span class="text-sm font-medium hidden sm:inline" style="color: var(--theme-text);">
+                  <span class="text-sm font-medium hidden sm:inline text-theme-text">
                     {{ (currentUser as any).nickname || currentUser.username }}
                   </span>
-                  <ChevronDown class="w-3 h-3 hidden sm:block" style="color: var(--theme-text-secondary);" />
+                  <ChevronDown class="w-3 h-3 hidden sm:block text-theme-text-tertiary" />
                 </button>
 
                 <!-- 用户下拉菜单 -->
                 <div
                     v-if="isUserMenuOpen"
-                    class="absolute right-0 mt-2 w-48 rounded-lg shadow-lg border py-2 z-50"
-                    style="background-color: var(--theme-bg); border-color: var(--theme-border);"
+                    class="absolute right-0 mt-2 w-52 theme-panel py-2 z-50"
                     data-menu-content
                 >
-                  <div class="px-3 py-2 border-b" style="border-color: var(--theme-border);">
-                    <p class="text-sm font-medium" style="color: var(--theme-text);">
+                  <div class="px-3 py-2 border-b border-theme-border mb-1">
+                    <p class="text-sm font-medium text-theme-text truncate">
                       {{ (currentUser as any).nickname || currentUser.username }}
                     </p>
-                    <p class="text-xs" style="color: var(--theme-text-secondary);">
+                    <p class="text-xs text-theme-text-tertiary truncate">
                       {{ currentUser.email || '' }}
                     </p>
                   </div>
 
                   <button
                       @click="handleGoToProfile"
-                      class="w-full flex items-center space-x-2 px-3 py-2 text-left transition-colors hover:opacity-80"
-                      :style="{ backgroundColor: 'var(--theme-surface)' }"
+                      class="w-full flex items-center gap-2 px-3 py-2 text-left text-sm text-theme-text hover:bg-theme-surface-highlight transition-theme-fast"
                   >
-                    <UserCircle class="w-4 h-4" style="color: var(--theme-text-secondary);" />
-                    <span class="text-sm" style="color: var(--theme-text);">个人中心</span>
+                    <UserCircle class="w-4 h-4 text-theme-text-secondary" />
+                    <span>个人中心</span>
                   </button>
 
                   <button
                       @click="handleGoToBookshelf"
-                      class="w-full flex items-center space-x-2 px-3 py-2 text-left transition-colors hover:opacity-80"
+                      class="w-full flex items-center gap-2 px-3 py-2 text-left text-sm text-theme-text hover:bg-theme-surface-highlight transition-theme-fast"
                   >
-                    <BookMarked class="w-4 h-4" style="color: var(--theme-text-secondary);" />
-                    <span class="text-sm" style="color: var(--theme-text);">我的书架</span>
+                    <BookMarked class="w-4 h-4 text-theme-text-secondary" />
+                    <span>我的书架</span>
                   </button>
 
                   <button
                       @click="handleGoToWallet"
-                      class="w-full flex items-center space-x-2 px-3 py-2 text-left transition-colors hover:opacity-80"
+                      class="w-full flex items-center gap-2 px-3 py-2 text-left text-sm text-theme-text hover:bg-theme-surface-highlight transition-theme-fast"
                   >
-                    <Wallet class="w-4 h-4" style="color: var(--theme-text-secondary);" />
-                    <span class="text-sm" style="color: var(--theme-text);">我的钱包</span>
+                    <Wallet class="w-4 h-4 text-theme-text-secondary" />
+                    <span>我的钱包</span>
                   </button>
 
                   <button
                       @click="handleGoToMyAttempts"
-                      class="w-full flex items-center justify-between px-3 py-2 text-left transition-colors hover:opacity-80"
+                      class="w-full flex items-center justify-between px-3 py-2 text-left text-sm text-theme-text hover:bg-theme-surface-highlight transition-theme-fast"
                   >
-                    <span class="flex items-center space-x-2">
-                      <FileText class="w-4 h-4" style="color: var(--theme-text-secondary);" />
-                      <span class="text-sm" style="color: var(--theme-text);">我的面试答题</span>
+                    <span class="flex items-center gap-2">
+                      <FileText class="w-4 h-4 text-theme-text-secondary" />
+                      <span>我的面试答题</span>
                     </span>
-                    <span class="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-bold text-white" style="background: linear-gradient(90deg,#ef4444,#f97316);">NEW</span>
+                    <span class="theme-badge bg-theme-danger text-white">NEW</span>
                   </button>
 
                   <button
                       @click="handleGoToMyReports"
-                      class="w-full flex items-center space-x-2 px-3 py-2 text-left transition-colors hover:opacity-80"
+                      class="w-full flex items-center gap-2 px-3 py-2 text-left text-sm text-theme-text hover:bg-theme-surface-highlight transition-theme-fast"
                   >
-                    <Flag class="w-4 h-4" style="color: var(--theme-text-secondary);" />
-                    <span class="text-sm" style="color: var(--theme-text);">我的举报</span>
+                    <Flag class="w-4 h-4 text-theme-text-secondary" />
+                    <span>我的举报</span>
                   </button>
 
                   <button
                       @click="handleGoToMyFeedback"
-                      class="w-full flex items-center space-x-2 px-3 py-2 text-left transition-colors hover:opacity-80"
+                      class="w-full flex items-center gap-2 px-3 py-2 text-left text-sm text-theme-text hover:bg-theme-surface-highlight transition-theme-fast"
                   >
-                    <MessageSquare class="w-4 h-4" style="color: var(--theme-text-secondary);" />
-                    <span class="text-sm" style="color: var(--theme-text);">我的反馈</span>
+                    <MessageSquare class="w-4 h-4 text-theme-text-secondary" />
+                    <span>我的反馈</span>
                   </button>
 
                   <button
                       @click="handleGoToSettings"
-                      class="w-full flex items-center space-x-2 px-3 py-2 text-left transition-colors hover:opacity-80"
+                      class="w-full flex items-center gap-2 px-3 py-2 text-left text-sm text-theme-text hover:bg-theme-surface-highlight transition-theme-fast"
                   >
-                    <Settings class="w-4 h-4" style="color: var(--theme-text-secondary);" />
-                    <span class="text-sm" style="color: var(--theme-text);">账号设置</span>
+                    <Settings class="w-4 h-4 text-theme-text-secondary" />
+                    <span>账号设置</span>
                   </button>
 
-                  <div class="border-t my-1" style="border-color: var(--theme-border);"></div>
+                  <div class="border-t border-theme-border my-1"></div>
 
                   <button
                       @click="handleLogout"
-                      class="w-full flex items-center space-x-2 px-3 py-2 text-left transition-colors hover:opacity-80"
+                      class="w-full flex items-center gap-2 px-3 py-2 text-left text-sm text-theme-danger hover:bg-theme-danger-bg transition-theme-fast"
                   >
-                    <LogOut class="w-4 h-4" style="color: var(--theme-danger);" />
-                    <span class="text-sm" style="color: var(--theme-danger);">退出登录</span>
+                    <LogOut class="w-4 h-4" />
+                    <span>退出登录</span>
                   </button>
                 </div>
               </div>
@@ -563,8 +551,7 @@ onUnmounted(() => document.removeEventListener('click', handleDocumentClick));
             <template v-else>
               <Link
                   to="/login"
-                  class="px-3 py-2.5 font-medium transition-colors flex-shrink-0 inline-flex items-center"
-                  style="color: var(--theme-text);"
+                  class="px-3 py-2 rounded-theme-lg font-medium text-theme-text hover:bg-theme-surface-highlight transition-theme-fast flex-shrink-0 inline-flex items-center"
               >
                 <span class="hidden sm:inline">登录/注册</span>
                 <span class="sm:hidden">登录</span>
@@ -576,18 +563,17 @@ onUnmounted(() => document.removeEventListener('click', handleDocumentClick));
     </div>
 
     <!-- 导航区 -->
-    <div class="border-b" style="background-color: var(--theme-bg); border-color: var(--theme-border);">
-      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div class="flex items-center justify-between py-1.5">
+    <div class="bg-theme-bg border-b border-theme-border">
+      <div class="content-container">
+        <div class="flex items-center justify-between py-2">
           <!-- PC端导航 -->
-          <nav class="hidden lg:flex items-center space-x-2">
-            <template v-for="(item, idx) in navItems" :key="item.key">
+          <nav class="hidden lg:flex items-center gap-1">
+            <template v-for="(item) in navItems" :key="item.key">
               <!-- 首页直接跳转 -->
               <template v-if="item.key === 'home'">
                 <Link
                     :to="item.path"
-                    class="px-4 py-1.5 text-sm font-semibold transition-all duration-200 rounded-lg hover:scale-105 hover:shadow-sm"
-                    style="color: var(--theme-text);"
+                    class="px-4 py-1.5 text-sm font-medium rounded-theme-lg text-theme-text hover:bg-theme-surface-highlight transition-theme-fast"
                 >
                   {{ item.name }}
                 </Link>
@@ -596,8 +582,7 @@ onUnmounted(() => document.removeEventListener('click', handleDocumentClick));
               <template v-else-if="item.path && item.children.length === 0">
                 <Link
                     :to="item.path"
-                    class="px-4 py-1.5 text-sm font-semibold transition-all duration-200 rounded-lg hover:scale-105 hover:shadow-sm"
-                    style="color: var(--theme-text);"
+                    class="px-4 py-1.5 text-sm font-medium rounded-theme-lg text-theme-text hover:bg-theme-surface-highlight transition-theme-fast"
                 >
                   {{ item.name }}
                 </Link>
@@ -608,124 +593,108 @@ onUnmounted(() => document.removeEventListener('click', handleDocumentClick));
                     :href="item.externalUrl"
                     target="_blank"
                     rel="noopener noreferrer"
-                    class="px-4 py-1.5 text-sm font-semibold transition-all duration-200 rounded-lg hover:scale-105 hover:shadow-sm"
-                    style="color: var(--theme-text);"
+                    class="px-4 py-1.5 text-sm font-medium rounded-theme-lg text-theme-text hover:bg-theme-surface-highlight transition-theme-fast"
                 >
                   {{ item.name }} ↗
                 </a>
               </template>
-              <!-- 其他有子菜单的项（读书/面试/学习/创作/社区 + 动态分类） -->
+              <!-- 其他有子菜单的项 -->
               <template v-else>
                 <div class="relative" @click.stop>
                   <button
                       @click="toggleNav(item.key)"
                       :class="[
-                      'inline-flex items-center gap-1 px-4 py-1.5 text-sm font-semibold transition-all duration-200 rounded-lg',
-                      activeNavItem === item.key ? 'shadow-md scale-105' : 'hover:scale-105 hover:shadow-sm'
+                      'inline-flex items-center gap-1 px-4 py-1.5 text-sm font-medium rounded-theme-lg transition-theme-fast',
+                      activeNavItem === item.key ? 'bg-theme-primary text-theme-on-primary' : 'text-theme-text hover:bg-theme-surface-highlight'
                     ]"
-                      :style="{
-                      color: activeNavItem === item.key ? 'white' : 'var(--theme-text)',
-                      backgroundColor: activeNavItem === item.key ? 'var(--theme-primary)' : 'transparent'
-                    }"
                       data-menu-trigger
                   >
                     <span>{{ item.name }}</span>
                     <ChevronDown class="w-3.5 h-3.5 transition-transform duration-200" :class="{ 'rotate-180': activeNavItem === item.key }" />
                   </button>
-                  <!-- PC端 Mega Menu（左对齐 + grid 二列布局，换行后同级首字对齐） -->
+                  <!-- PC端 Mega Menu -->
                   <div
                       v-if="activeNavItem === item.key"
-                      class="absolute top-full left-0 mt-2 shadow-2xl border rounded-2xl px-5 py-3 z-50 transform transition-all duration-200 mega-menu-panel max-h-[85vh] overflow-y-auto"
-                      style="background-color: var(--theme-bg); border-color: var(--theme-border);"
+                      class="absolute top-full left-0 mt-2 theme-panel p-4 z-50 max-h-[85vh] overflow-y-auto min-w-[540px]"
                       data-menu-content
                   >
-                    <!-- Mega Menu 头部：图标 + 标题 + 描述 -->
-                    <div class="flex items-center gap-2 pb-2 mb-3 border-b" style="border-color: var(--theme-border);">
+                    <!-- Mega Menu 头部 -->
+                    <div class="flex items-center gap-2 pb-3 mb-3 border-b border-theme-border">
                       <div
-                          class="w-7 h-7 rounded-md flex items-center justify-center text-xs flex-shrink-0 text-white"
+                          class="w-7 h-7 rounded-theme-md flex items-center justify-center text-xs flex-shrink-0 text-white"
                           style="background: linear-gradient(135deg, var(--theme-primary), #B91C1C);"
                       >
                         <IconRender :icon="item.icon" fallback="📁" />
                       </div>
                       <div class="min-w-0">
-                        <div class="font-bold text-sm" style="color: var(--theme-text);">{{ item.name }}</div>
-                        <div v-if="item.description" class="text-[11px] truncate" style="color: var(--theme-text-secondary);">{{ item.description }}</div>
+                        <div class="font-semibold text-sm text-theme-text">{{ item.name }}</div>
+                        <div v-if="item.description" class="text-xs truncate text-theme-text-secondary">{{ item.description }}</div>
                       </div>
                     </div>
-                    <!-- 内容区：grid 二列布局，二级标题占左列(固定宽)，三级项占右列(flex-wrap 换行后首字自动对齐) -->
-                    <div class="grid grid-cols-[120px_1fr] gap-x-5 gap-y-3 min-w-[540px]">
+                    <!-- 内容区 -->
+                    <div class="grid grid-cols-[120px_1fr] gap-x-5 gap-y-3">
                       <template v-for="(child, cidx) in item.children" :key="child.name">
-                        <!-- 二级有三级子项：左列标题，右列三级项流式排列 -->
+                        <!-- 二级有三级子项 -->
                         <template v-if="child.children && child.children.length > 0">
-                          <!-- 左列：二级标题（大字号粗体，垂直顶部对齐） -->
                           <div class="flex items-start gap-1.5 pt-0.5">
-                            <span v-if="child.icon" class="w-4 h-4 rounded flex items-center justify-center text-[10px] text-white flex-shrink-0 mt-0.5" :style="{ background: getIconColor(cidx) }"><IconRender :icon="child.icon" /></span>
-                            <span class="text-sm font-bold leading-tight" :style="{ color: 'var(--theme-text-secondary)' }">{{ child.name }}</span>
+                            <span v-if="child.icon" class="w-4 h-4 rounded-theme-sm flex items-center justify-center text-[10px] text-white flex-shrink-0 mt-0.5" :style="{ background: getIconColor(cidx) }"><IconRender :icon="child.icon" /></span>
+                            <span class="text-sm font-semibold leading-tight text-theme-text-secondary">{{ child.name }}</span>
                           </div>
-                          <!-- 右列：三级项 flex-wrap，换行后首字自动对齐到右列起始 -->
                           <div class="flex flex-wrap gap-x-3 gap-y-1.5">
                             <template v-for="(grandchild, gidx) in child.children" :key="grandchild.name">
-                              <!-- 三级外部链接 -->
                               <a
                                   v-if="grandchild.isExternal"
                                   :href="grandchild.path"
                                   target="_blank"
                                   rel="noopener noreferrer"
                                   @click="activeNavItem = null"
-                                  class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded transition-colors group hover:bg-black/5"
-                                  style="color: var(--theme-text);"
+                                  class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-theme-md text-xs font-medium text-theme-text hover:bg-theme-surface-highlight transition-theme-fast group"
                               >
-                                <span class="w-4 h-4 rounded flex items-center justify-center text-[10px] text-white flex-shrink-0" :style="{ background: getIconColor(gidx) }"><IconRender :icon="grandchild.icon" fallback="🔗" /></span>
-                                <span class="text-xs font-semibold whitespace-nowrap">{{ grandchild.name }} ↗</span>
+                                <span class="w-4 h-4 rounded-theme-sm flex items-center justify-center text-[10px] text-white flex-shrink-0" :style="{ background: getIconColor(gidx) }"><IconRender :icon="grandchild.icon" fallback="🔗" /></span>
+                                <span class="whitespace-nowrap">{{ grandchild.name }} ↗</span>
                               </a>
-                              <!-- 三级内部路由 -->
                               <Link
                                   v-else
                                   :to="grandchild.path"
                                   @click="activeNavItem = null"
-                                  class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded transition-colors group mega-menu-item hover:bg-black/5"
-                                  style="color: var(--theme-text);"
+                                  class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-theme-md text-xs font-medium text-theme-text hover:bg-theme-surface-highlight transition-theme-fast group"
                               >
-                                <span class="w-4 h-4 rounded flex items-center justify-center text-[10px] text-white flex-shrink-0 mega-menu-item-icon" :style="{ background: getIconColor(gidx) }"><IconRender :icon="grandchild.icon" fallback="📄" /></span>
-                                <span class="text-xs font-semibold whitespace-nowrap">{{ grandchild.name }}</span>
-                                <span v-if="grandchild.badge === 'NEW'" class="inline-flex items-center px-1 py-0.5 rounded-full text-[9px] font-bold text-white flex-shrink-0" style="background: linear-gradient(90deg,#ef4444,#f97316);">NEW</span>
-                                <span v-else-if="grandchild.badge === 'HOT'" class="inline-flex items-center px-1 py-0.5 rounded-full text-[9px] font-bold text-white flex-shrink-0" style="background-color: #D97706;">HOT</span>
-                                <Lock v-if="grandchild.requiresAuth" class="w-2.5 h-2.5 opacity-50 group-hover:opacity-100 transition-opacity flex-shrink-0" style="color: var(--theme-primary);" />
+                                <span class="w-4 h-4 rounded-theme-sm flex items-center justify-center text-[10px] text-white flex-shrink-0" :style="{ background: getIconColor(gidx) }"><IconRender :icon="grandchild.icon" fallback="📄" /></span>
+                                <span class="whitespace-nowrap">{{ grandchild.name }}</span>
+                                <span v-if="grandchild.badge === 'NEW'" class="theme-badge bg-theme-danger text-white">NEW</span>
+                                <span v-else-if="grandchild.badge === 'HOT'" class="theme-badge bg-theme-warning text-white">HOT</span>
+                                <Lock v-if="grandchild.requiresAuth" class="w-2.5 h-2.5 opacity-50 group-hover:opacity-100 transition-opacity text-theme-primary" />
                               </Link>
                             </template>
                           </div>
                         </template>
-                        <!-- 二级无三级子项（末级）：占满两列，加粗显示 -->
+                        <!-- 二级无三级子项（末级） -->
                         <template v-else>
-                          <!-- 末级外部链接 -->
                           <a
                               v-if="child.isExternal"
                               :href="child.path"
                               target="_blank"
                               rel="noopener noreferrer"
                               @click="activeNavItem = null"
-                              class="col-span-2 inline-flex items-center gap-1.5 px-1.5 py-1 rounded transition-colors group hover:bg-black/5"
-                              style="color: var(--theme-text);"
+                              class="col-span-2 inline-flex items-center gap-1.5 px-1.5 py-1 rounded-theme-md text-sm font-semibold text-theme-text hover:bg-theme-surface-highlight transition-theme-fast group"
                           >
-                            <span class="w-4 h-4 rounded flex items-center justify-center text-[10px] text-white flex-shrink-0" :style="{ background: getIconColor(cidx) }"><IconRender :icon="child.icon" fallback="🔗" /></span>
-                            <span class="text-sm font-bold whitespace-nowrap">{{ child.name }} ↗</span>
-                            <span v-if="child.badge === 'NEW'" class="inline-flex items-center px-1 py-0.5 rounded-full text-[9px] font-bold text-white flex-shrink-0" style="background: linear-gradient(90deg,#ef4444,#f97316);">NEW</span>
-                            <span v-else-if="child.badge === 'HOT'" class="inline-flex items-center px-1 py-0.5 rounded-full text-[9px] font-bold text-white flex-shrink-0" style="background-color: #D97706;">HOT</span>
-                            <Lock v-if="child.requiresAuth" class="w-3 h-3 opacity-50 group-hover:opacity-100 transition-opacity flex-shrink-0" style="color: var(--theme-primary);" />
+                            <span class="w-4 h-4 rounded-theme-sm flex items-center justify-center text-[10px] text-white flex-shrink-0" :style="{ background: getIconColor(cidx) }"><IconRender :icon="child.icon" fallback="🔗" /></span>
+                            <span class="whitespace-nowrap">{{ child.name }} ↗</span>
+                            <span v-if="child.badge === 'NEW'" class="theme-badge bg-theme-danger text-white">NEW</span>
+                            <span v-else-if="child.badge === 'HOT'" class="theme-badge bg-theme-warning text-white">HOT</span>
+                            <Lock v-if="child.requiresAuth" class="w-3 h-3 opacity-50 group-hover:opacity-100 transition-opacity text-theme-primary" />
                           </a>
-                          <!-- 末级内部路由 -->
                           <Link
                               v-else
                               :to="child.path"
                               @click="activeNavItem = null"
-                              class="col-span-2 inline-flex items-center gap-1.5 px-1.5 py-1 rounded transition-colors group mega-menu-item hover:bg-black/5"
-                              style="color: var(--theme-text);"
+                              class="col-span-2 inline-flex items-center gap-1.5 px-1.5 py-1 rounded-theme-md text-sm font-semibold text-theme-text hover:bg-theme-surface-highlight transition-theme-fast group"
                           >
-                            <span class="w-4 h-4 rounded flex items-center justify-center text-[10px] text-white flex-shrink-0 mega-menu-item-icon" :style="{ background: getIconColor(cidx) }"><IconRender :icon="child.icon" fallback="📄" /></span>
-                            <span class="text-sm font-bold whitespace-nowrap">{{ child.name }}</span>
-                            <span v-if="child.badge === 'NEW'" class="inline-flex items-center px-1 py-0.5 rounded-full text-[9px] font-bold text-white flex-shrink-0" style="background: linear-gradient(90deg,#ef4444,#f97316);">NEW</span>
-                            <span v-else-if="child.badge === 'HOT'" class="inline-flex items-center px-1 py-0.5 rounded-full text-[9px] font-bold text-white flex-shrink-0" style="background-color: #D97706;">HOT</span>
-                            <Lock v-if="child.requiresAuth" class="w-3 h-3 opacity-50 group-hover:opacity-100 transition-opacity flex-shrink-0" style="color: var(--theme-primary);" />
+                            <span class="w-4 h-4 rounded-theme-sm flex items-center justify-center text-[10px] text-white flex-shrink-0" :style="{ background: getIconColor(cidx) }"><IconRender :icon="child.icon" fallback="📄" /></span>
+                            <span class="whitespace-nowrap">{{ child.name }}</span>
+                            <span v-if="child.badge === 'NEW'" class="theme-badge bg-theme-danger text-white">NEW</span>
+                            <span v-else-if="child.badge === 'HOT'" class="theme-badge bg-theme-warning text-white">HOT</span>
+                            <Lock v-if="child.requiresAuth" class="w-3 h-3 opacity-50 group-hover:opacity-100 transition-opacity text-theme-primary" />
                           </Link>
                         </template>
                       </template>
@@ -739,8 +708,7 @@ onUnmounted(() => document.removeEventListener('click', handleDocumentClick));
           <!-- 移动端菜单按钮 -->
           <button
               @click="isMenuOpen = !isMenuOpen"
-              class="lg:hidden p-2 rounded-lg transition-colors"
-              style="color: var(--theme-text);"
+              class="lg:hidden p-2 rounded-theme-lg text-theme-text hover:bg-theme-surface-highlight transition-theme-fast"
               data-menu-trigger
           >
             <Menu v-if="!isMenuOpen" class="w-6 h-6" />
@@ -753,17 +721,15 @@ onUnmounted(() => document.removeEventListener('click', handleDocumentClick));
     <!-- 移动端菜单 -->
     <div
         v-if="isMenuOpen"
-        class="lg:hidden border-t max-h-[85vh] overflow-y-auto overscroll-contain"
-        style="background-color: var(--theme-bg); border-color: var(--theme-border);"
+        class="lg:hidden border-t border-theme-border bg-theme-bg max-h-[85vh] overflow-y-auto overscroll-contain"
         data-menu-content
     >
-      <div class="px-3 py-2 space-y-1.5">
+      <div class="content-container py-2 space-y-1.5">
         <!-- 移动端顶部功能入口（固定） -->
         <Link
             to="/help"
             @click="isMenuOpen = false"
-            class="flex items-center justify-between border rounded-lg px-4 py-2.5"
-            style="color: var(--theme-primary); border-color: var(--theme-primary); background-color: var(--theme-surface);"
+            class="flex items-center justify-between border border-theme-primary rounded-theme-lg px-4 py-2.5 bg-theme-surface text-theme-primary"
         >
           <span class="font-semibold text-sm flex items-center gap-2">
             <HelpCircle class="w-4 h-4" />
@@ -772,18 +738,15 @@ onUnmounted(() => document.removeEventListener('click', handleDocumentClick));
           <ChevronRight class="w-4 h-4" />
         </Link>
 
-        <!-- 移动端：AI 面试官入口已注入面试指南下拉 -->
-
         <div v-for="(item, iidx) in navItems" :key="item.key">
           <!-- 首页直接跳转 -->
           <Link
               v-if="item.key === 'home'"
               :to="item.path"
               @click="isMenuOpen = false"
-              class="flex items-center gap-2 border rounded-lg px-4 py-2.5"
-              style="color: var(--theme-text); border-color: var(--theme-border);"
+              class="flex items-center gap-2 border border-theme-border rounded-theme-lg px-4 py-2.5 text-theme-text bg-theme-surface"
           >
-            <span v-if="item.icon" class="w-4 h-4 rounded flex items-center justify-center text-[10px] text-white flex-shrink-0" :style="{ background: getIconColor(iidx) }"><IconRender :icon="item.icon" /></span>
+            <span v-if="item.icon" class="w-4 h-4 rounded-theme-sm flex items-center justify-center text-[10px] text-white flex-shrink-0" :style="{ background: getIconColor(iidx) }"><IconRender :icon="item.icon" /></span>
             <span class="font-semibold text-sm">{{ item.name }}</span>
           </Link>
           <!-- 外部链接项 -->
@@ -793,10 +756,9 @@ onUnmounted(() => document.removeEventListener('click', handleDocumentClick));
               target="_blank"
               rel="noopener noreferrer"
               @click="isMenuOpen = false"
-              class="flex items-center gap-2 border rounded-lg px-4 py-2.5"
-              style="color: var(--theme-text); border-color: var(--theme-border);"
+              class="flex items-center gap-2 border border-theme-border rounded-theme-lg px-4 py-2.5 text-theme-text bg-theme-surface"
           >
-            <span v-if="item.icon" class="w-4 h-4 rounded flex items-center justify-center text-[10px] text-white flex-shrink-0" :style="{ background: getIconColor(iidx) }"><IconRender :icon="item.icon" /></span>
+            <span v-if="item.icon" class="w-4 h-4 rounded-theme-sm flex items-center justify-center text-[10px] text-white flex-shrink-0" :style="{ background: getIconColor(iidx) }"><IconRender :icon="item.icon" /></span>
             <span class="font-semibold text-sm">{{ item.name }} ↗</span>
           </a>
           <!-- 有 path 但无子菜单：直接跳转 -->
@@ -804,24 +766,20 @@ onUnmounted(() => document.removeEventListener('click', handleDocumentClick));
               v-else-if="item.path && item.children.length === 0"
               :to="item.path"
               @click="isMenuOpen = false"
-              class="flex items-center gap-2 border rounded-lg px-4 py-2.5"
-              style="color: var(--theme-text); border-color: var(--theme-border);"
+              class="flex items-center gap-2 border border-theme-border rounded-theme-lg px-4 py-2.5 text-theme-text bg-theme-surface"
           >
-            <span v-if="item.icon" class="w-4 h-4 rounded flex items-center justify-center text-[10px] text-white flex-shrink-0" :style="{ background: getIconColor(iidx) }"><IconRender :icon="item.icon" /></span>
+            <span v-if="item.icon" class="w-4 h-4 rounded-theme-sm flex items-center justify-center text-[10px] text-white flex-shrink-0" :style="{ background: getIconColor(iidx) }"><IconRender :icon="item.icon" /></span>
             <span class="font-semibold text-sm">{{ item.name }}</span>
           </Link>
           <!-- 有子菜单：点击展开/折叠 -->
-          <div v-else class="border rounded-lg overflow-hidden" style="border-color: var(--theme-border);">
+          <div v-else class="border border-theme-border rounded-theme-lg overflow-hidden bg-theme-surface">
             <button
                 @click="toggleNav(item.key)"
-                class="w-full flex items-center justify-between px-4 py-2.5"
-                :style="{
-                  color: 'var(--theme-text)',
-                  backgroundColor: activeNavItem === item.key ? 'var(--theme-surface)' : 'transparent'
-                }"
+                class="w-full flex items-center justify-between px-4 py-2.5 text-theme-text"
+                :class="activeNavItem === item.key ? 'bg-theme-surface-highlight' : ''"
             >
               <span class="flex items-center gap-2">
-                <span v-if="item.icon" class="w-4 h-4 rounded flex items-center justify-center text-[10px] text-white flex-shrink-0" :style="{ background: getIconColor(iidx) }"><IconRender :icon="item.icon" /></span>
+                <span v-if="item.icon" class="w-4 h-4 rounded-theme-sm flex items-center justify-center text-[10px] text-white flex-shrink-0" :style="{ background: getIconColor(iidx) }"><IconRender :icon="item.icon" /></span>
                 <span class="font-semibold text-sm">{{ item.name }}</span>
               </span>
               <ChevronDown
@@ -832,26 +790,21 @@ onUnmounted(() => document.removeEventListener('click', handleDocumentClick));
             <!-- 移动端二级菜单 -->
             <div
                 v-if="activeNavItem === item.key"
-                class="border-t"
-                style="border-color: var(--theme-border); background-color: var(--theme-surface);"
+                class="border-t border-theme-border bg-theme-bg"
             >
               <template v-for="(child, idx) in item.children" :key="child.name">
-                <!-- 二级有三级子项：作为分类标题，点击展开三级 -->
+                <!-- 二级有三级子项 -->
                 <div
                     v-if="child.children && child.children.length > 0"
-                    :style="{ borderTop: idx > 0 ? '1px solid var(--theme-border)' : 'none' }"
+                    :class="idx > 0 ? 'border-t border-theme-border' : ''"
                 >
                   <button
                       @click="toggleSubNav(item.key + '/' + child.name)"
-                      class="w-full flex items-center justify-between px-5 py-2 text-xs"
-                      :style="{
-                        color: 'var(--theme-text-secondary)',
-                        fontWeight: 'bold',
-                        backgroundColor: activeSubNavItem === item.key + '/' + child.name ? 'var(--theme-bg)' : 'transparent'
-                      }"
+                      class="w-full flex items-center justify-between px-5 py-2 text-xs text-theme-text-secondary font-semibold"
+                      :class="activeSubNavItem === item.key + '/' + child.name ? 'bg-theme-bg-elevated' : ''"
                   >
                     <span class="flex items-center gap-1.5">
-                      <span v-if="child.icon" class="w-5 h-5 rounded flex items-center justify-center text-[10px] text-white" :style="{ background: getIconColor(idx) }"><IconRender :icon="child.icon" /></span>
+                      <span v-if="child.icon" class="w-5 h-5 rounded-theme-sm flex items-center justify-center text-[10px] text-white" :style="{ background: getIconColor(idx) }"><IconRender :icon="child.icon" /></span>
                       <span>{{ child.name }}</span>
                     </span>
                     <ChevronDown
@@ -860,51 +813,40 @@ onUnmounted(() => document.removeEventListener('click', handleDocumentClick));
                     />
                   </button>
                   <!-- 三级项列表 -->
-                  <div v-if="activeSubNavItem === item.key + '/' + child.name" style="background-color: var(--theme-bg);">
+                  <div v-if="activeSubNavItem === item.key + '/' + child.name" class="bg-theme-bg">
                     <template v-for="(grandchild, gidx) in child.children" :key="grandchild.name">
-                      <!-- 三级外部链接 -->
                       <a
                           v-if="grandchild.isExternal"
                           :href="grandchild.path"
                           target="_blank"
                           rel="noopener noreferrer"
                           @click="isMenuOpen = false"
-                          class="flex items-center gap-2 px-7 py-2 text-xs"
-                          :style="{
-                            color: 'var(--theme-text)',
-                            borderTop: gidx > 0 ? '1px solid var(--theme-border)' : 'none'
-                          }"
+                          class="flex items-center gap-2 px-7 py-2 text-xs text-theme-text"
+                          :class="gidx > 0 ? 'border-t border-theme-border' : ''"
                       >
-                        <span class="w-4 h-4 rounded flex items-center justify-center text-[9px] text-white flex-shrink-0" :style="{ background: getIconColor(gidx) }"><IconRender :icon="grandchild.icon" fallback="🔗" /></span>
+                        <span class="w-4 h-4 rounded-theme-sm flex items-center justify-center text-[9px] text-white flex-shrink-0" :style="{ background: getIconColor(gidx) }"><IconRender :icon="grandchild.icon" fallback="🔗" /></span>
                         <span class="flex-1 truncate">{{ grandchild.name }} ↗</span>
                       </a>
-                      <!-- 三级内部路由 -->
                       <Link
                           v-else
                           :to="grandchild.path"
                           @click="isMenuOpen = false"
-                          class="flex items-center gap-2 px-7 py-2 text-xs group"
-                          :style="{
-                            color: 'var(--theme-text)',
-                            borderTop: gidx > 0 ? '1px solid var(--theme-border)' : 'none'
-                          }"
+                          class="flex items-center gap-2 px-7 py-2 text-xs text-theme-text group"
+                          :class="gidx > 0 ? 'border-t border-theme-border' : ''"
                       >
-                        <span class="w-4 h-4 rounded flex items-center justify-center text-[9px] text-white flex-shrink-0" :style="{ background: getIconColor(gidx) }"><IconRender :icon="grandchild.icon" fallback="📄" /></span>
+                        <span class="w-4 h-4 rounded-theme-sm flex items-center justify-center text-[9px] text-white flex-shrink-0" :style="{ background: getIconColor(gidx) }"><IconRender :icon="grandchild.icon" fallback="📄" /></span>
                         <span class="flex-1 truncate">{{ grandchild.name }}</span>
                         <span
                             v-if="grandchild.badge === 'NEW'"
-                            class="inline-flex items-center px-1 py-0.5 rounded-full text-[9px] font-bold text-white flex-shrink-0"
-                            style="background: linear-gradient(90deg,#ef4444,#f97316);"
+                            class="theme-badge bg-theme-danger text-white"
                         >NEW</span>
                         <span
                             v-else-if="grandchild.badge === 'HOT'"
-                            class="inline-flex items-center px-1 py-0.5 rounded-full text-[9px] font-bold text-white flex-shrink-0"
-                            style="background-color: #D97706;"
+                            class="theme-badge bg-theme-warning text-white"
                         >HOT</span>
                         <Lock
                             v-if="grandchild.requiresAuth"
-                            class="w-3 h-3 opacity-60 group-hover:opacity-100 transition-opacity flex-shrink-0"
-                            style="color: var(--theme-primary);"
+                            class="w-3 h-3 opacity-60 group-hover:opacity-100 transition-opacity text-theme-primary"
                         />
                       </Link>
                     </template>
@@ -917,13 +859,10 @@ onUnmounted(() => document.removeEventListener('click', handleDocumentClick));
                     target="_blank"
                     rel="noopener noreferrer"
                     @click="isMenuOpen = false"
-                    class="flex items-center gap-2 px-5 py-2 text-xs"
-                    :style="{
-                      color: 'var(--theme-text)',
-                      borderTop: idx > 0 ? '1px solid var(--theme-border)' : 'none'
-                    }"
+                    class="flex items-center gap-2 px-5 py-2 text-xs text-theme-text"
+                    :class="idx > 0 ? 'border-t border-theme-border' : ''"
                 >
-                  <span class="w-5 h-5 rounded flex items-center justify-center text-[10px] text-white flex-shrink-0" :style="{ background: getIconColor(idx) }"><IconRender :icon="child.icon" fallback="🔗" /></span>
+                  <span class="w-5 h-5 rounded-theme-sm flex items-center justify-center text-[10px] text-white flex-shrink-0" :style="{ background: getIconColor(idx) }"><IconRender :icon="child.icon" fallback="🔗" /></span>
                   <span class="flex-1 truncate">{{ child.name }} ↗</span>
                 </a>
                 <!-- 二级无三级子项：内部路由 -->
@@ -931,28 +870,22 @@ onUnmounted(() => document.removeEventListener('click', handleDocumentClick));
                     v-else
                     :to="child.path"
                     @click="isMenuOpen = false"
-                    class="flex items-center gap-2 px-5 py-2 text-xs group"
-                    :style="{
-                      color: 'var(--theme-text)',
-                      borderTop: idx > 0 ? '1px solid var(--theme-border)' : 'none'
-                    }"
+                    class="flex items-center gap-2 px-5 py-2 text-xs text-theme-text group"
+                    :class="idx > 0 ? 'border-t border-theme-border' : ''"
                 >
-                  <span class="w-5 h-5 rounded flex items-center justify-center text-[10px] text-white flex-shrink-0" :style="{ background: getIconColor(idx) }"><IconRender :icon="child.icon" fallback="📄" /></span>
+                  <span class="w-5 h-5 rounded-theme-sm flex items-center justify-center text-[10px] text-white flex-shrink-0" :style="{ background: getIconColor(idx) }"><IconRender :icon="child.icon" fallback="📄" /></span>
                   <span class="flex-1 truncate">{{ child.name }}</span>
                   <span
                       v-if="child.badge === 'NEW'"
-                      class="inline-flex items-center px-1 py-0.5 rounded-full text-[9px] font-bold text-white flex-shrink-0"
-                      style="background: linear-gradient(90deg,#ef4444,#f97316);"
+                      class="theme-badge bg-theme-danger text-white"
                   >NEW</span>
                   <span
                       v-else-if="child.badge === 'HOT'"
-                      class="inline-flex items-center px-1 py-0.5 rounded-full text-[9px] font-bold text-white flex-shrink-0"
-                      style="background-color: #D97706;"
+                      class="theme-badge bg-theme-warning text-white"
                   >HOT</span>
                   <Lock
                       v-if="child.requiresAuth"
-                      class="w-3 h-3 opacity-60 group-hover:opacity-100 transition-opacity flex-shrink-0"
-                      style="color: var(--theme-primary);"
+                      class="w-3 h-3 opacity-60 group-hover:opacity-100 transition-opacity text-theme-primary"
                   />
                 </Link>
               </template>

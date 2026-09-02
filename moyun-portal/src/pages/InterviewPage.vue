@@ -72,10 +72,10 @@ function getDifficultyColor(difficulty: string) {
   const dictClass = dictBadgeClass(findDifficultyItem(difficulty)?.listClass);
   if (dictClass) return dictClass;
   switch (difficulty) {
-    case 'easy': return 'bg-green-100 text-green-700';
-    case 'medium': return 'bg-yellow-100 text-yellow-700';
-    case 'hard': return 'bg-red-100 text-red-700';
-    default: return 'bg-gray-100 text-gray-700';
+    case 'easy': return 'bg-theme-success-bg text-theme-success';
+    case 'medium': return 'bg-theme-warning-bg text-theme-warning';
+    case 'hard': return 'bg-theme-danger-bg text-theme-danger';
+    default: return 'bg-theme-bg text-theme-text-secondary';
   }
 }
 function getDifficultyText(difficulty: string) {
@@ -141,15 +141,14 @@ const breadcrumbs = computed(() => [
 </script>
 
 <template>
-  <div class="min-h-screen flex flex-col" style="background-color: var(--theme-bg);">
+  <div class="min-h-screen flex flex-col bg-theme-bg">
     <!-- 吸顶面包屑栏 -->
-    <div class="border-b sticky top-0 z-30 backdrop-blur-sm py-3" style="background-color: var(--theme-surface); border-color: var(--theme-border);">
+    <div class="border-b border-theme-border sticky top-0 z-30 backdrop-blur-sm py-3 bg-theme-surface/90">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between gap-4">
         <Breadcrumb :items="breadcrumbs" />
         <router-link
           to="/interview/resume/edit"
-          class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-white transition hover:opacity-90 flex-shrink-0"
-          style="background-color: var(--theme-primary);"
+          class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg meta-text font-medium text-white transition hover:opacity-90 flex-shrink-0 bg-theme-primary"
           title="维护我的简历（教育、工作、项目、技能等）"
         >
           <FileText class="w-3.5 h-3.5" />
@@ -158,195 +157,143 @@ const breadcrumbs = computed(() => [
       </div>
     </div>
 
-    <!-- Hero 区 -->
-    <div class="py-6 sm:py-8">
+    <!-- Hero 区：轻量、无深色背景、压缩高度 -->
+    <div class="pt-4 pb-5 sm:pt-6 sm:pb-6">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div class="relative overflow-hidden rounded-2xl text-white" style="background-image: radial-gradient(circle at 20% 30%, rgba(99, 102, 241, 0.4) 0%, transparent 50%), radial-gradient(circle at 80% 70%, rgba(168, 85, 247, 0.4) 0%, transparent 50%), linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);">
-      <div class="absolute inset-0 opacity-10 pointer-events-none" aria-hidden="true">
-        <svg class="absolute top-6 left-8 w-32 h-32 text-white" viewBox="0 0 24 24" fill="currentColor"><path d="M9.4 16.6L4.8 12l4.6-4.6L8 6l-6 6 6 6 1.4-1.4zm5.2 0L19.2 12l-4.6-4.6L16 6l6 6-6 6-1.4-1.4z"/></svg>
-        <svg class="absolute bottom-4 right-10 w-40 h-40 text-white" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 4c-3.31 0-6 2.69-6 6s2.69 6 6 6 6-2.69 6-6-2.69-6-6-6zm0 2c2.21 0 4 1.79 4 4s-1.79 4-4 4-4-1.79-4-4 1.79-4 4-4zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"/></svg>
-      </div>
-      <div class="relative px-6 py-8 sm:px-10 sm:py-10 text-center">
-        <div class="inline-flex items-center bg-white/10 backdrop-blur-sm px-4 py-1.5 rounded-full text-sm mb-6">
-          <Briefcase class="w-4 h-4 mr-2" /> 旭林 · 面试指南
-        </div>
-        <div class="flex items-center justify-center mb-4">
-          <h1 class="text-5xl font-bold tracking-tight">备战面试，直通 Offer</h1>
-        </div>
-        <p class="text-xl max-w-2xl mx-auto mb-10" style="color: rgba(255,255,255,0.9);">
-          海量算法题库 · 真实面试经验 · 精选简历模板 — 一站式求职备战平台
-        </p>
-        <!-- 平台统计 -->
-        <div class="max-w-4xl mx-auto grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-          <div class="bg-white/10 backdrop-blur-sm rounded-xl p-4 border border-white/20">
-            <Target class="w-6 h-6 mx-auto mb-2 text-blue-200" />
-            <div class="text-3xl font-bold mb-1">{{ formatNumber(totalQuestionCount) }}</div>
-            <div class="text-sm text-blue-100">题目总数</div>
+        <div class="relative overflow-hidden rounded-2xl bg-gradient-to-br from-theme-primary-soft to-theme-surface border border-theme-border">
+          <div class="relative px-5 py-6 sm:px-8 sm:py-7 text-center">
+            <h1 class="page-title mb-2">备战面试，直通 Offer</h1>
+            <p class="body-text text-theme-text-secondary max-w-2xl mx-auto mb-4">
+              海量算法题库 · 真实面试经验 · 精选简历模板
+            </p>
+
+            <!-- 平台统计：横向紧凑排列，弱化模块感 -->
+            <div class="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 mb-4">
+              <div class="flex items-center gap-1.5">
+                <Target class="w-4 h-4 text-theme-primary" />
+                <span class="font-bold text-theme-text">{{ formatNumber(totalQuestionCount) }}</span>
+                <span class="meta-text">题目</span>
+              </div>
+              <div class="flex items-center gap-1.5">
+                <Zap class="w-4 h-4 text-theme-primary" />
+                <span class="font-bold text-theme-text">{{ formatNumber(totalSubmissionCount) }}</span>
+                <span class="meta-text">提交</span>
+              </div>
+              <div class="flex items-center gap-1.5">
+                <Users class="w-4 h-4 text-theme-primary" />
+                <span class="font-bold text-theme-text">{{ categories.length }}</span>
+                <span class="meta-text">分类</span>
+              </div>
+              <div class="flex items-center gap-1.5">
+                <Building2 class="w-4 h-4 text-theme-primary" />
+                <span class="font-bold text-theme-text">{{ hotCompanies.length }}</span>
+                <span class="meta-text">公司</span>
+              </div>
+            </div>
+
+            <!-- 快捷入口 -->
+            <div class="flex flex-wrap items-center justify-center gap-2">
+              <button @click="goMyResume" class="theme-btn theme-btn-primary px-4 py-2 rounded-lg text-sm">
+                <FileText class="w-4 h-4" />
+                我的简历
+              </button>
+              <button @click="goResume" class="theme-btn theme-btn-secondary px-4 py-2 rounded-lg text-sm">
+                <FileText class="w-4 h-4" />
+                简历模板
+              </button>
+              <button @click="router.push('/learn/questions')" class="theme-btn theme-btn-secondary px-4 py-2 rounded-lg text-sm">
+                <BookOpen class="w-4 h-4" />
+                浏览题库
+              </button>
+            </div>
           </div>
-          <div class="bg-white/10 backdrop-blur-sm rounded-xl p-4 border border-white/20">
-            <Zap class="w-6 h-6 mx-auto mb-2 text-yellow-200" />
-            <div class="text-3xl font-bold mb-1">{{ formatNumber(totalSubmissionCount) }}</div>
-            <div class="text-sm text-blue-100">提交总数</div>
-          </div>
-          <div class="bg-white/10 backdrop-blur-sm rounded-xl p-4 border border-white/20">
-            <Users class="w-6 h-6 mx-auto mb-2 text-green-200" />
-            <div class="text-3xl font-bold mb-1">{{ categories.length }}</div>
-            <div class="text-sm text-blue-100">题目分类</div>
-          </div>
-          <div class="bg-white/10 backdrop-blur-sm rounded-xl p-4 border border-white/20">
-            <Building2 class="w-6 h-6 mx-auto mb-2 text-orange-200" />
-            <div class="text-3xl font-bold mb-1">{{ hotCompanies.length }}</div>
-            <div class="text-sm text-blue-100">热门公司</div>
-          </div>
-        </div>
-        <!-- 快捷入口 -->
-        <div class="flex flex-wrap items-center justify-center gap-3">
-          <button @click="goMyResume" class="px-6 py-3 bg-white text-indigo-700 rounded-lg font-medium hover:bg-blue-50 transition flex items-center">
-            <FileText class="w-5 h-5 mr-2" />
-            我的简历
-          </button>
-          <button @click="goResume" class="px-6 py-3 bg-white/10 border border-white/30 text-white rounded-lg font-medium hover:bg-white/20 transition flex items-center backdrop-blur-sm">
-            <FileText class="w-5 h-5 mr-2" />
-            简历模板
-          </button>
-          <button @click="router.push('/interview/questions')" class="px-6 py-3 bg-white/10 border border-white/30 text-white rounded-lg font-medium hover:bg-white/20 transition flex items-center backdrop-blur-sm">
-            <BookOpen class="w-5 h-5 mr-2" />
-            浏览题库
-          </button>
-        </div>
-      </div>
         </div>
       </div>
     </div>
 
-    <!-- ========== AI 语音面试官（V10.1 功能入口横幅） ========== -->
-    <div class="pb-8">
+    <!-- ========== AI 语音面试官（压缩、主题色统一） ========== -->
+    <div class="pb-5 sm:pb-6">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div class="relative overflow-hidden rounded-2xl border shadow-sm"
-             style="background: linear-gradient(135deg,#0F766E 0%,#3FA86F 55%,#F0B429 130%); border-color: color-mix(in srgb, var(--theme-primary) 35%, transparent);">
-          <!-- 装饰：麦克风音波 -->
-          <div class="absolute inset-0 opacity-10 pointer-events-none select-none" aria-hidden="true">
-            <svg class="absolute -right-8 -top-8 w-64 h-64 text-white" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M12 14a3 3 0 0 0 3-3V5a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V21h2v-3.08A7 7 0 0 0 19 11h-2z"/>
-            </svg>
-            <svg class="absolute left-10 bottom-4 w-40 h-40 text-yellow-200" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
-              <path d="M3 12h2M7 8v8M11 5v14M15 9v6M19 11v2M21 12h-2"/>
-            </svg>
-          </div>
+        <div class="relative overflow-hidden rounded-2xl border shadow-sm bg-gradient-to-br from-theme-primary to-theme-primary-hover border-theme-border/50">
+          <div class="relative px-5 py-5 sm:px-8 sm:py-6 text-white">
+            <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+              <div class="flex-1 min-w-0">
+                <div class="inline-flex items-center gap-2 rounded-full bg-white/15 backdrop-blur px-3 py-1 caption-text font-semibold mb-3 border border-white/25">
+                  <Sparkles class="w-3.5 h-3.5" />
+                  V10.1 · AI 语音面试官 · NEW
+                </div>
+                <h2 class="section-title text-white mb-1">像真人一样，和 AI 对练一场面试</h2>
+                <p class="meta-text text-white/85 max-w-2xl mb-4">
+                  TTS 读题 · ASR 实时转写 · 智能追问 · 双轨评分 · 5 维雷达报告
+                </p>
 
-          <div class="relative px-6 py-8 sm:px-10 sm:py-10 text-white grid md:grid-cols-[1.2fr,1fr] gap-8 items-center">
-            <div>
-              <div class="inline-flex items-center gap-2 rounded-full bg-white/15 backdrop-blur px-3.5 py-1.5 text-xs font-semibold mb-5 border border-white/25">
-                <Sparkles class="w-3.5 h-3.5" />
-                V10.1 · AI 语音面试官 · NEW
-              </div>
-              <h2 class="text-3xl sm:text-4xl font-extrabold tracking-tight mb-3">
-                像真人一样，和 AI 对练一场面试
-              </h2>
-              <p class="text-base sm:text-lg mb-6 max-w-2xl" style="color: rgba(255,255,255,0.92);">
-                题目 TTS 朗读、麦克风实时语音识别转写、智能追问、每题规则分+大模型反馈、
-                结束自动生成 5 维雷达图报告与逐题复盘，一站式陪你到 Offer。
-              </p>
+                <!-- 四大能力：横向紧凑排列 -->
+                <div class="flex flex-wrap gap-x-5 gap-y-2 mb-4">
+                  <div class="flex items-center gap-1.5">
+                    <Mic class="w-3.5 h-3.5 text-white/90" />
+                    <span class="meta-text text-white/90">语音问答</span>
+                  </div>
+                  <div class="flex items-center gap-1.5">
+                    <MessageSquare class="w-3.5 h-3.5 text-white/90" />
+                    <span class="meta-text text-white/90">智能追问</span>
+                  </div>
+                  <div class="flex items-center gap-1.5">
+                    <BarChart3 class="w-3.5 h-3.5 text-white/90" />
+                    <span class="meta-text text-white/90">双轨评分</span>
+                  </div>
+                  <div class="flex items-center gap-1.5">
+                    <Clock class="w-3.5 h-3.5 text-white/90" />
+                    <span class="meta-text text-white/90">完整报告</span>
+                  </div>
+                </div>
 
-              <!-- 四大能力 -->
-              <div class="grid sm:grid-cols-2 gap-3 mb-7">
-                <div class="flex items-start gap-2.5 bg-white/10 backdrop-blur rounded-xl p-3 border border-white/15">
-                  <div class="shrink-0 w-8 h-8 rounded-lg flex items-center justify-center" style="background: rgba(255,255,255,0.18);">
-                    <Mic class="w-4.5 h-4.5" style="width:18px;height:18px;" />
-                  </div>
-                  <div>
-                    <div class="font-semibold mb-0.5">语音问答</div>
-                    <div class="text-xs" style="color: rgba(255,255,255,0.85);">TTS 读题 + ASR 实时转写（支持编辑）</div>
-                  </div>
-                </div>
-                <div class="flex items-start gap-2.5 bg-white/10 backdrop-blur rounded-xl p-3 border border-white/15">
-                  <div class="shrink-0 w-8 h-8 rounded-lg flex items-center justify-center" style="background: rgba(255,255,255,0.18);">
-                    <MessageSquare class="w-4.5 h-4.5" style="width:18px;height:18px;" />
-                  </div>
-                  <div>
-                    <div class="font-semibold mb-0.5">智能追问</div>
-                    <div class="text-xs" style="color: rgba(255,255,255,0.85);">根据回答自动跟进，模拟真实场景</div>
-                  </div>
-                </div>
-                <div class="flex items-start gap-2.5 bg-white/10 backdrop-blur rounded-xl p-3 border border-white/15">
-                  <div class="shrink-0 w-8 h-8 rounded-lg flex items-center justify-center" style="background: rgba(255,255,255,0.18);">
-                    <BarChart3 class="w-4.5 h-4.5" style="width:18px;height:18px;" />
-                  </div>
-                  <div>
-                    <div class="font-semibold mb-0.5">双轨评分</div>
-                    <div class="text-xs" style="color: rgba(255,255,255,0.85);">规则引擎先打分 · LLM 深度反馈</div>
-                  </div>
-                </div>
-                <div class="flex items-start gap-2.5 bg-white/10 backdrop-blur rounded-xl p-3 border border-white/15">
-                  <div class="shrink-0 w-8 h-8 rounded-lg flex items-center justify-center" style="background: rgba(255,255,255,0.18);">
-                    <Clock class="w-4.5 h-4.5" style="width:18px;height:18px;" />
-                  </div>
-                  <div>
-                    <div class="font-semibold mb-0.5">完整报告</div>
-                    <div class="text-xs" style="color: rgba(255,255,255,0.85);">5 维雷达图 · 逐题 · 优缺点 · 行动建议</div>
-                  </div>
+                <!-- 操作按钮 -->
+                <div class="flex flex-wrap items-center gap-2">
+                  <button
+                    @click="goVoiceInterview"
+                    class="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg font-semibold shadow-md transition hover:-translate-y-0.5 hover:shadow-lg bg-white text-theme-primary meta-text"
+                  >
+                    <PlayCircle class="w-4 h-4" />
+                    立即开始面试
+                    <span class="inline-flex items-center px-1.5 py-0.5 rounded-full caption-text font-bold text-white bg-theme-primary/80">FREE</span>
+                  </button>
+                  <button
+                    @click="goMyAttempts"
+                    class="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg font-semibold transition hover:bg-white/15 border border-white/30 backdrop-blur-sm meta-text text-white"
+                  >
+                    <Trophy class="w-4 h-4" />
+                    我的面试记录
+                  </button>
                 </div>
               </div>
 
-              <!-- 操作按钮 -->
-              <div class="flex flex-wrap items-center gap-3">
-                <button
-                  @click="goVoiceInterview"
-                  class="inline-flex items-center gap-2 px-7 py-3.5 rounded-xl font-semibold text-base shadow-lg transition hover:-translate-y-0.5 hover:shadow-xl"
-                  style="background: #fff; color: #0F766E;"
-                >
-                  <PlayCircle class="w-5 h-5" />
-                  立即开始面试
-                  <span class="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-bold text-white" style="background: linear-gradient(90deg,#0F766E,#F0B429);">FREE</span>
-                </button>
-                <button
-                  @click="goMyAttempts"
-                  class="inline-flex items-center gap-2 px-6 py-3.5 rounded-xl font-semibold text-base transition hover:bg-white/15 border border-white/30 backdrop-blur-sm"
-                >
-                  <Trophy class="w-5 h-5" />
-                  我的面试记录
-                </button>
-              </div>
-            </div>
-
-            <!-- 右侧：产品形态预览（模拟手机界面） -->
-            <div class="hidden md:block">
-              <div class="mx-auto max-w-sm rounded-[28px] border border-white/20 bg-white/10 backdrop-blur-md p-3 shadow-2xl">
-                <div class="rounded-[22px] bg-white text-slate-700 overflow-hidden">
-                  <!-- 语音面试页顶部 -->
-                  <div class="flex items-center justify-between px-4 py-2.5 border-b border-slate-100">
-                    <div class="flex items-center gap-2">
-                      <div class="w-8 h-8 rounded-full flex items-center justify-center bg-emerald-50 text-emerald-600">
-                        <Mic class="w-4 h-4" />
+              <!-- 右侧：精简版产品预览 -->
+              <div class="hidden lg:block shrink-0">
+                <div class="w-52 rounded-2xl border border-white/20 bg-white/10 backdrop-blur-md p-2 shadow-xl">
+                  <div class="rounded-xl bg-white text-theme-text overflow-hidden">
+                    <div class="flex items-center gap-2 px-3 py-2 border-b border-theme-border">
+                      <div class="w-7 h-7 rounded-full flex items-center justify-center bg-theme-primary-soft text-theme-primary">
+                        <Mic class="w-3.5 h-3.5" />
                       </div>
                       <div>
-                        <div class="text-sm font-bold">AI 面试官</div>
-                        <div class="text-[11px] text-slate-400">Java 后端 · 专业风格</div>
+                        <div class="card-title text-xs">AI 面试官</div>
+                        <div class="caption-text text-theme-text-tertiary">Java 后端 · 专业风格</div>
                       </div>
                     </div>
-                    <span class="text-[10px] rounded-full bg-red-50 text-red-500 px-2 py-0.5 font-semibold border border-red-100">录音中</span>
-                  </div>
-                  <!-- 模拟气泡 -->
-                  <div class="px-3.5 py-3 space-y-2 bg-slate-50">
-                    <div class="max-w-[85%] mr-auto bg-white border border-slate-100 rounded-2xl rounded-tl-sm px-3 py-2 text-xs shadow-sm">
-                      你好，欢迎参加本次面试～ 请先做一个 2 分钟的自我介绍。
-                    </div>
-                    <div class="max-w-[85%] ml-auto bg-emerald-600 text-white rounded-2xl rounded-tr-sm px-3 py-2 text-xs shadow-sm">
-                      您好！我是 xxx，3 年 Java 后端开发经验，主要做微服务架构…
-                    </div>
-                    <div class="max-w-[85%] mr-auto bg-white border border-slate-100 rounded-2xl rounded-tl-sm px-3 py-2 text-xs shadow-sm">
-                      <span class="font-semibold text-emerald-600 mr-1">追问：</span>
-                      你提到 Spring Cloud Gateway，请说说它的过滤器执行顺序和常用扩展点。
-                    </div>
-                  </div>
-                  <!-- 模拟底部输入条 -->
-                  <div class="px-3.5 py-3 border-t border-slate-100">
-                    <div class="flex items-center gap-2">
-                      <div class="flex-1 h-9 rounded-full bg-slate-50 border border-slate-100 flex items-center px-3 text-[11px] text-slate-400">
-                        按住麦克风说话，或在此输入文字…
+                    <div class="px-2.5 py-2 space-y-1.5 bg-theme-bg">
+                      <div class="max-w-[90%] mr-auto bg-theme-surface border border-theme-border rounded-xl rounded-tl-sm px-2.5 py-1.5 caption-text leading-snug">
+                        请先做一个 2 分钟自我介绍。
                       </div>
-                      <div class="w-10 h-10 rounded-full bg-emerald-600 flex items-center justify-center shadow-lg">
-                        <Mic class="w-5 h-5 text-white" />
+                      <div class="max-w-[90%] ml-auto bg-theme-primary text-white rounded-xl rounded-tr-sm px-2.5 py-1.5 caption-text leading-snug">
+                        您好！我是 xxx，3 年 Java…
+                      </div>
+                    </div>
+                    <div class="px-2.5 py-2 border-t border-theme-border flex items-center gap-1.5">
+                      <div class="flex-1 h-6 rounded-full bg-theme-bg border border-theme-border flex items-center px-2 caption-text text-theme-text-tertiary">
+                        按住麦克风说话…
+                      </div>
+                      <div class="w-6 h-6 rounded-full bg-theme-primary flex items-center justify-center shadow">
+                        <Mic class="w-3 h-3 text-white" />
                       </div>
                     </div>
                   </div>
@@ -358,92 +305,83 @@ const breadcrumbs = computed(() => [
       </div>
     </div>
 
-    <!-- ========== STAR 核心功能矩阵（需求 §界面参考补充-13，V10.1 入口就位） ========== -->
-    <div class="pb-6">
+    <!-- ========== STAR 核心功能矩阵 ========== -->
+    <div class="pb-5 sm:pb-6">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div class="mb-4 flex items-end justify-between gap-4">
-          <div>
-            <h2 class="text-xl sm:text-2xl font-bold flex items-center gap-2" style="color: var(--theme-text);">
-              <Sparkles class="w-5 h-5 sm:w-6 sm:h-6" style="color: var(--theme-primary);" />
-              面试空间 · 核心功能
-            </h2>
-            <p class="mt-1 text-xs sm:text-sm" style="color: var(--theme-text-secondary);">从练习到复盘的完整漏斗：刷题 → 语音对练 → 复盘报告</p>
-          </div>
+        <div class="mb-3 sm:mb-4">
+          <h2 class="section-title flex items-center gap-2 mb-1">
+            <Sparkles class="w-5 h-5 sm:w-6 sm:h-6 text-theme-primary" />
+            面试空间 · 核心功能
+          </h2>
+          <p class="meta-text">从练习到复盘的完整漏斗：刷题 → 语音对练 → 复盘报告</p>
         </div>
         <div class="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
-          <!-- 1. 实时 AI 语音面试（对应文档"实时面试提醒"，V10.1 已交付 MVP） -->
+          <!-- 1. 实时 AI 语音面试 -->
           <button
             @click="goVoiceInterview"
-            class="group relative text-left rounded-2xl border p-4 sm:p-5 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-lg overflow-hidden"
-            :style="{
-              borderColor: 'color-mix(in srgb, var(--theme-primary) 40%, transparent)',
-              background: 'linear-gradient(160deg, color-mix(in srgb, var(--theme-primary) 10%, var(--theme-surface)) 0%, var(--theme-surface) 100%)',
-            }"
+            class="group relative text-left rounded-2xl border p-4 sm:p-5 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-lg overflow-hidden bg-theme-surface border-theme-primary/40"
           >
-            <span class="absolute top-3 right-3 inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-bold text-white" style="background: linear-gradient(90deg,#ef4444,#f97316);">NEW</span>
-            <div class="w-11 h-11 rounded-xl mb-3 flex items-center justify-center" style="background-color: var(--theme-primary); color:#fff;">
-              <Mic class="w-5.5 h-5.5" style="width:22px;height:22px;" />
+            <span class="absolute top-3 right-3 inline-flex items-center px-1.5 py-0.5 rounded-full caption-text font-bold text-white bg-theme-primary">NEW</span>
+            <div class="w-11 h-11 rounded-xl mb-3 flex items-center justify-center bg-theme-primary text-white">
+              <Mic class="w-5 h-5" />
             </div>
-            <div class="font-bold mb-1" style="color: var(--theme-text);">实时面试提醒</div>
-            <div class="text-xs leading-relaxed mb-3" style="color: var(--theme-text-secondary);">
+            <div class="card-title mb-1">实时面试提醒</div>
+            <div class="card-summary leading-relaxed mb-3">
               进入语音面试，实时对练 · 智能追问
             </div>
-            <div class="inline-flex items-center gap-1 text-xs font-semibold" style="color: var(--theme-primary);">
+            <div class="inline-flex items-center gap-1 meta-text font-semibold text-theme-primary">
               进入体验 <ArrowRight class="w-3 h-3 transition-transform group-hover:translate-x-0.5" />
             </div>
           </button>
 
-          <!-- 2. 一键 AI 简历（复用简历编辑页已有 AI 建议 Tab） -->
+          <!-- 2. 一键 AI 简历 -->
           <button
             @click="goMyResume"
-            class="group text-left rounded-2xl border p-4 sm:p-5 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md"
-            style="background-color: var(--theme-surface); border-color: var(--theme-border);"
+            class="group text-left rounded-2xl border p-4 sm:p-5 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md bg-theme-surface border-theme-border"
           >
-            <div class="w-11 h-11 rounded-xl mb-3 flex items-center justify-center bg-amber-50 text-amber-600">
+            <div class="w-11 h-11 rounded-xl mb-3 flex items-center justify-center bg-theme-primary-soft text-theme-primary">
               <FileText class="w-5 h-5" />
             </div>
-            <div class="font-bold mb-1" style="color: var(--theme-text);">一键 AI 简历</div>
-            <div class="text-xs leading-relaxed mb-3" style="color: var(--theme-text-secondary);">
+            <div class="card-title mb-1">一键 AI 简历</div>
+            <div class="card-summary leading-relaxed mb-3">
               结构化编辑器 · AI 评分与改写建议
             </div>
-            <div class="inline-flex items-center gap-1 text-xs font-semibold" style="color: var(--theme-primary);">
+            <div class="inline-flex items-center gap-1 meta-text font-semibold text-theme-primary">
               维护简历 <ArrowRight class="w-3 h-3 transition-transform group-hover:translate-x-0.5" />
             </div>
           </button>
 
-          <!-- 4. 深度面试复盘（历史答题列表） -->
+          <!-- 3. 深度面试复盘 -->
           <button
             @click="goMyAttempts"
-            class="group text-left rounded-2xl border p-4 sm:p-5 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md"
-            style="background-color: var(--theme-surface); border-color: var(--theme-border);"
+            class="group text-left rounded-2xl border p-4 sm:p-5 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md bg-theme-surface border-theme-border"
           >
-            <div class="w-11 h-11 rounded-xl mb-3 flex items-center justify-center bg-emerald-50 text-emerald-600">
+            <div class="w-11 h-11 rounded-xl mb-3 flex items-center justify-center bg-theme-primary-soft text-theme-primary">
               <BarChart3 class="w-5 h-5" />
             </div>
-            <div class="font-bold mb-1" style="color: var(--theme-text);">深度面试复盘</div>
-            <div class="text-xs leading-relaxed mb-3" style="color: var(--theme-text-secondary);">
+            <div class="card-title mb-1">深度面试复盘</div>
+            <div class="card-summary leading-relaxed mb-3">
               历史答题 · 薄弱点 · 错题本闭环
             </div>
-            <div class="inline-flex items-center gap-1 text-xs font-semibold" style="color: var(--theme-primary);">
+            <div class="inline-flex items-center gap-1 meta-text font-semibold text-theme-primary">
               查看记录 <ArrowRight class="w-3 h-3 transition-transform group-hover:translate-x-0.5" />
             </div>
           </button>
 
-          <!-- 4. 多语言面试支持（V10.3 · 置灰，框架位占位） -->
+          <!-- 4. 多语言面试支持（V10.3 · 置灰占位） -->
           <button
             disabled
-            class="relative text-left rounded-2xl border p-4 sm:p-5 shadow-sm cursor-not-allowed opacity-75"
-            style="background-color: var(--theme-surface); border-color: var(--theme-border);"
+            class="relative text-left rounded-2xl border p-4 sm:p-5 shadow-sm cursor-not-allowed opacity-75 bg-theme-surface border-theme-border"
           >
-            <span class="absolute top-3 right-3 inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-semibold" style="background-color: color-mix(in srgb, var(--theme-text-secondary) 20%, transparent); color: var(--theme-text-secondary);">V10.3</span>
-            <div class="w-11 h-11 rounded-xl mb-3 flex items-center justify-center bg-slate-50 text-slate-500">
+            <span class="absolute top-3 right-3 inline-flex items-center px-1.5 py-0.5 rounded-full caption-text font-semibold bg-theme-text-secondary/20 text-theme-text-secondary">V10.3</span>
+            <div class="w-11 h-11 rounded-xl mb-3 flex items-center justify-center bg-theme-bg text-theme-text-secondary">
               <Lightbulb class="w-5 h-5" />
             </div>
-            <div class="font-bold mb-1" style="color: var(--theme-text);">多语言面试支持</div>
-            <div class="text-xs leading-relaxed mb-3" style="color: var(--theme-text-secondary);">
+            <div class="card-title mb-1">多语言面试支持</div>
+            <div class="card-summary leading-relaxed mb-3">
               DashScope CosyVoice 多音色 · 中英混练（敬请期待）
             </div>
-            <div class="inline-flex items-center gap-1 text-xs font-semibold" style="color: var(--theme-text-secondary);">
+            <div class="inline-flex items-center gap-1 meta-text font-semibold text-theme-text-secondary">
               开发中 <Clock class="w-3 h-3" />
             </div>
           </button>
@@ -452,44 +390,43 @@ const breadcrumbs = computed(() => [
     </div>
 
     <!-- 主要内容 -->
-    <div class="flex-1 py-8 -mt-10">
+    <div class="flex-1 py-5 sm:py-6">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div v-if="loading" class="text-center py-12 rounded-xl shadow-sm" style="background-color: var(--theme-surface); border: 1px solid var(--theme-border);">
-          <div class="animate-spin rounded-full h-12 w-12 border-b-2 mx-auto" style="border-color: var(--theme-primary);"></div>
-          <p class="mt-4" style="color: var(--theme-text-secondary);">加载中...</p>
+        <div v-if="loading" class="text-center py-12 rounded-xl shadow-sm bg-theme-surface border border-theme-border">
+          <div class="animate-spin rounded-full h-12 w-12 border-b-2 mx-auto border-theme-primary"></div>
+          <p class="mt-4 meta-text">加载中...</p>
         </div>
 
-        <div v-else-if="error" class="rounded-xl p-8 max-w-2xl mx-auto text-center" style="background-color: var(--theme-surface); border: 1px solid var(--theme-border);">
-          <p class="mb-4" style="color: var(--theme-primary);">{{ error }}</p>
-          <button @click="loadInterviewHome" class="px-4 py-2 text-white rounded-lg transition text-sm" style="background-color: var(--theme-primary);">
+        <div v-else-if="error" class="rounded-xl p-8 max-w-2xl mx-auto text-center bg-theme-surface border border-theme-border">
+          <p class="mb-4 text-theme-primary">{{ error }}</p>
+          <button @click="loadInterviewHome" class="theme-btn theme-btn-primary px-4 py-2 rounded-lg text-sm">
             重试
           </button>
         </div>
 
         <template v-else>
           <!-- 分类快捷入口 -->
-          <div v-if="categories.length > 0" class="mb-12">
-            <div class="flex items-center justify-between mb-6">
-              <h2 class="text-2xl font-bold flex items-center" style="color: var(--theme-text);">
-                <BookOpen class="w-6 h-6 mr-2" style="color: var(--theme-primary);" />
+          <div v-if="categories.length > 0" class="mb-8 sm:mb-10">
+            <div class="flex items-center justify-between mb-4">
+              <h2 class="section-title flex items-center gap-2">
+                <BookOpen class="w-5 h-5 sm:w-6 sm:h-6 text-theme-primary" />
                 题目分类
               </h2>
-              <span class="text-sm" style="color: var(--theme-text-secondary);">点击卡片进入分类</span>
+              <span class="meta-text">点击卡片进入分类</span>
             </div>
-            <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+            <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
               <div
                 v-for="cat in categories"
                 :key="cat.id"
-                @click="router.push(`/interview/questions?categoryId=${cat.id}`)"
-                class="rounded-xl p-6 shadow-sm hover:shadow-lg hover:-translate-y-1 transition cursor-pointer"
-                style="background-color: var(--theme-surface); border: 1px solid var(--theme-border);"
+                @click="router.push(`/learn/questions?categoryId=${cat.id}`)"
+                class="rounded-xl p-4 sm:p-5 shadow-sm hover:shadow-lg hover:-translate-y-1 transition cursor-pointer bg-theme-surface border border-theme-border"
               >
-                <div class="w-12 h-12 rounded-lg flex items-center justify-center mb-4 text-white" style="background: linear-gradient(135deg, var(--theme-primary), color-mix(in srgb, var(--theme-primary) 70%, #4338ca));">
-                  <BookOpen class="w-6 h-6" />
+                <div class="w-10 h-10 sm:w-12 sm:h-12 rounded-lg flex items-center justify-center mb-3 text-white bg-gradient-to-br from-theme-primary to-theme-primary-hover">
+                  <BookOpen class="w-5 h-5 sm:w-6 sm:h-6" />
                 </div>
-                <h3 class="text-base font-semibold mb-2" style="color: var(--theme-text);">{{ cat.name }}</h3>
-                <p v-if="cat.description" class="text-sm mb-3 line-clamp-2" style="color: var(--theme-text-secondary);">{{ cat.description }}</p>
-                <div class="text-xs font-medium flex items-center" style="color: var(--theme-primary);">
+                <h3 class="card-title mb-1">{{ cat.name }}</h3>
+                <p v-if="cat.description" class="card-summary line-clamp-2 mb-2">{{ cat.description }}</p>
+                <div class="meta-text font-medium flex items-center text-theme-primary">
                   {{ cat.questionCount || 0 }} 道题目
                   <ArrowRight class="w-3 h-3 ml-1" />
                 </div>
@@ -498,13 +435,13 @@ const breadcrumbs = computed(() => [
           </div>
 
           <!-- 热门题目 -->
-          <div v-if="hotQuestions.length > 0" class="mb-12">
-            <div class="flex items-center justify-between mb-6">
-              <h2 class="text-2xl font-bold flex items-center" style="color: var(--theme-text);">
-                <Trophy class="w-6 h-6 mr-2 text-yellow-500" />
+          <div v-if="hotQuestions.length > 0" class="mb-8 sm:mb-10">
+            <div class="flex items-center justify-between mb-4">
+              <h2 class="section-title flex items-center gap-2">
+                <Trophy class="w-5 h-5 sm:w-6 sm:h-6 text-theme-primary" />
                 热门题目
               </h2>
-              <button @click="router.push('/interview/questions')" class="text-sm font-medium flex items-center" style="color: var(--theme-primary);">
+              <button @click="router.push('/learn/questions')" class="meta-text font-medium flex items-center text-theme-primary">
                 查看更多 <ArrowRight class="w-4 h-4 ml-1" />
               </button>
             </div>
@@ -513,46 +450,44 @@ const breadcrumbs = computed(() => [
                 v-for="(q, index) in hotQuestions"
                 :key="q.id"
                 @click="goQuestion(q.id)"
-                class="rounded-xl p-5 shadow-sm hover:shadow-md transition cursor-pointer"
-                style="background-color: var(--theme-surface); border: 1px solid var(--theme-border);"
+                class="rounded-xl p-4 sm:p-5 shadow-sm hover:shadow-md transition cursor-pointer bg-theme-surface border border-theme-border"
               >
-                <div class="flex items-start justify-between">
+                <div class="flex items-start justify-between gap-4">
                   <div class="flex-1 min-w-0">
                     <div class="flex items-center mb-2 flex-wrap gap-2">
-                      <span class="w-7 h-7 rounded-full flex items-center justify-center font-bold text-xs mr-1" style="background-color: var(--theme-accent); color: var(--theme-primary);">{{ index + 1 }}</span>
+                      <span class="w-6 h-6 rounded-full flex items-center justify-center font-bold caption-text mr-1 bg-theme-accent text-theme-primary">{{ index + 1 }}</span>
                       <span
-                        class="px-2.5 py-1 rounded-full text-xs font-medium"
+                        class="px-2 py-0.5 rounded-full caption-text font-medium"
                         :class="getDifficultyColor(q.difficulty)"
                       >
                         {{ getDifficultyText(q.difficulty) }}
                       </span>
-                      <span v-if="q.categoryName" class="px-2.5 py-1 rounded-full text-xs" style="background-color: var(--theme-accent); color: var(--theme-text-secondary);">{{ q.categoryName }}</span>
+                      <span v-if="q.categoryName" class="px-2 py-0.5 rounded-full caption-text bg-theme-accent text-theme-text-secondary">{{ q.categoryName }}</span>
                       <span
                         v-for="tag in q.tags?.slice(0, 3)"
                         :key="tag"
-                        class="px-2 py-1 rounded text-xs"
-                        style="background-color: var(--theme-accent); color: var(--theme-primary);"
+                        class="px-1.5 py-0.5 rounded caption-text bg-theme-accent text-theme-primary"
                       >
                         #{{ tag }}
                       </span>
                       <span
                         v-for="c in q.companies?.slice(0, 2)"
                         :key="c.id"
-                        class="px-2 py-1 bg-orange-50 text-orange-700 rounded text-xs"
+                        class="px-1.5 py-0.5 rounded caption-text bg-theme-primary-soft text-theme-primary"
                       >
                         {{ c.name }}
                       </span>
                     </div>
-                    <h3 class="text-base font-semibold mb-2" style="color: var(--theme-text);">{{ q.title }}</h3>
-                    <p v-if="q.description" class="text-sm line-clamp-2 mb-2" style="color: var(--theme-text-secondary);">{{ q.description }}</p>
+                    <h3 class="card-title mb-1">{{ q.title }}</h3>
+                    <p v-if="q.description" class="card-summary line-clamp-2 mb-1">{{ q.description }}</p>
                   </div>
-                  <div class="text-right ml-6 flex-shrink-0">
-                    <div class="flex items-center justify-end gap-3 text-xs mb-2" style="color: var(--theme-text-secondary);">
-                      <span class="flex items-center"><CheckCircle class="w-3 h-3 mr-1 text-green-500" /> {{ q.acceptanceRate }}%</span>
-                      <span class="flex items-center"><Zap class="w-3 h-3 mr-1 text-yellow-500" /> {{ q.submissionCount }}</span>
-                      <span class="flex items-center"><Star class="w-3 h-3 mr-1 text-orange-500" /> {{ q.likeCount }}</span>
+                  <div class="text-right flex-shrink-0 hidden sm:block">
+                    <div class="flex items-center justify-end gap-3 meta-text mb-1 text-theme-text-secondary">
+                      <span class="flex items-center"><CheckCircle class="w-3 h-3 mr-1 text-theme-success" /> {{ q.acceptanceRate }}%</span>
+                      <span class="flex items-center"><Zap class="w-3 h-3 mr-1 text-theme-primary" /> {{ q.submissionCount }}</span>
+                      <span class="flex items-center"><Star class="w-3 h-3 mr-1 text-theme-warning" /> {{ q.likeCount }}</span>
                     </div>
-                    <span class="text-xs font-medium flex items-center justify-end" style="color: var(--theme-primary);">
+                    <span class="meta-text font-medium flex items-center justify-end text-theme-primary">
                       查看题目 <ArrowRight class="w-3 h-3 ml-1" />
                     </span>
                   </div>
@@ -562,48 +497,47 @@ const breadcrumbs = computed(() => [
           </div>
 
           <!-- 热门面经 -->
-          <div v-if="hotExperiences.length > 0" class="mb-12">
-            <div class="flex items-center justify-between mb-6">
-              <h2 class="text-2xl font-bold flex items-center" style="color: var(--theme-text);">
-                <Briefcase class="w-6 h-6 mr-2 text-orange-500" />
+          <div v-if="hotExperiences.length > 0" class="mb-8 sm:mb-10">
+            <div class="flex items-center justify-between mb-4">
+              <h2 class="section-title flex items-center gap-2">
+                <Briefcase class="w-5 h-5 sm:w-6 sm:h-6 text-theme-primary" />
                 热门面经
               </h2>
-              <button @click="router.push('/interview/experiences')" class="text-sm font-medium flex items-center" style="color: var(--theme-primary);">
+              <button @click="router.push('/interview/experiences')" class="meta-text font-medium flex items-center text-theme-primary">
                 查看更多 <ArrowRight class="w-4 h-4 ml-1" />
               </button>
             </div>
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
               <div
                 v-for="exp in hotExperiences"
                 :key="exp.id"
                 @click="goExperience(exp.id)"
-                class="rounded-xl overflow-hidden shadow-sm hover:shadow-lg hover:-translate-y-1 transition cursor-pointer flex flex-col"
-                style="background-color: var(--theme-surface); border: 1px solid var(--theme-border);"
+                class="rounded-xl overflow-hidden shadow-sm hover:shadow-lg hover:-translate-y-1 transition cursor-pointer flex flex-col bg-theme-surface border border-theme-border"
               >
-                <div v-if="exp.coverImage" class="h-36" style="background-color: var(--theme-bg);">
+                <div v-if="exp.coverImage" class="h-32 sm:h-36 bg-theme-bg">
                   <LazyImage :src="exp.coverImage" :alt="exp.title" class="w-full h-full object-cover" />
                 </div>
-                <div class="p-5 flex flex-col flex-1">
-                  <div class="flex items-center gap-2 mb-3 flex-wrap">
-                    <span class="px-2.5 py-1 rounded-full text-xs font-medium" style="background-color: var(--theme-accent); color: var(--theme-primary);">{{ exp.company }}</span>
-                    <span v-if="exp.position" class="px-2.5 py-1 rounded-full text-xs font-medium" style="background-color: var(--theme-accent); color: var(--theme-primary);">{{ exp.position }}</span>
-                    <span v-if="exp.year" class="text-xs" style="color: var(--theme-text-secondary);">{{ exp.year }}年</span>
+                <div class="p-4 sm:p-5 flex flex-col flex-1">
+                  <div class="flex items-center gap-2 mb-2 flex-wrap">
+                    <span class="px-2 py-0.5 rounded-full caption-text font-medium bg-theme-accent text-theme-primary">{{ exp.company }}</span>
+                    <span v-if="exp.position" class="px-2 py-0.5 rounded-full caption-text font-medium bg-theme-accent text-theme-primary">{{ exp.position }}</span>
+                    <span v-if="exp.year" class="meta-text">{{ exp.year }}年</span>
                   </div>
-                  <h3 class="text-lg font-semibold mb-2 line-clamp-2" style="color: var(--theme-text);">{{ exp.title }}</h3>
-                  <p v-if="exp.summary || exp.content" class="text-sm mb-4 line-clamp-3 flex-1" style="color: var(--theme-text-secondary);">
+                  <h3 class="card-title mb-1 line-clamp-2">{{ exp.title }}</h3>
+                  <p v-if="exp.summary || exp.content" class="card-summary line-clamp-3 flex-1 mb-3">
                     {{ exp.summary || exp.content }}
                   </p>
                   <div class="flex items-center justify-between">
-                    <div class="flex items-center text-sm" style="color: var(--theme-text-secondary);">
-                      <div class="w-7 h-7 rounded-full overflow-hidden mr-2" style="background-color: var(--theme-bg);">
+                    <div class="flex items-center meta-text text-theme-text-secondary">
+                      <div class="w-6 h-6 rounded-full overflow-hidden mr-2 bg-theme-bg">
                         <LazyImage :src="expAvatar(exp)" :alt="expName(exp)" class="w-full h-full object-cover" />
                       </div>
-                      <span class="font-medium text-xs">{{ expName(exp) }}</span>
+                      <span class="font-medium">{{ expName(exp) }}</span>
                     </div>
-                    <div class="flex items-center gap-3 text-xs" style="color: var(--theme-text-secondary);">
-                      <span class="flex items-center"><Star class="w-3 h-3 mr-1 text-orange-400" />{{ exp.likeCount }}</span>
-                      <span class="flex items-center"><TrendingUp class="w-3 h-3 mr-1 text-blue-400" />{{ exp.viewCount }}</span>
-                      <span class="flex items-center"><BookOpen class="w-3 h-3 mr-1 text-green-400" />{{ exp.commentCount }}</span>
+                    <div class="flex items-center gap-3 meta-text text-theme-text-secondary">
+                      <span class="flex items-center"><Star class="w-3 h-3 mr-1 text-theme-warning" />{{ exp.likeCount }}</span>
+                      <span class="flex items-center"><TrendingUp class="w-3 h-3 mr-1 text-theme-primary" />{{ exp.viewCount }}</span>
+                      <span class="flex items-center"><BookOpen class="w-3 h-3 mr-1 text-theme-info" />{{ exp.commentCount }}</span>
                     </div>
                   </div>
                 </div>
@@ -612,36 +546,35 @@ const breadcrumbs = computed(() => [
           </div>
 
           <!-- 简历模板 -->
-          <div v-if="resumeTemplates.length > 0" class="mb-12">
-            <div class="flex items-center justify-between mb-6">
-              <h2 class="text-2xl font-bold flex items-center" style="color: var(--theme-text);">
-                <FileText class="w-6 h-6 mr-2 text-purple-500" />
+          <div v-if="resumeTemplates.length > 0" class="mb-8 sm:mb-10">
+            <div class="flex items-center justify-between mb-4">
+              <h2 class="section-title flex items-center gap-2">
+                <FileText class="w-5 h-5 sm:w-6 sm:h-6 text-theme-primary" />
                 简历模板
               </h2>
-              <button @click="goResume" class="text-sm font-medium flex items-center" style="color: var(--theme-primary);">
+              <button @click="goResume" class="meta-text font-medium flex items-center text-theme-primary">
                 查看更多 <ArrowRight class="w-4 h-4 ml-1" />
               </button>
             </div>
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5">
               <div
                 v-for="t in resumeTemplates.slice(0, 4)"
                 :key="t.id"
                 @click="goResume()"
-                class="rounded-xl overflow-hidden shadow-sm hover:shadow-lg hover:-translate-y-1 transition cursor-pointer"
-                style="background-color: var(--theme-surface); border: 1px solid var(--theme-border);"
+                class="rounded-xl overflow-hidden shadow-sm hover:shadow-lg hover:-translate-y-1 transition cursor-pointer bg-theme-surface border border-theme-border"
               >
-                <div class="h-40" style="background-color: var(--theme-bg);">
+                <div class="h-36 sm:h-40 bg-theme-bg">
                   <LazyImage v-if="t.cover" :src="t.cover" :alt="t.title" class="w-full h-full object-cover" />
-                  <div v-else class="flex items-center justify-center h-full" style="background: linear-gradient(135deg, var(--theme-accent), color-mix(in srgb, var(--theme-accent) 50%, #c4b5fd));">
-                    <FileText class="w-10 h-10" style="color: var(--theme-primary);" />
+                  <div v-else class="flex items-center justify-center h-full bg-gradient-to-br from-theme-accent to-theme-primary-soft">
+                    <FileText class="w-10 h-10 text-theme-primary" />
                   </div>
                 </div>
                 <div class="p-4">
-                  <h3 class="text-base font-semibold mb-1 line-clamp-1" style="color: var(--theme-text);">{{ t.title }}</h3>
-                  <p v-if="t.description" class="text-sm mb-3 line-clamp-2" style="color: var(--theme-text-secondary);">{{ t.description }}</p>
-                  <div class="flex items-center justify-between text-xs" style="color: var(--theme-text-secondary);">
-                    <span class="flex items-center"><Star class="w-3 h-3 mr-1 text-orange-400" />{{ t.likeCount }}</span>
-                    <span class="flex items-center"><FileText class="w-3 h-3 mr-1 text-blue-400" />{{ t.downloadCount }} 下载</span>
+                  <h3 class="card-title mb-1 line-clamp-1">{{ t.title }}</h3>
+                  <p v-if="t.description" class="card-summary line-clamp-2 mb-2">{{ t.description }}</p>
+                  <div class="flex items-center justify-between meta-text text-theme-text-secondary">
+                    <span class="flex items-center"><Star class="w-3 h-3 mr-1 text-theme-warning" />{{ t.likeCount }}</span>
+                    <span class="flex items-center"><FileText class="w-3 h-3 mr-1 text-theme-primary" />{{ t.downloadCount }} 下载</span>
                   </div>
                 </div>
               </div>
@@ -649,27 +582,26 @@ const breadcrumbs = computed(() => [
           </div>
 
           <!-- 热门公司墙 -->
-          <div v-if="hotCompanies.length > 0" class="mb-12">
-            <div class="flex items-center justify-between mb-6">
-              <h2 class="text-2xl font-bold flex items-center" style="color: var(--theme-text);">
-                <Building2 class="w-6 h-6 mr-2" style="color: var(--theme-primary);" />
+          <div v-if="hotCompanies.length > 0" class="mb-8 sm:mb-10">
+            <div class="flex items-center justify-between mb-4">
+              <h2 class="section-title flex items-center gap-2">
+                <Building2 class="w-5 h-5 sm:w-6 sm:h-6 text-theme-primary" />
                 热门公司
               </h2>
-              <span class="text-sm" style="color: var(--theme-text-secondary);">高频出现公司</span>
+              <span class="meta-text">高频出现公司</span>
             </div>
-            <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+            <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3 sm:gap-4">
               <div
                 v-for="c in hotCompanies"
                 :key="c.id"
-                class="rounded-xl p-5 shadow-sm hover:shadow-md hover:-translate-y-1 transition cursor-pointer text-center"
-                style="background-color: var(--theme-surface); border: 1px solid var(--theme-border);"
+                class="rounded-xl p-4 sm:p-5 shadow-sm hover:shadow-md hover:-translate-y-1 transition cursor-pointer text-center bg-theme-surface border border-theme-border"
               >
-                <div class="w-14 h-14 mx-auto rounded-xl flex items-center justify-center mb-3 overflow-hidden" style="background-color: var(--theme-bg);">
+                <div class="w-12 h-12 sm:w-14 sm:h-14 mx-auto rounded-xl flex items-center justify-center mb-2 sm:mb-3 overflow-hidden bg-theme-bg">
                   <LazyImage v-if="c.logo" :src="c.logo" :alt="c.name" class="w-full h-full object-contain" />
-                  <Lightbulb v-else class="w-7 h-7" style="color: var(--theme-text-secondary);" />
+                  <Lightbulb v-else class="w-6 h-6 sm:w-7 sm:h-7 text-theme-text-secondary" />
                 </div>
-                <h3 class="text-sm font-semibold mb-1 line-clamp-1" style="color: var(--theme-text);">{{ c.name }}</h3>
-                <p class="text-xs" style="color: var(--theme-text-secondary);">{{ c.questionCount || 0 }} 道题</p>
+                <h3 class="card-title mb-0.5 line-clamp-1">{{ c.name }}</h3>
+                <p class="meta-text">{{ c.questionCount || 0 }} 道题</p>
               </div>
             </div>
           </div>

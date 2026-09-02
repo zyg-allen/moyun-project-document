@@ -6,25 +6,19 @@ import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.moyun.ext.cms.config.AiProperties;
 import com.moyun.ext.cms.domain.vo.ResumeDeepOptimizeVO;
-import com.moyun.ext.cms.domain.vo.ResumeOptimizeTaskVO;
 import com.moyun.ext.cms.domain.vo.UserResumeVO;
 import com.moyun.portal.domain.entity.PortalResumeJobMatch;
 import com.moyun.portal.domain.entity.PortalResumeJobTarget;
 import com.moyun.portal.domain.entity.PortalResumeOptimizeHistory;
-import com.moyun.portal.domain.entity.PortalResumeOptimizeTask;
-import com.moyun.portal.domain.entity.PortalUserResume;
 import com.moyun.portal.mapper.PortalResumeJobTargetMapper;
 import com.moyun.portal.mapper.PortalResumeJobMatchMapper;
 import com.moyun.portal.mapper.PortalResumeOptimizeHistoryMapper;
-import com.moyun.portal.mapper.PortalResumeOptimizeTaskMapper;
-import com.moyun.portal.mapper.PortalUserResumeMapper;
 import com.moyun.common.exception.system.ServiceException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
-import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -41,9 +35,12 @@ import java.util.Map;
  *
  * <p><strong>v10.19 结构调整</strong>：原 {@code generate()} 及其私有方法（buildResumeContext/
  * fillOriginal/safe）和 LLM 相关依赖已迁到 {@link ResumeDeepOptimizeGenerator}，本类仅保留
- * 对外门面方法（generate/submitTask/getTaskStatus/applyAndSave），通过 generator 委托调用。
- * 这样异步执行器 {@link ResumeOptimizeAsyncExecutor} 依赖 generator 而非本类，
- * 依赖图变成 Service → Executor → Generator（单向无环），消除 A→B→A 循环依赖。</p>
+ * 对外门面方法（generate/applyAndSave 等），通过 generator 委托调用。</p>
+ *
+ * <p><strong>v10.23 异步任务切换</strong>：旧 {@code submitTask}/{@code getTaskStatus}
+ * （直接操作 portal_resume_optimize_task）已删除，异步任务统一走
+ * {@link AiTaskService}（portal_ai_task 表 + {@code DeepOptimizeTaskHandler} 执行）；
+ * 提交前校验抽为 {@link #validateDeepOptimizeSubmit} 供 Controller 复用。</p>
  *
  * @author moyun
  */
@@ -75,14 +72,6 @@ public class ResumeDeepOptimizeService {
 
     @Autowired
     private PortalResumeJobMatchMapper jobMatchMapper;
-
-    /** v10.19：异步任务 Mapper */
-    @Autowired
-    private PortalResumeOptimizeTaskMapper optimizeTaskMapper;
-
-    /** v10.19：异步执行器（独立 Bean，保证 @Async 通过 Spring 代理生效） */
-    @Autowired
-    private ResumeOptimizeAsyncExecutor asyncExecutor;
 
     /** v10.19：生成器（抽出 generate 能力，打破循环依赖） */
     @Autowired
@@ -368,80 +357,30 @@ public class ResumeDeepOptimizeService {
         return generator.generate(resume, jobTargetId);
     }
 
-    // ==================== v10.19：异步任务化（解决大模型调用超时） ====================
+    // ==================== v10.23：异步任务切换（提交前校验，任务执行委托 AiTaskService） ====================
 
     /**
-     * 提交深度优化异步任务：同步入库返回任务ID，调用方立即响应前端。
+     * 深度优化异步任务提交前校验（v10.23：保留 v10.19 submitTask 原有校验逻辑）
      *
-     * <p>不阻塞等待 LLM 结果，前端通过 {@link #getTaskStatus(Long, Long)} 轮询任务进度。
-     * 异步执行由独立 Bean {@link ResumeOptimizeAsyncExecutor} 承担，保证 @Async 通过 Spring 代理生效。</p>
+     * <p>校验项：简历存在且归属当前用户、岗位目标存在、AI 模型可用。
+     * 校验通过后由调用方委托 {@link AiTaskService} 提交 deep_optimize 任务。</p>
      *
-     * @param userId     用户ID
-     * @param resume     简历详情
+     * @param userId      用户ID
+     * @param resumeId    简历ID
      * @param jobTargetId 岗位目标ID
-     * @return 任务ID
      */
-    public Long submitTask(Long userId, UserResumeVO resume, Long jobTargetId) {
-        // v10.19：前置校验委托给 generator（避免重复实现 AI 可用性与岗位校验逻辑）
+    public void validateDeepOptimizeSubmit(Long userId, Long resumeId, Long jobTargetId) {
+        UserResumeVO resume = userResumeService.selectResumeDetail(resumeId, userId);
+        if (resume == null) {
+            throw new ServiceException("简历不存在或无权访问");
+        }
+        // 前置校验委托给 generator（避免重复实现 AI 可用性与岗位校验逻辑）
         if (generator.getJobTarget(jobTargetId) == null) {
             throw new ServiceException("岗位目标不存在");
         }
         if (!generator.isAiAvailable()) {
             throw new ServiceException("深度优化需要 AI 模型支持，请管理员在后台配置 AI 模型后使用");
         }
-
-        // 同步入库任务记录（pending），调用方立即返回
-        PortalResumeOptimizeTask task = new PortalResumeOptimizeTask();
-        task.setUserId(userId);
-        task.setResumeId(resume.getId());
-        task.setJobTargetId(jobTargetId);
-        task.setStatus("pending");
-        task.setAiPowered(1);
-        task.setCreateTime(LocalDateTime.now());
-        optimizeTaskMapper.insert(task);
-
-        // 触发异步执行（独立 Bean 调用，确保 @Async 生效）
-        try {
-            asyncExecutor.executeTask(task.getId(), resume, jobTargetId);
-        } catch (Exception e) {
-            // 异步触发失败（如线程池满）回写失败状态，不阻塞调用方
-            log.error("[DeepOptimizeTask] 异步任务触发失败 taskId={}", task.getId(), e);
-            PortalResumeOptimizeTask fail = new PortalResumeOptimizeTask();
-            fail.setId(task.getId());
-            fail.setStatus("failed");
-            fail.setErrorMsg("任务触发失败：" + e.getMessage());
-            fail.setFinishTime(LocalDateTime.now());
-            optimizeTaskMapper.updateById(fail);
-        }
-        return task.getId();
-    }
-
-    /**
-     * 查询任务状态（前端轮询调用）
-     *
-     * @param taskId 任务ID
-     * @param userId 用户ID（权限校验，防止越权查询他人任务）
-     * @return 任务状态 VO（含进度、结果、错误信息）
-     */
-    public ResumeOptimizeTaskVO getTaskStatus(Long taskId, Long userId) {
-        PortalResumeOptimizeTask task = optimizeTaskMapper.selectById(taskId);
-        if (task == null || !task.getUserId().equals(userId)) {
-            throw new ServiceException("任务不存在或无权访问");
-        }
-        ResumeOptimizeTaskVO vo = new ResumeOptimizeTaskVO();
-        vo.setTaskId(task.getId());
-        vo.setStatus(task.getStatus());
-        vo.setResult(task.getResultJson());
-        vo.setErrorMsg(task.getErrorMsg());
-        // 粗粒度进度估算
-        switch (task.getStatus() == null ? "" : task.getStatus()) {
-            case "pending":  vo.setProgress(10); break;
-            case "running":   vo.setProgress(50); break;
-            case "success":   vo.setProgress(100); break;
-            case "failed":    vo.setProgress(0); break;
-            default:          vo.setProgress(0);
-        }
-        return vo;
     }
 
     /**

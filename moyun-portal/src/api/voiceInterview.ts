@@ -1,5 +1,5 @@
 import { httpGet, httpPost } from './client';
-import { getToken } from './client';
+import { getToken, trackAiSlowRequest, untrackAiSlowRequest } from './client';
 
 /**
  * 语音面试官 API（V10.0 + V10.1）
@@ -179,45 +179,51 @@ export const submitVoiceAnswer = async (
   const url = `${baseURL}/portal/interview/voice/${interviewId}/answer`;
   const token = getToken();
 
-  const resp = await fetch(url, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    },
-    body: JSON.stringify({ qaId, transcript, latencyMs }),
-  });
-
-  if (!resp.ok || !resp.body) {
-    const msg = `SSE 连接失败: ${resp.status}`;
-    callbacks?.onError?.(msg);
-    return;
-  }
-
-  const reader = resp.body.getReader();
-  const decoder = new TextDecoder();
-  let buffer = '';
-
+  // v10.23：SSE 直连 fetch 不经 client.request()，手动登记 AI 慢请求（离开页面提醒）
+  const aiTrackKey = trackAiSlowRequest(`/portal/interview/voice/${interviewId}/answer`);
   try {
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      buffer += decoder.decode(value, { stream: true });
+    const resp = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify({ qaId, transcript, latencyMs }),
+    });
 
-      // SSE 事件以 \n\n 分隔
-      let idx;
-      while ((idx = buffer.indexOf('\n\n')) >= 0) {
-        const block = buffer.slice(0, idx);
-        buffer = buffer.slice(idx + 2);
-        parseSseBlock(block, callbacks);
+    if (!resp.ok || !resp.body) {
+      const msg = `SSE 连接失败: ${resp.status}`;
+      callbacks?.onError?.(msg);
+      return;
+    }
+
+    const reader = resp.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+
+    try {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+
+        // SSE 事件以 \n\n 分隔
+        let idx;
+        while ((idx = buffer.indexOf('\n\n')) >= 0) {
+          const block = buffer.slice(0, idx);
+          buffer = buffer.slice(idx + 2);
+          parseSseBlock(block, callbacks);
+        }
       }
+      // 处理剩余 buffer
+      if (buffer.trim()) {
+        parseSseBlock(buffer, callbacks);
+      }
+    } catch (e) {
+      callbacks?.onError?.(e instanceof Error ? e.message : 'SSE 读取异常');
     }
-    // 处理剩余 buffer
-    if (buffer.trim()) {
-      parseSseBlock(buffer, callbacks);
-    }
-  } catch (e) {
-    callbacks?.onError?.(e instanceof Error ? e.message : 'SSE 读取异常');
+  } finally {
+    untrackAiSlowRequest(aiTrackKey);
   }
 };
 

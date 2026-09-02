@@ -180,7 +180,7 @@ const summary = computed(() => {
           <section v-if="cells.length === 0" class="rounded-lg p-8 text-center" style="background-color: var(--theme-surface); border: 1px solid var(--theme-border);">
             <p class="text-sm" style="color: var(--theme-text-secondary);">
               {{ selectedYear }} 年还没有刷题记录，去
-              <router-link to="/interview/questions" class="underline" style="color: var(--theme-primary);">刷第一道题</router-link>
+              <router-link to="/learn/questions" class="underline" style="color: var(--theme-primary);">刷第一道题</router-link>
               开启你的打卡之旅吧。
             </p>
           </section>

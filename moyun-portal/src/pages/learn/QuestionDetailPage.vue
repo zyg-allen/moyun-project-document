@@ -11,18 +11,18 @@ import {
 import Breadcrumb from '@/components/Breadcrumb.vue';
 import SiteFooter from '@/components/SiteFooter.vue';
 import MarkdownRenderer from '@/components/MarkdownRenderer.vue';
-import { generateSeo } from '@/utils/seo';
+import { generateSeo } from '@/utils/seo.ts';
 import {
   getQuestionDetail, toggleQuestionLike, toggleQuestionBookmark,
   getFeaturedNotes, recordQuestionRead, getQuestionNeighbor,
-} from '@/api/interview';
+} from '@/api/interview.ts';
 import type {
   InterviewQuestionDetailVO, InterviewSubmissionVO,
   InterviewQuestionNeighborVO, InterviewQuestionQuery,
-} from '@/types/api';
-import { getSafeAvatar } from '@/utils/avatar';
-import { useToast } from '@/composables/useToast';
-import { useDictData, dictBadgeClass } from '@/composables/useDictData';
+} from '@/types/api.ts';
+import { getSafeAvatar } from '@/utils/avatar.ts';
+import { useToast } from '@/composables/useToast.ts';
+import { useDictData, dictBadgeClass } from '@/composables/useDictData.ts';
 
 const route = useRoute();
 const router = useRouter();
@@ -163,7 +163,7 @@ async function loadQuestionDetail() {
 }
 
 /**
- * 相邻题目导航：与来源列表页（/interview/questions）同源筛选，
+ * 相邻题目导航：与来源列表页（/learn/questions）同源筛选，
  * categoryId/questionType/difficulty/keyword 由列表页跳转时透传；
  * 无筛选上下文（收藏/时间线等入口进入）时按题库全集顺序导航
  */
@@ -264,8 +264,8 @@ useHead(
 
 // 面包屑
 const breadcrumbs = computed(() => [
-  { label: '面试指南', path: '/interview' },
-  { label: '面试题库', path: '/interview/questions' },
+  { label: '学习中心', path: '/learn' },
+  { label: '面试题库', path: '/learn/questions' },
   { label: '题目详情' },
 ]);
 </script>
@@ -748,7 +748,7 @@ const breadcrumbs = computed(() => [
         <div v-else class="text-center py-12">
           <p style="color: var(--theme-text-secondary);">未找到题目信息</p>
           <button
-            @click="router.push('/interview/questions')"
+            @click="router.push('/learn/questions')"
             class="mt-4 px-4 py-2 text-white rounded-lg text-sm hover:opacity-90 transition"
             style="background-color: var(--theme-primary);"
           >

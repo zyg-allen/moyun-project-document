@@ -107,7 +107,8 @@
           <span>{{ parseTime(scope.row.createTime) }}</span>
         </template>
       </el-table-column>
-      <el-table-column label="操作" align="right" width="280" class-name="small-padding fixed-width">
+      <!-- 操作列宽度按按钮数自适应：一级栏目3按钮(修改/新增子栏目/删除)约200，二级栏目2按钮约130 -->
+      <el-table-column label="操作" align="right" :width="(scope) => scope.row.parentId === 0 || scope.row.parentId === null ? 200 : 130" fixed="right" class-name="small-padding fixed-width">
         <template #default="scope">
           <!-- 一级栏目操作 -->
           <template v-if="scope.row.parentId === 0 || scope.row.parentId === null">
@@ -514,5 +515,16 @@ onMounted(() => {
 <style scoped>
 .mb8 {
   margin-bottom: 8px;
+}
+
+/* 操作列按钮强制横向排列不换行（scoped 需穿透固定列） */
+:deep(.fixed-width) {
+  white-space: nowrap;
+}
+:deep(.fixed-width .el-button) {
+  margin-left: 8px;
+}
+:deep(.fixed-width .el-button + .el-button) {
+  margin-left: 8px;
 }
 </style>

@@ -116,23 +116,24 @@ public class AsyncConfig {
     }
 
     /**
-     * 简历深度优化异步任务线程池（v10.19：解决大模型调用超时问题）。
+     * 通用 AI 异步任务线程池（v10.19：解决大模型调用超时问题；v10.23：由简历深度优化
+     * 专用池升级为通用 AI 任务池，供 {@code AiTaskAsyncExecutor} 统一调度）。
      *
-     * <p>用于异步执行简历深度优化任务，避免阻塞 HTTP 请求线程。
-     * 任务状态持久化到 portal_resume_optimize_task 表，前端通过轮询查询进度。</p>
+     * <p>用于异步执行门户 AI 长耗时任务（简历解析/岗位匹配/空字段草稿/深度优化），
+     * 避免阻塞 HTTP 请求线程。任务状态持久化到 portal_ai_task 表，前端通过轮询查询进度。</p>
      *
      * <p>线程池配置：</p>
      * <ul>
-     *   <li>核心线程数：2（深度优化为低频长耗时任务，避免占用过多资源）</li>
+     *   <li>核心线程数：2（AI 任务为低频长耗时任务，避免占用过多资源）</li>
      *   <li>最大线程数：4</li>
      *   <li>队列容量：20（有界队列，防止任务堆积）</li>
      *   <li>拒绝策略：带日志的 CallerRunsPolicy（降级到调用线程执行）</li>
      * </ul>
      *
-     * @return 简历深度优化异步任务线程池
+     * @return 通用 AI 异步任务线程池
      */
-    @Bean(name = "resumeOptimizeExecutor")
-    public ThreadPoolTaskExecutor resumeOptimizeExecutor() {
+    @Bean(name = "aiTaskExecutor")
+    public ThreadPoolTaskExecutor aiTaskExecutor() {
         int corePoolSize = 2;
         int maxPoolSize = 4;
 
@@ -140,7 +141,7 @@ public class AsyncConfig {
         executor.setCorePoolSize(corePoolSize);
         executor.setMaxPoolSize(maxPoolSize);
         executor.setQueueCapacity(20);
-        executor.setThreadNamePrefix("resume-optimize-");
+        executor.setThreadNamePrefix("ai-task-");
         executor.setRejectedExecutionHandler(new LoggingCallerRunsPolicy());
         executor.setKeepAliveSeconds(120);
         executor.setAllowCoreThreadTimeOut(true);
@@ -148,7 +149,7 @@ public class AsyncConfig {
         executor.setAwaitTerminationSeconds(60);
         executor.initialize();
 
-        log.info("✅ 简历深度优化异步任务线程池初始化完成: core={}, max={}, queue={}",
+        log.info("✅ 通用 AI 异步任务线程池初始化完成: core={}, max={}, queue={}",
                 corePoolSize, maxPoolSize, 20);
         return executor;
     }

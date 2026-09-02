@@ -11,16 +11,16 @@ import {
 import LazyImage from '@/components/LazyImage.vue';
 import Breadcrumb from '@/components/Breadcrumb.vue';
 import SiteFooter from '@/components/SiteFooter.vue';
-import { generateSeo } from '@/utils/seo';
-import { getQuestionList, getInterviewCategoryList, getRecommendedQuestions, getMyProfile } from '@/api/interview';
-import { useAuth } from '@/composables/useAuth';
-import { useDictData, dictBadgeClass } from '@/composables/useDictData';
+import { generateSeo } from '@/utils/seo.ts';
+import { getQuestionList, getInterviewCategoryList, getRecommendedQuestions, getMyProfile } from '@/api/interview.ts';
+import { useAuth } from '@/composables/useAuth.ts';
+import { useDictData, dictBadgeClass } from '@/composables/useDictData.ts';
 import type {
   InterviewQuestionVO,
   InterviewCategoryVO,
   InterviewQuestionQuery,
   UserProfileSnapshotVO,
-} from '@/types/api';
+} from '@/types/api.ts';
 
 const route = useRoute();
 const router = useRouter();
@@ -160,12 +160,12 @@ const reasonMap: Record<string, { label: string; class: string; icon: any }> = {
 useHead(computed(() => generateSeo({
   title: '面试题库',
   description: '海量面试题目，涵盖算法、系统设计、前端、后端等方向，助你高效备战面试',
-  canonicalPath: '/interview/questions',
+  canonicalPath: '/learn/questions',
 })));
 
 // 面包屑
 const breadcrumbs = computed(() => [
-  { label: '面试指南', path: '/interview' },
+  { label: '学习中心', path: '/learn' },
   { label: '面试题库' },
 ]);
 

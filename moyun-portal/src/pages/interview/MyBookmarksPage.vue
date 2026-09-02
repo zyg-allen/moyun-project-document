@@ -142,7 +142,7 @@ function diffClass(item: InterviewQuestionVO) {
           <Bookmark class="w-12 h-12 mx-auto mb-3" style="color: var(--theme-text-secondary); opacity: 0.5;" />
           <p class="text-sm mb-4" style="color: var(--theme-text-secondary);">还没有收藏任何题目</p>
           <button
-            @click="router.push('/interview/questions')"
+            @click="router.push('/learn/questions')"
             class="px-4 py-2 text-white rounded-lg text-sm transition hover:opacity-90"
             style="background-color: var(--theme-primary);"
           >

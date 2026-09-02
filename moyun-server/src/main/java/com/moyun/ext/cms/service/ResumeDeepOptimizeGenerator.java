@@ -1,5 +1,6 @@
 package com.moyun.ext.cms.service;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.moyun.ext.cms.config.AiProperties;
@@ -20,15 +21,15 @@ import java.util.List;
  * 简历深度优化的「生成能力」（v10.19：从 ResumeDeepOptimizeService 抽离，解决循环依赖）
  *
  * <p><strong>抽离原因</strong>：原 {@link ResumeDeepOptimizeService} 同时持有 {@code generate()}
- * 和 {@code submitTask()}（触发异步）两类职责；异步执行器 {@link ResumeOptimizeAsyncExecutor}
- * 又需要调用 {@code generate()}，形成 A→B→A 循环依赖。</p>
+ * 和 {@code submitTask()}（触发异步）两类职责；异步执行方又需要调用 {@code generate()}，
+ * 形成 A→B→A 循环依赖。</p>
  *
  * <p><strong>结构改造</strong>：把 generate 及其私有方法（buildResumeContext/fillOriginal/safe）
  * 和它们依赖的 {@code aiProperties/llmClient/objectMapper/jobTargetMapper} 一起迁到本 Bean。
- * 改造后依赖图无环：</p>
+ * v10.23 起异步执行统一走通用 AI 任务基础设施，依赖图无环：</p>
  * <pre>
- *   ResumeDeepOptimizeService ──→ ResumeOptimizeAsyncExecutor ──→ ResumeDeepOptimizeGenerator
- *            └────────────────────────→ ResumeDeepOptimizeGenerator ─┘
+ *   AiTaskAsyncExecutor ──→ DeepOptimizeTaskHandler ──→ ResumeDeepOptimizeGenerator
+ *   ResumeDeepOptimizeService ──→ ResumeDeepOptimizeGenerator（门面委托）
  * </pre>
  *
  * <p>本 Bean 不反向依赖任何 Service/Executor，只持有数据访问与 LLM 客户端，职责单一。</p>
@@ -133,7 +134,7 @@ public class ResumeDeepOptimizeGenerator {
             return vo;
         } catch (ServiceException e) {
             throw e;
-        } catch (com.fasterxml.jackson.core.JsonProcessingException e) {
+        } catch (JsonProcessingException e) {
             log.error("[DeepOptimize] LLM 返回 JSON 解析失败（疑似输出被截断）", e);
             throw new ServiceException("AI 输出被截断或格式异常，请管理员在后台「AI 模块 → 模型配置」调大最大 Token 数后重试");
         } catch (Exception e) {

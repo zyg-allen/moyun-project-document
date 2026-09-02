@@ -210,7 +210,7 @@ onMounted(() => {
         <p class="text-sm mb-1" style="color: var(--theme-text);">暂无符合条件的题目</p>
         <p class="text-xs mb-4" style="color: var(--theme-text-secondary);">换个难度或关键词试试，或前往题库浏览全部题目</p>
         <button
-          @click="router.push('/interview/questions')"
+          @click="router.push('/learn/questions')"
           class="px-3 py-1.5 text-xs text-white rounded-md"
           style="background-color: var(--theme-primary);"
         >去题库看看</button>

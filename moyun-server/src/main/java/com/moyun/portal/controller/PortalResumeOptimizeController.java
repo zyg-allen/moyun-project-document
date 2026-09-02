@@ -3,8 +3,12 @@ package com.moyun.portal.controller;
 import com.moyun.common.constant.HttpStatus;
 import com.moyun.core.base.AjaxResult;
 import com.moyun.core.base.BaseController;
+import com.moyun.ext.cms.domain.vo.AiTaskVO;
 import com.moyun.ext.cms.domain.vo.ResumeDeepOptimizeVO;
+import com.moyun.ext.cms.domain.vo.ResumeOptimizeTaskVO;
 import com.moyun.ext.cms.domain.vo.UserResumeVO;
+import com.moyun.ext.cms.service.AiTaskService;
+import com.moyun.ext.cms.service.DeepOptimizeTaskHandler;
 import com.moyun.ext.cms.service.IUserResumeService;
 import com.moyun.ext.cms.service.ResumeDeepOptimizeService;
 import com.moyun.ext.cms.service.ResumeJobMatchService;
@@ -19,6 +23,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -63,6 +68,10 @@ public class PortalResumeOptimizeController extends BaseController {
     /** 评分报告存档 Mapper（v10.18 阶段五） */
     @Autowired
     private PortalResumeScoreReportMapper scoreReportMapper;
+
+    /** v10.23：通用 AI 异步任务服务（深度优化异步任务切换到 portal_ai_task） */
+    @Autowired
+    private AiTaskService aiTaskService;
 
     private Long currentUserId() {
         return PortalSecurityUtils.getUserId();
@@ -204,7 +213,7 @@ public class PortalResumeOptimizeController extends BaseController {
         }
     }
 
-    @Operation(summary = "提交深度优化异步任务（v10.19 推荐）",
+    @Operation(summary = "提交深度优化异步任务（v10.19 推荐；v10.23 切换通用 AI 任务表）",
             description = "立即返回任务ID，后端异步调用 LLM 生成建议。前端通过 GET /deep/task/{taskId} 轮询任务状态，"
                     + "status=success 时 result 字段为优化结果（ResumeDeepOptimizeVO）。"
                     + "解决大模型调用超时问题，支持关闭页面后回来查看。")
@@ -214,12 +223,14 @@ public class PortalResumeOptimizeController extends BaseController {
         if (userId == null) {
             return AjaxResult.error(HttpStatus.UNAUTHORIZED, "登录已过期，请重新登录");
         }
-        UserResumeVO resume = userResumeService.selectResumeDetail(resumeId, userId);
-        if (resume == null) {
-            return AjaxResult.error("简历不存在或无权访问");
-        }
         try {
-            Long taskId = deepOptimizeService.submitTask(userId, resume, jobTargetId);
+            // 保留原有提交前校验（简历归属/岗位目标存在/AI 可用性）
+            deepOptimizeService.validateDeepOptimizeSubmit(userId, resumeId, jobTargetId);
+            // 委托通用 AI 任务基础设施（v10.23：portal_ai_task 统一承载）
+            Map<String, Object> bizRef = new HashMap<>();
+            bizRef.put("resumeId", resumeId);
+            bizRef.put("jobTargetId", jobTargetId);
+            Long taskId = aiTaskService.submitTask(userId, DeepOptimizeTaskHandler.TASK_TYPE, bizRef);
             return AjaxResult.success(taskId);
         } catch (RuntimeException e) {
             return AjaxResult.error(e.getMessage());
@@ -227,7 +238,8 @@ public class PortalResumeOptimizeController extends BaseController {
     }
 
     @Operation(summary = "查询深度优化任务状态",
-            description = "前端轮询调用：返回 status(pending/running/success/failed)、progress(0-100)、result(成功时为优化结果)、errorMsg(失败时)。")
+            description = "前端轮询调用：返回 status(pending/running/success/failed)、progress(0-100)、result(成功时为优化结果)、errorMsg(失败时)。"
+                    + "v10.23：改读通用 AI 任务表 portal_ai_task，返回结构映射保持旧版字段兼容。")
     @GetMapping("/deep/task/{taskId}")
     public AjaxResult deepOptimizeTaskStatus(@PathVariable Long taskId) {
         Long userId = currentUserId();
@@ -235,7 +247,25 @@ public class PortalResumeOptimizeController extends BaseController {
             return AjaxResult.error(HttpStatus.UNAUTHORIZED, "登录已过期，请重新登录");
         }
         try {
-            return AjaxResult.success(deepOptimizeService.getTaskStatus(taskId, userId));
+            AiTaskVO task = aiTaskService.getTask(taskId, userId);
+            if (!DeepOptimizeTaskHandler.TASK_TYPE.equals(task.getTaskType())) {
+                return AjaxResult.error("任务不存在或无权访问");
+            }
+            // 映射为旧 ResumeOptimizeTaskVO 结构，保证前端轮询字段不破坏
+            ResumeOptimizeTaskVO vo = new ResumeOptimizeTaskVO();
+            vo.setTaskId(task.getId());
+            vo.setStatus(task.getStatus());
+            vo.setResult(task.getResult());
+            vo.setErrorMsg(task.getError());
+            // 粗粒度进度估算
+            switch (task.getStatus() == null ? "" : task.getStatus()) {
+                case "pending":  vo.setProgress(10); break;
+                case "running":   vo.setProgress(50); break;
+                case "success":   vo.setProgress(100); break;
+                //case "failed":    vo.setProgress(0); break;
+                default:          vo.setProgress(0);
+            }
+            return AjaxResult.success(vo);
         } catch (RuntimeException e) {
             return AjaxResult.error(e.getMessage());
         }

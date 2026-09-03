@@ -5,6 +5,148 @@
 
 ***
 
+## v11.18 (2026-09-03) 记账模块体验迭代：分类标签 + 语义提示 + 未登录引导
+
+> 用户试用反馈 8 项的落地。无表结构变更、无 SQL、无菜单变更，纯前端交互与引导优化（复式记账流水在 Phase 1 已实现，本次补语义说明）。
+
+### 改动内容
+- **备注+分类标签**：[记一笔页](file:///d:/zyg_new_work/moyun-project-document/moyun-ledger-app/src/pages/record/index.vue) — 分类改为不区分类型拉取全部可用分类，6 种行为（支出/收入/转账/还款/借款/校准）均可选分类打标签（提示"选填，打标签"）；备注行对所有类型可用
+- **数字键盘可收起**：键盘区增加"收起键盘 ∨"把手（kbVisible 状态），收起后金额区显示"⌨ 输入"按钮点击再展开，不再常驻占屏
+- **类型语义提示**：类型栏下方 hint 条逐类型说明 — 转账=资产账户间互转（A 减、B 加，总资产不变）、还款=资产出钱+欠款减少（余额不足提示补录）、借款=欠款增加+钱入账户（可不选账户）、校准=余额直接修正为目标值
+- **负债快速补录**：还款/借款的借款项目选择弹层内置"快速补录"表单（名称+当前欠款），调 createLiability 创建后自动选用；空列表点击也引导跳负债页
+- **还款余额不足校验**：保存前校验扣款账户余额，不足时弹窗说明"该账户余额不能兑现此笔还款"，提供「去补录收入」（切换为收入类型、预选同一账户、保留金额，补记资金来源如刚到账的奖金）与「仍要保存」两个选择
+- **我的页未登录收敛**：[我的页](file:///d:/zyg_new_work/moyun-project-document/moyun-ledger-app/src/pages/mine/index.vue) — 未登录时功能菜单改为置灰预览（"登录后可用"），不可点击误导；登录表单常驻；go() 兜底校验登录
+- **首页价值前置**：[总览页](file:///d:/zyg_new_work/moyun-project-document/moyun-ledger-app/src/pages/dashboard/index.vue) — 未登录：品牌区（墨韵记账·看清身家，才敢做决定）+ 3 条痛点（钱花哪了说不清/净资产糊涂账/借出去的钱没人管）+ 三步引导 + 登录入口；已登录：可关闭的操作提示条（提示备注/分类/凭证/余额补录能力）+ 原有数据总览
+- **复式流水说明**（既有实现确认）：转账在 ledger_transaction 双写 A 出账/B 入账流水（balance_after 各自快照），借/还分别记 borrow/repayment 流水并联动负债余额，总资产口径下转账不改变净资产
+
+### 验证
+- `npm run build:h5`：编译通过
+- 浏览器验证（已登录态）：记一笔 6 类型切换、转账语义提示+转入账户行、还款行、备注/分类行、键盘收起展开均正常
+- 浏览器验证（清除 token 后未登录态）：首页显示品牌区/痛点/三步/登录按钮（无净资产数据）；我的页显示登录表单+置灰菜单预览（无退出登录）；记一笔弹出登录引导弹窗
+
+### 部署
+前端 Vite 热更新自动生效，无需重启后端、无 SQL。
+
+***
+
+## v11.17 (2026-09-03) 记账模块 Phase 3 收尾：站内预算提醒 + 新手引导
+
+> 设计方案 V1.3 §13 预算提醒的站内通道（订阅消息模板待申请，先落地事务内实时判断）+ Phase 2 遗留的新手引导。无表结构变更。
+
+### 改动内容
+- **站内预算提醒**：[LedgerTransactionServiceImpl](file:///d:/zyg_new_work/moyun-project-document/moyun-server/src/main/java/com/moyun/ledger/service/impl/LedgerTransactionServiceImpl.java) 新增 checkBudgetAlert(userId) — 记账事务提交后判断当月总预算使用率：≥100% 提示「预算已超支」、≥80% 提示「已使用 N%」；每阈值每自然月仅推一次（Redis key `ledger:budget:alert:{userId}:{yyyyMM}:{阈值}`，TTL 至月底）；异常兜底不影响记账主流程
+- **接口返回**：POST /portal/ledger/transactions 响应新增 budgetAlert 字段（null=无提醒）；前端记一笔页保存后以弹窗展示提醒（替代普通 toast）
+- **新手引导**：dashboard 接口新增 assetAccountCount/liabilityAccountCount 字段；总览页无任何账户且未关闭过时显示「3 步开始」引导卡（添加账户 → 记第一笔 → 设预算），可点击直达对应页、可"不再显示"（ledger_guide_dismissed 存储）
+- **容错**：旧接口结构（无新字段）下前端不崩溃，budgetAlert 为空走普通 toast
+
+### 验证
+- `mvn compile`：通过（0 错误）
+- 浏览器验证：总览/记一笔页正常渲染、console 无报错、引导卡显示逻辑正确
+- 端到端验证发现并修复 Bug：`Duration.between(LocalDate, LocalDate)` 抛 UnsupportedTemporalTypeException（LocalDate 无时间单位）被 catch 吞掉 → 去重 key 写入但 expire 失败（TTL=-1 永不过期）且提醒文案返回 null。已改用 `ChronoUnit.SECONDS.between(now.atStartOfDay(), nextMonthStart.atStartOfDay())` 计算 TTL；catch 补充 log.warn 便于排查；本地 Redis 脏 key 已清理
+
+### 部署
+**重启 moyun-server** 生效（dashboard 新字段 + transactions 新响应字段）。无 SQL。
+
+***
+
+## v11.16 (2026-09-03) 记账模块 Phase 3：报表中心 + CSV 导出
+
+> 设计方案 V1.3 §12 Phase 3 核心项：报表全量 + 数据导出。无表结构变更（复用既有 6 表数据），纯增量接口与页面。
+
+### 改动内容
+- **新增报表服务**：[LedgerReportServiceImpl](file:///d:/zyg_new_work/moyun-project-document/moyun-server/src/main/java/com/moyun/ledger/service/impl/LedgerReportServiceImpl.java) + ILedgerReportService — overview(userId, year) 返回：月度收支趋势（12 月，is_budget=1 口径）/ 年收支结余 / 分类收支排名（系统预设+自定义合并名称）/ 净资产趋势（近 30 天快照）/ 账户余额分布 / 在还负债一览 / 当月总预算执行；buildCsv 按日期区间导出流水（UTF-8 BOM + 逗号引号转义，Excel 兼容）
+- **新增接口**：[PortalLedgerReportController](file:///d:/zyg_new_work/moyun-project-document/moyun-server/src/main/java/com/moyun/ledger/controller/PortalLedgerReportController.java) — GET /portal/ledger/reports/overview?year=、GET /portal/ledger/reports/export?startDate=&endDate=（CSV attachment，URLEncoder 文件名）；无表变更、无菜单变更，落入门户安全链 authenticated 兜底
+- **前端报表中心**：pages/report/index.vue — 年份切换（‹ 2026 ›）、年度收支概览（收/支/结余）、月度收支柱状图（纯 CSS 双色柱）、支出/收入分类 TOP 横条、净资产趋势条、账户余额分布、在还负债、CSV 导出（H5 fetch blob 下载 / 小程序 downloadFile+openDocument 条件编译）；响应隐私模式（金额脱敏 ****）
+- **入口**：pages.json 注册 + 「我的」菜单"报表中心" + 总览"本月收支"卡右上角"报表"链接
+
+### 验证
+- `mvn compile`：通过（0 错误）
+- 浏览器验证：报表页 6 类卡片全部渲染、无 JS 错误（后端重启前接口数据为空属预期）
+
+### 部署
+**重启 moyun-server** 生效（新接口 /portal/ledger/reports/**）。与 v11.15 的重启可合并为一次。
+
+***
+
+## v11.15 (2026-09-03) 记账模块 Phase 2：uni-app 前端落地 + 凭证截图 + UI 紧凑化
+
+> 前置修复：门户登录态以 HTTP 200 + code:401 返回时前端拦截器未识别（记一笔页账户/负债列表静默为空）。request.js 增加 body.code===401 分支（清 token + 引导登录），记一笔页 onShow 登录校验 + 空列表引导。
+
+### 改动内容
+- **增量 SQL**：[20260903-02-moyun-ledger-voucher.sql](file:///d:/zyg_new_work/moyun-project-document/moyun-server/src/main/resources/sql/20260903-02-moyun-ledger-voucher.sql) — ledger_transaction 新增 voucher_url VARCHAR(500)（凭证截图URL，复用门户文件服务）
+- **凭证截图（前后端）**：记一笔/编辑页支持选择截图（相册/相机）→ 上传 /portal/file/upload（businessType=ledger_voucher）→ voucher_url 入库；流水明细页"凭证"角标点击 uni.previewImage 预览；编辑页支持更换/移除（传空串清除，null 保持）
+- **流水分页增强**：[LedgerTransactionServiceImpl](file:///d:/zyg_new_work/moyun-project-document/moyun-server/src/main/java/com/moyun/ledger/service/impl/LedgerTransactionServiceImpl.java) pageTransactions 批量回填 accountName/targetAccountName/liabilityName/categoryName（@TableField(exist=false) 展示字段），前端零二次查询
+- **流水明细页紧凑化**：按日分组（今天/日期 + 日收支小计）+ 页首汇总条（笔数/收/支）+ 行内分类/商户/账户标签（图标 72→56rpx，行距 20→14rpx）
+- **记一笔页 UI**：选择弹层加高（sheet 70→82vh、列表 56→70vh）、键盘键 100→88rpx、保存按钮 88→76rpx；新增凭证截图行
+- **首页隐私开关**：总览 hero 卡右上角"隐私 开/关"胶囊，与设置页共用 ledger_privacy 存储
+- **空列表引导**：记一笔选择弹层空数据时按类型跳转资产/负债/分类管理页
+
+### 验证
+- `mvn compile`：通过（0 错误）
+- 20260903-02 SQL 已在本地库执行（voucher_url 字段已确认）
+
+### 部署
+执行 20260903-02-moyun-ledger-voucher.sql 后**重启 moyun-server**（流水分页返回结构新增名称字段与 voucherUrl）；前端 Vite 热更新自动生效。
+
+***
+
+## v11.14 (2026-09-03) 记账模块（个人资产管理）Phase 1：后端核心落地
+
+> 新需求立项：记账 App/小程序，核心价值「一个数字看清全部身家」。设计方案经两轮评审定稿为 V1.3（单账本模型、仅人民币，App 端走 /portal/ledger/** 复用门户安全链）。本阶段交付后端全量：6 张表、资产/负债账户、6 种记账类型的联动事务核心、流水冲正重放、dashboard 总览、净资产每日快照任务。微信登录绑定（用户中心改造）与 uni-app 前端工程属 Phase 1 后续项。
+
+### 改动内容
+- **DDL**：[20260903-01-moyun-ledger.sql](file:///d:/zyg_new_work/moyun-project-document/moyun-server/src/main/resources/sql/20260903-01-moyun-ledger.sql) — 6 表（ledger_asset_account / ledger_liability_account / ledger_transaction / ledger_category / ledger_budget / ledger_net_worth_snapshot，金额统一 BIGINT 分）+ 26 条系统预设分类（user_id=0+is_system=1）+ 管理端菜单 5400-5413（记账管理/预设分类/运营统计，超管已授权），幂等可重复执行
+- **新增模块** com.moyun.ledger（33 个类）：6 实体（不继承 BaseEntity，流水自管 status 逻辑删除）+ 6 Mapper（MapperScan 通配自动覆盖）+ 6 Service + 6 Controller + 1 定时任务
+- **记账事务核心**：[LedgerTransactionServiceImpl](file:///d:/zyg_new_work/moyun-project-document/moyun-server/src/main/java/com/moyun/ledger/service/impl/LedgerTransactionServiceImpl.java) — 单 @Transactional 内完成余额双边更新（乐观锁 version）+ balance_after 系列快照写入 + 净资产快照 upsert；修改=旧记录冲正→新记录重放；删除=冲正→status=0 归档；还款超额拒绝；还款至 0 自动置 settle_flag=1（冲正回到 >0 时重置）
+- **账户服务**：资产初始余额自动生成 adjust 流水、负债初始欠款自动生成 borrow 流水（全明细追溯）；update 强制保持原 balance（校准必须走记账）；删除即 status=0 归档，流水永久保留
+- **API（/portal/ledger/**）**：dashboard（净资产/总资产/总负债/涨跌对比昨日快照/本月收支/预算进度/最近 20 条流水）、assets / liabilities CRUD、transactions POST/GET/PUT/DELETE（路径参数均带 {id:[0-9]+} 正则约束）、categories（系统预设+自定义合并）、budgets（存在即更新的 upsert 语义）
+- **定时任务**：[LedgerNetWorthSnapshotTask](file:///d:/zyg_new_work/moyun-project-document/moyun-server/src/main/java/com/moyun/ledger/job/LedgerNetWorthSnapshotTask.java) — 每日 00:10 全量补漏快照（当日有记账的用户由事务内实时 upsert 维护）
+- **安全**：/portal/ledger/** 落入门户链 securityMatcher("/portal/**") 的 anyRequest().authenticated() 兜底，零安全链改动；所有操作强制 user_id 归属校验（防水平越权）
+
+### 设计要点（与方案的对应）
+- 联动规则矩阵 V1.3 §5.1：income/expense/transfer/repayment/borrow/adjust 六类，转账/还款/借款净资产守恒
+- 统计口径 V1.3 §4.3.6：净资产=账户现值聚合，涨跌=对比昨日快照，收支=流水表 is_budget=1 实时聚合
+- user_id 口径 = portal_user.id（V1.3 §3.1 双 ID 陷阱警示）
+
+### 验证
+- `mvn compile`：通过（0 错误）
+
+### 部署
+执行 20260903-01-moyun-ledger.sql 后重启 moyun-server。管理端页面（views/cms/ledger/ 预设分类 + 运营统计）与 uni-app 前端工程为后续交付项；微信登录端点依赖用户中心改造（appid 申请为前置 TODO）。
+
+---
+
+## v11.15 (2026-09-03) 记账模块 Phase 1 收尾：uni-app 工程 + 管理端页面
+
+> 前后端闭环完成：新建 uni-app 工程 moyun-ledger-app（一套代码编译 H5/小程序），管理端补齐预设分类维护与脱敏运营统计，与后端 v11.14 交付的 API 全面对接。
+
+### 改动内容
+- **新工程** [moyun-ledger-app](file:///d:/zyg_new_work/moyun-project-document/moyun-ledger-app/package.json)（uni-app 4.29 + Vue3 + Pinia + Vite5，自定义组件替代 uView Plus 降低依赖面）：
+  - 5 Tab：总览（净资产卡+涨跌标识+预算进度+最近20条流水）/ 资产 / 记一笔 / 负债 / 我的
+  - 记一笔页：6 类型切换（支出/收入/转账/还款/借款/校准）+ 自研数字键盘（两位小数限制）+ 账户/负债/分类底部选择器；保存后保留账户便于连续记账
+  - 流水明细页（类型/日期区间筛选+分页加载）、流水编辑页（冲正重放提示）、分类管理（系统+自定义）、预算设置（总预算+分类预算 upsert）、隐私模式设置（金额打星）
+  - 请求层与门户约定一致：token key `moyun_token`、`Authorization: Bearer`、AjaxResult code=200 判定、401 自动登出
+- **管理端后端**（com.moyun.ledger.controller）：
+  - CmsLedgerCategoryController（/cms/ledger/category，仅维护 user_id=0 系统预设，用户自定义分类无后台入口——隐私红线）
+  - CmsLedgerStatsController（/cms/ledger/stats/overview，仅聚合指标：用户数/30日活跃/流水量/类型分布，无个体数据）
+- **管理端前端**（moyun-admin-vue）：[预设分类](file:///d:/zyg_new_work/moyun-project-document/moyun-admin-vue/src/views/cms/ledger/category/index.vue)（CRUD+颜色选择器+停用）+ [运营统计](file:///d:/zyg_new_work/moyun-project-document/moyun-admin-vue/src/views/cms/ledger/stats/index.vue)（四指标卡+类型分布表+脱敏声明），API 模块 [api/cms/ledger](file:///d:/zyg_new_work/moyun-project-document/moyun-admin-vue/src/api/cms/ledger/index.js)
+- **金额规范**：前端元/后端分转换统一走 utils/money.js（yuanToCent/centToYuan），页面内禁止手写 *100
+
+### 验证
+- moyun-ledger-app：`npm run build:h5` 与 `npm run build:mp-weixin` 双端构建通过
+- moyun-server：`mvn compile` 通过（含新增 CMS Controller）
+
+### 部署
+- App 端开发调试：`npm run dev:h5`（H5 直接访问）或导入 `dist/dev/mp-weixin` 到微信开发者工具（需勾选"不校验合法域名"）
+- 小程序上线前需在 manifest.json 填入 appid 并配置合法域名；管理端重新构建发布后，菜单"记账管理"（5400）出现
+- 登录复用门户账号（/portal/login），微信授权登录仍为 TODO（依赖用户中心改造）
+
+---
+
+## v11.14 (2026-09-03) 记账模块（个人资产管理）Phase 1：后端核心落地
+
+---
+
 ## v11.13 (2026-09-02) 面试题库归属学习中心：路由反转 + 面包屑修正
 
 > 用户反馈：题库页 URL 为 `/interview/questions`，面包屑显示"首页/面试指南/面试题库"，但题库实际归属学习中心（与 portal_category.nav_route_path 及学习中心栏目对齐）。修正为 URL `/learn/questions`、面包屑"首页/学习中心/面试题库"。

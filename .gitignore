@@ -55,3 +55,5 @@ build/
 logs/
 /logs/
 pnpm-lock.yaml
+/moyun-ledger-app/node_modules/
+/moyun-ledger-app/dist/

@@ -1,13 +1,19 @@
 package com.moyun.ledger.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.moyun.ledger.domain.entity.LedgerCategory;
+import com.moyun.ledger.domain.entity.LedgerTransaction;
 import com.moyun.ledger.mapper.LedgerCategoryMapper;
+import com.moyun.ledger.mapper.LedgerTransactionMapper;
 import com.moyun.ledger.service.ILedgerCategoryService;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
  * 记账分类服务实现
@@ -18,6 +24,9 @@ import java.util.List;
 public class LedgerCategoryServiceImpl extends ServiceImpl<LedgerCategoryMapper, LedgerCategory>
         implements ILedgerCategoryService {
 
+    @Autowired
+    private LedgerTransactionMapper transactionMapper;
+
     @Override
     public List<LedgerCategory> listAvailable(Long userId, String type) {
         LambdaQueryWrapper<LedgerCategory> qw = new LambdaQueryWrapper<>();
@@ -27,7 +36,28 @@ public class LedgerCategoryServiceImpl extends ServiceImpl<LedgerCategoryMapper,
             qw.eq(LedgerCategory::getType, type);
         }
         qw.orderByAsc(LedgerCategory::getSortOrder).orderByAsc(LedgerCategory::getId);
-        return list(qw);
+        List<LedgerCategory> list = list(qw);
+        fillUsedCount(userId, list);
+        return list;
+    }
+
+    /** 回填当前用户各分类的使用流水笔数（记一笔页"最常用排序"用） */
+    private void fillUsedCount(Long userId, List<LedgerCategory> categories) {
+        if (userId == null || categories.isEmpty()) {
+            return;
+        }
+        QueryWrapper<LedgerTransaction> qw = new QueryWrapper<>();
+        qw.select("category_id", "COUNT(*) AS cnt")
+                .eq("user_id", userId)
+                .eq("status", 1)
+                .isNotNull("category_id")
+                .groupBy("category_id");
+        List<Map<String, Object>> rows = transactionMapper.selectMaps(qw);
+        Map<Long, Long> countMap = rows.stream().collect(Collectors.toMap(
+                r -> Long.valueOf(String.valueOf(r.get("category_id"))),
+                r -> Long.valueOf(String.valueOf(r.get("cnt")))
+        ));
+        categories.forEach(c -> c.setUsedCount(countMap.getOrDefault(c.getId(), 0L)));
     }
 
     @Override

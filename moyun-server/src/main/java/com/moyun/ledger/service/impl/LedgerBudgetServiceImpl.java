@@ -8,6 +8,7 @@ import com.moyun.ledger.service.ILedgerBudgetService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 
@@ -42,7 +43,7 @@ public class LedgerBudgetServiceImpl extends ServiceImpl<LedgerBudgetMapper, Led
         if (budget.getMonth() == null) {
             budget.setMonth(now.getMonthValue());
         }
-        if (budget.getAmount() == null || budget.getAmount() < 0) {
+        if (budget.getAmount() == null || budget.getAmount().compareTo(BigDecimal.ZERO) <= 0) {
             throw new IllegalArgumentException("预算金额不合法");
         }
         if (budget.getYear() < 2000 || budget.getYear() > 2100

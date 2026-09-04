@@ -1,25 +1,68 @@
 <template>
-  <view class="page">
-    <!-- 类型切换 -->
+  <view class="page" :style="themeVars">
+    <!-- 顶部：类型Tab + 语义提示 -->
     <view class="type-bar">
-      <view v-for="t in types" :key="t.key" class="type-item" :class="{ active: form.type === t.key }" @tap="switchType(t.key)">
-        {{ t.label }}
+      <view class="type-bar-inner">
+        <view v-for="t in visibleTypes" :key="t.key" class="type-item" :class="{ active: form.type === t.key }" @tap="switchType(t.key)">
+          {{ t.label }}
+        </view>
+      </view>
+    </view>
+    <view class="type-hint" v-if="typeHint">{{ typeHint }}</view>
+
+    <!-- 分类宫格（按类型过滤，常用优先） -->
+    <view class="cat-section">
+      <view class="cat-section-title">
+        <text>选择分类</text>
+        <view class="cat-title-right" @tap="catCollapsed = !catCollapsed">
+          <text class="cat-count">{{ selectedCategoryName || '选填' }}</text>
+          <text class="cat-toggle">{{ catCollapsed ? '展开 ▾' : '收起 ▴' }}</text>
+        </view>
+      </view>
+      <scroll-view v-show="!catCollapsed" scroll-y class="cat-grid-wrap">
+        <view class="cat-grid">
+          <view v-for="c in sortedCategories" :key="c.id" class="cat-cell" @tap="pickCategoryCell(c)">
+            <view class="cat-icon" :class="{ selected: form.categoryId === c.id }"
+                  :style="form.categoryId === c.id ? '' : 'background:' + (c.color || '#BDC3C7')">
+              <text>{{ iconOf(c.icon) }}</text>
+            </view>
+            <text class="cat-name" :class="{ selected: form.categoryId === c.id }">{{ c.name }}</text>
+          </view>
+          <view v-if="!sortedCategories.length" class="cat-empty">
+            {{ userStore.isLoggedIn ? '暂无分类，可在「我的-分类管理」添加' : '登录后可选择分类' }}
+          </view>
+        </view>
+      </scroll-view>
+      <!-- 二级分类（预留：一级带子分类时横滑展示） -->
+      <scroll-view v-if="subCategories.length" scroll-x class="sub-cat-bar">
+        <view v-for="s in subCategories" :key="s.id" class="sub-cat-tag" :class="{ active: form.subCategoryId === s.id }"
+              @tap="form.subCategoryId = form.subCategoryId === s.id ? null : s.id">
+          {{ s.name }}
+        </view>
+      </scroll-view>
+    </view>
+
+    <!-- 备注行（突出） -->
+    <view class="note-card">
+      <text class="note-label">备注</text>
+      <input v-model="form.description" placeholder="点击填写备注" class="note-input" />
+    </view>
+
+    <!-- 金额区（突出） -->
+    <view class="amount-area" @tap="kbVisible = true">
+      <view class="amount-left">
+        <text class="amount-label">金额</text>
+        <text class="amount-date" @tap.stop="pickDate">{{ form.transactionDate }} ›</text>
+      </view>
+      <view class="amount-right">
+        <text class="currency">¥</text>
+        <text class="amount-text">{{ amountYuan || '0.00' }}</text>
+        <text v-if="!kbVisible" class="kb-open-btn">⌨</text>
       </view>
     </view>
 
-    <!-- 类型语义提示 -->
-    <view class="type-hint" v-if="typeHint">{{ typeHint }}</view>
-
-    <view class="body">
-      <!-- 金额输入区（收起键盘时点击展开） -->
-      <view class="amount-area" @tap="kbVisible = true">
-        <text class="currency">¥</text>
-        <input v-model="amountYuan" type="digit" class="amount-input" placeholder="0.00"
-               :placeholder-style="'color:rgba(255,255,255,0.4);font-size:64rpx'" />
-        <text v-if="!kbVisible" class="kb-open-btn">⌨ 输入</text>
-      </view>
-
-      <!-- 账户/负债选择行 -->
+    <!-- 账户/负债选择（次级卡片） -->
+    <view class="opt-card">
       <view class="pick-row" @tap="pickAsset">
         <text class="pick-label">{{ accountLabel }}</text>
         <text class="pick-value">{{ selectedAssetName || '选择账户' }} ▾</text>
@@ -32,36 +75,17 @@
         <text class="pick-label">{{ form.type === 'repayment' ? '还款至' : '借款自' }}</text>
         <text class="pick-value">{{ selectedLiabilityName || '选择借款项目' }} ▾</text>
       </view>
-
-      <!-- 分类选择（所有类型可选标签） -->
-      <view class="pick-row" @tap="pickCategory">
-        <text class="pick-label">分类</text>
-        <text class="pick-value muted">{{ selectedCategoryName || '选填，打标签' }} ▾</text>
-      </view>
-
-      <!-- 备注/商户 -->
-      <view class="pick-row">
-        <text class="pick-label">备注</text>
-        <input v-model="form.description" placeholder="选填" class="pick-input" />
-      </view>
       <view class="pick-row" v-if="form.type === 'expense'">
         <text class="pick-label">商户</text>
         <input v-model="form.merchant" placeholder="选填" class="pick-input" />
       </view>
-
-      <!-- 日期 -->
-      <view class="pick-row" @tap="pickDate">
-        <text class="pick-label">日期</text>
-        <text class="pick-value">{{ form.transactionDate }} ▾</text>
-      </view>
-
       <!-- 凭证截图 -->
       <view class="voucher-row">
         <text class="pick-label">凭证</text>
-        <view class="voucher-area" @tap="chooseVoucher">
+        <view class="voucher-area">
           <image v-if="form.voucherUrl" :src="form.voucherUrl" mode="aspectFill" class="voucher-thumb"
                  @tap.stop="previewVoucher" />
-          <view v-else class="voucher-add">
+          <view v-else class="voucher-add" @tap="chooseVoucher">
             <text class="voucher-add-icon">📷</text>
             <text class="voucher-add-text">截图</text>
           </view>
@@ -121,6 +145,7 @@
             <text class="picker-sub" v-if="item.sub">{{ item.sub }}</text>
           </view>
         </scroll-view>
+        <view class="picker-cancel" @tap="picker.visible = false">取消</view>
       </view>
     </view>
   </view>
@@ -128,8 +153,9 @@
 
 <script>
 import { createTransaction, listAssets, listLiabilities, listCategories, createLiability, uploadVoucher } from '@/api/ledger';
-import { yuanToCent, centToAmount } from '@/utils/money';
+import { yuanToCent, centToAmount, centToAbsAmount, toNum } from '@/utils/money';
 import { useUserStore } from '@/stores/user';
+import { useThemeStore } from '@/stores/theme';
 
 const TYPE_DEFS = [
   { key: 'expense', label: '支出' },
@@ -147,6 +173,23 @@ const TYPE_HINTS = {
   adjust: '校准 = 将账户余额直接修正为目标值（差额可为负）'
 };
 
+/** 分类 icon 标识 → emoji（彩色圆底内） */
+const ICON_MAP = {
+  food: '🍜', transport: '🚌', shopping: '🛍️', home: '🏠', entertainment: '🎮',
+  medical: '💊', education: '📚', phone: '📱', daily: '🧻', gift: '🎁',
+  pet: '🐾', travel: '✈️', 'house-loan': '🏦', 'car-loan': '🚗', repayment: '💳',
+  interest: '📈', other: '🔖', salary: '💰', bonus: '🎉', parttime: '💼',
+  invest: '📊', redpacket: '🧧', refund: '↩️', 'borrow-in': '🤝', secondhand: '♻️',
+  // 转账
+  'transfer-self': '🔄', 'transfer-friend': '👥', 'transfer-proxy': '🔀', 'transfer-refund': '↩️', 'transfer-other': '🔖',
+  // 还款
+  'repay-card': '💳', 'repay-loan': '🏦', 'repay-personal': '🤝', 'repay-interest': '📈', 'repay-other': '🔖',
+  // 借款
+  'borrow-card': '💳', 'borrow-online': '🌐', 'borrow-bank': '🏦', 'borrow-installment': '📅', 'borrow-personal': '🤝', 'borrow-other': '🔖',
+  // 校准
+  'adjust-balance': '⚖️', 'adjust-fee': '💸', 'adjust-fx': '💱', 'adjust-other': '🔖'
+};
+
 export default {
   data() {
     const today = new Date();
@@ -154,6 +197,7 @@ export default {
     return {
       types: TYPE_DEFS,
       amountYuan: '',
+      catCollapsed: false,
       assets: [],
       liabilities: [],
       categories: [],
@@ -161,7 +205,7 @@ export default {
       quickAdd: { visible: false, name: '', balanceYuan: '' },
       form: {
         type: 'expense', accountId: null, targetAccountId: null, liabilityId: null,
-        categoryId: null, description: '', merchant: '', voucherUrl: '',
+        categoryId: null, subCategoryId: null, description: '', merchant: '', voucherUrl: '',
         transactionDate: `${today.getFullYear()}-${pad(today.getMonth() + 1)}-${pad(today.getDate())}`
       },
       keys: [
@@ -174,11 +218,30 @@ export default {
     };
   },
   computed: {
+    themeVars() { return useThemeStore().themeVars; },
+    userStore() { return useUserStore(); },
+    visibleTypes() { return this.types; },
     typeHint() { return TYPE_HINTS[this.form.type] || ''; },
     needTarget() { return this.form.type === 'transfer'; },
     needLiability() { return ['repayment', 'borrow'].includes(this.form.type); },
     accountLabel() {
       return { expense: '支出账户', income: '收入账户', transfer: '转出账户', repayment: '扣款账户', borrow: '入账账户(选填)', adjust: '校准账户' }[this.form.type] || '账户';
+    },
+    /** 按当前类型过滤分类：每种交易类型只显示对应分类 */
+    filteredCategories() {
+      const t = this.form.type;
+      return this.categories.filter(c => c.type === t && !c.parentId);
+    },
+    /** 常用优先：使用次数降序，同频按 sortOrder */
+    sortedCategories() {
+      return [...this.filteredCategories].sort((a, b) =>
+        toNum(b.usedCount) - toNum(a.usedCount) || toNum(a.sortOrder) - toNum(b.sortOrder)
+      );
+    },
+    /** 一级分类的二级子分类（选中一级后出现） */
+    subCategories() {
+      if (!this.form.categoryId) return [];
+      return this.categories.filter(c => c.parentId === this.form.categoryId);
     },
     selectedAssetName() {
       const a = this.assets.find(x => x.id === this.form.accountId);
@@ -190,7 +253,7 @@ export default {
     },
     selectedLiabilityName() {
       const l = this.liabilities.find(x => x.id === this.form.liabilityId);
-      return l ? `${l.name}（欠 ${centToAmount(l.balance)}）` : '';
+      return l ? `${l.name}（欠 ${centToAbsAmount(l.balance)}）` : '';
     },
     selectedCategoryName() {
       const c = this.categories.find(x => x.id === this.form.categoryId);
@@ -204,14 +267,13 @@ export default {
       if (this.form.type === 'adjust') return cent !== 0 && !!this.form.accountId;
       if (cent <= 0) return false;
       if (this.needTarget) return !!this.form.accountId && !!this.form.targetAccountId;
-      if (this.needLiability) return !!this.form.liabilityId && (this.form.type === 'borrow' || !!this.form.accountId);
+      if (this.needLiability) return  (this.form.type === 'borrow' || !!this.form.accountId);
       return !!this.form.accountId;
     }
   },
   onShow() {
-    const userStore = useUserStore();
-    if (!userStore.isLoggedIn) {
-      // 未登录：清空选项并引导去「我的」登录，避免弹出空列表
+    useThemeStore().restore();
+    if (!this.userStore.isLoggedIn) {
       this.assets = [];
       this.liabilities = [];
       this.categories = [];
@@ -221,6 +283,7 @@ export default {
     this.loadOptions();
   },
   methods: {
+    iconOf(icon) { return ICON_MAP[icon] || '🏷️'; },
     promptLogin() {
       uni.showModal({
         title: '提示',
@@ -238,13 +301,11 @@ export default {
         this.liabilities = ((liabilities && liabilities.records) || []).filter(l => l.settleFlag !== 1);
         this.loadCategories();
       } catch (e) {
-        // 登录过期（HTTP 200 + code:401）时拦截器已清除 token，这里引导登录
         if (e && e.code === 401) this.promptLogin();
       }
     },
     async loadCategories() {
       try {
-        // 不区分类型拉全部可用分类，任何行为都可打标签
         const res = await listCategories();
         this.categories = (res && res.records) || [];
       } catch (e) { /* 忽略 */ }
@@ -252,6 +313,11 @@ export default {
     switchType(key) {
       this.form.type = key;
       this.form.categoryId = null;
+      this.form.subCategoryId = null;
+    },
+    pickCategoryCell(c) {
+      this.form.categoryId = this.form.categoryId === c.id ? null : c.id;
+      this.form.subCategoryId = null;
     },
     pickAsset() {
       this.openPicker('asset', '选择账户', this.assets.map(a => ({
@@ -264,50 +330,38 @@ export default {
     },
     pickLiability() {
       this.openPicker('liability', '选择借款项目', this.liabilities.map(l => ({
-        id: l.id, name: l.name, sub: '欠款 ¥' + centToAmount(l.balance)
+        id: l.id, name: l.name, sub: '欠款 ¥' + centToAbsAmount(l.balance)
       })), this.form.liabilityId);
-    },
-    pickCategory() {
-      this.openPicker('category', '选择分类', this.categories.map(c => ({
-        id: c.id, name: c.name
-      })), this.form.categoryId);
     },
     openPicker(mode, title, items, selectedId) {
       this.quickAdd.visible = false;
       const emptyMap = {
         asset: '暂无可用账户，点击去「资产」页添加',
         target: '暂无可用账户，点击去「资产」页添加',
-        liability: '暂无借款项目，可在上方快速补录',
-        category: '暂无分类，点击去「我的-分类管理」添加'
+        liability: '暂无借款项目，可在上方快速补录'
       };
       this.picker = { visible: true, mode, title, items, selectedId, empty: emptyMap[mode] || '暂无数据' };
     },
     pickerEmptyTap() {
       const mode = this.picker.mode;
       this.picker.visible = false;
-      if (mode === 'liability') {
-        uni.switchTab({ url: '/pages/liability/index' });
-      } else if (mode === 'category') {
-        uni.navigateTo({ url: '/pages/mine/categories/index' });
-      } else {
-        uni.switchTab({ url: '/pages/asset/index' });
-      }
+      uni.switchTab({ url: '/pages/portfolio/index' });
+      uni.showToast({ title: mode === 'liability' ? '可在「负债」Tab 补录' : '可在「资产」Tab 补录', icon: 'none' });
     },
     confirmPick(item) {
       const mode = this.picker.mode;
       if (mode === 'asset') this.form.accountId = item.id;
       if (mode === 'target') this.form.targetAccountId = item.id;
       if (mode === 'liability') this.form.liabilityId = item.id;
-      if (mode === 'category') this.form.categoryId = item.id;
       this.picker.visible = false;
     },
-    /** 快速补录借款项目（含初始欠款），保存后自动选用 */
     async saveQuickAdd() {
       if (!this.quickAddOk) return;
       try {
+       debugger
         const created = await createLiability({
           name: this.quickAdd.name.trim(),
-          type: 'personal', // 默认私人借款
+          type: 'personal',
           initialBalance: yuanToCent(this.quickAdd.balanceYuan),
           includeInTotal: 1
         });
@@ -348,8 +402,7 @@ export default {
     },
     async save() {
       if (!this.canSave) return;
-      const userStore = useUserStore();
-      if (!userStore.isLoggedIn) {
+      if (!this.userStore.isLoggedIn) {
         uni.showToast({ title: '请先在「我的」登录', icon: 'none' });
         uni.switchTab({ url: '/pages/mine/index' });
         return;
@@ -359,7 +412,7 @@ export default {
       // 还款资金校验：扣款账户余额不足时，引导补录资金来源（说明钱从哪来）
       if (this.form.type === 'repayment' && this.form.accountId) {
         const acc = this.assets.find(x => x.id === this.form.accountId);
-        if (acc && acc.balance < cent) {
+        if (acc && toNum(acc.balance) < cent) {
           const that = this;
           uni.showModal({
             title: '账户余额不足',
@@ -368,7 +421,6 @@ export default {
             cancelText: '仍要保存',
             success: (r) => {
               if (r.confirm) {
-                // 切到收入类型，预选同一账户，保留金额便于直接补录
                 that.form.type = 'income';
                 that.kbVisible = true;
                 uni.showToast({ title: '已切换为收入，请补录资金来源', icon: 'none' });
@@ -397,28 +449,25 @@ export default {
       };
       try {
         const res = await createTransaction(data);
-        // 站内预算提醒（≥80%/≥100%，后端每阈值每月仅推一次）
         const alertMsg = res && res.budgetAlert;
         if (alertMsg) {
           uni.showModal({ title: '预算提醒', content: alertMsg, showCancel: false });
         } else {
           uni.showToast({ title: '已保存', icon: 'success' });
         }
-        // 重置金额/备注/凭证/分类，保留账户便于连续记账
         this.amountYuan = '';
         this.form.description = '';
         this.form.merchant = '';
         this.form.voucherUrl = '';
         this.form.categoryId = null;
-        // 刷新账户余额（还款校验用最新值）
+        this.form.subCategoryId = null;
         const assets = await listAssets(false).catch(() => null);
         if (assets && assets.records) this.assets = assets.records;
       } catch (e) { /* 拦截器已提示 */ }
     },
     // ---------------- 凭证截图 ----------------
     chooseVoucher() {
-      const userStore = useUserStore();
-      if (!userStore.isLoggedIn) {
+      if (!this.userStore.isLoggedIn) {
         this.promptLogin();
         return;
       }
@@ -453,49 +502,87 @@ export default {
 </script>
 
 <style scoped>
-.page { display: flex; flex-direction: column; height: 100vh; background: #f5f6f8; }
+.page { display: flex; flex-direction: column; min-height: 100vh; background: #f5f6f8; padding-bottom: env(safe-area-inset-bottom); }
 
-.type-bar {
-  display: flex; background: #6a4fd4; padding: 0 12rpx; padding-top: calc(90rpx + env(safe-area-inset-top));
-}
+/* 顶部类型Tab（白底胶囊） */
+.type-bar { background: #fff; padding: calc(20rpx + env(safe-area-inset-top)) 24rpx 16rpx; }
+.type-bar-inner { display: flex; background: #f5f6f8; border-radius: 44rpx; padding: 8rpx; }
 .type-item {
-  flex: 1; text-align: center; color: rgba(255,255,255,0.65); font-size: 28rpx;
-  padding: 20rpx 0 24rpx; position: relative;
+  flex: 1; text-align: center; color: #666; font-size: 28rpx;
+  padding: 14rpx 0; border-radius: 36rpx;
 }
-.type-item.active { color: #fff; font-weight: 600; }
-.type-item.active::after {
-  content: ''; position: absolute; left: 50%; transform: translateX(-50%);
-  bottom: 8rpx; width: 40rpx; height: 6rpx; border-radius: 3rpx; background: #fff;
-}
+.type-item.active { background: var(--primary); color: #fff; font-weight: 600; }
 
 /* 类型语义提示 */
-.type-hint {
-  background: #f0ebfb; color: #6a4fd4; font-size: 22rpx;
-  padding: 10rpx 32rpx;
-}
+.type-hint { background: var(--primary-soft); color: var(--primary-strong); font-size: 22rpx; padding: 10rpx 32rpx; }
 
-.body { flex: 1; overflow-y: auto; }
-.amount-area {
-  display: flex; align-items: baseline; padding: 40rpx 40rpx 30rpx; background: #6a4fd4;
+/* 分类宫格 */
+.cat-section { background: #fff; margin: 20rpx 24rpx; border-radius: 20rpx; padding: 24rpx 12rpx 8rpx; }
+.cat-section-title { display: flex; justify-content: space-between; align-items: center; padding: 0 20rpx 16rpx; font-size: 28rpx; font-weight: 600; }
+.cat-title-right { display: flex; align-items: center; }
+.cat-count { font-size: 22rpx; color: var(--primary-strong); font-weight: 400; margin-right: 16rpx; }
+.cat-toggle { font-size: 22rpx; color: #999; padding: 4rpx 12rpx; background: #f5f5f7; border-radius: 20rpx; }
+.cat-grid-wrap { max-height: 560rpx; }
+.cat-grid { display: flex; flex-wrap: wrap; }
+.cat-cell { width: 25%; display: flex; flex-direction: column; align-items: center; padding: 16rpx 0 20rpx; }
+.cat-icon {
+  width: 88rpx; height: 88rpx; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 40rpx;
+  box-shadow: 0 4rpx 10rpx rgba(0, 0, 0, 0.08);
 }
-.currency { color: #fff; font-size: 44rpx; font-weight: 600; margin-right: 16rpx; }
-.amount-input { flex: 1; color: #fff; font-size: 64rpx; font-weight: 700; }
-.kb-open-btn { color: rgba(255,255,255,0.75); font-size: 26rpx; }
+.cat-icon.selected { background: var(--primary) !important; transform: scale(1.06); }
+.cat-name { font-size: 24rpx; color: #666; margin-top: 10rpx; }
+.cat-name.selected { color: var(--primary-strong); font-weight: 600; }
+.cat-empty { width: 100%; text-align: center; color: #bbb; font-size: 26rpx; padding: 40rpx 0; }
 
-.pick-row {
+/* 二级分类横滑 */
+.sub-cat-bar { white-space: nowrap; padding: 8rpx 20rpx 16rpx; border-top: 1rpx solid #f5f5f7; }
+.sub-cat-tag {
+  display: inline-block; font-size: 24rpx; color: #666;
+  background: #f5f6f8; border-radius: 28rpx; padding: 8rpx 28rpx; margin-right: 16rpx;
+}
+.sub-cat-tag.active { background: var(--primary); color: #fff; }
+
+/* 备注行（突出） */
+.note-card {
   display: flex; align-items: center; background: #fff;
-  padding: 22rpx 32rpx; border-bottom: 1rpx solid #f5f5f7;
+  margin: 0 24rpx 20rpx; border-radius: 20rpx; padding: 28rpx 32rpx;
 }
+.note-label { font-size: 28rpx; font-weight: 600; margin-right: 24rpx; }
+.note-input { flex: 1; font-size: 30rpx; }
+
+/* 金额区（突出，主色底） */
+.amount-area {
+  display: flex; align-items: center; justify-content: space-between;
+  background: var(--primary); padding: 36rpx 40rpx; margin: 0 24rpx 20rpx;
+  border-radius: 20rpx; color: #fff;
+}
+.amount-left { display: flex; flex-direction: column; }
+.amount-label { font-size: 26rpx; opacity: 0.85; }
+.amount-date { font-size: 24rpx; opacity: 0.7; margin-top: 8rpx; }
+.amount-right { display: flex; align-items: baseline; }
+.currency { font-size: 40rpx; font-weight: 600; margin-right: 12rpx; }
+.amount-text { font-size: 64rpx; font-weight: 700; letter-spacing: 2rpx; }
+.kb-open-btn { font-size: 32rpx; margin-left: 16rpx; opacity: 0.8; }
+
+/* 次级选择卡片 */
+.opt-card { background: #fff; margin: 0 24rpx 20rpx; border-radius: 20rpx; padding: 8rpx 32rpx; }
+.pick-row {
+  display: flex; align-items: center;
+  padding: 24rpx 0; border-bottom: 1rpx solid #f5f5f7;
+}
+.pick-row:last-child { border-bottom: none; }
 .pick-label { width: 200rpx; color: #666; font-size: 28rpx; }
 .pick-value { flex: 1; text-align: right; color: #333; font-size: 28rpx; }
-.pick-value.muted { color: #999; }
 .pick-input { flex: 1; text-align: right; font-size: 28rpx; }
 
 /* 凭证截图行 */
 .voucher-row {
-  display: flex; align-items: center; background: #fff;
-  padding: 20rpx 32rpx; border-bottom: 1rpx solid #f5f5f7;
+  display: flex; align-items: center;
+  padding: 24rpx 0; border-bottom: 1rpx solid #f5f5f7;
 }
+.voucher-row:last-child { border-bottom: none; }
 .voucher-area { flex: 1; display: flex; justify-content: flex-end; position: relative; }
 .voucher-thumb {
   width: 120rpx; height: 120rpx; border-radius: 12rpx; border: 1rpx solid #eee;
@@ -518,42 +605,47 @@ export default {
 .kb-handle-text { font-size: 22rpx; color: #999; padding: 4rpx 24rpx; }
 .kb-row { display: flex; }
 .kb-key {
-  flex: 1; height: 88rpx; display: flex; align-items: center; justify-content: center;
-  font-size: 34rpx; font-weight: 500; border-top: 1rpx solid #f0f0f5; color: #333;
+  flex: 1; height: 96rpx; display: flex; align-items: center; justify-content: center;
+  font-size: 36rpx; font-weight: 500; border-top: 1rpx solid #f0f0f5; color: #333;
 }
-.kb-key:active { background: #efecfb; }
-.kb-del { font-size: 38rpx; }
+.kb-key:active { background: var(--primary-soft); }
+.kb-del { font-size: 40rpx; }
 
 .save-bar { background: #fff; padding: 12rpx 32rpx calc(12rpx + env(safe-area-inset-bottom)); }
 .btn-save {
-  background: #6a4fd4; color: #fff; border-radius: 40rpx; height: 76rpx;
-  line-height: 76rpx; text-align: center; font-size: 30rpx; font-weight: 600;
+  background: var(--primary); color: #fff; border-radius: 44rpx; height: 84rpx;
+  line-height: 84rpx; text-align: center; font-size: 32rpx; font-weight: 600;
+  box-shadow: 0 8rpx 20rpx var(--primary-shadow);
 }
-.btn-save.disabled { opacity: 0.4; }
+.btn-save.disabled { opacity: 0.4; box-shadow: none; }
 
 .mask { position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 99; display: flex; align-items: flex-end; }
 .sheet { width: 100%; background: #fff; border-radius: 32rpx 32rpx 0 0; padding: 28rpx 32rpx; max-height: 82vh; display: flex; flex-direction: column; }
 .sheet-title { font-size: 30rpx; font-weight: 600; text-align: center; margin-bottom: 16rpx; }
 .picker-list { max-height: 70vh; }
+.picker-cancel {
+  margin-top: 20rpx; text-align: center; color: #999; font-size: 26rpx;
+  height: 72rpx; line-height: 72rpx; border-top: 1rpx solid #f5f5f7;
+}
 .picker-item {
   display: flex; justify-content: space-between; align-items: center;
   padding: 20rpx 16rpx; border-bottom: 1rpx solid #f5f5f7; font-size: 28rpx;
 }
-.picker-item.active { color: #6a4fd4; font-weight: 600; }
+.picker-item.active { color: var(--primary-strong); font-weight: 600; }
 .picker-sub { color: #999; font-size: 24rpx; }
 .picker-empty {
-  padding: 60rpx 0; text-align: center; color: #6a4fd4; font-size: 26rpx;
+  padding: 60rpx 0; text-align: center; color: var(--primary-strong); font-size: 26rpx;
 }
 
 /* 快速补录借款项目 */
 .quick-add-entry {
   margin: 0 0 16rpx; padding: 18rpx; text-align: center;
-  border: 1rpx dashed #6a4fd4; border-radius: 12rpx; color: #6a4fd4; font-size: 26rpx;
+  border: 1rpx dashed var(--primary); border-radius: 12rpx; color: var(--primary-strong); font-size: 26rpx;
 }
 .quick-add-form {
-  background: #f9f7fe; border-radius: 16rpx; padding: 20rpx; margin-bottom: 16rpx;
+  background: var(--primary-soft); border-radius: 16rpx; padding: 20rpx; margin-bottom: 16rpx;
 }
-.qa-title { font-size: 26rpx; font-weight: 600; color: #6a4fd4; margin-bottom: 12rpx; }
+.qa-title { font-size: 26rpx; font-weight: 600; color: var(--primary-strong); margin-bottom: 12rpx; }
 .qa-row { display: flex; align-items: center; padding: 12rpx 0; }
 .qa-label { width: 190rpx; font-size: 25rpx; color: #666; }
 .qa-input { flex: 1; font-size: 27rpx; text-align: right; }
@@ -562,6 +654,6 @@ export default {
   flex: 1; text-align: center; border-radius: 10rpx; padding: 14rpx 0; font-size: 26rpx;
 }
 .qa-btn.cancel { background: #eee; color: #666; }
-.qa-btn.ok { background: #6a4fd4; color: #fff; }
+.qa-btn.ok { background: var(--primary); color: #fff; }
 .qa-btn.ok.disabled { opacity: 0.4; }
 </style>

@@ -1,5 +1,6 @@
 <template>
-  <view class="page">
+  <view class="page" :style="themeVars">
+    <NavBar title="预算设置" />
     <view class="tip-card">设置后，首页将展示本月支出进度条，超出预算红色预警</view>
 
     <view class="card">
@@ -31,6 +32,7 @@
 <script>
 import { listBudgets, saveBudget, listCategories } from '@/api/ledger';
 import { yuanToCent, centToYuan } from '@/utils/money';
+import { useThemeStore } from '@/stores/theme';
 
 export default {
   data() {
@@ -45,6 +47,7 @@ export default {
     };
   },
   computed: {
+    themeVars() { return useThemeStore().themeVars; },
     monthStr() {
       return `${this.year}-${String(this.month).padStart(2, '0')}`;
     }
@@ -113,7 +116,7 @@ export default {
 <style scoped>
 .page { padding-bottom: 40rpx; }
 .tip-card {
-  margin: 24rpx; padding: 20rpx 28rpx; background: #efecfb; color: #6a4fd4;
+  margin: 24rpx; padding: 20rpx 28rpx; background: var(--primary-soft); color: var(--primary-strong);
   border-radius: 16rpx; font-size: 24rpx;
 }
 .card { background: #fff; border-radius: 20rpx; padding: 24rpx 32rpx; margin: 0 24rpx 24rpx; }

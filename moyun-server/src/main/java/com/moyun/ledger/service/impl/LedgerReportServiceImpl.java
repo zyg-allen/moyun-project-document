@@ -70,13 +70,21 @@ public class LedgerReportServiceImpl extends ServiceImpl<LedgerTransactionMapper
 
         // 1.1 月度收支趋势（计入预算的部分）
         List<Map<String, Object>> monthlyTrend = new ArrayList<>();
-        long[] incomeByMonth = new long[13];
-        long[] expenseByMonth = new long[13];
+        BigDecimal[] incomeByMonth = new BigDecimal[13];
+        BigDecimal[] expenseByMonth = new BigDecimal[13];
+        for (int i = 0; i <= 12; i++) {
+            incomeByMonth[i] = BigDecimal.ZERO;
+            expenseByMonth[i] = BigDecimal.ZERO;
+        }
         for (LedgerTransaction t : yearTxns) {
             if (t.getIsBudget() == null || t.getIsBudget() != 1) continue;
             int m = t.getTransactionDate().getMonthValue();
-            if (LedgerTransaction.TYPE_INCOME.equals(t.getType())) incomeByMonth[m] += t.getAmount();
-            if (LedgerTransaction.TYPE_EXPENSE.equals(t.getType())) expenseByMonth[m] += t.getAmount();
+            if (LedgerTransaction.TYPE_INCOME.equals(t.getType())) {
+                incomeByMonth[m] = incomeByMonth[m].add(t.getAmount() == null ? BigDecimal.ZERO : t.getAmount());
+            }
+            if (LedgerTransaction.TYPE_EXPENSE.equals(t.getType())) {
+                expenseByMonth[m] = expenseByMonth[m].add(t.getAmount() == null ? BigDecimal.ZERO : t.getAmount());
+            }
         }
         for (int m = 1; m <= 12; m++) {
             Map<String, Object> row = new HashMap<>();
@@ -90,13 +98,17 @@ public class LedgerReportServiceImpl extends ServiceImpl<LedgerTransactionMapper
         result.put("yearExpense", sumOf(expenseByMonth));
 
         // 1.2 分类收支占比（当年汇总）
-        Map<Long, long[]> byCategory = new HashMap<>(); // [income, expense]
+        Map<Long, BigDecimal[]> byCategory = new HashMap<>(); // [income, expense]
         java.util.Set<Long> categoryIds = new java.util.HashSet<>();
         for (LedgerTransaction t : yearTxns) {
             if (t.getCategoryId() == null) continue;
-            long[] arr = byCategory.computeIfAbsent(t.getCategoryId(), k -> new long[2]);
-            if (LedgerTransaction.TYPE_INCOME.equals(t.getType())) arr[0] += t.getAmount();
-            if (LedgerTransaction.TYPE_EXPENSE.equals(t.getType())) arr[1] += t.getAmount();
+            BigDecimal[] arr = byCategory.computeIfAbsent(t.getCategoryId(), k -> new BigDecimal[]{BigDecimal.ZERO, BigDecimal.ZERO});
+            if (LedgerTransaction.TYPE_INCOME.equals(t.getType())) {
+                arr[0] = arr[0].add(t.getAmount() == null ? BigDecimal.ZERO : t.getAmount());
+            }
+            if (LedgerTransaction.TYPE_EXPENSE.equals(t.getType())) {
+                arr[1] = arr[1].add(t.getAmount() == null ? BigDecimal.ZERO : t.getAmount());
+            }
         }
         Map<Long, String> categoryNames = loadCategoryNames(userId, byCategory.keySet());
         result.put("categoryIncome", buildCategoryRank(byCategory, categoryNames, 0));
@@ -209,7 +221,7 @@ public class LedgerReportServiceImpl extends ServiceImpl<LedgerTransactionMapper
         for (LedgerTransaction t : txns) {
             sb.append(csv(t.getTransactionDate().toString())).append(',')
                     .append(csv(TYPE_TEXT.getOrDefault(t.getType(), t.getType()))).append(',')
-                    .append(centToYuan(t.getAmount())).append(',')
+                    .append(t.getAmount() != null ? t.getAmount().setScale(2, RoundingMode.HALF_UP).toPlainString() : "0.00").append(',')
                     .append(csv(categoryNames.get(t.getCategoryId()))).append(',')
                     .append(csv(assetNames.get(t.getAccountId()))).append(',')
                     .append(csv(assetNames.get(t.getTargetAccountId()))).append(',')
@@ -229,9 +241,9 @@ public class LedgerReportServiceImpl extends ServiceImpl<LedgerTransactionMapper
             "income", "收入", "expense", "支出", "transfer", "转账",
             "repayment", "还款", "borrow", "借款", "adjust", "校准");
 
-    private long sumOf(long[] arr) {
-        long s = 0;
-        for (int i = 1; i < arr.length; i++) s += arr[i];
+    private BigDecimal sumOf(BigDecimal[] arr) {
+        BigDecimal s = BigDecimal.ZERO;
+        for (int i = 1; i < arr.length; i++) s = s.add(arr[i]);
         return s;
     }
 
@@ -249,14 +261,14 @@ public class LedgerReportServiceImpl extends ServiceImpl<LedgerTransactionMapper
     }
 
     /** 分类占比排名（idx 0=收入 1=支出，按金额降序） */
-    private List<Map<String, Object>> buildCategoryRank(Map<Long, long[]> byCategory,
+    private List<Map<String, Object>> buildCategoryRank(Map<Long, BigDecimal[]> byCategory,
                                                          Map<Long, String> names, int idx) {
-        List<Map.Entry<Long, long[]>> entries = new ArrayList<>(byCategory.entrySet());
-        entries.sort(Comparator.comparingLong((Map.Entry<Long, long[]> e) -> -e.getValue()[idx]));
+        List<Map.Entry<Long, BigDecimal[]>> entries = new ArrayList<>(byCategory.entrySet());
+        entries.sort((a, b) -> b.getValue()[idx].compareTo(a.getValue()[idx]));
         List<Map<String, Object>> rank = new ArrayList<>();
-        for (Map.Entry<Long, long[]> e : entries) {
-            long amount = e.getValue()[idx];
-            if (amount <= 0) continue;
+        for (Map.Entry<Long, BigDecimal[]> e : entries) {
+            BigDecimal amount = e.getValue()[idx];
+            if (amount.compareTo(BigDecimal.ZERO) <= 0) continue;
             Map<String, Object> row = new LinkedHashMap<>();
             row.put("name", names.getOrDefault(e.getKey(), "未分类"));
             row.put("amount", amount);

@@ -1,15 +1,15 @@
 <template>
-  <view class="page">
+  <view class="page" :style="themeVars">
     <!-- ========== 未登录：平台价值与操作引导 ========== -->
     <template v-if="!isLoggedIn">
       <view class="hero brand-hero">
         <view class="brand-name">墨韵记账</view>
-        <view class="brand-slogan">看清身家，才敢做决定</view>
-        <view class="brand-sub">个人资产负债 · 一目了然</view>
+        <view class="brand-slogan">帮你随时随地了解你的身家</view>
+        <view class="brand-sub">资产 · 负债 · 收支，一处记清</view>
       </view>
 
       <view class="card intro-card">
-        <view class="intro-title">我们解决什么痛点</view>
+        <view class="intro-title">你是否也有这些烦恼</view>
         <view class="pain-item" v-for="p in pains" :key="p.t">
           <text class="pain-icon">{{ p.i }}</text>
           <view class="flex-1">
@@ -20,33 +20,33 @@
       </view>
 
       <view class="card intro-card">
-        <view class="intro-title">三步看清你的身家</view>
+        <view class="intro-title">三步了解你的身家</view>
         <view class="guide-step">
           <text class="step-num">1</text>
           <view class="flex-1">
-            <view class="step-name">把资产和负债都录进来</view>
-            <view class="step-desc">现金、银行卡、花呗、房贷、朋友借款……一处汇总</view>
+            <view class="step-name">把资产负债录进来</view>
+            <view class="step-desc">现金、银行卡、房贷、朋友借款……先摸清家底</view>
           </view>
         </view>
         <view class="guide-step">
           <text class="step-num">2</text>
           <view class="flex-1">
-            <view class="step-name">随手记一笔</view>
-            <view class="step-desc">支出/收入/转账/借款/还款，支持凭证截图留痕</view>
+            <view class="step-name">日常随手记一笔</view>
+            <view class="step-desc">支出、收入、转账、借还款，可附凭证截图留痕</view>
           </view>
         </view>
         <view class="guide-step">
           <text class="step-num">3</text>
           <view class="flex-1">
-            <view class="step-name">净资产趋势自动生成</view>
-            <view class="step-desc">每日快照 + 月度报表，钱去哪了一眼看穿</view>
+            <view class="step-name">净资产自动更新</view>
+            <view class="step-desc">每天记录快照，涨跌趋势一目了然</view>
           </view>
         </view>
       </view>
 
       <view class="intro-action">
         <view class="btn-login" @tap="goLogin">登录 / 注册，开始记账</view>
-        <view class="intro-note">与墨韵门户共用账号，数据云端同步</view>
+        <view class="intro-note">门户账号可直接登录，无需重复注册</view>
       </view>
     </template>
 
@@ -61,7 +61,7 @@
     <!-- 新手引导（无任何账户时显示） -->
     <view class="guide-card" v-if="showGuide">
       <view class="guide-title">欢迎使用记账 · 3 步开始</view>
-      <view class="guide-step" @tap="goTab('/pages/asset/index')">
+      <view class="guide-step" @tap="goTab('/pages/portfolio/index')">
         <text class="step-num">1</text>
         <view class="flex-1">
           <view class="step-name">添加一个资产账户</view>
@@ -166,6 +166,7 @@
 import { getDashboard } from '@/api/ledger';
 import { centToYuan, centToAmount, centToSigned, typeText } from '@/utils/money';
 import { useUserStore } from '@/stores/user';
+import { useThemeStore } from '@/stores/theme';
 
 export default {
   data() {
@@ -173,13 +174,14 @@ export default {
       dashboard: {},
       privacyMode: false,
       pains: [
-        { i: '💸', t: '钱花哪了说不清', d: '账单散落各处，月底一对账就懵' },
-        { i: '📉', t: '净资产是笔糊涂账', d: '资产、负债、花呗分期从来没人帮你算总账' },
-        { i: '🤝', t: '借出去的钱没人管', d: '朋友借款、还款随手一记，到期不再尴尬' }
+        { i: '💸', t: '钱花哪了说不清', d: '只记流水不分类，月底一对账就懵' },
+        { i: '📉', t: '净资产是笔糊涂账', d: '存款、房贷、花呗散落各处，总账没人帮你算' },
+        { i: '🤝', t: '借出去的钱没着落', d: '朋友借款靠记忆，借了多少还了多少全凭印象' }
       ]
     };
   },
   computed: {
+    themeVars() { return useThemeStore().themeVars; },
     isLoggedIn() { return useUserStore().isLoggedIn; },
     showTips() { return uni.getStorageSync('ledger_tips_dismissed') !== '1'; },
     netWorthText() { return centToAmount(this.dashboard.netWorth); },
@@ -201,6 +203,7 @@ export default {
     }
   },
   onShow() {
+    useThemeStore().restore();
     this.privacyMode = uni.getStorageSync('ledger_privacy') === '1';
     const userStore = useUserStore();
     if (!userStore.isLoggedIn) {
@@ -263,7 +266,7 @@ export default {
 <style scoped>
 .page { padding-bottom: 40rpx; }
 /* ===== 未登录品牌与价值展示 ===== */
-.brand-hero { text-align: center; padding-top: 100rpx; padding-bottom: 80rpx; }
+.brand-hero { text-align: center; padding-top: calc(env(safe-area-inset-top) + 100rpx); padding-bottom: 80rpx; }
 .brand-name { font-size: 52rpx; font-weight: 800; letter-spacing: 4rpx; }
 .brand-slogan { font-size: 32rpx; margin-top: 20rpx; font-weight: 600; }
 .brand-sub { font-size: 24rpx; opacity: 0.75; margin-top: 12rpx; }
@@ -275,17 +278,17 @@ export default {
 .pain-d { font-size: 23rpx; color: #999; margin-top: 4rpx; }
 .intro-action { margin: 8rpx 24rpx 24rpx; }
 .btn-login {
-  background: #6a4fd4; color: #fff; border-radius: 44rpx; height: 88rpx;
+  background: var(--primary-strong); color: #fff; border-radius: 44rpx; height: 88rpx;
   line-height: 88rpx; text-align: center; font-size: 30rpx; font-weight: 600;
 }
 .intro-note { font-size: 22rpx; color: #999; text-align: center; margin-top: 16rpx; }
 
 /* ===== 登录后操作提示条 ===== */
 .tips-bar {
-  display: flex; align-items: center; background: #f0ebfb; margin: 24rpx 24rpx 0;
+  display: flex; align-items: center; background: var(--primary-soft); margin: 24rpx 24rpx 0;
   border-radius: 12rpx; padding: 14rpx 20rpx;
 }
-.tips-text { flex: 1; font-size: 22rpx; color: #6a4fd4; line-height: 1.5; }
+.tips-text { flex: 1; font-size: 22rpx; color: var(--primary-strong); line-height: 1.5; }
 .tips-close { color: #a99ae0; font-size: 34rpx; padding: 0 8rpx; }
 
 /* 新手引导卡片 */
@@ -298,7 +301,7 @@ export default {
 }
 .guide-step:last-of-type { border-bottom: none; }
 .step-num {
-  width: 44rpx; height: 44rpx; border-radius: 22rpx; background: #6a4fd4; color: #fff;
+  width: 44rpx; height: 44rpx; border-radius: 22rpx; background: var(--primary-strong); color: #fff;
   font-size: 24rpx; font-weight: 600; display: flex; align-items: center; justify-content: center;
   margin-right: 20rpx; flex-shrink: 0;
 }
@@ -310,9 +313,9 @@ export default {
   padding-top: 16rpx; border-top: 1rpx solid #f5f5f7;
 }
 .hero {
-  background: linear-gradient(135deg, #6a4fd4, #8a6fe8);
+  background: var(--primary);
   color: #fff; padding: 60rpx 40rpx 40rpx; margin-bottom: 24rpx;
-}
+  padding-top: calc(env(safe-area-inset-top) + 50rpx); }
 .hero-label { font-size: 26rpx; opacity: 0.8; }
 .hero-top { display: flex; justify-content: space-between; align-items: center; }
 .privacy-toggle {
@@ -331,7 +334,7 @@ export default {
 
 .card { background: #fff; border-radius: 20rpx; padding: 24rpx; margin: 0 24rpx 24rpx; }
 .card-title { font-size: 30rpx; font-weight: 600; margin-bottom: 20rpx; }
-.link { color: #6a4fd4; font-size: 26rpx; font-weight: 400; }
+.link { color: var(--primary-strong); font-size: 26rpx; font-weight: 400; }
 .month-row { display: flex; }
 .month-col { flex: 1; }
 .month-label { font-size: 24rpx; color: #999; margin-bottom: 8rpx; }
@@ -341,7 +344,7 @@ export default {
 .budget-line { margin-top: 24rpx; }
 .budget-text { display: flex; justify-content: space-between; font-size: 24rpx; color: #999; margin-bottom: 12rpx; }
 .budget-bar { height: 12rpx; background: #f0f0f5; border-radius: 6rpx; overflow: hidden; }
-.budget-inner { height: 100%; background: #6a4fd4; border-radius: 6rpx; }
+.budget-inner { height: 100%; background: var(--primary-strong); border-radius: 6rpx; }
 .budget-inner.over { background: #e74c3c; }
 .budget-text .over { color: #e74c3c; font-weight: 600; }
 
@@ -351,7 +354,7 @@ export default {
 .txn-icon {
   width: 72rpx; height: 72rpx; border-radius: 36rpx; margin-right: 20rpx;
   display: flex; align-items: center; justify-content: center;
-  font-size: 28rpx; font-weight: 600; color: #fff; background: #6a4fd4;
+  font-size: 28rpx; font-weight: 600; color: #fff; background: var(--primary-strong);
 }
 .txn-icon.expense { background: #e74c3c; }
 .txn-icon.income { background: #27ae60; }

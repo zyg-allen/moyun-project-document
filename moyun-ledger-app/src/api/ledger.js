@@ -2,7 +2,8 @@
  * 记账模块 API（后端 com.moyun.ledger，路径 /portal/ledger/**）
  * 金额单位：分（转换见 utils/money.js）
  */
-import { get, post, put, del } from '@/utils/request';
+import { get, post, put, del, BASE_URL } from '@/utils/request';
+import { useUserStore } from '@/stores/user';
 
 // ---------------- 登录（复用门户账号体系） ----------------
 
@@ -180,3 +181,15 @@ export const uploadVoucher = (filePath) => {
     });
   });
 };
+
+
+// ---------------- AI 财务分析 ----------------
+
+/** 财务分析报告：画像/指标/收入来源/债务风险/建议/LLM 综述 */
+export const getAiAnalysis = () => get('/portal/ledger/ai/analysis');
+
+/** 用户画像（含身份标签字典选项） */
+export const getAiProfile = () => get('/portal/ledger/ai/profile');
+
+/** 更新画像（职位/公司/身份标签，与门户共用账号） */
+export const updateAiProfile = (data) => post('/portal/ledger/ai/profile', data);

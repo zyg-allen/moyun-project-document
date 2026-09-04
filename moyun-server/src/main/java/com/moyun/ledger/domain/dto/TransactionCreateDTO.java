@@ -3,6 +3,7 @@ package com.moyun.ledger.domain.dto;
 import lombok.Data;
 
 import jakarta.validation.constraints.NotNull;
+import java.math.BigDecimal;
 import java.time.LocalDate;
 
 /**
@@ -17,9 +18,9 @@ public class TransactionCreateDTO {
     @NotNull(message = "记账类型不能为空")
     private String type;
 
-    /** 金额（分；adjust 可为负，其余必须大于0） */
+    /** 金额（元；adjust 可为负，其余必须大于0） */
     @NotNull(message = "金额不能为空")
-    private Long amount;
+    private BigDecimal amount;
 
     /** 分类ID */
     private Long categoryId;

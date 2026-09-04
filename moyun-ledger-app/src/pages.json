@@ -1,9 +1,9 @@
 {
   "pages": [
     { "path": "pages/dashboard/index", "style": { "navigationBarTitleText": "墨韵记账", "enablePullDownRefresh": true } },
-    { "path": "pages/asset/index", "style": { "navigationBarTitleText": "我的资产" } },
-    { "path": "pages/liability/index", "style": { "navigationBarTitleText": "我的负债" } },
+    { "path": "pages/portfolio/index", "style": { "navigationBarTitleText": "资产负债", "enablePullDownRefresh": true } },
     { "path": "pages/record/index", "style": { "navigationBarTitleText": "记一笔", "navigationStyle": "custom" } },
+    { "path": "pages/analysis/index", "style": { "navigationBarTitleText": "财务分析", "enablePullDownRefresh": true } },
     { "path": "pages/mine/index", "style": { "navigationBarTitleText": "我的" } },
     { "path": "pages/mine/categories/index", "style": { "navigationBarTitleText": "分类管理" } },
     { "path": "pages/mine/budget/index", "style": { "navigationBarTitleText": "预算设置" } },
@@ -13,21 +13,22 @@
     { "path": "pages/report/index", "style": { "navigationBarTitleText": "报表中心" } }
   ],
   "globalStyle": {
+    "navigationStyle": "custom",
     "navigationBarTextStyle": "white",
     "navigationBarTitleText": "墨韵记账",
-    "navigationBarBackgroundColor": "#6a4fd4",
+    "navigationBarBackgroundColor": "#5FA77A",
     "backgroundColor": "#f5f6f8"
   },
   "tabBar": {
     "color": "#999999",
-    "selectedColor": "#6a4fd4",
+    "selectedColor": "#5FA77A",
     "backgroundColor": "#ffffff",
     "borderStyle": "black",
     "list": [
       { "pagePath": "pages/dashboard/index", "text": "总览" },
-      { "pagePath": "pages/asset/index", "text": "资产" },
+      { "pagePath": "pages/portfolio/index", "text": "资产负债" },
       { "pagePath": "pages/record/index", "text": "记一笔" },
-      { "pagePath": "pages/liability/index", "text": "负债" },
+      { "pagePath": "pages/analysis/index", "text": "分析" },
       { "pagePath": "pages/mine/index", "text": "我的" }
     ]
   }

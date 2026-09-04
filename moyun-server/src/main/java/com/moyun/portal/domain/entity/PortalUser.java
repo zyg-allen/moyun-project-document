@@ -67,6 +67,10 @@ public class PortalUser extends BaseEntity {
     @Size(min = 0, max = 100, message = "职位长度不能超过100个字符")
     private String position;
 
+    /** 身份标签（字典 ledger_identity_tag，AI 财务分析画像维度） */
+    @Size(min = 0, max = 32, message = "身份标签长度不能超过32个字符")
+    private String identityTag;
+
     /** 微信号 */
     @Size(min = 0, max = 100, message = "微信号长度不能超过100个字符")
     private String wechat;

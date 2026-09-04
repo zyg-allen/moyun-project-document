@@ -13,10 +13,10 @@
 import { useUserStore } from '@/stores/user';
 
 // #ifdef H5
-const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080';
+export const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080';
 // #endif
 // #ifndef H5
-const BASE_URL = 'http://localhost:8080';
+export const BASE_URL = 'http://localhost:8080';
 // #endif
 
 const request = (options) => {
@@ -73,5 +73,4 @@ export const get = (url, data) => request({ url, method: 'GET', data });
 export const post = (url, data) => request({ url, method: 'POST', data });
 export const put = (url, data) => request({ url, method: 'PUT', data });
 export const del = (url, data) => request({ url, method: 'DELETE', data });
-export { BASE_URL };
 export default request;

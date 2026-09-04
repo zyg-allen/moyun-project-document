@@ -6,6 +6,7 @@ import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
 import lombok.Data;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
@@ -48,8 +49,8 @@ public class LedgerTransaction {
     /** 类型：income/expense/transfer/repayment/borrow/adjust */
     private String type;
 
-    /** 金额（分；adjust 可为负表示调减，其余恒为正，方向由 type 决定） */
-    private Long amount;
+    /** 金额（元；adjust 可为负表示调减，其余恒为正，方向由 type 决定） */
+    private BigDecimal amount;
 
     /** 分类ID（ledger_category） */
     private Long categoryId;
@@ -63,14 +64,14 @@ public class LedgerTransaction {
     /** 转账目标资产账户 */
     private Long targetAccountId;
 
-    /** 主账户交易后余额快照（分） */
-    private Long balanceAfter;
+    /** 主账户交易后余额快照（元） */
+    private BigDecimal balanceAfter;
 
-    /** 转账目标账户交易后余额快照（分） */
-    private Long targetBalanceAfter;
+    /** 转账目标账户交易后余额快照（元） */
+    private BigDecimal targetBalanceAfter;
 
-    /** 关联负债交易后欠款快照（分） */
-    private Long liabilityBalanceAfter;
+    /** 关联负债交易后欠款快照（元） */
+    private BigDecimal liabilityBalanceAfter;
 
     /** 备注 */
     private String description;

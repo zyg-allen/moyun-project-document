@@ -5,6 +5,7 @@ import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
 import lombok.Data;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 /**
@@ -53,11 +54,11 @@ public class LedgerAssetAccount {
     /** 类型：cash/savings/ewallet/stored_value/investment/fixed_asset/receivable/other */
     private String type;
 
-    /** 当前余额（分）。禁止直接编辑，校准必须走 adjust 记账 */
-    private Long balance;
+    /** 当前余额（元）。禁止直接编辑，校准必须走 adjust 记账 */
+    private BigDecimal balance;
 
-    /** 估值（分；投资/固定资产用，可≠balance） */
-    private Long valuation;
+    /** 估值（元；投资/固定资产用，可≠balance） */
+    private BigDecimal valuation;
 
     /** 是否计入总资产：1=是 0=否 */
     private Integer includeInTotal;

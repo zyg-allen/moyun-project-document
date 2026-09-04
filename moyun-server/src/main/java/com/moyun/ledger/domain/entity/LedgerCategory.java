@@ -1,6 +1,7 @@
 package com.moyun.ledger.domain.entity;
 
 import com.baomidou.mybatisplus.annotation.IdType;
+import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
 import lombok.Data;
@@ -35,8 +36,11 @@ public class LedgerCategory {
     /** 分类名称 */
     private String name;
 
-    /** 类型：income/expense */
+    /** 类型：income/expense/transfer/repayment/borrow/adjust */
     private String type;
+
+    /** 语义分组（前端展示分组用，如"生活刚需""负债还款"） */
+    private String groupName;
 
     /** 父分类ID（支持二级分类） */
     private Long parentId;
@@ -59,4 +63,8 @@ public class LedgerCategory {
     private LocalDateTime createTime;
 
     private LocalDateTime updateTime;
+
+    /** 当前用户使用该分类的流水笔数（非表字段，记一笔页常用排序用） */
+    @TableField(exist = false)
+    private Long usedCount;
 }

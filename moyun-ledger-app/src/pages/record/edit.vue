@@ -1,5 +1,6 @@
 <template>
-  <view class="page">
+  <view class="page" :style="themeVars">
+    <NavBar title="编辑流水" />
     <view class="card" v-if="txn">
       <view class="info-row">
         <text class="info-label">类型</text>
@@ -45,8 +46,12 @@
 <script>
 import { pageTransactions, updateTransaction, deleteTransaction, uploadVoucher } from '@/api/ledger';
 import { centToYuan, yuanToCent, typeText } from '@/utils/money';
+import { useThemeStore } from '@/stores/theme';
 
 export default {
+  computed: {
+    themeVars() { return useThemeStore().themeVars; }
+  },
   data() {
     return {
       id: null,
@@ -148,9 +153,9 @@ export default {
 .tip { font-size: 22rpx; color: #999; padding: 24rpx 0; line-height: 1.6; }
 .voucher-area { flex: 1; display: flex; justify-content: flex-end; align-items: center; }
 .voucher-thumb { width: 110rpx; height: 110rpx; border-radius: 12rpx; border: 1rpx solid #eee; }
-.voucher-none { font-size: 24rpx; color: #6a4fd4; }
+.voucher-none { font-size: 24rpx; color: var(--primary-strong); }
 .voucher-ops { display: flex; flex-direction: column; margin-left: 16rpx; gap: 8rpx; }
-.voucher-op { font-size: 22rpx; color: #6a4fd4; line-height: 1.4; }
+.voucher-op { font-size: 22rpx; color: var(--primary-strong); line-height: 1.4; }
 .voucher-op.danger { color: #e74c3c; }
 .btn-primary { margin-top: 24rpx; }
 .btn-danger {

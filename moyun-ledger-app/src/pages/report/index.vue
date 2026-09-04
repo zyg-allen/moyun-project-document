@@ -1,5 +1,6 @@
 <template>
-  <view class="page">
+  <view class="page" :style="themeVars">
+    <NavBar title="报表中心" />
     <!-- 年份切换 -->
     <view class="year-bar">
       <view class="year-arrow" @tap="changeYear(-1)">‹</view>
@@ -12,12 +13,12 @@
       <view class="year-summary">
         <view class="ys-col">
           <view class="ys-label">年收入</view>
-          <view class="ys-value income">{{ privacyMode ? '****' : '+' + centToAmount(report.yearIncome || 0) }}</view>
+          <view class="ys-value income">{{ privacyMode ? '****' : '+' + centToAbsAmount(report.yearIncome || 0) }}</view>
         </view>
         <view class="ys-divider"></view>
         <view class="ys-col">
           <view class="ys-label">年支出</view>
-          <view class="ys-value expense">{{ privacyMode ? '****' : '-' + centToAmount(report.yearExpense || 0) }}</view>
+          <view class="ys-value expense">{{ privacyMode ? '****' : '-' + centToAbsAmount(report.yearExpense || 0) }}</view>
         </view>
         <view class="ys-divider"></view>
         <view class="ys-col">
@@ -127,7 +128,8 @@
 
 <script>
 import { getReportOverview, exportTransactionsCsv } from '@/api/ledger';
-import { centToAmount } from '@/utils/money';
+import { centToAmount, centToAbsAmount, toNum } from '@/utils/money';
+import { useThemeStore } from '@/stores/theme';
 
 export default {
   data() {
@@ -140,6 +142,7 @@ export default {
     };
   },
   computed: {
+    themeVars() { return useThemeStore().themeVars; },
     monthlyTrend() { return this.report.monthlyTrend || []; },
     categoryExpense() { return this.report.categoryExpense || []; },
     categoryIncome() { return this.report.categoryIncome || []; },
@@ -149,9 +152,9 @@ export default {
     maxMonthly() {
       return Math.max(1, ...this.monthlyTrend.map(m => Math.max(m.income || 0, m.expense || 0)));
     },
-    expenseTotal() { return this.categoryExpense.reduce((s, c) => s + c.amount, 0) || 1; },
-    incomeTotal() { return this.categoryIncome.reduce((s, c) => s + c.amount, 0) || 1; },
-    assetTotal() { return this.accountDistribution.reduce((s, a) => s + a.balance, 0) || 1; },
+    expenseTotal() { return this.categoryExpense.reduce((s, c) => s + toNum(c.amount), 0) || 1; },
+    incomeTotal() { return this.categoryIncome.reduce((s, c) => s + toNum(c.amount), 0) || 1; },
+    assetTotal() { return this.accountDistribution.reduce((s, a) => s + toNum(a.balance), 0) || 1; },
     nwRange() {
       if (!this.netWorthTrend.length) return { min: 0, max: 1 };
       const vals = this.netWorthTrend.map(p => p.netWorth || 0);
@@ -211,7 +214,7 @@ export default {
 .page { padding-bottom: 40rpx; }
 .year-bar {
   display: flex; align-items: center; justify-content: center; gap: 40rpx;
-  background: #6a4fd4; color: #fff; padding: 28rpx 0;
+  background: var(--primary-strong); color: #fff; padding: 28rpx 0;
 }
 .year-arrow { font-size: 44rpx; padding: 0 24rpx; opacity: 0.85; }
 .year-text { font-size: 34rpx; font-weight: 700; }
@@ -249,14 +252,14 @@ export default {
 .rank-inner { height: 100%; border-radius: 8rpx; }
 .rank-inner.expense { background: #e74c3c; }
 .rank-inner.income { background: #27ae60; }
-.rank-inner.asset { background: #6a4fd4; }
+.rank-inner.asset { background: var(--primary-strong); }
 .rank-amount { width: 130rpx; text-align: right; font-size: 22rpx; color: #666; }
 
 /* 净资产趋势 */
 .nw-row { display: flex; align-items: center; margin-bottom: 14rpx; }
 .nw-date { width: 150rpx; font-size: 20rpx; color: #999; }
 .nw-bar-wrap { flex: 1; margin: 0 16rpx; }
-.nw-bar { height: 12rpx; background: linear-gradient(90deg, #6a4fd4, #8a6fe8); border-radius: 6rpx; }
+.nw-bar { height: 12rpx; background: linear-gradient(90deg, var(--primary-strong), var(--primary)); border-radius: 6rpx; }
 .nw-value { width: 150rpx; text-align: right; font-size: 22rpx; color: #333; }
 
 /* 负债 */
@@ -275,7 +278,7 @@ export default {
 }
 .export-sep { font-size: 22rpx; color: #999; }
 .btn-export {
-  margin-left: auto; padding: 10rpx 40rpx; background: #6a4fd4; color: #fff;
+  margin-left: auto; padding: 10rpx 40rpx; background: var(--primary-strong); color: #fff;
   border-radius: 10rpx; font-size: 24rpx;
 }
 </style>

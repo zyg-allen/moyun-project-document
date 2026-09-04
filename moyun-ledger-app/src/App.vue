@@ -1,7 +1,11 @@
 <script>
+import { useThemeStore } from '@/stores/theme';
+
 export default {
   onLaunch() {
     console.log('墨韵记账 App Launch');
+    // 恢复主题（含 TabBar 选中色联动）
+    useThemeStore().restore();
   }
 };
 </script>
@@ -13,6 +17,15 @@ page {
   font-size: 28rpx;
   color: #333;
   font-family: -apple-system, 'PingFang SC', 'Helvetica Neue', sans-serif;
+}
+/* 主题变量默认值（页面根元素 :style 会覆盖） */
+page {
+  --primary: #7FBF94;
+  --primary-strong: #5FA77A;
+  --primary-soft: #E9F5EE;
+  --primary-shadow: rgba(127, 191, 148, 0.35);
+  --income: #3EB575;
+  --expense: #F0564A;
 }
 /* 通用工具类 */
 .flex-row { display: flex; flex-direction: row; align-items: center; }
@@ -27,7 +40,7 @@ page {
   box-shadow: 0 2rpx 12rpx rgba(0, 0, 0, 0.04);
 }
 .btn-primary {
-  background: #6a4fd4;
+  background: var(--primary);
   color: #fff;
   border-radius: 44rpx;
   height: 88rpx;
@@ -37,4 +50,7 @@ page {
   font-weight: 500;
 }
 .btn-primary.disabled { opacity: 0.5; }
+/* 收支语义色 */
+.text-income { color: var(--income); }
+.text-expense { color: var(--expense); }
 </style>

@@ -13,6 +13,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 
@@ -36,10 +37,10 @@ public class LedgerAssetAccountServiceImpl extends ServiceImpl<LedgerAssetAccoun
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public LedgerAssetAccount createAccount(Long userId, LedgerAssetAccount account, Long initialBalance) {
+    public LedgerAssetAccount createAccount(Long userId, LedgerAssetAccount account, BigDecimal initialBalance) {
         account.setId(null);
         account.setUserId(userId);
-        long balance = initialBalance == null ? 0L : initialBalance;
+        BigDecimal balance = initialBalance == null ? BigDecimal.ZERO : initialBalance;
         account.setBalance(balance);
         if (account.getIncludeInTotal() == null) {
             account.setIncludeInTotal(1);
@@ -56,7 +57,7 @@ public class LedgerAssetAccountServiceImpl extends ServiceImpl<LedgerAssetAccoun
         account.setVersion(0);
         save(account);
         // 初始余额自动生成 adjust 校准流水（全明细追溯）
-        if (balance != 0) {
+        if (balance.compareTo(BigDecimal.ZERO) != 0) {
             LedgerTransaction txn = new LedgerTransaction();
             txn.setUserId(userId);
             txn.setType(LedgerTransaction.TYPE_ADJUST);
@@ -125,9 +126,9 @@ public class LedgerAssetAccountServiceImpl extends ServiceImpl<LedgerAssetAccoun
         aq.eq(LedgerAssetAccount::getUserId, userId)
                 .eq(LedgerAssetAccount::getStatus, LedgerAssetAccount.STATUS_ENABLED)
                 .eq(LedgerAssetAccount::getIncludeInTotal, 1);
-        long totalAsset = 0;
+        BigDecimal totalAsset = BigDecimal.ZERO;
         for (LedgerAssetAccount a : list(aq)) {
-            totalAsset += a.getBalance();
+            totalAsset = totalAsset.add(a.getBalance());
         }
         LambdaQueryWrapper<LedgerNetWorthSnapshot> sq = new LambdaQueryWrapper<>();
         sq.eq(LedgerNetWorthSnapshot::getUserId, userId)
@@ -137,7 +138,7 @@ public class LedgerAssetAccountServiceImpl extends ServiceImpl<LedgerAssetAccoun
             return; // 快照由记账服务/定时任务统一维护，此处仅已有快照时刷新资产侧
         }
         exist.setTotalAsset(totalAsset);
-        exist.setNetWorth(totalAsset - exist.getTotalLiability());
+        exist.setNetWorth(totalAsset.subtract(exist.getTotalLiability()));
         snapshotMapper.updateById(exist);
     }
 }

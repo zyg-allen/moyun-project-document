@@ -19,7 +19,9 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.time.LocalDate;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * CMS 记账运营统计 Controller
@@ -52,7 +54,7 @@ public class CmsLedgerStatsController extends BaseController {
         LocalDate monthAgo = now.minusDays(30);
 
         // 用户规模：持有任一启用账户的用户数（资产∪负债，内存去重）
-        java.util.Set<Long> userIds = new java.util.HashSet<>();
+        Set<Long> userIds = new HashSet<>();
         LambdaQueryWrapper<LedgerAssetAccount> aq = new LambdaQueryWrapper<>();
         aq.eq(LedgerAssetAccount::getStatus, LedgerAssetAccount.STATUS_ENABLED);
         assetAccountMapper.selectList(aq).forEach(a -> userIds.add(a.getUserId()));
@@ -65,7 +67,7 @@ public class CmsLedgerStatsController extends BaseController {
         data.put("transactionCount", transactionMapper.selectCount(null));
 
         // 近30日活跃记账用户数（近30日有流水记录的去重用户）
-        java.util.Set<Long> activeUsers = new java.util.HashSet<>();
+        Set<Long> activeUsers = new HashSet<>();
         LambdaQueryWrapper<LedgerTransaction> tq = new LambdaQueryWrapper<>();
         tq.ge(LedgerTransaction::getTransactionDate, monthAgo);
         transactionMapper.selectList(tq).forEach(t -> activeUsers.add(t.getUserId()));

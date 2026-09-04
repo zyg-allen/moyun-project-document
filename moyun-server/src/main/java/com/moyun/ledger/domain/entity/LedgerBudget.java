@@ -5,6 +5,7 @@ import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
 import lombok.Data;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 /**
@@ -31,8 +32,8 @@ public class LedgerBudget {
     /** 月份（1-12） */
     private Integer month;
 
-    /** 预算金额（分） */
-    private Long amount;
+    /** 预算金额（元） */
+    private BigDecimal amount;
 
     private LocalDateTime createTime;
 

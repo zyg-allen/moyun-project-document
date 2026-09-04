@@ -5,6 +5,357 @@
 
 ***
 
+## v11.23 (2026-09-04) 记账模块：资产负债列表一键查关联流水 + 金额口径再确认
+
+### 一、需求背景
+
+用户两个优化请求：
+1. 资产负债页（/pages/portfolio/index）账户列表 / 负债列表「点击查流水」不方便；旧版点击 = 直接打开编辑弹层，想追溯某笔余额变动必须先退到 TabBar 流水页再手动按日期/类型翻，入口过深。
+2. 接口返回 `"balance":"22200","principal":"22200"` 但页面显示 222.00，用户怀疑 100 倍计算错误。
+
+### 二、功能 1：资产/负债行 → 一键跳「关联流水」
+
+#### 交互变化（pages/portfolio/index）
+
+| 入口 | 旧行为 | 新行为 |
+| --- | --- | --- |
+| 行空白区点击 | 打开「编辑账户」弹层 | **跳 /pages/record/list 自动带 accountId / liabilityId 过滤** |
+| ✎ 铅笔图标（行尾，新增） | 无 | **打开编辑弹层**（原编辑入口保留，@tap.stop 阻止冒泡） |
+
+路由传参约定：`/pages/record/list?accountId=X&name=Y` 或 `/pages/record/list?liabilityId=X&name=Y`
+
+#### 流水列表页联动（pages/record/list）
+
+- **NavBar 动态标题**：带过滤时显示 `「招商银行储蓄卡 · 流水」`；无过滤时回到 `流水明细`
+- **顶部筛选横幅**（蓝色渐变）：
+  - 资产时提示：`仅显示「xxx」的关联流水 · 资产账户 · 作为转出/转入方都会匹配`
+  - 负债时提示：`仅显示「xxx」的关联流水 · 负债账户 · 借款/还款/校准联动记录`
+  - 右侧「×」一键清筛选，回到全量流水
+- **onLoad 解析参数**：accountId / liabilityId 二选一（互斥，后者覆盖前者）；name 经 decodeURIComponent 解码写入 filterName
+- **load() API**：query 传入 accountId / liabilityId → 后端 TransactionQuery 已有原生筛选支持，不用新增字段
+
+#### 后端复用说明（无后端代码新增）
+
+- `LedgerTransactionServiceImpl.pageTransactions` L216-220 早已有：accountId → `WHERE account_id = ? OR target_account_id = ?`，转账类双边流水都会出现在双方账户明细中 ✓
+- L221-222：liabilityId → `WHERE liability_id = ?`，借款/还款/校准涉及负债的流水 100% 命中 ✓
+- 合计 total 随过滤条件同步，前端显示"共 N 笔 · 收/支汇总"与横幅匹配
+
+#### 变更文件
+
+- `moyun-ledger-app/src/pages/portfolio/index.vue`：行 @tap→viewTxn；加 ✎ pencil-btn / row-actions 样式；新增 viewTxn 方法（encodeURIComponent 传 name 防中文/特殊字符）
+- `moyun-ledger-app/src/pages/record/list.vue`：NavBar 动态 title；新增 filter-banner（样式+关闭）；onLoad 参数解析；API 带过滤字段；clearAccountFilter 方法
+
+### 三、问题 2：balance=22200 显示 222.00 是**正确**的
+
+全链路复算确认：
+
+| 环节 | 值 | 说明 |
+| --- | --- | --- |
+| DB ledger_liability_account.balance | 22200 | BIGINT 分单位 |
+| Jackson 序列化 + 防精度 Long→String | "22200" | JSON 字符串 |
+| 前端 toNum("22200") | 22200 | 安全整数 |
+| centToAmount(22200) = 22200/100 → 千分位 | **"222.00"** | ✅ 与页面显示完全一致 |
+
+**结论**：22200 分 = 222.00 元，显示链路**无错**。
+
+#### 如果你的业务含义其实是「22200 元」（2.22 万元）
+
+那 DB 中应存 `22200 × 100 = 2,220,000 分`，当前值 22200 少了 100 倍，说明录入时**未走 yuanToCent（前端漏转）/或直接 SQL 以"元"值插入**。处理办法：
+
+1. **App 端推荐**：删除该负债（归档）→ 重新在「资产负债 → 负债 → +」录入 22200 元，前端自动 `yuanToCent(22200) = 2220000` 入库
+2. **SQL 批量修正（仅限确认是"旧数据漏转"的情形）**：
+   ```sql
+   -- 先 SELECT 核对（预计 < 1000000 分 且实际金额明显 > 1万 的负债，手动核对）
+   SELECT id, name, balance, principal, balance/100 AS yuan_now
+   FROM ledger_liability_account
+   WHERE user_id = <当前用户ID> AND balance < 1000000 AND balance > 0;
+   -- 确认后 UPDATE（×100）
+   UPDATE ledger_liability_account
+   SET balance = balance * 100, principal = principal * 100
+   WHERE id IN (<需要修正的ID列表>);
+   ```
+
+3. **纵深防御**：v11.22 已加后端 Controller 入库上限校验（0 ≤ cent ≤ 100 亿元 = 1e12 分）+ 空/负值拦截，未来漏传 100 倍的错误数据能被及早拦截。
+
+---
+## v11.24 (2026-09-04) 记账模块：分类体系全类型覆盖 + 语义分组
+
+### 一、需求背景
+
+分类管理页（/pages/mine/categories/index）仅支出/收入两个 Tab，但记账有 6 种交易类型（支出/收入/转账/还款/借款/校准）。记一笔时选转账/还款/借款/校准后，分类区展示全部收支分类（无针对性），用户请求覆盖全 6 类并按语义分组。
+
+### 二、SQL 变更（20260904-02-moyun-ledger-category-expand.sql）
+
+1. `ALTER TABLE ledger_category ADD COLUMN group_name VARCHAR(50)` — 语义分组列
+2. `UPDATE` 现有 26 条系统预设分类补 group_name（如 餐饮→生活刚需、房贷/房租→负债还款、工资→劳动收入）
+3. `INSERT` 20 条新系统预设分类：
+
+| 类型 | 分组 | 分类项 |
+| --- | --- | --- |
+| transfer（转账） | 账户间 / 亲友间 / 其他 | 账户间互转、转给亲友、代付代收、退款退回、其他转账 |
+| repayment（还款） | 信用卡 / 贷款 / 私人 / 利息 / 其他 | 信用卡还款、贷款还款、私人借款还、利息支出、其他还款 |
+| borrow（借款） | 信用卡 / 网贷 / 贷款 / 分期 / 私人 / 其他 | 信用卡消费、网贷借款、银行贷款、消费分期、私人借款、其他借款 |
+| adjust（校准） | 余额修正 / 其他调整 | 余额修正、手续费调整、汇率差异、其他调整 |
+
+### 三、后端变更
+
+- `LedgerCategory.java` 新增 `groupName` 字段（String，映射 group_name 列）
+- `LedgerCategoryServiceImpl.listAvailable()` 无需改动（已支持任意 type 过滤，type=null 时返回全部）
+
+### 四、前端变更
+
+1. **pages/mine/categories/index.vue**（重写）
+   - Tab 从 2 个 → **6 个**（支出/收入/转账/还款/借款/校准），横滑支持
+   - 列表按 `groupName` **语义分组**展示：每组一个标题 + 卡片，组内按 sortOrder 排序
+   - 添加自定义分类时自动带上当前 Tab 的 type
+2. **pages/record/index.vue**
+   - `filteredCategories`：旧逻辑仅 expense/income 按 type 过滤、其余返回全部 → **改为所有 6 类都按 `c.type === t` 精确过滤**
+   - `ICON_MAP` 补全 20 个新 icon 的 emoji 映射（转账🔄/还款💳/借款🌐/校准⚖️ 等）
+
+### 五、变更文件列表
+
+- SQL：`moyun-server/src/main/resources/sql/20260904-02-moyun-ledger-category-expand.sql`
+- 后端：`LedgerCategory.java`
+- 前端：`pages/mine/categories/index.vue`、`pages/record/index.vue`
+- 文档：本 devlog + 设计方案附录 D
+
+---
+## v11.25 (2026-09-04) 记账模块：修复凭证上传（api/ledger.js 缺 import 致 ReferenceError）
+
+### 问题
+
+记一笔页点击「📷 截图」上传凭证图片，无任何反应 / 报 `ReferenceError: BASE_URL is not defined`。
+
+### 根因
+
+`api/ledger.js` 的 `uploadVoucher()` 和 `exportTransactionsCsv()` 函数体中使用了 `BASE_URL` 和 `useUserStore()`，但文件顶部**从未 import**这两个符号，调用时直接 ReferenceError 崩溃。
+
+### 修复
+
+1. `utils/request.js`：`const BASE_URL` → `export const BASE_URL`（已定义只需加 export）
+2. `api/ledger.js` 顶部补 `import { ..., BASE_URL } from '@/utils/request'` + `import { useUserStore } from '@/stores/user'`
+
+### 链路验证（修复后完整闭环）
+
+| 环节 | 代码 | 状态 |
+| --- | --- | --- |
+| 选图 | `uni.chooseImage({ count:1, sizeType:['compressed'] })` | ✓ |
+| 上传 | `uni.uploadFile({ url: BASE_URL+'/portal/file/upload', name:'file', header:{Authorization} })` | ✓ |
+| 后端 | `PortalFileController.upload()` → `SysFileServiceImpl.uploadFileForPortal()` → 返回 `SysFile.fileUrl` | ✓ 已存在 |
+| URL 格式 | `http://localhost:8080/profile/2026/09/04/xxx.jpg` | ✓ |
+| 静态访问 | `ResourcesConfig` 映射 `/profile/**` → 本地目录；`SecurityConfig` L163 `permitAll()` GET `/profile/**` | ✓ |
+| 前端回显 | `this.form.voucherUrl = url` → `<image :src="form.voucherUrl" mode="aspectFill">` | ✓ |
+| 编辑页回显 | `record/edit.vue` 同链路，`this.txn.voucherUrl = url` → `<image :src="txn.voucherUrl">` | ✓ |
+
+### 变更文件
+
+- `moyun-ledger-app/src/utils/request.js`（1 行：加 export）
+- `moyun-ledger-app/src/api/ledger.js`（2 行：补 import）
+
+---
+## v11.26 (2026-09-04) 记账模块：金额单位统一为元 + 借款自动建负债
+
+### 一、需求
+
+1. 统一金额单位为「元/人民币」——废除 BIGINT 存分的设计，全链路改用 DECIMAL(18,2) 存元 + Java BigDecimal 运算
+2. 借款 type=borrow 时不强制选负债账户，不选则自动生成新负债记录
+
+### 二、SQL 变更（20260904-03-moyun-ledger-amount-yuan.sql）
+
+5 张表、11 个金额列 BIGINT → DECIMAL(18,2)，带数据迁移（÷100）：
+
+| 表 | 列 | 旧（分） | 新（元） |
+| --- | --- | --- | --- |
+| ledger_asset_account | balance, valuation | BIGINT | DECIMAL(18,2) |
+| ledger_liability_account | balance, principal, monthly_payment | BIGINT | DECIMAL(18,2) |
+| ledger_transaction | amount, balance_after, target_balance_after, liability_balance_after | BIGINT | DECIMAL(18,2) |
+| ledger_budget | amount | BIGINT | DECIMAL(18,2) |
+| ledger_net_worth_snapshot | total_asset, total_liability, net_worth | BIGINT | DECIMAL(18,2) |
+
+### 三、后端变更
+
+#### 实体层（5 个实体 + 1 个 DTO）
+- `LedgerTransaction`: amount/balanceAfter/targetBalanceAfter/liabilityBalanceAfter: Long → BigDecimal
+- `LedgerAssetAccount`: balance/valuation: Long → BigDecimal
+- `LedgerLiabilityAccount`: balance/principal/monthlyPayment: Long → BigDecimal
+- `LedgerBudget`: amount: Long → BigDecimal
+- `LedgerNetWorthSnapshot`: totalAsset/totalLiability/netWorth: Long → BigDecimal
+- `TransactionCreateDTO`: amount: Long → BigDecimal
+
+#### Service 层
+- `LedgerTransactionServiceImpl`: 全部 long 算术改 BigDecimal（add/subtract/compareTo/negate）
+  - `validate()`: `amount <= 0` → `compareTo(BigDecimal.ZERO) <= 0`
+  - `applyBalanceEffect()`: TYPE_BORROW 时若 liabilityId=null → 自动创建 LedgerLiabilityAccount（type=OTHER, balance=principal=amount, settleFlag=0）并 insert，再 setLiabilityId
+  - `applyAssetDelta/applyLiabilityDelta`: long delta → BigDecimal delta, 乐观锁 setSql 不变
+  - `checkBudgetAlert()`: mapToLong → map+reduce(BigDecimal::add), floorDiv → multiply+divide
+  - `refreshNetWorthSnapshot()`: long 累加 → BigDecimal.add
+  - 删除 centToYuanText() 和 toYuan()（金额已是元，直接 toPlainString）
+  - `reverseBalanceEffect()`: TYPE_BORROW 加 null 检查（防御历史数据无 liabilityId）
+- `LedgerAssetAccountServiceImpl`: createAccount 签名 Long→BigDecimal, refreshSnapshot BigDecimal 算术
+- `LedgerLiabilityAccountServiceImpl`: createAccount 签名 Long→BigDecimal
+- 接口 `ILedgerAssetAccountService` / `ILedgerLiabilityAccountService`: 签名同步
+
+#### Controller 层
+- `PortalLedgerAssetController`: initialBalance 解析改为 new BigDecimal(str), 边界 100亿元
+- `PortalLedgerLiabilityController`: initialBalance + monthlyPayment 解析改 BigDecimal, 边界同步
+
+### 四、前端变更
+
+- `utils/money.js` 重写：
+  - `yuanToCent()` → 恒等映射（不再 ×100）
+  - `centToAmount()` → 直接千分位格式化（不再 ÷100）
+  - `centToYuan()` → 直接 toFixed(2)（不再 ÷100）
+  - `centToAbsAmount()` → Math.abs 后千分位
+  - `safeSumCents()` → 元直接求和
+  - **函数签名全部不变**，10+ 个引用文件零改动
+
+### 五、借款自动建负债（需求 2）
+
+- `validate()` 中移除 TYPE_BORROW 的 liabilityId 必填校验
+- `applyBalanceEffect()` TYPE_BORROW 分支：liabilityId=null 时自动创建负债账户
+- 前端 record/index.vue 的 borrow 类型不再强制弹出负债选择器
+
+### 六、变更文件列表
+
+- SQL: `20260904-03-moyun-ledger-amount-yuan.sql`
+- 后端: 6 实体/DTO + 3 Service + 2 接口 + 2 Controller = 13 个 Java 文件
+- 前端: `utils/money.js`（1 文件，签名兼容，其余文件零改动）
+- 文档: 本 devlog + 设计方案附录 E
+
+---
+## v11.22 (2026-09-04) 记账模块：金额安全计算全链路修复 + 负号/浮点/单位边界三重修复
+
+> 触发：用户反馈「总资产出现负数仍显示正数 + ledger_liability_account 存 2200 前端显示 22 元」两个金额 BUG，排查后暴露 centToAmount(Math.abs) 丢符号、yuanToCent(浮点乘 100) 精度、表单回显千分位回写 Number 变 NaN 三处隐患，统一全链路修复。
+
+### 一、前端金额工具链修复（money.js）
+
+| 函数 | 修复前 | 修复后 |
+| --- | --- | --- |
+| 	oNum | isNaN 判定，空串未显式处理 | 先判 null/'' + Number.isFinite，严格收敛 |
+| yuanToCent | Math.round(Number(yuan) * 100) — 1.005 元 = 100 分 ✗；含千分位 Number('1,234.56')=NaN ✗ | **字符串安全解析**：剥 ,/符号/按 . 拆整数与小数段；小数 ≥3 位时第三位四舍五入；9e14 上限保护。1.005→101 ✓、'1,234.56'→123456 ✓ |
+| centToAmount | (Math.abs(c)/100).toLocaleString(...) — **永远去负号**，净资产/负债合计负数一律显示正数 | **保留负号**：(c / 100).toLocaleString(...)，负数自动本地化输出 -1,234.56 |
+| centToAbsAmount | 无 | **新增**：旧 centToAmount 行为（绝对值 + 无符号千分位），专供 +收入/-支出、欠 ¥xxx 调用方自行拼接语义前缀的场景 |
+| centToSigned | 内部手写 Math.abs + prefix | 复用 centToAbsAmount，行为不变 |
+| safeSumCents(items, picker) | 无 | **新增**：分单位整数安全求和；picker 支持函数或属性名；每项经 	oNum 防止后端 Long→字符串序列化导致字符串拼接 |
+
+### 二、前端页面同步修正
+
+1. **pages/portfolio/index.vue**
+   - ssetTotalText / liabTotalText 合计改用 safeSumCents(list, 'balance')（原 reduce + toNum 语义一致，但工具化避免后续手写拼接）
+   - editLiability 月供回显：centToAmount(l.monthlyPayment) → **centToYuan(l.monthlyPayment)**
+     - 原 BUG：centToAmount 输出 1,234.56（含千分位）写入表单 <input>；再次保存走 yuanToCent(Number('1,234.56')) → NaN → 0，**月供被清零**
+2. **pages/report/index.vue**
+   - 年收入 '+' + centToAmount(yearIncome) → '+' + centToAbsAmount(yearIncome)
+   - 年支出 '-' + centToAmount(yearExpense) → '-' + centToAbsAmount(yearExpense)
+   - （防收入/支出异常为负时出现 +-xxx / --xxx）
+3. **pages/record/index.vue**
+   - 负债名提示 欠  → 欠 
+   - 账户选择器子标题 欠款 ¥ + centToAmount(l.balance) → 同上
+   - （「欠」本身已表方向，不必重复显示负号；溢缴负余额显示仍一致可读）
+
+### 三、后端入库边界校验（Controller 防线）
+
+- PortalLedgerAssetController.create：initialBalance 非空时校验   ≤ cent ≤ 100 亿元（1e12 分），超范围返回"请确认金额单位"
+- PortalLedgerLiabilityController.create：同上校验 initialBalance + monthlyPayment（0 ≤ 月供 ≤ 1 亿元）
+- 作用：**防止前端漏调 yuanToCent（误传"元"值入库，放大 100 倍）** 及负值入库
+
+### 四、影响范围说明
+
+- 所有使用 centToAmount 的 9 个页面（dashboard、analysis、report、record/list、record/edit、record/index、mine/budget、portfolio）的金额显示统一升级：
+  - 资产 / 负债 / 净资产 为负数时，**首次正确输出 -1,234.56**
+  - 收入、支出、分类排名、月供 等天然正数的展示，前后结果完全一致（无符号差异）
+- 后端校验仅对「新增资产 / 新增负债」接口生效，不影响历史数据与流水联动写余额路径（流水联动走 Service，余额可正可负由业务场景决定）
+
+### 五、变更文件列表
+
+- 前端：moyun-ledger-app/src/utils/money.js、pages/portfolio/index.vue、pages/report/index.vue、pages/record/index.vue
+- 后端：moyun-server/.../PortalLedgerAssetController.java、.../PortalLedgerLiabilityController.java
+- 文档：本 devlog + 记账模块设计方案 V1.3「附录 B：金额安全规范」增补
+
+---
+## v11.21 (2026-09-04) 记账模块：AI 财务分析 + 资产负债合并 Tab 页 + 交互细节优化
+
+> 用户需求 3 项：① 报表/总览加 AI 分析入口（分析资产结构、收入来源、债务风险、给出综述与建议）；② 资产/负债两页合并为「资产负债」Tab 切换页，腾出 Tab 位给「分析」页；③ 交互细节（tips 可关闭、弹层可取消、分类宫格可收起）。涉及前后端 + SQL + 后台字典。
+
+### 改动内容
+
+**后端（com.moyun.ledger）**
+- 新增 [ILedgerAiAnalysisService](file:///d:/zyg_new_work/moyun-project-document/moyun-server/src/main/java/com/moyun/ledger/service/ILedgerAiAnalysisService.java) / [LedgerAiAnalysisServiceImpl](file:///d:/zyg_new_work/moyun-project-document/moyun-server/src/main/java/com/moyun/ledger/service/impl/LedgerAiAnalysisServiceImpl.java)：规则引擎计算财务指标（资产负债率/月均收支/还款压力/储蓄率/连续入不敷出月数）+ 收入来源结构（按分类占比）+ 债务风险评估（车贷/信用卡还款提示、还款日临近、还款能力）+ 分级建议（补记收入/兼职拓展/控制负债/理财建议）；LLM 生成个性化综述（未启用 AI 或调用失败降级模板文案）
+- 新增 [PortalLedgerAiController](file:///d:/zyg_new_work/moyun-project-document/moyun-server/src/main/java/com/moyun/ledger/controller/PortalLedgerAiController.java)：`GET/POST /portal/ledger/ai/profile`（画像读取/维护，与门户共用 portal_user 表）、`GET /portal/ledger/ai/analysis`（分析报告）
+- 用户画像维度：portal_user 增量字段 `identity_tag`（身份标签），字典 `ledger_identity_tag`（学生/上班族/自由职业/个体经营者/退休/其他）
+- **Bug 修复**：[PortalUserMapper.xml](file:///d:/zyg_new_work/moyun-project-document/moyun-server/src/main/resources/mapper/portal/PortalUserMapper.xml) resultMap 与两处查询列清单缺 `identity_tag`，导致画像保存后读取恒为 null——已补齐 resultMap/查询/insert/update 四处
+
+**前端（moyun-ledger-app）**
+- 新增分析页 [pages/analysis/index.vue](file:///d:/zyg_new_work/moyun-project-document/moyun-ledger-app/src/pages/analysis/index.vue)：用户画像卡（身份标签/职位/公司，可编辑）+ 财务健康指标 + AI 财务综述 + 收入来源结构 + 债务风险提示 + 分级建议；未登录显示登录引导卡
+- 新增资产负债合并页 [pages/portfolio/index.vue](file:///d:/zyg_new_work/moyun-project-document/moyun-ledger-app/src/pages/portfolio/index.vue)：顶部「资产/负债」分段 Tab 切换，汇总卡 + 账户列表 + 新增/编辑弹层（含取消/删除归档），替代原 asset/liability 两个 Tab 页
+- [pages.json](file:///d:/zyg_new_work/moyun-project-document/moyun-ledger-app/src/pages.json)：TabBar 由 总览/资产/记一笔/负债/我的 → 总览/资产负债/记一笔/分析/我的
+- 记一笔页：分类宫格右上角「收起/展开」折叠（uni-view 可收起）；选择账户/负债弹层底部补「取消」按钮
+- [api/ledger.js](file:///d:/zyg_new_work/moyun-project-document/moyun-ledger-app/src/api/ledger.js) 新增 getAiAnalysis / getAiProfile / updateAiProfile
+
+**SQL**（[20260904-01-moyun-ledger-ai-analysis.sql](file:///d:/zyg_new_work/moyun-project-document/moyun-server/src/main/resources/sql/20260904-01-moyun-ledger-ai-analysis.sql)）
+- `ALTER TABLE portal_user ADD identity_tag`（增量追加，不动原建表）
+- 字典类型 `ledger_identity_tag` + 6 项字典数据（后台「系统管理→字典管理」可直接维护，无需新增页面）
+
+### 验证（后端 8080 重启后 API 直连 + 浏览器 5174）
+- 画像更新：identityTag=office_worker → 返回「上班族/测试员/墨韵科技」✅（mapper 修复前恒 null，修复后正常）
+- 记收入 ¥100 后重新分析：avgMonthlyIncome 0→¥100.00、收入来源 0→1 项（工资）✅
+- 未登录态分析页：显示登录引导卡、刷新后 console 无新增报错 ✅
+- 债务风险：资产为负时正确输出「资产负债率过高」高风险提示 + 「补记收入来源」建议 ✅
+
+### 部署
+- 执行 SQL：20260904-01-moyun-ledger-ai-analysis.sql；重启 moyun-server；前端热更新
+- 测试账号 zhangsan 密码已重置为 `Test@12345`（原密码遗失，DB 直改 bcrypt）
+
+***
+
+## v11.20 (2026-09-04) 记账模块：资产页UI升级 + 移除原生导航栏改自定义标题
+
+> 用户反馈 2 项：资产页同参考图风格升级；移动端去掉顶部原生"墨韵记账"导航栏（或跟随主题）。纯前端，无 SQL、无后端改动。
+
+### 改动内容
+- **全局移除原生导航栏**：[pages.json](file:///d:/zyg_new_work/moyun-project-document/moyun-ledger-app/src/pages.json) globalStyle 增加 `navigationStyle: custom`——所有页面不再显示"墨韵记账"原生标题条（彻底避免静态导航栏背景色与主题不同步问题，页面标题改由页面内自绘并天然跟随主题）
+- **自定义 NavBar 组件**：[NavBar.vue](file:///d:/zyg_new_work/moyun-project-document/moyun-ledger-app/src/components/NavBar/NavBar.vue)（easycom 自动注册）——白底吸顶、主题色圆形返回键 + 居中标题 + 右侧 slot；无上级页面时兜底跳总览。已插入 6 个非 Tab 页（分类管理/预算设置/设置/流水明细/编辑流水/报表中心）
+- **Tab 页顶部安全区**：资产/负债汇总卡新增页内大标题（"我的资产"/"我的负债"）+ `env(safe-area-inset-top)` 顶部间距；总览 hero/brand-hero、我的页 user-card 同步补 safe-area，替代被移除的原生导航占位
+- **资产页 UI 升级**：汇总卡绿色渐变→主题色背景；账户图标由绿色文字圆改为**彩色圆底 emoji**（现金💰黄/储蓄卡🏦蓝/电子钱包📱绿/储值卡🎫橙/投资📈绿/固定资产🏠/债权🤝粉/其他🔖灰，88rpx 圆形）；FAB 按钮统一 var(--primary)
+
+### 验证
+- `npm run build:h5` 编译通过；浏览器（5174，zhangsan 登录态）逐项验证：
+  - 4 个 Tab 页均无原生标题条，内容从状态区开始，TabBar 正常
+  - 资产页：标题+薄荷绿汇总卡（rgb(127,191,148)）、彩色圆底 emoji 图标（🏦rgb(74,158,255)/💰rgb(245,197,24)）、总资产 ¥32,320.71 数学求和正确
+  - 负债页：标题+主题色卡，总负债 ¥4,322.00 = 222+4100 正确
+  - NavBar：设置/报表/流水明细 3 页白底吸顶返回键正常，返回导航成功
+  - 主题切换：海洋蓝下资产汇总卡 rgb(91,155,213)，切回恢复 rgb(127,191,148)
+  - 记一笔页回归：布局正常无遮挡，console 无业务报错
+
+### 部署
+前端热更新自动生效。无 SQL、无后端变更。
+
+**v11.20 补充修复（同日）**：`setTabBarStyle:fail not TabBar page` 报错——App onLaunch 时若当前为非 TabBar 页（如 URL 直达子页）调用 uni.setTabBarStyle 会失败。修复：[theme.js](file:///d:/zyg_new_work/moyun-project-document/moyun-ledger-app/src/stores/theme.js) setTabBarStyle 增加 fail 静默；5 个 Tab 页 onShow 调用 restore()，保证切回 Tab 页时 TabBar 选中色同步（浏览器验证：报错消除、海洋蓝切换后 TabBar 文字 rgb(63,127,191) 正常联动）。
+
+***
+
+## v11.19 (2026-09-04) 记账模块：全局主题系统 + 记一笔页重设计 + Long序列化拼接Bug修复
+
+> 用户反馈 5 项：总负债拼接 Bug、UI 风格按参考图全局优化、记一笔页按类型展示分类并突出核心字段、主题可切换、上传与预览。无表结构变更、无 SQL、无菜单变更。
+
+### 改动内容
+- **Long 拼接 Bug（关键修复）**：后端全局配置 Long→String 序列化（防 JS 精度丢失），前端对 balance/amount 做 reduce 累加时字符串拼接（222+4100 显示"02224100"）。[money.js](file:///d:/zyg_new_work/moyun-project-document/moyun-ledger-app/src/utils/money.js) 新增 toNum() 强转数字，修复负债页/资产页总计数、流水页收支汇总、报表页分类合计、记一笔页余额校验共 8 处累加点
+- **主题系统**：[theme store](file:///d:/zyg_new_work/moyun-project-document/moyun-ledger-app/src/stores/theme.js) — 5 套主题（薄荷绿默认/紫罗兰/海洋蓝/蜜桃橙/樱花粉），CSS 变量注入页面根元素（--primary/--primary-strong/--primary-soft/--primary-shadow），App.vue 定义变量默认值；全部 11 个页面根元素 :style="themeVars" 注入并替换硬编码紫色系；设置页新增主题切换卡（彩色圆点选择，TabBar 选中色联动，本地存储记忆）；pages.json TabBar/导航栏默认色改薄荷绿
+- **记一笔页重设计**（按参考图）：类型 Tab 改白色胶囊（主色底白字激活）→ 分类宫格（4 列彩色圆底 emoji 图标，选中主色放大）→ 备注卡片（突出）→ 主色金额条（左金额标签+日期、右大数字）→ 账户/负债选择卡片 → 数字键盘（可收起）→ 保存按钮；分类按当前类型过滤（支出/收入），**常用优先排序**（usedCount 降序+sortOrder）；二级分类横滑标签条（表结构已有 parent_id，前端预留展示）
+- **后端分类接口增强**：[LedgerCategoryServiceImpl](file:///d:/zyg_new_work/moyun-project-document/moyun-server/src/main/java/com/moyun/ledger/service/impl/LedgerCategoryServiceImpl.java) listAvailable 回填 usedCount（@TableField(exist=false) 展示字段，按用户流水分组统计），支撑前端常用排序
+- **负债页样式**：总负债卡红色渐变→主题色渐变；列表图标红底→主题色
+- **上传接口确认**：/portal/file/upload 存在且正常（未登录返回 HTTP 200+code:401 属预期，v11.15 已落地凭证上传），前端 uni.uploadFile 携带 Bearer token；预览走 uni.previewImage
+
+### 验证
+- `npm run build:h5` + `mvn compile`：均通过
+- 浏览器端到端（zhangsan 登录态）：总负债 ¥4,322.00 = 222.00+4,100.00 数学求和正确；总资产/净资产求和均正确；记一笔新布局（类型Tab/分类宫格按类型过滤/金额条突出）正常；主题切换海洋蓝→记一笔页 Tab 与金额条实时变蓝（#5B9BD5），切回薄荷绿恢复；console 无业务报错
+- 上传的 H5 文件选择器在自动化浏览器中受限，需人工验证；接口 curl 确认可达
+
+### 部署
+**重启 moyun-server** 生效（分类接口新增 usedCount 字段）。前端 Vite 热更新自动生效。无 SQL。
+
+***
+
 ## v11.18 (2026-09-03) 记账模块体验迭代：分类标签 + 语义提示 + 未登录引导
 
 > 用户试用反馈 8 项的落地。无表结构变更、无 SQL、无菜单变更，纯前端交互与引导优化（复式记账流水在 Phase 1 已实现，本次补语义说明）。
@@ -16,7 +367,7 @@
 - **负债快速补录**：还款/借款的借款项目选择弹层内置"快速补录"表单（名称+当前欠款），调 createLiability 创建后自动选用；空列表点击也引导跳负债页
 - **还款余额不足校验**：保存前校验扣款账户余额，不足时弹窗说明"该账户余额不能兑现此笔还款"，提供「去补录收入」（切换为收入类型、预选同一账户、保留金额，补记资金来源如刚到账的奖金）与「仍要保存」两个选择
 - **我的页未登录收敛**：[我的页](file:///d:/zyg_new_work/moyun-project-document/moyun-ledger-app/src/pages/mine/index.vue) — 未登录时功能菜单改为置灰预览（"登录后可用"），不可点击误导；登录表单常驻；go() 兜底校验登录
-- **首页价值前置**：[总览页](file:///d:/zyg_new_work/moyun-project-document/moyun-ledger-app/src/pages/dashboard/index.vue) — 未登录：品牌区（墨韵记账·看清身家，才敢做决定）+ 3 条痛点（钱花哪了说不清/净资产糊涂账/借出去的钱没人管）+ 三步引导 + 登录入口；已登录：可关闭的操作提示条（提示备注/分类/凭证/余额补录能力）+ 原有数据总览
+- **首页价值前置**：[总览页](file:///d:/zyg_new_work/moyun-project-document/moyun-ledger-app/src/pages/dashboard/index.vue) — 未登录：品牌区（墨韵记账·一个数字，帮你随时随地了解你的身家）+「你是否也有这些烦恼」3 条（钱花哪了说不清/净资产糊涂账/借出去的钱没着落）+ 三步引导（录资产负债→随手记一笔→净资产自动更新）+ 登录入口（注明门户账号可直接登录）；已登录：可关闭的操作提示条（提示备注/分类/凭证/余额补录能力）+ 原有数据总览
 - **复式流水说明**（既有实现确认）：转账在 ledger_transaction 双写 A 出账/B 入账流水（balance_after 各自快照），借/还分别记 borrow/repayment 流水并联动负债余额，总资产口径下转账不改变净资产
 
 ### 验证

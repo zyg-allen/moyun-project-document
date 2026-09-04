@@ -50,10 +50,10 @@ public class LedgerLiabilityAccount {
     private String type;
 
     /** 当前欠款（分） */
-    private Long balance;
+    private BigDecimal balance;
 
     /** 初始本金（分） */
-    private Long principal;
+    private BigDecimal principal;
 
     /** 年利率（%） */
     private BigDecimal annualRate;
@@ -64,8 +64,8 @@ public class LedgerLiabilityAccount {
     /** 已还期数（月） */
     private Integer paidTerms;
 
-    /** 每期还款额（分） */
-    private Long monthlyPayment;
+    /** 每期还款额（元） */
+    private BigDecimal monthlyPayment;
 
     /** 还款日（每月几号，1-28） */
     private Integer repaymentDay;

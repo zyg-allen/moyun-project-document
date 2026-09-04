@@ -1,5 +1,5 @@
 <template>
-  <view class="page">
+  <view class="page" :style="themeVars">
     <!-- 用户卡 -->
     <view class="user-card">
       <view class="avatar">{{ userStore.isLoggedIn ? '墨' : '?' }}</view>
@@ -58,8 +58,12 @@
 <script>
 import { login } from '@/api/ledger';
 import { useUserStore } from '@/stores/user';
+import { useThemeStore } from '@/stores/theme';
 
 export default {
+  onShow() {
+    useThemeStore().restore();
+  },
   data() {
     return {
       loginForm: { username: '', password: '' },
@@ -67,6 +71,7 @@ export default {
     };
   },
   computed: {
+    themeVars() { return useThemeStore().themeVars; },
     userStore() { return useUserStore(); }
   },
   methods: {
@@ -108,9 +113,9 @@ export default {
 <style scoped>
 .page { padding-bottom: 40rpx; }
 .user-card {
-  display: flex; align-items: center; background: linear-gradient(135deg, #6a4fd4, #8a6fe8);
+  display: flex; align-items: center; background: var(--primary);
   color: #fff; padding: 60rpx 40rpx; margin-bottom: 24rpx;
-}
+  padding-top: calc(env(safe-area-inset-top) + 60rpx); }
 .avatar {
   width: 110rpx; height: 110rpx; border-radius: 55rpx; background: rgba(255,255,255,0.25);
   display: flex; align-items: center; justify-content: center; font-size: 44rpx; margin-right: 24rpx;

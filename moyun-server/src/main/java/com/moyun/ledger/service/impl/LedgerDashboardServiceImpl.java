@@ -60,22 +60,26 @@ public class LedgerDashboardServiceImpl implements ILedgerDashboardService {
         aq.eq(LedgerAssetAccount::getUserId, userId)
                 .eq(LedgerAssetAccount::getStatus, LedgerAssetAccount.STATUS_ENABLED)
                 .eq(LedgerAssetAccount::getIncludeInTotal, 1);
-        long totalAsset = 0;
+        BigDecimal totalAsset = BigDecimal.ZERO;
         List<LedgerAssetAccount> assets = assetAccountMapper.selectList(aq);
         for (LedgerAssetAccount a : assets) {
-            totalAsset += a.getBalance();
+            if (a.getBalance() != null) {
+                totalAsset = totalAsset.add(a.getBalance());
+            }
         }
 
         LambdaQueryWrapper<LedgerLiabilityAccount> lq = new LambdaQueryWrapper<>();
         lq.eq(LedgerLiabilityAccount::getUserId, userId)
                 .eq(LedgerLiabilityAccount::getStatus, LedgerLiabilityAccount.STATUS_ENABLED)
                 .eq(LedgerLiabilityAccount::getIncludeInTotal, 1);
-        long totalLiability = 0;
+        BigDecimal totalLiability = BigDecimal.ZERO;
         List<LedgerLiabilityAccount> liabilities = liabilityAccountMapper.selectList(lq);
         for (LedgerLiabilityAccount l : liabilities) {
-            totalLiability += l.getBalance();
+            if (l.getBalance() != null) {
+                totalLiability = totalLiability.add(l.getBalance());
+            }
         }
-        long netWorth = totalAsset - totalLiability;
+        BigDecimal netWorth = totalAsset.subtract(totalLiability);
 
         // 资产/负债账户数（前端新手引导判断：均为 0 时显示引导卡片）
         LambdaQueryWrapper<LedgerAssetAccount> aqAll = new LambdaQueryWrapper<>();
@@ -98,12 +102,12 @@ public class LedgerDashboardServiceImpl implements ILedgerDashboardService {
                 .orderByDesc(LedgerNetWorthSnapshot::getSnapDate)
                 .last("LIMIT 1");
         LedgerNetWorthSnapshot yesterday = snapshotMapper.selectOne(yq);
-        long netWorthChange = yesterday == null ? 0L : netWorth - yesterday.getNetWorth();
+        BigDecimal netWorthChange = yesterday == null ? BigDecimal.ZERO : netWorth.subtract(yesterday.getNetWorth());
         data.put("netWorthChange", netWorthChange);
 
         // 3. 本月收支（status=1 且计入预算的流水实时聚合）
-        long monthIncome = sumAmount(userId, monthStart, today, LedgerTransaction.TYPE_INCOME);
-        long monthExpense = sumAmount(userId, monthStart, today, LedgerTransaction.TYPE_EXPENSE);
+        BigDecimal monthIncome = sumAmount(userId, monthStart, today, LedgerTransaction.TYPE_INCOME);
+        BigDecimal monthExpense = sumAmount(userId, monthStart, today, LedgerTransaction.TYPE_EXPENSE);
         data.put("monthIncome", monthIncome);
         data.put("monthExpense", monthExpense);
 
@@ -116,10 +120,9 @@ public class LedgerDashboardServiceImpl implements ILedgerDashboardService {
         LedgerBudget totalBudget = budgetMapper.selectOne(bq);
         Map<String, Object> budgetInfo = new HashMap<>();
         if (totalBudget != null) {
-            long rate = totalBudget.getAmount() == 0 ? 100
-                    : BigDecimal.valueOf(monthExpense)
-                            .multiply(BigDecimal.valueOf(100))
-                            .divide(BigDecimal.valueOf(totalBudget.getAmount()), 0, RoundingMode.HALF_UP)
+            long rate = totalBudget.getAmount().compareTo(BigDecimal.ZERO) == 0 ? 100
+                    : monthExpense.multiply(BigDecimal.valueOf(100))
+                            .divide(totalBudget.getAmount(), 0, RoundingMode.HALF_UP)
                             .longValue();
             budgetInfo.put("amount", totalBudget.getAmount());
             budgetInfo.put("used", monthExpense);
@@ -139,7 +142,7 @@ public class LedgerDashboardServiceImpl implements ILedgerDashboardService {
     }
 
     /** 按类型汇总区间内金额（计入预算口径） */
-    private long sumAmount(Long userId, LocalDate start, LocalDate end, String type) {
+    private BigDecimal sumAmount(Long userId, LocalDate start, LocalDate end, String type) {
         LambdaQueryWrapper<LedgerTransaction> qw = new LambdaQueryWrapper<>();
         qw.eq(LedgerTransaction::getUserId, userId)
                 .eq(LedgerTransaction::getType, type)
@@ -147,9 +150,11 @@ public class LedgerDashboardServiceImpl implements ILedgerDashboardService {
                 .eq(LedgerTransaction::getIsBudget, 1)
                 .ge(LedgerTransaction::getTransactionDate, start)
                 .le(LedgerTransaction::getTransactionDate, end);
-        long sum = 0;
+        BigDecimal sum = BigDecimal.ZERO;
         for (LedgerTransaction t : transactionMapper.selectList(qw)) {
-            sum += t.getAmount();
+            if (t.getAmount() != null) {
+                sum = sum.add(t.getAmount());
+            }
         }
         return sum;
     }

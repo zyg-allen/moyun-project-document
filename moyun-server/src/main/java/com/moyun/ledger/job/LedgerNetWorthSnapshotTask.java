@@ -13,6 +13,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.HashSet;
 import java.util.List;
@@ -80,26 +81,30 @@ public class LedgerNetWorthSnapshotTask {
         aq.eq(LedgerAssetAccount::getUserId, userId)
                 .eq(LedgerAssetAccount::getStatus, LedgerAssetAccount.STATUS_ENABLED)
                 .eq(LedgerAssetAccount::getIncludeInTotal, 1);
-        long totalAsset = 0;
+        BigDecimal totalAsset = BigDecimal.ZERO;
         List<LedgerAssetAccount> assets = assetAccountMapper.selectList(aq);
         for (LedgerAssetAccount a : assets) {
-            totalAsset += a.getBalance();
+            if (a.getBalance() != null) {
+                totalAsset = totalAsset.add(a.getBalance());
+            }
         }
         LambdaQueryWrapper<LedgerLiabilityAccount> lq = new LambdaQueryWrapper<>();
         lq.eq(LedgerLiabilityAccount::getUserId, userId)
                 .eq(LedgerLiabilityAccount::getStatus, LedgerLiabilityAccount.STATUS_ENABLED)
                 .eq(LedgerLiabilityAccount::getIncludeInTotal, 1);
-        long totalLiability = 0;
+        BigDecimal totalLiability = BigDecimal.ZERO;
         List<LedgerLiabilityAccount> liabilities = liabilityAccountMapper.selectList(lq);
         for (LedgerLiabilityAccount l : liabilities) {
-            totalLiability += l.getBalance();
+            if (l.getBalance() != null) {
+                totalLiability = totalLiability.add(l.getBalance());
+            }
         }
         LedgerNetWorthSnapshot snap = new LedgerNetWorthSnapshot();
         snap.setUserId(userId);
         snap.setSnapDate(date);
         snap.setTotalAsset(totalAsset);
         snap.setTotalLiability(totalLiability);
-        snap.setNetWorth(totalAsset - totalLiability);
+        snap.setNetWorth(totalAsset.subtract(totalLiability));
         snapshotMapper.insert(snap);
         return 1;
     }

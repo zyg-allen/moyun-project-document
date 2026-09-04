@@ -1,5 +1,16 @@
 <template>
-  <view class="page">
+  <view class="page" :style="themeVars">
+    <NavBar :title="navTitle" />
+    <!-- 账户/负债筛选条（从资产负债页点入时出现） -->
+    <view class="filter-banner" v-if="accountId || liabilityId">
+      <text class="banner-icon">🔗</text>
+      <view class="banner-body">
+        <view class="banner-title">仅显示「{{ filterName }}」的关联流水</view>
+        <view class="banner-sub" v-if="accountId">资产账户 · 作为转出 / 转入方都会匹配</view>
+        <view class="banner-sub" v-else>负债账户 · 借款 / 还款 / 校准联动记录</view>
+      </view>
+      <text class="banner-close" @tap="clearAccountFilter">×</text>
+    </view>
     <!-- 筛选栏 -->
     <view class="filter-bar">
       <picker :range="typeOptions" range-key="label" @change="onTypeChange">
@@ -60,7 +71,8 @@
 
 <script>
 import { pageTransactions } from '@/api/ledger';
-import { centToYuan, centToAmount, centToSigned, typeText } from '@/utils/money';
+import { centToYuan, centToAmount, centToSigned, typeText, toNum } from '@/utils/money';
+import { useThemeStore } from '@/stores/theme';
 
 const TYPE_OPTIONS = [
   { key: '', label: '全部' },
@@ -86,10 +98,18 @@ export default {
       pageSize: 20,
       total: 0,
       loaded: false,
+      accountId: null,
+      liabilityId: null,
+      filterName: '',
       today: `${today.getFullYear()}-${pad(today.getMonth() + 1)}-${pad(today.getDate())}`
     };
   },
   computed: {
+    themeVars() { return useThemeStore().themeVars; },
+    navTitle() {
+      if (this.filterName) return this.filterName + ' · 流水';
+      return '流水明细';
+    },
     currentTypeLabel() {
       const found = TYPE_OPTIONS.find(t => t.key === this.type);
       return found ? found.label : '全部';
@@ -110,12 +130,25 @@ export default {
       return map;
     },
     sumIncomeText() {
-      const sum = this.list.filter(t => t.type === 'income').reduce((s, t) => s + (t.amount || 0), 0);
+      const sum = this.list.filter(t => t.type === 'income').reduce((s, t) => s + toNum(t.amount), 0);
       return centToAmount(sum);
     },
     sumExpenseText() {
-      const sum = this.list.filter(t => t.type === 'expense').reduce((s, t) => s + (t.amount || 0), 0);
+      const sum = this.list.filter(t => t.type === 'expense').reduce((s, t) => s + toNum(t.amount), 0);
       return centToAmount(sum);
+    }
+  },
+  onLoad(options) {
+    if (options && options.accountId) {
+      this.accountId = Number(options.accountId) || null;
+      this.liabilityId = null;
+    }
+    if (options && options.liabilityId) {
+      this.liabilityId = Number(options.liabilityId) || null;
+      this.accountId = null;
+    }
+    if (options && options.name) {
+      try { this.filterName = decodeURIComponent(options.name); } catch (_) { this.filterName = options.name; }
     }
   },
   onShow() {
@@ -137,8 +170,8 @@ export default {
       return parts.join(' ');
     },
     daySubtotal(group) {
-      const income = group.items.filter(t => t.type === 'income').reduce((s, t) => s + (t.amount || 0), 0);
-      const expense = group.items.filter(t => t.type === 'expense').reduce((s, t) => s + (t.amount || 0), 0);
+      const income = group.items.filter(t => t.type === 'income').reduce((s, t) => s + toNum(t.amount), 0);
+      const expense = group.items.filter(t => t.type === 'expense').reduce((s, t) => s + toNum(t.amount), 0);
       const segs = [];
       if (income > 0) segs.push('收 ' + centToAmount(income));
       if (expense > 0) segs.push('支 ' + centToAmount(expense));
@@ -152,6 +185,12 @@ export default {
       this.type = '';
       this.startDate = '';
       this.endDate = '';
+      this.reload();
+    },
+    clearAccountFilter() {
+      this.accountId = null;
+      this.liabilityId = null;
+      this.filterName = '';
       this.reload();
     },
     onTypeChange(e) {
@@ -173,6 +212,8 @@ export default {
           type: this.type || undefined,
           startDate: this.startDate || undefined,
           endDate: this.endDate || undefined,
+          accountId: this.accountId || undefined,
+          liabilityId: this.liabilityId || undefined,
           pageNum: this.pageNum,
           pageSize: this.pageSize
         });
@@ -202,7 +243,7 @@ export default {
   padding: 8rpx 20rpx; background: #f5f6f8; border-radius: 28rpx; font-size: 24rpx; color: #555;
 }
 .filter-btn {
-  padding: 8rpx 28rpx; background: #6a4fd4; color: #fff; border-radius: 28rpx; font-size: 24rpx;
+  padding: 8rpx 28rpx; background: var(--primary-strong); color: #fff; border-radius: 28rpx; font-size: 24rpx;
 }
 .filter-btn.reset { background: #999; }
 
@@ -215,6 +256,23 @@ export default {
 .summary-nums .expense { color: #e74c3c; }
 
 .card { background: #fff; border-radius: 20rpx; padding: 8rpx 24rpx; margin: 16rpx 24rpx; }
+
+.filter-banner {
+  display: flex; align-items: center; gap: 16rpx;
+  margin: 12rpx 24rpx 0; padding: 20rpx 24rpx;
+  background: linear-gradient(135deg, #eaf4ff, #f4faff);
+  border: 1rpx solid #dbeafe; border-radius: 16rpx;
+}
+.banner-icon { font-size: 32rpx; }
+.banner-body { flex: 1; min-width: 0; }
+.banner-title { font-size: 26rpx; font-weight: 600; color: #1e3a5f; }
+.banner-sub { font-size: 22rpx; color: #64748b; margin-top: 4rpx; }
+.banner-close {
+  width: 48rpx; height: 48rpx; line-height: 44rpx; text-align: center;
+  border-radius: 50%; background: #fff; color: #94a3b8; font-size: 30rpx;
+  box-shadow: 0 2rpx 8rpx rgba(0,0,0,0.04);
+}
+.banner-close:active { background: #f1f5f9; }
 .empty { text-align: center; color: #bbb; padding: 60rpx 0; font-size: 26rpx; }
 
 .day-header {
@@ -229,7 +287,7 @@ export default {
 .txn-icon {
   width: 56rpx; height: 56rpx; border-radius: 28rpx; margin-right: 16rpx; flex-shrink: 0;
   display: flex; align-items: center; justify-content: center;
-  font-size: 24rpx; font-weight: 600; color: #fff; background: #6a4fd4;
+  font-size: 24rpx; font-weight: 600; color: #fff; background: var(--primary-strong);
 }
 .txn-icon.expense { background: #e74c3c; }
 .txn-icon.income { background: #27ae60; }
@@ -250,6 +308,6 @@ export default {
   border-radius: 6rpx; padding: 2rpx 10rpx; margin-right: 10rpx;
 }
 .meta-right { display: flex; align-items: center; gap: 12rpx; flex-shrink: 0; }
-.voucher-flag { font-size: 20rpx; color: #6a4fd4; border: 1rpx solid #6a4fd4; border-radius: 6rpx; padding: 0 8rpx; }
-.load-more { text-align: center; color: #6a4fd4; font-size: 26rpx; padding: 24rpx 0; }
+.voucher-flag { font-size: 20rpx; color: var(--primary-strong); border: 1rpx solid var(--primary-strong); border-radius: 6rpx; padding: 0 8rpx; }
+.load-more { text-align: center; color: var(--primary-strong); font-size: 26rpx; padding: 24rpx 0; }
 </style>

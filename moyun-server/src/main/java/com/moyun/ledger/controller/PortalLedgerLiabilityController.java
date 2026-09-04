@@ -16,6 +16,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
+import java.math.BigDecimal;
 import java.util.Map;
 
 /**
@@ -53,7 +54,7 @@ public class PortalLedgerLiabilityController {
             account.setTotalTerms(((Number) body.get("totalTerms")).intValue());
         }
         if (body.get("monthlyPayment") != null) {
-            account.setMonthlyPayment(((Number) body.get("monthlyPayment")).longValue());
+            account.setMonthlyPayment(new BigDecimal(body.get("monthlyPayment").toString()));
         }
         if (body.get("repaymentDay") != null) {
             int day = ((Number) body.get("repaymentDay")).intValue();
@@ -65,8 +66,18 @@ public class PortalLedgerLiabilityController {
         if (body.get("includeInTotal") != null) {
             account.setIncludeInTotal(((Number) body.get("includeInTotal")).intValue());
         }
-        Long initialBalance = body.get("initialBalance") == null ? null
-                : ((Number) body.get("initialBalance")).longValue();
+        BigDecimal initialBalance = body.get("initialBalance") == null ? null
+                : new BigDecimal(body.get("initialBalance").toString());
+        // 元单位边界校验
+        final BigDecimal MAX_LIAB = new BigDecimal("10000000000");    // 100 亿元
+        final BigDecimal MAX_MONTHLY = new BigDecimal("100000000");   // 1 亿元
+        if (initialBalance != null && (initialBalance.compareTo(BigDecimal.ZERO) < 0 || initialBalance.compareTo(MAX_LIAB) > 0)) {
+            return AjaxResult.error("初始欠款超出允许范围（0 ~ 100 亿元），请确认金额单位");
+        }
+        BigDecimal mp = account.getMonthlyPayment();
+        if (mp != null && (mp.compareTo(BigDecimal.ZERO) < 0 || mp.compareTo(MAX_MONTHLY) > 0)) {
+            return AjaxResult.error("月供超出允许范围（0 ~ 1 亿元），请确认金额单位");
+        }
         return AjaxResult.success(liabilityAccountService.createAccount(userId, account, initialBalance));
     }
 

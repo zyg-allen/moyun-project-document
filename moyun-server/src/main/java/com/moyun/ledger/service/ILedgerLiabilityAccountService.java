@@ -3,6 +3,7 @@ package com.moyun.ledger.service;
 import com.baomidou.mybatisplus.extension.service.IService;
 import com.moyun.ledger.domain.entity.LedgerLiabilityAccount;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 /**
@@ -15,7 +16,7 @@ public interface ILedgerLiabilityAccountService extends IService<LedgerLiability
     /**
      * 新增负债账户（初始欠款自动生成 borrow 流水，保证全明细追溯）
      */
-    LedgerLiabilityAccount createAccount(Long userId, LedgerLiabilityAccount account, Long initialBalance);
+    LedgerLiabilityAccount createAccount(Long userId, LedgerLiabilityAccount account, BigDecimal initialBalance);
 
     /**
      * 修改负债账户（不含 balance，欠款变动必须走 borrow/repayment 记账）

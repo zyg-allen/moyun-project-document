@@ -3,6 +3,7 @@ package com.moyun.ledger.service;
 import com.baomidou.mybatisplus.extension.service.IService;
 import com.moyun.ledger.domain.entity.LedgerAssetAccount;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 /**
@@ -15,7 +16,7 @@ public interface ILedgerAssetAccountService extends IService<LedgerAssetAccount>
     /**
      * 新增资产账户（初始余额自动生成 adjust 校准流水，保证全明细追溯）
      */
-    LedgerAssetAccount createAccount(Long userId, LedgerAssetAccount account, Long initialBalance);
+    LedgerAssetAccount createAccount(Long userId, LedgerAssetAccount account, BigDecimal initialBalance);
 
     /**
      * 修改资产账户（不含 balance，余额校准必须走 adjust 记账）

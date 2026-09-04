@@ -1,21 +1,36 @@
 <template>
-  <view class="page">
-    <view class="tabs">
-      <view class="tab" :class="{ active: type === 'expense' }" @tap="type = 'expense'; load()">支出分类</view>
-      <view class="tab" :class="{ active: type === 'income' }" @tap="type = 'income'; load()">收入分类</view>
-    </view>
+  <view class="page" :style="themeVars">
+    <NavBar title="分类管理" />
 
-    <view class="card">
-      <view v-for="c in list" :key="c.id" class="cat-row">
-        <view class="cat-dot" :style="{ background: c.color || '#999' }"></view>
-        <text class="flex-1">{{ c.name }}<text v-if="c.isSystem === 1" class="sys-tag">系统</text></text>
-        <text v-if="c.isSystem !== 1" class="cat-del" @tap="removeCat(c)">删除</text>
+    <!-- 类型 Tab（横滑 6 类） -->
+    <scroll-view scroll-x class="tabs" show-scrollbar="false">
+      <view class="tabs-inner">
+        <view v-for="t in typeTabs" :key="t.key" class="tab"
+              :class="{ active: type === t.key }" @tap="switchType(t.key)">
+          {{ t.label }}
+        </view>
       </view>
-      <view v-if="list.length === 0" class="empty">暂无分类</view>
+    </scroll-view>
+
+    <!-- 按语义分组展示 -->
+    <view class="content">
+      <view v-for="g in grouped" :key="g.name" class="group">
+        <view class="group-title">{{ g.name }}</view>
+        <view class="group-card">
+          <view v-for="c in g.items" :key="c.id" class="cat-row">
+            <view class="cat-dot" :style="{ background: c.color || '#999' }"></view>
+            <text class="flex-1">{{ c.name }}<text v-if="c.isSystem === 1" class="sys-tag">系统</text></text>
+            <text v-if="c.isSystem !== 1" class="cat-del" @tap="removeCat(c)">删除</text>
+          </view>
+          <view v-if="g.items.length === 0" class="empty">暂无分类</view>
+        </view>
+      </view>
+      <view v-if="grouped.length === 0" class="empty" style="padding:80rpx 0">暂无分类</view>
     </view>
 
+    <!-- 添加自定义 -->
     <view class="add-bar">
-      <input v-model="newName" :placeholder="type === 'expense' ? '新支出分类名' : '新收入分类名'" class="add-input" />
+      <input v-model="newName" :placeholder="'新' + currentTabLabel + '分类名'" class="add-input" />
       <view class="add-btn" @tap="addCat">添加</view>
     </view>
   </view>
@@ -23,10 +38,42 @@
 
 <script>
 import { listCategories, createCategory, deleteCategory } from '@/api/ledger';
+import { useThemeStore } from '@/stores/theme';
+
+const TYPE_TABS = [
+  { key: 'expense',   label: '支出' },
+  { key: 'income',    label: '收入' },
+  { key: 'transfer',  label: '转账' },
+  { key: 'repayment', label: '还款' },
+  { key: 'borrow',    label: '借款' },
+  { key: 'adjust',    label: '校准' }
+];
 
 export default {
+  computed: {
+    themeVars() { return useThemeStore().themeVars; },
+    currentTabLabel() {
+      const t = TYPE_TABS.find(x => x.key === this.type);
+      return t ? t.label : '';
+    },
+    /** 按 group_name 语义分组 */
+    grouped() {
+      if (!this.list.length) return [];
+      const map = new Map();
+      for (const c of this.list) {
+        const g = c.groupName || '其他';
+        if (!map.has(g)) map.set(g, []);
+        map.get(g).push(c);
+      }
+      // 保留 DB sort_order 隐含的分组顺序（取每组第一条的 sortOrder）
+      return Array.from(map.entries())
+        .map(([name, items]) => ({ name, items, order: items[0].sortOrder || 0 }))
+        .sort((a, b) => a.order - b.order);
+    }
+  },
   data() {
     return {
+      typeTabs: TYPE_TABS,
       type: 'expense',
       list: [],
       newName: ''
@@ -36,6 +83,10 @@ export default {
     this.load();
   },
   methods: {
+    switchType(key) {
+      this.type = key;
+      this.load();
+    },
     async load() {
       try {
         const res = await listCategories(this.type);
@@ -71,22 +122,34 @@ export default {
 
 <style scoped>
 .page { padding-bottom: 160rpx; }
-.tabs { display: flex; background: #fff; margin-bottom: 24rpx; }
+
+/* 类型 Tab（横滑） */
+.tabs { background: #fff; white-space: nowrap; margin-bottom: 16rpx; }
+.tabs-inner { display: inline-flex; padding: 0 12rpx; }
 .tab {
-  flex: 1; text-align: center; padding: 28rpx 0; font-size: 28rpx; color: #666; position: relative;
+  text-align: center; padding: 24rpx 28rpx; font-size: 28rpx; color: #666; position: relative;
+  white-space: nowrap;
 }
-.tab.active { color: #6a4fd4; font-weight: 600; }
+.tab.active { color: var(--primary-strong); font-weight: 600; }
 .tab.active::after {
   content: ''; position: absolute; left: 50%; transform: translateX(-50%);
-  bottom: 8rpx; width: 48rpx; height: 6rpx; border-radius: 3rpx; background: #6a4fd4;
+  bottom: 8rpx; width: 48rpx; height: 6rpx; border-radius: 3rpx; background: var(--primary-strong);
 }
-.card { background: #fff; border-radius: 20rpx; padding: 8rpx 32rpx; margin: 0 24rpx; }
+
+/* 分组 */
+.content { padding: 0 24rpx; }
+.group { margin-bottom: 24rpx; }
+.group-title {
+  font-size: 24rpx; font-weight: 600; color: #999; padding: 12rpx 8rpx;
+}
+.group-card { background: #fff; border-radius: 20rpx; padding: 8rpx 32rpx; }
 .cat-row { display: flex; align-items: center; padding: 28rpx 0; border-bottom: 1rpx solid #f5f5f7; font-size: 28rpx; }
 .cat-row:last-child { border-bottom: none; }
 .cat-dot { width: 24rpx; height: 24rpx; border-radius: 12rpx; margin-right: 20rpx; }
 .sys-tag { font-size: 20rpx; color: #999; border: 1rpx solid #ddd; border-radius: 8rpx; padding: 2rpx 10rpx; margin-left: 16rpx; }
 .cat-del { color: #e74c3c; font-size: 26rpx; padding: 8rpx 16rpx; }
-.empty { text-align: center; color: #bbb; padding: 60rpx 0; font-size: 26rpx; }
+.empty { text-align: center; color: #bbb; padding: 40rpx 0; font-size: 26rpx; }
+
 .add-bar {
   position: fixed; left: 0; right: 0; bottom: 0;
   display: flex; padding: 20rpx 24rpx calc(20rpx + env(safe-area-inset-bottom)); background: #fff;
@@ -97,7 +160,7 @@ export default {
   padding: 0 32rpx; font-size: 28rpx; margin-right: 20rpx;
 }
 .add-btn {
-  width: 160rpx; background: #6a4fd4; color: #fff; border-radius: 44rpx;
+  width: 160rpx; background: var(--primary-strong); color: #fff; border-radius: 44rpx;
   text-align: center; line-height: 80rpx; font-size: 28rpx;
 }
 </style>

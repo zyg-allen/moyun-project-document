@@ -106,7 +106,8 @@ public class LedgerTransactionServiceImpl extends ServiceImpl<LedgerTransactionM
                     .eq(LedgerBudget::getMonth, now.getMonthValue())
                     .isNull(LedgerBudget::getCategoryId);
             LedgerBudget budget = budgetMapper.selectOne(bw);
-            if (budget == null || budget.getAmount() == null || budget.getAmount() <= 0) {
+            if (budget == null || budget.getAmount() == null
+                    || budget.getAmount().compareTo(BigDecimal.ZERO) <= 0) {
                 return null;
             }
 
@@ -117,11 +118,15 @@ public class LedgerTransactionServiceImpl extends ServiceImpl<LedgerTransactionM
                     .eq(LedgerTransaction::getType, LedgerTransaction.TYPE_EXPENSE)
                     .eq(LedgerTransaction::getIsBudget, 1)
                     .between(LedgerTransaction::getTransactionDate, monthStart, now);
-            long used = list(tw).stream().mapToLong(LedgerTransaction::getAmount).sum();
+            BigDecimal used = list(tw).stream()
+                    .map(LedgerTransaction::getAmount)
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
 
             // 3. 阈值判断（≥100 优先）+ Redis 去重
             String monthKey = now.getYear() + String.format("%02d", now.getMonthValue());
-            int pct = (int) Math.floorDiv(used * 100, budget.getAmount());
+            int pct = used.multiply(BigDecimal.valueOf(100))
+                    .divide(budget.getAmount(), 0, RoundingMode.DOWN)
+                    .intValue();
             // 注意：Duration.between 不支持 LocalDate（无时间单位），需转 LocalDateTime 计算 TTL
             long ttlSeconds = java.time.temporal.ChronoUnit.SECONDS.between(
                     now.atStartOfDay(), monthStart.plusMonths(1).atStartOfDay());
@@ -130,14 +135,16 @@ public class LedgerTransactionServiceImpl extends ServiceImpl<LedgerTransactionM
                 if (redisCache.getCacheObject(key) == null) {
                     redisCache.setCacheObject(key, 1);
                     redisCache.expire(key, ttlSeconds);
-                    return "本月预算已超支：" + centToYuanText(used) + " / " + centToYuanText(budget.getAmount());
+                    return "本月预算已超支：" + used.toPlainString() + " 元 / "
+                            + budget.getAmount().toPlainString() + " 元";
                 }
             } else if (pct >= 80) {
                 String key = "ledger:budget:alert:" + userId + ":" + monthKey + ":80";
                 if (redisCache.getCacheObject(key) == null) {
                     redisCache.setCacheObject(key, 1);
                     redisCache.expire(key, ttlSeconds);
-                    return "本月预算已使用 " + pct + "%：" + centToYuanText(used) + " / " + centToYuanText(budget.getAmount());
+                    return "本月预算已使用 " + pct + "%：" + used.toPlainString() + " 元 / "
+                            + budget.getAmount().toPlainString() + " 元";
                 }
             }
             return null;
@@ -146,10 +153,6 @@ public class LedgerTransactionServiceImpl extends ServiceImpl<LedgerTransactionM
             log.warn("预算提醒计算失败 userId={}", userId, e);
             return null;
         }
-    }
-
-    private String centToYuanText(long cent) {
-        return java.math.BigDecimal.valueOf(cent, 2).toPlainString() + " 元";
     }
 
     @Override
@@ -299,15 +302,15 @@ public class LedgerTransactionServiceImpl extends ServiceImpl<LedgerTransactionM
         if (!typeOk) {
             throw new IllegalArgumentException("非法记账类型：" + type);
         }
-        Long amount = dto.getAmount();
+        BigDecimal amount = dto.getAmount();
         if (amount == null) {
             throw new IllegalArgumentException("金额不能为空");
         }
         if (LedgerTransaction.TYPE_ADJUST.equals(type)) {
-            if (amount.compareTo(BigDecimal.ZERO.longValue()) == 0) {
+            if (amount.compareTo(BigDecimal.ZERO) == 0) {
                 throw new IllegalArgumentException("校准差额不能为0");
             }
-        } else if (amount <= 0) {
+        } else if (amount.compareTo(BigDecimal.ZERO) <= 0) {
             throw new IllegalArgumentException("金额必须大于0");
         }
         if (LedgerTransaction.TYPE_TRANSFER.equals(type)) {
@@ -318,7 +321,8 @@ public class LedgerTransactionServiceImpl extends ServiceImpl<LedgerTransactionM
                 throw new IllegalArgumentException("转账两个账户不能相同");
             }
         }
-        if (LedgerTransaction.TYPE_REPAYMENT.equals(type) || LedgerTransaction.TYPE_BORROW.equals(type)) {
+        //|| LedgerTransaction.TYPE_BORROW.equals(type) 借款时，不必校验负债账户，此时，如果不选，默认生成新的负债记录和流水即可
+        if (LedgerTransaction.TYPE_REPAYMENT.equals(type) ) {
             if (dto.getLiabilityId() == null) {
                 throw new IllegalArgumentException("还款/借款必须指定负债账户");
             }
@@ -358,46 +362,63 @@ public class LedgerTransactionServiceImpl extends ServiceImpl<LedgerTransactionM
      */
     private void applyBalanceEffect(LedgerTransaction txn, LedgerTransaction oldBalance) {
         String type = txn.getType();
-        long amount = txn.getAmount();
+        BigDecimal amount = txn.getAmount();
 
         switch (type) {
             case LedgerTransaction.TYPE_INCOME: {
-                long after = applyAssetDelta(txn.getAccountId(), amount, txn.getUserId());
+                BigDecimal after = applyAssetDelta(txn.getAccountId(), amount, txn.getUserId());
                 txn.setBalanceAfter(after);
                 break;
             }
             case LedgerTransaction.TYPE_EXPENSE: {
-                long after = applyAssetDelta(txn.getAccountId(), -amount, txn.getUserId());
+                BigDecimal after = applyAssetDelta(txn.getAccountId(), amount.negate(), txn.getUserId());
                 txn.setBalanceAfter(after);
                 break;
             }
             case LedgerTransaction.TYPE_TRANSFER: {
-                long fromAfter = applyAssetDelta(txn.getAccountId(), -amount, txn.getUserId());
-                long toAfter = applyAssetDelta(txn.getTargetAccountId(), amount, txn.getUserId());
+                BigDecimal fromAfter = applyAssetDelta(txn.getAccountId(), amount.negate(), txn.getUserId());
+                BigDecimal toAfter = applyAssetDelta(txn.getTargetAccountId(), amount, txn.getUserId());
                 txn.setBalanceAfter(fromAfter);
                 txn.setTargetBalanceAfter(toAfter);
                 break;
             }
             case LedgerTransaction.TYPE_REPAYMENT: {
                 if (txn.getAccountId() != null) {
-                    long assetAfter = applyAssetDelta(txn.getAccountId(), -amount, txn.getUserId());
+                    BigDecimal assetAfter = applyAssetDelta(txn.getAccountId(), amount.negate(), txn.getUserId());
                     txn.setBalanceAfter(assetAfter);
                 }
-                long liabilityAfter = applyLiabilityDelta(txn.getLiabilityId(), -amount, txn.getUserId());
+                BigDecimal liabilityAfter = applyLiabilityDelta(txn.getLiabilityId(), amount.negate(), txn.getUserId());
                 txn.setLiabilityBalanceAfter(liabilityAfter);
                 break;
             }
             case LedgerTransaction.TYPE_BORROW: {
                 if (txn.getAccountId() != null) {
-                    long assetAfter = applyAssetDelta(txn.getAccountId(), amount, txn.getUserId());
+                    BigDecimal assetAfter = applyAssetDelta(txn.getAccountId(), amount, txn.getUserId());
                     txn.setBalanceAfter(assetAfter);
                 }
-                long liabilityAfter = applyLiabilityDelta(txn.getLiabilityId(), amount, txn.getUserId());
+                // 借款未指定负债账户时自动创建（信用卡消费等场景）
+                if (txn.getLiabilityId() == null) {
+                    LedgerLiabilityAccount newAccount = new LedgerLiabilityAccount();
+                    newAccount.setUserId(txn.getUserId());
+                    String name = (txn.getDescription() != null && !txn.getDescription().isEmpty())
+                            ? txn.getDescription() : "借款";
+                    newAccount.setName(name);
+                    newAccount.setType(LedgerLiabilityAccount.TYPE_OTHER);
+                    newAccount.setBalance(amount);
+                    newAccount.setPrincipal(amount);
+                    newAccount.setIncludeInTotal(1);
+                    newAccount.setStatus(LedgerLiabilityAccount.STATUS_ENABLED);
+                    newAccount.setSettleFlag(0);
+                    newAccount.setVersion(0);
+                    liabilityAccountMapper.insert(newAccount);
+                    txn.setLiabilityId(newAccount.getId());
+                }
+                BigDecimal liabilityAfter = applyLiabilityDelta(txn.getLiabilityId(), amount, txn.getUserId());
                 txn.setLiabilityBalanceAfter(liabilityAfter);
                 break;
             }
             case LedgerTransaction.TYPE_ADJUST: {
-                long after = applyAssetDelta(txn.getAccountId(), amount, txn.getUserId());
+                BigDecimal after = applyAssetDelta(txn.getAccountId(), amount, txn.getUserId());
                 txn.setBalanceAfter(after);
                 break;
             }
@@ -411,17 +432,17 @@ public class LedgerTransactionServiceImpl extends ServiceImpl<LedgerTransactionM
      */
     private void reverseBalanceEffect(LedgerTransaction old) {
         String type = old.getType();
-        long amount = old.getAmount();
+        BigDecimal amount = old.getAmount();
         switch (type) {
             case LedgerTransaction.TYPE_INCOME:
-                applyAssetDelta(old.getAccountId(), -amount, old.getUserId());
+                applyAssetDelta(old.getAccountId(), amount.negate(), old.getUserId());
                 break;
             case LedgerTransaction.TYPE_EXPENSE:
                 applyAssetDelta(old.getAccountId(), amount, old.getUserId());
                 break;
             case LedgerTransaction.TYPE_TRANSFER:
                 applyAssetDelta(old.getAccountId(), amount, old.getUserId());
-                applyAssetDelta(old.getTargetAccountId(), -amount, old.getUserId());
+                applyAssetDelta(old.getTargetAccountId(), amount.negate(), old.getUserId());
                 break;
             case LedgerTransaction.TYPE_REPAYMENT:
                 if (old.getAccountId() != null) {
@@ -431,12 +452,15 @@ public class LedgerTransactionServiceImpl extends ServiceImpl<LedgerTransactionM
                 break;
             case LedgerTransaction.TYPE_BORROW:
                 if (old.getAccountId() != null) {
-                    applyAssetDelta(old.getAccountId(), -amount, old.getUserId());
+                    applyAssetDelta(old.getAccountId(), amount.negate(), old.getUserId());
                 }
-                applyLiabilityDelta(old.getLiabilityId(), -amount, old.getUserId());
+                // 自动创建的负债账户冲正时也回退；理论上现在借款总会产生负债账户
+                if (old.getLiabilityId() != null) {
+                    applyLiabilityDelta(old.getLiabilityId(), amount.negate(), old.getUserId());
+                }
                 break;
             case LedgerTransaction.TYPE_ADJUST:
-                applyAssetDelta(old.getAccountId(), -amount, old.getUserId());
+                applyAssetDelta(old.getAccountId(), amount.negate(), old.getUserId());
                 break;
             default:
                 log.warn("冲正遇到未知流水类型 type={} id={}", type, old.getId());
@@ -446,7 +470,7 @@ public class LedgerTransactionServiceImpl extends ServiceImpl<LedgerTransactionM
     /**
      * 资产账户余额原子增减（乐观锁），返回交易后余额
      */
-    private long applyAssetDelta(Long accountId, long delta, Long userId) {
+    private BigDecimal applyAssetDelta(Long accountId, BigDecimal delta, Long userId) {
         LedgerAssetAccount account = assetAccountMapper.selectById(accountId);
         if (account == null || !account.getUserId().equals(userId)) {
             throw new IllegalArgumentException("资产账户不存在或无权操作");
@@ -464,13 +488,13 @@ public class LedgerTransactionServiceImpl extends ServiceImpl<LedgerTransactionM
         if (rows == 0) {
             throw new IllegalStateException("余额更新冲突（乐观锁），请重试");
         }
-        return account.getBalance() + delta;
+        return account.getBalance().add(delta);
     }
 
     /**
      * 负债账户欠款原子增减（乐观锁 + 超额拒绝 + 结清判定），返回交易后欠款
      */
-    private long applyLiabilityDelta(Long liabilityId, long delta, Long userId) {
+    private BigDecimal applyLiabilityDelta(Long liabilityId, BigDecimal delta, Long userId) {
         LedgerLiabilityAccount liability = liabilityAccountMapper.selectById(liabilityId);
         if (liability == null || !liability.getUserId().equals(userId)) {
             throw new IllegalArgumentException("负债账户不存在或无权操作");
@@ -478,9 +502,10 @@ public class LedgerTransactionServiceImpl extends ServiceImpl<LedgerTransactionM
         if (liability.getStatus() != LedgerLiabilityAccount.STATUS_ENABLED) {
             throw new IllegalArgumentException("负债账户已停用归档，不能记账");
         }
-        long after = liability.getBalance() + delta;
-        if (after < 0) {
-            throw new IllegalArgumentException("还款金额不能超过当前欠款 " + toYuan(liability.getBalance()) + " 元");
+        BigDecimal after = liability.getBalance().add(delta);
+        if (after.compareTo(BigDecimal.ZERO) < 0) {
+            throw new IllegalArgumentException("还款金额不能超过当前欠款 "
+                    + liability.getBalance().toPlainString() + " 元");
         }
         LambdaUpdateWrapper<LedgerLiabilityAccount> uw = new LambdaUpdateWrapper<>();
         uw.eq(LedgerLiabilityAccount::getId, liabilityId)
@@ -489,7 +514,7 @@ public class LedgerTransactionServiceImpl extends ServiceImpl<LedgerTransactionM
                 .setSql("balance = balance + (" + delta + ")")
                 .setSql("version = version + 1");
         // 结清判定：冲正导致余额回到 >0 时需重置结清标记
-        if (after == 0) {
+        if (after.compareTo(BigDecimal.ZERO) == 0) {
             uw.set(LedgerLiabilityAccount::getSettleFlag, 1);
         } else {
             uw.set(LedgerLiabilityAccount::getSettleFlag, 0);
@@ -517,19 +542,19 @@ public class LedgerTransactionServiceImpl extends ServiceImpl<LedgerTransactionM
         aq.eq(LedgerAssetAccount::getUserId, userId)
                 .eq(LedgerAssetAccount::getStatus, LedgerAssetAccount.STATUS_ENABLED)
                 .eq(LedgerAssetAccount::getIncludeInTotal, 1);
-        long totalAsset = 0;
+        BigDecimal totalAsset = BigDecimal.ZERO;
         for (LedgerAssetAccount a : assetAccountMapper.selectList(aq)) {
-            totalAsset += a.getBalance();
+            totalAsset = totalAsset.add(a.getBalance());
         }
         LambdaQueryWrapper<LedgerLiabilityAccount> lq = new LambdaQueryWrapper<>();
         lq.eq(LedgerLiabilityAccount::getUserId, userId)
                 .eq(LedgerLiabilityAccount::getStatus, LedgerLiabilityAccount.STATUS_ENABLED)
                 .eq(LedgerLiabilityAccount::getIncludeInTotal, 1);
-        long totalLiability = 0;
+        BigDecimal totalLiability = BigDecimal.ZERO;
         for (LedgerLiabilityAccount l : liabilityAccountMapper.selectList(lq)) {
-            totalLiability += l.getBalance();
+            totalLiability = totalLiability.add(l.getBalance());
         }
-        long netWorth = totalAsset - totalLiability;
+        BigDecimal netWorth = totalAsset.subtract(totalLiability);
 
         LambdaQueryWrapper<LedgerNetWorthSnapshot> sq = new LambdaQueryWrapper<>();
         sq.eq(LedgerNetWorthSnapshot::getUserId, userId)
@@ -549,11 +574,6 @@ public class LedgerTransactionServiceImpl extends ServiceImpl<LedgerTransactionM
             exist.setNetWorth(netWorth);
             snapshotMapper.updateById(exist);
         }
-    }
-
-    /** 分转元展示（错误提示用） */
-    private String toYuan(long cents) {
-        return BigDecimal.valueOf(cents).divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP).toPlainString();
     }
 
     /** 日期格式化（日志用） */

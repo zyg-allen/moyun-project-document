@@ -16,6 +16,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
+import java.math.BigDecimal;
 import java.util.Map;
 
 /**
@@ -63,8 +64,13 @@ public class PortalLedgerAssetController {
         if (body.get("includeInTotal") != null) {
             account.setIncludeInTotal(((Number) body.get("includeInTotal")).intValue());
         }
-        Long initialBalance = body.get("initialBalance") == null ? null
-                : ((Number) body.get("initialBalance")).longValue();
+        BigDecimal initialBalance = body.get("initialBalance") == null ? null
+                : new BigDecimal(body.get("initialBalance").toString());
+        // 元单位边界校验：0 ≤ 元 ≤ 100 亿元
+        final BigDecimal MAX_ASSET = new BigDecimal("10000000000");
+        if (initialBalance != null && (initialBalance.compareTo(BigDecimal.ZERO) < 0 || initialBalance.compareTo(MAX_ASSET) > 0)) {
+            return AjaxResult.error("初始余额超出允许范围（0 ~ 100 亿元），请确认金额单位");
+        }
         return AjaxResult.success(assetAccountService.createAccount(userId, account, initialBalance));
     }
 

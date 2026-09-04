@@ -11,6 +11,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 
@@ -32,10 +33,10 @@ public class LedgerLiabilityAccountServiceImpl
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public LedgerLiabilityAccount createAccount(Long userId, LedgerLiabilityAccount account, Long initialBalance) {
+    public LedgerLiabilityAccount createAccount(Long userId, LedgerLiabilityAccount account, BigDecimal initialBalance) {
         account.setId(null);
         account.setUserId(userId);
-        long balance = initialBalance == null ? 0L : initialBalance;
+        BigDecimal balance = initialBalance == null ? BigDecimal.ZERO : initialBalance;
         account.setBalance(balance);
         if (account.getPrincipal() == null) {
             account.setPrincipal(balance);
@@ -49,11 +50,11 @@ public class LedgerLiabilityAccountServiceImpl
         if (account.getStatus() == null) {
             account.setStatus(LedgerLiabilityAccount.STATUS_ENABLED);
         }
-        account.setSettleFlag(balance == 0 ? 1 : 0);
+        account.setSettleFlag(balance.compareTo(BigDecimal.ZERO) == 0 ? 1 : 0);
         account.setVersion(0);
         save(account);
         // 初始欠款自动生成 borrow 流水（全明细追溯）
-        if (balance != 0) {
+        if (balance.compareTo(BigDecimal.ZERO) != 0) {
             LedgerTransaction txn = new LedgerTransaction();
             txn.setUserId(userId);
             txn.setType(LedgerTransaction.TYPE_BORROW);

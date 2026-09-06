@@ -40,6 +40,9 @@ public class PortalVoiceInterview implements Serializable {
     /** 简历ID（有简历时启用项目深挖题源） */
     private Long resumeId;
 
+    /** 面试官智能体ID（ai_agent.id，NULL=未绑定走默认逻辑） */
+    private Long agentId;
+
     /** 状态 in_progress/finished */
     private String status;
 

@@ -11,7 +11,7 @@ import { useApiCall } from '@/composables/useApiCall';
 import { useSpeechSynthesis } from '@/composables/useSpeechSynthesis';
 import { useSpeechRecognition } from '@/composables/useSpeechRecognition';
 import { useAudioLevel } from '@/composables/useAudioLevel';
-import { useInterviewHint } from '@/composables/useInterviewHint';
+import { useMediaDevices } from '@/composables/useMediaDevices';
 import {
   startVoiceInterview,
   submitVoiceAnswer,
@@ -20,8 +20,10 @@ import {
   finishVoiceInterview,
   getVoiceInterviewDetail,
   addQaToWrongBook,
+  getVoiceAgents,
 } from '@/api/voiceInterview';
-import { getMyResumeList } from '@/api/interview';
+import { getMyResumeList, parseResumeAttachment } from '@/api/interview';
+import { pollAiTask } from '@/api/aiTask';
 import type { UserResumeVO } from '@/types/api';
 import { useUserStore } from '@/stores/user';
 import type {
@@ -31,6 +33,7 @@ import type {
   QuestionReview,
   PointItem,
   KnowledgePointItem,
+  VoiceAgentItem,
 } from '@/api/voiceInterview';
 
 useHead({
@@ -75,6 +78,14 @@ const RADAR_GRID = [
   '100,80 120,90 120,110 100,120 80,110 80,90',
 ];
 const RADAR_AXES = DIMENSION_META.map((m) => ({ x1: 100, y1: 100, x2: m.vertex[0], y2: m.vertex[1] }));
+
+/** V11.0：候选人心态状态标签（对齐后端 InterviewTurnResult.sentiment.state） */
+const SENTIMENT_LABEL: Record<string, string> = {
+  nervous: '紧张',
+  confident: '自信',
+  hesitant: '犹豫',
+  calm: '沉稳',
+};
 
 /** 把维度分数数组（按 DIMENSION_META 顺序）转成 SVG polygon points */
 function radarPoints(scores: number[]): string {
@@ -132,6 +143,10 @@ const editableAnswer = ref('');
 const answerStartTime = ref(0);
 const hintPreview = ref('');
 
+// 卡壳自动提示（stuckThreshold 秒无作答自动给一级提示，每题一次）
+const autoHintFired = ref(false);
+const questionShownAt = ref(0);
+
 // 面试时长计时
 const elapsedSec = ref(0);
 let timerHandle: ReturnType<typeof setInterval> | null = null;
@@ -153,24 +168,61 @@ interface ChatMessage {
   highlights?: string[];
   gaps?: string[];
   scoreText?: string;
+  /** V11.0：是否正在流式输出（打字机） */
+  streaming?: boolean;
+  /** V11.0：LLM 深度分析摘要（心态/流畅度/红旗） */
+  sentimentState?: string;
+  fluencyScore?: number;
+  redFlags?: string[];
   createdAt: number;
 }
 const chatList = ref<ChatMessage[]>([]);
 const chatScroll = ref<HTMLElement | null>(null);
+
+/** V11.0：当前流式输出的气泡 id（onDelta 追加 / onData 收尾置空） */
+let streamingMsgId: string | null = null;
 
 function pushChat(
   role: ChatMessage['role'],
   content: string,
   opts: Partial<Omit<ChatMessage, 'id' | 'role' | 'content' | 'createdAt'>> = {},
 ) {
+  const id = `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
   chatList.value.push({
-    id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+    id,
     role,
     content,
     createdAt: Date.now(),
     ...opts,
   });
   scrollChatBottom();
+  return id;
+}
+
+/** V11.0：追加流式增量到 streaming 气泡（无则新建） */
+function appendDelta(text: string) {
+  if (!streamingMsgId) {
+    streamingMsgId = pushChat('ai', '', { streaming: true, tag: '思考中' });
+  }
+  const msg = chatList.value.find((m) => m.id === streamingMsgId);
+  if (msg) {
+    msg.content += text;
+    scrollChatBottom();
+  }
+}
+
+/** V11.0：结束流式气泡（data 事件到达后调用；delta 未输出过则静默移除占位） */
+function finishStreaming(tag?: string) {
+  if (!streamingMsgId) return;
+  const msg = chatList.value.find((m) => m.id === streamingMsgId);
+  if (msg) {
+    msg.streaming = false;
+    msg.tag = tag || '评分反馈';
+    if (!msg.content.trim()) {
+      chatList.value = chatList.value.filter((m) => m.id !== streamingMsgId);
+    }
+  }
+  streamingMsgId = null;
 }
 function scrollChatBottom() {
   nextTick(() => {
@@ -201,17 +253,44 @@ const {
   listening,
   interimText,
   finalText,
+  serverMode: asrServerMode,
+  streamMode: asrStreamMode,
+  transcribing: asrTranscribing,
+  whenTranscriptionDone,
   start: startAsr,
   stop: stopAsr,
+  abort: abortAsr,
   reset: resetAsr,
 } = useSpeechRecognition({
   onUnsupported: () => toast.warning('当前浏览器不支持语音识别，将切换为文字输入模式'),
   onError: (err) => {
     if (err === 'not-allowed' || err === 'service-not-allowed') {
       toast.error('麦克风权限被拒绝，请切换文字模式或在浏览器设置中允许');
+    } else if (err === 'server-asr-failed') {
+      toast.error('语音转写失败，请重试或手动输入');
+    }
+  },
+  // V10.5：最终识别结果增量追加到输入栏（不再覆盖用户手动编辑的内容）
+  onFinalChange: (full) => {
+    const chunk = full.length >= prevFinalLen.value
+      ? full.slice(prevFinalLen.value).replace(/^\n+/, '')
+      : '';
+    prevFinalLen.value = full.length;
+    if (chunk) {
+      editableAnswer.value = editableAnswer.value
+        ? editableAnswer.value + chunk
+        : chunk;
     }
   },
 });
+
+/** 已处理过的 finalText 长度（增量追加用；reset 时清零） */
+const prevFinalLen = ref(0);
+/** 重置 ASR 并同步清零增量游标 */
+function resetAsrWithTracker() {
+  resetAsr();
+  prevFinalLen.value = 0;
+}
 
 // 实时音浪（聆听可视化增强）：生命周期与 listening 严格绑定，
 // 由 watch 统一驱动，覆盖开麦/关麦/提交/结束/异常中断所有路径
@@ -250,30 +329,32 @@ watch(speaking, (now, before) => {
   }
 });
 
-const {
-  currentLevel: hintLevel,
-  currentHint,
-  fetchHint,
-  upgradeHint,
-} = useInterviewHint();
-
-// ASR 最终结果同步到可编辑答案
-watch(finalText, (n) => {
-  if (n) editableAnswer.value = n;
+// 输入栏显示值：聆听时把实时中间识别结果拼在已确认文本后面，用户可见"边说边写"
+const answerDisplay = computed(() => {
+  if (!listening.value || !interimText.value) return editableAnswer.value;
+  return editableAnswer.value
+    ? editableAnswer.value + interimText.value
+    : interimText.value;
 });
 
-const answerInput = computed({
-  get: () => editableAnswer.value,
-  set: (v: string) => {
-    editableAnswer.value = v;
-  },
-});
+/** 用户手动编辑：若输入值以当前 interim 结尾则剥离（interim 由识别流继续维护） */
+function onAnswerInput(e: Event) {
+  let v = (e.target as HTMLTextAreaElement).value;
+  if (listening.value && interimText.value && v.endsWith(interimText.value)) {
+    v = v.slice(0, v.length - interimText.value.length);
+  }
+  editableAnswer.value = v;
+}
 
 // ==================== 配置表单 ====================
+/** 数据库 position varchar(64)，前端统一上限并预留余量 */
+const POSITION_MAX_LEN = 64;
 const POSITION_OPTIONS = [
-  { title: 'Java 后端开发工程师', meta: '3-5 年经验 · 北京 · 互联网', position: 'Java 后端开发工程师' },
-  { title: '前端开发工程师', meta: '2-4 年经验 · 上海 · 电商', position: '前端开发工程师' },
-  { title: '算法工程师', meta: '3-5 年经验 · 深圳 · AI', position: '算法工程师' },
+  { title: 'Java 后端开发', meta: '后端服务 · 高并发 · 中间件', position: 'Java 后端开发' },
+  { title: '前端开发', meta: 'Vue/React · 工程化 · 性能优化', position: '前端开发' },
+  { title: '算法工程师', meta: '机器学习 · 深度学习 · 推荐/NLP', position: '算法工程师' },
+  { title: '测试开发', meta: '自动化测试 · 质量保障 · 工具建设', position: '测试开发' },
+  { title: '运维开发', meta: 'Linux · K8s · CI/CD · 稳定性', position: '运维开发' },
 ];
 const STYLE_OPTIONS = [
   { label: '温和型 - 鼓励式提问', value: 'friendly' as const },
@@ -281,10 +362,9 @@ const STYLE_OPTIONS = [
   { label: '压力型 - 挑战式追问', value: 'strict' as const },
 ];
 const DIFFICULTY_OPTIONS = [
-  { label: '初级', value: 'easy' as const },
-  { label: '中级', value: 'medium' as const },
-  { label: '高级', value: 'hard' as const },
-  { label: '专家', value: 'hard' as const },
+  { label: '初级（应届/转行）', value: 'easy' as const },
+  { label: '中级（1-3 年）', value: 'medium' as const },
+  { label: '高级（3 年以上）', value: 'hard' as const },
 ];
 const SCENARIO_OPTIONS = [
   { label: '技术面', value: 'technical' },
@@ -305,7 +385,7 @@ const STYLE_LABEL: Record<string, string> = {
 };
 
 const config = ref<VoiceStartConfig>({
-  position: 'Java 后端开发工程师',
+  position: 'Java 后端开发',
   scene: 'technical',
   style: 'professional',
   difficulty: 'medium',
@@ -319,38 +399,97 @@ const muteMode = ref(false);
 /** 自动聆听：AI 播报结束后自动开启麦克风，形成"真人对聊"节奏（行业标准） */
 const autoListen = ref(true);
 
-// 设备检测
-const micStatus = computed(() => (asrSupported.value ? 'ok' : 'error'));
-const speakerStatus = computed(() => (ttsSupported.value ? 'ok' : 'error'));
-const micStatusLabel = computed(() => (asrSupported.value ? '✓ 已授权' : '✗ 未授权'));
-const speakerStatusLabel = computed(() => (ttsSupported.value ? '✓ 正常' : '✗ 不支持'));
+// ==================== 真实设备检测（PC/移动端，输入输出设备 + 权限 + 耳机） ====================
+const {
+  audioInputs,
+  audioOutputs,
+  micPermission,
+  headphoneState,
+  micTesting,
+  micLevel,
+  micPeakLevel,
+  refreshDevices,
+  requestMicPermission,
+  startMicTest,
+  stopMicTest,
+  playSpeakerTest,
+} = useMediaDevices();
+
+/** 用户选中的输入/输出设备（default = 系统默认） */
+const selectedInputId = ref('default');
+const selectedOutputId = ref('default');
+
+const micStatusLabelMap: Record<string, string> = {
+  granted: '✓ 已授权',
+  prompt: '未授权（点击测试将弹窗授权）',
+  denied: '✗ 已拒绝',
+  unknown: '待检测',
+};
+const micStatusClass = computed(() =>
+  micPermission.value === 'granted' ? 'ok' : micPermission.value === 'denied' ? 'error' : 'checking',
+);
+const micStatusText = computed(() => micStatusLabelMap[micPermission.value] || '待检测');
+const speakerStatusText = computed(() =>
+  audioOutputs.value.length > 0 ? `✓ 检测到 ${audioOutputs.value.length} 个输出设备` : '未检测到输出设备',
+);
+const headphoneStatusText = computed(() =>
+  headphoneState.value === 'detected' ? '✓ 已检测到耳机'
+  : headphoneState.value === 'not-detected' ? '未检测到耳机（建议佩戴）'
+  : '无法自动识别，请自行确认',
+);
+const headphoneStatusClass = computed(() =>
+  headphoneState.value === 'detected' ? 'ok' : headphoneState.value === 'not-detected' ? 'checking' : 'checking',
+);
+
 const deviceTesting = ref<Record<string, boolean>>({});
 const deviceTested = ref<Record<string, boolean>>({});
+const speakerTestDevice = ref<string | null>(null);
 
-async function testDevice(device: 'mic' | 'speaker') {
-  deviceTesting.value[device] = true;
-  if (device === 'mic') {
-    if (!asrSupported.value) {
-      toast.warning('当前浏览器不支持语音识别');
-    } else {
-      resetAsr();
-      startAsr();
-      toast.info('开始录音测试，请说一句话...');
-      setTimeout(() => {
-        stopAsr();
-      }, 3000);
+/** 麦克风测试：真实采集 + 电平条（5 秒），授权后自动刷新设备列表 */
+async function testMic() {
+  if (deviceTesting.value.mic) return;
+  deviceTesting.value.mic = true;
+  try {
+    const ok = await startMicTest(selectedInputId.value);
+    if (!ok) {
+      if (micPermission.value === 'denied') {
+        toast.error('麦克风权限被拒绝，请在浏览器地址栏权限图标中允许后重试');
+      } else {
+        toast.error('无法启动麦克风，请检查设备连接');
+      }
+      return;
     }
-  } else {
-    if (!ttsSupported.value) {
-      toast.warning('当前浏览器不支持语音合成');
+    toast.info('开始录音测试，请说一句话…');
+    await new Promise((r) => setTimeout(r, 5000));
+    const peak = micPeakLevel.value;
+    if (peak > 0.02) {
+      deviceTested.value.mic = true;
+      toast.success(`麦克风正常（最高音量 ${Math.round(peak * 100)}%）`);
     } else {
-      ttsSpeak('设备测试：能听到我的声音吗？', true);
+      toast.warning('未检测到声音输入，请确认麦克风未被占用或选对了设备');
     }
+  } finally {
+    await stopMicTest();
+    deviceTesting.value.mic = false;
   }
-  setTimeout(() => {
-    deviceTesting.value[device] = false;
-    deviceTested.value[device] = true;
-  }, 1500);
+}
+
+/** 扬声器测试：生成真实测试音播放，支持路由到指定输出设备（Chrome/Edge setSinkId） */
+async function testSpeaker() {
+  if (deviceTesting.value.speaker) return;
+  deviceTesting.value.speaker = true;
+  try {
+    const played = await playSpeakerTest(selectedOutputId.value);
+    if (played) {
+      speakerTestDevice.value = played;
+      deviceTested.value.speaker = true;
+      toast.info(`正在通过「${played}」播放测试音`);
+    } else {
+      toast.error('播放失败，请检查扬声器/音量');
+    }
+  } finally {
+    deviceTesting.value.speaker = false;
+  }
 }
 
 // ==================== 简历库（真实数据：AI 面试题源依赖） ====================
@@ -360,6 +499,25 @@ const selectedResumeId = ref<number | null>(null);
 /** 自定义岗位（当预设岗位都不匹配时） */
 const useCustomPosition = ref(false);
 const customPosition = ref('');
+
+// ==================== V11.0 面试官智能体选择 ====================
+const agentList = ref<VoiceAgentItem[]>([]);
+const selectedAgentId = ref<number | null>(null);
+/** 动态出题模式（未开启时走预生成题单；agent 不可用时自动隐藏开关） */
+const dynamicMode = ref(true);
+
+async function loadAgentList() {
+  try {
+    const res = await getVoiceAgents();
+    if (res.code === 200 && Array.isArray(res.data) && res.data.length > 0) {
+      agentList.value = res.data;
+      // 默认选中第一个 agent
+      selectedAgentId.value = res.data[0].id;
+    }
+  } catch {
+    /* AI 未配置/接口异常时静默：走旧 preset 链路 */
+  }
+}
 
 async function loadResumeList() {
   if (!userStore.isAuthenticated) return;
@@ -386,26 +544,93 @@ function selectResume(r: UserResumeVO) {
   selectedResumeId.value = Number(r.id);
   const intentPos = r.jobIntention?.position?.trim();
   if (intentPos) {
-    // 简历求职意向优先作为面试岗位（个性化出题）
-    const matched = POSITION_OPTIONS.find((o) => o.position === intentPos);
+    // 简历求职意向优先作为面试岗位（个性化出题），超长截断对齐数据库 varchar(64)
+    const safePos = intentPos.slice(0, POSITION_MAX_LEN);
+    const matched = POSITION_OPTIONS.find((o) => o.position === safePos);
     if (!matched) {
       useCustomPosition.value = true;
-      customPosition.value = intentPos;
+      customPosition.value = safePos;
     } else {
       useCustomPosition.value = false;
-      config.value.position = intentPos;
+      config.value.position = safePos;
     }
   }
 }
 
-/** 实际生效的面试岗位 */
+// ==================== 上传简历：AI 解析 → 回填默认简历 ====================
+const resumeUploading = ref(false);
+const resumeUploadInput = ref<HTMLInputElement | null>(null);
+/** 解析进行中的文案（轮询任务 onTick 更新） */
+const resumeParsingMsg = ref('');
+
+function triggerResumeUpload() {
+  resumeUploadInput.value?.click();
+}
+
+async function handleResumeUpload(e: Event) {
+  const input = e.target as HTMLInputElement;
+  const file = input.files?.[0];
+  input.value = '';
+  if (!file) return;
+  if (!userStore.isAuthenticated) {
+    toast.warning('请先登录后再上传简历');
+    return;
+  }
+  const okExt = /\.(pdf|docx?|txt)$/i.test(file.name);
+  if (!okExt) {
+    toast.error('仅支持 PDF / Word / TXT 格式简历');
+    return;
+  }
+  if (file.size > 10 * 1024 * 1024) {
+    toast.error('简历文件不能超过 10MB');
+    return;
+  }
+  resumeUploading.value = true;
+  resumeParsingMsg.value = '正在上传附件…';
+  try {
+    const { data: resp, success } = await run(() => parseResumeAttachment(file), {
+      errorToast: '上传失败',
+    });
+    if (!success || !resp?.data) return;
+    const { resumeId, taskId } = resp.data;
+    resumeParsingMsg.value = 'AI 正在解析简历…';
+    try {
+      await pollAiTask(taskId, {
+        intervalMs: 3000,
+        onTick: (task) => {
+          resumeParsingMsg.value = task.progressMsg || 'AI 正在解析简历…';
+        },
+      });
+      // 解析完成：刷新简历库并自动回填选中该简历
+      await loadResumeList();
+      const target = resumeList.value.find((r) => Number(r.id) === Number(resumeId));
+      if (target) {
+        selectResume(target);
+        toast.success('简历解析完成，已设为本次面试简历');
+      } else {
+        selectedResumeId.value = Number(resumeId);
+        toast.success('简历解析完成');
+      }
+    } catch (parseErr: any) {
+      toast.error(parseErr?.message || 'AI 解析失败，可稍后在简历库手动完善');
+    }
+  } finally {
+    resumeUploading.value = false;
+    resumeParsingMsg.value = '';
+  }
+}
+
+/** 实际生效的面试岗位（统一截断到数据库 varchar(64) 上限） */
 const effectivePosition = computed(() => {
-  if (useCustomPosition.value) return customPosition.value.trim() || config.value.position;
-  return config.value.position;
+  const raw = useCustomPosition.value
+    ? customPosition.value.trim() || config.value.position
+    : config.value.position;
+  return raw.slice(0, POSITION_MAX_LEN);
 });
 
 onMounted(() => {
   loadResumeList();
+  loadAgentList();
 });
 
 // ==================== 计时器 ====================
@@ -441,6 +666,21 @@ function startCountdown() {
         toast.warning('作答超时，自动提交');
         handleSubmitAnswer();
       }
+    }
+    // 卡壳自动提示：超过阈值仍未开始作答（无文字、无语音），自动给一级提示
+    const stuckSec = config.value.stuckThreshold ?? 30;
+    if (
+      hintsEnabled.value &&
+      !autoHintFired.value &&
+      !submitting.value &&
+      !editableAnswer.value &&
+      !interimText.value &&
+      questionShownAt.value > 0 &&
+      Date.now() - questionShownAt.value > stuckSec * 1000
+    ) {
+      autoHintFired.value = true;
+      toast.info('似乎卡壳了？已为你送上第一级提示');
+      handleHint();
     }
   }, 1000);
 }
@@ -636,16 +876,35 @@ async function loadHistoryReport(idStr: string) {
 onMounted(() => {
   const id = String(route.query.id ?? '').trim();
   if (id) loadHistoryReport(id);
+  // 页签切走/最小化：立即停止聆听与播报，及时释放麦克风等硬件占用
+  document.addEventListener('visibilitychange', releaseOnHidden);
+  // 浏览器关闭/刷新：主动断开 ASR 流式连接（SPA 卸载钩子不一定来得及执行）
+  window.addEventListener('beforeunload', abortAsr);
 });
 
 onUnmounted(() => {
+  document.removeEventListener('visibilitychange', releaseOnHidden);
+  window.removeEventListener('beforeunload', abortAsr);
   stopElapsedTimer();
   stopCountdown();
+  if (questionTtsTimer) clearTimeout(questionTtsTimer);
   ttsCancel();
-  stopAsr();
+  // 卸载即丢弃：立即停麦克风/断 WS，不等转写收尾（用户已离开页面，无需保留结果）
+  abortAsr();
 });
 
+/** 页签不可见时释放麦克风/连接资源；回到页面不自动恢复，由用户重新点麦克风 */
+function releaseOnHidden() {
+  if (document.visibilityState === 'hidden') {
+    if (listening.value) stopAsr();
+    if (speaking.value) ttsCancel();
+  }
+}
+
 // ==================== 开始面试 ====================
+/** 题目 TTS 延迟播报定时器（卸载时清理，避免离开页面后仍触发播报） */
+let questionTtsTimer: ReturnType<typeof setTimeout> | null = null;
+
 function presentQuestion(question: string, speakText: string, idx?: number, tag?: string) {
   currentQuestion.value = question;
   currentSpeakText.value = speakText;
@@ -656,23 +915,43 @@ function presentQuestion(question: string, speakText: string, idx?: number, tag?
     tag,
   });
   editableAnswer.value = '';
-  resetAsr();
+  resetAsrWithTracker();
   startCountdown();
+  // 卡壳自动提示：每题重置标记与计时起点
+  autoHintFired.value = false;
+  questionShownAt.value = Date.now();
   if (!muteMode.value && ttsSupported.value && speakText) {
-    setTimeout(() => ttsSpeak(speakText), 200);
+    if (questionTtsTimer) clearTimeout(questionTtsTimer);
+    questionTtsTimer = setTimeout(() => {
+      questionTtsTimer = null;
+      ttsSpeak(speakText);
+    }, 200);
   }
 }
 
 async function handleStart() {
+  // 提交前校验：岗位必填且不超数据库 varchar(64)
+  const pos = effectivePosition.value.trim();
+  if (!pos) {
+    toast.warning('请选择或输入面试岗位');
+    return;
+  }
+  if (pos.length > POSITION_MAX_LEN) {
+    toast.warning(`岗位名称不能超过 ${POSITION_MAX_LEN} 个字符`);
+    return;
+  }
   loading.value = true;
   try {
     const payload: VoiceStartConfig = {
       ...config.value,
-      position: effectivePosition.value,
+      position: pos,
       resumeId: selectedResumeId.value ?? undefined,
       personalized: true,
       hintsEnabled: hintsEnabled.value,
       stuckThreshold: 30,
+      // V11.0：面试官智能体 + 动态出题（agent 不可用时留空走旧链路）
+      agentId: selectedAgentId.value ?? undefined,
+      dynamicMode: selectedAgentId.value != null ? dynamicMode.value : undefined,
     };
     const { data: vo, success } = await run(() => startVoiceInterview(payload), {
       errorToast: '开始失败',
@@ -714,7 +993,7 @@ function toggleMic() {
     stopAsr();
   } else {
     if (speaking.value) ttsCancel();
-    if (!editableAnswer.value) resetAsr();
+    if (!editableAnswer.value) resetAsrWithTracker();
     answerStartTime.value = Date.now();
     startAsr();
   }
@@ -722,7 +1001,7 @@ function toggleMic() {
 
 function clearAnswer() {
   editableAnswer.value = '';
-  resetAsr();
+  resetAsrWithTracker();
 }
 
 /** 静音切换：开启时立即停止当前播报，关闭时恢复后续播报 */
@@ -734,12 +1013,14 @@ function toggleMute() {
 // ==================== 提交答案（SSE） ====================
 async function handleSubmitAnswer() {
   if (!interview.value || !currentQaId.value) return;
+  if (listening.value) stopAsr();
+  // 服务端 ASR 兜底：等待录音停止与上传转写完成，确保语音文本已并入答案
+  await whenTranscriptionDone();
   const transcript = editableAnswer.value || finalText.value;
   if (!transcript.trim()) {
     toast.warning('答案不能为空');
     return;
   }
-  if (listening.value) stopAsr();
   stopCountdown();
   submitting.value = true;
   pushChat('user', transcript);
@@ -766,91 +1047,116 @@ async function handleSubmitAnswer() {
         const scoreText = DIMENSION_META.map((m) => `${m.label} ${dims[m.key] ?? '-'}`).join(' · ');
         pushChat('analysis', '', { highlights, gaps, scoreText });
       },
+      // V11.0：流式增量（打字机气泡；delta 到 speak/data 前实时渲染面试官回复）
+      onDelta: (text) => {
+        if (text) appendDelta(text);
+      },
       onSpeak: (text) => {
         if (text) {
-          pushChat('ai', text, { tag: '评分反馈' });
+          // 流式气泡已渲染完同样内容时不重复推（旧链路无 delta 直推）
+          if (streamingMsgId) {
+            finishStreaming('评分反馈');
+          } else {
+            pushChat('ai', text, { tag: '评分反馈' });
+          }
           if (!muteMode.value && ttsSupported.value) ttsSpeak(text);
         }
       },
       onData: (data) => {
         submitting.value = false;
+        // V11.0：流式兜底收尾（speak 事件缺失时）
+        finishStreaming();
+        // V11.0：LLM 深度分析摘要注入最近一条 analysis 气泡
+        if (data.analysis) {
+          const lastAnalysis = [...chatList.value].reverse().find((m) => m.role === 'analysis');
+          if (lastAnalysis) {
+            lastAnalysis.sentimentState = data.analysis.sentiment?.state;
+            lastAnalysis.fluencyScore = data.analysis.fluencyAssessment?.score;
+            lastAnalysis.redFlags = data.analysis.redFlags?.length ? data.analysis.redFlags : undefined;
+          }
+        }
         // V10.4：LLM 引导提示（回答跑偏时面试官给出的方向引导）
         if (data.guidance) {
           pushChat('ai', data.guidance, { tag: '引导' });
           if (!muteMode.value && ttsSupported.value) ttsSpeak(data.guidance);
         }
-        if (data.nextAction === 'next' && data.nextQaId) {
+        // V11.0：agentAction 优先（deepen/change_topic/wrap_up），旧 nextAction 兼容保留
+        const action = data.agentAction
+          ? (data.agentAction === 'deepen' ? 'followup'
+            : data.agentAction === 'change_topic' ? 'next' : 'report')
+          : data.nextAction;
+        if (action === 'next' && data.nextQaId) {
           currentQaId.value = data.nextQaId;
           if (data.nextQuestion) {
             presentQuestion(data.nextQuestion, data.nextSpeakText || data.nextQuestion);
           }
-        } else if (data.nextAction === 'followup' && data.nextQaId) {
+        } else if (action === 'followup' && data.nextQaId) {
           currentQaId.value = data.nextQaId;
           if (data.nextQuestion) {
             presentQuestion(data.nextQuestion, data.nextSpeakText || data.nextQuestion, undefined, '追问');
           }
           toast.info('面试官追问，请补充回答');
-        } else if (data.nextAction === 'report') {
+        } else if (action === 'report') {
           toast.info('面试结束，正在生成报告...');
           handleFinish();
         } else {
           editableAnswer.value = '';
-          resetAsr();
+          resetAsrWithTracker();
         }
       },
       onEnd: () => {
         submitting.value = false;
+        finishStreaming();
+      },
+      // V11.0.2：流被服务端异常切断（后端 SSE 120s 超时收尾/网络中断），提示用户可重答或下一题
+      onAborted: () => {
+        toast.error('AI 响应超时中断，请重试或点击下一题继续');
+        submitting.value = false;
+        finishStreaming();
       },
       onError: (msg) => {
         toast.error(msg || '提交失败');
         submitting.value = false;
+        finishStreaming();
       },
     },
   );
 }
 
-// ==================== 智能提示（复用 useInterviewHint） ====================
+// ==================== 智能提示（V10.1 统一走 POST /{id}/hint） ====================
 async function handleHint() {
-  const qid = interview.value?.currentQa?.questionId;
-  if (!qid) {
-    if (!interview.value || !currentQaId.value) {
-      toast.warning('当前题目暂不支持提示');
-      return;
-    }
-    const { data: vo, success } = await run(
-      () => requestVoiceHint(interview.value!.id, String(currentQaId.value)),
-      { errorToast: '提示获取失败' },
-    );
-    if (success && vo?.data) {
-      const speak = vo.data.currentQa?.speakText;
-      const used = vo.data.currentQa?.hintUsed ?? 1;
-      if (speak) {
-        pushChat('ai', `💡 ${speak}`, { tag: `L${used} 提示` });
-        hintPreview.value = speak;
-        if (!muteMode.value && ttsSupported.value) ttsSpeak(speak);
-      }
-      toast.success(`已获取 L${used} 提示`);
-    }
+  if (!interview.value || !currentQaId.value) {
+    toast.warning('当前题目暂不支持提示');
     return;
   }
-  let hint;
-  if (currentHint.value) {
-    hint = await upgradeHint(qid);
-  } else {
-    hint = await fetchHint(qid, 1);
+  const { data: vo, success } = await run(
+    () => requestVoiceHint(interview.value!.id, String(currentQaId.value)),
+    { errorToast: '提示获取失败' },
+  );
+  if (!success || !vo?.data) return;
+
+  const hint = vo.data.hint;
+  const used = vo.data.currentQa?.hintUsed ?? hint?.level ?? 1;
+  // 后端返回分级提示（title/keywords/structureHint/examinePoints）
+  if (hint) {
+    const parts = [hint.title];
+    if (hint.keywords?.length) parts.push(`关键词：${hint.keywords.join('、')}`);
+    if (hint.structureHint) parts.push(hint.structureHint);
+    if (hint.examinePoints?.length) parts.push(`考察点：${hint.examinePoints.join('、')}`);
+    const text = parts.join('\n');
+    pushChat('ai', text, { tag: `L${used} 提示` });
+    hintPreview.value = text;
+    if (!muteMode.value && ttsSupported.value) {
+      ttsSpeak(hint.speakText || text);
+    }
+  } else if (vo.data.currentQa?.speakText) {
+    // 兜底：无结构化提示时播报题目引导话术
+    const speak = vo.data.currentQa.speakText;
+    pushChat('ai', `💡 ${speak}`, { tag: `L${used} 提示` });
+    hintPreview.value = speak;
+    if (!muteMode.value && ttsSupported.value) ttsSpeak(speak);
   }
-  if (!hint) return;
-  const parts = [hint.title];
-  if (hint.keywords?.length) parts.push(`关键词：${hint.keywords.join('、')}`);
-  if (hint.structureHint) parts.push(hint.structureHint);
-  if (hint.examinePoints?.length) parts.push(`考察点：${hint.examinePoints.join('、')}`);
-  const text = parts.join('\n');
-  pushChat('ai', text, { tag: `L${hintLevel.value} 提示` });
-  hintPreview.value = text;
-  if (!muteMode.value && ttsSupported.value) {
-    ttsSpeak(hint.speakText || text);
-  }
-  toast.success(`已获取 L${hintLevel.value} 提示（共 3 级）`);
+  toast.success(`已获取 L${used} 提示（共 3 级）`);
 }
 
 // ==================== 强制下一题 ====================
@@ -935,7 +1241,7 @@ function handleRestart() {
   chatList.value = [];
   liveDimensions.value = {};
   hintPreview.value = '';
-  resetAsr();
+  resetAsrWithTracker();
   ttsCancel();
   stopCountdown();
   stopElapsedTimer();
@@ -1047,34 +1353,57 @@ const chatStatus = computed(() => {
           </div>
         </div>
 
-        <!-- 第一步：设备检测 -->
+        <!-- 第一步：设备检测（真实枚举 + 权限查询/授权 + 耳机识别） -->
         <div class="prep-card">
           <div class="prep-card-title"><span class="step-badge">1</span>设备检测</div>
           <div class="device-check-list">
+            <!-- 麦克风：权限状态 + 输入设备选择 + 真实采集电平测试 -->
             <div class="device-item">
               <div class="device-info"><div class="device-icon">🎤</div><span class="device-name">麦克风</span></div>
               <div class="device-status">
-                <span :class="['status-badge', micStatus]">{{ micStatusLabel }}</span>
-                <button class="test-btn" :disabled="deviceTesting.mic" @click="testDevice('mic')">
-                  {{ deviceTested.mic ? '✓ 通过' : '测试' }}
+                <span :class="['status-badge', micStatusClass]">{{ micStatusText }}</span>
+                <select v-model="selectedInputId" class="device-select" title="选择输入设备">
+                  <option value="default">系统默认输入设备</option>
+                  <option v-for="d in audioInputs" :key="d.deviceId" :value="d.deviceId">{{ d.label }}</option>
+                </select>
+                <button class="test-btn" :disabled="deviceTesting.mic" @click="testMic">
+                  {{ deviceTesting.mic ? '测试中…' : deviceTested.mic ? '✓ 通过 · 重测' : '测试' }}
                 </button>
               </div>
+              <!-- 真实电平条：说话时跳动 -->
+              <div v-if="micTesting" class="mic-level-row">
+                <div class="mic-level-bar">
+                  <div class="mic-level-fill" :style="{ width: `${Math.min(100, micLevel * 100)}%` }"></div>
+                </div>
+                <span class="mic-level-text">请说话… {{ Math.round(micLevel * 100) }}%</span>
+              </div>
             </div>
+
+            <!-- 扬声器：输出设备选择 + 真实测试音播放（支持指定设备路由） -->
             <div class="device-item">
               <div class="device-info"><div class="device-icon">🔊</div><span class="device-name">扬声器</span></div>
               <div class="device-status">
-                <span :class="['status-badge', speakerStatus]">{{ speakerStatusLabel }}</span>
-                <button class="test-btn" :disabled="deviceTesting.speaker" @click="testDevice('speaker')">
-                  {{ deviceTested.speaker ? '✓ 通过' : '测试' }}
+                <span :class="['status-badge', audioOutputs.length > 0 ? 'ok' : 'checking']">{{ speakerStatusText }}</span>
+                <select v-model="selectedOutputId" class="device-select" title="选择输出设备（TTS 与测试音从该设备播放）">
+                  <option value="default">系统默认输出设备</option>
+                  <option v-for="d in audioOutputs" :key="d.deviceId" :value="d.deviceId">{{ d.label }}</option>
+                </select>
+                <button class="test-btn" :disabled="deviceTesting.speaker" @click="testSpeaker">
+                  {{ deviceTesting.speaker ? '播放中…' : deviceTested.speaker ? '✓ 通过 · 重测' : '测试' }}
                 </button>
               </div>
+              <div v-if="speakerTestDevice" class="mic-level-row">
+                <span class="mic-level-text">↪ 正在通过「{{ speakerTestDevice }}」播放测试音，请确认能听到</span>
+              </div>
             </div>
+
+            <!-- 耳机：基于设备 label 的启发式检测 -->
             <div class="device-item">
               <div class="device-info"><div class="device-icon">🎧</div><span class="device-name">耳机（推荐）</span></div>
-              <div class="device-status"><span class="status-badge checking">⚠ 未检测到</span></div>
+              <div class="device-status"><span :class="['status-badge', headphoneStatusClass]">{{ headphoneStatusText }}</span></div>
             </div>
           </div>
-          <div class="device-tip">💡 建议佩戴耳机，避免回声干扰。首次使用建议试说一段话测试双向通道。</div>
+          <div class="device-tip">💡 建议佩戴耳机避免回声。麦克风权限可在浏览器地址栏图标中管理；插拔设备后列表会自动刷新。</div>
         </div>
 
         <!-- 第二步：岗位与简历 -->
@@ -1096,7 +1425,7 @@ const chatStatus = computed(() => {
                   <div class="option-meta">{{ opt.meta }}</div>
                 </div>
               </div>
-              <!-- 自定义岗位：跟随简历求职意向或手动输入 -->
+              <!-- 自定义岗位：跟随简历求职意向或手动输入（对齐数据库 varchar(64)） -->
               <div
                 :class="['position-option custom', { selected: useCustomPosition }]"
                 @click="useCustomPosition = true"
@@ -1107,10 +1436,12 @@ const chatStatus = computed(() => {
                   <input
                     v-model="customPosition"
                     class="custom-position-input"
-                    placeholder="输入目标岗位，如：Go 后端开发工程师"
+                    :maxlength="POSITION_MAX_LEN"
+                    placeholder="输入目标岗位，如：Go 后端开发"
                     @click.stop
                     @input="useCustomPosition = true"
                   />
+                  <div class="custom-position-counter">{{ customPosition.length }}/{{ POSITION_MAX_LEN }}</div>
                 </div>
               </div>
             </div>
@@ -1129,6 +1460,27 @@ const chatStatus = computed(() => {
                 <option v-for="o in DIFFICULTY_OPTIONS" :key="o.label" :value="o.value">{{ o.label }}</option>
               </select>
             </div>
+          </div>
+
+          <!-- V11.0：面试官智能体（AI 模块配置的 agent 动态下发；无可用 agent 时整块隐藏） -->
+          <div v-if="agentList.length > 0" class="config-row agent-row">
+            <div class="config-item">
+              <label class="config-label">面试官智能体</label>
+              <select v-model.number="selectedAgentId" class="config-select">
+                <option v-for="a in agentList" :key="a.id" :value="a.id">{{ a.name }}</option>
+              </select>
+            </div>
+            <div class="config-item">
+              <label class="config-label">出题方式</label>
+              <select v-model="dynamicMode" class="config-select">
+                <option :value="true">智能动态出题（结合简历与上下文）</option>
+                <option :value="false">固定题单（预设题库抽题）</option>
+              </select>
+            </div>
+          </div>
+          <div v-if="agentList.length > 0 && dynamicMode" class="agent-hint">
+            💡 动态出题模式：AI 面试官将结合你的简历、画像与实时对话上下文随机应变——
+            回答出彩会深挖追问，答非所问会引导纠偏，全程像一个真实会话。
           </div>
           <div class="config-row">
             <div class="config-item">
@@ -1154,13 +1506,18 @@ const chatStatus = computed(() => {
               <div class="empty-title">正在加载简历库…</div>
             </div>
 
-            <!-- 简历库为空：引导创建 -->
+            <!-- 简历库为空：引导上传（AI 解析回填）或创建 -->
             <div v-else-if="resumeList.length === 0" class="resume-empty">
               <div class="empty-icon">📋</div>
               <div class="empty-title">还没有在线简历</div>
-              <div class="empty-desc">上传或创建简历后，AI 面试官将针对你的项目经历个性化出题</div>
+              <div class="empty-desc">上传附件简历，AI 自动解析并回填为默认简历，面试官将针对你的项目经历深挖提问</div>
+              <!-- 解析进度 -->
+              <div v-if="resumeUploading" class="resume-parsing-msg">⏳ {{ resumeParsingMsg || '处理中…' }}</div>
               <div class="empty-actions">
-                <button class="resume-action-btn primary" @click="router.push('/interview/my/resumes')">去创建 / 上传简历</button>
+                <button class="resume-action-btn primary" :disabled="resumeUploading" @click="triggerResumeUpload">
+                  {{ resumeUploading ? '解析中…' : '⬆ 上传简历（AI 解析）' }}
+                </button>
+                <button class="resume-action-btn" @click="router.push('/interview/my/resumes')">去创建在线简历</button>
               </div>
             </div>
 
@@ -1187,10 +1544,21 @@ const chatStatus = computed(() => {
                 </div>
               </div>
               <div class="resume-manage-row">
+                <button class="resume-action-btn" :disabled="resumeUploading" @click="triggerResumeUpload">
+                  {{ resumeUploading ? (resumeParsingMsg || '解析中…') : '⬆ 上传新简历（AI 解析）' }}
+                </button>
                 <button class="resume-action-btn" @click="router.push('/interview/my/resumes')">管理简历库</button>
                 <span class="resume-manage-hint">不选简历也可面试，AI 将按岗位通用题库出题</span>
               </div>
             </template>
+            <!-- 隐藏文件选择：上传附件简历 → AI 解析 → 回填默认简历 -->
+            <input
+              ref="resumeUploadInput"
+              type="file"
+              accept=".pdf,.doc,.docx,.txt"
+              class="hidden-file-input"
+              @change="handleResumeUpload"
+            />
           </div>
         </div>
 
@@ -1256,10 +1624,13 @@ const chatStatus = computed(() => {
                 <span></span><span></span><span></span><span></span>
               </div>
             </div>
-            <div class="interviewer-name">AI 面试官</div>
-            <span class="interviewer-style">{{ STYLE_LABEL[config.style ?? 'professional'] || '标准型' }}</span>
-            <div v-if="speaking" class="interviewer-state">🔊 正在播报</div>
-            <div v-else-if="submitting" class="interviewer-state thinking">🧠 分析中</div>
+            <div class="interviewer-name">{{ interview?.agentName || 'AI 面试官' }}</div>
+            <div class="interviewer-meta">
+              <span class="interviewer-style">{{ STYLE_LABEL[config.style ?? 'professional'] || '标准型' }}</span>
+              <span v-if="interview?.questionMode === 'dynamic'" class="interviewer-style">动态出题</span>
+              <div v-if="speaking" class="interviewer-state">🔊 正在播报</div>
+              <div v-else-if="submitting" class="interviewer-state thinking">🧠 分析中</div>
+            </div>
           </div>
           <div class="progress-card">
             <div class="progress-title">题目进度</div>
@@ -1311,11 +1682,18 @@ const chatStatus = computed(() => {
 
                 <template v-if="m.role === 'ai'">
                   <MarkdownRenderer editor-mode="markdown" :content-markdown="m.content" prose-width="none" />
+                  <span v-if="m.streaming" class="streaming-cursor"></span>
                 </template>
                 <template v-else-if="m.role === 'analysis'">
                   <div v-if="m.highlights && m.highlights.length"><strong>亮点：</strong>{{ m.highlights.join('；') }}</div>
                   <div v-if="m.gaps && m.gaps.length"><strong>缺口：</strong>{{ m.gaps.join('；') }}</div>
                   <div v-if="m.scoreText" class="analysis-score">{{ m.scoreText }}</div>
+                  <!-- V11.0：LLM 深度分析摘要（心态/流畅度/可疑信号） -->
+                  <div v-if="m.sentimentState || m.fluencyScore || m.redFlags?.length" class="analysis-insight">
+                    <span v-if="m.sentimentState" class="insight-chip sentiment">心态：{{ SENTIMENT_LABEL[m.sentimentState] || m.sentimentState }}</span>
+                    <span v-if="m.fluencyScore != null" class="insight-chip fluency">流畅度 {{ m.fluencyScore }}</span>
+                    <span v-if="m.redFlags?.length" class="insight-chip redflag" :title="m.redFlags.join('；')">⚠ {{ m.redFlags.length }} 个可疑信号</span>
+                  </div>
                 </template>
                 <template v-else>
                   <span class="message-text">{{ m.content }}</span>
@@ -1338,15 +1716,22 @@ const chatStatus = computed(() => {
             </div>
             <div class="input-timer">
               <span>⚠️</span><span>{{ answerRemain }} 秒内作答</span>
-              <span v-if="interimText" class="interim-hint">· 实时识别：{{ interimText }}</span>
+              <span v-if="asrTranscribing" class="interim-hint">· 正在转写语音…</span>
+              <span v-else-if="interimText" class="interim-hint">· 实时识别：{{ interimText }}</span>
             </div>
             <div class="input-container">
               <textarea
-                v-model="answerInput"
+                :value="answerDisplay"
                 class="input-textarea"
-                placeholder="面试官你好，我认为..."
+                :class="{ 'asr-live': listening && (!!interimText || asrServerMode) }"
+                :placeholder="listening
+                  ? (asrServerMode && !asrStreamMode
+                    ? '正在聆听，请开始作答…（停止录音后自动转写为文字）'
+                    : '正在聆听，请开始作答…（语音将实时转写到这里，可随时手动修改）')
+                  : '面试官你好，我认为...'"
                 rows="2"
                 :disabled="submitting"
+                @input="onAnswerInput"
               ></textarea>
               <button
                 class="mic-btn"
@@ -1354,7 +1739,7 @@ const chatStatus = computed(() => {
                 :disabled="submitting"
                 @click="toggleMic"
               >
-                {{ listening ? '⏹️' : '🎙️' }}
+                {{ asrTranscribing ? '⏳' : listening ? '⏹️' : '🎙️' }}
               </button>
             </div>
             <div class="input-actions">
@@ -1577,6 +1962,31 @@ const chatStatus = computed(() => {
             <div class="summary-center">
               <h3 class="summary-title">面试概要</h3>
               <p class="summary-paragraph">{{ report?.summary || '本次面试尚未形成完整总结。' }}</p>
+              <!-- V11.0：AI 深度复盘（Agent 模式产出；旧数据无此字段时隐藏） -->
+              <div v-if="report?.sentimentTrend?.length || report?.redFlags?.length || report?.fluencyAvg != null" class="deep-review">
+                <div class="deep-review-title">🧠 AI 深度复盘</div>
+                <div v-if="report?.sentimentTrend?.length" class="deep-review-row">
+                  <span class="deep-review-label">心态趋势</span>
+                  <span class="sentiment-track">
+                    <span
+                      v-for="(s, i) in report.sentimentTrend"
+                      :key="i"
+                      :class="['sentiment-dot', s]"
+                      :title="`第 ${i + 1} 轮：${SENTIMENT_LABEL[s] || s}`"
+                    ></span>
+                  </span>
+                </div>
+                <div v-if="report?.fluencyAvg != null" class="deep-review-row">
+                  <span class="deep-review-label">表达流畅度</span>
+                  <span class="deep-review-value">{{ report.fluencyAvg }} / 100</span>
+                </div>
+                <div v-if="report?.redFlags?.length" class="deep-review-row">
+                  <span class="deep-review-label">可疑信号</span>
+                  <span class="deep-review-flags">
+                    <span v-for="(f, i) in report.redFlags" :key="i" class="redflag-item">⚠ {{ f }}</span>
+                  </span>
+                </div>
+              </div>
             </div>
             <div class="summary-right">
               <div class="pros-cons-card">
@@ -1803,6 +2213,12 @@ const chatStatus = computed(() => {
 .test-btn:hover:not(:disabled) { background: var(--primary); color: white; border-color: var(--primary); }
 .test-btn:disabled { opacity: 0.6; cursor: not-allowed; }
 .device-tip { margin-top: 0.75rem; font-size: 0.8125rem; color: var(--gray-400); padding: 0.625rem 0.875rem; background: var(--gray-50); border-radius: var(--radius-md); border-left: 3px solid var(--warning); }
+.device-select { max-width: 180px; padding: 0.375rem 1.75rem 0.375rem 0.625rem; border: 1px solid var(--gray-200); border-radius: var(--radius-sm); font-size: 0.75rem; color: var(--gray-600); background: white; outline: none; cursor: pointer; appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='%239ca3af' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 8px center; transition: border-color 0.2s; }
+.device-select:focus { border-color: var(--primary); }
+.mic-level-row { display: flex; align-items: center; gap: 0.625rem; margin-top: 0.5rem; padding-left: 2.5rem; }
+.mic-level-bar { flex: 1; max-width: 280px; height: 6px; background: var(--gray-100); border-radius: var(--radius-full); overflow: hidden; }
+.mic-level-fill { height: 100%; background: var(--success); border-radius: var(--radius-full); transition: width 0.1s linear; }
+.mic-level-text { font-size: 0.75rem; color: var(--gray-500); }
 
 .position-section { margin-bottom: 1.25rem; }
 .section-label { font-size: 0.875rem; font-weight: 600; color: var(--gray-700); margin-bottom: 0.75rem; display: flex; align-items: center; gap: 0.375rem; }
@@ -1841,6 +2257,10 @@ const chatStatus = computed(() => {
 .position-option.custom .option-content { flex: 1; }
 .custom-position-input { width: 100%; margin-top: 0.375rem; padding: 0.4375rem 0.625rem; border: 1px solid var(--gray-200); border-radius: var(--radius-sm); font-size: 0.8125rem; color: var(--gray-700); background: white; outline: none; transition: border-color 0.2s; }
 .custom-position-input:focus { border-color: var(--primary); }
+.custom-position-counter { margin-top: 0.25rem; font-size: 0.6875rem; color: var(--gray-400); text-align: right; }
+.resume-parsing-msg { margin: 0.5rem 0; font-size: 0.8125rem; color: var(--primary); }
+.hidden-file-input { display: none; }
+.asr-live { border-color: var(--primary) !important; box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.08); }
 
 .resume-action-btn { padding: 0.375rem 0.75rem; border: 1px solid var(--gray-200); background: white; border-radius: var(--radius-sm); cursor: pointer; font-size: 0.75rem; color: var(--gray-600); transition: all 0.2s; white-space: nowrap; }
 .resume-action-btn:hover { border-color: var(--primary); color: var(--primary); }
@@ -1885,6 +2305,7 @@ const chatStatus = computed(() => {
 .interviewer-avatar::after { content: ''; position: absolute; inset: -4px; border-radius: var(--radius-full); border: 3px solid var(--success); animation: pulse-ring 2s ease-in-out infinite; }
 @keyframes pulse-ring { 0%,100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.5; transform: scale(1.05); } }
 .interviewer-name { font-size: 0.9375rem; font-weight: 600; color: var(--gray-800); margin-bottom: 0.375rem; }
+.interviewer-meta { display: flex; flex-direction: column; align-items: center; gap: 0.375rem; }
 .interviewer-style { display: inline-block; padding: 0.1875rem 0.625rem; background: var(--success-bg); color: var(--success); border-radius: var(--radius-full); font-size: 0.75rem; font-weight: 500; }
 .progress-card { background: white; border-radius: var(--radius-lg); padding: 1.25rem; box-shadow: var(--shadow-sm); border: 1px solid var(--gray-100); }
 .progress-title { font-size: 0.8125rem; font-weight: 600; color: var(--gray-500); margin-bottom: 0.875rem; text-transform: uppercase; letter-spacing: 0.05em; }
@@ -1922,6 +2343,35 @@ const chatStatus = computed(() => {
 .analysis-header { display: flex; align-items: center; gap: 0.375rem; margin-bottom: 0.5rem; font-size: 0.75rem; color: var(--success); font-weight: 600; }
 .ai-tag { font-size: 0.6875rem; color: var(--primary); font-weight: 600; margin-bottom: 0.375rem; display: inline-block; padding: 0.125rem 0.5rem; background: var(--primary-bg); border-radius: var(--radius-full); }
 .analysis-score { margin-top: 0.625rem; font-size: 0.75rem; color: var(--gray-400); }
+
+/* --- V11.0 流式打字机光标 --- */
+.streaming-cursor { display: inline-block; width: 2px; height: 1em; margin-left: 2px; vertical-align: text-bottom; background: var(--primary); animation: cursor-blink 0.8s steps(1) infinite; }
+@keyframes cursor-blink { 50% { opacity: 0; } }
+
+/* --- V11.0 分析气泡深度摘要 chips --- */
+.analysis-insight { display: flex; flex-wrap: wrap; gap: 0.375rem; margin-top: 0.625rem; }
+.insight-chip { font-size: 0.6875rem; padding: 0.125rem 0.5rem; border-radius: var(--radius-full); font-weight: 600; }
+.insight-chip.sentiment { background: #ede9fe; color: #7c3aed; }
+.insight-chip.fluency { background: #dbeafe; color: #2563eb; }
+.insight-chip.redflag { background: #fee2e2; color: #dc2626; cursor: help; }
+
+/* --- V11.0 agent 选择提示 --- */
+.agent-hint { margin-top: 0.625rem; font-size: 0.75rem; line-height: 1.5; color: var(--gray-400); background: var(--primary-bg); border-radius: var(--radius-md); padding: 0.5rem 0.75rem; }
+
+/* --- V11.0 报告 AI 深度复盘 --- */
+.deep-review { margin-top: 1.25rem; background: white; border: 1px solid var(--gray-100); border-radius: var(--radius-lg); padding: 1rem 1.25rem; box-shadow: var(--shadow-sm); }
+.deep-review-title { font-size: 0.8125rem; font-weight: 700; color: var(--gray-600); margin-bottom: 0.75rem; }
+.deep-review-row { display: flex; align-items: flex-start; gap: 0.75rem; padding: 0.375rem 0; font-size: 0.8125rem; }
+.deep-review-label { flex-shrink: 0; width: 4.5rem; color: var(--gray-400); font-weight: 600; }
+.deep-review-value { color: var(--gray-600); font-weight: 600; }
+.sentiment-track { display: inline-flex; align-items: center; gap: 0.375rem; }
+.sentiment-dot { width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; }
+.sentiment-dot.nervous { background: #f59e0b; }
+.sentiment-dot.confident { background: #10b981; }
+.sentiment-dot.hesitant { background: #6366f1; }
+.sentiment-dot.calm { background: #0ea5e9; }
+.deep-review-flags { display: flex; flex-direction: column; gap: 0.25rem; }
+.redflag-item { color: var(--gray-600); font-size: 0.75rem; }
 .message-text { white-space: pre-wrap; word-break: break-word; }
 
 .chat-input-area { padding: 1rem 1.25rem; border-top: 1px solid var(--gray-100); background: white; }
@@ -2062,23 +2512,93 @@ const chatStatus = computed(() => {
 .message-content :deep(.prose strong) { color: var(--gray-900); font-weight: 700; }
 
 /* ========== 响应式 ========== */
+/* 平板（≤1024px）：三栏收敛为单列，对话区优先——面试官信息做顶部紧凑条，维度分析沉底 */
 @media (max-width: 1024px) {
   .interview-main { grid-template-columns: 1fr; }
-  .left-panel, .right-panel { order: -1; }
+  .left-panel { order: -1; }
+  .center-panel { order: 0; }
+  .right-panel { order: 1; }
   .summary-grid { grid-template-columns: 1fr; }
 }
+/* 手机（≤768px）：全面移动端适配 */
 @media (max-width: 768px) {
-  /* 步骤条保持横向（手机端与 PC 一致），仅缩小间距适配窄屏 */
+  .vi-shell { padding: 0 0.625rem; }
+
+  /* --- 准备页 --- */
+  .prep-top-bar { padding: 0.625rem 0.75rem; flex-wrap: wrap; gap: 0.5rem; }
+  .prep-breadcrumb { display: none; }
+  .prep-top-right { width: 100%; }
+  .prep-top-right .prep-back-btn { flex: 1; justify-content: center; font-size: 0.8125rem; padding: 0.5rem 0.5rem; }
+  .prep-container { padding: 1.25rem 0 2rem; }
+  .prep-header { margin-bottom: 1.25rem; }
+  .prep-header h1 { font-size: 1.375rem; }
+  .prep-card { padding: 1.125rem; }
+  /* 步骤条保持横向，缩小间距适配窄屏 */
   .prep-steps { gap: 0; flex-wrap: nowrap; }
   .prep-step { gap: 0.375rem; }
   .step-circle { width: 30px; height: 30px; font-size: 0.8rem; }
   .step-label { font-size: 0.75rem; }
   .step-connector { width: 24px; margin: 0 0.25rem; }
   .config-row { grid-template-columns: 1fr; }
-  .report-tabs { flex-wrap: nowrap; overflow-x: auto; }
-  .top-bar { flex-wrap: wrap; gap: 0.5rem; }
-  .top-bar-right { flex-wrap: wrap; }
-  .report-page { padding: 1rem; }
+  /* 设备检测行：状态区（徽章+下拉+按钮）换行铺满，避免横向溢出 */
+  .device-item { flex-wrap: wrap; row-gap: 0.5rem; }
+  .device-status { width: 100%; flex-wrap: wrap; }
+  .device-select { max-width: 100%; flex: 1; min-width: 0; }
+  .resume-manage-row { flex-wrap: wrap; }
+  .resume-manage-hint { width: 100%; }
+
+  /* --- 面试页顶栏：两行布局（品牌+计时 / 四个控制按钮等宽铺满） --- */
+  .top-bar { padding: 0.5rem 0; row-gap: 0.5rem; }
+  .top-bar-left { width: 100%; justify-content: space-between; gap: 0.5rem; }
+  .top-bar-logo { font-size: 1rem; }
+  .top-bar-right { width: 100%; display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.375rem; }
+  .control-btn { justify-content: center; padding: 0.5rem 0.25rem; font-size: 0.75rem; gap: 0.25rem; }
+
+  /* --- 左面板横向紧凑条：面试官卡片 + 进度时间线并排 --- */
+  .interview-main { gap: 0.625rem; padding: 0.625rem 0; }
+  .left-panel { flex-direction: row; align-items: stretch; gap: 0.625rem; }
+  .interviewer-card { flex: 1; display: flex; flex-direction: row; align-items: center; gap: 0.75rem; text-align: left; padding: 0.75rem 0.875rem; }
+  .interviewer-avatar { width: 44px; height: 44px; margin: 0; font-size: 1.375rem; flex-shrink: 0; }
+  .interviewer-avatar::after { inset: -2px; border-width: 2px; }
+  .interviewer-name { margin-bottom: 0; font-size: 0.875rem; }
+  .interviewer-meta { align-items: flex-start; gap: 0.25rem; }
+  .progress-card { flex: 1.4; min-width: 0; padding: 0.75rem 0.875rem; display: flex; flex-direction: column; justify-content: center; }
+  .progress-title { display: none; }
+  /* 进度时间线：纵向列表 → 横向滑动（点在上、标题在下） */
+  .progress-timeline { flex-direction: row; overflow-x: auto; gap: 0.375rem; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+  .progress-timeline::-webkit-scrollbar { display: none; }
+  .progress-item { flex-shrink: 0; flex-direction: column; gap: 0.25rem; padding: 0.375rem 0.5rem; text-align: center; font-size: 0.6875rem; }
+
+  /* --- 对话区：占满主视口高度，气泡放宽宽度 --- */
+  .chat-header { padding: 0.625rem 0.875rem; }
+  .chat-body { max-height: none; height: 46vh; min-height: 260px; padding: 0.875rem; gap: 0.75rem; }
+  .message { max-width: 94%; }
+  .message.question, .message.analysis { max-width: 96%; }
+  .message-content { padding: 0.625rem 0.875rem; font-size: 0.875rem; }
+
+  /* --- 输入区：加大触控目标，textarea 16px 防 iOS 聚焦自动放大 --- */
+  .chat-input-area { padding: 0.75rem; }
+  .input-timer { font-size: 0.6875rem; flex-wrap: wrap; }
+  .input-textarea { font-size: 16px; min-height: 52px; }
+  .mic-btn { width: 52px; height: 52px; }
+  .input-actions { gap: 0.375rem; }
+  .action-btn { flex: 1; justify-content: center; padding: 0.625rem 0.25rem; font-size: 0.8125rem; }
+
+  /* --- 右面板（维度分析/提示）：跟随对话区之后 --- */
+  .analysis-card { padding: 1rem; }
+  .radar-chart { max-width: 170px; }
+
+  /* --- 报告页 --- */
+  .report-page { padding: 1rem 0.5rem; }
+  .report-header { flex-wrap: wrap; gap: 0.5rem; }
+  .report-header-actions { width: 100%; }
+  .report-header-actions .back-btn { flex: 1; justify-content: center; }
+  .report-tabs { flex-wrap: nowrap; overflow-x: auto; padding: 0.25rem; -webkit-overflow-scrolling: touch; }
+  .report-tab { padding: 0.5rem 0.75rem; font-size: 0.8125rem; }
+  .analysis-grid, .knowledge-grid { grid-template-columns: 1fr; }
+  .report-actions { gap: 0.5rem; }
+  .report-btn { flex: 1 1 calc(50% - 0.5rem); justify-content: center; }
+  .replay-bubble { max-width: 88%; }
 }
 
 @media print {
@@ -2180,7 +2700,6 @@ const chatStatus = computed(() => {
 
 /* --- 面试官实时状态标签 --- */
 .interviewer-state {
-  margin-top: 0.5rem;
   font-size: 0.6875rem;
   color: var(--info);
   font-weight: 600;

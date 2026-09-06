@@ -8,6 +8,11 @@
       <div class="header-content">
         <h2>智能体管理</h2>
         <span class="item-count">共 {{ filteredAgents.length }} 个智能体</span>
+        <div class="header-tip" v-pre>
+          提示：启用状态的智能体可被「语音面试官」绑定为人设（前台开始面试时可选）。
+          系统提示词支持占位符：<code>{{position}}</code> 岗位、<code>{{scene}}</code> 场景、<code>{{difficulty}}</code> 难度、<code>{{style}}</code> 风格、
+          <code>{{resumeDigest}}</code> 简历摘要、<code>{{profileGaps}}</code> 薄弱点、<code>{{levelEstimate}}</code> 水平评估，面试开始时自动注入。
+        </div>
       </div>
       <div class="header-actions">
         <el-input v-model="searchKeyword" placeholder="搜索名称/描述..." prefix-icon="Search" clearable style="width: 200px" />

@@ -72,13 +72,8 @@
       <el-table-column label="ID" prop="id" width="70" />
       <el-table-column label="封面" width="100">
         <template #default="{ row }">
-          <el-image
-            v-if="row.cover"
-            :src="row.cover"
-            fit="cover"
-            class="article-cover"
-            :preview-src-list="[row.cover]"
-          />
+          <!-- ImagePreview：自动拼 VITE_APP_BASE_API 前缀 + preview-teleported 挂载 body，避免预览层撑破表格布局 -->
+          <image-preview v-if="row.cover" :src="row.cover" :width="60" :height="45" />
           <span v-else class="no-cover">无</span>
         </template>
       </el-table-column>
@@ -486,12 +481,6 @@ onMounted(() => {
   margin-bottom: 16px;
   display: flex;
   gap: 8px;
-}
-
-.article-cover {
-  width: 60px;
-  height: 45px;
-  border-radius: 4px;
 }
 
 .no-cover {

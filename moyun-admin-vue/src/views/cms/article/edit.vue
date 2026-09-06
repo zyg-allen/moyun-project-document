@@ -461,6 +461,17 @@ function init() {
     getArticle(route.query.id).then(response => {
       const data = response.data || {};
       form.value = { ...form.value, ...data };
+      // 标签回显：优先用后端返回的 tagIds/tagNameList 数组（V11.3.1 详情接口已关联 ID 与名称）；
+      // 兼容旧字段：tagNames 若为逗号字符串则拆为数组（后端实体 tagNames 是 List<String>，
+      // 直接透传会导致 JSON 解析失败）
+      if (Array.isArray(data.tagNameList)) {
+        form.value.tagNameList = data.tagNameList;
+        if (Array.isArray(data.tagIds)) {
+          form.value.tagIds = data.tagIds;
+        }
+      } else if (typeof form.value.tagNames === "string") {
+        form.value.tagNames = form.value.tagNames.split(",").map(s => s.trim()).filter(Boolean);
+      }
       // 确保有默认值
       if (!form.value.editorMode) {
         form.value.editorMode = "richtext";
@@ -731,6 +742,9 @@ function submitForm() {
       }
 
       const submitData = { ...form.value };
+      // 详情接口返回的展示字段不回传（tagNames 为逗号字符串，后端实体是 List<String>，透传会解析失败）
+      delete submitData.tagNames;
+      delete submitData.tagNameList;
 
       if (submitData.id !== undefined) {
         updateArticle(submitData).then(response => {

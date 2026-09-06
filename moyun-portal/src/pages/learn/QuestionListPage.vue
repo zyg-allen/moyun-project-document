@@ -331,24 +331,25 @@ function gotoPage(p: number) {
           </div>
         </div>
 
-        <!-- 为你推荐（v5.9 阶段1：基于用户画像推荐） -->
+        <!-- 为你推荐（v5.9 阶段1：基于用户画像推荐，浅色柔和风格） -->
         <section
           v-if="showRecommend"
-          class="mb-6 rounded-2xl overflow-hidden"
-          style="background: linear-gradient(135deg, var(--theme-primary) 0%, var(--theme-primary-dark, #4f46e5) 100%);"
+          class="mb-6 rounded-2xl overflow-hidden border"
+          style="background-color: var(--theme-primary-soft, var(--theme-surface)); border-color: var(--theme-border);"
         >
-          <div class="px-5 py-4 sm:px-6 sm:py-5 text-white">
+          <div class="px-5 py-4 sm:px-6 sm:py-5">
             <!-- 标题行 -->
             <div class="flex items-center justify-between gap-3 mb-3">
               <div class="flex items-center gap-2">
-                <Sparkles class="w-5 h-5 flex-shrink-0" />
-                <h2 class="text-base sm:text-lg font-semibold">为你推荐</h2>
-                <span class="text-xs opacity-80 hidden sm:inline">基于你的画像（薄弱点 · 岗位必备技能）智能召回</span>
+                <Sparkles class="w-5 h-5 flex-shrink-0" style="color: var(--theme-primary);" />
+                <h2 class="text-base sm:text-lg font-semibold" style="color: var(--theme-text);">为你推荐</h2>
+                <span class="text-xs hidden sm:inline" style="color: var(--theme-text-secondary);">基于你的画像（薄弱点 · 岗位必备技能）智能召回</span>
               </div>
               <button
                 @click="loadRecommendations"
                 :disabled="recoLoading"
-                class="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs bg-white/15 hover:bg-white/25 transition disabled:opacity-50"
+                class="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs transition disabled:opacity-50"
+                style="background-color: var(--theme-surface); border: 1px solid var(--theme-border); color: var(--theme-text-secondary);"
                 aria-label="刷新推荐"
               >
                 <RefreshCw class="w-3.5 h-3.5" :class="{ 'animate-spin': recoLoading }" />
@@ -363,21 +364,24 @@ function gotoPage(p: number) {
             >
               <span
                 v-if="profile.weakTags && profile.weakTags.length > 0"
-                class="flex items-center gap-1 px-2 py-1 rounded-full bg-white/15"
+                class="flex items-center gap-1 px-2 py-1 rounded-full"
+                style="background-color: var(--theme-surface); color: var(--theme-text-secondary);"
               >
                 <Target class="w-3 h-3" />
                 薄弱点 {{ profile.weakTags.length }}
               </span>
               <span
                 v-if="profile.requiredSkills && profile.requiredSkills.length > 0"
-                class="flex items-center gap-1 px-2 py-1 rounded-full bg-white/15"
+                class="flex items-center gap-1 px-2 py-1 rounded-full"
+                style="background-color: var(--theme-surface); color: var(--theme-text-secondary);"
               >
                 <Zap class="w-3 h-3" />
                 必备技能 {{ profile.requiredSkills.length }}
               </span>
               <span
                 v-if="!profile.personalized"
-                class="px-2 py-1 rounded-full bg-white/15"
+                class="px-2 py-1 rounded-full"
+                style="background-color: var(--theme-surface); color: var(--theme-text-secondary);"
               >
                 暂无画像数据，先答题以激活个性化推荐
               </span>
@@ -388,11 +392,12 @@ function gotoPage(p: number) {
               v-if="profile && profile.weakTags && profile.weakTags.length > 0"
               class="flex flex-wrap items-center gap-1.5 mb-4"
             >
-              <span class="text-xs opacity-80 mr-1">薄弱：</span>
+              <span class="text-xs mr-1" style="color: var(--theme-text-secondary);">薄弱：</span>
               <span
                 v-for="wt in profile.weakTags.slice(0, 6)"
                 :key="wt.tagId"
-                class="px-2 py-0.5 rounded text-xs bg-white/15 hover:bg-white/25 transition cursor-default"
+                class="px-2 py-0.5 rounded text-xs transition cursor-default"
+                style="background-color: var(--theme-surface); color: var(--theme-primary);"
                 :title="`答 ${wt.total} 题，通过 ${wt.solved}，失败率 ${(wt.failRate * 100).toFixed(0)}%`"
               >
                 {{ wt.tagName }}
@@ -410,11 +415,11 @@ function gotoPage(p: number) {
                 v-for="n in 6"
                 :key="n"
                 class="rounded-xl p-4 animate-pulse"
-                style="background-color: rgba(255,255,255,0.95); height: 120px;"
+                style="background-color: var(--theme-surface); border: 1px solid var(--theme-border); height: 120px;"
               >
-                <div class="h-3 w-16 bg-gray-200 rounded mb-3"></div>
-                <div class="h-4 w-3/4 bg-gray-200 rounded mb-2"></div>
-                <div class="h-3 w-1/2 bg-gray-100 rounded"></div>
+                <div class="h-3 w-16 rounded mb-3" style="background-color: var(--theme-border);"></div>
+                <div class="h-4 w-3/4 rounded mb-2" style="background-color: var(--theme-border);"></div>
+                <div class="h-3 w-1/2 rounded" style="background-color: var(--theme-border);"></div>
               </div>
             </div>
             <div
@@ -426,7 +431,7 @@ function gotoPage(p: number) {
                 :key="q.id"
                 @click="gotoQuestion(q.id)"
                 class="rounded-xl p-4 transition cursor-pointer hover:shadow-lg hover:-translate-y-0.5"
-                style="background-color: rgba(255,255,255,0.97);"
+                style="background-color: var(--theme-surface); border: 1px solid var(--theme-border);"
               >
                 <!-- 推荐来源徽章 + 难度 -->
                 <div class="flex items-center justify-between gap-2 mb-2">

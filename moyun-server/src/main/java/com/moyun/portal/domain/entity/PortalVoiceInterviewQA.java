@@ -33,6 +33,9 @@ public class PortalVoiceInterviewQA implements Serializable {
     /** 关联题目ID */
     private Long questionId;
 
+    /** 问题来源 bank=题库/resume_project=简历锚定/llm=智能体生成 */
+    private String questionSource;
+
     /** 主问题目序号（从0开始，追问与主问共享序号） */
     private Integer questionIdx;
 
@@ -59,6 +62,9 @@ public class PortalVoiceInterviewQA implements Serializable {
 
     /** 规则维度分 JSON（如 {"coverage":80,"length":60,"structure":70}） */
     private String ruleDimensionsJson;
+
+    /** LLM深度分析 JSON（sentiment/fluency/redFlags/completeness） */
+    private String llmAnalysisJson;
 
     /** 已使用提示次数（0~3） */
     private Integer hintUsed;

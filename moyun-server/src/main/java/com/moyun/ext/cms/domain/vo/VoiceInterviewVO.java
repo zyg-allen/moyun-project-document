@@ -18,6 +18,12 @@ public class VoiceInterviewVO {
     private String position;
     private String scene;
     private Long resumeId;
+    /** 面试官智能体ID（NULL=未绑定） */
+    private Long agentId;
+    /** 面试官智能体名称（前端展示） */
+    private String agentName;
+    /** 出题模式 preset=预生成题单 / dynamic=智能体动态出题 */
+    private String questionMode;
     private String status;
     private String style;
     private String difficulty;
@@ -37,4 +43,7 @@ public class VoiceInterviewVO {
 
     /** 开场话术（TTS 播报） */
     private String greetText;
+
+    /** 分级提示（requestHint 接口返回，含 title/keywords/structureHint/examinePoints/speakText） */
+    private HintVO hint;
 }

@@ -47,21 +47,13 @@ const team = [
 
     <!-- 主内容 -->
     <div class="flex-1">
-      <!-- Hero 区域 -->
-      <div class="py-6 sm:py-8">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div class="relative overflow-hidden rounded-2xl text-white text-center" style="background-image: radial-gradient(circle at 30% 30%, rgba(220, 38, 38, 0.3) 0%, transparent 50%), radial-gradient(circle at 70% 70%, rgba(234, 88, 12, 0.3) 0%, transparent 50%), linear-gradient(135deg, #b91c1c 0%, #c2410c 50%, #ea580c 100%);">
-        <div class="absolute inset-0 opacity-10 pointer-events-none" aria-hidden="true">
-          <svg class="absolute top-6 left-8 w-32 h-32 text-white" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/></svg>
-          <svg class="absolute bottom-4 right-10 w-40 h-40 text-white" viewBox="0 0 24 24" fill="currentColor"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
-        </div>
-        <div class="relative px-6 py-8 sm:px-10 sm:py-10">
-          <h1 class="text-3xl sm:text-4xl lg:text-5xl font-bold mb-4 sm:mb-6" style="color: #ffffff;">关于旭林知行</h1>
-          <p class="text-sm sm:text-lg lg:text-xl" style="color: rgba(255,255,255,0.9); max-width: 2xl mx-auto;">
+      <!-- Hero 区域（轻量版，与首页风格统一） -->
+      <div class="pt-8 sm:pt-12 pb-2">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+          <h1 class="text-2xl sm:text-3xl font-bold mb-3" style="color: var(--theme-text);">关于旭林知行</h1>
+          <p class="text-sm sm:text-base max-w-2xl mx-auto" style="color: var(--theme-text-secondary);">
             旭林知行是一个 AI 驱动的求职面试与学习成长平台，我们相信每一次学习与演练都能让成长有迹可循，助你成功上岸。
           </p>
-        </div>
-      </div>
         </div>
       </div>
 

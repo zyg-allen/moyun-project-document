@@ -10,6 +10,8 @@ import com.moyun.ext.cms.domain.vo.VoiceInterviewVO;
 import com.moyun.ext.cms.domain.vo.VoiceStartConfig;
 import com.moyun.ext.cms.service.IVoiceInterviewService;
 import com.moyun.ext.cms.service.IWrongQuestionService;
+import com.moyun.ext.cms.service.VoiceAsrService;
+import com.moyun.ext.cms.service.interview.InterviewAgentClient;
 import com.moyun.portal.util.PortalSecurityUtils;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -17,7 +19,10 @@ import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
+
+import java.util.Map;
 
 
 
@@ -42,6 +47,12 @@ public class PortalVoiceInterviewController extends BaseController {
     @Autowired
     private IWrongQuestionService wrongQuestionService;
 
+    @Autowired
+    private VoiceAsrService voiceAsrService;
+
+    @Autowired
+    private InterviewAgentClient agentClient;
+
     private Long currentUserId() {
         return PortalSecurityUtils.getUserId();
     }
@@ -52,7 +63,7 @@ public class PortalVoiceInterviewController extends BaseController {
      */
     @Operation(summary = "开始语音面试", description = "按岗位/场景/画像抽取5题，生成首问与开场话术")
     @PostMapping("/start")
-    @RateLimiter(key = "voice:start", time = 86400, count = 5)
+    @RateLimiter(key = "voice:start", time = 3600, count = 20)
     public AjaxResult start(@Valid @RequestBody VoiceStartConfig config) {
         Long userId = currentUserId();
         if (userId == null) {
@@ -182,6 +193,43 @@ public class PortalVoiceInterviewController extends BaseController {
         Long questionId = vo.getCurrentQa().getQuestionId();
         Long wrongId = wrongQuestionService.recordWrongQuestion(userId, questionId, qaId);
         return AjaxResult.success(wrongId);
+    }
+
+    /**
+     * 9. 语音转文字（ASR 兜底）
+     * <p>浏览器 Web Speech API 不可用（国内网络/Firefox 等）时，前端 MediaRecorder
+     * 录音上传，服务端调用 DashScope 转写返回文本。
+     */
+    @Operation(summary = "语音转文字", description = "上传录音（WAV），DashScope ASR 转写为文本")
+    @PostMapping("/asr")
+    @RateLimiter(key = "voice:asr", time = 3600, count = 200)
+    public AjaxResult asr(@RequestParam("audio") MultipartFile audio) {
+        Long userId = currentUserId();
+        if (userId == null) {
+            return AjaxResult.error(HttpStatus.UNAUTHORIZED, "登录已过期，请重新登录");
+        }
+        if (audio == null || audio.isEmpty()) {
+            return AjaxResult.error("音频文件不能为空");
+        }
+        try {
+            String transcript = voiceAsrService.transcribe(audio);
+            return AjaxResult.success(Map.of("transcript", transcript));
+        } catch (IllegalStateException e) {
+            return AjaxResult.error(e.getMessage());
+        } catch (Exception e) {
+            logger.error("[ASR] 语音转写接口失败", e);
+            return AjaxResult.error("语音识别失败，请重试或手动输入");
+        }
+    }
+
+    /**
+     * 10. 可用面试官智能体列表
+     * <p>供 portal 开始面试时选择面试官人设；无可用 agent 时返回空列表（前端隐藏选择器）
+     */
+    @Operation(summary = "可用面试官列表", description = "列出启用状态的面试官智能体（id/名称/描述/开场白）")
+    @GetMapping("/agents")
+    public AjaxResult agents() {
+        return AjaxResult.success(agentClient.listUsableAgents());
     }
 
     /** 提交答案请求体 */

@@ -131,7 +131,13 @@ const request = async <T>(
       throw new Error('登录已过期，请重新登录');
     }
 
-    const data: BackendResponse<T> = await response.json();
+    let data: BackendResponse<T>;
+    try {
+      data = await response.json();
+    } catch {
+      // 非 JSON 响应：典型为代理/后端不可用时返回的纯文本（如 Internal Server Error）
+      throw new Error(`服务暂时不可用（HTTP ${response.status}），请稍后重试`);
+    }
 
     // 处理业务 code 401（后端 Controller 主动返回的未登录/登录过期）
     if (data.code === 401) {

@@ -286,7 +286,7 @@ const statusTabs: { value: StatusFilter; label: string }[] = [
             @click="handleAutoGenerate"
             :disabled="generating"
             class="inline-flex items-center text-sm font-medium px-3 py-1.5 rounded-lg text-white transition hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
-            style="background: linear-gradient(135deg, var(--theme-primary), color-mix(in srgb, var(--theme-primary) 70%, #7c3aed));"
+            style="background-color: var(--theme-primary);"
             title="根据你的薄弱点与岗位必备技能自动生成学习计划"
           >
             <Sparkles class="w-4 h-4 mr-1" />

@@ -146,6 +146,21 @@ moyun:
   ai:
     enabled: true
     resume-advice-enabled: true
+    # =============================================
+    # 语音识别（ASR）配置 —— V10.1 语音面试官
+    # 优先级：后台「AI 模块 → 模型配置」model_type='asr' 的默认启用配置（api_key 加密存储）
+    # → 以下 yaml 作为兜底（后台未配置 ASR 模型或字段为空时生效）
+    # 模型 qwen3-asr-flash（Qwen-ASR OpenAI 兼容协议，Base64 音频输入）
+    # =============================================
+    api-key: ${MOYUN_AI_API_KEY:sk-ws-H.PMYRPDE.gLUY.MEYCIQC4-pMKFM1Vf6a2CsKIyzlI5jChxMkThEF3MLQ7sXQMFgIhAKJ1u5-xncxrzX1nR3rFMihRMNZkc0A0UOPoKt31kiHf}
+    asr-base-url: ${MOYUN_AI_ASR_BASE_URL:https://ws-vmchn4kxmyw0dzgf.cn-beijing.maas.aliyuncs.com/compatible-mode/v1}
+    asr-model: ${MOYUN_AI_ASR_MODEL:qwen3-asr-flash}
+    # =============================================
+    # 实时流式识别（fun-asr-realtime，WebSocket 双工）—— V10.1 语音面试官
+    # 走公共百炼 WS 网关（业务空间 MAAS 域名不提供该服务），Key 复用上方 asr 配置
+    # =============================================
+    asr-realtime-url: ${MOYUN_AI_ASR_REALTIME_URL:wss://dashscope.aliyuncs.com/api-ws/v1/inference/}
+    asr-realtime-model: ${MOYUN_AI_ASR_REALTIME_MODEL:fun-asr-realtime}
   # 认证信息安全配置（v10.8 实名合规）：
   # - 证件号 AES-GCM 加密口令，生产环境务必通过环境变量 MOYUN_SECURITY_CERTNOENCRYPTKEY 注入并妥善保管
   # - 口令变更会导致已加密证件号无法解密（脱敏展示值不受影响）
@@ -296,7 +311,7 @@ minio:
 # =============================================
 langchain4j:
   # 全局开关（关闭时使用 Mock 实现避免启动报错）
-  enabled: ${AI_ENABLED:false}
+  enabled: ${AI_ENABLED:true}
   open-ai:
     enabled: ${OPENAI_ENABLED:false}
     api-key: ${OPENAI_API_KEY:}

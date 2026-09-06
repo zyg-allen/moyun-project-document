@@ -89,6 +89,14 @@ public class ResourcesConfig implements WebMvcConfigurer
             config.addAllowedOriginPattern("http://127.0.0.1");
             config.addAllowedOriginPattern("https://localhost:*");
             config.addAllowedOriginPattern("https://localhost");
+            // 手机等局域网设备经 vite dev server（https + host）访问时，Origin 为局域网地址，
+            // 代理不重写 Origin 头，需放行内网网段（仅开发默认值；生产务必配置 CORS_ALLOWED_ORIGINS）
+            config.addAllowedOriginPattern("http://192.168.*:*");
+            config.addAllowedOriginPattern("http://192.168.*");
+            config.addAllowedOriginPattern("https://192.168.*:*");
+            config.addAllowedOriginPattern("https://192.168.*");
+            config.addAllowedOriginPattern("http://10.*:*");
+            config.addAllowedOriginPattern("https://10.*:*");
             log.info("CORS 未配置 CORS_ALLOWED_ORIGINS，使用本地开发白名单：{}", config.getAllowedOriginPatterns());
         }
         // 设置访问源请求头

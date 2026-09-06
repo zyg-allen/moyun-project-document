@@ -47,6 +47,38 @@ export interface VoiceStartConfig {
   personalized?: boolean;
   hintsEnabled?: boolean;
   stuckThreshold?: number;
+  /** V11.0：指定面试官智能体（缺省用后台 sys_config 默认） */
+  agentId?: number;
+  /** V11.0：动态出题模式（缺省用后台 sys_config 开关） */
+  dynamicMode?: boolean;
+}
+
+/** 可用面试官智能体（/agents 接口返回项） */
+export interface VoiceAgentItem {
+  id: number;
+  name: string;
+  description?: string;
+  welcomeMessage?: string;
+}
+
+/** V11.0：LLM 单轮深度分析（对齐后端 InterviewTurnResult） */
+export interface InterviewAnalysis {
+  reply?: string;
+  score?: number;
+  dimensions?: Record<string, number>;
+  feedback?: string;
+  flaws?: string[];
+  redFlags?: string[];
+  sentiment?: { state?: string; note?: string };
+  fluencyAssessment?: { score?: number; comment?: string };
+  completeness?: { covered?: string[]; missing?: string[] };
+  level?: string;
+  followupWorth?: boolean;
+  nextAction?: string;
+  nextQuestion?: string;
+  candidateId?: number;
+  transition?: string;
+  guidance?: string;
 }
 
 /** 单条问答 VO */
@@ -54,6 +86,8 @@ export interface VoiceInterviewQaVO {
   id: number;
   interviewId: number;
   questionId?: number;
+  /** V11.0：问题来源 bank=题库/resume_project=简历锚定/llm=智能体生成 */
+  questionSource?: string;
   questionIdx: number;
   parentQaId?: number;
   question: string;
@@ -76,6 +110,11 @@ export interface VoiceInterviewVO {
   position?: string;
   scene?: string;
   resumeId?: number;
+  /** V11.0：面试官智能体绑定 */
+  agentId?: number;
+  agentName?: string;
+  /** V11.0：出题模式 preset/dynamic */
+  questionMode?: string;
   status: string;
   style?: string;
   difficulty?: string;
@@ -89,6 +128,8 @@ export interface VoiceInterviewVO {
   qaList?: VoiceInterviewQaVO[];
   currentQa?: VoiceInterviewQaVO;
   greetText?: string;
+  /** 分级提示（requestHint 接口返回） */
+  hint?: HintVO;
 }
 
 /** 报告逐题点评项 */
@@ -127,12 +168,20 @@ export interface VoiceInterviewReportVO {
   suggestion?: string;
   /** 相关知识点归纳（V10.2 LLM 版启用，MVP 可空） */
   knowledgePoints?: KnowledgePointItem[];
+  /** V11.0：心态趋势（逐轮 nervous/confident/hesitant/calm） */
+  sentimentTrend?: string[];
+  /** V11.0：全场可疑信号汇总 */
+  redFlags?: string[];
+  /** V11.0：表达流畅度均分（0-100） */
+  fluencyAvg?: number;
 }
 
 /** SSE 事件回调 */
 export interface SseCallbacks {
   /** 规则分（立即返回） */
   onScore?: (data: { score: number; dimensions: Record<string, number> }) => void;
+  /** V11.0：流式增量文本（打字机效果；data 为 {"t":"增量"} JSON） */
+  onDelta?: (text: string) => void;
   /** LLM 话术 */
   onSpeak?: (text: string) => void;
   /** 完整数据 */
@@ -147,11 +196,19 @@ export interface SseCallbacks {
     nextSpeakText?: string;
     /** V10.4：LLM 引导提示（回答跑偏时） */
     guidance?: string;
+    /** V11.0：agent 动作 deepen/change_topic/wrap_up（旧 nextAction 同时保留） */
+    agentAction?: string;
+    /** V11.0：换题/收尾过渡话术 */
+    transition?: string;
+    /** V11.0：LLM 深度分析（心态/流畅度/红旗/完整性） */
+    analysis?: InterviewAnalysis;
   }) => void;
   /** 结束 */
   onEnd?: () => void;
   /** 错误 */
   onError?: (msg: string) => void;
+  /** V11.0.2：流被服务端异常切断（如后端 SSE 120s 超时收尾），未收到 end 事件 */
+  onAborted?: () => void;
 }
 
 /**
@@ -200,6 +257,15 @@ export const submitVoiceAnswer = async (
     const reader = resp.body.getReader();
     const decoder = new TextDecoder();
     let buffer = '';
+    // 是否收到服务端 end 事件（区分正常结束与流被异常切断，如后端 SSE 超时收尾）
+    let ended = false;
+    const wrapped: SseCallbacks = {
+      ...callbacks,
+      onEnd: () => {
+        ended = true;
+        callbacks?.onEnd?.();
+      },
+    };
 
     try {
       while (true) {
@@ -212,12 +278,16 @@ export const submitVoiceAnswer = async (
         while ((idx = buffer.indexOf('\n\n')) >= 0) {
           const block = buffer.slice(0, idx);
           buffer = buffer.slice(idx + 2);
-          parseSseBlock(block, callbacks);
+          parseSseBlock(block, wrapped);
         }
       }
       // 处理剩余 buffer
       if (buffer.trim()) {
-        parseSseBlock(buffer, callbacks);
+        parseSseBlock(buffer, wrapped);
+      }
+      // 流关闭但未收到 end：服务端异常切断（SSE 超时收尾/网络中断），回调让页面提示用户
+      if (!ended) {
+        callbacks?.onAborted?.();
       }
     } catch (e) {
       callbacks?.onError?.(e instanceof Error ? e.message : 'SSE 读取异常');
@@ -245,6 +315,14 @@ function parseSseBlock(block: string, callbacks?: SseCallbacks) {
     switch (event) {
       case 'score':
         callbacks?.onScore?.(JSON.parse(data));
+        break;
+      case 'delta':
+        // V11.0：流式增量 {"t":"..."}；解析失败时按纯文本降级
+        try {
+          callbacks?.onDelta?.(JSON.parse(data).t ?? '');
+        } catch {
+          callbacks?.onDelta?.(data);
+        }
         break;
       case 'speak':
         callbacks?.onSpeak?.(data);
@@ -316,4 +394,12 @@ export const getVoiceInterviewDetail = (interviewId: number | string) => {
  */
 export const addQaToWrongBook = (qaId: number | string) => {
   return httpPost<number>(`/portal/interview/voice/qa/${qaId}/toWrongBook`);
+};
+
+/**
+ * 9. 可用面试官智能体列表
+ * GET /portal/interview/voice/agents
+ */
+export const getVoiceAgents = () => {
+  return httpGet<VoiceAgentItem[]>('/portal/interview/voice/agents');
 };

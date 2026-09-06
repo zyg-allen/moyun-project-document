@@ -37,4 +37,10 @@ public class VoiceStartConfig {
 
     /** 卡壳阈值（秒，超过则自动提示） */
     private Integer stuckThreshold;
+
+    /** 面试官智能体ID（可选，不传走后台默认面试官配置） */
+    private Long agentId;
+
+    /** 动态出题模式（可选：null=跟随后台开关，true=强制动态，false=强制预生成题单） */
+    private Boolean dynamicMode;
 }

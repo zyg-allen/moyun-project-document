@@ -15,6 +15,8 @@ public class VoiceInterviewQaVO {
     private Long id;
     private Long interviewId;
     private Long questionId;
+    /** 问题来源 bank=题库/resume_project=简历锚定/llm=智能体生成 */
+    private String questionSource;
     private Integer questionIdx;
     private Long parentQaId;
 

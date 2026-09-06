@@ -133,79 +133,68 @@ function gotoPage(p: number) {
       </div>
     </div>
 
-    <!-- Hero 区 -->
-    <div class="py-6 sm:py-8">
+    <!-- 页头：轻量标题 + 工具栏（与首页风格统一，去掉深色 Hero 横幅） -->
+    <div class="pt-6 sm:pt-8">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div class="relative overflow-hidden rounded-2xl text-white" style="background-image: linear-gradient(135deg, var(--theme-primary) 0%, var(--theme-info) 100%);">
-          <div class="absolute inset-0 opacity-10 pointer-events-none" aria-hidden="true">
-            <MessageCircle class="absolute top-6 left-8 w-32 h-32 text-white" />
-            <MessageSquare class="absolute bottom-4 right-10 w-40 h-40 text-white" />
+        <div class="flex flex-col sm:flex-row sm:items-end justify-between gap-3 mb-4">
+          <div>
+            <h1 class="text-xl sm:text-2xl font-bold" style="color: var(--theme-text);">话题广场</h1>
+            <p class="mt-1 text-sm" style="color: var(--theme-text-secondary);">发起讨论，表达观点，与社区成员一起交流思想</p>
           </div>
-          <div class="relative px-6 py-8 sm:px-10 sm:py-10 text-center">
-            <div class="inline-flex items-center bg-white/10 backdrop-blur-sm px-4 py-1.5 rounded-full text-sm mb-4">
-              <MessageCircle class="w-4 h-4 mr-2" /> 旭林 · 话题广场
-            </div>
-            <h1 class="text-3xl md:text-4xl font-bold mb-3">话题广场</h1>
-            <p class="text-sm opacity-90">发起讨论，表达观点，与社区成员一起交流思想</p>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- 工具栏：排序 + 搜索 + 发起 -->
-    <div class="border-b" style="background-color: var(--theme-surface); border-color: var(--theme-border);">
-      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex flex-wrap items-center gap-3">
-        <!-- 排序 Tab -->
-        <div class="flex items-center gap-1">
           <button
-            v-for="opt in sortOptions"
-            :key="opt.value"
-            @click="switchSort(opt.value)"
-            class="inline-flex items-center px-3 py-1.5 rounded-lg text-sm font-medium transition"
-            :style="{
-              color: sort === opt.value ? 'white' : 'var(--theme-text-secondary)',
-              backgroundColor: sort === opt.value ? 'var(--theme-primary)' : 'transparent',
-            }"
+            @click="gotoCreate"
+            class="self-start sm:self-auto inline-flex items-center px-4 py-2 text-sm text-white rounded-lg transition hover:opacity-90"
+            style="background-color: var(--theme-primary);"
           >
-            <component :is="opt.icon" class="w-3.5 h-3.5 mr-1" />
-            {{ opt.label }}
+            <Plus class="w-4 h-4 mr-1" />
+            发起话题
           </button>
         </div>
 
-        <!-- 搜索框 -->
-        <div class="flex-1 min-w-[200px] max-w-md">
-          <div
-            class="flex items-center rounded-lg border px-3"
-            style="background-color: var(--theme-bg); border-color: var(--theme-border);"
-          >
-            <Search class="w-4 h-4 flex-shrink-0" style="color: var(--theme-text-secondary);" />
-            <input
-              v-model="searchInput"
-              type="text"
-              placeholder="搜索话题标题..."
-              class="flex-1 bg-transparent px-2 py-2 text-sm outline-none"
-              style="color: var(--theme-text);"
-              @keyup.enter="doSearch"
-            />
+        <!-- 工具栏：排序 + 搜索 -->
+        <div class="flex flex-wrap items-center gap-3 pb-4">
+          <!-- 排序 Tab -->
+          <div class="flex items-center gap-1">
             <button
-              @click="doSearch"
-              class="text-xs px-2 py-1 rounded transition hover:opacity-80"
-              style="color: white; background-color: var(--theme-primary);"
+              v-for="opt in sortOptions"
+              :key="opt.value"
+              @click="switchSort(opt.value)"
+              class="inline-flex items-center px-3 py-1.5 rounded-lg text-sm font-medium transition"
+              :style="{
+                color: sort === opt.value ? 'white' : 'var(--theme-text-secondary)',
+                backgroundColor: sort === opt.value ? 'var(--theme-primary)' : 'var(--theme-surface)',
+              }"
             >
-              搜索
+              <component :is="opt.icon" class="w-3.5 h-3.5 mr-1" />
+              {{ opt.label }}
             </button>
           </div>
-        </div>
 
-        <!-- 发起话题按钮 -->
-        <button
-          @click="gotoCreate"
-          class="inline-flex items-center px-4 py-2 text-sm text-white rounded-lg transition hover:opacity-90"
-          style="background-color: var(--theme-primary);"
-        >
-          <Plus class="w-4 h-4 mr-1" />
-          发起话题
-        </button>
+          <!-- 搜索框 -->
+          <div class="flex-1 min-w-[200px] max-w-md">
+            <div
+              class="flex items-center rounded-lg border px-3"
+              style="background-color: var(--theme-surface); border-color: var(--theme-border);"
+            >
+              <Search class="w-4 h-4 flex-shrink-0" style="color: var(--theme-text-secondary);" />
+              <input
+                v-model="searchInput"
+                type="text"
+                placeholder="搜索话题标题..."
+                class="flex-1 bg-transparent px-2 py-2 text-sm outline-none"
+                style="color: var(--theme-text);"
+                @keyup.enter="doSearch"
+              />
+              <button
+                @click="doSearch"
+                class="text-xs px-2 py-1 rounded transition hover:opacity-80"
+                style="color: white; background-color: var(--theme-primary);"
+              >
+                搜索
+              </button>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
 

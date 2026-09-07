@@ -174,9 +174,11 @@ public class LedgerTransactionServiceImpl extends ServiceImpl<LedgerTransactionM
         txn.setUserId(userId);
         txn.setClientUuid(old.getClientUuid());
         applyDto(txn, dto);
+        // 修改保留原创建人与创建时间（溯源不被覆盖；后台代改时 createBy 仍指向原用户）
+        txn.setCreateBy(old.getCreateBy());
+        txn.setCreateTime(old.getCreateTime());
         applyBalanceEffect(txn, null);
         // 3. 覆盖更新（保留 id/创建时间）
-        txn.setCreateTime(old.getCreateTime());
         updateById(txn);
         // 4. 冲正旧日期 + 重放新日期的净资产快照
         if (!old.getTransactionDate().equals(txn.getTransactionDate())) {
@@ -348,6 +350,10 @@ public class LedgerTransactionServiceImpl extends ServiceImpl<LedgerTransactionM
         txn.setVoucherUrl(dto.getVoucherUrl());
         txn.setClientUuid(dto.getClientUuid());
         txn.setTransactionDate(dto.getTransactionDate() != null ? dto.getTransactionDate() : LocalDate.now());
+        // 交易时间必填：前端必传，缺省时兜底当前时间（补录场景自动补时间）
+        txn.setTransactionTime(dto.getTransactionTime() != null && !dto.getTransactionTime().isEmpty()
+                ? dto.getTransactionTime()
+                : java.time.LocalTime.now().format(java.time.format.DateTimeFormatter.ofPattern("HH:mm:ss")));
         // adjust 不计预算，其余默认计入
         txn.setIsBudget(LedgerTransaction.TYPE_ADJUST.equals(dto.getType()) ? 0
                 : (dto.getIsBudget() != null ? dto.getIsBudget() : 1));

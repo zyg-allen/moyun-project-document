@@ -438,7 +438,7 @@ public class LedgerAiAnalysisServiceImpl implements ILedgerAiAnalysisService {
                 .append("月供合计 ¥").append(yuan((BigDecimal) indicators.get("monthlyRepayment")))
                 .append("（占收入 ").append(indicators.get("repaymentPressure")).append("%），")
                 .append("总资产 ¥").append(yuan((BigDecimal) indicators.get("totalAsset")))
-                .append("，总负债 ¥").append(yuan(BigDecimal.valueOf((Long) indicators.get("totalLiability"))))
+                .append("，总负债 ¥").append(yuan(toBigDecimal(indicators.get("totalLiability"))))
                 .append("，资产负债率 ").append(indicators.get("debtRatio")).append("%，")
                 .append("连续入不敷出月数 ").append(indicators.get("deficitMonths")).append("。\n");
         sb.append("【收入来源】");
@@ -446,7 +446,7 @@ public class LedgerAiAnalysisServiceImpl implements ILedgerAiAnalysisService {
             sb.append("暂无收入记录。");
         } else {
             incomeSources.forEach(s -> sb.append(s.get("name")).append(" ¥")
-                    .append(yuan(BigDecimal.valueOf((Long) s.get("amount")))).append("（").append(s.get("ratio")).append("%）"));
+                    .append(yuan(toBigDecimal(s.get("amount")))).append("（").append(s.get("ratio")).append("%）"));
         }
         sb.append('\n');
         sb.append("【已识别风险】");
@@ -457,6 +457,22 @@ public class LedgerAiAnalysisServiceImpl implements ILedgerAiAnalysisService {
         }
         sb.append('\n');
         return sb.toString();
+    }
+
+    /**
+     * 金额归一化：Map 中金额字段类型不可控（BigDecimal/Long/Integer/Number），
+     * 统一转 BigDecimal，避免 ClassCastException。
+     */
+    private BigDecimal toBigDecimal(Object v) {
+        if (v == null) return BigDecimal.ZERO;
+        if (v instanceof BigDecimal) return (BigDecimal) v;
+        if (v instanceof Long || v instanceof Integer) return BigDecimal.valueOf(((Number) v).longValue());
+        if (v instanceof Number) return BigDecimal.valueOf(((Number) v).doubleValue());
+        try {
+            return new BigDecimal(v.toString());
+        } catch (NumberFormatException e) {
+            return BigDecimal.ZERO;
+        }
     }
 
     /** 调用 LLM（复用 ext-ai 模块模型配置；未配置/失败返回 null） */

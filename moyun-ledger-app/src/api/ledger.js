@@ -7,8 +7,36 @@ import { useUserStore } from '@/stores/user';
 
 // ---------------- 登录（复用门户账号体系） ----------------
 
-/** 门户账号登录 */
+/** 门户账号登录（captchaEnabled 开启时需携带 code + uuid） */
 export const login = (data) => post('/portal/login', data);
+
+/**
+ * 图形验证码（复用后端 /captchaImage，响应顶层返回 captchaEnabled/uuid/img）
+ * 注意：字段位于响应顶层而非 data 内（且 data 为 null），
+ * 不能复用通用 get()（其 resolve body.data 会得到 null），须独立请求。
+ * @returns {Promise<{captchaEnabled: boolean, uuid: string, img: string}>}
+ */
+export const getCaptchaImage = () => {
+  return new Promise((resolve, reject) => {
+    uni.request({
+      url: BASE_URL + '/captchaImage',
+      method: 'GET',
+      success: (res) => {
+        if (res.statusCode !== 200) {
+          reject(new Error('HTTP ' + res.statusCode));
+          return;
+        }
+        const body = res.data || {};
+        resolve({
+          captchaEnabled: body.captchaEnabled !== false,
+          uuid: body.uuid || '',
+          img: body.img || ''
+        });
+      },
+      fail: (err) => reject(err)
+    });
+  });
+};
 
 // ---------------- 总览 ----------------
 

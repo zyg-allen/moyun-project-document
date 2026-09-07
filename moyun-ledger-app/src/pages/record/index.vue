@@ -45,14 +45,14 @@
     <!-- 备注行（突出） -->
     <view class="note-card">
       <text class="note-label">备注</text>
-      <input v-model="form.description" placeholder="点击填写备注" class="note-input" />
+      <input v-model="form.description" placeholder="点击补充说明" class="note-input" @input="onDescInput" />
     </view>
 
     <!-- 金额区（突出） -->
     <view class="amount-area" @tap="kbVisible = true">
       <view class="amount-left">
         <text class="amount-label">金额</text>
-        <text class="amount-date" @tap.stop="pickDate">{{ form.transactionDate }} ›</text>
+        <text class="amount-date">{{ form.transactionDate }} {{ form.transactionTime }}</text>
       </view>
       <view class="amount-right">
         <text class="currency">¥</text>
@@ -63,6 +63,21 @@
 
     <!-- 账户/负债选择（次级卡片） -->
     <view class="opt-card">
+      <!-- 日期选择（独立选择器，支持历史补录） -->
+      <view class="pick-row">
+        <text class="pick-label">日期</text>
+        <picker mode="date" :value="form.transactionDate" :end="todayStr" @change="onDateChange" class="pick-picker">
+          <view class="pick-value">{{ form.transactionDate }} ▾</view>
+        </picker>
+        <view class="today-btn" @tap="setToday">今天</view>
+      </view>
+      <!-- 时间必填（独立选择器，默认当前时间） -->
+      <view class="pick-row">
+        <text class="pick-label">时间</text>
+        <picker mode="time" :value="form.transactionTime" @change="onTimeChange" class="pick-picker">
+          <view class="pick-value">{{ form.transactionTime }} ▾</view>
+        </picker>
+      </view>
       <view class="pick-row" @tap="pickAsset">
         <text class="pick-label">{{ accountLabel }}</text>
         <text class="pick-value">{{ selectedAssetName || '选择账户' }} ▾</text>
@@ -73,7 +88,10 @@
       </view>
       <view class="pick-row" v-if="needLiability" @tap="pickLiability">
         <text class="pick-label">{{ form.type === 'repayment' ? '还款至' : '借款自' }}</text>
-        <text class="pick-value">{{ selectedLiabilityName || '选择借款项目' }} ▾</text>
+        <view class="pick-value-area">
+          <text class="pick-value">{{ selectedLiabilityName || '选择借款项目' }} ▾</text>
+          <text v-if="form.liabilityId" class="pick-clear" @tap.stop="clearLiability">✕ 清除</text>
+        </view>
       </view>
       <view class="pick-row" v-if="form.type === 'expense'">
         <text class="pick-label">商户</text>
@@ -123,13 +141,14 @@
         </view>
         <view v-if="picker.mode === 'liability' && quickAdd.visible" class="quick-add-form">
           <view class="qa-title">快速补录借款项目</view>
+          <view class="qa-tip">仅填写历史欠款（此前已借未还的部分）；本次要记的借款金额勿填在这里，保存记账时会自动累加到该项目，填了会双倍计入。</view>
           <view class="qa-row">
             <text class="qa-label">名称</text>
             <input v-model="quickAdd.name" placeholder="如：向朋友A借款" class="qa-input" />
           </view>
           <view class="qa-row">
-            <text class="qa-label">当前欠款(元)</text>
-            <input v-model="quickAdd.balanceYuan" type="digit" placeholder="0.00" class="qa-input" />
+            <text class="qa-label">历史欠款(元)</text>
+            <input v-model="quickAdd.balanceYuan" type="digit" placeholder="0.00（没有留空）" class="qa-input" />
           </view>
           <view class="qa-actions">
             <view class="qa-btn cancel" @tap="quickAdd.visible = false">取消</view>
@@ -167,10 +186,12 @@ const TYPE_DEFS = [
 ];
 
 const TYPE_HINTS = {
+  expense: '支出 = 从所选资产账户扣钱，计入当月预算统计',
+  income: '收入 = 钱进入所选资产账户，计入月度收支统计',
   transfer: '转账 = 资产账户间互转：A 减、B 加，总资产不变',
   repayment: '还款 = 资产账户出钱，欠款对应减少；余额不足会提示补录资金来源',
   borrow: '借款 = 欠款增加，钱进入所选资产账户（可不选账户，仅记录欠款）',
-  adjust: '校准 = 将账户余额直接修正为目标值（差额可为负）'
+  adjust: '校准 = 在账户当前余额上累加差额（正数调增、负数调减），用于补记遗漏造成的余额偏差，不计入收支统计'
 };
 
 /** 分类 icon 标识 → emoji（彩色圆底内） */
@@ -190,6 +211,8 @@ const ICON_MAP = {
   'adjust-balance': '⚖️', 'adjust-fee': '💸', 'adjust-fx': '💱', 'adjust-other': '🔖'
 };
 
+const TYPE_NAMES = { expense: '支出', income: '收入', transfer: '转账', repayment: '还款', borrow: '借款', adjust: '校准' };
+
 export default {
   data() {
     const today = new Date();
@@ -203,10 +226,13 @@ export default {
       categories: [],
       kbVisible: true,
       quickAdd: { visible: false, name: '', balanceYuan: '' },
+      /** 用户是否手动改过备注（未改过时自动跟随类型/分类/日期刷新默认前缀） */
+      descEdited: false,
       form: {
         type: 'expense', accountId: null, targetAccountId: null, liabilityId: null,
         categoryId: null, subCategoryId: null, description: '', merchant: '', voucherUrl: '',
-        transactionDate: `${today.getFullYear()}-${pad(today.getMonth() + 1)}-${pad(today.getDate())}`
+        transactionDate: `${today.getFullYear()}-${pad(today.getMonth() + 1)}-${pad(today.getDate())}`,
+        transactionTime: `${pad(today.getHours())}:${pad(today.getMinutes())}`
       },
       keys: [
         ['1', '2', '3'],
@@ -220,6 +246,11 @@ export default {
   computed: {
     themeVars() { return useThemeStore().themeVars; },
     userStore() { return useUserStore(); },
+    todayStr() {
+      const t = new Date();
+      const pad = (n) => String(n).padStart(2, '0');
+      return `${t.getFullYear()}-${pad(t.getMonth() + 1)}-${pad(t.getDate())}`;
+    },
     visibleTypes() { return this.types; },
     typeHint() { return TYPE_HINTS[this.form.type] || ''; },
     needTarget() { return this.form.type === 'transfer'; },
@@ -260,7 +291,8 @@ export default {
       return c ? c.name : '';
     },
     quickAddOk() {
-      return !!(this.quickAdd.name && this.quickAdd.name.trim()) && yuanToCent(this.quickAdd.balanceYuan) > 0;
+      // 历史欠款可空（=0）：借款页补录时通常只建项目，欠款由本次记账累加
+      return !!(this.quickAdd.name && this.quickAdd.name.trim()) && yuanToCent(this.quickAdd.balanceYuan || '0') >= 0;
     },
     canSave() {
       const cent = yuanToCent(this.amountYuan);
@@ -314,10 +346,54 @@ export default {
       this.form.type = key;
       this.form.categoryId = null;
       this.form.subCategoryId = null;
+      this.refreshRemark();
     },
     pickCategoryCell(c) {
       this.form.categoryId = this.form.categoryId === c.id ? null : c.id;
       this.form.subCategoryId = null;
+      this.refreshRemark();
+    },
+    pickSubCategory(s) {
+      this.form.subCategoryId = this.form.subCategoryId === s.id ? null : s.id;
+      this.refreshRemark();
+    },
+    /** 备注默认前缀：yyyyMMdd 类型-具体类目（大类型名称—小类型名称），用户在此基础上补充说明 */
+    buildRemarkPrefix() {
+      const dateStr = (this.form.transactionDate || '').replace(/-/g, '');
+      const typeName = TYPE_NAMES[this.form.type] || this.form.type;
+      const parent = this.categories.find(c => c.id === this.form.categoryId);
+      const sub = this.categories.find(c => c.id === this.form.subCategoryId);
+      let cat = '';
+      if (parent && sub) {
+        cat = `-${sub.name}（${parent.name}—${sub.name}）`;
+      } else if (parent) {
+        cat = `-${parent.name}（${parent.name}）`;
+      }
+      return `${dateStr} ${typeName}${cat}`;
+    },
+    /** 未手动编辑过备注时，自动刷新默认前缀（类型/分类/日期变化联动） */
+    refreshRemark() {
+      if (this.descEdited) return;
+      this.form.description = this.buildRemarkPrefix();
+    },
+    onDescInput() {
+      this.descEdited = true;
+    },
+    onDateChange(e) {
+      this.form.transactionDate = e.detail.value;
+      this.refreshRemark();
+    },
+    onTimeChange(e) {
+      this.form.transactionTime = e.detail.value;
+    },
+    /** 快速按钮：今天 = 系统当前日期 + 当前时间 */
+    setToday() {
+      const t = new Date();
+      const pad = (n) => String(n).padStart(2, '0');
+      this.form.transactionDate = `${t.getFullYear()}-${pad(t.getMonth() + 1)}-${pad(t.getDate())}`;
+      this.form.transactionTime = `${pad(t.getHours())}:${pad(t.getMinutes())}`;
+      this.refreshRemark();
+      uni.showToast({ title: '已选今天', icon: 'none' });
     },
     pickAsset() {
       this.openPicker('asset', '选择账户', this.assets.map(a => ({
@@ -355,14 +431,19 @@ export default {
       if (mode === 'liability') this.form.liabilityId = item.id;
       this.picker.visible = false;
     },
+    clearLiability() {
+      this.form.liabilityId = null;
+      uni.showToast({ title: '已清除，可重新选择', icon: 'none' });
+    },
     async saveQuickAdd() {
       if (!this.quickAddOk) return;
       try {
-       debugger
+        const cent = yuanToCent(this.quickAdd.balanceYuan || '0');
         const created = await createLiability({
           name: this.quickAdd.name.trim(),
           type: 'personal',
-          initialBalance: yuanToCent(this.quickAdd.balanceYuan),
+          // 历史欠款为 0 时传 null：不生成"初始欠款"流水，欠款完全由本次借款流水累加（防双倍）
+          initialBalance: cent > 0 ? cent : null,
           includeInTotal: 1
         });
         await this.refreshLiabilities();
@@ -380,9 +461,6 @@ export default {
     async refreshLiabilities() {
       const liabilities = await listLiabilities(false);
       this.liabilities = ((liabilities && liabilities.records) || []).filter(l => l.settleFlag !== 1);
-    },
-    pickDate() {
-      uni.showModal({ title: '提示', content: '当前默认今天，历史补录请先保存后在流水中编辑', showCancel: false });
     },
     tapKey(k) {
       if (k === 'del') {
@@ -408,6 +486,23 @@ export default {
         return;
       }
       const cent = yuanToCent(this.amountYuan);
+      const typeName = { expense: '支出', income: '收入', transfer: '转账', repayment: '还款', borrow: '借款', adjust: '校准' }[this.form.type];
+
+      // 类型最终确认（防 tab 误触）：校准/借款等特殊类型必须人工确认
+      if (this.form.type === 'adjust' || this.form.type === 'borrow' || this.form.type === 'repayment') {
+        const that = this;
+        const confirmed = await new Promise((resolve) => {
+          uni.showModal({
+            title: '确认保存' + typeName,
+            content: this.confirmText(cent),
+            confirmText: '保存',
+            cancelText: '再检查',
+            success: (r) => resolve(!!r.confirm),
+            fail: () => resolve(false)
+          });
+        });
+        if (!confirmed) return;
+      }
 
       // 还款资金校验：扣款账户余额不足时，引导补录资金来源（说明钱从哪来）
       if (this.form.type === 'repayment' && this.form.accountId) {
@@ -434,6 +529,25 @@ export default {
       }
       this.doSave(cent);
     },
+    /** 保存确认文案：按类型说清这笔账会怎么动账 */
+    confirmText(cent) {
+      const amt = centToAmount(Math.abs(cent));
+      const acc = this.selectedAssetName || '未选账户';
+      switch (this.form.type) {
+        case 'adjust':
+          return `将在「${acc}」当前余额上${cent > 0 ? '加' : '减'} ¥${amt}（不是设为该值），确认无误？`;
+        case 'borrow': {
+          const li = this.selectedLiabilityName || '自动新建借款项目';
+          return `记借款 ¥${amt}：欠款增加（${li}）${this.form.accountId ? `，资金进入「${acc}」` : '，不入资产账户'}。确认？`;
+        }
+        case 'repayment': {
+          const li = this.selectedLiabilityName || '';
+          return `记还款 ¥${amt}：「${acc}」扣款，${li || '指定借款项目'}欠款减少。确认？`;
+        }
+        default:
+          return '';
+      }
+    },
     async doSave(cent) {
       const data = {
         type: this.form.type,
@@ -456,11 +570,18 @@ export default {
           uni.showToast({ title: '已保存', icon: 'success' });
         }
         this.amountYuan = '';
-        this.form.description = '';
         this.form.merchant = '';
         this.form.voucherUrl = '';
         this.form.categoryId = null;
         this.form.subCategoryId = null;
+        this.form.liabilityId = null;
+        // 保存后重置备注为新的默认前缀（日期已可能变化）
+        this.descEdited = false;
+        const t = new Date();
+        const pad = (n) => String(n).padStart(2, '0');
+        this.form.transactionDate = `${t.getFullYear()}-${pad(t.getMonth() + 1)}-${pad(t.getDate())}`;
+        this.form.transactionTime = `${pad(t.getHours())}:${pad(t.getMinutes())}`;
+        this.refreshRemark();
         const assets = await listAssets(false).catch(() => null);
         if (assets && assets.records) this.assets = assets.records;
       } catch (e) { /* 拦截器已提示 */ }
@@ -574,8 +695,18 @@ export default {
 }
 .pick-row:last-child { border-bottom: none; }
 .pick-label { width: 200rpx; color: #666; font-size: 28rpx; }
+.pick-value-area { flex: 1; display: flex; align-items: center; justify-content: flex-end; }
+.pick-clear {
+  margin-left: 16rpx; padding: 4rpx 16rpx; border-radius: 20rpx;
+  background: #f0f0f5; color: #e74c3c; font-size: 22rpx;
+}
 .pick-value { flex: 1; text-align: right; color: #333; font-size: 28rpx; }
 .pick-input { flex: 1; text-align: right; font-size: 28rpx; }
+.pick-picker { flex: 1; display: flex; justify-content: flex-end; }
+.today-btn {
+  margin-left: 16rpx; padding: 6rpx 24rpx; border-radius: 24rpx;
+  background: var(--primary-soft); color: var(--primary-strong); font-size: 24rpx;
+}
 
 /* 凭证截图行 */
 .voucher-row {
@@ -646,6 +777,10 @@ export default {
   background: var(--primary-soft); border-radius: 16rpx; padding: 20rpx; margin-bottom: 16rpx;
 }
 .qa-title { font-size: 26rpx; font-weight: 600; color: var(--primary-strong); margin-bottom: 12rpx; }
+.qa-tip {
+  font-size: 22rpx; color: #e67e22; background: #fdf3e7;
+  border-radius: 8rpx; padding: 12rpx 16rpx; margin-bottom: 8rpx; line-height: 1.6;
+}
 .qa-row { display: flex; align-items: center; padding: 12rpx 0; }
 .qa-label { width: 190rpx; font-size: 25rpx; color: #666; }
 .qa-input { flex: 1; font-size: 27rpx; text-align: right; }

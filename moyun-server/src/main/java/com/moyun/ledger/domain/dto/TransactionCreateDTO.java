@@ -40,6 +40,12 @@ public class TransactionCreateDTO {
     /** 交易日期（默认当天） */
     private LocalDate transactionDate;
 
+    /** 交易时间 HH:mm[:ss]（为空时服务端取当前时间） */
+    private String transactionTime;
+
+    /** 创建人（服务端从登录态填充，前端勿传；修改时保留原创建人） */
+    private String createBy;
+
     /** 商户名称 */
     private String merchant;
 

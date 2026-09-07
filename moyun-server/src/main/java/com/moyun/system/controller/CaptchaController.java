@@ -93,7 +93,7 @@ public class CaptchaController {
             return AjaxResult.error(e.getMessage());
         }
 
-        ajax.put("capStr", capStr);
+        // 注意：不得将 capStr（验证码明文/算式）返回给前端，否则验证码形同虚设
         ajax.put("uuid", uuid);
         ajax.put("img", Base64.encode(os.toByteArray()));
         return ajax;

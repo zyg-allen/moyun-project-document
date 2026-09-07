@@ -97,6 +97,9 @@ public class LedgerTransaction {
     /** 客户端幂等键（Phase 4 离线同步防重复提交） */
     private String clientUuid;
 
+    /** 创建人（门户用户名；后台代改时为 admin 标识，数据隔离溯源用） */
+    private String createBy;
+
     private LocalDateTime createTime;
 
     private LocalDateTime updateTime;

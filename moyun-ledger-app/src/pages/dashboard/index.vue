@@ -142,6 +142,19 @@
       </view>
     </view>
 
+    <!-- 待办事项（来自备忘录） -->
+    <view class="card" v-if="pendingTodos.length">
+      <view class="card-title flex-row">
+        <text class="flex-1">待办事项</text>
+        <text class="link" @tap="goMemo">全部 ›</text>
+      </view>
+      <view v-for="t in pendingTodos.slice(0, 3)" :key="t.id" class="todo-row" @tap="goMemo">
+        <view class="todo-dot"></view>
+        <text class="todo-text flex-1">{{ t.text }}</text>
+        <text class="todo-date" v-if="t.date">{{ t.date }}</text>
+      </view>
+    </view>
+
     <!-- 最近流水 -->
     <view class="card">
       <view class="card-title flex-row">
@@ -167,12 +180,14 @@ import { getDashboard } from '@/api/ledger';
 import { centToYuan, centToAmount, centToSigned, typeText } from '@/utils/money';
 import { useUserStore } from '@/stores/user';
 import { useThemeStore } from '@/stores/theme';
+import { storage } from '@/utils/storage';
 
 export default {
   data() {
     return {
       dashboard: {},
       privacyMode: false,
+      todos: [],
       pains: [
         { i: '💸', t: '钱花哪了说不清', d: '只记流水不分类，月底一对账就懵' },
         { i: '📉', t: '净资产是笔糊涂账', d: '存款、房贷、花呗散落各处，总账没人帮你算' },
@@ -195,6 +210,7 @@ export default {
     budgetAmountText() { return centToAmount(this.budget && this.budget.amount); },
     budgetUsedText() { return centToAmount(this.budget && this.budget.used); },
     recentList() { return this.dashboard.recentTransactions || []; },
+    pendingTodos() { return (this.todos || []).filter(t => !t.done); },
     // 新手引导：无任何资产/负债账户，且未手动关闭过
     showGuide() {
       const dismissed = uni.getStorageSync('ledger_guide_dismissed') === '1';

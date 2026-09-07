@@ -33,6 +33,9 @@ public class PortalLedgerTransactionController {
     @PostMapping
     public AjaxResult create(@RequestBody TransactionCreateDTO dto) {
         Long userId = PortalSecurityUtils.getUserId();
+        // 创建人从登录态填充（数据隔离/溯源），前端不传
+        String username = PortalSecurityUtils.getUsername();
+        dto.setCreateBy(username != null && !username.isEmpty() ? username : String.valueOf(userId));
         Long id = transactionService.createTransaction(userId, dto);
         // 事务提交后判断预算阈值（方法内部已兜底，失败不影响记账）
         String budgetAlert = transactionService.checkBudgetAlert(userId);

@@ -39,6 +39,15 @@ public class VoiceInterviewReportVO {
     /** 下次练习建议 */
     private String suggestion;
 
+    /** 心态趋势（逐轮：nervous/confident/hesitant/calm，Agent 模式产出） */
+    private List<String> sentimentTrend;
+
+    /** 全场可疑信号汇总（答非所问/背诵痕迹/前后矛盾/夸大数据） */
+    private List<String> redFlags;
+
+    /** 表达流畅度均分（0-100，Agent 模式产出） */
+    private Integer fluencyAvg;
+
     /**
      * 逐题点评项
      */

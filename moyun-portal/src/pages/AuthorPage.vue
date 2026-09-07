@@ -330,7 +330,7 @@ function handlePageChange(page: number) {
                       <span
                         v-if="authorGrowth"
                         class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium"
-                        style="background: linear-gradient(135deg, var(--theme-primary) 0%, var(--theme-info) 100%); color: white;"
+                        style="background-color: var(--theme-primary); color: white;"
                       >
                         <Award class="w-3.5 h-3.5" />
                         Lv.{{ authorGrowth.level }} {{ authorGrowth.title }}
@@ -579,7 +579,7 @@ function handlePageChange(page: number) {
                     <div
                       class="w-10 h-10 mx-auto mb-2 rounded-xl flex items-center justify-center"
                       :style="ach.earned
-                        ? { background: 'linear-gradient(135deg, var(--theme-primary) 0%, var(--theme-info) 100%)' }
+                        ? { backgroundColor: 'var(--theme-primary)' }
                         : { backgroundColor: 'var(--theme-border)' }"
                     >
                       <component :is="ach.earned ? Award : Star" class="w-5 h-5 text-white" />

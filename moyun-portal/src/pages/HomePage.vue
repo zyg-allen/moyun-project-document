@@ -1,31 +1,33 @@
-<script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+﻿<script setup lang="ts">
+import { ref, computed, onMounted } from 'vue'
 import { RouterLink as Link, useRouter } from 'vue-router'
 import { useHead } from '@vueuse/head'
 import {
-  ChevronRight, ChevronLeft, Star, Flame,
-  User, Eye, Tag, BookOpen,
+  Star, Flame,
+  User, Tag, BookOpen,
   Quote, ArrowRight, Sparkles,
-  Book, Briefcase, Users,
+  Book, Briefcase,
   AlertCircle, RefreshCw,
-  BarChart3, Network, TrendingUp,
+  Network, TrendingUp,
   MessageCircle, Activity, Crown, Target,
-  Mic, PlayCircle, Clock
+  Mic, PlayCircle, Clock,
+  FileText, Zap, ClipboardList,
+  PenLine, Trophy,
+  CalendarCheck, XCircle, GraduationCap, Flame as FlameIcon,
+  Code2, LayoutTemplate, Users
 } from 'lucide-vue-next'
 import LazyImage from '@/components/LazyImage.vue'
 import SiteFooter from '@/components/SiteFooter.vue'
 import BackToTop from '@/components/BackToTop.vue'
-import AdCard from '@/components/AdCard.vue'
 import { generateSeo } from '@/utils/seo'
 import { transformArticle } from '@/utils/articleTransform'
 import * as articleApi from '@/api/article'
 import * as categoryApi from '@/api/category'
 import { filterCategoryTree, getCategoryTarget } from '@/api/category'
 import * as tagApi from '@/api/tag'
-import { getFriendLinks } from '@/api/friendLink'
 import { getAuthors } from '@/api/user'
 import { getReadingHome } from '@/api/reading'
-import { getInterviewHome } from '@/api/interview'
+import { getInterviewHome, getResumeTemplateList } from '@/api/interview'
 import { getHotFeed } from '@/api/feed'
 import { getLeaderboard } from '@/api/learnStats'
 import { useUserStore } from '@/stores/user'
@@ -36,23 +38,9 @@ const router = useRouter()
 const userStore = useUserStore()
 const { requireAuth } = useAuth()
 
-interface HeroItem {
-  id: string
-  image: string
-  title: string
-  subtitle: string
-  author: string
-  tag: string
-  articleId: string
-  tags: string[]
-}
+// ==================== 登录态（V1/V2 双形态首页） ====================
+const isLoggedIn = computed(() => userStore.isAuthenticated)
 
-const heroImages = ref<HeroItem[]>([])
-const currentHeroIndex = ref(0)
-const friendLinks = ref<any[]>([])
-const carouselArticles = ref<any[]>([])
-const featuredArticles = ref<any[]>([])
-const hotArticles = ref<any[]>([])
 const latestArticles = ref<any[]>([])
 const tags = ref<any[]>([])
 const categories = ref<Category[]>([])
@@ -74,43 +62,50 @@ const interviewExperiences = ref<any[]>([])
 const interviewCategories = ref<any[]>([])
 const interviewTotalQuestions = ref(0)
 
+// 简历模板总数（Hero 数据条）
+const resumeTemplateTotal = ref(0)
+
 // 学习中心首页数据（阶段三核心展示）
 const leaderboardTop3 = ref<any[]>([])
 
 // 社区动态预览数据（营造社区氛围）
 const hotFeedList = ref<any[]>([])
 
-// 首页广告位（可关闭）
-const showAdBanner = ref(true)
+// ==================== 已登录：问候区（V11.2 精简，仅问候 + 快捷入口） ====================
+// 问候语（按时段 + 场景化提示语；凌晨深夜关怀休息，白天按节奏激励）
+const greetingInfo = computed(() => {
+  const h = new Date().getHours()
+  if (h < 6) return { text: '夜深了', emoji: '🌙', tip: '这么晚还在努力，注意休息，别熬太久' }
+  if (h < 9) return { text: '早上好', emoji: '☀️', tip: '一日之计在于晨，从一道题目开始今天' }
+  if (h < 12) return { text: '上午好', emoji: '🌤', tip: '上午思路最清晰，适合攻克难题' }
+  if (h < 14) return { text: '中午好', emoji: '☀️', tip: '午间小憩片刻，下午继续保持状态' }
+  if (h < 18) return { text: '下午好', emoji: '🌤', tip: '下午茶时间，刷几道题提提神' }
+  return { text: '晚上好', emoji: '🌙', tip: '晚间复盘黄金时段，沉淀今天所学' }
+})
 
+// 加入平台天数（兼容 createdAt / createTime 两种字段；注册当天为第 1 天）
+const joinDays = computed(() => {
+  const u: any = userStore.user
+  const created = u?.createdAt || u?.createTime
+  if (!created) return 1
+  const d = new Date(created)
+  if (isNaN(d.getTime())) return 1
+  const diff = Math.floor((Date.now() - d.getTime()) / 86400000) + 1
+  return diff > 0 ? diff : 1
+})
+
+// ==================== 首页公共数据 ====================
 const loadHomeData = async () => {
   try {
     const homeResponse = await articleApi.getHomeData()
     if (homeResponse.code === 200 && homeResponse.data) {
-      carouselArticles.value = homeResponse.data.carouselArticles?.map(transformArticle) || []
-      featuredArticles.value = homeResponse.data.featuredArticles?.map(transformArticle) || []
-      hotArticles.value = homeResponse.data.hotArticles?.map(transformArticle) || []
       latestArticles.value = homeResponse.data.latestArticles?.map(transformArticle) || []
-
-      if (carouselArticles.value.length > 0) {
-        heroImages.value = carouselArticles.value.map((article, index) => ({
-          id: String(article.id),
-          image: article.cover || '',
-          title: article.title,
-          subtitle: article.excerpt,
-          author: '文 / ' + (article.author?.nickname || article.author?.username || '作者'),
-          tag: index === 0 ? '今日推荐' : '精选文章',
-          articleId: String(article.id),
-          tags: article.tags || []
-        }))
-      }
     } else {
       // 接口返回非 200，标记主数据错误但不影响其他 section
       mainDataError.value = homeResponse.message || '主内容加载失败'
     }
   } catch (err) {
     console.error('加载首页主数据失败:', err)
-    // 不再设置全局 error，改为局部错误状态，允许其他 section 正常展示
     mainDataError.value = '推荐内容加载失败，可点击重试'
   }
 }
@@ -163,17 +158,6 @@ const loadAuthors = async () => {
   }
 }
 
-const loadFriendLinks = async () => {
-  try {
-    const response = await getFriendLinks()
-    if (response.code === 200 && response.data && response.data.list) {
-      friendLinks.value = response.data.list
-    }
-  } catch (error) {
-    console.error('加载友情链接失败:', error)
-  }
-}
-
 const loadReadingData = async () => {
   try {
     const response = await getReadingHome()
@@ -199,6 +183,18 @@ const loadInterviewData = async () => {
     }
   } catch (err) {
     console.error('加载面试空间数据失败:', err)
+  }
+}
+
+// 简历模板总数（仅取 total，pageSize=1 减少传输）
+const loadResumeTemplateCount = async () => {
+  try {
+    const response = await getResumeTemplateList({ pageNum: 1, pageSize: 1 })
+    if (response.code === 200 && response.data) {
+      resumeTemplateTotal.value = Number((response.data as any).total || 0)
+    }
+  } catch (err) {
+    console.error('加载简历模板数失败:', err)
   }
 }
 
@@ -255,31 +251,6 @@ const getFeedActionText = (item: any): string => {
   }
 }
 
-const prevHero = () => {
-  currentHeroIndex.value = (currentHeroIndex.value - 1 + heroImages.value.length) % heroImages.value.length
-}
-
-const nextHero = () => {
-  currentHeroIndex.value = (currentHeroIndex.value + 1) % heroImages.value.length
-}
-
-// 轮播定时器（仅当有多张图时启动）
-let heroTimer: ReturnType<typeof setInterval> | null = null
-
-const startHeroAutoplay = () => {
-  if (heroTimer || heroImages.value.length <= 1) return
-  heroTimer = setInterval(() => {
-    nextHero()
-  }, 5000)
-}
-
-const stopHeroAutoplay = () => {
-  if (heroTimer) {
-    clearInterval(heroTimer)
-    heroTimer = null
-  }
-}
-
 const themes = computed(() => {
   return filterCategoryTree(categories.value)
     .map((cat: Category) => {
@@ -296,44 +267,38 @@ const themes = computed(() => {
 
 const activeTheme = ref('')
 
-const trendingArticles = computed(() => hotArticles.value.slice(0, 6))
-
 const loadAll = async () => {
   try {
     loading.value = true
     // 所有 section 并行加载，各自的错误已在 loadXxx 内部 try-catch 处理
-    // 任一 section 失败不会阻塞其他 section，避免单点失败导致整页不可用
     await Promise.allSettled([
       loadHomeData(),
       loadCategories(),
       loadTags(),
       loadAuthors(),
-      loadFriendLinks(),
       loadReadingData(),
       loadInterviewData(),
+      loadResumeTemplateCount(),
       loadLeaderboardData(),
       loadHotFeedData()
     ])
     if (themes.value.length > 0) {
       activeTheme.value = themes.value[0].name
-      await loadCategoryArticles(themes.value[0].name)
+      await loadCategoryArticles(themes.value[0].name, themes.value[0].id)
     } else {
       activeTheme.value = '散文'
     }
     // 仅当主数据出错且其他 section 也都为空时才显示全局错误
-    if (mainDataError.value && !carouselArticles.value.length && !featuredArticles.value.length) {
+    if (mainDataError.value && !latestArticles.value.length) {
       error.value = mainDataError.value
     }
   } catch (e) {
     console.error('加载首页数据失败:', e)
-    // 极端情况：loadAll 整体异常（如网络断开）
     if (!error.value) {
       error.value = '加载首页数据失败，请稍后重试'
     }
   } finally {
     loading.value = false
-    // 数据加载完成后启动轮播（仅当有多张图时）
-    startHeroAutoplay()
   }
 }
 
@@ -341,27 +306,24 @@ onMounted(() => {
   loadAll()
 })
 
-onUnmounted(() => {
-  stopHeroAutoplay()
-})
-
 const selectTheme = async (themeId: string, themeName: string) => {
-  // 检查是否为外部链接
   const theme = themes.value.find(t => t.id === themeId)
   if (theme && theme.isExternal && theme.path) {
-    // 外部链接直接跳转
     window.open(theme.path, '_blank', 'noopener,noreferrer')
     return
   }
   activeTheme.value = themeName
   if (!categoryArticles.value[themeName]) {
-    await loadCategoryArticles(themeName)
+    await loadCategoryArticles(themeName, themeId)
   }
 }
 
-const loadCategoryArticles = async (themeName: string) => {
+const loadCategoryArticles = async (themeName: string, themeId?: string) => {
   try {
-    const response = await articleApi.getCategoryRecommendedArticles(themeName, undefined, 8)
+    // themeId 为一级分类ID：后端按 root_category_id 匹配，覆盖其下全部子分类文章
+    const params: any = { limit: 8 }
+    if (themeId) params.rootCategoryId = themeId
+    const response = await articleApi.getCategoryRecommendedArticles(themeName, params, 8)
     if (response.code === 200 && response.data) {
       const list = (response.data as any).list || response.data || []
       categoryArticles.value[themeName] = list.map(transformArticle)
@@ -384,10 +346,9 @@ const getThemeArticles = (themeName: string): any[] => {
   if (categoryArticles.value[themeName] && categoryArticles.value[themeName].length > 0) {
     return categoryArticles.value[themeName]
   }
-  const filtered = latestArticles.value.filter(article => {
-    return article.category === themeName || themeName === ''
-  })
-  return filtered.length > 0 ? filtered.slice(0, 8) : latestArticles.value.slice(0, 8)
+  // 兜底：从最新文章里按分类名过滤（category 为文章直属分类名；一级分类名无法匹配子分类文章，仅作最后回退）
+  const filtered = latestArticles.value.filter(article => article.category === themeName)
+  return filtered.slice(0, 8)
 }
 
 const getThemeCode = (themeName: string) => {
@@ -406,15 +367,65 @@ const goVoiceInterview = () => {
   router.push('/interview/voice');
 };
 
-// ============ Hero 区：站点核心数据 ============
-// 用前端已加载数据的长度作为统计指标，无需新接口
-// 注意：「名家展示」是当前首页展示的名家数量（limit=10），非全站认证名家总数
-//       若需展示真实总数，需后端新增 /portal/user/authors/count 接口
-const siteStats = computed(() => [
-  { label: '原创文章', value: latestArticles.value.length, suffix: '篇' },
-  { label: '名家展示', value: authors.value.length, suffix: '位' },
-  { label: '热门标签', value: tags.value.length, suffix: '个' }
-])
+const goResumeOptimize = () => {
+  if (!requireAuth('/interview/resume/optimize')) return;
+  router.push('/interview/resume/optimize');
+};
+
+const goRegister = () => {
+  router.push('/register');
+};
+
+// ============ Hero 区：站点核心数据（真实接口数据，非虚构指标） ============
+// 名家未满 10 位时隐藏该项（避免冷启动数据削弱信任感）
+const heroStats = computed(() => {
+  const stats: Array<{ label: string; value: string; suffix: string }> = [
+    { label: '面试题库', value: `${interviewTotalQuestions.value}+`, suffix: '道' }
+  ]
+  if (resumeTemplateTotal.value > 0) {
+    stats.push({ label: '简历模板', value: `${resumeTemplateTotal.value}`, suffix: '套' })
+  }
+  if (authors.value.length >= 10) {
+    stats.push({ label: '入驻名家', value: `${authors.value.length}`, suffix: '位' })
+  }
+  const bookCount = readingBooks.value.length + readingBookLists.value.length
+  if (bookCount > 0) {
+    stats.push({ label: '精选好书', value: `${bookCount}`, suffix: '本' })
+  }
+  if (tags.value.length > 0) {
+    stats.push({ label: '热门话题', value: `${tags.value.length}`, suffix: '个' })
+  }
+  return stats
+})
+
+// ============ 五大主线锚点导航（Hero → 各区块平滑滚动） ============
+const mainLines = [
+  { id: 'home-learn', label: '学习', desc: '刷题与计划', icon: GraduationCap },
+  { id: 'home-resume', label: '简历', desc: 'AI 优化', icon: FileText },
+  { id: 'home-interview', label: '面试', desc: '语音模拟', icon: Mic },
+  { id: 'home-reading', label: '阅读', desc: '书籍与文章', icon: BookOpen },
+  { id: 'home-community', label: '社区', desc: '创作互动', icon: MessageCircle },
+]
+
+// 学习区功能宫格（主线一：题库/在线编程/知识图谱/错题本/学习计划等）
+const learnTools = [
+  { title: '题库修炼', desc: '精选面试题库', path: '/learn/questions', icon: Zap, iconBg: 'bg-blue-500' },
+  { title: '在线刷题', desc: '选择题型练习', path: '/learn/practice/choice', icon: ClipboardList, iconBg: 'bg-cyan-500' },
+  { title: '在线编程', desc: '代码实时判题', path: '/learn/practice/coding', icon: Code2, iconBg: 'bg-indigo-500' },
+  { title: '知识图谱', desc: '可视化知识结构', path: '/learn/knowledge', icon: Network, iconBg: 'bg-teal-500' },
+  { title: '错题本', desc: '薄弱点针对强化', path: '/learn/wrong', icon: XCircle, iconBg: 'bg-red-500' },
+  { title: '学习计划', desc: '定制冲刺节奏', path: '/learn/plan', icon: CalendarCheck, iconBg: 'bg-emerald-500' },
+  { title: '刷题日历', desc: '坚持打卡可见', path: '/learn/calendar', icon: Activity, iconBg: 'bg-pink-500' },
+  { title: '排行榜', desc: '与同伴比学赶超', path: '/learn/leaderboard', icon: Trophy, iconBg: 'bg-amber-500' },
+]
+
+// 简历区功能宫格（主线二：模板/岗位维护/AI 评分/AI 优化）
+const resumeTools = [
+  { title: '简历模板库', desc: '大量精选专业模板', path: '/interview/resume-templates', icon: LayoutTemplate, iconBg: 'bg-blue-500' },
+  { title: '简历维护', desc: '针对岗位要求管理', path: '/interview/my/resumes', icon: ClipboardList, iconBg: 'bg-cyan-500' },
+  { title: 'AI 简历评分', desc: '多维度智能打分', path: '/interview/resume/optimize', icon: Target, iconBg: 'bg-violet-500' },
+  { title: 'AI 简历优化', desc: '一键生成优化建议', path: '/interview/resume/optimize', icon: Sparkles, iconBg: 'bg-orange-500' },
+]
 
 useHead(
     generateSeo({
@@ -453,303 +464,397 @@ useHead(
     </div>
 
     <template v-else>
-      <!-- Hero 区 -->
-      <div class="py-6 sm:py-8 bg-theme-bg">
-        <div class="content-container">
-          <div class="text-center mb-5 sm:mb-6">
-            <h1 class="page-title tracking-tight">
-              每天进步一点点，<span class="text-theme-primary">遇见更好的自己</span>
-            </h1>
-            <p class="body-text mt-2 text-theme-text-secondary">
-              坚持的力量，时间看得见 · 在这里读、写、学、思，让成长有迹可循
-            </p>
-
-            <!-- 数据指标横条 -->
-            <div class="flex items-center justify-center gap-4 sm:gap-8 mt-4 sm:mt-5">
-              <div v-for="stat in siteStats" :key="stat.label" class="text-center">
-                <div class="flex items-baseline justify-center gap-0.5">
-                  <span class="text-xl sm:text-2xl md:text-3xl font-bold text-theme-primary">{{ stat.value }}</span>
-                  <span class="meta-text">{{ stat.suffix }}</span>
-                </div>
-                <p class="meta-text mt-0.5">{{ stat.label }}</p>
-              </div>
-            </div>
+      <!-- ================================================================
+           综述区（Hero + 五大主线锚点导航，登录与否均展示，
+           保持品牌叙事一致性；已登录时上方叠加问候带）
+           ================================================================ -->
+        <!-- Hero：左侧文案 + 右侧简历诊断示例卡 -->
+        <section class="order-first relative overflow-hidden bg-gradient-to-br from-theme-primary-soft via-theme-bg to-theme-bg">
+          <div class="absolute inset-0 pointer-events-none">
+            <div class="absolute top-10 right-1/4 w-64 h-64 bg-theme-primary/10 rounded-full blur-3xl"></div>
+            <div class="absolute bottom-0 left-1/4 w-80 h-80 bg-theme-primary/5 rounded-full blur-3xl"></div>
           </div>
-
-          <!-- 轮播图 -->
-          <div
-            class="relative h-[280px] sm:h-[320px] md:h-[380px] overflow-hidden rounded-xl shadow-theme-lg bg-theme-accent"
-            @mouseenter="stopHeroAutoplay"
-            @mouseleave="startHeroAutoplay"
-          >
-            <div v-if="heroImages.length > 0">
-              <div class="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-black/70"></div>
-              <LazyImage
-                :key="currentHeroIndex"
-                :src="heroImages[currentHeroIndex].image"
-                :alt="heroImages[currentHeroIndex].title"
-                class="w-full h-full object-cover"
-              />
-              <div class="absolute inset-0 flex flex-col justify-end pb-8 sm:pb-10 md:pb-12">
-                <div class="px-6 sm:px-8 md:px-10">
-                  <div class="max-w-3xl">
-                    <div class="inline-flex items-center space-x-2 px-3 py-1 rounded-full text-xs font-medium mb-3 sm:mb-4 bg-theme-primary text-theme-on-primary">
-                      <span class="w-2 h-2 bg-yellow-400 rounded-full animate-pulse"></span>
-                      {{ heroImages[currentHeroIndex].tag }}
-                    </div>
-                    <h1 class="text-lg sm:text-xl md:text-2xl lg:text-3xl font-bold text-white mb-2 sm:mb-3">
-                      {{ heroImages[currentHeroIndex].title }}
-                    </h1>
-                    <p class="text-sm sm:text-base text-white/80 mb-3 sm:mb-4 line-clamp-2">
-                      {{ heroImages[currentHeroIndex].subtitle }}
-                    </p>
-                    <div v-if="heroImages[currentHeroIndex].tags && heroImages[currentHeroIndex].tags.length > 0" class="flex items-center space-x-2 mb-3 sm:mb-4">
-                      <span
-                        v-for="(tag, index) in heroImages[currentHeroIndex].tags"
-                        :key="index"
-                        class="inline-flex px-2.5 py-1 text-xs rounded-full bg-white/20 backdrop-blur text-white"
-                      >
-                        {{ tag }}
-                      </span>
-                    </div>
-                    <div class="flex items-center justify-between">
-                      <span class="text-white/70 text-sm">{{ heroImages[currentHeroIndex].author }}</span>
-                      <button
-                        @click="router.push(`/article/${heroImages[currentHeroIndex].articleId}`)"
-                        class="inline-flex items-center space-x-2 px-4 sm:px-5 py-2 sm:py-2.5 rounded-full text-sm font-medium bg-theme-primary text-theme-on-primary hover:opacity-90 transition-opacity"
-                      >
-                        <span>阅读全文</span>
-                        <ChevronRight class="w-4 h-4" />
-                      </button>
-                    </div>
-                  </div>
+          <div class="content-container relative py-8 sm:py-10 lg:py-12">
+            <div class="grid lg:grid-cols-2 gap-10 lg:gap-14 items-center">
+              <!-- 左侧文案 -->
+              <div class="space-y-6 sm:space-y-8">
+                <div class="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-theme-surface border border-theme-border">
+                  <span class="w-2 h-2 bg-theme-primary rounded-full animate-pulse"></span>
+                  <span class="meta-text font-medium text-theme-primary">{{ interviewTotalQuestions }}+ 道精选面试题持续更新</span>
                 </div>
-              </div>
-              <button
-                @click="prevHero"
-                aria-label="上一张"
-                class="absolute left-2 sm:left-3 top-1/2 -translate-y-1/2 w-11 h-11 bg-black/30 backdrop-blur text-white rounded-full flex items-center justify-center hover:bg-black/50 transition-colors"
-              >
-                <ChevronLeft class="w-4 h-4 sm:w-5 sm:h-5" />
-              </button>
-              <button
-                @click="nextHero"
-                aria-label="下一张"
-                class="absolute right-2 sm:right-3 top-1/2 -translate-y-1/2 w-11 h-11 bg-black/30 backdrop-blur text-white rounded-full flex items-center justify-center hover:bg-black/50 transition-colors"
-              >
-                <ChevronRight class="w-4 h-4 sm:w-5 sm:h-5" />
-              </button>
-              <div class="absolute bottom-2 right-4 sm:bottom-3 sm:right-6 flex space-x-1.5">
-                <button
-                  v-for="(_, index) in heroImages"
-                  :key="index"
-                  @click="currentHeroIndex = index"
-                  class="p-2 flex items-center justify-center"
-                  :aria-label="`切换到第 ${index + 1} 张`"
-                >
-                  <span
-                    :class="[
-                      'block rounded-full transition-all',
-                      currentHeroIndex === index ? 'w-5 h-1.5 bg-theme-primary' : 'w-1.5 h-1.5 bg-white/50 hover:bg-white/70'
-                    ]"
-                  ></span>
-                </button>
-              </div>
-            </div>
-            <div v-else class="w-full h-full flex items-center justify-center bg-theme-surface">
-              <p class="text-theme-text-secondary">暂无轮播文章</p>
-            </div>
-          </div>
-        </div>
-      </div>
 
-      <!-- 名言 + 写作 CTA -->
-      <div class="content-container -mt-6 sm:-mt-8 relative z-10">
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-0 rounded-xl shadow-theme-xl overflow-hidden border border-theme-border">
-          <div class="py-3 sm:py-4 px-4 bg-theme-surface">
-            <div class="flex items-start gap-2 sm:gap-3">
-              <Quote class="w-5 h-5 sm:w-6 sm:h-6 opacity-30 flex-shrink-0 mt-0.5 text-theme-primary" />
-              <div>
-                <p class="body-text italic">
-                  "世间所有的相遇，都是久别重逢。"
-                </p>
-                <p class="meta-text mt-1">—— 木心</p>
-              </div>
-            </div>
-          </div>
-          <button
-            @click="handleWrite"
-            class="flex items-center justify-between py-3 sm:py-4 px-4 text-left bg-theme-primary hover:opacity-90 transition-opacity"
-          >
-            <div>
-              <p class="text-theme-on-primary card-title">今天，写点什么？</p>
-              <p class="text-theme-on-primary/80 meta-text">写下即是沉淀，分享即是力量。</p>
-            </div>
-            <div class="w-7 h-7 sm:w-8 sm:h-8 bg-theme-on-primary/20 rounded-full flex items-center justify-center">
-              <Sparkles class="w-3.5 h-3.5 sm:w-4 sm:h-4 text-theme-on-primary" />
-            </div>
-          </button>
-        </div>
-      </div>
-
-      <!-- 本栏推荐 + 热门推荐 -->
-      <div class="py-6 sm:py-8 bg-theme-bg">
-        <div class="content-container">
-          <div class="grid lg:grid-cols-[2fr_1fr] gap-4 sm:gap-6">
-            <div>
-              <div class="flex items-center justify-between mb-3 sm:mb-4">
-                <div class="flex items-center gap-2">
-                  <Star class="w-4 h-4 sm:w-5 sm:h-5 text-theme-primary" />
-                  <h2 class="section-title">本栏推荐</h2>
+                <div class="space-y-4">
+                  <h1 class="text-3xl sm:text-4xl lg:text-5xl font-black text-theme-text leading-tight text-balance">
+                    遇见更好的自己<br>
+                    <span class="text-theme-primary">从拿到理想 offer</span> 开始
+                  </h1>
+                  <p class="body-text text-theme-text-secondary leading-relaxed max-w-lg">
+                    旭林知行是专为求职者打造的成长平台。从简历优化到模拟面试，从刷题巩固到面经复盘，我们陪你走完求职每一步。
+                  </p>
                 </div>
-                <button @click="router.push('/category')" class="flex items-center gap-1 meta-text font-medium text-theme-text-secondary hover:text-theme-primary transition-colors">
-                  <span>更多</span>
-                  <ArrowRight class="w-3 h-3 sm:w-4 sm:h-4" />
-                </button>
-              </div>
-              <div class="space-y-2 sm:space-y-3">
-                <button
-                  type="button"
-                  v-for="(article, index) in featuredArticles.slice(0, 8)"
-                  :key="article.id"
-                  @click.stop="router.push('/article/' + article.id)"
-                  class="group flex gap-2 sm:gap-3 p-2 sm:p-3 rounded-lg cursor-pointer transition-colors w-full text-left bg-theme-surface hover:bg-theme-surface-highlight"
-                >
-                  <div class="relative w-20 h-14 sm:w-24 sm:h-16 flex-shrink-0">
-                    <LazyImage
-                      :src="article.cover || 'https://images.unsplash.com/photo-1504198453319-5ce911bafcde?w=200&h=150&fit=crop'"
-                      :alt="article.title"
-                      class="w-full h-full object-cover rounded-lg"
-                    />
-                    <span
-                      v-if="index === 0"
-                      class="absolute top-1 left-1 px-1.5 py-0.5 text-white text-xs rounded bg-theme-primary"
-                    >
-                      置顶
-                    </span>
-                  </div>
-                  <div class="flex-1 min-w-0 flex flex-col justify-between">
-                    <div>
-                      <h3 class="card-title line-clamp-1">
-                        {{ article.title }}
-                      </h3>
-                      <p class="card-summary line-clamp-1 mt-0.5">
-                        {{ article.excerpt }}
-                      </p>
-                    </div>
-                    <div class="flex items-center justify-end gap-1.5 sm:gap-2 mt-1 meta-text">
-                      <span>{{ article.author?.username || article.author?.nickname || '作者' }}</span>
-                      <span>{{ article.createdAt }}</span>
-                      <span>{{ article.views }} 阅读</span>
-                    </div>
-                  </div>
-                </button>
-              </div>
-            </div>
 
-            <div class="space-y-4 sm:space-y-6">
-              <!-- 旭林广告位 -->
-              <AdCard slot-key="home_xulin_ad" />
-              <div class="h-4 sm:h-6"></div>
-
-              <div class="p-3 sm:p-4 rounded-xl bg-theme-surface">
-                <div class="flex items-center gap-2 mb-3 sm:mb-4">
-                  <Flame class="w-4 h-4 sm:w-5 sm:h-5 text-theme-primary" />
-                  <h3 class="section-title">热门推荐</h3>
-                </div>
-                <div class="space-y-3 sm:space-y-5">
+                <div class="flex flex-wrap gap-3 sm:gap-4">
                   <button
-                    type="button"
-                    v-for="(article, index) in trendingArticles"
-                    :key="article.id"
-                    @click.stop="router.push('/article/' + article.id)"
-                    class="flex items-start gap-2 cursor-pointer w-full text-left"
-                    :title="article.title"
+                    @click="goResumeOptimize"
+                    class="inline-flex items-center gap-2 px-6 sm:px-8 py-3 sm:py-3.5 bg-theme-primary hover:bg-theme-primary-hover text-theme-on-primary font-semibold rounded-xl shadow-theme-lg transition-all hover:-translate-y-0.5"
                   >
-                    <span
-                      class="w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0"
-                      :class="index < 3 ? 'bg-theme-primary text-theme-on-primary' : 'bg-theme-bg text-theme-text-secondary'"
-                    >
-                      {{ index + 1 }}
-                    </span>
-                    <div class="flex-1 min-w-0">
-                      <div class="flex items-center justify-between gap-2">
-                        <h4 class="card-title line-clamp-1 flex-1 text-left" :title="article.title">
-                          {{ article.title }}
-                        </h4>
-                        <span class="meta-text flex items-center gap-1 flex-shrink-0">
-                          <Eye class="w-3 h-3" />
-                          {{ article.views }}
-                        </span>
-                      </div>
-                    </div>
+                    <FileText class="w-5 h-5" />
+                    免费简历诊断
+                  </button>
+                  <button
+                    @click="goVoiceInterview"
+                    class="inline-flex items-center gap-2 px-6 sm:px-8 py-3 sm:py-3.5 bg-theme-surface hover:bg-theme-surface-highlight text-theme-text font-semibold rounded-xl border border-theme-border shadow-theme-sm transition-all hover:-translate-y-0.5"
+                  >
+                    <Mic class="w-5 h-5 text-theme-primary" />
+                    开始模拟面试
                   </button>
                 </div>
+
+                <!-- 核心数据 -->
+                <div class="flex items-center gap-5 sm:gap-8 pt-2">
+                  <template v-for="(stat, idx) in heroStats" :key="stat.label">
+                    <div v-if="idx > 0" class="w-px h-10 bg-theme-border"></div>
+                    <div>
+                      <div class="flex items-baseline gap-0.5">
+                        <span class="text-xl sm:text-2xl font-black text-theme-text stat-number">{{ stat.value }}</span>
+                        <span class="meta-text">{{ stat.suffix }}</span>
+                      </div>
+                      <div class="meta-text mt-0.5">{{ stat.label }}</div>
+                    </div>
+                  </template>
+                </div>
               </div>
 
-              <!-- VIP 推广广告位 -->
-              <AdCard slot-key="home_vip_banner" />
+              <!-- 右侧：AI 简历诊断示例卡 -->
+              <div class="relative lg:pl-6">
+                <div class="relative z-10 rounded-2xl p-5 sm:p-6 shadow-theme-xl border border-theme-border bg-theme-surface home-float">
+                  <div class="flex items-center justify-between mb-4 sm:mb-5">
+                    <div class="flex items-center gap-3">
+                      <div class="w-10 h-10 rounded-xl bg-theme-primary flex items-center justify-center">
+                        <FileText class="w-5 h-5 text-theme-on-primary" />
+                      </div>
+                      <div>
+                        <div class="card-title">AI 简历诊断报告</div>
+                        <div class="meta-text">多维度智能分析 · 示例</div>
+                      </div>
+                    </div>
+                    <span class="px-2.5 py-1 bg-green-50 text-green-700 meta-text font-medium rounded-full">已完成</span>
+                  </div>
+
+                  <!-- 评分圆环 + 维度条 -->
+                  <div class="flex items-center gap-5 sm:gap-6 mb-4 sm:mb-5">
+                    <div class="relative w-20 h-20 sm:w-24 sm:h-24 flex-shrink-0">
+                      <svg class="w-full h-full -rotate-90" viewBox="0 0 100 100">
+                        <circle cx="50" cy="50" r="42" fill="none" class="stroke-theme-border" stroke-width="8"/>
+                        <circle cx="50" cy="50" r="42" fill="none" stroke="var(--theme-primary)" stroke-width="8" stroke-linecap="round"
+                          stroke-dasharray="264" stroke-dashoffset="66" class="progress-ring" />
+                      </svg>
+                      <div class="absolute inset-0 flex flex-col items-center justify-center">
+                        <span class="text-xl sm:text-2xl font-black text-theme-text">75</span>
+                        <span class="caption-text text-theme-text-tertiary">综合评分</span>
+                      </div>
+                    </div>
+                    <div class="flex-1 space-y-2.5">
+                      <div>
+                        <div class="flex justify-between caption-text mb-1">
+                          <span class="text-theme-text-secondary">内容匹配度</span>
+                          <span class="text-theme-text font-medium">82%</span>
+                        </div>
+                        <div class="h-1.5 bg-theme-accent rounded-full overflow-hidden">
+                          <div class="h-full bg-theme-primary rounded-full" style="width: 82%"></div>
+                        </div>
+                      </div>
+                      <div>
+                        <div class="flex justify-between caption-text mb-1">
+                          <span class="text-theme-text-secondary">关键词优化</span>
+                          <span class="text-theme-text font-medium">68%</span>
+                        </div>
+                        <div class="h-1.5 bg-theme-accent rounded-full overflow-hidden">
+                          <div class="h-full bg-amber-500 rounded-full" style="width: 68%"></div>
+                        </div>
+                      </div>
+                      <div>
+                        <div class="flex justify-between caption-text mb-1">
+                          <span class="text-theme-text-secondary">排版规范性</span>
+                          <span class="text-theme-text font-medium">91%</span>
+                        </div>
+                        <div class="h-1.5 bg-theme-accent rounded-full overflow-hidden">
+                          <div class="h-full bg-green-500 rounded-full" style="width: 91%"></div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- 优化建议 -->
+                  <div class="space-y-2">
+                    <div class="flex items-start gap-2 caption-text">
+                      <Sparkles class="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5" />
+                      <span class="text-theme-text-secondary">建议补充项目成果量化数据，使用 STAR 法则描述经历</span>
+                    </div>
+                    <div class="flex items-start gap-2 caption-text">
+                      <TrendingUp class="w-4 h-4 text-theme-primary flex-shrink-0 mt-0.5" />
+                      <span class="text-theme-text-secondary">技术栈关键词与目标岗位匹配度可进一步提升</span>
+                    </div>
+                  </div>
+
+                  <button @click="goResumeOptimize" class="w-full mt-4 sm:mt-5 py-2.5 bg-theme-primary-soft hover:bg-theme-primary hover:text-theme-on-primary text-theme-primary meta-text font-medium rounded-lg transition-colors">
+                    生成我的诊断报告
+                  </button>
+                </div>
+
+                <!-- 浮动小卡片 -->
+                <div class="hidden sm:block absolute -bottom-4 -left-3 z-20 rounded-xl p-3 shadow-theme-lg border border-theme-border bg-theme-surface home-float-delayed">
+                  <div class="flex items-center gap-2">
+                    <div class="w-8 h-8 rounded-lg bg-green-50 flex items-center justify-center">
+                      <Briefcase class="w-4 h-4 text-green-600" />
+                    </div>
+                    <div>
+                      <div class="caption-text font-semibold text-theme-text">AI 模拟面试中</div>
+                      <div class="text-[10px] text-theme-text-tertiary">第 3 轮 · 技术深度</div>
+                    </div>
+                  </div>
+                </div>
+                <div class="hidden sm:block absolute -top-3 -right-3 z-20 rounded-xl p-3 shadow-theme-lg border border-theme-border bg-theme-surface home-float">
+                  <div class="flex items-center gap-2">
+                    <div class="w-8 h-8 rounded-lg bg-orange-50 flex items-center justify-center">
+                      <FlameIcon class="w-4 h-4 text-orange-600" />
+                    </div>
+                    <div>
+                      <div class="caption-text font-semibold text-theme-text">成长 +15</div>
+                      <div class="text-[10px] text-theme-text-tertiary">连续打卡 · 天天可见</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- 五大主线导航（锚点直达，V11.3 升格为图标卡片带悬浮特效） -->
+            <div class="relative mt-8 sm:mt-10 pt-5 sm:pt-6 border-t border-theme-border/60">
+              <div class="grid grid-cols-5 gap-2 sm:gap-3">
+                <a
+                  v-for="(line, idx) in mainLines"
+                  :key="line.id"
+                  :href="'#' + line.id"
+                  class="home-mainline-card group"
+                  :style="{ animationDelay: `${idx * 0.08}s` }"
+                >
+                  <div class="home-mainline-icon">
+                    <component :is="line.icon" class="w-5 h-5 sm:w-6 sm:h-6" />
+                  </div>
+                  <div class="home-mainline-text">
+                    <span class="font-semibold text-theme-text">{{ line.label }}</span>
+                    <span class="hidden lg:inline text-theme-text-tertiary">· {{ line.desc }}</span>
+                  </div>
+                  <span class="home-mainline-arrow">
+                    <ArrowRight class="w-3.5 h-3.5" />
+                  </span>
+                </a>
+              </div>
+            </div>
+          </div>
+        </section>
+
+      <!-- ================================================================
+           已登录：问候带（位于 Hero 综述区之下、五大章节之上）
+           欢迎语 + 快捷入口；个人统计与足迹请前往成长时间线
+           ================================================================ -->
+      <template v-if="isLoggedIn">
+        <div class="bg-gradient-to-b from-theme-primary-soft/30 to-theme-bg">
+        <!-- 欢迎语 + 快捷入口（V11.2：登录态首屏精简为问候带，个人统计请前往成长时间线） -->
+        <section class="content-container pt-4 sm:pt-6 pb-5">
+          <div class="flex items-center gap-2.5 mb-1">
+            <h1 class="text-xl sm:text-2xl font-bold text-theme-text">{{ greetingInfo.text }}，{{ userStore.nickname || userStore.username }}</h1>
+            <span class="text-xl sm:text-2xl">{{ greetingInfo.emoji }}</span>
+          </div>
+          <p class="meta-text text-theme-text-secondary">
+            今天是加入旭林知行的第 <span class="font-semibold text-theme-primary">{{ joinDays }}</span> 天，{{ greetingInfo.tip }}
+          </p>
+
+          <div class="flex flex-wrap gap-2 sm:gap-2.5 mt-3 mb-1">
+            <button @click="router.push('/learn')" class="home-shortcut-btn">
+              <PlayCircle class="w-4 h-4 text-theme-primary" />继续学习
+            </button>
+            <button @click="goVoiceInterview" class="home-shortcut-btn">
+              <Mic class="w-4 h-4 text-theme-primary" />开始模拟面试
+            </button>
+            <button @click="router.push('/learn/practice')" class="home-shortcut-btn">
+              <Zap class="w-4 h-4 text-theme-primary" />去刷题
+            </button>
+            <button @click="handleWrite" class="home-shortcut-btn">
+              <PenLine class="w-4 h-4 text-theme-primary" />写篇文章
+            </button>
+          </div>
+        </section>
+        </div>
+      </template>
+
+      <!-- ================================================================
+           公共模块（两种状态共享，保持现有真实数据源）
+           ================================================================ -->
+
+      <!-- 学习（主线一：题库刷题/在线编程/知识图谱/错题本/学习计划） -->
+      <div id="home-learn" class="py-6 sm:py-10 bg-theme-bg scroll-mt-20">
+        <div class="content-container">
+          <!-- 章节头 -->
+          <div class="home-chapter-head">
+            <div class="flex items-center gap-3">
+              <span class="home-chapter-no">01</span>
+              <div class="w-px h-9 bg-theme-border"></div>
+              <div>
+                <h2 class="text-lg sm:text-xl font-bold text-theme-text">学习中心</h2>
+                <p class="meta-text text-theme-text-tertiary">题库刷题 · 在线编程 · 知识图谱 · 错题本</p>
+              </div>
+            </div>
+            <button
+              @click="router.push('/learn')"
+              class="home-chapter-link"
+            >
+              <span>进入学习中心</span>
+              <ArrowRight class="w-3 h-3 sm:w-4 sm:h-4" />
+            </button>
+          </div>
+
+          <div class="p-4 sm:p-5 rounded-2xl bg-theme-surface border border-theme-border shadow-theme-sm">
+            <!-- 功能宫格（完整展示） -->
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <button
+                v-for="tool in learnTools"
+                :key="tool.title"
+                @click="router.push(tool.path)"
+                class="home-card-lift group flex items-start gap-3 p-3 sm:p-4 rounded-xl bg-theme-bg border border-theme-border hover:border-theme-primary/40 transition-colors text-left"
+              >
+                <div class="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0" :class="tool.iconBg">
+                  <component :is="tool.icon" class="w-4 h-4 text-white" />
+                </div>
+                <div class="min-w-0">
+                  <p class="card-title truncate">{{ tool.title }}</p>
+                  <p class="caption-text text-theme-text-tertiary mt-0.5 truncate">{{ tool.desc }}</p>
+                </div>
+              </button>
+            </div>
+
+            <!-- 排行榜速览 -->
+            <div v-if="leaderboardTop3.length > 0" class="flex items-center gap-3 mt-4 pt-3 border-t border-theme-border">
+              <Crown class="w-4 h-4 text-amber-500 flex-shrink-0" />
+              <div class="flex items-center gap-4 sm:gap-6 overflow-hidden flex-1 min-w-0">
+                <button
+                  v-for="(item, idx) in leaderboardTop3"
+                  :key="item.userId"
+                  @click="router.push('/learn/leaderboard')"
+                  class="flex items-center gap-1.5 meta-text text-theme-text-secondary hover:text-theme-primary transition-colors whitespace-nowrap"
+                >
+                  <span
+                    class="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold flex-shrink-0"
+                    :class="idx === 0 ? 'bg-amber-400 text-amber-900' : idx === 1 ? 'bg-gray-300 text-gray-800' : 'bg-orange-400 text-orange-900'"
+                  >{{ idx + 1 }}</span>
+                  <span class="truncate max-w-[80px]">{{ item.nickname }}</span>
+                  <span class="text-theme-text-tertiary">{{ item.value }}题</span>
+                </button>
+              </div>
+              <button @click="router.push('/learn/leaderboard')" class="meta-text text-theme-text-tertiary hover:text-theme-primary flex-shrink-0 whitespace-nowrap">
+                完整榜单 →
+              </button>
             </div>
           </div>
         </div>
       </div>
 
-      <!-- 面试指南 -->
-      <div class="py-6 sm:py-8 bg-theme-bg">
+      <!-- 简历（主线二：模板库/岗位维护/AI 评分/AI 优化） -->
+      <div id="home-resume" class="py-6 sm:py-10 bg-theme-accent/40 scroll-mt-20">
         <div class="content-container">
-          <div class="p-4 sm:p-5 rounded-xl bg-theme-surface">
-            <div class="flex items-center justify-between mb-4">
-              <div class="flex items-center gap-2">
-                <div class="w-8 h-8 rounded-lg bg-theme-primary-soft flex items-center justify-center">
-                  <Briefcase class="w-4 h-4 text-theme-primary" />
-                </div>
-                <div>
-                  <h3 class="section-title">面试指南</h3>
-                  <p class="meta-text">助力职场进阶</p>
-                </div>
+          <!-- 章节头 -->
+          <div class="home-chapter-head">
+            <div class="flex items-center gap-3">
+              <span class="home-chapter-no">02</span>
+              <div class="w-px h-9 bg-theme-border"></div>
+              <div>
+                <h2 class="text-lg sm:text-xl font-bold text-theme-text">简历工坊</h2>
+                <p class="meta-text text-theme-text-tertiary">模板精选 · 岗位定制 · AI 评分优化</p>
               </div>
-              <button @click="router.push('/interview')" class="flex items-center gap-1 meta-text font-medium text-theme-primary hover:opacity-80 transition-opacity">
-                <span>进入面试指南</span>
-                <ArrowRight class="w-3 h-3 sm:w-4 sm:h-4" />
+            </div>
+            <button @click="goResumeOptimize" class="home-chapter-link">
+              <span>AI 简历诊断</span>
+              <ArrowRight class="w-3 h-3 sm:w-4 sm:h-4" />
+            </button>
+          </div>
+
+          <div class="p-4 sm:p-5 rounded-2xl bg-theme-surface border border-theme-border shadow-theme-sm">
+            <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+              <button
+                v-for="tool in resumeTools"
+                :key="tool.title"
+                @click="router.push(tool.path)"
+                class="home-card-lift flex items-start gap-3 p-4 rounded-xl bg-theme-bg border border-theme-border hover:border-theme-primary/40 transition-colors text-left"
+              >
+                <div class="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 text-white shadow-theme-md" :class="tool.iconBg">
+                  <component :is="tool.icon" class="w-5 h-5" />
+                </div>
+                <div class="min-w-0">
+                  <p class="card-title truncate">{{ tool.title }}</p>
+                  <p class="caption-text text-theme-text-tertiary mt-0.5">{{ tool.desc }}</p>
+                </div>
               </button>
             </div>
+          </div>
+        </div>
+      </div>
 
-            <!-- AI 语音面试官 · 首页入口 CTA -->
+      <!-- 面试（主线三：基于简历的 AI 语音面试/复盘/面经共享） -->
+      <div id="home-interview" class="py-6 sm:py-10 bg-gradient-to-b from-theme-primary-soft/50 via-theme-bg to-theme-bg scroll-mt-20">
+        <div class="content-container">
+          <!-- 章节头 -->
+          <div class="home-chapter-head">
+            <div class="flex items-center gap-3">
+              <span class="home-chapter-no">03</span>
+              <div class="w-px h-9 bg-theme-border"></div>
+              <div>
+                <h2 class="text-lg sm:text-xl font-bold text-theme-text">面试专区</h2>
+                <p class="meta-text text-theme-text-tertiary">基于简历的 AI 模拟 · 复盘沉淀 · 面经共享</p>
+              </div>
+            </div>
+            <button @click="router.push('/interview')" class="home-chapter-link">
+              <span>进入面试专区</span>
+              <ArrowRight class="w-3 h-3 sm:w-4 sm:h-4" />
+            </button>
+          </div>
+
+          <div class="p-4 sm:p-5 rounded-2xl bg-theme-surface border border-theme-border shadow-theme-sm">
+            <!-- AI 语音面试官 · 首页入口 CTA（浅色柔和版，与主题相映衬） -->
             <button
               type="button"
               @click="goVoiceInterview"
-              class="w-full mb-4 sm:mb-5 overflow-hidden rounded-xl text-left transition-all hover:-translate-y-0.5 hover:shadow-theme-lg bg-gradient-to-br from-theme-primary to-theme-primary-hover text-white"
+              class="w-full mb-4 sm:mb-5 overflow-hidden rounded-xl text-left transition-all hover:-translate-y-0.5 hover:shadow-theme-md bg-theme-primary-soft border border-theme-primary/25"
             >
               <div class="flex items-center justify-between gap-4 px-4 sm:px-6 py-3.5 sm:py-4">
                 <div class="flex items-center gap-3 sm:gap-4 min-w-0">
-                  <div class="shrink-0 w-10 h-10 sm:w-12 sm:h-12 rounded-2xl flex items-center justify-center bg-white/15">
+                  <div class="shrink-0 w-10 h-10 sm:w-12 sm:h-12 rounded-2xl flex items-center justify-center bg-theme-primary text-theme-on-primary shadow-theme-sm">
                     <Mic class="w-5 h-5 sm:w-6 sm:h-6" />
                   </div>
                   <div class="min-w-0">
                     <div class="flex items-center gap-2 mb-0.5">
-                      <h4 class="card-title text-white truncate">AI 语音面试官</h4>
-                      <span class="inline-flex items-center px-1.5 py-0.5 rounded-full caption-text font-bold text-white shrink-0 bg-white/25">NEW</span>
+                      <h4 class="card-title truncate">AI 语音面试官</h4>
+                      <span class="inline-flex items-center px-1.5 py-0.5 rounded-full caption-text font-bold text-theme-primary shrink-0 bg-theme-primary/10">NEW</span>
                     </div>
-                    <p class="meta-text truncate text-white/90">
-                      🎙 麦克风对练 · 实时追问 · 五维雷达报告
+                    <p class="meta-text truncate text-theme-text-secondary">
+                      🎙 基于你的简历 · 麦克风对练 · 实时追问 · 五维雷达报告
                     </p>
                   </div>
                 </div>
-                <div class="hidden sm:flex items-center gap-5 shrink-0 meta-text">
+                <div class="hidden sm:flex items-center gap-5 shrink-0 meta-text text-theme-text-secondary">
                   <div class="text-center">
-                    <div class="flex items-center gap-1 opacity-90"><PlayCircle class="w-3.5 h-3.5" /> 1次</div>
-                    <div class="opacity-75 mt-0.5">约15分钟/场</div>
+                    <div class="flex items-center gap-1"><PlayCircle class="w-3.5 h-3.5" /> 1次</div>
+                    <div class="text-theme-text-tertiary mt-0.5">约15分钟/场</div>
                   </div>
                   <div class="text-center">
-                    <div class="flex items-center gap-1 opacity-90"><Clock class="w-3.5 h-3.5" /> 5主问+追问</div>
-                    <div class="opacity-75 mt-0.5">完赛预计</div>
+                    <div class="flex items-center gap-1"><Clock class="w-3.5 h-3.5" /> 5主问+追问</div>
+                    <div class="text-theme-text-tertiary mt-0.5">完赛预计</div>
                   </div>
-                  <span class="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl font-bold bg-white text-theme-primary meta-text">
+                  <span class="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl font-bold bg-theme-primary text-theme-on-primary meta-text hover:opacity-90 transition-opacity">
                     立即体验
                     <ArrowRight class="w-4 h-4" />
                   </span>
                 </div>
-                <ArrowRight class="sm:hidden w-5 h-5 shrink-0 opacity-90" />
+                <ArrowRight class="sm:hidden w-5 h-5 shrink-0 text-theme-primary" />
               </div>
             </button>
 
@@ -820,32 +925,33 @@ useHead(
         </div>
       </div>
 
-      <!-- 读书空间 -->
-      <div class="py-6 sm:py-8 bg-theme-bg">
+      <!-- 阅读（主线四：书籍/书单/金句/文章内容流/标签） -->
+      <div id="home-reading" class="py-6 sm:py-10 bg-theme-accent/40 scroll-mt-20">
         <div class="content-container">
-          <div class="p-4 sm:p-5 rounded-xl bg-theme-surface">
-            <div class="flex items-center justify-between mb-4">
-              <div class="flex items-center gap-2">
-                <div class="w-8 h-8 rounded-lg bg-theme-primary-soft flex items-center justify-center">
-                  <Book class="w-4 h-4 text-theme-primary" />
-                </div>
-                <div>
-                  <h3 class="section-title">读书空间</h3>
-                  <p class="meta-text">精选好书伴你阅读</p>
-                </div>
+          <!-- 章节头 -->
+          <div class="home-chapter-head">
+            <div class="flex items-center gap-3">
+              <span class="home-chapter-no">04</span>
+              <div class="w-px h-9 bg-theme-border"></div>
+              <div>
+                <h2 class="text-lg sm:text-xl font-bold text-theme-text">阅读空间</h2>
+                <p class="meta-text text-theme-text-tertiary">书籍阅读 · 散文随笔 · 技术笔记</p>
               </div>
-              <button @click="router.push('/reading')" class="flex items-center gap-1 meta-text font-medium text-theme-primary hover:opacity-80 transition-opacity">
-                <span>进入读书空间</span>
-                <ArrowRight class="w-3 h-3 sm:w-4 sm:h-4" />
-              </button>
             </div>
+            <button @click="router.push('/reading')" class="home-chapter-link">
+              <span>进入读书空间</span>
+              <ArrowRight class="w-3 h-3 sm:w-4 sm:h-4" />
+            </button>
+          </div>
+
+          <div class="p-4 sm:p-5 rounded-2xl bg-theme-surface border border-theme-border shadow-theme-sm">
 
             <div class="grid grid-cols-1 md:grid-cols-4 gap-3 sm:gap-4">
               <!-- 精选书籍 -->
               <button
                 type="button"
                 v-if="readingBooks.length > 0"
-                class="relative h-28 sm:h-32 rounded-xl overflow-hidden cursor-pointer w-full text-left"
+                class="relative h-28 sm:h-32 rounded-xl overflow-hidden cursor-pointer w-full text-left border border-theme-border"
                 @click="router.push(`/reading/book/${readingBooks[0].id}`)"
               >
                 <LazyImage
@@ -853,18 +959,17 @@ useHead(
                   :alt="readingBooks[0].title"
                   class="absolute inset-0 w-full h-full object-cover"
                 />
-                <div class="absolute inset-0 bg-gradient-to-br from-theme-primary/80 to-theme-primary-hover/80 p-3 sm:p-4">
-                  <span class="inline-block px-2 py-0.5 bg-white/20 backdrop-blur text-white caption-text rounded mb-2">精选好书</span>
-                  <h4 class="text-white card-title mb-1 line-clamp-1">{{ readingBooks[0].title }}</h4>
-                  <p class="text-white/80 meta-text mb-3">{{ readingBooks[0].author }}</p>
-                  <span class="px-3 py-1 bg-white text-theme-primary rounded-full caption-text font-medium">立即阅读</span>
+                <div class="absolute inset-0 bg-theme-primary-soft/95 p-3 sm:p-4">
+                  <span class="inline-block px-2 py-0.5 bg-theme-primary/15 text-theme-primary caption-text rounded mb-2 font-medium">精选好书</span>
+                  <h4 class="text-theme-text card-title mb-1 line-clamp-1">{{ readingBooks[0].title }}</h4>
+                  <p class="text-theme-text-secondary meta-text mb-3">{{ readingBooks[0].author }}</p>
+                  <span class="px-3 py-1 bg-theme-primary text-theme-on-primary rounded-full caption-text font-medium">立即阅读</span>
                 </div>
               </button>
-              <div v-else class="relative h-28 sm:h-32 rounded-xl overflow-hidden">
-                <div class="absolute inset-0 bg-gradient-to-br from-theme-primary to-theme-primary-hover"></div>
+              <div v-else class="relative h-28 sm:h-32 rounded-xl overflow-hidden border border-theme-border bg-theme-primary-soft">
                 <div class="absolute inset-0 p-3 sm:p-4">
-                  <span class="inline-block px-2 py-0.5 bg-white/20 backdrop-blur text-white caption-text rounded mb-2">精选好书</span>
-                  <h4 class="text-white card-title mb-1">暂无推荐</h4>
+                  <span class="inline-block px-2 py-0.5 bg-theme-primary/15 text-theme-primary caption-text rounded mb-2 font-medium">精选好书</span>
+                  <h4 class="text-theme-text card-title mb-1">暂无推荐</h4>
                 </div>
               </div>
 
@@ -920,218 +1025,85 @@ useHead(
               </div>
             </div>
           </div>
-        </div>
-      </div>
 
-      <!-- 学习中心 -->
-      <div class="py-6 sm:py-8 bg-theme-bg">
-        <div class="content-container">
-          <div class="rounded-2xl overflow-hidden shadow-theme-lg bg-gradient-to-br from-theme-primary to-theme-primary-hover">
-            <!-- 学习中心 标题栏 -->
-            <div class="flex items-center justify-between px-5 sm:px-7 py-4 sm:py-5">
-              <div class="flex items-center gap-2 sm:gap-3">
-                <div class="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-white/20 backdrop-blur flex items-center justify-center">
-                  <Target class="w-5 h-5 text-white" />
-                </div>
+          <!-- 散文随笔 · 技术笔记（原"按主题探索"并入阅读主线） -->
+          <div class="mt-3 sm:mt-4">
+            <div class="flex items-center justify-between mb-3 sm:mb-4">
+              <div class="flex items-center gap-2">
+                <PenLine class="w-4 h-4 sm:w-5 sm:h-5 text-theme-primary" />
                 <div>
-                  <h2 class="section-title text-white">学习中心</h2>
-                  <p class="text-white/80 meta-text">刷题有计划 · 学习有同伴 · 成长看得见</p>
+                  <h3 class="section-title">散文 · 技术笔记</h3>
+                  <p class="meta-text">按主题浏览社区创作的内容流</p>
                 </div>
               </div>
+            </div>
+
+            <div class="flex flex-wrap gap-1.5 sm:gap-2 mb-3 sm:mb-4">
               <button
-                @click="router.push('/learn')"
-                class="inline-flex items-center gap-1 px-3 sm:px-4 py-1.5 sm:py-2 rounded-full font-medium bg-white text-theme-primary hover:bg-theme-primary-soft transition-colors meta-text"
+                v-for="theme in (themes.length > 0 ? themes : [{ id: '1', name: '散文', key: 'prose' }])"
+                :key="theme.id"
+                @click="selectTheme(theme.id, theme.name)"
+                class="px-3 sm:px-4 py-1 sm:py-1.5 rounded-full text-xs sm:text-sm font-medium transition-all"
+                :class="activeTheme === theme.name ? 'bg-theme-primary text-theme-on-primary' : 'bg-theme-surface text-theme-text-secondary hover:bg-theme-surface-highlight'"
               >
-                <span>进入学习中心</span>
-                <ArrowRight class="w-3 h-3 sm:w-4 sm:h-4" />
+                {{ theme.name }}
               </button>
             </div>
 
-            <!-- 三栏卡片 -->
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-0 bg-white/5 backdrop-blur">
-              <!-- 1. 刷题排行榜 Top3 -->
-              <div class="p-4 sm:p-5 border-t md:border-t-0 md:border-r border-white/10">
-                <div class="flex items-center gap-2 mb-3">
-                  <Crown class="w-4 h-4 text-yellow-300" />
-                  <h3 class="card-title text-white">刷题排行榜</h3>
-                </div>
-                <div v-if="leaderboardTop3.length > 0" class="space-y-2">
-                  <button
-                    v-for="(item, idx) in leaderboardTop3"
-                    :key="item.userId"
-                    @click="router.push(`/learn/leaderboard`)"
-                    class="w-full flex items-center gap-3 px-2 py-2 rounded-lg hover:bg-white/10 transition-colors text-left"
-                  >
-                    <span
-                      class="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0"
-                      :class="idx === 0 ? 'bg-yellow-400 text-yellow-900' : idx === 1 ? 'bg-gray-300 text-gray-800' : 'bg-orange-400 text-orange-900'"
-                    >
-                      {{ idx + 1 }}
-                    </span>
-                    <span class="card-title text-white flex-1 truncate">{{ item.nickname }}</span>
-                    <span class="meta-text text-white/70 flex-shrink-0">{{ item.value }} 题</span>
-                  </button>
-                </div>
-                <div v-else class="py-6 text-center">
-                  <p class="text-white/60 meta-text">榜单空缺中，等你来登顶</p>
-                  <button
-                    @click="router.push('/learn/leaderboard')"
-                    class="mt-2 inline-flex items-center gap-1 px-3 py-1.5 rounded-full bg-white/20 text-white hover:bg-white/30 transition-colors meta-text"
-                  >
-                    查看完整榜单
-                    <ArrowRight class="w-3 h-3" />
-                  </button>
-                </div>
+            <div class="p-3 sm:p-4 rounded-xl bg-theme-surface border border-theme-border">
+              <div class="flex items-center justify-between mb-3">
+                <h4 class="card-title">
+                  <span class="text-theme-primary">{{ getThemeCode(activeTheme) }}</span>
+                  {{ activeTheme }}精选
+                </h4>
+                <button @click="viewMore(activeTheme)" class="flex items-center gap-1 meta-text text-theme-text-secondary hover:text-theme-primary transition-colors">
+                  <span>查看更多</span>
+                  <ArrowRight class="w-3 h-3 sm:w-4 sm:h-4" />
+                </button>
               </div>
-
-              <!-- 2. 知识图谱入口 -->
-              <button
-                @click="router.push('/learn/knowledge')"
-                class="p-4 sm:p-5 border-t md:border-t-0 md:border-r border-white/10 text-left hover:bg-white/10 transition-colors group"
-              >
-                <div class="flex items-center gap-2 mb-3">
-                  <Network class="w-4 h-4 text-cyan-300" />
-                  <h3 class="card-title text-white">知识图谱</h3>
-                </div>
-                <p class="text-white/80 card-summary leading-relaxed mb-3">
-                  可视化你的知识结构，发现薄弱点，按图谱强化复习
-                </p>
-                <div class="flex items-center gap-2">
-                  <BarChart3 class="w-3.5 h-3.5 text-cyan-300" />
-                  <span class="meta-text text-cyan-200 group-hover:underline">查看我的知识网络 →</span>
-                </div>
-              </button>
-
-              <!-- 3. 刷题日历入口 -->
-              <button
-                @click="router.push(userStore.isAuthenticated ? '/learn/calendar' : '/login')"
-                class="p-4 sm:p-5 border-t md:border-t-0 border-white/10 text-left hover:bg-white/10 transition-colors group"
-              >
-                <div class="flex items-center gap-2 mb-3">
-                  <Activity class="w-4 h-4 text-pink-300" />
-                  <h3 class="card-title text-white">刷题日历</h3>
-                </div>
-                <p class="text-white/80 card-summary leading-relaxed mb-3">
-                  连续打卡，让坚持可见。每一次提交都是成长的足迹
-                </p>
-                <div class="flex items-center gap-2">
-                  <TrendingUp class="w-3.5 h-3.5 text-pink-300" />
-                  <span class="meta-text text-pink-200 group-hover:underline">
-                    {{ userStore.isAuthenticated ? '查看我的热力图 →' : '登录开启打卡记录 →' }}
+              <div class="grid sm:grid-cols-2 gap-4 sm:gap-6">
+                <button
+                  type="button"
+                  v-for="article in getThemeArticles(activeTheme)"
+                  :key="article.id"
+                  @click.stop="router.push('/article/' + article.id)"
+                  class="flex items-center gap-2 cursor-pointer w-full text-left group"
+                >
+                  <div class="w-1 h-1 rounded-full bg-theme-primary"></div>
+                  <span class="card-title line-clamp-1 flex-1 group-hover:text-theme-primary transition-colors">
+                    {{ article.title }}
                   </span>
-                </div>
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- 按主题探索 -->
-      <div class="py-6 sm:py-8 border-t border-theme-border bg-theme-bg">
-        <div class="content-container">
-          <div class="flex items-center justify-between mb-3 sm:mb-4">
-            <div class="flex items-center gap-2">
-              <BookOpen class="w-4 h-4 sm:w-5 sm:h-5 text-theme-primary" />
-              <h2 class="section-title">按主题探索</h2>
-            </div>
-          </div>
-
-          <div class="flex flex-wrap gap-1.5 sm:gap-2 mb-3 sm:mb-4">
-            <button
-              v-for="theme in (themes.length > 0 ? themes : [{ id: '1', name: '散文', key: 'prose' }])"
-              :key="theme.id"
-              @click="selectTheme(theme.id, theme.name)"
-              class="px-3 sm:px-4 py-1 sm:py-1.5 rounded-full text-xs sm:text-sm font-medium transition-all"
-              :class="activeTheme === theme.name ? 'bg-theme-primary text-theme-on-primary' : 'bg-theme-surface text-theme-text-secondary hover:bg-theme-surface-highlight'"
-            >
-              {{ theme.name }}
-            </button>
-          </div>
-
-          <div class="p-3 sm:p-4 rounded-xl bg-theme-surface">
-            <div class="flex items-center justify-between mb-3">
-              <h3 class="section-title">
-                <span class="text-theme-primary">{{ getThemeCode(activeTheme) }}</span>
-                {{ activeTheme }}精选
-              </h3>
-              <button @click="viewMore(activeTheme)" class="flex items-center gap-1 meta-text text-theme-text-secondary hover:text-theme-primary transition-colors">
-                <span>查看更多</span>
-                <ArrowRight class="w-3 h-3 sm:w-4 sm:h-4" />
-              </button>
-            </div>
-            <div class="grid sm:grid-cols-2 gap-4 sm:gap-6">
-              <button
-                type="button"
-                v-for="article in getThemeArticles(activeTheme)"
-                :key="article.id"
-                @click.stop="router.push('/article/' + article.id)"
-                class="flex items-center gap-2 cursor-pointer w-full text-left group"
-              >
-                <div class="w-1 h-1 rounded-full bg-theme-primary"></div>
-                <span class="card-title line-clamp-1 flex-1 group-hover:text-theme-primary transition-colors">
-                  {{ article.title }}
-                </span>
-                <span class="meta-text flex-shrink-0">{{ article.createdAt }}</span>
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- 旭林名家录 -->
-      <div class="py-6 sm:py-8 bg-theme-bg">
-        <div class="content-container">
-          <div class="flex items-center justify-between mb-3 sm:mb-4">
-            <div class="flex items-center gap-2">
-              <User class="w-4 h-4 sm:w-5 sm:h-5 text-theme-primary" />
-              <h2 class="section-title">旭林名家录</h2>
-            </div>
-            <div class="flex items-center gap-1.5 sm:gap-2">
-              <Link to="/authors" class="flex items-center gap-1.5 meta-text text-theme-text-secondary hover:text-theme-primary transition-colors">
-                <span>全部作者</span>
-                <ArrowRight class="w-3 h-3 sm:w-4 sm:h-4" />
-              </Link>
-            </div>
-          </div>
-
-          <div v-if="authors.length > 0" class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3 sm:gap-4">
-            <button
-              type="button"
-              v-for="author in authors"
-              :key="author.id"
-              @click="goToAuthor(author.id)"
-              class="text-center p-3 sm:p-4 rounded-xl cursor-pointer transition-colors w-full bg-theme-surface hover:bg-theme-surface-highlight"
-            >
-              <div class="w-10 h-10 sm:w-12 sm:h-12 mx-auto mb-2 rounded-full bg-theme-primary-soft flex items-center justify-center">
-                <span class="text-sm font-bold text-theme-primary">{{ author.avatar }}</span>
+                  <span class="meta-text flex-shrink-0">{{ article.createdAt }}</span>
+                </button>
               </div>
-              <p class="card-title mb-1">{{ author.name }}</p>
-              <p class="meta-text">已创作 {{ author.works }} 篇</p>
-              <p class="meta-text">{{ author.likes }} 喜欢</p>
-              <p class="meta-text">坚持 {{ author.days }} 天</p>
-            </button>
-          </div>
-          <div v-else class="py-8 text-center">
-            <p class="meta-text">暂无名家数据</p>
+            </div>
           </div>
         </div>
       </div>
 
-      <!-- 社区动态预览 -->
-      <div class="py-6 sm:py-8 bg-theme-bg">
+      <!-- 社区创作（主线五：动态广场/名家创作/话题标签） -->
+      <div id="home-community" class="py-6 sm:py-10 bg-theme-bg scroll-mt-20">
         <div class="content-container">
-          <div class="flex items-center justify-between mb-3 sm:mb-4">
-            <div class="flex items-center gap-2">
-              <MessageCircle class="w-4 h-4 sm:w-5 sm:h-5 text-theme-primary" />
+          <!-- 章节头 -->
+          <div class="home-chapter-head">
+            <div class="flex items-center gap-3">
+              <span class="home-chapter-no">05</span>
+              <div class="w-px h-9 bg-theme-border"></div>
               <div>
-                <h2 class="section-title">旭林动态</h2>
-                <p class="meta-text">看看大家都在做什么</p>
+                <h2 class="text-lg sm:text-xl font-bold text-theme-text">社区创作</h2>
+                <p class="meta-text text-theme-text-tertiary">散文发布 · 技术文档 · 话题讨论 · 名家动态</p>
               </div>
             </div>
-            <button @click="router.push('/feed')" class="flex items-center gap-1 meta-text font-medium text-theme-primary hover:opacity-80 transition-opacity">
-              <span>动态广场</span>
-              <ArrowRight class="w-3 h-3 sm:w-4 sm:h-4" />
-            </button>
+            <div class="flex items-center gap-2 sm:gap-3">
+              <button @click="handleWrite" class="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-full meta-text font-medium bg-theme-primary text-theme-on-primary hover:opacity-90 transition-opacity">
+                <PenLine class="w-3.5 h-3.5" />
+                去创作
+              </button>
+              <button @click="router.push('/feed')" class="home-chapter-link">
+                <span>动态广场</span>
+                <ArrowRight class="w-3 h-3 sm:w-4 sm:h-4" />
+              </button>
+            </div>
           </div>
 
           <div v-if="hotFeedList.length > 0" class="grid grid-cols-1 md:grid-cols-3 gap-3 sm:gap-4">
@@ -1161,7 +1133,7 @@ useHead(
               </p>
             </button>
           </div>
-          <div v-else class="p-6 sm:p-8 rounded-xl text-center bg-theme-surface">
+          <div v-else class="p-6 sm:p-8 rounded-xl text-center bg-theme-surface border border-theme-border">
             <MessageCircle class="w-8 h-8 mx-auto mb-2 opacity-30 text-theme-text-secondary" />
             <p class="card-title mb-1">社区还很安静</p>
             <p class="meta-text">第一批创作者正在赶来，期待他们的故事</p>
@@ -1173,55 +1145,106 @@ useHead(
               成为第一位创作者
             </button>
           </div>
-        </div>
-      </div>
 
-      <!-- 热门标签 + 友情链接 -->
-      <div class="py-6 sm:py-8 border-t border-theme-border bg-theme-surface">
-        <div class="content-container">
-          <div class="space-y-6 sm:space-y-8">
-            <div class="rounded-xl p-4 sm:p-5 bg-theme-bg">
-              <div class="flex items-center gap-2 mb-3">
-                <Star class="w-4 h-4 sm:w-5 sm:h-5 text-theme-primary" />
-                <h3 class="section-title">热门标签</h3>
+          <!-- 名家创作 -->
+          <div class="mt-4 sm:mt-6">
+            <div class="flex items-center justify-between mb-3 sm:mb-4">
+              <div class="flex items-center gap-2">
+                <User class="w-4 h-4 sm:w-5 sm:h-5 text-theme-primary" />
+                <div>
+                  <h3 class="section-title">旭林名家录</h3>
+                  <p class="meta-text">活跃创作者与他们的作品</p>
+                </div>
               </div>
-              <nav class="flex flex-wrap gap-1.5 sm:gap-2">
-                <button
-                  type="button"
-                  v-for="tag in (tags.length > 0 ? tags : [{ id: '1', name: '文学' }, { id: '2', name: '散文' }, { id: '3', name: '随笔' }])"
-                  :key="tag.id || tag"
-                  @click="router.push(`/tag/${encodeURIComponent(tag.name || tag)}`)"
-                  class="inline-flex items-center gap-1 px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-full cursor-pointer transition-all hover:opacity-80 bg-theme-accent text-theme-primary meta-text"
-                >
-                  <Tag class="w-3 h-3" />
-                  {{ tag.name || tag }}
-                </button>
-              </nav>
+              <Link to="/authors" class="flex items-center gap-1.5 meta-text text-theme-text-secondary hover:text-theme-primary transition-colors">
+                <span>全部作者</span>
+                <ArrowRight class="w-3 h-3 sm:w-4 sm:h-4" />
+              </Link>
             </div>
 
-            <div class="rounded-xl p-4 sm:p-5 bg-theme-bg">
-              <div class="flex items-center gap-2 mb-3">
-                <BookOpen class="w-4 h-4 sm:w-5 sm:h-5 text-theme-primary" />
-                <h3 class="section-title">友情链接</h3>
-              </div>
-              <nav class="flex flex-wrap gap-2 sm:gap-3">
-                <a
-                  v-for="link in (friendLinks.length > 0 ? friendLinks : [{ id: '1', name: '中国作家网', url: '#' }])"
-                  :key="link.id"
-                  :href="link.url"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  class="inline-flex items-center gap-2 px-3 sm:px-4 py-2 sm:py-2.5 rounded-lg cursor-pointer border transition-all hover:bg-theme-surface-highlight bg-theme-surface border-theme-border meta-text"
-                >
-                  <span>{{ link.name }}</span>
-                </a>
-              </nav>
+            <div v-if="authors.length > 0" class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3 sm:gap-4">
+              <button
+                type="button"
+                v-for="author in authors"
+                :key="author.id"
+                @click="goToAuthor(author.id)"
+                class="text-center p-3 sm:p-4 rounded-xl cursor-pointer transition-colors w-full bg-theme-surface hover:bg-theme-surface-highlight border border-theme-border"
+              >
+                <div class="w-10 h-10 sm:w-12 sm:h-12 mx-auto mb-2 rounded-full bg-theme-primary-soft flex items-center justify-center">
+                  <span class="text-sm font-bold text-theme-primary">{{ author.avatar }}</span>
+                </div>
+                <p class="card-title mb-1">{{ author.name }}</p>
+                <p class="meta-text">已创作 {{ author.works }} 篇</p>
+                <p class="meta-text">{{ author.likes }} 喜欢</p>
+                <p class="meta-text">坚持 {{ author.days }} 天</p>
+              </button>
             </div>
+            <div v-else class="py-8 text-center">
+              <p class="meta-text">暂无名家数据</p>
+            </div>
+          </div>
+
+          <!-- 话题标签 -->
+          <div class="mt-4 sm:mt-6 rounded-xl p-4 sm:p-5 bg-theme-surface border border-theme-border">
+            <div class="flex items-center gap-2 mb-3">
+              <Star class="w-4 h-4 sm:w-5 sm:h-5 text-theme-primary" />
+              <h3 class="section-title">热门话题标签</h3>
+            </div>
+            <nav class="flex flex-wrap gap-1.5 sm:gap-2">
+              <button
+                type="button"
+                v-for="tag in (tags.length > 0 ? tags : [{ id: '1', name: '文学' }, { id: '2', name: '散文' }, { id: '3', name: '随笔' }])"
+                :key="tag.id || tag"
+                @click="router.push(`/tag/${encodeURIComponent(tag.name || tag)}`)"
+                class="inline-flex items-center gap-1 px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-full cursor-pointer transition-all hover:opacity-80 bg-theme-accent text-theme-primary meta-text"
+              >
+                <Tag class="w-3 h-3" />
+                {{ tag.name || tag }}
+              </button>
+            </nav>
           </div>
         </div>
       </div>
 
-      <div class="mt-6 sm:mt-8">
+      <!-- 底部 CTA（按登录态区分文案与动作） -->
+      <section class="py-6 sm:py-8 bg-theme-bg">
+        <div class="content-container">
+          <!-- 未登录：注册转化 CTA（浅色柔和版） -->
+          <div v-if="!isLoggedIn" class="relative overflow-hidden rounded-2xl bg-theme-primary-soft border border-theme-primary/25 shadow-theme-sm">
+            <div class="relative px-6 py-10 sm:py-12 text-center">
+              <h2 class="text-2xl sm:text-3xl font-black text-theme-text mb-3">准备好开启你的求职之旅了吗？</h2>
+              <p class="text-theme-text-secondary meta-text sm:body-text mb-6 max-w-lg mx-auto">立即注册，免费体验简历诊断和 AI 模拟面试，让专业工具陪你上岸</p>
+              <div class="flex flex-wrap justify-center gap-3 sm:gap-4">
+                <button @click="goRegister" class="px-6 sm:px-8 py-3 bg-theme-primary text-theme-on-primary font-bold rounded-xl shadow-theme-md hover:opacity-90 transition-opacity">
+                  免费注册，开始诊断
+                </button>
+                <button @click="router.push('/about')" class="px-6 sm:px-8 py-3 bg-theme-surface border border-theme-border text-theme-text font-semibold rounded-xl hover:bg-theme-surface-highlight transition-colors">
+                  了解更多功能
+                </button>
+              </div>
+              <p class="text-theme-text-tertiary caption-text mt-5">免费注册 · 无需绑定支付方式 · 随时注销</p>
+            </div>
+          </div>
+
+          <!-- 已登录：行动 CTA（浅色柔和版） -->
+          <div v-else class="relative overflow-hidden rounded-2xl bg-theme-primary-soft border border-theme-primary/25 shadow-theme-sm">
+            <div class="relative px-6 py-8 sm:py-10 text-center">
+              <h3 class="text-xl sm:text-2xl font-bold text-theme-text mb-2">距离你的 Dream Offer 还有多远？</h3>
+              <p class="text-theme-text-secondary meta-text mb-5">完善简历，预约一次模拟面试，让专业工具帮你找准方向</p>
+              <div class="flex flex-wrap items-center justify-center gap-3 sm:gap-4">
+                <button @click="goResumeOptimize" class="inline-flex items-center gap-2 px-5 sm:px-6 py-2.5 bg-theme-primary text-theme-on-primary rounded-xl meta-text font-semibold hover:opacity-90 transition-opacity shadow-theme-md">
+                  <FileText class="w-4 h-4" />完善简历
+                </button>
+                <button @click="goVoiceInterview" class="inline-flex items-center gap-2 px-5 sm:px-6 py-2.5 bg-theme-surface border border-theme-border text-theme-text rounded-xl meta-text font-semibold hover:bg-theme-surface-highlight transition-colors">
+                  <Mic class="w-4 h-4" />预约模拟面试
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <div class="mt-2 sm:mt-4">
         <SiteFooter />
       </div>
 
@@ -1231,4 +1254,185 @@ useHead(
 </template>
 
 <style scoped>
+/* 首页动效（与原型语义一致，基于主题变量实现） */
+@keyframes homeFloat {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-8px); }
+}
+.home-float { animation: homeFloat 4s ease-in-out infinite; }
+.home-float-delayed { animation: homeFloat 4s ease-in-out 1.5s infinite; }
+
+@keyframes homeCardLift {
+  from { transform: translateY(0); box-shadow: var(--shadow-md, 0 4px 6px rgba(0,0,0,0.05)); }
+  to { transform: translateY(-4px); }
+}
+.home-card-lift { transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+.home-card-lift:hover { transform: translateY(-4px); box-shadow: var(--shadow-lg, 0 10px 30px rgba(0,0,0,0.1)); }
+
+/* 仪表盘快捷入口按钮（原型 shortcut-btn） */
+.home-shortcut-btn {
+  height: 2.5rem;
+  padding: 0 1.25rem;
+  background: var(--theme-surface);
+  border: 1px solid var(--theme-border);
+  border-radius: 0.75rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--theme-text);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  box-shadow: var(--shadow-sm, 0 1px 2px rgba(0,0,0,0.05));
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+.home-shortcut-btn:hover {
+  background: var(--theme-primary);
+  color: var(--theme-on-primary);
+  border-color: var(--theme-primary);
+}
+.home-shortcut-btn:hover svg {
+  color: var(--theme-on-primary);
+}
+
+.stat-number { font-variant-numeric: tabular-nums; }
+.progress-ring { transition: stroke-dashoffset 0.5s ease; }
+
+/* 章节头：编号 + 竖分隔线 + 标题，建立页面叙事层次（V11.1 首页重构） */
+.home-chapter-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+.home-chapter-no {
+  font-size: 1.375rem;
+  font-weight: 900;
+  line-height: 1;
+  color: var(--theme-primary);
+  opacity: 0.4;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.05em;
+}
+.home-chapter-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--theme-primary);
+  transition: opacity 0.2s ease;
+  flex-shrink: 0;
+  padding-bottom: 0.125rem;
+}
+.home-chapter-link:hover { opacity: 0.8; }
+
+/* 五大主线导航卡片（V11.3：渐变描边 + 悬浮抬升 + 图标弹性 + 入场动画） */
+.home-mainline-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.875rem 0.5rem 0.75rem;
+  border-radius: 1rem;
+  background: color-mix(in srgb, var(--theme-surface) 92%, transparent);
+  border: 1px solid var(--theme-border);
+  text-decoration: none;
+  overflow: hidden;
+  isolation: isolate;
+  /* 入场：轻微上浮淡入，逐个错峰 */
+  animation: mainline-rise 0.5s ease both;
+  transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
+}
+.home-mainline-card::before {
+  /* 悬浮时底部溢出的品牌光晕 */
+  content: '';
+  position: absolute;
+  inset: auto -30% -60% -30%;
+  height: 70%;
+  background: radial-gradient(closest-side, color-mix(in srgb, var(--theme-primary) 22%, transparent), transparent);
+  opacity: 0;
+  z-index: -1;
+  transition: opacity 0.3s ease;
+}
+.home-mainline-card:hover {
+  transform: translateY(-4px);
+  border-color: color-mix(in srgb, var(--theme-primary) 45%, var(--theme-border));
+  box-shadow: 0 12px 24px -12px color-mix(in srgb, var(--theme-primary) 35%, transparent);
+}
+.home-mainline-card:hover::before { opacity: 1; }
+.home-mainline-card:active { transform: translateY(-1px); }
+
+.home-mainline-icon {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  border-radius: 0.875rem;
+  color: var(--theme-primary);
+  background: var(--theme-primary-soft);
+  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), background-color 0.25s ease, color 0.25s ease, box-shadow 0.25s ease;
+}
+.home-mainline-card:hover .home-mainline-icon {
+  transform: scale(1.12) rotate(-4deg);
+  background: var(--theme-primary);
+  color: var(--theme-on-primary);
+  box-shadow: 0 6px 14px -6px color-mix(in srgb, var(--theme-primary) 60%, transparent);
+}
+
+.home-mainline-text {
+  display: flex;
+  align-items: baseline;
+  gap: 0.25rem;
+  font-size: 0.8125rem;
+  line-height: 1.2;
+  white-space: nowrap;
+  transition: color 0.2s ease;
+}
+.home-mainline-card:hover .home-mainline-text { color: var(--theme-primary); }
+
+.home-mainline-arrow {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.25rem;
+  height: 1.25rem;
+  border-radius: 9999px;
+  color: var(--theme-primary);
+  background: var(--theme-primary-soft);
+  opacity: 0;
+  transform: translate(-4px, 4px) scale(0.6);
+  transition: opacity 0.25s ease, transform 0.25s ease;
+}
+.home-mainline-card:hover .home-mainline-arrow {
+  opacity: 1;
+  transform: translate(0, 0) scale(1);
+}
+
+@keyframes mainline-rise {
+  from { opacity: 0; transform: translateY(14px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* 窄屏：5 列过挤时收紧内边距与图标 */
+@media (max-width: 480px) {
+  .home-mainline-card { padding: 0.625rem 0.25rem 0.5rem; border-radius: 0.875rem; }
+  .home-mainline-icon { width: 2.25rem; height: 2.25rem; border-radius: 0.75rem; }
+  .home-mainline-text { font-size: 0.75rem; }
+  .home-mainline-arrow { display: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .home-mainline-card { animation: none; }
+  .home-mainline-card:hover { transform: none; }
+  .home-mainline-card:hover .home-mainline-icon { transform: none; }
+}
+
 </style>

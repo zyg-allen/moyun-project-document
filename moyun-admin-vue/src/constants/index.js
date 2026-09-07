@@ -2,14 +2,9 @@
  * 系统常量定义
  */
 
-// 模型提供商（与后端 ModelConfigServiceImpl 保持一致）
-export const MODEL_PROVIDERS = {
-  OPENAI: 'openai',
-  OLLAMA: 'ollama',
-  DASHSCOPE: 'dashscope'  // 通义千问
-}
+// 模型提供商清单由后台「AI 模块 → 提供商管理」动态配置（ai_provider 注册表），前端不再硬编码
 
-// 模型类型（只有 chat 和 embedding 两种，多模态模型属于 chat 类型）
+// 模型类型
 export const MODEL_TYPES = {
   CHAT: 'chat',
   EMBEDDING: 'embedding'

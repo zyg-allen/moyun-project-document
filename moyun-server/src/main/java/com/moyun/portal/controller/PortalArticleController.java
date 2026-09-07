@@ -565,21 +565,35 @@ public class PortalArticleController extends BaseController {
         return ip;
     }
 
-    @Operation(summary = "获取分类推荐文章", description = "获取指定分类的推荐文章列表")
+    @Operation(summary = "获取分类推荐文章", description = "获取指定分类的推荐文章列表；支持按一级分类(rootCategoryId)查询其下所有子分类文章，无栏目推荐时回退为该分类最新文章")
     @GetMapping("/categoryRecommended")
     public AjaxResult getCategoryRecommendedArticles(
             @RequestParam(required = false) String categoryName,
             @RequestParam(required = false) Long categoryId,
+            @RequestParam(required = false) Long rootCategoryId,
             @RequestParam(defaultValue = "8") Integer limit) {
         ArticleQuery query = new ArticleQuery();
         query.setCategoryName(categoryName);
         query.setCategoryId(categoryId);
+        // 首页主题 Tab 是一级分类：按 rootCategoryId 匹配可覆盖其下全部子分类文章
+        query.setRootCategoryId(rootCategoryId);
         query.setIsCategoryRecommended(true);
         query.setPageNum(1);
         query.setPageSize(limit);
 
         Page<PortalArticle> page = PageUtils.buildPage(query);
         Page<PortalArticle> resultPage = portalArticleService.selectPortalArticlePage(page, query);
+        // 冷启动兜底：该分类尚未配置栏目推荐文章时，回退为该分类下最新已发布文章（保持分类过滤条件）
+        if (resultPage.getRecords().isEmpty()) {
+            ArticleQuery fallback = new ArticleQuery();
+            fallback.setCategoryName(categoryName);
+            fallback.setCategoryId(categoryId);
+            fallback.setRootCategoryId(rootCategoryId);
+            fallback.setPageNum(1);
+            fallback.setPageSize(limit);
+            Page<PortalArticle> fallbackPage = PageUtils.buildPage(fallback);
+            resultPage = portalArticleService.selectPortalArticlePage(fallbackPage, fallback);
+        }
         return success(resultPage);
     }
 

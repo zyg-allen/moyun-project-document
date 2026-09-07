@@ -72,6 +72,13 @@ public interface ModelConfigService extends IService<ModelConfig> {
     ModelConfig getDefaultRerankConfig();
 
     /**
+     * 获取默认 ASR（语音识别）模型配置
+     * <p>V10.1 语音面试官：浏览器 Web Speech API 不可用时，服务端调用 ASR 模型转写录音
+     * @return 默认 ASR 配置，如果没有则返回 null
+     */
+    ModelConfig getDefaultAsrConfig();
+
+    /**
      * 获取默认多模态模型配置
      * @deprecated 多模态模型统一使用 chat 类型，请使用 {@link #getDefaultChatConfig()}
      */
@@ -92,6 +99,14 @@ public interface ModelConfigService extends IService<ModelConfig> {
      * 根据模型名称获取配置
      */
     ModelConfig getByModelName(String modelName);
+
+    /**
+     * 根据提供商注册表自动推断流式支持并回填 streamingSupported
+     * <p>非 chat 类型 → false；chat + 注册表声明支持（ai_provider.supports_streaming）→ 跟随注册表；
+     * chat + 未注册提供商 → 保留原值。保存模型配置前调用，避免标志位误配导致流式链路报错。</p>
+     * @param config 待推断的配置（原地修改）
+     */
+    void inferStreamingSupport(ModelConfig config);
 
     /**
      * 统计启用的模型数量

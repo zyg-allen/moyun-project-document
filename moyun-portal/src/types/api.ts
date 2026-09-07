@@ -273,6 +273,8 @@ export interface ArticleListParams {
   categoryId?: string;
   /** 分类名（后端 ArticleQuery.categoryName，按分类名筛选） */
   categoryName?: string;
+  /** 一级分类ID（后端 ArticleQuery.rootCategoryId，按一级分类查询其下全部子分类文章） */
+  rootCategoryId?: string;
   tag?: string;
   keyword?: string;
   authorId?: string;

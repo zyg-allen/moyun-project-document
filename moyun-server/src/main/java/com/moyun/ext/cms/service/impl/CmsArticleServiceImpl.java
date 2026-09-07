@@ -91,7 +91,44 @@ public class CmsArticleServiceImpl implements ICmsArticleService {
         if (id == null) {
             return null;
         }
-        return portalArticleMapper.selectCmsArticleById(id);
+        CmsArticleVO vo = portalArticleMapper.selectCmsArticleById(id);
+        if (vo != null) {
+            fillTagArrays(vo);
+        }
+        return vo;
+    }
+
+    /**
+     * 拆分聚合的标签字符串为 ID/名称数组（编辑回显用）。
+     * tagNames 保留逗号字符串（列表展示兼容），tagNameList/tagIds 按 et 绑定顺序一一对应。
+     */
+    private void fillTagArrays(CmsArticleVO vo) {
+        String namesStr = vo.getTagNames();
+        // tagIds 由 Mapper 子查询聚合（仅 et.tag_id，无 join，与绑定表顺序一致）
+        String idsStr = vo.getTagIdsRaw();
+        if (namesStr == null || namesStr.isEmpty()) {
+            vo.setTagIds(new java.util.ArrayList<>());
+            vo.setTagNameList(new java.util.ArrayList<>());
+            return;
+        }
+        List<String> names = java.util.Arrays.stream(namesStr.split(","))
+                .map(String::trim).filter(s -> !s.isEmpty()).collect(java.util.stream.Collectors.toList());
+        List<Long> ids = new java.util.ArrayList<>();
+        if (idsStr != null && !idsStr.isEmpty()) {
+            for (String s : idsStr.split(",")) {
+                try {
+                    ids.add(Long.parseLong(s.trim()));
+                } catch (NumberFormatException ignore) {
+                    // 脏数据防御：单条 ID 解析失败跳过，不影响整体返回
+                }
+            }
+        }
+        // 数量不一致时以 names 为准补齐（极端脏数据防御，避免前端错位匹配）
+        while (ids.size() < names.size()) {
+            ids.add(null);
+        }
+        vo.setTagIds(ids);
+        vo.setTagNameList(names);
     }
 
     // ==================== 新增 / 修改 ====================

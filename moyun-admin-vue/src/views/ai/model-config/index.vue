@@ -14,11 +14,15 @@
         <el-select v-model="searchType" placeholder="类型" clearable style="width: 120px">
           <el-option label="对话模型" value="chat" />
           <el-option label="向量模型" value="embedding" />
+          <el-option label="语音识别" value="asr" />
         </el-select>
         <el-select v-model="searchProvider" placeholder="提供商" clearable style="width: 120px">
-          <el-option label="OpenAI" value="openai" />
-          <el-option label="通义千问" value="dashscope" />
-          <el-option label="Ollama" value="ollama" />
+          <el-option
+            v-for="p in providerList"
+            :key="p.code"
+            :label="p.name"
+            :value="p.code"
+          />
         </el-select>
         <el-button type="primary" @click="showCreateDialog = true" class="create-btn">
           <i class="fa-solid fa-plus"></i> 新建配置
@@ -69,7 +73,7 @@
             <div class="model-tags">
               <span class="model-tag">
                 <i class="fa-solid fa-tag"></i>
-                {{ model.modelType === 'embedding' ? '向量模型' : '对话模型' }}
+                {{ model.modelType === 'embedding' ? '向量模型' : model.modelType === 'asr' ? '语音识别' : '对话模型' }}
               </span>
               <span class="model-tag">
                 <i class="fa-solid fa-temperature-half"></i>
@@ -138,10 +142,16 @@
 
         <el-form-item label="模型提供商" required>
           <el-select v-model="formData.provider" placeholder="选择提供商" style="width: 100%">
-            <el-option label="OpenAI" value="openai" />
-            <el-option label="Ollama (本地)" value="ollama" />
-            <el-option label="通义千问 (Dashscope)" value="dashscope" />
+            <el-option
+              v-for="p in enabledProviders"
+              :key="p.code"
+              :label="p.name"
+              :value="p.code"
+            />
           </el-select>
+          <div style="font-size: 12px; color: #909399; margin-top: 5px;">
+            提供商清单由「AI 模块 → 提供商管理」动态配置；新增 OpenAI 兼容提供商（DeepSeek/Moonshot 等）无需改代码
+          </div>
         </el-form-item>
 
         <el-form-item label="模型类型" required>
@@ -154,9 +164,13 @@
               <span>向量模型 (Embedding)</span>
               <span style="color: #909399; font-size: 12px; margin-left: 10px;">用于文档向量化</span>
             </el-option>
+            <el-option label="语音识别 (ASR)" value="asr">
+              <span>语音识别 (ASR)</span>
+              <span style="color: #909399; font-size: 12px; margin-left: 10px;">用于语音面试官录音转写</span>
+            </el-option>
           </el-select>
           <div style="font-size: 12px; color: #909399; margin-top: 5px;">
-            对话模型用于智能体对话，向量模型用于知识库文档的向量化处理
+            对话模型用于智能体对话，向量模型用于知识库文档的向量化处理，语音识别用于语音面试官的录音转文字
           </div>
         </el-form-item>
 
@@ -164,26 +178,25 @@
           <el-input v-model="formData.modelName" placeholder="例如：qwen-plus, gpt-4, text-embedding-v3" />
           <div style="font-size: 12px; color: #909399; margin-top: 5px;">
             <span v-if="formData.modelType === 'chat'">对话模型：qwen-plus, gpt-4, deepseek-r1:1.5b 等</span>
-            <span v-else-if="formData.modelType === 'embedding'">向量模型：text-embedding-v3, text-embedding-3-large, nomic-embed-text 等</span>
-            <span v-else>根据提供商和类型填写对应的模型名称</span>
+              <span v-else-if="formData.modelType === 'embedding'">向量模型：text-embedding-v3, text-embedding-3-large, nomic-embed-text 等</span>
+              <span v-else-if="formData.modelType === 'asr'">语音识别模型：qwen3-asr-flash 等（需配合 Base URL 使用百炼业务空间域名）</span>
+              <span v-else>根据提供商和类型填写对应的模型名称</span>
           </div>
         </el-form-item>
 
-        <el-form-item label="API Key" v-if="formData.provider !== 'ollama'">
-          <el-input 
-            v-model="formData.apiKey" 
-            type="password" 
+        <el-form-item label="API Key" v-if="requiresApiKeyOf(formData.provider)">
+          <el-input
+            v-model="formData.apiKey"
+            type="password"
             show-password
             placeholder="输入API密钥"
           />
         </el-form-item>
 
         <el-form-item label="Base URL">
-          <el-input v-model="formData.baseUrl" placeholder="留空使用默认地址" />
+          <el-input v-model="formData.baseUrl" :placeholder="baseUrlPlaceholderOf(formData.provider)" />
           <div style="font-size: 12px; color: #909399; margin-top: 5px;">
-            OpenAI: https://api.openai.com/v1<br>
-            Ollama: http://localhost:11434<br>
-            自定义: 填写完整URL
+            留空自动使用该提供商在「提供商管理」中配置的默认地址
           </div>
         </el-form-item>
 
@@ -210,7 +223,15 @@
         </el-form-item>
 
         <el-form-item label="流式输出">
-          <el-switch v-model="formData.streamingSupported" />
+          <el-switch
+            v-model="formData.streamingSupported"
+            :disabled="formData.modelType !== 'chat'"
+          />
+          <div class="form-tip">
+            {{ formData.modelType === 'chat'
+              ? '对话模型按提供商协议自动判定（OpenAI 兼容端点均支持流式），保存时自动纠正'
+              : '该类型无流式概念，自动关闭' }}
+          </div>
         </el-form-item>
 
         <el-form-item label="启用状态">
@@ -240,7 +261,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, watch, onMounted } from 'vue'
 import request from '@/utils/request'
 import { ElMessage, ElMessageBox } from 'element-plus'
 
@@ -249,6 +270,13 @@ const loading = ref(false)
 const showCreateDialog = ref(false)
 const editMode = ref(false)
 const submitting = ref(false)
+
+// 提供商注册表（来自「AI 模块 → 提供商管理」，配置驱动，禁止硬编码）
+const providerList = ref([])
+const enabledProviders = computed(() => providerList.value.filter(p => p.enabled !== false))
+const providerOf = (code) => providerList.value.find(p => p.code === code) || null
+const requiresApiKeyOf = (code) => providerOf(code)?.requiresApiKey !== false
+const baseUrlPlaceholderOf = (code) => providerOf(code)?.defaultBaseUrl || '例如：https://api.deepseek.com/v1'
 
 // 搜索相关
 const searchKeyword = ref('')
@@ -281,7 +309,7 @@ const filteredModels = computed(() => {
 const formData = ref({
   id: null,
   name: '',
-  provider: 'dashscope',
+  provider: '',
   modelType: 'chat',  // 默认为对话模型
   modelName: '',
   apiKey: '',
@@ -311,6 +339,20 @@ const loadConfigList = async () => {
   }
 }
 
+// 加载提供商注册表（含禁用记录，用于名称回显；表单下拉只取启用的）
+const loadProviders = async () => {
+  try {
+    const response = await request({ url: '/cms/ai/provider/list', method: 'get' })
+    providerList.value = response.data || []
+    // 新建表单默认选中第一个启用的提供商（不写死具体提供商）
+    if (!formData.value.provider && enabledProviders.value.length > 0) {
+      formData.value.provider = enabledProviders.value[0].code
+    }
+  } catch (error) {
+    console.error('加载提供商清单失败:', error)
+  }
+}
+
 // 编辑配置
 const editConfig = (config) => {
   editMode.value = true
@@ -325,7 +367,7 @@ const submitForm = async () => {
     return
   }
 
-  if (formData.value.provider !== 'ollama' && !formData.value.apiKey) {
+  if (requiresApiKeyOf(formData.value.provider) && !formData.value.apiKey) {
     ElMessage.warning('请填写API Key')
     return
   }
@@ -399,7 +441,7 @@ const resetForm = () => {
   formData.value = {
     id: null,
     name: '',
-    provider: 'dashscope',
+    provider: enabledProviders.value.length > 0 ? enabledProviders.value[0].code : '',
     modelType: 'chat',
     modelName: '',
     apiKey: '',
@@ -415,34 +457,40 @@ const resetForm = () => {
   }
 }
 
-// 获取提供商类型
-const getProviderType = (provider) => {
-  const typeMap = {
-    'openai': 'primary',
-    'ollama': 'success',
-    'dashscope': 'warning'
-  }
-  return typeMap[provider] || 'info'
-}
-
 // 分页数据（基于过滤后的列表）
 const paginatedModels = computed(() => {
   const start = (currentPage.value - 1) * pageSize.value
-  const end = start + pageSize.value
+  const end = currentPage.value * pageSize.value
   return filteredModels.value.slice(start, end)
 })
 
-// 获取提供商名称
-const getProviderName = (provider) => {
-  const nameMap = {
-    'openai': 'OpenAI',
-    'ollama': 'Ollama',
-    'dashscope': '通义千问'
+// 模型类型切换：非 chat 类型无流式概念；chat 类型按注册表的 supportsStreaming 联动
+watch(() => formData.value.modelType, (type) => {
+  if (type !== 'chat') {
+    formData.value.streamingSupported = false
+  } else {
+    const provider = providerOf(formData.value.provider)
+    if (provider?.supportsStreaming != null) {
+      formData.value.streamingSupported = provider.supportsStreaming
+    }
   }
-  return nameMap[provider] || provider
-}
+})
+
+// 提供商切换：chat 类型下按注册表能力元数据联动流式开关
+watch(() => formData.value.provider, (code) => {
+  if (formData.value.modelType === 'chat') {
+    const provider = providerOf(code)
+    if (provider?.supportsStreaming != null) {
+      formData.value.streamingSupported = provider.supportsStreaming
+    }
+  }
+})
+
+// 获取提供商名称（注册表回显，未注册显示原始编码）
+const getProviderName = (provider) => providerOf(provider)?.name || provider
 
 onMounted(() => {
+  loadProviders()
   loadConfigList()
 })
 </script>

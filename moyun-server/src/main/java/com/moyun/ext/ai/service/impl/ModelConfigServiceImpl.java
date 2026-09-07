@@ -3,6 +3,7 @@ package com.moyun.ext.ai.service.impl;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.moyun.ext.ai.constant.RedisKeys;
+import com.moyun.ext.ai.entity.AiProvider;
 import com.moyun.ext.ai.entity.ModelConfig;
 import com.moyun.ext.ai.enums.ModelType;
 import com.moyun.ext.ai.exception.BusinessException;
@@ -10,6 +11,7 @@ import com.moyun.ext.ai.exception.ErrorCode;
 import com.moyun.ext.ai.mapper.ModelConfigMapper;
 import com.moyun.ext.ai.model.DashScopeRerankModel;
 import com.moyun.ext.ai.model.RerankModel;
+import com.moyun.ext.ai.service.AiProviderService;
 import com.moyun.ext.ai.service.ModelConfigService;
 import com.moyun.ext.ai.util.ApiKeyCryptoUtils;
 import com.moyun.ext.ai.util.JsonUtils;
@@ -32,6 +34,7 @@ import org.springframework.util.StringUtils;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 import jakarta.annotation.PostConstruct;
 
@@ -49,6 +52,68 @@ import jakarta.annotation.PostConstruct;
 public class ModelConfigServiceImpl extends ServiceImpl<ModelConfigMapper, ModelConfig> implements ModelConfigService {
 
     private final StringRedisTemplate redisTemplate;
+
+    /** 提供商注册表（V11.0.2：能力元数据全部查注册表，代码不再出现 provider 字符串分支） */
+    private final AiProviderService providerService;
+
+    /**
+     * 启动时自动纠正：按提供商注册表修正 streaming_supported 标志
+     *
+     * <p>历史数据中 chat 模型被误标为不支持流式（如 configId=15），导致语音面试等流式链路报错。
+     * 纠正规则：非 chat 类型 → false；chat + 注册表声明支持流式 → true；
+     * chat + 未注册提供商 → 保留用户显式配置。保证后台动态配置 agent/工作流时不会因标志位误配导致链路中断。</p>
+     */
+    @PostConstruct
+    public void migrateStreamingFlags() {
+        try {
+            List<ModelConfig> all = super.list();
+            int fixed = 0;
+            for (ModelConfig config : all) {
+                Boolean old = config.getStreamingSupported();
+                inferStreamingSupport(config);
+                if (!Objects.equals(old, config.getStreamingSupported())) {
+                    this.lambdaUpdate()
+                            .set(ModelConfig::getStreamingSupported, config.getStreamingSupported())
+                            .eq(ModelConfig::getId, config.getId())
+                            .update();
+                    // 同步清除单条缓存与默认配置缓存，避免 Redis 持续返回旧标志
+                    clearModelConfigCache(config);
+                    fixed++;
+                    log.info("🔧 已纠正模型流式标志: configId={}, name={}, streamingSupported: {} → {}",
+                            config.getId(), config.getName(), old, config.getStreamingSupported());
+                }
+            }
+            if (fixed > 0) {
+                log.info("✅ 模型流式标志纠正完成，共 {} 条记录", fixed);
+            }
+        } catch (Exception e) {
+            log.error("⚠️ 模型流式标志纠正失败（不影响启动）", e);
+        }
+    }
+
+    /**
+     * 根据提供商注册表自动推断流式支持并回填 streamingSupported：
+     * <ul>
+     *   <li>非 chat 类型（embedding/rerank/asr）→ 无流式概念，置 false</li>
+     *   <li>chat + 注册表声明支持流式（{@code ai_provider.supports_streaming}）→ true</li>
+     *   <li>chat + 注册表声明不支持 → false</li>
+     *   <li>chat + 未注册提供商 → 保留用户显式配置（不覆盖）</li>
+     * </ul>
+     */
+    @Override
+    public void inferStreamingSupport(ModelConfig config) {
+        if (config == null) {
+            return;
+        }
+        if (!ModelType.CHAT.getCode().equals(config.getModelType())) {
+            config.setStreamingSupported(false);
+            return;
+        }
+        AiProvider provider = providerService.getByCode(config.getProvider());
+        if (provider != null) {
+            config.setStreamingSupported(Boolean.TRUE.equals(provider.getSupportsStreaming()));
+        }
+    }
 
     /**
      * 启动时自动迁移：将历史明文 apiKey 加密为 ENC: 密文
@@ -206,6 +271,11 @@ public class ModelConfigServiceImpl extends ServiceImpl<ModelConfigMapper, Model
     @Override
     public ModelConfig getDefaultRerankConfig() {
         return getDefaultConfigByType(ModelType.RERANKER.getCode());
+    }
+
+    @Override
+    public ModelConfig getDefaultAsrConfig() {
+        return getDefaultConfigByType(ModelType.ASR.getCode());
     }
 
     @Override
@@ -515,50 +585,68 @@ public class ModelConfigServiceImpl extends ServiceImpl<ModelConfigMapper, Model
 
     /**
      * 根据配置创建聊天模型
+     *
+     * <p>V11.0.2：按提供商注册表的 apiStyle 分支（而非 provider 名）。
+     * 任何 OpenAI 兼容提供商（DeepSeek/Moonshot/智谱等）注册后自动可用，零代码改动。</p>
      */
     private ChatLanguageModel createChatModelFromConfig(ModelConfig config) {
-        String provider = config.getProvider().toLowerCase();
+        String apiStyle = providerService.apiStyle(config.getProvider());
 
-        switch (provider) {
-            case "openai":
-                return createOpenAiChatModel(config);
-            case "ollama":
+        switch (apiStyle) {
+            case AiProvider.STYLE_OLLAMA_NATIVE:
                 return createOllamaChatModel(config);
-            case "dashscope":
-                return createDashscopeChatModel(config);
+            case AiProvider.STYLE_OPENAI_COMPATIBLE:
             default:
-                throw new BusinessException(ErrorCode.MODEL_CONFIG_INVALID, "不支持的模型提供商: " + provider);
+                return createOpenAiCompatibleChatModel(config);
         }
     }
 
     /**
-     * 根据配置创建流式聊天模型
+     * 根据配置创建流式聊天模型（按 apiStyle 分支，见 {@link #createChatModelFromConfig}）
      */
     private StreamingChatLanguageModel createStreamingChatModelFromConfig(ModelConfig config) {
-        String provider = config.getProvider().toLowerCase();
+        String apiStyle = providerService.apiStyle(config.getProvider());
 
-        switch (provider) {
-            case "openai":
-                return createOpenAiStreamingChatModel(config);
-            case "ollama":
+        switch (apiStyle) {
+            case AiProvider.STYLE_OLLAMA_NATIVE:
                 return createOllamaStreamingChatModel(config);
-            case "dashscope":
-                return createDashscopeStreamingChatModel(config);
+            case AiProvider.STYLE_OPENAI_COMPATIBLE:
             default:
-                throw new BusinessException(ErrorCode.MODEL_CONFIG_INVALID, "不支持的模型提供商: " + provider);
+                return createOpenAiCompatibleStreamingChatModel(config);
         }
     }
 
     /**
-     * 创建 OpenAI 聊天模型
+     * 解析模型 baseUrl：用户配置优先 → 提供商注册表默认地址兜底（V11.0.2）
      */
-    private ChatLanguageModel createOpenAiChatModel(ModelConfig config) {
+    private String resolveBaseUrl(ModelConfig config) {
+        if (config.getBaseUrl() != null && !config.getBaseUrl().isEmpty()) {
+            return config.getBaseUrl();
+        }
+        return providerService.defaultBaseUrl(config.getProvider());
+    }
+
+    /**
+     * 解析 apiKey：注册表声明免 Key 的本地端点（如 Ollama 兼容模式）传占位符，避免 NPE
+     */
+    private String resolveApiKey(ModelConfig config) {
+        if (config.getApiKey() != null && !config.getApiKey().isEmpty()) {
+            return config.getApiKey();
+        }
+        return providerService.requiresApiKey(config.getProvider()) ? config.getApiKey() : "no-api-key";
+    }
+
+    /**
+     * 创建 OpenAI 兼容聊天模型（openai/dashscope/deepseek/moonshot 等所有兼容端点共用）
+     */
+    private ChatLanguageModel createOpenAiCompatibleChatModel(ModelConfig config) {
         OpenAiChatModel.OpenAiChatModelBuilder builder = OpenAiChatModel.builder()
-                .apiKey(config.getApiKey())
+                .apiKey(resolveApiKey(config))
                 .modelName(config.getModelName());
 
-        if (config.getBaseUrl() != null && !config.getBaseUrl().isEmpty()) {
-            builder.baseUrl(config.getBaseUrl());
+        String baseUrl = resolveBaseUrl(config);
+        if (baseUrl != null && !baseUrl.isEmpty()) {
+            builder.baseUrl(baseUrl);
         }
         if (config.getTemperature() != null) {
             builder.temperature(config.getTemperature());
@@ -574,15 +662,16 @@ public class ModelConfigServiceImpl extends ServiceImpl<ModelConfigMapper, Model
     }
 
     /**
-     * 创建 OpenAI 流式聊天模型
+     * 创建 OpenAI 兼容流式聊天模型（所有兼容端点共用）
      */
-    private StreamingChatLanguageModel createOpenAiStreamingChatModel(ModelConfig config) {
+    private StreamingChatLanguageModel createOpenAiCompatibleStreamingChatModel(ModelConfig config) {
         OpenAiStreamingChatModel.OpenAiStreamingChatModelBuilder builder = OpenAiStreamingChatModel.builder()
-                .apiKey(config.getApiKey())
+                .apiKey(resolveApiKey(config))
                 .modelName(config.getModelName());
 
-        if (config.getBaseUrl() != null && !config.getBaseUrl().isEmpty()) {
-            builder.baseUrl(config.getBaseUrl());
+        String baseUrl = resolveBaseUrl(config);
+        if (baseUrl != null && !baseUrl.isEmpty()) {
+            builder.baseUrl(baseUrl);
         }
         if (config.getTemperature() != null) {
             builder.temperature(config.getTemperature());
@@ -638,91 +727,31 @@ public class ModelConfigServiceImpl extends ServiceImpl<ModelConfigMapper, Model
     }
 
     /**
-     * 通义千问 OpenAI 兼容模式默认 baseURL
-     */
-    private static final String DASHSCOPE_DEFAULT_BASE_URL = "https://dashscope.aliyuncs.com/compatible-mode/v1";
-
-    /**
-     * 解析 dashscope 的 baseURL：优先使用用户配置，未配置则用默认值
-     */
-    private String resolveDashscopeBaseUrl(ModelConfig config) {
-        return (config.getBaseUrl() != null && !config.getBaseUrl().isEmpty())
-                ? config.getBaseUrl()
-                : DASHSCOPE_DEFAULT_BASE_URL;
-    }
-
-    /**
-     * 创建通义千问聊天模型（使用OpenAI兼容模式）
-     */
-    private ChatLanguageModel createDashscopeChatModel(ModelConfig config) {
-        OpenAiChatModel.OpenAiChatModelBuilder builder = OpenAiChatModel.builder()
-                .apiKey(config.getApiKey())
-                .modelName(config.getModelName())
-                .baseUrl(resolveDashscopeBaseUrl(config));
-
-        if (config.getTemperature() != null) {
-            builder.temperature(config.getTemperature());
-        }
-        if (config.getMaxTokens() != null) {
-            builder.maxTokens(config.getMaxTokens());
-        }
-        if (config.getTimeout() != null) {
-            builder.timeout(Duration.ofSeconds(config.getTimeout()));
-        }
-
-        return builder.build();
-    }
-
-    /**
-     * 创建通义千问流式聊天模型（使用OpenAI兼容模式）
-     */
-    private StreamingChatLanguageModel createDashscopeStreamingChatModel(ModelConfig config) {
-        OpenAiStreamingChatModel.OpenAiStreamingChatModelBuilder builder = OpenAiStreamingChatModel.builder()
-                .apiKey(config.getApiKey())
-                .modelName(config.getModelName())
-                .baseUrl(resolveDashscopeBaseUrl(config));
-
-        if (config.getTemperature() != null) {
-            builder.temperature(config.getTemperature());
-        }
-        if (config.getMaxTokens() != null) {
-            builder.maxTokens(config.getMaxTokens());
-        }
-        if (config.getTimeout() != null) {
-            builder.timeout(Duration.ofSeconds(config.getTimeout()));
-        }
-
-        return builder.build();
-    }
-
-    /**
-     * 根据配置创建 Embedding 模型
+     * 根据配置创建 Embedding 模型（V11.0.2：按 apiStyle 分支）
      */
     private EmbeddingModel createEmbeddingModelFromConfig(ModelConfig config) {
-        String provider = config.getProvider().toLowerCase();
+        String apiStyle = providerService.apiStyle(config.getProvider());
 
-        switch (provider) {
-            case "openai":
-                return createOpenAiEmbeddingModel(config);
-            case "ollama":
+        switch (apiStyle) {
+            case AiProvider.STYLE_OLLAMA_NATIVE:
                 return createOllamaEmbeddingModel(config);
-            case "dashscope":
-                return createDashscopeEmbeddingModel(config);
+            case AiProvider.STYLE_OPENAI_COMPATIBLE:
             default:
-                throw new BusinessException(ErrorCode.MODEL_CONFIG_INVALID, "不支持的模型提供商: " + provider);
+                return createOpenAiCompatibleEmbeddingModel(config);
         }
     }
 
     /**
-     * 创建 OpenAI Embedding 模型
+     * 创建 OpenAI 兼容 Embedding 模型（所有兼容端点共用，baseUrl 走注册表兜底）
      */
-    private EmbeddingModel createOpenAiEmbeddingModel(ModelConfig config) {
+    private EmbeddingModel createOpenAiCompatibleEmbeddingModel(ModelConfig config) {
         OpenAiEmbeddingModel.OpenAiEmbeddingModelBuilder builder = OpenAiEmbeddingModel.builder()
-                .apiKey(config.getApiKey())
+                .apiKey(resolveApiKey(config))
                 .modelName(config.getModelName());
 
-        if (config.getBaseUrl() != null && !config.getBaseUrl().isEmpty()) {
-            builder.baseUrl(config.getBaseUrl());
+        String baseUrl = resolveBaseUrl(config);
+        if (baseUrl != null && !baseUrl.isEmpty()) {
+            builder.baseUrl(baseUrl);
         }
         if (config.getTimeout() != null) {
             builder.timeout(Duration.ofSeconds(config.getTimeout()));
@@ -749,35 +778,19 @@ public class ModelConfigServiceImpl extends ServiceImpl<ModelConfigMapper, Model
     }
 
     /**
-     * 创建通义千问 Embedding 模型（使用OpenAI兼容模式）
-     */
-    private EmbeddingModel createDashscopeEmbeddingModel(ModelConfig config) {
-        // 通义千问使用OpenAI兼容模式的Embedding API
-        OpenAiEmbeddingModel.OpenAiEmbeddingModelBuilder builder = OpenAiEmbeddingModel.builder()
-                .apiKey(config.getApiKey())
-                .modelName(config.getModelName())
-                .baseUrl(resolveDashscopeBaseUrl(config));
-
-        if (config.getTimeout() != null) {
-            builder.timeout(Duration.ofSeconds(config.getTimeout()));
-        }
-
-        return builder.build();
-    }
-
-    /**
-     * 根据配置创建 Reranker 模型
+     * 根据 Reranker 模型类型创建
+     *
+     * <p>Rerank 为提供商私有协议（DashScope），无 OpenAI 兼容标准，按注册表 code 分发；
+     * 未支持的可在此扩展或后续抽象为独立 SPI。</p>
      */
     private RerankModel createRerankModelFromConfig(ModelConfig config) {
-        String provider = config.getProvider().toLowerCase();
-
-        switch (provider) {
-            case "dashscope":
-                return createDashScopeRerankModel(config);
-            // 未来可以扩展其他提供商（如 Cohere、Jina 等）
-            default:
-                throw new BusinessException(ErrorCode.MODEL_CONFIG_INVALID, "不支持的 Reranker 提供商: " + provider);
+        AiProvider provider = providerService.getByCode(config.getProvider());
+        // Rerank 专用模型（DashScopeRerankModel 自定义协议）
+        if (provider != null && "dashscope".equals(provider.getCode())) {
+            return createDashScopeRerankModel(config);
         }
+        throw new BusinessException(ErrorCode.MODEL_CONFIG_INVALID,
+                "暂不支持该提供商的 Reranker: " + config.getProvider() + "，请在后台提供商管理中确认配置");
     }
 
     /**

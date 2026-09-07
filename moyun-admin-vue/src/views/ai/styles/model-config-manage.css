@@ -400,3 +400,10 @@
     grid-template-columns: 1fr;
   }
 }
+/* 流式开关说明文案（V11.0.1 自动判定提示） */
+.form-tip {
+  font-size: 12px;
+  line-height: 1.5;
+  color: #909399;
+  margin-top: 4px;
+}

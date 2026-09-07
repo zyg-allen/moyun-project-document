@@ -12,6 +12,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.security.access.AccessDeniedException;
+import org.springframework.web.context.request.async.AsyncRequestTimeoutException;
 import org.springframework.validation.BindException;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -84,6 +85,24 @@ public class GlobalExceptionHandler {
         }
         log.error("请求参数类型不匹配'{}',发生系统异常.", requestURI, e);
         return AjaxResult.error(String.format("请求参数类型不匹配，参数[%s]要求类型为：'%s'，但输入值为：'%s'", e.getName(), e.getRequiredType().getName(), value));
+    }
+
+    /**
+     * 异步请求超时（SSE / DeferredResult）
+     *
+     * <p>SSE 流式接口（如语音面试提交答案 / 智能体对话）超时后，响应 Content-Type
+     * 已固化为 text/event-stream，无法再序列化 AjaxResult JSON（会触发
+     * HttpMessageNotWritableException 二次异常）。此处返回空体 503，仅记录 WARN 日志；
+     * 前端按流中断处理（EventSource/onerror），SseEmitter 侧由 onTimeout 回调收尾。</p>
+     */
+    @ExceptionHandler(AsyncRequestTimeoutException.class)
+    public org.springframework.http.ResponseEntity<Void> handleAsyncRequestTimeout(AsyncRequestTimeoutException e,
+                                                                                   HttpServletRequest request) {
+        String requestURI = request.getRequestURI();
+        log.warn("请求地址'{}',异步请求超时（SSE/DeferredResult 超时收尾）", requestURI);
+        return org.springframework.http.ResponseEntity
+                .status(org.springframework.http.HttpStatus.SERVICE_UNAVAILABLE)
+                .build();
     }
 
     /**

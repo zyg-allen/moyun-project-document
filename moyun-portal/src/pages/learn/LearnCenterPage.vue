@@ -3,7 +3,7 @@ import { ref, computed, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { useHead } from '@vueuse/head';
 import {
-  BookOpen, Target, AlertCircle, Flame, CheckCircle2,
+  Target, AlertCircle, Flame, CheckCircle2,
   Calendar, ChevronRight, Loader2, LogIn, TrendingUp,
 } from 'lucide-vue-next';
 import SiteFooter from '@/components/SiteFooter.vue';
@@ -122,33 +122,25 @@ function difficultyColor(d: string | null) {
       </div>
     </div>
 
-    <!-- Hero 区 -->
-    <div class="py-6 sm:py-8">
+    <!-- 页头（轻量版，与首页风格统一） -->
+    <div class="pt-6 sm:pt-8 pb-2">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div class="relative overflow-hidden rounded-2xl text-white" style="background-image: radial-gradient(circle at 25% 25%, rgba(20, 184, 166, 0.4) 0%, transparent 50%), radial-gradient(circle at 75% 75%, rgba(59, 130, 246, 0.4) 0%, transparent 50%), linear-gradient(135deg, #0f766e 0%, #1e40af 100%);">
-      <div class="absolute inset-0 opacity-10 pointer-events-none" aria-hidden="true">
-        <svg class="absolute top-6 left-8 w-32 h-32 text-white" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3L1 9l4 2.18v6L12 21l7-3.82v-6l2-1.09V17h2V9L12 3zm6.82 6L12 12.72 5.18 9 12 5.28 18.82 9zM17 15.99l-5 2.73-5-2.73v-3.72L12 15l5-2.73v3.72z"/></svg>
-        <svg class="absolute bottom-4 right-10 w-40 h-40 text-white" viewBox="0 0 24 24" fill="currentColor"><path d="M9 21c0 .55.45 1 1 1h4c.55 0 1-.45 1-1v-1H9v1zm3-19C8.14 2 5 5.14 5 9c0 2.38 1.19 4.47 3 5.74V17c0 .55.45 1 1 1h6c.55 0 1-.45 1-1v-2.26c1.81-1.27 3-3.36 3-5.74 0-3.86-3.14-7-7-7z"/></svg>
-      </div>
-      <div class="relative px-6 py-8 sm:px-10 sm:py-10">
-        <div class="inline-flex items-center bg-white/10 backdrop-blur-sm px-3 py-1 rounded-full text-sm mb-4">
-          <BookOpen class="w-4 h-4 mr-2" /> 学习者成长闭环
-        </div>
-        <h1 class="text-3xl md:text-4xl font-bold tracking-tight mb-2">{{ greeting }}</h1>
-        <p class="text-base text-white/90 max-w-2xl">
-          刷题有计划、答题有反馈、学习有同伴。一站式管理今日计划、连续打卡与错题复习。
-        </p>
-        <div v-if="!isLoggedIn" class="mt-5">
+        <div class="flex flex-col sm:flex-row sm:items-end justify-between gap-3">
+          <div>
+            <h1 class="text-xl sm:text-2xl font-bold" style="color: var(--theme-text);">{{ greeting }}</h1>
+            <p class="mt-1 text-sm" style="color: var(--theme-text-secondary);">
+              刷题有计划、答题有反馈、学习有同伴。一站式管理今日计划、连续打卡与错题复习。
+            </p>
+          </div>
           <button
+            v-if="!isLoggedIn"
             @click="goLogin"
-            class="inline-flex items-center px-5 py-2.5 rounded-lg text-sm font-medium text-white transition hover:opacity-90"
-            style="background-color: rgba(255,255,255,0.2);"
+            class="self-start sm:self-auto inline-flex items-center px-4 py-2 rounded-lg text-sm font-medium transition hover:opacity-90"
+            style="background-color: var(--theme-primary); color: var(--theme-on-primary);"
           >
             <LogIn class="w-4 h-4 mr-1.5" />
             登录查看我的学习数据
           </button>
-        </div>
-      </div>
         </div>
       </div>
     </div>

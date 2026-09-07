@@ -900,7 +900,7 @@ const head = useHead(
               </div>
 
               <!-- 文章信息行 - 左边信息，右边标签 -->
-              <div class="flex items-center justify-between py-3 mb-5 border-t border-b border-theme-border flex-wrap gap-3">
+              <div class="flex items-center justify-between py-2.5 border-t border-b border-theme-border flex-wrap gap-3">
                 <!-- 左边：发布人、时间、阅读量 -->
                 <div class="flex items-center gap-4 sm:gap-5">
                   <!-- 作者信息 - 可点击跳转作者中心（仅当 authorId 有效时） -->
@@ -949,7 +949,7 @@ const head = useHead(
               </div>
 
               <!-- 内容区域 - 启用阅读列宽约束提升长文体验 -->
-              <div class="flex-1 py-4">
+              <div class="flex-1 pt-3 article-body">
                 <MarkdownRenderer
                   :content="article.content"
                   :content-markdown="article.contentMarkdown"
@@ -1502,6 +1502,12 @@ const head = useHead(
 </template>
 
 <style scoped>
+/* 文章正文紧贴信息行（作者/时间/阅读量）：
+   消除 prose 首子元素的 margin-top，避免与容器上内边距叠加形成大空隙 */
+.article-body :deep(.prose > *:first-child) {
+  margin-top: 0;
+}
+
 .comment-root {
   margin-bottom: var(--space-5);
   border-bottom: 1px solid var(--theme-border);

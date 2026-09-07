@@ -53,6 +53,12 @@ public class PortalVoiceInterviewController extends BaseController {
     @Autowired
     private InterviewAgentClient agentClient;
 
+    @Autowired
+    private com.moyun.ext.cms.service.interview.HintEngine hintEngine;
+
+    @Autowired
+    private com.moyun.portal.mapper.PortalInterviewQuestionMapper questionMapper;
+
     private Long currentUserId() {
         return PortalSecurityUtils.getUserId();
     }
@@ -149,6 +155,38 @@ public class PortalVoiceInterviewController extends BaseController {
     }
 
     /**
+     * 5.5 生成报告分享令牌（v11.30.5）
+     */
+    @Operation(summary = "生成报告分享令牌", description = "仅本人已结束的面试可分享；有效期 1-30 天，默认 7 天")
+    @PostMapping("/{id:[0-9]+}/share")
+    @RateLimiter(key = "voice:share", time = 3600, count = 20)
+    public AjaxResult share(@PathVariable("id") Long id,
+                            @RequestParam(required = false) Integer expireDays) {
+        Long userId = currentUserId();
+        if (userId == null) {
+            return AjaxResult.error(HttpStatus.UNAUTHORIZED, "登录已过期，请重新登录");
+        }
+        try {
+            String token = voiceInterviewService.createShareToken(id, userId, expireDays);
+            return AjaxResult.success(token);
+        } catch (com.moyun.common.exception.system.ServiceException e) {
+            return AjaxResult.error(e.getMessage());
+        }
+    }
+
+    /**
+     * 5.6 通过分享令牌查看报告（免登录公开接口，v11.30.5）
+     */
+    @Operation(summary = "分享报告查看", description = "通过令牌公开查看面试报告（脱敏，不含用户信息；过期返回错误）")
+    @GetMapping("/share/{token}")
+    public AjaxResult sharedReport(@PathVariable("token") String token) {
+        VoiceInterviewReportVO report = voiceInterviewService.getSharedReport(token);
+        if (report == null) {
+            return AjaxResult.error("分享链接不存在或已过期");
+        }
+        return AjaxResult.success(report);
+    }
+    /**
      * 6. 我的语音面试列表
      */
     @Operation(summary = "我的语音面试列表", description = "分页查询当前用户的语音面试历史")
@@ -230,6 +268,78 @@ public class PortalVoiceInterviewController extends BaseController {
     @GetMapping("/agents")
     public AjaxResult agents() {
         return AjaxResult.success(agentClient.listUsableAgents());
+    }
+
+    /**
+     * 11. 提交自我介绍（v11.x 状态机 INTRO_WAITING 阶段）
+     * <p>ScoringEngine 4 维度评分存 intro_score_json → 生成追问（INTRO_FOLLOWUP）或进入首题
+     */
+    @Operation(summary = "提交自我介绍", description = "4维度评分（逻辑结构/自我认知/岗位匹配/表达流畅），生成追问或进入首题")
+    @PostMapping("/{id:[0-9]+}/self-intro")
+    @RateLimiter(key = "voice:selfintro", time = 3600, count = 30)
+    public AjaxResult selfIntro(@PathVariable("id") Long id, @RequestBody SelfIntroRequest body) {
+        Long userId = currentUserId();
+        if (userId == null) {
+            return AjaxResult.error(HttpStatus.UNAUTHORIZED, "登录已过期，请重新登录");
+        }
+        if (body == null || body.getTranscript() == null || body.getTranscript().isBlank()) {
+            return AjaxResult.error("自我介绍内容不能为空");
+        }
+        return AjaxResult.success(voiceInterviewService.submitSelfIntro(id, userId, body.getTranscript()));
+    }
+
+    /**
+     * 11a. 按题目 ID 生成分级提示（v11.30 补建：语音演示页 useInterviewHint 调用）
+     */
+    @Operation(summary = "按题目ID请求提示", description = "HintEngine 规则版分级提示（1~3 级），无需面试会话")
+    @GetMapping("/hint")
+    @RateLimiter(key = "voice:hint", time = 3600, count = 60)
+    public AjaxResult hintByQuestion(@RequestParam("questionId") Long questionId,
+                                     @RequestParam(value = "level", defaultValue = "1") Integer level) {
+        Long userId = currentUserId();
+        if (userId == null) {
+            return AjaxResult.error(HttpStatus.UNAUTHORIZED, "登录已过期，请重新登录");
+        }
+        com.moyun.portal.domain.entity.PortalInterviewQuestion question = questionMapper.selectById(questionId);
+        if (question == null || "2".equals(String.valueOf(question.getDelFlag()))) {
+            return AjaxResult.error("题目不存在");
+        }
+        return AjaxResult.success(hintEngine.generateHint(question, Math.max(1, Math.min(3, level))));
+    }
+
+    /**
+     * 11b. 按题目 ID 提取关键词（v11.30 补建：语音演示页 useInterviewHint 调用）
+     */
+    @Operation(summary = "按题目ID提取关键词", description = "从题目 tags+solution 提取关键词（最多 12 个）")
+    @GetMapping("/keywords")
+    @RateLimiter(key = "voice:hint", time = 3600, count = 60)
+    public AjaxResult keywordsByQuestion(@RequestParam("questionId") Long questionId) {
+        Long userId = currentUserId();
+        if (userId == null) {
+            return AjaxResult.error(HttpStatus.UNAUTHORIZED, "登录已过期，请重新登录");
+        }
+        com.moyun.portal.domain.entity.PortalInterviewQuestion question = questionMapper.selectById(questionId);
+        if (question == null || "2".equals(String.valueOf(question.getDelFlag()))) {
+            return AjaxResult.error("题目不存在");
+        }
+        return AjaxResult.success(hintEngine.generateKeywords(question));
+    }
+
+    /**
+     * 12. 启用中的岗位模板列表（v11.x 智能出题）
+     * <p>供 portal 开始面试时选择岗位模板（job 题源 + 出题权重默认值）；未配置时返回空列表
+     */
+    @Operation(summary = "启用中的岗位模板列表", description = "返回 active 状态岗位模板（id/名称/类别/难度），供开始面试时选择")
+    @GetMapping("/job-templates")
+    public AjaxResult jobTemplates() {
+        return AjaxResult.success(voiceInterviewService.listActiveJobTemplates());
+    }
+
+    /** 自我介绍请求体 */
+    @lombok.Data
+    public static class SelfIntroRequest {
+        /** 自我介绍文本（ASR 转写或手动输入） */
+        private String transcript;
     }
 
     /** 提交答案请求体 */

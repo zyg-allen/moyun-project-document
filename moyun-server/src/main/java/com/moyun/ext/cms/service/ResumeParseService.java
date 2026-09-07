@@ -155,15 +155,19 @@ public class ResumeParseService {
 
         // 4. LLM 结构化解析（失败回退规则解析）
         ResumeParseVO vo;
+        boolean llmParsed;
         if (aiProperties.isEnabled() && aiProperties.isResumeAdviceEnabled() && llmClient.isEnabled()) {
             try {
                 vo = parseByLlm(text);
+                llmParsed = true;
             } catch (Exception e) {
                 log.warn("[ResumeParse] LLM 解析失败，回退规则解析：{}", e.getMessage());
                 vo = parseByRule(text);
+                llmParsed = false;
             }
         } else {
             vo = parseByRule(text);
+            llmParsed = false;
         }
         vo.setTextLength(text.length());
         normalize(vo);
@@ -192,6 +196,8 @@ public class ResumeParseService {
             upd.setTitle(vo.getName() + "的简历");
         }
         upd.setFullText(buildFullTextFromParseVO(vo));
+        // v11.x：解析置信度回填（LLM 结构化=85 / 规则兜底=60），供简历深挖出题与追问策略参考
+        upd.setParseConfidence(llmParsed ? 85 : 60);
         upd.setUpdateTime(LocalDateTime.now());
         portalUserResumeMapper.updateById(upd);
 

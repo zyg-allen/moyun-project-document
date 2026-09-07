@@ -51,6 +51,10 @@ export interface VoiceStartConfig {
   agentId?: number;
   /** V11.0：动态出题模式（缺省用后台 sys_config 开关） */
   dynamicMode?: boolean;
+  /** v11.x：岗位模板ID（job 题源出题 + 出题权重默认值） */
+  jobTemplateId?: number;
+  /** v11.x：出题权重覆盖 job/resume/weak/random */
+  questionWeights?: Record<string, number>;
 }
 
 /** 可用面试官智能体（/agents 接口返回项） */
@@ -59,6 +63,14 @@ export interface VoiceAgentItem {
   name: string;
   description?: string;
   welcomeMessage?: string;
+}
+
+/** v11.x：启用中的岗位模板（/jobTemplates 接口返回项） */
+export interface VoiceJobTemplateItem {
+  id: number;
+  name: string;
+  category?: string;
+  difficulty?: string;
 }
 
 /** V11.0：LLM 单轮深度分析（对齐后端 InterviewTurnResult） */
@@ -174,6 +186,19 @@ export interface VoiceInterviewReportVO {
   redFlags?: string[];
   /** V11.0：表达流畅度均分（0-100） */
   fluencyAvg?: number;
+  /** v11.x：自我介绍独立评分（4维度+总分+评语，旧会话无此字段时隐藏） */
+  introScore?: IntroScoreView;
+  /** v11.x：针对性改进建议（薄弱点/自我介绍不足/错题） */
+  improvementSuggestions?: string[];
+}
+
+/** v11.x：自我介绍评分视图（对齐后端 VoiceInterviewReportVO.IntroScoreView） */
+export interface IntroScoreView {
+  dimensions?: Record<string, number>;
+  total?: number;
+  comment?: string;
+  strengths?: string[];
+  weaknesses?: string[];
 }
 
 /** SSE 事件回调 */
@@ -402,4 +427,24 @@ export const addQaToWrongBook = (qaId: number | string) => {
  */
 export const getVoiceAgents = () => {
   return httpGet<VoiceAgentItem[]>('/portal/interview/voice/agents');
+};
+
+/**
+ * 10. 启用中的岗位模板列表（v11.x 智能出题）
+ * GET /portal/interview/voice/jobTemplates
+ */
+export const getVoiceJobTemplates = () => {
+  return httpGet<VoiceJobTemplateItem[]>('/portal/interview/voice/job-templates');
+};
+
+/** v11.30.5：生成报告分享令牌（有效期 1-30 天，默认 7 天） */
+export const createReportShareToken = (interviewId: number | string, expireDays?: number) => {
+  return request.post<string>(`/portal/interview/voice/${interviewId}/share`, null, {
+    params: expireDays ? { expireDays } : undefined,
+  });
+};
+
+/** v11.30.5：通过分享令牌查看报告（免登录公开） */
+export const getSharedReport = (shareToken: string) => {
+  return request.get<VoiceInterviewReportVO>(`/portal/interview/voice/share/${shareToken}`);
 };

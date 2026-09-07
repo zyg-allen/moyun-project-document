@@ -5,6 +5,137 @@
 
 ***
 
+## v11.30.5 (2026-09-07) 面试报告分享（token 免登录公开访问）
+
+### 决策
+
+报告数据本已完整持久化于 `portal_voice_interview.report` JSON 列（finish 时序列化整个 VO），独立报告表属于重复设计，已否决并清理（中途产出的实体/Mapper/双写代码全部删除）。仅补分享三字段。
+
+### 实现
+
+1. **SQL**：`portal_voice_interview` ALTER 增加 `share_token`（唯一索引）/`share_expire_time`/`share_count` 三列
+2. **实体**：PortalVoiceInterview 同步三字段
+3. **后端**（IVoiceInterviewService + Impl + Controller）：
+   - `POST /portal/interview/voice/{id}/share`：本人已结束面试生成 token（UUID，1-30 天有效期默认 7 天，限流 20/h）
+   - `GET /portal/interview/voice/share/{token}`：免登录公开（`/portal/interview/**` 已 permitAll），校验过期，share_count 计数，复用 parseReport 解析 JSON 列返回 VO（不含用户信息，脱敏）
+4. **前端**：
+   - voiceInterview.ts 新增 `createReportShareToken`/`getSharedReport` API
+   - 新建 SharedReportPage.vue（`/interview/share/:token`，免登录路由）：总分+等级、6 维度条形图、自我介绍评分、AI 总结、亮点/薄弱点/改进建议、逐题点评、知识点卡片
+   - VoiceInterviewPage 分享按钮从假分享（需登录的 ?id= 链接）改为 token 公开链接，复制到剪贴板
+
+***
+## v11.30.4 (2026-09-07) 报告「相关知识点」Tab 从未生成 → 实现题库 tags 聚合 + LLM 简介
+
+### 问题
+
+报告页「📚 相关知识点」Tab 恒显示占位文案「暂无相关知识点（V10.2 LLM 版本启用后自动生成）」。根因：该功能为 V10.2 规划项，前端渲染与类型（KnowledgePointItem）早已就绪，但后端报告 VO 无 knowledgePoints 字段、finish 也无生成逻辑——从未实现，纯前端占位。
+
+### 实现（VoiceInterviewReportVO + VoiceInterviewServiceImpl）
+
+1. **VO**：新增 `List<KnowledgePointView> knowledgePoints`（title/desc，@Data 内部类）
+2. **finish 生成**：`buildKnowledgePoints(position, qaList)` —— 本场题库题（有 questionId 且已作答）回查题库聚合 tags，低分题（<60）权重 ×2（薄弱知识点优先），按权重取 top 8
+3. **LLM 简介**：`tryLlmKnowledgeDesc` 批量生成一句话简介（40 字内，含岗位上下文），失败/AI 关闭回退规则描述（出现次数 + 复盘提示）
+4. **前端空态文案更新**：过时的「V10.2 LLM 版本启用后自动生成」改为准确提示（知识点来自题库标签聚合，纯 AI 动态出题场次不生成）
+
+***
+## v11.30.3 (2026-09-07) 面试报告页「对话回放」无数据修复
+
+### 问题
+
+面试结束后报告页切换到「💬 对话回放」Tab 显示空（"暂无对话记录"）。根因：回放数据源是 `interview.value.qaList`，而 `handleFinish` 成功后只更新了 `report.value`（后端 finish 只返回报告），`interview.value` 仍是 start 接口返回的 VO（不含完整问答列表）；只有从历史记录进入（loadHistoryReport → 详情接口）才会填充 qaList。QA 数据实际已正常落表（portal_voice_interview_qa），纯前端展示链路问题。
+
+### 修复（VoiceInterviewPage.vue）
+
+finish 成功展示报告后，静默重拉 `getVoiceInterviewDetail(id)` 刷新 `interview.value`（含完整 qaList），对话回放 Tab 立即有数据；详情刷新失败不影响报告展示。
+
+***
+## v11.30.2 (2026-09-07) 实时分析维度分固定值修复（连续化重构）
+
+### 问题
+
+实时分析气泡的维度分固定不变（流畅度恒 100、专业度恒 40、互动性恒 40、逻辑恒 35）。根因：`scoreAnswer` 规则评分用二值阈值公式（professionalism = matched≥2?70:40 等），且 v11.x LLM 动态题（追问/系统设计/自我介绍）无 tags/solution → 关键词为空 → matched 恒 0 → 输出恒定组合；LLM 分析仅输出 3 维，其余 3 维回退规则固定值。
+
+### 修复（VoiceInterviewServiceImpl + 前端）
+
+1. **规则 6 维连续化**：relevance=覆盖率；professionalism=30+覆盖率×50+长度稳健；fluency=长度分段线性（<40 偏短 / 40-300 递增 / >300 饱和微降）；interactivity=30+覆盖率×35+互动信号×10+长度参与度；confidence=35+长度饱满+命中+覆盖率；logic=30+结构词计数×12+覆盖率×22。新增 `countStructureWords`（16 个逻辑连接词）与 `countInteractiveSignals`（举例/对比/坦诚等信号）
+2. **动态题关键词兜底**：keywords 为空时从题干 `title` 提取，LLM 生成题的 matched 不再恒 0
+3. **LLM 分析升级 6 维**：prompt 输出全 6 维（含维度定义），`parseAnalysis` 逐维解析并对 LLM/规则分按 llmRatio（默认 70/30）融合，未输出维度回退规则分
+4. **前端气泡刷新**：LLM 融合维度到达后重算亮点/缺口覆盖规则版初值
+
+***
+## v11.30.1 (2026-09-07) 管理端语音面试 Controller 补建 + 全链路接口核对
+
+### 问题与修复
+
+1. **管理端语音面试 404**：admin 页面（views/cms/voiceInterview）调用 `/cms/voice-interview/list` 报 NoResourceFoundException——前端与菜单 SQL（20260901，5253-5256 cms:voiceInterview:*）早已就绪，后端 Controller 一直缺失。补建 `CmsVoiceInterviewController`（/cms/voice-interview）：list（username/position/status 筛选 + 批量填充 username）、/{id} 详情（不校验归属）、DELETE 删除；服务层新增 adminList/adminGetDetail/adminDelete 三方法；VoiceInterviewVO 补 username 字段
+2. **种子 JSON 键名不一致**：portal_interview_config 种子 scoring_weights 写的是 selfAwareness/jobMatch/fusion，而 ScoringEngine 解析 awareness/matching/llmRatio——后台按错误键名调权重会静默失效回退默认值。已修正为 `{"selfIntro":{"structure":30,"awareness":25,"matching":25,"fluency":20},"llmRatio":70,"total":{"intro":20,"tech":80}}`
+3. **语音演示页接口缺失**：VoiceEngineDemoPage（/interview/voice-demo）经 useInterviewHint 调用 GET /hint、GET /keywords，后端无此端点。补建两个轻量 GET 端点（按 questionId 直调 HintEngine，限流 60/h）
+
+### 全链路核对结论（admin-vue / portal 前端 ↔ 后端）
+
+- 场景配置 /cms/ai/scene/*、岗位模板 /cms/interview/jobTemplate/*、面试配置 /cms/interview/config/*：前端调用与后端路由**全部一一匹配**
+- 权限标识核对：hasPermi 与菜单 perms 全覆盖（scene 5450-5454、jobTemplate 5455-5459、config 5460-5464、voiceInterview 5253-5256），admin 角色已授权（role_menu）
+- 题库 jobTemplateId 筛选：InterviewQuestionQuery.jobTemplateId 字段与 selectQuestionPage 过滤条件均已就绪
+- portal 端 job-templates / self-intro / agents / start / answer / hint(POST) / next / finish / my/list / detail：全部匹配
+
+***
+## v11.30 (2026-09-07) AI 面试全链路动态配置化 + AI 场景配置中心
+
+### 一、需求背景
+
+依据《AI面试流程与相关模块拓展优化方案-20260907.md》与《AI 面试全链路动态配置化 实施计划（完整版·合并）》，将语音面试从"硬编码流程"升级为"配置驱动"：面试 Agent/模型/知识库/工作流动态绑定、岗位模板智能出题、6 阶段流程状态机、评分权重化、报告增强、错题自动入库、JD 关键词 LLM 提取。
+
+### 二、数据库（20260907-moyun-ai-interview-full.sql）
+
+- 新表：`ai_scene_config`（场景配置中心：Agent/模型/知识库/工具/工作流绑定 + 版本灰度权重）、`portal_job_template`（岗位模板：JD/关键词/出题权重）、`portal_interview_config`（面试配置：人设/提示词/评分权重/追问策略/自我介绍）
+- ALTER：`portal_voice_interview` 加 `agent_id/phase/intro_score_json`；`portal_voice_interview_qa` 加 `question_source/parent_qa_id`；`portal_interview_question` 加 `job_template_id`；`portal_user_resume` 加 `parse_confidence`
+- 菜单：5450-5454 场景配置（AI基础配置下）、5455-5459 岗位模板、5460-5464 面试配置（面试管理下），admin 角色已授权
+- 种子：voice_interview 场景绑定现有默认 agent（上线零变化）
+
+### 三、后端（moyun-server）
+
+**A. 场景配置中心（com.moyun.ext.ai）**
+- `AiSceneConfig` 实体/Mapper/Service/Resolver：`AiSceneResolver.resolve(sceneCode)` → `AiSceneBinding`（Agent > 直绑模型伪 Agent > empty 降级）
+- `AiSceneConfigController`（/cms/ai/scene）：CRUD + `/{id}/test` 场景解析测试
+
+**B. 面试链路接线**
+- `InterviewAgentClientImpl.resolveAgentForScene(binding, agentId)`：显式入参 > 场景 Agent > 场景模型伪 Agent > sys_config 默认
+- `VoiceInterviewServiceImpl.start()`：场景解析 → 面试配置（enableSelfIntro 决定初始 phase）→ QuestionPicker 四路题源出题（job/resume/weak/random 权重配额 + 最大余数法 + 额度流转）
+- `InterviewPhase` 6 阶段状态机：INTRO_WAITING → INTRO_RECEIVED → INTRO_FOLLOWUP → TECH_QUESTION → PROJECT_DEEP → SYSTEM_DESIGN → CANDIDATE_ASK → FINISHED；旧会话 phase=NULL 走原逻辑
+- `POST /portal/interview/voice/{id}/self-intro`：提交自我介绍（ScoringEngine 4 维度评分 → 追问或进入首题）
+- `GET /portal/interview/voice/job-templates`：启用中岗位模板（portal 开始面试选择）
+
+**C. 评分引擎与报告**
+- `ScoringEngine`：自我介绍 LLM 结构化评分（structure/awareness/matching/fluency 加权，LLM 失败回退规则）；`fuseAnswerScore`（每题 LLM+规则融合，llmRatio 默认 70%）；`fuseTotalScore`（总分 intro 20% + tech 80%）；权重全部来自 portal_interview_config.scoring_weights JSON
+- 报告增强：`VoiceInterviewReportVO` 加 `introScore`（自我介绍独立评分视图）+ `improvementSuggestions`（薄弱点/自我介绍不足针对性建议，最多 5 条）
+- 错题自动入库：finish 时 <60 分题库主问题调 `IWrongQuestionService.recordWrongQuestion`（幂等累加 wrong_count）
+
+**D. 工作流异步接线**
+- finish() 后 `triggerSceneWorkflowAsync`：场景绑定 workflowId 时经 aiTaskExecutor 异步执行 `WorkflowService.execute`（输入含 interviewId/得分/强弱项/建议），失败仅日志
+
+**E. JD 关键词 LLM 提取**
+- `CmsJobTemplateController` `/extract-keywords`：LLM 提取 JD 关键词，失败回退规则分词
+
+### 四、前端
+
+**moyun-admin-vue（后台）**
+- `views/ai/scene/index.vue` + `api/ai/scene.js`：场景配置中心页面（绑定 Agent/模型/工作流、版本灰度权重、测试按钮）
+- `views/cms/interview/jobTemplate/index.vue` + `api/cms/interviewJobTemplate.js`：岗位模板管理（JD 编辑 + LLM 提取关键词 + 关联题目 + 出题权重）
+- `views/cms/interview/interviewConfig/index.vue` + `api/cms/interviewConfig.js`：面试配置管理（人设/提示词模板/评分权重/追问策略/自我介绍环节/默认配置）
+- `views/cms/interview/question/index.vue`：题库增强（岗位模板筛选列 + 表单归属选择）
+
+**moyun-portal（前台）**
+- `api/voiceInterview.ts`：VoiceStartConfig 加 jobTemplateId/questionWeights；报告 VO 加 introScore/improvementSuggestions；新增 getVoiceJobTemplates
+- `pages/interview/VoiceInterviewPage.vue`：开始面试岗位模板选择（job 题源提示）；报告页自我介绍独立评分卡（4 维度条形图 + 总评）；改进建议优先展示 improvementSuggestions
+
+### 五、兼容性
+
+1. enable_self_intro 默认 0：6 阶段状态机默认不激活，旧流程完全保留
+2. 场景未配置/异常 → AiSceneBinding.empty() → 走原有 sys_config 默认链
+3. LLM 全链路失败回退：评分→规则、JD 提取→分词、出题→随机兜底
+4. 报告/VO 字段只加不改，旧数据宽容解析（@JsonIgnoreProperties）
+
+***
 ## v11.23 (2026-09-04) 记账模块：资产负债列表一键查关联流水 + 金额口径再确认
 
 ### 一、需求背景

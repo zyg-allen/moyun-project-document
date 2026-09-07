@@ -38,4 +38,9 @@ public class InterviewQuestionQuery extends PageDomain implements Serializable {
      * 与 questionType 正交：questionType 描述内容分类，practiceMode 描述作答方式
      */
     private String practiceMode;
+
+    /**
+     * 所属岗位模板ID（v11.x 智能出题）
+     */
+    private Long jobTemplateId;
 }

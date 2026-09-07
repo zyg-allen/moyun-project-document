@@ -28,6 +28,20 @@ public interface InterviewAgentClient {
      */
     Agent resolveAgent(Long agentId);
 
+    /**
+     * 解析 AI 场景绑定（委托 AiSceneResolver；AI 未启用/异常返回空绑定）
+     */
+    com.moyun.ext.ai.dto.AiSceneBinding resolveScene(String sceneCode);
+
+    /**
+     * 场景化 agent 解析（v11.x）：显式入参 > 场景绑定 Agent > 场景直绑模型（合成伪 Agent）> sys_config 默认
+     *
+     * @param sceneBinding 已解析的场景绑定（调用方先 resolveScene 一次，避免重复灰度轮询）
+     * @param agentId      前端显式指定的 agent（可空）
+     * @return 可用 agent（伪 Agent 仅含模型路由）；无可用时返回 null（走旧提示词逻辑）
+     */
+    Agent resolveAgentForScene(com.moyun.ext.ai.dto.AiSceneBinding sceneBinding, Long agentId);
+
     /** AI 能力是否可用（moyun.ai.enabled 且存在可用 chat 模型） */
     boolean isEnabled();
 

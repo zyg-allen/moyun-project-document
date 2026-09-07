@@ -63,6 +63,9 @@ public class PortalVoiceInterviewQA implements Serializable {
     /** 规则维度分 JSON（如 {"coverage":80,"length":60,"structure":70}） */
     private String ruleDimensionsJson;
 
+    /** LLM 结构化评分 JSON（scores/total/strengths/weaknesses/comment，ScoringEngine 产出） */
+    private String llmScoreJson;
+
     /** LLM深度分析 JSON（sentiment/fluency/redFlags/completeness） */
     private String llmAnalysisJson;
 

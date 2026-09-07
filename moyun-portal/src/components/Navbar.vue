@@ -1,4 +1,4 @@
-﻿<script setup lang="ts">
+<script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
 import { RouterLink as Link, useRouter, useRoute } from 'vue-router';
 import {
@@ -374,7 +374,7 @@ onUnmounted(() => document.removeEventListener('click', handleDocumentClick));
           <div class="flex items-baseline gap-2">
             <h1 class="text-base sm:text-lg font-bold text-theme-text font-heading">旭林知行</h1>
             <span class="hidden xl:inline text-theme-text-tertiary">|</span>
-            <span class="hidden xl:inline text-xs text-theme-primary font-medium">助你上岸</span>
+            <span class="hidden xl:inline text-xs text-theme-primary font-medium">AI 驱动的求职助手</span>
           </div>
         </Link>
 

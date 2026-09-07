@@ -118,6 +118,9 @@ public class PortalUserResume extends BaseEntity
     /** 附件原始文件名（上传时的文件名，用于下载时还原文件名） */
     private String sourceFileName;
 
+    /** 解析置信度（0-100：LLM 结构化=85，规则兜底=60，NULL=未解析或在线创建） */
+    private Integer parseConfidence;
+
     public PortalUserResume() {}
 
     public PortalUserResume(Long id) {

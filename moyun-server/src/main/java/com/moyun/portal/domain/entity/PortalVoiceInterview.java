@@ -43,6 +43,12 @@ public class PortalVoiceInterview implements Serializable {
     /** 面试官智能体ID（ai_agent.id，NULL=未绑定走默认逻辑） */
     private Long agentId;
 
+    /** 当前阶段（v11.x 状态机：INTRO_WAITING/INTRO_RECEIVED/INTRO_FOLLOWUP/TECH_QUESTION/PROJECT_DEEP/SYSTEM_DESIGN/CANDIDATE_ASK/FINISHED，NULL=旧流程） */
+    private String phase;
+
+    /** 自我介绍评分 JSON（4维度+总分+评语，ScoringEngine 产出） */
+    private String introScoreJson;
+
     /** 状态 in_progress/finished */
     private String status;
 
@@ -69,6 +75,16 @@ public class PortalVoiceInterview implements Serializable {
 
     /** 配置 JSON（hintsEnabled/stuckThreshold/style/difficulty） */
     private String configJson;
+
+    /** 报告分享令牌（v11.30.5，NULL=未分享） */
+    private String shareToken;
+
+    /** 分享过期时间（v11.30.5） */
+    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
+    private LocalDateTime shareExpireTime;
+
+    /** 分享访问次数（v11.30.5） */
+    private Integer shareCount;
 
     /** 是否基于画像抽题（0随机 1画像驱动） */
     private Integer isPersonalized;

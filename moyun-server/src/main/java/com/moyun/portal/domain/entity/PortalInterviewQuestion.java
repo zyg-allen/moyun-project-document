@@ -53,6 +53,11 @@ public class PortalInterviewQuestion extends BaseEntity {
     private String difficulty;
 
     /**
+     * 所属岗位模板ID（portal_job_template.id，v11.x 智能出题）
+     */
+    private Long jobTemplateId;
+
+    /**
      * 分类ID
      */
     @Excel(name = "分类ID", cellType = Excel.ColumnType.NUMERIC)

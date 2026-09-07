@@ -43,4 +43,10 @@ public class VoiceStartConfig {
 
     /** 动态出题模式（可选：null=跟随后台开关，true=强制动态，false=强制预生成题单） */
     private Boolean dynamicMode;
+
+    /** 岗位模板ID（可选，job 题源出题） */
+    private Long jobTemplateId;
+
+    /** 出题权重覆盖（可选：job/resume/weak/random，优先于面试配置/岗位模板） */
+    private java.util.Map<String, Integer> questionWeights;
 }

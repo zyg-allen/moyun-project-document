@@ -3,7 +3,9 @@ package com.moyun.ext.cms.service.interview.impl;
 import com.moyun.ext.ai.entity.Agent;
 import com.moyun.ext.ai.entity.ModelConfig;
 import com.moyun.ext.ai.enums.ModelType;
+import com.moyun.ext.ai.dto.AiSceneBinding;
 import com.moyun.ext.ai.service.AgentService;
+import com.moyun.ext.ai.service.AiSceneResolver;
 import com.moyun.ext.ai.service.ModelConfigService;
 import com.moyun.ext.cms.config.AiProperties;
 import com.moyun.ext.cms.service.interview.InterviewAgentClient;
@@ -40,6 +42,7 @@ public class InterviewAgentClientImpl implements InterviewAgentClient {
     private static final String CONFIG_KEY_DYNAMIC_MODE = "voice.interview.dynamicMode";
 
     private final AgentService agentService;
+    private final AiSceneResolver sceneResolver;
     private final ModelConfigService modelConfigService;
     private final ISysConfigService sysConfigService;
     private final AiProperties aiProperties;
@@ -47,8 +50,10 @@ public class InterviewAgentClientImpl implements InterviewAgentClient {
     public InterviewAgentClientImpl(AgentService agentService,
                                     ModelConfigService modelConfigService,
                                     ISysConfigService sysConfigService,
-                                    AiProperties aiProperties) {
+                                    AiProperties aiProperties,
+                                    AiSceneResolver sceneResolver) {
         this.agentService = agentService;
+        this.sceneResolver = sceneResolver;
         this.modelConfigService = modelConfigService;
         this.sysConfigService = sysConfigService;
         this.aiProperties = aiProperties;
@@ -74,6 +79,57 @@ public class InterviewAgentClientImpl implements InterviewAgentClient {
             log.warn("[VoiceInterview] 解析面试官 agent 失败（回退默认逻辑）：{}", e.getMessage());
         }
         return null;
+    }
+
+    @Override
+    public AiSceneBinding resolveScene(String sceneCode) {
+        if (!aiProperties.isEnabled()) {
+            return AiSceneBinding.empty();
+        }
+        try {
+            return sceneResolver.resolve(sceneCode);
+        } catch (Exception e) {
+            log.warn("[VoiceInterview] 场景 {} 解析异常，返回空绑定：{}", sceneCode, e.getMessage());
+            return AiSceneBinding.empty();
+        }
+    }
+
+    @Override
+    public Agent resolveAgentForScene(AiSceneBinding sceneBinding, Long agentId) {
+        if (!aiProperties.isEnabled()) {
+            return null;
+        }
+        try {
+            // 1. 前端显式指定优先
+            if (agentId != null) {
+                Agent agent = agentService.getById(agentId);
+                if (usable(agent)) {
+                    return agent;
+                }
+            }
+            // 2. 场景绑定 Agent
+            if (sceneBinding != null && sceneBinding.hasAgent()) {
+                return sceneBinding.getAgent();
+            }
+            // 3. 场景直绑模型：合成伪 Agent（空人设由 buildAgentSystemMessage 回退旧提示词）
+            if (sceneBinding != null && sceneBinding.hasModelOnly()) {
+                return synthesizePseudoAgent(sceneBinding);
+            }
+            // 4. sys_config 默认链
+            return resolveAgent(null);
+        } catch (Exception e) {
+            log.warn("[VoiceInterview] 场景化 agent 解析失败，回退默认链：{}", e.getMessage());
+            return resolveAgent(null);
+        }
+    }
+
+    /** 场景直绑模型的伪 Agent：仅含模型路由，无 id（不落 interview.agentId）与人设 */
+    private Agent synthesizePseudoAgent(AiSceneBinding sceneBinding) {
+        Agent pseudo = new Agent();
+        pseudo.setName("场景模型");
+        pseudo.setModelConfigId(sceneBinding.getModelConfig().getId());
+        pseudo.setEnabled(true);
+        return pseudo;
     }
 
     private boolean usable(Agent agent) {

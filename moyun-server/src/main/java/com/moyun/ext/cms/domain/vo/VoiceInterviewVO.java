@@ -15,6 +15,8 @@ public class VoiceInterviewVO {
 
     private Long id;
     private Long userId;
+    /** 用户名（v11.30 管理端复盘展示，portal 端不返回） */
+    private String username;
     private String position;
     private String scene;
     private Long resumeId;
@@ -24,6 +26,12 @@ public class VoiceInterviewVO {
     private String agentName;
     /** 出题模式 preset=预生成题单 / dynamic=智能体动态出题 */
     private String questionMode;
+
+    /** 当前阶段代码（v11.x 状态机，NULL=旧流程） */
+    private String phase;
+
+    /** 当前阶段中文名 */
+    private String phaseLabel;
     private String status;
     private String style;
     private String difficulty;

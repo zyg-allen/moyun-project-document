@@ -27,6 +27,16 @@
           />
         </el-select>
       </el-form-item>
+      <el-form-item label="岗位模板">
+        <el-select v-model="queryParams.jobTemplateId" placeholder="请选择岗位模板" clearable filterable>
+          <el-option
+          v-for="jt in jobTemplateOptions"
+          :key="jt.id"
+          :label="jt.name"
+          :value="jt.id"
+          />
+        </el-select>
+      </el-form-item>
       <el-form-item label="难度">
         <el-select v-model="queryParams.difficulty" placeholder="请选择难度" clearable>
           <el-option
@@ -77,6 +87,9 @@
       </el-table-column>
       <el-table-column label="分类" width="120">
         <template #default="{ row }">{{ row.categoryName || '-' }}</template>
+      </el-table-column>
+      <el-table-column label="岗位模板" width="120">
+        <template #default="{ row }">{{ jobTemplateName(row.jobTemplateId) }}</template>
       </el-table-column>
       <el-table-column label="标签" width="200">
         <template #default="{ row }">
@@ -144,6 +157,12 @@
         <el-form-item label="分类">
           <el-select v-model="form.categoryId" placeholder="请选择分类" filterable clearable>
             <el-option v-for="c in categoryOptions" :key="c.id" :label="c.name" :value="c.id" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="岗位模板">
+          <el-select v-model="form.jobTemplateId" placeholder="请选择岗位模板" filterable clearable>
+            <el-option label="不关联" :value="null" />
+            <el-option v-for="jt in jobTemplateOptions" :key="jt.id" :label="jt.name" :value="jt.id" />
           </el-select>
         </el-form-item>
         <el-form-item label="标签">
@@ -265,7 +284,7 @@ import {
   exportInterviewQuestion, downloadInterviewQuestionTemplate,
   importInterviewQuestionData, exportInterviewQuestionFailRows
 } from '@/api/cms/interview';
-import { listInterviewCategory } from '@/api/cms/interview';
+import { listInterviewCategory, listJobTemplateSimple } from '@/api/cms/interview';
 import { bindTagsToEntity, getHotTags } from '@/api/cms/tag';
 import TagSelect from '@/components/TagSelect.vue';
 import ImportDialog from '@/components/ImportDialog/index.vue';
@@ -279,13 +298,29 @@ const loading = ref(true);
 const questionList = ref([]);
 const total = ref(0);
 const categoryOptions = ref([]);
+// v11.x：岗位模板选项（题目归属 job 题源）
+const jobTemplateOptions = ref([]);
+const jobTemplateMap = computed(() => {
+  const m = {};
+  (jobTemplateOptions.value || []).forEach(jt => { m[jt.id] = jt.name; });
+  return m;
+});
+function jobTemplateName(id) { return jobTemplateMap.value[id] || '-'; }
+async function loadJobTemplateOptions() {
+  try {
+    const res = await listJobTemplateSimple();
+    jobTemplateOptions.value = (res.data && res.data.records) || res.data || [];
+  } catch (e) {
+    jobTemplateOptions.value = [];
+  }
+}
 const tagOptions = ref([]);
 const ids = ref([]);
 const multiple = computed(() => ids.value.length === 0);
 
 const queryParams = reactive({
   pageNum: 1, pageSize: 10,
-  keyword: '', categoryId: '', difficulty: '', status: '', practiceMode: ''
+  keyword: '', categoryId: '', difficulty: '', status: '', practiceMode: '', jobTemplateId: null
 });
 
 const dialogVisible = ref(false);
@@ -315,6 +350,7 @@ function makeDefaultForm() {
     correctAnswerArr: [],              // 正确答案勾选集（前端临时态，提交时序列化）
     analysis: '',                      // 题目解析
     knowledgeTags: '',                  // 知识点标签
+    jobTemplateId: null,                // v11.x：归属岗位模板（job 题源）
   };
 }
 
@@ -625,6 +661,7 @@ function handleSelectionChange(selection) {
 onMounted(() => {
   loadCategories();
   loadTagOptions();
+  loadJobTemplateOptions();
   getList();
 });
 </script>

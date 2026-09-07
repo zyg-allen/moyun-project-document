@@ -21,6 +21,8 @@ import {
   getVoiceInterviewDetail,
   addQaToWrongBook,
   getVoiceAgents,
+  getVoiceJobTemplates,
+  createReportShareToken,
 } from '@/api/voiceInterview';
 import { getMyResumeList, parseResumeAttachment } from '@/api/interview';
 import { pollAiTask } from '@/api/aiTask';
@@ -34,6 +36,7 @@ import type {
   PointItem,
   KnowledgePointItem,
   VoiceAgentItem,
+  VoiceJobTemplateItem,
 } from '@/api/voiceInterview';
 
 useHead({
@@ -519,6 +522,21 @@ async function loadAgentList() {
   }
 }
 
+// ==================== v11.x 岗位模板选择（job 题源智能出题） ====================
+const jobTemplateList = ref<VoiceJobTemplateItem[]>([]);
+const selectedJobTemplateId = ref<number | null>(null);
+
+async function loadJobTemplateList() {
+  try {
+    const res = await getVoiceJobTemplates();
+    if (res.code === 200 && Array.isArray(res.data)) {
+      jobTemplateList.value = res.data;
+    }
+  } catch {
+    /* 后台未配置岗位模板时静默：隐藏选择器 */
+  }
+}
+
 async function loadResumeList() {
   if (!userStore.isAuthenticated) return;
   resumeLoading.value = true;
@@ -631,6 +649,7 @@ const effectivePosition = computed(() => {
 onMounted(() => {
   loadResumeList();
   loadAgentList();
+  loadJobTemplateList();
 });
 
 // ==================== 计时器 ====================
@@ -760,12 +779,33 @@ function scoreColor(score: number) {
 }
 
 const suggestionItems = computed(() => {
+  // v11.x：优先展示后端针对性改进建议（薄弱点/自我介绍不足），回退旧 suggestion 拆分
+  const improve = report.value?.improvementSuggestions ?? [];
+  if (improve.length > 0) return improve;
   const s = report.value?.suggestion || '';
   if (!s) return [];
   const lines = s.split(/\n+/).map((l) => l.trim()).filter(Boolean);
   if (lines.length > 1) return lines;
   const numbered = s.split(/\s*\d+[.、)]\s+/).map((l) => l.trim()).filter(Boolean);
   return numbered.length > 1 ? numbered : [s];
+});
+
+/** v11.x：自我介绍评分展示（4维度分 + 总评，无 introScore 时为 null 隐藏） */
+const introScoreView = computed(() => {
+  const intro = report.value?.introScore;
+  if (!intro || intro.total == null) return null;
+  const labels: Record<string, string> = {
+    structure: '逻辑结构',
+    awareness: '自我认知',
+    matching: '岗位匹配',
+    fluency: '表达流畅',
+  };
+  const dims = Object.entries(intro.dimensions ?? {}).map(([key, val]) => ({
+    key,
+    label: labels[key] || key,
+    value: val ?? 0,
+  }));
+  return { total: intro.total, comment: intro.comment || '', dims };
 });
 
 // ==================== 历史报告：?id=xxx ====================
@@ -952,6 +992,8 @@ async function handleStart() {
       // V11.0：面试官智能体 + 动态出题（agent 不可用时留空走旧链路）
       agentId: selectedAgentId.value ?? undefined,
       dynamicMode: selectedAgentId.value != null ? dynamicMode.value : undefined,
+      // v11.x：岗位模板（job 题源 + 出题权重默认值）
+      jobTemplateId: selectedJobTemplateId.value ?? undefined,
     };
     const { data: vo, success } = await run(() => startVoiceInterview(payload), {
       errorToast: '开始失败',
@@ -1073,6 +1115,24 @@ async function handleSubmitAnswer() {
             lastAnalysis.sentimentState = data.analysis.sentiment?.state;
             lastAnalysis.fluencyScore = data.analysis.fluencyAssessment?.score;
             lastAnalysis.redFlags = data.analysis.redFlags?.length ? data.analysis.redFlags : undefined;
+            // v11.30.2：LLM 融合 6 维到达后刷新亮点/缺口（覆盖规则版初值，实时分析不再固定）
+            if (data.analysis.dimensions && Object.keys(data.analysis.dimensions).length > 0) {
+              const dims = normalizeDimensions(data.analysis.dimensions);
+              const highlights: string[] = [];
+              const gaps: string[] = [];
+              DIMENSION_META.forEach((m) => {
+                const s = dims[m.key];
+                if (typeof s === 'number') {
+                  if (s >= 80) highlights.push(`${m.label} ${s}`);
+                  else if (s < 60) gaps.push(`${m.label} ${s}`);
+                }
+              });
+              if (highlights.length || gaps.length) {
+                lastAnalysis.highlights = highlights;
+                lastAnalysis.gaps = gaps;
+                lastAnalysis.scoreText = DIMENSION_META.map((m) => `${m.label} ${dims[m.key] ?? '-'}`).join(' · ');
+              }
+            }
           }
         }
         // V10.4：LLM 引导提示（回答跑偏时面试官给出的方向引导）
@@ -1208,6 +1268,21 @@ async function handleFinish() {
       phase.value = 'report';
       reportTab.value = 'summary';
       toast.success('面试已结束，报告已生成');
+      // v11.30.3：finish 后重拉详情填充 qaList（对话回放 Tab 数据源；start 返回的 VO 不含完整问答）
+      try {
+        const detailId = interview.value?.id;
+        if (detailId) {
+          const { data: detailResp, success: detailOk } = await run(
+            () => getVoiceInterviewDetail(detailId),
+            { silent: true },
+          );
+          if (detailOk && detailResp?.data?.qaList?.length) {
+            interview.value = detailResp.data;
+          }
+        }
+      } catch {
+        /* 详情刷新失败不影响报告展示（可从历史记录重新进入查看回放） */
+      }
     }
   } finally {
     loading.value = false;
@@ -1295,12 +1370,18 @@ async function shareReport() {
     toast.warning('暂无可分享的报告');
     return;
   }
-  const url = `${window.location.origin}${window.location.pathname}?id=${id}`;
+  // v11.30.5：token 分享（免登录公开，7 天有效），替代旧的需登录 ?id= 链接
+  const { success, data } = await run(() => createReportShareToken(id), { errorToast: '生成分享链接失败' });
+  const token = (data as unknown as { data?: string })?.data ?? (data as unknown as string);
+  if (!success || !token) {
+    return;
+  }
+  const url = `${window.location.origin}/interview/share/${token}`;
   try {
     await navigator.clipboard.writeText(url);
-    toast.success('分享链接已复制到剪贴板');
+    toast.success('分享链接已复制（7 天内有效，无需登录即可查看）');
   } catch {
-    await promptModal.prompt('复制分享链接：', { title: '请输入', defaultValue: (url) });
+    await promptModal.prompt('复制分享链接（7 天内有效）：', { title: '分享报告', defaultValue: url });
   }
 }
 
@@ -1495,6 +1576,22 @@ const chatStatus = computed(() => {
                 <option v-for="o in QUESTION_COUNT_OPTIONS" :key="o.value" :value="o.value">{{ o.label }}</option>
               </select>
             </div>
+          </div>
+
+          <!-- v11.x：岗位模板（后台配置的 JD 关键词 + 出题权重驱动 job 题源；未配置时隐藏） -->
+          <div v-if="jobTemplateList.length > 0" class="config-row">
+            <div class="config-item">
+              <label class="config-label">岗位模板</label>
+              <select v-model.number="selectedJobTemplateId" class="config-select">
+                <option :value="null">不使用（按简历/画像出题）</option>
+                <option v-for="jt in jobTemplateList" :key="jt.id" :value="jt.id">
+                  {{ jt.name }}{{ jt.difficulty ? `（${jt.difficulty}）` : '' }}
+                </option>
+              </select>
+            </div>
+          </div>
+          <div v-if="jobTemplateList.length > 0 && selectedJobTemplateId != null" class="agent-hint">
+            💡 已选择岗位模板：面试题将优先覆盖该岗位 JD 核心考点，并结合你的简历与薄弱点智能配比。
           </div>
 
           <div class="resume-section" style="margin-top: 1.5rem;">
@@ -2057,6 +2154,28 @@ const chatStatus = computed(() => {
         <!-- Tab 3: 面试官剖析 -->
         <div v-if="reportTab === 'interviewer'" class="tab-content active">
           <div class="interviewer-analysis">
+            <!-- v11.x：自我介绍独立评分（4维度加权；旧会话无此数据时隐藏） -->
+            <div v-if="introScoreView" class="intro-score-card">
+              <div class="intro-score-header">
+                <h3 class="summary-title">🎤 自我介绍评分</h3>
+                <span class="intro-score-total" :style="{ color: scoreColor(introScoreView.total) }">
+                  {{ introScoreView.total }} 分
+                </span>
+              </div>
+              <div class="intro-score-dims">
+                <div v-for="d in introScoreView.dims" :key="d.key" class="intro-score-dim">
+                  <span class="intro-dim-label">{{ d.label }}</span>
+                  <div class="intro-dim-bar">
+                    <div
+                      :class="['score-fill', scoreClass(d.value)]"
+                      :style="{ width: d.value + '%' }"
+                    ></div>
+                  </div>
+                  <span class="intro-dim-value">{{ d.value }}</span>
+                </div>
+              </div>
+              <div v-if="introScoreView.comment" class="intro-score-comment">{{ introScoreView.comment }}</div>
+            </div>
             <h3 class="summary-title">👨‍💼 面试官整体评价</h3>
             <div class="interviewer-comment">{{ report?.summary || '暂无面试官评价。' }}</div>
             <h4 class="summary-subtitle">📋 改进建议</h4>
@@ -2087,7 +2206,7 @@ const chatStatus = computed(() => {
               <a href="#" class="knowledge-card-link" @click.prevent="toast.info('知识点详情即将上线')">查看相关题目 →</a>
             </div>
             <div v-if="(report?.knowledgePoints ?? []).length === 0" class="empty-tip">
-              暂无相关知识点（V10.2 LLM 版本启用后自动生成）
+              本场面试暂无题库关联知识点（知识点来自题库题目标签聚合，纯 AI 动态出题的场次不生成）
             </div>
           </div>
         </div>
@@ -2481,6 +2600,17 @@ const chatStatus = computed(() => {
 .interviewer-analysis { background: white; border-radius: var(--radius-lg); padding: 1.75rem; box-shadow: var(--shadow-sm); border: 1px solid var(--gray-100); }
 .interviewer-comment { font-size: 0.9375rem; line-height: 1.85; color: var(--gray-600); margin-bottom: 1.5rem; padding: 1.25rem; background: var(--gray-50); border-radius: var(--radius-md); border-left: 4px solid var(--primary); }
 .suggestion-list { list-style: none; padding: 0; margin: 0; }
+/* v11.x：自我介绍独立评分卡 */
+.intro-score-card { background: var(--gray-50); border-radius: var(--radius-md); padding: 1.25rem; margin-bottom: 1.5rem; border: 1px solid var(--gray-100); }
+.intro-score-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem; }
+.intro-score-header .summary-title { margin: 0; }
+.intro-score-total { font-size: 1.4rem; font-weight: 700; }
+.intro-score-dims { display: grid; gap: 0.6rem; }
+.intro-score-dim { display: grid; grid-template-columns: 64px 1fr 36px; align-items: center; gap: 0.75rem; }
+.intro-dim-label { font-size: 0.8rem; color: var(--text-secondary); }
+.intro-dim-bar { height: 8px; background: var(--gray-200); border-radius: 4px; overflow: hidden; }
+.intro-dim-value { font-size: 0.8rem; font-weight: 600; text-align: right; }
+.intro-score-comment { margin-top: 0.9rem; font-size: 0.85rem; color: var(--text-secondary); line-height: 1.6; }
 .suggestion-item { display: flex; gap: 0.875rem; padding: 1rem; background: var(--gray-50); border-radius: var(--radius-md); margin-bottom: 0.625rem; border: 1px solid var(--gray-100); }
 .suggestion-number { width: 24px; height: 24px; border-radius: var(--radius-full); background: var(--primary); color: white; display: flex; align-items: center; justify-content: center; font-size: 0.75rem; font-weight: 600; flex-shrink: 0; }
 .suggestion-content { font-size: 0.875rem; color: var(--gray-600); line-height: 1.65; }

@@ -419,3 +419,15 @@ export function delTestCase(id) {
     method: 'delete'
   });
 }
+
+// ==================== 岗位模板（v11.x 智能出题·题目归属） ====================
+
+// 查询启用状态的岗位模板分页列表（题目归属选择、列表 id→name 映射用）
+// 返回分页对象：{ records: [{ id, name, ... }], total }
+export function listJobTemplateSimple() {
+  return request({
+    url: '/cms/interview/jobTemplate/list',
+    method: 'get',
+    params: { pageNum: 1, pageSize: 200, status: 'active' }
+  });
+}

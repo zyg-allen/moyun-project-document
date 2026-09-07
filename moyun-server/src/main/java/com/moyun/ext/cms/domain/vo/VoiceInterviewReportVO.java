@@ -1,5 +1,6 @@
 package com.moyun.ext.cms.domain.vo;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import lombok.Data;
 
 import java.util.List;
@@ -48,6 +49,13 @@ public class VoiceInterviewReportVO {
     /** 表达流畅度均分（0-100，Agent 模式产出） */
     private Integer fluencyAvg;
 
+    /** 自我介绍独立评分（v11.x 6阶段流程产出，旧会话为 null 前端隐藏） */
+    private IntroScoreView introScore;
+
+    /** 针对性改进建议（v11.x：来自薄弱点/自我介绍不足/错题，最多 5 条） */
+    private List<String> improvementSuggestions;
+    private List<KnowledgePointView> knowledgePoints;
+
     /**
      * 逐题点评项
      */
@@ -57,5 +65,32 @@ public class VoiceInterviewReportVO {
         private String question;
         private Integer score;
         private String feedback;
+    }
+
+    /**
+     * 相关知识点视图（v11.30.4：题库 tags 聚合 + LLM 简介增强）
+     */
+    @Data
+    public static class KnowledgePointView {
+        private String title;
+        private String desc;
+    }
+
+    /**
+     * 自我介绍评分视图（v11.x）
+     */
+    @Data
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public static class IntroScoreView {
+        /** 4 维度分：structure/awareness/matching/fluency */
+        private Map<String, Integer> dimensions;
+        /** 总分（0-100，按权重加权） */
+        private Integer total;
+        /** 总评 */
+        private String comment;
+        /** 亮点（最多 3 条） */
+        private List<String> strengths;
+        /** 不足（最多 3 条） */
+        private List<String> weaknesses;
     }
 }

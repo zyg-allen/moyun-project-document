@@ -69,6 +69,7 @@ const CodingPracticePage = () => import('@/pages/learn/CodingPracticePage.vue')
 const CodeRunnerPage = () => import('@/pages/tools/CodeRunnerPage.vue')
 const VoiceEngineDemoPage = () => import('@/pages/interview/VoiceEngineDemoPage.vue')
 const VoiceInterviewPage = () => import('@/pages/interview/VoiceInterviewPage.vue')
+const SharedReportPage = () => import('@/pages/interview/SharedReportPage.vue')
 const PayCashierPage = () => import('@/pages/pay/PayCashierPage.vue')
 const WalletPage = () => import('@/pages/pay/WalletPage.vue')
 const MyVoiceInterviewsPage = () => import('@/pages/interview/MyVoiceInterviewsPage.vue')
@@ -340,6 +341,13 @@ const routes: RouteRecordRaw[] = [
     name: 'interview-voice',
     component: VoiceInterviewPage,
     meta: { requiresAuth: true, title: 'AI 语音面试官', robots: 'noindex,nofollow' }
+  },
+  // ============ 面试报告分享页（v11.30.5，免登录公开） ============
+  {
+    path: '/interview/share/:token',
+    name: 'interview-share',
+    component: SharedReportPage,
+    meta: { requiresAuth: false, title: '面试报告分享', robots: 'noindex,nofollow' }
   },
   // ============ 我的面试记录（V10.3） ============
   {

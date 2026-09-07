@@ -235,6 +235,8 @@ public class PortalInterviewServiceImpl implements IPortalInterviewService {
         if (StringUtils.isNotEmpty(query.getQuestionType())) qw.eq(PortalInterviewQuestion::getQuestionType, query.getQuestionType());
         // v10.6 题库重构：按练习模式筛选（reading/choice/coding）
         if (StringUtils.isNotEmpty(query.getPracticeMode())) qw.eq(PortalInterviewQuestion::getPracticeMode, query.getPracticeMode());
+        // v11.x 智能出题：按岗位模板筛选
+        if (query.getJobTemplateId() != null) qw.eq(PortalInterviewQuestion::getJobTemplateId, query.getJobTemplateId());
         // 关键词需嵌套分组：裸 .or() 会提升优先级，绕过 status/practiceMode 等前置 AND 条件
         if (StringUtils.isNotEmpty(query.getKeyword())) {
             qw.and(w -> w.like(PortalInterviewQuestion::getTitle, query.getKeyword())
@@ -255,6 +257,8 @@ public class PortalInterviewServiceImpl implements IPortalInterviewService {
             if (StringUtils.isNotEmpty(query.getQuestionType())) qw.eq(PortalInterviewQuestion::getQuestionType, query.getQuestionType());
             // 与分页列表字段对齐：导出同样支持按练习模式筛选
             if (StringUtils.isNotEmpty(query.getPracticeMode())) qw.eq(PortalInterviewQuestion::getPracticeMode, query.getPracticeMode());
+            // v11.x 智能出题：按岗位模板筛选
+            if (query.getJobTemplateId() != null) qw.eq(PortalInterviewQuestion::getJobTemplateId, query.getJobTemplateId());
             if (StringUtils.isNotEmpty(query.getKeyword())) {
                 qw.and(w -> w.like(PortalInterviewQuestion::getTitle, query.getKeyword())
                         .or().like(PortalInterviewQuestion::getDescription, query.getKeyword()));

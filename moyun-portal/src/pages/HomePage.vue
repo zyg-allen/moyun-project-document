@@ -400,9 +400,9 @@ const heroStats = computed(() => {
 
 // ============ 五大主线锚点导航（Hero → 各区块平滑滚动） ============
 const mainLines = [
-  { id: 'home-learn', label: '学习', desc: '刷题与计划', icon: GraduationCap },
-  { id: 'home-resume', label: '简历', desc: 'AI 优化', icon: FileText },
-  { id: 'home-interview', label: '面试', desc: '语音模拟', icon: Mic },
+  { id: 'home-learn', label: '学习', desc: '刷题备战 · 薄弱点强化', icon: GraduationCap },
+  { id: 'home-resume', label: '简历', desc: 'AI 诊断 · 3 分钟出报告', icon: FileText },
+  { id: 'home-interview', label: '面试', desc: 'AI 对练 · 实时评分', icon: Mic },
   { id: 'home-reading', label: '阅读', desc: '书籍与文章', icon: BookOpen },
   { id: 'home-community', label: '社区', desc: '创作互动', icon: MessageCircle },
 ]
@@ -483,13 +483,13 @@ useHead(
                   <span class="meta-text font-medium text-theme-primary">{{ interviewTotalQuestions }}+ 道精选面试题持续更新</span>
                 </div>
 
-                <div class="space-y-4">
-                  <h1 class="text-3xl sm:text-4xl lg:text-5xl font-black text-theme-text leading-tight text-balance">
-                    遇见更好的自己<br>
-                    <span class="text-theme-primary">从拿到理想 offer</span> 开始
+                <div class="space-y-5 sm:space-y-6">
+                  <h1 class="text-3xl sm:text-4xl lg:text-5xl font-black text-theme-text leading-relaxed text-balance">
+                    简历改 3 遍，<br class="hidden sm:block">
+                    <span class="block mt-3 sm:mt-4 text-theme-primary">面试机会翻 1 倍</span>
                   </h1>
                   <p class="body-text text-theme-text-secondary leading-relaxed max-w-lg">
-                    旭林知行是专为求职者打造的成长平台。从简历优化到模拟面试，从刷题巩固到面经复盘，我们陪你走完求职每一步。
+                    AI 一站式求职助手：3 分钟诊断简历薄弱点，模拟面试实战对练，智能刷题查漏补缺，助你拿到更满意的 offer
                   </p>
                 </div>
 
@@ -1215,10 +1215,10 @@ useHead(
           <div v-if="!isLoggedIn" class="relative overflow-hidden rounded-2xl bg-theme-primary-soft border border-theme-primary/25 shadow-theme-sm">
             <div class="relative px-6 py-10 sm:py-12 text-center">
               <h2 class="text-2xl sm:text-3xl font-black text-theme-text mb-3">准备好开启你的求职之旅了吗？</h2>
-              <p class="text-theme-text-secondary meta-text sm:body-text mb-6 max-w-lg mx-auto">立即注册，免费体验简历诊断和 AI 模拟面试，让专业工具陪你上岸</p>
+              <p class="text-theme-text-secondary meta-text sm:body-text mb-6 max-w-lg mx-auto">开始诊断你的简历，3 分钟出报告，AI 自动生成针对性面试题</p>
               <div class="flex flex-wrap justify-center gap-3 sm:gap-4">
                 <button @click="goRegister" class="px-6 sm:px-8 py-3 bg-theme-primary text-theme-on-primary font-bold rounded-xl shadow-theme-md hover:opacity-90 transition-opacity">
-                  免费注册，开始诊断
+                  开始诊断你的简历
                 </button>
                 <button @click="router.push('/about')" class="px-6 sm:px-8 py-3 bg-theme-surface border border-theme-border text-theme-text font-semibold rounded-xl hover:bg-theme-surface-highlight transition-colors">
                   了解更多功能
@@ -1232,7 +1232,7 @@ useHead(
           <div v-else class="relative overflow-hidden rounded-2xl bg-theme-primary-soft border border-theme-primary/25 shadow-theme-sm">
             <div class="relative px-6 py-8 sm:py-10 text-center">
               <h3 class="text-xl sm:text-2xl font-bold text-theme-text mb-2">距离你的 Dream Offer 还有多远？</h3>
-              <p class="text-theme-text-secondary meta-text mb-5">完善简历，预约一次模拟面试，让专业工具帮你找准方向</p>
+              <p class="text-theme-text-secondary meta-text mb-5">3 分钟诊断简历薄弱点，再来一场 AI 模拟面试找准方向</p>
               <div class="flex flex-wrap items-center justify-center gap-3 sm:gap-4">
                 <button @click="goResumeOptimize" class="inline-flex items-center gap-2 px-5 sm:px-6 py-2.5 bg-theme-primary text-theme-on-primary rounded-xl meta-text font-semibold hover:opacity-90 transition-opacity shadow-theme-md">
                   <FileText class="w-4 h-4" />完善简历

@@ -31,6 +31,12 @@ public interface IVoiceInterviewService {
     VoiceInterviewVO start(Long userId, VoiceStartConfig config);
 
     /**
+     * 提交自我介绍（v11.x 状态机：INTRO_WAITING 阶段）
+     * <p>ScoringEngine 4 维度评分存 intro_score_json → 生成追问（INTRO_FOLLOWUP）或进入首题（TECH 系列）
+     */
+    VoiceInterviewVO submitSelfIntro(Long interviewId, Long userId, String transcript);
+
+    /**
      * 提交答案（SSE 双通道流）
      * <p>事件流：score（规则分）→ speak（LLM 话术）→ data（完整数据）→ end
      *
@@ -72,4 +78,37 @@ public interface IVoiceInterviewService {
      * <p>返回的 VoiceInterviewVO 中 currentQa 为该 qaId 对应的问答记录
      */
     VoiceInterviewVO getDetailByQaId(Long qaId, Long userId);
+
+    /**
+     * v11.x：启用中的岗位模板列表（id/名称/类别/难度），供 portal 开始面试选择
+     */
+    java.util.List<java.util.Map<String, Object>> listActiveJobTemplates();
+    /**
+     * v11.30：管理端分页查询所有用户的语音面试（支持 username/position/status 筛选）
+     */
+    com.baomidou.mybatisplus.extension.plugins.pagination.Page<com.moyun.portal.domain.entity.PortalVoiceInterview> adminList(
+            String username, String position, String status, Integer pageNum, Integer pageSize);
+
+    /**
+     * v11.30：管理端查询面试详情（不校验用户归属，含 qaList）
+     */
+    VoiceInterviewVO adminGetDetail(Long interviewId);
+
+    /**
+     * v11.30：管理端删除面试会话（逻辑删除）
+     */
+    boolean adminDelete(Long interviewId);
+
+    /**
+     * v11.30.5：生成/刷新报告分享令牌（仅本人已结束的面试）
+     *
+     * @param expireDays 分享有效期（天，1-30，默认 7）
+     * @return shareToken（前端拼公开链接 /interview/share/{token}）
+     */
+    String createShareToken(Long interviewId, Long userId, Integer expireDays);
+
+    /**
+     * v11.30.5：通过分享令牌公开查看报告（免登录，脱敏不含 userId；过期/不存在返回 null）
+     */
+    VoiceInterviewReportVO getSharedReport(String shareToken);
 }

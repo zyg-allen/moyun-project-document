@@ -92,4 +92,16 @@ public class PortalNotificationController extends BaseController {
         sysNotificationService.markAsRead(id, currentUser.getId(), USER_TYPE_PORTAL);
         return AjaxResult.success();
     }
+
+    @Operation(summary = "全部通知标记已读", description = "将当前用户所有未读通知（含个人通知+广播）批量标记为已读，避免前端逐条标记遗漏分页数据")
+    @Log(title = "门户通知", businessType = BusinessType.UPDATE)
+    @PostMapping("/read-all")
+    public AjaxResult markAllAsRead() {
+        PortalUser currentUser = PortalSecurityUtils.getUser();
+        if (currentUser == null) {
+            return AjaxResult.error(HttpStatus.UNAUTHORIZED, "请先登录");
+        }
+        int count = sysNotificationService.markAllAsRead(currentUser.getId(), USER_TYPE_PORTAL);
+        return success(count);
+    }
 }

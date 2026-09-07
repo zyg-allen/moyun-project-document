@@ -1,4 +1,4 @@
-﻿<script setup lang="ts">
+<script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { RouterLink as Link, useRouter } from 'vue-router'
 import { useHead } from '@vueuse/head'
@@ -393,7 +393,7 @@ const heroStats = computed(() => {
     stats.push({ label: '精选好书', value: `${bookCount}`, suffix: '本' })
   }
   if (tags.value.length > 0) {
-    stats.push({ label: '热门话题', value: `${tags.value.length}`, suffix: '个' })
+    stats.push({ label: '热门话题标签', value: `${tags.value.length}`, suffix: '个' })
   }
   return stats
 })
@@ -659,30 +659,32 @@ useHead(
            欢迎语 + 快捷入口；个人统计与足迹请前往成长时间线
            ================================================================ -->
       <template v-if="isLoggedIn">
-        <div class="bg-gradient-to-b from-theme-primary-soft/30 to-theme-bg">
+        <div class="home-greeting-band">
         <!-- 欢迎语 + 快捷入口（V11.2：登录态首屏精简为问候带，个人统计请前往成长时间线） -->
         <section class="content-container pt-4 sm:pt-6 pb-5">
-          <div class="flex items-center gap-2.5 mb-1">
-            <h1 class="text-xl sm:text-2xl font-bold text-theme-text">{{ greetingInfo.text }}，{{ userStore.nickname || userStore.username }}</h1>
-            <span class="text-xl sm:text-2xl">{{ greetingInfo.emoji }}</span>
-          </div>
-          <p class="meta-text text-theme-text-secondary">
-            今天是加入旭林知行的第 <span class="font-semibold text-theme-primary">{{ joinDays }}</span> 天，{{ greetingInfo.tip }}
-          </p>
+          <div class="home-greeting-card">
+            <div class="flex items-center gap-2.5 mb-1">
+              <h1 class="text-xl sm:text-2xl font-bold text-theme-text">{{ greetingInfo.text }}，{{ userStore.nickname || userStore.username }}</h1>
+              <span class="home-greeting-emoji text-xl sm:text-2xl">{{ greetingInfo.emoji }}</span>
+            </div>
+            <p class="meta-text text-theme-text-secondary">
+              今天是加入旭林知行的第 <span class="home-join-days">{{ joinDays }}</span> 天，{{ greetingInfo.tip }}
+            </p>
 
-          <div class="flex flex-wrap gap-2 sm:gap-2.5 mt-3 mb-1">
-            <button @click="router.push('/learn')" class="home-shortcut-btn">
-              <PlayCircle class="w-4 h-4 text-theme-primary" />继续学习
-            </button>
-            <button @click="goVoiceInterview" class="home-shortcut-btn">
-              <Mic class="w-4 h-4 text-theme-primary" />开始模拟面试
-            </button>
-            <button @click="router.push('/learn/practice')" class="home-shortcut-btn">
-              <Zap class="w-4 h-4 text-theme-primary" />去刷题
-            </button>
-            <button @click="handleWrite" class="home-shortcut-btn">
-              <PenLine class="w-4 h-4 text-theme-primary" />写篇文章
-            </button>
+            <div class="flex flex-wrap gap-2 sm:gap-2.5 mt-3 mb-1">
+              <button @click="router.push('/learn')" class="home-shortcut-btn">
+                <PlayCircle class="w-4 h-4 text-theme-primary" />继续学习
+              </button>
+              <button @click="goVoiceInterview" class="home-shortcut-btn">
+                <Mic class="w-4 h-4 text-theme-primary" />开始模拟面试
+              </button>
+              <button @click="router.push('/learn/practice')" class="home-shortcut-btn">
+                <Zap class="w-4 h-4 text-theme-primary" />去刷题
+              </button>
+              <button @click="handleWrite" class="home-shortcut-btn">
+                <PenLine class="w-4 h-4 text-theme-primary" />写篇文章
+              </button>
+            </div>
           </div>
         </section>
         </div>
@@ -1269,7 +1271,58 @@ useHead(
 .home-card-lift { transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
 .home-card-lift:hover { transform: translateY(-4px); box-shadow: var(--shadow-lg, 0 10px 30px rgba(0,0,0,0.1)); }
 
-/* 仪表盘快捷入口按钮（原型 shortcut-btn） */
+/* ============== 问候带（V11.3 样式优化 + 特效） ============== */
+.home-greeting-band {
+  background: linear-gradient(135deg, var(--theme-primary-soft) 0%, transparent 60%), var(--theme-bg);
+  position: relative;
+  overflow: hidden;
+}
+.home-greeting-band::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0;
+  width: 4px; height: 100%;
+  background: var(--theme-primary);
+  opacity: 0.6;
+}
+.home-greeting-card {
+  position: relative;
+  padding: 1rem 1.25rem;
+  background: var(--theme-surface-elevated);
+  border: 1px solid var(--theme-border);
+  border-radius: 1rem;
+  box-shadow: var(--shadow-sm);
+  transition: box-shadow 0.3s ease;
+}
+.home-greeting-card:hover {
+  box-shadow: var(--shadow-md);
+}
+.home-greeting-emoji {
+  display: inline-block;
+  animation: homeEmojiFloat 3s ease-in-out infinite;
+}
+@keyframes homeEmojiFloat {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  50% { transform: translateY(-4px) rotate(5deg); }
+}
+.home-join-days {
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: var(--theme-primary);
+  font-variant-numeric: tabular-nums;
+  text-shadow: 0 0 12px var(--theme-primary-soft);
+  animation: homeDaysPulse 2.5s ease-in-out infinite;
+}
+@keyframes homeDaysPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.8; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .home-greeting-emoji,
+  .home-join-days { animation: none; }
+}
+
+/* 仪表盘快捷入口按钮（原型 shortcut-btn，V11.3 加特效） */
 .home-shortcut-btn {
   height: 2.5rem;
   padding: 0 1.25rem;
@@ -1283,16 +1336,46 @@ useHead(
   align-items: center;
   gap: 0.5rem;
   box-shadow: var(--shadow-sm, 0 1px 2px rgba(0,0,0,0.05));
-  transition: all 0.2s ease;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease, color 0.2s ease, border-color 0.2s ease;
   cursor: pointer;
+  position: relative;
+  overflow: hidden;
+}
+.home-shortcut-btn::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(120deg, transparent 30%, var(--theme-primary-soft) 50%, transparent 70%);
+  transform: translateX(-100%);
+  transition: transform 0.5s ease;
+  pointer-events: none;
 }
 .home-shortcut-btn:hover {
   background: var(--theme-primary);
   color: var(--theme-on-primary);
   border-color: var(--theme-primary);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md), 0 0 16px var(--theme-primary-soft);
+}
+.home-shortcut-btn:hover::after {
+  transform: translateX(100%);
 }
 .home-shortcut-btn:hover svg {
   color: var(--theme-on-primary);
+  transform: scale(1.15);
+  transition: transform 0.2s ease;
+}
+.home-shortcut-btn:active {
+  transform: translateY(0px);
+  box-shadow: var(--shadow-sm);
+}
+.home-shortcut-btn svg {
+  transition: transform 0.2s ease;
+}
+@media (prefers-reduced-motion: reduce) {
+  .home-shortcut-btn::after,
+  .home-shortcut-btn:hover svg { animation: none; transition: none; }
+  .home-shortcut-btn:hover { transform: none; }
 }
 
 .stat-number { font-variant-numeric: tabular-nums; }

@@ -34,6 +34,13 @@ export default defineConfig({
         ws: true,  // 透传 WebSocket 升级（wss → /api/ws-asr 流式转写）
         // 后端无 context-path，剥离 /api 前缀再转发
         rewrite: (p) => p.replace(/^\/api/, ''),
+      },
+      // MinIO 图片代理：HTTPS 页面加载 HTTP 图片会被浏览器拦截（混合内容），
+      // 且手机端 127.0.0.1 不可达。前端用 normalizeFileUrl() 把 MinIO 绝对 URL
+      // 转成 /moyun/xxx 相对路径，由该代理转发到 MinIO 服务。
+      '/moyun': {
+        target: 'http://127.0.0.1:9001',
+        changeOrigin: true,
       }
     }
   },

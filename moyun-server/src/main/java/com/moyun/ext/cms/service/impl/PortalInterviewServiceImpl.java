@@ -163,7 +163,7 @@ public class PortalInterviewServiceImpl implements IPortalInterviewService {
         vo.setHotCompanies(hotCompanies.stream().map(this::toCompanyVO).collect(Collectors.toList()));
 
         // 平台统计
-        vo.setTotalQuestionCount((long) questionMapper.selectCount(Wrappers.<PortalInterviewQuestion>lambdaQuery().eq(PortalInterviewQuestion::getStatus, "active")));
+        vo.setTotalQuestionCount((long) questionMapper.selectCount(Wrappers.<PortalInterviewQuestion>lambdaQuery().eq(PortalInterviewQuestion::getStatus, "published")));
         vo.setTotalSubmissionCount(submissionMapper.selectCount(null) == null ? 0L : submissionMapper.selectCount(null).longValue());
 
         return vo;

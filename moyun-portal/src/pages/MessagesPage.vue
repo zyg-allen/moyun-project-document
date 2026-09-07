@@ -152,10 +152,9 @@ async function markAllNotifRead() {
         return;
     }
     try {
-        await Promise.all(
-            unread.map((n) => notificationApi.markAsRead({ id: String(n.id) }).catch(() => null))
-        );
-        unread.forEach((n) => (n.isRead = true));
+        // 调用后端批量接口，一次性标记所有未读通知已读（包括分页未加载的）
+        await notificationApi.markAllAsRead();
+        notifications.value.forEach((n) => (n.isRead = true));
         // 清空通知未读数（store 同步给 Navbar）
         messageStore.clearNotifUnread();
         toast.success('已全部标记为已读');
@@ -280,7 +279,8 @@ async function markTodoRead(n: Notification) {
     try {
         await notificationApi.markAsRead({ id: String(n.id) });
         n.isRead = true;
-        messageStore.decNotifUnread();
+        // 待办通知（type='todo'）不包含在 notifUnreadCount 中（后端 countUnreadByUserId 排除 todo），
+        // 不应操作通知未读数。todoUnreadCount 为前端本地计算，响应式自动更新。
     } catch (error) {
         console.error('标记已读失败:', error);
         toast.error((error as Error)?.message || '标记已读失败');
@@ -298,7 +298,8 @@ async function markAllTodoRead() {
             unread.map((n) => notificationApi.markAsRead({ id: String(n.id) }).catch(() => null))
         );
         unread.forEach((n) => (n.isRead = true));
-        messageStore.clearNotifUnread();
+        // 待办通知（type='todo'）不包含在 notifUnreadCount 中，不应清零通知未读数。
+        // todoUnreadCount 为前端本地计算，响应式自动更新。
         toast.success('已全部标记为已读');
     } catch (error) {
         console.error('全部已读失败:', error);

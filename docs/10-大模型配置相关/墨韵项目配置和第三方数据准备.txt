@@ -19,6 +19,12 @@
 		
 		
 		
+	2、deepSeek
+		api key: sk-af7e26e570e644a28a16875f539b9a6c
+		https://api.deepseek.com
+		
+		
+		
 		1、后台文章发布后，跳转 http://localhost/cms/article  404；
 2、数据调整：http://localhost/cms/article/edit  文章分类，只要首页和 文章类型的，其他特殊页面不要展示，
 3、http://localhost/cms/article/edit?id=7  修改发布状态 成功，但是字段不生效，请检查，草稿--》已发布：  始终是草稿

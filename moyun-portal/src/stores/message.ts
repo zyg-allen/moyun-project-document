@@ -24,8 +24,8 @@ export const useMessageStore = defineStore('message', () => {
   // 是否正在加载（避免并发重复请求）
   const loading = ref(false);
 
-  // 未读总数：Navbar 头部铃铛徽章
-  const totalUnread = computed(() => notifUnreadCount.value + msgUnreadCount.value + payUnreadCount.value);
+  // 未读总数：Navbar 头部铃铛徽章  未读总数 = 通知 + 私信 + 支付通知  加法，转为数字再加
+  const totalUnread = computed(() =>  Number(notifUnreadCount.value) + Number(msgUnreadCount.value) + Number(payUnreadCount.value));
 
   /** 加载通知未读数（从后端同步） */
   async function loadNotifUnread() {

@@ -4,6 +4,7 @@ import com.google.code.kaptcha.Producer;
 import com.moyun.common.constant.Constants;
 import com.moyun.core.base.AjaxResult;
 import com.moyun.core.config.redis.RedisCache;
+import com.moyun.system.service.ISysConfigService;
 import com.moyun.util.crypto.Base64;
 import com.moyun.util.uuid.IdUtils;
 import io.swagger.v3.oas.annotations.Operation;
@@ -42,6 +43,9 @@ public class CaptchaController {
     @Value("${captcha.expireTime:2}")
     private int expireTime;
 
+    @Autowired
+    private ISysConfigService sysConfigService;
+
     /**
      * 生成验证码
      */
@@ -49,7 +53,7 @@ public class CaptchaController {
     @GetMapping("/captchaImage")
     public AjaxResult getCode() throws IOException {
         AjaxResult ajax = AjaxResult.success();
-        boolean captchaEnabled = true;
+        boolean captchaEnabled = sysConfigService.selectCaptchaEnabled();
         ajax.put("captchaEnabled", captchaEnabled);
         if (!captchaEnabled) {
             return ajax;

@@ -52,7 +52,7 @@
       <div v-for="article in articles" :key="article.id" class="article-item">
         <!-- 封面缩略图 -->
         <div class="article-cover" v-if="article.cover">
-          <img :src="article.cover" :alt="article.title" />
+          <img :src="normalizeFileUrl(article.cover)" :alt="article.title" />
         </div>
         <div class="article-cover placeholder" v-else>
           <ImageIcon class="w-6 h-6" />
@@ -143,6 +143,7 @@ import {
 import { getMyArticles, deleteArticle as deleteArticleApi, updateArticle } from '@/api/article';
 import { useToast } from '@/composables/useToast';
 import { useConfirmModal } from '@/composables/useConfirmModal';
+import { normalizeFileUrl } from '@/utils/fileUrl';
 import Breadcrumb from '@/components/Breadcrumb.vue';
 
 const router = useRouter();

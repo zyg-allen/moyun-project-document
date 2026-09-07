@@ -218,17 +218,18 @@ const loadDatasources = async () => {
   }
 }
 
-// 已知枚举选项（按参数键约定），schema 中声明 enum 的优先使用
+// 已知枚举选项，schema 中声明 enum 的优先使用
+// 语言选项为 translator 专属参数，使用 "工具名.参数键" 复合键，避免与 send_email 的 to（收件人邮箱）等普通字符串参数混淆
 const enumOptionsMap = {
   timezone: ['Asia/Shanghai', 'UTC', 'Asia/Tokyo', 'Asia/Hong_Kong', 'America/New_York', 'Europe/London'],
-  from: ['auto', 'zh', 'en', 'ja', 'ko', 'fr', 'de', 'ru'],
-  to: ['zh', 'en', 'ja', 'ko', 'fr', 'de', 'ru']
+  'translator.from': ['auto', 'zh', 'en', 'ja', 'ko', 'fr', 'de', 'ru'],
+  'translator.to': ['zh', 'en', 'ja', 'ko', 'fr', 'de', 'ru']
 }
 
-// 获取参数的下拉选项：schema enum 优先，其次已知枚举键，都不是则返回 null（渲染为普通输入）
+// 获取参数的下拉选项：schema enum 优先，其次按 "工具名.参数键" / 参数键 匹配已知枚举，都不是则返回 null（渲染为普通输入）
 const getEnumOptions = (key, param) => {
   if (Array.isArray(param.enum) && param.enum.length > 0) return param.enum
-  return enumOptionsMap[key] || null
+  return enumOptionsMap[`${testForm.value.toolName}.${key}`] || enumOptionsMap[key] || null
 }
 
 // 按参数 schema 初始化默认值（布尔/整数控件需要初始值才能正确交互）

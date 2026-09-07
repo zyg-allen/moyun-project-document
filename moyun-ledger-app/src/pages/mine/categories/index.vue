@@ -17,10 +17,15 @@
       <view v-for="g in grouped" :key="g.name" class="group">
         <view class="group-title">{{ g.name }}</view>
         <view class="group-card">
-          <view v-for="c in g.items" :key="c.id" class="cat-row">
-            <view class="cat-dot" :style="{ background: c.color || '#999' }"></view>
-            <text class="flex-1">{{ c.name }}<text v-if="c.isSystem === 1" class="sys-tag">系统</text></text>
-            <text v-if="c.isSystem !== 1" class="cat-del" @tap="removeCat(c)">删除</text>
+          <view class="cat-grid">
+            <view v-for="c in g.items" :key="c.id" class="cat-cell">
+              <view class="cat-icon" :style="{ background: softColor(c.color) }">
+                <text>{{ iconOf(c.icon) }}</text>
+              </view>
+              <text class="cat-name">{{ c.name }}</text>
+              <text v-if="c.isSystem === 1" class="sys-tag">系统</text>
+              <text v-else class="cat-del" @tap="removeCat(c)">删除</text>
+            </view>
           </view>
           <view v-if="g.items.length === 0" class="empty">暂无分类</view>
         </view>
@@ -39,6 +44,7 @@
 <script>
 import { listCategories, createCategory, deleteCategory } from '@/api/ledger';
 import { useThemeStore } from '@/stores/theme';
+import { categoryIcon, softColor as toSoftColor } from '@/utils/categoryIcon';
 
 const TYPE_TABS = [
   { key: 'expense',   label: '支出' },
@@ -83,6 +89,8 @@ export default {
     this.load();
   },
   methods: {
+    iconOf(icon) { return categoryIcon(icon); },
+    softColor(color) { return toSoftColor(color); },
     switchType(key) {
       this.type = key;
       this.load();
@@ -142,12 +150,21 @@ export default {
 .group-title {
   font-size: 24rpx; font-weight: 600; color: #999; padding: 12rpx 8rpx;
 }
-.group-card { background: #fff; border-radius: 20rpx; padding: 8rpx 32rpx; }
-.cat-row { display: flex; align-items: center; padding: 28rpx 0; border-bottom: 1rpx solid #f5f5f7; font-size: 28rpx; }
-.cat-row:last-child { border-bottom: none; }
-.cat-dot { width: 24rpx; height: 24rpx; border-radius: 12rpx; margin-right: 20rpx; }
-.sys-tag { font-size: 20rpx; color: #999; border: 1rpx solid #ddd; border-radius: 8rpx; padding: 2rpx 10rpx; margin-left: 16rpx; }
-.cat-del { color: #e74c3c; font-size: 26rpx; padding: 8rpx 16rpx; }
+.group-card { background: #fff; border-radius: 20rpx; padding: 20rpx 12rpx; }
+.cat-grid { display: flex; flex-wrap: wrap; align-content: flex-start; }
+.cat-cell {
+  width: 25%; box-sizing: border-box;
+  display: flex; flex-direction: column; align-items: center;
+  padding: 20rpx 0;
+}
+.cat-icon {
+  width: 80rpx; height: 80rpx; border-radius: 20rpx;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 38rpx;
+}
+.cat-name { font-size: 24rpx; color: #555; margin-top: 12rpx; }
+.sys-tag { font-size: 18rpx; color: #999; border: 1rpx solid #ddd; border-radius: 8rpx; padding: 2rpx 10rpx; margin-top: 6rpx; }
+.cat-del { color: #e74c3c; font-size: 22rpx; margin-top: 6rpx; padding: 4rpx 16rpx; }
 .empty { text-align: center; color: #bbb; padding: 40rpx 0; font-size: 26rpx; }
 
 .add-bar {

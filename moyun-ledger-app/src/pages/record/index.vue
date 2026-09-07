@@ -175,6 +175,7 @@ import { createTransaction, listAssets, listLiabilities, listCategories, createL
 import { yuanToCent, centToAmount, centToAbsAmount, toNum } from '@/utils/money';
 import { useUserStore } from '@/stores/user';
 import { useThemeStore } from '@/stores/theme';
+import { categoryIcon } from '@/utils/categoryIcon';
 
 const TYPE_DEFS = [
   { key: 'expense', label: '支出' },
@@ -194,22 +195,7 @@ const TYPE_HINTS = {
   adjust: '校准 = 在账户当前余额上累加差额（正数调增、负数调减），用于补记遗漏造成的余额偏差，不计入收支统计'
 };
 
-/** 分类 icon 标识 → emoji（彩色圆底内） */
-const ICON_MAP = {
-  food: '🍜', transport: '🚌', shopping: '🛍️', home: '🏠', entertainment: '🎮',
-  medical: '💊', education: '📚', phone: '📱', daily: '🧻', gift: '🎁',
-  pet: '🐾', travel: '✈️', 'house-loan': '🏦', 'car-loan': '🚗', repayment: '💳',
-  interest: '📈', other: '🔖', salary: '💰', bonus: '🎉', parttime: '💼',
-  invest: '📊', redpacket: '🧧', refund: '↩️', 'borrow-in': '🤝', secondhand: '♻️',
-  // 转账
-  'transfer-self': '🔄', 'transfer-friend': '👥', 'transfer-proxy': '🔀', 'transfer-refund': '↩️', 'transfer-other': '🔖',
-  // 还款
-  'repay-card': '💳', 'repay-loan': '🏦', 'repay-personal': '🤝', 'repay-interest': '📈', 'repay-other': '🔖',
-  // 借款
-  'borrow-card': '💳', 'borrow-online': '🌐', 'borrow-bank': '🏦', 'borrow-installment': '📅', 'borrow-personal': '🤝', 'borrow-other': '🔖',
-  // 校准
-  'adjust-balance': '⚖️', 'adjust-fee': '💸', 'adjust-fx': '💱', 'adjust-other': '🔖'
-};
+/** 分类 icon 标识 → emoji 已收敛到 @/utils/categoryIcon 统一维护 */
 
 const TYPE_NAMES = { expense: '支出', income: '收入', transfer: '转账', repayment: '还款', borrow: '借款', adjust: '校准' };
 
@@ -315,7 +301,7 @@ export default {
     this.loadOptions();
   },
   methods: {
-    iconOf(icon) { return ICON_MAP[icon] || '🏷️'; },
+    iconOf(icon) { return categoryIcon(icon); },
     promptLogin() {
       uni.showModal({
         title: '提示',
@@ -647,9 +633,9 @@ export default {
 .cat-grid { display: flex; flex-wrap: wrap; }
 .cat-cell { width: 25%; display: flex; flex-direction: column; align-items: center; padding: 16rpx 0 20rpx; }
 .cat-icon {
-  width: 88rpx; height: 88rpx; border-radius: 50%;
+  width: 80rpx; height: 80rpx; border-radius: 20rpx;
   display: flex; align-items: center; justify-content: center;
-  font-size: 40rpx;
+  font-size: 38rpx;
   box-shadow: 0 4rpx 10rpx rgba(0, 0, 0, 0.08);
 }
 .cat-icon.selected { background: var(--primary) !important; transform: scale(1.06); }

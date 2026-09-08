@@ -38,7 +38,7 @@
         <aviator.version>5.3.3</aviator.version>
         <pdfbox.version>3.0.3</pdfbox.version>
         <!-- AI 模块版本（新增） -->
-        <elasticsearch.version>8.14.3</elasticsearch.version>
+        <jvector.version>4.0.0-rc.7</jvector.version>
         <docx4j.version>11.4.9</docx4j.version>
         <jodconverter.version>4.4.6</jodconverter.version>
         <itextpdf.version>5.5.13.3</itextpdf.version>
@@ -58,12 +58,6 @@
             <groupId>com.alibaba</groupId>
             <artifactId>druid-spring-boot-3-starter</artifactId>
             <version>${druid.version}</version>
-        </dependency>
-        <!-- H2 内存数据库 - 开发测试用 -->
-        <dependency>
-            <groupId>com.h2database</groupId>
-            <artifactId>h2</artifactId>
-            <scope>runtime</scope>
         </dependency>
         <!-- MySQL 驱动 - 生产环境用 -->
         <dependency>
@@ -102,7 +96,8 @@
         </dependency>
 
         <!-- velocity代码生成使用模板 -->
-        <dependency>            <groupId>org.apache.velocity</groupId>
+        <dependency>
+            <groupId>org.apache.velocity</groupId>
             <artifactId>velocity-engine-core</artifactId>
             <version>${velocity.version}</version>
         </dependency>
@@ -264,27 +259,14 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-webflux</artifactId>
         </dependency>
-        <!-- Elasticsearch 客户端：向量存储（知识库 / RAG 检索底座）唯一实现，必需依赖 -->
+        <!-- JVector 嵌入式向量搜索引擎：向量存储（知识库 / RAG 检索底座）唯一实现，必需依赖。
+             纯 Java 实现（HNSW 图索引），无 JNI 原生库、无外部服务，Windows / Linux / macOS 均可直接运行 -->
         <dependency>
-            <groupId>co.elastic.clients</groupId>
-            <artifactId>elasticsearch-java</artifactId>
-            <version>${elasticsearch.version}</version>
+            <groupId>io.github.jbellis</groupId>
+            <artifactId>jvector</artifactId>
+            <version>${jvector.version}</version>
         </dependency>
-        <dependency>
-            <groupId>org.elasticsearch.client</groupId>
-            <artifactId>elasticsearch-rest-client</artifactId>
-            <version>${elasticsearch.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>jakarta.json</groupId>
-            <artifactId>jakarta.json-api</artifactId>
-            <version>2.0.1</version>
-        </dependency>
-        <dependency>
-            <groupId>org.apache.httpcomponents</groupId>
-            <artifactId>httpclient</artifactId>
-            <version>4.5.14</version>
-        </dependency>
+
         <!-- 文档转 PDF：LibreOffice 本地转换 + Docx4j 兜底 -->
         <dependency>
             <groupId>org.jodconverter</groupId>

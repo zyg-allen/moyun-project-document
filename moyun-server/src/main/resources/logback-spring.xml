@@ -137,8 +137,7 @@
     <logger name="org.springframework.web" level="WARN"/>
     <logger name="org.apache" level="WARN"/>
     <logger name="com.baomidou.mybatisplus" level="WARN"/>
-    <logger name="org.elasticsearch" level="WARN"/>
-    <logger name="co.elastic.clients" level="WARN"/>
+    <logger name="io.github.jbellis.jvector" level="WARN"/>
     <logger name="dev.langchain4j" level="WARN"/>
     <logger name="io.minio" level="WARN"/>
 

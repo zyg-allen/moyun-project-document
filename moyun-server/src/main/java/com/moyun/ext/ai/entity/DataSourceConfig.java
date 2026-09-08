@@ -27,7 +27,7 @@ public class DataSourceConfig extends AiBaseEntity {
     private String name;
 
     /**
-     * 数据源类型: mysql, elasticsearch, mongodb
+     * 数据源类型: mysql, mongodb
      */
     private String type;
 

@@ -35,7 +35,7 @@ public class DatabaseQueryTool implements ToolExecutor {
     public String getDescription() {
         return """
             查询数据库并返回智能分析结果。
-            支持MySQL和Elasticsearch。
+            支持MySQL。
             可以使用自然语言提问,系统会自动生成SQL并执行。
             返回查询结果、统计分析和图表推荐。
             

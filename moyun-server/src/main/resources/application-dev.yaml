@@ -307,7 +307,7 @@ minio:
   fallback-to-local: false   # 手动强制降级到本地存储（true=强制走本地，忽略 MinIO 配置）
 
 # =============================================
-# AI 模块配置（LangChain4j + Elasticsearch + LibreOffice）
+# AI 模块配置（LangChain4j + JVector + LibreOffice）
 # =============================================
 langchain4j:
   # 全局开关（关闭时使用 Mock 实现避免启动报错）
@@ -333,21 +333,12 @@ langchain4j:
 # =============================================
 # 向量存储配置（知识库 / RAG 检索底座）
 # =============================================
-# 向量存储统一使用 Elasticsearch 8.x（dense_vector + cosine，支持 BM25 全文检索）
+# 向量存储统一使用 JVector 嵌入式向量搜索引擎（纯 Java HNSW 图索引 + cosine 相似度 + BM25 全文检索）
+# 无 JNI 原生库、无外部服务，Windows / Linux / macOS 均可直接运行
 # Redis 仅承担缓存 / 分布式锁 / 处理进度等职责，不参与向量存储
-# index-name: ES 向量索引名
-app:
-  embedding-store:
-    index-name: ${EMBEDDING_STORE_INDEX_NAME:moyun_ai_vectors}
-
-# Elasticsearch 向量检索配置
-elasticsearch:
-  uris: ${ES_URIS:http://localhost:9200}
-  username: ${ES_USERNAME:}
-  password: ${ES_PASSWORD:}
-  index-prefix: ${ES_INDEX_PREFIX:moyun_ai_}
-  index:
-    vector: ${ES_INDEX_VECTOR:moyun_ai_vectors}
+# data-path: JVector 数据目录（向量快照落盘文件 moyun_ai_vectors.bin 所在目录）
+jvector:
+  data-path: ${JVECTOR_DATA_PATH:./data/jvector}
 
 # LibreOffice 文档转 PDF 配置（本地转换）
 jodconverter:

@@ -42,7 +42,6 @@ public class DataAnalysisConstants {
      */
     public static class DataSourceType {
         public static final String MYSQL = "mysql";
-        public static final String ELASTICSEARCH = "elasticsearch";
         public static final String MONGODB = "mongodb";
     }
 

@@ -61,7 +61,7 @@ import com.moyun.ext.ai.store.VectorStoreExtension;
  * <ul>
  *     <li>文档上传和解析（支持PDF/Word/Excel/TXT/Markdown）</li>
  *     <li>文档分块和Embedding向量化</li>
- *     <li>向量存储和检索（Elasticsearch 8.x dense_vector + BM25）</li>
+ *     <li>向量存储和检索（JVector HNSW 余弦相似度 + BM25）</li>
  *     <li>支持多模态（图片提取和分析）</li>
  *     <li>异步处理和进度跟踪</li>
  *     <li>知识库管理（CRUD操作）</li>
@@ -1244,7 +1244,7 @@ public class KnowledgeBaseServiceImpl extends ServiceImpl<KnowledgeBaseMapper, K
      * 删除知识库的所有向量数据
      *
      * <p>通过 {@link VectorStoreExtension#deleteByKnowledgeBaseId(String)} 统一删除，
-     * 底层实际向量库（Elasticsearch）对业务层无感知。</p>
+     * 底层实际向量库（JVector）对业务层无感知。</p>
      *
      * <p>安全性保证：</p>
      * <ul>

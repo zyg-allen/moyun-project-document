@@ -402,7 +402,7 @@ public class LedgerTransactionServiceImpl extends ServiceImpl<LedgerTransactionM
                     BigDecimal assetAfter = applyAssetDelta(txn.getAccountId(), amount, txn.getUserId());
                     txn.setBalanceAfter(assetAfter);
                 }
-                // 借款未指定负债账户时自动创建（信用卡消费等场景）
+                // 借款未指定负债账户时自动创建（向新对象借款：初始欠款=本笔金额）
                 if (txn.getLiabilityId() == null) {
                     LedgerLiabilityAccount newAccount = new LedgerLiabilityAccount();
                     newAccount.setUserId(txn.getUserId());
@@ -410,7 +410,9 @@ public class LedgerTransactionServiceImpl extends ServiceImpl<LedgerTransactionM
                             ? txn.getDescription() : "借款";
                     newAccount.setName(name);
                     newAccount.setType(LedgerLiabilityAccount.TYPE_OTHER);
-                    newAccount.setBalance(amount);
+                    // 修复（v11.40.1）：balance 置 0，欠款由下方 applyLiabilityDelta 累加
+                    // （原实现 balance=amount 再 +amount，首笔借款欠款双倍计入）
+                    newAccount.setBalance(BigDecimal.ZERO);
                     newAccount.setPrincipal(amount);
                     newAccount.setIncludeInTotal(1);
                     newAccount.setStatus(LedgerLiabilityAccount.STATUS_ENABLED);

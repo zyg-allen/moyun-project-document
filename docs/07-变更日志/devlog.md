@@ -5,6 +5,21 @@
 
 ***
 
+## v11.40 (2026-09-08) AI 分析快照数据指纹自动失效 + 借款自动建户欠款双倍修复
+
+### AI 分析快照：数据指纹（免手动 refresh）
+- 问题：分析页进页面命中当月快照直接返回旧报告，记账后不点「重新分析」永远看不到最新数据（refresh 参数前端只在手动重分析时传）
+- 方案：`ledger_ai_analysis_report` 新增 `data_fingerprint`（SQL 增量 ALTER，见 20260908-05 末尾）；`analyze()` 命中快照前比对指纹——本月流水（条数+最后变更时间）/启用资产/负债账户（数量+最后变更时间）/画像文本，任一变化自动落穿重算并覆盖；无变化仍零 token 命中
+- `buildFingerprint`/`aggSignature` 私有方法；指纹构建失败返回 null（当次不命中缓存，直接重算，安全侧）；存量快照无指纹 → 视为不一致自动重算一次并回填
+- 行为语义：进页面有新账 → 自动出新报告；无新账 → 零 token；手动「重新分析」（refresh=true）仍强制重算
+- `/portal/ledger/ai/profile` 本身实时查库无缓存，未改动
+
+### bug：借款未选负债账户时欠款双倍计入
+- 场景：记借款 ¥800 不选「借款自」→ 自动新建负债，流水 800、principal 800 正确，但 balance=1600
+- 根因：`LedgerTransactionServiceImpl.applyBalanceEffect` BORROW 分支自动建户时 `balance=amount`，随后 `applyLiabilityDelta` 再 `+amount`，双倍
+- 修复：自动建户 `balance=0`、`principal=amount`（初始本金），欠款完全由 `applyLiabilityDelta` 累加——向新对象借 800：初始欠款=当前欠款=800，后续借款正常累加；冲正（删除/改流水）回退路径对称无需改
+- 存量脏数据：按惯例彻底删除测试数据（该负债及其流水）即可，无需修补脚本
+
 ## v11.39 (2026-09-08) LLM 统一入口：scene_code 全链路接入（设计模式落地）
 
 ### 设计模式

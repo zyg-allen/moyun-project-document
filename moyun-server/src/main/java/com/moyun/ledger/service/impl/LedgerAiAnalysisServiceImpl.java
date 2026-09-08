@@ -95,19 +95,22 @@ public class LedgerAiAnalysisServiceImpl implements ILedgerAiAnalysisService {
         String period = LocalDate.now().format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM"));
         // v11.37：仅"本月"维度读写月度快照；其他维度实时计算（快照表 period 与自然月对齐）
         boolean snapshotable = "month".equals(range);
+        PortalUser user = portalUserService.selectPortalUserById(userId);
+        LocalDate today = LocalDate.now();
+        // v11.40：数据指纹（本月流水/资产/负债/画像变更痕迹）——命中快照前比对，数据变了自动重算，无需手动 refresh
+        String fingerprint = snapshotable ? buildFingerprint(userId, today, user) : null;
         if (snapshotable && !refresh) {
             LedgerAiAnalysisReport cached = reportMapper.selectOne(new LambdaQueryWrapper<LedgerAiAnalysisReport>()
                     .eq(LedgerAiAnalysisReport::getUserId, userId)
                     .eq(LedgerAiAnalysisReport::getPeriod, period));
-            if (cached != null) {
+            // 指纹一致才命中缓存；不一致（含存量快照无指纹）→ 落穿重算并覆盖
+            if (cached != null && fingerprint != null && fingerprint.equals(cached.getDataFingerprint())) {
                 Map<String, Object> r = reportToResult(cached, true);
                 r.put("range", range);
                 r.put("rangeLabel", rangeLabel);
                 return r;
             }
         }
-        PortalUser user = portalUserService.selectPortalUserById(userId);
-        LocalDate today = LocalDate.now();
         // v11.37：维度窗口（自然月对齐）：month=本月1号；3m/6m/year=含本月往前 N 个自然月
         LocalDate rangeStart = "month".equals(range)
                 ? today.withDayOfMonth(1)
@@ -340,7 +343,7 @@ public class LedgerAiAnalysisServiceImpl implements ILedgerAiAnalysisService {
         if (snapshotable) {
             // 仅"本月"维度写月度快照：3m/6m/year 是实时视图，避免快照表膨胀与口径混杂
             saveReport(userId, period, healthScore, indicators, incomeSources,
-                    debtRisks, suggestions, aiSummary, aiEnabled, profileSnapshot);
+                    debtRisks, suggestions, aiSummary, aiEnabled, profileSnapshot, fingerprint);
         }
         return result;
     }
@@ -390,7 +393,7 @@ public class LedgerAiAnalysisServiceImpl implements ILedgerAiAnalysisService {
     private void saveReport(Long userId, String period, int healthScore,
                             Map<String, Object> indicators, List<Map<String, Object>> incomeSources,
                             List<Map<String, Object>> debtRisks, List<Map<String, Object>> suggestions,
-                            String aiSummary, boolean aiEnabled, String profileSnapshot) {
+                            String aiSummary, boolean aiEnabled, String profileSnapshot, String fingerprint) {
         try {
             com.fasterxml.jackson.databind.ObjectMapper om = new com.fasterxml.jackson.databind.ObjectMapper();
             LedgerAiAnalysisReport rep = reportMapper.selectOne(new LambdaQueryWrapper<LedgerAiAnalysisReport>()
@@ -410,6 +413,7 @@ public class LedgerAiAnalysisServiceImpl implements ILedgerAiAnalysisService {
             rep.setAiSummary(aiSummary);
             rep.setAiEnabled(aiEnabled ? 1 : 0);
             rep.setProfileSnapshot(profileSnapshot);
+            rep.setDataFingerprint(fingerprint);
             if (exists) {
                 reportMapper.updateById(rep);
             } else {
@@ -546,6 +550,46 @@ public class LedgerAiAnalysisServiceImpl implements ILedgerAiAnalysisService {
             sb.append(user.getCompany());
         }
         return sb.length() > 0 ? sb.toString() : "未填写";
+    }
+
+    /**
+     * 数据指纹（v11.40）：本月流水（条数+最后变更时间）、启用资产/负债账户（数量+最后变更时间）、画像文本
+     * <p>命中当月快照前比对——任一输入变化自动失效快照重算（无需手动 refresh）；无变化仍零 token 命中。
+     * 统计口径与 analyze 一致（status=1，本月窗口 [月初, 今天]）。
+     */
+    private String buildFingerprint(Long userId, LocalDate today, PortalUser user) {
+        try {
+            LocalDate monthStart = today.withDayOfMonth(1);
+            String tx = aggSignature(transactionMapper.selectMaps(
+                    new com.baomidou.mybatisplus.core.conditions.query.QueryWrapper<LedgerTransaction>()
+                            .select("count(*) as cnt", "date_format(max(update_time), '%y%m%d%H%i%s') as last")
+                            .eq("user_id", userId).eq("status", 1)
+                            .ge("transaction_date", monthStart).le("transaction_date", today)));
+            String as = aggSignature(assetAccountMapper.selectMaps(
+                    new com.baomidou.mybatisplus.core.conditions.query.QueryWrapper<LedgerAssetAccount>()
+                            .select("count(*) as cnt", "date_format(max(update_time), '%y%m%d%H%i%s') as last")
+                            .eq("user_id", userId).eq("status", 1)));
+            String li = aggSignature(liabilityAccountMapper.selectMaps(
+                    new com.baomidou.mybatisplus.core.conditions.query.QueryWrapper<LedgerLiabilityAccount>()
+                            .select("count(*) as cnt", "date_format(max(update_time), '%y%m%d%H%i%s') as last")
+                            .eq("user_id", userId).eq("status", 1)));
+            String pf = profileText(user);
+            String fp = "tx:" + tx + "|as:" + as + "|li:" + li + "|pf:" + pf;
+            return fp.length() > 200 ? fp.substring(0, 200) : fp;
+        } catch (Exception e) {
+            log.warn("数据指纹构建失败（当次不命中缓存，直接重算） userId={}", userId, e);
+            return null;
+        }
+    }
+
+    /** 聚合行 → "count@last" 签名（行为空返回 "0@null"） */
+    private String aggSignature(List<Map<String, Object>> rows) {
+        if (rows == null || rows.isEmpty() || rows.get(0) == null) {
+            return "0@null";
+        }
+        Object cnt = rows.get(0).get("cnt");
+        Object last = rows.get(0).get("last");
+        return (cnt == null ? 0 : cnt) + "@" + (last == null ? "null" : last);
     }
 
     /** LLM 生成综述（失败降级模板） */

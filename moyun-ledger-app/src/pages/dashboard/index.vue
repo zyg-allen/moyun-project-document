@@ -150,8 +150,8 @@
       </view>
       <view v-for="t in pendingTodos.slice(0, 3)" :key="t.id" class="todo-row" @tap="goMemo">
         <view class="todo-dot"></view>
-        <text class="todo-text flex-1">{{ t.text }}</text>
-        <text class="todo-date" v-if="t.date">{{ t.date }}</text>
+        <text class="todo-text flex-1">{{ t.title || t.content }}</text>
+        <text class="todo-date" v-if="t.todoDate">{{ t.todoDate }}</text>
       </view>
     </view>
 
@@ -176,8 +176,8 @@
 </template>
 
 <script>
-import { getDashboard } from '@/api/ledger';
-import { centToYuan, centToAmount, centToSigned, typeText } from '@/utils/money';
+import { getDashboard, listMemos } from '@/api/ledger';
+import { toFixedYuan, formatAmount, formatSigned, typeText } from '@/utils/money';
 import { useUserStore } from '@/stores/user';
 import { useThemeStore } from '@/stores/theme';
 import { storage } from '@/utils/storage';
@@ -199,16 +199,16 @@ export default {
     themeVars() { return useThemeStore().themeVars; },
     isLoggedIn() { return useUserStore().isLoggedIn; },
     showTips() { return uni.getStorageSync('ledger_tips_dismissed') !== '1'; },
-    netWorthText() { return centToAmount(this.dashboard.netWorth); },
-    assetText() { return centToAmount(this.dashboard.totalAsset); },
-    liabilityText() { return centToAmount(this.dashboard.totalLiability); },
-    changeText() { return centToSigned(this.dashboard.netWorthChange); },
+    netWorthText() { return formatAmount(this.dashboard.netWorth); },
+    assetText() { return formatAmount(this.dashboard.totalAsset); },
+    liabilityText() { return formatAmount(this.dashboard.totalLiability); },
+    changeText() { return formatSigned(this.dashboard.netWorthChange); },
     changeClass() { return this.dashboard.netWorthChange >= 0 ? 'up' : 'down'; },
-    monthIncomeText() { return centToAmount(this.dashboard.monthIncome); },
-    monthExpenseText() { return centToAmount(this.dashboard.monthExpense); },
+    monthIncomeText() { return formatAmount(this.dashboard.monthIncome); },
+    monthExpenseText() { return formatAmount(this.dashboard.monthExpense); },
     budget() { return this.dashboard.budget || null; },
-    budgetAmountText() { return centToAmount(this.budget && this.budget.amount); },
-    budgetUsedText() { return centToAmount(this.budget && this.budget.used); },
+    budgetAmountText() { return formatAmount(this.budget && this.budget.amount); },
+    budgetUsedText() { return formatAmount(this.budget && this.budget.used); },
     recentList() { return this.dashboard.recentTransactions || []; },
     pendingTodos() { return (this.todos || []).filter(t => !t.done); },
     // 新手引导：无任何资产/负债账户，且未手动关闭过
@@ -247,12 +247,22 @@ export default {
       try {
         this.dashboard = await getDashboard() || {};
       } catch (e) { /* 拦截器已提示 */ }
+      this.loadTodos(); // v11.33 首页待办（备忘录）
+    },
+    async loadTodos() {
+      try {
+        const data = await listMemos() || {};
+        this.todos = (data.records || []).map(t => ({ ...t, done: !!t.done }));
+      } catch (e) { /* 拦截器已提示 */ }
+    },
+    goMemo() {
+      uni.navigateTo({ url: '/pages/mine/memo/index' });
     },
     amountOf(t) {
-      if (t.type === 'income') return '+' + centToYuan(t.amount);
-      if (t.type === 'expense') return '-' + centToYuan(t.amount);
-      if (t.type === 'adjust') return centToSigned(t.amount);
-      return centToYuan(t.amount);
+      if (t.type === 'income') return '+' + toFixedYuan(t.amount);
+      if (t.type === 'expense') return '-' + toFixedYuan(t.amount);
+      if (t.type === 'adjust') return formatSigned(t.amount);
+      return toFixedYuan(t.amount);
     },
     goRecordList() {
       uni.navigateTo({ url: '/pages/record/list' });

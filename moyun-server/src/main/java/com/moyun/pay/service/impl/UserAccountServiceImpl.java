@@ -9,13 +9,14 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 /**
  * 用户资金账户服务实现（V11.0）
  *
  * <p>余额变动全部走 {@code UserAccountMapper} 的原子 SQL（balance 条件更新 + 乐观锁），
- * 杜绝读改写竞态。
+ * 杜绝读改写竞态。金额单位：元（v11.31 统一）。
  *
  * @author moyun
  */
@@ -38,9 +39,9 @@ public class UserAccountServiceImpl implements IUserAccountService {
         // 开户（并发兜底：唯一索引 user_id 冲突时回读）
         account = new UserAccount();
         account.setUserId(userId);
-        account.setBalance(0L);
-        account.setTotalIncome(0L);
-        account.setTotalWithdraw(0L);
+        account.setBalance(BigDecimal.ZERO);
+        account.setTotalIncome(BigDecimal.ZERO);
+        account.setTotalWithdraw(BigDecimal.ZERO);
         account.setVersion(0);
         account.setCreateTime(LocalDateTime.now());
         account.setUpdateTime(LocalDateTime.now());
@@ -56,8 +57,8 @@ public class UserAccountServiceImpl implements IUserAccountService {
     }
 
     @Override
-    public long credit(Long userId, long amount) {
-        if (amount <= 0) {
+    public BigDecimal credit(Long userId, BigDecimal amount) {
+        if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
             throw new IllegalArgumentException("入账金额必须大于 0");
         }
         getOrCreate(userId);
@@ -67,22 +68,22 @@ public class UserAccountServiceImpl implements IUserAccountService {
         }
         UserAccount after = userAccountMapper.selectOne(new LambdaQueryWrapper<UserAccount>()
                 .eq(UserAccount::getUserId, userId).last("LIMIT 1"));
-        log.info("[user-account] 入账 userId={} amount={}分 balanceAfter={}分", userId, amount, after.getBalance());
+        log.info("[user-account] 入账 userId={} amount={}元 balanceAfter={}元", userId, amount, after.getBalance());
         return after.getBalance();
     }
 
     @Override
-    public boolean debit(Long userId, long amount) {
-        if (amount <= 0) {
+    public boolean debit(Long userId, BigDecimal amount) {
+        if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
             throw new IllegalArgumentException("扣减金额必须大于 0");
         }
         getOrCreate(userId);
         int rows = userAccountMapper.debitBalance(userId, amount);
         if (rows == 0) {
-            log.warn("[user-account] 扣减失败（余额不足或账户不存在）userId={} amount={}分", userId, amount);
+            log.warn("[user-account] 扣减失败（余额不足或账户不存在）userId={} amount={}元", userId, amount);
             return false;
         }
-        log.info("[user-account] 扣减成功 userId={} amount={}分", userId, amount);
+        log.info("[user-account] 扣减成功 userId={} amount={}元", userId, amount);
         return true;
     }
 }

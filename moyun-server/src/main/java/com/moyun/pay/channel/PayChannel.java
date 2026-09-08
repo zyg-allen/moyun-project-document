@@ -6,6 +6,9 @@ package com.moyun.pay.channel;
  * <p>实现类按渠道注册（如 wechat），由 {@code PayGatewayImpl} 按 order.channel 路由。
  * 新增渠道（支付宝/云闪付）实现本接口并声明 Bean 即可，业务代码零改动。
  *
+ * <p>金额口径：全链路统一人民币元（BigDecimal）；实现类在调用三方 API 时自行完成
+ * 边界换算（微信 v3 要求整数分，支付宝要求元字符串）。
+ *
  * @author moyun
  */
 public interface PayChannel {
@@ -16,7 +19,7 @@ public interface PayChannel {
     /**
      * 预下单
      *
-     * @param request 下单请求（payNo/amount 分/subject/expireTime）
+     * @param request 下单请求（payNo/amount 元/subject/expireTime）
      * @return 渠道响应（native 场景返回 codeUrl 供前端渲染二维码）
      */
     PayChannelResponse prepay(PayChannelRequest request);

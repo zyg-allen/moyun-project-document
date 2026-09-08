@@ -7,10 +7,10 @@
     <!-- 总览卡片 -->
     <view class="overview-card">
       <view class="ov-label">剩余需存(元)</view>
-      <view class="ov-amount">¥ {{ totalRemaining.toFixed(2) }}</view>
+      <view class="ov-amount">¥ {{ toFixedYuan(overview.totalRemaining) }}</view>
       <view class="ov-sub">
-        <text>累计存入 ¥{{ totalSaved.toFixed(2) }}</text>
-        <text>目标金额 ¥{{ totalTarget.toFixed(2) }}</text>
+        <text>累计存入 ¥{{ toFixedYuan(overview.totalSaved) }}</text>
+        <text>目标金额 ¥{{ toFixedYuan(overview.totalTarget) }}</text>
       </view>
     </view>
 
@@ -23,13 +23,13 @@
           <text class="plan-name">{{ p.name }}</text>
           <text class="plan-method">{{ methodLabel(p.method) }}</text>
         </view>
-        <view class="plan-amount">¥ {{ p.targetAmount }}</view>
+        <view class="plan-amount">¥ {{ toFixedYuan(p.targetAmount) }}</view>
         <view class="progress-bar">
           <view class="progress-fill" :style="{ width: progressPercent(p) + '%' }"></view>
         </view>
         <view class="plan-footer">
-          <text>已存入：¥{{ p.currentAmount.toFixed(2) }}</text>
-          <text>{{ progressPercent(p) }}%</text>
+          <text>已存入：¥{{ toFixedYuan(p.currentAmount) }}</text>
+          <text :class="['plan-status', statusClass(p.status)]">{{ statusText(p.status) }}</text>
         </view>
       </view>
     </view>
@@ -46,40 +46,55 @@
 <script>
 import NavBar from '@/components/NavBar/NavBar.vue';
 import { useThemeStore } from '@/stores/theme';
-import { storage, uid } from '@/utils/storage';
+import { useUserStore } from '@/stores/user';
+import { listSavingPlans } from '@/api/ledger';
+import { toFixedYuan } from '@/utils/money';
 
-const METHOD_LABELS = { '52week': '52周存钱法', fixed: '固定金额', custom: '自定义' };
+const METHOD_LABELS = {
+  '52week': '52周存钱法',
+  fixed: '固定金额',
+  monthly: '每月固定存',
+  custom: '自定义递增'
+};
+const STATUS_TEXT = { 1: '进行中', 2: '已达成', 3: '已失败' };
 
 export default {
   components: { NavBar },
   data() {
-    return { plans: [] };
+    return {
+      plans: [],
+      overview: { totalTarget: 0, totalSaved: 0, totalRemaining: 0 }
+    };
   },
   computed: {
-    themeVars() { return useThemeStore().themeVars; },
-    totalTarget() { return this.plans.reduce((s, p) => s + (p.targetAmount || 0), 0); },
-    totalSaved() { return this.plans.reduce((s, p) => s + (p.currentAmount || 0), 0); },
-    totalRemaining() { return Math.max(0, this.totalTarget - this.totalSaved); }
+    themeVars() { return useThemeStore().themeVars; }
   },
   onShow() {
     useThemeStore().restore();
-    this.loadPlans();
+    if (useUserStore().isLoggedIn) this.load();
   },
   methods: {
+    toFixedYuan,
     methodLabel(m) { return METHOD_LABELS[m] || m; },
+    statusText(s) { return STATUS_TEXT[s] || ''; },
+    statusClass(s) { return s === 2 ? 'ok' : (s === 3 ? 'fail' : ''); },
     progressPercent(p) {
       if (!p.targetAmount) return 0;
       return Math.min(100, Math.round((p.currentAmount / p.targetAmount) * 100));
     },
-    loadPlans() {
-      this.plans = storage.get('savings_plans', []) || [];
+    async load() {
+      try {
+        const data = await listSavingPlans() || {};
+        this.plans = data.plans || [];
+        this.overview = {
+          totalTarget: data.totalTarget || 0,
+          totalSaved: data.totalSaved || 0,
+          totalRemaining: data.totalRemaining || 0
+        };
+      } catch (e) { /* 拦截器已提示 */ }
     },
-    goCreate() {
-      uni.navigateTo({ url: '/pages/mine/savings/create' });
-    },
-    goDetail(id) {
-      uni.navigateTo({ url: '/pages/mine/savings/detail?id=' + id });
-    }
+    goCreate() { uni.navigateTo({ url: '/pages/mine/savings/create' }); },
+    goDetail(id) { uni.navigateTo({ url: '/pages/mine/savings/detail?id=' + id }); }
   }
 };
 </script>
@@ -109,7 +124,9 @@ export default {
 .plan-amount { font-size: 36rpx; font-weight: 700; color: var(--primary-strong); margin: 16rpx 0 12rpx; }
 .progress-bar { height: 16rpx; background: #f0f0f0; border-radius: 8rpx; overflow: hidden; }
 .progress-fill { height: 100%; background: var(--primary-strong); border-radius: 8rpx; transition: width 0.3s; }
-.plan-footer { display: flex; justify-content: space-between; margin-top: 12rpx; font-size: 22rpx; color: #999; }
+.plan-footer { display: flex; justify-content: space-between; align-items: center; margin-top: 12rpx; font-size: 22rpx; color: #999; }
+.plan-status.ok { color: #52c41a; }
+.plan-status.fail { color: #e57373; }
 
 .empty { display: flex; flex-direction: column; align-items: center; padding: 120rpx 0; }
 .empty-icon { font-size: 100rpx; margin-bottom: 24rpx; }

@@ -13,17 +13,17 @@
       <view class="year-summary">
         <view class="ys-col">
           <view class="ys-label">年收入</view>
-          <view class="ys-value income">{{ privacyMode ? '****' : '+' + centToAbsAmount(report.yearIncome || 0) }}</view>
+          <view class="ys-value income">{{ privacyMode ? '****' : '+' + formatAbsAmount(report.yearIncome || 0) }}</view>
         </view>
         <view class="ys-divider"></view>
         <view class="ys-col">
           <view class="ys-label">年支出</view>
-          <view class="ys-value expense">{{ privacyMode ? '****' : '-' + centToAbsAmount(report.yearExpense || 0) }}</view>
+          <view class="ys-value expense">{{ privacyMode ? '****' : '-' + formatAbsAmount(report.yearExpense || 0) }}</view>
         </view>
         <view class="ys-divider"></view>
         <view class="ys-col">
           <view class="ys-label">年结余</view>
-          <view class="ys-value">{{ privacyMode ? '****' : centToAmount((report.yearIncome || 0) - (report.yearExpense || 0)) }}</view>
+          <view class="ys-value">{{ privacyMode ? '****' : formatAmount((report.yearIncome || 0) - (report.yearExpense || 0)) }}</view>
         </view>
       </view>
       <!-- 月度收支柱状图 -->
@@ -52,7 +52,7 @@
         <view class="rank-bar">
           <view class="rank-inner expense" :style="{ width: rankPercent(c.amount, expenseTotal) + '%' }"></view>
         </view>
-        <text class="rank-amount">{{ privacyMode ? '****' : centToAmount(c.amount) }}</text>
+        <text class="rank-amount">{{ privacyMode ? '****' : formatAmount(c.amount) }}</text>
       </view>
       <view class="chart-title" style="margin-top: 24rpx">收入分类 TOP</view>
       <view v-if="!categoryIncome.length" class="empty">暂无数据</view>
@@ -61,7 +61,7 @@
         <view class="rank-bar">
           <view class="rank-inner income" :style="{ width: rankPercent(c.amount, incomeTotal) + '%' }"></view>
         </view>
-        <text class="rank-amount">{{ privacyMode ? '****' : centToAmount(c.amount) }}</text>
+        <text class="rank-amount">{{ privacyMode ? '****' : formatAmount(c.amount) }}</text>
       </view>
     </view>
 
@@ -75,7 +75,7 @@
           <view class="nw-bar-wrap">
             <view class="nw-bar" :style="{ width: nwWidth(p.netWorth) + '%' }"></view>
           </view>
-          <text class="nw-value">{{ privacyMode ? '****' : centToAmount(p.netWorth) }}</text>
+          <text class="nw-value">{{ privacyMode ? '****' : formatAmount(p.netWorth) }}</text>
         </view>
       </view>
     </view>
@@ -89,7 +89,7 @@
         <view class="rank-bar">
           <view class="rank-inner asset" :style="{ width: rankPercent(a.balance, assetTotal) + '%' }"></view>
         </view>
-        <text class="rank-amount">{{ privacyMode ? '****' : centToAmount(a.balance) }}</text>
+        <text class="rank-amount">{{ privacyMode ? '****' : formatAmount(a.balance) }}</text>
       </view>
     </view>
 
@@ -103,8 +103,8 @@
           <view class="liab-sub">{{ l.dueDate ? '到期 ' + l.dueDate : (l.repaymentDay ? '每月 ' + l.repaymentDay + ' 日还款' : '无还款日') }}</view>
         </view>
         <view class="liab-right">
-          <view class="liab-balance">{{ privacyMode ? '****' : centToAmount(l.balance) }}</view>
-          <view class="liab-sub" v-if="l.monthlyPayment">月还 {{ privacyMode ? '****' : centToAmount(l.monthlyPayment) }}</view>
+          <view class="liab-balance">{{ privacyMode ? '****' : formatAmount(l.balance) }}</view>
+          <view class="liab-sub" v-if="l.monthlyPayment">月还 {{ privacyMode ? '****' : formatAmount(l.monthlyPayment) }}</view>
         </view>
       </view>
     </view>
@@ -128,7 +128,7 @@
 
 <script>
 import { getReportOverview, exportTransactionsCsv } from '@/api/ledger';
-import { centToAmount, centToAbsAmount, toNum } from '@/utils/money';
+import { formatAmount, formatAbsAmount, toNum } from '@/utils/money';
 import { useThemeStore } from '@/stores/theme';
 
 export default {
@@ -178,7 +178,7 @@ export default {
     this.load();
   },
   methods: {
-    centToAmount,
+    formatAmount,
     load() {
       getReportOverview(this.year).then((data) => {
         this.report = data || {};
@@ -190,9 +190,9 @@ export default {
       this.year = y;
       this.load();
     },
-    barHeight(cent) {
+    barHeight(amount) {
       // 最大 160rpx 的柱高
-      return Math.round(Math.min((cent || 0) / this.maxMonthly, 1) * 160);
+      return Math.round(Math.min((amount || 0) / this.maxMonthly, 1) * 160);
     },
     rankPercent(amount, total) {
       return Math.round((amount / total) * 100);

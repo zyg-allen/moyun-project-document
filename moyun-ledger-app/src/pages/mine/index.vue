@@ -32,7 +32,8 @@
         </view>
       </view>
       <view class="btn-primary" @tap="doLogin">登录</view>
-      <view class="login-tip">与墨韵门户共用账号体系，首次使用请先在门户注册</view>
+      <view class="login-tip">与墨韵门户共用账号体系</view>
+      <view class="register-link" @tap="goRegister">没有账号？立即注册 ›</view>
     </view>
 
     <!-- 功能宫格（已登录） -->
@@ -132,6 +133,9 @@ export default {
         this.captcha.code = '';
       } catch (e) { this.captcha.img = ''; }
     },
+    goRegister() {
+      uni.navigateTo({ url: '/pages/mine/register/index' });
+    },
     async doLogin() {
       if (!this.loginForm.username || !this.loginForm.password) {
         uni.showToast({ title: '请输入账号密码', icon: 'none' }); return;
@@ -171,14 +175,15 @@ export default {
         setting: '/pages/mine/settings/index',
         savings: '/pages/mine/savings/index',
         schedule: '/pages/mine/schedule/index',
+        memo: '/pages/mine/memo/index',
         tip: '/pages/mine/tip/index',
-        memo: '/pages/mine/memo/index'
+        feedback: '/pages/mine/feedback/index'
       };
       const url = routes[m.key];
       if (url) { uni.navigateTo({ url }); return; }
       // 占位功能提示
       const todo = ['auto', 'backup', 'import', 'export', 'widget', 'personalize', 'catIcon',
-        'tag', 'remind', 'reimburse', 'feedback', 'share', 'rate', 'qq',
+        'tag', 'remind', 'reimburse', 'share', 'rate', 'qq',
         'translate', 'list', 'stock', 'gold', 'coupon'];
       if (todo.includes(m.key)) {
         uni.showToast({ title: m.label + ' · 开发中', icon: 'none' });
@@ -228,10 +233,12 @@ export default {
 .grid-card {
   background: #fff; border-radius: 20rpx; padding: 24rpx 12rpx;
   margin: 24rpx 24rpx 0;
+  display: flex; flex-wrap: wrap;
 }
 .grid-cell {
   width: 25%; display: flex; flex-direction: column; align-items: center;
   padding: 20rpx 0; position: relative;
+  box-sizing: border-box;
 }
 .cell-icon {
   width: 80rpx; height: 80rpx; border-radius: 20rpx;
@@ -253,5 +260,8 @@ export default {
 .menu-item {
   display: flex; justify-content: center; align-items: center;
   padding: 32rpx 0; font-size: 28rpx; color: #e74c3c;
+}
+.register-link {
+  text-align: center; font-size: 26rpx; color: var(--primary-strong); padding: 12rpx 0 4rpx;
 }
 </style>

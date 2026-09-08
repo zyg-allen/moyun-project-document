@@ -38,6 +38,9 @@ import java.util.List;
  */
 @Service
 public class ResumeDeepOptimizeGenerator {
+    /** v11.39：本服务所属 AI 场景代码（绑定见 ai_scene_config，业务不感知模型选择） */
+    private static final String SCENE_RESUME_OPTIMIZE = "resume_optimize";
+
 
     private static final Logger log = LoggerFactory.getLogger(ResumeDeepOptimizeGenerator.class);
 
@@ -91,7 +94,7 @@ public class ResumeDeepOptimizeGenerator {
                 + "\n\n【简历核心内容】\n" + resumeContent;
 
         try {
-            String response = llmClient.chat(systemPrompt, userPrompt);
+            String response = llmClient.chat(SCENE_RESUME_OPTIMIZE, systemPrompt, userPrompt);
             JsonNode node = objectMapper.readTree(LlmJsonExtractor.extract(response));
             ResumeDeepOptimizeVO vo = new ResumeDeepOptimizeVO();
             vo.setResumeId(resume.getId());

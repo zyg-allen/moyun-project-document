@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <div class="app-container">
     <!-- 搜索表单 -->
     <el-form :model="queryParams" ref="queryRef" :inline="true" v-show="showSearch" label-width="90px">
@@ -47,9 +47,9 @@
           <span v-else>{{ scope.row.channel }}</span>
         </template>
       </el-table-column>
-      <el-table-column label="金额" align="center" prop="amountYuan" width="110">
+      <el-table-column label="金额" align="center" prop="amount" width="110">
         <template #default="scope">
-          <span style="color: #f56c6c; font-weight: 600;">¥{{ scope.row.amountYuan }}</span>
+          <span style="color: #f56c6c; font-weight: 600;">¥{{ scope.row.amount }}</span>
         </template>
       </el-table-column>
       <el-table-column label="状态" align="center" prop="status" width="100">
@@ -95,7 +95,7 @@
         </el-descriptions-item>
         <el-descriptions-item label="业务类型 / 单号">{{ currentRow.bizType }} / {{ currentRow.bizNo }}</el-descriptions-item>
         <el-descriptions-item label="支付渠道">{{ currentRow.channel === 'wechat' ? '微信支付' : currentRow.channel }}</el-descriptions-item>
-        <el-descriptions-item label="金额">¥{{ currentRow.amountYuan }}</el-descriptions-item>
+        <el-descriptions-item label="金额">¥{{ currentRow.amount }}</el-descriptions-item>
         <el-descriptions-item label="商品描述">{{ currentRow.subject || '-' }}</el-descriptions-item>
         <el-descriptions-item label="三方交易单号">{{ currentRow.channelOrderNo || '-' }}</el-descriptions-item>
         <el-descriptions-item label="三方交易状态">{{ currentRow.tradeState || '-' }}</el-descriptions-item>
@@ -119,8 +119,8 @@
             </template>
           </el-table-column>
           <el-table-column label="方向" align="center" prop="direction" width="80" />
-          <el-table-column label="金额" align="center" prop="amountYuan" width="110">
-            <template #default="scope">¥{{ scope.row.amountYuan }}</template>
+          <el-table-column label="金额" align="center" prop="amount" width="110">
+            <template #default="scope">¥{{ scope.row.amount }}</template>
           </el-table-column>
           <el-table-column label="摘要" align="center" prop="summary" :show-overflow-tooltip="true" />
         </el-table>

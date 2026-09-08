@@ -129,8 +129,8 @@
           <text class="ds-date">{{ selectedLabel }}</text>
         </view>
         <view class="ds-right">
-          <text class="ds-in" v-if="dayIncome > 0">收入:{{ centToAmount(dayIncome) }}</text>
-          <text class="ds-out" v-if="dayExpense > 0">支出:{{ centToAmount(dayExpense) }}</text>
+          <text class="ds-in" v-if="dayIncome > 0">收入:{{ formatAmount(dayIncome) }}</text>
+          <text class="ds-out" v-if="dayExpense > 0">支出:{{ formatAmount(dayExpense) }}</text>
         </view>
       </view>
 
@@ -160,8 +160,8 @@
       <view class="month-summary">
         <text>{{ year }}年{{ month }}月 · 共 {{ monthCount }} 笔</text>
         <view class="ms-nums">
-          <text class="in">收 {{ centToAmount(monthIncome) }}</text>
-          <text class="out">支 {{ centToAmount(monthExpense) }}</text>
+          <text class="in">收 {{ formatAmount(monthIncome) }}</text>
+          <text class="out">支 {{ formatAmount(monthExpense) }}</text>
         </view>
       </view>
     </block>
@@ -170,7 +170,7 @@
 
 <script>
 import { pageTransactions } from '@/api/ledger';
-import { centToYuan, centToAmount, centToSigned, typeText, toNum } from '@/utils/money';
+import { toFixedYuan, formatAmount, formatSigned, typeText, toNum } from '@/utils/money';
 import { useThemeStore } from '@/stores/theme';
 
 const TYPE_OPTIONS = [
@@ -244,11 +244,11 @@ export default {
     },
     sumIncomeText() {
       const sum = this.list.filter(t => t.type === 'income').reduce((s, t) => s + toNum(t.amount), 0);
-      return centToAmount(sum);
+      return formatAmount(sum);
     },
     sumExpenseText() {
       const sum = this.list.filter(t => t.type === 'expense').reduce((s, t) => s + toNum(t.amount), 0);
-      return centToAmount(sum);
+      return formatAmount(sum);
     },
     // ---- 日历视图 ----
     cells() {
@@ -316,14 +316,14 @@ export default {
   },
   methods: {
     typeText,
-    centToAmount,
+    formatAmount,
     pad,
     daysInMonth() { return new Date(this.year, this.month, 0).getDate(); },
     amountOf(t) {
-      if (t.type === 'income') return '+' + centToYuan(t.amount);
-      if (t.type === 'expense') return '-' + centToYuan(t.amount);
-      if (t.type === 'adjust') return centToSigned(t.amount);
-      return centToYuan(t.amount);
+      if (t.type === 'income') return '+' + toFixedYuan(t.amount);
+      if (t.type === 'expense') return '-' + toFixedYuan(t.amount);
+      if (t.type === 'adjust') return formatSigned(t.amount);
+      return toFixedYuan(t.amount);
     },
     accountInfo(t) {
       const parts = [];
@@ -362,8 +362,8 @@ export default {
       const income = group.items.filter(t => t.type === 'income').reduce((s, t) => s + toNum(t.amount), 0);
       const expense = group.items.filter(t => t.type === 'expense').reduce((s, t) => s + toNum(t.amount), 0);
       const segs = [];
-      if (income > 0) segs.push('收 ' + centToAmount(income));
-      if (expense > 0) segs.push('支 ' + centToAmount(expense));
+      if (income > 0) segs.push('收 ' + formatAmount(income));
+      if (expense > 0) segs.push('支 ' + formatAmount(expense));
       return segs.join(' · ');
     },
     previewVoucher(t) {

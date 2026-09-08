@@ -4,11 +4,14 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.moyun.core.base.entity.SysDictData;
 import com.moyun.ext.ai.entity.ModelConfig;
 import com.moyun.ext.ai.service.ModelConfigService;
+import com.moyun.ext.ai.service.AiSceneResolver;
 import com.moyun.ledger.domain.entity.LedgerAssetAccount;
+import com.moyun.ledger.domain.entity.LedgerAiAnalysisReport;
 import com.moyun.ledger.domain.entity.LedgerCategory;
 import com.moyun.ledger.domain.entity.LedgerLiabilityAccount;
 import com.moyun.ledger.domain.entity.LedgerTransaction;
 import com.moyun.ledger.mapper.LedgerAssetAccountMapper;
+import com.moyun.ledger.mapper.LedgerAiAnalysisReportMapper;
 import com.moyun.ledger.mapper.LedgerCategoryMapper;
 import com.moyun.ledger.mapper.LedgerLiabilityAccountMapper;
 import com.moyun.ledger.mapper.LedgerTransactionMapper;
@@ -46,6 +49,8 @@ import java.util.stream.Collectors;
  */
 @Service
 public class LedgerAiAnalysisServiceImpl implements ILedgerAiAnalysisService {
+    /** v11.39：本服务所属 AI 场景代码（AiSceneEnum 注册；绑定见 ai_scene_config） */
+    private static final String SCENE_FINANCE_ANALYSIS = "finance_analysis";
 
     private static final Logger log = LoggerFactory.getLogger(LedgerAiAnalysisServiceImpl.class);
 
@@ -65,21 +70,55 @@ public class LedgerAiAnalysisServiceImpl implements ILedgerAiAnalysisService {
     private PortalUserMapper portalUserMapper;
     @Autowired
     private ISysDictTypeService dictTypeService;
+    /** v11.36：报告快照 Mapper */
+    @Autowired
+    private LedgerAiAnalysisReportMapper reportMapper;
     /** LLM 能力由 ext-ai 模块提供，未启用时为空（降级模板） */
     @Autowired(required = false)
     private ModelConfigService modelConfigService;
 
+    /** v11.39：场景解析器（Factory：scene_code → 绑定模型） */
+    @Autowired(required = false)
+    private AiSceneResolver sceneResolver;
+
+    /** 分析维度 → 窗口起始（自然月对齐）与展示文案 */
+    private static final Map<String, Integer> RANGE_MONTHS = Map.of("month", 0, "3m", 3, "6m", 6, "year", 12);
+    private static final Map<String, String> RANGE_LABEL = Map.of("month", "本月", "3m", "近3个月", "6m", "近6个月", "year", "近12个月");
+
     @Override
-    public Map<String, Object> analyze(Long userId) {
+    public Map<String, Object> analyze(Long userId, boolean refresh, String range) {
+        // 维度归一化（非法值回落本月）
+        if (!RANGE_MONTHS.containsKey(range)) {
+            range = "month";
+        }
+        String rangeLabel = RANGE_LABEL.get(range);
+        String period = LocalDate.now().format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM"));
+        // v11.37：仅"本月"维度读写月度快照；其他维度实时计算（快照表 period 与自然月对齐）
+        boolean snapshotable = "month".equals(range);
+        if (snapshotable && !refresh) {
+            LedgerAiAnalysisReport cached = reportMapper.selectOne(new LambdaQueryWrapper<LedgerAiAnalysisReport>()
+                    .eq(LedgerAiAnalysisReport::getUserId, userId)
+                    .eq(LedgerAiAnalysisReport::getPeriod, period));
+            if (cached != null) {
+                Map<String, Object> r = reportToResult(cached, true);
+                r.put("range", range);
+                r.put("rangeLabel", rangeLabel);
+                return r;
+            }
+        }
         PortalUser user = portalUserService.selectPortalUserById(userId);
         LocalDate today = LocalDate.now();
-        LocalDate sixMonthsAgo = today.minusMonths(6).withDayOfMonth(1);
+        // v11.37：维度窗口（自然月对齐）：month=本月1号；3m/6m/year=含本月往前 N 个自然月
+        LocalDate rangeStart = "month".equals(range)
+                ? today.withDayOfMonth(1)
+                : today.minusMonths(RANGE_MONTHS.get(range) - 1L).withDayOfMonth(1);
+        // 窗口起始 rangeStart 由维度参数决定（v11.37）
 
         // ===== 数据聚合 =====
         List<LedgerTransaction> recent = transactionMapper.selectList(new LambdaQueryWrapper<LedgerTransaction>()
                 .eq(LedgerTransaction::getUserId, userId)
                 .eq(LedgerTransaction::getStatus, 1)
-                .ge(LedgerTransaction::getTransactionDate, sixMonthsAgo)
+                .ge(LedgerTransaction::getTransactionDate, rangeStart)
                 .le(LedgerTransaction::getTransactionDate, today));
         List<LedgerLiabilityAccount> debts = liabilityAccountMapper.selectList(
                 new LambdaQueryWrapper<LedgerLiabilityAccount>()
@@ -164,8 +203,9 @@ public class LedgerAiAnalysisServiceImpl implements ILedgerAiAnalysisService {
                     Map<String, Object> src = new HashMap<>();
                     src.put("name", catNames.getOrDefault(e.getKey(), "其他收入"));
                     src.put("amount", e.getValue());
-                    src.put("ratio", incomeTotal.compareTo(BigDecimal.ZERO) > 0 
-                            ? e.getValue().multiply(BigDecimal.TEN)
+                                        // 修复（v11.37）：原 multiply(TEN) 把占比缩小了 10 倍（100% 显示成 10%）
+                    src.put("ratio", incomeTotal.compareTo(BigDecimal.ZERO) > 0
+                            ? e.getValue().multiply(BigDecimal.valueOf(100))
                                     .divide(incomeTotal, 1, RoundingMode.HALF_UP)
                                     .doubleValue()
                             : 0);
@@ -273,21 +313,131 @@ public class LedgerAiAnalysisServiceImpl implements ILedgerAiAnalysisService {
         indicators.put("savingRate", Math.round(savingRate * 1000) / 10.0);
         indicators.put("deficitMonths", deficitMonths);
         indicators.put("sampleMonths", (int) months);
-
-        Map<String, Object> profile = buildProfile(user);
+        // v11.37：维度标注（前端标题与 LLM 提示词共用）
+        indicators.put("range", range);
+        indicators.put("rangeLabel", rangeLabel);
+        indicators.put("rangeStart", rangeStart.toString());
 
         // ===== LLM 综述（失败降级模板） =====
         String aiSummary = generateSummary(indicators, incomeSources, debtRisks, user);
+        boolean aiEnabled = !aiSummary.startsWith("（模板");
 
+        // ===== v11.36：落库月度快照（当月 UNIQUE，存在则覆盖） =====
+        int healthScore = computeHealthScore(debtRatio, repaymentPressure, savingRate, deficitMonths);
+        String profileSnapshot = profileText(user);
         Map<String, Object> result = new LinkedHashMap<>();
-        result.put("profile", profile);
+        result.put("period", period);
+        result.put("healthScore", healthScore);
         result.put("indicators", indicators);
         result.put("incomeSources", incomeSources);
         result.put("debtRisks", debtRisks);
         result.put("suggestions", suggestions);
         result.put("aiSummary", aiSummary);
-        result.put("aiEnabled", !aiSummary.startsWith("（模板"));
+        result.put("aiEnabled", aiEnabled);
+        result.put("fromCache", false);
+        result.put("range", range);
+        result.put("rangeLabel", rangeLabel);
+        if (snapshotable) {
+            // 仅"本月"维度写月度快照：3m/6m/year 是实时视图，避免快照表膨胀与口径混杂
+            saveReport(userId, period, healthScore, indicators, incomeSources,
+                    debtRisks, suggestions, aiSummary, aiEnabled, profileSnapshot);
+        }
         return result;
+    }
+
+    @Override
+    public Map<String, Object> listReports(Long userId, int page, int pageSize) {
+        com.baomidou.mybatisplus.extension.plugins.pagination.Page<LedgerAiAnalysisReport> p =
+                new com.baomidou.mybatisplus.extension.plugins.pagination.Page<>(page, pageSize);
+        com.baomidou.mybatisplus.extension.plugins.pagination.Page<LedgerAiAnalysisReport> r =
+                reportMapper.selectPage(p, new LambdaQueryWrapper<LedgerAiAnalysisReport>()
+                        .eq(LedgerAiAnalysisReport::getUserId, userId)
+                        .orderByDesc(LedgerAiAnalysisReport::getPeriod));
+        List<Map<String, Object>> list = new ArrayList<>();
+        for (LedgerAiAnalysisReport rep : r.getRecords()) {
+            Map<String, Object> item = new LinkedHashMap<>();
+            item.put("id", rep.getId());
+            item.put("period", rep.getPeriod());
+            item.put("healthScore", rep.getHealthScore());
+            item.put("aiSummary", rep.getAiSummary());
+            item.put("aiEnabled", rep.getAiEnabled());
+            item.put("profileSnapshot", rep.getProfileSnapshot());
+            item.put("updateTime", rep.getUpdateTime());
+            list.add(item);
+        }
+        Map<String, Object> data = new LinkedHashMap<>();
+        data.put("list", list);
+        data.put("total", r.getTotal());
+        return data;
+    }
+
+    /** 快照实体 → 前端报告结构（缓存命中时使用） */
+    private Map<String, Object> reportToResult(LedgerAiAnalysisReport rep, boolean fromCache) {
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("period", rep.getPeriod());
+        result.put("healthScore", rep.getHealthScore());
+        result.put("indicators", parseJson(rep.getMetricsJson()));
+        result.put("incomeSources", parseJson(rep.getIncomeJson()));
+        result.put("debtRisks", parseJson(rep.getRiskJson()));
+        result.put("suggestions", parseJson(rep.getAdviceJson()));
+        result.put("aiSummary", rep.getAiSummary());
+        result.put("aiEnabled", rep.getAiEnabled() != null && rep.getAiEnabled() == 1);
+        result.put("fromCache", fromCache);
+        return result;
+    }
+
+    /** 落库（当月存在则更新；失败仅告警不影响返回） */
+    private void saveReport(Long userId, String period, int healthScore,
+                            Map<String, Object> indicators, List<Map<String, Object>> incomeSources,
+                            List<Map<String, Object>> debtRisks, List<Map<String, Object>> suggestions,
+                            String aiSummary, boolean aiEnabled, String profileSnapshot) {
+        try {
+            com.fasterxml.jackson.databind.ObjectMapper om = new com.fasterxml.jackson.databind.ObjectMapper();
+            LedgerAiAnalysisReport rep = reportMapper.selectOne(new LambdaQueryWrapper<LedgerAiAnalysisReport>()
+                    .eq(LedgerAiAnalysisReport::getUserId, userId)
+                    .eq(LedgerAiAnalysisReport::getPeriod, period));
+            boolean exists = rep != null;
+            if (rep == null) {
+                rep = new LedgerAiAnalysisReport();
+                rep.setUserId(userId);
+                rep.setPeriod(period);
+            }
+            rep.setHealthScore(healthScore);
+            rep.setMetricsJson(om.writeValueAsString(indicators));
+            rep.setIncomeJson(om.writeValueAsString(incomeSources));
+            rep.setRiskJson(om.writeValueAsString(debtRisks));
+            rep.setAdviceJson(om.writeValueAsString(suggestions));
+            rep.setAiSummary(aiSummary);
+            rep.setAiEnabled(aiEnabled ? 1 : 0);
+            rep.setProfileSnapshot(profileSnapshot);
+            if (exists) {
+                reportMapper.updateById(rep);
+            } else {
+                reportMapper.insert(rep);
+            }
+        } catch (Exception e) {
+            org.slf4j.LoggerFactory.getLogger(getClass()).warn("AI 分析报告落库失败 userId={}", userId, e);
+        }
+    }
+
+    /** 财务健康分：储蓄率 + 收支平衡 + 负债率 + 还款压力（各 25 分，简单可解释） */
+    private int computeHealthScore(double debtRatio, double repaymentPressure, double savingRate, int deficitMonths) {
+        double score = Math.min(25, savingRate * 100 * 0.25)
+                + (deficitMonths >= 2 ? 0 : 25)
+                + (debtRatio < 0.5 ? 25 : debtRatio < 0.8 ? 12 : 0)
+                + (repaymentPressure < 0.3 ? 25 : repaymentPressure < 0.5 ? 12 : 0);
+        return Math.max(0, Math.min(100, (int) Math.round(score)));
+    }
+
+    private Object parseJson(String json) {
+        if (json == null || json.isBlank()) {
+            return null;
+        }
+        try {
+            return new com.fasterxml.jackson.databind.ObjectMapper().readValue(json, Object.class);
+        } catch (Exception e) {
+            return null;
+        }
     }
 
     @Override
@@ -352,10 +502,11 @@ public class LedgerAiAnalysisServiceImpl implements ILedgerAiAnalysisService {
     // ==================== 私有方法 ====================
 
     private Map<Long, String> loadCategoryNames(Long userId) {
+        // 修复（v11.36.1）：系统预设分类 user_id=0（非 NULL），原 isNull 条件永远查不到"工资"等系统分类，
+        // 导致收入来源全部显示为"其他收入"。与 LedgerCategoryServiceImpl 口径对齐：0=系统 + 当前用户自定义。
         return categoryMapper.selectList(new LambdaQueryWrapper<LedgerCategory>()
-                        .eq(LedgerCategory::getUserId, userId)
-                        .or()
-                        .isNull(LedgerCategory::getUserId))
+                        .and(w -> w.eq(LedgerCategory::getUserId, 0L)
+                                .or().eq(LedgerCategory::getUserId, userId)))
                 .stream().collect(Collectors.toMap(LedgerCategory::getId, LedgerCategory::getName, (a, b) -> a));
     }
 
@@ -407,7 +558,7 @@ public class LedgerAiAnalysisServiceImpl implements ILedgerAiAnalysisService {
             return llm.trim();
         }
         StringBuilder sb = new StringBuilder("（模板分析）根据你的记账数据：");
-        sb.append("近 ").append(indicators.get("sampleMonths")).append(" 个月月均收入 ¥")
+        sb.append(indicators.get("rangeLabel")).append("月均收入 ¥")
                 .append(yuan((BigDecimal) indicators.get("avgMonthlyIncome")))
                 .append("、月均支出 ¥").append(yuan((BigDecimal) indicators.get("avgMonthlyExpense")))
                 .append("，资产负债率 ").append(indicators.get("debtRatio")).append("%。");
@@ -431,7 +582,8 @@ public class LedgerAiAnalysisServiceImpl implements ILedgerAiAnalysisService {
                 .append("3）3 条以内的具体行动建议。\n")
                 .append("要求：口语化、具体、引用数据；总字数 300 字以内；不要使用 Markdown 标记。\n\n");
         sb.append("【用户画像】").append(profileText(user)).append('\n');
-        sb.append("【核心指标】近").append(indicators.get("sampleMonths")).append("个月：月均收入 ¥")
+        sb.append("【核心指标】统计范围：").append(indicators.get("rangeLabel"))
+                .append("（含数据 ").append(indicators.get("sampleMonths")).append(" 个月）：月均收入 ¥")
                 .append(yuan((BigDecimal) indicators.get("avgMonthlyIncome")))
                 .append("，月均支出 ¥").append(yuan((BigDecimal) indicators.get("avgMonthlyExpense")))
                 .append("，月储蓄率 ").append(indicators.get("savingRate")).append("%，")
@@ -474,18 +626,32 @@ public class LedgerAiAnalysisServiceImpl implements ILedgerAiAnalysisService {
             return BigDecimal.ZERO;
         }
     }
-
-    /** 调用 LLM（复用 ext-ai 模块模型配置；未配置/失败返回 null） */
+    /**
+     * 调用 LLM（v11.39 场景感知：finance_analysis 有绑定则用绑定模型，否则默认模型；未配置/失败返回 null）
+     * 模型选择走 AiSceneResolver 工厂（责任链：Agent → 直绑模型 → 默认），业务只带场景码。
+     */
     private String callLlm(String prompt) {
         if (modelConfigService == null) {
             return null;
         }
         try {
-            ModelConfig config = modelConfigService.getDefaultChatConfig();
-            if (config == null) {
-                return null;
+            // 1. 场景绑定优先（ai_scene_config: finance_analysis）
+            ChatLanguageModel model = null;
+            if (sceneResolver != null) {
+                try {
+                    model = sceneResolver.resolveChatModel(SCENE_FINANCE_ANALYSIS);
+                } catch (Exception e) {
+                    log.warn("场景 finance_analysis 模型解析失败，回落默认: {}", e.getMessage());
+                }
             }
-            ChatLanguageModel model = modelConfigService.createChatModel(config.getId());
+            // 2. 无绑定 → 默认聊天模型
+            if (model == null) {
+                ModelConfig config = modelConfigService.getDefaultChatConfig();
+                if (config == null) {
+                    return null;
+                }
+                model = modelConfigService.createChatModel(config.getId());
+            }
             ChatResponse response = model.chat(UserMessage.from(prompt));
             return response.aiMessage().text();
         } catch (Exception e) {

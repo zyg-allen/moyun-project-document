@@ -10,6 +10,7 @@ import com.moyun.ext.ai.service.AgentService;
 import com.moyun.ext.ai.service.AiSceneConfigService;
 import com.moyun.ext.ai.service.AiSceneResolver;
 import com.moyun.ext.ai.service.ModelConfigService;
+import dev.langchain4j.model.chat.ChatLanguageModel;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -48,7 +49,7 @@ public class AiSceneResolverImpl implements AiSceneResolver {
             if (configs == null || configs.isEmpty()) {
                 return AiSceneBinding.empty();
             }
-            AiSceneConfig hit = configs.size() == 1 ? configs.get(0) : pickByWeight(configs);
+            AiSceneConfig hit = configs.size() == 1 ? configs.getFirst() : pickByWeight(configs);
             if (hit == null) {
                 return AiSceneBinding.empty();
             }
@@ -125,6 +126,40 @@ public class AiSceneResolverImpl implements AiSceneResolver {
             cursor -= weight;
         }
         return configs.get(configs.size() - 1);
+    }
+
+    // ===== v11.39：工厂方法实现（责任链：Agent → 直绑模型 → null） =====
+
+    @Override
+    public ChatLanguageModel resolveChatModel(String sceneCode) {
+        if (sceneCode == null || sceneCode.isBlank()) {
+            return null;
+        }
+        AiSceneBinding binding = resolve(sceneCode);
+        if (binding == null || binding.isEmpty()) {
+            return null;
+        }
+        try {
+            // 责任链第 1 级：Agent 绑定（带 Agent 的温度/maxTokens）
+            if (binding.hasAgent()) {
+                Agent agent = binding.getAgent();
+                if (agent.getModelConfigId() != null) {
+                    log.debug("[ai-scene] 场景 {} 使用 Agent({}) 的模型({})", sceneCode, agent.getId(), agent.getModelConfigId());
+                    return modelConfigService.createChatModel(agent.getModelConfigId(),
+                            agent.getTemperature(), agent.getMaxTokens());
+                }
+            }
+            // 责任链第 2 级：直绑模型（默认温度）
+            if (binding.hasModelOnly() && binding.getModelConfig() != null) {
+                ModelConfig mc = binding.getModelConfig();
+                log.debug("[ai-scene] 场景 {} 使用直绑模型({})", sceneCode, mc.getId());
+                return modelConfigService.createChatModel(mc.getId());
+            }
+        } catch (Exception e) {
+            log.warn("[ai-scene] 场景 {} 模型构建失败，回落默认: {}", sceneCode, e.getMessage());
+        }
+        // 责任链第 3 级：无绑定 → null（调用方回落默认模型）
+        return null;
     }
 
     private List<Long> parseIdList(String json) {

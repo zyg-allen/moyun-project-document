@@ -10,6 +10,8 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
 
@@ -49,7 +51,7 @@ public class WechatPayChannel implements PayChannel {
             response.setCodeUrl("weixin://wxpay/mock/" + request.getPayNo());
             response.setTradeState("NOTPAY");
             response.setRawResponse("{\"mock\":true,\"scene\":\"prepay\"}");
-            log.info("[wechat-mock] prepay payNo={} amount={}分", request.getPayNo(), request.getAmount());
+            log.info("[wechat-mock] prepay payNo={} amount={}元", request.getPayNo(), request.getAmount());
             return response;
         }
 
@@ -65,7 +67,7 @@ public class WechatPayChannel implements PayChannel {
         //      apiReq.setDescription(request.getSubject());
         //      apiReq.setOutTradeNo(request.getPayNo());
         //      apiReq.setNotifyUrl(wechat.getNotifyUrl());
-        //      apiReq.setAmount(new Amount().setTotal((int) request.getAmount()));
+        //      apiReq.setAmount(new Amount().setTotal(yuanToFen(request.getAmount())));  // 边界换算：元→分（微信 v3 要求整数分）
         //      apiReq.setTimeExpire(格式化 request.getExpireTime());
         //   3. PrepayResponse apiResp = new NotificationParser(...).parse(...)
         //      service.post(RequestOption) → codeUrl；
@@ -163,6 +165,14 @@ public class WechatPayChannel implements PayChannel {
             return null;
         }
         return json.substring(start + 1, end);
+    }
+
+    /**
+     * 边界换算：元 → 分（微信支付 v3 API 契约要求整数分）
+     * 全链路统一元存储，仅此一处向三方 API 靠拢
+     */
+    private int yuanToFen(BigDecimal yuan) {
+        return yuan.multiply(new BigDecimal("100")).setScale(0, RoundingMode.HALF_UP).intValueExact();
     }
 
     private String sha256(String input) {

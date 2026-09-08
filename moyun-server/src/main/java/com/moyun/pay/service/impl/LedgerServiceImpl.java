@@ -15,6 +15,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -25,7 +26,8 @@ import java.util.List;
  * <p>平台抽成率双轨配置：sys_config("pay.platform.fee-rate") 运行时可调 优先，
  * yaml(moyun.pay.platform-fee-rate) 兜底（默认 0.10 = 10%）。
  *
- * <p>守恒校验：platformAmount + userAmount == amount，任何偏差直接抛异常回滚。
+ * <p>金额单位：元（BigDecimal，v11.31 统一）。
+ * 守恒校验：platformAmount + userAmount == amount（分），任何偏差直接抛异常回滚。
  *
  * @author moyun
  */
@@ -48,20 +50,22 @@ public class LedgerServiceImpl implements ILedgerService {
     private ISysConfigService configService;
 
     @Override
-    public List<LedgerEntry> settle(String payNo, String bizType, String bizNo, long amount,
+    public List<LedgerEntry> settle(String payNo, String bizType, String bizNo, BigDecimal amount,
                                     Long userId, String summary) {
         double feeRate = resolveFeeRate();
-        long platformAmount = Math.round(amount * feeRate);
-        long userAmount = amount - platformAmount;
+        BigDecimal platformAmount = amount.multiply(BigDecimal.valueOf(feeRate))
+                .setScale(2, RoundingMode.HALF_UP);
+        BigDecimal userAmount = amount.subtract(platformAmount);
 
         // 守恒校验（红线）
-        if (platformAmount + userAmount != amount || userAmount < 0) {
+        if (platformAmount.add(userAmount).compareTo(amount) != 0
+                || userAmount.compareTo(BigDecimal.ZERO) < 0) {
             throw new IllegalStateException("分账金额守恒校验失败 payNo=" + payNo
                     + " platform=" + platformAmount + " user=" + userAmount + " total=" + amount);
         }
 
         // 1. 用户入账（原子）并取回 balanceAfter
-        long balanceAfter = userAccountService.credit(userId, userAmount);
+        BigDecimal balanceAfter = userAccountService.credit(userId, userAmount);
 
         // 2. 平台分录
         LedgerEntry platformEntry = new LedgerEntry();
@@ -91,7 +95,7 @@ public class LedgerServiceImpl implements ILedgerService {
         userEntry.setCreateTime(LocalDateTime.now());
         ledgerEntryMapper.insert(userEntry);
 
-        log.info("[ledger] 分账完成 payNo={} amount={}分 platform={}分({}%) user={}分 balanceAfter={}分",
+        log.info("[ledger] 分账完成 payNo={} amount={}元 platform={}元({}%) user={}元 balanceAfter={}元",
                 payNo, amount, platformAmount, feeRate * 100, userAmount, balanceAfter);
 
         List<LedgerEntry> entries = new ArrayList<>();
@@ -106,7 +110,6 @@ public class LedgerServiceImpl implements ILedgerService {
         IPage<LedgerEntry> result = ledgerEntryMapper.selectPage(page, new LambdaQueryWrapper<LedgerEntry>()
                 .eq(LedgerEntry::getUserId, userId)
                 .orderByDesc(LedgerEntry::getId));
-        result.getRecords().forEach(this::fillYuan);
         return result;
     }
 
@@ -127,13 +130,5 @@ public class LedgerServiceImpl implements ILedgerService {
         return payProperties.getPlatformFeeRate();
     }
 
-    private void fillYuan(LedgerEntry entry) {
-        if (entry.getAmount() != null) {
-            entry.setAmountYuan(BigDecimal.valueOf(entry.getAmount(), 2));
-        }
-        if (entry.getBalanceAfter() != null) {
-            entry.setBalanceAfterYuan(BigDecimal.valueOf(entry.getBalanceAfter(), 2));
-        }
-    }
 
 }

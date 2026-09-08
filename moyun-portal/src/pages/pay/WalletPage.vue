@@ -1,4 +1,4 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
 import { useToast } from '@/composables/useToast';
 import { formatDate } from '@/utils/date';
 import { useConfirmModal } from '@/composables/useConfirmModal';
@@ -77,7 +77,7 @@ const hasMoreLedger = computed(() => ledgerEntries.value.length < ledgerTotal.va
 const loadedCreditTotal = computed(() =>
   ledgerEntries.value
     .filter((e) => e.direction === 'credit' && e.accountRole === 'USER')
-    .reduce((sum, e) => sum + (e.amountYuan ?? 0), 0)
+    .reduce((sum, e) => sum + (e.amount ?? 0), 0)
 );
 
 const switchTab = (key: 'ledger' | 'bankcard') => {
@@ -272,7 +272,7 @@ onMounted(async () => {
                 可用余额（元）
               </div>
               <p class="text-4xl sm:text-5xl font-bold tracking-tight tabular-nums" style="color: #fff;">
-                ¥{{ overview?.balanceYuan?.toFixed(2) ?? '0.00' }}
+                ¥{{ overview?.balance?.toFixed(2) ?? '0.00' }}
               </p>
               <p class="text-xs mt-4 leading-relaxed max-w-sm" style="color: rgba(255,255,255,0.75);">
                 收到的打赏在支付成功后自动分账入账，扣除平台服务费后的部分进入余额
@@ -307,7 +307,7 @@ onMounted(async () => {
               </div>
               <div>
                 <p class="text-xs mb-1" style="color: var(--theme-text-secondary);">累计收入</p>
-                <p class="text-xl sm:text-2xl font-bold tabular-nums" style="color: var(--theme-text);">¥{{ overview?.totalIncomeYuan?.toFixed(2) ?? '0.00' }}</p>
+                <p class="text-xl sm:text-2xl font-bold tabular-nums" style="color: var(--theme-text);">¥{{ overview?.totalIncome?.toFixed(2) ?? '0.00' }}</p>
               </div>
             </div>
             <div class="rounded-2xl border p-4 sm:p-5 flex flex-col justify-between transition-shadow hover:shadow-md"
@@ -317,7 +317,7 @@ onMounted(async () => {
               </div>
               <div>
                 <p class="text-xs mb-1" style="color: var(--theme-text-secondary);">累计提现</p>
-                <p class="text-xl sm:text-2xl font-bold tabular-nums" style="color: var(--theme-text);">¥{{ overview?.totalWithdrawYuan?.toFixed(2) ?? '0.00' }}</p>
+                <p class="text-xl sm:text-2xl font-bold tabular-nums" style="color: var(--theme-text);">¥{{ overview?.totalWithdraw?.toFixed(2) ?? '0.00' }}</p>
               </div>
             </div>
             <div class="rounded-2xl border p-4 sm:p-5 flex flex-col justify-between transition-shadow hover:shadow-md"
@@ -427,10 +427,10 @@ onMounted(async () => {
                   </td>
                   <td class="px-5 py-3.5 text-right font-semibold whitespace-nowrap tabular-nums"
                       :style="{ color: entry.direction === 'credit' ? 'var(--theme-success)' : 'var(--theme-danger)' }">
-                    {{ entry.direction === 'credit' ? '+' : '-' }}{{ entry.amountYuan?.toFixed(2) ?? '0.00' }}
+                    {{ entry.direction === 'credit' ? '+' : '-' }}{{ entry.amount?.toFixed(2) ?? '0.00' }}
                   </td>
                   <td class="px-5 py-3.5 text-right whitespace-nowrap text-xs tabular-nums" style="color: var(--theme-text-secondary);">
-                    {{ entry.balanceAfterYuan != null ? '¥' + entry.balanceAfterYuan.toFixed(2) : '-' }}
+                    {{ entry.balanceAfter != null ? '¥' + entry.balanceAfter.toFixed(2) : '-' }}
                   </td>
                 </tr>
               </tbody>
@@ -450,12 +450,12 @@ onMounted(async () => {
                   </div>
                   <span class="font-semibold whitespace-nowrap tabular-nums text-sm"
                         :style="{ color: entry.direction === 'credit' ? 'var(--theme-success)' : 'var(--theme-danger)' }">
-                    {{ entry.direction === 'credit' ? '+' : '-' }}{{ entry.amountYuan?.toFixed(2) ?? '0.00' }}
+                    {{ entry.direction === 'credit' ? '+' : '-' }}{{ entry.amount?.toFixed(2) ?? '0.00' }}
                   </span>
                 </div>
                 <div class="flex items-center justify-between mt-1.5 text-[11px]" style="color: var(--theme-text-secondary);">
                   <span>{{ formatDate(entry.createTime, 'YYYY-MM-DD HH:mm') }}</span>
-                  <span v-if="entry.balanceAfterYuan != null">余额 ¥{{ entry.balanceAfterYuan.toFixed(2) }}</span>
+                  <span v-if="entry.balanceAfter != null">余额 ¥{{ entry.balanceAfter.toFixed(2) }}</span>
                 </div>
               </div>
             </div>

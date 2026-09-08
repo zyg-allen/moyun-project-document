@@ -60,6 +60,12 @@ public class PortalLoginController {
     @Autowired
     private com.moyun.portal.service.PortalEmailService portalEmailService;
 
+    @org.springframework.beans.factory.annotation.Autowired
+    private com.moyun.core.sms.SmsCodeService smsCodeService;
+
+    @org.springframework.beans.factory.annotation.Autowired
+    private com.moyun.portal.mapper.PortalUserMapper portalUserMapper;
+
     /**
      * 登录方法
      */
@@ -85,16 +91,34 @@ public class PortalLoginController {
             return AjaxResult.error(captchaError);
         }
 
-        // 邮箱验证码校验：保证邮箱真实可用（一次性消费，校验后失效）
-        if (StringUtils.isEmpty(portalUser.getEmail()) || StringUtils.isEmpty(portalUser.getEmailCode())) {
-            return AjaxResult.error("请填写邮箱并获取邮箱验证码");
-        }
-        if (!portalEmailService.verifyCode(portalUser.getEmail(), portalUser.getEmailCode(), "register")) {
-            return AjaxResult.error("邮箱验证码错误或已过期");
-        }
-
         if (StringUtils.isEmpty(portalUser.getUsername()) || StringUtils.isEmpty(portalUser.getPassword())) {
             return AjaxResult.error("用户名或密码不能为空");
+        }
+
+        // v11.35：注册方式双轨——手机短信 或 邮箱验证码（二选一）
+        if (StringUtils.isNotEmpty(portalUser.getPhone())) {
+            // 手机号注册：短信验证码校验（verifyCode 通过即一次性消费）
+            if (StringUtils.isEmpty(portalUser.getSmsCode())) {
+                return AjaxResult.error("请获取短信验证码");
+            }
+            if (!smsCodeService.verifyCode(portalUser.getPhone(), "register", portalUser.getSmsCode())) {
+                return AjaxResult.error("短信验证码错误或已过期");
+            }
+            // 手机号占用校验（同一手机号不可重复注册账号）
+            Long phoneCount = portalUserMapper.selectCount(
+                    new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<PortalUser>()
+                            .eq(PortalUser::getPhone, portalUser.getPhone()));
+            if (phoneCount != null && phoneCount > 0) {
+                return AjaxResult.error("该手机号已注册，请直接登录");
+            }
+        } else {
+            // 邮箱注册：验证码校验保证邮箱真实可用（一次性消费，校验后失效）
+            if (StringUtils.isEmpty(portalUser.getEmail()) || StringUtils.isEmpty(portalUser.getEmailCode())) {
+                return AjaxResult.error("请填写邮箱并获取邮箱验证码");
+            }
+            if (!portalEmailService.verifyCode(portalUser.getEmail(), portalUser.getEmailCode(), "register")) {
+                return AjaxResult.error("邮箱验证码错误或已过期");
+            }
         }
 
         // 设置默认角色

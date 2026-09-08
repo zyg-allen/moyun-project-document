@@ -101,6 +101,13 @@ watch(route, (newRoute) => {
     redirect.value = newRoute.query && newRoute.query.redirect;
 }, { immediate: true });
 
+// v11.32 用户名变化时重新判定风险验证码（500ms 防抖）：风险账号即使全局开关关闭也提前展示验证码
+let usernameWatchTimer = null;
+watch(() => loginForm.value.username, (val) => {
+  if (usernameWatchTimer) clearTimeout(usernameWatchTimer);
+  usernameWatchTimer = setTimeout(() => getCode(val), 500);
+});
+
 function handleLogin() {
   proxy.$refs.loginRef.validate(valid => {
     if (valid) {
@@ -128,17 +135,15 @@ function handleLogin() {
         router.push({ path: redirect.value || "/", query: otherQueryParams });
       }).catch(() => {
         loading.value = false;
-        // 重新获取验证码
-        if (captchaEnabled.value) {
-          getCode();
-        }
+        // v11.32 必刷验证码：密码错误可能触发风险验证码（后端强制），不能只看当前开关状态
+        getCode(loginForm.value.username);
       });
     }
   });
 }
 
-function getCode() {
-  getCodeImg().then(res => {
+function getCode(username) {
+  getCodeImg(username).then(res => {
     captchaEnabled.value = res.captchaEnabled === undefined ? true : res.captchaEnabled;
     if (captchaEnabled.value) {
       codeUrl.value = "data:image/gif;base64," + res.img;
@@ -158,7 +163,7 @@ function getCookie() {
   };
 }
 
-getCode();
+getCode(loginForm.value.username);
 getCookie();
 </script>
 

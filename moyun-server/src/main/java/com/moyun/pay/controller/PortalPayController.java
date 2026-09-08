@@ -18,7 +18,6 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.math.BigDecimal;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -26,6 +25,8 @@ import java.util.Map;
  * 门户支付控制器（V11.0）
  *
  * <p>收银台轮询 / mock 模拟支付 / 账户总览 / 我的流水。
+ *
+ * <p>金额单位：元（v11.31 统一，接口所见即所得，无分/元换算字段）。
  *
  * @author moyun
  */
@@ -58,7 +59,6 @@ public class PortalPayController {
         data.put("payNo", order.getPayNo());
         data.put("status", order.getStatus());
         data.put("amount", order.getAmount());
-        data.put("amountYuan", BigDecimal.valueOf(order.getAmount() == null ? 0 : order.getAmount(), 2));
         data.put("expireTime", order.getExpireTime());
         data.put("codeUrl", order.getCodeUrl());
         data.put("mockEnabled", payProperties.getWechat().isMockEnabled());
@@ -90,16 +90,13 @@ public class PortalPayController {
         Map<String, Object> data = new HashMap<>();
         data.put("userId", account.getUserId());
         data.put("balance", account.getBalance());
-        data.put("balanceYuan", BigDecimal.valueOf(account.getBalance() == null ? 0 : account.getBalance(), 2));
         data.put("totalIncome", account.getTotalIncome());
-        data.put("totalIncomeYuan", BigDecimal.valueOf(account.getTotalIncome() == null ? 0 : account.getTotalIncome(), 2));
         data.put("totalWithdraw", account.getTotalWithdraw());
-        data.put("totalWithdrawYuan", BigDecimal.valueOf(account.getTotalWithdraw() == null ? 0 : account.getTotalWithdraw(), 2));
         return AjaxResult.success(data);
     }
 
     /**
-     * 我的资金流水（分页，元展示）
+     * 我的资金流水（分页，元）
      */
     @GetMapping("/account/ledger")
     public AjaxResult myLedger(@RequestParam(defaultValue = "1") long current,

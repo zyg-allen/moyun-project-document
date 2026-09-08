@@ -27,6 +27,9 @@ import java.util.Map;
  */
 @Component
 public class ScoringEngine {
+    /** v11.39：本服务所属 AI 场景代码（绑定见 ai_scene_config，业务不感知模型选择） */
+    private static final String SCENE_VOICE_INTERVIEW = "voice_interview";
+
 
     private static final Logger log = LoggerFactory.getLogger(ScoringEngine.class);
 
@@ -79,7 +82,7 @@ public class ScoringEngine {
                     + "维度定义：structure=逻辑结构（条理/详略/结构词）；awareness=自我认知（优劣势/职业规划清晰度）；"
                     + "matching=岗位匹配（技术栈/项目经历与目标岗位相关度）；fluency=表达流畅（口语自然度/信息密度）。\n"
                     + "打分参考：结构混乱<40；基本连贯50-65；条理清晰有详略70-85；结构完整且亮点突出85+。";
-            String resp = llmClient.chat(system, "候选人自我介绍如下：\n\"" + transcript + "\"");
+            String resp = llmClient.chat(SCENE_VOICE_INTERVIEW, system, "候选人自我介绍如下：\n\"" + transcript + "\"");
             if (StringUtils.isEmpty(resp)) {
                 return null;
             }

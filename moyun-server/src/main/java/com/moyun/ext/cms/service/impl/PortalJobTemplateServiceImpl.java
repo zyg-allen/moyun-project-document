@@ -36,6 +36,9 @@ import java.util.Set;
 @Service
 public class PortalJobTemplateServiceImpl extends ServiceImpl<PortalJobTemplateMapper, PortalJobTemplate>
         implements IPortalJobTemplateService {
+    /** v11.39：本服务所属 AI 场景代码（绑定见 ai_scene_config，业务不感知模型选择） */
+    private static final String SCENE_QUESTION_GENERATE = "question_generate";
+
 
     private static final Logger log = LoggerFactory.getLogger(PortalJobTemplateServiceImpl.class);
 
@@ -131,7 +134,7 @@ public class PortalJobTemplateServiceImpl extends ServiceImpl<PortalJobTemplateM
                 + "3.最多" + MAX_LLM_KEYWORDS + "个，按重要性降序；"
                 + "4.禁止编造JD中不存在的内容。"
                 + "只输出JSON数组本体，如 [\"Java\",\"MySQL\"]，禁止markdown代码块。";
-        String response = llmClient.chat(systemPrompt, jdText);
+        String response = llmClient.chat(SCENE_QUESTION_GENERATE, systemPrompt, jdText);
         if (response == null || response.isBlank()) {
             return List.of();
         }

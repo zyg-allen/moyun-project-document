@@ -79,6 +79,10 @@ captcha:
   width: 160
   # 验证码高度
   height: 60
+  # v11.32 风险验证码：密码错误达到该次数即强制验证码（即使全局开关关闭；须低于 user.password.maxRetryCount 锁定线）
+  riskFailThreshold: 2
+  # v11.32 风险验证码：距上次成功登录超过该天数即强制验证码（含从未登录账号）
+  riskInactiveDays: 30
 
 # 用户配置
 user:

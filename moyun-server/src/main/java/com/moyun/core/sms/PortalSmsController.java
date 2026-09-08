@@ -25,22 +25,27 @@ import java.util.Map;
 public class PortalSmsController {
 
     /** 允许的业务场景白名单（防任意 scene 写爆 Redis） */
-    private static final java.util.Set<String> ALLOWED_SCENES = java.util.Set.of("bankcard", "member");
+    private static final java.util.Set<String> ALLOWED_SCENES = java.util.Set.of("bankcard", "member", "register");
 
     @Autowired
     private SmsCodeService smsCodeService;
 
-    /** 发送验证码（需登录；接收手机号即请求体手机号，频控在服务层） */
+    /**
+     * 发送验证码（bankcard/member 场景需登录；register 场景匿名可发——注册时用户尚未登录，
+     * 服务层已有 60s 间隔 + 日限额 + IP 层 @RateLimiter 防轰炸）
+     */
     @PostMapping("/code/send")
     public AjaxResult sendCode(@RequestBody Map<String, String> body) {
-        Long userId = PortalSecurityUtils.getUserId();
-        if (userId == null) {
-            return AjaxResult.error(401, "登录已过期，请重新登录");
-        }
         String phone = body.get("phone");
         String scene = body.get("scene");
         if (scene == null || !ALLOWED_SCENES.contains(scene)) {
             return AjaxResult.error("不支持的业务场景");
+        }
+        if (!"register".equals(scene)) {
+            Long userId = PortalSecurityUtils.getUserId();
+            if (userId == null) {
+                return AjaxResult.error(401, "登录已过期，请重新登录");
+            }
         }
         try {
             smsCodeService.sendCode(phone, scene);

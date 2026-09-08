@@ -4,12 +4,15 @@ import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 /**
  * 提现单（V11.0 钱包提现；本期预留表结构+枚举，打款通道后续接入）
  *
  * <p>状态机：AUDITING(审核中) → PAID(已打款) / REJECTED(已驳回)
+ *
+ * <p>金额单位：元（人民币，DECIMAL(18,2)，v11.31 统一）。
  *
  * @author moyun
  */
@@ -28,11 +31,11 @@ public class WithdrawOrder {
 
     private Long userId;
 
-    /** 提现金额（分） */
-    private Long amount;
+    /** 提现金额（元） */
+    private BigDecimal amount;
 
-    /** 手续费（分） */
-    private Long fee;
+    /** 手续费（元） */
+    private BigDecimal fee;
 
     /** 打款银行卡 ID（pay_user_bank_card.id） */
     private Long bankCardId;
@@ -54,10 +57,10 @@ public class WithdrawOrder {
     public void setWithdrawNo(String withdrawNo) { this.withdrawNo = withdrawNo; }
     public Long getUserId() { return userId; }
     public void setUserId(Long userId) { this.userId = userId; }
-    public Long getAmount() { return amount; }
-    public void setAmount(Long amount) { this.amount = amount; }
-    public Long getFee() { return fee; }
-    public void setFee(Long fee) { this.fee = fee; }
+    public BigDecimal getAmount() { return amount; }
+    public void setAmount(BigDecimal amount) { this.amount = amount; }
+    public BigDecimal getFee() { return fee; }
+    public void setFee(BigDecimal fee) { this.fee = fee; }
     public Long getBankCardId() { return bankCardId; }
     public void setBankCardId(Long bankCardId) { this.bankCardId = bankCardId; }
     public String getStatus() { return status; }

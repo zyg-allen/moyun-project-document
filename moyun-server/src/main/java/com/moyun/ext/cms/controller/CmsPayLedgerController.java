@@ -52,7 +52,6 @@ public class CmsPayLedgerController extends BaseController {
                 .eq(userId != null, LedgerEntry::getUserId, userId)
                 .orderByDesc(LedgerEntry::getId);
         ledgerEntryMapper.selectPage(page, wrapper);
-        page.getRecords().forEach(this::fillYuan);
         return success(page);
     }
 
@@ -63,7 +62,6 @@ public class CmsPayLedgerController extends BaseController {
         List<LedgerEntry> entries = ledgerEntryMapper.selectList(new LambdaQueryWrapper<LedgerEntry>()
                 .eq(LedgerEntry::getPayNo, payNo)
                 .orderByAsc(LedgerEntry::getId));
-        entries.forEach(this::fillYuan);
         return success(entries);
     }
 
@@ -71,36 +69,25 @@ public class CmsPayLedgerController extends BaseController {
     @PreAuthorize("@ss.hasPermi('cms:payLedger:summary')")
     @GetMapping("/summary")
     public AjaxResult summary() {
-        long platformTotal = sumAmount(LedgerEntry.ROLE_PLATFORM);
-        long userTotal = sumAmount(LedgerEntry.ROLE_USER);
+        BigDecimal platformTotal = sumAmount(LedgerEntry.ROLE_PLATFORM);
+        BigDecimal userTotal = sumAmount(LedgerEntry.ROLE_USER);
         Long totalEntries = ledgerEntryMapper.selectCount(null);
         Map<String, Object> data = new HashMap<>();
         data.put("platformTotal", platformTotal);
-        data.put("platformTotalYuan", BigDecimal.valueOf(platformTotal, 2));
         data.put("userTotal", userTotal);
-        data.put("userTotalYuan", BigDecimal.valueOf(userTotal, 2));
         data.put("totalEntries", totalEntries == null ? 0 : totalEntries);
         return success(data);
     }
 
-    private long sumAmount(String accountRole) {
-        long total = 0;
+    private BigDecimal sumAmount(String accountRole) {
+        BigDecimal total = BigDecimal.ZERO;
         for (LedgerEntry entry : ledgerEntryMapper.selectList(new LambdaQueryWrapper<LedgerEntry>()
                 .eq(LedgerEntry::getAccountRole, accountRole)
                 .eq(LedgerEntry::getDirection, LedgerEntry.DIRECTION_CREDIT))) {
             if (entry.getAmount() != null) {
-                total += entry.getAmount();
+                total = total.add(entry.getAmount());
             }
         }
-        return total;
-    }
-
-    private void fillYuan(LedgerEntry entry) {
-        if (entry.getAmount() != null) {
-            entry.setAmountYuan(BigDecimal.valueOf(entry.getAmount(), 2));
-        }
-        if (entry.getBalanceAfter() != null) {
-            entry.setBalanceAfterYuan(BigDecimal.valueOf(entry.getBalanceAfter(), 2));
-        }
+        return total.setScale(2);
     }
 }

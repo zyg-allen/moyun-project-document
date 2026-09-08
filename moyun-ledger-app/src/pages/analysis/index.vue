@@ -24,9 +24,15 @@
         <view class="pf-edit" @tap="openProfileEdit">编辑</view>
       </view>
 
-      <!-- 财务健康指标 -->
+      <!-- 财务健康指标（v11.37：维度切换） -->
       <view class="card">
-        <view class="card-title">财务健康指标（近 {{ indicators.sampleMonths || 0 }} 个月）</view>
+        <view class="range-tabs">
+          <view class="range-tab" :class="{ on: range === 'month' }" @tap="switchRange('month')">本月</view>
+          <view class="range-tab" :class="{ on: range === '3m' }" @tap="switchRange('3m')">近3月</view>
+          <view class="range-tab" :class="{ on: range === '6m' }" @tap="switchRange('6m')">近6月</view>
+          <view class="range-tab" :class="{ on: range === 'year' }" @tap="switchRange('year')">近12月</view>
+        </view>
+        <view class="card-title">财务健康指标<text class="range-hint" v-if="indicators.rangeLabel">（{{ indicators.rangeLabel }}<text v-if="indicators.sampleMonths">，含数据 {{ indicators.sampleMonths }} 个月</text>）</text></view>
         <view class="kpi-grid">
           <view class="kpi">
             <view class="kpi-value" :class="level(debtRatioLevel)">{{ indicators.debtRatio ?? 0 }}<text class="kpi-unit">%</text></view>
@@ -50,21 +56,48 @@
         </view>
       </view>
 
-      <!-- AI 综述 -->
+      <!-- AI 综述（v11.36：健康分 + 报告月份 + 缓存标记） -->
       <view class="card">
         <view class="card-title flex-row">
-          <text class="flex-1">AI 财务综述</text>
+          <text class="flex-1">AI 财务综述<text class="rp-period" v-if="reportPeriod">（{{ reportPeriod }}）</text></text>
+          <text class="cache-badge" v-if="fromCache && range === 'month'">本月报告</text>
           <text class="ai-badge" v-if="aiEnabled">AI 生成</text>
           <text class="ai-badge tpl" v-else>基础分析</text>
+        </view>
+        <view class="score-row" v-if="reportPeriod">
+          <view class="score-num" :class="reportScore >= 70 ? 'good' : reportScore >= 40 ? 'mid' : 'bad'">{{ reportScore }}</view>
+          <view class="score-info">
+            <view class="score-label">财务健康分</view>
+            <view class="score-desc">{{ reportScore >= 70 ? '状况良好，继续保持' : reportScore >= 40 ? '存在隐忧，建议优化' : '风险偏高，需重点改善' }}</view>
+          </view>
         </view>
         <view class="ai-summary" v-if="aiSummary">{{ aiSummary }}</view>
         <view class="ai-summary placeholder" v-else>暂无数据，先去记几笔账吧</view>
         <view class="ai-refresh" @tap="load(true)">重新分析</view>
       </view>
 
+      <!-- 历史报告（v11.36） -->
+      <view class="card" v-if="reportList.length">
+        <view class="card-title flex-row">
+          <text class="flex-1">历史报告</text>
+          <text class="rp-total">共 {{ reportTotal }} 期</text>
+        </view>
+        <view class="rp-item" v-for="r in reportList" :key="r.id" @tap="viewReport(r)">
+          <view class="rp-main">
+            <view class="rp-month">{{ r.period }}</view>
+            <view class="rp-snapshot" v-if="r.profileSnapshot">{{ r.profileSnapshot }}</view>
+          </view>
+          <view class="rp-side">
+            <view class="rp-score" :class="r.healthScore >= 70 ? 'good' : r.healthScore >= 40 ? 'mid' : 'bad'">{{ r.healthScore }}分</view>
+            <view class="rp-view">查看 ›</view>
+          </view>
+        </view>
+        <view class="rp-more" v-if="reportList.length < reportTotal" @tap="loadMoreReports">加载更多（{{ reportList.length }}/{{ reportTotal }}）</view>
+      </view>
+
       <!-- 收入来源 -->
       <view class="card" v-if="incomeSources.length">
-        <view class="card-title">收入来源结构</view>
+        <view class="card-title">收入来源结构<text class="range-hint" v-if="indicators.rangeLabel">（{{ indicators.rangeLabel }}）</text></view>
         <view class="src-row" v-for="s in incomeSources" :key="s.name">
           <view class="src-name">{{ s.name }}</view>
           <view class="src-bar-wrap">
@@ -126,8 +159,8 @@
 </template>
 
 <script>
-import { getAiAnalysis, getAiProfile, updateAiProfile } from '@/api/ledger';
-import { centToAmount } from '@/utils/money';
+import { getAiAnalysis, getAiProfile, updateAiProfile, listAiReports } from '@/api/ledger';
+import { formatAmount } from '@/utils/money';
 import { useUserStore } from '@/stores/user';
 import { useThemeStore } from '@/stores/theme';
 
@@ -143,6 +176,14 @@ export default {
       aiEnabled: false,
       identityOptions: [],
       profileEditing: false,
+      reportList: [],
+      reportTotal: 0,
+      reportPage: 1,
+      reportPageSize: 5,
+      reportPeriod: '',
+      range: 'month',
+      reportScore: 0,
+      fromCache: false,
       editForm: { identityTag: '', identityTagLabel: '', position: '', company: '' },
       loading: false
     };
@@ -182,24 +223,69 @@ export default {
     async load(force) {
       if (!useUserStore().isLoggedIn || this.loading) return;
       this.loading = true;
+      // v11.36：画像独立请求，先返回先渲染（不等分析）
+      getAiProfile().then((pf) => {
+        if (pf) {
+          this.profile = pf;
+          this.identityOptions = pf.identityOptions || [];
+        }
+      }).catch(() => {});
       if (force) uni.showLoading({ title: '分析中…' });
       try {
-        const [report, pf] = await Promise.all([getAiAnalysis(), getAiProfile()]);
-        this.profile = (report && report.profile) || {};
-        this.indicators = (report && report.indicators) || {};
-        this.incomeSources = (report && report.incomeSources) || [];
-        this.debtRisks = (report && report.debtRisks) || [];
-        this.suggestions = (report && report.suggestions) || [];
-        this.aiSummary = (report && report.aiSummary) || '';
-        this.aiEnabled = !!report && !!report.aiEnabled;
-        this.identityOptions = (pf && pf.identityOptions) || [];
+        // force=true 走 refresh 强制重新分析（烧 token）；默认"本月"命中快照零 token
+        const params = force ? { range: this.range, refresh: true } : { range: this.range };
+        const report = await getAiAnalysis(params);
+        this.applyReport(report);
+        this.loadReports(true);
       } catch (e) { /* 拦截器已提示 */ }
       finally {
         this.loading = false;
         if (force) uni.hideLoading();
       }
     },
-    fmt(cents) { return centToAmount(cents || 0); },
+    switchRange(r) {
+      if (this.range === r) return;
+      this.range = r;
+      this.load(false);
+    },
+    applyReport(report) {
+      this.indicators = (report && report.indicators) || {};
+      this.incomeSources = (report && report.incomeSources) || [];
+      this.debtRisks = (report && report.debtRisks) || [];
+      this.suggestions = (report && report.suggestions) || [];
+      this.aiSummary = (report && report.aiSummary) || '';
+      this.aiEnabled = !!report && !!report.aiEnabled;
+      this.reportPeriod = (report && report.period) || '';
+      this.reportScore = (report && report.healthScore) || 0;
+      this.fromCache = !!report && !!report.fromCache;
+    },
+    // 历史报告分页
+    async loadReports(reset) {
+      if (!useUserStore().isLoggedIn) return;
+      if (reset) { this.reportPage = 1; this.reportList = []; }
+      try {
+        const data = await listAiReports({ page: this.reportPage, pageSize: this.reportPageSize }) || {};
+        const list = data.list || [];
+        this.reportList = reset ? list : this.reportList.concat(list);
+        this.reportTotal = Number(data.total || 0);
+      } catch (e) { /* 静默 */ }
+    },
+    loadMoreReports() {
+      if (this.reportList.length >= this.reportTotal) return;
+      this.reportPage++;
+      this.loadReports(false);
+    },
+    // 查看某期历史报告
+    viewReport(r) {
+      if (!r || !r.aiSummary) return;
+      uni.showModal({
+        title: r.period + ' 报告（' + (r.healthScore || 0) + ' 分）',
+        content: r.aiSummary,
+        showCancel: false,
+        confirmText: '关闭'
+      });
+    },
+    fmt(cents) { return formatAmount(cents || 0); },
     level(l) { return l; },
     goLogin() { uni.switchTab({ url: '/pages/mine/index' }); },
     openProfileEdit() {
@@ -312,4 +398,30 @@ export default {
 .pf-tip { font-size: 22rpx; color: #bbb; margin-top: 16rpx; }
 .btn-primary { margin-top: 40rpx; }
 .btn-cancel { margin-top: 20rpx; text-align: center; color: #999; font-size: 26rpx; height: 72rpx; line-height: 72rpx; }
+.score-row { display: flex; align-items: center; gap: 24rpx; padding: 20rpx 0 8rpx; }
+.score-num { font-size: 72rpx; font-weight: 700; line-height: 1; }
+.score-num.good { color: #52c41a; }
+.score-num.mid { color: #faad14; }
+.score-num.bad { color: #e57373; }
+.score-info { flex: 1; }
+.score-label { font-size: 26rpx; font-weight: 600; }
+.score-desc { font-size: 22rpx; color: #999; margin-top: 6rpx; }
+.rp-period { font-size: 22rpx; color: #999; font-weight: 400; }
+.cache-badge { font-size: 20rpx; color: #52c41a; background: #f6ffed; border-radius: 8rpx; padding: 4rpx 12rpx; margin-right: 12rpx; }
+.rp-total { font-size: 22rpx; color: #999; }
+.rp-item { display: flex; align-items: center; justify-content: space-between; padding: 22rpx 0; border-bottom: 1rpx solid #f5f5f7; }
+.rp-item:last-of-type { border-bottom: none; }
+.rp-month { font-size: 30rpx; font-weight: 600; }
+.rp-snapshot { font-size: 20rpx; color: #999; margin-top: 6rpx; }
+.rp-side { display: flex; align-items: center; gap: 20rpx; }
+.rp-score { font-size: 26rpx; font-weight: 700; }
+.rp-score.good { color: #52c41a; }
+.rp-score.mid { color: #faad14; }
+.rp-score.bad { color: #e57373; }
+.rp-view { font-size: 22rpx; color: var(--primary-strong); }
+.rp-more { text-align: center; font-size: 24rpx; color: #999; padding: 22rpx 0 6rpx; }
+.range-tabs { display: flex; gap: 14rpx; margin-bottom: 20rpx; }
+.range-tab { flex: 1; text-align: center; font-size: 24rpx; color: #666; background: #f5f6f8; border-radius: 12rpx; padding: 12rpx 0; }
+.range-tab.on { color: #fff; background: var(--primary-strong, #26a69a); font-weight: 600; }
+.range-hint { font-size: 22rpx; color: #999; font-weight: 400; }
 </style>

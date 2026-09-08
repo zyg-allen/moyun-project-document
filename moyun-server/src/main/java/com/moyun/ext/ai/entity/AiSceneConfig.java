@@ -27,7 +27,7 @@ public class AiSceneConfig extends AiBaseEntity {
     @TableId(type = IdType.AUTO)
     private Long id;
 
-    /** 场景代码：voice_interview/resume_optimize/question_generate */
+    /** 场景代码（须为 AiSceneEnum 注册值：voice_interview/resume_optimize/question_generate/finance_analysis） */
     private String sceneCode;
 
     /** 场景名称 */

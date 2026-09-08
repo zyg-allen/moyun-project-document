@@ -549,7 +549,7 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
                     + "  \"guidance\": \"若回答明显跑偏，给出一句引导性提示，否则为空字符串\"\n"
                     + "}\n"
                     + "打分参考：完全跑题<30；浅层正确但无细节50-65；有正确框架和部分细节65-80；深入准确有取舍权衡80+。";
-            String resp = llmClient.chat(system, "请分析该回答。");
+            String resp = llmClient.chat(SCENE_VOICE_INTERVIEW, system, "请分析该回答。");
             if (StringUtils.isEmpty(resp)) {
                 return null;
             }
@@ -719,7 +719,8 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
     private static final int PROFILE_MAX_GAPS = 8;
 
     /** 场景代码：语音面试（AI场景配置中心） */
-    private static final String SCENE_VOICE_INTERVIEW = "voice_interview";
+    /** v11.38：场景代码统一走 AiSceneEnum 注册表，不再硬编码字符串 */
+    private static final String SCENE_VOICE_INTERVIEW = com.moyun.ext.ai.enums.AiSceneEnum.VOICE_INTERVIEW.getCode();
 
     /** 候选人反问环节最大提问数 */
     private static final int CANDIDATE_ASK_MAX = 3;
@@ -1632,7 +1633,7 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
             try {
                 String system = buildContextualSystemPrompt(interview)
                         + "\n现在进入候选人反问环节，请以面试官身份回答候选人的提问，回答要专业、简洁（150字以内）。";
-                String resp = llmClient.chat(system, "候选人提问：" + transcript);
+                String resp = llmClient.chat(SCENE_VOICE_INTERVIEW, system, "候选人提问：" + transcript);
                 if (StringUtils.isNotEmpty(resp)) {
                     return resp.trim();
                 }
@@ -2417,7 +2418,7 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
                     + "面试岗位：" + (StringUtils.isEmpty(position) ? "通用" : position) + "\n"
                     + "知识点：" + String.join("、", tags) + "\n"
                     + "输出 JSON：{\"points\":[{\"title\":\"知识点\",\"desc\":\"简介\"}]}，覆盖全部知识点，不要输出其他内容。";
-            String resp = llmClient.chat("你是面试知识点归纳助手，只输出 JSON。", prompt);
+            String resp = llmClient.chat(SCENE_VOICE_INTERVIEW, "你是面试知识点归纳助手，只输出 JSON。", prompt);
             if (StringUtils.isEmpty(resp)) {
                 return result;
             }
@@ -3165,7 +3166,7 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
                     default:
                         userMsg.append("给出鼓励性反馈。");
                 }
-                String llmText = llmClient.chat(systemPrompt, userMsg.toString());
+                String llmText = llmClient.chat(SCENE_VOICE_INTERVIEW, systemPrompt, userMsg.toString());
                 if (StringUtils.isNotEmpty(llmText)) {
                     return llmText;
                 }

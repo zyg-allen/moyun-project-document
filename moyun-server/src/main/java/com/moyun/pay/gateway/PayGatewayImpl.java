@@ -14,6 +14,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionTemplate;
 
+import java.math.BigDecimal;
 import java.security.SecureRandom;
 import java.time.LocalDateTime;
 import java.util.HashMap;
@@ -59,11 +60,11 @@ public class PayGatewayImpl implements IPayGateway {
     private List<PayCallbackHandler> callbackHandlers;
 
     @Override
-    public PayOrder createOrder(String bizType, String bizNo, String channel, long amount, String subject) {
+    public PayOrder createOrder(String bizType, String bizNo, String channel, BigDecimal amount, String subject) {
         if (!payProperties.isEnabled()) {
             throw new IllegalStateException("支付功能未开启（moyun.pay.enabled=false）");
         }
-        if (amount <= 0) {
+        if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
             throw new IllegalArgumentException("支付金额必须大于 0");
         }
         PayChannel payChannel = routeChannel(channel);
@@ -117,7 +118,7 @@ public class PayGatewayImpl implements IPayGateway {
         order.setCreateTime(LocalDateTime.now());
         order.setUpdateTime(LocalDateTime.now());
         payOrderMapper.insert(order);
-        log.info("[pay-gateway] 下单成功 payNo={} channel={} amount={}分 bizType={} bizNo={}",
+        log.info("[pay-gateway] 下单成功 payNo={} channel={} amount={}元 bizType={} bizNo={}",
                 payNo, channel, amount, bizType, bizNo);
         return order;
     }

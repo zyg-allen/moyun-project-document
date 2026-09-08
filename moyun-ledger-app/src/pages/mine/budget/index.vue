@@ -31,7 +31,7 @@
 
 <script>
 import { listBudgets, saveBudget, listCategories } from '@/api/ledger';
-import { yuanToCent, centToYuan } from '@/utils/money';
+import { toNum, toFixedYuan } from '@/utils/money';
 import { useThemeStore } from '@/stores/theme';
 
 export default {
@@ -65,7 +65,7 @@ export default {
         this.budgets = (budgetRes && budgetRes.records) || [];
         this.expenseCategories = (catRes && catRes.records) || [];
         const total = this.budgets.find(b => !b.categoryId);
-        this.totalBudgetYuan = total ? centToYuan(total.amount) : '';
+        this.totalBudgetYuan = total ? toFixedYuan(total.amount) : '';
       } catch (e) { /* 拦截器已提示 */ }
     },
     onMonthChange(e) {
@@ -76,7 +76,7 @@ export default {
     },
     budgetOf(categoryId) {
       const b = this.budgets.find(x => x.categoryId === categoryId);
-      return b ? centToYuan(b.amount) : '';
+      return b ? toFixedYuan(b.amount) : '';
     },
     setBudgetOf(categoryId, yuan) {
       this.categoryBudgetInput[categoryId] = yuan;
@@ -87,7 +87,7 @@ export default {
           categoryId: null,
           year: this.year,
           month: this.month,
-          amount: yuanToCent(this.totalBudgetYuan || '0')
+          amount: toNum(this.totalBudgetYuan || '0')
         });
         uni.showToast({ title: '已保存', icon: 'success' });
         this.load();
@@ -102,7 +102,7 @@ export default {
             categoryId: c.id,
             year: this.year,
             month: this.month,
-            amount: yuanToCent(yuan)
+            amount: toNum(yuan)
           });
         }
         uni.showToast({ title: '已保存', icon: 'success' });

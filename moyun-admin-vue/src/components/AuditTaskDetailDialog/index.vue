@@ -364,12 +364,18 @@ async function handleReject() {
   }
 }
 
-/** 跳转到原业务管理页 */
+/** 跳转到原业务管理页（v11.35.1：优先 bizRoutePath；兜底 routePath 但排除审核中心自身，避免跳回自己） */
 function goBizPage() {
-  if (!task.value?.routePath) return
+  const t = task.value
+  if (!t) return
+  const target = t.bizRoutePath || (t.routePath && !t.routePath.includes('audit-center') ? t.routePath : '')
+  if (!target) {
+    ElMessage.warning('该类型暂无对应的业务管理页')
+    return
+  }
   visible.value = false
-  router.push(task.value.routePath).catch(() => {
-    ElMessage.warning('目标页面不可达：' + task.value.routePath)
+  router.push(target).catch(() => {
+    ElMessage.warning('目标页面不可达：' + target)
   })
 }
 

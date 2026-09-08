@@ -5,6 +5,229 @@
 
 ***
 
+## v11.39 (2026-09-08) LLM 统一入口：scene_code 全链路接入（设计模式落地）
+
+### 设计模式
+- Factory：AiSceneResolver.resolveChatModel(sceneCode)——scene_code → ChatLanguageModel 的唯一工厂
+- Chain of Responsibility：模型解析责任链 Agent 绑定（带温度/maxTokens）→ 直绑模型 → null（回落默认）
+- Strategy：LlmClient.chat(sceneCode, system, user)——业务只声明"用哪个场景"，模型策略由工厂决定
+- Registry：AiSceneEnum 场景注册表（v11.38），新增 resume_parse 场景
+
+### 基础设施
+- AiSceneResolver/Impl：新增 resolveChatModel 工厂方法（责任链封装在解析器，LlmClient 不参与解析）
+- LlmClient 接口：新增 chat(sceneCode, ...) 与 isSceneBound(sceneCode)；AiModuleLlmClient 委托工厂解析，绑定模型失败回落默认模型（行为平滑）；NoopLlmClient 同语义兜底
+- 模型调用适配 langchain4j 1.0.0-beta3 API（chat(messages) + ChatResponse）
+
+### 业务接入（12 处直调全部消除）
+- voice_interview：VoiceInterviewServiceImpl ×4（追问分析/候选人提问/知识点归纳/报告增强）、ScoringEngine ×1（自我介绍评分）
+- resume_parse：ResumeParseService ×1（简历文本解析）
+- resume_optimize：ResumeAiAdviceService ×1、ResumeDeepOptimizeService ×2、ResumeDeepOptimizeGenerator ×1、ResumeJobMatchService ×1
+- question_generate：PortalJobTemplateServiceImpl ×1（岗位模板智能出题）
+- finance_analysis：LedgerAiAnalysisServiceImpl.callLlm 场景优先、默认模型回落
+
+### 行为语义
+- 未绑定场景 → 与改造前完全一致（默认模型）
+- 绑定模型/Agent → 场景独立模型（Agent 带温度/maxTokens），后台配置即时生效
+- 绑定模型调用失败 → 自动回落默认模型，业务不中断
+
+### 后续方向（Agent-First，已确认）
+- 架构定位：Agent 嵌入 Workflow（Agent 为壳，流程为工具），非 Workflow 里嵌 Agent（BPMN 式节点自治）；统一入口（scene_code，本版完成）→ Agent 决策层（规划/路由/工具调用）→ 执行层（确定性 Workflow + 单轮 LLM 场景 + 预测服务）
+- 落地三步：① 业务能力/workflow 注册为 Agent Tool（LangChain4j @Tool/ToolSpecification，AiSceneEnum 的输入/输出五元组即 Tool 描述雏形）；② 高风险流程（支付/提现/审核链）Agent 只决定"是否触发"，执行仍走确定性 workflow；③ 护栏（步数/token 预算、超时、tool 调用链审计、失败降级到 scene_code 直绑链路）
+- 用户行为预测不受影响：数据层服务包成 Tool 暴露给 Agent，预测结果作为路由决策输入
+
+## v11.38 (2026-09-08) AI 场景注册表（AiSceneEnum）
+
+### 背景
+- ai_scene_config 是绑定配置表（场景→Agent/模型/工作流，多版本灰度），但缺"场景是什么"的注册元数据；场景代码散落在实体注释、VoiceInterviewServiceImpl 硬编码、SQL 种子三处
+- 实际注册 4 个场景：voice_interview（唯一完整接线 resolveScene）、resume_optimize（业务走 llmClient 直调，未接场景解析）、question_generate（嵌在面试流程/工作流节点）、finance_analysis（记账 AI 分析，走 ModelConfigService）
+
+### 后端
+- 新增 `AiSceneEnum`：code/name/capability/input/output 五元组，场景代码唯一权威来源；registry() 供管理页总览；isRegistered/of 供校验
+- `AiSceneConfigController`：新增 `GET /cms/ai/scene/registry`；create/update 校验 scene_code 必须已注册，scene_name 以注册表为准自动覆盖（避免多版本名称不一致）
+- `VoiceInterviewServiceImpl` 的硬编码场景串改为引用枚举
+
+### 前端（admin-vue 场景配置页）
+- 顶部新增「场景注册表」总览卡：场景代码/名称/核心能力/输入/输出/已建绑定数（只读，来自枚举）
+- 表单：场景代码改为注册表下拉（编辑时锁定），选中后展示该场景能力/输入/输出提示；场景名称自动填充只读
+
+### 新增场景三步（写入枚举 javadoc）
+1）AiSceneEnum 加一项；2）业务代码 agentClient.resolveScene(枚举)；3）管理页为该场景创建绑定（未绑定走业务默认逻辑）
+
+## v11.37 (2026-09-08) AI 分析多维度切换 + 收入占比修复
+
+### bug：收入来源占比缩小 10 倍（100% 显示成 10%）
+- 根因：incomeSources 的 ratio 计算 `multiply(BigDecimal.TEN)`，乘 10 而非 100；与建议文案（正确公式）自相矛盾
+- 修复：`multiply(BigDecimal.valueOf(100))`，各分类占比 = 该维度内分类收入 ÷ 总收入 × 100
+
+### 多维度分析（month / 3m / 6m / year）
+- 后端 `analyze(userId, refresh, range)`：自然月对齐窗口——本月=本月1号起；3m/6m/year=含本月往前 N 个自然月
+- 快照策略：仅"本月"维度读写月度快照（period 对齐自然月）；3m/6m/year 实时计算不落库
+- indicators 新增 range/rangeLabel/rangeStart；LLM 提示词明确"统计范围：近N个月（含数据 M 个月）"，避免"近1个月"歧义
+- 前端分析页：指标卡顶部维度切换 Tab（本月/近3月/近6月/近12月），标题与收入结构标注当前维度；「本月报告」标记仅本月维度显示
+- 月均收支仍按"含数据的月份数"平均，避免无数据月份稀释
+
+## v11.36 (2026-09-08) AI 财务分析月度快照 + 收入分类修复
+
+### 新表 ledger_ai_analysis_report（sql/20260908-05）
+- 每月一条快照（UNIQUE user_id+period）：进入分析页命中当月报告直接返回（零 LLM token）；「重新分析」（refresh=true）强制重新生成并覆盖
+- 字段：health_score（财务健康分 0-100，储蓄率/收支平衡/负债率/还款压力四维各 25 分）、metrics/income/risk/advice 四段 JSON、ai_summary、profile_snapshot（当次画像）
+
+### 后端
+- `analyze()` 缓存逻辑 + 落库（saveReport 失败仅告警不影响返回）；返回结构去掉 profile（前端独立请求）
+- 新增 `GET /portal/ledger/ai/reports` 历史报告分页（period 倒序）
+- `listReports`/`reportToResult`/`computeHealthScore`/`parseJson` 私有方法
+
+### bug 修复：收入来源全部显示「其他收入」
+- 根因：`loadCategoryNames` 查询条件 `user_id=? OR user_id IS NULL`，但系统预设分类 user_id=0（非 NULL），工资等系统分类名永远查不到
+- 修复：对齐 `LedgerCategoryServiceImpl` 口径 `eq(0L).or().eq(userId)`，收入来源正确显示「工资」等分类名
+
+### 前端（ledger-app analysis 页）
+- 画像独立请求先返回先渲染（不再 Promise.all 等分析）
+- AI 综述卡新增：报告月份、财务健康分（颜色分级）、fromCache「本月报告」标记
+- 新增「历史报告」列表（分页 5 条/页，点开弹层看该期综述）
+
+## v11.35.2 (2026-09-08) 定时记账「立即执行」日期语义修正 + 审核中心路由双轨
+
+### 定时记账（bug 修复）
+- 问题：「立即执行」沿用 nextExecDate 作为流水交易日期。任务预定 10-01 执行时，手动立即执行生成的流水落在未来（10-01），本月收支统计（[月初,今天]）不包含，但账户余额当天已扣减，出现"列表可见、总支出不统计、月末净资产对不上"
+- 修复：`LedgerScheduleServiceImpl.executeOnce` 增加 forcedExecDate 参数——`runNow` 立即执行传今天（钱今天动，账记今天）；`runDueTasks` 定时到期传 null（沿用预定日期，费用归属其所属周期）；`retryLog` 失败重试沿用日志原定日期
+- 语义：立即执行 = 提前消费下一期（nextExecDate 正常推进，不会双记账）
+
+### 审核中心（上轮收尾）
+- `AuditTaskType` 新增 `bizRoutePath`（原业务管理页）：文章/专栏/话题/面经/面经评论/认证/反馈/举报 8 类各自映射真实管理菜单页
+- `AuditTaskVO` 透传 bizRoutePath；详情弹层「查看原业务」优先使用，避免统一 routePath（审核中心）导致跳回自己
+- 存量脚本 `20260908-04-audit-task-route-fix.sql`：修正 sys_audit_task 中 /cms/feedback、/cms/report 旧路由
+
+## v11.35.0 (2026-09-08) ledger-app 注册功能 + 意见反馈对接 + 备忘录布局优化
+
+### 后端（moyun-server）
+- `PortalLoginController.register` 注册方式双轨：手机号+短信验证码 或 邮箱+邮箱验证码（二选一）；手机模式含手机号占用校验；短信验证码一次性消费（verifyCode 通过即失效）
+- `PortalSmsController` 场景白名单新增 `register`，该场景匿名可发码（注册时未登录；服务层 60s 间隔+日限额+防枚举兜底）
+- `PortalUser` 新增瞬态字段 `smsCode`（仅注册接口入参，不落库）
+- 意见反馈复用门户既有链路（`/portal/feedback/submit` + `/portal/feedback/my-list`，提交自动进统一审核），后端零改动
+
+### 前端（moyun-ledger-app）
+- 新增 `pages/mine/register/index.vue`：手机/邮箱双 Tab 注册，验证码 60s 倒计时，图形验证码按全局开关显隐，密码强度校验（大小写+数字），注册成功即自动登录返回「我的」
+- 新增 `pages/mine/feedback/index.vue`：提交反馈（四类型）+ 我的反馈历史（处理状态/后台回复展开查看）
+- `pages/mine/index.vue`：登录表单下新增「立即注册」入口；反馈宫格接线；备忘录列表改单行布局（标签+标题一行、完成/删除按钮一行）
+
+### 验证
+- 后端 `mvn compile` 通过；ledger-app `npm run build:h5` 通过
+- mock 短信验证码写入 dev 日志（`[sms] 验证码已发送`），联调时从服务端日志取码
+
+## v11.34.0 (2026-09-08) 备忘录增强：事项/内容/时间/提醒方式/重要程度
+
+### 数据库（20260908-02 末尾增量 ALTER，不改动原 CREATE）
+
+ledger_memo 新增 6 列：title（事项标题，NOT NULL，存量数据按 content 前50字回填）、event_time（事项时间=提醒基准）、remind_enabled、remind_rule（on_time/advance_30m/advance_1h/advance_2h/advance_1d/advance_1d_9am）、importance（low/normal/high/urgent）、reminded（防重标记）+ idx_user_remind 索引
+
+### 后端
+
+- LedgerMemo 实体补 6 字段与规则常量
+- LedgerMemoServiceImpl：create/update 接收新字段（开启提醒强制要求 event_time，remindRule 缺省 on_time）；listMemos 排序改为 未完成 → 重要度 urgent>high>normal>low → 事项时间升序；新增 sendDueReminders()——按规则计算提醒时刻（提前一天上午9点=前一天09:00，其余按分钟数），到期经 pay 模块 INotificationService 发站内通知，过期超1天直接标记不再打扰；提醒设置变更时重置 reminded 允许重新提醒
+- 新增 LedgerMemoRemindTask：每 5 分钟扫描发送
+- PortalLedgerMemoController：create/update 透传新字段（eventTime 字符串转 LocalDateTime）
+
+### 前端（memo/index.vue 重构）
+
+- 列表项：标题 + 重要程度彩色徽标（紧急红/重要橙/一般灰/不重要灰）+ 内容 + 事项时间 + 🔔提醒方式 + 已提醒标记
+- 添加/编辑弹层：事项、内容、日期+时间选择、是否提醒（不提醒/提醒）、提醒方式六选一 picker、重要程度四选一；开启提醒未选时间时前端拦截提示
+- 悬浮＋按钮替代原底部输入栏；点待办项进入编辑
+- dashboard 首页待办展示 title（fallback content）
+
+### 验证
+
+- 后端 Maven compile / H5 build 通过
+- **需执行 20260908-02 末尾新增的 ALTER 段**（已建表用户），重启 moyun-server
+- 测试：添加"紧急+提前1小时提醒"待办 → 到点后收到站内通知（消息中心可见），列表显示已提醒
+
+***
+## v11.33.0 (2026-09-08) 记账 App「我的」四大功能全链路落地
+
+### 功能（全部对接后端，替换原本地 storage 实现）
+
+1. **打赏**：/portal/ledger/tips（POST 模拟支付成功落库 + GET 累计金额），金额单位元
+2. **存钱计划**：/portal/ledger/savings——列表汇总（剩余需存/累计存入/目标金额）+ 详情期次流水（待存/成功/失败三态、失败原因、存入可输入实际金额）+ 四种存钱法（52周 10n 元累计 13780 / fixed 固定金额 / monthly 每月固定 / custom 首期+递增+期数，末期自动凑整）；计划状态自动流转（全部期次完成或达标→成功）
+3. **备忘录**：/portal/ledger/memos CRUD + 完成态切换；**首页（总览）新增待办事项卡片**（前 3 条未完成，点击进入备忘录）
+4. **定时记账**：/portal/ledger/schedules——列表（启用开关/立即执行/执行日志/失败重试/删除）+ 添加页（循环周期每天/每周/每月/每N天、执行时间、起止日期、类型、分类、金额、账户、备注，前端实时预览下次记账时间）；后台 LedgerScheduleExecuteTask 每 10 分钟扫描到期任务，复用 ILedgerTransactionService 生成流水（余额联动+净资产快照），写 ledger_schedule_log，推进 next_exec_date，end_date 到期自动停用；失败留痕不推进，支持手动重试
+
+### 修复
+
+- **pages.json 未注册子页面**（报错 navigateTo:fail page /pages/mine/tip/index is not found 根因）：补注册 savings×3 / schedule×2 / tip / memo 共 7 页
+- dashboard 待办卡片原先无数据源（todos 永远为空数组），对接备忘录 API
+
+### 技术要点
+
+- 新增 2 个缺失 Mapper（LedgerScheduleTaskMapper/LedgerScheduleLogMapper）
+- 后端 4 组 Service/Impl + 4 个 Controller，全部走 PortalSecurityUtils.getUserId() 数据隔离
+- 金额 BigDecimal 元口径（DECIMAL(18,2)），与 20260908-02 DDL 一致
+- 期次/日志 list 均带 userId 冗余校验，防越权
+
+### 验证与执行
+
+- 后端 Maven compile / ledger-app H5 build 通过
+- **需在 DataGrip 执行 sql/20260908-02-moyun-ledger-personal-tools.sql**（6 张表 IF NOT EXISTS，可重复执行），重启 moyun-server
+- 注：浏览器控制台 reportAllChanges startTime 报错非本项目代码（源码与依赖均无该符号），疑似浏览器插件（如 Vue DevTools），无痕窗口验证即可
+
+***
+## v11.32.0 (2026-09-08) 后台登录验证码风控 + 参数配置缓存 TTL
+
+### 决策
+
+用户反馈：参数配置页 sys.account.captchaEnabled=true，但登录始终不要验证码。排查两个根因：
+1. **配置缓存无 TTL**：SysConfigServiceImpl 四处 setCacheObject 均不带过期时间，Redis 残留旧值 "false" 永不失效，DB 改 true 读不到，两边长期脱节
+2. **pwd_err_cnt 是死代码**：SysPasswordService.validate（密码错误计数/锁定，user.password.maxRetryCount=5/lockTime=10）从未接入登录链路——UserDetailsServiceImpl 未调用它，密码错 5 次也不锁定，更谈不上触发验证码
+
+### 实现（验证码 = 全局开关 || 风险触发）
+
+1. **SysConfigServiceImpl**：4 处缓存写入统一补 30 分钟 TTL（CONFIG_CACHE_TTL_MINUTES），直接改库最多 30 分钟内自动生效
+2. **SysLoginService**：
+   - 接入 SysPasswordService.validate（补接死代码）：密码错误计数 ≥5 锁 10 分钟
+   - 新增 isRiskCaptchaRequired：密码错误 ≥2 次（captcha.riskFailThreshold，复用 pwd_err_cnt 滑动窗口）或距上次成功登录 ≥30 天（captcha.riskInactiveDays，含从未登录）→ 即使全局开关关闭也强制验证码；服务端强制，绕过前端无法跳过
+3. **CaptchaController**：/captchaImage 支持可选 username 参数，返回 captchaEnabled = 全局开关 || 风险判定，风险账号同样下发图片
+4. **application.yaml**：captcha.riskFailThreshold=2 / riskInactiveDays=30
+5. **admin-vue**：login.js getCodeImg(username)；login.vue 用户名变化 500ms 防抖重判风险、登录失败后必刷验证码（原代码只在开关开时刷新，风险态漏刷）
+
+### 验证
+
+- 后端 Maven compile / admin-vue build:prod 通过
+- 场景回归：①全局开关开→正常验证码；②开关关+正常账号→无验证码；③开关关+连续错密码 2 次→第 3 次登录必须验证码；④错 5 次→锁定 10 分钟；⑤30 天未登录账号→必须验证码
+- Redis 清理验证：DEL sys:config:sys.account.captchaEnabled 后 30 分钟 TTL 生效，改库自动回源
+
+***
+## v11.31.1 (2026-09-08) 金额口径收尾：迁移脚本双方案 + ledger-app 去 cent 命名
+
+### 实现
+
+1. **SQL**：`20260908-03-moyun-pay-amount-yuan.sql` 重构为方案A（数据为空/已是元口径：纯改类型+注释，不动数据，默认启用）/方案B（存量分口径：÷100 三步定型，注释保留）二选一结构，附口径核对方法
+2. **ledger-app 工具收口**：utils/money.js 删除全部 cent 误导命名与恒等转换层——yuanToCent→toNum、centToYuan→toFixedYuan、centToAmount→formatAmount、centToAbsAmount→formatAbsAmount、centToSigned→formatSigned、safeSumCents→safeSum；8 个引用页面（analysis/dashboard/mine-budget/portfolio/record-edit/record-index/record-list/report）与局部变量 cent→amountNum 同步重命名；H5 构建通过，全链路已无 ×100/÷100
+3. **portal 修复**：voiceInterview.ts 中 createReportShareToken/getSharedReport 误用未导入的 request 对象，改用 httpPost/httpGet（expireDays 改 query 拼接），修复 Vite 构建 "request is not defined" 错误
+4. **文档**：设计方案 V1.3 附录 E.1/E.3 更新为重命名后口径（原"签名兼容零改动"表述废止）
+
+***
+## v11.31.0 (2026-09-08) pay 模块金额单位统一为元（全项目金额口径收口）
+
+### 决策
+
+PayChannelRequest/PayOrder/钱包/分账/提现原以 BIGINT「分」存储（V11.0 设计，对齐微信 API + 整数守恒）。评估结论：微信的分只是 API 边界契约（适配层转换即可），支付宝本就是元字符串，「分」并非通用渠道货币；而 portal_tip_order（元）与 pay_order（分）两套单位并存正是 v11.23 100x bug 的根因。mock 模式零真实资金数据，是统一改造的零成本窗口。与记账模块 v11.26（20260904-03）同口径收口，全项目金额自此唯一：人民币元 DECIMAL(18,2)/BigDecimal。
+
+### 实现
+
+1. **SQL**：新增 `20260908-03-moyun-pay-amount-yuan.sql`（pay_order/pay_user_account/pay_ledger_entry/pay_withdraw_order 四表，÷100 三步定型，含守恒验证查询）；20260902 建表脚本头注释同步废止声明
+2. **实体**（Long 分 → BigDecimal 元）：PayOrder、LedgerEntry、UserAccount、WithdrawOrder、PayChannelRequest；删除 amountYuan/balanceAfterYuan 等 transient 换算字段
+3. **网关/服务**：IPayGateway.createOrder、PayGatewayImpl、ILedgerService.settle（守恒校验改为 BigDecimal `platform.add(user)==amount`）、LedgerServiceImpl（抽成 `amount×feeRate.setScale(2,HALF_UP)`）、IUserAccountService.credit/debit、UserAccountMapper 原子 SQL 参数 BigDecimal 化
+4. **边界收口**：WechatPayChannel 新增 `yuanToFen()`（元×100 HALF_UP，微信 v3 唯一换算点，真实 API TODO 注释同步）；PortalTipServiceImpl 删除 `movePointRight(2)` 透传 BigDecimal
+5. **控制器**：PortalPayController / CmsPayOrderController / CmsPayLedgerController 删除 fillYuan 与 *Yuan 响应字段，接口所见即所得；分账汇总 sumAmount 改 BigDecimal
+6. **前端**：admin-vue 支付订单/分账流水页（amountYuan→amount 等 4 字段）；portal WalletPage（balanceYuan→balance 等 5 字段）、types/api.ts 三个接口类型同步；PayCashierPage 本就收元无需改
+7. **规范**：项目开发规范 §2.3.1 补充「边界换算（唯一允许的转换点）」条款与 pay 迁移脚本引用
+
+### 验证
+
+- 执行 `20260908-03-moyun-pay-amount-yuan.sql` 后重启 moyun-server
+- 打赏流程回归：下单（pay_order.amount 元）→ mock 支付 → 分账（守恒 SQL 验证）→ 钱包余额/流水（元直读）→ 后台支付订单/分账流水页金额显示
+- 管理端分账汇总卡片：平台抽成 + 用户所得 = 总额
+
+***
 ## v11.30.5 (2026-09-07) 面试报告分享（token 免登录公开访问）
 
 ### 决策

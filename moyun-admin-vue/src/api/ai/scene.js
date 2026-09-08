@@ -72,3 +72,7 @@ export function testScene(id) {
     method: 'post'
   })
 }
+// 场景注册表（v11.38）：场景代码/名称/核心能力/输入/输出（来自后端 AiSceneEnum）
+export function sceneRegistry() {
+  return request({ url: '/cms/ai/scene/registry', method: 'get' });
+}

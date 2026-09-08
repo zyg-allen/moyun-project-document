@@ -4,6 +4,7 @@ import com.google.code.kaptcha.Producer;
 import com.moyun.common.constant.Constants;
 import com.moyun.core.base.AjaxResult;
 import com.moyun.core.config.redis.RedisCache;
+import com.moyun.core.security.auth.SysLoginService;
 import com.moyun.system.service.ISysConfigService;
 import com.moyun.util.crypto.Base64;
 import com.moyun.util.uuid.IdUtils;
@@ -13,6 +14,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.util.FastByteArrayOutputStream;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import javax.imageio.ImageIO;
@@ -46,14 +48,18 @@ public class CaptchaController {
     @Autowired
     private ISysConfigService sysConfigService;
 
+    @Autowired
+    private SysLoginService loginService;
+
     /**
      * 生成验证码
      */
-    @Operation(summary = "生成验证码", description = "生成图形验证码并返回Base64编码的图片")
+    @Operation(summary = "生成验证码", description = "生成图形验证码并返回Base64编码的图片；可带 username 参数用于风险账号判定")
     @GetMapping("/captchaImage")
-    public AjaxResult getCode() throws IOException {
+    public AjaxResult getCode(@RequestParam(value = "username", required = false) String username) throws IOException {
         AjaxResult ajax = AjaxResult.success();
-        boolean captchaEnabled = sysConfigService.selectCaptchaEnabled();
+        boolean captchaEnabled = sysConfigService.selectCaptchaEnabled()
+                || loginService.isRiskCaptchaRequired(username);
         ajax.put("captchaEnabled", captchaEnabled);
         if (!captchaEnabled) {
             return ajax;

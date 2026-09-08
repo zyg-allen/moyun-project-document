@@ -439,12 +439,11 @@ export const getVoiceJobTemplates = () => {
 
 /** v11.30.5：生成报告分享令牌（有效期 1-30 天，默认 7 天） */
 export const createReportShareToken = (interviewId: number | string, expireDays?: number) => {
-  return request.post<string>(`/portal/interview/voice/${interviewId}/share`, null, {
-    params: expireDays ? { expireDays } : undefined,
-  });
+  const url = '/portal/interview/voice/' + interviewId + '/share' + (expireDays ? '?expireDays=' + expireDays : '');
+  return httpPost<string>(url);
 };
 
 /** v11.30.5：通过分享令牌查看报告（免登录公开） */
 export const getSharedReport = (shareToken: string) => {
-  return request.get<VoiceInterviewReportVO>(`/portal/interview/voice/share/${shareToken}`);
+  return httpGet<VoiceInterviewReportVO>('/portal/interview/voice/share/' + shareToken);
 };

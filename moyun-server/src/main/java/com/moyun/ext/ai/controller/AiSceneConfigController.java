@@ -5,6 +5,7 @@ import com.moyun.core.base.AjaxResult;
 import com.moyun.ext.ai.common.ListResponse;
 import com.moyun.ext.ai.dto.AiSceneBinding;
 import com.moyun.ext.ai.entity.AiSceneConfig;
+import com.moyun.ext.ai.enums.AiSceneEnum;
 import com.moyun.ext.ai.service.AiSceneConfigService;
 import com.moyun.ext.ai.service.AiSceneResolver;
 import io.swagger.v3.oas.annotations.Operation;
@@ -51,6 +52,17 @@ public class AiSceneConfigController {
             log.error("获取场景配置列表失败", e);
             return AjaxResult.error("获取列表失败: " + e.getMessage());
         }
+    }
+
+    /**
+     * 场景注册表（v11.38）：系统支持的全部场景元数据（代码/名称/核心能力/输入/输出）。
+     * 场景代码的唯一权威来源是 AiSceneEnum，本接口供管理页总览与下拉选择使用。
+     */
+    @Operation(summary = "场景注册表（场景代码/名称/能力/输入/输出）")
+    @GetMapping("/registry")
+    @PreAuthorize("@ss.hasPermi('cms:ai:scene:list')")
+    public AjaxResult registry() {
+        return AjaxResult.success(AiSceneEnum.registry());
     }
 
     @Operation(summary = "场景配置详情")
@@ -171,9 +183,15 @@ public class AiSceneConfigController {
         if (config.getSceneCode() == null || config.getSceneCode().isBlank()) {
             return "场景代码不能为空";
         }
-        if (config.getSceneName() == null || config.getSceneName().isBlank()) {
-            return "场景名称不能为空";
+        // v11.38：场景代码必须在注册表内（AiSceneEnum），防止随意输入导致绑定永不生效
+        AiSceneEnum scene = AiSceneEnum.of(config.getSceneCode());
+        if (scene == null) {
+            return "未注册的场景代码: " + config.getSceneCode() + "（合法值: "
+                    + String.join(" / ", java.util.Arrays.stream(AiSceneEnum.values())
+                            .map(AiSceneEnum::getCode).toArray(String[]::new)) + "）";
         }
+        // 场景名称以注册表为准，避免同场景多个版本名称不一致
+        config.setSceneName(scene.getName());
         if (config.getVersion() == null || config.getVersion().isBlank()) {
             config.setVersion("v1");
         }

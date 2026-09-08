@@ -1,17 +1,17 @@
-<template>
+﻿<template>
   <div class="app-container">
     <!-- 汇总卡片 -->
     <el-row :gutter="16" class="mb8">
       <el-col :span="8">
         <el-card shadow="never">
           <template #header>平台累计抽成</template>
-          <div style="font-size: 24px; font-weight: 700; color: #f56c6c;">¥{{ summary.platformTotalYuan || '0.00' }}</div>
+          <div style="font-size: 24px; font-weight: 700; color: #f56c6c;">¥{{ summary.platformTotal || '0.00' }}</div>
         </el-card>
       </el-col>
       <el-col :span="8">
         <el-card shadow="never">
           <template #header>用户累计所得</template>
-          <div style="font-size: 24px; font-weight: 700; color: #67c23a;">¥{{ summary.userTotalYuan || '0.00' }}</div>
+          <div style="font-size: 24px; font-weight: 700; color: #67c23a;">¥{{ summary.userTotal || '0.00' }}</div>
         </el-card>
       </el-col>
       <el-col :span="8">
@@ -76,14 +76,14 @@
           </el-tag>
         </template>
       </el-table-column>
-      <el-table-column label="金额" align="center" prop="amountYuan" width="110">
+      <el-table-column label="金额" align="center" prop="amount" width="110">
         <template #default="scope">
-          <span style="font-weight: 600;">¥{{ scope.row.amountYuan }}</span>
+          <span style="font-weight: 600;">¥{{ scope.row.amount }}</span>
         </template>
       </el-table-column>
-      <el-table-column label="变动后余额" align="center" prop="balanceAfterYuan" width="110">
+      <el-table-column label="变动后余额" align="center" prop="balanceAfter" width="110">
         <template #default="scope">
-          {{ scope.row.balanceAfterYuan != null ? '¥' + scope.row.balanceAfterYuan : '-' }}
+          {{ scope.row.balanceAfter != null ? '¥' + scope.row.balanceAfter : '-' }}
         </template>
       </el-table-column>
       <el-table-column label="摘要" align="center" prop="summary" :show-overflow-tooltip="true" />

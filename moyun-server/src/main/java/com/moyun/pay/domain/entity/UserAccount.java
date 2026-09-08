@@ -5,13 +5,14 @@ import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
 import com.baomidou.mybatisplus.annotation.Version;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 /**
  * 用户资金账户（V11.0）
  *
- * <p>余额单位：分（long）。并发安全：乐观锁 version + 条件更新（balance >= 扣减额），
- * 不使用浮点，不使用先读后写。
+ * <p>余额单位：元（人民币，DECIMAL(18,2)，v11.31 统一）。并发安全：乐观锁 version +
+ * 条件更新（balance >= 扣减额），全部走 Mapper 原子 SQL，不使用先读后写。
  *
  * @author moyun
  */
@@ -22,14 +23,14 @@ public class UserAccount {
     @TableId(type = IdType.INPUT)
     private Long userId;
 
-    /** 可用余额（分） */
-    private Long balance;
+    /** 可用余额（元） */
+    private BigDecimal balance;
 
-    /** 累计收入（分，含分账所得） */
-    private Long totalIncome;
+    /** 累计收入（元，含分账所得） */
+    private BigDecimal totalIncome;
 
-    /** 累计提现（分） */
-    private Long totalWithdraw;
+    /** 累计提现（元） */
+    private BigDecimal totalWithdraw;
 
     /** 乐观锁版本号 */
     @Version
@@ -41,12 +42,12 @@ public class UserAccount {
 
     public Long getUserId() { return userId; }
     public void setUserId(Long userId) { this.userId = userId; }
-    public Long getBalance() { return balance; }
-    public void setBalance(Long balance) { this.balance = balance; }
-    public Long getTotalIncome() { return totalIncome; }
-    public void setTotalIncome(Long totalIncome) { this.totalIncome = totalIncome; }
-    public Long getTotalWithdraw() { return totalWithdraw; }
-    public void setTotalWithdraw(Long totalWithdraw) { this.totalWithdraw = totalWithdraw; }
+    public BigDecimal getBalance() { return balance; }
+    public void setBalance(BigDecimal balance) { this.balance = balance; }
+    public BigDecimal getTotalIncome() { return totalIncome; }
+    public void setTotalIncome(BigDecimal totalIncome) { this.totalIncome = totalIncome; }
+    public BigDecimal getTotalWithdraw() { return totalWithdraw; }
+    public void setTotalWithdraw(BigDecimal totalWithdraw) { this.totalWithdraw = totalWithdraw; }
     public Integer getVersion() { return version; }
     public void setVersion(Integer version) { this.version = version; }
     public LocalDateTime getCreateTime() { return createTime; }

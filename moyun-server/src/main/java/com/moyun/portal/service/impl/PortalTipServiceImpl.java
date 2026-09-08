@@ -220,8 +220,7 @@ public class PortalTipServiceImpl implements IPortalTipService {
         if (order.getAmount().compareTo(new BigDecimal("10000")) > 0) {
             throw new BusinessException("TIP_AMOUNT_INVALID", "单笔打赏不可超过 10000 元");
         }
-        // 元 → 分（整型链路）
-        long amountFen = order.getAmount().movePointRight(2).setScale(0, java.math.RoundingMode.HALF_UP).longValue();
+        // 金额全链路统一元（v11.31），直接透传 BigDecimal
 
         // 5. 落 pending 打赏单（微信支付通道）
         order.setUserId(userId);
@@ -234,7 +233,7 @@ public class PortalTipServiceImpl implements IPortalTipService {
         // 6. 网关统一下单（幂等：同 bizNo 未支付单复用）
         String subject = "墨韵打赏-" + order.getTargetType();
         PayOrder payOrder = payGateway.createOrder("tip", String.valueOf(order.getId()), "wechat",
-                amountFen, subject);
+                order.getAmount(), subject);
 
         // 7. 返回收银台参数
         java.util.Map<String, Object> result = new java.util.HashMap<>();

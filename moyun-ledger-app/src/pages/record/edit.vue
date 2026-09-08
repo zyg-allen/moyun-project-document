@@ -45,7 +45,7 @@
 
 <script>
 import { pageTransactions, updateTransaction, deleteTransaction, uploadVoucher } from '@/api/ledger';
-import { centToYuan, yuanToCent, typeText } from '@/utils/money';
+import { toFixedYuan, toNum, typeText } from '@/utils/money';
 import { useThemeStore } from '@/stores/theme';
 
 export default {
@@ -76,19 +76,19 @@ export default {
           return;
         }
         this.txn = txn;
-        this.amountYuan = centToYuan(txn.amount);
+        this.amountYuan = toFixedYuan(txn.amount);
       } catch (e) { /* 拦截器已提示 */ }
     },
     async save() {
-      const cent = yuanToCent(this.amountYuan);
-      if (this.txn.type === 'adjust' ? cent === 0 : cent <= 0) {
+      const amountNum = toNum(this.amountYuan);
+      if (this.txn.type === 'adjust' ? amountNum === 0 : amountNum <= 0) {
         uni.showToast({ title: '金额不合法', icon: 'none' });
         return;
       }
       try {
         await updateTransaction(this.id, {
           type: this.txn.type,
-          amount: cent,
+          amount: amountNum,
           categoryId: this.txn.categoryId,
           accountId: this.txn.accountId,
           liabilityId: this.txn.liabilityId,

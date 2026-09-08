@@ -11,7 +11,16 @@
     { "path": "pages/record/list", "style": { "navigationBarTitleText": "流水明细", "enablePullDownRefresh": true } },
     { "path": "pages/record/calendar", "style": { "navigationBarTitleText": "日历账单" } },
     { "path": "pages/record/edit", "style": { "navigationBarTitleText": "编辑流水" } },
-    { "path": "pages/report/index", "style": { "navigationBarTitleText": "报表中心" } }
+    { "path": "pages/report/index", "style": { "navigationBarTitleText": "报表中心" } },
+    { "path": "pages/mine/savings/index", "style": { "navigationBarTitleText": "存钱" } },
+    { "path": "pages/mine/savings/create", "style": { "navigationBarTitleText": "新建计划" } },
+    { "path": "pages/mine/savings/detail", "style": { "navigationBarTitleText": "计划详情" } },
+    { "path": "pages/mine/schedule/index", "style": { "navigationBarTitleText": "定时记账" } },
+    { "path": "pages/mine/schedule/add", "style": { "navigationBarTitleText": "添加计划" } },
+    { "path": "pages/mine/tip/index", "style": { "navigationBarTitleText": "赞赏" } },
+    { "path": "pages/mine/memo/index", "style": { "navigationBarTitleText": "备忘录" } },
+    { "path": "pages/mine/feedback/index", "style": { "navigationBarTitleText": "意见反馈" } },
+    { "path": "pages/mine/register/index", "style": { "navigationBarTitleText": "注册账号" } }
   ],
   "globalStyle": {
     "navigationStyle": "custom",

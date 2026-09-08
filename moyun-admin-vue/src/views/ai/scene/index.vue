@@ -1,5 +1,28 @@
 <template>
   <div class="app-container">
+    <!-- 场景注册表总览（v11.38：来自 AiSceneEnum，场景代码唯一权威来源） -->
+    <el-card shadow="never" class="registry-card">
+      <template #header>
+        <div class="registry-header">
+          <span>场景注册表（{{ registry.length }} 个场景）</span>
+          <span class="registry-tip">场景代码由代码注册（AiSceneEnum），此处为只读总览；下方配置列表为各场景的 Agent/模型/工作流绑定</span>
+        </div>
+      </template>
+      <el-table :data="registry" size="small">
+        <el-table-column label="场景代码" prop="code" min-width="150" show-overflow-tooltip />
+        <el-table-column label="场景名称" prop="name" min-width="120" />
+        <el-table-column label="核心能力" prop="capability" min-width="200" show-overflow-tooltip />
+        <el-table-column label="输入" prop="input" min-width="200" show-overflow-tooltip />
+        <el-table-column label="输出" prop="output" min-width="180" show-overflow-tooltip />
+        <el-table-column label="已建绑定" width="90" align="center">
+          <template #default="{ row }">
+            <el-tag :type="bindingCountOf(row.code) > 0 ? 'success' : 'info'" size="small">
+              {{ bindingCountOf(row.code) }} 个
+            </el-tag>
+          </template>
+        </el-table-column>
+      </el-table>
+    </el-card>
     <el-form :model="queryParams" :inline="true" class="search-form">
       <el-form-item label="场景代码">
         <el-input
@@ -147,14 +170,15 @@
 <script setup>
 import { ref, reactive, computed, onMounted } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
-import { listScene, getScene, addScene, updateScene, delScene, testScene } from '@/api/ai/scene';
+import { listScene, getScene, addScene, updateScene, delScene, testScene, sceneRegistry } from '@/api/ai/scene';
 import { listAgent } from '@/api/ai/agent';
 import { listModelConfig } from '@/api/ai/model';
 import { listWorkflow } from '@/api/ai/workflow';
 
 const loading = ref(true);
 const sceneList = ref([]);
-const agentOptions = ref([]);
+const agentOptions = ref([])
+const registry = ref([]);
 const modelOptions = ref([]);
 const workflowOptions = ref([]);
 
@@ -222,6 +246,12 @@ async function loadOptions() {
     workflowOptions.value = workflowRes.data || [];                  // 返回数组
   } catch (e) { /* ignore */ }
 }
+
+function bindingCountOf(code) {
+  return sceneList.value.filter((c) => c.sceneCode === code).length;
+}
+
+const currentSceneMeta = computed(() => registry.value.find((s) => s.code === form.value.sceneCode) || null);
 
 async function getList() {
   loading.value = true;
@@ -304,6 +334,9 @@ function normalizeJsonObject(value) {
 }
 
 async function submitForm() {
+  // 场景名称以注册表为准（v11.38）
+  const meta = registry.value.find((s) => s.code === form.value.sceneCode);
+  if (meta) form.value.sceneName = meta.name;
   if (!form.value.sceneCode || !form.value.sceneCode.trim()) {
     ElMessage.warning('请输入场景代码');
     return;
@@ -422,4 +455,7 @@ onMounted(() => {
   white-space: pre-wrap;
   word-break: break-all;
 }
+.registry-card { margin-bottom: 16px; }
+.registry-header { display: flex; align-items: center; justify-content: space-between; }
+.registry-tip { font-size: 12px; color: #909399; font-weight: 400; }
 </style>

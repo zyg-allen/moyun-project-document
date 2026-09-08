@@ -172,7 +172,7 @@
 
 <script>
 import { createTransaction, listAssets, listLiabilities, listCategories, createLiability, uploadVoucher } from '@/api/ledger';
-import { yuanToCent, centToAmount, centToAbsAmount, toNum } from '@/utils/money';
+import { toNum, formatAmount, formatAbsAmount } from '@/utils/money';
 import { useUserStore } from '@/stores/user';
 import { useThemeStore } from '@/stores/theme';
 import { categoryIcon } from '@/utils/categoryIcon';
@@ -270,7 +270,7 @@ export default {
     },
     selectedLiabilityName() {
       const l = this.liabilities.find(x => x.id === this.form.liabilityId);
-      return l ? `${l.name}（欠 ${centToAbsAmount(l.balance)}）` : '';
+      return l ? `${l.name}（欠 ${formatAbsAmount(l.balance)}）` : '';
     },
     selectedCategoryName() {
       const c = this.categories.find(x => x.id === this.form.categoryId);
@@ -278,12 +278,12 @@ export default {
     },
     quickAddOk() {
       // 历史欠款可空（=0）：借款页补录时通常只建项目，欠款由本次记账累加
-      return !!(this.quickAdd.name && this.quickAdd.name.trim()) && yuanToCent(this.quickAdd.balanceYuan || '0') >= 0;
+      return !!(this.quickAdd.name && this.quickAdd.name.trim()) && toNum(this.quickAdd.balanceYuan || '0') >= 0;
     },
     canSave() {
-      const cent = yuanToCent(this.amountYuan);
-      if (this.form.type === 'adjust') return cent !== 0 && !!this.form.accountId;
-      if (cent <= 0) return false;
+      const amountNum = toNum(this.amountYuan);
+      if (this.form.type === 'adjust') return amountNum !== 0 && !!this.form.accountId;
+      if (amountNum <= 0) return false;
       if (this.needTarget) return !!this.form.accountId && !!this.form.targetAccountId;
       if (this.needLiability) return  (this.form.type === 'borrow' || !!this.form.accountId);
       return !!this.form.accountId;
@@ -383,16 +383,16 @@ export default {
     },
     pickAsset() {
       this.openPicker('asset', '选择账户', this.assets.map(a => ({
-        id: a.id, name: a.name, sub: '余额 ¥' + centToAmount(a.balance)
+        id: a.id, name: a.name, sub: '余额 ¥' + formatAmount(a.balance)
       })), this.form.accountId);
     },
     pickTarget() {
       this.openPicker('target', '选择转入账户', this.assets.filter(a => a.id !== this.form.accountId)
-        .map(a => ({ id: a.id, name: a.name, sub: '余额 ¥' + centToAmount(a.balance) })), this.form.targetAccountId);
+        .map(a => ({ id: a.id, name: a.name, sub: '余额 ¥' + formatAmount(a.balance) })), this.form.targetAccountId);
     },
     pickLiability() {
       this.openPicker('liability', '选择借款项目', this.liabilities.map(l => ({
-        id: l.id, name: l.name, sub: '欠款 ¥' + centToAbsAmount(l.balance)
+        id: l.id, name: l.name, sub: '欠款 ¥' + formatAbsAmount(l.balance)
       })), this.form.liabilityId);
     },
     openPicker(mode, title, items, selectedId) {
@@ -424,12 +424,12 @@ export default {
     async saveQuickAdd() {
       if (!this.quickAddOk) return;
       try {
-        const cent = yuanToCent(this.quickAdd.balanceYuan || '0');
+        const amountNum = toNum(this.quickAdd.balanceYuan || '0');
         const created = await createLiability({
           name: this.quickAdd.name.trim(),
           type: 'personal',
           // 历史欠款为 0 时传 null：不生成"初始欠款"流水，欠款完全由本次借款流水累加（防双倍）
-          initialBalance: cent > 0 ? cent : null,
+          initialBalance: amountNum > 0 ? amountNum : null,
           includeInTotal: 1
         });
         await this.refreshLiabilities();
@@ -471,7 +471,7 @@ export default {
         uni.switchTab({ url: '/pages/mine/index' });
         return;
       }
-      const cent = yuanToCent(this.amountYuan);
+      const amountNum = toNum(this.amountYuan);
       const typeName = { expense: '支出', income: '收入', transfer: '转账', repayment: '还款', borrow: '借款', adjust: '校准' }[this.form.type];
 
       // 类型最终确认（防 tab 误触）：校准/借款等特殊类型必须人工确认
@@ -480,7 +480,7 @@ export default {
         const confirmed = await new Promise((resolve) => {
           uni.showModal({
             title: '确认保存' + typeName,
-            content: this.confirmText(cent),
+            content: this.confirmText(amountNum),
             confirmText: '保存',
             cancelText: '再检查',
             success: (r) => resolve(!!r.confirm),
@@ -493,11 +493,11 @@ export default {
       // 还款资金校验：扣款账户余额不足时，引导补录资金来源（说明钱从哪来）
       if (this.form.type === 'repayment' && this.form.accountId) {
         const acc = this.assets.find(x => x.id === this.form.accountId);
-        if (acc && toNum(acc.balance) < cent) {
+        if (acc && toNum(acc.balance) < amountNum) {
           const that = this;
           uni.showModal({
             title: '账户余额不足',
-            content: `「${acc.name}」当前余额 ¥${centToAmount(acc.balance)}，不足以覆盖此笔还款 ¥${centToAmount(cent)}。\n若钱实际已到位（如刚到账的奖金未记账），请先补录一笔该账户的收入说明资金来源，再保存此笔还款。`,
+            content: `「${acc.name}」当前余额 ¥${formatAmount(acc.balance)}，不足以覆盖此笔还款 ¥${formatAmount(amountNum)}。\n若钱实际已到位（如刚到账的奖金未记账），请先补录一笔该账户的收入说明资金来源，再保存此笔还款。`,
             confirmText: '去补录收入',
             cancelText: '仍要保存',
             success: (r) => {
@@ -506,22 +506,22 @@ export default {
                 that.kbVisible = true;
                 uni.showToast({ title: '已切换为收入，请补录资金来源', icon: 'none' });
               } else {
-                that.doSave(cent);
+                that.doSave(amountNum);
               }
             }
           });
           return;
         }
       }
-      this.doSave(cent);
+      this.doSave(amountNum);
     },
     /** 保存确认文案：按类型说清这笔账会怎么动账 */
-    confirmText(cent) {
-      const amt = centToAmount(Math.abs(cent));
+    confirmText(amountNum) {
+      const amt = formatAmount(Math.abs(amountNum));
       const acc = this.selectedAssetName || '未选账户';
       switch (this.form.type) {
         case 'adjust':
-          return `将在「${acc}」当前余额上${cent > 0 ? '加' : '减'} ¥${amt}（不是设为该值），确认无误？`;
+          return `将在「${acc}」当前余额上${amountNum > 0 ? '加' : '减'} ¥${amt}（不是设为该值），确认无误？`;
         case 'borrow': {
           const li = this.selectedLiabilityName || '自动新建借款项目';
           return `记借款 ¥${amt}：欠款增加（${li}）${this.form.accountId ? `，资金进入「${acc}」` : '，不入资产账户'}。确认？`;
@@ -534,10 +534,10 @@ export default {
           return '';
       }
     },
-    async doSave(cent) {
+    async doSave(amountNum) {
       const data = {
         type: this.form.type,
-        amount: cent,
+        amount: amountNum,
         categoryId: this.form.categoryId,
         accountId: this.form.accountId,
         liabilityId: this.form.liabilityId,

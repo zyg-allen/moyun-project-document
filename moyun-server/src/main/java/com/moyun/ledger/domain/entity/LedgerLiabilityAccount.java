@@ -49,10 +49,10 @@ public class LedgerLiabilityAccount {
     /** 类型：credit_card/consumer_loan/bank_loan/personal_loan/other */
     private String type;
 
-    /** 当前欠款（分） */
+    /** 当前欠款（元） */
     private BigDecimal balance;
 
-    /** 初始本金（分） */
+    /** 初始本金（元） */
     private BigDecimal principal;
 
     /** 年利率（%） */

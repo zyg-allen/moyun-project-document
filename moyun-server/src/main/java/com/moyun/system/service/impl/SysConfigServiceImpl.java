@@ -13,6 +13,7 @@ import org.springframework.stereotype.Service;
 
 import java.util.Collection;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 /**
  * 参数配置 服务层实现
@@ -21,6 +22,7 @@ import java.util.List;
  * - loadingConfigCache：全量加载 sys_config 到 Redis
  * - selectConfigByKey：先查缓存，未命中回源 DB 并回填
  * - 增删改后调用 clearConfigCache 或 resetConfigCache 刷新
+ * - v11.32：所有缓存写入统一 TTL（30 分钟），防止绕过管理页直接改 DB 导致缓存与 DB 长期脱节
  *
  * @author allen-zyg
  */
@@ -29,6 +31,9 @@ public class SysConfigServiceImpl extends ServiceImpl<SysConfigMapper, SysConfig
 
     /** 参数配置 Redis 缓存前缀 */
     private static final String CONFIG_CACHE_KEY_PREFIX = "sys:config:";
+
+    /** 参数配置缓存 TTL（分钟）：过期后回源 DB，直接改库最多 30 分钟内生效 */
+    private static final int CONFIG_CACHE_TTL_MINUTES = 30;
 
     @Autowired
     private RedisCache redisCache;
@@ -66,7 +71,7 @@ public class SysConfigServiceImpl extends ServiceImpl<SysConfigMapper, SysConfig
         queryWrapper.eq(SysConfig::getConfigKey, configKey);
         SysConfig config = baseMapper.selectOne(queryWrapper);
         if (config != null) {
-            redisCache.setCacheObject(cacheKey, config.getConfigValue());
+            redisCache.setCacheObject(cacheKey, config.getConfigValue(), CONFIG_CACHE_TTL_MINUTES, TimeUnit.MINUTES);
             return config.getConfigValue();
         }
         return null;
@@ -123,7 +128,7 @@ public class SysConfigServiceImpl extends ServiceImpl<SysConfigMapper, SysConfig
         int rows = baseMapper.insert(config);
         if (rows > 0 && StringUtils.isNotEmpty(config.getConfigKey())) {
             // v1.1.2 修复：原实现未清缓存，导致新增配置后 selectConfigByKey 仍读不到最新值
-            redisCache.setCacheObject(CONFIG_CACHE_KEY_PREFIX + config.getConfigKey(), config.getConfigValue());
+            redisCache.setCacheObject(CONFIG_CACHE_KEY_PREFIX + config.getConfigKey(), config.getConfigValue(), CONFIG_CACHE_TTL_MINUTES, TimeUnit.MINUTES);
         }
         return rows;
     }
@@ -144,7 +149,7 @@ public class SysConfigServiceImpl extends ServiceImpl<SysConfigMapper, SysConfig
             // 由调用方（Controller）保证触发 refreshCache。
             SysConfig fresh = baseMapper.selectById(config.getConfigId());
             if (fresh != null && StringUtils.isNotEmpty(fresh.getConfigKey())) {
-                redisCache.setCacheObject(CONFIG_CACHE_KEY_PREFIX + fresh.getConfigKey(), fresh.getConfigValue());
+                redisCache.setCacheObject(CONFIG_CACHE_KEY_PREFIX + fresh.getConfigKey(), fresh.getConfigValue(), CONFIG_CACHE_TTL_MINUTES, TimeUnit.MINUTES);
             }
         }
         return rows;
@@ -177,7 +182,8 @@ public class SysConfigServiceImpl extends ServiceImpl<SysConfigMapper, SysConfig
             if (StringUtils.isNotEmpty(config.getConfigKey())) {
                 redisCache.setCacheObject(
                         CONFIG_CACHE_KEY_PREFIX + config.getConfigKey(),
-                        config.getConfigValue());
+                        config.getConfigValue(),
+                        CONFIG_CACHE_TTL_MINUTES, TimeUnit.MINUTES);
             }
         }
     }

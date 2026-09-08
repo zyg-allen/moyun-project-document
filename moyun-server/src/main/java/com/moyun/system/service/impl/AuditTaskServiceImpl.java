@@ -409,6 +409,11 @@ public class AuditTaskServiceImpl implements IAuditTaskService {
         vo.setPriority(task.getPriority());
         vo.setPriorityLabel(priorityLabel(task.getPriority()));
         vo.setRoutePath(task.getRoutePath());
+        // v11.35.1：原业务管理页路由（按任务类型枚举取，与 routePath 职责分离）
+        AuditTaskType taskType = AuditTaskType.fromCode(task.getTaskType());
+        if (taskType != null) {
+            vo.setBizRoutePath(taskType.getBizRoutePath());
+        }
         vo.setBizDetail(bizDetail);
         // 解析 extraData JSON 字段为 Map（举报图片、反馈联系方式等扩展信息）
         vo.setExtra(parseExtra(task.getExtraData()));

@@ -46,6 +46,9 @@ import java.util.Map;
  */
 @Service
 public class ResumeDeepOptimizeService {
+    /** v11.39：本服务所属 AI 场景代码（绑定见 ai_scene_config，业务不感知模型选择） */
+    private static final String SCENE_RESUME_OPTIMIZE = "resume_optimize";
+
 
     private static final Logger log = LoggerFactory.getLogger(ResumeDeepOptimizeService.class);
 
@@ -117,7 +120,7 @@ public class ResumeDeepOptimizeService {
         userPrompt.append("【原始内容】\n").append(originalText);
 
         try {
-            String response = llmClient.chat(systemPrompt, userPrompt.toString());
+            String response = llmClient.chat(SCENE_RESUME_OPTIMIZE, systemPrompt, userPrompt.toString());
             JsonNode node = objectMapper.readTree(LlmJsonExtractor.extract(response));
             List<Map<String, String>> list = new ArrayList<>();
             JsonNode arr = node.path("suggestions");
@@ -269,7 +272,7 @@ public class ResumeDeepOptimizeService {
         }
 
         try {
-            String response = llmClient.chat(systemPrompt, userPrompt.toString());
+            String response = llmClient.chat(SCENE_RESUME_OPTIMIZE, systemPrompt, userPrompt.toString());
             if (response == null || response.isBlank()) {
                 result.put("message", "AI 未生成有效草稿，请稍后重试");
                 return result;

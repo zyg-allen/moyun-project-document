@@ -21,7 +21,6 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.math.BigDecimal;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -60,7 +59,6 @@ public class CmsPayOrderController extends BaseController {
                 .like(payNo != null && !payNo.isBlank(), PayOrder::getPayNo, payNo)
                 .orderByDesc(PayOrder::getId);
         payOrderMapper.selectPage(page, wrapper);
-        page.getRecords().forEach(this::fillYuan);
         return success(page);
     }
 
@@ -72,18 +70,9 @@ public class CmsPayOrderController extends BaseController {
         if (order == null) {
             return error("支付单不存在");
         }
-        fillYuan(order);
         List<LedgerEntry> entries = ledgerEntryMapper.selectList(new LambdaQueryWrapper<LedgerEntry>()
                 .eq(LedgerEntry::getPayNo, payNo)
                 .orderByAsc(LedgerEntry::getId));
-        entries.forEach(e -> {
-            if (e.getAmount() != null) {
-                e.setAmountYuan(BigDecimal.valueOf(e.getAmount(), 2));
-            }
-            if (e.getBalanceAfter() != null) {
-                e.setBalanceAfterYuan(BigDecimal.valueOf(e.getBalanceAfter(), 2));
-            }
-        });
         Map<String, Object> data = new HashMap<>();
         data.put("order", order);
         data.put("ledgerEntries", entries);
@@ -105,9 +94,5 @@ public class CmsPayOrderController extends BaseController {
         return success(after);
     }
 
-    private void fillYuan(PayOrder order) {
-        if (order.getAmount() != null) {
-            order.setAmountYuan(BigDecimal.valueOf(order.getAmount(), 2));
-        }
-    }
+
 }

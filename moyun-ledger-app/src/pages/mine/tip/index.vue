@@ -4,12 +4,12 @@
 
     <view class="tip-card">
       <view class="tip-row">
-        <text class="tip-label">赞赏金额</text>
-        <input class="tip-input" type="digit" v-model="amount" placeholder="请输入赞赏金额" placeholder-style="color:#ccc" />
+        <text class="tip-label">赞赏金额（元）</text>
+        <input class="tip-input" type="digit" v-model="amount" placeholder="请输入金额，单位：元（如 5.00）" placeholder-style="color:#ccc" />
       </view>
       <view class="tip-row">
         <text class="tip-label">累计赞赏金额：</text>
-        <text class="tip-total">{{ totalAmount }}</text>
+        <text class="tip-total">¥ {{ totalAmount }}</text>
       </view>
     </view>
 
@@ -40,7 +40,7 @@
     </view>
 
     <view class="tip-note">
-      <view>提示：赞赏金额累计达到9.9即可免除广告</view>
+      <view>提示：赞赏金额累计达到 9.9 元即可免除广告</view>
       <view>注意：本功能为演示，不会发起真实支付</view>
     </view>
 
@@ -51,7 +51,9 @@
 <script>
 import NavBar from '@/components/NavBar/NavBar.vue';
 import { useThemeStore } from '@/stores/theme';
-import { storage } from '@/utils/storage';
+import { useUserStore } from '@/stores/user';
+import { getTipTotal, createTip } from '@/api/ledger';
+import { toFixedYuan } from '@/utils/money';
 
 export default {
   components: { NavBar },
@@ -59,7 +61,7 @@ export default {
     return {
       amount: '',
       payWay: 'wechat',
-      totalAmount: 0
+      totalAmount: '0.00'
     };
   },
   computed: {
@@ -67,10 +69,21 @@ export default {
   },
   onShow() {
     useThemeStore().restore();
-    this.totalAmount = storage.get('tip_total', 0);
+    this.loadTotal();
   },
   methods: {
+    async loadTotal() {
+      if (!useUserStore().isLoggedIn) { this.totalAmount = '0.00'; return; }
+      try {
+        const data = await getTipTotal() || {};
+        this.totalAmount = toFixedYuan(data.totalAmount);
+      } catch (e) { /* 拦截器已提示 */ }
+    },
     doTip() {
+      if (!useUserStore().isLoggedIn) {
+        uni.showToast({ title: '请先在「我的」页登录', icon: 'none' });
+        return;
+      }
       const num = parseFloat(this.amount);
       if (!num || num <= 0) {
         uni.showToast({ title: '请输入有效金额', icon: 'none' });
@@ -78,15 +91,15 @@ export default {
       }
       uni.showModal({
         title: '赞赏',
-        content: `确认赞赏 ¥${num}？（${this.payWay === 'wechat' ? '微信支付' : '支付宝支付'}）`,
-        success: (r) => {
+        content: `确认赞赏 ¥${num.toFixed(2)}？（${this.payWay === 'wechat' ? '微信支付' : '支付宝支付'}）`,
+        success: async (r) => {
           if (!r.confirm) return;
-          // 模拟支付成功
-          const total = (storage.get('tip_total', 0) || 0) + num;
-          storage.set('tip_total', total);
-          this.totalAmount = total;
-          this.amount = '';
-          uni.showToast({ title: '赞赏成功，感谢支持！', icon: 'success' });
+          try {
+            await createTip({ amount: num, payWay: this.payWay, target: 'developer' });
+            this.amount = '';
+            this.loadTotal();
+            uni.showToast({ title: '赞赏成功，感谢支持！', icon: 'success' });
+          } catch (e) { /* 拦截器已提示 */ }
         }
       });
     }
@@ -95,7 +108,7 @@ export default {
 </script>
 
 <style scoped>
-.page { padding-bottom: 60rpx; min-height: 100vh; background: #f5f6f8; }
+.page { padding-bottom: 160rpx; min-height: 100vh; background: #f5f6f8; }
 .tip-card {
   background: #fff; margin: 24rpx; border-radius: 20rpx; padding: 8rpx 32rpx;
 }

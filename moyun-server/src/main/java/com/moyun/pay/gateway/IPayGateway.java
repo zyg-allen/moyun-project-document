@@ -4,6 +4,8 @@ import com.moyun.pay.channel.PayChannelRequest;
 import com.moyun.pay.channel.PayChannelResponse;
 import com.moyun.pay.domain.entity.PayOrder;
 
+import java.math.BigDecimal;
+
 import java.util.List;
 import java.util.Map;
 
@@ -23,11 +25,11 @@ public interface IPayGateway {
      * @param bizType 业务类型（tip/member/course/...）
      * @param bizNo   业务单号（业务方本地单 ID）
      * @param channel 支付渠道（wechat）
-     * @param amount  金额（分）
+     * @param amount  金额（元）
      * @param subject 商品描述
      * @return 支付单（含 codeUrl / payNo / expireTime）
      */
-    PayOrder createOrder(String bizType, String bizNo, String channel, long amount, String subject);
+    PayOrder createOrder(String bizType, String bizNo, String channel, BigDecimal amount, String subject);
 
     /**
      * 支付单状态查询（前端收银台轮询用）

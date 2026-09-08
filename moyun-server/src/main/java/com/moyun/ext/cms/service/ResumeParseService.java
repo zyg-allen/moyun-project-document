@@ -55,6 +55,9 @@ import java.util.regex.Pattern;
  */
 @Service
 public class ResumeParseService {
+    /** v11.39：本服务所属 AI 场景代码（绑定见 ai_scene_config，业务不感知模型选择） */
+    private static final String SCENE_RESUME_PARSE = "resume_parse";
+
 
     private static final Logger log = LoggerFactory.getLogger(ResumeParseService.class);
 
@@ -379,7 +382,7 @@ public class ResumeParseService {
                 + "skills[{name,level(精通/熟练/了解)}],selfIntro。"
                 + "规则：只抽取原文存在的信息，缺失返回null或空数组，禁止编造。"
                 + "只输出JSON本体，禁止markdown代码块。";
-        String response = llmClient.chat(systemPrompt, text);
+        String response = llmClient.chat(SCENE_RESUME_PARSE, systemPrompt, text);
         ResumeParseVO vo = objectMapper.readValue(extractJson(response), ResumeParseVO.class);
         vo.setAiPowered(true);
         return vo;

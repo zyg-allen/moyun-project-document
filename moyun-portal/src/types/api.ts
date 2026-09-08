@@ -1,4 +1,4 @@
-// API通用响应类型
+﻿// API通用响应类型
 export interface ApiResponse<T = any> {
   code: number;
   message: string;
@@ -2242,10 +2242,8 @@ export interface PayStatusResult {
   payNo: string;
   /** CREATED/PAID/SETTLED/CLOSED */
   status: string;
-  /** 金额（分） */
-  amount: number;
   /** 金额（元） */
-  amountYuan: number;
+  amount: number;
   expireTime?: string;
   codeUrl?: string;
   mockEnabled?: boolean;
@@ -2254,14 +2252,12 @@ export interface PayStatusResult {
 /** 账户总览 */
 export interface PayAccountOverview {
   userId: number | string;
-  /** 余额（分） */
-  balance: number;
   /** 余额（元） */
-  balanceYuan: number;
+  balance: number;
+  /** 累计收入（元） */
   totalIncome: number;
-  totalIncomeYuan: number;
+  /** 累计提现（元） */
   totalWithdraw: number;
-  totalWithdrawYuan: number;
 }
 
 /** 资金流水条目 */
@@ -2275,12 +2271,10 @@ export interface PayLedgerEntry {
   userId?: number | string;
   /** credit=收入 debit=支出 */
   direction?: string;
-  /** 金额（分） */
-  amount?: number;
   /** 金额（元） */
-  amountYuan?: number;
+  amount?: number;
+  /** 变动后余额（元） */
   balanceAfter?: number;
-  balanceAfterYuan?: number;
   summary?: string;
   createTime?: string;
 }

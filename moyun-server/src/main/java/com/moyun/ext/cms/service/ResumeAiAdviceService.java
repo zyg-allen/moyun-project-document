@@ -30,6 +30,9 @@ import java.util.List;
  */
 @Service
 public class ResumeAiAdviceService {
+    /** v11.39：本服务所属 AI 场景代码（绑定见 ai_scene_config，业务不感知模型选择） */
+    private static final String SCENE_RESUME_OPTIMIZE = "resume_optimize";
+
 
     private static final Logger log = LoggerFactory.getLogger(ResumeAiAdviceService.class);
 
@@ -99,7 +102,7 @@ public class ResumeAiAdviceService {
             }
         }
 
-        String llmResponse = llmClient.chat(systemPrompt, userMessage.toString());
+        String llmResponse = llmClient.chat(SCENE_RESUME_OPTIMIZE, systemPrompt, userMessage.toString());
         if (StringUtils.isEmpty(llmResponse)) {
             return null;
         }

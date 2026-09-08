@@ -1,7 +1,6 @@
 package com.moyun.pay.domain.entity;
 
 import com.baomidou.mybatisplus.annotation.IdType;
-import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
 
@@ -14,7 +13,7 @@ import java.time.LocalDateTime;
  * <p>状态机：CREATED(待支付) → PAID(已支付) → SETTLED(已分账)
  *            CREATED → CLOSED(已关闭, 超时/手动)；PAID/SETTLED 为终态
  *
- * <p>金额单位：分（long，全链路整型计算，展示层才转元）
+ * <p>金额单位：元（人民币，DECIMAL(18,2)，v11.31 统一；原 BIGINT 分方案已废止）
  *
  * @author moyun
  */
@@ -45,8 +44,8 @@ public class PayOrder {
     /** 支付渠道：wechat / alipay */
     private String channel;
 
-    /** 金额（分） */
-    private Long amount;
+    /** 金额（元） */
+    private BigDecimal amount;
 
     /** 商品描述 */
     private String subject;
@@ -84,10 +83,6 @@ public class PayOrder {
     /** 更新时间 */
     private LocalDateTime updateTime;
 
-    /** 金额（元，仅展示用，不落库） */
-    @TableField(exist = false)
-    private transient BigDecimal amountYuan;
-
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
     public String getPayNo() { return payNo; }
@@ -98,8 +93,8 @@ public class PayOrder {
     public void setBizNo(String bizNo) { this.bizNo = bizNo; }
     public String getChannel() { return channel; }
     public void setChannel(String channel) { this.channel = channel; }
-    public Long getAmount() { return amount; }
-    public void setAmount(Long amount) { this.amount = amount; }
+    public BigDecimal getAmount() { return amount; }
+    public void setAmount(BigDecimal amount) { this.amount = amount; }
     public String getSubject() { return subject; }
     public void setSubject(String subject) { this.subject = subject; }
     public String getStatus() { return status; }
@@ -124,6 +119,4 @@ public class PayOrder {
     public void setCreateTime(LocalDateTime createTime) { this.createTime = createTime; }
     public LocalDateTime getUpdateTime() { return updateTime; }
     public void setUpdateTime(LocalDateTime updateTime) { this.updateTime = updateTime; }
-    public BigDecimal getAmountYuan() { return amountYuan; }
-    public void setAmountYuan(BigDecimal amountYuan) { this.amountYuan = amountYuan; }
 }

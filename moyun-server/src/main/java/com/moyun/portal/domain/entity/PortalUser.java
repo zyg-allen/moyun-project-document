@@ -189,6 +189,10 @@ public class PortalUser extends BaseEntity {
     @TableField(exist = false)
     private String emailCode;
 
+    /** 短信验证码（手机号注册时校验，仅用于接口入参，不落库） */
+    @TableField(exist = false)
+    private String smsCode;
+
     public PortalUser() {
 
     }

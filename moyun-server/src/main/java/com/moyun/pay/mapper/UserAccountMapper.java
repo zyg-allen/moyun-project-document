@@ -6,11 +6,13 @@ import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Update;
 
+import java.math.BigDecimal;
+
 /**
  * 用户资金账户 Mapper（V11.0）
  *
  * <p>余额变动一律走这里的原子 SQL（带 balance >= 条件），配合乐观锁双保险，
- * 禁止先读后写。
+ * 禁止先读后写。金额单位：元（DECIMAL(18,2)）。
  *
  * @author moyun
  */
@@ -24,7 +26,7 @@ public interface UserAccountMapper extends BaseMapper<UserAccount> {
      */
     @Update("UPDATE pay_user_account SET balance = balance + #{amount}, total_income = total_income + #{amount}, "
             + "version = version + 1, update_time = NOW() WHERE user_id = #{userId}")
-    int creditBalance(@Param("userId") Long userId, @Param("amount") long amount);
+    int creditBalance(@Param("userId") Long userId, @Param("amount") BigDecimal amount);
 
     /**
      * 原子扣减（提现冻结）：带 balance >= 条件，天然防超扣
@@ -33,5 +35,5 @@ public interface UserAccountMapper extends BaseMapper<UserAccount> {
      */
     @Update("UPDATE pay_user_account SET balance = balance - #{amount}, total_withdraw = total_withdraw + #{amount}, "
             + "version = version + 1, update_time = NOW() WHERE user_id = #{userId} AND balance >= #{amount}")
-    int debitBalance(@Param("userId") Long userId, @Param("amount") long amount);
+    int debitBalance(@Param("userId") Long userId, @Param("amount") BigDecimal amount);
 }

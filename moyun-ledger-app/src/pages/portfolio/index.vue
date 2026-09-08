@@ -33,7 +33,7 @@
           </view>
           <view class="row-actions">
             <view class="pencil-btn" @tap.stop="editAsset(a)">✎</view>
-            <view class="row-balance">{{ privacyMode ? '****' : '¥ ' + centToAmount(a.balance) }}</view>
+            <view class="row-balance">{{ privacyMode ? '****' : '¥ ' + formatAmount(a.balance) }}</view>
           </view>
         </view>
       </view>
@@ -65,14 +65,14 @@
             </view>
             <view class="row-type">
               {{ liabTypeText(l.type) }}
-              <text v-if="l.monthlyPayment"> · 月供 ¥{{ centToAmount(l.monthlyPayment) }}</text>
+              <text v-if="l.monthlyPayment"> · 月供 ¥{{ formatAmount(l.monthlyPayment) }}</text>
               <text v-if="l.repaymentDay"> · {{ l.repaymentDay }}日还款</text>
               <text v-if="l.totalTerms"> · {{ l.paidTerms || 0 }}/{{ l.totalTerms }}期</text>
             </view>
           </view>
           <view class="row-actions">
             <view class="pencil-btn" @tap.stop="editLiability(l)">✎</view>
-            <view class="row-balance">{{ privacyMode ? '****' : '¥ ' + centToAmount(l.balance) }}</view>
+            <view class="row-balance">{{ privacyMode ? '****' : '¥ ' + formatAmount(l.balance) }}</view>
           </view>
         </view>
       </view>
@@ -155,7 +155,7 @@
 
 <script>
 import { listAssets, createAsset, updateAsset, deleteAsset, listLiabilities, createLiability, updateLiability, deleteLiability } from '@/api/ledger';
-import { centToAmount, centToYuan, yuanToCent, safeSumCents } from '@/utils/money';
+import { formatAmount, toFixedYuan, toNum, safeSum } from '@/utils/money';
 import { useThemeStore } from '@/stores/theme';
 
 const ASSET_TYPES = [
@@ -203,7 +203,7 @@ export default {
     assetFilteredList() { return this.showArchived ? this.accounts : this.assetEnabled; },
     assetTotalText() {
       const list = this.assetEnabled.filter(a => a.includeInTotal === 1);
-      return centToAmount(safeSumCents(list, 'balance'));
+      return formatAmount(safeSum(list, 'balance'));
     },
     liabActive() { return this.liabilities.filter(l => l.status === 1 && l.settleFlag !== 1); },
     settledCount() { return this.liabilities.filter(l => l.settleFlag === 1).length; },
@@ -212,7 +212,7 @@ export default {
     },
     liabTotalText() {
       const list = this.liabilities.filter(l => l.status === 1 && l.settleFlag !== 1 && l.includeInTotal === 1);
-      return centToAmount(safeSumCents(list, 'balance'));
+      return formatAmount(safeSum(list, 'balance'));
     }
   },
   onShow() {
@@ -232,7 +232,7 @@ export default {
       uni.navigateTo({ url: '/pages/record/list?' + p.join('&') });
     },
     switchTab(tab) { this.activeTab = tab; },
-    centToAmount,
+    formatAmount,
     // ===== 资产 =====
     assetIcon(type) { return ASSET_ICONS[type] || ASSET_ICONS.other; },
     assetTypeText(type) {
@@ -268,7 +268,7 @@ export default {
         } else {
           await createAsset({
             name: this.assetForm.name, type: this.assetForm.type, includeInTotal: this.assetForm.includeInTotal,
-            initialBalance: yuanToCent(this.assetForm.initialBalance)
+            initialBalance: toNum(this.assetForm.initialBalance)
           });
         }
         this.assetEditing = false;
@@ -309,7 +309,7 @@ export default {
     editLiability(l) {
       this.liabForm = {
         id: l.id, name: l.name, type: l.type, initialBalance: '',
-        monthlyPayment: l.monthlyPayment ? centToYuan(l.monthlyPayment) : '',
+        monthlyPayment: l.monthlyPayment ? toFixedYuan(l.monthlyPayment) : '',
         repaymentDay: l.repaymentDay, totalTerms: l.totalTerms || '', includeInTotal: l.includeInTotal
       };
       this.liabEditing = true;
@@ -326,15 +326,15 @@ export default {
         if (this.liabForm.id) {
           await updateLiability(this.liabForm.id, {
             name: this.liabForm.name, type: this.liabForm.type, includeInTotal: this.liabForm.includeInTotal,
-            monthlyPayment: this.liabForm.monthlyPayment ? yuanToCent(this.liabForm.monthlyPayment) : null,
+            monthlyPayment: this.liabForm.monthlyPayment ? toNum(this.liabForm.monthlyPayment) : null,
             repaymentDay: this.liabForm.repaymentDay || null,
             totalTerms: this.liabForm.totalTerms ? Number(this.liabForm.totalTerms) : null
           });
         } else {
           await createLiability({
             name: this.liabForm.name, type: this.liabForm.type, includeInTotal: this.liabForm.includeInTotal,
-            initialBalance: yuanToCent(this.liabForm.initialBalance),
-            monthlyPayment: this.liabForm.monthlyPayment ? yuanToCent(this.liabForm.monthlyPayment) : null,
+            initialBalance: toNum(this.liabForm.initialBalance),
+            monthlyPayment: this.liabForm.monthlyPayment ? toNum(this.liabForm.monthlyPayment) : null,
             repaymentDay: this.liabForm.repaymentDay || null,
             totalTerms: this.liabForm.totalTerms ? Number(this.liabForm.totalTerms) : null
           });

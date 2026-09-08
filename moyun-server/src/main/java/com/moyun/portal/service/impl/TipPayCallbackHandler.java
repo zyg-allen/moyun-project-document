@@ -23,6 +23,8 @@ import java.util.List;
  * <p>网关支付成功后在事务内调用：打赏单 pending→paid → 复式分账（平台抽成+作者所得）
  * → 双方站内通知。任一步失败整体回滚（网关会因渠道重试再次驱动）。
  *
+ * <p>金额单位：元（v11.31 统一，与打赏单/支付单/分账流水全链路一致）。
+ *
  * @author moyun
  */
 @Component
@@ -76,8 +78,8 @@ public class TipPayCallbackHandler implements PayCallbackHandler {
                 payOrder.getAmount(), tipOrder.getAuthorId(), "打赏");
 
         // 3. 双方站内通知（事务内，与分账同成败）
-        long platformAmount = 0;
-        long authorAmount = 0;
+        BigDecimal platformAmount = BigDecimal.ZERO;
+        BigDecimal authorAmount = BigDecimal.ZERO;
         for (LedgerEntry entry : entries) {
             if (LedgerEntry.ROLE_PLATFORM.equals(entry.getAccountRole())) {
                 platformAmount = entry.getAmount();
@@ -86,8 +88,7 @@ public class TipPayCallbackHandler implements PayCallbackHandler {
                 authorAmount = entry.getAmount();
             }
         }
-        BigDecimal amountYuan = BigDecimal.valueOf(payOrder.getAmount(), 2);
-        BigDecimal authorYuan = BigDecimal.valueOf(authorAmount, 2);
+        BigDecimal amountYuan = payOrder.getAmount();
         // 打赏者：支付成功
         notificationService.send(tipOrder.getUserId(), "pay", payOrder.getPayNo(),
                 "打赏支付成功",
@@ -95,9 +96,9 @@ public class TipPayCallbackHandler implements PayCallbackHandler {
         // 作者：到账通知（含分账明细）
         notificationService.send(tipOrder.getAuthorId(), "account", payOrder.getPayNo(),
                 "收到一笔打赏",
-                "你收到一笔 " + amountYuan + " 元打赏，扣除平台服务费后实际到账 " + authorYuan
+                "你收到一笔 " + amountYuan + " 元打赏，扣除平台服务费后实际到账 " + authorAmount
                         + " 元，已计入钱包余额。");
-        log.info("[tip-callback] 打赏闭环完成 tipOrderId={} payNo={} amount={}分 author={}分 platform={}分",
+        log.info("[tip-callback] 打赏闭环完成 tipOrderId={} payNo={} amount={}元 author={}元 platform={}元",
                 tipOrderId, payOrder.getPayNo(), payOrder.getAmount(), authorAmount, platformAmount);
     }
 }

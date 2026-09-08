@@ -47,14 +47,15 @@ export function logout() {
   })
 }
 
-// 获取验证码
-export function getCodeImg() {
+// 获取验证码（username 可选：全局开关关闭时，后端按账号风险判定——密码错误过多/长时间未登录——决定是否下发验证码）
+export function getCodeImg(username) {
   return request({
     url: '/captchaImage',
     headers: {
       isToken: false
     },
     method: 'get',
+    params: username ? { username } : undefined,
     timeout: 20000
   })
 }

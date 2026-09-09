@@ -213,8 +213,8 @@ export const uploadVoucher = (filePath) => {
 
 // ---------------- AI 财务分析 ----------------
 
-/** 财务分析报告：画像/指标/收入来源/债务风险/建议/LLM 综述 */
-export const getAiAnalysis = () => get('/portal/ledger/ai/analysis');
+/** 财务分析报告：画像/指标/收入来源/债务风险/建议/LLM 综述（LLM 综述经统一网关 finance_analysis 场景生成） */
+export const getAiAnalysis = (params) => get('/portal/ledger/ai/analysis', params);
 export const listAiReports = (params) => httpGet('/portal/ledger/ai/reports', params);
 
 /** 用户画像（含身份标签字典选项） */

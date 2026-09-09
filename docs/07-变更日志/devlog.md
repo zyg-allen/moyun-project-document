@@ -5,6 +5,55 @@
 
 ***
 
+## v11.43 (2026-09-09) 财务分析接入 AI 统一网关 + 场景管理页下拉/注册表修复
+
+### 财务分析走统一网关（finance_analysis 示范接入）
+- **FinanceAnalysisHandler**：新增「业务透传模式」——input.prompt 携带业务侧已构建的完整提示词时直接对话返回综述文本（data.summary）；原 ledgerData 结构化模式保留。网关的限流/缓存/执行日志/降级策略对业务内部调用同样生效
+- **LedgerAiAnalysisServiceImpl.callLlm(userId, prompt)**：优先经 `AiGatewayService.execute`（scene=finance_analysis，userId 用于用户级限流）；网关不可用/场景未启用配置/调用失败时回落 v11.39 直调链路（`callLlmDirect`），业务降级模板行为不变
+- **generateSummary 增加 userId 参数**透传至网关
+
+### 场景管理页两处修复（ai/scene/index.vue）
+- **场景代码改下拉**：原自由输入框 → el-select，选项来自 `/cms/ai/scene/registry`（AiSceneEnum 注册表，与 Handler Bean 注册一致，新增 Handler 需同步加枚举）；filterable + allow-create 兜底，编辑态锁定不可改
+- **注册表总览修复 0 个场景**：根因是 onMounted 从未调用 `sceneRegistry()`，registry 恒为空数组。新增 `loadRegistry()` 并在 onMounted 调用（复用已有接口与 `cms:ai:scene:list` 权限）
+
+### SQL（20260909-ai2-unified-gateway.sql 追加）
+- 为 7 个枚举场景补幂等 INSERT 默认启用配置行（finance_analysis / voice_interview / resume_parse / resume_optimize / question_generate + 已有 sensitive_word / daily_topic）——原 UPDATE 仅命中已有行，无行场景网关 `getConfig()` 返回 null 导致 SCENE_NOT_FOUND
+
+### 验证
+- 重启 moyun-server → 进 `/ai/ai-config/scene`：注册表总览应显示 7 个场景；新增配置时场景代码为下拉
+- 记账分析页（`/pages/analysis/index`）触发分析 → 服务端日志出现 `[ai2:网关] 请求: scene=finance_analysis` 与 `ai_execute_log` 落记录
+
+### 命名统一（同日追加）
+- `AiExecuteRequest` / `AiExecuteResponse` 字段 `scene` → `sceneCode`（对外 JSON 字段同步变化：POST /api/ai/execute 的 body 与响应体）
+- 同步修改：LedgerAiAnalysisServiceImpl（setSceneCode）、AiGatewayController 注释、AiSceneRegistry.listScenes 返回 key（scene→sceneCode）
+- 前端三工程尚无网关调用方，无需改动；后续前端接入统一用 `sceneCode`
+
+## v11.41 (2026-09-09) AI 统一接入层：ai_scene_config 增量加列 + ai_execute_log 日志表
+
+### 背景
+原方案新建 `ai2_scene_registry` 独立表，但绑定字段（agent_id/model_id/workflow_id/knowledge_base_ids/tool_ids）与已有 `ai_scene_config` 完全重复，且底座 `AiSceneResolver.resolveChatModel()` 已按 Agent→直绑模型→默认 责任链解析了绑定关系（v11.39 已完成）。改为对 `ai_scene_config` 增量加列，避免数据割裂和重复 CRUD。
+
+### SQL 变更（20260909-ai2-unified-gateway.sql）
+- **ai_scene_config 增量加列 20 个**（ALTER TABLE）：scene_category / handler_bean_name / handler_method / system_prompt_template / user_prompt_template / prompt_placeholders / output_mode / output_schema / output_parser / max_tokens / temperature / timeout_seconds / retry_count / rate_limit_key / rate_limit_count / rate_limit_time / fallback_model_id / fallback_response / enable_cache / cache_ttl
+- **ai_execute_log 独立新建**（纯日志表，无 update_time/deleted，不继承 AiBaseEntity）
+- 前缀统一 ai_，废弃 ai2_ 前缀
+- UPDATE 已有 5 个场景补充 handler_bean_name / scene_category
+- INSERT 新增 sensitive_word / daily_topic 两个场景（幂等）
+
+### 后端
+- **AiSceneConfig 实体**：补 20 个执行层字段（BigDecimal temperature / Integer maxTokens 等）
+- **AiSceneEnum**：补 SENSITIVE_WORD / DAILY_TOPIC 两个场景枚举
+- **AiExecuteLog 实体 + Mapper**：新建（纯日志，不继承 AiBaseEntity）
+- Mapper 无 XML（纯 BaseMapper），Service/Controller 标准 CRUD 无需改动
+
+### 前端（admin-vue）
+- **ai/scene/index.vue**：表单弹窗从 720px 扩为 860px，改为 3 个 Tab 分组
+  - 基础配置：原字段 + scene_category + 行内排列权重/优先级/默认/启用
+  - 执行配置：Handler / Prompt 模板 / 输出模式 / 温度 / Token / 超时 / 重试
+  - 限流与降级：限流三件套 / 备用模型 / 兜底回复 / 缓存
+- 表格列表补「分类」「Handler」两列
+- `makeDefaultForm` / `handleEdit` 同步 20 个新字段的默认值与回填
+
 ## v11.40 (2026-09-08) AI 分析快照数据指纹自动失效 + 借款自动建户欠款双倍修复
 
 ### AI 分析快照：数据指纹（免手动 refresh）

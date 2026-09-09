@@ -15,6 +15,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -90,6 +91,10 @@ public class AiSceneConfigController {
             if (error != null) {
                 return AjaxResult.error(error);
             }
+            String jsonError = normalizeJsonColumns(config);
+            if (jsonError != null) {
+                return AjaxResult.error(jsonError);
+            }
             if (config.getEnabled() == null) {
                 config.setEnabled(true);
             }
@@ -99,6 +104,7 @@ public class AiSceneConfigController {
             if (config.getPriority() == null) {
                 config.setPriority(0);
             }
+            config.setCreateTime(LocalDateTime.now());
             sceneConfigService.save(config);
             log.info("新增场景配置成功 - ID: {}, sceneCode: {}, version: {}",
                     config.getId(), config.getSceneCode(), config.getVersion());
@@ -120,6 +126,10 @@ public class AiSceneConfigController {
             String error = validate(config, config.getId());
             if (error != null) {
                 return AjaxResult.error(error);
+            }
+            String jsonError = normalizeJsonColumns(config);
+            if (jsonError != null) {
+                return AjaxResult.error(jsonError);
             }
             sceneConfigService.updateById(config);
             log.info("更新场景配置成功 - ID: {}", config.getId());
@@ -203,5 +213,41 @@ public class AiSceneConfigController {
             return "同场景下版本号已存在: " + config.getSceneCode() + " / " + config.getVersion();
         }
         return null;
+    }
+
+    /**
+     * v11.43：JSON 列归一化——prompt_placeholders / output_schema 是 MySQL JSON 类型，
+     * 前端默认提交空字符串会导致 "Invalid JSON text: The document is empty"。
+     * 空白 → null（存 NULL），非空则校验语法，非法 JSON 返回友好错误而非数据库异常。
+     */
+    private String normalizeJsonColumns(AiSceneConfig config) {
+        String placeholders = config.getPromptPlaceholders();
+        if (placeholders != null && placeholders.isBlank()) {
+            config.setPromptPlaceholders(null);
+        } else if (placeholders != null) {
+            String error = checkJsonSyntax(placeholders, "占位符说明");
+            if (error != null) {
+                return error;
+            }
+        }
+        String schema = config.getOutputSchema();
+        if (schema != null && schema.isBlank()) {
+            config.setOutputSchema(null);
+        } else if (schema != null) {
+            String error = checkJsonSyntax(schema, "输出结构定义");
+            if (error != null) {
+                return error;
+            }
+        }
+        return null;
+    }
+
+    private String checkJsonSyntax(String json, String fieldLabel) {
+        try {
+            new com.fasterxml.jackson.databind.ObjectMapper().readTree(json);
+            return null;
+        } catch (Exception e) {
+            return fieldLabel + "不是合法的 JSON：" + e.getMessage();
+        }
     }
 }

@@ -19,7 +19,7 @@ public class AiExecuteResponse<T> {
     private String requestId;
 
     /** 场景代码 */
-    private String scene;
+    private String sceneCode;
 
     /** 0=成功，非0=失败（见 {@link AiErrorCodes}） */
     private Integer code;

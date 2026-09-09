@@ -20,7 +20,8 @@
     { "path": "pages/mine/tip/index", "style": { "navigationBarTitleText": "赞赏" } },
     { "path": "pages/mine/memo/index", "style": { "navigationBarTitleText": "备忘录" } },
     { "path": "pages/mine/feedback/index", "style": { "navigationBarTitleText": "意见反馈" } },
-    { "path": "pages/mine/register/index", "style": { "navigationBarTitleText": "注册账号" } }
+    { "path": "pages/mine/register/index", "style": { "navigationBarTitleText": "注册账号" } },
+    { "path": "pages/mine/login/index", "style": { "navigationBarTitleText": "账号登录" } }
   ],
   "globalStyle": {
     "navigationStyle": "custom",

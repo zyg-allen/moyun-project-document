@@ -1,8 +1,8 @@
 package com.moyun.ext.ai2.handler;
 
+import com.moyun.ext.ai.entity.AiSceneConfig;
 import com.moyun.ext.ai.exception.BusinessException;
 import com.moyun.ext.ai.exception.ErrorCode;
-import com.moyun.ext.ai2.entity.AiSceneRegistryConfig;
 import com.moyun.ext.ai2.model.AiExecuteRequest;
 import com.moyun.ext.ai2.model.AiExecuteResponse;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
@@ -13,7 +13,7 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
  * <p>每个AI场景实现一个Handler，由 {@code AiSceneRegistry} 按 sceneCode 注册路由。
  * 依据《AI能力统一接入层 — 完整方案文档》V2.0 §5.1。</p>
  *
- * <p>新增场景三步：1）实现本接口并注册为Spring Bean；2）ai2_scene_registry 表插入场景配置行；
+ * <p>新增场景三步：1）实现本接口并注册为Spring Bean；2）ai_scene_config 表插入场景配置行；
  * 3）调用统一入口 POST /api/ai/execute。核心编排代码（网关）零改动。</p>
  *
  * @author laomao
@@ -22,7 +22,7 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 public interface AiSceneHandler {
 
     /**
-     * 场景代码（用于注册，须与 ai2_scene_registry.scene_code 一致）
+     * 场景代码（用于注册，须与 ai_scene_config.scene_code 一致）
      */
     String getSceneCode();
 
@@ -59,14 +59,14 @@ public interface AiSceneHandler {
     /**
      * 构建系统提示词（默认读取场景配置模板并渲染占位符）
      */
-    default String buildSystemPrompt(AiExecuteRequest request, AiSceneRegistryConfig config) {
+    default String buildSystemPrompt(AiExecuteRequest request, AiSceneConfig config) {
         return null;
     }
 
     /**
      * 构建用户提示词（默认读取场景配置模板并渲染占位符）
      */
-    default String buildUserPrompt(AiExecuteRequest request, AiSceneRegistryConfig config) {
+    default String buildUserPrompt(AiExecuteRequest request, AiSceneConfig config) {
         return null;
     }
 }

@@ -1,7 +1,11 @@
 package com.moyun.core.sms;
 
+import com.moyun.common.annotation.Anonymous;
+import com.moyun.common.constant.Constants;
 import com.moyun.core.base.AjaxResult;
+import com.moyun.core.config.redis.RedisCache;
 import com.moyun.portal.util.PortalSecurityUtils;
+import com.moyun.system.service.ISysConfigService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -30,10 +34,21 @@ public class PortalSmsController {
     @Autowired
     private SmsCodeService smsCodeService;
 
+    @Autowired
+    private RedisCache redisCache;
+
+    @Autowired
+    private ISysConfigService configService;
+
     /**
      * 发送验证码（bankcard/member 场景需登录；register 场景匿名可发——注册时用户尚未登录，
      * 服务层已有 60s 间隔 + 日限额 + IP 层 @RateLimiter 防轰炸）
+     * <p>v11.41：方法级 @Anonymous 放行安全链（场景级登录校验由下方 if 兜底，
+     * 非 register 场景未登录返回 401 业务错误）
+     * <p>v11.42：register 场景发送前强制图形验证码人机校验（跟随 sys.account.captchaEnabled 开关，
+     * 开启时前端弹窗输入，验证码一次性作废防重放）
      */
+    @Anonymous
     @PostMapping("/code/send")
     public AjaxResult sendCode(@RequestBody Map<String, String> body) {
         String phone = body.get("phone");
@@ -46,6 +61,12 @@ public class PortalSmsController {
             if (userId == null) {
                 return AjaxResult.error(401, "登录已过期，请重新登录");
             }
+        } else {
+            // register 匿名场景：图形验证码人机校验（开关开启时）
+            AjaxResult captchaError = validateCaptcha(body);
+            if (captchaError != null) {
+                return captchaError;
+            }
         }
         try {
             smsCodeService.sendCode(phone, scene);
@@ -55,6 +76,33 @@ public class PortalSmsController {
         } catch (IllegalStateException e) {
             return AjaxResult.error(e.getMessage());
         }
+    }
+
+    /**
+     * 图形验证码校验（register 场景专用）
+     *
+     * @return 校验失败返回错误 AjaxResult；通过（或开关关闭）返回 null
+     */
+    private AjaxResult validateCaptcha(Map<String, String> body) {
+        if (!configService.selectCaptchaEnabled()) {
+            return null; // 全局开关关闭，依靠 60s 间隔 + 日限额 + IP 限流
+        }
+        String code = body.get("code");
+        String uuid = body.get("uuid");
+        if (code == null || code.isBlank() || uuid == null || uuid.isBlank()) {
+            return AjaxResult.error("请输入图形验证码");
+        }
+        String verifyKey = Constants.CAPTCHA_CODE_KEY + uuid;
+        String captcha = redisCache.getCacheObject(verifyKey);
+        // 一次性作废：无论对错都删除，防止同一 uuid 重放撞库
+        redisCache.deleteObject(verifyKey);
+        if (captcha == null) {
+            return AjaxResult.error("验证码已过期，请刷新后重试");
+        }
+        if (!code.trim().equalsIgnoreCase(captcha)) {
+            return AjaxResult.error("图形验证码错误");
+        }
+        return null;
     }
 
     /**

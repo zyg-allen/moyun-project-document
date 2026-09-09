@@ -13,7 +13,7 @@ import java.util.Map;
  * <p>使用方式：POST /api/ai/execute，body 示例：</p>
  * <pre>
  * {
- *   "scene": "sensitive_word",
+ *   "sceneCode": "sensitive_word",
  *   "input": { "text": "待检测文本" }
  * }
  * </pre>
@@ -26,7 +26,7 @@ public class AiExecuteRequest {
 
     /** 场景代码（必填）：voice_interview/resume_parse/resume_optimize/question_generate/finance_analysis/sensitive_word/daily_topic */
     @NotBlank(message = "场景代码不能为空")
-    private String scene;
+    private String sceneCode;
 
     /** 业务参数（各场景Handler自定义取值） */
     private Map<String, Object> input;

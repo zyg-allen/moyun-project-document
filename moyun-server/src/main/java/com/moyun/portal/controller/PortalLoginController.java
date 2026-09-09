@@ -79,17 +79,16 @@ public class PortalLoginController {
 
     /**
      * 注册方法
+     * <p>v11.42：人机校验已前移至发送短信/邮箱验证码时的图形码弹窗（一次性作废），
+     * 注册提交不再校验图形码，由短信/邮箱验证码（一次性消费）+ IP 限流保护。
      */
     @Operation(summary = "用户注册", description = "注册新门户用户")
-    @RateLimiter(time = 3600, count = 3, limitType = LimitType.IP)
+    // v11.42：NAT 共享 IP（校园网/公司）下同 IP 众多真实用户，原 3次/小时 会误伤；
+    // 放宽为 20次/10分钟 防脚本轰炸，真实用户几乎无感（有人机校验+短信/邮箱验证码兜底）
+    @RateLimiter(time = 600, count = 20, limitType = LimitType.IP)
     @PostMapping("/register")
     public AjaxResult register(
             @Parameter(description = "用户信息") @RequestBody PortalUser portalUser) {
-        // 验证码校验（受 sys.account.captchaEnabled 开关控制，关闭时跳过）
-        String captchaError = portalLoginService.validateCaptcha(portalUser.getCode(), portalUser.getUuid());
-        if (captchaError != null) {
-            return AjaxResult.error(captchaError);
-        }
 
         if (StringUtils.isEmpty(portalUser.getUsername()) || StringUtils.isEmpty(portalUser.getPassword())) {
             return AjaxResult.error("用户名或密码不能为空");
@@ -119,6 +118,7 @@ public class PortalLoginController {
             if (!portalEmailService.verifyCode(portalUser.getEmail(), portalUser.getEmailCode(), "register")) {
                 return AjaxResult.error("邮箱验证码错误或已过期");
             }
+            // v11.42：verifyCode 改为校验通过即一次性消费（与短信一致），无需再补 consumeCode
         }
 
         // 设置默认角色
@@ -137,9 +137,7 @@ public class PortalLoginController {
 
         boolean success = portalUserService.registerPortalUser(portalUser);
         if (success) {
-            // 注册成功：消费邮箱验证码使其失效（一次性使用）
-            portalEmailService.consumeCode(portalUser.getEmail(), "register");
-            // 注册成功后，直接登录并返回 token
+            // 注册成功后，直接登录并返回 token（验证码已在上方校验时一次性消费）
             // 注意：此处使用注册前的明文密码做认证，BCryptPasswordEncoder.matches 会自动完成校验
             Authentication authentication = authenticationManager.authenticate(
                     new UsernamePasswordAuthenticationToken(portalUser.getUsername(), rawPassword));

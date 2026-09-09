@@ -11,7 +11,7 @@ import java.time.Duration;
  * 场景限流器（Redis 固定窗口计数）
  *
  * <p>依据《AI能力统一接入层 — 完整方案文档》V2.0 §5.3 第4步。限流维度：场景 × 用户，
- * 参数来自 ai2_scene_registry 的 rate_limit_count / rate_limit_time。</p>
+ * 参数来自 ai_scene_config 的 rate_limit_count / rate_limit_time。</p>
  *
  * <p>与底座 RateLimiter（内存版，单机）不同，本实现基于 Redis INCR + EXPIRE，多实例部署下同样生效。</p>
  *

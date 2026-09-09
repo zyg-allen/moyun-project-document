@@ -1,5 +1,7 @@
 package com.moyun.ext.ai.enums;
 
+import lombok.Getter;
+
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -18,6 +20,7 @@ import java.util.stream.Collectors;
  *
  * @author moyun
  */
+@Getter
 public enum AiSceneEnum {
 
     VOICE_INTERVIEW("voice_interview", "AI 语音面试",
@@ -43,7 +46,17 @@ public enum AiSceneEnum {
     FINANCE_ANALYSIS("finance_analysis", "AI 财务分析",
             "多维指标聚合 + 财务健康评分 + LLM 综述",
             "记账流水（月/3月/6月/12月窗口）+ 用户画像",
-            "财务分析报告（指标/风险/建议/综述）");
+            "财务分析报告（指标/风险/建议/综述）"),
+
+    SENSITIVE_WORD("sensitive_word", "敏感词检测",
+            "文本敏感词识别与风险分级",
+            "待检测文本",
+            "风险等级 + 命中词列表"),
+
+    DAILY_TOPIC("daily_topic", "今日主题",
+            "每日主题生成",
+            "日期 + 用户偏好",
+            "主题文案 + 配图建议");
 
     /** 场景代码（数据库 ai_scene_config.scene_code） */
     private final String code;
@@ -63,12 +76,6 @@ public enum AiSceneEnum {
         this.input = input;
         this.output = output;
     }
-
-    public String getCode() { return code; }
-    public String getName() { return name; }
-    public String getCapability() { return capability; }
-    public String getInput() { return input; }
-    public String getOutput() { return output; }
 
     /** 是否已注册的场景代码 */
     public static boolean isRegistered(String code) {

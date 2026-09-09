@@ -81,6 +81,10 @@ public class LedgerAiAnalysisServiceImpl implements ILedgerAiAnalysisService {
     @Autowired(required = false)
     private AiSceneResolver sceneResolver;
 
+    /** v11.43：AI 统一网关（com.moyun.ext.ai2）：限流/缓存/日志/降级统一编排 */
+    @Autowired(required = false)
+    private com.moyun.ext.ai2.service.AiGatewayService aiGatewayService;
+
     /** 分析维度 → 窗口起始（自然月对齐）与展示文案 */
     private static final Map<String, Integer> RANGE_MONTHS = Map.of("month", 0, "3m", 3, "6m", 6, "year", 12);
     private static final Map<String, String> RANGE_LABEL = Map.of("month", "本月", "3m", "近3个月", "6m", "近6个月", "year", "近12个月");
@@ -322,7 +326,7 @@ public class LedgerAiAnalysisServiceImpl implements ILedgerAiAnalysisService {
         indicators.put("rangeStart", rangeStart.toString());
 
         // ===== LLM 综述（失败降级模板） =====
-        String aiSummary = generateSummary(indicators, incomeSources, debtRisks, user);
+        String aiSummary = generateSummary(userId, indicators, incomeSources, debtRisks, user);
         boolean aiEnabled = !aiSummary.startsWith("（模板");
 
         // ===== v11.36：落库月度快照（当月 UNIQUE，存在则覆盖） =====
@@ -592,12 +596,12 @@ public class LedgerAiAnalysisServiceImpl implements ILedgerAiAnalysisService {
         return (cnt == null ? 0 : cnt) + "@" + (last == null ? "null" : last);
     }
 
-    /** LLM 生成综述（失败降级模板） */
-    private String generateSummary(Map<String, Object> indicators,
+    /** LLM 生成综述（失败降级模板；v11.43 走统一网关，userId 用于网关侧用户级限流） */
+    private String generateSummary(Long userId, Map<String, Object> indicators,
                                    List<Map<String, Object>> incomeSources,
                                    List<Map<String, Object>> debtRisks, PortalUser user) {
         String prompt = buildPrompt(indicators, incomeSources, debtRisks, user);
-        String llm = callLlm(prompt);
+        String llm = callLlm(userId, prompt);
         if (llm != null && !llm.isEmpty()) {
             return llm.trim();
         }
@@ -671,10 +675,39 @@ public class LedgerAiAnalysisServiceImpl implements ILedgerAiAnalysisService {
         }
     }
     /**
-     * 调用 LLM（v11.39 场景感知：finance_analysis 有绑定则用绑定模型，否则默认模型；未配置/失败返回 null）
-     * 模型选择走 AiSceneResolver 工厂（责任链：Agent → 直绑模型 → 默认），业务只带场景码。
+     * 调用 LLM（v11.43 统一网关优先：finance_analysis 场景经 AiGatewayService 编排，
+     * 享受限流/缓存/执行日志/降级策略；网关不可用或场景未启用配置时回落 v11.39 直调链路）
      */
-    private String callLlm(String prompt) {
+    private String callLlm(Long userId, String prompt) {
+        // 1. v11.43 统一网关（input.prompt 业务透传模式）
+        if (aiGatewayService != null) {
+            try {
+                com.moyun.ext.ai2.model.AiExecuteRequest req = new com.moyun.ext.ai2.model.AiExecuteRequest();
+                req.setSceneCode(SCENE_FINANCE_ANALYSIS);
+                req.setUserId(userId);
+                Map<String, Object> input = new HashMap<>();
+                input.put("prompt", prompt);
+                req.setInput(input);
+                com.moyun.ext.ai2.model.AiExecuteResponse<?> resp = aiGatewayService.execute(req);
+                if (resp != null && resp.getCode() != null
+                        && resp.getCode() == com.moyun.ext.ai2.constant.AiErrorCodes.SUCCESS
+                        && resp.getData() instanceof Map<?, ?> data
+                        && data.get("summary") != null) {
+                    return String.valueOf(data.get("summary"));
+                }
+                log.info("AI 财务综述走网关未成功（code={}），回落直调链路", resp == null ? null : resp.getCode());
+            } catch (Exception e) {
+                log.warn("AI 财务综述网关调用异常，回落直调: {}", e.getMessage());
+            }
+        }
+        // 2. 回落：v11.39 场景感知直调（网关未启用/场景未配置/网关降级兜底时）
+        return callLlmDirect(prompt);
+    }
+
+    /**
+     * v11.39 原直调链路（网关回落通道）：场景绑定模型优先，无绑定默认模型
+     */
+    private String callLlmDirect(String prompt) {
         if (modelConfigService == null) {
             return null;
         }

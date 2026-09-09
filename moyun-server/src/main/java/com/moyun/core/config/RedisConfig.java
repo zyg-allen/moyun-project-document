@@ -78,6 +78,10 @@ public class RedisConfig extends CachingConfigurerSupport {
 
     /**
      * 限流脚本
+     * <p>v11.42 修复：原脚本仅在 INCR 结果为 1 时设置过期，存在两类问题：
+     * 1）限流 key 过期删除与 INCR 竞态会产生无 TTL 的永生 key，计数只增不减，永久"访问过于频繁"；
+     * 2）已超限分支不刷新 TTL，长窗口限流叠加反复触发时窗口被无限拉长。
+     * 现改为：每次到达都刷新过期时间（滑动窗口语义），彻底杜绝永生 key。</p>
      */
     private String limitScriptText() {
         return "local key = KEYS[1]\n" +
@@ -85,12 +89,11 @@ public class RedisConfig extends CachingConfigurerSupport {
                 "local time = tonumber(ARGV[2])\n" +
                 "local current = redis.call('get', key);\n" +
                 "if current and tonumber(current) > count then\n" +
+                "    redis.call('expire', key, time)\n" +
                 "    return tonumber(current);\n" +
                 "end\n" +
                 "current = redis.call('incr', key)\n" +
-                "if tonumber(current) == 1 then\n" +
-                "    redis.call('expire', key, time)\n" +
-                "end\n" +
+                "redis.call('expire', key, time)\n" +
                 "return tonumber(current);";
     }
 }

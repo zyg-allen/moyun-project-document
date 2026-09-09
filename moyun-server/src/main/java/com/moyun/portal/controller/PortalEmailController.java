@@ -2,9 +2,12 @@ package com.moyun.portal.controller;
 
 import com.moyun.common.annotation.Anonymous;
 import com.moyun.common.annotation.RateLimiter;
+import com.moyun.common.constant.Constants;
 import com.moyun.common.enums.LimitType;
 import com.moyun.core.base.AjaxResult;
+import com.moyun.core.config.redis.RedisCache;
 import com.moyun.portal.service.PortalEmailService;
+import com.moyun.system.service.ISysConfigService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -33,6 +36,12 @@ public class PortalEmailController {
     @Autowired
     private PortalEmailService portalEmailService;
 
+    @Autowired
+    private RedisCache redisCache;
+
+    @Autowired
+    private ISysConfigService configService;
+
     /**
      * 发送邮箱验证码
      * <p>
@@ -41,14 +50,48 @@ public class PortalEmailController {
      *     <li>register：注册时校验邮箱真实性，且要求邮箱未注册</li>
      *     <li>reset_password：找回密码，要求邮箱已注册</li>
      * </ul>
+     * <p>v11.42：发送前强制图形验证码人机校验（跟随 sys.account.captchaEnabled 开关，
+     * 与短信 /portal/sms/code/send 同一套弹窗交互，验证码一次性作废防重放）
      */
     @Operation(summary = "发送邮箱验证码", description = "注册/找回密码场景")
     @RateLimiter(time = 60, count = 3, limitType = LimitType.IP)
     @PostMapping("/code")
     public AjaxResult sendCode(@Parameter(description = "邮箱与场景") @RequestBody Map<String, String> body) {
+        // 图形验证码人机校验（开关开启时；逻辑与 PortalSmsController 一致）
+        AjaxResult captchaError = validateCaptcha(body);
+        if (captchaError != null) {
+            return captchaError;
+        }
         String email = body.get("email");
         String type = body.get("type");
         return portalEmailService.sendCode(email, type);
+    }
+
+    /**
+     * 图形验证码校验（发送邮箱验证码前的人机校验）
+     *
+     * @return 校验失败返回错误 AjaxResult；通过（或开关关闭）返回 null
+     */
+    private AjaxResult validateCaptcha(Map<String, String> body) {
+        if (!configService.selectCaptchaEnabled()) {
+            return null; // 全局开关关闭，依靠 IP 限流 + 服务层频控兜底
+        }
+        String code = body.get("code");
+        String uuid = body.get("uuid");
+        if (code == null || code.isBlank() || uuid == null || uuid.isBlank()) {
+            return AjaxResult.error("请输入图形验证码");
+        }
+        String verifyKey = Constants.CAPTCHA_CODE_KEY + uuid;
+        String captcha = redisCache.getCacheObject(verifyKey);
+        // 一次性作废：无论对错都删除，防止同一 uuid 重放撞库
+        redisCache.deleteObject(verifyKey);
+        if (captcha == null) {
+            return AjaxResult.error("验证码已过期，请刷新后重试");
+        }
+        if (!code.trim().equalsIgnoreCase(captcha)) {
+            return AjaxResult.error("图形验证码错误");
+        }
+        return null;
     }
 
     /**

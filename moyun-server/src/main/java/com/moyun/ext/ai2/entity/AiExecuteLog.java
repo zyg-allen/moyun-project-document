@@ -17,7 +17,7 @@ import java.time.LocalDateTime;
  * @since 2026-09-09
  */
 @Data
-@TableName("ai2_execute_log")
+@TableName("ai_execute_log")
 public class AiExecuteLog {
 
     @TableId(type = IdType.AUTO)

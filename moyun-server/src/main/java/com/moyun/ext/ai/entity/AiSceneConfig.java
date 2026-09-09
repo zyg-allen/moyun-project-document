@@ -7,6 +7,8 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.math.BigDecimal;
+
 /**
  * AI 场景配置实体类
  *
@@ -53,6 +55,68 @@ public class AiSceneConfig extends AiBaseEntity {
 
     /** 场景策略配置 JSON（如 {"dynamicMode":true}） */
     private String configJson;
+
+    // ==================== v11.41 执行层配置（统一接入层） ====================
+
+    /** 场景分类: chat/analysis/generation/classification */
+    private String sceneCategory;
+
+    /** 对应 Spring Bean 名称（统一网关路由） */
+    private String handlerBeanName;
+
+    /** 执行方法名（默认 execute） */
+    private String handlerMethod;
+
+    /** 系统提示词模板（支持占位符 {{variable}}） */
+    private String systemPromptTemplate;
+
+    /** 用户提示词模板 */
+    private String userPromptTemplate;
+
+    /** 占位符说明 JSON */
+    private String promptPlaceholders;
+
+    /** 输出模式: sync/stream/both */
+    private String outputMode;
+
+    /** 输出结构定义 JSON */
+    private String outputSchema;
+
+    /** 解析器: json/markdown/custom */
+    private String outputParser;
+
+    /** 最大 Token 数 */
+    private Integer maxTokens;
+
+    /** 温度参数 */
+    private BigDecimal temperature;
+
+    /** 超时秒数 */
+    private Integer timeoutSeconds;
+
+    /** 重试次数 */
+    private Integer retryCount;
+
+    /** 限流 Key */
+    private String rateLimitKey;
+
+    /** 限流次数 */
+    private Integer rateLimitCount;
+
+    /** 限流时间窗口（秒） */
+    private Integer rateLimitTime;
+
+    /** 备用模型 ID */
+    private Long fallbackModelId;
+
+    /** 兜底回复（AI 不可用时返回） */
+    private String fallbackResponse;
+
+    /** 是否启用缓存 */
+    private Boolean enableCache;
+
+    /** 缓存时间（秒） */
+    private Integer cacheTtl;
 
     /** 版本号（同场景多版本灰度） */
     private String version;

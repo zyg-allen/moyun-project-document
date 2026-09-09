@@ -29,7 +29,7 @@ import java.util.Map;
  *
  * <p>所有AI场景（面试/简历/出题/财务分析/敏感词/今日主题等）统一走
  * {@code POST /api/ai/execute}（同步）与 {@code POST /api/ai/execute/stream}（流式），
- * 场景由 scene 参数路由到对应 Handler。接口经全局安全链鉴权（anyRequest().authenticated()）。</p>
+ * 场景由 sceneCode 参数路由到对应 Handler。接口经全局安全链鉴权（anyRequest().authenticated()）。</p>
  *
  * @author laomao
  * @since 2026-09-09
@@ -77,7 +77,7 @@ public class AiGatewayController {
     /**
      * 刷新场景注册中心（Handler重注册+配置重加载）
      */
-    @Operation(summary = "刷新场景注册中心", description = "ai2_scene_registry 配置变更后调用，无需重启服务")
+    @Operation(summary = "刷新场景注册中心", description = "ai_scene_config 配置变更后调用，无需重启服务")
     @PostMapping("/refresh")
     public AjaxResult refresh() {
         registry.refresh();

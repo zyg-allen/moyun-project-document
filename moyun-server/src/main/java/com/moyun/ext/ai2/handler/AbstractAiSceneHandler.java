@@ -2,10 +2,10 @@ package com.moyun.ext.ai2.handler;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.moyun.ext.ai.entity.AiSceneConfig;
 import com.moyun.ext.ai.service.AiSceneResolver;
 import com.moyun.ext.ai.service.LLMService;
 import com.moyun.ext.ai.service.ModelConfigService;
-import com.moyun.ext.ai2.entity.AiSceneRegistryConfig;
 import com.moyun.ext.ai2.model.AiExecuteRequest;
 import dev.langchain4j.data.message.SystemMessage;
 import dev.langchain4j.data.message.UserMessage;
@@ -214,7 +214,7 @@ public abstract class AbstractAiSceneHandler implements AiSceneHandler {
      * 场景配置模板渲染默认实现：系统提示词优先取子类覆写，其次取注册表模板
      */
     @Override
-    public String buildSystemPrompt(AiExecuteRequest request, AiSceneRegistryConfig config) {
+    public String buildSystemPrompt(AiExecuteRequest request, AiSceneConfig config) {
         if (config != null && config.getSystemPromptTemplate() != null) {
             return renderTemplate(config.getSystemPromptTemplate(), request);
         }
@@ -222,7 +222,7 @@ public abstract class AbstractAiSceneHandler implements AiSceneHandler {
     }
 
     @Override
-    public String buildUserPrompt(AiExecuteRequest request, AiSceneRegistryConfig config) {
+    public String buildUserPrompt(AiExecuteRequest request, AiSceneConfig config) {
         if (config != null && config.getUserPromptTemplate() != null) {
             return renderTemplate(config.getUserPromptTemplate(), request);
         }

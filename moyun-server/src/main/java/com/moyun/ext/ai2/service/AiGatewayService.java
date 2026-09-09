@@ -1,8 +1,8 @@
 package com.moyun.ext.ai2.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.moyun.ext.ai.entity.AiSceneConfig;
 import com.moyun.ext.ai2.constant.AiErrorCodes;
-import com.moyun.ext.ai2.entity.AiSceneRegistryConfig;
 import com.moyun.ext.ai2.handler.AiSceneHandler;
 import com.moyun.ext.ai2.model.AiExecuteRequest;
 import com.moyun.ext.ai2.model.AiExecuteResponse;
@@ -50,24 +50,24 @@ public class AiGatewayService {
     public AiExecuteResponse<?> execute(AiExecuteRequest request) {
         request.setRequestId(UUID.randomUUID().toString().replace("-", ""));
         long startTime = System.currentTimeMillis();
-        String scene = request.getScene();
-        log.info("[ai2:网关] 请求: scene={}, requestId={}", scene, request.getRequestId());
+        String sceneCode = request.getSceneCode();
+        log.info("[ai2:网关] 请求: scene={}, requestId={}", sceneCode, request.getRequestId());
 
-        AiSceneRegistryConfig config = null;
+        AiSceneConfig config = null;
         AiSceneHandler handler = null;
         try {
             // 1. 场景配置（未配置/未启用的场景不对外服务）
-            config = registry.getConfig(scene);
+            config = registry.getConfig(sceneCode);
             if (config == null) {
                 return failure(request, AiErrorCodes.SCENE_NOT_FOUND,
-                        "场景未注册或未启用: " + scene, 0, "scene_not_found");
+                        "场景未注册或未启用: " + sceneCode, 0, "scene_not_found");
             }
-            handler = registry.getHandler(scene);
+            handler = registry.getHandler(sceneCode);
 
             // 2. 意图判断（仅当输入包含 userInput 时；低置信度触发追问）
             String userInput = getStringInput(request, "userInput");
             if (userInput != null && !userInput.isBlank()) {
-                IntentClassifier.IntentResult intent = intentClassifier.classify(userInput, scene);
+                IntentClassifier.IntentResult intent = intentClassifier.classify(userInput, sceneCode);
                 if (intent.getConfidence() < 0.6) {
                     AiExecuteResponse<Object> resp = AiExecuteResponse.clarification(
                             "未能理解您的意图，能否补充说明一下您想做什么？");
@@ -76,19 +76,19 @@ public class AiGatewayService {
                 }
                 if (intent.getSuggestedScene() != null
                         && registry.getConfig(intent.getSuggestedScene()) != null) {
-                    request.setScene(intent.getSuggestedScene());
-                    scene = request.getScene();
+                    request.setSceneCode(intent.getSuggestedScene());
+                    sceneCode = request.getSceneCode();
                 }
             }
 
             // 3. 缓存检查
             String inputKey = canonicalInputKey(request);
             String inputText = primaryInputText(request);
-            if (semanticCache.isEnabled(config.getEnableCache())) {
-                AiExecuteResponse<Object> cached = semanticCache.get(scene, inputKey, inputText);
+            if (semanticCache.isEnabled(Boolean.TRUE.equals(config.getEnableCache()) ? 1 : 0)) {
+                AiExecuteResponse<Object> cached = semanticCache.get(sceneCode, inputKey, inputText);
                 if (cached != null) {
                     fillCommon(cached, request, System.currentTimeMillis() - startTime);
-                    log.info("[ai2:网关] 缓存命中: scene={}, requestId={}", scene, request.getRequestId());
+                    log.info("[ai2:网关] 缓存命中: scene={}, requestId={}", sceneCode, request.getRequestId());
                     return cached;
                 }
             }
@@ -98,12 +98,12 @@ public class AiGatewayService {
                     ? String.valueOf(request.getUserId()) : "anonymous";
             int limit = config.getRateLimitCount() != null ? config.getRateLimitCount() : 100;
             int window = config.getRateLimitTime() != null ? config.getRateLimitTime() : 60;
-            SceneRateLimiter.RateResult rate = rateLimiter.tryAcquire(scene, identity, limit, window);
+            SceneRateLimiter.RateResult rate = rateLimiter.tryAcquire(sceneCode, identity, limit, window);
             if (!rate.allowed()) {
-                executeLogService.record(request.getRequestId(), scene,
-                        handler.getClass().getSimpleName(), config.getBindType(), null,
-                        inputKey, null, "fail", "rate_limited",
-                        System.currentTimeMillis() - startTime);
+                executeLogService.record(request.getRequestId(), sceneCode,
+                    handler.getClass().getSimpleName(), resolveBindType(config), null,
+                    inputKey, null, "fail", "rate_limited",
+                    System.currentTimeMillis() - startTime);
                 return failure(request, AiErrorCodes.RATE_LIMITED,
                         "请求过于频繁，请稍后再试", System.currentTimeMillis() - startTime, "rate_limited");
             }
@@ -117,26 +117,26 @@ public class AiGatewayService {
             // 7. 填充通用字段 + 回写缓存 + 记录日志
             long elapsed = System.currentTimeMillis() - startTime;
             fillCommon(response, request, elapsed);
-            if (semanticCache.isEnabled(config.getEnableCache())
+            if (semanticCache.isEnabled(Boolean.TRUE.equals(config.getEnableCache()) ? 1 : 0)
                     && response.getCode() != null && response.getCode() == AiErrorCodes.SUCCESS) {
-                semanticCache.put(scene, inputKey, inputText, response, config.getCacheTtl());
+                semanticCache.put(sceneCode, inputKey, inputText, response, config.getCacheTtl());
             }
-            executeLogService.record(request.getRequestId(), scene,
-                    handler.getClass().getSimpleName(), config.getBindType(), null,
+            executeLogService.record(request.getRequestId(), sceneCode,
+                    handler.getClass().getSimpleName(), resolveBindType(config), null,
                     inputKey, summarizeOutput(response), "success", null, elapsed);
             log.info("[ai2:网关] 成功: scene={}, requestId={}, elapsed={}ms",
-                    scene, request.getRequestId(), elapsed);
+                    sceneCode, request.getRequestId(), elapsed);
             return response;
 
         } catch (Exception e) {
             // 8. 降级兜底
             long elapsed = System.currentTimeMillis() - startTime;
-            AiExecuteResponse<?> fallback = fallbackStrategy.executeFallback(scene,
+            AiExecuteResponse<?> fallback = fallbackStrategy.executeFallback(sceneCode,
                     config != null ? config.getFallbackResponse() : null, e);
             fillCommon(fallback, request, elapsed);
-            executeLogService.record(request.getRequestId(), scene,
+            executeLogService.record(request.getRequestId(), sceneCode,
                     handler != null ? handler.getClass().getSimpleName() : null,
-                    config != null ? config.getBindType() : null, null,
+                    config != null ? resolveBindType(config) : null, null,
                     canonicalInputKey(request), null, "fail", e.getMessage(), elapsed);
             return fallback;
         }
@@ -149,11 +149,11 @@ public class AiGatewayService {
         request.setRequestId(UUID.randomUUID().toString().replace("-", ""));
         SseEmitter emitter = new SseEmitter(60_000L);
         long startTime = System.currentTimeMillis();
-        String scene = request.getScene();
+        String scene = request.getSceneCode();
         log.info("[ai2:网关] 流式请求: scene={}, requestId={}", scene, request.getRequestId());
 
         try {
-            AiSceneRegistryConfig config = registry.getConfig(scene);
+            AiSceneConfig config = registry.getConfig(scene);
             if (config == null) {
                 sendErrorAndComplete(emitter, "场景未注册或未启用: " + scene);
                 return emitter;
@@ -180,7 +180,7 @@ public class AiGatewayService {
             handler.validate(request);
             handler.executeStream(request, emitter);
             executeLogService.record(request.getRequestId(), scene,
-                    handler.getClass().getSimpleName(), config.getBindType(), null,
+                    handler.getClass().getSimpleName(), resolveBindType(config), null,
                     canonicalInputKey(request), null, "success", null,
                     System.currentTimeMillis() - startTime);
         } catch (Exception e) {
@@ -195,9 +195,20 @@ public class AiGatewayService {
 
     // ==================== 内部实现 ====================
 
+    /**
+     * 从场景配置推导绑定类型（ai_scene_config 无 bind_type 冗余列，运行时推导）
+     */
+    private String resolveBindType(AiSceneConfig config) {
+        if (config == null) return null;
+        if (config.getAgentId() != null) return "agent";
+        if (config.getModelConfigId() != null) return "model";
+        if (config.getWorkflowId() != null) return "workflow";
+        return "empty";
+    }
+
     private void fillCommon(AiExecuteResponse<?> response, AiExecuteRequest request, long elapsed) {
         response.setRequestId(request.getRequestId());
-        response.setScene(request.getScene());
+        response.setSceneCode(request.getSceneCode());
         response.setElapsedMs(elapsed);
     }
 

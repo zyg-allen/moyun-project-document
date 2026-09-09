@@ -50,6 +50,18 @@
       <el-table-column label="ID" prop="id" width="70" />
       <el-table-column label="场景代码" prop="sceneCode" min-width="150" show-overflow-tooltip />
       <el-table-column label="场景名称" prop="sceneName" min-width="150" show-overflow-tooltip />
+      <el-table-column label="分类" prop="sceneCategory" width="100" align="center">
+        <template #default="{ row }">
+          <el-tag v-if="row.sceneCategory" size="small" type="info">{{ row.sceneCategory }}</el-tag>
+          <span v-else>-</span>
+        </template>
+      </el-table-column>
+      <el-table-column label="Handler" prop="handlerBeanName" min-width="160" show-overflow-tooltip>
+        <template #default="{ row }">
+          <span v-if="row.handlerBeanName" style="font-family: monospace; font-size: 12px;">{{ row.handlerBeanName }}</span>
+          <span v-else>-</span>
+        </template>
+      </el-table-column>
       <el-table-column label="版本" width="90" align="center">
         <template #default="{ row }">
           <el-tag size="small">{{ row.version || '-' }}</el-tag>
@@ -88,58 +100,200 @@
     />
 
     <!-- 新增/编辑弹窗 -->
-    <el-dialog v-model="dialogVisible" :title="dialogTitle" width="720px" :close-on-click-modal="false">
+    <el-dialog v-model="dialogVisible" :title="dialogTitle" width="860px" :close-on-click-modal="false">
       <el-form :model="form" label-width="120px">
-        <el-form-item label="场景代码" required>
-          <el-input v-model="form.sceneCode" placeholder="如 voice_interview / resume_optimize / question_generate" />
-        </el-form-item>
-        <el-form-item label="场景名称" required>
-          <el-input v-model="form.sceneName" placeholder="请输入场景名称" />
-        </el-form-item>
-        <el-form-item label="场景描述">
-          <el-input v-model="form.description" type="textarea" :rows="3" placeholder="请输入场景描述" />
-        </el-form-item>
-        <el-form-item label="绑定智能体">
-          <el-select v-model="form.agentId" placeholder="请选择智能体（可清空）" filterable clearable style="width: 100%;">
-            <el-option v-for="a in agentOptions" :key="a.id" :label="a.name" :value="a.id" />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="直绑模型">
-          <el-select v-model="form.modelConfigId" placeholder="请选择模型（可清空）" filterable clearable style="width: 100%;">
-            <el-option v-for="m in modelOptions" :key="m.id" :label="m.name || m.modelName" :value="m.id" />
-          </el-select>
-          <div class="form-tip">解析顺序：绑定智能体 &gt; 直绑模型（智能体为空时生效）&gt; 空绑定走业务默认逻辑</div>
-        </el-form-item>
-        <el-form-item label="绑定工作流">
-          <el-select v-model="form.workflowId" placeholder="请选择工作流（可清空）" filterable clearable style="width: 100%;">
-            <el-option v-for="w in workflowOptions" :key="w.id" :label="w.name" :value="w.id" />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="知识库ID列表">
-          <el-input v-model="form.knowledgeLibraryIds" placeholder="JSON 数组字符串，如 [1,2,3]" />
-        </el-form-item>
-        <el-form-item label="工具ID列表">
-          <el-input v-model="form.toolIds" placeholder="JSON 数组字符串，如 [1,2]" />
-        </el-form-item>
-        <el-form-item label="策略配置JSON">
-          <el-input v-model="form.configJson" type="textarea" :rows="3" placeholder='如 {"dynamicMode":true}' style="font-family: monospace;" />
-        </el-form-item>
-        <el-form-item label="版本号">
-          <el-input v-model="form.version" placeholder="同场景多版本灰度，默认 v1" />
-        </el-form-item>
-        <el-form-item label="灰度权重">
-          <el-input-number v-model="form.weight" :min="0" :max="100" />
-          <span class="form-tip" style="margin-left: 12px;">0-100，同场景多版本按权重轮盘赌</span>
-        </el-form-item>
-        <el-form-item label="优先级">
-          <el-input-number v-model="form.priority" />
-        </el-form-item>
-        <el-form-item label="默认版本">
-          <el-switch v-model="form.isDefault" />
-        </el-form-item>
-        <el-form-item label="是否启用">
-          <el-switch v-model="form.enabled" />
-        </el-form-item>
+        <el-tabs v-model="formTab">
+          <!-- ===== 基础配置 ===== -->
+          <el-tab-pane label="基础配置" name="basic">
+            <el-form-item label="场景代码" required>
+              <el-select
+                v-model="form.sceneCode"
+                placeholder="请选择场景代码（来自 AiSceneEnum 代码注册表）"
+                filterable
+                allow-create
+                :disabled="!!form.id"
+                style="width: 100%;"
+              >
+                <el-option
+                  v-for="s in registry"
+                  :key="s.code"
+                  :label="`${s.code}（${s.name}）`"
+                  :value="s.code"
+                />
+              </el-select>
+              <div class="form-tip">选项来自 AiSceneEnum 枚举（与 Handler Bean 注册保持一致，新增 Handler 需同步加枚举）</div>
+            </el-form-item>
+            <el-form-item label="场景名称" required>
+              <el-input v-model="form.sceneName" placeholder="请输入场景名称" />
+            </el-form-item>
+            <el-form-item label="场景描述">
+              <el-input v-model="form.description" type="textarea" :rows="2" placeholder="请输入场景描述" />
+            </el-form-item>
+            <el-form-item label="场景分类">
+              <el-select v-model="form.sceneCategory" placeholder="请选择分类" clearable style="width: 100%;">
+                <el-option label="对话 (chat)" value="chat" />
+                <el-option label="分析 (analysis)" value="analysis" />
+                <el-option label="生成 (generation)" value="generation" />
+                <el-option label="分类 (classification)" value="classification" />
+              </el-select>
+            </el-form-item>
+            <el-form-item label="绑定智能体">
+              <el-select v-model="form.agentId" placeholder="请选择智能体（可清空）" filterable clearable style="width: 100%;">
+                <el-option v-for="a in agentOptions" :key="a.id" :label="a.name" :value="a.id" />
+              </el-select>
+            </el-form-item>
+            <el-form-item label="直绑模型">
+              <el-select v-model="form.modelConfigId" placeholder="请选择模型（可清空）" filterable clearable style="width: 100%;">
+                <el-option v-for="m in modelOptions" :key="m.id" :label="m.name || m.modelName" :value="m.id" />
+              </el-select>
+              <div class="form-tip">解析顺序：绑定智能体 &gt; 直绑模型（智能体为空时生效）&gt; 空绑定走业务默认逻辑</div>
+            </el-form-item>
+            <el-form-item label="绑定工作流">
+              <el-select v-model="form.workflowId" placeholder="请选择工作流（可清空）" filterable clearable style="width: 100%;">
+                <el-option v-for="w in workflowOptions" :key="w.id" :label="w.name" :value="w.id" />
+              </el-select>
+            </el-form-item>
+            <el-form-item label="知识库ID列表">
+              <el-input v-model="form.knowledgeLibraryIds" placeholder="JSON 数组字符串，如 [1,2,3]" />
+            </el-form-item>
+            <el-form-item label="工具ID列表">
+              <el-input v-model="form.toolIds" placeholder="JSON 数组字符串，如 [1,2]" />
+            </el-form-item>
+            <el-form-item label="版本号">
+              <el-input v-model="form.version" placeholder="同场景多版本灰度，默认 v1" />
+            </el-form-item>
+            <el-row :gutter="16">
+              <el-col :span="8">
+                <el-form-item label="灰度权重" label-width="90px">
+                  <el-input-number v-model="form.weight" :min="0" :max="100" style="width: 100%;" />
+                </el-form-item>
+              </el-col>
+              <el-col :span="8">
+                <el-form-item label="优先级" label-width="70px">
+                  <el-input-number v-model="form.priority" style="width: 100%;" />
+                </el-form-item>
+              </el-col>
+              <el-col :span="4">
+                <el-form-item label="默认" label-width="50px">
+                  <el-switch v-model="form.isDefault" />
+                </el-form-item>
+              </el-col>
+              <el-col :span="4">
+                <el-form-item label="启用" label-width="50px">
+                  <el-switch v-model="form.enabled" />
+                </el-form-item>
+              </el-col>
+            </el-row>
+          </el-tab-pane>
+
+          <!-- ===== 执行配置 ===== -->
+          <el-tab-pane label="执行配置" name="exec">
+            <el-form-item label="Handler Bean">
+              <el-input v-model="form.handlerBeanName" placeholder="如 voiceInterviewHandler" />
+            </el-form-item>
+            <el-form-item label="执行方法">
+              <el-input v-model="form.handlerMethod" placeholder="默认 execute" />
+            </el-form-item>
+            <el-form-item label="系统提示词模板">
+              <el-input v-model="form.systemPromptTemplate" type="textarea" :rows="4" placeholder="支持占位符 {{variable}}" style="font-family: monospace;" />
+            </el-form-item>
+            <el-form-item label="用户提示词模板">
+              <el-input v-model="form.userPromptTemplate" type="textarea" :rows="3" placeholder="用户提示词模板" style="font-family: monospace;" />
+            </el-form-item>
+            <el-form-item label="占位符说明">
+              <el-input v-model="form.promptPlaceholders" placeholder='JSON，如 {"name":"用户名"}' style="font-family: monospace;" />
+            </el-form-item>
+            <el-row :gutter="16">
+              <el-col :span="8">
+                <el-form-item label="输出模式" label-width="90px">
+                  <el-select v-model="form.outputMode" style="width: 100%;">
+                    <el-option label="同步" value="sync" />
+                    <el-option label="流式" value="stream" />
+                    <el-option label="双模式" value="both" />
+                  </el-select>
+                </el-form-item>
+              </el-col>
+              <el-col :span="8">
+                <el-form-item label="解析器" label-width="70px">
+                  <el-select v-model="form.outputParser" clearable style="width: 100%;">
+                    <el-option label="JSON" value="json" />
+                    <el-option label="Markdown" value="markdown" />
+                    <el-option label="自定义" value="custom" />
+                  </el-select>
+                </el-form-item>
+              </el-col>
+              <el-col :span="8">
+                <el-form-item label="最大Token" label-width="80px">
+                  <el-input-number v-model="form.maxTokens" :min="1" :max="32768" style="width: 100%;" />
+                </el-form-item>
+              </el-col>
+            </el-row>
+            <el-row :gutter="16">
+              <el-col :span="8">
+                <el-form-item label="温度" label-width="90px">
+                  <el-input-number v-model="form.temperature" :precision="1" :min="0" :max="2" :step="0.1" style="width: 100%;" />
+                </el-form-item>
+              </el-col>
+              <el-col :span="8">
+                <el-form-item label="超时(秒)" label-width="70px">
+                  <el-input-number v-model="form.timeoutSeconds" :min="1" :max="300" style="width: 100%;" />
+                </el-form-item>
+              </el-col>
+              <el-col :span="8">
+                <el-form-item label="重试次数" label-width="80px">
+                  <el-input-number v-model="form.retryCount" :min="0" :max="10" style="width: 100%;" />
+                </el-form-item>
+              </el-col>
+            </el-row>
+            <el-form-item label="输出结构">
+              <el-input v-model="form.outputSchema" type="textarea" :rows="3" placeholder="JSON Schema" style="font-family: monospace;" />
+            </el-form-item>
+            <el-form-item label="策略配置JSON">
+              <el-input v-model="form.configJson" type="textarea" :rows="3" placeholder='如 {"dynamicMode":true}' style="font-family: monospace;" />
+            </el-form-item>
+          </el-tab-pane>
+
+          <!-- ===== 限流与降级 ===== -->
+          <el-tab-pane label="限流与降级" name="resilience">
+            <el-row :gutter="16">
+              <el-col :span="8">
+                <el-form-item label="限流Key" label-width="90px">
+                  <el-input v-model="form.rateLimitKey" placeholder="如 scene:voice" style="width: 100%;" />
+                </el-form-item>
+              </el-col>
+              <el-col :span="8">
+                <el-form-item label="限流次数" label-width="70px">
+                  <el-input-number v-model="form.rateLimitCount" :min="1" style="width: 100%;" />
+                </el-form-item>
+              </el-col>
+              <el-col :span="8">
+                <el-form-item label="时间窗口(秒)" label-width="100px">
+                  <el-input-number v-model="form.rateLimitTime" :min="1" style="width: 100%;" />
+                </el-form-item>
+              </el-col>
+            </el-row>
+            <el-form-item label="备用模型">
+              <el-select v-model="form.fallbackModelId" placeholder="AI不可用时备用模型（可清空）" filterable clearable style="width: 100%;">
+                <el-option v-for="m in modelOptions" :key="m.id" :label="m.name || m.modelName" :value="m.id" />
+              </el-select>
+            </el-form-item>
+            <el-form-item label="兜底回复">
+              <el-input v-model="form.fallbackResponse" type="textarea" :rows="3" placeholder="AI不可用时返回的兜底文案" />
+            </el-form-item>
+            <el-row :gutter="16">
+              <el-col :span="12">
+                <el-form-item label="启用缓存" label-width="90px">
+                  <el-switch v-model="form.enableCache" />
+                </el-form-item>
+              </el-col>
+              <el-col :span="12">
+                <el-form-item label="缓存TTL(秒)" label-width="100px">
+                  <el-input-number v-model="form.cacheTtl" :min="60" :step="60" style="width: 100%;" />
+                </el-form-item>
+              </el-col>
+            </el-row>
+          </el-tab-pane>
+        </el-tabs>
       </el-form>
       <template #footer>
         <el-button @click="dialogVisible = false">取消</el-button>
@@ -191,6 +345,7 @@ const queryParams = reactive({
 const dialogVisible = ref(false);
 const testVisible = ref(false);
 const testResult = ref({});
+const formTab = ref('basic');
 const testResultJson = computed(() =>
   testResult.value && Object.keys(testResult.value).length > 0
     ? JSON.stringify(testResult.value, null, 2)
@@ -203,12 +358,34 @@ function makeDefaultForm() {
     sceneCode: '',
     sceneName: '',
     description: '',
+    sceneCategory: '',
     agentId: null,
     modelConfigId: null,
     workflowId: null,
     knowledgeLibraryIds: '',
     toolIds: '',
     configJson: '',
+    // v11.41 执行层
+    handlerBeanName: '',
+    handlerMethod: 'execute',
+    systemPromptTemplate: '',
+    userPromptTemplate: '',
+    promptPlaceholders: '',
+    outputMode: 'sync',
+    outputSchema: '',
+    outputParser: '',
+    maxTokens: 2048,
+    temperature: 0.7,
+    timeoutSeconds: 30,
+    retryCount: 3,
+    rateLimitKey: '',
+    rateLimitCount: 100,
+    rateLimitTime: 60,
+    fallbackModelId: null,
+    fallbackResponse: '',
+    enableCache: false,
+    cacheTtl: 3600,
+    // 版本与灰度
     version: 'v1',
     weight: 100,
     priority: 0,
@@ -289,18 +466,41 @@ async function handleEdit(row) {
       sceneCode: data.sceneCode || '',
       sceneName: data.sceneName || '',
       description: data.description || '',
+      sceneCategory: data.sceneCategory || '',
       agentId: data.agentId != null ? data.agentId : null,
       modelConfigId: data.modelConfigId != null ? data.modelConfigId : null,
       workflowId: data.workflowId != null ? data.workflowId : null,
       knowledgeLibraryIds: data.knowledgeLibraryIds || '',
       toolIds: data.toolIds || '',
       configJson: data.configJson || '',
+      // v11.41 执行层
+      handlerBeanName: data.handlerBeanName || '',
+      handlerMethod: data.handlerMethod || 'execute',
+      systemPromptTemplate: data.systemPromptTemplate || '',
+      userPromptTemplate: data.userPromptTemplate || '',
+      promptPlaceholders: data.promptPlaceholders || '',
+      outputMode: data.outputMode || 'sync',
+      outputSchema: data.outputSchema || '',
+      outputParser: data.outputParser || '',
+      maxTokens: data.maxTokens != null ? data.maxTokens : 2048,
+      temperature: data.temperature != null ? data.temperature : 0.7,
+      timeoutSeconds: data.timeoutSeconds != null ? data.timeoutSeconds : 30,
+      retryCount: data.retryCount != null ? data.retryCount : 3,
+      rateLimitKey: data.rateLimitKey || '',
+      rateLimitCount: data.rateLimitCount != null ? data.rateLimitCount : 100,
+      rateLimitTime: data.rateLimitTime != null ? data.rateLimitTime : 60,
+      fallbackModelId: data.fallbackModelId != null ? data.fallbackModelId : null,
+      fallbackResponse: data.fallbackResponse || '',
+      enableCache: !!data.enableCache,
+      cacheTtl: data.cacheTtl != null ? data.cacheTtl : 3600,
+      // 版本与灰度
       version: data.version || 'v1',
       weight: data.weight != null ? data.weight : 100,
       priority: data.priority != null ? data.priority : 0,
       isDefault: !!data.isDefault,
       enabled: !!data.enabled
     };
+    formTab.value = 'basic';
     dialogVisible.value = true;
   } catch (e) { /* ignore */ }
 }
@@ -427,7 +627,18 @@ function bindTypeTag(t) {
   return { agent: 'success', model: 'primary', empty: 'info' }[t] || 'info';
 }
 
+async function loadRegistry() {
+  try {
+    const res = await sceneRegistry();
+    registry.value = (res.data || res.rows) || [];
+  } catch (e) {
+    // 注册表加载失败不阻塞页面，下拉降级为可手输
+    registry.value = [];
+  }
+}
+
 onMounted(() => {
+  loadRegistry();
   loadOptions();
   getList();
 });

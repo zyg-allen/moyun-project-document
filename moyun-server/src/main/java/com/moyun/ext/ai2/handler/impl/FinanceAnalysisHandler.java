@@ -35,6 +35,21 @@ public class FinanceAnalysisHandler extends AbstractAiSceneHandler {
 
     @Override
     public AiExecuteResponse<?> execute(AiExecuteRequest request) {
+        // v11.43 业务透传模式：业务侧（如 LedgerAiAnalysisServiceImpl）已完成指标聚合与提示词构建，
+        // input.prompt 携带完整提示词 → 直接对话返回综述文本（网关的限流/缓存/日志/降级照常生效）
+        String bizPrompt = getInputString(request, "prompt");
+        if (bizPrompt != null && !bizPrompt.isBlank()) {
+            String system = "你是一位专业、友善的个人财务顾问。请根据用户提供的记账数据，输出中文财务综述（现状概述/问题亮点/行动建议，口语化、引用数据、300字以内、无Markdown标记）。";
+            String raw = chat(getSceneCode(), system, bizPrompt);
+            if (raw == null || raw.isBlank()) {
+                return AiExecuteResponse.failure(AiErrorCodes.AI_CALL_FAILED, "AI服务暂不可用");
+            }
+            Map<String, Object> data = new java.util.LinkedHashMap<>();
+            data.put("summary", raw.trim());
+            return AiExecuteResponse.success(data);
+        }
+
+        // 通用结构化模式：原始流水数据 → 结构化财务分析 JSON
         String ledgerData = requireInputString(request, "ledgerData");
         String window = getInputString(request, "window");
         String userProfile = getInputString(request, "userProfile");

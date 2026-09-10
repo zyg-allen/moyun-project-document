@@ -20,10 +20,13 @@ import java.util.concurrent.ConcurrentHashMap;
 /**
  * AI场景注册中心
  *
- * <p>统一接入层的路由核心：Handler Bean 注册（Spring容器扫描）+ 场景配置加载（ai_scene_config 表）。
+ * <p>统一接入层的路由核心：Handler Bean 注册（Spring容器扫描）+ 场景配置读取（ai_scene_config 表）。
  * 依据《AI能力统一接入层 — 完整方案文档》V2.0 §5.2。</p>
  *
  * <p>v11.41：合并到 ai_scene_config 表（原 ai2_scene_registry 已废弃），绑定关系与执行配置统一管理。</p>
+ *
+ * <p>v11.48：配置不再内存缓存——getConfig 每次直查数据库（LLM 调用为秒级，一次索引查询开销可忽略），
+ * 管理端改提示词模板/输出结构/绑定关系后<strong>下次调用立即生效</strong>，无需重启或手动刷新。</p>
  *
  * <p>Handler 必须有对应配置行才会对外服务（配置行控制 enabled / 限流 / 缓存 / 降级等策略）。</p>
  *
@@ -34,11 +37,8 @@ import java.util.concurrent.ConcurrentHashMap;
 @Component
 public class AiSceneRegistry {
 
-    /** Handler 路由表：sceneCode → Handler */
+    /** Handler 路由表：sceneCode → Handler（Bean 静态注册，启动后不变） */
     private final Map<String, AiSceneHandler> handlerMap = new ConcurrentHashMap<>();
-
-    /** 场景配置缓存：sceneCode → 配置 */
-    private final Map<String, AiSceneConfig> configMap = new ConcurrentHashMap<>();
 
     @Autowired
     private List<AiSceneHandler> handlers;
@@ -47,7 +47,7 @@ public class AiSceneRegistry {
     private AiSceneConfigMapper configMapper;
 
     /**
-     * 初始化：注册所有 Handler Bean + 加载场景配置
+     * 初始化：注册所有 Handler Bean + 启动时一致性检查（配置行与 Handler 的匹配告警）
      */
     @PostConstruct
     public void init() {
@@ -59,7 +59,7 @@ public class AiSceneRegistry {
             }
             log.info("[ai2] 注册AI场景处理器: {} -> {}", sceneCode, handler.getClass().getSimpleName());
         }
-        loadConfigs();
+        consistencyCheck();
     }
 
     /**
@@ -76,41 +76,24 @@ public class AiSceneRegistry {
     }
 
     /**
-     * 按场景代码获取启用配置
+     * 按场景代码获取启用配置（v11.48：直查数据库，管理端变更即时生效）
+     *
+     * <p>同场景多版本时按 priority DESC 取第一条（与原内存缓存口径一致）。</p>
      *
      * @return 配置；无配置或未启用返回 null
      */
     public AiSceneConfig getConfig(String sceneCode) {
-        return configMap.get(sceneCode);
-    }
-
-    /**
-     * 加载所有启用的场景配置（按优先级排序，同 sceneCode 取优先级最高的一行）
-     */
-    public void loadConfigs() {
         List<AiSceneConfig> configs = configMapper.selectList(
                 new LambdaQueryWrapper<AiSceneConfig>()
+                        .eq(AiSceneConfig::getSceneCode, sceneCode)
                         .eq(AiSceneConfig::getEnabled, true)
-                        .orderByDesc(AiSceneConfig::getPriority));
-
-        Map<String, AiSceneConfig> fresh = new LinkedHashMap<>();
-        for (AiSceneConfig config : configs) {
-            fresh.putIfAbsent(config.getSceneCode(), config);
-        }
-        configMap.clear();
-        configMap.putAll(fresh);
-
-        // 一致性检查：配置行存在但 Handler 未注册的，告警
-        for (String sceneCode : fresh.keySet()) {
-            if (!handlerMap.containsKey(sceneCode)) {
-                log.warn("[ai2] 场景 {} 有配置但未注册 Handler（handler_bean_name 不匹配或未实现）", sceneCode);
-            }
-        }
-        log.info("[ai2] 场景配置加载完成: {} 个场景（Handler总数: {}）", fresh.size(), handlerMap.size());
+                        .orderByDesc(AiSceneConfig::getPriority)
+                        .last("LIMIT 1"));
+        return configs.isEmpty() ? null : configs.get(0);
     }
 
     /**
-     * 刷新（Handler 重新注册 + 配置重新加载，供管理端调用）
+     * 刷新（Handler 重新注册；配置无缓存，无需重载。供管理端/调试调用）
      */
     public synchronized void refresh() {
         init();
@@ -118,22 +101,44 @@ public class AiSceneRegistry {
     }
 
     /**
+     * 启动一致性检查：配置行存在但 Handler 未注册的，告警
+     */
+    private void consistencyCheck() {
+        List<String> sceneCodes = configMapper.selectList(new LambdaQueryWrapper<AiSceneConfig>()
+                        .eq(AiSceneConfig::getEnabled, true))
+                .stream().map(AiSceneConfig::getSceneCode).distinct().toList();
+        for (String sceneCode : sceneCodes) {
+            if (!handlerMap.containsKey(sceneCode)) {
+                log.warn("[ai2] 场景 {} 有配置但未注册 Handler（handler_bean_name 不匹配或未实现）", sceneCode);
+            }
+        }
+        log.info("[ai2] 场景配置一致性检查完成: {} 个启用场景（Handler总数: {}）",
+                sceneCodes.size(), handlerMap.size());
+    }
+
+    /**
      * 已注册场景总览（scene → {handler, config, outputMode}），管理/调试用
      */
     public List<Map<String, Object>> listScenes() {
+        Map<String, AiSceneConfig> configByScene = new LinkedHashMap<>();
+        configMapper.selectList(new LambdaQueryWrapper<AiSceneConfig>()
+                        .eq(AiSceneConfig::getEnabled, true)
+                        .orderByDesc(AiSceneConfig::getPriority))
+                .forEach(c -> configByScene.putIfAbsent(c.getSceneCode(), c));
         return handlerMap.entrySet().stream()
                 .map(e -> {
                     Map<String, Object> m = new LinkedHashMap<>();
                     m.put("sceneCode", e.getKey());
                     m.put("handler", e.getValue().getClass().getSimpleName());
                     m.put("supportedOutputMode", e.getValue().getSupportedOutputMode());
-                    AiSceneConfig config = configMap.get(e.getKey());
+                    AiSceneConfig config = configByScene.get(e.getKey());
                     m.put("configured", config != null);
                     if (config != null) {
                         m.put("sceneName", config.getSceneName());
                         m.put("category", config.getSceneCategory());
                         m.put("outputMode", config.getOutputMode());
                         m.put("description", config.getDescription());
+                        m.put("openApi", Boolean.TRUE.equals(config.getOpenApi()));
                     }
                     return m;
                 })

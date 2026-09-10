@@ -41,6 +41,15 @@ public interface AiSceneHandler {
     }
 
     /**
+     * 同步执行（带场景配置，v11.48）
+     * <p>网关统一调用此方法：Handler 优先读 config 的提示词模板/输出结构（管理页改配置即时生效），
+     * 缺省回落子类默认值。默认实现转发到无 config 版本保持兼容。</p>
+     */
+    default AiExecuteResponse<?> execute(AiExecuteRequest request, AiSceneConfig config) {
+        return execute(request);
+    }
+
+    /**
      * 流式执行（SSE）
      */
     default void executeStream(AiExecuteRequest request, SseEmitter emitter) {

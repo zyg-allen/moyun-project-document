@@ -132,4 +132,7 @@ public class AiSceneConfig extends AiBaseEntity {
 
     /** 是否启用 */
     private Boolean enabled;
+
+    /** 是否开放通用入口调用（v11.51：open_api=1 才能经 /api/ai/execute 外部调用；业务内部网关调用不受限） */
+    private Boolean openApi;
 }

@@ -99,3 +99,10 @@ CREATE TABLE IF NOT EXISTS `moyun-db`.ai_execute_log (
     KEY idx_scene_code (scene_code),
     KEY idx_create_time (create_time)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='AI能力调用日志表（可观测性）';
+
+-- ============================================================
+-- v11.51 增量：ai_scene_config 通用入口白名单（新环境全量初始化用；
+-- 已部署环境执行 20260910-04-ai2-scene-open-api-v11-51.sql）
+-- ============================================================
+ALTER TABLE `moyun-db`.ai_scene_config
+    ADD COLUMN open_api TINYINT(1) NOT NULL DEFAULT 0 COMMENT '是否开放通用入口调用（1=可经 /api/ai/execute 外部调用）' AFTER enabled;

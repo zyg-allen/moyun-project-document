@@ -53,6 +53,11 @@
           <view class="kpi-row"><text>月均收入</text><text>¥ {{ fmt(indicators.avgMonthlyIncome) }}</text></view>
           <view class="kpi-row"><text>月均支出</text><text>¥ {{ fmt(indicators.avgMonthlyExpense) }}</text></view>
           <view class="kpi-row" v-if="indicators.monthlyRepayment > 0"><text>月供合计</text><text>¥ {{ fmt(indicators.monthlyRepayment) }}</text></view>
+          <view class="kpi-row" v-if="indicators.liquidAsset != null"><text>流动资产</text><text>¥ {{ fmt(indicators.liquidAsset) }}</text></view>
+          <view class="kpi-row" v-if="indicators.emergencyFundMonths != null">
+            <text>应急基金</text>
+            <text>{{ indicators.emergencyFundMonths }} 个月支出<text class="kpi-sub" :class="efLevel">{{ efLevelText }}</text></text>
+          </view>
         </view>
       </view>
 
@@ -115,6 +120,7 @@
           <view class="flex-1">
             <view class="risk-title">{{ r.title }}</view>
             <view class="risk-detail">{{ r.detail }}</view>
+            <view class="risk-evidence" v-if="r.evidence">依据：{{ r.evidence }}</view>
           </view>
         </view>
       </view>
@@ -127,6 +133,7 @@
           <view class="flex-1">
             <view class="sug-title">{{ s.title }}</view>
             <view class="sug-detail">{{ s.detail }}</view>
+            <view class="sug-impact" v-if="s.expectedImpact">预期：{{ s.expectedImpact }}</view>
           </view>
         </view>
       </view>
@@ -210,6 +217,18 @@ export default {
       if (v >= 50) return 'bad';
       if (v >= 30) return 'mid';
       return 'good';
+    },
+    // 应急基金分级（v11.49：<1 bad / <3 mid / >=3 good）
+    efLevel() {
+      const v = Number(this.indicators.emergencyFundMonths);
+      if (!v || v < 1) return 'bad';
+      if (v < 3) return 'mid';
+      return 'good';
+    },
+    efLevelText() {
+      if (this.efLevel === 'good') return ' 稳健';
+      if (this.efLevel === 'mid') return ' 偏低';
+      return ' 不足';
     }
   },
   onShow() {
@@ -380,12 +399,18 @@ export default {
 .risk-dot.low { background: #95a5a6; }
 .risk-title { font-size: 28rpx; font-weight: 600; }
 .risk-detail { font-size: 24rpx; color: #999; margin-top: 6rpx; line-height: 1.6; }
+.risk-evidence { font-size: 22rpx; color: #b7791f; background: #fdf8ee; border-radius: 8rpx; padding: 8rpx 12rpx; margin-top: 10rpx; line-height: 1.5; }
+.kpi-sub { font-size: 22rpx; margin-left: 8rpx; }
+.kpi-sub.good { color: #27ae60; }
+.kpi-sub.mid { color: #f39c12; }
+.kpi-sub.bad { color: #e74c3c; }
 
 /* 建议 */
 .sug-item { display: flex; padding: 16rpx 0; border-bottom: 1rpx solid #f5f5f7; }
 .sug-icon { font-size: 40rpx; margin-right: 16rpx; }
 .sug-title { font-size: 28rpx; font-weight: 600; }
 .sug-detail { font-size: 24rpx; color: #999; margin-top: 6rpx; line-height: 1.6; }
+.sug-impact { font-size: 22rpx; color: #27ae60; background: #f0fbf4; border-radius: 8rpx; padding: 8rpx 12rpx; margin-top: 10rpx; line-height: 1.5; }
 
 /* 弹层 */
 .mask { position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 99; display: flex; align-items: flex-end; }

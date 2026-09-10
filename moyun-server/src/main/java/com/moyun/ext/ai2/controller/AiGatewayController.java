@@ -1,6 +1,7 @@
 package com.moyun.ext.ai2.controller;
 
 import com.moyun.core.base.AjaxResult;
+import com.moyun.ext.ai2.constant.AiErrorCodes;
 import com.moyun.ext.ai2.model.AiExecuteRequest;
 import com.moyun.ext.ai2.model.AiExecuteResponse;
 import com.moyun.ext.ai2.registry.AiSceneRegistry;
@@ -51,6 +52,10 @@ public class AiGatewayController {
     @PostMapping(value = "/execute", produces = MediaType.APPLICATION_JSON_VALUE)
     public AiExecuteResponse<?> execute(@RequestBody @Valid AiExecuteRequest request) {
         injectContext(request);
+        AiExecuteResponse<?> rejected = rejectIfNotOpen(request.getSceneCode(), request.getRequestId());
+        if (rejected != null) {
+            return rejected;
+        }
         return gatewayService.execute(request);
     }
 
@@ -61,7 +66,37 @@ public class AiGatewayController {
     @PostMapping(value = "/execute/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public SseEmitter executeStream(@RequestBody @Valid AiExecuteRequest request) {
         injectContext(request);
+        SseEmitter emitter = new SseEmitter(60_000L);
+        if (rejectIfNotOpen(request.getSceneCode(), request.getRequestId()) != null) {
+            try {
+                emitter.send(SseEmitter.event().name("error").data(
+                        Map.of("code", AiErrorCodes.SCENE_NOT_OPEN, "error", "场景未开放通用入口调用")));
+                emitter.complete();
+            } catch (Exception ignored) {
+            }
+            return emitter;
+        }
         return gatewayService.executeStream(request);
+    }
+
+    /**
+     * 通用入口开放校验（v11.51 断点⑤）：ai_scene_config.open_api=0 的场景（业务内部链路专用，
+     * 如 finance_analysis 需查用户库聚合指标）不得经 /api/ai/execute 外部调用——防越权绕过业务
+     * Controller 的鉴权/快照/落表编排。业务 Service 直接调 AiGatewayService 不经此层，不受限。
+     *
+     * @return 拒绝响应；null=放行
+     */
+    private AiExecuteResponse<?> rejectIfNotOpen(String sceneCode, String requestId) {
+        com.moyun.ext.ai.entity.AiSceneConfig config = registry.getConfig(sceneCode);
+        if (config == null || !Boolean.TRUE.equals(config.getOpenApi())) {
+            AiExecuteResponse<Object> resp = AiExecuteResponse.failure(
+                    config == null ? AiErrorCodes.SCENE_NOT_FOUND : AiErrorCodes.SCENE_NOT_OPEN,
+                    config == null ? "场景未注册或未启用: " + sceneCode : "场景未开放通用入口调用: " + sceneCode);
+            resp.setRequestId(requestId);
+            resp.setSceneCode(sceneCode);
+            return resp;
+        }
+        return null;
     }
 
     /**

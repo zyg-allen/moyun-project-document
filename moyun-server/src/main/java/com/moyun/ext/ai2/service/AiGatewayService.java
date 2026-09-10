@@ -1,7 +1,9 @@
 package com.moyun.ext.ai2.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.moyun.ext.ai.entity.Agent;
 import com.moyun.ext.ai.entity.AiSceneConfig;
+import com.moyun.ext.ai.mapper.AgentMapper;
 import com.moyun.ext.ai2.constant.AiErrorCodes;
 import com.moyun.ext.ai2.handler.AiSceneHandler;
 import com.moyun.ext.ai2.model.AiExecuteRequest;
@@ -43,6 +45,8 @@ public class AiGatewayService {
     private final SceneRateLimiter rateLimiter;
     private final FallbackStrategy fallbackStrategy;
     private final AiExecuteLogService executeLogService;
+    /** v11.49：Agent 人设注入（ai_scene_config.agent_id → ai_agent.system_prompt） */
+    private final AgentMapper agentMapper;
 
     /**
      * 同步执行（统一入口核心编排）
@@ -64,8 +68,15 @@ public class AiGatewayService {
             }
             handler = registry.getHandler(sceneCode);
 
-            // 2. 意图判断（仅当输入包含 userInput 时；低置信度触发追问）
-            String userInput = getStringInput(request, "userInput");
+            // 1.5 Agent 人设注入（v11.49：ai_scene_config.agent_id 绑定智能体时，其 system_prompt
+            //     渲染 {{占位符}} 后以 agentPersona 注入 input，Handler 构建系统提示词时统一前置。
+            //     注入先于缓存键计算——人设变更自动不脏读缓存）
+            String agentName = injectAgentPersona(request, config);
+
+            // 2. 意图判断（v11.52：消费顶层 userInput 字段——用户自由文本触发分类路由；
+            //    结构化参数场景（如 finance_analysis 传 userId/range）不传 userInput，自然跳过。
+            //    当前主要预留对象：chat 收口进网关后，对话消息即 userInput，此分支成为场景路由器）
+            String userInput = request.getUserInput();
             if (userInput != null && !userInput.isBlank()) {
                 IntentClassifier.IntentResult intent = intentClassifier.classify(userInput, sceneCode);
                 if (intent.getConfidence() < 0.6) {
@@ -111,18 +122,19 @@ public class AiGatewayService {
             // 5. 参数校验
             handler.validate(request);
 
-            // 6. 执行
-            AiExecuteResponse<?> response = handler.execute(request);
+            // 6. 执行（v11.48：配置随调用下发，Handler 提示词/输出结构读配置即时生效，无静态 ThreadLocal）
+            AiExecuteResponse<?> response = handler.execute(request, config);
 
             // 7. 填充通用字段 + 回写缓存 + 记录日志
             long elapsed = System.currentTimeMillis() - startTime;
             fillCommon(response, request, elapsed);
+            fillAgentMetadata(response, agentName);
             if (semanticCache.isEnabled(Boolean.TRUE.equals(config.getEnableCache()) ? 1 : 0)
                     && response.getCode() != null && response.getCode() == AiErrorCodes.SUCCESS) {
                 semanticCache.put(sceneCode, inputKey, inputText, response, config.getCacheTtl());
             }
             executeLogService.record(request.getRequestId(), sceneCode,
-                    handler.getClass().getSimpleName(), resolveBindType(config), null,
+                    handler.getClass().getSimpleName(), resolveBindType(config), response.getMetadata(),
                     inputKey, summarizeOutput(response), "success", null, elapsed);
             log.info("[ai2:网关] 成功: scene={}, requestId={}, elapsed={}ms",
                     sceneCode, request.getRequestId(), elapsed);
@@ -159,6 +171,7 @@ public class AiGatewayService {
                 return emitter;
             }
             AiSceneHandler handler = registry.getHandler(scene);
+            injectAgentPersona(request, config);
 
             // 流式支持校验
             String supported = handler.getSupportedOutputMode();
@@ -196,6 +209,60 @@ public class AiGatewayService {
     // ==================== 内部实现 ====================
 
     /**
+     * Agent 人设注入（v11.49）：ai_scene_config.agent_id 绑定智能体时，读取 ai_agent.system_prompt，
+     * 以 request.input 渲染 {{占位符}} 后注入 input.agentPersona。Agent 禁用/无提示词/加载失败均静默跳过
+     * （场景按无人设执行，不阻断）。注入位于缓存键计算之前——人设变更自动失效缓存。
+     *
+     * @return 绑定的 Agent 名称（未绑定/加载失败返回 null，供 metadata.agentUsed 补充）
+     */
+    private String injectAgentPersona(AiExecuteRequest request, AiSceneConfig config) {
+        if (config == null || config.getAgentId() == null) {
+            return null;
+        }
+        try {
+            Agent agent = agentMapper.selectById(config.getAgentId());
+            if (agent == null || Boolean.FALSE.equals(agent.getEnabled())
+                    || agent.getSystemPrompt() == null || agent.getSystemPrompt().isBlank()) {
+                return null;
+            }
+            if (request.getInput() == null) {
+                request.setInput(new java.util.LinkedHashMap<>());
+            }
+            String persona = agent.getSystemPrompt();
+            for (Map.Entry<String, Object> entry : request.getInput().entrySet()) {
+                persona = persona.replace("{{" + entry.getKey() + "}}",
+                        entry.getValue() != null ? String.valueOf(entry.getValue()) : "");
+            }
+            request.getInput().put("agentPersona", persona);
+            log.info("[ai2:网关] Agent人设注入: scene={}, agent={}({})",
+                    request.getSceneCode(), agent.getName(), agent.getId());
+            return agent.getName();
+        } catch (Exception e) {
+            log.warn("[ai2:网关] Agent人设注入失败（忽略，按无人设执行）: agentId={}, {}",
+                    config.getAgentId(), e.getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * 响应元数据补充 Agent 名称（v11.51 可观测性）：Handler 已填 modelUsed/tokenUsed 等时仅补
+     * agentUsed 空位；未填时创建。fromCache 由 SemanticCache 独立标记，此处不触碰。
+     */
+    private void fillAgentMetadata(AiExecuteResponse<?> response, String agentName) {
+        if (response == null || agentName == null) {
+            return;
+        }
+        com.moyun.ext.ai2.model.AiMetadata metadata = response.getMetadata();
+        if (metadata == null) {
+            metadata = new com.moyun.ext.ai2.model.AiMetadata();
+            response.setMetadata(metadata);
+        }
+        if (metadata.getAgentUsed() == null) {
+            metadata.setAgentUsed(agentName);
+        }
+    }
+
+    /**
      * 从场景配置推导绑定类型（ai_scene_config 无 bind_type 冗余列，运行时推导）
      */
     private String resolveBindType(AiSceneConfig config) {
@@ -219,11 +286,6 @@ public class AiGatewayService {
         return resp;
     }
 
-    private String getStringInput(AiExecuteRequest request, String key) {
-        Object value = request.getInput() != null ? request.getInput().get(key) : null;
-        return value != null ? String.valueOf(value) : null;
-    }
-
     /**
      * 缓存键：input 的规范化 JSON（TreeMap 保证键序稳定）
      */
@@ -239,18 +301,15 @@ public class AiGatewayService {
     }
 
     /**
-     * 语义比对主文本：优先 userInput/text，其次所有字符串参数拼接
+     * 语义比对主文本：优先顶层 userInput，其次 input 内字符串参数拼接
      */
     private String primaryInputText(AiExecuteRequest request) {
+        String preferred = request.getUserInput();
+        if (preferred != null && !preferred.isBlank()) {
+            return preferred;
+        }
         if (request.getInput() == null || request.getInput().isEmpty()) {
             return null;
-        }
-        String preferred = getStringInput(request, "userInput");
-        if (preferred == null) {
-            preferred = getStringInput(request, "text");
-        }
-        if (preferred != null) {
-            return preferred;
         }
         StringBuilder sb = new StringBuilder();
         for (Object value : request.getInput().values()) {

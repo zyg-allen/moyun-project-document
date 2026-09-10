@@ -5,6 +5,228 @@
 
 ***
 
+## v11.53.1 (2026-09-10) 死代码清理：基类孤儿方法 parseJson(String, Class)
+
+### 审计范围（v11.48~v11.53 触达文件全量扫描）
+- LedgerAiAnalysisServiceImpl：~440 行全量复核，所有私有方法均有调用（v11.50 薄化重构无残留）
+- FinanceAnalysisHandler：27 个私有方法逐一引用计数，全部存活
+- AbstractAiSceneHandler：14 个 protected 方法全库引用扫描，**唯一孤儿 = parseJson(String, Class)**（7 个 Handler 全部使用 parseJsonMap；LedgerAiAnalysisServiceImpl 的 parseJson 是其自有私有方法，同名不同物）
+- AiGatewayService：8 个私有方法全部存活（v11.52 删 getStringInput 后无新孤儿）
+- SensitiveWordHandler：v11.52 迁移（input.text→userInput）无残留；管理前端无旧 key 引用
+
+### 删除
+- AbstractAiSceneHandler.parseJson(String, Class<T>)：零调用者，与 parseJsonMap 能力重复（均基于 extractJson 容错提取）。编译通过
+
+### 四同步
+- 代码：编译通过；SQL/菜单：无关；文档：本记录
+
+## v11.48 (2026-09-10) finance_analysis 场景标准化：风险/建议完全交 LLM + 配置即时生效
+
+### 背景
+- 用户评审 `/portal/ledger/ai/analysis`：旧实现规则引擎把结论都算完，LLM 只做皮毛综述；且 ai_scene_config 表填了配置却不生效，与建表初衷（配置驱动、免发版调提示词）相悖
+- 核查发现 v11.48 前次重构烂尾：`callAiReport`/`castList` 被调用但未定义，编译不过；网关用 `FinanceAnalysisHandler.setCurrentConfig` 静态 ThreadLocal hack 给所有场景注入配置；`AiSceneRegistry.configMap` 仅启动加载一次，管理页改配置永不生效
+
+### 变更（对齐《AI能力统一接入层 — 完整方案文档》V2.0 §4.2/§5.1/§5.2/§5.3）
+- **业务侧标准化流程落地**（LedgerAiAnalysisServiceImpl 重写）：
+  查数据（流水/资产/负债/画像 + 新增支出结构 Top5）→ 组装 ledgerContext（结构化数据 + 规则算好的指标护栏 + 债务到期等时点事实）→ 网关 execute(finance_analysis, {ledgerContext, window}) → LLM 生成标准 JSON {summary, healthScore, risks[], suggestions[]} → 解析合并（健康分以规则值为基准，LLM 值不采纳）→ 落表 → 返回
+- **风险/建议完全交 LLM**（用户决策：先看效果不做规则兜底，LLM 挂了仅综述降级模板、风险/建议列表为空）；删除本地硬编码 risk/suggest 生成死代码与 v11.39 直调链路（generateSummary/buildPrompt/callLlm/callLlmDirect 等 6 方法）
+- **网关去 hack**（AiGatewayService）：改用 AiSceneHandler 接口 v11.48 预留的 `execute(request, config)` 双参方法下发配置；FinanceAnalysisHandler 删除静态 ThreadLocal（该 hack 会给所有场景错误注入 finance 配置）
+- **配置即时生效**（AiSceneRegistry）：getConfig 直查 ai_scene_config（priority DESC LIMIT 1，LLM 调用秒级，索引查询开销可忽略），管理页改提示词模板/输出结构/绑定关系**下次调用立即生效**，无需重启或手动 refresh
+- **快照与配置变更联动**：数据指纹新增 `cfg:` 段（finance_analysis 配置行 update_time），改模板当月快照自动失效重算，"改配置立即生效"端到端闭环
+- **死代码清理**：LedgerSceneData.java（零引用，文档 §4.3 的草图结构已被 v11.48 Map 结构取代，经全库引用核查后删除）
+- **SQL**：新增 [20260910-ai2-finance-analysis-templates.sql]——finance_analysis 种子模板（system/user 模板 + output_schema + prompt_placeholders），仅空值时填充不覆盖管理员已填值，幂等可重放
+
+### 四同步
+- 代码：编译通过（mvn compile）；SQL：见上；菜单：无新接口、复用 `cms:ai:scene:*` 权限，无需变更；文档：本记录 + 开发进度与规划.md 场景迁移条目更新
+
+### 遗留与后续
+- 语义缓存提示：enable_cache 开启时 ledgerContext 中金额变动会导致缓存键变化，命中率取决于数据变更频率（规划 P2 灰度验证项）
+- 后续场景迁移（voice_interview 等）复用本次确立的双参 execute 模式，不再出现 ThreadLocal 类 hack
+
+## v11.53 (2026-09-10) 财务分析 LLM 链路修复：Agent 人设带偏防呆 + 文本兜底 + Agent 参数调优
+
+### 问题定位（日志实证，非猜测）
+- 现象：分析页综述仅一句话"（模板分析）根据你的记账数据……整体收支可控"，标签"基础分析"
+- 日志铁证：LLM 实际返回 `"您好"`、`"我需要先获取你的基础财务数据"`、`"我需要基于你的真实收支……"` ——**对话文本而非 JSON** → parseJsonMap 失败 → 降级模板
+- 部分调用 JSON 被截断（`Unexpected end-of-input`）——max_tokens 偏小
+- 根因：Agent 47「财务分析师」（管理页创建）人设为对话式；mergePersona 将人设前置且无边界约束，LLM 把后台批处理任务当聊天，无视 output_schema 的 JSON 指令
+
+### 修复（三层）
+1. **基类防呆（根治所有场景）**：mergePersona 注入人设后追加【任务边界】声明——"系统自动执行的后台分析任务，数据已完整提供：不要问候、不要反问、不要索要信息，严格遵守输出格式"。任何风格人设都不会再把任务带偏成聊天（AbstractAiSceneHandler）
+2. **文本兜底（Handler）**：LLM 返回非 JSON 时，cleanLlmText 清洗（剥围栏；{ 或 [ 开头的 JSON 残骸视为截断不入综述）后作为 summary 展示，risks/suggestions 留空——符合既定契约"LLM 挂了就只有综述没有风险列表"，LLM 生成内容不再整体丢弃（FinanceAnalysisHandler + 基类 cleanLlmText）
+3. **Agent 参数调优（SQL）**：Agent 47 max_tokens <4096 提升（JSON 报告实测 2000+ tokens，截断主因）、temperature >0.3 收敛（结构化输出要稳定）。resolveChatModel 确认消费 agent.temperature/maxTokens。不覆盖用户编辑的人设内容
+
+### 提示词合并契约（本次审计明确）
+最终 system = Agent人设（含任务边界声明）+ ai_scene_config.system_prompt_template + output_schema 约束——Agent 定义"是谁"（口吻/视角），场景配置定义"做什么/怎么输出"，两者都生效、互不覆盖
+
+### 四同步
+- 代码：编译通过；SQL：20260910-05-agent47-params-v11-53.sql（条件修复+验证查询）；菜单：无关；文档：本记录
+- 验证：① 执行 SQL → 重启 moyun-server → 分析页"重新分析"；② 预期：LLM 按 JSON 输出完整报告（summary 讲数据故事 + risks 带"依据" + suggestions 带"预期"），标签变"AI 分析"；③ 若模型仍偶发截断，ai_execute_log.elapsed_ms 可观测，max_tokens 可继续调大
+
+
+## v11.52 (2026-09-10) 入参契约语义分层：userInput 提升为顶层显式字段
+
+### 背景
+- 审计发现网关意图判断分支读 `input.userInput`，但全库无任何调用方传入（死分支）；各 Handler 文本参数 key 各自为政（text/question/resumeText）。
+- 用户决策：不删（chat 收口/Agent-First 预留），但要在合理位置显式定义——对话类场景天然需要"用户自由文本"。
+
+### 契约改动
+- **AiExecuteRequest 新增顶层字段 `userInput`**（@Size(max=8000)），语义分层确立：
+  - `userInput` = 用户自由文本（人打的原始输入）——网关横切（IntentClassifier 意图路由、SemanticCache 键）统一消费
+  - `input` = 结构化业务参数（userId/range/position 等强类型键值）——Handler 自定义取值，网关不解释
+- **网关两处读取点迁移**：意图判断 `getStringInput(request,"userInput")` → `request.getUserInput()`；primaryInputText 优先顶层字段（原 input.userInput/text 特判移除）。
+- **基类新增 `requireUserInput(request)`**：对话/检测/生成类 Handler 取用户文本的统一入口。
+- **SensitiveWordHandler 迁移**：input.text → 顶层 userInput（validate 快速失败 + execute 取参）。零影响：业务侧敏感词走 DFA 词树 ISensitiveWordService 不过网关，该场景无内部调用方。
+- **死代码清理**：getStringInput 无调用方，删除。
+- 意图分支现状说明写入代码注释：chat 收口后对话消息即 userInput，该分支成为场景路由器。
+
+### 四同步
+- 代码：编译通过；SQL：无关（纯契约层）；菜单：无关；文档：本记录 + 方案文档 §4.1 入参定义与语义分层说明同步更新
+- 验证：① 重启后 POST /api/ai/execute {"sceneCode":"sensitive_word","userInput":"测试文本"}（需先开 open_api）→ 正常返回检测结果；② 不传 userInput → 网关 validate 快速失败返回参数错误；③ 财务分析等结构化场景行为不变（不传 userInput 意图分支自然跳过）
+
+
+## v11.51 (2026-09-10) AI 底座闭环补强：可观测性（metadata）+ 通用入口白名单（open_api）
+
+### 背景
+- 契约全景审计发现两大断点：① AiMetadata 七字段仅 fromCache 被填充（模型/Agent/token 不可观测）；② /api/ai/execute 可直调任何 enabled 场景，可越权绕过业务 Controller 编排（如 finance_analysis 的鉴权/快照/落表）。
+
+### 断点① 可观测性闭环
+- 新增 ChatOutcome 模型：LLM 调用结构化结果（text + modelUsed + modelProvider + tokenUsed，取自 langchain4j ChatResponse 的 tokenUsage/metadata.modelName）。
+- AbstractAiSceneHandler：chat() 委托新 chatDetailed()（向后兼容）；新增 buildMetadata(outcome) 辅助。
+- AiGatewayService：injectAgentPersona 返回 Agent 名，fillAgentMetadata 统一补 agentUsed（Handler 填模型/token，网关补 Agent——职责清晰不重复）。
+- FinanceAnalysisHandler 接入 chatDetailed，成功响应携带 metadata。
+- AiExecuteLogService.record 签名升级：第5参数 String modelUsed → AiMetadata，model_used/agent_used/token_used 三列自此有数据（表列 v11.39 就预留，一直空置）。
+- 顺序保证：fillAgentMetadata 先于 record 调用，日志三元组完整。
+
+### 断点⑤ 通用入口白名单
+- ai_scene_config 新增 open_api 列（TINYINT(1) DEFAULT 0）：存量场景默认关闭。
+- AiGatewayController：/execute 与 /execute/stream 前置校验 open_api，未开放返回 SCENE_NOT_OPEN(1007) / SSE error 事件。业务 Service 直调 AiGatewayService 不经 Controller 层，不受限。
+- 管理页场景配置"基础配置"tab 新增"开放API"开关（表单/默认值/编辑回填三处同步），listScenes 总览输出 openApi。
+
+### 四同步
+- 代码：编译通过；SQL：20260910-04-ai2-scene-open-api-v11-51.sql（增量）+ 20260909-ai2-unified-gateway.sql 末尾追加同款 ALTER（新环境全量初始化）；菜单：无关；文档：本记录
+- 验证：① 执行增量 SQL → 重启 → 调财务分析 → ai_execute_log 新记录的 model_used/agent_used/token_used 有值；② curl POST /api/ai/execute {"sceneCode":"finance_analysis"} → 返回 code=1007 SCENE_NOT_OPEN；③ 管理页编辑场景可见"开放API"开关，开启后 /api/ai/execute 可调用
+
+
+## v11.50 (2026-09-10) finance_analysis 架构重构：数据组装下沉 Handler，Service 薄化
+
+### 背景
+- 用户明确架构方向："坚持配置，差异只在查库和拼上下文，独立编码交给各自 Handler，最后调 Agent，不要太多逻辑放 Service"。
+- 审计确认前后台配置标准一致（管理页字段完整、Controller 全量保存、网关消费链路通）；遗留不一致：output_parser/output_mode 可编辑但零消费（已列 Phase 1 UniversalSceneHandler 接线）。
+
+### 重构内容
+- **FinanceAnalysisHandler 迁至 com.moyun.ledger.handler**（原 ai2/handler/impl 删除）：数据组装（查库/指标/趋势上下文/画像文本）+ 模板渲染（人设→system→output_schema→user）+ LLM 调用 + LLM 失败内部降级（模板综述+空列表，指标照常返回）。放业务包的原因：Handler 需注入 ledger Mapper，避免 ai2 基础设施反向依赖业务模块（依赖方向恒为 业务→ai2）。
+- **LedgerAiAnalysisServiceImpl 薄化**（856→约400行）：只承担 快照缓存（指纹）/ 网关调用 / 报告落表 / 画像管理。Handler 输入简化为 {userId, range}，返回完整报告 data。
+- **双重缓存消歧**：网关 TTL 语义缓存关闭（20260910-03 SQL，enable_cache=0）——Handler 现返回实时指标，TTL 缓存会返回过期数据；缓存职责统一归 Service 数据指纹快照（数据/预算/画像/配置变化自动失效）。
+- **指纹 pf 段**：快照存档 profileStamp 保留标签翻译（存档可读性），指纹判断粒度不变。
+
+### 四同步
+- 代码：编译通过；SQL：20260910-03-ai2-finance-analysis-v11-50.sql（幂等）；菜单：无关；文档：本记录
+- 验证：重启后调 /portal/ledger/ai/analysis?range=month，行为与 v11.49 一致（综述/风险依据/建议预期/应急基金指标）；日志无 ai2 错误；ai_execute_log 有新记录
+
+## v11.49.1 (2026-09-10) 修复 ai_execute_log 落库失败：实体列名与 DDL 不符
+
+### 现象
+- v11.49 验证时发现每次网关调用后 warn：`Unknown column 'created_at' in 'field list'`——执行日志全部落库失败（不影响业务主流程，但可观测性数据缺失）
+
+### 根因与修复
+- AiExecuteLog 实体映射 `@TableField("created_at")`，而 DDL（20260909-ai2-unified-gateway.sql）定义的列是 `create_time`（表已按 DDL 建好，DDL 为权威）。实体/Service 改为 `create_time`，顺带修正实体注释表名笔误（ai2_execute_log → ai_execute_log）
+- 全库 grep 确认无其他 createdAt 引用（残留命中均为 Knowledge/Article 等无关实体）
+
+### 四同步
+- 代码：编译通过；SQL：无变更（表结构本来就正确）；菜单：无关；文档：本记录
+
+## v11.49 (2026-09-10) finance_analysis 深度增强：趋势/预算/应急基金上下文 + evidence/expectedImpact 契约 + Agent 人设打通
+
+### 背景
+- v11.48 落地后用户反馈报告"太简单、没参考意义"。诊断：三层根因——上下文薄（LLM 只拿到 10 个汇总数字，看不到趋势/预算/流动性）、输出契约扁平（风险无依据、建议无量化预期）、Agent 编辑器未接入（agent_id 字段闲置，人设硬编码在 Handler）
+
+### 变更
+- **A 深度上下文**（LedgerAiAnalysisServiceImpl）：
+  - `buildTrendContext`：近6个月流水 → 逐月收支序列（income/expense/surplus）+ 分类环比 Top5（本月 vs 上月含 changePct）+ 预算执行（总/分类预算 usedPct、剩余、月末剩余天数，复用既有 ledger_budget 链路）
+  - 应急基金月数 = 流动资产（cash/savings/ewallet/stored_value）÷ 月均支出，入 indicators 护栏
+  - debtFact 增清偿测算（payoffMonths = 余额 ÷ 月供，不含息近似）
+  - 数据指纹：tx 窗口扩至近6个月（与趋势口径一致，上月流水变化同样失效快照）+ 新增预算签名（bd）
+- **B 输出契约富化**：risks[].evidence（数据依据）、suggestions[].expectedImpact（量化预期）贯穿 Handler 解析/默认模板/前端展示（风险"依据"标签、建议"预期"标签）
+- **C Agent 打通**：网关 `injectAgentPersona`（ai_scene_config.agent_id → ai_agent.system_prompt 渲染 {{占位符}} 后注入 input.agentPersona，位于缓存键计算前——人设变更自动失效缓存）；`AbstractAiSceneHandler#mergePersona` 统一前置人设。分工：Agent 定义"是谁"，场景配置定义"做什么/怎么输出"。同步/流式入口均注入；Agent 禁用/无提示词/失败静默跳过
+- **默认系统模板重写**（反空话硬约束）：禁"建议合理规划"类空话、综述讲"发现的故事"、风险必须给 evidence、建议必须可执行且量化 expectedImpact
+- **前端**（analysis/index.vue）：流动资产/应急基金月数（含分级标注）行、风险"依据"、建议"预期"展示
+
+### SQL
+- 新增 [20260910-02-ai2-finance-analysis-templates-v11-49.sql]：模板覆盖升级（仅旧种子前缀匹配才更新，管理员自定义不覆盖；幂等可重放）
+
+### 四同步
+- 代码：编译通过；SQL：见上；菜单：无新接口；文档：方案文档 §5.1 增"实现演进注记"（双参 execute/Agent 人设合并/配置即时生效）、本记录
+
+### 效果预期与验证
+- 验证：执行 SQL → 重启 → `GET /portal/ledger/ai/analysis?range=month`（refresh=true）→ 风险应带数据依据（如"餐饮环比+65%"）、建议应带量化预期（如"每月约节省¥800"）；管理页给 finance_analysis 绑定 agent_id → 人设生效且不脏读缓存
+- 后续场景迁移范式：业务侧只组装结构化 context → 网关（人设注入/缓存/限流）→ Handler 读配置模板渲染 → 富化 JSON 契约
+
+## v11.47 (2026-09-10) 上帝类拆分第一步：AnswerScoringEngine 抽取
+
+### 背景
+- Phase 1 P0「拆上帝类」启动：VoiceInterviewServiceImpl 3169 行按"评分 / 题目选择 / 文案构建"三块小步剥离，每步编译验证（用户确认小规模持续处理模式）
+- 本轮第一块：**规则评分引擎**——无 LLM 依赖、方法边界完整（scoreAnswer + 6 维计算 + 关键词提取 + 反馈构建），是最安全的切分点
+
+### 变更
+- 新增 [AnswerScoringEngine.java]（185 行，@Component）：`scoreAnswer`/`extractKeywords`/`clamp`/`countStructureWords`/`countInteractiveSignals` + 停用词表整体迁入；`ScoreResult` 从主服务 private 内部类升为公共静态类（字段/构造器签名不变，主服务 19 处引用零改动兼容）
+- 主服务 `scoreAnswer` 改为单行委托注入的引擎；删除已迁出的 5 个方法与 2 个孤儿常量（MAX_KEYWORDS/STOPWORDS）；`clamp` 保留（LLM 解析 parseAnalysis 仍用）
+- LLM 融合评分（scoreSent/fused）留在主服务——依赖场景模型调用，属流程编排层，后续随网关 voice_interview 场景迁移处理
+- 主服务 3169 → **3031 行**；评分逻辑现可脱离 Spring/LLM 独立单测（Phase 1 单测任务的第一个可测单元）
+
+### 四同步
+- 代码：编译通过；SQL/菜单：纯内部重构无表与接口变更，无需同步；文档：本记录
+
+### 后续拆分计划（小步进行）
+1. 题目选择块（buildQuestionPaper 召回链）→ QuestionSelectEngine
+2. 文案构建块（提示词拼接）→ PromptBuilder
+3. LLM 评分迁移至 AI 网关 voice_interview 场景
+
+## v11.46 (2026-09-10) 死代码清理第一轮 + 评审结论入规划
+
+### 规划路线更新
+- Phase 1 重排为「AI 统一网关收口 + 质量攻坚」：拆上帝类（VoiceInterviewServiceImpl 3169 行）、资金链路单测、死代码清理、VIP 付费墙四项 P0 入列
+
+### 死代码清理（本轮 2 组，均经"前端三端无引用 + 后端无内部调用"双重验证）
+1. **架构图同步生成旧链路**（已被流式版替代）：删除 `DiagramController`（POST /cms/ai/diagram/generate）、`DiagramService` 接口、`DiagramServiceImpl`、`DiagramGenerateDTO` 4 文件
+   - 前端 chat.vue 已改用 `/cms/ai/diagram/chat/stream`（DiagramStreamController，`cms:ai:diagram:list` 权限），同步接口零引用
+   - 菜单核查：sys_menu 仅 5057（diagram/chat 页面，list 权限）在用，无 `diagram:query` 按钮权限 → **SQL/菜单无需变更**
+2. **AI 仪表盘实时接口**：删除 `DashboardController.getRealtime`（GET /cms/ai/dashboard/realtime）——dashboard 页仅调 overview，realtime 前端零引用；复用权限 `dashboard:list` 仍被 overview 使用 → 菜单无需变更
+
+### 保留判定（避免误删）
+- AiGatewayController 的 /api/ai/execute 等网关接口：当前前端无调用，但属 Phase 1 规划内统一入口，保留
+- 后续每轮清理遵循：删除前交叉验证前端 api/页面直连 fetch、后端内部转发、菜单权限按钮三处引用
+
+## v11.45 (2026-09-10) 规划路线文档更新至 v11.44 现状
+
+### 06-规划路线/开发进度与规划.md 全面重写
+- 原文档停留在 v9.5（2026-08-16），落后实际进度约 70 个版本，已按 devlog 记录同步至 v11.44
+- **新增「重大项目转折分析」章节**：回溯 6 次方向性调整并分析动因与影响——
+  v9.0 战略收缩（砍 PK/圈子聚焦内容）、v9.5 分支合并基线、v10.x AI 面试核心差异化（旧 MockInterview 下线）、
+  v11.0 商业化落地、v11.14 记账 App 第四端新产品线、v11.38 AI 统一网关 Agent-First 方向
+- **新增「版本里程碑对照」**：v9.5 时点原规划 vs 实际演进——AI 面试/记账产品线/AI 网关均为计划外主动投资，
+  数据运营与 VIP 商业化持续后移，结论"基建强、营收弱"，下一阶段需并行补齐
+- **下一阶段路线图重排**：Phase 1 AI 网关收口（剩余场景迁移 P0）→ Phase 2 Agent-First（工具注册/Workflow Agent 节点/行为预测）→ Phase 3 商业化与运营并行 → Phase 4 质量生态
+- 技术债务清单更新：新增 TD-09（12 处 LLM 直调待收口）、TD-10（devlog 含二进制字节）
+
+## v11.44 (2026-09-10) docs 目录阶段性规整
+
+### 删除（18 文件）
+- `08-原型设计/` 整目录（12 文件）：原型已落地且多轮优化，HTML 原型稿不再保留
+- `09-归档/` 整目录（5 文件）：v4.0/v5.2/v7.8 历史评审与检讨文档
+- 根目录 `Relevant Code Snippets.md`（AI 会话草稿）、`栏目重构设计-20260819.md`（与 05-方案设计重复副本）
+- `05-方案设计/题库模块重构方案-20260820.md`（已被综合评审 20260830 替代）
+- `11-记账模块需求分析/新增记账应用的需求说明书.md`（已被 V1.1 需求 + V1.3 设计替代）
+- `10-大模型配置相关/new 5.txt`（临时文件）
+
+### 归位（根目录 6 个散落文档 → 大类）
+- AI 类 5 份 → `05-方案设计/`（统一接入层/面试配置化/面试拓展优化/简历重构/ES→JVector）
+- 岗位画像自检清单 → `04-测试验收/`
+
+### README.md 重写
+- 目录结构表与文档清单反映规整后状态（9 个大类目录、29 个文档），标注本次规整说明
+- 文档结构：根目录仅保留 README.md，其余全部归入编号目录
+
 ## v11.43 (2026-09-09) 财务分析接入 AI 统一网关 + 场景管理页下拉/注册表修复
 
 ### 财务分析走统一网关（finance_analysis 示范接入）

@@ -28,11 +28,13 @@ public class AiExecuteLogService {
     private AiExecuteLogMapper executeLogMapper;
 
     /**
-     * 异步记录执行日志
+     * 异步记录执行日志（v11.51：响应 metadata 的模型/Agent/token 同步落 ai_execute_log，
+     * 与响应可观测性闭环——日志表 model_used/agent_used/token_used 列自此有数据）
      */
     @Async
     public void record(String requestId, String sceneCode, String handlerName, String bindType,
-                       String modelUsed, String inputSummary, String outputSummary,
+                       com.moyun.ext.ai2.model.AiMetadata metadata,
+                       String inputSummary, String outputSummary,
                        String status, String errorMsg, long elapsedMs) {
         try {
             AiExecuteLog logEntry = new AiExecuteLog();
@@ -40,13 +42,17 @@ public class AiExecuteLogService {
             logEntry.setSceneCode(sceneCode);
             logEntry.setHandlerName(handlerName);
             logEntry.setBindType(bindType);
-            logEntry.setModelUsed(modelUsed);
+            if (metadata != null) {
+                logEntry.setModelUsed(metadata.getModelUsed());
+                logEntry.setAgentUsed(metadata.getAgentUsed());
+                logEntry.setTokenUsed(metadata.getTokenUsed());
+            }
             logEntry.setInputSummary(abbreviate(inputSummary, 500));
             logEntry.setOutputSummary(abbreviate(outputSummary, 500));
             logEntry.setStatus(status);
             logEntry.setErrorMsg(abbreviate(errorMsg, 2000));
             logEntry.setElapsedMs(elapsedMs);
-            logEntry.setCreatedAt(LocalDateTime.now());
+            logEntry.setCreateTime(LocalDateTime.now());
             executeLogMapper.insert(logEntry);
         } catch (Exception e) {
             log.warn("[ai2:log] 执行日志落库失败（不影响业务）: {}", e.getMessage());

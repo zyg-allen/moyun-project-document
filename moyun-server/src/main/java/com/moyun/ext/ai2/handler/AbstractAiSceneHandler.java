@@ -55,6 +55,15 @@ public abstract class AbstractAiSceneHandler implements AiSceneHandler {
      * @return AI 回复文本；AI 不可用或调用失败返回 null（由网关降级策略兜底）
      */
     protected String chat(String sceneCode, String systemPrompt, String userPrompt) {
+        return chatDetailed(sceneCode, systemPrompt, userPrompt).getText();
+    }
+
+    /**
+     * 场景感知同步对话（结构化结果，v11.51）：除文本外返回实际使用的模型与 token 消耗。
+     * 需要 metadata 可观测的场景 Handler 用本方法，并通过 {@link #buildMetadata} 填充响应。
+     */
+    protected com.moyun.ext.ai2.model.ChatOutcome chatDetailed(String sceneCode, String systemPrompt, String userPrompt) {
+        com.moyun.ext.ai2.model.ChatOutcome outcome = new com.moyun.ext.ai2.model.ChatOutcome();
         // 1. 场景绑定模型（责任链：Agent绑定 → 直绑模型 → null）
         if (sceneResolver != null) {
             try {
@@ -64,7 +73,9 @@ public abstract class AbstractAiSceneHandler implements AiSceneHandler {
                             new SystemMessage(systemPrompt),
                             new UserMessage(userPrompt)));
                     if (resp != null && resp.aiMessage() != null) {
-                        return resp.aiMessage().text();
+                        outcome.setText(resp.aiMessage().text());
+                        fillUsage(outcome, resp);
+                        return outcome;
                     }
                 }
             } catch (Exception e) {
@@ -72,15 +83,46 @@ public abstract class AbstractAiSceneHandler implements AiSceneHandler {
             }
         }
 
-        // 2. 回落底座默认模型
+        // 2. 回落底座默认模型（无 token 统计，标记 default）
         if (llmService != null) {
             try {
-                return llmService.generate(systemPrompt + "\n\n" + userPrompt);
+                outcome.setText(llmService.generate(systemPrompt + "\n\n" + userPrompt));
+                outcome.setModelUsed("default");
             } catch (Exception e) {
                 log.warn("[ai2:{}] 默认模型调用失败: {}", sceneCode, e.getMessage());
             }
         }
-        return null;
+        return outcome;
+    }
+
+    /** 从 ChatResponse 提取模型名与 token 消耗（字段缺失时静默留空） */
+    private void fillUsage(com.moyun.ext.ai2.model.ChatOutcome outcome, ChatResponse resp) {
+        try {
+            if (resp.tokenUsage() != null && resp.tokenUsage().totalTokenCount() != null) {
+                outcome.setTokenUsed(resp.tokenUsage().totalTokenCount());
+            }
+        } catch (Exception ignored) {
+        }
+        try {
+            if (resp.metadata() != null && resp.metadata().modelName() != null) {
+                outcome.setModelUsed(resp.metadata().modelName());
+            }
+        } catch (Exception ignored) {
+        }
+    }
+
+    /**
+     * LLM 调用结果 → 响应元数据（v11.51）。Handler 调 chatDetailed 后构建：
+     * modelUsed/tokenUsed/modelProvider 来自实际调用；agentUsed 由网关统一补充。
+     */
+    protected com.moyun.ext.ai2.model.AiMetadata buildMetadata(com.moyun.ext.ai2.model.ChatOutcome outcome) {
+        com.moyun.ext.ai2.model.AiMetadata metadata = new com.moyun.ext.ai2.model.AiMetadata();
+        if (outcome != null) {
+            metadata.setModelUsed(outcome.getModelUsed());
+            metadata.setModelProvider(outcome.getModelProvider());
+            metadata.setTokenUsed(outcome.getTokenUsed());
+        }
+        return metadata;
     }
 
     /**
@@ -136,25 +178,6 @@ public abstract class AbstractAiSceneHandler implements AiSceneHandler {
             }
         }
         return result;
-    }
-
-    /**
-     * 容错解析模型返回的 JSON：剥离 markdown 围栏与前后杂文本
-     *
-     * @return 解析后的对象；解析失败返回 null
-     */
-    protected <T> T parseJson(String raw, Class<T> type) {
-        if (raw == null || raw.isBlank()) {
-            return null;
-        }
-        String json = extractJson(raw);
-        try {
-            return MAPPER.readValue(json, type);
-        } catch (Exception e) {
-            log.warn("[ai2] JSON解析失败: {}, 原文前200字符: {}", e.getMessage(),
-                    raw.substring(0, Math.min(200, raw.length())));
-            return null;
-        }
     }
 
     /**
@@ -230,11 +253,55 @@ public abstract class AbstractAiSceneHandler implements AiSceneHandler {
     }
 
     /**
+     * Agent 人设前置合并（v11.53 加任务边界声明）
+     *
+     * <p>背景：用户在管理页绑定的 Agent 人设可能是对话式（如"与用户交流了解需求"），
+     * 后台批处理任务中会诱导 LLM 输出问候/反问文本（"您好，请提供数据"）而非按
+     * output_schema 输出 JSON，导致解析失败降级。</p>
+     *
+     * <p>策略：人设仅定义"口吻/专业视角"，注入后紧跟任务边界声明收口——
+     * 无论绑什么风格的 Agent，都不会把后台任务带偏成聊天。</p>
+     */
+    protected String mergePersona(AiExecuteRequest request, String systemPrompt) {
+        String persona = getInputString(request, "agentPersona");
+        if (persona != null && !persona.isBlank()) {
+            return persona + "\n\n【任务边界】本任务为系统自动执行的后台分析任务，所需数据已在用户消息中完整提供："
+                    + "不要问候、不要反问、不要向用户索要任何信息，直接基于给定数据完成任务，"
+                    + "并严格遵守下方的角色设定与输出格式要求。\n\n" + systemPrompt;
+        }
+        return systemPrompt;
+    }
+
+    /**
      * 从 input 取字符串参数
      */
     protected String getInputString(AiExecuteRequest request, String key) {
         Object value = request.getInput() != null ? request.getInput().get(key) : null;
         return value != null ? String.valueOf(value) : null;
+    }
+
+    /**
+     * 清洗 LLM 原始文本用于展示兜底（v11.53）：剥离 markdown 围栏与首尾空白。
+     * JSON 残骸（以 { 或 [ 开头——通常为截断的结构化输出）不适合人读，返回空串由调用方走模板降级。
+     */
+    protected String cleanLlmText(String raw) {
+        if (raw == null || raw.isBlank()) {
+            return "";
+        }
+        String text = raw.trim();
+        if (text.startsWith("```")) {
+            int firstLineEnd = text.indexOf('\n');
+            int lastFence = text.lastIndexOf("```");
+            if (firstLineEnd > 0 && lastFence > firstLineEnd) {
+                text = text.substring(firstLineEnd + 1, lastFence).trim();
+            } else if (firstLineEnd > 0) {
+                text = text.substring(firstLineEnd + 1).trim();
+            }
+        }
+        if (text.startsWith("{") || text.startsWith("[")) {
+            return "";
+        }
+        return text;
     }
 
     /**
@@ -261,6 +328,18 @@ public abstract class AbstractAiSceneHandler implements AiSceneHandler {
         String value = getInputString(request, key);
         if (value == null || value.isBlank()) {
             throw new IllegalArgumentException("缺少必填参数: " + key);
+        }
+        return value;
+    }
+
+    /**
+     * 取必填的用户自由文本（顶层 userInput 字段，v11.52 契约）。
+     * 对话/检测/生成类场景的"人打的原始输入"统一走此参数，业务结构化参数仍走 input。
+     */
+    protected String requireUserInput(AiExecuteRequest request) {
+        String value = request.getUserInput();
+        if (value == null || value.isBlank()) {
+            throw new IllegalArgumentException("缺少必填参数: userInput（用户输入文本）");
         }
         return value;
     }

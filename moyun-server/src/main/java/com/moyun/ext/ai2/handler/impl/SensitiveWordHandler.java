@@ -16,7 +16,8 @@ import java.util.Map;
  *
  * <p>职责：文本 → 敏感词识别 + 风险分级（同步分类场景，文档 §6.2 示例的落地实现）。</p>
  *
- * <p>输入参数：text(待检测文本)</p>
+ * <p>输入参数：userInput（顶层字段，v11.52 契约——用户自由文本统一走 userInput，
+ * 网关意图判断/语义缓存键同步消费）</p>
  *
  * @author laomao
  * @since 2026-09-09
@@ -32,12 +33,13 @@ public class SensitiveWordHandler extends AbstractAiSceneHandler {
 
     @Override
     public void validate(AiExecuteRequest request) {
-        // 分类场景仅要求 text 参数，input 非空校验由 requireInputString 完成
+        // 快速失败：顶层 userInput 缺失直接拒绝（分类场景唯一必填参数）
+        requireUserInput(request);
     }
 
     @Override
     public AiExecuteResponse<?> execute(AiExecuteRequest request) {
-        String text = requireInputString(request, "text");
+        String text = requireUserInput(request);
 
         String systemPrompt = """
                 你是内容安全审核专家。检测文本是否包含敏感内容（涉政/色情/暴恐/辱骂/违法广告等），只输出 JSON：

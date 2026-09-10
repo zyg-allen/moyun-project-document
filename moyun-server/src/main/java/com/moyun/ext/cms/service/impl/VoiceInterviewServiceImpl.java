@@ -43,6 +43,7 @@ import com.moyun.portal.mapper.PortalVoiceInterviewMapper;
 import com.moyun.portal.mapper.PortalVoiceInterviewQAMapper;
 import com.moyun.util.bean.PageUtils;
 import com.moyun.util.string.StringUtils;
+import com.moyun.ext.cms.service.interview.AnswerScoringEngine;
 import dev.langchain4j.data.message.ChatMessage;
 import dev.langchain4j.data.message.SystemMessage;
 import dev.langchain4j.data.message.UserMessage;
@@ -95,9 +96,6 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
 
     /** 主问题目数量 */
     private static final int QUESTION_COUNT = 5;
-
-    /** 关键词提取上限 */
-    private static final int MAX_KEYWORDS = 12;
 
     /** 薄弱点召回上限 */
     private static final int WEAK_TAG_RECALL_LIMIT = 3;
@@ -527,7 +525,7 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
      * 失败/未启用时返回 null，调用方回退规则评分（保证链路永远可用）。
      */
     private AnswerAnalysis analyzeAnswerByLlm(PortalVoiceInterview interview, String questionTitle,
-                                              String questionAnalysis, String transcript, ScoreResult ruleScore) {
+                                              String questionAnalysis, String transcript, AnswerScoringEngine.ScoreResult ruleScore) {
         if (llmClient == null || !llmClient.isEnabled()) {
             return null;
         }
@@ -568,7 +566,7 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
     }
 
     /** 容错解析 LLM 返回的 JSON（兼容 markdown 代码块包裹） */
-    private AnswerAnalysis parseAnalysis(String raw, ScoreResult ruleScore) {
+    private AnswerAnalysis parseAnalysis(String raw, AnswerScoringEngine.ScoreResult ruleScore) {
         try {
             String json = raw.trim();
             if (json.startsWith("```")) {
@@ -728,19 +726,14 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
     /** SSE 超时时间（毫秒） */
     private static final long SSE_TIMEOUT = 120_000L;
 
-    /** 中文/英文停用词 */
-    private static final Set<String> STOPWORDS = new HashSet<>(Arrays.asList(
-            "的", "了", "是", "在", "和", "与", "或", "等", "为", "对", "由", "及",
-            "一个", "一种", "可以", "通过", "使用", "进行", "实现", "the", "a", "an",
-            "is", "are", "to", "of", "in", "on", "for", "and", "or", "with", "by"
-    ));
-
     @Autowired private PortalVoiceInterviewMapper interviewMapper;
     @Autowired private PortalVoiceInterviewQAMapper qaMapper;
     @Autowired private PortalInterviewQuestionMapper questionMapper;
     @Autowired private PortalUserResumeMapper userResumeMapper;
     @Autowired private IUserProfileSnapshotService profileSnapshotService;
     @Autowired private HintEngine hintEngine;
+    /** v11.47：规则评分引擎（自本类抽出的评分块） */
+    @Autowired private AnswerScoringEngine answerScoringEngine;
     @Autowired private ObjectMapper objectMapper;
     @Autowired private LlmClient llmClient;
     @Autowired private AiProperties aiProperties;
@@ -1023,7 +1016,7 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
                 // ① 回查原题目，计算规则分
                 PortalInterviewQuestion question = qa.getQuestionId() == null
                         ? null : questionMapper.selectById(qa.getQuestionId());
-                ScoreResult sr = scoreAnswer(question, transcript);
+                AnswerScoringEngine.ScoreResult sr = scoreAnswer(question, transcript);
 
                 // V11.0 Agent 链路：绑定 agent 且 AI 可用 → 流式多轮分析 + 决策接管（失败自动回退旧链路）
                 if (interview.getAgentId() != null && agentClient.isEnabled()) {
@@ -1061,7 +1054,7 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
      */
     private void runLegacyTurn(SseEmitter emitter, PortalVoiceInterview interview, PortalVoiceInterviewQA qa,
                                PortalInterviewQuestion question, String transcript,
-                               ScoreResult sr, Integer latencyMs, boolean scoreSent) {
+                               AnswerScoringEngine.ScoreResult sr, Integer latencyMs, boolean scoreSent) {
         try {
             // V10.4 LLM 深度分析：评分校正 + 漏洞识别 + 水平评估 + 追问建议
                 // （LLM 不可用/失败时返回 null，全链路回退规则分，保证可用性）
@@ -1077,7 +1070,7 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
                 if (analysis != null) {
                     // LLM 分与规则分加权融合，避免单边极端
                     int fused = (int) Math.round(analysis.score * 0.7 + sr.score * 0.3);
-                    sr = new ScoreResult(fused, analysis.feedback, analysis.dimensions);
+                    sr = new AnswerScoringEngine.ScoreResult(fused, analysis.feedback, analysis.dimensions);
                     // 画像累积：漏洞与水平写回 configJson，驱动后续追问上下文
                     accumulateProfile(interview, analysis);
                 }
@@ -1451,7 +1444,7 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
     private void runIntroFollowupTurn(SseEmitter emitter, PortalVoiceInterview interview,
                                       PortalVoiceInterviewQA qa, String transcript, Integer latencyMs) {
         try {
-            ScoreResult sr = scoreAnswer(null, transcript);
+            AnswerScoringEngine.ScoreResult sr = scoreAnswer(null, transcript);
             AnswerAnalysis analysis = null;
             try {
                 analysis = analyzeAnswerByLlm(interview, qa.getQuestion(), null, transcript, sr);
@@ -1459,7 +1452,7 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
             }
             if (analysis != null) {
                 int fused = (int) Math.round(analysis.score * 0.7 + sr.score * 0.3);
-                sr = new ScoreResult(fused, analysis.feedback, analysis.dimensions);
+                sr = new AnswerScoringEngine.ScoreResult(fused, analysis.feedback, analysis.dimensions);
                 accumulateProfile(interview, analysis);
             }
             qa.setUserAnswer(transcript);
@@ -1661,7 +1654,7 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
      */
     private void runAgentTurnStream(SseEmitter emitter, PortalVoiceInterview interview, Agent agent,
                                     PortalVoiceInterviewQA qa, PortalInterviewQuestion question,
-                                    String transcript, ScoreResult sr, Integer latencyMs) {
+                                    String transcript, AnswerScoringEngine.ScoreResult sr, Integer latencyMs) {
         AgentTurnMessages tm = buildAgentTurnMessages(interview, agent, qa, question, transcript);
         StringBuilder buffer = new StringBuilder();
         AtomicInteger sentLen = new AtomicInteger(0);
@@ -1740,7 +1733,7 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
      */
     private void finishAgentTurn(SseEmitter emitter, PortalVoiceInterview interview, Agent agent,
                                  PortalVoiceInterviewQA qa, PortalInterviewQuestion question, String transcript,
-                                 ScoreResult sr, Integer latencyMs, InterviewTurnResult turn,
+                                 AnswerScoringEngine.ScoreResult sr, Integer latencyMs, InterviewTurnResult turn,
                                  List<PortalInterviewQuestion> candidates) {
         // ① 评分融合（LLM 0.7 + 规则 0.3；LLM 未给分直接用规则分）
         int finalScore = turn.getScore() != null
@@ -2895,143 +2888,11 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
     }
 
     // ========================================================================
-    // 评分逻辑（复用 MockInterview 模式）
+    // 评分逻辑（v11.47：规则评分引擎已抽至 AnswerScoringEngine，此处仅委托）
     // ========================================================================
 
-    private ScoreResult scoreAnswer(PortalInterviewQuestion question, String answer) {
-        List<String> keywords = question == null
-                ? new ArrayList<>()
-                : extractKeywords(question.getTags(), question.getSolution());
-        // v11.30.2：LLM 动态题（追问/系统设计/自我介绍）无 tags/solution，从题干提取关键词，
-        // 保证 matched/coverage 有意义（此前恒为 0 导致 professionalism/interactivity/logic 输出固定值）
-        if (keywords.isEmpty() && question != null && StringUtils.isNotEmpty(question.getTitle())) {
-            keywords = extractKeywords(null, question.getTitle());
-        }
-        String lowerAnswer = answer == null ? "" : answer.toLowerCase();
-        int matched = 0;
-        for (String kw : keywords) {
-            if (lowerAnswer.contains(kw.toLowerCase())) {
-                matched++;
-            }
-        }
-
-        double coverage;
-        if (keywords.isEmpty()) {
-            coverage = answer.length() >= 50 ? 0.6 : 0.2;
-        } else {
-            coverage = (double) matched / keywords.size();
-        }
-        double lengthBonus = Math.min(answer.length() / 200.0, 1.0) * 20;
-        int score = (int) Math.min(100, Math.round(coverage * 80 + lengthBonus));
-
-        // 维度分（6 维连续计算，v11.30.2 重构：以覆盖率/长度/结构词/互动信号连续映射，
-        // 消除旧版二值阈值导致的固定值；对齐前端雷达图维度键）
-        Map<String, Integer> dimensions = new LinkedHashMap<>();
-        int len = answer.length();
-        int coverageScore = (int) Math.round(coverage * 100);
-        double matchRatio = coverage; // 命中比例（0-1）
-        int structureWordHits = countStructureWords(answer);
-
-        // relevance 回答相关性：关键词覆盖率（连续）
-        dimensions.put("relevance", coverageScore);
-        // professionalism 专业度：覆盖率为主 + 长度稳健加成（连续）
-        int professionalism = (int) Math.round(30 + matchRatio * 50 + Math.min(len / 6.0, 20));
-        dimensions.put("professionalism", clamp(professionalism, 0, 100));
-        // fluency 表达流畅度：长度分段连续（<40 偏短 30-50；40-300 线性升至 95；>300 饱和微降防冗长）
-        int fluency;
-        if (len < 40) {
-            fluency = 30 + len / 2;
-        } else if (len <= 300) {
-            fluency = 50 + (len - 40) * 45 / 260;
-        } else {
-            fluency = (int) Math.max(80, 95 - (len - 300) / 40);
-        }
-        dimensions.put("fluency", clamp(fluency, 0, 100));
-        // interactivity 面试互动性：覆盖率 + 互动信号（举例/对比/承认不确定/反问）+ 长度参与度（连续）
-        int interactiveSignals = countInteractiveSignals(answer);
-        int interactivity = (int) Math.round(30 + matchRatio * 35 + interactiveSignals * 10 + Math.min(len / 30.0, 15));
-        dimensions.put("interactivity", clamp(interactivity, 0, 100));
-        // confidence 自信度：长度饱满度 + 命中加成 + 覆盖率（连续）
-        int confidence = (int) Math.round(35 + Math.min(len / 5.0, 30) + (matched >= 1 ? 15 : 0) + coverage * 20);
-        dimensions.put("confidence", clamp(confidence, 0, 100));
-        // logic 逻辑清晰：结构词（首先/其次/因为/所以等）计数 + 覆盖率（连续）
-        int logic = (int) Math.round(30 + Math.min(structureWordHits, 4) * 12 + coverage * 22);
-        dimensions.put("logic", clamp(logic, 0, 100));
-
-        String feedback = buildFeedback(score, matched, keywords.size(), answer.length());
-        return new ScoreResult(score, feedback, dimensions);
-    }
-
-    /** 逻辑结构词计数（v11.30.2：logic 维度连续信号） */
-    private int countStructureWords(String answer) {
-        if (StringUtils.isEmpty(answer)) {
-            return 0;
-        }
-        String[] markers = {"首先", "其次", "然后", "最后", "第一", "第二", "第三",
-                "因为", "所以", "由于", "导致", "总结", "一方面", "另一方面", "比如", "例如"};
-        int count = 0;
-        for (String m : markers) {
-            int idx = answer.indexOf(m);
-            while (idx >= 0) {
-                count++;
-                idx = answer.indexOf(m, idx + m.length());
-            }
-        }
-        return count;
-    }
-
-    /** 互动性信号计数（v11.30.2：interactivity 维度连续信号：举例/对比/承认不确定/反问） */
-    private int countInteractiveSignals(String answer) {
-        if (StringUtils.isEmpty(answer)) {
-            return 0;
-        }
-        String[] signals = {"举个例子", "例如", "比如说", "我理解", "我认为", "个人认为",
-                "相比", "对比", " tradeoff", "权衡", "不太确定", "我的想法是", "我曾经"};
-        int count = 0;
-        for (String s : signals) {
-            if (answer.contains(s.trim())) {
-                count++;
-            }
-        }
-        return Math.min(count, 3);
-    }
-
-    private List<String> extractKeywords(String tags, String solution) {
-        Set<String> kw = new LinkedHashSet<>();
-        if (StringUtils.isNotEmpty(tags)) {
-            for (String t : tags.split("[,，]")) {
-                String s = t.trim();
-                if (isValidKeyword(s)) kw.add(s);
-            }
-        }
-        if (StringUtils.isNotEmpty(solution) && kw.size() < MAX_KEYWORDS) {
-            String[] chunks = solution.split("[\\s,，。.、；;：:！!？?\\n\\r\\t/()（）\\[\\]【】\"'`]+");
-            for (String c : chunks) {
-                String s = c.trim();
-                if (isValidKeyword(s) && kw.size() < MAX_KEYWORDS) kw.add(s);
-            }
-        }
-        return new ArrayList<>(kw);
-    }
-
-    private boolean isValidKeyword(String s) {
-        if (s == null || s.length() < 2 || s.length() > 10) return false;
-        if (STOPWORDS.contains(s)) return false;
-        for (int i = 0; i < s.length(); i++) {
-            if (!Character.isDigit(s.charAt(i))) return true;
-        }
-        return false;
-    }
-
-    private String buildFeedback(int score, int matched, int total, int len) {
-        StringBuilder sb = new StringBuilder();
-        if (score >= 80) sb.append("回答全面，覆盖了核心要点");
-        else if (score >= 60) sb.append("回答较好，但部分关键点未提及");
-        else if (score >= 40) sb.append("回答一般，建议补充更多细节");
-        else sb.append("回答不够充分，建议参考标准答案深入理解");
-        sb.append("。关键词覆盖 ").append(matched).append("/").append(total);
-        sb.append("，答案长度 ").append(len).append(" 字。");
-        return sb.toString();
+    private AnswerScoringEngine.ScoreResult scoreAnswer(PortalInterviewQuestion question, String answer) {
+        return answerScoringEngine.scoreAnswer(question, answer);
     }
 
     // ========================================================================
@@ -3112,7 +2973,7 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
     private PortalVoiceInterviewQA createFollowupQa(PortalVoiceInterview interview,
                                                      PortalVoiceInterviewQA parentQa,
                                                      PortalInterviewQuestion question,
-                                                     ScoreResult sr,
+                                                     AnswerScoringEngine.ScoreResult sr,
                                                      String followupQuestion,
                                                      AnswerAnalysis analysis) {
         PortalVoiceInterviewQA followup = new PortalVoiceInterviewQA();
@@ -3142,7 +3003,7 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
     // ========================================================================
 
     private String generateSpeakText(PortalVoiceInterview interview, PortalInterviewQuestion question,
-                                     String answer, ScoreResult sr, String nextAction) {
+                                     String answer, AnswerScoringEngine.ScoreResult sr, String nextAction) {
         // LLM 可用时增强（V10.4：系统提示词携带岗位/简历/画像完整上下文）
         if (aiProperties.isEnabled() && llmClient.isEnabled()) {
             try {
@@ -3381,19 +3242,8 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
     }
 
     // ========================================================================
-    // 内部类
+    // 内部类（v11.47：ScoreResult 已移至 AnswerScoringEngine 公共静态类）
     // ========================================================================
-
-    private static class ScoreResult {
-        final int score;
-        final String feedback;
-        final Map<String, Integer> dimensions;
-        ScoreResult(int score, String feedback, Map<String, Integer> dimensions) {
-            this.score = score;
-            this.feedback = feedback;
-            this.dimensions = dimensions;
-        }
-    }
 
     /** 追问决策结果 */
     private static class FollowupDecision {

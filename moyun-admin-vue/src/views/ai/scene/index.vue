@@ -163,12 +163,12 @@
               <el-input v-model="form.version" placeholder="同场景多版本灰度，默认 v1" />
             </el-form-item>
             <el-row :gutter="16">
-              <el-col :span="8">
+              <el-col :span="6">
                 <el-form-item label="灰度权重" label-width="90px">
                   <el-input-number v-model="form.weight" :min="0" :max="100" style="width: 100%;" />
                 </el-form-item>
               </el-col>
-              <el-col :span="8">
+              <el-col :span="6">
                 <el-form-item label="优先级" label-width="70px">
                   <el-input-number v-model="form.priority" style="width: 100%;" />
                 </el-form-item>
@@ -183,7 +183,13 @@
                   <el-switch v-model="form.enabled" />
                 </el-form-item>
               </el-col>
+              <el-col :span="4">
+                <el-form-item label="开放API" label-width="80px">
+                  <el-switch v-model="form.openApi" />
+                </el-form-item>
+              </el-col>
             </el-row>
+            <div class="form-tip" style="margin: -8px 0 12px;">开放API=开启时该场景可经 /api/ai/execute 统一入口外部调用；关闭则仅限业务内部链路（防止绕过业务 Controller 的鉴权与编排）</div>
           </el-tab-pane>
 
           <!-- ===== 执行配置 ===== -->
@@ -390,7 +396,8 @@ function makeDefaultForm() {
     weight: 100,
     priority: 0,
     isDefault: false,
-    enabled: true
+    enabled: true,
+    openApi: false
   };
 }
 
@@ -498,7 +505,8 @@ async function handleEdit(row) {
       weight: data.weight != null ? data.weight : 100,
       priority: data.priority != null ? data.priority : 0,
       isDefault: !!data.isDefault,
-      enabled: !!data.enabled
+      enabled: !!data.enabled,
+      openApi: !!data.openApi
     };
     formTab.value = 'basic';
     dialogVisible.value = true;

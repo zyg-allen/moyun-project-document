@@ -11,7 +11,7 @@ import java.time.LocalDateTime;
 /**
  * AI统一接入层-执行日志实体
  *
- * <p>对应表 ai2_execute_log。依据《AI能力统一接入层 — 完整方案文档》V2.0 §3.2。</p>
+ * <p>对应表 ai_execute_log。依据《AI能力统一接入层 — 完整方案文档》V2.0 §3.2。</p>
  *
  * @author laomao
  * @since 2026-09-09
@@ -75,6 +75,7 @@ public class AiExecuteLog {
     @TableField("elapsed_ms")
     private Long elapsedMs;
 
-    @TableField("created_at")
-    private LocalDateTime createdAt;
+    /** 创建时间（v11.49.1 修复：对齐 DDL 列名 create_time，原 created_at 与表结构不符导致落库失败） */
+    @TableField("create_time")
+    private LocalDateTime createTime;
 }

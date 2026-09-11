@@ -8,6 +8,7 @@ import cn.hutool.core.bean.BeanUtil;
 import cn.hutool.core.util.ObjectUtil;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.moyun.common.exception.system.ServiceException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -296,11 +297,11 @@ public class CmsPortalUserServiceImpl implements ICmsPortalUserService
     @Override
     public int bindSysUser(Long portalUserId, Long sysUserId) {
         if (portalUserId == null || sysUserId == null) {
-            throw new com.moyun.common.exception.system.ServiceException("门户用户ID与系统用户ID均不能为空");
+            throw new ServiceException("门户用户ID与系统用户ID均不能为空");
         }
         PortalUser portalUser = portalUserMapper.selectById(portalUserId);
         if (portalUser == null) {
-            throw new com.moyun.common.exception.system.ServiceException("门户用户不存在");
+            throw new ServiceException("门户用户不存在");
         }
         // 已绑定同一 sys_user，幂等直接返回成功
         if (sysUserId.equals(portalUser.getUserId())) {
@@ -308,7 +309,7 @@ public class CmsPortalUserServiceImpl implements ICmsPortalUserService
         }
         // portal_user 端一对一校验：已绑其他 sys_user 则拒绝（需先解绑）
         if (portalUser.getUserId() != null) {
-            throw new com.moyun.common.exception.system.ServiceException(
+            throw new ServiceException(
                     "该门户用户已绑定其他系统用户，请先解绑后再绑定");
         }
         // 校验 sys_user 存在且未删除（selectById 不过滤 del_flag，需显式查询）
@@ -318,7 +319,7 @@ public class CmsPortalUserServiceImpl implements ICmsPortalUserService
                         .eq(SysUser::getDelFlag, "0")
         );
         if (sysUser == null) {
-            throw new com.moyun.common.exception.system.ServiceException("系统用户不存在或已删除");
+            throw new ServiceException("系统用户不存在或已删除");
         }
         PortalUser update = new PortalUser();
         update.setId(portalUserId);
@@ -329,11 +330,11 @@ public class CmsPortalUserServiceImpl implements ICmsPortalUserService
     @Override
     public int unbindSysUser(Long portalUserId) {
         if (portalUserId == null) {
-            throw new com.moyun.common.exception.system.ServiceException("门户用户ID不能为空");
+            throw new ServiceException("门户用户ID不能为空");
         }
         PortalUser portalUser = portalUserMapper.selectById(portalUserId);
         if (portalUser == null) {
-            throw new com.moyun.common.exception.system.ServiceException("门户用户不存在");
+            throw new ServiceException("门户用户不存在");
         }
         if (portalUser.getUserId() == null) {
             // 未绑定，幂等返回

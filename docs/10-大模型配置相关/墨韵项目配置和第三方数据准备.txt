@@ -1,0 +1,73 @@
+一、大模型 配置相关：开发时暂存
+
+	1、百度百炼模型
+		模型名称：qwen3.8-max
+	    chat 测试
+		Base url: https://dashscope.aliyuncs.com/compatible-mode/v1
+		API KEY: sk-ws-H.EYRIPIH.hEdS.MEUCIQDeAnZC0RAE6D6i92zqByYnpdRklE9jUTiDQBjPJ7g8mQIgGRUhhG_zlKRP4SVmOdWlS-iAcJNg1xFbOeDbNZPwT14
+		
+		
+		
+		
+		多模态，向量模型
+		
+		
+		模型名称：tongyi-embedding-vision-flash
+	    chat 测试
+		Base url: https://dashscope.aliyuncs.com/compatible-mode/v1
+		API KEY: sk-ws-H.EYRIPIH.hEdS.MEUCIQDeAnZC0RAE6D6i92zqByYnpdRklE9jUTiDQBjPJ7g8mQIgGRUhhG_zlKRP4SVmOdWlS-iAcJNg1xFbOeDbNZPwT14
+		
+		
+		
+	2、deepSeek
+		api key: sk-af7e26e570e644a28a16875f539b9a6c
+		https://api.deepseek.com
+		
+		
+		
+		1、后台文章发布后，跳转 http://localhost/cms/article  404；
+2、数据调整：http://localhost/cms/article/edit  文章分类，只要首页和 文章类型的，其他特殊页面不要展示，
+3、http://localhost/cms/article/edit?id=7  修改发布状态 成功，但是字段不生效，请检查，草稿--》已发布：  始终是草稿
+4、首页本栏推荐对应的后台管理系统的发布页的：分类推荐，如果推荐，必须选封面；
+5、http://localhost:3000/  加入旭林广告位，要可以后台编辑，http://localhost/portal/cms/promotion 编辑页面，广告插图要可以上传文件，外链方式，打开新页面，两个位置都需要调整，
+6、首页热门推荐，列表的行之间间隔加大一点，这里要用atl 的方式，鼠标移入能显示全部标题内容
+
+
+
+
+ai 整合：
+
+prompt -> 你是一位专业、友善的个人财务顾问。请根据以下用户记账数据，输出一份中文财务综述，包含：1）财务现状概述（2-3 句）；2）核心问题或亮点（如有债务风险请明确点出）；3）3 条以内的具体行动建议。
+要求：口语化、具体、引用数据；总字数 300 字以内；不要使用 Markdown 标记。
+
+【用户画像】上班族 / 工程师 @ 慧博云通
+【核心指标】统计范围：本月（含数据 1 个月）：月均收入 ¥18000.00，月均支出 ¥20200.50，月储蓄率 0.0%，月供合计 ¥0.00（占收入 0.0%），总资产 ¥48899.00，总负债 ¥32100.00，资产负债率 65.7%，连续入不敷出月数 1。
+【收入来源】工资 ¥18000.00（100.0%）
+【已识别风险】负债水平中等偏高；
+
+
+
+
+http://localhost:8080/portal/ledger/ai/analysis?range=month  好好分析这个接口，是我们约定好的， 大致流程吗，
+有什么问题，我觉得是很硬编码，结果都基本上自己处理了，又交给ai去做一点皮毛的事，那还要这个场景注册配置干什么？
+http://localhost/ai/ai-config/scene 以及该表里填了那么多配置，要怎么样让这些配置真正生效，并且简化或者标准化这个流程；
+无非就是，根据个人的收入支出以及负债，资产，流水等给自己一个财务状况报告，简单说就是， 查个人信息》拼接上下文、提示词、生成标准化格式输出》落表》返回报告》展示
+标准化方案：
+	查数据(流水/资产/负债/画像)
+  → 组装 ledgerContext（结构化数据+规则算好的指标，作为护栏传入）
+  → 网关 execute(finance_analysis, {ledgerContext, window})
+      Handler 读配置模板渲染：system = config.system_prompt_template
+                              user  = config.user_prompt_template 替换 {ledgerContext}{window}
+                              输出约束 = config.output_schema
+      LLM 生成标准 JSON：{summary, healthScore(引用规则值), risks[], suggestions[]}
+  → 解析合并（规则指标为基准，LLM 文案覆盖硬编码 risk/suggest 列表）
+  → 落表 ledger_ai_analysis_report → 返回
+  
+ 管理页改提示词/输出结构，下次调用立即生效，不再发版——这才配得上你建这张表的初衷。
+
+用这个，风险/建议完全交给 LLM 生成（更智能，但 LLM 挂了就只有综述没有风险列表），先不考虑兜底，我要先看效果
+
+你要结合我的agent 编辑看下我的结构，在这http://localhost/ai/agent
+
+http://localhost:5173/#/pages/analysis/index 这个页面的交互有点奇怪，现在改为了异步，但是当我刷新或者重新进来，页面被初始化了这个调度就断了，我现在想从前端的交互开始做一个修改，1、初始化页面，不要直接调这个接口：
+http://localhost:8080/portal/ledger/ai/analysis?range=month，而是查询列表，再这里反显出最近最多10条的 分析报告；有则显示重新分析（生成新的）；没有则显示去分析按钮（生成新的报告），这样有利于避免每次都花很长时间去生成等待，生成报告过程中显示状态，可以查看报告，就这个页面就挺好，参考现有展示页面；交互可以做点优化，还有删除报告按钮（真实物理删除）

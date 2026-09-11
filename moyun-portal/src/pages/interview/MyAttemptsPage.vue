@@ -4,7 +4,7 @@ import { useRouter } from 'vue-router';
 import { useHead } from '@vueuse/head';
 import {
   CheckCircle, XCircle, ChevronLeft, ChevronRight,
-  Code, FileText, PenTool, Clock,
+  Code, FileText, PenTool, Clock, Mic, Sparkles, History,
 } from 'lucide-vue-next';
 import SiteFooter from '@/components/SiteFooter.vue';
 import Breadcrumb from '@/components/Breadcrumb.vue';
@@ -138,7 +138,61 @@ function passLabel(sub: InterviewSubmissionVO) {
     >
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between gap-4">
         <Breadcrumb :items="breadcrumbs" />
-        <span class="w-12"></span>
+        <button
+          @click="router.push('/interview/voice/history')"
+          class="shrink-0 inline-flex items-center gap-1.5 px-3.5 py-2 text-sm font-semibold rounded-lg transition-all hover:scale-[1.02]"
+          :style="{
+            color: 'var(--theme-primary)',
+            backgroundColor: 'color-mix(in srgb, var(--theme-primary) 8%, transparent)',
+            border: '1px solid color-mix(in srgb, var(--theme-primary) 25%, transparent)',
+          }"
+        >
+          <History class="w-4 h-4" />
+          <span class="hidden sm:inline">我的面试记录</span>
+          <span class="inline sm:hidden">记录</span>
+        </button>
+        <button
+          @click="router.push('/interview/voice')"
+          class="shrink-0 inline-flex items-center gap-1.5 px-3.5 py-2 text-sm font-semibold rounded-lg transition-all hover:scale-[1.02]"
+          :style="{
+            color: 'var(--theme-primary)',
+            backgroundColor: 'color-mix(in srgb, var(--theme-primary) 8%, transparent)',
+            border: '1px solid color-mix(in srgb, var(--theme-primary) 25%, transparent)',
+          }"
+        >
+          <Mic class="w-4 h-4" />
+          <span class="hidden sm:inline">AI 语音面试官</span>
+          <span class="inline sm:hidden">语音</span>
+          <span
+            class="ml-0.5 inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-bold text-white"
+            style="background: linear-gradient(90deg,#ef4444,#f97316);"
+          >NEW</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- V10.1 AI 语音面试官导流 Banner -->
+    <div
+      class="border-b"
+      style="background: linear-gradient(90deg, #ecfdf5, #ede9fe); border-color: var(--theme-border);"
+    >
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2.5 flex items-center justify-between gap-3 flex-wrap">
+        <div class="flex items-center gap-2 text-sm min-w-0">
+          <Sparkles :size="16" class="text-emerald-600 shrink-0" />
+          <span class="truncate">
+            刷题 + 复盘 + <strong style="color: var(--theme-primary);">语音模拟面试</strong> 闭环上线，
+            5 题快练 · 五维雷达图 · 逐题点评一次性配齐
+          </span>
+        </div>
+        <button
+          class="shrink-0 text-sm font-semibold rounded-md px-3 py-1.5 transition hover:opacity-90"
+          style="background-color: var(--theme-primary); color:#fff;"
+          @click="router.push('/interview/voice')"
+        >
+          <span class="inline-flex items-center gap-1">
+            立即体验语音版 <ChevronRight :size="14" />
+          </span>
+        </button>
       </div>
     </div>
 
@@ -178,13 +232,31 @@ function passLabel(sub: InterviewSubmissionVO) {
         >
           <Code class="w-12 h-12 mx-auto mb-3" style="color: var(--theme-text-secondary); opacity: 0.5;" />
           <p class="text-sm mb-4" style="color: var(--theme-text-secondary);">还没有答题记录</p>
-          <button
-            @click="router.push('/interview/questions')"
-            class="px-4 py-2 text-white rounded-lg text-sm transition hover:opacity-90"
-            style="background-color: var(--theme-primary);"
-          >
-            去做题
-          </button>
+          <div class="flex flex-wrap items-center justify-center gap-3">
+            <button
+              @click="router.push('/learn/questions')"
+              class="px-4 py-2 text-white rounded-lg text-sm transition hover:opacity-90"
+              style="background-color: var(--theme-primary);"
+            >
+              去做题
+            </button>
+            <button
+              @click="router.push('/interview/voice')"
+              class="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold transition hover:opacity-90"
+              :style="{
+                color: 'var(--theme-primary)',
+                backgroundColor: 'color-mix(in srgb, var(--theme-primary) 10%, transparent)',
+                border: '1px solid color-mix(in srgb, var(--theme-primary) 25%, transparent)',
+              }"
+            >
+              <Mic class="w-4 h-4" />
+              试试 AI 语音面试
+              <span
+                class="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-bold text-white"
+                style="background: linear-gradient(90deg,#ef4444,#f97316);"
+              >NEW</span>
+            </button>
+          </div>
         </div>
 
         <!-- 答题记录列表 -->

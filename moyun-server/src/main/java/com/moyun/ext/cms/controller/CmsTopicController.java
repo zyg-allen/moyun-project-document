@@ -48,7 +48,7 @@ public class CmsTopicController extends BaseController {
     // ==================== 话题相关 ====================
 
     @Operation(summary = "查询话题列表", description = "分页查询所有话题（含所有状态，支持关键词和状态筛选）")
-    @PreAuthorize("@ss.hasAnyPermi('cms:topic:list,cms:topic:audit')")
+    @PreAuthorize("@ss.hasPermi('cms:topic:list')")
     @GetMapping("/list")
     public AjaxResult list(@RequestParam(defaultValue = "1") Integer pageNum,
                            @RequestParam(defaultValue = "10") Integer pageSize,
@@ -59,7 +59,7 @@ public class CmsTopicController extends BaseController {
     }
 
     @Operation(summary = "获取话题详情", description = "根据ID获取话题详情")
-    @PreAuthorize("@ss.hasAnyPermi('cms:topic:query,cms:topic:audit')")
+    @PreAuthorize("@ss.hasPermi('cms:topic:query')")
     @GetMapping("/{id}")
     public AjaxResult getInfo(@Parameter(description = "话题ID") @PathVariable Long id) {
         TopicVO vo = portalTopicService.getTopicDetail(id, null);
@@ -80,22 +80,6 @@ public class CmsTopicController extends BaseController {
             return success();
         } catch (RuntimeException e) {
             return error(e.getMessage() != null ? e.getMessage() : "状态更新失败");
-        }
-    }
-
-    @Operation(summary = "审核话题", description = "审核待处理话题：active=通过 / rejected=驳回，支持审核意见，结果通知发起人")
-    @PreAuthorize("@ss.hasPermi('cms:topic:audit')")
-    @Log(title = "话题审核", businessType = BusinessType.UPDATE)
-    @PutMapping("/{id}/audit")
-    public AjaxResult audit(@PathVariable Long id, @RequestBody Map<String, Object> body) {
-        String status = body.get("status") == null ? null : String.valueOf(body.get("status"));
-        String auditRemark = body.get("auditRemark") == null ? null : String.valueOf(body.get("auditRemark"));
-        Long auditorId = getUserId();
-        try {
-            portalTopicService.auditTopic(id, status, auditRemark, auditorId);
-            return success();
-        } catch (RuntimeException e) {
-            return error(e.getMessage() != null ? e.getMessage() : "审核失败");
         }
     }
 
@@ -143,6 +127,40 @@ public class CmsTopicController extends BaseController {
             return success();
         } catch (RuntimeException e) {
             return error(e.getMessage() != null ? e.getMessage() : "删除失败");
+        }
+    }
+
+    // ==================== AI 生成话题（v11.57 P0-3 场景收口：daily_topic 走统一网关） ====================
+
+    @Operation(summary = "AI 生成今日话题草稿", description = "经统一网关（daily_topic 场景）生成话题标题/描述/分类，不落库；最近 30 条标题自动作为去重上下文")
+    @PreAuthorize("@ss.hasPermi('cms:topic:edit')")
+    @Log(title = "话题管理", businessType = BusinessType.OTHER)
+    @PostMapping("/ai-generate")
+    public AjaxResult aiGenerate(@RequestBody Map<String, Object> body) {
+        String domain = body.get("domain") == null ? null : String.valueOf(body.get("domain"));
+        try {
+            return success(portalTopicService.aiGenerateTopicDraft(domain));
+        } catch (RuntimeException e) {
+            return error(e.getMessage() != null ? e.getMessage() : "AI 生成失败");
+        }
+    }
+
+    @Operation(summary = "发布官方话题", description = "管理员确认 AI 生成草稿（或手动录入）后以官方账号发布，status=active 直接生效")
+    @PreAuthorize("@ss.hasPermi('cms:topic:edit')")
+    @Log(title = "话题管理", businessType = BusinessType.INSERT)
+    @PostMapping("/create-official")
+    public AjaxResult createOfficial(@RequestBody Map<String, Object> body) {
+        com.moyun.portal.domain.entity.PortalTopic topic = new com.moyun.portal.domain.entity.PortalTopic();
+        topic.setTitle(body.get("title") == null ? null : String.valueOf(body.get("title")).trim());
+        topic.setDescription(body.get("description") == null ? null : String.valueOf(body.get("description")).trim());
+        topic.setCover(body.get("cover") == null ? null : String.valueOf(body.get("cover")).trim());
+        if (topic.getTitle() == null || topic.getTitle().isEmpty()) {
+            return error("话题标题不能为空");
+        }
+        try {
+            return success(portalTopicService.createOfficialTopic(topic));
+        } catch (RuntimeException e) {
+            return error(e.getMessage() != null ? e.getMessage() : "发布失败");
         }
     }
 

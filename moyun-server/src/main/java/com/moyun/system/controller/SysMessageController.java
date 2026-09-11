@@ -28,7 +28,7 @@ import com.moyun.util.security.SecurityUtils;
  * 共用同一套 Service/数据模型。</p>
  *
  * <p><b>身份桥接机制</b>：后台管理员发文章时会自动建立 role=admin 的门户影子账户
- * （portal_user.user_id = sys_user.user_id）。当门户用户私信该门户身份（如"墨韵管理员1"）时，
+ * （portal_user.user_id = sys_user.user_id）。当门户用户私信该门户身份（如"旭林管理员1"）时，
  * 管理员在后台私信中心可通过身份桥接以同一门户身份查看/回复，实现消息可达与闭环回复——
  * 管理员无需登录前台即可收到并回复门户用户的私信。</p>
  *
@@ -116,7 +116,7 @@ public class SysMessageController extends BaseController {
     /**
      * 发送消息（回复门户用户）
      *
-     * <p>已绑定门户身份的管理员，回复时以其门户身份发送——门户用户侧看到的回复来自该门户作者（如"墨韵管理员1"），
+     * <p>已绑定门户身份的管理员，回复时以其门户身份发送——门户用户侧看到的回复来自该门户作者（如"旭林管理员1"），
      * 与门户用户发起的会话是同一条，实现闭环回复。</p>
      */
     @Operation(summary = "发送消息", description = "管理员向指定用户发送私信；receiverType 留空默认 portal。已绑定门户身份的管理员以门户身份发送。")

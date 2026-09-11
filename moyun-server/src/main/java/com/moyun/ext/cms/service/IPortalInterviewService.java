@@ -5,6 +5,7 @@ import java.util.Map;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 
+import com.moyun.core.base.dto.ImportResult;
 import com.moyun.ext.cms.domain.query.InterviewCommentQuery;
 import com.moyun.ext.cms.domain.query.InterviewCompanyQuery;
 import com.moyun.ext.cms.domain.query.InterviewExperienceQuery;
@@ -69,6 +70,19 @@ public interface IPortalInterviewService {
 
     InterviewQuestionDetailVO selectQuestionDetailById(Long id, Long currentUserId);
 
+    /**
+     * 查询相邻题目（上一题 / 下一题导航，v12.0 做题页连续练习）
+     * <p>
+     * 查询条件与列表页保持一致（practiceMode/difficulty/keyword，status=published），
+     * 排序与列表一致（sort 升序 + createTime 降序），在结果集中定位当前题目后返回前后题。
+     * 当前题不在结果集（未发布/被筛选排除）时，返回就近的可练习题作为导航目标。
+     *
+     * @param questionId 当前题目ID
+     * @param query      筛选条件（与来源列表页一致，通常携带 practiceMode）
+     * @return prevId/prevTitle/nextId/nextTitle/currentIndex/total
+     */
+    Map<String, Object> selectQuestionNeighbor(Long questionId, InterviewQuestionQuery query);
+
     int insertQuestion(PortalInterviewQuestion question);
 
     int updateQuestion(PortalInterviewQuestion question);
@@ -95,9 +109,36 @@ public interface IPortalInterviewService {
      * @param operName       操作人
      * @return 导入结果
      */
-    com.moyun.core.base.dto.ImportResult importQuestions(List<Map<String, String>> rows, String operName);
+    ImportResult importQuestions(List<Map<String, String>> rows, String operName);
 
     InterviewSubmissionVO submitAnswer(Long questionId, Long userId, Map<String, Object> body);
+
+    /**
+     * OJ 判题终态回调：更新做题记录（attempt），首次通过时补发成长事件与答题动态
+     * <p>
+     * 由判题链路（同步判题 / 异步 Worker）在判题出终态后调用，
+     * 使编程题与选择题共享同一套「做题 → 成长事件 → 成长时间线」闭环。
+     * 判题记录（submission）与题目统计由判题链路自行落库，本方法不重复处理。
+     *
+     * @param questionId 题目ID
+     * @param userId     做题用户ID
+     * @param accepted   判题是否通过（ACCEPTED）
+     */
+    void finalizeJudgeResult(Long questionId, Long userId, boolean accepted);
+
+    /**
+     * 记录题目阅读行为（阅读模式 / 详情页阅读）
+     * <p>
+     * 阅读成长事件按「同用户 + 同题目 + 同一天」幂等，仅记一次；
+     * 若请求附带笔记内容，则同步落一条阅读提交（answerType=reading，不计数入题目提交数）
+     * 并记写笔记成长事件，作为题目详情页「精选笔记」的来源。
+     *
+     * @param questionId 题目ID
+     * @param userId     当前用户ID
+     * @param body       可选参数：note（笔记内容）、dwellSeconds（阅读停留秒数）
+     * @return 阅读结果（readRecorded 本次是否新记录 / noteRecorded 是否记录笔记）
+     */
+    Map<String, Object> recordQuestionRead(Long questionId, Long userId, Map<String, Object> body);
 
     Map<String, Object> toggleQuestionLike(Long questionId, Long userId);
 

@@ -149,19 +149,20 @@ class RagRetrievalServiceImplTest {
         @Test
         @DisplayName("按分数降序排序")
         void shouldSortByScoreDescending() {
-            // 模拟 3 个内容，分数分别为 1.0 / 5.0 / 3.0
+            // 模拟 3 个内容，分数分别为 2.5 / 5.0 / 3.0
+            // （低分须 ≥2.0：rerankByRules 质量过滤阈值 max(2.0, topScore*0.3)，1.0 会被过滤）
             Content c1 = createContent("低分内容", "f1.pdf", "1");
             Content c2 = createContent("高分内容", "f2.pdf", "1");
             Content c3 = createContent("中分内容", "f3.pdf", "1");
 
             when(contentScoringService.calculateRelevanceScore(anyString(), any(), anyString()))
-                    .thenReturn(1.0, 5.0, 3.0);
+                    .thenReturn(2.5, 5.0, 3.0);
 
             List<Content> reranked = service.rerankContents(
                     List.of(c1, c2, c3), "查询", 3);
 
             assertThat(reranked).hasSize(3);
-            // 降序：c2 (5.0) → c3 (3.0) → c1 (1.0)
+            // 降序：c2 (5.0) → c3 (3.0) → c1 (2.5)
             assertThat(reranked.get(0)).isSameAs(c2);
             assertThat(reranked.get(1)).isSameAs(c3);
             assertThat(reranked.get(2)).isSameAs(c1);
@@ -170,7 +171,23 @@ class RagRetrievalServiceImplTest {
             Map<Content, Double> scores = service.getContentRerankScores();
             assertThat(scores).containsEntry(c2, 5.0);
             assertThat(scores).containsEntry(c3, 3.0);
-            assertThat(scores).containsEntry(c1, 1.0);
+            assertThat(scores).containsEntry(c1, 2.5);
+        }
+
+        @Test
+        @DisplayName("质量过滤：低于阈值（max(2.0, topScore*0.3)）的低分文本被剔除")
+        void shouldFilterLowScoreText() {
+            Content high = createContent("高分内容", "f1.pdf", "1");
+            Content low = createContent("低分内容", "f2.pdf", "1");
+
+            when(contentScoringService.calculateRelevanceScore(anyString(), any(), anyString()))
+                    .thenReturn(5.0, 1.0);
+
+            List<Content> reranked = service.rerankContents(
+                    List.of(high, low), "查询", 2);
+
+            // 低分 1.0 < 阈值 max(2.0, 5.0*0.3)=2.0，被过滤
+            assertThat(reranked).containsExactly(high);
         }
 
         @Test

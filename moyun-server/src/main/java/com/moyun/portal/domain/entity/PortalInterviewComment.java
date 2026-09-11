@@ -48,8 +48,7 @@ public class PortalInterviewComment extends BaseEntity {
     /** 点赞数 */
     private Long likeCount;
 
-    /** 排序 */
-    private Integer sort;
+
 
     /** 状态：pending/published/rejected/deleted */
     @Size(min = 0, max = 20, message = "状态长度不能超过20个字符")

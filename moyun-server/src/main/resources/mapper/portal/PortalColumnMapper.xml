@@ -20,10 +20,9 @@
         <result property="price" column="price"/>
         <result property="createdTime" column="created_time"/>
         <result property="authorName" column="author_name"/>
+        <result property="authorUsername" column="author_username"/>
         <result property="authorAvatar" column="author_avatar"/>
     </resultMap>
-
-    <!-- 专栏详情 -->
     <resultMap type="com.moyun.ext.cms.domain.vo.ColumnVO" id="ColumnVOResult">
         <id property="id" column="id"/>
         <result property="userId" column="user_id"/>
@@ -41,6 +40,7 @@
         <result property="createdTime" column="created_time"/>
         <result property="updatedTime" column="updated_time"/>
         <result property="authorName" column="author_name"/>
+        <result property="authorUsername" column="author_username"/>
         <result property="authorAvatar" column="author_avatar"/>
         <result property="authorBio" column="author_bio"/>
     </resultMap>
@@ -77,13 +77,17 @@
     <select id="selectAdminListPage" resultMap="ColumnListItemResult">
         SELECT c.id, c.user_id, c.title, c.subtitle, c.cover, c.category_id, c.status,
                c.article_count, c.subscribe_count, c.view_count, c.is_finished, c.price, c.created_time,
-               pu.nickname AS author_name, pu.avatar AS author_avatar
+               pu.nickname AS author_name, pu.username AS author_username, pu.avatar AS author_avatar
         FROM portal_column c
         LEFT JOIN portal_user pu ON pu.id = c.user_id
         <where>
             <if test="query.keyword != null and query.keyword != ''">
                 AND (c.title LIKE CONCAT('%', #{query.keyword}, '%')
                      OR c.subtitle LIKE CONCAT('%', #{query.keyword}, '%'))
+            </if>
+            <if test="query.authorName != null and query.authorName != ''">
+                AND (pu.nickname LIKE CONCAT('%', #{query.authorName}, '%')
+                     OR pu.username LIKE CONCAT('%', #{query.authorName}, '%'))
             </if>
             <if test="query.status != null and query.status != ''">
                 AND c.status = #{query.status}
@@ -100,7 +104,7 @@
         SELECT c.id, c.user_id, c.title, c.subtitle, c.description, c.cover, c.category_id, c.status,
                c.article_count, c.subscribe_count, c.view_count, c.is_finished, c.price,
                c.created_time, c.updated_time,
-               pu.nickname AS author_name, pu.avatar AS author_avatar, pu.bio AS author_bio
+               pu.nickname AS author_name, pu.username AS author_username, pu.avatar AS author_avatar, pu.bio AS author_bio
         FROM portal_column c
         LEFT JOIN portal_user pu ON pu.id = c.user_id
         WHERE c.id = #{id}

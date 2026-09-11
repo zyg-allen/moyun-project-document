@@ -92,39 +92,28 @@ const initMonaco = async () => {
     //   - 新实现通过 Vite 的 ?worker 语法本地打包 worker，无外网依赖，且版本跟随 package.json。
     //   - 各语言 worker（ts/json/css/html）一并本地化，未命中语言时回退到 base worker。
     self.MonacoEnvironment = {
-      getWorker(_workerId: string, label: string) {
+      // 注意：monaco-editor 0.53+ 的 package.json exports 会把子路径重写到 ./esm/vs/*，
+      //   因此导入说明符必须写 'monaco-editor/language/...'（而非旧的 'monaco-editor/esm/vs/language/...'），
+      //   且须使用 Vite 的 ?worker 动态导入语法（new URL(裸模块, import.meta.url) 无法被 Vite 解析）；
+      //   Monaco 0.56 的 getWorker 支持返回 Promise<Worker>。
+      async getWorker(_workerId: string, label: string): Promise<Worker> {
         try {
           switch (label) {
             case 'json':
-              return new Worker(
-                  new URL('monaco-editor/esm/vs/language/json/json.worker.js', import.meta.url),
-                  { type: 'module' }
-              );
+              return new (await import('monaco-editor/language/json/json.worker.js?worker')).default();
             case 'css':
             case 'scss':
             case 'less':
-              return new Worker(
-                  new URL('monaco-editor/esm/vs/language/css/css.worker.js', import.meta.url),
-                  { type: 'module' }
-              );
+              return new (await import('monaco-editor/language/css/css.worker.js?worker')).default();
             case 'html':
             case 'handlebars':
             case 'razor':
-              return new Worker(
-                  new URL('monaco-editor/esm/vs/language/html/html.worker.js', import.meta.url),
-                  { type: 'module' }
-              );
+              return new (await import('monaco-editor/language/html/html.worker.js?worker')).default();
             case 'typescript':
             case 'javascript':
-              return new Worker(
-                  new URL('monaco-editor/esm/vs/language/typescript/ts.worker.js', import.meta.url),
-                  { type: 'module' }
-              );
+              return new (await import('monaco-editor/language/typescript/ts.worker.js?worker')).default();
             default:
-              return new Worker(
-                  new URL('monaco-editor/esm/vs/editor/editor.worker.js', import.meta.url),
-                  { type: 'module' }
-              );
+              return new (await import('monaco-editor/editor/editor.worker.js?worker')).default();
           }
         } catch (e) {
           // 兜底：worker 创建失败时返回一个空 Worker，Monaco 会退化为无 worker 模式

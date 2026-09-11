@@ -33,7 +33,12 @@
       <el-table-column type="selection" width="55" align="center" />
       <el-table-column label="编号" align="center" prop="id" width="80" />
       <el-table-column label="分类名称" align="center" prop="name" />
-      <el-table-column label="图标" align="center" prop="icon" width="120" />
+      <el-table-column label="图标" align="center" prop="icon" width="120">
+        <template #default="scope">
+          <el-tag v-if="scope.row.icon" type="info" effect="plain">{{ getIconLabel(scope.row.icon) }}</el-tag>
+          <span v-else>-</span>
+        </template>
+      </el-table-column>
       <el-table-column label="描述" align="center" prop="description" :show-overflow-tooltip="true" />
       <el-table-column label="排序" align="center" prop="sort" width="80" />
       <el-table-column label="状态" align="center" prop="status" width="100">
@@ -48,7 +53,7 @@
           <span>{{ parseTime(scope.row.createTime) }}</span>
         </template>
       </el-table-column>
-      <el-table-column label="操作" align="center" width="160" class-name="small-padding fixed-width">
+      <el-table-column label="操作" align="right" width="160" class-name="small-padding fixed-width">
         <template #default="scope">
           <el-button link type="primary" icon="Edit" @click="handleUpdate(scope.row)" v-hasPermi="['cms:help-category:edit']">修改</el-button>
           <el-button link type="primary" icon="Delete" @click="handleDelete(scope.row)" v-hasPermi="['cms:help-category:remove']">删除</el-button>
@@ -58,13 +63,15 @@
 
     <pagination v-show="total > 0" :total="total" v-model:page="queryParams.pageNum" v-model:limit="queryParams.pageSize" @pagination="getList" />
 
-    <el-dialog :title="title" v-model="open" width="500px" append-to-body>
+    <el-dialog :title="title" v-model="open" width="620px" append-to-body>
       <el-form ref="categoryRef" :model="form" :rules="rules" label-width="80px">
         <el-form-item label="分类名称" prop="name">
           <el-input v-model="form.name" placeholder="请输入分类名称" />
         </el-form-item>
         <el-form-item label="图标" prop="icon">
-          <el-input v-model="form.icon" placeholder="请输入图标名（如 BookOpen）" />
+          <el-select v-model="form.icon" placeholder="请选择分类图标" style="width: 100%">
+            <el-option v-for="item in iconOptions" :key="item.value" :label="item.label" :value="item.value" />
+          </el-select>
         </el-form-item>
         <el-form-item label="描述" prop="description">
           <el-input v-model="form.description" type="textarea" placeholder="请输入分类描述" />
@@ -73,10 +80,10 @@
           <el-input-number v-model="form.sort" controls-position="right" :min="0" />
         </el-form-item>
         <el-form-item label="状态" prop="status">
-          <el-radio-group v-model="form.status">
-            <el-radio label="active">启用</el-radio>
-            <el-radio label="inactive">停用</el-radio>
-          </el-radio-group>
+          <el-select v-model="form.status" placeholder="请选择状态" style="width: 100%">
+            <el-option label="启用" value="active" />
+            <el-option label="停用" value="inactive" />
+          </el-select>
         </el-form-item>
         <el-form-item label="备注" prop="remark">
           <el-input v-model="form.remark" type="textarea" placeholder="请输入内容" />
@@ -106,6 +113,27 @@ const single = ref(true);
 const multiple = ref(true);
 const total = ref(0);
 const title = ref("");
+
+// 分类图标选项（与前台帮助中心 iconMap 保持一致）
+const iconOptions = [
+  { value: "BookOpen", label: "BookOpen（书籍）" },
+  { value: "HelpCircle", label: "HelpCircle（问号）" },
+  { value: "MessageSquare", label: "MessageSquare（消息）" },
+  { value: "Shield", label: "Shield（盾牌）" },
+  { value: "User", label: "User（用户）" },
+  { value: "Settings", label: "Settings（设置）" },
+  { value: "CreditCard", label: "CreditCard（支付）" },
+  { value: "Lock", label: "Lock（安全锁）" },
+  { value: "FileText", label: "FileText（文档）" },
+  { value: "Zap", label: "Zap（闪电）" },
+  { value: "Award", label: "Award（奖章）" },
+  { value: "Globe", label: "Globe（全球）" }
+];
+
+function getIconLabel(icon) {
+  const option = iconOptions.find(item => item.value === icon);
+  return option ? option.label : icon;
+}
 
 const data = reactive({
   form: {},

@@ -8,6 +8,11 @@
       <div class="header-content">
         <h2>智能体管理</h2>
         <span class="item-count">共 {{ filteredAgents.length }} 个智能体</span>
+        <div class="header-tip" v-pre>
+          提示：启用状态的智能体可被「语音面试官」绑定为人设（前台开始面试时可选）。
+          系统提示词支持占位符：<code>{{position}}</code> 岗位、<code>{{scene}}</code> 场景、<code>{{difficulty}}</code> 难度、<code>{{style}}</code> 风格、
+          <code>{{resumeDigest}}</code> 简历摘要、<code>{{profileGaps}}</code> 薄弱点、<code>{{levelEstimate}}</code> 水平评估，面试开始时自动注入。
+        </div>
       </div>
       <div class="header-actions">
         <el-input v-model="searchKeyword" placeholder="搜索名称/描述..." prefix-icon="Search" clearable style="width: 200px" />
@@ -155,31 +160,21 @@
                 </span>
               </div>
               <div class="card-actions" @click.stop>
-                <el-tooltip content="对话" placement="top" :show-after="200">
-                  <button class="action-btn primary" @click="startChat(agent.id)">
-                    <i class="fa-solid fa-comment"></i>
-                  </button>
-                </el-tooltip>
-                <el-tooltip content="统计" placement="top" :show-after="200">
-                  <button class="action-btn" @click="showAgentStats(agent)">
-                    <i class="fa-solid fa-chart-line"></i>
-                  </button>
-                </el-tooltip>
-                <el-tooltip content="复制" placement="top" :show-after="200">
-                  <button class="action-btn" @click="duplicateAgent(agent)">
-                    <i class="fa-solid fa-copy"></i>
-                  </button>
-                </el-tooltip>
-                <el-tooltip content="编辑" placement="top" :show-after="200">
-                  <button class="action-btn" @click="editAgent(agent)">
-                    <i class="fa-solid fa-pen-to-square"></i>
-                  </button>
-                </el-tooltip>
-                <el-tooltip content="删除" placement="top" :show-after="200">
-                  <button class="action-btn danger" @click="deleteAgent(agent.id)">
-                    <i class="fa-solid fa-trash-can"></i>
-                  </button>
-                </el-tooltip>
+                <el-button link type="primary" @click="startChat(agent.id)">
+                  <i class="fa-solid fa-comment"></i> 对话
+                </el-button>
+                <el-button link type="primary" @click="showAgentStats(agent)">
+                  <i class="fa-solid fa-chart-line"></i> 统计
+                </el-button>
+                <el-button link type="primary" @click="duplicateAgent(agent)">
+                  <i class="fa-solid fa-copy"></i> 复制
+                </el-button>
+                <el-button link type="primary" @click="editAgent(agent)">
+                  <i class="fa-solid fa-pen-to-square"></i> 编辑
+                </el-button>
+                <el-button link type="danger" @click="deleteAgent(agent.id)">
+                  <i class="fa-solid fa-trash-can"></i> 删除
+                </el-button>
               </div>
             </div>
           </div>
@@ -1132,7 +1127,7 @@
     <el-dialog
       v-model="showStatsDialog"
       :title="'📊 ' + (currentStatsAgent?.name || '') + ' - 使用统计'"
-      width="700px"
+      width="880px"
       destroy-on-close
     >
       <div v-loading="statsLoading" class="stats-container">

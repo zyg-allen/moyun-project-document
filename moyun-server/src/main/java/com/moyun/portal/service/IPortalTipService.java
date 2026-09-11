@@ -1,5 +1,7 @@
 package com.moyun.portal.service;
 
+import java.util.Map;
+
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 
 import com.moyun.portal.domain.entity.PortalTipOrder;
@@ -57,4 +59,16 @@ public interface IPortalTipService {
      * @return true=已支付
      */
     boolean hasPaid(Long userId, String targetType, Long targetId);
+
+    /**
+     * 发起微信支付打赏（V11.0 公共支付通道接入）
+     *
+     * <p>流程：实名/对象/防自赏/金额校验 → 落 pending 打赏单 → 网关统一下单（元转分）
+     * → 返回收银台所需 payNo/codeUrl/amount/expireTime/tipOrderId。
+     *
+     * @param userId 当前登录用户
+     * @param order  打赏订单（targetType/targetId/amount 元/message）
+     * @return 收银台参数（payNo/codeUrl/amount 元/expireTime/tipOrderId/mockEnabled）
+     */
+    Map<String, Object> createWechatTipOrder(Long userId, PortalTipOrder order);
 }

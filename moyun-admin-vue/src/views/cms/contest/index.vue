@@ -6,10 +6,7 @@
       </el-form-item>
       <el-form-item label="状态" prop="status">
         <el-select v-model="queryParams.status" placeholder="活动状态" clearable style="width: 200px">
-          <el-option label="草稿" value="draft" />
-          <el-option label="征稿中" value="collecting" />
-          <el-option label="投票中" value="voting" />
-          <el-option label="已结束" value="ended" />
+          <el-option v-for="d in cms_contest_status" :key="d.value" :label="d.label" :value="d.value" />
         </el-select>
       </el-form-item>
       <el-form-item>
@@ -38,9 +35,7 @@
       <el-table-column label="主题" align="center" prop="theme" width="140" :show-overflow-tooltip="true" />
       <el-table-column label="状态" align="center" prop="status" width="100">
         <template #default="scope">
-          <el-tag :type="statusTagType(scope.row.status)">
-            {{ statusLabel(scope.row.status) }}
-          </el-tag>
+          <dict-tag :options="cms_contest_status" :value="scope.row.status" />
         </template>
       </el-table-column>
       <el-table-column label="开始时间" align="center" prop="startTime" width="160">
@@ -63,7 +58,7 @@
           <span>{{ scope.row.createdTime || '-' }}</span>
         </template>
       </el-table-column>
-      <el-table-column label="操作" align="center" width="160" class-name="small-padding fixed-width">
+      <el-table-column label="操作" align="right" width="160" class-name="small-padding fixed-width">
         <template #default="scope">
           <el-button link type="primary" icon="Edit" @click="handleUpdate(scope.row)" v-hasPermi="['cms:contest:edit']">修改</el-button>
           <el-button link type="primary" icon="Delete" @click="handleDelete(scope.row)" v-hasPermi="['cms:contest:remove']">删除</el-button>
@@ -73,7 +68,7 @@
 
     <pagination v-show="total > 0" :total="total" v-model:page="queryParams.pageNum" v-model:limit="queryParams.pageSize" @pagination="getList" />
 
-    <el-dialog :title="title" v-model="open" width="640px" append-to-body>
+    <el-dialog :title="title" v-model="open" width="800px" append-to-body>
       <el-form ref="contestRef" :model="form" :rules="rules" label-width="100px">
         <el-form-item label="活动标题" prop="title">
           <el-input v-model="form.title" placeholder="请输入活动标题" />
@@ -101,10 +96,7 @@
         </el-form-item>
         <el-form-item label="状态" prop="status">
           <el-radio-group v-model="form.status">
-            <el-radio label="draft">草稿</el-radio>
-            <el-radio label="collecting">征稿中</el-radio>
-            <el-radio label="voting">投票中</el-radio>
-            <el-radio label="ended">已结束</el-radio>
+            <el-radio v-for="d in cms_contest_status" :key="d.value" :label="d.value">{{ d.label }}</el-radio>
           </el-radio-group>
         </el-form-item>
       </el-form>
@@ -122,6 +114,8 @@
 import { listContest, getContest, addContest, updateContest, delContest } from "@/api/cms/contest";
 
 const { proxy } = getCurrentInstance();
+
+const { cms_contest_status } = proxy.useDict("cms_contest_status");
 
 const contestList = ref([]);
 const open = ref(false);
@@ -148,16 +142,6 @@ const data = reactive({
 });
 
 const { queryParams, form, rules } = toRefs(data);
-
-function statusLabel(status) {
-  const map = { draft: '草稿', collecting: '征稿中', voting: '投票中', ended: '已结束' };
-  return map[status] || status;
-}
-
-function statusTagType(status) {
-  const map = { draft: 'info', collecting: 'success', voting: 'warning', ended: '' };
-  return map[status] || '';
-}
 
 function getList() {
   loading.value = true;

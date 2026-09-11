@@ -23,6 +23,7 @@ import {
   Flag,
   AlertCircle,
   CheckCircle2,
+  ShieldCheck,
   // 数据看板相关图标
   BarChart3,
   Eye,
@@ -83,10 +84,42 @@ import type {
   FollowUserItem,
 } from '@/types/api';
 import { getSafeAvatar } from '@/utils/avatar';
+import { getMyCertification, type CreatorCertification } from '@/api/certification';
 
 const router = useRouter();
 const route = useRoute();
 const userStore = useUserStore();
+
+// 是否已通过创作者认证（后端 isCertifiedCreator 为 Integer 0/1，兼容 boolean）
+const isCertifiedCreator = computed(() => {
+  const v = userStore.user?.isCertifiedCreator;
+  return v === 1 || v === true;
+});
+
+// ============ 实名认证状态（v10.8 实名合规） ============
+const myCertification = ref<CreatorCertification | null>(null);
+// 已实名：身份认证类型且审核通过（证件号后端已脱敏，前端仅展示脱敏姓名）
+const isRealNameVerified = computed(() =>
+  myCertification.value?.status === 'approved' && myCertification.value?.certType === 'identity'
+);
+// 脱敏姓名：首字保留，其余打码（如 张三 → 张*）
+const maskedRealName = computed(() => {
+  const name = myCertification.value?.realName?.trim();
+  if (!name) return '';
+  if (name.length === 1) return name;
+  return name.charAt(0) + '*'.repeat(Math.min(name.length - 1, 2));
+});
+// 加载实名认证记录（失败静默，不影响个人中心主流程）
+async function loadMyCertification() {
+  try {
+    const res = await getMyCertification();
+    if (res.code === 200) {
+      myCertification.value = res.data || null;
+    }
+  } catch (err) {
+    console.warn('加载实名认证状态失败:', err);
+  }
+}
 
 // ============ 基础数据 ============
 const currentUser = ref<UserType | null>(null);
@@ -303,8 +336,11 @@ async function loadUserData() {
 
 // 各 Tab 懒加载入口
 async function loadTabData(tabId: string) {
-  if (tabLoaded[tabId]) return;
-  tabLoaded[tabId] = true;
+  // 收藏 Tab 数据轻量且时效性强（收藏/取消后需立即反映），每次激活都重新加载
+  if (tabId !== 'saved') {
+    if (tabLoaded[tabId]) return;
+    tabLoaded[tabId] = true;
+  }
   try {
     switch (tabId) {
       case 'dashboard':
@@ -406,7 +442,10 @@ async function loadSavedSubTab(sub: 'articles' | 'questions' | 'booklists' | 'qu
     try {
       const resp = await getMyQuestionBookmarks({ pageNum: 1, pageSize: 20 });
       if (resp.code === 200 && resp.data) {
-        bookmarkedQuestions.value = resp.data.list || [];
+        // 后端返回 InterviewBookmarkVO（含嵌套 question 对象），提取题目字段供模板渲染
+        bookmarkedQuestions.value = (resp.data.list || [])
+          .map((b: any) => (b && b.question ? b.question : null))
+          .filter((q: any): q is InterviewQuestionVO => q !== null);
       } else {
         bookmarkedQuestions.value = [];
       }
@@ -982,14 +1021,8 @@ function handleTabChange(tabId: string) {
 function handleSavedSubTab(sub: 'articles' | 'questions' | 'booklists' | 'quotes') {
   if (savedSubTab.value === sub) return;
   savedSubTab.value = sub;
-  // 子 Tab 数据懒加载（booklists/quotes 无接口，仅 articles/questions 触发）
-  if (sub === 'articles' && bookmarkedArticles.value.length === 0 && !tabLoaded['saved:articles']) {
-    tabLoaded['saved:articles'] = true;
-    loadSavedSubTab('articles');
-  } else if (sub === 'questions' && bookmarkedQuestions.value.length === 0 && !tabLoaded['saved:questions']) {
-    tabLoaded['saved:questions'] = true;
-    loadSavedSubTab('questions');
-  }
+  // 每次切换子 Tab 都拉取最新数据（收藏/取消操作后列表需立即反映变化）
+  loadSavedSubTab(sub);
 }
 
 function handleFollowSubTab(sub: 'following' | 'followers') {
@@ -1036,7 +1069,12 @@ onMounted(async () => {
   if (!userStore.isUserInitialized) {
     await userStore.initializeUser();
   }
+  // 刷新用户信息：确保 isCertifiedCreator 等后端可变字段与最新状态一致
+  // 场景：创作者认证审核通过后，用户进入个人中心需立即看到"已认证"标识
+  await userStore.fetchCurrentUser();
   await loadUserData();
+  // 实名认证状态与用户信息无依赖，并行加载（失败静默）
+  loadMyCertification();
 });
 
 // 跳转
@@ -1128,6 +1166,25 @@ const dashboardCards = computed(() => {
                         <h1 class="text-2xl sm:text-3xl font-bold" style="color: var(--theme-text);">
                           {{ currentUser.nickname || currentUser.username }}
                         </h1>
+                        <!-- 创作者实名认证徽章 -->
+                        <span
+                          v-if="isCertifiedCreator"
+                          class="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs sm:text-sm font-medium"
+                          style="background-color: #dcfce7; color: #16a34a; border: 1px solid #86efac;"
+                        >
+                          <ShieldCheck class="w-3 h-3 sm:w-4 sm:h-4" />
+                          已认证创作者
+                        </span>
+                        <!-- 实名认证徽章（v10.8：身份认证通过，仅展示脱敏姓名） -->
+                        <span
+                          v-if="isRealNameVerified"
+                          class="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs sm:text-sm font-medium"
+                          style="background-color: #dbeafe; color: #2563eb; border: 1px solid #93c5fd;"
+                          :title="`实名信息已加密存储：${maskedRealName}`"
+                        >
+                          <ShieldCheck class="w-3 h-3 sm:w-4 sm:h-4" />
+                          已实名 {{ maskedRealName }}
+                        </span>
                         <!-- 成长等级徽章 -->
                         <span v-if="myGrowth || dashboard" class="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs sm:text-sm font-medium" style="background: linear-gradient(135deg, #f59e0b 0%, #ef4444 100%); color: white;">
                           <Star class="w-3 h-3 sm:w-4 sm:h-4" />
@@ -2248,6 +2305,34 @@ const dashboardCards = computed(() => {
                       <div class="min-w-0">
                         <p class="font-semibold mb-1" style="color: var(--theme-text);">账号设置</p>
                         <p class="text-xs" style="color: var(--theme-text-secondary);">密码、通知、隐私等设置</p>
+                      </div>
+                      <ChevronRight class="w-5 h-5 ml-auto flex-shrink-0" style="color: var(--theme-text-secondary);" />
+                    </button>
+
+                    <!-- 创作者认证 -->
+                    <button
+                      @click="router.push('/creator/certification')"
+                      class="flex items-center gap-4 p-5 rounded-2xl text-left transition-colors hover:opacity-90"
+                      style="background-color: var(--theme-surface); border: 1px solid var(--theme-border);"
+                    >
+                      <div class="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0" style="background-color: #fefce8;">
+                        <ShieldCheck class="w-6 h-6" style="color: #f59e0b;" />
+                      </div>
+                      <div class="min-w-0">
+                        <p class="font-semibold mb-1 flex items-center gap-2" style="color: var(--theme-text);">
+                          创作者认证
+                          <span
+                            v-if="isCertifiedCreator"
+                            class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium"
+                            style="background-color: #dcfce7; color: #16a34a;"
+                          >已认证</span>
+                          <span
+                            v-if="isRealNameVerified"
+                            class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium"
+                            style="background-color: #dbeafe; color: #2563eb;"
+                          >已实名 {{ maskedRealName }}</span>
+                        </p>
+                        <p class="text-xs" style="color: var(--theme-text-secondary);">{{ isCertifiedCreator ? '已通过创作者认证，账号可信度更高' : '完成实名认证提升账号可信度；发布文章/面经/专栏无需认证，打赏与积分消费需实名' }}</p>
                       </div>
                       <ChevronRight class="w-5 h-5 ml-auto flex-shrink-0" style="color: var(--theme-text-secondary);" />
                     </button>

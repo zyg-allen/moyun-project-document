@@ -18,7 +18,7 @@ import com.moyun.util.string.StringUtils;
 /**
  * 登录用户身份权限
  *
- * @author ruoyi
+ * @author allen-zyg
  */
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class LoginUser implements UserDetails {

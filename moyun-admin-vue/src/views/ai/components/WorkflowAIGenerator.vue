@@ -10,7 +10,7 @@
     <!-- 生成对话框 -->
     <el-dialog
       v-model="visible"
-      width="700px"
+      width="880px"
       :close-on-click-modal="false"
       class="ai-generator-dialog"
     >

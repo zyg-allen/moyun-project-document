@@ -148,7 +148,7 @@ public class PortalArticleController extends BaseController {
     }
 
     @Operation(summary = "获取文章详情", description = "根据文章ID获取文章详细信息")
-    @GetMapping(value = "/{id}")
+    @GetMapping(value = "/{id:[0-9]+}")
     public AjaxResult getInfo(@Parameter(description = "文章ID") @PathVariable Long id) {
         PortalArticle article = portalArticleService.selectPortalArticleById(id);
         ArticleVO vo = ArticleConvertUtil.toArticleVO(article);
@@ -213,7 +213,7 @@ public class PortalArticleController extends BaseController {
      * 复用打赏订单表 portal_tip_order，target_type='article_paid'，amount=文章价格
      */
     @Operation(summary = "购买付费阅读", description = "购买付费文章阅读权限，复用打赏订单表")
-    @PostMapping("/{id}/purchase")
+    @PostMapping("/{id:[0-9]+}/purchase")
     @Transactional(rollbackFor = Exception.class)
     public AjaxResult purchase(@Parameter(description = "文章ID") @PathVariable Long id) {
         Long userId = PortalSecurityUtils.getUserId();
@@ -401,7 +401,7 @@ public class PortalArticleController extends BaseController {
      * 4. 返回最新点赞数和点赞状态
      */
     @Operation(summary = "文章点赞/取消点赞", description = "点赞或取消点赞文章，返回最新点赞数")
-    @PostMapping("/{id}/like")
+    @PostMapping("/{id:[0-9]+}/like")
     @Transactional(rollbackFor = Exception.class)
     public AjaxResult toggleLikeArticle(@PathVariable Long id) {
         Long userId = PortalSecurityUtils.getUserId();
@@ -490,7 +490,7 @@ public class PortalArticleController extends BaseController {
      * 3. 记录每次浏览历史，用于数据分析
      */
     @Operation(summary = "增加浏览量", description = "增加文章浏览量，支持防刷逻辑")
-    @PostMapping("/{id}/view")
+    @PostMapping("/{id:[0-9]+}/view")
     @Transactional(rollbackFor = Exception.class)
     public AjaxResult incrementView(@PathVariable Long id, HttpServletRequest request) {
         PortalArticle article = portalArticleService.selectPortalArticleById(id);
@@ -565,21 +565,35 @@ public class PortalArticleController extends BaseController {
         return ip;
     }
 
-    @Operation(summary = "获取分类推荐文章", description = "获取指定分类的推荐文章列表")
+    @Operation(summary = "获取分类推荐文章", description = "获取指定分类的推荐文章列表；支持按一级分类(rootCategoryId)查询其下所有子分类文章，无栏目推荐时回退为该分类最新文章")
     @GetMapping("/categoryRecommended")
     public AjaxResult getCategoryRecommendedArticles(
             @RequestParam(required = false) String categoryName,
             @RequestParam(required = false) Long categoryId,
+            @RequestParam(required = false) Long rootCategoryId,
             @RequestParam(defaultValue = "8") Integer limit) {
         ArticleQuery query = new ArticleQuery();
         query.setCategoryName(categoryName);
         query.setCategoryId(categoryId);
+        // 首页主题 Tab 是一级分类：按 rootCategoryId 匹配可覆盖其下全部子分类文章
+        query.setRootCategoryId(rootCategoryId);
         query.setIsCategoryRecommended(true);
         query.setPageNum(1);
         query.setPageSize(limit);
 
         Page<PortalArticle> page = PageUtils.buildPage(query);
         Page<PortalArticle> resultPage = portalArticleService.selectPortalArticlePage(page, query);
+        // 冷启动兜底：该分类尚未配置栏目推荐文章时，回退为该分类下最新已发布文章（保持分类过滤条件）
+        if (resultPage.getRecords().isEmpty()) {
+            ArticleQuery fallback = new ArticleQuery();
+            fallback.setCategoryName(categoryName);
+            fallback.setCategoryId(categoryId);
+            fallback.setRootCategoryId(rootCategoryId);
+            fallback.setPageNum(1);
+            fallback.setPageSize(limit);
+            Page<PortalArticle> fallbackPage = PageUtils.buildPage(fallback);
+            resultPage = portalArticleService.selectPortalArticlePage(fallbackPage, fallback);
+        }
         return success(resultPage);
     }
 

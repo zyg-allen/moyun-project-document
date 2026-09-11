@@ -45,4 +45,16 @@ public class NoopLlmClient implements LlmClient {
     public boolean isEnabled() {
         return false;
     }
+
+    /** 场景感知调用：Noop 语义与默认一致（未启用 AI），返回 null 触发规则化兜底 */
+    @Override
+    public String chat(String sceneCode, String systemPrompt, String userMessage) {
+        return null;
+    }
+
+    /** Noop 下无任何场景绑定 */
+    @Override
+    public boolean isSceneBound(String sceneCode) {
+        return false;
+    }
 }

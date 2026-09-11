@@ -31,6 +31,12 @@ public class InterviewQuestionVO implements Serializable {
      */
     private String questionType;
 
+    /**
+     * 练习模式：reading 展示阅读 / choice 选择题 / coding 编程题（v10.6 题库重构）
+     * 与 questionType 正交：questionType 描述内容分类，practiceMode 描述作答方式
+     */
+    private String practiceMode;
+
     private Long categoryId;
 
     private String categoryName;

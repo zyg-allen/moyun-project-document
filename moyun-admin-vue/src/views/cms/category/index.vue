@@ -107,7 +107,8 @@
           <span>{{ parseTime(scope.row.createTime) }}</span>
         </template>
       </el-table-column>
-      <el-table-column label="操作" align="center" width="280" class-name="small-padding fixed-width">
+      <!-- 操作列宽度按按钮数自适应：一级栏目3按钮(修改/新增子栏目/删除)约200，二级栏目2按钮约130 -->
+      <el-table-column label="操作" align="right" :width="(scope) => scope.row.parentId === 0 || scope.row.parentId === null ? 200 : 130" fixed="right" class-name="small-padding fixed-width">
         <template #default="scope">
           <!-- 一级栏目操作 -->
           <template v-if="scope.row.parentId === 0 || scope.row.parentId === null">
@@ -155,7 +156,7 @@
     </el-table>
 
     <!-- 添加或修改栏目对话框 -->
-    <el-dialog :title="title" v-model="open" width="600px" append-to-body>
+    <el-dialog :title="title" v-model="open" width="760px" append-to-body>
       <el-form ref="categoryRef" :model="form" :rules="rules" label-width="100px">
         <el-form-item label="上级栏目">
           <el-tree-select
@@ -288,6 +289,7 @@ const categoryOptions = ref([]);
 const isExpandAll = ref(true);
 const refreshTable = ref(true);
 const isLevel2 = ref(false); // 是否在添加二级栏目（用于禁用父级选择）
+const originalParentId = ref(0); // 编辑前的原始父级，仅父级变化时才做层级校验
 
 const data = reactive({
   form: {},
@@ -374,6 +376,7 @@ function reset() {
     remark: undefined
   };
   isLevel2.value = false;
+  originalParentId.value = 0;
   proxy.resetForm("categoryRef");
 }
 
@@ -434,6 +437,8 @@ async function handleUpdate(row) {
   await getTreeselect();
   getCategory(row.id).then(response => {
     form.value = response.data;
+    // 记录原始父级，用于"父级是否变化"判断
+    originalParentId.value = response.data.parentId ?? 0;
     // 如果是二级栏目，禁用父级选择
     if (row.parentId && row.parentId !== 0) {
       isLevel2.value = true;
@@ -447,13 +452,12 @@ async function handleUpdate(row) {
 function submitForm() {
   proxy.$refs["categoryRef"].validate(valid => {
     if (valid) {
-      // 前端校验：二级栏目不能添加子栏目
-      if (isLevel2.value && form.value.parentId !== 0) {
-        // 如果当前是在添加二级栏目，且选择了父级
-        // 检查父级是否已经是二级
-        const parentCategory = findCategoryById(categoryOptions.value, form.value.parentId);
-        if (parentCategory && parentCategory.parentId !== 0) {
-          proxy.$modal.msgError("最多只支持两级栏目，不能添加三级栏目");
+      // 前端校验：仅当父级发生变化时才校验层级（存量超两级数据允许编辑其他字段）
+      const currentParent = form.value.parentId ?? 0;
+      if (currentParent !== originalParentId.value && currentParent !== 0) {
+        const parentCategory = findCategoryById(categoryOptions.value, currentParent);
+        if (parentCategory && parentCategory.parentId != null && parentCategory.parentId !== 0) {
+          proxy.$modal.msgError("最多只支持两级栏目，不能设置为三级栏目");
           return;
         }
       }
@@ -514,5 +518,16 @@ onMounted(() => {
 <style scoped>
 .mb8 {
   margin-bottom: 8px;
+}
+
+/* 操作列按钮强制横向排列不换行（scoped 需穿透固定列） */
+:deep(.fixed-width) {
+  white-space: nowrap;
+}
+:deep(.fixed-width .el-button) {
+  margin-left: 8px;
+}
+:deep(.fixed-width .el-button + .el-button) {
+  margin-left: 8px;
 }
 </style>

@@ -26,6 +26,9 @@ public class InterviewResumeTemplateVO implements Serializable {
 
     private String downloadUrl;
 
+    /** 预览图 JSON 数组（多图，问题3图片列表展示） */
+    private String previewImages;
+
     private String category;
 
     private String fileType;

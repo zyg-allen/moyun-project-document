@@ -46,7 +46,7 @@ public class PortalBookAdminController extends BaseController {
 
     @Operation(summary = "获取书籍详情")
     @PreAuthorize("@ss.hasPermi('portal:book:query')")
-    @GetMapping("/{id}")
+    @GetMapping("/{id:[0-9]+}")
     public AjaxResult getById(@PathVariable Long id) {
         return success(portalBookService.selectPortalBookById(id));
     }
@@ -78,7 +78,7 @@ public class PortalBookAdminController extends BaseController {
     @Operation(summary = "删除书籍")
     @PreAuthorize("@ss.hasPermi('portal:book:remove')")
     @Log(title = "读书空间-书籍", businessType = BusinessType.DELETE)
-    @DeleteMapping("/{id}")
+    @DeleteMapping("/{id:[0-9]+}")
     public AjaxResult delete(@PathVariable Long id) {
         int result = portalBookService.deletePortalBookById(id);
         return result > 0 ? success("删除成功") : error("删除失败");

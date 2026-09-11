@@ -20,7 +20,7 @@ import com.moyun.util.string.StringUtils;
 /**
  * web 层通用数据处理
  *
- * @author ruoyi
+ * @author allen-zyg
  */
 public class BaseController {
     protected final Logger logger = LoggerFactory.getLogger(this.getClass());

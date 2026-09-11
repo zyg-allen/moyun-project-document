@@ -17,7 +17,7 @@ import java.util.TimerTask;
 /**
  * 异步工厂（产生任务用）
  *
- * @author ruoyi
+ * @author allen-zyg
  */
 @Slf4j
 public class AsyncFactory {
@@ -64,7 +64,8 @@ public class AsyncFactory {
                     }
                 }
             } catch (Exception e) {
-                // 解析失败保持 unknown，不影响主流程
+                // 忽略异常，使用默认值解析失败保持 unknown，不影响主流程
+                log.error("解析 UserAgent 异常", e);
             }
         }
         final String os = osName;

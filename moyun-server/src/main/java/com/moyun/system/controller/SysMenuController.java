@@ -21,7 +21,7 @@ import java.util.List;
 /**
  * 菜单信息
  *
- * @author ruoyi
+ * @author allen-zyg
  */
 @Tag(name = "菜单管理", description = "菜单信息的增删改查、树形结构等操作接口")
 @RestController

@@ -165,9 +165,13 @@ public class ProcessJudgeEngine implements JudgeEngine {
             }
             // 首个失败用例即停止，记录状态与失败详情
             result.setFailedCaseId(tc.getId());
-            result.setFailedCaseInput(tc.getInput());
-            result.setFailedCaseExpected(tc.getExpectedOutput());
-            result.setFailedCaseActual(cr.getActualOutput());
+            // 安全策略：仅样例用例失败时回填输入/期望/实际输出；
+            // 隐藏用例是判题资产，明文下发会泄露判题数据（与选择题答案剥离同标准）
+            if (Integer.valueOf(1).equals(tc.getIsSample())) {
+                result.setFailedCaseInput(tc.getInput());
+                result.setFailedCaseExpected(tc.getExpectedOutput());
+                result.setFailedCaseActual(cr.getActualOutput());
+            }
             result.setErrorMessage(cr.getErrorMessage());
             // 根据失败原因映射状态
             if (cr.getErrorMessage() != null && cr.getErrorMessage().contains("[TLE]")) {

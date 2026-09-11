@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue';
+import { formatDate } from '@/utils/date';
 import { useRoute, useRouter } from 'vue-router';
 import { useHead } from '@vueuse/head';
 import {
@@ -42,8 +43,8 @@ const isLoggedIn = computed(() => !!userStore.user);
 
 useHead(computed(() => generateSeo({
   title: contest.value?.title || '活动详情',
-  description: contest.value?.description || contest.value?.theme || '墨韵创作挑战活动详情',
-  keywords: ['创作挑战', contest.value?.title || '墨韵'].filter(Boolean) as string[],
+  description: contest.value?.description || contest.value?.theme || '旭林创作挑战活动详情',
+  keywords: ['创作挑战', contest.value?.title || '旭林'].filter(Boolean) as string[],
   canonicalPath: `/contest/${contestId.value}`,
 })));
 
@@ -158,16 +159,6 @@ function submissionStatusMeta(status?: string) {
   }
 }
 
-function formatDate(t?: string) {
-  if (!t) return '';
-  return t.length >= 10 ? t.slice(0, 10) : t;
-}
-
-function formatDateTime(t?: string) {
-  if (!t) return '';
-  return t.length >= 16 ? t.slice(0, 16) : t;
-}
-
 // 投稿阶段（可投稿）判断
 const canSubmit = computed(() => {
   if (!contest.value) return false;
@@ -250,11 +241,11 @@ const canSubmit = computed(() => {
               <div class="flex items-center justify-center md:justify-start gap-4 mb-3 text-sm flex-wrap">
                 <span v-if="contest.startTime || contest.endTime" class="flex items-center">
                   <Calendar class="w-4 h-4 mr-1.5" />
-                  {{ formatDate(contest.startTime) }} ~ {{ formatDate(contest.endTime) }}
+                  {{ formatDate(contest.startTime, 'YYYY-MM-DD') }} ~ {{ formatDate(contest.endTime, 'YYYY-MM-DD') }}
                 </span>
                 <span v-if="contest.voteEndTime" class="flex items-center">
                   <Calendar class="w-4 h-4 mr-1.5" />
-                  投票截止：{{ formatDateTime(contest.voteEndTime) }}
+                  投票截止：{{ formatDate(contest.voteEndTime, 'YYYY-MM-DD HH:mm') }}
                 </span>
               </div>
               <!-- 奖品 -->
@@ -385,7 +376,7 @@ const canSubmit = computed(() => {
                   </div>
                   <div class="flex items-center gap-3 text-xs flex-wrap" style="color: var(--theme-text-secondary);">
                     <span>用户 #{{ sub.userId }}</span>
-                    <span v-if="sub.createdTime">{{ formatDateTime(sub.createdTime) }}</span>
+                    <span v-if="sub.createdTime">{{ formatDate(sub.createdTime, 'YYYY-MM-DD HH:mm') }}</span>
                   </div>
                 </div>
 

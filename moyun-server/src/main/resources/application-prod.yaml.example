@@ -1,5 +1,5 @@
 # =============================================================================
-# 墨韵后端生产环境配置模板（application-prod.yaml.example）
+# 旭林后端生产环境配置模板（application-prod.yaml.example）
 # -----------------------------------------------------------------------------
 # 使用说明：
 # 1. 复制本文件为 application-prod.yaml：cp application-prod.yaml.example application-prod.yaml
@@ -164,7 +164,7 @@ knife4j:
   production: ${KNIFE4J_PRODUCTION:true}
 
 # =============================================
-# 墨韵框架配置
+# 旭林框架配置
 # - MOYUN_PROFILE：本地文件存储根路径（生产环境建议使用独立挂载盘）
 # =============================================
 moyun:
@@ -275,7 +275,7 @@ spring.servlet.multipart:
 # =============================================
 # AI 模块配置（生产环境按需启用）
 # - 默认全部关闭，避免依赖中间件缺失导致启动失败
-# - 启用 AI 时需同步部署：MySQL（AI 表）/ Redis / Elasticsearch / LibreOffice
+# - 启用 AI 时需同步部署：MySQL（AI 表）/ Redis / LibreOffice（向量存储为嵌入式 JVector，无需独立服务）
 # =============================================
 
 # LangChain4j 大模型对接（任选其一，按 ${PROVIDER}_ENABLED=true 启用）
@@ -300,21 +300,10 @@ langchain4j:
     temperature: 0.7
 
 # 向量存储配置（知识库 / RAG 检索底座）
-# type: redis（默认，复用 Redis 8.0+ RediSearch）/ es（独立 ES 集群）
-app:
-  embedding-store:
-    type: ${EMBEDDING_STORE_TYPE:redis}
-    index-name: ${EMBEDDING_STORE_INDEX_NAME:moyun_ai_vectors}
-    key-prefix: ${EMBEDDING_STORE_KEY_PREFIX:ai_vectors:}
-
-# Elasticsearch 配置（仅 app.embedding-store.type=es 时生效）
-elasticsearch:
-  uris: ${ES_URIS:http://localhost:9200}
-  username: ${ES_USERNAME:}
-  password: ${ES_PASSWORD:}
-  index-prefix: ${ES_INDEX_PREFIX:moyun_ai_}
-  index:
-    vector: ${ES_INDEX_VECTOR:moyun_ai_vectors}
+# 向量存储统一使用 JVector 嵌入式向量搜索引擎（纯 Java，无需独立服务）；Redis 仅承担缓存 / 分布式锁等职责，不参与向量存储
+# data-path 建议挂载持久化磁盘卷
+jvector:
+  data-path: ${JVECTOR_DATA_PATH:./data/jvector}
 
 # LibreOffice 文档转 PDF（启用 AI 知识库 Office 文档解析时必填）
 jodconverter:
@@ -329,7 +318,7 @@ jodconverter:
     port-numbers:
       - 2002
 
-# 墨韵 AI 专用配置
+# 旭林 AI 专用配置
 moyun-ai:
   rag:
     default-min-score: 0.7

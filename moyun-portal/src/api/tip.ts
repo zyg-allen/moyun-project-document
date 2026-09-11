@@ -5,6 +5,7 @@ import type {
   TipTargetBody,
   TipQuery,
   Article,
+  PayCashierResult,
 } from '@/types/api';
 
 /**
@@ -69,4 +70,20 @@ export const purchaseArticle = (id: string | number) => {
  */
 export const getMyPurchasedArticles = (params?: TipQuery) => {
   return httpGetList<Article>('/portal/article/my/purchased', params);
+};
+
+/**
+ * 发起微信支付打赏（V11.0 公共支付通道）
+ * POST /portal/tip/{targetType}/{targetId}/wechat
+ * 返回收银台参数：payNo/codeUrl/amount(元)/expireTime/tipOrderId/mockEnabled
+ */
+export const createWechatTip = (
+  targetType: TipTargetType,
+  targetId: string | number,
+  data: TipTargetBody
+) => {
+  return httpPost<PayCashierResult>(
+    `/portal/tip/${targetType}/${targetId}/wechat`,
+    data as unknown as Record<string, unknown>
+  );
 };

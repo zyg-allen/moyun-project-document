@@ -183,6 +183,51 @@
   background-color: #fef0f0;
 }
 
+/* 会话操作按钮组（重命名/删除）：悬浮显示 */
+.conv-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.conversation-item:hover .conv-actions {
+  opacity: 1;
+}
+
+.conv-action-btn {
+  width: 26px;
+  height: 26px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: transparent;
+  border-radius: 6px;
+  color: #909399;
+  cursor: pointer;
+  font-size: 12px;
+  transition: all 0.2s;
+}
+
+.conv-action-btn:hover {
+  background: #e4e7ed;
+  color: #409eff;
+}
+
+.conv-action-btn.danger:hover {
+  background: #fef0f0;
+  color: #f56c6c;
+}
+
+/* 会话时间显示 */
+.conv-time {
+  margin-left: 6px;
+  color: #c0c4cc;
+  font-size: 11px;
+}
+
 .empty-state {
   text-align: center;
   padding: 40px 20px;

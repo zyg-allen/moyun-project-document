@@ -2,9 +2,9 @@ package com.moyun.common.constant;
 
 /**
  * 返回状态码
- * 与墨韵前端兼容
+ * 与旭林前端兼容
  *
- * @author ruoyi
+ * @author allen-zyg
  */
 public class HttpStatus {
     /**

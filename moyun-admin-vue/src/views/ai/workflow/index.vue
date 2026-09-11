@@ -74,26 +74,18 @@
                   </span>
                   </div>
                   <div class="card-actions" @click.stop>
-                    <el-tooltip content="运行" placement="top" :show-after="500">
-                      <button class="action-btn primary" @click="runWorkflow(wf)">
-                        <i class="fa-solid fa-play"></i>
-                      </button>
-                    </el-tooltip>
-                    <el-tooltip content="编辑" placement="top" :show-after="500">
-                      <button class="action-btn" @click="editWorkflow(wf)">
-                        <i class="fa-solid fa-pen-to-square"></i>
-                      </button>
-                    </el-tooltip>
-                    <el-tooltip content="复制" placement="top" :show-after="500">
-                      <button class="action-btn" @click="duplicateWorkflow(wf)">
-                        <i class="fa-solid fa-copy"></i>
-                      </button>
-                    </el-tooltip>
-                    <el-tooltip content="删除" placement="top" :show-after="500">
-                      <button class="action-btn danger" @click="deleteWorkflow(wf)">
-                        <i class="fa-solid fa-trash-can"></i>
-                      </button>
-                    </el-tooltip>
+                    <el-button link type="primary" @click="runWorkflow(wf)">
+                      <i class="fa-solid fa-play"></i> 运行
+                    </el-button>
+                    <el-button link type="primary" @click="editWorkflow(wf)">
+                      <i class="fa-solid fa-pen-to-square"></i> 编辑
+                    </el-button>
+                    <el-button link type="primary" @click="duplicateWorkflow(wf)">
+                      <i class="fa-solid fa-copy"></i> 复制
+                    </el-button>
+                    <el-button link type="danger" @click="deleteWorkflow(wf)">
+                      <i class="fa-solid fa-trash-can"></i> 删除
+                    </el-button>
                   </div>
                 </div>
               </div>
@@ -2069,7 +2061,7 @@
       <div v-if="contextMenu.visible" class="context-menu-overlay" @click="closeContextMenu"></div>
     </Teleport>
     <!-- 注释对话框 -->
-    <el-dialog v-model="annotationDialog" :title="editingAnnotation?.id?.includes('anno_') ? '添加注释' : '编辑注释'" width="400px" class="annotation-dialog">
+    <el-dialog v-model="annotationDialog" :title="editingAnnotation?.id?.includes('anno_') ? '添加注释' : '编辑注释'" width="500px" class="annotation-dialog">
       <div class="annotation-form" v-if="editingAnnotation">
         <el-form-item label="注释内容">
           <el-input type="textarea" v-model="editingAnnotation.text" :rows="3" placeholder="输入注释内容..." />
@@ -2088,7 +2080,7 @@
       </template>
     </el-dialog>
     <!-- 帮助对话框 -->
-    <el-dialog v-model="helpDialog" title="工作流帮助" width="560px" class="help-dialog">
+    <el-dialog v-model="helpDialog" title="工作流帮助" width="700px" class="help-dialog">
       <div class="help-dialog-content">
         <div class="help-section">
           <div class="help-title"><i class="fa-solid fa-rocket"></i> 快速开始</div>
@@ -2120,7 +2112,7 @@
       </template>
     </el-dialog>
     <!-- 边标签编辑对话框 -->
-    <el-dialog v-model="edgeLabelDialog" title="编辑连线" width="400px" class="edge-dialog">
+    <el-dialog v-model="edgeLabelDialog" title="编辑连线" width="500px" class="edge-dialog">
       <div class="edge-edit-content">
         <div class="edge-info">
           <i class="fa-solid fa-arrow-right-long"></i>
@@ -2145,7 +2137,7 @@
         <el-button type="primary" @click="saveEdgeLabel">保存</el-button>
       </template>
     </el-dialog>
-    <el-dialog v-model="runDialog" title="运行工作流" width="480px" class="run-dialog">
+    <el-dialog v-model="runDialog" title="运行工作流" width="600px" class="run-dialog">
       <div class="run-content">
         <div class="run-info">
           <i class="fa-solid fa-play-circle"></i>
@@ -2169,7 +2161,7 @@
         </el-button>
       </template>
     </el-dialog>
-    <el-dialog v-model="resultDialog" title="执行结果" width="700px" class="result-dialog">
+    <el-dialog v-model="resultDialog" title="执行结果" width="880px" class="result-dialog">
       <div class="result" :class="execResult?.success?'ok':'fail'">
         <i :class="execResult?.success?'fa-solid fa-check-circle':'fa-solid fa-times-circle'"></i>
         <div class="result-text">
@@ -2292,7 +2284,7 @@
             <span class="text-ellipsis">{{ row.inputData?.substring(0, 50) || '-' }}{{ row.inputData?.length > 50 ? '...' : '' }}</span>
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="100">
+        <el-table-column label="操作" width="100" align="right">
           <template #default="{ row }">
             <el-button size="small" text type="primary" @click="viewExecution(row)">
               <i class="fa-solid fa-eye"></i> 详情
@@ -2311,7 +2303,7 @@
       </div>
     </el-dialog>
     <!-- 执行详情对话框 -->
-    <el-dialog v-model="executionDetailDialog" title="执行详情" width="700px">
+    <el-dialog v-model="executionDetailDialog" title="执行详情" width="880px">
       <div v-if="selectedExecution" class="execution-detail">
         <div class="detail-header">
           <div class="detail-status" :class="selectedExecution.status">
@@ -2350,7 +2342,7 @@
       </div>
     </el-dialog>
     <!-- 版本管理对话框 -->
-    <el-dialog v-model="versionDialog" title="版本管理" width="640px" class="version-dialog">
+    <el-dialog v-model="versionDialog" title="版本管理" width="800px" class="version-dialog">
       <div class="version-header">
         <div class="version-info">
           <i class="fa-solid fa-code-branch"></i>
@@ -2395,7 +2387,7 @@
       </template>
     </el-dialog>
     <!-- 模板库对话框 -->
-    <el-dialog v-model="templateDialog" title="工作流模板库" width="800px" class="template-dialog">
+    <el-dialog v-model="templateDialog" title="工作流模板库" width="1000px" class="template-dialog">
       <div class="template-intro">
         <i class="fa-solid fa-layer-group"></i>
         <div>
@@ -2426,7 +2418,7 @@
       </template>
     </el-dialog>
     <!-- 节点搜索对话框 -->
-    <el-dialog v-model="nodeSearchDialog" title="搜索节点" width="480px" class="search-dialog">
+    <el-dialog v-model="nodeSearchDialog" title="搜索节点" width="600px" class="search-dialog">
       <el-input v-model="nodeSearchQuery" placeholder="输入节点名称、类型或ID..." prefix-icon="Search" size="large" autofocus clearable />
       <div class="search-results">
         <div v-if="!nodeSearchQuery" class="search-hint">
@@ -2452,7 +2444,7 @@
       </div>
     </el-dialog>
     <!-- 使用指南对话框 -->
-    <el-dialog v-model="showGuideDialog" title="工作流使用指南" width="720px" class="guide-dialog">
+    <el-dialog v-model="showGuideDialog" title="工作流使用指南" width="900px" class="guide-dialog">
       <div class="guide-content">
         <div class="guide-intro">
           <div class="guide-intro-icon">

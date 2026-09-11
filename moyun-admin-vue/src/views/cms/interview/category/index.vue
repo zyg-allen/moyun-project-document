@@ -40,7 +40,7 @@
           </el-tag>
         </template>
       </el-table-column>
-      <el-table-column label="操作" width="180" fixed="right">
+      <el-table-column label="操作" width="180" fixed="right" align="right">
         <template #default="{ row }">
           <el-button link type="primary" @click="handleEdit(row)">编辑</el-button>
           <el-button link type="danger" @click="handleDelete(row)">删除</el-button>
@@ -48,7 +48,7 @@
       </el-table-column>
     </el-table>
 
-    <el-dialog v-model="dialogVisible" :title="dialogTitle" width="560px">
+    <el-dialog v-model="dialogVisible" :title="dialogTitle" width="700px">
       <el-form :model="form" label-width="100px">
         <el-form-item label="名称"><el-input v-model="form.name" placeholder="请输入名称" /></el-form-item>
         <el-form-item label="Slug"><el-input v-model="form.slug" placeholder="英文标识，如 algorithm" /></el-form-item>

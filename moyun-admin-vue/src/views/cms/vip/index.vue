@@ -6,8 +6,7 @@
       </el-form-item>
       <el-form-item label="状态" prop="status">
         <el-select v-model="queryParams.status" placeholder="套餐状态" clearable style="width: 200px">
-          <el-option label="上架" value="0" />
-          <el-option label="下架" value="1" />
+          <el-option v-for="d in cms_vip_status" :key="d.value" :label="d.label" :value="d.value" />
         </el-select>
       </el-form-item>
       <el-form-item>
@@ -53,13 +52,11 @@
       <el-table-column label="排序" align="center" prop="sort" width="80" />
       <el-table-column label="状态" align="center" prop="status" width="80">
         <template #default="scope">
-          <el-tag :type="scope.row.status === '0' ? 'success' : 'info'">
-            {{ scope.row.status === '0' ? '上架' : '下架' }}
-          </el-tag>
+          <dict-tag :options="cms_vip_status" :value="scope.row.status" />
         </template>
       </el-table-column>
       <el-table-column label="描述" align="center" prop="description" :show-overflow-tooltip="true" min-width="150" />
-      <el-table-column label="操作" align="center" width="160" class-name="small-padding fixed-width">
+      <el-table-column label="操作" align="right" width="160" class-name="small-padding fixed-width">
         <template #default="scope">
           <el-button link type="primary" icon="Edit" @click="handleUpdate(scope.row)" v-hasPermi="['cms:vip:edit']">修改</el-button>
           <el-button link type="primary" icon="Delete" @click="handleDelete(scope.row)" v-hasPermi="['cms:vip:remove']">删除</el-button>
@@ -69,7 +66,7 @@
 
     <pagination v-show="total > 0" :total="total" v-model:page="queryParams.pageNum" v-model:limit="queryParams.pageSize" @pagination="getList" />
 
-    <el-dialog :title="title" v-model="open" width="640px" append-to-body>
+    <el-dialog :title="title" v-model="open" width="800px" append-to-body>
       <el-form ref="vipRef" :model="form" :rules="rules" label-width="100px">
         <el-form-item label="套餐名称" prop="name">
           <el-input v-model="form.name" placeholder="请输入套餐名称" />
@@ -97,8 +94,7 @@
         </el-form-item>
         <el-form-item label="状态" prop="status">
           <el-radio-group v-model="form.status">
-            <el-radio label="0">上架</el-radio>
-            <el-radio label="1">下架</el-radio>
+            <el-radio v-for="d in cms_vip_status" :key="d.value" :label="d.value">{{ d.label }}</el-radio>
           </el-radio-group>
         </el-form-item>
       </el-form>
@@ -116,6 +112,7 @@
 import { listVip, getVip, addVip, updateVip, delVip } from "@/api/cms/vip";
 
 const { proxy } = getCurrentInstance();
+const { cms_vip_status } = proxy.useDict("cms_vip_status");
 
 const vipList = ref([]);
 const open = ref(false);

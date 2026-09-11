@@ -1,5 +1,6 @@
 package com.moyun.portal.controller;
 
+import com.moyun.common.exception.system.ServiceException;
 import jakarta.servlet.http.HttpServletResponse;
 import java.util.List;
 
@@ -55,7 +56,7 @@ public class PortalWalletController extends BaseController {
     @PostMapping("/export")
     public void export(HttpServletResponse response, PortalWallet portalWallet) {
         if (!PortalSecurityUtils.isAdmin()) {
-            throw new com.moyun.common.exception.system.ServiceException("无权限，仅管理员可操作");
+            throw new ServiceException("无权限，仅管理员可操作");
         }
         // 导出时不分页，调用不分页的查询方法
         List<PortalWallet> list = portalWalletService.selectPortalWalletList(portalWallet);
@@ -64,7 +65,7 @@ public class PortalWalletController extends BaseController {
     }
 
     @Operation(summary = "获取钱包详情", description = "根据钱包ID获取钱包详细信息")
-    @GetMapping(value = "/{id}")
+    @GetMapping(value = "/{id:[0-9]+}")
     public AjaxResult getInfo(@Parameter(description = "钱包ID") @PathVariable Long id) {
         Long userId = PortalSecurityUtils.getUserId();
         if (userId == null) {

@@ -77,7 +77,10 @@ function getRowKey(row) {
 };
 /** 关闭按钮 */
 function close() {
-  const obj = { path: "/system/user" };
+  // 优先使用列表页跳转时携带的来源路径（query.from），菜单调整后无需改此处；
+  // 兜底使用路由 meta.activeMenu（用户直接输 URL 进入等场景）
+  const backPath = route.query.from || route.meta.activeMenu || "/system/base/user";
+  const obj = { path: backPath };
   proxy.$tab.closeOpenPage(obj);
 };
 /** 提交按钮 */

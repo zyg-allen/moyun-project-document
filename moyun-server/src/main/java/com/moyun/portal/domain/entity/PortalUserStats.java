@@ -85,12 +85,6 @@ public class PortalUserStats {
 
     // ============ v5.9 阶段0：面试画像驱动抽题相关字段 ============
 
-    /** 模拟面试次数 */
-    private Integer mockInterviewCount;
-
-    /** 模拟面试平均分 */
-    private Integer avgMockScore;
-
     /** 薄弱知识点 JSON 数组（如 [{"tagId":1,"tagName":"Spring","failRate":0.6}]） */
     private String weakTags;
 

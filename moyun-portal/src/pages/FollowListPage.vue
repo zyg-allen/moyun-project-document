@@ -213,7 +213,7 @@ async function toggleFollow(item: FollowUserItem) {
         console.error('操作关注失败:', error);
         // 失败时回滚本地状态
         item.following = wasFollowing;
-        toast.error('操作失败，请重试');
+        toast.error((error as Error)?.message || '操作失败，请重试');
     } finally {
         pendingIds.value.delete(itemId);
     }

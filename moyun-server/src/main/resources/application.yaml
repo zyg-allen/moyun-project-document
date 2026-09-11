@@ -15,6 +15,7 @@ spring:
     multipart:
       max-file-size: 50MB
       max-request-size: 50MB
+
   # Jackson 配置 - 完整支持 Java8 日期时间
   jackson:
     serialization:
@@ -42,7 +43,7 @@ security:
   # 后台管理需要排除的路径模块（这些路径使用独立的认证配置）
   exclude-modules:  /portal/**,/external/**,/doc.html,/swagger-ui.html
 
-# 墨韵框架配置（公共部分）
+# 旭林框架配置（公共部分）
 moyun:
   name: moyun
   version: 4.x
@@ -55,9 +56,9 @@ moyun:
   portal:
     # 站点正式域名（用于 sitemap.xml / og:url / canonical 等绝对 URL 生成）
     # 必须以 http:// 或 https:// 开头，结尾不要带 /
-    # 本地默认占位为 https://moyun.example.com；生产环境必须通过环境变量 PORTAL_DOMAIN 覆盖
+    # 本地默认占位为 https://xulin.example.com；生产环境必须通过环境变量 PORTAL_DOMAIN 覆盖
     # 同步要求：moyun-portal/public/robots.txt 与 moyun-portal/public/sitemap.xml 中的占位域名一并替换
-    domain: ${PORTAL_DOMAIN:https://moyun.example.com}
+    domain: ${PORTAL_DOMAIN:https://xulin.example.com}
 
 # Token 配置
 # secret 通过环境变量 ${TOKEN_SECRET:} 注入，各环境不同密钥
@@ -78,6 +79,10 @@ captcha:
   width: 160
   # 验证码高度
   height: 60
+  # v11.32 风险验证码：密码错误达到该次数即强制验证码（即使全局开关关闭；须低于 user.password.maxRetryCount 锁定线）
+  riskFailThreshold: 2
+  # v11.32 风险验证码：距上次成功登录超过该天数即强制验证码（含从未登录账号）
+  riskInactiveDays: 30
 
 # 用户配置
 user:
@@ -106,11 +111,7 @@ knife4j:
 
 # Actuator 健康检查配置
 management:
-  health:
-    # 默认向量存储为 Redis 8.0+ RediSearch，Elasticsearch 仅在 app.embedding-store.type=es 时启用
-    # 为避免无 ES 环境时 Actuator 健康检查持续报 Connection refused WARN，此处关闭 ES 健康指示器
-    elasticsearch:
-      enabled: false
+  health: {}
 
 # 项目配置（兼容原来的 ruoyi 配置）
 ruoyi:

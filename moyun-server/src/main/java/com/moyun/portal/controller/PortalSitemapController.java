@@ -43,7 +43,7 @@ import com.moyun.portal.mapper.PortalTopicMapper;
  *   <li>动态页面：所有已发布文章 / 公开书籍 / 公开书单 / 活跃话题 / 已发布专栏 / 已发布面经</li>
  * </ul>
  *
- * <p>站点域名通过 {@code moyun.portal.domain} 配置项注入，默认占位 {@code https://moyun.example.com}，
+ * <p>站点域名通过 {@code moyun.portal.domain} 配置项注入，默认占位 {@code https://xulin.example.com}，
  * 生产环境必须通过环境变量 {@code PORTAL_DOMAIN} 覆盖。
  *
  * @author moyun
@@ -53,7 +53,7 @@ import com.moyun.portal.mapper.PortalTopicMapper;
 @RequestMapping("/portal/sitemap")
 public class PortalSitemapController {
 
-    @Value("${moyun.portal.domain:https://moyun.example.com}")
+    @Value("${moyun.portal.domain:https://xulin.example.com}")
     private String domain;
 
     @Autowired

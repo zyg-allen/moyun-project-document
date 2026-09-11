@@ -103,4 +103,11 @@ public interface TokenUsageService {
      * 清除价格缓存
      */
     void clearPriceCache();
+
+    /**
+     * 计算单次调用成本（元）：输入/输出 token 按模型单价核算，模型未配置单价时用默认价
+     *
+     * <p>v11.57 P0-2：统一网关（ai_execute_log.cost_yuan）复用本口径，保证与 token 统计页一致。</p>
+     */
+    java.math.BigDecimal calculateCost(String modelName, long inputTokens, long outputTokens);
 }

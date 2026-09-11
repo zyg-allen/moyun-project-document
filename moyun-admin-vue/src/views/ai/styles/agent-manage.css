@@ -48,6 +48,23 @@
   display: block;
 }
 
+/* 面试官绑定说明（V11.0） */
+.header-tip {
+  margin-top: 6px;
+  font-size: 12px;
+  line-height: 1.6;
+  color: #6b7280;
+  max-width: 640px;
+}
+.header-tip code {
+  background: #f3f4f6;
+  border: 1px solid #e5e7eb;
+  border-radius: 4px;
+  padding: 0 4px;
+  font-size: 11px;
+  color: #4f46e5;
+}
+
 .header-actions {
   display: flex;
   gap: 12px;
@@ -356,7 +373,24 @@
 
 .card-actions {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
+}
+
+/* Element Plus link 文字按钮适配：抵消相邻按钮默认 margin-left，避免与 gap 叠加 */
+.card-actions .el-button + .el-button {
+  margin-left: 0;
+}
+
+.card-actions .el-button {
+  height: 28px;
+  padding: 0 2px;
+  font-size: 13px;
+}
+
+.card-actions .el-button i {
+  margin-right: 3px;
+  font-size: 13px;
 }
 
 .action-btn {

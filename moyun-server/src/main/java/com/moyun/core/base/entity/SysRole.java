@@ -17,7 +17,7 @@ import com.moyun.core.base.BaseEntity;
 /**
  * 角色表 sys_role
  *
- * @author ruoyi
+ * @author allen-zyg
  */
 @JsonIgnoreProperties(ignoreUnknown = true)
 @Data

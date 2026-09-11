@@ -11,7 +11,7 @@ import type { Leaderboard, LeaderboardType } from '@/api/learnStats';
 
 useHead(computed(() => generateSeo({
   title: '刷题排行榜',
-  description: '墨韵智库刷题排行榜 - 通过题目数与刷题积分双榜，看看谁在领跑。',
+  description: '旭林知行刷题排行榜 - 通过题目数与刷题积分双榜，看看谁在领跑。',
   canonicalPath: '/learn/leaderboard',
 })));
 
@@ -173,7 +173,7 @@ const currentUnit = computed(() => tabs.find((t) => t.type === activeType.value)
             </div>
           </section>
           <section v-else class="rounded-lg p-4 text-sm text-center" style="background-color: var(--theme-surface); border: 1px solid var(--theme-border); color: var(--theme-text-secondary);">
-            <router-link to="/interview/questions" class="underline" style="color: var(--theme-primary);">去刷第一道题</router-link>
+            <router-link to="/learn/questions" class="underline" style="color: var(--theme-primary);">去刷第一道题</router-link>
             ，登上排行榜吧。
           </section>
 

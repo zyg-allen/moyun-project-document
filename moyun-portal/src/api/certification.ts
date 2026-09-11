@@ -7,6 +7,7 @@ export interface CreatorCertification {
   realName: string;
   /** 认证类型 identity/creator/expert */
   certType: 'identity' | 'creator' | 'expert';
+  /** 证件号（后端统一返回脱敏值，如 110***********1234；明文与密文均不返回） */
   certNo?: string;
   certImage?: string;
   /** 身份证正面（人像面）URL */
@@ -22,19 +23,24 @@ export interface CreatorCertification {
   auditRemark?: string;
   createdTime?: string;
   auditedTime?: string;
+  /** 由证件号推导的性别（男/女），仅身份认证类型 */
+  derivedGender?: string;
+  /** 由证件号推导的出生日期 yyyy-MM-dd */
+  derivedBirth?: string;
+  /** 实名核验渠道：manual=人工审核，后期可扩展 aliyun/tencent */
+  verifyChannel?: string;
   /** 后台列表接口附加字段：申请人昵称 */
   nickname?: string;
 }
 
 /**
  * 认证类型下拉选项
- * 注意：desc 必须与后端实际权限拦截一致。
- * 当前后端拦截：文章发布 / 专栏创建 / 面经发布 需"创作者认证"；
- * 话题创建、评论、点赞、收藏等对任何登录用户开放。
+ * v10.10 实名策略：发布文章/面经/专栏不再强制创作者认证（前端弹窗提示可跳过）；
+ * 打赏、积分兑换等敏感场景强制身份实名认证。
  */
 export const CERT_TYPE_OPTIONS: { value: CreatorCertification['certType']; label: string; desc: string }[] = [
-  { value: 'identity', label: '身份认证', desc: '基础实名身份认证（满足平台实名要求）' },
-  { value: 'creator', label: '创作者认证', desc: '认证为平台创作者，可发布文章、创建专栏、发布面经' },
+  { value: 'identity', label: '身份认证', desc: '基础实名身份认证（打赏、积分兑换等敏感操作需要）' },
+  { value: 'creator', label: '创作者认证', desc: '认证为平台创作者，提升账号可信度与内容曝光' },
   { value: 'expert', label: '专家认证', desc: '专业领域权威认证，可申请专家专栏' },
 ];
 

@@ -11,7 +11,7 @@ import java.util.List;
 /**
  * 用户表 数据层
  *
- * @author ruoyi
+ * @author allen-zyg
  */
 @Mapper
 public interface SysUserMapper extends BaseMapper<SysUser> {

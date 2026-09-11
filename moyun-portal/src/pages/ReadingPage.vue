@@ -111,7 +111,7 @@ useHead(
   computed(() => {
     return generateSeo({
       title: '读书空间',
-      description: '墨韵·智库读书空间，发现好书，分享阅读'
+      description: '旭林知行读书空间，发现好书，分享阅读'
     });
   })
 );

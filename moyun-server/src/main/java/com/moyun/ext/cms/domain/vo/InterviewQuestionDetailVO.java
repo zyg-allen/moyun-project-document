@@ -86,6 +86,34 @@ public class InterviewQuestionDetailVO implements Serializable {
      */
     private List<Long> prerequisiteIds;
 
+    // ============ 练习模式扩展字段（v10.6 题库重构·阶段2） ============
+
+    /**
+     * 练习模式：reading 展示阅读 / choice 选择题 / coding 编程题
+     */
+    private String practiceMode;
+
+    /**
+     * 选择题选项（JSON 字符串，前端 JSON.parse 为 [{label,text,is_correct}]）
+     * 仅 practice_mode=choice 时有值
+     */
+    private String options;
+
+    /**
+     * 正确答案（选择题：选项 label 如 B；编程题：null）
+     */
+    private String correctAnswer;
+
+    /**
+     * 题目解析（做题后展示）
+     */
+    private String analysis;
+
+    /**
+     * 知识点标签（逗号分隔字符串）
+     */
+    private String knowledgeTags;
+
     /**
      * 评分标准单条项
      */

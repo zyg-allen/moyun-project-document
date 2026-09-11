@@ -28,7 +28,7 @@ import org.springframework.web.bind.annotation.RestController;
  */
 @Tag(name = "学习计划管理", description = "学习计划后台只读查看接口")
 @RestController
-@RequestMapping("/cms/portal/studyPlan")
+@RequestMapping("/cms/portal/study-plan")
 public class CmsStudyPlanController extends BaseController {
 
     @Autowired

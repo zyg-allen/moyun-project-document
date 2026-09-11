@@ -32,7 +32,7 @@ const totalPages = computed(() => Math.max(1, Math.ceil(total.value / pageSize))
 useHead(computed(() => generateSeo({
   title: '我的观点',
   description: '查看我在话题中发表的观点',
-  keywords: ['我的观点', '话题观点', '墨韵'],
+  keywords: ['我的观点', '话题观点', '旭林'],
   canonicalPath: '/topic/my/posts',
   robots: 'noindex,nofollow',
 })));

@@ -46,7 +46,7 @@ public class PortalColumnController extends BaseController {
     }
 
     @Operation(summary = "专栏详情", description = "公开查询专栏详情（含作者信息、文章目录、当前用户是否订阅）")
-    @GetMapping("/{id}")
+    @GetMapping("/{id:[0-9]+}")
     @Anonymous
     public AjaxResult detail(@PathVariable("id") Long id) {
         ColumnVO vo = columnService.getColumnDetail(id, currentUserId());
@@ -69,7 +69,7 @@ public class PortalColumnController extends BaseController {
     }
 
     @Operation(summary = "完结/恢复连载", description = "切换 is_finished 状态，仅作者本人")
-    @PutMapping("/{id}/finish")
+    @PutMapping("/{id:[0-9]+}/finish")
     public AjaxResult toggleFinish(@PathVariable("id") Long id) {
         Long userId = currentUserId();
         if (userId == null) {
@@ -79,7 +79,7 @@ public class PortalColumnController extends BaseController {
     }
 
     @Operation(summary = "删除专栏", description = "仅作者本人，级联删除关联与订阅")
-    @DeleteMapping("/{id}")
+    @DeleteMapping("/{id:[0-9]+}")
     public AjaxResult delete(@PathVariable("id") Long id) {
         Long userId = currentUserId();
         if (userId == null) {
@@ -89,7 +89,7 @@ public class PortalColumnController extends BaseController {
     }
 
     @Operation(summary = "切换订阅", description = "订阅/取消订阅（toggle），返回操作后的订阅状态")
-    @PostMapping("/{id}/subscribe")
+    @PostMapping("/{id:[0-9]+}/subscribe")
     public AjaxResult toggleSubscribe(@PathVariable("id") Long id) {
         Long userId = currentUserId();
         if (userId == null) {

@@ -12,8 +12,10 @@ import com.moyun.ext.cms.service.IUserResumeService;
 import com.moyun.ext.cms.service.ResumeAiAdviceService;
 import com.moyun.ext.cms.service.ResumePdfExporter;
 import com.moyun.ext.cms.service.ResumeScoringService;
+import com.moyun.portal.domain.entity.PortalResumeScoreReport;
 import com.moyun.portal.domain.entity.PortalUser;
 import com.moyun.portal.domain.entity.PortalUserResume;
+import com.moyun.portal.mapper.PortalResumeScoreReportMapper;
 import com.moyun.portal.mapper.PortalUserMapper;
 import com.moyun.portal.mapper.PortalUserResumeMapper;
 import com.moyun.util.string.StringUtils;
@@ -45,6 +47,8 @@ public class UserResumeServiceImpl implements IUserResumeService {
     @Autowired private ObjectMapper objectMapper;
     @Autowired private PortalUserMapper portalUserMapper;
     @Autowired private ResumeAiAdviceService aiAdviceService;
+    /** 评分报告存档（v10.18 阶段五） */
+    @Autowired private PortalResumeScoreReportMapper scoreReportMapper;
 
     // ========================================================================
     // 列表 / 详情
@@ -89,6 +93,17 @@ public class UserResumeServiceImpl implements IUserResumeService {
         UserResumeVO vo = toVO(entity);
         vo.setMine(true);
         return vo;
+    }
+
+    @Override
+    public List<UserResumeVO> selectAttachmentList(Long userId) {
+        LambdaQueryWrapper<PortalUserResume> qw = new LambdaQueryWrapper<>();
+        qw.eq(PortalUserResume::getUserId, userId)
+           .eq(PortalUserResume::getSourceType, "attachment")
+           .eq(PortalUserResume::getDelFlag, "0")
+           .orderByDesc(PortalUserResume::getCreateTime);
+        List<PortalUserResume> list = userResumeMapper.selectList(qw);
+        return list.stream().map(this::toVO).collect(Collectors.toList());
     }
 
     // ========================================================================
@@ -137,6 +152,9 @@ public class UserResumeServiceImpl implements IUserResumeService {
         entity.setWorks(toJson(vo.getWorks()));
         entity.setProjects(toJson(vo.getProjects()));
         entity.setSkills(toJson(vo.getSkills()));
+
+        // v10.22：拼接全文纯文本供 AI 分析
+        entity.setFullText(buildFullText(vo));
 
         // 状态变更统一走 updateStatus 端点，saveResume 不接受前端 status，避免绕过状态机
         entity.setUpdateTime(LocalDateTime.now());
@@ -204,6 +222,10 @@ public class UserResumeServiceImpl implements IUserResumeService {
         copy.setProjects(source.getProjects());
         copy.setSkills(source.getSkills());
         copy.setSelfIntro(source.getSelfIntro());
+        copy.setFullText(source.getFullText());
+        copy.setSourceType(source.getSourceType());
+        copy.setSourceFileUrl(source.getSourceFileUrl());
+        copy.setSourceFileName(source.getSourceFileName());
         copy.setStatus("draft");
         copy.setCreateTime(LocalDateTime.now());
         copy.setUpdateTime(LocalDateTime.now());
@@ -221,6 +243,21 @@ public class UserResumeServiceImpl implements IUserResumeService {
         Long rootId = entity.getParentId() == null ? entity.getId() : entity.getParentId();
         List<PortalUserResume> versions = userResumeMapper.selectVersionHistory(rootId);
         return versions.stream().map(this::toVO).peek(vo -> vo.setMine(true)).collect(Collectors.toList());
+    }
+
+    @Override
+    public Long convertAttachmentToOnline(Long id, Long userId) {
+        PortalUserResume resume = userResumeMapper.selectById(id);
+        if (resume == null || !userId.equals(resume.getUserId())) {
+            throw new ServiceException("简历不存在或无权限");
+        }
+        if (!"attachment".equals(resume.getSourceType())) {
+            throw new ServiceException("该简历不是附件类型，无需转换");
+        }
+        resume.setSourceType("online");
+        resume.setUpdateTime(LocalDateTime.now());
+        userResumeMapper.updateById(resume);
+        return id;
     }
 
     // ========================================================================
@@ -295,6 +332,16 @@ public class UserResumeServiceImpl implements IUserResumeService {
         entity.setScoredTime(LocalDateTime.now());
         entity.setUpdateTime(LocalDateTime.now());
         userResumeMapper.updateById(entity);
+
+        // v10.18 阶段五：评分结果同步存档到 portal_resume_score_report，可追溯历史评分
+        PortalResumeScoreReport report = new PortalResumeScoreReport();
+        report.setUserId(userId);
+        report.setResumeId(id);
+        report.setPositionSnapshot(targetPosition);
+        report.setScore(total);
+        report.setScoreDetail(toJson(items));
+        report.setSource("manual");
+        scoreReportMapper.insert(report);
 
         vo.setScore(total);
         vo.setScoreDetail(items);
@@ -385,6 +432,11 @@ public class UserResumeServiceImpl implements IUserResumeService {
         vo.setExportTime(entity.getExportTime());
         vo.setCreateTime(entity.getCreateTime());
         vo.setUpdateTime(entity.getUpdateTime());
+        // v10.22：附件简历字段映射
+        vo.setSourceType(entity.getSourceType());
+        vo.setSourceFileUrl(entity.getSourceFileUrl());
+        vo.setSourceFileName(entity.getSourceFileName());
+        vo.setFullText(entity.getFullText());
 
         // JSON → 强类型
         vo.setJobIntention(fromJson(entity.getJobIntention(), UserResumeVO.JobIntention.class));
@@ -394,6 +446,75 @@ public class UserResumeServiceImpl implements IUserResumeService {
         vo.setSkills(fromJsonList(entity.getSkills(), UserResumeVO.SkillItem.class));
         vo.setScoreDetail(fromJsonList(entity.getScoreDetail(), UserResumeVO.ScoreItem.class));
         return vo;
+    }
+
+    /** v10.22：将结构化简历拼接为纯文本（供 AI 分析，比 JSON 上下文更完整） */
+    private String buildFullText(UserResumeVO vo) {
+        StringBuilder sb = new StringBuilder();
+        if (vo.getName() != null) sb.append("姓名：").append(vo.getName()).append("\n");
+        if (vo.getGender() != null) sb.append("性别：").append(vo.getGender()).append("\n");
+        if (vo.getBirthDate() != null) sb.append("出生日期：").append(vo.getBirthDate()).append("\n");
+        if (vo.getPhone() != null) sb.append("电话：").append(vo.getPhone()).append("\n");
+        if (vo.getEmail() != null) sb.append("邮箱：").append(vo.getEmail()).append("\n");
+        if (vo.getJobIntention() != null) {
+            UserResumeVO.JobIntention ji = vo.getJobIntention();
+            sb.append("\n【求职意向】\n");
+            if (ji.getPosition() != null) sb.append("期望职位：").append(ji.getPosition()).append("\n");
+            if (ji.getCity() != null) sb.append("期望城市：").append(ji.getCity()).append("\n");
+            if (ji.getSalaryMin() != null && ji.getSalaryMax() != null)
+                sb.append("期望薪资：").append(ji.getSalaryMin()).append("-").append(ji.getSalaryMax()).append("万/月\n");
+            if (ji.getJobType() != null) sb.append("工作性质：").append(ji.getJobType()).append("\n");
+        }
+        if (vo.getEducations() != null && !vo.getEducations().isEmpty()) {
+            sb.append("\n【教育经历】\n");
+            for (int i = 0; i < vo.getEducations().size(); i++) {
+                UserResumeVO.EducationItem e = vo.getEducations().get(i);
+                sb.append(i + 1).append(". ");
+                if (e.getSchool() != null) sb.append(e.getSchool());
+                if (e.getMajor() != null) sb.append(" · ").append(e.getMajor());
+                if (e.getDegree() != null) sb.append("（").append(e.getDegree()).append("）");
+                sb.append("  ").append(e.getStartDate() != null ? e.getStartDate() : "")
+                  .append(" - ").append(e.getEndDate() != null ? e.getEndDate() : "").append("\n");
+                if (e.getDescription() != null) sb.append("   ").append(e.getDescription()).append("\n");
+            }
+        }
+        if (vo.getWorks() != null && !vo.getWorks().isEmpty()) {
+            sb.append("\n【工作经历】\n");
+            for (int i = 0; i < vo.getWorks().size(); i++) {
+                UserResumeVO.WorkItem w = vo.getWorks().get(i);
+                sb.append(i + 1).append(". ");
+                if (w.getCompany() != null) sb.append(w.getCompany());
+                if (w.getPosition() != null) sb.append(" · ").append(w.getPosition());
+                sb.append("  ").append(w.getStartDate() != null ? w.getStartDate() : "")
+                  .append(" - ").append(w.getEndDate() != null ? w.getEndDate() : "").append("\n");
+                if (w.getDescription() != null) sb.append("   ").append(w.getDescription()).append("\n");
+            }
+        }
+        if (vo.getProjects() != null && !vo.getProjects().isEmpty()) {
+            sb.append("\n【项目经历】\n");
+            for (int i = 0; i < vo.getProjects().size(); i++) {
+                UserResumeVO.ProjectItem p = vo.getProjects().get(i);
+                sb.append(i + 1).append(". ");
+                if (p.getName() != null) sb.append(p.getName());
+                if (p.getRole() != null) sb.append("（").append(p.getRole()).append("）");
+                sb.append("  ").append(p.getStartDate() != null ? p.getStartDate() : "")
+                  .append(" - ").append(p.getEndDate() != null ? p.getEndDate() : "").append("\n");
+                if (p.getDescription() != null) sb.append("   ").append(p.getDescription()).append("\n");
+                if (p.getUrl() != null) sb.append("   链接：").append(p.getUrl()).append("\n");
+            }
+        }
+        if (vo.getSkills() != null && !vo.getSkills().isEmpty()) {
+            sb.append("\n【专业技能】\n");
+            for (UserResumeVO.SkillItem s : vo.getSkills()) {
+                sb.append("- ").append(s.getName());
+                if (s.getLevel() != null) sb.append("（").append(s.getLevel()).append("）");
+                sb.append("\n");
+            }
+        }
+        if (vo.getSelfIntro() != null) {
+            sb.append("\n【自我评价】\n").append(vo.getSelfIntro()).append("\n");
+        }
+        return sb.toString().trim();
     }
 
     // ==================== JSON 工具 ====================

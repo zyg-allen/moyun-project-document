@@ -52,7 +52,7 @@
       <div v-for="article in articles" :key="article.id" class="article-item">
         <!-- 封面缩略图 -->
         <div class="article-cover" v-if="article.cover">
-          <img :src="article.cover" :alt="article.title" />
+          <img :src="normalizeFileUrl(article.cover)" :alt="article.title" />
         </div>
         <div class="article-cover placeholder" v-else>
           <ImageIcon class="w-6 h-6" />
@@ -75,7 +75,7 @@
           <div class="article-meta">
             <span class="meta-item">
               <Clock class="w-3 h-3" />
-              {{ formatTime(article.updateTime || article.createTime) }}
+              {{ formatDate(article.updateTime || article.createTime, 'YYYY-MM-DD HH:mm') }}
             </span>
             <span v-if="article.categoryName" class="meta-item">
               <Folder class="w-3 h-3" />
@@ -134,6 +134,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
+import { formatDate } from '@/utils/date';
 import { useRouter, useRoute } from 'vue-router';
 import {
   Plus, FileText, ImageIcon, Clock, Folder, Eye, Heart,
@@ -142,6 +143,7 @@ import {
 import { getMyArticles, deleteArticle as deleteArticleApi, updateArticle } from '@/api/article';
 import { useToast } from '@/composables/useToast';
 import { useConfirmModal } from '@/composables/useConfirmModal';
+import { normalizeFileUrl } from '@/utils/fileUrl';
 import Breadcrumb from '@/components/Breadcrumb.vue';
 
 const router = useRouter();
@@ -191,12 +193,6 @@ function getStatusLabel(status: string): string {
 }
 
 // 时间格式化
-function formatTime(time: string): string {
-  if (!time) return '';
-  const d = new Date(time);
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
-}
-
 // 加载文章列表
 async function loadArticles() {
   loading.value = true;

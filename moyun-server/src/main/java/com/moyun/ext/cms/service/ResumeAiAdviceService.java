@@ -1,6 +1,8 @@
 package com.moyun.ext.cms.service;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.moyun.ext.ai2.support.AiSceneJsonClient;
 import com.moyun.ext.cms.config.AiProperties;
 import com.moyun.ext.cms.domain.vo.ResumeAiAdviceVO;
 import com.moyun.ext.cms.domain.vo.UserResumeVO;
@@ -14,7 +16,9 @@ import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * 简历 AI 改进建议服务（v5.9 阶段2/3）
@@ -30,6 +34,9 @@ import java.util.List;
  */
 @Service
 public class ResumeAiAdviceService {
+    /** v11.39：本服务所属 AI 场景代码（绑定见 ai_scene_config，业务不感知模型选择） */
+    private static final String SCENE_RESUME_OPTIMIZE = "resume_optimize";
+
 
     private static final Logger log = LoggerFactory.getLogger(ResumeAiAdviceService.class);
 
@@ -38,6 +45,10 @@ public class ResumeAiAdviceService {
 
     @Autowired
     private LlmClient llmClient;
+
+    /** v11.58 P0-3：AI 建议生成统一走 AI 网关（task=advice 子任务） */
+    @Autowired
+    private AiSceneJsonClient aiSceneJsonClient;
 
     @Autowired
     private ObjectMapper objectMapper;
@@ -69,40 +80,39 @@ public class ResumeAiAdviceService {
     }
 
     /**
-     * 通过 LLM 生成建议（v5.9 阶段3：AI 模型接入）
+     * 通过 AI 网关生成建议（v11.58 P0-3 收口：task=advice 子任务，提示词收编至
+     * ResumeOptimizeHandler，本方法仅组装业务上下文与结果映射）
      * <p>
-     * 构造 system prompt 定义 AI 角色，将简历摘要 + 评分明细 + 目标岗位作为 user message 输入。
-     * 当前为框架预留：解析 LLM 返回的 JSON 为 ResumeAiAdviceVO；解析失败回退 null。
+     * 构造评分明细上下文，经网关调用 LLM；解析返回的 JSON 为 ResumeAiAdviceVO；
+     * 失败返回 null 由上层回退规则化。
      */
     private ResumeAiAdviceVO generateAdviceWithLlm(UserResumeVO vo, List<ScoreItem> scoreItems, String targetPosition) {
-        String systemPrompt = "你是一名资深 HR 与简历顾问，擅长基于评分明细给出可执行的改进建议。"
-                + "请返回 JSON 格式，字段：summary(整体总结), advices(数组，每项含 dimension/priority(high/medium/low)/content/type(fill/refine/match)), missingSkills(字符串数组)。"
-                + "建议要具体、可执行，优先关注得分率低于60%的维度与岗位匹配度缺失技能。";
-
-        StringBuilder userMessage = new StringBuilder();
-        userMessage.append("目标岗位：").append(StringUtils.isNotEmpty(targetPosition) ? targetPosition : "未设置").append("\n");
-        userMessage.append("当前评分：").append(scoringServiceTotal(scoreItems)).append(" 分\n");
-        userMessage.append("评分明细：\n");
+        StringBuilder context = new StringBuilder();
+        context.append("目标岗位：").append(StringUtils.isNotEmpty(targetPosition) ? targetPosition : "未设置").append("\n");
+        context.append("当前评分：").append(scoringServiceTotal(scoreItems)).append(" 分\n");
+        context.append("评分明细：\n");
         for (ScoreItem item : scoreItems) {
-            userMessage.append("- ").append(item.getItem())
+            context.append("- ").append(item.getItem())
                     .append("：").append(item.getScore()).append("/").append(item.getMaxScore())
                     .append("（").append(item.getMessage()).append("）\n");
             if (item.getSubItems() != null) {
                 for (SubScoreItem sub : item.getSubItems()) {
-                    userMessage.append("  · ").append(sub.getName())
+                    context.append("  · ").append(sub.getName())
                             .append(sub.getHit() ? "（已掌握）" : "（缺失）").append("\n");
                 }
             }
         }
 
-        String llmResponse = llmClient.chat(systemPrompt, userMessage.toString());
-        if (StringUtils.isEmpty(llmResponse)) {
+        Map<String, Object> input = new HashMap<>();
+        input.put("task", "advice");
+        input.put("context", context.toString());
+        JsonNode node = aiSceneJsonClient.executeForJson(SCENE_RESUME_OPTIMIZE, input, vo.getUserId());
+        if (node == null) {
             return null;
         }
 
         try {
-            // 解析 LLM 返回的 JSON 为 VO
-            ResumeAiAdviceVO result = objectMapper.readValue(llmResponse, ResumeAiAdviceVO.class);
+            ResumeAiAdviceVO result = objectMapper.convertValue(node, ResumeAiAdviceVO.class);
             result.setResumeId(vo.getId());
             result.setGeneratedTime(LocalDateTime.now());
             result.setAiPowered(true);
@@ -112,7 +122,7 @@ public class ResumeAiAdviceService {
             result.setGrade(calcGrade(total, sumMax(scoreItems)));
             return result;
         } catch (Exception e) {
-            log.warn("[ResumeAiAdvice] LLM 返回 JSON 解析失败：{}", e.getMessage());
+            log.warn("[ResumeAiAdvice] 网关返回 JSON 映射失败：{}", e.getMessage());
             return null;
         }
     }
@@ -170,6 +180,7 @@ public class ResumeAiAdviceService {
                 advice.setType(rate < 0.3 ? "fill" : "refine");
                 advice.setPriority(rate < 0.3 ? "high" : "medium");
                 advice.setContent(buildDimensionAdvice(item, rate));
+                advice.setOptimized(buildDimensionOptimized(item, rate));
                 advices.add(advice);
             }
         }
@@ -206,6 +217,8 @@ public class ResumeAiAdviceService {
                     + String.join("、", missingSkills.size() > 5 ? missingSkills.subList(0, 5) : missingSkills)
                     + (missingSkills.size() > 5 ? "等" : "")
                     + "），建议优先补充相关项目经验或技能证明");
+            // optimized：缺失技能整理为按熟练度分级的技能清单模板（可直接采纳到技能列表）
+            advice.setOptimized("了解：" + String.join("、", missingSkills));
             advices.add(advice);
         }
     }
@@ -235,6 +248,38 @@ public class ResumeAiAdviceService {
                 case "技能列表": return "技能列表可优化，建议标注熟练度（了解/一般/熟练/精通）与分类";
                 case "自我介绍": return "自我介绍可优化，建议结合目标岗位突出差异化优势";
                 default: return name + "维度可进一步优化（" + msg + "）";
+            }
+        }
+    }
+
+    /**
+     * 根据维度名生成 optimized（优化后可直接采纳的文本模板）
+     * <p>规则化兜底无改写能力，生成"结构模板 + 占位符"供用户采纳后微调；
+     * [X]/[X%] 等占位符由前端提示用户填写。</p>
+     */
+    private String buildDimensionOptimized(ScoreItem item, double rate) {
+        String name = item.getItem();
+        if (rate < 0.3) {
+            switch (name) {
+                case "基本信息": return null; // 基本信息为结构化字段（姓名/电话等），无文本可替换，前端引导手动完善
+                case "求职意向": return null; // 同上：期望职位/城市/薪资为结构化字段
+                case "教育经历": return "[学校名称] · [专业] · [学历] · [起止年份]\n主修课程：[课程1]、[课程2]、[课程3]\n荣誉亮点：[GPA/奖学金/竞赛，无则删除本行]";
+                case "工作经历": return "1. [负责/主导][业务模块]，通过[技术方案]，实现[量化成果，如效率提升 X%]\n2. [第二项职责成果，突出个人贡献]\n3. [第三项职责成果，突出团队协作或技术深度]";
+                case "项目经历": return "[项目名称] · [担任角色]\n项目背景：[一句话说明业务规模与价值]\n1. [技术难点] → [解决方案与选型思路]\n2. [量化成果，如性能提升 X%、覆盖用户 X 万]";
+                case "技能列表": return "精通：[核心技术1]、[核心技术2]\n熟练：[技术3]、[技术4]、[技术5]\n了解：[技术6]、[技术7]";
+                case "自我介绍": return "[X 年][领域]经验，专注[核心方向]。[主导/参与]过[代表性项目/业务]，实现[量化成果]。熟悉[技术栈/方法论]，具备[软实力亮点]。期望在[目标岗位]方向持续深耕。";
+                default: return null;
+            }
+        } else {
+            switch (name) {
+                case "基本信息": return null;
+                case "求职意向": return null;
+                case "教育经历": return "主修课程：[课程1]、[课程2]、[课程3]\n荣誉亮点：[GPA/奖学金/竞赛]";
+                case "工作经历": return "1. [现有职责]升级表述：负责[业务]，通过[方案]，使[指标]提升[X%]\n2. [补充第二条量化成果]";
+                case "项目经历": return "项目角色：[角色]\n技术难点：[难点] → 解决方案：[方案]\n量化成果：[指标]从[X]提升至[Y]";
+                case "技能列表": return "精通：[最高频使用的核心技术]\n熟练：[常用技术]\n了解：[接触过的扩展技术]";
+                case "自我介绍": return "在原有自评基础上补充：[X 年]经验 + [核心成果] + [技术深度] + [职业态度]，删除形容词堆砌，每个论点配一个数字。";
+                default: return null;
             }
         }
     }

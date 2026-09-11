@@ -327,14 +327,22 @@ public class TokenUsageServiceImpl implements TokenUsageService {
         return chineseTokens + otherTokens;
     }
 
-    private BigDecimal calculateCost(String modelName, int inputTokens, int outputTokens) {
+    @Override
+    public BigDecimal calculateCost(String modelName, long inputTokens, long outputTokens) {
         BigDecimal[] prices = getModelPrices(modelName);
+        return calcCost(prices[0], prices[1], inputTokens, outputTokens);
+    }
 
-        BigDecimal inputCost = prices[0].multiply(BigDecimal.valueOf(inputTokens))
+    /**
+     * 纯成本公式（v11.57 P0-2 抽出，可离线单测）：输入/输出分别按千token单价核算，6位小数 HALF_UP
+     */
+    static BigDecimal calcCost(BigDecimal inputPrice, BigDecimal outputPrice, long inputTokens, long outputTokens) {
+        BigDecimal inPrice = inputPrice != null ? inputPrice : BigDecimal.ZERO;
+        BigDecimal outPrice = outputPrice != null ? outputPrice : BigDecimal.ZERO;
+        BigDecimal inputCost = inPrice.multiply(BigDecimal.valueOf(inputTokens))
                 .divide(BigDecimal.valueOf(1000), 6, RoundingMode.HALF_UP);
-        BigDecimal outputCost = prices[1].multiply(BigDecimal.valueOf(outputTokens))
+        BigDecimal outputCost = outPrice.multiply(BigDecimal.valueOf(outputTokens))
                 .divide(BigDecimal.valueOf(1000), 6, RoundingMode.HALF_UP);
-
         return inputCost.add(outputCost);
     }
 

@@ -13,7 +13,7 @@ import java.time.LocalDateTime;
 /**
  * 操作日志记录表 sys_oper_log
  *
- * @author ruoyi
+ * @author allen-zyg
  */
 @Data
 @TableName("sys_oper_log")

@@ -16,7 +16,7 @@ import com.moyun.core.base.BaseEntity;
 /**
  * 部门表 sys_dept
  *
- * @author ruoyi
+ * @author allen-zyg
  */
 @Data
 public class SysDept extends BaseEntity {

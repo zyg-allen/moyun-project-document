@@ -1,0 +1,174 @@
+[
+  {
+    "type": "REGEX",
+    "keyword": null,
+    "pattern": "(?i)(?:^|\\s)(?<!\\bnot\\s)(?<!\\bnever\\s)(?<!\\bdon['’]t\\s)((?:yes|confirmed with thanks|confirm(?: with thanks)?|cash pool (?:is matched|agreed)|we agree|agreed|agree)[.!])(?=\\s|$)",
+    "field": "confirmSignage",
+    "rowHeadMerge": false,
+    "headerSwitch": false,
+    "fuzzyMatch": false
+  },
+  {
+    "type": "REGEX",
+    "keyword": null,
+    "pattern": "(?i)(?:^|[^A-Za-z0-9])((?:USD|HKD|AUD|JPY|\\$))(?=$|\\s|\\d|[-,.\\)])",
+    "field": "ccy",
+    "rowHeadMerge": false,
+    "headerSwitch": false,
+    "fuzzyMatch": false
+  },
+  {
+    "type": "REGEX",
+    "keyword": null,
+    "pattern": "(?i)(?:^|[^A-Za-z0-9])(?:USD|HKD|AUD|JPY|\\$)\\s*(-?[0-9][0-9,]*(?:\\.[0-9]+)?)",
+    "field": "amount",
+    "rowHeadMerge": false,
+    "headerSwitch": false,
+    "fuzzyMatch": false
+  },
+  {
+    "type": "REGEX",
+    "keyword": null,
+    "pattern": "(?i)\\b(we\\b[\\w\\s]+\\breceive)\\b",
+    "field": "direction",
+    "rowHeadMerge": false,
+    "headerSwitch": false,
+    "fuzzyMatch": false
+  },
+  {
+    "type": "REGEX",
+    "keyword": null,
+    "pattern": "(?i)\\b(we\\b[\\w\\s]+\\bpay)\\b",
+    "field": "direction",
+    "rowHeadMerge": false,
+    "headerSwitch": false,
+    "fuzzyMatch": false
+  },
+  {
+    "type": "REGEX",
+    "keyword": null,
+    "pattern": "(?i)\\b(pay\\s+us)\\b",
+    "field": "direction",
+    "rowHeadMerge": false,
+    "headerSwitch": false,
+    "fuzzyMatch": false
+  },
+  {
+    "type": "REGEX",
+    "keyword": null,
+    "pattern": "(?i)\\b(our\\s+way)\\b",
+    "field": "direction",
+    "rowHeadMerge": false,
+    "headerSwitch": false,
+    "fuzzyMatch": false
+  },
+  {
+    "type": "REGEX",
+    "keyword": null,
+    "pattern": "(?i)\\b(your\\s+payment)\\b",
+    "field": "direction",
+    "rowHeadMerge": false,
+    "headerSwitch": false,
+    "fuzzyMatch": false
+  },
+  {
+    "type": "REGEX",
+    "keyword": null,
+    "pattern": "(?i)\\b(booked\\s+to\\s+receive)\\b",
+    "field": "direction",
+    "rowHeadMerge": false,
+    "headerSwitch": false,
+    "fuzzyMatch": false
+  },
+  {
+    "type": "REGEX",
+    "keyword": null,
+    "pattern": "(?i)\\b(book\\s+to\\s+receive)\\b",
+    "field": "direction",
+    "rowHeadMerge": false,
+    "headerSwitch": false,
+    "fuzzyMatch": false
+  },
+  {
+    "type": "REGEX",
+    "keyword": null,
+    "pattern": "(?i)\\b(agree\\s+to\\s+receive)\\b",
+    "field": "direction",
+    "rowHeadMerge": false,
+    "headerSwitch": false,
+    "fuzzyMatch": false
+  },
+  {
+    "type": "REGEX",
+    "keyword": null,
+    "pattern": "(?i)\\b(agreed\\s+to\\s+receive)\\b",
+    "field": "direction",
+    "rowHeadMerge": false,
+    "headerSwitch": false,
+    "fuzzyMatch": false
+  },
+  {
+    "type": "REGEX",
+    "keyword": null,
+    "pattern": "(?i)\\b(your\\s+way)\\b",
+    "field": "direction",
+    "rowHeadMerge": false,
+    "headerSwitch": false,
+    "fuzzyMatch": false
+  },
+  {
+    "type": "REGEX",
+    "keyword": null,
+    "pattern": "(?i)\\b(your\\s+receipt)\\b",
+    "field": "direction",
+    "rowHeadMerge": false,
+    "headerSwitch": false,
+    "fuzzyMatch": false
+  },
+  {
+    "type": "REGEX",
+    "keyword": null,
+    "pattern": "(?i)\\b(booked\\s+to\\s+pay)\\b",
+    "field": "direction",
+    "rowHeadMerge": false,
+    "headerSwitch": false,
+    "fuzzyMatch": false
+  },
+  {
+    "type": "REGEX",
+    "keyword": null,
+    "pattern": "(?i)\\b(book\\s+to\\s+pay)\\b",
+    "field": "direction",
+    "rowHeadMerge": false,
+    "headerSwitch": false,
+    "fuzzyMatch": false
+  },
+  {
+    "type": "REGEX",
+    "keyword": null,
+    "pattern": "(?i)\\b(agree\\s+to\\s+pay)\\b",
+    "field": "direction",
+    "rowHeadMerge": false,
+    "headerSwitch": false,
+    "fuzzyMatch": false
+  },
+  {
+    "type": "REGEX",
+    "keyword": null,
+    "pattern": "(?i)\\b(agreed\\s+to\\s+pay)\\b",
+    "field": "direction",
+    "rowHeadMerge": false,
+    "headerSwitch": false,
+    "fuzzyMatch": false
+  },
+  {
+    "type": "REGEX",
+    "keyword": null,
+    "pattern": "(?i)\\b(PAY|REC|RECEIVE)\\b",
+    "field": "direction",
+    "rowHeadMerge": false,
+    "headerSwitch": false,
+    "fuzzyMatch": false
+  }
+]
+ 

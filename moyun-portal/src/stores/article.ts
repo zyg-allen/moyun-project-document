@@ -42,7 +42,7 @@ export const useArticleStore = defineStore('article', () => {
      * 点赞 / 取消点赞（服务端 toggle）
      * 用 API 返回的 isLiked / likeCount 更新本地 article 对象，避免不同步
      */
-    async function likeArticleWithApi(article: Article): Promise<{ success: boolean; isLiked?: boolean; likeCount?: number }> {
+    async function likeArticleWithApi(article: Article): Promise<{ success: boolean; isLiked?: boolean; likeCount?: number; message?: string }> {
         try {
             const response = await articleApi.toggleLikeArticle(article.id)
             if (response.code === 200 && response.data) {
@@ -60,10 +60,11 @@ export const useArticleStore = defineStore('article', () => {
                 }
                 return { success: true, ...data }
             }
-            return { success: false, isLiked: false, likeCount: 0 }
+            return { success: false, isLiked: false, likeCount: 0, message: response.message }
         } catch (error) {
             console.error('点赞失败:', error)
-            return { success: false, isLiked: false, likeCount: 0 }
+            // client.ts 在 code !== 200 时会 throw new Error(data.msg)，error.message 即后端 msg
+            return { success: false, isLiked: false, likeCount: 0, message: (error as Error)?.message || '点赞失败，请稍后重试' }
         }
     }
 
@@ -71,7 +72,7 @@ export const useArticleStore = defineStore('article', () => {
      * 收藏 / 取消收藏（服务端 toggle）
      * 用 API 返回的 isBookmarked 更新本地 article 对象
      */
-    async function bookmarkArticleWithApi(article: Article): Promise<{ success: boolean; isBookmarked?: boolean }> {
+    async function bookmarkArticleWithApi(article: Article): Promise<{ success: boolean; isBookmarked?: boolean; message?: string }> {
         try {
             const response = await articleApi.toggleBookmarkArticle(article.id)
             if (response.code === 200 && response.data) {
@@ -84,10 +85,11 @@ export const useArticleStore = defineStore('article', () => {
                 }
                 return { success: true, isBookmarked: data.isBookmarked }
             }
-            return { success: false, isBookmarked: false }
+            return { success: false, isBookmarked: false, message: response.message }
         } catch (error) {
             console.error('收藏失败:', error)
-            return { success: false, isBookmarked: false }
+            // client.ts 在 code !== 200 时会 throw new Error(data.msg)，error.message 即后端 msg
+            return { success: false, isBookmarked: false, message: (error as Error)?.message || '收藏失败，请稍后重试' }
         }
     }
 

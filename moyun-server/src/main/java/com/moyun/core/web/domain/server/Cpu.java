@@ -5,7 +5,7 @@ import com.moyun.util.bean.Arith;
 /**
  * CPU相关信息
  *
- * @author ruoyi
+ * @author allen-zyg
  */
 public class Cpu {
     /**

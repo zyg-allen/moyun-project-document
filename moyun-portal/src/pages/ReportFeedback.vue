@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue';
+import { ref, computed } from 'vue';
 import { useRouter } from 'vue-router';
 import { useHead } from '@vueuse/head';
 import { AlertTriangle, MessageSquare, CheckCircle, Upload, X, History } from 'lucide-vue-next';
@@ -10,6 +10,7 @@ import { useToast } from '@/composables/useToast';
 import { useAuth } from '@/composables/useAuth';
 import { submitReport, submitFeedback } from '@/api/report';
 import { uploadImage } from '@/api/upload';
+import { useDictData } from '@/composables/useDictData';
 
 const router = useRouter();
 const toast = useToast();
@@ -45,7 +46,10 @@ const isSubmitting = ref(false);
 const isUploading = ref(false);
 const submitSuccess = ref(false);
 
-const reportTypes = [
+// 举报/反馈类型（字典 cms_report_type / cms_feedback_type 驱动，本地默认兜底）
+const dictMap = useDictData(['cms_report_type', 'cms_feedback_type']);
+
+const DEFAULT_REPORT_TYPES = [
   { value: 'spam', label: '垃圾内容' },
   { value: 'inappropriate', label: '不当内容' },
   { value: 'infringement', label: '侵权内容' },
@@ -53,12 +57,28 @@ const reportTypes = [
   { value: 'other', label: '其他问题' }
 ];
 
-const feedbackTypes = [
+const DEFAULT_FEEDBACK_TYPES = [
   { value: 'suggestion', label: '功能建议' },
   { value: 'bug', label: 'Bug反馈' },
   { value: 'experience', label: '体验问题' },
   { value: 'other', label: '其他' }
 ];
+
+const reportTypes = computed(() => {
+  const items = dictMap['cms_report_type'];
+  if (items && items.length > 0) {
+    return items.map(i => ({ value: i.dictValue, label: i.dictLabel }));
+  }
+  return DEFAULT_REPORT_TYPES;
+});
+
+const feedbackTypes = computed(() => {
+  const items = dictMap['cms_feedback_type'];
+  if (items && items.length > 0) {
+    return items.map(i => ({ value: i.dictValue, label: i.dictLabel }));
+  }
+  return DEFAULT_FEEDBACK_TYPES;
+});
 
 const MAX_IMAGES = 3;
 

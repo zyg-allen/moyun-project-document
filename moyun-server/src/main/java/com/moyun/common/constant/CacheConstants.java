@@ -3,7 +3,7 @@ package com.moyun.common.constant;
 /**
  * 缓存的key 常量
  *
- * @author ruoyi
+ * @author allen-zyg
  */
 public class CacheConstants {
     /**

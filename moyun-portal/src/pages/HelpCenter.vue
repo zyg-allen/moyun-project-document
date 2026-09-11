@@ -1,18 +1,26 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, onBeforeUnmount } from 'vue';
 import { useHead } from '@vueuse/head';
-import { Search, ChevronDown, BookOpen, HelpCircle, MessageSquare, Shield, Loader2 } from 'lucide-vue-next';
+import { Search, ChevronDown, BookOpen, HelpCircle, MessageSquare, Shield, User, Settings, CreditCard, Lock, FileText, Zap, Award, Globe, LayoutGrid, Loader2 } from 'lucide-vue-next';
 import SiteFooter from '@/components/SiteFooter.vue';
 import Breadcrumb from '@/components/Breadcrumb.vue';
 import { generateSeo } from '@/utils/seo';
-import { getHelpHome, searchHelpArticles, type HelpCategory, type HelpArticle } from '@/api/help';
+import { getHelpHome, getHelpArticlesByCategory, searchHelpArticles, type HelpCategory, type HelpArticle } from '@/api/help';
 
-// 图标映射（lucide 图标名 → 组件）
+// 图标映射（lucide 图标名 → 组件，与后台分类管理图标下拉保持同源）
 const iconMap: Record<string, any> = {
   BookOpen,
   HelpCircle,
   MessageSquare,
   Shield,
+  User,
+  Settings,
+  CreditCard,
+  Lock,
+  FileText,
+  Zap,
+  Award,
+  Globe,
 };
 
 const loading = ref(false);
@@ -21,13 +29,22 @@ const searchQuery = ref('');
 const searchLoading = ref(false);
 const expandedFaq = ref<number | null>(null);
 const activeCategoryId = ref<number | null>(null);
+const categoryLoading = ref(false);
 
 const categories = ref<HelpCategory[]>([]);
 const featuredArticles = ref<HelpArticle[]>([]);
 const searchResults = ref<HelpArticle[]>([]);
+const categoryArticles = ref<HelpArticle[]>([]);
+
+// 搜索防抖定时器
+let searchTimer: ReturnType<typeof setTimeout> | null = null;
 
 onMounted(() => {
   loadHome();
+});
+
+onBeforeUnmount(() => {
+  if (searchTimer) clearTimeout(searchTimer);
 });
 
 async function loadHome() {
@@ -49,35 +66,82 @@ async function loadHome() {
   }
 }
 
-async function handleSearch() {
+// 搜索（300ms 防抖）
+function handleSearch() {
+  if (searchTimer) clearTimeout(searchTimer);
   if (!searchQuery.value.trim()) {
     searchResults.value = [];
     return;
   }
+  searchTimer = setTimeout(async () => {
+    try {
+      searchLoading.value = true;
+      const res = await searchHelpArticles(searchQuery.value);
+      if (res.code === 200) {
+        searchResults.value = res.data || [];
+      }
+    } catch (err) {
+      console.error('搜索失败:', err);
+    } finally {
+      searchLoading.value = false;
+    }
+  }, 300);
+}
+
+// 点击分类卡片：加载该分类下文章（清空搜索）
+async function handleCategoryClick(category: HelpCategory) {
+  searchQuery.value = '';
+  searchResults.value = [];
+  if (activeCategoryId.value === category.id) return;
+  activeCategoryId.value = category.id;
   try {
-    searchLoading.value = true;
-    const res = await searchHelpArticles(searchQuery.value);
+    categoryLoading.value = true;
+    const res = await getHelpArticlesByCategory(category.id);
     if (res.code === 200) {
-      searchResults.value = res.data || [];
+      categoryArticles.value = res.data || [];
     }
   } catch (err) {
-    console.error('搜索失败:', err);
+    console.error('加载分类文章失败:', err);
   } finally {
-    searchLoading.value = false;
+    categoryLoading.value = false;
   }
+}
+
+// 点击"全部"：回到精选视图
+function handleShowAll() {
+  searchQuery.value = '';
+  searchResults.value = [];
+  activeCategoryId.value = null;
+  categoryArticles.value = [];
 }
 
 function toggleFaq(id: number) {
   expandedFaq.value = expandedFaq.value === id ? null : id;
 }
 
-// 展示的文章列表：搜索时显示搜索结果，否则显示精选
+// 当前列表标题
+const listTitle = computed(() => {
+  if (searchQuery.value.trim()) return '搜索结果';
+  if (activeCategoryId.value !== null) {
+    const category = categories.value.find(item => item.id === activeCategoryId.value);
+    return category ? `${category.name}相关问题` : '分类问题';
+  }
+  return '常见问题';
+});
+
+// 展示的文章列表：搜索 → 分类过滤 → 精选
 const displayArticles = computed(() => {
   if (searchQuery.value.trim()) {
     return searchResults.value;
   }
+  if (activeCategoryId.value !== null) {
+    return categoryArticles.value;
+  }
   return featuredArticles.value;
 });
+
+// 列表加载状态
+const listLoading = computed(() => searchLoading.value || categoryLoading.value);
 
 // 分类图标组件
 function getCategoryIcon(iconName: string) {
@@ -87,7 +151,7 @@ function getCategoryIcon(iconName: string) {
 useHead(
   generateSeo({
     title: '帮助中心',
-    description: '墨韵帮助中心，解答您在使用过程中遇到的各种问题。',
+    description: '旭林帮助中心，解答您在使用过程中遇到的各种问题。',
     keywords: ['帮助中心', 'FAQ', '常见问题'],
     type: 'website'
   })
@@ -147,15 +211,33 @@ useHead(
       </div>
 
       <template v-else>
-        <!-- 分类卡片 -->
+        <!-- 分类卡片（含"全部"入口） -->
         <div v-if="categories.length > 0" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mb-10 sm:mb-14">
+          <div
+            class="p-4 sm:p-6 rounded-2xl border cursor-pointer hover:shadow-lg transition-all duration-300 hover:-translate-y-1 flex items-center gap-3 sm:gap-4"
+            :style="activeCategoryId === null
+              ? 'background-color: var(--theme-accent); border-color: var(--theme-primary);'
+              : 'background-color: var(--theme-surface); border-color: var(--theme-border);'"
+            @click="handleShowAll"
+          >
+            <div class="w-10 h-10 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center flex-shrink-0" style="background-color: var(--theme-surface); border: 1px solid var(--theme-border);">
+              <component :is="LayoutGrid" class="w-5 h-5 sm:w-6 sm:h-6" style="color: var(--theme-primary);" />
+            </div>
+            <div>
+              <h3 class="font-semibold text-sm sm:text-base" style="color: var(--theme-text);">全部问题</h3>
+              <p class="text-xs sm:text-sm" style="color: var(--theme-text-secondary);">查看精选常见问题</p>
+            </div>
+          </div>
           <div
             v-for="category in categories"
             :key="category.id"
             class="p-4 sm:p-6 rounded-2xl border cursor-pointer hover:shadow-lg transition-all duration-300 hover:-translate-y-1"
-            style="background-color: var(--theme-surface); border-color: var(--theme-border);"
+            :style="activeCategoryId === category.id
+              ? 'background-color: var(--theme-accent); border-color: var(--theme-primary);'
+              : 'background-color: var(--theme-surface); border-color: var(--theme-border);'"
+            @click="handleCategoryClick(category)"
           >
-            <div class="w-10 h-10 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center mb-3 sm:mb-4" style="background-color: var(--theme-accent);">
+            <div class="w-10 h-10 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center mb-3 sm:mb-4" style="background-color: var(--theme-surface); border: 1px solid var(--theme-border);">
               <component :is="getCategoryIcon(category.icon)" class="w-5 h-5 sm:w-6 sm:h-6" style="color: var(--theme-primary);" />
             </div>
             <h3 class="font-semibold text-sm sm:text-base mb-1.5" style="color: var(--theme-text);">{{ category.name }}</h3>
@@ -166,10 +248,15 @@ useHead(
         <!-- 常见问题 -->
         <div class="mb-8 sm:mb-12">
           <h2 class="text-xl sm:text-2xl font-bold mb-6 sm:mb-8" style="color: var(--theme-text);">
-            {{ searchQuery.trim() ? '搜索结果' : '常见问题' }}
+            {{ listTitle }}
           </h2>
 
-          <div v-if="displayArticles.length > 0" class="space-y-3 sm:space-y-4">
+          <div v-if="listLoading" class="text-center py-8 sm:py-12">
+            <Loader2 class="w-8 h-8 mx-auto animate-spin" style="color: var(--theme-primary);" />
+            <p class="mt-3 text-sm" style="color: var(--theme-text-secondary);">加载中...</p>
+          </div>
+
+          <div v-else-if="displayArticles.length > 0" class="space-y-3 sm:space-y-4">
             <div
               v-for="article in displayArticles"
               :key="article.id"
@@ -200,7 +287,7 @@ useHead(
           <div v-else class="text-center py-8 sm:py-12" style="background-color: var(--theme-surface); border: 1px solid var(--theme-border); border-radius: 1rem;">
             <Search class="w-10 h-10 sm:w-12 sm:h-12 mx-auto mb-4" style="color: var(--theme-text-secondary);" />
             <p class="text-sm sm:text-base" style="color: var(--theme-text-secondary);">
-              {{ searchQuery.trim() ? '没有找到相关问题' : '暂无常见问题' }}
+              {{ searchQuery.trim() ? '没有找到相关问题' : '该分类下暂无问题' }}
             </p>
           </div>
         </div>

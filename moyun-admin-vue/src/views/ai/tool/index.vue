@@ -82,16 +82,13 @@
                 </span>
               </div>
               <div class="card-actions" @click.stop>
-                <el-tooltip content="测试" placement="top" :show-after="200">
-                  <button class="action-btn primary" @click="testTool(tool)">
-                    <i class="fa-solid fa-play"></i>
-                  </button>
-                </el-tooltip>
-                <el-tooltip :content="tool.enabled ? '禁用' : '启用'" placement="top" :show-after="200">
-                  <button class="action-btn" @click="toggleEnabled(tool)" :disabled="tool.isSystem">
-                    <i :class="tool.enabled ? 'fa-solid fa-toggle-on' : 'fa-solid fa-toggle-off'"></i>
-                  </button>
-                </el-tooltip>
+                <el-button link type="primary" @click="testTool(tool)">
+                  <i class="fa-solid fa-play"></i> 测试
+                </el-button>
+                <el-button link type="primary" @click="toggleEnabled(tool)" :disabled="tool.isSystem">
+                  <i :class="tool.enabled ? 'fa-solid fa-toggle-on' : 'fa-solid fa-toggle-off'"></i>
+                  {{ tool.enabled ? '禁用' : '启用' }}
+                </el-button>
               </div>
             </div>
           </div>
@@ -113,7 +110,7 @@
     </div>
 
     <!-- 测试工具对话框 -->
-    <el-dialog v-model="showTestDialog" title="🧪 测试工具" width="600px" destroy-on-close>
+    <el-dialog v-model="showTestDialog" title="🧪 测试工具" width="760px" destroy-on-close>
       <el-form label-width="100px">
         <el-form-item label="选择工具">
           <el-select v-model="testForm.toolName" placeholder="请选择工具" style="width: 100%;">
@@ -138,7 +135,24 @@
                 {{ key }}
                 <span style="color: #909399; font-size: 12px;">{{ param.description }}</span>
               </div>
-              <el-input v-model="testForm.params[key]" :placeholder="param.default || ''" />
+              <!-- 数据源ID参数：渲染为数据源下拉列表，选项来自数据源管理 -->
+              <el-select v-if="key === 'datasource_id'" v-model="testForm.params[key]" placeholder="请选择数据源" style="width: 100%;" clearable>
+                <el-option
+                  v-for="ds in datasourceOptions"
+                  :key="ds.id"
+                  :label="`${ds.name} (ID: ${ds.id})`"
+                  :value="ds.id"
+                />
+              </el-select>
+              <!-- 枚举参数（schema 定义 enum 或已知枚举键）：下拉选择 -->
+              <el-select v-else-if="getEnumOptions(key, param)" v-model="testForm.params[key]" placeholder="请选择" style="width: 100%;" clearable>
+                <el-option v-for="opt in getEnumOptions(key, param)" :key="opt" :label="opt" :value="opt" />
+              </el-select>
+              <!-- 布尔参数：开关 -->
+              <el-switch v-else-if="param.type === 'boolean'" v-model="testForm.params[key]" />
+              <!-- 整数参数：数字输入 -->
+              <el-input-number v-else-if="param.type === 'integer'" v-model="testForm.params[key]" :min="0" controls-position="right" style="width: 100%;" />
+              <el-input v-else v-model="testForm.params[key]" :placeholder="param.default !== undefined ? String(param.default) : ''" />
             </div>
           </div>
         </el-form-item>
@@ -191,6 +205,46 @@ const testForm = ref({
   params: {}
 })
 
+// 数据源下拉选项（来自数据源管理，仅启用状态）
+const datasourceOptions = ref([])
+
+// 加载数据源列表
+const loadDatasources = async () => {
+  try {
+    const res = await request({ url: '/cms/ai/data-analysis/datasources', method: 'get' })
+    datasourceOptions.value = (res.data || []).filter(ds => ds.enabled)
+  } catch (error) {
+    console.error('加载数据源列表失败:', error)
+  }
+}
+
+// 已知枚举选项，schema 中声明 enum 的优先使用
+// 语言选项为 translator 专属参数，使用 "工具名.参数键" 复合键，避免与 send_email 的 to（收件人邮箱）等普通字符串参数混淆
+const enumOptionsMap = {
+  timezone: ['Asia/Shanghai', 'UTC', 'Asia/Tokyo', 'Asia/Hong_Kong', 'America/New_York', 'Europe/London'],
+  'translator.from': ['auto', 'zh', 'en', 'ja', 'ko', 'fr', 'de', 'ru'],
+  'translator.to': ['zh', 'en', 'ja', 'ko', 'fr', 'de', 'ru']
+}
+
+// 获取参数的下拉选项：schema enum 优先，其次按 "工具名.参数键" / 参数键 匹配已知枚举，都不是则返回 null（渲染为普通输入）
+const getEnumOptions = (key, param) => {
+  if (Array.isArray(param.enum) && param.enum.length > 0) return param.enum
+  return enumOptionsMap[`${testForm.value.toolName}.${key}`] || enumOptionsMap[key] || null
+}
+
+// 按参数 schema 初始化默认值（布尔/整数控件需要初始值才能正确交互）
+const initParamDefaults = () => {
+  const params = {}
+  if (selectedToolParams.value) {
+    for (const [key, param] of Object.entries(selectedToolParams.value)) {
+      if (param.default !== undefined) {
+        params[key] = param.default
+      }
+    }
+  }
+  testForm.value.params = params
+}
+
 // 启用的工具列表
 const enabledTools = computed(() => toolList.value.filter(t => t.enabled))
 
@@ -237,9 +291,9 @@ const selectedToolParams = computed(() => {
   }
 })
 
-// 监听工具选择变化，重置参数
+// 监听工具选择变化，重置参数并按 schema 初始化默认值
 watch(() => testForm.value.toolName, () => {
-  testForm.value.params = {}
+  initParamDefaults()
   testResult.value = null
 })
 
@@ -275,6 +329,8 @@ const testTool = (tool) => {
   testForm.value.params = {}
   testResult.value = null
   showTestDialog.value = true
+  // toolName 相同时 watch 不触发，手动初始化默认值
+  initParamDefaults()
 }
 
 // 执行测试
@@ -332,6 +388,7 @@ const getToolTypeLabel = (type) => {
 
 onMounted(() => {
   loadToolList()
+  loadDatasources()
 })
 </script>
 

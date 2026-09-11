@@ -22,7 +22,7 @@ import java.util.List;
 /**
  * 部门信息
  *
- * @author ruoyi
+ * @author allen-zyg
  */
 @Tag(name = "部门管理", description = "部门信息的增删改查、树形结构等操作接口")
 @RestController

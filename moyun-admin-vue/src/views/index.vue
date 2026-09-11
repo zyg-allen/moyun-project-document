@@ -421,19 +421,27 @@ function handleRefreshCache() {
 }
 
 // ===== 跳转联动 =====
+// 跳转到审核中心并自动打开任务详情对话框
+// routePath 形如 /portal/audit-center，附加 taskId=xxx 让审核中心 handleRouteQuery 自动打开详情
 function goTask(task) {
   if (!task || !task.routePath) return
-  router.push(task.routePath).catch(() => {
-    ElMessage.warning('目标页面不可达：' + task.routePath)
+  // 兼容 routePath 仍写 /cms/audit-center 的旧数据，统一改为 /portal/audit-center
+  const path = task.routePath.replace(/^\/cms\/audit-center/, '/portal/audit-center')
+  const query = {}
+  if (task.id) query.taskId = task.id
+  if (task.taskType) query.tab = task.taskType
+  router.push({ path, query }).catch(() => {
+    ElMessage.warning('目标页面不可达：' + path)
   })
 }
 
 /** 跳转到统一审核中心
  *  @param {('pending'|'done')} tab - 待办/已办视图
  *  审核中心支持 ?activeTab=pending|done|all 切换顶部 Tab
+ *  实际路由为 /portal/audit-center（父级菜单 path=portal + 子菜单 path=audit-center）
  */
 function goAuditCenter(tab) {
-  router.push({ path: '/cms/audit-center', query: { activeTab: tab } }).catch(() => {
+  router.push({ path: '/portal/audit-center', query: { activeTab: tab } }).catch(() => {
     ElMessage.warning('审核中心页面不可达')
   })
 }
@@ -516,8 +524,8 @@ function rankPercent(item) {
 }
 function activityTagType(bt) {
   return {
-    INSERT: 'success', UPDATE: 'primary', DELETE: 'danger', EXPORT: 'warning', OTHER: 'info',
-    PUBLISH: 'success', REGISTER: 'warning', NOTIFICATION: 'primary'
+    INSERT: 'success', UPDATE: 'warning', DELETE: 'danger', EXPORT: 'warning', OTHER: 'info',
+    PUBLISH: 'success', REGISTER: 'warning', NOTIFICATION: 'info'
   }[bt] || 'info'
 }
 

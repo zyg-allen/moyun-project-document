@@ -1,5 +1,6 @@
 import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router'
 import { useUserStore } from '@/stores/user'
+import { hasPendingAiRequests } from '@/api/client'
 
 // ============ 页面组件导入 ============
 const HomePage = () => import('@/pages/HomePage.vue')
@@ -32,12 +33,13 @@ const DiscoverPage = () => import('@/pages/reading/DiscoverPage.vue')
 const QuoteListPage = () => import('@/pages/reading/QuoteListPage.vue')
 const GrowthTimelinePage = () => import('@/pages/GrowthTimelinePage.vue')
 const InterviewPage = () => import('@/pages/InterviewPage.vue')
-const QuestionDetailPage = () => import('@/pages/interview/QuestionDetailPage.vue')
+const QuestionDetailPage = () => import('@/pages/learn/QuestionDetailPage.vue')
 const ExperienceDetailPage = () => import('@/pages/interview/ExperienceDetailPage.vue')
 const ResumeTemplatePage = () => import('@/pages/interview/ResumeTemplatePage.vue')
-const QuestionListPage = () => import('@/pages/interview/QuestionListPage.vue')
+const QuestionListPage = () => import('@/pages/learn/QuestionListPage.vue')
 const ExperienceListPage = () => import('@/pages/interview/ExperienceListPage.vue')
 const MyResumesPage = () => import('@/pages/interview/MyResumesPage.vue')
+const ResumeOptimizePage = () => import('@/pages/interview/ResumeOptimizePage.vue')
 const ResumeEditPage = () => import('@/pages/interview/ResumeEditPage.vue')
 const CompanyPage = () => import('@/pages/interview/CompanyPage.vue')
 
@@ -59,8 +61,18 @@ const WrongBookPage = () => import('@/pages/learn/WrongBookPage.vue')
 const StudyCalendarPage = () => import('@/pages/learn/StudyCalendarPage.vue')
 const KnowledgeGraphPage = () => import('@/pages/learn/KnowledgeGraphPage.vue')
 const LeaderboardPage = () => import('@/pages/learn/LeaderboardPage.vue')
+const PracticeChoiceListPage = () => import('@/pages/learn/PracticeChoiceListPage.vue')
+const PracticeCodingListPage = () => import('@/pages/learn/PracticeCodingListPage.vue')
+const PracticeCenterPage = () => import('@/pages/learn/PracticeCenterPage.vue')
+const ChoicePracticePage = () => import('@/pages/learn/ChoicePracticePage.vue')
+const CodingPracticePage = () => import('@/pages/learn/CodingPracticePage.vue')
 const CodeRunnerPage = () => import('@/pages/tools/CodeRunnerPage.vue')
-const MockInterviewPage = () => import('@/pages/interview/MockInterviewPage.vue')
+const VoiceEngineDemoPage = () => import('@/pages/interview/VoiceEngineDemoPage.vue')
+const VoiceInterviewPage = () => import('@/pages/interview/VoiceInterviewPage.vue')
+const SharedReportPage = () => import('@/pages/interview/SharedReportPage.vue')
+const PayCashierPage = () => import('@/pages/pay/PayCashierPage.vue')
+const WalletPage = () => import('@/pages/pay/WalletPage.vue')
+const MyVoiceInterviewsPage = () => import('@/pages/interview/MyVoiceInterviewsPage.vue')
 
 // ============ 路由配置 ============
 
@@ -189,8 +201,44 @@ const routes: RouteRecordRaw[] = [
     component: LeaderboardPage,
     meta: { title: '刷题排行榜', isPublic: true }
   },
+  // ============ 刷题中心：选择题 / 编程题在线练习 ============
+  {
+    path: '/learn/practice',
+    name: 'learn-practice',
+    component: PracticeCenterPage,
+    meta: { title: '刷题中心', isPublic: true }
+  },
+  {
+    path: '/learn/practice/choice',
+    name: 'learn-practice-choice',
+    component: PracticeChoiceListPage,
+    meta: { title: '选择题练习', isPublic: true }
+  },
+  {
+    path: '/learn/practice/choice/:id',
+    name: 'learn-practice-choice-do',
+    component: ChoicePracticePage,
+    meta: { title: '选择题做题', isPublic: true }
+  },
+  {
+    path: '/learn/practice/coding',
+    name: 'learn-practice-coding',
+    component: PracticeCodingListPage,
+    meta: { title: '编程题练习', isPublic: true }
+  },
+  {
+    path: '/learn/practice/coding/:id',
+    name: 'learn-practice-coding-do',
+    component: CodingPracticePage,
+    meta: { title: '编程题做题', isPublic: true }
+  },
   {
     path: '/interview/questions',
+    redirect: '/learn/questions'
+  },
+  // 学习中心「面试题库」主路由（与 portal_category.nav_route_path 对齐；v11.13 归属学习中心）
+  {
+    path: '/learn/questions',
     name: 'interview-questions',
     component: QuestionListPage,
     meta: { title: '题目列表', isPublic: true }
@@ -262,6 +310,12 @@ const routes: RouteRecordRaw[] = [
     meta: { title: '创建简历', requiresAuth: true, robots: 'noindex,nofollow' }
   },
   {
+    path: '/interview/resume/optimize',
+    name: 'interview-resume-optimize',
+    component: ResumeOptimizePage,
+    meta: { title: 'AI 简历优化工作台', requiresAuth: true, robots: 'noindex,nofollow' }
+  },
+  {
     path: '/interview/resume/edit/:id',
     name: 'interview-resume-editor-edit',
     component: ResumeEditPage,
@@ -274,12 +328,33 @@ const routes: RouteRecordRaw[] = [
     component: CompanyPage,
     meta: { title: '公司主页', isPublic: true }
   },
-  // ============ AI 模拟面试官（阶段三 3.10） ============
+  // ============ 语音引擎验证页（V10.0 临时验证） ============
   {
-    path: '/interview/mock',
-    name: 'interview-mock',
-    component: MockInterviewPage,
-    meta: { requiresAuth: true, title: 'AI 模拟面试', robots: 'noindex,nofollow' }
+    path: '/interview/voice-demo',
+    name: 'interview-voice-demo',
+    component: VoiceEngineDemoPage,
+    meta: { requiresAuth: true, title: '语音引擎验证', robots: 'noindex,nofollow' }
+  },
+  // ============ 语音面试官（V10.1 MVP） ============
+  {
+    path: '/interview/voice',
+    name: 'interview-voice',
+    component: VoiceInterviewPage,
+    meta: { requiresAuth: true, title: 'AI 语音面试官', robots: 'noindex,nofollow' }
+  },
+  // ============ 面试报告分享页（v11.30.5，免登录公开） ============
+  {
+    path: '/interview/share/:token',
+    name: 'interview-share',
+    component: SharedReportPage,
+    meta: { requiresAuth: false, title: '面试报告分享', robots: 'noindex,nofollow' }
+  },
+  // ============ 我的面试记录（V10.3） ============
+  {
+    path: '/interview/voice/history',
+    name: 'interview-voice-history',
+    component: MyVoiceInterviewsPage,
+    meta: { requiresAuth: true, title: '我的面试记录', robots: 'noindex,nofollow' }
   },
   // ============ 在线代码运行（阶段三 3.6） ============
   {
@@ -562,6 +637,20 @@ const routes: RouteRecordRaw[] = [
     component: MessagesPage,
     meta: { requiresAuth: true, title: '私信', robots: 'noindex,nofollow' }
   },
+  // ============ V11.0 支付中心 ============
+  {
+    path: '/pay/cashier',
+    name: 'pay-cashier',
+    component: PayCashierPage,
+    meta: { requiresAuth: true, title: '收银台', robots: 'noindex,nofollow' }
+  },
+  {
+    path: '/pay/wallet',
+    name: 'pay-wallet',
+    component: WalletPage,
+    meta: { requiresAuth: true, title: '我的钱包', robots: 'noindex,nofollow' }
+  },
+  // V11.3：支付通知整合进 /messages 消息中心（?tab=pay），独立页面已移除
   // ============ 404 页面 ============
   {
     path: '/:pathMatch(.*)*',
@@ -599,7 +688,7 @@ router.beforeEach(async (to, _from, next) => {
 
   // 2. 设置页面标题
   if (to.meta.title) {
-    document.title = `${to.meta.title} - 墨韵智库`
+    document.title = `${to.meta.title} - 旭林知行`
   }
 
   // 3. 登录后访问登录/注册页：重定向到首页
@@ -620,6 +709,18 @@ router.beforeEach(async (to, _from, next) => {
 
   // 5. 正常访问
   next()
+})
+
+// ============ v10.23：AI 慢请求离开确认 ============
+// 仅拦截页面间跳转（首次进入 from.name 为空不拦）；
+// AI 慢请求（附件解析上传、字段辅助、草稿/匹配/深度优化同步接口、语音面试 LLM 调用等）
+// 进行中时离开将中断当前生成，需用户确认。
+router.beforeEach((_to, from) => {
+  if (from.name && hasPendingAiRequests()) {
+    const leave = window.confirm('AI 任务正在进行中，离开将中断当前生成，确定离开吗？')
+    if (!leave) return false
+  }
+  return true
 })
 
 export default router

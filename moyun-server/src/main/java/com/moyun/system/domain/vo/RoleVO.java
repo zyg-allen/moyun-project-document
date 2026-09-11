@@ -11,7 +11,7 @@ import java.util.Set;
 /**
  * 角色视图对象
  *
- * @author ruoyi
+ * @author allen-zyg
  */
 @Data
 @Schema(description = "角色VO")

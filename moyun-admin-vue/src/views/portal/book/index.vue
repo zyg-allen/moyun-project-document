@@ -39,8 +39,7 @@
       </el-form-item>
       <el-form-item label="状态" prop="status">
         <el-select v-model="queryParams.status" placeholder="状态" clearable style="width: 150px">
-          <el-option label="正常" value="active" />
-          <el-option label="停用" value="inactive" />
+          <el-option v-for="d in portal_common_status" :key="d.value" :label="d.label" :value="d.value" />
         </el-select>
       </el-form-item>
       <el-form-item label="是否精选" prop="isFeatured">
@@ -51,16 +50,12 @@
       </el-form-item>
       <el-form-item label="类型" prop="type">
         <el-select v-model="queryParams.type" placeholder="书籍类型" clearable style="width: 140px">
-          <el-option label="出版书籍" value="published" />
-          <el-option label="网络小说" value="novel" />
-          <el-option label="长文文章" value="longform" />
+          <el-option v-for="d in portal_book_type" :key="d.value" :label="d.label" :value="d.value" />
         </el-select>
       </el-form-item>
       <el-form-item label="连载状态" prop="serialStatus">
         <el-select v-model="queryParams.serialStatus" placeholder="连载状态" clearable style="width: 120px">
-          <el-option label="连载中" value="ongoing" />
-          <el-option label="已完结" value="completed" />
-          <el-option label="暂停" value="hiatus" />
+          <el-option v-for="d in portal_book_serial_status" :key="d.value" :label="d.label" :value="d.value" />
         </el-select>
       </el-form-item>
       <el-form-item>
@@ -136,16 +131,12 @@
       </el-table-column>
       <el-table-column label="类型" align="center" prop="type" width="100">
         <template #default="scope">
-          <el-tag :type="getBookTypeTagType(scope.row.type)" size="small">
-            {{ getBookTypeText(scope.row.type) }}
-          </el-tag>
+          <dict-tag :options="portal_book_type" :value="scope.row.type" />
         </template>
       </el-table-column>
       <el-table-column label="连载状态" align="center" prop="serialStatus" width="100">
         <template #default="scope">
-          <el-tag :type="getSerialStatusTagType(scope.row.serialStatus)" size="small">
-            {{ getSerialStatusText(scope.row.serialStatus) }}
-          </el-tag>
+          <dict-tag :options="portal_book_serial_status" :value="scope.row.serialStatus" />
         </template>
       </el-table-column>
       <el-table-column label="章节数" align="center" prop="chapterCount" width="80">
@@ -168,9 +159,7 @@
       <el-table-column label="阅读数" align="center" prop="readingCount" width="90" />
       <el-table-column label="访问级别" align="center" prop="accessLevel" width="100">
         <template #default="scope">
-          <el-tag :type="getAccessLevelType(scope.row.accessLevel)" size="small">
-            {{ getAccessLevelText(scope.row.accessLevel) }}
-          </el-tag>
+          <dict-tag :options="portal_access_type" :value="scope.row.accessLevel" />
         </template>
       </el-table-column>
       <el-table-column label="是否精选" align="center" prop="isFeatured" width="80">
@@ -187,9 +176,7 @@
       </el-table-column>
       <el-table-column label="状态" align="center" prop="status" width="80">
         <template #default="scope">
-          <el-tag :type="scope.row.status === 'active' ? 'success' : 'info'" size="small">
-            {{ scope.row.status === 'active' ? '正常' : '停用' }}
-          </el-tag>
+          <dict-tag :options="portal_common_status" :value="scope.row.status" />
         </template>
       </el-table-column>
       <el-table-column label="创建时间" align="center" prop="createTime" width="160">
@@ -197,7 +184,7 @@
           <span>{{ parseTime(scope.row.createTime) }}</span>
         </template>
       </el-table-column>
-      <el-table-column label="操作" align="center" class-name="small-padding fixed-width" width="240">
+      <el-table-column label="操作" align="right" class-name="small-padding fixed-width" width="240">
         <template #default="scope">
           <el-button
             link
@@ -234,7 +221,7 @@
     />
 
     <!-- 添加或修改书籍对话框 -->
-    <el-dialog :title="title" v-model="open" width="780px" append-to-body>
+    <el-dialog :title="title" v-model="open" width="980px" append-to-body>
       <el-form ref="bookRef" :model="form" :rules="rules" label-width="100px">
         <el-row :gutter="20">
           <el-col :span="12">
@@ -340,9 +327,7 @@
           <el-col :span="12">
             <el-form-item label="访问级别" prop="accessLevel">
               <el-select v-model="form.accessLevel" placeholder="请选择访问级别" style="width: 100%">
-                <el-option label="免费公开" value="free" />
-                <el-option label="VIP专享" value="vip" />
-                <el-option label="试读" value="preview" />
+                <el-option v-for="d in portal_access_type" :key="d.value" :label="d.label" :value="d.value" />
               </el-select>
             </el-form-item>
           </el-col>
@@ -361,8 +346,7 @@
           <el-col :span="12">
             <el-form-item label="状态" prop="status">
               <el-radio-group v-model="form.status">
-                <el-radio label="active">正常</el-radio>
-                <el-radio label="inactive">停用</el-radio>
+                <el-radio v-for="d in portal_common_status" :key="d.value" :label="d.value">{{ d.label }}</el-radio>
               </el-radio-group>
             </el-form-item>
           </el-col>
@@ -371,9 +355,7 @@
           <el-col :span="12">
             <el-form-item label="书籍类型" prop="type">
               <el-select v-model="form.type" placeholder="请选择书籍类型" style="width: 100%">
-                <el-option label="出版书籍" value="published" />
-                <el-option label="网络小说" value="novel" />
-                <el-option label="长文文章" value="longform" />
+                <el-option v-for="d in portal_book_type" :key="d.value" :label="d.label" :value="d.value" />
               </el-select>
               <div style="font-size:12px;color:#909399;line-height:1.4">
                 出版书籍：传统书；网络小说：含章节连载；长文文章：单篇长文（兼容面试空间）
@@ -383,9 +365,7 @@
           <el-col :span="12">
             <el-form-item label="连载状态" prop="serialStatus">
               <el-radio-group v-model="form.serialStatus">
-                <el-radio label="ongoing">连载中</el-radio>
-                <el-radio label="completed">已完结</el-radio>
-                <el-radio label="hiatus">暂停</el-radio>
+                <el-radio v-for="d in portal_book_serial_status" :key="d.value" :label="d.value">{{ d.label }}</el-radio>
               </el-radio-group>
             </el-form-item>
           </el-col>
@@ -671,6 +651,7 @@ import { batchImportChapters } from "@/api/portal/bookChapter";
 const router = useRouter();
 
 const { proxy } = getCurrentInstance();
+const { portal_common_status, portal_book_type, portal_book_serial_status, portal_access_type } = proxy.useDict("portal_common_status", "portal_book_type", "portal_book_serial_status", "portal_access_type");
 
 // 分类下拉数据
 const categoryOptions = ref([]);
@@ -1177,49 +1158,6 @@ function handleDelete(row) {
 // 跳转到章节管理（v1.0 新增）
 function handleManageChapters(row) {
   router.push(`/portal/bookChapter/${row.id}`);
-}
-
-// 访问级别显示映射
-function getAccessLevelType(level) {
-  if (level === "free") return "success";
-  if (level === "vip") return "warning";
-  if (level === "preview") return "info";
-  return "";
-}
-
-function getAccessLevelText(level) {
-  if (level === "free") return "免费";
-  if (level === "vip") return "VIP";
-  if (level === "preview") return "试读";
-  return level || "-";
-}
-
-// 书籍类型显示映射（v1.0 新增）
-function getBookTypeText(type) {
-  if (type === "novel") return "网络小说";
-  if (type === "published") return "出版书籍";
-  if (type === "longform") return "长文文章";
-  return type || "未分类";
-}
-function getBookTypeTagType(type) {
-  if (type === "novel") return "warning";
-  if (type === "published") return "success";
-  if (type === "longform") return "info";
-  return "";
-}
-
-// 连载状态显示映射（v1.0 新增）
-function getSerialStatusText(status) {
-  if (status === "ongoing") return "连载中";
-  if (status === "completed") return "已完结";
-  if (status === "hiatus") return "暂停";
-  return status || "-";
-}
-function getSerialStatusTagType(status) {
-  if (status === "ongoing") return "success";
-  if (status === "completed") return "info";
-  if (status === "hiatus") return "warning";
-  return "";
 }
 
 onMounted(() => {

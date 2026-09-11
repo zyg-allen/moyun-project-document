@@ -5,7 +5,7 @@ import request from '@/utils/request'
 // 查询学习计划分页列表（只读）
 export function listStudyPlan(query) {
   return request({
-    url: '/cms/portal/studyPlan/list',
+    url: '/cms/portal/study-plan/list',
     method: 'get',
     params: query
   })
@@ -16,7 +16,7 @@ export function listStudyPlan(query) {
 // 查询错题本分页列表（只读）
 export function listWrongQuestion(query) {
   return request({
-    url: '/cms/portal/wrongQuestion/list',
+    url: '/cms/portal/wrong-question/list',
     method: 'get',
     params: query
   })

@@ -1,4 +1,4 @@
-// API通用响应类型
+﻿// API通用响应类型
 export interface ApiResponse<T = any> {
   code: number;
   message: string;
@@ -271,6 +271,10 @@ export interface ArticleListParams {
   pageSize?: number;
   category?: string;
   categoryId?: string;
+  /** 分类名（后端 ArticleQuery.categoryName，按分类名筛选） */
+  categoryName?: string;
+  /** 一级分类ID（后端 ArticleQuery.rootCategoryId，按一级分类查询其下全部子分类文章） */
+  rootCategoryId?: string;
   tag?: string;
   keyword?: string;
   authorId?: string;
@@ -487,6 +491,8 @@ export interface Category {
   navRouteType?: string;
   /** 静态/外链路由路径（仅 static/external 类型使用） */
   navRoutePath?: string;
+  /** 导航徽章（NEW/HOT，仅 Mega Menu 展示） */
+  navBadge?: string;
   /** 栏目类型：article=文章栏目（可发布文章） special=特殊页面（不参与排行榜/发布） */
   categoryType?: string;
   /** 是否需要登录（0否/1是） */
@@ -1143,6 +1149,18 @@ export interface InterviewQuestionDetailVO extends InterviewQuestionVO {
   referenceAnswer?: string;
   /** 前置题目 ID 列表（用于学习路径推荐） */
   prerequisiteIds?: (string | number)[];
+
+  // ===== 练习模式扩展字段（v10.6 题库重构·阶段2） =====
+  /** 练习模式：reading 展示阅读 / choice 选择题 / coding 编程题 */
+  practiceMode?: string;
+  /** 选择题选项（JSON 字符串，前端 JSON.parse 为 [{label,text,is_correct}]） */
+  options?: string;
+  /** 正确答案（选择题：选项 label 如 B） */
+  correctAnswer?: string;
+  /** 题目解析（做题后展示） */
+  analysis?: string;
+  /** 知识点标签（逗号分隔） */
+  knowledgeTags?: string;
 }
 
 export interface InterviewQuestionQuery {
@@ -1152,8 +1170,24 @@ export interface InterviewQuestionQuery {
   difficulty?: string;
   /** 题目类型筛选（v6.3 题目结构化） */
   questionType?: QuestionType | string;
+  /** 练习模式筛选（v10.6 题库重构·阶段2）：reading/choice/coding */
+  practiceMode?: string;
   keyword?: string;
   companyId?: string | number;
+}
+
+/** 相邻题目导航（v12.0 做题页上一题/下一题） */
+export interface InterviewQuestionNeighborVO {
+  /** 上一题 ID（结果集首位时为 null） */
+  prevId?: string | number | null;
+  prevTitle?: string | null;
+  /** 下一题 ID（结果集末位时为 null） */
+  nextId?: string | number | null;
+  nextTitle?: string | null;
+  /** 当前题目在筛选结果集中的序号（1 起，不在结果集时为 null） */
+  currentIndex?: number | null;
+  /** 筛选结果集总数 */
+  total?: number;
 }
 
 export interface InterviewSubmissionVO {
@@ -1163,7 +1197,7 @@ export interface InterviewSubmissionVO {
   code?: string;
   content?: string;
   language?: string;
-  answerType?: 'code' | 'text' | 'design';
+  answerType?: 'choice' | 'code' | 'text' | 'design' | 'reading';
   status?: string;
   isSuccess?: boolean;
   runtime?: number;
@@ -1182,6 +1216,15 @@ export interface InterviewSubmissionVO {
   failedCaseExpected?: string;
   failedCaseActual?: string;
   errorMessage?: string;
+  // ===== 选择题服务端权威判分字段（v9.1） =====
+  /** 是否通过（服务端权威判分结果，与 isSuccess 同源） */
+  passed?: boolean;
+  /** 练习模式：reading/choice/coding */
+  practiceMode?: string;
+  /** 正确答案（提交后下发，用于复盘） */
+  correctAnswer?: string;
+  /** 答案解析（提交后下发） */
+  analysis?: string;
 }
 
 // ============ OJ 判题系统类型（v6.3） ============
@@ -1245,6 +1288,11 @@ export interface JudgeSubmitParams {
   questionId: string | number;
   code: string;
   language: JudgeLanguage | string;
+  /**
+   * 提交意图：run=运行（仅样例自测，不落记录不计成长）
+   * submit=提交（全量判定+落记录+成长闭环），缺省按 submit 处理
+   */
+  mode?: 'run' | 'submit';
 }
 
 /** 用例新增/修改参数（CMS 后台） */
@@ -1276,6 +1324,8 @@ export interface InterviewExperienceVO {
   commentCount: number;
   status?: string;
   liked?: boolean;
+  /** 审核备注（驳回原因，rejected 时展示） */
+  auditRemark?: string;
   userNickname?: string;
   userAvatar?: string;
   user?: { id: string; nickname: string; avatar?: string };
@@ -1290,6 +1340,8 @@ export interface InterviewExperienceQuery {
   keyword?: string;
   year?: number;
   userId?: string | number;
+  /** 状态筛选（我的面经支持：draft/pending/published/rejected，空=全部） */
+  status?: string;
 }
 
 export interface InterviewCommentVO {
@@ -1316,6 +1368,8 @@ export interface InterviewResumeTemplateVO {
   description?: string;
   cover?: string;
   downloadUrl?: string;
+  /** 预览图 JSON 数组字符串（多图，问题3图片列表展示） */
+  previewImages?: string;
   category?: string;
   fileType?: string;
   fileSize?: number;
@@ -1329,6 +1383,12 @@ export interface InterviewResumeTemplateVO {
   status: string;
   liked?: boolean;
   createTime?: string;
+  /**
+   * 模板结构化示例数据（JSON 字符串，v10.18 阶段一模板套用打通）
+   * 字段：name/phone/email/city/avatar/jobIntention/educations/works/projects/skills/selfIntro
+   * 后端 PortalInterviewResumeTemplate.sampleData 直传；前端 fillFromTemplate 解析后填充编辑页
+   */
+  sampleData?: string;
 }
 
 export interface InterviewResumeTemplateQuery {
@@ -1425,6 +1485,12 @@ export interface UserResumeVO {
   mine?: boolean;
   createTime?: string;
   updateTime?: string;
+  /** 简历来源类型（v10.22）：online=在线简历（默认），attachment=附件简历 */
+  sourceType?: 'online' | 'attachment' | string;
+  /** 附件源文件 URL（sourceType=attachment 时有值，认证下载流） */
+  sourceFileUrl?: string;
+  /** 附件源文件名（sourceType=attachment 时有值） */
+  sourceFileName?: string;
 }
 
 /** 简历 AI 改进建议 VO（v5.9 阶段2） */
@@ -1445,12 +1511,143 @@ export interface ResumeAiAdviceVO {
   generatedTime?: string;
 }
 
+/** 岗位目标（v10.13，与后端 PortalResumeJobTarget 对齐） */
+export interface ResumeJobTarget {
+  id?: number | string;
+  position: string;
+  company?: string;
+  city?: string;
+  jobType?: string;
+  /** 岗位描述/JD 原文（匹配分析核心输入） */
+  jdText: string;
+  jdKeywords?: string;
+  isDefault?: number;
+  createTime?: string;
+  updateTime?: string;
+}
+
+/** 匹配报告维度评分（与后端 dimensions JSON 对齐） */
+export interface JobMatchDimension {
+  score: number;
+  suggestions?: string[];
+}
+
+/** 岗位匹配报告（与后端 PortalResumeJobMatch 对齐） */
+export interface ResumeJobMatchReport {
+  id?: number | string;
+  resumeId?: number | string;
+  jobTargetId?: number | string;
+  matchScore: number;
+  grade?: 'excellent' | 'good' | 'medium' | 'poor' | string;
+  matchedKeywords?: string;
+  missingKeywords?: string;
+  dimensions?: {
+    keywordMatch?: JobMatchDimension;
+    experienceMatch?: JobMatchDimension;
+    skillMatch?: JobMatchDimension;
+    structureMatch?: JobMatchDimension;
+  };
+  summary?: string;
+  aiPowered?: number | boolean;
+  createTime?: string;
+}
+
+/** 优化历史记录（与后端 PortalResumeOptimizeHistory 对齐，v10.15 评分闭环） */
+export interface ResumeOptimizeHistory {
+  id?: number | string;
+  resumeId?: number | string;
+  jobTargetId?: number | string;
+  /** 优化前总分（规则评分，apply 时后端自动落库） */
+  scoreBefore?: number;
+  /** 优化后总分（规则评分，apply 时后端自动落库） */
+  scoreAfter?: number;
+  /** 优化前岗位匹配分（取最近一次匹配报告） */
+  matchScoreBefore?: number;
+  /** 优化后岗位匹配分（当前留空，需手动重跑匹配） */
+  matchScoreAfter?: number;
+  /** 采纳的建议项 ID 列表 */
+  adoptedItems?: string;
+  /** 优化说明摘要 */
+  summary?: string;
+  createTime?: string;
+}
+
+/** 深度优化建议单项（与后端 ResumeDeepOptimizeVO.OptimizeItem 对齐） */
+export interface ResumeOptimizeItem {
+  /** objective/education/work/project/skills/selfIntro */
+  section: string;
+  index?: number;
+  field?: string;
+  original?: string;
+  optimized: string;
+  reason?: string;
+}
+
+/** 深度优化结果（与后端 ResumeDeepOptimizeVO 对齐） */
+export interface ResumeDeepOptimizeVO {
+  resumeId?: number | string;
+  jobTargetId?: number | string;
+  summary?: string;
+  items: ResumeOptimizeItem[];
+  aiPowered?: boolean;
+}
+
+/**
+ * 评分报告（与后端 PortalResumeScoreReport 对齐，v10.18 阶段五）
+ * 每次评分（单独评分 / 优化后重新评分 / 模板套用评分）结果存档，可追溯历史评分
+ */
+export interface ResumeScoreReport {
+  id?: number | string;
+  userId?: number | string;
+  resumeId: number | string;
+  /** 关联岗位目标ID（可选，纯规则评分时为空） */
+  jobTargetId?: number | string;
+  /** 评分时的目标岗位快照（便于报告独立解读） */
+  positionSnapshot?: string;
+  /** 综合评分 0-100 */
+  score: number;
+  /** 各维度评分明细 JSON 字符串（与 portal_user_resume.score_detail 字段格式一致，复用前端解析） */
+  scoreDetail?: string;
+  /** 评分来源：manual 单独评分 / optimize 优化后重新评分 / template 模板套用评分 */
+  source?: 'manual' | 'optimize' | 'template' | string;
+  createTime?: string;
+}
+
+/** 简历附件解析结果（v10.12，与后端 ResumeParseVO 对齐，字段语义同 UserResumeVO） */
+export interface ResumeParseVO {
+  name?: string;
+  gender?: string;
+  /** yyyy-MM-dd（原文只有年月时后端补 01） */
+  birthDate?: string;
+  phone?: string;
+  email?: string;
+  title?: string;
+  jobIntention?: UserResumeJobIntention;
+  educations?: UserResumeEducationItem[];
+  works?: UserResumeWorkItem[];
+  projects?: UserResumeProjectItem[];
+  skills?: UserResumeSkillItem[];
+  selfIntro?: string;
+  /** 是否由 LLM 结构化解析（false = 规则粗解析，字段覆盖度低） */
+  aiPowered?: boolean;
+  /** 附件抽取文本长度 */
+  textLength?: number;
+  /** v10.22：后端创建的附件简历记录 ID（上传解析成功后返回，前端据此跳转编辑页） */
+  attachmentResumeId?: string | number;
+  /** v10.22：附件源文件 URL（认证下载流） */
+  sourceFileUrl?: string;
+  /** v10.22：附件源文件名 */
+  sourceFileName?: string;
+}
+
 /** 单条改进建议 */
 export interface ResumeAiAdviceItem {
   /** 建议维度（如 "基本信息"、"岗位匹配度"） */
   dimension?: string;
   /** 优先级 high/medium/low */
   priority?: 'high' | 'medium' | 'low' | string;
+  /** AI 优化结果（可直接采纳的优化后文本，按 dimension 映射填充到简历对应字段） */
+  optimized?: string;
   /** 建议内容 */
   content?: string;
   /** 建议类型 fill（补充缺失）/ refine（优化已有）/ match（岗位匹配） */
@@ -1916,51 +2113,6 @@ export interface CodeRunVO {
   createTime?: string;
 }
 
-// ==================== AI 模拟面试官（任务 3.10）====================
-
-/** 模拟面试问答 VO */
-export interface MockInterviewQaVO {
-  id: string | number;
-  interviewId: string | number;
-  questionId?: string | number;
-  /** 题目序号（从 0 开始） */
-  questionIdx: number;
-  /** 面试问题（快照自题目标题） */
-  question: string;
-  userAnswer?: string;
-  aiFeedback?: string;
-  /** 本题评分（0-100），未作答为空 */
-  score?: number;
-  createTime?: string;
-}
-
-/** 模拟面试会话 VO */
-export interface MockInterviewVO {
-  id: string | number;
-  userId?: string | number;
-  position?: string;
-  scene?: string;
-  /** in_progress/finished */
-  status: string;
-  totalQa: number;
-  score?: number;
-  summary?: string;
-  /** 是否基于画像抽题（0随机 1画像驱动） */
-  isPersonalized?: number;
-  /** 抽题时的画像快照 JSON（含薄弱点列表，便于回溯分析） */
-  profileSnapshot?: string;
-  createTime?: string;
-  updateTime?: string;
-}
-
-/** 模拟面试详情 VO（含问答列表） */
-export interface MockInterviewDetailVO extends MockInterviewVO {
-  /** 问答列表（按 question_idx 升序） */
-  qaList: MockInterviewQaVO[];
-  /** 已答完题数 */
-  answeredCount?: number;
-}
-
 // ==================== 用户画像快照（v5.9 阶段0：画像驱动抽题） ====================
 
 /** 薄弱知识点条目 */
@@ -1988,10 +2140,6 @@ export interface UserProfileSnapshotVO {
   requiredSkills?: string[];
   /** 薄弱知识点列表（按 failRate 降序） */
   weakTags?: WeakTagItem[];
-  /** 模拟面试次数 */
-  mockInterviewCount?: number;
-  /** 模拟面试平均分 */
-  avgMockScore?: number;
   /** 是否命中画像驱动（薄弱点 ≥ 1 或必备技能 ≥ 1） */
   personalized: boolean;
 }
@@ -2069,4 +2217,118 @@ export interface TopicComment {
   createdTime: string;
   isLiked?: boolean;
   replies?: TopicComment[];
+}
+
+// ==================== V11.0 支付中心类型 ====================
+
+/** 微信打赏下单返回（收银台参数） */
+export interface PayCashierResult {
+  /** 支付单号 */
+  payNo: string;
+  /** 微信 native 支付二维码链接 */
+  codeUrl: string;
+  /** 金额（元） */
+  amount: number;
+  /** 订单过期时间 */
+  expireTime?: string;
+  /** 打赏单ID */
+  tipOrderId?: number | string;
+  /** mock 模拟支付开关 */
+  mockEnabled?: boolean;
+}
+
+/** 支付状态轮询结果 */
+export interface PayStatusResult {
+  payNo: string;
+  /** CREATED/PAID/SETTLED/CLOSED */
+  status: string;
+  /** 金额（元） */
+  amount: number;
+  expireTime?: string;
+  codeUrl?: string;
+  mockEnabled?: boolean;
+}
+
+/** 账户总览 */
+export interface PayAccountOverview {
+  userId: number | string;
+  /** 余额（元） */
+  balance: number;
+  /** 累计收入（元） */
+  totalIncome: number;
+  /** 累计提现（元） */
+  totalWithdraw: number;
+}
+
+/** 资金流水条目 */
+export interface PayLedgerEntry {
+  id?: number | string;
+  payNo?: string;
+  bizType?: string;
+  bizNo?: string;
+  /** PLATFORM/USER */
+  accountRole?: string;
+  userId?: number | string;
+  /** credit=收入 debit=支出 */
+  direction?: string;
+  /** 金额（元） */
+  amount?: number;
+  /** 变动后余额（元） */
+  balanceAfter?: number;
+  summary?: string;
+  createTime?: string;
+}
+
+/** 资金流水分页结果 */
+export interface PayLedgerListResult {
+  records: PayLedgerEntry[];
+  total: number;
+  current: number;
+  size: number;
+}
+
+/** 银行卡（脱敏，密文从不下发） */
+export interface UserBankCard {
+  id: number | string;
+  holderName: string;
+  cardNoMasked: string;
+  bankCode?: string;
+  bankName?: string;
+  /** PENDING/VERIFIED/REJECTED */
+  verifyStatus?: string;
+  isDefault?: number;
+}
+
+/** 绑定银行卡表单 */
+export interface BankCardForm {
+  holderName: string;
+  cardNo: string;
+  phone: string;
+  bankCode?: string;
+  bankName?: string;
+  /** 短信验证码（V11.1 银行卡绑定强校验） */
+  smsCode?: string;
+}
+
+/** 支付站内通知 */
+export interface PayNotification {
+  id: number | string;
+  userId?: number | string;
+  /** pay/withdraw/account */
+  notifyType?: string;
+  refNo?: string;
+  title: string;
+  content?: string;
+  /** 0=未读 1=已读 */
+  readFlag?: number;
+  createTime?: string;
+}
+
+/** 支付通知分页结果 */
+export interface PayNotificationListResult {
+  records: PayNotification[];
+  total: number;
+  current: number;
+  size: number;
+  unreadCount?: number;
 }

@@ -166,7 +166,7 @@ public class PortalFollowServiceImpl extends ServiceImpl<PortalFollowMapper, Por
             userStatsMapper.addFollowerCount(followingId, 1);
 
             // 为被关注者记录成长事件
-            portalGrowthService.recordEventWithTarget("article", "receive_follow",
+            portalGrowthService.recordEventWithTarget("user", "receive_follow",
                     followingId, followerId, "user", followerId);
 
             result.put("followed", true);
@@ -255,7 +255,7 @@ public class PortalFollowServiceImpl extends ServiceImpl<PortalFollowMapper, Por
         userStatsMapper.addFollowerCount(followingId, 1);
 
         // 为被关注者记录成长事件
-        portalGrowthService.recordEventWithTarget("article", "receive_follow",
+        portalGrowthService.recordEventWithTarget("user", "receive_follow",
                 followingId, followerId, "user", followerId);
 
         result.put("followed", true);

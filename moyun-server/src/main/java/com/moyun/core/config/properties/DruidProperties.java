@@ -10,7 +10,7 @@ import org.springframework.context.annotation.Configuration;
  * 使用 @ConfigurationProperties 绑定 spring.datasource.druid 前缀配置，
  * Spring Boot 松散绑定自动兼容 YAML kebab-case 与 Java camelCase。
  *
- * @author ruoyi
+ * @author allen-zyg
  */
 @Configuration
 @ConfigurationProperties(prefix = "spring.datasource.druid")

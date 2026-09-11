@@ -187,7 +187,7 @@ async function updatePassword() {
     }
   } catch (error) {
     console.error('密码修改失败:', error);
-    showError('密码修改失败，请稍后重试');
+    showError((error as Error)?.message || '密码修改失败，请稍后重试');
   } finally {
     isLoading.value = false;
   }
@@ -208,7 +208,7 @@ async function saveNotifySettings() {
     }
   } catch (error) {
     console.error('保存失败:', error);
-    showError('保存失败，请稍后重试');
+    showError((error as Error)?.message || '保存失败，请稍后重试');
   } finally {
     isLoading.value = false;
   }
@@ -229,21 +229,36 @@ async function savePrivacySettings() {
     }
   } catch (error) {
     console.error('保存失败:', error);
-    showError('保存失败，请稍后重试');
+    showError((error as Error)?.message || '保存失败，请稍后重试');
   } finally {
     isLoading.value = false;
   }
 }
 
 // 注销账号
-function confirmDelete() {
+async function confirmDelete() {
   if (deleteConfirmText.value !== '注销账号') {
     showError('请在输入框中输入"注销账号"以确认');
     return;
   }
-  showSuccess('账号注销申请已提交，请等待处理');
-  showDeleteConfirm.value = false;
-  deleteConfirmText.value = '';
+  try {
+    const response = await userApi.deactivateAccount(deleteConfirmText.value);
+    if (response.code === 200) {
+      showSuccess('账号已注销，即将退出登录');
+      showDeleteConfirm.value = false;
+      deleteConfirmText.value = '';
+      // 延迟退出，让用户看到提示
+      setTimeout(() => {
+        userStore.logoutWithApi();
+        window.location.href = '/';
+      }, 1500);
+    } else {
+      showError(response.message || '账号注销失败');
+    }
+  } catch (err) {
+    console.error('账号注销失败:', err);
+    showError((err as Error)?.message || '账号注销失败，请稍后重试');
+  }
 }
 </script>
 

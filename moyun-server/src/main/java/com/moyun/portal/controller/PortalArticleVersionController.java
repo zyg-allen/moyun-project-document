@@ -40,7 +40,7 @@ public class PortalArticleVersionController extends BaseController {
     }
 
     @Operation(summary = "版本列表", description = "查询指定文章的版本列表（按版本号降序，不含大字段）")
-    @GetMapping("/{id}/versions")
+    @GetMapping("/{id:[0-9]+}/versions")
     public AjaxResult listVersions(@PathVariable("id") Long id) {
         Long userId = currentUserId();
         if (userId == null) {
@@ -75,7 +75,7 @@ public class PortalArticleVersionController extends BaseController {
     }
 
     @Operation(summary = "回滚版本", description = "将文章内容覆盖回指定版本，并生成回滚后的新版本快照")
-    @PostMapping("/{id}/rollback/{versionId}")
+    @PostMapping("/{id:[0-9]+}/rollback/{versionId}")
     public AjaxResult rollback(@PathVariable("id") Long id,
                                @PathVariable("versionId") Long versionId) {
         Long userId = currentUserId();
@@ -91,7 +91,7 @@ public class PortalArticleVersionController extends BaseController {
     }
 
     @Operation(summary = "版本对比", description = "返回两个版本的 title + content 文本，前端做展示（不实现真正的 diff 算法）")
-    @GetMapping("/{id}/diff/{v1}/{v2}")
+    @GetMapping("/{id:[0-9]+}/diff/{v1}/{v2}")
     public AjaxResult diff(@PathVariable("id") Long id,
                           @PathVariable("v1") Integer v1,
                           @PathVariable("v2") Integer v2) {

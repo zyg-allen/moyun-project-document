@@ -33,7 +33,7 @@ import java.util.Set;
 /**
  * 登录验证
  *
- * @author ruoyi
+ * @author allen-zyg
  */
 @Tag(name = "认证管理", description = "系统登录、注销等认证相关接口")
 @RestController

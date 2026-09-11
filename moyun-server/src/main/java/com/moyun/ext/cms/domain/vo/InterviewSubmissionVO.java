@@ -30,14 +30,17 @@ public class InterviewSubmissionVO implements Serializable {
     /** 编程语言 */
     private String language;
 
-    /** 答案类型：code/text/design */
+    /** 答案类型：choice/code/text/design/reading */
     private String answerType;
 
     /** 状态：accepted/wrong_answer/time_limit/compile_error/pending */
     private String status;
 
-    /** 是否通过 */
+    /** 是否通过（记录原始判定） */
     private Boolean isSuccess;
+
+    /** 是否通过（服务端权威判分结果，与 isSuccess 同源，前端语义化字段） */
+    private Boolean passed;
 
     /** 运行时间（毫秒） */
     private Integer runtime;
@@ -57,6 +60,15 @@ public class InterviewSubmissionVO implements Serializable {
 
     /** 提交者昵称（精选笔记展示用） */
     private String userNickname;
+
+    /** 正确答案（仅选择题判分后返回，用于展示） */
+    private String correctAnswer;
+
+    /** 题目解析（仅选择题判分后返回） */
+    private String analysis;
+
+    /** 题目练习模式：reading/choice/coding */
+    private String practiceMode;
 
     /** 提交者头像（精选笔记展示用） */
     private String userAvatar;

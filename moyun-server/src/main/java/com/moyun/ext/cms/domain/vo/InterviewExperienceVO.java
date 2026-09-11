@@ -54,6 +54,9 @@ public class InterviewExperienceVO implements Serializable {
     /** 状态：draft/pending/published/rejected/archived */
     private String status;
 
+    /** 审核备注（驳回原因，rejected 时展示给作者） */
+    private String auditRemark;
+
     /** 作者信息 */
     private String userNickname;
 

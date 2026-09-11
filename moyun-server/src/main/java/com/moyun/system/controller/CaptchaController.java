@@ -4,6 +4,8 @@ import com.google.code.kaptcha.Producer;
 import com.moyun.common.constant.Constants;
 import com.moyun.core.base.AjaxResult;
 import com.moyun.core.config.redis.RedisCache;
+import com.moyun.core.security.auth.SysLoginService;
+import com.moyun.system.service.ISysConfigService;
 import com.moyun.util.crypto.Base64;
 import com.moyun.util.uuid.IdUtils;
 import io.swagger.v3.oas.annotations.Operation;
@@ -12,6 +14,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.util.FastByteArrayOutputStream;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import javax.imageio.ImageIO;
@@ -22,7 +25,7 @@ import java.util.concurrent.TimeUnit;
 /**
  * 验证码操作处理
  *
- * @author ruoyi
+ * @author allen-zyg
  */
 @Tag(name = "验证码管理", description = "验证码生成和获取接口")
 @RestController
@@ -42,14 +45,21 @@ public class CaptchaController {
     @Value("${captcha.expireTime:2}")
     private int expireTime;
 
+    @Autowired
+    private ISysConfigService sysConfigService;
+
+    @Autowired
+    private SysLoginService loginService;
+
     /**
      * 生成验证码
      */
-    @Operation(summary = "生成验证码", description = "生成图形验证码并返回Base64编码的图片")
+    @Operation(summary = "生成验证码", description = "生成图形验证码并返回Base64编码的图片；可带 username 参数用于风险账号判定")
     @GetMapping("/captchaImage")
-    public AjaxResult getCode() throws IOException {
+    public AjaxResult getCode(@RequestParam(value = "username", required = false) String username) throws IOException {
         AjaxResult ajax = AjaxResult.success();
-        boolean captchaEnabled = true;
+        boolean captchaEnabled = sysConfigService.selectCaptchaEnabled()
+                || loginService.isRiskCaptchaRequired(username);
         ajax.put("captchaEnabled", captchaEnabled);
         if (!captchaEnabled) {
             return ajax;
@@ -89,7 +99,7 @@ public class CaptchaController {
             return AjaxResult.error(e.getMessage());
         }
 
-        ajax.put("capStr", capStr);
+        // 注意：不得将 capStr（验证码明文/算式）返回给前端，否则验证码形同虚设
         ajax.put("uuid", uuid);
         ajax.put("img", Base64.encode(os.toByteArray()));
         return ajax;

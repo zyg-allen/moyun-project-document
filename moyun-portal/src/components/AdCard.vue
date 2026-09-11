@@ -45,9 +45,14 @@ onMounted(async () => {
   }
 });
 
-function handleOpen(link: string) {
-  if (!link) return;
-  window.open(link, '_blank', 'noopener');
+function handleOpen(ad: AdSlot) {
+  if (!ad || !ad.link) return;
+  const target = ad.openTarget === '_self' ? '_self' : '_blank';
+  if (target === '_self') {
+    window.location.href = ad.link;
+  } else {
+    window.open(ad.link, '_blank', 'noopener,noreferrer');
+  }
 }
 
 // 关闭单条广告：阻止冒泡（避免触发外层跳转），加入关闭集合并持久化
@@ -89,8 +94,8 @@ function handleClose(ad: AdSlot, e: Event) {
         class="group relative rounded-2xl overflow-hidden border shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-300 cursor-pointer"
         style="background-color: var(--theme-surface); border-color: var(--theme-border);"
         :aria-label="'广告: ' + ad.title"
-        @click="handleOpen(ad.link)"
-        @keydown.enter="handleOpen(ad.link)"
+        @click="handleOpen(ad)"
+        @keydown.enter="handleOpen(ad)"
     >
       <!-- 广告图：4:1 比例，符合广告位视觉，避免 16:9 过高 -->
       <div v-if="ad.image" class="relative overflow-hidden">

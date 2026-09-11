@@ -68,6 +68,11 @@ export const updatePassword = (params: UpdatePasswordParams) => {
   return httpPut('/portal/user/password', params);
 };
 
+// 注销账号（软删除）
+export const deactivateAccount = (confirmText: string) => {
+  return httpPut('/portal/user/deactivate', { confirmText });
+};
+
 // 上传头像
 export const uploadAvatar = (file: File) => {
   return httpUpload<User>('/portal/user/avatar', file);

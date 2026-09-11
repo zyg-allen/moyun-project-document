@@ -211,9 +211,15 @@ async function loadArticles() {
     const params: any = {
       pageNum: currentPage.value,
       pageSize: itemsPerPage.value,
-      categoryName: selectedCategory.value !== '全部' ? selectedCategory.value : undefined,
       isCategoryRecommended: isCategoryRecommended.value ? true : undefined
     };
+
+    // 根据列表类型区分传参：分类传 categoryName，标签传 tagName
+    if (listType.value === 'tag' && selectedCategory.value !== '全部') {
+      params.tagName = selectedCategory.value;
+    } else if (selectedCategory.value !== '全部') {
+      params.categoryName = selectedCategory.value;
+    }
 
     const response = await articleApi.getArticleList(params);
 
@@ -266,21 +272,21 @@ useHead(
 </script>
 
 <template>
-  <div class="min-h-screen flex flex-col" style="background-color: var(--theme-bg);">
+  <div class="min-h-screen flex flex-col bg-theme-bg">
     <!-- 吸顶面包屑栏 -->
-    <div class="border-b sticky top-0 z-30 backdrop-blur-sm py-3" style="background-color: var(--theme-surface); border-color: var(--theme-border);">
-      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between gap-4">
+    <div class="border-b border-theme-border sticky top-0 z-30 backdrop-blur-sm py-3 bg-theme-surface/95">
+      <div class="content-container flex items-center justify-between gap-4">
         <Breadcrumb :items="breadcrumbs" />
-        <span v-if="isCategoryRecommended" class="px-2 py-1 text-xs rounded-full flex-shrink-0" style="background-color: var(--theme-primary); color: white;">
+        <span v-if="isCategoryRecommended" class="px-2 py-1 caption-text rounded-full flex-shrink-0 bg-theme-primary text-theme-on-primary">
           本栏推荐
         </span>
       </div>
     </div>
 
     <!-- 文章列表 -->
-    <div class="py-4 flex-1">
-      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div class="grid lg:grid-cols-[1fr_300px] gap-6 lg:gap-8">
+    <div class="py-5 sm:py-6 flex-1">
+      <div class="content-container">
+        <div class="grid lg:grid-cols-[1fr_300px] gap-5 lg:gap-6">
           <!-- 主列表区 -->
           <div class="min-w-0">
             <!-- 加载状态 -->
@@ -288,31 +294,31 @@ useHead(
 
             <!-- 错误状态 -->
             <div v-else-if="error" class="py-16 flex flex-col items-center justify-center text-center">
-              <div class="w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6" style="background-color: var(--theme-accent);">
-                <Clock class="w-10 h-10" style="color: var(--theme-text-secondary);" />
+              <div class="w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6 bg-theme-accent">
+                <Clock class="w-10 h-10 text-theme-text-secondary" />
               </div>
-              <h3 class="text-xl font-bold mb-2" style="color: var(--theme-text);">加载失败</h3>
-              <p class="mb-6" style="color: var(--theme-text-secondary);">{{ error }}</p>
-              <button @click="loadArticles" class="px-4 py-2 rounded-lg text-sm font-medium text-white" style="background-color: var(--theme-primary);">重试</button>
+              <h3 class="text-xl font-bold mb-2 text-theme-text">加载失败</h3>
+              <p class="mb-6 text-theme-text-secondary">{{ error }}</p>
+              <button @click="loadArticles" class="theme-btn theme-btn-primary px-5 py-2.5 text-sm">重试</button>
             </div>
 
             <!-- 文章列表 -->
-            <div v-else-if="paginatedArticles.length > 0" class="space-y-4 sm:space-y-6 mb-6">
+            <div v-else-if="paginatedArticles.length > 0" class="space-y-3 sm:space-y-4 mb-5">
               <ArticleCard
-                  v-for="article in paginatedArticles"
-                  :key="article.id"
-                  :article="article"
+                v-for="article in paginatedArticles"
+                :key="article.id"
+                :article="article"
               />
             </div>
 
             <!-- Pagination -->
-            <div class="flex justify-center mt-8" v-if="!loading && !error && totalPages > 1 && paginatedArticles.length > 0">
+            <div class="flex justify-center mt-6" v-if="!loading && !error && totalPages > 1 && paginatedArticles.length > 0">
               <Pagination
-                  :current-page="currentPage"
-                  :total-pages="totalPages"
-                  :total-items="totalItems"
-                  :items-per-page="itemsPerPage"
-                  @page-change="handlePageChange"
+                :current-page="currentPage"
+                :total-pages="totalPages"
+                :total-items="totalItems"
+                :items-per-page="itemsPerPage"
+                @page-change="handlePageChange"
               />
             </div>
 
@@ -323,27 +329,26 @@ useHead(
               description="该分类下还没有文章，敬请期待"
               size="lg"
             >
-              <Link to="/category" class="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-white" style="background-color: var(--theme-primary);">浏览全站</Link>
+              <Link to="/category" class="theme-btn theme-btn-primary px-5 py-2.5 text-sm">浏览全站</Link>
             </Empty>
           </div>
 
           <!-- 侧栏（lg 屏显示） -->
-          <aside class="hidden lg:block space-y-6">
+          <aside class="hidden lg:block space-y-5">
             <!-- 创作引导卡 -->
-            <div class="rounded-xl p-5" style="background-color: var(--theme-surface); border: 1px solid var(--theme-border);">
+            <div class="rounded-xl p-4 theme-card">
               <div class="flex items-center gap-2 mb-3">
-                <div class="w-8 h-8 rounded-lg flex items-center justify-center" style="background-color: var(--theme-accent);">
-                  <PenLine class="w-4 h-4" style="color: var(--theme-primary);" />
+                <div class="w-8 h-8 rounded-lg flex items-center justify-center bg-theme-accent">
+                  <PenLine class="w-4 h-4 text-theme-primary" />
                 </div>
-                <h3 class="font-semibold text-base" style="color: var(--theme-text);">写下你的所思</h3>
+                <h3 class="section-title">写下你的所思</h3>
               </div>
-              <p class="text-xs mb-4" style="color: var(--theme-text-secondary);">
+              <p class="card-summary mb-4">
                 在浮躁的世界，留一页纸给灵魂。分享即是力量。
               </p>
               <button
-                  @click="goToPublish"
-                  class="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-colors"
-                  style="background-color: var(--theme-primary); color: white;"
+                @click="goToPublish"
+                class="w-full theme-btn theme-btn-primary py-2.5 text-sm"
               >
                 <PenLine class="w-4 h-4" />
                 开始创作
@@ -351,18 +356,17 @@ useHead(
             </div>
 
             <!-- 热门标签 -->
-            <div v-if="hotTags.length > 0" class="rounded-xl p-5" style="background-color: var(--theme-surface); border: 1px solid var(--theme-border);">
-              <div class="flex items-center gap-2 mb-4">
-                <Flame class="w-4 h-4" style="color: var(--theme-primary);" />
-                <h3 class="font-semibold text-base" style="color: var(--theme-text);">热门标签</h3>
+            <div v-if="hotTags.length > 0" class="rounded-xl p-4 theme-card">
+              <div class="flex items-center gap-2 mb-3">
+                <Flame class="w-4 h-4 text-theme-primary" />
+                <h3 class="section-title">热门标签</h3>
               </div>
               <nav class="flex flex-wrap gap-2">
                 <button
-                    v-for="tag in hotTags"
-                    :key="tag.id || tag.name"
-                    @click="goToTag(tag.name)"
-                    class="inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-xs transition-colors hover:opacity-80"
-                    style="background-color: var(--theme-accent); color: var(--theme-primary);"
+                  v-for="tag in hotTags"
+                  :key="tag.id || tag.name"
+                  @click="goToTag(tag.name)"
+                  class="inline-flex items-center gap-1 px-3 py-1.5 rounded-full caption-text transition-colors hover:opacity-80 bg-theme-accent text-theme-primary"
                 >
                   <Tag class="w-3 h-3" />
                   {{ tag.name }}
@@ -371,29 +375,29 @@ useHead(
             </div>
 
             <!-- 热门文章推荐 -->
-            <div v-if="hotArticles.length > 0" class="rounded-xl p-5" style="background-color: var(--theme-surface); border: 1px solid var(--theme-border);">
-              <div class="flex items-center gap-2 mb-4">
-                <Flame class="w-4 h-4" style="color: var(--theme-primary);" />
-                <h3 class="font-semibold text-base" style="color: var(--theme-text);">热门文章</h3>
+            <div v-if="hotArticles.length > 0" class="rounded-xl p-4 theme-card">
+              <div class="flex items-center gap-2 mb-3">
+                <Flame class="w-4 h-4 text-theme-primary" />
+                <h3 class="section-title">热门文章</h3>
               </div>
               <div class="space-y-3">
                 <button
-                    v-for="(article, index) in hotArticles"
-                    :key="article.id"
-                    @click="router.push(`/article/${article.id}`)"
-                    class="flex items-start gap-2 cursor-pointer w-full text-left group"
+                  v-for="(article, index) in hotArticles"
+                  :key="article.id"
+                  @click="router.push(`/article/${article.id}`)"
+                  class="flex items-start gap-2 cursor-pointer w-full text-left group"
                 >
                   <span
-                      class="w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 mt-0.5"
-                      :style="index < 3 ? { backgroundColor: 'var(--theme-primary)', color: 'white' } : { backgroundColor: 'var(--theme-accent)', color: 'var(--theme-text-secondary)' }"
+                    class="w-5 h-5 rounded-full flex items-center justify-center caption-text font-bold flex-shrink-0 mt-0.5"
+                    :class="index < 3 ? 'bg-theme-primary text-theme-on-primary' : 'bg-theme-accent text-theme-text-secondary'"
                   >
                     {{ index + 1 }}
                   </span>
                   <div class="flex-1 min-w-0">
-                    <h4 class="text-sm line-clamp-2 group-hover:opacity-80 transition-opacity" style="color: var(--theme-text);">
+                    <h4 class="card-title line-clamp-2 group-hover:text-theme-primary transition-colors">
                       {{ article.title }}
                     </h4>
-                    <div class="flex items-center gap-1 mt-1 text-xs" style="color: var(--theme-text-secondary);">
+                    <div class="flex items-center gap-1 mt-1 meta-text">
                       <Eye class="w-3 h-3" />
                       <span>{{ article.views || 0 }}</span>
                     </div>
@@ -403,30 +407,30 @@ useHead(
             </div>
 
             <!-- 浏览其他分类 -->
-            <div class="rounded-xl p-5" style="background-color: var(--theme-surface); border: 1px solid var(--theme-border);">
+            <div class="rounded-xl p-4 theme-card">
               <div class="flex items-center gap-2 mb-3">
-                <ArrowRight class="w-4 h-4" style="color: var(--theme-primary);" />
-                <h3 class="font-semibold text-base" style="color: var(--theme-text);">浏览全站</h3>
+                <ArrowRight class="w-4 h-4 text-theme-primary" />
+                <h3 class="section-title">浏览全站</h3>
               </div>
               <div class="space-y-1">
-                <Link to="/category" class="block py-2 text-sm transition-colors hover:opacity-80" style="color: var(--theme-text-secondary);">全部文章</Link>
-                <Link to="/authors" class="block py-2 text-sm transition-colors hover:opacity-80" style="color: var(--theme-text-secondary);">名家录</Link>
-                <Link to="/reading" class="block py-2 text-sm transition-colors hover:opacity-80" style="color: var(--theme-text-secondary);">读书空间</Link>
-                <Link to="/interview" class="block py-2 text-sm transition-colors hover:opacity-80" style="color: var(--theme-text-secondary);">面试指南</Link>
+                <Link to="/category" class="block py-2 text-sm transition-colors hover:text-theme-primary text-theme-text-secondary">全部文章</Link>
+                <Link to="/authors" class="block py-2 text-sm transition-colors hover:text-theme-primary text-theme-text-secondary">名家录</Link>
+                <Link to="/reading" class="block py-2 text-sm transition-colors hover:text-theme-primary text-theme-text-secondary">读书空间</Link>
+                <Link to="/interview" class="block py-2 text-sm transition-colors hover:text-theme-primary text-theme-text-secondary">面试指南</Link>
               </div>
             </div>
 
             <!-- 小广告位（纯静态占位卡，预留后端接口位置） -->
-            <div class="rounded-xl p-5 relative overflow-hidden" style="background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);">
+            <div class="rounded-xl p-4 relative overflow-hidden" style="background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);">
               <div class="flex items-center gap-2 mb-2">
                 <Megaphone class="w-4 h-4 text-white/80" />
-                <span class="text-xs text-white/80 font-medium">合作推广</span>
+                <span class="caption-text text-white/80 font-medium">合作推广</span>
               </div>
               <h4 class="text-white font-semibold text-sm mb-1">成为认证创作者</h4>
               <p class="text-white/80 text-xs mb-3 leading-relaxed">享受专属权益，让你的创作被更多人看见</p>
               <button
-                  @click="router.push('/creator/certification')"
-                  class="inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-medium bg-white text-indigo-700 hover:bg-indigo-50 transition-colors"
+                @click="router.push('/creator/certification')"
+                class="inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-medium bg-white text-indigo-700 hover:bg-indigo-50 transition-colors"
               >
                 了解更多
                 <ArrowRight class="w-3 h-3" />

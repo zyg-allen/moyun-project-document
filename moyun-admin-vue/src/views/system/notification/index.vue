@@ -95,7 +95,7 @@
           <span>{{ parseTime(scope.row.createTime) }}</span>
         </template>
       </el-table-column>
-      <el-table-column label="操作" align="center" class-name="small-padding fixed-width" width="180">
+      <el-table-column label="操作" align="right" class-name="small-padding fixed-width" width="180">
         <template #default="scope">
           <el-button
             link
@@ -132,7 +132,7 @@
     />
 
     <!-- 添加或修改通知对话框 -->
-    <el-dialog :title="title" v-model="open" width="600px" append-to-body>
+    <el-dialog :title="title" v-model="open" width="760px" append-to-body>
       <el-form ref="notificationRef" :model="form" :rules="rules" label-width="80px">
         <el-form-item label="通知范围" prop="scope">
           <el-radio-group v-model="form.scope" @change="handleScopeChange">
@@ -194,7 +194,7 @@
     </el-dialog>
 
     <!-- 发送系统通知对话框 -->
-    <el-dialog title="发送系统通知" v-model="sendAllOpen" width="600px" append-to-body>
+    <el-dialog title="发送系统通知" v-model="sendAllOpen" width="760px" append-to-body>
       <el-form ref="sendAllRef" :model="sendAllForm" :rules="sendAllRules" label-width="80px">
         <el-form-item label="通知标题" prop="title">
           <el-input v-model="sendAllForm.title" placeholder="请输入通知标题" />
@@ -212,7 +212,7 @@
     </el-dialog>
 
     <!-- 查看通知对话框 -->
-    <el-dialog title="通知详情" v-model="viewOpen" width="600px" append-to-body>
+    <el-dialog title="通知详情" v-model="viewOpen" width="760px" append-to-body>
       <el-descriptions :column="1" border>
         <el-descriptions-item label="通知编号">{{ viewForm.id }}</el-descriptions-item>
         <el-descriptions-item label="通知范围">

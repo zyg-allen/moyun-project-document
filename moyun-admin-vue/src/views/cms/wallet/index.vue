@@ -51,11 +51,7 @@
           </el-form-item>
           <el-form-item label="交易类型" prop="type">
             <el-select v-model="transQuery.type" placeholder="交易类型" clearable style="width: 200px">
-              <el-option label="充值" value="recharge" />
-              <el-option label="消费" value="consume" />
-              <el-option label="退款" value="refund" />
-              <el-option label="提现" value="withdraw" />
-              <el-option label="打赏" value="tip" />
+              <el-option v-for="d in portal_wallet_txn_type" :key="d.value" :label="d.label" :value="d.value" />
             </el-select>
           </el-form-item>
           <el-form-item>
@@ -69,7 +65,7 @@
           <el-table-column label="用户ID" align="center" prop="userId" width="100" />
           <el-table-column label="交易类型" align="center" prop="type" width="100">
             <template #default="scope">
-              <el-tag :type="transTagType(scope.row.type)">{{ transLabel(scope.row.type) }}</el-tag>
+              <dict-tag :options="portal_wallet_txn_type" :value="scope.row.type" />
             </template>
           </el-table-column>
           <el-table-column label="金额" align="center" prop="amount" width="120">
@@ -104,6 +100,7 @@
 import { listWallet, listTransaction } from "@/api/cms/wallet";
 
 const { proxy } = getCurrentInstance();
+const { portal_wallet_txn_type } = proxy.useDict("portal_wallet_txn_type");
 
 const activeTab = ref("wallet");
 const showSearch = ref(true);
@@ -157,16 +154,6 @@ function resetTransQuery() {
   transQuery.userId = undefined;
   transQuery.type = undefined;
   handleTransQuery();
-}
-
-function transLabel(type) {
-  const map = { recharge: '充值', consume: '消费', refund: '退款', withdraw: '提现', tip: '打赏' };
-  return map[type] || type;
-}
-
-function transTagType(type) {
-  const map = { recharge: 'success', consume: 'danger', refund: 'warning', withdraw: 'info', tip: '' };
-  return map[type] || '';
 }
 
 watch(activeTab, (val) => {

@@ -2,6 +2,7 @@ import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
 import * as notificationApi from '@/api/notification';
 import * as messageApi from '@/api/message';
+import * as payApi from '@/api/pay';
 
 /**
  * 消息中心状态存储
@@ -11,18 +12,20 @@ import * as messageApi from '@/api/message';
  * - MessagesPage 消息中心页操作已读/收到新消息后，需通知 Navbar 更新
  * - MessageChat 聊天页标记已读/发送消息后，需同步会话列表与未读数
  *
- * 未读总数 = 通知未读 + 私信未读，用于 Navbar 消息中心按钮徽章。
+ * 未读总数 = 通知未读 + 私信未读 + 支付通知未读，用于 Navbar 头部统一提醒。
  */
 export const useMessageStore = defineStore('message', () => {
   // 通知未读数（系统通知：评论/点赞/关注/系统消息）
   const notifUnreadCount = ref(0);
   // 私信未读数（私信会话未读消息总数）
   const msgUnreadCount = ref(0);
+  // 支付通知未读数（打赏到账/支付结果/提现状态）
+  const payUnreadCount = ref(0);
   // 是否正在加载（避免并发重复请求）
   const loading = ref(false);
 
-  // 未读总数：Navbar 消息中心按钮徽章
-  const totalUnread = computed(() => notifUnreadCount.value + msgUnreadCount.value);
+  // 未读总数：Navbar 头部铃铛徽章  未读总数 = 通知 + 私信 + 支付通知  加法，转为数字再加
+  const totalUnread = computed(() =>  Number(notifUnreadCount.value) + Number(msgUnreadCount.value) + Number(payUnreadCount.value));
 
   /** 加载通知未读数（从后端同步） */
   async function loadNotifUnread() {
@@ -48,12 +51,31 @@ export const useMessageStore = defineStore('message', () => {
     }
   }
 
-  /** 加载全部未读数（通知 + 私信） */
+  /** 加载支付通知未读数（从后端同步，游客静默忽略） */
+  async function loadPayUnread() {
+    try {
+      const resp = await payApi.getUnreadNotificationCount();
+      if (resp.code === 200) {
+        payUnreadCount.value = resp.data || 0;
+      }
+    } catch {
+      /* 未登录或接口不可用时静默 */
+    }
+  }
+
+  /** 加载全部未读数（通知 + 私信 + 支付通知） */
   async function loadAllUnread() {
     if (loading.value) return;
     loading.value = true;
     try {
-      await Promise.all([loadNotifUnread(), loadMsgUnread()]);
+      await Promise.all([loadNotifUnread(), loadMsgUnread(), loadPayUnread()]);
+      // 诊断日志：用于排查头部铃铛 totalUnread 与消息中心各 tab 未读数不一致的问题
+      console.log('[message-store] unread breakdown:', {
+        notif: notifUnreadCount.value,
+        msg: msgUnreadCount.value,
+        pay: payUnreadCount.value,
+        total: notifUnreadCount.value + msgUnreadCount.value + payUnreadCount.value,
+      });
     } finally {
       loading.value = false;
     }
@@ -69,6 +91,16 @@ export const useMessageStore = defineStore('message', () => {
     notifUnreadCount.value = 0;
   }
 
+  /** 支付通知：标记单条已读后，本地未读数 -1（不会小于 0） */
+  function decPayUnread(n = 1) {
+    payUnreadCount.value = Math.max(0, payUnreadCount.value - n);
+  }
+
+  /** 支付通知：全部标记已读 */
+  function clearPayUnread() {
+    payUnreadCount.value = 0;
+  }
+
   /** 私信：某会话标记已读后，本地私信未读数重置（从后端重新拉取最准确） */
   async function refreshMsgUnread() {
     await loadMsgUnread();
@@ -78,18 +110,23 @@ export const useMessageStore = defineStore('message', () => {
   function reset() {
     notifUnreadCount.value = 0;
     msgUnreadCount.value = 0;
+    payUnreadCount.value = 0;
   }
 
   return {
     notifUnreadCount,
     msgUnreadCount,
+    payUnreadCount,
     totalUnread,
     loading,
     loadNotifUnread,
     loadMsgUnread,
+    loadPayUnread,
     loadAllUnread,
     decNotifUnread,
     clearNotifUnread,
+    decPayUnread,
+    clearPayUnread,
     refreshMsgUnread,
     reset,
   };

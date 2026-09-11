@@ -40,8 +40,8 @@ const breadcrumbs = computed(() => [
 
 useHead(computed(() => generateSeo({
   title: '错题本',
-  description: '墨韵智库错题本 - 错题记录、按标签筛选、复习追踪、标记掌握',
-  keywords: ['错题本', '错题复习', '艾宾浩斯', '刷题', '墨韵'],
+  description: '旭林知行错题本 - 错题记录、按标签筛选、复习追踪、标记掌握',
+  keywords: ['错题本', '错题复习', '艾宾浩斯', '刷题', '旭林'],
   canonicalPath: '/learn/wrong',
   robots: 'noindex,nofollow',
 })));

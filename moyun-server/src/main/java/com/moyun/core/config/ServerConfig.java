@@ -8,7 +8,7 @@ import  jakarta.servlet.http.HttpServletRequest;
 /**
  * 服务相关配置
  * 
- * @author ruoyi
+ * @author allen-zyg
  */
 @Component
 public class ServerConfig

@@ -10,6 +10,10 @@ export interface WritingPromptVO {
   description?: string;
   /** 分类（生活/职场/情感/虚构/哲思） */
   category?: string;
+  /** 关联特殊日期名称（节日/节气/纪念日） */
+  festivalName?: string;
+  /** 来源：ai=AI生成 / manual=手动创建 */
+  source?: string;
   createdTime?: string;
 }
 

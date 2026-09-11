@@ -4,7 +4,7 @@
     <el-form :model="queryParams" ref="queryRef" :inline="true" v-show="showSearch" class="search-form">
       <el-form-item label="任务类型" prop="taskType">
         <el-select v-model="queryParams.taskType" placeholder="全部类型" clearable style="width: 160px">
-          <el-option v-for="opt in taskTypeOptions" :key="opt.value" :label="opt.label" :value="opt.value" />
+          <el-option v-for="d in cms_audit_task_type" :key="d.value" :label="d.label" :value="d.value" />
         </el-select>
       </el-form-item>
       <el-form-item label="标题" prop="title">
@@ -60,7 +60,7 @@
       <el-table-column label="处理人" align="center" prop="auditorName" width="100" />
       <el-table-column label="提交时间" align="center" prop="submitTime" width="160" />
       <el-table-column label="处理时间" align="center" prop="auditTime" width="160" />
-      <el-table-column label="操作" align="center" width="160" class-name="small-padding fixed-width">
+      <el-table-column label="操作" align="right" width="160" class-name="small-padding fixed-width">
         <template #default="scope">
           <el-button link type="primary" icon="View" @click.stop="handleView(scope.row)">详情</el-button>
           <el-button v-if="scope.row.status === 'pending'" link type="success" icon="Check" @click.stop="handleView(scope.row)">处理</el-button>
@@ -87,10 +87,13 @@
 </template>
 
 <script setup name="CmsAuditCenter">
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, onMounted, getCurrentInstance } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { listPending, listMyHandled, listAll, countByType } from '@/api/system/auditTask'
 import AuditTaskDetailDialog from '@/components/AuditTaskDetailDialog/index.vue'
+
+const { proxy } = getCurrentInstance()
+const { cms_audit_task_type } = proxy.useDict('cms_audit_task_type')
 
 const route = useRoute()
 const router = useRouter()
@@ -104,17 +107,6 @@ const pendingCount = ref(0)
 
 const detailOpen = ref(false)
 const detailTaskId = ref(null)
-
-const taskTypeOptions = [
-  { value: 'article', label: '文章审核' },
-  { value: 'column', label: '专栏审核' },
-  { value: 'topic', label: '话题审核' },
-  { value: 'interview_exp', label: '面经审核' },
-  { value: 'interview_comment', label: '面经评论审核' },
-  { value: 'certification', label: '创作者认证' },
-  { value: 'feedback', label: '意见反馈' },
-  { value: 'report', label: '举报' }
-]
 
 const queryParams = reactive({
   pageNum: 1,
@@ -216,7 +208,7 @@ function onHandleSuccess() {
 
 /** 从首页/业务页跳转：
  *  - ?taskId=xxx&tab=article  → 打开该任务详情（tab 为 taskType，用于过滤）
- *  - ?tab=article&bizId=123   → 按任务类型过滤列表（从业务管理页跳入）
+ *  - ?tab=article&bizId=123   → 按任务类型过滤列表并打开该业务对应的任务详情（从业务管理页跳入）
  *  - ?activeTab=pending|done|all → 切换顶部 Tab（首页"更多"入口使用）
  *    注意：activeTab 与 tab 语义不同——activeTab 切换待办/已办/全部视图，
  *    tab 是 taskType 列表过滤；两者可共存（如 ?activeTab=done&tab=article）。
@@ -237,6 +229,15 @@ function handleRouteQuery() {
     if (taskId) {
       detailTaskId.value = Number(taskId)
       detailOpen.value = true
+    } else if (bizId) {
+      // 从业务管理页（文章/专栏/话题列表）跳入：按 bizId 匹配任务并打开详情
+      const matched = taskList.value.find(
+        (t) => String(t.bizId) === String(bizId)
+      )
+      if (matched) {
+        detailTaskId.value = matched.id
+        detailOpen.value = true
+      }
     }
   })
   // 清除 URL query，避免刷新重复触发

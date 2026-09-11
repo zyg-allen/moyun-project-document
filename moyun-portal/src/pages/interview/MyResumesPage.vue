@@ -1,21 +1,26 @@
 <script setup lang="ts">
 import { ref, onMounted, watch, computed } from 'vue';
+import { formatDate } from '@/utils/date';
+import { useConfirmModal } from '@/composables/useConfirmModal';
 import { useRouter } from 'vue-router';
 import { useHead } from '@vueuse/head';
 import {
   FileText, Plus, Pencil, Trash2, Copy, Download, Star, Clock, CheckCircle,
-  Send, Archive, History, X,
+  Send, Archive, History, X, Sparkles,
 } from 'lucide-vue-next';
 import SiteFooter from '@/components/SiteFooter.vue';
 import Breadcrumb from '@/components/Breadcrumb.vue';
 import { generateSeo } from '@/utils/seo';
 import {
   getMyResumeList, deleteResume, copyResume, exportResumePdf, scoreResume,
-  updateResumeStatus, getResumeVersions,
+  updateResumeStatus, getResumeVersions, convertAttachmentToOnline,
 } from '@/api/interview';
 import { getToken } from '@/api/client';
 import type { UserResumeVO } from '@/types/api';
 import { useToast } from '@/composables/useToast';
+
+
+const confirmModal = useConfirmModal();
 
 const router = useRouter();
 const toast = useToast();
@@ -37,15 +42,15 @@ const totalPages = computed(() => Math.max(1, Math.ceil(total.value / pageSize))
 
 // 状态映射：草稿=info色，已发布=success色，已归档=warning色
 const statusMap: Record<string, { label: string; class: string }> = {
-  draft: { label: '草稿', class: 'bg-blue-100 text-blue-700' },
-  published: { label: '已发布', class: 'bg-green-100 text-green-700' },
-  archived: { label: '已归档', class: 'bg-yellow-100 text-yellow-700' },
+  draft: { label: '草稿', class: 'bg-theme-info-bg text-theme-info' },
+  published: { label: '已发布', class: 'bg-theme-success-bg text-theme-success' },
+  archived: { label: '已归档', class: 'bg-theme-warning-bg text-theme-warning' },
 };
 
 useHead(computed(() => generateSeo({
   title: '我的简历',
   description: '管理我的简历，支持创建、编辑、复制版本、导出 PDF 与 AI 评分',
-  keywords: ['我的简历', '简历管理', '导出PDF', '简历评分', '墨韵'],
+  keywords: ['我的简历', '简历管理', '导出PDF', '简历评分', '旭林'],
   canonicalPath: '/interview/my/resumes',
   robots: 'noindex,nofollow',
 })));
@@ -86,6 +91,11 @@ function gotoCreate() {
   router.push('/interview/resume/edit');
 }
 
+// v10.0 P0-2: 跳转到简历模板库,引导用户基于模板快速创建(语音面试官题源前置)
+function gotoCreateWithTemplate() {
+  router.push('/interview/resume-templates');
+}
+
 function gotoEdit(id: string | number | undefined) {
   if (id === undefined || id === null) {
     toast.error('简历数据异常，无法编辑');
@@ -101,12 +111,7 @@ function statusLabel(r: UserResumeVO) {
 
 function statusClass(r: UserResumeVO) {
   const s = r.status || '';
-  return statusMap[s]?.class || 'bg-gray-100 text-gray-600';
-}
-
-function formatTime(t?: string) {
-  if (!t) return '-';
-  return t.slice(0, 16).replace('T', ' ');
+  return statusMap[s]?.class || 'bg-theme-surface text-theme-text-secondary';
 }
 
 async function handleCopy(r: UserResumeVO) {
@@ -205,7 +210,7 @@ async function handleScore(r: UserResumeVO) {
 async function handleToggleStatus(r: UserResumeVO, target: 'published' | 'archived' | 'draft') {
   if (!r.id || actionId.value) return;
   const actionText = target === 'published' ? '发布' : (target === 'archived' ? '归档' : '恢复为草稿');
-  if (!window.confirm(`确定${actionText}简历「${r.title || r.name || ''}」吗？`)) return;
+  if (!await confirmModal.confirm(`确定${actionText}简历「${r.title || r.name || ''}」吗？`, { title: '确认操作'})) return;
   try {
     actionId.value = r.id;
     await updateResumeStatus(r.id, target);
@@ -242,13 +247,13 @@ async function handleShowVersions(r: UserResumeVO) {
   }
 }
 
-function closeVersionModal() {
+async function closeVersionModal() {
   versionModal.value.open = false;
 }
 
 async function handleDelete(r: UserResumeVO) {
   if (!r.id || actionId.value) return;
-  if (!window.confirm(`确定删除简历「${r.title || r.name || ''}」吗？删除后不可恢复，且会同时删除其所有历史版本。`)) return;
+  if (!await confirmModal.confirm(`确定删除简历「${r.title || r.name || ''}」吗？删除后不可恢复，且会同时删除其所有历史版本。`, { danger: true,  title: '确认操作'})) return;
   try {
     actionId.value = r.id;
     await deleteResume(r.id);
@@ -263,6 +268,37 @@ async function handleDelete(r: UserResumeVO) {
   } finally {
     actionId.value = null;
   }
+}
+
+// v10.22：附件简历下载源文件（认证下载流，window.open 新标签打开）
+function handleDownloadAttachment(r: UserResumeVO) {
+  if (!r.id) return;
+  window.open(`/portal/interview/resume/user/${r.id}/download-attachment`, '_blank');
+}
+
+// v10.22：附件简历转为在线简历（后端将解析结果写入在线表单字段，返回新在线简历 ID）
+async function handleConvertToOnline(r: UserResumeVO) {
+  if (!r.id || actionId.value) return;
+  if (!await confirmModal.confirm(`确定将附件简历「${r.sourceFileName || r.title || ''}」转为在线简历吗？转换后可编辑各字段内容。`, { title: '确认操作' })) return;
+  try {
+    actionId.value = r.id;
+    const res = await convertAttachmentToOnline(r.id);
+    if (res.code === 200 && res.data) {
+      toast.success('已转为在线简历，正在跳转编辑页');
+      router.push(`/interview/resume/edit/${res.data}`);
+    } else {
+      toast.error(res.message || '转换失败，请稍后重试');
+    }
+  } catch (err: any) {
+    toast.error(err?.message || '转换失败，请稍后重试');
+  } finally {
+    actionId.value = null;
+  }
+}
+
+// 判断是否附件简历（sourceType=attachment）
+function isAttachment(r: UserResumeVO): boolean {
+  return r.sourceType === 'attachment';
 }
 
 function gotoPage(p: number) {
@@ -328,14 +364,40 @@ function gotoPage(p: number) {
         >
           <FileText class="w-12 h-12 mx-auto mb-3" style="color: var(--theme-text-secondary); opacity: 0.5;" />
           <p class="text-sm mb-4" style="color: var(--theme-text-secondary);">还没有简历，立即创建</p>
-          <button
-            @click="gotoCreate"
-            class="inline-flex items-center px-4 py-2 text-white rounded-lg text-sm transition hover:opacity-90"
-            style="background-color: var(--theme-primary);"
+
+          <!-- v10.0 P0-2: 语音面试官场景引导 - 简历是语音面试 40% 题源 -->
+          <div
+            class="mb-5 mx-auto max-w-md p-4 rounded-lg text-left text-sm"
+            style="background-color: var(--theme-bg); border: 1px dashed var(--theme-border);"
           >
-            <Plus class="w-4 h-4 mr-1" />
-            创建第一份简历
-          </button>
+            <p class="font-semibold mb-2" style="color: var(--theme-primary);">
+              🎙️ AI 语音面试官即将上线
+            </p>
+            <p style="color: var(--theme-text-secondary); line-height: 1.6;">
+              简历是语音面试官的核心题源——约 <strong style="color: var(--theme-text);">40% 的题目</strong>
+              会基于你简历中的项目经历深挖提问。先创建一份含至少 1 个项目的简版简历，
+              解锁更精准的语音模拟面试体验。
+            </p>
+          </div>
+
+          <div class="flex items-center justify-center gap-3">
+            <button
+              @click="gotoCreate"
+              class="inline-flex items-center px-4 py-2 text-white rounded-lg text-sm transition hover:opacity-90"
+              style="background-color: var(--theme-primary);"
+            >
+              <Plus class="w-4 h-4 mr-1" />
+              创建第一份简历
+            </button>
+            <button
+              @click="gotoCreateWithTemplate"
+              class="inline-flex items-center px-4 py-2 rounded-lg text-sm transition border"
+              style="color: var(--theme-text); border-color: var(--theme-border); background-color: var(--theme-surface);"
+            >
+              <Sparkles class="w-4 h-4 mr-1" />
+              使用模板快速创建
+            </button>
+          </div>
         </div>
 
         <!-- 简历列表 -->
@@ -347,7 +409,7 @@ function gotoPage(p: number) {
               class="rounded-xl shadow-sm hover:shadow-md transition flex flex-col p-5"
               style="background-color: var(--theme-surface); border: 1px solid var(--theme-border);"
             >
-              <!-- 头部：标题 + 状态 -->
+              <!-- 头部：标题 + 来源标签 + 状态 -->
               <div class="flex items-start justify-between gap-2 mb-2">
                 <h3
                   @click="gotoEdit(r.id)"
@@ -356,12 +418,32 @@ function gotoPage(p: number) {
                 >
                   {{ r.title || '未命名简历' }}
                 </h3>
-                <span
-                  class="shrink-0 px-2.5 py-1 rounded-full text-xs font-medium"
-                  :class="statusClass(r)"
-                >
-                  {{ statusLabel(r) }}
-                </span>
+                <div class="shrink-0 flex items-center gap-1">
+                  <!-- v10.22：附件简历标签 -->
+                  <span
+                    v-if="isAttachment(r)"
+                    class="px-2 py-1 rounded-full text-xs font-medium"
+                    style="background-color: var(--theme-info-bg); color: var(--theme-info);"
+                  >
+                    附件
+                  </span>
+                  <span
+                    class="px-2.5 py-1 rounded-full text-xs font-medium"
+                    :class="statusClass(r)"
+                  >
+                    {{ statusLabel(r) }}
+                  </span>
+                </div>
+              </div>
+
+              <!-- 附件文件名（v10.22：附件简历显示源文件名） -->
+              <div
+                v-if="isAttachment(r) && r.sourceFileName"
+                class="flex items-center text-sm mb-2"
+                style="color: var(--theme-text-secondary);"
+              >
+                <FileText class="w-3.5 h-3.5 mr-1.5" />
+                <span class="line-clamp-1">文件：{{ r.sourceFileName }}</span>
               </div>
 
               <!-- 姓名 -->
@@ -396,7 +478,7 @@ function gotoPage(p: number) {
               <div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs pt-3 border-t mb-3" style="border-color: var(--theme-border); color: var(--theme-text-secondary);">
                 <span class="flex items-center">
                   <Clock class="w-3 h-3 mr-1" />
-                  {{ formatTime(r.updateTime || r.createTime) }}
+                  {{ formatDate(r.updateTime || r.createTime, 'YYYY-MM-DD HH:mm') }}
                 </span>
                 <span class="flex items-center">
                   <CheckCircle class="w-3 h-3 mr-1" />
@@ -413,6 +495,24 @@ function gotoPage(p: number) {
                 >
                   <Pencil class="w-3 h-3 mr-1" />编辑
                 </button>
+                <!-- v10.22：附件简历专属操作——下载源文件 + 转为在线 -->
+                <button
+                  v-if="isAttachment(r)"
+                  @click="handleDownloadAttachment(r)"
+                  class="inline-flex items-center px-2.5 py-1.5 rounded-lg text-xs transition hover:opacity-80"
+                  style="background-color: var(--theme-bg); color: var(--theme-text); border: 1px solid var(--theme-border);"
+                >
+                  <Download class="w-3 h-3 mr-1" />下载源文件
+                </button>
+                <button
+                  v-if="isAttachment(r)"
+                  @click="handleConvertToOnline(r)"
+                  :disabled="actionId === r.id"
+                  class="inline-flex items-center px-2.5 py-1.5 rounded-lg text-xs transition hover:opacity-80 disabled:opacity-50 disabled:cursor-not-allowed"
+                  style="background-color: var(--theme-bg); color: var(--theme-primary); border: 1px solid var(--theme-border);"
+                >
+                  <Sparkles class="w-3 h-3 mr-1" />转为在线
+                </button>
                 <button
                   @click="handleScore(r)"
                   :disabled="actionId === r.id"
@@ -420,6 +520,13 @@ function gotoPage(p: number) {
                   style="background-color: var(--theme-bg); color: var(--theme-primary); border: 1px solid var(--theme-border);"
                 >
                   <Star class="w-3 h-3 mr-1" />评分
+                </button>
+                <button
+                  @click="router.push(`/interview/resume/optimize?resumeId=${r.id}`)"
+                  class="inline-flex items-center px-2.5 py-1.5 rounded-lg text-xs transition hover:opacity-80"
+                  style="background-color: var(--theme-bg); color: var(--theme-primary); border: 1px solid var(--theme-border);"
+                >
+                  <Sparkles class="w-3 h-3 mr-1" />岗位优化
                 </button>
                 <button
                   @click="handleExportPdf(r)"
@@ -451,7 +558,7 @@ function gotoPage(p: number) {
                   @click="handleToggleStatus(r, 'published')"
                   :disabled="actionId === r.id"
                   class="inline-flex items-center px-2.5 py-1.5 rounded-lg text-xs text-white transition hover:opacity-80 disabled:opacity-50 disabled:cursor-not-allowed"
-                  style="background-color: #16a34a;"
+                  style="background-color: var(--theme-success);"
                 >
                   <Send class="w-3 h-3 mr-1" />发布
                 </button>
@@ -460,7 +567,7 @@ function gotoPage(p: number) {
                   @click="handleToggleStatus(r, 'archived')"
                   :disabled="actionId === r.id"
                   class="inline-flex items-center px-2.5 py-1.5 rounded-lg text-xs text-white transition hover:opacity-80 disabled:opacity-50 disabled:cursor-not-allowed"
-                  style="background-color: #d97706;"
+                  style="background-color: var(--theme-warning);"
                 >
                   <Archive class="w-3 h-3 mr-1" />归档
                 </button>
@@ -469,7 +576,7 @@ function gotoPage(p: number) {
                   @click="handleToggleStatus(r, 'draft')"
                   :disabled="actionId === r.id"
                   class="inline-flex items-center px-2.5 py-1.5 rounded-lg text-xs text-white transition hover:opacity-80 disabled:opacity-50 disabled:cursor-not-allowed"
-                  style="background-color: #2563eb;"
+                  style="background-color: var(--theme-info);"
                 >
                   <Archive class="w-3 h-3 mr-1" />恢复
                 </button>
@@ -477,7 +584,7 @@ function gotoPage(p: number) {
                   @click="handleDelete(r)"
                   :disabled="actionId === r.id"
                   class="inline-flex items-center px-2.5 py-1.5 rounded-lg text-xs text-white transition hover:opacity-80 disabled:opacity-50 disabled:cursor-not-allowed"
-                  style="background-color: #ef4444;"
+                  style="background-color: var(--theme-danger);"
                 >
                   <Trash2 class="w-3 h-3 mr-1" />删除
                 </button>
@@ -568,7 +675,7 @@ function gotoPage(p: number) {
                   {{ v.title || '未命名简历' }}
                 </p>
                 <p class="text-xs mt-0.5" style="color: var(--theme-text-secondary);">
-                  更新：{{ formatTime(v.updateTime || v.createTime) }}
+                  更新：{{ formatDate(v.updateTime || v.createTime, 'YYYY-MM-DD HH:mm', 'YYYY-MM-DD') }}
                 </p>
               </div>
               <button

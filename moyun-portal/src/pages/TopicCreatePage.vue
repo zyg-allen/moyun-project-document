@@ -26,7 +26,7 @@ const uploadingCover = ref(false);
 useHead(computed(() => generateSeo({
   title: '发起话题',
   description: '发起一个新话题，邀请社区成员参与讨论',
-  keywords: ['发起话题', '话题创建', '讨论', '墨韵'],
+  keywords: ['发起话题', '话题创建', '讨论', '旭林'],
   canonicalPath: '/topic/create',
   robots: 'noindex,nofollow',
 })));

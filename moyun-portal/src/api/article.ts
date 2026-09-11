@@ -73,7 +73,7 @@ export const incrementView = (articleId: string) => {
     return httpPost<ViewResult>(`/portal/article/${articleId}/view`);
 };
 
-// 获取分类推荐文章
+// 获取分类推荐文章（rootCategoryId：按一级分类查询，覆盖其下全部子分类文章）
 export const getCategoryRecommendedArticles = (categoryName: string, params?: ArticleListParams, limit = 8) => {
     return httpGetList<Article>('/portal/article/categoryRecommended', { categoryName, limit, ...params });
 };

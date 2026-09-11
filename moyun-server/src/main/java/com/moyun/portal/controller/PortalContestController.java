@@ -51,7 +51,7 @@ public class PortalContestController extends BaseController {
     }
 
     @Operation(summary = "活动详情", description = "公开查询活动详情（含投稿列表，已登录则附带当前用户投票标记）")
-    @GetMapping("/{id}")
+    @GetMapping("/{id:[0-9]+}")
     @Anonymous
     public AjaxResult detail(@Parameter(description = "活动ID") @PathVariable Long id) {
         Map<String, Object> data = contestService.getContestDetail(id, currentUserId());
@@ -64,7 +64,7 @@ public class PortalContestController extends BaseController {
     // ==================== 投稿 / 投票 / 我的投稿（需登录） ====================
 
     @Operation(summary = "投稿", description = "需登录，同一活动同一用户仅可投稿一次")
-    @PostMapping("/{id}/submit")
+    @PostMapping("/{id:[0-9]+}/submit")
     public AjaxResult submit(@Parameter(description = "活动ID") @PathVariable Long id,
                              @RequestBody Map<String, Object> body) {
         Long userId = currentUserId();

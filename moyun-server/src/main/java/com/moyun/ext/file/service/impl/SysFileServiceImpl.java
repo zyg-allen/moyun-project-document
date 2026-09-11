@@ -44,7 +44,7 @@ public class SysFileServiceImpl implements ISysFileService {
             // 图片
             "jpg", "jpeg", "png", "gif", "webp", "bmp",
             // 文档
-            "pdf", "doc", "docx", "xls", "xlsx", "ppt", "pptx", "txt",
+            "pdf", "doc", "docx", "xls", "xlsx", "ppt", "pptx", "txt", "md",
             // 音视频
             "mp4", "mp3", "wav",
             // 压缩

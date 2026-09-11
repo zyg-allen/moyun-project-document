@@ -25,7 +25,7 @@ import java.util.List;
  * <p>
  * 文件上传统一走 {@link ISysFileService}（兼容 MinIO / 本地存储），下载仍读取本地磁盘。
  *
- * @author ruoyi
+ * @author allen-zyg
  */
 @Tag(name = "通用请求处理", description = "通用文件下载上传接口")
 @RestController

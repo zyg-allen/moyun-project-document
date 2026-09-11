@@ -9,7 +9,7 @@ import java.util.Date;
 /**
  * JVM相关信息
  *
- * @author ruoyi
+ * @author allen-zyg
  */
 public class Jvm {
     /**

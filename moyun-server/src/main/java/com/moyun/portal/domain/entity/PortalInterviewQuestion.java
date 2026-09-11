@@ -53,6 +53,11 @@ public class PortalInterviewQuestion extends BaseEntity {
     private String difficulty;
 
     /**
+     * 所属岗位模板ID（portal_job_template.id，v11.x 智能出题）
+     */
+    private Long jobTemplateId;
+
+    /**
      * 分类ID
      */
     @Excel(name = "分类ID", cellType = Excel.ColumnType.NUMERIC)
@@ -159,6 +164,43 @@ public class PortalInterviewQuestion extends BaseEntity {
     @Size(min = 0, max = 500, message = "前置题目ID长度不能超过500个字符")
     @Excel(name = "前置题目ID")
     private String prerequisiteIds;
+
+    // ============ 练习模式扩展字段（v10.6 题库重构·阶段2） ============
+
+    /**
+     * 练习模式：reading 展示阅读 / choice 选择题 / coding 编程题
+     * 与 questionType 正交：questionType 描述题目内容分类，practiceMode 描述作答方式
+     */
+    @Size(min = 0, max = 20, message = "练习模式长度不能超过20个字符")
+    @Excel(name = "练习模式", readConverterExp = "reading=展示阅读,choice=选择题,coding=编程题")
+    private String practiceMode;
+
+    /**
+     * 选择题选项（JSON 数组字符串，如 [{"label":"A","text":"...","is_correct":false}]）
+     * 仅 practice_mode=choice 时有值，做题页前端渲染选项
+     */
+    @Excel(name = "选择题选项")
+    private String options;
+
+    /**
+     * 正确答案（选择题：选项 label 如 B；编程题：null，靠测试用例判定）
+     */
+    @Size(min = 0, max = 50, message = "正确答案长度不能超过50个字符")
+    @Excel(name = "正确答案")
+    private String correctAnswer;
+
+    /**
+     * 题目解析（做题后展示，区别于 referenceAnswer 参考答案）
+     */
+    @Excel(name = "题目解析")
+    private String analysis;
+
+    /**
+     * 知识点标签，逗号分隔（用于错题本/学习路径聚类）
+     */
+    @Size(min = 0, max = 500, message = "知识点标签长度不能超过500个字符")
+    @Excel(name = "知识点标签")
+    private String knowledgeTags;
 
     public PortalInterviewQuestion() {
     }

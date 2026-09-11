@@ -1,0 +1,46 @@
+{
+  "pages": [
+    { "path": "pages/dashboard/index", "style": { "navigationBarTitleText": "墨韵记账", "enablePullDownRefresh": true } },
+    { "path": "pages/portfolio/index", "style": { "navigationBarTitleText": "资产负债", "enablePullDownRefresh": true } },
+    { "path": "pages/record/index", "style": { "navigationBarTitleText": "记一笔", "navigationStyle": "custom" } },
+    { "path": "pages/analysis/index", "style": { "navigationBarTitleText": "财务分析", "enablePullDownRefresh": true } },
+    { "path": "pages/mine/index", "style": { "navigationBarTitleText": "我的" } },
+    { "path": "pages/mine/categories/index", "style": { "navigationBarTitleText": "分类管理" } },
+    { "path": "pages/mine/budget/index", "style": { "navigationBarTitleText": "预算设置" } },
+    { "path": "pages/mine/settings/index", "style": { "navigationBarTitleText": "设置" } },
+    { "path": "pages/record/list", "style": { "navigationBarTitleText": "流水明细", "enablePullDownRefresh": true } },
+    { "path": "pages/record/calendar", "style": { "navigationBarTitleText": "日历账单" } },
+    { "path": "pages/record/edit", "style": { "navigationBarTitleText": "编辑流水" } },
+    { "path": "pages/report/index", "style": { "navigationBarTitleText": "报表中心" } },
+    { "path": "pages/mine/savings/index", "style": { "navigationBarTitleText": "存钱" } },
+    { "path": "pages/mine/savings/create", "style": { "navigationBarTitleText": "新建计划" } },
+    { "path": "pages/mine/savings/detail", "style": { "navigationBarTitleText": "计划详情" } },
+    { "path": "pages/mine/schedule/index", "style": { "navigationBarTitleText": "定时记账" } },
+    { "path": "pages/mine/schedule/add", "style": { "navigationBarTitleText": "添加计划" } },
+    { "path": "pages/mine/tip/index", "style": { "navigationBarTitleText": "赞赏" } },
+    { "path": "pages/mine/memo/index", "style": { "navigationBarTitleText": "备忘录" } },
+    { "path": "pages/mine/feedback/index", "style": { "navigationBarTitleText": "意见反馈" } },
+    { "path": "pages/mine/register/index", "style": { "navigationBarTitleText": "注册账号" } },
+    { "path": "pages/mine/login/index", "style": { "navigationBarTitleText": "账号登录" } }
+  ],
+  "globalStyle": {
+    "navigationStyle": "custom",
+    "navigationBarTextStyle": "white",
+    "navigationBarTitleText": "墨韵记账",
+    "navigationBarBackgroundColor": "#5FA77A",
+    "backgroundColor": "#f5f6f8"
+  },
+  "tabBar": {
+    "color": "#999999",
+    "selectedColor": "#5FA77A",
+    "backgroundColor": "#ffffff",
+    "borderStyle": "black",
+    "list": [
+      { "pagePath": "pages/dashboard/index", "text": "总览" },
+      { "pagePath": "pages/portfolio/index", "text": "资产负债" },
+      { "pagePath": "pages/record/index", "text": "记一笔" },
+      { "pagePath": "pages/analysis/index", "text": "分析" },
+      { "pagePath": "pages/mine/index", "text": "我的" }
+    ]
+  }
+}

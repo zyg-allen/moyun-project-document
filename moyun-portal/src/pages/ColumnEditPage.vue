@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue';
+import { useConfirmModal } from '@/composables/useConfirmModal';
 import { useRoute, useRouter } from 'vue-router';
 import { useHead } from '@vueuse/head';
 import {
@@ -15,7 +16,10 @@ import { deletePortalFile } from '@/api/file';
 import { getColumnDetail, saveColumn, addArticle, removeArticle } from '@/api/column';
 import type { ColumnSaveBody } from '@/types/api';
 import { useToast } from '@/composables/useToast';
-import { requireCreator } from '@/utils/creatorPermission';
+import { promptRealNameOptional } from '@/utils/creatorPermission';
+
+
+const confirmModal = useConfirmModal();
 
 const route = useRoute();
 const router = useRouter();
@@ -47,7 +51,7 @@ const fileInput = ref<HTMLInputElement | null>(null);
 useHead(computed(() => generateSeo({
   title: isEdit.value ? '编辑专栏' : '创建专栏',
   description: '创建或编辑你的专栏，按主题聚合文章，持续连载',
-  keywords: ['创建专栏', '编辑专栏', '专栏', '墨韵'],
+  keywords: ['创建专栏', '编辑专栏', '专栏', '旭林'],
   canonicalPath: isEdit.value ? `/column/edit/${editId.value}` : '/column/create',
   robots: 'noindex,nofollow',
 })));
@@ -116,7 +120,7 @@ async function loadDetail() {
   }
 }
 
-function triggerUpload() {
+async function triggerUpload() {
   fileInput.value?.click();
 }
 
@@ -164,14 +168,14 @@ async function clearCover() {
     cover.value = '';
     return;
   }
-  const ok = window.confirm('删除后将永久清除该封面的存储与记录，且无法恢复，是否确认？');
+  const ok = await confirmModal.confirm('删除后将永久清除该封面的存储与记录，且无法恢复，是否确认？', { danger: true,  title: '确认操作'});
   if (!ok) return;
   const oldCover = cover.value;
   cover.value = '';
   try {
     await deletePortalFile(oldCover);
   } catch (e) {
-    toast.error('文件记录清理失败，请稍后在文件管理中处理');
+    toast.error((e as Error)?.message || '文件记录清理失败，请稍后在文件管理中处理');
     console.warn('封面清理失败：', e);
   }
 }
@@ -208,8 +212,8 @@ async function submit() {
     toast.error(errMsg);
     return;
   }
-  // 新建专栏需创作者认证（编辑已有专栏不限）
-  if (!isEdit.value && !requireCreator()) return;
+  // 新建专栏提示实名认证（v10.10：创作行为不强制，可跳过）
+  if (!isEdit.value && !(await promptRealNameOptional())) return;
   submitting.value = true;
   try {
     const res = await saveColumn(buildPayload());

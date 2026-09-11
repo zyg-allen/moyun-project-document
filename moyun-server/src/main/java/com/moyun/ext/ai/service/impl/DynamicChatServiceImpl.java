@@ -152,11 +152,14 @@ public class DynamicChatServiceImpl implements DynamicChatService {
         Sinks.Many<String> sink = Sinks.many().unicast().onBackpressureBuffer();
 
         // 🔧 修复：如果conversationId为null，先创建新会话
+        // 并通过协议帧 [NEW_CONVERSATION_ID]id[/NEW_CONVERSATION_ID] 通知前端采用该会话，
+        // 否则前端无从知晓，会在下次刷新列表时表现为"凭空多出一个会话"。
         Long effectiveConversationId = conversationId;
         if (effectiveConversationId == null) {
             var newConversation = conversationService.createConversation(agentId, null);
             effectiveConversationId = newConversation.getId();
-            log.info("📝 创建新会话: conversationId={}", effectiveConversationId);
+            sink.tryEmitNext("[NEW_CONVERSATION_ID]" + effectiveConversationId + "[/NEW_CONVERSATION_ID]");
+            log.info("📝 创建新会话（兜底）并已通知前端: conversationId={}", effectiveConversationId);
         }
         final Long finalConversationId = effectiveConversationId;
 

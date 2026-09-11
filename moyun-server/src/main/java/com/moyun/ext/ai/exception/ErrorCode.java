@@ -67,7 +67,7 @@ public enum ErrorCode {
     DATASOURCE_NOT_FOUND(50001, "数据源不存在"),
     DATASOURCE_CONNECT_FAILED(50002, "数据源连接失败"),
     SQL_EXECUTE_FAILED(50003, "SQL执行失败"),
-    ES_QUERY_FAILED(50004, "Elasticsearch查询失败"),
+    ES_QUERY_FAILED(50004, "向量存储操作失败"),
 
     // ==================== 用户认证相关 (60xxx) ====================
     USER_NOT_FOUND(60001, "用户不存在"),

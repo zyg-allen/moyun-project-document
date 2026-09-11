@@ -52,8 +52,7 @@ const toolbarOptions = {
     [{ 'list': 'ordered' }, { 'list': 'bullet' }],
     [{ 'header': [1, 2, 3, 4, 5, 6, false] }],
     ['link', 'image', 'video'],
-    ['clean'],
-    ['undo', 'redo']
+    ['clean']
   ],
   handlers: {
     image: imageHandler
@@ -84,7 +83,7 @@ async function imageHandler() {
         }
       } catch (error) {
         console.error('图片上传失败:', error);
-        toast.error('图片上传失败');
+        toast.error((error as Error)?.message || '图片上传失败');
       }
     }
   };

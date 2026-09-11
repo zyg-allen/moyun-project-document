@@ -14,7 +14,7 @@ import com.moyun.core.base.BaseEntity;
 /**
  * 字典数据表 sys_dict_data
  *
- * @author ruoyi
+ * @author allen-zyg
  */
 @Data
 public class SysDictData extends BaseEntity {

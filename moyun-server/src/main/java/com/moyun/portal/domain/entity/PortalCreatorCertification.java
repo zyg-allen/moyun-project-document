@@ -5,9 +5,11 @@ import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
 import com.fasterxml.jackson.annotation.JsonFormat;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.moyun.core.base.BaseEntity;
 import lombok.Data;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 /**
@@ -35,8 +37,28 @@ public class PortalCreatorCertification extends BaseEntity {
     /** 认证类型 identity/creator/expert */
     private String certType;
 
-    /** 证件号 */
+    /** 证件号（仅兼容存量明文数据；新写入一律为 NULL，读取时统一替换为脱敏值） */
     private String certNo;
+
+    /** 证件号密文（AES-GCM，格式 enc:v1:iv:cipher，base64） */
+    @JsonIgnore
+    private String certNoEnc;
+
+    /** 证件号脱敏展示值（如 110***********1234） */
+    private String certNoMask;
+
+    /** 由证件号推导的性别（男/女），仅身份认证类型 */
+    private String derivedGender;
+
+    /** 由证件号推导的出生日期 */
+    @JsonFormat(pattern = "yyyy-MM-dd")
+    private LocalDate derivedBirth;
+
+    /** 实名核验渠道：manual=人工审核（默认），后期可扩展 aliyun/tencent 等 */
+    private String verifyChannel;
+
+    /** 第三方实名核验流水号（预留，接入核验API后填充） */
+    private String verifySerial;
 
     /** 证件照URL（兼容字段：旧单图，或新流程中的「人像面」URL 别名，建议优先使用 certImageFront） */
     private String certImage;

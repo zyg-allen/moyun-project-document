@@ -17,8 +17,7 @@
       </el-form-item>
       <el-form-item label="状态" prop="status">
         <el-select v-model="queryParams.status" placeholder="状态" clearable style="width: 120px">
-          <el-option label="正常" value="active" />
-          <el-option label="停用" value="inactive" />
+          <el-option v-for="d in portal_common_status" :key="d.value" :label="d.label" :value="d.value" />
         </el-select>
       </el-form-item>
       <el-form-item>
@@ -61,9 +60,7 @@
       <el-table-column label="点赞数" align="center" prop="likeCount" width="80" />
       <el-table-column label="访问级别" align="center" prop="accessLevel" width="100">
         <template #default="scope">
-          <el-tag size="small" :type="scope.row.accessLevel === 'vip' ? 'warning' : 'success'">
-            {{ scope.row.accessLevel === 'vip' ? 'VIP' : '免费' }}
-          </el-tag>
+          <dict-tag :options="portal_access_type" :value="scope.row.accessLevel" />
         </template>
       </el-table-column>
       <el-table-column label="是否公开" align="center" prop="isPublic" width="90">
@@ -81,9 +78,7 @@
       </el-table-column>
       <el-table-column label="状态" align="center" prop="status" width="80">
         <template #default="scope">
-          <el-tag :type="scope.row.status === 'active' ? 'success' : 'info'" size="small">
-            {{ scope.row.status === 'active' ? '正常' : '停用' }}
-          </el-tag>
+          <dict-tag :options="portal_common_status" :value="scope.row.status" />
         </template>
       </el-table-column>
       <el-table-column label="创建时间" align="center" prop="createTime" width="160">
@@ -91,7 +86,7 @@
           <span>{{ parseTime(scope.row.createTime) }}</span>
         </template>
       </el-table-column>
-      <el-table-column label="操作" align="center" class-name="small-padding fixed-width" width="260">
+      <el-table-column label="操作" align="right" class-name="small-padding fixed-width" width="260">
         <template #default="scope">
           <el-button link type="primary" icon="Edit" @click="handleUpdate(scope.row)" v-hasPermi="['portal:bookList:edit']">修改</el-button>
           <el-button link type="success" icon="Reading" @click="handleManageBooks(scope.row)" v-hasPermi="['portal:bookList:query']">管理书籍</el-button>
@@ -102,7 +97,7 @@
 
     <pagination v-show="total > 0" :total="total" v-model:page="queryParams.pageNum" v-model:limit="queryParams.pageSize" @pagination="getList" />
 
-    <el-dialog :title="title" v-model="open" width="720px" append-to-body>
+    <el-dialog :title="title" v-model="open" width="900px" append-to-body>
       <el-form ref="refEl" :model="form" :rules="rules" label-width="100px">
         <el-row :gutter="20">
           <el-col :span="24">
@@ -148,9 +143,7 @@
           <el-col :span="12">
             <el-form-item label="访问级别" prop="accessLevel">
               <el-select v-model="form.accessLevel" placeholder="请选择" style="width: 100%">
-                <el-option label="免费公开" value="free" />
-                <el-option label="会员专享" value="vip" />
-                <el-option label="试读（前30%免费）" value="preview" />
+                <el-option v-for="d in portal_access_type" :key="d.value" :label="d.label" :value="d.value" />
               </el-select>
             </el-form-item>
           </el-col>
@@ -159,8 +152,7 @@
           <el-col :span="12">
             <el-form-item label="状态" prop="status">
               <el-radio-group v-model="form.status">
-                <el-radio label="active">正常</el-radio>
-                <el-radio label="inactive">停用</el-radio>
+                <el-radio v-for="d in portal_common_status" :key="d.value" :label="d.value">{{ d.label }}</el-radio>
               </el-radio-group>
             </el-form-item>
           </el-col>
@@ -316,6 +308,7 @@ import {
 } from "@/api/portal/bookListRelation";
 
 const { proxy } = getCurrentInstance();
+const { portal_common_status, portal_access_type } = proxy.useDict("portal_common_status", "portal_access_type");
 const userStore = useUserStore();
 
 // 分类下拉数据

@@ -7,7 +7,7 @@ import {
   Sparkles, Globe, Lock, Tag as TagIcon, BookOpen,
   ChevronDown, Check, Type, Plus, ChevronRight, Code,
   Lightbulb, ChevronRight as ChevronRightIcon,
-  History, GitCompare, RotateCcw
+  History, GitCompare, RotateCcw, RefreshCw
 } from 'lucide-vue-next';
 import Breadcrumb from '@/components/Breadcrumb.vue';
 import {
@@ -17,9 +17,12 @@ import {
   getRecommendTags
 } from '@/api/tag';
 import { getCategoryTree, filterCategoryTree } from '@/api/category';
+import { categories as fallbackCategories } from '@/data/categories';
 import { publishArticle, saveDraft as saveDraftApi, getArticleDetail } from '@/api/article';
+import { aiAnalyze } from '@/api/ai';
+import type { ArticleMetaResult } from '@/api/ai';
 import { uploadPortalFile, deletePortalFile } from '@/api/file';
-import { getTodayPrompt } from '@/api/prompt';
+import { getTodayPrompt, getPromptHistory } from '@/api/prompt';
 import type { WritingPromptVO } from '@/api/prompt';
 import {
   getArticleVersions,
@@ -37,7 +40,7 @@ import SiteFooter from '@/components/SiteFooter.vue';
 import QuillEditor from '@/components/QuillEditor.vue';
 import MarkdownEditor from '@/components/MarkdownEditor.vue';
 import { extractExcerpt } from '@/utils/excerpt';
-import { requireCreator } from '@/utils/creatorPermission';
+import { promptRealNameOptional } from '@/utils/creatorPermission';
 import { marked } from 'marked';
 import { sanitizeHTML } from '@/utils/security';
 
@@ -78,6 +81,16 @@ const loadingCategories = ref(false);
 const selectedCategory = computed(() => {
   return selectedChildCategory.value || selectedParentCategory.value || '';
 });
+
+// 将选中分类转为后端可接受的数字字符串 categoryId。
+// 本地兜底分类（categories.ts）的 id 是语义字符串（如 'daily'），不能作为后端 Long 字段传入；
+// 仅当选中值为纯数字（后端真实分类）时才返回数字字符串，否则返回 undefined。
+function resolveCategoryId(): string | undefined {
+  const raw = selectedCategory.value;
+  if (!raw) return undefined;
+  const num = Number(raw);
+  return Number.isInteger(num) ? String(num) : undefined;
+}
 
 // 获取当前分类的子分类
 const childCategories = computed(() => {
@@ -123,6 +136,8 @@ const lastSaved = ref<string | null>(null);
 // 今日写作 prompt（页面顶部提示卡片）
 const todayPrompt = ref<WritingPromptVO | null>(null);
 const promptExpanded = ref(false);
+// 历史灵感（"换一批灵感"拉取的历史 prompt，点击可直接应用）
+const promptHistory = ref<WritingPromptVO[]>([]);
 async function loadTodayPrompt() {
   try {
     const res = await getTodayPrompt();
@@ -141,6 +156,29 @@ function applyPromptAsTitle() {
   if (!todayPrompt.value) return;
   if (!title.value.trim()) {
     title.value = todayPrompt.value.title;
+  }
+}
+/** 换一批灵感：拉取历史 prompt 列表展示，供创作者选择 */
+async function shufflePrompt() {
+  if (promptHistory.value.length > 0) {
+    promptHistory.value = []; // 再点一次收起
+    return;
+  }
+  try {
+    const res = await getPromptHistory({ pageNum: 1, pageSize: 5 });
+    if (res.code === 200 && res.data) {
+      promptHistory.value = (res.data.list || []).filter(p => p.id !== todayPrompt.value?.id);
+    }
+  } catch (err) {
+    console.warn('加载历史 prompt 失败:', err);
+  }
+}
+/** 点击历史灵感：直接应用到当前 prompt 卡片与标题 */
+function usePrompt(p: WritingPromptVO) {
+  todayPrompt.value = p;
+  promptHistory.value = [];
+  if (!title.value.trim()) {
+    title.value = p.title;
   }
 }
 
@@ -288,25 +326,45 @@ async function loadArticleForEdit(id: string) {
     }
   } catch (error) {
     console.error('加载文章失败:', error);
-    toast.error('加载文章失败，请重试');
+    toast.error((error as Error)?.message || '加载文章失败，请重试');
   }
 }
 
-// 加载分类
+// 加载分类（后端优先，本地 categories.ts 兜底）
 async function loadCategories() {
   loadingCategories.value = true;
   try {
     const response = await getCategoryTree();
-    if (response.code === 200 && response.data) {
-      // 过滤掉非文章分类（static/home/external 类型 + 非文章一级栏目）
-      // 只保留 category 类型的分类供文章归类选择
-      categories.value = filterCategoryTree(response.data);
+    if (response.code === 200 && response.data && response.data.length > 0) {
+      // 过滤掉非文章分类（special/home 类型 + 隐藏分类）
+      // 只保留 categoryType==='article' 的分类供文章归类选择
+      const filtered = filterCategoryTree(response.data);
+      categories.value = filtered.length > 0 ? filtered : buildFallbackCategories();
+    } else {
+      categories.value = buildFallbackCategories();
     }
   } catch (error) {
     console.error('Failed to load categories:', error);
+    categories.value = buildFallbackCategories();
   } finally {
     loadingCategories.value = false;
   }
+}
+
+// 后端分类树不可用时，用本地硬编码分类兜底（转换为后端 Category 结构，保持二级联动交互不变）
+function buildFallbackCategories(): Category[] {
+  return fallbackCategories.map(c => ({
+    id: c.id,
+    name: c.name,
+    slug: c.key,
+    createdAt: '',
+    children: c.children.map(ch => ({
+      id: ch.id,
+      name: ch.name,
+      slug: ch.id,
+      createdAt: '',
+    })),
+  }));
 }
 
 // 加载热门标签
@@ -472,7 +530,7 @@ async function saveDraft(isAuto = false) {
       editorMode: editorMode.value,
       excerpt: excerpt.value,
       cover: coverImage.value || '',
-      categoryId: selectedCategory.value ? String(selectedCategory.value) : undefined,
+      categoryId: resolveCategoryId(),
       tagNames: tags.value,
     });
 
@@ -547,8 +605,8 @@ async function handlePublish() {
     return;
   }
 
-  // 发布文章需创作者认证（草稿不限）
-  if (!requireCreator()) return;
+  // v10.10 实名策略：发布不再强制创作者认证，未实名弹窗提示（可跳过直接发布）
+  if (!(await promptRealNameOptional())) return;
 
   isPublishing.value = true;
 
@@ -565,7 +623,7 @@ async function handlePublish() {
       contentMarkdown: editorMode.value === 'markdown' ? content.value : undefined,
       excerpt: excerpt.value || content.value.substring(0, 200) + '...',
       cover: coverImage.value || '',
-      categoryId: selectedCategory.value,
+      categoryId: resolveCategoryId(),
       tagNames: tags.value,
       status: 'published', // 前端标记意图为发布，后端会转为 pending 待审核
       // 同步编辑器模式，详情页据此渲染内容
@@ -758,19 +816,37 @@ function closeVersionDrawer() {
   diffV2.value = null;
 }
 
-// 摘要提取状态
+// 摘要/SEO 智能提取状态
 const isExtractingExcerpt = ref(false);
 
-// 从正文提取摘要
-async function extractExcerptFromContent() {
-  if (!content.value) return;
+// AI 智能提取：一次性生成摘要 + SEO 标题/描述/关键词并填充
+async function aiExtractMeta() {
+  if (!content.value || isExtractingExcerpt.value) return;
 
   isExtractingExcerpt.value = true;
   try {
-    excerpt.value = await extractExcerpt(content.value, editorMode.value);
+    const res = await aiAnalyze<ArticleMetaResult>({
+      scene: 'article-meta',
+      title: title.value,
+      content: content.value,
+    });
+    if (res.code === 200 && res.data) {
+      const d = res.data;
+      excerpt.value = d.summary || '';
+      if (d.seoTitle) seoTitle.value = d.seoTitle;
+      if (d.seoDescription) seoDescription.value = d.seoDescription;
+      if (d.seoKeywords) seoKeywords.value = d.seoKeywords;
+      toast.success(d.source === 'ai' ? 'AI 提取完成，已填充摘要与 SEO 信息' : 'AI 未配置，已使用本地提取结果');
+    }
   } catch (error) {
-    console.error('摘要提取失败:', error);
-    toast.error('摘要提取失败，请重试');
+    console.error('AI 智能提取失败:', error);
+    // AI 接口失败时回退本地摘要提取，保证按钮始终可用
+    try {
+      excerpt.value = await extractExcerpt(content.value, editorMode.value);
+      toast.error('AI 提取失败，已回退本地摘要提取');
+    } catch {
+      toast.error((error as Error)?.message || '智能提取失败，请重试');
+    }
   } finally {
     isExtractingExcerpt.value = false;
   }
@@ -802,7 +878,11 @@ function handleDrop(event: DragEvent) {
 // 删除封面：二次确认后调后端清理（仅 http URL 入库过需删；Base64 未入库直接清空）
 async function removeCover() {
   if (!coverImage.value) return;
-  const ok = window.confirm('删除后将永久清除该封面的存储与记录，且无法恢复，是否确认？');
+  const ok = await confirmModal.confirm('删除后将永久清除该封面的存储与记录，且无法恢复，是否确认？', {
+    title: '删除封面',
+    confirmText: '删除',
+    danger: true,
+  });
   if (!ok) return;
   const oldCover = coverImage.value;
   coverImage.value = '';
@@ -810,7 +890,7 @@ async function removeCover() {
     try {
       await deletePortalFile(oldCover);
     } catch (e) {
-      toast.error('文件记录清理失败，请稍后在文件管理中处理');
+      toast.error((e as Error)?.message || '文件记录清理失败，请稍后在文件管理中处理');
       console.warn('封面清理失败：', e);
     }
   }
@@ -864,7 +944,7 @@ async function handleFile(file: File) {
   } catch (error) {
     console.error('封面上传失败:', error);
     coverImage.value = oldCover || '';
-    toast.error('封面上传失败，请重试');
+    toast.error((error as Error)?.message || '封面上传失败，请重试');
   } finally {
     // 释放本地预览 blob URL（成功时已被 fileUrl 覆盖，失败时已恢复为 oldCover）
     URL.revokeObjectURL(objectUrl);
@@ -931,61 +1011,6 @@ onBeforeRouteLeave(async () => {
             {{ articleStatus === 'draft' ? '草稿' : articleStatus === 'pending' ? '审核中' : '已发布' }}
           </span>
         </div>
-
-        <!-- 右侧操作按钮 -->
-        <div class="flex items-center gap-3 flex-shrink-0">
-          <!-- 保存提示（手动保存后显示最近保存时间） -->
-          <div v-if="lastSaved" class="hidden sm:flex items-center gap-1.5 text-xs" style="color: var(--theme-text-secondary);">
-            <Check class="w-3.5 h-3.5 text-green-500" />
-            <span>已保存于 {{ lastSaved }}</span>
-          </div>
-
-          <!-- 保存草稿（只读模式下隐藏） -->
-          <button
-              v-if="!isReadOnly"
-              @click="saveDraft(false)"
-              :disabled="isSaving"
-              class="px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2"
-              style="color: var(--theme-text); border: 1px solid var(--theme-border);"
-          >
-            <Save class="w-4 h-4" />
-            <span class="hidden sm:inline">保存草稿</span>
-          </button>
-
-          <!-- 版本历史（仅草稿模式显示） -->
-          <button
-              v-if="draftId && !isReadOnly"
-              @click="openVersionDrawer"
-              class="px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2"
-              style="color: var(--theme-text-secondary); border: 1px solid var(--theme-border);"
-              title="查看与回滚历史版本"
-          >
-            <History class="w-4 h-4" />
-            <span class="hidden sm:inline">版本历史</span>
-          </button>
-
-          <!-- 预览 -->
-          <button
-              @click="previewArticle"
-              class="px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2"
-              :style="showPreview ? { backgroundColor: 'var(--theme-accent)', color: 'var(--theme-primary)' } : { color: 'var(--theme-text-secondary)' }"
-          >
-            <Eye class="w-4 h-4" />
-            <span class="hidden sm:inline">预览</span>
-          </button>
-
-          <!-- 发布（只读模式下隐藏） -->
-          <button
-              v-if="!isReadOnly"
-              @click="handlePublish"
-              :disabled="isPublishing"
-              class="px-5 py-2 rounded-lg font-medium transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-              style="background-color: var(--theme-primary); color: white;"
-          >
-            <Send class="w-4 h-4" />
-            {{ isPublishing ? '发布中...' : '发布' }}
-          </button>
-        </div>
       </div>
     </div>
 
@@ -999,9 +1024,7 @@ onBeforeRouteLeave(async () => {
           </svg>
           <span class="text-sm font-medium" style="color: #92400e;">{{ readOnlyReason }}</span>
         </div>
-        <div class="grid grid-cols-1 lg:grid-cols-4 gap-4">
-          <!-- 左侧主编辑区 -->
-          <div class="lg:col-span-3 space-y-4">
+            <div class="space-y-4">
             <!-- 今日写作 prompt 提示卡片（只读模式下隐藏） -->
             <div
               v-if="todayPrompt && !isReadOnly"
@@ -1016,6 +1039,13 @@ onBeforeRouteLeave(async () => {
                   <Lightbulb class="w-4 h-4 flex-shrink-0" style="color: var(--theme-primary);" />
                   <span class="text-sm font-medium truncate" style="color: var(--theme-text);">
                     今日写作 Prompt：{{ todayPrompt.title }}
+                  </span>
+                  <span
+                    v-if="todayPrompt.festivalName"
+                    class="px-1.5 py-0.5 rounded text-xs flex-shrink-0"
+                    style="background-color: color-mix(in srgb, #f59e0b 15%, transparent); color: #d97706;"
+                  >
+                    {{ todayPrompt.festivalName }}
                   </span>
                   <span
                     v-if="todayPrompt.category"
@@ -1044,9 +1074,31 @@ onBeforeRouteLeave(async () => {
                     <Sparkles class="w-3.5 h-3.5 mr-1" />
                     用它作为标题
                   </button>
+                  <button
+                    @click="shufflePrompt"
+                    class="inline-flex items-center px-3 py-1.5 rounded-md text-xs font-medium transition hover:opacity-80"
+                    style="background-color: color-mix(in srgb, var(--theme-primary) 10%, transparent); color: var(--theme-primary);"
+                  >
+                    <RefreshCw class="w-3.5 h-3.5 mr-1" />
+                    换一批灵感
+                  </button>
                   <span v-if="todayPrompt.promptDate" class="text-xs" style="color: var(--theme-text-secondary);">
                     {{ todayPrompt.promptDate }}
                   </span>
+                </div>
+                <!-- 历史灵感列表（换一批后展示） -->
+                <div v-if="promptHistory.length > 0" class="mt-3 space-y-1.5">
+                  <div
+                    v-for="p in promptHistory"
+                    :key="p.id"
+                    class="flex items-center gap-2 px-2.5 py-1.5 rounded-md cursor-pointer text-sm transition hover:opacity-80"
+                    style="background-color: color-mix(in srgb, var(--theme-primary) 6%, transparent);"
+                    @click="usePrompt(p)"
+                  >
+                    <span class="truncate flex-1" style="color: var(--theme-text);">{{ p.title }}</span>
+                    <span v-if="p.festivalName" class="text-xs flex-shrink-0" style="color: #d97706;">{{ p.festivalName }}</span>
+                    <span v-if="p.category" class="text-xs flex-shrink-0" style="color: var(--theme-text-secondary);">{{ p.category }}</span>
+                  </div>
                 </div>
               </div>
             </div>
@@ -1146,114 +1198,9 @@ onBeforeRouteLeave(async () => {
               </div>
             </div>
 
-            <!-- 编辑器模式切换（只读模式下隐藏） -->
-            <div v-if="!isReadOnly" class="flex items-center gap-3">
-              <div class="flex rounded-lg p-1" style="background-color: var(--theme-surface);">
-                <button
-                    @click="editorMode = 'richtext'"
-                    class="px-3 py-1.5 rounded-md text-sm font-medium transition-colors flex items-center gap-2"
-                    :style="editorMode === 'richtext' ? { backgroundColor: 'var(--theme-primary)', color: 'white' } : { color: 'var(--theme-text-secondary)' }"
-                >
-                  <Type class="w-4 h-4" />
-                  富文本
-                </button>
-                <button
-                    @click="editorMode = 'markdown'"
-                    class="px-3 py-1.5 rounded-md text-sm font-medium transition-colors flex items-center gap-2"
-                    :style="editorMode === 'markdown' ? { backgroundColor: 'var(--theme-primary)', color: 'white' } : { color: 'var(--theme-text-secondary)' }"
-                >
-                  <Code class="w-4 h-4" />
-                  Markdown
-                </button>
-              </div>
-            </div>
-
-            <!-- 内容编辑器和摘要区 -->
-            <div class="space-y-3">
-              <!-- 内容编辑器 -->
-              <div>
-                <!-- 只读内容展示（查看模式 / 审核中） -->
-                <div v-if="isReadOnly" class="rounded-lg border p-4 sm:p-6 min-h-[300px]" style="background-color: var(--theme-surface); border-color: var(--theme-border);">
-                  <div class="prose prose-lg max-w-none" style="color: var(--theme-text);">
-                    <div v-if="editorMode === 'markdown'" v-html="markdownPreview"></div>
-                    <div v-else v-html="sanitizedContent || '<p>暂无内容</p>'"></div>
-                  </div>
-                </div>
-
-                <!-- 预览模式 -->
-                <div v-else-if="showPreview" class="rounded-lg border p-4 sm:p-6" style="background-color: var(--theme-surface); border-color: var(--theme-border);">
-                  <div class="flex items-center justify-between mb-4 pb-3 border-b" style="border-color: var(--theme-border);">
-                    <h2 class="text-lg sm:text-xl font-bold" style="color: var(--theme-text);">{{ title || '文章标题' }}</h2>
-                    <button @click="closePreview" class="p-1.5 rounded-lg hover:bg-gray-100" style="color: var(--theme-text-secondary);">
-                      <X class="w-4 h-4" />
-                    </button>
-                  </div>
-                  <div class="prose prose-lg max-w-none" style="color: var(--theme-text-secondary);">
-                    <div v-if="editorMode === 'markdown'" v-html="markdownPreview"></div>
-                    <div v-else v-html="sanitizedContent || '<p>在这里输入你的文章内容...</p>'"></div>
-                  </div>
-                </div>
-
-                <!-- 富文本编辑模式 (Quill) -->
-                <QuillEditor
-                    v-else-if="editorMode === 'richtext'"
-                    v-model="content"
-                    placeholder="开始写作..."
-                    theme="snow"
-                />
-
-                <!-- Markdown编辑模式 -->
-                <MarkdownEditor
-                    v-else
-                    v-model="content"
-                    placeholder="开始写作..."
-                />
-              </div>
-
-              <!-- 摘要区 -->
-              <div class="rounded-lg border p-3 sm:p-4" style="background-color: var(--theme-surface); border-color: var(--theme-border);">
-                <div class="flex items-center justify-between mb-3">
-                  <h3 class="font-semibold flex items-center gap-2" style="color: var(--theme-text);">
-                    <BookOpen class="w-4 h-4" />
-                    摘要
-                  </h3>
-                  <button
-                      v-if="!isReadOnly"
-                      @click="extractExcerptFromContent"
-                      :disabled="isExtractingExcerpt"
-                      class="text-xs px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1"
-                      style="color: var(--theme-primary); background-color: var(--theme-accent);"
-                  >
-                    <svg v-if="isExtractingExcerpt" class="animate-spin w-3 h-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                      <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                      <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                    <Sparkles v-else class="w-3 h-3" />
-                    <span>{{ isExtractingExcerpt ? '提取中...' : '智能提取' }}</span>
-                  </button>
-                </div>
-
-                <textarea
-                    v-model="excerpt"
-                    placeholder="文章摘要（选填，会在列表页显示，不填则自动截取内容前200字）"
-                    class="w-full text-sm border-0 focus:outline-none resize-none"
-                    :class="{ 'cursor-default': isReadOnly }"
-                    rows="3"
-                    maxlength="200"
-                    :readonly="isReadOnly"
-                    style="background-color: transparent; color: var(--theme-text-secondary);"
-                ></textarea>
-                <div class="flex justify-between items-center mt-1">
-                  <span class="text-xs" style="color: var(--theme-text-secondary);">
-                    {{ excerpt.length }}/200
-                  </span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- 右侧边栏 - 分类、标签和高级选项 -->
-          <div class="lg:col-span-1 space-y-4">
+            <!-- 基本信息：分类 + 标签 -->
+            <div class="rounded-lg border p-4 space-y-4" style="background-color: var(--theme-surface); border-color: var(--theme-border);">
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
             <!-- 分类选择 - 二级联动 -->
             <div class="rounded-lg border p-3 sm:p-4" style="background-color: var(--theme-surface); border-color: var(--theme-border);">
               <h3 class="font-semibold mb-3 flex items-center gap-2" style="color: var(--theme-text);">
@@ -1426,8 +1373,116 @@ onBeforeRouteLeave(async () => {
                 收起建议
               </button>
             </div>
+              </div>
+            </div>
 
-            <!-- 高级选项区 - 移到这里（只读模式下隐藏） -->
+
+            <!-- 编辑器模式切换（只读模式下隐藏） -->
+            <div v-if="!isReadOnly" class="flex items-center gap-3">
+              <div class="flex rounded-lg p-1" style="background-color: var(--theme-surface);">
+                <button
+                    @click="editorMode = 'richtext'"
+                    class="px-3 py-1.5 rounded-md text-sm font-medium transition-colors flex items-center gap-2"
+                    :style="editorMode === 'richtext' ? { backgroundColor: 'var(--theme-primary)', color: 'white' } : { color: 'var(--theme-text-secondary)' }"
+                >
+                  <Type class="w-4 h-4" />
+                  富文本
+                </button>
+                <button
+                    @click="editorMode = 'markdown'"
+                    class="px-3 py-1.5 rounded-md text-sm font-medium transition-colors flex items-center gap-2"
+                    :style="editorMode === 'markdown' ? { backgroundColor: 'var(--theme-primary)', color: 'white' } : { color: 'var(--theme-text-secondary)' }"
+                >
+                  <Code class="w-4 h-4" />
+                  Markdown
+                </button>
+              </div>
+            </div>
+
+            <!-- 内容编辑器和摘要区 -->
+            <div class="space-y-3">
+              <!-- 内容编辑器 -->
+              <div>
+                <!-- 只读内容展示（查看模式 / 审核中） -->
+                <div v-if="isReadOnly" class="rounded-lg border p-4 sm:p-6 min-h-[300px]" style="background-color: var(--theme-surface); border-color: var(--theme-border);">
+                  <div class="prose prose-lg max-w-none" style="color: var(--theme-text);">
+                    <div v-if="editorMode === 'markdown'" v-html="markdownPreview"></div>
+                    <div v-else v-html="sanitizedContent || '<p>暂无内容</p>'"></div>
+                  </div>
+                </div>
+
+                <!-- 预览模式 -->
+                <div v-else-if="showPreview" class="rounded-lg border p-4 sm:p-6" style="background-color: var(--theme-surface); border-color: var(--theme-border);">
+                  <div class="flex items-center justify-between mb-4 pb-3 border-b" style="border-color: var(--theme-border);">
+                    <h2 class="text-lg sm:text-xl font-bold" style="color: var(--theme-text);">{{ title || '文章标题' }}</h2>
+                    <button @click="closePreview" class="p-1.5 rounded-lg hover:bg-gray-100" style="color: var(--theme-text-secondary);">
+                      <X class="w-4 h-4" />
+                    </button>
+                  </div>
+                  <div class="prose prose-lg max-w-none" style="color: var(--theme-text-secondary);">
+                    <div v-if="editorMode === 'markdown'" v-html="markdownPreview"></div>
+                    <div v-else v-html="sanitizedContent || '<p>在这里输入你的文章内容...</p>'"></div>
+                  </div>
+                </div>
+
+                <!-- 富文本编辑模式 (Quill) -->
+                <QuillEditor
+                    v-else-if="editorMode === 'richtext'"
+                    v-model="content"
+                    placeholder="开始写作..."
+                    theme="snow"
+                />
+
+                <!-- Markdown编辑模式 -->
+                <MarkdownEditor
+                    v-else
+                    v-model="content"
+                    placeholder="开始写作..."
+                />
+              </div>
+
+              <!-- 摘要区 -->
+              <div class="rounded-lg border p-3 sm:p-4" style="background-color: var(--theme-surface); border-color: var(--theme-border);">
+                <div class="flex items-center justify-between mb-3">
+                  <h3 class="font-semibold flex items-center gap-2" style="color: var(--theme-text);">
+                    <BookOpen class="w-4 h-4" />
+                    摘要
+                  </h3>
+                  <button
+                      v-if="!isReadOnly"
+                      @click="aiExtractMeta"
+                      :disabled="isExtractingExcerpt"
+                      class="text-xs px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1"
+                      style="color: var(--theme-primary); background-color: var(--theme-accent);"
+                  >
+                    <svg v-if="isExtractingExcerpt" class="animate-spin w-3 h-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                      <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    <Sparkles v-else class="w-3 h-3" />
+                    <span>{{ isExtractingExcerpt ? 'AI 生成中...' : 'AI 智能提取' }}</span>
+                  </button>
+                </div>
+
+                <textarea
+                    v-model="excerpt"
+                    placeholder="文章摘要（选填，会在列表页显示，不填则自动截取内容前200字）"
+                    class="w-full text-sm border-0 focus:outline-none resize-none"
+                    :class="{ 'cursor-default': isReadOnly }"
+                    rows="3"
+                    maxlength="200"
+                    :readonly="isReadOnly"
+                    style="background-color: transparent; color: var(--theme-text-secondary);"
+                ></textarea>
+                <div class="flex justify-between items-center mt-1">
+                  <span class="text-xs" style="color: var(--theme-text-secondary);">
+                    {{ excerpt.length }}/200
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <!-- 高级选项（只读模式下隐藏） -->
             <div v-if="!isReadOnly" class="rounded-lg border overflow-hidden" style="background-color: var(--theme-surface); border-color: var(--theme-border);">
               <button
                   @click="showAdvanced = !showAdvanced"
@@ -1448,13 +1503,25 @@ onBeforeRouteLeave(async () => {
               <div v-if="showAdvanced" class="px-3 sm:px-4 pb-4 space-y-3">
                 <!-- SEO设置 -->
                 <div class="border-t pt-3" style="border-color: var(--theme-border);">
-                  <button
-                      @click="showSeoSettings = !showSeoSettings"
-                      class="flex items-center justify-between w-full mb-2"
-                  >
-                    <span class="font-medium text-sm" style="color: var(--theme-text);">SEO 设置</span>
-                    <ChevronRight class="w-4 h-4" :class="{ 'rotate-90': showSeoSettings }" style="color: var(--theme-text-secondary);" />
-                  </button>
+                  <div class="flex items-center justify-between mb-2">
+                    <button
+                        @click="showSeoSettings = !showSeoSettings"
+                        class="flex items-center gap-1"
+                    >
+                      <span class="font-medium text-sm" style="color: var(--theme-text);">SEO 设置</span>
+                      <ChevronRight class="w-4 h-4" :class="{ 'rotate-90': showSeoSettings }" style="color: var(--theme-text-secondary);" />
+                    </button>
+                    <button
+                        v-if="!isReadOnly"
+                        @click="aiExtractMeta"
+                        :disabled="isExtractingExcerpt"
+                        class="text-xs px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1"
+                        style="color: var(--theme-primary); background-color: var(--theme-accent);"
+                    >
+                      <Sparkles class="w-3 h-3" />
+                      <span>{{ isExtractingExcerpt ? 'AI 生成中...' : 'AI 生成' }}</span>
+                    </button>
+                  </div>
                   <div v-if="showSeoSettings" class="space-y-2 pl-2">
                     <div>
                       <label class="block text-xs mb-1" style="color: var(--theme-text-secondary);">SEO 标题</label>
@@ -1562,7 +1629,7 @@ onBeforeRouteLeave(async () => {
               </div>
             </div>
           </div>
-        </div>
+
       </div>
     </div>
 
@@ -1754,6 +1821,31 @@ onBeforeRouteLeave(async () => {
     </transition>
 
     <!-- 底部 Footer -->
+    <!-- 底部操作栏（sticky bottom） -->
+    <div class="sticky bottom-0 z-40 border-t flex-shrink-0" style="background-color: var(--theme-surface); border-color: var(--theme-border);">
+      <div class="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between gap-3 flex-wrap">
+        <div class="flex items-center gap-2">
+          <div v-if="lastSaved" class="flex items-center gap-1.5 text-xs" style="color: var(--theme-text-secondary);">
+            <Check class="w-3.5 h-3.5 text-green-500" /><span class="hidden sm:inline">已保存于 {{ lastSaved }}</span>
+          </div>
+        </div>
+        <div class="flex items-center gap-2 sm:gap-3">
+          <button v-if="!isReadOnly" @click="saveDraft(false)" :disabled="isSaving" class="px-3 sm:px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2" style="color: var(--theme-text); border: 1px solid var(--theme-border);">
+            <Save class="w-4 h-4" /><span class="hidden sm:inline">保存草稿</span>
+          </button>
+          <button v-if="draftId && !isReadOnly" @click="openVersionDrawer" class="px-3 sm:px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2" style="color: var(--theme-text-secondary); border: 1px solid var(--theme-border);" title="查看与回滚历史版本">
+            <History class="w-4 h-4" /><span class="hidden sm:inline">版本历史</span>
+          </button>
+          <button @click="previewArticle" class="px-3 sm:px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2" :style="showPreview ? { backgroundColor: 'var(--theme-accent)', color: 'var(--theme-primary)' } : { color: 'var(--theme-text-secondary)', border: '1px solid var(--theme-border)' }">
+            <Eye class="w-4 h-4" /><span class="hidden sm:inline">预览</span>
+          </button>
+          <button v-if="!isReadOnly" @click="handlePublish" :disabled="isPublishing" class="px-4 sm:px-5 py-2 rounded-lg font-medium transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed" style="background-color: var(--theme-primary); color: white;">
+            <Send class="w-4 h-4" />{{ isPublishing ? '发布中...' : '发布' }}
+          </button>
+        </div>
+      </div>
+    </div>
+
     <SiteFooter />
   </div>
 </template>

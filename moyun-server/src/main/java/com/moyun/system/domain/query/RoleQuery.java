@@ -9,7 +9,7 @@ import lombok.EqualsAndHashCode;
 /**
  * 角色查询对象
  *
- * @author ruoyi
+ * @author allen-zyg
  */
 @Data
 @EqualsAndHashCode(callSuper = true)

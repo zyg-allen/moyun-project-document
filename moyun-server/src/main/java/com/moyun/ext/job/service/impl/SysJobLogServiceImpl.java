@@ -12,7 +12,7 @@ import java.util.List;
 /**
  * 定时任务调度日志服务实现
  *
- * @author ruoyi
+ * @author allen-zyg
  */
 @Service
 public class SysJobLogServiceImpl implements ISysJobLogService {

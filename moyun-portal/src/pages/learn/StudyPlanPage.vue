@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch, reactive } from 'vue';
+import { useConfirmModal } from '@/composables/useConfirmModal';
 import { useRouter } from 'vue-router';
 import { useHead } from '@vueuse/head';
 import {
@@ -15,6 +16,9 @@ import {
 } from '@/api/learn';
 import type { StudyPlanVO, StudyPlanSaveBody } from '@/api/learn';
 import { useToast } from '@/composables/useToast';
+
+
+const confirmModal = useConfirmModal();
 
 const router = useRouter();
 const toast = useToast();
@@ -58,8 +62,8 @@ const breadcrumbs = computed(() => [
 
 useHead(computed(() => generateSeo({
   title: '学习计划',
-  description: '墨韵智库学习计划 - 创建刷题/阅读计划，跟踪进度，记录每日完成',
-  keywords: ['学习计划', '刷题计划', '目标', '进度跟踪', '墨韵'],
+  description: '旭林知行学习计划 - 创建刷题/阅读计划，跟踪进度，记录每日完成',
+  keywords: ['学习计划', '刷题计划', '目标', '进度跟踪', '旭林'],
   canonicalPath: '/learn/plan',
   robots: 'noindex,nofollow',
 })));
@@ -156,7 +160,7 @@ function openEdit(plan: StudyPlanVO) {
   formOpen.value = true;
 }
 
-function closeForm() {
+async function closeForm() {
   if (formLoading.value) return;
   formOpen.value = false;
 }
@@ -191,7 +195,7 @@ async function submitForm() {
 }
 
 async function removePlan(plan: StudyPlanVO) {
-  if (!window.confirm(`确定删除计划「${plan.title}」？该操作不可恢复，相关进度日志将一并删除。`)) return;
+  if (!await confirmModal.confirm(`确定删除计划「${plan.title}」？该操作不可恢复，相关进度日志将一并删除。`, { danger: true,  title: '确认操作'})) return;
   actionId.value = plan.id;
   try {
     await deleteStudyPlan(plan.id);
@@ -282,7 +286,7 @@ const statusTabs: { value: StatusFilter; label: string }[] = [
             @click="handleAutoGenerate"
             :disabled="generating"
             class="inline-flex items-center text-sm font-medium px-3 py-1.5 rounded-lg text-white transition hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
-            style="background: linear-gradient(135deg, var(--theme-primary), color-mix(in srgb, var(--theme-primary) 70%, #7c3aed));"
+            style="background-color: var(--theme-primary);"
             title="根据你的薄弱点与岗位必备技能自动生成学习计划"
           >
             <Sparkles class="w-4 h-4 mr-1" />

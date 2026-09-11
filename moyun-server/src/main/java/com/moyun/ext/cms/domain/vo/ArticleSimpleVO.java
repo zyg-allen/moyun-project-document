@@ -32,4 +32,13 @@ public class ArticleSimpleVO implements Serializable {
 
     /** 专栏内顺序 */
     private Integer sortOrder;
+
+    /** 作者用户ID（CMS后台维护文章/批量加入专栏弹窗展示用） */
+    private Long userId;
+
+    /** 作者昵称（CMS后台展示用，由 Mapper 关联 portal_user 填充） */
+    private String authorName;
+
+    /** 作者用户名（CMS后台展示用，由 Mapper 关联 portal_user 填充） */
+    private String authorUsername;
 }

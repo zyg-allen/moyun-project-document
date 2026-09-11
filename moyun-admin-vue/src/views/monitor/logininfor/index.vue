@@ -41,8 +41,12 @@
             clearable
             style="width: 240px"
         >
-          <el-option label="后台登录" value="sys" />
-          <el-option label="前台登录" value="portal" />
+          <el-option
+              v-for="d in sys_login_type"
+              :key="d.value"
+              :label="d.label"
+              :value="d.value"
+          />
         </el-select>
       </el-form-item>
       <el-form-item label="登录时间" style="width: 308px">
@@ -110,9 +114,7 @@
       <el-table-column label="用户名称" align="center" prop="userName" :show-overflow-tooltip="true" sortable="custom" :sort-orders="['descending', 'ascending']" />
       <el-table-column label="用户类型" align="center" prop="userType" width="90">
         <template #default="scope">
-          <el-tag :type="scope.row.userType === 'portal' ? 'success' : 'primary'" size="small">
-            {{ scope.row.userType === 'portal' ? '前台' : '后台' }}
-          </el-tag>
+          <dict-tag :options="sys_login_type" :value="scope.row.userType" />
         </template>
       </el-table-column>
       <el-table-column label="地址" align="center" prop="ipaddr" :show-overflow-tooltip="true" />
@@ -146,7 +148,7 @@
 import { list, delLogininfor, cleanLogininfor, unlockLogininfor } from "@/api/monitor/logininfor";
 
 const { proxy } = getCurrentInstance();
-const { sys_common_status } = proxy.useDict("sys_common_status");
+const { sys_common_status, sys_login_type } = proxy.useDict("sys_common_status", "sys_login_type");
 
 const logininforList = ref([]);
 const loading = ref(true);

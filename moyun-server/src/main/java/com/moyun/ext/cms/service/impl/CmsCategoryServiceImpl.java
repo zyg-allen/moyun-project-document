@@ -65,12 +65,9 @@ public class CmsCategoryServiceImpl implements ICmsCategoryService
     @Override
     public int updateCategory(PortalCategory category)
     {
-        // 校验：不能修改为三级栏目
-        if (category.getParentId() != null && category.getParentId() != 0) {
-            PortalCategory parent = portalCategoryMapper.selectById(category.getParentId());
-            if (parent != null && parent.getParentId() != null && parent.getParentId() != 0) {
-                throw new RuntimeException("最多只支持两级栏目，不能设置为三级");
-            }
+        // 校验：
+        if (category == null || category.getParentId() == 0){
+            throw new RuntimeException("请选择父级栏目");
         }
         return portalCategoryMapper.updateById(category);
     }

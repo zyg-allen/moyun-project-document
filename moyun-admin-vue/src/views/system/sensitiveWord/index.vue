@@ -73,7 +73,7 @@
           <span>{{ parseTime(scope.row.createTime) }}</span>
         </template>
       </el-table-column>
-      <el-table-column label="操作" align="center" width="160" class-name="small-padding fixed-width">
+      <el-table-column label="操作" align="right" width="160" class-name="small-padding fixed-width">
         <template #default="scope">
           <el-button link type="primary" icon="Edit" @click="handleUpdate(scope.row)" v-hasPermi="['system:sensitiveWord:edit']">修改</el-button>
           <el-button link type="primary" icon="Delete" @click="handleDelete(scope.row)" v-hasPermi="['system:sensitiveWord:remove']">删除</el-button>
@@ -89,7 +89,7 @@
       @pagination="getList"
     />
 
-    <el-dialog :title="title" v-model="open" width="520px" append-to-body>
+    <el-dialog :title="title" v-model="open" width="660px" append-to-body>
       <el-form ref="wordRef" :model="form" :rules="rules" label-width="80px">
         <el-form-item label="敏感词" prop="word">
           <el-input v-model="form.word" placeholder="请输入敏感词" maxlength="128" show-word-limit />

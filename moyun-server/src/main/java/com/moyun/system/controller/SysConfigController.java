@@ -23,7 +23,7 @@ import java.util.List;
 /**
  * 参数配置 信息操作处理
  *
- * @author ruoyi
+ * @author allen-zyg
  */
 @Tag(name = "参数配置管理", description = "系统参数配置的增删改查、导出、缓存刷新等操作接口")
 @RestController

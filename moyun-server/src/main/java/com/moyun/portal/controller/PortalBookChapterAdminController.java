@@ -49,7 +49,7 @@ public class PortalBookChapterAdminController extends BaseController {
 
     @Operation(summary = "获取章节详情")
     @PreAuthorize("@ss.hasPermi('portal:bookChapter:query')")
-    @GetMapping("/{id}")
+    @GetMapping("/{id:[0-9]+}")
     public AjaxResult getById(@PathVariable Long id) {
         return success(chapterService.selectChapterById(id));
     }
@@ -75,7 +75,7 @@ public class PortalBookChapterAdminController extends BaseController {
     @Operation(summary = "删除章节")
     @PreAuthorize("@ss.hasPermi('portal:bookChapter:remove')")
     @Log(title = "读书空间-章节", businessType = BusinessType.DELETE)
-    @DeleteMapping("/{id}")
+    @DeleteMapping("/{id:[0-9]+}")
     public AjaxResult delete(@PathVariable Long id) {
         int result = chapterService.deleteChapterById(id);
         return result > 0 ? success("删除成功") : error("删除失败");
@@ -93,7 +93,7 @@ public class PortalBookChapterAdminController extends BaseController {
     @Operation(summary = "发布章节")
     @PreAuthorize("@ss.hasPermi('portal:bookChapter:publish')")
     @Log(title = "读书空间-章节", businessType = BusinessType.UPDATE)
-    @PutMapping("/{id}/publish")
+    @PutMapping("/{id:[0-9]+}/publish")
     public AjaxResult publish(@PathVariable Long id) {
         int result = chapterService.publishChapter(id);
         return result > 0 ? success("发布成功") : error("发布失败");
@@ -102,7 +102,7 @@ public class PortalBookChapterAdminController extends BaseController {
     @Operation(summary = "撤回发布")
     @PreAuthorize("@ss.hasPermi('portal:bookChapter:publish')")
     @Log(title = "读书空间-章节", businessType = BusinessType.UPDATE)
-    @PutMapping("/{id}/unpublish")
+    @PutMapping("/{id:[0-9]+}/unpublish")
     public AjaxResult unpublish(@PathVariable Long id) {
         int result = chapterService.unpublishChapter(id);
         return result > 0 ? success("撤回成功") : error("撤回失败");

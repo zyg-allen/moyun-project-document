@@ -137,22 +137,23 @@ onUnmounted(() => {
     <main class="flex-1 py-6 pb-20">
       <!-- 成长概览卡片 -->
       <div v-if="growthInfo" class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mb-6">
-        <div class="rounded-xl p-6" style="background: linear-gradient(135deg, var(--theme-primary), var(--theme-primary-dark, var(--theme-primary))); color: white;">
+        <div class="rounded-xl p-6 border" style="background-color: var(--theme-primary-soft, var(--theme-surface)); border-color: var(--theme-border);">
           <div class="flex items-center justify-between">
             <div>
-              <p class="text-sm opacity-80">当前等级</p>
-              <p class="text-3xl font-bold mt-1">Lv.{{ growthInfo.level || 1 }}</p>
-              <p class="text-sm opacity-80 mt-1">{{ growthInfo.title || '初出茅庐' }}</p>
+              <p class="text-sm" style="color: var(--theme-text-secondary);">当前等级</p>
+              <p class="text-3xl font-bold mt-1" style="color: var(--theme-text);">Lv.{{ growthInfo.level || 1 }}</p>
+              <p class="text-sm mt-1" style="color: var(--theme-text-secondary);">{{ growthInfo.title || '初出茅庐' }}</p>
             </div>
             <div class="text-right">
-              <p class="text-sm opacity-80">成长值</p>
-              <p class="text-2xl font-bold mt-1">{{ growthInfo.growthValue || 0 }}</p>
-              <p class="text-xs opacity-60 mt-1">本季 {{ growthInfo.seasonValue || 0 }}</p>
+              <p class="text-sm" style="color: var(--theme-text-secondary);">成长值</p>
+              <p class="text-2xl font-bold mt-1" style="color: var(--theme-primary);">{{ growthInfo.growthValue || 0 }}</p>
+              <p class="text-xs mt-1" style="color: var(--theme-text-tertiary);">本季 {{ growthInfo.seasonValue || 0 }}</p>
             </div>
           </div>
-          <div class="mt-4 h-2 rounded-full bg-white/20 overflow-hidden">
+          <div class="mt-4 h-2 rounded-full overflow-hidden" style="background-color: var(--theme-border);">
             <div
-              class="h-full bg-white rounded-full transition-all duration-500"
+              class="h-full rounded-full transition-all duration-500"
+              style="background-color: var(--theme-primary);"
               :style="{ width: `${Math.min(100, ((growthInfo.growthValue || 0) % 100))}%` }"
             />
           </div>
@@ -183,7 +184,7 @@ onUnmounted(() => {
           加载中...
         </div>
         <div v-else-if="timeline.length === 0">
-          <Empty description="还没有成长记录，去读书或做题吧" />
+          <Empty description="还没有成长记录，去阅读题目、刷题或读书吧，学习行为都会记录在这里" />
         </div>
         <template v-else>
           <!-- 时间线 -->

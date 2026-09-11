@@ -73,8 +73,14 @@ public class CmsCreatorCertificationController extends BaseController {
             map.put("userId", c.getUserId());
             map.put("realName", c.getRealName());
             map.put("certType", c.getCertType());
+            // v10.8 实名合规：证件号仅返回脱敏值（service 层已统一处理）
             map.put("certNo", c.getCertNo());
+            map.put("derivedGender", c.getDerivedGender());
+            map.put("derivedBirth", c.getDerivedBirth());
+            map.put("verifyChannel", c.getVerifyChannel());
             map.put("certImage", c.getCertImage());
+            map.put("certImageFront", c.getCertImageFront());
+            map.put("certImageBack", c.getCertImageBack());
             map.put("intro", c.getIntro());
             map.put("works", c.getWorks());
             map.put("status", c.getStatus());
@@ -91,7 +97,7 @@ public class CmsCreatorCertificationController extends BaseController {
 
     @Operation(summary = "认证申请详情", description = "按ID查询单条认证申请，含申请人昵称")
     @PreAuthorize("@ss.hasPermi('cms:certification:audit')")
-    @GetMapping("/{id}")
+    @GetMapping("/{id:[0-9]+}")
     public AjaxResult detail(@Parameter(description = "认证申请ID") @PathVariable Long id) {
         PortalCreatorCertification c = certificationService.getById(id);
         if (c == null) {
@@ -102,8 +108,14 @@ public class CmsCreatorCertificationController extends BaseController {
         map.put("userId", c.getUserId());
         map.put("realName", c.getRealName());
         map.put("certType", c.getCertType());
+        // v10.8 实名合规：证件号仅返回脱敏值（service 层 getById 已统一处理）
         map.put("certNo", c.getCertNo());
+        map.put("derivedGender", c.getDerivedGender());
+        map.put("derivedBirth", c.getDerivedBirth());
+        map.put("verifyChannel", c.getVerifyChannel());
         map.put("certImage", c.getCertImage());
+        map.put("certImageFront", c.getCertImageFront());
+        map.put("certImageBack", c.getCertImageBack());
         map.put("intro", c.getIntro());
         map.put("works", c.getWorks());
         map.put("status", c.getStatus());
@@ -123,7 +135,7 @@ public class CmsCreatorCertificationController extends BaseController {
     @Operation(summary = "审核认证申请", description = "通过或驳回认证申请，status=approved/rejected")
     @PreAuthorize("@ss.hasPermi('cms:certification:audit')")
     @Log(title = "创作者认证", businessType = BusinessType.UPDATE)
-    @PutMapping("/{id}/audit")
+    @PutMapping("/{id:[0-9]+}/audit")
     public AjaxResult audit(@Parameter(description = "认证申请ID") @PathVariable Long id,
                             @RequestBody Map<String, Object> body) {
         Long auditorId = SecurityUtils.getUserId();

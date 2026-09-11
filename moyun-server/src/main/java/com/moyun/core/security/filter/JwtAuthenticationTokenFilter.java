@@ -25,7 +25,7 @@ import java.io.IOException;
  * - 如果有token，解析并设置认证信息
  * </p>
  *
- * @author ruoyi
+ * @author allen-zyg
  */
 @Component
 public class JwtAuthenticationTokenFilter extends OncePerRequestFilter {

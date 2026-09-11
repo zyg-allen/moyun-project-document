@@ -193,7 +193,7 @@
                 <span class="content-preview">{{ previewContent(scope.row.content) }}</span>
               </template>
             </el-table-column>
-            <el-table-column label="操作" width="80" align="center">
+            <el-table-column label="操作" width="80" align="right">
               <template #default="scope">
                 <el-button type="text" size="small" @click="removePreviewChapter(scope.$index)">
                   移除

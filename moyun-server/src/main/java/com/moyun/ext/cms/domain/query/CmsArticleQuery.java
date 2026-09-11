@@ -31,6 +31,11 @@ public class CmsArticleQuery extends PageDomain implements Serializable {
     private Long authorId;
 
     /**
+     * 作者名称（昵称/用户名模糊查询，CMS后台文章列表按用户名搜索）
+     */
+    private String authorName;
+
+    /**
      * 分类ID
      */
     private Long categoryId;

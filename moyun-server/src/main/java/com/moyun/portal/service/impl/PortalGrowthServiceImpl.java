@@ -13,6 +13,7 @@ import org.springframework.util.StringUtils;
 import com.moyun.portal.domain.entity.PortalAchievement;
 import com.moyun.portal.domain.entity.PortalGrowthLog;
 import com.moyun.portal.domain.entity.PortalGrowthRule;
+import com.moyun.portal.domain.entity.PortalUser;
 import com.moyun.portal.domain.entity.PortalUserBadge;
 import com.moyun.portal.domain.entity.PortalUserGrowth;
 import com.moyun.portal.domain.entity.PortalUserStats;
@@ -29,6 +30,7 @@ import com.moyun.portal.mapper.PortalGrowthRuleMapper;
 import com.moyun.portal.mapper.PortalUserBadgeMapper;
 import com.moyun.portal.mapper.PortalUserGrowthMapper;
 import com.moyun.portal.mapper.PortalUserStatsMapper;
+import com.moyun.portal.mapper.PortalUserMapper;
 import com.moyun.portal.service.IPortalGrowthService;
 
 import java.time.LocalDate;
@@ -76,6 +78,9 @@ public class PortalGrowthServiceImpl implements IPortalGrowthService {
 
     @Autowired
     private PortalFollowMapper followMapper;
+
+    @Autowired
+    private PortalUserMapper portalUserMapper;
 
     @Autowired
     private com.moyun.portal.mapper.PortalCommentMapper commentMapper;
@@ -625,18 +630,24 @@ public class PortalGrowthServiceImpl implements IPortalGrowthService {
     }
 
     /**
-     * 判断用户是否VIP（通过查询数据库，避免依赖 SecurityContext）
+     * 判断用户是否VIP（直接查询数据库，不依赖 SecurityContext）
      */
     private boolean isUserVip(Long userId) {
-        try {
-            com.moyun.portal.domain.model.PortalLoginUser loginUser = com.moyun.portal.util.PortalSecurityUtils.getLoginUser();
-            if (loginUser != null && loginUser.getId() != null && loginUser.getId().equals(userId)) {
-                return loginUser.getRoles() != null && loginUser.getRoles().contains("vip");
-            }
-        } catch (Exception e) {
-            // SecurityContext 不可用时忽略
+        if (userId == null) {
+            return false;
         }
-        return false;
+        try {
+            PortalUser user = portalUserMapper.selectById(userId);
+            if (user == null) {
+                return false;
+            }
+            // VIP 判定：vipExpireAt 存在且未过期
+            return user.getVipExpireAt() != null
+                    && user.getVipExpireAt().isAfter(LocalDateTime.now());
+        } catch (Exception e) {
+            log.warn("查询用户VIP状态失败: userId={}, error={}", userId, e.getMessage());
+            return false;
+        }
     }
 
     @Override
@@ -671,6 +682,7 @@ public class PortalGrowthServiceImpl implements IPortalGrowthService {
             case "finish_book": return "读完一本书";
             // 面试
             case "solve_question": return "答对题目";
+            case "read_question": return "阅读题目";
             case "write_note": return "提交笔记";
             case "note_adopted": return "笔记被精选";
             case "publish_experience": return "发布面经";

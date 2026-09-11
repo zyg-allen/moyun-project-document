@@ -9,7 +9,7 @@ import java.io.Serializable;
 /**
  * 用户与岗位关联表 sys_user_post
  *
- * @author ruoyi
+ * @author allen-zyg
  */
 @Data
 @TableName("sys_user_post")

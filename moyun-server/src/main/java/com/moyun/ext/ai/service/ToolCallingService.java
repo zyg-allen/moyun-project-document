@@ -127,9 +127,10 @@ public class ToolCallingService {
         sb.append("\n⚠️ 工具使用规则（必须遵守）：\n");
         sb.append("1. 当用户询问天气、时间等实时信息时，必须调用对应工具\n");
         sb.append("2. tool字段必须使用上面列出的【英文名】\n");
-        sb.append("3. 工具调用优先级高于知识库规则\n");
-        sb.append("4. 工作流工具用于执行复杂的预定义任务\n");
-        sb.append("5. 示例：调用工作流 [TOOL_CALL]{\"tool\":\"workflow_1\",\"params\":{\"input\":\"用户的问题\"}}[/TOOL_CALL]\n");
+        sb.append("3. params 必须严格符合各工具的参数 JSON Schema：必填项齐全、类型正确（string/integer/boolean 等，数字不要加引号）——类型错误会被校验拒绝\n");
+        sb.append("4. 工具调用优先级高于知识库规则\n");
+        sb.append("5. 工作流工具用于执行复杂的预定义任务\n");
+        sb.append("6. 示例：调用工作流 [TOOL_CALL]{\"tool\":\"workflow_1\",\"params\":{\"input\":\"用户的问题\"}}[/TOOL_CALL]\n");
 
         return sb.toString();
     }

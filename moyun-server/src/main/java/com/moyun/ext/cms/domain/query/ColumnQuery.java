@@ -19,6 +19,9 @@ public class ColumnQuery extends PageDomain implements Serializable {
     /** 关键词（标题/副标题） */
     private String keyword;
 
+    /** 作者名称（昵称模糊查询，CMS后台专栏列表按用户名搜索） */
+    private String authorName;
+
     /** 状态：draft/published/archived */
     private String status;
 

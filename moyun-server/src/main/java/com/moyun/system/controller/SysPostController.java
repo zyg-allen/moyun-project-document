@@ -23,7 +23,7 @@ import java.util.List;
 /**
  * 岗位信息操作处理
  *
- * @author ruoyi
+ * @author allen-zyg
  */
 @Tag(name = "岗位管理", description = "岗位信息的增删改查、导出等操作接口")
 @RestController

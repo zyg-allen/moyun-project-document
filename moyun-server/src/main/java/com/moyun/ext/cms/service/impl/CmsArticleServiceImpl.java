@@ -5,8 +5,10 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.moyun.common.exception.system.ServiceException;
 import com.moyun.ext.cms.domain.query.CmsArticleQuery;
 import com.moyun.ext.cms.domain.vo.CmsArticleVO;
+import com.moyun.ext.cms.event.ArticlePublishedEvent;
 import com.moyun.ext.cms.service.ICmsArticleService;
 import com.moyun.portal.domain.entity.PortalArticle;
 import com.moyun.portal.domain.entity.PortalUser;
@@ -14,6 +16,7 @@ import com.moyun.portal.domain.query.ArticleQuery;
 import com.moyun.portal.mapper.PortalArticleMapper;
 import com.moyun.portal.mapper.PortalUserMapper;
 import com.moyun.portal.service.IPortalCategoryService;
+import com.moyun.system.domain.dto.AuditTaskSubmitDTO;
 import com.moyun.system.domain.entity.SysNotification;
 import com.moyun.system.service.ISysNotificationService;
 import com.moyun.util.file.Base64ImageUtils;
@@ -88,7 +91,44 @@ public class CmsArticleServiceImpl implements ICmsArticleService {
         if (id == null) {
             return null;
         }
-        return portalArticleMapper.selectCmsArticleById(id);
+        CmsArticleVO vo = portalArticleMapper.selectCmsArticleById(id);
+        if (vo != null) {
+            fillTagArrays(vo);
+        }
+        return vo;
+    }
+
+    /**
+     * 拆分聚合的标签字符串为 ID/名称数组（编辑回显用）。
+     * tagNames 保留逗号字符串（列表展示兼容），tagNameList/tagIds 按 et 绑定顺序一一对应。
+     */
+    private void fillTagArrays(CmsArticleVO vo) {
+        String namesStr = vo.getTagNames();
+        // tagIds 由 Mapper 子查询聚合（仅 et.tag_id，无 join，与绑定表顺序一致）
+        String idsStr = vo.getTagIdsRaw();
+        if (namesStr == null || namesStr.isEmpty()) {
+            vo.setTagIds(new java.util.ArrayList<>());
+            vo.setTagNameList(new java.util.ArrayList<>());
+            return;
+        }
+        List<String> names = java.util.Arrays.stream(namesStr.split(","))
+                .map(String::trim).filter(s -> !s.isEmpty()).collect(java.util.stream.Collectors.toList());
+        List<Long> ids = new java.util.ArrayList<>();
+        if (idsStr != null && !idsStr.isEmpty()) {
+            for (String s : idsStr.split(",")) {
+                try {
+                    ids.add(Long.parseLong(s.trim()));
+                } catch (NumberFormatException ignore) {
+                    // 脏数据防御：单条 ID 解析失败跳过，不影响整体返回
+                }
+            }
+        }
+        // 数量不一致时以 names 为准补齐（极端脏数据防御，避免前端错位匹配）
+        while (ids.size() < names.size()) {
+            ids.add(null);
+        }
+        vo.setTagIds(ids);
+        vo.setTagNameList(names);
     }
 
     // ==================== 新增 / 修改 ====================
@@ -152,14 +192,30 @@ public class CmsArticleServiceImpl implements ICmsArticleService {
         if (article == null || article.getId() == null) {
             return 0;
         }
+        // 先查当前文章状态，用于判断草稿是否允许直接发布
+        PortalArticle existing = portalArticleMapper.selectById(article.getId());
+        String oldStatus = existing != null ? existing.getStatus() : null;
+        String newStatus = article.getStatus();
+        boolean draftDirectPublish = "draft".equals(oldStatus)
+                && ("published".equals(newStatus) || "archived".equals(newStatus));
+
         // ⚠️ 安全防护：剥离审核相关字段，禁止通过 edit 接口绕过 auditArticle 流程
         // 仅 auditArticle 接口可修改这些字段（带乐观锁与审计日志）
-        article.setStatus(null);
+        // —— 例外：管理员在草稿态直接"发布/归档"是允许的，保留 status 和 publishedAt
+        if (!draftDirectPublish) {
+            article.setStatus(null);
+        }
         article.setAuditorId(null);
         article.setAuditTime(null);
         article.setAuditRemark(null);
-        // publishedAt 仅在审核通过时由 auditArticle 写入，编辑时禁止修改
-        article.setPublishedAt(null);
+        // publishedAt：草稿直发 published 时写入当前时间（若前端未传）；其余编辑场景剥离
+        if (draftDirectPublish && "published".equals(newStatus)) {
+            if (article.getPublishedAt() == null) {
+                article.setPublishedAt(LocalDateTime.now());
+            }
+        } else {
+            article.setPublishedAt(null);
+        }
 
         processArticleImages(article);
         // 编辑时同步维护分类路径（切换分类场景）
@@ -202,15 +258,15 @@ public class CmsArticleServiceImpl implements ICmsArticleService {
         // 状态校验：仅允许审核为 published / rejected
         String newStatus = article.getStatus();
         if (!"published".equals(newStatus) && !"rejected".equals(newStatus)) {
-            throw new com.moyun.common.exception.system.ServiceException("审核状态仅支持 published / rejected");
+            throw new ServiceException("审核状态仅支持 published / rejected");
         }
         // 仅 pending 状态的文章可被审核（防止重复审核已发布/已拒绝的文章）
         PortalArticle existing = portalArticleMapper.selectById(article.getId());
         if (existing == null) {
-            throw new com.moyun.common.exception.system.ServiceException("文章不存在");
+            throw new ServiceException("文章不存在");
         }
         if (!"pending".equals(existing.getStatus())) {
-            throw new com.moyun.common.exception.system.ServiceException("仅待审核（pending）状态的文章可审核，当前状态：" + existing.getStatus());
+            throw new ServiceException("仅待审核（pending）状态的文章可审核，当前状态：" + existing.getStatus());
         }
 
         LambdaUpdateWrapper<PortalArticle> wrapper = new LambdaUpdateWrapper<>();
@@ -230,7 +286,7 @@ public class CmsArticleServiceImpl implements ICmsArticleService {
         }
         int rows = portalArticleMapper.update(null, wrapper);
         if (rows == 0) {
-            throw new com.moyun.common.exception.system.ServiceException("审核失败：文章状态已变更，请刷新后重试");
+            throw new ServiceException("审核失败：文章状态已变更，请刷新后重试");
         }
         // 审核驳回：回滚发布文章时获得的成长值
         // 原始成长值在 PortalArticleServiceImpl.publishArticle 中通过 recordEvent("publish_article") 发放，
@@ -251,7 +307,7 @@ public class CmsArticleServiceImpl implements ICmsArticleService {
         // 审核通过：发布事件，触发 Feed 流补发 + 积分联动（监听器做幂等检查，避免重复）
         // 设计：使用 Spring Event 解耦，监听器在事务提交后异步处理，不影响审核主流程响应
         if ("published".equals(newStatus) && existing.getAuthorId() != null) {
-            eventPublisher.publishEvent(new com.moyun.ext.cms.event.ArticlePublishedEvent(
+            eventPublisher.publishEvent(new ArticlePublishedEvent(
                     this,
                     existing.getId(),
                     existing.getAuthorId(),
@@ -259,6 +315,26 @@ public class CmsArticleServiceImpl implements ICmsArticleService {
                     existing.getExcerpt(),
                     existing.getCover()
             ));
+        }
+        // 业务闭环：关闭申请时下发给审核员的待办通知（type=todo）
+        // submitArticleAuditTask 阶段通过 sendTodoNotification 向所有审核员下发了待办，data 含 bizType=article+id；
+        // 此处按 bizType+id 精确匹配关闭，避免审核完成后待办仍残留在审核员的待办列表中。
+        try {
+            notificationService.completeTodoByBizData("article", article.getId());
+        } catch (Exception e) {
+            log.warn("关闭文章审核待办失败（不影响审核主流程）：articleId={}, err={}", article.getId(), e.getMessage());
+        }
+        // 业务闭环：同步 sys_audit_task 为终态
+        // 当审核从 CMS 文章管理直接发起时（非走统一审核中心 handle 流程），
+        // sys_audit_task 不会被更新，导致审核中心/首页待办仍显示为待处理。
+        // 映射：文章 published → approved，rejected → rejected。
+        try {
+            String taskFinalStatus = "published".equals(newStatus) ? "approved" : "rejected";
+            Long auditorId = SecurityUtils.getUserId();
+            String auditorName = SecurityUtils.getUsername();
+            auditTaskService.syncTaskStatusByBiz("article", article.getId(), taskFinalStatus, auditorId, auditorName, auditRemark);
+        } catch (Exception e) {
+            log.warn("同步文章审核任务状态失败（不影响审核主流程）：articleId={}, err={}", article.getId(), e.getMessage());
         }
         // 审核结果通知作者（非阻塞，失败不影响主流程）
         sendAuditNotification(existing, newStatus, auditRemark);
@@ -275,6 +351,13 @@ public class CmsArticleServiceImpl implements ICmsArticleService {
         try {
             if (article.getAuthorId() == null) {
                 log.warn("文章 author_id 为空，跳过审核通知：articleId={}", article.getId());
+                return;
+            }
+            // 验证 portal_user 是否存在
+            PortalUser portalUser = portalUserMapper.selectPortalUserById(article.getAuthorId());
+            if (portalUser == null) {
+                log.warn("作者 portal_user 不存在，跳过审核通知：articleId={}, authorId={}",
+                        article.getId(), article.getAuthorId());
                 return;
             }
             SysNotification notification = new SysNotification();
@@ -313,19 +396,19 @@ public class CmsArticleServiceImpl implements ICmsArticleService {
         // 上下架仅允许在 published / archived 之间流转
         // 禁止通过此接口把 pending/rejected 直接改为 published（必须走 auditArticle 审核流程）
         if (!"published".equals(newStatus) && !"archived".equals(newStatus)) {
-            throw new com.moyun.common.exception.system.ServiceException(
+            throw new ServiceException(
                     "上下架仅支持 published / archived 状态，待审核或被拒文章请走审核接口");
         }
         // 查询当前状态，校验流转合法性
         PortalArticle existing = portalArticleMapper.selectById(article.getId());
         if (existing == null) {
-            throw new com.moyun.common.exception.system.ServiceException("文章不存在");
+            throw new ServiceException("文章不存在");
         }
         String oldStatus = existing.getStatus();
         // 允许：published → archived（下架）、archived → published（重新上架）
         // 禁止：pending → published（必须审核）、rejected → published（必须重新提交审核）
         if ("published".equals(newStatus) && ("pending".equals(oldStatus) || "rejected".equals(oldStatus))) {
-            throw new com.moyun.common.exception.system.ServiceException(
+            throw new ServiceException(
                     "当前状态为 " + oldStatus + "，不可直接上架，请通过审核接口处理");
         }
         LambdaUpdateWrapper<PortalArticle> wrapper = new LambdaUpdateWrapper<>();
@@ -337,7 +420,7 @@ public class CmsArticleServiceImpl implements ICmsArticleService {
         }
         int rows = portalArticleMapper.update(null, wrapper);
         if (rows == 0) {
-            throw new com.moyun.common.exception.system.ServiceException("上下架失败：文章状态已变更，请刷新后重试");
+            throw new ServiceException("上下架失败：文章状态已变更，请刷新后重试");
         }
         return rows;
     }
@@ -607,7 +690,7 @@ public class CmsArticleServiceImpl implements ICmsArticleService {
      * v8.1：提交文章统一审核任务（事务内，异常回滚保证双写一致）。
      */
     private void submitArticleAuditTask(PortalArticle article) {
-        com.moyun.system.domain.dto.AuditTaskSubmitDTO dto = new com.moyun.system.domain.dto.AuditTaskSubmitDTO();
+        AuditTaskSubmitDTO dto = new AuditTaskSubmitDTO();
         dto.setTaskType("article");
         dto.setBizId(article.getId());
         dto.setTitle(article.getTitle());

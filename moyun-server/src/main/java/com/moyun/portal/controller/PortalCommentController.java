@@ -77,7 +77,7 @@ public class PortalCommentController extends BaseController {
     }
 
     @Operation(summary = "评论点赞/取消点赞", description = "切换评论点赞状态，幂等 toggle，返回最新点赞数和状态")
-    @PostMapping("/{id}/like")
+    @PostMapping("/{id:[0-9]+}/like")
     public AjaxResult toggleLike(@Parameter(description = "评论ID") @PathVariable Long id) {
         Long userId = PortalSecurityUtils.getUserId();
         if (userId == null) {

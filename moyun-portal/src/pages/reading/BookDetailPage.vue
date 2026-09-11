@@ -36,7 +36,7 @@ async function handleQuoteLike(quote: BookQuote & { liked?: boolean }) {
       quote.likeCount = resp.data.likeCount;
     }
   } catch (e) {
-    toast.error('点赞失败，请稍后重试');
+    toast.error((e as Error)?.message || '点赞失败，请稍后重试');
   } finally {
     quoteLikeLoading.value.delete(quote.id);
   }
@@ -219,7 +219,7 @@ useHead(
     if (!book.value) {
       return generateSeo({
         title: '书籍详情',
-        description: '墨韵·智库读书空间 - 发现好书，分享阅读',
+        description: '旭林知行读书空间 - 发现好书，分享阅读',
         type: 'article',
         canonicalPath: '/reading'
       });
@@ -227,7 +227,7 @@ useHead(
     const canonicalPath = `/reading/book/${book.value.id}`;
     return generateSeo({
       title: book.value.title,
-      description: book.value.summary || book.value.description || '墨韵·智库读书空间',
+      description: book.value.summary || book.value.description || '旭林知行读书空间',
       image: book.value.cover,
       type: 'article',
       keywords: bookTags.value,

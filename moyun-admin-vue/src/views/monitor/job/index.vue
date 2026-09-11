@@ -108,7 +108,7 @@
                ></el-switch>
             </template>
          </el-table-column>
-         <el-table-column label="操作" align="center" width="200" class-name="small-padding fixed-width">
+         <el-table-column label="操作" align="right" width="200" class-name="small-padding fixed-width">
             <template #default="scope">
                <el-tooltip content="修改" placement="top">
                   <el-button link type="primary" icon="Edit" @click="handleUpdate(scope.row)" v-hasPermi="['monitor:job:edit']"></el-button>
@@ -138,7 +138,7 @@
       />
 
       <!-- 添加或修改定时任务对话框 -->
-      <el-dialog :title="title" v-model="open" width="820px" append-to-body>
+      <el-dialog :title="title" v-model="open" width="1020px" append-to-body>
          <el-form ref="jobRef" :model="form" :rules="rules" label-width="120px">
             <el-row>
                <el-col :span="12">
@@ -233,7 +233,7 @@
      </el-dialog>
 
       <!-- 任务日志详细 -->
-      <el-dialog title="任务详细" v-model="openView" width="700px" append-to-body>
+      <el-dialog title="任务详细" v-model="openView" width="880px" append-to-body>
          <el-form :model="form" label-width="120px">
             <el-row>
                <el-col :span="12">

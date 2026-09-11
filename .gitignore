@@ -50,3 +50,10 @@ build/
 ### IDE/TS 生成的 .vue 辅助文件（影响打包提交） ###
 *.vue.js
 *.vue.d.ts
+
+### 日志 ###
+logs/
+/logs/
+pnpm-lock.yaml
+/moyun-ledger-app/node_modules/
+/moyun-ledger-app/dist/

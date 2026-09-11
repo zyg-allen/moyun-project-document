@@ -1,12 +1,13 @@
 package com.moyun.ext.ai.service.impl;
 
+import com.moyun.ext.ai.entity.AiProvider;
 import com.moyun.ext.ai.entity.ModelConfig;
+import com.moyun.ext.ai.service.AiProviderService;
 import com.moyun.ext.ai.service.ModelConfigService;
 import com.moyun.ext.ai.service.MultimodalService;
 import dev.langchain4j.data.message.*;
 import dev.langchain4j.model.chat.ChatLanguageModel;
 import dev.langchain4j.model.openai.OpenAiChatModel;
-import dev.langchain4j.community.model.dashscope.QwenChatModel;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -31,6 +32,10 @@ public class MultimodalServiceImpl implements MultimodalService {
 
     @Autowired
     private ModelConfigService modelConfigService;
+
+    /** 提供商注册表（V11.0.2：模型构建按 apiStyle 分支） */
+    @Autowired
+    private AiProviderService providerService;
 
     @Override
     public String understandImage(String imagePath, String prompt) {
@@ -159,27 +164,20 @@ public class MultimodalServiceImpl implements MultimodalService {
                 return null;
             }
 
-            String provider = config.getProvider().toLowerCase();
+            // V11.0.2：按 apiStyle 决定图片编码格式
+            // OpenAI 兼容端点统一 data URL（含 dashscope 兼容模式）；Ollama 原生用裸 base64
+            String apiStyle = providerService.apiStyle(config.getProvider());
             String base64 = imageToBase64(image);
             if (base64 == null || base64.isEmpty()) {
                 log.error("Base64编码结果为空");
                 return null;
             }
 
-            switch (provider) {
-                case "dashscope":
-                    ImageContent imageContentQwen = ImageContent.from(base64, "image/jpeg");
-                    return UserMessage.from(TextContent.from(prompt), imageContentQwen);
-
-                case "openai":
-                    String dataUrl = "data:image/jpeg;base64," + base64;
-                    return UserMessage.from(TextContent.from(prompt), ImageContent.from(dataUrl));
-
-                default:
-                    log.warn("未知模型提供商 {}，尝试使用base64编码", provider);
-                    ImageContent imageContentDefault = ImageContent.from(base64, "image/jpeg");
-                    return UserMessage.from(TextContent.from(prompt), imageContentDefault);
+            if (AiProvider.STYLE_OLLAMA_NATIVE.equals(apiStyle)) {
+                return UserMessage.from(TextContent.from(prompt), ImageContent.from(base64, "image/jpeg"));
             }
+            String dataUrl = "data:image/jpeg;base64," + base64;
+            return UserMessage.from(TextContent.from(prompt), ImageContent.from(dataUrl));
         } catch (Exception e) {
             log.error("创建图片消息失败", e);
             return null;
@@ -198,38 +196,46 @@ public class MultimodalServiceImpl implements MultimodalService {
     }
 
     private ChatLanguageModel createMultimodalModel(ModelConfig config) {
-        String provider = config.getProvider().toLowerCase();
+        // V11.0.2：按 apiStyle 分支（OpenAI 兼容端点统一构建，baseUrl 走注册表兜底）
+        String apiStyle = providerService.apiStyle(config.getProvider());
 
         try {
-            switch (provider) {
-                case "openai":
-                    return OpenAiChatModel.builder()
-                            .apiKey(config.getApiKey())
-                            .baseUrl(config.getBaseUrl())
-                            .modelName(config.getModelName())
-                            .temperature(config.getTemperature() != null ? config.getTemperature() : 0.3)  // 降低温度提高精确度
-                            .maxTokens(config.getMaxTokens() != null ? config.getMaxTokens() : 450)  // 支持150字输出
-                            .timeout(Duration.ofSeconds(config.getTimeout() != null ? config.getTimeout() : 120))
-                            .logRequests(true)
-                            .logResponses(true)
-                            .build();
-
-                case "dashscope":
-                    return QwenChatModel.builder()
-                            .apiKey(config.getApiKey())
-                            .modelName(config.getModelName())
-                            .temperature(config.getTemperature() != null ? config.getTemperature().floatValue() : 0.3f)  // 降低温度提高精确度
-                            .maxTokens(config.getMaxTokens() != null ? config.getMaxTokens() : 450)  // 支持150字输出
-                            .build();
-
-                default:
-                    log.warn("暂不支持的模型提供商: {}", provider);
-                    return null;
+            if (AiProvider.STYLE_OLLAMA_NATIVE.equals(apiStyle)) {
+                return OpenAiChatModel.builder()
+                        .apiKey(config.getApiKey() == null || config.getApiKey().isEmpty() ? "no-api-key" : config.getApiKey())
+                        .baseUrl(resolveBaseUrl(config))
+                        .modelName(config.getModelName())
+                        .temperature(config.getTemperature() != null ? config.getTemperature() : 0.3)
+                        .maxTokens(config.getMaxTokens() != null ? config.getMaxTokens() : 450)
+                        .timeout(Duration.ofSeconds(config.getTimeout() != null ? config.getTimeout() : 120))
+                        .build();
             }
+            // OpenAI 兼容（openai/dashscope/deepseek 等）
+            return OpenAiChatModel.builder()
+                    .apiKey(config.getApiKey() == null || config.getApiKey().isEmpty()
+                            ? (providerService.requiresApiKey(config.getProvider()) ? config.getApiKey() : "no-api-key")
+                            : config.getApiKey())
+                    .baseUrl(resolveBaseUrl(config))
+                    .modelName(config.getModelName())
+                    .temperature(config.getTemperature() != null ? config.getTemperature() : 0.3)  // 降低温度提高精确度
+                    .maxTokens(config.getMaxTokens() != null ? config.getMaxTokens() : 450)  // 支持150字输出
+                    .timeout(Duration.ofSeconds(config.getTimeout() != null ? config.getTimeout() : 120))
+                    .logRequests(true)
+                    .logResponses(true)
+                    .build();
         } catch (Exception e) {
             log.error("创建多模态模型失败: {}", e.getMessage(), e);
             return null;
         }
+    }
+
+    /** baseUrl：用户配置优先 → 注册表默认地址兜底 */
+    private String resolveBaseUrl(ModelConfig config) {
+        if (config.getBaseUrl() != null && !config.getBaseUrl().isEmpty()) {
+            return config.getBaseUrl();
+        }
+        String def = providerService.defaultBaseUrl(config.getProvider());
+        return def != null ? def : "https://api.openai.com/v1";
     }
 
     private String imageToBase64(BufferedImage image) throws Exception {

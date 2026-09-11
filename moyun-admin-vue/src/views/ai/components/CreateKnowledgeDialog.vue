@@ -2,7 +2,7 @@
   <el-dialog
     v-model="visible"
     title="📚 新增知识库"
-    width="750px"
+    width="940px"
     :close-on-click-modal="false"
     @close="handleClose"
   >

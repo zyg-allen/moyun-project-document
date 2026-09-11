@@ -11,6 +11,7 @@ import com.moyun.ext.ai.service.DocumentSegmentService;
 import com.moyun.ext.ai.service.KnowledgeBaseService;
 import com.moyun.ext.ai.service.KnowledgeConfigService;
 import com.moyun.ext.ai.service.MinioService;
+import com.moyun.ext.ai.service.impl.VectorMigrationService;
 import com.moyun.ext.ai.entity.KnowledgeConfig;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -49,6 +50,9 @@ public class KnowledgeBaseController {
     @Autowired
     @Qualifier("knowledgeProcessExecutor")
     private Executor knowledgeProcessExecutor;
+
+    @Autowired
+    private VectorMigrationService vectorMigrationService;
 
     @Operation(summary = "上传知识库文件")
     @PostMapping(value = "/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
@@ -842,6 +846,24 @@ public class KnowledgeBaseController {
         } catch (Exception e) {
             log.error("❌ 修复向量维度失败 - id: {}", id, e);
             return AjaxResult.error("修复失败: " + e.getMessage());
+        }
+    }
+
+    @Operation(summary = "从数据库迁移向量到JVector", description = "从ai_document_segment表读取向量数据，重建JVector索引并落盘。可安全重复执行")
+    @PostMapping("/migrate-vectors")
+    @PreAuthorize("@ss.hasPermi('cms:ai:knowledge-base:edit')")
+    public AjaxResult migrateVectors(
+            @RequestParam(value = "knowledgeBaseId", required = false) Long knowledgeBaseId) {
+        try {
+            VectorMigrationService.MigrationResult result =
+                    vectorMigrationService.migrateFromDatabase(knowledgeBaseId);
+            String message = String.format("迁移完成：总数=%d，成功=%d，跳过=%d",
+                    result.total(), result.migrated(), result.skipped());
+            log.info("✅ {}", message);
+            return AjaxResult.success(message);
+        } catch (Exception e) {
+            log.error("❌ 向量迁移失败 - knowledgeBaseId: {}", knowledgeBaseId, e);
+            return AjaxResult.error("向量迁移失败: " + e.getMessage());
         }
     }
 }

@@ -10,7 +10,7 @@ import lombok.EqualsAndHashCode;
 /**
  * 参数配置表 sys_config
  *
- * @author ruoyi
+ * @author allen-zyg
  */
 @Data
 @EqualsAndHashCode(callSuper = true)

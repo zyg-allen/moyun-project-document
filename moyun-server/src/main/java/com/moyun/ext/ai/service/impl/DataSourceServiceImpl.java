@@ -1,6 +1,5 @@
 package com.moyun.ext.ai.service.impl;
 
-import co.elastic.clients.elasticsearch.indices.GetMappingResponse;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.moyun.ext.ai.entity.DataSourceConfig;
@@ -17,17 +16,6 @@ import com.zaxxer.hikari.HikariDataSource;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
-
-// Elasticsearch imports
-import co.elastic.clients.elasticsearch.ElasticsearchClient;
-import co.elastic.clients.elasticsearch.indices.GetIndexResponse;
-import co.elastic.clients.json.jackson.JacksonJsonpMapper;
-import co.elastic.clients.transport.rest_client.RestClientTransport;
-import org.apache.http.HttpHost;
-import org.apache.http.auth.AuthScope;
-import org.apache.http.auth.UsernamePasswordCredentials;
-import org.apache.http.impl.client.BasicCredentialsProvider;
-import org.elasticsearch.client.RestClient;
 
 import javax.sql.DataSource;
 import java.sql.*;
@@ -73,11 +61,7 @@ public class DataSourceServiceImpl extends ServiceImpl<DataSourceConfigMapper, D
 
     @Override
     public boolean testConnection(DataSourceConfig config) {
-        if ("elasticsearch".equalsIgnoreCase(config.getType())) {
-            return testElasticsearchConnection(config);
-        } else {
-            return testMySQLConnection(config);
-        }
+        return testMySQLConnection(config);
     }
 
     /**
@@ -130,77 +114,15 @@ public class DataSourceServiceImpl extends ServiceImpl<DataSourceConfigMapper, D
         }
     }
     
-    /**
-     * 测试Elasticsearch连接
-     */
-    private boolean testElasticsearchConnection(DataSourceConfig config) {
-        ElasticsearchClient client = null;
-        RestClient restClient = null;
-        
-        try {
-            // 创建RestClient
-            org.elasticsearch.client.RestClientBuilder builder = RestClient.builder(
-                new HttpHost(config.getHost(), config.getPort(), "http")
-            );
-            
-            // 如果配置了用户名和密码，添加认证
-            if (config.getUsername() != null && !config.getUsername().isEmpty()) {
-                BasicCredentialsProvider credsProv = new BasicCredentialsProvider();
-                credsProv.setCredentials(
-                    AuthScope.ANY,
-                    new UsernamePasswordCredentials(config.getUsername(), config.getPassword())
-                );
-                
-                builder.setHttpClientConfigCallback(httpClientBuilder ->
-                    httpClientBuilder.setDefaultCredentialsProvider(credsProv)
-                );
-            }
-            
-            restClient = builder.build();
-            
-            // 创建传输层
-            RestClientTransport transport = new RestClientTransport(
-                restClient,
-                new JacksonJsonpMapper()
-            );
-            
-            // 创建客户端
-            client = new ElasticsearchClient(transport);
-            
-            // 测试连接 - 获取集群信息
-            var info = client.info();
-            log.info("Elasticsearch连接成功: {}, 版本: {}", info.clusterName(), info.version().number());
-            
-            return true;
-        } catch (Exception e) {
-            log.error("测试Elasticsearch连接失败: {}", e.getMessage());
-            return false;
-        } finally {
-            // 清理资源
-            try {
-                if (restClient != null) {
-                    restClient.close();
-                }
-            } catch (Exception e) {
-                log.error("关闭Elasticsearch连接失败", e);
-            }
-        }
-    }
-
     @Override
     public List<String> listTables(Long datasourceId) {
         List<String> tables = new ArrayList<>();
 
         try {
             DataSourceConfig config = getById(datasourceId);
-            
-            if ("elasticsearch".equalsIgnoreCase(config.getType())) {
-                return listElasticsearchIndices(config);
-            } else {
-                return listMySQLTables(config);
-            }
+            return listMySQLTables(config);
         } catch (Exception e) {
-            log.error("获取表/索引列表失败", e);
+            log.error("获取表列表失败", e);
         }
 
         return tables;
@@ -234,478 +156,13 @@ public class DataSourceServiceImpl extends ServiceImpl<DataSourceConfigMapper, D
         return tables;
     }
     
-    /**
-     * 获取Elasticsearch索引详细信息
-     */
-    private List<TableInfoVO> listElasticsearchIndicesWithInfo(DataSourceConfig config) {
-        List<TableInfoVO> indices = new ArrayList<>();
-        RestClient restClient = null;
-        
-        try {
-            // 创建RestClient
-            org.elasticsearch.client.RestClientBuilder builder = RestClient.builder(
-                new HttpHost(config.getHost(), config.getPort(), "http")
-            );
-            
-            // 如果配置了认证
-            if (config.getUsername() != null && !config.getUsername().isEmpty()) {
-                BasicCredentialsProvider credsProv = new BasicCredentialsProvider();
-                credsProv.setCredentials(
-                    AuthScope.ANY,
-                    new UsernamePasswordCredentials(config.getUsername(), config.getPassword())
-                );
-                builder.setHttpClientConfigCallback(httpClientBuilder ->
-                    httpClientBuilder.setDefaultCredentialsProvider(credsProv)
-                );
-            }
-            
-            restClient = builder.build();
-            RestClientTransport transport = new RestClientTransport(
-                restClient,
-                new JacksonJsonpMapper()
-            );
-            ElasticsearchClient client = new ElasticsearchClient(transport);
-            
-            // 获取索引列表（排除系统索引）
-            String indexPattern = config.getDatabaseName() != null && !config.getDatabaseName().isEmpty() 
-                ? config.getDatabaseName() 
-                : "*";
-            
-            GetIndexResponse response = client.indices().get(g -> g.index(indexPattern));
-            
-            // 获取索引统计信息
-            for (String indexName : response.result().keySet()) {
-                // 过滤掉以点开头的系统索引
-                if (indexName.startsWith(".")) {
-                    continue;
-                }
-                
-                try {
-                    // 获取索引的统计信息（包含文档数量和存储大小）
-                    var statsResponse = client.indices().stats(s -> s.index(indexName));
-                    
-                    long docCount = 0L;
-                    long storeSize = 0L;
-                    
-                    // 获取文档数量和存储大小
-                    var indexStats = statsResponse.indices().get(indexName);
-                    if (indexStats != null) {
-                        // 文档数量
-                        if (indexStats.total() != null && indexStats.total().docs() != null) {
-                            docCount = indexStats.total().docs().count();
-                        }
-                        // 存储大小（字节）
-                        if (indexStats.total() != null && indexStats.total().store() != null) {
-                            storeSize = indexStats.total().store().sizeInBytes();
-                        }
-                    }
-                    
-                    // 构建TableInfoVO
-                    TableInfoVO tableInfo = TableInfoVO.builder()
-                        .tableName(indexName)
-                        .tableComment("Elasticsearch索引")
-                        .rowCount(docCount)
-                        .dataLength(storeSize)
-                        .dataSizeFormatted(formatDataSize(storeSize))
-                        .createTime(null)
-                        .updateTime(null)
-                        .build();
-                    
-                    indices.add(tableInfo);
-                } catch (Exception e) {
-                    log.warn("获取索引 {} 统计信息失败: {}", indexName, e.getMessage());
-                    // 即使获取统计失败，也添加基本信息
-                    TableInfoVO tableInfo = TableInfoVO.builder()
-                        .tableName(indexName)
-                        .tableComment("Elasticsearch索引")
-                        .rowCount(0L)
-                        .dataLength(0L)
-                        .dataSizeFormatted("0B")
-                        .build();
-                    indices.add(tableInfo);
-                }
-            }
-            
-            // 按名称排序
-            indices.sort((a, b) -> a.getTableName().compareTo(b.getTableName()));
-            
-            log.info("获取到 {} 个Elasticsearch索引详细信息", indices.size());
-            
-        } catch (Exception e) {
-            log.error("获取Elasticsearch索引详细信息失败", e);
-        } finally {
-            try {
-                if (restClient != null) {
-                    restClient.close();
-                }
-            } catch (Exception e) {
-                log.error("关闭Elasticsearch连接失败", e);
-            }
-        }
-        
-        return indices;
-    }
-    
-    /**
-     * 获取Elasticsearch索引的Mapping（字段结构）
-     */
-    private TableSchemaVO getElasticsearchIndexMapping(DataSourceConfig config, String indexName, String cacheKey) {
-        RestClient restClient = null;
-        
-        try {
-            // 创建RestClient
-            org.elasticsearch.client.RestClientBuilder builder = RestClient.builder(
-                new HttpHost(config.getHost(), config.getPort(), "http")
-            );
-            
-            // 如果配置了认证
-            if (config.getUsername() != null && !config.getUsername().isEmpty()) {
-                BasicCredentialsProvider credsProv = new BasicCredentialsProvider();
-                credsProv.setCredentials(
-                    AuthScope.ANY,
-                    new UsernamePasswordCredentials(config.getUsername(), config.getPassword())
-                );
-                builder.setHttpClientConfigCallback(httpClientBuilder ->
-                    httpClientBuilder.setDefaultCredentialsProvider(credsProv)
-                );
-            }
-            
-            restClient = builder.build();
-            RestClientTransport transport = new RestClientTransport(
-                restClient,
-                new JacksonJsonpMapper()
-            );
-            ElasticsearchClient client = new ElasticsearchClient(transport);
-            
-            // 获取索引mapping
-            GetMappingResponse mappingResponse = client.indices().getMapping(m -> m.index(indexName));
-            
-            TableSchemaVO schema = new TableSchemaVO();
-            schema.setTableName(indexName);
-            schema.setTableComment("Elasticsearch索引");
-            
-            // 解析mapping字段
-            List<TableSchemaVO.ColumnSchema> columns = new ArrayList<>();
-            
-            // 获取该索引的mapping
-            var indexMapping = mappingResponse.get(indexName);
-            if (indexMapping != null && indexMapping.mappings() != null) {
-                var properties = indexMapping.mappings().properties();
-                
-                if (properties != null) {
-                    for (Map.Entry<String, co.elastic.clients.elasticsearch._types.mapping.Property> entry : properties.entrySet()) {
-                        String fieldName = entry.getKey();
-                        co.elastic.clients.elasticsearch._types.mapping.Property property = entry.getValue();
-                        
-                        // 获取字段类型
-                        String fieldType = getElasticsearchFieldType(property);
-                        
-                        TableSchemaVO.ColumnSchema column = TableSchemaVO.ColumnSchema.builder()
-                            .columnName(fieldName)
-                            .dataType(fieldType)
-                            .comment("ES字段")
-                            .columnComment("ES字段")
-                            .nullable(true)  // ES字段默认可为空
-                            .columnKey("")
-                            .columnDefault(null)
-                            .extra("")
-                            .primaryKey(false)
-                            .fieldType(mapEsTypeToFieldType(fieldType))
-                            .build();
-                        
-                        columns.add(column);
-                    }
-                }
-            }
-            
-            schema.setColumns(columns);
-            schema.setPrimaryKeys(new ArrayList<>());  // ES没有主键概念
-            
-            // 获取文档数量
-            try {
-                var countResponse = client.count(c -> c.index(indexName));
-                schema.setRowCount(countResponse.count());
-            } catch (Exception e) {
-                log.warn("获取索引文档数量失败: {}", e.getMessage());
-                schema.setRowCount(0L);
-            }
-            
-            // 保存到缓存
-            schemaCache.put(cacheKey, schema);
-            cacheTimestamp.put(cacheKey, System.currentTimeMillis());
-            log.info("获取到Elasticsearch索引 {} 的mapping，共 {} 个字段", indexName, columns.size());
-            
-            return schema;
-            
-        } catch (Exception e) {
-            log.error("获取Elasticsearch索引mapping失败", e);
-            throw new BusinessException(ErrorCode.ES_QUERY_FAILED, "获取索引结构失败: " + e.getMessage(), e);
-        } finally {
-            try {
-                if (restClient != null) {
-                    restClient.close();
-                }
-            } catch (Exception e) {
-                log.error("关闭Elasticsearch连接失败", e);
-            }
-        }
-    }
-    
-    /**
-     * 获取Elasticsearch字段类型
-     */
-    private String getElasticsearchFieldType(co.elastic.clients.elasticsearch._types.mapping.Property property) {
-        try {
-            // 文本类型
-            if (property.isText()) return "text";
-            if (property.isKeyword()) return "keyword";
-            if (property.isWildcard()) return "wildcard";
-            if (property.isConstantKeyword()) return "constant_keyword";
-            
-            // 数值类型
-            if (property.isLong()) return "long";
-            if (property.isInteger()) return "integer";
-            if (property.isShort()) return "short";
-            if (property.isByte()) return "byte";
-            if (property.isDouble()) return "double";
-            if (property.isFloat()) return "float";
-            if (property.isHalfFloat()) return "half_float";
-            if (property.isScaledFloat()) return "scaled_float";
-            if (property.isUnsignedLong()) return "unsigned_long";
-            
-            // 布尔类型
-            if (property.isBoolean()) return "boolean";
-            
-            // 日期类型
-            if (property.isDate()) return "date";
-            if (property.isDateNanos()) return "date_nanos";
-            
-            // 对象类型
-            if (property.isObject()) return "object";
-            if (property.isNested()) return "nested";
-            if (property.isFlattened()) return "flattened";
-            
-            // 地理类型
-            if (property.isGeoPoint()) return "geo_point";
-            if (property.isGeoShape()) return "geo_shape";
-            
-            // 网络类型
-            if (property.isIp()) return "ip";
-            if (property.isIpRange()) return "ip_range";
-            
-            // 向量类型（需要检查方法是否存在）
-            try {
-                if (property.isDenseVector()) return "dense_vector";
-            } catch (Exception e) {
-                // 方法可能不存在，忽略
-            }
-            try {
-                if (property.isSparseVector()) return "sparse_vector";
-            } catch (Exception e) {
-                // 方法可能不存在，忽略
-            }
-            
-            // 范围类型
-            if (property.isIntegerRange()) return "integer_range";
-            if (property.isFloatRange()) return "float_range";
-            if (property.isLongRange()) return "long_range";
-            if (property.isDoubleRange()) return "double_range";
-            if (property.isDateRange()) return "date_range";
-            
-            // 特殊类型
-            if (property.isBinary()) return "binary";
-            if (property.isCompletion()) return "completion";
-            if (property.isTokenCount()) return "token_count";
-            if (property.isVersion()) return "version";
-            if (property.isAlias()) return "alias";
-            if (property.isRankFeature()) return "rank_feature";
-            if (property.isRankFeatures()) return "rank_features";
-            if (property.isSearchAsYouType()) return "search_as_you_type";
-            if (property.isPercolator()) return "percolator";
-            if (property.isHistogram()) return "histogram";
-            
-            // 尝试通过_kind()方法获取类型名称（fallback机制）
-            try {
-                String kind = property._kind().toString();
-                if (kind != null && !kind.isEmpty()) {
-                    log.debug("字段类型通过_kind()获取: {}", kind);
-                    return kind;
-                }
-            } catch (Exception e) {
-                // 忽略
-            }
-            
-        } catch (Exception e) {
-            log.warn("获取字段类型时发生异常: {}", e.getMessage());
-        }
-        
-        // 未知类型
-        return "unknown";
-    }
-    
-    /**
-     * 映射ES类型到通用字段类型
-     */
-    private String mapEsTypeToFieldType(String esType) {
-        switch (esType.toLowerCase()) {
-            // 文本类型
-            case "text":
-            case "keyword":
-            case "wildcard":
-            case "constant_keyword":
-            case "search_as_you_type":
-                return "string";
-            
-            // 整数类型
-            case "long":
-            case "integer":
-            case "short":
-            case "byte":
-            case "unsigned_long":
-            case "token_count":
-                return "number";
-            
-            // 浮点数类型
-            case "double":
-            case "float":
-            case "half_float":
-            case "scaled_float":
-                return "decimal";
-            
-            // 布尔类型
-            case "boolean":
-                return "boolean";
-            
-            // 日期类型
-            case "date":
-            case "date_nanos":
-                return "datetime";
-            
-            // 对象类型
-            case "object":
-            case "nested":
-            case "flattened":
-                return "object";
-            
-            // 向量类型
-            case "dense_vector":
-            case "sparse_vector":
-                return "vector";
-            
-            // 范围类型
-            case "integer_range":
-            case "float_range":
-            case "long_range":
-            case "double_range":
-            case "date_range":
-            case "ip_range":
-                return "range";
-            
-            // 地理类型
-            case "geo_point":
-            case "geo_shape":
-                return "geo";
-            
-            // 网络类型
-            case "ip":
-                return "ip";
-            
-            // 特殊类型
-            case "binary":
-                return "binary";
-            case "completion":
-                return "completion";
-            case "version":
-                return "version";
-            case "alias":
-                return "alias";
-            case "rank_feature":
-            case "rank_features":
-                return "rank";
-            case "percolator":
-                return "percolator";
-            case "histogram":
-                return "histogram";
-            
-            // 默认
-            default:
-                return "string";
-        }
-    }
-    
-    /**
-     * 获取Elasticsearch索引列表
-     */
-    private List<String> listElasticsearchIndices(DataSourceConfig config) {
-        List<String> indices = new ArrayList<>();
-        RestClient restClient = null;
-        
-        try {
-            // 创建RestClient
-            org.elasticsearch.client.RestClientBuilder builder = RestClient.builder(
-                new HttpHost(config.getHost(), config.getPort(), "http")
-            );
-            
-            // 如果配置了认证
-            if (config.getUsername() != null && !config.getUsername().isEmpty()) {
-                BasicCredentialsProvider credsProv = new BasicCredentialsProvider();
-                credsProv.setCredentials(
-                    AuthScope.ANY,
-                    new UsernamePasswordCredentials(config.getUsername(), config.getPassword())
-                );
-                builder.setHttpClientConfigCallback(httpClientBuilder ->
-                    httpClientBuilder.setDefaultCredentialsProvider(credsProv)
-                );
-            }
-            
-            restClient = builder.build();
-            RestClientTransport transport = new RestClientTransport(
-                restClient,
-                new JacksonJsonpMapper()
-            );
-            ElasticsearchClient client = new ElasticsearchClient(transport);
-            
-            // 获取索引列表（排除系统索引）
-            String indexPattern = config.getDatabaseName() != null && !config.getDatabaseName().isEmpty() 
-                ? config.getDatabaseName() 
-                : "*";
-            
-            GetIndexResponse response = client.indices().get(g -> g.index(indexPattern));
-            
-            // 过滤掉以点开头的系统索引
-            indices = new ArrayList<>(response.result().keySet());
-            indices.removeIf(idx -> idx.startsWith("."));
-            indices.sort(String::compareTo);
-            
-            log.info("获取到 {} 个Elasticsearch索引", indices.size());
-            
-        } catch (Exception e) {
-            log.error("获取Elasticsearch索引列表失败", e);
-        } finally {
-            try {
-                if (restClient != null) {
-                    restClient.close();
-                }
-            } catch (Exception e) {
-                log.error("关闭Elasticsearch连接失败", e);
-            }
-        }
-        
-        return indices;
-    }
-    
     @Override
     public List<TableInfoVO> listTablesWithInfo(Long datasourceId) {
         List<TableInfoVO> tables = new ArrayList<>();
 
         try {
             DataSourceConfig config = getById(datasourceId);
-            
-            // 根据数据源类型调用不同的方法
-            if ("elasticsearch".equalsIgnoreCase(config.getType())) {
-                return listElasticsearchIndicesWithInfo(config);
-            }
-            
+
             // MySQL处理
             DataSource ds = getOrCreateDataSource(config);
 
@@ -780,12 +237,7 @@ public class DataSourceServiceImpl extends ServiceImpl<DataSourceConfigMapper, D
         
         try {
             DataSourceConfig config = getById(datasourceId);
-            
-            // 根据数据源类型调用不同的方法
-            if ("elasticsearch".equalsIgnoreCase(config.getType())) {
-                return getElasticsearchIndexMapping(config, tableName, cacheKey);
-            }
-            
+
             // MySQL处理
             DataSource ds = getOrCreateDataSource(config);
 
@@ -1069,7 +521,7 @@ public class DataSourceServiceImpl extends ServiceImpl<DataSourceConfigMapper, D
         HikariConfig hikari = new HikariConfig();
 
         String jdbcUrl = String.format(
-            "jdbc:mysql://%s:%d/%s?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=Asia/Shanghai",
+            "jdbc:mysql://%s:%d/%s?useUnicode=true&characterEncoding=utf8&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Shanghai",
             config.getHost(),
             config.getPort(),
             config.getDatabaseName()

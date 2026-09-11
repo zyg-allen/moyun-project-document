@@ -287,6 +287,27 @@ export function delInterviewResume(ids) {
   });
 }
 
+// ==================== 用户简历管理（Admin 只读查看 + 审计） ====================
+// 独立权限 system:user:resume，挂在用户管理操作列，跳转独立只读列表页
+// 设计：不复用 system:user:edit，权限解耦；后端 @Log 记录审计日志
+
+// Admin 分页查询指定用户的简历列表（只读）
+export function listUserResume(userId, query) {
+  return request({
+    url: '/cms/interview/user-resume/' + userId + '/list',
+    method: 'get',
+    params: query
+  });
+}
+
+// Admin 查看指定用户的简历详情（只读）
+export function getUserResumeDetail(userId, id) {
+  return request({
+    url: '/cms/interview/user-resume/' + userId + '/' + id,
+    method: 'get'
+  });
+}
+
 // ==================== 公司标签管理 ====================
 
 // 查询公司列表
@@ -362,11 +383,13 @@ export function unfeatureSubmission(id) {
 }
 
 // ==================== 测试用例管理（v6.3 OJ 判题） ====================
+// 路径前缀 /portal/admin/ 由核心安全链识别 admin token；
+// 原 /portal/judge/admin/** 走门户安全链（仅识别门户用户 token），后台访问会 401
 
 // 查询题目全部用例（含隐藏用例）
 export function listTestCase(questionId) {
   return request({
-    url: '/portal/judge/admin/cases/' + questionId,
+    url: '/portal/admin/judge/cases/' + questionId,
     method: 'get'
   });
 }
@@ -374,7 +397,7 @@ export function listTestCase(questionId) {
 // 新增测试用例
 export function addTestCase(data) {
   return request({
-    url: '/portal/judge/admin/cases',
+    url: '/portal/admin/judge/cases',
     method: 'post',
     data: data
   });
@@ -383,7 +406,7 @@ export function addTestCase(data) {
 // 修改测试用例
 export function updateTestCase(id, data) {
   return request({
-    url: '/portal/judge/admin/cases/' + id,
+    url: '/portal/admin/judge/cases/' + id,
     method: 'put',
     data: data
   });
@@ -392,7 +415,19 @@ export function updateTestCase(id, data) {
 // 删除测试用例
 export function delTestCase(id) {
   return request({
-    url: '/portal/judge/admin/cases/' + id,
+    url: '/portal/admin/judge/cases/' + id,
     method: 'delete'
+  });
+}
+
+// ==================== 岗位模板（v11.x 智能出题·题目归属） ====================
+
+// 查询启用状态的岗位模板分页列表（题目归属选择、列表 id→name 映射用）
+// 返回分页对象：{ records: [{ id, name, ... }], total }
+export function listJobTemplateSimple() {
+  return request({
+    url: '/cms/interview/jobTemplate/list',
+    method: 'get',
+    params: { pageNum: 1, pageSize: 200, status: 'active' }
   });
 }

@@ -14,6 +14,9 @@
         <result property="likeCount" column="like_count"/>
         <result property="createdTime" column="created_time"/>
         <result property="sortOrder" column="sort_order"/>
+        <result property="userId" column="user_id"/>
+        <result property="authorName" column="author_name"/>
+        <result property="authorUsername" column="author_username"/>
     </resultMap>
 
     <!-- 查询专栏文章目录（关联 portal_article） -->
@@ -24,6 +27,25 @@
         FROM portal_column_article ca
         INNER JOIN portal_article a ON a.id = ca.article_id
         WHERE ca.column_id = #{columnId}
+        ORDER BY ca.sort_order ASC, ca.created_time ASC
+    </select>
+
+    <!-- CMS后台：分页查询专栏已绑定的文章列表（关联 portal_article + portal_user） -->
+    <select id="selectColumnArticlesPage" resultMap="ArticleSimpleResult">
+        SELECT a.id, a.title, a.cover, a.excerpt,
+               a.views AS view_count, a.likes AS like_count,
+               a.create_time AS created_time,
+               ca.sort_order AS sort_order,
+               a.author_id as user_id,
+               pu.nickname AS author_name,
+               pu.username AS author_username
+        FROM portal_column_article ca
+        INNER JOIN portal_article a ON a.id = ca.article_id
+        LEFT JOIN portal_user pu ON pu.id = a.author_id
+        WHERE ca.column_id = #{columnId}
+        <if test="keyword != null and keyword != ''">
+            AND a.title LIKE CONCAT('%', #{keyword}, '%')
+        </if>
         ORDER BY ca.sort_order ASC, ca.created_time ASC
     </select>
 

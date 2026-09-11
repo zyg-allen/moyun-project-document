@@ -30,7 +30,7 @@ import java.util.List;
 /**
  * spring security配置
  *
- * @author ruoyi
+ * @author allen-zyg
  */
 @EnableMethodSecurity(prePostEnabled = true, securedEnabled = true)
 @Configuration
@@ -172,6 +172,8 @@ public class SecurityConfig {
                             .requestMatchers("/druid/**").permitAll()
                             // WebSocket 握手端点：放行 HTTP 升级请求，鉴权由 PortalWebSocketAuthInterceptor 处理
                             .requestMatchers("/ws-message/**").permitAll()
+                            // 语音识别实时流式中继端点：同上，握手鉴权由拦截器完成
+                            .requestMatchers("/ws-asr/**").permitAll()
                             // AI 模块 SSE 流式接口：不再 permitAll。
                             // 历史遗留：原 moyun-ai-parent 使用 Sa-Token，迁移后已统一 Spring Security + JWT，
                             // 前端通过 fetchStream（基于 fetch + ReadableStream）携带 Authorization: Bearer <token>，

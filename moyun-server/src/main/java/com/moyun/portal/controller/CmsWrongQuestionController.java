@@ -27,7 +27,7 @@ import org.springframework.web.bind.annotation.RestController;
  */
 @Tag(name = "错题本管理", description = "错题本后台只读查看接口")
 @RestController
-@RequestMapping("/cms/portal/wrongQuestion")
+@RequestMapping("/cms/portal/wrong-question")
 public class CmsWrongQuestionController extends BaseController {
 
     @Autowired

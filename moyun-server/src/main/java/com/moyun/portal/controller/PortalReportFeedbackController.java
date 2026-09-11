@@ -11,6 +11,7 @@ import com.moyun.portal.domain.model.PortalLoginUser;
 import com.moyun.portal.mapper.PortalFeedbackMapper;
 import com.moyun.portal.mapper.PortalReportMapper;
 import com.moyun.portal.util.PortalSecurityUtils;
+import com.moyun.system.domain.dto.AuditTaskSubmitDTO;
 import com.moyun.util.bean.PageUtils;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -168,7 +169,7 @@ public class PortalReportFeedbackController extends BaseController {
     private void submitAuditTask(String taskType, Long bizId, String title,
                                  String description, String bizType,
                                  Long submitterId, String submitterName, String extraData) {
-        com.moyun.system.domain.dto.AuditTaskSubmitDTO dto = new com.moyun.system.domain.dto.AuditTaskSubmitDTO();
+        AuditTaskSubmitDTO dto = new AuditTaskSubmitDTO();
         dto.setTaskType(taskType);
         dto.setBizId(bizId);
         dto.setTitle(title);

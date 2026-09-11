@@ -1,12 +1,22 @@
-import axios from 'axios'
 import { getToken } from '@/utils/auth'
-import errorCode from '@/utils/errorCode'
-import { tansParams, blobValidate } from '@/utils/ruoyi'
-import cache from '@/plugins/cache'
+import { tansParams } from '@/utils/ruoyi'
 import { ElMessage } from 'element-plus'
 
 const baseURL = import.meta.env.VITE_APP_BASE_API
 
+/**
+ * 流式请求（纯 fetch 实现）
+ *
+ * 说明：此前版本基于 axios + 自定义 adapter 包装 fetch，存在两个缺陷：
+ *   1. adapter 外层引用了不存在的 config 变量导致 ReferenceError，请求发不出去；
+ *   2. axios transformRequest 已将 data 序列化为 JSON 字符串，adapter 内再次
+ *      JSON.stringify 会双重编码，后端收到 JSON 字符串字面量而反序列化失败。
+ * 故重构为直接使用 fetch，不再依赖 axios。
+ *
+ * @param {string} url 请求地址（相对路径自动拼接 baseURL）
+ * @param {object} options { method, data, params, onMessage, onDone, onError, headers }
+ * @returns {{ abort: Function }} 中断句柄
+ */
 export function fetchStream(url, options = {}) {
   const {
     method = 'POST',
@@ -29,29 +39,51 @@ export function fetchStream(url, options = {}) {
     ...headers
   }
 
-  const isToken = (config.headers || {}).isToken === false
+  const isToken = (headers || {}).isToken === false
   if (getToken() && !isToken) {
     requestHeaders['Authorization'] = 'Bearer ' + getToken()
   }
 
-  axios({
-    method,
-    url: fullUrl,
-    data,
-    headers: requestHeaders,
-    signal: controller.signal,
-    responseType: 'text',
-    adapter: async (config) => {
-      const { data, ...restConfig } = config
+  /**
+   * 解析一行流式内容：支持 data: 前缀的 SSE 格式（JSON 或纯文本）与纯文本行
+   */
+  const dispatchLine = (line) => {
+    const trimmed = line.trim()
+    if (!trimmed || trimmed === 'data:[DONE]' || trimmed.startsWith('event:')) return
+
+    if (trimmed.startsWith('data:')) {
+      const chunk = trimmed.slice(5).trim()
+      if (!chunk || chunk === '[DONE]') return
+      try {
+        const parsed = JSON.parse(chunk)
+        const text = typeof parsed === 'string' ? parsed : (parsed.content || parsed.text || parsed.chunk)
+        if (onMessage && text) onMessage(text)
+      } catch (e) {
+        if (onMessage) onMessage(chunk)
+      }
+    } else if (onMessage) {
+      onMessage(trimmed)
+    }
+  }
+
+  ;(async () => {
+    try {
       const response = await fetch(fullUrl, {
-        method: config.method,
-        headers: config.headers,
-        body: JSON.stringify(data),
-        signal: config.signal
+        method: method.toUpperCase(),
+        headers: requestHeaders,
+        body: method.toUpperCase() === 'GET' ? undefined : JSON.stringify(data),
+        signal: controller.signal
       })
 
       if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`)
+        // 非 2xx：读取后端 JSON 错误信息（如全局异常处理器返回的 msg）
+        let detail = `${response.status} ${response.statusText}`
+        try {
+          const body = await response.text()
+          const parsed = JSON.parse(body)
+          if (parsed.msg) detail = parsed.msg
+        } catch (e) { /* 保留默认信息 */ }
+        throw new Error(detail)
       }
 
       const reader = response.body.getReader()
@@ -68,65 +100,28 @@ export function fetchStream(url, options = {}) {
         buffer = lines.pop() || ''
 
         for (const line of lines) {
-          const trimmed = line.trim()
-          if (!trimmed) continue
-
-          if (trimmed.startsWith('data:')) {
-            const chunk = trimmed.slice(5).trim()
-            if (chunk === '[DONE]') {
-              continue
-            }
-            try {
-              const parsed = JSON.parse(chunk)
-              if (parsed.content || parsed.text || parsed.chunk) {
-                const text = parsed.content || parsed.text || parsed.chunk
-                if (onMessage && text) {
-                  onMessage(text)
-                }
-              } else if (typeof parsed === 'string') {
-                if (onMessage) {
-                  onMessage(parsed)
-                }
-              }
-            } catch (e) {
-              if (onMessage) {
-                onMessage(trimmed.startsWith('data:') ? trimmed.slice(5).trim() : trimmed)
-              }
-            }
-          } else if (trimmed.startsWith('event:')) {
-            continue
-          } else {
-            if (onMessage) {
-              onMessage(trimmed)
-            }
-          }
+          dispatchLine(line)
         }
       }
+
+      // 流结束后刷出残留缓冲（最后一段可能没有结尾换行）
+      dispatchLine(buffer)
 
       if (onDone) {
         onDone()
       }
-
-      return {
-        data: null,
-        status: response.status,
-        statusText: response.statusText,
-        headers: response.headers,
-        config,
-        request: {}
+    } catch (err) {
+      if (err.name === 'AbortError' || err.message?.includes('aborted') || err.message?.includes('abort')) {
+        return
+      }
+      if (onError) {
+        onError(err)
+      } else {
+        console.error('Stream error:', err)
+        ElMessage.error(err.message || '流式请求失败')
       }
     }
-  }).catch((err) => {
-    if (err.name === 'AbortError' || err.message?.includes('aborted')) {
-      return
-    }
-    if (onError) {
-      onError(err)
-    } else {
-      console.error('Stream error:', err)
-      ElMessage.error(err.message || '流式请求失败')
-    }
-  })
+  })()
 
   return {
     abort: () => {

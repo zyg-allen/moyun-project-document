@@ -1,5 +1,6 @@
 import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
+import basicSsl from '@vitejs/plugin-basic-ssl'
 import path from 'path'
 import traeBadgePlugin from 'vite-plugin-trae-solo-badge'
 
@@ -21,16 +22,31 @@ export default defineConfig({
     },
   },
   server: {
+    host: true,   // 监听 0.0.0.0，手机等局域网设备可访问
     port: 3000,
+    // HTTPS：手机浏览器 getUserMedia（麦克风）仅在 https/localhost 下可用。
+    // 自签证书首次访问会有安全警告，属预期；生产环境应使用正规证书。
+    https: {},
     proxy: {
       '/api': {
         target: 'http://localhost:8080',
+        changeOrigin: true,
+        ws: true,  // 透传 WebSocket 升级（wss → /api/ws-asr 流式转写）
+        // 后端无 context-path，剥离 /api 前缀再转发
+        rewrite: (p) => p.replace(/^\/api/, ''),
+      },
+      // MinIO 图片代理：HTTPS 页面加载 HTTP 图片会被浏览器拦截（混合内容），
+      // 且手机端 127.0.0.1 不可达。前端用 normalizeFileUrl() 把 MinIO 绝对 URL
+      // 转成 /moyun/xxx 相对路径，由该代理转发到 MinIO 服务。
+      '/moyun': {
+        target: 'http://127.0.0.1:9001',
         changeOrigin: true,
       }
     }
   },
   plugins: [
     vue(),
+    basicSsl(),
     traeBadgePlugin({
       variant: 'dark',
       position: 'bottom-right',

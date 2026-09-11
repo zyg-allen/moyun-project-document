@@ -1,8 +1,8 @@
 // ============================================================
 // 全站基础配置
 // ============================================================
-const SITE_NAME = '墨韵·智库'
-const SITE_URL = 'https://moyun.example.com'   // 正式环境请替换为实际域名
+const SITE_NAME = '旭林知行'
+const SITE_URL = 'https://xulin.example.com'   // 正式环境请替换为实际域名
 const DEFAULT_IMAGE = 'https://images.unsplash.com/photo-1499750310107-5fef28a66643?w=1200&h=630&fit=crop'
 
 // ============================================================
@@ -120,8 +120,8 @@ export function generateSeo(options: SeoOptions) {
 // ============================================================
 export const defaultSeo = generateSeo({
   title: '首页',
-  description: '墨韵·智库 - 为文学爱好者和技术开发者提供一个纯净的创作与阅读空间',
-  keywords: ['文学', '散文', '技术', '编程', '创作', '阅读', '分享'],
+  description: '旭林知行 - AI 驱动的求职面试与学习成长平台，为求职者提供面试技巧、题库刷题、简历优化与成长路径',
+  keywords: ['面试', '求职', '刷题', '算法', '简历', '面经', '题库', '学习', '成长', 'AI面试'],
   type: 'website',
   canonicalPath: '/'
 })

@@ -222,7 +222,7 @@ public class LargeDocumentProcessor {
         docSegment.setCreateTime(LocalDateTime.now());
 
         // 注意：不存储完整向量数据到数据库（太大），只保存 embeddingId
-        // 向量数据已存储在 Elasticsearch 中
+        // 向量数据已存储在 JVector 向量库中
 
         try {
             documentSegmentService.save(docSegment);

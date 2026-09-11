@@ -7,7 +7,7 @@ import java.util.List;
 /**
  * 用户画像快照 VO（v5.9 阶段0）
  * <p>
- * 抽题时基于此快照决策，并持久化到 portal_mock_interview.profile_snapshot 便于回溯。
+ * 抽题时基于此快照决策（薄弱点 + 岗位必备技能驱动三路召回）。
  *
  * @author moyun
  */
@@ -27,12 +27,6 @@ public class UserProfileSnapshotVO {
 
     /** 薄弱知识点列表（按 failRate 降序） */
     private List<WeakTagItem> weakTags;
-
-    /** 模拟面试次数（来自 portal_user_stats） */
-    private Integer mockInterviewCount;
-
-    /** 模拟面试平均分 */
-    private Integer avgMockScore;
 
     /** 是否命中画像驱动（薄弱点 ≥ 1 或必备技能 ≥ 1） */
     private boolean personalized;

@@ -78,24 +78,7 @@ public class DashboardController {
         }
     }
 
-    @GetMapping("/realtime")
-    @PreAuthorize("@ss.hasPermi('cms:ai:dashboard:list')")
-    public AjaxResult getRealtime() {
-        try {
-            Map<String, Object> realtime = new HashMap<>();
-
-            realtime.put("todayStats", tokenUsageService.getTodayStats());
-
-            realtime.put("systemStatus", tokenUsageService.getMetrics());
-
-            realtime.put("serverTime", LocalDateTime.now().toString());
-
-            return AjaxResult.success(realtime);
-        } catch (Exception e) {
-            log.error("获取实时数据失败", e);
-            return AjaxResult.error("获取数据失败: " + e.getMessage());
-        }
-    }
+    // v11.46：删除 getRealtime（/cms/ai/dashboard/realtime）——前端无引用（dashboard 页仅调 overview），死接口清理
 
     private List<Map<String, Object>> getAgentStats() {
         List<Map<String, Object>> stats = new ArrayList<>();

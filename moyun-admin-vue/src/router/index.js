@@ -112,7 +112,21 @@ export const dynamicRoutes = [
         path: 'role/:userId(\\d+)',
         component: () => import('@/views/system/user/authRole'),
         name: 'AuthRole',
-        meta: { title: '分配角色', activeMenu: '/system/user' }
+        meta: { title: '分配角色', activeMenu: '/system/base/user' }
+      }
+    ]
+  },
+  {
+    path: '/system/user-resume',
+    component: Layout,
+    hidden: true,
+    permissions: ['system:user:resume'],
+    children: [
+      {
+        path: 'list/:userId(\\d+)',
+        component: () => import('@/views/system/user/userResume'),
+        name: 'UserResume',
+        meta: { title: '用户简历', activeMenu: '/system/base/user' }
       }
     ]
   },
@@ -176,8 +190,14 @@ export const dynamicRoutes = [
     path: '/cms',
     component: Layout,
     hidden: true,
-    permissions: ['cms:article:list'],
+    permissions: ['cms:article:list', 'cms:interview:list'],
     children: [
+      {
+        path: 'article',
+        component: () => import('@/views/cms/article/index'),
+        name: 'CmsArticleList',
+        meta: { title: '文章管理', icon: 'documentation' }
+      },
       {
         path: 'article/edit',
         component: () => import('@/views/cms/article/edit'),
@@ -194,7 +214,22 @@ export const dynamicRoutes = [
         path: 'interview/testCase/:questionId(\\d+)',
         component: () => import('@/views/cms/interview/testCase/index'),
         name: 'InterviewTestCase',
-        meta: { title: '测试用例管理', activeMenu: '/cms/interview/question' }
+        meta: { title: '测试用例管理', activeMenu: '/portal/interview/questionTab' }
+      }
+    ]
+  },
+  // 语音面试复盘（只读管理页，权限由后台菜单控制；此处仅作为常驻页面入口备份）
+  {
+    path: '/cms/voice-interview',
+    component: Layout,
+    hidden: true,
+    permissions: ['cms:voiceInterview:list'],
+    children: [
+      {
+        path: '',
+        component: () => import('@/views/cms/voiceInterview/index'),
+        name: 'VoiceInterview',
+        meta: { title: '语音面试复盘', icon: 'documentation' }
       }
     ]
   },

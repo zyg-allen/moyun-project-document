@@ -20,6 +20,7 @@ import com.moyun.portal.mapper.PortalArticleMapper;
 import com.moyun.portal.mapper.PortalColumnArticleMapper;
 import com.moyun.portal.mapper.PortalColumnMapper;
 import com.moyun.portal.mapper.PortalColumnSubscribeMapper;
+import com.moyun.system.domain.dto.AuditTaskSubmitDTO;
 import com.moyun.system.service.ISensitiveWordService;
 import com.moyun.util.bean.PageUtils;
 import com.moyun.util.string.StringUtils;
@@ -54,8 +55,6 @@ public class ColumnServiceImpl implements IColumnService {
     @Autowired @org.springframework.context.annotation.Lazy
     private com.moyun.system.service.IAuditTaskService auditTaskService;
     @Autowired private com.moyun.portal.mapper.PortalUserMapper portalUserMapper;
-
-    @Autowired private com.moyun.portal.util.CreatorPermissionChecker creatorPermissionChecker;
 
     // ========================================================================
     // 列表 / 详情
@@ -109,8 +108,7 @@ public class ColumnServiceImpl implements IColumnService {
         boolean isNew = vo.getId() == null || vo.getId() <= 0;
         PortalColumn entity;
         if (isNew) {
-            // 创建专栏属高价值创作，仅认证创作者可创建（编辑已有专栏不限）
-            creatorPermissionChecker.checkCreator(userId);
+            // v10.10 实名策略：创建专栏不再强制创作者认证（前端弹窗提示实名可跳过）
             // 创建：校验同用户专栏数量上限
             int existCount = columnMapper.countByUserId(userId);
             if (existCount >= MAX_COLUMN_PER_USER) {
@@ -419,7 +417,7 @@ public class ColumnServiceImpl implements IColumnService {
      * v8.1：提交专栏统一审核任务（事务内，异常回滚保证双写一致）。
      */
     private void submitColumnAuditTask(PortalColumn entity, Long userId) {
-        com.moyun.system.domain.dto.AuditTaskSubmitDTO dto = new com.moyun.system.domain.dto.AuditTaskSubmitDTO();
+        AuditTaskSubmitDTO dto = new AuditTaskSubmitDTO();
         dto.setTaskType("column");
         dto.setBizId(entity.getId());
         dto.setTitle(entity.getTitle());

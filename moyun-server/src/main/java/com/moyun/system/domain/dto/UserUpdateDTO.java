@@ -11,7 +11,7 @@ import java.io.Serializable;
 /**
  * 用户更新数据传输对象
  *
- * @author ruoyi
+ * @author allen-zyg
  */
 @Data
 @Schema(description = "用户更新DTO")

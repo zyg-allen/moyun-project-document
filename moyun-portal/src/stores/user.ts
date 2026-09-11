@@ -139,7 +139,8 @@ export const useUserStore = defineStore('user', () => {
       return { success: false, message: response.message }
     } catch (error) {
       console.error('登录失败:', error)
-      return { success: false, message: '登录失败，请重试' }
+      // client.ts 在 code !== 200 时会 throw new Error(data.msg)，error.message 即后端 msg
+      return { success: false, message: (error as Error)?.message || '登录失败，请重试' }
     } finally {
       isLoading.value = false
     }
@@ -167,7 +168,8 @@ export const useUserStore = defineStore('user', () => {
       return { success: false, message: response.message }
     } catch (error) {
       console.error('注册失败:', error)
-      return { success: false, message: '注册失败，请重试' }
+      // client.ts 在 code !== 200 时会 throw new Error(data.msg)，error.message 即后端 msg
+      return { success: false, message: (error as Error)?.message || '注册失败，请重试' }
     } finally {
       isLoading.value = false
     }
@@ -202,7 +204,8 @@ export const useUserStore = defineStore('user', () => {
       return { success: false, message: response.message }
     } catch (error) {
       console.error('发送邮箱验证码失败:', error)
-      return { success: false, message: '发送失败，请稍后重试' }
+      // client.ts 在 code !== 200 时会 throw new Error(data.msg)，error.message 即后端 msg
+      return { success: false, message: (error as Error)?.message || '发送失败，请稍后重试' }
     }
   }
 
@@ -218,7 +221,8 @@ export const useUserStore = defineStore('user', () => {
       return { success: false, message: response.message }
     } catch (error) {
       console.error('重置密码失败:', error)
-      return { success: false, message: '重置失败，请稍后重试' }
+      // client.ts 在 code !== 200 时会 throw new Error(data.msg)，error.message 即后端 msg
+      return { success: false, message: (error as Error)?.message || '重置失败，请重试' }
     }
   }
 
@@ -238,7 +242,8 @@ export const useUserStore = defineStore('user', () => {
       return { success: false, message: response.message }
     } catch (error) {
       console.error('更新用户信息失败:', error)
-      return { success: false, message: '更新失败，请重试' }
+      // client.ts 在 code !== 200 时会 throw new Error(data.msg)，error.message 即后端 msg
+      return { success: false, message: (error as Error)?.message || '更新失败，请重试' }
     } finally {
       isLoading.value = false
     }

@@ -41,7 +41,7 @@
         </template>
       </el-table-column>
       <el-table-column label="提交时间" align="center" prop="submitTime" width="160" />
-      <el-table-column label="操作" align="center" width="120" class-name="small-padding fixed-width">
+      <el-table-column label="操作" align="right" width="120" class-name="small-padding fixed-width">
         <template #default="scope">
           <el-button link type="primary" icon="View" @click.stop="handleView(scope.row)">处理</el-button>
         </template>

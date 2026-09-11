@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
+import { formatDate } from '@/utils/date';
 import { useRouter } from 'vue-router';
 import { useHead } from '@vueuse/head';
 import { MessageSquare, Plus, Eye, X } from 'lucide-vue-next';
@@ -109,11 +110,6 @@ function goSubmit() {
   router.push('/report');
 }
 
-function formatTime(time?: string) {
-  if (!time) return '-';
-  return time.replace('T', ' ').substring(0, 19);
-}
-
 onMounted(() => {
   if (!requireAuth('/my/feedback')) return;
   loadList();
@@ -211,7 +207,7 @@ onMounted(() => {
             </div>
             <p class="text-sm line-clamp-2 mb-2" style="color: var(--theme-text-secondary);">{{ item.description }}</p>
             <div class="flex items-center justify-between text-xs" style="color: var(--theme-text-secondary);">
-              <span>{{ formatTime(item.createTime) }}</span>
+              <span>{{ formatDate(item.createTime, 'YYYY-MM-DD HH:mm', 'YYYY-MM-DD') }}</span>
               <span v-if="item.status !== 'pending'" class="flex items-center gap-1">
                 <Eye class="w-3 h-3" /> 查看进度
               </span>
@@ -273,7 +269,7 @@ onMounted(() => {
             <div class="space-y-2 text-sm">
               <div class="flex justify-between">
                 <span style="color: var(--theme-text-secondary);">提交时间</span>
-                <span style="color: var(--theme-text);">{{ formatTime(detailRecord.createTime) }}</span>
+                <span style="color: var(--theme-text);">{{ formatDate(detailRecord.createTime, 'YYYY-MM-DD HH:mm', 'YYYY-MM-DD') }}</span>
               </div>
               <div v-if="detailRecord.handler" class="flex justify-between">
                 <span style="color: var(--theme-text-secondary);">处理人</span>
@@ -281,7 +277,7 @@ onMounted(() => {
               </div>
               <div v-if="detailRecord.handleTime" class="flex justify-between">
                 <span style="color: var(--theme-text-secondary);">处理时间</span>
-                <span style="color: var(--theme-text);">{{ formatTime(detailRecord.handleTime) }}</span>
+                <span style="color: var(--theme-text);">{{ formatDate(detailRecord.handleTime, 'YYYY-MM-DD HH:mm', 'YYYY-MM-DD') }}</span>
               </div>
               <div v-if="detailRecord.handleResult">
                 <p class="mb-1" style="color: var(--theme-text-secondary);">处理结果</p>

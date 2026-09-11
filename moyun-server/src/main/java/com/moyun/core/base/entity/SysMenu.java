@@ -13,7 +13,7 @@ import com.moyun.core.base.BaseEntity;
 /**
  * 菜单权限表 sys_menu
  *
- * @author ruoyi
+ * @author allen-zyg
  */
 @Data
 public class SysMenu extends BaseEntity {

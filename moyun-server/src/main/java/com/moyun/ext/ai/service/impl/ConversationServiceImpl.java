@@ -1,6 +1,7 @@
 package com.moyun.ext.ai.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.moyun.ext.ai.entity.Conversation;
 import com.moyun.ext.ai.entity.ConversationMessage;
@@ -74,8 +75,10 @@ public class ConversationServiceImpl extends ServiceImpl<ConversationMapper, Con
             conversation.setMessageCount(oldMessageCount + 1);
             conversation.setUpdateTime(LocalDateTime.now());
 
-            // 每次用户消息都更新标题为最新消息（排除"你好"）
-            if (ConversationRole.USER.getCode().equals(role) && !"你好".equals(content.trim())) {
+            // 自动标题：仅当标题仍为默认值"新对话"时，才用最新用户消息更新标题；
+            // 用户手动重命名过（updateTitle）后标题不再是默认值，不再覆盖用户的命名。
+            if (ConversationRole.USER.getCode().equals(role) && !"你好".equals(content.trim())
+                    && "新对话".equals(conversation.getTitle())) {
                 String title = generateTitle(content);
                 conversation.setTitle(title);
                 log.info("更新会话标题为最新消息: conversationId={}, title={}", conversationId, title);
@@ -104,8 +107,14 @@ public class ConversationServiceImpl extends ServiceImpl<ConversationMapper, Con
         wrapper.eq("conversation_id", conversationId);
         messageMapper.delete(wrapper);
 
-        // 删除会话
-        this.removeById(conversationId);
+        // 逻辑删除会话。
+        // 注意：removeById(id) 走逻辑删除时不携带实体，MetaObjectHandler 的 updateFill
+        // 不会触发，update_time 会被绑定为 null，而该列有非空约束导致 SQL 报错。
+        // 故显式 UPDATE 同时设置 update_time 与 deleted。
+        this.update(new LambdaUpdateWrapper<Conversation>()
+                .set(Conversation::getUpdateTime, LocalDateTime.now())
+                .set(Conversation::getDeleted, true)
+                .eq(Conversation::getId, conversationId));
 
         log.info("删除会话: conversationId={}", conversationId);
     }

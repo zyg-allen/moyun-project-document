@@ -29,7 +29,7 @@ public class ModelConfig extends AiBaseEntity {
     // 配置名称（用于显示）
     private String name;
 
-    // 模型提供商：openai, ollama, dashscope 等
+    // 模型提供商：关联 ai_provider.code（后台「提供商管理」动态注册，新增提供商零代码改动）
     private String provider;
 
     // 模型类型：chat（对话）, embedding（向量）

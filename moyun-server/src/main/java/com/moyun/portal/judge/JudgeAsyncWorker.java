@@ -12,6 +12,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
+import com.moyun.ext.cms.service.IPortalInterviewService;
 import com.moyun.portal.domain.entity.PortalInterviewQuestion;
 import com.moyun.portal.domain.entity.PortalInterviewQuestionTestCase;
 import com.moyun.portal.domain.entity.PortalInterviewSubmission;
@@ -37,6 +38,10 @@ import jakarta.annotation.PreDestroy;
  *   <li>任务执行异常被捕获并落库为 SYSTEM_ERROR，避免线程退出；</li>
  *   <li>支持重试：retry &lt; worker.maxRetry 时重新入队，否则落 SE 终态。</li>
  * </ul>
+ * <p>
+ * <strong>领域边界</strong>：本 Worker 系 OJ 代码判题专属基础设施（进程内判题引擎，
+ * 非 LLM 任务），不参与 AI 异步任务收敛——AI 任务选型规则见
+ * {@link com.moyun.ext.cms.service.AiTaskService} 类注释（v11.67 双轨制）。
  *
  * @author moyun
  */
@@ -58,6 +63,8 @@ public class JudgeAsyncWorker {
     private PortalInterviewQuestionMapper questionMapper;
     @Autowired
     private PortalInterviewQuestionTestCaseMapper testCaseMapper;
+    @Autowired
+    private IPortalInterviewService interviewService;
 
     private final AtomicBoolean running = new AtomicBoolean(false);
     private ExecutorService executor;
@@ -197,6 +204,15 @@ public class JudgeAsyncWorker {
             }
         } catch (Exception e) {
             log.warn("[OJ-Worker] 题目通过率刷新失败 qid={} err={}", task.getQuestionId(), e.getMessage());
+        }
+
+        // 判题终态回调：更新做题记录 + 首次通过成长事件 + 答题动态（失败不阻断判题主流程）
+        try {
+            interviewService.finalizeJudgeResult(task.getQuestionId(),
+                    submission.getUserId(), result.getStatus().isAccepted());
+        } catch (Exception e) {
+            log.error("[OJ-Worker] 判题终态成长回调失败 submissionId={} qid={} err={}",
+                    task.getSubmissionId(), task.getQuestionId(), e.getMessage(), e);
         }
     }
 

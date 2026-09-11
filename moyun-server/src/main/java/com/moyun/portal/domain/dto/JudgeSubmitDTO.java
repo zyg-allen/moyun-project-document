@@ -27,4 +27,11 @@ public class JudgeSubmitDTO implements Serializable {
     @NotBlank(message = "编程语言不能为空")
     @Size(max = 20, message = "语言字段长度不能超过20个字符")
     private String language;
+
+    /**
+     * 提交意图：run=运行（仅样例自测，不落记录不计成长） / submit=提交（全量判定+落记录+成长闭环）
+     * 缺省按 submit 处理，兼容旧客户端
+     */
+    @Size(max = 10, message = "提交意图字段非法")
+    private String mode;
 }

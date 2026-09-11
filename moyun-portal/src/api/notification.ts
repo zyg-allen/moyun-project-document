@@ -29,6 +29,14 @@ export async function markAsRead(
 }
 
 /**
+ * 全部通知标记已读（批量操作）
+ * 后端一次性将当前用户所有未读通知标记已读，避免前端逐条标记遗漏分页数据
+ */
+export async function markAllAsRead(): Promise<ApiResponse<number>> {
+  return httpPost<number>('/portal/notification/read-all')
+}
+
+/**
  * 获取公开广播通知（未登录用户也可调用）
  * 用于公告列表、版本发布等场景，只返回 scope=all 的通知
  */

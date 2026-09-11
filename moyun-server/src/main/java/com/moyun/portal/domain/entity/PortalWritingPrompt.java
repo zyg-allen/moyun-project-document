@@ -37,6 +37,12 @@ public class PortalWritingPrompt extends BaseEntity {
     /** 分类（如：生活/职场/情感/虚构/哲思） */
     private String category;
 
+    /** 关联特殊日期名称（节日/节气/纪念日，AI 生成时自动识别） */
+    private String festivalName;
+
+    /** 来源：ai=AI生成 / manual=手动创建 */
+    private String source;
+
     /** 创建时间 */
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime createdTime;

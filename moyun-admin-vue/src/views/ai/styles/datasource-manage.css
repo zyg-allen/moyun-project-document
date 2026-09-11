@@ -289,7 +289,24 @@
 
 .card-actions {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
+}
+
+/* Element Plus link 文字按钮适配：抵消相邻按钮默认 margin-left，避免与 gap 叠加 */
+.card-actions .el-button + .el-button {
+  margin-left: 0;
+}
+
+.card-actions .el-button {
+  height: 28px;
+  padding: 0 2px;
+  font-size: 13px;
+}
+
+.card-actions .el-button i {
+  margin-right: 3px;
+  font-size: 13px;
 }
 
 .action-btn {

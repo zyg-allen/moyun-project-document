@@ -240,7 +240,7 @@
     </el-tabs>
 
     <!-- 通知详情弹窗 -->
-    <el-dialog v-model="notifDetailVisible" title="通知详情" width="560px" append-to-body>
+    <el-dialog v-model="notifDetailVisible" title="通知详情" width="700px" append-to-body>
       <div v-if="currentNotif" class="notif-detail">
         <h3 class="notif-detail-title">{{ currentNotif.title || '系统通知' }}</h3>
         <div class="notif-detail-meta">

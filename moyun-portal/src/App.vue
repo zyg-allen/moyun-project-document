@@ -27,7 +27,7 @@ onMounted(async () => {
 
 <template>
   <ErrorBoundary>
-    <div class="min-h-screen" style="background-color: var(--theme-bg);">
+    <div class="min-h-screen bg-theme-bg text-theme-text transition-theme-base">
       <Layout v-if="showLayout">
         <router-view />
       </Layout>

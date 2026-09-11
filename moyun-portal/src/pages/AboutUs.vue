@@ -8,22 +8,22 @@ import { generateSeo } from '@/utils/seo';
 useHead(
   generateSeo({
     title: '关于我们',
-    description: '了解墨韵的使命、愿景和团队。',
-    keywords: ['关于我们', '墨韵', '团队'],
+    description: '了解旭林知行的使命、愿景和团队，见证求职成长的每一步。',
+    keywords: ['关于我们', '旭林知行', '团队', '求职', '成长'],
     type: 'website'
   })
 );
 
 const features = [
-  { icon: Target, title: '我们的使命', description: '让优质内容触达更多人，为创作者提供展示才华的舞台' },
-  { icon: Heart, title: '我们的愿景', description: '成为中文互联网最有影响力的内容社区之一' },
-  { icon: BookOpen, title: '我们的理念', description: '尊重原创，鼓励分享，构建开放包容的内容生态' }
+  { icon: Target, title: '我们的使命', description: '用 AI 与实战演练，帮求职者把学习转化为面试竞争力' },
+  { icon: Heart, title: '我们的愿景', description: '成为中文互联网求职者最信赖的面试与学习成长平台' },
+  { icon: BookOpen, title: '我们的理念', description: '知行合一，让学习看得见、让成长有迹可循' }
 ];
 
 const values = [
-  { icon: Award, title: '尊重原创', description: '尊重每一位创作者的劳动成果' },
-  { icon: Users, title: '用户至上', description: '以用户需求为核心，持续优化产品' },
-  { icon: Globe, title: '开放共享', description: '让知识和创意自由流动' }
+  { icon: Award, title: '知行合一', description: '以实战为导向，学以致用，持续复盘提升' },
+  { icon: Users, title: '用户至上', description: '聚焦求职者真实需求，用 AI 陪伴每一次成长' },
+  { icon: Globe, title: '开放共享', description: '沉淀优质面经与题库，帮助更多求职者上岸' }
 ];
 
 const team = [
@@ -47,21 +47,13 @@ const team = [
 
     <!-- 主内容 -->
     <div class="flex-1">
-      <!-- Hero 区域 -->
-      <div class="py-6 sm:py-8">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div class="relative overflow-hidden rounded-2xl text-white text-center" style="background-image: radial-gradient(circle at 30% 30%, rgba(220, 38, 38, 0.3) 0%, transparent 50%), radial-gradient(circle at 70% 70%, rgba(234, 88, 12, 0.3) 0%, transparent 50%), linear-gradient(135deg, #b91c1c 0%, #c2410c 50%, #ea580c 100%);">
-        <div class="absolute inset-0 opacity-10 pointer-events-none" aria-hidden="true">
-          <svg class="absolute top-6 left-8 w-32 h-32 text-white" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/></svg>
-          <svg class="absolute bottom-4 right-10 w-40 h-40 text-white" viewBox="0 0 24 24" fill="currentColor"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
-        </div>
-        <div class="relative px-6 py-8 sm:px-10 sm:py-10">
-          <h1 class="text-3xl sm:text-4xl lg:text-5xl font-bold mb-4 sm:mb-6" style="color: #ffffff;">关于墨韵</h1>
-          <p class="text-sm sm:text-lg lg:text-xl" style="color: rgba(255,255,255,0.9); max-width: 2xl mx-auto;">
-            墨韵是一个专注于原创内容分享的社区平台，我们相信每一篇文章都有独特的价值
+      <!-- Hero 区域（轻量版，与首页风格统一） -->
+      <div class="pt-8 sm:pt-12 pb-2">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+          <h1 class="text-2xl sm:text-3xl font-bold mb-3" style="color: var(--theme-text);">关于旭林知行</h1>
+          <p class="text-sm sm:text-base max-w-2xl mx-auto" style="color: var(--theme-text-secondary);">
+            旭林知行是一个 AI 驱动的求职面试与学习成长平台，我们相信每一次学习与演练都能让成长有迹可循，助你成功上岸。
           </p>
-        </div>
-      </div>
         </div>
       </div>
 
@@ -138,7 +130,7 @@ const team = [
                 <div class="flex sm:justify-end w-full sm:w-1/2 text-right pl-12 sm:pl-0 sm:pr-8">
                   <div>
                     <h3 class="font-semibold text-base sm:text-lg mb-1.5" style="color: var(--theme-text);">2023年1月</h3>
-                    <p class="text-sm" style="color: var(--theme-text-secondary);">墨韵正式上线，开始内测</p>
+                    <p class="text-sm" style="color: var(--theme-text-secondary);">旭林正式上线，开始内测</p>
                   </div>
                 </div>
                 <div class="absolute left-4 sm:left-1/2 w-3 h-3 rounded-full -translate-x-1/2" style="background-color: var(--theme-primary);"></div>

@@ -22,7 +22,7 @@ const limit = ref(50);
 useHead(
   generateSeo({
     title: '成长排行榜',
-    description: '墨韵智库用户成长值排行榜，看看本季最活跃的创作者。',
+    description: '旭林知行用户成长值排行榜，看看本季最活跃的创作者。',
     keywords: ['排行榜', '成长', '等级', '创作者'],
     type: 'website'
   })

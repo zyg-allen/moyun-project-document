@@ -3,12 +3,12 @@
     <el-form :model="queryParams" ref="queryRef" :inline="true" v-show="showSearch">
       <el-form-item label="举报类型" prop="reportType">
         <el-select v-model="queryParams.reportType" placeholder="全部" clearable style="width: 180px">
-          <el-option v-for="opt in reportTypeOptions" :key="opt.value" :label="opt.label" :value="opt.value" />
+          <el-option v-for="d in cms_report_type" :key="d.value" :label="d.label" :value="d.value" />
         </el-select>
       </el-form-item>
       <el-form-item label="处理状态" prop="status">
         <el-select v-model="queryParams.status" placeholder="全部" clearable style="width: 180px">
-          <el-option v-for="opt in statusOptions" :key="opt.value" :label="opt.label" :value="opt.value" />
+          <el-option v-for="d in cms_handle_status" :key="d.value" :label="d.label" :value="d.value" />
         </el-select>
       </el-form-item>
       <el-form-item label="举报人" prop="username">
@@ -32,7 +32,7 @@
       <el-table-column label="编号" align="center" prop="id" width="80" />
       <el-table-column label="举报类型" align="center" width="120">
         <template #default="scope">
-          <el-tag :type="typeTagType(scope.row.reportType)">{{ getTypeLabel(scope.row.reportType) }}</el-tag>
+          <dict-tag :options="cms_report_type" :value="scope.row.reportType" />
         </template>
       </el-table-column>
       <el-table-column label="问题描述" align="left" prop="description" :show-overflow-tooltip="true" min-width="220" />
@@ -40,7 +40,7 @@
       <el-table-column label="举报人" align="center" prop="username" width="120" />
       <el-table-column label="状态" align="center" width="100">
         <template #default="scope">
-          <el-tag :type="statusTagType(scope.row.status)">{{ getStatusLabel(scope.row.status) }}</el-tag>
+          <dict-tag :options="cms_handle_status" :value="scope.row.status" />
         </template>
       </el-table-column>
       <el-table-column label="处理人" align="center" prop="handler" width="100" />
@@ -49,7 +49,7 @@
           <span>{{ parseTime(scope.row.createTime) }}</span>
         </template>
       </el-table-column>
-      <el-table-column label="操作" align="center" width="180" class-name="small-padding fixed-width">
+      <el-table-column label="操作" align="right" width="180" class-name="small-padding fixed-width">
         <template #default="scope">
           <el-button link type="primary" icon="View" @click="handleView(scope.row)" v-hasPermi="['cms:report:query']">详情</el-button>
           <el-button link type="primary" icon="Edit" @click="handleHandle(scope.row)" v-hasPermi="['cms:report:handle']">处理</el-button>
@@ -60,10 +60,12 @@
     <pagination v-show="total > 0" :total="total" v-model:page="queryParams.pageNum" v-model:limit="queryParams.pageSize" @pagination="getList" />
 
     <!-- 详情对话框 -->
-    <el-dialog title="举报详情" v-model="viewOpen" width="720px" append-to-body>
+    <el-dialog title="举报详情" v-model="viewOpen" width="900px" append-to-body>
       <el-descriptions :column="2" border>
         <el-descriptions-item label="举报编号">{{ viewForm.id }}</el-descriptions-item>
-        <el-descriptions-item label="举报类型">{{ getTypeLabel(viewForm.reportType) }}</el-descriptions-item>
+        <el-descriptions-item label="举报类型">
+          <dict-tag :options="cms_report_type" :value="viewForm.reportType" />
+        </el-descriptions-item>
         <el-descriptions-item label="举报人">{{ viewForm.username }}</el-descriptions-item>
         <el-descriptions-item label="联系方式">{{ viewForm.contact || '-' }}</el-descriptions-item>
         <el-descriptions-item label="IP 地址">{{ viewForm.ip || '-' }}</el-descriptions-item>
@@ -88,7 +90,9 @@
           </div>
           <span v-else>-</span>
         </el-descriptions-item>
-        <el-descriptions-item label="处理状态">{{ getStatusLabel(viewForm.status) }}</el-descriptions-item>
+        <el-descriptions-item label="处理状态">
+          <dict-tag :options="cms_handle_status" :value="viewForm.status" />
+        </el-descriptions-item>
         <el-descriptions-item label="处理人">{{ viewForm.handler || '-' }}</el-descriptions-item>
         <el-descriptions-item label="处理时间">{{ viewForm.handleTime ? parseTime(viewForm.handleTime) : '-' }}</el-descriptions-item>
         <el-descriptions-item label="处理结果" :span="2">{{ viewForm.handleResult || '-' }}</el-descriptions-item>
@@ -96,7 +100,7 @@
     </el-dialog>
 
     <!-- 处理对话框 -->
-    <el-dialog title="处理举报" v-model="handleOpen" width="560px" append-to-body>
+    <el-dialog title="处理举报" v-model="handleOpen" width="700px" append-to-body>
       <el-form ref="handleRef" :model="handleForm" :rules="handleRules" label-width="100px">
         <el-form-item label="举报编号">
           <span>{{ handleForm.id }}</span>
@@ -134,6 +138,7 @@ const route = useRoute()
 const router = useRouter()
 
 const { proxy } = getCurrentInstance()
+const { cms_report_type, cms_handle_status } = proxy.useDict('cms_report_type', 'cms_handle_status')
 
 const reportList = ref([])
 const loading = ref(true)
@@ -148,20 +153,6 @@ const viewForm = ref({})
 const handleForm = ref({})
 const handleRef = ref(null)
 
-const reportTypeOptions = [
-  { value: 'spam', label: '垃圾内容' },
-  { value: 'inappropriate', label: '不当内容' },
-  { value: 'infringement', label: '侵权内容' },
-  { value: 'fraud', label: '欺诈行为' },
-  { value: 'other', label: '其他问题' }
-]
-const statusOptions = [
-  { value: 'pending', label: '待处理' },
-  { value: 'processing', label: '处理中' },
-  { value: 'resolved', label: '已解决' },
-  { value: 'rejected', label: '已驳回' }
-]
-
 const queryParams = ref({
   pageNum: 1,
   pageSize: 10,
@@ -173,21 +164,6 @@ const queryParams = ref({
 const handleRules = {
   status: [{ required: true, message: '请选择处理状态', trigger: 'change' }],
   handleResult: [{ required: true, message: '请输入处理结果说明', trigger: 'blur' }]
-}
-
-function getTypeLabel(val) {
-  const item = reportTypeOptions.find(o => o.value === val)
-  return item ? item.label : val
-}
-function getStatusLabel(val) {
-  const item = statusOptions.find(o => o.value === val)
-  return item ? item.label : val
-}
-function typeTagType(val) {
-  return { spam: 'info', inappropriate: 'warning', infringement: 'danger', fraud: 'danger', other: '' }[val] || ''
-}
-function statusTagType(val) {
-  return { pending: 'warning', processing: 'primary', resolved: 'success', rejected: 'info' }[val] || ''
 }
 
 function getList() {

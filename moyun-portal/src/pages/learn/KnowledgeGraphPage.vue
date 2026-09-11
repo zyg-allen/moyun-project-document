@@ -7,7 +7,7 @@ import SiteFooter from '@/components/SiteFooter.vue';
 import Breadcrumb from '@/components/Breadcrumb.vue';
 import { generateSeo } from '@/utils/seo';
 import { getKnowledgeGraph } from '@/api/learnStats';
-import { getMyMockProfile } from '@/api/mockInterview';
+import { getMyProfile } from '@/api/interview';
 import { useAuth } from '@/composables/useAuth';
 import type { KnowledgeGraph, KnowledgeNode } from '@/api/learnStats';
 import type { UserProfileSnapshotVO } from '@/types/api';
@@ -17,7 +17,7 @@ const { isAuthenticated } = useAuth();
 
 useHead(computed(() => generateSeo({
   title: '知识图谱',
-  description: '墨韵智库知识图谱与标签云 - 可视化面试题知识点分布与你的掌握度。',
+  description: '旭林知行知识图谱与标签云 - 可视化面试题知识点分布与你的掌握度。',
   canonicalPath: '/learn/knowledge',
 })));
 
@@ -65,7 +65,7 @@ async function loadGraph() {
     // 不传 userId：后端在已登录时回退到当前用户，未登录时返回全局标签云
     const [graphRes, profileRes] = await Promise.all([
       getKnowledgeGraph(),
-      isAuthenticated() ? getMyMockProfile({}).catch(() => null) : Promise.resolve(null),
+      isAuthenticated() ? getMyProfile({}).catch(() => null) : Promise.resolve(null),
     ]);
     if (graphRes.code === 200) {
       graph.value = graphRes.data;
@@ -87,7 +87,7 @@ onMounted(loadGraph);
 
 /** 跳转到该标签的题目列表（按关键词搜索） */
 function gotoTagQuestions(tagName: string) {
-  router.push({ path: '/interview/questions', query: { keyword: tagName } });
+  router.push({ path: '/learn/questions', query: { keyword: tagName } });
 }
 
 // ==================== 标签云：尺寸 / 颜色 ====================

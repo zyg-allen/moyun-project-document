@@ -221,7 +221,7 @@ const copyrightYear = computed(() => new Date().getFullYear());
           </div>
           <div class="text-left">
             <span class="block text-3xl font-bold bg-gradient-to-r from-amber-200 via-orange-200 to-yellow-200 bg-clip-text text-transparent">
-              墨韵·智库
+              旭林知行
             </span>
             <span class="block text-xs text-amber-200/70 tracking-widest mt-1">KNOWLEDGE HUB</span>
           </div>
@@ -537,7 +537,7 @@ const copyrightYear = computed(() => new Date().getFullYear());
 
       <!-- 版权提示 -->
       <div class="mt-8 text-center text-xs text-white/50">
-        Copyright © {{ copyrightYear }} 墨韵·智库 · 京ICP备xxxxxxxx号-2
+        Copyright © {{ copyrightYear }} 旭林知行 · 京ICP备xxxxxxxx号-2
       </div>
     </div>
   </div>

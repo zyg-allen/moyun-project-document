@@ -61,7 +61,7 @@ import com.moyun.ext.ai.store.VectorStoreExtension;
  * <ul>
  *     <li>文档上传和解析（支持PDF/Word/Excel/TXT/Markdown）</li>
  *     <li>文档分块和Embedding向量化</li>
- *     <li>向量存储和检索（Redis 8.0+ RediSearch / Elasticsearch 可切换）</li>
+ *     <li>向量存储和检索（JVector HNSW 余弦相似度 + BM25）</li>
  *     <li>支持多模态（图片提取和分析）</li>
  *     <li>异步处理和进度跟踪</li>
  *     <li>知识库管理（CRUD操作）</li>
@@ -116,7 +116,14 @@ public class KnowledgeBaseServiceImpl extends ServiceImpl<KnowledgeBaseMapper, K
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     /** Embedding模型，通过@PostConstruct动态初始化 */
-    private EmbeddingModel embeddingModel;
+    private volatile EmbeddingModel embeddingModel;
+
+    /**
+     * 当前 embeddingModel 实例对应的配置指纹（configId:apiKey的hash）。
+     * 用于检测模型配置变化（如管理端更新了API Key），变化时自动重建实例，
+     * 避免修改配置后必须重启应用。
+     */
+    private volatile String embeddingModelFingerprint;
 
     // ==================== 构造函数 ====================
 
@@ -154,17 +161,44 @@ public class KnowledgeBaseServiceImpl extends ServiceImpl<KnowledgeBaseMapper, K
     @PostConstruct
     public void init() {
         // 初始化 Embedding 模型
+        ensureEmbeddingModel(true);
+    }
+
+    /**
+     * 确保Embedding模型可用且与最新配置一致。
+     *
+     * <p>解决的问题：embeddingModel 原先只在应用启动时创建一次（@PostConstruct），
+     * 若启动时数据库中 API Key 为空（或事后才修复配置），内存中的实例将一直携带空 Key，
+     * 导致向量化持续报 401，且修复配置后必须重启应用。</p>
+     *
+     * <p>本方法在知识库处理/检索入口调用：对比当前配置指纹（configId + apiKey hash），
+     * 发现配置变化或实例缺失时自动重建，实现"改配置即生效"。</p>
+     *
+     * @param silent 启动阶段（无实例属正常情况）只记录告警不报错
+     */
+    private void ensureEmbeddingModel(boolean silent) {
         try {
             ModelConfig config = modelConfigService.getDefaultEmbeddingConfig();
-            if (config != null) {
-                this.embeddingModel = modelConfigService.createEmbeddingModel(config.getId());
-                log.info("✅ 使用动态配置的 Embedding 模型: {} ({})", config.getName(), config.getModelName());
-            } else {
-                log.warn("⚠️ 未找到默认 Embedding 模型配置，请在'模型配置管理'中添加并设置默认模型");
-                log.warn("⚠️ 在配置 Embedding 模型之前，无法进行文档向量化");
+            if (config == null) {
+                if (!silent) {
+                    log.warn("⚠️ 未找到默认 Embedding 模型配置，请在'模型配置管理'中添加并设置默认模型");
+                }
+                return;
+            }
+            // 配置了模型但 API Key 为空：无法创建可用实例，直接告警返回
+            if (config.getApiKey() == null || config.getApiKey().isEmpty()) {
+                log.warn("⚠️ 默认 Embedding 模型 [{}] 的 API Key 为空，无法创建模型实例，请检查模型配置", config.getName());
+                return;
+            }
+            String fingerprint = config.getId() + ":" + Integer.toHexString(config.getApiKey().hashCode());
+            if (this.embeddingModel == null || !fingerprint.equals(this.embeddingModelFingerprint)) {
+                EmbeddingModel newModel = modelConfigService.createEmbeddingModel(config.getId());
+                this.embeddingModel = newModel;
+                this.embeddingModelFingerprint = fingerprint;
+                log.info("✅ Embedding 模型已加载/刷新: {} ({})", config.getName(), config.getModelName());
             }
         } catch (Exception e) {
-            log.error("❌ 初始化 Embedding 模型失败: {}", e.getMessage(), e);
+            log.error("❌ 初始化/刷新 Embedding 模型失败: {}", e.getMessage(), e);
         }
     }
 
@@ -380,6 +414,8 @@ public class KnowledgeBaseServiceImpl extends ServiceImpl<KnowledgeBaseMapper, K
      * 处理文件向量化
      */
     private void processVectorization(KnowledgeBase knowledge) throws Exception {
+        // 刷新Embedding模型（配置变化时自动重建）
+        ensureEmbeddingModel(false);
         // 检查 Embedding 模型是否已配置
         if (embeddingModel == null) {
             log.error("❌ Embedding 模型未配置，无法进行向量化处理");
@@ -1208,7 +1244,7 @@ public class KnowledgeBaseServiceImpl extends ServiceImpl<KnowledgeBaseMapper, K
      * 删除知识库的所有向量数据
      *
      * <p>通过 {@link VectorStoreExtension#deleteByKnowledgeBaseId(String)} 统一删除，
-     * 底层实际向量库（Redis RediSearch / Elasticsearch）由配置决定，业务层无感知。</p>
+     * 底层实际向量库（JVector）对业务层无感知。</p>
      *
      * <p>安全性保证：</p>
      * <ul>
@@ -1760,6 +1796,9 @@ public class KnowledgeBaseServiceImpl extends ServiceImpl<KnowledgeBaseMapper, K
             log.warn("⚠️ 知识库正在处理中，跳过重复任务 - ID={}", knowledgeId);
             return;
         }
+
+        // 刷新Embedding模型：检测配置变化（如API Key更新）自动重建，避免使用启动时的过期实例
+        ensureEmbeddingModel(false);
 
         try {
             KnowledgeBase knowledge = getById(knowledgeId);
@@ -2469,6 +2508,8 @@ public class KnowledgeBaseServiceImpl extends ServiceImpl<KnowledgeBaseMapper, K
         }
 
         try {
+            // 刷新Embedding模型（配置变化时自动重建）
+            ensureEmbeddingModel(false);
             // 检查嵌入模型是否已配置
             if (this.embeddingModel == null) {
                 log.error("Embedding模型未配置");
@@ -2755,6 +2796,8 @@ public class KnowledgeBaseServiceImpl extends ServiceImpl<KnowledgeBaseMapper, K
             documentIds, request.getQuery(), request.getRetrievalMode(), request.getTopK());
 
         try {
+            // 刷新Embedding模型（配置变化时自动重建）
+            ensureEmbeddingModel(false);
             // 检查嵌入模型是否已配置
             if (this.embeddingModel == null) {
                 throw new BusinessException(ErrorCode.EMBEDDING_MODEL_NOT_CONFIGURED);

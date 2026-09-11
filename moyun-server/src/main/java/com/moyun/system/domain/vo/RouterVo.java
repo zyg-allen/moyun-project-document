@@ -10,7 +10,7 @@ import java.util.List;
 /**
  * 路由配置信息
  *
- * @author ruoyi
+ * @author allen-zyg
  */
 @Data
 @JsonInclude(JsonInclude.Include.NON_EMPTY)

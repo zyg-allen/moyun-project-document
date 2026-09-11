@@ -10,8 +10,7 @@
           allow-create
           style="width: 200px"
         >
-          <el-option label="文章详情底部" value="article_detail_bottom" />
-          <el-option label="首页侧栏" value="home_sidebar" />
+          <el-option v-for="d in portal_ad_slot_key" :key="d.value" :label="d.label" :value="d.value" />
         </el-select>
       </el-form-item>
       <el-form-item label="标题" prop="title">
@@ -42,7 +41,7 @@
           plain
           icon="Plus"
           @click="handleAdd"
-          v-hasPermi="['portal:ad:add']"
+          v-hasPermi="['cms:ad:add']"
         >新增</el-button>
       </el-col>
       <el-col :span="1.5">
@@ -52,7 +51,7 @@
           icon="Delete"
           :disabled="multiple"
           @click="handleDelete"
-          v-hasPermi="['portal:ad:remove']"
+          v-hasPermi="['cms:ad:remove']"
         >删除</el-button>
       </el-col>
       <right-toolbar v-model:showSearch="showSearch" @queryTable="getList" :columns="columns"></right-toolbar>
@@ -63,7 +62,7 @@
       <el-table-column label="编号" align="center" prop="id" width="80" />
       <el-table-column label="广告位" align="center" prop="slotKey" width="180" :show-overflow-tooltip="true">
         <template #default="scope">
-          {{ slotKeyLabel(scope.row.slotKey) }}
+          {{ proxy.selectDictLabel(portal_ad_slot_key || [], scope.row.slotKey) || '-' }}
         </template>
       </el-table-column>
       <el-table-column label="标题" align="center" prop="title" min-width="160" :show-overflow-tooltip="true" />
@@ -92,21 +91,21 @@
           <span>{{ parseTime(scope.row.createTime) }}</span>
         </template>
       </el-table-column>
-      <el-table-column label="操作" align="center" class-name="small-padding fixed-width" width="180">
+      <el-table-column label="操作" align="right" class-name="small-padding fixed-width" width="180">
         <template #default="scope">
           <el-button
             link
             type="primary"
             icon="Edit"
             @click="handleUpdate(scope.row)"
-            v-hasPermi="['portal:ad:edit']"
+            v-hasPermi="['cms:ad:edit']"
           >修改</el-button>
           <el-button
             link
             type="primary"
             icon="Delete"
             @click="handleDelete(scope.row)"
-            v-hasPermi="['portal:ad:remove']"
+            v-hasPermi="['cms:ad:remove']"
           >删除</el-button>
         </template>
       </el-table-column>
@@ -120,7 +119,7 @@
       @pagination="getList"
     />
 
-    <el-dialog :title="title" v-model="open" width="600px" append-to-body>
+    <el-dialog :title="title" v-model="open" width="760px" append-to-body>
       <el-form ref="adRef" :model="form" :rules="rules" label-width="80px">
         <el-form-item label="广告位" prop="slotKey">
           <el-select
@@ -131,18 +130,24 @@
             default-first-option
             style="width: 100%"
           >
-            <el-option label="文章详情底部" value="article_detail_bottom" />
-            <el-option label="首页侧栏" value="home_sidebar" />
+            <el-option v-for="d in portal_ad_slot_key" :key="d.value" :label="d.label" :value="d.value" />
           </el-select>
         </el-form-item>
         <el-form-item label="标题" prop="title">
           <el-input v-model="form.title" placeholder="请输入标题" />
         </el-form-item>
         <el-form-item label="广告图" prop="image">
-          <el-input v-model="form.image" placeholder="请输入广告图地址" />
+          <ImageUpload v-model="form.image" :limit="1" />
+          <div class="el-form-item__tip" style="font-size:12px;color:#909399;margin-top:4px;">建议尺寸 800×200（4:1 横幅），支持 JPG/PNG/WebP，单张 ≤ 2MB</div>
         </el-form-item>
         <el-form-item label="跳转链接" prop="link">
-          <el-input v-model="form.link" placeholder="请输入跳转链接" />
+          <el-input v-model="form.link" placeholder="请输入外链地址（含 http:// 或 https://）" />
+        </el-form-item>
+        <el-form-item label="打开方式" prop="openTarget">
+          <el-radio-group v-model="form.openTarget">
+            <el-radio label="_blank">新窗口打开（外链推荐）</el-radio>
+            <el-radio label="_self">当前页打开</el-radio>
+          </el-radio-group>
         </el-form-item>
         <el-form-item label="文案" prop="content">
           <el-input v-model="form.content" type="textarea" :rows="3" placeholder="请输入文案" />
@@ -172,8 +177,10 @@
 
 <script setup name="CmsAd">
 import { listAdSlot, getAdSlot, addAdSlot, updateAdSlot, delAdSlot } from "@/api/cms/ad";
+import ImageUpload from "@/components/ImageUpload/index.vue";
 
 const { proxy } = getCurrentInstance();
+const { portal_ad_slot_key } = proxy.useDict("portal_ad_slot_key");
 
 const adList = ref([]);
 const open = ref(false);
@@ -184,16 +191,6 @@ const single = ref(true);
 const multiple = ref(true);
 const total = ref(0);
 const title = ref("");
-
-const slotKeyOptions = [
-  { value: "article_detail_bottom", label: "文章详情底部" },
-  { value: "home_sidebar", label: "首页侧栏" }
-];
-
-function slotKeyLabel(key) {
-  const opt = slotKeyOptions.find(o => o.value === key);
-  return opt ? opt.label : (key || "-");
-}
 
 const columns = ref([
   { key: 0, label: `编号`, visible: true },
@@ -244,6 +241,7 @@ function reset() {
     title: null,
     image: null,
     link: null,
+    openTarget: "_blank",
     content: null,
     sort: 0,
     status: "0",

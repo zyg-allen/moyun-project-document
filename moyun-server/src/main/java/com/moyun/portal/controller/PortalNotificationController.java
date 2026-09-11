@@ -82,7 +82,7 @@ public class PortalNotificationController extends BaseController {
 
     @Operation(summary = "标记单条通知已读", description = "将指定通知标记为已读（INSERT IGNORE 防重复，幂等操作）")
     @Log(title = "门户通知", businessType = BusinessType.UPDATE)
-    @PostMapping("/{id}/read")
+    @PostMapping("/{id:[0-9]+}/read")
     public AjaxResult markAsRead(@Parameter(description = "通知ID") @PathVariable("id") Long id) {
         PortalUser currentUser = PortalSecurityUtils.getUser();
         if (currentUser == null) {
@@ -91,5 +91,17 @@ public class PortalNotificationController extends BaseController {
         // 幂等操作：INSERT IGNORE，已读通知再标记仍返回成功
         sysNotificationService.markAsRead(id, currentUser.getId(), USER_TYPE_PORTAL);
         return AjaxResult.success();
+    }
+
+    @Operation(summary = "全部通知标记已读", description = "将当前用户所有未读通知（含个人通知+广播）批量标记为已读，避免前端逐条标记遗漏分页数据")
+    @Log(title = "门户通知", businessType = BusinessType.UPDATE)
+    @PostMapping("/read-all")
+    public AjaxResult markAllAsRead() {
+        PortalUser currentUser = PortalSecurityUtils.getUser();
+        if (currentUser == null) {
+            return AjaxResult.error(HttpStatus.UNAUTHORIZED, "请先登录");
+        }
+        int count = sysNotificationService.markAllAsRead(currentUser.getId(), USER_TYPE_PORTAL);
+        return success(count);
     }
 }

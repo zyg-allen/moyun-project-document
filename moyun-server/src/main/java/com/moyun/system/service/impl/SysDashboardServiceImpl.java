@@ -120,8 +120,13 @@ public class SysDashboardServiceImpl implements ISysDashboardService {
         vo.setHotArticles(buildHotArticles());
         vo.setConfigOverview(buildConfigOverview());
 
-        // 写入缓存
-        redisCache.setCacheObject(CACHE_KEY_FULL, vo, (int) CACHE_TTL_SECONDS, TimeUnit.SECONDS);
+        // 写入缓存：若待办/已办为空（可能首次启动或审核任务索引未回填），
+        // 仅短缓存 20s，避免空列表被缓存 5 分钟导致"实际有数据但首页待办空"的感知；
+        // 数据齐全时仍缓存 5 分钟以保护数据库。
+        boolean hasAnyTask = (vo.getTodoTasks() != null && !vo.getTodoTasks().isEmpty())
+                || (vo.getMyTasks() != null && !vo.getMyTasks().isEmpty());
+        long ttl = hasAnyTask ? CACHE_TTL_SECONDS : 20L;
+        redisCache.setCacheObject(CACHE_KEY_FULL, vo, (int) ttl, TimeUnit.SECONDS);
         return vo;
     }
 
@@ -176,7 +181,11 @@ public class SysDashboardServiceImpl implements ISysDashboardService {
         List<DashboardVO.TaskItem> cached = readCacheSafely(CACHE_KEY_TODO);
         if (cached != null) return cached;
         List<DashboardVO.TaskItem> tasks = buildTodoTasks();
-        redisCache.setCacheObject(CACHE_KEY_TODO, tasks, (int) CACHE_TTL_SECONDS, TimeUnit.SECONDS);
+        // 空列表不缓存（兼容历史脏数据：sys_audit_task 索引行缺失但业务表有 pending 时，
+        // 补数/回填后下次即可立即命中，不会被空列表缓存挡 5 分钟）
+        if (tasks != null && !tasks.isEmpty()) {
+            redisCache.setCacheObject(CACHE_KEY_TODO, tasks, (int) CACHE_TTL_SECONDS, TimeUnit.SECONDS);
+        }
         return tasks;
     }
 
@@ -188,7 +197,10 @@ public class SysDashboardServiceImpl implements ISysDashboardService {
         List<DashboardVO.TaskItem> cached = readCacheSafely(cacheKey);
         if (cached != null) return cached;
         List<DashboardVO.TaskItem> tasks = buildMyTasks();
-        redisCache.setCacheObject(cacheKey, tasks, (int) CACHE_TTL_SECONDS, TimeUnit.SECONDS);
+        // 空列表不缓存
+        if (tasks != null && !tasks.isEmpty()) {
+            redisCache.setCacheObject(cacheKey, tasks, (int) CACHE_TTL_SECONDS, TimeUnit.SECONDS);
+        }
         return tasks;
     }
 
@@ -264,10 +276,13 @@ public class SysDashboardServiceImpl implements ISysDashboardService {
             Map<String, Object> stats = articleMapper.selectArticleMetrics();
             long totalArticles = toLong(stats.get("totalArticles"));
             long publishedArticles = toLong(stats.get("publishedArticles"));
-            long pendingArticles = toLong(stats.get("pendingArticles"));
             long totalViews = toLong(stats.get("totalViews"));
             long totalLikes = toLong(stats.get("totalLikes"));
             long totalComments = toLong(stats.get("totalComments"));
+
+            // 口径统一：待审核文章从统一审核任务表统计（taskType=article 且 status=pending），
+            // 与审核中心待办列表同源，避免业务表存在孤儿 pending 文章（无对应审核任务）导致两处数字不一致
+            long pendingArticles = auditTaskService.countPendingByType().getOrDefault("article", 0L);
 
             cards.add(buildCard("articleCount", "文章总数", totalArticles, "Document", null));
             cards.add(buildCard("publishedArticles", "已发布文章", publishedArticles, "CircleCheck", null));
@@ -488,7 +503,12 @@ public class SysDashboardServiceImpl implements ISysDashboardService {
         item.setSubmitter(vo.getSubmitterName() != null ? vo.getSubmitterName() : "-");
         item.setPriority(vo.getPriority() != null ? vo.getPriority() : "medium");
         // 首页待办/已办点击 → 审核中心对应 Tab + 打开详情
-        item.setRoutePath("/cms/audit-center?taskId=" + vo.getId() + "&tab=" + vo.getTaskType());
+        // routePath 取 vo.routePath（AuditTaskType.defaultRoutePath，形如 /portal/audit-center），
+        // 追加 taskId + tab（taskType）让审核中心 handleRouteQuery 自动打开详情并按类型过滤
+        String baseRoute = vo.getRoutePath() != null ? vo.getRoutePath() : "/portal/audit-center";
+        // 兼容旧数据：若 routePath 仍为 /cms/audit-center，统一替换为 /portal/audit-center
+        baseRoute = baseRoute.replaceFirst("^/cms/audit-center", "/portal/audit-center");
+        item.setRoutePath(baseRoute + "?taskId=" + vo.getId() + "&tab=" + vo.getTaskType());
         return item;
     }
 
@@ -498,12 +518,12 @@ public class SysDashboardServiceImpl implements ISysDashboardService {
     private List<DashboardVO.ActivityItem> buildSystemActivities() {
         List<DashboardVO.ActivityItem> activities = new ArrayList<>();
         try {
-            // 1. 最近操作日志
+            // 1. 最近操作日志（Top 8）
             List<SysOperLog> operLogs = operLogMapper.selectOperLogList(new OperLogQuery());
             if (operLogs != null) {
                 List<SysOperLog> recent = operLogs.stream()
                         .sorted(Comparator.comparing(SysOperLog::getOperTime).reversed())
-                        .limit(10)
+                        .limit(8)
                         .collect(Collectors.toList());
                 for (SysOperLog oper : recent) {
                     DashboardVO.ActivityItem item = new DashboardVO.ActivityItem();
@@ -521,7 +541,7 @@ public class SysDashboardServiceImpl implements ISysDashboardService {
             log.error("[Dashboard] 构建操作日志动态失败", e);
         }
         try {
-            // 2. 最近系统通知（广播）
+            // 2. 最近系统通知（广播，Top 4）
             SysNotification queryNotif = new SysNotification();
             queryNotif.setScope("all");
             queryNotif.setUserType("sys");
@@ -529,7 +549,7 @@ public class SysDashboardServiceImpl implements ISysDashboardService {
             if (notifs != null) {
                 List<SysNotification> recent = notifs.stream()
                         .sorted(Comparator.comparing(SysNotification::getCreateTime).reversed())
-                        .limit(5)
+                        .limit(4)
                         .collect(Collectors.toList());
                 for (SysNotification n : recent) {
                     DashboardVO.ActivityItem item = new DashboardVO.ActivityItem();
@@ -547,12 +567,12 @@ public class SysDashboardServiceImpl implements ISysDashboardService {
             log.error("[Dashboard] 构建通知动态失败", e);
         }
         try {
-            // 3. 最近门户动态：已发布文章（按 publish_time 倒序取 8 条）
+            // 3. 最近门户动态：已发布文章（按 create_time 倒序取 5 条）
             com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<com.moyun.portal.domain.entity.PortalArticle> artWrapper =
                     new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<>();
             artWrapper.eq(com.moyun.portal.domain.entity.PortalArticle::getStatus, "published")
                     .orderByDesc(com.moyun.portal.domain.entity.PortalArticle::getCreateTime)
-                    .last("LIMIT 8");
+                    .last("LIMIT 5");
             List<com.moyun.portal.domain.entity.PortalArticle> recentArticles = articleMapper.selectList(artWrapper);
             if (recentArticles != null) {
                 for (com.moyun.portal.domain.entity.PortalArticle a : recentArticles) {
@@ -571,11 +591,11 @@ public class SysDashboardServiceImpl implements ISysDashboardService {
             log.error("[Dashboard] 构建文章发布动态失败", e);
         }
         try {
-            // 4. 最近门户动态：新用户注册（按 create_time 倒序取 5 条）
+            // 4. 最近门户动态：新用户注册（按 create_time 倒序取 3 条）
             com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<com.moyun.portal.domain.entity.PortalUser> userWrapper =
                     new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<>();
             userWrapper.orderByDesc(com.moyun.portal.domain.entity.PortalUser::getCreateTime)
-                    .last("LIMIT 5");
+                    .last("LIMIT 3");
             List<com.moyun.portal.domain.entity.PortalUser> recentUsers = portalUserMapper.selectList(userWrapper);
             if (recentUsers != null) {
                 for (com.moyun.portal.domain.entity.PortalUser u : recentUsers) {
@@ -594,10 +614,10 @@ public class SysDashboardServiceImpl implements ISysDashboardService {
             log.error("[Dashboard] 构建用户注册动态失败", e);
         }
 
-        // 合并后按时间排序，取 Top 12
+        // 合并后按时间倒序，统一限制取 Top 20，避免首页动态过长
         activities.sort(Comparator.comparing(DashboardVO.ActivityItem::getCreateTime).reversed());
-        if (activities.size() > 12) {
-            activities = new ArrayList<>(activities.subList(0, 12));
+        if (activities.size() > 20) {
+            activities = new ArrayList<>(activities.subList(0, 20));
         }
         return activities;
     }

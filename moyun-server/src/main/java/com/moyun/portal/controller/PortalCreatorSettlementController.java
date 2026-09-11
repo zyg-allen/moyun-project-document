@@ -46,7 +46,7 @@ public class PortalCreatorSettlementController extends BaseController {
     }
 
     @Operation(summary = "结算单详情", description = "查询结算单详情（仅结算单归属的创作者本人可查看）")
-    @GetMapping("/{id}")
+    @GetMapping("/{id:[0-9]+}")
     public AjaxResult detail(@PathVariable("id") Long id) {
         Long userId = currentUserId();
         if (userId == null) {

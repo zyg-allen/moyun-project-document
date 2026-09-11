@@ -53,12 +53,28 @@ export function changeColumnStatus(id, status) {
   })
 }
 
-// 审核专栏（CMS 审核接口，写入 auditorId/auditRemark/auditTime 并通知作者）
-// PUT /cms/column/{id}/audit  body: { status: 'published'|'rejected', auditRemark? }
-export function auditColumn(id, data) {
+// 分页查询专栏已绑定的文章列表（维护文章弹窗用）
+export function listColumnArticles(id, params) {
   return request({
-    url: '/cms/column/' + id + '/audit',
-    method: 'put',
-    data: data
+    url: '/cms/column/' + id + '/articles',
+    method: 'get',
+    params: params
+  })
+}
+
+// 批量绑定文章到专栏
+export function bindColumnArticles(id, articleIds) {
+  return request({
+    url: '/cms/column/' + id + '/articles',
+    method: 'post',
+    data: { articleIds: articleIds }
+  })
+}
+
+// 将文章移出专栏
+export function removeColumnArticle(id, articleId) {
+  return request({
+    url: '/cms/column/' + id + '/articles/' + articleId,
+    method: 'delete'
   })
 }

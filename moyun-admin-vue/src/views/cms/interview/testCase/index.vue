@@ -57,7 +57,7 @@
       </el-table-column>
       <el-table-column label="说明" prop="explanation" min-width="160" show-overflow-tooltip />
       <el-table-column label="排序" prop="orderNum" width="80" align="center" />
-      <el-table-column label="操作" width="160" fixed="right">
+      <el-table-column label="操作" width="160" fixed="right" align="right">
         <template #default="{ row }">
           <el-button link type="primary" @click="handleEdit(row)">编辑</el-button>
           <el-button link type="danger" @click="handleDelete(row)">删除</el-button>
@@ -66,7 +66,7 @@
     </el-table>
 
     <!-- 用例新增/编辑弹窗 -->
-    <el-dialog v-model="dialogVisible" :title="dialogTitle" width="720px" @closed="resetForm">
+    <el-dialog v-model="dialogVisible" :title="dialogTitle" width="900px" @closed="resetForm">
       <el-form ref="formRef" :model="form" :rules="rules" label-width="100px">
         <el-form-item label="是否样例">
           <el-switch v-model="form.isSample" active-text="样例（前端展示）" inactive-text="隐藏（仅判题）" />
@@ -151,7 +151,11 @@ function typeLabel(t) { return { algorithm: '算法', bagwen: '八股', system_d
 function typeTagType(t) { return { algorithm: 'primary', bagwen: 'warning', system_design: 'info', project: 'success', hr: 'danger' }[t] || 'info'; }
 
 function goBack() {
-  router.push('/cms/interview/question');
+  // 返回路径三级回退：来源路径（query.from）> activeMenu > 默认题库页
+  // 菜单调整后来源路径自动跟随，无需改代码
+  const from = route.query.from;
+  const fallback = (route.meta && route.meta.activeMenu) || '/portal/interview/questionTab';
+  router.push(typeof from === 'string' && from ? from : fallback);
 }
 
 async function loadQuestion() {

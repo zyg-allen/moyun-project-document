@@ -1,91 +1,91 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-  墨韵·智库 静态网站地图（fallback）
+  旭林知行 静态网站地图（fallback）
   说明：
   1. 主用动态 sitemap：GET /portal/sitemap （由 PortalSitemapController 实时生成，覆盖文章/书籍/书单/话题/专栏/面经等）
   2. 本静态文件仅作为后端不可用时的兜底，仅包含固定页面
-  3. 部署时请将 https://moyun.example.com 替换为实际正式域名（与后端 moyun.portal.domain 配置保持一致）
+  3. 部署时请将 https://xulin.example.com 替换为实际正式域名（与后端 moyun.portal.domain 配置保持一致）
   4. robots.txt 已将 Sitemap 行指向动态接口 /portal/sitemap
 -->
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <!-- 首页 -->
   <url>
-    <loc>https://moyun.example.com/</loc>
+    <loc>https://xulin.example.com/</loc>
     <lastmod>2026-06-09</lastmod>
     <changefreq>daily</changefreq>
     <priority>1.0</priority>
   </url>
   <!-- 语义化分类列表页 -->
   <url>
-    <loc>https://moyun.example.com/category</loc>
+    <loc>https://xulin.example.com/category</loc>
     <lastmod>2026-06-09</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.9</priority>
   </url>
   <!-- 语义化标签列表页 -->
   <url>
-    <loc>https://moyun.example.com/tag</loc>
+    <loc>https://xulin.example.com/tag</loc>
     <lastmod>2026-06-09</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <!-- 特殊页面：读书空间 -->
   <url>
-    <loc>https://moyun.example.com/reading</loc>
+    <loc>https://xulin.example.com/reading</loc>
     <lastmod>2026-06-09</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <!-- 特殊页面：面试指南 -->
   <url>
-    <loc>https://moyun.example.com/interview</loc>
+    <loc>https://xulin.example.com/interview</loc>
     <lastmod>2026-06-09</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <!-- 话题列表页 -->
   <url>
-    <loc>https://moyun.example.com/topics</loc>
+    <loc>https://xulin.example.com/topics</loc>
     <lastmod>2026-06-09</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.8</priority>
   </url>
   <!-- 专栏列表页 -->
   <url>
-    <loc>https://moyun.example.com/columns</loc>
+    <loc>https://xulin.example.com/columns</loc>
     <lastmod>2026-06-09</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.8</priority>
   </url>
   <!-- 搜索页 -->
   <url>
-    <loc>https://moyun.example.com/search</loc>
+    <loc>https://xulin.example.com/search</loc>
     <lastmod>2026-06-09</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.7</priority>
   </url>
   <!-- 作者列表页 -->
   <url>
-    <loc>https://moyun.example.com/authors</loc>
+    <loc>https://xulin.example.com/authors</loc>
     <lastmod>2026-06-09</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.7</priority>
   </url>
   <!-- 帮助与信息页 -->
   <url>
-    <loc>https://moyun.example.com/help</loc>
+    <loc>https://xulin.example.com/help</loc>
     <lastmod>2026-06-09</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.4</priority>
   </url>
   <url>
-    <loc>https://moyun.example.com/about</loc>
+    <loc>https://xulin.example.com/about</loc>
     <lastmod>2026-06-09</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.4</priority>
   </url>
   <url>
-    <loc>https://moyun.example.com/agreement</loc>
+    <loc>https://xulin.example.com/agreement</loc>
     <lastmod>2026-06-09</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.3</priority>

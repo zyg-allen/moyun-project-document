@@ -13,6 +13,7 @@ import { generateSeo } from '@/utils/seo';
 import { getSafeAvatar } from '@/utils/avatar';
 import { formatRelativeTime } from '@/utils/date';
 import { getFollowingFeed, getHotFeed } from '@/api/feed';
+import { getToken } from '@/api/client';
 import { useUserStore } from '@/stores/user';
 import type { FeedEventVO, FeedEventType } from '@/types/api';
 
@@ -87,14 +88,16 @@ function gotoTarget(ev: FeedEventVO) {
 
 useHead(computed(() => generateSeo({
   title: '动态广场',
-  description: '墨韵动态广场，关注创作者的最新文章、面经与专栏，发现全站热门动态',
-  keywords: ['动态', '关注', '热门', '创作者', '墨韵'],
+  description: '旭林动态广场，关注创作者的最新文章、面经与专栏，发现全站热门动态',
+  keywords: ['动态', '关注', '热门', '创作者', '旭林'],
   canonicalPath: '/feed',
 })));
 
 onMounted(async () => {
-  // 默认进入热门；若已登录则进入关注
-  if (userStore.isAuthenticated) {
+  // 默认进入热门（公开接口，无需认证）；仅当已登录且本地存在有效 token 时才进入关注
+  // 注：isAuthenticated 基于 localStorage 恢复的 user 判断，token 可能已被清除/过期，
+  // 需结合 getToken() 双重校验，避免未登录用户被误判进"关注"tab 后触发 401
+  if (userStore.isAuthenticated && getToken()) {
     activeTab.value = 'following';
   }
   await loadList(true);
@@ -116,6 +119,12 @@ function destroyObserver() {
     observer.disconnect();
     observer = null;
   }
+}
+
+// 判断是否为未登录/登录过期类错误（client.ts 中 401 统一抛出的错误消息）
+function isUnauthorizedError(message?: string): boolean {
+  if (!message) return false;
+  return message.includes('登录已过期') || message.includes('请先登录') || message.includes('认证失败');
 }
 
 function setupObserver() {
@@ -156,6 +165,12 @@ async function loadList(reset = false) {
     }
   } catch (err) {
     const e = err as { message?: string };
+    // 关注流 401（token 过期/被清除）：降级到公开的热门流，保证页面匿名可用，不卡错误态
+    if (activeTab.value === 'following' && isUnauthorizedError(e?.message)) {
+      activeTab.value = 'hot';
+      await loadList(true);
+      return;
+    }
     error.value = e?.message || '加载失败，请稍后重试';
   } finally {
     loading.value = false;

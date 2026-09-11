@@ -136,4 +136,17 @@ public class CmsArticleVO extends BaseEntity {
     /** 创建时间 */
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime createTime;
+
+    /** 标签名称（逗号分隔，CMS后台列表/详情展示用，非持久字段，由 Mapper 子查询填充） */
+    private String tagNames;
+
+    /** 标签ID聚合串（Mapper 子查询填充的原始字符串，Service 拆分后置入 tagIds，不序列化给前端） */
+    @com.fasterxml.jackson.annotation.JsonIgnore
+    private String tagIdsRaw;
+
+    /** 标签ID列表（编辑回显用，与 tagNameList 顺序一致，非持久字段） */
+    private java.util.List<Long> tagIds;
+
+    /** 标签名称列表（编辑回显用，与 tagIds 顺序一致，非持久字段） */
+    private java.util.List<String> tagNameList;
 }

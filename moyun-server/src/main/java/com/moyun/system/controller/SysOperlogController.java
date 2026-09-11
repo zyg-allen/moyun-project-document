@@ -22,7 +22,7 @@ import java.util.List;
 /**
  * 操作日志记录
  *
- * @author ruoyi
+ * @author allen-zyg
  */
 @Tag(name = "操作日志管理", description = "操作日志记录相关接口")
 @RestController

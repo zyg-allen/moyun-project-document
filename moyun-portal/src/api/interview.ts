@@ -4,6 +4,7 @@ import type {
   InterviewPositionVO,
   InterviewQuestionVO,
   InterviewQuestionDetailVO,
+  InterviewQuestionNeighborVO,
   InterviewQuestionQuery,
   InterviewSubmissionVO,
   InterviewExperienceVO,
@@ -17,6 +18,7 @@ import type {
   ResumeAiAdviceVO,
   TagVO,
   PageResult,
+  UserProfileSnapshotVO,
 } from '@/types/api';
 
 // ==================== 首页数据 ====================
@@ -60,8 +62,35 @@ export const getRecommendedQuestions = (limit = 6) => {
   return httpGet<InterviewQuestionVO[]>('/portal/interview/question/recommend', { limit });
 };
 
+/**
+ * 我的画像快照（迁移自 mockInterview.ts，AI 面试官统一入口）
+ * GET /portal/interview/profile?position=&scene=
+ * 返回薄弱知识点 + 岗位必备技能，用于题库页/知识图谱页画像展示与语音面试画像抽题。
+ */
+export const getMyProfile = (params?: { position?: string; scene?: string }) => {
+  return httpGet<UserProfileSnapshotVO>('/portal/interview/profile', params);
+};
+
 export const getQuestionDetail = (questionId: string | number) => {
   return httpGet<InterviewQuestionDetailVO>(`/portal/interview/question/${questionId}`);
+};
+
+/**
+ * 相邻题目导航（v12.0 做题页/阅读页连续浏览）
+ * GET /portal/interview/question/{id}/neighbor?practiceMode=&difficulty=&keyword=&questionType=&categoryId=
+ * 按来源列表页的筛选条件返回上一题/下一题（排序与列表一致：sort 升序 + createTime 降序），
+ * 同时返回当前序号与总数，用于展示"第 x / 共 n 题"进度。
+ * - 做题页（choice/coding）传 practiceMode + difficulty/keyword
+ * - 阅读详情页传 categoryId/questionType/difficulty/keyword（与题库列表页筛选同源）
+ */
+export const getQuestionNeighbor = (
+  questionId: string | number,
+  params?: Pick<InterviewQuestionQuery, 'practiceMode' | 'difficulty' | 'keyword' | 'questionType' | 'categoryId'>
+) => {
+  return httpGet<InterviewQuestionNeighborVO>(
+    `/portal/interview/question/${questionId}/neighbor`,
+    params
+  );
 };
 
 export const submitAnswer = (
@@ -70,13 +99,31 @@ export const submitAnswer = (
     code?: string;
     content?: string;
     language?: string;
-    answerType?: 'code' | 'text' | 'design';
+    answerType?: 'code' | 'text' | 'design' | 'choice' | 'reading';
     note?: string;
+    /** 选择题作答：单选如 "A"，多选如 "A,B,C"（服务端权威判分） */
+    answer?: string;
   }
 ) => {
   return httpPost<InterviewSubmissionVO>(
     `/portal/interview/question/${questionId}/submit`,
     body
+  );
+};
+
+/**
+ * 记录题目阅读行为（v12.0 阅读闭环）
+ * POST /portal/interview/question/{id}/read
+ * 详情页加载/停留时上报：同用户同题目同一天仅记一次成长事件（read_question）。
+ * 若携带 note，则同时落一条阅读笔记提交并记 write_note 成长事件。
+ */
+export const recordQuestionRead = (
+  questionId: string | number,
+  body?: { note?: string }
+) => {
+  return httpPost<{ readRecorded: boolean; noteRecorded: boolean }>(
+    `/portal/interview/question/${questionId}/read`,
+    body ?? {}
   );
 };
 
@@ -308,10 +355,50 @@ export const getResumeAiAdvice = (id: string | number) => {
   return httpPost<ResumeAiAdviceVO>(`/portal/interview/resume/user/${id}/ai-advice`);
 };
 
+/**
+ * 上传附件简历（v10.23 异步化改造）
+ * POST /portal/interview/resume/user/parse（multipart）
+ * 上传后仅保存附件文件 + 创建附件简历记录，并提交后台 AI 解析任务；
+ * 返回 {resumeId, taskId, fileName}，解析结果通过 /portal/ai/task/{taskId} 轮询获取（taskType=resume_parse）
+ */
+export const parseResumeAttachment = (file: File) => {
+  const formData = new FormData();
+  formData.append('file', file);
+  return httpPost<{
+    /** 附件简历记录 ID */
+    resumeId: string | number;
+    /** 后台 AI 解析任务 ID（轮询用） */
+    taskId: number;
+    /** 附件文件名 */
+    fileName?: string;
+  }>('/portal/interview/resume/user/parse', formData);
+};
+
 export const updateResumeStatus = (id: string | number, status: string) => {
   return httpPut<number>(
     `/portal/interview/resume/user/${id}/status`,
     { status }
   );
+};
+
+// ==================== 附件简历（v10.22） ====================
+
+/**
+ * 附件简历列表（v10.22）
+ * GET /portal/interview/resume/user/attachments
+ * 返回当前用户的附件简历记录（sourceType=attachment），含 sourceFileUrl/sourceFileName
+ */
+export const getAttachmentList = () => {
+  return httpGet<UserResumeVO[]>('/portal/interview/resume/user/attachments');
+};
+
+/**
+ * 附件转在线简历（v10.22）
+ * POST /portal/interview/resume/user/{id}/convert-to-online
+ * 将附件简历的结构化解析结果写入在线简历表单字段，转为可编辑的在线简历
+ * 返回新在线简历 ID
+ */
+export const convertAttachmentToOnline = (id: number | string) => {
+  return httpPost<number>(`/portal/interview/resume/user/${id}/convert-to-online`);
 };
 

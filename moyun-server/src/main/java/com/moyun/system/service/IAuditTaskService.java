@@ -100,4 +100,22 @@ public interface IAuditTaskService {
      * 注册业务处理器（Spring 启动时各 Handler Bean 自动注册）。
      */
     void registerHandler(AuditBizHandler handler);
+
+    /**
+     * 按业务类型 + 业务ID 同步审核任务状态（兼容旧入口直接审核场景）。
+     * <p>
+     * 当业务模块通过自己的 Controller 直接审核（非走统一审核中心 handle 流程）时，
+     * 调用此方法同步更新 sys_audit_task 为终态，避免审核中心/首页待办残留。
+     * <p>
+     * 幂等：仅当任务存在且 status=pending 时才更新，已处理的任务不受影响。
+     *
+     * @param taskType    任务类型（article / certification / topic 等）
+     * @param bizId       业务ID
+     * @param finalStatus 终态：approved / rejected
+     * @param auditorId   审核人ID
+     * @param auditorName 审核人名称
+     * @param opinion     审核意见
+     */
+    void syncTaskStatusByBiz(String taskType, Long bizId, String finalStatus,
+                             Long auditorId, String auditorName, String opinion);
 }

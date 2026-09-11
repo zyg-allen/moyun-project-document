@@ -103,26 +103,18 @@
                   </span>
                 </div>
                 <div class="card-actions">
-                  <el-tooltip content="上传文档" placement="top" :show-after="200">
-                    <button class="action-btn" @click.stop="openUploadDialog(lib)">
-                      <i class="fa-solid fa-upload"></i>
-                    </button>
-                  </el-tooltip>
-                  <el-tooltip content="检索测试" placement="top" :show-after="200">
-                    <button class="action-btn warning" @click.stop="openLibraryRetrievalTest(lib)">
-                      <i class="fa-solid fa-magnifying-glass"></i>
-                    </button>
-                  </el-tooltip>
-                  <el-tooltip content="查看详情" placement="top" :show-after="200">
-                    <button class="action-btn primary" @click.stop="openLibraryDetail(lib)">
-                      <i class="fa-solid fa-eye"></i>
-                    </button>
-                  </el-tooltip>
-                  <el-tooltip content="删除" placement="top" :show-after="200">
-                    <button class="action-btn danger" @click.stop="deleteLibrary(lib)">
-                      <i class="fa-solid fa-trash"></i>
-                    </button>
-                  </el-tooltip>
+                  <el-button link type="primary" @click.stop="openUploadDialog(lib)">
+                    <i class="fa-solid fa-upload"></i> 上传文档
+                  </el-button>
+                  <el-button link type="warning" @click.stop="openLibraryRetrievalTest(lib)">
+                    <i class="fa-solid fa-magnifying-glass"></i> 检索测试
+                  </el-button>
+                  <el-button link type="primary" @click.stop="openLibraryDetail(lib)">
+                    <i class="fa-solid fa-eye"></i> 查看详情
+                  </el-button>
+                  <el-button link type="danger" @click.stop="deleteLibrary(lib)">
+                    <i class="fa-solid fa-trash"></i> 删除
+                  </el-button>
                 </div>
               </div>
             </div>
@@ -152,7 +144,7 @@
     </div>
 
     <!-- 创建知识库对话框 -->
-    <el-dialog v-model="showCreateDialog" title="新建知识库" width="540px" :close-on-click-modal="false" class="create-library-dialog">
+    <el-dialog v-model="showCreateDialog" title="新建知识库" width="680px" :close-on-click-modal="false" class="create-library-dialog">
       <el-form :model="createForm" label-width="0px">
         <div class="form-section">
           <div class="icon-name-row">
@@ -202,7 +194,7 @@
     </el-dialog>
 
     <!-- 编辑知识库对话框 -->
-    <el-dialog v-model="showEditDialog" title="编辑知识库" width="540px" :close-on-click-modal="false" class="create-library-dialog">
+    <el-dialog v-model="showEditDialog" title="编辑知识库" width="680px" :close-on-click-modal="false" class="create-library-dialog">
       <el-form :model="editForm" label-width="0px">
         <div class="form-section">
           <div class="icon-name-row">
@@ -313,7 +305,7 @@
                 </el-tag>
               </template>
             </el-table-column>
-            <el-table-column label="操作" width="220" align="center">
+            <el-table-column label="操作" width="220" align="right">
               <template #default="{ row }">
                 <!-- 待配置：显示配置按钮 -->
                 <el-button v-if="row.processingStatus === 'pending'" text type="primary" size="small" @click="openDocConfig(row)">
@@ -470,7 +462,7 @@
               </template>
             </el-table-column>
             <el-table-column prop="vectorDimension" label="维度" width="70" align="center" />
-            <el-table-column label="操作" width="100" align="center">
+            <el-table-column label="操作" width="100" align="right">
               <template #default="scope">
                 <el-button size="small" link type="primary" @click="showVectorData(scope.row)" v-if="scope.row.vectorData">
                   查看向量
@@ -484,7 +476,7 @@
     </el-dialog>
 
     <!-- 向量数据对话框 -->
-    <el-dialog v-model="showVectorDialog" title="向量数据" width="600px">
+    <el-dialog v-model="showVectorDialog" title="向量数据" width="760px">
       <div v-if="currentVector">
         <p><strong>分片索引：</strong>{{ currentVector.segmentIndex }}</p>
         <p><strong>嵌入ID：</strong>{{ currentVector.embeddingId }}</p>
@@ -495,7 +487,7 @@
     </el-dialog>
 
     <!-- 文档检索测试对话框 -->
-    <el-dialog v-model="showRetrievalTestDialog" title="检索测试" width="800px">
+    <el-dialog v-model="showRetrievalTestDialog" title="检索测试" width="1000px">
       <div class="retrieval-test-container">
         <el-form :model="retrievalTestForm" label-width="100px">
           <el-form-item label="查询文本">
@@ -876,15 +868,17 @@ const previewDocument = async (doc) => {
   
   try {
     // 使用预览接口获取 PDF 文件
-    const response = await request({ url: `/cms/ai/knowledge-base/${doc.id}/preview`, method: 'get', responseType: 'blob'})
-    
+    // 注意：响应拦截器对 responseType: 'blob' 的请求直接返回 Blob 本身（非 axios response 对象），
+    // content-type 需从 blob.type 读取
+    const blobData = await request({ url: `/cms/ai/knowledge-base/${doc.id}/preview`, method: 'get', responseType: 'blob'})
+
     // 检查响应类型
-    const contentType = response.headers['content-type']
+    const contentType = blobData.type
     let blob
     if (contentType && contentType.includes('application/pdf')) {
-      blob = new Blob([response.data], { type: 'application/pdf' })
+      blob = new Blob([blobData], { type: 'application/pdf' })
     } else {
-      blob = new Blob([response.data], { type: contentType || 'application/pdf' })
+      blob = new Blob([blobData], { type: contentType || 'application/pdf' })
     }
     
     // 所有文件都转换为 PDF 预览
@@ -1151,7 +1145,7 @@ const executeRetrievalTest = async () => {
   retrievalTestResults.value = []
   
   try {
-    const response = await request({ url: `/cms/ai/knowledge-base/${currentRetrievalDoc.value.id}/test-retrieval`, method: 'post'})
+    const response = await request({ url: `/cms/ai/knowledge-base/${currentRetrievalDoc.value.id}/test-retrieval`, method: 'post', data: retrievalTestForm.value})
 
     retrievalTestResults.value = response.data || []
     if (retrievalTestResults.value.length === 0) {
@@ -1195,7 +1189,7 @@ const executeLibraryRetrievalTest = async () => {
   libraryRetrievalResults.value = []
   
   try {
-    const response = await request({ url: `/cms/ai/knowledge-library/${currentRetrievalLibrary.value.id}/test-retrieval`, method: 'post'})
+    const response = await request({ url: `/cms/ai/knowledge-library/${currentRetrievalLibrary.value.id}/test-retrieval`, method: 'post', data: libraryRetrievalForm.value})
 
     libraryRetrievalResults.value = response.data || []
     if (libraryRetrievalResults.value.length === 0) {
@@ -1637,7 +1631,24 @@ onMounted(() => {
 
 .card-actions {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
+}
+
+/* Element Plus link 文字按钮适配：抵消相邻按钮默认 margin-left，避免与 gap 叠加 */
+.card-actions .el-button + .el-button {
+  margin-left: 0;
+}
+
+.card-actions .el-button {
+  height: 28px;
+  padding: 0 2px;
+  font-size: 13px;
+}
+
+.card-actions .el-button i {
+  margin-right: 3px;
+  font-size: 13px;
 }
 
 .action-btn {

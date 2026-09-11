@@ -43,6 +43,9 @@ public class PortalInterviewResumeTemplate extends BaseEntity
     /** 下载地址 */
     private String downloadUrl;
 
+    /** 预览图 JSON 数组（多图，问题3图片列表展示） */
+    private String previewImages;
+
     /** 分类 */
     private String category;
 
@@ -73,6 +76,14 @@ public class PortalInterviewResumeTemplate extends BaseEntity
 
     /** 标签（逗号分隔，可选） */
     private String tags;
+
+    /**
+     * 模板结构化示例数据（JSON 字符串）
+     * 字段：name/phone/email/city/avatar/jobIntention/educations/works/projects/skills/selfIntro
+     * 用途：「基于此模板创建简历」一键套用，前端 fillFromTemplate 解析后填充编辑页表单
+     * 可选字段：未配置时回退到原 query 参数预填标题/期望岗位流程
+     */
+    private String sampleData;
 
     /**
      * 状态:draft 草稿/published 已发布

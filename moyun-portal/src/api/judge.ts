@@ -35,35 +35,37 @@ export const getSampleTestCases = (questionId: string | number) => {
 };
 
 // ==================== 测试用例管理（CMS 后台） ====================
+// 路径前缀 /portal/admin/ 由核心安全链识别 admin token；
+// 原 /portal/judge/admin/** 走门户安全链（仅识别门户用户 token），后台访问会 401
 
 /**
  * 获取题目全部用例（CMS，含隐藏用例）
- * GET /portal/judge/admin/cases/{questionId}
+ * GET /portal/admin/judge/cases/{questionId}
  */
 export const listAllTestCases = (questionId: string | number) => {
-  return httpGet<TestCaseVO[]>(`/portal/judge/admin/cases/${questionId}`);
+  return httpGet<TestCaseVO[]>(`/portal/admin/judge/cases/${questionId}`);
 };
 
 /**
  * 新增测试用例（CMS）
- * POST /portal/judge/admin/cases
+ * POST /portal/admin/judge/cases
  */
 export const createTestCase = (params: TestCaseUpsertParams) => {
-  return httpPost<TestCaseVO>('/portal/judge/admin/cases', params);
+  return httpPost<TestCaseVO>('/portal/admin/judge/cases', params);
 };
 
 /**
  * 修改测试用例（CMS）
- * PUT /portal/judge/admin/cases/{id}
+ * PUT /portal/admin/judge/cases/{id}
  */
 export const updateTestCase = (id: string | number, params: TestCaseUpsertParams) => {
-  return httpPut<TestCaseVO>(`/portal/judge/admin/cases/${id}`, params);
+  return httpPut<TestCaseVO>(`/portal/admin/judge/cases/${id}`, params);
 };
 
 /**
  * 删除测试用例（CMS）
- * DELETE /portal/judge/admin/cases/{id}
+ * DELETE /portal/admin/judge/cases/{id}
  */
 export const deleteTestCase = (id: string | number) => {
-  return httpDelete<void>(`/portal/judge/admin/cases/${id}`);
+  return httpDelete<void>(`/portal/admin/judge/cases/${id}`);
 };

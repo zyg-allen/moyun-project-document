@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue';
+import { useConfirmModal } from '@/composables/useConfirmModal';
 import { useRouter } from 'vue-router';
 import { useHead } from '@vueuse/head';
 import {
@@ -14,6 +15,9 @@ import { getSafeAvatar } from '@/utils/avatar';
 import { getMyColumns, getSubscribedColumns, deleteColumn } from '@/api/column';
 import { useToast } from '@/composables/useToast';
 import type { ColumnListItemVO, ColumnQuery } from '@/types/api';
+
+
+const confirmModal = useConfirmModal();
 
 const router = useRouter();
 const toast = useToast();
@@ -39,7 +43,7 @@ const breadcrumbs = computed(() => [
 useHead(computed(() => generateSeo({
   title: '我的专栏',
   description: '管理我创建的专栏与我订阅的专栏',
-  keywords: ['我的专栏', '专栏管理', '订阅专栏', '墨韵'],
+  keywords: ['我的专栏', '专栏管理', '订阅专栏', '旭林'],
   canonicalPath: '/column/my',
   robots: 'noindex,nofollow',
 })));
@@ -95,13 +99,13 @@ function gotoCreate() {
   router.push('/column/create');
 }
 
-function gotoEdit(id: string | number) {
+async function gotoEdit(id: string | number) {
   router.push(`/column/edit/${id}`);
 }
 
 async function handleDelete(col: ColumnListItemVO) {
   if (actionId.value) return;
-  if (!window.confirm(`确定删除专栏「${col.title}」吗？删除后不可恢复。`)) return;
+  if (!await confirmModal.confirm(`确定删除专栏「${col.title}」吗？删除后不可恢复。`, { danger: true,  title: '确认操作'})) return;
   actionId.value = col.id;
   try {
     const res = await deleteColumn(col.id);

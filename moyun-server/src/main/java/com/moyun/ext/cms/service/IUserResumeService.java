@@ -93,4 +93,10 @@ public interface IUserResumeService {
      * 内部已校验简历归属；返回 null 表示无导出文件或不属于该用户。
      */
     String getResumePdfDiskPath(Long id, Long userId);
+
+    /** v10.22：查询用户附件简历列表 */
+    List<UserResumeVO> selectAttachmentList(Long userId);
+
+    /** v10.22：附件简历转在线简历 */
+    Long convertAttachmentToOnline(Long id, Long userId);
 }

@@ -55,7 +55,7 @@ public class PortalStudyPlanController extends BaseController {
     }
 
     @Operation(summary = "计划进度", description = "查询单个计划进度（含累计完成数、今日完成数、连续打卡）")
-    @GetMapping("/{id}/progress")
+    @GetMapping("/{id:[0-9]+}/progress")
     public AjaxResult progress(@PathVariable("id") Long id) {
         Long userId = currentUserId();
         if (userId == null) {
@@ -65,7 +65,7 @@ public class PortalStudyPlanController extends BaseController {
     }
 
     @Operation(summary = "记录今日完成数", description = "增量记录今日完成数（delta 可为负，结果不低于 0）")
-    @PostMapping("/{id}/progress")
+    @PostMapping("/{id:[0-9]+}/progress")
     public AjaxResult recordProgress(@PathVariable("id") Long id,
                                      @RequestParam(defaultValue = "1") int delta) {
         Long userId = currentUserId();
@@ -76,7 +76,7 @@ public class PortalStudyPlanController extends BaseController {
     }
 
     @Operation(summary = "切换计划状态", description = "状态：active/completed/abandoned")
-    @PutMapping("/{id}/status")
+    @PutMapping("/{id:[0-9]+}/status")
     public AjaxResult changeStatus(@PathVariable("id") Long id,
                                     @RequestParam String status) {
         Long userId = currentUserId();
@@ -87,7 +87,7 @@ public class PortalStudyPlanController extends BaseController {
     }
 
     @Operation(summary = "删除计划", description = "仅作者本人，级联删除进度日志")
-    @DeleteMapping("/{id}")
+    @DeleteMapping("/{id:[0-9]+}")
     public AjaxResult delete(@PathVariable("id") Long id) {
         Long userId = currentUserId();
         if (userId == null) {

@@ -21,7 +21,7 @@ import com.moyun.portal.service.IPortalBookshelfService;
  */
 @Tag(name = "读书空间-书架管理", description = "后台书架管理接口（只读+移除）")
 @RestController
-@RequestMapping("/portal/admin/bookshelf")
+@RequestMapping("/portal/admin/bookshelves")
 public class PortalBookshelfAdminController extends BaseController {
 
     @Autowired
@@ -38,7 +38,7 @@ public class PortalBookshelfAdminController extends BaseController {
 
     @Operation(summary = "书架详情")
     @PreAuthorize("@ss.hasPermi('portal:bookshelf:query')")
-    @GetMapping("/{id}")
+    @GetMapping("/{id:[0-9]+}")
     public AjaxResult getInfo(@PathVariable Long id) {
         return AjaxResult.success(bookshelfService.selectBookshelfById(id));
     }

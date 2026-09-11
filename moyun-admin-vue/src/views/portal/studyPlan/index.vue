@@ -13,16 +13,12 @@
       </el-form-item>
       <el-form-item label="状态" prop="status">
         <el-select v-model="queryParams.status" placeholder="请选择状态" clearable style="width: 200px">
-          <el-option label="进行中" value="active" />
-          <el-option label="已完成" value="completed" />
-          <el-option label="已放弃" value="abandoned" />
+          <el-option v-for="d in portal_study_plan_status" :key="d.value" :label="d.label" :value="d.value" />
         </el-select>
       </el-form-item>
       <el-form-item label="计划类型" prop="planType">
         <el-select v-model="queryParams.planType" placeholder="请选择类型" clearable style="width: 200px">
-          <el-option label="每日刷题" value="daily_question" />
-          <el-option label="每周阅读" value="weekly_reading" />
-          <el-option label="自定义" value="custom" />
+          <el-option v-for="d in portal_study_plan_type" :key="d.value" :label="d.label" :value="d.value" />
         </el-select>
       </el-form-item>
       <el-form-item label="标题" prop="title">
@@ -55,7 +51,7 @@
       <el-table-column label="计划标题" align="center" prop="title" min-width="160" :show-overflow-tooltip="true" />
       <el-table-column label="计划类型" align="center" prop="planType" width="120">
         <template #default="scope">
-          <el-tag :type="getPlanTypeTagType(scope.row.planType)">{{ getPlanTypeText(scope.row.planType) }}</el-tag>
+          <dict-tag :options="portal_study_plan_type" :value="scope.row.planType" />
         </template>
       </el-table-column>
       <el-table-column label="目标数量" align="center" prop="targetCount" width="100">
@@ -80,7 +76,7 @@
       </el-table-column>
       <el-table-column label="状态" align="center" prop="status" width="100">
         <template #default="scope">
-          <el-tag :type="getStatusTagType(scope.row.status)">{{ getStatusText(scope.row.status) }}</el-tag>
+          <dict-tag :options="portal_study_plan_status" :value="scope.row.status" />
         </template>
       </el-table-column>
       <el-table-column label="创建时间" align="center" prop="createdTime" width="160">
@@ -88,7 +84,7 @@
           <span>{{ parseTime(scope.row.createdTime) }}</span>
         </template>
       </el-table-column>
-      <el-table-column label="操作" align="center" class-name="small-padding fixed-width" width="120" fixed="right">
+      <el-table-column label="操作" align="right" class-name="small-padding fixed-width" width="120" fixed="right">
         <template #default="scope">
           <el-button
             link
@@ -110,16 +106,16 @@
     />
 
     <!-- 详情对话框（只读） -->
-    <el-dialog title="学习计划详情" v-model="viewOpen" width="640px" append-to-body>
+    <el-dialog title="学习计划详情" v-model="viewOpen" width="800px" append-to-body>
       <el-descriptions v-if="currentRow" :column="2" border>
         <el-descriptions-item label="计划ID">{{ currentRow.id }}</el-descriptions-item>
         <el-descriptions-item label="用户ID">{{ currentRow.userId }}</el-descriptions-item>
         <el-descriptions-item label="计划标题" :span="2">{{ currentRow.title }}</el-descriptions-item>
         <el-descriptions-item label="计划类型">
-          <el-tag :type="getPlanTypeTagType(currentRow.planType)">{{ getPlanTypeText(currentRow.planType) }}</el-tag>
+          <dict-tag :options="portal_study_plan_type" :value="currentRow.planType" />
         </el-descriptions-item>
         <el-descriptions-item label="状态">
-          <el-tag :type="getStatusTagType(currentRow.status)">{{ getStatusText(currentRow.status) }}</el-tag>
+          <dict-tag :options="portal_study_plan_status" :value="currentRow.status" />
         </el-descriptions-item>
         <el-descriptions-item label="目标数量">{{ currentRow.targetCount != null ? currentRow.targetCount : '—' }}</el-descriptions-item>
         <el-descriptions-item label="目标分类">{{ currentRow.targetCategory || '—' }}</el-descriptions-item>
@@ -140,6 +136,7 @@
 import { listStudyPlan } from "@/api/portal/learn";
 
 const { proxy } = getCurrentInstance();
+const { portal_study_plan_status, portal_study_plan_type } = proxy.useDict("portal_study_plan_status", "portal_study_plan_type");
 
 const dataList = ref([]);
 const loading = ref(true);
@@ -160,30 +157,6 @@ const data = reactive({
 });
 
 const { queryParams } = toRefs(data);
-
-/** 状态文本 */
-function getStatusText(status) {
-  const map = { active: '进行中', completed: '已完成', abandoned: '已放弃' };
-  return map[status] || status || '-';
-}
-
-/** 状态标签类型 */
-function getStatusTagType(status) {
-  const map = { active: 'success', completed: '', abandoned: 'info' };
-  return map[status] || 'info';
-}
-
-/** 计划类型文本 */
-function getPlanTypeText(planType) {
-  const map = { daily_question: '每日刷题', weekly_reading: '每周阅读', custom: '自定义' };
-  return map[planType] || planType || '-';
-}
-
-/** 计划类型标签类型 */
-function getPlanTypeTagType(planType) {
-  const map = { daily_question: '', weekly_reading: 'success', custom: 'warning' };
-  return map[planType] || '';
-}
 
 /** 查询列表 */
 function getList() {

@@ -53,6 +53,22 @@ public class CertificationAuditBizHandler implements AuditBizHandler {
         detail.put("id", cert.getId());
         detail.put("userId", cert.getUserId());
         detail.put("realName", cert.getRealName());
+        // v10.8 实名合规：证件号仅返回脱敏值，密文与明文均不外泄
+        if (cert.getCertNoMask() != null && !cert.getCertNoMask().isEmpty()) {
+            detail.put("certNo", cert.getCertNoMask());
+        } else if (cert.getCertNo() != null && !cert.getCertNo().isEmpty()
+                && !com.moyun.util.crypto.AesGcmUtils.isEncrypted(cert.getCertNo())) {
+            // 存量明文兼容：运行时脱敏
+            detail.put("certNo", com.moyun.util.string.IdCardUtil.mask(cert.getCertNo()));
+        } else {
+            detail.put("certNo", null);
+        }
+        detail.put("certType", cert.getCertType());
+        detail.put("derivedGender", cert.getDerivedGender());
+        detail.put("derivedBirth", cert.getDerivedBirth());
+        detail.put("verifyChannel", cert.getVerifyChannel());
+        detail.put("certImageFront", cert.getCertImageFront());
+        detail.put("certImageBack", cert.getCertImageBack());
         detail.put("status", cert.getStatus());
         detail.put("auditorId", cert.getAuditorId());
         detail.put("auditRemark", cert.getAuditRemark());

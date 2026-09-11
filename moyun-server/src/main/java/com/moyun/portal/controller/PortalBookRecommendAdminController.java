@@ -23,7 +23,7 @@ import com.moyun.portal.service.IPortalBookRecommendService;
  */
 @Tag(name = "读书空间-书籍推荐管理", description = "后台书籍推荐（运营位）管理接口")
 @RestController
-@RequestMapping("/portal/admin/bookRecommend")
+@RequestMapping("/portal/admin/book-recommends")
 public class PortalBookRecommendAdminController extends BaseController {
 
     @Autowired
@@ -40,7 +40,7 @@ public class PortalBookRecommendAdminController extends BaseController {
 
     @Operation(summary = "推荐详情")
     @PreAuthorize("@ss.hasPermi('portal:bookRecommend:query')")
-    @GetMapping("/{id}")
+    @GetMapping("/{id:[0-9]+}")
     public AjaxResult getInfo(@PathVariable Long id) {
         return AjaxResult.success(bookRecommendService.selectBookRecommendById(id));
     }
@@ -68,7 +68,7 @@ public class PortalBookRecommendAdminController extends BaseController {
 
     @Operation(summary = "上下架切换")
     @PreAuthorize("@ss.hasPermi('portal:bookRecommend:edit')")
-    @PutMapping("/{id}/toggle")
+    @PutMapping("/{id:[0-9]+}/toggle")
     public AjaxResult toggle(@PathVariable Long id, @RequestParam Boolean isActive) {
         return toAjax(bookRecommendService.toggleActive(id, isActive));
     }

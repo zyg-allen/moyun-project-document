@@ -37,6 +37,7 @@ public class ShopServiceImpl implements IShopService {
     @Autowired private PortalShopItemMapper itemMapper;
     @Autowired private PortalShopExchangeMapper exchangeMapper;
     @Autowired private PortalUserGrowthMapper growthMapper;
+    @Autowired private com.moyun.portal.util.RealNameChecker realNameChecker;
 
     @Override
     public List<PortalShopItem> listItems() {
@@ -49,6 +50,8 @@ public class ShopServiceImpl implements IShopService {
         if (userId == null) {
             throw new ServiceException("请先登录");
         }
+        // v10.10 实名策略：积分兑换属积分消费敏感场景，强制实名（防恶意刷积分套现）
+        realNameChecker.checkRealName(userId);
         PortalShopItem item = itemMapper.selectById(itemId);
         if (item == null || !"active".equals(item.getStatus())) {
             throw new ServiceException("商品不存在或已下架");

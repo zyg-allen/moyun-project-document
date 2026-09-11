@@ -75,8 +75,11 @@ public class AuditTaskVO implements Serializable {
     /** 优先级显示名 */
     private String priorityLabel;
 
-    /** 查看详情跳转路径 */
+    /** 查看详情跳转路径（审核中心） */
     private String routePath;
+
+    /** 原业务管理页路由（v11.35.1，「查看原业务」直达业务管理菜单页） */
+    private String bizRoutePath;
 
     /** 业务详情（由 AuditBizHandler.getBizDetail 返回，结构因业务而异） */
     @JsonProperty("bizDetail")

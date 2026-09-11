@@ -9,7 +9,7 @@ import Breadcrumb from '@/components/Breadcrumb.vue';
 import { generateSeo } from '@/utils/seo';
 import { sanitizeHTML } from '@/utils/security';
 import { publishExperience, updateExperience, getExperienceDetail } from '@/api/interview';
-import { requireCreator } from '@/utils/creatorPermission';
+import { promptRealNameOptional } from '@/utils/creatorPermission';
 import { useToast } from '@/composables/useToast';
 
 const route = useRoute();
@@ -55,7 +55,7 @@ const contentCount = computed(() => content.value.replace(/\s/g, '').length);
 useHead(computed(() => generateSeo({
   title: isEdit.value ? '编辑面经' : '发布面经',
   description: '分享你的真实面试经验，帮助更多求职者备战面试、直通 Offer',
-  keywords: ['发布面经', '面经', '面试经验', '面经投稿', '墨韵'],
+  keywords: ['发布面经', '面经', '面试经验', '面经投稿', '旭林'],
   canonicalPath: isEdit.value
     ? `/interview/experience/edit/${editId.value}`
     : '/interview/experience/publish',
@@ -101,8 +101,8 @@ async function submit(status: 'draft' | 'pending') {
     toast.error(errMsg);
     return;
   }
-  // 发布面经需创作者认证（草稿不限）
-  if (status === 'pending' && !requireCreator()) return;
+  // 发布面经提示实名认证（v10.10：创作行为不强制，可跳过；草稿不限）
+  if (status === 'pending' && !(await promptRealNameOptional())) return;
   try {
     submitting.value = true;
     if (isEdit.value && editId.value) {
@@ -121,7 +121,8 @@ async function submit(status: 'draft' | 'pending') {
       }
     }
     setTimeout(() => {
-      router.push('/interview/my/experiences');
+      // 跳转列表并直接定位到对应状态 Tab：发布→待审核 / 草稿→草稿
+      router.push(`/interview/my/experiences?status=${status}`);
     }, 800);
   } catch (err: any) {
     toast.error(err?.message || '提交失败，请稍后重试');

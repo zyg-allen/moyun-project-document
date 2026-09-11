@@ -52,7 +52,7 @@ const tabs: { key: TabKey; label: string; icon: typeof ListChecks }[] = [
 useHead(computed(() => generateSeo({
   title: company.value?.name ? `${company.value.name} - 公司主页` : '公司主页',
   description: company.value?.description || company.value?.industry || '聚合公司题目与面经',
-  keywords: ['公司主页', company.value?.name || '墨韵'].filter(Boolean) as string[],
+  keywords: ['公司主页', company.value?.name || '旭林'].filter(Boolean) as string[],
   canonicalPath: `/interview/company/${companyId.value}`,
 })));
 

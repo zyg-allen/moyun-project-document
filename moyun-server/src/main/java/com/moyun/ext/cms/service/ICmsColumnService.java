@@ -1,7 +1,9 @@
 package com.moyun.ext.cms.service;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.moyun.core.base.AjaxResult;
 import com.moyun.ext.cms.domain.query.ColumnQuery;
+import com.moyun.ext.cms.domain.vo.ArticleSimpleVO;
 import com.moyun.ext.cms.domain.vo.ColumnListItemVO;
 import com.moyun.portal.domain.entity.PortalColumn;
 
@@ -56,4 +58,33 @@ public interface ICmsColumnService {
      * 批量删除专栏
      */
     int deleteColumnByIds(Long[] ids);
+
+    /**
+     * CMS后台：批量绑定文章到专栏（不校验作者归属，管理员可操作任意文章）
+     *
+     * @param columnId   专栏ID
+     * @param articleIds 文章ID列表
+     * @return 成功绑定的条数
+     */
+    AjaxResult batchBindArticles(Long columnId, java.util.List<Long> articleIds);
+
+    /**
+     * CMS后台：将文章移出专栏（不校验作者归属）
+     *
+     * @param columnId  专栏ID
+     * @param articleId 文章ID
+     * @return 影响行数
+     */
+    int removeColumnArticle(Long columnId, Long articleId);
+
+    /**
+     * CMS后台：分页查询专栏已绑定的文章列表
+     *
+     * @param page     分页参数
+     * @param columnId 专栏ID
+     * @param keyword  文章标题关键词（可选）
+     * @return 分页结果
+     */
+    Page<ArticleSimpleVO> selectColumnArticlesPage(
+            Page<ArticleSimpleVO> page, Long columnId, String keyword);
 }

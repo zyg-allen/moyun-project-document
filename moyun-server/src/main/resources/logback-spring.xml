@@ -1,30 +1,49 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-    墨韵 AI 模块日志配置（合并自 moyun-ai-parent/moyun-ai-web/src/main/resources/logback-spring.xml）
-    - 原包名 com.laomao.agent.* 已统一为 com.moyun.ext.ai.*
-    - 保留 RAG/知识库/工作流三类业务日志文件分离能力
-    - 整合到 moyun-server 后，与主框架 logging 配置共存（Spring Boot 优先加载 logback-spring.xml）
+    墨云服务日志配置（统一日志 + 模块标识方案）
+
+    ===== 设计原则 =====
+    1. 统一输出：所有日志写入同一个主日志文件，保证完整调用链
+    2. 错误分离：ERROR 级别独立输出，便于告警和快速定位
+    3. 慢SQL审计：独立输出，便于性能分析和治理
+    4. 模块标识：日志内容中包含 [AI]、[CMS]、[CORE] 等模块标签，便于过滤
+    5. 生产就绪：保留策略和大小限制已按生产环境调整
+
+    ===== 日志文件说明 =====
+    - moyun-server.log         主日志（所有级别，含完整调用链）
+    - moyun-server-error.log   错误日志（仅ERROR，用于告警）
+    - moyun-server-slow-sql.log 慢SQL审计日志
+
+    ===== 排查方式 =====
+    - 按 traceId 查全链路：grep "traceId-xxx" moyun-server.log
+    - 按模块查日志：grep "\[AI\]" moyun-server.log
+    - 按用户查日志：grep "userId=123" moyun-server.log
+    - 组合查询：grep "traceId-xxx" moyun-server.log | grep "\[AI\]"
 -->
 <configuration>
-    <!-- 日志存储路径 -->
-    <property name="LOG_HOME" value="logs"/>
-    <!-- 应用名称（统一为 moyun） -->
-    <property name="APP_NAME" value="moyun-ai"/>
 
-    <!-- 彩色日志依赖的渲染类 -->
+    <!-- ===== 基础属性 ===== -->
+    <property name="LOG_HOME" value="logs"/>
+    <property name="APP_NAME" value="moyun-server"/>
+    <property name="MAX_HISTORY" value="30"/>
+    <property name="TOTAL_SIZE_CAP" value="10GB"/>
+
+    <!-- ===== 彩色日志依赖 ===== -->
     <conversionRule conversionWord="clr" converterClass="org.springframework.boot.logging.logback.ColorConverter"/>
     <conversionRule conversionWord="wex" converterClass="org.springframework.boot.logging.logback.WhitespaceThrowableProxyConverter"/>
     <conversionRule conversionWord="wEx" converterClass="org.springframework.boot.logging.logback.ExtendedWhitespaceThrowableProxyConverter"/>
 
-    <!-- 控制台输出格式（彩色） -->
+    <!-- ===== 日志输出格式 ===== -->
     <property name="CONSOLE_LOG_PATTERN"
-              value="%clr(%d{yyyy-MM-dd HH:mm:ss.SSS}){faint} %clr(%5p) %clr(${PID:- }){magenta} %clr(---){faint} %clr([%15.15t]){faint} %clr(%-40.40logger{39}){cyan} %clr(:){faint} %m%n%wEx"/>
+              value="%clr(%d{yyyy-MM-dd HH:mm:ss.SSS}){faint} %clr(%5p) %clr(${PID:- }){magenta} %clr([%X{traceId:-NO_TRACE}]){yellow} %clr([%15.15t]){faint} %clr(%-40.40logger{39}){cyan} %clr(:){faint} %m%n%clr(%ex){red}"/>
 
-    <!-- 文件输出格式 -->
     <property name="FILE_LOG_PATTERN"
-              value="%d{yyyy-MM-dd HH:mm:ss.SSS} %5p ${PID:- } --- [%t] %-40.40logger{39} : %m%n%wEx"/>
+              value="%d{yyyy-MM-dd HH:mm:ss.SSS} %5p ${PID:- } [%X{traceId:-NO_TRACE}] [%t] %-40.40logger{39}.%M:%L : %m%n"/>
 
-    <!-- 控制台输出 -->
+    <property name="ERROR_LOG_PATTERN"
+              value="%d{yyyy-MM-dd HH:mm:ss.SSS} %5p ${PID:- } [%X{traceId:-NO_TRACE}] [%t] %-40.40logger{39}.%M:%L : %m%n%ex{full}"/>
+
+    <!-- ===== 控制台输出（开发/测试用） ===== -->
     <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
         <encoder>
             <pattern>${CONSOLE_LOG_PATTERN}</pattern>
@@ -32,60 +51,43 @@
         </encoder>
     </appender>
 
-    <!-- ========== AI 业务日志配置 ========== -->
-
-    <!-- RAG检索日志 -->
-    <appender name="RAG_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
-        <file>${LOG_HOME}/${APP_NAME}-rag.log</file>
+    <!-- ===== 主日志文件 ===== -->
+    <appender name="MAIN_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${LOG_HOME}/${APP_NAME}.log</file>
         <encoder>
             <pattern>${FILE_LOG_PATTERN}</pattern>
             <charset>UTF-8</charset>
         </encoder>
         <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
-            <fileNamePattern>${LOG_HOME}/${APP_NAME}-rag.%d{yyyy-MM-dd}.%i.log</fileNamePattern>
+            <fileNamePattern>${LOG_HOME}/${APP_NAME}.%d{yyyy-MM-dd}.%i.log</fileNamePattern>
             <maxFileSize>100MB</maxFileSize>
-            <maxHistory>15</maxHistory>
-            <totalSizeCap>3GB</totalSizeCap>
+            <maxHistory>${MAX_HISTORY}</maxHistory>
+            <totalSizeCap>${TOTAL_SIZE_CAP}</totalSizeCap>
         </rollingPolicy>
+        <cleanHistoryOnStart>true</cleanHistoryOnStart>
     </appender>
 
-    <!-- 知识库处理日志 -->
-    <appender name="KNOWLEDGE_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
-        <file>${LOG_HOME}/${APP_NAME}-knowledge.log</file>
+    <!-- ===== 错误日志独立文件 ===== -->
+    <appender name="ERROR_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${LOG_HOME}/${APP_NAME}-error.log</file>
         <encoder>
-            <pattern>${FILE_LOG_PATTERN}</pattern>
+            <pattern>${ERROR_LOG_PATTERN}</pattern>
             <charset>UTF-8</charset>
         </encoder>
         <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
-            <fileNamePattern>${LOG_HOME}/${APP_NAME}-knowledge.%d{yyyy-MM-dd}.%i.log</fileNamePattern>
-            <maxFileSize>100MB</maxFileSize>
-            <maxHistory>15</maxHistory>
-            <totalSizeCap>3GB</totalSizeCap>
-        </rollingPolicy>
-    </appender>
-
-    <!-- 工作流执行日志 -->
-    <appender name="WORKFLOW_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
-        <file>${LOG_HOME}/${APP_NAME}-workflow.log</file>
-        <encoder>
-            <pattern>${FILE_LOG_PATTERN}</pattern>
-            <charset>UTF-8</charset>
-        </encoder>
-        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
-            <fileNamePattern>${LOG_HOME}/${APP_NAME}-workflow.%d{yyyy-MM-dd}.%i.log</fileNamePattern>
+            <fileNamePattern>${LOG_HOME}/${APP_NAME}-error.%d{yyyy-MM-dd}.%i.log</fileNamePattern>
             <maxFileSize>50MB</maxFileSize>
-            <maxHistory>15</maxHistory>
+            <maxHistory>${MAX_HISTORY}</maxHistory>
             <totalSizeCap>2GB</totalSizeCap>
         </rollingPolicy>
+        <filter class="ch.qos.logback.classic.filter.LevelFilter">
+            <level>ERROR</level>
+            <onMatch>ACCEPT</onMatch>
+            <onMismatch>DENY</onMismatch>
+        </filter>
     </appender>
 
-    <!-- ========== 慢 SQL 治理：独立归档 ========== -->
-    <!-- 慢 SQL 独立日志文件，便于定期审计与治理 -->
-    <!-- 来源：
-         1) Druid Slf4jLogFilter 输出的慢 SQL WARN（application.yaml: filter.stat.log-slow-sql=true）
-         2) AI 模块 DataQueryServiceImpl 慢查询告警 log.warn
-         3) MyBatis Mapper 执行慢 SQL log
-    -->
+    <!-- ===== 慢SQL审计日志 ===== -->
     <appender name="SLOW_SQL_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
         <file>${LOG_HOME}/${APP_NAME}-slow-sql.log</file>
         <encoder>
@@ -95,76 +97,63 @@
         <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
             <fileNamePattern>${LOG_HOME}/${APP_NAME}-slow-sql.%d{yyyy-MM-dd}.%i.log</fileNamePattern>
             <maxFileSize>50MB</maxFileSize>
-            <maxHistory>30</maxHistory>
-            <totalSizeCap>2GB</totalSizeCap>
+            <maxHistory>${MAX_HISTORY}</maxHistory>
+            <totalSizeCap>1GB</totalSizeCap>
         </rollingPolicy>
     </appender>
 
-    <!-- ========== AI 包级别日志配置 ========== -->
+    <!-- ===== 异步包装器（提升性能） ===== -->
+    <appender name="ASYNC_MAIN_FILE" class="ch.qos.logback.classic.AsyncAppender">
+        <discardingThreshold>0</discardingThreshold>
+        <queueSize>512</queueSize>
+        <includeCallerData>true</includeCallerData>
+        <appender-ref ref="MAIN_FILE"/>
+    </appender>
 
-    <!-- RAG相关服务（ChatService / RagService 等） -->
-    <logger name="com.moyun.ext.ai.service.chat" level="INFO" additivity="false">
-        <appender-ref ref="CONSOLE"/>
-        <appender-ref ref="RAG_FILE"/>
-    </logger>
+    <appender name="ASYNC_ERROR_FILE" class="ch.qos.logback.classic.AsyncAppender">
+        <discardingThreshold>0</discardingThreshold>
+        <queueSize>256</queueSize>
+        <includeCallerData>true</includeCallerData>
+        <appender-ref ref="ERROR_FILE"/>
+    </appender>
 
-    <!-- 知识库服务 -->
-    <logger name="com.moyun.ext.ai.service.impl.KnowledgeBaseServiceImpl" level="INFO" additivity="false">
-        <appender-ref ref="CONSOLE"/>
-        <appender-ref ref="KNOWLEDGE_FILE"/>
-    </logger>
+    <appender name="ASYNC_SLOW_SQL_FILE" class="ch.qos.logback.classic.AsyncAppender">
+        <discardingThreshold>0</discardingThreshold>
+        <queueSize>128</queueSize>
+        <includeCallerData>true</includeCallerData>
+        <appender-ref ref="SLOW_SQL_FILE"/>
+    </appender>
 
-    <!-- 工作流引擎 -->
-    <logger name="com.moyun.ext.ai.engine.workflow" level="INFO" additivity="false">
-        <appender-ref ref="CONSOLE"/>
-        <appender-ref ref="WORKFLOW_FILE"/>
-    </logger>
+    <!-- ===== 日志级别配置 ===== -->
 
-    <!-- AI 模块整体日志级别 -->
-    <logger name="com.moyun.ext.ai" level="INFO"/>
+    <!-- 应用包：生产环境 INFO，开发可改为 DEBUG -->
+    <logger name="com.moyun" level="INFO"/>
 
-    <!-- 降低第三方库日志级别 -->
+    <!-- Mapper SQL：生产环境 WARN（不输出SQL），开发可改为 DEBUG -->
+    <logger name="com.moyun.*.mapper" level="WARN"/>
+
+    <!-- 第三方库：降低噪音 -->
+    <logger name="org.springframework" level="WARN"/>
+    <logger name="org.springframework.web" level="WARN"/>
     <logger name="org.apache" level="WARN"/>
     <logger name="com.baomidou.mybatisplus" level="WARN"/>
-    <logger name="org.elasticsearch" level="WARN"/>
-    <logger name="co.elastic.clients" level="WARN"/>
-    <logger name="dev.langchain4j" level="INFO"/>
+    <logger name="io.github.jbellis.jvector" level="WARN"/>
+    <logger name="dev.langchain4j" level="WARN"/>
     <logger name="io.minio" level="WARN"/>
 
-    <!-- MyBatis SQL日志 -->
-    <logger name="com.moyun.ext.ai.mapper" level="INFO"/>
-
-    <!-- ========== 慢 SQL 治理 logger 绑定 ========== -->
-    <!-- 1) Druid stat filter 的慢 SQL 通过 Slf4jLogFilter 输出，logger 名为 druid.sql.* -->
-    <!-- 2) AI 模块 DataQueryServiceImpl 慢查询告警通过 SLOW_SQL logger 输出（见代码中 LoggerFactory.getLogger("SLOW_SQL")) -->
-    <!-- 同时输出到 CONSOLE（便于开发期即时发现）和 SLOW_SQL_FILE（便于归档审计） -->
+    <!-- Druid 慢SQL：独立记录，不写入主日志 -->
     <logger name="druid.sql" level="WARN" additivity="false">
-        <appender-ref ref="CONSOLE"/>
-        <appender-ref ref="SLOW_SQL_FILE"/>
+        <appender-ref ref="ASYNC_SLOW_SQL_FILE"/>
     </logger>
     <logger name="SLOW_SQL" level="WARN" additivity="false">
-        <appender-ref ref="CONSOLE"/>
-        <appender-ref ref="SLOW_SQL_FILE"/>
+        <appender-ref ref="ASYNC_SLOW_SQL_FILE"/>
     </logger>
 
-    <!-- ========== 环境特定配置 ========== -->
-
-    <!-- 开发环境：更详细的日志 -->
-    <springProfile name="dev">
-        <logger name="com.moyun.ext.ai" level="DEBUG"/>
-        <logger name="com.moyun.ext.ai.mapper" level="DEBUG"/>
-    </springProfile>
-
-    <!-- 生产环境：精简日志 -->
-    <springProfile name="prod">
-        <logger name="com.moyun.ext.ai" level="INFO"/>
-        <logger name="com.moyun.ext.ai.mapper" level="WARN"/>
-    </springProfile>
-
-    <!-- ========== 根 logger（必须配置，否则 Spring Boot 启动日志无处输出） ========== -->
-    <!-- 之前缺失导致：banner 后所有日志（含启动报错）被丢弃，控制台只见 banner 即退出 -->
+    <!-- ===== 根日志 ===== -->
     <root level="INFO">
         <appender-ref ref="CONSOLE"/>
+        <appender-ref ref="ASYNC_MAIN_FILE"/>
+        <appender-ref ref="ASYNC_ERROR_FILE"/>
     </root>
 
 </configuration>

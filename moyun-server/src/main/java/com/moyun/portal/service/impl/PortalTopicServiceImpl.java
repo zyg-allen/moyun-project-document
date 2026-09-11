@@ -1,10 +1,12 @@
 package com.moyun.portal.service.impl;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -19,6 +21,11 @@ import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.moyun.ext.ai2.constant.AiErrorCodes;
+import com.moyun.ext.ai2.model.AiExecuteRequest;
+import com.moyun.ext.ai2.model.AiExecuteResponse;
+import com.moyun.ext.ai2.model.data.TopicSceneData;
+import com.moyun.ext.ai2.service.AiGatewayService;
 import com.moyun.ext.cms.service.IFeedService;
 import com.moyun.common.exception.system.ServiceException;
 import com.moyun.system.domain.dto.AuditTaskSubmitDTO;
@@ -76,6 +83,13 @@ public class PortalTopicServiceImpl extends ServiceImpl<PortalTopicMapper, Porta
     @Autowired
     @org.springframework.context.annotation.Lazy
     private com.moyun.system.service.IAuditTaskService auditTaskService;
+
+    /** v11.57 P0-3 场景收口：daily_topic 业务入口走统一网关 */
+    @Autowired
+    private AiGatewayService aiGatewayService;
+
+    /** 官方账号用户名（SQL 脚本 20260911-04 初始化，AI 生成话题的发起人） */
+    private static final String OFFICIAL_USERNAME = "moyun_official";
 
     @Override
     public Page<TopicListVO> getTopicList(Integer pageNum, Integer pageSize, String sort, String keyword) {
@@ -495,6 +509,74 @@ public class PortalTopicServiceImpl extends ServiceImpl<PortalTopicMapper, Porta
 
         Page<PortalTopic> resultPage = baseMapper.selectPage(page, wrapper);
         return convertToListVOPage(resultPage);
+    }
+
+    @Override
+    public Map<String, Object> aiGenerateTopicDraft(String domain) {
+        // 1. 最近 30 条话题标题作为 excludeTitles，避免 AI 生成重复主题
+        List<PortalTopic> recent = baseMapper.selectList(new LambdaQueryWrapper<PortalTopic>()
+                .select(PortalTopic::getTitle)
+                .ne(PortalTopic::getStatus, "deleted")
+                .orderByDesc(PortalTopic::getId)
+                .last("LIMIT 30"));
+        String excludeTitles = recent.stream()
+                .map(PortalTopic::getTitle)
+                .filter(Objects::nonNull)
+                .collect(Collectors.joining("、"));
+
+        // 2. 走统一网关执行 daily_topic（结构化参数走 input 数据通道，不传 userInput——
+        //    管理员触发不是对话输入，不参与意图分类；自动享受限流/成本熔断/执行日志）
+        AiExecuteRequest request = new AiExecuteRequest();
+        request.setSceneCode("daily_topic");
+        Map<String, Object> input = new HashMap<>();
+        input.put("date", LocalDate.now().toString());
+        if (domain != null && !domain.isBlank()) {
+            input.put("domain", domain.trim());
+        }
+        if (!excludeTitles.isBlank()) {
+            input.put("excludeTitles", excludeTitles);
+        }
+        request.setInput(input);
+
+        AiExecuteResponse<?> resp = aiGatewayService.execute(request);
+        if (resp.getCode() == null || resp.getCode() != AiErrorCodes.SUCCESS
+                || !(resp.getData() instanceof TopicSceneData data)) {
+            log.warn("[话题AI生成] 网关执行失败: msg={}, requestId={}", resp.getMsg(), resp.getRequestId());
+            throw new ServiceException("AI 话题生成失败：" + (resp.getMsg() != null ? resp.getMsg() : "请稍后重试"));
+        }
+        Map<String, Object> draft = new HashMap<>();
+        draft.put("title", data.getTitle());
+        draft.put("description", data.getDescription());
+        draft.put("category", data.getCategory());
+        draft.put("requestId", resp.getRequestId());
+        return draft;
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public PortalTopic createOfficialTopic(PortalTopic topic) {
+        if (topic.getTitle() == null || topic.getTitle().trim().isEmpty()) {
+            throw new ServiceException("话题标题不能为空");
+        }
+        PortalUser official = portalUserMapper.selectOne(new LambdaQueryWrapper<PortalUser>()
+                .eq(PortalUser::getUsername, OFFICIAL_USERNAME));
+        if (official == null) {
+            throw new ServiceException("官方账号 moyun_official 未初始化，请先执行 SQL 脚本 20260911-04");
+        }
+        topic.setCreatorId(official.getId());
+        // 管理员确认即视为审核通过，直接发布；DFA 定时扫描（SensitiveScanTask）作为兜底安全网
+        topic.setStatus("active");
+        topic.setPinned(0);
+        topic.setViewCount(0);
+        topic.setPostCount(0);
+        topic.setLikeCount(0);
+        topic.setCommentCount(0);
+        topic.setIsFeatured(0);
+        topic.setCreatedTime(LocalDateTime.now());
+        baseMapper.insert(topic);
+        log.info("[话题AI生成] 官方话题已发布: id={}, title={}, creator={}({})",
+                topic.getId(), topic.getTitle(), official.getNickname(), official.getId());
+        return topic;
     }
 
     // ==================== 私有工具方法 ====================

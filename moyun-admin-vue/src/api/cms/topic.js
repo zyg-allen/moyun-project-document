@@ -74,3 +74,21 @@ export function delComment(commentId) {
     method: 'delete'
   });
 }
+
+// AI 生成今日话题草稿（v11.57 P0-3：daily_topic 场景走统一网关，不落库）
+export function aiGenerateTopic(domain) {
+  return request({
+    url: '/cms/topic/ai-generate',
+    method: 'post',
+    data: { domain }
+  });
+}
+
+// 发布官方话题（管理员确认 AI 草稿或手动录入，status=active 直接生效）
+export function createOfficialTopic(data) {
+  return request({
+    url: '/cms/topic/create-official',
+    method: 'post',
+    data
+  });
+}

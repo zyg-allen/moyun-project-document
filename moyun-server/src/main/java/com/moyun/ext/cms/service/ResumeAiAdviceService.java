@@ -1,6 +1,8 @@
 package com.moyun.ext.cms.service;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.moyun.ext.ai2.support.AiSceneJsonClient;
 import com.moyun.ext.cms.config.AiProperties;
 import com.moyun.ext.cms.domain.vo.ResumeAiAdviceVO;
 import com.moyun.ext.cms.domain.vo.UserResumeVO;
@@ -14,7 +16,9 @@ import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * 简历 AI 改进建议服务（v5.9 阶段2/3）
@@ -41,6 +45,10 @@ public class ResumeAiAdviceService {
 
     @Autowired
     private LlmClient llmClient;
+
+    /** v11.58 P0-3：AI 建议生成统一走 AI 网关（task=advice 子任务） */
+    @Autowired
+    private AiSceneJsonClient aiSceneJsonClient;
 
     @Autowired
     private ObjectMapper objectMapper;
@@ -72,44 +80,39 @@ public class ResumeAiAdviceService {
     }
 
     /**
-     * 通过 LLM 生成建议（v5.9 阶段3：AI 模型接入）
+     * 通过 AI 网关生成建议（v11.58 P0-3 收口：task=advice 子任务，提示词收编至
+     * ResumeOptimizeHandler，本方法仅组装业务上下文与结果映射）
      * <p>
-     * 构造 system prompt 定义 AI 角色，将简历摘要 + 评分明细 + 目标岗位作为 user message 输入。
-     * 当前为框架预留：解析 LLM 返回的 JSON 为 ResumeAiAdviceVO；解析失败回退 null。
+     * 构造评分明细上下文，经网关调用 LLM；解析返回的 JSON 为 ResumeAiAdviceVO；
+     * 失败返回 null 由上层回退规则化。
      */
     private ResumeAiAdviceVO generateAdviceWithLlm(UserResumeVO vo, List<ScoreItem> scoreItems, String targetPosition) {
-        String systemPrompt = "你是一名资深 HR 与简历顾问，擅长基于评分明细给出可执行的改进建议。"
-                + "请返回 JSON 格式，字段：summary(整体总结), advices(数组，每项含 dimension/priority(high/medium/low)/content/type(fill/refine/match)/optimized), missingSkills(字符串数组)。"
-                + "content 为该维度的改进思路说明；optimized 为优化后的完整可用文本（可直接替换简历对应模块内容），"
-                + "必须基于用户简历现有信息改写而非凭空编造，量化数据无依据时可使用占位符如 [X%] 供用户填写；"
-                + "dimension 取值限定：基本信息/求职意向/教育经历/工作经历/项目经历/技能列表/自我介绍/岗位匹配度。"
-                + "建议要具体、可执行，优先关注得分率低于60%的维度与岗位匹配度缺失技能。"
-                + "只输出 JSON 本体，禁止使用 markdown 代码块（```）包裹，禁止在 JSON 前后添加任何说明文字。";
-
-        StringBuilder userMessage = new StringBuilder();
-        userMessage.append("目标岗位：").append(StringUtils.isNotEmpty(targetPosition) ? targetPosition : "未设置").append("\n");
-        userMessage.append("当前评分：").append(scoringServiceTotal(scoreItems)).append(" 分\n");
-        userMessage.append("评分明细：\n");
+        StringBuilder context = new StringBuilder();
+        context.append("目标岗位：").append(StringUtils.isNotEmpty(targetPosition) ? targetPosition : "未设置").append("\n");
+        context.append("当前评分：").append(scoringServiceTotal(scoreItems)).append(" 分\n");
+        context.append("评分明细：\n");
         for (ScoreItem item : scoreItems) {
-            userMessage.append("- ").append(item.getItem())
+            context.append("- ").append(item.getItem())
                     .append("：").append(item.getScore()).append("/").append(item.getMaxScore())
                     .append("（").append(item.getMessage()).append("）\n");
             if (item.getSubItems() != null) {
                 for (SubScoreItem sub : item.getSubItems()) {
-                    userMessage.append("  · ").append(sub.getName())
+                    context.append("  · ").append(sub.getName())
                             .append(sub.getHit() ? "（已掌握）" : "（缺失）").append("\n");
                 }
             }
         }
 
-        String llmResponse = llmClient.chat(SCENE_RESUME_OPTIMIZE, systemPrompt, userMessage.toString());
-        if (StringUtils.isEmpty(llmResponse)) {
+        Map<String, Object> input = new HashMap<>();
+        input.put("task", "advice");
+        input.put("context", context.toString());
+        JsonNode node = aiSceneJsonClient.executeForJson(SCENE_RESUME_OPTIMIZE, input, vo.getUserId());
+        if (node == null) {
             return null;
         }
 
         try {
-            // 解析 LLM 返回的 JSON 为 VO（先剥离 markdown 代码块等包装）
-            ResumeAiAdviceVO result = objectMapper.readValue(extractJson(llmResponse), ResumeAiAdviceVO.class);
+            ResumeAiAdviceVO result = objectMapper.convertValue(node, ResumeAiAdviceVO.class);
             result.setResumeId(vo.getId());
             result.setGeneratedTime(LocalDateTime.now());
             result.setAiPowered(true);
@@ -119,48 +122,9 @@ public class ResumeAiAdviceService {
             result.setGrade(calcGrade(total, sumMax(scoreItems)));
             return result;
         } catch (Exception e) {
-            log.warn("[ResumeAiAdvice] LLM 返回 JSON 解析失败：{}", e.getMessage());
+            log.warn("[ResumeAiAdvice] 网关返回 JSON 映射失败：{}", e.getMessage());
             return null;
         }
-    }
-
-    /**
-     * 从 LLM 返回文本中提取 JSON 字符串
-     * <p>
-     * LLM 常见返回形态（按顺序处理）：
-     * <ul>
-     *     <li>markdown 代码块包裹：```json ... ``` 或 ``` ... ```</li>
-     *     <li>JSON 前后带说明文字："以下是建议：{...} 希望有帮助"</li>
-     *     <li>纯 JSON（直接返回）</li>
-     * </ul>
-     * 提取策略：截取第一个 '{' 到最后一个 '}' 之间的内容；
-     * 无大括号时原样返回（由调用方 JSON 解析失败走规则化兜底）。
-     */
-    private String extractJson(String llmResponse) {
-        if (llmResponse == null) {
-            return "";
-        }
-        String text = llmResponse.trim();
-        // 剥离 markdown 代码块围栏（```json 开头 / ``` 结尾）
-        if (text.startsWith("```")) {
-            // 去掉首行围栏（可能带 json/jsonc 语言标记）
-            int firstLineEnd = text.indexOf('\n');
-            if (firstLineEnd > 0) {
-                text = text.substring(firstLineEnd + 1).trim();
-            }
-            // 去掉结尾围栏
-            int fenceEnd = text.lastIndexOf("```");
-            if (fenceEnd >= 0) {
-                text = text.substring(0, fenceEnd).trim();
-            }
-        }
-        // 截取首尾大括号之间的内容（兼容 JSON 前后的说明文字）
-        int start = text.indexOf('{');
-        int end = text.lastIndexOf('}');
-        if (start >= 0 && end > start) {
-            return text.substring(start, end + 1);
-        }
-        return text;
     }
 
     /** 计算总分 */

@@ -51,6 +51,10 @@ public class AiExecuteLog {
     @TableField("token_used")
     private Integer tokenUsed;
 
+    /** 本次调用成本（元，v11.57 P0-2：metadata 细分 token × 模型单价，6位小数；模型未回传 token 时为 null） */
+    @TableField("cost_yuan")
+    private java.math.BigDecimal costYuan;
+
     /** 工具调用记录（JSON） */
     @TableField("tool_calls")
     private String toolCalls;

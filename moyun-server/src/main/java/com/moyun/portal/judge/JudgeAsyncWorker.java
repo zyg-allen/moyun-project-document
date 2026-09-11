@@ -38,6 +38,10 @@ import jakarta.annotation.PreDestroy;
  *   <li>任务执行异常被捕获并落库为 SYSTEM_ERROR，避免线程退出；</li>
  *   <li>支持重试：retry &lt; worker.maxRetry 时重新入队，否则落 SE 终态。</li>
  * </ul>
+ * <p>
+ * <strong>领域边界</strong>：本 Worker 系 OJ 代码判题专属基础设施（进程内判题引擎，
+ * 非 LLM 任务），不参与 AI 异步任务收敛——AI 任务选型规则见
+ * {@link com.moyun.ext.cms.service.AiTaskService} 类注释（v11.67 双轨制）。
  *
  * @author moyun
  */

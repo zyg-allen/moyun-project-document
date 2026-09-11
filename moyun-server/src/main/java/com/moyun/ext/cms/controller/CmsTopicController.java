@@ -130,6 +130,40 @@ public class CmsTopicController extends BaseController {
         }
     }
 
+    // ==================== AI 生成话题（v11.57 P0-3 场景收口：daily_topic 走统一网关） ====================
+
+    @Operation(summary = "AI 生成今日话题草稿", description = "经统一网关（daily_topic 场景）生成话题标题/描述/分类，不落库；最近 30 条标题自动作为去重上下文")
+    @PreAuthorize("@ss.hasPermi('cms:topic:edit')")
+    @Log(title = "话题管理", businessType = BusinessType.OTHER)
+    @PostMapping("/ai-generate")
+    public AjaxResult aiGenerate(@RequestBody Map<String, Object> body) {
+        String domain = body.get("domain") == null ? null : String.valueOf(body.get("domain"));
+        try {
+            return success(portalTopicService.aiGenerateTopicDraft(domain));
+        } catch (RuntimeException e) {
+            return error(e.getMessage() != null ? e.getMessage() : "AI 生成失败");
+        }
+    }
+
+    @Operation(summary = "发布官方话题", description = "管理员确认 AI 生成草稿（或手动录入）后以官方账号发布，status=active 直接生效")
+    @PreAuthorize("@ss.hasPermi('cms:topic:edit')")
+    @Log(title = "话题管理", businessType = BusinessType.INSERT)
+    @PostMapping("/create-official")
+    public AjaxResult createOfficial(@RequestBody Map<String, Object> body) {
+        com.moyun.portal.domain.entity.PortalTopic topic = new com.moyun.portal.domain.entity.PortalTopic();
+        topic.setTitle(body.get("title") == null ? null : String.valueOf(body.get("title")).trim());
+        topic.setDescription(body.get("description") == null ? null : String.valueOf(body.get("description")).trim());
+        topic.setCover(body.get("cover") == null ? null : String.valueOf(body.get("cover")).trim());
+        if (topic.getTitle() == null || topic.getTitle().isEmpty()) {
+            return error("话题标题不能为空");
+        }
+        try {
+            return success(portalTopicService.createOfficialTopic(topic));
+        } catch (RuntimeException e) {
+            return error(e.getMessage() != null ? e.getMessage() : "发布失败");
+        }
+    }
+
     // ==================== 观点相关 ====================
 
     @Operation(summary = "查询观点列表", description = "分页查询所有话题的观点（可按话题ID筛选）")

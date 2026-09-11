@@ -115,10 +115,20 @@ function gotoPage(p: number) {
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
-// 监听筛选与分页变化自动加载
+// 监听筛选与分页变化自动加载，并回写 URL（刷新/返回不塌缩筛选维度）
 watch([activeDifficulty, keyword, page], () => {
+  syncFilterToUrl();
   loadQuestions();
 });
+
+/** 筛选状态回写 URL（难度/关键词），刷新/返回不塌缩为"全部" */
+function syncFilterToUrl() {
+  const query: Record<string, string> = {};
+  if (activeDifficulty.value) query.difficulty = activeDifficulty.value;
+  if (keyword.value) query.keyword = keyword.value;
+  if (page.value > 1) query.page = String(page.value);
+  router.replace({ query });
+}
 
 onMounted(() => {
   loadQuestions();

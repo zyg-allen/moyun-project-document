@@ -217,6 +217,14 @@ export const uploadVoucher = (filePath) => {
 export const getAiAnalysis = (params) => get('/portal/ledger/ai/analysis', params);
 export const listAiReports = (params) => httpGet('/portal/ledger/ai/reports', params);
 
+/** v11.55 异步分析任务：提交（立即返回 taskId）+ 轮询状态（success 时带 report） */
+export const submitAiAnalysisTask = (data) => post('/portal/ledger/ai/analysis/task', data);
+export const getAiAnalysisTask = (taskId) => get('/portal/ledger/ai/analysis/task/' + taskId);
+
+/** v11.55 历史版本：完整回看 + 删除 */
+export const getAiReportDetail = (id) => get('/portal/ledger/ai/reports/' + id);
+export const deleteAiReport = (id) => del('/portal/ledger/ai/reports/' + id);
+
 /** 用户画像（含身份标签字典选项） */
 export const getAiProfile = () => get('/portal/ledger/ai/profile');
 

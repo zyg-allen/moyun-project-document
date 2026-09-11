@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.moyun.ext.ai2.support.AiSceneJsonClient;
 import com.moyun.ext.cms.config.AiProperties;
 import com.moyun.ext.cms.domain.vo.UserResumeVO;
 import com.moyun.portal.domain.entity.PortalResumeJobMatch;
@@ -18,8 +19,10 @@ import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -48,6 +51,10 @@ public class ResumeJobMatchService {
     @Autowired
     private LlmClient llmClient;
 
+    /** v11.58 P0-3：匹配分析统一走 AI 网关（task=job_match 子任务） */
+    @Autowired
+    private AiSceneJsonClient aiSceneJsonClient;
+
     @Autowired
     private ObjectMapper objectMapper;
 
@@ -75,7 +82,7 @@ public class ResumeJobMatchService {
         boolean llmOk = false;
         if (aiProperties.isEnabled() && aiProperties.isResumeAdviceEnabled() && llmClient.isEnabled()) {
             try {
-                report = analyzeByLlm(resume, target);
+                report = analyzeByLlm(userId, resume, target);
                 llmOk = true;
             } catch (Exception e) {
                 log.warn("[JobMatch] LLM 分析失败，回退规则分析：{}", e.getMessage());
@@ -105,28 +112,28 @@ public class ResumeJobMatchService {
 
     // ==================== LLM 分析 ====================
 
-    private PortalResumeJobMatch analyzeByLlm(UserResumeVO resume, PortalResumeJobTarget target) throws Exception {
-        String systemPrompt = "你是一名资深技术招聘官，负责评估候选人与岗位的匹配度。"
-                + "请基于目标岗位JD和候选人简历，返回 JSON："
-                + "matchScore(0-100综合匹配度), grade(excellent/good/medium/poor), "
-                + "matchedKeywords(数组,简历已覆盖的JD核心要求关键词), missingKeywords(数组,简历缺失的JD核心要求关键词), "
-                + "dimensions(对象,含四个维度，每维 score 0-100 与 suggestions 数组: "
-                + "keywordMatch关键词匹配/experienceMatch经验匹配/skillMatch技能匹配/structureMatch结构完整度), "
-                + "summary(2-3句总体评价与改进方向)。"
-                + "评估要客观，基于简历真实内容，缺失项如实指出；关键词控制在20个以内。"
-                + "只输出 JSON 本体，禁止使用 markdown 代码块（```）包裹，禁止在 JSON 前后添加任何说明文字。";
+    /**
+     * v11.58 P0-3 业务收口：经统一网关执行 resume_optimize 场景（task=job_match）。
+     * 提示词已收编至 ResumeOptimizeHandler（逐字一致），本方法仅组装上下文与结果映射。
+     */
+    private PortalResumeJobMatch analyzeByLlm(Long userId, UserResumeVO resume, PortalResumeJobTarget target) throws Exception {
         // v10.22 阶段3：AI 分析优先使用 full_text 全文纯文本，上下文更完整；
         // fullText 为空时降级为结构化 JSON（兼容旧简历或未拼接 full_text 的场景）
         String resumeContent = (resume.getFullText() != null && !resume.getFullText().isBlank())
                 ? resume.getFullText()
                 : objectMapper.writeValueAsString(resume);
-        String userPrompt = "【目标岗位】" + target.getPosition()
+        String context = "【目标岗位】" + target.getPosition()
                 + (target.getCompany() != null ? " · " + target.getCompany() : "")
                 + "\n【岗位JD】\n" + target.getJdText()
                 + "\n\n【候选人简历】\n" + resumeContent;
 
-        String response = llmClient.chat(SCENE_RESUME_OPTIMIZE, systemPrompt, userPrompt);
-        JsonNode node = objectMapper.readTree(LlmJsonExtractor.extract(response));
+        Map<String, Object> input = new HashMap<>();
+        input.put("task", "job_match");
+        input.put("context", context);
+        JsonNode node = aiSceneJsonClient.executeForJson(SCENE_RESUME_OPTIMIZE, input, userId);
+        if (node == null) {
+            throw new IllegalStateException("AI网关匹配分析失败");
+        }
         if (node.path("matchScore").isMissingNode()) {
             throw new IllegalStateException("LLM 返回缺少 matchScore 字段");
         }

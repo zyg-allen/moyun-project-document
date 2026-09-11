@@ -26,6 +26,9 @@
     </el-form>
 
     <div class="button-group">
+      <el-button type="primary" v-hasPermi="['cms:topic:edit']" @click="openAiDialog">
+        <el-icon><MagicStick /></el-icon> AI 生成话题
+      </el-button>
       <el-button type="danger" :disabled="multiple" @click="handleDelete">
         <el-icon><Delete /></el-icon> 删除
       </el-button>
@@ -122,14 +125,49 @@
       v-model:limit="queryParams.pageSize"
       @pagination="getList"
     />
+
+    <!-- AI 生成话题弹窗（v11.57 P0-3：daily_topic 场景经统一网关生成，确认后以官方账号发布） -->
+    <el-dialog v-model="aiDialogVisible" title="AI 生成今日话题" width="640px" :close-on-click-modal="false">
+      <el-form label-width="90px">
+        <el-form-item label="领域（可选）">
+          <el-input v-model="aiForm.domain" placeholder="如：技术 / 职场 / 生活，留空则不限领域" style="width: 320px;" />
+          <el-button type="primary" :loading="aiGenerating" style="margin-left: 12px;" @click="handleAiGenerate">
+            {{ aiGenerating ? '生成中…' : '生成' }}
+          </el-button>
+          <div class="ai-tip">最近 30 条话题标题自动作为去重上下文；可多次点击重新生成，满意后再发布</div>
+        </el-form-item>
+        <template v-if="aiDraft.title !== null">
+          <el-form-item label="话题标题">
+            <el-input v-model="aiDraft.title" maxlength="128" show-word-limit placeholder="AI 生成后可编辑" />
+          </el-form-item>
+          <el-form-item label="话题描述">
+            <el-input v-model="aiDraft.description" type="textarea" :rows="3" maxlength="500" show-word-limit placeholder="AI 生成后可编辑" />
+          </el-form-item>
+          <el-form-item v-if="aiDraft.category" label="AI 分类">
+            <el-tag type="info">{{ aiDraft.category }}</el-tag>
+          </el-form-item>
+        </template>
+      </el-form>
+      <template #footer>
+        <el-button @click="aiDialogVisible = false">取消</el-button>
+        <el-button
+          type="primary"
+          :disabled="!aiDraft.title || !aiDraft.title.trim()"
+          :loading="aiPublishing"
+          @click="handleAiPublish"
+        >
+          确认发布
+        </el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, reactive, onMounted, computed, getCurrentInstance } from 'vue';
 import { ElMessage, ElMessageBox, ElSelect, ElOption } from 'element-plus';
-import { Search, Refresh, Delete } from '@element-plus/icons-vue';
-import { listTopic, getTopic, updateTopicStatus, updateTopicPinned, featureTopic, delTopic } from '@/api/cms/topic';
+import { Search, Refresh, Delete, MagicStick } from '@element-plus/icons-vue';
+import { listTopic, getTopic, updateTopicStatus, updateTopicPinned, featureTopic, delTopic, aiGenerateTopic, createOfficialTopic } from '@/api/cms/topic';
 
 const { proxy }: any = getCurrentInstance();
 const { cms_topic_status } = proxy.useDict('cms_topic_status');
@@ -148,6 +186,54 @@ const queryParams = reactive({
 
 const ids = ref<number[]>([]);
 const multiple = computed(() => ids.value.length === 0);
+
+// ===== AI 生成话题（v11.57 P0-3：daily_topic 场景走统一网关） =====
+const aiDialogVisible = ref(false);
+const aiGenerating = ref(false);
+const aiPublishing = ref(false);
+const aiForm = reactive({ domain: '' });
+const aiDraft = reactive<{ title: string | null; description: string | null; category: string | null }>({
+  title: null, description: null, category: null
+});
+
+function openAiDialog() {
+  aiForm.domain = '';
+  aiDraft.title = null;
+  aiDraft.description = null;
+  aiDraft.category = null;
+  aiDialogVisible.value = true;
+}
+
+async function handleAiGenerate() {
+  aiGenerating.value = true;
+  try {
+    const res = await aiGenerateTopic(aiForm.domain || undefined);
+    const d = res.data || {};
+    aiDraft.title = d.title || null;
+    aiDraft.description = d.description || null;
+    aiDraft.category = d.category || null;
+    if (!aiDraft.title) {
+      ElMessage.warning('AI 未返回有效标题，请重试');
+    }
+  } catch (e) { /* request 已提示 */ } finally {
+    aiGenerating.value = false;
+  }
+}
+
+async function handleAiPublish() {
+  aiPublishing.value = true;
+  try {
+    await createOfficialTopic({
+      title: aiDraft.title,
+      description: aiDraft.description
+    });
+    ElMessage.success('官方话题已发布');
+    aiDialogVisible.value = false;
+    getList();
+  } catch (e) { /* request 已提示 */ } finally {
+    aiPublishing.value = false;
+  }
+}
 
 async function getList() {
   loading.value = true;
@@ -280,5 +366,10 @@ onMounted(() => {
 .no-cover {
   color: #999;
   font-size: 12px;
+}
+.ai-tip {
+  width: 100%;
+  font-size: 12px;
+  color: #909399;
 }
 </style>

@@ -3,9 +3,12 @@ package com.moyun.ext.cms.service.impl;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.moyun.common.exception.system.ServiceException;
+import com.moyun.ext.ai2.constant.AiErrorCodes;
+import com.moyun.ext.ai2.model.AiExecuteRequest;
+import com.moyun.ext.ai2.model.AiExecuteResponse;
+import com.moyun.ext.ai2.model.data.QuestionSceneData;
+import com.moyun.ext.ai2.service.AiGatewayService;
 import com.moyun.ext.cms.service.IPortalJobTemplateService;
 import com.moyun.ext.cms.service.LlmClient;
 import com.moyun.portal.domain.entity.PortalInterviewQuestion;
@@ -20,9 +23,11 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 
 /**
@@ -48,8 +53,6 @@ public class PortalJobTemplateServiceImpl extends ServiceImpl<PortalJobTemplateM
     /** 规则分词上限（兜底路径同样限制） */
     private static final int MAX_RULE_KEYWORDS = 15;
 
-    private static final ObjectMapper MAPPER = new ObjectMapper();
-
     /** 规则兜底：常见技术词表（命中即作为关键词） */
     private static final List<String> TECH_VOCABULARY = Arrays.asList(
             "Java", "JVM", "Spring", "Spring Boot", "Spring Cloud", "MyBatis", "MyBatis-Plus",
@@ -71,6 +74,10 @@ public class PortalJobTemplateServiceImpl extends ServiceImpl<PortalJobTemplateM
 
     @Autowired
     private LlmClient llmClient;
+
+    /** v11.58 P0-3：JD 关键词提取统一走 AI 网关（task=jd_keywords 子任务） */
+    @Autowired
+    private AiGatewayService aiGatewayService;
 
     @Autowired
     private PortalInterviewQuestionMapper questionMapper;
@@ -127,40 +134,29 @@ public class PortalJobTemplateServiceImpl extends ServiceImpl<PortalJobTemplateM
 
     // ==================== 关键词提取（C4） ====================
 
-    private List<String> extractByLlm(String jdText) throws Exception {
-        String systemPrompt = "从岗位JD中提取面试考察关键词。规则："
-                + "1.只提取技术栈、专业能力、业务领域三类实词；"
-                + "2.每个关键词2-20个字符，保留英文原文大小写（如 Spring Boot）；"
-                + "3.最多" + MAX_LLM_KEYWORDS + "个，按重要性降序；"
-                + "4.禁止编造JD中不存在的内容。"
-                + "只输出JSON数组本体，如 [\"Java\",\"MySQL\"]，禁止markdown代码块。";
-        String response = llmClient.chat(SCENE_QUESTION_GENERATE, systemPrompt, jdText);
-        if (response == null || response.isBlank()) {
-            return List.of();
-        }
-        String json = response.trim();
-        if (json.startsWith("```")) {
-            int firstLineEnd = json.indexOf('\n');
-            json = firstLineEnd > 0 ? json.substring(firstLineEnd + 1) : json.substring(3);
-            int fenceEnd = json.lastIndexOf("```");
-            if (fenceEnd >= 0) {
-                json = json.substring(0, fenceEnd);
-            }
-            json = json.trim();
-        }
-        int start = json.indexOf('[');
-        int end = json.lastIndexOf(']');
-        if (start >= 0 && end > start) {
-            json = json.substring(start, end + 1);
-        }
-        List<String> keywords = MAPPER.readValue(json, new TypeReference<List<String>>() {
-        });
-        if (keywords == null) {
+    /**
+     * v11.58 P0-3 业务收口：经统一网关执行 question_generate 场景（task=jd_keywords）。
+     * 提示词已收编至 QuestionGenerateHandler（逐字一致），本方法仅做结果清洗
+     * （去空白/去重/限制上限）；失败返回空列表由上层回退规则分词。
+     */
+    private List<String> extractByLlm(String jdText) {
+        AiExecuteRequest request = new AiExecuteRequest();
+        request.setSceneCode(SCENE_QUESTION_GENERATE);
+        Map<String, Object> input = new HashMap<>();
+        input.put("task", "jd_keywords");
+        input.put("context", jdText);
+        request.setInput(input);
+
+        AiExecuteResponse<?> resp = aiGatewayService.execute(request);
+        if (resp.getCode() == null || resp.getCode() != AiErrorCodes.SUCCESS
+                || !(resp.getData() instanceof QuestionSceneData data)
+                || data.getKeywords() == null || data.getKeywords().isEmpty()) {
+            log.warn("[JobTemplate] 网关关键词提取未得结果: code={}, msg={}", resp.getCode(), resp.getMsg());
             return List.of();
         }
         // 清洗：去空白、去重、限制上限
         Set<String> cleaned = new LinkedHashSet<>();
-        for (String kw : keywords) {
+        for (String kw : data.getKeywords()) {
             if (kw != null) {
                 String t = kw.trim();
                 if (!t.isEmpty() && t.length() <= 20) {

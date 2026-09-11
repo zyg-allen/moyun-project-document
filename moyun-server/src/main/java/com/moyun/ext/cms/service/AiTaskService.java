@@ -1,5 +1,6 @@
 package com.moyun.ext.cms.service;
 
+import com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.moyun.common.exception.system.ServiceException;
@@ -9,6 +10,8 @@ import com.moyun.portal.mapper.PortalAiTaskMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.context.event.ApplicationReadyEvent;
+import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -28,6 +31,18 @@ import java.util.Map;
  *
  * <p>原 portal_resume_optimize_task 表停止写入（代码已切换到 portal_ai_task），
  * 深度优化旧轮询接口由 Controller 做结构映射保持前端兼容。</p>
+ *
+ * <p><strong>AI 异步任务选型规则（v11.67 双轨制，勿再引入第三套）</strong>：
+ * <ul>
+ *   <li><strong>表驱动（本服务，portal_ai_task）</strong>：长任务（分钟级）/需审计追溯/
+ *       结果需持久化供多次查看（如简历深度优化、岗位匹配）。任务记录永久留痕，
+ *       支持失败原因回查与服务重启后孤儿任务恢复。</li>
+ *   <li><strong>Redis + 线程池（LedgerAiAnalysisServiceImpl v11.55 模式）</strong>：
+ *       短任务（秒级）/结果时效性强无需持久化（如财务分析，任务态 30 分钟 TTL，
+ *       报告快照另有落表）。轻量、无表结构与治理开销。</li>
+ * </ul>
+ * 选型口诀：<strong>要留痕走表，要轻快走 Redis</strong>。OJ 判题（JudgeAsyncWorker）
+ * 系代码执行领域专属基础设施（非 LLM 任务），不属于 AI 异步任务体系。</p>
  *
  * @author moyun
  */
@@ -137,5 +152,27 @@ public class AiTaskService {
             }
         }
         return vo;
+    }
+
+    /**
+     * 启动时恢复孤儿任务（v11.67 P1-6）：@Async 任务存活于 JVM 内存，应用重启后
+     * 执行线程丢失，卡在 pending/running 的记录永远等不到终态（前端轮询挂死）。
+     * 统一置为 failed 提示重新提交。
+     *
+     * <p>注：单实例部署语义正确；若未来多实例部署需改为仅恢复本实例中断前的任务
+     * 或引入实例标识区分，当前架构（单体 Spring Boot）无此需求。</p>
+     */
+    @EventListener(ApplicationReadyEvent.class)
+    public void recoverOrphanTasks() {
+        UpdateWrapper<PortalAiTask> uw = new UpdateWrapper<>();
+        uw.in("status", "pending", "running")
+                .set("status", "failed")
+                .set("error", "服务重启，任务中断，请重新提交")
+                .set("finish_time", LocalDateTime.now())
+                .set("update_time", LocalDateTime.now());
+        int recovered = aiTaskMapper.update(null, uw);
+        if (recovered > 0) {
+            log.warn("[AiTask] 启动恢复：{} 个中断任务（pending/running）已置为 failed", recovered);
+        }
     }
 }

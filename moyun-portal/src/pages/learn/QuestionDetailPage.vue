@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, computed, watch } from 'vue';
+import { ref, onMounted, onUnmounted, computed, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useHead } from '@vueuse/head';
 import {
@@ -146,8 +146,8 @@ async function loadQuestionDetail() {
     const res = await getQuestionDetail(questionId.value);
     if (res.code === 200 && res.data) {
       question.value = res.data;
-      // 阅读埋点：同题每日幂等，未登录/失败静默（不打扰阅读体验）
-      reportRead();
+      // 阅读埋点：停留 ≥60s 上报（同题每日幂等，未登录/失败静默，不打扰阅读体验）
+      scheduleReadReport();
     } else {
       toast.error(res.message || '加载题目失败');
     }
@@ -209,6 +209,27 @@ async function reportRead() {
     // 未登录或网络异常：阅读埋点静默失败
   }
 }
+
+// 阅读埋点：停留 ≥60s 才上报（防刷记录；切题/离开清除计时，同题每日幂等）
+const READ_REPORT_DELAY_MS = 60_000;
+let readReportTimer: number | null = null;
+
+function scheduleReadReport() {
+  clearReadReportTimer();
+  readReportTimer = window.setTimeout(() => {
+    readReportTimer = null;
+    reportRead();
+  }, READ_REPORT_DELAY_MS);
+}
+
+function clearReadReportTimer() {
+  if (readReportTimer != null) {
+    window.clearTimeout(readReportTimer);
+    readReportTimer = null;
+  }
+}
+
+onUnmounted(clearReadReportTimer);
 
 async function loadFeaturedNotes() {
   try {

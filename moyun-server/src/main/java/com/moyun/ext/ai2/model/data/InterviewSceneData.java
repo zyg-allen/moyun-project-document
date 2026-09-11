@@ -2,6 +2,8 @@ package com.moyun.ext.ai2.model.data;
 
 import lombok.Data;
 
+import java.util.Map;
+
 /**
  * 场景1：面试交互数据（scene = voice_interview / interview）
  *
@@ -40,4 +42,12 @@ public class InterviewSceneData {
 
     /** 评分（0-100） */
     private Integer score;
+
+    /**
+     * 子任务结构化结果（v11.58 P0-3c 业务收口）：
+     * answer_analysis/knowledge_desc 存 LLM 输出的完整 JSON Map；
+     * candidate_ask/speak_text 存 {"text": 清洗后文本}。
+     * 业务侧经 AiSceneJsonClient.executeForJson 解包。
+     */
+    private Map<String, Object> structured;
 }

@@ -1,9 +1,11 @@
 package com.moyun.ext.cms.service;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.moyun.common.config.RuoYiConfig;
 import com.moyun.common.constant.Constants;
 import com.moyun.common.exception.system.ServiceException;
+import com.moyun.ext.ai2.support.AiSceneJsonClient;
 import com.moyun.ext.cms.config.AiProperties;
 import com.moyun.ext.cms.domain.vo.ResumeParseVO;
 import com.moyun.ext.cms.domain.vo.UserResumeVO;
@@ -77,6 +79,10 @@ public class ResumeParseService {
 
     @Autowired
     private LlmClient llmClient;
+
+    /** v11.58 P0-3：LLM 结构化解析统一走 AI 网关（注入防护/限流/成本熔断/日志全链路生效） */
+    @Autowired
+    private AiSceneJsonClient aiSceneJsonClient;
 
     @Autowired
     private ObjectMapper objectMapper;
@@ -161,7 +167,7 @@ public class ResumeParseService {
         boolean llmParsed;
         if (aiProperties.isEnabled() && aiProperties.isResumeAdviceEnabled() && llmClient.isEnabled()) {
             try {
-                vo = parseByLlm(text);
+                vo = parseByLlm(userId, text);
                 llmParsed = true;
             } catch (Exception e) {
                 log.warn("[ResumeParse] LLM 解析失败，回退规则解析：{}", e.getMessage());
@@ -373,42 +379,20 @@ public class ResumeParseService {
 
     // ==================== LLM 结构化解析 ====================
 
-    private ResumeParseVO parseByLlm(String text) throws Exception {
-        String systemPrompt = "从简历原文抽取结构化JSON。字段：name,gender(男/女),birthDate(yyyy-MM-dd),"
-                + "phone,email,title,jobIntention{position,city,salaryMin,salaryMax,jobType,availableTime},"
-                + "educations[{school,major,degree,startDate(yyyy-MM),endDate(yyyy-MM),description}],"
-                + "works[{company,position,startDate,endDate,description}],"
-                + "projects[{name,role,startDate,endDate,description,url}],"
-                + "skills[{name,level(精通/熟练/了解)}],selfIntro。"
-                + "规则：只抽取原文存在的信息，缺失返回null或空数组，禁止编造。"
-                + "只输出JSON本体，禁止markdown代码块。";
-        String response = llmClient.chat(SCENE_RESUME_PARSE, systemPrompt, text);
-        ResumeParseVO vo = objectMapper.readValue(extractJson(response), ResumeParseVO.class);
+    /**
+     * v11.58 P0-3 业务收口：经统一网关执行 resume_parse 场景。
+     * Handler 提示词与本方法原提示词逐字一致（全字段 Schema），结果从 structured
+     * 反序列化为 ResumeParseVO——切换前后解析行为不变。
+     */
+    private ResumeParseVO parseByLlm(Long userId, String text) {
+        JsonNode node = aiSceneJsonClient.executeForJson(SCENE_RESUME_PARSE,
+                java.util.Map.of("text", text), userId);
+        if (node == null) {
+            throw new IllegalStateException("AI网关解析失败");
+        }
+        ResumeParseVO vo = objectMapper.convertValue(node, ResumeParseVO.class);
         vo.setAiPowered(true);
         return vo;
-    }
-
-    private String extractJson(String llmResponse) {
-        if (llmResponse == null) {
-            return "";
-        }
-        String s = llmResponse.trim();
-        if (s.startsWith("```")) {
-            int firstLineEnd = s.indexOf(' ');
-            if (firstLineEnd > 0) {
-                s = s.substring(firstLineEnd + 1).trim();
-            }
-            int fenceEnd = s.lastIndexOf("```");
-            if (fenceEnd >= 0) {
-                s = s.substring(0, fenceEnd).trim();
-            }
-        }
-        int start = s.indexOf('{');
-        int end = s.lastIndexOf('}');
-        if (start >= 0 && end > start) {
-            return s.substring(start, end + 1);
-        }
-        return s;
     }
 
     // ==================== 规则粗解析（LLM 失败兜底） ====================

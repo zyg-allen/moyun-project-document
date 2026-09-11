@@ -10,10 +10,13 @@ import com.moyun.ext.ai2.model.AiExecuteRequest;
 import com.moyun.ext.ai2.model.AiExecuteResponse;
 import com.moyun.ext.ai2.registry.AiSceneRegistry;
 import com.moyun.ext.ai2.support.AiExecuteLogService;
+import com.moyun.ext.ai2.support.AiOutputFilter;
 import com.moyun.ext.ai2.support.FallbackStrategy;
 import com.moyun.ext.ai2.support.IntentClassifier;
+import com.moyun.ext.ai2.support.PromptInjectionGuard;
 import com.moyun.ext.ai2.support.SceneRateLimiter;
 import com.moyun.ext.ai2.support.SemanticCache;
+import com.moyun.ext.ai2.support.TokenCostGuard;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -45,6 +48,10 @@ public class AiGatewayService {
     private final SceneRateLimiter rateLimiter;
     private final FallbackStrategy fallbackStrategy;
     private final AiExecuteLogService executeLogService;
+    /** v11.57 P0-2：场景日 Token 成本熔断（ai_scene_config.daily_token_limit） */
+    private final TokenCostGuard tokenCostGuard;
+    /** v11.62 P1-3：输出内容过滤（ai_scene_config.enable_output_filter，复用 DFA 词树脱敏） */
+    private final AiOutputFilter outputFilter;
     /** v11.49：Agent 人设注入（ai_scene_config.agent_id → ai_agent.system_prompt） */
     private final AgentMapper agentMapper;
 
@@ -68,15 +75,41 @@ public class AiGatewayService {
             }
             handler = registry.getHandler(sceneCode);
 
+            // 1.2 输出模式路由校验（v11.66 P1-5：output_mode 配置接线——此前配置可编辑零消费）。
+            //     显式 stream-only 场景拒绝同步入口；both/null 放行（Handler 能力校验在流式侧兜底）
+            if ("stream".equals(config.getOutputMode())) {
+                return failure(request, AiErrorCodes.INVALID_REQUEST,
+                        "场景 [" + sceneCode + "] 仅支持流式输出，请调用流式端点 /api/ai/execute/stream",
+                        0, "stream_only_scene");
+            }
+
             // 1.5 Agent 人设注入（v11.49：ai_scene_config.agent_id 绑定智能体时，其 system_prompt
             //     渲染 {{占位符}} 后以 agentPersona 注入 input，Handler 构建系统提示词时统一前置。
             //     注入先于缓存键计算——人设变更自动不脏读缓存）
             String agentName = injectAgentPersona(request, config);
 
+            // 1.6 Prompt 注入防护（v11.57 P0-1）：指令通道（顶层 userInput）统一清洗+扫描。
+            //     DANGEROUS（指令覆盖/提示词探取）直接拒绝；SUSPECT（角色扮演）放行由数据隔离兜底——
+            //     业务存在合法角色扮演场景。input Map 的字符串值做字符级清洗（不拦截，防误杀数据）。
+            sanitizeInputChannel(request);
+            String userInput = request.getUserInput();
+            if (userInput != null && !userInput.isBlank()) {
+                PromptInjectionGuard.ScanResult guard = PromptInjectionGuard.scan(userInput);
+                if (guard.isDangerous()) {
+                    log.warn("[ai2:网关] 注入防护拦截: scene={}, requestId={}, pattern={}",
+                            sceneCode, request.getRequestId(), guard.getPattern());
+                    executeLogService.record(request.getRequestId(), sceneCode,
+                            handler.getClass().getSimpleName(), resolveBindType(config), null,
+                            null, null, "fail", "prompt_injection_blocked",
+                            System.currentTimeMillis() - startTime);
+                    return failure(request, AiErrorCodes.INPUT_REJECTED,
+                            "输入包含不允许的指令内容", System.currentTimeMillis() - startTime, "prompt_injection");
+                }
+            }
+
             // 2. 意图判断（v11.52：消费顶层 userInput 字段——用户自由文本触发分类路由；
             //    结构化参数场景（如 finance_analysis 传 userId/range）不传 userInput，自然跳过。
             //    当前主要预留对象：chat 收口进网关后，对话消息即 userInput，此分支成为场景路由器）
-            String userInput = request.getUserInput();
             if (userInput != null && !userInput.isBlank()) {
                 IntentClassifier.IntentResult intent = intentClassifier.classify(userInput, sceneCode);
                 if (intent.getConfidence() < 0.6) {
@@ -98,6 +131,10 @@ public class AiGatewayService {
             if (semanticCache.isEnabled(Boolean.TRUE.equals(config.getEnableCache()) ? 1 : 0)) {
                 AiExecuteResponse<Object> cached = semanticCache.get(sceneCode, inputKey, inputText);
                 if (cached != null) {
+                    // 输出过滤（v11.62 P1-3）：命中路径同样过滤——兜底过滤功能上线前的存量旧缓存
+                    if (outputFilter.isEnabled(config)) {
+                        outputFilter.applyFilter(cached);
+                    }
                     fillCommon(cached, request, System.currentTimeMillis() - startTime);
                     log.info("[ai2:网关] 缓存命中: scene={}, requestId={}", sceneCode, request.getRequestId());
                     return cached;
@@ -119,16 +156,41 @@ public class AiGatewayService {
                         "请求过于频繁，请稍后再试", System.currentTimeMillis() - startTime, "rate_limited");
             }
 
+            // 4.5 成本熔断（v11.57 P0-2）：场景日 Token 累计超 daily_token_limit → 拒绝。
+            //     场景级配额（全体用户共享），保护平台总成本；null/0=不限。
+            TokenCostGuard.QuotaResult quota = tokenCostGuard.checkQuota(sceneCode, config.getDailyTokenLimit());
+            if (!quota.allowed()) {
+                executeLogService.record(request.getRequestId(), sceneCode,
+                    handler.getClass().getSimpleName(), resolveBindType(config), null,
+                    inputKey, null, "fail", "token_limit_exceeded",
+                    System.currentTimeMillis() - startTime);
+                log.warn("[ai2:网关] Token配额熔断: scene={}, requestId={}, used={}/{}",
+                        sceneCode, request.getRequestId(), quota.todayUsed(), quota.limit());
+                return failure(request, AiErrorCodes.AI_TOKEN_LIMIT_EXCEEDED,
+                        "当前场景今日AI额度已用完，请明天再试", System.currentTimeMillis() - startTime, "token_limit");
+            }
+
             // 5. 参数校验
             handler.validate(request);
 
             // 6. 执行（v11.48：配置随调用下发，Handler 提示词/输出结构读配置即时生效，无静态 ThreadLocal）
             AiExecuteResponse<?> response = handler.execute(request, config);
 
+            // 6.5 输出内容过滤（v11.62 P1-3）：场景开启 enable_output_filter 时，复用 DFA 词树
+            //     对响应 data 的全部文本节点脱敏。位于缓存回写/执行日志之前——缓存与日志留痕的
+            //     均为脱敏后内容（命中路径见步骤 3，兜底存量旧缓存）。
+            if (outputFilter.isEnabled(config)) {
+                outputFilter.applyFilter(response);
+            }
+
             // 7. 填充通用字段 + 回写缓存 + 记录日志
             long elapsed = System.currentTimeMillis() - startTime;
             fillCommon(response, request, elapsed);
             fillAgentMetadata(response, agentName);
+            // v11.57 P0-2：按实际消耗累计场景日 Token（未回传 token 不计）
+            if (response.getMetadata() != null && response.getMetadata().getTokenUsed() != null) {
+                tokenCostGuard.consume(sceneCode, response.getMetadata().getTokenUsed());
+            }
             if (semanticCache.isEnabled(Boolean.TRUE.equals(config.getEnableCache()) ? 1 : 0)
                     && response.getCode() != null && response.getCode() == AiErrorCodes.SUCCESS) {
                 semanticCache.put(sceneCode, inputKey, inputText, response, config.getCacheTtl());
@@ -173,10 +235,26 @@ public class AiGatewayService {
             AiSceneHandler handler = registry.getHandler(scene);
             injectAgentPersona(request, config);
 
-            // 流式支持校验
+            // Prompt 注入防护（v11.57 P0-1）：流式路径同样清洗+拦截
+            sanitizeInputChannel(request);
+            if (request.getUserInput() != null && !request.getUserInput().isBlank()) {
+                PromptInjectionGuard.ScanResult guard = PromptInjectionGuard.scan(request.getUserInput());
+                if (guard.isDangerous()) {
+                    log.warn("[ai2:网关] 流式注入拦截: scene={}, requestId={}, pattern={}",
+                            scene, request.getRequestId(), guard.getPattern());
+                    sendErrorAndComplete(emitter, "输入包含不允许的指令内容");
+                    return emitter;
+                }
+            }
+
+            // 流式支持校验（Handler 能力 + 场景配置双保险，v11.66：output_mode='sync' 显式拒绝流式）
             String supported = handler.getSupportedOutputMode();
             if (!"stream".equals(supported) && !"both".equals(supported)) {
                 sendErrorAndComplete(emitter, "场景 [" + scene + "] 不支持流式输出");
+                return emitter;
+            }
+            if ("sync".equals(config.getOutputMode())) {
+                sendErrorAndComplete(emitter, "场景 [" + scene + "] 配置为仅同步输出（output_mode=sync）");
                 return emitter;
             }
 
@@ -187,6 +265,12 @@ public class AiGatewayService {
             int window = config.getRateLimitTime() != null ? config.getRateLimitTime() : 60;
             if (!rateLimiter.tryAcquire(scene, identity, limit, window).allowed()) {
                 sendErrorAndComplete(emitter, "请求过于频繁，请稍后再试");
+                return emitter;
+            }
+            // 成本熔断（v11.57 P0-2）：流式路径同样前置配额检查；
+            // 消费累计依赖响应 metadata，流式由 Handler 直发 emitter 无汇总——记为已知局限
+            if (!tokenCostGuard.checkQuota(scene, config.getDailyTokenLimit()).allowed()) {
+                sendErrorAndComplete(emitter, "当前场景今日AI额度已用完，请明天再试");
                 return emitter;
             }
 
@@ -207,6 +291,22 @@ public class AiGatewayService {
     }
 
     // ==================== 内部实现 ====================
+
+    /**
+     * 输入通道清洗（v11.57 P0-1）：顶层 userInput 走 sanitizeAndCap（含长度截断）；
+     * input Map 的字符串值仅做字符级清洗（数据通道不拦截——误杀简历/文档类数据代价高于收益，
+     * 由 Handler 侧 wrapData 数据隔离兜底）。
+     */
+    private void sanitizeInputChannel(AiExecuteRequest request) {
+        request.setUserInput(PromptInjectionGuard.sanitizeAndCap(request.getUserInput()));
+        if (request.getInput() != null) {
+            for (Map.Entry<String, Object> entry : request.getInput().entrySet()) {
+                if (entry.getValue() instanceof String s) {
+                    entry.setValue(PromptInjectionGuard.sanitize(s));
+                }
+            }
+        }
+    }
 
     /**
      * Agent 人设注入（v11.49）：ai_scene_config.agent_id 绑定智能体时，读取 ai_agent.system_prompt，

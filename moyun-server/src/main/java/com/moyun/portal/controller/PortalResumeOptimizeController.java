@@ -324,7 +324,7 @@ public class PortalResumeOptimizeController extends BaseController {
             String position = params.get("position") == null ? null : String.valueOf(params.get("position"));
             @SuppressWarnings("unchecked")
             List<String> skillNames = (List<String>) params.get("skillNames");
-            return AjaxResult.success(deepOptimizeService.fieldAssist(field, originalText, position, skillNames));
+            return AjaxResult.success(deepOptimizeService.fieldAssist(field, originalText, position, skillNames, userId));
         } catch (RuntimeException e) {
             return AjaxResult.error(e.getMessage());
         }

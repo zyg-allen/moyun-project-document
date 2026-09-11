@@ -7,6 +7,8 @@ import com.moyun.ext.ai.service.AiSceneResolver;
 import com.moyun.ext.ai.service.LLMService;
 import com.moyun.ext.ai.service.ModelConfigService;
 import com.moyun.ext.ai2.model.AiExecuteRequest;
+import com.moyun.ext.ai2.model.AiMetadata;
+import com.moyun.ext.ai2.model.ChatOutcome;
 import dev.langchain4j.data.message.SystemMessage;
 import dev.langchain4j.data.message.UserMessage;
 import dev.langchain4j.model.chat.ChatLanguageModel;
@@ -62,8 +64,8 @@ public abstract class AbstractAiSceneHandler implements AiSceneHandler {
      * 场景感知同步对话（结构化结果，v11.51）：除文本外返回实际使用的模型与 token 消耗。
      * 需要 metadata 可观测的场景 Handler 用本方法，并通过 {@link #buildMetadata} 填充响应。
      */
-    protected com.moyun.ext.ai2.model.ChatOutcome chatDetailed(String sceneCode, String systemPrompt, String userPrompt) {
-        com.moyun.ext.ai2.model.ChatOutcome outcome = new com.moyun.ext.ai2.model.ChatOutcome();
+    protected ChatOutcome chatDetailed(String sceneCode, String systemPrompt, String userPrompt) {
+        ChatOutcome outcome = new ChatOutcome();
         // 1. 场景绑定模型（责任链：Agent绑定 → 直绑模型 → null）
         if (sceneResolver != null) {
             try {
@@ -72,11 +74,17 @@ public abstract class AbstractAiSceneHandler implements AiSceneHandler {
                     ChatResponse resp = boundModel.chat(List.of(
                             new SystemMessage(systemPrompt),
                             new UserMessage(userPrompt)));
-                    if (resp != null && resp.aiMessage() != null) {
+                    if (resp != null && resp.aiMessage() != null
+                            && resp.aiMessage().text() != null && !resp.aiMessage().text().isBlank()) {
                         outcome.setText(resp.aiMessage().text());
                         fillUsage(outcome, resp);
                         return outcome;
                     }
+                    // v11.54：绑定模型返回空内容（HTTP 200 但 content 空——推理模型只出
+                    // reasoning_content、或触发内容审查）。记录留痕并回落默认模型再试一次，
+                    // 不再静默失败（旧版直接 return 空结果，无任何日志，排障抓瞎）
+                    log.warn("[ai2:{}] 绑定模型返回空内容，回落默认模型（疑似推理模型未产出final答案或内容审查）: model={}",
+                            sceneCode, resp == null || resp.metadata() == null ? "unknown" : resp.metadata().modelName());
                 }
             } catch (Exception e) {
                 log.warn("[ai2:{}] 场景绑定模型调用失败，回落默认模型: {}", sceneCode, e.getMessage());
@@ -96,10 +104,19 @@ public abstract class AbstractAiSceneHandler implements AiSceneHandler {
     }
 
     /** 从 ChatResponse 提取模型名与 token 消耗（字段缺失时静默留空） */
-    private void fillUsage(com.moyun.ext.ai2.model.ChatOutcome outcome, ChatResponse resp) {
+    private void fillUsage(ChatOutcome outcome, ChatResponse resp) {
         try {
-            if (resp.tokenUsage() != null && resp.tokenUsage().totalTokenCount() != null) {
-                outcome.setTokenUsed(resp.tokenUsage().totalTokenCount());
+            if (resp.tokenUsage() != null) {
+                if (resp.tokenUsage().totalTokenCount() != null) {
+                    outcome.setTokenUsed(resp.tokenUsage().totalTokenCount());
+                }
+                // v11.57 P0-2：输入/输出细分（成本核算依据；部分供应商仅回传 total，则细分留空）
+                if (resp.tokenUsage().inputTokenCount() != null) {
+                    outcome.setInputTokens(resp.tokenUsage().inputTokenCount());
+                }
+                if (resp.tokenUsage().outputTokenCount() != null) {
+                    outcome.setOutputTokens(resp.tokenUsage().outputTokenCount());
+                }
             }
         } catch (Exception ignored) {
         }
@@ -115,12 +132,14 @@ public abstract class AbstractAiSceneHandler implements AiSceneHandler {
      * LLM 调用结果 → 响应元数据（v11.51）。Handler 调 chatDetailed 后构建：
      * modelUsed/tokenUsed/modelProvider 来自实际调用；agentUsed 由网关统一补充。
      */
-    protected com.moyun.ext.ai2.model.AiMetadata buildMetadata(com.moyun.ext.ai2.model.ChatOutcome outcome) {
-        com.moyun.ext.ai2.model.AiMetadata metadata = new com.moyun.ext.ai2.model.AiMetadata();
+    protected AiMetadata buildMetadata(ChatOutcome outcome) {
+        AiMetadata metadata = new AiMetadata();
         if (outcome != null) {
             metadata.setModelUsed(outcome.getModelUsed());
             metadata.setModelProvider(outcome.getModelProvider());
             metadata.setTokenUsed(outcome.getTokenUsed());
+            metadata.setInputTokens(outcome.getInputTokens());
+            metadata.setOutputTokens(outcome.getOutputTokens());
         }
         return metadata;
     }
@@ -194,6 +213,38 @@ public abstract class AbstractAiSceneHandler implements AiSceneHandler {
             log.warn("[ai2] JSON(Map)解析失败: {}", e.getMessage());
             return null;
         }
+    }
+
+    /**
+     * 按场景配置解析 LLM 原始输出（v11.66 P1-5：output_parser 配置接线）
+     *
+     * <p>消费 ai_scene_config.output_parser（此前配置可编辑零消费，管理页与实际脱节）：</p>
+     * <ul>
+     *   <li>{@code json}（含 null/空，默认）：容错提取 JSON 主体为 Map——既有行为，存量场景零变化</li>
+     *   <li>{@code markdown} / {@code text}：原文清洗后包装为 {@code {"content": 原文}}——
+     *       与 system_prompt_template 组合使用（管理员改模板为自由文本输出 + parser 同步改），
+     *       类型化字段映射场景此时取不到字段（消费方读 content）</li>
+     *   <li>未知值：WARN 留痕 + 按 json 容错（配置错误可发现不阻断）</li>
+     * </ul>
+     *
+     * <p>注意：子任务方法（task 契约，提示词逐字收编固定 JSON）不适用本方法，
+     * 继续直接调 {@link #parseJsonMap(String)}——提示词契约不受配置影响。</p>
+     */
+    protected Map<String, Object> parseOutput(String raw, AiSceneConfig config) {
+        String parser = config != null && config.getOutputParser() != null && !config.getOutputParser().isBlank()
+                ? config.getOutputParser() : "json";
+        return switch (parser) {
+            case "markdown", "text" -> {
+                Map<String, Object> wrapped = new java.util.LinkedHashMap<>();
+                wrapped.put("content", cleanLlmText(raw));
+                yield wrapped;
+            }
+            case "json" -> parseJsonMap(raw);
+            default -> {
+                log.warn("[ai2] 未知 output_parser '{}'（scene={}），按 json 解析", parser, getSceneCode());
+                yield parseJsonMap(raw);
+            }
+        };
     }
 
     /**

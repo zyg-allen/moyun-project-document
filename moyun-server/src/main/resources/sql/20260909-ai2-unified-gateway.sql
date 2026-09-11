@@ -106,3 +106,12 @@ CREATE TABLE IF NOT EXISTS `moyun-db`.ai_execute_log (
 -- ============================================================
 ALTER TABLE `moyun-db`.ai_scene_config
     ADD COLUMN open_api TINYINT(1) NOT NULL DEFAULT 0 COMMENT '是否开放通用入口调用（1=可经 /api/ai/execute 外部调用）' AFTER enabled;
+
+-- ============================================================
+-- v11.57 增量：成本监控与熔断（新环境全量初始化用；
+-- 已部署环境执行 20260911-03-ai2-cost-circuit-breaker-v11-57.sql）
+-- ============================================================
+ALTER TABLE `moyun-db`.ai_execute_log
+    ADD COLUMN cost_yuan DECIMAL(12,6) DEFAULT NULL COMMENT '本次调用成本（元，细分token×模型单价）' AFTER token_used;
+ALTER TABLE `moyun-db`.ai_scene_config
+    ADD COLUMN daily_token_limit INT DEFAULT NULL COMMENT '场景日Token上限（当日累计超限拒绝调用；null/0=不限）' AFTER rate_limit_time;

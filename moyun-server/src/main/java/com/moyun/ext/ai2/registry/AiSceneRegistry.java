@@ -137,6 +137,7 @@ public class AiSceneRegistry {
                         m.put("sceneName", config.getSceneName());
                         m.put("category", config.getSceneCategory());
                         m.put("outputMode", config.getOutputMode());
+                        m.put("outputParser", config.getOutputParser());
                         m.put("description", config.getDescription());
                         m.put("openApi", Boolean.TRUE.equals(config.getOpenApi()));
                     }

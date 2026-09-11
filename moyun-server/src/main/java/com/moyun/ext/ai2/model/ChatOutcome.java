@@ -26,6 +26,12 @@ public class ChatOutcome {
     /** Token 消耗（输入+输出合计；模型未返回为 null） */
     private Integer tokenUsed;
 
+    /** 输入 Token（v11.57 P0-2 成本核算：模型未返回为 null） */
+    private Integer inputTokens;
+
+    /** 输出 Token（v11.57 P0-2 成本核算：模型未返回为 null） */
+    private Integer outputTokens;
+
     public String getText() {
         return text;
     }

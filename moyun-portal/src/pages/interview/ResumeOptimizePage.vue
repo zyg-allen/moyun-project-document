@@ -1094,6 +1094,11 @@ function gotoEditResume() {
   if (savedResumeId.value) router.push(`/interview/resume/edit/${savedResumeId.value}`);
 }
 
+/** v11.x 闭环：优化后的简历 → 去面试（语音面试页按 resumeId 预选该简历） */
+function gotoInterview() {
+  if (savedResumeId.value) router.push(`/interview/voice?resumeId=${savedResumeId.value}`);
+}
+
 function keywordsOf(s?: string): string[] {
   return s ? s.split('、').filter(Boolean) : [];
 }
@@ -1480,6 +1485,14 @@ function dimRows() {
                 @click="rescore"
               >
                 <Star class="w-4 h-4" /> {{ rescoredScore !== null ? `最终评分 ${rescoredScore} 分` : '重新评分' }}
+              </button>
+              <button
+                v-if="savedResumeId"
+                class="inline-flex items-center gap-1.5 text-sm px-4 py-2 rounded-lg text-white font-medium"
+                style="background: var(--theme-primary);"
+                @click="gotoInterview"
+              >
+                <Rocket class="w-4 h-4" /> 去面试
               </button>
             </div>
 

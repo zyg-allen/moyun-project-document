@@ -177,8 +177,20 @@ onMounted(() => {
 });
 
 watch([activeCategoryId, activeDifficulty, activeQuestionType, keyword, page], () => {
+  syncFilterToUrl();
   loadQuestions();
 });
+
+/** 筛选状态回写 URL（分类/难度/题型/关键词多维度），刷新/返回不塌缩为"全部" */
+function syncFilterToUrl() {
+  const query: Record<string, string> = {};
+  if (activeCategoryId.value) query.categoryId = String(activeCategoryId.value);
+  if (activeDifficulty.value) query.difficulty = activeDifficulty.value;
+  if (activeQuestionType.value) query.questionType = activeQuestionType.value;
+  if (keyword.value) query.keyword = keyword.value;
+  if (page.value > 1) query.page = String(page.value);
+  router.replace({ query });
+}
 
 // ========== 数据加载 ==========
 async function loadCategories() {

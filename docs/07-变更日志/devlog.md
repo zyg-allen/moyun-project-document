@@ -5,6 +5,640 @@
 
 ***
 
+## v11.70 (2026-09-11) 资金链路测试补齐：打赏双链路 22 用例（P1-8，附充值/提现范围澄清）
+
+> 依据《AI底座企业级评估-代码实测结论与改进清单》最后一项 P1：资金链路零测试。**实测澄清**：充值/提现业务逻辑尚未实现（PortalWalletServiceImpl 仅 CRUD，全库无 recharge/withdraw 业务方法，PayCallbackHandler 实现仅 tip 一种）——资金链路现状 = 打赏（积分打赏 + 微信支付 + 回调复式分账），无从测试的部分属功能范围澄清而非测试缺口。纯测试增量，零生产代码改动。维度 9 → 4.4，综合 → 3.84。
+
+### PortalTipServiceTest 16 用例（积分打赏 toggleTipOrList + 微信下单 createWechatTipOrder）
+
+- **积分打赏闭环**：article/column 对象解析 → 实名校验 → 原子扣分（deductPoints 带 `WHERE points >= delta` 防护）→ 对方加分 → PAID+points 订单落库 → 双方成长事件（receive_tip / tip_others）全链路断言
+- **资金安全分支**：积分不足（deductPoints 返回 0）→ POINTS_INSUFFICIENT 且**不加对方分、不落订单**；自赏拦截；未实名回滚不扣分；article_paid 占位拦截（未扣费不发放付费阅读权限）
+- **金额边界**：null / 0 / 负数拒绝；0.5 元截断为 0 拒绝（积分须正整数）；积分通道无 10000 上限（与微信通道的元上限语义区分）
+- **微信支付下单**：pending+wechat 订单落库 + 网关统一下单 + 收银台参数（payNo/codeUrl/amount/expireTime/mockEnabled）+ 不扣积分（走支付回调）；超 10000 元拒、未登录拒
+
+### TipPayCallbackHandlerTest 6 用例（回调闭环）
+
+- **成功闭环**：pending→paid 条件更新 → 复式分账（平台抽成 + 作者所得，**金额守恒断言** 10=0.5+9.5）→ 双方站内通知含到账明细
+- **幂等与并发**：已支付幂等返回（渠道重试不重复分账不重复通知）；条件更新 rows=0（并发竞争）抛 IllegalStateException 整体回滚，不分账不通知；状态异常（closed）拒绝推进；打赏单不存在抛异常
+
+### 测试技巧沉淀
+
+- **MP LambdaUpdateWrapper 纯单测**：`can not find lambda cache for this entity` —— MyBatis-Plus 的 lambda 列解析依赖实体 TableInfo 缓存，纯 Mockito 环境无启动流程，需 `TableInfoHelper.initTableInfo(new MapperBuilderAssistant(new MybatisConfiguration(), ""), Entity.class)` 手动初始化（@BeforeAll 一次）
+- **PayProperties.mockEnabled 默认 true**（开发演示模式），断言生产语义需显式 setMockEnabled(false)
+
+### 验证
+
+- `mvn.cmd test -Dtest=PortalTipServiceTest,TipPayCallbackHandlerTest`：22/22 全绿
+- 全库回归：**308/308 全绿**（v11.67 基线 286 + 资金链路 22），surefire 报告时间戳核对通过
+
+### 四同步
+
+- 代码：仅新增两个测试类（PortalTipServiceTest / TipPayCallbackHandlerTest），生产代码零改动；SQL：无；文档：评估文档（P1-8 完成行、维度 9 → 4.4、综合 → 3.84、行动路线第 11 项 + P1 清零说明、checklist 测试覆盖行与漏勾的 output_parser 项补勾）+ 本记录
+- 部署：无需重启（纯测试增量）
+
+---
+
+## v11.69 (2026-09-11) sys_file 系统文件管理菜单补齐：后台管理入口上线（附图片预览 bug 修复）
+
+> 现状实测：sys_file 表、后端 SysFileController（/system/file，list/{id}/upload/byUrl/{ids}/storage/*，@PreAuthorize system:file:*）、前端页面（views/system/file/index.vue：搜索/上传/批量删除/预览/下载/分页）与 API（api/system/file.js）均已存在——**唯一缺口是 sys_menu 无菜单记录，管理端无入口可见**。
+
+### 变更内容
+
+**菜单 SQL（20260911-09-sys-file-admin-menu.sql，幂等 DELETE+INSERT）**：
+- 文件管理 5475（C，parent=5243 基础管理，order 6 排岗位管理之后，component='system/file/index'，perms='system:file:list'，icon='upload'）
+- 按钮权限位：文件查询 5476（system:file:query）/ 文件上传 5477（system:file:add，含存储模式切换）/ 文件删除 5478（system:file:remove）
+- 管理员角色授权（role_id=1 × 5475-5478）
+- 权限标识与后端 @PreAuthorize 完全对齐，接口级权限不变
+
+**前端 bug 修复（views/system/file/index.vue）**：
+- `handlePreview` 原调用 `this.$imagePreview()`——该原型方法**未在任何位置注册**（main.js 仅注册 ImagePreview 标签组件），点击预览必抛 TypeError
+- 修复：内嵌 `<el-image-viewer>`（Element Plus 全量引入可直接使用），v-if 控制显隐，@close 关闭
+
+### 验证
+
+- 前端：`npm run build:prod` 构建通过
+- 菜单：执行 SQL 后 `SELECT menu_id, menu_name, parent_id, perms FROM sys_menu WHERE menu_id BETWEEN 5475 AND 5478;` 确认 4 条
+- 页面：管理端重新登录 → 系统设置 → 基础管理 → 文件管理，验证列表加载/上传/图片预览/删除（删除走 byUrl 统一清理路径：存储+记录）
+
+### 追加修复（同日）：列表数据不显示
+
+- **现象一**：页面打开后列表始终为空（分页 total 正常）
+- **根因一**：`getList` 取值字段名错误——`response.data?.list`，而 MyBatis-Plus Page 序列化字段为 `records`（request.js 拦截器还会把 `data.records` 复制为 `data.rows`），`list` 恒为 undefined
+- **现象二**：字段修复后仍不显示，Console 报 `TypeError: Cannot read properties of undefined (reading 'row')`，表格表头渲染但 tbody 空
+- **根因二（真根因）**：**该页面整体为 Vue 2 语法跑在 Vue 3（3.4.0）项目里**——`<template slot-scope="scope">` 在 Vue 3 编译后 scope 为 undefined，`scope.row.fileType` 抛 TypeError 中断表格行渲染；同页还有 `@keyup.enter.native`、`el-icon-*` 旧类名、`this.$modal` 等不兼容写法
+- **修复**：按项目标准（对齐 sensitiveWord 页面）整体重写为 Vue 3 `<script setup lang="ts">` 写法——`#default="scope"` 插槽、v-model:page/limit 分页、ElMessage/ElMessageBox、字符串 icon、v-hasPermi 权限指令、right-toolbar 工具栏；保留全部原有功能（搜索/上传/批量删除/单删走 byUrl/下载/图片预览 el-image-viewer/大小格式化）
+- **教训**：admin-vue 是 Vue 3 + Element Plus 项目，存量 Vue 2 风格页面（slot-scope/.native/$modal）在该项目内属隐藏地雷——新写页面一律以 sensitiveWord 等页面为模板
+
+### 四同步
+
+- 代码：moyun-admin-vue/views/system/file/index.vue（预览修复，仅 bug 修复无功能变更）
+- SQL：20260911-09-sys-file-admin-menu.sql（菜单+授权，零表结构变更）
+- 菜单：见上（5475-5478）
+- 文档：本条 devlog；后端零改动无需同步
+- 部署：执行 SQL → 管理端重新登录（菜单为登录时拉取）→ 无需重启服务
+
+---
+
+## v11.68 (2026-09-11) 功能闭环自测整改：三大模块五环补全 + 跨模块四数据流全通（P0/P1/P2 闭环清单清零）
+
+> 依据《20260911-功能闭环自测文档》：三大模块（面试/练习/简历优化）"五环"各断一环（再入口），跨模块四个数据流断三个，硬断链 5 项 + 软断链 3 项。本版实测修正 2 项误判、真修复 5 项，四数据流全通。
+
+### 实测误判（2 项，零代码改动）
+
+延续"评估文档系统性误判模式"（先实测再动手）：
+
+- **P0-1 编程题 AC 成长事件**：同步路径（PortalJudgeServiceImpl.finalizeCallback）与异步路径（JudgeAsyncWorker.applyResult）均已回调 `finalizeJudgeResult → recordAttemptAndGrowth`——首次通过发 solve_question 成长事件 + Feed 答题动态，闭环完整
+- **P1-1 阅读行为记录（半误判）**：后端 `recordQuestionRead` 已实装（每日幂等 read_question + write_note 事件），但前端为"加载即上报"——按《Portal与Admin自测指导文档》"停留 <60s 不记录"要求，本版补齐 ≥60s 停留计时上报（切题/离开清除计时）
+
+### 真修复 6 项
+
+**P0-2 面试→练习（跨模块数据流 2）**：报告页"缺点"卡片每条弱项新增"🎯 去练习"按钮；`practiceKeyword()` 从弱项文本提取搜索关键词（去疑问修饰、截取核心 12 字），跳转 `/learn/practice/choice?keyword=` 选择题列表同源筛选。
+
+**P0-3 练习→面试（跨模块数据流 3）**：出题链路全量接入已掌握避让——`pickQuestions/queryQuestions` 签名增加 userId，经 `queryWithSolvedExclusion`（attempt.status=solved 的题 notIn 排除）出题；5 个调用点（agent 候选/首问兜底×2/画像补齐/首问动态）全部传入；排除后无题自动回退不排除（出题数量优先于避让）。上次会话遗留的签名不一致编译错误一并修复。
+
+**P2-1 简历→面试（跨模块数据流 1）**：优化完成页新增"🚀 去面试"按钮（savedResumeId 存在时显示）；语音面试页 `loadResumeList` 支持 `?resumeId=` URL 预选简历（优先于默认第一份，并带入求职意向岗位）。
+
+**面试→简历（跨模块数据流 4）**：报告页"面试官剖析"Tab 改进建议区新增"📝 按建议优化简历"入口 → `/interview/resume/optimize`。
+
+**P1-2 双维度路由塌缩**：题库（QuestionListPage：分类+难度+题型+关键词）/ 选择题列表 / 编程题列表三个页面，筛选与分页状态变化时 `router.replace` 回写 URL query——刷新/浏览器返回不再塌缩为"全部"，URL 可分享复现。
+
+**P1-1 补全 阅读停留上报**：QuestionDetailPage 阅读埋点由"加载即上报"改为 60s 停留计时上报（READ_REPORT_DELAY_MS=60_000，切题重置、离开清除，满足"停留 <60s 不记录"防刷要求）。
+
+### 验证
+
+- 前端：`npm run check`（vue-tsc）两轮通过（含全部新增改动）
+- 后端：`mvn.cmd compile` 通过（class 产物时间戳核对 17:19）；面试包单测 InterviewPromptAssemblerTest(8) + InterviewDecisionPolicyTest(13) + InterviewAnalysisParserTest(9) = 30/30 全绿（surefire 时间戳 17:21 核对）
+- 出题避让回归路径：画像出题（queryByTag×已升级）/ 随机兜底 / 简历画像补齐 / agent 候选 / 首问兜底全部传 userId
+
+### 四同步
+
+- 代码：后端 VoiceInterviewServiceImpl（pickQuestions 全链路 userId + 避让回退）；前端 VoiceInterviewPage（去练习/去优化简历/resumeId 预选）+ ResumeOptimizePage（去面试）+ QuestionDetailPage（60s 停留上报）+ QuestionListPage / PracticeChoiceListPage / PracticeCodingListPage（URL 回写）
+- 文档：20260911-功能闭环自测文档（断链清单状态全量更新、四数据流标记全通、自测清单勾选、优先级表加状态列）+ 20260911-Portal与Admin自测指导文档（闭环验收表、简历/阅读/时间线自测项状态同步）
+- SQL：无（零表结构变更，重启即生效）
+- 菜单：无涉及
+- 部署：重启 moyun-server + 重新构建 moyun-portal 即生效；建议按自测文档第四部分走一遍完整用户旅程（7 步闭环验证）
+
+---
+
+## v11.67 (2026-09-11) P1-6 异步任务收敛：双轨制选型规则 + 孤儿任务恢复（附老包存量测试修复）
+
+> 依据《AI底座企业级评估-代码实测结论与改进清单》P1-6："三套异步任务模式并存"实测修正——JudgeAsyncWorker 系 OJ 代码判题专属基础设施（非 LLM 任务），误计入 AI 债；其余两套为合理双轨制，收敛策略为选型规则文档化而非强行统一抽象。维度 9 → 4.3，综合 → 3.83。
+
+### 实测修正：三套并存 → 双轨制 + 一处误分类
+
+- **表驱动（portal_ai_task，AiTaskService v10.23）**：简历解析/岗位匹配/空字段草稿/深度优化——长任务（分钟级）/需审计追溯/结果持久化供多次查看
+- **Redis + 线程池（LedgerAiAnalysisServiceImpl v11.55）**：财务分析——短任务（秒级）/结果时效性强（30 分钟 TTL，报告快照另有落表）
+- **JudgeAsyncWorker（OJ 判题）**：进程内判题引擎的队列消费 Worker（BLPOP + 固定线程池 + 重试），领域专属基础设施，**不属于 AI 异步任务体系**，类注释已声明边界
+
+选型口诀：**要留痕走表，要轻快走 Redis**（勿再引入第三套）。选型规则落三处类注释（AiTaskService / LedgerAiAnalysisServiceImpl / JudgeAsyncWorker），开发时就近可见。
+
+### 真代码缺口修复：表驱动任务孤儿恢复
+
+@Async 任务存活于 JVM 内存，应用重启后执行线程丢失，卡在 pending/running 的记录永远等不到终态（前端轮询挂死）。`AiTaskService.recoverOrphanTasks()` 监听 ApplicationReadyEvent，启动时将 pending/running 统一置 failed（error="服务重启，任务中断，请重新提交"）。单实例部署语义正确（多实例需实例标识区分，当前单体架构无此需求）。
+
+### 顺带修复：老包 3 个存量测试失败（实现演进后测试未跟进，修测试不修实现）
+
+全量回归（286 用例）时发现老 chat 包 3 个稳定失败，均为实现合理演进后测试断言过时：
+
+1. **ContentScoringServiceImplTest.shouldFilterStopWords**：测试假设中文分词能力（"什么是的怎么"拆词过滤），实现从未支持（关键词按空格/标点切分）→ 改为空格分隔停用词验证真实能力 + 新增现状 documenting 用例（连续中文整体保留）
+2. **ContentScoringServiceImplTest.shouldAddBonusWhenFullMatchInBeginning**：期望 ≥35（30 完整匹配 + 5 开头加分），实际 33.67 = 48.1×0.7——文本 56 字符落在 30-80 长度惩罚区间 → 文本加长至 ≥80 字符避开惩罚，保持原断言语义
+3. **RagRetrievalServiceImplTest.shouldSortByScoreDescending**：低分 1.0 被 rerankByRules 质量过滤剔除（阈值 max(2.0, topScore×0.3)）→ 低分改为 2.5（高于阈值）保持排序验证意图 + 新增质量过滤专项用例
+
+### 单测：AiTaskServiceTest 9 用例
+
+提交校验（未知类型拒绝）/入库触发（pending 落库 + ID 回填 + 异步触发参数）/触发失败回写（线程池拒绝 → failed + error）/轮询查询（不存在拒绝/越权拒绝/result JSON 解析/非法 JSON 容错）/孤儿恢复（pending/running 置 failed 参数断言 + 无孤儿 noop）。
+
+**MyBatis-Plus 测试技巧**：UpdateWrapper 的 IN 表达式惰性求值——`getParamNameValuePairs()` 断言前须先调用 `getSqlSegment()` 触发 lambda 执行注册参数，否则 IN 值不在参数表中。
+
+### 验证
+
+- `mvn.cmd test`：AiTaskServiceTest 9/9；全库回归 **286/286 全绿**（v11.66 基线 128 + 老包存量修复 + 新增用例）
+- 时间戳核对通过（surefire 报告 16:28 与最新运行同步）
+
+### 四同步
+
+- 代码：AiTaskService（选型规则注释 + recoverOrphanTasks）+ LedgerAiAnalysisServiceImpl/JudgeAsyncWorker（选型定位注释）；测试：AiTaskServiceTest 新增 + ContentScoring/RagRetrieval 修复；SQL：无（零表结构变更，重启即生效）；文档：评估文档（P1-6 完成、维度 9 → 4.3、综合 → 3.83、全库 286 用例、第三批行动路线第 10 项完成、checklist 勾选）+ 本记录
+- 部署：重启 moyun-server（启动时自动执行孤儿恢复；存量卡死任务将被置败，用户可重新提交）
+
+---
+
+## v11.66 (2026-09-11) P1-5 output_parser/output_mode 配置接线：从"可编辑零消费"到消费闭环
+
+> 依据《AI底座企业级评估-代码实测结论与改进清单》P1-5：ai_scene_config.output_parser/output_mode 两字段此前配置可编辑零消费（管理页改了没效果，与实际脱节）。本版接线后配置即刻生效。维度 6 → 4.5，综合 → 3.82。
+
+### output_parser 消费：基类 parseOutput(raw, config) 分派
+
+- **json（含 null/空，默认）**：容错提取 JSON 主体为 Map——既有行为，存量场景（全部 'json' 配置）零变化
+- **markdown / text**：原文清洗后包装 `{"content": 原文}`——与 system_prompt_template 组合使用（管理员改模板为自由文本输出 + parser 同步改；类型化字段映射场景此时取不到字段，消费方读 content）
+- **未知值**：WARN 留痕 + 按 json 容错（配置错误可发现不阻断）
+
+### Handler 双参升级（6 个）：config 直达主流程
+
+DailyTopic/SensitiveWord/ResumeParse/QuestionGenerate/ResumeOptimize/VoiceInterview 的 `execute(request)` 升级为 `execute(request, config)`（基类 v11.48 双参 default 此前被单参覆写"吞掉" config），主流程 `parseJsonMap(raw)` 调用点切换为 `parseOutput(raw, config)`。**子任务方法（VoiceInterview 4 处 + ResumeOptimize executeSubTask + QuestionGenerate jd_keywords）保留 parseJsonMap**——task 契约提示词逐字收编固定 JSON，不受配置影响（契约稳定性设计）。
+
+### output_mode 消费：网关路由校验
+
+- `execute()`（同步入口）：`output_mode='stream'` → 拒绝（failCode=stream_only_scene，提示走流式端点）；both/null 放行
+- `executeStream()`（流式端点）：Handler 能力校验（getSupportedOutputMode）之外，`output_mode='sync'` 显式拒绝——**配置与 Handler 能力双保险**
+
+### 配置对齐：voice_interview sync → both（SQL 20260911-08）
+
+调研发现 voice_interview 的 DB 配置 output_mode='sync' 但 Handler 已实现流式（getSupportedOutputMode=both + executeStream）——此前字段零消费，拍脑袋填的值无人发现。新校验上线会误拒现有流式请求，SQL 一次性对齐（其余场景 sync 与 Handler 一致；finance_analysis 的 parser='text' 与综述原文透传行为天然一致）。
+
+### 其他
+
+- AiSceneRegistry.listScenes 透出 outputParser（管理/调试可见性）
+
+### 单测：OutputParserWiringTest 9 用例
+
+- parseOutput 分派分支：null config 默认 json / blank parser 默认 json / 显式 json / markdown 原文包装 / text 别名 / 未知值容错
+- DailyTopic 双参配置驱动回归：默认 json 行为不变（title 映射成功）、markdown 配置真实生效（title 为 null——此前改了没效果）、config=null 内部默认 json
+- Handler 单参调用点全库核查：仅网关一处双参调用（handler.execute(request, config)），主代码/测试无单参直接调用——升级无回归面
+
+### 验证
+
+- `mvn.cmd test`：OutputParserWiringTest 9/9 全绿；全量回归 128/128 全绿（新增 9 用例并入）
+- 时间戳核对通过（15:57 surefire / class 产物同步）
+
+### 四同步
+
+- 代码：AbstractAiSceneHandler（parseOutput 新增）+ 6 Handler 双参升级 + AiGatewayService（output_mode 路由校验两处）+ AiSceneRegistry（outputParser 透出）；SQL：20260911-08（voice_interview 配置对齐）；文档：评估文档（P1-5 完成、维度 6 → 4.5、综合 → 3.82、测试 140 用例、第三批行动路线第 9 项完成、定位判断补 v11.66）+ 本记录
+- 部署：①执行 SQL 20260911-08 ②重启 moyun-server
+
+---
+
+## v11.65 (2026-09-11) 知识问答接入统一网关：knowledge_qa 场景（Agent 驱动多路召回 + 引用溯源透出）
+
+> 承接 v11.64 P1-4 实测修正的后续动作：知识问答从 admin chat 专属收编进统一网关（ai2），通过 Agent 实现检索与多路召回，C 端/开放入口可消费。网关场景数 7 → 8，维度 4 → 4.6、维度 6 → 4.4，综合 3.80 → 3.81。
+
+### 核心设计：零新建检索逻辑，全量复用 chat 链底座
+
+- **多路召回**：`RagRetrievalService.retrieveContents(query, kbIds, agent)` 原样复用——查询改写 + 混合检索（向量 + BM25 + RRF 融合 + 知识库权重）+ Rerank 重排 + 相邻分片合并；RAG 参数（ragMinScore/ragMaxResults/召回倍数/混合开关/双路权重）读 Agent 配置，与 chat 链完全一致
+- **提示词构建**：`ChatContextBuilderService` 原样复用——buildSystemPrompt（Agent 人设 + 知识库使用规则）+ buildRagContext（参考资料上下文）+ buildProcessedUserMessage。人设经 Agent 实体统一构建，不走网关注入的 input.agentPersona（避免重复注入）
+- **引用溯源**：检索片段 metadata（fileName/fileType/pageNumber/segmentIndex/knowledgeBaseId/imagePath）+ Rerank 分数 → references 数组随统一响应透出（消费端可渲染来源），摘录截断 200 字符
+
+### Handler 契约（KnowledgeQaHandler，scene = knowledge_qa）
+
+- **输入**：userInput=问题（必填）；input.knowledgeLibraryIds=知识库 ID（可选，支持 List/JSON数组串/逗号串）
+- **知识库三级优先级**：input.knowledgeLibraryIds > ai_scene_config.knowledge_library_ids > agent.knowledgeLibraryIds
+- **Agent 绑定**：ai_scene_config.agent_id → ai_agent（RAG 参数 + 人设 + 模型一体的推荐绑定方式）；未绑定/加载失败用空壳 Agent 走全局默认 RAG 配置（不阻断）
+- **检索为空**：零 token 返回标准范围外话术（"这个问题不在我的知识库范围内"），不调 LLM
+- **LLM 失败**：failure(AI_CALL_FAILED) 附检索命中数提示；模型链走基类 chatDetailed（Agent 绑定 → 场景直绑 → 默认回落）
+- **ThreadLocal 卫生**：Rerank 分数为 ThreadLocal 存储，finally 必清理（网关线程池复用会串台——单测覆盖两分支）
+- **场景模板覆盖**：ai_scene_config.system_prompt_template 有值时优先生效（v11.48 配置驱动契约）
+
+### SQL：20260911-07-ai2-knowledge-qa-v11-65.sql
+
+- INSERT knowledge_qa 场景（幂等）：scene_category=chat、handler_bean_name=knowledgeQaHandler、open_api=1（统一入口直接可用）、enable_cache=0（KB 内容变更缓存语义复杂）、**enable_output_filter=1**（C 端直出文本场景启用 v11.62 输出过滤）、daily_token_limit=500000（开放入口保护性成本上限）；agent_id/knowledge_library_ids 留空按需绑定（脚本附三种绑定示例）
+
+### 单测：KnowledgeQaHandlerTest 12 用例（子类覆写 chatDetailed 打桩 LLM，无需 mock 模型链）
+
+- 参数校验（userInput 必填）；知识库未绑定三级皆空快速失败（不进检索）
+- 三级优先级（input 覆盖场景配置与 Agent；场景配置覆盖 Agent）+ 三种传参形态（List/JSON 数组串/逗号串）+ 非法 ID 忽略保留合法项
+- 检索为空零 token 标准响应（验证未消费提示词构建）
+- LLM 成功：回答 + 引用溯源字段（fileName/fileType/pageNumber/segmentIndex/knowledgeBaseId/rerankScore/摘录 200 截断）+ metadata（modelUsed/tokenUsed）
+- 场景模板覆盖系统提示词（验证未走 chat 链 buildSystemPrompt）
+- LLM 空回答失败（附检索命中数）；Agent 加载失败空壳默认不阻断
+- ThreadLocal 必清理（空检索与正常链路两分支）
+
+### 验证
+
+- `mvn.cmd test`：KnowledgeQaHandlerTest 12/12 全绿；全量回归（注入 16/成本 13/收口契约 14/基础设施 16/输出过滤 11/校验器 16/评分引擎 12/财务护栏 9/知识问答 12）**119/119 全绿**
+- surefire 报告（15:43:07）与 class 产物（15:41:33）时间戳核对通过
+
+### 调用示例（统一入口）
+
+```json
+POST /api/ai/execute
+{"sceneCode": "knowledge_qa", "userInput": "什么是火箭发动机？", "input": {"knowledgeLibraryIds": [1]}}
+```
+
+响应 data：`{answer, references: [{fileName, fileType, pageNumber, segmentIndex, knowledgeBaseId, imagePath, rerankScore, excerpt}], retrievalCount, imageCount}`
+
+### 已知边界（记入评估文档）
+
+- 单轮问答（同步）；多轮对话历史与流式输出随网关多轮消息契约（P2）扩展
+- 前端消费页（portal 问答入口）待业务排期——场景与 API 已就绪
+
+### 四同步
+
+- 代码：KnowledgeQaSceneData（新增）+ KnowledgeQaHandler（新增）；SQL：20260911-07（场景注册）；文档：评估文档（维度 4 引用溯源补 v11.65、维度 4 → 4.6/维度 6 → 4.4/综合 → 3.81、P1-4 行增强、测试 119 用例、RAG 层与场景注册 checklist 更新、定位判断补 v11.65）+ 本记录
+- 部署：①执行 SQL 20260911-07 ②重启 moyun-server ③绑定知识库（推荐先在管理页建 Agent 配好 RAG 参数与知识库，再 UPDATE ai_scene_config SET agent_id=<id> WHERE scene_code='knowledge_qa'）④统一入口或 AiSceneJsonClient 即可调用
+
+---
+
+## v11.64 (2026-09-11) P1-4 引用溯源：实测修正——完整链路已实装，评估原判"仍缺"系误判，零代码改动
+
+> 依据《AI底座企业级评估-代码实测结论与改进清单》P1-4（原判：检索结果无来源文档/片段/相似度透出到消费端）。逐层调研后确认与 P1-2 同类的**评估误判**：引用溯源完整链路自 2025-12-11 已实装（早于评估文档 2026-09-09 成文），评估时未追到 chat 消费链。本版仅修正评估文档（维度 4 → 4.5，综合 → 3.80），**无代码/SQL/前端改动**。
+
+### 调研确认的完整链路（全部已存在）
+
+1. **检索 metadata 携带溯源字段**：KnowledgeBaseServiceImpl 入库时 TextSegment metadata 写入 fileName/fileType/segmentIndex/knowledgeBaseId（即文档记录 ID，knowledge 表主键）/embeddingId/pageNumber/totalSegments；图片片段另有 imagePath/lineStart/lineEnd
+2. **Rerank 分数**：检索链路产出 Content→Double 重排分数 Map（避免 ThreadLocal 跨线程丢失，异步线程传参）
+3. **质量过滤**：ReferenceSourceFilterImpl（2025-12-11）——动态阈值 max(最高分×75%, 平均分×85%, ragMinScore)、知识库+页码去重、目录内容/过短(<80字符)/纯图片描述过滤、AI 回复中引用的图片必保留、按智能体 ragMaxResults 限量
+4. **SSE 流式渲染**：ChatResponseBuilderImpl.buildReferencesButtons——"来源N"按钮组，data-rerank-score/data-vector-score 相似度透出、data-text 片段全文（弹窗展示）、data-page/lineStart/lineEnd 定位、附"不准确"反馈按钮（含分数用于反馈上下文）
+5. **持久化**：ChatMessagePersistenceImpl.saveAssistantMessage → buildReferenceSourcesJson → ConversationMessage.referenceSources JSON 落库
+6. **历史回传**：GET /conversation/{conversationId}/messages 返回完整实体（含 referenceSources）
+7. **前端渲染**：admin chat/index.vue——实时流式渲染 HTML 按钮 + 历史消息 JSON 解析重建按钮（processHistoricalMessage）+ showReferenceSource 弹窗
+
+### 判定不补的已知小缺口（避免过度设计）
+
+- **历史 JSON 未存相似度分数**：buildReferenceSourcesJson 仅存 fileName/pageNumber/type/imagePath/knowledgeBaseId/segmentIndex/fileType，无 rerank/vector 分数（实时流有）。核实前端历史渲染（index.vue 146-181 行）不消费任何分数字段——后端存了也没人用，不补
+- **C 端无 RAG 问答消费方**：知识问答仅在 admin chat（ai2 网关无 knowledge_qa 场景，chat 走老 Agent 框架属既定架构决策）——"透出到消费端"的消费端即 admin chat，已覆盖
+
+### 四同步
+
+- 代码：无改动；SQL：无变更；文档：评估文档（维度 4 引用溯源 ★★→★★★★并附完整证据链、维度 4 4.3→4.5、综合 3.78→3.80、P1-4 标记实测修正、第三批行动路线第 8 项完成、RAG 层 checklist 勾选、定位判断补 v11.64）+ 本记录
+- 部署：无需部署
+
+---
+
+## v11.63 (2026-09-11) P1-2 工具参数 JSON Schema 校验：执行链从"裸奔"到执行前收口
+
+> 依据《AI底座企业级评估-代码实测结论与改进清单》P1-2。**实测修正**：调研发现 ai_agent_tool.parameters 种子数据本就是合法 JSON Schema（`{"type":"object","required":[...],"properties":{...}}`，与内置工具 getParametersSchema() 同构），原评估判"文本描述"系误判——真正缺口是**执行链零校验**：LLM 生成的参数类型错误（如 days 传字符串 "3"）直接打入执行器，轻则执行失败重则 ClassCastException。本版补齐校验闭环，维度 3 工具调用 3.0 → 3.2，综合 3.77 → 3.78。
+
+### 校验器：ToolParamValidator（engine/tool，纯静态工具类，同 PromptInjectionGuard 风格）
+
+- **支持子集**（覆盖本项目全部工具 schema 实际用到的关键字）：type（string/integer/number/boolean/array/object）、required、properties、enum、minimum/maximum、items.type（数组元素）
+- **fail-open**：schema 为空/不可解析/type≠object 时跳过校验——兼容管理端手填的文本描述型脏数据，校验器不可用不阻断工具执行（执行器自有 asInt/asString 兜底）
+- **integer 宽容**：Integer/Long/整值 Double/BigDecimal 均视为 integer（LLM JSON 序列化常产出 3.0 形态）；字符串数字"3"不宽容（应让 LLM 修正类型而非静默转换）
+- **不改写参数**：纯校验无副作用；未知 type/Schema 未声明的多余参数跳过（additionalProperties 默认宽容）
+- **错误可自纠**：错误文案为 LLM 可读的修正指令（"参数 days 应为 integer 类型，实际收到 string：\"3\"，请修正类型后重新调用"）——经既有工具失败通道回传（chat HTML 展示/工作流 NodeResult.fail/管理页测试响应），下一轮对话 LLM 可据此重新生成合规 [TOOL_CALL]。不新建 LLM 自动重试循环（流式场景重建对话成本高，避免过度设计）
+
+### 接线：ToolRegistry.executeTool 单点收口
+
+- 执行前取 `executor.getParametersSchema()` 校验 params，不合规直接 `ToolResult.fail("参数校验失败：<明细>。请对照工具参数格式修正后重新生成 [TOOL_CALL] 调用")` 不执行工具，且**异步落调用日志**（status=failed，与执行失败同等待遇可审计）
+- 三个调用方同时受益：chat LLM 路径（ToolCallingService.detectAndExecute）/ 工作流工具节点（ToolNodeExecutor）/ 管理页工具测试（ToolController /test/{toolName}）
+- 工作流路径参数来自节点配置（非 LLM 生成），校验同样捕获配置错误并给出明确提示
+
+### 提示词强化：ToolCallingService.buildToolPrompt
+
+- 工具使用规则新增第 3 条："params 必须严格符合各工具的参数 JSON Schema：必填项齐全、类型正确（string/integer/boolean 等，数字不要加引号）——类型错误会被校验拒绝"（前置降低 LLM 犯错率，校验兜底）
+
+### 单测：ToolParamValidatorTest 16 用例（纯静态类无需 mock）
+
+- fail-open 三跳过分支（空/blank schema、非法 JSON、非 object 根）
+- 必填缺失（含 null params 场景）、类型不匹配（**含自纠文案断言**——期望类型与实际类型都出现在错误信息中）
+- integer 宽容矩阵（3.0/3L 过，3.5/"3" 拒）
+- enum 不在范围、minimum/maximum 边界、数组元素类型错误
+- 未知 type 跳过、多余参数宽容、boolean 类型、多错误并报
+
+### 验证
+
+- `mvn.cmd test`：ToolParamValidatorTest 16/16 全绿；回归（注入 16/成本 13/收口契约 14/基础设施 16/输出过滤 11/校验器 16）86/86 全绿
+- surefire 报告（15:19）与 class 产物（15:17）时间戳核对通过
+
+### 无 SQL 变更
+
+- ai_agent_tool.parameters 列已存在且种子数据即 JSON Schema，无需 DDL/DML
+
+### 四同步
+
+- 代码：ToolParamValidator（新增）+ ToolRegistry（executeTool 收口）+ ToolCallingService（提示词规则 3）；SQL：无变更；文档：评估文档（P1-2 勾选、维度 3 详情表 Schema 定义 ★★→★★★★/执行引擎/错误处理上调、"剩余缺口"收敛为超时重试+权限、Agent 层与工具层 checklist 勾选、综合 3.77→3.78、测试 91→107 用例、第三批行动路线第 7 项完成、定位判断更新）+ 本记录
+- 部署：重启 moyun-server 即生效（校验内置于执行链，无配置项；存量脏 schema 自动 fail-open 跳过）
+
+---
+
+## v11.62 (2026-09-11) P1-3 输出内容过滤：网关复用 DFA 词树脱敏，安全三件套（注入/熔断/输出过滤）齐备
+
+> 依据《AI底座企业级评估-代码实测结论与改进清单》P1-3：LLM 返回直出客户端无敏感词过滤。本版复用 `SensitiveWordFilter`（sys_sensitive_word 词库，DFA O(n)）为网关输出过滤钩子，不另建检测体系。至此维度 8 安全治理的三个 P1 前缺口全部落地，评分 2.5 → 4.0。
+
+### 后端：AiOutputFilter（ai2/support，新增组件）
+
+- **能力**：对网关同步响应 data 的**全部文本节点**（任意深度对象值/数组元素）做敏感词脱敏——命中词替换 `*`，保留原文空白与格式；数值/布尔等非文本节点零影响（金额、评分不动）
+- **类型保持**：Jackson 往返（valueToTree → mask 文本节点 → treeToValue 回原类型）。业务消费方存在 `resp.getData() instanceof TopicSceneData/QuestionSceneData` 强转，data 不能替换为 JsonNode
+- **零侵入无命中**：未命中时原对象原引用返回，不做往返重建（零开销零风险）
+- **失败放行**：DFA 内存操作稳定，异常仅可能来自 Jackson 序列化（极端 data 结构）——放行原文 + ERROR 留痕（过滤不可用不阻断业务，与 Agent 人设注入容错策略一致）
+- **位置约束**：钩子位于缓存回写/执行日志之前——缓存与日志留痕的均为脱敏后内容；**缓存命中路径同样过滤**（兜底过滤功能上线前的存量旧缓存）
+
+### 网关接线：AiGatewayService 两处
+
+- 步骤 6.5：`handler.execute` 返回后、`fillCommon`/缓存/日志之前（同步主路径）
+- 步骤 3：缓存命中分支（旧缓存兜底，幂等——`*` 不会再命中任何词）
+- 开关：`ai_scene_config.enable_output_filter`（TINYINT(1) 默认 0 关闭，存量场景行为不变，按场景按需开启；网关直查库，改列即时生效）
+
+### SQL：20260911-06-ai2-output-filter-v11-62.sql
+
+- `ALTER TABLE ai_scene_config ADD COLUMN enable_output_filter TINYINT(1) DEFAULT 0 AFTER daily_token_limit` + 验证查询；附按需开启示例 UPDATE（注释状态，确认后执行）
+
+### 单测：AiOutputFilterTest 11 用例（真实 DFA 集成，mock mapper 加载词库非 mock 行为）
+
+- 开关判定（null/未设置/显式关闭/开启）
+- 跳过分支（null response / null data / 失败 code 原样保留）
+- 未命中零侵入（assertSame 原引用）
+- Map 脱敏（文本 mask + score/amount 数值断言不变；缓存命中 data 即此型）
+- 类型化对象脱敏（assertInstanceOf 类型保持 + 字段 mask/不变）
+- 嵌套结构递归（List<Map<List<String>>> + 未命中文本原样）
+- 空白绕过仍命中（"炸 弹" 插空白，DFA 跳空白特性）
+- DFA 异常放行原文 / 不可序列化对象放行原文（OpaqueData → InvalidDefinitionException 分支）
+
+### 验证
+
+- `mvn.cmd test`：AiOutputFilterTest 11/11 全绿；全量 ai2 回归 70/70 全绿（注入 16/成本 13/收口契约 14/基础设施 16/输出过滤 11——AnswerScoringEngine 12 与 FinanceAnalysisHandler 9 未在本轮清单，合计库内 ai2 用例 91）
+- surefire 报告与 class 产物时间戳核对通过（15:03/15:04）
+
+### 已知局限（记入评估文档）
+
+- 流式（SSE）输出由 Handler 直发 emitter，逐 token 分片无法有效匹配跨片敏感词，本过滤仅覆盖同步路径——随网关多轮消息契约（P2）一并扩展
+
+### 四同步
+
+- 代码：AiOutputFilter（新增）+ AiGatewayService（两处接线）+ AiSceneConfig（enableOutputFilter 字段）；SQL：20260911-06；文档：评估文档（P1-3 勾选、维度 8 2.5→3.8→4.0、综合 3.75→3.77、测试 80→91 用例、行动路线第二批全清、安全治理 checklist 补勾，顺手补 P1-1 漏勾的"ai_execute_log 查询页"）+ 本记录
+- 部署：①执行 SQL 20260911-06 ②重启 moyun-server ③按需为 C 端直出文本场景开启开关（如 `UPDATE ai_scene_config SET enable_output_filter=1 WHERE scene_code='finance_analysis' AND enabled=1`）④词库由 sys_sensitive_word 管理页维护，reload 后即时生效
+
+---
+
+## v11.61 (2026-09-11) P1-1 AI 执行日志管理页：统一网关日志从"数据在采"到"有人看"
+
+> 依据《AI底座企业级评估-代码实测结论与改进清单》P1-1：ai_execute_log 后端全字段落库（v11.57 起 cost_yuan 成本回填），但无管理端查询页——数据在采没人看。本版补齐查询/汇总/详情/清理闭环，是收口 7/7（v11.59）后网关可观测性的最后一块拼图。
+
+### 后端：AiExecuteLogController（/cms/ai/execute-log，ai2/controller）
+
+| 接口 | 权限 | 说明 |
+|---|---|---|
+| GET /list | cms:ai:execute-log:list | 分页列表，筛选 requestId（精确）/场景/模型（like）/状态（success/fail/timeout）/日期范围，create_time+id 双列倒序 |
+| GET /summary | cms:ai:execute-log:list | 汇总卡片：COUNT/SUM(CASE success)/SUM(token)/SUM(cost)/AVG(elapsed)，**与列表同筛选联动**；failCount=total-success 全口径，successRate 保留 1 位小数 |
+| GET /scene-options | cms:ai:execute-log:list | DISTINCT scene_code 场景下拉（来自日志本身，不依赖场景配置） |
+| GET /{id} | cms:ai:execute-log:query | 详情（输入/输出摘要、工具调用 JSON、错误信息） |
+| DELETE /{ids} | cms:ai:execute-log:remove | 批量清理（物理删除，日志只增不改；@Log 操作审计） |
+
+- 汇总用 QueryWrapper.select 聚合下推 DB（COALESCE 兜底空表）；日期参数 "yyyy-MM-dd" → 当日起止，非法输入忽略不过滤
+- 查询模式与既有索引对齐：idx_request_id/idx_scene_code/idx_create_time
+
+### 前端：admin ai/execute-log（api/ai/execute-log.js + views/ai/execute-log/index.vue）
+
+- 筛选区：场景下拉（scene-options）/requestId/模型/状态/日期范围，回车与变更即时查询
+- 汇总卡片行：调用量/成功率（≥99 绿 ≥90 黄 其余红）/Token/成本(¥)/平均耗时（<1s 显示 ms）——随筛选联动刷新
+- 列表：requestId 一键复制、模型+Agent 标签、Token/成本/耗时右对齐、状态三色、时间列
+- 详情抽屉：全字段 + 输入/输出摘要 pre 展示 + toolCalls JSON pretty + 错误信息红色高亮
+- 删除：确认弹窗 + v-hasPermi 权限指令；删除后列表与汇总双刷新
+
+### SQL：20260911-05-ai2-execute-log-admin-v11-60.sql
+
+- 菜单 5472（C，AI执行日志，挂 AI基础配置 5238，order 12）+ 5473（F 查询）+ 5474（F 删除），幂等 DELETE+INSERT，管理员角色授权
+- 顺手修正 AiExecuteLogService javadoc 表名笔误（ai2_execute_log → ai_execute_log，实体 @TableName 与 DDL 实际为后者）
+
+### 验证
+
+- 后端：`mvn.cmd compile` BUILD SUCCESS（AiExecuteLogController.class 产物确认）
+- 前端：`npm run build:prod` 构建通过
+- 无单测新增（Controller 为薄查询层，聚合 SQL 与分页为 MyBatis-Plus 标准用法；护栏逻辑已在 v11.60 Ai2InfraSupportTest 覆盖基础设施层）
+
+### 四同步
+
+- 代码：后端 Controller + 前端页面/API；SQL：20260911-05（菜单，无表结构变更）；文档：评估文档（P1-1 勾选、维度 7 可观测性 3.5→3.7、综合 3.74→3.75、checklist 网关层补执行日志管理页条目）+ 本记录
+- 部署：①执行 SQL 20260911-05 ②重启 moyun-server ③admin 前端重新构建发布；菜单需重新登录或刷新路由缓存后可见（AI基础配置 → AI执行日志）
+
+---
+
+## v11.60 (2026-09-11) P0-4 新链路测试覆盖：评分引擎/财务指标护栏/网关基础设施 37 用例，揪出 2 个真 bug + 修复 mvn PATH 劫持导致的假执行
+
+> 依据《AI底座企业级评估-代码实测结论与改进清单》P0-4：AnswerScoringEngine（v11.47 拆出）零测试、FinanceAnalysisHandler 数值护栏零测试、FallbackStrategy/SceneRateLimiter/SemanticCache 零测试。本版补齐 37 用例并全部转绿，**P0 级四项（注入防护/成本熔断/场景收口/测试覆盖）全部完成**。
+
+### 环境事故：mvn PATH 劫持导致此前的"假执行"
+
+- 现象：`mvn` 命令静默"成功"（no output / exit 0），但 class 产物与 surefire 报告时间戳不更新
+- 根因：`C:\Windows\System32\mvn`（无扩展名文档，疑似误放）在 PATH 中排在 `D:\dev_en\apache-maven-3.9.14\bin\mvn.cmd` 之前，PowerShell 将其当"文档"打开——**Maven 从未执行**
+- 影响：v11.58~59 会话内的 `mvn compile/test` 全部为假阳性（v11.59 的 devlog"15 用例/44 个"数字虚报，已修正）
+- 处置：改用全路径 `D:\dev_en\apache-maven-3.9.14\bin\mvn.cmd` 执行；本版全量重编译（1422 源文件）+ 全测试（80 用例）真实通过，**v11.58~59 的代码改动经受住了真实编译与测试验证**
+- 待办：删除 `C:\Windows\System32\mvn`（需管理员权限，人工处理）
+
+### AnswerScoringEngineTest（12 用例）——纯规则离线测试
+
+- 评分公式：覆盖率×80 + 长度加成≤20（全覆盖长答案≥80 / 零覆盖短答案<40 / 半覆盖中间分）
+- 6 维连续性：雷达图维度键对齐（relevance/professionalism/fluency/interactivity/confidence/logic）、[0,100] 越界钳制、fluency 随长度单调不降
+- 关键词提取护栏：停用词/纯数字/单字符/超长词过滤、中英文逗号分隔、去重、12 上限
+- LLM 动态题：无 tags 时从题干提取关键词（v11.30.2 修复项回归）；question=null 时长度推断覆盖率
+
+### 单测揪出的 2 个真 bug（已修复）
+
+1. **answer=null NPE**：`scoreAnswer` 中 `answer.length()` 未判空（转写失败/未作答场景直接 500）——统一为方法头 `int len = answer == null ? 0 : answer.length()`
+2. **tags 分支无 MAX_KEYWORDS 封顶**：`extractKeywords` 的 tags 分支（与 solution 分支不同）无 12 词上限，20 个 tags 全量参与评分——补 `kw.size() < MAX_KEYWORDS` 检查
+
+### FinanceAnalysisHandlerTest（9 用例）——Mockito 全 Mapper 离线测试
+
+- **指标护栏**（LLM 只解读不计算的数值防线）：应急基金月数=流动资产/月均支出（8.3，HALF_UP 1位）、总资产（includeInTotal 过滤语义）、资产负债率/还款压力/储蓄率精确值、采样月数/赤字月数
+- **健康分四段公式**：储蓄率×25 + 赤字≤25 + 负债率三段 + 压力三段；分段边界（0.5 严格小于、0.5<0.5 为 false 落 0 分段）
+- **debtFact 清偿测算**：payoffMonths=ceiling(balance/月供)（50000/2000=25、50001/2000=26 向上取整）、无月供/余额清零不测算、期数进度透传
+- **LLM 降级契约**：基类 sceneResolver/llmService 置 null → chatDetailed 失败 → aiEnabled=false + 模板综述（含精确指标）+ risks/suggestions 空 + **指标照常返回**（前端 KPI 不受影响）
+- **input 契约**：缺 userId 抛 IllegalArgumentException、非法 range 回落 month、3m 窗口起点=当月起共3自然月
+
+### Ai2InfraSupportTest（16 用例）
+
+- **FallbackStrategy**：voice_interview 内置兜底（nextAction=end 防卡死）、sensitive_word 安全默认（放行不误伤）、其他场景通用 failure、配置 JSON 兜底优先、非法 JSON 原样文本、空白配置走内置
+- **SceneRateLimiter**（mock RedisTemplate）：固定窗口计数（第1次 setExpire）、超限拒绝（6/5）、limit/window≤0 视为未配置放行、Redis 异常放行（限流不阻断业务）
+- **SemanticCache**（内存 Map 模拟 Redis 往返）：精确命中（fromCache=true 标记）、未命中 null、ttl≤0 不写、场景隔离、查询异常降级直连
+
+### 验证（全路径 mvn.cmd 真实执行）
+
+- `mvn.cmd compile`：BUILD SUCCESS（1422 源文件，含 v11.58~59 全部改动的首次真实编译验证）
+- `mvn.cmd test -Dtest=AnswerScoringEngineTest,FinanceAnalysisHandlerTest,Ai2InfraSupportTest,SceneConvergenceContractTest,TokenCostGuardTest,PromptInjectionGuardTest`：**Tests run: 80, Failures: 0, Errors: 0**（首跑暴露 5 处失败：2 个产品 bug + 3 个测试自身错误——mock 绕过 SQL 过滤的 includeInTotal=0 数据设计、健康分两处手算期望值错误，修正后全绿）
+
+### 四同步
+
+- 代码：AnswerScoringEngine（2 bug 修复）+ 3 个新测试类；SQL/菜单：无变更；文档：评估文档（维度9 3.9→4.1、综合 3.72→3.74、P0-4 勾选完成、测试子项 ★★→★★★、定位判断改写）+ v11.59 devlog 数字勘误 + 本记录
+- 部署：重启 moyun-server（评分引擎 bug 修复影响线上转写空值场景）
+
+---
+
+## v11.59 (2026-09-11) P0-3 场景业务收口全部完成：resume/question + voice_interview 切统一网关（7/7）
+
+> 依据《AI底座企业级评估-代码实测结论与改进清单》P0-3：v11.55 实测业务收口仅 1/7（全库唯一网关调用点=财务分析），其余 6 场景业务绕行网关直调 LLM，无执行日志/成本核算/限流/注入防护。v11.57 先行收口 sensitive_word/daily_topic；本版完成剩余 4 场景，**收口 7/7，全库 `llmClient.chat(` 清零**。
+
+### P0-3b：resume_parse / resume_optimize / question_generate（7 个业务调用点）
+
+- **Handler 子任务契约**（task+context 模式，提示词逐字收编进 Handler，业务侧只传数据）：
+  - ResumeOptimizeHandler：advice / job_match / field_assist / draft_empty / deep_optimize 五子任务
+  - QuestionGenerateHandler：jd_keywords 子任务（原 PortalJobTemplateServiceImpl.extractByLlm）
+  - ResumeParseHandler：text 必填（收编原解析提示词）
+- **业务切换**：ResumeParseService（解析）、ResumeAiAdviceService（建议）、ResumeJobMatchService（岗位匹配）、ResumeDeepOptimizeService×2（深优）、ResumeDeepOptimizeGenerator（深优生成）、PortalJobTemplateServiceImpl（JD 关键词）→ 统一经 AiSceneJsonClient
+- **AiSceneJsonClient**（新组件 ai2/support）：构造请求→网关执行→解包 structured JsonNode；任何失败返回 null，业务保留原规则兜底（与收口前异常语义一致）
+
+### P0-3c：voice_interview（5 处 llmClient 直调收口）
+
+- **VoiceInterviewHandler 五子任务**（提示词逐字收编）：
+
+  | task | 原调用点 | 输出 |
+  |---|---|---|
+  | answer_analysis | analyzeAnswerByLlm（回答深析：评分校正/6维/漏洞/水平/追问建议） | structured JSON |
+  | candidate_ask | answerCandidateQuestion LLM 分支（反问应答） | {"text": ...} |
+  | knowledge_desc | tryLlmKnowledgeDesc（知识点批量简介） | {"points": [...]} |
+  | speak_text | generateSpeakText（轮次话术） | {"text": ...} |
+  | self_intro | ScoringEngine.tryLlmSelfIntro（自我介绍 4 维评分） | structured JSON |
+- **数据通道设计**：候选人转写/提问等外部不可信数据全走 input.transcript + PromptInjectionGuard.wrapData 隔离，**不走顶层 userInput**（避免意图分类器置信度<0.6 误打断——v11.57 sensitive_word 收口时已踩过的坑）；未知 task 在 validate 阶段快速失败
+- **ScoringEngine.evaluateSelfIntro** 增加 userId 参数（网关限流身份/日志归属），调用方 handleIntroSubmission 传入 interview.getUserId()；parseIntroScore 改收 JsonNode（Handler 已容错解析，业务侧只做字段映射+权重融合）
+- **InterviewSceneData** 新增 structured 透传字段；**AiSceneJsonClient 解包泛化**（ResumeSceneData/InterviewSceneData 双类型分派）
+- **保留项**：Agent 多轮流式链路（InterviewAgentClient 6 处 chat/chatStream）走底座 Agent 框架路由（AiSceneBinding 灰度控制），网关多轮消息契约列为 P2 扩展方向；业务侧 LlmClient 依赖仅剩 isEnabled() 前置短路判断（避免 AI 关闭时空走网关链路）
+- **默认评估路径加固**：VoiceInterviewHandler 默认路径（管理台调试）的候选人回答拼接改 wrapData 数据通道隔离
+
+### 验证
+- `mvn compile -DskipTests`：BUILD SUCCESS
+- `mvn test -Dtest=SceneConvergenceContractTest,TokenCostGuardTest,PromptInjectionGuardTest`：全绿（SceneConvergenceContractTest 扩至 14 用例：resume_optimize 5 + question_generate 2 + resume_parse 1 + voice_interview 6，覆盖五子任务参数校验/未知 task 拒绝/默认路径必填）。注：v11.59 当时的 mvn 命令因 PATH 劫持未真实执行（详见 v11.60），本条数字按 v11.60 真实运行结果修正
+- 全库 grep `llmClient.chat(`：0 命中（收口完成标志）；网关业务调用点 14 处（aiGatewayService.execute 5 + aiSceneJsonClient.executeForJson 9）
+
+### 四同步
+- 代码：上述 8 个业务类 + 3 个 Handler + AiSceneJsonClient/InterviewSceneData；SQL/菜单：**无变更**（voice_interview 等 7 场景在 ai_scene_config 已注册且 enabled=1，20260909-ai2-unified-gateway.sql）；文档：评估文档（维度6 4.1→4.3、综合 3.70→3.72、P0-3 勾选完成、网关层 checklist+收口条目）+ 本记录
+- 部署：重启 moyun-server；行为变化——面试/简历链路 LLM 调用开始产生 ai_execute_log 记录与 cost_yuan 成本核算，受场景限流与日 Token 配额约束（默认值不变）
+
+---
+
+## v11.58 (2026-09-11) CMS 栏目管理：修复存量三级栏目无法编辑的问题
+
+> 用户反馈：编辑栏目只想修改路由路径（`/reading/space/quotes` → `/reading/quotes`），却被"最多只支持两级栏目，不能设置为三级"拦截。
+
+### 根因
+- 存量数据 `id=88 金句摘录(reading-space-quotes)` 挂在 `id=71 读书空间` 下，而 71 本身是 `id=54` 的二级栏目——88 实为三级（历史 SQL 直插绕过校验）
+- 原 `updateCategory` 对**每次保存**都校验父级层级，即使 parentId 未变化，导致存量超两级数据任何字段都无法编辑
+
+### 修复（仅父级变化时才校验层级）
+- **后端** CmsCategoryServiceImpl.updateCategory：先查旧记录对比 oldParentId，父级未变则跳过层级校验
+- **前端** category/index.vue：新增 `originalParentId` 记录编辑前父级，`submitForm` 校验条件由 `isLevel2 && parentId!==0` 改为"父级发生变化且非 0"；`reset`/`handleUpdate` 同步维护
+
+### 校验行为（修复后）
+| 场景 | 结果 |
+|---|---|
+| 编辑存量三级栏目，只改路由/名称等 | 允许保存 |
+| 新增时选择二级栏目作父级 | 拦截（不能设置为三级） |
+| 给二级栏目"新增子栏目" | 拦截（前后端双重） |
+| 一级栏目改挂到二级栏目下 | 拦截 |
+
+### 验证
+- `mvn compile -DskipTests -pl moyun-server -am`：编译通过
+
+### 部署
+重启 moyun-server；管理端为 vite dev 热更新直接生效（生产需重新构建）。
+
+---
+
+## v11.57 (2026-09-11) P0-1 注入防护 + P0-2 成本熔断落地（评估整改）
+
+### P0-2 成本监控与熔断（依据《AI底座企业级评估-代码实测结论与改进清单》P0-2）
+- **成本回填**：ai_execute_log 新增 cost_yuan DECIMAL(12,6)（SQL 20260911-03）；AiExecuteLogService 调用成功后按模型单价×实际 token 核算——复用 TokenUsageService.calculateCost（与 Token 统计页同源同口径，ai_model_config 既有 input_price/output_price 单价列，5 分钟缓存）；部分供应商仅回传合计 token 时按输出单价保守估上界
+- **Token 精细化**：ChatOutcome/AiMetadata 新增 inputTokens/outputTokens（AbstractAiSceneHandler 从 ChatResponse.usage 回填），成本核算从"仅合计"升级为"输入/输出分开计价"
+- **场景日配额熔断**：ai_scene_config 新增 daily_token_limit（null/0=不限）；新增 TokenCostGuard（ai2/support）——Redis INCR 日累计（键含 yyyyMMdd 跨日自然切换，TTL 2 天），网关 execute 前置配额检查，超限拒绝（AI_TOKEN_LIMIT_EXCEEDED）+ 日志留痕（status=fail, error=token_limit_exceeded），成功后按实际 tokenUsed 累加；Redis 异常放行（fail-open，基础设施抖动不阻断业务）
+- **admin 前端**：场景配置"限流与降级"页签新增"日Token上限"字段（步骤 10000，空/0=不限，含场景级共享语义提示）
+- **注入防护补强**：SUSPECT_HIJACK 补充中文"请你(来)扮演/充当"模式（原测试用例"请你扮演一位资深前端专家"漏匹配 → 修复对齐，SUSPECT 仅标记不拦截）
+- **单测**：TokenCostGuardTest 13 用例（纯判定/配额检查含脏数据与 Redis 异常放行/消费累计含 TTL 设置时机）+ PromptInjectionGuardTest 回归，29 用例全绿；后端编译 BUILD SUCCESS
+- **文档同步**：评估文档维度7 2.9→3.5（成本金额）、维度8 3.2→3.8（熔断落地）、维度9 测试行更新（ai2 新增 29 用例）、P0-2 勾选完成
+
+### P0-1 变更（依据《AI底座企业级评估-代码实测结论与改进清单》P0-1）
+- **新增 PromptInjectionGuard**（ai2/support）：双通道防护——
+  - 指令通道（顶层 userInput）：sanitizeAndCap 清洗（控制字符/零宽字符/8000 截断）+ scan 扫描（指令覆盖/提示词探取中英模式 → DANGEROUS 拒绝；角色扮演 → SUSPECT 放行，业务存在合法角色扮演）
+  - 数据通道（input 字符串值）：字符级清洗；Handler 嵌入不可信数据用 wrapData 分隔符隔离（防误杀简历/文档类数据，符合 OWASP LLM 指引）
+- **网关接线**：execute 与 executeStream 双路径；DANGEROUS → INPUT_REJECTED(1008) + ai_execute_log 留痕（status=fail, error=prompt_injection_blocked）
+- **Handler 改造**：ResumeParseHandler/SensitiveWordHandler 用户文本拼接改 wrapData 隔离
+- **单测**：PromptInjectionGuardTest 16 用例（清洗/截断/中英危险模式/角色扮演放行/良性零误杀/包裹格式），全绿
+- **文档同步**：评估文档维度8 评分 2.5→3.2、综合 3.55→3.61、P0-1 勾选完成
+
+### 四同步
+- 代码：编译+单测通过；SQL/菜单：无关（纯网关横切）；文档：本记录+评估文档更新
+
+## v11.56 (2026-09-11) AI 底座企业级评估·代码实测结论文档
+
+### 内容
+- 对照《AI 底座企业级评估标准与项目现状分析.md》（v11.48 基线、基于文档推断）做全量代码实测，产出配套结论文档：`docs/11-记账模块需求分析/AI底座企业级评估-代码实测结论与改进清单.md`
+- 实测方法：4 路并行扫描（模型/网关横切、Agent/工具、RAG/工作流、场景/安全/测试）+ 关键点全库 grep 复核
+
+### 核心结论（13 项证据修正）
+- **9 项原文档低估**：密钥 AES-GCM 加密已有、[TOOL_CALL]+ToolRegistry 工具链路已有、语义缓存已实现（0.95 余弦）、意图识别已接线（v11.52）、限流已生效、降级策略已实现、RAG 查询改写+扩展已有、JVector 已落地、Redis 窗口记忆已有
+- **2 项高估**：场景业务收口实为 1/7（全库唯一 aiGatewayService.execute 业务调用点=财务分析）；测试 12 个全在老 chat/RAG 包，AnswerScoringEngine/ai2 网关/财务/资金链路零测试
+- **2 项确认**：Prompt 注入防护为零（userInput 顶层化后风险面更大）、输出过滤/成本熔断为零
+- 综合评分 3.10 → 3.55；原文档 P0-1（FC 从零建设）取消，改为 Schema 校验增强（P1）；安全类（注入/输出过滤/熔断）前移第一批
+
+### 四同步
+- 纯文档变更（代码/SQL/菜单无关）；后续改造按结论文档第四部分 P0/P1/P2 清单执行
+
+## v11.55 (2026-09-11) 财务分析异步任务化 + 报告多版本
+
+### 背景
+- 换绑快速模型后 LLM 生成成功，但 30-60s+ 的同步等待体验差（前端转圈/超时风险）
+- 旧报告表 UNIQUE(user_id,period) 覆盖式存储：重新分析丢上一版，无法对比回看
+
+### 变更
+**后端（异步任务 + 多版本）**
+- 任务三件套（LedgerAiAnalysisServiceImpl + PortalLedgerAiController）：
+  - `POST /portal/ledger/ai/analysis/task`：提交任务返回 taskId（UUID 16 位）；**同用户进行中任务复用**（Redis running 标记，防重复烧 token）
+  - `GET /portal/ledger/ai/analysis/task/{taskId}`：轮询状态 pending/running/success(带完整report)/failed(带error)/not_found；归属校验（非本人任务视为不存在）
+  - 执行走 applicationTaskExecutor（复用 @EnableAsync 线程池），完成/失败回写 Redis 任务态（TTL 30 分钟），running 标记释放（TTL 15 分钟兜底）
+- 多版本（SQL 20260911-02 + 代码）：
+  - 表：DROP UNIQUE uk_user_period → 普通索引 idx_user_period；每次生成 INSERT 新记录
+  - 快照命中：同 period 取最新一条比对指纹（旧版本保留）
+  - `GET /reports/{id}` 详情（完整回看）/ `DELETE /reports/{id}` 删除（归属校验）
+  - 历史列表按 id 倒序（新版本在前），"共 N 份"
+- 旧同步接口 `/analysis` 保留语义：页面进入走它（快照命中毫秒级），主动重算改走任务接口
+
+**前端（moyun-ledger-app）**
+- api/ledger.js：submitAiAnalysisTask/getAiAnalysisTask/getAiReportDetail/deleteAiReport
+- analysis/index.vue：
+  - "重新分析" → 异步任务 + 2s 轮询（最长 10 分钟）；页面内"生成中"提示条（转圈动画，替代 uni.showLoading 白屏），期间可自由浏览
+  - 历史列表"查看"升级：详情接口完整回看（指标/风险/建议还原到页面，替代旧 showModal 只显综述）
+  - 历史列表每行加"删除"（确认弹窗）
+  - onHide/onUnload 清理轮询定时器
+
+### 四同步
+- 代码：后端编译通过；SQL：20260911-02-ledger-ai-report-multi-version.sql（含索引存在性预查）；菜单：无关；文档：本记录
+- 验证：① 执行 SQL（DROP UNIQUE 是唯一人工确认项）→ 重启后端；② 分析页点"重新分析"→ 立即出现"生成中"提示条，期间可切页；③ 完成后 toast"分析完成"自动渲染新报告；④ 连点两次"重新分析"→ 第二次复用进行中任务（resubmitted=true，不重复烧 token）；⑤ 历史列表同月多条版本可回看/删除；⑥ 进页面（快照命中）依旧毫秒级返回
+
+## v11.54 (2026-09-11) 财务分析"LLM 无返回"根因修复：空响应静默分支 + 模型超时
+
+### 根因（日志实证，两类失败叠加）
+- 用户反馈：分析页一直走 `if (!outcome.isSuccess()) → LLM 无返回，降级模板综述`
+- **失败A（超时重试）**：`RestClientException → SocketTimeoutException`（okhttp Http2 StreamTimeout）+ langchain4j RetryUtils 重试 3 次（attempt 1/2/3 of 3）——模型17（deepseek-v4-pro，https://api.deepseek.com）对财务分析的长上下文+大 JSON 生成耗时超过模型客户端读超时；单次调用实测 279~298 秒
+- **失败B（空响应静默）**：另一并发请求 HTTP 200 但 content 为空（疑似推理模型只出 reasoning_content 或触发内容审查），旧 chatDetailed 代码 `resp.aiMessage() != null` 即 return——text=null 直接静默失败，无任何日志（本次排障最大盲区）
+- 反证：管理页"测试连接"（简单文本）3 秒 HTTP 200 —— API 连通与密钥正常，纯属长生成超时
+
+### 修复
+1. **代码（chatDetailed）**：空内容分支不再静默 return——记录 WARN（含模型名）并回落默认模型再试一次；成功判定收紧为 `text 非null非blank`（AbstractAiSceneHandler）
+2. **SQL（20260911-01）**：模型17 timeout 条件提升至 180 秒（仅当 <180 时）；注释说明 langchain4j 硬编码重试 3 次的最坏等待，及换绑非推理快速模型的建议
+
+### 待观察
+- 若 deepseek-v4-pro 为推理型模型，长 JSON 生成 5 分钟+ 属正常行为——建议 finance_analysis 场景绑定非推理快速模型（deepseek-chat 类），吞吐优先；或等 chat 收口后改流式调用
+- ai_scene_config.timeout_seconds 字段仍未被消费（网关建模型走 Agent→模型配置的 timeout），列入断点清单待接线
+
+### 四同步
+- 代码：编译通过；SQL：20260911-01-model17-timeout-v11-54.sql（条件 UPDATE+前后验证查询）；菜单：无关；文档：本记录
+- 验证：执行 SQL → 重启 → 分析页"重新分析"；若仍降级，日志现必有 WARN（"绑定模型返回空内容"或"场景绑定模型调用失败"）可定位真实原因
+
 ## v11.53.1 (2026-09-10) 死代码清理：基类孤儿方法 parseJson(String, Class)
 
 ### 审计范围（v11.48~v11.53 触达文件全量扫描）
@@ -1134,9 +1768,7 @@ finish 成功展示报告后，静默重拉 `getVoiceInterviewDetail(id)` 刷新
 
 ---
 
-## v11.14 (2026-09-03) 记账模块（个人资产管理）Phase 1：后端核心落地
-
----
+***
 
 ## v11.13 (2026-09-02) 面试题库归属学习中心：路由反转 + 面包屑修正
 

@@ -278,6 +278,15 @@
                 </el-form-item>
               </el-col>
             </el-row>
+            <el-form-item label="日Token上限">
+              <el-input-number
+                v-model="form.dailyTokenLimit"
+                :min="0" :step="10000" :step-strictly="false"
+                placeholder="空或0表示不限"
+                style="width: 260px;"
+              />
+              <div class="form-tip" style="width: 100%;">场景级成本熔断（全体用户共享）：当日累计消耗 Token 超过该上限后拒绝调用，次日自动恢复；空或 0 = 不限制</div>
+            </el-form-item>
             <el-form-item label="备用模型">
               <el-select v-model="form.fallbackModelId" placeholder="AI不可用时备用模型（可清空）" filterable clearable style="width: 100%;">
                 <el-option v-for="m in modelOptions" :key="m.id" :label="m.name || m.modelName" :value="m.id" />
@@ -387,6 +396,7 @@ function makeDefaultForm() {
     rateLimitKey: '',
     rateLimitCount: 100,
     rateLimitTime: 60,
+    dailyTokenLimit: null,
     fallbackModelId: null,
     fallbackResponse: '',
     enableCache: false,
@@ -496,6 +506,7 @@ async function handleEdit(row) {
       rateLimitKey: data.rateLimitKey || '',
       rateLimitCount: data.rateLimitCount != null ? data.rateLimitCount : 100,
       rateLimitTime: data.rateLimitTime != null ? data.rateLimitTime : 60,
+      dailyTokenLimit: data.dailyTokenLimit != null ? data.dailyTokenLimit : null,
       fallbackModelId: data.fallbackModelId != null ? data.fallbackModelId : null,
       fallbackResponse: data.fallbackResponse || '',
       enableCache: !!data.enableCache,

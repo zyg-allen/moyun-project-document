@@ -23,14 +23,52 @@ public interface ILedgerAiAnalysisService {
     Map<String, Object> analyze(Long userId, boolean refresh, String range);
 
     /**
-     * 历史报告分页（v11.36）
+     * 提交异步分析任务（v11.55）
+     *
+     * <p>LLM 生成长（快速模型 30-60s+），同步等待体验差。提交后立即返回 taskId，
+     * 前端轮询 {@link #getAnalysisTask}。同用户已有进行中任务时直接返回该任务（防重复烧 token）。
+     *
+     * @param userId 门户用户 ID
+     * @param range  维度：month/3m/6m/year（非法回落 month）
+     * @return { taskId, status: pending|running, resubmitted: 是否复用进行中任务 }
+     */
+    Map<String, Object> submitAnalysisTask(Long userId, String range);
+
+    /**
+     * 查询异步任务状态（v11.55）
+     *
+     * @param userId  门户用户 ID（归属校验，非本人任务返回 not_found）
+     * @param taskId  任务 ID
+     * @return { status: pending|running|success|failed|not_found, report(完成时), error(失败时) }
+     */
+    Map<String, Object> getAnalysisTask(Long userId, String taskId);
+
+    /**
+     * 历史报告分页（v11.36；v11.55 起同一 period 可多版本，按时间倒序）
      *
      * @param userId   门户用户 ID
      * @param page     页码（1 起）
      * @param pageSize 每页条数
-     * @return { list: [...], total: n }，list 项含 period/healthScore/aiSummary/updateTime
+     * @return { list: [...], total: n }，list 项含 id/period/healthScore/aiSummary/updateTime
      */
     Map<String, Object> listReports(Long userId, int page, int pageSize);
+
+    /**
+     * 报告详情（v11.55 历史版本完整回看）
+     *
+     * @param userId   门户用户 ID（归属校验）
+     * @param reportId 报告 ID
+     * @return 与 analyze 相同结构的完整报告（fromCache=true）
+     */
+    Map<String, Object> getReportDetail(Long userId, Long reportId);
+
+    /**
+     * 删除报告版本（v11.55 用户可清理不满意的历史版本）
+     *
+     * @param userId   门户用户 ID（归属校验）
+     * @param reportId 报告 ID
+     */
+    void deleteReport(Long userId, Long reportId);
 
     /**
      * 获取用户画像（含身份标签字典选项）

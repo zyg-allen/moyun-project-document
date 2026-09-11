@@ -289,6 +289,7 @@ const categoryOptions = ref([]);
 const isExpandAll = ref(true);
 const refreshTable = ref(true);
 const isLevel2 = ref(false); // 是否在添加二级栏目（用于禁用父级选择）
+const originalParentId = ref(0); // 编辑前的原始父级，仅父级变化时才做层级校验
 
 const data = reactive({
   form: {},
@@ -375,6 +376,7 @@ function reset() {
     remark: undefined
   };
   isLevel2.value = false;
+  originalParentId.value = 0;
   proxy.resetForm("categoryRef");
 }
 
@@ -435,6 +437,8 @@ async function handleUpdate(row) {
   await getTreeselect();
   getCategory(row.id).then(response => {
     form.value = response.data;
+    // 记录原始父级，用于"父级是否变化"判断
+    originalParentId.value = response.data.parentId ?? 0;
     // 如果是二级栏目，禁用父级选择
     if (row.parentId && row.parentId !== 0) {
       isLevel2.value = true;
@@ -448,13 +452,12 @@ async function handleUpdate(row) {
 function submitForm() {
   proxy.$refs["categoryRef"].validate(valid => {
     if (valid) {
-      // 前端校验：二级栏目不能添加子栏目
-      if (isLevel2.value && form.value.parentId !== 0) {
-        // 如果当前是在添加二级栏目，且选择了父级
-        // 检查父级是否已经是二级
-        const parentCategory = findCategoryById(categoryOptions.value, form.value.parentId);
-        if (parentCategory && parentCategory.parentId !== 0) {
-          proxy.$modal.msgError("最多只支持两级栏目，不能添加三级栏目");
+      // 前端校验：仅当父级发生变化时才校验层级（存量超两级数据允许编辑其他字段）
+      const currentParent = form.value.parentId ?? 0;
+      if (currentParent !== originalParentId.value && currentParent !== 0) {
+        const parentCategory = findCategoryById(categoryOptions.value, currentParent);
+        if (parentCategory && parentCategory.parentId != null && parentCategory.parentId !== 0) {
+          proxy.$modal.msgError("最多只支持两级栏目，不能设置为三级栏目");
           return;
         }
       }

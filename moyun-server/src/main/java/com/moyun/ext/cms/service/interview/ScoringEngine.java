@@ -2,7 +2,7 @@ package com.moyun.ext.cms.service.interview;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.moyun.ext.cms.service.LlmClient;
+import com.moyun.ext.ai2.support.AiSceneJsonClient;
 import com.moyun.util.string.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -20,6 +20,9 @@ import java.util.Map;
  * <p>自我介绍评分：LLM 结构化 4 维度（逻辑结构/自我认知/岗位匹配/表达流畅）
  * + 规则校验兜底（字数/结构词），权重来自面试配置 scoring_weights.selfIntro，
  * 默认 30/25/25/20。总分 = Σ(维度分 × 权重)。</p>
+ *
+ * <p>v11.58 P0-3c：LLM 评分收口 AI 网关（voice_interview 场景 task=self_intro 子任务，
+ * 提示词收编至 VoiceInterviewHandler，本类只做解析与权重融合）。</p>
  *
  * <p>每题评分融合（LLM 70% + 规则 30%）随 C1 接入 submitAnswer 链路时启用。</p>
  *
@@ -41,8 +44,9 @@ public class ScoringEngine {
     /** 自我介绍结构词（规则维度校验用） */
     private static final String[] STRUCTURE_WORDS = {"首先", "其次", "然后", "最后", "第一", "第二", "目前", "曾经", "负责"};
 
+    /** v11.58 P0-3c：LLM 直调收口网关 */
     @Autowired
-    private LlmClient llmClient;
+    private AiSceneJsonClient aiSceneJsonClient;
 
     /**
      * 自我介绍评分（LLM 优先，失败回退规则）
@@ -50,10 +54,11 @@ public class ScoringEngine {
      * @param position           面试岗位（岗位匹配维度参考）
      * @param transcript         自我介绍转写文本
      * @param scoringWeightsJson 面试配置 scoring_weights JSON（读取 selfIntro 节点，可空）
+     * @param userId             用户ID（网关限流身份/日志归属，可空走匿名桶）
      */
-    public IntroScore evaluateSelfIntro(String position, String transcript, String scoringWeightsJson) {
+    public IntroScore evaluateSelfIntro(String position, String transcript, String scoringWeightsJson, Long userId) {
         int[] weights = resolveIntroWeights(scoringWeightsJson);
-        IntroScore score = tryLlmSelfIntro(position, transcript, weights);
+        IntroScore score = tryLlmSelfIntro(position, transcript, weights, userId);
         if (score == null) {
             score = ruleSelfIntro(transcript, weights);
         }
@@ -61,51 +66,29 @@ public class ScoringEngine {
         return score;
     }
 
-    // ==================== LLM 评分 ====================
+    // ==================== LLM 评分（v11.58 P0-3c：经 AI 网关） ====================
 
-    private IntroScore tryLlmSelfIntro(String position, String transcript, int[] weights) {
+    private IntroScore tryLlmSelfIntro(String position, String transcript, int[] weights, Long userId) {
         try {
-            if (llmClient == null || !llmClient.isEnabled()) {
+            JsonNode node = aiSceneJsonClient.executeForJson(
+                    SCENE_VOICE_INTERVIEW,
+                    Map.of("task", "self_intro",
+                            "context", position == null ? "" : position,
+                            "transcript", transcript),
+                    userId);
+            if (node == null) {
                 return null;
             }
-            String system = "你是一位资深技术面试官，请对候选人的自我介绍进行严格评估。"
-                    + (StringUtils.isNotEmpty(position) ? "目标岗位：" + position + "。" : "")
-                    + "只输出如下 JSON（不要任何其他文字）：\n"
-                    + "{\n"
-                    + "  \"scores\": {\"structure\": 0-100, \"awareness\": 0-100, \"matching\": 0-100, \"fluency\": 0-100},\n"
-                    + "  \"comment\": \"两到三句中文总评，先肯定亮点再指出不足\",\n"
-                    + "  \"strengths\": [\"1-2条亮点，每条一句话\"],\n"
-                    + "  \"weaknesses\": [\"1-2条不足，每条一句话\"],\n"
-                    + "  \"followupWorth\": true或false（自我介绍中是否有值得追问的模糊点）,\n"
-                    + "  \"followupQuestion\": \"followupWorth 为 true 时给出一句针对性追问，必须引用候选人原话\"\n"
-                    + "}\n"
-                    + "维度定义：structure=逻辑结构（条理/详略/结构词）；awareness=自我认知（优劣势/职业规划清晰度）；"
-                    + "matching=岗位匹配（技术栈/项目经历与目标岗位相关度）；fluency=表达流畅（口语自然度/信息密度）。\n"
-                    + "打分参考：结构混乱<40；基本连贯50-65；条理清晰有详略70-85；结构完整且亮点突出85+。";
-            String resp = llmClient.chat(SCENE_VOICE_INTERVIEW, system, "候选人自我介绍如下：\n\"" + transcript + "\"");
-            if (StringUtils.isEmpty(resp)) {
-                return null;
-            }
-            return parseIntroScore(resp, weights);
+            return parseIntroScore(node, weights);
         } catch (Exception e) {
             log.warn("[ScoringEngine] LLM 自我介绍评分失败，回退规则评分：{}", e.getMessage());
             return null;
         }
     }
 
-    /** 宽容解析 LLM JSON（兼容 markdown 代码块）；解析失败返回 null 走规则 */
-    private IntroScore parseIntroScore(String raw, int[] weights) {
+    /** 解析网关结构化自我介绍评分（v11.58：Handler 已容错解析 JSON，此处只做字段映射）；失败返回 null 走规则 */
+    private IntroScore parseIntroScore(JsonNode node, int[] weights) {
         try {
-            String json = raw.trim();
-            if (json.startsWith("```")) {
-                int st = json.indexOf('{');
-                int en = json.lastIndexOf('}');
-                if (st < 0 || en <= st) {
-                    return null;
-                }
-                json = json.substring(st, en + 1);
-            }
-            JsonNode node = MAPPER.readTree(json);
             IntroScore score = new IntroScore();
             Map<String, Integer> dims = new LinkedHashMap<>();
             dims.put("structure", clampInt(node.path("scores").path("structure").asInt(-1)));

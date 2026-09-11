@@ -106,6 +106,12 @@ public class AiSceneConfig extends AiBaseEntity {
     /** 限流时间窗口（秒） */
     private Integer rateLimitTime;
 
+    /** 场景日 Token 上限（v11.57 P0-2 成本熔断：当日累计消耗超限后拒绝调用；null=不限） */
+    private Integer dailyTokenLimit;
+
+    /** 是否启用输出内容过滤（v11.62 P1-3：启用后网关响应 data 文本经 DFA 词树脱敏；0=关闭） */
+    private Boolean enableOutputFilter;
+
     /** 备用模型 ID */
     private Long fallbackModelId;
 

@@ -544,10 +544,13 @@ async function loadResumeList() {
     const res = await getMyResumeList({ pageNum: 1, pageSize: 50 });
     if (res.code === 200 && res.data) {
       resumeList.value = res.data.list || [];
-      // 默认选中第一份有效简历，并带入其求职意向岗位
-      const first = resumeList.value.find((r) => r.id);
-      if (first?.id) {
-        selectResume(first);
+      // URL 指定简历优先（简历优化页"去面试"闭环入口），否则默认选中第一份，并带入其求职意向岗位
+      const wantedId = Number(route.query.resumeId);
+      const target = wantedId
+        ? resumeList.value.find((r) => Number(r.id) === wantedId)
+        : resumeList.value.find((r) => r.id);
+      if (target?.id) {
+        selectResume(target);
       }
     }
   } catch {
@@ -764,6 +767,24 @@ function pointText(p: PointItem): string {
 }
 function pointQuote(p: PointItem): string {
   return typeof p === 'string' ? '' : p.quote || '';
+}
+
+/** v11.x 闭环：从弱项文本提取练习搜索关键词（去疑问修饰，截取核心词） */
+function practiceKeyword(text: string): string {
+  const cleaned = text
+    .replace(/请(谈谈|说说|讲讲|描述|解释|说明)?/g, '')
+    .replace(/你(对|的|觉得|认为)?/g, '')
+    .replace(/(理解|看法|认识|了解|掌握)(如何|怎么样)?/g, '')
+    .replace(/[?？。！，、的了吗呢吧]/g, '')
+    .trim();
+  const kw = (cleaned || text.replace(/[?？。！，、]/g, '')).trim();
+  return kw.slice(0, 12);
+}
+
+/** v11.x 闭环：弱项 → 去练习（跳转选择题练习，带关键词过滤） */
+function gotoPractice(text: string) {
+  const kw = practiceKeyword(text);
+  router.push(kw ? `/learn/practice/choice?keyword=${encodeURIComponent(kw)}` : '/learn/practice/choice');
 }
 function kpTitle(k: KnowledgePointItem): string {
   return typeof k === 'string' ? k : k.title || k.name || '';
@@ -2095,6 +2116,7 @@ const chatStatus = computed(() => {
                 >
                   <div class="cons-item-title">{{ pointText(c) }}</div>
                   <div v-if="pointQuote(c)" class="cons-item-quote">"{{ pointQuote(c) }}"</div>
+                  <button class="practice-btn" @click="gotoPractice(pointText(c))">🎯 去练习</button>
                 </div>
                 <div v-if="(report?.weakPoints ?? []).length === 0" class="empty-tip">暂无明显薄弱点</div>
               </div>
@@ -2190,6 +2212,8 @@ const chatStatus = computed(() => {
               </li>
               <li v-if="suggestionItems.length === 0" class="empty-tip">暂无改进建议</li>
             </ul>
+            <!-- v11.x 闭环：面试建议 → 反哺简历优化 -->
+            <button class="practice-btn" @click="router.push('/interview/resume/optimize')">📝 按建议优化简历</button>
           </div>
         </div>
 
@@ -2593,8 +2617,8 @@ const chatStatus = computed(() => {
 .score-fill.low { background: var(--error); }
 .score-fill.medium { background: var(--warning); }
 .score-fill.high { background: var(--success); }
-.wrong-book-btn { margin-top: 0.875rem; padding: 0.4375rem 0.875rem; border: 1px solid var(--primary-border); background: var(--primary-bg); color: var(--primary); border-radius: var(--radius-md); cursor: pointer; font-size: 0.8125rem; font-weight: 500; transition: all 0.2s; }
-.wrong-book-btn:hover:not(:disabled) { background: var(--primary); color: white; border-color: var(--primary); }
+.wrong-book-btn, .practice-btn { margin-top: 0.875rem; padding: 0.4375rem 0.875rem; border: 1px solid var(--primary-border); background: var(--primary-bg); color: var(--primary); border-radius: var(--radius-md); cursor: pointer; font-size: 0.8125rem; font-weight: 500; transition: all 0.2s; }
+.wrong-book-btn:hover:not(:disabled), .practice-btn:hover { background: var(--primary); color: white; border-color: var(--primary); }
 .wrong-book-btn:disabled { opacity: 0.6; cursor: not-allowed; }
 
 .interviewer-analysis { background: white; border-radius: var(--radius-lg); padding: 1.75rem; box-shadow: var(--shadow-sm); border: 1px solid var(--gray-100); }

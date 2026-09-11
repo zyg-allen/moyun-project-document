@@ -5,6 +5,7 @@ import com.moyun.ext.ai.entity.AiSceneConfig;
 import com.moyun.ext.ai2.handler.AbstractAiSceneHandler;
 import com.moyun.ext.ai2.model.AiExecuteRequest;
 import com.moyun.ext.ai2.model.AiExecuteResponse;
+import com.moyun.ext.ai2.model.ChatOutcome;
 import com.moyun.ledger.domain.entity.LedgerAssetAccount;
 import com.moyun.ledger.domain.entity.LedgerBudget;
 import com.moyun.ledger.domain.entity.LedgerCategory;
@@ -298,7 +299,7 @@ public class FinanceAnalysisHandler extends AbstractAiSceneHandler {
             }
 
             // 4. 调用 + 解析（v11.51：结构化结果，实际模型/token 进响应 metadata）
-            com.moyun.ext.ai2.model.ChatOutcome outcome =
+            ChatOutcome outcome =
                     chatDetailed(getSceneCode(), system, userPrompt);
             if (!outcome.isSuccess()) {
                 log.info("[ai2:{}] LLM 无返回，降级模板综述 userId={}", getSceneCode(), userId);

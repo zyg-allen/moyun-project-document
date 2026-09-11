@@ -76,25 +76,31 @@
             <view class="score-desc">{{ reportScore >= 70 ? '状况良好，继续保持' : reportScore >= 40 ? '存在隐忧，建议优化' : '风险偏高，需重点改善' }}</view>
           </view>
         </view>
+        <!-- v11.55 生成中提示（异步任务轮询期间） -->
+        <view class="gen-bar" v-if="analyzing">
+          <view class="gen-spinner"></view>
+          <text class="flex-1">AI 分析生成中，约需 1 分钟，可先去记账…</text>
+        </view>
         <view class="ai-summary" v-if="aiSummary">{{ aiSummary }}</view>
         <view class="ai-summary placeholder" v-else>暂无数据，先去记几笔账吧</view>
-        <view class="ai-refresh" @tap="load(true)">重新分析</view>
+        <view class="ai-refresh" :class="{ disabled: analyzing }" @tap="!analyzing && load(true)">{{ analyzing ? '生成中…' : '重新分析' }}</view>
       </view>
 
-      <!-- 历史报告（v11.36） -->
+      <!-- 历史报告（v11.36；v11.55 多版本：每次生成独立保留，可回看/删除） -->
       <view class="card" v-if="reportList.length">
         <view class="card-title flex-row">
           <text class="flex-1">历史报告</text>
-          <text class="rp-total">共 {{ reportTotal }} 期</text>
+          <text class="rp-total">共 {{ reportTotal }} 份</text>
         </view>
-        <view class="rp-item" v-for="r in reportList" :key="r.id" @tap="viewReport(r)">
-          <view class="rp-main">
+        <view class="rp-item" v-for="r in reportList" :key="r.id">
+          <view class="rp-main" @tap="viewReport(r)">
             <view class="rp-month">{{ r.period }}</view>
             <view class="rp-snapshot" v-if="r.profileSnapshot">{{ r.profileSnapshot }}</view>
           </view>
           <view class="rp-side">
             <view class="rp-score" :class="r.healthScore >= 70 ? 'good' : r.healthScore >= 40 ? 'mid' : 'bad'">{{ r.healthScore }}分</view>
-            <view class="rp-view">查看 ›</view>
+            <view class="rp-view" @tap="viewReport(r)">查看 ›</view>
+            <view class="rp-del" @tap="removeReport(r)">删除</view>
           </view>
         </view>
         <view class="rp-more" v-if="reportList.length < reportTotal" @tap="loadMoreReports">加载更多（{{ reportList.length }}/{{ reportTotal }}）</view>
@@ -166,7 +172,8 @@
 </template>
 
 <script>
-import { getAiAnalysis, getAiProfile, updateAiProfile, listAiReports } from '@/api/ledger';
+import { getAiAnalysis, getAiProfile, updateAiProfile, listAiReports,
+         submitAiAnalysisTask, getAiAnalysisTask, getAiReportDetail, deleteAiReport } from '@/api/ledger';
 import { formatAmount } from '@/utils/money';
 import { useUserStore } from '@/stores/user';
 import { useThemeStore } from '@/stores/theme';
@@ -192,7 +199,11 @@ export default {
       reportScore: 0,
       fromCache: false,
       editForm: { identityTag: '', identityTagLabel: '', position: '', company: '' },
-      loading: false
+      loading: false,
+      // v11.55 异步任务
+      analyzing: false,
+      pollTimer: null,
+      pollCount: 0
     };
   },
   computed: {
@@ -235,6 +246,8 @@ export default {
     useThemeStore().restore();
     if (useUserStore().isLoggedIn) this.load();
   },
+  onHide() { this.stopPoll(); },
+  onUnload() { this.stopPoll(); },
   onPullDownRefresh() {
     this.load().finally(() => uni.stopPullDownRefresh());
   },
@@ -249,18 +262,63 @@ export default {
           this.identityOptions = pf.identityOptions || [];
         }
       }).catch(() => {});
-      if (force) uni.showLoading({ title: '分析中…' });
+      // v11.55：force（主动重新分析）走异步任务+轮询，页面提示"生成中"；
+      // 默认进入页面走同步接口（快照命中毫秒级返回，未命中兜底同步生成）
+      if (force) {
+        this.loading = false;
+        this.startTask();
+        return;
+      }
       try {
-        // force=true 走 refresh 强制重新分析（烧 token）；默认"本月"命中快照零 token
-        const params = force ? { range: this.range, refresh: true } : { range: this.range };
-        const report = await getAiAnalysis(params);
+        const report = await getAiAnalysis({ range: this.range });
         this.applyReport(report);
         this.loadReports(true);
       } catch (e) { /* 拦截器已提示 */ }
-      finally {
-        this.loading = false;
-        if (force) uni.hideLoading();
+      finally { this.loading = false; }
+    },
+    // ===== v11.55 异步分析任务 =====
+    async startTask() {
+      if (this.analyzing) return;
+      this.analyzing = true;
+      this.pollCount = 0;
+      try {
+        const task = await submitAiAnalysisTask({ range: this.range }) || {};
+        if (task.taskId) this.pollTask(task.taskId);
+      } catch (e) {
+        this.analyzing = false; /* 拦截器已提示 */
       }
+    },
+    pollTask(taskId) {
+      this.stopPoll();
+      this.pollTimer = setTimeout(async () => {
+        try {
+          const t = await getAiAnalysisTask(taskId) || {};
+          if (t.status === 'success') {
+            this.analyzing = false;
+            this.applyReport(t.report || {});
+            this.loadReports(true);
+            uni.showToast({ title: '分析完成', icon: 'success' });
+            return;
+          }
+          if (t.status === 'failed' || t.status === 'not_found') {
+            this.analyzing = false;
+            uni.showToast({ title: t.error || '分析失败，请稍后重试', icon: 'none' });
+            return;
+          }
+          // pending/running 继续（最长 10 分钟）
+          if (++this.pollCount > 300) {
+            this.analyzing = false;
+            uni.showToast({ title: '生成超时，请稍后在历史报告查看', icon: 'none' });
+            return;
+          }
+          this.pollTask(taskId);
+        } catch (e) {
+          this.analyzing = false; /* 网络异常终止轮询 */
+        }
+      }, 2000);
+    },
+    stopPoll() {
+      if (this.pollTimer) { clearTimeout(this.pollTimer); this.pollTimer = null; }
     },
     switchRange(r) {
       if (this.range === r) return;
@@ -294,14 +352,32 @@ export default {
       this.reportPage++;
       this.loadReports(false);
     },
-    // 查看某期历史报告
-    viewReport(r) {
-      if (!r || !r.aiSummary) return;
+    // 查看某份历史报告（v11.55 完整回看：详情渲染到页面，指标/风险/建议一并还原）
+    async viewReport(r) {
+      if (!r || !r.id) return;
+      try {
+        const report = await getAiReportDetail(r.id) || {};
+        this.range = 'month';
+        this.applyReport(report);
+        uni.pageScrollTo({ scrollTop: 0, duration: 200 });
+        uni.showToast({ title: '已载入 ' + (report.period || r.period) + ' 报告', icon: 'none' });
+      } catch (e) { /* 拦截器已提示 */ }
+    },
+    // 删除历史版本（v11.55）
+    removeReport(r) {
+      if (!r || !r.id) return;
       uni.showModal({
-        title: r.period + ' 报告（' + (r.healthScore || 0) + ' 分）',
-        content: r.aiSummary,
-        showCancel: false,
-        confirmText: '关闭'
+        title: '删除报告',
+        content: '确定删除 ' + (r.period || '') + ' 的这份报告吗？',
+        success: async (res) => {
+          if (!res.confirm) return;
+          try {
+            await deleteAiReport(r.id);
+            this.reportList = this.reportList.filter(x => x.id !== r.id);
+            this.reportTotal = Math.max(0, this.reportTotal - 1);
+            uni.showToast({ title: '已删除', icon: 'success' });
+          } catch (e) { /* 拦截器已提示 */ }
+        }
       });
     },
     fmt(cents) { return formatAmount(cents || 0); },
@@ -383,6 +459,15 @@ export default {
 .ai-summary { font-size: 26rpx; color: #444; line-height: 1.8; }
 .ai-summary.placeholder { color: #bbb; text-align: center; padding: 30rpx 0; }
 .ai-refresh { text-align: center; color: var(--primary-strong); font-size: 24rpx; margin-top: 16rpx; padding: 8rpx 0; }
+.ai-refresh.disabled { color: #bbb; }
+
+/* v11.55 生成中提示条 */
+.gen-bar { display: flex; align-items: center; gap: 16rpx; background: #f0f7ff; border-radius: 14rpx; padding: 18rpx 20rpx; margin-top: 16rpx; font-size: 24rpx; color: var(--primary-strong); }
+.gen-spinner { width: 28rpx; height: 28rpx; border: 4rpx solid #d6e8ff; border-top-color: var(--primary); border-radius: 50%; animation: gen-spin 0.8s linear infinite; flex-shrink: 0; }
+@keyframes gen-spin { to { transform: rotate(360deg); } }
+
+/* v11.55 历史版本删除 */
+.rp-del { font-size: 22rpx; color: #e5964f; }
 
 /* 收入来源 */
 .src-row { display: flex; align-items: center; padding: 12rpx 0; }

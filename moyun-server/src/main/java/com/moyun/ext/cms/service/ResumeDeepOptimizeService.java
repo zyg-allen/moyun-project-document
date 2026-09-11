@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.moyun.ext.ai2.support.AiSceneJsonClient;
 import com.moyun.ext.cms.config.AiProperties;
 import com.moyun.ext.cms.domain.vo.ResumeDeepOptimizeVO;
 import com.moyun.ext.cms.domain.vo.UserResumeVO;
@@ -58,6 +59,10 @@ public class ResumeDeepOptimizeService {
     @Autowired
     private LlmClient llmClient;
 
+    /** v11.58 P0-3：LLM 调用统一走 AI 网关（task=field_assist/draft_empty 子任务） */
+    @Autowired
+    private AiSceneJsonClient aiSceneJsonClient;
+
     @Autowired
     private ObjectMapper objectMapper;
 
@@ -83,13 +88,18 @@ public class ResumeDeepOptimizeService {
     /**
      * AI 实时辅助编辑（v10.14 设计文档 P0 需求#2）：字段级多版本优化建议
      *
+     * <p>v11.58 P0-3 业务收口：经统一网关执行 resume_optimize 场景（task=field_assist），
+     * 提示词收编至 ResumeOptimizeHandler，本方法组装字段/岗位/原文上下文。</p>
+     *
      * @param field        字段类型：work_description/project_description/self_intro/skills
      * @param originalText 用户当前输入的原文
      * @param position     目标岗位（可空，来自简历求职意向）
      * @param skillNames   技能名列表（可空，作为上下文）
+     * @param userId       归属用户（限流身份/日志）
      * @return 建议列表（text=优化后文本，reason=理由）
      */
-    public List<Map<String, String>> fieldAssist(String field, String originalText, String position, List<String> skillNames) {
+    public List<Map<String, String>> fieldAssist(String field, String originalText, String position,
+                                                 List<String> skillNames, Long userId) {
         if (!aiProperties.isEnabled() || !aiProperties.isResumeAdviceEnabled() || !llmClient.isEnabled()) {
             throw new ServiceException("AI 辅助需要 AI 模型支持，请管理员在后台配置 AI 模型后使用");
         }
@@ -105,23 +115,22 @@ public class ResumeDeepOptimizeService {
             default: throw new ServiceException("不支持的字段类型：" + field);
         }
 
-        String systemPrompt = "你是一名资深简历优化专家，对简历中的「" + fieldLabel + "」给出3个不同风格的优化版本。"
-                + "优化原则：STAR法则（情境-任务-行动-结果）、量化数据（无依据数据用[X%][X万]占位符供用户填写）、"
-                + "突出与目标岗位相关的能力、专业商务表达避免口语化、每版50-150字。"
-                + "三个版本风格差异化：版本1侧重成果量化（推荐），版本2侧重技术深度，版本3侧重业务价值。"
-                + "保持与原文语义一致，禁止编造经历。"
-                + "返回 JSON：{\"suggestions\":[{\"text\":\"优化后完整文本\",\"reason\":\"一句话优化理由\"}]}，恰好3条。"
-                + "只输出 JSON 本体，禁止 markdown 代码块包裹，禁止前后说明文字。";
-        StringBuilder userPrompt = new StringBuilder();
-        userPrompt.append("【目标岗位】").append(position == null || position.isBlank() ? "未指定" : position).append('\n');
+        StringBuilder context = new StringBuilder();
+        context.append("【待优化字段】").append(fieldLabel).append('\n');
+        context.append("【目标岗位】").append(position == null || position.isBlank() ? "未指定" : position).append('\n');
         if (skillNames != null && !skillNames.isEmpty()) {
-            userPrompt.append("【用户技能】").append(String.join("、", skillNames)).append('\n');
+            context.append("【用户技能】").append(String.join("、", skillNames)).append('\n');
         }
-        userPrompt.append("【原始内容】\n").append(originalText);
+        context.append("【原始内容】\n").append(originalText);
 
         try {
-            String response = llmClient.chat(SCENE_RESUME_OPTIMIZE, systemPrompt, userPrompt.toString());
-            JsonNode node = objectMapper.readTree(LlmJsonExtractor.extract(response));
+            Map<String, Object> input = new HashMap<>();
+            input.put("task", "field_assist");
+            input.put("context", context.toString());
+            JsonNode node = aiSceneJsonClient.executeForJson(SCENE_RESUME_OPTIMIZE, input, userId);
+            if (node == null) {
+                throw new ServiceException("AI 辅助生成失败，请稍后重试");
+            }
             List<Map<String, String>> list = new ArrayList<>();
             JsonNode arr = node.path("suggestions");
             if (arr.isArray()) {
@@ -214,20 +223,10 @@ public class ResumeDeepOptimizeService {
         if (projectsEmpty) needFields.add("项目经历");
         if (selfIntroEmpty) needFields.add("自我介绍");
 
-        String systemPrompt = "你是一名简历撰写专家。根据用户已有信息，为空缺的字段生成初始草稿。"
-                + "生成原则：STAR 法则（情境-任务-行动-结果）、量化数据（无依据数据用 [X%][X万] 占位符供用户填写）、"
-                + "突出与目标岗位相关的能力、专业商务表达避免口语化。"
-                + "工作经历 2-3 条，每条描述 50-150 字；项目经历 2-3 条，每条描述 50-150 字；"
-                + "自我介绍 100-200 字，突出技能和经验。"
-                + "保持语义合理，禁止编造具体公司名（用 [公司名] 占位符）。"
-                + "返回 JSON：{works:[{company,position,startDate,endDate,description}],"
-                + "projects:[{name,role,startDate,endDate,description}],selfIntro:\"\"}。"
-                + "仅生成空缺字段，已有字段不输出。"
-                + "只输出 JSON 本体，禁止 markdown 代码块包裹，禁止前后说明文字。";
-
-        StringBuilder userPrompt = new StringBuilder();
-        userPrompt.append("【已有信息】\n");
-        userPrompt.append("- 姓名：").append(safeDraft(resume.getName())).append('\n');
+        // v11.58 P0-3：上下文组装（提示词已收编至 ResumeOptimizeHandler task=draft_empty）
+        StringBuilder context = new StringBuilder();
+        context.append("【已有信息】\n");
+        context.append("- 姓名：").append(safeDraft(resume.getName())).append('\n');
         // 技能
         if (resume.getSkills() != null && !resume.getSkills().isEmpty()) {
             StringBuilder skills = new StringBuilder();
@@ -239,45 +238,47 @@ public class ResumeDeepOptimizeService {
                     skills.append("(").append(s.getLevel()).append(")");
                 }
             }
-            userPrompt.append("- 技能：").append(skills).append('\n');
+            context.append("- 技能：").append(skills).append('\n');
         }
         // 求职意向
         if (resume.getJobIntention() != null) {
             UserResumeVO.JobIntention ji = resume.getJobIntention();
-            userPrompt.append("- 求职意向：岗位=").append(safeDraft(ji.getPosition()))
+            context.append("- 求职意向：岗位=").append(safeDraft(ji.getPosition()))
                     .append(", 城市=").append(safeDraft(ji.getCity()))
                     .append(", 类型=").append(safeDraft(ji.getJobType()))
                     .append('\n');
         }
         // 教育经历
         if (resume.getEducations() != null && !resume.getEducations().isEmpty()) {
-            userPrompt.append("- 教育经历：");
+            context.append("- 教育经历：");
             for (int i = 0; i < resume.getEducations().size(); i++) {
                 UserResumeVO.EducationItem e = resume.getEducations().get(i);
-                if (i > 0) userPrompt.append("；");
-                userPrompt.append(safeDraft(e.getSchool())).append("·")
+                if (i > 0) context.append("；");
+                context.append(safeDraft(e.getSchool())).append("·")
                         .append(safeDraft(e.getMajor())).append("·")
                         .append(safeDraft(e.getDegree()));
             }
-            userPrompt.append('\n');
+            context.append('\n');
         }
         // 目标岗位 JD（如有）
         if (!jdText.isBlank()) {
-            userPrompt.append("\n【目标岗位】").append(jdPosition).append('\n');
-            userPrompt.append("【岗位JD】\n").append(jdText).append('\n');
+            context.append("\n【目标岗位】").append(jdPosition).append('\n');
+            context.append("【岗位JD】\n").append(jdText).append('\n');
         }
-        userPrompt.append("\n【需要生成的字段（仅生成空缺的）】\n");
+        context.append("\n【需要生成的字段（仅生成空缺的）】\n");
         for (int i = 0; i < needFields.size(); i++) {
-            userPrompt.append(i + 1).append(". ").append(needFields.get(i)).append('\n');
+            context.append(i + 1).append(". ").append(needFields.get(i)).append('\n');
         }
 
         try {
-            String response = llmClient.chat(SCENE_RESUME_OPTIMIZE, systemPrompt, userPrompt.toString());
-            if (response == null || response.isBlank()) {
+            Map<String, Object> input = new HashMap<>();
+            input.put("task", "draft_empty");
+            input.put("context", context.toString());
+            JsonNode node = aiSceneJsonClient.executeForJson(SCENE_RESUME_OPTIMIZE, input, userId);
+            if (node == null) {
                 result.put("message", "AI 未生成有效草稿，请稍后重试");
                 return result;
             }
-            JsonNode node = objectMapper.readTree(LlmJsonExtractor.extract(response));
 
             int draftCount = 0;
             // 解析工作经历

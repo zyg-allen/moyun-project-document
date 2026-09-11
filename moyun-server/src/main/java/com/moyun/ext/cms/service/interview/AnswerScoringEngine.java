@@ -69,6 +69,7 @@ public class AnswerScoringEngine {
             keywords = extractKeywords(null, question.getTitle());
         }
         String lowerAnswer = answer == null ? "" : answer.toLowerCase();
+        int len = answer == null ? 0 : answer.length();
         int matched = 0;
         for (String kw : keywords) {
             if (lowerAnswer.contains(kw.toLowerCase())) {
@@ -78,17 +79,16 @@ public class AnswerScoringEngine {
 
         double coverage;
         if (keywords.isEmpty()) {
-            coverage = answer.length() >= 50 ? 0.6 : 0.2;
+            coverage = len >= 50 ? 0.6 : 0.2;
         } else {
             coverage = (double) matched / keywords.size();
         }
-        double lengthBonus = Math.min(answer.length() / 200.0, 1.0) * 20;
+        double lengthBonus = Math.min(len / 200.0, 1.0) * 20;
         int score = (int) Math.min(100, Math.round(coverage * 80 + lengthBonus));
 
         // 维度分（6 维连续计算，v11.30.2 重构：以覆盖率/长度/结构词/互动信号连续映射，
         // 消除旧版二值阈值导致的固定值；对齐前端雷达图维度键）
         Map<String, Integer> dimensions = new LinkedHashMap<>();
-        int len = answer.length();
         int coverageScore = (int) Math.round(coverage * 100);
         double matchRatio = coverage; // 命中比例（0-1）
         int structureWordHits = countStructureWords(answer);
@@ -119,7 +119,7 @@ public class AnswerScoringEngine {
         int logic = (int) Math.round(30 + Math.min(structureWordHits, 4) * 12 + coverage * 22);
         dimensions.put("logic", clamp(logic, 0, 100));
 
-        String feedback = buildFeedback(score, matched, keywords.size(), answer.length());
+        String feedback = buildFeedback(score, matched, keywords.size(), len);
         return new ScoreResult(score, feedback, dimensions);
     }
 
@@ -168,7 +168,8 @@ public class AnswerScoringEngine {
         if (StringUtils.isNotEmpty(tags)) {
             for (String t : tags.split("[,，]")) {
                 String s = t.trim();
-                if (isValidKeyword(s)) kw.add(s);
+                // v11.60 P0-4 单测发现：tags 分支同样受 MAX_KEYWORDS 封顶（原仅 solution 分支受限）
+                if (isValidKeyword(s) && kw.size() < MAX_KEYWORDS) kw.add(s);
             }
         }
         if (StringUtils.isNotEmpty(solution) && kw.size() < MAX_KEYWORDS) {

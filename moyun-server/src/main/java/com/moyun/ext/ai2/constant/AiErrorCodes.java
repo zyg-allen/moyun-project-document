@@ -22,6 +22,8 @@ public interface AiErrorCodes {
     int OUTPUT_MODE_NOT_SUPPORTED = 1006;
     /** 场景未开放通用入口调用（ai_scene_config.open_api=0，仅业务内部链路可用） */
     int SCENE_NOT_OPEN = 1007;
+    /** 输入包含注入攻击内容（PromptInjectionGuard 判定 DANGEROUS，已拒绝） */
+    int INPUT_REJECTED = 1008;
 
     // AI相关错误 (2000-2099)
     int AI_CALL_FAILED = 2000;

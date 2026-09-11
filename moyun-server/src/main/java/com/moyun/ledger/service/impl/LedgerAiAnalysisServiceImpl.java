@@ -8,6 +8,7 @@ import com.moyun.ext.ai.mapper.AiSceneConfigMapper;
 import com.moyun.ext.ai2.constant.AiErrorCodes;
 import com.moyun.ext.ai2.model.AiExecuteRequest;
 import com.moyun.ext.ai2.model.AiExecuteResponse;
+import com.moyun.ext.ai2.service.AiGatewayService;
 import com.moyun.ledger.domain.entity.LedgerAiAnalysisReport;
 import com.moyun.ledger.domain.entity.LedgerAssetAccount;
 import com.moyun.ledger.domain.entity.LedgerBudget;
@@ -45,6 +46,12 @@ import java.util.Map;
  *
  * <p>流程：指纹命中快照→直接返回；否则网关 execute(finance_analysis, {userId, range})
  * → Handler 查数组装+模板渲染+LLM（失败内部降级）→ 返回完整报告 → 落表月度快照 → 返回。</p>
+ *
+ * <p><strong>异步任务选型（v11.67 双轨制定位）</strong>：本服务采用 Redis 状态 + 线程池的
+ * 轻量异步模式（任务态 30 分钟 TTL），适用于财务分析这类短时长、结果时效性强的任务
+ * ——报告快照本身落 ledger_ai_analysis_report 持久化，任务态无需留痕；
+ * 长任务/需审计追溯的 AI 任务走表驱动 AiTaskService（portal_ai_task），
+ * 选型规则详见其类注释。</p>
  *
  * @author moyun
  */
@@ -89,6 +96,113 @@ public class LedgerAiAnalysisServiceImpl implements ILedgerAiAnalysisService {
     @Autowired(required = false)
     private com.moyun.ext.ai2.service.AiGatewayService aiGatewayService;
 
+    // ==================== 异步任务（v11.55） ====================
+
+    private static final String TASK_KEY_PREFIX = "ledger:ai:analysis:task:";
+    private static final String RUNNING_KEY_PREFIX = "ledger:ai:analysis:running:";
+    /** 任务状态保留时长（完成后仍可轮询取结果） */
+    private static final int TASK_TTL_MINUTES = 30;
+    /** 进行中任务标记时长（兜底防任务挂死永不释放，正常结束即删） */
+    private static final int RUNNING_TTL_MINUTES = 15;
+
+    @Autowired
+    private com.moyun.core.config.redis.RedisCache redisCache;
+
+    @org.springframework.beans.factory.annotation.Qualifier("applicationTaskExecutor")
+    @Autowired
+    private org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor taskExecutor;
+
+    @Override
+    public Map<String, Object> submitAnalysisTask(Long userId, String range) {
+        if (!VALID_RANGES.contains(range)) {
+            range = "month";
+        }
+        // 防重复提交：同用户进行中任务直接复用（不重复烧 token）
+        String runningKey = RUNNING_KEY_PREFIX + userId;
+        String existingTaskId = redisCache.getCacheObject(runningKey);
+        if (existingTaskId != null) {
+            Map<String, Object> existing = redisCache.getCacheObject(TASK_KEY_PREFIX + existingTaskId);
+            if (existing != null && !"failed".equals(existing.get("status"))) {
+                Map<String, Object> r = new LinkedHashMap<>();
+                r.put("taskId", existingTaskId);
+                r.put("status", existing.get("status"));
+                r.put("resubmitted", true);
+                return r;
+            }
+        }
+        String taskId = java.util.UUID.randomUUID().toString().replace("-", "").substring(0, 16);
+        Map<String, Object> task = new LinkedHashMap<>();
+        task.put("taskId", taskId);
+        task.put("userId", userId);
+        task.put("range", range);
+        task.put("status", "pending");
+        task.put("submitTime", System.currentTimeMillis());
+        redisCache.setCacheObject(TASK_KEY_PREFIX + taskId, task, TASK_TTL_MINUTES, java.util.concurrent.TimeUnit.MINUTES);
+        redisCache.setCacheObject(runningKey, taskId, RUNNING_TTL_MINUTES, java.util.concurrent.TimeUnit.MINUTES);
+        String finalRange = range;
+        taskExecutor.submit(() -> executeTask(taskId, userId, finalRange));
+        Map<String, Object> r = new LinkedHashMap<>();
+        r.put("taskId", taskId);
+        r.put("status", "pending");
+        r.put("resubmitted", false);
+        return r;
+    }
+
+    /** 异步执行分析并回写任务状态（refresh 恒为 true：用户主动触发的都是重算） */
+    private void executeTask(String taskId, Long userId, String range) {
+        String taskKey = TASK_KEY_PREFIX + taskId;
+        updateTaskStatus(taskKey, "running");
+        try {
+            Map<String, Object> report = analyze(userId, true, range);
+            Map<String, Object> task = redisCache.getCacheObject(taskKey);
+            if (task != null) {
+                task.put("status", "success");
+                task.put("report", report);
+                redisCache.setCacheObject(taskKey, task, TASK_TTL_MINUTES, java.util.concurrent.TimeUnit.MINUTES);
+            }
+        } catch (Exception e) {
+            log.warn("AI 分析任务执行失败 taskId={} userId={}", taskId, userId, e);
+            Map<String, Object> task = redisCache.getCacheObject(taskKey);
+            if (task != null) {
+                task.put("status", "failed");
+                task.put("error", e.getMessage() != null ? e.getMessage() : "分析失败，请稍后重试");
+                redisCache.setCacheObject(taskKey, task, TASK_TTL_MINUTES, java.util.concurrent.TimeUnit.MINUTES);
+            }
+        } finally {
+            redisCache.deleteObject(RUNNING_KEY_PREFIX + userId);
+        }
+    }
+
+    private void updateTaskStatus(String taskKey, String status) {
+        Map<String, Object> task = redisCache.getCacheObject(taskKey);
+        if (task != null) {
+            task.put("status", status);
+            redisCache.setCacheObject(taskKey, task, TASK_TTL_MINUTES, java.util.concurrent.TimeUnit.MINUTES);
+        }
+    }
+
+    @Override
+    public Map<String, Object> getAnalysisTask(Long userId, String taskId) {
+        Map<String, Object> task = redisCache.getCacheObject(TASK_KEY_PREFIX + taskId);
+        if (task == null) {
+            return Map.of("status", "not_found");
+        }
+        // 归属校验：非本人任务视为不存在
+        Object owner = task.get("userId");
+        if (owner == null || !String.valueOf(owner).equals(String.valueOf(userId))) {
+            return Map.of("status", "not_found");
+        }
+        Map<String, Object> r = new LinkedHashMap<>();
+        r.put("status", task.get("status"));
+        if ("success".equals(task.get("status")) && task.get("report") instanceof Map<?, ?> report) {
+            r.put("report", castMap(report));
+        }
+        if ("failed".equals(task.get("status"))) {
+            r.put("error", task.get("error"));
+        }
+        return r;
+    }
+
     @Override
     public Map<String, Object> analyze(Long userId, boolean refresh, String range) {
         // 维度归一化（非法值回落本月）
@@ -104,9 +218,12 @@ public class LedgerAiAnalysisServiceImpl implements ILedgerAiAnalysisService {
         // 数据指纹（流水/资产/负债/预算/画像 + 场景配置变更痕迹）——命中快照前比对
         String fingerprint = snapshotable ? buildFingerprint(userId, today, user) : null;
         if (snapshotable && !refresh) {
+            // v11.55 多版本：同 period 取最新一条比对指纹（旧版本保留供历史回看）
             LedgerAiAnalysisReport cached = reportMapper.selectOne(new LambdaQueryWrapper<LedgerAiAnalysisReport>()
                     .eq(LedgerAiAnalysisReport::getUserId, userId)
-                    .eq(LedgerAiAnalysisReport::getPeriod, period));
+                    .eq(LedgerAiAnalysisReport::getPeriod, period)
+                    .orderByDesc(LedgerAiAnalysisReport::getId)
+                    .last("LIMIT 1"));
             if (cached != null && fingerprint != null && fingerprint.equals(cached.getDataFingerprint())) {
                 Map<String, Object> r = reportToResult(cached, true);
                 r.put("range", range);
@@ -176,7 +293,8 @@ public class LedgerAiAnalysisServiceImpl implements ILedgerAiAnalysisService {
         com.baomidou.mybatisplus.extension.plugins.pagination.Page<LedgerAiAnalysisReport> r =
                 reportMapper.selectPage(p, new LambdaQueryWrapper<LedgerAiAnalysisReport>()
                         .eq(LedgerAiAnalysisReport::getUserId, userId)
-                        .orderByDesc(LedgerAiAnalysisReport::getPeriod));
+                        // v11.55 多版本：按生成时间倒序（同 period 新版本在前）
+                        .orderByDesc(LedgerAiAnalysisReport::getId));
         List<Map<String, Object>> list = new ArrayList<>();
         for (LedgerAiAnalysisReport rep : r.getRecords()) {
             Map<String, Object> item = new LinkedHashMap<>();
@@ -195,6 +313,26 @@ public class LedgerAiAnalysisServiceImpl implements ILedgerAiAnalysisService {
         return data;
     }
 
+    @Override
+    public Map<String, Object> getReportDetail(Long userId, Long reportId) {
+        LedgerAiAnalysisReport rep = reportMapper.selectById(reportId);
+        if (rep == null || !rep.getUserId().equals(userId)) {
+            throw new IllegalArgumentException("报告不存在");
+        }
+        Map<String, Object> result = reportToResult(rep, true);
+        result.put("reportId", rep.getId());
+        return result;
+    }
+
+    @Override
+    public void deleteReport(Long userId, Long reportId) {
+        LedgerAiAnalysisReport rep = reportMapper.selectById(reportId);
+        if (rep == null || !rep.getUserId().equals(userId)) {
+            throw new IllegalArgumentException("报告不存在");
+        }
+        reportMapper.deleteById(reportId);
+    }
+
     /** 快照实体 → 前端报告结构（缓存命中时使用） */
     private Map<String, Object> reportToResult(LedgerAiAnalysisReport rep, boolean fromCache) {
         Map<String, Object> result = new LinkedHashMap<>();
@@ -210,21 +348,15 @@ public class LedgerAiAnalysisServiceImpl implements ILedgerAiAnalysisService {
         return result;
     }
 
-    /** 落库（当月存在则更新；失败仅告警不影响返回） */
+    /** 落库（v11.55 多版本：每次生成 INSERT 新记录，同 period 旧版本保留；失败仅告警不影响返回） */
     private void saveReport(Long userId, String period, int healthScore,
                             Map<String, Object> indicators, List<Map<String, Object>> incomeSources,
                             List<Map<String, Object>> debtRisks, List<Map<String, Object>> suggestions,
                             String aiSummary, boolean aiEnabled, String profileSnapshot, String fingerprint) {
         try {
-            LedgerAiAnalysisReport rep = reportMapper.selectOne(new LambdaQueryWrapper<LedgerAiAnalysisReport>()
-                    .eq(LedgerAiAnalysisReport::getUserId, userId)
-                    .eq(LedgerAiAnalysisReport::getPeriod, period));
-            boolean exists = rep != null;
-            if (rep == null) {
-                rep = new LedgerAiAnalysisReport();
-                rep.setUserId(userId);
-                rep.setPeriod(period);
-            }
+            LedgerAiAnalysisReport rep = new LedgerAiAnalysisReport();
+            rep.setUserId(userId);
+            rep.setPeriod(period);
             rep.setHealthScore(healthScore);
             rep.setMetricsJson(MAPPER.writeValueAsString(indicators));
             rep.setIncomeJson(MAPPER.writeValueAsString(incomeSources));
@@ -234,11 +366,7 @@ public class LedgerAiAnalysisServiceImpl implements ILedgerAiAnalysisService {
             rep.setAiEnabled(aiEnabled ? 1 : 0);
             rep.setProfileSnapshot(profileSnapshot);
             rep.setDataFingerprint(fingerprint);
-            if (exists) {
-                reportMapper.updateById(rep);
-            } else {
-                reportMapper.insert(rep);
-            }
+            reportMapper.insert(rep);
         } catch (Exception e) {
             log.warn("AI 分析报告落库失败 userId={}", userId, e);
         }

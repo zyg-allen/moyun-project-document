@@ -1,5 +1,6 @@
 package com.moyun.ext.ai2.handler.impl;
 
+import com.moyun.ext.ai.entity.AiSceneConfig;
 import com.moyun.ext.ai2.constant.AiErrorCodes;
 import com.moyun.ext.ai2.handler.AbstractAiSceneHandler;
 import com.moyun.ext.ai2.model.AiExecuteRequest;
@@ -36,7 +37,7 @@ public class DailyTopicHandler extends AbstractAiSceneHandler {
     }
 
     @Override
-    public AiExecuteResponse<?> execute(AiExecuteRequest request) {
+    public AiExecuteResponse<?> execute(AiExecuteRequest request, AiSceneConfig config) {
         String date = getInputString(request, "date");
         String domain = getInputString(request, "domain");
         String excludeTitles = getInputString(request, "excludeTitles");
@@ -62,7 +63,7 @@ public class DailyTopicHandler extends AbstractAiSceneHandler {
             return AiExecuteResponse.failure(AiErrorCodes.AI_CALL_FAILED, "AI服务暂不可用");
         }
 
-        Map<String, Object> parsed = parseJsonMap(raw);
+        Map<String, Object> parsed = parseOutput(raw, config);
         if (parsed == null) {
             return AiExecuteResponse.failure(AiErrorCodes.AI_PARSE_ERROR, "主题生成结果解析失败");
         }

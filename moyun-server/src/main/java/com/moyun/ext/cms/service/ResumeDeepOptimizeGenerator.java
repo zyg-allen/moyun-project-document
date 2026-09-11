@@ -1,8 +1,8 @@
 package com.moyun.ext.cms.service;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.moyun.ext.ai2.support.AiSceneJsonClient;
 import com.moyun.ext.cms.config.AiProperties;
 import com.moyun.ext.cms.domain.vo.ResumeDeepOptimizeVO;
 import com.moyun.ext.cms.domain.vo.UserResumeVO;
@@ -15,7 +15,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * 简历深度优化的「生成能力」（v10.19：从 ResumeDeepOptimizeService 抽离，解决循环依赖）
@@ -50,6 +52,10 @@ public class ResumeDeepOptimizeGenerator {
     @Autowired
     private LlmClient llmClient;
 
+    /** v11.58 P0-3：深度优化生成统一走 AI 网关（task=deep_optimize 子任务） */
+    @Autowired
+    private AiSceneJsonClient aiSceneJsonClient;
+
     @Autowired
     private ObjectMapper objectMapper;
 
@@ -58,6 +64,9 @@ public class ResumeDeepOptimizeGenerator {
 
     /**
      * 生成深度优化建议（逐项前后对比）
+     *
+     * <p>v11.58 P0-3 业务收口：经统一网关执行 resume_optimize 场景（task=deep_optimize），
+     * 提示词收编至 ResumeOptimizeHandler，本方法仅组装 JD+简历上下文与结果映射。</p>
      *
      * @param resume      简历详情
      * @param jobTargetId 岗位目标ID
@@ -71,17 +80,6 @@ public class ResumeDeepOptimizeGenerator {
             throw new ServiceException("深度优化需要 AI 模型支持，请管理员在后台配置 AI 模型后使用");
         }
 
-        String systemPrompt = "你是一名资深简历优化专家，基于目标岗位JD对简历进行逐项深度优化。"
-                + "返回 JSON：summary(总体优化说明，50字内), items(优化建议数组，3-6项)。每项含："
-                + "section(必为以下枚举之一：objective/education/work/project/skills/selfIntro；"
-                + "严禁使用复数如works/projects，严禁使用experience/introduction 等同义词，必须完全匹配枚举值), "
-                + "index(列表条目索引，从0开始；skills 填 0), field(position/description/name), "
-                + "optimized(优化后完整文本，可直接替换，50-200字), reason(优化理由，一句话，30字内)。"
-                + "不要输出 original 字段（原文由系统回填）。"
-                + "优化原则：STAR法则+量化数据+[X%]占位符（无依据数据用占位符供用户填写）；"
-                + "skills 的 optimized 用\"精通：A、B\\n熟练：C\"格式；"
-                + "保持语义一致禁止编造经历。只输出 JSON 本体，禁止 markdown 代码块包裹，"
-                + "输出务必完整，禁止中途截断。";
         // v10.19：精简 prompt 输入，仅传简历核心内容（去掉 id/version/status/时间戳等无关字段），
         //         降低输入 token 加快响应，避免 60s 超时；异步任务化后 timeout 已调到 180s 双保险。
         // v10.22 阶段3：优先使用 full_text 全文纯文本，上下文更完整；
@@ -89,13 +87,18 @@ public class ResumeDeepOptimizeGenerator {
         String resumeContent = (resume.getFullText() != null && !resume.getFullText().isBlank())
                 ? resume.getFullText()
                 : buildResumeContext(resume);
-        String userPrompt = "【目标岗位】" + target.getPosition()
+        String context = "【目标岗位】" + target.getPosition()
                 + "\n【岗位JD】\n" + target.getJdText()
                 + "\n\n【简历核心内容】\n" + resumeContent;
 
         try {
-            String response = llmClient.chat(SCENE_RESUME_OPTIMIZE, systemPrompt, userPrompt);
-            JsonNode node = objectMapper.readTree(LlmJsonExtractor.extract(response));
+            Map<String, Object> input = new HashMap<>();
+            input.put("task", "deep_optimize");
+            input.put("context", context);
+            JsonNode node = aiSceneJsonClient.executeForJson(SCENE_RESUME_OPTIMIZE, input, resume.getUserId());
+            if (node == null) {
+                throw new ServiceException("深度优化生成失败：AI 服务暂不可用，请稍后重试");
+            }
             ResumeDeepOptimizeVO vo = new ResumeDeepOptimizeVO();
             vo.setResumeId(resume.getId());
             vo.setJobTargetId(jobTargetId);
@@ -137,9 +140,6 @@ public class ResumeDeepOptimizeGenerator {
             return vo;
         } catch (ServiceException e) {
             throw e;
-        } catch (JsonProcessingException e) {
-            log.error("[DeepOptimize] LLM 返回 JSON 解析失败（疑似输出被截断）", e);
-            throw new ServiceException("AI 输出被截断或格式异常，请管理员在后台「AI 模块 → 模型配置」调大最大 Token 数后重试");
         } catch (Exception e) {
             log.error("[DeepOptimize] LLM 生成失败", e);
             throw new ServiceException("深度优化生成失败：" + e.getMessage());

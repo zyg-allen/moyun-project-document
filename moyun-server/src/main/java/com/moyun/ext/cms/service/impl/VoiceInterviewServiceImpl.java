@@ -18,7 +18,6 @@ import com.moyun.ext.cms.service.IUserProfileSnapshotService;
 import com.moyun.ext.cms.service.IVoiceInterviewService;
 import com.moyun.ext.ai.dto.AiSceneBinding;
 import com.moyun.ext.cms.service.IPortalInterviewConfigService;
-import com.moyun.ext.cms.service.LlmClient;
 import com.moyun.portal.domain.entity.PortalInterviewConfig;
 import com.moyun.ext.cms.service.interview.InterviewPhase;
 import com.moyun.ext.cms.service.interview.QuestionPickCommand;
@@ -323,7 +322,7 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
     private List<PortalInterviewQuestion> pickAgentCandidates(PortalVoiceInterview interview) {
         Set<Long> used = usedQuestionIds(interview.getId());
         List<PortalInterviewQuestion> raw = pickQuestions(interview.getPosition(), interview.getScene(),
-                AGENT_CANDIDATE_COUNT + used.size());
+                AGENT_CANDIDATE_COUNT + used.size(), interview.getUserId());
         List<PortalInterviewQuestion> result = new ArrayList<>();
         for (PortalInterviewQuestion q : raw) {
             if (result.size() >= AGENT_CANDIDATE_COUNT) {
@@ -522,36 +521,28 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
 
     /**
      * LLM 一次调用同时完成：评分校正 + 漏洞识别 + 水平评估 + 针对性追问建议。
+     * v11.58 P0-3c：收口 AI 网关（voice_interview 场景 task=answer_analysis 子任务），
      * 失败/未启用时返回 null，调用方回退规则评分（保证链路永远可用）。
      */
     private AnswerAnalysis analyzeAnswerByLlm(PortalVoiceInterview interview, String questionTitle,
                                               String questionAnalysis, String transcript, AnswerScoringEngine.ScoreResult ruleScore) {
-        if (llmClient == null || !llmClient.isEnabled()) {
+        if (!aiProperties.isEnabled()) {
             return null;
         }
         try {
-            String system = buildContextualSystemPrompt(interview)
+            String context = buildContextualSystemPrompt(interview)
                     + "\n你刚刚向候选人提出问题：\"" + questionTitle + "\"\n"
-                    + (StringUtils.isNotEmpty(questionAnalysis) ? "该题考察要点：" + questionAnalysis + "\n" : "")
-                    + "候选人的语音转写回答如下（可能口语化、有转写噪音）：\n\"" + transcript + "\"\n\n"
-                    + "请以严格的技术面试官标准分析该回答，只输出如下 JSON（不要任何其他文字）：\n"
-                    + "{\n"
-                    + "  \"score\": 0-100的整数,\n"
-                    + "  \"dimensions\": {\"relevance\": 0-100, \"professionalism\": 0-100, \"fluency\": 0-100, \"interactivity\": 0-100, \"confidence\": 0-100, \"logic\": 0-100},\n"
-                    + "维度定义：relevance=回答与问题的相关性；professionalism=技术深度与专业度；fluency=表达流畅度；interactivity=互动性（举例/对比/坦诚沟通）；confidence=自信笃定程度；logic=逻辑条理与结构。\n"
-                    + "  \"feedback\": \"两到三句中文点评，先肯定再指出问题\",\n"
-                    + "  \"flaws\": [\"回答中暴露的具体漏洞或模糊点，每条一句话，最多3条，没有则空数组\"],\n"
-                    + "  \"level\": \"junior或mid或senior，对候选人当前真实水平的判断\",\n"
-                    + "  \"followupWorth\": true或false，该回答是否存在值得追问的漏洞,\n"
-                    + "  \"followupQuestion\": \"若followupWorth为true，给出一句针对漏洞的追问；必须引用候选人回答中的具体表述\",\n"
-                    + "  \"guidance\": \"若回答明显跑偏，给出一句引导性提示，否则为空字符串\"\n"
-                    + "}\n"
-                    + "打分参考：完全跑题<30；浅层正确但无细节50-65；有正确框架和部分细节65-80；深入准确有取舍权衡80+。";
-            String resp = llmClient.chat(SCENE_VOICE_INTERVIEW, system, "请分析该回答。");
-            if (StringUtils.isEmpty(resp)) {
+                    + (StringUtils.isNotEmpty(questionAnalysis) ? "该题考察要点：" + questionAnalysis + "\n" : "");
+            com.fasterxml.jackson.databind.JsonNode node = aiSceneJsonClient.executeForJson(
+                    SCENE_VOICE_INTERVIEW,
+                    Map.of("task", "answer_analysis",
+                            "context", context,
+                            "transcript", transcript),
+                    interview.getUserId());
+            if (node == null) {
                 return null;
             }
-            AnswerAnalysis analysis = parseAnalysis(resp, ruleScore);
+            AnswerAnalysis analysis = parseAnalysis(node, ruleScore);
             // v11.x C1：LLM 分与规则分按权重融合（默认 LLM 70% + 规则 30%）
             if (analysis != null) {
                 PortalInterviewConfig ic = loadInterviewConfigQuietly();
@@ -565,18 +556,9 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
         }
     }
 
-    /** 容错解析 LLM 返回的 JSON（兼容 markdown 代码块包裹） */
-    private AnswerAnalysis parseAnalysis(String raw, AnswerScoringEngine.ScoreResult ruleScore) {
+    /** 解析网关结构化回答分析结果（v11.58：Handler 已容错解析 JSON，此处只做字段映射与规则分融合） */
+    private AnswerAnalysis parseAnalysis(com.fasterxml.jackson.databind.JsonNode node, AnswerScoringEngine.ScoreResult ruleScore) {
         try {
-            String json = raw.trim();
-            if (json.startsWith("```")) {
-                int st = json.indexOf('{');
-                int en = json.lastIndexOf('}');
-                if (st >= 0 && en > st) {
-                    json = json.substring(st, en + 1);
-                }
-            }
-            com.fasterxml.jackson.databind.JsonNode node = objectMapper.readTree(json);
             AnswerAnalysis a = new AnswerAnalysis();
             a.score = clamp(node.path("score").asInt(ruleScore.score), 0, 100);
             a.feedback = node.path("feedback").asText("");
@@ -735,7 +717,8 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
     /** v11.47：规则评分引擎（自本类抽出的评分块） */
     @Autowired private AnswerScoringEngine answerScoringEngine;
     @Autowired private ObjectMapper objectMapper;
-    @Autowired private LlmClient llmClient;
+    /** v11.58 P0-3c：LLM 直调收口网关后移除 LlmClient 依赖，统一走 AiSceneJsonClient */
+    @Autowired private com.moyun.ext.ai2.support.AiSceneJsonClient aiSceneJsonClient;
     @Autowired private AiProperties aiProperties;
     @Autowired private InterviewAgentClient agentClient;
     @Autowired private InterviewPromptAssembler promptAssembler;
@@ -750,6 +733,7 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
     @org.springframework.beans.factory.annotation.Qualifier("aiTaskExecutor")
     private org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor aiTaskExecutor;
     @Autowired private IPortalInterviewConfigService interviewConfigService;
+    @Autowired private com.moyun.portal.mapper.PortalInterviewAttemptMapper attemptMapper;
 
     /** SSE 异步线程池（避免阻塞请求线程） */
     private final ScheduledExecutorService sseExecutor = Executors.newScheduledThreadPool(2);
@@ -936,7 +920,7 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
             String firstSource = firstQ == null ? null
                     : (firstQ.getId() != null ? "bank" : "llm");
             if (firstQ == null) {
-                List<PortalInterviewQuestion> fallback = pickQuestions(position, scene, 1);
+                List<PortalInterviewQuestion> fallback = pickQuestions(position, scene, 1, interview.getUserId());
                 if (fallback.isEmpty()) {
                     throw new ServiceException("题库中暂无可用题目，请稍后再试");
                 }
@@ -1243,7 +1227,8 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
         // ① ScoringEngine 4 维度评分（LLM 优先，规则兜底）
         PortalInterviewConfig ic = loadInterviewConfigQuietly();
         ScoringEngine.IntroScore introScore = scoringEngine.evaluateSelfIntro(
-                interview.getPosition(), transcript, ic == null ? null : ic.getScoringWeights());
+                interview.getPosition(), transcript, ic == null ? null : ic.getScoringWeights(),
+                interview.getUserId());
 
         // ② 持久化 QA 与主表评分
         String ack = StringUtils.isNotEmpty(introScore.getComment())
@@ -1317,7 +1302,8 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
                 }
             }
             if (firstQ == null) {
-                List<PortalInterviewQuestion> fallback = pickQuestions(interview.getPosition(), interview.getScene(), 1);
+                List<PortalInterviewQuestion> fallback = pickQuestions(interview.getPosition(), interview.getScene(), 1,
+                        interview.getUserId());
                 if (fallback.isEmpty()) {
                     throw new ServiceException("题库中暂无可用题目，请稍后再试");
                 }
@@ -1341,7 +1327,8 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
                 }
             }
             if (firstQ == null) {
-                List<PortalInterviewQuestion> fallback = pickQuestions(interview.getPosition(), interview.getScene(), 1);
+                List<PortalInterviewQuestion> fallback = pickQuestions(interview.getPosition(), interview.getScene(), 1,
+                        interview.getUserId());
                 if (fallback.isEmpty()) {
                     throw new ServiceException("题库中暂无可用题目，请稍后再试");
                 }
@@ -1622,13 +1609,21 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
                 log.warn("[VoiceInterview] agent 回答候选人提问失败：{}", e.getMessage());
             }
         }
-        if (aiProperties.isEnabled() && llmClient.isEnabled()) {
+        // v11.58 P0-3c：LLM 直调收口网关（voice_interview 场景 task=candidate_ask 子任务）
+        if (aiProperties.isEnabled()) {
             try {
-                String system = buildContextualSystemPrompt(interview)
-                        + "\n现在进入候选人反问环节，请以面试官身份回答候选人的提问，回答要专业、简洁（150字以内）。";
-                String resp = llmClient.chat(SCENE_VOICE_INTERVIEW, system, "候选人提问：" + transcript);
-                if (StringUtils.isNotEmpty(resp)) {
-                    return resp.trim();
+                String context = buildContextualSystemPrompt(interview);
+                com.fasterxml.jackson.databind.JsonNode node = aiSceneJsonClient.executeForJson(
+                        SCENE_VOICE_INTERVIEW,
+                        Map.of("task", "candidate_ask",
+                                "context", context,
+                                "transcript", transcript),
+                        interview.getUserId());
+                if (node != null) {
+                    String resp = node.path("text").asText("");
+                    if (StringUtils.isNotEmpty(resp)) {
+                        return resp.trim();
+                    }
                 }
             } catch (Exception e) {
                 log.warn("[VoiceInterview] LLM 回答候选人提问失败：{}", e.getMessage());
@@ -2400,30 +2395,25 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
         return points;
     }
 
-    /** LLM 批量生成知识点一句话简介（v11.30.4），失败返回空 Map 走规则回退 */
+    /**
+     * LLM 批量生成知识点一句话简介（v11.30.4），失败返回空 Map 走规则回退。
+     * v11.58 P0-3c：收口 AI 网关（voice_interview 场景 task=knowledge_desc 子任务）。
+     */
     private Map<String, String> tryLlmKnowledgeDesc(String position, List<String> tags) {
         Map<String, String> result = new LinkedHashMap<>();
         if (!aiProperties.isEnabled()) {
             return result;
         }
         try {
-            String prompt = "为以下面试知识点各生成一句话简介（40字内，说明是什么+面试常考点，中文）。\n"
-                    + "面试岗位：" + (StringUtils.isEmpty(position) ? "通用" : position) + "\n"
-                    + "知识点：" + String.join("、", tags) + "\n"
-                    + "输出 JSON：{\"points\":[{\"title\":\"知识点\",\"desc\":\"简介\"}]}，覆盖全部知识点，不要输出其他内容。";
-            String resp = llmClient.chat(SCENE_VOICE_INTERVIEW, "你是面试知识点归纳助手，只输出 JSON。", prompt);
-            if (StringUtils.isEmpty(resp)) {
+            String context = "面试岗位：" + (StringUtils.isEmpty(position) ? "通用" : position)
+                    + "\n知识点：" + String.join("、", tags);
+            com.fasterxml.jackson.databind.JsonNode node = aiSceneJsonClient.executeForJson(
+                    SCENE_VOICE_INTERVIEW,
+                    Map.of("task", "knowledge_desc", "context", context),
+                    null);
+            if (node == null) {
                 return result;
             }
-            String json = resp.trim();
-            if (json.startsWith("```")) {
-                int st = json.indexOf('{');
-                int en = json.lastIndexOf('}');
-                if (st >= 0 && en > st) {
-                    json = json.substring(st, en + 1);
-                }
-            }
-            com.fasterxml.jackson.databind.JsonNode node = objectMapper.readTree(json);
             for (com.fasterxml.jackson.databind.JsonNode item : node.path("points")) {
                 String title = item.path("title").asText("");
                 String desc = item.path("desc").asText("");
@@ -2656,7 +2646,8 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
             for (int i = 0; i < remain && result.size() < count; i++) {
                 UserProfileSnapshotVO.WeakTagItem tag = sorted.get(i);
                 if (StringUtils.isEmpty(tag.getTagName())) continue;
-                mergeUnique(queryByTag(tag.getTagName(), count - result.size()), pickedIds, result, count - result.size());
+                mergeUnique(queryByTag(tag.getTagName(), count - result.size(), snapshot.getUserId()),
+                        pickedIds, result, count - result.size());
             }
         }
 
@@ -2668,20 +2659,29 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
                 for (int i = 0; i < remain && result.size() < count; i++) {
                     String skill = requiredSkills.get(i);
                     if (StringUtils.isEmpty(skill)) continue;
-                    mergeUnique(queryByTag(skill, count - result.size()), pickedIds, result, count - result.size());
+                    mergeUnique(queryByTag(skill, count - result.size(), snapshot.getUserId()),
+                            pickedIds, result, count - result.size());
                 }
             }
         }
 
-        // 路径3：随机兜底
+        // 路径3：随机兜底（同样避让已掌握题；排除后为空则回退不排除）
         if (result.size() < count) {
             LambdaQueryWrapper<PortalInterviewQuestion> qw = Wrappers.<PortalInterviewQuestion>lambdaQuery()
                     .eq(PortalInterviewQuestion::getStatus, "published");
             if (!pickedIds.isEmpty()) {
                 qw.notIn(PortalInterviewQuestion::getId, pickedIds);
             }
-            qw.last("ORDER BY RAND() LIMIT " + Math.max(1, count - result.size()));
-            result.addAll(questionMapper.selectList(qw));
+            List<PortalInterviewQuestion> fallback = queryWithSolvedExclusion(qw, count - result.size(), snapshot.getUserId());
+            if (fallback.isEmpty()) {
+                qw = Wrappers.<PortalInterviewQuestion>lambdaQuery()
+                        .eq(PortalInterviewQuestion::getStatus, "published");
+                if (!pickedIds.isEmpty()) {
+                    qw.notIn(PortalInterviewQuestion::getId, pickedIds);
+                }
+                fallback = questionMapper.selectList(qw.last("ORDER BY RAND() LIMIT " + Math.max(1, count - result.size())));
+            }
+            result.addAll(fallback);
         }
         return result.size() > count ? new ArrayList<>(result.subList(0, count)) : result;
     }
@@ -2753,7 +2753,7 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
         // 画像不足时从题库补齐
         if (profileQuestions.size() < PROFILE_QUESTION_COUNT_WITH_RESUME) {
             List<PortalInterviewQuestion> fallback = pickQuestions(position, scene,
-                    PROFILE_QUESTION_COUNT_WITH_RESUME - profileQuestions.size());
+                    PROFILE_QUESTION_COUNT_WITH_RESUME - profileQuestions.size(), userId);
             for (PortalInterviewQuestion q : fallback) {
                 if (q != null && q.getId() != null && !pickedIds.contains(q.getId())) {
                     profileQuestions.add(q);
@@ -2838,21 +2838,31 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
         return text.length() <= maxLen ? text : text.substring(0, maxLen) + "…";
     }
 
-    private List<PortalInterviewQuestion> pickQuestions(String position, String scene, int count) {
-        List<PortalInterviewQuestion> qs = queryQuestions(scene, position, count);
+    private List<PortalInterviewQuestion> pickQuestions(String position, String scene, int count, Long userId) {
+        List<PortalInterviewQuestion> qs = queryQuestions(scene, position, count, userId);
         if (qs.size() >= count) return qs;
         if (StringUtils.isNotEmpty(scene)) {
-            qs = queryQuestions(scene, null, count);
+            qs = queryQuestions(scene, null, count, userId);
             if (qs.size() >= count) return qs;
         }
         if (StringUtils.isNotEmpty(position)) {
-            qs = queryQuestions(null, position, count);
+            qs = queryQuestions(null, position, count, userId);
             if (qs.size() >= count) return qs;
         }
-        return queryQuestions(null, null, count);
+        return queryQuestions(null, null, count, userId);
     }
 
-    private List<PortalInterviewQuestion> queryQuestions(String scene, String position, int count) {
+    private List<PortalInterviewQuestion> queryQuestions(String scene, String position, int count, Long userId) {
+        List<PortalInterviewQuestion> qs = queryWithSolvedExclusion(questionWrapper(scene, position), count, userId);
+        if (qs.isEmpty()) {
+            // 排除后无题可出：回退不排除（保证出题数量优先于避让）
+            qs = questionMapper.selectList(questionWrapper(scene, position)
+                    .last("ORDER BY RAND() LIMIT " + Math.max(1, count)));
+        }
+        return qs;
+    }
+
+    private LambdaQueryWrapper<PortalInterviewQuestion> questionWrapper(String scene, String position) {
         LambdaQueryWrapper<PortalInterviewQuestion> qw = Wrappers.<PortalInterviewQuestion>lambdaQuery()
                 .eq(PortalInterviewQuestion::getStatus, "published");
         if (StringUtils.isNotEmpty(scene)) {
@@ -2863,17 +2873,54 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
             qw.and(w -> w.like(PortalInterviewQuestion::getTags, position)
                     .or().like(PortalInterviewQuestion::getCompanies, position));
         }
-        qw.last("ORDER BY RAND() LIMIT " + Math.max(1, count));
-        return questionMapper.selectList(qw);
+        return qw;
     }
 
-    private List<PortalInterviewQuestion> queryByTag(String tag, int limit) {
+    private List<PortalInterviewQuestion> queryByTag(String tag, int limit, Long userId) {
         if (StringUtils.isEmpty(tag) || limit <= 0) return new ArrayList<>();
         LambdaQueryWrapper<PortalInterviewQuestion> qw = Wrappers.<PortalInterviewQuestion>lambdaQuery()
                 .eq(PortalInterviewQuestion::getStatus, "published")
-                .like(PortalInterviewQuestion::getTags, tag.trim())
-                .last("ORDER BY RAND() LIMIT " + Math.max(1, limit));
-        return questionMapper.selectList(qw);
+                .like(PortalInterviewQuestion::getTags, tag.trim());
+        List<PortalInterviewQuestion> qs = queryWithSolvedExclusion(qw, limit, userId);
+        if (qs.isEmpty()) {
+            // 排除后无题可出：回退不排除（保证出题数量优先于避让）
+            qw = Wrappers.<PortalInterviewQuestion>lambdaQuery()
+                    .eq(PortalInterviewQuestion::getStatus, "published")
+                    .like(PortalInterviewQuestion::getTags, tag.trim());
+            qs = questionMapper.selectList(qw.last("ORDER BY RAND() LIMIT " + Math.max(1, limit)));
+        }
+        return qs;
+    }
+
+    /**
+     * 已掌握题目避让（跨模块闭环 P0-3）：用户在练习中已通过的题（attempt.status=solved）
+     * 不再重复出现在面试题单中；排除后为空时由调用方回退不排除。
+     */
+    private List<PortalInterviewQuestion> queryWithSolvedExclusion(LambdaQueryWrapper<PortalInterviewQuestion> qw,
+                                                                   int limit, Long userId) {
+        Set<Long> solvedIds = solvedQuestionIds(userId);
+        if (!solvedIds.isEmpty()) {
+            qw.notIn(PortalInterviewQuestion::getId, solvedIds);
+        }
+        return questionMapper.selectList(qw.last("ORDER BY RAND() LIMIT " + Math.max(1, limit)));
+    }
+
+    /** 用户已通过（已掌握）的题目 ID 集，出题时避让 */
+    private Set<Long> solvedQuestionIds(Long userId) {
+        if (userId == null) return java.util.Collections.emptySet();
+        try {
+            return attemptMapper.selectList(
+                            Wrappers.<com.moyun.portal.domain.entity.PortalInterviewAttempt>lambdaQuery()
+                                    .eq(com.moyun.portal.domain.entity.PortalInterviewAttempt::getUserId, userId)
+                                    .eq(com.moyun.portal.domain.entity.PortalInterviewAttempt::getStatus, "solved")
+                                    .select(com.moyun.portal.domain.entity.PortalInterviewAttempt::getQuestionId))
+                    .stream()
+                    .map(com.moyun.portal.domain.entity.PortalInterviewAttempt::getQuestionId)
+                    .collect(java.util.stream.Collectors.toSet());
+        } catch (Exception e) {
+            log.warn("[PickQuestions] 查询已掌握题目失败，跳过避让：{}", e.getMessage());
+            return java.util.Collections.emptySet();
+        }
     }
 
     private void mergeUnique(List<PortalInterviewQuestion> candidates, Set<Long> pickedIds,
@@ -3005,31 +3052,40 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
     private String generateSpeakText(PortalVoiceInterview interview, PortalInterviewQuestion question,
                                      String answer, AnswerScoringEngine.ScoreResult sr, String nextAction) {
         // LLM 可用时增强（V10.4：系统提示词携带岗位/简历/画像完整上下文）
-        if (aiProperties.isEnabled() && llmClient.isEnabled()) {
+        // v11.58 P0-3c：LLM 直调收口网关（voice_interview 场景 task=speak_text 子任务）
+        if (aiProperties.isEnabled()) {
             try {
-                String systemPrompt = buildContextualSystemPrompt(interview);
-                StringBuilder userMsg = new StringBuilder();
-                userMsg.append("题目：").append(question == null ? "未知" : question.getTitle()).append("\n");
-                userMsg.append("考生回答：").append(answer).append("\n");
-                userMsg.append("得分：").append(sr.score).append("/100\n");
-                userMsg.append("关键词覆盖：").append(sr.dimensions.get("relevance")).append("%\n");
-                userMsg.append("请作为面试官给出简短回应（50字以内），");
+                String context = buildContextualSystemPrompt(interview);
+                StringBuilder turnData = new StringBuilder();
+                turnData.append("题目：").append(question == null ? "未知" : question.getTitle()).append("\n");
+                turnData.append("考生回答：").append(answer).append("\n");
+                turnData.append("得分：").append(sr.score).append("/100\n");
+                turnData.append("关键词覆盖：").append(sr.dimensions.get("relevance")).append("%\n");
+                turnData.append("请作为面试官给出简短回应（50字以内），");
                 switch (nextAction) {
                     case "followup":
-                        userMsg.append("并引导考生补充回答。");
+                        turnData.append("并引导考生补充回答。");
                         break;
                     case "next":
-                        userMsg.append("肯定回答并过渡到下一题。");
+                        turnData.append("肯定回答并过渡到下一题。");
                         break;
                     case "report":
-                        userMsg.append("总结本次面试表现。");
+                        turnData.append("总结本次面试表现。");
                         break;
                     default:
-                        userMsg.append("给出鼓励性反馈。");
+                        turnData.append("给出鼓励性反馈。");
                 }
-                String llmText = llmClient.chat(SCENE_VOICE_INTERVIEW, systemPrompt, userMsg.toString());
-                if (StringUtils.isNotEmpty(llmText)) {
-                    return llmText;
+                com.fasterxml.jackson.databind.JsonNode node = aiSceneJsonClient.executeForJson(
+                        SCENE_VOICE_INTERVIEW,
+                        Map.of("task", "speak_text",
+                                "context", context,
+                                "transcript", turnData.toString()),
+                        interview.getUserId());
+                if (node != null) {
+                    String llmText = node.path("text").asText("");
+                    if (StringUtils.isNotEmpty(llmText)) {
+                        return llmText;
+                    }
                 }
             } catch (Exception e) {
                 log.warn("[VoiceInterview] LLM 话术生成失败，降级规则话术：{}", e.getMessage());

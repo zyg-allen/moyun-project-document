@@ -28,9 +28,10 @@ public class PortalLedgerAiController {
     private ILedgerAiAnalysisService aiAnalysisService;
 
     /**
-     * 生成财务分析报告（规则引擎指标 + LLM 综述）
-     * v11.36：当月已有报告直接返回快照（零 token）；?refresh=true 强制重新分析覆盖当月
-     * v11.55：页面进入走本接口（快照命中毫秒级返回）；主动"重新分析"改走异步任务接口
+     * 查询财务分析报告快照（v11.72 纯查询语义）
+     * refresh=false（默认）：按 range 查当前月快照，命中直接返回（零 token）；
+     * 未命中返回 {exists:false}，由前端引导显式"去分析"（异步任务），不再隐式触发生成
+     * refresh=true：强制重新分析并覆盖式落库（异步任务内部调用，前端不直连）
      */
     @GetMapping("/analysis")
     public AjaxResult analysis(@RequestParam(value = "refresh", required = false, defaultValue = "false") boolean refresh,

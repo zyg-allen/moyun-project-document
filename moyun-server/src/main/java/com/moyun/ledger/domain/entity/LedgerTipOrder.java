@@ -9,7 +9,13 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 /**
- * 记账-打赏记录（演示性质：模拟支付成功即落库）
+ * 记账-打赏记录（V11.80 接入公共支付通道）
+ *
+ * <p>链路：落 pending 单 → payGateway 统一下单(bizType=ledger_tip, platform=ledger_app)
+ * → 收银台（扫码 / mock 模拟支付）→ 回调置 paid + 平台全额分账。
+ *
+ * <p>v11.79 全平台支付状态统一：业务订单 status 统一字符串枚举 pending/paid/refunded/closed，
+ * 支付渠道字段统一 pay_channel（wechat/alipay），pay_no 关联公共通道单据。
  *
  * @author moyun
  */
@@ -22,15 +28,14 @@ public class LedgerTipOrder {
     /** 打赏对象：平台 */
     public static final String TARGET_PLATFORM = "platform";
 
-    /** 支付方式：微信 */
-    public static final String PAY_WECHAT = "wechat";
-    /** 支付方式：支付宝 */
-    public static final String PAY_ALIPAY = "alipay";
-
-    /** 状态：成功 */
-    public static final int STATUS_SUCCESS = 1;
-    /** 状态：已撤销 */
-    public static final int STATUS_CANCELLED = 0;
+    /** 状态：待支付 */
+    public static final String STATUS_PENDING = "pending";
+    /** 状态：已支付（成功） */
+    public static final String STATUS_PAID = "paid";
+    /** 状态：已退款 */
+    public static final String STATUS_REFUNDED = "refunded";
+    /** 状态：已关闭 */
+    public static final String STATUS_CLOSED = "closed";
 
     @TableId(type = IdType.AUTO)
     private Long id;
@@ -47,12 +52,21 @@ public class LedgerTipOrder {
     /** 打赏理由（可选） */
     private String reason;
 
-    /** 支付方式：wechat/alipay */
-    private String payWay;
+    /** 支付渠道：wechat/alipay（v11.79 与 portal_tip_order.pay_channel 统一命名） */
+    private String payChannel;
 
-    /** 状态：1=成功 0=已撤销 */
-    private Integer status;
+    /** 关联公共通道单据号（pay_order.pay_no） */
+    private String payNo;
 
-    /** 打赏时间 */
+    /** 客户端幂等号（防重复提交，UNIQUE；V11.80 对齐记一笔 clientUuid 机制） */
+    private String clientUuid;
+
+    /** 状态：pending/paid/refunded/closed（v11.79 统一字符串枚举） */
+    private String status;
+
+    /** 下单时间 */
     private LocalDateTime createTime;
+
+    /** 支付完成时间（网关回调置 paid 时写入，V11.80） */
+    private LocalDateTime paidTime;
 }

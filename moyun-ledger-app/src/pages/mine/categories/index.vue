@@ -115,7 +115,7 @@ export default {
     removeCat(c) {
       uni.showModal({
         title: '删除确认',
-        content: `删除自定义分类「${c.name}」？已用该分类的流水不受影响`,
+        content: `删除自定义分类「${c.name}」？已绑定流水的分类不能删除`,
         success: async (r) => {
           if (r.confirm) {
             await deleteCategory(c.id);

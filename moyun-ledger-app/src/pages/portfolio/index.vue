@@ -41,7 +41,7 @@
 
     <!-- ========== 负债视图 ========== -->
     <template v-else>
-      <view class="summary">
+      <view class="summary liability">
         <view class="summary-label">总负债（计入合计的账户）</view>
         <view class="summary-amount">{{ privacyMode ? '****' : '¥ ' + liabTotalText }}</view>
         <view class="summary-sub">
@@ -72,7 +72,7 @@
           </view>
           <view class="row-actions">
             <view class="pencil-btn" @tap.stop="editLiability(l)">✎</view>
-            <view class="row-balance">{{ privacyMode ? '****' : '¥ ' + formatAmount(l.balance) }}</view>
+            <view class="row-balance liab">{{ privacyMode ? '****' : '¥ ' + formatAmount(l.balance) }}</view>
           </view>
         </view>
       </view>
@@ -380,6 +380,10 @@ export default {
   background: var(--primary); color: #fff;
   padding: 32rpx 40rpx 50rpx; margin-bottom: 24rpx;
 }
+/* 负债汇总卡：红橙警示系（资产=主题色正向，负债=风险色，一眼区分） */
+.summary.liability {
+  background: linear-gradient(135deg, #e8554d, #d93a31);
+}
 .summary-label { font-size: 26rpx; opacity: 0.85; }
 .summary-amount { font-size: 60rpx; font-weight: 700; margin: 12rpx 0; }
 .summary-sub { font-size: 24rpx; opacity: 0.8; }
@@ -395,11 +399,15 @@ export default {
   display: flex; align-items: center; justify-content: center;
   color: #fff; font-size: 28rpx; font-weight: 600; background: var(--primary);
 }
+/* 负债图标：暖橙系底（与资产主题蓝区分） */
+.row-icon.liab { background: linear-gradient(135deg, #f2913d, #e8703a); }
 .row-name { font-size: 28rpx; }
 .archived-tag { font-size: 20rpx; color: #fff; background: #bbb; border-radius: 8rpx; padding: 2rpx 10rpx; margin-left: 12rpx; }
 .settle-tag { font-size: 20rpx; color: #27ae60; border: 1rpx solid #27ae60; border-radius: 8rpx; padding: 2rpx 10rpx; margin-left: 12rpx; }
 .row-type { font-size: 22rpx; color: #bbb; margin-top: 4rpx; }
 .row-balance { font-size: 32rpx; font-weight: 600; }
+/* 负债金额：红色（欠的钱），资产金额保持默认 */
+.row-balance.liab { color: #d93a31; }
 
 .fab {
   position: fixed; right: 40rpx; bottom: 200rpx;

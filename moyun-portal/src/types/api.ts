@@ -1,4 +1,4 @@
-﻿// API通用响应类型
+// API通用响应类型
 export interface ApiResponse<T = any> {
   code: number;
   message: string;
@@ -2308,6 +2308,32 @@ export interface BankCardForm {
   bankName?: string;
   /** 短信验证码（V11.1 银行卡绑定强校验） */
   smsCode?: string;
+}
+
+/** 提现单（v11.79 提现闭环） */
+export interface PayWithdrawOrder {
+  id?: number | string;
+  withdrawNo?: string;
+  userId?: number | string;
+  /** 提现金额（元） */
+  amount?: number;
+  /** 手续费（元） */
+  fee?: number;
+  bankCardId?: number | string;
+  /** auditing=审核中 paid=已打款 rejected=已驳回 */
+  status?: string;
+  auditTime?: string;
+  rejectReason?: string;
+  paidTime?: string;
+  createTime?: string;
+}
+
+/** 提现单分页结果 */
+export interface PayWithdrawListResult {
+  records: PayWithdrawOrder[];
+  total: number;
+  current: number;
+  size: number;
 }
 
 /** 支付站内通知 */

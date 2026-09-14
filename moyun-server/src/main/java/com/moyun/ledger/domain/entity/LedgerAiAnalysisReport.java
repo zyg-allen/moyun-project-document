@@ -11,9 +11,10 @@ import java.io.Serializable;
 import java.time.LocalDateTime;
 
 /**
- * AI 财务分析报告月度快照 ledger_ai_analysis_report（v11.36）
+ * AI 财务分析报告快照 ledger_ai_analysis_report（v11.36；v11.72 四维度独立快照）
  *
- * <p>每月一条（uk user_id+period）：当月命中直接返回（零 token），显式刷新覆盖。
+ * <p>同 (user_id, period, analysis_range) 唯一一份（uk_user_period_range）：
+ * 页面进入纯查询命中直接返回（零 token），重新分析覆盖更新（查询与覆盖口径一致）。
  *
  * @author moyun
  */
@@ -33,6 +34,9 @@ public class LedgerAiAnalysisReport implements Serializable {
 
     /** 报告月份 yyyy-MM */
     private String period;
+
+    /** 分析范围：month-本月/3m-近3个月/6m-近6个月/year-近12个月（v11.72） */
+    private String analysisRange;
 
     /** 财务健康分 0-100 */
     private Integer healthScore;

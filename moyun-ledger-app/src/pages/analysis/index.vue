@@ -24,7 +24,7 @@
         <view class="pf-edit" @tap="openProfileEdit">编辑</view>
       </view>
 
-      <!-- 财务健康指标（v11.37：维度切换） -->
+      <!-- 财务健康指标（v11.37：维度切换；v11.72 四维度独立快照，无报告时隐藏） -->
       <view class="card">
         <view class="range-tabs">
           <view class="range-tab" :class="{ on: range === 'month' }" @tap="switchRange('month')">本月</view>
@@ -33,6 +33,7 @@
           <view class="range-tab" :class="{ on: range === 'year' }" @tap="switchRange('year')">近12月</view>
         </view>
         <view class="card-title">财务健康指标<text class="range-hint" v-if="indicators.rangeLabel">（{{ indicators.rangeLabel }}<text v-if="indicators.sampleMonths">，含数据 {{ indicators.sampleMonths }} 个月</text>）</text></view>
+        <template v-if="hasReport || analyzing">
         <view class="kpi-grid">
           <view class="kpi">
             <view class="kpi-value" :class="level(debtRatioLevel)">{{ indicators.debtRatio ?? 0 }}<text class="kpi-unit">%</text></view>
@@ -59,10 +60,18 @@
             <text>{{ indicators.emergencyFundMonths }} 个月支出<text class="kpi-sub" :class="efLevel">{{ efLevelText }}</text></text>
           </view>
         </view>
+        </template>
+        <!-- 无报告空态（v11.72：查询优先，分析显式触发） -->
+        <view class="no-report" v-else>
+          <view class="no-report-icon">📋</view>
+          <view class="no-report-title">{{ rangeLabels[range] || '本月' }}暂无分析报告</view>
+          <view class="no-report-desc">一键生成财务健康指标、AI 综述与个性化建议</view>
+          <view class="ai-refresh primary" @tap="load(true)">去分析</view>
+        </view>
       </view>
 
-      <!-- AI 综述（v11.36：健康分 + 报告月份 + 缓存标记） -->
-      <view class="card">
+      <!-- AI 综述（v11.36：健康分 + 报告月份 + 缓存标记；v11.72 无报告时隐藏由空态引导） -->
+      <view class="card" v-if="hasReport">
         <view class="card-title flex-row">
           <text class="flex-1">AI 财务综述<text class="rp-period" v-if="reportPeriod">（{{ reportPeriod }}）</text></text>
           <text class="cache-badge" v-if="fromCache && range === 'month'">本月报告</text>
@@ -84,9 +93,10 @@
         <view class="ai-summary" v-if="aiSummary">{{ aiSummary }}</view>
         <view class="ai-summary placeholder" v-else>暂无数据，先去记几笔账吧</view>
         <view class="ai-refresh" :class="{ disabled: analyzing }" @tap="!analyzing && load(true)">{{ analyzing ? '生成中…' : '重新分析' }}</view>
+        <!-- v11.72 按钮文案随报告状态切换：有报告=重新分析，无报告由上方空态"去分析"引导 -->
       </view>
 
-      <!-- 历史报告（v11.36；v11.55 多版本：每次生成独立保留，可回看/删除） -->
+      <!-- 历史报告（v11.72：同月同范围唯一一份，按月累积，可回看/删除） -->
       <view class="card" v-if="reportList.length">
         <view class="card-title flex-row">
           <text class="flex-1">历史报告</text>
@@ -94,7 +104,7 @@
         </view>
         <view class="rp-item" v-for="r in reportList" :key="r.id">
           <view class="rp-main" @tap="viewReport(r)">
-            <view class="rp-month">{{ r.period }}</view>
+            <view class="rp-month">{{ r.period }}<text class="rp-range" v-if="r.rangeLabel">· {{ r.rangeLabel }}</text></view>
             <view class="rp-snapshot" v-if="r.profileSnapshot">{{ r.profileSnapshot }}</view>
           </view>
           <view class="rp-side">
@@ -196,6 +206,8 @@ export default {
       reportPageSize: 5,
       reportPeriod: '',
       range: 'month',
+      /** 当前维度是否已有报告（v11.72：有=直接展示+重新分析，无=空态+去分析） */
+      hasReport: false,
       reportScore: 0,
       fromCache: false,
       editForm: { identityTag: '', identityTagLabel: '', position: '', company: '' },
@@ -210,6 +222,7 @@ export default {
     themeVars() { return useThemeStore().themeVars; },
     userStore() { return useUserStore(); },
     identityLabels() { return this.identityOptions.map(o => o.label); },
+    rangeLabels() { return { month: '本月', '3m': '近3个月', '6m': '近6个月', year: '近12个月' }; },
     // 分级着色（规则与后端一致）
     debtRatioLevel() {
       const v = this.indicators.debtRatio || 0;
@@ -262,8 +275,9 @@ export default {
           this.identityOptions = pf.identityOptions || [];
         }
       }).catch(() => {});
-      // v11.55：force（主动重新分析）走异步任务+轮询，页面提示"生成中"；
-      // 默认进入页面走同步接口（快照命中毫秒级返回，未命中兜底同步生成）
+      // v11.72：force（去分析/重新分析）走异步任务+轮询，页面提示"生成中"；
+      // 默认（进入页面/切 tab/下拉刷新）纯查询快照——命中毫秒级返回，未命中返回
+      // exists:false 由空态引导显式"去分析"，杜绝进入页面隐式触发 LLM
       if (force) {
         this.loading = false;
         this.startTask();
@@ -271,7 +285,19 @@ export default {
       }
       try {
         const report = await getAiAnalysis({ range: this.range });
-        this.applyReport(report);
+        if (report && report.exists === false) {
+          // 当前维度暂无报告：清空旧展示，显示空态+去分析
+          this.hasReport = false;
+          this.indicators = {};
+          this.incomeSources = [];
+          this.debtRisks = [];
+          this.suggestions = [];
+          this.aiSummary = '';
+          this.reportPeriod = '';
+          this.reportScore = 0;
+        } else {
+          this.applyReport(report);
+        }
         this.loadReports(true);
       } catch (e) { /* 拦截器已提示 */ }
       finally { this.loading = false; }
@@ -335,6 +361,7 @@ export default {
       this.reportPeriod = (report && report.period) || '';
       this.reportScore = (report && report.healthScore) || 0;
       this.fromCache = !!report && !!report.fromCache;
+      this.hasReport = !!(report && (report.period || report.aiSummary || report.healthScore));
     },
     // 历史报告分页
     async loadReports(reset) {
@@ -352,12 +379,12 @@ export default {
       this.reportPage++;
       this.loadReports(false);
     },
-    // 查看某份历史报告（v11.55 完整回看：详情渲染到页面，指标/风险/建议一并还原）
+    // 查看某份历史报告（v11.55 完整回看；v11.72 tab 同步到报告维度）
     async viewReport(r) {
       if (!r || !r.id) return;
       try {
         const report = await getAiReportDetail(r.id) || {};
-        this.range = 'month';
+        if (report.range) this.range = report.range;
         this.applyReport(report);
         uni.pageScrollTo({ scrollTop: 0, duration: 200 });
         uni.showToast({ title: '已载入 ' + (report.period || r.period) + ' 报告', icon: 'none' });
@@ -459,6 +486,12 @@ export default {
 .ai-summary { font-size: 26rpx; color: #444; line-height: 1.8; }
 .ai-summary.placeholder { color: #bbb; text-align: center; padding: 30rpx 0; }
 .ai-refresh { text-align: center; color: var(--primary-strong); font-size: 24rpx; margin-top: 16rpx; padding: 8rpx 0; }
+/* v11.72 去分析主按钮 + 无报告空态 */
+.ai-refresh.primary { background: var(--primary); color: #fff; font-size: 28rpx; font-weight: 600; border-radius: 44rpx; padding: 18rpx 0; margin: 24rpx 40rpx 8rpx; }
+.no-report { padding: 40rpx 0 16rpx; text-align: center; }
+.no-report-icon { font-size: 72rpx; margin-bottom: 16rpx; }
+.no-report-title { font-size: 30rpx; font-weight: 600; margin-bottom: 8rpx; }
+.no-report-desc { font-size: 24rpx; color: #999; margin-bottom: 8rpx; }
 .ai-refresh.disabled { color: #bbb; }
 
 /* v11.55 生成中提示条 */
@@ -522,6 +555,8 @@ export default {
 .rp-item { display: flex; align-items: center; justify-content: space-between; padding: 22rpx 0; border-bottom: 1rpx solid #f5f5f7; }
 .rp-item:last-of-type { border-bottom: none; }
 .rp-month { font-size: 30rpx; font-weight: 600; }
+/* v11.72 范围标签（同月多维度区分） */
+.rp-range { font-size: 22rpx; font-weight: 400; color: var(--primary-strong); margin-left: 8rpx; }
 .rp-snapshot { font-size: 20rpx; color: #999; margin-top: 6rpx; }
 .rp-side { display: flex; align-items: center; gap: 20rpx; }
 .rp-score { font-size: 26rpx; font-weight: 700; }

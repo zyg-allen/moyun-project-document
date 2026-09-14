@@ -230,6 +230,11 @@ export const getAiProfile = () => get('/portal/ledger/ai/profile');
 
 /** 更新画像（职位/公司/身份标签，与门户共用账号） */
 export const updateAiProfile = (data) => post('/portal/ledger/ai/profile', data);
+
+// ---------------- 小程序功能入口配置（v11.73 后台可视化运营） ----------------
+
+/** 可见功能入口列表（后台配置；失败时前端回退内置默认清单） */
+export const getAppFeatures = () => get('/portal/ledger/app-features');
 // ---------------- 存钱计划 ----------------
 
 /** 存钱计划列表 + 汇总（剩余需存/累计存入/目标金额） */
@@ -271,13 +276,43 @@ export const toggleMemo = (id) => post('/portal/ledger/memos/' + id + '/toggle',
 /** 删除待办 */
 export const deleteMemo = (id) => del('/portal/ledger/memos/' + id);
 
-// ---------------- 打赏（演示：模拟支付成功） ----------------
+// ---------------- 打赏（V11.80 接入公共支付通道） ----------------
 
-/** 累计打赏金额 */
+/** 累计打赏金额（status=paid） */
 export const getTipTotal = () => get('/portal/ledger/tips/total');
 
-/** 发起打赏 { amount, payWay, target, reason } */
+/** 我的赞赏记录（分页，含 pending/paid，V11.80） */
+export const listMyTips = (params) => get('/portal/ledger/tips/my', params || { current: 1, size: 20 });
+
+/**
+ * 发起打赏下单（V11.80 公共支付通道）
+ * @param data { amount, payChannel, target, reason, clientUuid }
+ * @returns {Promise<{ tipOrderId, payNo, codeUrl, amount, expireTime, mockEnabled }>}
+ */
 export const createTip = (data) => post('/portal/ledger/tips', data);
+
+// ---------------- 支付通道（复用门户公共支付，V11.80） ----------------
+
+/** 支付状态轮询（收银台 3s 轮询） */
+export const getPayStatus = (payNo) => get(`/portal/pay/status/${payNo}`);
+
+/** mock 模式：模拟支付成功（触发与真实回调一致的后续链路） */
+export const mockPay = (payNo) => post(`/portal/pay/mock/${payNo}`);
+
+// ---------------- 记账VIP订阅（V11.81 接入公共支付通道，平台直收类） ----------------
+
+/** 上架套餐列表（价格后台可配） */
+export const listVipPackages = () => get('/portal/ledger/vip/packages');
+
+/** 我的会员状态（isVip/vipExpire） */
+export const getVipStatus = () => get('/portal/ledger/vip/status');
+
+/**
+ * VIP订阅下单（V11.81 公共通道：pending 单 + 网关统一下单）
+ * @param data { packageId, clientUuid }
+ * @returns {Promise<{ vipOrderId, payNo, codeUrl, amount, packageName, expireTime, mockEnabled }>}
+ */
+export const subscribeVip = (data) => post('/portal/ledger/vip/subscribe', data);
 
 // ---------------- 定时记账 ----------------
 

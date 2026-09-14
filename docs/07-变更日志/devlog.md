@@ -5,6 +5,252 @@
 
 ***
 
+## v11.81 (2026-09-14) 记账VIP订阅接入公共支付通道（8.3 规范首个新渠道落地，骨架）
+
+> 需求：用户确认按"账户模型分类"方案继续收入管理任务，本次接入记账VIP（只搭骨架：通道/订单/权益发放闭环完整，套餐价格后台可配）。为平台直收类首个订阅场景，与打赏/付费阅读（分账类）资金流区分：用户 → 平台公账全额，不产生用户钱包余额。
+
+### 后端
+
+- 新增实体/Mapper：LedgerVipPackage（ledger_vip_package 套餐，价格/时长后台可配）、LedgerVipOrder（ledger_vip_order 订单：套餐快照 + pay_no + client_uuid 幂等 + vip_start/vip_expire 权益起止，状态统一 pending/paid/refunded/closed）
+- 新增 CmsLedgerVipPackageController（后台套餐 CRUD /cms/ledger/vipPackage，价格校验 >0 且 scale≤2；有订单的套餐仅可下架不可删除）
+- 新增 PortalLedgerVipController（App 端）：GET /packages 上架套餐、GET /status 会员状态（isVip/vipExpire，SQL MAX 聚合）、POST /subscribe 订阅下单（快照+幂等+pending+payGateway 统一下单 bizType=ledger_vip → 收银台参数）
+- 新增 LedgerVipPayCallbackHandler（bizType=ledger_vip）：pending→paid（条件更新+幂等）→ 权益顺延（vip_expire = max(now, 现有到期) + duration_days，续费不折损，SQL MAX）→ settlePlatform 平台全额分账 → 站内通知（含到期日期）
+- CmsIncomeOrderMapper：收入订单统一视图 UNION 新增 ledger_vip_order 段（channel_code=ledger_vip）
+- CmsPayRevenueController：记账VIP 由"规划中占位"转真实聚合渠道（1.3 渠道聚合 + GMV/订单数计入 + 按支付方式分布；期间修复一处多余括号编译错误）
+
+### 前端
+
+- Admin：api/cms/ledger 扩展 4 接口；新增 views/cms/ledger/vipPackage/index.vue（套餐管理：搜索/新增/修改/上下架 switch/删除保护提示，记账管理→VIP套餐 5405）
+- App：api/ledger.js 扩展 listVipPackages/getVipStatus/subscribeVip；新增 mine/vip/index.vue 会员页（状态卡[生效中/未开通] + 权益清单 + 套餐选择[推荐标识/划线价] + 收银台弹层[二维码+mock 支付+3s 轮询，与打赏页同构]）；「我的」页功能宫格新增👑记账VIP 入口（badge VIP，内置兜底+后台配置双同步）；pages.json 注册
+
+### 四同步
+
+- SQL：20260914-07-ledger-vip-channel.sql（两表 + 默认套餐[月 ¥15/年 ¥128 占位后台可改] + 后台菜单 5405/按钮 5415-5418 + role 授权 + App 宫格 vip 入口）
+- 文档：支付文档 v-2.md §8.3 分类表"已接入"列更新 + 新增 §8.4 记账VIP接入链路图；本记录
+- 菜单：5400 记账管理 → 5405 VIP套餐
+- 部署：执行 SQL 07 → 重启后端 → Admin/App 重新发布（Ctrl+F5）
+
+---
+
+## v11.80 (2026-09-14) 记账App打赏接入公共支付通道（补齐 v11.79 标准检查发现的半成品链路）
+
+> 需求：按 v11.79 全平台支付标准检查记账App打赏功能完整性。检查结论：枚举/单位/聚合已达标，但资金链路为演示级——直落 paid、无公共通道单据（pay_no 恒空）、无分账记账、无 clientUuid 幂等、无 scale≤2 校验、上限 999999 与标准不一致、用户侧无赞赏历史。用户确认按"完整接公共通道"补齐，文档与脚本链路注释同步按公共通道实现。
+
+### 后端
+
+- LedgerTipOrder：新增 clientUuid（幂等号）、paidTime（支付完成时间）字段；类注释链路改为公共通道描述
+- ILedgerTipService/Impl 重构：createTipOrder（校验 0.01~10000 元 + scale≤2 + clientUuid 幂等[paid 拒绝重复/pending 复用网关重取 codeUrl] → 落 pending 单 → payGateway.createOrder(bizType=ledger_tip, platform=ledger_app) → 回填 pay_no → 返回收银台参数 payNo/codeUrl/expireTime/mockEnabled）；新增 myTips 赞赏历史分页
+- ILedgerService/Impl 新增 settlePlatform：无第三方收款人业务的平台全额入账（PLATFORM/credit 单条流水，App 打赏对象为开发者/平台自身）
+- 新增 LedgerTipPayCallbackHandler（bizType=ledger_tip，与门户打赏回调 tip 互不冲突）：pending→paid 条件更新+幂等+paid_time → settlePlatform 平台全额分账 → 站内通知；任一步失败整体回滚由网关重试驱动
+- PortalLedgerTipController：POST /tips 返回收银台参数（不再"模拟支付成功即落库"）；新增 GET /tips/my 赞赏历史
+- CmsIncomeOrderMapper：App 单 pay_time 改用 COALESCE(paid_time, create_time) 对齐门户
+- CmsPayRevenueController 口径修正（防双算）：V11.80 后 App 打赏全额走 PLATFORM 分录，平台所得 = PLATFORM/credit 分录合计（不再叠加 appTipPlatformPart）；用户所得 = USER/credit 分录合计；类注释与趋势 SQL（paid_time 优先）同步
+
+### 前端（记账App）
+
+- mine/tip/index.vue：接入收银台——下单拿收银台参数 → 弹层展示二维码（qrcode 包 canvas 渲染）+ 3s 轮询 /portal/pay/status + mock 模式"模拟支付成功"按钮（复用 /portal/pay/mock，触发与真实回调一致链路）；payWay 改 payChannel（当前公共通道仅微信，暂移除支付宝选项）；新增"我的赞赏记录"列表（金额/状态/时间）；提交带 clientUuid 防重；去掉"演示功能"提示
+- api/ledger.js：createTip 参数更新（payChannel/clientUuid）+ 新增 listMyTips/getPayStatus/mockPay
+
+### 四同步
+
+- SQL：20260914-06-ledger-tip-channel.sql（DELETE 存量演示单[无 pay_no 的测试数据，彻底删除] → ADD client_uuid + uk_client_uuid 唯一索引 → ADD paid_time → status 注释更新；先清数据后改结构，重复执行 ALTER 报"列已存在"可忽略）
+- 文档：支付问题以及解决方案v-2.md 新增"八、落地实施记录"（v11.79/v11.80 公账模式实施与 App 打赏公共通道链路图）+ 8.3 节"账户模型分类与新场景接入规范"（平台直收类 settlePlatform / 分账类 settle / 提现出金三分类，后续场景照此判断）；本记录
+- 菜单：无变更（App 端页面，无后台菜单）
+- 部署：执行 SQL 06 → 重启后端 → App 重新发布（Ctrl+F5）；依赖新增 qrcode（npm 已安装）
+
+---
+
+## v11.79 (2026-09-14) 全平台支付统一标准：单钱包 + 公账记账 + 提现闭环（支付管理→收入管理）
+
+> 需求依据：docs/05-方案设计-分模块/07-支付模块/支付问题以及解决方案v-2.md。用户指出双钱包并存（社区钱包 portal_wallet 充值/消费 vs 打赏钱包 pay_user_account）不合理，并提议公账模型：用户支付→平台公账商户号 A→数据分账（虚拟余额展示于门户用户与后台）→提现时由 A 出金到目标账户；同时要求全平台支付统一枚举/字段标准（不考虑历史数据，业务逻辑直接改）。
+>
+> 评估结论：portal_wallet 社区钱包为死功能（无真实资金通道），分裂用户认知；各模块状态枚举不一致（App 打赏 status=1/0 int vs 门户 paid/pending 字符串），GMV 统计需特判；提现仅有表无闭环（无申请/审核/打款流程）。
+
+### 统一标准（全平台）
+
+- 业务订单 status：pending / paid / refunded / closed（默认 pending）
+- 通道订单 pay_order.status：CREATED / PAID / SETTLED / CLOSED（通道层保持）
+- 提现单 status：auditing / paid / rejected（默认 auditing）
+- 支付渠道字段统一命名 pay_channel：wechat / alipay / points
+- 金额单位：元 DECIMAL(18,2)，全链路无换算
+- 资金模型（公账记账）：真钱集中于平台公账商户号 A；虚拟余额 = 记账数字；提现是唯一动真钱的时机（审核通过时扣减记账 + A 出金到用户卡）；守恒对账：理论公账余额 = 平台抽成累计 + Σ用户余额
+
+### 后端
+
+- 状态枚举统一：LedgerTipOrder status 由 int(1/0) 改 String（paid/closed/pending/refunded），pay_way 改名 pay_channel，新增 pay_no 关联通道单据；WithdrawOrder 状态统一小写 auditing/paid/rejected，新增 paidTime；PayOrder 补全 user_id/platform 对账维度
+- 提现闭环（新）：IWithdrawOrderService/WithdrawOrderServiceImpl——apply（校验余额/绑卡，落 auditing 单不扣款）、auditPass（@Transactional：原子扣减 balance>=amount → 记 USER/debit 流水 → 置 paid + paidTime → 真实出金调用点预留；余额不足自动驳回）、auditReject（置 rejected + 原因，余额不动）、adminList（状态/用户筛选 + 昵称/银行卡脱敏批量回填 + SQL 聚合汇总）、myWithdrawals、userSummary（含审核中金额）
+- 收入订单统一视图（新）：CmsIncomeOrderMapper（UNION ALL 合并 ledger_tip_order + portal_tip_order，统一 platform/channel_code/status/pay_channel 输出）+ CmsPayIncomeOrderController（多条件筛选 + 昵称批量回填防 N+1；后续按用户要求移除 demo 演示标注，仅展示数据库真实订单）
+- 用户钱包后台（新）：CmsPayWalletController——accounts（分页 + 昵称回填 + 昵称模糊收窄）、summary（守恒对账：平台抽成累计/Σ余额/理论公账余额，全部 SQL 聚合）
+- 提现审核后台（新）：CmsPayWithdrawController——list/pass/reject（@PreAuthorize 权限点 cms:payWithdraw:*）
+- PortalPayController：新增 /portal/pay/withdraw/apply（发起提现）与 /withdraw/my（我的提现单）
+- CmsPayRevenueController：App 打赏聚合条件改 STATUS_PAID；新增退款（门户 refunded）、提现（paid）、用户余额合计、理论公账余额指标
+- 删社区钱包：portal_wallet / portal_wallet_transaction 表删除，PortalTipService 积分打赏统一走 pay_user_account + pay_ledger_entry 分账（单钱包架构）
+
+### 前端（Admin）
+
+- 新增 cms/pay/income-order/index.vue：全平台业务订单统一视图（平台/渠道/状态/时间筛选，纯数据库真实订单，无演示标注）
+- 新增 cms/pay/wallet/index.vue：钱包账户列表 + 资金流水 Tab（复用 /cms/pay/ledger/list，含"查流水"跳转）+ 守恒对账六指标卡
+- 新增 cms/pay/withdraw/index.vue：提现审核（审核中/已打款/已驳回汇总卡 + 列表 + 通过打款/驳回原因对话框）
+- 删旧分账流水独立页 ledger/index.vue（功能并入用户钱包"资金流水"Tab）
+- revenue/index.vue：新增第二行指标（累计退款/累计提现/用户余额合计/理论公账余额），相关管理链接更新（删 /pay/ledger 死链，增收入订单/用户钱包/提现审核），口径说明同步枚举统一
+- ledger/stats/index.vue：打赏卡改为全平台收入卡 + 跳转收入总览链接
+- api/cms/pay.js：新增 listIncomeOrder/listWalletAccounts/walletSummary/listWithdraw/passWithdraw/rejectWithdraw
+
+### 前端（门户）
+
+- WalletPage.vue：新增「提现」Tab——申请表单（银行卡下拉 + 金额校验 ≤ 可用余额 + 确认弹窗）+ 我的提现单记录（状态/驳回原因，桌面表格 + 移动卡片）；余额主卡"银行卡管理"按钮改为"申请提现"
+- api/pay.ts：新增 applyWithdraw/getMyWithdrawals；types/api.ts：新增 PayWithdrawOrder/PayWithdrawListResult
+
+### 四同步
+
+- 代码：后端 6 实体/服务/控制器 + Admin 3 新页面 + 门户 WalletPage/api/types（详见上文）
+- SQL：20260914-05-pay-unify-standard.sql（ledger_tip_order 状态字符串化 + 存量 1/0→paid/closed 换算；pay_order 加 user_id/platform + 索引；pay_withdraw_order 统一小写 + paid_time；DROP portal_wallet 两表；菜单重组：父菜单改名"收入管理"，删 5302/5315/5316 分账流水菜单，新增 5306 收入订单/5307 用户钱包/5308 提现审核及按钮权限，存量菜单重排，授权 role_id=1；§6 排序规则统一：portal_tip_order（原继承库默认 utf8mb4_0900_ai_ci）与 ledger_tip_order（utf8mb4_general_ci）CONVERT 统一至 utf8mb4_general_ci，修复收入订单 UNION "Illegal mix of collations" 报错）
+- 菜单：收入总览1 / 收入订单2 / 提现审核3 / 用户钱包4 / 支付订单5 / 银行卡6 / 支付配置7
+- 文档：本记录
+- 部署：执行 SQL → 重启后端 → Admin 与门户重新发布（Ctrl+F5）；App 端无改动（payWay 兼容）
+
+---
+
+## v11.78 (2026-09-14) 支付管理重定位为收入管理：收入总览（平台×渠道）+ 分账流水昵称关联
+
+> 需求：三件事——1) App 赞赏页去掉 ¥100 快捷金额（过大）；2) `/pay/ledger` 关联用户昵称、金额单位确认元口径（前后台一致，无换算）；3) 支付管理菜单整体优化为全平台支付汇集的收入管理模块，按 平台（记账App/墨韵门户）→ 渠道（App记账打赏/门户文章打赏/付费阅读/面试会员/简历优化等）两级划分。
+>
+> 评估结论：收入数据实际分散在 ledger_tip_order（App打赏，演示直接落库）、portal_tip_order（门户打赏/付费阅读）、pay_order+pay_ledger_entry（V11.0 公共通道），无统一平台/渠道维度，看不到收入全景；分账流水无昵称；summary 内存聚合违反铁律；面试会员/简历优化/记账VIP 暂无订单表（规划渠道）。
+
+### 后端
+
+- CmsPayRevenueController（新增 `/cms/pay/revenue/overview`）：
+  - 顶部指标（SQL SUM/COUNT/GROUP BY 聚合，禁内存聚合）：GMV、平台直接所得（App打赏平台对象 + 通道抽成）、作者/用户所得、订单数
+  - 平台×渠道两级：记账App（App打赏 + 记账VIP规划中）/ 墨韵门户（文章打赏 + 付费阅读 + 面试会员/简历优化规划中），每渠道含支付方式分布（pay_way / pay_channel GROUP BY）
+  - 近 6 月成交趋势（两表按月 GROUP BY 后合并，App 取 create_time，门户取 COALESCE(paid_time, created_time)）
+  - 口径（页面同示）：GMV=各渠道成功订单合计（App status=1 + 门户 status=paid）；pay_order 为通道单据不重复计入（业务订单为准，避免双算）
+- CmsPayLedgerController：list/detail 关联 portal_user 批量填充昵称（一次 IN 查询防 N+1，删档用户回退"用户{id}"）；summary 改 SQL SUM 聚合
+- LedgerEntry：新增 @TableField(exist=false) nickname 展示字段
+
+### 前端
+
+- 新增 cms/pay/revenue/index.vue：四指标卡 + 双平台卡片（渠道明细表：金额/订单数/支付方式分布/运营中|规划中）+ 近6月趋势（占比条）+ 相关管理跳转 + 口径说明
+- ledger/index.vue：用户列改为昵称（平台分录红字"平台"），新增用户ID筛选
+- api/cms/pay.js：新增 getRevenueOverview
+
+### App 端
+
+- mine/tip/index.vue：快捷金额去掉 ¥100（保留 2/5/10/20/50 + 其他）
+
+### 四同步
+
+- 代码：CmsPayRevenueController + CmsPayLedgerController + LedgerEntry + revenue/index.vue + ledger/index.vue + pay.js + tip/index.vue(app)
+- SQL：20260914-04-pay-revenue-overview.sql（新菜单 5305/5317 + 存量菜单排序 UPDATE，不改原 INSERT）
+- 菜单：支付管理下新增「收入总览」置首，支付订单/分账流水/银行卡/支付配置依次后移
+- 文档：本记录
+- 部署：执行 SQL → 重启后端 → 后台与 App 前端重新发布（Ctrl+F5）
+
+---
+
+## v11.77 (2026-09-14) 赞赏页体验优化：快捷金额单选 + 打赏/反馈联合提示语
+
+> 需求：赞赏页（App `pages/mine/tip`）增加快捷金额单选按钮（2/5/10/20/50/100 元 + 其他自定义输入）；提示语改为"创作不易，感谢打赏鼓励"并联动投诉建议入口（"提出你的宝贵意见，与平台大家共同成长"→ 跳转意见反馈页）。其他收益变现点（VIP/广告等）本期暂不考虑，原"累计 9.9 元免广告"提示移除。
+
+### 前端（App mine/tip/index.vue）
+
+- 金额快捷单选宫格：¥2/¥5/¥10/¥20/¥50 + 「其他」；选中「其他」时展开自定义金额输入（复用原输入框）
+- 立即赞赏按 effectiveAmount（快捷选中或自定义输入）校验与提交，未选择/未输入给对应提示
+- 提示语重构：打赏感谢语 + 可点击的投诉建议引导（跳转 /pages/mine/feedback/index）+ 演示提示保留
+- 移除"累计 9.9 元免广告"广告变现相关提示（本期不考虑其他收益点）
+
+### 四同步
+
+- 代码：mine/tip/index.vue（app）
+- SQL：无变更；菜单：无变更
+- 文档：本记录
+- 部署：App 重新发布（H5 刷新即可）
+
+---
+
+## v11.76 (2026-09-14) 分类管理强化：全类型筛选/名称搜索/归属标识 + 删除流水绑定校验 + 记一笔自定义分类
+
+> 需求：后台 `/ledger/category` 类型下拉只有收入/支出且筛选无效，需支持全大类筛选、名称搜索、归属（系统/自定义）标识；删除分类必须校验流水绑定，有则不能删除；表格明确二级结构（大类=收入/支出/转账/借款/还款/校准）并移除"新增子分类"按钮。App 记一笔页去掉分类"选填"，支持在当前大类下新增自定义分类（仅自己可见，长按可删，删除同样校验流水绑定）。
+
+### 后端
+
+- 服务层 ILedgerCategoryService + LedgerCategoryServiceImpl：
+  - 新增 `assertCategoryDeletable`（门户/后台共用删除前置校验）：已绑定有效流水（category_id 且 status=1）→ 不能删除（资金链路可追溯红线）；存在子分类（parent_id 引用）→ 不能删除
+  - `deleteCategory` 由停用改为真删除，删除前调用上述校验
+- CmsLedgerCategoryController：
+  - `list` 扩展三条件筛选：type（expense/income/transfer/repayment/borrow/adjust 全大类）、name 模糊搜索、owner（system=系统预设 user_id=0 / user=用户自定义）
+  - 新增 `changeStatus` 启用/停用接口
+  - `remove` 真删除 + 校验（绑定流水或存在子分类则拒绝）
+
+### 前端
+
+- 后台 category/index.vue 重构：大类分组树（一级=大类 tag，二级=分类）、大类/名称/归属三条件筛选、归属列（系统预设/用户自定义 tag）、操作=修改/启用停用/删除，移除"新增子分类"按钮
+- 后台 api/cms/ledger/index.js：新增启用/停用 API，删除接口描述更新
+- App record/index.vue（记一笔）：分类提示由"选填"改为"请选择"；宫格尾部新增「＋添加」入口（当前大类下创建自定义分类，创建后自动选中）；长按自定义分类可删除（绑定流水后端拒绝并提示笔数）；自定义分类显示"自"标识
+- App mine/categories/index.vue：删除确认文案对齐（"已绑定流水的分类不能删除"）
+
+### 四同步
+
+- 代码：LedgerCategoryServiceImpl + ILedgerCategoryService + CmsLedgerCategoryController + category/index.vue（admin）+ api/ledger/index.js（admin）+ record/index.vue + mine/categories/index.vue（app）
+- SQL：无变更（parent_id/status 等字段已存在）
+- 菜单：无变更
+- 文档：本记录
+- 部署：重启后端 + 后台/App 前端重新发布
+
+---
+
+## v11.75 (2026-09-14) 记账运营统计重定位：模块使用 + AI/Token 成本 + 收益现状 + 门户引导入口
+
+> 需求：`/ledger/stats` 页面原内容单薄定位不清；扩展为运营总览（模块用户使用情况、token 消耗、收益现状与轻变现规划），并在用户端增加链接引导使用墨韵门户平台（生态互导，零成本变现起点）。评估结论：轻变现 = VIP 增值（免费功能全保留）+ 激励广告（仅主动解锁场景）+ 门户互导，禁止开屏/插页广告伤害用户认知。
+
+### 后端（CmsLedgerStatsController 重写）
+
+- overview 五段聚合（全 SQL：COUNT DISTINCT / SUM / GROUP BY，遵守"禁止全表 selectList 内存聚合"铁律）：
+  1. 用户规模（资产∪负债 DISTINCT user_id 单列合并）+ 近30日活跃
+  2. 流水规模 + 类型分布（GROUP BY type）
+  3. **模块使用情况**（新增）：记账/预算/存钱/定时/备忘录/资产账户/AI 报告 各模块去重使用用户数
+  4. **AI 与 Token 消耗**（新增）：累计调用/Token/成本 + 按 scene_code 场景分布（定价参考）
+  5. **收益现状**（新增）：打赏成功单笔数/金额/对象分布（ledger_tip_order）
+- CmsLedgerAppFeatureController.edit 支持 remark（链接型入口跳转 URL 承载位，后台可视化改链）
+
+### 前端
+
+- 后台 stats/index.vue 重构：定位说明 + 核心指标 + 模块渗透率表 + AI 场景分布 + 收益现状卡 + 收益规划时间线（VIP/激励广告/门户互导）+ 相关链接卡（用户管理/预设分类/功能配置）
+- 后台 appFeature/index.vue：编辑态新增「跳转链接」输入（remark）
+- ledger-app mine 页：toMenu 保留 link（=remark）；onMenuTap 新增链接型入口处理（H5 window.open 新开 / App、小程序走 webview 页）
+- 新增 pages/webview/index.vue 通用外链页 + pages.json 注册
+
+### 四同步
+
+- 代码：CmsLedgerStatsController + CmsLedgerAppFeatureController + stats/index.vue + appFeature/index.vue + mine/index.vue + webview/index.vue
+- SQL：20260914-03-ledger-stats-revenue-and-portal.sql（墨韵社区入口，remark=门户 URL）；菜单：无变更
+- 文档：本记录
+- 部署：执行 SQL → 重启后端 → App 重新发布；生产环境将 portal 行 remark 改为正式域名
+
+---
+
+## v11.74 (2026-09-14) 记账预设分类多级化：后台树形管理（展开/收起 + 父分类校验）
+
+> 需求：后台 `/ledger/category` 分类管理支持多级分类，按类型查询、树形展开/收起。基于既有 `parent_id` 字段（DB 已支持，无 SQL 变更）实现两级分类，后端强校验 + 前端树形表格双端落地。
+
+### 后端（CmsLedgerCategoryController）
+
+- 新增 `validateParent` 父分类合法性校验（新增/修改均走）：父分类必须为系统预设且存在；不能将自己设为父分类；子分类类型必须与父分类一致（支出/收入不混挂）；最多两级（父必须是一级，自身有子分类时不能再挂父级）
+- 校验失败抛 IllegalArgumentException，由 GlobalExceptionHandler 统一返回业务提示
+
+### 前端（cms/ledger/category/index.vue）
+
+- 列表改树形表格：`row-key="id"` + `:tree-props="{ children: 'children' }"`，扁平列表按 parentId 前端组装两级树
+- 工具栏新增「展开/收起」按钮（refreshTable 重建表格切换 `default-expand-all`）
+- 对话框新增「父分类」下拉：仅列同类型一级分类（排除自身）；切换类型自动清空父分类；自身已挂子分类时禁用选择（配合后端最多两级规则）
+- 一级分类行新增「新增子分类」操作（自动带出类型 + 父分类）
+- 停用确认提示区分是否含子分类（停用不级联，子分类不受影响）
+
+### 四同步
+
+- 代码：CmsLedgerCategoryController（validateParent）+ category/index.vue（树形化）；SQL：无（parent_id 字段既有）；菜单：无（页面已存在）；文档：本记录
+
+---
+
 ## v11.70 (2026-09-11) 资金链路测试补齐：打赏双链路 22 用例（P1-8，附充值/提现范围澄清）
 
 > 依据《AI底座企业级评估-代码实测结论与改进清单》最后一项 P1：资金链路零测试。**实测澄清**：充值/提现业务逻辑尚未实现（PortalWalletServiceImpl 仅 CRUD，全库无 recharge/withdraw 业务方法，PayCallbackHandler 实现仅 tip 一种）——资金链路现状 = 打赏（积分打赏 + 微信支付 + 回调复式分账），无从测试的部分属功能范围澄清而非测试缺口。纯测试增量，零生产代码改动。维度 9 → 4.4，综合 → 3.84。
@@ -35,6 +281,159 @@
 
 - 代码：仅新增两个测试类（PortalTipServiceTest / TipPayCallbackHandlerTest），生产代码零改动；SQL：无；文档：评估文档（P1-8 完成行、维度 9 → 4.4、综合 → 3.84、行动路线第 11 项 + P1 清零说明、checklist 测试覆盖行与漏勾的 output_parser 项补勾）+ 本记录
 - 部署：无需重启（纯测试增量）
+
+---
+***
+
+## v11.73 (2026-09-14) 记账后台管理建设：用户维度管理（脱敏）+ 小程序功能可视化配置 + AI 消费用户归属
+
+> 需求：后台按用户维度展示流水与使用情况（AI 分析/token 消费，隐私保护）；小程序"我的"页功能入口开发中不展示、改为后台可视化配置。
+
+### 变更一：AI 消费用户归属（ai_execute_log 补 user_id）
+
+- 表：ADD COLUMN user_id + idx_user_scene（存量留空，自此增量可归属）
+- 网关 6 个调用点（注入拦截/限流/配额/成功/降级/流式×2）统一传 request.getUserId()；record() 保留原签名重载兼容
+- ledger AI 分析（finance_analysis 场景）的 token 消费自此可按用户聚合统计
+
+### 变更二：用户管理页（用户维度·脱敏）
+
+**后端 CmsLedgerUserController**（/cms/ledger/users）：
+- list：有记账行为的用户分页（流水表 DISTINCT user_id）+ 三组聚合（页内 IN 聚合避免 N+1）：有效流水数/最近记账、AI 报告数、AI 调用次数/Token/成本
+- {userId}/transactions：流水脱敏简易版——仅类型/金额/分类/日期，**不返回备注、商户、凭证、账户名、余额快照**（后端 select 列裁剪，非前端遮挡）
+- 身份脱敏：昵称/用户名首尾保留中间*，手机 138****5678
+
+**前端 cms/ledger/users/index.vue**：列表 + "查看流水"抽屉（分页），隐私口径提示条
+
+### 变更三：小程序功能可视化配置
+
+**表 ledger_app_feature_config**（uk feature_key）+ 种子 25 项与 mine 页内置清单对齐：已上线 10 项 visible=1，开发中 15 项 visible=0（默认不展示）
+**后端**：CmsLedgerAppFeatureController（list/edit，perms cms:ledgerAppFeature:*）+ PortalLedgerAppFeatureController（GET /portal/ledger/app-features 仅 visible=1）
+**前端**：
+- admin appFeature/index.vue：主功能/推荐功能双卡表格，开关直切展示、编辑名称/排序
+- ledger-app mine/index.vue：onShow 拉配置覆盖宫格（失败回退内置默认=仅已上线功能，与"开发中不展示"原则一致）；内置清单瘦身（19+6 → 8+2，剔除开发中项）
+
+### SQL（20260914-02-ledger-admin-users-and-app-feature.sql）
+
+ai_execute_log 加列；功能配置表建表+种子；菜单：用户管理 5403（+query 按钮 54031）、功能配置 5404（+edit 按钮 54041）挂记账管理 5400 下（order 3/4）+ 管理员授权
+
+### 验证与部署
+
+- 后端 mvn compile 通过；admin build:prod 通过；ledger-app build:h5 通过
+- 部署：执行 SQL → 重启 moyun-server → admin 重新构建（重新登录拉新菜单）→ ledger-app 重新构建发布
+- 自测：记账管理 → 用户管理（列表聚合数字/查看流水抽屉脱敏）→ 功能配置（开关一项，小程序"我的"页刷新后该入口显隐）
+
+---
+
+## v11.72 (2026-09-14) AI 分析报告四维度快照 + 查询优先语义 + 资产负债视觉区分
+
+> 需求：1) portfolio 页资产/负债元素加样式区别；2) ledger_ai_analysis_report 同月多份冗余、无范围字段、切 tab 数据不变、进入页面隐式触发分析。
+
+### 变更一：AI 分析报告架构调整（表 + 后端 + 前端）
+
+**问题诊断**：
+- 表无 range 字段：period 恒为当前月，3m/6m/year 实时计算不落库（每次进入页面重算烧 token），历史列表无法区分维度
+- v11.55 多版本历史：同 (user_id, period) 每次生成 INSERT 新行，用户判定冗余
+- refresh=false 未命中快照时兜底同步生成（慢/超时），"每次进入页面都要重新检查"
+
+**SQL（20260914-01-ledger-ai-report-range-field.sql）**：
+- ADD COLUMN analysis_range（month/3m/6m/year）
+- 存量收敛：同 (user_id, period) 仅留最新一条
+- UNIQUE uk_user_period_range (user_id, period, analysis_range)：口径唯一，重新分析覆盖不新增
+
+**后端（LedgerAiAnalysisServiceImpl / LedgerAiAnalysisReport / PortalLedgerAiController）**：
+- 四维度均独立快照（findReport 按 user+period+range 查询，与覆盖落库同一口径）
+- GET /analysis 纯查询语义：refresh=false 命中直接返回（零 token），未命中返回 {exists:false}；生成一律走异步任务（refresh=true）——杜绝进入页面隐式触发 LLM
+- saveReport → upsertReport：存在则 UPDATE 覆盖（createTime 保留、updateTime 刷新）
+- listReports/reportToResult 返回 analysisRange + rangeLabel（历史列表/详情回看均可区分维度）
+
+**前端（analysis/index.vue）**：
+- load() 纯查询：exists:false → hasReport=false 空态（图标+文案+「去分析」主按钮）；有报告 → 直接展示 + 「重新分析」
+- 切换 tab 各查各的快照（数据按维度独立，切换即变化）
+- 历史列表项显示范围标签（period · 本月/近3个月…）；viewReport 回看时 tab 同步到报告维度
+- 指标卡/AI 综述卡在无报告时隐藏（空态集中在指标卡内，含「去分析」按钮）
+
+### 变更二：portfolio 资产/负债视觉区分
+
+- 负债汇总卡：主题蓝 → 红橙渐变警示系（.summary.liability）
+- 负债金额：红色（.row-balance.liab，"欠的钱"语义），资产金额保持默认黑
+- 负债图标：暖橙渐变底（.row-icon.liab，此前无样式定义与资产同色）
+
+### 验证与部署
+
+- 后端 mvn compile 通过；前端 build:h5 通过
+- **部署**：执行 SQL 20260914-01（加字段+存量收敛+唯一约束）→ 重启 moyun-server → ledger-app 重新构建发布
+- 自测：切 tab 数据各维度独立变化；无数据 tab 显示「去分析」→ 生成后变「重新分析」；重新分析后列表不新增行（覆盖）；历史列表可见维度标签
+
+### 四同步
+
+- 代码：SQL 脚本 + 实体/Service/Controller（后端）+ analysis/portfolio 两页（前端）
+- 文档：本记录
+- 菜单：无涉及
+
+---
+
+## v11.71 (2026-09-14) 记账模块六类型全面审查：幂等防重 + 金额边界 + SQL 聚合三处企业级加固
+
+> 承 v11.70 对记账六类型（支出/收入/转账/还款/借款/校准）做全量代码审查，确认既有架构（单事务/联动矩阵/冲正重放/乐观锁/归属校验）符合企业标准，修复三处真问题。
+
+### 审查结论（保留项，无需改动）
+
+- 联动矩阵 + reverseBalanceEffect 互逆设计 ✓（净资产守恒：transfer/repayment/borrow 不变、income/expense 随金额、adjust 随差额）
+- 乐观锁 version 条件更新 ✓：checkSufficientBalance 与扣款之间的 TOCTOU 由 version 乐观锁兜底（REPEATABLE READ 下并发双扣会被 version 不匹配拦截）
+- 修改=冲正+重放（保留原创建人/时间）、删除=冲正+逻辑删（幂等）✓
+- setSql 拼接 delta 为 BigDecimal 非用户字符串，无 SQL 注入面（已补 javadoc 说明）
+- DTO.amount 为 BigDecimal，全链路无浮点精度问题 ✓
+
+### 修复内容
+
+**P0 防重复入账（资金铁律）**：
+- 现状：DDL 有 uk_client_uuid 唯一索引但前端从不传 clientUuid（恒 null，索引形同虚设）；doSave 无防抖锁——**快速双击=两笔重复记账/重复扣款**
+- 后端：createTransaction 入口按 clientUuid+userId 查重，命中返回已入账流水ID（真幂等）；并发极端由 DB 唯一索引兜底
+- 前端：doSave 加 saving 锁（finally 解锁）；每次保存生成 clientUuid 随请求提交；补传 transactionTime（此前未传，后端兜底当前时间导致补录时间失真）
+
+**P1 金额边界校验（安全）**：
+- validate 新增：单笔上限 99,999,999.99（防接口直调传超大额）+ scale≤2（防超高精度小数被 DECIMAL(18,2) 静默截断）
+- transfer 显式校验转出账户非空（原 accountId 可空，null 时穿透到 selectById 报错信息不精确）
+
+**P1 checkBudgetAlert 性能**：
+- 当月支出合计由 list() 全量拉取内存 reduce 改为 SQL `IFNULL(SUM(amount),0)` 聚合（流水多时 O(n) 传输 → O(1)）
+
+### 验证
+
+- 后端 mvn compile 通过（class 时间戳 9:20:43 核对）；无 SQL/菜单变更
+- 前端 npm run build:h5 通过
+- 自测：快速双击保存 → 只入账一笔；直调接口传 amount=999999999 → 拒绝
+
+---
+
+## v11.70 (2026-09-14) 记账资金链校验：支出/转出账户余额不足强制阻断（账目可信度铁律）
+
+> 需求：记支出时若所选账户余额不足，必须先记一笔收入或转账说明资金来源——否则支出凭空出现，"钱从哪来"说不清楚，账目无可信度。设计上对齐既有还款类型的余额校验思路（v 前已有），并将严格度提升为**双端强制阻断**。
+
+### 变更内容
+
+**前端（moyun-ledger-app/pages/record/index.vue save()）**：
+- 支出/转账（expense/transfer）保存前校验扣款账户余额：`balance < 金额` 时弹「账户余额不足」强提示，文案点明资金来源必须先说清楚
+- 双引导按钮：「去记收入」（switchType 到 income，保留账户与金额，补选分类即存）/「去转账」（switchType 到 transfer，从余额充足账户转入）——**无"仍要保存"逃生口**（与还款的软提示不同，支出/转出为硬阻断，对齐用户可信度诉求）
+- 位于还款校验之前，三类型校验（支出/转账/还款）链路完整
+
+**后端（LedgerTransactionServiceImpl.createTransaction）**：
+- 新增 `checkSufficientBalance(userId, dto)`：expense/transfer 时查资产账户（归属校验复用 applyAssetDelta 同款逻辑），`balance < amount` 抛 IllegalArgumentException（全局异常处理返回，前端拦截器 toast）
+- **仅校验新建**：updateTransaction 走冲正+重放（语义为修正历史账），以当前余额强卡历史账会误伤——该边界已在方法 javadoc 说明
+- 事务位置：validate 之后、applyBalanceEffect 之前，校验失败不产生任何数据写入
+
+### 验证
+
+- 后端：mvn compile 通过（class 时间戳核对）；无 SQL/菜单变更，重启生效
+- 前端：npm run build:h5 构建通过
+- 自测路径：选一个余额不足的账户记支出 → 应弹「账户余额不足」（去记收入/去转账）→ 直接调接口 POST /portal/ledger/transactions 也应被拒（后端兜底）
+
+### 四同步
+
+- 代码：record/index.vue（前端阻断+引导）、LedgerTransactionServiceImpl.java（后端强制）
+- 文档：本条 devlog
+- SQL/菜单：无涉及
+- 部署：重启 moyun-server + ledger-app 重新构建发布
 
 ---
 

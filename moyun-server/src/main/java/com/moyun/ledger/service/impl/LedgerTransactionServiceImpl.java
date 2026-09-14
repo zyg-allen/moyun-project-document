@@ -75,6 +75,19 @@ public class LedgerTransactionServiceImpl extends ServiceImpl<LedgerTransactionM
     @Transactional(rollbackFor = Exception.class)
     public Long createTransaction(Long userId, TransactionCreateDTO dto) {
         validate(dto);
+        // 幂等防重（资金铁律）：clientUuid 重复=同一笔的重复提交（双击/网络重试），
+        // 直接返回已入账的流水ID；并发极端场景由 DB 唯一索引 uk_client_uuid 兜底拒绝
+        if (dto.getClientUuid() != null && !dto.getClientUuid().isEmpty()) {
+            LedgerTransaction exist = getOne(new LambdaQueryWrapper<LedgerTransaction>()
+                    .eq(LedgerTransaction::getClientUuid, dto.getClientUuid())
+                    .eq(LedgerTransaction::getUserId, userId)
+                    .last("LIMIT 1"));
+            if (exist != null) {
+                log.info("[ledger] 幂等命中，返回已入账流水 id={} clientUuid={}", exist.getId(), dto.getClientUuid());
+                return exist.getId();
+            }
+        }
+        checkSufficientBalance(userId, dto);
         LedgerTransaction txn = new LedgerTransaction();
         txn.setUserId(userId);
         applyDto(txn, dto);
@@ -111,16 +124,17 @@ public class LedgerTransactionServiceImpl extends ServiceImpl<LedgerTransactionM
                 return null;
             }
 
-            // 2. 当月计入预算的支出合计
-            LambdaQueryWrapper<LedgerTransaction> tw = new LambdaQueryWrapper<>();
-            tw.eq(LedgerTransaction::getUserId, userId)
-                    .eq(LedgerTransaction::getStatus, LedgerTransaction.STATUS_NORMAL)
-                    .eq(LedgerTransaction::getType, LedgerTransaction.TYPE_EXPENSE)
-                    .eq(LedgerTransaction::getIsBudget, 1)
-                    .between(LedgerTransaction::getTransactionDate, monthStart, now);
-            BigDecimal used = list(tw).stream()
-                    .map(LedgerTransaction::getAmount)
-                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+            // 2. 当月计入预算的支出合计（SQL SUM 聚合，避免全量拉取流水到内存）
+            com.baomidou.mybatisplus.core.conditions.query.QueryWrapper<LedgerTransaction> sw =
+                    new com.baomidou.mybatisplus.core.conditions.query.QueryWrapper<>();
+            sw.select("IFNULL(SUM(amount), 0) AS used")
+                    .eq("user_id", userId)
+                    .eq("status", LedgerTransaction.STATUS_NORMAL)
+                    .eq("type", LedgerTransaction.TYPE_EXPENSE)
+                    .eq("is_budget", 1)
+                    .between("transaction_date", monthStart, now);
+            Object usedVal = listObjs(sw).stream().findFirst().orElse(BigDecimal.ZERO);
+            BigDecimal used = usedVal == null ? BigDecimal.ZERO : new BigDecimal(usedVal.toString());
 
             // 3. 阈值判断（≥100 优先）+ Redis 去重
             String monthKey = now.getYear() + String.format("%02d", now.getMonthValue());
@@ -292,6 +306,9 @@ public class LedgerTransactionServiceImpl extends ServiceImpl<LedgerTransactionM
     // 私有方法：校验 / DTO 应用 / 余额联动核心
     // ------------------------------------------------------------------
 
+    /** 单笔金额上限（与 DECIMAL(18,2) 精度对齐，防接口直调传超大额） */
+    private static final BigDecimal AMOUNT_MAX = new BigDecimal("99999999.99");
+
     /** 入参校验（金额守恒与业务边界规则） */
     private void validate(TransactionCreateDTO dto) {
         String type = dto.getType();
@@ -308,6 +325,13 @@ public class LedgerTransactionServiceImpl extends ServiceImpl<LedgerTransactionM
         if (amount == null) {
             throw new IllegalArgumentException("金额不能为空");
         }
+        // 金额边界（企业标准）：上限卡超大数据、scale 卡超高精度小数（DECIMAL(18,2) 会静默截断）
+        if (amount.abs().compareTo(AMOUNT_MAX) > 0) {
+            throw new IllegalArgumentException("单笔金额不能超过 99,999,999.99 元");
+        }
+        if (amount.scale() > 2) {
+            throw new IllegalArgumentException("金额最多支持 2 位小数");
+        }
         if (LedgerTransaction.TYPE_ADJUST.equals(type)) {
             if (amount.compareTo(BigDecimal.ZERO) == 0) {
                 throw new IllegalArgumentException("校准差额不能为0");
@@ -316,10 +340,13 @@ public class LedgerTransactionServiceImpl extends ServiceImpl<LedgerTransactionM
             throw new IllegalArgumentException("金额必须大于0");
         }
         if (LedgerTransaction.TYPE_TRANSFER.equals(type)) {
+            if (dto.getAccountId() == null) {
+                throw new IllegalArgumentException("转账必须指定转出账户");
+            }
             if (dto.getTargetAccountId() == null) {
                 throw new IllegalArgumentException("转账必须指定目标账户");
             }
-            if (dto.getAccountId() != null && dto.getAccountId().equals(dto.getTargetAccountId())) {
+            if (dto.getAccountId().equals(dto.getTargetAccountId())) {
                 throw new IllegalArgumentException("转账两个账户不能相同");
             }
         }
@@ -334,6 +361,29 @@ public class LedgerTransactionServiceImpl extends ServiceImpl<LedgerTransactionM
             if (dto.getAccountId() == null) {
                 throw new IllegalArgumentException("必须指定资产账户");
             }
+        }
+    }
+
+    /**
+     * 支出/转出资金充足性校验（账目可信度铁律）：账户余额不足以覆盖时拒绝记账，
+     * 引导先记一笔收入或转账说明资金来源——支出凭空出现=钱从哪来说不清楚。
+     * <p>
+     * 仅校验新建：修改走冲正+重放（语义为修正历史账，以当前余额强卡历史账会误伤）。
+     */
+    private void checkSufficientBalance(Long userId, TransactionCreateDTO dto) {
+        if (!LedgerTransaction.TYPE_EXPENSE.equals(dto.getType())
+                && !LedgerTransaction.TYPE_TRANSFER.equals(dto.getType())) {
+            return;
+        }
+        LedgerAssetAccount account = assetAccountMapper.selectById(dto.getAccountId());
+        if (account == null || !account.getUserId().equals(userId)) {
+            throw new IllegalArgumentException("资产账户不存在或无权操作");
+        }
+        if (account.getBalance().compareTo(dto.getAmount()) < 0) {
+            throw new IllegalArgumentException("「" + account.getName() + "」余额不足（当前 "
+                    + account.getBalance().toPlainString() + " 元），无法记此笔"
+                    + (LedgerTransaction.TYPE_EXPENSE.equals(dto.getType()) ? "支出" : "转出")
+                    + "。请先记一笔该账户的收入，或从余额充足的账户转账过来，说明资金来源");
         }
     }
 
@@ -477,6 +527,9 @@ public class LedgerTransactionServiceImpl extends ServiceImpl<LedgerTransactionM
 
     /**
      * 资产账户余额原子增减（乐观锁），返回交易后余额
+     * <p>
+     * setSql 中 delta 为 {@link BigDecimal}（非字符串拼接），无 SQL 注入面；
+     * 数据库端原子运算避免读-改-写丢失更新，version 乐观锁挡并发冲突。
      */
     private BigDecimal applyAssetDelta(Long accountId, BigDecimal delta, Long userId) {
         LedgerAssetAccount account = assetAccountMapper.selectById(accountId);

@@ -18,10 +18,12 @@
     { "path": "pages/mine/schedule/index", "style": { "navigationBarTitleText": "定时记账" } },
     { "path": "pages/mine/schedule/add", "style": { "navigationBarTitleText": "添加计划" } },
     { "path": "pages/mine/tip/index", "style": { "navigationBarTitleText": "赞赏" } },
+    { "path": "pages/mine/vip/index", "style": { "navigationBarTitleText": "记账VIP" } },
     { "path": "pages/mine/memo/index", "style": { "navigationBarTitleText": "备忘录" } },
     { "path": "pages/mine/feedback/index", "style": { "navigationBarTitleText": "意见反馈" } },
     { "path": "pages/mine/register/index", "style": { "navigationBarTitleText": "注册账号" } },
-    { "path": "pages/mine/login/index", "style": { "navigationBarTitleText": "账号登录" } }
+    { "path": "pages/mine/login/index", "style": { "navigationBarTitleText": "账号登录" } },
+    { "path": "pages/webview/index", "style": { "navigationBarTitleText": "外部链接" } }
   ],
   "globalStyle": {
     "navigationStyle": "custom",

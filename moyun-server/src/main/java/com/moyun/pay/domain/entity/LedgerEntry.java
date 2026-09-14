@@ -1,6 +1,7 @@
 package com.moyun.pay.domain.entity;
 
 import com.baomidou.mybatisplus.annotation.IdType;
+import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
 
@@ -61,6 +62,10 @@ public class LedgerEntry {
 
     private LocalDateTime createTime;
 
+    /** 用户昵称（v11.78 后台展示用，非表字段；PLATFORM 分录为 null，前端显示"平台"） */
+    @TableField(exist = false)
+    private String nickname;
+
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
     public String getPayNo() { return payNo; }
@@ -83,4 +88,6 @@ public class LedgerEntry {
     public void setSummary(String summary) { this.summary = summary; }
     public LocalDateTime getCreateTime() { return createTime; }
     public void setCreateTime(LocalDateTime createTime) { this.createTime = createTime; }
+    public String getNickname() { return nickname; }
+    public void setNickname(String nickname) { this.nickname = nickname; }
 }

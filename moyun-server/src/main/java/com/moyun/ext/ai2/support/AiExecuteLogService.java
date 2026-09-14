@@ -41,9 +41,23 @@ public class AiExecuteLogService {
                        com.moyun.ext.ai2.model.AiMetadata metadata,
                        String inputSummary, String outputSummary,
                        String status, String errorMsg, long elapsedMs) {
+        record(requestId, null, sceneCode, handlerName, bindType, metadata,
+                inputSummary, outputSummary, status, errorMsg, elapsedMs);
+    }
+
+    /**
+     * 异步记录执行日志（v11.73：带用户维度——网关 request.getUserId() 直取，
+     * 支撑 AI 消费按用户统计；系统内部调用 userId 为空）
+     */
+    @Async
+    public void record(String requestId, Long userId, String sceneCode, String handlerName, String bindType,
+                       com.moyun.ext.ai2.model.AiMetadata metadata,
+                       String inputSummary, String outputSummary,
+                       String status, String errorMsg, long elapsedMs) {
         try {
             AiExecuteLog logEntry = new AiExecuteLog();
             logEntry.setRequestId(requestId);
+            logEntry.setUserId(userId);
             logEntry.setSceneCode(sceneCode);
             logEntry.setHandlerName(handlerName);
             logEntry.setBindType(bindType);

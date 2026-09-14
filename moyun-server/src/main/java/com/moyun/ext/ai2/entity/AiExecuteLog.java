@@ -31,6 +31,10 @@ public class AiExecuteLog {
     @TableField("scene_code")
     private String sceneCode;
 
+    /** 发起用户ID（v11.73：网关请求方，支撑 AI 消费按用户统计；系统内部调用为空） */
+    @TableField("user_id")
+    private Long userId;
+
     /** Handler名称 */
     @TableField("handler_name")
     private String handlerName;

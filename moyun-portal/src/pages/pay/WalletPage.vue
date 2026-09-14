@@ -1,4 +1,4 @@
-﻿<script setup lang="ts">
+<script setup lang="ts">
 import { useToast } from '@/composables/useToast';
 import { formatDate } from '@/utils/date';
 import { useConfirmModal } from '@/composables/useConfirmModal';
@@ -30,9 +30,11 @@ import {
   bindBankCard,
   deleteBankCard,
   setDefaultBankCard,
+  applyWithdraw,
+  getMyWithdrawals,
 } from '@/api/pay';
 import { sendSmsCode } from '@/api/sms';
-import type { PayAccountOverview, PayLedgerEntry, UserBankCard } from '@/types/api';
+import type { PayAccountOverview, PayLedgerEntry, UserBankCard, PayWithdrawOrder } from '@/types/api';
 
 useHead(
   generateSeo({
@@ -50,10 +52,11 @@ const toast = useToast();
 
 const tabs = [
   { key: 'ledger', label: '资金流水' },
+  { key: 'withdraw', label: '提现' },
   { key: 'bankcard', label: '银行卡' },
 ] as const;
 
-const activeTab = ref<'ledger' | 'bankcard'>('ledger');
+const activeTab = ref<'ledger' | 'withdraw' | 'bankcard'>('ledger');
 const overview = ref<PayAccountOverview | null>(null);
 const overviewLoading = ref(true);
 const ledgerEntries = ref<PayLedgerEntry[]>([]);
@@ -71,6 +74,16 @@ const smsSending = ref(false);
 const smsCooldown = ref(0);
 let smsTimer: ReturnType<typeof setInterval> | null = null;
 
+// 提现（v11.79 提现闭环）
+const withdrawList = ref<PayWithdrawOrder[]>([]);
+const withdrawLoading = ref(false);
+const withdrawCurrent = ref(1);
+const withdrawTotal = ref(0);
+const withdrawSubmitting = ref(false);
+const withdrawForm = ref<{ amount: string; bankCardId: number | string | null }>({ amount: '', bankCardId: null });
+
+const hasMoreWithdraw = computed(() => withdrawList.value.length < withdrawTotal.value);
+
 const hasMoreLedger = computed(() => ledgerEntries.value.length < ledgerTotal.value);
 
 // 本页累计收入合计（当前已加载流水）
@@ -80,16 +93,83 @@ const loadedCreditTotal = computed(() =>
     .reduce((sum, e) => sum + (e.amount ?? 0), 0)
 );
 
-const switchTab = (key: 'ledger' | 'bankcard') => {
+const switchTab = (key: 'ledger' | 'withdraw' | 'bankcard') => {
   activeTab.value = key;
   if (key === 'bankcard' && bankCards.value.length === 0 && !cardLoading.value) {
     loadCards();
+  }
+  if (key === 'withdraw') {
+    if (bankCards.value.length === 0 && !cardLoading.value) {
+      loadCards();
+    }
+    if (withdrawList.value.length === 0 && !withdrawLoading.value) {
+      loadWithdrawals();
+    }
   }
 };
 
 const bizTypeLabel = (bizType?: string) => {
   const map: Record<string, string> = { tip: '打赏', withdraw: '提现', member: '会员' };
   return map[bizType || ''] || bizType || '-';
+};
+
+// ===== 提现（v11.79） =====
+
+const withdrawStatusLabel = (status?: string) => {
+  const map: Record<string, string> = { auditing: '审核中', paid: '已打款', rejected: '已驳回' };
+  return map[status || ''] || status || '-';
+};
+
+const loadWithdrawals = async (append = false) => {
+  withdrawLoading.value = true;
+  try {
+    const res = await getMyWithdrawals({ current: withdrawCurrent.value, size: PAGE_SIZE });
+    const records = res.data?.records ?? [];
+    withdrawTotal.value = res.data?.total ?? 0;
+    if (append) {
+      withdrawList.value = [...withdrawList.value, ...records];
+    } else {
+      withdrawList.value = records;
+    }
+  } catch {
+    toast.error('提现记录加载失败');
+  } finally {
+    withdrawLoading.value = false;
+  }
+};
+
+const loadMoreWithdraw = async () => {
+  withdrawCurrent.value += 1;
+  await loadWithdrawals(true);
+};
+
+const handleWithdraw = async () => {
+  const amount = Number(withdrawForm.value.amount);
+  if (!amount || amount <= 0) {
+    toast.error('请填写提现金额');
+    return;
+  }
+  if (amount > Number(overview.value?.balance ?? 0)) {
+    toast.error('提现金额不能超过可用余额');
+    return;
+  }
+  if (!withdrawForm.value.bankCardId) {
+    toast.error('请选择打款银行卡');
+    return;
+  }
+  if (!await confirmModal.confirm(`确认申请提现 ¥${amount.toFixed(2)}？提交后需平台审核打款`, { title: '确认提现' })) return;
+  withdrawSubmitting.value = true;
+  try {
+    await applyWithdraw({ amount, bankCardId: withdrawForm.value.bankCardId });
+    toast.success('提现申请已提交，等待平台审核');
+    withdrawForm.value = { amount: '', bankCardId: withdrawForm.value.bankCardId };
+    withdrawCurrent.value = 1;
+    await Promise.all([loadWithdrawals(), loadOverview()]);
+  } catch (e) {
+    toast.error(e instanceof Error ? e.message : '提现申请失败');
+  } finally {
+    withdrawSubmitting.value = false;
+  }
 };
 
 const handleSendSms = async () => {
@@ -289,10 +369,10 @@ onMounted(async () => {
                 <button
                   class="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition-all hover:opacity-90"
                   style="background-color: #fff; color: var(--theme-primary);"
-                  @click="switchTab('bankcard')"
+                  @click="switchTab('withdraw')"
                 >
-                  <CreditCard class="w-4 h-4" />
-                  银行卡管理
+                  <ArrowUpFromLine class="w-4 h-4" />
+                  申请提现
                 </button>
               </div>
             </div>
@@ -356,6 +436,7 @@ onMounted(async () => {
             @click="switchTab(tab.key)"
           >
             <ReceiptText v-if="tab.key === 'ledger'" class="w-4 h-4" />
+            <ArrowUpFromLine v-else-if="tab.key === 'withdraw'" class="w-4 h-4" />
             <CreditCard v-else class="w-4 h-4" />
             {{ tab.label }}
             <span v-if="tab.key === 'bankcard' && bankCards.length > 0"
@@ -472,6 +553,136 @@ onMounted(async () => {
               </button>
             </div>
           </template>
+        </div>
+
+        <!-- 提现（v11.79 提现闭环） -->
+        <div v-if="activeTab === 'withdraw'" class="space-y-4">
+          <!-- 申请表单 -->
+          <div class="rounded-2xl border p-6" style="background-color: var(--theme-surface); border-color: var(--theme-border);">
+            <h3 class="text-base font-semibold mb-1" style="color: var(--theme-text);">申请提现</h3>
+            <p class="text-xs mb-5" style="color: var(--theme-text-secondary);">可用余额 ¥{{ overview?.balance?.toFixed(2) ?? '0.00' }}，提交后平台审核打款，打款到绑定银行卡</p>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label class="block text-xs mb-1.5" style="color: var(--theme-text-secondary);">打款银行卡</label>
+                <select
+                  v-model="withdrawForm.bankCardId"
+                  class="w-full px-3 py-2.5 rounded-lg text-sm outline-none transition-colors focus:border-[var(--theme-primary)]"
+                  style="background-color: var(--theme-bg); border: 1px solid var(--theme-border); color: var(--theme-text);"
+                >
+                  <option :value="null" disabled>请选择银行卡</option>
+                  <option v-for="card in bankCards" :key="String(card.id)" :value="card.id">
+                    {{ (card.bankName || '银行卡') + ' ' + card.cardNoMasked + (card.isDefault === 1 ? '（默认）' : '') }}
+                  </option>
+                </select>
+                <p v-if="bankCards.length === 0" class="text-xs mt-1.5" style="color: var(--theme-warning);">
+                  暂未绑定银行卡，请先在「银行卡」Tab 绑定
+                </p>
+              </div>
+              <div>
+                <label class="block text-xs mb-1.5" style="color: var(--theme-text-secondary);">提现金额（元）</label>
+                <input v-model="withdrawForm.amount" type="number" min="0.01" step="0.01" placeholder="不超过可用余额"
+                       class="w-full px-3 py-2.5 rounded-lg text-sm outline-none transition-colors focus:border-[var(--theme-primary)]"
+                       style="background-color: var(--theme-bg); border: 1px solid var(--theme-border); color: var(--theme-text);" />
+              </div>
+            </div>
+            <button
+              class="mt-5 px-6 py-2.5 rounded-lg text-sm font-medium text-white transition-all hover:opacity-90 disabled:opacity-50 inline-flex items-center gap-2"
+              style="background-color: var(--theme-primary);"
+              :disabled="withdrawSubmitting"
+              @click="handleWithdraw"
+            >
+              <Loader2 v-if="withdrawSubmitting" class="w-4 h-4 animate-spin" />
+              {{ withdrawSubmitting ? '提交中…' : '提交提现申请' }}
+            </button>
+          </div>
+
+          <!-- 提现记录 -->
+          <div class="rounded-2xl border overflow-hidden"
+               style="background-color: var(--theme-surface); border-color: var(--theme-border);">
+            <div v-if="withdrawLoading && withdrawList.length === 0" class="py-16 flex flex-col items-center gap-3">
+              <Loader2 class="w-6 h-6 animate-spin" style="color: var(--theme-text-secondary);" />
+              <span class="text-sm" style="color: var(--theme-text-secondary);">加载中…</span>
+            </div>
+            <div v-else-if="withdrawList.length === 0" class="py-16 flex flex-col items-center gap-3">
+              <div class="w-14 h-14 rounded-full flex items-center justify-center" style="background-color: var(--theme-accent);">
+                <ArrowUpFromLine class="w-7 h-7" style="color: var(--theme-text-secondary);" />
+              </div>
+              <p class="text-sm" style="color: var(--theme-text-secondary);">暂无提现记录</p>
+            </div>
+            <template v-else>
+              <!-- 桌面表格 -->
+              <table class="w-full text-sm hidden sm:table">
+                <thead>
+                  <tr style="background-color: var(--theme-accent);">
+                    <th class="px-5 py-3.5 text-left text-xs font-semibold" style="color: var(--theme-text-secondary);">提现单号</th>
+                    <th class="px-5 py-3.5 text-left text-xs font-semibold" style="color: var(--theme-text-secondary);">申请时间</th>
+                    <th class="px-5 py-3.5 text-right text-xs font-semibold" style="color: var(--theme-text-secondary);">金额（元）</th>
+                    <th class="px-5 py-3.5 text-right text-xs font-semibold" style="color: var(--theme-text-secondary);">手续费</th>
+                    <th class="px-5 py-3.5 text-center text-xs font-semibold" style="color: var(--theme-text-secondary);">状态</th>
+                    <th class="px-5 py-3.5 text-left text-xs font-semibold" style="color: var(--theme-text-secondary);">说明</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="w in withdrawList" :key="String(w.id)"
+                      class="border-b last:border-b-0 transition-colors hover:bg-black/[0.02]"
+                      style="border-color: var(--theme-border);">
+                    <td class="px-5 py-3.5 text-xs font-mono whitespace-nowrap" style="color: var(--theme-text-secondary);">{{ w.withdrawNo || '-' }}</td>
+                    <td class="px-5 py-3.5 whitespace-nowrap text-xs" style="color: var(--theme-text-secondary);">{{ formatDate(w.createTime, 'YYYY-MM-DD HH:mm') }}</td>
+                    <td class="px-5 py-3.5 text-right font-semibold whitespace-nowrap tabular-nums" style="color: var(--theme-text);">¥{{ w.amount?.toFixed(2) ?? '0.00' }}</td>
+                    <td class="px-5 py-3.5 text-right whitespace-nowrap text-xs tabular-nums" style="color: var(--theme-text-secondary);">¥{{ w.fee?.toFixed(2) ?? '0.00' }}</td>
+                    <td class="px-5 py-3.5 text-center">
+                      <span class="inline-flex px-2 py-0.5 rounded text-[10px] font-medium whitespace-nowrap"
+                            :style="w.status === 'paid'
+                              ? 'background-color: var(--theme-success-bg); color: var(--theme-success);'
+                              : w.status === 'rejected'
+                                ? 'background-color: var(--theme-danger-bg); color: var(--theme-danger);'
+                                : 'background-color: var(--theme-warning-bg); color: var(--theme-warning);'">
+                        {{ withdrawStatusLabel(w.status) }}
+                      </span>
+                    </td>
+                    <td class="px-5 py-3.5 text-xs max-w-xs truncate" style="color: var(--theme-text-secondary);" :title="w.rejectReason || ''">
+                      {{ w.status === 'rejected' ? (w.rejectReason || '已驳回') : (w.status === 'paid' ? '打款至绑定银行卡' : '等待平台审核') }}
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+              <!-- 移动端卡片 -->
+              <div class="sm:hidden divide-y" style="border-color: var(--theme-border);">
+                <div v-for="w in withdrawList" :key="'m-' + String(w.id)" class="px-4 py-3.5">
+                  <div class="flex items-center justify-between gap-3">
+                    <span class="inline-flex px-2 py-0.5 rounded text-[10px] font-medium"
+                          :style="w.status === 'paid'
+                            ? 'background-color: var(--theme-success-bg); color: var(--theme-success);'
+                            : w.status === 'rejected'
+                              ? 'background-color: var(--theme-danger-bg); color: var(--theme-danger);'
+                              : 'background-color: var(--theme-warning-bg); color: var(--theme-warning);'">
+                      {{ withdrawStatusLabel(w.status) }}
+                    </span>
+                    <span class="font-semibold whitespace-nowrap tabular-nums text-sm" style="color: var(--theme-text);">
+                      ¥{{ w.amount?.toFixed(2) ?? '0.00' }}
+                    </span>
+                  </div>
+                  <div class="flex items-center justify-between mt-1.5 text-[11px]" style="color: var(--theme-text-secondary);">
+                    <span class="font-mono truncate">{{ w.withdrawNo }}</span>
+                    <span>{{ formatDate(w.createTime, 'YYYY-MM-DD HH:mm') }}</span>
+                  </div>
+                  <p v-if="w.status === 'rejected'" class="text-[11px] mt-1" style="color: var(--theme-danger);">驳回原因：{{ w.rejectReason || '—' }}</p>
+                </div>
+              </div>
+              <!-- 加载更多 -->
+              <div v-if="hasMoreWithdraw" class="py-3 text-center border-t" style="border-color: var(--theme-border);">
+                <button
+                  class="text-xs font-medium px-4 py-1.5 rounded-lg transition-colors inline-flex items-center gap-1.5"
+                  style="color: var(--theme-primary);"
+                  :disabled="withdrawLoading"
+                  @click="loadMoreWithdraw"
+                >
+                  <Loader2 v-if="withdrawLoading" class="w-3.5 h-3.5 animate-spin" />
+                  {{ withdrawLoading ? '加载中…' : '加载更多' }}
+                </button>
+              </div>
+            </template>
+          </div>
         </div>
 
         <!-- 银行卡 -->

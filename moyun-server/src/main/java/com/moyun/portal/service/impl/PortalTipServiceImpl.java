@@ -230,9 +230,9 @@ public class PortalTipServiceImpl implements IPortalTipService {
         order.setCreatedTime(LocalDateTime.now());
         portalTipOrderMapper.insert(order);
 
-        // 6. 网关统一下单（幂等：同 bizNo 未支付单复用）
+        // 6. 网关统一下单（幂等：同 bizNo 未支付单复用；v11.79 透传 userId/platform 对账维度）
         String subject = "墨韵打赏-" + order.getTargetType();
-        PayOrder payOrder = payGateway.createOrder("tip", String.valueOf(order.getId()), "wechat",
+        PayOrder payOrder = payGateway.createOrder("tip", String.valueOf(order.getId()), userId, "portal", "wechat",
                 order.getAmount(), subject);
 
         // 7. 返回收银台参数

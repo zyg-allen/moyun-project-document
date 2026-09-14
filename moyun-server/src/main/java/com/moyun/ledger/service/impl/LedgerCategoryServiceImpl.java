@@ -92,8 +92,25 @@ public class LedgerCategoryServiceImpl extends ServiceImpl<LedgerCategoryMapper,
         if (exist == null) {
             throw new IllegalArgumentException("分类不存在或为系统预设，不可删除");
         }
-        exist.setStatus(LedgerCategory.STATUS_DISABLED);
-        updateById(exist);
+        assertCategoryDeletable(categoryId);
+        removeById(categoryId);
+    }
+
+    @Override
+    public void assertCategoryDeletable(Long categoryId) {
+        // 已绑定有效流水 → 不能删除（资金链路可追溯红线）
+        Long txnCount = transactionMapper.selectCount(new LambdaQueryWrapper<LedgerTransaction>()
+                .eq(LedgerTransaction::getCategoryId, categoryId)
+                .eq(LedgerTransaction::getStatus, LedgerTransaction.STATUS_NORMAL));
+        if (txnCount != null && txnCount > 0) {
+            throw new IllegalArgumentException("该分类已绑定 " + txnCount + " 笔流水，不能删除（可将其停用）");
+        }
+        // 存在子分类 → 不能删除（避免悬挂引用）
+        Long childCount = count(new LambdaQueryWrapper<LedgerCategory>()
+                .eq(LedgerCategory::getParentId, categoryId));
+        if (childCount != null && childCount > 0) {
+            throw new IllegalArgumentException("该分类下有子分类，请先处理子分类");
+        }
     }
 
     /** 仅取当前用户自定义分类（排除系统预设） */

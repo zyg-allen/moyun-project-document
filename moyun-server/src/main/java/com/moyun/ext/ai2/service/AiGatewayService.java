@@ -98,7 +98,7 @@ public class AiGatewayService {
                 if (guard.isDangerous()) {
                     log.warn("[ai2:网关] 注入防护拦截: scene={}, requestId={}, pattern={}",
                             sceneCode, request.getRequestId(), guard.getPattern());
-                    executeLogService.record(request.getRequestId(), sceneCode,
+                    executeLogService.record(request.getRequestId(), request.getUserId(), sceneCode,
                             handler.getClass().getSimpleName(), resolveBindType(config), null,
                             null, null, "fail", "prompt_injection_blocked",
                             System.currentTimeMillis() - startTime);
@@ -148,7 +148,7 @@ public class AiGatewayService {
             int window = config.getRateLimitTime() != null ? config.getRateLimitTime() : 60;
             SceneRateLimiter.RateResult rate = rateLimiter.tryAcquire(sceneCode, identity, limit, window);
             if (!rate.allowed()) {
-                executeLogService.record(request.getRequestId(), sceneCode,
+                executeLogService.record(request.getRequestId(), request.getUserId(), sceneCode,
                     handler.getClass().getSimpleName(), resolveBindType(config), null,
                     inputKey, null, "fail", "rate_limited",
                     System.currentTimeMillis() - startTime);
@@ -160,7 +160,7 @@ public class AiGatewayService {
             //     场景级配额（全体用户共享），保护平台总成本；null/0=不限。
             TokenCostGuard.QuotaResult quota = tokenCostGuard.checkQuota(sceneCode, config.getDailyTokenLimit());
             if (!quota.allowed()) {
-                executeLogService.record(request.getRequestId(), sceneCode,
+                executeLogService.record(request.getRequestId(), request.getUserId(), sceneCode,
                     handler.getClass().getSimpleName(), resolveBindType(config), null,
                     inputKey, null, "fail", "token_limit_exceeded",
                     System.currentTimeMillis() - startTime);
@@ -195,7 +195,7 @@ public class AiGatewayService {
                     && response.getCode() != null && response.getCode() == AiErrorCodes.SUCCESS) {
                 semanticCache.put(sceneCode, inputKey, inputText, response, config.getCacheTtl());
             }
-            executeLogService.record(request.getRequestId(), sceneCode,
+            executeLogService.record(request.getRequestId(), request.getUserId(), sceneCode,
                     handler.getClass().getSimpleName(), resolveBindType(config), response.getMetadata(),
                     inputKey, summarizeOutput(response), "success", null, elapsed);
             log.info("[ai2:网关] 成功: scene={}, requestId={}, elapsed={}ms",
@@ -208,7 +208,7 @@ public class AiGatewayService {
             AiExecuteResponse<?> fallback = fallbackStrategy.executeFallback(sceneCode,
                     config != null ? config.getFallbackResponse() : null, e);
             fillCommon(fallback, request, elapsed);
-            executeLogService.record(request.getRequestId(), sceneCode,
+            executeLogService.record(request.getRequestId(), request.getUserId(), sceneCode,
                     handler != null ? handler.getClass().getSimpleName() : null,
                     config != null ? resolveBindType(config) : null, null,
                     canonicalInputKey(request), null, "fail", e.getMessage(), elapsed);
@@ -276,13 +276,13 @@ public class AiGatewayService {
 
             handler.validate(request);
             handler.executeStream(request, emitter);
-            executeLogService.record(request.getRequestId(), scene,
+            executeLogService.record(request.getRequestId(), request.getUserId(), scene,
                     handler.getClass().getSimpleName(), resolveBindType(config), null,
                     canonicalInputKey(request), null, "success", null,
                     System.currentTimeMillis() - startTime);
         } catch (Exception e) {
             log.error("[ai2:网关] 流式失败: scene={}, requestId={}", scene, request.getRequestId(), e);
-            executeLogService.record(request.getRequestId(), scene, null, null, null,
+            executeLogService.record(request.getRequestId(), request.getUserId(), scene, null, null, null,
                     canonicalInputKey(request), null, "fail", e.getMessage(),
                     System.currentTimeMillis() - startTime);
             sendErrorAndComplete(emitter, e.getMessage());

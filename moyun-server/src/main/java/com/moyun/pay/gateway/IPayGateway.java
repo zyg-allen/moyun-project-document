@@ -22,14 +22,17 @@ public interface IPayGateway {
     /**
      * 统一下单（幂等：同 bizType+bizNo 的 CREATED 单复用）
      *
-     * @param bizType 业务类型（tip/member/course/...）
-     * @param bizNo   业务单号（业务方本地单 ID）
-     * @param channel 支付渠道（wechat）
-     * @param amount  金额（元）
-     * @param subject 商品描述
+     * @param bizType  业务类型（tip/member/course/...）
+     * @param bizNo    业务单号（业务方本地单 ID）
+     * @param userId   下单用户（portal_user.id，v11.79 补全对账维度）
+     * @param platform 归属平台（ledger_app/portal，v11.79 补全对账维度）
+     * @param channel  支付渠道（wechat）
+     * @param amount   金额（元）
+     * @param subject  商品描述
      * @return 支付单（含 codeUrl / payNo / expireTime）
      */
-    PayOrder createOrder(String bizType, String bizNo, String channel, BigDecimal amount, String subject);
+    PayOrder createOrder(String bizType, String bizNo, Long userId, String platform, String channel,
+                         BigDecimal amount, String subject);
 
     /**
      * 支付单状态查询（前端收银台轮询用）

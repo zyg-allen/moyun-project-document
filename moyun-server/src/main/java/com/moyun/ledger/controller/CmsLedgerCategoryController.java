@@ -22,14 +22,16 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * CMS 记账预设分类管理 Controller
+ * CMS 记账预设分类管理 Controller（v11.76）
  *
- * <p>仅维护系统预设分类（user_id=0 + is_system=1）；
- * 用户自定义分类属用户隐私域，后台不提供任何入口（脱敏红线）。
+ * <p>层级模型：大类 = 交易类型（收入/支出/转账/借款/还款/校准），分类挂在大类下（二级）。
+ * <p>归属：系统预设（user_id=0 + is_system=1）与用户自定义（is_system=0）均可查看维护；
+ * 脱敏红线：不展示任何用户身份信息（仅区分归属），不提供金额/账户等个体数据。
+ * <p>删除规则：已绑定有效流水的分类不能删除（仅可停用）。
  *
  * @author moyun
  */
-@Tag(name = "CMS记账预设分类", description = "系统预设收支分类维护")
+@Tag(name = "CMS记账预设分类", description = "预设/自定义分类维护（大类二级模型）")
 @RestController
 @RequestMapping("/cms/ledger/category")
 public class CmsLedgerCategoryController extends BaseController {
@@ -37,28 +39,42 @@ public class CmsLedgerCategoryController extends BaseController {
     @Autowired
     private ILedgerCategoryService categoryService;
 
-    @Operation(summary = "预设分类列表")
+    /**
+     * 分类列表（v11.76：支持类型/名称/归属筛选；默认全部）
+     *
+     * @param type  类型：expense/income/transfer/repayment/borrow/adjust（空=全部）
+     * @param name  名称模糊搜索（空=不过滤）
+     * @param owner 归属：system=系统预设 / user=用户自定义（空=全部）
+     */
+    @Operation(summary = "分类列表（类型/名称/归属筛选）")
     @PreAuthorize("@ss.hasPermi('cms:ledgerCategory:list')")
     @GetMapping("/list")
-    public AjaxResult list(String type) {
+    public AjaxResult list(String type, String name, String owner) {
         LambdaQueryWrapper<LedgerCategory> qw = new LambdaQueryWrapper<>();
-        qw.eq(LedgerCategory::getUserId, 0)
-                .eq(LedgerCategory::getIsSystem, 1);
         if (type != null && !type.isEmpty()) {
             qw.eq(LedgerCategory::getType, type);
+        }
+        if (name != null && !name.isEmpty()) {
+            qw.like(LedgerCategory::getName, name.trim());
+        }
+        if ("system".equals(owner)) {
+            qw.eq(LedgerCategory::getUserId, 0).eq(LedgerCategory::getIsSystem, 1);
+        } else if ("user".equals(owner)) {
+            qw.gt(LedgerCategory::getUserId, 0).eq(LedgerCategory::getIsSystem, 0);
         }
         qw.orderByAsc(LedgerCategory::getType).orderByAsc(LedgerCategory::getSortOrder);
         List<LedgerCategory> list = categoryService.list(qw);
         return success(Map.of("records", list, "total", list.size()));
     }
 
-    @Operation(summary = "新增预设分类")
+    @Operation(summary = "新增系统预设分类（挂指定大类下）")
     @PreAuthorize("@ss.hasPermi('cms:ledgerCategory:add')")
     @PostMapping
     public AjaxResult add(@RequestBody LedgerCategory category) {
         category.setId(null);
         category.setUserId(0L);
         category.setIsSystem(1);
+        category.setParentId(0L);
         if (category.getStatus() == null) {
             category.setStatus(LedgerCategory.STATUS_ENABLED);
         }
@@ -69,37 +85,55 @@ public class CmsLedgerCategoryController extends BaseController {
         return ok ? success(category) : error("新增失败");
     }
 
-    @Operation(summary = "修改预设分类")
+    /**
+     * 修改分类（v11.76：保留原归属，系统预设/用户自定义均可编辑）
+     */
+    @Operation(summary = "修改分类（保留归属）")
     @PreAuthorize("@ss.hasPermi('cms:ledgerCategory:edit')")
     @PutMapping("/{id}")
     public AjaxResult edit(@PathVariable Long id, @RequestBody LedgerCategory category) {
-        LambdaQueryWrapper<LedgerCategory> qw = new LambdaQueryWrapper<>();
-        qw.eq(LedgerCategory::getId, id)
-                .eq(LedgerCategory::getUserId, 0)
-                .eq(LedgerCategory::getIsSystem, 1);
-        LedgerCategory exist = categoryService.getOne(qw);
+        LedgerCategory exist = categoryService.getById(id);
         if (exist == null) {
-            return error("预设分类不存在");
+            return error("分类不存在");
         }
         category.setId(id);
-        category.setUserId(0L);
-        category.setIsSystem(1);
+        // 保留归属与层级（不允许通过编辑把用户自定义改成系统预设或挪层级）
+        category.setUserId(exist.getUserId());
+        category.setIsSystem(exist.getIsSystem());
+        category.setParentId(exist.getParentId());
         return categoryService.updateById(category) ? success() : error("修改失败");
     }
 
-    @Operation(summary = "停用预设分类")
+    /**
+     * 启用/停用分类（下架不删数据，App 端不再展示，历史流水不受影响）
+     */
+    @Operation(summary = "启用/停用分类")
+    @PreAuthorize("@ss.hasPermi('cms:ledgerCategory:edit')")
+    @PutMapping("/{id}/status/{status}")
+    public AjaxResult changeStatus(@PathVariable Long id, @PathVariable Integer status) {
+        LedgerCategory exist = categoryService.getById(id);
+        if (exist == null) {
+            return error("分类不存在");
+        }
+        exist.setStatus(status != null && status == LedgerCategory.STATUS_ENABLED
+                ? LedgerCategory.STATUS_ENABLED : LedgerCategory.STATUS_DISABLED);
+        return categoryService.updateById(exist) ? success() : error("操作失败");
+    }
+
+    /**
+     * 删除分类（v11.76：真删除）
+     *
+     * <p>校验：已绑定有效流水 → 不能删除；存在子分类 → 不能删除。
+     */
+    @Operation(summary = "删除分类（绑定流水则拒绝）")
     @PreAuthorize("@ss.hasPermi('cms:ledgerCategory:edit')")
     @DeleteMapping("/{id}")
     public AjaxResult remove(@PathVariable Long id) {
-        LambdaQueryWrapper<LedgerCategory> qw = new LambdaQueryWrapper<>();
-        qw.eq(LedgerCategory::getId, id)
-                .eq(LedgerCategory::getUserId, 0)
-                .eq(LedgerCategory::getIsSystem, 1);
-        LedgerCategory exist = categoryService.getOne(qw);
+        LedgerCategory exist = categoryService.getById(id);
         if (exist == null) {
-            return error("预设分类不存在");
+            return error("分类不存在");
         }
-        exist.setStatus(LedgerCategory.STATUS_DISABLED);
-        return categoryService.updateById(exist) ? success() : error("停用失败");
+        categoryService.assertCategoryDeletable(id);
+        return categoryService.removeById(id) ? success() : error("删除失败");
     }
 }

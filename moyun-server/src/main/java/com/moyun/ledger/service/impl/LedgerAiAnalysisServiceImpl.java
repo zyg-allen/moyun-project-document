@@ -211,26 +211,29 @@ public class LedgerAiAnalysisServiceImpl implements ILedgerAiAnalysisService {
         }
         String rangeLabel = RANGE_LABEL.get(range);
         String period = LocalDate.now().format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM"));
-        // 仅"本月"维度读写月度快照；其他维度实时计算
-        boolean snapshotable = "month".equals(range);
-        PortalUser user = portalUserService.selectPortalUserById(userId);
-        LocalDate today = LocalDate.now();
-        // 数据指纹（流水/资产/负债/预算/画像 + 场景配置变更痕迹）——命中快照前比对
-        String fingerprint = snapshotable ? buildFingerprint(userId, today, user) : null;
-        if (snapshotable && !refresh) {
-            // v11.55 多版本：同 period 取最新一条比对指纹（旧版本保留供历史回看）
-            LedgerAiAnalysisReport cached = reportMapper.selectOne(new LambdaQueryWrapper<LedgerAiAnalysisReport>()
-                    .eq(LedgerAiAnalysisReport::getUserId, userId)
-                    .eq(LedgerAiAnalysisReport::getPeriod, period)
-                    .orderByDesc(LedgerAiAnalysisReport::getId)
-                    .last("LIMIT 1"));
-            if (cached != null && fingerprint != null && fingerprint.equals(cached.getDataFingerprint())) {
+        // v11.72：四维度均独立快照（uk user_id+period+analysis_range），切换 tab 各查各的
+        // refresh=false（页面进入/切 tab）= 纯查询：命中直接返回，未命中返回 exists:false
+        // 由前端引导显式"去分析"（异步任务 refresh=true）——杜绝进入页面隐式触发 LLM
+        if (!refresh) {
+            LedgerAiAnalysisReport cached = findReport(userId, period, range);
+            if (cached != null) {
                 Map<String, Object> r = reportToResult(cached, true);
                 r.put("range", range);
                 r.put("rangeLabel", rangeLabel);
+                r.put("reportId", cached.getId());
                 return r;
             }
+            Map<String, Object> empty = new LinkedHashMap<>();
+            empty.put("exists", false);
+            empty.put("range", range);
+            empty.put("rangeLabel", rangeLabel);
+            empty.put("period", period);
+            return empty;
         }
+        PortalUser user = portalUserService.selectPortalUserById(userId);
+        LocalDate today = LocalDate.now();
+        // 数据指纹（流水/资产/负债/预算/画像 + 场景配置变更痕迹）——落库随报告存档
+        String fingerprint = buildFingerprint(userId, today, user);
 
         // 网关执行：Handler 全权负责查数→指标→模板渲染→LLM→降级
         Map<String, Object> data = executeViaGateway(userId, range);
@@ -256,12 +259,19 @@ public class LedgerAiAnalysisServiceImpl implements ILedgerAiAnalysisService {
         result.put("range", range);
         result.put("rangeLabel", rangeLabel);
 
-        // 落库月度快照（仅"本月"维度：3m/6m/year 是实时视图，避免快照表口径混杂）
-        if (snapshotable) {
-            saveReport(userId, period, healthScore, indicators, incomeSources,
-                    risks, suggestions, aiSummary, aiEnabled, profileStamp(user), fingerprint);
-        }
+        // 落库快照（v11.72 覆盖式：同 user+period+range 唯一一份，重新分析更新不新增）
+        upsertReport(userId, period, range, healthScore, indicators, incomeSources,
+                risks, suggestions, aiSummary, aiEnabled, profileStamp(user), fingerprint);
         return result;
+    }
+
+    /** 按口径查询唯一快照（查询与覆盖同一口径，保证一致性） */
+    private LedgerAiAnalysisReport findReport(Long userId, String period, String range) {
+        return reportMapper.selectOne(new LambdaQueryWrapper<LedgerAiAnalysisReport>()
+                .eq(LedgerAiAnalysisReport::getUserId, userId)
+                .eq(LedgerAiAnalysisReport::getPeriod, period)
+                .eq(LedgerAiAnalysisReport::getAnalysisRange, range)
+                .last("LIMIT 1"));
     }
 
     /** 经统一网关调用 finance_analysis（LLM 失败 Handler 已内部降级；此处失败=查库异常等极端情况） */
@@ -300,6 +310,9 @@ public class LedgerAiAnalysisServiceImpl implements ILedgerAiAnalysisService {
             Map<String, Object> item = new LinkedHashMap<>();
             item.put("id", rep.getId());
             item.put("period", rep.getPeriod());
+            String repRange = rep.getAnalysisRange() != null ? rep.getAnalysisRange() : "month";
+            item.put("analysisRange", repRange);
+            item.put("rangeLabel", RANGE_LABEL.getOrDefault(repRange, "本月"));
             item.put("healthScore", rep.getHealthScore());
             item.put("aiSummary", rep.getAiSummary());
             item.put("aiEnabled", rep.getAiEnabled());
@@ -333,10 +346,13 @@ public class LedgerAiAnalysisServiceImpl implements ILedgerAiAnalysisService {
         reportMapper.deleteById(reportId);
     }
 
-    /** 快照实体 → 前端报告结构（缓存命中时使用） */
+    /** 快照实体 → 前端报告结构（缓存命中/历史回看时使用） */
     private Map<String, Object> reportToResult(LedgerAiAnalysisReport rep, boolean fromCache) {
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("period", rep.getPeriod());
+        String repRange = rep.getAnalysisRange() != null ? rep.getAnalysisRange() : "month";
+        result.put("range", repRange);
+        result.put("rangeLabel", RANGE_LABEL.getOrDefault(repRange, "本月"));
         result.put("healthScore", rep.getHealthScore());
         result.put("indicators", parseJson(rep.getMetricsJson()));
         result.put("incomeSources", parseJson(rep.getIncomeJson()));
@@ -348,15 +364,23 @@ public class LedgerAiAnalysisServiceImpl implements ILedgerAiAnalysisService {
         return result;
     }
 
-    /** 落库（v11.55 多版本：每次生成 INSERT 新记录，同 period 旧版本保留；失败仅告警不影响返回） */
-    private void saveReport(Long userId, String period, int healthScore,
-                            Map<String, Object> indicators, List<Map<String, Object>> incomeSources,
-                            List<Map<String, Object>> debtRisks, List<Map<String, Object>> suggestions,
-                            String aiSummary, boolean aiEnabled, String profileSnapshot, String fingerprint) {
+    /**
+     * 覆盖式落库（v11.72：同 user+period+range 唯一一份，重新分析 UPDATE 覆盖不新增；
+     * 查询与覆盖口径一致；失败仅告警不影响返回）
+     */
+    private void upsertReport(Long userId, String period, String range, int healthScore,
+                              Map<String, Object> indicators, List<Map<String, Object>> incomeSources,
+                              List<Map<String, Object>> debtRisks, List<Map<String, Object>> suggestions,
+                              String aiSummary, boolean aiEnabled, String profileSnapshot, String fingerprint) {
         try {
-            LedgerAiAnalysisReport rep = new LedgerAiAnalysisReport();
-            rep.setUserId(userId);
-            rep.setPeriod(period);
+            LedgerAiAnalysisReport rep = findReport(userId, period, range);
+            boolean insert = (rep == null);
+            if (insert) {
+                rep = new LedgerAiAnalysisReport();
+                rep.setUserId(userId);
+                rep.setPeriod(period);
+                rep.setAnalysisRange(range);
+            }
             rep.setHealthScore(healthScore);
             rep.setMetricsJson(MAPPER.writeValueAsString(indicators));
             rep.setIncomeJson(MAPPER.writeValueAsString(incomeSources));
@@ -366,9 +390,13 @@ public class LedgerAiAnalysisServiceImpl implements ILedgerAiAnalysisService {
             rep.setAiEnabled(aiEnabled ? 1 : 0);
             rep.setProfileSnapshot(profileSnapshot);
             rep.setDataFingerprint(fingerprint);
-            reportMapper.insert(rep);
+            if (insert) {
+                reportMapper.insert(rep);
+            } else {
+                reportMapper.updateById(rep);
+            }
         } catch (Exception e) {
-            log.warn("AI 分析报告落库失败 userId={}", userId, e);
+            log.warn("AI 分析报告落库失败 userId={} range={}", userId, range, e);
         }
     }
 

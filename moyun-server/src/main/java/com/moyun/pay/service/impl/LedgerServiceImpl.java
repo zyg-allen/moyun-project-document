@@ -105,6 +105,29 @@ public class LedgerServiceImpl implements ILedgerService {
     }
 
     @Override
+    public LedgerEntry settlePlatform(String payNo, String bizType, String bizNo, BigDecimal amount, String summary) {
+        if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new IllegalStateException("平台全额入账金额非法 payNo=" + payNo + " amount=" + amount);
+        }
+        // 平台全额分录（无第三方收款人，如记账App打赏）
+        LedgerEntry platformEntry = new LedgerEntry();
+        platformEntry.setPayNo(payNo);
+        platformEntry.setBizType(bizType);
+        platformEntry.setBizNo(bizNo);
+        platformEntry.setAccountRole(LedgerEntry.ROLE_PLATFORM);
+        platformEntry.setUserId(0L);
+        platformEntry.setDirection(LedgerEntry.DIRECTION_CREDIT);
+        platformEntry.setAmount(amount);
+        platformEntry.setBalanceAfter(null);
+        platformEntry.setSummary(summary);
+        platformEntry.setCreateTime(LocalDateTime.now());
+        ledgerEntryMapper.insert(platformEntry);
+        log.info("[ledger] 平台全额入账完成 payNo={} amount={}元 bizType={} bizNo={}",
+                payNo, amount, bizType, bizNo);
+        return platformEntry;
+    }
+
+    @Override
     public IPage<LedgerEntry> myEntries(Long userId, long current, long size) {
         Page<LedgerEntry> page = new Page<>(current, size);
         IPage<LedgerEntry> result = ledgerEntryMapper.selectPage(page, new LambdaQueryWrapper<LedgerEntry>()

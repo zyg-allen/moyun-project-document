@@ -1,6 +1,7 @@
 package com.moyun.pay.domain.entity;
 
 import com.baomidou.mybatisplus.annotation.IdType;
+import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
 
@@ -8,9 +9,12 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 /**
- * 提现单（V11.0 钱包提现；本期预留表结构+枚举，打款通道后续接入）
+ * 提现单（V11.0 钱包提现；v11.79 状态统一小写字符串枚举）
  *
- * <p>状态机：AUDITING(审核中) → PAID(已打款) / REJECTED(已驳回)
+ * <p>资金模型：真钱集中于平台公账商户号，虚拟余额为记账数字；提现是唯一动真钱的时机
+ * （审核通过时记账扣减 + 商户号出金到用户银行卡）。
+ *
+ * <p>状态机：auditing(审核中) → paid(已打款) / rejected(已驳回)
  *
  * <p>金额单位：元（人民币，DECIMAL(18,2)，v11.31 统一）。
  *
@@ -19,9 +23,9 @@ import java.time.LocalDateTime;
 @TableName("pay_withdraw_order")
 public class WithdrawOrder {
 
-    public static final String STATUS_AUDITING = "AUDITING";
-    public static final String STATUS_PAID = "PAID";
-    public static final String STATUS_REJECTED = "REJECTED";
+    public static final String STATUS_AUDITING = "auditing";
+    public static final String STATUS_PAID = "paid";
+    public static final String STATUS_REJECTED = "rejected";
 
     @TableId(type = IdType.AUTO)
     private Long id;
@@ -40,7 +44,7 @@ public class WithdrawOrder {
     /** 打款银行卡 ID（pay_user_bank_card.id） */
     private Long bankCardId;
 
-    /** 状态：AUDITING / PAID / REJECTED */
+    /** 状态：auditing / paid / rejected */
     private String status;
 
     /** 审核时间 */
@@ -49,7 +53,18 @@ public class WithdrawOrder {
     /** 驳回原因 */
     private String rejectReason;
 
+    /** 打款完成时间（真实出金到账时间） */
+    private LocalDateTime paidTime;
+
     private LocalDateTime createTime;
+
+    /** 用户昵称（后台展示，非持久化） */
+    @TableField(exist = false)
+    private String nickname;
+
+    /** 银行卡脱敏描述（后台展示，非持久化） */
+    @TableField(exist = false)
+    private String bankCardDesc;
 
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
@@ -69,6 +84,12 @@ public class WithdrawOrder {
     public void setAuditTime(LocalDateTime auditTime) { this.auditTime = auditTime; }
     public String getRejectReason() { return rejectReason; }
     public void setRejectReason(String rejectReason) { this.rejectReason = rejectReason; }
+    public LocalDateTime getPaidTime() { return paidTime; }
+    public void setPaidTime(LocalDateTime paidTime) { this.paidTime = paidTime; }
+    public String getNickname() { return nickname; }
+    public void setNickname(String nickname) { this.nickname = nickname; }
+    public String getBankCardDesc() { return bankCardDesc; }
+    public void setBankCardDesc(String bankCardDesc) { this.bankCardDesc = bankCardDesc; }
     public LocalDateTime getCreateTime() { return createTime; }
     public void setCreateTime(LocalDateTime createTime) { this.createTime = createTime; }
 }

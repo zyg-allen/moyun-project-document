@@ -64,7 +64,7 @@
 </template>
 
 <script>
-import { login, getCaptchaImage } from '@/api/ledger';
+import { login, getCaptchaImage, getAppFeatures } from '@/api/ledger';
 import { useUserStore } from '@/stores/user';
 import { useThemeStore } from '@/stores/theme';
 import { storage } from '@/utils/storage';
@@ -76,36 +76,22 @@ export default {
       captcha: { enabled: true, uuid: '', img: '', code: '' },
       signed: false,
       lastBackup: '从未',
-      // 主功能宫格
+      // 主功能宫格（v11.73 内置兜底=仅已上线功能；运行时由后台配置覆盖）
       mainMenus: [
-        { key: 'auto', icon: '🗒️', label: '自动记账', color: '#7fbf94' },
-        { key: 'backup', icon: '☁️', label: '数据备份', color: '#7fbf94' },
-        { key: 'import', icon: '⬇️', label: '导入数据', color: '#7fbf94' },
-        { key: 'export', icon: '⬆️', label: '导出数据', color: '#7fbf94' },
-        { key: 'widget', icon: '▦', label: '小组件', color: '#7fbf94' },
-        { key: 'personalize', icon: '🎨', label: '个性化', color: '#e57373', badge: 'NEW' },
-        { key: 'catIcon', icon: '🎭', label: '分类图标', color: '#7fbf94', badge: 'NEW' },
         { key: 'category', icon: '☰', label: '分类管理', color: '#7fbf94' },
-        { key: 'tag', icon: '🏷️', label: '标签管理', color: '#7fbf94' },
         { key: 'setting', icon: '⚙️', label: '记账设置', color: '#7fbf94' },
-        { key: 'remind', icon: '🔔', label: '记账提醒', color: '#7fbf94' },
-        { key: 'reimburse', icon: '🧾', label: '报销账单', color: '#7fbf94' },
         { key: 'savings', icon: '🏦', label: '存钱计划', color: '#7fbf94' },
         { key: 'schedule', icon: '⏰', label: '定时记账', color: '#7fbf94' },
         { key: 'feedback', icon: '💬', label: '意见反馈', color: '#7fbf94' },
-        { key: 'share', icon: '📤', label: '分享应用', color: '#7fbf94', badge: 'NEW' },
-        { key: 'rate', icon: '⭐', label: '给个好评', color: '#7fbf94' },
         { key: 'tip', icon: '🎁', label: '赞赏', color: '#7fbf94' },
-        { key: 'qq', icon: '👥', label: 'QQ群', color: '#7fbf94' }
+        { key: 'vip', icon: '👑', label: '记账VIP', color: '#e6a23c', badge: 'VIP' },
+        { key: 'personalize', icon: '🎨', label: '个性化', color: '#e57373', badge: 'NEW' },
+        { key: 'catIcon', icon: '🎭', label: '分类图标', color: '#7fbf94', badge: 'NEW' }
       ],
-      // 推荐小功能
+      // 推荐小功能（v11.73 内置兜底=仅已上线功能）
       recommendMenus: [
         { key: 'memo', icon: '📝', label: '备忘录', color: '#7fbf94' },
-        { key: 'translate', icon: '文A', label: '翻译', color: '#7fbf94' },
-        { key: 'list', icon: '☑', label: '清单', color: '#7fbf94' },
-        { key: 'stock', icon: '📦', label: '库存管理', color: '#7fbf94' },
-        { key: 'gold', icon: '💰', label: '记黄金', color: '#7fbf94' },
-        { key: 'coupon', icon: '🎫', label: '优惠券', color: '#7fbf94' }
+        { key: 'list', icon: '☑', label: '清单', color: '#7fbf94' }
       ]
     };
   },
@@ -122,8 +108,26 @@ export default {
     const today = new Date().toDateString();
     this.signed = storage.get('signed_date') === today;
     this.lastBackup = storage.get('last_backup') || '从未';
+    // v11.73：功能宫格由后台可视化配置（仅展示 visible=1；失败回退内置默认）
+    this.loadFeatureConfig();
   },
   methods: {
+    /** 拉取后台功能入口配置（v11.73）：按分组覆盖默认宫格；未配置/接口异常保持内置清单 */
+    async loadFeatureConfig() {
+      try {
+        const rows = await getAppFeatures();
+        if (!Array.isArray(rows) || !rows.length) return;
+        const toMenu = (r) => ({
+          key: r.featureKey, icon: r.icon, label: r.featureName,
+          color: r.iconColor || '#7fbf94', badge: r.badge || undefined,
+          link: r.remark || '' // 链接型入口（如墨韵社区）：remark 承载跳转 URL，后台可视化配置
+        });
+        const main = rows.filter(r => r.groupType === 'main').map(toMenu);
+        const recommend = rows.filter(r => r.groupType === 'recommend').map(toMenu);
+        if (main.length) this.mainMenus = main;
+        if (recommend.length) this.recommendMenus = recommend;
+      } catch (e) { /* 未登录/网络异常：回退内置默认宫格 */ }
+    },
     async loadCaptcha() {
       try {
         const data = await getCaptchaImage();
@@ -177,10 +181,22 @@ export default {
         schedule: '/pages/mine/schedule/index',
         memo: '/pages/mine/memo/index',
         tip: '/pages/mine/tip/index',
+        vip: '/pages/mine/vip/index',
         feedback: '/pages/mine/feedback/index'
       };
       const url = routes[m.key];
       if (url) { uni.navigateTo({ url }); return; }
+      // 链接型入口（v11.75，如"墨韵社区"）：引导使用门户平台；URL 由后台功能配置下发
+      if (m.key === 'portal' && m.link) {
+        // #ifdef H5
+        window.open(m.link, '_blank');
+        return;
+        // #endif
+        // #ifndef H5
+        uni.navigateTo({ url: '/pages/webview/index?src=' + encodeURIComponent(m.link) });
+        return;
+        // #endif
+      }
       // 占位功能提示
       const todo = ['auto', 'backup', 'import', 'export', 'widget', 'personalize', 'catIcon',
         'tag', 'remind', 'reimburse', 'share', 'rate', 'qq',

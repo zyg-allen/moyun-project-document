@@ -31,7 +31,18 @@ public interface ILedgerCategoryService extends IService<LedgerCategory> {
     void updateCategory(Long userId, LedgerCategory category);
 
     /**
-     * 停用自定义分类（系统预设不可删）
+     * 删除自定义分类（系统预设不可删）
+     *
+     * <p>v11.76：真删除；已绑定有效流水的分类不能删除（IllegalArgumentException）。
      */
     void deleteCategory(Long userId, Long categoryId);
+
+    /**
+     * 删除前置校验（v11.76，门户/后台共用）：
+     * <ul>
+     *   <li>已绑定有效流水（ledger_transaction.category_id 且 status=1）→ 不能删除</li>
+     *   <li>存在子分类（parent_id 引用）→ 不能删除</li>
+     * </ul>
+     */
+    void assertCategoryDeletable(Long categoryId);
 }

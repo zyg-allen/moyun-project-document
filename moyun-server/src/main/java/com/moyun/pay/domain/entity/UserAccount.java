@@ -1,6 +1,7 @@
 package com.moyun.pay.domain.entity;
 
 import com.baomidou.mybatisplus.annotation.IdType;
+import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
 import com.baomidou.mybatisplus.annotation.Version;
@@ -40,6 +41,10 @@ public class UserAccount {
 
     private LocalDateTime updateTime;
 
+    /** 用户昵称（后台展示，非持久化，v11.79） */
+    @TableField(exist = false)
+    private String nickname;
+
     public Long getUserId() { return userId; }
     public void setUserId(Long userId) { this.userId = userId; }
     public BigDecimal getBalance() { return balance; }
@@ -54,4 +59,6 @@ public class UserAccount {
     public void setCreateTime(LocalDateTime createTime) { this.createTime = createTime; }
     public LocalDateTime getUpdateTime() { return updateTime; }
     public void setUpdateTime(LocalDateTime updateTime) { this.updateTime = updateTime; }
+    public String getNickname() { return nickname; }
+    public void setNickname(String nickname) { this.nickname = nickname; }
 }

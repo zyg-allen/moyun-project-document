@@ -6,6 +6,7 @@ import type {
   PayLedgerListResult,
   PayNotification,
   PayNotificationListResult,
+  PayWithdrawListResult,
   UserBankCard,
   BankCardForm,
 } from '@/types/api';
@@ -76,6 +77,27 @@ export const setDefaultBankCard = (cardId: number | string) => {
   return import('./client').then((m) =>
     m.httpPut<Record<string, unknown>>(`/portal/pay/bank-card/${cardId}/default`)
   );
+};
+
+// ============ v11.79 提现闭环 ============
+
+/**
+ * 发起提现（校验余额/绑卡，落审核单，不扣款）
+ * POST /portal/pay/withdraw/apply
+ */
+export const applyWithdraw = (data: { amount: number; bankCardId: number | string }) => {
+  return httpPost<{ withdrawNo: string; amount: number; status: string }>(
+    '/portal/pay/withdraw/apply',
+    data as unknown as Record<string, unknown>
+  );
+};
+
+/**
+ * 我的提现单（分页）
+ * GET /portal/pay/withdraw/my
+ */
+export const getMyWithdrawals = (params?: { current?: number; size?: number }) => {
+  return httpGet<PayWithdrawListResult>('/portal/pay/withdraw/my', params);
 };
 
 /**

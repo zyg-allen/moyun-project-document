@@ -15,21 +15,28 @@
       <view class="cat-section-title">
         <text>选择分类</text>
         <view class="cat-title-right" @tap="catCollapsed = !catCollapsed">
-          <text class="cat-count">{{ selectedCategoryName || '选填' }}</text>
+          <text class="cat-count">{{ selectedCategoryName || '请选择' }}</text>
           <text class="cat-toggle">{{ catCollapsed ? '展开 ▾' : '收起 ▴' }}</text>
         </view>
       </view>
       <scroll-view v-show="!catCollapsed" scroll-y class="cat-grid-wrap">
         <view class="cat-grid">
-          <view v-for="c in sortedCategories" :key="c.id" class="cat-cell" @tap="pickCategoryCell(c)">
+          <view v-for="c in sortedCategories" :key="c.id" class="cat-cell" @tap="pickCategoryCell(c)"
+                @longpress="onCategoryLongPress(c)">
             <view class="cat-icon" :class="{ selected: form.categoryId === c.id }"
                   :style="form.categoryId === c.id ? '' : 'background:' + (c.color || '#BDC3C7')">
               <text>{{ iconOf(c.icon) }}</text>
             </view>
             <text class="cat-name" :class="{ selected: form.categoryId === c.id }">{{ c.name }}</text>
+            <text v-if="c.isSystem === 0" class="cat-custom-tag">自</text>
+          </view>
+          <!-- 在当前大类下新增自定义分类（仅自己可见，可长按自定义分类删除） -->
+          <view v-if="userStore.isLoggedIn" class="cat-cell" @tap="addCustomCategory">
+            <view class="cat-icon cat-add-icon">＋</view>
+            <text class="cat-name">添加</text>
           </view>
           <view v-if="!sortedCategories.length" class="cat-empty">
-            {{ userStore.isLoggedIn ? '暂无分类，可在「我的-分类管理」添加' : '登录后可选择分类' }}
+            {{ userStore.isLoggedIn ? '点击「添加」在当前大类下新增分类' : '登录后可选择分类' }}
           </view>
         </view>
       </scroll-view>
@@ -171,7 +178,7 @@
 </template>
 
 <script>
-import { createTransaction, listAssets, listLiabilities, listCategories, createLiability, uploadVoucher } from '@/api/ledger';
+import { createTransaction, listAssets, listLiabilities, listCategories, createCategory, deleteCategory, createLiability, uploadVoucher } from '@/api/ledger';
 import { toNum, formatAmount, formatAbsAmount } from '@/utils/money';
 import { useUserStore } from '@/stores/user';
 import { useThemeStore } from '@/stores/theme';
@@ -226,7 +233,9 @@ export default {
         ['7', '8', '9'],
         ['.', '0', 'del']
       ],
-      picker: { visible: false, mode: '', title: '', items: [], selectedId: null }
+      picker: { visible: false, mode: '', title: '', items: [], selectedId: null },
+      /** 保存进行中（防重复提交锁） */
+      saving: false
     };
   },
   computed: {
@@ -342,6 +351,49 @@ export default {
     pickSubCategory(s) {
       this.form.subCategoryId = this.form.subCategoryId === s.id ? null : s.id;
       this.refreshRemark();
+    },
+    /** 在当前大类下新增自定义分类（v11.76：仅自己可见，创建后自动选中） */
+    addCustomCategory() {
+      if (!this.userStore.isLoggedIn) { this.promptLogin(); return; }
+      const typeName = TYPE_NAMES[this.form.type] || this.form.type;
+      uni.showModal({
+        title: `新增${typeName}分类`,
+        editable: true,
+        placeholderText: '分类名称（仅自己可见）',
+        success: async (r) => {
+          if (!r.confirm) return;
+          const name = (r.content || '').trim();
+          if (!name) { uni.showToast({ title: '请输入分类名称', icon: 'none' }); return; }
+          try {
+            const created = await createCategory({ name, type: this.form.type });
+            await this.loadCategories();
+            const id = created && created.id;
+            if (id) this.form.categoryId = id;
+            this.refreshRemark();
+            uni.showToast({ title: '已添加并选中', icon: 'success' });
+          } catch (e) { /* 拦截器已提示 */ }
+        }
+      });
+    },
+    /** 长按删除自己创建的自定义分类（v11.76：绑定流水的分类后端拒绝删除） */
+    onCategoryLongPress(c) {
+      if (c.isSystem !== 0) return;
+      uni.showModal({
+        title: '删除自定义分类',
+        content: `删除「${c.name}」？已绑定流水的分类不能删除`,
+        success: async (r) => {
+          if (!r.confirm) return;
+          try {
+            await deleteCategory(c.id);
+            if (this.form.categoryId === c.id) {
+              this.form.categoryId = null;
+              this.refreshRemark();
+            }
+            await this.loadCategories();
+            uni.showToast({ title: '已删除', icon: 'success' });
+          } catch (e) { /* 拦截器已提示（含绑定流水笔数） */ }
+        }
+      });
     },
     /** 备注默认前缀：yyyyMMdd 类型-具体类目（大类型名称—小类型名称），用户在此基础上补充说明 */
     buildRemarkPrefix() {
@@ -490,6 +542,28 @@ export default {
         if (!confirmed) return;
       }
 
+      // 支出/转账资金校验（账目可信度）：扣款账户余额不足时阻断保存，
+      // 必须先记一笔收入或转账说明资金来源——否则支出凭空出现，钱从哪来说不清楚
+      if ((this.form.type === 'expense' || this.form.type === 'transfer') && this.form.accountId) {
+        const acc = this.assets.find(x => x.id === this.form.accountId);
+        if (acc && toNum(acc.balance) < amountNum) {
+          const label = this.form.type === 'expense' ? '支出' : '转出';
+          uni.showModal({
+            title: '账户余额不足',
+            content: `「${acc.name}」当前余额 ¥${formatAmount(acc.balance)}，不足以覆盖此笔${label} ¥${formatAmount(amountNum)}。\n支出的钱必须有来源：请先记一笔该账户的收入（如工资、奖金），或从余额充足的账户转账过来，再记此笔${label}。`,
+            confirmText: '去记收入',
+            cancelText: '去转账',
+            success: (r) => {
+              // confirm→记收入补足资金来源；cancel→从其他账户转入
+              // switchType 保留所选账户，金额保留，切换后补选分类即可保存
+              this.switchType(r.confirm ? 'income' : 'transfer');
+              uni.showToast({ title: r.confirm ? '已切换为收入，请记录资金来源' : '已切换为转账，请选择转出账户', icon: 'none' });
+            }
+          });
+          return;
+        }
+      }
+
       // 还款资金校验：扣款账户余额不足时，引导补录资金来源（说明钱从哪来）
       if (this.form.type === 'repayment' && this.form.accountId) {
         const acc = this.assets.find(x => x.id === this.form.accountId);
@@ -535,6 +609,11 @@ export default {
       }
     },
     async doSave(amountNum) {
+      // 防重复提交（资金铁律）：保存进行中直接忽略后续点击
+      if (this.saving) return;
+      this.saving = true;
+      // 客户端幂等键：后端按 clientUuid 查重（DB 唯一索引兜底），双击/网络重试不会重复入账
+      const clientUuid = 'tx-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 10);
       const data = {
         type: this.form.type,
         amount: amountNum,
@@ -545,7 +624,9 @@ export default {
         description: this.form.description || null,
         merchant: this.form.merchant || null,
         voucherUrl: this.form.voucherUrl || null,
-        transactionDate: this.form.transactionDate
+        transactionDate: this.form.transactionDate,
+        transactionTime: this.form.transactionTime,
+        clientUuid
       };
       try {
         const res = await createTransaction(data);
@@ -570,7 +651,9 @@ export default {
         this.refreshRemark();
         const assets = await listAssets(false).catch(() => null);
         if (assets && assets.records) this.assets = assets.records;
-      } catch (e) { /* 拦截器已提示 */ }
+      } catch (e) { /* 拦截器已提示 */ } finally {
+        this.saving = false;
+      }
     },
     // ---------------- 凭证截图 ----------------
     chooseVoucher() {
@@ -642,6 +725,15 @@ export default {
 .cat-name { font-size: 24rpx; color: #666; margin-top: 10rpx; }
 .cat-name.selected { color: var(--primary-strong); font-weight: 600; }
 .cat-empty { width: 100%; text-align: center; color: #bbb; font-size: 26rpx; padding: 40rpx 0; }
+/* 添加自定义分类入口 + 自定义角标（v11.76） */
+.cat-add-icon {
+  background: #f5f6f8; color: var(--primary-strong); font-size: 40rpx;
+  border: 1rpx dashed #c8c8d0; box-shadow: none;
+}
+.cat-custom-tag {
+  margin-top: 6rpx; font-size: 18rpx; color: #fff; background: #f0a020;
+  border-radius: 12rpx; padding: 0 10rpx; line-height: 26rpx;
+}
 
 /* 二级分类横滑 */
 .sub-cat-bar { white-space: nowrap; padding: 8rpx 20rpx 16rpx; border-top: 1rpx solid #f5f5f7; }

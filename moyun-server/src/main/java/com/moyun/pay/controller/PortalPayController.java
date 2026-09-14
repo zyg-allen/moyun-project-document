@@ -3,17 +3,16 @@ package com.moyun.pay.controller;
 
 import com.moyun.core.base.AjaxResult;
 import com.moyun.pay.config.PayProperties;
-import com.moyun.pay.domain.entity.LedgerEntry;
 import com.moyun.pay.domain.entity.PayOrder;
-import com.moyun.pay.domain.entity.UserAccount;
 import com.moyun.pay.gateway.IPayGateway;
 import com.moyun.pay.service.ILedgerService;
-import com.moyun.pay.service.IUserAccountService;
+import com.moyun.pay.service.IWithdrawOrderService;
 import com.moyun.portal.util.PortalSecurityUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -38,13 +37,13 @@ public class PortalPayController {
     private IPayGateway payGateway;
 
     @Autowired
-    private IUserAccountService userAccountService;
-
-    @Autowired
     private ILedgerService ledgerService;
 
     @Autowired
     private PayProperties payProperties;
+
+    @Autowired
+    private IWithdrawOrderService withdrawOrderService;
 
     /**
      * 支付状态轮询（收银台 3s 轮询）
@@ -81,18 +80,12 @@ public class PortalPayController {
     }
 
     /**
-     * 账户总览（余额/累计收入/累计提现，元）
+     * 账户总览（余额/累计收入/累计提现/审核中，元）
      */
     @GetMapping("/account/overview")
     public AjaxResult accountOverview() {
         Long userId = PortalSecurityUtils.getUserId();
-        UserAccount account = userAccountService.getOrCreate(userId);
-        Map<String, Object> data = new HashMap<>();
-        data.put("userId", account.getUserId());
-        data.put("balance", account.getBalance());
-        data.put("totalIncome", account.getTotalIncome());
-        data.put("totalWithdraw", account.getTotalWithdraw());
-        return AjaxResult.success(data);
+        return AjaxResult.success(withdrawOrderService.userSummary(userId));
     }
 
     /**
@@ -103,6 +96,46 @@ public class PortalPayController {
                                @RequestParam(defaultValue = "10") long size) {
         Long userId = PortalSecurityUtils.getUserId();
         var page = ledgerService.myEntries(userId, current, size);
+        Map<String, Object> data = new HashMap<>();
+        data.put("records", page.getRecords());
+        data.put("total", page.getTotal());
+        data.put("current", page.getCurrent());
+        data.put("size", page.getSize());
+        return AjaxResult.success(data);
+    }
+
+    // ==================== v11.79 提现闭环 ====================
+
+    /**
+     * 发起提现（校验余额/绑卡，落 auditing 单，不扣款）
+     */
+    @PostMapping("/withdraw/apply")
+    public AjaxResult withdrawApply(@RequestBody Map<String, Object> body) {
+        Long userId = PortalSecurityUtils.getUserId();
+        if (userId == null) {
+            return AjaxResult.error(401, "登录已过期，请重新登录");
+        }
+        java.math.BigDecimal amount = new java.math.BigDecimal(String.valueOf(body.get("amount")));
+        Long bankCardId = body.get("bankCardId") == null ? null : Long.valueOf(String.valueOf(body.get("bankCardId")));
+        var order = withdrawOrderService.apply(userId, amount, bankCardId);
+        Map<String, Object> data = new HashMap<>();
+        data.put("withdrawNo", order.getWithdrawNo());
+        data.put("amount", order.getAmount());
+        data.put("status", order.getStatus());
+        return AjaxResult.success("提现申请已提交，等待平台审核", data);
+    }
+
+    /**
+     * 我的提现单（分页）
+     */
+    @GetMapping("/withdraw/my")
+    public AjaxResult myWithdrawals(@RequestParam(defaultValue = "1") long current,
+                                    @RequestParam(defaultValue = "10") long size) {
+        Long userId = PortalSecurityUtils.getUserId();
+        if (userId == null) {
+            return AjaxResult.error(401, "登录已过期，请重新登录");
+        }
+        var page = withdrawOrderService.myWithdrawals(userId, current, size);
         Map<String, Object> data = new HashMap<>();
         data.put("records", page.getRecords());
         data.put("total", page.getTotal());

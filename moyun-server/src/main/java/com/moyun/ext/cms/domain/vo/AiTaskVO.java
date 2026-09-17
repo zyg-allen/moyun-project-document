@@ -7,7 +7,7 @@ import java.io.Serializable;
 import java.time.LocalDateTime;
 
 /**
- * 通用 AI 异步任务状态 VO（v10.23）
+ * 通用 AI 异步任务状态 VO
  *
  * <p>前端轮询返回结构：任务类型、状态、进度提示、结果（success 时为任务 Handler
  * 返回对象序列化后的 JSON）与失败原因。</p>

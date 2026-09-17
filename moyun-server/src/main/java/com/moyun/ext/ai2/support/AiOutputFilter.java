@@ -18,7 +18,7 @@ import java.util.List;
 import java.util.Set;
 
 /**
- * AI 输出内容过滤器（v11.62 P1-3）
+ * AI 输出内容过滤器
  *
  * <p>复用 {@link SensitiveWordFilter} 的 DFA 词树，对网关响应 data 的全部文本节点
  * 做敏感词脱敏（替换为 *，保留原文空白与格式）。依据《AI底座企业级评估-代码实测结论

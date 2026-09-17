@@ -20,7 +20,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 /**
- * 记账小程序功能入口配置（管理端，v11.73）
+ * 记账小程序功能入口配置（管理端）
  *
  * <p>"我的"页功能宫格可视化运营：默认开发中功能隐藏（visible=0），
  * 管理员可调整展示/隐藏、名称、图标、排序、角标，ledger-app 启动时拉取生效。
@@ -47,7 +47,7 @@ public class CmsLedgerAppFeatureController extends BaseController {
 
     /**
      * 修改功能配置（名称/图标/颜色/排序/可见/角标/跳转链接——均为运营字段）
-     * <p>remark（v11.75）：链接型入口（feature_key=portal 等）的跳转 URL 承载位
+     * <p>remark：链接型入口（feature_key=portal 等）的跳转 URL 承载位
      */
     @PreAuthorize("@ss.hasPermi('cms:ledgerAppFeature:edit')")
     @PutMapping("/{id}")

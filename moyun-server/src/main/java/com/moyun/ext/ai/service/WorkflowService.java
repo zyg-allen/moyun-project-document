@@ -24,11 +24,6 @@ public interface WorkflowService extends IService<Workflow> {
     List<Workflow> listAll();
 
     /**
-     * 获取启用的工作流
-     */
-    List<Workflow> listEnabled();
-
-    /**
      * 创建工作流
      */
     Workflow create(Workflow workflow);
@@ -109,11 +104,6 @@ public interface WorkflowService extends IService<Workflow> {
      * 获取智能体绑定的工作流列表
      */
     List<Workflow> getAgentWorkflows(Long agentId);
-
-    /**
-     * 根据名称执行工作流
-     */
-    WorkflowEngine.WorkflowResult executeByName(String name, Map<String, Object> input);
 
     /**
      * 根据名称获取工作流

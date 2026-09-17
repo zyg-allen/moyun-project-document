@@ -3,7 +3,7 @@ package com.moyun.ext.cms.domain.vo;
 import lombok.Data;
 
 /**
- * 语音面试 SSE 事件对象（V10.1）
+ * 语音面试 SSE 事件对象
  *
  * <p>submitAnswer 接口返回 SseEmitter，通过事件类型区分：
  * <ul>

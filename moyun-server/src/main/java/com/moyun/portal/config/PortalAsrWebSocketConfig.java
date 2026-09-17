@@ -10,7 +10,7 @@ import com.moyun.portal.handler.AsrStreamRelayHandler;
 import com.moyun.portal.handler.PortalWebSocketAuthInterceptor;
 
 /**
- * 语音识别实时流式 WebSocket（原生二进制协议）配置 —— V10.1 语音面试官
+ * 语音识别实时流式 WebSocket（原生二进制协议）配置 —— 语音面试官
  *
  * <p>端点：/ws-asr（前端连接时携带 ?token=xxx 握手鉴权，与 /ws-message 相同机制）。
  * 与 {@link PortalWebSocketConfig}（STOMP 消息推送）并存：本端点走原生 WebSocket，

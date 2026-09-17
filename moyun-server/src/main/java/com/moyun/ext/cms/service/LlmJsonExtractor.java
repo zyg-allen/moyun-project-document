@@ -1,7 +1,7 @@
 package com.moyun.ext.cms.service;
 
 /**
- * LLM 返回 JSON 提取工具（v10.13）
+ * LLM 返回 JSON 提取工具
  * <p>剥离 markdown 代码块围栏并截取 JSON 本体，
  * 与 ResumeAiAdviceService / ResumeParseService 中同策略的集中实现。</p>
  *

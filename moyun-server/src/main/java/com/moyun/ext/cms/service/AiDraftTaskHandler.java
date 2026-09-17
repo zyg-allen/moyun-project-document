@@ -8,7 +8,7 @@ import org.springframework.stereotype.Service;
 import java.util.Map;
 
 /**
- * AI 填充空字段草稿任务 Handler（v10.23，taskType=ai_draft）
+ * AI 填充空字段草稿任务 Handler（taskType=ai_draft）
  *
  * <p>异步执行 {@link ResumeDeepOptimizeService#aiDraftEmptyFields}：为空的工作经历/
  * 项目经历/自我介绍生成初始草稿（LLM 未启用/失败时返回空结果 + 提示，不抛异常）。</p>

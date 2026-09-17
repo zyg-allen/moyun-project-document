@@ -6,7 +6,7 @@ import lombok.Data;
 
 
 /**
- * 语音面试开始请求配置（V10.1）
+ * 语音面试开始请求配置
  *
  * @author moyun
  */

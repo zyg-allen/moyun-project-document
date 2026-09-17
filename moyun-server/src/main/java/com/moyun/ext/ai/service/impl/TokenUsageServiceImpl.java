@@ -334,7 +334,7 @@ public class TokenUsageServiceImpl implements TokenUsageService {
     }
 
     /**
-     * 纯成本公式（v11.57 P0-2 抽出，可离线单测）：输入/输出分别按千token单价核算，6位小数 HALF_UP
+     * 纯成本公式（抽出，可离线单测）：输入/输出分别按千token单价核算，6位小数 HALF_UP
      */
     static BigDecimal calcCost(BigDecimal inputPrice, BigDecimal outputPrice, long inputTokens, long outputTokens) {
         BigDecimal inPrice = inputPrice != null ? inputPrice : BigDecimal.ZERO;

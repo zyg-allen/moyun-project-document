@@ -23,7 +23,7 @@ import com.moyun.portal.domain.vo.TestCaseVO;
 import com.moyun.portal.service.IPortalJudgeService;
 
 /**
- * OJ 测试用例管理 Controller（v6.3 OJ 判题系统）
+ * OJ 测试用例管理 Controller（OJ 判题系统）
  *
  * <p>路径前缀 /portal/admin/ 由核心 SecurityConfig 处理 admin token，
  * 方法级权限通过 @PreAuthorize("@ss.hasPermi(...)") 校验，

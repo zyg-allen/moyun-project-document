@@ -15,7 +15,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * 通用 AI 异步任务 Controller（门户端，v10.23）
+ * 通用 AI 异步任务 Controller（门户端）
  *
  * <p>统一门户 LLM 长耗时任务（简历解析/岗位匹配/空字段草稿/深度优化）的提交与查询：
  * 提交立即返回任务 ID，后端线程池异步执行，前端轮询任务状态。</p>

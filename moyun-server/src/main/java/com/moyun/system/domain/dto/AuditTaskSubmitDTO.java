@@ -6,7 +6,7 @@ import java.io.Serial;
 import java.io.Serializable;
 
 /**
- * 审核任务提交参数（v8.1）
+ * 审核任务提交参数
  * <p>
  * 业务模块在「提交审核」时调用 {@code IAuditTaskService.submit()} 传入本 DTO，
  * 由统一审核服务写入 sys_audit_task。

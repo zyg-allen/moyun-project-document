@@ -12,7 +12,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * 面试岗位字典 Controller（门户端，v5.9 阶段1）
+ * 面试岗位字典 Controller（门户端，阶段1）
  * <p>
  * 暴露岗位字典给前端：模拟面试岗位选择、用户档案目标岗位选择、题库推荐等场景共用。
  * 全部为只读公开接口。

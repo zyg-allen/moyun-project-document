@@ -16,7 +16,7 @@ import dev.langchain4j.model.chat.ChatLanguageModel;
  *   <li>多行 → 按 weight 轮盘赌灰度（权重全 0 时 is_default 优先，再按 priority DESC）</li>
  * </ul>
  *
- * <p>v11.39：新增 {@link #resolveChatModel(String)} 工厂方法——
+ * <p>新增 {@link #resolveChatModel(String)} 工厂方法——
  * 业务方只需传 scene_code 即可获得场景绑定的 ChatLanguageModel，
  * 模型选择逻辑（责任链：Agent 绑定 → 直绑模型 → null 回落默认）封装在解析器内部，
  * LlmClient 等 Strategy 层不再关心模型怎么选。
@@ -39,7 +39,7 @@ public interface AiSceneResolver {
     AiSceneBinding bind(AiSceneConfig config);
 
     /**
-     * 工厂方法（v11.39）：按场景代码解析绑定的聊天模型
+     * 工厂方法：按场景代码解析绑定的聊天模型
      *
      * <p>责任链解析顺序：
      * <ol>

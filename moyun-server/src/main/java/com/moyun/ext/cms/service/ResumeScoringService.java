@@ -20,7 +20,7 @@ import java.util.List;
 import java.util.Set;
 
 /**
- * 简历规则评分服务（面试空间第2期 / v5.9 阶段2：岗位匹配度增强）
+ * 简历规则评分服务（面试空间第2期 / 阶段2：岗位匹配度增强）
  * <p>
  * 基于规则引擎的评分，不做 AI 建议（AI 建议见 ResumeAiAdviceService）。评分维度：
  * <ul>
@@ -31,7 +31,7 @@ import java.util.Set;
  *   <li>项目经历 —— 20 分</li>
  *   <li>技能列表 —— 5 分</li>
  *   <li>自我介绍 —— 5 分</li>
- *   <li>岗位匹配度（v5.9 新增）—— 15 分（命中岗位必备技能比例）</li>
+ *   <li>岗位匹配度（新增）—— 15 分（命中岗位必备技能比例）</li>
  * </ul>
  * 总满分 115 分（兼容历史 100 分展示，前端按 maxScore 归一化展示）。
  *
@@ -49,7 +49,7 @@ public class ResumeScoringService {
     private static final int MAX_PROJECT = 20;
     private static final int MAX_SKILL = 5;
     private static final int MAX_INTRO = 5;
-    /** v5.9 阶段2：岗位匹配度满分 */
+    /** 阶段2：岗位匹配度满分 */
     private static final int MAX_POSITION_MATCH = 15;
 
     @Autowired
@@ -68,7 +68,7 @@ public class ResumeScoringService {
     }
 
     /**
-     * 对简历进行评分（v5.9 阶段2：含岗位匹配度）
+     * 对简历进行评分（阶段2：含岗位匹配度）
      *
      * @param vo           简历 VO
      * @param targetPosition 目标岗位名称（如 "Java后端工程师"），可为空；为空时岗位匹配度维度得 0 分
@@ -256,7 +256,7 @@ public class ResumeScoringService {
     }
 
     // ========================================================================
-    // v5.9 阶段2：岗位匹配度评分
+    // 阶段2：岗位匹配度评分
     // ========================================================================
     /**
      * 岗位匹配度评分（满分 15 分）

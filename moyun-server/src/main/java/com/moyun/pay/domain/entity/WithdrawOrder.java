@@ -9,14 +9,14 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 /**
- * 提现单（V11.0 钱包提现；v11.79 状态统一小写字符串枚举）
+ * 提现单（钱包提现；状态统一小写字符串枚举）
  *
  * <p>资金模型：真钱集中于平台公账商户号，虚拟余额为记账数字；提现是唯一动真钱的时机
  * （审核通过时记账扣减 + 商户号出金到用户银行卡）。
  *
  * <p>状态机：auditing(审核中) → paid(已打款) / rejected(已驳回)
  *
- * <p>金额单位：元（人民币，DECIMAL(18,2)，v11.31 统一）。
+ * <p>金额单位：元（人民币，DECIMAL(18,2)，统一）。
  *
  * @author moyun
  */

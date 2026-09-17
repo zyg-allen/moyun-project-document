@@ -17,7 +17,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 /**
- * 面试会员订阅支付回调处理器（v11.82，bizType="interview_vip"，平台直收类）
+ * 面试会员订阅支付回调处理器（bizType="interview_vip"，平台直收类）
  *
  * <p>网关支付成功后在事务内调用：订单 pending→paid → 权益顺延发放
  * （vip_expire 从 max(now, 现有到期) 顺延 duration_days，续费不折损）→

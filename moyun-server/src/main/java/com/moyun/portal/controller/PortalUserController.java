@@ -360,7 +360,7 @@ public class PortalUserController extends BaseController {
     @Operation(summary = "获取名家列表", description = "获取首页展示的名家列表（已认证 + 已开启公开主页 + 至少 1 篇已发布文章），含文章数/浏览/获赞/创作天数等统计")
     @GetMapping("/authors")
     public AjaxResult getAuthors(@Parameter(description = "每页数量") @RequestParam(defaultValue = "10") Integer limit) {
-        // v7.8 名家录展示三条件（用户指令）：
+        // 名家录展示三条件（用户指令）：
         //   1. privacy_profile=1（已开启公开主页）
         //   2. is_certified_creator=1（创作者认证审核通过）
         //   3. 至少 1 篇已发布文章（EXISTS portal_article status='published'）

@@ -6,7 +6,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.stereotype.Component;
 
 /**
- * 知识库默认参数配置（P2-2 阶段 3）
+ * 知识库默认参数配置（阶段 3）
  *
  * <p>统一承载知识库分片 / 预处理 / 索引 / 检索 / 文档级类型化策略的默认参数，
  * 消除散落在以下位置的硬编码默认值分歧：

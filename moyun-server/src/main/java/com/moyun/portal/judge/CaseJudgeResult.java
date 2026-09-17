@@ -3,7 +3,7 @@ package com.moyun.portal.judge;
 import lombok.Data;
 
 /**
- * 单个测试用例的判题结果（v6.3 OJ 判题系统）
+ * 单个测试用例的判题结果（OJ 判题系统）
  *
  * @author moyun
  */

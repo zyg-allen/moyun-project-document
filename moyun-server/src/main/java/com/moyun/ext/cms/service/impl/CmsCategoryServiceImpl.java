@@ -1,9 +1,7 @@
 package com.moyun.ext.cms.service.impl;
 
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.stream.Collectors;
 
 import cn.hutool.core.bean.BeanUtil;
 import cn.hutool.core.util.ObjectUtil;
@@ -33,14 +31,6 @@ public class CmsCategoryServiceImpl implements ICmsCategoryService
     {
         List<PortalCategory> list = portalCategoryMapper.selectList(buildQueryWrapper(query));
         return BeanUtil.copyToList(list, CmsCategoryVO.class);
-    }
-
-    @Override
-    public List<CmsCategoryVO> selectCategoryTree(CmsCategoryQuery query)
-    {
-        List<PortalCategory> list = portalCategoryMapper.selectList(buildQueryWrapper(query));
-        List<CmsCategoryVO> voList = BeanUtil.copyToList(list, CmsCategoryVO.class);
-        return buildCategoryTree(voList);
     }
 
     @Override
@@ -107,28 +97,5 @@ public class CmsCategoryServiceImpl implements ICmsCategoryService
         wrapper.eq(ObjectUtil.isNotEmpty(query.getStatus()), PortalCategory::getStatus, query.getStatus());
         wrapper.orderByAsc(PortalCategory::getSort);
         return wrapper;
-    }
-
-    /**
-     * 构建分类树
-     */
-    private List<CmsCategoryVO> buildCategoryTree(List<CmsCategoryVO> list)
-    {
-        List<CmsCategoryVO> tree = new ArrayList<>();
-        for (CmsCategoryVO category : list)
-        {
-            if (category.getParentId() == null || category.getParentId() == 0L)
-            {
-                tree.add(category);
-            }
-        }
-        for (CmsCategoryVO parent : tree)
-        {
-            List<CmsCategoryVO> children = list.stream()
-                    .filter(c -> ObjectUtil.isNotNull(c.getParentId()) && c.getParentId().equals(parent.getId()))
-                    .collect(Collectors.toList());
-            parent.setChildren(children);
-        }
-        return tree;
     }
 }

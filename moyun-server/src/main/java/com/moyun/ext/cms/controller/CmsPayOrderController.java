@@ -26,7 +26,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * CMS 支付订单后台管理 Controller（V11.0）
+ * CMS 支付订单后台管理 Controller
  *
  * <p>统一支付单列表/详情（含分账明细）/手动关单。
  *

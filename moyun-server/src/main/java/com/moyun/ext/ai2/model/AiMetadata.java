@@ -22,10 +22,10 @@ public class AiMetadata {
     /** Token消耗 */
     private Integer tokenUsed;
 
-    /** 输入 Token（v11.57 P0-2 成本核算用） */
+    /** 输入 Token（成本核算用） */
     private Integer inputTokens;
 
-    /** 输出 Token（v11.57 P0-2 成本核算用） */
+    /** 输出 Token（成本核算用） */
     private Integer outputTokens;
 
     /** 模型提供商 */

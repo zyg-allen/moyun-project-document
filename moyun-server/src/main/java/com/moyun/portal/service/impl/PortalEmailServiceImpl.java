@@ -123,7 +123,7 @@ public class PortalEmailServiceImpl implements PortalEmailService {
         if (cached == null) {
             return false;
         }
-        // v11.42：无论比对成功与否都删除（一次性消费，防重放与暴力枚举），与短信语义对齐
+        // 无论比对成功与否都删除（一次性消费，防重放与暴力枚举），与短信语义对齐
         redisCache.deleteObject(key);
         return cached.equals(code);
     }

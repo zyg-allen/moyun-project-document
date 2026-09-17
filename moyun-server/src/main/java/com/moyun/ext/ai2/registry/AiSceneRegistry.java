@@ -23,9 +23,9 @@ import java.util.concurrent.ConcurrentHashMap;
  * <p>统一接入层的路由核心：Handler Bean 注册（Spring容器扫描）+ 场景配置读取（ai_scene_config 表）。
  * 依据《AI能力统一接入层 — 完整方案文档》V2.0 §5.2。</p>
  *
- * <p>v11.41：合并到 ai_scene_config 表（原 ai2_scene_registry 已废弃），绑定关系与执行配置统一管理。</p>
+ * <p>合并到 ai_scene_config 表（原 ai2_scene_registry 已废弃），绑定关系与执行配置统一管理。</p>
  *
- * <p>v11.48：配置不再内存缓存——getConfig 每次直查数据库（LLM 调用为秒级，一次索引查询开销可忽略），
+ * <p>配置不再内存缓存——getConfig 每次直查数据库（LLM 调用为秒级，一次索引查询开销可忽略），
  * 管理端改提示词模板/输出结构/绑定关系后<strong>下次调用立即生效</strong>，无需重启或手动刷新。</p>
  *
  * <p>Handler 必须有对应配置行才会对外服务（配置行控制 enabled / 限流 / 缓存 / 降级等策略）。</p>
@@ -76,7 +76,7 @@ public class AiSceneRegistry {
     }
 
     /**
-     * 按场景代码获取启用配置（v11.48：直查数据库，管理端变更即时生效）
+     * 按场景代码获取启用配置（直查数据库，管理端变更即时生效）
      *
      * <p>同场景多版本时按 priority DESC 取第一条（与原内存缓存口径一致）。</p>
      *

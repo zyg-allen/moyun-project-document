@@ -24,7 +24,7 @@ import java.util.regex.Pattern;
 /**
  * CMS 每日写作 prompt 管理 Service 实现
  *
- * <p>v10.7：新增 AI 生成能力——
+ * <p>新增 AI 生成能力——
  * <ul>
  *   <li>结合当日特殊日期（节日/节气，见 {@link SpecialDateProvider}）构造提示词，调用默认聊天模型生成；</li>
  *   <li>AI 不可用/失败/输出解析失败时，回退内置主题池（按日期序号轮换，保证每天稳定有产出）；</li>

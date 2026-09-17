@@ -5,7 +5,7 @@ import com.moyun.portal.domain.entity.PortalResumeJobMatch;
 import org.apache.ibatis.annotations.Mapper;
 
 /**
- * 简历优化-岗位匹配报告 Mapper（v10.13）
+ * 简历优化-岗位匹配报告 Mapper
  *
  * @author moyun
  */

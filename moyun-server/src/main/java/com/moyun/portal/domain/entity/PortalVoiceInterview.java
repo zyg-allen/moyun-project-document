@@ -12,7 +12,7 @@ import java.io.Serializable;
 import java.time.LocalDateTime;
 
 /**
- * 语音面试会话主表 portal_voice_interview（V10.1）
+ * 语音面试会话主表 portal_voice_interview
  *
  * <p>基础字段（id/create_time/update_time/del_flag）独立声明，不再继承 BaseEntity。
  * 原因：前台用户生成的会话不需要 create_by / update_by / remark 审计字段，
@@ -76,14 +76,14 @@ public class PortalVoiceInterview implements Serializable {
     /** 配置 JSON（hintsEnabled/stuckThreshold/style/difficulty） */
     private String configJson;
 
-    /** 报告分享令牌（v11.30.5，NULL=未分享） */
+    /** 报告分享令牌（NULL=未分享） */
     private String shareToken;
 
-    /** 分享过期时间（v11.30.5） */
+    /** 分享过期时间 */
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime shareExpireTime;
 
-    /** 分享访问次数（v11.30.5） */
+    /** 分享访问次数 */
     private Integer shareCount;
 
     /** 是否基于画像抽题（0随机 1画像驱动） */
@@ -92,19 +92,19 @@ public class PortalVoiceInterview implements Serializable {
     /** 抽题时的画像快照 JSON */
     private String profileSnapshot;
 
-    /** 会话上下文快照（准备时生成：简历摘要+画像+配置；v11.88 V2重构） */
+    /** 会话上下文快照（准备时生成：简历摘要+画像+配置；V2重构） */
     private String contextSnapshot;
 
-    /** 题单快照（preset 模式：题目ID序列+题目快照；v11.88 V2重构） */
+    /** 题单快照（preset 模式：题目ID序列+题目快照；V2重构） */
     private String questionPaper;
 
-    /** 报告分析状态：0未分析 1分析中 2已完成（v11.88 V2重构） */
+    /** 报告分析状态：0未分析 1分析中 2已完成（V2重构） */
     private Integer analysisStatus;
 
-    /** 报告分析进度 0-100（前端进度条轮询；v11.88 V2重构） */
+    /** 报告分析进度 0-100（前端进度条轮询；V2重构） */
     private Integer analysisProgress;
 
-    /** 结束原因：user主动/auto题单耗尽/timeout超时（v11.88 V2重构） */
+    /** 结束原因：user主动/auto题单耗尽/timeout超时（V2重构） */
     private String closedReason;
 
     /** 创建时间 */

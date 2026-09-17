@@ -9,7 +9,7 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 /**
- * 简历优化会员套餐（v11.83 平台直收类）
+ * 简历优化会员套餐（平台直收类）
  *
  * <p>价格/时长后台可配置（骨架阶段提供默认套餐，后续调整无需改代码）。
  * 购买走公共支付通道：portal_resume_optimize_order（bizType=resume_optimize，platform=portal）。

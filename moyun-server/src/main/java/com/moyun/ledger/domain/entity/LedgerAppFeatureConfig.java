@@ -9,7 +9,7 @@ import java.io.Serializable;
 import java.time.LocalDateTime;
 
 /**
- * 记账小程序功能入口配置 ledger_app_feature_config（v11.73）
+ * 记账小程序功能入口配置 ledger_app_feature_config
  *
  * <p>"我的"页功能宫格可视化运营：开发中功能默认 visible=0 不展示，
  * 由后台按上线节奏开启；排序/名称/图标/角标均可配置。

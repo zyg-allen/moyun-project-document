@@ -5,7 +5,7 @@ import lombok.Data;
 import java.util.List;
 
 /**
- * 知识问答场景数据（scene = knowledge_qa，v11.65）
+ * 知识问答场景数据（scene = knowledge_qa）
  *
  * <p>统一网关的知识库检索问答输出契约：AI 回答 + 引用来源列表（溯源）。</p>
  *

@@ -156,7 +156,7 @@ public class LedgerScheduleServiceImpl extends ServiceImpl<LedgerScheduleTaskMap
         if (task.getNextExecDate() == null) {
             throw new ServiceException("任务无可执行日期");
         }
-        // v11.35.2：立即执行 = 现在记这笔账，交易日期用今天。
+        // 立即执行 = 现在记这笔账，交易日期用今天。
         // nextExecDate 可能是未来日期（如明天开始的周期），若沿用会导致流水落在未来，
         // 本月收支统计（[月初,今天]）不包含它，出现"列表可见但总支出不统计"。
         Map<String, Object> result = executeOnce(task, LocalDate.now());

@@ -18,7 +18,7 @@ public interface ILedgerMemoService extends IService<LedgerMemo> {
      */
     List<LedgerMemo> listMemos(Long userId, int limit);
 
-    /** 新增待办（v11.34：title/eventTime/remindEnabled/remindRule/importance） */
+    /** 新增待办（title/eventTime/remindEnabled/remindRule/importance） */
     Long createMemo(Long userId, String title, String content,
                     java.time.LocalDateTime eventTime, Integer remindEnabled,
                     String remindRule, String importance);

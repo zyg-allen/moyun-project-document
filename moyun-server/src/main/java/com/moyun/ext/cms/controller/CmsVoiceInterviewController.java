@@ -20,7 +20,7 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 /**
- * 语音面试管理 Controller（Admin 端复盘，v11.30 补建）
+ * 语音面试管理 Controller（Admin 端复盘，补建）
  *
  * <p>前端 views/cms/voiceInterview 调用 /cms/voice-interview/*；
  * 菜单 5253-5256（20260901-moyun-voice-interview-menu.sql），权限 cms:voiceInterview:*。

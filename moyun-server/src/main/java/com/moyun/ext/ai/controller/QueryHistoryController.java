@@ -38,22 +38,4 @@ public class QueryHistoryController {
             return AjaxResult.error("获取查询历史失败: " + e.getMessage());
         }
     }
-    
-    @GetMapping("/recent")
-    @PreAuthorize("@ss.hasPermi('cms:ai:query-history:list')")
-    public AjaxResult getRecent(@RequestParam(defaultValue = "20") Integer limit) {
-        try {
-            List<QueryHistory> histories = queryHistoryMapper.selectList(
-                new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<QueryHistory>()
-                    .eq(QueryHistory::getStatus, "success")
-                    .orderByDesc(QueryHistory::getCreateTime)
-                    .last("LIMIT " + limit)
-            );
-            
-            return AjaxResult.success(histories);
-        } catch (Exception e) {
-            log.error("获取最近查询历史失败", e);
-            return AjaxResult.error("获取查询历史失败: " + e.getMessage());
-        }
-    }
 }

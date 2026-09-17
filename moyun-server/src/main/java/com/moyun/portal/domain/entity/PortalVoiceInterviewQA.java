@@ -12,7 +12,7 @@ import java.io.Serializable;
 import java.time.LocalDateTime;
 
 /**
- * 语音面试问答表 portal_voice_interview_qa（V10.1）
+ * 语音面试问答表 portal_voice_interview_qa
  *
  * <p>基础字段与主表完全对齐：id / create_time / update_time / del_flag。
  * 不再继承 BaseEntity，避免 create_by / update_by / remark 等不存在列导致 MP 报错。
@@ -78,17 +78,17 @@ public class PortalVoiceInterviewQA implements Serializable {
     /** 下一步动作 followup/hint/next/report */
     private String nextAction;
 
-    /** 用户原始回答（提交即落库未分析，防丢失；v11.88 V2重构） */
+    /** 用户原始回答（提交即落库未分析，防丢失；V2重构） */
     private String answerRaw;
 
-    /** 回答时间（提交时刻；v11.88 V2重构） */
+    /** 回答时间（提交时刻；V2重构） */
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime answerTime;
 
-    /** 草稿评分（异步 LLM 分析写回，批量分析融合；v11.88 V2重构） */
+    /** 草稿评分（异步 LLM 分析写回，批量分析融合；V2重构） */
     private Integer scoreDraft;
 
-    /** 单题分析状态：0未分析 1分析中 2已分析（v11.88 V2重构） */
+    /** 单题分析状态：0未分析 1分析中 2已分析（V2重构） */
     private Integer analysisStatus;
 
     /** 创建时间 */

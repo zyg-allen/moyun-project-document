@@ -10,7 +10,7 @@ import java.security.SecureRandom;
 import java.util.concurrent.TimeUnit;
 
 /**
- * 短信验证码服务实现（V11.1）
+ * 短信验证码服务实现
  *
  * <p>企业级安全要点：
  * <ul>

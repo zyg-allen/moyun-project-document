@@ -27,12 +27,12 @@ public class InterviewQuestionVO implements Serializable {
 
     /**
      * 题目类型：bagwen 八股 / algorithm 算法 / system_design 系统设计 / project 项目 / hr HR
-     * 列表页用于题型筛选徽章展示（v6.3 题目结构化）
+     * 列表页用于题型筛选徽章展示（题目结构化）
      */
     private String questionType;
 
     /**
-     * 练习模式：reading 展示阅读 / choice 选择题 / coding 编程题（v10.6 题库重构）
+     * 练习模式：reading 展示阅读 / choice 选择题 / coding 编程题（题库重构）
      * 与 questionType 正交：questionType 描述内容分类，practiceMode 描述作答方式
      */
     private String practiceMode;

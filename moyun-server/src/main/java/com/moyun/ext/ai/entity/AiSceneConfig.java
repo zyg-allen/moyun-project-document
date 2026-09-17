@@ -56,7 +56,7 @@ public class AiSceneConfig extends AiBaseEntity {
     /** 场景策略配置 JSON（如 {"dynamicMode":true}） */
     private String configJson;
 
-    // ==================== v11.41 执行层配置（统一接入层） ====================
+    // ==================== 执行层配置（统一接入层） ====================
 
     /** 场景分类: chat/analysis/generation/classification */
     private String sceneCategory;
@@ -70,7 +70,7 @@ public class AiSceneConfig extends AiBaseEntity {
     /**
      * 系统提示词模板（支持占位符 {{variable}}）
      *
-     * @deprecated v11.95 废弃：人设统一由 Agent 表 system_prompt 承载（mergePersona /
+     * @deprecated 人设统一由 Agent 表 system_prompt 承载（mergePersona /
      *             ChatContextBuilderService），场景表只保留治理配置。字段存量保留仅作迁移期
      *             数据溯源，代码已不消费（KnowledgeQaHandler 直读 agent；后台任务用
      *             Handler 内置 DEFAULT_SYSTEM / mergePersona 注入 agentPersona）。
@@ -114,10 +114,10 @@ public class AiSceneConfig extends AiBaseEntity {
     /** 限流时间窗口（秒） */
     private Integer rateLimitTime;
 
-    /** 场景日 Token 上限（v11.57 P0-2 成本熔断：当日累计消耗超限后拒绝调用；null=不限） */
+    /** 场景日 Token 上限（成本熔断：当日累计消耗超限后拒绝调用；null=不限） */
     private Integer dailyTokenLimit;
 
-    /** 是否启用输出内容过滤（v11.62 P1-3：启用后网关响应 data 文本经 DFA 词树脱敏；0=关闭） */
+    /** 是否启用输出内容过滤（启用后网关响应 data 文本经 DFA 词树脱敏；0=关闭） */
     private Boolean enableOutputFilter;
 
     /** 备用模型 ID */
@@ -147,6 +147,6 @@ public class AiSceneConfig extends AiBaseEntity {
     /** 是否启用 */
     private Boolean enabled;
 
-    /** 是否开放通用入口调用（v11.51：open_api=1 才能经 /api/ai/execute 外部调用；业务内部网关调用不受限） */
+    /** 是否开放通用入口调用（open_api=1 才能经 /api/ai/execute 外部调用；业务内部网关调用不受限） */
     private Boolean openApi;
 }

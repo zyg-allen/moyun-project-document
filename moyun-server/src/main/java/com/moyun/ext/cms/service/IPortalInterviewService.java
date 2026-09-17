@@ -53,7 +53,7 @@ public interface IPortalInterviewService {
     Page<InterviewQuestionVO> selectQuestionPage(Page<InterviewQuestionVO> page, InterviewQuestionQuery query, Long currentUserId);
 
     /**
-     * 基于用户画像推荐题目（v5.9 阶段1：题库页"为你推荐"）
+     * 基于用户画像推荐题目（阶段1：题库页"为你推荐"）
      * <p>
      * 三路召回策略（与模拟面试画像驱动抽题一致）：
      * 1. 薄弱点优先：失败率高的标签对应题目
@@ -71,7 +71,7 @@ public interface IPortalInterviewService {
     InterviewQuestionDetailVO selectQuestionDetailById(Long id, Long currentUserId);
 
     /**
-     * 查询相邻题目（上一题 / 下一题导航，v12.0 做题页连续练习）
+     * 查询相邻题目（上一题 / 下一题导航，做题页连续练习）
      * <p>
      * 查询条件与列表页保持一致（practiceMode/difficulty/keyword，status=published），
      * 排序与列表一致（sort 升序 + createTime 降序），在结果集中定位当前题目后返回前后题。

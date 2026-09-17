@@ -78,7 +78,7 @@ public class PortalUserResume extends BaseEntity
     /** 自我介绍 */
     private String selfIntro;
 
-    /** v10.22：简历全文纯文本（保存时自动拼接结构化字段，供 AI 分析使用） */
+    /** 简历全文纯文本（保存时自动拼接结构化字段，供 AI 分析使用） */
     private String fullText;
 
     // ==================== 评分 ====================
@@ -107,7 +107,7 @@ public class PortalUserResume extends BaseEntity
     /** 状态：draft/published/archived */
     private String status;
 
-    // ==================== v10.22：附件简历 ====================
+    // ==================== 附件简历 ====================
 
     /** 来源类型：online（在线创建）/ attachment（附件解析） */
     private String sourceType;

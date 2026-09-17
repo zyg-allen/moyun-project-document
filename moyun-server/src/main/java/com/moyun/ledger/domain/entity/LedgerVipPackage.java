@@ -9,7 +9,7 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 /**
- * 记账VIP套餐（v11.81 平台直收类）
+ * 记账VIP套餐（平台直收类）
  *
  * <p>价格/时长后台可配置（骨架阶段提供默认套餐，后续调整无需改代码）。
  * 购买走公共支付通道：ledger_vip_order（bizType=ledger_vip）。

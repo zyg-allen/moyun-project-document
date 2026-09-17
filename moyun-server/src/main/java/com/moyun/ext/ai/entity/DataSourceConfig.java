@@ -9,7 +9,7 @@ import java.time.LocalDateTime;
 /**
  * 数据源配置实体
  *
- * <p>继承 {@link AiBaseEntity}，复用 createTime / updateTime / deleted 字段（P3-2 Phase 1）。
+ * <p>继承 {@link AiBaseEntity}，复用 createTime / updateTime / deleted 字段（Phase 1）。
  * 原有的 {@code @TableField(fill=...)} 自动填充注解由 AiBaseEntity 统一提供。</p>
  *
  * @author laomao

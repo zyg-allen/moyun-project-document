@@ -22,14 +22,6 @@ public interface ICmsCategoryService
     List<CmsCategoryVO> selectCategoryList(CmsCategoryQuery query);
 
     /**
-     * 查询分类树
-     *
-     * @param query 查询条件
-     * @return 分类树
-     */
-    List<CmsCategoryVO> selectCategoryTree(CmsCategoryQuery query);
-
-    /**
      * 查询分类详情
      *
      * @param id 分类ID

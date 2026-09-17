@@ -12,7 +12,7 @@ import java.util.List;
  *
  * <p>管理知识库处理配置，包括分片策略、预处理规则、配置模板等</p>
  *
- * <p><b>双轨配置说明（P2-2）：</b>
+ * <p><b>双轨配置说明：</b>
  * 项目存在两套配置表：<code>knowledge_library_config</code>（库级默认）和 <code>knowledge_config</code>（文档级实例）。
  * 文档级未设字段应继承库级默认，通过 {@link #resolveEffectiveConfig} 实现合并。
  * 检索参数（retrievalMode/topK/rerank*）目前是死字段（检索侧实际读 agent 表 + 全局 RagConfig），后续会清理。

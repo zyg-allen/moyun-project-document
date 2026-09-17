@@ -10,7 +10,7 @@ import lombok.Data;
 import java.time.LocalDateTime;
 
 /**
- * 用户银行卡（V11.0 提现打款账户）
+ * 用户银行卡（提现打款账户）
  *
  * <p>安全：卡号/手机号 AES-GCM 加密落库（card_no_encrypted），
  * 任何查询接口只允许下发脱敏卡号（card_no_masked），密文仅服务端打款时解密使用。

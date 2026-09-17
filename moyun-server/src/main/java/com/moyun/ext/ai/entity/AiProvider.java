@@ -8,7 +8,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 /**
- * AI 提供商注册表实体（V11.0.2 配置驱动改造）
+ * AI 提供商注册表实体（配置驱动改造）
  *
  * <p>提供商能力元数据落库，替代代码中硬编码的 switch(provider) 分支。
  * 模型工厂 / 流式判定 / 连接测试 / 多模态等链路统一按 {@code apiStyle} 分支，

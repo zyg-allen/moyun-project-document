@@ -29,7 +29,7 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 /**
- * 岗位匹配分析服务（v10.13 简历优化重构）
+ * 岗位匹配分析服务（简历优化重构）
  * <p>
  * 链路：目标岗位 JD + 在线简历 → LLM 四维匹配分析（关键词/经验/技能/结构）→ 匹配报告存档。
  * LLM 未启用/失败时回退规则分析（JD 关键词命中统计）。
@@ -39,7 +39,7 @@ import java.util.stream.Collectors;
  */
 @Service
 public class ResumeJobMatchService {
-    /** v11.39：本服务所属 AI 场景代码（绑定见 ai_scene_config，业务不感知模型选择） */
+    /** 本服务所属 AI 场景代码（绑定见 ai_scene_config，业务不感知模型选择） */
     private static final String SCENE_RESUME_OPTIMIZE = "resume_optimize";
 
 
@@ -51,7 +51,7 @@ public class ResumeJobMatchService {
     @Autowired
     private LlmClient llmClient;
 
-    /** v11.58 P0-3：匹配分析统一走 AI 网关（task=job_match 子任务） */
+    /** 匹配分析统一走 AI 网关（task=job_match 子任务） */
     @Autowired
     private AiSceneJsonClient aiSceneJsonClient;
 
@@ -113,11 +113,11 @@ public class ResumeJobMatchService {
     // ==================== LLM 分析 ====================
 
     /**
-     * v11.58 P0-3 业务收口：经统一网关执行 resume_optimize 场景（task=job_match）。
+     * 业务收口：经统一网关执行 resume_optimize 场景（task=job_match）。
      * 提示词已收编至 ResumeOptimizeHandler（逐字一致），本方法仅组装上下文与结果映射。
      */
     private PortalResumeJobMatch analyzeByLlm(Long userId, UserResumeVO resume, PortalResumeJobTarget target) throws Exception {
-        // v10.22 阶段3：AI 分析优先使用 full_text 全文纯文本，上下文更完整；
+        // 阶段3：AI 分析优先使用 full_text 全文纯文本，上下文更完整；
         // fullText 为空时降级为结构化 JSON（兼容旧简历或未拼接 full_text 的场景）
         String resumeContent = (resume.getFullText() != null && !resume.getFullText().isBlank())
                 ? resume.getFullText()

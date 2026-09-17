@@ -10,7 +10,7 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * 工具参数 JSON Schema 校验器（v11.63 P1-2）
+ * 工具参数 JSON Schema 校验器
  *
  * <p>依据《AI底座企业级评估-代码实测结论与改进清单》P1-2：ai_agent_tool.parameters 已是
  * JSON Schema（种子数据 type/required/properties），但执行链零校验——LLM 生成的参数

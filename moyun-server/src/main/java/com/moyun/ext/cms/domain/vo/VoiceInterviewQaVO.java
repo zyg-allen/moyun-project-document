@@ -5,7 +5,7 @@ import lombok.Data;
 import java.time.LocalDateTime;
 
 /**
- * 语音面试单条问答 VO（V10.1）
+ * 语音面试单条问答 VO
  *
  * @author moyun
  */

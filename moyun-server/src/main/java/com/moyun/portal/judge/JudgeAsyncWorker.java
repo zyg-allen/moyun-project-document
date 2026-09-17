@@ -24,7 +24,7 @@ import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 
 /**
- * OJ 异步判题 Worker（v8.0 高并发演进）
+ * OJ 异步判题 Worker（高并发演进）
  * <p>
  * 启动 N 个后台线程，循环从 Redis 队列 {@code BLPOP} 拉取 {@link JudgeTask}，
  * 调用 {@link JudgeEngine} 执行判题，并将 {@link JudgeResult} 回写到 {@code portal_interview_submission}。
@@ -41,7 +41,7 @@ import jakarta.annotation.PreDestroy;
  * <p>
  * <strong>领域边界</strong>：本 Worker 系 OJ 代码判题专属基础设施（进程内判题引擎，
  * 非 LLM 任务），不参与 AI 异步任务收敛——AI 任务选型规则见
- * {@link com.moyun.ext.cms.service.AiTaskService} 类注释（v11.67 双轨制）。
+ * {@link com.moyun.ext.cms.service.AiTaskService} 类注释（双轨制）。
  *
  * @author moyun
  */

@@ -32,7 +32,7 @@ public interface ModelConfigService extends IService<ModelConfig> {
 
     /**
      * 根据配置ID创建聊天模型（支持覆盖参数 + JSON Mode）
-     * <p>v11.95 任务4：jsonMode=true 且模型 supports_json_mode=1 时，OpenAI 兼容端点下发
+     * <p>jsonMode=true 且模型 supports_json_mode=1 时，OpenAI 兼容端点下发
      * response_format=json_object（Ollama 原生端点 format=json），强制输出合法 JSON。
      * 模型不支持时静默忽略（回退 Prompt 约束路径）。</p>
      * @param jsonMode 是否请求 JSON Mode（场景 output_schema 非空的结构化场景传 true）
@@ -82,7 +82,7 @@ public interface ModelConfigService extends IService<ModelConfig> {
 
     /**
      * 获取默认 ASR（语音识别）模型配置
-     * <p>V10.1 语音面试官：浏览器 Web Speech API 不可用时，服务端调用 ASR 模型转写录音
+     * <p>语音面试官：浏览器 Web Speech API 不可用时，服务端调用 ASR 模型转写录音
      * @return 默认 ASR 配置，如果没有则返回 null
      */
     ModelConfig getDefaultAsrConfig();

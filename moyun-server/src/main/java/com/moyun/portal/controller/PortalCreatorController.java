@@ -246,7 +246,7 @@ public class PortalCreatorController extends BaseController {
     }
 
     /**
-     * v1.1 读者画像：把 IP 解析为省份名（用于地域分布地图组件）
+     * 读者画像：把 IP 解析为省份名（用于地域分布地图组件）
      * <p>策略：
      * <ul>
      *   <li>调用 AddressUtils.getRealAddressByIP 解析，返回 "省 市" 或 "内网IP" / "XX XX"</li>

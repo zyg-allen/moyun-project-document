@@ -71,7 +71,7 @@ public class PortalCreatorCertificationServiceImpl
         entity.setUserId(userId);
         entity.setRealName(dto.getRealName());
         entity.setCertType(dto.getCertType());
-        // v10.8 实名合规：证件号只存密文 + 脱敏展示值，明文一律不落库
+        // 实名合规：证件号只存密文 + 脱敏展示值，明文一律不落库
         String certNoPlain = dto.getCertNo() == null ? null : dto.getCertNo().trim();
         if (certNoPlain != null && !certNoPlain.isEmpty()) {
             entity.setCertNoEnc(AesGcmUtils.encrypt(certNoPlain, certSecurityProperties.getCertNoEncryptKey()));
@@ -96,7 +96,7 @@ public class PortalCreatorCertificationServiceImpl
         entity.setCreatedTime(LocalDateTime.now());
         baseMapper.insert(entity);
 
-        // v8.1：提交统一审核任务（写 sys_audit_task），使首页/审核中心待办可见
+        // 提交统一审核任务（写 sys_audit_task），使首页/审核中心待办可见
         AuditTaskSubmitDTO auditDto = new AuditTaskSubmitDTO();
         auditDto.setTaskType("certification");
         auditDto.setBizId(entity.getId());

@@ -20,15 +20,15 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * 简历深度优化的「生成能力」（v10.19：从 ResumeDeepOptimizeService 抽离，解决循环依赖）
+ * 简历深度优化的「生成能力」（从 ResumeDeepOptimizeService 抽离，解决循环依赖）
  *
  * <p><strong>抽离原因</strong>：原 {@link ResumeDeepOptimizeService} 同时持有 {@code generate()}
  * 和 {@code submitTask()}（触发异步）两类职责；异步执行方又需要调用 {@code generate()}，
  * 形成 A→B→A 循环依赖。</p>
  *
  * <p><strong>结构改造</strong>：把 generate 及其私有方法（buildResumeContext/fillOriginal/safe）
- * 和它们依赖的 {@code llmClient/objectMapper/jobTargetMapper}（v11.98 开关统一 AiGlobalSwitch）一起迁到本 Bean。
- * v10.23 起异步执行统一走通用 AI 任务基础设施，依赖图无环：</p>
+ * 和它们依赖的 {@code llmClient/objectMapper/jobTargetMapper}（开关统一 AiGlobalSwitch）一起迁到本 Bean。
+ * 起异步执行统一走通用 AI 任务基础设施，依赖图无环：</p>
  * <pre>
  *   AiTaskAsyncExecutor ──→ DeepOptimizeTaskHandler ──→ ResumeDeepOptimizeGenerator
  *   ResumeDeepOptimizeService ──→ ResumeDeepOptimizeGenerator（门面委托）
@@ -40,7 +40,7 @@ import java.util.Map;
  */
 @Service
 public class ResumeDeepOptimizeGenerator {
-    /** v11.39：本服务所属 AI 场景代码（绑定见 ai_scene_config，业务不感知模型选择） */
+    /** 本服务所属 AI 场景代码（绑定见 ai_scene_config，业务不感知模型选择） */
     private static final String SCENE_RESUME_OPTIMIZE = "resume_optimize";
 
 
@@ -52,7 +52,7 @@ public class ResumeDeepOptimizeGenerator {
     @Autowired
     private LlmClient llmClient;
 
-    /** v11.58 P0-3：深度优化生成统一走 AI 网关（task=deep_optimize 子任务） */
+    /** 深度优化生成统一走 AI 网关（task=deep_optimize 子任务） */
     @Autowired
     private AiSceneJsonClient aiSceneJsonClient;
 
@@ -65,7 +65,7 @@ public class ResumeDeepOptimizeGenerator {
     /**
      * 生成深度优化建议（逐项前后对比）
      *
-     * <p>v11.58 P0-3 业务收口：经统一网关执行 resume_optimize 场景（task=deep_optimize），
+     * <p>业务收口：经统一网关执行 resume_optimize 场景（task=deep_optimize），
      * 提示词收编至 ResumeOptimizeHandler，本方法仅组装 JD+简历上下文与结果映射。</p>
      *
      * @param resume      简历详情
@@ -80,9 +80,9 @@ public class ResumeDeepOptimizeGenerator {
             throw new ServiceException("深度优化需要 AI 模型支持，请管理员在后台配置 AI 模型后使用");
         }
 
-        // v10.19：精简 prompt 输入，仅传简历核心内容（去掉 id/version/status/时间戳等无关字段），
+        // 精简 prompt 输入，仅传简历核心内容（去掉 id/version/status/时间戳等无关字段），
         //         降低输入 token 加快响应，避免 60s 超时；异步任务化后 timeout 已调到 180s 双保险。
-        // v10.22 阶段3：优先使用 full_text 全文纯文本，上下文更完整；
+        // 阶段3：优先使用 full_text 全文纯文本，上下文更完整；
         //               fullText 为空时降级为 buildResumeContext 拼接结构化字段
         String resumeContent = (resume.getFullText() != null && !resume.getFullText().isBlank())
                 ? resume.getFullText()
@@ -124,7 +124,7 @@ public class ResumeDeepOptimizeGenerator {
                 throw new ServiceException("AI 未生成有效优化建议，请稍后重试");
             }
             vo.setItems(items);
-            // v10.20：输出 items 摘要日志，便于排查 section/index 不匹配导致采纳失败的问题
+            // 输出 items 摘要日志，便于排查 section/index 不匹配导致采纳失败的问题
             if (log.isInfoEnabled()) {
                 StringBuilder sb = new StringBuilder();
                 for (int i = 0; i < items.size(); i++) {
@@ -161,7 +161,7 @@ public class ResumeDeepOptimizeGenerator {
     }
 
     /**
-     * 构建精简的简历上下文文本（v10.19：替代整体 VO 序列化）
+     * 构建精简的简历上下文文本（替代整体 VO 序列化）
      *
      * <p>只保留与优化相关的核心字段：基本信息、求职意向、教育/工作/项目经历、技能、自我评价。
      * 去掉 id/userId/version/status/createTime/updateTime 等无关字段，
@@ -236,7 +236,7 @@ public class ResumeDeepOptimizeGenerator {
     private void fillOriginal(UserResumeVO resume, ResumeDeepOptimizeVO.OptimizeItem item) {
         int idx = item.getIndex() == null ? 0 : item.getIndex();
         String original = null;
-        // v10.20：section 归一化（与 ResumeDeepOptimizeService.applyItem 保持一致）
+        // section 归一化（与 ResumeDeepOptimizeService.applyItem 保持一致）
         String section = normalizeSection(item.getSection());
         String field = item.getField() == null ? "" : item.getField().trim();
         switch (section) {
@@ -288,7 +288,7 @@ public class ResumeDeepOptimizeGenerator {
     }
 
     /**
-     * v10.20：section 归一化（与 ResumeDeepOptimizeService.normalizeSection 保持一致）
+     * section 归一化（与 ResumeDeepOptimizeService.normalizeSection 保持一致）
      * 兼容 LLM 返回 works/projects/experience/self_intro 等变体
      */
     private String normalizeSection(String raw) {

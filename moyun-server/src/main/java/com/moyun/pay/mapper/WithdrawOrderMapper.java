@@ -5,7 +5,7 @@ import com.moyun.pay.domain.entity.WithdrawOrder;
 import org.apache.ibatis.annotations.Mapper;
 
 /**
- * WithdrawOrder Mapper（V11.0）
+ * WithdrawOrder Mapper
  *
  * @author moyun
  */

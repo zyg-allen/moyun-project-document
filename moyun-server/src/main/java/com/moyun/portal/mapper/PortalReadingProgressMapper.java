@@ -27,13 +27,13 @@ public interface PortalReadingProgressMapper extends BaseMapper<PortalReadingPro
     PortalReadingProgress selectByUserAndBook(@Param("userId") Long userId, @Param("bookId") Long bookId);
 
     /**
-     * v1.0 第二阶段：章节级进度 upsert
+     * 第二阶段：章节级进度 upsert
      * 存在则更新章节相关字段，不存在则插入新记录
      */
     int upsertChapterProgress(PortalReadingProgress portalReadingProgress);
 
     /**
-     * v1.0 第二阶段：查询用户最近阅读记录（按 last_read_time 倒序）
+     * 第二阶段：查询用户最近阅读记录（按 last_read_time 倒序）
      */
     List<PortalReadingProgress> selectRecentReading(@Param("userId") Long userId, @Param("limit") int limit);
 

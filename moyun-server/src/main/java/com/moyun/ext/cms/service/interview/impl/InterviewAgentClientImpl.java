@@ -44,16 +44,16 @@ public class InterviewAgentClientImpl implements InterviewAgentClient {
 
     private static final String CONFIG_KEY_DEFAULT_AGENT = "voice.interview.defaultAgentId";
 
-    /** v11.95 任务3：网关化灰度开关（缺省 false=直连，行为与历史一致） */
+    /** 任务3：网关化灰度开关（缺省 false=直连，行为与历史一致） */
     private static final String CONFIG_KEY_GATEWAY_GRAY = "ai.gateway.interview.enabled";
-    /** v11.95 任务3：主干治理场景（复用 voice_interview 场景行的限流/Token熔断参数） */
+    /** 任务3：主干治理场景（复用 voice_interview 场景行的限流/Token熔断参数） */
     private static final String SCENE_VOICE_INTERVIEW = "voice_interview";
 
     private final AgentService agentService;
     private final AiSceneResolver sceneResolver;
     private final ModelConfigService modelConfigService;
     private final ISysConfigService sysConfigService;
-    /** v11.98：AI 全局运行时开关（sys_config ai.global.enabled，替代 yaml AiProperties） */
+    /** AI 全局运行时开关（sys_config ai.global.enabled，替代 yaml AiProperties） */
     private final AiGlobalSwitch aiGlobalSwitch;
     private final AiSceneRegistry sceneRegistry;
     private final SceneRateLimiter sceneRateLimiter;
@@ -199,7 +199,7 @@ public class InterviewAgentClientImpl implements InterviewAgentClient {
             return;
         }
 
-        // v11.95 任务3：网关化灰度——开启后主干对话前置网关治理（场景限流 + Token熔断 + 执行日志）。
+        // 任务3：网关化灰度——开启后主干对话前置网关治理（场景限流 + Token熔断 + 执行日志）。
         // 滑窗消息体与模型调用链路不变（T2 生产方案：直连保性能，治理收口网关）。
         final String trunkRequestId;
         final long trunkStart;
@@ -234,7 +234,7 @@ public class InterviewAgentClientImpl implements InterviewAgentClient {
         try {
             StreamingChatLanguageModel model = createStreamingModel(agent);
             if (model == null) {
-                // V11.0.1：全库无流式模型 → 同步调用 + 模拟流式分片推送（保留打字机协议，不降级报错）
+                // 全库无流式模型 → 同步调用 + 模拟流式分片推送（保留打字机协议，不降级报错）
                 log.info("[VoiceInterview] 无可用流式模型，agent={} 使用同步调用模拟流式输出", agent.getId());
                 simulateStreamBySync(agent, messages, tokenCb, completeCb, errorCb);
                 return;
@@ -277,7 +277,7 @@ public class InterviewAgentClientImpl implements InterviewAgentClient {
     }
 
     /**
-     * v11.95 任务3：网关化灰度开关（sys_config.ai.gateway.interview.enabled，缺省 false=直连）
+     * 任务3：网关化灰度开关（sys_config.ai.gateway.interview.enabled，缺省 false=直连）
      */
     private boolean gatewayGrayEnabled() {
         try {
@@ -289,7 +289,7 @@ public class InterviewAgentClientImpl implements InterviewAgentClient {
     }
 
     /**
-     * v11.95 任务3：主干治理前置检查（voice_interview 场景行参数：限流 + 日 Token 熔断）
+     * 任务3：主干治理前置检查（voice_interview 场景行参数：限流 + 日 Token 熔断）
      *
      * @return null=放行；非 null=拒绝原因（直接走 onError 回调）
      */
@@ -325,7 +325,7 @@ public class InterviewAgentClientImpl implements InterviewAgentClient {
         return null;
     }
 
-    /** v11.95 任务3：主干轮次执行日志（scene=voice_interview，handler=interviewMainTrunk，bind=agent） */
+    /** 任务3：主干轮次执行日志（scene=voice_interview，handler=interviewMainTrunk，bind=agent） */
     private void recordTrunkLog(String requestId, Long userId, long start, List<ChatMessage> messages,
                                 String status, String error, String output) {
         try {
@@ -348,7 +348,7 @@ public class InterviewAgentClientImpl implements InterviewAgentClient {
     }
 
     /**
-     * V11.0.1：同步调用模拟流式输出。
+     * 同步调用模拟流式输出。
      * 无任何流式模型时的最终兜底：同步拿到全文后按块推送 onToken，前端打字机协议无感兼容。
      */
     private void simulateStreamBySync(Agent agent, List<ChatMessage> messages,
@@ -409,7 +409,7 @@ public class InterviewAgentClientImpl implements InterviewAgentClient {
     }
 
     /**
-     * V11.0.1 流式模型自动路由：
+     * 流式模型自动路由：
      * <ol>
      *   <li>agent 绑定模型（或默认 chat 配置）支持流式 → 直接使用；</li>
      *   <li>绑定的模型不支持流式 → 自动挑选一个「启用 + chat 类型 + 支持流式」的配置

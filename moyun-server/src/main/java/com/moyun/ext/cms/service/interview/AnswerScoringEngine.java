@@ -14,7 +14,7 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * 答题评分引擎（v11.47 自 VoiceInterviewServiceImpl 抽出，规则评分无 LLM 依赖）
+ * 答题评分引擎（自 VoiceInterviewServiceImpl 抽出，规则评分无 LLM 依赖）
  *
  * <p>职责：单题作答的规则化评分——关键词覆盖率 + 长度/结构词/互动信号
  * 计算 6 维连续维度分（relevance/professionalism/fluency/interactivity/confidence/logic，
@@ -63,7 +63,7 @@ public class AnswerScoringEngine {
         List<String> keywords = question == null
                 ? new ArrayList<>()
                 : extractKeywords(question.getTags(), question.getSolution());
-        // v11.30.2：LLM 动态题（追问/系统设计/自我介绍）无 tags/solution，从题干提取关键词，
+        // LLM 动态题（追问/系统设计/自我介绍）无 tags/solution，从题干提取关键词，
         // 保证 matched/coverage 有意义（此前恒为 0 导致 professionalism/interactivity/logic 输出固定值）
         if (keywords.isEmpty() && question != null && StringUtils.isNotEmpty(question.getTitle())) {
             keywords = extractKeywords(null, question.getTitle());
@@ -86,7 +86,7 @@ public class AnswerScoringEngine {
         double lengthBonus = Math.min(len / 200.0, 1.0) * 20;
         int score = (int) Math.min(100, Math.round(coverage * 80 + lengthBonus));
 
-        // 维度分（6 维连续计算，v11.30.2 重构：以覆盖率/长度/结构词/互动信号连续映射，
+        // 维度分（6 维连续计算，重构：以覆盖率/长度/结构词/互动信号连续映射，
         // 消除旧版二值阈值导致的固定值；对齐前端雷达图维度键）
         Map<String, Integer> dimensions = new LinkedHashMap<>();
         int coverageScore = (int) Math.round(coverage * 100);
@@ -128,7 +128,7 @@ public class AnswerScoringEngine {
         return Math.max(min, Math.min(max, v));
     }
 
-    /** 逻辑结构词计数（v11.30.2：logic 维度连续信号） */
+    /** 逻辑结构词计数（logic 维度连续信号） */
     private int countStructureWords(String answer) {
         if (StringUtils.isEmpty(answer)) {
             return 0;
@@ -146,7 +146,7 @@ public class AnswerScoringEngine {
         return count;
     }
 
-    /** 互动性信号计数（v11.30.2：interactivity 维度连续信号：举例/对比/承认不确定/反问） */
+    /** 互动性信号计数（interactivity 维度连续信号：举例/对比/承认不确定/反问） */
     private int countInteractiveSignals(String answer) {
         if (StringUtils.isEmpty(answer)) {
             return 0;
@@ -168,7 +168,7 @@ public class AnswerScoringEngine {
         if (StringUtils.isNotEmpty(tags)) {
             for (String t : tags.split("[,，]")) {
                 String s = t.trim();
-                // v11.60 P0-4 单测发现：tags 分支同样受 MAX_KEYWORDS 封顶（原仅 solution 分支受限）
+                // 单测发现：tags 分支同样受 MAX_KEYWORDS 封顶（原仅 solution 分支受限）
                 if (isValidKeyword(s) && kw.size() < MAX_KEYWORDS) kw.add(s);
             }
         }

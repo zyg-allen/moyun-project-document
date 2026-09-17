@@ -20,7 +20,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * 门户银行卡控制器（V11.0）
+ * 门户银行卡控制器
  *
  * <p>安全红线：所有出参一律剥离密文字段（cardNoEncrypted/phoneEncrypted），
  * 仅下发脱敏 cardNoMasked。

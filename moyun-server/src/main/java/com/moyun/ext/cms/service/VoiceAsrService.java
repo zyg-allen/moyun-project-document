@@ -24,7 +24,7 @@ import com.moyun.ext.ai.service.AiProviderService;
 import com.moyun.ext.ai.service.ModelConfigService;
 
 /**
- * 语音转文字服务（Qwen-ASR，OpenAI 兼容模式）—— V10.1 语音面试官
+ * 语音转文字服务（Qwen-ASR，OpenAI 兼容模式）—— 语音面试官
  *
  * <p>浏览器 Web Speech API 在国内网络环境（依赖 Google 服务）大多不可用，
  * 前端在不可用/识别失败时降级为 MediaRecorder 录音，上传本服务转写。</p>

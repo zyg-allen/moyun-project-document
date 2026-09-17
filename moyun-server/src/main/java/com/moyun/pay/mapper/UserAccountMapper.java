@@ -9,7 +9,7 @@ import org.apache.ibatis.annotations.Update;
 import java.math.BigDecimal;
 
 /**
- * 用户资金账户 Mapper（V11.0）
+ * 用户资金账户 Mapper
  *
  * <p>余额变动一律走这里的原子 SQL（带 balance >= 条件），配合乐观锁双保险，
  * 禁止先读后写。金额单位：元（DECIMAL(18,2)）。

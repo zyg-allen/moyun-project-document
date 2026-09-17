@@ -8,9 +8,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 /**
- * 简历深度优化任务 Handler（v10.23，taskType=deep_optimize）
+ * 简历深度优化任务 Handler（taskType=deep_optimize）
  *
- * <p>承接原 ResumeOptimizeAsyncExecutor（v10.19 已删除）的执行逻辑：
+ * <p>承接原 ResumeOptimizeAsyncExecutor（已删除）的执行逻辑：
  * 调用 {@link ResumeDeepOptimizeGenerator#generate} 组装 DeepOptimizeVO
  * （LLM 基于 JD 对简历逐项生成前后对比建议）。任务状态流转由
  * {@link AiTaskAsyncExecutor} 统一管理。</p>

@@ -29,7 +29,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * AI 执行日志管理 Controller（v11.60 P1-1：可观测性补齐——数据在采也要有人看）
+ * AI 执行日志管理 Controller（可观测性补齐——数据在采也要有人看）
  *
  * <p>统一网关 ai_execute_log 的管理端查询页：列表（requestId/场景/模型/状态/耗时/token 筛选）
  * + 汇总卡片（调用量/成功率/Token/成本/平均耗时，随筛选联动）+ 详情 + 清理。</p>

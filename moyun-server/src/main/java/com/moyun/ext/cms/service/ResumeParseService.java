@@ -44,12 +44,12 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * 简历附件解析服务（v10.23：支持 MinIO 优先 + 磁盘兜底）
+ * 简历附件解析服务（支持 MinIO 优先 + 磁盘兜底）
  * <p>
  * 流程：附件（PDF/Word/TXT）→ 抽取纯文本 → LLM 结构化抽取（字段语义对齐在线简历表单）；
  * LLM 未启用/调用失败时回退到正则规则粗解析（仅邮箱/电话/技能等高置信字段）。
  * <p>
- * <strong>文件读取策略（v10.23 升级）</strong>：
+ * <strong>文件读取策略（升级）</strong>：
  * <ol>
  *   <li>优先从 MinIO 读取（fileUrl 以 http:// 或 https:// 开头）</li>
  *   <li>MinIO 不可用/读取失败时，自动降级到磁盘读取（兜底）</li>
@@ -57,7 +57,7 @@ import java.util.regex.Pattern;
  */
 @Service
 public class ResumeParseService {
-    /** v11.39：本服务所属 AI 场景代码（绑定见 ai_scene_config，业务不感知模型选择） */
+    /** 本服务所属 AI 场景代码（绑定见 ai_scene_config，业务不感知模型选择） */
     private static final String SCENE_RESUME_PARSE = "resume_parse";
 
 
@@ -80,7 +80,7 @@ public class ResumeParseService {
     @Autowired
     private LlmClient llmClient;
 
-    /** v11.58 P0-3：LLM 结构化解析统一走 AI 网关（注入防护/限流/成本熔断/日志全链路生效） */
+    /** LLM 结构化解析统一走 AI 网关（注入防护/限流/成本熔断/日志全链路生效） */
     @Autowired
     private AiSceneJsonClient aiSceneJsonClient;
 
@@ -380,12 +380,12 @@ public class ResumeParseService {
     // ==================== LLM 结构化解析 ====================
 
     /**
-     * v11.58 P0-3 业务收口：经统一网关执行 resume_parse 场景。
+     * 业务收口：经统一网关执行 resume_parse 场景。
      * Handler 提示词与本方法原提示词逐字一致（全字段 Schema），结果从 structured
      * 反序列化为 ResumeParseVO——切换前后解析行为不变。
      */
     private ResumeParseVO parseByLlm(Long userId, String text) {
-        // v11.98：LinkedHashMap 可变 Map（Map.of 不可变集合会被网关输入清洗路径击穿）
+        // LinkedHashMap 可变 Map（Map.of 不可变集合会被网关输入清洗路径击穿）
         java.util.Map<String, Object> input = new java.util.LinkedHashMap<>();
         input.put("text", text);
         JsonNode node = aiSceneJsonClient.executeForJson(SCENE_RESUME_PARSE, input, userId);

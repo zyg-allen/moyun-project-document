@@ -12,7 +12,7 @@ import lombok.NoArgsConstructor;
 /**
  * 工作流定义实体
  *
- * <p>继承 {@link AiBaseEntity}，复用 createTime / updateTime / deleted 字段（P3-2 Phase 1）。
+ * <p>继承 {@link AiBaseEntity}，复用 createTime / updateTime / deleted 字段（Phase 1）。
  * 注意：{@code @Builder} 仅覆盖本类字段，不含继承的 createTime / updateTime / deleted；
  * 构建后如需设置时间，请用 setter（AiBaseEntity 提供 {@code @TableField(fill=...)} 自动填充兜底）。</p>
  *

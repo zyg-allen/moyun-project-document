@@ -8,7 +8,7 @@ import java.io.Serial;
 import java.io.Serializable;
 
 /**
- * 审核任务处理参数（v8.1）
+ * 审核任务处理参数
  * <p>
  * 处理人通过审核中心提交「同意/驳回」操作。
  * 驳回时 {@link #auditOpinion} 必填。

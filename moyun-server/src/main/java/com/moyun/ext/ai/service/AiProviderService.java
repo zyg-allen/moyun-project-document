@@ -6,7 +6,7 @@ import com.moyun.ext.ai.entity.AiProvider;
 import java.util.List;
 
 /**
- * AI 提供商注册表服务（V11.0.2 配置驱动改造核心）
+ * AI 提供商注册表服务（配置驱动改造核心）
  *
  * <p>所有"提供商能力"的判定入口：模型工厂按 {@link AiProvider#getApiStyle()} 分支、
  * 流式支持查 {@link AiProvider#getSupportsStreaming()}、连接测试按 apiStyle 分发。
@@ -18,9 +18,6 @@ public interface AiProviderService extends IService<AiProvider> {
 
     /** 按 code 查注册表（含禁用记录；未注册返回 null） */
     AiProvider getByCode(String code);
-
-    /** 列出启用的提供商（admin 下拉 / portal 可选清单；按 sortOrder 升序） */
-    List<AiProvider> listEnabled();
 
     /**
      * 该提供商是否支持流式输出（未注册的提供商默认不支持，由运行时三级兜底链路接管）

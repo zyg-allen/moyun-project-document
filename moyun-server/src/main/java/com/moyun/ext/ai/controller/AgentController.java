@@ -82,19 +82,6 @@ public class AgentController {
         }
     }
 
-    @Operation(summary = "获取启用的智能体")
-    @GetMapping("/enabled")
-    @PreAuthorize("@ss.hasPermi('cms:ai:agent:list')")
-    public AjaxResult getEnabled() {
-        try {
-            List<Agent> list = agentService.listEnabled();
-            return AjaxResult.success(new ListResponse<>(list));
-        } catch (Exception e) {
-            log.error("获取启用智能体列表失败", e);
-            return AjaxResult.error("获取列表失败: " + e.getMessage());
-        }
-    }
-
     @Operation(summary = "创建智能体")
     @PostMapping("/create")
     @PreAuthorize("@ss.hasPermi('cms:ai:agent:add')")

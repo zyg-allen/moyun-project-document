@@ -18,7 +18,7 @@ import java.util.Map;
 /**
  * 智能出题场景Handler（scene = question_generate）
  *
- * <p><strong>v11.58 P0-3 业务收口——双子任务契约：</strong></p>
+ * <p><strong>业务收口——双子任务契约：</strong></p>
  * <ul>
  *   <li><b>task=jd_keywords</b>：JD 文本 → 面试考察关键词数组（原
  *       {@code PortalJobTemplateServiceImpl.extractByLlm} 提示词逐字收编），
@@ -61,7 +61,7 @@ public class QuestionGenerateHandler extends AbstractAiSceneHandler {
         return executeQuestionGenerate(request, config);
     }
 
-    // ==================== 子任务：JD 关键词提取（v11.58 业务收口） ====================
+    // ==================== 子任务：JD 关键词提取（业务收口） ====================
 
     private AiExecuteResponse<?> executeJdKeywords(AiExecuteRequest request) {
         String jdText = requireInputString(request, "context");

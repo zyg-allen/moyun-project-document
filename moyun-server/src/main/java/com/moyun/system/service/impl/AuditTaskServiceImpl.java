@@ -31,7 +31,7 @@ import com.moyun.system.service.IAuditTaskService;
 import com.moyun.system.service.AuditBizHandler;
 
 /**
- * 统一审核任务服务实现（v8.1）
+ * 统一审核任务服务实现
  * <p>
  * 核心职责：
  * <ol>
@@ -409,7 +409,7 @@ public class AuditTaskServiceImpl implements IAuditTaskService {
         vo.setPriority(task.getPriority());
         vo.setPriorityLabel(priorityLabel(task.getPriority()));
         vo.setRoutePath(task.getRoutePath());
-        // v11.35.1：原业务管理页路由（按任务类型枚举取，与 routePath 职责分离）
+        // 原业务管理页路由（按任务类型枚举取，与 routePath 职责分离）
         AuditTaskType taskType = AuditTaskType.fromCode(task.getTaskType());
         if (taskType != null) {
             vo.setBizRoutePath(taskType.getBizRoutePath());

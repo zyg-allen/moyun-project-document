@@ -20,18 +20,6 @@ public class TokenUsageController {
 
     private final TokenUsageService tokenUsageService;
 
-    @GetMapping("/today")
-    @PreAuthorize("@ss.hasPermi('cms:ai:token-usage:list')")
-    public AjaxResult getTodayStats() {
-        try {
-            Map<String, Object> stats = tokenUsageService.getTodayStats();
-            return AjaxResult.success(stats);
-        } catch (Exception e) {
-            log.error("获取今日统计失败", e);
-            return AjaxResult.error("获取统计数据失败: " + e.getMessage());
-        }
-    }
-
     @GetMapping("/overview")
     @PreAuthorize("@ss.hasPermi('cms:ai:token-usage:list')")
     public AjaxResult getOverview(
@@ -54,58 +42,6 @@ public class TokenUsageController {
             log.error("获取统计概览失败", e);
             return AjaxResult.error("获取统计数据失败: " + e.getMessage());
         }
-    }
-
-    @GetMapping("/by-date")
-    @PreAuthorize("@ss.hasPermi('cms:ai:token-usage:list')")
-    public AjaxResult statByDate(
-            @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate startDate,
-            @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate endDate) {
-
-        if (startDate == null) {
-            startDate = LocalDate.now().minusDays(29);
-        }
-        if (endDate == null) {
-            endDate = LocalDate.now();
-        }
-
-        List<Map<String, Object>> stats = tokenUsageService.statByDate(startDate, endDate);
-        return AjaxResult.success(stats);
-    }
-
-    @GetMapping("/by-model")
-    @PreAuthorize("@ss.hasPermi('cms:ai:token-usage:list')")
-    public AjaxResult statByModel(
-            @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate startDate,
-            @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate endDate) {
-
-        if (startDate == null) {
-            startDate = LocalDate.now().minusDays(29);
-        }
-        if (endDate == null) {
-            endDate = LocalDate.now();
-        }
-
-        List<Map<String, Object>> stats = tokenUsageService.statByModel(startDate, endDate);
-        return AjaxResult.success(stats);
-    }
-
-    @GetMapping("/by-agent/{agentId}")
-    @PreAuthorize("@ss.hasPermi('cms:ai:token-usage:list')")
-    public AjaxResult statByAgent(
-            @PathVariable Long agentId,
-            @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate startDate,
-            @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate endDate) {
-
-        if (startDate == null) {
-            startDate = LocalDate.now().minusDays(29);
-        }
-        if (endDate == null) {
-            endDate = LocalDate.now();
-        }
-
-        List<Map<String, Object>> stats = tokenUsageService.statByAgent(agentId, startDate, endDate);
-        return AjaxResult.success(stats);
     }
 
     @GetMapping("/metrics")

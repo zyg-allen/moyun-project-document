@@ -44,15 +44,6 @@ public class AiProviderServiceImpl extends ServiceImpl<AiProviderMapper, AiProvi
     }
 
     @Override
-    public List<AiProvider> listEnabled() {
-        ensureLoaded();
-        return cache.values().stream()
-                .filter(p -> Boolean.TRUE.equals(p.getEnabled()))
-                .sorted(Comparator.comparingInt(p -> p.getSortOrder() == null ? 0 : p.getSortOrder()))
-                .collect(Collectors.toList());
-    }
-
-    @Override
     public boolean supportsStreaming(String code) {
         AiProvider p = getByCode(code);
         return p != null && Boolean.TRUE.equals(p.getSupportsStreaming());

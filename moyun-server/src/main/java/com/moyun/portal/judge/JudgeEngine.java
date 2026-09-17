@@ -5,7 +5,7 @@ import java.util.List;
 import com.moyun.portal.domain.entity.PortalInterviewQuestionTestCase;
 
 /**
- * OJ 判题引擎（v6.3 OJ 判题系统 / v8.0 沙箱演进）
+ * OJ 判题引擎（OJ 判题系统 / 沙箱演进）
  * <p>
  * 抽象判题执行细节，便于在不同环境替换实现：
  * <ul>

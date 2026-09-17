@@ -12,7 +12,7 @@ import com.moyun.portal.service.IPortalCreatorCertificationService;
 import com.moyun.system.service.AuditBizHandler;
 
 /**
- * 创作者认证审核业务处理器（v8.1）
+ * 创作者认证审核业务处理器
  * <p>
  * 委托 {@link IPortalCreatorCertificationService#audit} 处理。
  * 注意：通过态是 approved（不是 published），参数顺序 (id, auditorId, status, remark)。
@@ -53,7 +53,7 @@ public class CertificationAuditBizHandler implements AuditBizHandler {
         detail.put("id", cert.getId());
         detail.put("userId", cert.getUserId());
         detail.put("realName", cert.getRealName());
-        // v10.8 实名合规：证件号仅返回脱敏值，密文与明文均不外泄
+        // 实名合规：证件号仅返回脱敏值，密文与明文均不外泄
         if (cert.getCertNoMask() != null && !cert.getCertNoMask().isEmpty()) {
             detail.put("certNo", cert.getCertNoMask());
         } else if (cert.getCertNo() != null && !cert.getCertNo().isEmpty()

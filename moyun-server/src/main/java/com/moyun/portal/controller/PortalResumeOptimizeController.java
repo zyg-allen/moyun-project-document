@@ -28,7 +28,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * 简历优化工作台 Controller（门户端，v10.13 简历优化重构）
+ * 简历优化工作台 Controller（门户端，简历优化重构）
  * <p>
  * 链路：选岗位(填JD) → 选简历 → AI岗位匹配评分(存报告) → 深度优化(前后对比逐项采纳)
  *       → 预览微调 → 保存新版本 → 重新评分。
@@ -38,7 +38,7 @@ import java.util.Map;
  *   POST  /portal/resume/optimize/match/{resumeId}/{jobTargetId}  执行匹配分析
  *   GET   /portal/resume/optimize/match/{resumeId}/latest        最近匹配报告
  *   POST  /portal/resume/optimize/deep/{resumeId}/{jobTargetId}   生成深度优化建议（同步，兼容旧版）
- *   POST  /portal/resume/optimize/deep/{resumeId}/{jobTargetId}/async  提交深度优化异步任务（v10.19 推荐）
+ *   POST  /portal/resume/optimize/deep/{resumeId}/{jobTargetId}/async  提交深度优化异步任务（推荐）
  *   GET   /portal/resume/optimize/deep/task/{taskId}              查询深度优化任务状态（前端轮询）
  *   POST  /portal/resume/optimize/deep/apply                      采纳建议并保存新版本
  *   GET   /portal/resume/optimize/history/{resumeId}              优化历史
@@ -65,19 +65,19 @@ public class PortalResumeOptimizeController extends BaseController {
     @Autowired
     private com.fasterxml.jackson.databind.ObjectMapper objectMapper;
 
-    /** 评分报告存档 Mapper（v10.18 阶段五） */
+    /** 评分报告存档 Mapper（阶段五） */
     @Autowired
     private PortalResumeScoreReportMapper scoreReportMapper;
 
-    /** v11.23：通用 AI 异步任务服务（深度优化异步任务切换到 portal_ai_task） */
+    /** 通用 AI 异步任务服务（深度优化异步任务切换到 portal_ai_task） */
     @Autowired
     private AiTaskService aiTaskService;
 
-    /** v11.83：简历优化会员校验（深度优化为会员专属功能，平台直收类付费点） */
+    /** 简历优化会员校验（深度优化为会员专属功能，平台直收类付费点） */
     @Autowired
     private PortalResumeOptimizeVipController resumeOptimizeVipController;
 
-    /** v11.85：免费体验次数服务（非会员每场景 2 次） */
+    /** 免费体验次数服务（非会员每场景 2 次） */
     @Autowired
     private com.moyun.portal.service.PortalFreeTrialService freeTrialService;
 
@@ -85,7 +85,7 @@ public class PortalResumeOptimizeController extends BaseController {
     private static final int CODE_RESUME_VIP_REQUIRED = 402;
 
     /**
-     * v11.85：深度优化付费校验——会员 或 免费体验未用完（每用户 2 次）
+     * 深度优化付费校验——会员 或 免费体验未用完（每用户 2 次）
      *
      * @return null=放行（会员或已扣减体验次数）；非 null=402 错误响应（引导开通）
      */
@@ -228,7 +228,7 @@ public class PortalResumeOptimizeController extends BaseController {
         if (userId == null) {
             return AjaxResult.error(HttpStatus.UNAUTHORIZED, "登录已过期，请重新登录");
         }
-        // v11.83 深度优化为会员专属；v11.85 非会员可免费体验 2 次
+        // 深度优化为会员专属；非会员可免费体验 2 次
         AjaxResult vipCheck = checkVipOrTrial(userId);
         if (vipCheck != null) {
             return vipCheck;
@@ -255,7 +255,7 @@ public class PortalResumeOptimizeController extends BaseController {
         if (userId == null) {
             return AjaxResult.error(HttpStatus.UNAUTHORIZED, "登录已过期，请重新登录");
         }
-        // v11.83 深度优化为会员专属；v11.85 非会员可免费体验 2 次
+        // 深度优化为会员专属；非会员可免费体验 2 次
         AjaxResult vipCheck = checkVipOrTrial(userId);
         if (vipCheck != null) {
             return vipCheck;
@@ -263,7 +263,7 @@ public class PortalResumeOptimizeController extends BaseController {
         try {
             // 保留原有提交前校验（简历归属/岗位目标存在/AI 可用性）
             deepOptimizeService.validateDeepOptimizeSubmit(userId, resumeId, jobTargetId);
-            // 委托通用 AI 任务基础设施（v10.23：portal_ai_task 统一承载）
+            // 委托通用 AI 任务基础设施（portal_ai_task 统一承载）
             Map<String, Object> bizRef = new HashMap<>();
             bizRef.put("resumeId", resumeId);
             bizRef.put("jobTargetId", jobTargetId);
@@ -345,7 +345,7 @@ public class PortalResumeOptimizeController extends BaseController {
         return AjaxResult.success(deepOptimizeService.listHistory(userId, resumeId));
     }
 
-    // ==================== AI 实时辅助编辑（v10.14 设计文档 P0 需求#2） ====================
+    // ==================== AI 实时辅助编辑（设计文档 P0 需求#2） ====================
 
     @Operation(summary = "字段级 AI 实时辅助",
             description = "编辑页字段旁「✨AI优化」：对工作/项目描述、自我评价、技能清单生成3个差异化优化版本，用户采纳替换")
@@ -386,7 +386,7 @@ public class PortalResumeOptimizeController extends BaseController {
         }
     }
 
-    // ==================== 评分报告存档（v10.18 设计文档 P1 需求#4） ====================
+    // ==================== 评分报告存档（设计文档 P1 需求#4） ====================
 
     @Operation(summary = "保存评分报告",
             description = "触发评分（同步写 portal_user_resume 评分字段）并存档为可追溯报告；"

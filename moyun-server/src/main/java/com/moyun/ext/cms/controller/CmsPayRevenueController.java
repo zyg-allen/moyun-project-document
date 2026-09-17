@@ -37,18 +37,18 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * CMS 平台收入总览 Controller（v11.78）
+ * CMS 平台收入总览 Controller
  *
  * <p>全平台支付汇集视角：按 平台（记账App / 墨韵门户）→ 渠道（App打赏 / 门户文章打赏 / 付费阅读 / 规划中渠道）两级划分。
  *
  * <p>口径说明（前后台一致，金额单位：元）：
  * <ul>
  *   <li>全平台成交总额（GMV）= 各渠道成功订单金额合计：
- *       App打赏（ledger_tip_order status='paid'，V11.80 接公共通道后为真实资金）+ 门户打赏/付费阅读（portal_tip_order status='paid'）</li>
- *   <li>平台直接所得 = 公共通道 PLATFORM/credit 分录合计（V11.80：含 App 打赏全额 + 门户通道抽成，分录为准不双算）</li>
+ *       App打赏（ledger_tip_order status='paid'，接公共通道后为真实资金）+ 门户打赏/付费阅读（portal_tip_order status='paid'）</li>
+ *   <li>平台直接所得 = 公共通道 PLATFORM/credit 分录合计（含 App 打赏全额 + 门户通道抽成，分录为准不双算）</li>
  *   <li>用户所得 = 公共通道 USER/credit 分录合计（门户作者分账累计，含钱包余额）</li>
  *   <li>pay_order 为通道单据，不重复计入 GMV（业务订单为准，避免与打赏订单双算）</li>
- *   <li>面试会员（interview_vip，v11.82 已接入）/ 简历优化（resume_optimize，v11.83 已接入）均为真实聚合渠道</li>
+ *   <li>面试会员（interview_vip，已接入）/ 简历优化（resume_optimize，已接入）均为真实聚合渠道</li>
  * </ul>
  *
  * <p>聚合方式：全部 SQL SUM / COUNT / GROUP BY（遵守"禁止全表 selectList 内存聚合"铁律）。
@@ -92,7 +92,7 @@ public class CmsPayRevenueController extends BaseController {
         data.put("caliberNote", "口径：GMV=各渠道成功订单合计（App打赏+记账VIP+门户 status=paid）；平台直接所得=App打赏(平台对象)+通道抽成；pay_order 通道单据不重复计入；金额单位元");
 
         // ===== 1. 渠道聚合 =====
-        // 1.1 App 记账打赏：总 + 按打赏对象 + 按支付方式（v11.79 状态统一 'paid'，字段统一 pay_channel）
+        // 1.1 App 记账打赏：总 + 按打赏对象 + 按支付方式（状态统一 'paid'，字段统一 pay_channel）
         Map<String, Object> appTip = aggregateOne(ledgerTipOrderMapper.selectMaps(new QueryWrapper<LedgerTipOrder>()
                 .select("COUNT(*) AS cnt", "COALESCE(SUM(amount), 0) AS total")
                 .eq("status", LedgerTipOrder.STATUS_PAID)));
@@ -115,17 +115,17 @@ public class CmsPayRevenueController extends BaseController {
                 .eq("status", "paid")
                 .groupBy("target_type", "pay_channel")), "target_type", "pay_channel");
 
-        // 1.3 记账VIP订阅总（v11.81 新增渠道，平台直收类）
+        // 1.3 记账VIP订阅总（新增渠道，平台直收类）
         Map<String, Object> ledgerVipTotal = aggregateOne(ledgerVipOrderMapper.selectMaps(new QueryWrapper<LedgerVipOrder>()
                 .select("COUNT(*) AS cnt", "COALESCE(SUM(amount), 0) AS total")
                 .eq("status", LedgerVipOrder.STATUS_PAID)));
 
-        // 1.4 面试会员订阅总（v11.82 新增渠道，平台直收类）
+        // 1.4 面试会员订阅总（新增渠道，平台直收类）
         Map<String, Object> interviewVipTotal = aggregateOne(interviewVipOrderMapper.selectMaps(new QueryWrapper<PortalInterviewVipOrder>()
                 .select("COUNT(*) AS cnt", "COALESCE(SUM(amount), 0) AS total")
                 .eq("status", PortalInterviewVipOrder.STATUS_PAID)));
 
-        // 1.4b 简历优化会员订阅总（v11.83 新增渠道，平台直收类）
+        // 1.4b 简历优化会员订阅总（新增渠道，平台直收类）
         Map<String, Object> resumeOptimizeTotal = aggregateOne(resumeOptimizeOrderMapper.selectMaps(new QueryWrapper<PortalResumeOptimizeOrder>()
                 .select("COUNT(*) AS cnt", "COALESCE(SUM(amount), 0) AS total")
                 .eq("status", PortalResumeOptimizeOrder.STATUS_PAID)));
@@ -135,7 +135,7 @@ public class CmsPayRevenueController extends BaseController {
         BigDecimal gatewayUserShare = sumLedgerAmount(LedgerEntry.ROLE_USER);
 
         // ===== 2. 组装平台→渠道 =====
-        // 记账App（v11.81：记账VIP 规划占位 → 真实聚合渠道）
+        // 记账App（记账VIP 规划占位 → 真实聚合渠道）
         Map<String, Map<String, Object>> vipByPayWay = groupToMap(ledgerVipOrderMapper.selectMaps(new QueryWrapper<LedgerVipOrder>()
                 .select("pay_channel", "COUNT(*) AS cnt", "COALESCE(SUM(amount), 0) AS total")
                 .eq("status", LedgerVipOrder.STATUS_PAID)
@@ -147,7 +147,7 @@ public class CmsPayRevenueController extends BaseController {
                 appTipChannel,
                 ledgerVipChannel)));
 
-        // 门户（v11.82：面试会员 规划占位 → 真实聚合渠道；v11.83：简历优化同转）
+        // 门户（面试会员 规划占位 → 真实聚合渠道；简历优化同转）
         Map<String, Map<String, Object>> interviewVipByPayWay = groupToMap(interviewVipOrderMapper.selectMaps(new QueryWrapper<PortalInterviewVipOrder>()
                 .select("pay_channel", "COUNT(*) AS cnt", "COALESCE(SUM(amount), 0) AS total")
                 .eq("status", PortalInterviewVipOrder.STATUS_PAID)
@@ -174,13 +174,13 @@ public class CmsPayRevenueController extends BaseController {
         // ===== 3. 顶部指标（口径见类注释） =====
         BigDecimal gmv = dec(appTip).add(dec(portalTipTotal)).add(dec(paidReadingTotal)).add(dec(ledgerVipTotal)).add(dec(interviewVipTotal)).add(dec(resumeOptimizeTotal));
         long orderCount = cnt(appTip) + cnt(portalTipTotal) + cnt(paidReadingTotal) + cnt(ledgerVipTotal) + cnt(interviewVipTotal) + cnt(resumeOptimizeTotal);
-        // V11.80 口径（App打赏接入公共通道后）：平台所得 = PLATFORM/credit 分录合计
+        // 口径（App打赏接入公共通道后）：平台所得 = PLATFORM/credit 分录合计
         // （已含 App 打赏全额 + 门户通道抽成，不再叠加 appTipPlatformPart 避免双算）；
         // 用户所得 = USER/credit 分录合计（门户作者分账累计）。
         BigDecimal platformDirect = gatewayPlatformFee;
         BigDecimal userShare = gatewayUserShare;
 
-        // v11.79：退款指标（门户 refunded，未计入 GMV）+ 提现 + 守恒对账
+        // 退款指标（门户 refunded，未计入 GMV）+ 提现 + 守恒对账
         Map<String, Object> refundedRow = aggregateOne(portalTipOrderMapper.selectMaps(new QueryWrapper<PortalTipOrder>()
                 .select("COUNT(*) AS cnt", "COALESCE(SUM(amount), 0) AS total")
                 .eq("status", "refunded")));

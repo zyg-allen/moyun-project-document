@@ -80,7 +80,7 @@ public class AiGatewayController {
     }
 
     /**
-     * 通用入口开放校验（v11.51 断点⑤）：ai_scene_config.open_api=0 的场景（业务内部链路专用，
+     * 通用入口开放校验（断点⑤）：ai_scene_config.open_api=0 的场景（业务内部链路专用，
      * 如 finance_analysis 需查用户库聚合指标）不得经 /api/ai/execute 外部调用——防越权绕过业务
      * Controller 的鉴权/快照/落表编排。业务 Service 直接调 AiGatewayService 不经此层，不受限。
      *

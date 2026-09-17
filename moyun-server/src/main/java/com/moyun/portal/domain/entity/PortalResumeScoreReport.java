@@ -10,7 +10,7 @@ import java.io.Serializable;
 import java.time.LocalDateTime;
 
 /**
- * 简历优化-评分报告存档（v10.18 简历模块重构补丁·阶段五）
+ * 简历优化-评分报告存档（简历模块重构补丁·阶段五）
  * <p>
  * 每次评分（单独评分 / 优化后重新评分 / 模板套用评分）结果存档，可追溯历史评分。
  * 与 portal_resume_optimize_history 区别：本表聚焦"评分快照"，

@@ -56,7 +56,7 @@ public class AiSceneConfigController {
     }
 
     /**
-     * 场景注册表（v11.38）：系统支持的全部场景元数据（代码/名称/核心能力/输入/输出）。
+     * 场景注册表：系统支持的全部场景元数据（代码/名称/核心能力/输入/输出）。
      * 场景代码的唯一权威来源是 AiSceneEnum，本接口供管理页总览与下拉选择使用。
      */
     @Operation(summary = "场景注册表（场景代码/名称/能力/输入/输出）")
@@ -193,7 +193,7 @@ public class AiSceneConfigController {
         if (config.getSceneCode() == null || config.getSceneCode().isBlank()) {
             return "场景代码不能为空";
         }
-        // v11.38：场景代码必须在注册表内（AiSceneEnum），防止随意输入导致绑定永不生效
+        // 场景代码必须在注册表内（AiSceneEnum），防止随意输入导致绑定永不生效
         AiSceneEnum scene = AiSceneEnum.of(config.getSceneCode());
         if (scene == null) {
             return "未注册的场景代码: " + config.getSceneCode() + "（合法值: "
@@ -216,7 +216,7 @@ public class AiSceneConfigController {
     }
 
     /**
-     * v11.43：JSON 列归一化——prompt_placeholders / output_schema 是 MySQL JSON 类型，
+     * JSON 列归一化——prompt_placeholders / output_schema 是 MySQL JSON 类型，
      * 前端默认提交空字符串会导致 "Invalid JSON text: The document is empty"。
      * 空白 → null（存 NULL），非空则校验语法，非法 JSON 返回友好错误而非数据库异常。
      */

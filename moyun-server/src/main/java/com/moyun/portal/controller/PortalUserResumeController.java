@@ -50,11 +50,11 @@ public class PortalUserResumeController extends BaseController {
     @Autowired
     private com.moyun.ext.cms.service.ResumeParseService resumeParseService;
 
-    /** v10.23：附件文件存储（上传接口快速路径：同步保存源文件） */
+    /** 附件文件存储（上传接口快速路径：同步保存源文件） */
     @Autowired
     private ISysFileService sysFileService;
 
-    /** v10.23：通用 AI 异步任务服务（LLM 解析改为异步任务） */
+    /** 通用 AI 异步任务服务（LLM 解析改为异步任务） */
     @Autowired
     private AiTaskService aiTaskService;
 
@@ -201,36 +201,6 @@ public class PortalUserResumeController extends BaseController {
         }
         String status = body == null ? null : body.get("status");
         return AjaxResult.success(userResumeService.updateStatus(id, userId, status));
-    }
-
-    @Operation(summary = "下载简历 PDF", description = "认证下载当前用户导出的简历 PDF 文件流（避免 /profile/** 公开访问泄露隐私）")
-    @GetMapping("/file/{id}")
-    public ResponseEntity<Resource> downloadPdf(@PathVariable("id") Long id) {
-        Long userId = currentUserId();
-        if (userId == null) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
-        }
-        String diskUrl = userResumeService.getResumePdfDiskPath(id, userId);
-        if (diskUrl == null) {
-            return ResponseEntity.notFound().build();
-        }
-        // 将 URL 形式（/profile/upload/...）转换为磁盘绝对路径（{profile}/upload/...）
-        String diskPath;
-        if (diskUrl.startsWith(Constants.RESOURCE_PREFIX)) {
-            diskPath = RuoYiConfig.getProfile() + diskUrl.substring(Constants.RESOURCE_PREFIX.length());
-        } else {
-            diskPath = diskUrl;
-        }
-        File file = new File(diskPath);
-        if (!file.exists() || !file.isFile()) {
-            return ResponseEntity.notFound().build();
-        }
-        String encodedName = URLEncoder.encode(file.getName(), StandardCharsets.UTF_8).replace("+", "%20");
-        return ResponseEntity.ok()
-                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + encodedName + "\"")
-                .contentType(MediaType.APPLICATION_PDF)
-                .contentLength(file.length())
-                .body(new FileSystemResource(file));
     }
 
     @Operation(summary = "附件简历列表", description = "查询当前用户的附件简历（source_type=attachment）")

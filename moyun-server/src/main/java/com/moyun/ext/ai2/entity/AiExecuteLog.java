@@ -31,7 +31,7 @@ public class AiExecuteLog {
     @TableField("scene_code")
     private String sceneCode;
 
-    /** 发起用户ID（v11.73：网关请求方，支撑 AI 消费按用户统计；系统内部调用为空） */
+    /** 发起用户ID（网关请求方，支撑 AI 消费按用户统计；系统内部调用为空） */
     @TableField("user_id")
     private Long userId;
 
@@ -55,7 +55,7 @@ public class AiExecuteLog {
     @TableField("token_used")
     private Integer tokenUsed;
 
-    /** 本次调用成本（元，v11.57 P0-2：metadata 细分 token × 模型单价，6位小数；模型未回传 token 时为 null） */
+    /** 本次调用成本（元，metadata 细分 token × 模型单价，6位小数；模型未回传 token 时为 null） */
     @TableField("cost_yuan")
     private java.math.BigDecimal costYuan;
 
@@ -83,7 +83,7 @@ public class AiExecuteLog {
     @TableField("elapsed_ms")
     private Long elapsedMs;
 
-    /** 创建时间（v11.49.1 修复：对齐 DDL 列名 create_time，原 created_at 与表结构不符导致落库失败） */
+    /** 创建时间（对齐 DDL 列名 create_time，原 created_at 与表结构不符导致落库失败） */
     @TableField("create_time")
     private LocalDateTime createTime;
 }

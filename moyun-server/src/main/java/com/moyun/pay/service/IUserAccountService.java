@@ -5,9 +5,9 @@ import com.moyun.pay.domain.entity.UserAccount;
 import java.math.BigDecimal;
 
 /**
- * 用户资金账户服务（V11.0）
+ * 用户资金账户服务
  *
- * <p>金额单位：元（人民币，v11.31 统一）。
+ * <p>金额单位：元（人民币，统一）。
  *
  * @author moyun
  */

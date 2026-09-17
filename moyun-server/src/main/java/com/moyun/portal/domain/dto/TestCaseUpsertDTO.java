@@ -8,7 +8,7 @@ import jakarta.validation.constraints.Size;
 import lombok.Data;
 
 /**
- * 测试用例新增/修改 DTO（CMS 后台使用，v6.3 OJ 判题系统）
+ * 测试用例新增/修改 DTO（CMS 后台使用，OJ 判题系统）
  *
  * @author moyun
  */

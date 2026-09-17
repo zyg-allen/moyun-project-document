@@ -38,7 +38,7 @@ import java.util.stream.Collectors;
 /**
  * AI财务分析场景Handler（scene = finance_analysis）
  *
- * <p>v11.50 架构定位（配置即场景 / Service 薄化）：数据组装（查库/指标/趋势上下文）与 LLM
+ * <p>架构定位（配置即场景 / Service 薄化）：数据组装（查库/指标/趋势上下文）与 LLM
  * 变换全部收敛在本 Handler——业务 Service 只传 {userId, range}，本类返回完整报告数据。</p>
  *
  * <p>执行流程：
@@ -298,7 +298,7 @@ public class FinanceAnalysisHandler extends AbstractAiSceneHandler {
                 userPrompt = renderTemplate(DEFAULT_USER_TEMPLATE, request);
             }
 
-            // 4. 调用 + 解析（v11.51：结构化结果，实际模型/token 进响应 metadata）
+            // 4. 调用 + 解析（结构化结果，实际模型/token 进响应 metadata）
             ChatOutcome outcome =
                     chatDetailed(getSceneCode(), system, userPrompt);
             if (!outcome.isSuccess()) {
@@ -307,7 +307,7 @@ public class FinanceAnalysisHandler extends AbstractAiSceneHandler {
             }
             Map<String, Object> parsed = parseJsonMap(outcome.getText());
             if (parsed == null) {
-                // v11.53 文本兜底：LLM 返回了内容但非合法 JSON（人设带偏成对话/输出被截断），
+                // 文本兜底：LLM 返回了内容但非合法 JSON（人设带偏成对话/输出被截断），
                 // 清洗后作为综述展示（风险/建议留空）——LLM 生成的内容不应整体丢弃。
                 // 契约：aiEnabled=true + risks/suggestions 空，前端自然只渲染综述区
                 String raw = cleanLlmText(outcome.getText());

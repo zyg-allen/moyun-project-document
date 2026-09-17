@@ -8,7 +8,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 /**
- * 简历 AI 改进建议 VO（v5.9 阶段2）
+ * 简历 AI 改进建议 VO（阶段2）
  * <p>
  * 当前为规则化生成（基于评分明细 + 岗位匹配度子项），后期可替换为真实 AI 模型调用。
  * 结构设计兼容 AI 流式输出：advice 为分点建议列表，summary 为整体总结。
@@ -57,7 +57,7 @@ public class ResumeAiAdviceVO implements Serializable {
         /** 建议类型 fill（补充缺失）/ refine（优化已有）/ match（岗位匹配） */
         private String type;
         /**
-         * AI 优化结果（v10.11：可直接采纳的优化后文本）
+         * AI 优化结果（可直接采纳的优化后文本）
          * <p>与 content（"为什么改"的建议说明）区分，optimized 是"改完后长什么样"，
          * 前端"采纳"按钮将其按 dimension 映射填充到简历对应字段。</p>
          */

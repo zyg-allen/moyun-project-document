@@ -44,7 +44,7 @@ public class InterviewSceneData {
     private Integer score;
 
     /**
-     * 子任务结构化结果（v11.58 P0-3c 业务收口）：
+     * 子任务结构化结果（业务收口）：
      * answer_analysis/knowledge_desc 存 LLM 输出的完整 JSON Map；
      * candidate_ask/speak_text 存 {"text": 清洗后文本}。
      * 业务侧经 AiSceneJsonClient.executeForJson 解包。

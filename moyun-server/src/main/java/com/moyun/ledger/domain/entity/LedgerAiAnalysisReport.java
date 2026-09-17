@@ -11,7 +11,7 @@ import java.io.Serializable;
 import java.time.LocalDateTime;
 
 /**
- * AI 财务分析报告快照 ledger_ai_analysis_report（v11.36；v11.72 四维度独立快照）
+ * AI 财务分析报告快照 ledger_ai_analysis_report（四维度独立快照）
  *
  * <p>同 (user_id, period, analysis_range) 唯一一份（uk_user_period_range）：
  * 页面进入纯查询命中直接返回（零 token），重新分析覆盖更新（查询与覆盖口径一致）。
@@ -35,7 +35,7 @@ public class LedgerAiAnalysisReport implements Serializable {
     /** 报告月份 yyyy-MM */
     private String period;
 
-    /** 分析范围：month-本月/3m-近3个月/6m-近6个月/year-近12个月（v11.72） */
+    /** 分析范围：month-本月/3m-近3个月/6m-近6个月/year-近12个月 */
     private String analysisRange;
 
     /** 财务健康分 0-100 */
@@ -62,7 +62,7 @@ public class LedgerAiAnalysisReport implements Serializable {
     /** 当次画像快照 */
     private String profileSnapshot;
 
-    /** 数据指纹（v11.40：流水/资产/负债/画像变更痕迹，命中缓存前比对，变化自动重算） */
+    /** 数据指纹（流水/资产/负债/画像变更痕迹，命中缓存前比对，变化自动重算） */
     private String dataFingerprint;
 
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")

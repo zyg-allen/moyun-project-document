@@ -433,7 +433,7 @@ public class SysDashboardServiceImpl implements ISysDashboardService {
 
     /**
      * 构建待办任务列表
-     * <p>v8.1：统一从 sys_audit_task 聚合（status=pending），覆盖文章/面经/专栏/话题/
+     * <p>统一从 sys_audit_task 聚合（status=pending），覆盖文章/面经/专栏/话题/
      * 创作者认证/反馈/举报/面经评论等全部业务类型，替代分散的业务表查询。
      * <p>点击跳转审核中心对应 Tab 并打开详情（routePath=/cms/audit-center?taskId=xx）。
      */
@@ -455,7 +455,7 @@ public class SysDashboardServiceImpl implements ISysDashboardService {
 
     /**
      * 构建与我相关任务（已办）
-     * <p>v8.1：统一从 sys_audit_task 聚合（auditor_id=当前用户，status in approved/rejected），
+     * <p>统一从 sys_audit_task 聚合（auditor_id=当前用户，status in approved/rejected），
      * 替代分散的业务表按 handler/auditor 查询。
      * <p>点击跳转审核中心对应 Tab 并打开详情（routePath=/cms/audit-center?taskId=xx）。
      */
@@ -480,7 +480,7 @@ public class SysDashboardServiceImpl implements ISysDashboardService {
     }
 
     /**
-     * v8.1：将 AuditTaskVO 转换为首页 TaskItem。
+     * 将 AuditTaskVO 转换为首页 TaskItem。
      * <p>待办跳审核中心打开详情（routePath=/cms/audit-center?taskId=xx）；
      * 已办同样跳审核中心（查看审核记录）。审核中心详情弹窗的「查看原帖」按钮再用
      * AuditTaskVO.routePath 跳转到各业务管理页（如 /cms/article）。

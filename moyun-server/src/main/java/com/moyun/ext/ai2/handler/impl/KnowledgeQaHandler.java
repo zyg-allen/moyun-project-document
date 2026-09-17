@@ -24,7 +24,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * 知识问答场景Handler（scene = knowledge_qa，v11.65）
+ * 知识问答场景Handler（scene = knowledge_qa）
  *
  * <p>将 RAG 知识问答能力收编进统一网关（原仅 admin chat 可用），完整复用既有检索底座：</p>
  * <ul>
@@ -110,7 +110,7 @@ public class KnowledgeQaHandler extends AbstractAiSceneHandler {
             data.setReferences(references);
             data.setImageCount((int) references.stream().filter(r -> r.getImagePath() != null).count());
 
-            // 6. 提示词构建（v11.95：场景系统提示词模板废弃，统一走 Agent 人设 + 知识库规则；
+            // 6. 提示词构建（场景系统提示词模板废弃，统一走 Agent 人设 + 知识库规则；
             //    RAG 上下文注入用户消息）
             String systemPrompt = chatContextBuilderService.buildSystemPrompt(agent, false, null);
             RagContextResult ragContext = chatContextBuilderService.buildRagContext(contents);

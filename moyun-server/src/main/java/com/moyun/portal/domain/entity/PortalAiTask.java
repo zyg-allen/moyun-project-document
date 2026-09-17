@@ -9,7 +9,7 @@ import java.io.Serializable;
 import java.time.LocalDateTime;
 
 /**
- * 通用 AI 异步任务（v10.23：统一门户 LLM 长耗时任务的异步执行载体）
+ * 通用 AI 异步任务（统一门户 LLM 长耗时任务的异步执行载体）
  *
  * <p>门户端大输入 LLM 场景（简历解析/岗位匹配/空字段草稿/深度优化）统一走本表：
  * 提交方同步插入 pending 记录立即返回任务 ID，后端线程池异步执行，

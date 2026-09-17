@@ -64,7 +64,7 @@ public class SysFileServiceImpl implements ISysFileService {
     private ServerConfig serverConfig;
 
     /**
-     * v1.1.2 新增：系统配置 Service（用于读取 sys_config 中的存储模式配置）
+     * 新增：系统配置 Service（用于读取 sys_config 中的存储模式配置）
      * sys_config 优先级 > yaml：若 sys_config 中存在 file.storage.mode 则优先采用，
      * 否则回退到 yaml 的 minio.enabled / fallbackToLocal。
      */
@@ -221,7 +221,7 @@ public class SysFileServiceImpl implements ISysFileService {
                 sysFile.setUploadUserName(SecurityUtils.getUsername());
             }
 
-            // MinIO 可用性判断（v1.1.2 重构）：
+            // MinIO 可用性判断（重构）：
             //   - sys_config[file.storage.mode] 优先（local/minio/auto），可在后台界面切换无需重启
             //   - yaml 的 minio.enabled / minio.fallbackToLocal 作为兜底
             //   - mode=auto 时探测 isAvailable()，避免上传阶段才发现 MinIO 不可用
@@ -366,7 +366,7 @@ public class SysFileServiceImpl implements ISysFileService {
                 String localPath = file.getLocalPath();
                 if (localPath == null && file.getFilePath() != null) {
                     localPath = file.getFilePath();
-                    // v1.1.2：URL 前缀可能来自 sys_config[access.url]，兼容历史 serverConfig.getUrl() 写入的记录
+                    // URL 前缀可能来自 sys_config[access.url]，兼容历史 serverConfig.getUrl() 写入的记录
                     String accessUrlPrefix = resolveAccessUrlPrefix();
                     if (localPath.startsWith(accessUrlPrefix)) {
                         localPath = localPath.substring(accessUrlPrefix.length());
@@ -494,7 +494,7 @@ public class SysFileServiceImpl implements ISysFileService {
 
     private LocalUploadResult uploadToLocal(MultipartFile file) throws IOException {
         String fileName = generateLocalFileName(file.getOriginalFilename());
-        // v1.1.2：本地存储根路径与访问 URL 前缀均改为后台 sys_config 可配
+        // 本地存储根路径与访问 URL 前缀均改为后台 sys_config 可配
         String localRoot = resolveLocalRootPath();
         String accessUrlPrefix = resolveAccessUrlPrefix();
         String absolutePath = localRoot + File.separator + fileName;
@@ -535,7 +535,7 @@ public class SysFileServiceImpl implements ISysFileService {
 
     private String extractObjectNameFromUrl(String url) {
         String bucketName = minioConfig.getBucketName();
-        // v1.1.2 修复：用 lastIndexOf 兼容 accessUrl 已含 bucket 名的旧配置
+        // 修复：用 lastIndexOf 兼容 accessUrl 已含 bucket 名的旧配置
         // 当 accessUrl 配置成 http://host/moyun（已含 bucket），URL 会是 http://host/moyun/moyun/...
         // 用 indexOf 会切到第一个 moyun/，得到错误 objectName=moyun/2026/...
         // 用 lastIndexOf 能定位最后一个 moyun/，正确提取 fileName=2026/...

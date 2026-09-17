@@ -39,7 +39,7 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * CMS 记账运营统计 Controller（v11.75 扩展：模块使用 + AI/Token 消耗 + 收益现状）
+ * CMS 记账运营统计 Controller（扩展：模块使用 + AI/Token 消耗 + 收益现状）
  *
  * <p>脱敏红线：仅返回聚合指标（用户数/流水数/模块渗透/AI 成本/打赏营收），
  * 不返回任何用户个体数据、金额明细、账户名称。
@@ -157,7 +157,7 @@ public class CmsLedgerStatsController extends BaseController {
         aiStats.put("sceneDistribution", sceneDist);
         data.put("aiStats", aiStats);
 
-        // ============ 5. 收益现状（v11.79：打赏收益统计统一收口到收入管理模块，此页仅保留跳转入口） ============
+        // ============ 5. 收益现状（打赏收益统计统一收口到收入管理模块，此页仅保留跳转入口） ============
         data.put("revenueModulePath", "/pay/revenue");
 
         return success(data);

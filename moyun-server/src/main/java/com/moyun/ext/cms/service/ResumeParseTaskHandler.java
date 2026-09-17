@@ -9,7 +9,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 /**
- * 简历附件解析任务 Handler（v10.23，taskType=resume_parse）
+ * 简历附件解析任务 Handler（taskType=resume_parse）
  *
  * <p>异步执行 {@link ResumeParseService#executeParse}：读取已保存的附件源文件、
  * 抽取文本并 LLM 结构化解析，回填附件简历记录。上传接口同步路径只做

@@ -6,7 +6,7 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
 /**
- * 模拟短信发送（V11.1，moyun.sms.mock-enabled=true 时生效）
+ * 模拟短信发送（moyun.sms.mock-enabled=true 时生效）
  *
  * <p>验证码写入服务日志，方便联调；频控/存储/校验/防枚举等全流程
  * 与真实通道完全一致。生产环境必须置 mock-enabled=false。

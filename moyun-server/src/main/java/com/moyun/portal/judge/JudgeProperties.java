@@ -6,7 +6,7 @@ import org.springframework.stereotype.Component;
 import lombok.Data;
 
 /**
- * OJ 判题配置（v8.0 沙箱与异步判题）
+ * OJ 判题配置（沙箱与异步判题）
  * <p>
  * 对应配置前缀 {@code moyun.judge}，覆盖以下能力：
  * <ul>

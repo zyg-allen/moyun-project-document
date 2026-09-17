@@ -275,7 +275,7 @@ public class PortalArticleController extends BaseController {
     @RepeatSubmit(interval = 5000, message = "请勿重复提交文章")
     @PostMapping("/publish")
     public AjaxResult publish(@Validated @RequestBody ArticlePublishDTO publishDTO) {
-        // 敏感词前置拦截（P1-5）：扫描标题 + 摘要 + 正文 + Markdown 原文
+        // 敏感词前置拦截：扫描标题 + 摘要 + 正文 + Markdown 原文
         Long userId = PortalSecurityUtils.getUserId();
         if (userId == null) {
             return AjaxResult.error(HttpStatus.UNAUTHORIZED, "请先登录");

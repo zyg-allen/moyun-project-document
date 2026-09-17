@@ -136,7 +136,7 @@ public interface IPortalTopicService extends IService<PortalTopic> {
     Page<TopicListVO> getMyTopics(Integer pageNum, Integer pageSize, Long userId);
 
     /**
-     * AI 生成今日话题草稿（v11.57 P0-3 场景收口：daily_topic 业务入口走统一网关）
+     * AI 生成今日话题草稿（场景收口：daily_topic 业务入口走统一网关）
      *
      * <p>只生成不落库——最近 30 条话题标题作为 excludeTitles 传给 Handler 避免重复，
      * 管理员在 CMS 弹窗确认/编辑后调 {@link #createOfficialTopic} 发布。</p>

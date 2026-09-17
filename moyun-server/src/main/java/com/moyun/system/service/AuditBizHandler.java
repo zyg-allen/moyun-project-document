@@ -3,7 +3,7 @@ package com.moyun.system.service;
 import java.util.Map;
 
 /**
- * 审核业务处理器（策略模式，v8.1）
+ * 审核业务处理器（策略模式）
  * <p>
  * 每个审核业务（文章/专栏/话题/面经/面经评论/认证/反馈/举报）实现本接口，
  * 由 {@code IAuditTaskService.handle()} 根据任务类型分发调用。

@@ -3,7 +3,7 @@ package com.moyun.ext.cms.service;
 import com.moyun.ext.cms.domain.vo.UserProfileSnapshotVO;
 
 /**
- * 用户画像快照 Service（v5.9 阶段0）
+ * 用户画像快照 Service（阶段0）
  * <p>
  * 为 AI 面试官提供"画像驱动抽题"所需的数据：
  * 1. 薄弱知识点（基于答题历史计算 + Redis 缓存）

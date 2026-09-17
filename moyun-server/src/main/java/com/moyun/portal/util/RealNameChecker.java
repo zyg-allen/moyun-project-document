@@ -11,7 +11,7 @@ import com.moyun.portal.domain.entity.PortalCreatorCertification;
 import com.moyun.portal.mapper.PortalCreatorCertificationMapper;
 
 /**
- * 实名权限校验器（v10.10 实名合规策略）
+ * 实名权限校验器（实名合规策略）
  *
  * <p>策略分层：
  * <ul>

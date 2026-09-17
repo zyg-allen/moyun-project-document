@@ -16,7 +16,7 @@ import java.util.Map;
 /**
  * 简历优化场景Handler（scene = resume_optimize）
  *
- * <p><strong>v11.58 P0-3 业务收口——双子任务契约：</strong></p>
+ * <p><strong>业务收口——双子任务契约：</strong></p>
  * <ul>
  *   <li><b>子任务模式</b>：input 传 {@code task} + {@code context}。系统提示词按子任务路由
  *       （advice/job_match/field_assist/draft_empty/deep_optimize，均从原业务服务逐字收编，
@@ -61,7 +61,7 @@ public class ResumeOptimizeHandler extends AbstractAiSceneHandler {
         return executeGeneric(request, config);
     }
 
-    // ==================== 子任务模式（v11.58 业务收口） ====================
+    // ==================== 子任务模式（业务收口） ====================
 
     private AiExecuteResponse<?> executeSubTask(AiExecuteRequest request, String task) {
         String context = requireInputString(request, "context");
@@ -86,7 +86,7 @@ public class ResumeOptimizeHandler extends AbstractAiSceneHandler {
     }
 
     /**
-     * 子任务 → 系统提示词（从业务服务逐字收编，v11.58）
+     * 子任务 → 系统提示词（从业务服务逐字收编）
      *
      * @return 未知子任务返回 null（validate 已前置拦截，此处防御性返回）
      */

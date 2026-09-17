@@ -12,7 +12,7 @@ import lombok.NoArgsConstructor;
  *
  * <p>对应数据库表 domain_dictionary，存储领域知识词典用于查询扩展</p>
  *
- * <p>继承 {@link AiBaseEntity}，复用 createTime / updateTime / deleted 字段（P3-2 Phase 1）。</p>
+ * <p>继承 {@link AiBaseEntity}，复用 createTime / updateTime / deleted 字段（Phase 1）。</p>
  *
  * @author laomao
  */

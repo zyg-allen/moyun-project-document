@@ -7,7 +7,7 @@ import com.baomidou.mybatisplus.annotation.TableName;
 import java.time.LocalDateTime;
 
 /**
- * 支付站内通知（V11.0）
+ * 支付站内通知
  *
  * @author moyun
  */

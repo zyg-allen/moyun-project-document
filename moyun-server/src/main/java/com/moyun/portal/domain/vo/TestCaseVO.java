@@ -5,7 +5,7 @@ import java.io.Serializable;
 import lombok.Data;
 
 /**
- * 题目测试用例 VO（v6.3 OJ 判题系统）
+ * 题目测试用例 VO（OJ 判题系统）
  * <p>
  * 公共接口仅返回样例用例（is_sample=1），隐藏判题用例的字段值为空。
  *

@@ -209,7 +209,7 @@ public class StudyPlanServiceImpl implements IStudyPlanService {
     }
 
     // ========================================================================
-    // v5.9 阶段3：基于画像自动生成学习计划
+    // 阶段3：基于画像自动生成学习计划
     // ========================================================================
     @Override
     @Transactional(rollbackFor = Exception.class)

@@ -6,7 +6,7 @@ import java.util.List;
 import lombok.Data;
 
 /**
- * 判题结果 VO（v6.3 OJ 判题系统）
+ * 判题结果 VO（OJ 判题系统）
  * <p>
  * 判题提交后立即返回，前端按逐用例结果展示通过情况。
  *

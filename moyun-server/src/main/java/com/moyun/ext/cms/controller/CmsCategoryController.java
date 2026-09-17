@@ -43,17 +43,6 @@ public class CmsCategoryController extends BaseController {
     }
 
     /**
-     * 获取分类树
-     */
-    @Operation(summary = "获取分类树", description = "获取分类树形结构")
-    @PreAuthorize("@ss.hasPermi('cms:category:list')")
-    @GetMapping("/tree")
-    public AjaxResult tree(CmsCategoryQuery query) {
-        List<CmsCategoryVO> tree = cmsCategoryService.selectCategoryTree(query);
-        return success(tree);
-    }
-
-    /**
      * 根据分类编号获取详细信息
      */
     @Operation(summary = "获取分类详情", description = "根据分类ID获取分类详细信息")

@@ -11,7 +11,7 @@ import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Component;
 
 /**
- * OJ 异步判题 Redis 队列（v8.0）
+ * OJ 异步判题 Redis 队列
  * <p>
  * 基于 Redis List 实现：
  * <ul>

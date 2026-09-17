@@ -6,7 +6,7 @@ import org.apache.ibatis.annotations.Mapper;
 import com.moyun.portal.domain.entity.PortalVoiceInterview;
 
 /**
- * 语音面试会话主表 数据层（V10.1）
+ * 语音面试会话主表 数据层
  *
  * @author moyun
  */

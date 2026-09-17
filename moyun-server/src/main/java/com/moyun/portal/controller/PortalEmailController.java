@@ -50,7 +50,7 @@ public class PortalEmailController {
      *     <li>register：注册时校验邮箱真实性，且要求邮箱未注册</li>
      *     <li>reset_password：找回密码，要求邮箱已注册</li>
      * </ul>
-     * <p>v11.42：发送前强制图形验证码人机校验（跟随 sys.account.captchaEnabled 开关，
+     * <p>发送前强制图形验证码人机校验（跟随 sys.account.captchaEnabled 开关，
      * 与短信 /portal/sms/code/send 同一套弹窗交互，验证码一次性作废防重放）
      */
     @Operation(summary = "发送邮箱验证码", description = "注册/找回密码场景")

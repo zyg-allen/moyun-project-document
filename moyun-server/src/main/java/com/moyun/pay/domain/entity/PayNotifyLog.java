@@ -7,7 +7,7 @@ import com.baomidou.mybatisplus.annotation.TableName;
 import java.time.LocalDateTime;
 
 /**
- * 渠道回调原始日志（V11.0 审计留痕）
+ * 渠道回调原始日志（审计留痕）
  *
  * <p>每次渠道回调先落此表（验签前后状态），用于对账与问题回溯，不参与业务流程。
  *

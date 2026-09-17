@@ -17,7 +17,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * 门户支付通知控制器（V11.0）
+ * 门户支付通知控制器
  *
  * @author moyun
  */

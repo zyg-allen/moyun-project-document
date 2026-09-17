@@ -73,13 +73,6 @@ public class WorkflowServiceImpl extends ServiceImpl<WorkflowMapper, Workflow> i
     }
 
     @Override
-    public List<Workflow> listEnabled() {
-        return list(new LambdaQueryWrapper<Workflow>()
-                .eq(Workflow::getEnabled, true)
-                .orderByDesc(Workflow::getCreateTime));
-    }
-
-    @Override
     public Workflow create(Workflow workflow) {
         // 确保 name 不为空
         if (workflow.getName() == null || workflow.getName().isBlank()) {
@@ -250,19 +243,6 @@ public class WorkflowServiceImpl extends ServiceImpl<WorkflowMapper, Workflow> i
             return new ArrayList<>();
         }
         return workflowMapper.selectBatchIds(workflowIds);
-    }
-
-    @Override
-    public WorkflowEngine.WorkflowResult executeByName(String name, Map<String, Object> input) {
-        Workflow workflow = getOne(new LambdaQueryWrapper<Workflow>()
-                .eq(Workflow::getName, name)
-                .eq(Workflow::getEnabled, true));
-
-        if (workflow == null) {
-            return WorkflowEngine.WorkflowResult.fail("工作流不存在或未启用: " + name);
-        }
-
-        return workflowEngine.execute(workflow.getId(), input);
     }
 
     @Override

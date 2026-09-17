@@ -5,7 +5,7 @@ import com.moyun.ledger.domain.entity.LedgerAppFeatureConfig;
 import org.apache.ibatis.annotations.Mapper;
 
 /**
- * 记账小程序功能入口配置 Mapper（v11.73）
+ * 记账小程序功能入口配置 Mapper
  *
  * @author moyun
  */

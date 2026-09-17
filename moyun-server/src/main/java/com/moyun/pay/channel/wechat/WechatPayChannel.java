@@ -16,7 +16,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.Map;
 
 /**
- * 微信支付渠道（V11.0 首个公共支付通道实现）
+ * 微信支付渠道（首个公共支付通道实现）
  *
  * <p><b>当前形态：mock 模拟 + 真实 API TODO 接入点。</b>
  * mock 模式（wechat.mock-enabled=true，默认）下：prepay 生成 codeUrl（weixin://wxpay/mock/...），

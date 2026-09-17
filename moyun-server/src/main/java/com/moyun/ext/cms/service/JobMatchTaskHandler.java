@@ -8,7 +8,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 /**
- * 岗位匹配分析任务 Handler（v10.23，taskType=job_match）
+ * 岗位匹配分析任务 Handler（taskType=job_match）
  *
  * <p>异步执行 {@link ResumeJobMatchService#analyze}：LLM 四维匹配分析
  * （关键词/经验/技能/结构）+ 规则兜底，结果存档为匹配报告（含 reportId）。</p>

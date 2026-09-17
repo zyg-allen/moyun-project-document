@@ -12,7 +12,7 @@ import java.io.Serializable;
 import java.time.LocalDateTime;
 
 /**
- * 简历优化-岗位匹配报告（v10.13 简历优化重构）
+ * 简历优化-岗位匹配报告（简历优化重构）
  * <p>每次岗位匹配分析结果存档，可追溯历史评分。dimensions 为四维评分明细 JSON。</p>
  *
  * @author moyun

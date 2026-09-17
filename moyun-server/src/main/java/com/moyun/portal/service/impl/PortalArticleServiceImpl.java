@@ -162,7 +162,7 @@ public class PortalArticleServiceImpl extends ServiceImpl<PortalArticleMapper, P
         // 维护 slug 唯一性（允许用户自定义时校验）
         fillSlug(portalArticle);
         int rows = baseMapper.updatePortalArticle(portalArticle);
-        // v8.1：重新提交审核（status=pending）时，提交统一审核任务（写 sys_audit_task），使首页/审核中心待办可见
+        // 重新提交审核（status=pending）时，提交统一审核任务（写 sys_audit_task），使首页/审核中心待办可见
         // 修复 BUG：草稿/被拒文章通过 edit 接口重新提交时，审核任务不会创建，导致审核中心不显示
         if (rows > 0 && "pending".equals(portalArticle.getStatus()) && portalArticle.getId() != null) {
             submitArticleAuditTask(portalArticle);
@@ -180,7 +180,7 @@ public class PortalArticleServiceImpl extends ServiceImpl<PortalArticleMapper, P
     @Override
     @Transactional(rollbackFor = Exception.class)
     public int publishArticle(PortalArticle portalArticle) {
-        // v10.10 实名策略：发布文章不再强制创作者认证（未实名也可发布），
+        // 实名策略：发布文章不再强制创作者认证（未实名也可发布），
         // 由前端弹窗提示实名（可跳过），仅打赏/积分消费等敏感场景强制实名。
         // 自动处理Base64图片
         processArticleImages(portalArticle);
@@ -246,7 +246,7 @@ public class PortalArticleServiceImpl extends ServiceImpl<PortalArticleMapper, P
             rows = baseMapper.updatePortalArticle(portalArticle);
         }
 
-        // v8.1：进入待审核态时，提交统一审核任务（写 sys_audit_task），使首页/审核中心待办可见
+        // 进入待审核态时，提交统一审核任务（写 sys_audit_task），使首页/审核中心待办可见
         if (rows > 0 && "pending".equals(portalArticle.getStatus()) && portalArticle.getId() != null) {
             submitArticleAuditTask(portalArticle);
         }
@@ -634,7 +634,7 @@ public class PortalArticleServiceImpl extends ServiceImpl<PortalArticleMapper, P
     }
 
     /**
-     * v8.1：提交文章统一审核任务（事务内，异常回滚保证双写一致）。
+     * 提交文章统一审核任务（事务内，异常回滚保证双写一致）。
      * 同时下发待办通知给所有审核员，使后台首页待办与消息中心可见。
      */
     private void submitArticleAuditTask(PortalArticle article) {

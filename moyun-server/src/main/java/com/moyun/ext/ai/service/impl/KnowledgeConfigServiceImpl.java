@@ -36,7 +36,7 @@ public class KnowledgeConfigServiceImpl implements KnowledgeConfigService {
     private KnowledgeConfigTemplateMapper templateMapper;
 
     /**
-     * 知识库默认参数（P2-2 阶段 3）：从硬编码迁到 {@link KnowledgeDefaults} 配置类，
+     * 知识库默认参数（阶段 3）：从硬编码迁到 {@link KnowledgeDefaults} 配置类，
      * 与 {@code KnowledgeBaseServiceImpl.getKnowledgeConfig} 和
      * {@code KnowledgeLibraryServiceImpl.createLibrary} 共用同一套默认值，消除分歧。
      */
@@ -175,7 +175,7 @@ public class KnowledgeConfigServiceImpl implements KnowledgeConfigService {
     }
 
     /**
-     * 构建默认配置对象（P2-2 阶段 3 重构）
+     * 构建默认配置对象（阶段 3 重构）
      *
      * <p>原硬编码默认值已迁至 {@link KnowledgeDefaults} 配置类，本方法仅作转发，
      * 保证 {@code resolveEffectiveConfig} / {@code createDefaultConfig} / {@code parseTemplateConfig}

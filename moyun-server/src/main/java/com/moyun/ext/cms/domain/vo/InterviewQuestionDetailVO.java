@@ -51,7 +51,7 @@ public class InterviewQuestionDetailVO implements Serializable {
 
     private String status;
 
-    // ============ 结构化字段（v6.3 题目结构化） ============
+    // ============ 结构化字段（题目结构化） ============
 
     /**
      * 题目类型：bagwen 八股 / algorithm 算法 / system_design 系统设计 / project 项目 / hr HR
@@ -86,7 +86,7 @@ public class InterviewQuestionDetailVO implements Serializable {
      */
     private List<Long> prerequisiteIds;
 
-    // ============ 练习模式扩展字段（v10.6 题库重构·阶段2） ============
+    // ============ 练习模式扩展字段（题库重构·阶段2） ============
 
     /**
      * 练习模式：reading 展示阅读 / choice 选择题 / coding 编程题

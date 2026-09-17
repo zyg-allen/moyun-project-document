@@ -25,7 +25,7 @@ import com.moyun.util.bean.PageUtils;
 import com.moyun.util.file.ExcelUtil;
 
 /**
- * 门户 VIP 套餐 Controller（v7.0 第六阶段预留）
+ * 门户 VIP 套餐 Controller（第六阶段预留）
  *
  * <p>安全说明：套餐列表/详情允许游客查询（用于售卖页展示），
  * 写操作（export/add/edit/remove）仅管理员可调用。</p>

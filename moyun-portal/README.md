@@ -1,13 +1,13 @@
 # 旭林知行 - 用户前台
 
-**项目版本**: v3.1
-**最后更新**: 2026-06-15
+**项目版本**: v11.98
+**最后更新**: 2026-09-17
 
 ---
 
 ## 一、项目简介
 
-**旭林知行**是一个 **AI 驱动的求职面试与学习成长平台**前台门户，为求职者提供 AI 语音面试、题库刷题、面经复盘、简历优化等能力。基于 Vue 3 + TypeScript + Tailwind CSS 构建，响应式设计，完美适配各种屏幕尺寸。
+**旭林知行**是一个 **AI 驱动的求职面试与学习成长平台**前台门户，为求职者提供 AI 语音面试（ASR 实时转写 + TTS 流式播报 + 整场 LLM 复盘报告）、简历深度优化、题库刷题、OJ 判题、面经复盘、专栏/话题社区等能力。基于 Vue 3 + TypeScript + Tailwind CSS 构建，响应式设计，适配各种屏幕尺寸。
 
 **品牌口号**: 知行合一，助你上岸
 
@@ -32,52 +32,74 @@
 
 ## 三、功能模块
 
-### 3.1 已完成功能
+### 3.1 页面模块（45+ 页面，按业务域分组）
 
-| 模块 | 页面/功能 | 说明 |
-|------|-----------|------|
-| **首页** | `HomePage.vue` | Hero 轮播、文章列表、分类导航、热门标签、友情链接 |
-| **文章详情** | `ArticleDetailPage.vue` | 文章展示、评论区、作者信息、收藏点赞 |
-| **文章列表** | `ListPage.vue` | 分类筛选、标签筛选、分页加载 |
-| **搜索页** | `SearchPage.vue` | 关键词搜索、筛选功能 |
-| **发布页** | `PublishPage.vue` | 富文本/Markdown 双编辑器、分类标签选择、封面上传 |
-| **用户中心** | `UserPage.vue` | 用户信息、我的文章、收藏、设置 |
-| **个人资料** | `UserProfilePage.vue` | 头像编辑、个人信息修改 |
-| **账号设置** | `UserSettingsPage.vue` | 账号安全、偏好设置 |
-| **登录页** | `LoginPage.vue` | 用户登录、Token 认证 |
-| **注册页** | `RegisterPage.vue` | 用户注册、信息验证 |
-| **作者页** | `AuthorPage.vue` | 作者主页、作者文章列表 |
-| **作家名录** | `AuthorsPage.vue` | 优秀作者展示 |
-| **读书空间** | `ReadingPage.vue` | 阅读专区 |
-| **面试指南** | `InterviewPage.vue` | 面试经验分享 |
-| **关于我们** | `AboutUs.vue` | 平台介绍 |
-| **帮助中心** | `HelpCenter.vue` | 使用帮助 |
-| **用户协议** | `UserAgreement.vue` | 用户协议 |
-| **反馈建议** | `ReportFeedback.vue` | 意见反馈 |
-| **404页面** | `NotFoundPage.vue` | 友好错误页 |
+**内容社区**
+
+| 页面 | 说明 |
+|------|------|
+| `HomePage.vue` | 首页（Hero 轮播、精选/热门文章、分类导航、作者榜、友链） |
+| `FeedPage.vue` | 关注流信息流 |
+| `ArticleDetailPage.vue` | 文章详情（评论区、作者信息、收藏点赞） |
+| `ListPage.vue` / `SearchPage.vue` | 文章列表（分类/标签筛选）、全文搜索 |
+| `ColumnsPage.vue` / `ColumnDetailPage.vue` / `ColumnEditPage.vue` / `MyColumnsPage.vue` | 专栏（浏览/详情/编辑/我的） |
+| `TopicListPage.vue` / `TopicDetailPage.vue` / `TopicCreatePage.vue` / `TopicEditPage.vue` / `MyTopicsPage.vue` / `MyTopicPostsPage.vue` | 话题讨论 |
+| `MyArticlesPage.vue` / `PublishPage.vue` | 我的文章、发布（富文本/Markdown 双编辑器） |
+
+**面试与简历（interview/）**
+
+| 页面 | 说明 |
+|------|------|
+| `InterviewPage.vue` | 面试指南（面经/指南导流） |
+| `voiceInterview/` | AI 语音面试（准备页 + 对话页：ASR/TTS 音浪可视化、时长制倒计时、简历面板） |
+| `MyVoiceInterviewsPage.vue` | 历史面试（对话回放、报告进度轮询、重新生成报告） |
+| `VoiceInterviewReportPage` | 面试报告（LLM 复盘总评/六维雷达/逐题分析/结构化亮点薄弱点） |
+| `InterviewReportSharePage` | 报告分享（token 免登录公开访问） |
+| `resume/` | 简历中心（上传解析、岗位匹配、深度优化采纳 diff、AI 建议、VIP 付费点） |
+
+**学习工具（learn/、tools/）**
+
+| 页面 | 说明 |
+|------|------|
+| `learn/` | 刷题中心（题库练习、ACM 编程题接真实 OJ、刷题日历、错题本、知识图谱、排行榜） |
+| `ContestListPage.vue` / `ContestDetailPage.vue` | 竞赛列表/详情 |
+| `tools/` | 实用工具箱（在线运行等） |
+
+**成长与激励**
+
+| 页面 | 说明 |
+|------|------|
+| `GrowthTimelinePage.vue` | 成长时间线（学习/面试/阅读/写作统一事件） |
+| `GrowthRankingPage.vue` | 成长排行榜 |
+| `AchievementsPage.vue` | 成就徽章 |
+
+**交易与钱包（pay/）**
+
+| 页面 | 说明 |
+|------|------|
+| `pay/` | 付费阅读收银台、VIP 会员（面试/简历）、打赏、我的钱包/账单 |
+
+**读书空间（reading/）**
+
+| 页面 | 说明 |
+|------|------|
+| `ReadingPage.vue` + `reading/` | 书籍/书单/金句/书架阅读专区 |
+
+**用户与认证**
+
+| 页面 | 说明 |
+|------|------|
+| `LoginPage.vue` / `RegisterPage.vue` / `ForgotPasswordPage.vue` | 登录/注册/找回密码（邮箱验证码） |
+| `UserPage.vue` / `UserProfilePage.vue` / `UserSettingsPage.vue` | 用户中心/个人资料/账号设置 |
+| `AuthorPage.vue` / `AuthorsPage.vue` / `FollowListPage.vue` | 作者主页/作家名录/关注列表 |
+| `CreatorCertificationPage.vue` | 创作者认证 |
+| `MessagesPage.vue` / `NotificationBell` | 私信/系统通知 |
+| `MyReportsPage.vue` / `MyFeedbackPage.vue` / `ReportFeedback.vue` | 举报/反馈 |
+| `AboutUs.vue` / `HelpCenter.vue` / `UserAgreement.vue` / `NotFoundPage.vue` | 静态页/404 |
 
 ### 3.2 公共组件
 
-| 组件 | 说明 |
-|------|------|
-| `Layout.vue` | 统一布局组件（头部+内容+底部） |
-| `Navbar.vue` | 导航栏组件 |
-| `SiteFooter.vue` | 页脚组件 |
-| `ArticleCard.vue` | 文章卡片组件 |
-| `RelatedArticleCard.vue` | 相关文章卡片 |
-| `Avatar.vue` | 用户头像组件 |
-| `Pagination.vue` | 分页组件 |
-| `TagList.vue` | 标签列表组件 |
-| `Breadcrumb.vue` | 面包屑导航 |
-| `Empty.vue` | 空状态组件 |
-| `BackToTop.vue` | 返回顶部组件 |
-| `ErrorBoundary.vue` | 错误边界组件 |
-| `LazyImage.vue` | 懒加载图片组件 |
-| `QuillEditor.vue` | Quill 富文本编辑器封装 |
-| `MarkdownEditor.vue` | Markdown 编辑器组件 |
-| `MarkdownRenderer.vue` | Markdown 渲染组件 |
-| `NotificationBell.vue` | 通知铃铛组件 |
-| `BackButton.vue` | 返回按钮组件 |
+`Layout.vue`（统一布局）/ `Navbar.vue` / `SiteFooter.vue` / `ArticleCard.vue` / `Avatar.vue` / `Pagination.vue` / `Breadcrumb.vue` / `Empty.vue` / `BackToTop.vue` / `ErrorBoundary.vue` / `LazyImage.vue` / `QuillEditor.vue` / `MarkdownEditor.vue` / `MarkdownRenderer.vue` / `NotificationBell.vue` 等，位于 `src/components/`。
 
 ### 3.3 状态管理
 
@@ -85,24 +107,20 @@
 |--------|------|------|
 | 用户状态 | `stores/user.ts` | 用户信息、登录状态、Token 管理 |
 | 文章状态 | `stores/article.ts` | 文章列表、详情缓存 |
+| 简历状态 | `stores/resume.ts` | 简历选择/优化任务进度 |
+| 消息状态 | `stores/message.ts` | 未读消息/通知计数 |
 
-### 3.4 API 接口
+### 3.4 API 接口（41 个模块，`src/api/`）
 
-| 模块 | 文件 | 说明 |
-|------|------|------|
-| 用户认证 | `api/user.ts` | 登录、注册、用户信息 |
-| 文章管理 | `api/article.ts` | 文章 CRUD、点赞、收藏 |
-| 分类管理 | `api/category.ts` | 分类列表、详情 |
-| 标签管理 | `api/tag.ts` | 标签列表、详情 |
-| 评论管理 | `api/comment.ts` | 评论 CRUD |
-| 收藏管理 | `api/bookmark.ts` | 收藏操作 |
-| 关注管理 | `api/follow.ts` | 关注/取关 |
-| 文件上传 | `api/upload.ts` | 图片/文件上传 |
-| 搜索功能 | `api/search.ts` | 搜索接口 |
-| 通知功能 | `api/notification.ts` | 通知列表 |
-| 读书空间 | `api/reading.ts` | 读书相关接口 |
-| 面试指南 | `api/interview.ts` | 面试相关接口 |
-| 客户端封装 | `api/client.ts` | HTTP 请求封装、拦截器 |
+| 业务域 | 模块 |
+|--------|------|
+| 内容社区 | `article` / `articleVersion` / `column` / `comment` / `topic` / `category` / `tag` / `feed` / `follow` / `friendLink` / `search`(client) |
+| 面试简历 | `interview` / `voiceInterview` / `resumeOptimize` / `resumeOptimizeVip` / `interviewVip` / `company` |
+| 学习工具 | `learn` / `learnStats` / `judge` / `codeRun` / `contest` / `dict` |
+| 成长激励 | `growth` / `report` / `creator` / `certification` |
+| 交易钱包 | `pay` / `tip` / `ad` |
+| AI 能力 | `ai` / `aiTask` / `prompt` |
+| 用户消息 | `user` / `message` / `notification` / `sms` / `upload` / `file` / `help` / `reading` / `client`（HTTP 封装） |
 
 ---
 
@@ -111,63 +129,30 @@
 ```
 moyun-portal/
 ├── src/
-│   ├── api/              # API 接口定义
-│   │   ├── client.ts     # HTTP 客户端封装
-│   │   ├── user.ts       # 用户接口
-│   │   ├── article.ts    # 文章接口
-│   │   ├── category.ts   # 分类接口
-│   │   ├── tag.ts        # 标签接口
-│   │   ├── comment.ts     # 评论接口
-│   │   └── ...
+│   ├── api/              # API 接口定义（41 个模块 + client.ts HTTP 封装）
 │   ├── assets/           # 静态资源
-│   │   └── images/       # 图片资源
-│   ├── components/       # Vue 组件
-│   │   ├── ArticleCard.vue
-│   │   ├── Layout.vue
-│   │   ├── Navbar.vue
-│   │   ├── SiteFooter.vue
-│   │   └── ...
-│   ├── composables/       # 组合式函数
-│   │   ├── useAuth.ts    # 认证逻辑
-│   │   ├── useTheme.ts   # 主题管理
-│   │   └── useLazyImage.ts
+│   ├── components/       # 公共组件（Layout/Navbar/ArticleCard/编辑器…）
+│   ├── composables/      # 组合式函数（useAuth/useTheme…）
 │   ├── data/             # 静态数据
-│   │   ├── categories.ts # 分类数据
-│   │   └── mockData.ts  # 模拟数据
 │   ├── lib/              # 工具库
-│   │   └── utils.ts
-│   ├── pages/            # 页面组件
-│   │   ├── HomePage.vue
-│   │   ├── ArticleDetailPage.vue
-│   │   ├── ListPage.vue
-│   │   ├── LoginPage.vue
-│   │   ├── RegisterPage.vue
-│   │   ├── PublishPage.vue
-│   │   ├── UserPage.vue
-│   │   └── ...
+│   ├── pages/            # 页面组件（45+ 页面，按业务域子目录分组）
+│   │   ├── interview/    # 面试（voiceInterview 语音面试 / resume 简历）
+│   │   ├── learn/        # 学习（刷题/日历/错题本/知识图谱）
+│   │   ├── pay/          # 交易（收银台/VIP/打赏/钱包）
+│   │   ├── reading/      # 读书空间
+│   │   ├── tools/        # 工具箱
+│   │   └── *.vue         # 内容社区/用户/静态页
 │   ├── router/           # 路由配置
-│   │   └── index.ts
-│   ├── stores/           # Pinia 状态管理
-│   │   ├── user.ts
-│   │   └── article.ts
+│   ├── stores/           # Pinia 状态管理（user/article/resume/message）
 │   ├── types/            # TypeScript 类型定义
-│   │   ├── index.ts
-│   │   └── api.ts
-│   ├── utils/            # 工具函数
-│   │   ├── theme.ts      # 主题工具
-│   │   ├── seo.ts        # SEO 工具
-│   │   ├── validation.ts  # 验证工具
-│   │   └── ...
+│   ├── utils/            # 工具函数（theme/seo/validation…）
 │   ├── App.vue           # 根组件
 │   ├── main.ts           # 入口文件
-│   └── style.css         # 全局样式
-├── public/               # 公共资源
-│   ├── favicon.svg
-│   ├── robots.txt
-│   └── sitemap.xml
+│   └── style.css         # 全局样式（CSS 变量主题）
+├── public/               # 公共资源（favicon/robots.txt/sitemap.xml）
 ├── index.html
 ├── package.json
-├── vite.config.ts
+├── vite.config.ts        # Vite 配置（含 /api 代理）
 ├── tailwind.config.js
 ├── tsconfig.json
 ├── postcss.config.js
@@ -320,4 +305,4 @@ const count = ref(0);
 ---
 
 **项目维护者**: 旭林知行开发团队
-**最后更新**: 2026-06-15
+**最后更新**: 2026-09-17

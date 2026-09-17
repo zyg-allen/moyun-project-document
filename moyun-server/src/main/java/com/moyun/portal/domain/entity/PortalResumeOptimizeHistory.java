@@ -12,7 +12,7 @@ import java.io.Serializable;
 import java.time.LocalDateTime;
 
 /**
- * 简历优化-优化历史（v10.13 简历优化重构）
+ * 简历优化-优化历史（简历优化重构）
  * <p>深度优化采纳后记录轨迹：优化前后简历版本、评分/匹配度对比、逐项采纳明细快照。</p>
  *
  * @author moyun

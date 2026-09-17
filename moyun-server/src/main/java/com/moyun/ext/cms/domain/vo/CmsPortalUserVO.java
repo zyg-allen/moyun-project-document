@@ -11,7 +11,7 @@ import com.moyun.core.base.BaseEntity;
  * 门户用户视图对象
  *
  * <p>后台管理端门户用户列表/详情统一返回 VO。
- * v6.2 扩展：补全 PortalUser 实体中已有的画像字段（学校、公司、地点、网站、GitHub、
+ * 扩展：补全 PortalUser 实体中已有的画像字段（学校、公司、地点、网站、GitHub、
  * 性别、生日、认证、VIP、验证状态等），让后台管理员完整掌握客户画像。</p>
  *
  * @author moyun

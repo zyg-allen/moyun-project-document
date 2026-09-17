@@ -58,13 +58,13 @@ public class UserResumeVO implements Serializable {
     /** 状态：draft/published/archived */
     private String status;
 
-    /** v10.22：来源类型 online/attachment */
+    /** 来源类型 online/attachment */
     private String sourceType;
-    /** v10.22：附件源文件URL */
+    /** 附件源文件URL */
     private String sourceFileUrl;
-    /** v10.22：附件原始文件名 */
+    /** 附件原始文件名 */
     private String sourceFileName;
-    /** v10.22：简历全文纯文本（AI分析用） */
+    /** 简历全文纯文本（AI分析用） */
     private String fullText;
 
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
@@ -155,7 +155,7 @@ public class UserResumeVO implements Serializable {
         private Integer score;
         /** 评分说明 */
         private String message;
-        /** 子项明细（v5.9 阶段2：用于岗位匹配度等需要展示子项的维度，可为空） */
+        /** 子项明细（阶段2：用于岗位匹配度等需要展示子项的维度，可为空） */
         private List<SubScoreItem> subItems;
     }
 

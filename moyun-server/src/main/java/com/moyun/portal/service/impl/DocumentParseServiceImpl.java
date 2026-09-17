@@ -112,37 +112,6 @@ public class DocumentParseServiceImpl implements IDocumentParseService {
         }
     }
 
-    @Override
-    public String parseToMarkdown(MultipartFile file) {
-        if (file == null || file.isEmpty()) {
-            return null;
-        }
-        if (file.getSize() > MAX_FILE_SIZE) {
-            throw new IllegalArgumentException("文件过大，限制 50MB");
-        }
-        String filename = file.getOriginalFilename();
-        if (filename == null) return null;
-        String ext = getExtension(filename);
-
-        try {
-            switch (ext) {
-                case "txt":
-                    return readText(file);
-                case "md":
-                case "markdown":
-                    return readText(file);
-                case "docx":
-                    return readDocx(file).text;
-                case "pdf":
-                    return readPdf(file);
-                default:
-                    throw new IllegalArgumentException("不支持的文件格式：" + ext);
-            }
-        } catch (Exception e) {
-            throw new RuntimeException("文档解析失败：" + e.getMessage(), e);
-        }
-    }
-
     // -------------------------------------------------------
     // 各格式解析实现
     // -------------------------------------------------------

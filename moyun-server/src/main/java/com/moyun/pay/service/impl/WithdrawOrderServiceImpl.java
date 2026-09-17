@@ -34,7 +34,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
- * 提现单服务实现（v11.79 提现闭环）
+ * 提现单服务实现（提现闭环）
  *
  * <p>资金模型：公账商户号集中真钱，虚拟余额记账。发起仅校验不扣款；
  * 审核通过事务内原子扣减（balance >= amount 防超扣）+ 复式流水 debit + 置 paid；

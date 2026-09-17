@@ -50,7 +50,7 @@ public interface IStudyPlanService {
     int deletePlan(Long planId, Long userId);
 
     /**
-     * 基于用户画像自动生成学习计划（v5.9 阶段3）
+     * 基于用户画像自动生成学习计划（阶段3）
      * <p>
      * 根据用户画像快照（薄弱点 + 岗位必备技能）生成针对性学习计划：
      * - 薄弱点：每个生成一个 daily_question 计划，targetCategory=标签名，targetCount=10

@@ -16,7 +16,7 @@ import org.springframework.stereotype.Component;
 import java.time.LocalDateTime;
 
 /**
- * 记账App打赏支付回调处理器（V11.80，bizType="ledger_tip"）
+ * 记账App打赏支付回调处理器（bizType="ledger_tip"）
  *
  * <p>网关支付成功后在事务内调用：打赏单 pending→paid → 平台全额分账
  * （无第三方收款人，走 settlePlatform 单条 PLATFORM/credit 流水）→ 打赏者站内通知。

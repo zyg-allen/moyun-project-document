@@ -53,7 +53,7 @@ public class PortalReadingProgress extends BaseEntity
     private String note;
 
     // -------------------------------------------------------
-    // v1.0 第二阶段新增：章节级进度记忆（由 42 号 SQL 扩展）
+    // 第二阶段新增：章节级进度记忆（由 42 号 SQL 扩展）
     // -------------------------------------------------------
 
     /** 当前阅读章节ID */
@@ -73,7 +73,7 @@ public class PortalReadingProgress extends BaseEntity
     private Long readingDurationMs;
 
     /**
-     * v1.0 阅读闭环：前端上报章节完成标记
+     * 阅读闭环：前端上报章节完成标记
      * <p>非持久化字段（@TableField(exist = false)），仅作为完成事件触发信号在请求体中传递。</p>
      * <p>触发逻辑：前端检测到用户阅读到章节底部时上报 chapterFinished=true，
      * 若当前章节为最后一章，后端将整书 status 置为 finished 并触发成长事件 + Feed 动态。</p>

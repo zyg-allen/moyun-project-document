@@ -48,11 +48,11 @@ public class AiGatewayService {
     private final SceneRateLimiter rateLimiter;
     private final FallbackStrategy fallbackStrategy;
     private final AiExecuteLogService executeLogService;
-    /** v11.57 P0-2：场景日 Token 成本熔断（ai_scene_config.daily_token_limit） */
+    /** 场景日 Token 成本熔断（ai_scene_config.daily_token_limit） */
     private final TokenCostGuard tokenCostGuard;
-    /** v11.62 P1-3：输出内容过滤（ai_scene_config.enable_output_filter，复用 DFA 词树脱敏） */
+    /** 输出内容过滤（ai_scene_config.enable_output_filter，复用 DFA 词树脱敏） */
     private final AiOutputFilter outputFilter;
-    /** v11.49：Agent 人设注入（ai_scene_config.agent_id → ai_agent.system_prompt） */
+    /** Agent 人设注入（ai_scene_config.agent_id → ai_agent.system_prompt） */
     private final AgentMapper agentMapper;
 
     /**
@@ -75,7 +75,7 @@ public class AiGatewayService {
             }
             handler = registry.getHandler(sceneCode);
 
-            // 1.2 输出模式路由校验（v11.66 P1-5：output_mode 配置接线——此前配置可编辑零消费）。
+            // 1.2 输出模式路由校验（output_mode 配置接线——此前配置可编辑零消费）。
             //     显式 stream-only 场景拒绝同步入口；both/null 放行（Handler 能力校验在流式侧兜底）
             if ("stream".equals(config.getOutputMode())) {
                 return failure(request, AiErrorCodes.INVALID_REQUEST,
@@ -83,12 +83,12 @@ public class AiGatewayService {
                         0, "stream_only_scene");
             }
 
-            // 1.5 Agent 人设注入（v11.49：ai_scene_config.agent_id 绑定智能体时，其 system_prompt
+            // 1.5 Agent 人设注入（ai_scene_config.agent_id 绑定智能体时，其 system_prompt
             //     渲染 {{占位符}} 后以 agentPersona 注入 input，Handler 构建系统提示词时统一前置。
             //     注入先于缓存键计算——人设变更自动不脏读缓存）
             String agentName = injectAgentPersona(request, config);
 
-            // 1.6 Prompt 注入防护（v11.57 P0-1）：指令通道（顶层 userInput）统一清洗+扫描。
+            // 1.6 Prompt 注入防护：指令通道（顶层 userInput）统一清洗+扫描。
             //     DANGEROUS（指令覆盖/提示词探取）直接拒绝；SUSPECT（角色扮演）放行由数据隔离兜底——
             //     业务存在合法角色扮演场景。input Map 的字符串值做字符级清洗（不拦截，防误杀数据）。
             sanitizeInputChannel(request);
@@ -107,7 +107,7 @@ public class AiGatewayService {
                 }
             }
 
-            // 2. 意图判断（v11.52：消费顶层 userInput 字段——用户自由文本触发分类路由；
+            // 2. 意图判断（消费顶层 userInput 字段——用户自由文本触发分类路由；
             //    结构化参数场景（如 finance_analysis 传 userId/range）不传 userInput，自然跳过。
             //    当前主要预留对象：chat 收口进网关后，对话消息即 userInput，此分支成为场景路由器）
             if (userInput != null && !userInput.isBlank()) {
@@ -131,7 +131,7 @@ public class AiGatewayService {
             if (semanticCache.isEnabled(Boolean.TRUE.equals(config.getEnableCache()) ? 1 : 0)) {
                 AiExecuteResponse<Object> cached = semanticCache.get(sceneCode, inputKey, inputText);
                 if (cached != null) {
-                    // 输出过滤（v11.62 P1-3）：命中路径同样过滤——兜底过滤功能上线前的存量旧缓存
+                    // 输出过滤：命中路径同样过滤——兜底过滤功能上线前的存量旧缓存
                     if (outputFilter.isEnabled(config)) {
                         outputFilter.applyFilter(cached);
                     }
@@ -156,7 +156,7 @@ public class AiGatewayService {
                         "请求过于频繁，请稍后再试", System.currentTimeMillis() - startTime, "rate_limited");
             }
 
-            // 4.5 成本熔断（v11.57 P0-2）：场景日 Token 累计超 daily_token_limit → 拒绝。
+            // 4.5 成本熔断：场景日 Token 累计超 daily_token_limit → 拒绝。
             //     场景级配额（全体用户共享），保护平台总成本；null/0=不限。
             TokenCostGuard.QuotaResult quota = tokenCostGuard.checkQuota(sceneCode, config.getDailyTokenLimit());
             if (!quota.allowed()) {
@@ -173,10 +173,10 @@ public class AiGatewayService {
             // 5. 参数校验
             handler.validate(request);
 
-            // 6. 执行（v11.48：配置随调用下发，Handler 提示词/输出结构读配置即时生效，无静态 ThreadLocal）
+            // 6. 执行（配置随调用下发，Handler 提示词/输出结构读配置即时生效，无静态 ThreadLocal）
             AiExecuteResponse<?> response = handler.execute(request, config);
 
-            // 6.5 输出内容过滤（v11.62 P1-3）：场景开启 enable_output_filter 时，复用 DFA 词树
+            // 6.5 输出内容过滤：场景开启 enable_output_filter 时，复用 DFA 词树
             //     对响应 data 的全部文本节点脱敏。位于缓存回写/执行日志之前——缓存与日志留痕的
             //     均为脱敏后内容（命中路径见步骤 3，兜底存量旧缓存）。
             if (outputFilter.isEnabled(config)) {
@@ -187,7 +187,7 @@ public class AiGatewayService {
             long elapsed = System.currentTimeMillis() - startTime;
             fillCommon(response, request, elapsed);
             fillAgentMetadata(response, agentName);
-            // v11.57 P0-2：按实际消耗累计场景日 Token（未回传 token 不计）
+            // 按实际消耗累计场景日 Token（未回传 token 不计）
             if (response.getMetadata() != null && response.getMetadata().getTokenUsed() != null) {
                 tokenCostGuard.consume(sceneCode, response.getMetadata().getTokenUsed());
             }
@@ -235,7 +235,7 @@ public class AiGatewayService {
             AiSceneHandler handler = registry.getHandler(scene);
             injectAgentPersona(request, config);
 
-            // Prompt 注入防护（v11.57 P0-1）：流式路径同样清洗+拦截
+            // Prompt 注入防护：流式路径同样清洗+拦截
             sanitizeInputChannel(request);
             if (request.getUserInput() != null && !request.getUserInput().isBlank()) {
                 PromptInjectionGuard.ScanResult guard = PromptInjectionGuard.scan(request.getUserInput());
@@ -247,7 +247,7 @@ public class AiGatewayService {
                 }
             }
 
-            // 流式支持校验（Handler 能力 + 场景配置双保险，v11.66：output_mode='sync' 显式拒绝流式）
+            // 流式支持校验（Handler 能力 + 场景配置双保险，output_mode='sync' 显式拒绝流式）
             String supported = handler.getSupportedOutputMode();
             if (!"stream".equals(supported) && !"both".equals(supported)) {
                 sendErrorAndComplete(emitter, "场景 [" + scene + "] 不支持流式输出");
@@ -267,7 +267,7 @@ public class AiGatewayService {
                 sendErrorAndComplete(emitter, "请求过于频繁，请稍后再试");
                 return emitter;
             }
-            // 成本熔断（v11.57 P0-2）：流式路径同样前置配额检查；
+            // 成本熔断：流式路径同样前置配额检查；
             // 消费累计依赖响应 metadata，流式由 Handler 直发 emitter 无汇总——记为已知局限
             if (!tokenCostGuard.checkQuota(scene, config.getDailyTokenLimit()).allowed()) {
                 sendErrorAndComplete(emitter, "当前场景今日AI额度已用完，请明天再试");
@@ -293,11 +293,11 @@ public class AiGatewayService {
     // ==================== 内部实现 ====================
 
     /**
-     * 输入通道清洗（v11.57 P0-1）：顶层 userInput 走 sanitizeAndCap（含长度截断）；
+     * 输入通道清洗：顶层 userInput 走 sanitizeAndCap（含长度截断）；
      * input Map 的字符串值仅做字符级清洗（数据通道不拦截——误杀简历/文档类数据代价高于收益，
      * 由 Handler 侧 wrapData 数据隔离兜底）。
      *
-     * <p>v11.98 根因修复：业务侧可能传入不可变 Map（{@code Map.of(...)}），原地
+     * <p>根因修复：业务侧可能传入不可变 Map（{@code Map.of(...)}），原地
      * {@code entry.setValue} 会抛 {@code UnsupportedOperationException("not supported")}
      * （JDK 21 不可变集合语义），曾导致 voice_interview 逐题分析 100% 走 50 分兜底。
      * 此处不再原地改写，重建可变 LinkedHashMap 整体替换。</p>
@@ -315,7 +315,7 @@ public class AiGatewayService {
     }
 
     /**
-     * Agent 人设注入（v11.49）：ai_scene_config.agent_id 绑定智能体时，读取 ai_agent.system_prompt，
+     * Agent 人设注入：ai_scene_config.agent_id 绑定智能体时，读取 ai_agent.system_prompt，
      * 以 request.input 渲染 {{占位符}} 后注入 input.agentPersona。Agent 禁用/无提示词/加载失败均静默跳过
      * （场景按无人设执行，不阻断）。注入位于缓存键计算之前——人设变更自动失效缓存。
      *
@@ -351,7 +351,7 @@ public class AiGatewayService {
     }
 
     /**
-     * 响应元数据补充 Agent 名称（v11.51 可观测性）：Handler 已填 modelUsed/tokenUsed 等时仅补
+     * 响应元数据补充 Agent 名称（可观测性）：Handler 已填 modelUsed/tokenUsed 等时仅补
      * agentUsed 空位；未填时创建。fromCache 由 SemanticCache 独立标记，此处不触碰。
      */
     private void fillAgentMetadata(AiExecuteResponse<?> response, String agentName) {

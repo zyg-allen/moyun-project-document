@@ -13,10 +13,10 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 /**
- * 用户资金账户服务实现（V11.0）
+ * 用户资金账户服务实现
  *
  * <p>余额变动全部走 {@code UserAccountMapper} 的原子 SQL（balance 条件更新 + 乐观锁），
- * 杜绝读改写竞态。金额单位：元（v11.31 统一）。
+ * 杜绝读改写竞态。金额单位：元（统一）。
  *
  * @author moyun
  */

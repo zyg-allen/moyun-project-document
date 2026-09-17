@@ -14,7 +14,7 @@ import java.math.BigDecimal;
  *
  * <p>对应数据库表 model_config，存储AI模型配置（Chat、Embedding、多模态）</p>
  *
- * <p>继承 {@link AiBaseEntity}，复用 createTime / updateTime / deleted 字段（P3-2 Phase 1）。</p>
+ * <p>继承 {@link AiBaseEntity}，复用 createTime / updateTime / deleted 字段（Phase 1）。</p>
  *
  * @author laomao
  */
@@ -56,7 +56,7 @@ public class ModelConfig extends AiBaseEntity {
     // 是否支持流式输出
     private Boolean streamingSupported;
 
-    // 是否支持 JSON Mode（v11.95：结构化输出场景下下发 response_format，强制模型输出合法 JSON）
+    // 是否支持 JSON Mode（结构化输出场景下下发 response_format，强制模型输出合法 JSON）
     private Boolean supportsJsonMode;
 
     // 是否启用

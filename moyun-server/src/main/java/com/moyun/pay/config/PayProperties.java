@@ -4,7 +4,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.stereotype.Component;
 
 /**
- * 公共支付通道配置（V11.0）
+ * 公共支付通道配置
  *
  * <p>配置来源：application.yaml 的 moyun.pay 段。生产环境商户密钥等敏感参数
  * 建议通过环境变量注入（如 MOYUN_PAY_WECHAT_APPID），此处仅作装配。
@@ -38,7 +38,7 @@ public class PayProperties {
         private String bankCardEncryptKey;
         /** 单用户银行卡绑定上限 */
         private int bankCardMaxCount = 5;
-        /** 绑定银行卡是否强制短信验证码（V11.1 企业级默认开启） */
+        /** 绑定银行卡是否强制短信验证码（企业级默认开启） */
         private boolean bankCardSmsVerify = true;
 
         public boolean isBankCardSmsVerify() { return bankCardSmsVerify; }

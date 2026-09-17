@@ -104,7 +104,7 @@ public class PortalTipServiceImpl implements IPortalTipService {
         if (tipperId == null) {
             throw new BusinessException("USER_NOT_LOGIN", "请先登录");
         }
-        // v10.10 实名策略：打赏属积分消费敏感场景，强制实名（防滥用与纠纷可溯源）
+        // 实名策略：打赏属积分消费敏感场景，强制实名（防滥用与纠纷可溯源）
         realNameChecker.checkRealName(tipperId);
         int points = order.getAmount().intValue();
         if (points <= 0) {
@@ -192,7 +192,7 @@ public class PortalTipServiceImpl implements IPortalTipService {
     }
 
     /**
-     * 发起微信支付打赏（V11.0 公共支付通道接入）
+     * 发起微信支付打赏（公共支付通道接入）
      *
      * <p>业务前置校验（实名/对象存在/防自赏/金额区间）→ pending 打赏单 → 网关统一下单。
      * 金额单位转换：前端元 → 内部分，整型链路。
@@ -220,7 +220,7 @@ public class PortalTipServiceImpl implements IPortalTipService {
         if (order.getAmount().compareTo(new BigDecimal("10000")) > 0) {
             throw new BusinessException("TIP_AMOUNT_INVALID", "单笔打赏不可超过 10000 元");
         }
-        // 金额全链路统一元（v11.31），直接透传 BigDecimal
+        // 金额全链路统一元，直接透传 BigDecimal
 
         // 5. 落 pending 打赏单（微信支付通道）
         order.setUserId(userId);
@@ -230,7 +230,7 @@ public class PortalTipServiceImpl implements IPortalTipService {
         order.setCreatedTime(LocalDateTime.now());
         portalTipOrderMapper.insert(order);
 
-        // 6. 网关统一下单（幂等：同 bizNo 未支付单复用；v11.79 透传 userId/platform 对账维度）
+        // 6. 网关统一下单（幂等：同 bizNo 未支付单复用；透传 userId/platform 对账维度）
         String subject = "墨韵打赏-" + order.getTargetType();
         PayOrder payOrder = payGateway.createOrder("tip", String.valueOf(order.getId()), userId, "portal", "wechat",
                 order.getAmount(), subject);

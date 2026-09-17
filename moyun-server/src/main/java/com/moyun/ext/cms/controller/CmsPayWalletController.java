@@ -30,7 +30,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
- * CMS 用户钱包 Controller（v11.79 收入管理模块）
+ * CMS 用户钱包 Controller（收入管理模块）
  *
  * <p>单钱包架构：pay_user_account 为全平台唯一钱包（社区钱包 portal_wallet 已废弃删除）。
  * 资金流水 Tab 沿用 /cms/pay/ledger/list（pay_ledger_entry 复式记账）。

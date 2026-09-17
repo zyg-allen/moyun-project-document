@@ -84,7 +84,7 @@ public class PortalTopicServiceImpl extends ServiceImpl<PortalTopicMapper, Porta
     @org.springframework.context.annotation.Lazy
     private com.moyun.system.service.IAuditTaskService auditTaskService;
 
-    /** v11.57 P0-3 场景收口：daily_topic 业务入口走统一网关 */
+    /** 场景收口：daily_topic 业务入口走统一网关 */
     @Autowired
     private AiGatewayService aiGatewayService;
 
@@ -177,7 +177,7 @@ public class PortalTopicServiceImpl extends ServiceImpl<PortalTopicMapper, Porta
         topic.setCreatedTime(LocalDateTime.now());
         baseMapper.insert(topic);
 
-        // v8.1：提交统一审核任务（写 sys_audit_task），使首页/审核中心待办可见
+        // 提交统一审核任务（写 sys_audit_task），使首页/审核中心待办可见
         if (topic.getId() != null) {
             AuditTaskSubmitDTO dto = new AuditTaskSubmitDTO();
             dto.setTaskType("topic");

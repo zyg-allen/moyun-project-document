@@ -5,7 +5,7 @@ import com.moyun.portal.domain.entity.PortalResumeScoreReport;
 import org.apache.ibatis.annotations.Mapper;
 
 /**
- * 简历优化-评分报告 Mapper（v10.18 阶段五）
+ * 简历优化-评分报告 Mapper（阶段五）
  *
  * @author moyun
  */

@@ -10,7 +10,7 @@ import org.apache.ibatis.annotations.Select;
 import com.moyun.portal.domain.entity.PortalInterviewQuestionTestCase;
 
 /**
- * 面试题目测试用例 Mapper（v6.3 OJ 判题系统）
+ * 面试题目测试用例 Mapper（OJ 判题系统）
  *
  * @author moyun
  */

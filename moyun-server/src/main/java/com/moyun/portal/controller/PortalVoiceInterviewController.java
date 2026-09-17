@@ -27,7 +27,7 @@ import java.util.Map;
 
 
 /**
- * 语音面试官 Controller（V10.1 MVP）
+ * 语音面试官 Controller（MVP）
  *
  * <p>核心链路：start（创建会话+agent 首问） / submitAnswer(SSE 流式轮次) / requestHint / finish / listMy / detail
  * <p>路径：/portal/interview/voice/*
@@ -56,11 +56,11 @@ public class PortalVoiceInterviewController extends BaseController {
     @Autowired
     private com.moyun.portal.mapper.PortalInterviewQuestionMapper questionMapper;
 
-    /** v11.85：面试会员校验（语音面试为会员付费点） */
+    /** 面试会员校验（语音面试为会员付费点） */
     @Autowired
     private PortalInterviewVipController interviewVipController;
 
-    /** v11.85：免费体验次数服务（非会员每场景 2 次） */
+    /** 免费体验次数服务（非会员每场景 2 次） */
     @Autowired
     private com.moyun.portal.service.PortalFreeTrialService freeTrialService;
 
@@ -71,7 +71,7 @@ public class PortalVoiceInterviewController extends BaseController {
     /**
      * 1. 开始语音面试
      * <p>创建会话 + agent 开场白首问 + 滑窗记忆初始化
-     * <p>v11.85：面试会员付费点落地——会员不限次；非会员可免费体验 2 次
+     * <p>面试会员付费点落地——会员不限次；非会员可免费体验 2 次
      * （portal_free_trial 场景 voice_interview，原子消耗），用完返回 402 引导开通
      */
     @Operation(summary = "开始语音面试", description = "创建会话并生成 agent 开场白首问（会员不限次，非会员免费体验2次）")
@@ -82,7 +82,7 @@ public class PortalVoiceInterviewController extends BaseController {
         if (userId == null) {
             return AjaxResult.error(HttpStatus.UNAUTHORIZED, "登录已过期，请重新登录");
         }
-        // v11.85：会员 或 免费体验未用完（每用户 2 次）
+        // 会员 或 免费体验未用完（每用户 2 次）
         if (!interviewVipController.isVip(userId)) {
             if (!freeTrialService.tryConsume(userId, PortalFreeTrialService.SCENE_VOICE_INTERVIEW)) {
                 return AjaxResult.error(402, "免费体验次数已用完，语音面试为面试会员专属功能，请先开通面试会员");
@@ -142,7 +142,7 @@ public class PortalVoiceInterviewController extends BaseController {
 
     /**
      * 4. 结束面试
-     * <p>v11.88 V2：同步段仅收口会话状态并触发异步批量分析（返回报告骨架）；
+     * <p>V2：同步段仅收口会话状态并触发异步批量分析（返回报告骨架）；
      * 前端轮询 5.1 分析状态接口，analysisStatus=2 后拉取完整报告。
      */
     @Operation(summary = "结束面试", description = "收口会话并触发异步批量分析；轮询 analysis 接口获取进度")
@@ -157,7 +157,7 @@ public class PortalVoiceInterviewController extends BaseController {
     }
 
     /**
-     * 5.1 报告分析状态（v11.88 V2：前端进度条轮询）
+     * 5.1 报告分析状态（V2：前端进度条轮询）
      */
     @Operation(summary = "报告分析状态", description = "analysisStatus(0未分析/1分析中/2已完成) + analysisProgress(0-100)")
     @GetMapping("/{id:[0-9]+}/analysis")
@@ -170,7 +170,7 @@ public class PortalVoiceInterviewController extends BaseController {
     }
 
     /**
-     * 5.2 重新生成报告（v11.97）
+     * 5.2 重新生成报告
      * <p>已结束面试重置分析状态后重跑异步批量分析链路（逐题补分析 + 聚合 + 整场 LLM 复盘）；
      * 前端轮询 5.1 分析状态接口，analysisStatus=2 后拉取完整报告。
      */
@@ -187,7 +187,7 @@ public class PortalVoiceInterviewController extends BaseController {
     }
 
     /**
-     * 5.5 生成报告分享令牌（v11.30.5）
+     * 5.5 生成报告分享令牌
      */
     @Operation(summary = "生成报告分享令牌", description = "仅本人已结束的面试可分享；有效期 1-30 天，默认 7 天")
     @PostMapping("/{id:[0-9]+}/share")
@@ -207,7 +207,7 @@ public class PortalVoiceInterviewController extends BaseController {
     }
 
     /**
-     * 5.6 通过分享令牌查看报告（免登录公开接口，v11.30.5）
+     * 5.6 通过分享令牌查看报告（免登录公开接口）
      */
     @Operation(summary = "分享报告查看", description = "通过令牌公开查看面试报告（脱敏，不含用户信息；过期返回错误）")
     @GetMapping("/share/{token}")
@@ -232,7 +232,7 @@ public class PortalVoiceInterviewController extends BaseController {
     }
 
     /**
-     * 6.9 查询进行中会话（v11.91 断点续接：意外关闭后再次进入，提示可继续）
+     * 6.9 查询进行中会话（断点续接：意外关闭后再次进入，提示可继续）
      */
     @Operation(summary = "查询进行中会话", description = "返回最近一个未结束的面试（interviewId/answered/totalQa/elapsedSec），空表示无")
     @GetMapping("/active")
@@ -245,7 +245,7 @@ public class PortalVoiceInterviewController extends BaseController {
     }
 
     /**
-     * 6.10 恢复进行中会话（v11.91 断点续接）
+     * 6.10 恢复进行中会话（断点续接）
      * <p>返回恢复快照（qaList 历史问答 + currentQa 待答题），前端据此重建面试页
      */
     @Operation(summary = "恢复进行中会话", description = "断点续接：返回含历史问答与当前题的恢复快照")
@@ -320,7 +320,7 @@ public class PortalVoiceInterviewController extends BaseController {
     }
 
     /**
-     * 11a. 按题目 ID 生成分级提示（v11.30 补建：语音演示页 useInterviewHint 调用）
+     * 11a. 按题目 ID 生成分级提示（补建：语音演示页 useInterviewHint 调用）
      */
     @Operation(summary = "按题目ID请求提示", description = "HintEngine 规则版分级提示（1~3 级），无需面试会话")
     @GetMapping("/hint")
@@ -339,7 +339,7 @@ public class PortalVoiceInterviewController extends BaseController {
     }
 
     /**
-     * 11b. 按题目 ID 提取关键词（v11.30 补建：语音演示页 useInterviewHint 调用）
+     * 11b. 按题目 ID 提取关键词（补建：语音演示页 useInterviewHint 调用）
      */
     @Operation(summary = "按题目ID提取关键词", description = "从题目 tags+solution 提取关键词（最多 12 个）")
     @GetMapping("/keywords")

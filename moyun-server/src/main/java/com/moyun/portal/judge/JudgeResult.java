@@ -6,7 +6,7 @@ import java.util.List;
 import lombok.Data;
 
 /**
- * 一次判题的整体结果（v6.3 OJ 判题系统）
+ * 一次判题的整体结果（OJ 判题系统）
  * <p>
  * 判题引擎对单次提交运行所有用例后返回，由 Service 层落库并下发前端。
  *

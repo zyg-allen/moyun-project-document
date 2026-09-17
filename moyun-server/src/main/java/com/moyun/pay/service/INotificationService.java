@@ -4,7 +4,7 @@ import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.moyun.pay.domain.entity.PayNotification;
 
 /**
- * 支付通知服务（V11.0）
+ * 支付通知服务
  *
  * @author moyun
  */

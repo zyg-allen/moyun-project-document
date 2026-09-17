@@ -25,7 +25,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * 门户面试频道-会员订阅控制器（v11.82 接入公共支付通道）
+ * 门户面试频道-会员订阅控制器（接入公共支付通道）
  *
  * <p>链路：GET /packages 上架套餐列表（后台可配价格）→ POST /subscribe 下单
  * （快照套餐名/时长，clientUuid 幂等）→ 落 pending 单 → payGateway 统一下单
@@ -53,7 +53,7 @@ public class PortalInterviewVipController extends BaseController {
     @Autowired
     private PayProperties payProperties;
 
-    /** v11.85：免费体验次数服务（非会员每场景 2 次） */
+    /** 免费体验次数服务（非会员每场景 2 次） */
     @Autowired
     private PortalFreeTrialService freeTrialService;
 
@@ -85,13 +85,13 @@ public class PortalInterviewVipController extends BaseController {
         Map<String, Object> data = new HashMap<>();
         data.put("isVip", expire != null && expire.isAfter(LocalDateTime.now()));
         data.put("vipExpire", expire);
-        // v11.85：非会员剩余免费体验次数（语音面试每用户 2 次）
+        // 非会员剩余免费体验次数（语音面试每用户 2 次）
         data.put("freeTrialLeft", freeTrialService.leftTimes(userId, PortalFreeTrialService.SCENE_VOICE_INTERVIEW));
         return AjaxResult.success(data);
     }
 
     /**
-     * 订阅下单（v11.82 公共通道：pending 单 + 网关统一下单，返回收银台参数）
+     * 订阅下单（公共通道：pending 单 + 网关统一下单，返回收银台参数）
      */
     @Operation(summary = "订阅下单")
     @PostMapping("/subscribe")
@@ -167,7 +167,7 @@ public class PortalInterviewVipController extends BaseController {
         return result;
     }
 
-    /** 是否有效会员（供付费功能接口校验，v11.85 语音面试 start 落地会员付费点） */
+    /** 是否有效会员（供付费功能接口校验，语音面试 start 落地会员付费点） */
     public boolean isVip(Long userId) {
         List<Map<String, Object>> rows = orderMapper.selectMaps(new QueryWrapper<PortalInterviewVipOrder>()
                 .select("COALESCE(MAX(vip_expire), NULL) AS expire")

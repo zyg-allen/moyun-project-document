@@ -19,7 +19,7 @@ import org.springframework.stereotype.Component;
 import com.moyun.portal.domain.entity.PortalInterviewQuestionTestCase;
 
 /**
- * 基于 Docker 沙箱的判题引擎（v8.0 生产环境）
+ * 基于 Docker 沙箱的判题引擎（生产环境）
  * <p>
  * 实现策略：
  * <ul>

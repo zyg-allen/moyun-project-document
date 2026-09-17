@@ -14,7 +14,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 /**
- * AI 提供商注册表 Controller（V11.0.2 配置驱动改造）
+ * AI 提供商注册表 Controller（配置驱动改造）
  *
  * <p>后台「AI 模块 → 提供商管理」CRUD；新增 OpenAI 兼容提供商（DeepSeek/Moonshot 等）
  * 只需在此添加记录并启用，模型配置即可选择，全链路零代码改动。</p>
@@ -39,12 +39,6 @@ public class AiProviderController {
                 .orderByAsc(AiProvider::getSortOrder)
                 .list();
         return AjaxResult.success(list);
-    }
-
-    @Operation(summary = "启用的提供商", description = "模型配置表单下拉数据源（匿名端点不开放，需登录）")
-    @GetMapping("/enabled")
-    public AjaxResult enabled() {
-        return AjaxResult.success(providerService.listEnabled());
     }
 
     @Operation(summary = "创建提供商", description = "注册新的模型提供商")

@@ -27,18 +27,18 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * 简历深度优化服务（v10.13 简历优化重构 / v10.19：抽出 Generator 解决循环依赖）
+ * 简历深度优化服务（简历优化重构 / 抽出 Generator 解决循环依赖）
  * <p>
  * 链路：LLM 基于 JD 对简历逐项生成优化建议（前后对比）→ 用户逐项/批量采纳 →
  * 应用到简历表单 → 保存为新版本（版本号+1）→ 记录优化历史（评分/匹配度前后对比）。
  * </p>
  * <p>依赖 AI 模型，未启用/调用失败时抛出明确提示（深度优化无规则兜底——规则无法改写文本）。</p>
  *
- * <p><strong>v10.19 结构调整</strong>：原 {@code generate()} 及其私有方法（buildResumeContext/
+ * <p><strong>结构调整</strong>：原 {@code generate()} 及其私有方法（buildResumeContext/
  * fillOriginal/safe）和 LLM 相关依赖已迁到 {@link ResumeDeepOptimizeGenerator}，本类仅保留
  * 对外门面方法（generate/applyAndSave 等），通过 generator 委托调用。</p>
  *
- * <p><strong>v10.23 异步任务切换</strong>：旧 {@code submitTask}/{@code getTaskStatus}
+ * <p><strong>异步任务切换</strong>：旧 {@code submitTask}/{@code getTaskStatus}
  * （直接操作 portal_resume_optimize_task）已删除，异步任务统一走
  * {@link AiTaskService}（portal_ai_task 表 + {@code DeepOptimizeTaskHandler} 执行）；
  * 提交前校验抽为 {@link #validateDeepOptimizeSubmit} 供 Controller 复用。</p>
@@ -47,7 +47,7 @@ import java.util.Map;
  */
 @Service
 public class ResumeDeepOptimizeService {
-    /** v11.39：本服务所属 AI 场景代码（绑定见 ai_scene_config，业务不感知模型选择） */
+    /** 本服务所属 AI 场景代码（绑定见 ai_scene_config，业务不感知模型选择） */
     private static final String SCENE_RESUME_OPTIMIZE = "resume_optimize";
 
 
@@ -59,7 +59,7 @@ public class ResumeDeepOptimizeService {
     @Autowired
     private LlmClient llmClient;
 
-    /** v11.58 P0-3：LLM 调用统一走 AI 网关（task=field_assist/draft_empty 子任务） */
+    /** LLM 调用统一走 AI 网关（task=field_assist/draft_empty 子任务） */
     @Autowired
     private AiSceneJsonClient aiSceneJsonClient;
 
@@ -81,14 +81,14 @@ public class ResumeDeepOptimizeService {
     @Autowired
     private PortalResumeJobMatchMapper jobMatchMapper;
 
-    /** v10.19：生成器（抽出 generate 能力，打破循环依赖） */
+    /** 生成器（抽出 generate 能力，打破循环依赖） */
     @Autowired
     private ResumeDeepOptimizeGenerator generator;
 
     /**
-     * AI 实时辅助编辑（v10.14 设计文档 P0 需求#2）：字段级多版本优化建议
+     * AI 实时辅助编辑（设计文档 P0 需求#2）：字段级多版本优化建议
      *
-     * <p>v11.58 P0-3 业务收口：经统一网关执行 resume_optimize 场景（task=field_assist），
+     * <p>业务收口：经统一网关执行 resume_optimize 场景（task=field_assist），
      * 提示词收编至 ResumeOptimizeHandler，本方法组装字段/岗位/原文上下文。</p>
      *
      * @param field        字段类型：work_description/project_description/self_intro/skills
@@ -157,7 +157,7 @@ public class ResumeDeepOptimizeService {
     }
 
     /**
-     * AI 填充空字段（v10.22）：为空的工作经历/项目经历/自我介绍生成初始草稿
+     * AI 填充空字段：为空的工作经历/项目经历/自我介绍生成初始草稿
      *
      * <p>与 {@link #fieldAssist} 的区别：fieldAssist 是对已有内容生成 3 个优化版本；
      * 本方法是为空字段生成初始内容，供用户采纳填充到表单。</p>
@@ -223,7 +223,7 @@ public class ResumeDeepOptimizeService {
         if (projectsEmpty) needFields.add("项目经历");
         if (selfIntroEmpty) needFields.add("自我介绍");
 
-        // v11.58 P0-3：上下文组装（提示词已收编至 ResumeOptimizeHandler task=draft_empty）
+        // 上下文组装（提示词已收编至 ResumeOptimizeHandler task=draft_empty）
         StringBuilder context = new StringBuilder();
         context.append("【已有信息】\n");
         context.append("- 姓名：").append(safeDraft(resume.getName())).append('\n');
@@ -351,7 +351,7 @@ public class ResumeDeepOptimizeService {
     /**
      * 生成深度优化建议（逐项前后对比）
      *
-     * <p>v10.19：实现已迁到 {@link ResumeDeepOptimizeGenerator}，本方法为门面委托。
+     * <p>实现已迁到 {@link ResumeDeepOptimizeGenerator}，本方法为门面委托。
      * 保留公共 API 不变，避免影响 {@code PortalResumeOptimizeController} 等调用方。</p>
      *
      * @param resume      简历详情
@@ -361,10 +361,10 @@ public class ResumeDeepOptimizeService {
         return generator.generate(resume, jobTargetId);
     }
 
-    // ==================== v10.23：异步任务切换（提交前校验，任务执行委托 AiTaskService） ====================
+    // ==================== 异步任务切换（提交前校验，任务执行委托 AiTaskService） ====================
 
     /**
-     * 深度优化异步任务提交前校验（v10.23：保留 v10.19 submitTask 原有校验逻辑）
+     * 深度优化异步任务提交前校验（保留 submitTask 原有校验逻辑）
      *
      * <p>校验项：简历存在且归属当前用户、岗位目标存在、AI 模型可用。
      * 校验通过后由调用方委托 {@link AiTaskService} 提交 deep_optimize 任务。</p>
@@ -476,7 +476,7 @@ public class ResumeDeepOptimizeService {
     private void applyItem(UserResumeVO resume, ResumeDeepOptimizeVO.OptimizeItem item) {
         String text = item.getOptimized().trim();
         int idx = item.getIndex() == null ? 0 : item.getIndex();
-        // v10.20：section 归一化（trim+lowercase，兼容 LLM 返回 works/projects/experience 等变体）
+        // section 归一化（trim+lowercase，兼容 LLM 返回 works/projects/experience 等变体）
         String section = normalizeSection(item.getSection());
         String field = item.getField() == null ? "" : item.getField().trim();
         switch (section) {
@@ -529,7 +529,7 @@ public class ResumeDeepOptimizeService {
     }
 
     /**
-     * v10.20：section 归一化，兼容 LLM 返回的常见变体
+     * section 归一化，兼容 LLM 返回的常见变体
      * <ul>
      *   <li>去前后空白 + 转小写</li>
      *   <li>works→work、projects→project、educations→education、experiences→experience→work</li>

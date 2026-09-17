@@ -1,7 +1,7 @@
 package com.moyun.core.sms;
 
 /**
- * 短信发送 SPI（V11.1）
+ * 短信发送 SPI
  *
  * <p>实现类按 moyun.sms.mock-enabled 条件装配：
  * mock=true 装配 {@link MockSmsSender}，false 装配 {@link AliyunSmsSender}。

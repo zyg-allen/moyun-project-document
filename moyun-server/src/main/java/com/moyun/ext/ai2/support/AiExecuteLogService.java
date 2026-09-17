@@ -27,14 +27,14 @@ public class AiExecuteLogService {
     @Autowired
     private AiExecuteLogMapper executeLogMapper;
 
-    /** v11.57 P0-2：成本核算复用老链路口径（ai_model_config 单价 + 价格缓存），保证与 Token 统计页一致 */
+    /** 成本核算复用老链路口径（ai_model_config 单价 + 价格缓存），保证与 Token 统计页一致 */
     @Autowired(required = false)
     private com.moyun.ext.ai.service.TokenUsageService tokenUsageService;
 
     /**
-     * 异步记录执行日志（v11.51：响应 metadata 的模型/Agent/token 同步落 ai_execute_log，
+     * 异步记录执行日志（响应 metadata 的模型/Agent/token 同步落 ai_execute_log，
      * 与响应可观测性闭环——日志表 model_used/agent_used/token_used 列自此有数据；
-     * v11.57 P0-2：cost_yuan 按 metadata 细分 token × 模型单价核算落库）
+     * cost_yuan 按 metadata 细分 token × 模型单价核算落库）
      */
     @Async
     public void record(String requestId, String sceneCode, String handlerName, String bindType,
@@ -46,7 +46,7 @@ public class AiExecuteLogService {
     }
 
     /**
-     * 异步记录执行日志（v11.73：带用户维度——网关 request.getUserId() 直取，
+     * 异步记录执行日志（带用户维度——网关 request.getUserId() 直取，
      * 支撑 AI 消费按用户统计；系统内部调用 userId 为空）
      */
     @Async

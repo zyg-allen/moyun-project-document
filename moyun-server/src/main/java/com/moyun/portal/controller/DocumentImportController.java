@@ -73,18 +73,4 @@ public class DocumentImportController extends BaseController {
         return error(result.getErrorMsg());
     }
 
-    @Operation(summary = "上传文档转为 Markdown（用于面经/长文录入辅助）")
-    @PreAuthorize("@ss.hasPermi('cms:experience:add') or @ss.hasPermi('cms:article:add')")
-    @PostMapping("/to-markdown")
-    public AjaxResult toMarkdown(@RequestParam("file") MultipartFile file) {
-        if (file == null || file.isEmpty()) {
-            return error("文件不能为空");
-        }
-        try {
-            String markdown = documentParseService.parseToMarkdown(file);
-            return success(markdown);
-        } catch (Exception e) {
-            return error(e.getMessage());
-        }
-    }
 }

@@ -4,7 +4,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.stereotype.Component;
 
 /**
- * 短信服务配置（V11.1）
+ * 短信服务配置
  *
  * <p>真实 API 采用阿里云短信；生产环境 AccessKey 等敏感参数务必通过
  * 环境变量注入（如 MOYUN_SMS_ALIYUN_ACCESSKEYID），配置结构本期已就位，

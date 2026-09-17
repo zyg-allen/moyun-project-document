@@ -9,7 +9,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * LLM 空实现（v5.9 阶段3：AI 未启用时的默认兜底）
+ * LLM 空实现（阶段3：AI 未启用时的默认兜底）
  * <p>
  * 注册条件：{@code moyun.ai.enabled=false} 或未配置（matchIfMissing=true）。
  * <p>

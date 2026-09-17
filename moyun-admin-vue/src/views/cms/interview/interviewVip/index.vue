@@ -99,7 +99,7 @@ const dialog = reactive({
 function loadList() {
   loading.value = true;
   listInterviewVipPackage({ name: queryName.value || undefined }).then(response => {
-    dataList.value = response.records || [];
+    dataList.value = response.data.records || [];
   }).finally(() => {
     loading.value = false;
   });

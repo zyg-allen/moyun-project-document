@@ -130,7 +130,7 @@ public class CmsTopicController extends BaseController {
         }
     }
 
-    // ==================== AI 生成话题（v11.57 P0-3 场景收口：daily_topic 走统一网关） ====================
+    // ==================== AI 生成话题（场景收口：daily_topic 走统一网关） ====================
 
     @Operation(summary = "AI 生成今日话题草稿", description = "经统一网关（daily_topic 场景）生成话题标题/描述/分类，不落库；最近 30 条标题自动作为去重上下文")
     @PreAuthorize("@ss.hasPermi('cms:topic:edit')")

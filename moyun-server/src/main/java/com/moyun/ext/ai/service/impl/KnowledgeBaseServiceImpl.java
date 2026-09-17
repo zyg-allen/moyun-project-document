@@ -104,7 +104,7 @@ public class KnowledgeBaseServiceImpl extends ServiceImpl<KnowledgeBaseMapper, K
     private LargeDocumentProcessor largeDocumentProcessor;
 
     /**
-     * 知识库默认参数（P2-2 阶段 3）：统一 {@code getKnowledgeConfig} 的硬编码默认值，
+     * 知识库默认参数（阶段 3）：统一 {@code getKnowledgeConfig} 的硬编码默认值，
      * 与 {@code KnowledgeConfigServiceImpl.createDefaultConfigObject} 共用同一套默认值。
      */
     @Autowired
@@ -357,7 +357,7 @@ public class KnowledgeBaseServiceImpl extends ServiceImpl<KnowledgeBaseMapper, K
 
         // 异步重新处理 - 通过 resolveEffectiveConfig 解析有效配置后调 processKnowledge，
         // 实现"硬编码默认 ← 文档级覆盖"合并，消除旧版 processVectorization → getKnowledgeConfig
-        // 硬编码默认值与 KnowledgeConfigServiceImpl.createDefaultConfigObject 不一致的隐患（P2-2 阶段 2）
+        // 硬编码默认值与 KnowledgeConfigServiceImpl.createDefaultConfigObject 不一致的隐患（阶段 2）
         //
         // 注意：不能直接调 processKnowledgeWithConfig(id, null)，因为后者在 config=null 时会回调 reprocessFile
         // 形成无限递归；这里直接调 resolveEffectiveConfig + processKnowledge 跳过 null 守卫
@@ -1208,7 +1208,7 @@ public class KnowledgeBaseServiceImpl extends ServiceImpl<KnowledgeBaseMapper, K
      *
      * <p>注：原方法基于已废弃的 agent.knowledgeBaseIds（逗号分隔文档ID）检查，
      * 现 agent 改用 knowledgeLibraryIds（JSON数组，存储 library ID）。
-     * 删除文档时检查所属 Library 是否被 agent 关联，避免删除后 agent 检索失败（P0-3 清理）</p>
+     * 删除文档时检查所属 Library 是否被 agent 关联，避免删除后 agent 检索失败（清理）</p>
      */
     private List<com.moyun.ext.ai.entity.Agent> checkAgentAssociation(Long knowledgeBaseId) {
         // 1. 查询文档所属的 libraryId
@@ -1289,7 +1289,7 @@ public class KnowledgeBaseServiceImpl extends ServiceImpl<KnowledgeBaseMapper, K
         vo.setProcessingStatus(knowledge.getProcessingStatus());
         vo.setConfigCompleted(knowledge.getConfigCompleted());
         vo.setErrorMessage(knowledge.getErrorMessage());
-        // VO 字段名保持不变以维持前端 API 契约（P3-2 Phase 2）：
+        // VO 字段名保持不变以维持前端 API 契约（Phase 2）：
         //   uploadTime ← knowledge.createTime（原 upload_time，117 脚本重命名）
         //   processTime ← knowledge.updateTime（原 process_time，117 脚本重命名）
         vo.setUploadTime(knowledge.getCreateTime());
@@ -1485,7 +1485,7 @@ public class KnowledgeBaseServiceImpl extends ServiceImpl<KnowledgeBaseMapper, K
             }
 
             // 🚀 自适应分片策略（Excel 表格文档）- 使用外部传入的 config，
-            // 避免再次查 DB（getKnowledgeConfig）导致与 PDF/Word/Text 路径不一致（P2-2 阶段 2）
+            // 避免再次查 DB（getKnowledgeConfig）导致与 PDF/Word/Text 路径不一致（阶段 2）
             String contentSample = document.text().substring(0, Math.min(1000, document.text().length()));
             DocumentSplitter splitter = createAdaptiveDocumentSplitter(knowledge.getId(), knowledge.getFileName(), contentSample, config);
             List<TextSegment> segments = splitter.split(document);
@@ -1571,7 +1571,7 @@ public class KnowledgeBaseServiceImpl extends ServiceImpl<KnowledgeBaseMapper, K
                 document = parser.parse(fis);
             }
 
-            // 🚀 自适应分片策略 - 使用外部传入的 config，消除硬编码 DocumentSplitters.recursive(800, 100)（P2-2 阶段 2）
+            // 🚀 自适应分片策略 - 使用外部传入的 config，消除硬编码 DocumentSplitters.recursive(800, 100)（阶段 2）
             String contentSample = document.text().substring(0, Math.min(1000, document.text().length()));
             DocumentSplitter splitter = createAdaptiveDocumentSplitter(knowledge.getId(), knowledge.getFileName(), contentSample, config);
             List<TextSegment> segments = splitter.split(document);
@@ -2590,116 +2590,6 @@ public class KnowledgeBaseServiceImpl extends ServiceImpl<KnowledgeBaseMapper, K
     }
 
     /**
-     * 批量操作
-     */
-    /**
-     * 批量操作知识库
-     *
-     * <p>性能优化：使用批量更新而非逐个更新</p>
-     *
-     * @param operation 操作类型：setCategory（设置分组）、addTags（添加标签）
-     * @param ids 知识库ID列表
-     * @param category 分组名称
-     * @param tags 标签JSON字符串
-     * @return 操作是否成功
-     */
-    @Override
-    @Transactional
-    public boolean batchOperation(String operation, List<Long> ids, String category, String tags) {
-        if (ids == null || ids.isEmpty()) {
-            return false;
-        }
-
-        log.info("🔄 批量操作开始: operation={}, count={}", operation, ids.size());
-
-        switch (operation) {
-            case "setCategory":
-                // 批量设置分组（使用SQL批量更新，避免逐个查询）
-                return batchSetCategory(ids, category);
-
-            case "addTags":
-                // 批量添加标签
-                return batchAddTags(ids, tags);
-
-            default:
-                log.warn("⚠️  未知的批量操作类型: {}", operation);
-                return false;
-        }
-    }
-
-    /**
-     * 批量设置分组
-     *
-     * <p>使用LambdaUpdateWrapper批量更新，避免N+1查询</p>
-     */
-    private boolean batchSetCategory(List<Long> ids, String category) {
-        try {
-            LambdaUpdateWrapper<KnowledgeBase> updateWrapper = new LambdaUpdateWrapper<>();
-            updateWrapper.in(KnowledgeBase::getId, ids)
-                        .set(KnowledgeBase::getCategory, category);
-
-            boolean result = this.update(updateWrapper);
-            log.info("✅ 批量设置分组完成: count={}, category={}", ids.size(), category);
-            return result;
-        } catch (Exception e) {
-            log.error("❌ 批量设置分组失败", e);
-            return false;
-        }
-    }
-
-    /**
-     * 批量添加标签
-     *
-     * <p>需要逐个处理以合并现有标签，使用JsonUtils统一JSON处理</p>
-     */
-    private boolean batchAddTags(List<Long> ids, String tags) {
-        try {
-            // 解析新标签
-            List<String> newTags = JsonUtils.fromJson(tags, new com.fasterxml.jackson.core.type.TypeReference<List<String>>() {});
-            if (newTags == null || newTags.isEmpty()) {
-                log.warn("⚠️  新标签为空，忽略操作");
-                return false;
-            }
-
-            // 批量查询需要更新的知识库
-            List<KnowledgeBase> knowledgeBases = this.listByIds(ids);
-            if (knowledgeBases.isEmpty()) {
-                log.warn("⚠️  未找到需要更新的知识库");
-                return false;
-            }
-
-            // 更新每个知识库的标签
-            for (KnowledgeBase kb : knowledgeBases) {
-                List<String> existingTags = new ArrayList<>();
-                if (kb.getTags() != null && !kb.getTags().isEmpty()) {
-                    List<String> parsed = JsonUtils.fromJson(kb.getTags(), new com.fasterxml.jackson.core.type.TypeReference<List<String>>() {});
-                    if (parsed != null) {
-                        existingTags = parsed;
-                    }
-                }
-
-                // 合并去重
-                existingTags.addAll(newTags);
-                List<String> uniqueTags = existingTags.stream().distinct().collect(Collectors.toList());
-
-                // 使用JsonUtils序列化
-                String tagsJson = JsonUtils.toJson(uniqueTags);
-                if (tagsJson != null) {
-                    kb.setTags(tagsJson);
-                }
-            }
-
-            // 批量更新
-            boolean result = this.updateBatchById(knowledgeBases);
-            log.info("✅ 批量添加标签完成: count={}", knowledgeBases.size());
-            return result;
-        } catch (Exception e) {
-            log.error("❌ 批量添加标签失败", e);
-            return false;
-        }
-    }
-
-    /**
      * 更新知识库使用统计
      *
      * <p>性能优化：使用SQL直接更新，避免先查询再更新</p>
@@ -2752,7 +2642,7 @@ public class KnowledgeBaseServiceImpl extends ServiceImpl<KnowledgeBaseMapper, K
     /**
      * 使用知识库配置处理文档（双轨合并入口）
      *
-     * <p>双轨合并规则（P2-2 修复）：
+     * <p>双轨合并规则（修复）：
      * <ol>
      *   <li>读取文档级配置 knowledge_config（实例级覆盖，可能为 null）；</li>
      *   <li>合并入参 libraryConfig（库级默认）；</li>
@@ -2979,7 +2869,7 @@ public class KnowledgeBaseServiceImpl extends ServiceImpl<KnowledgeBaseMapper, K
             KnowledgeConfig config = knowledgeConfigService.getConfigByKnowledgeId(knowledgeId);
 
             if (config == null) {
-                // 返回默认配置（P2-2 阶段 3：硬编码统一到 KnowledgeDefaults，消除与
+                // 返回默认配置（阶段 3：硬编码统一到 KnowledgeDefaults，消除与
                 // KnowledgeConfigServiceImpl.createDefaultConfigObject 的分歧）
                 config = knowledgeDefaults.toKnowledgeConfig();
                 config.setKnowledgeId(knowledgeId);
@@ -3019,7 +2909,7 @@ public class KnowledgeBaseServiceImpl extends ServiceImpl<KnowledgeBaseMapper, K
      * 创建自适应文档分片器（4 参版本，接受外部传入的 config）
      *
      * <p>由活跃路径（processKnowledge → processExcelDocument）调用，避免再次查 DB 配置，
-     * 确保使用 resolveEffectiveConfig 解析出的统一配置，与 PDF/Word/Text 处理路径一致（P2-2 阶段 2）
+     * 确保使用 resolveEffectiveConfig 解析出的统一配置，与 PDF/Word/Text 处理路径一致（阶段 2）
      *
      * @param knowledgeId 知识库ID（仅用于日志）
      * @param fileName 文件名（用于文档类型检测）

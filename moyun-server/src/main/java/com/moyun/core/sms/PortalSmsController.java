@@ -15,7 +15,7 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.Map;
 
 /**
- * 门户短信验证码控制器（V11.1）
+ * 门户短信验证码控制器
  *
  * <p>发送方为当前登录用户（手机号即接收人，从请求体传入但服务端绑定场景校验），
  * 敏感操作（银行卡绑定等）在业务层调用 {@code SmsCodeService.verifyCode} 完成闭环。
@@ -43,9 +43,9 @@ public class PortalSmsController {
     /**
      * 发送验证码（bankcard/member 场景需登录；register 场景匿名可发——注册时用户尚未登录，
      * 服务层已有 60s 间隔 + 日限额 + IP 层 @RateLimiter 防轰炸）
-     * <p>v11.41：方法级 @Anonymous 放行安全链（场景级登录校验由下方 if 兜底，
+     * <p>方法级 @Anonymous 放行安全链（场景级登录校验由下方 if 兜底，
      * 非 register 场景未登录返回 401 业务错误）
-     * <p>v11.42：register 场景发送前强制图形验证码人机校验（跟随 sys.account.captchaEnabled 开关，
+     * <p>register 场景发送前强制图形验证码人机校验（跟随 sys.account.captchaEnabled 开关，
      * 开启时前端弹窗输入，验证码一次性作废防重放）
      */
     @Anonymous

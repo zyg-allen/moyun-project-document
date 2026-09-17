@@ -21,7 +21,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * 简历 AI 改进建议服务（v5.9 阶段2/3）
+ * 简历 AI 改进建议服务（阶段2/3）
  * <p>
  * 双模式生成：
  * - 规则化（默认）：基于评分明细 + 岗位匹配度子项生成建议，不依赖外部模型
@@ -34,7 +34,7 @@ import java.util.Map;
  */
 @Service
 public class ResumeAiAdviceService {
-    /** v11.39：本服务所属 AI 场景代码（绑定见 ai_scene_config，业务不感知模型选择） */
+    /** 本服务所属 AI 场景代码（绑定见 ai_scene_config，业务不感知模型选择） */
     private static final String SCENE_RESUME_OPTIMIZE = "resume_optimize";
 
 
@@ -46,7 +46,7 @@ public class ResumeAiAdviceService {
     @Autowired
     private LlmClient llmClient;
 
-    /** v11.58 P0-3：AI 建议生成统一走 AI 网关（task=advice 子任务） */
+    /** AI 建议生成统一走 AI 网关（task=advice 子任务） */
     @Autowired
     private AiSceneJsonClient aiSceneJsonClient;
 
@@ -80,7 +80,7 @@ public class ResumeAiAdviceService {
     }
 
     /**
-     * 通过 AI 网关生成建议（v11.58 P0-3 收口：task=advice 子任务，提示词收编至
+     * 通过 AI 网关生成建议（收口：task=advice 子任务，提示词收编至
      * ResumeOptimizeHandler，本方法仅组装业务上下文与结果映射）
      * <p>
      * 构造评分明细上下文，经网关调用 LLM；解析返回的 JSON 为 ResumeAiAdviceVO；

@@ -19,7 +19,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * CMS 简历优化会员套餐管理 Controller（v11.83）
+ * CMS 简历优化会员套餐管理 Controller
  *
  * <p>套餐价格/时长/上下架后台可配（门户简历优化会员页实时读取上架套餐，调价无需改代码）。
  * 删除规则：已有订单的套餐不可删除（仅可下架），保证历史订单快照可追溯。

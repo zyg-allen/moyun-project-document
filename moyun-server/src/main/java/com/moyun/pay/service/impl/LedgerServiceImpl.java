@@ -21,12 +21,12 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * 分账流水服务实现（V11.0 复式记账核心）
+ * 分账流水服务实现（复式记账核心）
  *
  * <p>平台抽成率双轨配置：sys_config("pay.platform.fee-rate") 运行时可调 优先，
  * yaml(moyun.pay.platform-fee-rate) 兜底（默认 0.10 = 10%）。
  *
- * <p>金额单位：元（BigDecimal，v11.31 统一）。
+ * <p>金额单位：元（BigDecimal，统一）。
  * 守恒校验：platformAmount + userAmount == amount（分），任何偏差直接抛异常回滚。
  *
  * @author moyun

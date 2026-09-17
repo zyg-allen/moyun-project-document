@@ -9,12 +9,12 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 /**
- * 资金/分账流水（V11.0 复式记账）
+ * 资金/分账流水（复式记账）
  *
  * <p>每笔支付成功拆两条记分录：平台抽成（PLATFORM/credit）+ 用户所得（USER/credit），
  * 两条金额之和恒等于支付单金额（守恒校验见 LedgerServiceImpl）。
  *
- * <p>金额单位：元（人民币，DECIMAL(18,2)，v11.31 统一）。
+ * <p>金额单位：元（人民币，DECIMAL(18,2)，统一）。
  *
  * @author moyun
  */
@@ -62,7 +62,7 @@ public class LedgerEntry {
 
     private LocalDateTime createTime;
 
-    /** 用户昵称（v11.78 后台展示用，非表字段；PLATFORM 分录为 null，前端显示"平台"） */
+    /** 用户昵称（后台展示用，非表字段；PLATFORM 分录为 null，前端显示"平台"） */
     @TableField(exist = false)
     private String nickname;
 

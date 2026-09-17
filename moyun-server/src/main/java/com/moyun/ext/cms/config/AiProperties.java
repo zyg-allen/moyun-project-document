@@ -5,7 +5,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.context.annotation.Configuration;
 
 /**
- * AI 配置属性（v5.9 阶段3：AI 模型接入框架）
+ * AI 配置属性（阶段3：AI 模型接入框架）
  * <p>
  * 在 application.yaml 中配置：
  * <pre>

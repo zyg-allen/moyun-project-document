@@ -5,7 +5,7 @@ import com.moyun.portal.domain.entity.PortalAiTask;
 import org.apache.ibatis.annotations.Mapper;
 
 /**
- * 通用 AI 异步任务 Mapper（v10.23）
+ * 通用 AI 异步任务 Mapper
  *
  * @author moyun
  */

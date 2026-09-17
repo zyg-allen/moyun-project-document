@@ -5,7 +5,7 @@ import com.moyun.pay.domain.entity.PayOrder;
 import org.apache.ibatis.annotations.Mapper;
 
 /**
- * PayOrder Mapper（V11.0）
+ * PayOrder Mapper
  *
  * @author moyun
  */

@@ -66,7 +66,7 @@ public class PortalCommentController extends BaseController {
         if (userId == null) {
             return AjaxResult.error(HttpStatus.UNAUTHORIZED, "请先登录后再评论");
         }
-        // 敏感词前置拦截（P1-5）
+        // 敏感词前置拦截
         String scanText = portalComment.getContent() == null ? "" : portalComment.getContent();
         if (sensitiveWordService.contains(scanText)) {
             List<String> hitWords = sensitiveWordService.detectAndLog(

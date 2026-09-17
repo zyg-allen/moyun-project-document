@@ -1,7 +1,7 @@
 package com.moyun.system.enums;
 
 /**
- * 统一审核任务状态枚举（v8.1）
+ * 统一审核任务状态枚举
  * <p>
  * 对应 sys_audit_task.status 字段，统一各业务表不一致的通过态命名
  * （article: published / topic: active / certification: approved / feedback&report: resolved）。

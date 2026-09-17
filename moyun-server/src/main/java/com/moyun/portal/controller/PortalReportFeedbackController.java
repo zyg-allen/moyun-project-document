@@ -66,7 +66,7 @@ public class PortalReportFeedbackController extends BaseController {
         report.setCreateTime(LocalDateTime.now());
         report.setUpdateTime(LocalDateTime.now());
         reportMapper.insert(report);
-        // v8.1：提交统一审核任务，使首页/审核中心待办可见
+        // 提交统一审核任务，使首页/审核中心待办可见
         submitAuditTask("report", report.getId(), null,
                 report.getDescription(), report.getReportType(),
                 loginUser.getId(), loginUser.getUsername(),
@@ -91,7 +91,7 @@ public class PortalReportFeedbackController extends BaseController {
         feedback.setCreateTime(LocalDateTime.now());
         feedback.setUpdateTime(LocalDateTime.now());
         feedbackMapper.insert(feedback);
-        // v8.1：提交统一审核任务，使首页/审核中心待办可见
+        // 提交统一审核任务，使首页/审核中心待办可见
         submitAuditTask("feedback", feedback.getId(), feedback.getSubject(),
                 feedback.getDescription(), feedback.getFeedbackType(),
                 loginUser.getId(), loginUser.getUsername(), null);
@@ -163,7 +163,7 @@ public class PortalReportFeedbackController extends BaseController {
     }
 
     /**
-     * v8.1：提交统一审核任务到 sys_audit_task。
+     * 提交统一审核任务到 sys_audit_task。
      * <p>Controller 非事务方法，调用方需自行保证业务 insert 已成功；submit 内部幂等。
      */
     private void submitAuditTask(String taskType, Long bizId, String title,

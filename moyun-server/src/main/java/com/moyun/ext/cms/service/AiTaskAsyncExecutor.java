@@ -16,7 +16,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * 通用 AI 异步任务执行器（v10.23）
+ * 通用 AI 异步任务执行器
  *
  * <p><strong>独立 Bean 设计原因</strong>：Spring 的 {@code @Async} 通过 AOP 代理生效，
  * 同一类内部自调用不会触发代理。把 {@code @Async} 方法抽到独立 Bean，由

@@ -8,7 +8,7 @@ import lombok.Data;
 import java.time.LocalDateTime;
 
 /**
- * 免费体验次数记录（v11.85）
+ * 免费体验次数记录
  *
  * <p>会员付费点统一体验机制：非会员每场景可免费体验 {@code FREE_TRIAL_TIMES} 次（当前 2 次），
  * 用完后引导开通会员。按 user_id + scene 唯一记录，原子消耗（UPDATE 条件自增 / INSERT 冲突即失败）。

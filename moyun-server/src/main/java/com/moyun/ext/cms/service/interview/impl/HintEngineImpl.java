@@ -19,7 +19,7 @@ import java.util.List;
 import java.util.Set;
 
 /**
- * 面试提示引擎规则版实现（V10.0）
+ * 面试提示引擎规则版实现
  *
  * <p>纯规则实现，不依赖 LLM，保证离线可用与低延迟：
  * <ul>
@@ -34,7 +34,7 @@ import java.util.Set;
  *   <li>speakText：可直接 TTS 播报的引导语，level 越高引导越具体</li>
  * </ul>
  *
- * <p>注意：本类为 V10.0 规则版，后续 V10.2 可替换为 LLM 增强实现，接口不变。
+ * <p>注意：本类为 规则版，后续 可替换为 LLM 增强实现，接口不变。
  *
  * @author moyun
  */
@@ -79,7 +79,7 @@ public class HintEngineImpl implements HintEngine {
         if (StringUtils.isNotEmpty(question.getSolution()) && kw.size() < MAX_KEYWORDS) {
             kw.addAll(splitKeywords(question.getSolution(), kw));
         }
-        // referenceAnswer：补充关键词（v6.3 结构化字段）
+        // referenceAnswer：补充关键词（结构化字段）
         if (StringUtils.isNotEmpty(question.getReferenceAnswer()) && kw.size() < MAX_KEYWORDS) {
             kw.addAll(splitKeywords(question.getReferenceAnswer(), kw));
         }

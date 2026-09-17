@@ -807,30 +807,6 @@ public class KnowledgeBaseController {
         }
     }
     
-    @Operation(summary = "批量操作")
-    @PostMapping("/batch")
-    @PreAuthorize("@ss.hasPermi('cms:ai:knowledge-base:edit')")
-    public AjaxResult batchOperation(
-            @RequestBody BatchOperationRequest request) {
-        try {
-            boolean success = knowledgeBaseService.batchOperation(
-                request.getOperation(),
-                request.getIds(),
-                request.getCategory(),
-                request.getTags()
-            );
-            
-            if (success) {
-                return AjaxResult.success("批量操作成功", null);
-            } else {
-                return AjaxResult.error("批量操作失败");
-            }
-        } catch (Exception e) {
-            log.error("批量操作失败", e);
-            return AjaxResult.error("批量操作失败: " + e.getMessage());
-        }
-    }
-
     @Operation(summary = "修复向量维度")
     @PostMapping("/fix-vector-dimension")
     @PreAuthorize("@ss.hasPermi('cms:ai:knowledge-base:edit')")

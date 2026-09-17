@@ -30,12 +30,4 @@ public interface IDocumentParseService {
      * @return 解析结果
      */
     DocumentParseResult parseText(String text, ChapterSplitRule rule);
-
-    /**
-     * 解析文档为单篇 Markdown（不分章，用于面经/长文场景）
-     *
-     * @param file 上传的文件
-     * @return Markdown 字符串
-     */
-    String parseToMarkdown(MultipartFile file);
 }

@@ -1,7 +1,7 @@
 package com.moyun.system.enums;
 
 /**
- * 审核操作类型枚举（v8.1）
+ * 审核操作类型枚举
  * <p>
  * 对应 sys_audit_task.audit_action 字段，记录处理人执行的具体操作。
  *

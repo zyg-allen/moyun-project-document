@@ -5,7 +5,7 @@ import com.moyun.portal.domain.entity.PortalResumeOptimizeOrder;
 import org.apache.ibatis.annotations.Mapper;
 
 /**
- * 简历优化会员订单 Mapper（v11.83）
+ * 简历优化会员订单 Mapper
  *
  * @author moyun
  */

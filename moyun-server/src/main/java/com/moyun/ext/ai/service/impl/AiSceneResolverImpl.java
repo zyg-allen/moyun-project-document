@@ -128,7 +128,7 @@ public class AiSceneResolverImpl implements AiSceneResolver {
         return configs.get(configs.size() - 1);
     }
 
-    // ===== v11.39：工厂方法实现（责任链：Agent → 直绑模型 → null） =====
+    // ===== 工厂方法实现（责任链：Agent → 直绑模型 → null） =====
 
     @Override
     public ChatLanguageModel resolveChatModel(String sceneCode) {
@@ -140,7 +140,7 @@ public class AiSceneResolverImpl implements AiSceneResolver {
             return null;
         }
         try {
-            // v11.95 任务4：结构化场景（output_schema 非空）请求 JSON Mode——
+            // 结构化场景（output_schema 非空）请求 JSON Mode——
             // 模型侧 supports_json_mode=1 才实际下发 responseFormat，否则静默走 Prompt 约束路径
             boolean jsonMode = binding.getSceneConfig() != null
                     && binding.getSceneConfig().getOutputSchema() != null

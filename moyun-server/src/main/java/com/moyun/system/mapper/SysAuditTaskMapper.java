@@ -9,7 +9,7 @@ import org.apache.ibatis.annotations.Param;
 import com.moyun.system.domain.entity.SysAuditTask;
 
 /**
- * 统一审核任务表 sys_audit_task 数据层（v8.1）
+ * 统一审核任务表 sys_audit_task 数据层
  *
  * @author moyun
  */

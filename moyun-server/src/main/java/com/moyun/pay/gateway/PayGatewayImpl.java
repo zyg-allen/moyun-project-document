@@ -22,7 +22,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * 统一支付网关实现（V11.0 公共支付通道核心）
+ * 统一支付网关实现（公共支付通道核心）
  *
  * <p>职责收口：
  * <ol>

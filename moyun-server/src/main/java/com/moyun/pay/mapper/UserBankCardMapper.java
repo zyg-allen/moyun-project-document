@@ -5,7 +5,7 @@ import com.moyun.pay.domain.entity.UserBankCard;
 import org.apache.ibatis.annotations.Mapper;
 
 /**
- * UserBankCard Mapper（V11.0）
+ * UserBankCard Mapper
  *
  * @author moyun
  */

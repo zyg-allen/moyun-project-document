@@ -83,7 +83,7 @@ public class PortalUserStats {
     /** 最后签到日期 */
     private LocalDate lastCheckinDate;
 
-    // ============ v5.9 阶段0：面试画像驱动抽题相关字段 ============
+    // ============ 阶段0：面试画像驱动抽题相关字段 ============
 
     /** 薄弱知识点 JSON 数组（如 [{"tagId":1,"tagName":"Spring","failRate":0.6}]） */
     private String weakTags;

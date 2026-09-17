@@ -79,11 +79,11 @@ public class PortalLoginController {
 
     /**
      * 注册方法
-     * <p>v11.42：人机校验已前移至发送短信/邮箱验证码时的图形码弹窗（一次性作废），
+     * <p>人机校验已前移至发送短信/邮箱验证码时的图形码弹窗（一次性作废），
      * 注册提交不再校验图形码，由短信/邮箱验证码（一次性消费）+ IP 限流保护。
      */
     @Operation(summary = "用户注册", description = "注册新门户用户")
-    // v11.42：NAT 共享 IP（校园网/公司）下同 IP 众多真实用户，原 3次/小时 会误伤；
+    // NAT 共享 IP（校园网/公司）下同 IP 众多真实用户，原 3次/小时 会误伤；
     // 放宽为 20次/10分钟 防脚本轰炸，真实用户几乎无感（有人机校验+短信/邮箱验证码兜底）
     @RateLimiter(time = 600, count = 20, limitType = LimitType.IP)
     @PostMapping("/register")
@@ -94,7 +94,7 @@ public class PortalLoginController {
             return AjaxResult.error("用户名或密码不能为空");
         }
 
-        // v11.35：注册方式双轨——手机短信 或 邮箱验证码（二选一）
+        // 注册方式双轨——手机短信 或 邮箱验证码（二选一）
         if (StringUtils.isNotEmpty(portalUser.getPhone())) {
             // 手机号注册：短信验证码校验（verifyCode 通过即一次性消费）
             if (StringUtils.isEmpty(portalUser.getSmsCode())) {
@@ -118,7 +118,7 @@ public class PortalLoginController {
             if (!portalEmailService.verifyCode(portalUser.getEmail(), portalUser.getEmailCode(), "register")) {
                 return AjaxResult.error("邮箱验证码错误或已过期");
             }
-            // v11.42：verifyCode 改为校验通过即一次性消费（与短信一致），无需再补 consumeCode
+            // verifyCode 改为校验通过即一次性消费（与短信一致），无需再补 consumeCode
         }
 
         // 设置默认角色

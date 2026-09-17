@@ -7,7 +7,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 /**
- * OJ 异步判题任务（v8.0 异步判题队列负载）
+ * OJ 异步判题任务（异步判题队列负载）
  * <p>
  * 由 {@code PortalJudgeServiceImpl#submitJudge} 在异步开关启用时构造并 LPUSH 到 Redis 队列，
  * {@link JudgeAsyncWorker} 通过 BLPOP 拉取后调用 {@link JudgeEngine} 执行判题，

@@ -31,12 +31,12 @@ import java.time.temporal.ChronoUnit;
 /**
  * 登录校验方法
  *
- * <p>v11.32 验证码风控：
+ * <p>验证码风控：
  * <ul>
- *   <li>全局开关：sys_config sys.account.captchaEnabled（缓存带 TTL，v11.32）</li>
+ *   <li>全局开关：sys_config sys.account.captchaEnabled（缓存带 TTL）</li>
  *   <li>风险触发（即使全局关闭也强制验证）：密码错误 ≥{@code captcha.riskFailThreshold} 次（复用 pwd_err_cnt），
  *       或距上次成功登录 ≥{@code captcha.riskInactiveDays} 天（含从未登录）</li>
- *   <li>密码错误计数/锁定（user.password.maxRetryCount/lockTime）自 v11.32 起真正接入登录链路</li>
+ *   <li>密码错误计数/锁定（user.password.maxRetryCount/lockTime）自 起真正接入登录链路</li>
  * </ul>
  *
  * @author allen-zyg
@@ -88,7 +88,7 @@ public class SysLoginService {
         try {
             UsernamePasswordAuthenticationToken authenticationToken = new UsernamePasswordAuthenticationToken(username, password);
             AuthenticationContextHolder.setContext(authenticationToken);
-            // v11.32：密码错误计数/锁定（pwd_err_cnt）。原 SysPasswordService.validate 从未接入登录链路（死代码），
+            // 密码错误计数/锁定（pwd_err_cnt）。原 SysPasswordService.validate 从未接入登录链路（死代码），
             // 此处补接，同时为风险验证码判定提供错误次数数据源
             SysUser user = userService.selectUserByUserName(username);
             if (user != null && !"1".equals(user.getDelFlag()) && !"1".equals(user.getStatus())) {
@@ -118,7 +118,7 @@ public class SysLoginService {
     /**
      * 校验验证码
      *
-     * <p>v11.32：要求验证码 = 全局开关开启 || 风险触发（密码错误过多 / 长时间未登录）。
+     * <p>要求验证码 = 全局开关开启 || 风险触发（密码错误过多 / 长时间未登录）。
      * 风险判定在服务端强制执行，前端仅负责展示验证码输入框，绕过前端无法跳过校验。
      *
      * @param username 用户名
@@ -143,7 +143,7 @@ public class SysLoginService {
     }
 
     /**
-     * 风险验证码判定（v11.32）
+     * 风险验证码判定
      *
      * <p>任一条件命中即要求验证码（即使全局开关关闭）：
      * <ol>

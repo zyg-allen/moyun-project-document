@@ -10,9 +10,9 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 /**
- * 用户资金账户（V11.0）
+ * 用户资金账户
  *
- * <p>余额单位：元（人民币，DECIMAL(18,2)，v11.31 统一）。并发安全：乐观锁 version +
+ * <p>余额单位：元（人民币，DECIMAL(18,2)，统一）。并发安全：乐观锁 version +
  * 条件更新（balance >= 扣减额），全部走 Mapper 原子 SQL，不使用先读后写。
  *
  * @author moyun
@@ -41,7 +41,7 @@ public class UserAccount {
 
     private LocalDateTime updateTime;
 
-    /** 用户昵称（后台展示，非持久化，v11.79） */
+    /** 用户昵称（后台展示，非持久化） */
     @TableField(exist = false)
     private String nickname;
 

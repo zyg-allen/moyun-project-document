@@ -1,0 +1,791 @@
+﻿diff --git a/moyun-server/src/main/java/com/moyun/ext/ai/config/AsyncConfig.java b/moyun-server/src/main/java/com/moyun/ext/ai/config/AsyncConfig.java
+index 3a4ba86..24160f3 100644
+--- a/moyun-server/src/main/java/com/moyun/ext/ai/config/AsyncConfig.java
++++ b/moyun-server/src/main/java/com/moyun/ext/ai/config/AsyncConfig.java
+@@ -119 +119 @@ public class AsyncConfig {
+-     * 通用 AI 异步任务线程池（v10.19：解决大模型调用超时问题；v10.23：由简历深度优化
++     * 通用 AI 异步任务线程池（解决大模型调用超时问题；由简历深度优化
+diff --git a/moyun-server/src/main/java/com/moyun/ext/ai/config/KnowledgeDefaults.java b/moyun-server/src/main/java/com/moyun/ext/ai/config/KnowledgeDefaults.java
+index 0295ae0..385532f 100644
+--- a/moyun-server/src/main/java/com/moyun/ext/ai/config/KnowledgeDefaults.java
++++ b/moyun-server/src/main/java/com/moyun/ext/ai/config/KnowledgeDefaults.java
+@@ -9 +9 @@ import org.springframework.stereotype.Component;
+- * 知识库默认参数配置（P2-2 阶段 3）
++ * 知识库默认参数配置（阶段 3）
+diff --git a/moyun-server/src/main/java/com/moyun/ext/ai/config/StartupTaskRunner.java b/moyun-server/src/main/java/com/moyun/ext/ai/config/StartupTaskRunner.java
+index 7eb4839..fad425f 100644
+--- a/moyun-server/src/main/java/com/moyun/ext/ai/config/StartupTaskRunner.java
++++ b/moyun-server/src/main/java/com/moyun/ext/ai/config/StartupTaskRunner.java
+@@ -68 +68 @@ public class StartupTaskRunner implements ApplicationRunner {
+-                // createTime 字段继承自 AiBaseEntity（原 upload_time，117 脚本重命名，P3-2 Phase 2）
++                // createTime 字段继承自 AiBaseEntity（原 upload_time，117 脚本重命名，Phase 2）
+diff --git a/moyun-server/src/main/java/com/moyun/ext/ai/controller/AiProviderController.java b/moyun-server/src/main/java/com/moyun/ext/ai/controller/AiProviderController.java
+index e0717cd..8b2a04a 100644
+--- a/moyun-server/src/main/java/com/moyun/ext/ai/controller/AiProviderController.java
++++ b/moyun-server/src/main/java/com/moyun/ext/ai/controller/AiProviderController.java
+@@ -17 +17 @@ import java.util.List;
+- * AI 提供商注册表 Controller（V11.0.2 配置驱动改造）
++ * AI 提供商注册表 Controller（配置驱动改造）
+diff --git a/moyun-server/src/main/java/com/moyun/ext/ai/controller/AiSceneConfigController.java b/moyun-server/src/main/java/com/moyun/ext/ai/controller/AiSceneConfigController.java
+index a074f79..a927f35 100644
+--- a/moyun-server/src/main/java/com/moyun/ext/ai/controller/AiSceneConfigController.java
++++ b/moyun-server/src/main/java/com/moyun/ext/ai/controller/AiSceneConfigController.java
+@@ -59 +59 @@ public class AiSceneConfigController {
+-     * 场景注册表（v11.38）：系统支持的全部场景元数据（代码/名称/核心能力/输入/输出）。
++     * 场景注册表：系统支持的全部场景元数据（代码/名称/核心能力/输入/输出）。
+@@ -196 +196 @@ public class AiSceneConfigController {
+-        // v11.38：场景代码必须在注册表内（AiSceneEnum），防止随意输入导致绑定永不生效
++        // 场景代码必须在注册表内（AiSceneEnum），防止随意输入导致绑定永不生效
+@@ -219 +219 @@ public class AiSceneConfigController {
+-     * v11.43：JSON 列归一化——prompt_placeholders / output_schema 是 MySQL JSON 类型，
++     * JSON 列归一化——prompt_placeholders / output_schema 是 MySQL JSON 类型，
+diff --git a/moyun-server/src/main/java/com/moyun/ext/ai/controller/ChatController.java b/moyun-server/src/main/java/com/moyun/ext/ai/controller/ChatController.java
+index d9dffea..a6d09ae 100644
+--- a/moyun-server/src/main/java/com/moyun/ext/ai/controller/ChatController.java
++++ b/moyun-server/src/main/java/com/moyun/ext/ai/controller/ChatController.java
+@@ -32 +32 @@ public class ChatController {
+-    /** v11.95 任务2：对话链路治理场景（ai_scene_config.default_chat 行承载限流参数） */
++    /** 对话链路治理场景（ai_scene_config.default_chat 行承载限流参数） */
+@@ -68 +68 @@ public class ChatController {
+-        // v11.95 任务2：default_chat 治理前置——「场景×用户」限流（问候语系统触发，不占用户额度）
++        // default_chat 治理前置——「场景×用户」限流（问候语系统触发，不占用户额度）
+@@ -124 +124 @@ public class ChatController {
+-        // v11.95 任务2：重新生成同样走 default_chat 限流
++        // 重新生成同样走 default_chat 限流
+@@ -151 +151 @@ public class ChatController {
+-     * v11.95 任务2：default_chat「场景×用户」限流。配置行未部署（getConfig 为 null）时不限流，
++     * default_chat「场景×用户」限流。配置行未部署（getConfig 为 null）时不限流，
+diff --git a/moyun-server/src/main/java/com/moyun/ext/ai/controller/DashboardController.java b/moyun-server/src/main/java/com/moyun/ext/ai/controller/DashboardController.java
+index ef7d8e3..0a40f8a 100644
+--- a/moyun-server/src/main/java/com/moyun/ext/ai/controller/DashboardController.java
++++ b/moyun-server/src/main/java/com/moyun/ext/ai/controller/DashboardController.java
+@@ -81 +81 @@ public class DashboardController {
+-    // v11.46：删除 getRealtime（/cms/ai/dashboard/realtime）——前端无引用（dashboard 页仅调 overview），死接口清理
++    // 删除 getRealtime（/cms/ai/dashboard/realtime）——前端无引用（dashboard 页仅调 overview），死接口清理
+diff --git a/moyun-server/src/main/java/com/moyun/ext/ai/controller/ModelConfigController.java b/moyun-server/src/main/java/com/moyun/ext/ai/controller/ModelConfigController.java
+index 3b7beda..4081729 100644
+--- a/moyun-server/src/main/java/com/moyun/ext/ai/controller/ModelConfigController.java
++++ b/moyun-server/src/main/java/com/moyun/ext/ai/controller/ModelConfigController.java
+@@ -28 +28 @@ public class ModelConfigController {
+-    /** 提供商注册表（V11.0.2：连接测试按 apiStyle 分发 / baseUrl 兜底 / apiKey 必填判定） */
++    /** 提供商注册表（连接测试按 apiStyle 分发 / baseUrl 兜底 / apiKey 必填判定） */
+@@ -220 +220 @@ public class ModelConfigController {
+-            // V11.0.2：按提供商注册表的 API 风格分发（不再按 provider 名硬编码分支）
++            // 按提供商注册表的 API 风格分发（不再按 provider 名硬编码分支）
+@@ -388 +388 @@ public class ModelConfigController {
+-     * V11.0.1：chat 模型流式能力实测探针（OpenAI 兼容端点）
++     * chat 模型流式能力实测探针（OpenAI 兼容端点）
+@@ -423 +423 @@ public class ModelConfigController {
+-     * V11.0.1：实测结果回写 DB（仅已保存的配置；标志变化时更新，避免误配导致流式链路报错）
++     * 实测结果回写 DB（仅已保存的配置；标志变化时更新，避免误配导致流式链路报错）
+@@ -503 +503 @@ public class ModelConfigController {
+-                // V11.0.1：Ollama chat 协议天然支持流式，直接判定并回写
++                // Ollama chat 协议天然支持流式，直接判定并回写
+diff --git a/moyun-server/src/main/java/com/moyun/ext/ai/engine/tool/ToolParamValidator.java b/moyun-server/src/main/java/com/moyun/ext/ai/engine/tool/ToolParamValidator.java
+index 21bac8e..1fbbf72 100644
+--- a/moyun-server/src/main/java/com/moyun/ext/ai/engine/tool/ToolParamValidator.java
++++ b/moyun-server/src/main/java/com/moyun/ext/ai/engine/tool/ToolParamValidator.java
+@@ -13 +13 @@ import java.util.Set;
+- * 工具参数 JSON Schema 校验器（v11.63 P1-2）
++ * 工具参数 JSON Schema 校验器
+diff --git a/moyun-server/src/main/java/com/moyun/ext/ai/engine/tool/ToolRegistry.java b/moyun-server/src/main/java/com/moyun/ext/ai/engine/tool/ToolRegistry.java
+index 7c1bd11..47991cc 100644
+--- a/moyun-server/src/main/java/com/moyun/ext/ai/engine/tool/ToolRegistry.java
++++ b/moyun-server/src/main/java/com/moyun/ext/ai/engine/tool/ToolRegistry.java
+@@ -165 +165 @@ public class ToolRegistry {
+-        // 参数 JSON Schema 校验（v11.63 P1-2）：执行前按工具自带 Schema 校验 params，
++        // 参数 JSON Schema 校验：执行前按工具自带 Schema 校验 params，
+diff --git a/moyun-server/src/main/java/com/moyun/ext/ai/entity/Agent.java b/moyun-server/src/main/java/com/moyun/ext/ai/entity/Agent.java
+index 9cbb1cd..e8fc073 100644
+--- a/moyun-server/src/main/java/com/moyun/ext/ai/entity/Agent.java
++++ b/moyun-server/src/main/java/com/moyun/ext/ai/entity/Agent.java
+@@ -15 +15 @@ import lombok.NoArgsConstructor;
+- * <p>继承 {@link AiBaseEntity}，复用 createTime / updateTime / deleted 字段（P3-2 Phase 1）。</p>
++ * <p>继承 {@link AiBaseEntity}，复用 createTime / updateTime / deleted 字段（Phase 1）。</p>
+@@ -38 +38 @@ public class Agent extends AiBaseEntity {
+-    // 实体字段同步移除（P0-3 清理），前端无引用
++    // 实体字段同步移除（清理），前端无引用
+diff --git a/moyun-server/src/main/java/com/moyun/ext/ai/entity/AgentTool.java b/moyun-server/src/main/java/com/moyun/ext/ai/entity/AgentTool.java
+index 6b1aa1f..cf97ac0 100644
+--- a/moyun-server/src/main/java/com/moyun/ext/ai/entity/AgentTool.java
++++ b/moyun-server/src/main/java/com/moyun/ext/ai/entity/AgentTool.java
+@@ -17 +17 @@ import lombok.NoArgsConstructor;
+- * <p>继承 {@link AiBaseEntity}，复用 createTime / updateTime / deleted 字段（P3-2 Phase 1）。
++ * <p>继承 {@link AiBaseEntity}，复用 createTime / updateTime / deleted 字段（Phase 1）。
+diff --git a/moyun-server/src/main/java/com/moyun/ext/ai/entity/AiBaseEntity.java b/moyun-server/src/main/java/com/moyun/ext/ai/entity/AiBaseEntity.java
+index e64838d..dffe105 100644
+--- a/moyun-server/src/main/java/com/moyun/ext/ai/entity/AiBaseEntity.java
++++ b/moyun-server/src/main/java/com/moyun/ext/ai/entity/AiBaseEntity.java
+@@ -27 +27 @@ import java.time.LocalDateTime;
+- * {@code strictInsertFill} 仅在字段为 null 时填充，不会覆盖 Service 层显式设置的值（P0-1 兜底赋值）。
++ * {@code strictInsertFill} 仅在字段为 null 时填充，不会覆盖 Service 层显式设置的值（兜底赋值）。
+@@ -33 +33 @@ import java.time.LocalDateTime;
+- * <p><b>P3-2 Phase 1</b>：建立 AiBaseEntity 架构基线，7 个匹配实体已迁移继承。
++ * <p><b>Phase 1</b>：建立 AiBaseEntity 架构基线，7 个匹配实体已迁移继承。
+diff --git a/moyun-server/src/main/java/com/moyun/ext/ai/entity/AiProvider.java b/moyun-server/src/main/java/com/moyun/ext/ai/entity/AiProvider.java
+index d56f417..e517151 100644
+--- a/moyun-server/src/main/java/com/moyun/ext/ai/entity/AiProvider.java
++++ b/moyun-server/src/main/java/com/moyun/ext/ai/entity/AiProvider.java
+@@ -11 +11 @@ import lombok.NoArgsConstructor;
+- * AI 提供商注册表实体（V11.0.2 配置驱动改造）
++ * AI 提供商注册表实体（配置驱动改造）
+diff --git a/moyun-server/src/main/java/com/moyun/ext/ai/entity/AiSceneConfig.java b/moyun-server/src/main/java/com/moyun/ext/ai/entity/AiSceneConfig.java
+index d5e106a..f9bf985 100644
+--- a/moyun-server/src/main/java/com/moyun/ext/ai/entity/AiSceneConfig.java
++++ b/moyun-server/src/main/java/com/moyun/ext/ai/entity/AiSceneConfig.java
+@@ -59 +59 @@ public class AiSceneConfig extends AiBaseEntity {
+-    // ==================== v11.41 执行层配置（统一接入层） ====================
++    // ==================== 执行层配置（统一接入层） ====================
+@@ -73 +73 @@ public class AiSceneConfig extends AiBaseEntity {
+-     * @deprecated v11.95 废弃：人设统一由 Agent 表 system_prompt 承载（mergePersona /
++     * @deprecated 人设统一由 Agent 表 system_prompt 承载（mergePersona /
+@@ -117 +117 @@ public class AiSceneConfig extends AiBaseEntity {
+-    /** 场景日 Token 上限（v11.57 P0-2 成本熔断：当日累计消耗超限后拒绝调用；null=不限） */
++    /** 场景日 Token 上限（成本熔断：当日累计消耗超限后拒绝调用；null=不限） */
+@@ -120 +120 @@ public class AiSceneConfig extends AiBaseEntity {
+-    /** 是否启用输出内容过滤（v11.62 P1-3：启用后网关响应 data 文本经 DFA 词树脱敏；0=关闭） */
++    /** 是否启用输出内容过滤（启用后网关响应 data 文本经 DFA 词树脱敏；0=关闭） */
+@@ -150 +150 @@ public class AiSceneConfig extends AiBaseEntity {
+-    /** 是否开放通用入口调用（v11.51：open_api=1 才能经 /api/ai/execute 外部调用；业务内部网关调用不受限） */
++    /** 是否开放通用入口调用（open_api=1 才能经 /api/ai/execute 外部调用；业务内部网关调用不受限） */
+diff --git a/moyun-server/src/main/java/com/moyun/ext/ai/entity/Conversation.java b/moyun-server/src/main/java/com/moyun/ext/ai/entity/Conversation.java
+index efbba42..674541d 100644
+--- a/moyun-server/src/main/java/com/moyun/ext/ai/entity/Conversation.java
++++ b/moyun-server/src/main/java/com/moyun/ext/ai/entity/Conversation.java
+@@ -13 +13 @@ import lombok.Data;
+- * <p>继承 {@link AiBaseEntity}，复用 createTime / updateTime / deleted 字段（P3-2 Phase 1）。
++ * <p>继承 {@link AiBaseEntity}，复用 createTime / updateTime / deleted 字段（Phase 1）。
+diff --git a/moyun-server/src/main/java/com/moyun/ext/ai/entity/DataSourceConfig.java b/moyun-server/src/main/java/com/moyun/ext/ai/entity/DataSourceConfig.java
+index 2db99c7..b0fa3c5 100644
+--- a/moyun-server/src/main/java/com/moyun/ext/ai/entity/DataSourceConfig.java
++++ b/moyun-server/src/main/java/com/moyun/ext/ai/entity/DataSourceConfig.java
+@@ -12 +12 @@ import java.time.LocalDateTime;
+- * <p>继承 {@link AiBaseEntity}，复用 createTime / updateTime / deleted 字段（P3-2 Phase 1）。
++ * <p>继承 {@link AiBaseEntity}，复用 createTime / updateTime / deleted 字段（Phase 1）。
+diff --git a/moyun-server/src/main/java/com/moyun/ext/ai/entity/DomainDictionary.java b/moyun-server/src/main/java/com/moyun/ext/ai/entity/DomainDictionary.java
+index be90239..4d3bee6 100644
+--- a/moyun-server/src/main/java/com/moyun/ext/ai/entity/DomainDictionary.java
++++ b/moyun-server/src/main/java/com/moyun/ext/ai/entity/DomainDictionary.java
+@@ -15 +15 @@ import lombok.NoArgsConstructor;
+- * <p>继承 {@link AiBaseEntity}，复用 createTime / updateTime / deleted 字段（P3-2 Phase 1）。</p>
++ * <p>继承 {@link AiBaseEntity}，复用 createTime / updateTime / deleted 字段（Phase 1）。</p>
+diff --git a/moyun-server/src/main/java/com/moyun/ext/ai/entity/KnowledgeBase.java b/moyun-server/src/main/java/com/moyun/ext/ai/entity/KnowledgeBase.java
+index 4815a11..1e24ed3 100644
+--- a/moyun-server/src/main/java/com/moyun/ext/ai/entity/KnowledgeBase.java
++++ b/moyun-server/src/main/java/com/moyun/ext/ai/entity/KnowledgeBase.java
+@@ -18 +18 @@ import java.time.LocalDateTime;
+- * <p>继承 {@link AiBaseEntity}，复用 createTime / updateTime / deleted 字段（P3-2 Phase 2）：
++ * <p>继承 {@link AiBaseEntity}，复用 createTime / updateTime / deleted 字段（Phase 2）：
+@@ -29 +29 @@ import java.time.LocalDateTime;
+- * strictInsertFill 仅填 null，不覆盖 Service 层显式赋值（P0-1 兜底兼容）。</p>
++ * strictInsertFill 仅填 null，不覆盖 Service 层显式赋值（兜底兼容）。</p>
+diff --git a/moyun-server/src/main/java/com/moyun/ext/ai/entity/KnowledgeLibrary.java b/moyun-server/src/main/java/com/moyun/ext/ai/entity/KnowledgeLibrary.java
+index bcdcdc3..9daa103 100644
+--- a/moyun-server/src/main/java/com/moyun/ext/ai/entity/KnowledgeLibrary.java
++++ b/moyun-server/src/main/java/com/moyun/ext/ai/entity/KnowledgeLibrary.java
+@@ -17 +17 @@ import java.time.LocalDateTime;
+- * <p>继承 {@link AiBaseEntity}，复用 createTime / updateTime / deleted 字段（P3-2 Phase 2）。
++ * <p>继承 {@link AiBaseEntity}，复用 createTime / updateTime / deleted 字段（Phase 2）。
+@@ -21 +21 @@ import java.time.LocalDateTime;
+- * strictInsertFill 仅填 null，不覆盖 Service 层显式赋值（P0-1 兜底兼容）。</p>
++ * strictInsertFill 仅填 null，不覆盖 Service 层显式赋值（兜底兼容）。</p>
+@@ -95 +95 @@ public class KnowledgeLibrary extends AiBaseEntity {
+-    // createTime / updateTime / deleted 字段继承自 AiBaseEntity（P3-2 Phase 2），
++    // createTime / updateTime / deleted 字段继承自 AiBaseEntity（Phase 2），
+diff --git a/moyun-server/src/main/java/com/moyun/ext/ai/entity/ModelConfig.java b/moyun-server/src/main/java/com/moyun/ext/ai/entity/ModelConfig.java
+index efeedfe..c0ab64a 100644
+--- a/moyun-server/src/main/java/com/moyun/ext/ai/entity/ModelConfig.java
++++ b/moyun-server/src/main/java/com/moyun/ext/ai/entity/ModelConfig.java
+@@ -17 +17 @@ import java.math.BigDecimal;
+- * <p>继承 {@link AiBaseEntity}，复用 createTime / updateTime / deleted 字段（P3-2 Phase 1）。</p>
++ * <p>继承 {@link AiBaseEntity}，复用 createTime / updateTime / deleted 字段（Phase 1）。</p>
+@@ -59 +59 @@ public class ModelConfig extends AiBaseEntity {
+-    // 是否支持 JSON Mode（v11.95：结构化输出场景下下发 response_format，强制模型输出合法 JSON）
++    // 是否支持 JSON Mode（结构化输出场景下下发 response_format，强制模型输出合法 JSON）
+diff --git a/moyun-server/src/main/java/com/moyun/ext/ai/entity/Workflow.java b/moyun-server/src/main/java/com/moyun/ext/ai/entity/Workflow.java
+index b94657c..e7f3477 100644
+--- a/moyun-server/src/main/java/com/moyun/ext/ai/entity/Workflow.java
++++ b/moyun-server/src/main/java/com/moyun/ext/ai/entity/Workflow.java
+@@ -15 +15 @@ import lombok.NoArgsConstructor;
+- * <p>继承 {@link AiBaseEntity}，复用 createTime / updateTime / deleted 字段（P3-2 Phase 1）。
++ * <p>继承 {@link AiBaseEntity}，复用 createTime / updateTime / deleted 字段（Phase 1）。
+diff --git a/moyun-server/src/main/java/com/moyun/ext/ai/enums/AiSceneEnum.java b/moyun-server/src/main/java/com/moyun/ext/ai/enums/AiSceneEnum.java
+index 0c28576..a0aed59 100644
+--- a/moyun-server/src/main/java/com/moyun/ext/ai/enums/AiSceneEnum.java
++++ b/moyun-server/src/main/java/com/moyun/ext/ai/enums/AiSceneEnum.java
+@@ -12 +12 @@ import java.util.stream.Collectors;
+- * AI 场景注册表（v11.38）
++ * AI 场景注册表
+diff --git a/moyun-server/src/main/java/com/moyun/ext/ai/enums/ModelType.java b/moyun-server/src/main/java/com/moyun/ext/ai/enums/ModelType.java
+index 844b5e0..dc299de 100644
+--- a/moyun-server/src/main/java/com/moyun/ext/ai/enums/ModelType.java
++++ b/moyun-server/src/main/java/com/moyun/ext/ai/enums/ModelType.java
+@@ -12,2 +12,2 @@ package com.moyun.ext.ai.enums;
+- *   <li>{@link #ASR}          - 语音识别模型（V10.0 语音面试官，如 paraformer-v2）</li>
+- *   <li>{@link #TTS}          - 语音合成模型（V10.0 语音面试官，如 cosyvoice-v1）</li>
++ *   <li>{@link #ASR}          - 语音识别模型（语音面试官，如 paraformer-v2）</li>
++ *   <li>{@link #TTS}          - 语音合成模型（语音面试官，如 cosyvoice-v1）</li>
+@@ -19 +19 @@ package com.moyun.ext.ai.enums;
+- * <p>V10.0 起 ASR/TTS 用于语音面试官：浏览器端默认走 Web Speech API（免费、离线），
++ * <p>起 ASR/TTS 用于语音面试官：浏览器端默认走 Web Speech API（免费、离线），
+diff --git a/moyun-server/src/main/java/com/moyun/ext/ai/service/AiGlobalSwitch.java b/moyun-server/src/main/java/com/moyun/ext/ai/service/AiGlobalSwitch.java
+index 5638090..b83262a 100644
+--- a/moyun-server/src/main/java/com/moyun/ext/ai/service/AiGlobalSwitch.java
++++ b/moyun-server/src/main/java/com/moyun/ext/ai/service/AiGlobalSwitch.java
+@@ -8 +8 @@ import org.springframework.stereotype.Component;
+- * AI 全局运行时开关（v11.98：sys_config 热配置化）
++ * AI 全局运行时开关（sys_config 热配置化）
+@@ -12 +12 @@ import org.springframework.stereotype.Component;
+- * v11.98 收口为 sys_config 运行时开关，管理台「参数设置」可直接修改、即时生效。</p>
++ * 收口为 sys_config 运行时开关，管理台「参数设置」可直接修改、即时生效。</p>
+@@ -29 +29 @@ import org.springframework.stereotype.Component;
+- * @since 2026-09-17 v11.98
++ * @since 2026-09-17
+diff --git a/moyun-server/src/main/java/com/moyun/ext/ai/service/AiProviderService.java b/moyun-server/src/main/java/com/moyun/ext/ai/service/AiProviderService.java
+index b3dcc50..7dec91c 100644
+--- a/moyun-server/src/main/java/com/moyun/ext/ai/service/AiProviderService.java
++++ b/moyun-server/src/main/java/com/moyun/ext/ai/service/AiProviderService.java
+@@ -9 +9 @@ import java.util.List;
+- * AI 提供商注册表服务（V11.0.2 配置驱动改造核心）
++ * AI 提供商注册表服务（配置驱动改造核心）
+diff --git a/moyun-server/src/main/java/com/moyun/ext/ai/service/AiSceneResolver.java b/moyun-server/src/main/java/com/moyun/ext/ai/service/AiSceneResolver.java
+index e859f73..ed4b557 100644
+--- a/moyun-server/src/main/java/com/moyun/ext/ai/service/AiSceneResolver.java
++++ b/moyun-server/src/main/java/com/moyun/ext/ai/service/AiSceneResolver.java
+@@ -19 +19 @@ import dev.langchain4j.model.chat.ChatLanguageModel;
+- * <p>v11.39：新增 {@link #resolveChatModel(String)} 工厂方法——
++ * <p>新增 {@link #resolveChatModel(String)} 工厂方法——
+@@ -42 +42 @@ public interface AiSceneResolver {
+-     * 工厂方法（v11.39）：按场景代码解析绑定的聊天模型
++     * 工厂方法：按场景代码解析绑定的聊天模型
+diff --git a/moyun-server/src/main/java/com/moyun/ext/ai/service/KnowledgeConfigService.java b/moyun-server/src/main/java/com/moyun/ext/ai/service/KnowledgeConfigService.java
+index 0012619..085a6cd 100644
+--- a/moyun-server/src/main/java/com/moyun/ext/ai/service/KnowledgeConfigService.java
++++ b/moyun-server/src/main/java/com/moyun/ext/ai/service/KnowledgeConfigService.java
+@@ -15 +15 @@ import java.util.List;
+- * <p><b>双轨配置说明（P2-2）：</b>
++ * <p><b>双轨配置说明：</b>
+diff --git a/moyun-server/src/main/java/com/moyun/ext/ai/service/ModelConfigService.java b/moyun-server/src/main/java/com/moyun/ext/ai/service/ModelConfigService.java
+index 31613b4..6f9a32d 100644
+--- a/moyun-server/src/main/java/com/moyun/ext/ai/service/ModelConfigService.java
++++ b/moyun-server/src/main/java/com/moyun/ext/ai/service/ModelConfigService.java
+@@ -35 +35 @@ public interface ModelConfigService extends IService<ModelConfig> {
+-     * <p>v11.95 任务4：jsonMode=true 且模型 supports_json_mode=1 时，OpenAI 兼容端点下发
++     * <p>jsonMode=true 且模型 supports_json_mode=1 时，OpenAI 兼容端点下发
+@@ -85 +85 @@ public interface ModelConfigService extends IService<ModelConfig> {
+-     * <p>V10.1 语音面试官：浏览器 Web Speech API 不可用时，服务端调用 ASR 模型转写录音
++     * <p>语音面试官：浏览器 Web Speech API 不可用时，服务端调用 ASR 模型转写录音
+diff --git a/moyun-server/src/main/java/com/moyun/ext/ai/service/QueryTypeClassifier.java b/moyun-server/src/main/java/com/moyun/ext/ai/service/QueryTypeClassifier.java
+index 764f999..9726d71 100644
+--- a/moyun-server/src/main/java/com/moyun/ext/ai/service/QueryTypeClassifier.java
++++ b/moyun-server/src/main/java/com/moyun/ext/ai/service/QueryTypeClassifier.java
+@@ -27 +27 @@ public interface QueryTypeClassifier {
+-     * - 包含版本号（如 v1.0.0、Java 17）
++     * - 包含版本号（如 、Java 17）
+diff --git a/moyun-server/src/main/java/com/moyun/ext/ai/service/TokenUsageService.java b/moyun-server/src/main/java/com/moyun/ext/ai/service/TokenUsageService.java
+index 0e0744f..d1693f5 100644
+--- a/moyun-server/src/main/java/com/moyun/ext/ai/service/TokenUsageService.java
++++ b/moyun-server/src/main/java/com/moyun/ext/ai/service/TokenUsageService.java
+@@ -110 +110 @@ public interface TokenUsageService {
+-     * <p>v11.57 P0-2：统一网关（ai_execute_log.cost_yuan）复用本口径，保证与 token 统计页一致。</p>
++     * <p>统一网关（ai_execute_log.cost_yuan）复用本口径，保证与 token 统计页一致。</p>
+diff --git a/moyun-server/src/main/java/com/moyun/ext/ai/service/impl/AgentServiceImpl.java b/moyun-server/src/main/java/com/moyun/ext/ai/service/impl/AgentServiceImpl.java
+index 9c202e6..75b451c 100644
+--- a/moyun-server/src/main/java/com/moyun/ext/ai/service/impl/AgentServiceImpl.java
++++ b/moyun-server/src/main/java/com/moyun/ext/ai/service/impl/AgentServiceImpl.java
+@@ -98 +98 @@ public class AgentServiceImpl extends ServiceImpl<AgentMapper, Agent> implements
+-     * 旧版格式兼容代码已移除（P0-3 清理）</p>
++     * 旧版格式兼容代码已移除（清理）</p>
+diff --git a/moyun-server/src/main/java/com/moyun/ext/ai/service/impl/AiSceneResolverImpl.java b/moyun-server/src/main/java/com/moyun/ext/ai/service/impl/AiSceneResolverImpl.java
+index 3ee3c2f..e5f5b7f 100644
+--- a/moyun-server/src/main/java/com/moyun/ext/ai/service/impl/AiSceneResolverImpl.java
++++ b/moyun-server/src/main/java/com/moyun/ext/ai/service/impl/AiSceneResolverImpl.java
+@@ -131 +131 @@ public class AiSceneResolverImpl implements AiSceneResolver {
+-    // ===== v11.39：工厂方法实现（责任链：Agent → 直绑模型 → null） =====
++    // ===== 工厂方法实现（责任链：Agent → 直绑模型 → null） =====
+@@ -143 +143 @@ public class AiSceneResolverImpl implements AiSceneResolver {
+-            // v11.95 任务4：结构化场景（output_schema 非空）请求 JSON Mode——
++            // 结构化场景（output_schema 非空）请求 JSON Mode——
+diff --git a/moyun-server/src/main/java/com/moyun/ext/ai/service/impl/DataSourceServiceImpl.java b/moyun-server/src/main/java/com/moyun/ext/ai/service/impl/DataSourceServiceImpl.java
+index 36597c0..e245fdd 100644
+--- a/moyun-server/src/main/java/com/moyun/ext/ai/service/impl/DataSourceServiceImpl.java
++++ b/moyun-server/src/main/java/com/moyun/ext/ai/service/impl/DataSourceServiceImpl.java
+@@ -68 +68 @@ public class DataSourceServiceImpl extends ServiceImpl<DataSourceConfigMapper, D
+-     * 重写 save，兜底设置时间戳（P0-1）。
++     * 重写 save，兜底设置时间戳。
+@@ -88 +88 @@ public class DataSourceServiceImpl extends ServiceImpl<DataSourceConfigMapper, D
+-     * 重写 updateById，兜底设置时间戳（P0-1）。
++     * 重写 updateById，兜底设置时间戳。
+diff --git a/moyun-server/src/main/java/com/moyun/ext/ai/service/impl/KnowledgeBaseServiceImpl.java b/moyun-server/src/main/java/com/moyun/ext/ai/service/impl/KnowledgeBaseServiceImpl.java
+index ab6d380..5cdad1c 100644
+--- a/moyun-server/src/main/java/com/moyun/ext/ai/service/impl/KnowledgeBaseServiceImpl.java
++++ b/moyun-server/src/main/java/com/moyun/ext/ai/service/impl/KnowledgeBaseServiceImpl.java
+@@ -107 +107 @@ public class KnowledgeBaseServiceImpl extends ServiceImpl<KnowledgeBaseMapper, K
+-     * 知识库默认参数（P2-2 阶段 3）：统一 {@code getKnowledgeConfig} 的硬编码默认值，
++     * 知识库默认参数（阶段 3）：统一 {@code getKnowledgeConfig} 的硬编码默认值，
+@@ -360 +360 @@ public class KnowledgeBaseServiceImpl extends ServiceImpl<KnowledgeBaseMapper, K
+-        // 硬编码默认值与 KnowledgeConfigServiceImpl.createDefaultConfigObject 不一致的隐患（P2-2 阶段 2）
++        // 硬编码默认值与 KnowledgeConfigServiceImpl.createDefaultConfigObject 不一致的隐患（阶段 2）
+@@ -1211 +1211 @@ public class KnowledgeBaseServiceImpl extends ServiceImpl<KnowledgeBaseMapper, K
+-     * 删除文档时检查所属 Library 是否被 agent 关联，避免删除后 agent 检索失败（P0-3 清理）</p>
++     * 删除文档时检查所属 Library 是否被 agent 关联，避免删除后 agent 检索失败（清理）</p>
+@@ -1292 +1292 @@ public class KnowledgeBaseServiceImpl extends ServiceImpl<KnowledgeBaseMapper, K
+-        // VO 字段名保持不变以维持前端 API 契约（P3-2 Phase 2）：
++        // VO 字段名保持不变以维持前端 API 契约（Phase 2）：
+@@ -1488 +1488 @@ public class KnowledgeBaseServiceImpl extends ServiceImpl<KnowledgeBaseMapper, K
+-            // 避免再次查 DB（getKnowledgeConfig）导致与 PDF/Word/Text 路径不一致（P2-2 阶段 2）
++            // 避免再次查 DB（getKnowledgeConfig）导致与 PDF/Word/Text 路径不一致（阶段 2）
+@@ -1574 +1574 @@ public class KnowledgeBaseServiceImpl extends ServiceImpl<KnowledgeBaseMapper, K
+-            // 🚀 自适应分片策略 - 使用外部传入的 config，消除硬编码 DocumentSplitters.recursive(800, 100)（P2-2 阶段 2）
++            // 🚀 自适应分片策略 - 使用外部传入的 config，消除硬编码 DocumentSplitters.recursive(800, 100)（阶段 2）
+@@ -2755 +2755 @@ public class KnowledgeBaseServiceImpl extends ServiceImpl<KnowledgeBaseMapper, K
+-     * <p>双轨合并规则（P2-2 修复）：
++     * <p>双轨合并规则（修复）：
+@@ -2982 +2982 @@ public class KnowledgeBaseServiceImpl extends ServiceImpl<KnowledgeBaseMapper, K
+-                // 返回默认配置（P2-2 阶段 3：硬编码统一到 KnowledgeDefaults，消除与
++                // 返回默认配置（阶段 3：硬编码统一到 KnowledgeDefaults，消除与
+@@ -3022 +3022 @@ public class KnowledgeBaseServiceImpl extends ServiceImpl<KnowledgeBaseMapper, K
+-     * 确保使用 resolveEffectiveConfig 解析出的统一配置，与 PDF/Word/Text 处理路径一致（P2-2 阶段 2）
++     * 确保使用 resolveEffectiveConfig 解析出的统一配置，与 PDF/Word/Text 处理路径一致（阶段 2）
+diff --git a/moyun-server/src/main/java/com/moyun/ext/ai/service/impl/KnowledgeConfigServiceImpl.java b/moyun-server/src/main/java/com/moyun/ext/ai/service/impl/KnowledgeConfigServiceImpl.java
+index 564f55d..63bebf9 100644
+--- a/moyun-server/src/main/java/com/moyun/ext/ai/service/impl/KnowledgeConfigServiceImpl.java
++++ b/moyun-server/src/main/java/com/moyun/ext/ai/service/impl/KnowledgeConfigServiceImpl.java
+@@ -39 +39 @@ public class KnowledgeConfigServiceImpl implements KnowledgeConfigService {
+-     * 知识库默认参数（P2-2 阶段 3）：从硬编码迁到 {@link KnowledgeDefaults} 配置类，
++     * 知识库默认参数（阶段 3）：从硬编码迁到 {@link KnowledgeDefaults} 配置类，
+@@ -178 +178 @@ public class KnowledgeConfigServiceImpl implements KnowledgeConfigService {
+-     * 构建默认配置对象（P2-2 阶段 3 重构）
++     * 构建默认配置对象（阶段 3 重构）
+diff --git a/moyun-server/src/main/java/com/moyun/ext/ai/service/impl/KnowledgeLibraryServiceImpl.java b/moyun-server/src/main/java/com/moyun/ext/ai/service/impl/KnowledgeLibraryServiceImpl.java
+index b788da9..ab85dd8 100644
+--- a/moyun-server/src/main/java/com/moyun/ext/ai/service/impl/KnowledgeLibraryServiceImpl.java
++++ b/moyun-server/src/main/java/com/moyun/ext/ai/service/impl/KnowledgeLibraryServiceImpl.java
+@@ -52 +52 @@ public class KnowledgeLibraryServiceImpl extends ServiceImpl<KnowledgeLibraryMap
+-     * 知识库默认参数（P2-2 阶段 3）：统一 {@code createLibrary} 和 {@code applyTemplateConfig}
++     * 知识库默认参数（阶段 3）：统一 {@code createLibrary} 和 {@code applyTemplateConfig}
+@@ -89 +89 @@ public class KnowledgeLibraryServiceImpl extends ServiceImpl<KnowledgeLibraryMap
+-            // 使用DTO中的配置或默认值（P2-2 阶段 3：默认值统一从 KnowledgeDefaults 读取，
++            // 使用DTO中的配置或默认值（阶段 3：默认值统一从 KnowledgeDefaults 读取，
+@@ -369 +369 @@ public class KnowledgeLibraryServiceImpl extends ServiceImpl<KnowledgeLibraryMap
+-        // → VO（createdAt/updatedAt，保持前端 API 契约，P3-2 Phase 2）
++        // → VO（createdAt/updatedAt，保持前端 API 契约，Phase 2）
+@@ -388 +388 @@ public class KnowledgeLibraryServiceImpl extends ServiceImpl<KnowledgeLibraryMap
+-        // VO 字段名保持不变以维持前端 API 契约（P3-2 Phase 2）：
++        // VO 字段名保持不变以维持前端 API 契约（Phase 2）：
+@@ -410 +410 @@ public class KnowledgeLibraryServiceImpl extends ServiceImpl<KnowledgeLibraryMap
+-        // 这里先使用默认值（P2-2 阶段 3：统一从 KnowledgeDefaults 读取，与 createLibrary 保持一致）
++        // 这里先使用默认值（阶段 3：统一从 KnowledgeDefaults 读取，与 createLibrary 保持一致）
+@@ -456 +456 @@ public class KnowledgeLibraryServiceImpl extends ServiceImpl<KnowledgeLibraryMap
+-        // 此处显式赋值保证语义明确，P3-2 Phase 2）
++        // 此处显式赋值保证语义明确，Phase 2）
+diff --git a/moyun-server/src/main/java/com/moyun/ext/ai/service/impl/ModelConfigServiceImpl.java b/moyun-server/src/main/java/com/moyun/ext/ai/service/impl/ModelConfigServiceImpl.java
+index 549884a..dd6064f 100644
+--- a/moyun-server/src/main/java/com/moyun/ext/ai/service/impl/ModelConfigServiceImpl.java
++++ b/moyun-server/src/main/java/com/moyun/ext/ai/service/impl/ModelConfigServiceImpl.java
+@@ -58 +58 @@ public class ModelConfigServiceImpl extends ServiceImpl<ModelConfigMapper, Model
+-    /** 提供商注册表（V11.0.2：能力元数据全部查注册表，代码不再出现 provider 字符串分支） */
++    /** 提供商注册表（能力元数据全部查注册表，代码不再出现 provider 字符串分支） */
+@@ -62 +62 @@ public class ModelConfigServiceImpl extends ServiceImpl<ModelConfigMapper, Model
+-     * v11.95 T2：模型客户端实例缓存（key = configId:temperature:maxTokens）。
++     * T2：模型客户端实例缓存（key = configId:temperature:maxTokens）。
+@@ -175 +175 @@ public class ModelConfigServiceImpl extends ServiceImpl<ModelConfigMapper, Model
+-        // v11.95 T2：命中客户端实例缓存直接复用（每轮对话不再重复构造客户端；v11.95 任务4：键含 jsonMode）
++        // T2：命中客户端实例缓存直接复用（每轮对话不再重复构造客户端；键含 jsonMode）
+@@ -187 +187 @@ public class ModelConfigServiceImpl extends ServiceImpl<ModelConfigMapper, Model
+-        // v11.95 任务4：模型未开 JSON Mode 时静默忽略（回退 Prompt 约束路径）
++        // 模型未开 JSON Mode 时静默忽略（回退 Prompt 约束路径）
+@@ -228 +228 @@ public class ModelConfigServiceImpl extends ServiceImpl<ModelConfigMapper, Model
+-        // v11.95 T2：命中客户端实例缓存直接复用（面试主干每轮调用不再重复构造客户端）
++        // T2：命中客户端实例缓存直接复用（面试主干每轮调用不再重复构造客户端）
+@@ -275 +275 @@ public class ModelConfigServiceImpl extends ServiceImpl<ModelConfigMapper, Model
+-    /** v11.95 T2：客户端实例缓存键（configId + 覆盖参数 + jsonMode；null 用 "null" 占位，编辑配置时按前缀整体清除） */
++    /** T2：客户端实例缓存键（configId + 覆盖参数 + jsonMode；null 用 "null" 占位，编辑配置时按前缀整体清除） */
+@@ -446 +446 @@ public class ModelConfigServiceImpl extends ServiceImpl<ModelConfigMapper, Model
+-            // v11.95 T2：清除该配置的全部模型客户端实例缓存（编辑 apiKey/参数后旧实例不复用）
++            // T2：清除该配置的全部模型客户端实例缓存（编辑 apiKey/参数后旧实例不复用）
+@@ -640 +640 @@ public class ModelConfigServiceImpl extends ServiceImpl<ModelConfigMapper, Model
+-     * <p>V11.0.2：按提供商注册表的 apiStyle 分支（而非 provider 名）。
++     * <p>按提供商注册表的 apiStyle 分支（而非 provider 名）。
+@@ -671 +671 @@ public class ModelConfigServiceImpl extends ServiceImpl<ModelConfigMapper, Model
+-     * 解析模型 baseUrl：用户配置优先 → 提供商注册表默认地址兜底（V11.0.2）
++     * 解析模型 baseUrl：用户配置优先 → 提供商注册表默认地址兜底
+@@ -693 +693 @@ public class ModelConfigServiceImpl extends ServiceImpl<ModelConfigMapper, Model
+-     * <p>v11.95 任务4：jsonMode=true 时下发 response_format=json_object（OpenAI JSON Mode），
++     * <p>jsonMode=true 时下发 response_format=json_object（OpenAI JSON Mode），
+@@ -748 +748 @@ public class ModelConfigServiceImpl extends ServiceImpl<ModelConfigMapper, Model
+-     * 创建 Ollama 聊天模型（v11.95 任务4：jsonMode=true 时 format=json，等价 Ollama 原生 JSON Mode）
++     * 创建 Ollama 聊天模型（jsonMode=true 时 format=json，等价 Ollama 原生 JSON Mode）
+@@ -791 +791 @@ public class ModelConfigServiceImpl extends ServiceImpl<ModelConfigMapper, Model
+-     * 根据配置创建 Embedding 模型（V11.0.2：按 apiStyle 分支）
++     * 根据配置创建 Embedding 模型（按 apiStyle 分支）
+diff --git a/moyun-server/src/main/java/com/moyun/ext/ai/service/impl/MultimodalServiceImpl.java b/moyun-server/src/main/java/com/moyun/ext/ai/service/impl/MultimodalServiceImpl.java
+index f4d8b85..8a5b69d 100644
+--- a/moyun-server/src/main/java/com/moyun/ext/ai/service/impl/MultimodalServiceImpl.java
++++ b/moyun-server/src/main/java/com/moyun/ext/ai/service/impl/MultimodalServiceImpl.java
+@@ -36 +36 @@ public class MultimodalServiceImpl implements MultimodalService {
+-    /** 提供商注册表（V11.0.2：模型构建按 apiStyle 分支） */
++    /** 提供商注册表（模型构建按 apiStyle 分支） */
+@@ -167 +167 @@ public class MultimodalServiceImpl implements MultimodalService {
+-            // V11.0.2：按 apiStyle 决定图片编码格式
++            // 按 apiStyle 决定图片编码格式
+@@ -199 +199 @@ public class MultimodalServiceImpl implements MultimodalService {
+-        // V11.0.2：按 apiStyle 分支（OpenAI 兼容端点统一构建，baseUrl 走注册表兜底）
++        // 按 apiStyle 分支（OpenAI 兼容端点统一构建，baseUrl 走注册表兜底）
+diff --git a/moyun-server/src/main/java/com/moyun/ext/ai/service/impl/QueryTypeClassifierImpl.java b/moyun-server/src/main/java/com/moyun/ext/ai/service/impl/QueryTypeClassifierImpl.java
+index eaa08d2..7d12d1c 100644
+--- a/moyun-server/src/main/java/com/moyun/ext/ai/service/impl/QueryTypeClassifierImpl.java
++++ b/moyun-server/src/main/java/com/moyun/ext/ai/service/impl/QueryTypeClassifierImpl.java
+@@ -27 +27 @@ public class QueryTypeClassifierImpl implements QueryTypeClassifier {
+-    // 版本号模式（v1.0.0、Java 17、Python 3.9等）
++    // 版本号模式（、Java 17、Python 3.9等）
+diff --git a/moyun-server/src/main/java/com/moyun/ext/ai/service/impl/TokenUsageServiceImpl.java b/moyun-server/src/main/java/com/moyun/ext/ai/service/impl/TokenUsageServiceImpl.java
+index 44ccf61..c156ece 100644
+--- a/moyun-server/src/main/java/com/moyun/ext/ai/service/impl/TokenUsageServiceImpl.java
++++ b/moyun-server/src/main/java/com/moyun/ext/ai/service/impl/TokenUsageServiceImpl.java
+@@ -337 +337 @@ public class TokenUsageServiceImpl implements TokenUsageService {
+-     * 纯成本公式（v11.57 P0-2 抽出，可离线单测）：输入/输出分别按千token单价核算，6位小数 HALF_UP
++     * 纯成本公式（抽出，可离线单测）：输入/输出分别按千token单价核算，6位小数 HALF_UP
+diff --git a/moyun-server/src/main/java/com/moyun/ext/ai2/controller/AiExecuteLogController.java b/moyun-server/src/main/java/com/moyun/ext/ai2/controller/AiExecuteLogController.java
+index d830db1..d287742 100644
+--- a/moyun-server/src/main/java/com/moyun/ext/ai2/controller/AiExecuteLogController.java
++++ b/moyun-server/src/main/java/com/moyun/ext/ai2/controller/AiExecuteLogController.java
+@@ -32 +32 @@ import java.util.Map;
+- * AI 执行日志管理 Controller（v11.60 P1-1：可观测性补齐——数据在采也要有人看）
++ * AI 执行日志管理 Controller（可观测性补齐——数据在采也要有人看）
+diff --git a/moyun-server/src/main/java/com/moyun/ext/ai2/controller/AiGatewayController.java b/moyun-server/src/main/java/com/moyun/ext/ai2/controller/AiGatewayController.java
+index 98fc258..1091ab8 100644
+--- a/moyun-server/src/main/java/com/moyun/ext/ai2/controller/AiGatewayController.java
++++ b/moyun-server/src/main/java/com/moyun/ext/ai2/controller/AiGatewayController.java
+@@ -83 +83 @@ public class AiGatewayController {
+-     * 通用入口开放校验（v11.51 断点⑤）：ai_scene_config.open_api=0 的场景（业务内部链路专用，
++     * 通用入口开放校验（断点⑤）：ai_scene_config.open_api=0 的场景（业务内部链路专用，
+diff --git a/moyun-server/src/main/java/com/moyun/ext/ai2/controller/AiSafetyController.java b/moyun-server/src/main/java/com/moyun/ext/ai2/controller/AiSafetyController.java
+index 98209c6..5b7f5da 100644
+--- a/moyun-server/src/main/java/com/moyun/ext/ai2/controller/AiSafetyController.java
++++ b/moyun-server/src/main/java/com/moyun/ext/ai2/controller/AiSafetyController.java
+@@ -25 +25 @@ import java.util.Map;
+- * AI 内容安全检测 Controller（v11.57 P0-3 场景收口：sensitive_word 业务入口走网关）
++ * AI 内容安全检测 Controller（场景收口：sensitive_word 业务入口走网关）
+diff --git a/moyun-server/src/main/java/com/moyun/ext/ai2/entity/AiExecuteLog.java b/moyun-server/src/main/java/com/moyun/ext/ai2/entity/AiExecuteLog.java
+index c6f4f59..232ea56 100644
+--- a/moyun-server/src/main/java/com/moyun/ext/ai2/entity/AiExecuteLog.java
++++ b/moyun-server/src/main/java/com/moyun/ext/ai2/entity/AiExecuteLog.java
+@@ -34 +34 @@ public class AiExecuteLog {
+-    /** 发起用户ID（v11.73：网关请求方，支撑 AI 消费按用户统计；系统内部调用为空） */
++    /** 发起用户ID（网关请求方，支撑 AI 消费按用户统计；系统内部调用为空） */
+@@ -58 +58 @@ public class AiExecuteLog {
+-    /** 本次调用成本（元，v11.57 P0-2：metadata 细分 token × 模型单价，6位小数；模型未回传 token 时为 null） */
++    /** 本次调用成本（元，metadata 细分 token × 模型单价，6位小数；模型未回传 token 时为 null） */
+@@ -86 +86 @@ public class AiExecuteLog {
+-    /** 创建时间（v11.49.1 修复：对齐 DDL 列名 create_time，原 created_at 与表结构不符导致落库失败） */
++    /** 创建时间（对齐 DDL 列名 create_time，原 created_at 与表结构不符导致落库失败） */
+diff --git a/moyun-server/src/main/java/com/moyun/ext/ai2/handler/AbstractAiSceneHandler.java b/moyun-server/src/main/java/com/moyun/ext/ai2/handler/AbstractAiSceneHandler.java
+index 2932ca9..0b84d74 100644
+--- a/moyun-server/src/main/java/com/moyun/ext/ai2/handler/AbstractAiSceneHandler.java
++++ b/moyun-server/src/main/java/com/moyun/ext/ai2/handler/AbstractAiSceneHandler.java
+@@ -64 +64 @@ public abstract class AbstractAiSceneHandler implements AiSceneHandler {
+-     * v11.95 任务4：结构化场景对话 + 解析失败降级 Prompt 约束重试。
++     * 结构化场景对话 + 解析失败降级 Prompt 约束重试。
+@@ -107 +107 @@ public abstract class AbstractAiSceneHandler implements AiSceneHandler {
+-     * 场景感知同步对话（结构化结果，v11.51）：除文本外返回实际使用的模型与 token 消耗。
++     * 场景感知同步对话（结构化结果）：除文本外返回实际使用的模型与 token 消耗。
+@@ -126 +126 @@ public abstract class AbstractAiSceneHandler implements AiSceneHandler {
+-                    // v11.54：绑定模型返回空内容（HTTP 200 但 content 空——推理模型只出
++                    // 绑定模型返回空内容（HTTP 200 但 content 空——推理模型只出
+@@ -156 +156 @@ public abstract class AbstractAiSceneHandler implements AiSceneHandler {
+-                // v11.57 P0-2：输入/输出细分（成本核算依据；部分供应商仅回传 total，则细分留空）
++                // 输入/输出细分（成本核算依据；部分供应商仅回传 total，则细分留空）
+@@ -175 +175 @@ public abstract class AbstractAiSceneHandler implements AiSceneHandler {
+-     * LLM 调用结果 → 响应元数据（v11.51）。Handler 调 chatDetailed 后构建：
++     * LLM 调用结果 → 响应元数据。Handler 调 chatDetailed 后构建：
+@@ -262 +262 @@ public abstract class AbstractAiSceneHandler implements AiSceneHandler {
+-     * 按场景配置解析 LLM 原始输出（v11.66 P1-5：output_parser 配置接线）
++     * 按场景配置解析 LLM 原始输出（output_parser 配置接线）
+@@ -331 +331 @@ public abstract class AbstractAiSceneHandler implements AiSceneHandler {
+-     * v11.95：场景系统提示词模板已废弃——本方法不再读取 config.systemPromptTemplate。
++     * 场景系统提示词模板已废弃——本方法不再读取 config.systemPromptTemplate。
+@@ -350 +350 @@ public abstract class AbstractAiSceneHandler implements AiSceneHandler {
+-     * Agent 人设前置合并（v11.53 加任务边界声明）
++     * Agent 人设前置合并（加任务边界声明）
+@@ -378 +378 @@ public abstract class AbstractAiSceneHandler implements AiSceneHandler {
+-     * 清洗 LLM 原始文本用于展示兜底（v11.53）：剥离 markdown 围栏与首尾空白。
++     * 清洗 LLM 原始文本用于展示兜底：剥离 markdown 围栏与首尾空白。
+@@ -430 +430 @@ public abstract class AbstractAiSceneHandler implements AiSceneHandler {
+-     * 取必填的用户自由文本（顶层 userInput 字段，v11.52 契约）。
++     * 取必填的用户自由文本（顶层 userInput 字段，契约）。
+diff --git a/moyun-server/src/main/java/com/moyun/ext/ai2/handler/AiSceneHandler.java b/moyun-server/src/main/java/com/moyun/ext/ai2/handler/AiSceneHandler.java
+index 63f6e97..d4be318 100644
+--- a/moyun-server/src/main/java/com/moyun/ext/ai2/handler/AiSceneHandler.java
++++ b/moyun-server/src/main/java/com/moyun/ext/ai2/handler/AiSceneHandler.java
+@@ -44 +44 @@ public interface AiSceneHandler {
+-     * 同步执行（带场景配置，v11.48）
++     * 同步执行（带场景配置）
+diff --git a/moyun-server/src/main/java/com/moyun/ext/ai2/handler/impl/KnowledgeQaHandler.java b/moyun-server/src/main/java/com/moyun/ext/ai2/handler/impl/KnowledgeQaHandler.java
+index d900972..a425f38 100644
+--- a/moyun-server/src/main/java/com/moyun/ext/ai2/handler/impl/KnowledgeQaHandler.java
++++ b/moyun-server/src/main/java/com/moyun/ext/ai2/handler/impl/KnowledgeQaHandler.java
+@@ -27 +27 @@ import java.util.Map;
+- * 知识问答场景Handler（scene = knowledge_qa，v11.65）
++ * 知识问答场景Handler（scene = knowledge_qa）
+@@ -113 +113 @@ public class KnowledgeQaHandler extends AbstractAiSceneHandler {
+-            // 6. 提示词构建（v11.95：场景系统提示词模板废弃，统一走 Agent 人设 + 知识库规则；
++            // 6. 提示词构建（场景系统提示词模板废弃，统一走 Agent 人设 + 知识库规则；
+diff --git a/moyun-server/src/main/java/com/moyun/ext/ai2/handler/impl/QuestionGenerateHandler.java b/moyun-server/src/main/java/com/moyun/ext/ai2/handler/impl/QuestionGenerateHandler.java
+index 1a00542..402e2f0 100644
+--- a/moyun-server/src/main/java/com/moyun/ext/ai2/handler/impl/QuestionGenerateHandler.java
++++ b/moyun-server/src/main/java/com/moyun/ext/ai2/handler/impl/QuestionGenerateHandler.java
+@@ -21 +21 @@ import java.util.Map;
+- * <p><strong>v11.58 P0-3 业务收口——双子任务契约：</strong></p>
++ * <p><strong>业务收口——双子任务契约：</strong></p>
+@@ -64 +64 @@ public class QuestionGenerateHandler extends AbstractAiSceneHandler {
+-    // ==================== 子任务：JD 关键词提取（v11.58 业务收口） ====================
++    // ==================== 子任务：JD 关键词提取（业务收口） ====================
+diff --git a/moyun-server/src/main/java/com/moyun/ext/ai2/handler/impl/ResumeOptimizeHandler.java b/moyun-server/src/main/java/com/moyun/ext/ai2/handler/impl/ResumeOptimizeHandler.java
+index 9ccd859..7944078 100644
+--- a/moyun-server/src/main/java/com/moyun/ext/ai2/handler/impl/ResumeOptimizeHandler.java
++++ b/moyun-server/src/main/java/com/moyun/ext/ai2/handler/impl/ResumeOptimizeHandler.java
+@@ -19 +19 @@ import java.util.Map;
+- * <p><strong>v11.58 P0-3 业务收口——双子任务契约：</strong></p>
++ * <p><strong>业务收口——双子任务契约：</strong></p>
+@@ -64 +64 @@ public class ResumeOptimizeHandler extends AbstractAiSceneHandler {
+-    // ==================== 子任务模式（v11.58 业务收口） ====================
++    // ==================== 子任务模式（业务收口） ====================
+@@ -89 +89 @@ public class ResumeOptimizeHandler extends AbstractAiSceneHandler {
+-     * 子任务 → 系统提示词（从业务服务逐字收编，v11.58）
++     * 子任务 → 系统提示词（从业务服务逐字收编）
+diff --git a/moyun-server/src/main/java/com/moyun/ext/ai2/handler/impl/ResumeParseHandler.java b/moyun-server/src/main/java/com/moyun/ext/ai2/handler/impl/ResumeParseHandler.java
+index d5ecefa..6bf5db6 100644
+--- a/moyun-server/src/main/java/com/moyun/ext/ai2/handler/impl/ResumeParseHandler.java
++++ b/moyun-server/src/main/java/com/moyun/ext/ai2/handler/impl/ResumeParseHandler.java
+@@ -20 +20 @@ import java.util.Map;
+- * <p>v11.58 P0-3 业务收口：提示词与 {@code ResumeParseService.parseByLlm} 原文完全一致
++ * <p>业务收口：提示词与 {@code ResumeParseService.parseByLlm} 原文完全一致
+@@ -49 +49 @@ public class ResumeParseHandler extends AbstractAiSceneHandler {
+-        // v11.58：与 ResumeParseService.parseByLlm 原提示词逐字一致（全字段 Schema）
++        // 与 ResumeParseService.parseByLlm 原提示词逐字一致（全字段 Schema）
+@@ -59 +59 @@ public class ResumeParseHandler extends AbstractAiSceneHandler {
+-        // v11.57：数据通道隔离——简历原文为不可信数据，分隔符包裹防注入（数据内指令性文字不构成指令）
++        // 数据通道隔离——简历原文为不可信数据，分隔符包裹防注入（数据内指令性文字不构成指令）
+@@ -72 +72 @@ public class ResumeParseHandler extends AbstractAiSceneHandler {
+-        // v11.58：完整解析结果置于 structured（业务侧 convertValue → ResumeParseVO）
++        // 完整解析结果置于 structured（业务侧 convertValue → ResumeParseVO）
+diff --git a/moyun-server/src/main/java/com/moyun/ext/ai2/handler/impl/SensitiveWordHandler.java b/moyun-server/src/main/java/com/moyun/ext/ai2/handler/impl/SensitiveWordHandler.java
+index 0ca4729..3295577 100644
+--- a/moyun-server/src/main/java/com/moyun/ext/ai2/handler/impl/SensitiveWordHandler.java
++++ b/moyun-server/src/main/java/com/moyun/ext/ai2/handler/impl/SensitiveWordHandler.java
+@@ -21 +21 @@ import java.util.Map;
+- * <p>输入参数：input.text（数据通道，v11.57 P0-3 收口修正——待检测文本是**不可信数据**
++ * <p>输入参数：input.text（数据通道，收口修正——待检测文本是**不可信数据**
+@@ -23 +23 @@ import java.util.Map;
+- * v11.57 双通道防护设计（指令=指令通道 / 数据=数据通道）相悖）</p>
++ * 双通道防护设计（指令=指令通道 / 数据=数据通道）相悖）</p>
+@@ -55 +55 @@ public class SensitiveWordHandler extends AbstractAiSceneHandler {
+-        // v11.57：数据通道隔离——待检测文本为不可信数据，分隔符包裹防注入
++        // 数据通道隔离——待检测文本为不可信数据，分隔符包裹防注入
+diff --git a/moyun-server/src/main/java/com/moyun/ext/ai2/handler/impl/VoiceInterviewHandler.java b/moyun-server/src/main/java/com/moyun/ext/ai2/handler/impl/VoiceInterviewHandler.java
+index 9267a83..0d34bb4 100644
+--- a/moyun-server/src/main/java/com/moyun/ext/ai2/handler/impl/VoiceInterviewHandler.java
++++ b/moyun-server/src/main/java/com/moyun/ext/ai2/handler/impl/VoiceInterviewHandler.java
+@@ -22 +22 @@ import java.util.Map;
+- * <p><strong>v11.58 P0-3c 业务收口——双子任务契约（task+context）：</strong></p>
++ * <p><strong>业务收口——双子任务契约（task+context）：</strong></p>
+@@ -24 +24 @@ import java.util.Map;
+- *   <li><b>task=warmup</b>（v11.94 V4）：面试预热——一次调用产出"AI 理解"（候选人画像+
++ *   <li><b>task=warmup</b>（V4）：面试预热——一次调用产出"AI 理解"（候选人画像+
+@@ -114 +114 @@ public class VoiceInterviewHandler extends AbstractAiSceneHandler {
+-    // ==================== 子任务：面试预热（v11.94 V4：理解成本前置） ====================
++    // ==================== 子任务：面试预热（V4：理解成本前置） ====================
+@@ -174 +174 @@ public class VoiceInterviewHandler extends AbstractAiSceneHandler {
+-    // ==================== 子任务：候选人回答深度分析（v11.58 P0-3c 收口） ====================
++    // ==================== 子任务：候选人回答深度分析（收口） ====================
+@@ -216 +216 @@ public class VoiceInterviewHandler extends AbstractAiSceneHandler {
+-    // ==================== 子任务：候选人反问环节（v11.58 P0-3c 收口） ====================
++    // ==================== 子任务：候选人反问环节（收口） ====================
+@@ -242 +242 @@ public class VoiceInterviewHandler extends AbstractAiSceneHandler {
+-    // ==================== 子任务：知识点批量简介（v11.58 P0-3c 收口） ====================
++    // ==================== 子任务：知识点批量简介（收口） ====================
+@@ -268 +268 @@ public class VoiceInterviewHandler extends AbstractAiSceneHandler {
+-    // ==================== 子任务：面试官轮次话术（v11.58 P0-3c 收口） ====================
++    // ==================== 子任务：面试官轮次话术（收口） ====================
+@@ -294 +294 @@ public class VoiceInterviewHandler extends AbstractAiSceneHandler {
+-    // ==================== 子任务：自我介绍 4 维评分（v11.58 P0-3c 收口） ====================
++    // ==================== 子任务：自我介绍 4 维评分（收口） ====================
+@@ -356 +356 @@ public class VoiceInterviewHandler extends AbstractAiSceneHandler {
+-        // v11.58：候选人回答为外部不可信数据，切数据通道隔离（防提示词注入）
++        // 候选人回答为外部不可信数据，切数据通道隔离（防提示词注入）
+diff --git a/moyun-server/src/main/java/com/moyun/ext/ai2/model/AiExecuteRequest.java b/moyun-server/src/main/java/com/moyun/ext/ai2/model/AiExecuteRequest.java
+index 16ad37f..504817e 100644
+--- a/moyun-server/src/main/java/com/moyun/ext/ai2/model/AiExecuteRequest.java
++++ b/moyun-server/src/main/java/com/moyun/ext/ai2/model/AiExecuteRequest.java
+@@ -23 +23 @@ import java.util.Map;
+- * <p>入参语义分层（v11.52 确立）：</p>
++ * <p>入参语义分层（确立）：</p>
+diff --git a/moyun-server/src/main/java/com/moyun/ext/ai2/model/AiMetadata.java b/moyun-server/src/main/java/com/moyun/ext/ai2/model/AiMetadata.java
+index 85ab4c4..6b0d24b 100644
+--- a/moyun-server/src/main/java/com/moyun/ext/ai2/model/AiMetadata.java
++++ b/moyun-server/src/main/java/com/moyun/ext/ai2/model/AiMetadata.java
+@@ -25 +25 @@ public class AiMetadata {
+-    /** 输入 Token（v11.57 P0-2 成本核算用） */
++    /** 输入 Token（成本核算用） */
+@@ -28 +28 @@ public class AiMetadata {
+-    /** 输出 Token（v11.57 P0-2 成本核算用） */
++    /** 输出 Token（成本核算用） */
+diff --git a/moyun-server/src/main/java/com/moyun/ext/ai2/model/ChatOutcome.java b/moyun-server/src/main/java/com/moyun/ext/ai2/model/ChatOutcome.java
+index 8640f2e..9902eab 100644
+--- a/moyun-server/src/main/java/com/moyun/ext/ai2/model/ChatOutcome.java
++++ b/moyun-server/src/main/java/com/moyun/ext/ai2/model/ChatOutcome.java
+@@ -6 +6 @@ import lombok.Data;
+- * LLM 调用结构化结果（v11.51 可观测性闭环）
++ * LLM 调用结构化结果（可观测性闭环）
+@@ -29 +29 @@ public class ChatOutcome {
+-    /** 输入 Token（v11.57 P0-2 成本核算：模型未返回为 null） */
++    /** 输入 Token（成本核算：模型未返回为 null） */
+@@ -32 +32 @@ public class ChatOutcome {
+-    /** 输出 Token（v11.57 P0-2 成本核算：模型未返回为 null） */
++    /** 输出 Token（成本核算：模型未返回为 null） */
+diff --git a/moyun-server/src/main/java/com/moyun/ext/ai2/model/data/InterviewSceneData.java b/moyun-server/src/main/java/com/moyun/ext/ai2/model/data/InterviewSceneData.java
+index 332be5a..ef7bed2 100644
+--- a/moyun-server/src/main/java/com/moyun/ext/ai2/model/data/InterviewSceneData.java
++++ b/moyun-server/src/main/java/com/moyun/ext/ai2/model/data/InterviewSceneData.java
+@@ -47 +47 @@ public class InterviewSceneData {
+-     * 子任务结构化结果（v11.58 P0-3c 业务收口）：
++     * 子任务结构化结果（业务收口）：
+diff --git a/moyun-server/src/main/java/com/moyun/ext/ai2/model/data/KnowledgeQaSceneData.java b/moyun-server/src/main/java/com/moyun/ext/ai2/model/data/KnowledgeQaSceneData.java
+index 21e9af1..e235481 100644
+--- a/moyun-server/src/main/java/com/moyun/ext/ai2/model/data/KnowledgeQaSceneData.java
++++ b/moyun-server/src/main/java/com/moyun/ext/ai2/model/data/KnowledgeQaSceneData.java
+@@ -8 +8 @@ import java.util.List;
+- * 知识问答场景数据（scene = knowledge_qa，v11.65）
++ * 知识问答场景数据（scene = knowledge_qa）
+diff --git a/moyun-server/src/main/java/com/moyun/ext/ai2/model/data/QuestionSceneData.java b/moyun-server/src/main/java/com/moyun/ext/ai2/model/data/QuestionSceneData.java
+index 75ea065..1201737 100644
+--- a/moyun-server/src/main/java/com/moyun/ext/ai2/model/data/QuestionSceneData.java
++++ b/moyun-server/src/main/java/com/moyun/ext/ai2/model/data/QuestionSceneData.java
+@@ -25 +25 @@ public class QuestionSceneData {
+-    /** JD 关键词提取结果（task=jd_keywords，v11.58 业务收口） */
++    /** JD 关键词提取结果（task=jd_keywords，业务收口） */
+diff --git a/moyun-server/src/main/java/com/moyun/ext/ai2/registry/AiSceneRegistry.java b/moyun-server/src/main/java/com/moyun/ext/ai2/registry/AiSceneRegistry.java
+index 366d3e2..6841a3d 100644
+--- a/moyun-server/src/main/java/com/moyun/ext/ai2/registry/AiSceneRegistry.java
++++ b/moyun-server/src/main/java/com/moyun/ext/ai2/registry/AiSceneRegistry.java
+@@ -26 +26 @@ import java.util.concurrent.ConcurrentHashMap;
+- * <p>v11.41：合并到 ai_scene_config 表（原 ai2_scene_registry 已废弃），绑定关系与执行配置统一管理。</p>
++ * <p>合并到 ai_scene_config 表（原 ai2_scene_registry 已废弃），绑定关系与执行配置统一管理。</p>
+@@ -28 +28 @@ import java.util.concurrent.ConcurrentHashMap;
+- * <p>v11.48：配置不再内存缓存——getConfig 每次直查数据库（LLM 调用为秒级，一次索引查询开销可忽略），
++ * <p>配置不再内存缓存——getConfig 每次直查数据库（LLM 调用为秒级，一次索引查询开销可忽略），
+@@ -79 +79 @@ public class AiSceneRegistry {
+-     * 按场景代码获取启用配置（v11.48：直查数据库，管理端变更即时生效）
++     * 按场景代码获取启用配置（直查数据库，管理端变更即时生效）
+diff --git a/moyun-server/src/main/java/com/moyun/ext/ai2/service/AiGatewayService.java b/moyun-server/src/main/java/com/moyun/ext/ai2/service/AiGatewayService.java
+index b0771aa..3263019 100644
+--- a/moyun-server/src/main/java/com/moyun/ext/ai2/service/AiGatewayService.java
++++ b/moyun-server/src/main/java/com/moyun/ext/ai2/service/AiGatewayService.java
+@@ -51 +51 @@ public class AiGatewayService {
+-    /** v11.57 P0-2：场景日 Token 成本熔断（ai_scene_config.daily_token_limit） */
++    /** 场景日 Token 成本熔断（ai_scene_config.daily_token_limit） */
+@@ -53 +53 @@ public class AiGatewayService {
+-    /** v11.62 P1-3：输出内容过滤（ai_scene_config.enable_output_filter，复用 DFA 词树脱敏） */
++    /** 输出内容过滤（ai_scene_config.enable_output_filter，复用 DFA 词树脱敏） */
+@@ -55 +55 @@ public class AiGatewayService {
+-    /** v11.49：Agent 人设注入（ai_scene_config.agent_id → ai_agent.system_prompt） */
++    /** Agent 人设注入（ai_scene_config.agent_id → ai_agent.system_prompt） */
+@@ -78 +78 @@ public class AiGatewayService {
+-            // 1.2 输出模式路由校验（v11.66 P1-5：output_mode 配置接线——此前配置可编辑零消费）。
++            // 1.2 输出模式路由校验（output_mode 配置接线——此前配置可编辑零消费）。
+@@ -86 +86 @@ public class AiGatewayService {
+-            // 1.5 Agent 人设注入（v11.49：ai_scene_config.agent_id 绑定智能体时，其 system_prompt
++            // 1.5 Agent 人设注入（ai_scene_config.agent_id 绑定智能体时，其 system_prompt
+@@ -91 +91 @@ public class AiGatewayService {
+-            // 1.6 Prompt 注入防护（v11.57 P0-1）：指令通道（顶层 userInput）统一清洗+扫描。
++            // 1.6 Prompt 注入防护：指令通道（顶层 userInput）统一清洗+扫描。
+@@ -110 +110 @@ public class AiGatewayService {
+-            // 2. 意图判断（v11.52：消费顶层 userInput 字段——用户自由文本触发分类路由；
++            // 2. 意图判断（消费顶层 userInput 字段——用户自由文本触发分类路由；
+@@ -134 +134 @@ public class AiGatewayService {
+-                    // 输出过滤（v11.62 P1-3）：命中路径同样过滤——兜底过滤功能上线前的存量旧缓存
++                    // 输出过滤：命中路径同样过滤——兜底过滤功能上线前的存量旧缓存
+@@ -159 +159 @@ public class AiGatewayService {
+-            // 4.5 成本熔断（v11.57 P0-2）：场景日 Token 累计超 daily_token_limit → 拒绝。
++            // 4.5 成本熔断：场景日 Token 累计超 daily_token_limit → 拒绝。
+@@ -176 +176 @@ public class AiGatewayService {
+-            // 6. 执行（v11.48：配置随调用下发，Handler 提示词/输出结构读配置即时生效，无静态 ThreadLocal）
++            // 6. 执行（配置随调用下发，Handler 提示词/输出结构读配置即时生效，无静态 ThreadLocal）
+@@ -179 +179 @@ public class AiGatewayService {
+-            // 6.5 输出内容过滤（v11.62 P1-3）：场景开启 enable_output_filter 时，复用 DFA 词树
++            // 6.5 输出内容过滤：场景开启 enable_output_filter 时，复用 DFA 词树
+@@ -190 +190 @@ public class AiGatewayService {
+-            // v11.57 P0-2：按实际消耗累计场景日 Token（未回传 token 不计）
++            // 按实际消耗累计场景日 Token（未回传 token 不计）
+@@ -238 +238 @@ public class AiGatewayService {
+-            // Prompt 注入防护（v11.57 P0-1）：流式路径同样清洗+拦截
++            // Prompt 注入防护：流式路径同样清洗+拦截
+@@ -250 +250 @@ public class AiGatewayService {
+-            // 流式支持校验（Handler 能力 + 场景配置双保险，v11.66：output_mode='sync' 显式拒绝流式）
++            // 流式支持校验（Handler 能力 + 场景配置双保险，output_mode='sync' 显式拒绝流式）
+@@ -270 +270 @@ public class AiGatewayService {
+-            // 成本熔断（v11.57 P0-2）：流式路径同样前置配额检查；
++            // 成本熔断：流式路径同样前置配额检查；
+@@ -296 +296 @@ public class AiGatewayService {
+-     * 输入通道清洗（v11.57 P0-1）：顶层 userInput 走 sanitizeAndCap（含长度截断）；
++     * 输入通道清洗：顶层 userInput 走 sanitizeAndCap（含长度截断）；
+@@ -300 +300 @@ public class AiGatewayService {
+-     * <p>v11.98 根因修复：业务侧可能传入不可变 Map（{@code Map.of(...)}），原地
++     * <p>根因修复：业务侧可能传入不可变 Map（{@code Map.of(...)}），原地
+@@ -318 +318 @@ public class AiGatewayService {
+-     * Agent 人设注入（v11.49）：ai_scene_config.agent_id 绑定智能体时，读取 ai_agent.system_prompt，
++     * Agent 人设注入：ai_scene_config.agent_id 绑定智能体时，读取 ai_agent.system_prompt，
+@@ -354 +354 @@ public class AiGatewayService {
+-     * 响应元数据补充 Agent 名称（v11.51 可观测性）：Handler 已填 modelUsed/tokenUsed 等时仅补
++     * 响应元数据补充 Agent 名称（可观测性）：Handler 已填 modelUsed/tokenUsed 等时仅补
+diff --git a/moyun-server/src/main/java/com/moyun/ext/ai2/support/AiExecuteLogService.java b/moyun-server/src/main/java/com/moyun/ext/ai2/support/AiExecuteLogService.java
+index 35236a1..efa2a79 100644
+--- a/moyun-server/src/main/java/com/moyun/ext/ai2/support/AiExecuteLogService.java
++++ b/moyun-server/src/main/java/com/moyun/ext/ai2/support/AiExecuteLogService.java
+@@ -30 +30 @@ public class AiExecuteLogService {
+-    /** v11.57 P0-2：成本核算复用老链路口径（ai_model_config 单价 + 价格缓存），保证与 Token 统计页一致 */
++    /** 成本核算复用老链路口径（ai_model_config 单价 + 价格缓存），保证与 Token 统计页一致 */
+@@ -35 +35 @@ public class AiExecuteLogService {
+-     * 异步记录执行日志（v11.51：响应 metadata 的模型/Agent/token 同步落 ai_execute_log，
++     * 异步记录执行日志（响应 metadata 的模型/Agent/token 同步落 ai_execute_log，
+@@ -37 +37 @@ public class AiExecuteLogService {
+-     * v11.57 P0-2：cost_yuan 按 metadata 细分 token × 模型单价核算落库）
++     * cost_yuan 按 metadata 细分 token × 模型单价核算落库）
+@@ -49 +49 @@ public class AiExecuteLogService {
+-     * 异步记录执行日志（v11.73：带用户维度——网关 request.getUserId() 直取，
++     * 异步记录执行日志（带用户维度——网关 request.getUserId() 直取，
+diff --git a/moyun-server/src/main/java/com/moyun/ext/ai2/support/AiOutputFilter.java b/moyun-server/src/main/java/com/moyun/ext/ai2/support/AiOutputFilter.java
+index 84485e5..93adfc7 100644
+--- a/moyun-server/src/main/java/com/moyun/ext/ai2/support/AiOutputFilter.java
++++ b/moyun-server/src/main/java/com/moyun/ext/ai2/support/AiOutputFilter.java
+@@ -21 +21 @@ import java.util.Set;
+- * AI 输出内容过滤器（v11.62 P1-3）
++ * AI 输出内容过滤器
+diff --git a/moyun-server/src/main/java/com/moyun/ext/ai2/support/AiSceneJsonClient.java b/moyun-server/src/main/java/com/moyun/ext/ai2/support/AiSceneJsonClient.java
+index 3779c77..16c21fc 100644
+--- a/moyun-server/src/main/java/com/moyun/ext/ai2/support/AiSceneJsonClient.java
++++ b/moyun-server/src/main/java/com/moyun/ext/ai2/support/AiSceneJsonClient.java
+@@ -19 +19 @@ import java.util.Map;
+- * 场景结构化 JSON 调用客户端（v11.58 P0-3 业务收口配套）
++ * 场景结构化 JSON 调用客户端（业务收口配套）
+@@ -33 +33 @@ import java.util.Map;
+- * <p>v11.58 P0-3c：解包泛化——ResumeSceneData（简历族）与 InterviewSceneData
++ * <p>解包泛化——ResumeSceneData（简历族）与 InterviewSceneData
+diff --git a/moyun-server/src/main/java/com/moyun/ext/ai2/support/PromptInjectionGuard.java b/moyun-server/src/main/java/com/moyun/ext/ai2/support/PromptInjectionGuard.java
+index 342549f..abccd2e 100644
+--- a/moyun-server/src/main/java/com/moyun/ext/ai2/support/PromptInjectionGuard.java
++++ b/moyun-server/src/main/java/com/moyun/ext/ai2/support/PromptInjectionGuard.java
+@@ -7 +7 @@ import java.util.regex.Pattern;
+- * Prompt 注入防护（v11.57 P0-1）
++ * Prompt 注入防护
+@@ -19 +19 @@ import java.util.regex.Pattern;
+- * （语音面试/对话），由数据隔离与系统提示词边界（v11.53 任务边界）兜底。</p>
++ * （语音面试/对话），由数据隔离与系统提示词边界（任务边界）兜底。</p>
+diff --git a/moyun-server/src/main/java/com/moyun/ext/ai2/support/TokenCostGuard.java b/moyun-server/src/main/java/com/moyun/ext/ai2/support/TokenCostGuard.java
+index e8aee70..f9719a0 100644
+--- a/moyun-server/src/main/java/com/moyun/ext/ai2/support/TokenCostGuard.java
++++ b/moyun-server/src/main/java/com/moyun/ext/ai2/support/TokenCostGuard.java
+@@ -13 +13 @@ import java.time.format.DateTimeFormatter;
+- * 场景日 Token 成本熔断（v11.57 P0-2）
++ * 场景日 Token 成本熔断

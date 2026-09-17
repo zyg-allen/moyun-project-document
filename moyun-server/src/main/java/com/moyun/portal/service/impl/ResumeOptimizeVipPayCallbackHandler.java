@@ -16,7 +16,7 @@ import org.springframework.stereotype.Component;
 import java.time.LocalDateTime;
 
 /**
- * 简历优化会员订阅支付回调处理器（v11.83，bizType="resume_optimize"，平台直收类）
+ * 简历优化会员订阅支付回调处理器（bizType="resume_optimize"，平台直收类）
  *
  * <p>网关支付成功后在事务内调用：订单 pending→paid → 权益顺延发放
  * （vip_expire 从 max(now, 现有到期) 顺延 duration_days，续费不折损）→

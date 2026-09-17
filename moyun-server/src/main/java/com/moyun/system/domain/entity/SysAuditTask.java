@@ -11,7 +11,7 @@ import java.io.Serializable;
 import java.time.LocalDateTime;
 
 /**
- * 统一审核任务表 sys_audit_task（v8.1）
+ * 统一审核任务表 sys_audit_task
  * <p>
  * 替代分散的各业务表 status 聚合查询，作为审核入口索引 + 审核记录。
  * 业务表 status 字段保留作真实状态，本表作索引 + 记录（双写策略）。

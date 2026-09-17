@@ -29,7 +29,7 @@ import java.util.UUID;
 @RequestMapping("/cms/ai/chat")
 public class ChatController {
 
-    /** v11.95 任务2：对话链路治理场景（ai_scene_config.default_chat 行承载限流参数） */
+    /** 对话链路治理场景（ai_scene_config.default_chat 行承载限流参数） */
     private static final String SCENE_DEFAULT_CHAT = "default_chat";
 
     @Autowired
@@ -65,7 +65,7 @@ public class ChatController {
 
         log.debug("✅ 使用 DynamicChatService 处理对话");
 
-        // v11.95 任务2：default_chat 治理前置——「场景×用户」限流（问候语系统触发，不占用户额度）
+        // default_chat 治理前置——「场景×用户」限流（问候语系统触发，不占用户额度）
         boolean isGreeting = Boolean.TRUE.equals(chatRequest.getIsGreeting());
         Long userId = currentUserId();
         if (!isGreeting && !tryAcquireChatRateLimit(userId, chatRequest.getMessage())) {
@@ -121,7 +121,7 @@ public class ChatController {
             return Flux.just("❌ 缺少必要参数");
         }
 
-        // v11.95 任务2：重新生成同样走 default_chat 限流
+        // 重新生成同样走 default_chat 限流
         Long userId = currentUserId();
         if (!tryAcquireChatRateLimit(userId, chatRequest.getMessage())) {
             return Flux.just("❌ 请求过于频繁，请稍后再试");
@@ -148,7 +148,7 @@ public class ChatController {
     }
 
     /**
-     * v11.95 任务2：default_chat「场景×用户」限流。配置行未部署（getConfig 为 null）时不限流，
+     * default_chat「场景×用户」限流。配置行未部署（getConfig 为 null）时不限流，
      * 与历史行为一致；限流参数读 ai_scene_config.rate_limit_count / rate_limit_time，管理端改完即生效。
      *
      * @return true=放行；false=已限流（失败日志已记录）

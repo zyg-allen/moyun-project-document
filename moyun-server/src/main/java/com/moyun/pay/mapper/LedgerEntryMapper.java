@@ -5,7 +5,7 @@ import com.moyun.pay.domain.entity.LedgerEntry;
 import org.apache.ibatis.annotations.Mapper;
 
 /**
- * LedgerEntry Mapper（V11.0）
+ * LedgerEntry Mapper
  *
  * @author moyun
  */

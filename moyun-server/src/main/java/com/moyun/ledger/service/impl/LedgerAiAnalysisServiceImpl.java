@@ -39,7 +39,7 @@ import java.util.Map;
 /**
  * 记账 AI 财务分析服务实现
  *
- * <p>v11.50 架构（Service 薄化 / 配置即场景）：本 Service 只承担业务编排——
+ * <p>架构（Service 薄化 / 配置即场景）：本 Service 只承担业务编排——
  * 快照缓存（指纹失效）/ 网关调用 / 报告落表 / 画像管理。数据组装（查库/指标/趋势上下文）
  * 与 LLM 变换全部下沉 {@link com.moyun.ledger.handler.FinanceAnalysisHandler}（场景差异化编码区），
  * 提示词模板/人设/输出结构由 ai_scene_config 配置驱动，管理页修改即时生效。</p>
@@ -47,7 +47,7 @@ import java.util.Map;
  * <p>流程：指纹命中快照→直接返回；否则网关 execute(finance_analysis, {userId, range})
  * → Handler 查数组装+模板渲染+LLM（失败内部降级）→ 返回完整报告 → 落表月度快照 → 返回。</p>
  *
- * <p><strong>异步任务选型（v11.67 双轨制定位）</strong>：本服务采用 Redis 状态 + 线程池的
+ * <p><strong>异步任务选型（双轨制定位）</strong>：本服务采用 Redis 状态 + 线程池的
  * 轻量异步模式（任务态 30 分钟 TTL），适用于财务分析这类短时长、结果时效性强的任务
  * ——报告快照本身落 ledger_ai_analysis_report 持久化，任务态无需留痕；
  * 长任务/需审计追溯的 AI 任务走表驱动 AiTaskService（portal_ai_task），
@@ -96,7 +96,7 @@ public class LedgerAiAnalysisServiceImpl implements ILedgerAiAnalysisService {
     @Autowired(required = false)
     private com.moyun.ext.ai2.service.AiGatewayService aiGatewayService;
 
-    // ==================== 异步任务（v11.55） ====================
+    // ==================== 异步任务 ====================
 
     private static final String TASK_KEY_PREFIX = "ledger:ai:analysis:task:";
     private static final String RUNNING_KEY_PREFIX = "ledger:ai:analysis:running:";
@@ -211,7 +211,7 @@ public class LedgerAiAnalysisServiceImpl implements ILedgerAiAnalysisService {
         }
         String rangeLabel = RANGE_LABEL.get(range);
         String period = LocalDate.now().format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM"));
-        // v11.72：四维度均独立快照（uk user_id+period+analysis_range），切换 tab 各查各的
+        // 四维度均独立快照（uk user_id+period+analysis_range），切换 tab 各查各的
         // refresh=false（页面进入/切 tab）= 纯查询：命中直接返回，未命中返回 exists:false
         // 由前端引导显式"去分析"（异步任务 refresh=true）——杜绝进入页面隐式触发 LLM
         if (!refresh) {
@@ -259,7 +259,7 @@ public class LedgerAiAnalysisServiceImpl implements ILedgerAiAnalysisService {
         result.put("range", range);
         result.put("rangeLabel", rangeLabel);
 
-        // 落库快照（v11.72 覆盖式：同 user+period+range 唯一一份，重新分析更新不新增）
+        // 落库快照（覆盖式：同 user+period+range 唯一一份，重新分析更新不新增）
         upsertReport(userId, period, range, healthScore, indicators, incomeSources,
                 risks, suggestions, aiSummary, aiEnabled, profileStamp(user), fingerprint);
         return result;
@@ -303,7 +303,7 @@ public class LedgerAiAnalysisServiceImpl implements ILedgerAiAnalysisService {
         com.baomidou.mybatisplus.extension.plugins.pagination.Page<LedgerAiAnalysisReport> r =
                 reportMapper.selectPage(p, new LambdaQueryWrapper<LedgerAiAnalysisReport>()
                         .eq(LedgerAiAnalysisReport::getUserId, userId)
-                        // v11.55 多版本：按生成时间倒序（同 period 新版本在前）
+                        // 多版本：按生成时间倒序（同 period 新版本在前）
                         .orderByDesc(LedgerAiAnalysisReport::getId));
         List<Map<String, Object>> list = new ArrayList<>();
         for (LedgerAiAnalysisReport rep : r.getRecords()) {
@@ -365,7 +365,7 @@ public class LedgerAiAnalysisServiceImpl implements ILedgerAiAnalysisService {
     }
 
     /**
-     * 覆盖式落库（v11.72：同 user+period+range 唯一一份，重新分析 UPDATE 覆盖不新增；
+     * 覆盖式落库（同 user+period+range 唯一一份，重新分析 UPDATE 覆盖不新增；
      * 查询与覆盖口径一致；失败仅告警不影响返回）
      */
     private void upsertReport(Long userId, String period, String range, int healthScore,

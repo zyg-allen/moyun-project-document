@@ -11,7 +11,7 @@ import java.time.LocalDateTime;
 /**
  * 记账-备忘录（首页待办事项与备忘录模块共用一张表）
  *
- * <p>v11.34 增强：事项标题/内容/事项时间/是否提醒/提醒方式/重要程度。
+ * <p>增强：事项标题/内容/事项时间/是否提醒/提醒方式/重要程度。
  * 提醒由 LedgerMemoRemindTask 定时扫描 event_time - 提前量 到达的事项，
  * 经 INotificationService 发送站内通知，reminded 防重。
  *

@@ -135,7 +135,7 @@ public class PortalReadingProgressServiceImpl extends ServiceImpl<PortalReadingP
             progress.setLastReadTime(LocalDateTime.now());
         }
 
-        // v1.1 阅读闭环：查询旧记录，判断是否首次完成（避免重复触发成长事件和 Feed 动态）
+        // 阅读闭环：查询旧记录，判断是否首次完成（避免重复触发成长事件和 Feed 动态）
         // 注意：upsertChapterProgress 是前端实际调用路径（30s 节流上报 + 章节切换强制上报），
         //       必须在此处承担完成事件触发职责，否则用户读完章节/全书后状态永远无法闭环到 finished
         String previousStatus = null;

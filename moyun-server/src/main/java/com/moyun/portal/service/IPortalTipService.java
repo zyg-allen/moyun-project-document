@@ -15,7 +15,7 @@ public interface IPortalTipService {
 
     /**
      * 发起打赏（积分支付：直接置 status='paid'，打赏者扣积分、作者加积分）
-     * v11.79 单钱包：余额/分账统一走 pay_user_account + pay_ledger_entry（社区钱包 portal_wallet 已废弃删除）
+     * 单钱包：余额/分账统一走 pay_user_account + pay_ledger_entry（社区钱包 portal_wallet 已废弃删除）
      *
      * @param order 打赏订单（需含 targetType/targetId/amount，user_id/author_id 由调用方填充）
      * @return 创建后的打赏订单
@@ -61,7 +61,7 @@ public interface IPortalTipService {
     boolean hasPaid(Long userId, String targetType, Long targetId);
 
     /**
-     * 发起微信支付打赏（V11.0 公共支付通道接入）
+     * 发起微信支付打赏（公共支付通道接入）
      *
      * <p>流程：实名/对象/防自赏/金额校验 → 落 pending 打赏单 → 网关统一下单（元转分）
      * → 返回收银台所需 payNo/codeUrl/amount/expireTime/tipOrderId。

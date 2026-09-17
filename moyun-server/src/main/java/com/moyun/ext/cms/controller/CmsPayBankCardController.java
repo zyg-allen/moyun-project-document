@@ -23,7 +23,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * CMS 银行卡后台管理 Controller（V11.0，只读脱敏）
+ * CMS 银行卡后台管理 Controller（只读脱敏）
  *
  * <p>安全红线：后台同样禁止下发卡号/手机号密文，仅展示脱敏字段。
  *

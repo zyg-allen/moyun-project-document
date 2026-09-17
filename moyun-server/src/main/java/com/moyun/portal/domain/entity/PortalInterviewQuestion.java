@@ -122,7 +122,7 @@ public class PortalInterviewQuestion extends BaseEntity {
     @Excel(name = "状态", readConverterExp = "draft=草稿,published=已发布,archived=已归档")
     private String status;
 
-    // ============ 结构化字段（v6.3 题目结构化） ============
+    // ============ 结构化字段（题目结构化） ============
 
     /**
      * 题目类型：bagwen 八股 / algorithm 算法 / system_design 系统设计 / project 项目 / hr HR
@@ -165,7 +165,7 @@ public class PortalInterviewQuestion extends BaseEntity {
     @Excel(name = "前置题目ID")
     private String prerequisiteIds;
 
-    // ============ 练习模式扩展字段（v10.6 题库重构·阶段2） ============
+    // ============ 练习模式扩展字段（题库重构·阶段2） ============
 
     /**
      * 练习模式：reading 展示阅读 / choice 选择题 / coding 编程题

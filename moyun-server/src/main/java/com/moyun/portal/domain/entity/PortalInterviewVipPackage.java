@@ -9,7 +9,7 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 /**
- * 面试会员套餐（v11.82 平台直收类）
+ * 面试会员套餐（平台直收类）
  *
  * <p>价格/时长后台可配置（骨架阶段提供默认套餐，后续调整无需改代码）。
  * 购买走公共支付通道：portal_interview_vip_order（bizType=interview_vip，platform=portal）。

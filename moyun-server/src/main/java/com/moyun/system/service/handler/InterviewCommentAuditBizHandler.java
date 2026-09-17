@@ -12,7 +12,7 @@ import com.moyun.portal.mapper.PortalInterviewCommentMapper;
 import com.moyun.system.service.AuditBizHandler;
 
 /**
- * 面经评论审核业务处理器（v8.1）
+ * 面经评论审核业务处理器
  * <p>
  * 委托 {@link IPortalInterviewService#auditComment} 处理。
  *

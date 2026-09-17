@@ -65,7 +65,7 @@ public class StartupTaskRunner implements ApplicationRunner {
                 log.warn("修复知识库ID={}, 文件名={}", knowledge.getId(), knowledge.getFileName());
 
                 // 检查是否超时（超过30分钟视为超时）
-                // createTime 字段继承自 AiBaseEntity（原 upload_time，117 脚本重命名，P3-2 Phase 2）
+                // createTime 字段继承自 AiBaseEntity（原 upload_time，117 脚本重命名，Phase 2）
                 LocalDateTime uploadTime = knowledge.getCreateTime();
                 if (uploadTime != null) {
                     long minutes = ChronoUnit.MINUTES.between(uploadTime, LocalDateTime.now());

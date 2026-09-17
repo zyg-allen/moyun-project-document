@@ -7,7 +7,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * 语音面试报告 VO（V10.1）
+ * 语音面试报告 VO
  *
  * <p>结束面试时生成，含总分、维度雷达、亮点/薄弱点、逐题点评。
  *
@@ -57,28 +57,28 @@ public class VoiceInterviewReportVO {
     private List<KnowledgePointView> knowledgePoints;
 
     /**
-     * 面试者简介（v11.90 V2 报告三段式第一栏）
+     * 面试者简介（V2 报告三段式第一栏）
      * <p>key：name 姓名 / skills 技能 / resumeSelfIntro 简历自我介绍 /
      * interviewSelfIntro 面试口头自我介绍 / aiScore 简历AI评分
      */
     private Map<String, String> candidate;
 
     /**
-     * 岗位信息（v11.90 V2 报告三段式第二栏）
+     * 岗位信息（V2 报告三段式第二栏）
      * <p>key：position 岗位 / jobRequirements 岗位要求JD / matchRate 岗位匹配度(%)
      */
     private Map<String, String> jobInfo;
 
-    /** v11.97：整场 LLM 复盘总评（3-5 句，基于简历+岗位+对话；旧报告为 null 前端回退 summary） */
+    /** 整场 LLM 复盘总评（3-5 句，基于简历+岗位+对话；旧报告为 null 前端回退 summary） */
     private String overallComment;
 
-    /** v11.97：LLM 岗位匹配度评估（旧报告为 null 前端回退 jobInfo.matchRate） */
+    /** LLM 岗位匹配度评估（旧报告为 null 前端回退 jobInfo.matchRate） */
     private JobMatchView jobMatch;
 
-    /** v11.97：结构化亮点（旧报告为 null 前端回退 highlights） */
+    /** 结构化亮点（旧报告为 null 前端回退 highlights） */
     private List<PointView> highlightViews;
 
-    /** v11.97：结构化薄弱点（旧报告为 null 前端回退 weakPoints） */
+    /** 结构化薄弱点（旧报告为 null 前端回退 weakPoints） */
     private List<PointView> weakPointViews;
 
     /**
@@ -90,14 +90,14 @@ public class VoiceInterviewReportVO {
         private String question;
         private Integer score;
         private String feedback;
-        /** v11.97：候选人原始作答（前端折叠展开展示） */
+        /** 候选人原始作答（前端折叠展开展示） */
         private String userAnswer;
-        /** v11.97：问答ID（加入错题本用） */
+        /** 问答ID（加入错题本用） */
         private Long qaId;
     }
 
     /**
-     * v11.97：岗位匹配度视图（整场 LLM 复盘产出）
+     * 岗位匹配度视图（整场 LLM 复盘产出）
      */
     @Data
     @JsonIgnoreProperties(ignoreUnknown = true)
@@ -109,7 +109,7 @@ public class VoiceInterviewReportVO {
     }
 
     /**
-     * v11.97：结构化亮点/薄弱点视图（整场 LLM 复盘产出）
+     * 结构化亮点/薄弱点视图（整场 LLM 复盘产出）
      */
     @Data
     @JsonIgnoreProperties(ignoreUnknown = true)
@@ -121,7 +121,7 @@ public class VoiceInterviewReportVO {
     }
 
     /**
-     * 相关知识点视图（v11.30.4：题库 tags 聚合 + LLM 简介增强）
+     * 相关知识点视图（题库 tags 聚合 + LLM 简介增强）
      */
     @Data
     public static class KnowledgePointView {

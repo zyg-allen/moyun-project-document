@@ -32,7 +32,7 @@ import java.util.Map;
 /**
  * 记账流水服务实现（核心联动逻辑）
  *
- * <p>联动规则矩阵（设计方案 V1.2 第 5.1 节）：
+ * <p>联动规则矩阵（设计方案 第 5.1 节）：
  * <pre>
  * income    资产+amount              净资产+amount
  * expense   资产-amount              净资产-amount
@@ -460,7 +460,7 @@ public class LedgerTransactionServiceImpl extends ServiceImpl<LedgerTransactionM
                             ? txn.getDescription() : "借款";
                     newAccount.setName(name);
                     newAccount.setType(LedgerLiabilityAccount.TYPE_OTHER);
-                    // 修复（v11.40.1）：balance 置 0，欠款由下方 applyLiabilityDelta 累加
+                    // 修复：balance 置 0，欠款由下方 applyLiabilityDelta 累加
                     // （原实现 balance=amount 再 +amount，首笔借款欠款双倍计入）
                     newAccount.setBalance(BigDecimal.ZERO);
                     newAccount.setPrincipal(amount);

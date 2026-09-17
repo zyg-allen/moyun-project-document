@@ -14,7 +14,7 @@ import lombok.NoArgsConstructor;
  *
  * <p>对应数据库表 agent_tool，存储工具定义信息</p>
  *
- * <p>继承 {@link AiBaseEntity}，复用 createTime / updateTime / deleted 字段（P3-2 Phase 1）。
+ * <p>继承 {@link AiBaseEntity}，复用 createTime / updateTime / deleted 字段（Phase 1）。
  * 注意：{@code @Builder} 仅覆盖本类字段，不含继承字段；如需构建时设置时间，请用 setter。</p>
  *
  * @author laomao

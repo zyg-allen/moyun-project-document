@@ -9,7 +9,7 @@ import java.util.LinkedHashMap;
 import java.util.stream.Collectors;
 
 /**
- * AI 场景注册表（v11.38）
+ * AI 场景注册表
  *
  * <p>场景代码的唯一权威来源：业务代码引用、后台管理页总览、绑定保存校验共用。
  * 场景元数据（核心能力/输入/输出）是规格描述，低频变更，随代码走版本管理；

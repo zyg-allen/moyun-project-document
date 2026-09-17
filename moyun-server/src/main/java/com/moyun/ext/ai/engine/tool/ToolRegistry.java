@@ -162,7 +162,7 @@ public class ToolRegistry {
             return ToolResult.fail("工具不存在: " + toolName);
         }
 
-        // 参数 JSON Schema 校验（v11.63 P1-2）：执行前按工具自带 Schema 校验 params，
+        // 参数 JSON Schema 校验：执行前按工具自带 Schema 校验 params，
         // 不合规直接失败不执行——错误文案为 LLM 可读的自纠指令，经工具失败通道回传
         // （chat 展示/工作流 NodeResult.fail），下一轮对话 LLM 可据此重新生成合规调用。
         // Schema 为空/非法时跳过校验（fail-open，兼容文本描述型存量数据）。

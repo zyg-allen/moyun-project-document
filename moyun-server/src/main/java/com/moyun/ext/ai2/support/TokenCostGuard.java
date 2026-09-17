@@ -10,7 +10,7 @@ import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 
 /**
- * 场景日 Token 成本熔断（v11.57 P0-2）
+ * 场景日 Token 成本熔断
  *
  * <p>语义：场景级日累计（所有用户共享额度），保护平台总成本——一个死循环调用或注入攻击
  * 最多烧掉当日配额。参数来自 ai_scene_config.daily_token_limit（null/0=不限）。</p>

@@ -25,7 +25,7 @@ public class ModelConfigController {
     @Autowired
     private ModelConfigService modelConfigService;
 
-    /** 提供商注册表（V11.0.2：连接测试按 apiStyle 分发 / baseUrl 兜底 / apiKey 必填判定） */
+    /** 提供商注册表（连接测试按 apiStyle 分发 / baseUrl 兜底 / apiKey 必填判定） */
     @Autowired
     private com.moyun.ext.ai.service.AiProviderService providerService;
 
@@ -217,7 +217,7 @@ public class ModelConfigController {
                 }
             }
 
-            // V11.0.2：按提供商注册表的 API 风格分发（不再按 provider 名硬编码分支）
+            // 按提供商注册表的 API 风格分发（不再按 provider 名硬编码分支）
             String apiStyle = providerService.apiStyle(config.getProvider());
 
             // baseUrl 兜底统一前置：用户配置优先 → 注册表默认地址（两种风格一致，与运行时 resolveBaseUrl 对齐）
@@ -385,7 +385,7 @@ public class ModelConfigController {
     }
 
     /**
-     * V11.0.1：chat 模型流式能力实测探针（OpenAI 兼容端点）
+     * chat 模型流式能力实测探针（OpenAI 兼容端点）
      *
      * <p>发送 stream:true 的最小请求，HTTP 200 即认为支持流式输出；
      * 探针失败不影响连接测试主结果（按不支持处理，运行时会走同步模拟流式兜底）。</p>
@@ -420,7 +420,7 @@ public class ModelConfigController {
     }
 
     /**
-     * V11.0.1：实测结果回写 DB（仅已保存的配置；标志变化时更新，避免误配导致流式链路报错）
+     * 实测结果回写 DB（仅已保存的配置；标志变化时更新，避免误配导致流式链路报错）
      */
     private void persistStreamingFlag(ModelConfig config, boolean supported) {
         if (config.getId() == null || Boolean.valueOf(supported).equals(config.getStreamingSupported())) {
@@ -500,7 +500,7 @@ public class ModelConfigController {
                 java.net.http.HttpResponse.BodyHandlers.ofString());
 
             if (response.statusCode() == 200) {
-                // V11.0.1：Ollama chat 协议天然支持流式，直接判定并回写
+                // Ollama chat 协议天然支持流式，直接判定并回写
                 if ("chat".equals(config.getModelType())) {
                     persistStreamingFlag(config, true);
                     return String.format(" 模型: %s (类型: %s, 流式输出: 支持, Ollama服务正常)",

@@ -15,7 +15,7 @@ import org.springframework.stereotype.Service;
 import java.time.LocalDateTime;
 
 /**
- * 支付通知服务实现（V11.0）
+ * 支付通知服务实现
  *
  * @author moyun
  */

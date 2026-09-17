@@ -72,7 +72,7 @@ public interface IUserResumeService {
     UserResumeVO scoreResume(Long id, Long userId);
 
     /**
-     * 生成简历 AI 改进建议（v5.9 阶段2）
+     * 生成简历 AI 改进建议（阶段2）
      * <p>
      * 基于当前评分明细与岗位匹配度子项生成改进建议，不持久化（每次实时生成）。
      * 当前为规则化生成，后期可替换为真实 AI 模型调用。
@@ -88,15 +88,9 @@ public interface IUserResumeService {
      */
     int updateStatus(Long id, Long userId, String status);
 
-    /**
-     * 读取简历 PDF 文件磁盘路径（供认证下载端点使用）。
-     * 内部已校验简历归属；返回 null 表示无导出文件或不属于该用户。
-     */
-    String getResumePdfDiskPath(Long id, Long userId);
-
-    /** v10.22：查询用户附件简历列表 */
+    /** 查询用户附件简历列表 */
     List<UserResumeVO> selectAttachmentList(Long userId);
 
-    /** v10.22：附件简历转在线简历 */
+    /** 附件简历转在线简历 */
     Long convertAttachmentToOnline(Long id, Long userId);
 }

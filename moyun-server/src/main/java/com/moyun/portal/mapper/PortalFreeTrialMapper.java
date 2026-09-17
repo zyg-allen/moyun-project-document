@@ -8,7 +8,7 @@ import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Update;
 
 /**
- * 免费体验次数 Mapper（v11.85）
+ * 免费体验次数 Mapper
  *
  * <p>消耗走原子 SQL（UPDATE 条件自增 / INSERT 冲突即失败），防并发多刷。
  *

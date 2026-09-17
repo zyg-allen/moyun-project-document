@@ -8,7 +8,7 @@ import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 
 /**
- * 免费体验次数服务（v11.85）
+ * 免费体验次数服务
  *
  * <p>会员付费点统一体验机制：非会员每场景免费体验 {@code FREE_TRIAL_TIMES} 次，
  * 用完后引导开通会员（各 VIP Controller 的 status 接口返回 freeTrialLeft 供前端展示）。

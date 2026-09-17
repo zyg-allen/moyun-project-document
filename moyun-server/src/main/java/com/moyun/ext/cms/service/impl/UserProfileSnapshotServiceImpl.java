@@ -21,7 +21,7 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 /**
- * 用户画像快照 Service 实现（v5.9 阶段0）
+ * 用户画像快照 Service 实现（阶段0）
  * <p>
  * 数据来源：
  *  - portal_interview_position：岗位必备技能

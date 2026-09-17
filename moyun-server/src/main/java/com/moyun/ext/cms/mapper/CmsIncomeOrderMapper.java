@@ -8,12 +8,12 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * 收入订单统一视图 Mapper（v11.79 收入管理模块）
+ * 收入订单统一视图 Mapper（收入管理模块）
  *
  * <p>UNION ALL 合并五个业务订单表（ledger_tip_order / portal_tip_order / ledger_vip_order /
  * portal_interview_vip_order / portal_resume_optimize_order），统一字段：platform / channel_code /
- * status / pay_channel（v11.79 状态与渠道枚举统一后天然可合并；v11.81 新增 ledger_vip 记账VIP订阅；
- * v11.82 新增 interview_vip 面试会员订阅；v11.83 新增 resume_optimize 简历优化会员订阅，均为平台直收类）。
+ * status / pay_channel（状态与渠道枚举统一后天然可合并；新增 ledger_vip 记账VIP订阅；
+ * 新增 interview_vip 面试会员订阅；新增 resume_optimize 简历优化会员订阅，均为平台直收类）。
  * pay_order 为通道单据不参与（避免双算）。
  *
  * @author moyun

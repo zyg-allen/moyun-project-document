@@ -1,21 +1,16 @@
 package com.moyun.ext.ai.service.impl;
 
 import com.fasterxml.jackson.core.type.TypeReference;
-import com.moyun.ext.ai.enums.WorkflowStatus;
-import com.moyun.ext.ai.exception.BusinessException;
-import com.moyun.ext.ai.exception.ErrorCode;
 import com.moyun.ext.ai.util.JsonUtils;
 import com.moyun.ext.ai.entity.Agent;
 import com.moyun.ext.ai.entity.KnowledgeBase;
 import com.moyun.ext.ai.entity.ModelConfig;
-import com.moyun.ext.ai.entity.Workflow;
 import com.moyun.ext.ai.service.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StopWatch;
 
-import java.time.LocalDateTime;
 import java.util.*;
 
 /**
@@ -34,7 +29,6 @@ public class WorkflowGeneratorServiceImpl implements WorkflowGeneratorService {
     private final LLMService llmService;
     private final AgentService agentService;
     private final KnowledgeBaseService knowledgeBaseService;
-    private final WorkflowService workflowService;
     private final ModelConfigService modelConfigService;
     
     /**
@@ -136,90 +130,6 @@ public class WorkflowGeneratorServiceImpl implements WorkflowGeneratorService {
             if (stopWatch.isRunning()) {
                 stopWatch.stop();
             }
-        }
-    }
-    
-    @Override
-    public Long generateAndSave(String description, String workflowName) {
-        GenerateResult result = generate(description);
-        
-        if (!result.isSuccess()) {
-            throw new BusinessException(ErrorCode.WORKFLOW_EXECUTE_FAILED, result.getErrorMessage());
-        }
-        
-        // 创建工作流实体
-        // 注意：createTime / updateTime 已迁移到 AiBaseEntity（继承字段），@Builder 不含继承字段，
-        // 通过 setter 设置；AiBaseEntity 的 @TableField(fill=INSERT) 也会兜底自动填充
-        Workflow workflow = Workflow.builder()
-                .name(workflowName != null ? workflowName : result.getWorkflowName())
-                .description(result.getWorkflowDescription())
-                .graphData(result.getGraphData())
-                .status(WorkflowStatus.DRAFT.getCode())
-                .enabled(true)
-                .version(1)
-                .build();
-        LocalDateTime now = LocalDateTime.now();
-        workflow.setCreateTime(now);
-        workflow.setUpdateTime(now);
-        
-        workflow = workflowService.create(workflow);
-        
-        log.info("✅ 工作流已保存: id={}, name={}", workflow.getId(), workflow.getName());
-        
-        return workflow.getId();
-    }
-    
-    @Override
-    public GenerateResult optimize(Long workflowId, String instruction) {
-        Workflow workflow = workflowService.getById(workflowId);
-        if (workflow == null) {
-            return GenerateResult.fail("工作流不存在");
-        }
-        
-        String currentGraph = workflow.getGraphData();
-        
-        String systemPrompt = buildSystemPrompt();
-        String userPrompt = String.format("""
-            ## 当前工作流
-            ```json
-            %s
-            ```
-            
-            ## 修改要求
-            %s
-            
-            请根据修改要求，输出修改后的完整工作流JSON。
-            """, currentGraph, instruction);
-        
-        try {
-            String response = llmService.generate(systemPrompt + "\n\n" + userPrompt);
-            String jsonStr = extractJson(response);
-            
-            if (jsonStr == null) {
-                return GenerateResult.fail("无法从响应中提取有效的JSON");
-            }
-            
-            Map<String, Object> workflowData = JsonUtils.fromJson(jsonStr, 
-                    new TypeReference<Map<String, Object>>() {});
-            workflowData = validateAndFix(workflowData);
-            workflowData = autoLayout(workflowData);
-            
-            Map<String, Object> graphData = new HashMap<>();
-            graphData.put("nodes", workflowData.get("nodes"));
-            graphData.put("edges", workflowData.get("edges"));
-            
-            String graphJson = JsonUtils.toJson(graphData);
-            String explanation = "已根据指令修改工作流: " + instruction;
-            
-            @SuppressWarnings("unchecked")
-            List<Map<String, Object>> nodes = (List<Map<String, Object>>) workflowData.get("nodes");
-            
-            return GenerateResult.success(graphJson, workflow.getName(), 
-                    workflow.getDescription(), nodes.size(), explanation);
-            
-        } catch (Exception e) {
-            log.error("工作流优化失败", e);
-            return GenerateResult.fail("优化失败: " + e.getMessage());
         }
     }
     

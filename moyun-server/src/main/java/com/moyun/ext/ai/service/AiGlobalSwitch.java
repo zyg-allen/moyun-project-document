@@ -5,11 +5,11 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 /**
- * AI 全局运行时开关（v11.98：sys_config 热配置化）
+ * AI 全局运行时开关（sys_config 热配置化）
  *
  * <p><strong>背景</strong>：原 {@code moyun.ai.enabled} / {@code moyun.ai.resume-advice-enabled}
  * 为 yaml 静态配置——改值需重启、各环境 profile 不一致时会静默关闭 AI 链路（环境陷阱）。
- * v11.98 收口为 sys_config 运行时开关，管理台「参数设置」可直接修改、即时生效。</p>
+ * 收口为 sys_config 运行时开关，管理台「参数设置」可直接修改、即时生效。</p>
  *
  * <p><strong>键约定</strong>（均缺省 true，未配置 = 开启）：</p>
  * <ul>
@@ -26,7 +26,7 @@ import org.springframework.stereotype.Component;
  * 任何异常兜底返回缺省值（开关永不阻塞业务）。</p>
  *
  * @author moyun
- * @since 2026-09-17 v11.98
+ * @since 2026-09-17
  */
 @Component
 public class AiGlobalSwitch {

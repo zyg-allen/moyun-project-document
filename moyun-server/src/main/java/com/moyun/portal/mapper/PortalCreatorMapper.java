@@ -116,7 +116,7 @@ public interface PortalCreatorMapper {
                                                     @Param("startTime") LocalDateTime startTime);
 
     /**
-     * v1.1 读者画像：近 30 天读者性别分布
+     * 读者画像：近 30 天读者性别分布
      * <p>数据局限：仅统计登录读者（user_id 非空），游客无法统计；
      * 读者未填写 gender 时归入 "unknown" 桶。</p>
      * <p>用 COUNT(DISTINCT v.user_id) 而非 COUNT(*)，避免同一读者多次阅读被重复计数。</p>
@@ -132,7 +132,7 @@ public interface PortalCreatorMapper {
                                                        @Param("startTime") LocalDateTime startTime);
 
     /**
-     * v1.1 读者画像：近 30 天读者年龄段分布
+     * 读者画像：近 30 天读者年龄段分布
      * <p>年龄段划分：under_18 / 18_24 / 25_30 / 31_35 / 36_45 / over_45 / unknown</p>
      * <p>数据局限（用户已指出）：
      * <ul>
@@ -142,7 +142,7 @@ public interface PortalCreatorMapper {
      * </ul>
      * </p>
      * <p>用 STR_TO_DATE 兼容字符串存储，TIMESTAMPDIFF 计算年龄。
-     * 修复（v1.1.1）：原 SQL 对 birthday 为非日期格式时 STR_TO_DATE 返回 NULL，
+     * 修复：原 SQL 对 birthday 为非日期格式时 STR_TO_DATE 返回 NULL，
      * TIMESTAMPDIFF 返回 NULL，所有 WHEN 条件均不匹配，错误落入 ELSE 'over_45'。
      * 现在显式判断 STR_TO_DATE IS NULL 归入 'unknown'，避免污染 over_45 桶。</p>
      */

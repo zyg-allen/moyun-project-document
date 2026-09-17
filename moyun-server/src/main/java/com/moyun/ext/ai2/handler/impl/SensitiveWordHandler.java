@@ -18,9 +18,9 @@ import java.util.Map;
  *
  * <p>职责：文本 → 敏感词识别 + 风险分级（同步分类场景，文档 §6.2 示例的落地实现）。</p>
  *
- * <p>输入参数：input.text（数据通道，v11.57 P0-3 收口修正——待检测文本是**不可信数据**
+ * <p>输入参数：input.text（数据通道，收口修正——待检测文本是**不可信数据**
  * 而非用户指令：走 userInput 会被网关意图分类器误判低置信度而打断，且语义上与
- * v11.57 双通道防护设计（指令=指令通道 / 数据=数据通道）相悖）</p>
+ * 双通道防护设计（指令=指令通道 / 数据=数据通道）相悖）</p>
  *
  * @author laomao
  * @since 2026-09-09
@@ -52,7 +52,7 @@ public class SensitiveWordHandler extends AbstractAiSceneHandler {
                  "suggestion": "处理建议（正常内容给'无风险'）"}
                 无敏感内容时 hasSensitive=false、words=[]、riskLevel="low"。禁止输出 JSON 以外内容。""";
 
-        // v11.57：数据通道隔离——待检测文本为不可信数据，分隔符包裹防注入
+        // 数据通道隔离——待检测文本为不可信数据，分隔符包裹防注入
         String raw = chatJson(getSceneCode(), systemPrompt,
                 PromptInjectionGuard.wrapData("待检测文本", text));
         if (raw == null || raw.isBlank()) {

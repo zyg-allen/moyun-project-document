@@ -8,7 +8,7 @@ import com.moyun.portal.domain.vo.JudgeResultVO;
 import com.moyun.portal.domain.vo.TestCaseVO;
 
 /**
- * OJ 判题业务层（v6.3 OJ 判题系统）
+ * OJ 判题业务层（OJ 判题系统）
  *
  * @author moyun
  */

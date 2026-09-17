@@ -18,12 +18,12 @@ import java.util.Collections;
 import dev.langchain4j.model.chat.ChatLanguageModel;
 
 /**
- * LLM 真实实现：桥接到 AI 模块 LLMService（v10.8 统一 AI 能力通道）
+ * LLM 真实实现：桥接到 AI 模块 LLMService（统一 AI 能力通道）
  *
  * <p>注册条件：{@code moyun.ai.enabled=true}（此时 NoopLlmClient 不注册，本 Bean 提供真实通道）。
  * 模型/密钥无需在本模块重复配置——直接复用 AI 模块「模型配置」中启用的默认聊天模型。
  *
- * <p>v11.39 场景感知（Strategy + Factory）：
+ * <p>场景感知（Strategy + Factory）：
  * <ul>
  *   <li>{@link #chat(String, String, String)} 带场景码调用 → 委托 {@link AiSceneResolver#resolveChatModel} 工厂解析</li>
  *   <li>工厂返回绑定的 ChatLanguageModel → 用该模型生成</li>

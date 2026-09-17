@@ -1,0 +1,365 @@
+﻿=== 统计 ===
+扫描文件数: 879
+修改文件数: 196
+修改行数: 355
+=== 样例 diff（前 120 组） ===
+common\config\MinioConfig.java
+  -      * v1.1.2 新增：对外访问 URL 前缀。
+  +      * 新增：对外访问 URL 前缀。
+common\config\MinioConfig.java
+  -         // v1.1.2 修复：MinIO 8.5.x 的 Builder 只有 timeout(long, TimeUnit) 重载，
+  +         // 修复：MinIO 8.5.x 的 Builder 只有 timeout(long, TimeUnit) 重载，
+common\config\MinioConfig.java
+  -      * v1.1.2 新增：获取对外访问 URL 前缀。
+  +      * 新增：获取对外访问 URL 前缀。
+core\config\RedisConfig.java
+  -      * <p>v11.42 修复：原脚本仅在 INCR 结果为 1 时设置过期，存在两类问题：
+  +      * <p>修复：原脚本仅在 INCR 结果为 1 时设置过期，存在两类问题：
+core\security\auth\SysLoginService.java
+  -  * <p>v11.32 验证码风控：
+  +  * <p>验证码风控：
+core\security\auth\SysLoginService.java
+  -  *   <li>全局开关：sys_config sys.account.captchaEnabled（缓存带 TTL，v11.32）</li>
+  +  *   <li>全局开关：sys_config sys.account.captchaEnabled（缓存带 TTL）</li>
+core\security\auth\SysLoginService.java
+  -  *   <li>密码错误计数/锁定（user.password.maxRetryCount/lockTime）自 v11.32 起真正接入登录链路</li>
+  +  *   <li>密码错误计数/锁定（user.password.maxRetryCount/lockTime）自 起真正接入登录链路</li>
+core\sms\AliyunSmsSender.java
+  -  * 阿里云短信发送（V11.1，moyun.sms.mock-enabled=false 时生效）
+  +  * 阿里云短信发送（moyun.sms.mock-enabled=false 时生效）
+core\sms\MockSmsSender.java
+  -  * 模拟短信发送（V11.1，moyun.sms.mock-enabled=true 时生效）
+  +  * 模拟短信发送（moyun.sms.mock-enabled=true 时生效）
+core\sms\PortalSmsController.java
+  -  * 门户短信验证码控制器（V11.1）
+  +  * 门户短信验证码控制器
+core\sms\PortalSmsController.java
+  -      * <p>v11.41：方法级 @Anonymous 放行安全链（场景级登录校验由下方 if 兜底，
+  +      * <p>方法级 @Anonymous 放行安全链（场景级登录校验由下方 if 兜底，
+core\sms\PortalSmsController.java
+  -      * <p>v11.42：register 场景发送前强制图形验证码人机校验（跟随 sys.account.captchaEnabled 开关，
+  +      * <p>register 场景发送前强制图形验证码人机校验（跟随 sys.account.captchaEnabled 开关，
+core\sms\SmsCodeService.java
+  -  * 短信验证码服务（V11.1）
+  +  * 短信验证码服务
+core\sms\SmsCodeServiceImpl.java
+  -  * 短信验证码服务实现（V11.1）
+  +  * 短信验证码服务实现
+core\sms\SmsProperties.java
+  -  * 短信服务配置（V11.1）
+  +  * 短信服务配置
+core\sms\SmsSender.java
+  -  * 短信发送 SPI（V11.1）
+  +  * 短信发送 SPI
+ext\file\service\impl\SysFileServiceImpl.java
+  -      * v1.1.2 新增：系统配置 Service（用于读取 sys_config 中的存储模式配置）
+  +      * 新增：系统配置 Service（用于读取 sys_config 中的存储模式配置）
+ext\file\service\impl\SysFileServiceImpl.java
+  -             // MinIO 可用性判断（v1.1.2 重构）：
+  +             // MinIO 可用性判断（重构）：
+ext\file\service\impl\SysFileServiceImpl.java
+  -                     // v1.1.2：URL 前缀可能来自 sys_config[access.url]，兼容历史 serverConfig.getUrl() 写入的记录
+  +                     // URL 前缀可能来自 sys_config[access.url]，兼容历史 serverConfig.getUrl() 写入的记录
+ledger\controller\CmsLedgerAppFeatureController.java
+  -  * 记账小程序功能入口配置（管理端，v11.73）
+  +  * 记账小程序功能入口配置（管理端）
+ledger\controller\CmsLedgerAppFeatureController.java
+  -      * <p>remark（v11.75）：链接型入口（feature_key=portal 等）的跳转 URL 承载位
+  +      * <p>remark：链接型入口（feature_key=portal 等）的跳转 URL 承载位
+ledger\controller\CmsLedgerCategoryController.java
+  -  * CMS 记账预设分类管理 Controller（v11.76）
+  +  * CMS 记账预设分类管理 Controller
+ledger\controller\CmsLedgerCategoryController.java
+  -      * 分类列表（v11.76：支持类型/名称/归属筛选；默认全部）
+  +      * 分类列表（支持类型/名称/归属筛选；默认全部）
+ledger\controller\CmsLedgerCategoryController.java
+  -      * 修改分类（v11.76：保留原归属，系统预设/用户自定义均可编辑）
+  +      * 修改分类（保留原归属，系统预设/用户自定义均可编辑）
+ledger\controller\CmsLedgerStatsController.java
+  -  * CMS 记账运营统计 Controller（v11.75 扩展：模块使用 + AI/Token 消耗 + 收益现状）
+  +  * CMS 记账运营统计 Controller（扩展：模块使用 + AI/Token 消耗 + 收益现状）
+ledger\controller\CmsLedgerStatsController.java
+  -         // ============ 5. 收益现状（v11.79：打赏收益统计统一收口到收入管理模块，此页仅保留跳转入口） ============
+  +         // ============ 5. 收益现状（打赏收益统计统一收口到收入管理模块，此页仅保留跳转入口） ============
+ledger\controller\CmsLedgerUserController.java
+  -  * CMS 记账用户维度管理 Controller（v11.73）
+  +  * CMS 记账用户维度管理 Controller
+ledger\controller\CmsLedgerVipPackageController.java
+  -  * CMS 记账VIP套餐管理 Controller（v11.81）
+  +  * CMS 记账VIP套餐管理 Controller
+ledger\controller\PortalLedgerAiController.java
+  -      * 查询财务分析报告快照（v11.72 纯查询语义）
+  +      * 查询财务分析报告快照（纯查询语义）
+ledger\controller\PortalLedgerAiController.java
+  -      * 提交异步分析任务（v11.55）：LLM 生成长，立即返回 taskId，前端轮询任务状态。
+  +      * 提交异步分析任务：LLM 生成长，立即返回 taskId，前端轮询任务状态。
+ledger\controller\PortalLedgerAiController.java
+  -     /** 轮询异步任务状态（v11.55）：pending/running/success(带 report)/failed(带 error)/not_found */
+  +     /** 轮询异步任务状态：pending/running/success(带 report)/failed(带 error)/not_found */
+ledger\controller\PortalLedgerAppFeatureController.java
+  -  * 门户记账-小程序功能入口配置（v11.73）
+  +  * 门户记账-小程序功能入口配置
+ledger\controller\PortalLedgerMemoController.java
+  -  * <p>v11.34 增强：事项标题/内容/事项时间/是否提醒/提醒方式/重要程度。
+  +  * <p>增强：事项标题/内容/事项时间/是否提醒/提醒方式/重要程度。
+ledger\controller\PortalLedgerTipController.java
+  -  * 门户记账-打赏控制器（V11.80 接入公共支付通道）
+  +  * 门户记账-打赏控制器（接入公共支付通道）
+ledger\controller\PortalLedgerTipController.java
+  -  * <p>v11.79：入参 pay_channel 统一（兼容旧 payWay 字段名）。
+  +  * <p>入参 pay_channel 统一（兼容旧 payWay 字段名）。
+ledger\controller\PortalLedgerTipController.java
+  -      * 发起打赏下单（V11.80 公共通道：pending 单 + 网关统一下单，返回收银台参数）
+  +      * 发起打赏下单（公共通道：pending 单 + 网关统一下单，返回收银台参数）
+ledger\controller\PortalLedgerVipController.java
+  -  * 门户记账-VIP订阅控制器（v11.81 接入公共支付通道）
+  +  * 门户记账-VIP订阅控制器（接入公共支付通道）
+ledger\controller\PortalLedgerVipController.java
+  -      * 订阅下单（V11.81 公共通道：pending 单 + 网关统一下单，返回收银台参数）
+  +      * 订阅下单（公共通道：pending 单 + 网关统一下单，返回收银台参数）
+ledger\domain\entity\LedgerAiAnalysisReport.java
+  -  * AI 财务分析报告快照 ledger_ai_analysis_report（v11.36；v11.72 四维度独立快照）
+  +  * AI 财务分析报告快照 ledger_ai_analysis_report（四维度独立快照）
+ledger\domain\entity\LedgerAiAnalysisReport.java
+  -     /** 分析范围：month-本月/3m-近3个月/6m-近6个月/year-近12个月（v11.72） */
+  +     /** 分析范围：month-本月/3m-近3个月/6m-近6个月/year-近12个月 */
+ledger\domain\entity\LedgerAiAnalysisReport.java
+  -     /** 数据指纹（v11.40：流水/资产/负债/画像变更痕迹，命中缓存前比对，变化自动重算） */
+  +     /** 数据指纹（流水/资产/负债/画像变更痕迹，命中缓存前比对，变化自动重算） */
+ledger\domain\entity\LedgerAppFeatureConfig.java
+  -  * 记账小程序功能入口配置 ledger_app_feature_config（v11.73）
+  +  * 记账小程序功能入口配置 ledger_app_feature_config
+ledger\domain\entity\LedgerMemo.java
+  -  * <p>v11.34 增强：事项标题/内容/事项时间/是否提醒/提醒方式/重要程度。
+  +  * <p>增强：事项标题/内容/事项时间/是否提醒/提醒方式/重要程度。
+ledger\domain\entity\LedgerTipOrder.java
+  -  * 记账-打赏记录（V11.80 接入公共支付通道）
+  +  * 记账-打赏记录（接入公共支付通道）
+ledger\domain\entity\LedgerTipOrder.java
+  -  * <p>v11.79 全平台支付状态统一：业务订单 status 统一字符串枚举 pending/paid/refunded/closed，
+  +  * <p>全平台支付状态统一：业务订单 status 统一字符串枚举 pending/paid/refunded/closed，
+ledger\domain\entity\LedgerTipOrder.java
+  -     /** 支付渠道：wechat/alipay（v11.79 与 portal_tip_order.pay_channel 统一命名） */
+  +     /** 支付渠道：wechat/alipay（与 portal_tip_order.pay_channel 统一命名） */
+ledger\domain\entity\LedgerVipOrder.java
+  -  * 记账VIP订单（v11.81 接入公共支付通道，bizType=ledger_vip 平台直收类）
+  +  * 记账VIP订单（接入公共支付通道，bizType=ledger_vip 平台直收类）
+ledger\domain\entity\LedgerVipOrder.java
+  -  * <p>状态枚举 v11.79 统一：pending/paid/refunded/closed。
+  +  * <p>状态枚举 统一：pending/paid/refunded/closed。
+ledger\domain\entity\LedgerVipPackage.java
+  -  * 记账VIP套餐（v11.81 平台直收类）
+  +  * 记账VIP套餐（平台直收类）
+ledger\handler\FinanceAnalysisHandler.java
+  -  * <p>v11.50 架构定位（配置即场景 / Service 薄化）：数据组装（查库/指标/趋势上下文）与 LLM
+  +  * <p>架构定位（配置即场景 / Service 薄化）：数据组装（查库/指标/趋势上下文）与 LLM
+ledger\handler\FinanceAnalysisHandler.java
+  -             // 4. 调用 + 解析（v11.51：结构化结果，实际模型/token 进响应 metadata）
+  +             // 4. 调用 + 解析（结构化结果，实际模型/token 进响应 metadata）
+ledger\handler\FinanceAnalysisHandler.java
+  -                 // v11.53 文本兜底：LLM 返回了内容但非合法 JSON（人设带偏成对话/输出被截断），
+  +                 // 文本兜底：LLM 返回了内容但非合法 JSON（人设带偏成对话/输出被截断），
+ledger\handler\LedgerTipPayCallbackHandler.java
+  -  * 记账App打赏支付回调处理器（V11.80，bizType="ledger_tip"）
+  +  * 记账App打赏支付回调处理器（bizType="ledger_tip"）
+ledger\handler\LedgerVipPayCallbackHandler.java
+  -  * 记账VIP订阅支付回调处理器（v11.81，bizType="ledger_vip"，平台直收类）
+  +  * 记账VIP订阅支付回调处理器（bizType="ledger_vip"，平台直收类）
+ledger\mapper\LedgerAiAnalysisReportMapper.java
+  -  * AI 分析报告 Mapper（v11.36）
+  +  * AI 分析报告 Mapper
+ledger\mapper\LedgerAppFeatureConfigMapper.java
+  -  * 记账小程序功能入口配置 Mapper（v11.73）
+  +  * 记账小程序功能入口配置 Mapper
+ledger\service\ILedgerAiAnalysisService.java
+  -      * <p>v11.36：月度快照缓存——当月已有报告直接返回（零 token）；
+  +      * <p>月度快照缓存——当月已有报告直接返回（零 token）；
+ledger\service\ILedgerAiAnalysisService.java
+  -      * 提交异步分析任务（v11.55）
+  +      * 提交异步分析任务
+ledger\service\ILedgerAiAnalysisService.java
+  -      * 查询异步任务状态（v11.55）
+  +      * 查询异步任务状态
+ledger\service\ILedgerCategoryService.java
+  -      * <p>v11.76：真删除；已绑定有效流水的分类不能删除（IllegalArgumentException）。
+  +      * <p>真删除；已绑定有效流水的分类不能删除（IllegalArgumentException）。
+ledger\service\ILedgerCategoryService.java
+  -      * 删除前置校验（v11.76，门户/后台共用）：
+  +      * 删除前置校验（门户/后台共用）：
+ledger\service\ILedgerMemoService.java
+  -     /** 新增待办（v11.34：title/eventTime/remindEnabled/remindRule/importance） */
+  +     /** 新增待办（title/eventTime/remindEnabled/remindRule/importance） */
+ledger\service\ILedgerTipService.java
+  -  * 记账App打赏服务（V11.80 接入公共支付通道）
+  +  * 记账App打赏服务（接入公共支付通道）
+ledger\service\ILedgerTipService.java
+  -      * 发起打赏下单（V11.80 公共通道完整链路）
+  +      * 发起打赏下单（公共通道完整链路）
+ledger\service\impl\LedgerAiAnalysisServiceImpl.java
+  -  * <p>v11.50 架构（Service 薄化 / 配置即场景）：本 Service 只承担业务编排——
+  +  * <p>架构（Service 薄化 / 配置即场景）：本 Service 只承担业务编排——
+ledger\service\impl\LedgerAiAnalysisServiceImpl.java
+  -  * <p><strong>异步任务选型（v11.67 双轨制定位）</strong>：本服务采用 Redis 状态 + 线程池的
+  +  * <p><strong>异步任务选型（双轨制定位）</strong>：本服务采用 Redis 状态 + 线程池的
+ledger\service\impl\LedgerAiAnalysisServiceImpl.java
+  -     // ==================== 异步任务（v11.55） ====================
+  +     // ==================== 异步任务 ====================
+ledger\service\impl\LedgerDashboardServiceImpl.java
+  -  * <p>统计口径（设计方案 V1.2）：
+  +  * <p>统计口径（设计方案 ）：
+ledger\service\impl\LedgerMemoServiceImpl.java
+  -  * <p>v11.34：事项标题/事项时间/是否提醒/提醒方式/重要程度。
+  +  * <p>事项标题/事项时间/是否提醒/提醒方式/重要程度。
+ledger\service\impl\LedgerSavingServiceImpl.java
+  -  * <p>金额单位：元（BigDecimal，v11.31 统一口径）。
+  +  * <p>金额单位：元（BigDecimal，统一口径）。
+ledger\service\impl\LedgerScheduleServiceImpl.java
+  -         // v11.35.2：立即执行 = 现在记这笔账，交易日期用今天。
+  +         // 立即执行 = 现在记这笔账，交易日期用今天。
+ledger\service\impl\LedgerTipServiceImpl.java
+  -  * 记账App打赏服务实现（V11.80 接入公共支付通道）
+  +  * 记账App打赏服务实现（接入公共支付通道）
+ledger\service\impl\LedgerTipServiceImpl.java
+  -  * <p>金额单位：元（BigDecimal，v11.31 统一）；状态枚举 v11.79 统一字符串。
+  +  * <p>金额单位：元（BigDecimal，统一）；状态枚举 统一字符串。
+ledger\service\impl\LedgerTipServiceImpl.java
+  -         // 1. 金额校验（v11.80 对齐全平台标准：>0、scale≤2、上限与门户打赏一致）
+  +         // 1. 金额校验（对齐全平台标准：>0、scale≤2、上限与门户打赏一致）
+ledger\service\impl\LedgerTransactionServiceImpl.java
+  -  * <p>联动规则矩阵（设计方案 V1.2 第 5.1 节）：
+  +  * <p>联动规则矩阵（设计方案 第 5.1 节）：
+ledger\service\impl\LedgerTransactionServiceImpl.java
+  -                     // 修复（v11.40.1）：balance 置 0，欠款由下方 applyLiabilityDelta 累加
+  +                     // 修复：balance 置 0，欠款由下方 applyLiabilityDelta 累加
+pay\channel\PayChannel.java
+  -  * 支付渠道 SPI（V11.0 公共支付通道）
+  +  * 支付渠道 SPI（公共支付通道）
+pay\channel\wechat\WechatPayChannel.java
+  -  * 微信支付渠道（V11.0 首个公共支付通道实现）
+  +  * 微信支付渠道（首个公共支付通道实现）
+pay\config\PayProperties.java
+  -  * 公共支付通道配置（V11.0）
+  +  * 公共支付通道配置
+pay\config\PayProperties.java
+  -         /** 绑定银行卡是否强制短信验证码（V11.1 企业级默认开启） */
+  +         /** 绑定银行卡是否强制短信验证码（企业级默认开启） */
+pay\controller\PayCallbackController.java
+  -  * 渠道支付回调入口（V11.0 公共支付通道）
+  +  * 渠道支付回调入口（公共支付通道）
+pay\controller\PortalBankCardController.java
+  -  * 门户银行卡控制器（V11.0）
+  +  * 门户银行卡控制器
+pay\controller\PortalPayController.java
+  -  * 门户支付控制器（V11.0）
+  +  * 门户支付控制器
+pay\controller\PortalPayController.java
+  -  * <p>金额单位：元（v11.31 统一，接口所见即所得，无分/元换算字段）。
+  +  * <p>金额单位：元（统一，接口所见即所得，无分/元换算字段）。
+pay\controller\PortalPayController.java
+  -     // ==================== v11.79 提现闭环 ====================
+  +     // ==================== 提现闭环 ====================
+pay\controller\PortalPayNotificationController.java
+  -  * 门户支付通知控制器（V11.0）
+  +  * 门户支付通知控制器
+pay\domain\entity\LedgerEntry.java
+  -  * 资金/分账流水（V11.0 复式记账）
+  +  * 资金/分账流水（复式记账）
+pay\domain\entity\LedgerEntry.java
+  -  * <p>金额单位：元（人民币，DECIMAL(18,2)，v11.31 统一）。
+  +  * <p>金额单位：元（人民币，DECIMAL(18,2)，统一）。
+pay\domain\entity\LedgerEntry.java
+  -     /** 用户昵称（v11.78 后台展示用，非表字段；PLATFORM 分录为 null，前端显示"平台"） */
+  +     /** 用户昵称（后台展示用，非表字段；PLATFORM 分录为 null，前端显示"平台"） */
+pay\domain\entity\PayNotification.java
+  -  * 支付站内通知（V11.0）
+  +  * 支付站内通知
+pay\domain\entity\PayNotifyLog.java
+  -  * 渠道回调原始日志（V11.0 审计留痕）
+  +  * 渠道回调原始日志（审计留痕）
+pay\domain\entity\PayOrder.java
+  -  * 统一支付单（V11.0 公共支付通道）
+  +  * 统一支付单（公共支付通道）
+pay\domain\entity\PayOrder.java
+  -  * <p>金额单位：元（人民币，DECIMAL(18,2)，v11.31 统一；原 BIGINT 分方案已废止）
+  +  * <p>金额单位：元（人民币，DECIMAL(18,2)，统一；原 BIGINT 分方案已废止）
+pay\domain\entity\PayOrder.java
+  -     /** 下单用户（portal_user.id，v11.79 补全：支持按用户对账） */
+  +     /** 下单用户（portal_user.id，补全：支持按用户对账） */
+pay\domain\entity\UserAccount.java
+  -  * 用户资金账户（V11.0）
+  +  * 用户资金账户
+pay\domain\entity\UserAccount.java
+  -  * <p>余额单位：元（人民币，DECIMAL(18,2)，v11.31 统一）。并发安全：乐观锁 version +
+  +  * <p>余额单位：元（人民币，DECIMAL(18,2)，统一）。并发安全：乐观锁 version +
+pay\domain\entity\UserAccount.java
+  -     /** 用户昵称（后台展示，非持久化，v11.79） */
+  +     /** 用户昵称（后台展示，非持久化） */
+pay\domain\entity\UserBankCard.java
+  -  * 用户银行卡（V11.0 提现打款账户）
+  +  * 用户银行卡（提现打款账户）
+pay\domain\entity\WithdrawOrder.java
+  -  * 提现单（V11.0 钱包提现；v11.79 状态统一小写字符串枚举）
+  +  * 提现单（钱包提现；状态统一小写字符串枚举）
+pay\domain\entity\WithdrawOrder.java
+  -  * <p>金额单位：元（人民币，DECIMAL(18,2)，v11.31 统一）。
+  +  * <p>金额单位：元（人民币，DECIMAL(18,2)，统一）。
+pay\gateway\IPayGateway.java
+  -  * 统一支付网关（V11.0 公共支付通道对外唯一门面）
+  +  * 统一支付网关（公共支付通道对外唯一门面）
+pay\gateway\IPayGateway.java
+  -      * @param userId   下单用户（portal_user.id，v11.79 补全对账维度）
+  +      * @param userId   下单用户（portal_user.id，补全对账维度）
+pay\gateway\IPayGateway.java
+  -      * @param platform 归属平台（ledger_app/portal，v11.79 补全对账维度）
+  +      * @param platform 归属平台（ledger_app/portal，补全对账维度）
+pay\gateway\PayCallbackHandler.java
+  -  * 业务回调 SPI（V11.0 公共支付通道）
+  +  * 业务回调 SPI（公共支付通道）
+pay\gateway\PayGatewayImpl.java
+  -  * 统一支付网关实现（V11.0 公共支付通道核心）
+  +  * 统一支付网关实现（公共支付通道核心）
+pay\mapper\LedgerEntryMapper.java
+  -  * LedgerEntry Mapper（V11.0）
+  +  * LedgerEntry Mapper
+pay\mapper\PayNotificationMapper.java
+  -  * PayNotification Mapper（V11.0）
+  +  * PayNotification Mapper
+pay\mapper\PayNotifyLogMapper.java
+  -  * PayNotifyLog Mapper（V11.0）
+  +  * PayNotifyLog Mapper
+pay\mapper\PayOrderMapper.java
+  -  * PayOrder Mapper（V11.0）
+  +  * PayOrder Mapper
+pay\mapper\UserAccountMapper.java
+  -  * 用户资金账户 Mapper（V11.0）
+  +  * 用户资金账户 Mapper
+pay\mapper\UserBankCardMapper.java
+  -  * UserBankCard Mapper（V11.0）
+  +  * UserBankCard Mapper
+pay\mapper\WithdrawOrderMapper.java
+  -  * WithdrawOrder Mapper（V11.0）
+  +  * WithdrawOrder Mapper
+pay\service\IBankCardService.java
+  -  * 用户银行卡服务（V11.0 提现打款账户）
+  +  * 用户银行卡服务（提现打款账户）
+pay\service\ILedgerService.java
+  -  * 资金/分账流水服务（V11.0 复式记账）
+  +  * 资金/分账流水服务（复式记账）
+pay\service\ILedgerService.java
+  -  * <p>金额单位：元（人民币，DECIMAL(18,2)，v11.31 统一）。
+  +  * <p>金额单位：元（人民币，DECIMAL(18,2)，统一）。
+pay\service\ILedgerService.java
+  -      * 平台全额入账（事务内调用，V11.80）：无第三方收款人的业务（如记账App打赏），
+  +      * 平台全额入账（事务内调用）：无第三方收款人的业务（如记账App打赏），
+pay\service\impl\BankCardServiceImpl.java
+  -  * 用户银行卡服务实现（V11.0）
+  +  * 用户银行卡服务实现
+pay\service\impl\BankCardServiceImpl.java
+  -         // 短信验证码闭环（V11.1：开关开启时强校验；一次性消费+防枚举见 SmsCodeServiceImpl）
+  +         // 短信验证码闭环（开关开启时强校验；一次性消费+防枚举见 SmsCodeServiceImpl）
+pay\service\impl\LedgerServiceImpl.java
+  -  * 分账流水服务实现（V11.0 复式记账核心）
+  +  * 分账流水服务实现（复式记账核心）
+pay\service\impl\LedgerServiceImpl.java
+  -  * <p>金额单位：元（BigDecimal，v11.31 统一）。
+  +  * <p>金额单位：元（BigDecimal，统一）。

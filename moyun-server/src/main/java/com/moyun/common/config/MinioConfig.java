@@ -54,7 +54,7 @@ public class MinioConfig {
     private Boolean autoFallback = true;
 
     /**
-     * v1.1.2 新增：对外访问 URL 前缀。
+     * 新增：对外访问 URL 前缀。
      * 生产环境 MinIO 通常部署在内网，外网用户无法访问 endpoint。
      * 此字段用于拼接返回给前端的 fileUrl，若为空则回退到 endpoint。
      * 配置示例：https://cdn.example.com
@@ -63,7 +63,7 @@ public class MinioConfig {
 
     @Bean
     public MinioClient minioClient() {
-        // v1.1.2 修复：MinIO 8.5.x 的 Builder 只有 timeout(long, TimeUnit) 重载，
+        // 修复：MinIO 8.5.x 的 Builder 只有 timeout(long, TimeUnit) 重载，
         // 不支持 timeout(Duration) 单参形式，原代码编译失败。直接移除自定义超时，
         // 使用 MinIO 默认超时配置（10s connect / 10s write / 10s read）。
         return MinioClient.builder()
@@ -73,7 +73,7 @@ public class MinioConfig {
     }
 
     /**
-     * v1.1.2 新增：获取对外访问 URL 前缀。
+     * 新增：获取对外访问 URL 前缀。
      * 优先用 accessUrl（生产环境应配置 CDN 或外网域名），为空时回退到 endpoint。
      */
     public String getAccessUrlOrEndpoint() {

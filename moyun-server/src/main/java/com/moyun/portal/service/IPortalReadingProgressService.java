@@ -40,13 +40,13 @@ public interface IPortalReadingProgressService extends IService<PortalReadingPro
     List<PortalReadingProgress> selectByUserId(Long userId, String status);
 
     /**
-     * v1.0 第二阶段：章节级进度 upsert（前端 30s 节流上报）
+     * 第二阶段：章节级进度 upsert（前端 30s 节流上报）
      * 存在则更新章节相关字段，不存在则插入新记录
      */
     int upsertChapterProgress(PortalReadingProgress progress);
 
     /**
-     * v1.0 第二阶段：查询用户最近阅读记录（按 last_read_time 倒序）
+     * 第二阶段：查询用户最近阅读记录（按 last_read_time 倒序）
      */
     List<PortalReadingProgress> selectRecentReading(Long userId, int limit);
 }

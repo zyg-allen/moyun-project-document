@@ -41,7 +41,7 @@ import java.util.Set;
 @Service
 public class PortalJobTemplateServiceImpl extends ServiceImpl<PortalJobTemplateMapper, PortalJobTemplate>
         implements IPortalJobTemplateService {
-    /** v11.39：本服务所属 AI 场景代码（绑定见 ai_scene_config，业务不感知模型选择） */
+    /** 本服务所属 AI 场景代码（绑定见 ai_scene_config，业务不感知模型选择） */
     private static final String SCENE_QUESTION_GENERATE = "question_generate";
 
 
@@ -75,7 +75,7 @@ public class PortalJobTemplateServiceImpl extends ServiceImpl<PortalJobTemplateM
     @Autowired
     private LlmClient llmClient;
 
-    /** v11.58 P0-3：JD 关键词提取统一走 AI 网关（task=jd_keywords 子任务） */
+    /** JD 关键词提取统一走 AI 网关（task=jd_keywords 子任务） */
     @Autowired
     private AiGatewayService aiGatewayService;
 
@@ -135,7 +135,7 @@ public class PortalJobTemplateServiceImpl extends ServiceImpl<PortalJobTemplateM
     // ==================== 关键词提取（C4） ====================
 
     /**
-     * v11.58 P0-3 业务收口：经统一网关执行 question_generate 场景（task=jd_keywords）。
+     * 业务收口：经统一网关执行 question_generate 场景（task=jd_keywords）。
      * 提示词已收编至 QuestionGenerateHandler（逐字一致），本方法仅做结果清洗
      * （去空白/去重/限制上限）；失败返回空列表由上层回退规则分词。
      */

@@ -22,7 +22,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * CMS 记账预设分类管理 Controller（v11.76）
+ * CMS 记账预设分类管理 Controller
  *
  * <p>层级模型：大类 = 交易类型（收入/支出/转账/借款/还款/校准），分类挂在大类下（二级）。
  * <p>归属：系统预设（user_id=0 + is_system=1）与用户自定义（is_system=0）均可查看维护；
@@ -40,7 +40,7 @@ public class CmsLedgerCategoryController extends BaseController {
     private ILedgerCategoryService categoryService;
 
     /**
-     * 分类列表（v11.76：支持类型/名称/归属筛选；默认全部）
+     * 分类列表（支持类型/名称/归属筛选；默认全部）
      *
      * @param type  类型：expense/income/transfer/repayment/borrow/adjust（空=全部）
      * @param name  名称模糊搜索（空=不过滤）
@@ -86,7 +86,7 @@ public class CmsLedgerCategoryController extends BaseController {
     }
 
     /**
-     * 修改分类（v11.76：保留原归属，系统预设/用户自定义均可编辑）
+     * 修改分类（保留原归属，系统预设/用户自定义均可编辑）
      */
     @Operation(summary = "修改分类（保留归属）")
     @PreAuthorize("@ss.hasPermi('cms:ledgerCategory:edit')")
@@ -121,7 +121,7 @@ public class CmsLedgerCategoryController extends BaseController {
     }
 
     /**
-     * 删除分类（v11.76：真删除）
+     * 删除分类（真删除）
      *
      * <p>校验：已绑定有效流水 → 不能删除；存在子分类 → 不能删除。
      */

@@ -3,7 +3,7 @@ package com.moyun.ext.ai2.model;
 import lombok.Data;
 
 /**
- * LLM 调用结构化结果（v11.51 可观测性闭环）
+ * LLM 调用结构化结果（可观测性闭环）
  *
  * <p>chatDetailed() 的返回值：除回复文本外，携带实际使用的模型与 token 消耗，
  * 供 Handler 填充 {@link AiMetadata}——网关响应从此可观测"用了哪个模型/花了多少token"。</p>
@@ -26,10 +26,10 @@ public class ChatOutcome {
     /** Token 消耗（输入+输出合计；模型未返回为 null） */
     private Integer tokenUsed;
 
-    /** 输入 Token（v11.57 P0-2 成本核算：模型未返回为 null） */
+    /** 输入 Token（成本核算：模型未返回为 null） */
     private Integer inputTokens;
 
-    /** 输出 Token（v11.57 P0-2 成本核算：模型未返回为 null） */
+    /** 输出 Token（成本核算：模型未返回为 null） */
     private Integer outputTokens;
 
     public String getText() {

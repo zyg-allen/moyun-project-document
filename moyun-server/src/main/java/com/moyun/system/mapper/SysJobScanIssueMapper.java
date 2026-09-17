@@ -6,7 +6,7 @@ import org.apache.ibatis.annotations.Mapper;
 import com.moyun.system.domain.entity.SysJobScanIssue;
 
 /**
- * 定时任务扫描结果表 sys_job_scan_issue 数据层（v8.1）
+ * 定时任务扫描结果表 sys_job_scan_issue 数据层
  *
  * @author moyun
  */

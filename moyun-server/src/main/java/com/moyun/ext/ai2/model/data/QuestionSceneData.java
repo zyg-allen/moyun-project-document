@@ -22,7 +22,7 @@ public class QuestionSceneData {
     /** 难度 */
     private String difficulty;
 
-    /** JD 关键词提取结果（task=jd_keywords，v11.58 业务收口） */
+    /** JD 关键词提取结果（task=jd_keywords，业务收口） */
     private List<String> keywords;
 
     /**

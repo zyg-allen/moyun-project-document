@@ -34,7 +34,7 @@ import java.util.Objects;
 import java.util.stream.Collectors;
 
 /**
- * CMS 记账用户维度管理 Controller（v11.73）
+ * CMS 记账用户维度管理 Controller
  *
  * <p>隐私保护口径（用户个体数据展示的最小必要原则）：
  * <ul>

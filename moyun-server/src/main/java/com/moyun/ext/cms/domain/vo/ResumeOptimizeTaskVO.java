@@ -4,7 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import lombok.Data;
 
 /**
- * 简历深度优化异步任务状态 VO（v10.19）
+ * 简历深度优化异步任务状态 VO
  *
  * <p>前端轮询返回结构：包含任务状态、进度百分比与结果（success 时填充）。</p>
  *

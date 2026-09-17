@@ -20,7 +20,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * 渠道支付回调入口（V11.0 公共支付通道）
+ * 渠道支付回调入口（公共支付通道）
  *
  * <p>@Anonymous 免登录（渠道服务器无法携带用户态），安全由渠道验签保证：
  * 验签失败一律 500 应答，绝不进业务。回调原始报文先落 pay_notify_log 审计。

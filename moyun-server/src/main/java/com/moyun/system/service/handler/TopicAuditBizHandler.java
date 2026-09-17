@@ -12,7 +12,7 @@ import com.moyun.portal.service.IPortalTopicService;
 import com.moyun.system.service.AuditBizHandler;
 
 /**
- * 话题审核业务处理器（v8.1）
+ * 话题审核业务处理器
  * <p>
  * 委托 {@link IPortalTopicService#auditTopic} 处理。
  * 注意：话题通过态是 {@code active}（不是 published）。

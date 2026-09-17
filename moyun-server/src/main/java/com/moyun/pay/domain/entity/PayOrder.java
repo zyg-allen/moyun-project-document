@@ -8,12 +8,12 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 /**
- * 统一支付单（V11.0 公共支付通道）
+ * 统一支付单（公共支付通道）
  *
  * <p>状态机：CREATED(待支付) → PAID(已支付) → SETTLED(已分账)
  *            CREATED → CLOSED(已关闭, 超时/手动)；PAID/SETTLED 为终态
  *
- * <p>金额单位：元（人民币，DECIMAL(18,2)，v11.31 统一；原 BIGINT 分方案已废止）
+ * <p>金额单位：元（人民币，DECIMAL(18,2)，统一；原 BIGINT 分方案已废止）
  *
  * @author moyun
  */
@@ -41,10 +41,10 @@ public class PayOrder {
     /** 业务单号（如打赏单 ID） */
     private String bizNo;
 
-    /** 下单用户（portal_user.id，v11.79 补全：支持按用户对账） */
+    /** 下单用户（portal_user.id，补全：支持按用户对账） */
     private Long userId;
 
-    /** 归属平台：ledger_app / portal（v11.79 补全：支持按平台对账） */
+    /** 归属平台：ledger_app / portal（补全：支持按平台对账） */
     private String platform;
 
     /** 支付渠道：wechat / alipay */

@@ -28,7 +28,7 @@ public class PortalLedgerAiController {
     private ILedgerAiAnalysisService aiAnalysisService;
 
     /**
-     * 查询财务分析报告快照（v11.72 纯查询语义）
+     * 查询财务分析报告快照（纯查询语义）
      * refresh=false（默认）：按 range 查当前月快照，命中直接返回（零 token）；
      * 未命中返回 {exists:false}，由前端引导显式"去分析"（异步任务），不再隐式触发生成
      * refresh=true：强制重新分析并覆盖式落库（异步任务内部调用，前端不直连）
@@ -41,7 +41,7 @@ public class PortalLedgerAiController {
     }
 
     /**
-     * 提交异步分析任务（v11.55）：LLM 生成长，立即返回 taskId，前端轮询任务状态。
+     * 提交异步分析任务：LLM 生成长，立即返回 taskId，前端轮询任务状态。
      * 同用户已有进行中任务时复用（防重复烧 token）。
      */
     @PostMapping("/analysis/task")
@@ -51,14 +51,14 @@ public class PortalLedgerAiController {
         return AjaxResult.success(aiAnalysisService.submitAnalysisTask(userId, range));
     }
 
-    /** 轮询异步任务状态（v11.55）：pending/running/success(带 report)/failed(带 error)/not_found */
+    /** 轮询异步任务状态：pending/running/success(带 report)/failed(带 error)/not_found */
     @GetMapping("/analysis/task/{taskId}")
     public AjaxResult getTask(@PathVariable("taskId") String taskId) {
         Long userId = PortalSecurityUtils.getUserId();
         return AjaxResult.success(aiAnalysisService.getAnalysisTask(userId, taskId));
     }
 
-    /** 历史报告分页（v11.36；v11.55 起多版本按生成时间倒序） */
+    /** 历史报告分页（起多版本按生成时间倒序） */
     @GetMapping("/reports")
     public AjaxResult reports(@RequestParam(value = "page", required = false, defaultValue = "1") int page,
                               @RequestParam(value = "pageSize", required = false, defaultValue = "10") int pageSize) {
@@ -66,14 +66,14 @@ public class PortalLedgerAiController {
         return AjaxResult.success(aiAnalysisService.listReports(userId, page, Math.min(pageSize, 50)));
     }
 
-    /** 报告版本详情（v11.55 历史完整回看） */
+    /** 报告版本详情（历史完整回看） */
     @GetMapping("/reports/{id}")
     public AjaxResult reportDetail(@PathVariable("id") Long id) {
         Long userId = PortalSecurityUtils.getUserId();
         return AjaxResult.success(aiAnalysisService.getReportDetail(userId, id));
     }
 
-    /** 删除报告版本（v11.55） */
+    /** 删除报告版本 */
     @DeleteMapping("/reports/{id}")
     public AjaxResult deleteReport(@PathVariable("id") Long id) {
         Long userId = PortalSecurityUtils.getUserId();

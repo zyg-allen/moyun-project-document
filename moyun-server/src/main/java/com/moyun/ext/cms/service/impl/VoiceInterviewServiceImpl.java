@@ -85,15 +85,15 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
     /** 主问题目数量 */
     private static final int QUESTION_COUNT = 5;
 
-    /** v11.96 时长制：sys_config 面试时长键（分钟，缺省 20） */
+    /** 时长制：sys_config 面试时长键（分钟，缺省 20） */
     private static final String CONFIG_KEY_DURATION = "voice.interview.durationMinutes";
-    /** v11.96 时长制：默认面试时长（分钟） */
+    /** 时长制：默认面试时长（分钟） */
     private static final int DEFAULT_DURATION_MINUTES = 20;
-    /** v11.96 时长制：服务端超时宽限（分钟，倒计时归零后允许收尾作答提交的余量） */
+    /** 时长制：服务端超时宽限（分钟，倒计时归零后允许收尾作答提交的余量） */
     private static final int DURATION_GRACE_MINUTES = 2;
 
     /**
-     * v11.96 口头结束意图检测（严格短语，避免答案中提及"结束"误判）：
+     * 口头结束意图检测（严格短语，避免答案中提及"结束"误判）：
      * 命中即视为候选人主动提出结束面试，服务端直接收尾（不走 agent 轮次）。
      */
     private static final Pattern VERBAL_END_PATTERN = Pattern.compile(
@@ -170,7 +170,7 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
 
     /**
      * LLM 一次调用同时完成：评分校正 + 漏洞识别 + 水平评估 + 针对性追问建议。
-     * v11.58 P0-3c：收口 AI 网关（voice_interview 场景 task=answer_analysis 子任务），
+     * 收口 AI 网关（voice_interview 场景 task=answer_analysis 子任务），
      * 失败/未启用时返回 null，调用方回退规则评分（保证链路永远可用）。
      */
     private AnswerAnalysis analyzeAnswerByLlm(PortalVoiceInterview interview, String questionTitle,
@@ -180,7 +180,7 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
         }
         try {
             Object resumeDigest = readInterviewConfig(interview).get("resumeDigest");
-            // v11.98：V3 纯 agent 面试下 qa.question 存的是面试官整段话术（含开场寒暄/上轮反馈），
+            // V3 纯 agent 面试下 qa.question 存的是面试官整段话术（含开场寒暄/上轮反馈），
             // 超长截断避免寒暄内容占满分析上下文、稀释题目重点
             String question = questionTitle != null && questionTitle.length() > 400
                     ? questionTitle.substring(0, 400) + "…（后略）" : questionTitle;
@@ -191,7 +191,7 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
                             ? "候选人简历项目：\n" + resumeDigest + "\n" : "")
                     + "\n你刚刚向候选人提出问题：\"" + question + "\"\n"
                     + (StringUtils.isNotEmpty(questionAnalysis) ? "该题考察要点：" + questionAnalysis + "\n" : "");
-            // v11.98：LinkedHashMap 可变 Map（Map.of 不可变曾被网关 sanitizeInputChannel setValue 击穿）
+            // LinkedHashMap 可变 Map（Map.of 不可变曾被网关 sanitizeInputChannel setValue 击穿）
             Map<String, Object> input = new LinkedHashMap<>();
             input.put("task", "answer_analysis");
             input.put("context", context);
@@ -214,7 +214,7 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
         }
     }
 
-    /** 解析网关结构化回答分析结果（v11.58：Handler 已容错解析 JSON，此处只做字段映射与规则分融合） */
+    /** 解析网关结构化回答分析结果（Handler 已容错解析 JSON，此处只做字段映射与规则分融合） */
     private AnswerAnalysis parseAnalysis(JsonNode node, AnswerScoringEngine.ScoreResult ruleScore) {
         try {
             AnswerAnalysis a = new AnswerAnalysis();
@@ -223,7 +223,7 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
             if (StringUtils.isEmpty(a.feedback)) {
                 a.feedback = ruleScore.feedback;
             }
-            // v11.30.2：6 维全量解析（LLM 未输出的维度回退规则分），并按 llmRatio 逐维融合
+            // 6 维全量解析（LLM 未输出的维度回退规则分），并按 llmRatio 逐维融合
             Map<String, Integer> dims = new LinkedHashMap<>();
             String[] dimKeys = {"relevance", "professionalism", "fluency", "interactivity", "confidence", "logic"};
             PortalInterviewConfig dimCfg = loadInterviewConfigQuietly();
@@ -272,7 +272,7 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
     }
 
     /** 场景代码：语音面试（AI场景配置中心） */
-    /** v11.38：场景代码统一走 AiSceneEnum 注册表，不再硬编码字符串 */
+    /** 场景代码统一走 AiSceneEnum 注册表，不再硬编码字符串 */
     private static final String SCENE_VOICE_INTERVIEW = com.moyun.ext.ai.enums.AiSceneEnum.VOICE_INTERVIEW.getCode();
 
     /** SSE 超时时间（毫秒） */
@@ -283,9 +283,9 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
     @Autowired private PortalInterviewQuestionMapper questionMapper;
     @Autowired private PortalUserResumeMapper userResumeMapper;
     @Autowired private ObjectMapper objectMapper;
-    /** v11.58 P0-3c：LLM 直调收口网关后移除 LlmClient 依赖，统一走 AiSceneJsonClient */
+    /** LLM 直调收口网关后移除 LlmClient 依赖，统一走 AiSceneJsonClient */
     @Autowired private com.moyun.ext.ai2.support.AiSceneJsonClient aiSceneJsonClient;
-    /** v11.98：AI 全局运行时开关（sys_config ai.global.enabled，替代 yaml 静态配置） */
+    /** AI 全局运行时开关（sys_config ai.global.enabled，替代 yaml 静态配置） */
     @Autowired private com.moyun.ext.ai.service.AiGlobalSwitch aiGlobalSwitch;
     @Autowired private InterviewAgentClient agentClient;
     /** V3：滑窗记忆服务（面试对话上下文复用统一 AI 会话机制） */
@@ -298,18 +298,18 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
     @org.springframework.beans.factory.annotation.Qualifier("aiTaskExecutor")
     private org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor aiTaskExecutor;
     @Autowired private IPortalInterviewConfigService interviewConfigService;
-    /** v11.88 V2重构：会话事件日志（start/answer/next/finish/close 全链路追溯） */
+    /** V2重构：会话事件日志（start/answer/next/finish/close 全链路追溯） */
     @Autowired private com.moyun.portal.mapper.PortalVoiceInterviewEventMapper eventMapper;
-    /** v11.94 V4：预热 RAG——agent 绑定知识库检索（题库文档作为考察方向供给源） */
+    /** V4：预热 RAG——agent 绑定知识库检索（题库文档作为考察方向供给源） */
     @Autowired private RagRetrievalService ragRetrievalService;
     @Autowired private AgentService agentService;
-    /** v11.96 时长制：sys_config 读取（voice.interview.durationMinutes） */
+    /** 时长制：sys_config 读取（voice.interview.durationMinutes） */
     @Autowired private com.moyun.system.service.ISysConfigService sysConfigService;
 
     /** SSE 异步线程池（避免阻塞请求线程） */
     private final ScheduledExecutorService sseExecutor = Executors.newScheduledThreadPool(2);
 
-    /** v11.96：批量分析运行中标记（断链自愈：analysis 卡 1 且无运行任务时轮询接口重触发） */
+    /** 批量分析运行中标记（断链自愈：analysis 卡 1 且无运行任务时轮询接口重触发） */
     private static final java.util.Set<Long> RUNNING_ANALYSIS = java.util.concurrent.ConcurrentHashMap.newKeySet();
 
     // ========================================================================
@@ -336,7 +336,7 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
         }
         int questionCount = config.getQuestionCount() != null && config.getQuestionCount() > 0
                 ? config.getQuestionCount() : QUESTION_COUNT;
-        // v11.96 时长制：sys_config 读取面试时长（缺省 20 分钟），题数仅作软参考不再强制收尾
+        // 时长制：sys_config 读取面试时长（缺省 20 分钟），题数仅作软参考不再强制收尾
         int durationMinutes = resolveDurationMinutes();
 
         // V3 面试官 agent：sys_config 默认配置（voice.interview.defaultAgentId），前端不再选择
@@ -348,13 +348,13 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
         // 简历摘要（有则作为面试官上下文注入滑窗）
         String resumeDigest = buildResumeDigest(config.getResumeId());
 
-        // v11.94 V4 预热：RAG 检索题库知识库（agent 绑定；无知识库/失败返回 null 不阻塞开面）
+        // V4 预热：RAG 检索题库知识库（agent 绑定；无知识库/失败返回 null 不阻塞开面）
         String kbSnippets = retrieveKbSnippets(agent, position, resumeDigest);
 
-        // v11.91 断点续接收口：开始新面试前，遗留的进行中会话自动结束（abandon）并触发异步批量分析（数据不丢）
+        // 断点续接收口：开始新面试前，遗留的进行中会话自动结束（abandon）并触发异步批量分析（数据不丢）
         closeStaleInterviews(userId);
 
-        // v11.94 V4 预热：一次调用产出"AI 理解"（画像+考察方向计划）+ 开场白 + 首题（失败降级旧 generateOpening 链路）
+        // V4 预热：一次调用产出"AI 理解"（画像+考察方向计划）+ 开场白 + 首题（失败降级旧 generateOpening 链路）
         JsonNode warmupPlan = tryWarmup(agent, position, difficulty, questionCount,
                 jobRequirements, resumeDigest, kbSnippets);
         String opening;
@@ -461,13 +461,13 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
                 .append("- 难度：").append(difficultyDesc).append("\n")
                 .append("- 计划 ").append(interview.getTotalQa() == null ? QUESTION_COUNT : interview.getTotalQa())
                 .append(" 个大问题，每个大问题可按回答情况追问 1-2 次，不要机械背题，围绕候选人实际经历展开。\n");
-        // v11.94.1 段序约束（三段式：自我介绍 → 深挖 → 核心问答；反问融入对话流，非独立段）
+        // 段序约束（三段式：自我介绍 → 深挖 → 核心问答；反问融入对话流，非独立段）
         sb.append("\n【段序约束】\n")
                 .append("- 第 1 个问题固定为：请候选人做自我介绍；")
                 .append("随后 2-3 问必须从其自我介绍内容中提取深挖点逐一追问，之后再扩展到其他考察方向。\n")
                 .append("- 候选人在回答中口头反问时，简短作答后自然回到提问；问满计划题数后，")
                 .append("口播一句“你还有什么想了解的吗？”，候选人若无反问或反问完毕即做简短收尾致谢。\n");
-        // v11.94 V4：预热计划（AI 理解）渲染进 system，滑窗常驻保证不跑题
+        // V4：预热计划（AI 理解）渲染进 system，滑窗常驻保证不跑题
         String planSection = renderWarmupPlanSection(interview);
         if (StringUtils.isNotEmpty(planSection)) {
             sb.append("\n").append(planSection);
@@ -476,7 +476,7 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
         return sb.toString();
     }
 
-    /** v11.94 V4：渲染预热计划段（configJson.warmupPlan → 面试理解 + 考察方向，常驻滑窗 system） */
+    /** V4：渲染预热计划段（configJson.warmupPlan → 面试理解 + 考察方向，常驻滑窗 system） */
     private String renderWarmupPlanSection(PortalVoiceInterview interview) {
         try {
             if (StringUtils.isEmpty(interview.getConfigJson())) {
@@ -539,7 +539,7 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
         }
     }
 
-    /** v11.94 V4：预热 RAG——检索 agent 绑定知识库（题库文档），返回 top-5 片段拼装文本（无/失败返回 null） */
+    /** V4：预热 RAG——检索 agent 绑定知识库（题库文档），返回 top-5 片段拼装文本（无/失败返回 null） */
     private String retrieveKbSnippets(Agent agent, String position, String resumeDigest) {
         try {
             if (agent == null || agent.getId() == null
@@ -583,7 +583,7 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
     }
 
     /**
-     * v11.94 V4 预热：场景网关 task=warmup 一次调用产出"AI 理解"+开场白+首题。
+     * V4 预热：场景网关 task=warmup 一次调用产出"AI 理解"+开场白+首题。
      * <p>失败/未启用返回 null，调用方降级 generateOpening 旧链路（不阻塞开面）。</p>
      */
     private JsonNode tryWarmup(Agent agent, String position, String difficulty, int questionCount,
@@ -668,7 +668,7 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
             recordEvent(interviewId, "skip", Map.of("qaId", qaId));
         }
 
-        // v11.96 时长制守卫：超过配置时长+宽限后拒绝继续作答，并自动收口触发报告（数据不丢）
+        // 时长制守卫：超过配置时长+宽限后拒绝继续作答，并自动收口触发报告（数据不丢）
         if (isInterviewTimedOut(interview)) {
             recordEvent(interviewId, "timeout_close", Map.of("qaId", qaId));
             finishQuietly(interview);
@@ -680,7 +680,7 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
             return timeoutEmitter;
         }
 
-        // v11.96 口头结束检测：候选人明确表达结束意图（严格短语），直接收尾（不进 agent 轮次）
+        // 口头结束检测：候选人明确表达结束意图（严格短语），直接收尾（不进 agent 轮次）
         if (!isSkip && matchesVerbalEnd(transcript)) {
             recordEvent(interviewId, "verbal_end", Map.of("qaId", qaId));
             SseEmitter endEmitter = new SseEmitter(SSE_TIMEOUT);
@@ -706,7 +706,7 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
      * V3 面试官流式轮次：
      * 候选人回答（或跳过标记）入滑窗 → LLM 基于完整上下文流式输出面试官话术（delta 打字机）→
      * 话术入滑窗 + 落库 → 预创建下一题 QA 并随 end 下发 nextQaId/nextQuestion。
-     * v11.96 时长制：问满题数不再收尾，结束仅由用户主动（按钮/口头）或倒计时归零触发。
+     * 时长制：问满题数不再收尾，结束仅由用户主动（按钮/口头）或倒计时归零触发。
      * 无实时评分/无规则决策，深度分析全部留到结束批量报告。
      */
     private void runAgentTurn(SseEmitter emitter, PortalVoiceInterview interview,
@@ -751,7 +751,7 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
                             qaMapper.updateById(qa);
 
                             // end 载荷：轮次进度 + 下一题
-                            // v11.96 时长制：题数仅作软参考，问满不再收尾——
+                            // 时长制：题数仅作软参考，问满不再收尾——
                             // 结束只能由用户主动（按钮/口头）或倒计时归零触发
                             Map<String, Object> payload = new LinkedHashMap<>();
                             int done = countAnsweredRounds(interview.getId());
@@ -797,13 +797,13 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
 
     /**
      * 每轮任务指令：只约束话术形态，不参与出题决策（面试官自主推进）。
-     * v11.96 时长制：以剩余时长提示收尾节奏（临近结束提示自然收口），题数仅作进度展示。
+     * 时长制：以剩余时长提示收尾节奏（临近结束提示自然收口），题数仅作进度展示。
      */
     private String buildTurnDirective(PortalVoiceInterview interview, boolean skip) {
         int done = countAnsweredRounds(interview.getId());
         String skipNote = skip ? "候选人刚刚选择跳过本题（未作答），请简短带过、不做追问，自然转入下一个方向。"
                 : "请以面试官身份回应候选人的回答：先一两句简要反馈，再自然提出你的下一个问题或针对性追问。";
-        // v11.96 时长制：剩余时长感知（结束由候选人主动提出或倒计时归零，不由题数决定）
+        // 时长制：剩余时长感知（结束由候选人主动提出或倒计时归零，不由题数决定）
         long remainMin = remainMinutesOf(interview);
         String timeNote;
         if (remainMin <= 0) {
@@ -818,7 +818,7 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
                 + "（本场已问 " + done + " 个大问题）" + timeNote;
     }
 
-    /** v11.96 时长制：本场剩余分钟数（负值表示已超时；配置缺失按 sys_config 当前值） */
+    /** 时长制：本场剩余分钟数（负值表示已超时；配置缺失按 sys_config 当前值） */
     private long remainMinutesOf(PortalVoiceInterview interview) {
         int duration = durationOf(interview);
         if (interview.getCreateTime() == null) {
@@ -828,7 +828,7 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
                 interview.getCreateTime().plusMinutes(duration)).toMinutes();
     }
 
-    /** v11.96 时长制：是否已超配置时长+宽限（服务端守卫，前端倒计时失灵时兜底收口） */
+    /** 时长制：是否已超配置时长+宽限（服务端守卫，前端倒计时失灵时兜底收口） */
     private boolean isInterviewTimedOut(PortalVoiceInterview interview) {
         if (interview.getCreateTime() == null) {
             return false;
@@ -837,7 +837,7 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
                 .isAfter(interview.getCreateTime().plusMinutes(durationOf(interview) + DURATION_GRACE_MINUTES));
     }
 
-    /** v11.96 时长制：读 sys_config 面试时长（分钟，缺省 20，范围 5-120） */
+    /** 时长制：读 sys_config 面试时长（分钟，缺省 20，范围 5-120） */
     private int resolveDurationMinutes() {
         try {
             String value = sysConfigService.selectConfigByKey(CONFIG_KEY_DURATION);
@@ -850,7 +850,7 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
         return DEFAULT_DURATION_MINUTES;
     }
 
-    /** v11.96 时长制：本场时长（configJson 优先，旧会话回退 sys_config 当前值） */
+    /** 时长制：本场时长（configJson 优先，旧会话回退 sys_config 当前值） */
     private int durationOf(PortalVoiceInterview interview) {
         String v = readConfigKey(interview, "durationMinutes");
         if (!v.isEmpty()) {
@@ -862,13 +862,13 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
         return resolveDurationMinutes();
     }
 
-    /** v11.96 口头结束意图检测（严格短语匹配，避免答案内容误判） */
+    /** 口头结束意图检测（严格短语匹配，避免答案内容误判） */
     private boolean matchesVerbalEnd(String transcript) {
         return transcript != null && VERBAL_END_PATTERN.matcher(transcript).find();
     }
 
     /**
-     * v11.96：静默收口（服务端守卫路径）——与 finish() 同逻辑但不返回报告：
+     * 静默收口（服务端守卫路径）——与 finish() 同逻辑但不返回报告：
      * 收口状态 + 释放滑窗 + 触发异步批量分析；已结束的幂等跳过。
      */
     private void finishQuietly(PortalVoiceInterview interview) {
@@ -899,7 +899,7 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
         return n == null ? 0 : n.intValue();
     }
 
-    /** v11.88 V2：记录会话事件（只增不改，链路追溯/断点恢复依据） */
+    /** V2：记录会话事件（只增不改，链路追溯/断点恢复依据） */
     private void recordEvent(Long interviewId, String eventType, Map<String, Object> data) {
         try {
             com.moyun.portal.domain.entity.PortalVoiceInterviewEvent event =
@@ -982,7 +982,7 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
             return parseReport(interview);
         }
 
-        // ========== v11.88 V2：同步段只收口会话状态（<200ms），批量分析转异步 ==========
+        // ========== V2：同步段只收口会话状态（<200ms），批量分析转异步 ==========
         interview.setStatus("finished");
         interview.setClosedReason("user");
         if (interview.getAnalysisStatus() == null || interview.getAnalysisStatus() == 0) {
@@ -1009,8 +1009,8 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
     }
 
     /**
-     * v11.88 V2：触发异步批量分析（幂等：analysis_status 已为 2 的不重跑；进行中不重复触发）。
-     * v11.96 P0 竞态修复：finish()/start() 均为 @Transactional，事务内直接提交异步任务会
+     * V2：触发异步批量分析（幂等：analysis_status 已为 2 的不重跑；进行中不重复触发）。
+     * P0 竞态修复：finish()/start() 均为 @Transactional，事务内直接提交异步任务会
      * 先于事务提交执行——异步线程读到旧值 analysisStatus=0 后直接跳过，报告永远不生成。
      * 此处注册事务提交后回调（afterCommit）再触发；无事务上下文（静默收口/自愈路径）直接触发。
      */
@@ -1029,7 +1029,7 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
         }
     }
 
-    /** v11.96：异步批量分析提交（线程池饱和时同步降级聚合，保证报告必有） */
+    /** 异步批量分析提交（线程池饱和时同步降级聚合，保证报告必有） */
     private void submitBatchAnalysis(Long interviewId) {
         try {
             aiTaskExecutor.execute(() -> {
@@ -1065,10 +1065,10 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
         }
     }
 
-    /** v11.88 V2：批量分析主流程——逐题补 LLM 深度分析（带进度）→ 聚合报告落库 */
+    /** V2：批量分析主流程——逐题补 LLM 深度分析（带进度）→ 聚合报告落库 */
     private void runBatchAnalysis(PortalVoiceInterview interview) {
         Long interviewId = interview.getId();
-        // v11.96：运行中标记防重入（自愈重触发与正常运行并发时只跑一个）
+        // 运行中标记防重入（自愈重触发与正常运行并发时只跑一个）
         if (!RUNNING_ANALYSIS.add(interviewId)) {
             return;
         }
@@ -1097,7 +1097,7 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
                 AnswerAnalysis analysis = analyzeAnswerByLlm(interview, qa.getQuestion(), null,
                         qa.getUserAnswer(), sr);
                 if (analysis != null) {
-                    // v11.94 P0-1：LLM 分回写主分/点评/维度——V3 无实时评分，score 恒空会导致
+                    // LLM 分回写主分/点评/维度——V3 无实时评分，score 恒空会导致
                     // 聚合报告跳过全部题目（报告分数断链），此处收口保证报告必有分数与逐题点评
                     qa.setScore(analysis.score);
                     qa.setAiFeedback(analysis.feedback);
@@ -1134,7 +1134,7 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
         }
     }
 
-    /** v11.88 V2：更新分析进度（条件更新，仅分析中状态才推进，防越界覆盖） */
+    /** V2：更新分析进度（条件更新，仅分析中状态才推进，防越界覆盖） */
     private void updateAnalysisProgress(Long interviewId, int progress) {
         try {
             PortalVoiceInterview fresh = interviewMapper.selectById(interviewId);
@@ -1147,7 +1147,7 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
         }
     }
 
-    /** v11.88 V2：聚合报告并落库（原 finish 聚合段抽取；分数融合 score_draft；进度 100；幂等防重） */
+    /** V2：聚合报告并落库（原 finish 聚合段抽取；分数融合 score_draft；进度 100；幂等防重） */
     private void aggregateAndStoreReport(PortalVoiceInterview interview) {
         Long interviewId = interview.getId();
         // 幂等防重：已完成不再重算（并发触发保护）
@@ -1168,7 +1168,7 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
         long sum = 0;
         List<VoiceInterviewReportVO.QuestionReview> reviews = new ArrayList<>();
         Map<String, Integer> dimSums = new LinkedHashMap<>();
-        // v11.97：维度 key 与逐题六维对齐（原 coverage/length/structure 旧 key 报告级断链）
+        // 维度 key 与逐题六维对齐（原 coverage/length/structure 旧 key 报告级断链）
         dimSums.put("relevance", 0);
         dimSums.put("professionalism", 0);
         dimSums.put("fluency", 0);
@@ -1181,7 +1181,7 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
         List<String> weakPoints = new ArrayList<>();
 
         for (PortalVoiceInterviewQA qa : qaList) {
-            // v11.88：分数融合——异步草稿分（LLM）优先按 70/30 融合，无草稿保持规则分
+            // 分数融合——异步草稿分（LLM）优先按 70/30 融合，无草稿保持规则分
             int effectiveScore;
             if (qa.getScore() == null) {
                 continue;
@@ -1201,7 +1201,7 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
             review.setQuestion(qa.getQuestion());
             review.setScore(effectiveScore);
             review.setFeedback(qa.getAiFeedback());
-            // v11.97：补原始作答与问答ID（前端折叠展示/加入错题本）
+            // 补原始作答与问答ID（前端折叠展示/加入错题本）
             review.setUserAnswer(qa.getUserAnswer());
             review.setQaId(qa.getId());
             reviews.add(review);
@@ -1237,7 +1237,7 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
                 : avg;
         fresh.setScore(totalScore);
 
-        // V11.0：聚合逐轮 LLM 深度分析 → 心态趋势 / 可疑信号汇总 / 流畅度均分
+        // 聚合逐轮 LLM 深度分析 → 心态趋势 / 可疑信号汇总 / 流畅度均分
         List<String> sentimentTrend = new ArrayList<>();
         List<String> allRedFlags = new ArrayList<>();
         int fluencySum = 0;
@@ -1273,7 +1273,7 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
             }
         }
 
-        // V10.4：LLM 画像增强——薄弱点优先用追问中识别的真实漏洞，summary 融合水平评估
+        // LLM 画像增强——薄弱点优先用追问中识别的真实漏洞，summary 融合水平评估
         Map<String, Object> cfg = readInterviewConfig(interview);
         List<String> profileGaps = (List<String>) cfg.get("profileGaps");
         if (profileGaps != null && !profileGaps.isEmpty()) {
@@ -1303,8 +1303,8 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
         // v11.x C2：自我介绍独立评分 + 针对性改进建议
         report.setIntroScore(introScoreView);
         report.setImprovementSuggestions(buildImprovementSuggestions(weakPoints, introScoreView));
-        // v11.97：相关知识点生成移除（题库 tags 聚合对 agent 自由面试无参考意义，前端 Tab 已删）
-        // V11.0：LLM 深度分析聚合结果（Agent 模式产出；旧数据字段为空，前端按缺失隐藏）
+        // 相关知识点生成移除（题库 tags 聚合对 agent 自由面试无参考意义，前端 Tab 已删）
+        // LLM 深度分析聚合结果（Agent 模式产出；旧数据字段为空，前端按缺失隐藏）
         report.setSentimentTrend(sentimentTrend);
         report.setRedFlags(allRedFlags);
         if (fluencyCount > 0) {
@@ -1314,17 +1314,17 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
         // v11.x C3：低分主问题自动入错题本（<60 分且来自题库，幂等累加 wrong_count）
         recordWrongQuestionsQuietly(interview, qaList);
 
-        // v11.90 V2：报告三段式——第一栏面试者简介（简历提取 + 口头自我介绍）
+        // V2：报告三段式——第一栏面试者简介（简历提取 + 口头自我介绍）
         report.setCandidate(buildCandidateProfile(interview, qaList));
-        // v11.90 V2：第二栏岗位信息（岗位 + JD + 匹配度）
+        // V2：第二栏岗位信息（岗位 + JD + 匹配度）
         report.setJobInfo(buildJobInfo(interview, totalScore));
 
-        // v11.97：整场 LLM 复盘——agent 直连通道增强报告（总评/匹配度/结构化亮点薄弱点/建议/
+        // 整场 LLM 复盘——agent 直连通道增强报告（总评/匹配度/结构化亮点薄弱点/建议/
         // 逐题评分回填/六维），任何失败保留上方规则兜底（链路永远可用）
         updateAnalysisProgress(interviewId, 85);
         enhanceReportByAgent(interview, report, qaList, answered, avg);
 
-        // v11.97：复盘后总分以报告为准（复盘回填逐题分会重算总分）
+        // 复盘后总分以报告为准（复盘回填逐题分会重算总分）
         fresh.setScore(report.getTotalScore());
         fresh.setSummary(report.getSummary());
         fresh.setReport(toJson(report));
@@ -1337,7 +1337,7 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
     }
 
     /**
-     * v11.90 V2：报告三段式第一栏——面试者简介（简历提取 + 面试口头自我介绍）。
+     * V2：报告三段式第一栏——面试者简介（简历提取 + 面试口头自我介绍）。
      * <p>key：name 姓名 / skills 技能 / resumeSelfIntro 简历自我介绍 /
      * interviewSelfIntro 面试口头自我介绍 / aiScore 简历AI评分；未选简历时为空 Map，前端隐藏。
      */
@@ -1351,7 +1351,7 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
                         candidate.put("name", resume.getName());
                     }
                     if (StringUtils.isNotEmpty(resume.getSkills())) {
-                        // v11.97：技能 JSON 格式化（"Java·了解 / Python·了解"），不再透出原始 JSON
+                        // 技能 JSON 格式化（"Java·了解 / Python·了解"），不再透出原始 JSON
                         candidate.put("skills", formatSkills(resume.getSkills()));
                     }
                     if (StringUtils.isNotEmpty(resume.getSelfIntro())) {
@@ -1378,7 +1378,7 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
     }
 
     /**
-     * v11.90 V2：报告三段式第二栏——岗位信息（岗位 + 岗位要求 JD + 匹配度）。
+     * V2：报告三段式第二栏——岗位信息（岗位 + 岗位要求 JD + 匹配度）。
      * <p>key：position 岗位 / jobRequirements 岗位要求JD / matchRate 岗位匹配度(%)；
      * JD 优先取 configJson（start 时已存），回退 contextSnapshot。
      */
@@ -1408,7 +1408,7 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
         return jobInfo;
     }
 
-    /** v11.88 V2：报告分析状态查询（前端进度条轮询） */
+    /** V2：报告分析状态查询（前端进度条轮询） */
     @Override
     public Map<String, Object> getAnalysisStatus(Long interviewId, Long userId) {
         PortalVoiceInterview interview = mustOwnInterview(interviewId, userId);
@@ -1416,7 +1416,7 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
         result.put("analysisStatus", interview.getAnalysisStatus() == null ? 0 : interview.getAnalysisStatus());
         result.put("analysisProgress", interview.getAnalysisProgress() == null ? 0 : interview.getAnalysisProgress());
         result.put("status", interview.getStatus());
-        // v11.96 断链自愈：已结束且分析中，但本进程无运行任务（服务重启/任务丢失）→ 重触发，
+        // 断链自愈：已结束且分析中，但本进程无运行任务（服务重启/任务丢失）→ 重触发，
         // 保证前端轮询永远能等到 analysisStatus=2（历史页进度轮询的数据一致性兜底）
         if ("finished".equals(interview.getStatus())
                 && Integer.valueOf(1).equals(interview.getAnalysisStatus())
@@ -1428,7 +1428,7 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
     }
 
     /**
-     * v11.97：重新生成报告——重置分析状态后复用异步批量分析链路（逐题补分析 + 聚合 + 整场 LLM 复盘）。
+     * 重新生成报告——重置分析状态后复用异步批量分析链路（逐题补分析 + 聚合 + 整场 LLM 复盘）。
      * <p>重置要点：主表必须清 report/summary（aggregateAndStoreReport 对报告非空仅推进进度直接返回）；
      * QA 必须清 scoreDraft（否则分数二次融合失真）与 analysisStatus（runBatchAnalysis 只处理未完成题）。</p>
      */
@@ -1521,7 +1521,7 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
         return parseReport(interview);
     }
     /**
-     * v11.97：整场 LLM 复盘——规则聚合完成后，走 agent 直连通道（与主对话同链路，实测可用）
+     * 整场 LLM 复盘——规则聚合完成后，走 agent 直连通道（与主对话同链路，实测可用）
      * 基于简历 + 岗位 + 全部问答对生成结构化报告增强：总评/岗位匹配度/结构化亮点薄弱点/
      * 可执行建议/逐题评分回填/六维。任何失败保留规则兜底（链路永远可用）。
      * <p>不注入 agent.systemPrompt——报告分析是代码级任务，与面试官 persona 无关。</p>
@@ -1714,7 +1714,7 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
         }
     }
 
-    /** v11.97：解析亮点/薄弱点数组 → 结构化视图（setter 注入）+ 返回标题列表（旧字段双写） */
+    /** 解析亮点/薄弱点数组 → 结构化视图（setter 注入）+ 返回标题列表（旧字段双写） */
     private List<String> parsePointViews(JsonNode arr,
                                          java.util.function.Consumer<List<VoiceInterviewReportVO.PointView>> setter) {
         List<String> titles = new ArrayList<>();
@@ -1742,7 +1742,7 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
         return titles;
     }
 
-    /** v11.97：容错提取 JSON 对象主体（剥 Markdown 围栏/前后杂文本；对齐 ai2 Handler 解析口径） */
+    /** 容错提取 JSON 对象主体（剥 Markdown 围栏/前后杂文本；对齐 ai2 Handler 解析口径） */
     private JsonNode extractJsonObject(String raw) {
         if (StringUtils.isEmpty(raw)) {
             return null;
@@ -1763,7 +1763,7 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
         }
     }
 
-    /** v11.97：文本截断（超长加省略号） */
+    /** 文本截断（超长加省略号） */
     private String truncateText(String text, int maxLen) {
         if (text == null) {
             return "";
@@ -1773,7 +1773,7 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
     }
 
     /**
-     * v11.97：技能 JSON 格式化——{"Java":{"level":"了解"}} 或数组 → "Java·了解 / Python·了解"；
+     * 技能 JSON 格式化——{"Java":{"level":"了解"}} 或数组 → "Java·了解 / Python·了解"；
      * 解析失败原样返回（兜底存量/异构数据）。
      */
     private String formatSkills(String rawSkills) {
@@ -1842,7 +1842,7 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
     }
 
     // ========================================================================
-    // v11.30 管理端（Admin 复盘：不校验用户归属）
+    // 管理端（Admin 复盘：不校验用户归属）
     // ========================================================================
 
     @Override
@@ -2062,7 +2062,7 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
     }
 
     /**
-     * v11.91 断点续接收口：开始新面试前，遗留的进行中会话自动结束（closed_reason=abandon）
+     * 断点续接收口：开始新面试前，遗留的进行中会话自动结束（closed_reason=abandon）
      * 并触发异步批量分析——数据不丢，报告保留在历史记录可查看。
      */
     private void closeStaleInterviews(Long userId) {
@@ -2175,7 +2175,7 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
         vo.setUserId(interview.getUserId());
         vo.setPosition(interview.getPosition());
         vo.setResumeId(interview.getResumeId());
-        // V11.0：agent 绑定信息（agentName 供前端顶栏展示）
+        // agent 绑定信息（agentName 供前端顶栏展示）
         vo.setAgentId(interview.getAgentId());
         if (interview.getAgentId() != null) {
             vo.setAgentName(agentClient.agentName(interview.getAgentId()));
@@ -2194,7 +2194,7 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
         vo.setSummary(interview.getSummary());
         vo.setConfigJson(interview.getConfigJson());
         vo.setCreateTime(interview.getCreateTime());
-        // v11.96：报告生成状态（历史页进度展示与轮询）+ 本场时长（前端全场倒计时）
+        // 报告生成状态（历史页进度展示与轮询）+ 本场时长（前端全场倒计时）
         vo.setAnalysisStatus(interview.getAnalysisStatus());
         vo.setAnalysisProgress(interview.getAnalysisProgress());
         vo.setDurationMinutes(durationOf(interview));

@@ -26,7 +26,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * 门户记账-VIP订阅控制器（v11.81 接入公共支付通道）
+ * 门户记账-VIP订阅控制器（接入公共支付通道）
  *
  * <p>链路：GET /packages 上架套餐列表（后台可配价格）→ POST /subscribe 下单
  * （快照套餐名/时长，clientUuid 幂等）→ 落 pending 单 → payGateway 统一下单
@@ -84,7 +84,7 @@ public class PortalLedgerVipController {
     }
 
     /**
-     * 订阅下单（V11.81 公共通道：pending 单 + 网关统一下单，返回收银台参数）
+     * 订阅下单（公共通道：pending 单 + 网关统一下单，返回收银台参数）
      */
     @PostMapping("/subscribe")
     public AjaxResult subscribe(@RequestBody Map<String, Object> body) {

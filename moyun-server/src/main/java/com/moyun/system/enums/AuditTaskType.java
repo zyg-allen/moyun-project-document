@@ -1,12 +1,12 @@
 package com.moyun.system.enums;
 
 /**
- * 统一审核任务类型枚举（v8.1）
+ * 统一审核任务类型枚举
  * <p>
  * 覆盖系统全部审核业务，对应 sys_audit_task.task_type 字段。
  * 每个类型绑定一个 {@code AuditBizHandler} 实现，处理 approve/reject/getBizDetail。
  * <p>
- * v11.35.1：新增 bizRoutePath（原业务管理页路由）。
+ * 新增 bizRoutePath（原业务管理页路由）。
  * defaultRoutePath 统一指向审核中心（首页待办跳转用），
  * 详情弹层「查看原业务」使用 bizRoutePath 直达业务管理菜单页。
  *

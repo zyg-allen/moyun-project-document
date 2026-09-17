@@ -132,7 +132,7 @@ public interface PortalUserStatsMapper extends BaseMapper<PortalUserStats> {
     int addTotalLikeReceived(@Param("userId") Long userId, @Param("delta") long delta);
 
     /**
-     * v5.9 阶段0：更新薄弱知识点 JSON 与计算时间
+     * 阶段0：更新薄弱知识点 JSON 与计算时间
      */
     @Update("UPDATE portal_user_stats SET weak_tags = #{weakTags}, weak_tags_updated_time = NOW() WHERE user_id = #{userId}")
     int updateWeakTags(@Param("userId") Long userId, @Param("weakTags") String weakTags);

@@ -96,20 +96,6 @@ public class DomainDictionaryController {
         }
     }
 
-    @Operation(summary = "批量导入词典")
-    @PostMapping("/import")
-    @PreAuthorize("@ss.hasPermi('cms:ai:domain-dictionary:add')")
-    public AjaxResult importDictionaries(@RequestBody List<DomainDictionary> dictionaries) {
-        boolean success = dictionaryService.saveBatch(dictionaries);
-
-        if (success) {
-            queryExpansionService.loadFromDatabase();
-            return AjaxResult.success("导入成功，共" + dictionaries.size() + "条");
-        } else {
-            return AjaxResult.error("导入失败");
-        }
-    }
-
     @Operation(summary = "重新加载词典到内存")
     @PostMapping("/reload")
     @PreAuthorize("@ss.hasPermi('cms:ai:domain-dictionary:edit')")

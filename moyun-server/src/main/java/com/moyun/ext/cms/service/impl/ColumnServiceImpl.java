@@ -108,7 +108,7 @@ public class ColumnServiceImpl implements IColumnService {
         boolean isNew = vo.getId() == null || vo.getId() <= 0;
         PortalColumn entity;
         if (isNew) {
-            // v10.10 实名策略：创建专栏不再强制创作者认证（前端弹窗提示实名可跳过）
+            // 实名策略：创建专栏不再强制创作者认证（前端弹窗提示实名可跳过）
             // 创建：校验同用户专栏数量上限
             int existCount = columnMapper.countByUserId(userId);
             if (existCount >= MAX_COLUMN_PER_USER) {
@@ -156,7 +156,7 @@ public class ColumnServiceImpl implements IColumnService {
             // 命中即写入审计日志（action=pending），专栏强制转 pending 待人工/AI 审核，
             // 避免 published 状态下的违规内容曝光。
             scanColumnSensitiveWords(entity, userId, true);
-            // v8.1：专栏进入待审核态时，提交统一审核任务（写 sys_audit_task），使首页/审核中心待办可见
+            // 专栏进入待审核态时，提交统一审核任务（写 sys_audit_task），使首页/审核中心待办可见
             if (entity.getId() != null && "pending".equals(entity.getStatus())) {
                 submitColumnAuditTask(entity, userId);
             }
@@ -169,7 +169,7 @@ public class ColumnServiceImpl implements IColumnService {
             columnMapper.updateById(entity);
             // 编辑后重新扫描；命中仅标记 flag，不强制改状态（编辑场景可能为已发布专栏的修订）
             scanColumnSensitiveWords(entity, userId, false);
-            // v8.1：编辑后若被强制转为 pending，重新提交审核任务
+            // 编辑后若被强制转为 pending，重新提交审核任务
             if ("pending".equals(entity.getStatus())) {
                 submitColumnAuditTask(entity, userId);
             }
@@ -414,7 +414,7 @@ public class ColumnServiceImpl implements IColumnService {
     }
 
     /**
-     * v8.1：提交专栏统一审核任务（事务内，异常回滚保证双写一致）。
+     * 提交专栏统一审核任务（事务内，异常回滚保证双写一致）。
      */
     private void submitColumnAuditTask(PortalColumn entity, Long userId) {
         AuditTaskSubmitDTO dto = new AuditTaskSubmitDTO();

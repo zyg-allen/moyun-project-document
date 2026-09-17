@@ -266,23 +266,6 @@ public class DataQueryServiceImpl implements DataQueryService {
         }
     }
 
-    @Override
-    public DataQueryResponse executeSQL(Long datasourceId, String sql) {
-        try {
-            // 安全验证
-            if (!sqlGeneratorService.validateSQL(sql)) {
-                return errorResponse("SQL不安全,已拦截");
-            }
-
-            DataSourceConfig dsConfig = dataSourceService.getById(datasourceId);
-            return executeQueryInternal(datasourceId, sql, dsConfig, 1000);
-
-        } catch (Exception e) {
-            log.error("执行SQL失败", e);
-            return errorResponse("执行失败: " + e.getMessage());
-        }
-    }
-
     /**
      * 内部执行查询
      */

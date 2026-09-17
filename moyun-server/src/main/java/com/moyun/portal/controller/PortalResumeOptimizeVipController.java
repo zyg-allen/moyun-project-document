@@ -25,7 +25,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * 门户简历优化-会员订阅控制器（v11.83 接入公共支付通道）
+ * 门户简历优化-会员订阅控制器（接入公共支付通道）
  *
  * <p>链路：GET /packages 上架套餐列表（后台可配价格）→ POST /subscribe 下单
  * （快照套餐名/时长，clientUuid 幂等）→ 落 pending 单 → payGateway 统一下单
@@ -59,7 +59,7 @@ public class PortalResumeOptimizeVipController extends BaseController {
     @Autowired
     private PayProperties payProperties;
 
-    /** v11.85：免费体验次数服务（非会员每场景 2 次） */
+    /** 免费体验次数服务（非会员每场景 2 次） */
     @Autowired
     private PortalFreeTrialService freeTrialService;
 
@@ -85,13 +85,13 @@ public class PortalResumeOptimizeVipController extends BaseController {
         Map<String, Object> data = new HashMap<>();
         data.put("isVip", isVip(userId));
         data.put("vipExpire", currentVipExpire(userId));
-        // v11.85：非会员剩余免费体验次数（简历深度优化每用户 2 次）
+        // 非会员剩余免费体验次数（简历深度优化每用户 2 次）
         data.put("freeTrialLeft", freeTrialService.leftTimes(userId, PortalFreeTrialService.SCENE_RESUME_DEEP));
         return AjaxResult.success(data);
     }
 
     /**
-     * 订阅下单（v11.83 公共通道：pending 单 + 网关统一下单，返回收银台参数）
+     * 订阅下单（公共通道：pending 单 + 网关统一下单，返回收银台参数）
      */
     @Operation(summary = "订阅下单")
     @PostMapping("/subscribe")

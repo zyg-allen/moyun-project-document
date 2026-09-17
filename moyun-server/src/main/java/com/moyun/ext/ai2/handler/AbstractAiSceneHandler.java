@@ -61,7 +61,7 @@ public abstract class AbstractAiSceneHandler implements AiSceneHandler {
     }
 
     /**
-     * v11.95 任务4：结构化场景对话 + 解析失败降级 Prompt 约束重试。
+     * 结构化场景对话 + 解析失败降级 Prompt 约束重试。
      *
      * <p>首次调用结果无法提取 JSON 主体（模型绕过 JSON Mode、输出夹带解释文本/围栏）时，
      * 追加输出约束重试一次（★★ 兜底路径：responseFormat 之外的可靠性保障，解析失败
@@ -104,7 +104,7 @@ public abstract class AbstractAiSceneHandler implements AiSceneHandler {
     }
 
     /**
-     * 场景感知同步对话（结构化结果，v11.51）：除文本外返回实际使用的模型与 token 消耗。
+     * 场景感知同步对话（结构化结果）：除文本外返回实际使用的模型与 token 消耗。
      * 需要 metadata 可观测的场景 Handler 用本方法，并通过 {@link #buildMetadata} 填充响应。
      */
     protected ChatOutcome chatDetailed(String sceneCode, String systemPrompt, String userPrompt) {
@@ -123,7 +123,7 @@ public abstract class AbstractAiSceneHandler implements AiSceneHandler {
                         fillUsage(outcome, resp);
                         return outcome;
                     }
-                    // v11.54：绑定模型返回空内容（HTTP 200 但 content 空——推理模型只出
+                    // 绑定模型返回空内容（HTTP 200 但 content 空——推理模型只出
                     // reasoning_content、或触发内容审查）。记录留痕并回落默认模型再试一次，
                     // 不再静默失败（旧版直接 return 空结果，无任何日志，排障抓瞎）
                     log.warn("[ai2:{}] 绑定模型返回空内容，回落默认模型（疑似推理模型未产出final答案或内容审查）: model={}",
@@ -153,7 +153,7 @@ public abstract class AbstractAiSceneHandler implements AiSceneHandler {
                 if (resp.tokenUsage().totalTokenCount() != null) {
                     outcome.setTokenUsed(resp.tokenUsage().totalTokenCount());
                 }
-                // v11.57 P0-2：输入/输出细分（成本核算依据；部分供应商仅回传 total，则细分留空）
+                // 输入/输出细分（成本核算依据；部分供应商仅回传 total，则细分留空）
                 if (resp.tokenUsage().inputTokenCount() != null) {
                     outcome.setInputTokens(resp.tokenUsage().inputTokenCount());
                 }
@@ -172,7 +172,7 @@ public abstract class AbstractAiSceneHandler implements AiSceneHandler {
     }
 
     /**
-     * LLM 调用结果 → 响应元数据（v11.51）。Handler 调 chatDetailed 后构建：
+     * LLM 调用结果 → 响应元数据。Handler 调 chatDetailed 后构建：
      * modelUsed/tokenUsed/modelProvider 来自实际调用；agentUsed 由网关统一补充。
      */
     protected AiMetadata buildMetadata(ChatOutcome outcome) {
@@ -259,7 +259,7 @@ public abstract class AbstractAiSceneHandler implements AiSceneHandler {
     }
 
     /**
-     * 按场景配置解析 LLM 原始输出（v11.66 P1-5：output_parser 配置接线）
+     * 按场景配置解析 LLM 原始输出（output_parser 配置接线）
      *
      * <p>消费 ai_scene_config.output_parser（此前配置可编辑零消费，管理页与实际脱节）：</p>
      * <ul>
@@ -328,7 +328,7 @@ public abstract class AbstractAiSceneHandler implements AiSceneHandler {
     }
 
     /**
-     * v11.95：场景系统提示词模板已废弃——本方法不再读取 config.systemPromptTemplate。
+     * 场景系统提示词模板已废弃——本方法不再读取 config.systemPromptTemplate。
      * <p>人设统一由 Agent 表承载：对话类场景经 ChatContextBuilderService 组装
      * （agent.systemPrompt + 知识库规则），后台任务经 {@link #mergePersona} 注入
      * agentPersona + 任务边界声明；无 Agent 的场景用 Handler 内置默认提示词。</p>
@@ -347,7 +347,7 @@ public abstract class AbstractAiSceneHandler implements AiSceneHandler {
     }
 
     /**
-     * Agent 人设前置合并（v11.53 加任务边界声明）
+     * Agent 人设前置合并（加任务边界声明）
      *
      * <p>背景：用户在管理页绑定的 Agent 人设可能是对话式（如"与用户交流了解需求"），
      * 后台批处理任务中会诱导 LLM 输出问候/反问文本（"您好，请提供数据"）而非按
@@ -375,7 +375,7 @@ public abstract class AbstractAiSceneHandler implements AiSceneHandler {
     }
 
     /**
-     * 清洗 LLM 原始文本用于展示兜底（v11.53）：剥离 markdown 围栏与首尾空白。
+     * 清洗 LLM 原始文本用于展示兜底：剥离 markdown 围栏与首尾空白。
      * JSON 残骸（以 { 或 [ 开头——通常为截断的结构化输出）不适合人读，返回空串由调用方走模板降级。
      */
     protected String cleanLlmText(String raw) {
@@ -427,7 +427,7 @@ public abstract class AbstractAiSceneHandler implements AiSceneHandler {
     }
 
     /**
-     * 取必填的用户自由文本（顶层 userInput 字段，v11.52 契约）。
+     * 取必填的用户自由文本（顶层 userInput 字段，契约）。
      * 对话/检测/生成类场景的"人打的原始输入"统一走此参数，业务结构化参数仍走 input。
      */
     protected String requireUserInput(AiExecuteRequest request) {

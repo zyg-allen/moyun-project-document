@@ -24,7 +24,7 @@ import java.util.Set;
 /**
  * 备忘录服务实现
  *
- * <p>v11.34：事项标题/事项时间/是否提醒/提醒方式/重要程度。
+ * <p>事项标题/事项时间/是否提醒/提醒方式/重要程度。
  * 提醒扫描：每 5 分钟由 LedgerMemoRemindTask 调用 sendDueReminders()，
  * 按 remind_rule 计算 event_time 的提前量，时刻到达即发送站内通知（防重 reminded 标记）。
  *

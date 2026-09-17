@@ -96,7 +96,7 @@ public class PortalTopicController extends BaseController {
         if (userId == null) {
             return AjaxResult.error(HttpStatus.UNAUTHORIZED, "请先登录");
         }
-        // 敏感词前置拦截（P1-5）：扫描标题 + 描述
+        // 敏感词前置拦截：扫描标题 + 描述
         String scanText = (topic.getTitle() == null ? "" : topic.getTitle()) + " "
                 + (topic.getDescription() == null ? "" : topic.getDescription());
         if (sensitiveWordService.contains(scanText)) {
@@ -193,7 +193,7 @@ public class PortalTopicController extends BaseController {
         if (userId == null) {
             return AjaxResult.error(HttpStatus.UNAUTHORIZED, "请先登录");
         }
-        // 敏感词前置拦截（P1-5）
+        // 敏感词前置拦截
         String scanText = dto.getContent() == null ? "" : dto.getContent();
         if (sensitiveWordService.contains(scanText)) {
             List<String> hitWords = sensitiveWordService.detectAndLog(
@@ -287,7 +287,7 @@ public class PortalTopicController extends BaseController {
         if (userId == null) {
             return AjaxResult.error(HttpStatus.UNAUTHORIZED, "请先登录");
         }
-        // 敏感词前置拦截（P1-5）
+        // 敏感词前置拦截
         String scanText = comment.getContent() == null ? "" : comment.getContent();
         if (sensitiveWordService.contains(scanText)) {
             List<String> hitWords = sensitiveWordService.detectAndLog(

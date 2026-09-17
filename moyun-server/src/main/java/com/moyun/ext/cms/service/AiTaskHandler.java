@@ -3,7 +3,7 @@ package com.moyun.ext.cms.service;
 import com.fasterxml.jackson.databind.JsonNode;
 
 /**
- * 通用 AI 异步任务处理器接口（v10.23）
+ * 通用 AI 异步任务处理器接口
  *
  * <p>每个实现类声明一种任务类型（{@link #taskType()}），由 Spring 自动收集注册到
  * {@link AiTaskService}/{@link AiTaskAsyncExecutor} 的 handlerMap。

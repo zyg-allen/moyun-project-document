@@ -8,7 +8,7 @@ import java.math.BigDecimal;
 import java.util.Map;
 
 /**
- * 记账App打赏服务（V11.80 接入公共支付通道）
+ * 记账App打赏服务（接入公共支付通道）
  *
  * <p>链路：校验（金额/幂等）→ 落 pending 单 → payGateway 统一下单
  * (bizType=ledger_tip, platform=ledger_app) → 返回收银台参数（payNo/codeUrl/...）
@@ -19,7 +19,7 @@ import java.util.Map;
 public interface ILedgerTipService extends IService<LedgerTipOrder> {
 
     /**
-     * 发起打赏下单（V11.80 公共通道完整链路）
+     * 发起打赏下单（公共通道完整链路）
      *
      * <p>校验：金额 0.01~10000 元、scale≤2、clientUuid 幂等防重复提交；
      * 幂等：同 clientUuid 已有 paid 单拒绝重复，pending 未过期单复用（网关同单复用 codeUrl）。

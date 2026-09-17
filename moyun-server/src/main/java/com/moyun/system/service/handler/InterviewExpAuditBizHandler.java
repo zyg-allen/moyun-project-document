@@ -12,7 +12,7 @@ import com.moyun.portal.mapper.PortalInterviewExperienceMapper;
 import com.moyun.system.service.AuditBizHandler;
 
 /**
- * 面经审核业务处理器（v8.1）
+ * 面经审核业务处理器
  * <p>
  * 委托 {@link IPortalInterviewService#auditExperience} 处理。
  * 注意：原方法无 auditorId 参数，内部用 SecurityUtils 取当前 sys_user.id（审核中心调用时即处理人）。

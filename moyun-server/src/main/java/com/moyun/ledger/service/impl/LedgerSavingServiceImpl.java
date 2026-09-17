@@ -22,7 +22,7 @@ import java.util.Map;
 /**
  * 存钱计划服务实现
  *
- * <p>金额单位：元（BigDecimal，v11.31 统一口径）。
+ * <p>金额单位：元（BigDecimal，统一口径）。
  * 期次生成规则：
  * 52week → 52期，第n期 10n 元；
  * fixed  → periodAmount 一期，直至凑满 targetAmount（末期为差额）；

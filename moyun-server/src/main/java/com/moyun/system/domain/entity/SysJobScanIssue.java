@@ -11,7 +11,7 @@ import java.io.Serializable;
 import java.time.LocalDateTime;
 
 /**
- * 定时任务扫描结果表 sys_job_scan_issue（v8.1）
+ * 定时任务扫描结果表 sys_job_scan_issue
  * <p>
  * 定时任务执行过程中扫描出的异常/待处理项记录，人工在「任务管理 > 扫描结果」页面处理。
  * <p>

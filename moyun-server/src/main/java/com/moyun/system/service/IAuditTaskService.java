@@ -10,7 +10,7 @@ import com.moyun.system.domain.entity.SysAuditTask;
 import com.moyun.system.domain.vo.AuditTaskVO;
 
 /**
- * 统一审核任务服务（v8.1）
+ * 统一审核任务服务
  * <p>
  * 替代分散的各业务表 status 聚合查询，提供统一的审核任务提交、查询、处理能力。
  * <p>

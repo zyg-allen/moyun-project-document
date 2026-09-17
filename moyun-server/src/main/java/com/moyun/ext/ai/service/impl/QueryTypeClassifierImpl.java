@@ -24,7 +24,7 @@ public class QueryTypeClassifierImpl implements QueryTypeClassifier {
             Pattern.CASE_INSENSITIVE
     );
 
-    // 版本号模式（v1.0.0、Java 17、Python 3.9等）
+    // 版本号模式（、Java 17、Python 3.9等）
     private static final Pattern VERSION_PATTERN = Pattern.compile(
             "(?i)(v\\d+\\.\\d+(\\.\\d+)?|版本\\d+|\\d+\\.\\d+(\\.\\d+)?版本|Java\\s*\\d+|Python\\s*\\d+)",
             Pattern.CASE_INSENSITIVE

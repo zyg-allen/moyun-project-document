@@ -20,7 +20,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * 通用 AI 异步任务服务（v10.23）
+ * 通用 AI 异步任务服务
  *
  * <p>统一门户 LLM 长耗时任务（简历解析/岗位匹配/空字段草稿/深度优化）的提交与查询：
  * 提交时校验任务类型有对应 {@link AiTaskHandler} 实现，同步入库 pending 记录并触发
@@ -32,12 +32,12 @@ import java.util.Map;
  * <p>原 portal_resume_optimize_task 表停止写入（代码已切换到 portal_ai_task），
  * 深度优化旧轮询接口由 Controller 做结构映射保持前端兼容。</p>
  *
- * <p><strong>AI 异步任务选型规则（v11.67 双轨制，勿再引入第三套）</strong>：
+ * <p><strong>AI 异步任务选型规则（双轨制，勿再引入第三套）</strong>：
  * <ul>
  *   <li><strong>表驱动（本服务，portal_ai_task）</strong>：长任务（分钟级）/需审计追溯/
  *       结果需持久化供多次查看（如简历深度优化、岗位匹配）。任务记录永久留痕，
  *       支持失败原因回查与服务重启后孤儿任务恢复。</li>
- *   <li><strong>Redis + 线程池（LedgerAiAnalysisServiceImpl v11.55 模式）</strong>：
+ *   <li><strong>Redis + 线程池（LedgerAiAnalysisServiceImpl 模式）</strong>：
  *       短任务（秒级）/结果时效性强无需持久化（如财务分析，任务态 30 分钟 TTL，
  *       报告快照另有落表）。轻量、无表结构与治理开销。</li>
  * </ul>
@@ -155,7 +155,7 @@ public class AiTaskService {
     }
 
     /**
-     * 启动时恢复孤儿任务（v11.67 P1-6）：@Async 任务存活于 JVM 内存，应用重启后
+     * 启动时恢复孤儿任务：@Async 任务存活于 JVM 内存，应用重启后
      * 执行线程丢失，卡在 pending/running 的记录永远等不到终态（前端轮询挂死）。
      * 统一置为 failed 提示重新提交。
      *

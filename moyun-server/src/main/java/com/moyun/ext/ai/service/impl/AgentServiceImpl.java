@@ -95,7 +95,7 @@ public class AgentServiceImpl extends ServiceImpl<AgentMapper, Agent> implements
      * <p>使用 knowledgeLibraryIds (JSON数组) 格式：先查询知识库下的所有文档ID</p>
      *
      * <p>注：原 knowledge_base_ids 字段（逗号分隔字符串）已由 110 升级脚本 DROP，
-     * 旧版格式兼容代码已移除（P0-3 清理）</p>
+     * 旧版格式兼容代码已移除（清理）</p>
      *
      * @param agentId 智能体ID
      * @return 文档ID列表（knowledge_base表的id），用于检索过滤

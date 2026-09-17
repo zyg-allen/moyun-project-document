@@ -272,18 +272,6 @@ public class WorkflowController {
         }
     }
 
-    @GetMapping("/published")
-    @PreAuthorize("@ss.hasPermi('cms:ai:workflow:list')")
-    public AjaxResult getPublished() {
-        try {
-            List<Workflow> workflows = workflowService.listEnabled();
-            return AjaxResult.success(workflows);
-        } catch (Exception e) {
-            log.error("获取已发布工作流失败", e);
-            return AjaxResult.error("获取失败: " + e.getMessage());
-        }
-    }
-
     @PostMapping("/{id}/bind/{agentId}")
     @PreAuthorize("@ss.hasPermi('cms:ai:workflow:edit')")
     public AjaxResult bindToAgent(@PathVariable Long id, @PathVariable Long agentId) {
@@ -305,39 +293,6 @@ public class WorkflowController {
         } catch (Exception e) {
             log.error("解绑工作流失败", e);
             return AjaxResult.error("解绑失败: " + e.getMessage());
-        }
-    }
-
-    @GetMapping("/agent/{agentId}")
-    @PreAuthorize("@ss.hasPermi('cms:ai:workflow:query')")
-    public AjaxResult getAgentWorkflows(@PathVariable Long agentId) {
-        try {
-            List<Workflow> workflows = workflowService.getAgentWorkflows(agentId);
-            return AjaxResult.success(workflows);
-        } catch (Exception e) {
-            log.error("获取智能体工作流失败", e);
-            return AjaxResult.error("获取失败: " + e.getMessage());
-        }
-    }
-
-    @PostMapping("/api/run/{workflowName}")
-    @PreAuthorize("@ss.hasPermi('cms:ai:workflow:execute')")
-    public AjaxResult runByName(@PathVariable String workflowName, @RequestBody(required = false) Map<String, Object> input) {
-        try {
-            WorkflowEngine.WorkflowResult execResult = workflowService.executeByName(workflowName, input);
-            Map<String, Object> data = new HashMap<>();
-            data.put("output", execResult.getOutput());
-            data.put("executionId", execResult.getExecutionId());
-            data.put("durationMs", execResult.getDurationMs());
-            data.put("nodeLogs", execResult.getNodeLogs());
-
-            if (!execResult.isSuccess()) {
-                return AjaxResult.error(execResult.getErrorMessage(), data);
-            }
-            return AjaxResult.success(data);
-        } catch (Exception e) {
-            log.error("执行工作流失败", e);
-            return AjaxResult.error("执行失败: " + e.getMessage());
         }
     }
 

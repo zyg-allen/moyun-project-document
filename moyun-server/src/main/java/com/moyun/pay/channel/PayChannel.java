@@ -1,7 +1,7 @@
 package com.moyun.pay.channel;
 
 /**
- * 支付渠道 SPI（V11.0 公共支付通道）
+ * 支付渠道 SPI（公共支付通道）
  *
  * <p>实现类按渠道注册（如 wechat），由 {@code PayGatewayImpl} 按 order.channel 路由。
  * 新增渠道（支付宝/云闪付）实现本接口并声明 Bean 即可，业务代码零改动。

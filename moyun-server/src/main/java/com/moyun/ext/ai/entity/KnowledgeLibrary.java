@@ -14,11 +14,11 @@ import java.time.LocalDateTime;
  *
  * <p>一个知识库可以包含多个文档，支持按主题组织和管理知识</p>
  *
- * <p>继承 {@link AiBaseEntity}，复用 createTime / updateTime / deleted 字段（P3-2 Phase 2）。
+ * <p>继承 {@link AiBaseEntity}，复用 createTime / updateTime / deleted 字段（Phase 2）。
  * 原有的 {@code created_at / updated_at / deleted} 列经 117 脚本重命名为
  * {@code create_time / update_time}，deleted 列保持不变。
  * 时间字段的 {@code @TableField(fill=...)} 自动填充由 AiBaseEntity 统一提供，
- * strictInsertFill 仅填 null，不覆盖 Service 层显式赋值（P0-1 兜底兼容）。</p>
+ * strictInsertFill 仅填 null，不覆盖 Service 层显式赋值（兜底兼容）。</p>
  *
  * @author laomao
  */
@@ -92,7 +92,7 @@ public class KnowledgeLibrary extends AiBaseEntity {
 
     // ========== 时间戳 / 软删除 ==========
 
-    // createTime / updateTime / deleted 字段继承自 AiBaseEntity（P3-2 Phase 2），
+    // createTime / updateTime / deleted 字段继承自 AiBaseEntity（Phase 2），
     // 对应列：create_time（原 created_at，117 脚本重命名）/
     //         update_time（原 updated_at，117 脚本重命名）/ deleted
 }

@@ -19,7 +19,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * CMS 支付配置管理 Controller（V11.0）
+ * CMS 支付配置管理 Controller
  *
  * <p>配置总览（商户参数仅返回是否已配置的布尔状态，绝不下发密钥/私钥）
  * + 平台抽成费率运行时调整（写 sys_config，运行时优先于 yaml）。

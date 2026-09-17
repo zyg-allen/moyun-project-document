@@ -6,7 +6,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 /**
- * 语音面试会话详情 VO（V10.1）
+ * 语音面试会话详情 VO
  *
  * @author moyun
  */
@@ -15,7 +15,7 @@ public class VoiceInterviewVO {
 
     private Long id;
     private Long userId;
-    /** 用户名（v11.30 管理端复盘展示，portal 端不返回） */
+    /** 用户名（管理端复盘展示，portal 端不返回） */
     private String username;
     private String position;
     private Long resumeId;
@@ -38,11 +38,11 @@ public class VoiceInterviewVO {
     private String configJson;
     private LocalDateTime createTime;
 
-    /** v11.96 时长制：本场面试时长（分钟，configJson 优先，缺省 20） */
+    /** 时长制：本场面试时长（分钟，configJson 优先，缺省 20） */
     private Integer durationMinutes;
-    /** v11.96：报告分析状态（0未分析/1分析中/2已完成，历史页进度展示） */
+    /** 报告分析状态（0未分析/1分析中/2已完成，历史页进度展示） */
     private Integer analysisStatus;
-    /** v11.96：报告分析进度（0-100） */
+    /** 报告分析进度（0-100） */
     private Integer analysisProgress;
 
     /** 问答列表（含追问） */

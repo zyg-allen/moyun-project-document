@@ -4,7 +4,7 @@ import java.util.List;
 import java.util.regex.Pattern;
 
 /**
- * Prompt 注入防护（v11.57 P0-1）
+ * Prompt 注入防护
  *
  * <p>双通道防护策略（参照 OWASP LLM Top 10 指引）：</p>
  * <ul>
@@ -16,7 +16,7 @@ import java.util.regex.Pattern;
  * </ul>
  *
  * <p>角色扮演类模式（"请扮演面试官"等）仅标记 SUSPECT 不拦截 —— 业务存在合法角色扮演场景
- * （语音面试/对话），由数据隔离与系统提示词边界（v11.53 任务边界）兜底。</p>
+ * （语音面试/对话），由数据隔离与系统提示词边界（任务边界）兜底。</p>
  *
  * @author laomao
  * @since 2026-09-11

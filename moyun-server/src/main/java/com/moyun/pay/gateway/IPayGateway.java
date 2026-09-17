@@ -10,7 +10,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * 统一支付网关（V11.0 公共支付通道对外唯一门面）
+ * 统一支付网关（公共支付通道对外唯一门面）
  *
  * <p>业务方（打赏/会员/课程...）只感知本接口与 bizType，不感知任何渠道细节。
  * 状态机、幂等、事务分发、分账推进全部在实现类收口。
@@ -24,8 +24,8 @@ public interface IPayGateway {
      *
      * @param bizType  业务类型（tip/member/course/...）
      * @param bizNo    业务单号（业务方本地单 ID）
-     * @param userId   下单用户（portal_user.id，v11.79 补全对账维度）
-     * @param platform 归属平台（ledger_app/portal，v11.79 补全对账维度）
+     * @param userId   下单用户（portal_user.id，补全对账维度）
+     * @param platform 归属平台（ledger_app/portal，补全对账维度）
      * @param channel  支付渠道（wechat）
      * @param amount   金额（元）
      * @param subject  商品描述

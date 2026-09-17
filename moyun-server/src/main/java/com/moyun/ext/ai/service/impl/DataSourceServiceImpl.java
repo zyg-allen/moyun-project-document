@@ -65,7 +65,7 @@ public class DataSourceServiceImpl extends ServiceImpl<DataSourceConfigMapper, D
     }
 
     /**
-     * 重写 save，兜底设置时间戳（P0-1）。
+     * 重写 save，兜底设置时间戳。
      * <p>DataSourceConfig 经 {@code @RequestBody} Jackson 反序列化后，
      * MyBatis-Plus 的 strictInsertFill 可能不生效，需显式赋值防止
      * "Column 'create_time' cannot be null" 故障。</p>
@@ -85,7 +85,7 @@ public class DataSourceServiceImpl extends ServiceImpl<DataSourceConfigMapper, D
     }
 
     /**
-     * 重写 updateById，兜底设置时间戳（P0-1）。
+     * 重写 updateById，兜底设置时间戳。
      */
     @Override
     public boolean updateById(DataSourceConfig entity) {

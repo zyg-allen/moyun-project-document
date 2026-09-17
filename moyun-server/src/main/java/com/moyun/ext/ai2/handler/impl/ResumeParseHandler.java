@@ -17,7 +17,7 @@ import java.util.Map;
  *
  * <p>职责：简历文本 → 结构化 JSON（字段语义对齐在线简历表单的完整 Schema）。</p>
  *
- * <p>v11.58 P0-3 业务收口：提示词与 {@code ResumeParseService.parseByLlm} 原文完全一致
+ * <p>业务收口：提示词与 {@code ResumeParseService.parseByLlm} 原文完全一致
  * （name/gender/birthDate/jobIntention/educations/works/projects/skills/selfIntro 全字段），
  * 业务调用方从 {@link ResumeSceneData#getStructured()} 反序列化为 ResumeParseVO，
  * 保证切换网关前后解析行为零变化。</p>
@@ -46,7 +46,7 @@ public class ResumeParseHandler extends AbstractAiSceneHandler {
     public AiExecuteResponse<?> execute(AiExecuteRequest request, AiSceneConfig config) {
         String text = requireInputString(request, "text");
 
-        // v11.58：与 ResumeParseService.parseByLlm 原提示词逐字一致（全字段 Schema）
+        // 与 ResumeParseService.parseByLlm 原提示词逐字一致（全字段 Schema）
         String systemPrompt = "从简历原文抽取结构化JSON。字段：name,gender(男/女),birthDate(yyyy-MM-dd),"
                 + "phone,email,title,jobIntention{position,city,salaryMin,salaryMax,jobType,availableTime},"
                 + "educations[{school,major,degree,startDate(yyyy-MM),endDate(yyyy-MM),description}],"
@@ -56,7 +56,7 @@ public class ResumeParseHandler extends AbstractAiSceneHandler {
                 + "规则：只抽取原文存在的信息，缺失返回null或空数组，禁止编造。"
                 + "只输出JSON本体，禁止markdown代码块。";
 
-        // v11.57：数据通道隔离——简历原文为不可信数据，分隔符包裹防注入（数据内指令性文字不构成指令）
+        // 数据通道隔离——简历原文为不可信数据，分隔符包裹防注入（数据内指令性文字不构成指令）
         String raw = chatJson(getSceneCode(), systemPrompt,
                 PromptInjectionGuard.wrapData("简历原文", text));
         if (raw == null || raw.isBlank()) {
@@ -69,7 +69,7 @@ public class ResumeParseHandler extends AbstractAiSceneHandler {
         }
 
         ResumeSceneData data = new ResumeSceneData();
-        // v11.58：完整解析结果置于 structured（业务侧 convertValue → ResumeParseVO）
+        // 完整解析结果置于 structured（业务侧 convertValue → ResumeParseVO）
         data.setStructured(parsed);
         return AiExecuteResponse.success(data);
     }

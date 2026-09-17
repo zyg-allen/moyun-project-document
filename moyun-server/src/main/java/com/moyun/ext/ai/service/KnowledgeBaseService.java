@@ -97,17 +97,6 @@ public interface KnowledgeBaseService extends IService<KnowledgeBase> {
     List<RetrievalTestResult> testRetrieval(Long id, RetrievalTestRequest request);
     
     /**
-     * 批量操作
-     *
-     * @param operation 操作类型
-     * @param ids 知识库ID列表
-     * @param category 分组
-     * @param tags 标签
-     * @return 是否成功
-     */
-    boolean batchOperation(String operation, java.util.List<Long> ids, String category, String tags);
-    
-    /**
      * 更新知识库使用统计
      * 在知识库被检索时调用
      *

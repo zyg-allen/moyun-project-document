@@ -49,7 +49,7 @@ public class KnowledgeLibraryServiceImpl extends ServiceImpl<KnowledgeLibraryMap
     private ObjectMapper objectMapper;
 
     /**
-     * 知识库默认参数（P2-2 阶段 3）：统一 {@code createLibrary} 和 {@code applyTemplateConfig}
+     * 知识库默认参数（阶段 3）：统一 {@code createLibrary} 和 {@code applyTemplateConfig}
      * 的硬编码默认值，与 {@code KnowledgeConfigServiceImpl.createDefaultConfigObject} 共用同一套默认值。
      */
     @Autowired
@@ -86,7 +86,7 @@ public class KnowledgeLibraryServiceImpl extends ServiceImpl<KnowledgeLibraryMap
         if (dto.getTemplateId() != null) {
             applyTemplateConfig(config, dto.getTemplateId());
         } else {
-            // 使用DTO中的配置或默认值（P2-2 阶段 3：默认值统一从 KnowledgeDefaults 读取，
+            // 使用DTO中的配置或默认值（阶段 3：默认值统一从 KnowledgeDefaults 读取，
             // 消除散落在 createLibrary / applyTemplateConfig / KnowledgeConfigServiceImpl 的硬编码分歧）
             config.setSegmentMode(dto.getSegmentMode() != null ? dto.getSegmentMode() : knowledgeDefaults.getSegmentMode());
             config.setSegmentMaxLength(dto.getSegmentMaxLength() != null ? dto.getSegmentMaxLength() : knowledgeDefaults.getSegmentMaxLength());
@@ -366,7 +366,7 @@ public class KnowledgeLibraryServiceImpl extends ServiceImpl<KnowledgeLibraryMap
         vo.setTotalSizeFormatted(formatFileSize(library.getTotalSize()));
 
         // 时间字段显式映射：实体（createTime/updateTime，继承自 AiBaseEntity）
-        // → VO（createdAt/updatedAt，保持前端 API 契约，P3-2 Phase 2）
+        // → VO（createdAt/updatedAt，保持前端 API 契约，Phase 2）
         vo.setCreatedAt(library.getCreateTime());
         vo.setUpdatedAt(library.getUpdateTime());
 
@@ -385,7 +385,7 @@ public class KnowledgeLibraryServiceImpl extends ServiceImpl<KnowledgeLibraryMap
         vo.setStatus(doc.getStatus());
         vo.setProcessingStatus(doc.getProcessingStatus());
         vo.setErrorMessage(doc.getErrorMessage());
-        // VO 字段名保持不变以维持前端 API 契约（P3-2 Phase 2）：
+        // VO 字段名保持不变以维持前端 API 契约（Phase 2）：
         //   uploadTime ← doc.createTime（原 upload_time，117 脚本重命名）
         //   processTime ← doc.updateTime（原 process_time，117 脚本重命名）
         vo.setUploadTime(doc.getCreateTime());
@@ -407,7 +407,7 @@ public class KnowledgeLibraryServiceImpl extends ServiceImpl<KnowledgeLibraryMap
 
     private void applyTemplateConfig(KnowledgeLibraryConfig config, Long templateId) {
         // TODO: 从模板表获取配置并应用
-        // 这里先使用默认值（P2-2 阶段 3：统一从 KnowledgeDefaults 读取，与 createLibrary 保持一致）
+        // 这里先使用默认值（阶段 3：统一从 KnowledgeDefaults 读取，与 createLibrary 保持一致）
         config.setSegmentMode(knowledgeDefaults.getSegmentMode());
         config.setSegmentMaxLength(knowledgeDefaults.getSegmentMaxLength());
         config.setSegmentOverlapLength(knowledgeDefaults.getSegmentOverlapLength());
@@ -453,7 +453,7 @@ public class KnowledgeLibraryServiceImpl extends ServiceImpl<KnowledgeLibraryMap
         library.setUsageCount((library.getUsageCount() != null ? library.getUsageCount() : 0) + 1);
         library.setLastUsedTime(LocalDateTime.now());
         // 兜底设置时间戳（AiBaseEntity 的 @TableField(fill=INSERT_UPDATE) 也会兜底，
-        // 此处显式赋值保证语义明确，P3-2 Phase 2）
+        // 此处显式赋值保证语义明确，Phase 2）
         library.setUpdateTime(LocalDateTime.now());
         updateById(library);
 

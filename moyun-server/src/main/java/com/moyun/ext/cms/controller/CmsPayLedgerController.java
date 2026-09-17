@@ -29,11 +29,11 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
- * CMS 分账流水后台管理 Controller（V11.0）
+ * CMS 分账流水后台管理 Controller
  *
  * <p>复式记账双视角：全平台流水（含平台分录）+ 汇总统计。
  *
- * <p>v11.78：列表关联用户昵称（portal_user）；汇总改为 SQL SUM 聚合（禁全表 selectList 内存累加）。
+ * <p>列表关联用户昵称（portal_user）；汇总改为 SQL SUM 聚合（禁全表 selectList 内存累加）。
  *
  * @author moyun
  */
@@ -93,7 +93,7 @@ public class CmsPayLedgerController extends BaseController {
     }
 
     /**
-     * SQL SUM 聚合（v11.78：替代原 selectList 内存累加，遵守"禁止全表内存聚合"铁律）
+     * SQL SUM 聚合（替代原 selectList 内存累加，遵守"禁止全表内存聚合"铁律）
      */
     private BigDecimal sumAmount(String accountRole) {
         QueryWrapper<LedgerEntry> qw = new QueryWrapper<LedgerEntry>()
@@ -110,7 +110,7 @@ public class CmsPayLedgerController extends BaseController {
     }
 
     /**
-     * 批量填充用户昵称（v11.78：仅对当前页 USER 分录做一次 IN 查询，避免 N+1）
+     * 批量填充用户昵称（仅对当前页 USER 分录做一次 IN 查询，避免 N+1）
      */
     private void fillNicknames(List<LedgerEntry> entries) {
         if (entries == null || entries.isEmpty()) {

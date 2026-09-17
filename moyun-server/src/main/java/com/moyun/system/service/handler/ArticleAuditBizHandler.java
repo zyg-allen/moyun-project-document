@@ -14,7 +14,7 @@ import com.moyun.portal.mapper.PortalArticleMapper;
 import com.moyun.system.service.AuditBizHandler;
 
 /**
- * 文章审核业务处理器（v8.1）
+ * 文章审核业务处理器
  * <p>
  * 委托 {@link ICmsArticleService#auditArticle(PortalArticle)} 处理，业务表通过态为 published，驳回态 rejected。
  *

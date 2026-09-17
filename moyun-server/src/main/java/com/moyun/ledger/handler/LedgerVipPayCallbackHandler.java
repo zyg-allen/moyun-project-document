@@ -15,7 +15,7 @@ import org.springframework.stereotype.Component;
 import java.time.LocalDateTime;
 
 /**
- * 记账VIP订阅支付回调处理器（v11.81，bizType="ledger_vip"，平台直收类）
+ * 记账VIP订阅支付回调处理器（bizType="ledger_vip"，平台直收类）
  *
  * <p>网关支付成功后在事务内调用：订单 pending→paid → 权益顺延发放
  * （vip_expire 从 max(now, 现有到期) 顺延 duration_days，续费不折损）→

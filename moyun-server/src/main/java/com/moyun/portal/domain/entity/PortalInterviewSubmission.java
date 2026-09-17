@@ -67,7 +67,7 @@ public class PortalInterviewSubmission extends BaseEntity {
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime featuredTime;
 
-    // ============ OJ 判题字段（v6.3 OJ 判题系统） ============
+    // ============ OJ 判题字段（OJ 判题系统） ============
 
     /** 通过用例数 */
     private Integer passedCaseCount;

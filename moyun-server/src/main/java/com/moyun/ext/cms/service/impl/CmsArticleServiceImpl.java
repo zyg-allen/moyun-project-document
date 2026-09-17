@@ -179,7 +179,7 @@ public class CmsArticleServiceImpl implements ICmsArticleService {
                 log.warn("CMS 文章敏感词扫描异常：articleId={}, err={}", article.getId(), e.getMessage());
             }
         }
-        // v8.1：进入待审核态时，提交统一审核任务（写 sys_audit_task），使首页/审核中心待办可见
+        // 进入待审核态时，提交统一审核任务（写 sys_audit_task），使首页/审核中心待办可见
         if (rows > 0 && "pending".equals(article.getStatus()) && article.getId() != null) {
             submitArticleAuditTask(article);
         }
@@ -687,7 +687,7 @@ public class CmsArticleServiceImpl implements ICmsArticleService {
     }
 
     /**
-     * v8.1：提交文章统一审核任务（事务内，异常回滚保证双写一致）。
+     * 提交文章统一审核任务（事务内，异常回滚保证双写一致）。
      */
     private void submitArticleAuditTask(PortalArticle article) {
         AuditTaskSubmitDTO dto = new AuditTaskSubmitDTO();

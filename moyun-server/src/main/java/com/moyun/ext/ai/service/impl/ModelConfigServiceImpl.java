@@ -55,11 +55,11 @@ public class ModelConfigServiceImpl extends ServiceImpl<ModelConfigMapper, Model
 
     private final StringRedisTemplate redisTemplate;
 
-    /** 提供商注册表（V11.0.2：能力元数据全部查注册表，代码不再出现 provider 字符串分支） */
+    /** 提供商注册表（能力元数据全部查注册表，代码不再出现 provider 字符串分支） */
     private final AiProviderService providerService;
 
     /**
-     * v11.95 T2：模型客户端实例缓存（key = configId:temperature:maxTokens）。
+     * T2：模型客户端实例缓存（key = configId:temperature:maxTokens）。
      * LangChain4j 模型客户端线程安全、无会话态，可跨调用复用；updateById/removeById
      * 时按 configId 前缀整体清除（编辑模型配置/apiKey 后旧实例不复用）。
      */
@@ -172,7 +172,7 @@ public class ModelConfigServiceImpl extends ServiceImpl<ModelConfigMapper, Model
 
     @Override
     public ChatLanguageModel createChatModel(Long configId, Double temperature, Integer maxTokens, boolean jsonMode) {
-        // v11.95 T2：命中客户端实例缓存直接复用（每轮对话不再重复构造客户端；v11.95 任务4：键含 jsonMode）
+        // T2：命中客户端实例缓存直接复用（每轮对话不再重复构造客户端；键含 jsonMode）
         String clientKey = modelClientKey(configId, temperature, maxTokens, jsonMode);
         ChatLanguageModel cachedClient = chatModelClientCache.get(clientKey);
         if (cachedClient != null) {
@@ -184,7 +184,7 @@ public class ModelConfigServiceImpl extends ServiceImpl<ModelConfigMapper, Model
             throw new BusinessException(ErrorCode.MODEL_NOT_FOUND, "模型配置不存在或未启用");
         }
 
-        // v11.95 任务4：模型未开 JSON Mode 时静默忽略（回退 Prompt 约束路径）
+        // 模型未开 JSON Mode 时静默忽略（回退 Prompt 约束路径）
         boolean effectiveJsonMode = jsonMode && Boolean.TRUE.equals(config.getSupportsJsonMode());
 
         // 如果提供了覆盖参数，创建新的配置对象（节点级参数优先于模型默认配置）
@@ -225,7 +225,7 @@ public class ModelConfigServiceImpl extends ServiceImpl<ModelConfigMapper, Model
 
     @Override
     public StreamingChatLanguageModel createStreamingChatModel(Long configId, Double temperature, Integer maxTokens) {
-        // v11.95 T2：命中客户端实例缓存直接复用（面试主干每轮调用不再重复构造客户端）
+        // T2：命中客户端实例缓存直接复用（面试主干每轮调用不再重复构造客户端）
         String clientKey = modelClientKey(configId, temperature, maxTokens, false);
         StreamingChatLanguageModel cachedClient = streamingModelClientCache.get(clientKey);
         if (cachedClient != null) {
@@ -272,7 +272,7 @@ public class ModelConfigServiceImpl extends ServiceImpl<ModelConfigMapper, Model
         return model;
     }
 
-    /** v11.95 T2：客户端实例缓存键（configId + 覆盖参数 + jsonMode；null 用 "null" 占位，编辑配置时按前缀整体清除） */
+    /** T2：客户端实例缓存键（configId + 覆盖参数 + jsonMode；null 用 "null" 占位，编辑配置时按前缀整体清除） */
     private String modelClientKey(Long configId, Double temperature, Integer maxTokens, boolean jsonMode) {
         return configId + ":" + temperature + ":" + maxTokens + ":" + jsonMode;
     }
@@ -443,7 +443,7 @@ public class ModelConfigServiceImpl extends ServiceImpl<ModelConfigMapper, Model
             redisTemplate.delete(RedisKeys.modelConfig(config.getId()));
             // 清除默认配置缓存
             redisTemplate.delete(RedisKeys.modelConfigDefault(config.getModelType()));
-            // v11.95 T2：清除该配置的全部模型客户端实例缓存（编辑 apiKey/参数后旧实例不复用）
+            // T2：清除该配置的全部模型客户端实例缓存（编辑 apiKey/参数后旧实例不复用）
             String clientPrefix = config.getId() + ":";
             chatModelClientCache.keySet().removeIf(k -> k.startsWith(clientPrefix));
             streamingModelClientCache.keySet().removeIf(k -> k.startsWith(clientPrefix));
@@ -637,7 +637,7 @@ public class ModelConfigServiceImpl extends ServiceImpl<ModelConfigMapper, Model
     /**
      * 根据配置创建聊天模型
      *
-     * <p>V11.0.2：按提供商注册表的 apiStyle 分支（而非 provider 名）。
+     * <p>按提供商注册表的 apiStyle 分支（而非 provider 名）。
      * 任何 OpenAI 兼容提供商（DeepSeek/Moonshot/智谱等）注册后自动可用，零代码改动。</p>
      */
     private ChatLanguageModel createChatModelFromConfig(ModelConfig config, boolean jsonMode) {
@@ -668,7 +668,7 @@ public class ModelConfigServiceImpl extends ServiceImpl<ModelConfigMapper, Model
     }
 
     /**
-     * 解析模型 baseUrl：用户配置优先 → 提供商注册表默认地址兜底（V11.0.2）
+     * 解析模型 baseUrl：用户配置优先 → 提供商注册表默认地址兜底
      */
     private String resolveBaseUrl(ModelConfig config) {
         if (config.getBaseUrl() != null && !config.getBaseUrl().isEmpty()) {
@@ -690,7 +690,7 @@ public class ModelConfigServiceImpl extends ServiceImpl<ModelConfigMapper, Model
     /**
      * 创建 OpenAI 兼容聊天模型（openai/dashscope/deepseek/moonshot 等所有兼容端点共用）
      *
-     * <p>v11.95 任务4：jsonMode=true 时下发 response_format=json_object（OpenAI JSON Mode），
+     * <p>jsonMode=true 时下发 response_format=json_object（OpenAI JSON Mode），
      * 强制模型输出合法 JSON；模型端不支持时由调用侧（场景 output_schema 为空或模型
      * supports_json_mode=0）不传 jsonMode，走 Prompt 约束路径。</p>
      */
@@ -745,7 +745,7 @@ public class ModelConfigServiceImpl extends ServiceImpl<ModelConfigMapper, Model
     }
 
     /**
-     * 创建 Ollama 聊天模型（v11.95 任务4：jsonMode=true 时 format=json，等价 Ollama 原生 JSON Mode）
+     * 创建 Ollama 聊天模型（jsonMode=true 时 format=json，等价 Ollama 原生 JSON Mode）
      */
     private ChatLanguageModel createOllamaChatModel(ModelConfig config, boolean jsonMode) {
         OllamaChatModel.OllamaChatModelBuilder builder = OllamaChatModel.builder()
@@ -788,7 +788,7 @@ public class ModelConfigServiceImpl extends ServiceImpl<ModelConfigMapper, Model
     }
 
     /**
-     * 根据配置创建 Embedding 模型（V11.0.2：按 apiStyle 分支）
+     * 根据配置创建 Embedding 模型（按 apiStyle 分支）
      */
     private EmbeddingModel createEmbeddingModelFromConfig(ModelConfig config) {
         String apiStyle = providerService.apiStyle(config.getProvider());

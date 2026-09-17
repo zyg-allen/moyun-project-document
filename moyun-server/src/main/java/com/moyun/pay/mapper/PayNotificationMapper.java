@@ -5,7 +5,7 @@ import com.moyun.pay.domain.entity.PayNotification;
 import org.apache.ibatis.annotations.Mapper;
 
 /**
- * PayNotification Mapper（V11.0）
+ * PayNotification Mapper
  *
  * @author moyun
  */

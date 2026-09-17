@@ -19,7 +19,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * CMS 面试会员套餐管理 Controller（v11.82）
+ * CMS 面试会员套餐管理 Controller
  *
  * <p>套餐价格/时长/上下架后台可配（门户面试频道实时读取上架套餐，调价无需改代码）。
  * 删除规则：已有订单的套餐不可删除（仅可下架），保证历史订单快照可追溯。

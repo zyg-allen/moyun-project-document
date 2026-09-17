@@ -22,7 +22,7 @@ import java.util.concurrent.TimeUnit;
  * - loadingConfigCache：全量加载 sys_config 到 Redis
  * - selectConfigByKey：先查缓存，未命中回源 DB 并回填
  * - 增删改后调用 clearConfigCache 或 resetConfigCache 刷新
- * - v11.32：所有缓存写入统一 TTL（30 分钟），防止绕过管理页直接改 DB 导致缓存与 DB 长期脱节
+ * - 所有缓存写入统一 TTL（30 分钟），防止绕过管理页直接改 DB 导致缓存与 DB 长期脱节
  *
  * @author allen-zyg
  */
@@ -127,7 +127,7 @@ public class SysConfigServiceImpl extends ServiceImpl<SysConfigMapper, SysConfig
     public int insertConfig(SysConfig config) {
         int rows = baseMapper.insert(config);
         if (rows > 0 && StringUtils.isNotEmpty(config.getConfigKey())) {
-            // v1.1.2 修复：原实现未清缓存，导致新增配置后 selectConfigByKey 仍读不到最新值
+            // 修复：原实现未清缓存，导致新增配置后 selectConfigByKey 仍读不到最新值
             redisCache.setCacheObject(CONFIG_CACHE_KEY_PREFIX + config.getConfigKey(), config.getConfigValue(), CONFIG_CACHE_TTL_MINUTES, TimeUnit.MINUTES);
         }
         return rows;
@@ -143,7 +143,7 @@ public class SysConfigServiceImpl extends ServiceImpl<SysConfigMapper, SysConfig
     public int updateConfig(SysConfig config) {
         int rows = baseMapper.updateById(config);
         if (rows > 0 && config.getConfigKey() != null) {
-            // v1.1.2 修复：原实现只更新 DB 不清缓存，selectConfigByKey 仍返回旧值。
+            // 修复：原实现只更新 DB 不清缓存，selectConfigByKey 仍返回旧值。
             // 此处针对单 key 删除（比 clearConfigCache 全清更精细，不影响其他配置缓存），
             // 下次读取时回源 DB 并回填新值。若 update 只改了部分字段未带 configKey，
             // 由调用方（Controller）保证触发 refreshCache。
@@ -165,7 +165,7 @@ public class SysConfigServiceImpl extends ServiceImpl<SysConfigMapper, SysConfig
         for (Long configId : configIds) {
             SysConfig config = baseMapper.selectById(configId);
             if (config != null && StringUtils.isNotEmpty(config.getConfigKey())) {
-                // v1.1.2 修复：删除前先记录 key，删除后清对应缓存
+                // 修复：删除前先记录 key，删除后清对应缓存
                 redisCache.deleteObject(CONFIG_CACHE_KEY_PREFIX + config.getConfigKey());
             }
             baseMapper.deleteById(configId);

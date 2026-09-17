@@ -5,7 +5,7 @@ import lombok.Data;
 import java.util.List;
 
 /**
- * 用户画像快照 VO（v5.9 阶段0）
+ * 用户画像快照 VO（阶段0）
  * <p>
  * 抽题时基于此快照决策（薄弱点 + 岗位必备技能驱动三路召回）。
  *

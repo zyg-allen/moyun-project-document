@@ -21,7 +21,7 @@ import java.util.Map;
  * + 规则校验兜底（字数/结构词），权重来自面试配置 scoring_weights.selfIntro，
  * 默认 30/25/25/20。总分 = Σ(维度分 × 权重)。</p>
  *
- * <p>v11.58 P0-3c：LLM 评分收口 AI 网关（voice_interview 场景 task=self_intro 子任务，
+ * <p>LLM 评分收口 AI 网关（voice_interview 场景 task=self_intro 子任务，
  * 提示词收编至 VoiceInterviewHandler，本类只做解析与权重融合）。</p>
  *
  * <p>每题评分融合（LLM 70% + 规则 30%）随 C1 接入 submitAnswer 链路时启用。</p>
@@ -30,7 +30,7 @@ import java.util.Map;
  */
 @Component
 public class ScoringEngine {
-    /** v11.39：本服务所属 AI 场景代码（绑定见 ai_scene_config，业务不感知模型选择） */
+    /** 本服务所属 AI 场景代码（绑定见 ai_scene_config，业务不感知模型选择） */
     private static final String SCENE_VOICE_INTERVIEW = "voice_interview";
 
 
@@ -44,7 +44,7 @@ public class ScoringEngine {
     /** 自我介绍结构词（规则维度校验用） */
     private static final String[] STRUCTURE_WORDS = {"首先", "其次", "然后", "最后", "第一", "第二", "目前", "曾经", "负责"};
 
-    /** v11.58 P0-3c：LLM 直调收口网关 */
+    /** LLM 直调收口网关 */
     @Autowired
     private AiSceneJsonClient aiSceneJsonClient;
 
@@ -66,11 +66,11 @@ public class ScoringEngine {
         return score;
     }
 
-    // ==================== LLM 评分（v11.58 P0-3c：经 AI 网关） ====================
+    // ==================== LLM 评分（经 AI 网关） ====================
 
     private IntroScore tryLlmSelfIntro(String position, String transcript, int[] weights, Long userId) {
         try {
-            // v11.98：LinkedHashMap 可变 Map（Map.of 不可变会被网关输入清洗路径击穿，已根治但业务侧保持一致）
+            // LinkedHashMap 可变 Map（Map.of 不可变会被网关输入清洗路径击穿，已根治但业务侧保持一致）
             Map<String, Object> input = new java.util.LinkedHashMap<>();
             input.put("task", "self_intro");
             input.put("context", position == null ? "" : position);
@@ -86,7 +86,7 @@ public class ScoringEngine {
         }
     }
 
-    /** 解析网关结构化自我介绍评分（v11.58：Handler 已容错解析 JSON，此处只做字段映射）；失败返回 null 走规则 */
+    /** 解析网关结构化自我介绍评分（Handler 已容错解析 JSON，此处只做字段映射）；失败返回 null 走规则 */
     private IntroScore parseIntroScore(JsonNode node, int[] weights) {
         try {
             IntroScore score = new IntroScore();

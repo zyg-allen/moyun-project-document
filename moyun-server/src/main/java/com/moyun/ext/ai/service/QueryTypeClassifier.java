@@ -24,7 +24,7 @@ public interface QueryTypeClassifier {
      * 精确查询特征：
      * - 包含错误代码（如 E1001、ERR-500）
      * - 包含专有名词（如 Qwen3-Rerank、Redis）
-     * - 包含版本号（如 v1.0.0、Java 17）
+     * - 包含版本号（如 、Java 17）
      * - 包含特定标识符（如 ID、编号）
      * </p>
      *

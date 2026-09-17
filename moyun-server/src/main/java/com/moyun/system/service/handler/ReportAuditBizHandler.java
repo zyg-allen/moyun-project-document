@@ -16,7 +16,7 @@ import com.moyun.portal.mapper.PortalReportMapper;
 import com.moyun.system.service.AuditBizHandler;
 
 /**
- * 举报处理业务处理器（v8.1）
+ * 举报处理业务处理器
  * <p>
  * 举报无独立 Service 层，直接通过 Mapper 更新业务表。
  * 通过态（举报成立）：status=resolved，并联动 {@link IReportTakedownService#takedown} 下架被举报内容；

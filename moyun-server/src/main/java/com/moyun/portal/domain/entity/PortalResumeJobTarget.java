@@ -11,7 +11,7 @@ import java.io.Serializable;
 import java.time.LocalDateTime;
 
 /**
- * 简历优化-岗位目标（v10.13 简历优化重构）
+ * 简历优化-岗位目标（简历优化重构）
  * <p>用户管理的目标岗位与 JD，岗位匹配评分的核心输入。</p>
  *
  * @author moyun

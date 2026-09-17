@@ -34,7 +34,7 @@ import com.moyun.portal.mapper.PortalInterviewSubmissionMapper;
 import com.moyun.portal.service.IPortalJudgeService;
 
 /**
- * OJ 判题业务实现（v6.3 OJ 判题系统 / v8.0 沙箱与异步演进）
+ * OJ 判题业务实现（OJ 判题系统 / 沙箱与异步演进）
  *
  * @author moyun
  */

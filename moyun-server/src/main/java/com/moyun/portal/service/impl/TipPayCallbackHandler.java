@@ -18,12 +18,12 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 /**
- * 打赏支付回调处理器（V11.0，bizType="tip"）
+ * 打赏支付回调处理器（bizType="tip"）
  *
  * <p>网关支付成功后在事务内调用：打赏单 pending→paid → 复式分账（平台抽成+作者所得）
  * → 双方站内通知。任一步失败整体回滚（网关会因渠道重试再次驱动）。
  *
- * <p>金额单位：元（v11.31 统一，与打赏单/支付单/分账流水全链路一致）。
+ * <p>金额单位：元（统一，与打赏单/支付单/分账流水全链路一致）。
  *
  * @author moyun
  */

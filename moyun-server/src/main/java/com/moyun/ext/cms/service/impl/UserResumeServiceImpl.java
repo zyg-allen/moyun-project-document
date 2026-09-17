@@ -47,7 +47,7 @@ public class UserResumeServiceImpl implements IUserResumeService {
     @Autowired private ObjectMapper objectMapper;
     @Autowired private PortalUserMapper portalUserMapper;
     @Autowired private ResumeAiAdviceService aiAdviceService;
-    /** 评分报告存档（v10.18 阶段五） */
+    /** 评分报告存档（阶段五） */
     @Autowired private PortalResumeScoreReportMapper scoreReportMapper;
 
     // ========================================================================
@@ -153,7 +153,7 @@ public class UserResumeServiceImpl implements IUserResumeService {
         entity.setProjects(toJson(vo.getProjects()));
         entity.setSkills(toJson(vo.getSkills()));
 
-        // v10.22：拼接全文纯文本供 AI 分析
+        // 拼接全文纯文本供 AI 分析
         entity.setFullText(buildFullText(vo));
 
         // 状态变更统一走 updateStatus 端点，saveResume 不接受前端 status，避免绕过状态机
@@ -288,18 +288,6 @@ public class UserResumeServiceImpl implements IUserResumeService {
         return vo;
     }
 
-    /**
-     * 读取简历 PDF 文件磁盘路径（供 Controller 认证下载端点调用）。
-     * 已校验归属；返回 null 表示无导出文件或文件丢失。
-     */
-    @Override
-    public String getResumePdfDiskPath(Long id, Long userId) {
-        PortalUserResume entity = userResumeMapper.selectById(id);
-        if (entity == null) return null;
-        if (!entity.getUserId().equals(userId)) return null;
-        return entity.getFileUrl();
-    }
-
     // ========================================================================
     // 评分
     // ========================================================================
@@ -312,7 +300,7 @@ public class UserResumeServiceImpl implements IUserResumeService {
 
         UserResumeVO vo = toVO(entity);
 
-        // v5.9 阶段2：从用户档案读取目标岗位（portal_user.position），驱动画像岗位匹配度评分
+        // 阶段2：从用户档案读取目标岗位（portal_user.position），驱动画像岗位匹配度评分
         // 简历求职意向 ji.position 优先，用户档案 position 兜底
         String targetPosition = null;
         if (vo.getJobIntention() != null && StringUtils.isNotEmpty(vo.getJobIntention().getPosition())) {
@@ -333,7 +321,7 @@ public class UserResumeServiceImpl implements IUserResumeService {
         entity.setUpdateTime(LocalDateTime.now());
         userResumeMapper.updateById(entity);
 
-        // v10.18 阶段五：评分结果同步存档到 portal_resume_score_report，可追溯历史评分
+        // 阶段五：评分结果同步存档到 portal_resume_score_report，可追溯历史评分
         PortalResumeScoreReport report = new PortalResumeScoreReport();
         report.setUserId(userId);
         report.setResumeId(id);
@@ -351,7 +339,7 @@ public class UserResumeServiceImpl implements IUserResumeService {
     }
 
     // ========================================================================
-    // AI 改进建议（v5.9 阶段2：规则化生成，预留 AI 扩展点）
+    // AI 改进建议（阶段2：规则化生成，预留 AI 扩展点）
     // ========================================================================
     @Override
     public ResumeAiAdviceVO generateAiAdvice(Long id, Long userId) {
@@ -432,7 +420,7 @@ public class UserResumeServiceImpl implements IUserResumeService {
         vo.setExportTime(entity.getExportTime());
         vo.setCreateTime(entity.getCreateTime());
         vo.setUpdateTime(entity.getUpdateTime());
-        // v10.22：附件简历字段映射
+        // 附件简历字段映射
         vo.setSourceType(entity.getSourceType());
         vo.setSourceFileUrl(entity.getSourceFileUrl());
         vo.setSourceFileName(entity.getSourceFileName());
@@ -448,7 +436,7 @@ public class UserResumeServiceImpl implements IUserResumeService {
         return vo;
     }
 
-    /** v10.22：将结构化简历拼接为纯文本（供 AI 分析，比 JSON 上下文更完整） */
+    /** 将结构化简历拼接为纯文本（供 AI 分析，比 JSON 上下文更完整） */
     private String buildFullText(UserResumeVO vo) {
         StringBuilder sb = new StringBuilder();
         if (vo.getName() != null) sb.append("姓名：").append(vo.getName()).append("\n");

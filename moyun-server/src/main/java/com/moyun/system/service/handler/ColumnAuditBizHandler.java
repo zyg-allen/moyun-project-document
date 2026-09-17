@@ -12,7 +12,7 @@ import com.moyun.portal.mapper.PortalColumnMapper;
 import com.moyun.system.service.AuditBizHandler;
 
 /**
- * 专栏审核业务处理器（v8.1）
+ * 专栏审核业务处理器
  * <p>
  * 委托 {@link ICmsColumnService#auditColumn} 处理，业务表通过态 published，驳回态 rejected。
  *

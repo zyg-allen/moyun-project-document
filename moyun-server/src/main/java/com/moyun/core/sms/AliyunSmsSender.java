@@ -7,7 +7,7 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
 /**
- * 阿里云短信发送（V11.1，moyun.sms.mock-enabled=false 时生效）
+ * 阿里云短信发送（moyun.sms.mock-enabled=false 时生效）
  *
  * <p>真实 API 接入位：配置（AccessKey/签名/模板）已就位，
  * SDK 调用点见下方 TODO。未完成接入前若被激活将拒绝发送（返回 false），

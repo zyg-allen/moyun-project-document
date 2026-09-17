@@ -10,7 +10,7 @@ import java.io.Serializable;
 import java.time.LocalDateTime;
 
 /**
- * 语音面试会话事件日志 portal_voice_interview_event（v11.88 V2重构）
+ * 语音面试会话事件日志 portal_voice_interview_event（V2重构）
  *
  * <p>记录面试全链路关键节点（start/answer/next/finish/close/error），
  * 支撑断点恢复与全链路追溯。事件只增不改。</p>

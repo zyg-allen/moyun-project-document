@@ -15,7 +15,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 /**
- * 用户银行卡服务实现（V11.0）
+ * 用户银行卡服务实现
  *
  * <p>安全红线：
  * <ul>
@@ -53,7 +53,7 @@ public class BankCardServiceImpl implements IBankCardService {
         if (phone == null || !phone.matches("1\\d{10}")) {
             throw new IllegalArgumentException("手机号格式不正确");
         }
-        // 短信验证码闭环（V11.1：开关开启时强校验；一次性消费+防枚举见 SmsCodeServiceImpl）
+        // 短信验证码闭环（开关开启时强校验；一次性消费+防枚举见 SmsCodeServiceImpl）
         if (payProperties.getSecurity().isBankCardSmsVerify()) {
             if (smsCode == null || smsCode.isBlank()) {
                 throw new IllegalArgumentException("请输入短信验证码");

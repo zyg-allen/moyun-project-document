@@ -6,7 +6,6 @@ import com.moyun.ext.ai.entity.DataSourceConfig;
 import com.moyun.ext.ai.service.DataQualityCheckService;
 import com.moyun.ext.ai.service.DataQueryService;
 import com.moyun.ext.ai.service.DataSourceService;
-import com.moyun.ext.ai.service.ReportGenerationService;
 import com.moyun.ext.ai.vo.DataQueryResponse;
 import com.moyun.ext.ai.vo.DataSourcePoolStatus;
 import com.moyun.ext.ai.vo.TableInfoVO;
@@ -15,9 +14,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.MediaType;
-import org.springframework.http.ResponseEntity;
+
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
@@ -34,9 +31,6 @@ public class DataAnalysisController {
 
     @Autowired
     private DataQueryService dataQueryService;
-
-    @Autowired
-    private ReportGenerationService reportGenerationService;
 
     @Autowired
     private DataQualityCheckService dataQualityCheckService;
@@ -178,94 +172,6 @@ public class DataAnalysisController {
         return AjaxResult.success(response);
     }
 
-    @Operation(summary = "执行SQL查询", description = "直接执行SQL语句")
-    @PostMapping("/execute-sql")
-    @PreAuthorize("@ss.hasPermi('cms:ai:data-analysis:query')")
-    public AjaxResult executeSQL(@RequestParam Long datasourceId,
-                                                 @RequestParam String sql) {
-        DataQueryResponse response = dataQueryService.executeSQL(datasourceId, sql);
-        return AjaxResult.success(response);
-    }
-
-    @Operation(summary = "生成Markdown报告")
-    @PostMapping("/report/markdown")
-    @PreAuthorize("@ss.hasPermi('cms:ai:data-analysis:query')")
-    public AjaxResult generateMarkdownReport(@RequestBody DataQueryRequest request) {
-        DataQueryResponse response = dataQueryService.intelligentQuery(request);
-
-        String report = reportGenerationService.generateMarkdownReport(response, request.getQuery());
-
-        return AjaxResult.success(report);
-    }
-
-    @Operation(summary = "生成HTML报告")
-    @PostMapping("/report/html")
-    @PreAuthorize("@ss.hasPermi('cms:ai:data-analysis:query')")
-    public AjaxResult generateHtmlReport(@RequestBody DataQueryRequest request) {
-        DataQueryResponse response = dataQueryService.intelligentQuery(request);
-
-        String report = reportGenerationService.generateHtmlReport(response, request.getQuery());
-
-        return AjaxResult.success(report);
-    }
-
-    @Operation(summary = "下载HTML报告")
-    @PostMapping("/report/download/html")
-    @PreAuthorize("@ss.hasPermi('cms:ai:data-analysis:query')")
-    public ResponseEntity<String> downloadHtmlReport(@RequestBody DataQueryRequest request) {
-        DataQueryResponse response = dataQueryService.intelligentQuery(request);
-
-        String report = reportGenerationService.generateHtmlReport(response, request.getQuery());
-
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.TEXT_HTML);
-        headers.setContentDispositionFormData("attachment", "report.html");
-
-        return ResponseEntity.ok()
-                .headers(headers)
-                .body(report);
-    }
-
-    @Operation(summary = "导出Excel")
-    @PostMapping("/export/excel")
-    @PreAuthorize("@ss.hasPermi('cms:ai:data-analysis:query')")
-    public AjaxResult exportToExcel(@RequestBody DataQueryRequest request,
-                                         @RequestParam String outputPath) {
-        DataQueryResponse response = dataQueryService.intelligentQuery(request);
-
-        boolean success = reportGenerationService.exportToExcel(
-                response.getData(),
-                response.getColumns(),
-                outputPath
-        );
-
-        if (success) {
-            return AjaxResult.success("导出成功", outputPath);
-        } else {
-            return AjaxResult.error("导出失败");
-        }
-    }
-
-    @Operation(summary = "数据质量检查")
-    @PostMapping("/quality-check")
-    @PreAuthorize("@ss.hasPermi('cms:ai:data-analysis:query')")
-    public AjaxResult checkDataQuality(
-            @RequestBody DataQueryRequest request) {
-        DataQueryResponse response = dataQueryService.intelligentQuery(request);
-
-        if (!response.getSuccess()) {
-            return AjaxResult.error("查询失败，无法进行质量检查");
-        }
-
-        DataQualityCheckService.DataQualityReport report = 
-            dataQualityCheckService.checkDataQuality(
-                response.getData(),
-                response.getColumns()
-            );
-
-        return AjaxResult.success(report);
-    }
-    
     @Operation(summary = "获取数据源连接池状态")
     @GetMapping("/datasources/{id}/pool-status")
     @PreAuthorize("@ss.hasPermi('cms:ai:data-analysis:query')")

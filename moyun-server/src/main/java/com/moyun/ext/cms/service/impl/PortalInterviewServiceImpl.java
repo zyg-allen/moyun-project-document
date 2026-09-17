@@ -232,9 +232,9 @@ public class PortalInterviewServiceImpl implements IPortalInterviewService {
         qw.eq(PortalInterviewQuestion::getStatus, query.getStatus() == null ? "published" : query.getStatus());
         if (query.getCategoryId() != null) qw.eq(PortalInterviewQuestion::getCategoryId, query.getCategoryId());
         if (StringUtils.isNotEmpty(query.getDifficulty())) qw.eq(PortalInterviewQuestion::getDifficulty, query.getDifficulty());
-        // v6.3 题目结构化：按题型筛选
+        // 题目结构化：按题型筛选
         if (StringUtils.isNotEmpty(query.getQuestionType())) qw.eq(PortalInterviewQuestion::getQuestionType, query.getQuestionType());
-        // v10.6 题库重构：按练习模式筛选（reading/choice/coding）
+        // 题库重构：按练习模式筛选（reading/choice/coding）
         if (StringUtils.isNotEmpty(query.getPracticeMode())) qw.eq(PortalInterviewQuestion::getPracticeMode, query.getPracticeMode());
         // v11.x 智能出题：按岗位模板筛选
         if (query.getJobTemplateId() != null) qw.eq(PortalInterviewQuestion::getJobTemplateId, query.getJobTemplateId());
@@ -328,7 +328,7 @@ public class PortalInterviewServiceImpl implements IPortalInterviewService {
                     throw new IllegalArgumentException("题目类型非法，应为 bagwen/algorithm/system_design/project/hr");
                 }
 
-                // 练习模式校验（v10.6 新增）
+                // 练习模式校验（新增）
                 String practiceMode = trimToEmpty(row.get("practiceMode"));
                 if (!practiceMode.isEmpty() && !validPracticeMode.contains(practiceMode)) {
                     throw new IllegalArgumentException("练习模式非法，应为 reading/choice/coding");
@@ -373,7 +373,7 @@ public class PortalInterviewServiceImpl implements IPortalInterviewService {
                 q.setScoringCriteria(trimToEmpty(row.get("scoringCriteria")));
                 q.setPrerequisiteIds(trimToEmpty(row.get("prerequisiteIds")));
                 q.setQuestionType(questionType.isEmpty() ? null : questionType);
-                // v10.6 新增字段
+                // 新增字段
                 q.setPracticeMode(practiceMode.isEmpty() ? "reading" : practiceMode);
                 q.setOptions(options.isEmpty() ? null : options);
                 q.setCorrectAnswer(correctAnswer.isEmpty() ? null : correctAnswer);
@@ -441,7 +441,7 @@ public class PortalInterviewServiceImpl implements IPortalInterviewService {
     }
 
     // ========================================================================
-    // 画像推荐题目（v5.9 阶段1：题库页"为你推荐"）
+    // 画像推荐题目（阶段1：题库页"为你推荐"）
     // 三路召回：薄弱点优先 + 岗位必备技能 + 热门兜底
     // ========================================================================
     @Override
@@ -552,7 +552,7 @@ public class PortalInterviewServiceImpl implements IPortalInterviewService {
         vo.setHint(entity.getHint());
         vo.setSolution(entity.getSolution());
 
-        // v6.3 题目结构化：填充结构化字段（JSON 字符串解析为对象）
+        // 题目结构化：填充结构化字段（JSON 字符串解析为对象）
         vo.setQuestionType(entity.getQuestionType());
         vo.setExaminePoints(parseStringArray(entity.getExaminePoints()));
         vo.setAnswerOutline(entity.getAnswerOutline());
@@ -560,10 +560,10 @@ public class PortalInterviewServiceImpl implements IPortalInterviewService {
         vo.setReferenceAnswer(entity.getReferenceAnswer());
         vo.setPrerequisiteIds(parseLongArray(entity.getPrerequisiteIds()));
 
-        // v10.6 题库重构·阶段2：填充练习模式扩展字段
+        // 题库重构·阶段2：填充练习模式扩展字段
         vo.setPracticeMode(entity.getPracticeMode());
         vo.setKnowledgeTags(entity.getKnowledgeTags());
-        // 阅读定位（v12.0）：详情页即"直接查看模式"，correct_answer/analysis 正常下发，
+        // 阅读定位：详情页即"直接查看模式"，correct_answer/analysis 正常下发，
         // 供学习/复习场景查阅（与 LeetCode 公开题解同理；判分有效性由做题页提交链路保证）。
         vo.setCorrectAnswer(entity.getCorrectAnswer());
         vo.setAnalysis(entity.getAnalysis());
@@ -792,7 +792,7 @@ public class PortalInterviewServiceImpl implements IPortalInterviewService {
                 submission.setAnswerType("choice");
             }
         } else if ("coding".equals(practiceMode)) {
-            // v12.0 双轨合一：编程题统一走 OJ 判题（沙箱运行全部测试用例），
+            // 双轨合一：编程题统一走 OJ 判题（沙箱运行全部测试用例），
             // 本接口不再受理编程题提交，避免出现"提交即通过"的假判分记录
             throw new ServiceException("编程题请通过在线判题提交，提交后将运行全部测试用例评测");
         } else {
@@ -818,7 +818,7 @@ public class PortalInterviewServiceImpl implements IPortalInterviewService {
         recordAttemptAndGrowth(question, userId, isSuccess, submission.getId());
 
         InterviewSubmissionVO vo = toSubmissionVO(submission);
-        // v9.1：选择题练习模式返回服务端权威判分结果 + 正确答案 + 解析（仅判分后下发，防作弊）
+        // 选择题练习模式返回服务端权威判分结果 + 正确答案 + 解析（仅判分后下发，防作弊）
         vo.setPassed(isSuccess);
         if (isChoice) {
             vo.setCorrectAnswer(question.getCorrectAnswer());
@@ -1075,7 +1075,7 @@ public class PortalInterviewServiceImpl implements IPortalInterviewService {
     @Override
     public Page<InterviewExperienceVO> selectMyExperienceList(Page<InterviewExperienceVO> page, InterviewExperienceQuery query, Long userId) {
         // 不复用 selectExperiencePage：公开列表对 null status 默认只查 published，
-        // 会把草稿/待审核过滤掉（v10.10 修复"保存草稿后列表消失"问题）。
+        // 会把草稿/待审核过滤掉（修复"保存草稿后列表消失"问题）。
         // 我的面经默认可见所有状态（含 draft/pending/rejected），并支持按状态筛选。
         LambdaQueryWrapper<PortalInterviewExperience> qw = Wrappers.lambdaQuery();
         if (query != null) {
@@ -1204,7 +1204,7 @@ public class PortalInterviewServiceImpl implements IPortalInterviewService {
         if (userId == null) {
             throw new ServiceException("请先登录");
         }
-        // v10.10 实名策略：发布面经不再强制创作者认证（未实名也可发布），
+        // 实名策略：发布面经不再强制创作者认证（未实名也可发布），
         // 由前端弹窗提示实名（可跳过），仅打赏/积分消费等敏感场景强制实名。
         experience.setStatus(experience.getStatus() == null ? "pending" : experience.getStatus());
         experience.setUserId(userId);
@@ -1223,7 +1223,7 @@ public class PortalInterviewServiceImpl implements IPortalInterviewService {
         }
         portalTagService.bindTags("interview_experience", experience.getId(), extractedTagIds, extractedTagNames, "interview_experience");
 
-        // v8.1：进入待审核态时，提交统一审核任务（写 sys_audit_task），使首页/审核中心待办可见
+        // 进入待审核态时，提交统一审核任务（写 sys_audit_task），使首页/审核中心待办可见
         if (row > 0 && "pending".equals(experience.getStatus())) {
             submitAuditTask("interview_exp", experience.getId(), experience.getTitle(),
                     experience.getSummary(), userId);
@@ -1257,7 +1257,7 @@ public class PortalInterviewServiceImpl implements IPortalInterviewService {
         PortalInterviewExperience db = experienceMapper.selectById(experience.getId());
         if (db == null) throw new ServiceException("面经不存在");
         if (!db.getUserId().equals(userId)) throw new ServiceException("无权修改他人的面经");
-        // v10.10 实名策略：发布不再强制创作者认证（前端弹窗提示可跳过）
+        // 实名策略：发布不再强制创作者认证（前端弹窗提示可跳过）
         // 判断是否为"提交发布"：新状态为 pending 且原状态不是 pending（草稿/被拒 → 发布）。
         // 已是 pending 的编辑不重复提交审核任务，避免重复待办。
         boolean submitForReview = experience.getStatus() != null
@@ -1273,7 +1273,7 @@ public class PortalInterviewServiceImpl implements IPortalInterviewService {
         }
         portalTagService.bindTags("interview_experience", experience.getId(), extractedTagIds, extractedTagNames, "interview_experience");
 
-        // v10.10 修复链路断裂：草稿/被拒面经通过编辑"提交发布"时，
+        // 修复链路断裂：草稿/被拒面经通过编辑"提交发布"时，
         // 此前未提交审核任务，导致面经永远停在 pending 且审核中心不可见。
         if (row > 0 && submitForReview) {
             submitAuditTask("interview_exp", experience.getId(), experience.getTitle(),
@@ -1466,7 +1466,7 @@ public class PortalInterviewServiceImpl implements IPortalInterviewService {
         int row = commentMapper.insert(comment);
         // 更新面经评论数
         experienceMapper.incrementCommentCount(comment.getExperienceId());
-        // v8.1：评论进入待审核态时提交统一审核任务（默认 published 不进审核）
+        // 评论进入待审核态时提交统一审核任务（默认 published 不进审核）
         if (row > 0 && "pending".equals(comment.getStatus())) {
             submitAuditTask("interview_comment", comment.getId(), null,
                     comment.getContent(), userId);
@@ -1790,7 +1790,7 @@ public class PortalInterviewServiceImpl implements IPortalInterviewService {
     }
 
     /**
-     * v8.1：提交统一审核任务到 sys_audit_task（事务内，异常回滚保证双写一致）。
+     * 提交统一审核任务到 sys_audit_task（事务内，异常回滚保证双写一致）。
      *
      * @param taskType    任务类型（interview_exp / interview_comment）
      * @param bizId       业务记录ID

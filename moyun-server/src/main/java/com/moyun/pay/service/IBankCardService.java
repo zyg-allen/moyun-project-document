@@ -5,7 +5,7 @@ import com.moyun.pay.domain.entity.UserBankCard;
 import java.util.List;
 
 /**
- * 用户银行卡服务（V11.0 提现打款账户）
+ * 用户银行卡服务（提现打款账户）
  *
  * <p>密文（cardNoEncrypted/phoneEncrypted）只存在于服务端，
  * 对外返回实体前一律剥离密文字段（Controller 层执行）。

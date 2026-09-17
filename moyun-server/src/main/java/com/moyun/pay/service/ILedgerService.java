@@ -7,9 +7,9 @@ import java.math.BigDecimal;
 import java.util.List;
 
 /**
- * 资金/分账流水服务（V11.0 复式记账）
+ * 资金/分账流水服务（复式记账）
  *
- * <p>金额单位：元（人民币，DECIMAL(18,2)，v11.31 统一）。
+ * <p>金额单位：元（人民币，DECIMAL(18,2)，统一）。
  *
  * <p><b>账户模型分类（新支付场景接入前必读，资金流必须分清）：</b>
  * <ul>
@@ -41,7 +41,7 @@ public interface ILedgerService {
                              Long userId, String summary);
 
     /**
-     * 平台全额入账（事务内调用，V11.80）：无第三方收款人的业务（如记账App打赏），
+     * 平台全额入账（事务内调用）：无第三方收款人的业务（如记账App打赏），
      * 支付金额全额计入平台所得，仅写 PLATFORM/credit 单条流水。
      *
      * @param payNo   支付单号

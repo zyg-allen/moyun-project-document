@@ -16,7 +16,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * 场景结构化 JSON 调用客户端（v11.58 P0-3 业务收口配套）
+ * 场景结构化 JSON 调用客户端（业务收口配套）
  *
  * <p>业务服务（简历解析/优化/出题/语音面试等）收口统一网关后的便捷通道：构造请求 → 网关执行 →
  * 解包场景 Data 的 structured 载体为 {@link JsonNode}，业务侧直接
@@ -30,7 +30,7 @@ import java.util.Map;
  * （Handler 侧经 PromptInjectionGuard.wrapData 数据隔离）。userId 用于限流身份与日志归属，
  * 可空（匿名桶）。</p>
  *
- * <p>v11.58 P0-3c：解包泛化——ResumeSceneData（简历族）与 InterviewSceneData
+ * <p>解包泛化——ResumeSceneData（简历族）与 InterviewSceneData
  * （语音面试子任务）均以 structured Map 透传。</p>
  *
  * @author laomao

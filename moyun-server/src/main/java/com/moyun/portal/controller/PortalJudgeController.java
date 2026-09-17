@@ -24,7 +24,7 @@ import com.moyun.portal.service.IPortalJudgeService;
 import com.moyun.portal.util.PortalSecurityUtils;
 
 /**
- * OJ 在线判题 Controller（v6.3 OJ 判题系统）
+ * OJ 在线判题 Controller（OJ 判题系统）
  * <p>
  * 门户端：提交判题、查询判题结果、获取题目样例用例
  *

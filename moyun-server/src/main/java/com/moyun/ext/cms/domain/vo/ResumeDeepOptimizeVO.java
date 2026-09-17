@@ -6,7 +6,7 @@ import java.io.Serializable;
 import java.util.List;
 
 /**
- * 深度优化结果 VO（v10.13 简历优化重构）
+ * 深度优化结果 VO（简历优化重构）
  * <p>LLM 基于目标岗位 JD 对简历逐项生成的优化建议，前端展示前后对比、逐项采纳。</p>
  *
  * @author moyun

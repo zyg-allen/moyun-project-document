@@ -24,13 +24,13 @@ import java.time.LocalDateTime;
  *
  * <p><b>自动填充</b>：createTime / updateTime 带 {@code @TableField(fill=...)}，
  * 由 {@link com.moyun.core.config.MyMetaObjectHandler} 在 INSERT / UPDATE 时自动填充。
- * {@code strictInsertFill} 仅在字段为 null 时填充，不会覆盖 Service 层显式设置的值（P0-1 兜底赋值）。
+ * {@code strictInsertFill} 仅在字段为 null 时填充，不会覆盖 Service 层显式设置的值（兜底赋值）。
  *
  * <p><b>不继承 BaseEntity 的原因</b>：AI 表无 {@code create_by / update_by / remark / del_flag} 列，
  * 继承 BaseEntity 会导致 MyBatis-Plus 尝试映射不存在的列。AI 模块统一使用 {@code deleted} (Boolean)
  * 管理软删除，通过 {@code @TableLogic} 显式声明覆盖全局 {@code logic-delete-field=delFlag} 配置。
  *
- * <p><b>P3-2 Phase 1</b>：建立 AiBaseEntity 架构基线，7 个匹配实体已迁移继承。
+ * <p><b>Phase 1</b>：建立 AiBaseEntity 架构基线，7 个匹配实体已迁移继承。
  * Phase 2（待后续窗口）：迁移 KnowledgeLibrary（createdAt/updatedAt → createTime/updateTime）
  * 与 KnowledgeBase（uploadTime/processTime → createTime/updateTime），需配合 SQL 列重命名。
  * Phase 3（待后续窗口）：Portal 话题模块 isDeleted → delFlag 迁移，需配合 SQL + Mapper + Service 全链路改造。

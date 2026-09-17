@@ -94,7 +94,7 @@ public class CmsColumnServiceImpl implements ICmsColumnService {
             column.setPrice(java.math.BigDecimal.ZERO);
         }
         int rows = columnMapper.insert(column);
-        // v8.1：专栏进入待审核态时，提交统一审核任务（写 sys_audit_task），使首页/审核中心待办可见
+        // 专栏进入待审核态时，提交统一审核任务（写 sys_audit_task），使首页/审核中心待办可见
         if (rows > 0 && "pending".equals(column.getStatus()) && column.getId() != null) {
             submitColumnAuditTask(column);
         }
@@ -109,7 +109,7 @@ public class CmsColumnServiceImpl implements ICmsColumnService {
             throw new ServiceException("专栏不存在");
         }
         int rows = columnMapper.updateById(column);
-        // v8.1：编辑后若被强制转为 pending，重新提交审核任务
+        // 编辑后若被强制转为 pending，重新提交审核任务
         if (rows > 0 && "pending".equals(column.getStatus()) && column.getId() != null) {
             submitColumnAuditTask(column);
         }
@@ -179,7 +179,7 @@ public class CmsColumnServiceImpl implements ICmsColumnService {
         // 站内信通知作者（非阻塞）
         sendColumnAuditNotification(existing, status, auditRemark);
 
-        // v8.1：同步统一审核任务状态 + 关闭审核员待办（非阻塞，不影响审核主流程）
+        // 同步统一审核任务状态 + 关闭审核员待办（非阻塞，不影响审核主流程）
         try {
             String taskFinalStatus = "published".equals(status) ? "approved" : "rejected";
             Long auditorIdValue = SecurityUtils.getUserId();
@@ -193,7 +193,7 @@ public class CmsColumnServiceImpl implements ICmsColumnService {
     }
 
     /**
-     * v8.1：提交专栏统一审核任务（事务内，异常回滚保证双写一致）。
+     * 提交专栏统一审核任务（事务内，异常回滚保证双写一致）。
      */
     private void submitColumnAuditTask(PortalColumn column) {
         AuditTaskSubmitDTO dto = new AuditTaskSubmitDTO();

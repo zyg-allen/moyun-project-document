@@ -10,7 +10,7 @@ import java.time.LocalDateTime;
 import java.util.Map;
 
 /**
- * 审核任务展示 VO（v8.1）
+ * 审核任务展示 VO
  * <p>
  * 用于审核中心列表、首页待办、我的待办/已办等场景。
  *
@@ -78,7 +78,7 @@ public class AuditTaskVO implements Serializable {
     /** 查看详情跳转路径（审核中心） */
     private String routePath;
 
-    /** 原业务管理页路由（v11.35.1，「查看原业务」直达业务管理菜单页） */
+    /** 原业务管理页路由（「查看原业务」直达业务管理菜单页） */
     private String bizRoutePath;
 
     /** 业务详情（由 AuditBizHandler.getBizDetail 返回，结构因业务而异） */

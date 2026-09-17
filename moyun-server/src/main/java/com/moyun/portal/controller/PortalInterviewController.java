@@ -18,7 +18,6 @@ import com.moyun.ext.cms.domain.query.InterviewCommentQuery;
 import com.moyun.ext.cms.domain.query.InterviewExperienceQuery;
 import com.moyun.ext.cms.domain.query.InterviewQuestionQuery;
 import com.moyun.ext.cms.domain.query.InterviewResumeTemplateQuery;
-import com.moyun.ext.cms.domain.query.InterviewCompanyQuery;
 import com.moyun.ext.cms.domain.vo.InterviewBookmarkVO;
 import com.moyun.ext.cms.domain.vo.InterviewCommentVO;
 import com.moyun.ext.cms.domain.vo.InterviewExperienceVO;
@@ -124,7 +123,7 @@ public class PortalInterviewController extends BaseController {
     }
 
     /**
-     * 相邻题目导航（v12.0 做题页连续练习）
+     * 相邻题目导航（做题页连续练习）
      * <p>
      * 按来源列表页的筛选条件（practiceMode/difficulty/keyword）返回上一题/下一题，
      * 排序与列表一致（sort 升序 + createTime 降序）；同时返回当前序号与总数，
@@ -148,7 +147,7 @@ public class PortalInterviewController extends BaseController {
     }
 
     /**
-     * 记录题目阅读行为（v12.0 阅读闭环）
+     * 记录题目阅读行为（阅读闭环）
      * <p>
      * 详情页加载/停留时上报：同用户同题目同一天仅记一次成长事件（read_question）。
      * 若 body 携带 note，则同时落一条阅读笔记提交并记 write_note 成长事件。
@@ -377,13 +376,6 @@ public class PortalInterviewController extends BaseController {
     }
 
     // ==================== 公司标签 ====================
-    @Operation(summary = "获取公司标签列表", description = "前台公司聚合页用")
-    @GetMapping("/company/list")
-    @Anonymous
-    public AjaxResult getCompanyList(InterviewCompanyQuery query) {
-        return AjaxResult.success(portalInterviewService.selectCompanyList(query));
-    }
-
     @Operation(summary = "获取公司标签详情")
     @GetMapping("/company/{id}")
     @Anonymous

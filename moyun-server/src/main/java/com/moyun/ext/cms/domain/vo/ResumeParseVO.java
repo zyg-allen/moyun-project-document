@@ -6,7 +6,7 @@ import java.io.Serializable;
 import java.util.List;
 
 /**
- * 简历附件解析结果 VO（v10.12）
+ * 简历附件解析结果 VO
  * <p>
  * 由 {@link com.moyun.ext.cms.service.ResumeParseService} 从上传的附件
  * （PDF/Word/TXT）中抽取文本并结构化后返回，字段语义与 {@link UserResumeVO}
@@ -39,10 +39,10 @@ public class ResumeParseVO implements Serializable {
     /** 附件中抽取到的原始文本长度（前端提示用） */
     private Integer textLength;
 
-    /** v10.22：附件简历记录ID（上传后创建的 attachment 类型简历ID，前端用于跳转编辑页） */
+    /** 附件简历记录ID（上传后创建的 attachment 类型简历ID，前端用于跳转编辑页） */
     private Long attachmentResumeId;
-    /** v10.22：附件源文件URL */
+    /** 附件源文件URL */
     private String sourceFileUrl;
-    /** v10.22：附件原始文件名 */
+    /** 附件原始文件名 */
     private String sourceFileName;
 }

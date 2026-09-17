@@ -15,7 +15,7 @@ import com.moyun.portal.mapper.PortalFeedbackMapper;
 import com.moyun.system.service.AuditBizHandler;
 
 /**
- * 意见反馈处理业务处理器（v8.1）
+ * 意见反馈处理业务处理器
  * <p>
  * 反馈无独立 Service 层，直接通过 Mapper 更新业务表。
  * 通过态：status=resolved（已解决）；驳回态：status=rejected。

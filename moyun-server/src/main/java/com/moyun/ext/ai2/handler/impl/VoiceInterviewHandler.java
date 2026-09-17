@@ -19,9 +19,9 @@ import java.util.Map;
  * <p>职责：基于岗位/简历上下文评估候选人回答（同步评估）或流式输出追问。
  * 模型选择复用底座场景绑定（ai_scene_config.voice_interview）。</p>
  *
- * <p><strong>v11.58 P0-3c 业务收口——双子任务契约（task+context）：</strong></p>
+ * <p><strong>业务收口——双子任务契约（task+context）：</strong></p>
  * <ul>
- *   <li><b>task=warmup</b>（v11.94 V4）：面试预热——一次调用产出"AI 理解"（候选人画像+
+ *   <li><b>task=warmup</b>（V4）：面试预热——一次调用产出"AI 理解"（候选人画像+
  *       考察方向计划）+ 开场白 + 首题（固定请自我介绍），输出置于
  *       {@link InterviewSceneData#getStructured()}。</li>
  *   <li><b>task=answer_analysis</b>：候选人回答深度分析（评分校正/6维/漏洞/水平/追问建议），
@@ -111,7 +111,7 @@ public class VoiceInterviewHandler extends AbstractAiSceneHandler {
         return executeEvaluate(request, config);
     }
 
-    // ==================== 子任务：面试预热（v11.94 V4：理解成本前置） ====================
+    // ==================== 子任务：面试预热（V4：理解成本前置） ====================
 
     /**
      * 预热一次调用产出全量"AI 理解"：候选人画像 + 考察方向计划 + 开场白 + 首题。
@@ -171,7 +171,7 @@ public class VoiceInterviewHandler extends AbstractAiSceneHandler {
         return AiExecuteResponse.success(data);
     }
 
-    // ==================== 子任务：候选人回答深度分析（v11.58 P0-3c 收口） ====================
+    // ==================== 子任务：候选人回答深度分析（收口） ====================
 
     /**
      * 原 VoiceInterviewServiceImpl.analyzeAnswerByLlm 提示词逐字收编：
@@ -213,7 +213,7 @@ public class VoiceInterviewHandler extends AbstractAiSceneHandler {
         return AiExecuteResponse.success(data);
     }
 
-    // ==================== 子任务：候选人反问环节（v11.58 P0-3c 收口） ====================
+    // ==================== 子任务：候选人反问环节（收口） ====================
 
     /** 原 answerCandidateQuestion LLM 分支提示词逐字收编 */
     private AiExecuteResponse<?> executeCandidateAsk(AiExecuteRequest request) {
@@ -239,7 +239,7 @@ public class VoiceInterviewHandler extends AbstractAiSceneHandler {
         return AiExecuteResponse.success(data);
     }
 
-    // ==================== 子任务：知识点批量简介（v11.58 P0-3c 收口） ====================
+    // ==================== 子任务：知识点批量简介（收口） ====================
 
     /** 原 tryLlmKnowledgeDesc 提示词逐字收编：context = "面试岗位：X\n知识点：A、B、C" */
     private AiExecuteResponse<?> executeKnowledgeDesc(AiExecuteRequest request) {
@@ -265,7 +265,7 @@ public class VoiceInterviewHandler extends AbstractAiSceneHandler {
         return AiExecuteResponse.success(data);
     }
 
-    // ==================== 子任务：面试官轮次话术（v11.58 P0-3c 收口） ====================
+    // ==================== 子任务：面试官轮次话术（收口） ====================
 
     /** 原 generateSpeakText 提示词收编：context = 面试官人设；transcript = 轮次数据组装文本 */
     private AiExecuteResponse<?> executeSpeakText(AiExecuteRequest request) {
@@ -291,7 +291,7 @@ public class VoiceInterviewHandler extends AbstractAiSceneHandler {
         return AiExecuteResponse.success(data);
     }
 
-    // ==================== 子任务：自我介绍 4 维评分（v11.58 P0-3c 收口） ====================
+    // ==================== 子任务：自我介绍 4 维评分（收口） ====================
 
     /** 原 ScoringEngine.tryLlmSelfIntro 提示词逐字收编：context = 目标岗位（可空），transcript = 自我介绍转写 */
     private AiExecuteResponse<?> executeSelfIntro(AiExecuteRequest request) {
@@ -353,7 +353,7 @@ public class VoiceInterviewHandler extends AbstractAiSceneHandler {
             user.append("候选人简历摘要：").append(resumeSummary).append("\n");
         }
         user.append("第").append(round).append("轮问题：").append(question).append("\n");
-        // v11.58：候选人回答为外部不可信数据，切数据通道隔离（防提示词注入）
+        // 候选人回答为外部不可信数据，切数据通道隔离（防提示词注入）
         if (answer != null && !answer.isBlank()) {
             user.append(PromptInjectionGuard.wrapData("候选人回答", answer));
         } else {

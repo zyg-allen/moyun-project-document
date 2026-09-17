@@ -12,7 +12,7 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.List;
 
 /**
- * 门户记账-小程序功能入口配置（v11.73）
+ * 门户记账-小程序功能入口配置
  *
  * <p>"我的"页功能宫格由后台可视化运营：仅返回 visible=1 的入口，
  * 开发中功能默认隐藏；前端拉取失败时回退内置默认清单。

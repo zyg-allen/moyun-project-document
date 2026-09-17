@@ -25,13 +25,4 @@ public interface DataQueryService {
      * @return 查询响应(包含数据、分析、图表)
      */
     DataQueryResponse intelligentQuery(DataQueryRequest request);
-
-    /**
-     * 执行SQL查询(已生成SQL的情况)
-     *
-     * @param datasourceId 数据源ID
-     * @param sql SQL语句
-     * @return 查询结果
-     */
-    DataQueryResponse executeSQL(Long datasourceId, String sql);
 }

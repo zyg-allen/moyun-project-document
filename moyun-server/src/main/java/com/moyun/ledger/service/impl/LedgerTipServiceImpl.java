@@ -21,13 +21,13 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * 记账App打赏服务实现（V11.80 接入公共支付通道）
+ * 记账App打赏服务实现（接入公共支付通道）
  *
  * <p>链路：校验（金额区间/小数位/幂等号）→ 落 pending 打赏单 → payGateway 统一下单
  * (bizType=ledger_tip, platform=ledger_app, channel=wechat) → 回填 pay_no → 返回收银台参数。
  * 支付成功由 LedgerTipPayCallbackHandler 在网关回调事务内推进：pending→paid + 平台全额分账。
  *
- * <p>金额单位：元（BigDecimal，v11.31 统一）；状态枚举 v11.79 统一字符串。
+ * <p>金额单位：元（BigDecimal，统一）；状态枚举 统一字符串。
  *
  * @author moyun
  */
@@ -47,7 +47,7 @@ public class LedgerTipServiceImpl extends ServiceImpl<LedgerTipOrderMapper, Ledg
     @Override
     public Map<String, Object> createTipOrder(Long userId, BigDecimal amount, String payChannel,
                                               String target, String reason, String clientUuid) {
-        // 1. 金额校验（v11.80 对齐全平台标准：>0、scale≤2、上限与门户打赏一致）
+        // 1. 金额校验（对齐全平台标准：>0、scale≤2、上限与门户打赏一致）
         if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
             throw new ServiceException("请输入有效的赞赏金额");
         }
@@ -58,7 +58,7 @@ public class LedgerTipServiceImpl extends ServiceImpl<LedgerTipOrderMapper, Ledg
             throw new ServiceException("单笔赞赏不可超过 10000 元");
         }
 
-        // 2. clientUuid 幂等（V11.80 对齐记一笔防重机制）
+        // 2. clientUuid 幂等（对齐记一笔防重机制）
         if (clientUuid != null && !clientUuid.isBlank()) {
             LedgerTipOrder existing = this.getOne(new LambdaQueryWrapper<LedgerTipOrder>()
                     .eq(LedgerTipOrder::getClientUuid, clientUuid)
@@ -121,7 +121,7 @@ public class LedgerTipServiceImpl extends ServiceImpl<LedgerTipOrderMapper, Ledg
 
     @Override
     public BigDecimal totalAmount(Long userId) {
-        // SQL SUM 聚合（v11.79：替代原 selectList 内存累加，遵守"禁止全表内存聚合"铁律）
+        // SQL SUM 聚合（替代原 selectList 内存累加，遵守"禁止全表内存聚合"铁律）
         List<Map<String, Object>> rows = this.listMaps(new QueryWrapper<LedgerTipOrder>()
                 .select("COALESCE(SUM(amount), 0) AS total")
                 .eq("user_id", userId)

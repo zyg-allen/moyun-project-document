@@ -12,7 +12,7 @@ public interface ILedgerAiAnalysisService {
     /**
      * 生成用户财务分析报告（规则引擎指标 + LLM 综述）
      *
-     * <p>v11.36：月度快照缓存——当月已有报告直接返回（零 token）；
+     * <p>月度快照缓存——当月已有报告直接返回（零 token）；
      * refresh=true 时强制重新分析并覆盖当月报告。返回不再含 profile（前端独立请求）。
      *
      * @param userId  门户用户 ID
@@ -23,7 +23,7 @@ public interface ILedgerAiAnalysisService {
     Map<String, Object> analyze(Long userId, boolean refresh, String range);
 
     /**
-     * 提交异步分析任务（v11.55）
+     * 提交异步分析任务
      *
      * <p>LLM 生成长（快速模型 30-60s+），同步等待体验差。提交后立即返回 taskId，
      * 前端轮询 {@link #getAnalysisTask}。同用户已有进行中任务时直接返回该任务（防重复烧 token）。
@@ -35,7 +35,7 @@ public interface ILedgerAiAnalysisService {
     Map<String, Object> submitAnalysisTask(Long userId, String range);
 
     /**
-     * 查询异步任务状态（v11.55）
+     * 查询异步任务状态
      *
      * @param userId  门户用户 ID（归属校验，非本人任务返回 not_found）
      * @param taskId  任务 ID
@@ -44,7 +44,7 @@ public interface ILedgerAiAnalysisService {
     Map<String, Object> getAnalysisTask(Long userId, String taskId);
 
     /**
-     * 历史报告分页（v11.36；v11.55 起同一 period 可多版本，按时间倒序）
+     * 历史报告分页（起同一 period 可多版本，按时间倒序）
      *
      * @param userId   门户用户 ID
      * @param page     页码（1 起）
@@ -54,7 +54,7 @@ public interface ILedgerAiAnalysisService {
     Map<String, Object> listReports(Long userId, int page, int pageSize);
 
     /**
-     * 报告详情（v11.55 历史版本完整回看）
+     * 报告详情（历史版本完整回看）
      *
      * @param userId   门户用户 ID（归属校验）
      * @param reportId 报告 ID
@@ -63,7 +63,7 @@ public interface ILedgerAiAnalysisService {
     Map<String, Object> getReportDetail(Long userId, Long reportId);
 
     /**
-     * 删除报告版本（v11.55 用户可清理不满意的历史版本）
+     * 删除报告版本（用户可清理不满意的历史版本）
      *
      * @param userId   门户用户 ID（归属校验）
      * @param reportId 报告 ID

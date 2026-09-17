@@ -22,7 +22,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * AI 内容安全检测 Controller（v11.57 P0-3 场景收口：sensitive_word 业务入口走网关）
+ * AI 内容安全检测 Controller（场景收口：sensitive_word 业务入口走网关）
  *
  * <p>给运营/审核人员提供 LLM 级文本复核工具——DFA 词树只能字面匹配，
  * 本接口经统一网关（{@code sensitive_word} 场景）识别变体/语义级风险，

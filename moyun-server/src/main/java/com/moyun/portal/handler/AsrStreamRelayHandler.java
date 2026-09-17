@@ -31,7 +31,7 @@ import com.moyun.ext.ai.entity.ModelConfig;
 import com.moyun.ext.ai.service.ModelConfigService;
 
 /**
- * 语音识别实时流式中继（fun-asr-realtime）—— V10.1 语音面试官
+ * 语音识别实时流式中继（fun-asr-realtime）—— 语音面试官
  *
  * <p>浏览器无法直连百炼（API Key 不能下发前端），本处理器作为双向中继：</p>
  * <pre>

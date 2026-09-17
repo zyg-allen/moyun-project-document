@@ -6,7 +6,7 @@ import java.util.List;
 import lombok.Data;
 
 /**
- * 语言运行时配置（v6.3 OJ 判题系统）
+ * 语言运行时配置（OJ 判题系统）
  * <p>
  * 描述每种语言的编译/执行命令与产物路径策略，供 {@link ProcessJudgeEngine} 使用。
  *

@@ -19,24 +19,6 @@ public interface WorkflowGeneratorService {
     GenerateResult generate(String description);
     
     /**
-     * 根据自然语言描述生成工作流，并自动保存
-     * 
-     * @param description 用户的自然语言描述
-     * @param workflowName 工作流名称（可选，为空则自动生成）
-     * @return 保存后的工作流ID
-     */
-    Long generateAndSave(String description, String workflowName);
-    
-    /**
-     * 优化/修改已有工作流
-     * 
-     * @param workflowId 现有工作流ID
-     * @param instruction 修改指令
-     * @return 优化后的工作流JSON
-     */
-    GenerateResult optimize(Long workflowId, String instruction);
-    
-    /**
      * 生成结果
      */
     @lombok.Data

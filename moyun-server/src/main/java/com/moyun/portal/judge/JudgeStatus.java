@@ -1,7 +1,7 @@
 package com.moyun.portal.judge;
 
 /**
- * OJ 判题状态枚举（v6.3 OJ 判题系统）
+ * OJ 判题状态枚举（OJ 判题系统）
  * <p>
  * 与力扣/牛客主流约定一致，前端按状态展示对应徽章。
  *

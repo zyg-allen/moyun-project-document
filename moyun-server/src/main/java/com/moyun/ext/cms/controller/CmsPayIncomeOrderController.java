@@ -25,7 +25,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
- * CMS 收入订单 Controller（v11.79 收入管理模块）
+ * CMS 收入订单 Controller（收入管理模块）
  *
  * <p>全平台业务订单统一视图：记账App打赏 + 门户打赏/付费阅读（UNION ALL），
  * 取代原 cms/tip 孤儿页；通道单据（pay_order）另见支付订单页，不重复计入。

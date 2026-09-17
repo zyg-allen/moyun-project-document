@@ -33,7 +33,7 @@ public class MultimodalServiceImpl implements MultimodalService {
     @Autowired
     private ModelConfigService modelConfigService;
 
-    /** 提供商注册表（V11.0.2：模型构建按 apiStyle 分支） */
+    /** 提供商注册表（模型构建按 apiStyle 分支） */
     @Autowired
     private AiProviderService providerService;
 
@@ -164,7 +164,7 @@ public class MultimodalServiceImpl implements MultimodalService {
                 return null;
             }
 
-            // V11.0.2：按 apiStyle 决定图片编码格式
+            // 按 apiStyle 决定图片编码格式
             // OpenAI 兼容端点统一 data URL（含 dashscope 兼容模式）；Ollama 原生用裸 base64
             String apiStyle = providerService.apiStyle(config.getProvider());
             String base64 = imageToBase64(image);
@@ -196,7 +196,7 @@ public class MultimodalServiceImpl implements MultimodalService {
     }
 
     private ChatLanguageModel createMultimodalModel(ModelConfig config) {
-        // V11.0.2：按 apiStyle 分支（OpenAI 兼容端点统一构建，baseUrl 走注册表兜底）
+        // 按 apiStyle 分支（OpenAI 兼容端点统一构建，baseUrl 走注册表兜底）
         String apiStyle = providerService.apiStyle(config.getProvider());
 
         try {

@@ -17,7 +17,7 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.Map;
 
 /**
- * CMS 提现审核 Controller（v11.79 收入管理模块）
+ * CMS 提现审核 Controller（收入管理模块）
  *
  * <p>资金模型：审核通过 = 原子扣减用户虚拟余额 + 记 debit 流水 + 商户号出金（预留）；
  * 审核驳回 = 单据关闭，余额不动。

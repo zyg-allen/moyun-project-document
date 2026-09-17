@@ -18,7 +18,7 @@ import org.springframework.stereotype.Component;
 import com.moyun.portal.domain.entity.PortalInterviewQuestionTestCase;
 
 /**
- * 基于 ProcessBuilder 的判题引擎实现（v6.3 OJ 判题系统）
+ * 基于 ProcessBuilder 的判题引擎实现（OJ 判题系统）
  * <p>
  * 实现策略：
  * <ul>

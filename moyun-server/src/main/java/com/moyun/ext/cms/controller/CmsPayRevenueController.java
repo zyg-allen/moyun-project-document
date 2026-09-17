@@ -4,20 +4,16 @@ import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.moyun.core.base.AjaxResult;
 import com.moyun.core.base.BaseController;
 import com.moyun.ledger.domain.entity.LedgerTipOrder;
-import com.moyun.ledger.domain.entity.LedgerVipOrder;
 import com.moyun.ledger.mapper.LedgerTipOrderMapper;
-import com.moyun.ledger.mapper.LedgerVipOrderMapper;
 import com.moyun.pay.domain.entity.LedgerEntry;
+import com.moyun.pay.domain.entity.PayOrder;
 import com.moyun.pay.domain.entity.UserAccount;
 import com.moyun.pay.domain.entity.WithdrawOrder;
 import com.moyun.pay.mapper.LedgerEntryMapper;
+import com.moyun.pay.mapper.PayOrderMapper;
 import com.moyun.pay.mapper.UserAccountMapper;
 import com.moyun.pay.mapper.WithdrawOrderMapper;
-import com.moyun.portal.domain.entity.PortalInterviewVipOrder;
-import com.moyun.portal.domain.entity.PortalResumeOptimizeOrder;
 import com.moyun.portal.domain.entity.PortalTipOrder;
-import com.moyun.portal.mapper.PortalInterviewVipOrderMapper;
-import com.moyun.portal.mapper.PortalResumeOptimizeOrderMapper;
 import com.moyun.portal.mapper.PortalTipOrderMapper;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -48,7 +44,8 @@ import java.util.Map;
  *   <li>平台直接所得 = 公共通道 PLATFORM/credit 分录合计（含 App 打赏全额 + 门户通道抽成，分录为准不双算）</li>
  *   <li>用户所得 = 公共通道 USER/credit 分录合计（门户作者分账累计，含钱包余额）</li>
  *   <li>pay_order 为通道单据，不重复计入 GMV（业务订单为准，避免与打赏订单双算）</li>
- *   <li>面试会员（interview_vip，已接入）/ 简历优化（resume_optimize，已接入）均为真实聚合渠道</li>
+ *   <li>VIP 订阅（统一会员 v12.0）：pay_order biz_type='vip'（PAID/SETTLED），平台直收类，
+ *       记账端/门户端按 platform 列分组（ledger→记账App，portal→门户）</li>
  * </ul>
  *
  * <p>聚合方式：全部 SQL SUM / COUNT / GROUP BY（遵守"禁止全表 selectList 内存聚合"铁律）。
@@ -70,26 +67,20 @@ public class CmsPayRevenueController extends BaseController {
     private LedgerEntryMapper ledgerEntryMapper;
 
     @Autowired
+    private PayOrderMapper payOrderMapper;
+
+    @Autowired
     private UserAccountMapper userAccountMapper;
 
     @Autowired
     private WithdrawOrderMapper withdrawOrderMapper;
-
-    @Autowired
-    private LedgerVipOrderMapper ledgerVipOrderMapper;
-
-    @Autowired
-    private PortalInterviewVipOrderMapper interviewVipOrderMapper;
-
-    @Autowired
-    private PortalResumeOptimizeOrderMapper resumeOptimizeOrderMapper;
 
     @Operation(summary = "收入总览", description = "平台×渠道两级收入聚合 + 平台直接所得 + 近6月趋势 + 支付方式分布")
     @PreAuthorize("@ss.hasPermi('cms:payRevenue:view')")
     @GetMapping("/overview")
     public AjaxResult overview() {
         Map<String, Object> data = new LinkedHashMap<>();
-        data.put("caliberNote", "口径：GMV=各渠道成功订单合计（App打赏+记账VIP+门户 status=paid）；平台直接所得=App打赏(平台对象)+通道抽成；pay_order 通道单据不重复计入；金额单位元");
+        data.put("caliberNote", "口径：GMV=各渠道成功订单合计（App打赏+门户 status=paid+两端VIP订阅）；VIP=pay_order biz_type='vip'（PAID/SETTLED）；平台直接所得=App打赏(平台对象)+通道抽成；其余 pay_order 通道单据不重复计入；金额单位元");
 
         // ===== 1. 渠道聚合 =====
         // 1.1 App 记账打赏：总 + 按打赏对象 + 按支付方式（状态统一 'paid'，字段统一 pay_channel）
@@ -115,47 +106,40 @@ public class CmsPayRevenueController extends BaseController {
                 .eq("status", "paid")
                 .groupBy("target_type", "pay_channel")), "target_type", "pay_channel");
 
-        // 1.3 记账VIP订阅总（新增渠道，平台直收类）
-        Map<String, Object> ledgerVipTotal = aggregateOne(ledgerVipOrderMapper.selectMaps(new QueryWrapper<LedgerVipOrder>()
-                .select("COUNT(*) AS cnt", "COALESCE(SUM(amount), 0) AS total")
-                .eq("status", LedgerVipOrder.STATUS_PAID)));
-
-        // 1.4 面试会员订阅总（新增渠道，平台直收类）
-        Map<String, Object> interviewVipTotal = aggregateOne(interviewVipOrderMapper.selectMaps(new QueryWrapper<PortalInterviewVipOrder>()
-                .select("COUNT(*) AS cnt", "COALESCE(SUM(amount), 0) AS total")
-                .eq("status", PortalInterviewVipOrder.STATUS_PAID)));
-
-        // 1.4b 简历优化会员订阅总（新增渠道，平台直收类）
-        Map<String, Object> resumeOptimizeTotal = aggregateOne(resumeOptimizeOrderMapper.selectMaps(new QueryWrapper<PortalResumeOptimizeOrder>()
-                .select("COUNT(*) AS cnt", "COALESCE(SUM(amount), 0) AS total")
-                .eq("status", PortalResumeOptimizeOrder.STATUS_PAID)));
+        // 1.3 统一 VIP 订阅（pay_order biz_type='vip'，PAID/SETTLED；按平台×渠道分组，平台直收类）
+        // platform 映射：ledger→ledger_app（记账App）、portal→portal（墨韵门户）
+        Map<String, Map<String, Object>> vipByPlatformWay = groupToMap(payOrderMapper.selectMaps(new QueryWrapper<PayOrder>()
+                .select("platform", "channel", "COUNT(*) AS cnt", "COALESCE(SUM(amount), 0) AS total")
+                .eq("biz_type", "vip")
+                .in("status", PayOrder.STATUS_PAID, PayOrder.STATUS_SETTLED)
+                .groupBy("platform", "channel")), "platform", "channel");
+        Map<String, Map<String, Object>> vipByPlatform = new LinkedHashMap<>();
+        for (Map.Entry<String, Map<String, Object>> e : vipByPlatformWay.entrySet()) {
+            String[] parts = e.getKey().split("\\|");
+            String plat = parts.length > 0 && "ledger".equals(parts[0]) ? "ledger_app" : "portal";
+            Map<String, Object> acc = vipByPlatform.getOrDefault(plat, zeroRow());
+            Map<String, Object> add = new HashMap<>(acc);
+            add.put("total", dec(acc).add(dec(e.getValue())));
+            add.put("cnt", cnt(acc) + cnt(e.getValue()));
+            vipByPlatform.put(plat, add);
+        }
+        Map<String, Object> ledgerVipTotal = vipByPlatform.getOrDefault("ledger_app", zeroRow());
+        Map<String, Object> portalVipTotal = vipByPlatform.getOrDefault("portal", zeroRow());
 
         // 1.5 通道平台抽成（pay_ledger_entry PLATFORM/credit，SQL SUM）
         BigDecimal gatewayPlatformFee = sumLedgerAmount(LedgerEntry.ROLE_PLATFORM);
         BigDecimal gatewayUserShare = sumLedgerAmount(LedgerEntry.ROLE_USER);
 
         // ===== 2. 组装平台→渠道 =====
-        // 记账App（记账VIP 规划占位 → 真实聚合渠道）
-        Map<String, Map<String, Object>> vipByPayWay = groupToMap(ledgerVipOrderMapper.selectMaps(new QueryWrapper<LedgerVipOrder>()
-                .select("pay_channel", "COUNT(*) AS cnt", "COALESCE(SUM(amount), 0) AS total")
-                .eq("status", LedgerVipOrder.STATUS_PAID)
-                .groupBy("pay_channel")), "pay_channel");
+        // 记账App（记账VIP 统一会员渠道）
         Map<String, Object> appTipChannel = channel("app_tip", "App记账打赏", appTip, payWays(appTipByPayWay, Map.of("wechat", "微信支付", "alipay", "支付宝"), null));
-        Map<String, Object> ledgerVipChannel = channel("ledger_vip", "记账VIP订阅", ledgerVipTotal,
-                payWays(vipByPayWay, Map.of("wechat", "微信支付", "alipay", "支付宝"), null));
+        Map<String, Object> ledgerVipChannel = channel("vip", "记账VIP订阅", ledgerVipTotal,
+                payWays(remapVipWays(vipByPlatformWay, "ledger"), Map.of("wechat", "微信支付", "alipay", "支付宝"), null));
         Map<String, Object> ledgerApp = platform("ledger_app", "记账App", new ArrayList<>(List.of(
                 appTipChannel,
                 ledgerVipChannel)));
 
-        // 门户（面试会员 规划占位 → 真实聚合渠道；简历优化同转）
-        Map<String, Map<String, Object>> interviewVipByPayWay = groupToMap(interviewVipOrderMapper.selectMaps(new QueryWrapper<PortalInterviewVipOrder>()
-                .select("pay_channel", "COUNT(*) AS cnt", "COALESCE(SUM(amount), 0) AS total")
-                .eq("status", PortalInterviewVipOrder.STATUS_PAID)
-                .groupBy("pay_channel")), "pay_channel");
-        Map<String, Map<String, Object>> resumeOptimizeByPayWay = groupToMap(resumeOptimizeOrderMapper.selectMaps(new QueryWrapper<PortalResumeOptimizeOrder>()
-                .select("pay_channel", "COUNT(*) AS cnt", "COALESCE(SUM(amount), 0) AS total")
-                .eq("status", PortalResumeOptimizeOrder.STATUS_PAID)
-                .groupBy("pay_channel")), "pay_channel");
+        // 门户（统一会员渠道）
         Map<String, Object> portalTipTotal = sumGroups(portalByType, "article", "column");
         Map<String, Object> paidReadingTotal = portalByType.getOrDefault("article_paid", zeroRow());
         Map<String, Object> portal = platform("portal", "墨韵门户", new ArrayList<>(List.of(
@@ -163,17 +147,15 @@ public class CmsPayRevenueController extends BaseController {
                         payWays(portalByTypeWay, Map.of("points", "积分", "alipay", "支付宝", "wechat", "微信支付"), new String[]{"article", "column"})),
                 channel("paid_reading", "付费阅读", paidReadingTotal,
                         payWays(portalByTypeWay, Map.of("points", "积分", "alipay", "支付宝", "wechat", "微信支付"), new String[]{"article_paid"})),
-                channel("interview_vip", "面试会员", interviewVipTotal,
-                        payWays(interviewVipByPayWay, Map.of("wechat", "微信支付", "alipay", "支付宝"), null)),
-                channel("resume_optimize", "简历优化会员", resumeOptimizeTotal,
-                        payWays(resumeOptimizeByPayWay, Map.of("wechat", "微信支付", "alipay", "支付宝"), null)))));
+                channel("vip", "会员订阅", portalVipTotal,
+                        payWays(remapVipWays(vipByPlatformWay, "portal"), Map.of("wechat", "微信支付", "alipay", "支付宝"), null)))));
 
         List<Map<String, Object>> platforms = new ArrayList<>(List.of(ledgerApp, portal));
         data.put("platforms", platforms);
 
         // ===== 3. 顶部指标（口径见类注释） =====
-        BigDecimal gmv = dec(appTip).add(dec(portalTipTotal)).add(dec(paidReadingTotal)).add(dec(ledgerVipTotal)).add(dec(interviewVipTotal)).add(dec(resumeOptimizeTotal));
-        long orderCount = cnt(appTip) + cnt(portalTipTotal) + cnt(paidReadingTotal) + cnt(ledgerVipTotal) + cnt(interviewVipTotal) + cnt(resumeOptimizeTotal);
+        BigDecimal gmv = dec(appTip).add(dec(portalTipTotal)).add(dec(paidReadingTotal)).add(dec(ledgerVipTotal)).add(dec(portalVipTotal));
+        long orderCount = cnt(appTip) + cnt(portalTipTotal) + cnt(paidReadingTotal) + cnt(ledgerVipTotal) + cnt(portalVipTotal);
         // 口径（App打赏接入公共通道后）：平台所得 = PLATFORM/credit 分录合计
         // （已含 App 打赏全额 + 门户通道抽成，不再叠加 appTipPlatformPart 避免双算）；
         // 用户所得 = USER/credit 分录合计（门户作者分账累计）。
@@ -259,6 +241,19 @@ public class CmsPayRevenueController extends BaseController {
         c.put("status", "active");
         c.put("payWays", payWays);
         return c;
+    }
+
+    /** VIP 平台×渠道分组结果 → 指定 pay_order.platform（ledger/portal）的 way 分组（键=渠道） */
+    private Map<String, Map<String, Object>> remapVipWays(Map<String, Map<String, Object>> vipByPlatformWay, String platformCode) {
+        Map<String, Map<String, Object>> result = new LinkedHashMap<>();
+        for (Map.Entry<String, Map<String, Object>> e : vipByPlatformWay.entrySet()) {
+            String[] parts = e.getKey().split("\\|");
+            if (parts.length < 2 || !platformCode.equals(parts[0])) {
+                continue;
+            }
+            result.put(parts[1], e.getValue());
+        }
+        return result;
     }
 
     /** 支付方式分布：rows 按（可选 typeKey +）wayKey 分组的结果 → 指定 type 集合内的 way 明细 */

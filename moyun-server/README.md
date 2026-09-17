@@ -75,10 +75,10 @@ com.moyun/
 
 ```bash
 # 1. 基础建表（create table if not exists 幂等，按业务模块分组）
-202608201435-moyun-db-ddl-moyun-db.sql
+moyun-db-ddl.sql
 
 # 2. 初始化数据（4 个 DML 分片，每表先 DELETE 再 INSERT）
-202608201435-moyun-db-dml-1.sql ~ -4.sql
+moyun-db-dml-init.sql ~ -4.sql
 
 # 3. 增量补丁（命名 YYYYMMDD-NN-描述.sql，按日期顺序执行，幂等）
 #    当前最新：20260917-01-ai-global-switch-sysconfig.sql
@@ -90,7 +90,7 @@ com.moyun/
 
 ```bash
 # 环境：JDK 21+ / MySQL 8.0+ / Redis 6.0+ / Maven 3.8+
-mysql -u root -p moyun-db < sql/202608201435-moyun-db-ddl-moyun-db.sql   # 及 DML/增量（见上）
+mysql -u root -p moyun-db < sql/moyun-db-ddl.sql   # 及 DML/增量（见上）
 mvn spring-boot:run    # 默认 dev profile，http://localhost:8080，文档 /doc.html
 ```
 

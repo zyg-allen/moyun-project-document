@@ -11,8 +11,8 @@ import com.moyun.ext.cms.domain.vo.VoiceStartConfig;
 import com.moyun.ext.cms.service.IVoiceInterviewService;
 import com.moyun.ext.cms.service.IWrongQuestionService;
 import com.moyun.ext.cms.service.VoiceAsrService;
-import com.moyun.portal.service.PortalFreeTrialService;
 import com.moyun.portal.util.PortalSecurityUtils;
+import com.moyun.vip.annotation.VipOnly;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -56,14 +56,6 @@ public class PortalVoiceInterviewController extends BaseController {
     @Autowired
     private com.moyun.portal.mapper.PortalInterviewQuestionMapper questionMapper;
 
-    /** 面试会员校验（语音面试为会员付费点） */
-    @Autowired
-    private PortalInterviewVipController interviewVipController;
-
-    /** 免费体验次数服务（非会员每场景 2 次） */
-    @Autowired
-    private com.moyun.portal.service.PortalFreeTrialService freeTrialService;
-
     private Long currentUserId() {
         return PortalSecurityUtils.getUserId();
     }
@@ -71,22 +63,17 @@ public class PortalVoiceInterviewController extends BaseController {
     /**
      * 1. 开始语音面试
      * <p>创建会话 + agent 开场白首问 + 滑窗记忆初始化
-     * <p>面试会员付费点落地——会员不限次；非会员可免费体验 2 次
-     * （portal_free_trial 场景 voice_interview，原子消耗），用完返回 402 引导开通
+     * <p>会员付费点（@VipOnly 统一权益校验：会员不限次，free tier 每用户 2 次，
+     * 用完返回 402 引导开通）
      */
-    @Operation(summary = "开始语音面试", description = "创建会话并生成 agent 开场白首问（会员不限次，非会员免费体验2次）")
+    @Operation(summary = "开始语音面试", description = "创建会话并生成 agent 开场白首问（会员不限次，免费额度用完引导开通）")
+    @VipOnly(platform = "portal", benefit = "interview_unlimited", message = "免费面试次数已用完，语音面试为会员专属功能，请开通会员")
     @PostMapping("/start")
     @RateLimiter(key = "voice:start", time = 3600, count = 20)
     public AjaxResult start(@Valid @RequestBody VoiceStartConfig config) {
         Long userId = currentUserId();
         if (userId == null) {
             return AjaxResult.error(HttpStatus.UNAUTHORIZED, "登录已过期，请重新登录");
-        }
-        // 会员 或 免费体验未用完（每用户 2 次）
-        if (!interviewVipController.isVip(userId)) {
-            if (!freeTrialService.tryConsume(userId, PortalFreeTrialService.SCENE_VOICE_INTERVIEW)) {
-                return AjaxResult.error(402, "免费体验次数已用完，语音面试为面试会员专属功能，请先开通面试会员");
-            }
         }
         return AjaxResult.success(voiceInterviewService.start(userId, config));
     }

@@ -18,6 +18,7 @@ import com.moyun.portal.domain.entity.PortalResumeScoreReport;
 import com.moyun.portal.mapper.PortalResumeJobTargetMapper;
 import com.moyun.portal.mapper.PortalResumeScoreReportMapper;
 import com.moyun.portal.util.PortalSecurityUtils;
+import com.moyun.vip.annotation.VipOnly;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -72,33 +73,6 @@ public class PortalResumeOptimizeController extends BaseController {
     /** 通用 AI 异步任务服务（深度优化异步任务切换到 portal_ai_task） */
     @Autowired
     private AiTaskService aiTaskService;
-
-    /** 简历优化会员校验（深度优化为会员专属功能，平台直收类付费点） */
-    @Autowired
-    private PortalResumeOptimizeVipController resumeOptimizeVipController;
-
-    /** 免费体验次数服务（非会员每场景 2 次） */
-    @Autowired
-    private com.moyun.portal.service.PortalFreeTrialService freeTrialService;
-
-    /** 未开通简历优化会员错误码（402 Payment Required，前端据此跳转会员购买页） */
-    private static final int CODE_RESUME_VIP_REQUIRED = 402;
-
-    /**
-     * 深度优化付费校验——会员 或 免费体验未用完（每用户 2 次）
-     *
-     * @return null=放行（会员或已扣减体验次数）；非 null=402 错误响应（引导开通）
-     */
-    private AjaxResult checkVipOrTrial(Long userId) {
-        if (resumeOptimizeVipController.isVip(userId)) {
-            return null;
-        }
-        if (freeTrialService.tryConsume(userId, com.moyun.portal.service.PortalFreeTrialService.SCENE_RESUME_DEEP)) {
-            return null;
-        }
-        return AjaxResult.error(CODE_RESUME_VIP_REQUIRED,
-                "免费体验次数已用完，简历深度优化为会员专属功能，请先开通简历优化会员");
-    }
 
     private Long currentUserId() {
         return PortalSecurityUtils.getUserId();
@@ -222,16 +196,12 @@ public class PortalResumeOptimizeController extends BaseController {
     // ==================== 深度优化 ====================
 
     @Operation(summary = "生成深度优化建议（同步，兼容旧版）", description = "LLM 基于JD逐项生成优化建议（需 AI 模型）。注意：长耗时场景建议改用 /deep/{resumeId}/{jobTargetId}/async 异步接口")
+    @VipOnly(platform = "portal", benefit = "resume_optimize", message = "简历深度优化次数已用完，请开通会员")
     @PostMapping("/deep/{resumeId}/{jobTargetId}")
     public AjaxResult deepOptimize(@PathVariable Long resumeId, @PathVariable Long jobTargetId) {
         Long userId = currentUserId();
         if (userId == null) {
             return AjaxResult.error(HttpStatus.UNAUTHORIZED, "登录已过期，请重新登录");
-        }
-        // 深度优化为会员专属；非会员可免费体验 2 次
-        AjaxResult vipCheck = checkVipOrTrial(userId);
-        if (vipCheck != null) {
-            return vipCheck;
         }
         UserResumeVO resume = userResumeService.selectResumeDetail(resumeId, userId);
         if (resume == null) {
@@ -249,16 +219,12 @@ public class PortalResumeOptimizeController extends BaseController {
             description = "立即返回任务ID，后端异步调用 LLM 生成建议。前端通过 GET /deep/task/{taskId} 轮询任务状态，"
                     + "status=success 时 result 字段为优化结果（ResumeDeepOptimizeVO）。"
                     + "解决大模型调用超时问题，支持关闭页面后回来查看。")
+    @VipOnly(platform = "portal", benefit = "resume_optimize", message = "简历深度优化次数已用完，请开通会员")
     @PostMapping("/deep/{resumeId}/{jobTargetId}/async")
     public AjaxResult deepOptimizeAsync(@PathVariable Long resumeId, @PathVariable Long jobTargetId) {
         Long userId = currentUserId();
         if (userId == null) {
             return AjaxResult.error(HttpStatus.UNAUTHORIZED, "登录已过期，请重新登录");
-        }
-        // 深度优化为会员专属；非会员可免费体验 2 次
-        AjaxResult vipCheck = checkVipOrTrial(userId);
-        if (vipCheck != null) {
-            return vipCheck;
         }
         try {
             // 保留原有提交前校验（简历归属/岗位目标存在/AI 可用性）

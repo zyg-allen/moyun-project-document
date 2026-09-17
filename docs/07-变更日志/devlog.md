@@ -2,6 +2,9 @@
 
 > 2026-09-17 v11.98 后瘦身：历史条目仅保留「版本 + 修改类目 + 简介」，实施细节沉淀于方案文档与《00-项目现状总结》。v12 起新条目同样只记类目+简介。
 
+## v12.0 (2026-09-17) 统一 VIP 体系：端级粒度 + 全局公共端 + 注解驱动（替代三套旧 VIP）
+> 依据：《VIP 体系完整设计方案 v2.1》评审通过实施。① SQL：新增 sys_platform 端定义（4 端）+ vip_tier/vip_benefit/vip_tier_benefit/vip_user_card/vip_benefit_usage/vip_api_registry 七表及门户 4 等级 6 权益/记账 2 等级 2 权益初始化；sys_config 补 platform_code 端级列 + vip.enabled 全局开关（缺省 false）；pay_ledger_entry 补 platform 列；DROP 8 张旧表（三套套餐/订单 + portal_free_trial + 预留表）+ 旧 bizType 订单清理 + 菜单删旧建新（5500-5519）。② 后端：新增 com.moyun.vip 包（@VipOnly 注解 / VipApiScanner 启动扫描 / VipOnlyAspect 切面 / VipServiceImpl 次数消耗 Redis 原子计数+DB 降级 / VipPayCallbackHandler 发卡续费顺延 / 门户与记账订阅 Controller）；admin 端 SysPlatformController + VipAdminController 六资源管理；付费点 @VipOnly 化（语音面试/简历深度优化/记账 AI 分析）；删除三套旧 VIP 全链路 31 文件；收入总览与收入订单改 pay_order biz_type='vip' 口径。③ 门户前端：新会员页 /membership（等级+权益清单+用量+收银台）替代旧两订阅页；付费点前置校验改统一会员状态（free 档免费额度）。④ admin 前端：VIP 管理模块六页（等级/权益/矩阵/接口注册/会员卡/使用统计）+ 端管理页，删旧四页。⑤ 记账 App 前端零改动（后端契约兼容重写）。全量编译/build 验证通过。
+
 ## v11.99 (2026-09-17) 项目瘦身收尾：文档体系重构（总-分-总）+ 版本注释压缩 + 死代码清除
 > 类目：① 文档：新增《00-项目现状总结》（总-分-总基线）；devlog 440KB→37KB（只留类目+简介）；删除 16 份阶段性评估/排查/自测/已覆盖旧方案文档；架构/项目介绍/规划文档刷新至 v11.98；五端 README（根+四子项目）全面更新对齐。② 代码注释：清除版本更新记录式注释（265 文件/654 行，保留方案文档锚点引用）。③ 死代码：删除后端无引用且三前端零调用的 Controller/Service（26 文件级 + 34 方法级，shop/task/tip/settlement/reportGeneration 等死链），全路径 mvn 编译验证通过。菜单无孤儿（旧交易管理菜单 v11.1 已清理）；portal_creator_settlement 表保留（DDL 不回退）。
 

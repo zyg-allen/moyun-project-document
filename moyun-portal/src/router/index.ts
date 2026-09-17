@@ -363,19 +363,12 @@ const routes: RouteRecordRaw[] = [
     component: CodeRunnerPage,
     meta: { requiresAuth: true, title: '在线代码运行', robots: 'noindex,nofollow' }
   },
-  // ============ 面试会员（v11.82 平台直收类订阅） ============
+  // ============ 会员中心（v12.0 统一会员，替代旧面试/简历优化两套订阅页） ============
   {
-    path: '/interview/vip',
-    name: 'interview-vip',
-    component: () => import('@/pages/interview/InterviewVipPage.vue'),
-    meta: { requiresAuth: true, title: '面试会员', robots: 'noindex,nofollow' }
-  },
-  // ============ 简历优化会员（v11.83 平台直收类订阅） ============
-  {
-    path: '/interview/resume/vip',
-    name: 'interview-resume-vip',
-    component: () => import('@/pages/interview/ResumeOptimizeVipPage.vue'),
-    meta: { requiresAuth: true, title: '简历优化会员', robots: 'noindex,nofollow' }
+    path: '/membership',
+    name: 'membership',
+    component: () => import('@/pages/membership/MembershipPage.vue'),
+    meta: { requiresAuth: true, title: '墨韵会员', robots: 'noindex,nofollow' }
   },
   {
     path: '/article/:id/:slug?',

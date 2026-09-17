@@ -27,7 +27,7 @@ import {
   regenerateVoiceReport,
 } from '@/api/voiceInterview';
 import { getMyResumeList, parseResumeAttachment } from '@/api/interview';
-import { getInterviewVipStatus } from '@/api/interviewVip';
+import { getVipStatus, benefitLeft } from '@/api/vip';
 import { pollAiTask } from '@/api/aiTask';
 import type { UserResumeVO } from '@/types/api';
 import { useUserStore } from '@/stores/user';
@@ -1337,26 +1337,26 @@ async function handleStart() {
     toast.warning(`岗位名称不能超过 ${POSITION_MAX_LEN} 个字符`);
     return;
   }
-  // v11.85/v11.88：面试会员与免费体验前置校验（非会员每天 5 次限流的前端友好提示）
+  // v12.0 统一会员前置校验（free 档免费额度 + 开通引导；后端 @VipOnly 兜底）
   try {
-    const vipRes = await getInterviewVipStatus();
+    const vipRes = await getVipStatus();
     if (!vipRes.data?.isVip) {
-      const left = vipRes.data?.freeTrialLeft ?? 0;
+      const left = benefitLeft(vipRes.data, 'interview_unlimited') ?? 0;
       if (left > 0) {
-        toast.info(`免费体验剩余 ${left} 次，开通面试会员可不限次开练`);
+        toast.info(`免费体验剩余 ${left} 次，开通会员可不限次开练`);
       } else {
         const goBuy = await confirmModal.confirm(
-          '免费体验次数已用完，开通面试会员可不限次语音开练',
-          { title: '面试会员', confirmText: '去开通', cancelText: '暂不' },
+          '免费体验次数已用完，开通会员可不限次语音开练',
+          { title: '墨韵会员', confirmText: '去开通', cancelText: '暂不' },
         );
         if (goBuy) {
-          router.push('/interview/vip');
+          router.push('/membership');
           return;
         }
       }
     }
   } catch {
-    /* 会员状态查询失败不阻断面试（后端限流兜底） */
+    /* 会员状态查询失败不阻断面试（后端 @VipOnly 兜底） */
   }
   loading.value = true;
   // v11.90 V2：5 步准备进度条（简历画像→岗位要求→会话上下文→题单→环境；请求返回即 100%）

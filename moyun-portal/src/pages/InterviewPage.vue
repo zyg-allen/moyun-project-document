@@ -123,8 +123,8 @@ function goMyAttempts() {
   router.push('/interview/my/attempts');
 }
 function goVip() {
-  if (!requireAuth('/interview/vip')) return;
-  router.push('/interview/vip');
+  if (!requireAuth('/membership')) return;
+  router.push('/membership');
 }
 
 function formatNumber(n: number) {

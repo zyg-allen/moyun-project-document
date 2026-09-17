@@ -3,6 +3,7 @@ package com.moyun.ledger.controller;
 import com.moyun.core.base.AjaxResult;
 import com.moyun.ledger.service.ILedgerAiAnalysisService;
 import com.moyun.portal.util.PortalSecurityUtils;
+import com.moyun.vip.annotation.VipOnly;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -43,7 +44,9 @@ public class PortalLedgerAiController {
     /**
      * 提交异步分析任务：LLM 生成长，立即返回 taskId，前端轮询任务状态。
      * 同用户已有进行中任务时复用（防重复烧 token）。
+     * 会员付费点（@VipOnly：记账端 ai_analysis 权益，free tier 每月 3 次）。
      */
+    @VipOnly(platform = "ledger", benefit = "ai_analysis", message = "本月免费分析次数已用完，请开通记账VIP")
     @PostMapping("/analysis/task")
     public AjaxResult submitTask(@RequestBody(required = false) Map<String, Object> body) {
         Long userId = PortalSecurityUtils.getUserId();

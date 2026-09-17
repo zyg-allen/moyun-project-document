@@ -13,6 +13,7 @@
           <el-option label="App记账打赏" value="app_tip" />
           <el-option label="门户文章打赏" value="portal_tip" />
           <el-option label="付费阅读" value="paid_reading" />
+          <el-option label="VIP订阅" value="vip" />
         </el-select>
       </el-form-item>
       <el-form-item label="状态" prop="status">
@@ -99,7 +100,7 @@
     />
 
     <el-alert type="info" :closable="false" show-icon class="mt8">
-      <p>统一业务订单视图（v11.79）：合并 ledger_tip_order + portal_tip_order，状态/渠道枚举全局统一（pending/paid/refunded/closed；wechat/alipay/points）；通道单据（pay_order）见"支付订单"页，不重复计入。</p>
+      <p>统一业务订单视图（v12.0）：合并 ledger_tip_order + portal_tip_order + VIP 订阅（pay_order biz_type='vip'，统一会员后收敛到公共支付通道），状态/渠道枚举全局统一（pending/paid/refunded/closed；wechat/alipay/points）；其余 pay_order 通道单据见"支付订单"页，不重复计入。</p>
     </el-alert>
   </div>
 </template>
@@ -130,7 +131,7 @@ function fmt(v) {
 }
 
 function channelName(code) {
-  const map = { app_tip: "App记账打赏", portal_tip: "门户文章打赏", paid_reading: "付费阅读" };
+  const map = { app_tip: "App记账打赏", portal_tip: "门户文章打赏", paid_reading: "付费阅读", vip: "VIP订阅" };
   return map[code] || code || "-";
 }
 

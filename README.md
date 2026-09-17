@@ -143,7 +143,7 @@ npm run dev:mp-weixin   # 小程序端（微信开发者工具导入 dist/dev/mp
 
 ```bash
 # 1. 建表（基础 DDL：188 张表，create table if not exists 幂等，按业务模块分组）
-mysql -u root -p moyun-db < moyun-server/src/main/resources/sql/202608201435-moyun-db-ddl-moyun-db.sql
+mysql -u root -p moyun-db < moyun-server/src/main/resources/sql/moyun-db-ddl.sql
 
 # 2. 初始化数据（DML 按 4 个分片执行，幂等：每表先 DELETE FROM 再 INSERT）
 mysql -u root -p moyun-db < moyun-server/src/main/resources/sql/202608201435-moyun-db-dml-1.sql

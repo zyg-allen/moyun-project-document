@@ -58,7 +58,7 @@ public class DailyTopicHandler extends AbstractAiSceneHandler {
             user.append("\n已生成过的标题（避免重复）：").append(excludeTitles);
         }
 
-        String raw = chat(getSceneCode(), systemPrompt, user.toString());
+        String raw = chatJson(getSceneCode(), systemPrompt, user.toString());
         if (raw == null || raw.isBlank()) {
             return AiExecuteResponse.failure(AiErrorCodes.AI_CALL_FAILED, "AI服务暂不可用");
         }

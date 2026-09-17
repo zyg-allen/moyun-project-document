@@ -5,6 +5,7 @@ import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
 import com.baomidou.mybatisplus.extension.handlers.JacksonTypeHandler;
 import com.baomidou.mybatisplus.annotation.TableField;
+import com.fasterxml.jackson.databind.JsonNode;
 import lombok.Data;
 
 import java.io.Serializable;
@@ -46,7 +47,7 @@ public class PortalResumeJobMatch implements Serializable {
 
     /** 各维度评分明细 JSON（关键词/经验/技能/结构匹配） */
     @TableField(typeHandler = JacksonTypeHandler.class)
-    private com.fasterxml.jackson.databind.JsonNode dimensions;
+    private JsonNode dimensions;
 
     /** AI 分析总结 */
     private String summary;

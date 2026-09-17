@@ -69,9 +69,36 @@ public class PortalResumeOptimizeController extends BaseController {
     @Autowired
     private PortalResumeScoreReportMapper scoreReportMapper;
 
-    /** v10.23：通用 AI 异步任务服务（深度优化异步任务切换到 portal_ai_task） */
+    /** v11.23：通用 AI 异步任务服务（深度优化异步任务切换到 portal_ai_task） */
     @Autowired
     private AiTaskService aiTaskService;
+
+    /** v11.83：简历优化会员校验（深度优化为会员专属功能，平台直收类付费点） */
+    @Autowired
+    private PortalResumeOptimizeVipController resumeOptimizeVipController;
+
+    /** v11.85：免费体验次数服务（非会员每场景 2 次） */
+    @Autowired
+    private com.moyun.portal.service.PortalFreeTrialService freeTrialService;
+
+    /** 未开通简历优化会员错误码（402 Payment Required，前端据此跳转会员购买页） */
+    private static final int CODE_RESUME_VIP_REQUIRED = 402;
+
+    /**
+     * v11.85：深度优化付费校验——会员 或 免费体验未用完（每用户 2 次）
+     *
+     * @return null=放行（会员或已扣减体验次数）；非 null=402 错误响应（引导开通）
+     */
+    private AjaxResult checkVipOrTrial(Long userId) {
+        if (resumeOptimizeVipController.isVip(userId)) {
+            return null;
+        }
+        if (freeTrialService.tryConsume(userId, com.moyun.portal.service.PortalFreeTrialService.SCENE_RESUME_DEEP)) {
+            return null;
+        }
+        return AjaxResult.error(CODE_RESUME_VIP_REQUIRED,
+                "免费体验次数已用完，简历深度优化为会员专属功能，请先开通简历优化会员");
+    }
 
     private Long currentUserId() {
         return PortalSecurityUtils.getUserId();
@@ -201,6 +228,11 @@ public class PortalResumeOptimizeController extends BaseController {
         if (userId == null) {
             return AjaxResult.error(HttpStatus.UNAUTHORIZED, "登录已过期，请重新登录");
         }
+        // v11.83 深度优化为会员专属；v11.85 非会员可免费体验 2 次
+        AjaxResult vipCheck = checkVipOrTrial(userId);
+        if (vipCheck != null) {
+            return vipCheck;
+        }
         UserResumeVO resume = userResumeService.selectResumeDetail(resumeId, userId);
         if (resume == null) {
             return AjaxResult.error("简历不存在或无权访问");
@@ -222,6 +254,11 @@ public class PortalResumeOptimizeController extends BaseController {
         Long userId = currentUserId();
         if (userId == null) {
             return AjaxResult.error(HttpStatus.UNAUTHORIZED, "登录已过期，请重新登录");
+        }
+        // v11.83 深度优化为会员专属；v11.85 非会员可免费体验 2 次
+        AjaxResult vipCheck = checkVipOrTrial(userId);
+        if (vipCheck != null) {
+            return vipCheck;
         }
         try {
             // 保留原有提交前校验（简历归属/岗位目标存在/AI 可用性）

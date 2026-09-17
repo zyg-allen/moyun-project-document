@@ -5,7 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.moyun.ext.ai2.support.AiSceneJsonClient;
-import com.moyun.ext.cms.config.AiProperties;
+import com.moyun.ext.ai.service.AiGlobalSwitch;
 import com.moyun.ext.cms.domain.vo.ResumeDeepOptimizeVO;
 import com.moyun.ext.cms.domain.vo.UserResumeVO;
 import com.moyun.portal.domain.entity.PortalResumeJobMatch;
@@ -54,7 +54,7 @@ public class ResumeDeepOptimizeService {
     private static final Logger log = LoggerFactory.getLogger(ResumeDeepOptimizeService.class);
 
     @Autowired
-    private AiProperties aiProperties;
+    private AiGlobalSwitch aiGlobalSwitch;
 
     @Autowired
     private LlmClient llmClient;
@@ -100,7 +100,7 @@ public class ResumeDeepOptimizeService {
      */
     public List<Map<String, String>> fieldAssist(String field, String originalText, String position,
                                                  List<String> skillNames, Long userId) {
-        if (!aiProperties.isEnabled() || !aiProperties.isResumeAdviceEnabled() || !llmClient.isEnabled()) {
+        if (!aiGlobalSwitch.isEnabled() || !aiGlobalSwitch.isResumeAdviceEnabled() || !llmClient.isEnabled()) {
             throw new ServiceException("AI 辅助需要 AI 模型支持，请管理员在后台配置 AI 模型后使用");
         }
         if (originalText == null || originalText.trim().isEmpty()) {
@@ -201,7 +201,7 @@ public class ResumeDeepOptimizeService {
         }
 
         // 3. LLM 未启用/不可用时返回空结果 + 提示
-        if (!aiProperties.isEnabled() || !aiProperties.isResumeAdviceEnabled() || !llmClient.isEnabled()) {
+        if (!aiGlobalSwitch.isEnabled() || !aiGlobalSwitch.isResumeAdviceEnabled() || !llmClient.isEnabled()) {
             result.put("message", "AI 填充需要 AI 模型支持，请管理员在后台配置 AI 模型后使用");
             return result;
         }

@@ -56,6 +56,9 @@ public class ModelConfig extends AiBaseEntity {
     // 是否支持流式输出
     private Boolean streamingSupported;
 
+    // 是否支持 JSON Mode（v11.95：结构化输出场景下下发 response_format，强制模型输出合法 JSON）
+    private Boolean supportsJsonMode;
+
     // 是否启用
     private Boolean enabled;
 

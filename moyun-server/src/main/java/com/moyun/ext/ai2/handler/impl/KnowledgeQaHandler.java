@@ -110,14 +110,9 @@ public class KnowledgeQaHandler extends AbstractAiSceneHandler {
             data.setReferences(references);
             data.setImageCount((int) references.stream().filter(r -> r.getImagePath() != null).count());
 
-            // 6. 提示词构建（复用 chat 链：系统提示词含 Agent 人设 + 知识库规则；RAG 上下文注入用户消息）
-            String systemPrompt;
-            if (config != null && config.getSystemPromptTemplate() != null
-                    && !config.getSystemPromptTemplate().isBlank()) {
-                systemPrompt = renderTemplate(config.getSystemPromptTemplate(), request);
-            } else {
-                systemPrompt = chatContextBuilderService.buildSystemPrompt(agent, false, null);
-            }
+            // 6. 提示词构建（v11.95：场景系统提示词模板废弃，统一走 Agent 人设 + 知识库规则；
+            //    RAG 上下文注入用户消息）
+            String systemPrompt = chatContextBuilderService.buildSystemPrompt(agent, false, null);
             RagContextResult ragContext = chatContextBuilderService.buildRagContext(contents);
             String userPrompt = chatContextBuilderService.buildProcessedUserMessage(
                     ragContext.getContext(), question, null, true);

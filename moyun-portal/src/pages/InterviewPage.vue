@@ -5,7 +5,7 @@ import { useHead } from '@vueuse/head';
 import {
   Briefcase, BookOpen, Star, ArrowRight, Trophy, FileText,
   TrendingUp, Users, CheckCircle, Target, Zap, Building2, Lightbulb,
-  Mic, Sparkles, PlayCircle, Clock, BarChart3, MessageSquare
+  Mic, Sparkles, PlayCircle, Clock, BarChart3, MessageSquare, Crown
 } from 'lucide-vue-next';
 import SiteFooter from '@/components/SiteFooter.vue';
 import Breadcrumb from '@/components/Breadcrumb.vue';
@@ -121,6 +121,10 @@ function goVoiceInterview() {
 function goMyAttempts() {
   if (!requireAuth('/interview/my/attempts')) return;
   router.push('/interview/my/attempts');
+}
+function goVip() {
+  if (!requireAuth('/interview/vip')) return;
+  router.push('/interview/vip');
 }
 
 function formatNumber(n: number) {
@@ -274,6 +278,13 @@ const sectionNav = [
                 >
                   <Trophy class="w-4 h-4" />
                   我的面试记录
+                </button>
+                <button
+                  @click="goVip"
+                  class="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg font-semibold transition hover:opacity-90 border border-amber-400/60 bg-amber-50 text-amber-700 meta-text dark:bg-amber-500/10 dark:text-amber-300"
+                >
+                  <Crown class="w-4 h-4" />
+                  面试会员
                 </button>
               </div>
             </div>

@@ -67,7 +67,15 @@ public class AiSceneConfig extends AiBaseEntity {
     /** 执行方法名（默认 execute） */
     private String handlerMethod;
 
-    /** 系统提示词模板（支持占位符 {{variable}}） */
+    /**
+     * 系统提示词模板（支持占位符 {{variable}}）
+     *
+     * @deprecated v11.95 废弃：人设统一由 Agent 表 system_prompt 承载（mergePersona /
+     *             ChatContextBuilderService），场景表只保留治理配置。字段存量保留仅作迁移期
+     *             数据溯源，代码已不消费（KnowledgeQaHandler 直读 agent；后台任务用
+     *             Handler 内置 DEFAULT_SYSTEM / mergePersona 注入 agentPersona）。
+     */
+    @Deprecated
     private String systemPromptTemplate;
 
     /** 用户提示词模板 */

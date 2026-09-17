@@ -75,7 +75,7 @@ public class QuestionGenerateHandler extends AbstractAiSceneHandler {
                 + "只输出JSON数组本体，如 [\"Java\",\"MySQL\"]，禁止markdown代码块。";
 
         // 数据通道隔离：JD 为外部输入的不可信数据
-        String raw = chat(getSceneCode(), systemPrompt,
+        String raw = chatJson(getSceneCode(), systemPrompt,
                 PromptInjectionGuard.wrapData("岗位JD", jdText));
         if (raw == null || raw.isBlank()) {
             return AiExecuteResponse.failure(AiErrorCodes.AI_CALL_FAILED, "AI服务暂不可用");
@@ -152,7 +152,7 @@ public class QuestionGenerateHandler extends AbstractAiSceneHandler {
             user.append("\n难度：").append(difficulty);
         }
 
-        String raw = chat(getSceneCode(), systemPrompt,
+        String raw = chatJson(getSceneCode(), systemPrompt,
                 PromptInjectionGuard.wrapData("出题要求", user.toString()));
         if (raw == null || raw.isBlank()) {
             return AiExecuteResponse.failure(AiErrorCodes.AI_CALL_FAILED, "AI服务暂不可用");

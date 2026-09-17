@@ -18,14 +18,11 @@ public class VoiceInterviewVO {
     /** 用户名（v11.30 管理端复盘展示，portal 端不返回） */
     private String username;
     private String position;
-    private String scene;
     private Long resumeId;
     /** 面试官智能体ID（NULL=未绑定） */
     private Long agentId;
     /** 面试官智能体名称（前端展示） */
     private String agentName;
-    /** 出题模式 preset=预生成题单 / dynamic=智能体动态出题 */
-    private String questionMode;
 
     /** 当前阶段代码（v11.x 状态机，NULL=旧流程） */
     private String phase;
@@ -33,15 +30,20 @@ public class VoiceInterviewVO {
     /** 当前阶段中文名 */
     private String phaseLabel;
     private String status;
-    private String style;
     private String difficulty;
     private Integer totalQa;
     private Integer currentIdx;
     private Integer score;
     private String summary;
     private String configJson;
-    private Integer isPersonalized;
     private LocalDateTime createTime;
+
+    /** v11.96 时长制：本场面试时长（分钟，configJson 优先，缺省 20） */
+    private Integer durationMinutes;
+    /** v11.96：报告分析状态（0未分析/1分析中/2已完成，历史页进度展示） */
+    private Integer analysisStatus;
+    /** v11.96：报告分析进度（0-100） */
+    private Integer analysisProgress;
 
     /** 问答列表（含追问） */
     private List<VoiceInterviewQaVO> qaList;

@@ -21,6 +21,9 @@ import java.util.Map;
  *
  * <p><strong>v11.58 P0-3c 业务收口——双子任务契约（task+context）：</strong></p>
  * <ul>
+ *   <li><b>task=warmup</b>（v11.94 V4）：面试预热——一次调用产出"AI 理解"（候选人画像+
+ *       考察方向计划）+ 开场白 + 首题（固定请自我介绍），输出置于
+ *       {@link InterviewSceneData#getStructured()}。</li>
  *   <li><b>task=answer_analysis</b>：候选人回答深度分析（评分校正/6维/漏洞/水平/追问建议），
  *       原 {@code VoiceInterviewServiceImpl.analyzeAnswerByLlm} 提示词逐字收编，
  *       输出置于 {@link InterviewSceneData#getStructured()}。</li>
@@ -64,6 +67,7 @@ public class VoiceInterviewHandler extends AbstractAiSceneHandler {
             return;
         }
         switch (task) {
+            case "warmup" -> requireInputString(request, "context");
             case "answer_analysis", "candidate_ask" -> {
                 requireInputString(request, "context");
                 requireInputString(request, "transcript");
@@ -80,6 +84,9 @@ public class VoiceInterviewHandler extends AbstractAiSceneHandler {
         String task = getInputString(request, "task");
         if (task != null && !task.isBlank()) {
             switch (task) {
+                case "warmup" -> {
+                    return executeWarmup(request);
+                }
                 case "answer_analysis" -> {
                     return executeAnswerAnalysis(request);
                 }
@@ -102,6 +109,66 @@ public class VoiceInterviewHandler extends AbstractAiSceneHandler {
             }
         }
         return executeEvaluate(request, config);
+    }
+
+    // ==================== 子任务：面试预热（v11.94 V4：理解成本前置） ====================
+
+    /**
+     * 预热一次调用产出全量"AI 理解"：候选人画像 + 考察方向计划 + 开场白 + 首题。
+     * <p>输入：context=岗位/难度/题数（业务组装）；resumeDigest/jd/kbSnippets 可选；
+     * agentPersona=面试官 agent 人设（mergePersona 前置合并）。</p>
+     * <p>输出 JSON 置于 structured，业务侧存 configJson.warmupPlan 并渲染进滑窗 system。</p>
+     */
+    private AiExecuteResponse<?> executeWarmup(AiExecuteRequest request) {
+        String context = requireInputString(request, "context");
+        String resumeDigest = getInputString(request, "resumeDigest");
+        String jd = getInputString(request, "jd");
+        String kbSnippets = getInputString(request, "kbSnippets");
+
+        String systemPrompt = mergePersona(request,
+                "你正在主持一场模拟面试，请先完成面试预热理解，只输出如下 JSON（不要任何其他文字）：\n"
+                + "{\n"
+                + "  \"understanding\": {\n"
+                + "    \"candidateProfile\": \"50字内的候选人画像（背景/技术栈/经验层次）\",\n"
+                + "    \"strengths\": [\"结合简历与岗位判断的1-2个优势\"],\n"
+                + "    \"concerns\": [\"需要重点验证的1-2个疑点\"]\n"
+                + "  },\n"
+                + "  \"interviewPlan\": {\n"
+                + "    \"focusAreas\": [{\"area\": \"考察方向\", \"reason\": \"为何考察\", "
+                + "\"depth\": \"basic或intermediate或deep\"}]\n"
+                + "  },\n"
+                + "  \"opening\": \"1-2句面试官开场白（欢迎+放松提示，口语化）\",\n"
+                + "  \"firstQuestion\": \"第一个问题：固定为请候选人做自我介绍，"
+                + "并提示结合与应聘岗位相关的经历\"\n"
+                + "}\n"
+                + "考察方向3-5个，优先来自岗位要求JD与知识库参考片段，其次来自简历项目；"
+                + "depth 结合难度设定。");
+
+        StringBuilder user = new StringBuilder();
+        user.append(PromptInjectionGuard.wrapData("面试背景", context));
+        if (resumeDigest != null && !resumeDigest.isBlank()) {
+            user.append("\n").append(PromptInjectionGuard.wrapData("候选人简历摘要", resumeDigest));
+        }
+        if (jd != null && !jd.isBlank()) {
+            user.append("\n").append(PromptInjectionGuard.wrapData("岗位要求JD", jd));
+        }
+        if (kbSnippets != null && !kbSnippets.isBlank()) {
+            user.append("\n").append(PromptInjectionGuard.wrapData("知识库参考片段（出题参考）", kbSnippets));
+        }
+
+        String raw = chatJson(getSceneCode(), systemPrompt, user.toString());
+        if (raw == null || raw.isBlank()) {
+            return AiExecuteResponse.failure(AiErrorCodes.AI_CALL_FAILED, "AI服务暂不可用");
+        }
+
+        Map<String, Object> parsed = parseJsonMap(raw);
+        if (parsed == null || parsed.get("opening") == null || parsed.get("firstQuestion") == null) {
+            return AiExecuteResponse.failure(AiErrorCodes.AI_PARSE_ERROR, "预热结果解析失败");
+        }
+
+        InterviewSceneData data = new InterviewSceneData();
+        data.setStructured(parsed);
+        return AiExecuteResponse.success(data);
     }
 
     // ==================== 子任务：候选人回答深度分析（v11.58 P0-3c 收口） ====================
@@ -130,7 +197,7 @@ public class VoiceInterviewHandler extends AbstractAiSceneHandler {
                 + "}\n"
                 + "打分参考：完全跑题<30；浅层正确但无细节50-65；有正确框架和部分细节65-80；深入准确有取舍权衡80+。";
 
-        String raw = chat(getSceneCode(), systemPrompt,
+        String raw = chatJson(getSceneCode(), systemPrompt,
                 PromptInjectionGuard.wrapData("候选人语音转写回答", transcript));
         if (raw == null || raw.isBlank()) {
             return AiExecuteResponse.failure(AiErrorCodes.AI_CALL_FAILED, "AI服务暂不可用");
@@ -182,7 +249,7 @@ public class VoiceInterviewHandler extends AbstractAiSceneHandler {
                 + "为以下面试知识点各生成一句话简介（40字内，说明是什么+面试常考点，中文）。\n"
                 + "输出 JSON：{\"points\":[{\"title\":\"知识点\",\"desc\":\"简介\"}]}，覆盖全部知识点，不要输出其他内容。";
 
-        String raw = chat(getSceneCode(), systemPrompt,
+        String raw = chatJson(getSceneCode(), systemPrompt,
                 PromptInjectionGuard.wrapData("知识点归纳任务数据", context));
         if (raw == null || raw.isBlank()) {
             return AiExecuteResponse.failure(AiErrorCodes.AI_CALL_FAILED, "AI服务暂不可用");
@@ -246,7 +313,7 @@ public class VoiceInterviewHandler extends AbstractAiSceneHandler {
                 + "matching=岗位匹配（技术栈/项目经历与目标岗位相关度）；fluency=表达流畅（口语自然度/信息密度）。\n"
                 + "打分参考：结构混乱<40；基本连贯50-65；条理清晰有详略70-85；结构完整且亮点突出85+。";
 
-        String raw = chat(getSceneCode(), systemPrompt,
+        String raw = chatJson(getSceneCode(), systemPrompt,
                 PromptInjectionGuard.wrapData("候选人自我介绍", transcript));
         if (raw == null || raw.isBlank()) {
             return AiExecuteResponse.failure(AiErrorCodes.AI_CALL_FAILED, "AI服务暂不可用");
@@ -293,7 +360,7 @@ public class VoiceInterviewHandler extends AbstractAiSceneHandler {
             user.append("候选人回答：（未作答）");
         }
 
-        String raw = chat(getSceneCode(), systemPrompt, user.toString());
+        String raw = chatJson(getSceneCode(), systemPrompt, user.toString());
         if (raw == null || raw.isBlank()) {
             return AiExecuteResponse.failure(AiErrorCodes.AI_CALL_FAILED, "AI服务暂不可用");
         }

@@ -53,7 +53,7 @@ public class SensitiveWordHandler extends AbstractAiSceneHandler {
                 无敏感内容时 hasSensitive=false、words=[]、riskLevel="low"。禁止输出 JSON 以外内容。""";
 
         // v11.57：数据通道隔离——待检测文本为不可信数据，分隔符包裹防注入
-        String raw = chat(getSceneCode(), systemPrompt,
+        String raw = chatJson(getSceneCode(), systemPrompt,
                 PromptInjectionGuard.wrapData("待检测文本", text));
         if (raw == null || raw.isBlank()) {
             return AiExecuteResponse.failure(AiErrorCodes.AI_CALL_FAILED, "AI服务暂不可用");

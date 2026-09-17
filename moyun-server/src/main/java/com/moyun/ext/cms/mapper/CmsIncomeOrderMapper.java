@@ -10,9 +10,10 @@ import java.util.Map;
 /**
  * 收入订单统一视图 Mapper（v11.79 收入管理模块）
  *
- * <p>UNION ALL 合并三个业务订单表（ledger_tip_order / portal_tip_order / ledger_vip_order），
- * 统一字段：platform / channel_code / status / pay_channel（v11.79 状态与渠道枚举统一后天然可合并；
- * v11.81 新增 ledger_vip 记账VIP订阅，平台直收类）。
+ * <p>UNION ALL 合并五个业务订单表（ledger_tip_order / portal_tip_order / ledger_vip_order /
+ * portal_interview_vip_order / portal_resume_optimize_order），统一字段：platform / channel_code /
+ * status / pay_channel（v11.79 状态与渠道枚举统一后天然可合并；v11.81 新增 ledger_vip 记账VIP订阅；
+ * v11.82 新增 interview_vip 面试会员订阅；v11.83 新增 resume_optimize 简历优化会员订阅，均为平台直收类）。
  * pay_order 为通道单据不参与（避免双算）。
  *
  * @author moyun
@@ -40,6 +41,16 @@ public interface CmsIncomeOrderMapper {
             "         v.id, v.user_id, v.amount, v.status, v.pay_channel, " +
             "         v.package_name, v.package_name, COALESCE(v.paid_time, v.create_time) " +
             "  FROM ledger_vip_order v " +
+            "  UNION ALL " +
+            "  SELECT CONCAT('portal-ivip-', i.id), 'portal', 'interview_vip', " +
+            "         i.id, i.user_id, i.amount, i.status, i.pay_channel, " +
+            "         i.package_name, i.package_name, COALESCE(i.paid_time, i.create_time) " +
+            "  FROM portal_interview_vip_order i " +
+            "  UNION ALL " +
+            "  SELECT CONCAT('portal-rvip-', r.id), 'portal', 'resume_optimize', " +
+            "         r.id, r.user_id, r.amount, r.status, r.pay_channel, " +
+            "         r.package_name, r.package_name, COALESCE(r.paid_time, r.create_time) " +
+            "  FROM portal_resume_optimize_order r " +
             ") u " +
             "WHERE 1=1 " +
             "<if test='platform != null and platform != \"\"'> AND u.platform = #{platform} </if>" +
@@ -71,6 +82,12 @@ public interface CmsIncomeOrderMapper {
             "  UNION ALL " +
             "  SELECT 'ledger_app', 'ledger_vip', v.status, v.pay_channel, COALESCE(v.paid_time, v.create_time) " +
             "  FROM ledger_vip_order v " +
+            "  UNION ALL " +
+            "  SELECT 'portal', 'interview_vip', i.status, i.pay_channel, COALESCE(i.paid_time, i.create_time) " +
+            "  FROM portal_interview_vip_order i " +
+            "  UNION ALL " +
+            "  SELECT 'portal', 'resume_optimize', r.status, r.pay_channel, COALESCE(r.paid_time, r.create_time) " +
+            "  FROM portal_resume_optimize_order r " +
             ") u " +
             "WHERE 1=1 " +
             "<if test='platform != null and platform != \"\"'> AND u.platform = #{platform} </if>" +

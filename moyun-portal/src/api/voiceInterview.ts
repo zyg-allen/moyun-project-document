@@ -31,66 +31,17 @@ export const getInterviewKeywords = (questionId: number | string) => {
 
 // ==================== V10.1 语音面试官 MVP ====================
 
-/** 面试官风格 */
-export type VoiceStyle = 'professional' | 'friendly' | 'strict';
-
 /** 难度 */
 export type VoiceDifficulty = 'easy' | 'medium' | 'hard';
 
-/** 开始面试请求配置 */
+/** 开始面试请求配置（V3 纯 agent 自由面试：5 个配置字段） */
 export interface VoiceStartConfig {
   position?: string;
-  scene?: string;
+  /** v11.90 V2：岗位要求 JD（面试官提问方向与深度贴合岗位要求，上限 2000 字） */
+  jobRequirements?: string;
   resumeId?: number;
-  style?: VoiceStyle;
   difficulty?: VoiceDifficulty;
-  personalized?: boolean;
-  hintsEnabled?: boolean;
-  stuckThreshold?: number;
-  /** V11.0：指定面试官智能体（缺省用后台 sys_config 默认） */
-  agentId?: number;
-  /** V11.0：动态出题模式（缺省用后台 sys_config 开关） */
-  dynamicMode?: boolean;
-  /** v11.x：岗位模板ID（job 题源出题 + 出题权重默认值） */
-  jobTemplateId?: number;
-  /** v11.x：出题权重覆盖 job/resume/weak/random */
-  questionWeights?: Record<string, number>;
-}
-
-/** 可用面试官智能体（/agents 接口返回项） */
-export interface VoiceAgentItem {
-  id: number;
-  name: string;
-  description?: string;
-  welcomeMessage?: string;
-}
-
-/** v11.x：启用中的岗位模板（/jobTemplates 接口返回项） */
-export interface VoiceJobTemplateItem {
-  id: number;
-  name: string;
-  category?: string;
-  difficulty?: string;
-}
-
-/** V11.0：LLM 单轮深度分析（对齐后端 InterviewTurnResult） */
-export interface InterviewAnalysis {
-  reply?: string;
-  score?: number;
-  dimensions?: Record<string, number>;
-  feedback?: string;
-  flaws?: string[];
-  redFlags?: string[];
-  sentiment?: { state?: string; note?: string };
-  fluencyAssessment?: { score?: number; comment?: string };
-  completeness?: { covered?: string[]; missing?: string[] };
-  level?: string;
-  followupWorth?: boolean;
-  nextAction?: string;
-  nextQuestion?: string;
-  candidateId?: number;
-  transition?: string;
-  guidance?: string;
+  questionCount?: number;
 }
 
 /** 单条问答 VO */
@@ -120,23 +71,24 @@ export interface VoiceInterviewVO {
   id: number;
   userId: number;
   position?: string;
-  scene?: string;
   resumeId?: number;
   /** V11.0：面试官智能体绑定 */
   agentId?: number;
   agentName?: string;
-  /** V11.0：出题模式 preset/dynamic */
-  questionMode?: string;
   status: string;
-  style?: string;
   difficulty?: string;
   totalQa: number;
   currentIdx: number;
   score?: number;
   summary?: string;
   configJson?: string;
-  isPersonalized?: number;
   createTime?: string;
+  /** v11.96 时长制：本场面试时长（分钟，缺省 20） */
+  durationMinutes?: number;
+  /** v11.96：报告分析状态（0未分析/1分析中/2已完成） */
+  analysisStatus?: number;
+  /** v11.96：报告分析进度（0-100） */
+  analysisProgress?: number;
   qaList?: VoiceInterviewQaVO[];
   currentQa?: VoiceInterviewQaVO;
   greetText?: string;
@@ -190,6 +142,34 @@ export interface VoiceInterviewReportVO {
   introScore?: IntroScoreView;
   /** v11.x：针对性改进建议（薄弱点/自我介绍不足/错题） */
   improvementSuggestions?: string[];
+  /** v11.90 V2：面试者简介（第一栏：简历提取 + 口头自我介绍） */
+  candidate?: VoiceCandidateInfo;
+  /** v11.90 V2：岗位信息（第二栏：岗位 + JD + 匹配度） */
+  jobInfo?: VoiceJobInfo;
+  /** v11.97：整场 LLM 复盘总评（3-5 句；旧报告缺失时回退 summary） */
+  overallComment?: string;
+  /** v11.97：LLM 岗位匹配度评估（旧报告缺失时回退 jobInfo.matchRate） */
+  jobMatch?: { rate?: number; reason?: string };
+  /** v11.97：结构化亮点（旧报告缺失时回退 highlights） */
+  highlightViews?: { title?: string; detail?: string }[];
+  /** v11.97：结构化薄弱点（旧报告缺失时回退 weakPoints） */
+  weakPointViews?: { title?: string; detail?: string }[];
+}
+
+/** v11.90 V2：面试者简介（对齐后端 buildCandidateProfile） */
+export interface VoiceCandidateInfo {
+  name?: string;
+  skills?: string;
+  resumeSelfIntro?: string;
+  interviewSelfIntro?: string;
+  aiScore?: string;
+}
+
+/** v11.90 V2：岗位信息（对齐后端 buildJobInfo） */
+export interface VoiceJobInfo {
+  position?: string;
+  jobRequirements?: string;
+  matchRate?: string;
 }
 
 /** v11.x：自我介绍评分视图（对齐后端 VoiceInterviewReportVO.IntroScoreView） */
@@ -201,38 +181,27 @@ export interface IntroScoreView {
   weaknesses?: string[];
 }
 
-/** SSE 事件回调 */
+/** end 事件负载 */
+export interface VoiceInterviewEndPayload {
+  /** 本轮完成后已作答轮数 */
+  roundDone: number;
+  /** 下一问 qaId（追问或新题；无则本场结束） */
+  nextQaId?: number;
+  /** 下一问文本 */
+  nextQuestion?: string;
+  /** 是否本场结束 */
+  finished?: boolean;
+}
+
+/** SSE 事件回调（V3：delta/end/error 三类事件） */
 export interface SseCallbacks {
-  /** 规则分（立即返回） */
-  onScore?: (data: { score: number; dimensions: Record<string, number> }) => void;
-  /** V11.0：流式增量文本（打字机效果；data 为 {"t":"增量"} JSON） */
+  /** 流式增量文本（打字机效果；data 为 {"t":"增量"} JSON） */
   onDelta?: (text: string) => void;
-  /** LLM 话术 */
-  onSpeak?: (text: string) => void;
-  /** 完整数据 */
-  onData?: (data: {
-    qaId: number;
-    score: number;
-    feedback: string;
-    nextAction: string;
-    speakText?: string;
-    nextQaId?: number;
-    nextQuestion?: string;
-    nextSpeakText?: string;
-    /** V10.4：LLM 引导提示（回答跑偏时） */
-    guidance?: string;
-    /** V11.0：agent 动作 deepen/change_topic/wrap_up（旧 nextAction 同时保留） */
-    agentAction?: string;
-    /** V11.0：换题/收尾过渡话术 */
-    transition?: string;
-    /** V11.0：LLM 深度分析（心态/流畅度/红旗/完整性） */
-    analysis?: InterviewAnalysis;
-  }) => void;
-  /** 结束 */
-  onEnd?: () => void;
+  /** 结束（data 为 {roundDone, nextQaId?, nextQuestion?, finished?}；解析失败兜底 undefined） */
+  onEnd?: (payload?: VoiceInterviewEndPayload) => void;
   /** 错误 */
   onError?: (msg: string) => void;
-  /** V11.0.2：流被服务端异常切断（如后端 SSE 120s 超时收尾），未收到 end 事件 */
+  /** 流被服务端异常切断（如后端 SSE 120s 超时收尾），未收到 end 事件 */
   onAborted?: () => void;
 }
 
@@ -245,10 +214,11 @@ export const startVoiceInterview = (config: VoiceStartConfig) => {
 };
 
 /**
- * 2. 提交答案（SSE 双通道流）
+ * 2. 提交答案（SSE 流：delta/end/error 三类事件）
  * POST /portal/interview/voice/{id}/answer
  *
  * 使用 fetch + ReadableStream 解析 SSE 事件流（EventSource 不支持 POST + body）
+ * @param skip 跳过本题（transcript 可为空）
  */
 export const submitVoiceAnswer = async (
   interviewId: number | string,
@@ -256,6 +226,7 @@ export const submitVoiceAnswer = async (
   transcript: string,
   latencyMs?: number,
   callbacks?: SseCallbacks,
+  skip?: boolean,
 ): Promise<void> => {
   const baseURL = import.meta.env.VITE_API_BASE_URL || '/api';
   const url = `${baseURL}/portal/interview/voice/${interviewId}/answer`;
@@ -270,7 +241,7 @@ export const submitVoiceAnswer = async (
         'Content-Type': 'application/json',
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
       },
-      body: JSON.stringify({ qaId, transcript, latencyMs }),
+      body: JSON.stringify({ qaId, transcript, latencyMs, skip: skip || undefined }),
     });
 
     if (!resp.ok || !resp.body) {
@@ -286,9 +257,9 @@ export const submitVoiceAnswer = async (
     let ended = false;
     const wrapped: SseCallbacks = {
       ...callbacks,
-      onEnd: () => {
+      onEnd: (payload) => {
         ended = true;
-        callbacks?.onEnd?.();
+        callbacks?.onEnd?.(payload);
       },
     };
 
@@ -322,7 +293,7 @@ export const submitVoiceAnswer = async (
   }
 };
 
-/** 解析单个 SSE 事件块 */
+/** 解析单个 SSE 事件块（V3：只处理 delta/end/error） */
 function parseSseBlock(block: string, callbacks?: SseCallbacks) {
   const lines = block.split('\n');
   let event = '';
@@ -336,37 +307,30 @@ function parseSseBlock(block: string, callbacks?: SseCallbacks) {
   }
   if (!event) return;
 
-  try {
-    switch (event) {
-      case 'score':
-        callbacks?.onScore?.(JSON.parse(data));
-        break;
-      case 'delta':
-        // V11.0：流式增量 {"t":"..."}；解析失败时按纯文本降级
-        try {
-          callbacks?.onDelta?.(JSON.parse(data).t ?? '');
-        } catch {
-          callbacks?.onDelta?.(data);
-        }
-        break;
-      case 'speak':
-        callbacks?.onSpeak?.(data);
-        break;
-      case 'data':
-        callbacks?.onData?.(JSON.parse(data));
-        break;
-      case 'end':
-        callbacks?.onEnd?.();
-        break;
-      case 'error':
-        callbacks?.onError?.(data);
-        break;
+  switch (event) {
+    case 'delta': {
+      // 流式增量 {"t":"..."}；解析失败时按纯文本降级
+      try {
+        callbacks?.onDelta?.(JSON.parse(data).t ?? '');
+      } catch {
+        callbacks?.onDelta?.(data);
+      }
+      break;
     }
-  } catch (e) {
-    // JSON 解析失败时降级为纯文本
-    if (event === 'error') {
+    case 'end': {
+      // {roundDone, nextQaId?, nextQuestion?, finished?}；解析失败兜底传 undefined
+      let payload: VoiceInterviewEndPayload | undefined;
+      try {
+        payload = JSON.parse(data);
+      } catch {
+        payload = undefined;
+      }
+      callbacks?.onEnd?.(payload);
+      break;
+    }
+    case 'error':
       callbacks?.onError?.(data);
-    }
+      break;
   }
 }
 
@@ -379,19 +343,36 @@ export const requestVoiceHint = (interviewId: number | string, qaId: number | st
 };
 
 /**
- * 4. 强制下一题
- * POST /portal/interview/voice/{id}/next
- */
-export const forceVoiceNext = (interviewId: number | string, reason = 'user_skip') => {
-  return httpPost<VoiceInterviewVO>(`/portal/interview/voice/${interviewId}/next`, { reason });
-};
-
-/**
  * 5. 结束面试
  * POST /portal/interview/voice/{id}/finish
+ * v11.88 V2：仅收口会话并触发异步批量分析，返回报告骨架；
+ * 进度轮询走 5.1 analysis 接口，analysisStatus=2 后拉取完整报告。
  */
 export const finishVoiceInterview = (interviewId: number | string) => {
   return httpPost<VoiceInterviewReportVO>(`/portal/interview/voice/${interviewId}/finish`);
+};
+
+/**
+ * 5.1 报告分析状态（v11.88 V2：前端进度条轮询）
+ * GET /portal/interview/voice/{id}/analysis
+ */
+export interface VoiceAnalysisStatusVO {
+  analysisStatus: number; // 0未分析 1分析中 2已完成
+  analysisProgress: number; // 0-100
+  status: string;
+}
+export const getVoiceAnalysisStatus = (interviewId: number | string) => {
+  return httpGet<VoiceAnalysisStatusVO>(`/portal/interview/voice/${interviewId}/analysis`);
+};
+
+/**
+ * 5.2 重新生成报告（v11.97）
+ * POST /portal/interview/voice/{id}/regenerate-report
+ * 重置分析状态后重跑异步批量分析链路（逐题补分析 + 聚合 + 整场 LLM 复盘）；
+ * 轮询 5.1 analysis 接口直至 analysisStatus=2 后拉取完整报告。
+ */
+export const regenerateVoiceReport = (interviewId: number | string) => {
+  return httpPost<VoiceInterviewReportVO>(`/portal/interview/voice/${interviewId}/regenerate-report`);
 };
 
 /**
@@ -414,27 +395,38 @@ export const getVoiceInterviewDetail = (interviewId: number | string) => {
 };
 
 /**
+ * 7.1 查询进行中会话（v11.91 断点续接）
+ * GET /portal/interview/voice/active
+ * <p>意外关闭后再次进入，返回最近一个未结束的面试；空对象表示无。
+ */
+export interface ActiveVoiceInterviewVO {
+  interviewId?: number;
+  position?: string;
+  scene?: string;
+  startTime?: string;
+  answered?: number;
+  totalQa?: number;
+  elapsedSec?: number;
+}
+export const getActiveVoiceInterview = () => {
+  return httpGet<ActiveVoiceInterviewVO>('/portal/interview/voice/active');
+};
+
+/**
+ * 7.2 恢复进行中会话（v11.91 断点续接）
+ * GET /portal/interview/voice/{id}/resume
+ * <p>返回恢复快照（qaList 历史问答 + currentQa 待答题），前端据此重建面试页。
+ */
+export const resumeVoiceInterview = (interviewId: number | string) => {
+  return httpGet<VoiceInterviewVO>(`/portal/interview/voice/${interviewId}/resume`);
+};
+
+/**
  * 8. 薄弱题一键加入错题本
  * POST /portal/interview/voice/qa/{qaId}/toWrongBook
  */
 export const addQaToWrongBook = (qaId: number | string) => {
   return httpPost<number>(`/portal/interview/voice/qa/${qaId}/toWrongBook`);
-};
-
-/**
- * 9. 可用面试官智能体列表
- * GET /portal/interview/voice/agents
- */
-export const getVoiceAgents = () => {
-  return httpGet<VoiceAgentItem[]>('/portal/interview/voice/agents');
-};
-
-/**
- * 10. 启用中的岗位模板列表（v11.x 智能出题）
- * GET /portal/interview/voice/jobTemplates
- */
-export const getVoiceJobTemplates = () => {
-  return httpGet<VoiceJobTemplateItem[]>('/portal/interview/voice/job-templates');
 };
 
 /** v11.30.5：生成报告分享令牌（有效期 1-30 天，默认 7 天） */

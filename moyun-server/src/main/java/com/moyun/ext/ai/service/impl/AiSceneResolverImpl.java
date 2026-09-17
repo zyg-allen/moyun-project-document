@@ -140,20 +140,25 @@ public class AiSceneResolverImpl implements AiSceneResolver {
             return null;
         }
         try {
+            // v11.95 任务4：结构化场景（output_schema 非空）请求 JSON Mode——
+            // 模型侧 supports_json_mode=1 才实际下发 responseFormat，否则静默走 Prompt 约束路径
+            boolean jsonMode = binding.getSceneConfig() != null
+                    && binding.getSceneConfig().getOutputSchema() != null
+                    && !binding.getSceneConfig().getOutputSchema().isBlank();
             // 责任链第 1 级：Agent 绑定（带 Agent 的温度/maxTokens）
             if (binding.hasAgent()) {
                 Agent agent = binding.getAgent();
                 if (agent.getModelConfigId() != null) {
                     log.debug("[ai-scene] 场景 {} 使用 Agent({}) 的模型({})", sceneCode, agent.getId(), agent.getModelConfigId());
                     return modelConfigService.createChatModel(agent.getModelConfigId(),
-                            agent.getTemperature(), agent.getMaxTokens());
+                            agent.getTemperature(), agent.getMaxTokens(), jsonMode);
                 }
             }
             // 责任链第 2 级：直绑模型（默认温度）
             if (binding.hasModelOnly() && binding.getModelConfig() != null) {
                 ModelConfig mc = binding.getModelConfig();
                 log.debug("[ai-scene] 场景 {} 使用直绑模型({})", sceneCode, mc.getId());
-                return modelConfigService.createChatModel(mc.getId());
+                return modelConfigService.createChatModel(mc.getId(), null, null, jsonMode);
             }
         } catch (Exception e) {
             log.warn("[ai-scene] 场景 {} 模型构建失败，回落默认: {}", sceneCode, e.getMessage());

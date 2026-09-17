@@ -10,7 +10,7 @@ import lombok.EqualsAndHashCode;
 /**
  * 岗位模板对象 portal_job_template
  *
- * <p>JD/关键词/出题权重配置，支撑 QuestionPicker 智能出题（job 题源）。</p>
+ * <p>JD/关键词/出题权重配置（历史题源出题用，语音面试 V3 起不再消费）。</p>
  *
  * @author moyun
  */

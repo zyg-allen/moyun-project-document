@@ -234,6 +234,18 @@
           </div>
         </el-form-item>
 
+        <el-form-item label="JSON Mode">
+          <el-switch
+            v-model="formData.supportsJsonMode"
+            :disabled="formData.modelType !== 'chat'"
+          />
+          <div class="form-tip">
+            {{ formData.modelType === 'chat'
+              ? '结构化场景（output_schema 非空）自动下发 response_format 强制 JSON 输出；模型不支持时保持关闭，走提示词约束'
+              : '仅对话模型有 JSON Mode 概念' }}
+          </div>
+        </el-form-item>
+
         <el-form-item label="启用状态">
           <el-switch v-model="formData.enabled" />
         </el-form-item>
@@ -318,6 +330,7 @@ const formData = ref({
   maxTokens: 2000,
   timeout: 60,
   streamingSupported: true,
+  supportsJsonMode: false,
   enabled: true,
   description: '',
   inputPrice: 0.001,
@@ -450,6 +463,7 @@ const resetForm = () => {
     maxTokens: 2000,
     timeout: 60,
     streamingSupported: true,
+    supportsJsonMode: false,
     enabled: true,
     description: '',
     inputPrice: 0.001,

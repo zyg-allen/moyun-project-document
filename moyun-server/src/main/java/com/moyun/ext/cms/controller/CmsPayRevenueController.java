@@ -13,7 +13,11 @@ import com.moyun.pay.domain.entity.WithdrawOrder;
 import com.moyun.pay.mapper.LedgerEntryMapper;
 import com.moyun.pay.mapper.UserAccountMapper;
 import com.moyun.pay.mapper.WithdrawOrderMapper;
+import com.moyun.portal.domain.entity.PortalInterviewVipOrder;
+import com.moyun.portal.domain.entity.PortalResumeOptimizeOrder;
 import com.moyun.portal.domain.entity.PortalTipOrder;
+import com.moyun.portal.mapper.PortalInterviewVipOrderMapper;
+import com.moyun.portal.mapper.PortalResumeOptimizeOrderMapper;
 import com.moyun.portal.mapper.PortalTipOrderMapper;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -44,7 +48,7 @@ import java.util.Map;
  *   <li>平台直接所得 = 公共通道 PLATFORM/credit 分录合计（V11.80：含 App 打赏全额 + 门户通道抽成，分录为准不双算）</li>
  *   <li>用户所得 = 公共通道 USER/credit 分录合计（门户作者分账累计，含钱包余额）</li>
  *   <li>pay_order 为通道单据，不重复计入 GMV（业务订单为准，避免与打赏订单双算）</li>
- *   <li>面试会员 / 简历优化 / 记账VIP 为规划中渠道，暂无订单表，展示 0 值占位</li>
+ *   <li>面试会员（interview_vip，v11.82 已接入）/ 简历优化（resume_optimize，v11.83 已接入）均为真实聚合渠道</li>
  * </ul>
  *
  * <p>聚合方式：全部 SQL SUM / COUNT / GROUP BY（遵守"禁止全表 selectList 内存聚合"铁律）。
@@ -73,6 +77,12 @@ public class CmsPayRevenueController extends BaseController {
 
     @Autowired
     private LedgerVipOrderMapper ledgerVipOrderMapper;
+
+    @Autowired
+    private PortalInterviewVipOrderMapper interviewVipOrderMapper;
+
+    @Autowired
+    private PortalResumeOptimizeOrderMapper resumeOptimizeOrderMapper;
 
     @Operation(summary = "收入总览", description = "平台×渠道两级收入聚合 + 平台直接所得 + 近6月趋势 + 支付方式分布")
     @PreAuthorize("@ss.hasPermi('cms:payRevenue:view')")
@@ -110,7 +120,17 @@ public class CmsPayRevenueController extends BaseController {
                 .select("COUNT(*) AS cnt", "COALESCE(SUM(amount), 0) AS total")
                 .eq("status", LedgerVipOrder.STATUS_PAID)));
 
-        // 1.4 通道平台抽成（pay_ledger_entry PLATFORM/credit，SQL SUM）
+        // 1.4 面试会员订阅总（v11.82 新增渠道，平台直收类）
+        Map<String, Object> interviewVipTotal = aggregateOne(interviewVipOrderMapper.selectMaps(new QueryWrapper<PortalInterviewVipOrder>()
+                .select("COUNT(*) AS cnt", "COALESCE(SUM(amount), 0) AS total")
+                .eq("status", PortalInterviewVipOrder.STATUS_PAID)));
+
+        // 1.4b 简历优化会员订阅总（v11.83 新增渠道，平台直收类）
+        Map<String, Object> resumeOptimizeTotal = aggregateOne(resumeOptimizeOrderMapper.selectMaps(new QueryWrapper<PortalResumeOptimizeOrder>()
+                .select("COUNT(*) AS cnt", "COALESCE(SUM(amount), 0) AS total")
+                .eq("status", PortalResumeOptimizeOrder.STATUS_PAID)));
+
+        // 1.5 通道平台抽成（pay_ledger_entry PLATFORM/credit，SQL SUM）
         BigDecimal gatewayPlatformFee = sumLedgerAmount(LedgerEntry.ROLE_PLATFORM);
         BigDecimal gatewayUserShare = sumLedgerAmount(LedgerEntry.ROLE_USER);
 
@@ -127,7 +147,15 @@ public class CmsPayRevenueController extends BaseController {
                 appTipChannel,
                 ledgerVipChannel)));
 
-        // 门户
+        // 门户（v11.82：面试会员 规划占位 → 真实聚合渠道；v11.83：简历优化同转）
+        Map<String, Map<String, Object>> interviewVipByPayWay = groupToMap(interviewVipOrderMapper.selectMaps(new QueryWrapper<PortalInterviewVipOrder>()
+                .select("pay_channel", "COUNT(*) AS cnt", "COALESCE(SUM(amount), 0) AS total")
+                .eq("status", PortalInterviewVipOrder.STATUS_PAID)
+                .groupBy("pay_channel")), "pay_channel");
+        Map<String, Map<String, Object>> resumeOptimizeByPayWay = groupToMap(resumeOptimizeOrderMapper.selectMaps(new QueryWrapper<PortalResumeOptimizeOrder>()
+                .select("pay_channel", "COUNT(*) AS cnt", "COALESCE(SUM(amount), 0) AS total")
+                .eq("status", PortalResumeOptimizeOrder.STATUS_PAID)
+                .groupBy("pay_channel")), "pay_channel");
         Map<String, Object> portalTipTotal = sumGroups(portalByType, "article", "column");
         Map<String, Object> paidReadingTotal = portalByType.getOrDefault("article_paid", zeroRow());
         Map<String, Object> portal = platform("portal", "墨韵门户", new ArrayList<>(List.of(
@@ -135,15 +163,17 @@ public class CmsPayRevenueController extends BaseController {
                         payWays(portalByTypeWay, Map.of("points", "积分", "alipay", "支付宝", "wechat", "微信支付"), new String[]{"article", "column"})),
                 channel("paid_reading", "付费阅读", paidReadingTotal,
                         payWays(portalByTypeWay, Map.of("points", "积分", "alipay", "支付宝", "wechat", "微信支付"), new String[]{"article_paid"})),
-                plannedChannel("interview_member", "面试会员（规划中）"),
-                plannedChannel("resume_optimize", "简历优化（规划中）"))));
+                channel("interview_vip", "面试会员", interviewVipTotal,
+                        payWays(interviewVipByPayWay, Map.of("wechat", "微信支付", "alipay", "支付宝"), null)),
+                channel("resume_optimize", "简历优化会员", resumeOptimizeTotal,
+                        payWays(resumeOptimizeByPayWay, Map.of("wechat", "微信支付", "alipay", "支付宝"), null)))));
 
         List<Map<String, Object>> platforms = new ArrayList<>(List.of(ledgerApp, portal));
         data.put("platforms", platforms);
 
         // ===== 3. 顶部指标（口径见类注释） =====
-        BigDecimal gmv = dec(appTip).add(dec(portalTipTotal)).add(dec(paidReadingTotal)).add(dec(ledgerVipTotal));
-        long orderCount = cnt(appTip) + cnt(portalTipTotal) + cnt(paidReadingTotal) + cnt(ledgerVipTotal);
+        BigDecimal gmv = dec(appTip).add(dec(portalTipTotal)).add(dec(paidReadingTotal)).add(dec(ledgerVipTotal)).add(dec(interviewVipTotal)).add(dec(resumeOptimizeTotal));
+        long orderCount = cnt(appTip) + cnt(portalTipTotal) + cnt(paidReadingTotal) + cnt(ledgerVipTotal) + cnt(interviewVipTotal) + cnt(resumeOptimizeTotal);
         // V11.80 口径（App打赏接入公共通道后）：平台所得 = PLATFORM/credit 分录合计
         // （已含 App 打赏全额 + 门户通道抽成，不再叠加 appTipPlatformPart 避免双算）；
         // 用户所得 = USER/credit 分录合计（门户作者分账累计）。
@@ -228,17 +258,6 @@ public class CmsPayRevenueController extends BaseController {
         c.put("orderCount", cnt(agg));
         c.put("status", "active");
         c.put("payWays", payWays);
-        return c;
-    }
-
-    private Map<String, Object> plannedChannel(String code, String name) {
-        Map<String, Object> c = new LinkedHashMap<>();
-        c.put("code", code);
-        c.put("name", name);
-        c.put("amount", BigDecimal.ZERO);
-        c.put("orderCount", 0L);
-        c.put("status", "planned");
-        c.put("payWays", new ArrayList<>());
         return c;
     }
 

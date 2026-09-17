@@ -68,7 +68,7 @@ public class ResumeOptimizeHandler extends AbstractAiSceneHandler {
         String systemPrompt = subTaskSystemPrompt(task);
 
         // 数据通道隔离：业务上下文（简历/JD/评分明细）为不可信数据，分隔符包裹防注入
-        String raw = chat(getSceneCode(), systemPrompt,
+        String raw = chatJson(getSceneCode(), systemPrompt,
                 PromptInjectionGuard.wrapData("业务数据", context));
         if (raw == null || raw.isBlank()) {
             return AiExecuteResponse.failure(AiErrorCodes.AI_CALL_FAILED, "AI服务暂不可用");
@@ -164,7 +164,7 @@ public class ResumeOptimizeHandler extends AbstractAiSceneHandler {
             user.append("\n\n目标岗位：").append(targetPosition);
         }
 
-        String raw = chat(getSceneCode(), systemPrompt,
+        String raw = chatJson(getSceneCode(), systemPrompt,
                 PromptInjectionGuard.wrapData("简历内容", user.toString()));
         if (raw == null || raw.isBlank()) {
             return AiExecuteResponse.failure(AiErrorCodes.AI_CALL_FAILED, "AI服务暂不可用");

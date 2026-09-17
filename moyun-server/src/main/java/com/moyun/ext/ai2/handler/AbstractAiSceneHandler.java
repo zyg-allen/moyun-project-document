@@ -61,6 +61,49 @@ public abstract class AbstractAiSceneHandler implements AiSceneHandler {
     }
 
     /**
+     * v11.95 任务4：结构化场景对话 + 解析失败降级 Prompt 约束重试。
+     *
+     * <p>首次调用结果无法提取 JSON 主体（模型绕过 JSON Mode、输出夹带解释文本/围栏）时，
+     * 追加输出约束重试一次（★★ 兜底路径：responseFormat 之外的可靠性保障，解析失败
+     * 不再直接判 AI_PARSE_ERROR）。首次结果可解析时行为与 {@link #chat} 完全一致。</p>
+     */
+    protected String chatJson(String sceneCode, String systemPrompt, String userPrompt) {
+        String text = chatDetailed(sceneCode, systemPrompt, userPrompt).getText();
+        if (hasJsonBody(text)) {
+            return text;
+        }
+        log.warn("[ai2:{}] 结构化输出解析失败，降级 Prompt 约束重试", sceneCode);
+        String retrySuffix = "\n\n【输出要求】你只能输出一个合法的 JSON（对象或数组本体），"
+                + "禁止任何解释性文字、寒暄或 Markdown 代码围栏，字段与结构必须严格遵守上文要求的格式。";
+        ChatOutcome retry = chatDetailed(sceneCode, systemPrompt, userPrompt + retrySuffix);
+        return retry.getText() != null && !retry.getText().isBlank() ? retry.getText() : text;
+    }
+
+    /** 首次结果是否含可提取的 JSON 主体（对象 {...} 或数组 [...]） */
+    private boolean hasJsonBody(String text) {
+        if (text == null || text.isBlank()) {
+            return false;
+        }
+        try {
+            MAPPER.readTree(extractJson(text));
+            return true;
+        } catch (Exception objectTry) {
+            // 数组本体输出（如 ["Java","MySQL"]）：按首个 [ 到最后一个 ] 截取再验
+            int start = text.indexOf('[');
+            int end = text.lastIndexOf(']');
+            if (start >= 0 && end > start) {
+                try {
+                    MAPPER.readTree(text.substring(start, end + 1));
+                    return true;
+                } catch (Exception arrayTry) {
+                    return false;
+                }
+            }
+            return false;
+        }
+    }
+
+    /**
      * 场景感知同步对话（结构化结果，v11.51）：除文本外返回实际使用的模型与 token 消耗。
      * 需要 metadata 可观测的场景 Handler 用本方法，并通过 {@link #buildMetadata} 填充响应。
      */
@@ -285,13 +328,13 @@ public abstract class AbstractAiSceneHandler implements AiSceneHandler {
     }
 
     /**
-     * 场景配置模板渲染默认实现：系统提示词优先取子类覆写，其次取注册表模板
+     * v11.95：场景系统提示词模板已废弃——本方法不再读取 config.systemPromptTemplate。
+     * <p>人设统一由 Agent 表承载：对话类场景经 ChatContextBuilderService 组装
+     * （agent.systemPrompt + 知识库规则），后台任务经 {@link #mergePersona} 注入
+     * agentPersona + 任务边界声明；无 Agent 的场景用 Handler 内置默认提示词。</p>
      */
     @Override
     public String buildSystemPrompt(AiExecuteRequest request, AiSceneConfig config) {
-        if (config != null && config.getSystemPromptTemplate() != null) {
-            return renderTemplate(config.getSystemPromptTemplate(), request);
-        }
         return null;
     }
 

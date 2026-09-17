@@ -1,10 +1,10 @@
 package com.moyun.ext.cms.service.interview;
 
+import com.moyun.ext.ai.dto.AiSceneBinding;
 import com.moyun.ext.ai.entity.Agent;
 import dev.langchain4j.data.message.ChatMessage;
 
 import java.util.List;
-import java.util.Map;
 import java.util.function.Consumer;
 
 /**
@@ -31,7 +31,7 @@ public interface InterviewAgentClient {
     /**
      * 解析 AI 场景绑定（委托 AiSceneResolver；AI 未启用/异常返回空绑定）
      */
-    com.moyun.ext.ai.dto.AiSceneBinding resolveScene(String sceneCode);
+    AiSceneBinding resolveScene(String sceneCode);
 
     /**
      * 场景化 agent 解析（v11.x）：显式入参 > 场景绑定 Agent > 场景直绑模型（合成伪 Agent）> sys_config 默认
@@ -40,13 +40,10 @@ public interface InterviewAgentClient {
      * @param agentId      前端显式指定的 agent（可空）
      * @return 可用 agent（伪 Agent 仅含模型路由）；无可用时返回 null（走旧提示词逻辑）
      */
-    Agent resolveAgentForScene(com.moyun.ext.ai.dto.AiSceneBinding sceneBinding, Long agentId);
+    Agent resolveAgentForScene(AiSceneBinding sceneBinding, Long agentId);
 
     /** AI 能力是否可用（moyun.ai.enabled 且存在可用 chat 模型） */
     boolean isEnabled();
-
-    /** 动态出题模式默认开关（sys_config: voice.interview.dynamicMode） */
-    boolean dynamicModeEnabled();
 
     /**
      * 同步调用 agent 绑定的模型
@@ -69,11 +66,4 @@ public interface InterviewAgentClient {
      * 查询 agent 名称（前端顶栏展示；agent 不存在/未启用返回 null）
      */
     String agentName(Long agentId);
-
-    /**
-     * 列出可绑定的启用状态 agent（portal 选择面试官用）
-     *
-     * @return id/name/description/welcomeMessage 摘要列表
-     */
-    List<Map<String, Object>> listUsableAgents();
 }

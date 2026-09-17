@@ -3,34 +3,24 @@ package com.moyun.ext.cms.service.impl;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.moyun.common.exception.system.ServiceException;
 import com.moyun.core.base.page.PageDomain;
 import com.moyun.ext.ai.entity.Agent;
 import com.moyun.ext.cms.domain.vo.HintVO;
-import com.moyun.ext.cms.domain.vo.UserProfileSnapshotVO;
 import com.moyun.ext.cms.domain.vo.VoiceInterviewQaVO;
 import com.moyun.ext.cms.domain.vo.VoiceInterviewReportVO;
 import com.moyun.ext.cms.domain.vo.VoiceInterviewVO;
 import com.moyun.ext.cms.domain.vo.VoiceStartConfig;
-import com.moyun.ext.cms.config.AiProperties;
-import com.moyun.ext.cms.service.IUserProfileSnapshotService;
+
 import com.moyun.ext.cms.service.IVoiceInterviewService;
 import com.moyun.ext.ai.dto.AiSceneBinding;
 import com.moyun.ext.cms.service.IPortalInterviewConfigService;
 import com.moyun.portal.domain.entity.PortalInterviewConfig;
 import com.moyun.ext.cms.service.interview.InterviewPhase;
-import com.moyun.ext.cms.service.interview.QuestionPickCommand;
-import com.moyun.ext.cms.service.interview.QuestionPickResult;
-import com.moyun.ext.cms.service.interview.QuestionPicker;
-import com.moyun.ext.cms.service.interview.QuestionWeights;
 import com.moyun.ext.cms.service.interview.ScoringEngine;
-import com.moyun.ext.cms.service.interview.HintEngine;
 import com.moyun.ext.cms.service.interview.InterviewAgentClient;
-import com.moyun.ext.cms.service.interview.InterviewAnalysisParser;
-import com.moyun.ext.cms.service.interview.InterviewDecisionPolicy;
-import com.moyun.ext.cms.service.interview.InterviewPromptAssembler;
-import com.moyun.ext.cms.service.interview.ResumeContext;
 import com.moyun.ext.cms.service.interview.InterviewTurnResult;
 import com.moyun.portal.domain.entity.PortalInterviewQuestion;
 import com.moyun.portal.domain.entity.PortalUserResume;
@@ -43,9 +33,16 @@ import com.moyun.portal.mapper.PortalVoiceInterviewQAMapper;
 import com.moyun.util.bean.PageUtils;
 import com.moyun.util.string.StringUtils;
 import com.moyun.ext.cms.service.interview.AnswerScoringEngine;
+import com.moyun.ext.cms.service.interview.InterviewChatMemoryService;
+import com.moyun.ext.ai.service.AgentService;
+import com.moyun.ext.ai.service.chat.RagRetrievalService;
+import dev.langchain4j.data.message.AiMessage;
 import dev.langchain4j.data.message.ChatMessage;
 import dev.langchain4j.data.message.SystemMessage;
 import dev.langchain4j.data.message.UserMessage;
+import dev.langchain4j.memory.chat.MessageWindowChatMemory;
+import dev.langchain4j.rag.content.Content;
+import com.moyun.ext.ai2.support.PromptInjectionGuard;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -53,38 +50,30 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
-import java.io.IOException;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.stream.Collectors;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.HashSet;
 import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
-import java.util.Set;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicInteger;
+import java.util.regex.Pattern;
 
 /**
- * 语音面试官 Service 实现（V10.1 MVP）
+ * 语音面试官 Service 实现（V3：统一 AI 入口 · 纯 agent 自由面试）
  *
- * <p>核心设计：
+ * <p>核心链路：
  * <ul>
- *   <li>出题：复用 MockInterview 三路召回模式（画像薄弱点 + 岗位必备 + 随机兜底）</li>
- *   <li>评分：规则版（关键词覆盖率 + 长度奖励），与 MockInterview 保持一致</li>
- *   <li>SSE：规则分先出 → LLM 话术（可选）→ data 完整数据 → end</li>
- *   <li>降级：LLM 不可用时用 HintEngine 的 speakText 作为话术</li>
- *   <li>状态机：IDLE → ASKING → LISTENING → ANALYZING → DECIDING → ENDED</li>
+ *   <li>{@link #start}：创建会话 + agent 同步生成开场白首问 + 滑窗记忆初始化</li>
+ *   <li>{@link #submitAnswer}：回答入滑窗 → agent 流式输出面试官话术（delta 打字机）→
+ *       预创建下一题 QA / 问满标记 finished</li>
+ *   <li>{@link #requestHint}：agent 基于滑窗上下文生成一句思考引导</li>
+ *   <li>{@link #finish}：收口会话 → 异步批量 LLM 分析 → 聚合报告落库</li>
  * </ul>
+ * 无实时评分、无规则决策链路，深度分析统一留到结束批量报告。
  *
  * @author moyun
  */
@@ -96,23 +85,24 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
     /** 主问题目数量 */
     private static final int QUESTION_COUNT = 5;
 
-    /** 薄弱点召回上限 */
-    private static final int WEAK_TAG_RECALL_LIMIT = 3;
-
-    /** 岗位必备技能召回上限 */
-    private static final int REQUIRED_SKILL_RECALL_LIMIT = 2;
-
-    /** V10.3 简历深挖：项目锚定题数量（配比 2+2+1） */
-    private static final int RESUME_PROJECT_QUESTION_COUNT = 2;
-
-    /** V10.3 简历深挖：画像题数量（配比 2+2+1） */
-    private static final int PROFILE_QUESTION_COUNT_WITH_RESUME = 2;
-
-    // ==================== V10.4 LLM 驱动动态追问体系 ====================
+    /** v11.96 时长制：sys_config 面试时长键（分钟，缺省 20） */
+    private static final String CONFIG_KEY_DURATION = "voice.interview.durationMinutes";
+    /** v11.96 时长制：默认面试时长（分钟） */
+    private static final int DEFAULT_DURATION_MINUTES = 20;
+    /** v11.96 时长制：服务端超时宽限（分钟，倒计时归零后允许收尾作答提交的余量） */
+    private static final int DURATION_GRACE_MINUTES = 2;
 
     /**
-     * 简历摘要：追问上下文的数据底座（项目名 + 技术栈 + 亮点）。
-     * v11.x：委托 {@link ResumeContext}（JSON 只解析一次，digest/keywords 懒加载），外部行为不变。
+     * v11.96 口头结束意图检测（严格短语，避免答案中提及"结束"误判）：
+     * 命中即视为候选人主动提出结束面试，服务端直接收尾（不走 agent 轮次）。
+     */
+    private static final Pattern VERBAL_END_PATTERN = Pattern.compile(
+            "结束(这场|本次|这个|一下)?(面试|测试)"
+                    + "|(我想|我要|我准备|想|要|能不能|可以|希望)(结束|停止|到此为止)"
+                    + "|到此为止|就到这里|今天就到这|面试到此(结束|为止)|结束吧|先结束了");
+
+    /**
+     * 简历摘要：面试官上下文的数据底座（项目名 + 技术栈 + 亮点，最多 3 个项目）。
      */
     private String buildResumeDigest(Long resumeId) {
         if (resumeId == null) {
@@ -120,10 +110,36 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
         }
         try {
             PortalUserResume resume = userResumeMapper.selectById(resumeId);
-            if (resume == null) {
+            if (resume == null || StringUtils.isEmpty(resume.getProjects())) {
                 return null;
             }
-            String digest = ResumeContext.of(resume).digest();
+            JsonNode arr = objectMapper.readTree(resume.getProjects());
+            if (arr == null || !arr.isArray()) {
+                return null;
+            }
+            StringBuilder sb = new StringBuilder();
+            int projIdx = 0;
+            for (JsonNode proj : arr) {
+                if (projIdx >= 3) {
+                    break;
+                }
+                String name = proj.path("name").asText("");
+                if (StringUtils.isEmpty(name)) {
+                    continue;
+                }
+                sb.append("项目").append(projIdx + 1).append("：").append(name);
+                String stack = proj.path("stack").asText("");
+                if (StringUtils.isNotEmpty(stack)) {
+                    sb.append("（").append(stack).append("）");
+                }
+                String highlight = proj.path("highlight").asText("");
+                if (StringUtils.isNotEmpty(highlight)) {
+                    sb.append("——").append(highlight);
+                }
+                sb.append("\n");
+                projIdx++;
+            }
+            String digest = sb.toString();
             return StringUtils.isEmpty(digest) ? null : digest;
         } catch (Exception e) {
             log.warn("[VoiceInterview] 简历摘要提取失败 resumeId={}：{}", resumeId, e.getMessage());
@@ -143,345 +159,6 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
         }
     }
 
-    /** 构建分析/追问共用的上下文系统提示词：岗位 + 场景 + 简历 + 累积画像 + 风格 + 难度 */
-    private String buildContextualSystemPrompt(PortalVoiceInterview interview) {
-        Map<String, Object> cfg = readInterviewConfig(interview);
-        StringBuilder sb = new StringBuilder();
-        sb.append("你是一位资深技术面试官，正在对候选人进行「").append(interview.getPosition())
-          .append("」岗位的").append(difficultyText(interview.getDifficulty()))
-          .append("模拟面试，面试场景为").append(sceneText(interview.getScene())).append("。\n");
-        sb.append("难度要求：").append(difficultyRequirement(interview.getDifficulty())).append("\n");
-        sb.append("场景要求：").append(sceneRequirement(interview.getScene())).append("\n");
-        Object digest = cfg.get("resumeDigest");
-        if (digest != null && StringUtils.isNotEmpty(String.valueOf(digest))) {
-            sb.append("候选人简历项目（追问时优先围绕其真实项目深挖细节、质疑数据与亮点）：\n")
-              .append(digest).append("\n");
-        }
-        Object gaps = cfg.get("profileGaps");
-        if (gaps instanceof List && !((List<?>) gaps).isEmpty()) {
-            sb.append("本场已识别的薄弱点（后续出题与追问需覆盖验证）：")
-              .append(String.join("、", ((List<String>) gaps).stream().map(String::valueOf).toArray(String[]::new)))
-              .append("\n");
-        }
-        Object level = cfg.get("levelEstimate");
-        if (level != null && StringUtils.isNotEmpty(String.valueOf(level))) {
-            sb.append("当前水平评估：").append(level).append("\n");
-        }
-        String style = interview.getStyle();
-        if ("strict".equals(style)) {
-            sb.append("风格要求：压力面。语气锐利，敢于质疑和打断，对模糊表述立即追问到底，不轻易给正面肯定。\n");
-        } else if ("friendly".equals(style)) {
-            sb.append("风格要求：亲和面。语气友好，先肯定再提问，循循善诱，但要挖出真实深度，不给空泛的鼓励。\n");
-        } else {
-            sb.append("风格要求：专业标准面。语气平稳，逻辑严密，就事论事，不刻意施压也不过度寒暄。\n");
-        }
-        return sb.toString();
-    }
-
-    /** 难度等级文案（拼接进系统提示词） */
-    private String difficultyText(String difficulty) {
-        if ("easy".equals(difficulty)) {
-            return "基础";
-        }
-        if ("hard".equals(difficulty)) {
-            return "高难度";
-        }
-        return "中等";
-    }
-
-    /** 难度评分标准要求（拼接进系统提示词，让不同难度真实产生差异） */
-    private String difficultyRequirement(String difficulty) {
-        if ("easy".equals(difficulty)) {
-            return "考察基础概念与常用实践，候选人答对基础要点即可得分，追问点到为止，不苛求底层原理。";
-        }
-        if ("hard".equals(difficulty)) {
-            return "考察底层原理、性能权衡与复杂场景设计，回答缺少原理依据或取舍分析时应扣分并追问。";
-        }
-        return "考察原理理解与实践结合，既看概念正确性也看落地细节，追问聚焦关键实现。";
-    }
-
-    /** 面试场景文案（拼接进系统提示词与开场白） */
-    private String sceneText(String scene) {
-        if ("project".equals(scene)) {
-            return "项目面";
-        }
-        if ("hr".equals(scene)) {
-            return "HR 面";
-        }
-        if ("comprehensive".equals(scene)) {
-            return "综合面";
-        }
-        return "技术面";
-    }
-
-    /** 场景考察要求（拼接进系统提示词，让不同场景真实产生差异） */
-    private String sceneRequirement(String scene) {
-        if ("project".equals(scene)) {
-            return "围绕候选人简历中的项目经历深挖：项目背景与你的职责、技术选型理由、难点攻克过程、量化成果与数据真实性。";
-        }
-        if ("hr".equals(scene)) {
-            return "考察沟通表达、职业规划、离职动机、团队协作与抗压能力，问题偏向行为面（STAR），弱化纯技术深度。";
-        }
-        if ("comprehensive".equals(scene)) {
-            return "技术、项目、软素质全方位考察，按候选人回答表现动态调节技术与行为问题的配比。";
-        }
-        return "聚焦技术深度：概念准确性、原理理解、实现细节与工程权衡，必要时追问源码级别依据。";
-    }
-
-    // ==================== V11.0 Agent 模式（智能体绑定 + 动态出题 + 决策接管） ====================
-
-    /** 动态出题注入 LLM 的题库候选数量 */
-    private static final int AGENT_CANDIDATE_COUNT = 8;
-
-    /** 风格文案（占位符渲染用） */
-    private String styleText(String style) {
-        if ("strict".equals(style)) {
-            return "压力面";
-        }
-        if ("friendly".equals(style)) {
-            return "亲和面";
-        }
-        return "专业标准面";
-    }
-
-    /**
-     * 出题模式判定：入参显式指定优先；未指定时 agent 可用 + sys_config 开关（voice.interview.dynamicMode）
-     */
-    private boolean resolveDynamicMode(Boolean requestFlag, AiSceneBinding sceneBinding, Agent agent) {
-        if (agent == null) {
-            return false;
-        }
-        if (requestFlag != null) {
-            return requestFlag;
-        }
-        // v11.x：场景策略配置 dynamicMode 优先于 sys_config
-        if (sceneBinding != null && !sceneBinding.isEmpty()) {
-            return sceneBinding.getBooleanConfig("dynamicMode", agentClient.dynamicModeEnabled());
-        }
-        return agentClient.dynamicModeEnabled();
-    }
-
-    /** 会话是否为动态出题模式（configJson.questionMode == "dynamic"；旧数据缺省按 preset） */
-    private boolean isDynamicInterview(PortalVoiceInterview interview) {
-        return "dynamic".equals(readInterviewConfig(interview).get("questionMode"));
-    }
-
-    /** agent.systemPrompt 占位符数据源：interview 主表 + configJson 画像累积区 */
-    private Map<String, String> buildPlaceholders(PortalVoiceInterview interview) {
-        Map<String, Object> cfg = readInterviewConfig(interview);
-        Map<String, String> ph = new LinkedHashMap<>();
-        ph.put("position", StringUtils.isNotEmpty(interview.getPosition()) ? interview.getPosition() : "未指定");
-        ph.put("scene", sceneText(interview.getScene()));
-        ph.put("difficulty", difficultyText(interview.getDifficulty()));
-        ph.put("style", styleText(interview.getStyle()));
-        Object digest = cfg.get("resumeDigest");
-        ph.put("resumeDigest", digest == null || String.valueOf(digest).isEmpty() ? "无" : String.valueOf(digest));
-        Object gaps = cfg.get("profileGaps");
-        ph.put("profileGaps", gaps instanceof List && !((List<?>) gaps).isEmpty()
-                ? joinList((List<?>) gaps) : "暂无");
-        Object level = cfg.get("levelEstimate");
-        String levelStr = level == null ? "" : String.valueOf(level);
-        ph.put("levelEstimate", levelStr.isEmpty() || "null".equals(levelStr)
-                ? "待评估" : levelStr);
-        return ph;
-    }
-
-    @SuppressWarnings("unchecked")
-    private String joinList(List<?> list) {
-        StringBuilder sb = new StringBuilder();
-        for (Object o : list) {
-            if (sb.length() > 0) {
-                sb.append("、");
-            }
-            sb.append(o);
-        }
-        return sb.toString();
-    }
-
-    /** Agent 模式系统消息：agent 人设占位符渲染；agent 未配人设时回退 V10.4 上下文提示词 */
-    private String buildAgentSystemMessage(PortalVoiceInterview interview, Agent agent) {
-        String persona = promptAssembler.renderSystemPrompt(agent.getSystemPrompt(), buildPlaceholders(interview));
-        if (StringUtils.isEmpty(persona)) {
-            persona = buildContextualSystemPrompt(interview);
-        }
-        return persona;
-    }
-
-    /** 本场已问过的题库题 id（动态候选排除用） */
-    private Set<Long> usedQuestionIds(Long interviewId) {
-        Set<Long> ids = new HashSet<>();
-        for (PortalVoiceInterviewQA qa : listQaByInterview(interviewId)) {
-            if (qa.getQuestionId() != null) {
-                ids.add(qa.getQuestionId());
-            }
-        }
-        return ids;
-    }
-
-    /** 动态出题候选：岗位/场景召回 + 已问排除 */
-    private List<PortalInterviewQuestion> pickAgentCandidates(PortalVoiceInterview interview) {
-        Set<Long> used = usedQuestionIds(interview.getId());
-        List<PortalInterviewQuestion> raw = pickQuestions(interview.getPosition(), interview.getScene(),
-                AGENT_CANDIDATE_COUNT + used.size(), interview.getUserId());
-        List<PortalInterviewQuestion> result = new ArrayList<>();
-        for (PortalInterviewQuestion q : raw) {
-            if (result.size() >= AGENT_CANDIDATE_COUNT) {
-                break;
-            }
-            if (q != null && q.getId() != null && !used.contains(q.getId())) {
-                result.add(q);
-            }
-        }
-        return result;
-    }
-
-    /** 已完成主问轮数（distinct questionIdx 已作答数，基于 DB + 当前未落库主问） */
-    private int countRoundsDone(Long interviewId, PortalVoiceInterviewQA currentQa) {
-        Set<Integer> idxSet = new HashSet<>();
-        for (PortalVoiceInterviewQA qa : listQaByInterview(interviewId)) {
-            if (qa.getParentQaId() == null && StringUtils.isNotEmpty(qa.getUserAnswer())) {
-                idxSet.add(qa.getQuestionIdx());
-            }
-        }
-        // 当前主问刚作答但尚未落库 → 计入
-        if (currentQa != null && currentQa.getParentQaId() == null) {
-            idxSet.add(currentQa.getQuestionIdx());
-        }
-        return idxSet.size();
-    }
-
-    /** Agent 轮次消息组装结果：消息列表 + 本轮注入的题库候选（candidateId 回链校验用） */
-    private static class AgentTurnMessages {
-        final List<ChatMessage> messages;
-        final List<PortalInterviewQuestion> candidates;
-        AgentTurnMessages(List<ChatMessage> messages, List<PortalInterviewQuestion> candidates) {
-            this.messages = messages;
-            this.candidates = candidates;
-        }
-    }
-
-    /** 构建 Agent 多轮消息：system(人设) + 历史 + 任务指令（当前问题/转写/候选/进度） */
-    private AgentTurnMessages buildAgentTurnMessages(PortalVoiceInterview interview, Agent agent,
-                                                     PortalVoiceInterviewQA qa,
-                                                     PortalInterviewQuestion question, String transcript) {
-        List<ChatMessage> messages = new ArrayList<>();
-        messages.add(SystemMessage.from(buildAgentSystemMessage(interview, agent)));
-
-        // 历史：当前轮之前的已作答问答对（多轮记忆生效点）
-        List<PortalVoiceInterviewQA> history = new ArrayList<>();
-        for (PortalVoiceInterviewQA item : listQaByInterview(interview.getId())) {
-            if (item.getId() < qa.getId() && StringUtils.isNotEmpty(item.getUserAnswer())) {
-                history.add(item);
-            }
-        }
-        int maxTurns = agent.getMaxHistoryTurns() == null || agent.getMaxHistoryTurns() <= 0
-                ? 20 : agent.getMaxHistoryTurns();
-        messages.addAll(promptAssembler.buildHistory(history, maxTurns));
-
-        // 任务指令
-        List<PortalInterviewQuestion> candidates = pickAgentCandidates(interview);
-        InterviewPromptAssembler.TaskContext ctx = new InterviewPromptAssembler.TaskContext()
-                .setQuestionTitle(question != null ? question.getTitle() : qa.getQuestion())
-                .setQuestionAnalysis(question != null ? question.getAnalysis() : null)
-                .setTranscript(transcript)
-                .setRoundsDone(countRoundsDone(interview.getId(), qa))
-                .setTotalPlanned(interview.getTotalQa() == null ? 0 : interview.getTotalQa())
-                .setFollowupDepth(followupDepthOf(qa))
-                .setFollowupUsed(countFollowupUsed(interview.getId()))
-                .setCandidates(candidates);
-        messages.add(new UserMessage(promptAssembler.buildTaskDirective(ctx)));
-        return new AgentTurnMessages(messages, candidates);
-    }
-
-    /** 动态模式首问生成：agent 一次调用产出开场问题；失败返回 null 走兜底 */
-    private PortalInterviewQuestion generateFirstQuestionByAgent(PortalVoiceInterview interview, Agent agent) {
-        List<PortalInterviewQuestion> candidates = pickAgentCandidates(interview);
-        StringBuilder user = new StringBuilder();
-        user.append("面试正式开始。请直接提出第一个面试问题：只输出问题本身一句话，");
-        user.append("紧密结合候选人简历项目与岗位要求，不要任何解释、编号或多余文字。\n");
-        if (!candidates.isEmpty()) {
-            user.append("可参考以下题库候选（可直接采用、改写或自拟更贴合的问题）：\n");
-            int idx = 1;
-            for (PortalInterviewQuestion q : candidates) {
-                user.append(idx).append(". ").append(q.getTitle()).append("\n");
-                idx++;
-            }
-        }
-        try {
-            String raw = agentClient.chat(agent, List.of(
-                    SystemMessage.from(buildAgentSystemMessage(interview, agent)),
-                    new UserMessage(user.toString())));
-            String q = normalizeAgentQuestion(raw);
-            if (q != null) {
-                // 候选回链：题面高度相似则认定采用题库题
-                PortalInterviewQuestion matched = matchCandidate(candidates, q);
-                if (matched != null) {
-                    return matched;
-                }
-                PortalInterviewQuestion virtual = new PortalInterviewQuestion();
-                virtual.setTitle(q);
-                return virtual;
-            }
-        } catch (Exception e) {
-            log.warn("[VoiceInterview] agent 首问生成失败，走题库兜底：{}", e.getMessage());
-        }
-        return null;
-    }
-
-    /** 动态模式下一题生成（forceNext / LLM 未给 nextQuestion 时兜底）：优先题库，无题则通用模板 */
-    private PortalInterviewQuestion generateNextQuestion(PortalVoiceInterview interview) {
-        List<PortalInterviewQuestion> candidates = pickAgentCandidates(interview);
-        if (!candidates.isEmpty()) {
-            return candidates.get(0);
-        }
-        PortalInterviewQuestion virtual = new PortalInterviewQuestion();
-        virtual.setTitle("请结合你最近的项目经历，讲讲你解决过的一个有挑战性的技术难题，以及你的取舍过程。");
-        return virtual;
-    }
-
-    /** 清洗 LLM 输出的问题文本：去围栏/编号/引号/首尾空白，长度异常返回 null */
-    private String normalizeAgentQuestion(String raw) {
-        if (StringUtils.isEmpty(raw)) {
-            return null;
-        }
-        String q = raw.trim();
-        if (q.contains("```")) {
-            int st = q.indexOf('\n');
-            int en = q.lastIndexOf("```");
-            q = (st > 0 && en > st) ? q.substring(st, en) : q.replace("```", "");
-        }
-        q = q.replaceAll("^[\\d一-十]+[、.．]\\s*", "").trim();
-        q = q.replaceAll("^[「『\"']+", "").replaceAll("[」』\"']+$", "").trim();
-        if (q.length() < 8 || q.length() > 200) {
-            return null;
-        }
-        return q;
-    }
-
-    /** 题面相似匹配：候选题目标题包含于 LLM 输出（或反之）即认定采用 */
-    private PortalInterviewQuestion matchCandidate(List<PortalInterviewQuestion> candidates, String question) {
-        for (PortalInterviewQuestion c : candidates) {
-            if (c.getTitle() != null && question.length() >= 10
-                    && (question.contains(c.getTitle()) || c.getTitle().contains(question))) {
-                return c;
-            }
-        }
-        return null;
-    }
-
-    /** 候选编号回链：candidateId 必须在本轮注入清单内才有效 */
-    private Long resolveCandidateId(List<PortalInterviewQuestion> candidates, Long candidateId) {
-        if (candidateId == null || candidates == null) {
-            return null;
-        }
-        int idx = candidateId.intValue() - 1;
-        if (idx >= 0 && idx < candidates.size()) {
-            PortalInterviewQuestion q = candidates.get(idx);
-            return q == null ? null : q.getId();
-        }
-        return null;
-    }
-
     /** SSE 事件发送（异常吞掉记日志，不中断回调链） */
     private void sendEvent(SseEmitter emitter, String name, Object data) {
         try {
@@ -491,34 +168,6 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
         }
     }
 
-    /** 画像累积（Agent 模式）：漏洞与水平写回 configJson */
-    private void accumulateProfileFromTurn(PortalVoiceInterview interview, InterviewTurnResult turn) {
-        if (turn == null) {
-            return;
-        }
-        try {
-            Map<String, Object> cfg = readInterviewConfig(interview);
-            List<String> gaps = (List<String>) cfg.get("profileGaps");
-            if (gaps == null) {
-                gaps = new ArrayList<>();
-            }
-            for (String flaw : turn.getFlaws()) {
-                if (StringUtils.isNotEmpty(flaw) && !gaps.contains(flaw) && gaps.size() < PROFILE_MAX_GAPS) {
-                    gaps.add(flaw);
-                }
-            }
-            cfg.put("profileGaps", gaps);
-            if (StringUtils.isNotEmpty(turn.getLevel())) {
-                cfg.put("levelEstimate", turn.getLevel());
-            }
-            interview.setConfigJson(toJson(cfg));
-            interviewMapper.updateById(interview);
-        } catch (Exception e) {
-            log.warn("[VoiceInterview] Agent 画像累积写入失败：{}", e.getMessage());
-        }
-    }
-
-
     /**
      * LLM 一次调用同时完成：评分校正 + 漏洞识别 + 水平评估 + 针对性追问建议。
      * v11.58 P0-3c：收口 AI 网关（voice_interview 场景 task=answer_analysis 子任务），
@@ -526,19 +175,28 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
      */
     private AnswerAnalysis analyzeAnswerByLlm(PortalVoiceInterview interview, String questionTitle,
                                               String questionAnalysis, String transcript, AnswerScoringEngine.ScoreResult ruleScore) {
-        if (!aiProperties.isEnabled()) {
+        if (!aiGlobalSwitch.isEnabled()) {
             return null;
         }
         try {
-            String context = buildContextualSystemPrompt(interview)
-                    + "\n你刚刚向候选人提出问题：\"" + questionTitle + "\"\n"
+            Object resumeDigest = readInterviewConfig(interview).get("resumeDigest");
+            // v11.98：V3 纯 agent 面试下 qa.question 存的是面试官整段话术（含开场寒暄/上轮反馈），
+            // 超长截断避免寒暄内容占满分析上下文、稀释题目重点
+            String question = questionTitle != null && questionTitle.length() > 400
+                    ? questionTitle.substring(0, 400) + "…（后略）" : questionTitle;
+            String context = "你是一位资深技术面试官，正在对候选人进行「"
+                    + (StringUtils.isEmpty(interview.getPosition()) ? "综合" : interview.getPosition())
+                    + "」岗位的模拟面试。\n"
+                    + (resumeDigest != null && StringUtils.isNotEmpty(String.valueOf(resumeDigest))
+                            ? "候选人简历项目：\n" + resumeDigest + "\n" : "")
+                    + "\n你刚刚向候选人提出问题：\"" + question + "\"\n"
                     + (StringUtils.isNotEmpty(questionAnalysis) ? "该题考察要点：" + questionAnalysis + "\n" : "");
-            com.fasterxml.jackson.databind.JsonNode node = aiSceneJsonClient.executeForJson(
-                    SCENE_VOICE_INTERVIEW,
-                    Map.of("task", "answer_analysis",
-                            "context", context,
-                            "transcript", transcript),
-                    interview.getUserId());
+            // v11.98：LinkedHashMap 可变 Map（Map.of 不可变曾被网关 sanitizeInputChannel setValue 击穿）
+            Map<String, Object> input = new LinkedHashMap<>();
+            input.put("task", "answer_analysis");
+            input.put("context", context);
+            input.put("transcript", transcript);
+            JsonNode node = aiSceneJsonClient.executeForJson(SCENE_VOICE_INTERVIEW, input, interview.getUserId());
             if (node == null) {
                 return null;
             }
@@ -557,7 +215,7 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
     }
 
     /** 解析网关结构化回答分析结果（v11.58：Handler 已容错解析 JSON，此处只做字段映射与规则分融合） */
-    private AnswerAnalysis parseAnalysis(com.fasterxml.jackson.databind.JsonNode node, AnswerScoringEngine.ScoreResult ruleScore) {
+    private AnswerAnalysis parseAnalysis(JsonNode node, AnswerScoringEngine.ScoreResult ruleScore) {
         try {
             AnswerAnalysis a = new AnswerAnalysis();
             a.score = clamp(node.path("score").asInt(ruleScore.score), 0, 100);
@@ -580,7 +238,7 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
             }
             a.dimensions = dims;
             List<String> flaws = new ArrayList<>();
-            for (com.fasterxml.jackson.databind.JsonNode f : node.path("flaws")) {
+            for (JsonNode f : node.path("flaws")) {
                 String t = f.asText("").trim();
                 if (StringUtils.isNotEmpty(t)) {
                     flaws.add(t);
@@ -601,82 +259,6 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
         return Math.max(min, Math.min(max, v));
     }
 
-    /** 本场已消耗的追问次数（所有题目合计），受 FOLLOWUP_BUDGET 预算约束 */
-    private int countFollowupUsed(Long interviewId) {
-        return Math.toIntExact(qaMapper.selectCount(
-                new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<PortalVoiceInterviewQA>()
-                        .eq(PortalVoiceInterviewQA::getInterviewId, interviewId)
-                        .isNotNull(PortalVoiceInterviewQA::getParentQaId)));
-    }
-
-    /** 从当前 QA 沿 parentQaId 向上回溯，计算追问链深度（原题为 0，追问为 1，追问的追问为 2） */
-    private int followupDepthOf(PortalVoiceInterviewQA qa) {
-        int depth = 0;
-        Long pid = qa.getParentQaId();
-        int guard = 0;
-        while (pid != null && guard++ < 10) {
-            PortalVoiceInterviewQA parent = qaMapper.selectById(pid);
-            if (parent == null) {
-                break;
-            }
-            depth++;
-            pid = parent.getParentQaId();
-        }
-        return depth;
-    }
-
-    /** LLM 直接生成追问问题（带候选人原话引用），失败回退规则模板 */
-    private String generateFollowupQuestion(PortalVoiceInterview interview, String questionTitle,
-                                            String transcript, AnswerAnalysis analysis, int depth) {
-        if (analysis != null && StringUtils.isNotEmpty(analysis.followupQuestion)) {
-            String q = analysis.followupQuestion.trim();
-            if (q.length() > 5 && q.length() <= 200) {
-                return q;
-            }
-        }
-        // 回退：规则模板（保留原有兜底能力）
-        if (depth >= 1) {
-            return "你刚才提到的这一点，能再举个你实际项目里的具体例子吗？";
-        }
-        return "你提到了一些做法，能展开讲讲「" + extractKeyword(transcript, questionTitle) + "」这个点吗？";
-    }
-
-    /** 从转写文本提取追问锚点关键词（截取前 12 字，规则兜底用） */
-    private String extractKeyword(String transcript, String fallback) {
-        if (StringUtils.isEmpty(transcript)) {
-            return fallback;
-        }
-        String t = transcript.replaceAll("[，。？！,.?! \\s]+", " ").trim();
-        return t.length() > 12 ? t.substring(0, 12) : t;
-    }
-
-    /** 画像累积：把本轮识别的漏洞/水平写回 configJson，供后续追问与报告使用 */
-    private void accumulateProfile(PortalVoiceInterview interview, AnswerAnalysis analysis) {
-        if (analysis == null) {
-            return;
-        }
-        try {
-            Map<String, Object> cfg = readInterviewConfig(interview);
-            List<String> gaps = (List<String>) cfg.get("profileGaps");
-            if (gaps == null) {
-                gaps = new ArrayList<>();
-            }
-            for (String flaw : analysis.flaws) {
-                if (flaw != null && !flaw.isEmpty() && !gaps.contains(flaw) && gaps.size() < PROFILE_MAX_GAPS) {
-                    gaps.add(flaw);
-                }
-            }
-            cfg.put("profileGaps", gaps);
-            if (StringUtils.isNotEmpty(analysis.level)) {
-                cfg.put("levelEstimate", analysis.level);
-            }
-            interview.setConfigJson(toJson(cfg));
-            interviewMapper.updateById(interview);
-        } catch (Exception e) {
-            log.warn("[VoiceInterview] 画像累积写入失败：{}", e.getMessage());
-        }
-    }
-
     /** LLM 分析结果（规则评分的超集：漏洞/水平/追问建议） */
     private static class AnswerAnalysis {
         int score;
@@ -689,21 +271,9 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
         String guidance = "";
     }
 
-    /** 同一主题允许的最大追问链深度（追问的追问），防死循环 */
-    private static final int FOLLOWUP_MAX_DEPTH = 2;
-
-    /** 单场面试的追问总预算（所有题目合计），保持面试节奏 */
-    private static final int FOLLOWUP_BUDGET = 4;
-
-    /** 画像中累积记录的最大薄弱点数量 */
-    private static final int PROFILE_MAX_GAPS = 8;
-
     /** 场景代码：语音面试（AI场景配置中心） */
     /** v11.38：场景代码统一走 AiSceneEnum 注册表，不再硬编码字符串 */
     private static final String SCENE_VOICE_INTERVIEW = com.moyun.ext.ai.enums.AiSceneEnum.VOICE_INTERVIEW.getCode();
-
-    /** 候选人反问环节最大提问数 */
-    private static final int CANDIDATE_ASK_MAX = 3;
 
     /** SSE 超时时间（毫秒） */
     private static final long SSE_TIMEOUT = 120_000L;
@@ -712,31 +282,35 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
     @Autowired private PortalVoiceInterviewQAMapper qaMapper;
     @Autowired private PortalInterviewQuestionMapper questionMapper;
     @Autowired private PortalUserResumeMapper userResumeMapper;
-    @Autowired private IUserProfileSnapshotService profileSnapshotService;
-    @Autowired private HintEngine hintEngine;
-    /** v11.47：规则评分引擎（自本类抽出的评分块） */
-    @Autowired private AnswerScoringEngine answerScoringEngine;
     @Autowired private ObjectMapper objectMapper;
     /** v11.58 P0-3c：LLM 直调收口网关后移除 LlmClient 依赖，统一走 AiSceneJsonClient */
     @Autowired private com.moyun.ext.ai2.support.AiSceneJsonClient aiSceneJsonClient;
-    @Autowired private AiProperties aiProperties;
+    /** v11.98：AI 全局运行时开关（sys_config ai.global.enabled，替代 yaml 静态配置） */
+    @Autowired private com.moyun.ext.ai.service.AiGlobalSwitch aiGlobalSwitch;
     @Autowired private InterviewAgentClient agentClient;
-    @Autowired private InterviewPromptAssembler promptAssembler;
-    @Autowired private InterviewAnalysisParser analysisParser;
-    @Autowired private QuestionPicker questionPicker;
+    /** V3：滑窗记忆服务（面试对话上下文复用统一 AI 会话机制） */
+    @Autowired private InterviewChatMemoryService memoryService;
     @Autowired private ScoringEngine scoringEngine;
     @Autowired private com.moyun.ext.cms.service.IWrongQuestionService wrongQuestionService;
     @Autowired private com.moyun.ext.ai.service.WorkflowService aiWorkflowService;
-    @Autowired private com.moyun.ext.cms.service.IPortalJobTemplateService jobTemplateService;
     @Autowired private com.moyun.portal.mapper.PortalUserMapper portalUserMapper;
     @Autowired
     @org.springframework.beans.factory.annotation.Qualifier("aiTaskExecutor")
     private org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor aiTaskExecutor;
     @Autowired private IPortalInterviewConfigService interviewConfigService;
-    @Autowired private com.moyun.portal.mapper.PortalInterviewAttemptMapper attemptMapper;
+    /** v11.88 V2重构：会话事件日志（start/answer/next/finish/close 全链路追溯） */
+    @Autowired private com.moyun.portal.mapper.PortalVoiceInterviewEventMapper eventMapper;
+    /** v11.94 V4：预热 RAG——agent 绑定知识库检索（题库文档作为考察方向供给源） */
+    @Autowired private RagRetrievalService ragRetrievalService;
+    @Autowired private AgentService agentService;
+    /** v11.96 时长制：sys_config 读取（voice.interview.durationMinutes） */
+    @Autowired private com.moyun.system.service.ISysConfigService sysConfigService;
 
     /** SSE 异步线程池（避免阻塞请求线程） */
     private final ScheduledExecutorService sseExecutor = Executors.newScheduledThreadPool(2);
+
+    /** v11.96：批量分析运行中标记（断链自愈：analysis 卡 1 且无运行任务时轮询接口重触发） */
+    private static final java.util.Set<Long> RUNNING_ANALYSIS = java.util.concurrent.ConcurrentHashMap.newKeySet();
 
     // ========================================================================
     // 开始面试
@@ -744,230 +318,330 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public VoiceInterviewVO start(Long userId, VoiceStartConfig config) {
-        if (userId == null) {
-            throw new ServiceException("请登录后操作");
-        }
+
         if (config == null) {
             config = new VoiceStartConfig();
         }
 
-        String position = config.getPosition();
-        String scene = config.getScene();
-        
-        // 字段长度校验（数据库定义：position varchar(64), scene varchar(64)）
-        if (StringUtils.isNotEmpty(position) && position.length() > 64) {
+        String position = config.getPosition() == null ? "" : config.getPosition().trim();
+        if (position.length() > 64) {
             throw new ServiceException("面试岗位名称不能超过64个字符");
         }
-        if (StringUtils.isNotEmpty(scene) && scene.length() > 64) {
-            throw new ServiceException("面试场景名称不能超过64个字符");
-        }
-        
-        String style = StringUtils.isNotEmpty(config.getStyle()) ? config.getStyle() : "professional";
         String difficulty = StringUtils.isNotEmpty(config.getDifficulty()) ? config.getDifficulty() : "medium";
-        boolean personalized = Boolean.TRUE.equals(config.getPersonalized());
-        boolean hintsEnabled = config.getHintsEnabled() == null || config.getHintsEnabled();
+        // 岗位要求 JD（面试官提问方向与深度贴合岗位要求；trim 后空串视为未填）
+        String jobRequirements = config.getJobRequirements() == null ? ""
+                : config.getJobRequirements().trim();
+        if (jobRequirements.length() > 2000) {
+            throw new ServiceException("岗位要求不能超过2000个字符");
+        }
+        int questionCount = config.getQuestionCount() != null && config.getQuestionCount() > 0
+                ? config.getQuestionCount() : QUESTION_COUNT;
+        // v11.96 时长制：sys_config 读取面试时长（缺省 20 分钟），题数仅作软参考不再强制收尾
+        int durationMinutes = resolveDurationMinutes();
 
-        // 构建用户画像快照
-        UserProfileSnapshotVO snapshot = null;
-        boolean useProfile = personalized;
-        try {
-            snapshot = profileSnapshotService.buildSnapshot(userId, position, scene);
-            if (useProfile && !snapshot.isPersonalized()) {
-                useProfile = false;
-            }
-        } catch (Exception e) {
-            log.warn("[VoiceInterview] 用户{}画像构建失败：{}，降级随机抽题", userId, e.getMessage());
-            useProfile = false;
+        // V3 面试官 agent：sys_config 默认配置（voice.interview.defaultAgentId），前端不再选择
+        Agent agent = agentClient.resolveAgent(null);
+        if (agent == null || !agentClient.isEnabled()) {
+            throw new ServiceException("AI 面试官未配置或不可用，请联系管理员（sys_config: voice.interview.defaultAgentId）");
         }
 
-        // v11.x 场景化 Agent 解析（AI场景配置中心）：显式入参 > 场景Agent > 场景直绑模型(伪Agent) > sys_config默认
-        AiSceneBinding sceneBinding = agentClient.resolveScene(SCENE_VOICE_INTERVIEW);
-        Agent agent = agentClient.resolveAgentForScene(sceneBinding, config.getAgentId());
-        boolean dynamic = resolveDynamicMode(config.getDynamicMode(), sceneBinding, agent);
+        // 简历摘要（有则作为面试官上下文注入滑窗）
+        String resumeDigest = buildResumeDigest(config.getResumeId());
 
-        // v11.x 面试配置（默认配置）：自我介绍开关 / 追问上限 / 评分权重
-        PortalInterviewConfig interviewConfig = loadInterviewConfigQuietly();
-        boolean enableSelfIntro = interviewConfig != null
-                && Integer.valueOf(1).equals(interviewConfig.getEnableSelfIntro());
+        // v11.94 V4 预热：RAG 检索题库知识库（agent 绑定；无知识库/失败返回 null 不阻塞开面）
+        String kbSnippets = retrieveKbSnippets(agent, position, resumeDigest);
 
-        // 出题（V10.3：resumeId 非空时启用简历深挖配比——简历项目2题 + 画像/岗位2题 + 兜底补满）
-        // dynamic 模式不预生成题单，由 agent 结合上下文动态出题
-        List<PortalInterviewQuestion> questions = new ArrayList<>();
-        Map<Integer, Map<String, Object>> questionSnapshots = null;
-        if (!dynamic) {
-            // v11.x 智能出题器：四路题源（job/resume/weak/random）按权重配额 + 自动流转
-            ResumeContext resumeContext = ResumeContext.empty();
-            if (config.getResumeId() != null) {
-                PortalUserResume resume = userResumeMapper.selectById(config.getResumeId());
-                if (resume != null && userId.equals(resume.getUserId())) {
-                    resumeContext = ResumeContext.of(resume);
-                }
-            }
-            QuestionPickCommand pickCommand = new QuestionPickCommand();
-            pickCommand.setUserId(userId);
-            pickCommand.setPosition(position);
-            pickCommand.setScene(scene);
-            pickCommand.setDifficulty(difficulty);
-            pickCommand.setResumeContext(resumeContext);
-            pickCommand.setSnapshot(snapshot);
-            pickCommand.setUseProfile(useProfile);
-            pickCommand.setCount(QUESTION_COUNT);
-            pickCommand.setJobTemplateId(config.getJobTemplateId());
-            if (config.getQuestionWeights() != null && !config.getQuestionWeights().isEmpty()) {
-                pickCommand.setWeightsOverride(QuestionWeights.fromMap(config.getQuestionWeights()));
-            }
-            QuestionPickResult pickResult = questionPicker.pick(pickCommand);
-            questions = pickResult.getQuestions();
-            questionSnapshots = pickResult.getSnapshots();
-            if (questions.isEmpty()) {
-                throw new ServiceException("题库中暂无可用题目，请稍后再试");
-            }
+        // v11.91 断点续接收口：开始新面试前，遗留的进行中会话自动结束（abandon）并触发异步批量分析（数据不丢）
+        closeStaleInterviews(userId);
+
+        // v11.94 V4 预热：一次调用产出"AI 理解"（画像+考察方向计划）+ 开场白 + 首题（失败降级旧 generateOpening 链路）
+        JsonNode warmupPlan = tryWarmup(agent, position, difficulty, questionCount,
+                jobRequirements, resumeDigest, kbSnippets);
+        String opening;
+        if (warmupPlan != null) {
+            // opening 场面话 + firstQuestion 首题（固定请自我介绍），合并为滑窗首条 assistant 与首问落库
+            String openingText = warmupPlan.path("opening").asText("").trim();
+            String firstQuestion = warmupPlan.path("firstQuestion").asText("").trim();
+            opening = (openingText + "\n\n" + firstQuestion).trim();
+        } else {
+            opening = null;
         }
 
-        // 创建会话
+        // 创建会话（V3：岗位/难度/JD/简历 + agent 自由面试，不再有题单/风格/场景/阶段机）
         PortalVoiceInterview interview = new PortalVoiceInterview();
         interview.setUserId(userId);
         interview.setPosition(position);
-        interview.setScene(scene);
         interview.setResumeId(config.getResumeId());
-        // V11.0：绑定面试官智能体（preset 模式也绑定，供分析链路升级；agent 为 null 时走旧逻辑）
-        interview.setAgentId(agent == null ? null : agent.getId());
+        interview.setAgentId(agent.getId());
         interview.setStatus("in_progress");
-        interview.setStyle(style);
         interview.setDifficulty(difficulty);
-        // dynamic 模式 totalQa 为主问预算（不预生成题单）；preset 为实际题单长度
-        interview.setTotalQa(dynamic ? QUESTION_COUNT : questions.size());
+        interview.setTotalQa(questionCount);
         interview.setCurrentIdx(0);
-        interview.setIsPersonalized(useProfile ? 1 : 0);
-        // v11.x 6阶段状态机：自我介绍开关决定初始阶段（旧会话 phase=NULL 走原流程）
-        interview.setPhase(enableSelfIntro
-                ? InterviewPhase.INTRO_WAITING.code() : InterviewPhase.TECH_QUESTION.code());
-        if (snapshot != null) {
-            interview.setProfileSnapshot(toJson(snapshot));
-        }
-        // 配置 JSON
         Map<String, Object> configMap = new LinkedHashMap<>();
-        configMap.put("hintsEnabled", hintsEnabled);
-        configMap.put("stuckThreshold", config.getStuckThreshold() != null ? config.getStuckThreshold() : 30);
-        configMap.put("style", style);
         configMap.put("difficulty", difficulty);
-        configMap.put("questionMode", dynamic ? "dynamic" : "preset");
-        // v11.x：场景/配置/模板绑定链路（只加不改）
-        if (sceneBinding != null && sceneBinding.getSceneConfig() != null) {
-            configMap.put("sceneConfigId", sceneBinding.getSceneConfig().getId());
+        configMap.put("durationMinutes", durationMinutes);
+        if (StringUtils.isNotEmpty(jobRequirements)) {
+            configMap.put("jobRequirements", jobRequirements);
         }
-        if (interviewConfig != null) {
-            configMap.put("interviewConfigId", interviewConfig.getId());
-        }
-        if (config.getJobTemplateId() != null) {
-            configMap.put("jobTemplateId", config.getJobTemplateId());
-        }
-        if (config.getQuestionWeights() != null && !config.getQuestionWeights().isEmpty()) {
-            configMap.put("questionWeights", config.getQuestionWeights());
-        }
-        configMap.put("enableSelfIntro", enableSelfIntro);
-        configMap.put("maxFollowups", interviewConfig != null && interviewConfig.getMaxFollowups() != null
-                ? interviewConfig.getMaxFollowups() : FOLLOWUP_BUDGET);
-        // V10.4 动态追问上下文底座：简历摘要 + 画像薄弱点累积区（后续每轮 LLM 分析后写入）
-        String resumeDigest = buildResumeDigest(config.getResumeId());
         if (StringUtils.isNotEmpty(resumeDigest)) {
             configMap.put("resumeDigest", resumeDigest);
         }
-        configMap.put("profileGaps", new ArrayList<String>());
-        configMap.put("levelEstimate", "");
+        if (warmupPlan != null) {
+            // 预热计划落 configJson（断点续接 rebuild 免重算；报告画像复用）
+            configMap.put("warmupPlan", objectMapper.valueToTree(warmupPlan));
+        }
         interview.setConfigJson(toJson(configMap));
+        // 上下文快照（报告三段式第一/二栏数据源）
+        Map<String, Object> contextSnapshotMap = new LinkedHashMap<>();
+        contextSnapshotMap.put("position", position);
+        contextSnapshotMap.put("difficulty", difficulty);
+        contextSnapshotMap.put("jobRequirements", jobRequirements);
+        contextSnapshotMap.put("resumeDigest", resumeDigest == null ? "" : resumeDigest);
+        interview.setContextSnapshot(toJson(contextSnapshotMap));
+        interview.setAnalysisStatus(0);
+        interview.setAnalysisProgress(0);
         interview.setCreateTime(LocalDateTime.now());
         interviewMapper.insert(interview);
 
-        // preset 模式：缓存题单（锚定题 null 占位 + 快照，保证索引对齐）
-        if (!dynamic) {
-            List<Long> qIds = new ArrayList<>();
-            for (PortalInterviewQuestion q : questions) {
-                qIds.add(q.getId());
-            }
-            configMap.put("questionIds", qIds);
-            if (questionSnapshots != null && !questionSnapshots.isEmpty()) {
-                configMap.put("questionSnapshots", questionSnapshots);
-            }
-            interview.setConfigJson(toJson(configMap));
-            interviewMapper.updateById(interview);
+        // 滑窗初始化：system（agent 人设+本场约束）+ 上下文 user（简历摘要+JD，wrapData 包裹）
+        String systemPrompt = buildInterviewerSystemPrompt(interview, agent);
+        StringBuilder ctx = new StringBuilder("面试背景信息：\n岗位：" + position + "\n难度：" + difficulty);
+        if (StringUtils.isNotEmpty(jobRequirements)) {
+            ctx.append("\n岗位要求JD：\n").append(jobRequirements);
         }
-
-        // v11.x 自我介绍环节：不创建首问，进入 INTRO_WAITING
-        if (enableSelfIntro) {
-            int introDuration = interviewConfig != null && interviewConfig.getSelfIntroDuration() != null
-                    ? interviewConfig.getSelfIntroDuration() : 120;
-            String introQuestion = "请先做一个约" + Math.max(1, introDuration / 60)
-                    + "分钟的自我介绍，内容包括你的基本情况、技术栈、项目经历和求职方向。";
-            String greet;
-            if (dynamic && agent != null && StringUtils.isNotEmpty(agent.getWelcomeMessage())) {
-                greet = promptAssembler.renderSystemPrompt(agent.getWelcomeMessage(), buildPlaceholders(interview))
-                        + " " + introQuestion;
-            } else {
-                greet = "你好，欢迎参加" + (StringUtils.isNotEmpty(position) ? position + "岗位的" : "")
-                        + "模拟面试。我是今天的面试官，放松心态，我们像聊天一样开始。 " + introQuestion;
-            }
-            PortalVoiceInterviewQA introQa = insertSelfIntroQa(interview, introQuestion, greet);
-            return assembleVO(interview, introQa);
+        if (StringUtils.isNotEmpty(resumeDigest)) {
+            ctx.append("\n简历摘要：\n").append(resumeDigest);
         }
+        String contextUserMsg = PromptInjectionGuard.wrapData("候选人资料", ctx.toString());
 
-        // 创建问答记录（首问）
-        PortalInterviewQuestion firstQ;
-        String greetText;
-        if (dynamic) {
-            // V11.0 动态模式：agent 生成首问（失败回退题库随机题），开场白用 agent.welcomeMessage 渲染
-            firstQ = generateFirstQuestionByAgent(interview, agent);
-            String firstSource = firstQ == null ? null
-                    : (firstQ.getId() != null ? "bank" : "llm");
-            if (firstQ == null) {
-                List<PortalInterviewQuestion> fallback = pickQuestions(position, scene, 1, interview.getUserId());
-                if (fallback.isEmpty()) {
-                    throw new ServiceException("题库中暂无可用题目，请稍后再试");
-                }
-                firstQ = fallback.get(0);
-                firstSource = "bank";
-            }
-            String welcome = StringUtils.isNotEmpty(agent.getWelcomeMessage())
-                    ? promptAssembler.renderSystemPrompt(agent.getWelcomeMessage(), buildPlaceholders(interview))
-                    : "你好，欢迎参加" + (StringUtils.isNotEmpty(position) ? position + "岗位的" : "")
-                        + "模拟面试。我是今天的面试官，放松心态，我们像聊天一样开始。";
-            greetText = welcome + " 首先第一个问题：" + firstQ.getTitle();
-            PortalVoiceInterviewQA firstQa = insertFirstQa(interview, firstQ, firstSource, greetText);
-            // 动态模式无预生成题单，questionIds 不写入（换题时由 agent 生成/题库兜底）
-            return assembleVO(interview, firstQa);
+        // 同步生成开场白+首题（V4：warmup 产物优先；失败降级 generateOpening 一次调用）
+        if (opening == null || opening.isEmpty()) {
+            opening = generateOpening(interview, agent, systemPrompt, contextUserMsg);
         }
+        memoryService.initFirstTurn(interview.getId(), agent.getMaxHistoryTurns(),
+                systemPrompt, contextUserMsg, opening);
 
-        firstQ = questions.get(0);
-        greetText = buildGreetText(style, position, firstQ.getTitle());
-        String firstSource = firstQ.getId() == null ? "resume_project" : "bank";
-        PortalVoiceInterviewQA firstQa = insertFirstQa(interview, firstQ, firstSource, greetText);
+        // 首题落库（question=开场白+首题全文，报告回放展示）
+        PortalVoiceInterviewQA firstQa = new PortalVoiceInterviewQA();
+        firstQa.setInterviewId(interview.getId());
+        firstQa.setQuestionSource("agent");
+        firstQa.setQuestionIdx(0);
+        firstQa.setQuestion(opening);
+        firstQa.setHintUsed(0);
+        firstQa.setTranscriptionEdited(0);
+        firstQa.setCreateTime(LocalDateTime.now());
+        firstQa.setSpeakText(opening);
+        qaMapper.insert(firstQa);
+
+        recordEvent(interview.getId(), "start", Map.of(
+                "agentId", agent.getId(),
+                "position", position,
+                "difficulty", difficulty,
+                "questionCount", questionCount,
+                "durationMinutes", durationMinutes));
 
         return assembleVO(interview, firstQa);
 
     }
 
-    /** 创建首问 QA 记录 */
-    private PortalVoiceInterviewQA insertFirstQa(PortalVoiceInterview interview, PortalInterviewQuestion firstQ,
-                                                 String questionSource, String greetText) {
-        PortalVoiceInterviewQA firstQa = new PortalVoiceInterviewQA();
-        firstQa.setInterviewId(interview.getId());
-        firstQa.setQuestionId(firstQ.getId());
-        firstQa.setQuestionSource(questionSource);
-        firstQa.setQuestionIdx(0);
-        firstQa.setQuestion(firstQ.getTitle());
-        firstQa.setHintUsed(0);
-        firstQa.setTranscriptionEdited(0);
-        firstQa.setCreateTime(LocalDateTime.now());
-        firstQa.setSpeakText(greetText);
-        qaMapper.insert(firstQa);
-        return firstQa;
+    /** V3/V4 面试官系统提示词：agent 人设为主体 + 岗位/难度/题数约束 + 段序约束 + 预热计划渲染 */
+    private String buildInterviewerSystemPrompt(PortalVoiceInterview interview, Agent agent) {
+        String base = StringUtils.isNotEmpty(agent.getSystemPrompt())
+                ? agent.getSystemPrompt()
+                : "你是一位经验丰富的面试官，主持一场专业、自然的模拟面试。";
+        String difficultyDesc;
+        switch (interview.getDifficulty() == null ? "medium" : interview.getDifficulty()) {
+            case "easy" -> difficultyDesc = "简单（基础问题为主，节奏友好）";
+            case "hard" -> difficultyDesc = "深挖（追问细节与原理，考察深度）";
+            default -> difficultyDesc = "适中（常规问题+适度追问）";
+        }
+        StringBuilder sb = new StringBuilder(base);
+        sb.append("\n\n【本场面试约束】\n")
+                .append("- 岗位：").append(StringUtils.isEmpty(interview.getPosition()) ? "综合" : interview.getPosition()).append("\n")
+                .append("- 难度：").append(difficultyDesc).append("\n")
+                .append("- 计划 ").append(interview.getTotalQa() == null ? QUESTION_COUNT : interview.getTotalQa())
+                .append(" 个大问题，每个大问题可按回答情况追问 1-2 次，不要机械背题，围绕候选人实际经历展开。\n");
+        // v11.94.1 段序约束（三段式：自我介绍 → 深挖 → 核心问答；反问融入对话流，非独立段）
+        sb.append("\n【段序约束】\n")
+                .append("- 第 1 个问题固定为：请候选人做自我介绍；")
+                .append("随后 2-3 问必须从其自我介绍内容中提取深挖点逐一追问，之后再扩展到其他考察方向。\n")
+                .append("- 候选人在回答中口头反问时，简短作答后自然回到提问；问满计划题数后，")
+                .append("口播一句“你还有什么想了解的吗？”，候选人若无反问或反问完毕即做简短收尾致谢。\n");
+        // v11.94 V4：预热计划（AI 理解）渲染进 system，滑窗常驻保证不跑题
+        String planSection = renderWarmupPlanSection(interview);
+        if (StringUtils.isNotEmpty(planSection)) {
+            sb.append("\n").append(planSection);
+        }
+        sb.append("\n- 只输出面试官口吻的话，不输出任何分析、评分或格式标记。");
+        return sb.toString();
+    }
+
+    /** v11.94 V4：渲染预热计划段（configJson.warmupPlan → 面试理解 + 考察方向，常驻滑窗 system） */
+    private String renderWarmupPlanSection(PortalVoiceInterview interview) {
+        try {
+            if (StringUtils.isEmpty(interview.getConfigJson())) {
+                return null;
+            }
+            JsonNode plan = objectMapper.readTree(interview.getConfigJson()).path("warmupPlan");
+            if (plan.isMissingNode() || plan.isNull()) {
+                return null;
+            }
+            StringBuilder sb = new StringBuilder("【面试理解（预热生成，面试全程遵循）】\n");
+            JsonNode u = plan.path("understanding");
+            String profile = u.path("candidateProfile").asText("");
+            if (StringUtils.isNotEmpty(profile)) {
+                sb.append("- 候选人画像：").append(profile).append("\n");
+            }
+            appendPlanList(sb, "优势", u.path("strengths"));
+            appendPlanList(sb, "待验证疑点", u.path("concerns"));
+            JsonNode areas = plan.path("interviewPlan").path("focusAreas");
+            if (areas.isArray() && areas.size() > 0) {
+                sb.append("【考察方向】\n");
+                int i = 1;
+                for (JsonNode a : areas) {
+                    String area = a.path("area").asText("");
+                    if (StringUtils.isEmpty(area)) {
+                        continue;
+                    }
+                    sb.append(i++).append(". ").append(area);
+                    String depth = a.path("depth").asText("");
+                    if (StringUtils.isNotEmpty(depth)) {
+                        sb.append("（").append(depth).append("）");
+                    }
+                    String reason = a.path("reason").asText("");
+                    if (StringUtils.isNotEmpty(reason)) {
+                        sb.append("——").append(reason);
+                    }
+                    sb.append("\n");
+                }
+            }
+            return sb.length() > "【面试理解（预热生成，面试全程遵循）】\n".length() ? sb.toString() : null;
+        } catch (Exception e) {
+            log.warn("[VoiceInterview] 预热计划渲染失败 interviewId={}：{}", interview.getId(), e.getMessage());
+            return null;
+        }
+    }
+
+    /** 预热计划列表字段渲染（strengths/concerns） */
+    private void appendPlanList(StringBuilder sb, String label, JsonNode arr) {
+        if (arr == null || !arr.isArray() || arr.isEmpty()) {
+            return;
+        }
+        List<String> items = new ArrayList<>();
+        for (JsonNode n : arr) {
+            String t = n.asText("").trim();
+            if (StringUtils.isNotEmpty(t)) {
+                items.add(t);
+            }
+        }
+        if (!items.isEmpty()) {
+            sb.append("- ").append(label).append("：").append(String.join("；", items)).append("\n");
+        }
+    }
+
+    /** v11.94 V4：预热 RAG——检索 agent 绑定知识库（题库文档），返回 top-5 片段拼装文本（无/失败返回 null） */
+    private String retrieveKbSnippets(Agent agent, String position, String resumeDigest) {
+        try {
+            if (agent == null || agent.getId() == null
+                    || agent.getKnowledgeLibraryIds() == null || agent.getKnowledgeLibraryIds().isEmpty()) {
+                return null;
+            }
+            List<Long> kbIds = agentService.getKnowledgeBaseIds(agent.getId());
+            if (kbIds == null || kbIds.isEmpty()) {
+                return null;
+            }
+            String query = (StringUtils.isEmpty(position) ? "技术面试考察方向" : position + " 岗位面试考察方向");
+            if (StringUtils.isNotEmpty(resumeDigest)) {
+                query += " " + resumeDigest.replace("\n", " ");
+            }
+            List<Content> contents = ragRetrievalService.retrieveContents(query, kbIds, agent);
+            if (contents == null || contents.isEmpty()) {
+                return null;
+            }
+            StringBuilder sb = new StringBuilder();
+            int idx = 0;
+            for (Content c : contents) {
+                if (c == null || c.textSegment() == null) {
+                    continue;
+                }
+                String text = c.textSegment().text();
+                if (StringUtils.isEmpty(text) || idx >= 5) {
+                    continue;
+                }
+                if (sb.length() > 0) {
+                    sb.append("\n---\n");
+                }
+                sb.append("片段").append(idx + 1).append("：")
+                        .append(text.length() > 300 ? text.substring(0, 300) : text);
+                idx++;
+            }
+            return sb.length() == 0 ? null : sb.toString();
+        } catch (Exception e) {
+            log.warn("[VoiceInterview] 预热 RAG 检索失败（跳过知识库注入）：{}", e.getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * v11.94 V4 预热：场景网关 task=warmup 一次调用产出"AI 理解"+开场白+首题。
+     * <p>失败/未启用返回 null，调用方降级 generateOpening 旧链路（不阻塞开面）。</p>
+     */
+    private JsonNode tryWarmup(Agent agent, String position, String difficulty, int questionCount,
+                              String jobRequirements, String resumeDigest, String kbSnippets) {
+        if (!aiGlobalSwitch.isEnabled()) {
+            return null;
+        }
+        try {
+            String context = "岗位：" + (StringUtils.isEmpty(position) ? "综合" : position)
+                    + "\n难度：" + difficulty
+                    + "\n计划问题数：" + questionCount;
+            Map<String, Object> input = new LinkedHashMap<>();
+            input.put("task", "warmup");
+            input.put("context", context);
+            if (StringUtils.isNotEmpty(agent.getSystemPrompt())) {
+                input.put("agentPersona", agent.getSystemPrompt());
+            }
+            if (StringUtils.isNotEmpty(resumeDigest)) {
+                input.put("resumeDigest", resumeDigest);
+            }
+            if (StringUtils.isNotEmpty(jobRequirements)) {
+                input.put("jd", jobRequirements);
+            }
+            if (StringUtils.isNotEmpty(kbSnippets)) {
+                input.put("kbSnippets", kbSnippets);
+            }
+            JsonNode node = aiSceneJsonClient.executeForJson(SCENE_VOICE_INTERVIEW, input, null);
+            if (node == null || StringUtils.isEmpty(node.path("opening").asText(""))
+                    || StringUtils.isEmpty(node.path("firstQuestion").asText(""))) {
+                return null;
+            }
+            return node;
+        } catch (Exception e) {
+            log.warn("[VoiceInterview] 预热 warmup 生成失败（降级 generateOpening 链路）：{}", e.getMessage());
+            return null;
+        }
+    }
+
+    /** V3 同步生成开场白+首题（一次 LLM 调用；失败抛出，由前端进度条期间感知） */
+    private String generateOpening(PortalVoiceInterview interview, Agent agent,
+                                   String systemPrompt, String contextUserMsg) {
+        String instruction = "面试现在开始。请先做简短开场（一两句欢迎与放松提示），"
+                + "然后直接提出第一个面试问题（结合候选人资料，不要编号或多余格式）。";
+        String raw = agentClient.chat(agent, List.of(
+                SystemMessage.from(systemPrompt),
+                new UserMessage(contextUserMsg),
+                new UserMessage(instruction)));
+        if (raw == null || raw.trim().isEmpty()) {
+            throw new ServiceException("面试官开场生成失败，请稍后重试");
+        }
+        return raw.trim();
     }
 
     // ========================================================================
-    // 提交答案（SSE 双通道流）
+    // 提交答案（SSE 流式）
     // ========================================================================
     @Override
-    public SseEmitter submitAnswer(Long interviewId, Long userId, Long qaId, String transcript, Integer latencyMs) {
+    public SseEmitter submitAnswer(Long interviewId, Long userId, Long qaId, String transcript, Integer latencyMs, Boolean skip) {
         PortalVoiceInterview interview = mustOwnInterview(interviewId, userId);
         if ("finished".equals(interview.getStatus())) {
             throw new ServiceException("面试已结束，无法继续作答");
@@ -976,193 +650,269 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
         if (qa == null || !interviewId.equals(qa.getInterviewId())) {
             throw new ServiceException("问答记录不存在");
         }
-        if (StringUtils.isEmpty(transcript)) {
+        boolean isSkip = Boolean.TRUE.equals(skip);
+        if (!isSkip && StringUtils.isEmpty(transcript)) {
             throw new ServiceException("答案不能为空");
         }
 
-        SseEmitter emitter = new SseEmitter(SSE_TIMEOUT);
+        // 原始回答提交即落库（铁律：先存原始，任何后续失败对话不丢；跳过题保持 userAnswer 为空）
+        if (!isSkip) {
+            qa.setUserAnswer(transcript);
+            qa.setAnswerRaw(transcript);
+            qa.setAnswerTime(LocalDateTime.now());
+            qa.setLatencyMs(latencyMs);
+            qaMapper.updateById(qa);
+            recordEvent(interviewId, "answer", Map.of("qaId", qaId,
+                    "latencyMs", latencyMs == null ? 0 : latencyMs));
+        } else {
+            recordEvent(interviewId, "skip", Map.of("qaId", qaId));
+        }
 
-        // 超时/异常优雅收尾：超时后响应已固化，不能再写事件，仅记录日志定位慢环节
-        // （Agent 链路含 LLM 流式 + 失败重试，单轮可能接近超时阈值）
+        // v11.96 时长制守卫：超过配置时长+宽限后拒绝继续作答，并自动收口触发报告（数据不丢）
+        if (isInterviewTimedOut(interview)) {
+            recordEvent(interviewId, "timeout_close", Map.of("qaId", qaId));
+            finishQuietly(interview);
+            SseEmitter timeoutEmitter = new SseEmitter(SSE_TIMEOUT);
+            sendEvent(timeoutEmitter, "delta", toJson(Map.of("t", "本场面试时长已到，感谢你的参与。")));
+            sendEvent(timeoutEmitter, "end", toJson(Map.of(
+                    "roundDone", countAnsweredRounds(interviewId), "finished", true)));
+            timeoutEmitter.complete();
+            return timeoutEmitter;
+        }
+
+        // v11.96 口头结束检测：候选人明确表达结束意图（严格短语），直接收尾（不进 agent 轮次）
+        if (!isSkip && matchesVerbalEnd(transcript)) {
+            recordEvent(interviewId, "verbal_end", Map.of("qaId", qaId));
+            SseEmitter endEmitter = new SseEmitter(SSE_TIMEOUT);
+            sendEvent(endEmitter, "delta", toJson(Map.of("t", "好的，本场面试就到这里，感谢你的参与，稍后可查看面试报告。")));
+            sendEvent(endEmitter, "end", toJson(Map.of(
+                    "roundDone", countAnsweredRounds(interviewId), "finished", true)));
+            endEmitter.complete();
+            return endEmitter;
+        }
+
+        SseEmitter emitter = new SseEmitter(SSE_TIMEOUT);
         emitter.onTimeout(() -> log.warn(
                 "[VoiceInterview] SSE 请求超时（{}ms）interviewId={} qaId={}", SSE_TIMEOUT, interviewId, qaId));
         emitter.onError(t -> log.warn(
                 "[VoiceInterview] SSE 连接异常收尾 interviewId={} qaId={}：{}", interviewId, qaId, t.getMessage()));
 
-        // 异步处理 SSE 事件流
-        sseExecutor.execute(() -> {
-            try {
-                // v11.x 状态机路由：自我介绍 / 反问环节走专用轮次处理
-                if (routePhaseTurn(emitter, interview, qa, transcript, latencyMs)) {
-                    return;
-                }
-
-                // ① 回查原题目，计算规则分
-                PortalInterviewQuestion question = qa.getQuestionId() == null
-                        ? null : questionMapper.selectById(qa.getQuestionId());
-                AnswerScoringEngine.ScoreResult sr = scoreAnswer(question, transcript);
-
-                // V11.0 Agent 链路：绑定 agent 且 AI 可用 → 流式多轮分析 + 决策接管（失败自动回退旧链路）
-                if (interview.getAgentId() != null && agentClient.isEnabled()) {
-                    Agent agent = agentClient.resolveAgent(interview.getAgentId());
-                    if (agent != null) {
-                        // 事件1：规则分先行（打字机 delta 之前到达）
-                        Map<String, Object> scoreData = new LinkedHashMap<>();
-                        scoreData.put("score", sr.score);
-                        scoreData.put("dimensions", sr.dimensions);
-                        sendEvent(emitter, "score", toJson(scoreData));
-                        runAgentTurnStream(emitter, interview, agent, qa, question, transcript, sr, latencyMs);
-                        return;
-                    }
-                }
-
-                // 旧链路（preset / agent 不可用）
-                runLegacyTurn(emitter, interview, qa, question, transcript, sr, latencyMs, false);
-            } catch (Exception e) {
-                log.error("[VoiceInterview] SSE 处理异常 interviewId={} qaId={}", interviewId, qaId, e);
-                try {
-                    emitter.send(SseEmitter.event().name("error").data(e.getMessage()));
-                } catch (IOException ignored) {
-                }
-                emitter.completeWithError(e);
-            }
-        });
-
+        // V3：滑窗记忆 + 面试官流式话术（评分/分析统一留到结束批量报告）
+        sseExecutor.execute(() -> runAgentTurn(emitter, interview, qa, isSkip ? "" : transcript, isSkip));
         return emitter;
     }
 
     /**
-     * 旧链路（preset 模式 / Agent 不可用降级）：V10.4 单轮 LLM 分析 + DECIDING 矩阵 + 预生成题单推进
-     *
-     * @param scoreSent 规则分事件是否已发送（Agent 流式失败降级回来时为 true，避免重复发送）
+     * V3 面试官流式轮次：
+     * 候选人回答（或跳过标记）入滑窗 → LLM 基于完整上下文流式输出面试官话术（delta 打字机）→
+     * 话术入滑窗 + 落库 → 预创建下一题 QA 并随 end 下发 nextQaId/nextQuestion。
+     * v11.96 时长制：问满题数不再收尾，结束仅由用户主动（按钮/口头）或倒计时归零触发。
+     * 无实时评分/无规则决策，深度分析全部留到结束批量报告。
      */
-    private void runLegacyTurn(SseEmitter emitter, PortalVoiceInterview interview, PortalVoiceInterviewQA qa,
-                               PortalInterviewQuestion question, String transcript,
-                               AnswerScoringEngine.ScoreResult sr, Integer latencyMs, boolean scoreSent) {
+    private void runAgentTurn(SseEmitter emitter, PortalVoiceInterview interview,
+                              PortalVoiceInterviewQA qa, String transcript, boolean skip) {
         try {
-            // V10.4 LLM 深度分析：评分校正 + 漏洞识别 + 水平评估 + 追问建议
-                // （LLM 不可用/失败时返回 null，全链路回退规则分，保证可用性）
-                AnswerAnalysis analysis = null;
-                try {
-                    analysis = analyzeAnswerByLlm(interview,
-                            question != null ? question.getTitle() : qa.getQuestion(),
-                            question != null ? question.getAnalysis() : null,
-                            transcript, sr);
-                } catch (Exception llmEx) {
-                    log.warn("[VoiceInterview] LLM 分析异常（回退规则分）：{}", llmEx.getMessage());
-                }
-                if (analysis != null) {
-                    // LLM 分与规则分加权融合，避免单边极端
-                    int fused = (int) Math.round(analysis.score * 0.7 + sr.score * 0.3);
-                    sr = new AnswerScoringEngine.ScoreResult(fused, analysis.feedback, analysis.dimensions);
-                    // 画像累积：漏洞与水平写回 configJson，驱动后续追问上下文
-                    accumulateProfile(interview, analysis);
-                }
-
-                // 保存答案与评分
-                qa.setUserAnswer(transcript);
-                qa.setScore(sr.score);
-                qa.setAiFeedback(sr.feedback);
-                qa.setLatencyMs(latencyMs);
-                qa.setRuleDimensionsJson(toJson(sr.dimensions));
-
-                // ② 决定下一步动作（DECIDING 矩阵 + LLM 漏洞识别增强）
-                String nextAction = decideNextAction(interview, qa, sr.score);
-                // v11.x：新流程题单耗尽 → 候选人反问环节（替代直接 report）
-                if ("report".equals(nextAction) && !InterviewPhase.isLegacy(interview.getPhase())) {
-                    nextAction = "candidate_ask";
-                }
-                // LLM 识别到值得追问的漏洞 且 预算/链深允许 → 追问优先
-                if (analysis != null && analysis.followupWorth
-                        && countFollowupUsed(interview.getId()) < FOLLOWUP_BUDGET
-                        && followupDepthOf(qa) < FOLLOWUP_MAX_DEPTH) {
-                    nextAction = "followup";
-                } else if ("followup".equals(nextAction)
-                        && (countFollowupUsed(interview.getId()) >= FOLLOWUP_BUDGET
-                            || followupDepthOf(qa) >= FOLLOWUP_MAX_DEPTH)) {
-                    // 规则想追问但预算耗尽/链深到顶 → 降级推进
-                    nextAction = "next";
-                }
-                qa.setNextAction(nextAction);
-
-                // ③ 生成话术（LLM 可用时增强，否则规则降级）
-                String speakText = generateSpeakText(interview, question, transcript, sr, nextAction);
-                qa.setSpeakText(speakText);
-                qaMapper.updateById(qa);
-
-                // ④ 发送 SSE 事件
-                // 事件1：规则分（立即返回；Agent 降级场景已发过则跳过）
-                if (!scoreSent) {
-                    Map<String, Object> scoreData = new LinkedHashMap<>();
-                    scoreData.put("score", sr.score);
-                    scoreData.put("dimensions", sr.dimensions);
-                    emitter.send(SseEmitter.event().name("score").data(toJson(scoreData)));
-                }
-
-                // 事件2：LLM 话术（如有）
-                if (StringUtils.isNotEmpty(speakText)) {
-                    emitter.send(SseEmitter.event().name("speak").data(speakText));
-                }
-
-                // 事件3：完整数据（含 nextAction + feedback）
-                Map<String, Object> fullData = new LinkedHashMap<>();
-                fullData.put("qaId", qa.getId());
-                fullData.put("score", sr.score);
-                fullData.put("feedback", sr.feedback);
-                fullData.put("nextAction", nextAction);
-                fullData.put("speakText", speakText);
-
-                // 若 nextAction=next，预创建下一题 QA
-                if ("next".equals(nextAction)) {
-                    VoiceInterviewQAWrapper nextWrapper = advanceToNextQuestion(interview);
-                    if (nextWrapper != null) {
-                        fullData.put("nextQaId", nextWrapper.qa.getId());
-                        fullData.put("nextQuestion", nextWrapper.qa.getQuestion());
-                        fullData.put("nextSpeakText", nextWrapper.qa.getSpeakText());
-                    } else if (!tryEnterCandidateAsk(interview, qa, fullData)) {
-                        // 无下一题，改为 report
-                        fullData.put("nextAction", "report");
-                        qa.setNextAction("report");
-                        qaMapper.updateById(qa);
-                    }
-                } else if ("candidate_ask".equals(nextAction)) {
-                    if (!tryEnterCandidateAsk(interview, qa, fullData)) {
-                        fullData.put("nextAction", "report");
-                        qa.setNextAction("report");
-                        qaMapper.updateById(qa);
-                    }
-                } else if ("followup".equals(nextAction)) {
-                    // 追问：创建追问 QA（V10.4 优先用 LLM 针对候选人原话漏洞生成的问题）
-                    String followupQuestion = generateFollowupQuestion(interview,
-                            question != null ? question.getTitle() : qa.getQuestion(),
-                            transcript, analysis, followupDepthOf(qa));
-                    PortalVoiceInterviewQA followup = createFollowupQa(interview, qa, question, sr, followupQuestion, analysis);
-                    fullData.put("nextQaId", followup.getId());
-                    fullData.put("nextQuestion", followup.getQuestion());
-                    fullData.put("nextSpeakText", followup.getSpeakText());
-                }
-
-                // V10.4：LLM 引导提示（回答跑偏时引导用户回答，而非直接判死）
-                if (analysis != null && StringUtils.isNotEmpty(analysis.guidance)) {
-                    fullData.put("guidance", analysis.guidance);
-                }
-
-                emitter.send(SseEmitter.event().name("data").data(toJson(fullData)));
-
-                // 事件4：结束
-                emitter.send(SseEmitter.event().name("end").data("{}"));
+            Agent agent = agentClient.resolveAgent(interview.getAgentId());
+            if (agent == null || !agentClient.isEnabled()) {
+                sendEvent(emitter, "error", "AI 面试官不可用，请联系管理员配置");
                 emitter.complete();
+                return;
+            }
+            // 回答入滑窗（面试官话术即基于完整上下文，彻底消除重复提问；跳过注入标记）
+            MessageWindowChatMemory memory = memoryService.getMemory(interview.getId(), agent.getMaxHistoryTurns());
+            memory.add(new UserMessage(skip ? "（候选人表示跳过本题）" : transcript));
 
+            List<ChatMessage> messages = new ArrayList<>(memory.messages());
+            // 每轮唯一动态指令：话术风格约束 + 轮次进度（提示收尾时机）
+            messages.add(new UserMessage(buildTurnDirective(interview, skip)));
+
+            AtomicBoolean finished = new AtomicBoolean(false);
+            agentClient.chatStream(agent, messages,
+                    // onToken：面试官话术增量实时下发（前端打字机 + 分句 TTS）
+                    token -> {
+                        if (token == null || token.isEmpty()) {
+                            return;
+                        }
+                        Map<String, Object> delta = new LinkedHashMap<>();
+                        delta.put("t", token);
+                        sendEvent(emitter, "delta", toJson(delta));
+                    },
+                    // onComplete：话术入滑窗 + 落库 → 创建下一题 → end（nextQaId/finished）
+                    full -> {
+                        if (!finished.compareAndSet(false, true)) {
+                            return;
+                        }
+                        String speak = full == null ? "" : full.trim();
+                        try {
+                            if (!speak.isEmpty()) {
+                                memory.add(new AiMessage(speak));
+                            }
+                            qa.setSpeakText(speak);
+                            qaMapper.updateById(qa);
+
+                            // end 载荷：轮次进度 + 下一题
+                            // v11.96 时长制：题数仅作软参考，问满不再收尾——
+                            // 结束只能由用户主动（按钮/口头）或倒计时归零触发
+                            Map<String, Object> payload = new LinkedHashMap<>();
+                            int done = countAnsweredRounds(interview.getId());
+                            payload.put("roundDone", done);
+                            // 预创建下一题 QA（question=面试官话术全文，报告回放与作答锚点）
+                            PortalVoiceInterviewQA nextQa = new PortalVoiceInterviewQA();
+                            nextQa.setInterviewId(interview.getId());
+                            nextQa.setQuestionSource("agent");
+                            nextQa.setQuestionIdx((qa.getQuestionIdx() == null ? 0 : qa.getQuestionIdx()) + 1);
+                            nextQa.setQuestion(speak);
+                            nextQa.setSpeakText(speak);
+                            nextQa.setHintUsed(0);
+                            nextQa.setTranscriptionEdited(0);
+                            nextQa.setCreateTime(LocalDateTime.now());
+                            qaMapper.insert(nextQa);
+                            payload.put("nextQaId", nextQa.getId());
+                            payload.put("nextQuestion", speak);
+                            recordEvent(interview.getId(), "next", Map.of(
+                                    "qaId", qa.getId(), "nextQaId", nextQa.getId()));
+                            sendEvent(emitter, "end", toJson(payload));
+                            emitter.complete();
+                        } catch (Exception e) {
+                            log.error("[VoiceInterview] 轮次收尾异常 interviewId={}", interview.getId(), e);
+                            sendEvent(emitter, "error", "面试官响应处理失败");
+                            emitter.complete();
+                        }
+                    },
+                    // onError：直接提示（不再维护规则降级链路）
+                    err -> {
+                        if (!finished.compareAndSet(false, true)) {
+                            return;
+                        }
+                        log.error("[VoiceInterview] 面试官流式失败 interviewId={} qaId={}", interview.getId(), qa.getId(), err);
+                        sendEvent(emitter, "error", "面试官响应失败，请稍后重试");
+                        emitter.complete();
+                    });
         } catch (Exception e) {
-            log.error("[VoiceInterview] 旧链路处理异常 interviewId={} qaId={}", interview.getId(), qa.getId(), e);
+            log.error("[VoiceInterview] SSE 处理异常 interviewId={} qaId={}", interview.getId(), qa.getId(), e);
             sendEvent(emitter, "error", e.getMessage());
-            emitter.completeWithError(e);
+            emitter.complete();
         }
     }
 
-    // ========================================================================
-    // v11.x 6阶段状态机：自我介绍 / 候选人反问
-    // ========================================================================
+    /**
+     * 每轮任务指令：只约束话术形态，不参与出题决策（面试官自主推进）。
+     * v11.96 时长制：以剩余时长提示收尾节奏（临近结束提示自然收口），题数仅作进度展示。
+     */
+    private String buildTurnDirective(PortalVoiceInterview interview, boolean skip) {
+        int done = countAnsweredRounds(interview.getId());
+        String skipNote = skip ? "候选人刚刚选择跳过本题（未作答），请简短带过、不做追问，自然转入下一个方向。"
+                : "请以面试官身份回应候选人的回答：先一两句简要反馈，再自然提出你的下一个问题或针对性追问。";
+        // v11.96 时长制：剩余时长感知（结束由候选人主动提出或倒计时归零，不由题数决定）
+        long remainMin = remainMinutesOf(interview);
+        String timeNote;
+        if (remainMin <= 0) {
+            timeNote = "（本场面试时间已到，请以面试官身份做简短收尾致谢。）";
+        } else if (remainMin <= 2) {
+            timeNote = "（本场面试临近结束，请在当前话题自然收口，不再展开新的考察方向。）";
+        } else {
+            timeNote = "（本场面试剩余约 " + remainMin + " 分钟，可自主把握提问节奏与深度。）";
+        }
+        return skipNote
+                + "只输出面试官会说的话，不要任何分析、标记或多余格式。"
+                + "（本场已问 " + done + " 个大问题）" + timeNote;
+    }
+
+    /** v11.96 时长制：本场剩余分钟数（负值表示已超时；配置缺失按 sys_config 当前值） */
+    private long remainMinutesOf(PortalVoiceInterview interview) {
+        int duration = durationOf(interview);
+        if (interview.getCreateTime() == null) {
+            return duration;
+        }
+        return java.time.Duration.between(LocalDateTime.now(),
+                interview.getCreateTime().plusMinutes(duration)).toMinutes();
+    }
+
+    /** v11.96 时长制：是否已超配置时长+宽限（服务端守卫，前端倒计时失灵时兜底收口） */
+    private boolean isInterviewTimedOut(PortalVoiceInterview interview) {
+        if (interview.getCreateTime() == null) {
+            return false;
+        }
+        return LocalDateTime.now()
+                .isAfter(interview.getCreateTime().plusMinutes(durationOf(interview) + DURATION_GRACE_MINUTES));
+    }
+
+    /** v11.96 时长制：读 sys_config 面试时长（分钟，缺省 20，范围 5-120） */
+    private int resolveDurationMinutes() {
+        try {
+            String value = sysConfigService.selectConfigByKey(CONFIG_KEY_DURATION);
+            if (value != null && !value.isBlank()) {
+                return Math.max(5, Math.min(120, Integer.parseInt(value.trim())));
+            }
+        } catch (Exception e) {
+            log.warn("[VoiceInterview] 读取面试时长配置失败，使用默认 {} 分钟：{}", DEFAULT_DURATION_MINUTES, e.getMessage());
+        }
+        return DEFAULT_DURATION_MINUTES;
+    }
+
+    /** v11.96 时长制：本场时长（configJson 优先，旧会话回退 sys_config 当前值） */
+    private int durationOf(PortalVoiceInterview interview) {
+        String v = readConfigKey(interview, "durationMinutes");
+        if (!v.isEmpty()) {
+            try {
+                return Math.max(5, Math.min(120, Integer.parseInt(v)));
+            } catch (NumberFormatException ignored) {
+            }
+        }
+        return resolveDurationMinutes();
+    }
+
+    /** v11.96 口头结束意图检测（严格短语匹配，避免答案内容误判） */
+    private boolean matchesVerbalEnd(String transcript) {
+        return transcript != null && VERBAL_END_PATTERN.matcher(transcript).find();
+    }
+
+    /**
+     * v11.96：静默收口（服务端守卫路径）——与 finish() 同逻辑但不返回报告：
+     * 收口状态 + 释放滑窗 + 触发异步批量分析；已结束的幂等跳过。
+     */
+    private void finishQuietly(PortalVoiceInterview interview) {
+        try {
+            if ("finished".equals(interview.getStatus())) {
+                return;
+            }
+            interview.setStatus("finished");
+            interview.setClosedReason("timeout");
+            if (interview.getAnalysisStatus() == null || interview.getAnalysisStatus() == 0) {
+                interview.setAnalysisStatus(1);
+            }
+            interview.setAnalysisProgress(0);
+            interviewMapper.updateById(interview);
+            recordEvent(interview.getId(), "finish", Map.of("closedReason", "timeout"));
+            memoryService.clear(interview.getId());
+            triggerBatchAnalysis(interview.getId());
+        } catch (Exception e) {
+            log.error("[VoiceInterview] 超时收口失败 interviewId={}：{}", interview.getId(), e.getMessage(), e);
+        }
+    }
+
+    /** 已答轮数（有回答的 QA 计数） */
+    private int countAnsweredRounds(Long interviewId) {
+        Long n = qaMapper.selectCount(Wrappers.<PortalVoiceInterviewQA>lambdaQuery()
+                .eq(PortalVoiceInterviewQA::getInterviewId, interviewId)
+                .isNotNull(PortalVoiceInterviewQA::getUserAnswer));
+        return n == null ? 0 : n.intValue();
+    }
+
+    /** v11.88 V2：记录会话事件（只增不改，链路追溯/断点恢复依据） */
+    private void recordEvent(Long interviewId, String eventType, Map<String, Object> data) {
+        try {
+            com.moyun.portal.domain.entity.PortalVoiceInterviewEvent event =
+                    new com.moyun.portal.domain.entity.PortalVoiceInterviewEvent();
+            event.setInterviewId(interviewId);
+            event.setEventType(eventType);
+            event.setEventData(data == null ? null : toJson(data));
+            event.setCreateTime(LocalDateTime.now());
+            eventMapper.insert(event);
+        } catch (Exception e) {
+            log.warn("[VoiceInterview] 事件记录失败 interviewId={} type={}：{}", interviewId, eventType, e.getMessage());
+        }
+    }
 
     /** 面试配置（默认配置）宽容加载：失败/无配置返回 null */
     private PortalInterviewConfig loadInterviewConfigQuietly() {
@@ -1174,810 +924,8 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
         }
     }
 
-    /** 创建自我介绍 QA（questionSource=self_intro，questionIdx=-1 不占主问序号） */
-    private PortalVoiceInterviewQA insertSelfIntroQa(PortalVoiceInterview interview, String introQuestion, String greetText) {
-        PortalVoiceInterviewQA introQa = new PortalVoiceInterviewQA();
-        introQa.setInterviewId(interview.getId());
-        introQa.setQuestionSource("self_intro");
-        introQa.setQuestionIdx(-1);
-        introQa.setQuestion(introQuestion);
-        introQa.setHintUsed(0);
-        introQa.setTranscriptionEdited(0);
-        introQa.setCreateTime(LocalDateTime.now());
-        introQa.setSpeakText(greetText);
-        qaMapper.insert(introQa);
-        return introQa;
-    }
-
-    /** 查找自我介绍主 QA（questionSource=self_intro 且非追问） */
-    private PortalVoiceInterviewQA findSelfIntroQa(Long interviewId) {
-        return qaMapper.selectList(Wrappers.<PortalVoiceInterviewQA>lambdaQuery()
-                        .eq(PortalVoiceInterviewQA::getInterviewId, interviewId)
-                        .eq(PortalVoiceInterviewQA::getQuestionSource, "self_intro")
-                        .isNull(PortalVoiceInterviewQA::getParentQaId)
-                        .eq(PortalVoiceInterviewQA::getDelFlag, "0")
-                        .last("LIMIT 1"))
-                .stream().findFirst().orElse(null);
-    }
-
-    @Override
-    @Transactional(rollbackFor = Exception.class)
-    public VoiceInterviewVO submitSelfIntro(Long interviewId, Long userId, String transcript) {
-        PortalVoiceInterview interview = mustOwnInterview(interviewId, userId);
-        if ("finished".equals(interview.getStatus())) {
-            throw new ServiceException("面试已结束，无法提交自我介绍");
-        }
-        if (!InterviewPhase.INTRO_WAITING.code().equals(interview.getPhase())) {
-            throw new ServiceException("当前面试不在自我介绍环节");
-        }
-        if (StringUtils.isEmpty(transcript) || transcript.trim().length() < 10) {
-            throw new ServiceException("自我介绍内容过短，请至少输入10个字");
-        }
-        PortalVoiceInterviewQA introQa = findSelfIntroQa(interviewId);
-        if (introQa == null) {
-            throw new ServiceException("自我介绍环节记录缺失，请重新开始面试");
-        }
-
-        IntroTurnOutcome outcome = handleIntroSubmission(interview, introQa, transcript);
-        return assembleVO(interview, outcome.nextQa);
-    }
-
-    /** 自我介绍提交核心处理：评分 → 追问或进入首题（endpoint 与 SSE 共用） */
-    private IntroTurnOutcome handleIntroSubmission(PortalVoiceInterview interview, PortalVoiceInterviewQA introQa, String transcript) {
-        // ① ScoringEngine 4 维度评分（LLM 优先，规则兜底）
-        PortalInterviewConfig ic = loadInterviewConfigQuietly();
-        ScoringEngine.IntroScore introScore = scoringEngine.evaluateSelfIntro(
-                interview.getPosition(), transcript, ic == null ? null : ic.getScoringWeights(),
-                interview.getUserId());
-
-        // ② 持久化 QA 与主表评分
-        String ack = StringUtils.isNotEmpty(introScore.getComment())
-                ? introScore.getComment() : "感谢你的自我介绍。";
-        introQa.setUserAnswer(transcript);
-        introQa.setScore(introScore.getTotal());
-        introQa.setAiFeedback(introScore.getComment());
-        introQa.setRuleDimensionsJson(toJson(introScore.getDimensions()));
-        interview.setIntroScoreJson(toJson(introScore));
-
-        IntroTurnOutcome outcome = new IntroTurnOutcome();
-        outcome.introScore = introScore;
-        outcome.introQa = introQa;
-
-        // ③ 追问判定：LLM 识别到值得追问的模糊点 → INTRO_FOLLOWUP（最多 1 轮）
-        if (introScore.isFollowupWorth() && StringUtils.isNotEmpty(introScore.getFollowupQuestion())) {
-            String followupQuestion = introScore.getFollowupQuestion().trim();
-            if (followupQuestion.length() > 5 && followupQuestion.length() <= 200) {
-                PortalVoiceInterviewQA followup = new PortalVoiceInterviewQA();
-                followup.setInterviewId(interview.getId());
-                followup.setQuestionSource("self_intro_followup");
-                followup.setQuestionIdx(-1);
-                followup.setParentQaId(introQa.getId());
-                followup.setHintUsed(0);
-                followup.setTranscriptionEdited(0);
-                followup.setCreateTime(LocalDateTime.now());
-                followup.setQuestion(followupQuestion);
-                followup.setSpeakText(ack + " " + followupQuestion);
-                qaMapper.insert(followup);
-
-                introQa.setNextAction("followup");
-                introQa.setSpeakText(ack + " " + followupQuestion);
-                qaMapper.updateById(introQa);
-
-                interview.setPhase(InterviewPhase.INTRO_FOLLOWUP.code());
-                interviewMapper.updateById(interview);
-                outcome.nextQa = followup;
-                outcome.nextAction = "followup";
-                return outcome;
-            }
-        }
-
-        // ④ 无追问 → 进入首题（TECH/PROJECT/SYSTEM 按题目落位）
-        introQa.setNextAction("next");
-        introQa.setSpeakText(ack);
-        qaMapper.updateById(introQa);
-        interview.setPhase(InterviewPhase.INTRO_RECEIVED.code());
-        interviewMapper.updateById(interview);
-
-        outcome.nextQa = advanceToFirstTechQuestion(interview, "好的，那我们进入正题。");
-        outcome.nextAction = "next";
-        return outcome;
-    }
-
-    /**
-     * 自我介绍后进入首题：preset 从缓存题单取 idx=0；dynamic 由 agent 生成（失败题库兜底）
-     */
-    private PortalVoiceInterviewQA advanceToFirstTechQuestion(PortalVoiceInterview interview, String transition) {
-        boolean dynamic = isDynamicInterview(interview);
-        PortalInterviewQuestion firstQ = null;
-        String source = "bank";
-        if (dynamic) {
-            Agent agent = interview.getAgentId() == null ? null : agentClient.resolveAgent(interview.getAgentId());
-            if (agent == null && agentClient.isEnabled()) {
-                agent = agentClient.resolveAgentForScene(agentClient.resolveScene(SCENE_VOICE_INTERVIEW), null);
-            }
-            if (agent != null) {
-                firstQ = generateFirstQuestionByAgent(interview, agent);
-                if (firstQ != null) {
-                    source = firstQ.getId() != null ? "bank" : "llm";
-                }
-            }
-            if (firstQ == null) {
-                List<PortalInterviewQuestion> fallback = pickQuestions(interview.getPosition(), interview.getScene(), 1,
-                        interview.getUserId());
-                if (fallback.isEmpty()) {
-                    throw new ServiceException("题库中暂无可用题目，请稍后再试");
-                }
-                firstQ = fallback.get(0);
-            }
-        } else {
-            List<Long> qIds = extractQuestionIds(interview.getConfigJson());
-            if (!qIds.isEmpty()) {
-                Long qId = qIds.get(0);
-                if (qId != null) {
-                    firstQ = questionMapper.selectById(qId);
-                } else {
-                    // 简历锚定题：从快照恢复
-                    String title = extractQuestionSnapshotTitle(interview.getConfigJson(), 0);
-                    if (StringUtils.isEmpty(title)) {
-                        throw new ServiceException("题单快照缺失，请重新开始面试");
-                    }
-                    firstQ = new PortalInterviewQuestion();
-                    firstQ.setTitle(title);
-                    source = "resume_project";
-                }
-            }
-            if (firstQ == null) {
-                List<PortalInterviewQuestion> fallback = pickQuestions(interview.getPosition(), interview.getScene(), 1,
-                        interview.getUserId());
-                if (fallback.isEmpty()) {
-                    throw new ServiceException("题库中暂无可用题目，请稍后再试");
-                }
-                firstQ = fallback.get(0);
-            }
-        }
-        String speak = (transition == null ? "" : transition + " ")
-                + buildQuestionIntro(interview.getStyle(), firstQ.getTitle(), 1);
-        PortalVoiceInterviewQA firstQa = insertFirstQa(interview, firstQ, source, speak);
-        interview.setCurrentIdx(0);
-        if (!InterviewPhase.isLegacy(interview.getPhase())) {
-            interview.setPhase(phaseForQuestion(firstQa.getQuestionId(), firstQa.getQuestion(), interview));
-        }
-        interviewMapper.updateById(interview);
-        return firstQa;
-    }
-
-    /** 按题目特征落位阶段：锚定题→PROJECT_DEEP；question_type=system/场景→SYSTEM_DESIGN；默认 TECH */
-    private String phaseForQuestion(Long questionId, String questionTitle, PortalVoiceInterview interview) {
-        if (questionId == null) {
-            return InterviewPhase.PROJECT_DEEP.code();
-        }
-        PortalInterviewQuestion q = questionMapper.selectById(questionId);
-        String type = q == null ? null : q.getQuestionType();
-        if (StringUtils.isNotEmpty(type)) {
-            String t = type.toLowerCase();
-            if (t.contains("project")) {
-                return InterviewPhase.PROJECT_DEEP.code();
-            }
-            if (t.contains("system")) {
-                return InterviewPhase.SYSTEM_DESIGN.code();
-            }
-        }
-        if (StringUtils.isNotEmpty(interview.getScene()) && interview.getScene().contains("系统设计")) {
-            return InterviewPhase.SYSTEM_DESIGN.code();
-        }
-        return InterviewPhase.TECH_QUESTION.code();
-    }
-
-    /**
-     * 状态机轮次路由（submitAnswer 入口）：
-     * self_intro / self_intro_followup / candidate_ask 专用处理；返回 true 表示已接管
-     */
-    private boolean routePhaseTurn(SseEmitter emitter, PortalVoiceInterview interview,
-                                   PortalVoiceInterviewQA qa, String transcript, Integer latencyMs) {
-        String phase = interview.getPhase();
-        if (InterviewPhase.isLegacy(phase)) {
-            return false;
-        }
-        String source = qa.getQuestionSource();
-        if ("self_intro".equals(source) && InterviewPhase.INTRO_WAITING.code().equals(phase)) {
-            // 前端误走 answer 接口：与 /self-intro 同核心逻辑，SSE 事件包装
-            runSelfIntroTurn(emitter, interview, qa, transcript);
-            return true;
-        }
-        if ("self_intro_followup".equals(source) && InterviewPhase.INTRO_FOLLOWUP.code().equals(phase)) {
-            runIntroFollowupTurn(emitter, interview, qa, transcript, latencyMs);
-            return true;
-        }
-        if ("candidate_ask".equals(source) && InterviewPhase.CANDIDATE_ASK.code().equals(phase)) {
-            runCandidateAskTurn(emitter, interview, qa, transcript);
-            return true;
-        }
-        return false;
-    }
-
-    /** SSE 包装：自我介绍提交（与 /self-intro 同核心） */
-    private void runSelfIntroTurn(SseEmitter emitter, PortalVoiceInterview interview,
-                                  PortalVoiceInterviewQA introQa, String transcript) {
-        try {
-            IntroTurnOutcome outcome = handleIntroSubmission(interview, introQa, transcript);
-            Map<String, Object> scoreData = new LinkedHashMap<>();
-            scoreData.put("score", outcome.introScore.getTotal());
-            scoreData.put("dimensions", outcome.introScore.getDimensions());
-            sendEvent(emitter, "score", toJson(scoreData));
-            sendEvent(emitter, "speak", outcome.introQa.getSpeakText());
-            Map<String, Object> fullData = new LinkedHashMap<>();
-            fullData.put("qaId", outcome.introQa.getId());
-            fullData.put("score", outcome.introScore.getTotal());
-            fullData.put("feedback", outcome.introScore.getComment());
-            fullData.put("nextAction", outcome.nextAction);
-            fullData.put("speakText", outcome.introQa.getSpeakText());
-            if (outcome.nextQa != null) {
-                fullData.put("nextQaId", outcome.nextQa.getId());
-                fullData.put("nextQuestion", outcome.nextQa.getQuestion());
-                fullData.put("nextSpeakText", outcome.nextQa.getSpeakText());
-            }
-            fullData.put("introScore", outcome.introScore);
-            emitter.send(SseEmitter.event().name("data").data(toJson(fullData)));
-            emitter.send(SseEmitter.event().name("end").data("{}"));
-            emitter.complete();
-        } catch (Exception e) {
-            log.error("[VoiceInterview] 自我介绍处理异常 interviewId={}", interview.getId(), e);
-            sendEvent(emitter, "error", e.getMessage());
-            emitter.completeWithError(e);
-        }
-    }
-
-    /** SSE：自我介绍追问回答 → 简要反馈后进入首题 */
-    private void runIntroFollowupTurn(SseEmitter emitter, PortalVoiceInterview interview,
-                                      PortalVoiceInterviewQA qa, String transcript, Integer latencyMs) {
-        try {
-            AnswerScoringEngine.ScoreResult sr = scoreAnswer(null, transcript);
-            AnswerAnalysis analysis = null;
-            try {
-                analysis = analyzeAnswerByLlm(interview, qa.getQuestion(), null, transcript, sr);
-            } catch (Exception ignored) {
-            }
-            if (analysis != null) {
-                int fused = (int) Math.round(analysis.score * 0.7 + sr.score * 0.3);
-                sr = new AnswerScoringEngine.ScoreResult(fused, analysis.feedback, analysis.dimensions);
-                accumulateProfile(interview, analysis);
-            }
-            qa.setUserAnswer(transcript);
-            qa.setScore(sr.score);
-            qa.setAiFeedback(sr.feedback);
-            qa.setLatencyMs(latencyMs);
-            qa.setRuleDimensionsJson(toJson(sr.dimensions));
-
-            // 进入首题
-            PortalVoiceInterviewQA firstQa = advanceToFirstTechQuestion(interview, "好的，感谢你的补充。");
-            qa.setNextAction("next");
-
-            Map<String, Object> scoreData = new LinkedHashMap<>();
-            scoreData.put("score", sr.score);
-            scoreData.put("dimensions", sr.dimensions);
-            sendEvent(emitter, "score", toJson(scoreData));
-            String speak = StringUtils.isNotEmpty(sr.feedback) ? sr.feedback : "好的，了解了。";
-            qa.setSpeakText(speak);
-            qaMapper.updateById(qa);
-            sendEvent(emitter, "speak", speak);
-            Map<String, Object> fullData = new LinkedHashMap<>();
-            fullData.put("qaId", qa.getId());
-            fullData.put("score", sr.score);
-            fullData.put("feedback", sr.feedback);
-            fullData.put("nextAction", "next");
-            fullData.put("nextQaId", firstQa.getId());
-            fullData.put("nextQuestion", firstQa.getQuestion());
-            fullData.put("nextSpeakText", firstQa.getSpeakText());
-            emitter.send(SseEmitter.event().name("data").data(toJson(fullData)));
-            emitter.send(SseEmitter.event().name("end").data("{}"));
-            emitter.complete();
-        } catch (Exception e) {
-            log.error("[VoiceInterview] 自我介绍追问处理异常 interviewId={}", interview.getId(), e);
-            sendEvent(emitter, "error", e.getMessage());
-            emitter.completeWithError(e);
-        }
-    }
-
-    /** 候选人反问 QA 创建（题单耗尽后进入，最多 3 问） */
-    private PortalVoiceInterviewQA enterCandidateAsk(PortalVoiceInterview interview) {
-        PortalVoiceInterviewQA askQa = new PortalVoiceInterviewQA();
-        askQa.setInterviewId(interview.getId());
-        askQa.setQuestionSource("candidate_ask");
-        askQa.setQuestionIdx(interview.getCurrentIdx() == null ? 0 : interview.getCurrentIdx());
-        askQa.setHintUsed(0);
-        askQa.setTranscriptionEdited(0);
-        askQa.setCreateTime(LocalDateTime.now());
-        askQa.setQuestion("好的，我这边的问题问完了。你有什么想问我的吗？关于岗位、团队或技术方向都可以。");
-        askQa.setSpeakText("好的，我这边的问题问完了。你有什么想问我的吗？");
-        qaMapper.insert(askQa);
-        interview.setPhase(InterviewPhase.CANDIDATE_ASK.code());
-        interviewMapper.updateById(interview);
-        return askQa;
-    }
-
-    /**
-     * 尝试进入候选人反问环节（新流程专用）：
-     * 旧流程 / 已在反问 / 自我介绍阶段返回 false（走原 report 逻辑）
-     */
-    private boolean tryEnterCandidateAsk(PortalVoiceInterview interview, PortalVoiceInterviewQA qa,
-                                         Map<String, Object> fullData) {
-        String phase = interview.getPhase();
-        if (InterviewPhase.isLegacy(phase) || InterviewPhase.isIntro(phase)
-                || InterviewPhase.CANDIDATE_ASK.code().equals(phase)
-                || InterviewPhase.FINISHED.code().equals(phase)) {
-            return false;
-        }
-        PortalVoiceInterviewQA askQa = enterCandidateAsk(interview);
-        qa.setNextAction("next");
-        fullData.put("nextAction", "next");
-        fullData.put("nextQaId", askQa.getId());
-        fullData.put("nextQuestion", askQa.getQuestion());
-        fullData.put("nextSpeakText", askQa.getSpeakText());
-        return true;
-    }
-
-    /** 本场已产生的候选人反问 QA 数（含当前） */
-    private int countCandidateAsks(Long interviewId) {
-        return Math.toIntExact(qaMapper.selectCount(
-                Wrappers.<PortalVoiceInterviewQA>lambdaQuery()
-                        .eq(PortalVoiceInterviewQA::getInterviewId, interviewId)
-                        .eq(PortalVoiceInterviewQA::getQuestionSource, "candidate_ask")
-                        .eq(PortalVoiceInterviewQA::getDelFlag, "0")));
-    }
-
-    /** SSE：候选人反问轮次（"没有了"结束 / 面试官解答后继续，最多 3 问） */
-    private void runCandidateAskTurn(SseEmitter emitter, PortalVoiceInterview interview,
-                                     PortalVoiceInterviewQA qa, String transcript) {
-        try {
-            qa.setUserAnswer(transcript);
-            int asksUsed = countCandidateAsks(interview.getId());
-            boolean noMore = isNoMoreQuestions(transcript);
-            String speak;
-            Map<String, Object> fullData = new LinkedHashMap<>();
-            fullData.put("qaId", qa.getId());
-            fullData.put("phase", InterviewPhase.CANDIDATE_ASK.code());
-
-            if (noMore || asksUsed >= CANDIDATE_ASK_MAX) {
-                qa.setNextAction("report");
-                fullData.put("nextAction", "report");
-                fullData.put("askFinished", true);
-                speak = !noMore && asksUsed >= CANDIDATE_ASK_MAX
-                        ? "由于时间关系，反问环节就先到这里。感谢你的参与，我来为你生成面试报告。"
-                        : "好的，那今天的面试就到这里。感谢你的参与，我来为你生成面试报告。";
-            } else {
-                // 面试官解答候选人提问（agent/LLM 优先，规则模板兜底）
-                String answer = answerCandidateQuestion(interview, transcript);
-                qa.setAiFeedback(answer);
-                speak = answer + " 你还有什么想问的吗？如果没有，我们就结束今天的面试。";
-                PortalVoiceInterviewQA next = new PortalVoiceInterviewQA();
-                next.setInterviewId(interview.getId());
-                next.setQuestionSource("candidate_ask");
-                next.setQuestionIdx(qa.getQuestionIdx());
-                next.setHintUsed(0);
-                next.setTranscriptionEdited(0);
-                next.setCreateTime(LocalDateTime.now());
-                next.setQuestion("你还有什么想问我的吗？");
-                next.setSpeakText("你还有什么想问我的吗？");
-                qaMapper.insert(next);
-                qa.setNextAction("next");
-                fullData.put("nextAction", "next");
-                fullData.put("nextQaId", next.getId());
-                fullData.put("nextQuestion", next.getQuestion());
-                fullData.put("nextSpeakText", next.getSpeakText());
-            }
-            qa.setSpeakText(speak);
-            qaMapper.updateById(qa);
-            sendEvent(emitter, "speak", speak);
-            emitter.send(SseEmitter.event().name("data").data(toJson(fullData)));
-            emitter.send(SseEmitter.event().name("end").data("{}"));
-            emitter.complete();
-        } catch (Exception e) {
-            log.error("[VoiceInterview] 候选人反问处理异常 interviewId={}", interview.getId(), e);
-            sendEvent(emitter, "error", e.getMessage());
-            emitter.completeWithError(e);
-        }
-    }
-
-    /** 候选人明确表示无问题（规则判定，宽松匹配） */
-    private boolean isNoMoreQuestions(String transcript) {
-        if (StringUtils.isEmpty(transcript)) {
-            return true;
-        }
-        String t = transcript.trim();
-        return t.contains("没有") || t.contains("没了") || t.contains("无问题")
-                || t.contains("不用了") || t.contains("结束") || t.length() <= 4;
-    }
-
-    /** 面试官回答候选人提问（agent/LLM 优先，规则模板兜底） */
-    private String answerCandidateQuestion(PortalVoiceInterview interview, String transcript) {
-        if (agentClient.isEnabled()) {
-            try {
-                Agent agent = interview.getAgentId() == null ? null : agentClient.resolveAgent(interview.getAgentId());
-                if (agent == null) {
-                    agent = agentClient.resolveAgentForScene(agentClient.resolveScene(SCENE_VOICE_INTERVIEW), null);
-                }
-                if (agent != null) {
-                    String raw = agentClient.chat(agent, List.of(
-                            SystemMessage.from(buildAgentSystemMessage(interview, agent)
-                                    + "\n现在进入候选人反问环节：请以面试官身份简洁专业地回答候选人的提问（150字以内）。"),
-                            UserMessage.from("候选人提问：" + transcript)));
-                    if (StringUtils.isNotEmpty(raw)) {
-                        return raw.trim();
-                    }
-                }
-            } catch (Exception e) {
-                log.warn("[VoiceInterview] agent 回答候选人提问失败：{}", e.getMessage());
-            }
-        }
-        // v11.58 P0-3c：LLM 直调收口网关（voice_interview 场景 task=candidate_ask 子任务）
-        if (aiProperties.isEnabled()) {
-            try {
-                String context = buildContextualSystemPrompt(interview);
-                com.fasterxml.jackson.databind.JsonNode node = aiSceneJsonClient.executeForJson(
-                        SCENE_VOICE_INTERVIEW,
-                        Map.of("task", "candidate_ask",
-                                "context", context,
-                                "transcript", transcript),
-                        interview.getUserId());
-                if (node != null) {
-                    String resp = node.path("text").asText("");
-                    if (StringUtils.isNotEmpty(resp)) {
-                        return resp.trim();
-                    }
-                }
-            } catch (Exception e) {
-                log.warn("[VoiceInterview] LLM 回答候选人提问失败：{}", e.getMessage());
-            }
-        }
-        return "这是个好问题。具体细节会因团队安排而有所不同，欢迎入职后与团队负责人深入交流。";
-    }
-
-    /** 自我介绍轮次结果（endpoint 与 SSE 共用中间态） */
-    private static class IntroTurnOutcome {
-        ScoringEngine.IntroScore introScore;
-        PortalVoiceInterviewQA introQa;
-        PortalVoiceInterviewQA nextQa;
-        String nextAction;
-    }
     // ========================================================================
-    // V11.0 Agent 轮次：流式分析 + 决策接管
-    // ========================================================================
-
-    /**
-     * Agent 流式轮次：score 已先行发送 → delta*N（打字机）→ speak → data → end。
-     * 流式失败时尝试同步调用一次，再失败回退旧链路（scoreSent=true）。
-     */
-    private void runAgentTurnStream(SseEmitter emitter, PortalVoiceInterview interview, Agent agent,
-                                    PortalVoiceInterviewQA qa, PortalInterviewQuestion question,
-                                    String transcript, AnswerScoringEngine.ScoreResult sr, Integer latencyMs) {
-        AgentTurnMessages tm = buildAgentTurnMessages(interview, agent, qa, question, transcript);
-        StringBuilder buffer = new StringBuilder();
-        AtomicInteger sentLen = new AtomicInteger(0);
-        AtomicBoolean finished = new AtomicBoolean(false);
-
-        agentClient.chatStream(agent, tm.messages,
-                // onToken：``` 围栏之前的增量文本实时下发（围栏后的 JSON 分析只入缓冲）
-                token -> {
-                    if (token == null || token.isEmpty()) {
-                        return;
-                    }
-                    buffer.append(token);
-                    int fence = buffer.indexOf("```");
-                    int limit = fence >= 0 ? fence : buffer.length();
-                    int sent = sentLen.get();
-                    if (limit > sent && sentLen.compareAndSet(sent, limit)) {
-                        Map<String, Object> delta = new LinkedHashMap<>();
-                        delta.put("t", buffer.substring(sent, limit));
-                        sendEvent(emitter, "delta", toJson(delta));
-                    }
-                },
-                // onComplete：解析全文 → 落库 + 决策 + 收尾事件
-                full -> {
-                    if (!finished.compareAndSet(false, true)) {
-                        return;
-                    }
-                    InterviewTurnResult turn = null;
-                    try {
-                        turn = analysisParser.parse(full);
-                    } catch (Exception e) {
-                        log.warn("[VoiceInterview] agent 输出解析失败：{}", e.getMessage());
-                    }
-                    if (turn == null) {
-                        runLegacyTurn(emitter, interview, qa, question, transcript, sr, latencyMs, true);
-                        return;
-                    }
-                    try {
-                        finishAgentTurn(emitter, interview, agent, qa, question, transcript, sr, latencyMs,
-                                turn, tm.candidates);
-                    } catch (Exception e) {
-                        log.error("[VoiceInterview] agent 轮次收尾异常 interviewId={}", interview.getId(), e);
-                        sendEvent(emitter, "error", e.getMessage());
-                        emitter.completeWithError(e);
-                    }
-                },
-                // onError：同步重试一次，仍失败回退旧链路
-                error -> {
-                    if (!finished.compareAndSet(false, true)) {
-                        return;
-                    }
-                    log.warn("[VoiceInterview] agent 流式调用失败，尝试同步重试：{}", error.getMessage());
-                    InterviewTurnResult turn = null;
-                    try {
-                        String raw = agentClient.chat(agent, tm.messages);
-                        turn = raw == null ? null : analysisParser.parse(raw);
-                    } catch (Exception e) {
-                        log.warn("[VoiceInterview] agent 同步重试失败：{}", e.getMessage());
-                    }
-                    if (turn == null) {
-                        runLegacyTurn(emitter, interview, qa, question, transcript, sr, latencyMs, true);
-                        return;
-                    }
-                    try {
-                        finishAgentTurn(emitter, interview, agent, qa, question, transcript, sr, latencyMs,
-                                turn, tm.candidates);
-                    } catch (Exception e) {
-                        log.error("[VoiceInterview] agent 轮次收尾异常 interviewId={}", interview.getId(), e);
-                        sendEvent(emitter, "error", e.getMessage());
-                        emitter.completeWithError(e);
-                    }
-                });
-    }
-
-    /**
-     * Agent 轮次收尾：评分融合 + 画像累积 + 持久化 + 决策裁决 + 下一问生成 + SSE 收尾事件
-     */
-    private void finishAgentTurn(SseEmitter emitter, PortalVoiceInterview interview, Agent agent,
-                                 PortalVoiceInterviewQA qa, PortalInterviewQuestion question, String transcript,
-                                 AnswerScoringEngine.ScoreResult sr, Integer latencyMs, InterviewTurnResult turn,
-                                 List<PortalInterviewQuestion> candidates) {
-        // ① 评分融合（LLM 0.7 + 规则 0.3；LLM 未给分直接用规则分）
-        int finalScore = turn.getScore() != null
-                ? (int) Math.round(turn.getScore() * 0.7 + sr.score * 0.3) : sr.score;
-        Map<String, Integer> dims = turn.getDimensions().isEmpty() ? sr.dimensions : turn.getDimensions();
-        String feedback = StringUtils.isNotEmpty(turn.getFeedback()) ? turn.getFeedback() : sr.feedback;
-
-        // ② 画像累积：漏洞/水平写回 configJson（驱动后续轮次上下文）
-        accumulateProfileFromTurn(interview, turn);
-
-        // ③ 决策裁决（LLM 建议权 + 策略决定权）
-        int followupDepth = followupDepthOf(qa);
-        int followupUsed = countFollowupUsed(interview.getId());
-        int roundsDone = countRoundsDone(interview.getId(), qa);
-        int totalPlanned = interview.getTotalQa() == null ? 0 : interview.getTotalQa();
-        InterviewDecisionPolicy.Decision decision = InterviewDecisionPolicy.resolve(
-                turn.getNextAction(), followupDepth, followupUsed, roundsDone, totalPlanned);
-        if (StringUtils.isNotEmpty(decision.getOverrideReason())) {
-            log.info("[VoiceInterview] 决策覆盖 interviewId={}：{}", interview.getId(), decision.getOverrideReason());
-        }
-        String agentAction = decision.getAction();
-
-        // ④ 持久化本轮 QA
-        qa.setUserAnswer(transcript);
-        qa.setScore(finalScore);
-        qa.setAiFeedback(feedback);
-        qa.setLatencyMs(latencyMs);
-        qa.setRuleDimensionsJson(toJson(dims));
-        qa.setLlmAnalysisJson(toJson(turn));
-
-        Map<String, Object> fullData = new LinkedHashMap<>();
-        fullData.put("qaId", qa.getId());
-        fullData.put("score", finalScore);
-        fullData.put("feedback", feedback);
-        fullData.put("agentAction", agentAction);
-        fullData.put("analysis", turn);
-        if (StringUtils.isNotEmpty(turn.getTransition())) {
-            fullData.put("transition", turn.getTransition());
-        }
-        if (StringUtils.isNotEmpty(turn.getGuidance())) {
-            fullData.put("guidance", turn.getGuidance());
-        }
-
-        // ⑤ 按裁决生成交互（追问 / 换题 / 收尾）
-        String speak = StringUtils.isNotEmpty(turn.getReply()) ? turn.getReply()
-                : buildRuleSpeakText(finalScore, mapAgentAction(agentAction));
-        switch (agentAction) {
-            case InterviewDecisionPolicy.DEEPEN: {
-                String followupQuestion = normalizeAgentQuestion(turn.getNextQuestion());
-                if (followupQuestion == null) {
-                    followupQuestion = turn.getFlaws() != null && !turn.getFlaws().isEmpty()
-                            ? "你刚才提到的「" + turn.getFlaws().get(0) + "」这一点，能再展开讲讲具体细节吗？"
-                            : "你刚才提到的这一点，能再举个你实际项目里的具体例子吗？";
-                }
-                PortalVoiceInterviewQA followup = createAgentFollowupQa(interview, qa, followupQuestion, turn);
-                qa.setNextAction("followup");
-                fullData.put("nextAction", "followup");
-                fullData.put("nextQaId", followup.getId());
-                fullData.put("nextQuestion", followup.getQuestion());
-                fullData.put("nextSpeakText", followup.getSpeakText());
-                break;
-            }
-            case InterviewDecisionPolicy.CHANGE_TOPIC: {
-                VoiceInterviewQAWrapper next = isDynamicInterview(interview)
-                        ? advanceDynamicNextQuestion(interview, turn, candidates)
-                        : advanceToNextQuestion(interview);
-                if (next != null) {
-                    qa.setNextAction("next");
-                    fullData.put("nextAction", "next");
-                    fullData.put("nextQaId", next.qa.getId());
-                    fullData.put("nextQuestion", next.qa.getQuestion());
-                    fullData.put("nextSpeakText", next.qa.getSpeakText());
-                } else if (!tryEnterCandidateAsk(interview, qa, fullData)) {
-                    qa.setNextAction("report");
-                    fullData.put("nextAction", "report");
-                }
-                break;
-            }
-            default: {
-                // wrap_up：收尾（新流程先进入候选人反问环节，再结束）
-                if (tryEnterCandidateAsk(interview, qa, fullData)) {
-                    if (StringUtils.isEmpty(turn.getReply())) {
-                        speak = "好的，我这边的问题就问完了。";
-                    }
-                    break;
-                }
-                qa.setNextAction("report");
-                fullData.put("nextAction", "report");
-                if (StringUtils.isEmpty(turn.getReply())) {
-                    speak = StringUtils.isNotEmpty(turn.getTransition()) ? turn.getTransition()
-                            : "本次面试到此结束，我来为你做一个总结。";
-                }
-            }
-        }
-        qa.setSpeakText(speak);
-        qaMapper.updateById(qa);
-
-        // ⑥ SSE 收尾事件：speak → data → end（score/delta 已先行）
-        sendEvent(emitter, "speak", speak);
-        sendEvent(emitter, "data", toJson(fullData));
-        sendEvent(emitter, "end", "{}");
-        emitter.complete();
-    }
-
-    /** agent 动作 → 旧 nextAction 话术映射（规则降级话术用） */
-    private String mapAgentAction(String agentAction) {
-        switch (agentAction) {
-            case InterviewDecisionPolicy.DEEPEN: return "followup";
-            case InterviewDecisionPolicy.CHANGE_TOPIC: return "next";
-            default: return "report";
-        }
-    }
-
-    /** Agent 追问 QA（questionSource=llm，话术含漏洞点明） */
-    private PortalVoiceInterviewQA createAgentFollowupQa(PortalVoiceInterview interview,
-                                                         PortalVoiceInterviewQA parentQa,
-                                                         String followupQuestion, InterviewTurnResult turn) {
-        PortalVoiceInterviewQA followup = new PortalVoiceInterviewQA();
-        followup.setInterviewId(interview.getId());
-        followup.setQuestionId(parentQa.getQuestionId());
-        followup.setQuestionSource("llm");
-        followup.setQuestionIdx(parentQa.getQuestionIdx());
-        followup.setParentQaId(parentQa.getId());
-        followup.setHintUsed(0);
-        followup.setTranscriptionEdited(0);
-        followup.setCreateTime(LocalDateTime.now());
-        followup.setQuestion(followupQuestion);
-        String speak = followupQuestion;
-        if (turn != null && turn.getFlaws() != null && !turn.getFlaws().isEmpty()) {
-            speak = "我注意到你刚才的回答里，" + turn.getFlaws().get(0) + " 这一点说得还比较模糊。" + followupQuestion;
-        }
-        followup.setSpeakText(speak);
-        qaMapper.insert(followup);
-        return followup;
-    }
-
-    /**
-     * 动态模式推进下一主问：currentIdx+1；问题优先级 LLM nextQuestion（含候选回链）→ 题库兜底 → 通用模板
-     */
-    private VoiceInterviewQAWrapper advanceDynamicNextQuestion(PortalVoiceInterview interview,
-                                                               InterviewTurnResult turn,
-                                                               List<PortalInterviewQuestion> candidates) {
-        int nextIdx = (interview.getCurrentIdx() == null ? 0 : interview.getCurrentIdx()) + 1;
-        int total = interview.getTotalQa() == null ? 0 : interview.getTotalQa();
-        if (nextIdx >= total) {
-            return null;
-        }
-
-        Long questionId = null;
-        String source = "llm";
-        String title = normalizeAgentQuestion(turn == null ? null : turn.getNextQuestion());
-
-        if (title != null && turn.getCandidateId() != null) {
-            Long cid = resolveCandidateId(candidates, turn.getCandidateId());
-            if (cid != null) {
-                questionId = cid;
-                source = "bank";
-            }
-        }
-        if (title == null) {
-            // LLM 未给题 → 题库兜底
-            PortalInterviewQuestion fallback = generateNextQuestion(interview);
-            title = fallback.getTitle();
-            if (fallback.getId() != null) {
-                questionId = fallback.getId();
-                source = "bank";
-            }
-        }
-
-        String transition = turn != null && StringUtils.isNotEmpty(turn.getTransition())
-                ? turn.getTransition() : "好，我们换个话题。";
-        PortalVoiceInterviewQA qa = new PortalVoiceInterviewQA();
-        qa.setInterviewId(interview.getId());
-        qa.setQuestionId(questionId);
-        qa.setQuestionSource(source);
-        qa.setQuestionIdx(nextIdx);
-        qa.setQuestion(title);
-        qa.setHintUsed(0);
-        qa.setTranscriptionEdited(0);
-        qa.setCreateTime(LocalDateTime.now());
-        qa.setSpeakText(transition + " " + title);
-        qaMapper.insert(qa);
-
-        interview.setCurrentIdx(nextIdx);
-        // v11.x：按新题落位阶段（PROJECT_DEEP/SYSTEM_DESIGN/TECH_QUESTION）
-        if (!InterviewPhase.isLegacy(interview.getPhase())) {
-            interview.setPhase(phaseForQuestion(qa.getQuestionId(), qa.getQuestion(), interview));
-        }
-        interviewMapper.updateById(interview);
-        return new VoiceInterviewQAWrapper(qa);
-    }
-
-    /**
-     * 动态模式强制下一题（forceNext）：LLM 短调用生成，失败题库兜底
-     */
-    private VoiceInterviewQAWrapper advanceDynamicByForce(PortalVoiceInterview interview, Agent agent) {
-        int nextIdx = (interview.getCurrentIdx() == null ? 0 : interview.getCurrentIdx()) + 1;
-        int total = interview.getTotalQa() == null ? 0 : interview.getTotalQa();
-        if (nextIdx >= total) {
-            return null;
-        }
-
-        Long questionId = null;
-        String source = "llm";
-        String title = null;
-        if (agent != null) {
-            try {
-                String user = "候选人跳过了当前问题。请直接提出下一个面试问题：只输出问题本身一句话，"
-                        + "结合此前对话换个考察方向，不要任何解释或多余文字。";
-                String raw = agentClient.chat(agent, List.of(
-                        SystemMessage.from(buildAgentSystemMessage(interview, agent)),
-                        new UserMessage(user)));
-                title = normalizeAgentQuestion(raw);
-            } catch (Exception e) {
-                log.warn("[VoiceInterview] agent 强制换题生成失败，题库兜底：{}", e.getMessage());
-            }
-        }
-        if (title == null) {
-            PortalInterviewQuestion fallback = generateNextQuestion(interview);
-            title = fallback.getTitle();
-            if (fallback.getId() != null) {
-                questionId = fallback.getId();
-                source = "bank";
-            }
-        }
-
-        PortalVoiceInterviewQA qa = new PortalVoiceInterviewQA();
-        qa.setInterviewId(interview.getId());
-        qa.setQuestionId(questionId);
-        qa.setQuestionSource(source);
-        qa.setQuestionIdx(nextIdx);
-        qa.setQuestion(title);
-        qa.setHintUsed(0);
-        qa.setTranscriptionEdited(0);
-        qa.setCreateTime(LocalDateTime.now());
-        qa.setSpeakText("好的，那我们看下一个问题：" + title);
-        qaMapper.insert(qa);
-
-        interview.setCurrentIdx(nextIdx);
-        // v11.x：按新题落位阶段（PROJECT_DEEP/SYSTEM_DESIGN/TECH_QUESTION）
-        if (!InterviewPhase.isLegacy(interview.getPhase())) {
-            interview.setPhase(phaseForQuestion(qa.getQuestionId(), qa.getQuestion(), interview));
-        }
-        interviewMapper.updateById(interview);
-        return new VoiceInterviewQAWrapper(qa);
-    }
-
-    // ========================================================================
-    // 请求提示
+    // 请求提示（V3：面试官 agent 基于滑窗上下文生成一句引导）
     // ========================================================================
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -1988,148 +936,38 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
             throw new ServiceException("问答记录不存在");
         }
 
-        int nextLevel = (qa.getHintUsed() == null ? 0 : qa.getHintUsed()) + 1;
-        if (nextLevel > 3) {
+        int nextUsed = (qa.getHintUsed() == null ? 0 : qa.getHintUsed()) + 1;
+        if (nextUsed > 3) {
             throw new ServiceException("提示次数已用完");
         }
 
-        PortalInterviewQuestion question = qa.getQuestionId() == null
-                ? null : questionMapper.selectById(qa.getQuestionId());
-
-        HintVO hint;
-        if (question == null) {
-            // V11.0：LLM 生成的题目（questionId=null）→ agent 提示路径；失败复述题目作提示
-            hint = generateHintByAgent(interview, qa, nextLevel);
-            if (hint == null) {
-                hint = HintVO.of(nextLevel, hintLevelTitle(nextLevel));
-                hint.setKeywords(new ArrayList<>());
-                hint.setStructureHint("可以按「背景 → 你做了什么 → 结果与收获」的思路组织回答。");
-                hint.setSpeakText("别着急，可以先从你熟悉的部分讲起，比如这个问题的背景，然后说你的做法，最后讲结果。");
+        // agent 滑窗提示：基于完整对话上下文给一句思考引导（不泄露答案）
+        String text = null;
+        Agent agent = interview.getAgentId() == null ? null : agentClient.resolveAgent(interview.getAgentId());
+        if (agent != null && agentClient.isEnabled()) {
+            try {
+                List<ChatMessage> messages = new ArrayList<>(
+                        memoryService.getMemory(interview.getId(), agent.getMaxHistoryTurns()).messages());
+                messages.add(new UserMessage("候选人请求思考提示。请以面试官身份给一句简短的思考引导"
+                        + "（提示回答方向或组织思路，不直接给出答案），40字以内，只输出这句话。"));
+                text = agentClient.chat(agent, messages);
+            } catch (Exception e) {
+                log.warn("[VoiceInterview] agent 提示生成失败 interviewId={}：{}", interviewId, e.getMessage());
             }
-        } else {
-            hint = hintEngine.generateHint(question, nextLevel);
         }
-        qa.setHintUsed(nextLevel);
+        if (StringUtils.isEmpty(text)) {
+            text = "别着急，可以从你熟悉的相关项目经历入手，按「背景→做法→结果」的思路组织回答。";
+        }
+        HintVO hint = HintVO.of(nextUsed, "思考提示");
+        hint.setKeywords(new ArrayList<>());
+        hint.setSpeakText(text.trim());
+        qa.setHintUsed(nextUsed);
         qaMapper.updateById(qa);
 
         VoiceInterviewVO vo = assembleVO(interview, qa);
         vo.setCurrentQa(toQaVO(qa));
         vo.setHint(hint);
         return vo;
-    }
-
-    /** 提示级别标题 */
-    private String hintLevelTitle(int level) {
-        switch (level) {
-            case 1: return "切入点提示";
-            case 2: return "结构提示";
-            default: return "全量提示";
-        }
-    }
-
-    /**
-     * V11.0：LLM 生成题目的分级提示（agent 路径）
-     * level=1 切入点关键词 / level=2 答题结构 / level=3 考察点+完整思路；失败返回 null 走模板
-     */
-    private HintVO generateHintByAgent(PortalVoiceInterview interview, PortalVoiceInterviewQA qa, int level) {
-        if (interview.getAgentId() == null || !agentClient.isEnabled()) {
-            return null;
-        }
-        try {
-            Agent agent = agentClient.resolveAgent(interview.getAgentId());
-            if (agent == null) {
-                return null;
-            }
-            String levelReq;
-            switch (level) {
-                case 1:
-                    levelReq = "给1-2个切入点关键词，引导思考方向，不透露答案";
-                    break;
-                case 2:
-                    levelReq = "给答题结构提示（如 STAR 框架或要点大纲），引导组织语言";
-                    break;
-                default:
-                    levelReq = "给全部考察点、关键要点与完整答题思路（不给出完整答案原文）";
-            }
-            String user = "候选人请求第" + level + "级提示。\n【当前问题】" + qa.getQuestion() + "\n"
-                    + "【候选人已给出的回答】" + (StringUtils.isEmpty(qa.getUserAnswer()) ? "（尚未作答）" : qa.getUserAnswer()) + "\n"
-                    + "【提示要求】" + levelReq + "。只输出如下 JSON：\n"
-                    + "{\"keywords\":[\"关键词\"],\"structureHint\":\"结构提示文本\",\"examinePoints\":[\"考察点\"],\"speakText\":\"可直接口播的引导语（40字内）\"}";
-            String raw = agentClient.chat(agent, List.of(
-                    SystemMessage.from(buildAgentSystemMessage(interview, agent)),
-                    new UserMessage(user)));
-            if (StringUtils.isEmpty(raw)) {
-                return null;
-            }
-            String json = raw.trim();
-            if (json.contains("```")) {
-                int st = json.indexOf('{');
-                int en = json.lastIndexOf('}');
-                if (st >= 0 && en > st) {
-                    json = json.substring(st, en + 1);
-                }
-            }
-            com.fasterxml.jackson.databind.JsonNode node = objectMapper.readTree(json);
-            HintVO hint = HintVO.of(level, hintLevelTitle(level));
-            List<String> keywords = new ArrayList<>();
-            for (com.fasterxml.jackson.databind.JsonNode k : node.path("keywords")) {
-                String t = k.asText("").trim();
-                if (!t.isEmpty()) {
-                    keywords.add(t);
-                }
-            }
-            hint.setKeywords(keywords);
-            hint.setStructureHint(node.path("structureHint").asText(""));
-            if (level >= 3) {
-                List<String> points = new ArrayList<>();
-                for (com.fasterxml.jackson.databind.JsonNode p : node.path("examinePoints")) {
-                    String t = p.asText("").trim();
-                    if (!t.isEmpty()) {
-                        points.add(t);
-                    }
-                }
-                hint.setExaminePoints(points);
-            }
-            String speak = node.path("speakText").asText("");
-            hint.setSpeakText(StringUtils.isNotEmpty(speak) ? speak : hint.getStructureHint());
-            return hint;
-        } catch (Exception e) {
-            log.warn("[VoiceInterview] agent 提示生成失败：{}", e.getMessage());
-            return null;
-        }
-    }
-
-    // ========================================================================
-    // 强制下一题
-    // ========================================================================
-    @Override
-    @Transactional(rollbackFor = Exception.class)
-    public VoiceInterviewVO forceNext(Long interviewId, Long userId, String reason) {
-        PortalVoiceInterview interview = mustOwnInterview(interviewId, userId);
-        if ("finished".equals(interview.getStatus())) {
-            throw new ServiceException("面试已结束");
-        }
-
-        // v11.x：自我介绍阶段点下一题 → 跳过自我介绍直接进入首题
-        if (InterviewPhase.isIntro(interview.getPhase())) {
-            PortalVoiceInterviewQA firstQa = advanceToFirstTechQuestion(interview, "好的，我们跳过自我介绍，直接进入正题。");
-            return assembleVO(interview, firstQa);
-        }
-
-        VoiceInterviewQAWrapper next;
-        if (isDynamicInterview(interview)) {
-            // V11.0 动态模式：agent 生成下一题（失败题库兜底）
-            Agent agent = interview.getAgentId() == null ? null : agentClient.resolveAgent(interview.getAgentId());
-            next = advanceDynamicByForce(interview, agent);
-        } else {
-            next = advanceToNextQuestion(interview);
-        }
-        if (next == null) {
-            // 无下一题，自动结束
-            finish(interviewId, userId);
-            return getDetail(interviewId, userId);
-        }
-        return assembleVO(interview, next.qa);
     }
 
     // ========================================================================
@@ -2144,49 +982,247 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
             return parseReport(interview);
         }
 
+        // ========== v11.88 V2：同步段只收口会话状态（<200ms），批量分析转异步 ==========
+        interview.setStatus("finished");
+        interview.setClosedReason("user");
+        if (interview.getAnalysisStatus() == null || interview.getAnalysisStatus() == 0) {
+            interview.setAnalysisStatus(1);
+        }
+        interview.setAnalysisProgress(0);
+        if (!InterviewPhase.isLegacy(interview.getPhase())) {
+            interview.setPhase(InterviewPhase.FINISHED.code());
+        }
+        interviewMapper.updateById(interview);
+        recordEvent(interviewId, "finish", Map.of("closedReason", "user"));
+        // V3：结束释放滑窗（对话上下文已固化到 DB QA，报告批量分析用）
+        memoryService.clear(interviewId);
+
+        // 异步批量分析：逐题补 LLM 分析 → 聚合报告 → 进度更新（前端轮询 analysis 接口）
+        triggerBatchAnalysis(interviewId);
+
+        // 立即返回报告骨架（前端展示分析进度条，analysis_status=2 后重新拉取完整报告）
+        VoiceInterviewReportVO skeleton = new VoiceInterviewReportVO();
+        skeleton.setInterviewId(interviewId);
+        skeleton.setTotalScore(interview.getScore());
+        skeleton.setSummary("报告生成中…");
+        return skeleton;
+    }
+
+    /**
+     * v11.88 V2：触发异步批量分析（幂等：analysis_status 已为 2 的不重跑；进行中不重复触发）。
+     * v11.96 P0 竞态修复：finish()/start() 均为 @Transactional，事务内直接提交异步任务会
+     * 先于事务提交执行——异步线程读到旧值 analysisStatus=0 后直接跳过，报告永远不生成。
+     * 此处注册事务提交后回调（afterCommit）再触发；无事务上下文（静默收口/自愈路径）直接触发。
+     */
+    private void triggerBatchAnalysis(Long interviewId) {
+        if (org.springframework.transaction.support.TransactionSynchronizationManager
+                .isSynchronizationActive()) {
+            org.springframework.transaction.support.TransactionSynchronizationManager
+                    .registerSynchronization(new org.springframework.transaction.support.TransactionSynchronization() {
+                        @Override
+                        public void afterCommit() {
+                            submitBatchAnalysis(interviewId);
+                        }
+                    });
+        } else {
+            submitBatchAnalysis(interviewId);
+        }
+    }
+
+    /** v11.96：异步批量分析提交（线程池饱和时同步降级聚合，保证报告必有） */
+    private void submitBatchAnalysis(Long interviewId) {
+        try {
+            aiTaskExecutor.execute(() -> {
+                try {
+                    PortalVoiceInterview fresh = interviewMapper.selectById(interviewId);
+                    if (fresh == null || fresh.getAnalysisStatus() == null
+                            || fresh.getAnalysisStatus() != 1) {
+                        return; // 已完成/已在别处触发
+                    }
+                    runBatchAnalysis(fresh);
+                } catch (Exception ex) {
+                    log.error("[VoiceInterview] 批量分析异常 interviewId={}：{}", interviewId, ex.getMessage(), ex);
+                    // 失败兜底：直接规则聚合出报告（保证报告必有）
+                    try {
+                        PortalVoiceInterview fresh = interviewMapper.selectById(interviewId);
+                        if (fresh != null && fresh.getAnalysisStatus() != null
+                                && fresh.getAnalysisStatus() == 1) {
+                            aggregateAndStoreReport(fresh);
+                        }
+                    } catch (Exception ignore) {
+                    }
+                }
+            });
+        } catch (Exception rejected) {
+            log.warn("[VoiceInterview] 批量分析提交失败（线程池饱和），同步降级聚合 interviewId={}：{}", interviewId, rejected.getMessage());
+            try {
+                PortalVoiceInterview fresh = interviewMapper.selectById(interviewId);
+                if (fresh != null && Integer.valueOf(1).equals(fresh.getAnalysisStatus())) {
+                    aggregateAndStoreReport(fresh);
+                }
+            } catch (Exception ignore) {
+            }
+        }
+    }
+
+    /** v11.88 V2：批量分析主流程——逐题补 LLM 深度分析（带进度）→ 聚合报告落库 */
+    private void runBatchAnalysis(PortalVoiceInterview interview) {
+        Long interviewId = interview.getId();
+        // v11.96：运行中标记防重入（自愈重触发与正常运行并发时只跑一个）
+        if (!RUNNING_ANALYSIS.add(interviewId)) {
+            return;
+        }
+        try {
+        List<PortalVoiceInterviewQA> qaList = listQaByInterview(interviewId);
+        // 待补分析的已作答题目（异步单题分析未覆盖或失败的）
+        List<PortalVoiceInterviewQA> pending = new ArrayList<>();
+        for (PortalVoiceInterviewQA qa : qaList) {
+            if (StringUtils.isNotEmpty(qa.getUserAnswer())
+                    && (qa.getAnalysisStatus() == null || qa.getAnalysisStatus() != 2)) {
+                pending.add(qa);
+            }
+        }
+        int total = pending.size();
+        int done = 0;
+        for (PortalVoiceInterviewQA qa : pending) {
+            try {
+                qa.setAnalysisStatus(1);
+                qaMapper.updateById(qa);
+                AnswerScoringEngine.ScoreResult sr = new AnswerScoringEngine.ScoreResult(
+                        qa.getScore() == null ? 50 : qa.getScore(),
+                        qa.getAiFeedback() == null ? "" : qa.getAiFeedback(),
+                        qa.getRuleDimensionsJson() == null ? new LinkedHashMap<>()
+                                : objectMapper.readValue(qa.getRuleDimensionsJson(),
+                                new com.fasterxml.jackson.core.type.TypeReference<Map<String, Integer>>() {}));
+                AnswerAnalysis analysis = analyzeAnswerByLlm(interview, qa.getQuestion(), null,
+                        qa.getUserAnswer(), sr);
+                if (analysis != null) {
+                    // v11.94 P0-1：LLM 分回写主分/点评/维度——V3 无实时评分，score 恒空会导致
+                    // 聚合报告跳过全部题目（报告分数断链），此处收口保证报告必有分数与逐题点评
+                    qa.setScore(analysis.score);
+                    qa.setAiFeedback(analysis.feedback);
+                    qa.setRuleDimensionsJson(toJson(analysis.dimensions));
+                    qa.setScoreDraft(analysis.score);
+                    qa.setLlmScoreJson(toJson(Map.of(
+                            "scores", analysis.dimensions,
+                            "total", analysis.score,
+                            "comment", analysis.feedback == null ? "" : analysis.feedback)));
+                    qa.setLlmAnalysisJson(toJson(Map.of(
+                            "flaws", analysis.flaws,
+                            "level", analysis.level,
+                            "guidance", analysis.guidance == null ? "" : analysis.guidance,
+                            "redFlags", java.util.Collections.emptyList())));
+                } else {
+                    // LLM 失败兜底：规则分写主分，防聚合跳过（V3 规则引擎已删，ScoreResult 为默认值）
+                    qa.setScore(sr.score);
+                    qa.setAiFeedback(sr.feedback);
+                }
+                qa.setAnalysisStatus(2);
+                qaMapper.updateById(qa);
+            } catch (Exception ex) {
+                log.warn("[VoiceInterview] 批量分析单题失败 interviewId={} qaId={}：{}", interviewId, qa.getId(), ex.getMessage());
+                qa.setAnalysisStatus(2);
+                qaMapper.updateById(qa);
+            }
+            done++;
+            updateAnalysisProgress(interviewId, (int) Math.round(done * 80.0 / Math.max(1, total)));
+        }
+        // 聚合报告（规则分与草稿分融合）+ 错题本 + 场景工作流
+        aggregateAndStoreReport(interview);
+        } finally {
+            RUNNING_ANALYSIS.remove(interviewId);
+        }
+    }
+
+    /** v11.88 V2：更新分析进度（条件更新，仅分析中状态才推进，防越界覆盖） */
+    private void updateAnalysisProgress(Long interviewId, int progress) {
+        try {
+            PortalVoiceInterview fresh = interviewMapper.selectById(interviewId);
+            if (fresh != null && Integer.valueOf(1).equals(fresh.getAnalysisStatus())) {
+                fresh.setAnalysisProgress(Math.max(fresh.getAnalysisProgress() == null ? 0 : fresh.getAnalysisProgress(), progress));
+                interviewMapper.updateById(fresh);
+            }
+        } catch (Exception e) {
+            log.warn("[VoiceInterview] 进度更新失败 interviewId={}：{}", interviewId, e.getMessage());
+        }
+    }
+
+    /** v11.88 V2：聚合报告并落库（原 finish 聚合段抽取；分数融合 score_draft；进度 100；幂等防重） */
+    private void aggregateAndStoreReport(PortalVoiceInterview interview) {
+        Long interviewId = interview.getId();
+        // 幂等防重：已完成不再重算（并发触发保护）
+        PortalVoiceInterview fresh = interviewMapper.selectById(interviewId);
+        if (fresh == null || Integer.valueOf(2).equals(fresh.getAnalysisStatus())) {
+            return;
+        }
+        if (StringUtils.isNotEmpty(fresh.getReport()) && Integer.valueOf(1).equals(fresh.getAnalysisStatus())) {
+            // 已有报告（旧链路聚合过）仅推进进度
+            fresh.setAnalysisStatus(2);
+            fresh.setAnalysisProgress(100);
+            interviewMapper.updateById(fresh);
+            return;
+        }
+
         List<PortalVoiceInterviewQA> qaList = listQaByInterview(interviewId);
         int answered = 0;
         long sum = 0;
         List<VoiceInterviewReportVO.QuestionReview> reviews = new ArrayList<>();
         Map<String, Integer> dimSums = new LinkedHashMap<>();
-        dimSums.put("coverage", 0);
-        dimSums.put("length", 0);
-        dimSums.put("structure", 0);
+        // v11.97：维度 key 与逐题六维对齐（原 coverage/length/structure 旧 key 报告级断链）
+        dimSums.put("relevance", 0);
+        dimSums.put("professionalism", 0);
+        dimSums.put("fluency", 0);
+        dimSums.put("interactivity", 0);
+        dimSums.put("confidence", 0);
+        dimSums.put("logic", 0);
         int dimCount = 0;
 
         List<String> highlights = new ArrayList<>();
         List<String> weakPoints = new ArrayList<>();
 
         for (PortalVoiceInterviewQA qa : qaList) {
-            if (qa.getScore() != null) {
-                answered++;
-                sum += qa.getScore();
+            // v11.88：分数融合——异步草稿分（LLM）优先按 70/30 融合，无草稿保持规则分
+            int effectiveScore;
+            if (qa.getScore() == null) {
+                continue;
+            }
+            if (qa.getScoreDraft() != null) {
+                effectiveScore = (int) Math.round(qa.getScoreDraft() * 0.7 + qa.getScore() * 0.3);
+                qa.setScore(effectiveScore);
+                qaMapper.updateById(qa);
+            } else {
+                effectiveScore = qa.getScore();
+            }
+            answered++;
+            sum += effectiveScore;
 
-                VoiceInterviewReportVO.QuestionReview review = new VoiceInterviewReportVO.QuestionReview();
-                review.setQuestionIdx(qa.getQuestionIdx());
-                review.setQuestion(qa.getQuestion());
-                review.setScore(qa.getScore());
-                review.setFeedback(qa.getAiFeedback());
-                reviews.add(review);
+            VoiceInterviewReportVO.QuestionReview review = new VoiceInterviewReportVO.QuestionReview();
+            review.setQuestionIdx(qa.getQuestionIdx());
+            review.setQuestion(qa.getQuestion());
+            review.setScore(effectiveScore);
+            review.setFeedback(qa.getAiFeedback());
+            // v11.97：补原始作答与问答ID（前端折叠展示/加入错题本）
+            review.setUserAnswer(qa.getUserAnswer());
+            review.setQaId(qa.getId());
+            reviews.add(review);
 
-                if (qa.getScore() >= 80) {
-                    highlights.add(qa.getQuestion());
-                } else if (qa.getScore() < 60) {
-                    weakPoints.add(qa.getQuestion());
-                }
+            if (effectiveScore >= 80) {
+                highlights.add(qa.getQuestion());
+            } else if (effectiveScore < 60) {
+                weakPoints.add(qa.getQuestion());
+            }
 
-                // 累加维度分
-                if (StringUtils.isNotEmpty(qa.getRuleDimensionsJson())) {
-                    try {
-                        Map<String, Integer> dims = objectMapper.readValue(
-                                qa.getRuleDimensionsJson(),
-                                new com.fasterxml.jackson.core.type.TypeReference<Map<String, Integer>>() {});
-                        for (Map.Entry<String, Integer> e : dims.entrySet()) {
-                            dimSums.merge(e.getKey(), e.getValue(), Integer::sum);
-                        }
-                        dimCount++;
-                    } catch (Exception ignored) {
+            // 累加维度分
+            if (StringUtils.isNotEmpty(qa.getRuleDimensionsJson())) {
+                try {
+                    Map<String, Integer> dims = objectMapper.readValue(
+                            qa.getRuleDimensionsJson(),
+                            new com.fasterxml.jackson.core.type.TypeReference<Map<String, Integer>>() {});
+                    for (Map.Entry<String, Integer> e : dims.entrySet()) {
+                        dimSums.merge(e.getKey(), e.getValue(), Integer::sum);
                     }
+                    dimCount++;
+                } catch (Exception ignored) {
                 }
             }
         }
@@ -2199,7 +1235,7 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
                 ? scoringEngine.fuseTotalScore(introScoreView.getTotal(), avg,
                         finishConfig == null ? null : finishConfig.getScoringWeights())
                 : avg;
-        interview.setScore(totalScore);
+        fresh.setScore(totalScore);
 
         // V11.0：聚合逐轮 LLM 深度分析 → 心态趋势 / 可疑信号汇总 / 流畅度均分
         List<String> sentimentTrend = new ArrayList<>();
@@ -2267,8 +1303,7 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
         // v11.x C2：自我介绍独立评分 + 针对性改进建议
         report.setIntroScore(introScoreView);
         report.setImprovementSuggestions(buildImprovementSuggestions(weakPoints, introScoreView));
-        // v11.30.4：相关知识点——本场题库题 tags 聚合（低分题加权），LLM 可用时生成简介
-        report.setKnowledgePoints(buildKnowledgePoints(interview.getPosition(), qaList));
+        // v11.97：相关知识点生成移除（题库 tags 聚合对 agent 自由面试无参考意义，前端 Tab 已删）
         // V11.0：LLM 深度分析聚合结果（Agent 模式产出；旧数据字段为空，前端按缺失隐藏）
         report.setSentimentTrend(sentimentTrend);
         report.setRedFlags(allRedFlags);
@@ -2279,18 +1314,159 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
         // v11.x C3：低分主问题自动入错题本（<60 分且来自题库，幂等累加 wrong_count）
         recordWrongQuestionsQuietly(interview, qaList);
 
-        interview.setSummary(report.getSummary());
-        interview.setReport(toJson(report));
-        if (!InterviewPhase.isLegacy(interview.getPhase())) {
-            interview.setPhase(InterviewPhase.FINISHED.code());
-        }
-        interview.setStatus("finished");
-        interviewMapper.updateById(interview);
+        // v11.90 V2：报告三段式——第一栏面试者简介（简历提取 + 口头自我介绍）
+        report.setCandidate(buildCandidateProfile(interview, qaList));
+        // v11.90 V2：第二栏岗位信息（岗位 + JD + 匹配度）
+        report.setJobInfo(buildJobInfo(interview, totalScore));
+
+        // v11.97：整场 LLM 复盘——agent 直连通道增强报告（总评/匹配度/结构化亮点薄弱点/建议/
+        // 逐题评分回填/六维），任何失败保留上方规则兜底（链路永远可用）
+        updateAnalysisProgress(interviewId, 85);
+        enhanceReportByAgent(interview, report, qaList, answered, avg);
+
+        // v11.97：复盘后总分以报告为准（复盘回填逐题分会重算总分）
+        fresh.setScore(report.getTotalScore());
+        fresh.setSummary(report.getSummary());
+        fresh.setReport(toJson(report));
+        fresh.setAnalysisStatus(2);
+        fresh.setAnalysisProgress(100);
+        interviewMapper.updateById(fresh);
 
         // v11.x D4：场景绑定工作流时异步触发（报告归档/学习计划等），不阻塞主流程
-        triggerSceneWorkflowAsync(interview, report);
+        triggerSceneWorkflowAsync(fresh, report);
+    }
 
-        return report;
+    /**
+     * v11.90 V2：报告三段式第一栏——面试者简介（简历提取 + 面试口头自我介绍）。
+     * <p>key：name 姓名 / skills 技能 / resumeSelfIntro 简历自我介绍 /
+     * interviewSelfIntro 面试口头自我介绍 / aiScore 简历AI评分；未选简历时为空 Map，前端隐藏。
+     */
+    private Map<String, String> buildCandidateProfile(PortalVoiceInterview interview, List<PortalVoiceInterviewQA> qaList) {
+        Map<String, String> candidate = new LinkedHashMap<>();
+        try {
+            if (interview.getResumeId() != null) {
+                PortalUserResume resume = userResumeMapper.selectById(interview.getResumeId());
+                if (resume != null) {
+                    if (StringUtils.isNotEmpty(resume.getName())) {
+                        candidate.put("name", resume.getName());
+                    }
+                    if (StringUtils.isNotEmpty(resume.getSkills())) {
+                        // v11.97：技能 JSON 格式化（"Java·了解 / Python·了解"），不再透出原始 JSON
+                        candidate.put("skills", formatSkills(resume.getSkills()));
+                    }
+                    if (StringUtils.isNotEmpty(resume.getSelfIntro())) {
+                        candidate.put("resumeSelfIntro", resume.getSelfIntro());
+                    }
+                    if (resume.getScore() != null) {
+                        candidate.put("aiScore", String.valueOf(resume.getScore()));
+                    }
+                }
+            }
+            // 面试口头自我介绍：第一道主问（V4 段序约束——第 1 问固定为自我介绍，
+            // V3 首问 questionIdx=0，旧数据兼容 idx=1）
+            for (PortalVoiceInterviewQA qa : qaList) {
+                if (qa.getParentQaId() == null && qa.getQuestionIdx() != null && qa.getQuestionIdx() <= 1
+                        && StringUtils.isNotEmpty(qa.getUserAnswer())) {
+                    candidate.put("interviewSelfIntro", qa.getUserAnswer());
+                    break;
+                }
+            }
+        } catch (Exception e) {
+            log.warn("[VoiceInterview] 面试者简介构建失败 interviewId={}：{}", interview.getId(), e.getMessage());
+        }
+        return candidate;
+    }
+
+    /**
+     * v11.90 V2：报告三段式第二栏——岗位信息（岗位 + 岗位要求 JD + 匹配度）。
+     * <p>key：position 岗位 / jobRequirements 岗位要求JD / matchRate 岗位匹配度(%)；
+     * JD 优先取 configJson（start 时已存），回退 contextSnapshot。
+     */
+    private Map<String, String> buildJobInfo(PortalVoiceInterview interview, int totalScore) {
+        Map<String, String> jobInfo = new LinkedHashMap<>();
+        try {
+            if (StringUtils.isNotEmpty(interview.getPosition())) {
+                jobInfo.put("position", interview.getPosition());
+            }
+            Object jd = readInterviewConfig(interview).get("jobRequirements");
+            if (jd == null && StringUtils.isNotEmpty(interview.getContextSnapshot())) {
+                try {
+                    Map<String, Object> snapshot = objectMapper.readValue(interview.getContextSnapshot(),
+                            new com.fasterxml.jackson.core.type.TypeReference<Map<String, Object>>() {});
+                    jd = snapshot.get("jobRequirements");
+                } catch (Exception ignored) {
+                }
+            }
+            if (jd != null && StringUtils.isNotEmpty(String.valueOf(jd))) {
+                jobInfo.put("jobRequirements", String.valueOf(jd));
+            }
+            // 岗位匹配度：以综合得分近似（0-100）
+            jobInfo.put("matchRate", String.valueOf(Math.max(0, Math.min(100, totalScore))));
+        } catch (Exception e) {
+            log.warn("[VoiceInterview] 岗位信息构建失败 interviewId={}：{}", interview.getId(), e.getMessage());
+        }
+        return jobInfo;
+    }
+
+    /** v11.88 V2：报告分析状态查询（前端进度条轮询） */
+    @Override
+    public Map<String, Object> getAnalysisStatus(Long interviewId, Long userId) {
+        PortalVoiceInterview interview = mustOwnInterview(interviewId, userId);
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("analysisStatus", interview.getAnalysisStatus() == null ? 0 : interview.getAnalysisStatus());
+        result.put("analysisProgress", interview.getAnalysisProgress() == null ? 0 : interview.getAnalysisProgress());
+        result.put("status", interview.getStatus());
+        // v11.96 断链自愈：已结束且分析中，但本进程无运行任务（服务重启/任务丢失）→ 重触发，
+        // 保证前端轮询永远能等到 analysisStatus=2（历史页进度轮询的数据一致性兜底）
+        if ("finished".equals(interview.getStatus())
+                && Integer.valueOf(1).equals(interview.getAnalysisStatus())
+                && !RUNNING_ANALYSIS.contains(interviewId)) {
+            log.warn("[VoiceInterview] 检测到中断的分析任务，自愈重触发 interviewId={}", interviewId);
+            triggerBatchAnalysis(interviewId);
+        }
+        return result;
+    }
+
+    /**
+     * v11.97：重新生成报告——重置分析状态后复用异步批量分析链路（逐题补分析 + 聚合 + 整场 LLM 复盘）。
+     * <p>重置要点：主表必须清 report/summary（aggregateAndStoreReport 对报告非空仅推进进度直接返回）；
+     * QA 必须清 scoreDraft（否则分数二次融合失真）与 analysisStatus（runBatchAnalysis 只处理未完成题）。</p>
+     */
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public VoiceInterviewReportVO regenerateReport(Long interviewId, Long userId) {
+        PortalVoiceInterview interview = mustOwnInterview(interviewId, userId);
+        if (!"finished".equals(interview.getStatus())) {
+            throw new ServiceException("面试尚未结束，无法生成报告");
+        }
+        if (RUNNING_ANALYSIS.contains(interviewId)) {
+            throw new ServiceException("报告正在生成中，请稍候");
+        }
+        // 1. 主表重置（report/summary 必须清空，否则聚合幂等分支直接 return）
+        interview.setAnalysisStatus(1);
+        interview.setAnalysisProgress(0);
+        interview.setReport(null);
+        interview.setSummary(null);
+        interviewMapper.updateById(interview);
+        // 2. QA 重置：已作答题清分析状态与草稿分（保留 score/aiFeedback 作为 LLM 参考输入与兜底）
+        List<PortalVoiceInterviewQA> qaList = listQaByInterview(interviewId);
+        for (PortalVoiceInterviewQA qa : qaList) {
+            if (StringUtils.isEmpty(qa.getUserAnswer())) {
+                continue;
+            }
+            qa.setAnalysisStatus(null);
+            qa.setScoreDraft(null);
+            qaMapper.updateById(qa);
+        }
+        recordEvent(interviewId, "regenerate_report", Map.of());
+        // 3. 事务提交后触发异步分析（与 finish 同口径）
+        triggerBatchAnalysis(interviewId);
+        // 4. 返回骨架（前端轮询 analysis 接口直至 analysisStatus=2）
+        VoiceInterviewReportVO skeleton = new VoiceInterviewReportVO();
+        skeleton.setInterviewId(interviewId);
+        skeleton.setTotalScore(interview.getScore());
+        skeleton.setSummary("报告生成中…");
+        return skeleton;
     }
 
     /** 解析自我介绍评分 JSON → 报告视图（旧会话/无自我介绍返回 null） */
@@ -2345,87 +1521,285 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
         return parseReport(interview);
     }
     /**
-     * v11.30.4：相关知识点生成（报告「相关知识点」Tab 数据源）
-     *
-     * <p>策略：本场题库题（有 questionId 且已作答）的 tags 聚合，
-     * 低分题（<60）权重 ×2（薄弱知识点优先展示），按频次取 top 8；
-     * LLM 可用时批量生成一句话简介，失败/关闭回退规则描述（频次提示）。</p>
+     * v11.97：整场 LLM 复盘——规则聚合完成后，走 agent 直连通道（与主对话同链路，实测可用）
+     * 基于简历 + 岗位 + 全部问答对生成结构化报告增强：总评/岗位匹配度/结构化亮点薄弱点/
+     * 可执行建议/逐题评分回填/六维。任何失败保留规则兜底（链路永远可用）。
+     * <p>不注入 agent.systemPrompt——报告分析是代码级任务，与面试官 persona 无关。</p>
      */
-    private List<VoiceInterviewReportVO.KnowledgePointView> buildKnowledgePoints(
-            String position, List<PortalVoiceInterviewQA> qaList) {
-        // 1. 收集题库题 tags，低分加权
-        Map<String, Integer> tagWeight = new LinkedHashMap<>();
-        for (PortalVoiceInterviewQA qa : qaList) {
-            if (qa.getQuestionId() == null || qa.getScore() == null) {
-                continue;
+    private void enhanceReportByAgent(PortalVoiceInterview interview, VoiceInterviewReportVO report,
+                                      List<PortalVoiceInterviewQA> qaList, int answeredCount, int ruleAvg) {
+        try {
+            // 热回退开关（缺省开启）
+            try {
+                String sw = sysConfigService.selectConfigByKey("voice.interview.reportLlm.enabled");
+                if (sw != null && "false".equalsIgnoreCase(sw.trim())) {
+                    return;
+                }
+            } catch (Exception ignored) {
             }
-            PortalInterviewQuestion q = questionMapper.selectById(qa.getQuestionId());
-            if (q == null || StringUtils.isEmpty(q.getTags())) {
-                continue;
+            Agent agent = agentClient.resolveAgent(interview.getAgentId());
+            if (agent == null || !agentClient.isEnabled()) {
+                return;
             }
-            int weight = qa.getScore() < 60 ? 2 : 1; // 低分题的 tags 优先
-            for (String tag : q.getTags().split(",")) {
-                String trimmed = tag.trim();
-                if (trimmed.length() >= 2 && trimmed.length() <= 20) {
-                    tagWeight.merge(trimmed, weight, Integer::sum);
+            // ---------- 组装输入：岗位 + JD + 简历摘要 + 全部问答对 ----------
+            String position = StringUtils.isEmpty(interview.getPosition()) ? "综合" : interview.getPosition();
+            String jobRequirements = readConfigKey(interview, "jobRequirements");
+            String resumeDigest = interview.getResumeId() == null ? null
+                    : buildResumeDigest(interview.getResumeId());
+            StringBuilder input = new StringBuilder();
+            input.append("目标岗位：").append(position).append('\n');
+            if (StringUtils.isNotEmpty(jobRequirements)) {
+                input.append("岗位要求：").append(truncateText(jobRequirements, 600)).append('\n');
+            }
+            if (StringUtils.isNotEmpty(resumeDigest)) {
+                input.append("候选人简历摘要：\n").append(truncateText(resumeDigest, 800)).append('\n');
+            }
+            input.append("整场对话记录（含每题初评分，供参考）：\n");
+            for (PortalVoiceInterviewQA qa : qaList) {
+                if (StringUtils.isEmpty(qa.getUserAnswer())) {
+                    continue;
+                }
+                input.append("【第").append(qa.getQuestionIdx()).append("题】")
+                        .append(truncateText(qa.getQuestion(), 150)).append('\n')
+                        .append("候选人回答：").append(truncateText(qa.getUserAnswer(), 400)).append('\n')
+                        .append("初评分：").append(qa.getScore() == null ? 50 : qa.getScore()).append('\n');
+            }
+            input.append("请输出整场面试复盘报告 JSON。");
+
+            String systemPrompt = "你是一位资深技术面试官，面试已结束，请基于候选人简历、目标岗位与整场对话记录，"
+                    + "输出结构化复盘报告 JSON。字段要求：\n"
+                    + "1. overallComment：3-5 句整场总评，结合岗位要求评价整体表现，指出最突出的特点。\n"
+                    + "2. jobMatch：{rate: 0-100 整数匹配度, reason: 1-2 句依据（对照岗位要求与实际作答）}。\n"
+                    + "3. highlights：2-4 条真实亮点数组，每条 {title: 短标题≤12字, detail: 引用作答中的具体内容说明}。\n"
+                    + "4. weakPoints：2-4 条薄弱点数组，每条 {title: 短标题≤12字, detail: 具体不足与影响，禁止复述问题原文}。\n"
+                    + "5. suggestions：3-5 条可执行改进建议字符串数组，结合简历与岗位，每条不超过 60 字。\n"
+                    + "6. perQuestion：每道主问题一条 {questionIdx: 题号, score: 0-100 整数（评分要有区分度："
+                    + "优秀≥80、合格60-79、不合格<60）, comment: 1-2 句针对性点评≤80字}。\n"
+                    + "7. dimensions：{relevance 切题度, professionalism 专业深度, fluency 表达流畅, "
+                    + "interactivity 互动质量, confidence 自信度, logic 逻辑结构}，0-100 整数。\n"
+                    + "只输出 JSON 对象，不要输出任何其他文本。";
+
+            List<ChatMessage> messages = new ArrayList<>();
+            messages.add(SystemMessage.from(systemPrompt));
+            messages.add(new UserMessage(input.toString()));
+
+            String raw = agentClient.chat(agent, messages);
+            JsonNode node = extractJsonObject(raw);
+            if (node == null) {
+                // 降级重试一次：追加严格约束（对齐 chatJson 模式）
+                messages.add(new UserMessage("你上一条输出无法解析为 JSON。请重新输出，且只输出一个合法的 JSON 对象，"
+                        + "以 { 开头、以 } 结尾，不要包含任何解释、Markdown 代码块或其他文本。"));
+                raw = agentClient.chat(agent, messages);
+                node = extractJsonObject(raw);
+            }
+            if (node == null) {
+                log.warn("[VoiceInterview] 整场复盘解析失败，保留规则兜底 interviewId={}", interview.getId());
+                return;
+            }
+
+            // ---------- 总评 / 匹配度 ----------
+            String overallComment = node.path("overallComment").asText("");
+            if (StringUtils.isNotEmpty(overallComment)) {
+                report.setOverallComment(overallComment);
+            }
+            JsonNode jobMatchNode = node.path("jobMatch");
+            if (jobMatchNode.has("rate")) {
+                VoiceInterviewReportVO.JobMatchView jobMatch = new VoiceInterviewReportVO.JobMatchView();
+                jobMatch.setRate(clamp(jobMatchNode.path("rate").asInt(ruleAvg), 0, 100));
+                jobMatch.setReason(jobMatchNode.path("reason").asText(""));
+                report.setJobMatch(jobMatch);
+                if (report.getJobInfo() != null) {
+                    report.getJobInfo().put("matchRate", String.valueOf(jobMatch.getRate()));
                 }
             }
-        }
-        if (tagWeight.isEmpty()) {
-            return Collections.emptyList();
-        }
-        // 2. 按权重排序取 top 8
-        List<String> topTags = tagWeight.entrySet().stream()
-                .sorted((a, b) -> b.getValue() - a.getValue())
-                .limit(8)
-                .map(Map.Entry::getKey)
-                .collect(Collectors.toList());
 
-        // 3. LLM 批量生成简介（失败回退规则描述）
-        Map<String, String> descMap = tryLlmKnowledgeDesc(position, topTags);
-        List<VoiceInterviewReportVO.KnowledgePointView> points = new ArrayList<>();
-        for (String tag : topTags) {
-            VoiceInterviewReportVO.KnowledgePointView kp = new VoiceInterviewReportVO.KnowledgePointView();
-            kp.setTitle(tag);
-            kp.setDesc(descMap.getOrDefault(tag,
-                    "本场面试出现 " + tagWeight.get(tag) + " 次"
-                            + (tagWeight.get(tag) >= 2 ? "（高频/薄弱点，建议优先巩固）" : "，建议结合错题本复盘")));
-            points.add(kp);
+            // ---------- 结构化亮点 / 薄弱点（双写兼容旧字段） ----------
+            List<String> highlightTitles = parsePointViews(node.path("highlights"), report::setHighlightViews);
+            if (!highlightTitles.isEmpty()) {
+                report.setHighlights(highlightTitles);
+            }
+            List<String> weakTitles = parsePointViews(node.path("weakPoints"), report::setWeakPointViews);
+            if (!weakTitles.isEmpty()) {
+                report.setWeakPoints(weakTitles);
+            }
+
+            // ---------- 可执行建议（非空覆盖模板文案） ----------
+            List<String> suggestions = new ArrayList<>();
+            for (JsonNode s : node.path("suggestions")) {
+                String t = s.asText("").trim();
+                if (StringUtils.isNotEmpty(t)) {
+                    suggestions.add(t);
+                }
+            }
+            if (!suggestions.isEmpty()) {
+                report.setImprovementSuggestions(suggestions);
+            }
+
+            // ---------- 六维 ----------
+            JsonNode dimsNode = node.path("dimensions");
+            if (dimsNode.isObject()) {
+                Map<String, Integer> dims = new LinkedHashMap<>();
+                String[] dimKeys = {"relevance", "professionalism", "fluency", "interactivity", "confidence", "logic"};
+                for (String key : dimKeys) {
+                    int v = dimsNode.path(key).asInt(-1);
+                    if (v >= 0) {
+                        dims.put(key, clamp(v, 0, 100));
+                    }
+                }
+                if (dims.size() == dimKeys.length) {
+                    report.setDimensions(dims);
+                }
+            }
+
+            // ---------- 逐题评分回填（覆盖 reviews + QA 表） ----------
+            Map<Integer, PortalVoiceInterviewQA> mainQaByIdx = new LinkedHashMap<>();
+            for (PortalVoiceInterviewQA qa : qaList) {
+                if (qa.getParentQaId() == null && qa.getQuestionIdx() != null
+                        && !mainQaByIdx.containsKey(qa.getQuestionIdx())) {
+                    mainQaByIdx.put(qa.getQuestionIdx(), qa);
+                }
+            }
+            long scoreSum = 0;
+            int scoreCount = 0;
+            for (JsonNode pq : node.path("perQuestion")) {
+                int idx = pq.path("questionIdx").asInt(-1);
+                int score = clamp(pq.path("score").asInt(-1), 0, 100);
+                String comment = pq.path("comment").asText("");
+                if (idx < 0 || score < 0) {
+                    continue;
+                }
+                for (VoiceInterviewReportVO.QuestionReview review : report.getQuestionReviews()) {
+                    if (review.getQuestionIdx() != null && review.getQuestionIdx() == idx) {
+                        review.setScore(score);
+                        if (StringUtils.isNotEmpty(comment)) {
+                            review.setFeedback(comment);
+                        }
+                        break;
+                    }
+                }
+                PortalVoiceInterviewQA qa = mainQaByIdx.get(idx);
+                if (qa != null) {
+                    qa.setScore(score);
+                    if (StringUtils.isNotEmpty(comment)) {
+                        qa.setAiFeedback(comment);
+                    }
+                    qa.setScoreDraft(score);
+                    qaMapper.updateById(qa);
+                }
+                scoreSum += score;
+                scoreCount++;
+            }
+
+            // ---------- 重算总分（复盘逐题分优先；与自我介绍分按权重融合，同规则链路口径） ----------
+            if (scoreCount > 0) {
+                int llmAvg = (int) Math.round((double) scoreSum / scoreCount);
+                VoiceInterviewReportVO.IntroScoreView introScoreView = report.getIntroScore();
+                PortalInterviewConfig finishConfig = loadInterviewConfigQuietly();
+                int newTotal = introScoreView != null && introScoreView.getTotal() != null
+                        ? scoringEngine.fuseTotalScore(introScoreView.getTotal(), llmAvg,
+                                finishConfig == null ? null : finishConfig.getScoringWeights())
+                        : llmAvg;
+                report.setTotalScore(newTotal);
+                // 概要文案同步复盘结论（避免模板文案与逐题分脱节）
+                report.setSummary("本次面试共 " + report.getQuestionReviews().size() + " 题。"
+                        + (overallComment.isEmpty() ? "" : overallComment));
+            }
+            updateAnalysisProgress(interview.getId(), 92);
+            log.info("[VoiceInterview] 整场复盘完成 interviewId={}：总分 {}，亮点 {} 条，薄弱点 {} 条",
+                    interview.getId(), report.getTotalScore(),
+                    report.getHighlightViews() == null ? 0 : report.getHighlightViews().size(),
+                    report.getWeakPointViews() == null ? 0 : report.getWeakPointViews().size());
+        } catch (Exception e) {
+            log.warn("[VoiceInterview] 整场复盘异常（保留规则兜底）interviewId={}：{}", interview.getId(), e.getMessage());
         }
-        return points;
+    }
+
+    /** v11.97：解析亮点/薄弱点数组 → 结构化视图（setter 注入）+ 返回标题列表（旧字段双写） */
+    private List<String> parsePointViews(JsonNode arr,
+                                         java.util.function.Consumer<List<VoiceInterviewReportVO.PointView>> setter) {
+        List<String> titles = new ArrayList<>();
+        if (arr == null || !arr.isArray()) {
+            return titles;
+        }
+        List<VoiceInterviewReportVO.PointView> views = new ArrayList<>();
+        for (JsonNode item : arr) {
+            if (views.size() >= 4) {
+                break;
+            }
+            String title = item.path("title").asText("").trim();
+            if (StringUtils.isEmpty(title)) {
+                continue;
+            }
+            VoiceInterviewReportVO.PointView view = new VoiceInterviewReportVO.PointView();
+            view.setTitle(title);
+            view.setDetail(item.path("detail").asText("").trim());
+            views.add(view);
+            titles.add(title);
+        }
+        if (!views.isEmpty()) {
+            setter.accept(views);
+        }
+        return titles;
+    }
+
+    /** v11.97：容错提取 JSON 对象主体（剥 Markdown 围栏/前后杂文本；对齐 ai2 Handler 解析口径） */
+    private JsonNode extractJsonObject(String raw) {
+        if (StringUtils.isEmpty(raw)) {
+            return null;
+        }
+        String text = raw.trim();
+        int start = text.indexOf('{');
+        int end = text.lastIndexOf('}');
+        if (start >= 0 && end > start) {
+            try {
+                return objectMapper.readTree(text.substring(start, end + 1));
+            } catch (Exception ignored) {
+            }
+        }
+        try {
+            return objectMapper.readTree(text);
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    /** v11.97：文本截断（超长加省略号） */
+    private String truncateText(String text, int maxLen) {
+        if (text == null) {
+            return "";
+        }
+        String flat = text.replaceAll("\\s+", " ").trim();
+        return flat.length() > maxLen ? flat.substring(0, maxLen) + "…" : flat;
     }
 
     /**
-     * LLM 批量生成知识点一句话简介（v11.30.4），失败返回空 Map 走规则回退。
-     * v11.58 P0-3c：收口 AI 网关（voice_interview 场景 task=knowledge_desc 子任务）。
+     * v11.97：技能 JSON 格式化——{"Java":{"level":"了解"}} 或数组 → "Java·了解 / Python·了解"；
+     * 解析失败原样返回（兜底存量/异构数据）。
      */
-    private Map<String, String> tryLlmKnowledgeDesc(String position, List<String> tags) {
-        Map<String, String> result = new LinkedHashMap<>();
-        if (!aiProperties.isEnabled()) {
-            return result;
+    private String formatSkills(String rawSkills) {
+        if (StringUtils.isEmpty(rawSkills) || !rawSkills.trim().startsWith("{")) {
+            return rawSkills;
         }
         try {
-            String context = "面试岗位：" + (StringUtils.isEmpty(position) ? "通用" : position)
-                    + "\n知识点：" + String.join("、", tags);
-            com.fasterxml.jackson.databind.JsonNode node = aiSceneJsonClient.executeForJson(
-                    SCENE_VOICE_INTERVIEW,
-                    Map.of("task", "knowledge_desc", "context", context),
-                    null);
-            if (node == null) {
-                return result;
+            JsonNode node = objectMapper.readTree(rawSkills);
+            if (!node.isObject()) {
+                return rawSkills;
             }
-            for (com.fasterxml.jackson.databind.JsonNode item : node.path("points")) {
-                String title = item.path("title").asText("");
-                String desc = item.path("desc").asText("");
-                if (StringUtils.isNotEmpty(title) && StringUtils.isNotEmpty(desc)) {
-                    result.put(title, desc);
-                }
+            List<String> parts = new ArrayList<>();
+            java.util.Iterator<Map.Entry<String, JsonNode>> it = node.fields();
+            while (it.hasNext()) {
+                Map.Entry<String, JsonNode> entry = it.next();
+                String name = entry.getKey();
+                String level = entry.getValue().isContainerNode()
+                        ? entry.getValue().path("level").asText("") : entry.getValue().asText("");
+                parts.add(StringUtils.isEmpty(level) ? name : name + "·" + level);
             }
+            return String.join(" / ", parts);
         } catch (Exception e) {
-            log.warn("[VoiceInterview] 知识点 LLM 简介生成失败（回退规则描述）：{}", e.getMessage());
+            return rawSkills;
         }
-        return result;
     }
+
     private List<String> buildImprovementSuggestions(List<String> weakPoints,
                                                       VoiceInterviewReportVO.IntroScoreView introScore) {
         List<String> suggestions = new ArrayList<>();
@@ -2523,29 +1897,7 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
         }
         return interviewMapper.deleteById(interviewId) > 0;
     }
-    /** v11.x：启用中的岗位模板列表（portal 开始面试选择 job 题源） */
-    @Override
-    public List<Map<String, Object>> listActiveJobTemplates() {
-        List<Map<String, Object>> result = new ArrayList<>();
-        try {
-            List<com.moyun.portal.domain.entity.PortalJobTemplate> templates = jobTemplateService.lambdaQuery()
-                    .eq(com.moyun.portal.domain.entity.PortalJobTemplate::getStatus, "active")
-                    .orderByAsc(com.moyun.portal.domain.entity.PortalJobTemplate::getId)
-                    .last("LIMIT 100")
-                    .list();
-            for (com.moyun.portal.domain.entity.PortalJobTemplate t : templates) {
-                Map<String, Object> item = new LinkedHashMap<>();
-                item.put("id", t.getId());
-                item.put("name", t.getName());
-                item.put("category", t.getCategory());
-                item.put("difficulty", t.getDifficulty());
-                result.add(item);
-            }
-        } catch (Exception e) {
-            log.warn("[VoiceInterview] 查询启用岗位模板失败：{}", e.getMessage());
-        }
-        return result;
-    }
+
     /** v11.x D4：场景绑定 workflowId 时异步执行工作流（输入=面试报告上下文），失败仅记日志 */
     private void triggerSceneWorkflowAsync(PortalVoiceInterview interview, VoiceInterviewReportVO report) {
         try {
@@ -2596,6 +1948,146 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
     }
 
     @Override
+    public Map<String, Object> getActiveInterview(Long userId) {
+        Map<String, Object> result = new LinkedHashMap<>();
+        if (userId == null) {
+            return result;
+        }
+        PortalVoiceInterview interview = interviewMapper.selectOne(Wrappers.<PortalVoiceInterview>lambdaQuery()
+                .eq(PortalVoiceInterview::getUserId, userId)
+                .eq(PortalVoiceInterview::getStatus, "in_progress")
+                .eq(PortalVoiceInterview::getDelFlag, "0")
+                .orderByDesc(PortalVoiceInterview::getId)
+                .last("LIMIT 1"));
+        if (interview == null) {
+            return result;
+        }
+        // 已答题数（提交过回答的 QA）
+        Long answered = qaMapper.selectCount(Wrappers.<PortalVoiceInterviewQA>lambdaQuery()
+                .eq(PortalVoiceInterviewQA::getInterviewId, interview.getId())
+                .isNotNull(PortalVoiceInterviewQA::getUserAnswer));
+        // 中断前已用时长锚点：最后作答时间 > 当前题创建时间 > 会话开始时间
+        PortalVoiceInterviewQA lastQa = qaMapper.selectOne(Wrappers.<PortalVoiceInterviewQA>lambdaQuery()
+                .eq(PortalVoiceInterviewQA::getInterviewId, interview.getId())
+                .orderByDesc(PortalVoiceInterviewQA::getId)
+                .last("LIMIT 1"));
+        java.time.LocalDateTime anchor = interview.getCreateTime();
+        if (lastQa != null) {
+            anchor = lastQa.getAnswerTime() != null ? lastQa.getAnswerTime()
+                    : (lastQa.getCreateTime() != null ? lastQa.getCreateTime() : anchor);
+        }
+        long elapsedSec = anchor == null || interview.getCreateTime() == null ? 0
+                : Math.max(0, java.time.temporal.ChronoUnit.SECONDS.between(interview.getCreateTime(), anchor));
+
+        result.put("interviewId", interview.getId());
+        result.put("position", interview.getPosition());
+        result.put("scene", interview.getScene());
+        result.put("startTime", interview.getCreateTime());
+        result.put("answered", answered == null ? 0 : answered.intValue());
+        result.put("totalQa", interview.getTotalQa());
+        result.put("elapsedSec", elapsedSec);
+        return result;
+    }
+
+    @Override
+    public VoiceInterviewVO resumeInterview(Long interviewId, Long userId) {
+        PortalVoiceInterview interview = mustOwnInterview(interviewId, userId);
+        if (!"in_progress".equals(interview.getStatus())) {
+            throw new ServiceException("该面试已结束，无法继续");
+        }
+        // 断点续接：记录恢复事件（全链路可追溯）
+        recordEvent(interviewId, "resume", Map.of(
+                "currentIdx", interview.getCurrentIdx() == null ? 0 : interview.getCurrentIdx(),
+                "phase", interview.getPhase() == null ? "" : interview.getPhase()));
+        // V3：滑窗仍在则直接复用；Redis 已过期则按 DB 问答逐对重建（保证续接后上下文连贯）
+        rebuildMemoryIfNeeded(interview);
+        // 返回恢复快照：getDetail 含 qaList（历史问答）+ currentQa（待答题）
+        return getDetail(interviewId, userId);
+    }
+
+    /** V3 断点续接滑窗重建：system+上下文按 start 规则重注入，DB QA 逐对追加 */
+    private void rebuildMemoryIfNeeded(PortalVoiceInterview interview) {
+        try {
+            Agent agent = agentClient.resolveAgent(interview.getAgentId());
+            if (agent == null) {
+                return;
+            }
+            MessageWindowChatMemory memory = memoryService.getMemory(interview.getId(), agent.getMaxHistoryTurns());
+            if (!memory.messages().isEmpty()) {
+                return;
+            }
+            // system + 上下文 user（与 start 同源：contextSnapshot）
+            String systemPrompt = buildInterviewerSystemPrompt(interview, agent);
+            String jobRequirements = readConfigKey(interview, "jobRequirements");
+            String resumeDigest = readConfigKey(interview, "resumeDigest");
+            StringBuilder ctx = new StringBuilder("面试背景信息：\n岗位："
+                    + (interview.getPosition() == null ? "" : interview.getPosition())
+                    + "\n难度：" + (interview.getDifficulty() == null ? "medium" : interview.getDifficulty()));
+            if (StringUtils.isNotEmpty(jobRequirements)) {
+                ctx.append("\n岗位要求JD：\n").append(jobRequirements);
+            }
+            if (StringUtils.isNotEmpty(resumeDigest)) {
+                ctx.append("\n简历摘要：\n").append(resumeDigest);
+            }
+            String contextUserMsg = PromptInjectionGuard.wrapData("候选人资料", ctx.toString());
+
+            // DB QA 逐对重建（首题 QA 的 speakText 即开场白 assistant 消息）
+            List<ChatMessage> qaPairs = new ArrayList<>();
+            for (PortalVoiceInterviewQA qa : listQaByInterview(interview.getId())) {
+                if (StringUtils.isNotEmpty(qa.getSpeakText())) {
+                    qaPairs.add(new AiMessage(qa.getSpeakText()));
+                }
+                if (StringUtils.isNotEmpty(qa.getUserAnswer())) {
+                    qaPairs.add(new UserMessage(qa.getUserAnswer()));
+                }
+            }
+            memoryService.rebuildFromDb(interview.getId(), agent.getMaxHistoryTurns(),
+                    systemPrompt, contextUserMsg, qaPairs);
+        } catch (Exception e) {
+            log.warn("[VoiceInterview] 滑窗重建失败 interviewId={}：{}", interview.getId(), e.getMessage());
+        }
+    }
+
+    /** 从 configJson 读字符串键（resume 重建上下文用） */
+    private String readConfigKey(PortalVoiceInterview interview, String key) {
+        try {
+            if (StringUtils.isEmpty(interview.getConfigJson())) {
+                return "";
+            }
+            JsonNode node = objectMapper.readTree(interview.getConfigJson());
+            return node.path(key).asText("");
+        } catch (Exception e) {
+            return "";
+        }
+    }
+
+    /**
+     * v11.91 断点续接收口：开始新面试前，遗留的进行中会话自动结束（closed_reason=abandon）
+     * 并触发异步批量分析——数据不丢，报告保留在历史记录可查看。
+     */
+    private void closeStaleInterviews(Long userId) {
+        try {
+            List<PortalVoiceInterview> staleList = interviewMapper.selectList(Wrappers.<PortalVoiceInterview>lambdaQuery()
+                    .eq(PortalVoiceInterview::getUserId, userId)
+                    .eq(PortalVoiceInterview::getStatus, "in_progress")
+                    .eq(PortalVoiceInterview::getDelFlag, "0"));
+            for (PortalVoiceInterview stale : staleList) {
+                stale.setStatus("finished");
+                stale.setClosedReason("abandon");
+                interviewMapper.updateById(stale);
+                recordEvent(stale.getId(), "close", Map.of("reason", "abandon"));
+                try {
+                    triggerBatchAnalysis(stale.getId());
+                } catch (Exception ex) {
+                    log.warn("[VoiceInterview] 遗留会话批量分析触发失败 interviewId={}：{}", stale.getId(), ex.getMessage());
+                }
+            }
+        } catch (Exception e) {
+            log.warn("[VoiceInterview] 收口遗留进行中会话失败 userId={}：{}", userId, e.getMessage());
+        }
+    }
+
+    @Override
     public VoiceInterviewVO getDetail(Long interviewId, Long userId) {
         PortalVoiceInterview interview = mustOwnInterview(interviewId, userId);
         List<PortalVoiceInterviewQA> qaList = listQaByInterview(interviewId);
@@ -2623,516 +2115,6 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
         VoiceInterviewVO vo = toVO(interview);
         vo.setCurrentQa(toQaVO(qa));
         return vo;
-    }
-
-    // ========================================================================
-    // 出题逻辑（复用 MockInterview 模式）
-    // ========================================================================
-
-    private List<PortalInterviewQuestion> pickQuestionsByProfile(UserProfileSnapshotVO snapshot, int count) {
-        List<PortalInterviewQuestion> result = new ArrayList<>();
-        Set<Long> pickedIds = new HashSet<>();
-
-        // 路径1：薄弱点优先
-        List<UserProfileSnapshotVO.WeakTagItem> weakTags = snapshot.getWeakTags();
-        if (weakTags != null && !weakTags.isEmpty()) {
-            List<UserProfileSnapshotVO.WeakTagItem> sorted = new ArrayList<>(weakTags);
-            sorted.sort((a, b) -> {
-                double fa = a.getFailRate() == null ? 0 : a.getFailRate();
-                double fb = b.getFailRate() == null ? 0 : b.getFailRate();
-                return Double.compare(fb, fa);
-            });
-            int remain = Math.min(sorted.size(), WEAK_TAG_RECALL_LIMIT);
-            for (int i = 0; i < remain && result.size() < count; i++) {
-                UserProfileSnapshotVO.WeakTagItem tag = sorted.get(i);
-                if (StringUtils.isEmpty(tag.getTagName())) continue;
-                mergeUnique(queryByTag(tag.getTagName(), count - result.size(), snapshot.getUserId()),
-                        pickedIds, result, count - result.size());
-            }
-        }
-
-        // 路径2：岗位必备技能
-        if (result.size() < count) {
-            List<String> requiredSkills = snapshot.getRequiredSkills();
-            if (requiredSkills != null && !requiredSkills.isEmpty()) {
-                int remain = Math.min(requiredSkills.size(), REQUIRED_SKILL_RECALL_LIMIT);
-                for (int i = 0; i < remain && result.size() < count; i++) {
-                    String skill = requiredSkills.get(i);
-                    if (StringUtils.isEmpty(skill)) continue;
-                    mergeUnique(queryByTag(skill, count - result.size(), snapshot.getUserId()),
-                            pickedIds, result, count - result.size());
-                }
-            }
-        }
-
-        // 路径3：随机兜底（同样避让已掌握题；排除后为空则回退不排除）
-        if (result.size() < count) {
-            LambdaQueryWrapper<PortalInterviewQuestion> qw = Wrappers.<PortalInterviewQuestion>lambdaQuery()
-                    .eq(PortalInterviewQuestion::getStatus, "published");
-            if (!pickedIds.isEmpty()) {
-                qw.notIn(PortalInterviewQuestion::getId, pickedIds);
-            }
-            List<PortalInterviewQuestion> fallback = queryWithSolvedExclusion(qw, count - result.size(), snapshot.getUserId());
-            if (fallback.isEmpty()) {
-                qw = Wrappers.<PortalInterviewQuestion>lambdaQuery()
-                        .eq(PortalInterviewQuestion::getStatus, "published");
-                if (!pickedIds.isEmpty()) {
-                    qw.notIn(PortalInterviewQuestion::getId, pickedIds);
-                }
-                fallback = questionMapper.selectList(qw.last("ORDER BY RAND() LIMIT " + Math.max(1, count - result.size())));
-            }
-            result.addAll(fallback);
-        }
-        return result.size() > count ? new ArrayList<>(result.subList(0, count)) : result;
-    }
-
-    // ========================================================================
-    // 简历深挖出题（V10.3）：项目 2 题 + 画像 2 题 + 兜底 1 题
-    // ========================================================================
-
-    /** 简历出题结果：questions 题单（锚定题为虚拟实体，id=null）；snapshots 索引→题面快照 */
-    private static class ResumePickResult {
-        final List<PortalInterviewQuestion> questions;
-        final Map<Integer, Map<String, Object>> snapshots;
-        ResumePickResult(List<PortalInterviewQuestion> questions, Map<Integer, Map<String, Object>> snapshots) {
-            this.questions = questions;
-            this.snapshots = snapshots;
-        }
-    }
-
-    /** 简历项目经历条目（projects JSON 数组元素） */
-    private static class ResumeProjectItem {
-        String name;
-        String role;
-        String description;
-    }
-
-    private ResumePickResult pickQuestionsWithResume(Long userId, Long resumeId, UserProfileSnapshotVO snapshot,
-                                                     boolean useProfile, String position, String scene) {
-        List<PortalInterviewQuestion> questions = new ArrayList<>();
-        Map<Integer, Map<String, Object>> snapshots = new LinkedHashMap<>();
-        Set<Long> pickedIds = new HashSet<>();
-
-        // ── 路径1：简历项目深挖 2 题（锚定题，不入题库）
-        List<ResumeProjectItem> projects = loadResumeProjects(userId, resumeId);
-        int anchorCount = 0;
-        for (ResumeProjectItem project : projects) {
-            if (anchorCount >= RESUME_PROJECT_QUESTION_COUNT) break;
-            if (project == null || StringUtils.isEmpty(project.name)) continue;
-            int idx = questions.size();
-            String title = StringUtils.isEmpty(project.role)
-                    ? "请详细介绍你在「" + project.name + "」项目中的核心工作与产出"
-                    : "你在「" + project.name + "」项目中担任 " + project.role + "，请介绍你负责的核心模块、技术选型理由和最终产出";
-            PortalInterviewQuestion anchor = new PortalInterviewQuestion();
-            anchor.setTitle(title);
-            questions.add(anchor);
-            Map<String, Object> snap = new LinkedHashMap<>();
-            snap.put("idx", idx);
-            snap.put("title", title);
-            snap.put("source", "resume_project");
-            snap.put("resumeId", resumeId);
-            snap.put("projectName", project.name);
-            if (StringUtils.isNotEmpty(project.role)) snap.put("projectRole", project.role);
-            if (StringUtils.isNotEmpty(project.description)) snap.put("projectDesc", abbreviate(project.description, 400));
-            snapshots.put(idx, snap);
-            anchorCount++;
-        }
-
-        // ── 路径2：画像出题（薄弱点/岗位技能优先，跳过已选）
-        List<PortalInterviewQuestion> profileQuestions = new ArrayList<>();
-        if (useProfile && snapshot != null) {
-            List<PortalInterviewQuestion> byProfile = pickQuestionsByProfile(snapshot, QUESTION_COUNT);
-            for (PortalInterviewQuestion q : byProfile) {
-                if (profileQuestions.size() >= PROFILE_QUESTION_COUNT_WITH_RESUME) break;
-                if (q != null && q.getId() != null && !pickedIds.contains(q.getId())) {
-                    profileQuestions.add(q);
-                    pickedIds.add(q.getId());
-                }
-            }
-        }
-        // 画像不足时从题库补齐
-        if (profileQuestions.size() < PROFILE_QUESTION_COUNT_WITH_RESUME) {
-            List<PortalInterviewQuestion> fallback = pickQuestions(position, scene,
-                    PROFILE_QUESTION_COUNT_WITH_RESUME - profileQuestions.size(), userId);
-            for (PortalInterviewQuestion q : fallback) {
-                if (q != null && q.getId() != null && !pickedIds.contains(q.getId())) {
-                    profileQuestions.add(q);
-                    pickedIds.add(q.getId());
-                }
-            }
-        }
-        questions.addAll(profileQuestions);
-
-        // ── 路径3：兜底补满（锚定题无 id，不参与去重）
-        if (questions.size() < QUESTION_COUNT) {
-            LambdaQueryWrapper<PortalInterviewQuestion> qw = Wrappers.<PortalInterviewQuestion>lambdaQuery()
-                    .eq(PortalInterviewQuestion::getStatus, "published");
-            if (!pickedIds.isEmpty()) {
-                qw.notIn(PortalInterviewQuestion::getId, pickedIds);
-            }
-            qw.last("ORDER BY RAND() LIMIT " + Math.max(1, QUESTION_COUNT - questions.size()));
-            questions.addAll(questionMapper.selectList(qw));
-        }
-        if (questions.size() > QUESTION_COUNT) {
-            // 优先裁掉末尾兜底题，保留锚定题与画像题
-            questions = new ArrayList<>(questions.subList(0, QUESTION_COUNT));
-            snapshots.keySet().removeIf(idx -> idx >= QUESTION_COUNT);
-        }
-        return new ResumePickResult(questions, snapshots);
-    }
-
-    /** 解析简历 projects JSON 为项目条目（兼容数组与 [{name,role,description}] 结构） */
-    private List<ResumeProjectItem> loadResumeProjects(Long userId, Long resumeId) {
-        List<ResumeProjectItem> items = new ArrayList<>();
-        try {
-            PortalUserResume resume = userResumeMapper.selectById(resumeId);
-            if (resume == null || !userId.equals(resume.getUserId())) {
-                log.warn("[VoiceInterview] 简历不存在或不属于当前用户 resumeId={}", resumeId);
-                return items;
-            }
-            String projectsJson = resume.getProjects();
-            if (StringUtils.isEmpty(projectsJson)) {
-                return items;
-            }
-            com.fasterxml.jackson.databind.JsonNode arr = objectMapper.readTree(projectsJson);
-            if (arr == null || !arr.isArray()) {
-                return items;
-            }
-            for (com.fasterxml.jackson.databind.JsonNode node : arr) {
-                if (node == null || !node.isObject()) continue;
-                ResumeProjectItem item = new ResumeProjectItem();
-                item.name = node.path("name").asText(node.path("projectName").asText(null));
-                item.role = node.path("role").asText(node.path("position").asText(null));
-                item.description = node.path("description").asText(node.path("content").asText(null));
-                if (StringUtils.isNotEmpty(item.name)) {
-                    items.add(item);
-                }
-            }
-        } catch (Exception e) {
-            log.warn("[VoiceInterview] 解析简历项目失败 resumeId={}：{}", resumeId, e.getMessage());
-        }
-        return items;
-    }
-
-    /** 从 configJson 取指定索引的锚定题快照标题（供推进逻辑恢复题面） */
-    private String extractQuestionSnapshotTitle(String configJson, int idx) {
-        if (StringUtils.isEmpty(configJson)) return null;
-        try {
-            Map<String, Object> config = objectMapper.readValue(configJson, Map.class);
-            Object snaps = config.get("questionSnapshots");
-            if (snaps instanceof Map) {
-                Object snap = ((Map<String, Object>) snaps).get(String.valueOf(idx));
-                if (snap instanceof Map) {
-                    Object title = ((Map<String, Object>) snap).get("title");
-                    return title == null ? null : title.toString();
-                }
-            }
-        } catch (Exception e) {
-            log.warn("[VoiceInterview] 解析 questionSnapshots 失败 idx={}：{}", idx, e.getMessage());
-        }
-        return null;
-    }
-
-    private String abbreviate(String text, int maxLen) {
-        if (text == null) return null;
-        return text.length() <= maxLen ? text : text.substring(0, maxLen) + "…";
-    }
-
-    private List<PortalInterviewQuestion> pickQuestions(String position, String scene, int count, Long userId) {
-        List<PortalInterviewQuestion> qs = queryQuestions(scene, position, count, userId);
-        if (qs.size() >= count) return qs;
-        if (StringUtils.isNotEmpty(scene)) {
-            qs = queryQuestions(scene, null, count, userId);
-            if (qs.size() >= count) return qs;
-        }
-        if (StringUtils.isNotEmpty(position)) {
-            qs = queryQuestions(null, position, count, userId);
-            if (qs.size() >= count) return qs;
-        }
-        return queryQuestions(null, null, count, userId);
-    }
-
-    private List<PortalInterviewQuestion> queryQuestions(String scene, String position, int count, Long userId) {
-        List<PortalInterviewQuestion> qs = queryWithSolvedExclusion(questionWrapper(scene, position), count, userId);
-        if (qs.isEmpty()) {
-            // 排除后无题可出：回退不排除（保证出题数量优先于避让）
-            qs = questionMapper.selectList(questionWrapper(scene, position)
-                    .last("ORDER BY RAND() LIMIT " + Math.max(1, count)));
-        }
-        return qs;
-    }
-
-    private LambdaQueryWrapper<PortalInterviewQuestion> questionWrapper(String scene, String position) {
-        LambdaQueryWrapper<PortalInterviewQuestion> qw = Wrappers.<PortalInterviewQuestion>lambdaQuery()
-                .eq(PortalInterviewQuestion::getStatus, "published");
-        if (StringUtils.isNotEmpty(scene)) {
-            qw.and(w -> w.like(PortalInterviewQuestion::getTags, scene)
-                    .or().like(PortalInterviewQuestion::getDescription, scene));
-        }
-        if (StringUtils.isNotEmpty(position)) {
-            qw.and(w -> w.like(PortalInterviewQuestion::getTags, position)
-                    .or().like(PortalInterviewQuestion::getCompanies, position));
-        }
-        return qw;
-    }
-
-    private List<PortalInterviewQuestion> queryByTag(String tag, int limit, Long userId) {
-        if (StringUtils.isEmpty(tag) || limit <= 0) return new ArrayList<>();
-        LambdaQueryWrapper<PortalInterviewQuestion> qw = Wrappers.<PortalInterviewQuestion>lambdaQuery()
-                .eq(PortalInterviewQuestion::getStatus, "published")
-                .like(PortalInterviewQuestion::getTags, tag.trim());
-        List<PortalInterviewQuestion> qs = queryWithSolvedExclusion(qw, limit, userId);
-        if (qs.isEmpty()) {
-            // 排除后无题可出：回退不排除（保证出题数量优先于避让）
-            qw = Wrappers.<PortalInterviewQuestion>lambdaQuery()
-                    .eq(PortalInterviewQuestion::getStatus, "published")
-                    .like(PortalInterviewQuestion::getTags, tag.trim());
-            qs = questionMapper.selectList(qw.last("ORDER BY RAND() LIMIT " + Math.max(1, limit)));
-        }
-        return qs;
-    }
-
-    /**
-     * 已掌握题目避让（跨模块闭环 P0-3）：用户在练习中已通过的题（attempt.status=solved）
-     * 不再重复出现在面试题单中；排除后为空时由调用方回退不排除。
-     */
-    private List<PortalInterviewQuestion> queryWithSolvedExclusion(LambdaQueryWrapper<PortalInterviewQuestion> qw,
-                                                                   int limit, Long userId) {
-        Set<Long> solvedIds = solvedQuestionIds(userId);
-        if (!solvedIds.isEmpty()) {
-            qw.notIn(PortalInterviewQuestion::getId, solvedIds);
-        }
-        return questionMapper.selectList(qw.last("ORDER BY RAND() LIMIT " + Math.max(1, limit)));
-    }
-
-    /** 用户已通过（已掌握）的题目 ID 集，出题时避让 */
-    private Set<Long> solvedQuestionIds(Long userId) {
-        if (userId == null) return java.util.Collections.emptySet();
-        try {
-            return attemptMapper.selectList(
-                            Wrappers.<com.moyun.portal.domain.entity.PortalInterviewAttempt>lambdaQuery()
-                                    .eq(com.moyun.portal.domain.entity.PortalInterviewAttempt::getUserId, userId)
-                                    .eq(com.moyun.portal.domain.entity.PortalInterviewAttempt::getStatus, "solved")
-                                    .select(com.moyun.portal.domain.entity.PortalInterviewAttempt::getQuestionId))
-                    .stream()
-                    .map(com.moyun.portal.domain.entity.PortalInterviewAttempt::getQuestionId)
-                    .collect(java.util.stream.Collectors.toSet());
-        } catch (Exception e) {
-            log.warn("[PickQuestions] 查询已掌握题目失败，跳过避让：{}", e.getMessage());
-            return java.util.Collections.emptySet();
-        }
-    }
-
-    private void mergeUnique(List<PortalInterviewQuestion> candidates, Set<Long> pickedIds,
-                             List<PortalInterviewQuestion> result, int need) {
-        if (candidates == null || candidates.isEmpty() || need <= 0) return;
-        for (PortalInterviewQuestion q : candidates) {
-            if (result.size() >= need) break;
-            if (q == null || q.getId() == null || pickedIds.contains(q.getId())) continue;
-            pickedIds.add(q.getId());
-            result.add(q);
-        }
-    }
-
-    // ========================================================================
-    // 评分逻辑（v11.47：规则评分引擎已抽至 AnswerScoringEngine，此处仅委托）
-    // ========================================================================
-
-    private AnswerScoringEngine.ScoreResult scoreAnswer(PortalInterviewQuestion question, String answer) {
-        return answerScoringEngine.scoreAnswer(question, answer);
-    }
-
-    // ========================================================================
-    // DECIDING 矩阵：决定下一步动作
-    // ========================================================================
-
-    private String decideNextAction(PortalVoiceInterview interview, PortalVoiceInterviewQA qa, int score) {
-        int currentIdx = interview.getCurrentIdx() == null ? 0 : interview.getCurrentIdx();
-        int total = interview.getTotalQa() == null ? 0 : interview.getTotalQa();
-
-        // 分数低且未追问过 → 追问
-        if (score < 50 && qa.getParentQaId() == null && currentIdx < total - 1) {
-            return "followup";
-        }
-        // 还有下一题 → next
-        if (currentIdx < total - 1) {
-            return "next";
-        }
-        // 最后一题 → report
-        return "report";
-    }
-
-    /** 推进到下一题 */
-    private VoiceInterviewQAWrapper advanceToNextQuestion(PortalVoiceInterview interview) {
-        int nextIdx = (interview.getCurrentIdx() == null ? 0 : interview.getCurrentIdx()) + 1;
-        int total = interview.getTotalQa() == null ? 0 : interview.getTotalQa();
-        if (nextIdx >= total) {
-            return null;
-        }
-
-        // 从 configJson 读取题单
-        List<Long> qIds = extractQuestionIds(interview.getConfigJson());
-        if (nextIdx >= qIds.size()) {
-            return null;
-        }
-        Long qId = qIds.get(nextIdx);
-        String questionTitle;
-        Long resolvedQuestionId;
-        if (qId != null) {
-            PortalInterviewQuestion q = questionMapper.selectById(qId);
-            if (q == null) {
-                return null;
-            }
-            questionTitle = q.getTitle();
-            resolvedQuestionId = q.getId();
-        } else {
-            // 简历锚定题：从快照恢复（题库中不存在该题）
-            String snapshotTitle = extractQuestionSnapshotTitle(interview.getConfigJson(), nextIdx);
-            if (StringUtils.isEmpty(snapshotTitle)) {
-                return null;
-            }
-            questionTitle = snapshotTitle;
-            resolvedQuestionId = null;
-        }
-
-        PortalVoiceInterviewQA qa = new PortalVoiceInterviewQA();
-        qa.setInterviewId(interview.getId());
-        qa.setQuestionId(resolvedQuestionId);
-        qa.setQuestionIdx(nextIdx);
-        qa.setQuestion(questionTitle);
-        qa.setHintUsed(0);
-        qa.setTranscriptionEdited(0);
-        qa.setCreateTime(LocalDateTime.now());
-        qa.setSpeakText(buildQuestionIntro(interview.getStyle(), questionTitle, nextIdx + 1));
-        qaMapper.insert(qa);
-
-        interview.setCurrentIdx(nextIdx);
-        // v11.x：按新题落位阶段（PROJECT_DEEP/SYSTEM_DESIGN/TECH_QUESTION）
-        if (!InterviewPhase.isLegacy(interview.getPhase())) {
-            interview.setPhase(phaseForQuestion(qa.getQuestionId(), qa.getQuestion(), interview));
-        }
-        interviewMapper.updateById(interview);
-
-        return new VoiceInterviewQAWrapper(qa);
-    }
-
-    /** 创建追问 QA（V10.4：question 由 LLM 针对候选人原话漏洞生成，analysis 提供漏洞上下文） */
-    private PortalVoiceInterviewQA createFollowupQa(PortalVoiceInterview interview,
-                                                     PortalVoiceInterviewQA parentQa,
-                                                     PortalInterviewQuestion question,
-                                                     AnswerScoringEngine.ScoreResult sr,
-                                                     String followupQuestion,
-                                                     AnswerAnalysis analysis) {
-        PortalVoiceInterviewQA followup = new PortalVoiceInterviewQA();
-        followup.setInterviewId(interview.getId());
-        followup.setQuestionId(parentQa.getQuestionId());
-        followup.setQuestionIdx(parentQa.getQuestionIdx());
-        followup.setParentQaId(parentQa.getId());
-        followup.setHintUsed(0);
-        followup.setTranscriptionEdited(0);
-        followup.setCreateTime(LocalDateTime.now());
-
-        followup.setQuestion(followupQuestion);
-        // 播报话术：有漏洞时点明漏洞再追问，无则直接问
-        String speak;
-        if (analysis != null && !analysis.flaws.isEmpty()) {
-            speak = "我注意到你刚才的回答里，" + analysis.flaws.get(0) + " 这一点说得还比较模糊。" + followupQuestion;
-        } else {
-            speak = followupQuestion;
-        }
-        followup.setSpeakText(speak);
-        qaMapper.insert(followup);
-        return followup;
-    }
-
-    // ========================================================================
-    // 话术生成
-    // ========================================================================
-
-    private String generateSpeakText(PortalVoiceInterview interview, PortalInterviewQuestion question,
-                                     String answer, AnswerScoringEngine.ScoreResult sr, String nextAction) {
-        // LLM 可用时增强（V10.4：系统提示词携带岗位/简历/画像完整上下文）
-        // v11.58 P0-3c：LLM 直调收口网关（voice_interview 场景 task=speak_text 子任务）
-        if (aiProperties.isEnabled()) {
-            try {
-                String context = buildContextualSystemPrompt(interview);
-                StringBuilder turnData = new StringBuilder();
-                turnData.append("题目：").append(question == null ? "未知" : question.getTitle()).append("\n");
-                turnData.append("考生回答：").append(answer).append("\n");
-                turnData.append("得分：").append(sr.score).append("/100\n");
-                turnData.append("关键词覆盖：").append(sr.dimensions.get("relevance")).append("%\n");
-                turnData.append("请作为面试官给出简短回应（50字以内），");
-                switch (nextAction) {
-                    case "followup":
-                        turnData.append("并引导考生补充回答。");
-                        break;
-                    case "next":
-                        turnData.append("肯定回答并过渡到下一题。");
-                        break;
-                    case "report":
-                        turnData.append("总结本次面试表现。");
-                        break;
-                    default:
-                        turnData.append("给出鼓励性反馈。");
-                }
-                com.fasterxml.jackson.databind.JsonNode node = aiSceneJsonClient.executeForJson(
-                        SCENE_VOICE_INTERVIEW,
-                        Map.of("task", "speak_text",
-                                "context", context,
-                                "transcript", turnData.toString()),
-                        interview.getUserId());
-                if (node != null) {
-                    String llmText = node.path("text").asText("");
-                    if (StringUtils.isNotEmpty(llmText)) {
-                        return llmText;
-                    }
-                }
-            } catch (Exception e) {
-                log.warn("[VoiceInterview] LLM 话术生成失败，降级规则话术：{}", e.getMessage());
-            }
-        }
-        // 规则降级
-        return buildRuleSpeakText(sr.score, nextAction);
-    }
-
-    private String buildInterviewerPrompt(String style) {
-        String base = "你是一名资深技术面试官，正在面试候选人。请根据考生回答给出简短、专业的回应。";
-        switch (style == null ? "professional" : style) {
-            case "friendly":
-                return base + "语气亲和、鼓励，让候选人放松。";
-            case "strict":
-                return base + "语气严格、直接，指出不足并要求补充。";
-            default:
-                return base + "语气专业、客观。";
-        }
-    }
-
-    private String buildRuleSpeakText(int score, String nextAction) {
-        switch (nextAction) {
-            case "followup":
-                return "你的回答覆盖了部分要点，能否再补充一些细节？";
-            case "next":
-                return score >= 70 ? "回答不错，我们来看下一题。" : "好的，我们继续下一题。";
-            case "report":
-                return "本次面试到此结束，我来为你做一个总结。";
-            default:
-                return "请继续。";
-        }
-    }
-
-    private String buildGreetText(String style, String position, String firstQuestion) {
-        // 场景信息通过会话记录读取，开场白同步体现，让候选人有真实代入感
-        String greeting = "你好，欢迎参加";
-        if (StringUtils.isNotEmpty(position)) {
-            greeting += position + "岗位的";
-        }
-        greeting += "语音模拟面试。我是你的面试官。";
-        greeting += "第一题：" + firstQuestion;
-        return greeting;
-    }
-
-    private String buildQuestionIntro(String style, String question, int idx) {
-        return "第" + idx + "题：" + question;
     }
 
     // ========================================================================
@@ -3192,14 +2174,12 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
         vo.setId(interview.getId());
         vo.setUserId(interview.getUserId());
         vo.setPosition(interview.getPosition());
-        vo.setScene(interview.getScene());
         vo.setResumeId(interview.getResumeId());
-        // V11.0：agent 绑定信息（agentName 供前端顶栏展示；questionMode 从 configJson 读取）
+        // V11.0：agent 绑定信息（agentName 供前端顶栏展示）
         vo.setAgentId(interview.getAgentId());
         if (interview.getAgentId() != null) {
             vo.setAgentName(agentClient.agentName(interview.getAgentId()));
         }
-        vo.setQuestionMode(String.valueOf(readInterviewConfig(interview).getOrDefault("questionMode", "preset")));
         vo.setStatus(interview.getStatus());
         // v11.x 状态机阶段（NULL=旧流程）
         vo.setPhase(interview.getPhase());
@@ -3207,15 +2187,17 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
             InterviewPhase p = InterviewPhase.fromCode(interview.getPhase());
             vo.setPhaseLabel(p == null ? null : p.getLabel());
         }
-        vo.setStyle(interview.getStyle());
         vo.setDifficulty(interview.getDifficulty());
         vo.setTotalQa(interview.getTotalQa());
         vo.setCurrentIdx(interview.getCurrentIdx());
         vo.setScore(interview.getScore());
         vo.setSummary(interview.getSummary());
         vo.setConfigJson(interview.getConfigJson());
-        vo.setIsPersonalized(interview.getIsPersonalized());
         vo.setCreateTime(interview.getCreateTime());
+        // v11.96：报告生成状态（历史页进度展示与轮询）+ 本场时长（前端全场倒计时）
+        vo.setAnalysisStatus(interview.getAnalysisStatus());
+        vo.setAnalysisProgress(interview.getAnalysisProgress());
+        vo.setDurationMinutes(durationOf(interview));
         return vo;
     }
 
@@ -3264,30 +2246,6 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
         return qaMapper.selectList(qw);
     }
 
-    @SuppressWarnings("unchecked")
-    private List<Long> extractQuestionIds(String configJson) {
-        if (StringUtils.isEmpty(configJson)) return new ArrayList<>();
-        try {
-            Map<String, Object> config = objectMapper.readValue(configJson, Map.class);
-            Object ids = config.get("questionIds");
-            if (ids instanceof List) {
-                List<Long> result = new ArrayList<>();
-                for (Object o : (List<Object>) ids) {
-                    if (o == null) {
-                        // 简历锚定题占位：保持索引对齐，不允许跳过
-                        result.add(null);
-                    } else if (o instanceof Number) {
-                        result.add(((Number) o).longValue());
-                    }
-                }
-                return result;
-            }
-        } catch (Exception e) {
-            log.warn("[VoiceInterview] 解析 questionIds 失败：{}", e.getMessage());
-        }
-        return new ArrayList<>();
-    }
-
     private String toJson(Object obj) {
         try {
             return objectMapper.writeValueAsString(obj);
@@ -3297,22 +2255,4 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
         }
     }
 
-    // ========================================================================
-    // 内部类（v11.47：ScoreResult 已移至 AnswerScoringEngine 公共静态类）
-    // ========================================================================
-
-    /** 追问决策结果 */
-    private static class FollowupDecision {
-        /** null = 不追问，推进下一题 */
-        String question;
-        String intent;
-        String targetGap;
-    }
-
-    private static class VoiceInterviewQAWrapper {
-        final PortalVoiceInterviewQA qa;
-        VoiceInterviewQAWrapper(PortalVoiceInterviewQA qa) {
-            this.qa = qa;
-        }
-    }
 }

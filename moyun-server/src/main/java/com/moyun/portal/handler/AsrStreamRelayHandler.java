@@ -369,6 +369,9 @@ public class AsrStreamRelayHandler extends AbstractWebSocketHandler {
                     ctx.browser.sendMessage(new TextMessage(json));
                 }
             }
+        } catch (IllegalStateException e) {
+            // 浏览器会话已关闭（用户停止录音/离开页面，两侧关闭竞态）：消息无处投递，属预期，静默降级
+            log.debug("[ASR-Relay] 浏览器会话已关闭，跳过消息 taskId={}", ctx.taskId);
         } catch (Exception e) {
             log.warn("[ASR-Relay] 浏览器消息发送失败 taskId={}", ctx.taskId, e);
         }

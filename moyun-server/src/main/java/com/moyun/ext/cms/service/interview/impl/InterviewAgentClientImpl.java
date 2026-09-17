@@ -1,15 +1,21 @@
 package com.moyun.ext.cms.service.interview.impl;
 
 import com.moyun.ext.ai.entity.Agent;
+import com.moyun.ext.ai.entity.AiSceneConfig;
 import com.moyun.ext.ai.entity.ModelConfig;
 import com.moyun.ext.ai.enums.ModelType;
 import com.moyun.ext.ai.dto.AiSceneBinding;
 import com.moyun.ext.ai.service.AgentService;
+import com.moyun.ext.ai.service.AiGlobalSwitch;
 import com.moyun.ext.ai.service.AiSceneResolver;
 import com.moyun.ext.ai.service.ModelConfigService;
-import com.moyun.ext.cms.config.AiProperties;
+import com.moyun.ext.ai2.registry.AiSceneRegistry;
+import com.moyun.ext.ai2.support.AiExecuteLogService;
+import com.moyun.ext.ai2.support.SceneRateLimiter;
+import com.moyun.ext.ai2.support.TokenCostGuard;
 import com.moyun.ext.cms.service.interview.InterviewAgentClient;
 import com.moyun.system.service.ISysConfigService;
+import com.moyun.util.security.SecurityUtils;
 import dev.langchain4j.data.message.ChatMessage;
 import dev.langchain4j.model.chat.ChatLanguageModel;
 import dev.langchain4j.model.chat.StreamingChatLanguageModel;
@@ -19,10 +25,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
-import java.util.ArrayList;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
+import java.util.UUID;
 import java.util.function.Consumer;
 
 /**
@@ -39,29 +43,46 @@ public class InterviewAgentClientImpl implements InterviewAgentClient {
     private static final Logger log = LoggerFactory.getLogger(InterviewAgentClientImpl.class);
 
     private static final String CONFIG_KEY_DEFAULT_AGENT = "voice.interview.defaultAgentId";
-    private static final String CONFIG_KEY_DYNAMIC_MODE = "voice.interview.dynamicMode";
+
+    /** v11.95 任务3：网关化灰度开关（缺省 false=直连，行为与历史一致） */
+    private static final String CONFIG_KEY_GATEWAY_GRAY = "ai.gateway.interview.enabled";
+    /** v11.95 任务3：主干治理场景（复用 voice_interview 场景行的限流/Token熔断参数） */
+    private static final String SCENE_VOICE_INTERVIEW = "voice_interview";
 
     private final AgentService agentService;
     private final AiSceneResolver sceneResolver;
     private final ModelConfigService modelConfigService;
     private final ISysConfigService sysConfigService;
-    private final AiProperties aiProperties;
+    /** v11.98：AI 全局运行时开关（sys_config ai.global.enabled，替代 yaml AiProperties） */
+    private final AiGlobalSwitch aiGlobalSwitch;
+    private final AiSceneRegistry sceneRegistry;
+    private final SceneRateLimiter sceneRateLimiter;
+    private final TokenCostGuard tokenCostGuard;
+    private final AiExecuteLogService aiExecuteLogService;
 
     public InterviewAgentClientImpl(AgentService agentService,
                                     ModelConfigService modelConfigService,
                                     ISysConfigService sysConfigService,
-                                    AiProperties aiProperties,
-                                    AiSceneResolver sceneResolver) {
+                                    AiGlobalSwitch aiGlobalSwitch,
+                                    AiSceneResolver sceneResolver,
+                                    AiSceneRegistry sceneRegistry,
+                                    SceneRateLimiter sceneRateLimiter,
+                                    TokenCostGuard tokenCostGuard,
+                                    AiExecuteLogService aiExecuteLogService) {
         this.agentService = agentService;
         this.sceneResolver = sceneResolver;
         this.modelConfigService = modelConfigService;
         this.sysConfigService = sysConfigService;
-        this.aiProperties = aiProperties;
+        this.aiGlobalSwitch = aiGlobalSwitch;
+        this.sceneRegistry = sceneRegistry;
+        this.sceneRateLimiter = sceneRateLimiter;
+        this.tokenCostGuard = tokenCostGuard;
+        this.aiExecuteLogService = aiExecuteLogService;
     }
 
     @Override
     public Agent resolveAgent(Long agentId) {
-        if (!aiProperties.isEnabled()) {
+        if (!aiGlobalSwitch.isEnabled()) {
             return null;
         }
         try {
@@ -83,7 +104,7 @@ public class InterviewAgentClientImpl implements InterviewAgentClient {
 
     @Override
     public AiSceneBinding resolveScene(String sceneCode) {
-        if (!aiProperties.isEnabled()) {
+        if (!aiGlobalSwitch.isEnabled()) {
             return AiSceneBinding.empty();
         }
         try {
@@ -96,7 +117,7 @@ public class InterviewAgentClientImpl implements InterviewAgentClient {
 
     @Override
     public Agent resolveAgentForScene(AiSceneBinding sceneBinding, Long agentId) {
-        if (!aiProperties.isEnabled()) {
+        if (!aiGlobalSwitch.isEnabled()) {
             return null;
         }
         try {
@@ -138,21 +159,11 @@ public class InterviewAgentClientImpl implements InterviewAgentClient {
 
     @Override
     public boolean isEnabled() {
-        if (!aiProperties.isEnabled()) {
+        if (!aiGlobalSwitch.isEnabled()) {
             return false;
         }
         try {
             return modelConfigService.getDefaultChatConfig() != null;
-        } catch (Exception e) {
-            return false;
-        }
-    }
-
-    @Override
-    public boolean dynamicModeEnabled() {
-        try {
-            String value = sysConfigService.selectConfigByKey(CONFIG_KEY_DYNAMIC_MODE);
-            return value != null && "true".equalsIgnoreCase(value.trim());
         } catch (Exception e) {
             return false;
         }
@@ -187,12 +198,45 @@ public class InterviewAgentClientImpl implements InterviewAgentClient {
             onError.accept(new IllegalStateException("agent 或消息为空"));
             return;
         }
+
+        // v11.95 任务3：网关化灰度——开启后主干对话前置网关治理（场景限流 + Token熔断 + 执行日志）。
+        // 滑窗消息体与模型调用链路不变（T2 生产方案：直连保性能，治理收口网关）。
+        final String trunkRequestId;
+        final long trunkStart;
+        final Long trunkUserId = currentUserId();
+        final StringBuilder trunkOutput = new StringBuilder();
+        if (gatewayGrayEnabled()) {
+            String reject = checkTrunkGovernance(trunkUserId);
+            if (reject != null) {
+                onError.accept(new IllegalStateException(reject));
+                return;
+            }
+            trunkRequestId = UUID.randomUUID().toString().replace("-", "");
+            trunkStart = System.currentTimeMillis();
+        } else {
+            trunkRequestId = null;
+            trunkStart = 0L;
+        }
+        // 治理开启时包装回调：token 累积输出摘要，完成/失败落 ai_execute_log
+        final Consumer<String> tokenCb = trunkRequestId == null ? onToken : token -> {
+            trunkOutput.append(token);
+            onToken.accept(token);
+        };
+        final Consumer<String> completeCb = trunkRequestId == null ? onComplete : full -> {
+            recordTrunkLog(trunkRequestId, trunkUserId, trunkStart, messages, "success", null, full);
+            onComplete.accept(full);
+        };
+        final Consumer<Throwable> errorCb = trunkRequestId == null ? onError : error -> {
+            recordTrunkLog(trunkRequestId, trunkUserId, trunkStart, messages, "fail", error.getMessage(), trunkOutput.toString());
+            onError.accept(error);
+        };
+
         try {
             StreamingChatLanguageModel model = createStreamingModel(agent);
             if (model == null) {
                 // V11.0.1：全库无流式模型 → 同步调用 + 模拟流式分片推送（保留打字机协议，不降级报错）
                 log.info("[VoiceInterview] 无可用流式模型，agent={} 使用同步调用模拟流式输出", agent.getId());
-                simulateStreamBySync(agent, messages, onToken, onComplete, onError);
+                simulateStreamBySync(agent, messages, tokenCb, completeCb, errorCb);
                 return;
             }
             final StringBuilder buffer = new StringBuilder();
@@ -204,7 +248,7 @@ public class InterviewAgentClientImpl implements InterviewAgentClient {
                     }
                     buffer.append(partialResponse);
                     try {
-                        onToken.accept(partialResponse);
+                        tokenCb.accept(partialResponse);
                     } catch (Exception e) {
                         log.error("[VoiceInterview] onToken 回调异常：{}", e.getMessage(), e);
                     }
@@ -213,7 +257,7 @@ public class InterviewAgentClientImpl implements InterviewAgentClient {
                 @Override
                 public void onCompleteResponse(ChatResponse response) {
                     try {
-                        onComplete.accept(buffer.toString());
+                        completeCb.accept(buffer.toString());
                     } catch (Exception e) {
                         log.error("[VoiceInterview] onComplete 回调异常：{}", e.getMessage(), e);
                     }
@@ -223,12 +267,83 @@ public class InterviewAgentClientImpl implements InterviewAgentClient {
                 public void onError(Throwable error) {
                     log.warn("[VoiceInterview] agent 流式调用失败 agentId={}：{}",
                             agent.getId(), error.getMessage());
-                    onError.accept(error);
+                    errorCb.accept(error);
                 }
             });
         } catch (Exception e) {
             log.warn("[VoiceInterview] agent 流式调用初始化失败 agentId={}：{}", agent.getId(), e.getMessage());
-            onError.accept(e);
+            errorCb.accept(e);
+        }
+    }
+
+    /**
+     * v11.95 任务3：网关化灰度开关（sys_config.ai.gateway.interview.enabled，缺省 false=直连）
+     */
+    private boolean gatewayGrayEnabled() {
+        try {
+            String value = sysConfigService.selectConfigByKey(CONFIG_KEY_GATEWAY_GRAY);
+            return "true".equalsIgnoreCase(value) || "1".equals(value);
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    /**
+     * v11.95 任务3：主干治理前置检查（voice_interview 场景行参数：限流 + 日 Token 熔断）
+     *
+     * @return null=放行；非 null=拒绝原因（直接走 onError 回调）
+     */
+    private String checkTrunkGovernance(Long userId) {
+        try {
+            AiSceneConfig config = sceneRegistry.getConfig(SCENE_VOICE_INTERVIEW);
+            if (config == null) {
+                // 场景行未部署时不治理（与历史行为一致）
+                return null;
+            }
+            int limit = config.getRateLimitCount() != null ? config.getRateLimitCount() : 100;
+            int window = config.getRateLimitTime() != null ? config.getRateLimitTime() : 60;
+            String identity = userId != null ? String.valueOf(userId) : "anonymous";
+            if (!sceneRateLimiter.tryAcquire(SCENE_VOICE_INTERVIEW, identity, limit, window).allowed()) {
+                log.warn("[VoiceInterview:网关灰度] 限流触发: identity={}", identity);
+                aiExecuteLogService.record(UUID.randomUUID().toString().replace("-", ""), userId,
+                        SCENE_VOICE_INTERVIEW, "interviewMainTrunk", "agent", null,
+                        "governance=rate_limited", null, "fail", "rate_limited", 0);
+                return "请求过于频繁，请稍后再试";
+            }
+            TokenCostGuard.QuotaResult quota = tokenCostGuard.checkQuota(SCENE_VOICE_INTERVIEW, config.getDailyTokenLimit());
+            if (!quota.allowed()) {
+                log.warn("[VoiceInterview:网关灰度] Token配额熔断: used={}/{}", quota.todayUsed(), quota.limit());
+                aiExecuteLogService.record(UUID.randomUUID().toString().replace("-", ""), userId,
+                        SCENE_VOICE_INTERVIEW, "interviewMainTrunk", "agent", null,
+                        "governance=token_limit", null, "fail", "token_limit_exceeded", 0);
+                return "当前场景今日AI额度已用完，请明天再试";
+            }
+        } catch (Exception e) {
+            // 治理组件异常不阻断面试（降级为直连放行）
+            log.warn("[VoiceInterview:网关灰度] 治理前置检查异常（放行）：{}", e.getMessage());
+        }
+        return null;
+    }
+
+    /** v11.95 任务3：主干轮次执行日志（scene=voice_interview，handler=interviewMainTrunk，bind=agent） */
+    private void recordTrunkLog(String requestId, Long userId, long start, List<ChatMessage> messages,
+                                String status, String error, String output) {
+        try {
+            aiExecuteLogService.record(requestId, userId, SCENE_VOICE_INTERVIEW,
+                    "interviewMainTrunk", "agent", null,
+                    "turnMessages=" + messages.size(), output, status, error,
+                    System.currentTimeMillis() - start);
+        } catch (Exception e) {
+            log.warn("[VoiceInterview:网关灰度] 执行日志记录失败（不影响业务）：{}", e.getMessage());
+        }
+    }
+
+    /** 当前登录用户（无登录上下文返回 null，限流按 anonymous 处理） */
+    private Long currentUserId() {
+        try {
+            return SecurityUtils.getUserId();
+        } catch (Exception e) {
+            return null;
         }
     }
 
@@ -258,7 +373,7 @@ public class InterviewAgentClientImpl implements InterviewAgentClient {
 
     @Override
     public String agentName(Long agentId) {
-        if (agentId == null || !aiProperties.isEnabled()) {
+        if (agentId == null || !aiGlobalSwitch.isEnabled()) {
             return null;
         }
         try {
@@ -267,32 +382,6 @@ public class InterviewAgentClientImpl implements InterviewAgentClient {
         } catch (Exception e) {
             return null;
         }
-    }
-
-    @Override
-    public List<Map<String, Object>> listUsableAgents() {
-        List<Map<String, Object>> result = new ArrayList<>();
-        if (!aiProperties.isEnabled()) {
-            return result;
-        }
-        try {
-            List<Agent> agents = agentService.lambdaQuery()
-                    .eq(Agent::getEnabled, true)
-                    .orderByAsc(Agent::getId)
-                    .last("LIMIT 50")
-                    .list();
-            for (Agent agent : agents) {
-                Map<String, Object> item = new LinkedHashMap<>();
-                item.put("id", agent.getId());
-                item.put("name", agent.getName());
-                item.put("description", agent.getDescription());
-                item.put("welcomeMessage", agent.getWelcomeMessage());
-                result.add(item);
-            }
-        } catch (Exception e) {
-            log.warn("[VoiceInterview] 查询可用 agent 列表失败：{}", e.getMessage());
-        }
-        return result;
     }
 
     private Long resolveModelConfigId(Agent agent) {

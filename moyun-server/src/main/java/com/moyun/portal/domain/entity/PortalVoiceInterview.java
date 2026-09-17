@@ -92,6 +92,21 @@ public class PortalVoiceInterview implements Serializable {
     /** 抽题时的画像快照 JSON */
     private String profileSnapshot;
 
+    /** 会话上下文快照（准备时生成：简历摘要+画像+配置；v11.88 V2重构） */
+    private String contextSnapshot;
+
+    /** 题单快照（preset 模式：题目ID序列+题目快照；v11.88 V2重构） */
+    private String questionPaper;
+
+    /** 报告分析状态：0未分析 1分析中 2已完成（v11.88 V2重构） */
+    private Integer analysisStatus;
+
+    /** 报告分析进度 0-100（前端进度条轮询；v11.88 V2重构） */
+    private Integer analysisProgress;
+
+    /** 结束原因：user主动/auto题单耗尽/timeout超时（v11.88 V2重构） */
+    private String closedReason;
+
     /** 创建时间 */
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     @TableField("create_time")

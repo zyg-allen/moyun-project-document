@@ -1,15 +1,16 @@
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue';
+import { ref, onMounted, onUnmounted, computed } from 'vue';
 import { formatDate } from '@/utils/date';
 import { useRouter } from 'vue-router';
 import { useHead } from '@vueuse/head';
 import {
   Mic, Clock, ChevronLeft, ChevronRight, RefreshCw, PlayCircle, FileText,
-  Target, Sparkles, RotateCcw,
+  Target, RotateCcw, Loader2,
 } from 'lucide-vue-next';
 import Breadcrumb from '@/components/Breadcrumb.vue';
+import SiteFooter from '@/components/SiteFooter.vue';
 import { generateSeo } from '@/utils/seo';
-import { getMyVoiceInterviewList } from '@/api/voiceInterview';
+import { getMyVoiceInterviewList, getVoiceAnalysisStatus } from '@/api/voiceInterview';
 import type { VoiceInterviewVO } from '@/api/voiceInterview';
 import { useToast } from '@/composables/useToast';
 
@@ -44,12 +45,6 @@ const statusMeta: Record<string, { label: string; class: string }> = {
   terminated: { label: '已中止', class: 'bg-theme-warning-bg text-theme-warning' },
 };
 
-const styleMeta: Record<string, string> = {
-  friendly: '温和引导',
-  professional: '专业沉稳',
-  stress: '压力挑战',
-};
-
 const difficultyMeta: Record<string, string> = {
   easy: '简单',
   medium: '中等',
@@ -60,6 +55,52 @@ function statusOf(v: VoiceInterviewVO) {
   return statusMeta[v.status] || { label: v.status || '-', class: 'bg-theme-surface text-theme-text-secondary' };
 }
 
+/** v11.96：报告生成中（已结束但 analysisStatus<2，历史页显示生成进度并轮询） */
+function isGenerating(v: VoiceInterviewVO) {
+  return v.status === 'finished' && (v.analysisStatus ?? 0) < 2;
+}
+
+/** v11.96：生成中项的轮询（5s 批量刷新进度；全部完成后重载列表拿最终分数/摘要） */
+let generatingPollHandle: ReturnType<typeof setInterval> | null = null;
+
+function stopGeneratingPoll() {
+  if (generatingPollHandle) {
+    clearInterval(generatingPollHandle);
+    generatingPollHandle = null;
+  }
+}
+
+function startGeneratingPoll() {
+  stopGeneratingPoll();
+  const generating = list.value.filter(isGenerating);
+  if (generating.length === 0) return;
+  generatingPollHandle = setInterval(async () => {
+    let stillGenerating = false;
+    for (const item of generating) {
+      if (!item.id) continue;
+      try {
+        const res = await getVoiceAnalysisStatus(item.id);
+        const data = res.data;
+        if (data && (data.analysisStatus ?? 0) >= 2) {
+          // 单条完成：标记并等本轮结束统一重载（拿最终分数与摘要）
+          item.analysisStatus = 2;
+        } else if (data) {
+          item.analysisStatus = data.analysisStatus ?? 1;
+          item.analysisProgress = data.analysisProgress ?? item.analysisProgress;
+          stillGenerating = true;
+        }
+      } catch {
+        stillGenerating = true; // 单次失败不中断轮询
+      }
+    }
+    if (!stillGenerating) {
+      stopGeneratingPoll();
+      loadList();
+      toast.success('面试报告已生成，点击卡片即可查看完整报告');
+    }
+  }, 5000);
+}
+
 async function loadList() {
   loading.value = true;
   try {
@@ -67,6 +108,8 @@ async function loadList() {
     const data = res.data;
     list.value = (data?.records as VoiceInterviewVO[]) || [];
     total.value = data?.total || 0;
+    // v11.96：存在报告生成中的记录则启动进度轮询（完成后自动重载列表并提示）
+    startGeneratingPoll();
   } catch (err: any) {
     toast.error(err?.message || '加载面试记录失败，请稍后重试');
   } finally {
@@ -77,6 +120,12 @@ async function loadList() {
 function viewReport(v: VoiceInterviewVO) {
   if (!v.id) return;
   router.push({ path: '/interview/voice', query: { id: String(v.id) } });
+}
+
+/** v11.97：重新生成报告——跳转报告页并携带 regenerate 参数自动触发（仅已出报告的场次） */
+function regenerateReport(v: VoiceInterviewVO) {
+  if (!v.id) return;
+  router.push({ path: '/interview/voice', query: { id: String(v.id), regenerate: '1' } });
 }
 
 function startNew() {
@@ -92,6 +141,10 @@ function gotoPage(p: number) {
 
 onMounted(() => {
   loadList();
+});
+
+onUnmounted(() => {
+  stopGeneratingPoll();
 });
 </script>
 
@@ -185,6 +238,15 @@ onMounted(() => {
                 >
                   {{ statusOf(item).label }}
                 </span>
+                <!-- v11.96：报告生成中进度徽标（异步任务可见进度） -->
+                <span
+                  v-if="isGenerating(item)"
+                  class="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium"
+                  style="border-radius: var(--theme-radius-full); background-color: var(--theme-primary-bg); color: var(--theme-primary);"
+                >
+                  <Loader2 :size="11" class="animate-spin" />
+                  报告生成中 {{ item.analysisProgress ?? 0 }}%
+                </span>
               </div>
 
               <!-- 元信息 -->
@@ -195,15 +257,11 @@ onMounted(() => {
                 </span>
                 <span class="inline-flex items-center gap-1">
                   <Target :size="12" />
-                  {{ styleMeta[item.style || ''] || '专业沉稳' }} · {{ difficultyMeta[item.difficulty || ''] || '中等' }}
+                  {{ difficultyMeta[item.difficulty || ''] || '中等' }}
                 </span>
                 <span class="inline-flex items-center gap-1">
                   <FileText :size="12" />
                   {{ item.totalQa || 0 }} 个问答
-                </span>
-                <span v-if="item.isPersonalized === 1" class="inline-flex items-center gap-1" style="color: var(--theme-primary);">
-                  <Sparkles :size="12" />
-                  简历定制
                 </span>
               </div>
 
@@ -213,9 +271,17 @@ onMounted(() => {
               </p>
             </div>
 
-            <!-- 得分环 -->
+            <!-- 得分环（生成中显示进度百分比，完成后显示综合分） -->
             <div class="flex flex-col items-center shrink-0">
               <div
+                v-if="isGenerating(item)"
+                class="w-14 h-14 flex items-center justify-center border-2"
+                style="border-color: var(--theme-primary); color: var(--theme-primary); border-radius: var(--theme-radius-full);"
+              >
+                <span class="text-sm font-bold">{{ item.analysisProgress ?? 0 }}%</span>
+              </div>
+              <div
+                v-else
                 class="w-14 h-14 flex items-center justify-center border-2"
                 :style="{
                   borderColor: (item.score ?? 0) >= 80 ? 'var(--theme-success)' : (item.score ?? 0) >= 60 ? 'var(--theme-warning)' : 'var(--theme-error)',
@@ -225,16 +291,28 @@ onMounted(() => {
               >
                 <span class="text-lg font-bold">{{ item.score ?? '-' }}</span>
               </div>
-              <span class="text-xs mt-1" style="color: var(--theme-text-secondary);">综合分</span>
+              <span class="text-xs mt-1" style="color: var(--theme-text-secondary);">{{ isGenerating(item) ? '生成中' : '综合分' }}</span>
             </div>
           </div>
 
           <!-- 悬停操作提示 -->
           <div class="mt-3 pt-3 border-t flex items-center justify-between text-xs" style="border-color: var(--theme-border); color: var(--theme-text-secondary);">
             <span>查看完整对话 · 逐题点评 · 面试报告</span>
-            <span class="inline-flex items-center gap-1 group-hover:translate-x-0.5 transition-transform" style="color: var(--theme-primary);">
-              进入复盘
-              <ChevronRight :size="13" />
+            <span class="inline-flex items-center gap-3">
+              <!-- v11.97：重新生成报告（跳转报告页自动触发，复用报告生成进度链路） -->
+              <button
+                v-if="item.status === 'finished' && !isGenerating(item)"
+                class="inline-flex items-center gap-1 px-2.5 py-1 font-medium transition-colors"
+                style="border: 1px solid var(--theme-border); border-radius: var(--theme-radius-md); color: var(--theme-text-secondary); background-color: var(--theme-surface);"
+                @click.stop="regenerateReport(item)"
+              >
+                <RotateCw :size="12" />
+                重新生成报告
+              </button>
+              <span class="inline-flex items-center gap-1 group-hover:translate-x-0.5 transition-transform" style="color: var(--theme-primary);">
+                进入复盘
+                <ChevronRight :size="13" />
+              </span>
             </span>
           </div>
         </div>
@@ -264,4 +342,6 @@ onMounted(() => {
       </div>
     </main>
   </div>
+  <!-- v11.94.1：站点尾部（模板根级，宽度与首页一致，与语音面试页统一结构） -->
+  <SiteFooter />
 </template>

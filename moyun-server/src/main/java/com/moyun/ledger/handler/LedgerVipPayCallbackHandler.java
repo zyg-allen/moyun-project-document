@@ -63,12 +63,14 @@ public class LedgerVipPayCallbackHandler implements PayCallbackHandler {
         }
 
         // 1. 权益顺延：vip_expire = max(now, 现有到期) + duration_days（续费不折损；SQL MAX 聚合）
+        // 注意：首单无已支付订单时聚合返回全 NULL 行，MyBatis selectMaps 会给出 [null] 元素，需过滤
         LocalDateTime now = LocalDateTime.now();
         LocalDateTime currentExpire = orderMapper.selectMaps(new com.baomidou.mybatisplus.core.conditions.query.QueryWrapper<LedgerVipOrder>()
                         .select("COALESCE(MAX(vip_expire), NULL) AS expire")
                         .eq("user_id", order.getUserId())
                         .eq("status", LedgerVipOrder.STATUS_PAID))
                 .stream()
+                .filter(java.util.Objects::nonNull)
                 .map(m -> (LocalDateTime) m.get("expire"))
                 .filter(e -> e != null && e.isAfter(now))
                 .findFirst()

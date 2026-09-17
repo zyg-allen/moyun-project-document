@@ -5,7 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.moyun.ext.ai2.support.AiSceneJsonClient;
-import com.moyun.ext.cms.config.AiProperties;
+import com.moyun.ext.ai.service.AiGlobalSwitch;
 import com.moyun.ext.cms.domain.vo.UserResumeVO;
 import com.moyun.portal.domain.entity.PortalResumeJobMatch;
 import com.moyun.portal.domain.entity.PortalResumeJobTarget;
@@ -46,7 +46,7 @@ public class ResumeJobMatchService {
     private static final Logger log = LoggerFactory.getLogger(ResumeJobMatchService.class);
 
     @Autowired
-    private AiProperties aiProperties;
+    private AiGlobalSwitch aiGlobalSwitch;
 
     @Autowired
     private LlmClient llmClient;
@@ -80,7 +80,7 @@ public class ResumeJobMatchService {
 
         PortalResumeJobMatch report;
         boolean llmOk = false;
-        if (aiProperties.isEnabled() && aiProperties.isResumeAdviceEnabled() && llmClient.isEnabled()) {
+        if (aiGlobalSwitch.isEnabled() && aiGlobalSwitch.isResumeAdviceEnabled() && llmClient.isEnabled()) {
             try {
                 report = analyzeByLlm(userId, resume, target);
                 llmOk = true;

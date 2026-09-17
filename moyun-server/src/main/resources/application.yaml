@@ -52,6 +52,12 @@ moyun:
   demoEnabled: false
   # 获取ip地址开关
   addressEnabled: false
+  # AI 能力 bean 装配开关（v11.98 固定 true）：
+  # 仅承担 @ConditionalOnProperty 装配职责（AiModuleLlmClient/NoopLlmClient 二选一），
+  # 固定 true 消除各环境 profile 缺失时误装配 Noop 的陷阱；
+  # 运行时业务开关一律走 sys_config（ai.global.enabled / ai.resume.advice.enabled，热生效）
+  ai:
+    enabled: true
   # Portal 前台配置
   portal:
     # 站点正式域名（用于 sitemap.xml / og:url / canonical 等绝对 URL 生成）

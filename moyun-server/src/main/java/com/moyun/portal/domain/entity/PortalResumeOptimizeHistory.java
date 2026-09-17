@@ -5,6 +5,7 @@ import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
 import com.baomidou.mybatisplus.extension.handlers.JacksonTypeHandler;
+import com.fasterxml.jackson.databind.JsonNode;
 import lombok.Data;
 
 import java.io.Serializable;
@@ -51,7 +52,7 @@ public class PortalResumeOptimizeHistory implements Serializable {
 
     /** 优化明细快照 JSON（逐项 original/optimized/status） */
     @TableField(typeHandler = JacksonTypeHandler.class)
-    private com.fasterxml.jackson.databind.JsonNode optimizeData;
+    private JsonNode optimizeData;
 
     private LocalDateTime createTime;
 }

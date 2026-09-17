@@ -6,7 +6,7 @@ import com.moyun.common.config.RuoYiConfig;
 import com.moyun.common.constant.Constants;
 import com.moyun.common.exception.system.ServiceException;
 import com.moyun.ext.ai2.support.AiSceneJsonClient;
-import com.moyun.ext.cms.config.AiProperties;
+import com.moyun.ext.ai.service.AiGlobalSwitch;
 import com.moyun.ext.cms.domain.vo.ResumeParseVO;
 import com.moyun.ext.cms.domain.vo.UserResumeVO;
 import com.moyun.portal.domain.entity.PortalUserResume;
@@ -75,7 +75,7 @@ public class ResumeParseService {
     private static final int MAX_TEXT_CHARS = 6000;
 
     @Autowired
-    private AiProperties aiProperties;
+    private AiGlobalSwitch aiGlobalSwitch;
 
     @Autowired
     private LlmClient llmClient;
@@ -165,7 +165,7 @@ public class ResumeParseService {
         // 4. LLM 结构化解析（失败回退规则解析）
         ResumeParseVO vo;
         boolean llmParsed;
-        if (aiProperties.isEnabled() && aiProperties.isResumeAdviceEnabled() && llmClient.isEnabled()) {
+        if (aiGlobalSwitch.isEnabled() && aiGlobalSwitch.isResumeAdviceEnabled() && llmClient.isEnabled()) {
             try {
                 vo = parseByLlm(userId, text);
                 llmParsed = true;
@@ -385,8 +385,10 @@ public class ResumeParseService {
      * 反序列化为 ResumeParseVO——切换前后解析行为不变。
      */
     private ResumeParseVO parseByLlm(Long userId, String text) {
-        JsonNode node = aiSceneJsonClient.executeForJson(SCENE_RESUME_PARSE,
-                java.util.Map.of("text", text), userId);
+        // v11.98：LinkedHashMap 可变 Map（Map.of 不可变集合会被网关输入清洗路径击穿）
+        java.util.Map<String, Object> input = new java.util.LinkedHashMap<>();
+        input.put("text", text);
+        JsonNode node = aiSceneJsonClient.executeForJson(SCENE_RESUME_PARSE, input, userId);
         if (node == null) {
             throw new IllegalStateException("AI网关解析失败");
         }

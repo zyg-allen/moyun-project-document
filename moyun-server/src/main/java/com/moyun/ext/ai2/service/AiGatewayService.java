@@ -296,15 +296,21 @@ public class AiGatewayService {
      * 输入通道清洗（v11.57 P0-1）：顶层 userInput 走 sanitizeAndCap（含长度截断）；
      * input Map 的字符串值仅做字符级清洗（数据通道不拦截——误杀简历/文档类数据代价高于收益，
      * 由 Handler 侧 wrapData 数据隔离兜底）。
+     *
+     * <p>v11.98 根因修复：业务侧可能传入不可变 Map（{@code Map.of(...)}），原地
+     * {@code entry.setValue} 会抛 {@code UnsupportedOperationException("not supported")}
+     * （JDK 21 不可变集合语义），曾导致 voice_interview 逐题分析 100% 走 50 分兜底。
+     * 此处不再原地改写，重建可变 LinkedHashMap 整体替换。</p>
      */
     private void sanitizeInputChannel(AiExecuteRequest request) {
         request.setUserInput(PromptInjectionGuard.sanitizeAndCap(request.getUserInput()));
         if (request.getInput() != null) {
+            Map<String, Object> sanitized = new java.util.LinkedHashMap<>(request.getInput().size());
             for (Map.Entry<String, Object> entry : request.getInput().entrySet()) {
-                if (entry.getValue() instanceof String s) {
-                    entry.setValue(PromptInjectionGuard.sanitize(s));
-                }
+                sanitized.put(entry.getKey(), entry.getValue() instanceof String s
+                        ? PromptInjectionGuard.sanitize(s) : entry.getValue());
             }
+            request.setInput(sanitized);
         }
     }
 

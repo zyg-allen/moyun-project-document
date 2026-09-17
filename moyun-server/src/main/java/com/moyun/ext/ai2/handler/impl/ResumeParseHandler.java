@@ -57,7 +57,7 @@ public class ResumeParseHandler extends AbstractAiSceneHandler {
                 + "只输出JSON本体，禁止markdown代码块。";
 
         // v11.57：数据通道隔离——简历原文为不可信数据，分隔符包裹防注入（数据内指令性文字不构成指令）
-        String raw = chat(getSceneCode(), systemPrompt,
+        String raw = chatJson(getSceneCode(), systemPrompt,
                 PromptInjectionGuard.wrapData("简历原文", text));
         if (raw == null || raw.isBlank()) {
             return AiExecuteResponse.failure(AiErrorCodes.AI_CALL_FAILED, "AI服务暂不可用");

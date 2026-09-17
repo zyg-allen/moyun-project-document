@@ -16,6 +16,7 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.moyun.common.exception.system.ServiceException;
 import com.moyun.core.base.dto.ImportResult;
@@ -1875,12 +1876,12 @@ public class PortalInterviewServiceImpl implements IPortalInterviewService {
         }
         // options 结构与正确答案字母交叉校验：防脏数据导致前台判分永远失败
         try {
-            com.fasterxml.jackson.databind.JsonNode arr = OBJECT_MAPPER.readTree(question.getOptions());
+            JsonNode arr = OBJECT_MAPPER.readTree(question.getOptions());
             if (arr == null || !arr.isArray() || arr.size() < 2) {
                 throw new ServiceException("选择题至少需要 2 个选项");
             }
             java.util.Set<String> labels = new java.util.HashSet<>();
-            for (com.fasterxml.jackson.databind.JsonNode item : arr) {
+            for (JsonNode item : arr) {
                 if (item != null && item.isObject() && item.has("label")) {
                     labels.add(item.get("label").asText().toUpperCase());
                 }
@@ -1906,12 +1907,12 @@ public class PortalInterviewServiceImpl implements IPortalInterviewService {
             return optionsJson;
         }
         try {
-            com.fasterxml.jackson.databind.JsonNode arr = OBJECT_MAPPER.readTree(optionsJson);
+            JsonNode arr = OBJECT_MAPPER.readTree(optionsJson);
             if (arr == null || !arr.isArray()) {
                 return optionsJson;
             }
             com.fasterxml.jackson.databind.node.ArrayNode safe = OBJECT_MAPPER.createArrayNode();
-            for (com.fasterxml.jackson.databind.JsonNode item : arr) {
+            for (JsonNode item : arr) {
                 if (item != null && item.isObject()) {
                     com.fasterxml.jackson.databind.node.ObjectNode node = item.deepCopy();
                     node.remove("is_correct");

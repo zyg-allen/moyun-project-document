@@ -11,7 +11,7 @@ import com.moyun.ext.cms.domain.vo.VoiceStartConfig;
 import com.moyun.ext.cms.service.IVoiceInterviewService;
 import com.moyun.ext.cms.service.IWrongQuestionService;
 import com.moyun.ext.cms.service.VoiceAsrService;
-import com.moyun.ext.cms.service.interview.InterviewAgentClient;
+import com.moyun.portal.service.PortalFreeTrialService;
 import com.moyun.portal.util.PortalSecurityUtils;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -29,7 +29,7 @@ import java.util.Map;
 /**
  * 语音面试官 Controller（V10.1 MVP）
  *
- * <p>7 接口：start / submitAnswer(SSE) / requestHint / forceNext / finish / listMy / detail
+ * <p>核心链路：start（创建会话+agent 首问） / submitAnswer(SSE 流式轮次) / requestHint / finish / listMy / detail
  * <p>路径：/portal/interview/voice/*
  * <p>⚠️ 严格使用 {@link PortalSecurityUtils#getUserId()}，不能用 SecurityUtils.getUserId()
  *
@@ -51,13 +51,18 @@ public class PortalVoiceInterviewController extends BaseController {
     private VoiceAsrService voiceAsrService;
 
     @Autowired
-    private InterviewAgentClient agentClient;
-
-    @Autowired
     private com.moyun.ext.cms.service.interview.HintEngine hintEngine;
 
     @Autowired
     private com.moyun.portal.mapper.PortalInterviewQuestionMapper questionMapper;
+
+    /** v11.85：面试会员校验（语音面试为会员付费点） */
+    @Autowired
+    private PortalInterviewVipController interviewVipController;
+
+    /** v11.85：免费体验次数服务（非会员每场景 2 次） */
+    @Autowired
+    private com.moyun.portal.service.PortalFreeTrialService freeTrialService;
 
     private Long currentUserId() {
         return PortalSecurityUtils.getUserId();
@@ -65,9 +70,11 @@ public class PortalVoiceInterviewController extends BaseController {
 
     /**
      * 1. 开始语音面试
-     * <p>生成本场题单 + 首问 + greet 话术
+     * <p>创建会话 + agent 开场白首问 + 滑窗记忆初始化
+     * <p>v11.85：面试会员付费点落地——会员不限次；非会员可免费体验 2 次
+     * （portal_free_trial 场景 voice_interview，原子消耗），用完返回 402 引导开通
      */
-    @Operation(summary = "开始语音面试", description = "按岗位/场景/画像抽取5题，生成首问与开场话术")
+    @Operation(summary = "开始语音面试", description = "创建会话并生成 agent 开场白首问（会员不限次，非会员免费体验2次）")
     @PostMapping("/start")
     @RateLimiter(key = "voice:start", time = 3600, count = 20)
     public AjaxResult start(@Valid @RequestBody VoiceStartConfig config) {
@@ -75,14 +82,20 @@ public class PortalVoiceInterviewController extends BaseController {
         if (userId == null) {
             return AjaxResult.error(HttpStatus.UNAUTHORIZED, "登录已过期，请重新登录");
         }
+        // v11.85：会员 或 免费体验未用完（每用户 2 次）
+        if (!interviewVipController.isVip(userId)) {
+            if (!freeTrialService.tryConsume(userId, PortalFreeTrialService.SCENE_VOICE_INTERVIEW)) {
+                return AjaxResult.error(402, "免费体验次数已用完，语音面试为面试会员专属功能，请先开通面试会员");
+            }
+        }
         return AjaxResult.success(voiceInterviewService.start(userId, config));
     }
 
     /**
-     * 2. 提交答案（SSE 双通道流）
-     * <p>事件流：score（规则分）→ speak（LLM话术）→ data（完整数据）→ end
+     * 2. 提交答案（SSE 流式轮次）
+     * <p>事件流：delta（面试官话术增量）→ end（roundDone/nextQaId/nextQuestion/finished）
      */
-    @Operation(summary = "提交答案", description = "SSE 流式返回规则分与LLM话术")
+    @Operation(summary = "提交答案", description = "SSE 流式返回面试官话术（delta 打字机 + end 轮次推进）；skip=true 跳过本题")
     @PostMapping(value = "/{id:[0-9]+}/answer", produces = org.springframework.http.MediaType.TEXT_EVENT_STREAM_VALUE)
     @RateLimiter(key = "voice:answer", time = 3600, count = 60)
     public SseEmitter answer(@PathVariable("id") Long id, @RequestBody AnswerRequest body) {
@@ -96,7 +109,8 @@ public class PortalVoiceInterviewController extends BaseController {
             }
             return emitter;
         }
-        if (body == null || body.getQaId() == null || body.getTranscript() == null) {
+        boolean skip = body != null && Boolean.TRUE.equals(body.getSkip());
+        if (body == null || body.getQaId() == null || (!skip && body.getTranscript() == null)) {
             SseEmitter emitter = new SseEmitter();
             try {
                 emitter.send(SseEmitter.event().name("error").data("qaId 与 transcript 不能为空"));
@@ -105,13 +119,14 @@ public class PortalVoiceInterviewController extends BaseController {
             }
             return emitter;
         }
-        return voiceInterviewService.submitAnswer(id, userId, body.getQaId(), body.getTranscript(), body.getLatencyMs());
+        return voiceInterviewService.submitAnswer(id, userId, body.getQaId(), body.getTranscript(),
+                body.getLatencyMs(), skip);
     }
 
     /**
-     * 3. 请求分级提示
+     * 3. 请求思考提示（V3：面试官 agent 基于滑窗上下文生成一句引导）
      */
-    @Operation(summary = "请求提示", description = "调用 HintEngine 生成分级提示，hint 使用次数+1")
+    @Operation(summary = "请求提示", description = "面试官 agent 生成一句思考提示（不泄露答案），hint 使用次数+1")
     @PostMapping("/{id:[0-9]+}/hint")
     @RateLimiter(key = "voice:hint", time = 3600, count = 30)
     public AjaxResult hint(@PathVariable("id") Long id, @RequestBody HintRequest body) {
@@ -126,24 +141,11 @@ public class PortalVoiceInterviewController extends BaseController {
     }
 
     /**
-     * 4. 强制下一题
+     * 4. 结束面试
+     * <p>v11.88 V2：同步段仅收口会话状态并触发异步批量分析（返回报告骨架）；
+     * 前端轮询 5.1 分析状态接口，analysisStatus=2 后拉取完整报告。
      */
-    @Operation(summary = "强制下一题", description = "用户点'下一题'，跳过追问直接推进")
-    @PostMapping("/{id:[0-9]+}/next")
-    @RateLimiter(key = "voice:next", time = 3600, count = 30)
-    public AjaxResult next(@PathVariable("id") Long id, @RequestBody(required = false) NextRequest body) {
-        Long userId = currentUserId();
-        if (userId == null) {
-            return AjaxResult.error(HttpStatus.UNAUTHORIZED, "登录已过期，请重新登录");
-        }
-        String reason = body == null ? "user_skip" : body.getReason();
-        return AjaxResult.success(voiceInterviewService.forceNext(id, userId, reason));
-    }
-
-    /**
-     * 5. 结束面试
-     */
-    @Operation(summary = "结束面试", description = "聚合分数 + 生成报告（维度/亮点/薄弱点/逐题点评）")
+    @Operation(summary = "结束面试", description = "收口会话并触发异步批量分析；轮询 analysis 接口获取进度")
     @PostMapping("/{id:[0-9]+}/finish")
     public AjaxResult finish(@PathVariable("id") Long id) {
         Long userId = currentUserId();
@@ -151,6 +153,36 @@ public class PortalVoiceInterviewController extends BaseController {
             return AjaxResult.error(HttpStatus.UNAUTHORIZED, "登录已过期，请重新登录");
         }
         VoiceInterviewReportVO report = voiceInterviewService.finish(id, userId);
+        return AjaxResult.success(report);
+    }
+
+    /**
+     * 5.1 报告分析状态（v11.88 V2：前端进度条轮询）
+     */
+    @Operation(summary = "报告分析状态", description = "analysisStatus(0未分析/1分析中/2已完成) + analysisProgress(0-100)")
+    @GetMapping("/{id:[0-9]+}/analysis")
+    public AjaxResult analysisStatus(@PathVariable("id") Long id) {
+        Long userId = currentUserId();
+        if (userId == null) {
+            return AjaxResult.error(HttpStatus.UNAUTHORIZED, "登录已过期，请重新登录");
+        }
+        return AjaxResult.success(voiceInterviewService.getAnalysisStatus(id, userId));
+    }
+
+    /**
+     * 5.2 重新生成报告（v11.97）
+     * <p>已结束面试重置分析状态后重跑异步批量分析链路（逐题补分析 + 聚合 + 整场 LLM 复盘）；
+     * 前端轮询 5.1 分析状态接口，analysisStatus=2 后拉取完整报告。
+     */
+    @Operation(summary = "重新生成报告", description = "已结束面试重跑逐题分析+整场 LLM 复盘；轮询 analysis 接口获取进度")
+    @PostMapping("/{id:[0-9]+}/regenerate-report")
+    @RateLimiter(key = "voice:regenerate", time = 3600, count = 10)
+    public AjaxResult regenerateReport(@PathVariable("id") Long id) {
+        Long userId = currentUserId();
+        if (userId == null) {
+            return AjaxResult.error(HttpStatus.UNAUTHORIZED, "登录已过期，请重新登录");
+        }
+        VoiceInterviewReportVO report = voiceInterviewService.regenerateReport(id, userId);
         return AjaxResult.success(report);
     }
 
@@ -197,6 +229,33 @@ public class PortalVoiceInterviewController extends BaseController {
             return AjaxResult.error(HttpStatus.UNAUTHORIZED, "登录已过期，请重新登录");
         }
         return AjaxResult.success(voiceInterviewService.listMy(userId, query));
+    }
+
+    /**
+     * 6.9 查询进行中会话（v11.91 断点续接：意外关闭后再次进入，提示可继续）
+     */
+    @Operation(summary = "查询进行中会话", description = "返回最近一个未结束的面试（interviewId/answered/totalQa/elapsedSec），空表示无")
+    @GetMapping("/active")
+    public AjaxResult active() {
+        Long userId = currentUserId();
+        if (userId == null) {
+            return AjaxResult.error(HttpStatus.UNAUTHORIZED, "登录已过期，请重新登录");
+        }
+        return AjaxResult.success(voiceInterviewService.getActiveInterview(userId));
+    }
+
+    /**
+     * 6.10 恢复进行中会话（v11.91 断点续接）
+     * <p>返回恢复快照（qaList 历史问答 + currentQa 待答题），前端据此重建面试页
+     */
+    @Operation(summary = "恢复进行中会话", description = "断点续接：返回含历史问答与当前题的恢复快照")
+    @GetMapping("/{id:[0-9]+}/resume")
+    public AjaxResult resume(@PathVariable("id") Long id) {
+        Long userId = currentUserId();
+        if (userId == null) {
+            return AjaxResult.error(HttpStatus.UNAUTHORIZED, "登录已过期，请重新登录");
+        }
+        return AjaxResult.success(voiceInterviewService.resumeInterview(id, userId));
     }
 
     /**
@@ -261,34 +320,6 @@ public class PortalVoiceInterviewController extends BaseController {
     }
 
     /**
-     * 10. 可用面试官智能体列表
-     * <p>供 portal 开始面试时选择面试官人设；无可用 agent 时返回空列表（前端隐藏选择器）
-     */
-    @Operation(summary = "可用面试官列表", description = "列出启用状态的面试官智能体（id/名称/描述/开场白）")
-    @GetMapping("/agents")
-    public AjaxResult agents() {
-        return AjaxResult.success(agentClient.listUsableAgents());
-    }
-
-    /**
-     * 11. 提交自我介绍（v11.x 状态机 INTRO_WAITING 阶段）
-     * <p>ScoringEngine 4 维度评分存 intro_score_json → 生成追问（INTRO_FOLLOWUP）或进入首题
-     */
-    @Operation(summary = "提交自我介绍", description = "4维度评分（逻辑结构/自我认知/岗位匹配/表达流畅），生成追问或进入首题")
-    @PostMapping("/{id:[0-9]+}/self-intro")
-    @RateLimiter(key = "voice:selfintro", time = 3600, count = 30)
-    public AjaxResult selfIntro(@PathVariable("id") Long id, @RequestBody SelfIntroRequest body) {
-        Long userId = currentUserId();
-        if (userId == null) {
-            return AjaxResult.error(HttpStatus.UNAUTHORIZED, "登录已过期，请重新登录");
-        }
-        if (body == null || body.getTranscript() == null || body.getTranscript().isBlank()) {
-            return AjaxResult.error("自我介绍内容不能为空");
-        }
-        return AjaxResult.success(voiceInterviewService.submitSelfIntro(id, userId, body.getTranscript()));
-    }
-
-    /**
      * 11a. 按题目 ID 生成分级提示（v11.30 补建：语音演示页 useInterviewHint 调用）
      */
     @Operation(summary = "按题目ID请求提示", description = "HintEngine 规则版分级提示（1~3 级），无需面试会话")
@@ -325,23 +356,6 @@ public class PortalVoiceInterviewController extends BaseController {
         return AjaxResult.success(hintEngine.generateKeywords(question));
     }
 
-    /**
-     * 12. 启用中的岗位模板列表（v11.x 智能出题）
-     * <p>供 portal 开始面试时选择岗位模板（job 题源 + 出题权重默认值）；未配置时返回空列表
-     */
-    @Operation(summary = "启用中的岗位模板列表", description = "返回 active 状态岗位模板（id/名称/类别/难度），供开始面试时选择")
-    @GetMapping("/job-templates")
-    public AjaxResult jobTemplates() {
-        return AjaxResult.success(voiceInterviewService.listActiveJobTemplates());
-    }
-
-    /** 自我介绍请求体 */
-    @lombok.Data
-    public static class SelfIntroRequest {
-        /** 自我介绍文本（ASR 转写或手动输入） */
-        private String transcript;
-    }
-
     /** 提交答案请求体 */
     @lombok.Data
     public static class AnswerRequest {
@@ -351,6 +365,8 @@ public class PortalVoiceInterviewController extends BaseController {
         private String transcript;
         /** 答题耗时（毫秒） */
         private Integer latencyMs;
+        /** V3：跳过本题（true 时 transcript 可为空，滑窗注入跳过标记） */
+        private Boolean skip;
     }
 
     /** 提示请求体 */
@@ -358,12 +374,5 @@ public class PortalVoiceInterviewController extends BaseController {
     public static class HintRequest {
         /** 问答ID */
         private Long qaId;
-    }
-
-    /** 下一题请求体 */
-    @lombok.Data
-    public static class NextRequest {
-        /** 原因（user_skip/stuck/manual） */
-        private String reason;
     }
 }

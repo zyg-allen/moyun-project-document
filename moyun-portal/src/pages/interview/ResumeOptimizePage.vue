@@ -17,6 +17,7 @@ import OptimizeCompare from '@/components/resume/OptimizeCompare.vue';
 import ScoreReportDialog from '@/components/resume/ScoreReportDialog.vue';
 import FieldRegenerateDialog from '@/components/resume/FieldRegenerateDialog.vue';
 import { aiFieldAssist } from '@/api/resumeOptimize';
+import { getResumeOptimizeVipStatus } from '@/api/resumeOptimizeVip';
 import { generateSeo } from '@/utils/seo';
 import { getMyResumeList, scoreResume, getResumeDetail } from '@/api/interview';
 import {
@@ -32,10 +33,12 @@ import type {
   ResumeScoreReport,
 } from '@/types/api';
 import { useToast } from '@/composables/useToast';
+import { useConfirmModal } from '@/composables/useConfirmModal';
 
 const route = useRoute();
 const router = useRouter();
 const toast = useToast();
+const confirmModal = useConfirmModal();
 
 useHead(computed(() => generateSeo({
   title: 'AI 简历优化工作台',
@@ -547,6 +550,25 @@ function stopOptimizePolling() {
 
 async function generateOptimize() {
   if (!selectedResumeId.value || !selectedTargetId.value) return;
+  // v11.83 深度优化为会员专属；v11.85 非会员可免费体验 2 次（用完引导开通）
+  try {
+    const vipRes = await getResumeOptimizeVipStatus();
+    if (!vipRes.data?.isVip) {
+      const left = vipRes.data?.freeTrialLeft ?? 0;
+      if (left > 0) {
+        toast.info(`免费体验剩余 ${left} 次，开通会员不限次使用`);
+      } else {
+        const goBuy = await confirmModal.confirm(
+          '免费体验次数已用完，开通会员可不限次使用 AI 逐项优化建议。是否前往开通？',
+          { title: '需要简历优化会员', confirmText: '前往开通' },
+        );
+        if (goBuy) router.push('/interview/resume/vip');
+        return;
+      }
+    }
+  } catch {
+    // 状态查询失败不阻断，后端提交接口会兜底校验（402）
+  }
   // 清理上一次的轮询（防止重复触发）
   stopOptimizePolling();
   optimizePollingActive = false;

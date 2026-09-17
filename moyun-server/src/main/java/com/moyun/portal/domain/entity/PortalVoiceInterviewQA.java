@@ -78,6 +78,19 @@ public class PortalVoiceInterviewQA implements Serializable {
     /** 下一步动作 followup/hint/next/report */
     private String nextAction;
 
+    /** 用户原始回答（提交即落库未分析，防丢失；v11.88 V2重构） */
+    private String answerRaw;
+
+    /** 回答时间（提交时刻；v11.88 V2重构） */
+    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
+    private LocalDateTime answerTime;
+
+    /** 草稿评分（异步 LLM 分析写回，批量分析融合；v11.88 V2重构） */
+    private Integer scoreDraft;
+
+    /** 单题分析状态：0未分析 1分析中 2已分析（v11.88 V2重构） */
+    private Integer analysisStatus;
+
     /** 创建时间 */
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     @TableField("create_time")

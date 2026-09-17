@@ -8,16 +8,17 @@ import com.moyun.ext.cms.domain.vo.VoiceStartConfig;
 import com.moyun.portal.domain.entity.PortalVoiceInterview;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
+import java.util.Map;
+
 /**
- * 语音面试官 Service 接口（V10.1）
+ * 语音面试官 Service 接口（V3：统一 AI 入口 · 纯 agent 自由面试）
  *
  * <p>核心方法：
  * <ul>
- *   <li>{@link #start} 生成本场题单 + 首问 + greet 话术</li>
- *   <li>{@link #submitAnswer} SSE 双通道流：规则分 + LLM 话术 + nextAction</li>
- *   <li>{@link #requestHint} 调用 HintEngine 分级提示</li>
- *   <li>{@link #forceNext} 强制下一题</li>
- *   <li>{@link #finish} 聚合分数 + 报告</li>
+ *   <li>{@link #start} 创建会话 + agent 开场白首问 + 滑窗初始化</li>
+ *   <li>{@link #submitAnswer} SSE 流式轮次：delta（面试官话术增量）→ end（nextQaId/finished）</li>
+ *   <li>{@link #requestHint} 面试官 agent 滑窗提示</li>
+ *   <li>{@link #finish} 收口会话 + 异步批量分析</li>
  *   <li>{@link #listMy} / {@link #getDetail} 历史与详情</li>
  * </ul>
  *
@@ -26,42 +27,48 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 public interface IVoiceInterviewService {
 
     /**
-     * 开始语音面试：生成本场题单 + 首问 + greet 话术
+     * 开始语音面试：创建会话 + agent 开场白首问 + 滑窗初始化
      */
     VoiceInterviewVO start(Long userId, VoiceStartConfig config);
 
     /**
-     * 提交自我介绍（v11.x 状态机：INTRO_WAITING 阶段）
-     * <p>ScoringEngine 4 维度评分存 intro_score_json → 生成追问（INTRO_FOLLOWUP）或进入首题（TECH 系列）
-     */
-    VoiceInterviewVO submitSelfIntro(Long interviewId, Long userId, String transcript);
-
-    /**
-     * 提交答案（SSE 双通道流）
-     * <p>事件流：score（规则分）→ speak（LLM 话术）→ data（完整数据）→ end
+     * 提交答案（SSE 流式轮次）
+     * <p>事件流：delta（面试官话术增量，打字机+分句TTS）→ end（roundDone/nextQaId/nextQuestion/finished）
      *
      * @param interviewId 面试ID
      * @param userId      用户ID
      * @param qaId        问答ID
      * @param transcript  ASR 转写文本
      * @param latencyMs   答题耗时（毫秒）
+     * @param skip        true=候选人跳过本题（transcript 可为空，滑窗注入跳过标记）
      */
-    SseEmitter submitAnswer(Long interviewId, Long userId, Long qaId, String transcript, Integer latencyMs);
+    SseEmitter submitAnswer(Long interviewId, Long userId, Long qaId, String transcript, Integer latencyMs, Boolean skip);
 
     /**
-     * 请求分级提示（调用 HintEngine，hint 使用次数 +1）
+     * 请求思考提示（面试官 agent 基于滑窗上下文生成一句引导，hint 使用次数 +1）
      */
     VoiceInterviewVO requestHint(Long interviewId, Long userId, Long qaId);
 
     /**
-     * 强制下一题（用户点"下一题"）
-     */
-    VoiceInterviewVO forceNext(Long interviewId, Long userId, String reason);
-
-    /**
      * 结束面试：聚合分数 + 报告
+     * <p>v11.88 V2：同步段仅收口会话状态并触发异步批量分析（返回报告骨架），
+     * 前端轮询 {@link #getAnalysisStatus(Long, Long)} 至 analysis_status=2 后拉取完整报告。
      */
     VoiceInterviewReportVO finish(Long interviewId, Long userId);
+
+    /**
+     * v11.88 V2：查询报告分析状态（前端进度条轮询）
+     *
+     * @return key: analysisStatus(0未分析/1分析中/2已完成) / analysisProgress(0-100)
+     */
+    Map<String, Object> getAnalysisStatus(Long interviewId, Long userId);
+
+    /**
+     * v11.97：重新生成报告——已结束面试重置分析状态后复用异步批量分析链路
+     * （逐题补分析 + 聚合 + 整场 LLM 复盘）。前端轮询 {@link #getAnalysisStatus(Long, Long)}
+     * 至 analysis_status=2 后拉取完整报告。
+     */
+    VoiceInterviewReportVO regenerateReport(Long interviewId, Long userId);
 
     /**
      * 我的语音面试列表（分页）
@@ -74,15 +81,24 @@ public interface IVoiceInterviewService {
     VoiceInterviewVO getDetail(Long interviewId, Long userId);
 
     /**
+     * v11.91 断点续接：查询当前用户最近一个进行中的会话（意外关闭后恢复提示用）
+     *
+     * @return 空 Map 表示无进行中会话；否则 key: interviewId / position / scene / startTime /
+     *         answered(已答题数) / totalQa / elapsedSec(中断前已用时长，秒)
+     */
+    java.util.Map<String, Object> getActiveInterview(Long userId);
+
+    /**
+     * v11.91 断点续接：恢复进行中会话（校验归属，记录 resume 事件，返回恢复快照含 qaList + currentQa）
+     */
+    VoiceInterviewVO resumeInterview(Long interviewId, Long userId);
+
+    /**
      * 通过 qaId 查询面试详情（用于错题本桥接，校验 qaId 归属当前用户）
      * <p>返回的 VoiceInterviewVO 中 currentQa 为该 qaId 对应的问答记录
      */
     VoiceInterviewVO getDetailByQaId(Long qaId, Long userId);
 
-    /**
-     * v11.x：启用中的岗位模板列表（id/名称/类别/难度），供 portal 开始面试选择
-     */
-    java.util.List<java.util.Map<String, Object>> listActiveJobTemplates();
     /**
      * v11.30：管理端分页查询所有用户的语音面试（支持 username/position/status 筛选）
      */

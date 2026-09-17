@@ -331,8 +331,8 @@ export default {
             uni.showToast({ title: t.error || '分析失败，请稍后重试', icon: 'none' });
             return;
           }
-          // pending/running 继续（最长 10 分钟）
-          if (++this.pollCount > 300) {
+          // pending/running 继续（间隔 5s，最长 10 分钟）
+          if (++this.pollCount > 120) {
             this.analyzing = false;
             uni.showToast({ title: '生成超时，请稍后在历史报告查看', icon: 'none' });
             return;
@@ -341,7 +341,7 @@ export default {
         } catch (e) {
           this.analyzing = false; /* 网络异常终止轮询 */
         }
-      }, 2000);
+      }, 5000);
     },
     stopPoll() {
       if (this.pollTimer) { clearTimeout(this.pollTimer); this.pollTimer = null; }

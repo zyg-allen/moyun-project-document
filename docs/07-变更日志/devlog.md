@@ -5,6 +5,496 @@
 
 ***
 
+## v11.98 (2026-09-17) AI 网关链路根治：不可变 Map 击穿输入清洗 + 运行时开关全面 sys_config 化
+
+> 需求：v11.97 排查实锤逐题 LLM 分析 27/29 条 fail（error_msg="not supported"）；用户指令：去掉 yaml 里的开关改 sys_config 全局热配置，全链路审查网关代码保证链路正确、参数拼接有效（前端设置正确拼进上下文，agent/大模型拿到正确参数）。
+
+### 根因（DB 取证 + JDK 实测）
+
+- `AiGatewayService.sanitizeInputChannel`（v11.57 输入清洗）对 input 的 String 值原地 `entry.setValue()`；调用方 `analyzeAnswerByLlm` 传 `Map.of(...)`（JDK 不可变集合）→ 第一条 entry 即抛 `UnsupportedOperationException("not supported")`（JDK 21 实测消息逐字吻合 ai_execute_log 记录）→ 网关 catch 记 fail → FallbackStrategy 降级 → AiSceneJsonClient 返 null → 逐题 100% 规则兜底 50 分
+- 铁证：`tryWarmup` 用 `new LinkedHashMap<>()`（可变）→ 2 条 success（25s+ 真实调用）；同一 agent48→model17 缓存键相同，排除模型/JSON Mode 差异
+
+### 后端（moyun-server）
+
+- **网关根治 `AiGatewayService.sanitizeInputChannel`**：不再原地 setValue，重建 `LinkedHashMap`（保留全部 entry，String 值过 `PromptInjectionGuard.sanitize`，非 String 原样保留）——任何调用方传任意 Map 实现均安全
+- **运行时开关 sys_config 化**：新建 `com.moyun.ext.ai.service.AiGlobalSwitch`（`isEnabled()`=ai.global.enabled / `isResumeAdviceEnabled()`=ai.resume.advice.enabled，缺省 true，true/1 大小写不敏感，异常兜底缺省值，走 RuoYi ISysConfigService 缓存热生效）；替换 8 个类的 `aiProperties.isEnabled()/isResumeAdviceEnabled()`：VoiceInterviewServiceImpl（含 tryWarmup）/InterviewAgentClientImpl（5 处）/ResumeParseService/ResumeJobMatchService/ResumeDeepOptimizeService（2 处）/ResumeDeepOptimizeGenerator/ResumeAiAdviceService
+- **yaml 职责收缩**：`moyun.ai.enabled` 仅承担 @ConditionalOnProperty bean 装配（AiModuleLlmClient/NoopLlmClient 二选一，matchIfMissing=false 陷阱），application.yaml 固定 true；application-dev.yaml 删 resume-advice-enabled，运行时开关全部走 sys_config
+- **调用方 Map 契约统一（v98_t5 全链路审查）**：AiSceneJsonClient.executeForJson 全部 9 个调用点确认为可变 Map——ScoringEngine/VoiceInterviewServiceImpl（analyzeAnswerByLlm task/context/transcript 依次 put + questionTitle 截断 400 字防寒暄话术超长）/ResumeParseService（本次修复）/简历族 6 处原本即 HashMap；残留 Map.of 均不在输入清洗路径（recordEvent 事件/ASR 请求体/Handler structured 输出）
+- **附带修正**：`analyzeAnswerByLlm` questionTitle 截断（V3 语义 qa.question 存面试官整段话术含寒暄，超 400 字加"…（后略）"）
+
+### 四同步
+
+- 代码：moyun-server（AiGatewayService/AiGlobalSwitch 新建/8 个业务类/2 个 yaml）
+- 文档：本 devlog；语音面试 V2 实施文档追加 V6 章节
+- SQL：`20260917-01-ai-global-switch-sysconfig.sql`（sys_config 两键幂等 INSERT：ai.global.enabled='true' / ai.resume.advice.enabled='true'）
+- 菜单：无变更（管理台「参数设置」原生入口即可管理）
+
+### 部署注意
+
+- 执行 SQL 脚本 `20260917-01` 后重启后端；管理台「系统管理→参数设置」可热调两个开关（即时生效无需重启）
+- 重测方式：历史页/报告页点「重新生成报告」→ ai_execute_log 的 voice_interview 记录应全部 success（elapsed 秒级、model_used=17），逐题分数不再全 50 分
+- v11.97 的整场复盘直连通道保留（第二通道）；逐题分析回归网关主通道（统一收口）
+
+***
+
+## v11.97 (2026-09-16) 语音面试报告：整场 LLM 复盘（基于简历+对话内容）+报告页重设计+重新生成链路
+
+> 需求：用户实测 v11.96 后反馈报告质量差——所有题 50 分、亮点"暂无数据"、改进建议复述问题原文、技能标签显示原始 JSON、岗位匹配度=总分硬套、文案模板化无参考意义；要求报告基于简历和对话内容生成，优化报告输出质量与页面排版样式，删除关联题库（knowledgePoints）。
+
+### 根因
+
+- 逐题 LLM 分析走 `aiSceneJsonClient.executeForJson`（voice_interview 场景网关）失败→规则兜底全部 50 分；而面试主对话走 `agentClient.chatStream/chat`（agent48 直连）实测可用——整场复盘复用直连通道
+- 报告文案（buildSummary/buildSuggestion 等）为硬编码模板；skills 字段原始 JSON 透出；matchRate 直接套 totalScore
+
+### 后端（moyun-server）
+
+- **整场 LLM 复盘 `enhanceReportByAgent`**：规则聚合完成后一次 `agentClient.chat` 直连输出结构化 JSON——`overallComment`（3-5 句总评）/`jobMatch{rate,reason}`（基于 JD+简历+问答表现）/`highlights`/`weakPoints`（title≤12字+detail）/`suggestions`（每条≤60字可执行）/`perQuestion`（按 questionIdx 回填逐题分+AI 点评，同步回写 QA 表）/`dimensions`（六维）；失败保留规则兜底（报告链路永远可用）；解析失败追加严格约束重试一次；复盘后总分以报告为准（`scoringEngine.fuseTotalScore` 同口径重算）+summary 同步复盘结论
+- **热回退开关**：sys_config `voice.interview.reportLlm.enabled`（缺省 true，无需 SQL，管理台可关）
+- **VO 扩展**：`VoiceInterviewReportVO` 新增 `overallComment`/`jobMatch`/`highlightViews`/`weakPointViews`（结构化，旧字段双写 title 列表兼容）；`QuestionReview` 补 `userAnswer`/`qaId`
+- **六维 key 对齐**：报告级 dimSums 原 coverage/length/structure 旧 key 与逐题六维（relevance/professionalism/fluency/interactivity/confidence/logic）断链，已修复
+- **skills 归一化 `formatSkills`**：简历 skills JSON（`{"Java":{"level":"了解"}}`）转"Java·了解 / Python·了解"可读文本
+- **删除关联题库**：`tryRagKnowledgePoints`/`buildKnowledgePoints`/`tryLlmKnowledgeDesc` 三方法删除（约 150 行），报告不再输出 knowledgePoints
+- **重新生成 `regenerateReport`**：@Transactional + 归属/finished 校验 + RUNNING_ANALYSIS 防重入；主表重置（analysisStatus=1/progress=0/report=null/summary=null）+ QA 表重置（清 scoreDraft 防二次融合失真、analysisStatus=null 重新入队）；事务 afterCommit 触发批量分析
+- **Controller**：`POST /api/portal/interview/voice/{id}/regenerate-report`（@RateLimiter 10次/小时）
+
+### 前端（moyun-portal）
+
+- **报告页重设计**：新增报告总览横幅卡（综合分+等级徽章+LLM 总评+岗位匹配度含依据说明）；概要 Tab 三栏重排——左列六维雷达（动态色）+自我介绍评分卡（原「面试官剖析」迁入）、中列 LLM 总评+AI 深度复盘+改进建议+按建议优化简历入口、右列结构化亮点/薄弱点卡（title+detail，旧报告回退字符串）
+- **问题分析 Tab**：待提升收口区（结构化薄弱点+去练习按钮）；「你的回答」折叠展示（默认 2 行 line-clamp，>80 字显示展开全文按钮）
+- **删 Tab**：「面试官剖析」「相关知识点」两个 Tab 移除（内容迁移或删除）
+- **重新生成入口**：报告页 report-actions 首位「🔄 重新生成报告」按钮（分析中禁用）；历史页卡片「重新生成报告」按钮（finished 且非生成中显示，跳转 `?id={id}&regenerate=1`，报告页加载完成后自动触发并跳过二次确认，router.replace 清参数防刷新重复触发）
+- **skills JSON 防御**：candidateSkills 对 `{`/`[` 开头先 JSON.parse 再拼接，非 JSON 直接拆分
+- **API**：`VoiceInterviewReportVO` 类型补 `overallComment`/`jobMatch`/`highlightViews`/`weakPointViews`；新增 `regenerateVoiceReport`
+
+### 四同步
+
+- 代码：moyun-server（VoiceInterviewServiceImpl/VoiceInterviewReportVO/IVoiceInterviewService/PortalVoiceInterviewController）+ moyun-portal（VoiceInterviewPage.vue/MyVoiceInterviewsPage.vue/voiceInterview.ts）
+- 文档：本 devlog；语音面试 V2 实施文档新增 v11.97 小节
+- SQL：无 DDL；可选热回退键 `voice.interview.reportLlm.enabled`（缺省 true，管理台 sys_config 可配）
+- 菜单：无变更
+
+### 部署注意
+
+- 重启后端即可（无需 SQL）；存量报告（如 id=17 的全 50 分数据）在报告页或历史页点「重新生成报告」即走新链路（逐题直连分析+整场 LLM 复盘）
+- 报告评分区分度：优秀≥80 / 合格 60-79 / 待提升<60（复盘提示词约束，不再兜底平铺 50 分）
+- mvn 编译（18:18 真编译验证）+ portal vue-tsc/vite build 通过
+
+***
+
+## v11.96 (2026-09-16) 语音面试：时长制改造（20分钟倒计时）+报告生成链路P0竞态修复+历史页异步进度可见
+
+> 需求：用户实测反馈两大问题——①面试突然结束不受控（问满题数即 finished，一句话没说完就被切）；要求改为时长制：默认 20 分钟倒计时（sys_config 可配），期间只有用户主动结束（点击按钮/口头提出）才结束，倒计时归零自动保存+触发总结报告。②报告自版本修改后从未生成过：要求全链路检查不遗漏，历史页可见生成进度（轮询），成功后展示完整报告，注意数据保存与后台异步任务一致性。
+
+### 后端（moyun-server）
+
+- **P0 竞态修复（报告从未生成的根因）**：`finish()`/`start()` 均为 @Transactional，事务内 `triggerBatchAnalysis` 提交的异步任务先于事务提交执行——异步线程读到旧值 `analysisStatus=0` 后守卫直接 return，批量分析永远不执行、报告永不落库。修复：`triggerBatchAnalysis` 注册事务提交后回调（`TransactionSynchronization.afterCommit`）再触发；无事务上下文（静默收口/自愈路径）直接提交
+- **时长制**：新增 sys_config `voice.interview.durationMinutes`（缺省 20，范围 5-120，回退 configJson 本场快照）；`runAgentTurn` 问满题数不再发 `finished=true`（始终创建下一题，题数仅软参考）；`buildTurnDirective` 改为剩余时长感知（剩余≤2分钟提示自然收口，已到提示收尾致谢）
+- **口头结束检测**：`submitAnswer` 对转写作严格短语正则检测（"结束面试/我想结束/到此为止/就到这里"等），命中直接发 `end{finished:true}` 收尾（不进 agent 轮次），事件 `verbal_end` 落库
+- **服务端超时守卫**：`submitAnswer` 检查超过时长+2 分钟宽限（`isInterviewTimedOut`）→ `finishQuietly` 自动收口（closed_reason=timeout，触发异步报告，数据不丢）并返回 `end{finished:true}`——前端倒计时失灵时的兜底
+- **断链自愈**：`getAnalysisStatus` 轮询接口检测"已结束+analysisStatus=1 但本进程无运行任务"（服务重启/任务丢失）→ 自动重触发批量分析；`runBatchAnalysis` 加 `RUNNING_ANALYSIS` 并发标记防重入——保证前端轮询永远能等到 analysisStatus=2
+- **VO 扩展**：`VoiceInterviewVO` 新增 `durationMinutes`/`analysisStatus`/`analysisProgress`，`toVO` 统一下发（历史列表/详情/恢复快照均含）
+
+### 前端（moyun-portal）
+
+- **面试页全场倒计时**：顶栏正计时改为剩余倒计时（`⏳ mm:ss`，剩 5 分钟转警示色，title 显示已进行时长）；start/resume 启动（resume 扣除中断前已用时）；归零处理——生成中/有未提交作答先自动提交（`timeUpPending`，onEnd 后统一收尾），否则直接 `handleFinish`；`releaseMediaResources` 统一释放
+- **历史报告真数据**：`loadHistoryReport`（?id= 进入）彻底移除前端拼凑伪报告（硬编码亮点/薄弱点/维度偏移造假数据）——进行中→回准备页走断点续接横幅；已结束+分析中→进报告页显示进度条并轮询（复用 v11.88 链路）；已完成→finish 幂等拉取库中完整报告（含 candidate 用户画像/jobInfo 岗位/逐题点评/知识点/改进建议）
+- **题目进度时间线**：时长制下题目无上限，按 `max(totalQa, qaList.length)` 动态扩展
+- **历史页生成进度**：列表卡片显示"报告生成中 x%"徽标（Loader2 旋转图标）+得分环位置显示进度百分比；存在生成中项时 5s 批量轮询 analysis 接口，全部完成自动重载列表并 toast 提示；卸载清理定时器
+- **API 类型**：`VoiceInterviewVO` 接口补 `durationMinutes`/`analysisStatus`/`analysisProgress` 字段
+
+### 四同步
+
+- 代码：moyun-server（VoiceInterviewServiceImpl/VoiceInterviewVO）+ moyun-portal（VoiceInterviewPage.vue/MyVoiceInterviewsPage.vue/voiceInterview.ts）
+- 文档：本 devlog；语音面试 V2 实施方案文档同步
+- SQL：`20260916-07-voice-interview-duration-and-report.sql`（sys_config 时长键，无 DDL）
+- 菜单：无变更
+
+### 部署注意
+
+- 执行 `20260916-07` SQL；时长可在管理台 sys_config 调整（5-120 分钟）
+- 存量"报告从未生成"的卡住数据（analysisStatus=1）：部署重启后进入历史页或面试页 ?id=xx 触发轮询即自愈重新生成
+- 报告分析仍基于用户画像+岗位简历+问答表现三源（candidate/jobInfo/逐题 LLM 深度分析），本版未改动评分口径
+- mvn 编译（17:28 真编译验证）+ portal vue-tsc/vite build（2m29s）通过
+
+***
+
+## v11.95 (2026-09-16) AI能力架构收口：场景提示词废弃+default_chat治理+面试主干网关化灰度+JSON Mode升级
+
+> 需求：v11.95 既定四项架构收口——①场景表系统提示词彻底废弃（用户裁决"场景表的系统提示词就不要了"：人设统一走 `ai_agent.system_prompt`，场景表只留治理配置）；②default_chat 治理（聊天链路此前无限流/无执行日志）；③语音面试主干网关化灰度（T2 生产方案：直连保性能、治理收口网关，灰度键缺省关闭）；④模型表 JSON Mode（结构化场景下发原生 `response_format`，解析失败降级 Prompt 约束重试——修复 deep_optimize 报"AI 服务暂不可用"类解析失败）。多 task 统一（第5项）经评估现状已达成，零改动。
+
+### 后端（moyun-server）
+
+- **任务1 场景提示词废弃**：`AiSceneConfig.systemPromptTemplate` 标 `@Deprecated`；`AbstractAiSceneHandler.buildSystemPrompt` 恒返 null（不再读场景模板）；`KnowledgeQaHandler` 统一走 `chatContextBuilderService.buildSystemPrompt(agent,false,null)`（loadAgent 空壳兜底 agent 永不 null）；存量数据保留不删
+- **任务2 default_chat 治理**：`ChatController` /stream 与 /regenerate 前置「场景×用户」Redis 限流（读 `ai_scene_config.default_chat` 行参数，60次/3600s，配置行未部署时不限流与历史一致）+ 每轮对话落 `ai_execute_log`（scene=default_chat，handler=dynamicChatService，bind=dynamic_agent）；问候语（isGreeting 系统触发）不占用户额度；Agent 动态指定/RAG/工作流逻辑不动
+- **任务3 面试主干网关化灰度**：`InterviewAgentClientImpl.chatStream` 前置灰度键 `ai.gateway.interview.enabled`（缺省 false=直连，行为与历史完全一致）——开启后主干轮次前置 voice_interview 场景限流 + 日 Token 熔断检查 + 落 `ai_execute_log`（handler=interviewMainTrunk），滑窗消息体与模型调用链路不变（不碰消息体）；治理组件异常降级放行不阻断面试；同步模型调用不受影响
+- **任务3 附·模型客户端缓存（T2 承诺）**：`ModelConfigServiceImpl` 增加客户端实例缓存（key=configId:temperature:maxTokens:jsonMode），`updateById`/删除时按 configId 前缀清除——面试主干每轮不再重复构造客户端
+- **任务4 JSON Mode**：`ModelConfig` 实体 + `createChatModel(configId,temp,maxTokens,jsonMode)` 重载——jsonMode 且模型 `supports_json_mode=1` 时 OpenAI 兼容端点下发 `response_format=json_object`、Ollama 原生下发 `format=json`，模型未开启静默忽略；`AiSceneResolverImpl.resolveChatModel` 场景 `output_schema` 非空即请求 jsonMode（Agent 链与直绑模型链均覆盖）；`AbstractAiSceneHandler` 新增 `chatJson`（首次输出无法提取 JSON 主体→追加「只输出合法 JSON」约束自动重试一次，★★兜底路径），12 处结构化子任务调用点切换（voice_interview 5处/题库生成2处/简历优化2处/简历解析/敏感词/每日话题），纯文本子任务（candidate_ask/speak_text 死链）不切
+- **附·ASR 转发日志降噪**：`AsrStreamRelayHandler.sendToBrowser` 对"浏览器会话已关闭"竞态（用户停止录音/离开页面，两侧关闭时上游补发终结消息无处投递）由 WARN+堆栈降为 debug 单行——业务零影响的预期噪音
+
+### 管理端（moyun-admin-vue）
+
+- 模型配置表单新增「JSON Mode」开关（chat 类型可编辑，`supportsJsonMode`，缺省关闭），与流式开关同款交互
+
+### 四同步
+
+- 代码：moyun-server（ai2 网关/场景 Handler/模型服务/聊天控制器/面试客户端）+ moyun-admin-vue（模型配置页）
+- 文档：本 devlog；《AI能力架构v4整合·现状对比与优化实施计划.md》§3.3 实施状态更新
+- SQL：`20260916-03-scene-system-prompt-deprecated.sql`（字段注释标废弃）、`20260916-04-default-chat-governance.sql`（default_chat 场景行）、`20260916-05-interview-gateway-gray.sql`（灰度键缺省 false）、`20260916-06-model-json-mode.sql`（ai_model_config 加 supports_json_mode）
+- 菜单：无变更
+
+### 部署注意
+
+- 4 个 SQL 按序执行；`supports_json_mode` 需按模型实际能力在管理端逐个开启（如 gpt-4o 系列/DeepSeek JSON 模式）
+- 灰度键 `ai.gateway.interview.enabled` 保持 false 即历史行为；开启前建议先核对 voice_interview 场景行限流参数
+- default_chat 场景行插入后，服务启动时注册中心会告警"场景 default_chat 有配置但未注册 Handler"，属预期（对话链路不走网关编排，仅作治理参数载体）
+- mvn 编译（16:56 真编译验证）+ admin vite build 通过
+
+***
+
+## v11.94.1 (2026-09-16) 语音面试：移除反问段独立链路（融入对话流）+思考中占位气泡
+
+> 需求：人工实测 v11.94 后裁决——反问段独立输入模式体验不佳（面试未结束时跳出反问输入框打断节奏，属不完整且不需要的功能），整体移除；反问改为系统提示词承载：候选人想问的可在回答中自然表达，AI 面试官简答后继续提问；问满后面试官口播"你还有什么想了解的吗？"，无反问或反问完毕即收尾致谢。（v11.95 保留给既定范围：场景表字段废弃标注/default_chat 治理/主干网关化灰度/JSON Schema 升级）
+
+### 后端（moyun-server）
+
+- 删除 `candidateAsk` 服务方法 + `IVoiceInterviewService` 接口声明 + `POST /{id}/ask` 端点（含 AskRequest 内部类与 voice:ask 限流）
+- `runAgentTurn` 问满后直接 `finished=true`（删 askPhase 分支与 ask_invite 事件、candidateAsked 查询）
+- `buildTurnDirective` 删反问邀请指令分支（保留问满收尾致谢指令）
+- `buildInterviewerSystemPrompt` 段序约束改为三段式：自我介绍 → 深挖 → 核心问答；追加"候选人回答中口头反问时简短作答后自然回到提问；问满后口播'你还有什么想了解的吗？'，无反问/反问完毕即收尾致谢"
+- 删 `candidateAskEnabled()`/`candidateAsked()` 与 `sysConfigService` 注入/import（仅反问开关用途）
+- 存量保留：VoiceInterviewHandler 的 candidate_ask task 子任务（无调用方）；历史 candidate_ask/ask_invite 事件数据
+
+### 前端（Portal）
+
+- `voiceInterview.ts`：删 `candidateVoiceAsk` 导出；`VoiceInterviewEndPayload` 删 `askPhase` 字段
+- `VoiceInterviewPage.vue`：删 askPhase 全链路（enterAskPhase/handleSubmitAsk/反问输入模式模板/反问态 chatStatus/跳过按钮 askPhaseActive 禁用/watch(speaking) 反问段不自动开麦拦截/start·resume·restart 三处重置）；提交答案与跳过后**首字前预建"思考中"占位气泡**（T2 体验兜底：delta 到达即续写，失败/中断由 finishStreaming 移除空占位）
+
+### 四同步
+
+- 代码：moyun-server（service/controller）+ moyun-portal（api+页面）
+- 文档：本 devlog；《AI 面试全链路重构 V2·强化版》§1.4/§1.5/§2/§5 修订；《AI 能力架构完整设计文档_v4》7.1 task 表 candidate_ask 改存量保留
+- SQL：`20260916-02-voice-interview-remove-askphase.sql`（删 sys_config 键 voice.interview.candidateAsk.enabled；无表结构变更）
+- 菜单：无变更
+
+***
+
+## v11.94 (2026-09-16) AI能力架构v4整合：warmup一次调用+RAG预热注入+P0分数断链修复+四段式段序+候选人反问段
+
+> 需求：按《AI 能力架构完整设计文档_v4》落地 v4 整合第一批——①P0 修复报告分数断链（runBatchAnalysis 只写 scoreDraft 不写 score，聚合跳过 score=null 的题导致全空报告）；②面试官系统提示词增加段序约束（第1问固定自我介绍+2-3问深挖）；③warmup 预热一次 LLM 调用产出"AI理解"（候选人画像+考察方向计划+开场白+首题）注入滑窗常驻；④RAG 预热接入（start 时检索 agent 绑定知识库 top-5 片段注入，运行时零检索保持流式低延迟）；⑤候选人反问段（askPhase 协议 + POST /{id}/ask，sys_config 开关）；⑥知识点归纳 RAG 化（报告阶段二次检索）；⑦speak_text 语义重定义（question=结构化问题文本，speakText=口语化话术，TTS 优先播、空则 fallback）。
+
+### 后端（moyun-server）
+
+- **P0-1 分数断链**：`runBatchAnalysis` LLM 分析成功回写 `qa.setScore(analysis.score)`（主分，聚合不再跳过），失败兜底规则分写主分；scoreDraft/llmScoreJson 照旧
+- **P0-2 段序约束**：`buildInterviewerSystemPrompt` 重写——第1问固定"请自我介绍"+2-3问深挖追问；反问段开关（voice.interview.candidateAsk.enabled，缺省视为开启）
+- **warmup**：`VoiceInterviewHandler` 新增 task=warmup 子任务（一次调用产出 understanding/interviewPlan/opening/firstQuestion JSON）；`start()` 重构——RAG 检索（retrieveKbSnippets：agent 绑定知识库 top-5）→ tryWarmup → warmupPlan 存 configMap（断点续接免重算）→ opening=开场白+首题（失败降级 generateOpening）
+- **反问段协议**：`runAgentTurn` 问满后 end 载荷改 `askPhase=true`（替代 finished）+ recordEvent("ask_invite")；`candidateAsk(interviewId, userId, question)` 服务方法——校验归属/in_progress/≤500字 → recordEvent("candidate_ask") → aiSceneJsonClient task=candidate_ask（场景网关治理链路）→ 失败降级固定话术；`candidateAsked` 查事件表防重复进入反问段
+- **控制器**：`POST /{id:[0-9]+}/ask`（@RateLimiter voice:ask 3600s/20次）
+- **知识点 RAG 化**：`buildKnowledgePoints(interview, qaList)` 签名扩参——RAG 优先（岗位+低分题节选 → retrieveContents top-5），旧 tags 路径兼容回退
+- **P0-2 附**：`buildCandidateProfile` 面试口头自我介绍匹配 questionIdx≤1（V3 首问 idx=0，旧数据 idx=1 兼容）
+- **残留清理**：删 `InterviewAgentClient(Impl).dynamicModeEnabled()` 与 CONFIG_KEY_DYNAMIC_MODE 常量（纯残留键）
+
+### 前端（Portal）
+
+- `voiceInterview.ts`：VoiceInterviewEndPayload 加 `askPhase?: boolean`；新增 `candidateVoiceAsk(interviewId, question)`（POST /portal/interview/voice/{id}/ask）
+- `VoiceInterviewPage.vue`：
+  - onEnd 加 askPhase 分支 → `enterAskPhase()`（收口倒计时/5分钟无响应/卡壳提示/语音输入）
+  - 反问段输入模式：textarea + "✓ 提问"（可多次，Enter 直提）+ "🏁 没有问题了，结束面试"；用户气泡 tag=我的反问，面试官解答气泡 tag=面试官解答（TTS 播报）；watch(speaking) 反问段不自动开麦；跳过按钮禁用；chatStatus 加反问态文案
+  - start/resume/restart 均重置 askPhaseActive
+  - speakText||question TTS fallback（断点续接与 start 路径已有）
+
+### 四同步
+
+- 代码：moyun-server（handler/service/controller）+ moyun-portal（api+页面）
+- 文档：本 devlog；《AI 面试全链路重构 V2·强化版》追加 V4 章节
+- SQL：`20260916-01-voice-interview-v4-warmup-ask.sql`（sys_config 新增反问段开关 + 删 voice.interview.dynamicMode 残留键；无表结构变更）
+- 验证：mvn compile 通过（全路径）；vue-tsc + vite build 通过（2m27s）
+
+***
+
+## v11.93 (2026-09-16) AI语音面试 V3：统一AI入口纯Agent自由面试——滑窗记忆+流式话术+协议补全+死代码彻底删减
+
+> 需求：彻底切换统一 AI 入口模式（参考 /ai/chat 会话实现）——删除题单预生成/规则决策/围栏模式等堆叠代码；话术流式直出消除"回答后等分析"；滑窗记忆消除重复提问与提示词重复拼接；前端配置收口。含一项关键协议修复：V3 首版 runAgentTurn 只发 delta/end 不建下一题、前端仍在等旧 data 事件，第二问会覆盖同一 QA 行。
+
+### 后端（moyun-server）
+
+- 协议补全：`runAgentTurn` onComplete 预创建下一题 QA（question=话术全文，报告回放用）并随 end 下发 `nextQaId/nextQuestion`；问满下发 `finished=true`。SSE 仅剩 delta/end/error 三类事件
+- 跳过收口：`POST /{id}/answer` body 加 `skip:true`（transcript 可空，滑窗注入跳过标记，同一 SSE 路径）；删 `/next` 端点与 forceNext 链路
+- 提示重写：`requestHint` 改为 agent 滑窗提示（完整上下文一句思考引导，不泄露答案；失败降级固定话术），hintUsed 3 次上限保留
+- 死代码删减：`VoiceInterviewServiceImpl` 3584→约1650行（73 个死方法 + 6 个内部类：围栏/规则链路/阶段机/候选人反问/题库出题/上下文重拼）；删 11 个专属类（QuestionPicker 全家/ResumeContext/WebSearchService/InterviewDecisionPolicy/InterviewPromptAssembler/InterviewAnalysisParser 等）+ 3 个对应测试；删控制器 /agents、/self-intro、/job-templates 端点
+- `VoiceStartConfig` 收口 5 字段（position/questionCount/resumeId/difficulty/jobRequirements）；保留：报告批量分析、断点续接（/active+/resume+rebuildFromDb）、分享、管理端、题库提示端点（/hint?questionId=、/keywords 语音演示页在用）
+
+### 前端（Portal）
+
+- `voiceInterview.ts`：SseCallbacks 收口 onDelta/onEnd(payload)/onError/onAborted；submitVoiceAnswer 加 skip 参数；删 getVoiceAgents/getVoiceJobTemplates/forceVoiceNext 及关联类型；VO 删 scene/style/questionMode/isPersonalized
+- `VoiceInterviewPage.vue`：设置面板删 场景/风格/智能体/动态出题/岗位模板 五个下拉，仅留 岗位/JD/简历/难度/题数；作答回调重写——delta 打字机 + **分句 TTS**（句末标点即入队，复用 useSpeechSynthesis 顺序播报，说完才重新开麦）；end 推进 nextQaId/finished；跳过/提示走新链路；删 SCENE/STYLE_LABEL 与动态出题徽标
+- `MyVoiceInterviewsPage.vue` 联动清理已删 VO 字段
+
+### 四同步
+
+- 代码：moyun-server（service/controller/vo）+ moyun-portal 三页
+- 文档：本 devlog；《AI 面试全链路重构 V2·强化版》追加 V3 章节
+- SQL：无表结构/菜单变更（voice.interview.defaultAgentId 已有）
+- 验证：mvn compile 通过（全路径）；vue-tsc + vite build 通过（2m39s）
+
+***
+
+## v11.92 (2026-09-15) AI语音面试页布局修复：桌面三栏锁视口，消除双重滚动
+
+> 需求：检查并修复面试页布局。核心问题：对话区 `.chat-body` 高度硬编码 `max-height: calc(100vh - 260px)`（magic number 未计入主区 padding/顶栏/聆听音浪高度），且三栏 grid 默认 stretch 无高度约束——题目多时左栏撑高整行，整页滚动 + 对话区内部滚动叠加，聆听音浪出现时输入区被挤出视口。
+
+### 前端（Portal · VoiceInterviewPage.vue，纯 CSS）
+
+- 桌面三栏（>1024px 新增增强块）：`.interview-page` 锁定 `height: 100vh; overflow: hidden` 整页不滚动；`.interview-main { flex: 1; min-height: 0 }`；左右栏 `min-height: 0; overflow-y: auto` 各自内部滚动兜底（题单 12 题/提示长文不再撑高）；`.chat-body` 改 `flex: 1; min-height: 0; max-height: none` 撑满剩余高度（音浪出现时自动让位，无 magic number）
+- 基础样式 `.chat-body`：`max-height: calc(100vh - 260px)` → `60vh`（平板 769-1024 单栏合理限高；手机 ≤768 已有 46vh 覆盖不受影响）
+- `.input-timer` 桌面端补 `flex-wrap: wrap`（实时识别长文本换行防溢出）
+
+### 四同步
+
+- 代码：仅 moyun-portal VoiceInterviewPage.vue 样式段
+- 文档：本 devlog；无 SQL/菜单变更
+- 验证：vue-tsc + vite build 通过
+
+***
+
+## v11.91 (2026-09-15) AI语音面试 V2 收口：JD输入+噪声检测+5步准备进度+结束触发点+报告三段式
+
+> 需求：按《V2 强化版》文档补齐差距——①准备页核心只留岗位+JD+简历，其余配置收进高级设置折叠；②设备检测补环境噪声检测（嘈杂黄色提示）；③点击开始面试展示 5 步准备进度条（简历画像→岗位要求→会话上下文→题单→环境），完成后自动进入面试页；④结束触发点补连续跳过 3 题与 5 分钟无响应（均弹确认，确保分析流程收口）；⑤报告页三段式（第一栏面试者简介/第二栏岗位信息/第三栏 Tab），概要聚焦结论（缺点移入问题分析 Tab + 等级徽章 + 优势 Top3 + 详细分析入口）。
+
+### 后端（moyun-server）
+
+- VoiceInterviewServiceImpl：
+  - 补 `buildCandidateProfile(interview, qaList)`（v11.90 声明未实现，编译修复）：简历提取 name/skills/resumeSelfIntro/aiScore + 面试口头自我介绍（第一主问回答）
+  - 补 `buildJobInfo(interview, totalScore)`：position + jobRequirements（优先 configJson，回退 contextSnapshot）+ matchRate（综合得分近似 0-100）
+  - 均失败安全（try-catch warn，返回空 Map 前端隐藏）
+
+### 前端（Portal · VoiceInterviewPage.vue + voiceInterview.ts）
+
+- 准备页：
+  - 设备检测卡片新增"🌊 环境噪声"项——3 秒采样取平均电平（15×200ms），≥0.12 判嘈杂，结果条绿色安静/黄色嘈杂（含近似 dB 与建议文案）
+  - 岗位与简历卡片：岗位下拉保留，新增"📋 岗位要求（选填）"JD textarea（2000 字计数），start payload 传 jobRequirements（后端已支持：注入系统提示词 + 落 contextSnapshot）
+  - 面试官风格/难度/场景/题量/智能体/出题方式/岗位模板 + 3 个偏好开关全部收进"⚙ 高级设置（选填）"折叠卡片（默认收起），原偏好设置卡片合并
+  - 5 步准备进度覆盖层（不可关闭）：prepareState 模拟推进（600ms/步、上限 90%）+ start 请求返回即 100%，450ms 后自动进入面试页
+- 面试页：
+  - 连续跳过 3 题触发点：handleForceNext 计数 skipStreak，达阈值弹确认（结束生成报告/继续并清零）；成功作答（onData）清零
+  - 5 分钟无响应触发点：presentQuestion 武装 armIdleWatch（提交中/暂停顺延），超时弹确认（结束/继续重新武装）；handleFinish/onUnmounted 统一 clearIdleWatch
+- 报告页三段式：
+  - 第一栏"👤 面试者简介"：姓名 + 简历AI评分徽章 + 技能标签（分隔符拆分）+ 简历自我介绍 + 面试口头自我介绍
+  - 第二栏"🎯 岗位信息"：岗位 + 岗位要求 JD（132px 限高滚动）+ 匹配度百分比条（综合得分近似）
+  - 概要 Tab：综合得分加等级徽章（≥80优秀/≥70良好/≥60合格/待提升）；移除"⚠️ 缺点"卡片，右侧改"✅ 优势（Top 3）"+「🔍 查看详细分析 →」跳问题分析
+  - 问题分析 Tab：顶部新增"⚠️ 待提升"薄弱点区块（标题+引用+去练习按钮），承接概要移出的缺点
+- 断点续接（意外关闭恢复）：
+  - 后端新增 `GET /active`（查询最近进行中会话：interviewId/position/answered/totalQa/elapsedSec，elapsedSec 锚点=最后作答时间>当前题创建时间>会话开始）与 `GET /{id}/resume`（校验归属+in_progress，记录 resume 事件，返回 getDetail 恢复快照）
+  - start 前置 `closeStaleInterviews(userId)`：开新面试自动收口遗留 in_progress 会话（closed_reason=abandon + 事件日志 + 异步批量分析，数据不丢报告保留）
+  - 前端准备页顶部恢复横幅（"🔄 检测到未完成的面试 · 已答 N/M 题 · 已进行 hh:mm:ss"），「▶ 继续面试」拉恢复快照重建面试页（历史问答对话 + 当前题 presentQuestion 重置倒计时/武装无响应触发点 + 计时从中断前继续），「放弃并生成报告」确认后调 finish 收口
+  - watch(phase) 回准备页重新探测（"再来一场"刷新横幅状态）；handleStart 成功同步清横幅
+- API：voiceInterview.ts VoiceStartConfig 加 jobRequirements；VoiceInterviewReportVO 加 candidate/jobInfo（VoiceCandidateInfo/VoiceJobInfo）；新增 getActiveVoiceInterview/resumeVoiceInterview（ActiveVoiceInterviewVO）
+
+### 四同步
+
+- 代码：moyun-server（VoiceInterviewServiceImpl 补 2 方法）、moyun-portal（VoiceInterviewPage.vue / voiceInterview.ts）
+- 文档：本 devlog + 《AI 面试全链路重构 · 完整实施文档（V2 · 强化版）》验收标准勾选
+- SQL：无新增（jobRequirements 走 configJson/contextSnapshot JSON 列，candidate/jobInfo 为报告 VO 不落库；底表 v11.90 已建）
+- 菜单：无变更（路由 /interview/voice 不变）
+- 验证：mvn compile exit 0；vue-tsc + vite build 通过
+
+***
+
+## v11.90 (2026-09-15) AI语音面试全链路重构 V2：快链路即问即答 + 异步批量分析报告（化繁为简）
+
+> 需求：按《AI 面试全链路重构 · 完整实施文档（V2 · 强化版）》全面重构语音面试的 UI、数据流与调度时机。核心矛盾：原链路每轮答题同步等 LLM（评分+话术+分析全串行），答完到下一题延迟数秒，且实时评分雷达/分析气泡打断沉浸感。V2 方案参考已上线的 AI 会话模块（/ai/chat/index + /cms/ai/chat/stream 的 fetchStream 流式模式）："化繁为简"——对话进行中零 LLM 阻塞，深度分析全部后置到报告。
+
+### 后端（moyun-server）
+
+- SQL（20260915-05-voice-interview-v2-p0.sql）：
+  - `portal_voice_interview` 新增 context_snapshot（上下文快照）/ question_paper（题单快照）/ analysis_status（0未分析/1分析中/2已完成）/ analysis_progress（0-100）/ closed_reason（user/auto/timeout/skip）
+  - `portal_voice_interview_qa` 新增 answer_raw（原始回答先落库防丢失）/ answer_time / score_draft（LLM 草稿分）/ analysis_status（单题分析状态）
+  - 新建 `portal_voice_interview_event` 事件日志表（start/answer/next/finish/close/error 全链路追溯，utf8mb4_general_ci）
+- 实体：PortalVoiceInterview / PortalVoiceInterviewQA 补上述字段；新增 PortalVoiceInterviewEvent 实体 + Mapper
+- 快链路（VoiceInterviewServiceImpl.runLegacyTurn 重构）：同步段零 LLM（<200ms 返回下一题）——①原始数据实时落库（answer_raw/answer_time + answer 事件）→ ②规则决策（DECIDING 矩阵 + 追问预算判级）→ ③规则话术 + 预生成题单推进 → ④SSE 立即发 score/speak/data/end；异步段 asyncAnalyzeAnswer：LLM 深度分析写回 score_draft/llm json + 画像累积，失败不影响对话（线程池饱和放弃，批量分析兜底）
+- finish 异步化：同步段仅收口会话状态（closedReason=user + analysisStatus=1）并触发 triggerBatchAnalysis，立即返回报告骨架（summary="报告生成中…"）；runBatchAnalysis 逐题补 LLM 分析（80% 进度内逐题推进 updateAnalysisProgress 条件更新防越界）→ aggregateAndStoreReport 聚合落库（异常兜底规则聚合，报告必有）
+- 新增接口：GET /portal/interview/voice/{id}/analysis（analysisStatus + analysisProgress，前端进度条轮询）；finish 幂等——已结束会话直接返回库中完整报告
+
+### 前端（Portal · VoiceInterviewPage.vue + voiceInterview.ts）
+
+- 化繁为简（参考 AI 会话页模式）：
+  - 移除实时评分雷达 + dimension-legend 评分图例 + analysis 实时分析气泡（ChatMessage role 精简为 question/user/ai，SSE onScore 回调移除，L6 维评分与深度分析统一进结束后报告）
+  - 右栏改"🎯 面试背景"卡片（岗位/场景/风格/难度/智能体/出题模式/简历锚定，interviewBackground computed 复用 dimension-legend 样式）+ 保留"💡 面试官提示"卡
+- 报告分析进度条（v11.88 V2）：handleFinish 收到骨架（summary="报告生成中…"）→ startAnalysisPolling 轮询 analysis 接口（5s × 120 次 = 10 分钟上限，与记账 AI 任务节奏一致；进度只进不退保持观感单调）→ analysisStatus=2 后 loadFullReport（finish 幂等拉完整报告）+ refreshDetailAfterFinish 回填对话回放；报告页顶部 rap-* 进度条（spinner + 阶段文案 逐题分析/融合评分/生成报告 + 百分比 + 提示可先看对话回放）；onUnmounted/handleRestart 停止轮询（服务端继续生成，可从历史查看）
+- API：voiceInterview.ts 新增 VoiceAnalysisStatusVO + getVoiceAnalysisStatus
+- 意外关闭确认：v11.89 已有（beforeunload + onBeforeRouteLeave），本次无变更
+
+### 四同步
+
+- 代码：moyun-server（VoiceInterviewServiceImpl / IVoiceInterviewService / PortalVoiceInterviewController / 3 实体 + 1 新实体 + 1 Mapper）、moyun-portal（VoiceInterviewPage.vue / voiceInterview.ts）
+- 文档：本 devlog + 《AI 面试全链路重构 · 完整实施文档（V2 · 强化版）》
+- SQL：20260915-05-voice-interview-v2-p0.sql（2 表加字段 + 1 新表，执行后重启后端）
+- 菜单：无变更（路由 /interview/voice 不变）
+- 验证：mvn compile + vue-tsc -b && vite build 通过（exit 0）
+
+***
+
+## v11.89 (2026-09-15) AI语音面试：简历收起面板 + 评分标准图例 + 页尾补齐 + 退出有始有终
+
+> 需求：①简历选择改可收起/展开按钮；②页面补站点页尾与其他页一致；③"实时维度分析"几个维度词看不懂，本质是评分标准需逐维说明；④面试中临时退出要确认，关闭标签页/结束面试必须释放麦克风与播放器连接。
+
+### 前端（Portal · VoiceInterviewPage.vue）
+
+- 简历选择：由 v11.88 的下拉框改为收起/展开面板（resume-collapse-btn 默认收起，按钮常显当前选择与已选/未选状态；展开后单行选项列表 + 不选择项 + 上传/管理按钮，选中自动收起；选中仍联动求职意向回填岗位）。移除 resumeSelectValue computed，新增 resumePanelOpen/selectedResume/toggleResumePanel/clearResumeSelection/chooseResume
+- 页尾补齐：准备页与复盘报告页尾部引入 SiteFooter（与其他门户页一致；面试进行页保持沉浸式无页尾）。报告页底色补 --theme-bg 主题化
+- 实时评分标准：卡片标题"实时维度分析"→"实时评分 · 六维评分标准"；DIMENSION_META 新增 desc 字段逐维说明评分依据（相关性=切题不跑偏、专业度=技术深度准确性、流畅度=语速停顿口头禅、互动性=追问应对与结构完整、自信度=语气坚定、逻辑=条理分层建议 STAR）；雷达图下新增 dimension-legend 图例（维度名 + 实时分值色块 low/medium/high + 一行评分依据说明），替代原"最强/最弱"两枚标签（liveDimensionTags 已删）
+- 退出有始有终：新增 releaseMediaResources() 统一释放（ttsCancel 播报 + stopAsr/abortAsr 麦克风与 ASR 流 + 倒计时/计时器 + 题目延迟播报定时器）；结束面试(handleFinish)/重新开始(handleRestart)/组件卸载(onUnmounted)统一走该函数；beforeunload 由仅断 ASR 升级为先全量释放、面试进行中再触发浏览器离开确认（preventDefault）；新增 onBeforeRouteLeave 守卫——面试进行中路由跳转（返回/切页）弹确认框"临时退出面试"，取消则留在页面，确认则释放资源后放行
+- 岗位下拉：v11.88 已完成（config-grid 下拉网格），本次无变更
+
+### 四同步
+
+- 代码：moyun-portal/src/pages/interview/VoiceInterviewPage.vue（唯一改动文件）
+- 文档：本 devlog；无需求变更
+- SQL：无表结构/数据变更
+- 菜单：无变更
+- 验证：vue-tsc -b + vite build 通过（exit 0）
+
+***
+
+## v11.88 (2026-09-15) AI语音面试准备页 UI 重构：紧凑下拉化 + 全站主题跟随（含 v11.87 事故重建）
+
+> 需求：用户反馈 /interview/voice 准备页岗位/简历模块占空间过大、颜色不跟随站点主题（?theme=dark 下仍是白底红字）。本次将岗位与面试配置合并为紧凑下拉网格、简历改下拉选择、页面配色全部映射站点 --theme-* 变量（light/dark/eye 三主题实时跟随）。
+> 事故说明：v11.87 曾做过同类下拉化改造，但该次工作区文件被编码事故损坏（UTF-8 内容被按 GBK 误解码写回，中文全部乱码且 91 处字节不可逆丢失）。本次以 git HEAD 干净版本为基底重建全部改动，未提交的 v11.87 损坏内容已废弃。
+
+### 前端（Portal · VoiceInterviewPage.vue）
+
+- script：新增 positionSelectValue（岗位下拉值，__custom__ 展开自定义输入）与 resumeSelectValue（简历下拉值，null=不选择；选中联动求职意向回填岗位）两个 computed；handleStart 前置面试会员/免费体验校验（会员放行、剩余次数提示、用完弹窗引导 /interview/vip；查询失败不阻断，后端 402 兜底）
+- template：原岗位大卡片列表（position-list）+ 4 组分散 config-row 合并为统一 config-grid 下拉网格（岗位/风格/难度/场景/题数/智能体/出题方式/岗位模板，auto-fill 自适应列数，移动端单列）；原简历卡片列表（resume-select-list，max-height 260px 滚动区）改为单行下拉（含期望岗位/AI评分/更新日期信息）+ 上传/管理按钮行；自定义岗位输入改为选中"自定义"时条件展开
+- CSS：.vi-shell 全部本地变量（--primary/--gray-*/气泡色）映射到站点 --theme-* 主题变量，页面底色/卡片/输入框/开关等 33 处 background: white 与 12 处 color: white 及全部 rgba(220,38,38,*) 硬编码红色替换为主题令牌；新增 color-scheme 跟随（原生 select 下拉面板 dark 下不再白底刺眼）；雷达图 SVG 网格线/数据面/文字色主题化（dark 下文字不再不可见）
+- 紧凑化：prep-container/prep-card/prep-header/step 圆点与连接线/device-item/toggle-row/start-btn 等间距与字号整体收紧，准备页一屏内信息密度显著提升
+- 清理：删除废弃的 position-option/option-radio/resume-option 等卡片列表样式与 .config-row
+
+### 排查修复（用户要求"还有哪里问题，排查并优化"）
+
+- 雷达图 SVG 硬编码 #e5e7eb/#DC2626/#374151 → --theme-border/--theme-primary/--theme-text-secondary（dark 主题下报告页雷达图文字原本几乎不可见）
+- asr-live 焦点环残留蓝色 rgba(37,99,235) → --theme-primary-soft
+- 原生 select 无 color-scheme 导致 dark 主题下选项面板白底 → .dark .vi-shell { color-scheme: dark }
+
+### 四同步
+
+- 代码：moyun-portal/src/pages/interview/VoiceInterviewPage.vue（唯一改动文件）
+- 文档：本 devlog；无需求变更
+- SQL：无表结构/数据变更
+- 菜单：无变更（路由 /interview/voice 不变）
+- 验证：vue-tsc -b + vite build 通过（exit 0）；文件中文完整性校验 0 处 U+FFFD
+
+---
+
+## v11.86 (2026-09-15) 记账App AI分析任务轮询降频（2s → 5s）
+
+> 需求：用户反馈 /portal/ledger/ai/analysis/task/{taskId} 轮询频率过高，希望间隔加长。
+> 改动：analysis/index.vue pollTask 轮询间隔 2000ms → 5000ms，次数上限 300 → 120（总超时窗口保持 10 分钟不变）。仅前端数值调整，无接口/SQL/菜单变更。
+> 部署：moyun-ledger-app 重新发布（H5 构建已验证）。
+
+---
+
+## v11.85 (2026-09-15) 会员付费点免费体验 2 次（简历深度优化 + 语音面试）+ 面试会员付费点落地
+
+> 需求：用户要求"简历和面试都要免费体验 2 次"。两个会员付费点统一体验机制：非会员每场景可免费体验 2 次（portal_free_trial 按场景原子消耗），用完返回 402 引导开通；会员不限次。顺带落地面试会员（v11.82 骨架预留）的付费功能点：语音面试 start 接口。
+
+### 后端
+
+- 新增 PortalFreeTrial 实体 / PortalFreeTrialMapper（原子消耗：UPDATE 条件自增 `used_count < 2` + INSERT 唯一键冲突回退 UPDATE，防并发多刷）/ PortalFreeTrialService（FREE_TRIAL_TIMES=2 常量；场景 SCENE_RESUME_DEEP / SCENE_VOICE_INTERVIEW；leftTimes / tryConsume）
+- PortalResumeOptimizeController：深度优化两个接口（同步 /deep 与异步 /deep/async）校验改为 checkVipOrTrial（会员 或 扣减体验次数，否则 402）
+- PortalVoiceInterviewController.start：落地面试会员付费校验（会员不限次 / 非会员体验 2 次用完 402）——面试会员权益功能首次接入
+- PortalInterviewVipController：新增公共 isVip(userId)（供 start 校验）；status() 返回增加 freeTrialLeft
+- PortalResumeOptimizeVipController：status() 返回增加 freeTrialLeft
+
+### 前端（Portal）
+
+- api/interviewVip.ts / resumeOptimizeVip.ts：StatusVO 增加 freeTrialLeft
+- ResumeOptimizePage 工作台：generateOptimize 前置检查——会员直接放行；非会员 freeTrialLeft>0 toast 提示剩余次数后放行；用完弹确认引导跳会员页（查询失败不阻断，后端 402 兜底）
+- VoiceInterviewPage：handleStart 同样前置检查（会员放行/体验提示/用完引导跳 /interview/vip）
+- 两个 VIP 会员页 benefits 文案标注"非会员可免费体验2次"
+
+### 四同步
+
+- SQL：20260915-04-free-trial.sql（portal_free_trial 表：user_id+scene 唯一，used_count 上限 2 为代码常量）
+- 文档：支付文档 §8.6/§8.5 补充体验机制说明；本记录
+- 菜单：无变更（体验次数无后台管理需求）
+- 部署：执行 20260915-04 SQL → 重启后端 → Portal 重新发布
+
+---
+
+## v11.84 (2026-09-15) 修复三个VIP订阅回调首单支付 NPE（mock 支付验证暴露）
+
+> 现象：/portal/pay/mock/{payNo} 触发回调时 `LedgerVipPayCallbackHandler` 抛 NullPointerException: Cannot invoke "Map.get(Object)" because "m" is null。
+> 根因：用户**首单**订阅（无任何已支付订单）时，`SELECT COALESCE(MAX(vip_expire), NULL) AS expire ... WHERE status='paid'` 返回全 NULL 行，MyBatis-Plus `selectMaps` 将其映射为列表中的 **null 元素**（`[null]`），`.map(m -> m.get("expire"))` 即 NPE。事务回滚后 mock 重试持续失败。
+
+### 修复
+
+- LedgerVipPayCallbackHandler / InterviewVipPayCallbackHandler / ResumeOptimizeVipPayCallbackHandler 三处权益顺延聚合查询的 stream 增加 `.filter(Objects::nonNull)`（同构代码一并修复，面试会员/简历优化会员未及上线暴露）
+- 排查其余 `selectMaps().stream()` 调用点：CmsLedgerUserController 三处带 GROUP BY user_id + IN 条件（行必有非空键，安全）；三个 VIP Controller 的 status() 均有 `rows.get(0) != null` 判空（安全）
+
+### 经验（铁律沉淀）
+
+- `selectMaps` + 无 GROUP BY 的聚合查询（MAX/SUM 单行）**必须**过滤 null 行元素：`[null]` 是合法返回（全 NULL 行）。新增渠道回调若复制此骨架，保持 `.filter(Objects::nonNull)`。
+
+### 部署
+
+- 仅后端变更：重启后端即可；此前 mock 失败的 pending 单在网关重试/重新 mock 后可正常闭环。
+
+---
+
+## v11.83 (2026-09-15) 简历优化会员接入公共支付通道（8.3 规范第三个平台直收渠道落地，骨架）
+
+> 需求：用户确认接入简历优化场景。选取墨韵门户「简历优化工作台」深度优化（AI 逐项建议/前后对比/采纳保存）作为付费点，会员制解锁：与面试会员同构：用户 → 平台公账全额，无第三方收款人，不产生用户钱包余额；独立业务表/bizType=resume_optimize/独立回调处理器，复用门户通用收银台。岗位匹配评分、AI 实时辅助编辑等基础功能保持免费。
+
+### 后端
+
+- 新增实体/Mapper：PortalResumeOptimizePackage（portal_resume_optimize_package 套餐，价格/时长后台可配）、PortalResumeOptimizeOrder（portal_resume_optimize_order 订单：套餐快照 + pay_no + client_uuid 幂等 + vip_start/vip_expire 权益起止，状态统一 pending/paid/refunded/closed）
+- 新增 CmsResumeOptimizeVipPackageController（后台套餐 CRUD /cms/resume/optimize/vipPackage，价格校验 >0 且 scale≤2；有订单的套餐仅可下架不可删除）
+- 新增 PortalResumeOptimizeVipController（门户端）：GET /packages 上架套餐、GET /status 会员状态（isVip/vipExpire，SQL MAX 聚合）、POST /subscribe 订阅下单（快照+幂等+pending+payGateway 统一下单 bizType=resume_optimize、platform=portal → 收银台参数）；公开 isVip(userId) 供工作台校验
+- 新增 ResumeOptimizeVipPayCallbackHandler（bizType=resume_optimize）：pending→paid（条件更新+幂等）→ 权益顺延（vip_expire = max(now, 现有到期) + duration_days，续费不折损，SQL MAX）→ settlePlatform 平台全额分账 → 站内通知（含到期日期）
+- PortalResumeOptimizeController：深度优化提交接口（同步 /deep 与异步 /deep/async）前置会员校验，未开通返回 402（Payment Required）兜底防直接调接口
+- CmsIncomeOrderMapper：收入订单统一视图 UNION 新增 portal_resume_optimize_order 段（channel_code=resume_optimize）
+- CmsPayRevenueController：简历优化由"规划中占位"转真实聚合渠道（渠道聚合 + GMV/订单数计入 + 按支付方式分布；plannedChannel 辅助方法随之移除）
+
+### 前端
+
+- Admin：新增 api/cms/resumeOptimizeVip.js；新增 views/cms/interview/resumeOptimizeVip/index.vue（套餐管理：搜索/新增/修改/上下架 switch/删除保护提示，门户管理→面试管理→简历优化会员套餐 5479）；收入总览页口径说明更新（简历优化会员计入 GMV）
+- Portal：新增 api/resumeOptimizeVip.ts（packages/status/subscribe）；新增 pages/interview/ResumeOptimizeVipPage.vue 会员页（状态卡[生效中/未开通] + 权益清单 + 套餐选择[推荐标识/划线价] + 底部固定订阅栏 → 跳通用收银台 /pay/cashier，与面试会员同构）；ResumeOptimizePage 工作台 generateOptimize 前置会员状态检查（未开通弹确认引导跳会员页，查询失败不阻断由后端 402 兜底）；router 注册 /interview/resume/vip（noindex）
+
+### 四同步
+
+- SQL：20260915-02-resume-optimize-vip-channel.sql（两表 + 默认套餐[月 ¥9.9/年 ¥68 占位后台可改] + 后台菜单 5479/按钮 5480-5483 + role 授权）
+- 文档：支付文档 v-2.md §8.3 分类表"已接入"列更新 + 新增 §8.6 简历优化会员接入链路图；本记录
+- 菜单：门户管理 5241 → 面试管理 5192 → 简历优化会员套餐 5479
+- 部署：执行 20260915-02 SQL → 重启后端 → Admin/Portal 重新发布（Ctrl+F5）
+
+---
+
+## v11.82 (2026-09-15) 面试会员订阅接入公共支付通道（8.3 规范第二个平台直收渠道落地，骨架）
+
+> 需求：用户确认继续接入下一个平台直收类场景。选取墨韵门户「面试会员」（语音面试/深度报告/题库权益订阅），与记账VIP 同构：用户 → 平台公账全额，无第三方收款人，不产生用户钱包余额；独立业务表/bizType=interview_vip/独立回调处理器，复用门户通用收银台。
+
+### 后端
+
+- 新增实体/Mapper：PortalInterviewVipPackage（portal_interview_vip_package 套餐，价格/时长后台可配）、PortalInterviewVipOrder（portal_interview_vip_order 订单：套餐快照 + pay_no + client_uuid 幂等 + vip_start/vip_expire 权益起止，状态统一 pending/paid/refunded/closed）
+- 新增 CmsInterviewVipPackageController（后台套餐 CRUD /cms/interview/vipPackage，价格校验 >0 且 scale≤2；有订单的套餐仅可下架不可删除）
+- 新增 PortalInterviewVipController（门户端）：GET /packages 上架套餐、GET /status 会员状态（isVip/vipExpire，SQL MAX 聚合）、POST /subscribe 订阅下单（快照+幂等+pending+payGateway 统一下单 bizType=interview_vip、platform=portal → 收银台参数）
+- 新增 InterviewVipPayCallbackHandler（bizType=interview_vip）：pending→paid（条件更新+幂等）→ 权益顺延（vip_expire = max(now, 现有到期) + duration_days，续费不折损，SQL MAX）→ settlePlatform 平台全额分账 → 站内通知（含到期日期）
+- CmsIncomeOrderMapper：收入订单统一视图 UNION 新增 portal_interview_vip_order 段（channel_code=interview_vip）
+- CmsPayRevenueController：面试会员由"规划中占位"转真实聚合渠道（渠道聚合 + GMV/订单数计入 + 按支付方式分布；简历优化仍为规划占位）
+
+### 前端
+
+- Admin：新增 api/cms/interviewVip.js；新增 views/cms/interview/interviewVip/index.vue（套餐管理：搜索/新增/修改/上下架 switch/删除保护提示，门户管理→面试管理→会员套餐 5465）
+- Portal：新增 api/interviewVip.ts（packages/status/subscribe）；新增 pages/interview/InterviewVipPage.vue 会员页（状态卡[生效中/未开通] + 权益清单 + 套餐选择[推荐标识/划线价] + 底部固定订阅栏 → 跳通用收银台 /pay/cashier，与打赏/付费阅读同构）；面试频道首页 AI 语音面试官卡片新增👑面试会员入口（requireAuth 守卫）；router 注册 /interview/vip（noindex）
+
+### 四同步
+
+- SQL：20260915-01-interview-vip-channel.sql（两表 + 默认套餐[月 ¥19.9/年 ¥168 占位后台可改] + 后台菜单 5465/按钮 5466-5469 + role 授权）
+- 文档：支付文档 v-2.md §8.3 分类表"已接入"列更新；本记录
+- 菜单：门户管理 5241 → 面试管理 5192 → 会员套餐 5465
+- 部署：执行 20260915-01 SQL → 重启后端 → Admin/Portal 重新发布（Ctrl+F5）
+
+---
+
 ## v11.81 (2026-09-14) 记账VIP订阅接入公共支付通道（8.3 规范首个新渠道落地，骨架）
 
 > 需求：用户确认按"账户模型分类"方案继续收入管理任务，本次接入记账VIP（只搭骨架：通道/订单/权益发放闭环完整，套餐价格后台可配）。为平台直收类首个订阅场景，与打赏/付费阅读（分账类）资金流区分：用户 → 平台公账全额，不产生用户钱包余额。

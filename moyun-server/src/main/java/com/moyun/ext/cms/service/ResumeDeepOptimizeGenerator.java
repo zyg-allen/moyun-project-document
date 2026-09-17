@@ -3,7 +3,7 @@ package com.moyun.ext.cms.service;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.moyun.ext.ai2.support.AiSceneJsonClient;
-import com.moyun.ext.cms.config.AiProperties;
+import com.moyun.ext.ai.service.AiGlobalSwitch;
 import com.moyun.ext.cms.domain.vo.ResumeDeepOptimizeVO;
 import com.moyun.ext.cms.domain.vo.UserResumeVO;
 import com.moyun.portal.domain.entity.PortalResumeJobTarget;
@@ -27,7 +27,7 @@ import java.util.Map;
  * 形成 A→B→A 循环依赖。</p>
  *
  * <p><strong>结构改造</strong>：把 generate 及其私有方法（buildResumeContext/fillOriginal/safe）
- * 和它们依赖的 {@code aiProperties/llmClient/objectMapper/jobTargetMapper} 一起迁到本 Bean。
+ * 和它们依赖的 {@code llmClient/objectMapper/jobTargetMapper}（v11.98 开关统一 AiGlobalSwitch）一起迁到本 Bean。
  * v10.23 起异步执行统一走通用 AI 任务基础设施，依赖图无环：</p>
  * <pre>
  *   AiTaskAsyncExecutor ──→ DeepOptimizeTaskHandler ──→ ResumeDeepOptimizeGenerator
@@ -47,7 +47,7 @@ public class ResumeDeepOptimizeGenerator {
     private static final Logger log = LoggerFactory.getLogger(ResumeDeepOptimizeGenerator.class);
 
     @Autowired
-    private AiProperties aiProperties;
+    private AiGlobalSwitch aiGlobalSwitch;
 
     @Autowired
     private LlmClient llmClient;
@@ -76,7 +76,7 @@ public class ResumeDeepOptimizeGenerator {
         if (target == null) {
             throw new ServiceException("岗位目标不存在");
         }
-        if (!aiProperties.isEnabled() || !aiProperties.isResumeAdviceEnabled() || !llmClient.isEnabled()) {
+        if (!aiGlobalSwitch.isEnabled() || !aiGlobalSwitch.isResumeAdviceEnabled() || !llmClient.isEnabled()) {
             throw new ServiceException("深度优化需要 AI 模型支持，请管理员在后台配置 AI 模型后使用");
         }
 
@@ -150,7 +150,7 @@ public class ResumeDeepOptimizeGenerator {
      * 检查 AI 模型是否可用（供 Service 在 submitTask 前做前置校验，避免重复实现）
      */
     public boolean isAiAvailable() {
-        return aiProperties.isEnabled() && aiProperties.isResumeAdviceEnabled() && llmClient.isEnabled();
+        return aiGlobalSwitch.isEnabled() && aiGlobalSwitch.isResumeAdviceEnabled() && llmClient.isEnabled();
     }
 
     /**

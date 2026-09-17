@@ -31,6 +31,15 @@ public interface ModelConfigService extends IService<ModelConfig> {
     ChatLanguageModel createChatModel(Long configId, Double temperature, Integer maxTokens);
 
     /**
+     * 根据配置ID创建聊天模型（支持覆盖参数 + JSON Mode）
+     * <p>v11.95 任务4：jsonMode=true 且模型 supports_json_mode=1 时，OpenAI 兼容端点下发
+     * response_format=json_object（Ollama 原生端点 format=json），强制输出合法 JSON。
+     * 模型不支持时静默忽略（回退 Prompt 约束路径）。</p>
+     * @param jsonMode 是否请求 JSON Mode（场景 output_schema 非空的结构化场景传 true）
+     */
+    ChatLanguageModel createChatModel(Long configId, Double temperature, Integer maxTokens, boolean jsonMode);
+
+    /**
      * 根据配置ID创建流式聊天模型
      */
     StreamingChatLanguageModel createStreamingChatModel(Long configId);

@@ -3,7 +3,7 @@ package com.moyun.ext.cms.service;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.moyun.ext.ai2.support.AiSceneJsonClient;
-import com.moyun.ext.cms.config.AiProperties;
+import com.moyun.ext.ai.service.AiGlobalSwitch;
 import com.moyun.ext.cms.domain.vo.ResumeAiAdviceVO;
 import com.moyun.ext.cms.domain.vo.UserResumeVO;
 import com.moyun.ext.cms.domain.vo.UserResumeVO.ScoreItem;
@@ -41,7 +41,7 @@ public class ResumeAiAdviceService {
     private static final Logger log = LoggerFactory.getLogger(ResumeAiAdviceService.class);
 
     @Autowired
-    private AiProperties aiProperties;
+    private AiGlobalSwitch aiGlobalSwitch;
 
     @Autowired
     private LlmClient llmClient;
@@ -63,7 +63,7 @@ public class ResumeAiAdviceService {
      */
     public ResumeAiAdviceVO generateAdvice(UserResumeVO vo, List<ScoreItem> scoreItems, String targetPosition) {
         // 1. 优先尝试 AI 模型生成（仅在配置启用时）
-        if (aiProperties.isEnabled() && aiProperties.isResumeAdviceEnabled() && llmClient.isEnabled()) {
+        if (aiGlobalSwitch.isEnabled() && aiGlobalSwitch.isResumeAdviceEnabled() && llmClient.isEnabled()) {
             try {
                 ResumeAiAdviceVO aiResult = generateAdviceWithLlm(vo, scoreItems, targetPosition);
                 if (aiResult != null) {

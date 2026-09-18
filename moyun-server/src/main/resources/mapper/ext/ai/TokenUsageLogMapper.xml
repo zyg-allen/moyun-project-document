@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.moyun.ext.ai.mapper.TokenUsageLogMapper">
+
+    <select id="statByAgent" resultType="java.util.Map">
+        SELECT agent_id, model_name, SUM(input_tokens) as total_input, SUM(output_tokens) as total_output, SUM(total_tokens) as total_tokens, SUM(cost) as total_cost, COUNT(*) as request_count FROM ai_token_usage_log WHERE agent_id = #{agentId} AND create_time BETWEEN #{startTime} AND #{endTime} GROUP BY agent_id, model_name
+    </select>
+
+    <select id="statByDate" resultType="java.util.Map">
+        SELECT DATE(create_time) as stat_date, model_name, SUM(input_tokens) as total_input, SUM(output_tokens) as total_output, SUM(total_tokens) as total_tokens, SUM(cost) as total_cost, COUNT(*) as request_count FROM ai_token_usage_log WHERE create_time BETWEEN #{startTime} AND #{endTime} GROUP BY DATE(create_time), model_name ORDER BY stat_date DESC
+    </select>
+
+    <select id="statByModel" resultType="java.util.Map">
+        SELECT model_name, model_provider, SUM(input_tokens) as total_input, SUM(output_tokens) as total_output, SUM(total_tokens) as total_tokens, SUM(cost) as total_cost, COUNT(*) as request_count FROM ai_token_usage_log WHERE create_time BETWEEN #{startTime} AND #{endTime} GROUP BY model_name, model_provider
+    </select>
+
+    <select id="getTotalStats" resultType="java.util.Map">
+        SELECT COALESCE(SUM(input_tokens), 0) as total_input, COALESCE(SUM(output_tokens), 0) as total_output, COALESCE(SUM(total_tokens), 0) as total_tokens, COALESCE(SUM(cost), 0) as total_cost, COUNT(*) as request_count FROM ai_token_usage_log WHERE create_time BETWEEN #{startTime} AND #{endTime}
+    </select>
+
+    <select id="statByRequestType" resultType="java.util.Map">
+        SELECT request_type, COALESCE(SUM(input_tokens), 0) as total_input, COALESCE(SUM(output_tokens), 0) as total_output, COALESCE(SUM(total_tokens), 0) as total_tokens, COALESCE(SUM(cost), 0) as total_cost, COUNT(*) as request_count FROM ai_token_usage_log WHERE create_time BETWEEN #{startTime} AND #{endTime} GROUP BY request_type
+    </select>
+
+</mapper>

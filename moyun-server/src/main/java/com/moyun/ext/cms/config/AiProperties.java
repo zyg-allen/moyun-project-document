@@ -20,7 +20,7 @@ import org.springframework.context.annotation.Configuration;
  *     max-tokens: 2048     # 最大 token 数
  * </pre>
  * <p>
- * 设计原则：默认禁用，规则化逻辑保留为 fallback；启用后通过 LlmClient 注入到各业务服务。
+ * 设计原则：默认禁用，规则化逻辑保留为 fallback；启用后通过 AI 统一网关注入到各业务服务。
  *
  * @author moyun
  */

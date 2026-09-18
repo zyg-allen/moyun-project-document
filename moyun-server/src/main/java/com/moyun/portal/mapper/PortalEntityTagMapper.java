@@ -6,7 +6,6 @@ import java.util.Map;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
-import org.apache.ibatis.annotations.Select;
 
 import com.moyun.portal.domain.entity.PortalEntityTag;
 
@@ -32,14 +31,7 @@ public interface PortalEntityTagMapper extends BaseMapper<PortalEntityTag> {
      *
      * @param limit 取前 N 个标签（按题目数降序）
      */
-    @Select("SELECT t.id AS tag_id, t.name AS tag_name, " +
-            "COUNT(DISTINCT et.entity_id) AS question_count " +
-            "FROM portal_entity_tag et " +
-            "JOIN portal_tag t ON t.id = et.tag_id " +
-            "WHERE et.entity_type = 'interview_question' " +
-            "GROUP BY t.id, t.name " +
-            "ORDER BY question_count DESC, t.id ASC " +
-            "LIMIT #{limit}")
+
     List<Map<String, Object>> selectKnowledgeNodes(@Param("limit") int limit);
 
     /**
@@ -50,14 +42,7 @@ public interface PortalEntityTagMapper extends BaseMapper<PortalEntityTag> {
      *
      * @param userId 门户用户ID
      */
-    @Select("SELECT t.id AS tag_id, " +
-            "COUNT(DISTINCT et.entity_id) AS total, " +
-            "COUNT(DISTINCT CASE WHEN s.is_success = 1 THEN et.entity_id END) AS solved " +
-            "FROM portal_entity_tag et " +
-            "JOIN portal_tag t ON t.id = et.tag_id " +
-            "LEFT JOIN portal_interview_submission s ON s.question_id = et.entity_id AND s.user_id = #{userId} " +
-            "WHERE et.entity_type = 'interview_question' " +
-            "GROUP BY t.id")
+
     List<Map<String, Object>> selectKnowledgeMastery(@Param("userId") Long userId);
 
     /**
@@ -67,13 +52,6 @@ public interface PortalEntityTagMapper extends BaseMapper<PortalEntityTag> {
      *
      * @param limit 取前 N 条边（按共现次数降序）
      */
-    @Select("SELECT et1.tag_id AS source, et2.tag_id AS target, " +
-            "COUNT(DISTINCT et1.entity_id) AS weight " +
-            "FROM portal_entity_tag et1 " +
-            "JOIN portal_entity_tag et2 ON et1.entity_id = et2.entity_id AND et1.tag_id < et2.tag_id " +
-            "WHERE et1.entity_type = 'interview_question' AND et2.entity_type = 'interview_question' " +
-            "GROUP BY et1.tag_id, et2.tag_id " +
-            "ORDER BY weight DESC " +
-            "LIMIT #{limit}")
+
     List<Map<String, Object>> selectKnowledgeEdges(@Param("limit") int limit);
 }

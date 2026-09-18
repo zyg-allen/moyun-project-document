@@ -1,9 +1,9 @@
 package com.moyun.ext.ai2.support;
 
-import com.moyun.ext.ai2.constant.AiErrorCodes;
-import com.moyun.ext.ai2.model.AiExecuteResponse;
-import com.moyun.ext.ai2.model.data.InterviewSceneData;
-import com.moyun.ext.ai2.model.data.SensitiveWordSceneData;
+import com.moyun.ext.aiapp.constant.AiErrorCodes;
+import com.moyun.ext.aiapp.model.AiExecuteResponse;
+import com.moyun.ext.aiapp.model.data.InterviewSceneData;
+import com.moyun.ext.aiapp.model.data.SensitiveWordSceneData;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;

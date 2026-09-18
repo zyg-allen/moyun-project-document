@@ -5,7 +5,6 @@ import java.util.List;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
-import org.apache.ibatis.annotations.Select;
 
 import com.moyun.portal.domain.entity.PortalArticleVersion;
 
@@ -23,7 +22,7 @@ public interface PortalArticleVersionMapper extends BaseMapper<PortalArticleVers
      * @param articleId 文章ID
      * @return 当前最大版本号，无版本时返回 null
      */
-    @Select("SELECT MAX(version_no) FROM portal_article_version WHERE article_id = #{articleId}")
+
     Integer selectMaxVersionNo(@Param("articleId") Long articleId);
 
     /**
@@ -32,9 +31,6 @@ public interface PortalArticleVersionMapper extends BaseMapper<PortalArticleVers
      * @param articleId 文章ID
      * @return 版本列表
      */
-    @Select("SELECT id, article_id, version_no, title, excerpt, operator_id, created_time " +
-            "FROM portal_article_version " +
-            "WHERE article_id = #{articleId} " +
-            "ORDER BY version_no DESC")
+
     List<PortalArticleVersion> selectVersionList(@Param("articleId") Long articleId);
 }

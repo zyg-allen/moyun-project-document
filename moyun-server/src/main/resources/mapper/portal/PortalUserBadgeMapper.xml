@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.moyun.portal.mapper.PortalUserBadgeMapper">
+
+    <select id="countByUserAndAchievement" resultType="int">
+        SELECT COUNT(*) FROM portal_user_badge WHERE user_id = #{userId} AND achievement_id = #{achievementId}
+    </select>
+
+    <select id="selectBadgesByUserId" resultType="com.moyun.portal.domain.vo.UserBadgeVO">
+        SELECT b.id, b.achievement_id, a.code, a.name, a.description, a.icon, a.module, a.growth_reward, b.create_time FROM portal_user_badge b INNER JOIN portal_achievement a ON b.achievement_id = a.id WHERE b.user_id = #{userId} ORDER BY b.create_time DESC
+    </select>
+
+    <insert id="insertIfNotExists">
+        INSERT IGNORE INTO portal_user_badge (user_id, achievement_id) VALUES (#{userId}, #{achievementId})
+    </insert>
+
+</mapper>

@@ -2,7 +2,7 @@ package com.moyun.ext.cms.service;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.moyun.ext.ai2.support.AiSceneJsonClient;
+import com.moyun.ext.aiapp.support.AiSceneJsonClient;
 import com.moyun.ext.ai.service.AiGlobalSwitch;
 import com.moyun.ext.cms.domain.vo.ResumeDeepOptimizeVO;
 import com.moyun.ext.cms.domain.vo.UserResumeVO;
@@ -18,6 +18,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import com.moyun.ext.ai.enums.AiSceneEnum;
 
 /**
  * 简历深度优化的「生成能力」（从 ResumeDeepOptimizeService 抽离，解决循环依赖）
@@ -41,7 +42,7 @@ import java.util.Map;
 @Service
 public class ResumeDeepOptimizeGenerator {
     /** 本服务所属 AI 场景代码（绑定见 ai_scene_config，业务不感知模型选择） */
-    private static final String SCENE_RESUME_OPTIMIZE = "resume_optimize";
+    private static final String SCENE_RESUME_OPTIMIZE = AiSceneEnum.RESUME_OPTIMIZE.getCode();
 
 
     private static final Logger log = LoggerFactory.getLogger(ResumeDeepOptimizeGenerator.class);
@@ -49,10 +50,7 @@ public class ResumeDeepOptimizeGenerator {
     @Autowired
     private AiGlobalSwitch aiGlobalSwitch;
 
-    @Autowired
-    private LlmClient llmClient;
-
-    /** 深度优化生成统一走 AI 网关（task=deep_optimize 子任务） */
+        /** 深度优化生成统一走 AI 网关（task=deep_optimize 子任务） */
     @Autowired
     private AiSceneJsonClient aiSceneJsonClient;
 
@@ -76,7 +74,7 @@ public class ResumeDeepOptimizeGenerator {
         if (target == null) {
             throw new ServiceException("岗位目标不存在");
         }
-        if (!aiGlobalSwitch.isEnabled() || !aiGlobalSwitch.isResumeAdviceEnabled() || !llmClient.isEnabled()) {
+        if (!aiGlobalSwitch.isEnabled() || !aiGlobalSwitch.isResumeAdviceEnabled()) {
             throw new ServiceException("深度优化需要 AI 模型支持，请管理员在后台配置 AI 模型后使用");
         }
 
@@ -150,7 +148,7 @@ public class ResumeDeepOptimizeGenerator {
      * 检查 AI 模型是否可用（供 Service 在 submitTask 前做前置校验，避免重复实现）
      */
     public boolean isAiAvailable() {
-        return aiGlobalSwitch.isEnabled() && aiGlobalSwitch.isResumeAdviceEnabled() && llmClient.isEnabled();
+        return aiGlobalSwitch.isEnabled() && aiGlobalSwitch.isResumeAdviceEnabled();
     }
 
     /**

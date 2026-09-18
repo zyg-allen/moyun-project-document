@@ -3,7 +3,12 @@ package com.moyun.ext.cms.service.impl;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.moyun.common.exception.system.ServiceException;
-import com.moyun.ext.ai.service.LLMService;
+import com.moyun.ext.ai.enums.AiSceneEnum;
+import com.moyun.ext.aiapp.constant.AiErrorCodes;
+import com.moyun.ext.aiapp.model.AiExecuteRequest;
+import com.moyun.ext.aiapp.model.AiExecuteResponse;
+import com.moyun.ext.aiapp.model.data.GenericSceneData;
+import com.moyun.ext.aiapp.service.AiGatewayService;
 import com.moyun.ext.cms.service.ICmsWritingPromptService;
 import com.moyun.portal.domain.entity.PortalWritingPrompt;
 import com.moyun.portal.mapper.PortalWritingPromptMapper;
@@ -23,6 +28,11 @@ import java.util.regex.Pattern;
 
 /**
  * CMS 每日写作 prompt 管理 Service 实现
+ *
+ * <p><b>TODO v12.2 统一入口整改</b>：本类直调 {@link LLMService#generate} 绕过统一网关。
+ * 待迁移：新增 aiapp/handler/impl/WritingPromptHandler（scene_code=writing_prompt），
+ * 本类改为调 {@link com.moyun.ext.aiapp.support.AiSceneJsonClient#executeForJson}，
+ * 只传 {date, specialDate} 上下文。详见《AI 统一入口整改方案》。
  *
  * <p>新增 AI 生成能力——
  * <ul>
@@ -65,7 +75,7 @@ public class CmsWritingPromptServiceImpl implements ICmsWritingPromptService {
 
     /** AI 生成服务（未配置默认模型时调用会抛异常，由回退逻辑兜底） */
     @Autowired(required = false)
-    private LLMService llmService;
+    private AiGatewayService aiGatewayService;
 
     @Override
     public Page<PortalWritingPrompt> selectPromptPage(Page<PortalWritingPrompt> page, PortalWritingPrompt prompt) {
@@ -139,7 +149,7 @@ public class CmsWritingPromptServiceImpl implements ICmsWritingPromptService {
         prompt.setCreatedTime(java.time.LocalDateTime.now());
 
         boolean aiOk = false;
-        if (llmService != null) {
+        if (aiGatewayService != null) {
             try {
                 applyAiContent(prompt, date, specialDates);
                 aiOk = true;
@@ -147,7 +157,7 @@ public class CmsWritingPromptServiceImpl implements ICmsWritingPromptService {
                 log.warn("[WritingPrompt] AI 生成失败，回退内置主题池 date={} err={}", date, e.getMessage());
             }
         } else {
-            log.warn("[WritingPrompt] LLMService 未注入（AI 模块未启用），使用内置主题池 date={}", date);
+            log.warn("[WritingPrompt] AiGatewayService 未注入（AI 模块未启用），使用内置主题池 date={}", date);
         }
         if (!aiOk) {
             applyFallbackContent(prompt, date);
@@ -186,7 +196,7 @@ public class CmsWritingPromptServiceImpl implements ICmsWritingPromptService {
         String festivalName = specialDates.isEmpty() ? null : String.join("·", specialDates);
 
         boolean aiOk = false;
-        if (llmService != null) {
+        if (aiGatewayService != null) {
             try {
                 applyAiContent(prompt, date, specialDates);
                 aiOk = true;
@@ -209,14 +219,23 @@ public class CmsWritingPromptServiceImpl implements ICmsWritingPromptService {
      * 调用 AI 生成标题/描述/分类并填充到 prompt（解析失败抛异常触发回退）。
      */
     private void applyAiContent(PortalWritingPrompt prompt, LocalDate date, List<String> specialDates) {
-        String aiPrompt = buildAiPrompt(date, specialDates);
-        String response = llmService.generate(aiPrompt);
-        if (response == null || response.isBlank()) {
-            throw new RuntimeException("AI 返回空内容");
+        // 走统一网关 WritingPromptHandler
+        java.util.Map<String, Object> input = new java.util.HashMap<>();
+        input.put("date", date.toString());
+        input.put("specialDates", String.join(",", specialDates));
+        AiExecuteRequest request = new AiExecuteRequest();
+        request.setSceneCode(AiSceneEnum.WRITING_PROMPT.getCode());
+        request.setInput(input);
+        AiExecuteResponse<?> resp = aiGatewayService.execute(request);
+        if (resp.getCode() == null || resp.getCode() != AiErrorCodes.SUCCESS
+                || !(resp.getData() instanceof GenericSceneData generic)
+                || generic.getStructured() == null) {
+            throw new RuntimeException("AI 网关调用失败");
         }
-        String title = extract(TITLE_PATTERN, response);
-        String category = extract(CATEGORY_PATTERN, response);
-        String description = extract(DESC_PATTERN, response);
+        java.util.Map<String, Object> result = generic.getStructured();
+        String title = result.get("title") != null ? String.valueOf(result.get("title")) : null;
+        String category = result.get("category") != null ? String.valueOf(result.get("category")) : null;
+        String description = result.get("description") != null ? String.valueOf(result.get("description")) : null;
         if (title == null || title.isBlank() || description == null || description.isBlank()) {
             throw new RuntimeException("AI 输出格式解析失败");
         }

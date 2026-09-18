@@ -146,4 +146,8 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
     <update id="incrementCommentCount" parameterType="Long">
         update portal_interview_experience set comment_count = coalesce(comment_count, 0) + 1 where id = #{id}
     </update>
+    <update id="incrementLikes">
+        UPDATE portal_interview_experience SET like_count = like_count + #{delta} WHERE id = #{id} AND like_count + #{delta} >= 0
+    </update>
+
 </mapper>

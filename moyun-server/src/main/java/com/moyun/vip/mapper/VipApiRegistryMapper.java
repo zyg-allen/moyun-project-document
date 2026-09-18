@@ -2,7 +2,6 @@ package com.moyun.vip.mapper;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.moyun.vip.domain.entity.VipApiRegistry;
-import org.apache.ibatis.annotations.Insert;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
@@ -20,14 +19,7 @@ public interface VipApiRegistryMapper extends BaseMapper<VipApiRegistry> {
     /**
      * 幂等注册（唯一键 api_path + http_method）
      */
-    @Insert("INSERT INTO vip_api_registry (api_path, http_method, controller_class, method_name, "
-            + "platform_code, benefit_code, consume, message, scan_time, create_time, update_time) "
-            + "VALUES (#{apiPath}, #{httpMethod}, #{controllerClass}, #{methodName}, "
-            + "#{platformCode}, #{benefitCode}, #{consume}, #{message}, NOW(), NOW(), NOW()) "
-            + "ON DUPLICATE KEY UPDATE controller_class = VALUES(controller_class), "
-            + "method_name = VALUES(method_name), platform_code = VALUES(platform_code), "
-            + "benefit_code = VALUES(benefit_code), consume = VALUES(consume), "
-            + "message = VALUES(message), scan_time = NOW()")
+
     int upsert(@Param("apiPath") String apiPath, @Param("httpMethod") String httpMethod,
                @Param("controllerClass") String controllerClass, @Param("methodName") String methodName,
                @Param("platformCode") String platformCode, @Param("benefitCode") String benefitCode,

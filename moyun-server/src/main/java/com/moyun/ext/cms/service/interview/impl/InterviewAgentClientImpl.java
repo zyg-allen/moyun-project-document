@@ -9,10 +9,10 @@ import com.moyun.ext.ai.service.AgentService;
 import com.moyun.ext.ai.service.AiGlobalSwitch;
 import com.moyun.ext.ai.service.AiSceneResolver;
 import com.moyun.ext.ai.service.ModelConfigService;
-import com.moyun.ext.ai2.registry.AiSceneRegistry;
-import com.moyun.ext.ai2.support.AiExecuteLogService;
-import com.moyun.ext.ai2.support.SceneRateLimiter;
-import com.moyun.ext.ai2.support.TokenCostGuard;
+import com.moyun.ext.aiapp.registry.AiSceneRegistry;
+import com.moyun.ext.aiapp.support.AiExecuteLogService;
+import com.moyun.ext.aiapp.support.SceneRateLimiter;
+import com.moyun.ext.aiapp.support.TokenCostGuard;
 import com.moyun.ext.cms.service.interview.InterviewAgentClient;
 import com.moyun.system.service.ISysConfigService;
 import com.moyun.util.security.SecurityUtils;
@@ -28,6 +28,7 @@ import org.springframework.stereotype.Component;
 import java.util.List;
 import java.util.UUID;
 import java.util.function.Consumer;
+import com.moyun.ext.ai.enums.AiSceneEnum;
 
 /**
  * 面试官智能体客户端实现
@@ -47,7 +48,7 @@ public class InterviewAgentClientImpl implements InterviewAgentClient {
     /** 任务3：网关化灰度开关（缺省 false=直连，行为与历史一致） */
     private static final String CONFIG_KEY_GATEWAY_GRAY = "ai.gateway.interview.enabled";
     /** 任务3：主干治理场景（复用 voice_interview 场景行的限流/Token熔断参数） */
-    private static final String SCENE_VOICE_INTERVIEW = "voice_interview";
+    private static final String SCENE_VOICE_INTERVIEW = AiSceneEnum.VOICE_INTERVIEW.getCode();
 
     private final AgentService agentService;
     private final AiSceneResolver sceneResolver;
@@ -280,11 +281,14 @@ public class InterviewAgentClientImpl implements InterviewAgentClient {
      * 任务3：网关化灰度开关（sys_config.ai.gateway.interview.enabled，缺省 false=直连）
      */
     private boolean gatewayGrayEnabled() {
+        // v12.2 统一入口原则：面试主干 langchain4j per-agent 直连暂保留（AiGatewayService 尚不支持流式），
+        // 但治理前置检查（限流+Token熔断+日志）缺省开启；仅显式置 false/0 才关闭。
+        // 待 AiGatewayService 增加流式 execute 后，主干改走统一网关收口（见《AI 统一入口整改方案》）
         try {
             String value = sysConfigService.selectConfigByKey(CONFIG_KEY_GATEWAY_GRAY);
-            return "true".equalsIgnoreCase(value) || "1".equals(value);
+            return value == null || (!"false".equalsIgnoreCase(value) && !"0".equals(value));
         } catch (Exception e) {
-            return false;
+            return true; // sys_config 异常时默认开启治理（降级为安全侧）
         }
     }
 

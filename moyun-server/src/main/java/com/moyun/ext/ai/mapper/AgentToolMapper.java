@@ -4,7 +4,6 @@ import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.moyun.ext.ai.entity.AgentTool;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
-import org.apache.ibatis.annotations.Select;
 
 import java.util.List;
 
@@ -26,9 +25,7 @@ public interface AgentToolMapper extends BaseMapper<AgentTool> {
      * @param agentId 智能体ID
      * @return 工具列表
      */
-    @Select("SELECT t.* FROM ai_agent_tool t " +
-            "INNER JOIN ai_agent_tool_relation r ON t.id = r.tool_id " +
-            "WHERE r.agent_id = #{agentId} AND r.enabled = 1 AND t.enabled = 1")
+
     List<AgentTool> selectToolsByAgentId(@Param("agentId") Long agentId);
 
     /**
@@ -36,6 +33,6 @@ public interface AgentToolMapper extends BaseMapper<AgentTool> {
      *
      * @return 工具列表
      */
-    @Select("SELECT * FROM ai_agent_tool WHERE is_system = 1 AND enabled = 1")
+
     List<AgentTool> selectSystemTools();
 }

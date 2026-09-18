@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.moyun.portal.mapper.PortalUserGrowthMapper">
+
+    <select id="selectByUserId" resultType="com.moyun.portal.domain.entity.PortalUserGrowth">
+        SELECT * FROM portal_user_growth WHERE user_id = #{userId}
+    </select>
+
+    <select id="selectSeasonRanking" resultType="com.moyun.portal.domain.entity.PortalUserGrowth">
+        SELECT * FROM portal_user_growth ORDER BY season_value DESC LIMIT #{limit}
+    </select>
+
+    <select id="selectSeasonRankingWithUser" resultType="java.util.Map">
+        SELECT g.*, coalesce(u.nickname, u.username) AS nickname, u.avatar FROM portal_user_growth g LEFT JOIN portal_user u ON g.user_id = u.id ORDER BY g.season_value DESC LIMIT #{limit}
+    </select>
+
+    <select id="selectSeasonRank" resultType="Integer">
+        SELECT COUNT(*) + 1 FROM portal_user_growth WHERE season_value > (SELECT season_value FROM portal_user_growth WHERE user_id = #{userId})
+    </select>
+
+    <select id="selectPoints" resultType="Long">
+        SELECT points FROM portal_user_growth WHERE user_id = #{userId}
+    </select>
+
+    <insert id="insertIfNotExists">
+        INSERT IGNORE INTO portal_user_growth (user_id, growth_value, level, title, season_value) VALUES (#{userId}, 0, 1, '初出茅庐', 0)
+    </insert>
+
+    <update id="addGrowth">
+        UPDATE portal_user_growth SET growth_value = growth_value + #{delta}, season_value = season_value + #{delta} WHERE user_id = #{userId}
+    </update>
+
+    <update id="updateLevel">
+        UPDATE portal_user_growth SET level = #{level}, title = #{title} WHERE user_id = #{userId}
+    </update>
+
+    <update id="addPoints">
+        UPDATE portal_user_growth SET points = points + #{delta} WHERE user_id = #{userId}
+    </update>
+
+    <update id="deductPoints">
+        UPDATE portal_user_growth SET points = points - #{delta} WHERE user_id = #{userId} AND points >= #{delta}
+    </update>
+
+    <update id="deductGrowth">
+        UPDATE portal_user_growth SET growth_value = growth_value - #{delta}, season_value = season_value - #{delta} WHERE user_id = #{userId} AND growth_value >= #{delta}
+    </update>
+
+</mapper>

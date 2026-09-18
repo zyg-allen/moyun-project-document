@@ -59,4 +59,24 @@
         WHERE s.id = #{id}
     </select>
 
+    <select id="countByCreatorAndPeriod" resultType="int">
+        SELECT COUNT(*) FROM portal_creator_settlement WHERE creator_id = #{creatorId} AND period = #{period}
+    </select>
+
+    <select id="sumTipIncome" resultType="BigDecimal">
+        SELECT COALESCE(SUM(amount), 0) FROM portal_tip_order WHERE author_id = #{creatorId} AND status = 'paid' AND target_type IN ('article', 'column') AND paid_time >= #{startTime} AND paid_time &lt; #{endTime}
+    </select>
+
+    <select id="sumPaidReadIncome" resultType="BigDecimal">
+        SELECT COALESCE(SUM(amount), 0) FROM portal_tip_order WHERE author_id = #{creatorId} AND status = 'paid' AND target_type = 'article_paid' AND paid_time >= #{startTime} AND paid_time &lt; #{endTime}
+    </select>
+
+    <select id="sumColumnIncome" resultType="BigDecimal">
+        SELECT COALESCE(SUM(amount), 0) FROM portal_tip_order WHERE author_id = #{creatorId} AND status = 'paid' AND target_type = 'column_subscribe' AND paid_time >= #{startTime} AND paid_time &lt; #{endTime}
+    </select>
+
+    <select id="selectCreatorsWithIncome" resultType="Long">
+        SELECT DISTINCT author_id FROM portal_tip_order WHERE status = 'paid' AND paid_time >= #{startTime} AND paid_time &lt; #{endTime}
+    </select>
+
 </mapper>

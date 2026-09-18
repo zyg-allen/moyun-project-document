@@ -5,7 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.moyun.common.config.RuoYiConfig;
 import com.moyun.common.constant.Constants;
 import com.moyun.common.exception.system.ServiceException;
-import com.moyun.ext.ai2.support.AiSceneJsonClient;
+import com.moyun.ext.aiapp.support.AiSceneJsonClient;
 import com.moyun.ext.ai.service.AiGlobalSwitch;
 import com.moyun.ext.cms.domain.vo.ResumeParseVO;
 import com.moyun.ext.cms.domain.vo.UserResumeVO;
@@ -42,6 +42,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import com.moyun.ext.ai.enums.AiSceneEnum;
 
 /**
  * 简历附件解析服务（支持 MinIO 优先 + 磁盘兜底）
@@ -58,7 +59,7 @@ import java.util.regex.Pattern;
 @Service
 public class ResumeParseService {
     /** 本服务所属 AI 场景代码（绑定见 ai_scene_config，业务不感知模型选择） */
-    private static final String SCENE_RESUME_PARSE = "resume_parse";
+    private static final String SCENE_RESUME_PARSE = AiSceneEnum.RESUME_PARSE.getCode();
 
 
     private static final Logger log = LoggerFactory.getLogger(ResumeParseService.class);
@@ -77,10 +78,7 @@ public class ResumeParseService {
     @Autowired
     private AiGlobalSwitch aiGlobalSwitch;
 
-    @Autowired
-    private LlmClient llmClient;
-
-    /** LLM 结构化解析统一走 AI 网关（注入防护/限流/成本熔断/日志全链路生效） */
+        /** LLM 结构化解析统一走 AI 网关（注入防护/限流/成本熔断/日志全链路生效） */
     @Autowired
     private AiSceneJsonClient aiSceneJsonClient;
 
@@ -165,7 +163,7 @@ public class ResumeParseService {
         // 4. LLM 结构化解析（失败回退规则解析）
         ResumeParseVO vo;
         boolean llmParsed;
-        if (aiGlobalSwitch.isEnabled() && aiGlobalSwitch.isResumeAdviceEnabled() && llmClient.isEnabled()) {
+        if (aiGlobalSwitch.isEnabled() && aiGlobalSwitch.isResumeAdviceEnabled()) {
             try {
                 vo = parseByLlm(userId, text);
                 llmParsed = true;

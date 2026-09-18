@@ -2,7 +2,6 @@ package com.moyun.vip.mapper;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.moyun.vip.domain.entity.VipBenefitUsage;
-import org.apache.ibatis.annotations.Insert;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
@@ -21,9 +20,7 @@ public interface VipBenefitUsageMapper extends BaseMapper<VipBenefitUsage> {
      *
      * @return 影响行数
      */
-    @Insert("INSERT INTO vip_benefit_usage (user_id, platform_code, benefit_code, usage_count, usage_date, create_time, update_time) "
-            + "VALUES (#{userId}, #{platformCode}, #{benefitCode}, 1, #{usageDate}, NOW(), NOW()) "
-            + "ON DUPLICATE KEY UPDATE usage_count = usage_count + 1, update_time = NOW()")
+
     int upsertUsage(@Param("userId") Long userId, @Param("platformCode") String platformCode,
                     @Param("benefitCode") String benefitCode, @Param("usageDate") LocalDate usageDate);
 }

@@ -56,7 +56,27 @@ public enum AiSceneEnum {
     DAILY_TOPIC("daily_topic", "今日主题",
             "每日主题生成",
             "日期 + 用户偏好",
-            "主题文案 + 配图建议");
+            "主题文案 + 配图建议"),
+
+    KNOWLEDGE_QA("knowledge_qa", "知识问答",
+            "RAG 多路召回 + 引用溯源",
+            "用户问题 + 知识库 ID",
+            "回答文本 + 引用来源列表"),
+
+    ARTICLE_META("article_meta", "文章元信息",
+            "摘要 / SEO 标题 / SEO 描述 / 关键词",
+            "文章标题 + 正文纯文本",
+            "summary/seoTitle/seoDescription/seoKeywords"),
+
+    CONTENT_TAGS("content_tags", "内容标签",
+            "内容标签提取（3~8 个）",
+            "标题 + 正文纯文本",
+            "tags 标签列表"),
+
+    WRITING_PROMPT("writing_prompt", "写作主题",
+            "每日写作主题生成",
+            "日期 + 特殊日期上下文",
+            "标题/分类/描述");
 
     /** 场景代码（数据库 ai_scene_config.scene_code） */
     private final String code;

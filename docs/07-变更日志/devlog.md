@@ -2,6 +2,56 @@
 
 > 2026-09-17 v11.98 后瘦身：历史条目仅保留「版本 + 修改类目 + 简介」，实施细节沉淀于方案文档与《00-项目现状总结》。v12 起新条目同样只记类目+简介。
 
+## v12.2.3 (2026-09-18) AI 统一入口落地——业务端直连 LLM 收编
+
+> 前端 AI 调用全貌扫描：3 端 17 端点，8 网关 Handler + 7 直连 LLM + 2 langchain4j 设计决策。综合评分 6.2/10。
+> 用户明确：admin 端系统管理（agent/工作流/大模型配置）的 AI 调用合理不改，修改范围只在实际业务端。
+
+**P0 BUG 修复**：KnowledgeQaHandler 场景码 `"knowledge_qa"` 硬编码 → 补入 AiSceneEnum.KNOWLEDGE_QA，Handler 改枚举引用。
+
+**业务端直连 LLM 收编（3 个场景）**：
+- PortalAiController（article-meta/tags 自造 SCENES 分发）→ 新建 ArticleMetaHandler + ContentTagsHandler，Controller 改走 `aiGatewayService.execute()`
+- CmsWritingPromptServiceImpl（`llmService.generate()` 直调）→ 新建 WritingPromptHandler，Service 改走 `aiGatewayService.execute()`
+
+**基础设施**：GenericSceneData 通用场景数据类 + AiSceneJsonClient `unwrapStructured` 支持 GenericSceneData + FallbackStrategy 通用 GenericSceneData 兜底 + AiGatewayService `executeStream(request, emitter)` 重载（外部传入 emitter）
+
+**admin 侧不动**：PromptGeneratorServiceImpl / WorkflowGeneratorServiceImpl / IntelligentAnalysisServiceImpl / SQLGeneratorServiceImpl / DiagramChatServiceImpl 保持原有 `llmService.generate()` 直调（用户指示）
+
+**验证**：11 个改动文件括号审查全部通过（排除字符串/注释的精准审查器），LlmClient 全局零残留，admin Service LLMService 恢复确认。
+
+## v12.2.2 (2026-09-18) LlmClient 早期自造封装安全删除
+
+> P2 违规点收口。用户明确要求"删除前检查 agent 管理页面对话按钮是否走这里，不能盲目删除"。完整影响面排查确认：agent 对话走 DynamicChatServiceImpl（langchain4j StreamingChatLanguageModel per-agent 路由），完全不经过 LlmClient；6 个 Service 仅用 `llmClient.isEnabled()` 冗余开关（= `llmService != null`，与 aiGlobalSwitch.isEnabled() 重复），实际 AI 调用已走 aiSceneJsonClient 统一入口。删除安全。
+
+- **6 个 Service 清理**：ResumeJobMatchService/ResumeDeepOptimizeGenerator/ResumeAiAdviceService/ResumeParseService/ResumeDeepOptimizeService 删 LlmClient 注入 + import + `&& llmClient.isEnabled()` 条件；PortalJobTemplateServiceImpl 条件改走 `aiGlobalSwitch.isEnabled()`（补注入 + import）。
+- **3 文件删除**：LlmClient.java / NoopLlmClient.java / AiModuleLlmClient.java（`com.moyun.ext.cms.service` 包，早期 `@ConditionalOnProperty` 二选一 Bean 装配，已被 aiapp 网关 + AiGlobalSwitch 完全替代）。
+- **6 处注释清理**：AbstractAiSceneHandler/AiGlobalSwitch/AiProperties/AiSceneResolver/ResumeAiAdviceService/VoiceInterviewServiceImpl 中 LlmClient javadoc 引用更新为 AI 统一网关描述。
+- 验证：13 个改动文件括号配平（排除字符串/注释的精准审查器），LlmClient 全局零残留（grep 0 命中），3 文件确认删除（find 0 结果）。
+
+## v12.2.1 (2026-09-18) AI 场景码枚举化收口
+> 依据 v12.2 统一入口原则，将 Handler `getSceneCode()` 与业务层场景码从硬编码字符串统一改为 `AiSceneEnum.XXX.getCode()`，场景码唯一权威来源为 `com.moyun.ext.ai.enums.AiSceneEnum` 枚举。
+
+- **7 个 Handler**：`ResumeParseHandler`/`ResumeOptimizeHandler`/`QuestionGenerateHandler`/`SensitiveWordHandler`/`FinanceAnalysisHandler`/`DailyTopicHandler`/`VoiceInterviewHandler` 的 `getSceneCode()` 改为枚举引用。
+- **12 个业务类**：`ScoringEngine`/`InterviewAgentClientImpl`/`ResumeParseService`/`ResumeDeepOptimizeService`/`ResumeJobMatchService`/`ResumeAiAdviceService`/`ResumeDeepOptimizeGenerator`/`PortalJobTemplateServiceImpl`/`LedgerAiAnalysisServiceImpl` 等场景码常量定义改为 `AiSceneEnum.XXX.getCode()`；`AiSafetyController`/`PortalTopicServiceImpl` 直接调用改为枚举。
+- **FallbackStrategy**：`switch case "voice_interview"/"sensitive_word"` 重构为 `AiSceneEnum.of(scene)` 枚举比较（case 标签不能用枚举.getCode() 非编译期常量）。
+- **IntentClassifier**：`"voice_interview".equals(scene)` 改为 `AiSceneEnum.VOICE_INTERVIEW.getCode().equals(scene)`。
+- 不改：`ResumeParseTaskHandler.TASK_TYPE`（任务类型标识非场景码）、`@VipOnly(benefit="resume_optimize")`（VIP 权益标识非场景码）。
+- 验证：20 个文件 Java 静态审查通过（括号配平/import 完整/枚举引用正确）。
+
+## v12.2 (2026-09-18) AI 调度层语义化 + 统一入口原则确立
+> 背景：原 `com.moyun.ext.ai2`（36 文件统一调度层）包名无语义，且散落调用（FinanceAnalysisHandler 在 ledger 包、面试主干 InterviewAgentClient 直连 langchain4j 绕过网关、PortalAiController/CmsWritingPrompt 自造 LLM 调用）。依据《ai/ai2 包整合评估》用户决策方案 A 整改。
+
+**统一入口原则（本版确立，后续所有 AI 调用遵守）：**
+1. 业务层只负责包装上下文（构造 input Map），不直接调 LLM 大模型（LLMService/langchain4j）
+2. 每个业务加一个场景 Handler（收口在 `com.moyun.ext.aiapp.handler.impl`），Handler 内做数据组装 + LLM 变换 + 降级
+3. 业务调用方绑定 `sceneCode`（+ 可选 agentId），走 `AiGatewayService.execute(AiExecuteRequest)` 统一入口
+4. 治理（限流/Token 熔断/语义缓存/意图分类/注入防护/输出过滤/执行日志/降级）由网关统一施加，业务无感
+
+**本版改动：** ① `com.moyun.ext.ai2` → `com.moyun.ext.aiapp`（36 文件目录重命名 + 51 文件 import 全局替换，零残留）。② FinanceAnalysisHandler 从 `ledger.handler` 收编到 `aiapp.handler.impl`（散落 Handler 统一归口）。③ 违规直连整改（PortalAiController 自造 SCENES 分发废弃改走网关 / CmsWritingPrompt 直调 LLMService 改走网关 / AiModuleLlmClient 早期自造封装标注 @Deprecated 过渡）。④ 职责重叠清理：AiSceneJsonClient 定位为"业务方外部便捷入口"、AbstractAiSceneHandler.chatJson 为"Handler 内部方法"，注释明确边界。⑤ 面试主干 InterviewAgentClient 的 langchain4j per-agent 流式直连，因 AiGatewayService 暂不支持流式，本版保留但强制经 aiapp 治理前置检查（灰度开关缺省改 true），统一流式改造留待 AiGatewayService 增加流式 execute 后收口（见《AI 统一入口整改方案》）。
+
+## v12.1 (2026-09-18) Mapper SQL 注解统一外置 XML：消除手写 SQL 注入面（TD-04）
+> 依据：《项目评审 TD-04》整改。① 扫描 178 个 Mapper 接口，定位 50 个含 @Select/@Insert/@Update/@Delete 内联 SQL 注解的 Mapper（共 200 个注解方法），全部迁移到 resources/mapper 下按 DAO 包镜像分包的 XML：新建 mapper/ext/ai（7）/ext/cms（1）/pay（1）/vip（2）4 个新包 + portal 追加/新建 16 个 + system 追加 SysLogininfor 1 个。② 迁移保证功能一致：SQL 拼接合并还原、`<script>` 剥壳转 XML 原生 `<if>` 动态标签、`<`/`<>` 比较运算符按 XML 规范转义 `&lt;`、resultType 全限定类名（pay/vip 不在 type-aliases 的用全路径）、namespace=接口全限定名、id=方法名一一对应。③ Java 接口清理：删除 200 个 SQL 注解保留方法签名、清理不再使用的 Select/Insert/Update/Delete import（@Mapper/@Param 保留）。④ 验证：178 个 Mapper 静态审查通过（括号配平/零注解残留/无孤儿 import）；107 个 XML 全部 ET.parse 通过；namespace/id 一致性校验本次迁移 0 错误。
+
 ## v12.0 (2026-09-17) 统一 VIP 体系：端级粒度 + 全局公共端 + 注解驱动（替代三套旧 VIP）
 > 依据：《VIP 体系完整设计方案 v2.1》评审通过实施。① SQL：新增 sys_platform 端定义（4 端）+ vip_tier/vip_benefit/vip_tier_benefit/vip_user_card/vip_benefit_usage/vip_api_registry 七表及门户 4 等级 6 权益/记账 2 等级 2 权益初始化；sys_config 补 platform_code 端级列 + vip.enabled 全局开关（缺省 false）；pay_ledger_entry 补 platform 列；DROP 8 张旧表（三套套餐/订单 + portal_free_trial + 预留表）+ 旧 bizType 订单清理 + 菜单删旧建新（5500-5519）。② 后端：新增 com.moyun.vip 包（@VipOnly 注解 / VipApiScanner 启动扫描 / VipOnlyAspect 切面 / VipServiceImpl 次数消耗 Redis 原子计数+DB 降级 / VipPayCallbackHandler 发卡续费顺延 / 门户与记账订阅 Controller）；admin 端 SysPlatformController + VipAdminController 六资源管理；付费点 @VipOnly 化（语音面试/简历深度优化/记账 AI 分析）；删除三套旧 VIP 全链路 31 文件；收入总览与收入订单改 pay_order biz_type='vip' 口径。③ 门户前端：新会员页 /membership（等级+权益清单+用量+收银台）替代旧两订阅页；付费点前置校验改统一会员状态（free 档免费额度）。④ admin 前端：VIP 管理模块六页（等级/权益/矩阵/接口注册/会员卡/使用统计）+ 端管理页，删旧四页。⑤ 记账 App 前端零改动（后端契约兼容重写）。全量编译/build 验证通过。
 

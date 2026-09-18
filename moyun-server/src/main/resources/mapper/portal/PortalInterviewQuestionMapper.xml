@@ -128,4 +128,8 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             #{id}
         </foreach>
     </delete>
+    <update id="incrementLikes">
+        UPDATE portal_interview_question SET like_count = like_count + #{delta} WHERE id = #{id} AND like_count + #{delta} >= 0
+    </update>
+
 </mapper>

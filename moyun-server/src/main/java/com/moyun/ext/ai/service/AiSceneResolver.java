@@ -19,7 +19,7 @@ import dev.langchain4j.model.chat.ChatLanguageModel;
  * <p>新增 {@link #resolveChatModel(String)} 工厂方法——
  * 业务方只需传 scene_code 即可获得场景绑定的 ChatLanguageModel，
  * 模型选择逻辑（责任链：Agent 绑定 → 直绑模型 → null 回落默认）封装在解析器内部，
- * LlmClient 等 Strategy 层不再关心模型怎么选。
+ * 场景 Handler 等调用层不再关心模型怎么选。
  *
  * @author moyun
  */

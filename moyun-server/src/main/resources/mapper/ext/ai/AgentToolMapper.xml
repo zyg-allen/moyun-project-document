@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.moyun.ext.ai.mapper.AgentToolMapper">
+
+    <select id="selectToolsByAgentId" resultType="com.moyun.ext.ai.entity.AgentTool">
+        SELECT t.* FROM ai_agent_tool t INNER JOIN ai_agent_tool_relation r ON t.id = r.tool_id WHERE r.agent_id = #{agentId} AND r.enabled = 1 AND t.enabled = 1
+    </select>
+
+    <select id="selectSystemTools" resultType="com.moyun.ext.ai.entity.AgentTool">
+        SELECT * FROM ai_agent_tool WHERE is_system = 1 AND enabled = 1
+    </select>
+
+</mapper>

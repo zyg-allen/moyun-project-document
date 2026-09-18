@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.moyun.portal.mapper.PortalTopicCommentLikeMapper">
+
+    <select id="selectByCommentAndUser" resultType="com.moyun.portal.domain.entity.PortalTopicCommentLike">
+        SELECT * FROM portal_topic_comment_like WHERE comment_id = #{commentId} AND user_id = #{userId} LIMIT 1
+    </select>
+
+    <select id="selectLikedByUser" resultType="Long">
+        SELECT comment_id FROM portal_topic_comment_like WHERE user_id = #{userId} AND comment_id IN <foreach item='id' collection='commentIds' open='(' separator=',' close=')'>#{id}</foreach>
+    </select>
+
+    <delete id="deleteByCommentAndUser">
+        DELETE FROM portal_topic_comment_like WHERE comment_id = #{commentId} AND user_id = #{userId}
+    </delete>
+
+</mapper>

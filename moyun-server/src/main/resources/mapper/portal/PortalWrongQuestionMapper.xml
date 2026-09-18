@@ -46,4 +46,24 @@
         ORDER BY wq.last_wrong_time DESC
     </select>
 
+    <select id="selectRecentWrong" resultType="com.moyun.portal.domain.entity.PortalWrongQuestion">
+        SELECT wq.id, wq.user_id, wq.question_id, wq.attempt_id, wq.status, wq.wrong_count, wq.last_wrong_time, wq.next_review_time, wq.created_time FROM portal_wrong_question wq WHERE wq.user_id = #{userId} AND wq.status != 'mastered' ORDER BY wq.last_wrong_time DESC LIMIT #{limit}
+    </select>
+
+    <select id="countByUserAndStatus" resultType="Long">
+        SELECT COUNT(*) FROM portal_wrong_question WHERE user_id = #{userId} <if test='status != null and status != ""'> AND status = #{status} </if>
+    </select>
+
+    <select id="countTodayReview" resultType="Long">
+        SELECT COUNT(*) FROM portal_wrong_question WHERE user_id = #{userId} AND status != 'mastered' AND next_review_time IS NOT NULL AND next_review_time &lt;= NOW()
+    </select>
+
+    <select id="selectByUserAndQuestion" resultType="com.moyun.portal.domain.entity.PortalWrongQuestion">
+        SELECT * FROM portal_wrong_question WHERE user_id = #{userId} AND question_id = #{questionId}
+    </select>
+
+    <update id="markMastered">
+        UPDATE portal_wrong_question SET status = 'mastered' WHERE user_id = #{userId} AND question_id = #{questionId}
+    </update>
+
 </mapper>

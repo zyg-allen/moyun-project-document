@@ -1,6 +1,7 @@
 package com.moyun.ext.ai2.support;
 
-import com.moyun.ext.ai2.support.PromptInjectionGuard.RiskLevel;
+import com.moyun.ext.aiapp.support.PromptInjectionGuard;
+import com.moyun.ext.aiapp.support.PromptInjectionGuard.RiskLevel;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;

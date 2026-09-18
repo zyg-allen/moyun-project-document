@@ -9,8 +9,6 @@ import com.moyun.ext.cms.domain.vo.ColumnVO;
 import com.moyun.portal.domain.entity.PortalColumn;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
-import org.apache.ibatis.annotations.Select;
-import org.apache.ibatis.annotations.Update;
 
 import java.util.List;
 
@@ -51,25 +49,25 @@ public interface PortalColumnMapper extends BaseMapper<PortalColumn> {
     /**
      * 原子更新文章数（递减时使用 GREATEST 防止出现负数）
      */
-    @Update("UPDATE portal_column SET article_count = GREATEST(article_count + #{delta}, 0) WHERE id = #{id}")
+
     int updateArticleCount(@Param("id") Long id, @Param("delta") int delta);
 
     /**
      * 原子更新订阅数（递减时使用 GREATEST 防止出现负数）
      */
-    @Update("UPDATE portal_column SET subscribe_count = GREATEST(subscribe_count + #{delta}, 0) WHERE id = #{id}")
+
     int updateSubscribeCount(@Param("id") Long id, @Param("delta") int delta);
 
     /**
      * 原子更新浏览数
      */
-    @Update("UPDATE portal_column SET view_count = view_count + #{delta} WHERE id = #{id}")
+
     int updateViewCount(@Param("id") Long id, @Param("delta") int delta);
 
     /**
      * 统计用户名下专栏数量
      */
-    @Select("SELECT COUNT(*) FROM portal_column WHERE user_id = #{userId}")
+
     int countByUserId(@Param("userId") Long userId);
 
     /**

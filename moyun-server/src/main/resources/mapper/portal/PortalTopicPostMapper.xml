@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.moyun.portal.mapper.PortalTopicPostMapper">
+
+    <select id="selectNextFloor" resultType="Integer">
+        SELECT COALESCE(MAX(floor), 0) + 1 FROM portal_topic_post WHERE topic_id = #{topicId}
+    </select>
+
+    <update id="incrementLikeCount">
+        UPDATE portal_topic_post SET like_count = like_count + #{delta} WHERE id = #{id} AND like_count + #{delta} >= 0
+    </update>
+
+    <update id="incrementCommentCount">
+        UPDATE portal_topic_post SET comment_count = comment_count + #{delta} WHERE id = #{id} AND comment_count + #{delta} >= 0
+    </update>
+
+    <update id="softDelete">
+        UPDATE portal_topic_post SET is_deleted = 1 WHERE id = #{id} AND is_deleted = 0
+    </update>
+
+    <update id="softDeleteByTopic">
+        UPDATE portal_topic_post SET is_deleted = 1 WHERE topic_id = #{topicId} AND is_deleted = 0
+    </update>
+
+</mapper>

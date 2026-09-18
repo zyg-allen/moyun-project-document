@@ -18,9 +18,8 @@ import org.springframework.stereotype.Component;
  *   <li>{@code ai.resume.advice.enabled}：简历 AI 建议子开关（叠加在全局开关之上）</li>
  * </ul>
  *
- * <p><strong>与 yaml 的分工</strong>：yaml 的 {@code moyun.ai.enabled} 仅保留
- * {@code @ConditionalOnProperty} bean 装配职责（AiModuleLlmClient / NoopLlmClient 二选一），
- * 基础配置中固定为 true 消除 profile 缺失陷阱；运行时业务判断一律走本组件。</p>
+ * <p><strong>与 yaml 的分工</strong>：yaml 的 {@code moyun.ai.enabled} 固定为 true
+ * 消除 profile 缺失陷阱；运行时业务判断一律走本组件（sys_config 热配置）。</p>
  *
  * <p>读取走 RuoYi {@link ISysConfigService}（Redis 缓存 + 管理台更新自动失效），
  * 任何异常兜底返回缺省值（开关永不阻塞业务）。</p>

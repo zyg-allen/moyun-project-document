@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.moyun.portal.mapper.PortalGrowthRuleMapper">
+
+    <select id="selectByModuleAndAction" resultType="com.moyun.portal.domain.entity.PortalGrowthRule">
+        SELECT * FROM portal_growth_rule WHERE module = #{module} AND action = #{action} AND status = '0'
+    </select>
+
+    <select id="selectAllEnabled" resultType="com.moyun.portal.domain.entity.PortalGrowthRule">
+        SELECT * FROM portal_growth_rule WHERE status = '0' ORDER BY sort
+    </select>
+
+</mapper>

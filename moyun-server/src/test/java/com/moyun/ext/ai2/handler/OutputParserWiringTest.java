@@ -1,19 +1,18 @@
 package com.moyun.ext.ai2.handler;
 
 import com.moyun.ext.ai.entity.AiSceneConfig;
-import com.moyun.ext.ai2.handler.impl.DailyTopicHandler;
-import com.moyun.ext.ai2.model.AiExecuteRequest;
-import com.moyun.ext.ai2.model.AiExecuteResponse;
-import com.moyun.ext.ai2.model.ChatOutcome;
-import com.moyun.ext.ai2.model.data.TopicSceneData;
+import com.moyun.ext.aiapp.constant.AiErrorCodes;
+import com.moyun.ext.aiapp.handler.AbstractAiSceneHandler;
+import com.moyun.ext.aiapp.handler.impl.DailyTopicHandler;
+import com.moyun.ext.aiapp.model.AiExecuteRequest;
+import com.moyun.ext.aiapp.model.AiExecuteResponse;
+import com.moyun.ext.aiapp.model.ChatOutcome;
+import com.moyun.ext.aiapp.model.data.TopicSceneData;
 import org.junit.jupiter.api.Test;
 
 import java.util.Map;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertInstanceOf;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * output_parser 配置接线单元测试（v11.66 P1-5）
@@ -24,7 +23,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 class OutputParserWiringTest {
 
-    /** 暴露 protected parseOutput 的测试桩 */
+    /**
+     * 暴露 protected parseOutput 的测试桩
+     */
     private static class StubHandler extends AbstractAiSceneHandler {
         @Override
         public String getSceneCode() {
@@ -93,7 +94,9 @@ class OutputParserWiringTest {
 
     // ==================== DailyTopicHandler 双参配置驱动回归 ====================
 
-    /** 覆写 chatDetailed 打桩 LLM（chat → chatDetailed） */
+    /**
+     * 覆写 chatDetailed 打桩 LLM（chat → chatDetailed）
+     */
     private DailyTopicHandler topicHandlerWithLlm(String llmRaw) {
         return new DailyTopicHandler() {
             @Override
@@ -127,7 +130,7 @@ class OutputParserWiringTest {
 
         AiExecuteResponse<?> resp = handler.execute(request, configWithParser("markdown"));
 
-        assertEquals(com.moyun.ext.ai2.constant.AiErrorCodes.SUCCESS, resp.getCode());
+        assertEquals(AiErrorCodes.SUCCESS, resp.getCode());
         TopicSceneData data = assertInstanceOf(TopicSceneData.class, resp.getData());
         assertNull(data.getTitle(), "markdown 解析无 title 字段——配置真实生效（消费方读 structured/content）");
     }

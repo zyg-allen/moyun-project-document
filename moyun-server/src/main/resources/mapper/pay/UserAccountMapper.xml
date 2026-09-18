@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.moyun.pay.mapper.UserAccountMapper">
+
+    <update id="creditBalance">
+        UPDATE pay_user_account SET balance = balance + #{amount}, total_income = total_income + #{amount}, version = version + 1, update_time = NOW() WHERE user_id = #{userId}
+    </update>
+
+    <update id="debitBalance">
+        UPDATE pay_user_account SET balance = balance - #{amount}, total_withdraw = total_withdraw + #{amount}, version = version + 1, update_time = NOW() WHERE user_id = #{userId} AND balance >= #{amount}
+    </update>
+
+</mapper>

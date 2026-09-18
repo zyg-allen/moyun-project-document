@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.moyun.portal.mapper.PortalArticleVersionMapper">
+
+    <select id="selectMaxVersionNo" resultType="Integer">
+        SELECT MAX(version_no) FROM portal_article_version WHERE article_id = #{articleId}
+    </select>
+
+    <select id="selectVersionList" resultType="com.moyun.portal.domain.entity.PortalArticleVersion">
+        SELECT id, article_id, version_no, title, excerpt, operator_id, created_time FROM portal_article_version WHERE article_id = #{articleId} ORDER BY version_no DESC
+    </select>
+
+</mapper>

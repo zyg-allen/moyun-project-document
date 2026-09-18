@@ -6,7 +6,6 @@ import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
-import org.apache.ibatis.annotations.Update;
 
 import com.moyun.portal.domain.entity.PortalShopItem;
 
@@ -33,7 +32,6 @@ public interface PortalShopItemMapper extends BaseMapper<PortalShopItem> {
      *
      * @return 影响行数，0 表示库存不足
      */
-    @Update("UPDATE portal_shop_item SET stock = stock - 1 " +
-            "WHERE id = #{id} AND status = 'active' AND (stock = -1 OR stock > 0)")
+
     int deductStock(@Param("id") Long id);
 }

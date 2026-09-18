@@ -133,4 +133,12 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             #{id}
         </foreach>
     </delete>
+    <update id="incrementDownloadCount">
+        update portal_interview_resume_template set download_count = download_count + 1 where id = #{id}
+    </update>
+
+    <update id="incrementLikes">
+        UPDATE portal_interview_resume_template SET like_count = like_count + #{delta} WHERE id = #{id} AND like_count + #{delta} >= 0
+    </update>
+
 </mapper>

@@ -7,7 +7,6 @@ import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
-import org.apache.ibatis.annotations.Select;
 
 import com.moyun.portal.domain.entity.PortalFollow;
 import com.moyun.portal.domain.query.FollowQuery;
@@ -111,12 +110,7 @@ public interface PortalFollowMapper extends BaseMapper<PortalFollow> {
      * @param followingIds 被关注者ID集合
      * @return 每个用户一行，字段：userId / cnt
      */
-    @Select("<script>" +
-            "SELECT following_id AS userId, count(1) AS cnt FROM portal_follow " +
-            "WHERE following_id IN " +
-            "<foreach item='id' collection='followingIds' open='(' separator=',' close=')'>#{id}</foreach> " +
-            "GROUP BY following_id" +
-            "</script>")
+
     List<Map<String, Object>> batchCountFollowers(@Param("followingIds") List<Long> followingIds);
 
     /**
@@ -125,12 +119,7 @@ public interface PortalFollowMapper extends BaseMapper<PortalFollow> {
      * @param followerIds 关注者ID集合
      * @return 每个用户一行，字段：userId / cnt
      */
-    @Select("<script>" +
-            "SELECT follower_id AS userId, count(1) AS cnt FROM portal_follow " +
-            "WHERE follower_id IN " +
-            "<foreach item='id' collection='followerIds' open='(' separator=',' close=')'>#{id}</foreach> " +
-            "GROUP BY follower_id" +
-            "</script>")
+
     List<Map<String, Object>> batchCountFollowing(@Param("followerIds") List<Long> followerIds);
 
     /**
@@ -140,11 +129,7 @@ public interface PortalFollowMapper extends BaseMapper<PortalFollow> {
      * @param followingId 被关注者ID
      * @return 分页结果，每条记录含粉丝用户信息
      */
-    @Select("SELECT f.id, f.follower_id AS user_id, u.username, u.nickname, u.avatar, u.bio, u.position, f.create_time AS created_at " +
-            "FROM portal_follow f " +
-            "LEFT JOIN portal_user u ON u.id = f.follower_id " +
-            "WHERE f.following_id = #{followingId} " +
-            "ORDER BY f.create_time DESC")
+
     Page<FollowUserVO> selectFollowerUserPage(Page<FollowUserVO> page, @Param("followingId") Long followingId);
 
     /**
@@ -154,10 +139,6 @@ public interface PortalFollowMapper extends BaseMapper<PortalFollow> {
      * @param followerId  关注者ID
      * @return 分页结果，每条记录含被关注用户信息
      */
-    @Select("SELECT f.id, f.following_id AS user_id, u.username, u.nickname, u.avatar, u.bio, u.position, f.create_time AS created_at " +
-            "FROM portal_follow f " +
-            "LEFT JOIN portal_user u ON u.id = f.following_id " +
-            "WHERE f.follower_id = #{followerId} " +
-            "ORDER BY f.create_time DESC")
+
     Page<FollowUserVO> selectFollowingUserPage(Page<FollowUserVO> page, @Param("followerId") Long followerId);
 }

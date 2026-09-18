@@ -4,13 +4,13 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.moyun.common.exception.system.ServiceException;
-import com.moyun.ext.ai2.constant.AiErrorCodes;
-import com.moyun.ext.ai2.model.AiExecuteRequest;
-import com.moyun.ext.ai2.model.AiExecuteResponse;
-import com.moyun.ext.ai2.model.data.QuestionSceneData;
-import com.moyun.ext.ai2.service.AiGatewayService;
+import com.moyun.ext.ai.service.AiGlobalSwitch;
+import com.moyun.ext.aiapp.constant.AiErrorCodes;
+import com.moyun.ext.aiapp.model.AiExecuteRequest;
+import com.moyun.ext.aiapp.model.AiExecuteResponse;
+import com.moyun.ext.aiapp.model.data.QuestionSceneData;
+import com.moyun.ext.aiapp.service.AiGatewayService;
 import com.moyun.ext.cms.service.IPortalJobTemplateService;
-import com.moyun.ext.cms.service.LlmClient;
 import com.moyun.portal.domain.entity.PortalInterviewQuestion;
 import com.moyun.portal.domain.entity.PortalJobTemplate;
 import com.moyun.portal.mapper.PortalInterviewQuestionMapper;
@@ -29,6 +29,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import com.moyun.ext.ai.enums.AiSceneEnum;
 
 /**
  * 岗位模板服务实现（v11.x 智能出题）
@@ -42,7 +43,7 @@ import java.util.Set;
 public class PortalJobTemplateServiceImpl extends ServiceImpl<PortalJobTemplateMapper, PortalJobTemplate>
         implements IPortalJobTemplateService {
     /** 本服务所属 AI 场景代码（绑定见 ai_scene_config，业务不感知模型选择） */
-    private static final String SCENE_QUESTION_GENERATE = "question_generate";
+    private static final String SCENE_QUESTION_GENERATE = AiSceneEnum.QUESTION_GENERATE.getCode();
 
 
     private static final Logger log = LoggerFactory.getLogger(PortalJobTemplateServiceImpl.class);
@@ -72,12 +73,12 @@ public class PortalJobTemplateServiceImpl extends ServiceImpl<PortalJobTemplateM
             "熟悉", "了解", "负责", "参与", "具备", "相关", "经验", "能力", "要求", "岗位职责",
             "任职", "加分", "良好", "较强", "and", "the", "for", "with", "you", "your");
 
-    @Autowired
-    private LlmClient llmClient;
-
-    /** JD 关键词提取统一走 AI 网关（task=jd_keywords 子任务） */
+        /** JD 关键词提取统一走 AI 网关（task=jd_keywords 子任务） */
     @Autowired
     private AiGatewayService aiGatewayService;
+
+    @Autowired
+    private AiGlobalSwitch aiGlobalSwitch;
 
     @Autowired
     private PortalInterviewQuestionMapper questionMapper;
@@ -96,7 +97,7 @@ public class PortalJobTemplateServiceImpl extends ServiceImpl<PortalJobTemplateM
             throw new ServiceException("JD 内容不能为空");
         }
         // 1. LLM 提取（可用且成功时优先）
-        if (llmClient.isEnabled()) {
+        if (aiGlobalSwitch.isEnabled()) {
             try {
                 List<String> llmKeywords = extractByLlm(jdText);
                 if (llmKeywords != null && !llmKeywords.isEmpty()) {

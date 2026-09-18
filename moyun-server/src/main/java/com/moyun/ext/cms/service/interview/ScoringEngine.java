@@ -2,7 +2,7 @@ package com.moyun.ext.cms.service.interview;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.moyun.ext.ai2.support.AiSceneJsonClient;
+import com.moyun.ext.aiapp.support.AiSceneJsonClient;
 import com.moyun.util.string.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -13,6 +13,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import com.moyun.ext.ai.enums.AiSceneEnum;
 
 /**
  * 评分引擎（v11.x 权重化重构）
@@ -31,7 +32,7 @@ import java.util.Map;
 @Component
 public class ScoringEngine {
     /** 本服务所属 AI 场景代码（绑定见 ai_scene_config，业务不感知模型选择） */
-    private static final String SCENE_VOICE_INTERVIEW = "voice_interview";
+    private static final String SCENE_VOICE_INTERVIEW = AiSceneEnum.VOICE_INTERVIEW.getCode();
 
 
     private static final Logger log = LoggerFactory.getLogger(ScoringEngine.class);

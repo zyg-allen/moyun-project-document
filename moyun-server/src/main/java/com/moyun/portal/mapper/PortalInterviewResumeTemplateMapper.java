@@ -5,7 +5,6 @@ import java.util.List;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
-import org.apache.ibatis.annotations.Update;
 
 import com.moyun.portal.domain.entity.PortalInterviewResumeTemplate;
 
@@ -71,7 +70,7 @@ public interface PortalInterviewResumeTemplateMapper extends BaseMapper<PortalIn
      * @param id 简历模板ID
      * @return 影响行数
      */
-    @Update("update portal_interview_resume_template set download_count = download_count + 1 where id = #{id}")
+
     int incrementDownloadCount(@Param("id") Long id);
 
     /**
@@ -81,6 +80,6 @@ public interface PortalInterviewResumeTemplateMapper extends BaseMapper<PortalIn
      * @param delta 增量（正数增加，负数减少）
      * @return 受影响行数
      */
-    @Update("UPDATE portal_interview_resume_template SET like_count = like_count + #{delta} WHERE id = #{id} AND like_count + #{delta} >= 0")
+
     int incrementLikes(@Param("id") Long id, @Param("delta") long delta);
 }

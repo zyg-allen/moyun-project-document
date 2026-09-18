@@ -8,8 +8,6 @@ import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
-import org.apache.ibatis.annotations.Select;
-import org.apache.ibatis.annotations.Update;
 
 import com.moyun.ext.cms.domain.query.CmsArticleQuery;
 import com.moyun.ext.cms.domain.vo.CmsArticleVO;
@@ -194,7 +192,7 @@ public interface PortalArticleMapper extends BaseMapper<PortalArticle> {
      * @param delta 增量（正数增加，负数减少）
      * @return 受影响行数
      */
-    @Update("UPDATE portal_article SET views = views + #{delta} WHERE id = #{id} AND views + #{delta} >= 0")
+
     int incrementViews(@Param("id") Long id, @Param("delta") long delta);
 
     /**
@@ -204,7 +202,7 @@ public interface PortalArticleMapper extends BaseMapper<PortalArticle> {
      * @param delta 增量（正数增加，负数减少）
      * @return 受影响行数
      */
-    @Update("UPDATE portal_article SET likes = likes + #{delta} WHERE id = #{id} AND likes + #{delta} >= 0")
+
     int incrementLikes(@Param("id") Long id, @Param("delta") long delta);
 
     /**
@@ -214,7 +212,7 @@ public interface PortalArticleMapper extends BaseMapper<PortalArticle> {
      * @param delta 增量（正数增加，负数减少）
      * @return 受影响行数
      */
-    @Update("UPDATE portal_article SET comments = comments + #{delta} WHERE id = #{id} AND comments + #{delta} >= 0")
+
     int incrementComments(@Param("id") Long id, @Param("delta") long delta);
 
     /**
@@ -224,7 +222,7 @@ public interface PortalArticleMapper extends BaseMapper<PortalArticle> {
      * @param delta 增量（正数增加，负数减少）
      * @return 受影响行数
      */
-    @Update("UPDATE portal_article SET bookmark_count = bookmark_count + #{delta} WHERE id = #{id} AND bookmark_count + #{delta} >= 0")
+
     int incrementBookmarkCount(@Param("id") Long id, @Param("delta") long delta);
 
     /**
@@ -234,13 +232,7 @@ public interface PortalArticleMapper extends BaseMapper<PortalArticle> {
      * @param authorId 作者用户ID
      * @return Map 包含 articleCount / viewSum / likeSum / bookmarkSum / commentSum
      */
-    @Select("SELECT count(*) AS articleCount, " +
-            "coalesce(sum(views), 0) AS viewSum, " +
-            "coalesce(sum(likes), 0) AS likeSum, " +
-            "coalesce(sum(bookmark_count), 0) AS bookmarkSum, " +
-            "coalesce(sum(comments), 0) AS commentSum " +
-            "FROM portal_article " +
-            "WHERE author_id = #{authorId} AND status = 'published'")
+
     Map<String, Object> selectAuthorArticleStats(@Param("authorId") Long authorId);
 
     /**
@@ -250,17 +242,7 @@ public interface PortalArticleMapper extends BaseMapper<PortalArticle> {
      * @param authorIds 作者用户ID集合
      * @return 每个作者一行，字段：authorId / articleCount / viewSum / likeSum / bookmarkSum / commentSum
      */
-    @Select("<script>" +
-            "SELECT author_id AS authorId, count(*) AS articleCount, " +
-            "coalesce(sum(views), 0) AS viewSum, " +
-            "coalesce(sum(likes), 0) AS likeSum, " +
-            "coalesce(sum(bookmark_count), 0) AS bookmarkSum, " +
-            "coalesce(sum(comments), 0) AS commentSum " +
-            "FROM portal_article " +
-            "WHERE status = 'published' AND author_id IN " +
-            "<foreach item='id' collection='authorIds' open='(' separator=',' close=')'>#{id}</foreach> " +
-            "GROUP BY author_id" +
-            "</script>")
+
     List<Map<String, Object>> batchSelectAuthorArticleStats(@Param("authorIds") List<Long> authorIds);
 
     // ========== 运营首页聚合统计方法 ==========
@@ -269,79 +251,45 @@ public interface PortalArticleMapper extends BaseMapper<PortalArticle> {
      * 文章核心指标统计（全站总量）
      * @return Map 包含 totalArticles/publishedArticles/pendingArticles/draftArticles/totalViews/totalLikes/totalComments
      */
-    @Select("SELECT " +
-            "count(*) AS totalArticles, " +
-            "sum(CASE WHEN status = 'published' THEN 1 ELSE 0 END) AS publishedArticles, " +
-            "sum(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) AS pendingArticles, " +
-            "sum(CASE WHEN status = 'draft' THEN 1 ELSE 0 END) AS draftArticles, " +
-            "coalesce(sum(views), 0) AS totalViews, " +
-            "coalesce(sum(likes), 0) AS totalLikes, " +
-            "coalesce(sum(comments), 0) AS totalComments " +
-            "FROM portal_article")
+
     Map<String, Object> selectArticleMetrics();
 
     /**
      * 按日期范围统计每日新增文章数（趋势图）
      * 使用 DATE_FORMAT 返回纯字符串，避免 java.sql.Date 序列化格式不一致导致日期 key 匹配失败
      */
-    @Select("SELECT DATE_FORMAT(create_time, '%Y-%m-%d') AS date, count(*) AS value " +
-            "FROM portal_article " +
-            "WHERE create_time >= #{startTime} " +
-            "GROUP BY DATE_FORMAT(create_time, '%Y-%m-%d') ORDER BY date")
+
     List<Map<String, Object>> selectDailyPublishTrend(@Param("startTime") java.time.LocalDateTime startTime);
 
     /**
      * 栏目排行榜：按文章数和浏览量聚合 Top N（仅统计文章类栏目 category_type='article'）
      */
-    @Select("SELECT c.id AS categoryId, c.name AS categoryName, " +
-            "count(a.id) AS articleCount, " +
-            "coalesce(sum(a.views), 0) AS totalViews, " +
-            "coalesce(sum(a.likes), 0) AS totalLikes " +
-            "FROM portal_category c " +
-            "LEFT JOIN portal_article a ON a.category_id = c.id AND a.status = 'published' " +
-            "WHERE c.category_type = 'article' " +
-            "GROUP BY c.id, c.name " +
-            "ORDER BY articleCount DESC, totalViews DESC " +
-            "LIMIT #{limit}")
+
     List<Map<String, Object>> selectCategoryRanking(@Param("limit") int limit);
 
     /**
      * 查询待审核文章列表（运营首页待办任务）
      */
-    @Select("SELECT a.id, a.title, a.author_id AS authorId, a.create_time, " +
-            "u.nickname AS authorNickname, u.username AS authorUsername " +
-            "FROM portal_article a " +
-            "LEFT JOIN portal_user u ON u.id = a.author_id " +
-            "WHERE a.status = 'pending' " +
-            "ORDER BY a.create_time ASC " +
-            "LIMIT #{limit}")
+
     List<Map<String, Object>> selectPendingArticles(@Param("limit") int limit);
 
     /**
      * 统计待审核文章数量
      */
-    @Select("SELECT count(*) FROM portal_article WHERE status = 'pending'")
+
     long countPendingArticles();
 
     /**
      * 统计今日新增文章数（按 create_time >= startTime 过滤，含所有状态）
      * 用于首页"今日新增文章"卡片，口径与卡片名称一致
      */
-    @Select("SELECT count(*) FROM portal_article WHERE create_time >= #{startTime}")
+
     long countTodayNewArticles(@Param("startTime") java.time.LocalDateTime startTime);
 
     /**
      * 热门文章 Top N（按浏览量+点赞数加权排序，用于 Redis ZSet 初始化）
      * JOIN portal_user 获取作者名，避免前端 author 字段为空
      */
-    @Select("SELECT a.id, a.title, a.views, a.likes, " +
-            "(coalesce(a.views,0) + coalesce(a.likes,0) * 5) AS score, " +
-            "a.author_id AS authorId, " +
-            "coalesce(u.nickname, u.username) AS author " +
-            "FROM portal_article a " +
-            "LEFT JOIN portal_user u ON u.id = a.author_id " +
-            "WHERE a.status = 'published' " +
-            "ORDER BY score DESC " +
-            "LIMIT #{limit}")
+
     List<Map<String, Object>> selectHotArticlesForRanking(@Param("limit") int limit);
 }

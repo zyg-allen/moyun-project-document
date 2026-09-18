@@ -39,4 +39,8 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         select count(*) from portal_interview_comment where experience_id = #{experienceId}
     </select>
 
+    <update id="incrementLikes">
+        UPDATE portal_interview_comment SET like_count = like_count + #{delta} WHERE id = #{id} AND like_count + #{delta} >= 0
+    </update>
+
 </mapper>

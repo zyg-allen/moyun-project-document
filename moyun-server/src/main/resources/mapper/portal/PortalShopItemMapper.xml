@@ -41,4 +41,8 @@
         where status = 'active'
         order by points_cost asc, id asc
     </select>
+    <update id="deductStock">
+        UPDATE portal_shop_item SET stock = stock - 1 WHERE id = #{id} AND status = 'active' AND (stock = -1 OR stock > 0)
+    </update>
+
 </mapper>

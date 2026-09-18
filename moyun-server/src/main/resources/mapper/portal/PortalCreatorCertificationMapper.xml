@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.moyun.portal.mapper.PortalCreatorCertificationMapper">
+
+    <select id="countPendingByUserId" resultType="int">
+        SELECT COUNT(*) FROM portal_creator_certification WHERE user_id = #{userId} AND status = 'pending'
+    </select>
+
+    <select id="selectLatestByUserId" resultType="com.moyun.portal.domain.entity.PortalCreatorCertification">
+        SELECT * FROM portal_creator_certification WHERE user_id = #{userId} ORDER BY id DESC LIMIT 1
+    </select>
+
+    <select id="countApprovedByUserId" resultType="int">
+        SELECT COUNT(*) FROM portal_creator_certification WHERE user_id = #{userId} AND status = 'approved'
+    </select>
+
+</mapper>

@@ -1,6 +1,6 @@
 package com.moyun.ext.ai2.handler.impl;
 
-import com.moyun.ext.ai2.model.AiExecuteRequest;
+import com.moyun.ext.aiapp.model.AiExecuteRequest;
 import org.junit.jupiter.api.Test;
 
 import java.util.HashMap;

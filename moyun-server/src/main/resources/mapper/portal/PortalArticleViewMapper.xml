@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.moyun.portal.mapper.PortalArticleViewMapper">
+
+    <select id="countRecentViews" resultType="int">
+        SELECT COUNT(*) FROM portal_article_view WHERE article_id = #{articleId} AND view_time > #{startTime} AND ((user_id IS NOT NULL AND user_id = #{userId}) OR (user_id IS NULL AND ip = #{ip}))
+    </select>
+
+    <select id="countRecentViewsByIp" resultType="int">
+        SELECT COUNT(*) FROM portal_article_view WHERE article_id = #{articleId} AND view_time > #{startTime} AND ip = #{ip}
+    </select>
+
+    <select id="countUniqueViews" resultType="int">
+        SELECT COUNT(DISTINCT CASE WHEN user_id IS NOT NULL THEN CONCAT('u:', user_id) ELSE CONCAT('i:', ip) END) FROM portal_article_view WHERE article_id = #{articleId}
+    </select>
+
+    <select id="selectAllViewedArticleIds" resultType="Long">
+        SELECT DISTINCT article_id FROM portal_article_view WHERE article_id IS NOT NULL
+    </select>
+
+    <select id="countTodayVisitors" resultType="long">
+        SELECT COUNT(DISTINCT CASE WHEN user_id IS NOT NULL THEN CONCAT('u:', user_id) ELSE CONCAT('i:', ip) END) FROM portal_article_view WHERE view_time >= #{startTime}
+    </select>
+
+    <select id="countTodayPageViews" resultType="long">
+        SELECT COUNT(*) FROM portal_article_view WHERE view_time >= #{startTime}
+    </select>
+
+    <select id="selectDailyVisitorTrend" resultType="java.util.Map">
+        SELECT DATE(view_time) AS date, COUNT(DISTINCT CASE WHEN user_id IS NOT NULL THEN CONCAT('u:', user_id) ELSE CONCAT('i:', ip) END) AS value FROM portal_article_view WHERE view_time >= #{startTime} GROUP BY DATE(view_time) ORDER BY date
+    </select>
+
+</mapper>

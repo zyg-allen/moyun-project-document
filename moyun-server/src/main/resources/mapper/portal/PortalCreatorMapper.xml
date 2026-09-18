@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.moyun.portal.mapper.PortalCreatorMapper">
+
+    <select id="dailyViewTrend" resultType="java.util.Map">
+        SELECT DATE_FORMAT(v.view_time, '%Y-%m-%d') AS date, COUNT(*) AS value FROM portal_article_view v INNER JOIN portal_article a ON a.id = v.article_id WHERE a.author_id = #{userId} AND v.view_time >= #{startTime} GROUP BY DATE_FORMAT(v.view_time, '%Y-%m-%d') ORDER BY date
+    </select>
+
+    <select id="dailyLikeTrend" resultType="java.util.Map">
+        SELECT DATE_FORMAT(l.create_time, '%Y-%m-%d') AS date, COUNT(*) AS value FROM portal_like l INNER JOIN portal_article a ON a.id = l.article_id WHERE a.author_id = #{userId} AND l.create_time >= #{startTime} GROUP BY DATE_FORMAT(l.create_time, '%Y-%m-%d') ORDER BY date
+    </select>
+
+    <select id="dailyBookmarkTrend" resultType="java.util.Map">
+        SELECT DATE_FORMAT(b.create_time, '%Y-%m-%d') AS date, COUNT(*) AS value FROM portal_bookmark b INNER JOIN portal_article a ON a.id = b.article_id WHERE a.author_id = #{userId} AND b.create_time >= #{startTime} GROUP BY DATE_FORMAT(b.create_time, '%Y-%m-%d') ORDER BY date
+    </select>
+
+    <select id="dailyFollowerTrend" resultType="java.util.Map">
+        SELECT DATE_FORMAT(f.create_time, '%Y-%m-%d') AS date, COUNT(*) AS value FROM portal_follow f WHERE f.following_id = #{userId} AND f.create_time >= #{startTime} GROUP BY DATE_FORMAT(f.create_time, '%Y-%m-%d') ORDER BY date
+    </select>
+
+    <select id="calendarHeatmap" resultType="java.util.Map">
+        SELECT dt AS date, SUM(cnt) AS count FROM (   SELECT DATE_FORMAT(create_time, '%Y-%m-%d') AS dt, COUNT(*) AS cnt FROM portal_article   WHERE author_id = #{userId} AND create_time >= #{startTime}   GROUP BY DATE_FORMAT(create_time, '%Y-%m-%d')   UNION ALL   SELECT DATE_FORMAT(update_time, '%Y-%m-%d') AS dt, COUNT(*) AS cnt FROM portal_article   WHERE author_id = #{userId} AND update_time >= #{startTime}   GROUP BY DATE_FORMAT(update_time, '%Y-%m-%d') ) t GROUP BY dt ORDER BY date
+    </select>
+
+    <select id="readerRegionTop10" resultType="java.util.Map">
+        SELECT COALESCE(v.ip, '未知') AS region, COUNT(*) AS value FROM portal_article_view v INNER JOIN portal_article a ON a.id = v.article_id WHERE a.author_id = #{userId} AND v.view_time >= #{startTime} GROUP BY v.ip ORDER BY value DESC LIMIT 10
+    </select>
+
+    <select id="readerHourDistribution" resultType="java.util.Map">
+        SELECT HOUR(v.view_time) AS hour, COUNT(*) AS value FROM portal_article_view v INNER JOIN portal_article a ON a.id = v.article_id WHERE a.author_id = #{userId} AND v.view_time >= #{startTime} GROUP BY HOUR(v.view_time) ORDER BY hour
+    </select>
+
+    <select id="readerGenderDistribution" resultType="java.util.Map">
+        SELECT COALESCE(u.gender, 'unknown') AS gender, COUNT(DISTINCT v.user_id) AS value FROM portal_article_view v INNER JOIN portal_article a ON a.id = v.article_id LEFT JOIN portal_user u ON u.id = v.user_id WHERE a.author_id = #{userId} AND v.view_time >= #{startTime}   AND v.user_id IS NOT NULL GROUP BY u.gender
+    </select>
+
+    <select id="readerAgeRangeDistribution" resultType="java.util.Map">
+        SELECT   CASE     WHEN u.birthday IS NULL OR u.birthday = '' THEN 'unknown'     WHEN STR_TO_DATE(u.birthday, '%Y-%m-%d') IS NULL THEN 'unknown'     WHEN TIMESTAMPDIFF(YEAR, STR_TO_DATE(u.birthday, '%Y-%m-%d'), CURDATE()) &lt; 18 THEN 'under_18'     WHEN TIMESTAMPDIFF(YEAR, STR_TO_DATE(u.birthday, '%Y-%m-%d'), CURDATE()) BETWEEN 18 AND 24 THEN '18_24'     WHEN TIMESTAMPDIFF(YEAR, STR_TO_DATE(u.birthday, '%Y-%m-%d'), CURDATE()) BETWEEN 25 AND 30 THEN '25_30'     WHEN TIMESTAMPDIFF(YEAR, STR_TO_DATE(u.birthday, '%Y-%m-%d'), CURDATE()) BETWEEN 31 AND 35 THEN '31_35'     WHEN TIMESTAMPDIFF(YEAR, STR_TO_DATE(u.birthday, '%Y-%m-%d'), CURDATE()) BETWEEN 36 AND 45 THEN '36_45'     ELSE 'over_45'   END AS age_range,   COUNT(DISTINCT v.user_id) AS value FROM portal_article_view v INNER JOIN portal_article a ON a.id = v.article_id LEFT JOIN portal_user u ON u.id = v.user_id WHERE a.author_id = #{userId} AND v.view_time >= #{startTime}   AND v.user_id IS NOT NULL GROUP BY age_range
+    </select>
+
+</mapper>

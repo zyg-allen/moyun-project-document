@@ -102,4 +102,20 @@
     <select id="countFollowing" resultType="long">
         select count(1) from portal_follow where follower_id = #{followerId}
     </select>
+    <select id="batchCountFollowers" resultType="java.util.Map">
+        SELECT following_id AS userId, count(1) AS cnt FROM portal_follow WHERE following_id IN <foreach item='id' collection='followingIds' open='(' separator=',' close=')'>#{id}</foreach> GROUP BY following_id
+    </select>
+
+    <select id="batchCountFollowing" resultType="java.util.Map">
+        SELECT follower_id AS userId, count(1) AS cnt FROM portal_follow WHERE follower_id IN <foreach item='id' collection='followerIds' open='(' separator=',' close=')'>#{id}</foreach> GROUP BY follower_id
+    </select>
+
+    <select id="selectFollowerUserPage" resultType="com.moyun.portal.domain.vo.FollowUserVO">
+        SELECT f.id, f.follower_id AS user_id, u.username, u.nickname, u.avatar, u.bio, u.position, f.create_time AS created_at FROM portal_follow f LEFT JOIN portal_user u ON u.id = f.follower_id WHERE f.following_id = #{followingId} ORDER BY f.create_time DESC
+    </select>
+
+    <select id="selectFollowingUserPage" resultType="com.moyun.portal.domain.vo.FollowUserVO">
+        SELECT f.id, f.following_id AS user_id, u.username, u.nickname, u.avatar, u.bio, u.position, f.create_time AS created_at FROM portal_follow f LEFT JOIN portal_user u ON u.id = f.following_id WHERE f.follower_id = #{followerId} ORDER BY f.create_time DESC
+    </select>
+
 </mapper>

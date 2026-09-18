@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.moyun.ext.ai.mapper.AgentWorkflowRelationMapper">
+
+    <select id="selectWorkflowIdsByAgentId" resultType="Long">
+        SELECT workflow_id FROM ai_agent_workflow_relation WHERE agent_id = #{agentId} AND enabled = 1 ORDER BY sort_order
+    </select>
+
+    <select id="selectAgentIdsByWorkflowId" resultType="Long">
+        SELECT agent_id FROM ai_agent_workflow_relation WHERE workflow_id = #{workflowId} AND enabled = 1
+    </select>
+
+</mapper>

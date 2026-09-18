@@ -1,8 +1,8 @@
 package com.moyun.ext.ai2.support;
 
 import com.moyun.ext.ai.entity.AiSceneConfig;
-import com.moyun.ext.ai2.constant.AiErrorCodes;
-import com.moyun.ext.ai2.model.AiExecuteResponse;
+import com.moyun.ext.aiapp.constant.AiErrorCodes;
+import com.moyun.ext.aiapp.model.AiExecuteResponse;
 import com.moyun.system.domain.entity.SysSensitiveWord;
 import com.moyun.system.filter.SensitiveWordFilter;
 import com.moyun.system.mapper.SysSensitiveWordMapper;

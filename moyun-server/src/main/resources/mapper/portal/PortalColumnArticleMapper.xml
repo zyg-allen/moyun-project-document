@@ -49,4 +49,8 @@
         ORDER BY ca.sort_order ASC, ca.created_time ASC
     </select>
 
+    <select id="countByColumn" resultType="int">
+        SELECT COUNT(*) FROM portal_column_article WHERE column_id = #{columnId}
+    </select>
+
 </mapper>

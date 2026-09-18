@@ -6,7 +6,6 @@ import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
-import org.apache.ibatis.annotations.Select;
 
 import com.moyun.portal.domain.entity.PortalUser;
 import com.moyun.portal.domain.query.UserQuery;
@@ -144,17 +143,6 @@ public interface PortalUserMapper extends BaseMapper<PortalUser> {
      * @param limit 取前 N 条（前端首页传 10，/authors 页传 100）
      * @return 符合条件的用户列表
      */
-    @Select("SELECT u.* " +
-            "FROM portal_user u " +
-            "WHERE u.status = '0' " +
-            "  AND u.del_flag = '0' " +
-            "  AND u.is_certified_creator = 1 " +
-            "  AND u.privacy_profile = 1 " +
-            "  AND EXISTS (" +
-            "    SELECT 1 FROM portal_article a " +
-            "    WHERE a.author_id = u.id AND a.status = 'published'" +
-            "  ) " +
-            "ORDER BY (SELECT COUNT(*) FROM portal_article a WHERE a.author_id = u.id AND a.status = 'published') DESC, u.create_time DESC " +
-            "LIMIT #{limit}")
+
     List<PortalUser> selectAuthors(@Param("limit") int limit);
 }

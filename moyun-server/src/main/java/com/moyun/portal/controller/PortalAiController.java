@@ -20,11 +20,23 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.moyun.core.base.AjaxResult;
 import com.moyun.core.base.BaseController;
-import com.moyun.ext.ai.service.LLMService;
+import com.moyun.ext.ai.enums.AiSceneEnum;
+import com.moyun.ext.aiapp.constant.AiErrorCodes;
+import com.moyun.ext.aiapp.model.AiExecuteRequest;
+import com.moyun.ext.aiapp.model.AiExecuteResponse;
+import com.moyun.ext.aiapp.model.data.GenericSceneData;
+import com.moyun.ext.aiapp.service.AiGatewayService;
 import com.moyun.util.string.StringUtils;
 
 /**
  * 门户 AI 内容分析统一 Controller（需登录，消耗 AI Token 的能力不放公开接口）
+ *
+ * <p><b>TODO v12.2 统一入口整改</b>：本类自维护 SCENES 场景分发表 + 直调 LLMService，
+ * 与 {@code com.moyun.ext.aiapp} 统一网关（AiSceneHandler + AiGatewayService）机制重复。
+ * 待迁移：article-meta / tags 两场景下沉为 aiapp/handler/impl 下 ArticleMetaHandler /
+ * ContentTagsHandler（scene_code=article_meta/content_tags），本类薄化为仅调
+ * {@link com.moyun.ext.aiapp.support.AiSceneJsonClient#executeForJson}，toPlainText/clip
+ * 等工具迁入 Handler。详见《AI 统一入口整改方案》。
  *
  * <p>设计：一个端点 {@code POST /portal/ai/analyze} + 场景注册表（scene）。
  * 各业务方按 scene 取用分析能力，新增场景只需在 {@link #SCENES} 注册一条
@@ -50,7 +62,7 @@ public class PortalAiController extends BaseController {
 
     /** AI 生成服务（未配置默认模型时为 null，走本地兜底） */
     @Autowired(required = false)
-    private LLMService llmService;
+    private AiGatewayService aiGatewayService;
 
     // ==================== 请求/响应结构 ====================
 
@@ -184,9 +196,9 @@ public class PortalAiController extends BaseController {
     @PostMapping("/analyze")
     public AjaxResult analyze(@RequestBody AnalyzeQuery query) {
         String scene = query.getScene();
-        SceneHandler handler = SCENES.get(scene);
-        if (handler == null) {
-            return error("不支持的分析场景: " + scene + "，可用: " + SCENES.keySet());
+        String sceneCode = mapSceneCode(scene);
+        if (sceneCode == null) {
+            return error("不支持的分析场景: " + scene);
         }
 
         String title = query.getTitle() == null ? "" : query.getTitle().trim();
@@ -195,30 +207,62 @@ public class PortalAiController extends BaseController {
         Map<String, Object> result;
         String source = "fallback";
 
-        if (llmService != null && StringUtils.isNotEmpty(plainText)) {
+        if (aiGatewayService != null && StringUtils.isNotEmpty(plainText)) {
             try {
-                String answer = llmService.generate(handler.buildPrompt(title, plainText));
-                Map<String, Object> parsed = handler.parse(answer, title, plainText);
-                if (parsed != null) {
-                    result = parsed;
+                Map<String, Object> input = new HashMap<>();
+                input.put("title", title);
+                input.put("content", plainText);
+                AiExecuteRequest request = new AiExecuteRequest();
+                request.setSceneCode(sceneCode);
+                request.setInput(input);
+                AiExecuteResponse<?> resp = aiGatewayService.execute(request);
+                if (resp.getCode() != null && resp.getCode() == AiErrorCodes.SUCCESS
+                        && resp.getData() instanceof GenericSceneData generic
+                        && generic.getStructured() != null) {
+                    result = new HashMap<>(generic.getStructured());
                     source = "ai";
                 } else {
-                    log.warn("[PortalAi] scene={} AI 输出解析失败，走本地兜底 answer={}", scene, clip(answer, 120));
-                    result = handler.fallback(title, plainText);
+                    result = localFallback(scene, title, plainText);
                 }
             } catch (Exception e) {
                 log.warn("[PortalAi] scene={} AI 生成失败，走本地兜底 err={}", scene, e.getMessage());
-                result = handler.fallback(title, plainText);
+                result = localFallback(scene, title, plainText);
             }
         } else {
-            if (llmService == null) {
-                log.warn("[PortalAi] LLMService 未注入（AI 模块未启用），scene={} 走本地兜底", scene);
+            if (aiGatewayService == null) {
+                log.warn("[PortalAi] AiGatewayService 未注入，scene={} 走本地兜底", scene);
             }
-            result = handler.fallback(title, plainText);
+            result = localFallback(scene, title, plainText);
         }
 
         result.put("source", source);
         return AjaxResult.success(result);
+    }
+
+    // ==================== 场景映射 + 本地兜底 ====================
+
+    private String mapSceneCode(String scene) {
+        if ("article-meta".equals(scene)) return AiSceneEnum.ARTICLE_META.getCode();
+        if ("tags".equals(scene)) return AiSceneEnum.CONTENT_TAGS.getCode();
+        return null;
+    }
+
+    private Map<String, Object> localFallback(String scene, String title, String plainText) {
+        if ("article-meta".equals(scene)) {
+            String head = clip(plainText.replaceAll("\\s+", " ").trim(), 160);
+            Map<String, Object> r = new HashMap<>();
+            r.put("summary", head);
+            r.put("seoTitle", clip(title, 100));
+            r.put("seoDescription", clip(StringUtils.isEmpty(head) ? title : head, 160));
+            r.put("seoKeywords", "");
+            return r;
+        }
+        if ("tags".equals(scene)) {
+            Map<String, Object> r = new HashMap<>();
+            r.put("tags", List.of());
+            return r;
+        }
+        return new HashMap<>();
     }
 
     // ==================== 通用工具 ====================

@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.moyun.ext.ai.mapper.ChatHistoryMapper">
+
+    <select id="getSessionsByAgentId" resultType="java.util.Map">
+        SELECT session_id, MIN(create_time) as start_time, MAX(create_time) as last_time, COUNT(*) as message_count, SUM(tokens_used) as total_tokens FROM ai_chat_history WHERE agent_id = #{agentId} GROUP BY session_id ORDER BY last_time DESC LIMIT #{limit}
+    </select>
+
+    <select id="getStatsByAgentId" resultType="java.util.Map">
+        SELECT COUNT(DISTINCT session_id) as session_count, COUNT(*) as message_count, SUM(tokens_used) as total_tokens, AVG(response_time) as avg_response_time FROM ai_chat_history WHERE agent_id = #{agentId}
+    </select>
+
+</mapper>

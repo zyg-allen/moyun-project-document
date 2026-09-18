@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.moyun.ext.ai.mapper.KnowledgeLibraryMapper">
+
+    <select id="selectByCategory" resultType="com.moyun.ext.ai.entity.KnowledgeLibrary">
+        SELECT * FROM ai_knowledge_library WHERE category = #{category} AND status = 'active' ORDER BY usage_count DESC
+    </select>
+
+    <select id="selectActiveLibraries" resultType="com.moyun.ext.ai.entity.KnowledgeLibrary">
+        SELECT id, name, description, icon, category, document_count, status FROM ai_knowledge_library WHERE status = 'active' ORDER BY usage_count DESC, create_time DESC
+    </select>
+
+    <update id="updateStatistics">
+        UPDATE ai_knowledge_library SET document_count = (SELECT COUNT(*) FROM ai_knowledge_base WHERE library_id = #{libraryId} AND status = 2), total_segments = (SELECT COALESCE(SUM(segment_count), 0) FROM ai_knowledge_base WHERE library_id = #{libraryId} AND status = 2), total_size = (SELECT COALESCE(SUM(file_size), 0) FROM ai_knowledge_base WHERE library_id = #{libraryId}), updated_at = NOW() WHERE id = #{libraryId}
+    </update>
+
+    <update id="incrementUsageCount">
+        UPDATE ai_knowledge_library SET usage_count = usage_count + 1, last_used_time = NOW() WHERE id = #{libraryId}
+    </update>
+
+    <update id="incrementHitCount">
+        UPDATE ai_knowledge_library SET hit_count = hit_count + 1 WHERE id = #{libraryId}
+    </update>
+
+</mapper>

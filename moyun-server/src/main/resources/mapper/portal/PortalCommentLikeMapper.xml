@@ -19,4 +19,8 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         LIMIT 1
     </select>
 
+    <select id="selectLikedByUser" resultType="Long">
+        SELECT comment_id FROM portal_comment_like WHERE user_id = #{userId} AND comment_id IN <foreach item='id' collection='commentIds' open='(' separator=',' close=')'>#{id}</foreach>
+    </select>
+
 </mapper>

@@ -6,7 +6,6 @@ import com.moyun.ext.cms.domain.vo.ArticleSimpleVO;
 import com.moyun.portal.domain.entity.PortalColumnArticle;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
-import org.apache.ibatis.annotations.Select;
 
 import java.util.List;
 
@@ -42,6 +41,6 @@ public interface PortalColumnArticleMapper extends BaseMapper<PortalColumnArticl
     /**
      * 统计专栏文章数
      */
-    @Select("SELECT COUNT(*) FROM portal_column_article WHERE column_id = #{columnId}")
+
     int countByColumn(@Param("columnId") Long columnId);
 }

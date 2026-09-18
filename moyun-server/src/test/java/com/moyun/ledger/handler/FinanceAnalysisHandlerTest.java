@@ -1,7 +1,8 @@
 package com.moyun.ledger.handler;
 
-import com.moyun.ext.ai2.model.AiExecuteRequest;
-import com.moyun.ext.ai2.model.AiExecuteResponse;
+import com.moyun.ext.aiapp.handler.impl.FinanceAnalysisHandler;
+import com.moyun.ext.aiapp.model.AiExecuteRequest;
+import com.moyun.ext.aiapp.model.AiExecuteResponse;
 import com.moyun.ledger.domain.entity.LedgerAssetAccount;
 import com.moyun.ledger.domain.entity.LedgerCategory;
 import com.moyun.ledger.domain.entity.LedgerLiabilityAccount;

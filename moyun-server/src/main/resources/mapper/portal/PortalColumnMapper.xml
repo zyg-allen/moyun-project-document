@@ -147,4 +147,20 @@
         </foreach>
     </update>
 
+    <select id="countByUserId" resultType="int">
+        SELECT COUNT(*) FROM portal_column WHERE user_id = #{userId}
+    </select>
+
+    <update id="updateArticleCount">
+        UPDATE portal_column SET article_count = GREATEST(article_count + #{delta}, 0) WHERE id = #{id}
+    </update>
+
+    <update id="updateSubscribeCount">
+        UPDATE portal_column SET subscribe_count = GREATEST(subscribe_count + #{delta}, 0) WHERE id = #{id}
+    </update>
+
+    <update id="updateViewCount">
+        UPDATE portal_column SET view_count = view_count + #{delta} WHERE id = #{id}
+    </update>
+
 </mapper>

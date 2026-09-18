@@ -533,4 +533,56 @@
         where pa.id = #{id} and pa.del_flag = '0'
     </select>
 
+    <select id="selectAuthorArticleStats" resultType="java.util.Map">
+        SELECT count(*) AS articleCount, coalesce(sum(views), 0) AS viewSum, coalesce(sum(likes), 0) AS likeSum, coalesce(sum(bookmark_count), 0) AS bookmarkSum, coalesce(sum(comments), 0) AS commentSum FROM portal_article WHERE author_id = #{authorId} AND status = 'published'
+    </select>
+
+    <select id="batchSelectAuthorArticleStats" resultType="java.util.Map">
+        SELECT author_id AS authorId, count(*) AS articleCount, coalesce(sum(views), 0) AS viewSum, coalesce(sum(likes), 0) AS likeSum, coalesce(sum(bookmark_count), 0) AS bookmarkSum, coalesce(sum(comments), 0) AS commentSum FROM portal_article WHERE status = 'published' AND author_id IN <foreach item='id' collection='authorIds' open='(' separator=',' close=')'>#{id}</foreach> GROUP BY author_id
+    </select>
+
+    <select id="selectArticleMetrics" resultType="java.util.Map">
+        SELECT count(*) AS totalArticles, sum(CASE WHEN status = 'published' THEN 1 ELSE 0 END) AS publishedArticles, sum(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) AS pendingArticles, sum(CASE WHEN status = 'draft' THEN 1 ELSE 0 END) AS draftArticles, coalesce(sum(views), 0) AS totalViews, coalesce(sum(likes), 0) AS totalLikes, coalesce(sum(comments), 0) AS totalComments FROM portal_article
+    </select>
+
+    <select id="selectDailyPublishTrend" resultType="java.util.Map">
+        SELECT DATE_FORMAT(create_time, '%Y-%m-%d') AS date, count(*) AS value FROM portal_article WHERE create_time >= #{startTime} GROUP BY DATE_FORMAT(create_time, '%Y-%m-%d') ORDER BY date
+    </select>
+
+    <select id="selectCategoryRanking" resultType="java.util.Map">
+        SELECT c.id AS categoryId, c.name AS categoryName, count(a.id) AS articleCount, coalesce(sum(a.views), 0) AS totalViews, coalesce(sum(a.likes), 0) AS totalLikes FROM portal_category c LEFT JOIN portal_article a ON a.category_id = c.id AND a.status = 'published' WHERE c.category_type = 'article' GROUP BY c.id, c.name ORDER BY articleCount DESC, totalViews DESC LIMIT #{limit}
+    </select>
+
+    <select id="selectPendingArticles" resultType="java.util.Map">
+        SELECT a.id, a.title, a.author_id AS authorId, a.create_time, u.nickname AS authorNickname, u.username AS authorUsername FROM portal_article a LEFT JOIN portal_user u ON u.id = a.author_id WHERE a.status = 'pending' ORDER BY a.create_time ASC LIMIT #{limit}
+    </select>
+
+    <select id="countPendingArticles" resultType="long">
+        SELECT count(*) FROM portal_article WHERE status = 'pending'
+    </select>
+
+    <select id="countTodayNewArticles" resultType="long">
+        SELECT count(*) FROM portal_article WHERE create_time >= #{startTime}
+    </select>
+
+    <select id="selectHotArticlesForRanking" resultType="java.util.Map">
+        SELECT a.id, a.title, a.views, a.likes, (coalesce(a.views,0) + coalesce(a.likes,0) * 5) AS score, a.author_id AS authorId, coalesce(u.nickname, u.username) AS author FROM portal_article a LEFT JOIN portal_user u ON u.id = a.author_id WHERE a.status = 'published' ORDER BY score DESC LIMIT #{limit}
+    </select>
+
+    <update id="incrementViews">
+        UPDATE portal_article SET views = views + #{delta} WHERE id = #{id} AND views + #{delta} >= 0
+    </update>
+
+    <update id="incrementLikes">
+        UPDATE portal_article SET likes = likes + #{delta} WHERE id = #{id} AND likes + #{delta} >= 0
+    </update>
+
+    <update id="incrementComments">
+        UPDATE portal_article SET comments = comments + #{delta} WHERE id = #{id} AND comments + #{delta} >= 0
+    </update>
+
+    <update id="incrementBookmarkCount">
+        UPDATE portal_article SET bookmark_count = bookmark_count + #{delta} WHERE id = #{id} AND bookmark_count + #{delta} >= 0
+    </update>
+
 </mapper>

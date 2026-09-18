@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.moyun.portal.mapper.PortalStudyPlanLogMapper">
+
+    <select id="sumDoneCountByPlan" resultType="int">
+        SELECT COALESCE(SUM(done_count), 0) FROM portal_study_plan_log WHERE plan_id = #{planId}
+    </select>
+
+    <select id="sumDoneCountByUserAndDate" resultType="int">
+        SELECT COALESCE(SUM(done_count), 0) FROM portal_study_plan_log WHERE user_id = #{userId} AND log_date = #{logDate}
+    </select>
+
+</mapper>

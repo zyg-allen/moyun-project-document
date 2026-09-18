@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.moyun.portal.mapper.PortalInterviewQuestionTestCaseMapper">
+
+    <select id="selectByQuestionId" resultType="com.moyun.portal.domain.entity.PortalInterviewQuestionTestCase">
+        SELECT * FROM portal_interview_question_test_case WHERE question_id = #{questionId} ORDER BY order_num ASC, id ASC
+    </select>
+
+    <select id="selectSamplesByQuestionId" resultType="com.moyun.portal.domain.entity.PortalInterviewQuestionTestCase">
+        SELECT * FROM portal_interview_question_test_case WHERE question_id = #{questionId} AND is_sample = 1 ORDER BY order_num ASC, id ASC
+    </select>
+
+    <select id="countByQuestionId" resultType="long">
+        SELECT COUNT(*) FROM portal_interview_question_test_case WHERE question_id = #{questionId}
+    </select>
+
+    <select id="countSamplesByQuestionId" resultType="long">
+        SELECT COUNT(*) FROM portal_interview_question_test_case WHERE question_id = #{questionId} AND is_sample = 1
+    </select>
+
+</mapper>

@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.moyun.portal.mapper.PortalTopicCommentMapper">
+
+    <select id="countRootComments" resultType="long">
+        SELECT COUNT(*) FROM portal_topic_comment WHERE target_type = #{targetType} AND target_id = #{targetId} AND parent_id = 0 AND is_deleted = 0
+    </select>
+
+    <select id="selectRoots" resultType="com.moyun.portal.domain.entity.PortalTopicComment">
+        SELECT * FROM portal_topic_comment WHERE target_type = #{targetType} AND target_id = #{targetId} AND parent_id = 0 AND is_deleted = 0 ORDER BY created_time DESC LIMIT #{offset}, #{size}
+    </select>
+
+    <select id="selectRepliesByRootIds" resultType="com.moyun.portal.domain.entity.PortalTopicComment">
+        SELECT * FROM (   SELECT c.*, ROW_NUMBER() OVER (PARTITION BY c.root_id ORDER BY c.created_time ASC) AS rn   FROM portal_topic_comment c   WHERE c.is_deleted = 0 AND c.parent_id != 0 AND c.root_id IN   <foreach item='id' collection='rootIds' open='(' separator=',' close=')'>#{id}</foreach> ) t WHERE t.rn &lt;= 10 ORDER BY t.root_id ASC, t.created_time ASC
+    </select>
+
+    <update id="softDelete">
+        UPDATE portal_topic_comment SET is_deleted = 1 WHERE id = #{id} AND is_deleted = 0
+    </update>
+
+    <update id="softDeleteByRoot">
+        UPDATE portal_topic_comment SET is_deleted = 1 WHERE root_id = #{rootId} AND is_deleted = 0
+    </update>
+
+    <update id="softDeleteByTopicId">
+        UPDATE portal_topic_comment SET is_deleted = 1 WHERE target_type = 'topic' AND target_id = #{topicId} AND is_deleted = 0
+    </update>
+
+    <update id="softDeleteByPostIds">
+        UPDATE portal_topic_comment SET is_deleted = 1 WHERE target_type = 'post' AND target_id IN <foreach item='postId' collection='postIds' open='(' separator=',' close=')'>#{postId}</foreach> AND is_deleted = 0
+    </update>
+
+    <update id="softDeleteByPostId">
+        UPDATE portal_topic_comment SET is_deleted = 1 WHERE target_type = 'post' AND target_id = #{postId} AND is_deleted = 0
+    </update>
+
+    <update id="incrementLikeCount">
+        UPDATE portal_topic_comment SET like_count = like_count + #{delta} WHERE id = #{id} AND like_count + #{delta} >= 0
+    </update>
+
+    <update id="incrementReplyCount">
+        UPDATE portal_topic_comment SET reply_count = reply_count + #{delta} WHERE id = #{id} AND reply_count + #{delta} >= 0
+    </update>
+
+    <update id="decrementReplyCount">
+        UPDATE portal_topic_comment SET reply_count = reply_count - #{delta} WHERE id = #{id} AND reply_count - #{delta} >= 0
+    </update>
+
+</mapper>

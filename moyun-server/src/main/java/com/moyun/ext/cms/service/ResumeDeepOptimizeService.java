@@ -4,7 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import com.moyun.ext.ai2.support.AiSceneJsonClient;
+import com.moyun.ext.aiapp.support.AiSceneJsonClient;
 import com.moyun.ext.ai.service.AiGlobalSwitch;
 import com.moyun.ext.cms.domain.vo.ResumeDeepOptimizeVO;
 import com.moyun.ext.cms.domain.vo.UserResumeVO;
@@ -25,6 +25,7 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import com.moyun.ext.ai.enums.AiSceneEnum;
 
 /**
  * 简历深度优化服务（简历优化重构 / 抽出 Generator 解决循环依赖）
@@ -48,7 +49,7 @@ import java.util.Map;
 @Service
 public class ResumeDeepOptimizeService {
     /** 本服务所属 AI 场景代码（绑定见 ai_scene_config，业务不感知模型选择） */
-    private static final String SCENE_RESUME_OPTIMIZE = "resume_optimize";
+    private static final String SCENE_RESUME_OPTIMIZE = AiSceneEnum.RESUME_OPTIMIZE.getCode();
 
 
     private static final Logger log = LoggerFactory.getLogger(ResumeDeepOptimizeService.class);
@@ -56,10 +57,7 @@ public class ResumeDeepOptimizeService {
     @Autowired
     private AiGlobalSwitch aiGlobalSwitch;
 
-    @Autowired
-    private LlmClient llmClient;
-
-    /** LLM 调用统一走 AI 网关（task=field_assist/draft_empty 子任务） */
+        /** LLM 调用统一走 AI 网关（task=field_assist/draft_empty 子任务） */
     @Autowired
     private AiSceneJsonClient aiSceneJsonClient;
 
@@ -100,7 +98,7 @@ public class ResumeDeepOptimizeService {
      */
     public List<Map<String, String>> fieldAssist(String field, String originalText, String position,
                                                  List<String> skillNames, Long userId) {
-        if (!aiGlobalSwitch.isEnabled() || !aiGlobalSwitch.isResumeAdviceEnabled() || !llmClient.isEnabled()) {
+        if (!aiGlobalSwitch.isEnabled() || !aiGlobalSwitch.isResumeAdviceEnabled()) {
             throw new ServiceException("AI 辅助需要 AI 模型支持，请管理员在后台配置 AI 模型后使用");
         }
         if (originalText == null || originalText.trim().isEmpty()) {
@@ -201,7 +199,7 @@ public class ResumeDeepOptimizeService {
         }
 
         // 3. LLM 未启用/不可用时返回空结果 + 提示
-        if (!aiGlobalSwitch.isEnabled() || !aiGlobalSwitch.isResumeAdviceEnabled() || !llmClient.isEnabled()) {
+        if (!aiGlobalSwitch.isEnabled() || !aiGlobalSwitch.isResumeAdviceEnabled()) {
             result.put("message", "AI 填充需要 AI 模型支持，请管理员在后台配置 AI 模型后使用");
             return result;
         }

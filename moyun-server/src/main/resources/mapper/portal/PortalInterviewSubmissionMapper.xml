@@ -45,4 +45,48 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         select count(*) from portal_interview_submission where question_id = #{questionId} and is_success = true
     </select>
 
+    <select id="selectFeaturedByQuestion" resultType="com.moyun.portal.domain.entity.PortalInterviewSubmission">
+        SELECT * FROM portal_interview_submission WHERE question_id = #{questionId} AND is_featured = 1 AND note IS NOT NULL AND note != '' ORDER BY featured_time DESC
+    </select>
+
+    <select id="selectSubmissionsByUserId" resultType="com.moyun.portal.domain.entity.PortalInterviewSubmission">
+        SELECT * FROM portal_interview_submission WHERE user_id = #{userId} ORDER BY create_time DESC
+    </select>
+
+    <select id="selectCalendarByUserAndYear" resultType="java.util.Map">
+        SELECT DATE(create_time) AS date, COUNT(*) AS count, SUM(CASE WHEN is_success = 1 THEN 1 ELSE 0 END) AS success_count FROM portal_interview_submission WHERE user_id = #{userId} AND YEAR(create_time) = #{year} GROUP BY DATE(create_time) ORDER BY date ASC
+    </select>
+
+    <select id="selectQuestionCountLeaderboard" resultType="java.util.Map">
+        SELECT s.user_id AS user_id, u.nickname AS nickname, u.avatar AS avatar, COUNT(DISTINCT s.question_id) AS passed_count, COUNT(*) AS submit_count FROM portal_interview_submission s LEFT JOIN portal_user u ON u.id = s.user_id WHERE s.is_success = 1 GROUP BY s.user_id, u.nickname, u.avatar ORDER BY passed_count DESC, submit_count ASC, s.user_id ASC LIMIT #{limit}
+    </select>
+
+    <select id="selectScoreLeaderboard" resultType="java.util.Map">
+        SELECT s.user_id AS user_id, u.nickname AS nickname, u.avatar AS avatar, SUM(CASE WHEN s.is_success = 1 THEN 5 ELSE 1 END) AS score, COUNT(*) AS submit_count, SUM(CASE WHEN s.is_success = 1 THEN 1 ELSE 0 END) AS passed_count FROM portal_interview_submission s LEFT JOIN portal_user u ON u.id = s.user_id GROUP BY s.user_id, u.nickname, u.avatar ORDER BY score DESC, submit_count ASC, s.user_id ASC LIMIT #{limit}
+    </select>
+
+    <select id="selectPassedQuestionCount" resultType="Long">
+        SELECT COUNT(DISTINCT question_id) FROM portal_interview_submission WHERE user_id = #{userId} AND is_success = 1
+    </select>
+
+    <select id="selectLearnScore" resultType="Long">
+        SELECT COALESCE(SUM(CASE WHEN is_success = 1 THEN 5 ELSE 1 END), 0) FROM portal_interview_submission WHERE user_id = #{userId}
+    </select>
+
+    <select id="selectSubmitCountByUser" resultType="Long">
+        SELECT COUNT(*) FROM portal_interview_submission WHERE user_id = #{userId}
+    </select>
+
+    <select id="selectQuestionCountRank" resultType="Long">
+        SELECT COUNT(*) + 1 FROM (  SELECT user_id FROM portal_interview_submission WHERE is_success = 1   GROUP BY user_id   HAVING COUNT(DISTINCT question_id) > (    SELECT COUNT(DISTINCT question_id) FROM portal_interview_submission     WHERE user_id = #{userId} AND is_success = 1  )) t
+    </select>
+
+    <select id="selectLearnScoreRank" resultType="Long">
+        SELECT COUNT(*) + 1 FROM (  SELECT user_id FROM portal_interview_submission   GROUP BY user_id   HAVING SUM(CASE WHEN is_success = 1 THEN 5 ELSE 1 END) > (    SELECT COALESCE(SUM(CASE WHEN is_success = 1 THEN 5 ELSE 1 END), 0)     FROM portal_interview_submission WHERE user_id = #{userId}  )) t
+    </select>
+
+    <update id="updateFeatured">
+        UPDATE portal_interview_submission SET is_featured = #{isFeatured}, featured_time = CASE WHEN #{isFeatured} = 1 THEN NOW() ELSE NULL END WHERE id = #{id}
+    </update>
+
 </mapper>

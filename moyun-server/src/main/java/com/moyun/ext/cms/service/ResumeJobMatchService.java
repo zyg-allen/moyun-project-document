@@ -4,7 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import com.moyun.ext.ai2.support.AiSceneJsonClient;
+import com.moyun.ext.aiapp.support.AiSceneJsonClient;
 import com.moyun.ext.ai.service.AiGlobalSwitch;
 import com.moyun.ext.cms.domain.vo.UserResumeVO;
 import com.moyun.portal.domain.entity.PortalResumeJobMatch;
@@ -27,6 +27,7 @@ import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
+import com.moyun.ext.ai.enums.AiSceneEnum;
 
 /**
  * 岗位匹配分析服务（简历优化重构）
@@ -40,7 +41,7 @@ import java.util.stream.Collectors;
 @Service
 public class ResumeJobMatchService {
     /** 本服务所属 AI 场景代码（绑定见 ai_scene_config，业务不感知模型选择） */
-    private static final String SCENE_RESUME_OPTIMIZE = "resume_optimize";
+    private static final String SCENE_RESUME_OPTIMIZE = AiSceneEnum.RESUME_OPTIMIZE.getCode();
 
 
     private static final Logger log = LoggerFactory.getLogger(ResumeJobMatchService.class);
@@ -48,10 +49,7 @@ public class ResumeJobMatchService {
     @Autowired
     private AiGlobalSwitch aiGlobalSwitch;
 
-    @Autowired
-    private LlmClient llmClient;
-
-    /** 匹配分析统一走 AI 网关（task=job_match 子任务） */
+        /** 匹配分析统一走 AI 网关（task=job_match 子任务） */
     @Autowired
     private AiSceneJsonClient aiSceneJsonClient;
 
@@ -80,7 +78,7 @@ public class ResumeJobMatchService {
 
         PortalResumeJobMatch report;
         boolean llmOk = false;
-        if (aiGlobalSwitch.isEnabled() && aiGlobalSwitch.isResumeAdviceEnabled() && llmClient.isEnabled()) {
+        if (aiGlobalSwitch.isEnabled() && aiGlobalSwitch.isResumeAdviceEnabled()) {
             try {
                 report = analyzeByLlm(userId, resume, target);
                 llmOk = true;

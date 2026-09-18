@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.moyun.portal.mapper.PortalUserTaskMapper">
+
+    <select id="selectByUserAndTask" resultType="com.moyun.portal.domain.entity.PortalUserTask">
+        SELECT * FROM portal_user_task WHERE user_id = #{userId} AND task_id = #{taskId}
+    </select>
+
+    <select id="selectUserTasksWithDetail" resultType="java.util.Map">
+        SELECT ut.*, t.code AS task_code, t.name AS task_name, t.task_type, t.reward_points, t.target_count, t.icon AS task_icon FROM portal_user_task ut LEFT JOIN portal_task t ON ut.task_id = t.id WHERE ut.user_id = #{userId} ORDER BY t.task_type ASC, t.id ASC
+    </select>
+
+    <update id="addProgress">
+        UPDATE portal_user_task SET progress = LEAST(progress + #{delta}, #{targetCount}), completed = IF(progress + #{delta} >= #{targetCount}, 1, completed), completed_time = IF(progress + #{delta} >= #{targetCount} AND completed = 0, NOW(), completed_time) WHERE user_id = #{userId} AND task_id = #{taskId} AND claimed = 0
+    </update>
+
+    <update id="markClaimed">
+        UPDATE portal_user_task SET claimed = 1 WHERE id = #{id} AND user_id = #{userId} AND completed = 1 AND claimed = 0
+    </update>
+
+</mapper>

@@ -83,4 +83,24 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         truncate table sys_logininfor
     </update>
     
+    <select id="countTodayLoginUsers" resultType="long">
+        SELECT COUNT(DISTINCT user_name) FROM sys_logininfor WHERE login_time >= #{startTime}
+    </select>
+
+    <select id="countTodayLoginUsersByType" resultType="long">
+        SELECT COUNT(DISTINCT user_name) FROM sys_logininfor WHERE login_time >= #{startTime} AND user_type = #{userType}
+    </select>
+
+    <select id="countTodayLoginCount" resultType="long">
+        SELECT COUNT(*) FROM sys_logininfor WHERE login_time >= #{startTime}
+    </select>
+
+    <select id="countTodayLoginSuccess" resultType="long">
+        SELECT COUNT(*) FROM sys_logininfor WHERE login_time >= #{startTime} AND status = '0'
+    </select>
+
+    <select id="selectDailyLoginTrend" resultType="java.util.Map">
+        SELECT DATE_FORMAT(login_time, '%Y-%m-%d') AS date, COUNT(*) AS value, CONCAT(IFNULL(user_type,'sys'), '_', CASE WHEN status = '0' THEN 'success' ELSE 'fail' END) AS label FROM sys_logininfor WHERE login_time >= #{startTime} GROUP BY DATE_FORMAT(login_time, '%Y-%m-%d'), user_type, status ORDER BY date
+    </select>
+
 </mapper> 

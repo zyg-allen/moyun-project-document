@@ -42,7 +42,7 @@ import dev.langchain4j.data.message.SystemMessage;
 import dev.langchain4j.data.message.UserMessage;
 import dev.langchain4j.memory.chat.MessageWindowChatMemory;
 import dev.langchain4j.rag.content.Content;
-import com.moyun.ext.ai2.support.PromptInjectionGuard;
+import com.moyun.ext.aiapp.support.PromptInjectionGuard;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -283,8 +283,8 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
     @Autowired private PortalInterviewQuestionMapper questionMapper;
     @Autowired private PortalUserResumeMapper userResumeMapper;
     @Autowired private ObjectMapper objectMapper;
-    /** LLM 直调收口网关后移除 LlmClient 依赖，统一走 AiSceneJsonClient */
-    @Autowired private com.moyun.ext.ai2.support.AiSceneJsonClient aiSceneJsonClient;
+    /** 面试场景统一走 AiSceneJsonClient（AI 统一网关入口） */
+    @Autowired private com.moyun.ext.aiapp.support.AiSceneJsonClient aiSceneJsonClient;
     /** AI 全局运行时开关（sys_config ai.global.enabled，替代 yaml 静态配置） */
     @Autowired private com.moyun.ext.ai.service.AiGlobalSwitch aiGlobalSwitch;
     @Autowired private InterviewAgentClient agentClient;

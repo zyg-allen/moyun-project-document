@@ -21,11 +21,11 @@ import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.moyun.ext.ai2.constant.AiErrorCodes;
-import com.moyun.ext.ai2.model.AiExecuteRequest;
-import com.moyun.ext.ai2.model.AiExecuteResponse;
-import com.moyun.ext.ai2.model.data.TopicSceneData;
-import com.moyun.ext.ai2.service.AiGatewayService;
+import com.moyun.ext.aiapp.constant.AiErrorCodes;
+import com.moyun.ext.aiapp.model.AiExecuteRequest;
+import com.moyun.ext.aiapp.model.AiExecuteResponse;
+import com.moyun.ext.aiapp.model.data.TopicSceneData;
+import com.moyun.ext.aiapp.service.AiGatewayService;
 import com.moyun.ext.cms.service.IFeedService;
 import com.moyun.common.exception.system.ServiceException;
 import com.moyun.system.domain.dto.AuditTaskSubmitDTO;
@@ -46,6 +46,7 @@ import com.moyun.portal.mapper.PortalUserMapper;
 import com.moyun.portal.service.IPortalGrowthService;
 import com.moyun.portal.service.IPortalTopicService;
 import com.moyun.portal.util.PortalSecurityUtils;
+import com.moyun.ext.ai.enums.AiSceneEnum;
 
 /**
  * 话题 服务实现
@@ -527,7 +528,7 @@ public class PortalTopicServiceImpl extends ServiceImpl<PortalTopicMapper, Porta
         // 2. 走统一网关执行 daily_topic（结构化参数走 input 数据通道，不传 userInput——
         //    管理员触发不是对话输入，不参与意图分类；自动享受限流/成本熔断/执行日志）
         AiExecuteRequest request = new AiExecuteRequest();
-        request.setSceneCode("daily_topic");
+        request.setSceneCode(AiSceneEnum.DAILY_TOPIC.getCode());
         Map<String, Object> input = new HashMap<>();
         input.put("date", LocalDate.now().toString());
         if (domain != null && !domain.isBlank()) {

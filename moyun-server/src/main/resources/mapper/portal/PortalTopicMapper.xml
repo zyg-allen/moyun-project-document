@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.moyun.portal.mapper.PortalTopicMapper">
+
+    <select id="selectForUpdate" resultType="com.moyun.portal.domain.entity.PortalTopic">
+        SELECT * FROM portal_topic WHERE id = #{id} FOR UPDATE
+    </select>
+
+    <update id="incrementViewCount">
+        UPDATE portal_topic SET view_count = view_count + #{delta} WHERE id = #{id} AND view_count + #{delta} >= 0
+    </update>
+
+    <update id="incrementPostCount">
+        UPDATE portal_topic SET post_count = post_count + #{delta}, last_post_time = #{postTime}, last_poster_id = #{posterId} WHERE id = #{id} AND post_count + #{delta} >= 0
+    </update>
+
+    <update id="decrementPostCount">
+        UPDATE portal_topic SET post_count = GREATEST(0, post_count - 1) WHERE id = #{topicId}
+    </update>
+
+    <update id="markFeatured">
+        UPDATE portal_topic SET is_featured = 1 WHERE id = #{topicId}
+    </update>
+
+    <update id="incrementLikeCount">
+        UPDATE portal_topic SET like_count = like_count + #{delta} WHERE id = #{id} AND like_count + #{delta} >= 0
+    </update>
+
+    <update id="incrementCommentCount">
+        UPDATE portal_topic SET comment_count = comment_count + #{delta} WHERE id = #{id} AND comment_count + #{delta} >= 0
+    </update>
+
+</mapper>

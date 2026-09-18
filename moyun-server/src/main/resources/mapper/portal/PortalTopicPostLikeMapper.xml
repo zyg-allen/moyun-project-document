@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.moyun.portal.mapper.PortalTopicPostLikeMapper">
+
+    <select id="selectByPostAndUser" resultType="com.moyun.portal.domain.entity.PortalTopicPostLike">
+        SELECT * FROM portal_topic_post_like WHERE post_id = #{postId} AND user_id = #{userId} LIMIT 1
+    </select>
+
+    <select id="selectLikedByUser" resultType="Long">
+        SELECT post_id FROM portal_topic_post_like WHERE user_id = #{userId} AND post_id IN <foreach item='id' collection='postIds' open='(' separator=',' close=')'>#{id}</foreach>
+    </select>
+
+    <delete id="deleteByPostAndUser">
+        DELETE FROM portal_topic_post_like WHERE post_id = #{postId} AND user_id = #{userId}
+    </delete>
+
+</mapper>

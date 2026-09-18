@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.moyun.portal.mapper.PortalUserStatsMapper">
+
+    <select id="selectByUserId" resultType="com.moyun.portal.domain.entity.PortalUserStats">
+        SELECT * FROM portal_user_stats WHERE user_id = #{userId}
+    </select>
+
+    <insert id="insertIfNotExists">
+        INSERT IGNORE INTO portal_user_stats (user_id) VALUES (#{userId})
+    </insert>
+
+    <update id="addArticleCount">
+        UPDATE portal_user_stats SET article_count = article_count + #{delta} WHERE user_id = #{userId}
+    </update>
+
+    <update id="addArticleViewSum">
+        UPDATE portal_user_stats SET article_view_sum = article_view_sum + #{delta} WHERE user_id = #{userId}
+    </update>
+
+    <update id="addArticleLikeSum">
+        UPDATE portal_user_stats SET article_like_sum = article_like_sum + #{delta}, total_like_received = total_like_received + #{delta} WHERE user_id = #{userId}
+    </update>
+
+    <update id="addArticleBookmarkSum">
+        UPDATE portal_user_stats SET article_bookmark_sum = article_bookmark_sum + #{delta} WHERE user_id = #{userId}
+    </update>
+
+    <update id="addArticleWordSum">
+        UPDATE portal_user_stats SET article_word_sum = article_word_sum + #{delta} WHERE user_id = #{userId}
+    </update>
+
+    <update id="addBookFinished">
+        UPDATE portal_user_stats SET book_finished = book_finished + #{delta} WHERE user_id = #{userId}
+    </update>
+
+    <update id="addBooklistCount">
+        UPDATE portal_user_stats SET booklist_count = booklist_count + #{delta} WHERE user_id = #{userId}
+    </update>
+
+    <update id="addQuoteCount">
+        UPDATE portal_user_stats SET quote_count = quote_count + #{delta} WHERE user_id = #{userId}
+    </update>
+
+    <update id="addReadingMinutes">
+        UPDATE portal_user_stats SET reading_minutes = reading_minutes + #{delta} WHERE user_id = #{userId}
+    </update>
+
+    <update id="addQuestionSolved">
+        UPDATE portal_user_stats SET question_solved = question_solved + #{delta} WHERE user_id = #{userId}
+    </update>
+
+    <update id="addNoteCount">
+        UPDATE portal_user_stats SET note_count = note_count + #{delta} WHERE user_id = #{userId}
+    </update>
+
+    <update id="addExperienceCount">
+        UPDATE portal_user_stats SET experience_count = experience_count + #{delta} WHERE user_id = #{userId}
+    </update>
+
+    <update id="addNoteAdopted">
+        UPDATE portal_user_stats SET note_adopted = note_adopted + #{delta} WHERE user_id = #{userId}
+    </update>
+
+    <update id="addFollowerCount">
+        UPDATE portal_user_stats SET follower_count = follower_count + #{delta} WHERE user_id = #{userId}
+    </update>
+
+    <update id="addFollowingCount">
+        UPDATE portal_user_stats SET following_count = following_count + #{delta} WHERE user_id = #{userId}
+    </update>
+
+    <update id="addCommentCount">
+        UPDATE portal_user_stats SET comment_count = comment_count + #{delta} WHERE user_id = #{userId}
+    </update>
+
+    <update id="addTotalLikeReceived">
+        UPDATE portal_user_stats SET total_like_received = total_like_received + #{delta} WHERE user_id = #{userId}
+    </update>
+
+    <update id="updateWeakTags">
+        UPDATE portal_user_stats SET weak_tags = #{weakTags}, weak_tags_updated_time = NOW() WHERE user_id = #{userId}
+    </update>
+
+</mapper>

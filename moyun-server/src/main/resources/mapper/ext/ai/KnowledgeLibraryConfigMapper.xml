@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.moyun.ext.ai.mapper.KnowledgeLibraryConfigMapper">
+
+    <select id="selectByLibraryId" resultType="com.moyun.ext.ai.entity.KnowledgeLibraryConfig">
+        SELECT * FROM ai_knowledge_library_config WHERE library_id = #{libraryId}
+    </select>
+
+</mapper>

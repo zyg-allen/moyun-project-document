@@ -132,4 +132,16 @@
             #{id}
         </foreach>
     </update>
+    <select id="sumCommentLikeReceived" resultType="long">
+        SELECT coalesce(sum(like_count), 0) FROM portal_comment WHERE author_id = #{authorId} AND status = '1'
+    </select>
+
+    <select id="batchSumCommentLikeReceived" resultType="java.util.Map">
+        SELECT author_id AS userId, coalesce(sum(like_count), 0) AS cnt FROM portal_comment WHERE status = '1' AND author_id IN <foreach item='id' collection='authorIds' open='(' separator=',' close=')'>#{id}</foreach> GROUP BY author_id
+    </select>
+
+    <update id="incrementLikes">
+        UPDATE portal_comment SET like_count = like_count + #{delta} WHERE id = #{id} AND like_count + #{delta} >= 0
+    </update>
+
 </mapper>

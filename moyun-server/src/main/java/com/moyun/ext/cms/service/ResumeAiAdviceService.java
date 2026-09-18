@@ -2,7 +2,7 @@ package com.moyun.ext.cms.service;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.moyun.ext.ai2.support.AiSceneJsonClient;
+import com.moyun.ext.aiapp.support.AiSceneJsonClient;
 import com.moyun.ext.ai.service.AiGlobalSwitch;
 import com.moyun.ext.cms.domain.vo.ResumeAiAdviceVO;
 import com.moyun.ext.cms.domain.vo.UserResumeVO;
@@ -19,6 +19,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import com.moyun.ext.ai.enums.AiSceneEnum;
 
 /**
  * 简历 AI 改进建议服务（阶段2/3）
@@ -26,7 +27,7 @@ import java.util.Map;
  * 双模式生成：
  * - 规则化（默认）：基于评分明细 + 岗位匹配度子项生成建议，不依赖外部模型
  * - AI 模型（可选）：当 moyun.ai.enabled=true 且 moyun.ai.resume-advice-enabled=true 时，
- *   通过 {@link LlmClient} 调用真实 LLM 生成建议；LLM 调用失败时自动回退到规则化
+ *   通过 AI 统一网关（AiSceneJsonClient）调用真实 LLM 生成建议；LLM 调用失败时自动回退到规则化
  * <p>
  * 后期接入 AI 时，仅需在 application.yaml 开启配置，无需修改业务代码（VO 结构不变）。
  *
@@ -35,7 +36,7 @@ import java.util.Map;
 @Service
 public class ResumeAiAdviceService {
     /** 本服务所属 AI 场景代码（绑定见 ai_scene_config，业务不感知模型选择） */
-    private static final String SCENE_RESUME_OPTIMIZE = "resume_optimize";
+    private static final String SCENE_RESUME_OPTIMIZE = AiSceneEnum.RESUME_OPTIMIZE.getCode();
 
 
     private static final Logger log = LoggerFactory.getLogger(ResumeAiAdviceService.class);
@@ -43,10 +44,7 @@ public class ResumeAiAdviceService {
     @Autowired
     private AiGlobalSwitch aiGlobalSwitch;
 
-    @Autowired
-    private LlmClient llmClient;
-
-    /** AI 建议生成统一走 AI 网关（task=advice 子任务） */
+        /** AI 建议生成统一走 AI 网关（task=advice 子任务） */
     @Autowired
     private AiSceneJsonClient aiSceneJsonClient;
 
@@ -63,7 +61,7 @@ public class ResumeAiAdviceService {
      */
     public ResumeAiAdviceVO generateAdvice(UserResumeVO vo, List<ScoreItem> scoreItems, String targetPosition) {
         // 1. 优先尝试 AI 模型生成（仅在配置启用时）
-        if (aiGlobalSwitch.isEnabled() && aiGlobalSwitch.isResumeAdviceEnabled() && llmClient.isEnabled()) {
+        if (aiGlobalSwitch.isEnabled() && aiGlobalSwitch.isResumeAdviceEnabled()) {
             try {
                 ResumeAiAdviceVO aiResult = generateAdviceWithLlm(vo, scoreItems, targetPosition);
                 if (aiResult != null) {

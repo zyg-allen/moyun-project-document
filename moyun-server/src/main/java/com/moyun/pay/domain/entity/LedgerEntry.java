@@ -60,6 +60,9 @@ public class LedgerEntry {
     /** 业务摘要，如：打赏收入-作者所得 / 打赏服务费-平台抽成 */
     private String summary;
 
+    /** 归属端代码（sys_platform.platform_code）：portal / ledger */
+    private String platformCode;
+
     private LocalDateTime createTime;
 
     /** 用户昵称（后台展示用，非表字段；PLATFORM 分录为 null，前端显示"平台"） */
@@ -90,4 +93,6 @@ public class LedgerEntry {
     public void setCreateTime(LocalDateTime createTime) { this.createTime = createTime; }
     public String getNickname() { return nickname; }
     public void setNickname(String nickname) { this.nickname = nickname; }
+    public String getPlatformCode() { return platformCode; }
+    public void setPlatformCode(String platformCode) { this.platformCode = platformCode; }
 }

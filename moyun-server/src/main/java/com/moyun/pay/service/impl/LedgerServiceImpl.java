@@ -51,8 +51,8 @@ public class LedgerServiceImpl implements ILedgerService {
 
     @Override
     public List<LedgerEntry> settle(String payNo, String bizType, String bizNo, BigDecimal amount,
-                                    Long userId, String summary) {
-        double feeRate = resolveFeeRate();
+                                    Long userId, String summary, String platformCode) {
+        double feeRate = resolveFeeRate(platformCode);
         BigDecimal platformAmount = amount.multiply(BigDecimal.valueOf(feeRate))
                 .setScale(2, RoundingMode.HALF_UP);
         BigDecimal userAmount = amount.subtract(platformAmount);
@@ -78,6 +78,7 @@ public class LedgerServiceImpl implements ILedgerService {
         platformEntry.setAmount(platformAmount);
         platformEntry.setBalanceAfter(null);
         platformEntry.setSummary(summary + "服务费-平台抽成");
+        platformEntry.setPlatformCode(platformCode);
         platformEntry.setCreateTime(LocalDateTime.now());
         ledgerEntryMapper.insert(platformEntry);
 
@@ -92,11 +93,12 @@ public class LedgerServiceImpl implements ILedgerService {
         userEntry.setAmount(userAmount);
         userEntry.setBalanceAfter(balanceAfter);
         userEntry.setSummary(summary + "收入-用户所得");
+        userEntry.setPlatformCode(platformCode);
         userEntry.setCreateTime(LocalDateTime.now());
         ledgerEntryMapper.insert(userEntry);
 
-        log.info("[ledger] 分账完成 payNo={} amount={}元 platform={}元({}%) user={}元 balanceAfter={}元",
-                payNo, amount, platformAmount, feeRate * 100, userAmount, balanceAfter);
+        log.info("[ledger] 分账完成 payNo={} amount={}元 platform={}元({}%) user={}元 balanceAfter={}元 platformCode={}",
+                payNo, amount, platformAmount, feeRate * 100, userAmount, balanceAfter, platformCode);
 
         List<LedgerEntry> entries = new ArrayList<>();
         entries.add(platformEntry);
@@ -105,7 +107,8 @@ public class LedgerServiceImpl implements ILedgerService {
     }
 
     @Override
-    public LedgerEntry settlePlatform(String payNo, String bizType, String bizNo, BigDecimal amount, String summary) {
+    public LedgerEntry settlePlatform(String payNo, String bizType, String bizNo, BigDecimal amount,
+                                      String summary, String platformCode) {
         if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
             throw new IllegalStateException("平台全额入账金额非法 payNo=" + payNo + " amount=" + amount);
         }
@@ -120,10 +123,11 @@ public class LedgerServiceImpl implements ILedgerService {
         platformEntry.setAmount(amount);
         platformEntry.setBalanceAfter(null);
         platformEntry.setSummary(summary);
+        platformEntry.setPlatformCode(platformCode);
         platformEntry.setCreateTime(LocalDateTime.now());
         ledgerEntryMapper.insert(platformEntry);
-        log.info("[ledger] 平台全额入账完成 payNo={} amount={}元 bizType={} bizNo={}",
-                payNo, amount, bizType, bizNo);
+        log.info("[ledger] 平台全额入账完成 payNo={} amount={}元 bizType={} bizNo={} platformCode={}",
+                payNo, amount, bizType, bizNo, platformCode);
         return platformEntry;
     }
 
@@ -136,20 +140,38 @@ public class LedgerServiceImpl implements ILedgerService {
         return result;
     }
 
-    /** 费率双轨：sys_config 运行时 > yaml 兜底 */
-    private double resolveFeeRate() {
+    /**
+     * 费率三轨：sys_config(platform_code=端级) > sys_config(platform_code IS NULL=全局) > yaml 兜底
+     * 端级费率键：pay.{platformCode}.fee-rate（如 pay.ledger.fee-rate）
+     * 全局费率键：pay.platform.fee-rate
+     */
+    private double resolveFeeRate(String platformCode) {
         try {
+            // 1. 端级费率优先
+            if (platformCode != null && !platformCode.isBlank()) {
+                String platformKey = "pay." + platformCode + ".fee-rate";
+                String platformValue = configService.selectConfigByKey(platformKey);
+                if (platformValue != null && !platformValue.isBlank()) {
+                    double parsed = Double.parseDouble(platformValue.trim());
+                    if (parsed >= 0 && parsed < 1) {
+                        return parsed;
+                    }
+                    log.warn("[ledger] 端级费率配置非法（需 0<=rate<1）: {}={}，回退全局", platformKey, platformValue);
+                }
+            }
+            // 2. 全局费率
             String configValue = configService.selectConfigByKey(FEE_RATE_CONFIG_KEY);
             if (configValue != null && !configValue.isBlank()) {
                 double parsed = Double.parseDouble(configValue.trim());
                 if (parsed >= 0 && parsed < 1) {
                     return parsed;
                 }
-                log.warn("[ledger] 费率配置非法（需 0<=rate<1）: {}，回退 yaml", configValue);
+                log.warn("[ledger] 全局费率配置非法（需 0<=rate<1）: {}，回退 yaml", configValue);
             }
         } catch (Exception e) {
             log.warn("[ledger] 读取费率配置失败，回退 yaml：{}", e.getMessage());
         }
+        // 3. yaml 兜底
         return payProperties.getPlatformFeeRate();
     }
 

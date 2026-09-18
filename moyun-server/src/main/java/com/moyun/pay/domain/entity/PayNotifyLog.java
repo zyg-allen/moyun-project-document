@@ -34,6 +34,9 @@ public class PayNotifyLog {
     /** 失败原因（截断） */
     private String failReason;
 
+    /** 归属端代码（sys_platform.platform_code）：portal / ledger */
+    private String platformCode;
+
     private LocalDateTime createTime;
 
     public Long getId() { return id; }
@@ -50,4 +53,6 @@ public class PayNotifyLog {
     public void setFailReason(String failReason) { this.failReason = failReason; }
     public LocalDateTime getCreateTime() { return createTime; }
     public void setCreateTime(LocalDateTime createTime) { this.createTime = createTime; }
+    public String getPlatformCode() { return platformCode; }
+    public void setPlatformCode(String platformCode) { this.platformCode = platformCode; }
 }

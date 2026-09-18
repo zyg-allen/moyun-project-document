@@ -2,10 +2,10 @@
   <div class="app-container">
     <!-- 搜索表单 -->
     <el-form :model="queryParams" ref="queryRef" :inline="true" v-show="showSearch" label-width="70px">
-      <el-form-item label="平台" prop="platform">
-        <el-select v-model="queryParams.platform" placeholder="全部平台" clearable style="width: 140px">
-          <el-option label="记账App" value="ledger_app" />
-          <el-option label="墨韵门户" value="portal" />
+      <el-form-item label="归属端" prop="platformCode">
+        <el-select v-model="queryParams.platformCode" placeholder="全部端" clearable style="width: 140px">
+          <el-option label="记账端" value="ledger" />
+          <el-option label="门户端" value="portal" />
         </el-select>
       </el-form-item>
       <el-form-item label="渠道" prop="channelCode">
@@ -50,10 +50,10 @@
 
     <!-- 数据表格 -->
     <el-table v-loading="loading" :data="dataList">
-      <el-table-column label="平台" align="center" width="90">
+      <el-table-column label="归属端" align="center" width="90">
         <template #default="scope">
-          <el-tag :type="scope.row.platform === 'ledger_app' ? 'primary' : 'success'" size="small">
-            {{ scope.row.platform === 'ledger_app' ? '记账App' : '墨韵门户' }}
+          <el-tag :type="scope.row.platform_code === 'ledger' ? 'primary' : 'success'" size="small">
+            {{ scope.row.platform_code === 'ledger' ? '记账' : '门户' }}
           </el-tag>
         </template>
       </el-table-column>
@@ -66,7 +66,7 @@
       <el-table-column label="用户" align="center" prop="nickname" width="140" :show-overflow-tooltip="true" />
       <el-table-column label="打赏对象" align="center" width="110">
         <template #default="scope">
-          <span>{{ targetName(scope.row.platform, scope.row.target_type) }}</span>
+          <span>{{ targetName(scope.row.platform_code, scope.row.target_type) }}</span>
         </template>
       </el-table-column>
       <el-table-column label="金额（元）" align="center" width="110">
@@ -120,7 +120,7 @@ const dateRange = ref([]);
 const queryParams = reactive({
   pageNum: 1,
   pageSize: 10,
-  platform: undefined,
+  platformCode: undefined,
   channelCode: undefined,
   status: undefined
 });
@@ -135,8 +135,8 @@ function channelName(code) {
   return map[code] || code || "-";
 }
 
-function targetName(platform, targetType) {
-  if (platform === "ledger_app") {
+function targetName(platformCode, targetType) {
+  if (platformCode === "ledger") {
     return targetType === "platform" ? "平台" : "开发者";
   }
   const map = { article: "文章", column: "专栏", article_paid: "付费文章" };

@@ -31,6 +31,12 @@
           <el-option label="已驳回" value="rejected" />
         </el-select>
       </el-form-item>
+      <el-form-item label="归属端" prop="platformCode">
+        <el-select v-model="queryParams.platformCode" placeholder="归属端" clearable style="width: 130px">
+          <el-option label="门户端" value="portal" />
+          <el-option label="记账端" value="ledger" />
+        </el-select>
+      </el-form-item>
       <el-form-item label="用户ID" prop="userId">
         <el-input v-model="queryParams.userId" placeholder="用户ID" clearable style="width: 140px" @keyup.enter="handleQuery" />
       </el-form-item>
@@ -50,6 +56,13 @@
     <!-- 数据表格 -->
     <el-table v-loading="loading" :data="dataList">
       <el-table-column label="提现单号" align="center" prop="withdrawNo" width="230" :show-overflow-tooltip="true" />
+      <el-table-column label="归属端" align="center" prop="platformCode" width="80">
+        <template #default="scope">
+          <el-tag v-if="scope.row.platformCode === 'portal'" type="primary" size="small">门户</el-tag>
+          <el-tag v-else-if="scope.row.platformCode === 'ledger'" type="success" size="small">记账</el-tag>
+          <span v-else>-</span>
+        </template>
+      </el-table-column>
       <el-table-column label="用户" align="center" width="150">
         <template #default="scope">
           <span>{{ scope.row.nickname || ('用户' + scope.row.userId) }}</span>
@@ -130,6 +143,7 @@ const queryParams = reactive({
   pageNum: 1,
   pageSize: 10,
   status: undefined,
+  platformCode: undefined,
   userId: undefined
 });
 

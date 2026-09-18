@@ -8,9 +8,8 @@ import com.moyun.pay.domain.entity.PayOrder;
 import com.moyun.pay.gateway.IPayGateway;
 import com.moyun.portal.util.PortalSecurityUtils;
 import com.moyun.vip.domain.entity.VipTier;
-import com.moyun.vip.domain.entity.VipUserCard;
 import com.moyun.vip.mapper.VipTierMapper;
-import com.moyun.vip.mapper.VipUserCardMapper;
+import com.moyun.vip.service.IVipService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -21,10 +20,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
-import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -47,10 +43,10 @@ public class PortalLedgerVipController {
     private static final String PLATFORM = "ledger";
 
     @Autowired
-    private VipTierMapper tierMapper;
+    private IVipService vipService;
 
     @Autowired
-    private VipUserCardMapper cardMapper;
+    private VipTierMapper tierMapper;
 
     @Autowired
     private IPayGateway payGateway;
@@ -58,31 +54,14 @@ public class PortalLedgerVipController {
     @Autowired
     private PayProperties payProperties;
 
-    /** 上架等级列表（App 会员页展示，价格后台可配；字段沿用旧套餐契约） */
+    /** 上架等级列表（App 会员页展示，通过 VipService 获取） */
     @Operation(summary = "上架等级列表")
     @GetMapping("/packages")
     public AjaxResult packages() {
-        List<VipTier> tiers = tierMapper.selectList(new LambdaQueryWrapper<VipTier>()
-                .eq(VipTier::getPlatformCode, PLATFORM)
-                .eq(VipTier::getStatus, 1)
-                .ne(VipTier::getTierCode, "free")
-                .orderByAsc(VipTier::getSortOrder));
-        List<Map<String, Object>> records = new ArrayList<>();
-        for (VipTier tier : tiers) {
-            Map<String, Object> item = new HashMap<>();
-            item.put("id", tier.getId());
-            item.put("name", tier.getTierName());
-            item.put("price", tier.getPrice());
-            item.put("originalPrice", tier.getOriginalPrice());
-            item.put("durationDays", tier.getDurationDays());
-            item.put("description", tier.getDescription());
-            item.put("popular", tier.getPopular());
-            records.add(item);
-        }
-        return AjaxResult.success(Map.of("records", records));
+        return AjaxResult.success(Map.of("records", vipService.listTiers(PLATFORM)));
     }
 
-    /** 我的会员状态（isVip/vipExpire，按会员卡口径） */
+    /** 我的会员状态（通过 VipService 获取详情） */
     @Operation(summary = "我的会员状态")
     @GetMapping("/status")
     public AjaxResult status() {
@@ -90,11 +69,7 @@ public class PortalLedgerVipController {
         if (userId == null) {
             return AjaxResult.error(401, "登录已过期，请重新登录");
         }
-        VipUserCard card = selectActiveCard(userId);
-        Map<String, Object> data = new HashMap<>();
-        data.put("isVip", card != null);
-        data.put("vipExpire", card != null ? card.getExpireTime() : null);
-        return AjaxResult.success(data);
+        return AjaxResult.success(vipService.getVipDetail(userId, PLATFORM));
     }
 
     /**
@@ -159,15 +134,4 @@ public class PortalLedgerVipController {
         return AjaxResult.success(result);
     }
 
-    /** 有效会员卡（status=1 且未过期；永久 expire 为空） */
-    private VipUserCard selectActiveCard(Long userId) {
-        return cardMapper.selectOne(new LambdaQueryWrapper<VipUserCard>()
-                .eq(VipUserCard::getUserId, userId)
-                .eq(VipUserCard::getPlatformCode, PLATFORM)
-                .eq(VipUserCard::getStatus, 1)
-                .and(w -> w.isNull(VipUserCard::getExpireTime)
-                        .or().gt(VipUserCard::getExpireTime, LocalDateTime.now()))
-                .orderByDesc(VipUserCard::getId)
-                .last("LIMIT 1"));
-    }
 }

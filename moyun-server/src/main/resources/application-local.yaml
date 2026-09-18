@@ -108,7 +108,7 @@ token:
 # 旭林框架配置（本地文件路径覆盖）
 # =============================================
 moyun:
-  profile: /profile            # 本地文件存储路径
+  profile: ${user.home}/moyun/profile  # 本地文件存储路径（绝对路径，避免 Tomcat 把相对路径解析到 work 临时目录）
   # 慢 SQL 治理配置
   slow-sql:
     threshold-millis: 3000

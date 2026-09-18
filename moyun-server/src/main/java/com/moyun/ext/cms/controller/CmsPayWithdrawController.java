@@ -32,14 +32,15 @@ public class CmsPayWithdrawController extends BaseController {
     @Autowired
     private IWithdrawOrderService withdrawOrderService;
 
-    @Operation(summary = "提现单列表", description = "状态/用户ID筛选，含审核中/已打款/已驳回汇总")
+    @Operation(summary = "提现单列表", description = "状态/用户ID/端筛选，含审核中/已打款/已驳回汇总")
     @PreAuthorize("@ss.hasPermi('cms:payWithdraw:list')")
     @GetMapping("/list")
     public AjaxResult list(@RequestParam(required = false) String status,
                            @RequestParam(required = false) Long userId,
+                           @RequestParam(required = false) String platformCode,
                            @RequestParam(defaultValue = "1") long current,
                            @RequestParam(defaultValue = "10") long size) {
-        return success(withdrawOrderService.adminList(status, userId, current, size));
+        return success(withdrawOrderService.adminList(status, userId, platformCode, current, size));
     }
 
     @Operation(summary = "审核通过", description = "原子扣减余额+写流水+置paid（余额不足自动驳回）")

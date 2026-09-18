@@ -138,7 +138,7 @@ token:
 # 旭林框架配置（本地文件路径覆盖）
 # =============================================
 moyun:
-  profile: /profile            # 本地文件存储路径
+  profile: ${user.home}/moyun/profile  # 本地文件存储路径（绝对路径）
   # AI 能力配置（v11.98 说明）：
   # - 运行时开关已迁移 sys_config（管理台「参数设置」热配置）：
   #     ai.global.enabled（全局，缺省 true） / ai.resume.advice.enabled（简历 AI 建议，缺省 true）

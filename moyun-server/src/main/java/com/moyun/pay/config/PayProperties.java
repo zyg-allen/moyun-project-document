@@ -1,6 +1,8 @@
 package com.moyun.pay.config;
 
+import jakarta.annotation.PostConstruct;
 import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.core.env.Environment;
 import org.springframework.stereotype.Component;
 
 /**
@@ -10,7 +12,7 @@ import org.springframework.stereotype.Component;
  * 建议通过环境变量注入（如 MOYUN_PAY_WECHAT_APPID），此处仅作装配。
  *
  * <p>mock 模式（wechat.mock-enabled=true）：全链路演练（下单/回调/分账/通知），
- * 与真实 API 的协议一致，仅资金不落地；生产必须置 false 并完成真实接入。
+ * 与真实 API 的协议一致，仅资金不落地；生产环境自动强制关闭（见 {@link #init()}）。
  *
  * @author moyun
  */
@@ -18,13 +20,19 @@ import org.springframework.stereotype.Component;
 @ConfigurationProperties(prefix = "moyun.pay")
 public class PayProperties {
 
+    private final Environment env;
+
+    public PayProperties(Environment env) {
+        this.env = env;
+    }
+
     /** 支付通道总开关（false 时下单接口直接拒绝） */
     private boolean enabled = true;
 
     /** 订单有效期（分钟）：超时未支付自动关单 */
     private int orderExpireMinutes = 30;
 
-    /** 平台服务费率兜底值（0.10=10%）；运行时以 sys_config(pay.platform.fee-rate) 优先 */
+    /** 平台服务费率兜底值（0.10=10%）；运行时以 sys_config(pay.{platformCode}.fee-rate) 优先 */
     private double platformFeeRate = 0.10;
 
     /** 安全配置 */
@@ -32,6 +40,22 @@ public class PayProperties {
 
     /** 微信支付商户参数 */
     private Wechat wechat = new Wechat();
+
+    /**
+     * 生产环境安全守卫：spring.profiles.active 含 prod/production 时，
+     * 强制关闭 mock 支付，防止配置遗漏导致模拟支付在生产可用。
+     */
+    @PostConstruct
+    void init() {
+        if (env != null) {
+            for (String p : env.getActiveProfiles()) {
+                if ("prod".equalsIgnoreCase(p) || "production".equalsIgnoreCase(p)) {
+                    wechat.mockEnabled = false;
+                    break;
+                }
+            }
+        }
+    }
 
     public static class Security {
         /** 银行卡号 AES-GCM 加密口令（生产走环境变量注入） */
@@ -50,7 +74,7 @@ public class PayProperties {
     }
 
     public static class Wechat {
-        /** mock 模拟支付开关（开发/演示 true；生产必须 false 走真实 API） */
+        /** mock 模拟支付开关（开发/演示 true；生产环境由 PayProperties.init() 强制 false） */
         private boolean mockEnabled = true;
         /** 公众号/小程序 AppID */
         private String appId;

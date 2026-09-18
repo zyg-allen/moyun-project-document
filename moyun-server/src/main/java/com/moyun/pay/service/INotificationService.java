@@ -13,6 +13,9 @@ public interface INotificationService {
     /** 发送通知（事务内调用，失败不影响主流程则由调用方决定） */
     void send(Long userId, String notifyType, String refNo, String title, String content);
 
+    /** 发送通知（带端维度，事务内调用） */
+    void send(Long userId, String notifyType, String refNo, String title, String content, String platformCode);
+
     /** 我的通知分页 */
     IPage<PayNotification> myNotifications(Long userId, long current, long size);
 

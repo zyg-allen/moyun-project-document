@@ -1,5 +1,7 @@
 package com.moyun.common.config;
 
+import java.io.File;
+
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.stereotype.Component;
 
@@ -67,6 +69,13 @@ public class RuoYiConfig
 
     public void setProfile(String profile)
     {
+        // 确保绝对路径：相对路径会导致 Tomcat MultipartFile.transferTo()
+        // 将文件写到 Tomcat work 临时目录而非预期位置
+        File profileDir = new File(profile);
+        if (!profileDir.isAbsolute())
+        {
+            profile = profileDir.getAbsolutePath();
+        }
         RuoYiConfig.profile = profile;
     }
 

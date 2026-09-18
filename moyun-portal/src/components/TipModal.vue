@@ -175,7 +175,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch } from 'vue';
+import { ref, watch, computed } from 'vue';
 import { useRouter } from 'vue-router';
 import { Gift, X, Coins, Wallet } from 'lucide-vue-next';
 import { tipTarget, createWechatTip } from '@/api/tip';
@@ -190,6 +190,8 @@ const props = defineProps<{
   authorAvatar?: string;
   authorName?: string;
   targetTitle?: string;
+  presetPointOptions?: number[];
+  presetAmountOptions?: number[];
 }>();
 
 const emit = defineEmits<{
@@ -200,10 +202,10 @@ const emit = defineEmits<{
 
 const router = useRouter();
 
-// 快捷积分数（MVP 阶段，积分通过签到/任务获取）
-const presetPoints = [10, 50, 100, 500, 1000, 2000];
-// 微信打赏快捷金额（元）
-const presetAmounts = [5, 10, 20, 50, 100, 200];
+// 快捷积分数（可通过 props 覆盖，MVP 阶段积分通过签到/任务获取）
+const presetPoints = computed(() => props.presetPointOptions ?? [10, 50, 100, 500, 1000, 2000]);
+// 微信打赏快捷金额（元，可通过 props 覆盖）
+const presetAmounts = computed(() => props.presetAmountOptions ?? [5, 10, 20, 50, 100, 200]);
 // 支付模式：points=积分鼓励，wechat=微信打赏（V11.0）
 const payMode = ref<'points' | 'wechat'>('points');
 const tipAmount = ref<number>(50);

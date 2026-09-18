@@ -322,11 +322,12 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
         if (config == null) {
             config = new VoiceStartConfig();
         }
-
+        //岗位名称 todo 没有岗位要求
         String position = config.getPosition() == null ? "" : config.getPosition().trim();
         if (position.length() > 64) {
             throw new ServiceException("面试岗位名称不能超过64个字符");
         }
+        //难度
         String difficulty = StringUtils.isNotEmpty(config.getDifficulty()) ? config.getDifficulty() : "medium";
         // 岗位要求 JD（面试官提问方向与深度贴合岗位要求；trim 后空串视为未填）
         String jobRequirements = config.getJobRequirements() == null ? ""
@@ -550,6 +551,7 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
             if (kbIds == null || kbIds.isEmpty()) {
                 return null;
             }
+            //用户查询，内容，来自岗位的面试考察方向，简历摘要（若有）作为检索信号增强。
             String query = (StringUtils.isEmpty(position) ? "技术面试考察方向" : position + " 岗位面试考察方向");
             if (StringUtils.isNotEmpty(resumeDigest)) {
                 query += " " + resumeDigest.replace("\n", " ");
@@ -842,6 +844,7 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
         try {
             String value = sysConfigService.selectConfigByKey(CONFIG_KEY_DURATION);
             if (value != null && !value.isBlank()) {
+                // 配置值：数字（分钟，缺省 20，范围 5-120），
                 return Math.max(5, Math.min(120, Integer.parseInt(value.trim())));
             }
         } catch (Exception e) {

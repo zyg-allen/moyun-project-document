@@ -25,13 +25,13 @@ public interface IPayGateway {
      * @param bizType  业务类型（tip/member/course/...）
      * @param bizNo    业务单号（业务方本地单 ID）
      * @param userId   下单用户（portal_user.id，补全对账维度）
-     * @param platform 归属平台（ledger_app/portal，补全对账维度）
+     * @param platformCode 归属端代码（sys_platform.platform_code：portal/ledger，补全对账维度）
      * @param channel  支付渠道（wechat）
      * @param amount   金额（元）
      * @param subject  商品描述
      * @return 支付单（含 codeUrl / payNo / expireTime）
      */
-    PayOrder createOrder(String bizType, String bizNo, Long userId, String platform, String channel,
+    PayOrder createOrder(String bizType, String bizNo, Long userId, String platformCode, String channel,
                          BigDecimal amount, String subject);
 
     /**

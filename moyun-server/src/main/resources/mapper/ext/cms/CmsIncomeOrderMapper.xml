@@ -3,11 +3,55 @@
 <mapper namespace="com.moyun.ext.cms.mapper.CmsIncomeOrderMapper">
 
     <select id="selectIncomeOrders" resultType="java.util.Map">
-        SELECT * FROM (   SELECT CONCAT('ledger_app-', t.id) AS order_key, 'ledger_app' AS platform, 'app_tip' AS channel_code,          t.id AS order_id, t.user_id, t.amount, t.status, t.pay_channel,          t.reason AS remark, t.target AS target_type, COALESCE(t.paid_time, t.create_time) AS pay_time   FROM ledger_tip_order t   UNION ALL   SELECT CONCAT('portal-', o.id), 'portal',          CASE WHEN o.target_type = 'article_paid' THEN 'paid_reading' ELSE 'portal_tip' END,          o.id, o.user_id, o.amount, o.status, o.pay_channel,          o.message, o.target_type, COALESCE(o.paid_time, o.created_time)   FROM portal_tip_order o   UNION ALL   SELECT CONCAT('vip-', p.id), CASE WHEN p.platform = 'ledger' THEN 'ledger_app' ELSE 'portal' END, 'vip',          p.id, p.user_id, p.amount,          CASE WHEN p.status IN ('PAID', 'SETTLED') THEN 'paid' WHEN p.status = 'CLOSED' THEN 'closed' ELSE 'pending' END,          p.channel, p.subject,          SUBSTRING_INDEX(p.biz_no, ':', 2), COALESCE(p.pay_success_time, p.create_time)   FROM pay_order p WHERE p.biz_type = 'vip' ) u WHERE 1=1 <if test='platform != null and platform != ""'> AND u.platform = #{platform} </if><if test='status != null and status != ""'> AND u.status = #{status} </if><if test='channelCode != null and channelCode != ""'> AND u.channel_code = #{channelCode} </if><if test='startTime != null'> AND u.pay_time &gt;= #{startTime} </if><if test='endTime != null'> AND u.pay_time &lt;= #{endTime} </if>ORDER BY u.pay_time DESC LIMIT #{offset}, #{size}
+        SELECT * FROM (
+            SELECT CONCAT('ledger-', t.id) AS order_key, 'ledger' AS platform_code, 'app_tip' AS channel_code,
+                   t.id AS order_id, t.user_id, t.amount, t.status, t.pay_channel,
+                   t.reason AS remark, t.target AS target_type, COALESCE(t.paid_time, t.create_time) AS pay_time
+            FROM ledger_tip_order t
+            UNION ALL
+            SELECT CONCAT('portal-', o.id), 'portal',
+                   CASE WHEN o.target_type = 'article_paid' THEN 'paid_reading' ELSE 'portal_tip' END,
+                   o.id, o.user_id, o.amount, o.status, o.pay_channel,
+                   o.message, o.target_type, COALESCE(o.paid_time, o.created_time)
+            FROM portal_tip_order o
+            UNION ALL
+            SELECT CONCAT('vip-', p.id), p.platform_code, 'vip',
+                   p.id, p.user_id, p.amount,
+                   CASE WHEN p.status IN ('PAID', 'SETTLED') THEN 'paid' WHEN p.status = 'CLOSED' THEN 'closed' ELSE 'pending' END,
+                   p.channel, p.subject,
+                   SUBSTRING_INDEX(p.biz_no, ':', 2), COALESCE(p.pay_success_time, p.create_time)
+            FROM pay_order p WHERE p.biz_type = 'vip'
+        ) u
+        WHERE 1=1
+        <if test='platformCode != null and platformCode != ""'> AND u.platform_code = #{platformCode} </if>
+        <if test='status != null and status != ""'> AND u.status = #{status} </if>
+        <if test='channelCode != null and channelCode != ""'> AND u.channel_code = #{channelCode} </if>
+        <if test='startTime != null'> AND u.pay_time &gt;= #{startTime} </if>
+        <if test='endTime != null'> AND u.pay_time &lt;= #{endTime} </if>
+        ORDER BY u.pay_time DESC
+        LIMIT #{offset}, #{size}
     </select>
 
     <select id="countIncomeOrders" resultType="long">
-        SELECT COUNT(*) FROM (   SELECT 'ledger_app' AS platform, 'app_tip' AS channel_code, t.status, t.pay_channel, t.create_time AS pay_time   FROM ledger_tip_order t   UNION ALL   SELECT 'portal', CASE WHEN o.target_type = 'article_paid' THEN 'paid_reading' ELSE 'portal_tip' END,          o.status, o.pay_channel, COALESCE(o.paid_time, o.created_time)   FROM portal_tip_order o   UNION ALL   SELECT CASE WHEN p.platform = 'ledger' THEN 'ledger_app' ELSE 'portal' END, 'vip',          CASE WHEN p.status IN ('PAID', 'SETTLED') THEN 'paid' WHEN p.status = 'CLOSED' THEN 'closed' ELSE 'pending' END,          p.channel, COALESCE(p.pay_success_time, p.create_time)   FROM pay_order p WHERE p.biz_type = 'vip' ) u WHERE 1=1 <if test='platform != null and platform != ""'> AND u.platform = #{platform} </if><if test='status != null and status != ""'> AND u.status = #{status} </if><if test='channelCode != null and channelCode != ""'> AND u.channel_code = #{channelCode} </if><if test='startTime != null'> AND u.pay_time &gt;= #{startTime} </if><if test='endTime != null'> AND u.pay_time &lt;= #{endTime} </if>
+        SELECT COUNT(*) FROM (
+            SELECT 'ledger' AS platform_code, 'app_tip' AS channel_code, t.status, t.pay_channel, t.create_time AS pay_time
+            FROM ledger_tip_order t
+            UNION ALL
+            SELECT 'portal', CASE WHEN o.target_type = 'article_paid' THEN 'paid_reading' ELSE 'portal_tip' END,
+                   o.status, o.pay_channel, COALESCE(o.paid_time, o.created_time)
+            FROM portal_tip_order o
+            UNION ALL
+            SELECT p.platform_code, 'vip',
+                   CASE WHEN p.status IN ('PAID', 'SETTLED') THEN 'paid' WHEN p.status = 'CLOSED' THEN 'closed' ELSE 'pending' END,
+                   p.channel, COALESCE(p.pay_success_time, p.create_time)
+            FROM pay_order p WHERE p.biz_type = 'vip'
+        ) u
+        WHERE 1=1
+        <if test='platformCode != null and platformCode != ""'> AND u.platform_code = #{platformCode} </if>
+        <if test='status != null and status != ""'> AND u.status = #{status} </if>
+        <if test='channelCode != null and channelCode != ""'> AND u.channel_code = #{channelCode} </if>
+        <if test='startTime != null'> AND u.pay_time &gt;= #{startTime} </if>
+        <if test='endTime != null'> AND u.pay_time &lt;= #{endTime} </if>
     </select>
 
 </mapper>

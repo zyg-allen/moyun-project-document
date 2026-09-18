@@ -10,8 +10,8 @@ import java.util.Map;
  * 收入订单统一视图 Mapper（收入管理模块）
  *
  * <p>UNION ALL 合并业务订单来源（ledger_tip_order / portal_tip_order / pay_order biz_type='vip'），
- * 统一字段：platform / channel_code / status / pay_channel。统一会员 v12.0 后 VIP 订阅订单
- * 收敛到 pay_order（biz_type='vip'，platform 列 ledger→ledger_app / portal→portal，
+ * 统一字段：platform_code / channel_code / status / pay_channel。统一会员 v12.0 后 VIP 订阅订单
+ * 收敛到 pay_order（biz_type='vip'，platform_code 列值为 portal/ledger，
  * 状态 PAID/SETTLED→paid、CLOSED→closed、CREATED→pending）。其余 pay_order 通道单据不参与（避免双算）。
  *
  * @author moyun

@@ -11,7 +11,7 @@ import java.time.LocalDateTime;
 /**
  * 记账-打赏记录（接入公共支付通道）
  *
- * <p>链路：落 pending 单 → payGateway 统一下单(bizType=ledger_tip, platform=ledger_app)
+ * <p>链路：落 pending 单 → payGateway 统一下单(bizType=ledger_tip, platformCode=ledger)
  * → 收银台（扫码 / mock 模拟支付）→ 回调置 paid + 平台全额分账。
  *
  * <p>全平台支付状态统一：业务订单 status 统一字符串枚举 pending/paid/refunded/closed，

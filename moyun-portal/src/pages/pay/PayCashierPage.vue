@@ -89,9 +89,12 @@
           </p>
 
           <!-- 状态轮询指示 -->
-          <p class="text-xs mt-3 flex items-center gap-1.5" style="color: var(--theme-text-secondary);">
+          <p v-if="pollingActive" class="text-xs mt-3 flex items-center gap-1.5" style="color: var(--theme-text-secondary);">
             <span class="w-1.5 h-1.5 rounded-full animate-pulse" style="background-color: var(--theme-primary);"></span>
-            正在等待支付结果…
+            正在等待支付结果…（{{ pollCountdown }}s）
+          </p>
+          <p v-else class="text-xs mt-3" style="color: var(--theme-danger);">
+            轮询超时，请刷新页面或手动查询支付结果
           </p>
 
           <!-- mock 模拟支付按钮 -->
@@ -136,6 +139,10 @@ const paid = ref(false);
 const settled = ref(false);
 
 let pollTimer: ReturnType<typeof setInterval> | null = null;
+let pollCount = 0;
+const MAX_POLL_COUNT = 100; // 最多轮询 100 次（约 5 分钟）
+const pollCountdown = ref(MAX_POLL_COUNT * 3);
+const pollingActive = ref(true);
 
 const goBack = () => {
   if (window.history.length > 1) {
@@ -156,6 +163,13 @@ const renderQr = async (text: string) => {
 
 const pollStatus = async () => {
   if (!payNo.value) return;
+  pollCount++;
+  if (pollCount > MAX_POLL_COUNT) {
+    stopPolling();
+    pollingActive.value = false;
+    return;
+  }
+  pollCountdown.value = (MAX_POLL_COUNT - pollCount + 1) * 3;
   try {
     const res = await getPayStatus(payNo.value);
     const data = res.data;

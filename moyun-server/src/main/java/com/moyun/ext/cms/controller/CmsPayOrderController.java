@@ -46,14 +46,16 @@ public class CmsPayOrderController extends BaseController {
     @Autowired
     private IPayGateway payGateway;
 
-    @Operation(summary = "支付订单列表", description = "分页查询统一支付单，支持状态/业务类型/支付单号筛选")
+    @Operation(summary = "支付订单列表", description = "分页查询统一支付单，支持端/状态/业务类型/支付单号筛选")
     @PreAuthorize("@ss.hasPermi('cms:payOrder:list')")
     @GetMapping("/list")
-    public AjaxResult list(@RequestParam(required = false) String status,
+    public AjaxResult list(@RequestParam(required = false) String platformCode,
+                           @RequestParam(required = false) String status,
                            @RequestParam(required = false) String bizType,
                            @RequestParam(required = false) String payNo) {
         Page<PayOrder> page = PageUtils.startPage();
         LambdaQueryWrapper<PayOrder> wrapper = new LambdaQueryWrapper<PayOrder>()
+                .eq(platformCode != null && !platformCode.isBlank(), PayOrder::getPlatformCode, platformCode)
                 .eq(status != null && !status.isBlank(), PayOrder::getStatus, status)
                 .eq(bizType != null && !bizType.isBlank(), PayOrder::getBizType, bizType)
                 .like(payNo != null && !payNo.isBlank(), PayOrder::getPayNo, payNo)

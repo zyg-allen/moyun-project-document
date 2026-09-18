@@ -98,18 +98,29 @@ public class SysFileServiceImpl implements ISysFileService {
 
     /**
      * 读取本地存储根路径。优先 sys_config[local.path]，留空回退 RuoYiConfig.getProfile()。
+     * 关键修复：始终返回绝对路径，避免 Tomcat 把相对路径解析到 work 临时目录。
      */
     private String resolveLocalRootPath() {
+        String path;
         try {
-            String path = sysConfigService.selectConfigByKey(CONFIG_KEY_LOCAL_PATH);
-            if (path != null && !path.trim().isEmpty()) {
-                return path.trim();
+            String configPath = sysConfigService.selectConfigByKey(CONFIG_KEY_LOCAL_PATH);
+            if (configPath != null && !configPath.trim().isEmpty()) {
+                path = configPath.trim();
+            } else {
+                path = RuoYiConfig.getProfile();
             }
         } catch (Exception e) {
             log.warn("[文件存储] 读取 sys_config[{}] 失败，回退到 RuoYiConfig.getProfile()：{}",
                     CONFIG_KEY_LOCAL_PATH, e.getMessage());
+            path = RuoYiConfig.getProfile();
         }
-        return RuoYiConfig.getProfile();
+        // 强制转为绝对路径，防止 Tomcat 把相对路径解析到 work 临时目录
+        File pathFile = new File(path);
+        if (!pathFile.isAbsolute()) {
+            path = pathFile.getAbsolutePath();
+            log.info("[文件存储] 本地根路径为相对路径 [{}]，已转为绝对路径 [{}]", pathFile.getPath(), path);
+        }
+        return path;
     }
 
     /**
@@ -498,7 +509,8 @@ public class SysFileServiceImpl implements ISysFileService {
         String localRoot = resolveLocalRootPath();
         String accessUrlPrefix = resolveAccessUrlPrefix();
         String absolutePath = localRoot + File.separator + fileName;
-        File destFile = new File(absolutePath);
+        // 关键：使用 getAbsoluteFile() 确保绝对路径，避免 Tomcat 把相对路径解析到 work 临时目录
+        File destFile = new File(absolutePath).getAbsoluteFile();
         if (!destFile.getParentFile().exists()) {
             destFile.getParentFile().mkdirs();
         }
@@ -506,7 +518,7 @@ public class SysFileServiceImpl implements ISysFileService {
         // 兼容：accessUrlPrefix 为后端服务地址时走 /profile/** 静态映射（ResourcesConfig 注册）；
         //       配置为 CDN/独立文件服务器时，需保证该前缀能直接访问到本地文件
         String url = accessUrlPrefix + "/profile/" + fileName;
-        return new LocalUploadResult(url, absolutePath);
+        return new LocalUploadResult(url, destFile.getAbsolutePath());
     }
 
     private LocalUploadResult uploadBytesToLocal(byte[] bytes, String originalFileName) throws IOException {
@@ -514,13 +526,14 @@ public class SysFileServiceImpl implements ISysFileService {
         String localRoot = resolveLocalRootPath();
         String accessUrlPrefix = resolveAccessUrlPrefix();
         String absolutePath = localRoot + File.separator + fileName;
-        File destFile = new File(absolutePath);
+        // 关键：使用 getAbsoluteFile() 确保绝对路径
+        File destFile = new File(absolutePath).getAbsoluteFile();
         if (!destFile.getParentFile().exists()) {
             destFile.getParentFile().mkdirs();
         }
         java.nio.file.Files.write(destFile.toPath(), bytes);
         String url = accessUrlPrefix + "/profile/" + fileName;
-        return new LocalUploadResult(url, absolutePath);
+        return new LocalUploadResult(url, destFile.getAbsolutePath());
     }
 
     /** 本地上传结果：访问 URL + 绝对路径 */

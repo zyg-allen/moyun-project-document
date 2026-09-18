@@ -16,6 +16,7 @@ import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
 import org.springframework.web.servlet.config.annotation.ResourceHandlerRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
+import java.io.File;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -34,9 +35,14 @@ public class ResourcesConfig implements WebMvcConfigurer
     @Override
     public void addResourceHandlers(ResourceHandlerRegistry registry)
     {
-        /** 本地文件上传路径 */
+        /** 本地文件上传路径 —— 始终使用绝对路径，防止相对路径被解析到 Tomcat work 目录 */
+        String profilePath = RuoYiConfig.getProfile();
+        File profileDir = new File(profilePath);
+        if (!profileDir.isAbsolute()) {
+            profilePath = profileDir.getAbsolutePath();
+        }
         registry.addResourceHandler(Constants.RESOURCE_PREFIX + "/**")
-                .addResourceLocations("file:" + RuoYiConfig.getProfile() + "/");
+                .addResourceLocations("file:" + profilePath + "/");
 
         /** swagger配置 */
         registry.addResourceHandler("/swagger-ui/**")

@@ -44,6 +44,9 @@ public class WithdrawOrder {
     /** 打款银行卡 ID（pay_user_bank_card.id） */
     private Long bankCardId;
 
+    /** 归属端代码（sys_platform.platform_code）：portal / ledger */
+    private String platformCode;
+
     /** 状态：auditing / paid / rejected */
     private String status;
 
@@ -90,6 +93,8 @@ public class WithdrawOrder {
     public void setNickname(String nickname) { this.nickname = nickname; }
     public String getBankCardDesc() { return bankCardDesc; }
     public void setBankCardDesc(String bankCardDesc) { this.bankCardDesc = bankCardDesc; }
+    public String getPlatformCode() { return platformCode; }
+    public void setPlatformCode(String platformCode) { this.platformCode = platformCode; }
     public LocalDateTime getCreateTime() { return createTime; }
     public void setCreateTime(LocalDateTime createTime) { this.createTime = createTime; }
 }

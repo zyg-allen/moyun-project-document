@@ -43,10 +43,10 @@ public class CmsPayIncomeOrderController extends BaseController {
     @Autowired
     private PortalUserMapper portalUserMapper;
 
-    @Operation(summary = "收入订单列表", description = "合并 ledger_tip_order + portal_tip_order，统一 platform/channel/status/pay_channel 字段")
+    @Operation(summary = "收入订单列表", description = "合并 ledger_tip_order + portal_tip_order，统一 platform_code/channel/status/pay_channel 字段")
     @PreAuthorize("@ss.hasPermi('cms:payIncomeOrder:list')")
     @GetMapping("/list")
-    public AjaxResult list(@RequestParam(required = false) String platform,
+    public AjaxResult list(@RequestParam(required = false) String platformCode,
                            @RequestParam(required = false) String channelCode,
                            @RequestParam(required = false) String status,
                            @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd HH:mm:ss") LocalDateTime startTime,
@@ -55,8 +55,8 @@ public class CmsPayIncomeOrderController extends BaseController {
                            @RequestParam(defaultValue = "10") long size) {
         long offset = (current - 1) * size;
         List<Map<String, Object>> records = incomeOrderMapper.selectIncomeOrders(
-                platform, channelCode, status, startTime, endTime, offset, size);
-        long total = incomeOrderMapper.countIncomeOrders(platform, channelCode, status, startTime, endTime);
+                platformCode, channelCode, status, startTime, endTime, offset, size);
+        long total = incomeOrderMapper.countIncomeOrders(platformCode, channelCode, status, startTime, endTime);
 
         // 昵称批量回填（一次 IN，避免 N+1）
         if (records != null && !records.isEmpty()) {

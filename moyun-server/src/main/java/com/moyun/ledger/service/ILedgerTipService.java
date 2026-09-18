@@ -11,7 +11,7 @@ import java.util.Map;
  * 记账App打赏服务（接入公共支付通道）
  *
  * <p>链路：校验（金额/幂等）→ 落 pending 单 → payGateway 统一下单
- * (bizType=ledger_tip, platform=ledger_app) → 返回收银台参数（payNo/codeUrl/...）
+ * (bizType=ledger_tip, platformCode=ledger) → 返回收银台参数（payNo/codeUrl/...）
  * → 收银台扫码或 mock 模拟支付 → 网关回调置 paid + 平台全额分账（LedgerTipPayCallbackHandler）。
  *
  * @author moyun

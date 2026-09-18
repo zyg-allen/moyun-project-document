@@ -75,7 +75,7 @@ public class TipPayCallbackHandler implements PayCallbackHandler {
         // 2. 复式分账：平台抽成 + 作者所得（金额守恒）
         List<LedgerEntry> entries = ledgerService.settle(
                 payOrder.getPayNo(), "tip", String.valueOf(tipOrderId),
-                payOrder.getAmount(), tipOrder.getAuthorId(), "打赏");
+                payOrder.getAmount(), tipOrder.getAuthorId(), "打赏", "portal");
 
         // 3. 双方站内通知（事务内，与分账同成败）
         BigDecimal platformAmount = BigDecimal.ZERO;
@@ -92,12 +92,12 @@ public class TipPayCallbackHandler implements PayCallbackHandler {
         // 打赏者：支付成功
         notificationService.send(tipOrder.getUserId(), "pay", payOrder.getPayNo(),
                 "打赏支付成功",
-                "你向 " + tipOrder.getTargetType() + " 打赏的 " + amountYuan + " 元已支付成功，感谢对创作者的支持。");
+                "你向 " + tipOrder.getTargetType() + " 打赏的 " + amountYuan + " 元已支付成功，感谢对创作者的支持。", "portal");
         // 作者：到账通知（含分账明细）
         notificationService.send(tipOrder.getAuthorId(), "account", payOrder.getPayNo(),
                 "收到一笔打赏",
                 "你收到一笔 " + amountYuan + " 元打赏，扣除平台服务费后实际到账 " + authorAmount
-                        + " 元，已计入钱包余额。");
+                        + " 元，已计入钱包余额。", "portal");
         log.info("[tip-callback] 打赏闭环完成 tipOrderId={} payNo={} amount={}元 author={}元 platform={}元",
                 tipOrderId, payOrder.getPayNo(), payOrder.getAmount(), authorAmount, platformAmount);
     }

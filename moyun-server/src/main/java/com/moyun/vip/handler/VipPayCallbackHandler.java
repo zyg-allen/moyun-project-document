@@ -53,12 +53,12 @@ public class VipPayCallbackHandler implements PayCallbackHandler {
 
         // 2. 平台全额分账（平台直收类，无第三方收款人）
         ledgerService.settlePlatform(payOrder.getPayNo(), "vip", payOrder.getBizNo(),
-                payOrder.getAmount(), "VIP订阅-" + platformCode + "/" + tierCode + "-平台所得");
+                payOrder.getAmount(), "VIP订阅-" + platformCode + "/" + tierCode + "-平台所得", platformCode);
 
         // 3. 订阅用户站内通知
         notificationService.send(payOrder.getUserId(), "pay", payOrder.getPayNo(),
                 "会员开通成功",
-                "你的「" + platformCode + " · " + tierCode + "」会员已开通，感谢支持。");
+                "你的「" + platformCode + " · " + tierCode + "」会员已开通，感谢支持。", platformCode);
 
         log.info("[vip-callback] VIP 发卡闭环完成 payNo={} userId={} platform={} tier={} amount={}元",
                 payOrder.getPayNo(), payOrder.getUserId(), platformCode, tierCode, payOrder.getAmount());

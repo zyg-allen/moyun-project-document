@@ -29,6 +29,11 @@ public class NotificationServiceImpl implements INotificationService {
 
     @Override
     public void send(Long userId, String notifyType, String refNo, String title, String content) {
+        send(userId, notifyType, refNo, title, content, null);
+    }
+
+    @Override
+    public void send(Long userId, String notifyType, String refNo, String title, String content, String platformCode) {
         PayNotification notification = new PayNotification();
         notification.setUserId(userId);
         notification.setNotifyType(notifyType);
@@ -36,9 +41,10 @@ public class NotificationServiceImpl implements INotificationService {
         notification.setTitle(title);
         notification.setContent(content);
         notification.setReadFlag(0);
+        notification.setPlatformCode(platformCode);
         notification.setCreateTime(LocalDateTime.now());
         notificationMapper.insert(notification);
-        log.info("[pay-notify] 通知已发送 userId={} type={} refNo={}", userId, notifyType, refNo);
+        log.info("[pay-notify] 通知已发送 userId={} type={} refNo={} platformCode={}", userId, notifyType, refNo, platformCode);
     }
 
     @Override

@@ -24,7 +24,7 @@ import java.util.Map;
  * 记账App打赏服务实现（接入公共支付通道）
  *
  * <p>链路：校验（金额区间/小数位/幂等号）→ 落 pending 打赏单 → payGateway 统一下单
- * (bizType=ledger_tip, platform=ledger_app, channel=wechat) → 回填 pay_no → 返回收银台参数。
+ * (bizType=ledger_tip, platformCode=ledger, channel=wechat) → 回填 pay_no → 返回收银台参数。
  * 支付成功由 LedgerTipPayCallbackHandler 在网关回调事务内推进：pending→paid + 平台全额分账。
  *
  * <p>金额单位：元（BigDecimal，统一）；状态枚举 统一字符串。
@@ -70,7 +70,7 @@ public class LedgerTipServiceImpl extends ServiceImpl<LedgerTipOrderMapper, Ledg
                 }
                 // pending 单：复用（网关同 bizType+bizNo 未支付单复用/过期自动重下，重取 codeUrl）
                 PayOrder reused = payGateway.createOrder("ledger_tip", String.valueOf(existing.getId()),
-                        existing.getUserId(), "ledger_app", existing.getPayChannel(), existing.getAmount(),
+                        existing.getUserId(), "ledger", existing.getPayChannel(), existing.getAmount(),
                         "记账App赞赏-" + existing.getTarget());
                 existing.setPayNo(reused.getPayNo());
                 this.updateById(existing);
@@ -95,7 +95,7 @@ public class LedgerTipServiceImpl extends ServiceImpl<LedgerTipOrderMapper, Ledg
         // 4. 网关统一下单（幂等：同 bizType+bizNo 未支付单复用；透传 userId/platform 对账维度）
         String subject = "记账App赞赏-" + order.getTarget();
         PayOrder payOrder = payGateway.createOrder("ledger_tip", String.valueOf(order.getId()),
-                userId, "ledger_app", order.getPayChannel(), amount, subject);
+                userId, "ledger", order.getPayChannel(), amount, subject);
 
         // 5. 回填通道单据号并返回收银台参数
         order.setPayNo(payOrder.getPayNo());

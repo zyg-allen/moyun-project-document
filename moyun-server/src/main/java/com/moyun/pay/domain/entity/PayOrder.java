@@ -44,8 +44,8 @@ public class PayOrder {
     /** 下单用户（portal_user.id，补全：支持按用户对账） */
     private Long userId;
 
-    /** 归属平台：ledger_app / portal（补全：支持按平台对账） */
-    private String platform;
+    /** 归属端代码（sys_platform.platform_code）：portal / ledger */
+    private String platformCode;
 
     /** 支付渠道：wechat / alipay */
     private String channel;
@@ -99,8 +99,8 @@ public class PayOrder {
     public void setBizNo(String bizNo) { this.bizNo = bizNo; }
     public Long getUserId() { return userId; }
     public void setUserId(Long userId) { this.userId = userId; }
-    public String getPlatform() { return platform; }
-    public void setPlatform(String platform) { this.platform = platform; }
+    public String getPlatformCode() { return platformCode; }
+    public void setPlatformCode(String platformCode) { this.platformCode = platformCode; }
     public String getChannel() { return channel; }
     public void setChannel(String channel) { this.channel = channel; }
     public BigDecimal getAmount() { return amount; }

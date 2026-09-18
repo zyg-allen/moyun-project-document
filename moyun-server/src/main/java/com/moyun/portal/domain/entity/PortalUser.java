@@ -146,6 +146,10 @@ public class PortalUser extends BaseEntity {
     @Size(min = 0, max = 20, message = "角色长度不能超过20个字符")
     private String role;
 
+    /** 注册来源端（sys_platform.platform_code）：portal / ledger，默认 portal */
+    @Size(min = 0, max = 50, message = "注册来源端长度不能超过50个字符")
+    private String platformCode;
+
     /** 是否认证创作者：0 否/1 是（由 PortalCreatorCertificationServiceImpl.audit 维护） */
     private Integer isCertifiedCreator;
 

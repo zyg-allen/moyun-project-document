@@ -60,7 +60,7 @@ public class PayGatewayImpl implements IPayGateway {
     private List<PayCallbackHandler> callbackHandlers;
 
     @Override
-    public PayOrder createOrder(String bizType, String bizNo, Long userId, String platform, String channel, BigDecimal amount, String subject) {
+    public PayOrder createOrder(String bizType, String bizNo, Long userId, String platformCode, String channel, BigDecimal amount, String subject) {
         if (!payProperties.isEnabled()) {
             throw new IllegalStateException("支付功能未开启（moyun.pay.enabled=false）");
         }
@@ -109,7 +109,7 @@ public class PayGatewayImpl implements IPayGateway {
         order.setBizType(bizType);
         order.setBizNo(bizNo);
         order.setUserId(userId);
-        order.setPlatform(platform);
+        order.setPlatformCode(platformCode);
         order.setChannel(channel);
         order.setAmount(amount);
         order.setSubject(subject);

@@ -5,9 +5,17 @@
       <el-form-item label="支付单号" prop="payNo">
         <el-input v-model="queryParams.payNo" placeholder="支付单号" clearable style="width: 220px" @keyup.enter="handleQuery" />
       </el-form-item>
+      <el-form-item label="归属端" prop="platformCode">
+        <el-select v-model="queryParams.platformCode" placeholder="归属端" clearable style="width: 140px">
+          <el-option label="门户端" value="portal" />
+          <el-option label="记账端" value="ledger" />
+        </el-select>
+      </el-form-item>
       <el-form-item label="业务类型" prop="bizType">
         <el-select v-model="queryParams.bizType" placeholder="业务类型" clearable style="width: 140px">
-          <el-option label="打赏" value="tip" />
+          <el-option label="VIP订阅" value="vip" />
+          <el-option label="打赏(门户)" value="tip" />
+          <el-option label="打赏(记账)" value="ledger_tip" />
         </el-select>
       </el-form-item>
       <el-form-item label="状态" prop="status">
@@ -34,9 +42,18 @@
     <!-- 数据表格 -->
     <el-table v-loading="loading" :data="dataList">
       <el-table-column label="支付单号" align="center" prop="payNo" width="250" :show-overflow-tooltip="true" />
-      <el-table-column label="业务类型" align="center" prop="bizType" width="90">
+      <el-table-column label="归属端" align="center" prop="platformCode" width="90">
         <template #default="scope">
-          <el-tag v-if="scope.row.bizType === 'tip'" type="warning">打赏</el-tag>
+          <el-tag v-if="scope.row.platformCode === 'portal'" type="primary" size="small">门户</el-tag>
+          <el-tag v-else-if="scope.row.platformCode === 'ledger'" type="success" size="small">记账</el-tag>
+          <span v-else>{{ scope.row.platformCode || '-' }}</span>
+        </template>
+      </el-table-column>
+      <el-table-column label="业务类型" align="center" prop="bizType" width="110">
+        <template #default="scope">
+          <el-tag v-if="scope.row.bizType === 'vip'" type="danger" size="small">VIP订阅</el-tag>
+          <el-tag v-else-if="scope.row.bizType === 'tip'" type="warning" size="small">打赏(门户)</el-tag>
+          <el-tag v-else-if="scope.row.bizType === 'ledger_tip'" type="warning" size="small">打赏(记账)</el-tag>
           <span v-else>{{ scope.row.bizType }}</span>
         </template>
       </el-table-column>
@@ -148,6 +165,7 @@ const queryParams = reactive({
   pageSize: 10,
   payNo: undefined,
   bizType: undefined,
+  platformCode: undefined,
   status: undefined
 });
 

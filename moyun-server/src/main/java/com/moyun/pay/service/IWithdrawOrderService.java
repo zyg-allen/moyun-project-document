@@ -38,8 +38,8 @@ public interface IWithdrawOrderService extends IService<WithdrawOrder> {
     /** 我的提现单分页 */
     IPage<WithdrawOrder> myWithdrawals(Long userId, long current, long size);
 
-    /** 后台提现单分页（status/userId 筛选）+ 昵称/银行卡脱敏信息回填 */
-    Map<String, Object> adminList(String status, Long userId, long current, long size);
+    /** 后台提现单分页（status/userId/platformCode 筛选）+ 昵称/银行卡脱敏信息回填 */
+    Map<String, Object> adminList(String status, Long userId, String platformCode, long current, long size);
 
     /** 用户维度汇总（balance/totalIncome/totalWithdraw/审核中金额） */
     Map<String, Object> userSummary(Long userId);

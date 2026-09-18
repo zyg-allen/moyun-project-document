@@ -87,12 +87,16 @@ public class WithdrawOrderServiceImpl extends ServiceImpl<WithdrawOrderMapper, W
         }
 
         // 3. 落 auditing 提现单（手续费 0，后续可配置）
+        // 从用户记录获取注册来源端
+        PortalUser portalUser = portalUserMapper.selectById(userId);
+        String platformCode = portalUser != null ? portalUser.getPlatformCode() : null;
         WithdrawOrder order = new WithdrawOrder();
         order.setWithdrawNo(generateWithdrawNo());
         order.setUserId(userId);
         order.setAmount(amount);
         order.setFee(BigDecimal.ZERO);
         order.setBankCardId(bankCardId);
+        order.setPlatformCode(platformCode);
         order.setStatus(WithdrawOrder.STATUS_AUDITING);
         order.setCreateTime(LocalDateTime.now());
         this.save(order);
@@ -122,6 +126,7 @@ public class WithdrawOrderServiceImpl extends ServiceImpl<WithdrawOrderMapper, W
         entry.setAmount(order.getAmount());
         entry.setBalanceAfter(account.getBalance());
         entry.setSummary("提现出金-打款至绑定银行卡");
+        entry.setPlatformCode(order.getPlatformCode());
         entry.setCreateTime(LocalDateTime.now());
         ledgerEntryMapper.insert(entry);
 
@@ -170,11 +175,12 @@ public class WithdrawOrderServiceImpl extends ServiceImpl<WithdrawOrderMapper, W
     }
 
     @Override
-    public Map<String, Object> adminList(String status, Long userId, long current, long size) {
+    public Map<String, Object> adminList(String status, Long userId, String platformCode, long current, long size) {
         Page<WithdrawOrder> page = new Page<>(current, size);
         IPage<WithdrawOrder> result = this.page(page, new QueryWrapper<WithdrawOrder>()
                 .eq(status != null && !status.isBlank(), "status", status)
                 .eq(userId != null, "user_id", userId)
+                .eq(platformCode != null && !platformCode.isBlank(), "platform_code", platformCode)
                 .orderByDesc("id"));
 
         // 批量回填昵称 + 银行卡脱敏（一次 IN，避免 N+1）

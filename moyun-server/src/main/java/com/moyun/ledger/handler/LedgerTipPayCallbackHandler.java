@@ -23,7 +23,7 @@ import java.time.LocalDateTime;
  * 任一步失败整体回滚（网关会因渠道重试再次驱动）。
  *
  * <p>与门户打赏回调（TipPayCallbackHandler, bizType="tip"）互不冲突：本处理器
- * 只处理 platform=ledger_app 的记账App打赏单，按 bizNo 查 ledger_tip_order。
+ * 只处理 platformCode=ledger 的记账App打赏单，按 bizNo 查 ledger_tip_order。
  *
  * @author moyun
  */
@@ -75,12 +75,12 @@ public class LedgerTipPayCallbackHandler implements PayCallbackHandler {
         // 2. 平台全额分账（打赏对象为开发者/平台自身，无第三方收款人，守恒：全额=平台所得）
         LedgerEntry platformEntry = ledgerService.settlePlatform(
                 payOrder.getPayNo(), "ledger_tip", String.valueOf(tipOrderId),
-                payOrder.getAmount(), "记账App赞赏-平台所得");
+                payOrder.getAmount(), "记账App赞赏-平台所得", "ledger");
 
         // 3. 打赏者站内通知（事务内，与分账同成败）
         notificationService.send(tipOrder.getUserId(), "pay", payOrder.getPayNo(),
                 "赞赏支付成功",
-                "你的 " + payOrder.getAmount() + " 元赞赏已支付成功，感谢对记账App的支持。");
+                "你的 " + payOrder.getAmount() + " 元赞赏已支付成功，感谢对记账App的支持。", "ledger");
 
         log.info("[ledger-tip-callback] 打赏闭环完成 tipOrderId={} payNo={} amount={}元 platform={}元",
                 tipOrderId, payOrder.getPayNo(), payOrder.getAmount(), platformEntry.getAmount());

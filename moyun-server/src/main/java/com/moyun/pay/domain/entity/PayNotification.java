@@ -34,6 +34,9 @@ public class PayNotification {
     /** 已读：0=未读 1=已读 */
     private Integer readFlag;
 
+    /** 归属端代码（sys_platform.platform_code）：portal / ledger */
+    private String platformCode;
+
     private LocalDateTime createTime;
 
     public Long getId() { return id; }
@@ -52,4 +55,6 @@ public class PayNotification {
     public void setReadFlag(Integer readFlag) { this.readFlag = readFlag; }
     public LocalDateTime getCreateTime() { return createTime; }
     public void setCreateTime(LocalDateTime createTime) { this.createTime = createTime; }
+    public String getPlatformCode() { return platformCode; }
+    public void setPlatformCode(String platformCode) { this.platformCode = platformCode; }
 }

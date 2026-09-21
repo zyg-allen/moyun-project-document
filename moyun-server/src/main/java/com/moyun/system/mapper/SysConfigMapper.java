@@ -34,14 +34,6 @@ public interface SysConfigMapper extends BaseMapper<SysConfig> {
     IPage<SysConfig> selectConfigPage(IPage<SysConfig> page, @Param("query") SysConfig config);
 
     /**
-     * 通过键名查询参数配置信息
-     *
-     * @param configKey 参数键名
-     * @return 参数配置信息
-     */
-    SysConfig selectConfigByKey(String configKey);
-
-    /**
      * 根据键名查询参数配置信息
      *
      * @param configId 参数主键

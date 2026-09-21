@@ -3,7 +3,6 @@ package com.moyun.portal.enums;
 /**
  * 支付渠道枚举
  *
- * <p>对应数据库表 portal_order.pay_channel / portal_tip_order.pay_channel 字段，
  * 标识订单使用的支付渠道：
  * <ul>
  *   <li>{@link #POINTS}  - 积分：当前 MVP 阶段的唯一可用渠道</li>

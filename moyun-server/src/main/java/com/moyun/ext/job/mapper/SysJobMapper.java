@@ -48,12 +48,12 @@ public interface SysJobMapper {
     SysJob selectJobById(Long jobId);
 
     /**
-     * 删除定时任务调度
+     * 通过ID删除定时任务调度
      *
-     * @param job 调度信息
+     * @param jobId 调度任务ID
      * @return 结果
      */
-    int deleteJob(SysJob job);
+    int deleteJobById(Long jobId);
 
     /**
      * 批量删除定时任务调度
@@ -79,11 +79,4 @@ public interface SysJobMapper {
      */
     int insertJob(SysJob job);
 
-    /**
-     * 校验cron表达式是否有效
-     *
-     * @param cronExpression cron表达式
-     * @return 结果
-     */
-    int checkCronExpressionIsValid(String cronExpression);
 }

@@ -56,7 +56,7 @@ public class SysMenuServiceImpl extends ServiceImpl<SysMenuMapper, SysMenu> impl
         } else {
             menu.getParams().put("userId", userId);
             // 使用已有的方法
-            menuList = menuMapper.selectMenusByUserId(userId);
+            menuList = menuMapper.selectMenuListByUserId(menu);
         }
         return menuList;
     }
@@ -74,7 +74,7 @@ public class SysMenuServiceImpl extends ServiceImpl<SysMenuMapper, SysMenu> impl
             // 使用 selectMenuList 获取所有菜单
             menus = menuMapper.selectMenuList(new SysMenu());
         } else {
-            menus = menuMapper.selectMenusByUserId(userId);
+            menus = menuMapper.selectMenuTreeByUserId(userId);
         }
         // 过滤掉按钮类型的菜单，只保留目录(M)和菜单(C)
         menus = menus.stream()

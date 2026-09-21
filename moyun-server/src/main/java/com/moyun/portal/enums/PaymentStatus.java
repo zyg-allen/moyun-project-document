@@ -3,7 +3,6 @@ package com.moyun.portal.enums;
 /**
  * 支付订单状态枚举
  *
- * <p>对应数据库表 portal_order.status / portal_tip_order.status 字段，
  * 标识订单/打赏单的支付生命周期：
  * <ul>
  *   <li>{@link #PENDING}   - 待支付：已下单，等待用户支付</li>

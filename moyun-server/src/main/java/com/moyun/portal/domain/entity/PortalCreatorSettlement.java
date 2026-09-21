@@ -19,7 +19,6 @@ import java.time.LocalDateTime;
  * 收入聚合来源：
  *   tip_income        portal_tip_order（target_type=article/column, status=paid, paid_time 在周期内）
  *   paid_read_income  portal_tip_order（target_type=article_paid, status=paid, paid_time 在周期内）
- *   column_income     portal_column_subscribe + portal_order（专栏订阅付费，简化：取 portal_tip_order target_type=column_subscribe）
  * </p>
  *
  * @author moyun

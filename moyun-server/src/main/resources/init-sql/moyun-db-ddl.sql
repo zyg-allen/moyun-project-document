@@ -1,101 +1,5 @@
--- MySQL dump 10.13  Distrib 8.4.6, for Win64 (x86_64)
---
--- Host: localhost    Database: moyun-db
--- ------------------------------------------------------
--- Server version	8.4.6
-
-/*!40101 SET @OLD_CHARACTER_SET_CLIENT=@@CHARACTER_SET_CLIENT */;
-/*!40101 SET @OLD_CHARACTER_SET_RESULTS=@@CHARACTER_SET_RESULTS */;
-/*!40101 SET @OLD_COLLATION_CONNECTION=@@COLLATION_CONNECTION */;
-/*!50503 SET NAMES utf8mb4 */;
-/*!40103 SET @OLD_TIME_ZONE=@@TIME_ZONE */;
-/*!40103 SET TIME_ZONE='+00:00' */;
-/*!40014 SET @OLD_UNIQUE_CHECKS=@@UNIQUE_CHECKS, UNIQUE_CHECKS=0 */;
-/*!40014 SET @OLD_FOREIGN_KEY_CHECKS=@@FOREIGN_KEY_CHECKS, FOREIGN_KEY_CHECKS=0 */;
-/*!40101 SET @OLD_SQL_MODE=@@SQL_MODE, SQL_MODE='NO_AUTO_VALUE_ON_ZERO' */;
-/*!40111 SET @OLD_SQL_NOTES=@@SQL_NOTES, SQL_NOTES=0 */;
-
---
--- Table structure for table `ai_agent`
---
-
-DROP TABLE IF EXISTS `ai_agent`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
-CREATE TABLE `ai_agent` (
-                            `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键ID',
-                            `name` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '智能体名称',
-                            `description` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '智能体描述',
-                            `system_prompt` text CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci COMMENT '系统提示词',
-                            `knowledge_library_ids` text CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci COMMENT '关联的知识库ID列表（JSON数组）',
-                            `knowledge_base_weights` text CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci COMMENT '知识库权重配置（JSON格式：{"1": 1.0, "2": 0.8}，权重范围0.1-1.0）',
-                            `model_config_id` bigint DEFAULT NULL COMMENT '模型配置ID(关联model_config表,NULL则使用默认模型)',
-                            `model_name` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT 'qwen-plus' COMMENT '模型名称',
-                            `temperature` double DEFAULT '0.7' COMMENT '温度参数',
-                            `max_tokens` int DEFAULT '2000' COMMENT '最大token数',
-                            `rag_min_score` double DEFAULT NULL COMMENT 'RAG检索相似度阈值(0.5-1.0,推荐0.7-0.75,NULL则使用全局配置)',
-                            `rag_max_results` int DEFAULT NULL COMMENT 'RAG检索最大结果数量(1-10,推荐3-5,NULL则使用全局配置)',
-                            `enabled` tinyint(1) DEFAULT '1' COMMENT '是否启用',
-                            `welcome_message` text CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci COMMENT '开场白',
-                            `suggested_questions` text CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci COMMENT '预设问题(JSON数组)',
-                            `show_citations` tinyint(1) DEFAULT '1' COMMENT '是否显示引用来源',
-                            `max_history_turns` int DEFAULT '10' COMMENT '最大历史轮数',
-                            `api_enabled` tinyint(1) DEFAULT '0' COMMENT '是否启用API',
-                            `api_key` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT 'API Key',
-                            `workflow_id` bigint DEFAULT NULL COMMENT '关联工作流ID',
-                            `workflow_trigger_mode` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT 'manual' COMMENT '工作流触发模式: manual/auto/keyword',
-                            `workflow_trigger_keywords` text CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci COMMENT '触发关键词(JSON数组)',
-                            `publish_enabled` tinyint(1) DEFAULT '0' COMMENT '是否发布为应用',
-                            `publish_token` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '发布访问Token',
-                            `publish_settings` text CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci COMMENT '发布设置(JSON)',
-                            `create_time` datetime DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
-                            `update_time` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
-                            `rag_recall_multiplier` double DEFAULT NULL COMMENT '第一阶段召回倍数（1.5-3.0，推荐2.0，NULL时使用全局配置）',
-                            `rag_enable_hybrid_search` tinyint(1) DEFAULT '1' COMMENT '是否启用混合检索（向量+BM25）',
-                            `rag_enable_query_expansion` tinyint(1) DEFAULT '1' COMMENT '是否启用查询扩展',
-                            `rag_bm25_weight` double DEFAULT '0.3' COMMENT 'BM25检索权重（0-1）',
-                            `rag_vector_weight` double DEFAULT '0.7' COMMENT '向量检索权重（0-1）',
-                            `enable_self_reflection` tinyint(1) DEFAULT '0' COMMENT '是否启用自我反思',
-                            `deleted` tinyint(1) NOT NULL DEFAULT '0' COMMENT '删除标记: 0-未删除, 1-已删除',
-                            PRIMARY KEY (`id`) USING BTREE,
-                            KEY `idx_enabled` (`enabled`) USING BTREE,
-                            KEY `idx_model_config_id` (`model_config_id`) USING BTREE,
-                            KEY `fk_agent_workflow` (`workflow_id`),
-                            KEY `idx_deleted` (`deleted`),
-                            CONSTRAINT `fk_agent_model_config` FOREIGN KEY (`model_config_id`) REFERENCES `ai_model_config` (`id`) ON DELETE SET NULL ON UPDATE CASCADE,
-                            CONSTRAINT `fk_agent_workflow` FOREIGN KEY (`workflow_id`) REFERENCES `ai_workflow` (`id`) ON DELETE SET NULL ON UPDATE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=49 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci ROW_FORMAT=DYNAMIC COMMENT='智能体表';
-/*!40101 SET character_set_client = @saved_cs_client */;
-
---
--- Table structure for table `ai_agent_dictionary_relation`
---
-
-DROP TABLE IF EXISTS `ai_agent_dictionary_relation`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
-CREATE TABLE `ai_agent_dictionary_relation` (
-                                                `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键ID',
-                                                `agent_id` bigint NOT NULL COMMENT '智能体ID',
-                                                `dictionary_id` bigint NOT NULL COMMENT '词典ID',
-                                                `enabled` tinyint(1) DEFAULT '1' COMMENT '是否启用',
-                                                `create_time` datetime DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
-                                                PRIMARY KEY (`id`) USING BTREE,
-                                                UNIQUE KEY `uk_agent_dict` (`agent_id`,`dictionary_id`) USING BTREE,
-                                                KEY `idx_agent_id` (`agent_id`) USING BTREE,
-                                                KEY `idx_dictionary_id` (`dictionary_id`) USING BTREE,
-                                                CONSTRAINT `fk_adr_agent` FOREIGN KEY (`agent_id`) REFERENCES `ai_agent` (`id`) ON DELETE CASCADE ON UPDATE CASCADE,
-                                                CONSTRAINT `fk_adr_dict` FOREIGN KEY (`dictionary_id`) REFERENCES `ai_domain_dictionary` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=23 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci ROW_FORMAT=DYNAMIC COMMENT='智能体词典关联表';
-/*!40101 SET character_set_client = @saved_cs_client */;
-
---
--- Table structure for table `ai_agent_tool`
---
-
-DROP TABLE IF EXISTS `ai_agent_tool`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
+-- `moyun-db`.ai_agent_tool definition
+drop table if exists `ai_agent_tool`;
 CREATE TABLE `ai_agent_tool` (
                                  `id` bigint NOT NULL AUTO_INCREMENT COMMENT '工具ID',
                                  `name` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '工具标识（英文）',
@@ -117,232 +21,13 @@ CREATE TABLE `ai_agent_tool` (
                                  KEY `idx_category` (`category`) USING BTREE,
                                  KEY `idx_enabled` (`enabled`) USING BTREE,
                                  KEY `idx_deleted` (`deleted`)
-) ENGINE=InnoDB AUTO_INCREMENT=27 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci ROW_FORMAT=DYNAMIC COMMENT='智能体工具定义表';
-/*!40101 SET character_set_client = @saved_cs_client */;
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci ROW_FORMAT=DYNAMIC COMMENT='智能体工具定义表';
 
---
--- Table structure for table `ai_agent_tool_relation`
---
 
-DROP TABLE IF EXISTS `ai_agent_tool_relation`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
-CREATE TABLE `ai_agent_tool_relation` (
-                                          `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键ID',
-                                          `agent_id` bigint NOT NULL COMMENT '智能体ID',
-                                          `tool_id` bigint NOT NULL COMMENT '工具ID',
-                                          `custom_config` json DEFAULT NULL COMMENT '针对该智能体的自定义配置',
-                                          `enabled` tinyint(1) DEFAULT '1' COMMENT '是否启用',
-                                          `create_time` datetime DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
-                                          PRIMARY KEY (`id`) USING BTREE,
-                                          UNIQUE KEY `uk_agent_tool` (`agent_id`,`tool_id`) USING BTREE,
-                                          KEY `idx_agent_id` (`agent_id`) USING BTREE,
-                                          KEY `idx_tool_id` (`tool_id`) USING BTREE,
-                                          CONSTRAINT `fk_atr_agent` FOREIGN KEY (`agent_id`) REFERENCES `ai_agent` (`id`) ON DELETE CASCADE ON UPDATE CASCADE,
-                                          CONSTRAINT `fk_atr_tool` FOREIGN KEY (`tool_id`) REFERENCES `ai_agent_tool` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=88 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci ROW_FORMAT=DYNAMIC COMMENT='智能体工具关联表';
-/*!40101 SET character_set_client = @saved_cs_client */;
 
---
--- Table structure for table `ai_agent_workflow_relation`
---
 
-DROP TABLE IF EXISTS `ai_agent_workflow_relation`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
-CREATE TABLE `ai_agent_workflow_relation` (
-                                              `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键ID',
-                                              `agent_id` bigint NOT NULL COMMENT '智能体ID',
-                                              `workflow_id` bigint NOT NULL COMMENT '工作流ID',
-                                              `enabled` tinyint(1) DEFAULT '1' COMMENT '是否启用',
-                                              `sort_order` int DEFAULT '0' COMMENT '排序',
-                                              `create_time` datetime DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
-                                              PRIMARY KEY (`id`) USING BTREE,
-                                              UNIQUE KEY `uk_agent_workflow` (`agent_id`,`workflow_id`) USING BTREE,
-                                              KEY `idx_agent_id` (`agent_id`) USING BTREE,
-                                              KEY `idx_workflow_id` (`workflow_id`) USING BTREE,
-                                              CONSTRAINT `fk_awr_agent` FOREIGN KEY (`agent_id`) REFERENCES `ai_agent` (`id`) ON DELETE CASCADE ON UPDATE CASCADE,
-                                              CONSTRAINT `fk_awr_workflow` FOREIGN KEY (`workflow_id`) REFERENCES `ai_workflow` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci ROW_FORMAT=DYNAMIC COMMENT='智能体-工作流关联表';
-/*!40101 SET character_set_client = @saved_cs_client */;
-
---
--- Table structure for table `ai_analysis_report`
---
-
-DROP TABLE IF EXISTS `ai_analysis_report`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
-CREATE TABLE `ai_analysis_report` (
-                                      `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键ID',
-                                      `datasource_id` bigint NOT NULL COMMENT '数据源ID',
-                                      `user_id` bigint DEFAULT NULL COMMENT '用户ID',
-                                      `report_name` varchar(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '报告名称',
-                                      `report_type` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT 'auto' COMMENT '报告类型: auto, custom, scheduled',
-                                      `table_name` varchar(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '分析的表名',
-                                      `analysis_config` text CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci COMMENT '分析配置(JSON格式)',
-                                      `executive_summary` text CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci COMMENT '执行摘要(AI生成)',
-                                      `data_overview` text CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci COMMENT '数据概览(JSON格式)',
-                                      `analysis_results` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci COMMENT '分析结果(JSON格式)',
-                                      `insights` text CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci COMMENT '数据洞察(JSON格式)',
-                                      `charts` text CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci COMMENT '图表配置(JSON格式)',
-                                      `conclusion` text CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci COMMENT '结论与建议(AI生成)',
-                                      `report_status` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT 'draft' COMMENT '报告状态: draft, completed, archived',
-                                      `file_path` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '导出文件路径',
-                                      `generate_time` int DEFAULT '0' COMMENT '生成耗时(秒)',
-                                      `view_count` int DEFAULT '0' COMMENT '查看次数',
-                                      `create_time` datetime DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
-                                      `update_time` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
-                                      PRIMARY KEY (`id`) USING BTREE,
-                                      KEY `idx_datasource_id` (`datasource_id`) USING BTREE,
-                                      KEY `idx_user_id` (`user_id`) USING BTREE,
-                                      KEY `idx_create_time` (`create_time`) USING BTREE,
-                                      KEY `idx_report_type` (`report_type`) USING BTREE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci ROW_FORMAT=DYNAMIC COMMENT='分析报告表';
-/*!40101 SET character_set_client = @saved_cs_client */;
-
---
--- Table structure for table `ai_chart_recommendation_rule`
---
-
-DROP TABLE IF EXISTS `ai_chart_recommendation_rule`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
-CREATE TABLE `ai_chart_recommendation_rule` (
-                                                `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键ID',
-                                                `rule_name` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '规则名称',
-                                                `data_pattern` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '数据模式: time_series, distribution, category, correlation',
-                                                `field_types` varchar(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '字段类型组合(JSON)',
-                                                `data_characteristics` text CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci COMMENT '数据特征条件(JSON)',
-                                                `recommended_chart` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '推荐图表类型',
-                                                `priority` int DEFAULT '50' COMMENT '优先级(0-100)',
-                                                `reason` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '推荐理由',
-                                                `min_data_points` int DEFAULT '0' COMMENT '最小数据点数',
-                                                `max_data_points` int DEFAULT '999999' COMMENT '最大数据点数',
-                                                `enabled` tinyint(1) DEFAULT '1' COMMENT '是否启用',
-                                                `create_time` datetime DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
-                                                PRIMARY KEY (`id`) USING BTREE,
-                                                KEY `idx_data_pattern` (`data_pattern`) USING BTREE,
-                                                KEY `idx_priority` (`priority`) USING BTREE
-) ENGINE=InnoDB AUTO_INCREMENT=8 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci ROW_FORMAT=DYNAMIC COMMENT='图表推荐规则表';
-/*!40101 SET character_set_client = @saved_cs_client */;
-
---
--- Table structure for table `ai_chat_history`
---
-
-DROP TABLE IF EXISTS `ai_chat_history`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
-CREATE TABLE `ai_chat_history` (
-                                   `id` bigint NOT NULL AUTO_INCREMENT,
-                                   `agent_id` bigint NOT NULL COMMENT '智能体ID',
-                                   `session_id` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '会话ID',
-                                   `user_message` text CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci COMMENT '用户消息',
-                                   `assistant_message` text CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci COMMENT '助手回复',
-                                   `tokens_used` int DEFAULT '0' COMMENT 'Token消耗',
-                                   `retrieval_results` text CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci COMMENT '检索结果JSON',
-                                   `retrieval_count` int DEFAULT '0' COMMENT '检索命中数',
-                                   `response_time` int DEFAULT '0' COMMENT '响应时间(毫秒)',
-                                   `create_time` datetime DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
-                                   PRIMARY KEY (`id`) USING BTREE,
-                                   KEY `idx_agent_id` (`agent_id`) USING BTREE,
-                                   KEY `idx_session_id` (`session_id`) USING BTREE,
-                                   KEY `idx_create_time` (`create_time`) USING BTREE,
-                                   CONSTRAINT `fk_ch_agent` FOREIGN KEY (`agent_id`) REFERENCES `ai_agent` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=152 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci ROW_FORMAT=DYNAMIC COMMENT='对话历史表';
-/*!40101 SET character_set_client = @saved_cs_client */;
-
---
--- Table structure for table `ai_conversation`
---
-
-DROP TABLE IF EXISTS `ai_conversation`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
-CREATE TABLE `ai_conversation` (
-                                   `id` bigint NOT NULL AUTO_INCREMENT COMMENT '会话ID',
-                                   `agent_id` bigint NOT NULL COMMENT '智能体ID',
-                                   `title` varchar(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT '新对话' COMMENT '会话标题（自动生成或用户修改）',
-                                   `user_id` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '用户ID（预留字段，支持多用户）',
-                                   `message_count` int DEFAULT '0' COMMENT '消息数量',
-                                   `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
-                                   `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '最后更新时间',
-                                   `summary` text CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci COMMENT '对话摘要',
-                                   `summary_updated_at` datetime DEFAULT NULL COMMENT '摘要更新时间',
-                                   `deleted` tinyint(1) NOT NULL DEFAULT '0' COMMENT '删除标记: 0-未删除, 1-已删除',
-                                   PRIMARY KEY (`id`) USING BTREE,
-                                   KEY `idx_agent_id` (`agent_id`) USING BTREE,
-                                   KEY `idx_user_id` (`user_id`) USING BTREE,
-                                   KEY `idx_update_time` (`update_time`) USING BTREE,
-                                   KEY `idx_deleted` (`deleted`),
-                                   CONSTRAINT `fk_c_agent` FOREIGN KEY (`agent_id`) REFERENCES `ai_agent` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=56 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci ROW_FORMAT=DYNAMIC COMMENT='对话会话表';
-/*!40101 SET character_set_client = @saved_cs_client */;
-
---
--- Table structure for table `ai_conversation_message`
---
-
-DROP TABLE IF EXISTS `ai_conversation_message`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
-CREATE TABLE `ai_conversation_message` (
-                                           `id` bigint NOT NULL AUTO_INCREMENT COMMENT '消息ID',
-                                           `conversation_id` bigint NOT NULL COMMENT '会话ID',
-                                           `role` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '角色：user/assistant',
-                                           `content` text CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '消息内容',
-                                           `reference_sources` text CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci COMMENT '参考来源（JSON格式）',
-                                           `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
-                                           PRIMARY KEY (`id`) USING BTREE,
-                                           KEY `idx_conversation_id` (`conversation_id`) USING BTREE,
-                                           KEY `idx_create_time` (`create_time`) USING BTREE,
-                                           CONSTRAINT `conversation_message_ibfk_1` FOREIGN KEY (`conversation_id`) REFERENCES `ai_conversation` (`id`) ON DELETE CASCADE ON UPDATE RESTRICT
-) ENGINE=InnoDB AUTO_INCREMENT=500 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci ROW_FORMAT=DYNAMIC COMMENT='对话消息表';
-/*!40101 SET character_set_client = @saved_cs_client */;
-
---
--- Table structure for table `ai_data_insight`
---
-
-DROP TABLE IF EXISTS `ai_data_insight`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
-CREATE TABLE `ai_data_insight` (
-                                   `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键ID',
-                                   `datasource_id` bigint NOT NULL COMMENT '数据源ID',
-                                   `query_id` bigint DEFAULT NULL COMMENT '查询ID',
-                                   `report_id` bigint DEFAULT NULL COMMENT '报告ID',
-                                   `insight_type` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '洞察类型: anomaly, trend, correlation, pattern',
-                                   `severity` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT 'medium' COMMENT '严重程度: low, medium, high',
-                                   `title` varchar(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '洞察标题',
-                                   `description` text CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '洞察描述',
-                                   `affected_fields` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '影响的字段',
-                                   `statistical_value` decimal(20,4) DEFAULT NULL COMMENT '统计值',
-                                   `confidence` decimal(5,4) DEFAULT NULL COMMENT '置信度(0-1)',
-                                   `actionable` tinyint(1) DEFAULT '0' COMMENT '是否可执行',
-                                   `recommendation` text CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci COMMENT '建议措施',
-                                   `is_acknowledged` tinyint(1) DEFAULT '0' COMMENT '是否已确认',
-                                   `acknowledged_by` bigint DEFAULT NULL COMMENT '确认人ID',
-                                   `acknowledged_time` datetime DEFAULT NULL COMMENT '确认时间',
-                                   `create_time` datetime DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
-                                   PRIMARY KEY (`id`) USING BTREE,
-                                   KEY `idx_datasource_id` (`datasource_id`) USING BTREE,
-                                   KEY `idx_query_id` (`query_id`) USING BTREE,
-                                   KEY `idx_report_id` (`report_id`) USING BTREE,
-                                   KEY `idx_insight_type` (`insight_type`) USING BTREE,
-                                   KEY `idx_severity` (`severity`) USING BTREE,
-                                   KEY `idx_create_time` (`create_time`) USING BTREE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci ROW_FORMAT=DYNAMIC COMMENT='智能洞察表';
-/*!40101 SET character_set_client = @saved_cs_client */;
-
---
--- Table structure for table `ai_datasource_config`
---
-
-DROP TABLE IF EXISTS `ai_datasource_config`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
+-- `moyun-db`.ai_datasource_config definition
+drop table if exists `ai_datasource_config`;
 CREATE TABLE `ai_datasource_config` (
                                         `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键ID',
                                         `name` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '数据源名称',
@@ -365,46 +50,12 @@ CREATE TABLE `ai_datasource_config` (
                                         KEY `idx_type` (`type`) USING BTREE,
                                         KEY `idx_enabled` (`enabled`) USING BTREE,
                                         KEY `idx_create_time` (`create_time`) USING BTREE
-) ENGINE=InnoDB AUTO_INCREMENT=5 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci ROW_FORMAT=DYNAMIC COMMENT='数据源配置表';
-/*!40101 SET character_set_client = @saved_cs_client */;
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci ROW_FORMAT=DYNAMIC COMMENT='数据源配置表';
 
---
--- Table structure for table `ai_document_chunk_metadata`
---
 
-DROP TABLE IF EXISTS `ai_document_chunk_metadata`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
-CREATE TABLE `ai_document_chunk_metadata` (
-                                              `id` bigint NOT NULL AUTO_INCREMENT COMMENT '分片ID',
-                                              `segment_id` bigint NOT NULL COMMENT '文档分片ID（关联document_segment表）',
-                                              `knowledge_id` bigint NOT NULL COMMENT '知识库ID',
-                                              `chunk_index` int NOT NULL COMMENT '分片序号',
-                                              `chunk_text` text CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '分片文本内容',
-                                              `chunk_length` int NOT NULL COMMENT '分片长度',
-                                              `parent_chunk_id` bigint DEFAULT NULL COMMENT '父分片ID（父子分段模式使用）',
-                                              `embedding_model` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '使用的嵌入模型',
-                                              `vector_dimension` int DEFAULT NULL COMMENT '向量维度',
-                                              `original_length` int DEFAULT NULL COMMENT '预处理前长度',
-                                              `preprocessed` tinyint(1) DEFAULT '0' COMMENT '是否经过预处理',
-                                              `hit_count` int DEFAULT '0' COMMENT '被检索命中次数',
-                                              `last_hit_time` timestamp NULL DEFAULT NULL COMMENT '最后命中时间',
-                                              `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
-                                              PRIMARY KEY (`id`) USING BTREE,
-                                              KEY `idx_segment_id` (`segment_id`) USING BTREE,
-                                              KEY `idx_knowledge_id` (`knowledge_id`) USING BTREE,
-                                              KEY `idx_parent_chunk` (`parent_chunk_id`) USING BTREE,
-                                              KEY `idx_hit_count` (`hit_count`) USING BTREE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci ROW_FORMAT=DYNAMIC COMMENT='文档分片元数据表';
-/*!40101 SET character_set_client = @saved_cs_client */;
 
---
--- Table structure for table `ai_document_image`
---
-
-DROP TABLE IF EXISTS `ai_document_image`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
+-- `moyun-db`.ai_document_image definition
+drop table if exists `ai_document_image`;
 CREATE TABLE `ai_document_image` (
                                      `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键ID',
                                      `knowledge_base_id` bigint NOT NULL COMMENT '关联的知识库ID',
@@ -421,46 +72,11 @@ CREATE TABLE `ai_document_image` (
                                      PRIMARY KEY (`id`) USING BTREE,
                                      KEY `idx_knowledge_base_id` (`knowledge_base_id`) USING BTREE,
                                      KEY `idx_embedding_id` (`embedding_id`) USING BTREE
-) ENGINE=InnoDB AUTO_INCREMENT=2592 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci ROW_FORMAT=DYNAMIC COMMENT='文档图片表';
-/*!40101 SET character_set_client = @saved_cs_client */;
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci ROW_FORMAT=DYNAMIC COMMENT='文档图片表';
 
---
--- Table structure for table `ai_document_segment`
---
 
-DROP TABLE IF EXISTS `ai_document_segment`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
-CREATE TABLE `ai_document_segment` (
-                                       `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键ID',
-                                       `knowledge_base_id` bigint NOT NULL COMMENT '关联的知识库ID',
-                                       `segment_index` int NOT NULL COMMENT '分片索引（第几个分片）',
-                                       `page_number` int DEFAULT NULL COMMENT 'PDF页码',
-                                       `line_start` int DEFAULT NULL COMMENT '起始行号',
-                                       `line_end` int DEFAULT NULL COMMENT '结束行号',
-                                       `char_start` int DEFAULT NULL COMMENT '起始字符位置',
-                                       `char_end` int DEFAULT NULL COMMENT '结束字符位置',
-                                       `chapter_title` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '章节标题',
-                                       `content` text CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '分片内容',
-                                       `content_length` int DEFAULT NULL COMMENT '分片内容长度',
-                                       `embedding_id` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '向量ID（在Pinecone中的ID）',
-                                       `vector_dimension` int DEFAULT NULL COMMENT '向量维度',
-                                       `vector_data` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci COMMENT '向量数据（JSON格式）',
-                                       `create_time` datetime DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
-                                       PRIMARY KEY (`id`) USING BTREE,
-                                       KEY `idx_knowledge_base_id` (`knowledge_base_id`) USING BTREE,
-                                       KEY `idx_embedding_id` (`embedding_id`) USING BTREE,
-                                       CONSTRAINT `fk_ds_kb` FOREIGN KEY (`knowledge_base_id`) REFERENCES `ai_knowledge_base` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=5985 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci ROW_FORMAT=DYNAMIC COMMENT='文档分片表';
-/*!40101 SET character_set_client = @saved_cs_client */;
-
---
--- Table structure for table `ai_domain_dictionary`
---
-
-DROP TABLE IF EXISTS `ai_domain_dictionary`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
+-- `moyun-db`.ai_domain_dictionary definition
+drop table if exists `ai_domain_dictionary`;
 CREATE TABLE `ai_domain_dictionary` (
                                         `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键ID',
                                         `keyword` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '核心词',
@@ -479,16 +95,11 @@ CREATE TABLE `ai_domain_dictionary` (
                                         KEY `idx_enabled` (`enabled`) USING BTREE,
                                         KEY `idx_global` (`is_global`) USING BTREE,
                                         KEY `idx_deleted` (`deleted`)
-) ENGINE=InnoDB AUTO_INCREMENT=18 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci ROW_FORMAT=DYNAMIC COMMENT='领域词典表';
-/*!40101 SET character_set_client = @saved_cs_client */;
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci ROW_FORMAT=DYNAMIC COMMENT='领域词典表';
 
---
--- Table structure for table `ai_execute_log`
---
 
-DROP TABLE IF EXISTS `ai_execute_log`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
+-- `moyun-db`.ai_execute_log definition
+drop table if exists `ai_execute_log`;
 CREATE TABLE `ai_execute_log` (
                                   `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键',
                                   `request_id` varchar(64) NOT NULL COMMENT '请求ID',
@@ -512,111 +123,11 @@ CREATE TABLE `ai_execute_log` (
                                   KEY `idx_scene_code` (`scene_code`),
                                   KEY `idx_create_time` (`create_time`),
                                   KEY `idx_user_scene` (`user_id`,`scene_code`)
-) ENGINE=InnoDB AUTO_INCREMENT=57 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='AI能力调用日志表（可观测性）';
-/*!40101 SET character_set_client = @saved_cs_client */;
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='AI能力调用日志表（可观测性）';
 
---
--- Table structure for table `ai_knowledge_base`
---
 
-DROP TABLE IF EXISTS `ai_knowledge_base`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
-CREATE TABLE `ai_knowledge_base` (
-                                     `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键ID',
-                                     `library_id` bigint DEFAULT NULL COMMENT '所属知识库ID',
-                                     `file_name` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '文件名',
-                                     `file_path` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '文件路径',
-                                     `pdf_file_path` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT 'PDF文件路径（用于预览）',
-                                     `file_size` bigint DEFAULT NULL COMMENT '文件大小（字节）',
-                                     `file_type` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '文件类型',
-                                     `vector_id` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '向量ID（Pinecone中的ID）',
-                                     `segment_count` int DEFAULT NULL COMMENT '文档分段数量',
-                                     `vector_dimension` int DEFAULT NULL COMMENT '向量维度',
-                                     `status` int DEFAULT '0' COMMENT '处理状态：0-待处理，1-处理中，2-处理成功，3-处理失败',
-                                     `processing_status` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT 'pending' COMMENT '处理状态：pending(待配置), configured(已配置), processing(处理中), completed(已完成), failed(失败)',
-                                     `config_completed` tinyint(1) DEFAULT '0' COMMENT '是否完成配置',
-                                     `error_message` text CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci COMMENT '错误信息',
-                                     `create_time` datetime DEFAULT CURRENT_TIMESTAMP COMMENT '上传时间',
-                                     `update_time` datetime DEFAULT NULL COMMENT '处理时间',
-                                     `category` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '知识库分组',
-                                     `tags` text CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci COMMENT '知识库标签（JSON数组）',
-                                     `description` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '知识库描述',
-                                     `usage_count` int DEFAULT '0' COMMENT '使用次数',
-                                     `hit_count` int DEFAULT '0' COMMENT '命中次数',
-                                     `last_used_time` datetime DEFAULT NULL COMMENT '最后使用时间',
-                                     `parse_method` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '文档解析方式: POI, PDFBox, Text',
-                                     `content_hash` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '文件内容SHA-256哈希值（用于增量更新检测）',
-                                     `last_processed_time` datetime DEFAULT NULL COMMENT '上次处理时间',
-                                     `need_reprocess` tinyint(1) DEFAULT '0' COMMENT '是否需要重新处理',
-                                     `deleted` tinyint(1) NOT NULL DEFAULT '0' COMMENT '删除标记: 0-未删除, 1-已删除',
-                                     PRIMARY KEY (`id`) USING BTREE,
-                                     KEY `idx_status` (`status`) USING BTREE,
-                                     KEY `idx_category` (`category`) USING BTREE,
-                                     KEY `idx_usage_count` (`usage_count`) USING BTREE,
-                                     KEY `idx_last_used_time` (`last_used_time`) USING BTREE,
-                                     KEY `idx_library_id` (`library_id`) USING BTREE,
-                                     KEY `idx_kb_content_hash` (`content_hash`) USING BTREE,
-                                     KEY `idx_deleted` (`deleted`),
-                                     KEY `idx_create_time` (`create_time`),
-                                     CONSTRAINT `fk_kb_library` FOREIGN KEY (`library_id`) REFERENCES `ai_knowledge_library` (`id`) ON DELETE SET NULL ON UPDATE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=143 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci ROW_FORMAT=DYNAMIC COMMENT='知识库表';
-/*!40101 SET character_set_client = @saved_cs_client */;
-
---
--- Table structure for table `ai_knowledge_config`
---
-
-DROP TABLE IF EXISTS `ai_knowledge_config`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
-CREATE TABLE `ai_knowledge_config` (
-                                       `id` bigint NOT NULL AUTO_INCREMENT COMMENT '配置ID',
-                                       `knowledge_id` bigint NOT NULL COMMENT '知识库ID',
-                                       `segment_mode` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL DEFAULT 'general' COMMENT '分段模式：general(通用), parent_child(父子分段)',
-                                       `segment_separator` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT '\n\n' COMMENT '分段标识符',
-                                       `segment_max_length` int NOT NULL DEFAULT '800' COMMENT '分段最大长度（字符数，800字符确保题库问答对完整，技术文档可用500，小说可用1500）',
-                                       `segment_overlap_length` int NOT NULL DEFAULT '100' COMMENT '分段重叠长度（字符数，100字符保证上下文连贯性）',
-                                       `chunking_strategy` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT 'fixed' COMMENT '分片策略: fixed(固定大小), adaptive(自适应), document_type(按文档类型)',
-                                       `document_type` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT 'general' COMMENT '文档类型: general(通用), faq(问答), table(表格), code(代码), technical(技术文档)',
-                                       `faq_chunk_size` int DEFAULT '400' COMMENT 'FAQ分片大小(字符)',
-                                       `table_chunk_strategy` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT 'by_row' COMMENT '表格分片策略: by_row(按行), by_table(整表), by_cell(按单元格)',
-                                       `code_chunk_strategy` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT 'by_function' COMMENT '代码分片策略: by_function(按函数), by_class(按类), by_file(按文件)',
-                                       `technical_chunk_size` int DEFAULT '1200' COMMENT '技术文档分片大小(字符)',
-                                       `enable_smart_boundary` tinyint(1) DEFAULT '1' COMMENT '启用智能边界检测(避免切断句子)',
-                                       `preprocess_replace_spaces` tinyint(1) DEFAULT '1' COMMENT '替换连续空格、换行、制表符',
-                                       `preprocess_remove_urls` tinyint(1) DEFAULT '1' COMMENT '删除URL和邮箱地址',
-                                       `preprocess_remove_extra_newlines` tinyint(1) DEFAULT '1' COMMENT '删除多余换行',
-                                       `index_mode` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL DEFAULT 'high_quality' COMMENT '索引方式：high_quality(高质量), economy(经济)',
-                                       `embedding_model` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '嵌入模型名称',
-                                       `retrieval_mode` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL DEFAULT 'vector' COMMENT '检索模式：vector(向量), keyword(关键词), hybrid(混合)',
-                                       `retrieval_top_k` int DEFAULT '3' COMMENT '检索Top K数量',
-                                       `rerank_enabled` tinyint(1) DEFAULT '0' COMMENT '是否启用重排序',
-                                       `rerank_model` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '重排序模型',
-                                       `qa_mode` tinyint(1) DEFAULT '0' COMMENT '是否启用Q&A模式',
-                                       `qa_extraction_prompt` text CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci COMMENT 'Q&A提取提示词',
-                                       `preprocess_remove_special_chars` tinyint(1) DEFAULT '0' COMMENT '删除特殊字符',
-                                       `preprocess_remove_table_desc` tinyint(1) DEFAULT '0' COMMENT '删除表格描述',
-                                       `preprocess_remove_header_footer` tinyint(1) DEFAULT '0' COMMENT '删除页眉页脚',
-                                       `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
-                                       `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
-                                       PRIMARY KEY (`id`) USING BTREE,
-                                       UNIQUE KEY `uk_knowledge_id` (`knowledge_id`) USING BTREE,
-                                       KEY `idx_segment_mode` (`segment_mode`) USING BTREE,
-                                       KEY `idx_index_mode` (`index_mode`) USING BTREE,
-                                       KEY `idx_chunking_strategy` (`chunking_strategy`) USING BTREE,
-                                       KEY `idx_document_type` (`document_type`) USING BTREE,
-                                       CONSTRAINT `fk_kc_knowledge` FOREIGN KEY (`knowledge_id`) REFERENCES `ai_knowledge_base` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=106 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci ROW_FORMAT=DYNAMIC COMMENT='知识库配置表 - 包含分片策略、文档类型识别、预处理规则等配置';
-/*!40101 SET character_set_client = @saved_cs_client */;
-
---
--- Table structure for table `ai_knowledge_config_template`
---
-
-DROP TABLE IF EXISTS `ai_knowledge_config_template`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
+-- `moyun-db`.ai_knowledge_config_template definition
+drop table if exists `ai_knowledge_config_template`;
 CREATE TABLE `ai_knowledge_config_template` (
                                                 `id` bigint NOT NULL AUTO_INCREMENT COMMENT '模板ID',
                                                 `template_name` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '模板名称',
@@ -631,16 +142,11 @@ CREATE TABLE `ai_knowledge_config_template` (
                                                 PRIMARY KEY (`id`) USING BTREE,
                                                 KEY `idx_template_type` (`template_type`) USING BTREE,
                                                 KEY `idx_use_count` (`use_count`) USING BTREE
-) ENGINE=InnoDB AUTO_INCREMENT=6 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci ROW_FORMAT=DYNAMIC COMMENT='知识库配置模板表';
-/*!40101 SET character_set_client = @saved_cs_client */;
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci ROW_FORMAT=DYNAMIC COMMENT='知识库配置模板表';
 
---
--- Table structure for table `ai_knowledge_library`
---
 
-DROP TABLE IF EXISTS `ai_knowledge_library`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
+-- `moyun-db`.ai_knowledge_library definition
+drop table if exists `ai_knowledge_library`;
 CREATE TABLE `ai_knowledge_library` (
                                         `id` bigint NOT NULL AUTO_INCREMENT COMMENT '知识库ID',
                                         `name` varchar(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '知识库名称',
@@ -665,47 +171,11 @@ CREATE TABLE `ai_knowledge_library` (
                                         KEY `idx_usage_count` (`usage_count`) USING BTREE,
                                         KEY `idx_deleted` (`deleted`),
                                         KEY `idx_create_time` (`create_time`)
-) ENGINE=InnoDB AUTO_INCREMENT=14 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci ROW_FORMAT=DYNAMIC COMMENT='知识库主表';
-/*!40101 SET character_set_client = @saved_cs_client */;
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci ROW_FORMAT=DYNAMIC COMMENT='知识库主表';
 
---
--- Table structure for table `ai_knowledge_library_config`
---
 
-DROP TABLE IF EXISTS `ai_knowledge_library_config`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
-CREATE TABLE `ai_knowledge_library_config` (
-                                               `id` bigint NOT NULL AUTO_INCREMENT COMMENT '配置ID',
-                                               `library_id` bigint NOT NULL COMMENT '知识库ID',
-                                               `segment_mode` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL DEFAULT 'general' COMMENT '分段模式：general(通用), qa(问答), code(代码)',
-                                               `segment_separator` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT '\n\n' COMMENT '分段标识符',
-                                               `segment_max_length` int NOT NULL DEFAULT '800' COMMENT '分段最大长度',
-                                               `segment_overlap_length` int NOT NULL DEFAULT '100' COMMENT '分段重叠长度',
-                                               `preprocess_replace_spaces` tinyint(1) DEFAULT '1' COMMENT '替换连续空格',
-                                               `preprocess_remove_urls` tinyint(1) DEFAULT '1' COMMENT '删除URL',
-                                               `preprocess_remove_extra_newlines` tinyint(1) DEFAULT '1' COMMENT '删除多余换行',
-                                               `index_mode` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL DEFAULT 'high_quality' COMMENT '索引模式：high_quality, economy',
-                                               `embedding_model` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT 'Embedding模型',
-                                               `retrieval_mode` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT 'hybrid' COMMENT '检索模式：vector, keyword, hybrid',
-                                               `retrieval_top_k` int DEFAULT '10' COMMENT '检索返回数量',
-                                               `rerank_enabled` tinyint(1) DEFAULT '0' COMMENT '是否启用Rerank',
-                                               `rerank_model` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT 'Rerank模型',
-                                               `created_at` datetime DEFAULT CURRENT_TIMESTAMP,
-                                               `updated_at` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-                                               PRIMARY KEY (`id`) USING BTREE,
-                                               UNIQUE KEY `uk_library_id` (`library_id`) USING BTREE,
-                                               CONSTRAINT `fk_library_config` FOREIGN KEY (`library_id`) REFERENCES `ai_knowledge_library` (`id`) ON DELETE CASCADE ON UPDATE RESTRICT
-) ENGINE=InnoDB AUTO_INCREMENT=14 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci ROW_FORMAT=DYNAMIC COMMENT='知识库配置表';
-/*!40101 SET character_set_client = @saved_cs_client */;
-
---
--- Table structure for table `ai_model_config`
---
-
-DROP TABLE IF EXISTS `ai_model_config`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
+-- `moyun-db`.ai_model_config definition
+drop table if exists `ai_model_config`;
 CREATE TABLE `ai_model_config` (
                                    `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键ID',
                                    `name` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '配置名称',
@@ -732,16 +202,11 @@ CREATE TABLE `ai_model_config` (
                                    KEY `idx_enabled` (`enabled`) USING BTREE,
                                    KEY `idx_is_default` (`is_default`) USING BTREE,
                                    KEY `idx_deleted` (`deleted`)
-) ENGINE=InnoDB AUTO_INCREMENT=18 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci ROW_FORMAT=DYNAMIC COMMENT='模型配置表';
-/*!40101 SET character_set_client = @saved_cs_client */;
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci ROW_FORMAT=DYNAMIC COMMENT='模型配置表';
 
---
--- Table structure for table `ai_provider`
---
 
-DROP TABLE IF EXISTS `ai_provider`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
+-- `moyun-db`.ai_provider definition
+drop table if exists `ai_provider`;
 CREATE TABLE `ai_provider` (
                                `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键',
                                `code` varchar(32) NOT NULL COMMENT '提供商编码（model_config.provider 关联值，小写唯一）',
@@ -759,16 +224,11 @@ CREATE TABLE `ai_provider` (
                                PRIMARY KEY (`id`),
                                UNIQUE KEY `uk_code` (`code`),
                                KEY `idx_enabled` (`enabled`)
-) ENGINE=InnoDB AUTO_INCREMENT=6 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='AI 提供商注册表';
-/*!40101 SET character_set_client = @saved_cs_client */;
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='AI 提供商注册表';
 
---
--- Table structure for table `ai_query_history`
---
 
-DROP TABLE IF EXISTS `ai_query_history`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
+-- `moyun-db`.ai_query_history definition
+drop table if exists `ai_query_history`;
 CREATE TABLE `ai_query_history` (
                                     `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键ID',
                                     `datasource_id` bigint NOT NULL COMMENT '数据源ID',
@@ -793,16 +253,11 @@ CREATE TABLE `ai_query_history` (
                                     KEY `idx_session_id` (`session_id`) USING BTREE,
                                     KEY `idx_create_time` (`create_time`) USING BTREE,
                                     KEY `idx_status` (`status`) USING BTREE
-) ENGINE=InnoDB AUTO_INCREMENT=37 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci ROW_FORMAT=DYNAMIC COMMENT='查询历史表';
-/*!40101 SET character_set_client = @saved_cs_client */;
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci ROW_FORMAT=DYNAMIC COMMENT='查询历史表';
 
---
--- Table structure for table `ai_reference_feedback`
---
 
-DROP TABLE IF EXISTS `ai_reference_feedback`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
+-- `moyun-db`.ai_reference_feedback definition
+drop table if exists `ai_reference_feedback`;
 CREATE TABLE `ai_reference_feedback` (
                                          `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键ID',
                                          `knowledge_base_id` bigint DEFAULT NULL COMMENT '知识库ID',
@@ -820,16 +275,11 @@ CREATE TABLE `ai_reference_feedback` (
                                          KEY `idx_knowledge_base_id` (`knowledge_base_id`) USING BTREE,
                                          KEY `idx_feedback_type` (`feedback_type`) USING BTREE,
                                          KEY `idx_create_time` (`create_time`) USING BTREE
-) ENGINE=InnoDB AUTO_INCREMENT=4 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci ROW_FORMAT=DYNAMIC COMMENT='参考来源反馈表';
-/*!40101 SET character_set_client = @saved_cs_client */;
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci ROW_FORMAT=DYNAMIC COMMENT='参考来源反馈表';
 
---
--- Table structure for table `ai_scene_config`
---
 
-DROP TABLE IF EXISTS `ai_scene_config`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
+-- `moyun-db`.ai_scene_config definition
+drop table if exists `ai_scene_config`;
 CREATE TABLE `ai_scene_config` (
                                    `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键',
                                    `scene_code` varchar(50) NOT NULL COMMENT '场景代码：voice_interview/resume_optimize/question_generate',
@@ -877,43 +327,11 @@ CREATE TABLE `ai_scene_config` (
                                    KEY `idx_scene_code` (`scene_code`),
                                    KEY `idx_agent_id` (`agent_id`),
                                    KEY `idx_deleted` (`deleted`)
-) ENGINE=InnoDB AUTO_INCREMENT=7 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='AI场景配置表（业务场景与Agent/模型/知识库/工作流动态绑定）';
-/*!40101 SET character_set_client = @saved_cs_client */;
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='AI场景配置表（业务场景与Agent/模型/知识库/工作流动态绑定）';
 
---
--- Table structure for table `ai_sql_template`
---
 
-DROP TABLE IF EXISTS `ai_sql_template`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
-CREATE TABLE `ai_sql_template` (
-                                   `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键ID',
-                                   `template_name` varchar(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '模板名称',
-                                   `natural_query` text CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '自然语言示例',
-                                   `ai_sql_template` text CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT 'SQL模板',
-                                   `query_type` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '查询类型',
-                                   `complexity` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT 'simple' COMMENT '复杂度: simple, medium, complex',
-                                   `table_pattern` varchar(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '表名模式',
-                                   `usage_count` int DEFAULT '0' COMMENT '使用次数',
-                                   `success_rate` decimal(5,2) DEFAULT NULL COMMENT '成功率(%)',
-                                   `enabled` tinyint(1) DEFAULT '1' COMMENT '是否启用',
-                                   `create_time` datetime DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
-                                   `update_time` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
-                                   PRIMARY KEY (`id`) USING BTREE,
-                                   KEY `idx_query_type` (`query_type`) USING BTREE,
-                                   KEY `idx_complexity` (`complexity`) USING BTREE,
-                                   KEY `idx_usage_count` (`usage_count`) USING BTREE
-) ENGINE=InnoDB AUTO_INCREMENT=6 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci ROW_FORMAT=DYNAMIC COMMENT='SQL模板表';
-/*!40101 SET character_set_client = @saved_cs_client */;
-
---
--- Table structure for table `ai_table_metadata`
---
-
-DROP TABLE IF EXISTS `ai_table_metadata`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
+-- `moyun-db`.ai_table_metadata definition
+drop table if exists `ai_table_metadata`;
 CREATE TABLE `ai_table_metadata` (
                                      `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键ID',
                                      `datasource_id` bigint NOT NULL COMMENT '数据源ID',
@@ -936,55 +354,11 @@ CREATE TABLE `ai_table_metadata` (
                                      UNIQUE KEY `uk_datasource_table` (`datasource_id`,`table_name`) USING BTREE,
                                      KEY `idx_datasource_id` (`datasource_id`) USING BTREE,
                                      KEY `idx_last_sync_time` (`last_sync_time`) USING BTREE
-) ENGINE=InnoDB AUTO_INCREMENT=195 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci ROW_FORMAT=DYNAMIC COMMENT='表元数据缓存表';
-/*!40101 SET character_set_client = @saved_cs_client */;
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci ROW_FORMAT=DYNAMIC COMMENT='表元数据缓存表';
 
---
--- Table structure for table `ai_token_usage_log`
---
 
-DROP TABLE IF EXISTS `ai_token_usage_log`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
-CREATE TABLE `ai_token_usage_log` (
-                                      `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键ID',
-                                      `conversation_id` bigint DEFAULT NULL COMMENT '会话ID',
-                                      `message_id` bigint DEFAULT NULL COMMENT '消息ID',
-                                      `agent_id` bigint DEFAULT NULL COMMENT '智能体ID',
-                                      `workflow_id` bigint DEFAULT NULL COMMENT '工作流ID',
-                                      `workflow_execution_id` bigint DEFAULT NULL COMMENT '工作流执行ID',
-                                      `workflow_node_id` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '工作流节点ID',
-                                      `user_id` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '用户ID',
-                                      `model_name` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '模型名称',
-                                      `model_provider` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '模型提供商',
-                                      `input_tokens` int DEFAULT '0' COMMENT '输入token数',
-                                      `output_tokens` int DEFAULT '0' COMMENT '输出token数',
-                                      `total_tokens` int DEFAULT '0' COMMENT '总token数',
-                                      `cost` decimal(10,6) DEFAULT NULL COMMENT '费用（元）',
-                                      `request_type` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '请求类型：chat/embedding_query/embedding_document/workflow_llm/workflow_classifier/workflow_extractor/workflow_question',
-                                      `create_time` datetime DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
-                                      PRIMARY KEY (`id`) USING BTREE,
-                                      KEY `idx_conversation_id` (`conversation_id`) USING BTREE,
-                                      KEY `idx_agent_id` (`agent_id`) USING BTREE,
-                                      KEY `idx_user_id` (`user_id`) USING BTREE,
-                                      KEY `idx_create_time` (`create_time`) USING BTREE,
-                                      KEY `idx_model_name` (`model_name`) USING BTREE,
-                                      KEY `idx_workflow_id` (`workflow_id`) USING BTREE,
-                                      KEY `idx_workflow_execution_id` (`workflow_execution_id`) USING BTREE,
-                                      KEY `fk_tul_message` (`message_id`),
-                                      CONSTRAINT `fk_tul_agent` FOREIGN KEY (`agent_id`) REFERENCES `ai_agent` (`id`) ON DELETE SET NULL ON UPDATE CASCADE,
-                                      CONSTRAINT `fk_tul_conversation` FOREIGN KEY (`conversation_id`) REFERENCES `ai_conversation` (`id`) ON DELETE SET NULL ON UPDATE CASCADE,
-                                      CONSTRAINT `fk_tul_message` FOREIGN KEY (`message_id`) REFERENCES `ai_conversation_message` (`id`) ON DELETE SET NULL ON UPDATE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=13 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci ROW_FORMAT=DYNAMIC COMMENT='Token使用记录表';
-/*!40101 SET character_set_client = @saved_cs_client */;
-
---
--- Table structure for table `ai_token_usage_summary`
---
-
-DROP TABLE IF EXISTS `ai_token_usage_summary`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
+-- `moyun-db`.ai_token_usage_summary definition
+drop table if exists `ai_token_usage_summary`;
 CREATE TABLE `ai_token_usage_summary` (
                                           `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键ID',
                                           `agent_id` bigint DEFAULT NULL COMMENT '智能体ID',
@@ -1002,15 +376,10 @@ CREATE TABLE `ai_token_usage_summary` (
                                           UNIQUE KEY `uk_agent_user_date_model` (`agent_id`,`user_id`,`stat_date`,`model_name`) USING BTREE,
                                           KEY `idx_stat_date` (`stat_date`) USING BTREE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci ROW_FORMAT=DYNAMIC COMMENT='Token使用统计汇总表';
-/*!40101 SET character_set_client = @saved_cs_client */;
 
---
--- Table structure for table `ai_tool_call_log`
---
 
-DROP TABLE IF EXISTS `ai_tool_call_log`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
+-- `moyun-db`.ai_tool_call_log definition
+drop table if exists `ai_tool_call_log`;
 CREATE TABLE `ai_tool_call_log` (
                                     `id` bigint NOT NULL AUTO_INCREMENT COMMENT '日志ID',
                                     `conversation_id` bigint DEFAULT NULL COMMENT '会话ID',
@@ -1031,15 +400,10 @@ CREATE TABLE `ai_tool_call_log` (
                                     KEY `idx_status` (`status`) USING BTREE,
                                     KEY `idx_create_time` (`create_time`) USING BTREE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci ROW_FORMAT=DYNAMIC COMMENT='工具调用日志表';
-/*!40101 SET character_set_client = @saved_cs_client */;
 
---
--- Table structure for table `ai_workflow`
---
 
-DROP TABLE IF EXISTS `ai_workflow`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
+-- `moyun-db`.ai_workflow definition
+drop table if exists `ai_workflow`;
 CREATE TABLE `ai_workflow` (
                                `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键ID',
                                `name` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '工作流名称',
@@ -1056,65 +420,11 @@ CREATE TABLE `ai_workflow` (
                                KEY `idx_status` (`status`) USING BTREE,
                                KEY `idx_enabled` (`enabled`) USING BTREE,
                                KEY `idx_deleted` (`deleted`)
-) ENGINE=InnoDB AUTO_INCREMENT=25 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci ROW_FORMAT=DYNAMIC COMMENT='工作流定义表';
-/*!40101 SET character_set_client = @saved_cs_client */;
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci ROW_FORMAT=DYNAMIC COMMENT='工作流定义表';
 
---
--- Table structure for table `ai_workflow_execution`
---
 
-DROP TABLE IF EXISTS `ai_workflow_execution`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
-CREATE TABLE `ai_workflow_execution` (
-                                         `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键ID',
-                                         `workflow_id` bigint NOT NULL COMMENT '工作流ID',
-                                         `status` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT 'running' COMMENT '执行状态: running-执行中, completed-已完成, failed-失败, cancelled-已取消',
-                                         `input_data` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci COMMENT '输入参数(JSON)',
-                                         `output_data` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci COMMENT '输出结果(JSON)',
-                                         `execution_log` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci COMMENT '执行日志(JSON数组)',
-                                         `error_message` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci COMMENT '错误信息',
-                                         `current_node_id` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '当前执行到的节点ID',
-                                         `duration_ms` bigint DEFAULT NULL COMMENT '执行耗时(毫秒)',
-                                         `start_time` datetime DEFAULT NULL COMMENT '开始时间',
-                                         `end_time` datetime DEFAULT NULL COMMENT '结束时间',
-                                         `create_time` datetime DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
-                                         PRIMARY KEY (`id`) USING BTREE,
-                                         KEY `idx_workflow_id` (`workflow_id`) USING BTREE,
-                                         KEY `idx_status` (`status`) USING BTREE,
-                                         KEY `idx_create_time` (`create_time`) USING BTREE,
-                                         CONSTRAINT `fk_we_workflow` FOREIGN KEY (`workflow_id`) REFERENCES `ai_workflow` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=40 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci ROW_FORMAT=DYNAMIC COMMENT='工作流执行记录表';
-/*!40101 SET character_set_client = @saved_cs_client */;
-
---
--- Table structure for table `ai_workflow_version`
---
-
-DROP TABLE IF EXISTS `ai_workflow_version`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
-CREATE TABLE `ai_workflow_version` (
-                                       `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键ID',
-                                       `workflow_id` bigint NOT NULL COMMENT '工作流ID',
-                                       `version` int NOT NULL COMMENT '版本号',
-                                       `description` varchar(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '版本描述',
-                                       `graph_data` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci COMMENT '工作流图数据快照(JSON)',
-                                       `create_time` datetime DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
-                                       PRIMARY KEY (`id`) USING BTREE,
-                                       KEY `idx_workflow_id` (`workflow_id`) USING BTREE,
-                                       KEY `idx_version` (`version`) USING BTREE,
-                                       CONSTRAINT `fk_wv_workflow` FOREIGN KEY (`workflow_id`) REFERENCES `ai_workflow` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
-) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci ROW_FORMAT=DYNAMIC COMMENT='工作流版本表';
-/*!40101 SET character_set_client = @saved_cs_client */;
-
---
--- Table structure for table `gen_table`
---
-
-DROP TABLE IF EXISTS `gen_table`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
+-- `moyun-db`.gen_table definition
+drop table if exists `gen_table`;
 CREATE TABLE `gen_table` (
                              `table_id` bigint NOT NULL AUTO_INCREMENT COMMENT '编号',
                              `table_name` varchar(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT '' COMMENT '表名称',
@@ -1139,15 +449,10 @@ CREATE TABLE `gen_table` (
                              `remark` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '备注',
                              PRIMARY KEY (`table_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='代码生成业务表';
-/*!40101 SET character_set_client = @saved_cs_client */;
 
---
--- Table structure for table `gen_table_column`
---
 
-DROP TABLE IF EXISTS `gen_table_column`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
+-- `moyun-db`.gen_table_column definition
+drop table if exists `gen_table_column`;
 CREATE TABLE `gen_table_column` (
                                     `column_id` bigint NOT NULL AUTO_INCREMENT COMMENT '编号',
                                     `table_id` bigint DEFAULT NULL COMMENT '归属表编号',
@@ -1174,15 +479,10 @@ CREATE TABLE `gen_table_column` (
                                     `remark` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '备注',
                                     PRIMARY KEY (`column_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='代码生成业务表字段';
-/*!40101 SET character_set_client = @saved_cs_client */;
 
---
--- Table structure for table `ledger_ai_analysis_report`
---
 
-DROP TABLE IF EXISTS `ledger_ai_analysis_report`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
+-- `moyun-db`.ledger_ai_analysis_report definition
+drop table if exists `ledger_ai_analysis_report`;
 CREATE TABLE `ledger_ai_analysis_report` (
                                              `id` bigint NOT NULL AUTO_INCREMENT COMMENT '报告ID',
                                              `user_id` bigint NOT NULL COMMENT '门户用户ID（portal_user.id）',
@@ -1202,16 +502,11 @@ CREATE TABLE `ledger_ai_analysis_report` (
                                              PRIMARY KEY (`id`),
                                              UNIQUE KEY `uk_user_period_range` (`user_id`,`period`,`analysis_range`),
                                              KEY `idx_user_period` (`user_id`,`period`)
-) ENGINE=InnoDB AUTO_INCREMENT=10 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin COMMENT='AI 财务分析报告月度快照';
-/*!40101 SET character_set_client = @saved_cs_client */;
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin COMMENT='AI 财务分析报告月度快照';
 
---
--- Table structure for table `ledger_app_feature_config`
---
 
-DROP TABLE IF EXISTS `ledger_app_feature_config`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
+-- `moyun-db`.ledger_app_feature_config definition
+drop table if exists `ledger_app_feature_config`;
 CREATE TABLE `ledger_app_feature_config` (
                                              `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键',
                                              `feature_key` varchar(50) NOT NULL COMMENT '功能标识（前端路由映射键）',
@@ -1230,16 +525,11 @@ CREATE TABLE `ledger_app_feature_config` (
                                              `remark` varchar(200) DEFAULT NULL COMMENT '备注',
                                              PRIMARY KEY (`id`),
                                              UNIQUE KEY `uk_feature_key` (`feature_key`)
-) ENGINE=InnoDB AUTO_INCREMENT=27 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='记账小程序功能入口配置（可视化运营）';
-/*!40101 SET character_set_client = @saved_cs_client */;
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='记账小程序功能入口配置（可视化运营）';
 
---
--- Table structure for table `ledger_asset_account`
---
 
-DROP TABLE IF EXISTS `ledger_asset_account`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
+-- `moyun-db`.ledger_asset_account definition
+drop table if exists `ledger_asset_account`;
 CREATE TABLE `ledger_asset_account` (
                                         `id` bigint NOT NULL AUTO_INCREMENT COMMENT '资产账户ID',
                                         `user_id` bigint NOT NULL COMMENT '门户用户ID（portal_user.id）',
@@ -1257,16 +547,11 @@ CREATE TABLE `ledger_asset_account` (
                                         `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
                                         PRIMARY KEY (`id`),
                                         KEY `idx_user` (`user_id`,`status`)
-) ENGINE=InnoDB AUTO_INCREMENT=3 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='记账-资产账户';
-/*!40101 SET character_set_client = @saved_cs_client */;
+) ENGINE=InnoDB  AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='记账-资产账户';
 
---
--- Table structure for table `ledger_budget`
---
 
-DROP TABLE IF EXISTS `ledger_budget`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
+-- `moyun-db`.ledger_budget definition
+drop table if exists `ledger_budget`;
 CREATE TABLE `ledger_budget` (
                                  `id` bigint NOT NULL AUTO_INCREMENT COMMENT '预算ID',
                                  `user_id` bigint NOT NULL COMMENT '门户用户ID（portal_user.id）',
@@ -1279,15 +564,10 @@ CREATE TABLE `ledger_budget` (
                                  PRIMARY KEY (`id`),
                                  KEY `idx_user_period` (`user_id`,`year`,`month`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='记账-预算';
-/*!40101 SET character_set_client = @saved_cs_client */;
 
---
--- Table structure for table `ledger_category`
---
 
-DROP TABLE IF EXISTS `ledger_category`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
+-- `moyun-db`.ledger_category definition
+drop table if exists `ledger_category`;
 CREATE TABLE `ledger_category` (
                                    `id` bigint NOT NULL AUTO_INCREMENT COMMENT '分类ID',
                                    `user_id` bigint NOT NULL DEFAULT '0' COMMENT '0=系统预设，>0=用户自定义（portal_user.id）',
@@ -1304,16 +584,11 @@ CREATE TABLE `ledger_category` (
                                    `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
                                    PRIMARY KEY (`id`),
                                    KEY `idx_user_type` (`user_id`,`type`,`status`)
-) ENGINE=InnoDB AUTO_INCREMENT=49 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='记账-分类（系统预设+用户自定义）';
-/*!40101 SET character_set_client = @saved_cs_client */;
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='记账-分类（系统预设+用户自定义）';
 
---
--- Table structure for table `ledger_liability_account`
---
 
-DROP TABLE IF EXISTS `ledger_liability_account`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
+-- `moyun-db`.ledger_liability_account definition
+drop table if exists `ledger_liability_account`;
 CREATE TABLE `ledger_liability_account` (
                                             `id` bigint NOT NULL AUTO_INCREMENT COMMENT '负债账户ID',
                                             `user_id` bigint NOT NULL COMMENT '门户用户ID（portal_user.id）',
@@ -1337,16 +612,11 @@ CREATE TABLE `ledger_liability_account` (
                                             `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
                                             PRIMARY KEY (`id`),
                                             KEY `idx_user` (`user_id`,`status`)
-) ENGINE=InnoDB AUTO_INCREMENT=4 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='记账-负债账户';
-/*!40101 SET character_set_client = @saved_cs_client */;
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='记账-负债账户';
 
---
--- Table structure for table `ledger_memo`
---
 
-DROP TABLE IF EXISTS `ledger_memo`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
+-- `moyun-db`.ledger_memo definition
+drop table if exists `ledger_memo`;
 CREATE TABLE `ledger_memo` (
                                `id` bigint NOT NULL AUTO_INCREMENT COMMENT '备忘录ID',
                                `user_id` bigint NOT NULL COMMENT '门户用户ID（portal_user.id）',
@@ -1364,16 +634,11 @@ CREATE TABLE `ledger_memo` (
                                PRIMARY KEY (`id`),
                                KEY `idx_user_done` (`user_id`,`done`),
                                KEY `idx_user_remind` (`remind_enabled`,`done`,`reminded`)
-) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='记账-备忘录（待办事项）';
-/*!40101 SET character_set_client = @saved_cs_client */;
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='记账-备忘录（待办事项）';
 
---
--- Table structure for table `ledger_net_worth_snapshot`
---
 
-DROP TABLE IF EXISTS `ledger_net_worth_snapshot`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
+-- `moyun-db`.ledger_net_worth_snapshot definition
+drop table if exists `ledger_net_worth_snapshot`;
 CREATE TABLE `ledger_net_worth_snapshot` (
                                              `id` bigint NOT NULL AUTO_INCREMENT COMMENT '快照ID',
                                              `user_id` bigint NOT NULL COMMENT '门户用户ID（portal_user.id）',
@@ -1384,16 +649,11 @@ CREATE TABLE `ledger_net_worth_snapshot` (
                                              `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
                                              PRIMARY KEY (`id`),
                                              UNIQUE KEY `uk_user_date` (`user_id`,`snap_date`)
-) ENGINE=InnoDB AUTO_INCREMENT=9 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='记账-净资产每日快照';
-/*!40101 SET character_set_client = @saved_cs_client */;
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='记账-净资产每日快照';
 
---
--- Table structure for table `ledger_saving_plan`
---
 
-DROP TABLE IF EXISTS `ledger_saving_plan`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
+-- `moyun-db`.ledger_saving_plan definition
+drop table if exists `ledger_saving_plan`;
 CREATE TABLE `ledger_saving_plan` (
                                       `id` bigint NOT NULL AUTO_INCREMENT COMMENT '计划ID',
                                       `user_id` bigint NOT NULL COMMENT '门户用户ID（portal_user.id）',
@@ -1413,15 +673,10 @@ CREATE TABLE `ledger_saving_plan` (
                                       PRIMARY KEY (`id`),
                                       KEY `idx_user_status` (`user_id`,`status`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='记账-存钱计划';
-/*!40101 SET character_set_client = @saved_cs_client */;
 
---
--- Table structure for table `ledger_saving_record`
---
 
-DROP TABLE IF EXISTS `ledger_saving_record`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
+-- `moyun-db`.ledger_saving_record definition
+drop table if exists `ledger_saving_record`;
 CREATE TABLE `ledger_saving_record` (
                                         `id` bigint NOT NULL AUTO_INCREMENT COMMENT '流水ID',
                                         `plan_id` bigint NOT NULL COMMENT '计划ID（ledger_saving_plan.id）',
@@ -1439,15 +694,10 @@ CREATE TABLE `ledger_saving_record` (
                                         KEY `idx_plan` (`plan_id`,`period_index`),
                                         KEY `idx_user` (`user_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='记账-存钱流水';
-/*!40101 SET character_set_client = @saved_cs_client */;
 
---
--- Table structure for table `ledger_schedule_log`
---
 
-DROP TABLE IF EXISTS `ledger_schedule_log`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
+-- `moyun-db`.ledger_schedule_log definition
+drop table if exists `ledger_schedule_log`;
 CREATE TABLE `ledger_schedule_log` (
                                        `id` bigint NOT NULL AUTO_INCREMENT COMMENT '日志ID',
                                        `task_id` bigint NOT NULL COMMENT '任务ID（ledger_schedule_task.id）',
@@ -1463,15 +713,10 @@ CREATE TABLE `ledger_schedule_log` (
                                        KEY `idx_task` (`task_id`,`exec_date`),
                                        KEY `idx_user` (`user_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='记账-定时记账执行日志';
-/*!40101 SET character_set_client = @saved_cs_client */;
 
---
--- Table structure for table `ledger_schedule_task`
---
 
-DROP TABLE IF EXISTS `ledger_schedule_task`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
+-- `moyun-db`.ledger_schedule_task definition
+drop table if exists `ledger_schedule_task`;
 CREATE TABLE `ledger_schedule_task` (
                                         `id` bigint NOT NULL AUTO_INCREMENT COMMENT '任务ID',
                                         `user_id` bigint NOT NULL COMMENT '门户用户ID（portal_user.id）',
@@ -1496,16 +741,11 @@ CREATE TABLE `ledger_schedule_task` (
                                         PRIMARY KEY (`id`),
                                         KEY `idx_user_status` (`user_id`,`status`),
                                         KEY `idx_next_exec` (`enabled`,`status`,`next_exec_date`)
-) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='记账-定时记账任务';
-/*!40101 SET character_set_client = @saved_cs_client */;
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='记账-定时记账任务';
 
---
--- Table structure for table `ledger_tip_order`
---
 
-DROP TABLE IF EXISTS `ledger_tip_order`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
+-- `moyun-db`.ledger_tip_order definition
+drop table if exists `ledger_tip_order`;
 CREATE TABLE `ledger_tip_order` (
                                     `id` bigint NOT NULL AUTO_INCREMENT COMMENT '打赏单ID',
                                     `user_id` bigint NOT NULL COMMENT '门户用户ID（portal_user.id）',
@@ -1521,16 +761,11 @@ CREATE TABLE `ledger_tip_order` (
                                     PRIMARY KEY (`id`),
                                     UNIQUE KEY `uk_client_uuid` (`client_uuid`),
                                     KEY `idx_user` (`user_id`,`create_time`)
-) ENGINE=InnoDB AUTO_INCREMENT=6 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='记账-打赏记录';
-/*!40101 SET character_set_client = @saved_cs_client */;
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='记账-打赏记录';
 
---
--- Table structure for table `ledger_transaction`
---
 
-DROP TABLE IF EXISTS `ledger_transaction`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
+-- `moyun-db`.ledger_transaction definition
+drop table if exists `ledger_transaction`;
 CREATE TABLE `ledger_transaction` (
                                       `id` bigint NOT NULL AUTO_INCREMENT COMMENT '流水ID',
                                       `user_id` bigint NOT NULL COMMENT '门户用户ID（portal_user.id）',
@@ -1560,16 +795,11 @@ CREATE TABLE `ledger_transaction` (
                                       KEY `idx_user_date` (`user_id`,`transaction_date`),
                                       KEY `idx_account` (`account_id`),
                                       KEY `idx_liability` (`liability_id`)
-) ENGINE=InnoDB AUTO_INCREMENT=14 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='记账-流水';
-/*!40101 SET character_set_client = @saved_cs_client */;
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='记账-流水';
 
---
--- Table structure for table `pay_ledger_entry`
---
 
-DROP TABLE IF EXISTS `pay_ledger_entry`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
+-- `moyun-db`.pay_ledger_entry definition
+drop table if exists `pay_ledger_entry`;
 CREATE TABLE `pay_ledger_entry` (
                                     `id` bigint NOT NULL AUTO_INCREMENT COMMENT '流水ID',
                                     `pay_no` varchar(40) COLLATE utf8mb4_general_ci NOT NULL COMMENT '关联支付单号',
@@ -1577,7 +807,7 @@ CREATE TABLE `pay_ledger_entry` (
                                     `biz_no` varchar(64) COLLATE utf8mb4_general_ci NOT NULL COMMENT '业务单号',
                                     `account_role` varchar(16) COLLATE utf8mb4_general_ci NOT NULL COMMENT '账户角色：USER=用户 / PLATFORM=平台',
                                     `user_id` bigint DEFAULT NULL COMMENT '用户ID（PLATFORM 分录为 NULL）',
-                                    `platform` varchar(16) COLLATE utf8mb4_general_ci DEFAULT NULL COMMENT '归属端：portal/ledger（按端归集统计）',
+                                    `platform_code` varchar(50) COLLATE utf8mb4_general_ci DEFAULT NULL COMMENT '归属端代码',
                                     `direction` varchar(8) COLLATE utf8mb4_general_ci NOT NULL COMMENT '方向：credit=收入 / debit=支出',
                                     `amount` bigint NOT NULL COMMENT '金额（分）',
                                     `balance_after` bigint DEFAULT NULL COMMENT '交易后余额（分；PLATFORM 分录不追踪余额，为 NULL）',
@@ -1586,17 +816,13 @@ CREATE TABLE `pay_ledger_entry` (
                                     PRIMARY KEY (`id`),
                                     KEY `idx_pay_no` (`pay_no`),
                                     KEY `idx_user` (`user_id`,`create_time`),
-                                    KEY `idx_role` (`account_role`,`direction`)
-) ENGINE=InnoDB AUTO_INCREMENT=7 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='分账流水（复式记账）';
-/*!40101 SET character_set_client = @saved_cs_client */;
+                                    KEY `idx_role` (`account_role`,`direction`),
+                                    KEY `idx_pay_ledger_platform` (`platform_code`)
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='分账流水（复式记账）';
 
---
--- Table structure for table `pay_notification`
---
 
-DROP TABLE IF EXISTS `pay_notification`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
+-- `moyun-db`.pay_notification definition
+drop table if exists `pay_notification`;
 CREATE TABLE `pay_notification` (
                                     `id` bigint NOT NULL AUTO_INCREMENT COMMENT '通知ID',
                                     `user_id` bigint NOT NULL COMMENT '接收用户',
@@ -1606,18 +832,15 @@ CREATE TABLE `pay_notification` (
                                     `content` varchar(512) COLLATE utf8mb4_general_ci NOT NULL COMMENT '通知内容',
                                     `read_flag` tinyint NOT NULL DEFAULT '0' COMMENT '已读：0=未读 1=已读',
                                     `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+                                    `platform_code` varchar(50) COLLATE utf8mb4_general_ci DEFAULT NULL COMMENT '归属端代码',
                                     PRIMARY KEY (`id`),
-                                    KEY `idx_user_read` (`user_id`,`read_flag`,`create_time`)
-) ENGINE=InnoDB AUTO_INCREMENT=7 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='支付站内通知';
-/*!40101 SET character_set_client = @saved_cs_client */;
+                                    KEY `idx_user_read` (`user_id`,`read_flag`,`create_time`),
+                                    KEY `idx_pay_notification_platform` (`platform_code`)
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='支付站内通知';
 
---
--- Table structure for table `pay_notify_log`
---
 
-DROP TABLE IF EXISTS `pay_notify_log`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
+-- `moyun-db`.pay_notify_log definition
+drop table if exists `pay_notify_log`;
 CREATE TABLE `pay_notify_log` (
                                   `id` bigint NOT NULL AUTO_INCREMENT COMMENT '日志ID',
                                   `channel` varchar(32) COLLATE utf8mb4_general_ci NOT NULL COMMENT '渠道：wechat',
@@ -1627,25 +850,21 @@ CREATE TABLE `pay_notify_log` (
                                   `handled` tinyint NOT NULL DEFAULT '0' COMMENT '业务处理：1=成功 0=失败',
                                   `error_msg` varchar(512) COLLATE utf8mb4_general_ci DEFAULT NULL COMMENT '失败原因',
                                   `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+                                  `platform_code` varchar(50) COLLATE utf8mb4_general_ci DEFAULT NULL COMMENT '归属端代码',
                                   PRIMARY KEY (`id`),
                                   KEY `idx_pay_no` (`pay_no`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='渠道回调日志';
-/*!40101 SET character_set_client = @saved_cs_client */;
 
---
--- Table structure for table `pay_order`
---
 
-DROP TABLE IF EXISTS `pay_order`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
+-- `moyun-db`.pay_order definition
+drop table if exists `pay_order`;
 CREATE TABLE `pay_order` (
                              `id` bigint NOT NULL AUTO_INCREMENT COMMENT 'id',
                              `pay_no` varchar(40) COLLATE utf8mb4_general_ci NOT NULL COMMENT '支付单号（全局唯一，如 PAY20260902xxxx）',
                              `biz_type` varchar(32) COLLATE utf8mb4_general_ci NOT NULL COMMENT '业务类型：tip=打赏 / member=会员 / course=课程（后续扩展）',
                              `biz_no` varchar(64) COLLATE utf8mb4_general_ci NOT NULL COMMENT '业务单号（如打赏单ID）',
                              `user_id` bigint DEFAULT NULL COMMENT '下单用户（portal_user.id，v11.79 对账维度）',
-                             `platform` varchar(16) COLLATE utf8mb4_general_ci DEFAULT NULL COMMENT '归属平台：ledger_app/portal（v11.79 对账维度）',
+                             `platform_code` varchar(50) COLLATE utf8mb4_general_ci DEFAULT NULL COMMENT '归属端代码（sys_platform.platform_code）',
                              `channel` varchar(32) COLLATE utf8mb4_general_ci NOT NULL COMMENT '支付渠道：wechat / alipay（预留）',
                              `amount` bigint NOT NULL COMMENT '支付金额（分）',
                              `subject` varchar(128) COLLATE utf8mb4_general_ci NOT NULL COMMENT '商品描述',
@@ -1666,17 +885,12 @@ CREATE TABLE `pay_order` (
                              KEY `idx_status_expire` (`status`,`expire_time`),
                              KEY `idx_channel_order` (`channel_order_no`),
                              KEY `idx_pay_order_user` (`user_id`),
-                             KEY `idx_pay_order_platform` (`platform`)
-) ENGINE=InnoDB AUTO_INCREMENT=7 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='支付订单（公共支付通道）';
-/*!40101 SET character_set_client = @saved_cs_client */;
+                             KEY `idx_pay_order_platform` (`platform_code`)
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='支付订单（公共支付通道）';
 
---
--- Table structure for table `pay_user_account`
---
 
-DROP TABLE IF EXISTS `pay_user_account`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
+-- `moyun-db`.pay_user_account definition
+drop table if exists `pay_user_account`;
 CREATE TABLE `pay_user_account` (
                                     `user_id` bigint NOT NULL COMMENT '用户ID（sys_user.user_id）',
                                     `balance` bigint NOT NULL DEFAULT '0' COMMENT '可用余额（分）',
@@ -1687,15 +901,10 @@ CREATE TABLE `pay_user_account` (
                                     `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
                                     PRIMARY KEY (`user_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='用户资金账户（钱包）';
-/*!40101 SET character_set_client = @saved_cs_client */;
 
---
--- Table structure for table `pay_user_bank_card`
---
 
-DROP TABLE IF EXISTS `pay_user_bank_card`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
+-- `moyun-db`.pay_user_bank_card definition
+drop table if exists `pay_user_bank_card`;
 CREATE TABLE `pay_user_bank_card` (
                                       `id` bigint NOT NULL AUTO_INCREMENT COMMENT '银行卡ID',
                                       `user_id` bigint NOT NULL COMMENT '所属用户',
@@ -1713,15 +922,10 @@ CREATE TABLE `pay_user_bank_card` (
                                       UNIQUE KEY `uk_user_card` (`user_id`,`card_no_masked`),
                                       KEY `idx_user` (`user_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='用户银行卡（密文落库）';
-/*!40101 SET character_set_client = @saved_cs_client */;
 
---
--- Table structure for table `pay_withdraw_order`
---
 
-DROP TABLE IF EXISTS `pay_withdraw_order`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
+-- `moyun-db`.pay_withdraw_order definition
+drop table if exists `pay_withdraw_order`;
 CREATE TABLE `pay_withdraw_order` (
                                       `id` bigint NOT NULL AUTO_INCREMENT COMMENT '提现单ID',
                                       `withdraw_no` varchar(40) COLLATE utf8mb4_general_ci NOT NULL COMMENT '提现单号',
@@ -1734,19 +938,16 @@ CREATE TABLE `pay_withdraw_order` (
                                       `reject_reason` varchar(255) COLLATE utf8mb4_general_ci DEFAULT NULL COMMENT '驳回原因',
                                       `paid_time` datetime DEFAULT NULL COMMENT '打款完成时间（真实出金到账）',
                                       `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+                                      `platform_code` varchar(50) COLLATE utf8mb4_general_ci DEFAULT NULL COMMENT '归属端代码',
                                       PRIMARY KEY (`id`),
                                       UNIQUE KEY `uk_withdraw_no` (`withdraw_no`),
-                                      KEY `idx_user` (`user_id`,`create_time`)
+                                      KEY `idx_user` (`user_id`,`create_time`),
+                                      KEY `idx_pay_withdraw_platform` (`platform_code`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='提现订单（预留）';
-/*!40101 SET character_set_client = @saved_cs_client */;
 
---
--- Table structure for table `portal_achievement`
---
 
-DROP TABLE IF EXISTS `portal_achievement`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
+-- `moyun-db`.portal_achievement definition
+drop table if exists `portal_achievement`;
 CREATE TABLE `portal_achievement` (
                                       `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT '主键',
                                       `code` varchar(64) NOT NULL COMMENT '成就编码',
@@ -1765,16 +966,11 @@ CREATE TABLE `portal_achievement` (
                                       `remark` varchar(500) DEFAULT NULL COMMENT '备注',
                                       PRIMARY KEY (`id`),
                                       UNIQUE KEY `uk_code` (`code`)
-) ENGINE=InnoDB AUTO_INCREMENT=26 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='成就定义表';
-/*!40101 SET character_set_client = @saved_cs_client */;
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='成就定义表';
 
---
--- Table structure for table `portal_ad_slot`
---
 
-DROP TABLE IF EXISTS `portal_ad_slot`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
+-- `moyun-db`.portal_ad_slot definition
+drop table if exists `portal_ad_slot`;
 CREATE TABLE `portal_ad_slot` (
                                   `id` bigint NOT NULL AUTO_INCREMENT COMMENT '广告位ID',
                                   `slot_key` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '广告位标识，如 article_detail_bottom',
@@ -1795,16 +991,11 @@ CREATE TABLE `portal_ad_slot` (
                                   KEY `idx_slot_key` (`slot_key`),
                                   KEY `idx_status` (`status`),
                                   KEY `idx_del_flag` (`del_flag`)
-) ENGINE=InnoDB AUTO_INCREMENT=3 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='门户自研广告位表';
-/*!40101 SET character_set_client = @saved_cs_client */;
+) ENGINE=InnoDB  AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='门户自研广告位表';
 
---
--- Table structure for table `portal_ai_task`
---
 
-DROP TABLE IF EXISTS `portal_ai_task`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
+-- `moyun-db`.portal_ai_task definition
+drop table if exists `portal_ai_task`;
 CREATE TABLE `portal_ai_task` (
                                   `id` bigint NOT NULL AUTO_INCREMENT COMMENT '任务ID',
                                   `user_id` bigint NOT NULL COMMENT '所属用户',
@@ -1820,16 +1011,11 @@ CREATE TABLE `portal_ai_task` (
                                   PRIMARY KEY (`id`),
                                   KEY `idx_user_type` (`user_id`,`task_type`),
                                   KEY `idx_status` (`status`)
-) ENGINE=InnoDB AUTO_INCREMENT=18 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='通用AI异步任务表';
-/*!40101 SET character_set_client = @saved_cs_client */;
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='通用AI异步任务表';
 
---
--- Table structure for table `portal_article`
---
 
-DROP TABLE IF EXISTS `portal_article`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
+-- `moyun-db`.portal_article definition
+drop table if exists `portal_article`;
 CREATE TABLE `portal_article` (
                                   `id` bigint NOT NULL AUTO_INCREMENT COMMENT '文章ID',
                                   `title` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '文章标题',
@@ -1886,16 +1072,11 @@ CREATE TABLE `portal_article` (
                                   KEY `idx_del_flag` (`del_flag`),
                                   KEY `idx_auditor_id` (`auditor_id`),
                                   KEY `idx_status_published_at` (`status`,`published_at`)
-) ENGINE=InnoDB AUTO_INCREMENT=19 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='门户文章表';
-/*!40101 SET character_set_client = @saved_cs_client */;
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='门户文章表';
 
---
--- Table structure for table `portal_article_version`
---
 
-DROP TABLE IF EXISTS `portal_article_version`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
+-- `moyun-db`.portal_article_version definition
+drop table if exists `portal_article_version`;
 CREATE TABLE `portal_article_version` (
                                           `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键',
                                           `article_id` bigint NOT NULL COMMENT '文章ID',
@@ -1908,16 +1089,11 @@ CREATE TABLE `portal_article_version` (
                                           `created_time` datetime DEFAULT CURRENT_TIMESTAMP COMMENT '版本创建时间',
                                           PRIMARY KEY (`id`),
                                           KEY `idx_article_version` (`article_id`,`version_no`)
-) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='文章版本快照';
-/*!40101 SET character_set_client = @saved_cs_client */;
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='文章版本快照';
 
---
--- Table structure for table `portal_article_view`
---
 
-DROP TABLE IF EXISTS `portal_article_view`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
+-- `moyun-db`.portal_article_view definition
+drop table if exists `portal_article_view`;
 CREATE TABLE `portal_article_view` (
                                        `id` bigint NOT NULL AUTO_INCREMENT COMMENT '记录ID',
                                        `article_id` bigint NOT NULL COMMENT '文章ID',
@@ -1938,16 +1114,11 @@ CREATE TABLE `portal_article_view` (
                                        KEY `idx_article_user` (`article_id`,`user_id`),
                                        KEY `idx_article_ip` (`article_id`,`ip`),
                                        KEY `idx_article_viewtime` (`article_id`,`view_time`)
-) ENGINE=InnoDB AUTO_INCREMENT=54 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='文章浏览记录表';
-/*!40101 SET character_set_client = @saved_cs_client */;
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='文章浏览记录表';
 
---
--- Table structure for table `portal_book`
---
 
-DROP TABLE IF EXISTS `portal_book`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
+-- `moyun-db`.portal_book definition
+
 CREATE TABLE `portal_book` (
                                `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键',
                                `title` varchar(500) NOT NULL COMMENT '书名',
@@ -1997,16 +1168,11 @@ CREATE TABLE `portal_book` (
                                KEY `idx_word_count` (`word_count`),
                                KEY `idx_last_update_time` (`last_update_time`),
                                KEY `idx_del_flag` (`del_flag`)
-) ENGINE=InnoDB AUTO_INCREMENT=3 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='书籍表';
-/*!40101 SET character_set_client = @saved_cs_client */;
+) ENGINE=InnoDB  AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='书籍表';
 
---
--- Table structure for table `portal_book_chapter`
---
 
-DROP TABLE IF EXISTS `portal_book_chapter`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
+-- `moyun-db`.portal_book_chapter definition
+
 CREATE TABLE `portal_book_chapter` (
                                        `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键',
                                        `book_id` bigint NOT NULL COMMENT '所属书籍ID',
@@ -2034,40 +1200,12 @@ CREATE TABLE `portal_book_chapter` (
                                        KEY `idx_publish_time` (`publish_time`),
                                        KEY `idx_is_published` (`is_published`),
                                        KEY `idx_del_flag` (`del_flag`)
-) ENGINE=InnoDB AUTO_INCREMENT=16 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='书籍章节表';
-/*!40101 SET character_set_client = @saved_cs_client */;
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='书籍章节表';
 
---
--- Table structure for table `portal_book_chapter_view`
---
 
-DROP TABLE IF EXISTS `portal_book_chapter_view`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
-CREATE TABLE `portal_book_chapter_view` (
-                                            `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键',
-                                            `chapter_id` bigint NOT NULL COMMENT '章节ID',
-                                            `book_id` bigint NOT NULL COMMENT '书籍ID',
-                                            `user_id` bigint DEFAULT NULL COMMENT '用户ID（未登录为NULL）',
-                                            `client_ip` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '客户端IP',
-                                            `read_duration_ms` int DEFAULT '0' COMMENT '阅读时长（毫秒）',
-                                            `create_time` datetime DEFAULT CURRENT_TIMESTAMP COMMENT '浏览时间',
-                                            `del_flag` char(1) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL DEFAULT '0' COMMENT '删除标记（0=存在 2=删除）',
-                                            PRIMARY KEY (`id`),
-                                            KEY `idx_chapter_id` (`chapter_id`),
-                                            KEY `idx_user_id` (`user_id`),
-                                            KEY `idx_create_time` (`create_time`),
-                                            KEY `idx_del_flag` (`del_flag`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='章节浏览记录表';
-/*!40101 SET character_set_client = @saved_cs_client */;
 
---
--- Table structure for table `portal_book_list`
---
+-- `moyun-db`.portal_book_list definition
 
-DROP TABLE IF EXISTS `portal_book_list`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `portal_book_list` (
                                     `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键',
                                     `title` varchar(500) NOT NULL COMMENT '书单标题',
@@ -2096,15 +1234,10 @@ CREATE TABLE `portal_book_list` (
                                     KEY `idx_is_featured` (`is_featured`),
                                     KEY `idx_del_flag` (`del_flag`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='书单表';
-/*!40101 SET character_set_client = @saved_cs_client */;
 
---
--- Table structure for table `portal_book_list_bookmark`
---
 
-DROP TABLE IF EXISTS `portal_book_list_bookmark`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
+-- `moyun-db`.portal_book_list_bookmark definition
+
 CREATE TABLE `portal_book_list_bookmark` (
                                              `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键',
                                              `booklist_id` bigint NOT NULL COMMENT '书单ID',
@@ -2118,15 +1251,10 @@ CREATE TABLE `portal_book_list_bookmark` (
                                              UNIQUE KEY `uk_booklist_user` (`booklist_id`,`user_id`),
                                              KEY `idx_user_id` (`user_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='书单收藏表';
-/*!40101 SET character_set_client = @saved_cs_client */;
 
---
--- Table structure for table `portal_book_list_item`
---
 
-DROP TABLE IF EXISTS `portal_book_list_item`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
+-- `moyun-db`.portal_book_list_item definition
+
 CREATE TABLE `portal_book_list_item` (
                                          `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键',
                                          `book_list_id` bigint NOT NULL COMMENT '书单ID',
@@ -2142,15 +1270,10 @@ CREATE TABLE `portal_book_list_item` (
                                          KEY `idx_book_list_id` (`book_list_id`),
                                          KEY `idx_book_id` (`book_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='书单-书籍关联表';
-/*!40101 SET character_set_client = @saved_cs_client */;
 
---
--- Table structure for table `portal_book_list_like`
---
 
-DROP TABLE IF EXISTS `portal_book_list_like`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
+-- `moyun-db`.portal_book_list_like definition
+
 CREATE TABLE `portal_book_list_like` (
                                          `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键',
                                          `book_list_id` bigint NOT NULL COMMENT '书单ID',
@@ -2163,15 +1286,10 @@ CREATE TABLE `portal_book_list_like` (
                                          PRIMARY KEY (`id`),
                                          UNIQUE KEY `uk_list_user` (`book_list_id`,`user_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='书单点赞表';
-/*!40101 SET character_set_client = @saved_cs_client */;
 
---
--- Table structure for table `portal_book_quote`
---
 
-DROP TABLE IF EXISTS `portal_book_quote`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
+-- `moyun-db`.portal_book_quote definition
+
 CREATE TABLE `portal_book_quote` (
                                      `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键',
                                      `user_id` bigint NOT NULL COMMENT '用户ID',
@@ -2197,16 +1315,11 @@ CREATE TABLE `portal_book_quote` (
                                      KEY `idx_is_featured` (`is_featured`),
                                      KEY `idx_chapter_id` (`chapter_id`),
                                      KEY `idx_del_flag` (`del_flag`)
-) ENGINE=InnoDB AUTO_INCREMENT=7 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='金句摘录表';
-/*!40101 SET character_set_client = @saved_cs_client */;
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='金句摘录表';
 
---
--- Table structure for table `portal_book_quote_like`
---
 
-DROP TABLE IF EXISTS `portal_book_quote_like`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
+-- `moyun-db`.portal_book_quote_like definition
+
 CREATE TABLE `portal_book_quote_like` (
                                           `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键',
                                           `quote_id` bigint NOT NULL COMMENT '金句ID',
@@ -2219,15 +1332,10 @@ CREATE TABLE `portal_book_quote_like` (
                                           PRIMARY KEY (`id`),
                                           UNIQUE KEY `uk_quote_user` (`quote_id`,`user_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='金句点赞表';
-/*!40101 SET character_set_client = @saved_cs_client */;
 
---
--- Table structure for table `portal_book_recommend`
---
 
-DROP TABLE IF EXISTS `portal_book_recommend`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
+-- `moyun-db`.portal_book_recommend definition
+
 CREATE TABLE `portal_book_recommend` (
                                          `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键',
                                          `book_id` bigint NOT NULL COMMENT '书籍ID',
@@ -2248,16 +1356,11 @@ CREATE TABLE `portal_book_recommend` (
                                          KEY `idx_is_active` (`is_active`),
                                          KEY `idx_time_window` (`start_time`,`end_time`),
                                          KEY `idx_del_flag` (`del_flag`)
-) ENGINE=InnoDB AUTO_INCREMENT=3 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='书籍推荐位表';
-/*!40101 SET character_set_client = @saved_cs_client */;
+) ENGINE=InnoDB  AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='书籍推荐位表';
 
---
--- Table structure for table `portal_bookmark`
---
 
-DROP TABLE IF EXISTS `portal_bookmark`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
+-- `moyun-db`.portal_bookmark definition
+
 CREATE TABLE `portal_bookmark` (
                                    `id` bigint NOT NULL AUTO_INCREMENT COMMENT '收藏ID',
                                    `user_id` bigint NOT NULL COMMENT '用户ID（门户用户ID）',
@@ -2271,16 +1374,11 @@ CREATE TABLE `portal_bookmark` (
                                    UNIQUE KEY `uk_user_article` (`user_id`,`article_id`),
                                    KEY `idx_user_id` (`user_id`),
                                    KEY `idx_article_id` (`article_id`)
-) ENGINE=InnoDB AUTO_INCREMENT=5 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='门户收藏表';
-/*!40101 SET character_set_client = @saved_cs_client */;
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='门户收藏表';
 
---
--- Table structure for table `portal_bookshelf`
---
 
-DROP TABLE IF EXISTS `portal_bookshelf`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
+-- `moyun-db`.portal_bookshelf definition
+
 CREATE TABLE `portal_bookshelf` (
                                     `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键',
                                     `user_id` bigint NOT NULL COMMENT '用户ID',
@@ -2300,15 +1398,10 @@ CREATE TABLE `portal_bookshelf` (
                                     KEY `idx_book_id` (`book_id`),
                                     KEY `idx_del_flag` (`del_flag`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='用户书架（收藏书籍）表';
-/*!40101 SET character_set_client = @saved_cs_client */;
 
---
--- Table structure for table `portal_category`
---
 
-DROP TABLE IF EXISTS `portal_category`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
+-- `moyun-db`.portal_category definition
+
 CREATE TABLE `portal_category` (
                                    `id` bigint NOT NULL AUTO_INCREMENT COMMENT '分类ID',
                                    `name` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '分类名称',
@@ -2336,16 +1429,11 @@ CREATE TABLE `portal_category` (
                                    KEY `idx_show_in_nav` (`show_in_nav`),
                                    KEY `idx_category_type` (`category_type`),
                                    KEY `idx_del_flag` (`del_flag`)
-) ENGINE=InnoDB AUTO_INCREMENT=102 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='门户分类表';
-/*!40101 SET character_set_client = @saved_cs_client */;
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='门户分类表';
 
---
--- Table structure for table `portal_code_run`
---
 
-DROP TABLE IF EXISTS `portal_code_run`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
+-- `moyun-db`.portal_code_run definition
+
 CREATE TABLE `portal_code_run` (
                                    `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键',
                                    `user_id` bigint NOT NULL COMMENT '运行者用户ID',
@@ -2361,15 +1449,10 @@ CREATE TABLE `portal_code_run` (
                                    PRIMARY KEY (`id`),
                                    KEY `idx_user_time` (`user_id`,`create_time`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='代码运行记录';
-/*!40101 SET character_set_client = @saved_cs_client */;
 
---
--- Table structure for table `portal_column`
---
 
-DROP TABLE IF EXISTS `portal_column`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
+-- `moyun-db`.portal_column definition
+
 CREATE TABLE `portal_column` (
                                  `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键',
                                  `user_id` bigint NOT NULL COMMENT '创作者',
@@ -2397,16 +1480,11 @@ CREATE TABLE `portal_column` (
                                  KEY `idx_auditor_id` (`auditor_id`),
                                  KEY `idx_status_created_time` (`status`,`created_time`),
                                  KEY `idx_category_id` (`category_id`)
-) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='专栏';
-/*!40101 SET character_set_client = @saved_cs_client */;
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='专栏';
 
---
--- Table structure for table `portal_column_article`
---
 
-DROP TABLE IF EXISTS `portal_column_article`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
+-- `moyun-db`.portal_column_article definition
+
 CREATE TABLE `portal_column_article` (
                                          `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键',
                                          `column_id` bigint NOT NULL COMMENT '专栏ID',
@@ -2416,16 +1494,11 @@ CREATE TABLE `portal_column_article` (
                                          PRIMARY KEY (`id`),
                                          UNIQUE KEY `uk_column_article` (`column_id`,`article_id`),
                                          KEY `idx_column_sort` (`column_id`,`sort_order`)
-) ENGINE=InnoDB AUTO_INCREMENT=6 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='专栏-文章关联';
-/*!40101 SET character_set_client = @saved_cs_client */;
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='专栏-文章关联';
 
---
--- Table structure for table `portal_column_subscribe`
---
 
-DROP TABLE IF EXISTS `portal_column_subscribe`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
+-- `moyun-db`.portal_column_subscribe definition
+
 CREATE TABLE `portal_column_subscribe` (
                                            `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键',
                                            `column_id` bigint NOT NULL COMMENT '专栏ID',
@@ -2433,16 +1506,11 @@ CREATE TABLE `portal_column_subscribe` (
                                            `created_time` datetime DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
                                            PRIMARY KEY (`id`),
                                            UNIQUE KEY `uk_column_user` (`column_id`,`user_id`)
-) ENGINE=InnoDB AUTO_INCREMENT=3 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='专栏订阅';
-/*!40101 SET character_set_client = @saved_cs_client */;
+) ENGINE=InnoDB  AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='专栏订阅';
 
---
--- Table structure for table `portal_comment`
---
 
-DROP TABLE IF EXISTS `portal_comment`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
+-- `moyun-db`.portal_comment definition
+
 CREATE TABLE `portal_comment` (
                                   `id` bigint NOT NULL AUTO_INCREMENT COMMENT '评论ID',
                                   `article_id` bigint NOT NULL COMMENT '文章ID',
@@ -2470,16 +1538,11 @@ CREATE TABLE `portal_comment` (
                                   KEY `idx_article_root` (`article_id`,`root_id`),
                                   KEY `idx_del_flag` (`del_flag`),
                                   KEY `idx_auditor_id` (`auditor_id`)
-) ENGINE=InnoDB AUTO_INCREMENT=4 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='门户评论表';
-/*!40101 SET character_set_client = @saved_cs_client */;
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='门户评论表';
 
---
--- Table structure for table `portal_comment_like`
---
 
-DROP TABLE IF EXISTS `portal_comment_like`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
+-- `moyun-db`.portal_comment_like definition
+
 CREATE TABLE `portal_comment_like` (
                                        `id` bigint NOT NULL AUTO_INCREMENT COMMENT 'ID',
                                        `user_id` bigint NOT NULL COMMENT '用户ID（门户用户ID）',
@@ -2493,16 +1556,11 @@ CREATE TABLE `portal_comment_like` (
                                        UNIQUE KEY `uk_user_comment` (`user_id`,`comment_id`),
                                        KEY `idx_user_id` (`user_id`),
                                        KEY `idx_comment_id` (`comment_id`)
-) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='门户评论点赞表';
-/*!40101 SET character_set_client = @saved_cs_client */;
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='门户评论点赞表';
 
---
--- Table structure for table `portal_contest_submission`
---
 
-DROP TABLE IF EXISTS `portal_contest_submission`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
+-- `moyun-db`.portal_contest_submission definition
+
 CREATE TABLE `portal_contest_submission` (
                                              `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键',
                                              `contest_id` bigint NOT NULL COMMENT '活动ID',
@@ -2521,15 +1579,10 @@ CREATE TABLE `portal_contest_submission` (
                                              KEY `idx_user` (`user_id`),
                                              KEY `idx_del_flag` (`del_flag`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='活动投稿';
-/*!40101 SET character_set_client = @saved_cs_client */;
 
---
--- Table structure for table `portal_contest_vote`
---
 
-DROP TABLE IF EXISTS `portal_contest_vote`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
+-- `moyun-db`.portal_contest_vote definition
+
 CREATE TABLE `portal_contest_vote` (
                                        `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键',
                                        `submission_id` bigint NOT NULL COMMENT '投稿ID',
@@ -2542,15 +1595,10 @@ CREATE TABLE `portal_contest_vote` (
                                        KEY `idx_contest` (`contest_id`),
                                        KEY `idx_user` (`user_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='活动投稿投票记录';
-/*!40101 SET character_set_client = @saved_cs_client */;
 
---
--- Table structure for table `portal_creator_certification`
---
 
-DROP TABLE IF EXISTS `portal_creator_certification`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
+-- `moyun-db`.portal_creator_certification definition
+
 CREATE TABLE `portal_creator_certification` (
                                                 `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键',
                                                 `user_id` bigint NOT NULL COMMENT '申请用户ID',
@@ -2578,16 +1626,11 @@ CREATE TABLE `portal_creator_certification` (
                                                 KEY `idx_user` (`user_id`),
                                                 KEY `idx_status` (`status`),
                                                 KEY `idx_del_flag` (`del_flag`)
-) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='创作者认证';
-/*!40101 SET character_set_client = @saved_cs_client */;
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='创作者认证';
 
---
--- Table structure for table `portal_creator_settlement`
---
 
-DROP TABLE IF EXISTS `portal_creator_settlement`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
+-- `moyun-db`.portal_creator_settlement definition
+
 CREATE TABLE `portal_creator_settlement` (
                                              `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键',
                                              `creator_id` bigint NOT NULL COMMENT '创作者用户ID',
@@ -2610,15 +1653,10 @@ CREATE TABLE `portal_creator_settlement` (
                                              KEY `idx_status` (`status`),
                                              KEY `idx_del_flag` (`del_flag`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='创作者分成结算';
-/*!40101 SET character_set_client = @saved_cs_client */;
 
---
--- Table structure for table `portal_entity_tag`
---
 
-DROP TABLE IF EXISTS `portal_entity_tag`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
+-- `moyun-db`.portal_entity_tag definition
+
 CREATE TABLE `portal_entity_tag` (
                                      `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT '主键',
                                      `tag_id` bigint unsigned NOT NULL COMMENT '标签ID（引用 portal_tag.id）',
@@ -2635,16 +1673,11 @@ CREATE TABLE `portal_entity_tag` (
                                      KEY `idx_entity` (`entity_type`,`entity_id`),
                                      KEY `idx_entity_create` (`entity_type`,`create_time`),
                                      KEY `idx_tag_id` (`tag_id`)
-) ENGINE=InnoDB AUTO_INCREMENT=35 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='通用实体标签关联表';
-/*!40101 SET character_set_client = @saved_cs_client */;
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='通用实体标签关联表';
 
---
--- Table structure for table `portal_feed_event`
---
 
-DROP TABLE IF EXISTS `portal_feed_event`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
+-- `moyun-db`.portal_feed_event definition
+
 CREATE TABLE `portal_feed_event` (
                                      `id` bigint NOT NULL AUTO_INCREMENT,
                                      `user_id` bigint NOT NULL COMMENT '事件发布者',
@@ -2658,16 +1691,11 @@ CREATE TABLE `portal_feed_event` (
                                      PRIMARY KEY (`id`),
                                      KEY `idx_user_time` (`user_id`,`created_time`),
                                      KEY `idx_type_time` (`event_type`,`created_time`)
-) ENGINE=InnoDB AUTO_INCREMENT=16 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='动态事件流';
-/*!40101 SET character_set_client = @saved_cs_client */;
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='动态事件流';
 
---
--- Table structure for table `portal_feed_inbox`
---
 
-DROP TABLE IF EXISTS `portal_feed_inbox`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
+-- `moyun-db`.portal_feed_inbox definition
+
 CREATE TABLE `portal_feed_inbox` (
                                      `id` bigint NOT NULL AUTO_INCREMENT,
                                      `user_id` bigint NOT NULL COMMENT '接收者',
@@ -2675,16 +1703,11 @@ CREATE TABLE `portal_feed_inbox` (
                                      `created_time` datetime NOT NULL,
                                      PRIMARY KEY (`id`),
                                      KEY `idx_user_time` (`user_id`,`created_time`)
-) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='动态收件箱';
-/*!40101 SET character_set_client = @saved_cs_client */;
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='动态收件箱';
 
---
--- Table structure for table `portal_feedback`
---
 
-DROP TABLE IF EXISTS `portal_feedback`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
+-- `moyun-db`.portal_feedback definition
+
 CREATE TABLE `portal_feedback` (
                                    `id` bigint NOT NULL AUTO_INCREMENT COMMENT '反馈ID',
                                    `feedback_type` varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '反馈类型：suggestion/bug/experience/other',
@@ -2708,16 +1731,11 @@ CREATE TABLE `portal_feedback` (
                                    KEY `idx_user_id` (`user_id`),
                                    KEY `idx_create_time` (`create_time`),
                                    KEY `idx_del_flag` (`del_flag`)
-) ENGINE=InnoDB AUTO_INCREMENT=3 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='用户意见反馈表';
-/*!40101 SET character_set_client = @saved_cs_client */;
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='用户意见反馈表';
 
---
--- Table structure for table `portal_follow`
---
 
-DROP TABLE IF EXISTS `portal_follow`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
+-- `moyun-db`.portal_follow definition
+
 CREATE TABLE `portal_follow` (
                                  `id` bigint NOT NULL AUTO_INCREMENT COMMENT '关注ID',
                                  `follower_id` bigint NOT NULL COMMENT '关注者ID（门户用户ID）',
@@ -2731,16 +1749,11 @@ CREATE TABLE `portal_follow` (
                                  UNIQUE KEY `uk_follower_following` (`follower_id`,`following_id`),
                                  KEY `idx_follower_id` (`follower_id`),
                                  KEY `idx_following_id` (`following_id`)
-) ENGINE=InnoDB AUTO_INCREMENT=3 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='门户关注表';
-/*!40101 SET character_set_client = @saved_cs_client */;
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='门户关注表';
 
---
--- Table structure for table `portal_friend_link`
---
 
-DROP TABLE IF EXISTS `portal_friend_link`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
+-- `moyun-db`.portal_friend_link definition
+
 CREATE TABLE `portal_friend_link` (
                                       `id` bigint NOT NULL AUTO_INCREMENT COMMENT '链接ID',
                                       `name` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '链接名称',
@@ -2757,16 +1770,11 @@ CREATE TABLE `portal_friend_link` (
                                       `del_flag` char(1) DEFAULT '0' COMMENT '删除标记（0=存在 2=删除，与全局逻辑删除配置一致）',
                                       PRIMARY KEY (`id`),
                                       KEY `idx_status` (`status`)
-) ENGINE=InnoDB AUTO_INCREMENT=4 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='门户友情链接表';
-/*!40101 SET character_set_client = @saved_cs_client */;
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='门户友情链接表';
 
---
--- Table structure for table `portal_growth_log`
---
 
-DROP TABLE IF EXISTS `portal_growth_log`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
+-- `moyun-db`.portal_growth_log definition
+
 CREATE TABLE `portal_growth_log` (
                                      `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT '主键',
                                      `user_id` bigint unsigned NOT NULL COMMENT '获得成长值的用户ID',
@@ -2787,16 +1795,11 @@ CREATE TABLE `portal_growth_log` (
                                      KEY `idx_module_action` (`module`,`action`),
                                      KEY `idx_entity` (`entity_type`,`entity_id`),
                                      KEY `idx_target_user` (`target_user_id`)
-) ENGINE=InnoDB AUTO_INCREMENT=5 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='成长事件流水表';
-/*!40101 SET character_set_client = @saved_cs_client */;
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='成长事件流水表';
 
---
--- Table structure for table `portal_growth_rule`
---
 
-DROP TABLE IF EXISTS `portal_growth_rule`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
+-- `moyun-db`.portal_growth_rule definition
+
 CREATE TABLE `portal_growth_rule` (
                                       `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT '主键',
                                       `module` varchar(32) NOT NULL COMMENT '模块: article/reading/interview/all',
@@ -2813,16 +1816,11 @@ CREATE TABLE `portal_growth_rule` (
                                       `remark` varchar(500) DEFAULT NULL COMMENT '备注',
                                       PRIMARY KEY (`id`),
                                       UNIQUE KEY `uk_module_action` (`module`,`action`)
-) ENGINE=InnoDB AUTO_INCREMENT=32 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='成长规则配置表';
-/*!40101 SET character_set_client = @saved_cs_client */;
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='成长规则配置表';
 
---
--- Table structure for table `portal_help_article`
---
 
-DROP TABLE IF EXISTS `portal_help_article`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
+-- `moyun-db`.portal_help_article definition
+
 CREATE TABLE `portal_help_article` (
                                        `id` bigint NOT NULL AUTO_INCREMENT COMMENT '文章ID',
                                        `category_id` bigint NOT NULL COMMENT '分类ID',
@@ -2845,16 +1843,11 @@ CREATE TABLE `portal_help_article` (
                                        KEY `idx_is_featured` (`is_featured`),
                                        KEY `idx_sort` (`sort`),
                                        KEY `idx_del_flag` (`del_flag`)
-) ENGINE=InnoDB AUTO_INCREMENT=13 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='帮助中心文章表';
-/*!40101 SET character_set_client = @saved_cs_client */;
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='帮助中心文章表';
 
---
--- Table structure for table `portal_help_category`
---
 
-DROP TABLE IF EXISTS `portal_help_category`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
+-- `moyun-db`.portal_help_category definition
+
 CREATE TABLE `portal_help_category` (
                                         `id` bigint NOT NULL AUTO_INCREMENT COMMENT '分类ID',
                                         `name` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '分类名称',
@@ -2872,16 +1865,11 @@ CREATE TABLE `portal_help_category` (
                                         KEY `idx_status` (`status`),
                                         KEY `idx_sort` (`sort`),
                                         KEY `idx_del_flag` (`del_flag`)
-) ENGINE=InnoDB AUTO_INCREMENT=5 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='帮助中心分类表';
-/*!40101 SET character_set_client = @saved_cs_client */;
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='帮助中心分类表';
 
---
--- Table structure for table `portal_import_template_config`
---
 
-DROP TABLE IF EXISTS `portal_import_template_config`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
+-- `moyun-db`.portal_import_template_config definition
+
 CREATE TABLE `portal_import_template_config` (
                                                  `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键',
                                                  `business_key` varchar(64) NOT NULL COMMENT '业务标识（interview_question/interview_experience/article/tag/note）',
@@ -2904,16 +1892,11 @@ CREATE TABLE `portal_import_template_config` (
                                                  PRIMARY KEY (`id`),
                                                  KEY `idx_business_key_status_sort` (`business_key`,`status`,`sort`),
                                                  KEY `idx_business_key_field` (`business_key`,`field_name`)
-) ENGINE=InnoDB AUTO_INCREMENT=22 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='导入模板字段配置（动态模板）';
-/*!40101 SET character_set_client = @saved_cs_client */;
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='导入模板字段配置（动态模板）';
 
---
--- Table structure for table `portal_interview_attempt`
---
 
-DROP TABLE IF EXISTS `portal_interview_attempt`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
+-- `moyun-db`.portal_interview_attempt definition
+
 CREATE TABLE `portal_interview_attempt` (
                                             `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键',
                                             `question_id` bigint NOT NULL COMMENT '题目ID',
@@ -2933,16 +1916,11 @@ CREATE TABLE `portal_interview_attempt` (
                                             UNIQUE KEY `uk_question_user` (`question_id`,`user_id`),
                                             KEY `idx_user_id` (`user_id`),
                                             KEY `idx_del_flag` (`del_flag`)
-) ENGINE=InnoDB AUTO_INCREMENT=7 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='做题记录表';
-/*!40101 SET character_set_client = @saved_cs_client */;
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='做题记录表';
 
---
--- Table structure for table `portal_interview_bookmark`
---
 
-DROP TABLE IF EXISTS `portal_interview_bookmark`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
+-- `moyun-db`.portal_interview_bookmark definition
+
 CREATE TABLE `portal_interview_bookmark` (
                                              `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键',
                                              `question_id` bigint NOT NULL COMMENT '题目ID',
@@ -2957,16 +1935,11 @@ CREATE TABLE `portal_interview_bookmark` (
                                              PRIMARY KEY (`id`),
                                              UNIQUE KEY `uk_question_user` (`question_id`,`user_id`),
                                              KEY `idx_del_flag` (`del_flag`)
-) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='题目收藏表';
-/*!40101 SET character_set_client = @saved_cs_client */;
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='题目收藏表';
 
---
--- Table structure for table `portal_interview_category`
---
 
-DROP TABLE IF EXISTS `portal_interview_category`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
+-- `moyun-db`.portal_interview_category definition
+
 CREATE TABLE `portal_interview_category` (
                                              `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键',
                                              `name` varchar(200) NOT NULL COMMENT '分类名称',
@@ -2985,16 +1958,11 @@ CREATE TABLE `portal_interview_category` (
                                              PRIMARY KEY (`id`),
                                              KEY `idx_status` (`status`),
                                              KEY `idx_del_flag` (`del_flag`)
-) ENGINE=InnoDB AUTO_INCREMENT=6 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='面试题目分类表';
-/*!40101 SET character_set_client = @saved_cs_client */;
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='面试题目分类表';
 
---
--- Table structure for table `portal_interview_comment`
---
 
-DROP TABLE IF EXISTS `portal_interview_comment`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
+-- `moyun-db`.portal_interview_comment definition
+
 CREATE TABLE `portal_interview_comment` (
                                             `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键',
                                             `experience_id` bigint NOT NULL COMMENT '面经ID',
@@ -3020,16 +1988,11 @@ CREATE TABLE `portal_interview_comment` (
                                             KEY `idx_status` (`status`),
                                             KEY `idx_del_flag` (`del_flag`),
                                             KEY `idx_auditor_id` (`auditor_id`)
-) ENGINE=InnoDB AUTO_INCREMENT=8 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='面经评论表';
-/*!40101 SET character_set_client = @saved_cs_client */;
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='面经评论表';
 
---
--- Table structure for table `portal_interview_comment_like`
---
 
-DROP TABLE IF EXISTS `portal_interview_comment_like`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
+-- `moyun-db`.portal_interview_comment_like definition
+
 CREATE TABLE `portal_interview_comment_like` (
                                                  `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键',
                                                  `comment_id` bigint NOT NULL COMMENT '评论ID',
@@ -3037,16 +2000,11 @@ CREATE TABLE `portal_interview_comment_like` (
                                                  `create_time` datetime DEFAULT CURRENT_TIMESTAMP COMMENT '点赞时间',
                                                  PRIMARY KEY (`id`),
                                                  UNIQUE KEY `uk_comment_user` (`comment_id`,`user_id`)
-) ENGINE=InnoDB AUTO_INCREMENT=3 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='面经评论点赞表';
-/*!40101 SET character_set_client = @saved_cs_client */;
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='面经评论点赞表';
 
---
--- Table structure for table `portal_interview_company`
---
 
-DROP TABLE IF EXISTS `portal_interview_company`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
+-- `moyun-db`.portal_interview_company definition
+
 CREATE TABLE `portal_interview_company` (
                                             `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键',
                                             `name` varchar(200) NOT NULL COMMENT '公司名称',
@@ -3068,15 +2026,10 @@ CREATE TABLE `portal_interview_company` (
                                             KEY `idx_status` (`status`),
                                             KEY `idx_del_flag` (`del_flag`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='面试公司标签表';
-/*!40101 SET character_set_client = @saved_cs_client */;
 
---
--- Table structure for table `portal_interview_config`
---
 
-DROP TABLE IF EXISTS `portal_interview_config`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
+-- `moyun-db`.portal_interview_config definition
+
 CREATE TABLE `portal_interview_config` (
                                            `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键',
                                            `config_name` varchar(100) NOT NULL COMMENT '配置名称（如：标准技术面）',
@@ -3100,16 +2053,11 @@ CREATE TABLE `portal_interview_config` (
                                            KEY `idx_is_default` (`is_default`),
                                            KEY `idx_status` (`status`),
                                            KEY `idx_del_flag` (`del_flag`)
-) ENGINE=InnoDB AUTO_INCREMENT=3 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='面试配置表（人设/提示词/评分权重/追问策略/自我介绍）';
-/*!40101 SET character_set_client = @saved_cs_client */;
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='面试配置表（人设/提示词/评分权重/追问策略/自我介绍）';
 
---
--- Table structure for table `portal_interview_experience`
---
 
-DROP TABLE IF EXISTS `portal_interview_experience`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
+-- `moyun-db`.portal_interview_experience definition
+
 CREATE TABLE `portal_interview_experience` (
                                                `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键',
                                                `user_id` bigint NOT NULL COMMENT '用户ID',
@@ -3142,16 +2090,11 @@ CREATE TABLE `portal_interview_experience` (
                                                KEY `idx_status` (`status`),
                                                KEY `idx_del_flag` (`del_flag`),
                                                KEY `idx_experience_auditor` (`auditor_id`)
-) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='面经表';
-/*!40101 SET character_set_client = @saved_cs_client */;
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='面经表';
 
---
--- Table structure for table `portal_interview_experience_like`
---
 
-DROP TABLE IF EXISTS `portal_interview_experience_like`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
+-- `moyun-db`.portal_interview_experience_like definition
+
 CREATE TABLE `portal_interview_experience_like` (
                                                     `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键',
                                                     `experience_id` bigint NOT NULL COMMENT '面经ID',
@@ -3163,16 +2106,11 @@ CREATE TABLE `portal_interview_experience_like` (
                                                     `remark` varchar(500) DEFAULT NULL COMMENT '备注',
                                                     PRIMARY KEY (`id`),
                                                     UNIQUE KEY `uk_experience_user` (`experience_id`,`user_id`)
-) ENGINE=InnoDB AUTO_INCREMENT=3 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='面经点赞表';
-/*!40101 SET character_set_client = @saved_cs_client */;
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='面经点赞表';
 
---
--- Table structure for table `portal_interview_position`
---
 
-DROP TABLE IF EXISTS `portal_interview_position`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
+-- `moyun-db`.portal_interview_position definition
+
 CREATE TABLE `portal_interview_position` (
                                              `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键',
                                              `code` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '岗位编码（如 java_backend）',
@@ -3194,16 +2132,11 @@ CREATE TABLE `portal_interview_position` (
                                              UNIQUE KEY `uk_code` (`code`),
                                              KEY `idx_status_sort` (`status`,`sort`),
                                              KEY `idx_del_flag` (`del_flag`)
-) ENGINE=InnoDB AUTO_INCREMENT=4 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='面试岗位字典表';
-/*!40101 SET character_set_client = @saved_cs_client */;
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='面试岗位字典表';
 
---
--- Table structure for table `portal_interview_question`
---
 
-DROP TABLE IF EXISTS `portal_interview_question`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
+-- `moyun-db`.portal_interview_question definition
+
 CREATE TABLE `portal_interview_question` (
                                              `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键',
                                              `title` varchar(500) NOT NULL COMMENT '题目标题',
@@ -3245,16 +2178,11 @@ CREATE TABLE `portal_interview_question` (
                                              KEY `idx_del_flag` (`del_flag`),
                                              KEY `idx_practice_mode` (`practice_mode`),
                                              KEY `idx_job_template_id` (`job_template_id`)
-) ENGINE=InnoDB AUTO_INCREMENT=9 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='面试题目表';
-/*!40101 SET character_set_client = @saved_cs_client */;
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='面试题目表';
 
---
--- Table structure for table `portal_interview_question_company`
---
 
-DROP TABLE IF EXISTS `portal_interview_question_company`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
+-- `moyun-db`.portal_interview_question_company definition
+
 CREATE TABLE `portal_interview_question_company` (
                                                      `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键',
                                                      `question_id` bigint NOT NULL COMMENT '题目ID',
@@ -3265,15 +2193,10 @@ CREATE TABLE `portal_interview_question_company` (
                                                      UNIQUE KEY `uk_question_company` (`question_id`,`company_id`),
                                                      KEY `idx_company_id` (`company_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='题目-公司关联表';
-/*!40101 SET character_set_client = @saved_cs_client */;
 
---
--- Table structure for table `portal_interview_question_like`
---
 
-DROP TABLE IF EXISTS `portal_interview_question_like`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
+-- `moyun-db`.portal_interview_question_like definition
+
 CREATE TABLE `portal_interview_question_like` (
                                                   `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键',
                                                   `question_id` bigint NOT NULL COMMENT '题目ID',
@@ -3285,16 +2208,11 @@ CREATE TABLE `portal_interview_question_like` (
                                                   `remark` varchar(500) DEFAULT NULL COMMENT '备注',
                                                   PRIMARY KEY (`id`),
                                                   UNIQUE KEY `uk_question_user` (`question_id`,`user_id`)
-) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='题目点赞表';
-/*!40101 SET character_set_client = @saved_cs_client */;
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='题目点赞表';
 
---
--- Table structure for table `portal_interview_question_test_case`
---
 
-DROP TABLE IF EXISTS `portal_interview_question_test_case`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
+-- `moyun-db`.portal_interview_question_test_case definition
+
 CREATE TABLE `portal_interview_question_test_case` (
                                                        `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键',
                                                        `question_id` bigint NOT NULL COMMENT '题目ID',
@@ -3307,16 +2225,11 @@ CREATE TABLE `portal_interview_question_test_case` (
                                                        `update_time` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
                                                        PRIMARY KEY (`id`),
                                                        KEY `idx_question_id` (`question_id`)
-) ENGINE=InnoDB AUTO_INCREMENT=10 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='面试题目测试用例表（OJ判题）';
-/*!40101 SET character_set_client = @saved_cs_client */;
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='面试题目测试用例表（OJ判题）';
 
---
--- Table structure for table `portal_interview_resume_template`
---
 
-DROP TABLE IF EXISTS `portal_interview_resume_template`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
+-- `moyun-db`.portal_interview_resume_template definition
+
 CREATE TABLE `portal_interview_resume_template` (
                                                     `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键',
                                                     `title` varchar(500) NOT NULL COMMENT '模板标题',
@@ -3344,16 +2257,11 @@ CREATE TABLE `portal_interview_resume_template` (
                                                     PRIMARY KEY (`id`),
                                                     KEY `idx_status` (`status`),
                                                     KEY `idx_del_flag` (`del_flag`)
-) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='简历模板表';
-/*!40101 SET character_set_client = @saved_cs_client */;
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='简历模板表';
 
---
--- Table structure for table `portal_interview_resume_template_like`
---
 
-DROP TABLE IF EXISTS `portal_interview_resume_template_like`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
+-- `moyun-db`.portal_interview_resume_template_like definition
+
 CREATE TABLE `portal_interview_resume_template_like` (
                                                          `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键',
                                                          `template_id` bigint NOT NULL COMMENT '简历模板ID',
@@ -3366,15 +2274,10 @@ CREATE TABLE `portal_interview_resume_template_like` (
                                                          PRIMARY KEY (`id`),
                                                          UNIQUE KEY `uk_template_user` (`template_id`,`user_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='简历模板点赞表';
-/*!40101 SET character_set_client = @saved_cs_client */;
 
---
--- Table structure for table `portal_interview_submission`
---
 
-DROP TABLE IF EXISTS `portal_interview_submission`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
+-- `moyun-db`.portal_interview_submission definition
+
 CREATE TABLE `portal_interview_submission` (
                                                `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键',
                                                `question_id` bigint NOT NULL COMMENT '题目ID',
@@ -3410,16 +2313,11 @@ CREATE TABLE `portal_interview_submission` (
                                                KEY `idx_user_question` (`user_id`,`question_id`),
                                                KEY `idx_del_flag` (`del_flag`),
                                                KEY `idx_is_featured` (`is_featured`)
-) ENGINE=InnoDB AUTO_INCREMENT=19 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='题目提交记录表';
-/*!40101 SET character_set_client = @saved_cs_client */;
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='题目提交记录表';
 
---
--- Table structure for table `portal_job_template`
---
 
-DROP TABLE IF EXISTS `portal_job_template`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
+-- `moyun-db`.portal_job_template definition
+
 CREATE TABLE `portal_job_template` (
                                        `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键',
                                        `name` varchar(100) NOT NULL COMMENT '模板名称（如：Java后端工程师）',
@@ -3442,16 +2340,11 @@ CREATE TABLE `portal_job_template` (
                                        KEY `idx_category` (`category`),
                                        KEY `idx_status` (`status`),
                                        KEY `idx_del_flag` (`del_flag`)
-) ENGINE=InnoDB AUTO_INCREMENT=3 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='岗位模板表（JD/关键词/出题权重，支撑智能出题）';
-/*!40101 SET character_set_client = @saved_cs_client */;
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='岗位模板表（JD/关键词/出题权重，支撑智能出题）';
 
---
--- Table structure for table `portal_like`
---
 
-DROP TABLE IF EXISTS `portal_like`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
+-- `moyun-db`.portal_like definition
+
 CREATE TABLE `portal_like` (
                                `id` bigint NOT NULL AUTO_INCREMENT COMMENT '点赞ID',
                                `user_id` bigint NOT NULL COMMENT '用户ID（门户用户ID）',
@@ -3465,16 +2358,11 @@ CREATE TABLE `portal_like` (
                                UNIQUE KEY `uk_user_article` (`user_id`,`article_id`),
                                KEY `idx_user_id` (`user_id`),
                                KEY `idx_article_id` (`article_id`)
-) ENGINE=InnoDB AUTO_INCREMENT=3 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='门户点赞表（文章）';
-/*!40101 SET character_set_client = @saved_cs_client */;
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='门户点赞表（文章）';
 
---
--- Table structure for table `portal_message`
---
 
-DROP TABLE IF EXISTS `portal_message`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
+-- `moyun-db`.portal_message definition
+
 CREATE TABLE `portal_message` (
                                   `id` bigint NOT NULL AUTO_INCREMENT,
                                   `session_id` bigint NOT NULL COMMENT '会话ID',
@@ -3490,15 +2378,10 @@ CREATE TABLE `portal_message` (
                                   KEY `idx_session_time` (`session_id`,`create_time`),
                                   KEY `idx_receiver_type_read` (`receiver_id`,`receiver_type`,`is_read`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='私信消息';
-/*!40101 SET character_set_client = @saved_cs_client */;
 
---
--- Table structure for table `portal_message_session`
---
 
-DROP TABLE IF EXISTS `portal_message_session`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
+-- `moyun-db`.portal_message_session definition
+
 CREATE TABLE `portal_message_session` (
                                           `id` bigint NOT NULL AUTO_INCREMENT,
                                           `user_a` bigint NOT NULL COMMENT '用户A（较小ID）',
@@ -3518,57 +2401,11 @@ CREATE TABLE `portal_message_session` (
                                           KEY `idx_user_b` (`user_b`),
                                           KEY `idx_last_time` (`last_message_time`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='私信会话';
-/*!40101 SET character_set_client = @saved_cs_client */;
 
---
--- Table structure for table `portal_order`
---
 
-DROP TABLE IF EXISTS `portal_order`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
-CREATE TABLE `portal_order` (
-                                `id` bigint NOT NULL AUTO_INCREMENT COMMENT '订单ID',
-                                `order_no` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '订单号',
-                                `user_id` bigint NOT NULL COMMENT '用户ID（门户用户ID）',
-                                `type` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '类型：vip/recharge/product',
-                                `product_id` bigint DEFAULT NULL COMMENT '商品ID',
-                                `amount` decimal(10,2) NOT NULL COMMENT '金额',
-                                `status` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT 'pending' COMMENT '状态：pending/paid/cancelled/refunded',
-                                `pay_method` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '支付方式：wechat/alipay',
-                                `trade_no` varchar(64) DEFAULT NULL COMMENT '第三方交易号（支付宝/微信返回的交易号）',
-                                `pay_channel` varchar(20) DEFAULT 'points' COMMENT '支付渠道：points-积分/alipay-支付宝/wechat-微信支付',
-                                `notify_id` varchar(64) DEFAULT NULL COMMENT '支付回调ID（用于回调验签与幂等去重）',
-                                `notify_time` datetime DEFAULT NULL COMMENT '支付回调时间',
-                                `refund_no` varchar(64) DEFAULT NULL COMMENT '退款单号',
-                                `refund_amount` decimal(10,2) DEFAULT NULL COMMENT '退款金额',
-                                `refund_time` datetime DEFAULT NULL COMMENT '退款时间',
-                                `refund_reason` varchar(255) DEFAULT NULL COMMENT '退款原因',
-                                `paid_at` datetime DEFAULT NULL COMMENT '支付时间',
-                                `create_by` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT '' COMMENT '创建者',
-                                `create_time` datetime DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
-                                `update_by` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT '' COMMENT '更新者',
-                                `update_time` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
-                                `remark` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '备注',
-                                `del_flag` char(1) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL DEFAULT '0' COMMENT '删除标记（0=存在 2=删除）',
-                                PRIMARY KEY (`id`),
-                                UNIQUE KEY `uk_order_no` (`order_no`),
-                                KEY `idx_user_id` (`user_id`),
-                                KEY `idx_type` (`type`),
-                                KEY `idx_status` (`status`),
-                                KEY `idx_del_flag` (`del_flag`),
-                                KEY `idx_trade_no` (`trade_no`),
-                                KEY `idx_pay_channel_status` (`pay_channel`,`status`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='门户订单表';
-/*!40101 SET character_set_client = @saved_cs_client */;
 
---
--- Table structure for table `portal_reading_preference`
---
+-- `moyun-db`.portal_reading_preference definition
 
-DROP TABLE IF EXISTS `portal_reading_preference`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `portal_reading_preference` (
                                              `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键',
                                              `user_id` bigint NOT NULL COMMENT '用户ID',
@@ -3588,15 +2425,10 @@ CREATE TABLE `portal_reading_preference` (
                                              UNIQUE KEY `uk_user_id` (`user_id`),
                                              KEY `idx_del_flag` (`del_flag`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='用户阅读偏好表';
-/*!40101 SET character_set_client = @saved_cs_client */;
 
---
--- Table structure for table `portal_reading_progress`
---
 
-DROP TABLE IF EXISTS `portal_reading_progress`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
+-- `moyun-db`.portal_reading_progress definition
+
 CREATE TABLE `portal_reading_progress` (
                                            `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键',
                                            `user_id` bigint NOT NULL COMMENT '用户ID',
@@ -3625,15 +2457,10 @@ CREATE TABLE `portal_reading_progress` (
                                            KEY `idx_last_read_time` (`last_read_time`),
                                            KEY `idx_del_flag` (`del_flag`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='阅读进度表';
-/*!40101 SET character_set_client = @saved_cs_client */;
 
---
--- Table structure for table `portal_report`
---
 
-DROP TABLE IF EXISTS `portal_report`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
+-- `moyun-db`.portal_report definition
+
 CREATE TABLE `portal_report` (
                                  `id` bigint NOT NULL AUTO_INCREMENT COMMENT '举报ID',
                                  `report_type` varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '举报类型：spam/inappropriate/infringement/fraud/other',
@@ -3662,15 +2489,10 @@ CREATE TABLE `portal_report` (
                                  KEY `idx_target` (`target_type`,`target_id`),
                                  KEY `idx_del_flag` (`del_flag`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='用户举报记录表';
-/*!40101 SET character_set_client = @saved_cs_client */;
 
---
--- Table structure for table `portal_resume_job_match`
---
 
-DROP TABLE IF EXISTS `portal_resume_job_match`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
+-- `moyun-db`.portal_resume_job_match definition
+
 CREATE TABLE `portal_resume_job_match` (
                                            `id` bigint NOT NULL AUTO_INCREMENT COMMENT '报告ID',
                                            `user_id` bigint NOT NULL COMMENT '用户ID',
@@ -3687,16 +2509,11 @@ CREATE TABLE `portal_resume_job_match` (
                                            PRIMARY KEY (`id`),
                                            KEY `idx_resume_id` (`resume_id`),
                                            KEY `idx_user_id` (`user_id`)
-) ENGINE=InnoDB AUTO_INCREMENT=19 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='简历优化-岗位匹配报告表';
-/*!40101 SET character_set_client = @saved_cs_client */;
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='简历优化-岗位匹配报告表';
 
---
--- Table structure for table `portal_resume_job_target`
---
 
-DROP TABLE IF EXISTS `portal_resume_job_target`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
+-- `moyun-db`.portal_resume_job_target definition
+
 CREATE TABLE `portal_resume_job_target` (
                                             `id` bigint NOT NULL AUTO_INCREMENT COMMENT '岗位目标ID',
                                             `user_id` bigint NOT NULL COMMENT '用户ID（门户用户ID）',
@@ -3711,16 +2528,11 @@ CREATE TABLE `portal_resume_job_target` (
                                             `update_time` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
                                             PRIMARY KEY (`id`),
                                             KEY `idx_user_id` (`user_id`)
-) ENGINE=InnoDB AUTO_INCREMENT=3 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='简历优化-岗位目标表';
-/*!40101 SET character_set_client = @saved_cs_client */;
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='简历优化-岗位目标表';
 
---
--- Table structure for table `portal_resume_optimize_history`
---
 
-DROP TABLE IF EXISTS `portal_resume_optimize_history`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
+-- `moyun-db`.portal_resume_optimize_history definition
+
 CREATE TABLE `portal_resume_optimize_history` (
                                                   `id` bigint NOT NULL AUTO_INCREMENT COMMENT '优化记录ID',
                                                   `user_id` bigint NOT NULL COMMENT '用户ID',
@@ -3737,16 +2549,11 @@ CREATE TABLE `portal_resume_optimize_history` (
                                                   `create_time` datetime DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
                                                   PRIMARY KEY (`id`),
                                                   KEY `idx_resume_id` (`resume_id`)
-) ENGINE=InnoDB AUTO_INCREMENT=5 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='简历优化-优化历史表';
-/*!40101 SET character_set_client = @saved_cs_client */;
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='简历优化-优化历史表';
 
---
--- Table structure for table `portal_resume_optimize_task`
---
 
-DROP TABLE IF EXISTS `portal_resume_optimize_task`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
+-- `moyun-db`.portal_resume_optimize_task definition
+
 CREATE TABLE `portal_resume_optimize_task` (
                                                `id` bigint NOT NULL AUTO_INCREMENT COMMENT '任务ID',
                                                `user_id` bigint NOT NULL COMMENT '用户ID（门户用户ID）',
@@ -3763,16 +2570,11 @@ CREATE TABLE `portal_resume_optimize_task` (
                                                KEY `idx_user_id` (`user_id`),
                                                KEY `idx_resume_id` (`resume_id`),
                                                KEY `idx_status` (`status`)
-) ENGINE=InnoDB AUTO_INCREMENT=5 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='简历深度优化异步任务表（v10.19）';
-/*!40101 SET character_set_client = @saved_cs_client */;
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='简历深度优化异步任务表（v10.19）';
 
---
--- Table structure for table `portal_resume_score_report`
---
 
-DROP TABLE IF EXISTS `portal_resume_score_report`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
+-- `moyun-db`.portal_resume_score_report definition
+
 CREATE TABLE `portal_resume_score_report` (
                                               `id` bigint NOT NULL AUTO_INCREMENT COMMENT '报告ID',
                                               `user_id` bigint NOT NULL COMMENT '用户ID（门户用户ID）',
@@ -3786,16 +2588,11 @@ CREATE TABLE `portal_resume_score_report` (
                                               PRIMARY KEY (`id`),
                                               KEY `idx_resume_id` (`resume_id`),
                                               KEY `idx_user_id` (`user_id`)
-) ENGINE=InnoDB AUTO_INCREMENT=10 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='简历优化-评分报告存档表';
-/*!40101 SET character_set_client = @saved_cs_client */;
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='简历优化-评分报告存档表';
 
---
--- Table structure for table `portal_shop_exchange`
---
 
-DROP TABLE IF EXISTS `portal_shop_exchange`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
+-- `moyun-db`.portal_shop_exchange definition
+
 CREATE TABLE `portal_shop_exchange` (
                                         `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键',
                                         `user_id` bigint NOT NULL COMMENT '兑换用户ID',
@@ -3816,15 +2613,10 @@ CREATE TABLE `portal_shop_exchange` (
                                         KEY `idx_status` (`status`),
                                         KEY `idx_del_flag` (`del_flag`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='积分兑换记录表';
-/*!40101 SET character_set_client = @saved_cs_client */;
 
---
--- Table structure for table `portal_shop_item`
---
 
-DROP TABLE IF EXISTS `portal_shop_item`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
+-- `moyun-db`.portal_shop_item definition
+
 CREATE TABLE `portal_shop_item` (
                                     `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键',
                                     `name` varchar(128) NOT NULL COMMENT '商品名称',
@@ -3843,16 +2635,11 @@ CREATE TABLE `portal_shop_item` (
                                     PRIMARY KEY (`id`),
                                     KEY `idx_type_status` (`type`,`status`),
                                     KEY `idx_del_flag` (`del_flag`)
-) ENGINE=InnoDB AUTO_INCREMENT=6 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='积分商城商品表';
-/*!40101 SET character_set_client = @saved_cs_client */;
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='积分商城商品表';
 
---
--- Table structure for table `portal_study_plan`
---
 
-DROP TABLE IF EXISTS `portal_study_plan`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
+-- `moyun-db`.portal_study_plan definition
+
 CREATE TABLE `portal_study_plan` (
                                      `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键',
                                      `user_id` bigint NOT NULL COMMENT '用户ID',
@@ -3869,16 +2656,11 @@ CREATE TABLE `portal_study_plan` (
                                      KEY `idx_user` (`user_id`),
                                      KEY `idx_status` (`status`),
                                      KEY `idx_del_flag` (`del_flag`)
-) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='学习计划';
-/*!40101 SET character_set_client = @saved_cs_client */;
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='学习计划';
 
---
--- Table structure for table `portal_study_plan_log`
---
 
-DROP TABLE IF EXISTS `portal_study_plan_log`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
+-- `moyun-db`.portal_study_plan_log definition
+
 CREATE TABLE `portal_study_plan_log` (
                                          `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键',
                                          `plan_id` bigint NOT NULL COMMENT '计划ID',
@@ -3889,16 +2671,11 @@ CREATE TABLE `portal_study_plan_log` (
                                          PRIMARY KEY (`id`),
                                          UNIQUE KEY `uk_plan_date` (`plan_id`,`log_date`),
                                          KEY `idx_user_date` (`user_id`,`log_date`)
-) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='计划每日进度';
-/*!40101 SET character_set_client = @saved_cs_client */;
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='计划每日进度';
 
---
--- Table structure for table `portal_tag`
---
 
-DROP TABLE IF EXISTS `portal_tag`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
+-- `moyun-db`.portal_tag definition
+
 CREATE TABLE `portal_tag` (
                               `id` bigint NOT NULL AUTO_INCREMENT COMMENT '标签ID',
                               `name` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '标签名称',
@@ -3919,16 +2696,11 @@ CREATE TABLE `portal_tag` (
                               KEY `idx_module` (`module`),
                               KEY `idx_reference_count` (`reference_count` DESC),
                               KEY `idx_del_flag` (`del_flag`)
-) ENGINE=InnoDB AUTO_INCREMENT=58 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='门户标签表';
-/*!40101 SET character_set_client = @saved_cs_client */;
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='门户标签表';
 
---
--- Table structure for table `portal_task`
---
 
-DROP TABLE IF EXISTS `portal_task`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
+-- `moyun-db`.portal_task definition
+
 CREATE TABLE `portal_task` (
                                `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键',
                                `code` varchar(64) NOT NULL COMMENT '任务编码（唯一，用于埋点触发，如 daily_checkin）',
@@ -3949,16 +2721,11 @@ CREATE TABLE `portal_task` (
                                UNIQUE KEY `uk_code` (`code`),
                                KEY `idx_type_status` (`task_type`,`status`),
                                KEY `idx_del_flag` (`del_flag`)
-) ENGINE=InnoDB AUTO_INCREMENT=8 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='任务定义表';
-/*!40101 SET character_set_client = @saved_cs_client */;
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='任务定义表';
 
---
--- Table structure for table `portal_tip_order`
---
 
-DROP TABLE IF EXISTS `portal_tip_order`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
+-- `moyun-db`.portal_tip_order definition
+
 CREATE TABLE `portal_tip_order` (
                                     `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键',
                                     `user_id` bigint NOT NULL COMMENT '打赏者用户ID',
@@ -3985,16 +2752,11 @@ CREATE TABLE `portal_tip_order` (
                                     KEY `idx_user` (`user_id`),
                                     KEY `idx_trade_no` (`trade_no`),
                                     KEY `idx_pay_channel_status` (`pay_channel`,`status`)
-) ENGINE=InnoDB AUTO_INCREMENT=7 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='打赏订单（复用为付费阅读购买记录，target_type=article_paid）';
-/*!40101 SET character_set_client = @saved_cs_client */;
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='打赏订单（复用为付费阅读购买记录，target_type=article_paid）';
 
---
--- Table structure for table `portal_topic`
---
 
-DROP TABLE IF EXISTS `portal_topic`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
+-- `moyun-db`.portal_topic definition
+
 CREATE TABLE `portal_topic` (
                                 `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键',
                                 `title` varchar(128) NOT NULL COMMENT '话题标题',
@@ -4023,16 +2785,11 @@ CREATE TABLE `portal_topic` (
                                 KEY `idx_del_flag` (`del_flag`),
                                 KEY `idx_auditor_id` (`auditor_id`),
                                 KEY `idx_status_created_time` (`status`,`created_time`)
-) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='话题主表';
-/*!40101 SET character_set_client = @saved_cs_client */;
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='话题主表';
 
---
--- Table structure for table `portal_topic_comment`
---
 
-DROP TABLE IF EXISTS `portal_topic_comment`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
+-- `moyun-db`.portal_topic_comment definition
+
 CREATE TABLE `portal_topic_comment` (
                                         `id` bigint NOT NULL AUTO_INCREMENT,
                                         `target_type` varchar(20) NOT NULL COMMENT '目标类型：topic 话题评论 / post 观点评论',
@@ -4052,16 +2809,11 @@ CREATE TABLE `portal_topic_comment` (
                                         KEY `idx_target_type_id_parent` (`target_type`,`target_id`,`parent_id`,`created_time`),
                                         KEY `idx_root` (`root_id`,`created_time`),
                                         KEY `idx_author_time` (`author_id`,`created_time`)
-) ENGINE=InnoDB AUTO_INCREMENT=3 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='话题评论（多态）';
-/*!40101 SET character_set_client = @saved_cs_client */;
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='话题评论（多态）';
 
---
--- Table structure for table `portal_topic_comment_like`
---
 
-DROP TABLE IF EXISTS `portal_topic_comment_like`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
+-- `moyun-db`.portal_topic_comment_like definition
+
 CREATE TABLE `portal_topic_comment_like` (
                                              `id` bigint NOT NULL AUTO_INCREMENT,
                                              `comment_id` bigint NOT NULL,
@@ -4071,15 +2823,10 @@ CREATE TABLE `portal_topic_comment_like` (
                                              UNIQUE KEY `uk_comment_user` (`comment_id`,`user_id`),
                                              KEY `idx_user_time` (`user_id`,`created_time`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='话题评论点赞';
-/*!40101 SET character_set_client = @saved_cs_client */;
 
---
--- Table structure for table `portal_topic_like`
---
 
-DROP TABLE IF EXISTS `portal_topic_like`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
+-- `moyun-db`.portal_topic_like definition
+
 CREATE TABLE `portal_topic_like` (
                                      `id` bigint NOT NULL AUTO_INCREMENT,
                                      `topic_id` bigint NOT NULL,
@@ -4089,15 +2836,10 @@ CREATE TABLE `portal_topic_like` (
                                      UNIQUE KEY `uk_topic_user` (`topic_id`,`user_id`),
                                      KEY `idx_user_time` (`user_id`,`created_time`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='话题点赞';
-/*!40101 SET character_set_client = @saved_cs_client */;
 
---
--- Table structure for table `portal_topic_post`
---
 
-DROP TABLE IF EXISTS `portal_topic_post`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
+-- `moyun-db`.portal_topic_post definition
+
 CREATE TABLE `portal_topic_post` (
                                      `id` bigint NOT NULL AUTO_INCREMENT,
                                      `topic_id` bigint NOT NULL COMMENT '所属话题',
@@ -4117,16 +2859,11 @@ CREATE TABLE `portal_topic_post` (
                                      KEY `idx_topic_time` (`topic_id`,`created_time`),
                                      KEY `idx_user_time` (`user_id`,`created_time`),
                                      KEY `idx_parent` (`parent_post_id`)
-) ENGINE=InnoDB AUTO_INCREMENT=3 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='话题观点（楼层）';
-/*!40101 SET character_set_client = @saved_cs_client */;
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='话题观点（楼层）';
 
---
--- Table structure for table `portal_topic_post_like`
---
 
-DROP TABLE IF EXISTS `portal_topic_post_like`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
+-- `moyun-db`.portal_topic_post_like definition
+
 CREATE TABLE `portal_topic_post_like` (
                                           `id` bigint NOT NULL AUTO_INCREMENT,
                                           `post_id` bigint NOT NULL,
@@ -4136,15 +2873,10 @@ CREATE TABLE `portal_topic_post_like` (
                                           UNIQUE KEY `uk_post_user` (`post_id`,`user_id`),
                                           KEY `idx_user_time` (`user_id`,`created_time`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='话题观点点赞';
-/*!40101 SET character_set_client = @saved_cs_client */;
 
---
--- Table structure for table `portal_user`
---
 
-DROP TABLE IF EXISTS `portal_user`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
+-- `moyun-db`.portal_user definition
+
 CREATE TABLE `portal_user` (
                                `id` bigint NOT NULL AUTO_INCREMENT COMMENT '用户ID',
                                `user_id` bigint DEFAULT NULL COMMENT '关联后台用户ID',
@@ -4191,21 +2923,18 @@ CREATE TABLE `portal_user` (
                                `update_by` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT '' COMMENT '更新者',
                                `update_time` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
                                `remark` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '备注',
+                               `platform_code` varchar(50) DEFAULT 'portal' COMMENT '注册来源端',
                                PRIMARY KEY (`id`),
                                UNIQUE KEY `uk_username` (`username`),
                                KEY `idx_user_id` (`user_id`),
                                KEY `idx_email` (`email`),
-                               KEY `idx_phone` (`phone`)
-) ENGINE=InnoDB AUTO_INCREMENT=11 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='门户用户表';
-/*!40101 SET character_set_client = @saved_cs_client */;
+                               KEY `idx_phone` (`phone`),
+                               KEY `idx_portal_user_platform` (`platform_code`)
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='门户用户表';
 
---
--- Table structure for table `portal_user_badge`
---
 
-DROP TABLE IF EXISTS `portal_user_badge`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
+-- `moyun-db`.portal_user_badge definition
+
 CREATE TABLE `portal_user_badge` (
                                      `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT '主键',
                                      `user_id` bigint unsigned NOT NULL COMMENT '用户ID',
@@ -4217,16 +2946,11 @@ CREATE TABLE `portal_user_badge` (
                                      `remark` varchar(500) DEFAULT NULL COMMENT '备注',
                                      PRIMARY KEY (`id`),
                                      UNIQUE KEY `uk_user_achievement` (`user_id`,`achievement_id`)
-) ENGINE=InnoDB AUTO_INCREMENT=7 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='用户徽章记录表';
-/*!40101 SET character_set_client = @saved_cs_client */;
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='用户徽章记录表';
 
---
--- Table structure for table `portal_user_growth`
---
 
-DROP TABLE IF EXISTS `portal_user_growth`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
+-- `moyun-db`.portal_user_growth definition
+
 CREATE TABLE `portal_user_growth` (
                                       `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT '主键',
                                       `user_id` bigint unsigned NOT NULL COMMENT '门户用户ID（portal_user.id）',
@@ -4245,16 +2969,11 @@ CREATE TABLE `portal_user_growth` (
                                       PRIMARY KEY (`id`),
                                       UNIQUE KEY `uk_user` (`user_id`),
                                       KEY `idx_season` (`season_value` DESC)
-) ENGINE=InnoDB AUTO_INCREMENT=208 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='用户成长值总表';
-/*!40101 SET character_set_client = @saved_cs_client */;
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='用户成长值总表';
 
---
--- Table structure for table `portal_user_resume`
---
 
-DROP TABLE IF EXISTS `portal_user_resume`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
+-- `moyun-db`.portal_user_resume definition
+
 CREATE TABLE `portal_user_resume` (
                                       `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键',
                                       `user_id` bigint NOT NULL COMMENT '用户ID',
@@ -4297,16 +3016,11 @@ CREATE TABLE `portal_user_resume` (
                                       KEY `idx_user_status` (`user_id`,`status`),
                                       KEY `idx_del_flag` (`del_flag`),
                                       KEY `idx_user_source` (`user_id`,`source_type`)
-) ENGINE=InnoDB AUTO_INCREMENT=7 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='用户简历';
-/*!40101 SET character_set_client = @saved_cs_client */;
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='用户简历';
 
---
--- Table structure for table `portal_user_stats`
---
 
-DROP TABLE IF EXISTS `portal_user_stats`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
+-- `moyun-db`.portal_user_stats definition
+
 CREATE TABLE `portal_user_stats` (
                                      `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT '主键',
                                      `user_id` bigint unsigned NOT NULL COMMENT '门户用户ID',
@@ -4338,16 +3052,11 @@ CREATE TABLE `portal_user_stats` (
                                      `weak_tags_updated_time` datetime DEFAULT NULL COMMENT '薄弱点最后计算时间',
                                      PRIMARY KEY (`id`),
                                      UNIQUE KEY `uk_user` (`user_id`)
-) ENGINE=InnoDB AUTO_INCREMENT=270 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='门户用户统计聚合表';
-/*!40101 SET character_set_client = @saved_cs_client */;
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='门户用户统计聚合表';
 
---
--- Table structure for table `portal_user_task`
---
 
-DROP TABLE IF EXISTS `portal_user_task`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
+-- `moyun-db`.portal_user_task definition
+
 CREATE TABLE `portal_user_task` (
                                     `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键',
                                     `user_id` bigint NOT NULL COMMENT '用户ID',
@@ -4365,15 +3074,10 @@ CREATE TABLE `portal_user_task` (
                                     UNIQUE KEY `uk_user_task` (`user_id`,`task_id`),
                                     KEY `idx_user` (`user_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='用户任务进度表';
-/*!40101 SET character_set_client = @saved_cs_client */;
 
---
--- Table structure for table `portal_voice_interview`
---
 
-DROP TABLE IF EXISTS `portal_voice_interview`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
+-- `moyun-db`.portal_voice_interview definition
+
 CREATE TABLE `portal_voice_interview` (
                                           `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键',
                                           `user_id` bigint NOT NULL COMMENT '面试用户ID',
@@ -4411,16 +3115,11 @@ CREATE TABLE `portal_voice_interview` (
                                           KEY `idx_status` (`status`),
                                           KEY `idx_del_flag` (`del_flag`),
                                           KEY `idx_agent` (`agent_id`)
-) ENGINE=InnoDB AUTO_INCREMENT=19 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='语音面试会话主表（V10.1）';
-/*!40101 SET character_set_client = @saved_cs_client */;
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='语音面试会话主表（V10.1）';
 
---
--- Table structure for table `portal_voice_interview_event`
---
 
-DROP TABLE IF EXISTS `portal_voice_interview_event`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
+-- `moyun-db`.portal_voice_interview_event definition
+
 CREATE TABLE `portal_voice_interview_event` (
                                                 `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键',
                                                 `interview_id` bigint NOT NULL COMMENT '面试会话ID（portal_voice_interview.id）',
@@ -4429,16 +3128,11 @@ CREATE TABLE `portal_voice_interview_event` (
                                                 `create_time` datetime DEFAULT NULL COMMENT '事件时间',
                                                 PRIMARY KEY (`id`),
                                                 KEY `idx_interview` (`interview_id`)
-) ENGINE=InnoDB AUTO_INCREMENT=100 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='AI语音面试会话事件日志（v11.88）';
-/*!40101 SET character_set_client = @saved_cs_client */;
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='AI语音面试会话事件日志（v11.88）';
 
---
--- Table structure for table `portal_voice_interview_qa`
---
 
-DROP TABLE IF EXISTS `portal_voice_interview_qa`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
+-- `moyun-db`.portal_voice_interview_qa definition
+
 CREATE TABLE `portal_voice_interview_qa` (
                                              `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键',
                                              `interview_id` bigint NOT NULL COMMENT '面试会话ID',
@@ -4470,16 +3164,11 @@ CREATE TABLE `portal_voice_interview_qa` (
                                              KEY `idx_question_idx` (`interview_id`,`question_idx`),
                                              KEY `idx_parent` (`parent_qa_id`),
                                              KEY `idx_del_flag` (`del_flag`)
-) ENGINE=InnoDB AUTO_INCREMENT=88 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='语音面试问答表（V10.1，含追问链）';
-/*!40101 SET character_set_client = @saved_cs_client */;
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='语音面试问答表（V10.1，含追问链）';
 
---
--- Table structure for table `portal_writing_contest`
---
 
-DROP TABLE IF EXISTS `portal_writing_contest`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
+-- `moyun-db`.portal_writing_contest definition
+
 CREATE TABLE `portal_writing_contest` (
                                           `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键',
                                           `title` varchar(128) NOT NULL COMMENT '活动标题',
@@ -4499,15 +3188,10 @@ CREATE TABLE `portal_writing_contest` (
                                           KEY `idx_start_time` (`start_time`),
                                           KEY `idx_del_flag` (`del_flag`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='创作挑战/征文活动';
-/*!40101 SET character_set_client = @saved_cs_client */;
 
---
--- Table structure for table `portal_writing_prompt`
---
 
-DROP TABLE IF EXISTS `portal_writing_prompt`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
+-- `moyun-db`.portal_writing_prompt definition
+
 CREATE TABLE `portal_writing_prompt` (
                                          `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键',
                                          `prompt_date` date NOT NULL COMMENT 'prompt 日期（唯一）',
@@ -4522,16 +3206,11 @@ CREATE TABLE `portal_writing_prompt` (
                                          UNIQUE KEY `uk_prompt_date` (`prompt_date`),
                                          KEY `idx_category` (`category`),
                                          KEY `idx_del_flag` (`del_flag`)
-) ENGINE=InnoDB AUTO_INCREMENT=26 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='每日写作 prompt';
-/*!40101 SET character_set_client = @saved_cs_client */;
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='每日写作 prompt';
 
---
--- Table structure for table `portal_wrong_question`
---
 
-DROP TABLE IF EXISTS `portal_wrong_question`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
+-- `moyun-db`.portal_wrong_question definition
+
 CREATE TABLE `portal_wrong_question` (
                                          `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键',
                                          `user_id` bigint NOT NULL COMMENT '用户ID',
@@ -4548,66 +3227,21 @@ CREATE TABLE `portal_wrong_question` (
                                          KEY `idx_user_status` (`user_id`,`status`),
                                          KEY `idx_user_review` (`user_id`,`next_review_time`),
                                          KEY `idx_del_flag` (`del_flag`)
-) ENGINE=InnoDB AUTO_INCREMENT=7 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='错题本';
-/*!40101 SET character_set_client = @saved_cs_client */;
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='错题本';
 
---
--- Table structure for table `qrtz_blob_triggers`
---
 
-DROP TABLE IF EXISTS `qrtz_blob_triggers`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
-CREATE TABLE `qrtz_blob_triggers` (
-                                      `sched_name` varchar(120) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '调度名称',
-                                      `trigger_name` varchar(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT 'qrtz_triggers表trigger_name的外键',
-                                      `trigger_group` varchar(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT 'qrtz_triggers表trigger_group的外键',
-                                      `blob_data` blob COMMENT '存放持久化Trigger对象',
-                                      PRIMARY KEY (`sched_name`,`trigger_name`,`trigger_group`),
-                                      CONSTRAINT `qrtz_blob_triggers_ibfk_1` FOREIGN KEY (`sched_name`, `trigger_name`, `trigger_group`) REFERENCES `qrtz_triggers` (`sched_name`, `trigger_name`, `trigger_group`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='Blob类型的触发器表';
-/*!40101 SET character_set_client = @saved_cs_client */;
+-- `moyun-db`.qrtz_calendars definition
 
---
--- Table structure for table `qrtz_calendars`
---
-
-DROP TABLE IF EXISTS `qrtz_calendars`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `qrtz_calendars` (
                                   `sched_name` varchar(120) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '调度名称',
                                   `calendar_name` varchar(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '日历名称',
                                   `calendar` blob NOT NULL COMMENT '存放持久化calendar对象',
                                   PRIMARY KEY (`sched_name`,`calendar_name`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='日历信息表';
-/*!40101 SET character_set_client = @saved_cs_client */;
 
---
--- Table structure for table `qrtz_cron_triggers`
---
 
-DROP TABLE IF EXISTS `qrtz_cron_triggers`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
-CREATE TABLE `qrtz_cron_triggers` (
-                                      `sched_name` varchar(120) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '调度名称',
-                                      `trigger_name` varchar(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT 'qrtz_triggers表trigger_name的外键',
-                                      `trigger_group` varchar(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT 'qrtz_triggers表trigger_group的外键',
-                                      `cron_expression` varchar(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT 'cron表达式',
-                                      `time_zone_id` varchar(80) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '时区',
-                                      PRIMARY KEY (`sched_name`,`trigger_name`,`trigger_group`),
-                                      CONSTRAINT `qrtz_cron_triggers_ibfk_1` FOREIGN KEY (`sched_name`, `trigger_name`, `trigger_group`) REFERENCES `qrtz_triggers` (`sched_name`, `trigger_name`, `trigger_group`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='Cron类型的触发器表';
-/*!40101 SET character_set_client = @saved_cs_client */;
+-- `moyun-db`.qrtz_fired_triggers definition
 
---
--- Table structure for table `qrtz_fired_triggers`
---
-
-DROP TABLE IF EXISTS `qrtz_fired_triggers`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `qrtz_fired_triggers` (
                                        `sched_name` varchar(120) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '调度名称',
                                        `entry_id` varchar(95) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '调度器实例id',
@@ -4624,15 +3258,10 @@ CREATE TABLE `qrtz_fired_triggers` (
                                        `requests_recovery` varchar(1) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '是否接受恢复执行',
                                        PRIMARY KEY (`sched_name`,`entry_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='已触发的触发器表';
-/*!40101 SET character_set_client = @saved_cs_client */;
 
---
--- Table structure for table `qrtz_job_details`
---
 
-DROP TABLE IF EXISTS `qrtz_job_details`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
+-- `moyun-db`.qrtz_job_details definition
+
 CREATE TABLE `qrtz_job_details` (
                                     `sched_name` varchar(120) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '调度名称',
                                     `job_name` varchar(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '任务名称',
@@ -4646,43 +3275,28 @@ CREATE TABLE `qrtz_job_details` (
                                     `job_data` blob COMMENT '存放持久化job对象',
                                     PRIMARY KEY (`sched_name`,`job_name`,`job_group`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='任务详细信息表';
-/*!40101 SET character_set_client = @saved_cs_client */;
 
---
--- Table structure for table `qrtz_locks`
---
 
-DROP TABLE IF EXISTS `qrtz_locks`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
+-- `moyun-db`.qrtz_locks definition
+
 CREATE TABLE `qrtz_locks` (
                               `sched_name` varchar(120) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '调度名称',
                               `lock_name` varchar(40) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '悲观锁名称',
                               PRIMARY KEY (`sched_name`,`lock_name`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='存储的悲观锁信息表';
-/*!40101 SET character_set_client = @saved_cs_client */;
 
---
--- Table structure for table `qrtz_paused_trigger_grps`
---
 
-DROP TABLE IF EXISTS `qrtz_paused_trigger_grps`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
+-- `moyun-db`.qrtz_paused_trigger_grps definition
+
 CREATE TABLE `qrtz_paused_trigger_grps` (
                                             `sched_name` varchar(120) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '调度名称',
                                             `trigger_group` varchar(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT 'qrtz_triggers表trigger_group的外键',
                                             PRIMARY KEY (`sched_name`,`trigger_group`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='暂停的触发器表';
-/*!40101 SET character_set_client = @saved_cs_client */;
 
---
--- Table structure for table `qrtz_scheduler_state`
---
 
-DROP TABLE IF EXISTS `qrtz_scheduler_state`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
+-- `moyun-db`.qrtz_scheduler_state definition
+
 CREATE TABLE `qrtz_scheduler_state` (
                                         `sched_name` varchar(120) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '调度名称',
                                         `instance_name` varchar(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '实例名称',
@@ -4690,91 +3304,10 @@ CREATE TABLE `qrtz_scheduler_state` (
                                         `checkin_interval` bigint NOT NULL COMMENT '检查间隔时间',
                                         PRIMARY KEY (`sched_name`,`instance_name`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='调度器状态表';
-/*!40101 SET character_set_client = @saved_cs_client */;
 
---
--- Table structure for table `qrtz_simple_triggers`
---
 
-DROP TABLE IF EXISTS `qrtz_simple_triggers`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
-CREATE TABLE `qrtz_simple_triggers` (
-                                        `sched_name` varchar(120) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '调度名称',
-                                        `trigger_name` varchar(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT 'qrtz_triggers表trigger_name的外键',
-                                        `trigger_group` varchar(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT 'qrtz_triggers表trigger_group的外键',
-                                        `repeat_count` bigint NOT NULL COMMENT '重复的次数统计',
-                                        `repeat_interval` bigint NOT NULL COMMENT '重复的间隔时间',
-                                        `times_triggered` bigint NOT NULL COMMENT '已经触发的次数',
-                                        PRIMARY KEY (`sched_name`,`trigger_name`,`trigger_group`),
-                                        CONSTRAINT `qrtz_simple_triggers_ibfk_1` FOREIGN KEY (`sched_name`, `trigger_name`, `trigger_group`) REFERENCES `qrtz_triggers` (`sched_name`, `trigger_name`, `trigger_group`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='简单触发器的信息表';
-/*!40101 SET character_set_client = @saved_cs_client */;
+-- `moyun-db`.sys_audit_task definition
 
---
--- Table structure for table `qrtz_simprop_triggers`
---
-
-DROP TABLE IF EXISTS `qrtz_simprop_triggers`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
-CREATE TABLE `qrtz_simprop_triggers` (
-                                         `sched_name` varchar(120) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '调度名称',
-                                         `trigger_name` varchar(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT 'qrtz_triggers表trigger_name的外键',
-                                         `trigger_group` varchar(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT 'qrtz_triggers表trigger_group的外键',
-                                         `str_prop_1` varchar(512) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT 'String类型的trigger的第一个参数',
-                                         `str_prop_2` varchar(512) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT 'String类型的trigger的第二个参数',
-                                         `str_prop_3` varchar(512) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT 'String类型的trigger的第三个参数',
-                                         `int_prop_1` int DEFAULT NULL COMMENT 'int类型的trigger的第一个参数',
-                                         `int_prop_2` int DEFAULT NULL COMMENT 'int类型的trigger的第二个参数',
-                                         `long_prop_1` bigint DEFAULT NULL COMMENT 'long类型的trigger的第一个参数',
-                                         `long_prop_2` bigint DEFAULT NULL COMMENT 'long类型的trigger的第二个参数',
-                                         `dec_prop_1` decimal(13,4) DEFAULT NULL COMMENT 'decimal类型的trigger的第一个参数',
-                                         `dec_prop_2` decimal(13,4) DEFAULT NULL COMMENT 'decimal类型的trigger的第二个参数',
-                                         `bool_prop_1` varchar(1) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT 'Boolean类型的trigger的第一个参数',
-                                         `bool_prop_2` varchar(1) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT 'Boolean类型的trigger的第二个参数',
-                                         PRIMARY KEY (`sched_name`,`trigger_name`,`trigger_group`),
-                                         CONSTRAINT `qrtz_simprop_triggers_ibfk_1` FOREIGN KEY (`sched_name`, `trigger_name`, `trigger_group`) REFERENCES `qrtz_triggers` (`sched_name`, `trigger_name`, `trigger_group`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='同步机制的行锁表';
-/*!40101 SET character_set_client = @saved_cs_client */;
-
---
--- Table structure for table `qrtz_triggers`
---
-
-DROP TABLE IF EXISTS `qrtz_triggers`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
-CREATE TABLE `qrtz_triggers` (
-                                 `sched_name` varchar(120) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '调度名称',
-                                 `trigger_name` varchar(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '触发器的名字',
-                                 `trigger_group` varchar(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '触发器所属组的名字',
-                                 `job_name` varchar(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT 'qrtz_job_details表job_name的外键',
-                                 `job_group` varchar(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT 'qrtz_job_details表job_group的外键',
-                                 `description` varchar(250) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '相关介绍',
-                                 `next_fire_time` bigint DEFAULT NULL COMMENT '上一次触发时间（毫秒）',
-                                 `prev_fire_time` bigint DEFAULT NULL COMMENT '下一次触发时间（默认为-1表示不触发）',
-                                 `priority` int DEFAULT NULL COMMENT '优先级',
-                                 `trigger_state` varchar(16) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '触发器状态',
-                                 `trigger_type` varchar(8) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '触发器的类型',
-                                 `start_time` bigint NOT NULL COMMENT '开始时间',
-                                 `end_time` bigint DEFAULT NULL COMMENT '结束时间',
-                                 `calendar_name` varchar(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '日程表名称',
-                                 `misfire_instr` smallint DEFAULT NULL COMMENT '补偿执行的策略',
-                                 `job_data` blob COMMENT '存放持久化job对象',
-                                 PRIMARY KEY (`sched_name`,`trigger_name`,`trigger_group`),
-                                 KEY `sched_name` (`sched_name`,`job_name`,`job_group`),
-                                 CONSTRAINT `qrtz_triggers_ibfk_1` FOREIGN KEY (`sched_name`, `job_name`, `job_group`) REFERENCES `qrtz_job_details` (`sched_name`, `job_name`, `job_group`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='触发器详细信息表';
-/*!40101 SET character_set_client = @saved_cs_client */;
-
---
--- Table structure for table `sys_audit_task`
---
-
-DROP TABLE IF EXISTS `sys_audit_task`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `sys_audit_task` (
                                   `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键',
                                   `task_type` varchar(32) NOT NULL COMMENT '任务类型：article/column/topic/interview_exp/interview_comment/certification/feedback/report',
@@ -4803,16 +3336,11 @@ CREATE TABLE `sys_audit_task` (
                                   KEY `idx_audit_biz` (`biz_type`,`biz_id`),
                                   KEY `idx_audit_task_type` (`task_type`,`status`),
                                   KEY `idx_audit_submit_time` (`submit_time`)
-) ENGINE=InnoDB AUTO_INCREMENT=13 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='统一审核任务表（v8.1）';
-/*!40101 SET character_set_client = @saved_cs_client */;
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='统一审核任务表（v8.1）';
 
---
--- Table structure for table `sys_config`
---
 
-DROP TABLE IF EXISTS `sys_config`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
+-- `moyun-db`.sys_config definition
+
 CREATE TABLE `sys_config` (
                               `config_id` int NOT NULL AUTO_INCREMENT COMMENT '参数主键',
                               `config_name` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT '' COMMENT '参数名称',
@@ -4828,16 +3356,11 @@ CREATE TABLE `sys_config` (
                               `del_flag` char(1) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL DEFAULT '0' COMMENT '删除标记（0=存在 2=删除）',
                               PRIMARY KEY (`config_id`),
                               KEY `idx_del_flag` (`del_flag`)
-) ENGINE=InnoDB AUTO_INCREMENT=119 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='参数配置表';
-/*!40101 SET character_set_client = @saved_cs_client */;
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='参数配置表';
 
---
--- Table structure for table `sys_dept`
---
 
-DROP TABLE IF EXISTS `sys_dept`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
+-- `moyun-db`.sys_dept definition
+
 CREATE TABLE `sys_dept` (
                             `dept_id` bigint NOT NULL AUTO_INCREMENT COMMENT '部门id',
                             `parent_id` bigint DEFAULT '0' COMMENT '父部门id',
@@ -4855,16 +3378,11 @@ CREATE TABLE `sys_dept` (
                             `update_time` datetime DEFAULT NULL COMMENT '更新时间',
                             `remark` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '备注',
                             PRIMARY KEY (`dept_id`)
-) ENGINE=InnoDB AUTO_INCREMENT=200 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='部门表';
-/*!40101 SET character_set_client = @saved_cs_client */;
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='部门表';
 
---
--- Table structure for table `sys_dict_data`
---
 
-DROP TABLE IF EXISTS `sys_dict_data`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
+-- `moyun-db`.sys_dict_data definition
+
 CREATE TABLE `sys_dict_data` (
                                  `dict_code` bigint NOT NULL AUTO_INCREMENT COMMENT '字典编码',
                                  `dict_sort` int DEFAULT '0' COMMENT '字典排序',
@@ -4883,16 +3401,11 @@ CREATE TABLE `sys_dict_data` (
                                  `del_flag` char(1) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL DEFAULT '0' COMMENT '删除标记（0=存在 2=删除）',
                                  PRIMARY KEY (`dict_code`),
                                  KEY `idx_del_flag` (`del_flag`)
-) ENGINE=InnoDB AUTO_INCREMENT=502 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='字典数据表';
-/*!40101 SET character_set_client = @saved_cs_client */;
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='字典数据表';
 
---
--- Table structure for table `sys_dict_type`
---
 
-DROP TABLE IF EXISTS `sys_dict_type`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
+-- `moyun-db`.sys_dict_type definition
+
 CREATE TABLE `sys_dict_type` (
                                  `dict_id` bigint NOT NULL AUTO_INCREMENT COMMENT '字典主键',
                                  `dict_name` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT '' COMMENT '字典名称',
@@ -4907,16 +3420,11 @@ CREATE TABLE `sys_dict_type` (
                                  PRIMARY KEY (`dict_id`),
                                  UNIQUE KEY `uk_dict_type` (`dict_type`),
                                  KEY `idx_del_flag` (`del_flag`)
-) ENGINE=InnoDB AUTO_INCREMENT=201 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='字典类型表';
-/*!40101 SET character_set_client = @saved_cs_client */;
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='字典类型表';
 
---
--- Table structure for table `sys_file`
---
 
-DROP TABLE IF EXISTS `sys_file`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
+-- `moyun-db`.sys_file definition
+
 CREATE TABLE `sys_file` (
                             `id` bigint NOT NULL AUTO_INCREMENT COMMENT '文件ID',
                             `file_name` varchar(500) NOT NULL COMMENT '文件名称',
@@ -4951,16 +3459,11 @@ CREATE TABLE `sys_file` (
                             KEY `idx_create_time` (`create_time`),
                             KEY `idx_fallback` (`fallback`),
                             KEY `idx_del_flag` (`del_flag`)
-) ENGINE=InnoDB AUTO_INCREMENT=29 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='文件管理表';
-/*!40101 SET character_set_client = @saved_cs_client */;
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='文件管理表';
 
---
--- Table structure for table `sys_job`
---
 
-DROP TABLE IF EXISTS `sys_job`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
+-- `moyun-db`.sys_job definition
+
 CREATE TABLE `sys_job` (
                            `job_id` bigint NOT NULL AUTO_INCREMENT COMMENT '任务ID',
                            `job_name` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL DEFAULT '' COMMENT '任务名称',
@@ -4978,16 +3481,11 @@ CREATE TABLE `sys_job` (
                            `del_flag` char(1) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL DEFAULT '0' COMMENT '删除标记（0=存在 2=删除）',
                            PRIMARY KEY (`job_id`,`job_name`,`job_group`),
                            KEY `idx_del_flag` (`del_flag`)
-) ENGINE=InnoDB AUTO_INCREMENT=109 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='定时任务调度表';
-/*!40101 SET character_set_client = @saved_cs_client */;
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='定时任务调度表';
 
---
--- Table structure for table `sys_job_log`
---
 
-DROP TABLE IF EXISTS `sys_job_log`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
+-- `moyun-db`.sys_job_log definition
+
 CREATE TABLE `sys_job_log` (
                                `job_log_id` bigint NOT NULL AUTO_INCREMENT COMMENT '任务日志ID',
                                `job_name` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '任务名称',
@@ -5002,16 +3500,11 @@ CREATE TABLE `sys_job_log` (
                                `update_time` datetime DEFAULT NULL COMMENT '更新时间',
                                `remark` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '备注',
                                PRIMARY KEY (`job_log_id`)
-) ENGINE=InnoDB AUTO_INCREMENT=5721 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='定时任务调度日志表';
-/*!40101 SET character_set_client = @saved_cs_client */;
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='定时任务调度日志表';
 
---
--- Table structure for table `sys_job_scan_issue`
---
 
-DROP TABLE IF EXISTS `sys_job_scan_issue`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
+-- `moyun-db`.sys_job_scan_issue definition
+
 CREATE TABLE `sys_job_scan_issue` (
                                       `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键',
                                       `job_id` bigint DEFAULT NULL COMMENT '触发扫描的定时任务ID',
@@ -5034,15 +3527,10 @@ CREATE TABLE `sys_job_scan_issue` (
                                       KEY `idx_scan_target` (`target_type`,`target_id`),
                                       KEY `idx_scan_create_time` (`create_time`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='定时任务扫描结果表（v8.1）';
-/*!40101 SET character_set_client = @saved_cs_client */;
 
---
--- Table structure for table `sys_logininfor`
---
 
-DROP TABLE IF EXISTS `sys_logininfor`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
+-- `moyun-db`.sys_logininfor definition
+
 CREATE TABLE `sys_logininfor` (
                                   `info_id` bigint NOT NULL AUTO_INCREMENT COMMENT '访问ID',
                                   `user_name` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT '' COMMENT '用户账号',
@@ -5063,16 +3551,11 @@ CREATE TABLE `sys_logininfor` (
                                   KEY `idx_sys_logininfor_s` (`status`),
                                   KEY `idx_sys_logininfor_lt` (`login_time`),
                                   KEY `idx_sys_logininfor_ut` (`user_type`)
-) ENGINE=InnoDB AUTO_INCREMENT=268 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='系统访问记录';
-/*!40101 SET character_set_client = @saved_cs_client */;
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='系统访问记录';
 
---
--- Table structure for table `sys_menu`
---
 
-DROP TABLE IF EXISTS `sys_menu`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
+-- `moyun-db`.sys_menu definition
+
 CREATE TABLE `sys_menu` (
                             `menu_id` bigint NOT NULL AUTO_INCREMENT COMMENT '菜单ID',
                             `menu_name` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '菜单名称',
@@ -5097,16 +3580,11 @@ CREATE TABLE `sys_menu` (
                             `del_flag` char(1) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL DEFAULT '0' COMMENT '删除标记（0=存在 2=删除）',
                             PRIMARY KEY (`menu_id`),
                             KEY `idx_del_flag` (`del_flag`)
-) ENGINE=InnoDB AUTO_INCREMENT=54042 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='菜单权限表';
-/*!40101 SET character_set_client = @saved_cs_client */;
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='菜单权限表';
 
---
--- Table structure for table `sys_notification`
---
 
-DROP TABLE IF EXISTS `sys_notification`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
+-- `moyun-db`.sys_notification definition
+
 CREATE TABLE `sys_notification` (
                                     `id` bigint NOT NULL AUTO_INCREMENT COMMENT '通知ID',
                                     `type` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '类型：system/comment/like/follow/order/notice/announcement',
@@ -5132,16 +3610,11 @@ CREATE TABLE `sys_notification` (
                                     KEY `idx_create_time` (`create_time`),
                                     KEY `idx_user_type_user_id` (`user_type`,`user_id`),
                                     KEY `idx_del_flag` (`del_flag`)
-) ENGINE=InnoDB AUTO_INCREMENT=46 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='系统通知主体表（合并 portal_notification + sys_notice）';
-/*!40101 SET character_set_client = @saved_cs_client */;
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='系统通知主体表（合并 portal_notification + sys_notice）';
 
---
--- Table structure for table `sys_notification_read`
---
 
-DROP TABLE IF EXISTS `sys_notification_read`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
+-- `moyun-db`.sys_notification_read definition
+
 CREATE TABLE `sys_notification_read` (
                                          `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键',
                                          `notification_id` bigint NOT NULL COMMENT '通知ID（关联 sys_notification.id）',
@@ -5153,16 +3626,11 @@ CREATE TABLE `sys_notification_read` (
                                          UNIQUE KEY `uk_notif_user_type` (`notification_id`,`user_id`,`user_type`),
                                          KEY `idx_user_id` (`user_id`),
                                          KEY `idx_notification_id` (`notification_id`)
-) ENGINE=InnoDB AUTO_INCREMENT=14 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='系统通知用户已读关系表';
-/*!40101 SET character_set_client = @saved_cs_client */;
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='系统通知用户已读关系表';
 
---
--- Table structure for table `sys_oper_log`
---
 
-DROP TABLE IF EXISTS `sys_oper_log`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
+-- `moyun-db`.sys_oper_log definition
+
 CREATE TABLE `sys_oper_log` (
                                 `oper_id` bigint NOT NULL AUTO_INCREMENT COMMENT '日志主键',
                                 `title` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT '' COMMENT '模块标题',
@@ -5190,16 +3658,11 @@ CREATE TABLE `sys_oper_log` (
                                 KEY `idx_sys_oper_log_bt` (`business_type`),
                                 KEY `idx_sys_oper_log_s` (`status`),
                                 KEY `idx_sys_oper_log_ot` (`oper_time`)
-) ENGINE=InnoDB AUTO_INCREMENT=9 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='操作日志记录';
-/*!40101 SET character_set_client = @saved_cs_client */;
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='操作日志记录';
 
---
--- Table structure for table `sys_platform`
---
 
-DROP TABLE IF EXISTS `sys_platform`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
+-- `moyun-db`.sys_platform definition
+
 CREATE TABLE `sys_platform` (
                                 `id` bigint NOT NULL AUTO_INCREMENT COMMENT '端ID',
                                 `platform_code` varchar(50) COLLATE utf8mb4_general_ci NOT NULL COMMENT '端代码',
@@ -5213,16 +3676,11 @@ CREATE TABLE `sys_platform` (
                                 `create_time` datetime DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
                                 PRIMARY KEY (`id`),
                                 UNIQUE KEY `uk_platform_code` (`platform_code`)
-) ENGINE=InnoDB AUTO_INCREMENT=5 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='端定义（全局公共，用户/支付/VIP/配置/菜单/统计统一引用）';
-/*!40101 SET character_set_client = @saved_cs_client */;
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='端定义（全局公共，用户/支付/VIP/配置/菜单/统计统一引用）';
 
---
--- Table structure for table `sys_post`
---
 
-DROP TABLE IF EXISTS `sys_post`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
+-- `moyun-db`.sys_post definition
+
 CREATE TABLE `sys_post` (
                             `post_id` bigint NOT NULL AUTO_INCREMENT COMMENT '岗位ID',
                             `post_code` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '岗位编码',
@@ -5237,16 +3695,11 @@ CREATE TABLE `sys_post` (
                             `del_flag` char(1) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL DEFAULT '0' COMMENT '删除标记（0=存在 2=删除）',
                             PRIMARY KEY (`post_id`),
                             KEY `idx_del_flag` (`del_flag`)
-) ENGINE=InnoDB AUTO_INCREMENT=5 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='岗位信息表';
-/*!40101 SET character_set_client = @saved_cs_client */;
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='岗位信息表';
 
---
--- Table structure for table `sys_role`
---
 
-DROP TABLE IF EXISTS `sys_role`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
+-- `moyun-db`.sys_role definition
+
 CREATE TABLE `sys_role` (
                             `role_id` bigint NOT NULL AUTO_INCREMENT COMMENT '角色ID',
                             `role_name` varchar(30) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '角色名称',
@@ -5263,16 +3716,11 @@ CREATE TABLE `sys_role` (
                             `update_time` datetime DEFAULT NULL COMMENT '更新时间',
                             `remark` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '备注',
                             PRIMARY KEY (`role_id`)
-) ENGINE=InnoDB AUTO_INCREMENT=100 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='角色信息表';
-/*!40101 SET character_set_client = @saved_cs_client */;
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='角色信息表';
 
---
--- Table structure for table `sys_role_dept`
---
 
-DROP TABLE IF EXISTS `sys_role_dept`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
+-- `moyun-db`.sys_role_dept definition
+
 CREATE TABLE `sys_role_dept` (
                                  `role_id` bigint NOT NULL COMMENT '角色ID',
                                  `dept_id` bigint NOT NULL COMMENT '部门ID',
@@ -5283,15 +3731,10 @@ CREATE TABLE `sys_role_dept` (
                                  `remark` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '备注',
                                  PRIMARY KEY (`role_id`,`dept_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='角色和部门关联表';
-/*!40101 SET character_set_client = @saved_cs_client */;
 
---
--- Table structure for table `sys_role_menu`
---
 
-DROP TABLE IF EXISTS `sys_role_menu`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
+-- `moyun-db`.sys_role_menu definition
+
 CREATE TABLE `sys_role_menu` (
                                  `role_id` bigint NOT NULL COMMENT '角色ID',
                                  `menu_id` bigint NOT NULL COMMENT '菜单ID',
@@ -5302,15 +3745,10 @@ CREATE TABLE `sys_role_menu` (
                                  `remark` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '备注',
                                  PRIMARY KEY (`role_id`,`menu_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='角色和菜单关联表';
-/*!40101 SET character_set_client = @saved_cs_client */;
 
---
--- Table structure for table `sys_sensitive_word`
---
 
-DROP TABLE IF EXISTS `sys_sensitive_word`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
+-- `moyun-db`.sys_sensitive_word definition
+
 CREATE TABLE `sys_sensitive_word` (
                                       `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键',
                                       `word` varchar(128) NOT NULL COMMENT '敏感词',
@@ -5325,16 +3763,11 @@ CREATE TABLE `sys_sensitive_word` (
                                       PRIMARY KEY (`id`),
                                       UNIQUE KEY `uk_word` (`word`),
                                       KEY `idx_status` (`status`)
-) ENGINE=InnoDB AUTO_INCREMENT=8 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='敏感词库';
-/*!40101 SET character_set_client = @saved_cs_client */;
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='敏感词库';
 
---
--- Table structure for table `sys_sensitive_word_log`
---
 
-DROP TABLE IF EXISTS `sys_sensitive_word_log`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
+-- `moyun-db`.sys_sensitive_word_log definition
+
 CREATE TABLE `sys_sensitive_word_log` (
                                           `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键',
                                           `biz_type` varchar(32) NOT NULL COMMENT '业务类型：article/column/topic/topic_post/topic_comment/report',
@@ -5350,15 +3783,10 @@ CREATE TABLE `sys_sensitive_word_log` (
                                           KEY `idx_create_time` (`create_time`),
                                           KEY `idx_user_id` (`user_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='敏感词命中记录';
-/*!40101 SET character_set_client = @saved_cs_client */;
 
---
--- Table structure for table `sys_user`
---
 
-DROP TABLE IF EXISTS `sys_user`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
+-- `moyun-db`.sys_user definition
+drop table if exists `sys_user`;
 CREATE TABLE `sys_user` (
                             `user_id` bigint NOT NULL AUTO_INCREMENT COMMENT '用户ID',
                             `dept_id` bigint DEFAULT NULL COMMENT '部门ID',
@@ -5380,16 +3808,11 @@ CREATE TABLE `sys_user` (
                             `update_time` datetime DEFAULT NULL COMMENT '更新时间',
                             `remark` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '备注',
                             PRIMARY KEY (`user_id`)
-) ENGINE=InnoDB AUTO_INCREMENT=100 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='用户信息表';
-/*!40101 SET character_set_client = @saved_cs_client */;
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='用户信息表';
 
---
--- Table structure for table `sys_user_post`
---
 
-DROP TABLE IF EXISTS `sys_user_post`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
+-- `moyun-db`.sys_user_post definition
+drop table if exists `sys_user_post`;
 CREATE TABLE `sys_user_post` (
                                  `user_id` bigint NOT NULL COMMENT '用户ID',
                                  `post_id` bigint NOT NULL COMMENT '岗位ID',
@@ -5400,15 +3823,10 @@ CREATE TABLE `sys_user_post` (
                                  `remark` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '备注',
                                  PRIMARY KEY (`user_id`,`post_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='用户与岗位关联表';
-/*!40101 SET character_set_client = @saved_cs_client */;
 
---
--- Table structure for table `sys_user_role`
---
 
-DROP TABLE IF EXISTS `sys_user_role`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
+-- `moyun-db`.sys_user_role definition
+
 CREATE TABLE `sys_user_role` (
                                  `user_id` bigint NOT NULL COMMENT '用户ID',
                                  `role_id` bigint NOT NULL COMMENT '角色ID',
@@ -5419,15 +3837,10 @@ CREATE TABLE `sys_user_role` (
                                  `remark` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '备注',
                                  PRIMARY KEY (`user_id`,`role_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='用户和角色关联表';
-/*!40101 SET character_set_client = @saved_cs_client */;
 
---
--- Table structure for table `vip_api_registry`
---
 
-DROP TABLE IF EXISTS `vip_api_registry`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
+-- `moyun-db`.vip_api_registry definition
+
 CREATE TABLE `vip_api_registry` (
                                     `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键',
                                     `api_path` varchar(200) COLLATE utf8mb4_general_ci NOT NULL COMMENT '接口路径',
@@ -5447,16 +3860,11 @@ CREATE TABLE `vip_api_registry` (
                                     UNIQUE KEY `uk_api` (`api_path`,`http_method`),
                                     KEY `idx_platform` (`platform_code`),
                                     KEY `idx_benefit` (`benefit_code`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='VIP接口注册表（@VipOnly 启动扫描生成）';
-/*!40101 SET character_set_client = @saved_cs_client */;
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='VIP接口注册表（@VipOnly 启动扫描生成）';
 
---
--- Table structure for table `vip_benefit`
---
 
-DROP TABLE IF EXISTS `vip_benefit`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
+-- `moyun-db`.vip_benefit definition
+
 CREATE TABLE `vip_benefit` (
                                `id` bigint NOT NULL AUTO_INCREMENT COMMENT '权益ID',
                                `platform_code` varchar(50) COLLATE utf8mb4_general_ci NOT NULL COMMENT '端代码',
@@ -5467,16 +3875,11 @@ CREATE TABLE `vip_benefit` (
                                `create_time` datetime DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
                                PRIMARY KEY (`id`),
                                UNIQUE KEY `uk_platform_benefit` (`platform_code`,`benefit_code`)
-) ENGINE=InnoDB AUTO_INCREMENT=9 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='VIP权益定义（类比 sys_menu）';
-/*!40101 SET character_set_client = @saved_cs_client */;
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='VIP权益定义（类比 sys_menu）';
 
---
--- Table structure for table `vip_benefit_usage`
---
 
-DROP TABLE IF EXISTS `vip_benefit_usage`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
+-- `moyun-db`.vip_benefit_usage definition
+
 CREATE TABLE `vip_benefit_usage` (
                                      `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键',
                                      `user_id` bigint NOT NULL COMMENT '用户ID',
@@ -5490,15 +3893,10 @@ CREATE TABLE `vip_benefit_usage` (
                                      UNIQUE KEY `uk_user_benefit_date` (`user_id`,`platform_code`,`benefit_code`,`usage_date`),
                                      KEY `idx_user_date` (`user_id`,`usage_date`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='权益使用记录（consume=true 的次数统计）';
-/*!40101 SET character_set_client = @saved_cs_client */;
 
---
--- Table structure for table `vip_tier`
---
 
-DROP TABLE IF EXISTS `vip_tier`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
+-- `moyun-db`.vip_tier definition
+
 CREATE TABLE `vip_tier` (
                             `id` bigint NOT NULL AUTO_INCREMENT COMMENT '等级ID',
                             `platform_code` varchar(50) COLLATE utf8mb4_general_ci NOT NULL COMMENT '端代码（sys_platform.platform_code）',
@@ -5514,16 +3912,11 @@ CREATE TABLE `vip_tier` (
                             `create_time` datetime DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
                             PRIMARY KEY (`id`),
                             UNIQUE KEY `uk_platform_tier` (`platform_code`,`tier_code`)
-) ENGINE=InnoDB AUTO_INCREMENT=7 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='VIP等级（一端一套，类比 sys_role）';
-/*!40101 SET character_set_client = @saved_cs_client */;
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='VIP等级（一端一套，类比 sys_role）';
 
---
--- Table structure for table `vip_tier_benefit`
---
 
-DROP TABLE IF EXISTS `vip_tier_benefit`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
+-- `moyun-db`.vip_tier_benefit definition
+
 CREATE TABLE `vip_tier_benefit` (
                                     `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键',
                                     `platform_code` varchar(50) COLLATE utf8mb4_general_ci NOT NULL COMMENT '端代码',
@@ -5534,16 +3927,11 @@ CREATE TABLE `vip_tier_benefit` (
                                     `create_time` datetime DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
                                     PRIMARY KEY (`id`),
                                     UNIQUE KEY `uk_tier_benefit` (`platform_code`,`tier_code`,`benefit_code`)
-) ENGINE=InnoDB AUTO_INCREMENT=25 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='等级权益关联（类比 sys_role_menu）';
-/*!40101 SET character_set_client = @saved_cs_client */;
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='等级权益关联（类比 sys_role_menu）';
 
---
--- Table structure for table `vip_user_card`
---
 
-DROP TABLE IF EXISTS `vip_user_card`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
+-- `moyun-db`.vip_user_card definition
+
 CREATE TABLE `vip_user_card` (
                                  `id` bigint NOT NULL AUTO_INCREMENT COMMENT '会员卡ID',
                                  `user_id` bigint NOT NULL COMMENT '用户ID',
@@ -5559,19 +3947,437 @@ CREATE TABLE `vip_user_card` (
                                  KEY `idx_user_platform` (`user_id`,`platform_code`),
                                  KEY `idx_expire` (`expire_time`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='用户会员卡（类比 sys_user_role，一端一卡续费顺延）';
-/*!40101 SET character_set_client = @saved_cs_client */;
 
---
--- Dumping routines for database 'moyun-db'
---
-/*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
 
-/*!40101 SET SQL_MODE=@OLD_SQL_MODE */;
-/*!40014 SET FOREIGN_KEY_CHECKS=@OLD_FOREIGN_KEY_CHECKS */;
-/*!40014 SET UNIQUE_CHECKS=@OLD_UNIQUE_CHECKS */;
-/*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;
-/*!40101 SET CHARACTER_SET_RESULTS=@OLD_CHARACTER_SET_RESULTS */;
-/*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
-/*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
+-- `moyun-db`.ai_agent definition
 
--- Dump completed on 2026-09-17 17:57:12
+CREATE TABLE `ai_agent` (
+                            `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+                            `name` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '智能体名称',
+                            `description` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '智能体描述',
+                            `system_prompt` text CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci COMMENT '系统提示词',
+                            `knowledge_library_ids` text CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci COMMENT '关联的知识库ID列表（JSON数组）',
+                            `knowledge_base_weights` text CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci COMMENT '知识库权重配置（JSON格式：{"1": 1.0, "2": 0.8}，权重范围0.1-1.0）',
+                            `model_config_id` bigint DEFAULT NULL COMMENT '模型配置ID(关联model_config表,NULL则使用默认模型)',
+                            `model_name` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT 'qwen-plus' COMMENT '模型名称',
+                            `temperature` double DEFAULT '0.7' COMMENT '温度参数',
+                            `max_tokens` int DEFAULT '2000' COMMENT '最大token数',
+                            `rag_min_score` double DEFAULT NULL COMMENT 'RAG检索相似度阈值(0.5-1.0,推荐0.7-0.75,NULL则使用全局配置)',
+                            `rag_max_results` int DEFAULT NULL COMMENT 'RAG检索最大结果数量(1-10,推荐3-5,NULL则使用全局配置)',
+                            `enabled` tinyint(1) DEFAULT '1' COMMENT '是否启用',
+                            `welcome_message` text CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci COMMENT '开场白',
+                            `suggested_questions` text CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci COMMENT '预设问题(JSON数组)',
+                            `show_citations` tinyint(1) DEFAULT '1' COMMENT '是否显示引用来源',
+                            `max_history_turns` int DEFAULT '10' COMMENT '最大历史轮数',
+                            `api_enabled` tinyint(1) DEFAULT '0' COMMENT '是否启用API',
+                            `api_key` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT 'API Key',
+                            `workflow_id` bigint DEFAULT NULL COMMENT '关联工作流ID',
+                            `workflow_trigger_mode` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT 'manual' COMMENT '工作流触发模式: manual/auto/keyword',
+                            `workflow_trigger_keywords` text CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci COMMENT '触发关键词(JSON数组)',
+                            `publish_enabled` tinyint(1) DEFAULT '0' COMMENT '是否发布为应用',
+                            `publish_token` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '发布访问Token',
+                            `publish_settings` text CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci COMMENT '发布设置(JSON)',
+                            `create_time` datetime DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+                            `update_time` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+                            `rag_recall_multiplier` double DEFAULT NULL COMMENT '第一阶段召回倍数（1.5-3.0，推荐2.0，NULL时使用全局配置）',
+                            `rag_enable_hybrid_search` tinyint(1) DEFAULT '1' COMMENT '是否启用混合检索（向量+BM25）',
+                            `rag_enable_query_expansion` tinyint(1) DEFAULT '1' COMMENT '是否启用查询扩展',
+                            `rag_bm25_weight` double DEFAULT '0.3' COMMENT 'BM25检索权重（0-1）',
+                            `rag_vector_weight` double DEFAULT '0.7' COMMENT '向量检索权重（0-1）',
+                            `enable_self_reflection` tinyint(1) DEFAULT '0' COMMENT '是否启用自我反思',
+                            `deleted` tinyint(1) NOT NULL DEFAULT '0' COMMENT '删除标记: 0-未删除, 1-已删除',
+                            PRIMARY KEY (`id`) USING BTREE,
+                            KEY `idx_enabled` (`enabled`) USING BTREE,
+                            KEY `idx_model_config_id` (`model_config_id`) USING BTREE,
+                            KEY `fk_agent_workflow` (`workflow_id`),
+                            KEY `idx_deleted` (`deleted`)
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci ROW_FORMAT=DYNAMIC COMMENT='智能体表';
+
+
+-- `moyun-db`.ai_agent_dictionary_relation definition
+DROP TABLE IF EXISTS `ai_agent_dictionary_relation`;
+CREATE TABLE `ai_agent_dictionary_relation` (
+                                                `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+                                                `agent_id` bigint NOT NULL COMMENT '智能体ID',
+                                                `dictionary_id` bigint NOT NULL COMMENT '词典ID',
+                                                `enabled` tinyint(1) DEFAULT '1' COMMENT '是否启用',
+                                                `create_time` datetime DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+                                                PRIMARY KEY (`id`) USING BTREE,
+                                                UNIQUE KEY `uk_agent_dict` (`agent_id`,`dictionary_id`) USING BTREE,
+                                                KEY `idx_agent_id` (`agent_id`) USING BTREE,
+                                                KEY `idx_dictionary_id` (`dictionary_id`) USING BTREE
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci ROW_FORMAT=DYNAMIC COMMENT='智能体词典关联表';
+
+
+-- `moyun-db`.ai_agent_tool_relation definition
+
+CREATE TABLE `ai_agent_tool_relation` (
+                                          `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+                                          `agent_id` bigint NOT NULL COMMENT '智能体ID',
+                                          `tool_id` bigint NOT NULL COMMENT '工具ID',
+                                          `custom_config` json DEFAULT NULL COMMENT '针对该智能体的自定义配置',
+                                          `enabled` tinyint(1) DEFAULT '1' COMMENT '是否启用',
+                                          `create_time` datetime DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+                                          PRIMARY KEY (`id`) USING BTREE,
+                                          UNIQUE KEY `uk_agent_tool` (`agent_id`,`tool_id`) USING BTREE,
+                                          KEY `idx_agent_id` (`agent_id`) USING BTREE,
+                                          KEY `idx_tool_id` (`tool_id`) USING BTREE
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci ROW_FORMAT=DYNAMIC COMMENT='智能体工具关联表';
+
+
+-- `moyun-db`.ai_agent_workflow_relation definition
+
+CREATE TABLE `ai_agent_workflow_relation` (
+                                              `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+                                              `agent_id` bigint NOT NULL COMMENT '智能体ID',
+                                              `workflow_id` bigint NOT NULL COMMENT '工作流ID',
+                                              `enabled` tinyint(1) DEFAULT '1' COMMENT '是否启用',
+                                              `sort_order` int DEFAULT '0' COMMENT '排序',
+                                              `create_time` datetime DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+                                              PRIMARY KEY (`id`) USING BTREE,
+                                              UNIQUE KEY `uk_agent_workflow` (`agent_id`,`workflow_id`) USING BTREE,
+                                              KEY `idx_agent_id` (`agent_id`) USING BTREE,
+                                              KEY `idx_workflow_id` (`workflow_id`) USING BTREE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci ROW_FORMAT=DYNAMIC COMMENT='智能体-工作流关联表';
+
+
+-- `moyun-db`.ai_chat_history definition
+
+CREATE TABLE `ai_chat_history` (
+                                   `id` bigint NOT NULL AUTO_INCREMENT,
+                                   `agent_id` bigint NOT NULL COMMENT '智能体ID',
+                                   `session_id` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '会话ID',
+                                   `user_message` text CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci COMMENT '用户消息',
+                                   `assistant_message` text CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci COMMENT '助手回复',
+                                   `tokens_used` int DEFAULT '0' COMMENT 'Token消耗',
+                                   `retrieval_results` text CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci COMMENT '检索结果JSON',
+                                   `retrieval_count` int DEFAULT '0' COMMENT '检索命中数',
+                                   `response_time` int DEFAULT '0' COMMENT '响应时间(毫秒)',
+                                   `create_time` datetime DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+                                   PRIMARY KEY (`id`) USING BTREE,
+                                   KEY `idx_agent_id` (`agent_id`) USING BTREE,
+                                   KEY `idx_session_id` (`session_id`) USING BTREE,
+                                   KEY `idx_create_time` (`create_time`) USING BTREE
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci ROW_FORMAT=DYNAMIC COMMENT='对话历史表';
+
+
+-- `moyun-db`.ai_conversation definition
+
+CREATE TABLE `ai_conversation` (
+                                   `id` bigint NOT NULL AUTO_INCREMENT COMMENT '会话ID',
+                                   `agent_id` bigint NOT NULL COMMENT '智能体ID',
+                                   `title` varchar(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT '新对话' COMMENT '会话标题（自动生成或用户修改）',
+                                   `user_id` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '用户ID（预留字段，支持多用户）',
+                                   `message_count` int DEFAULT '0' COMMENT '消息数量',
+                                   `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+                                   `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '最后更新时间',
+                                   `summary` text CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci COMMENT '对话摘要',
+                                   `summary_updated_at` datetime DEFAULT NULL COMMENT '摘要更新时间',
+                                   `deleted` tinyint(1) NOT NULL DEFAULT '0' COMMENT '删除标记: 0-未删除, 1-已删除',
+                                   PRIMARY KEY (`id`) USING BTREE,
+                                   KEY `idx_agent_id` (`agent_id`) USING BTREE,
+                                   KEY `idx_user_id` (`user_id`) USING BTREE,
+                                   KEY `idx_update_time` (`update_time`) USING BTREE,
+                                   KEY `idx_deleted` (`deleted`)
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci ROW_FORMAT=DYNAMIC COMMENT='对话会话表';
+
+
+-- `moyun-db`.ai_conversation_message definition
+
+CREATE TABLE `ai_conversation_message` (
+                                           `id` bigint NOT NULL AUTO_INCREMENT COMMENT '消息ID',
+                                           `conversation_id` bigint NOT NULL COMMENT '会话ID',
+                                           `role` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '角色：user/assistant',
+                                           `content` text CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '消息内容',
+                                           `reference_sources` text CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci COMMENT '参考来源（JSON格式）',
+                                           `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+                                           PRIMARY KEY (`id`) USING BTREE,
+                                           KEY `idx_conversation_id` (`conversation_id`) USING BTREE,
+                                           KEY `idx_create_time` (`create_time`) USING BTREE
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci ROW_FORMAT=DYNAMIC COMMENT='对话消息表';
+
+
+-- `moyun-db`.ai_knowledge_base definition
+
+CREATE TABLE `ai_knowledge_base` (
+                                     `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+                                     `library_id` bigint DEFAULT NULL COMMENT '所属知识库ID',
+                                     `file_name` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '文件名',
+                                     `file_path` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '文件路径',
+                                     `pdf_file_path` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT 'PDF文件路径（用于预览）',
+                                     `file_size` bigint DEFAULT NULL COMMENT '文件大小（字节）',
+                                     `file_type` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '文件类型',
+                                     `vector_id` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '向量ID（Pinecone中的ID）',
+                                     `segment_count` int DEFAULT NULL COMMENT '文档分段数量',
+                                     `vector_dimension` int DEFAULT NULL COMMENT '向量维度',
+                                     `status` int DEFAULT '0' COMMENT '处理状态：0-待处理，1-处理中，2-处理成功，3-处理失败',
+                                     `processing_status` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT 'pending' COMMENT '处理状态：pending(待配置), configured(已配置), processing(处理中), completed(已完成), failed(失败)',
+                                     `config_completed` tinyint(1) DEFAULT '0' COMMENT '是否完成配置',
+                                     `error_message` text CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci COMMENT '错误信息',
+                                     `create_time` datetime DEFAULT CURRENT_TIMESTAMP COMMENT '上传时间',
+                                     `update_time` datetime DEFAULT NULL COMMENT '处理时间',
+                                     `category` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '知识库分组',
+                                     `tags` text CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci COMMENT '知识库标签（JSON数组）',
+                                     `description` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '知识库描述',
+                                     `usage_count` int DEFAULT '0' COMMENT '使用次数',
+                                     `hit_count` int DEFAULT '0' COMMENT '命中次数',
+                                     `last_used_time` datetime DEFAULT NULL COMMENT '最后使用时间',
+                                     `parse_method` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '文档解析方式: POI, PDFBox, Text',
+                                     `content_hash` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '文件内容SHA-256哈希值（用于增量更新检测）',
+                                     `last_processed_time` datetime DEFAULT NULL COMMENT '上次处理时间',
+                                     `need_reprocess` tinyint(1) DEFAULT '0' COMMENT '是否需要重新处理',
+                                     `deleted` tinyint(1) NOT NULL DEFAULT '0' COMMENT '删除标记: 0-未删除, 1-已删除',
+                                     PRIMARY KEY (`id`) USING BTREE,
+                                     KEY `idx_status` (`status`) USING BTREE,
+                                     KEY `idx_category` (`category`) USING BTREE,
+                                     KEY `idx_usage_count` (`usage_count`) USING BTREE,
+                                     KEY `idx_last_used_time` (`last_used_time`) USING BTREE,
+                                     KEY `idx_library_id` (`library_id`) USING BTREE,
+                                     KEY `idx_kb_content_hash` (`content_hash`) USING BTREE,
+                                     KEY `idx_deleted` (`deleted`),
+                                     KEY `idx_create_time` (`create_time`)
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci ROW_FORMAT=DYNAMIC COMMENT='知识库表';
+
+
+-- `moyun-db`.ai_knowledge_config definition
+
+CREATE TABLE `ai_knowledge_config` (
+                                       `id` bigint NOT NULL AUTO_INCREMENT COMMENT '配置ID',
+                                       `knowledge_id` bigint NOT NULL COMMENT '知识库ID',
+                                       `segment_mode` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL DEFAULT 'general' COMMENT '分段模式：general(通用), parent_child(父子分段)',
+                                       `segment_separator` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT '\n\n' COMMENT '分段标识符',
+                                       `segment_max_length` int NOT NULL DEFAULT '800' COMMENT '分段最大长度（字符数，800字符确保题库问答对完整，技术文档可用500，小说可用1500）',
+                                       `segment_overlap_length` int NOT NULL DEFAULT '100' COMMENT '分段重叠长度（字符数，100字符保证上下文连贯性）',
+                                       `chunking_strategy` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT 'fixed' COMMENT '分片策略: fixed(固定大小), adaptive(自适应), document_type(按文档类型)',
+                                       `document_type` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT 'general' COMMENT '文档类型: general(通用), faq(问答), table(表格), code(代码), technical(技术文档)',
+                                       `faq_chunk_size` int DEFAULT '400' COMMENT 'FAQ分片大小(字符)',
+                                       `table_chunk_strategy` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT 'by_row' COMMENT '表格分片策略: by_row(按行), by_table(整表), by_cell(按单元格)',
+                                       `code_chunk_strategy` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT 'by_function' COMMENT '代码分片策略: by_function(按函数), by_class(按类), by_file(按文件)',
+                                       `technical_chunk_size` int DEFAULT '1200' COMMENT '技术文档分片大小(字符)',
+                                       `enable_smart_boundary` tinyint(1) DEFAULT '1' COMMENT '启用智能边界检测(避免切断句子)',
+                                       `preprocess_replace_spaces` tinyint(1) DEFAULT '1' COMMENT '替换连续空格、换行、制表符',
+                                       `preprocess_remove_urls` tinyint(1) DEFAULT '1' COMMENT '删除URL和邮箱地址',
+                                       `preprocess_remove_extra_newlines` tinyint(1) DEFAULT '1' COMMENT '删除多余换行',
+                                       `index_mode` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL DEFAULT 'high_quality' COMMENT '索引方式：high_quality(高质量), economy(经济)',
+                                       `embedding_model` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '嵌入模型名称',
+                                       `retrieval_mode` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL DEFAULT 'vector' COMMENT '检索模式：vector(向量), keyword(关键词), hybrid(混合)',
+                                       `retrieval_top_k` int DEFAULT '3' COMMENT '检索Top K数量',
+                                       `rerank_enabled` tinyint(1) DEFAULT '0' COMMENT '是否启用重排序',
+                                       `rerank_model` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '重排序模型',
+                                       `qa_mode` tinyint(1) DEFAULT '0' COMMENT '是否启用Q&A模式',
+                                       `qa_extraction_prompt` text CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci COMMENT 'Q&A提取提示词',
+                                       `preprocess_remove_special_chars` tinyint(1) DEFAULT '0' COMMENT '删除特殊字符',
+                                       `preprocess_remove_table_desc` tinyint(1) DEFAULT '0' COMMENT '删除表格描述',
+                                       `preprocess_remove_header_footer` tinyint(1) DEFAULT '0' COMMENT '删除页眉页脚',
+                                       `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+                                       `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+                                       PRIMARY KEY (`id`) USING BTREE,
+                                       UNIQUE KEY `uk_knowledge_id` (`knowledge_id`) USING BTREE,
+                                       KEY `idx_segment_mode` (`segment_mode`) USING BTREE,
+                                       KEY `idx_index_mode` (`index_mode`) USING BTREE,
+                                       KEY `idx_chunking_strategy` (`chunking_strategy`) USING BTREE,
+                                       KEY `idx_document_type` (`document_type`) USING BTREE
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci ROW_FORMAT=DYNAMIC COMMENT='知识库配置表 - 包含分片策略、文档类型识别、预处理规则等配置';
+
+
+-- `moyun-db`.ai_knowledge_library_config definition
+
+CREATE TABLE `ai_knowledge_library_config` (
+                                               `id` bigint NOT NULL AUTO_INCREMENT COMMENT '配置ID',
+                                               `library_id` bigint NOT NULL COMMENT '知识库ID',
+                                               `segment_mode` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL DEFAULT 'general' COMMENT '分段模式：general(通用), qa(问答), code(代码)',
+                                               `segment_separator` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT '\n\n' COMMENT '分段标识符',
+                                               `segment_max_length` int NOT NULL DEFAULT '800' COMMENT '分段最大长度',
+                                               `segment_overlap_length` int NOT NULL DEFAULT '100' COMMENT '分段重叠长度',
+                                               `preprocess_replace_spaces` tinyint(1) DEFAULT '1' COMMENT '替换连续空格',
+                                               `preprocess_remove_urls` tinyint(1) DEFAULT '1' COMMENT '删除URL',
+                                               `preprocess_remove_extra_newlines` tinyint(1) DEFAULT '1' COMMENT '删除多余换行',
+                                               `index_mode` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL DEFAULT 'high_quality' COMMENT '索引模式：high_quality, economy',
+                                               `embedding_model` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT 'Embedding模型',
+                                               `retrieval_mode` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT 'hybrid' COMMENT '检索模式：vector, keyword, hybrid',
+                                               `retrieval_top_k` int DEFAULT '10' COMMENT '检索返回数量',
+                                               `rerank_enabled` tinyint(1) DEFAULT '0' COMMENT '是否启用Rerank',
+                                               `rerank_model` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT 'Rerank模型',
+                                               `created_at` datetime DEFAULT CURRENT_TIMESTAMP,
+                                               `updated_at` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                                               PRIMARY KEY (`id`) USING BTREE,
+                                               UNIQUE KEY `uk_library_id` (`library_id`) USING BTREE
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci ROW_FORMAT=DYNAMIC COMMENT='知识库配置表';
+
+
+-- `moyun-db`.ai_token_usage_log definition
+
+CREATE TABLE `ai_token_usage_log` (
+                                      `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+                                      `conversation_id` bigint DEFAULT NULL COMMENT '会话ID',
+                                      `message_id` bigint DEFAULT NULL COMMENT '消息ID',
+                                      `agent_id` bigint DEFAULT NULL COMMENT '智能体ID',
+                                      `workflow_id` bigint DEFAULT NULL COMMENT '工作流ID',
+                                      `workflow_execution_id` bigint DEFAULT NULL COMMENT '工作流执行ID',
+                                      `workflow_node_id` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '工作流节点ID',
+                                      `user_id` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '用户ID',
+                                      `model_name` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '模型名称',
+                                      `model_provider` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '模型提供商',
+                                      `input_tokens` int DEFAULT '0' COMMENT '输入token数',
+                                      `output_tokens` int DEFAULT '0' COMMENT '输出token数',
+                                      `total_tokens` int DEFAULT '0' COMMENT '总token数',
+                                      `cost` decimal(10,6) DEFAULT NULL COMMENT '费用（元）',
+                                      `request_type` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '请求类型：chat/embedding_query/embedding_document/workflow_llm/workflow_classifier/workflow_extractor/workflow_question',
+                                      `create_time` datetime DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+                                      PRIMARY KEY (`id`) USING BTREE,
+                                      KEY `idx_conversation_id` (`conversation_id`) USING BTREE,
+                                      KEY `idx_agent_id` (`agent_id`) USING BTREE,
+                                      KEY `idx_user_id` (`user_id`) USING BTREE,
+                                      KEY `idx_create_time` (`create_time`) USING BTREE,
+                                      KEY `idx_model_name` (`model_name`) USING BTREE,
+                                      KEY `idx_workflow_id` (`workflow_id`) USING BTREE,
+                                      KEY `idx_workflow_execution_id` (`workflow_execution_id`) USING BTREE,
+                                      KEY `fk_tul_message` (`message_id`)
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci ROW_FORMAT=DYNAMIC COMMENT='Token使用记录表';
+
+
+-- `moyun-db`.ai_workflow_execution definition
+
+CREATE TABLE `ai_workflow_execution` (
+                                         `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+                                         `workflow_id` bigint NOT NULL COMMENT '工作流ID',
+                                         `status` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT 'running' COMMENT '执行状态: running-执行中, completed-已完成, failed-失败, cancelled-已取消',
+                                         `input_data` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci COMMENT '输入参数(JSON)',
+                                         `output_data` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci COMMENT '输出结果(JSON)',
+                                         `execution_log` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci COMMENT '执行日志(JSON数组)',
+                                         `error_message` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci COMMENT '错误信息',
+                                         `current_node_id` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '当前执行到的节点ID',
+                                         `duration_ms` bigint DEFAULT NULL COMMENT '执行耗时(毫秒)',
+                                         `start_time` datetime DEFAULT NULL COMMENT '开始时间',
+                                         `end_time` datetime DEFAULT NULL COMMENT '结束时间',
+                                         `create_time` datetime DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+                                         PRIMARY KEY (`id`) USING BTREE,
+                                         KEY `idx_workflow_id` (`workflow_id`) USING BTREE,
+                                         KEY `idx_status` (`status`) USING BTREE,
+                                         KEY `idx_create_time` (`create_time`) USING BTREE
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci ROW_FORMAT=DYNAMIC COMMENT='工作流执行记录表';
+
+
+-- `moyun-db`.ai_workflow_version definition
+
+CREATE TABLE `ai_workflow_version` (
+                                       `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+                                       `workflow_id` bigint NOT NULL COMMENT '工作流ID',
+                                       `version` int NOT NULL COMMENT '版本号',
+                                       `description` varchar(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '版本描述',
+                                       `graph_data` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci COMMENT '工作流图数据快照(JSON)',
+                                       `create_time` datetime DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+                                       PRIMARY KEY (`id`) USING BTREE,
+                                       KEY `idx_workflow_id` (`workflow_id`) USING BTREE,
+                                       KEY `idx_version` (`version`) USING BTREE
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci ROW_FORMAT=DYNAMIC COMMENT='工作流版本表';
+
+
+-- `moyun-db`.qrtz_triggers definition
+
+CREATE TABLE `qrtz_triggers` (
+                                 `sched_name` varchar(120) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '调度名称',
+                                 `trigger_name` varchar(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '触发器的名字',
+                                 `trigger_group` varchar(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '触发器所属组的名字',
+                                 `job_name` varchar(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT 'qrtz_job_details表job_name的外键',
+                                 `job_group` varchar(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT 'qrtz_job_details表job_group的外键',
+                                 `description` varchar(250) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '相关介绍',
+                                 `next_fire_time` bigint DEFAULT NULL COMMENT '上一次触发时间（毫秒）',
+                                 `prev_fire_time` bigint DEFAULT NULL COMMENT '下一次触发时间（默认为-1表示不触发）',
+                                 `priority` int DEFAULT NULL COMMENT '优先级',
+                                 `trigger_state` varchar(16) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '触发器状态',
+                                 `trigger_type` varchar(8) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '触发器的类型',
+                                 `start_time` bigint NOT NULL COMMENT '开始时间',
+                                 `end_time` bigint DEFAULT NULL COMMENT '结束时间',
+                                 `calendar_name` varchar(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '日程表名称',
+                                 `misfire_instr` smallint DEFAULT NULL COMMENT '补偿执行的策略',
+                                 `job_data` blob COMMENT '存放持久化job对象',
+                                 PRIMARY KEY (`sched_name`,`trigger_name`,`trigger_group`),
+                                 KEY `sched_name` (`sched_name`,`job_name`,`job_group`),
+                                 CONSTRAINT `qrtz_triggers_ibfk_1` FOREIGN KEY (`sched_name`, `job_name`, `job_group`) REFERENCES `qrtz_job_details` (`sched_name`, `job_name`, `job_group`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='触发器详细信息表';
+
+
+-- `moyun-db`.ai_document_segment definition
+
+CREATE TABLE `ai_document_segment` (
+                                       `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+                                       `knowledge_base_id` bigint NOT NULL COMMENT '关联的知识库ID',
+                                       `segment_index` int NOT NULL COMMENT '分片索引（第几个分片）',
+                                       `page_number` int DEFAULT NULL COMMENT 'PDF页码',
+                                       `line_start` int DEFAULT NULL COMMENT '起始行号',
+                                       `line_end` int DEFAULT NULL COMMENT '结束行号',
+                                       `char_start` int DEFAULT NULL COMMENT '起始字符位置',
+                                       `char_end` int DEFAULT NULL COMMENT '结束字符位置',
+                                       `chapter_title` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '章节标题',
+                                       `content` text CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '分片内容',
+                                       `content_length` int DEFAULT NULL COMMENT '分片内容长度',
+                                       `embedding_id` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '向量ID（在Pinecone中的ID）',
+                                       `vector_dimension` int DEFAULT NULL COMMENT '向量维度',
+                                       `vector_data` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci COMMENT '向量数据（JSON格式）',
+                                       `create_time` datetime DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+                                       PRIMARY KEY (`id`) USING BTREE,
+                                       KEY `idx_knowledge_base_id` (`knowledge_base_id`) USING BTREE,
+                                       KEY `idx_embedding_id` (`embedding_id`) USING BTREE
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci ROW_FORMAT=DYNAMIC COMMENT='文档分片表';
+
+
+-- `moyun-db`.qrtz_blob_triggers definition
+
+CREATE TABLE `qrtz_blob_triggers` (
+                                      `sched_name` varchar(120) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '调度名称',
+                                      `trigger_name` varchar(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT 'qrtz_triggers表trigger_name的外键',
+                                      `trigger_group` varchar(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT 'qrtz_triggers表trigger_group的外键',
+                                      `blob_data` blob COMMENT '存放持久化Trigger对象',
+                                      PRIMARY KEY (`sched_name`,`trigger_name`,`trigger_group`),
+                                      CONSTRAINT `qrtz_blob_triggers_ibfk_1` FOREIGN KEY (`sched_name`, `trigger_name`, `trigger_group`) REFERENCES `qrtz_triggers` (`sched_name`, `trigger_name`, `trigger_group`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='Blob类型的触发器表';
+
+
+-- `moyun-db`.qrtz_cron_triggers definition
+
+CREATE TABLE `qrtz_cron_triggers` (
+                                      `sched_name` varchar(120) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '调度名称',
+                                      `trigger_name` varchar(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT 'qrtz_triggers表trigger_name的外键',
+                                      `trigger_group` varchar(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT 'qrtz_triggers表trigger_group的外键',
+                                      `cron_expression` varchar(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT 'cron表达式',
+                                      `time_zone_id` varchar(80) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '时区',
+                                      PRIMARY KEY (`sched_name`,`trigger_name`,`trigger_group`),
+                                      CONSTRAINT `qrtz_cron_triggers_ibfk_1` FOREIGN KEY (`sched_name`, `trigger_name`, `trigger_group`) REFERENCES `qrtz_triggers` (`sched_name`, `trigger_name`, `trigger_group`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='Cron类型的触发器表';
+
+
+-- `moyun-db`.qrtz_simple_triggers definition
+
+CREATE TABLE `qrtz_simple_triggers` (
+                                        `sched_name` varchar(120) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '调度名称',
+                                        `trigger_name` varchar(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT 'qrtz_triggers表trigger_name的外键',
+                                        `trigger_group` varchar(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT 'qrtz_triggers表trigger_group的外键',
+                                        `repeat_count` bigint NOT NULL COMMENT '重复的次数统计',
+                                        `repeat_interval` bigint NOT NULL COMMENT '重复的间隔时间',
+                                        `times_triggered` bigint NOT NULL COMMENT '已经触发的次数',
+                                        PRIMARY KEY (`sched_name`,`trigger_name`,`trigger_group`),
+                                        CONSTRAINT `qrtz_simple_triggers_ibfk_1` FOREIGN KEY (`sched_name`, `trigger_name`, `trigger_group`) REFERENCES `qrtz_triggers` (`sched_name`, `trigger_name`, `trigger_group`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='简单触发器的信息表';
+
+
+-- `moyun-db`.qrtz_simprop_triggers definition
+
+CREATE TABLE `qrtz_simprop_triggers` (
+                                         `sched_name` varchar(120) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '调度名称',
+                                         `trigger_name` varchar(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT 'qrtz_triggers表trigger_name的外键',
+                                         `trigger_group` varchar(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT 'qrtz_triggers表trigger_group的外键',
+                                         `str_prop_1` varchar(512) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT 'String类型的trigger的第一个参数',
+                                         `str_prop_2` varchar(512) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT 'String类型的trigger的第二个参数',
+                                         `str_prop_3` varchar(512) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT 'String类型的trigger的第三个参数',
+                                         `int_prop_1` int DEFAULT NULL COMMENT 'int类型的trigger的第一个参数',
+                                         `int_prop_2` int DEFAULT NULL COMMENT 'int类型的trigger的第二个参数',
+                                         `long_prop_1` bigint DEFAULT NULL COMMENT 'long类型的trigger的第一个参数',
+                                         `long_prop_2` bigint DEFAULT NULL COMMENT 'long类型的trigger的第二个参数',
+                                         `dec_prop_1` decimal(13,4) DEFAULT NULL COMMENT 'decimal类型的trigger的第一个参数',
+                                         `dec_prop_2` decimal(13,4) DEFAULT NULL COMMENT 'decimal类型的trigger的第二个参数',
+                                         `bool_prop_1` varchar(1) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT 'Boolean类型的trigger的第一个参数',
+                                         `bool_prop_2` varchar(1) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT 'Boolean类型的trigger的第二个参数',
+                                         PRIMARY KEY (`sched_name`,`trigger_name`,`trigger_group`),
+                                         CONSTRAINT `qrtz_simprop_triggers_ibfk_1` FOREIGN KEY (`sched_name`, `trigger_name`, `trigger_group`) REFERENCES `qrtz_triggers` (`sched_name`, `trigger_name`, `trigger_group`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='同步机制的行锁表';

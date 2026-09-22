@@ -1,8 +1,10 @@
 package com.moyun.portal.enums;
 
+import lombok.Data;
+import lombok.Getter;
+
 /**
  * 支付渠道枚举
- *
  * 标识订单使用的支付渠道：
  * <ul>
  *   <li>{@link #POINTS}  - 积分：当前 MVP 阶段的唯一可用渠道</li>
@@ -16,6 +18,7 @@ package com.moyun.portal.enums;
  *
  * @author moyun
  */
+@Getter
 public enum PaymentChannel {
 
     POINTS("points", "积分"),
@@ -29,14 +32,6 @@ public enum PaymentChannel {
     PaymentChannel(String code, String desc) {
         this.code = code;
         this.desc = desc;
-    }
-
-    public String getCode() {
-        return code;
-    }
-
-    public String getDesc() {
-        return desc;
     }
 
     public static PaymentChannel fromCode(String code) {

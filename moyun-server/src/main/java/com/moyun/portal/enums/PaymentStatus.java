@@ -1,8 +1,9 @@
 package com.moyun.portal.enums;
 
+import lombok.Getter;
+
 /**
  * 支付订单状态枚举
- *
  * 标识订单/打赏单的支付生命周期：
  * <ul>
  *   <li>{@link #PENDING}   - 待支付：已下单，等待用户支付</li>
@@ -20,6 +21,7 @@ package com.moyun.portal.enums;
  *
  * @author moyun
  */
+@Getter
 public enum PaymentStatus {
 
     PENDING("pending", "待支付"),
@@ -34,14 +36,6 @@ public enum PaymentStatus {
     PaymentStatus(String code, String desc) {
         this.code = code;
         this.desc = desc;
-    }
-
-    public String getCode() {
-        return code;
-    }
-
-    public String getDesc() {
-        return desc;
     }
 
     public static PaymentStatus fromCode(String code) {

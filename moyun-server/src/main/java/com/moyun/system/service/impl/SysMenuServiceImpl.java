@@ -102,7 +102,7 @@ public class SysMenuServiceImpl extends ServiceImpl<SysMenuMapper, SysMenu> impl
      */
     @Override
     public List<RouterVo> buildMenus(List<SysMenu> menus) {
-        List<RouterVo> routers = new LinkedList<RouterVo>();
+        List<RouterVo> routers = new LinkedList<>();
         for (SysMenu menu : menus) {
             RouterVo router = new RouterVo();
             router.setHidden("1".equals(menu.getVisible()));
@@ -111,15 +111,14 @@ public class SysMenuServiceImpl extends ServiceImpl<SysMenuMapper, SysMenu> impl
             router.setComponent(getComponent(menu));
             router.setQuery(menu.getQuery());
             router.setMeta(new MetaVo(menu.getMenuName(), menu.getIcon(), StringUtils.equals("1", menu.getIsCache())));
-            @SuppressWarnings("unchecked")
-            List<SysMenu> cMenus = (List<SysMenu>) menu.getChildren();
+            List<SysMenu> cMenus = menu.getChildren();
             if (!cMenus.isEmpty() && cMenus.size() > 0 && "M".equals(menu.getMenuType())) {
                 router.setAlwaysShow(true);
                 router.setRedirect("noRedirect");
                 router.setChildren(buildMenus(cMenus));
             } else if (isMenuFrame(menu)) {
                 router.setMeta(null);
-                List<RouterVo> childrenList = new ArrayList<RouterVo>();
+                List<RouterVo> childrenList = new ArrayList<>();
                 RouterVo children = new RouterVo();
                 children.setPath(menu.getPath());
                 children.setComponent(menu.getComponent());
@@ -133,7 +132,7 @@ public class SysMenuServiceImpl extends ServiceImpl<SysMenuMapper, SysMenu> impl
                 if (menu.getParentId() != null && menu.getParentId() == 0) {
                     router.setMeta(new MetaVo(menu.getMenuName(), menu.getIcon()));
                     router.setPath("/");
-                    List<RouterVo> childrenList = new ArrayList<RouterVo>();
+                    List<RouterVo> childrenList = new ArrayList<>();
                     RouterVo children = new RouterVo();
                     String routerPath = innerLinkReplaceEach(menu.getPath());
                     children.setPath(routerPath);
@@ -145,7 +144,7 @@ public class SysMenuServiceImpl extends ServiceImpl<SysMenuMapper, SysMenu> impl
                 } else {
                     router.setMeta(new MetaVo(menu.getMenuName(), menu.getIcon()));
                     router.setComponent("ParentView");
-                    List<RouterVo> childrenList = new ArrayList<RouterVo>();
+                    List<RouterVo> childrenList = new ArrayList<>();
                     RouterVo children = new RouterVo();
                     String routerPath = innerLinkReplaceEach(menu.getPath());
                     children.setPath(routerPath);
@@ -170,7 +169,7 @@ public class SysMenuServiceImpl extends ServiceImpl<SysMenuMapper, SysMenu> impl
     @Override
     public List<SysMenu> buildMenuTree(List<SysMenu> menus) {
         List<SysMenu> returnList = new ArrayList<>();
-        List<Long> tempList = menus.stream().map(SysMenu::getMenuId).collect(Collectors.toList());
+        List<Long> tempList = menus.stream().map(SysMenu::getMenuId).toList();
         for (SysMenu menu : menus) {
             // 如果是顶级节点, 遍历该父节点的所有子节点
             if (!tempList.contains(menu.getParentId())) {
@@ -467,6 +466,6 @@ public class SysMenuServiceImpl extends ServiceImpl<SysMenuMapper, SysMenu> impl
      * 判断是否有子节点
      */
     private boolean hasChild(List<SysMenu> list, SysMenu t) {
-        return getChildList(list, t).size() > 0;
+        return !getChildList(list, t).isEmpty();
     }
 }

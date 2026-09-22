@@ -3,16 +3,17 @@
 <mapper namespace="com.moyun.vip.mapper.VipApiRegistryMapper">
 
     <insert id="upsert">
+
         INSERT INTO vip_api_registry (api_path, http_method, controller_class, method_name, platform_code, benefit_code,
                                       consume, message, scan_time, create_time, update_time)
-        VALUES (#{apiPath}, #{httpMethod}, #{controllerClass}, #{methodName}, #{platformCode}, #{benefitCode},
-                #{consume}, #{message}, NOW(), NOW(), NOW())
-        ON DUPLICATE KEY UPDATE controller_class = VALUES(controller_class),
-                                method_name      = VALUES(method_name),
-                                platform_code    = VALUES(platform_code),
-                                benefit_code     = VALUES(benefit_code),
-                                consume          = VALUES(consume),
-                                message          = VALUES(message),
+            VALUES (#{apiPath}, #{httpMethod}, #{controllerClass}, #{methodName}, #{platformCode}, #{benefitCode},
+                    #{consume}, #{message}, NOW(), NOW(), NOW()) AS new
+        ON DUPLICATE KEY UPDATE controller_class = new.controller_class,
+                                method_name      = new.method_name,
+                                platform_code    = new.platform_code,
+                                benefit_code     = new.benefit_code,
+                                consume          = new.consume,
+                                message          = new.message,
                                 scan_time        = NOW()
     </insert>
 

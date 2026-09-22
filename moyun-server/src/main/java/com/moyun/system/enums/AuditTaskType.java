@@ -1,5 +1,7 @@
 package com.moyun.system.enums;
 
+import lombok.Getter;
+
 /**
  * 统一审核任务类型枚举
  * <p>
@@ -12,6 +14,7 @@ package com.moyun.system.enums;
  *
  * @author moyun
  */
+@Getter
 public enum AuditTaskType {
 
     /** 文章审核 */
@@ -44,26 +47,6 @@ public enum AuditTaskType {
         this.defaultRoutePath = defaultRoutePath;
         this.requiredPermission = requiredPermission;
         this.bizRoutePath = bizRoutePath;
-    }
-
-    public String getCode() {
-        return code;
-    }
-
-    public String getDisplayName() {
-        return displayName;
-    }
-
-    public String getDefaultRoutePath() {
-        return defaultRoutePath;
-    }
-
-    public String getRequiredPermission() {
-        return requiredPermission;
-    }
-
-    public String getBizRoutePath() {
-        return bizRoutePath;
     }
 
     /**

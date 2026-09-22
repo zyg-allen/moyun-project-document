@@ -1,5 +1,4 @@
- -- TRUNCATE TABLE sys_menu;
-SELECT * FROM sys_menu;
+TRUNCATE TABLE sys_menu;
 INSERT INTO sys_menu (menu_id,menu_name,parent_id,order_num,`path`,component,query,route_name,is_frame,is_cache,menu_type,visible,status,perms,icon,create_by,create_time,update_by,update_time,remark,del_flag) VALUES
   (1,'系统设置',0,1,'system',NULL,'','',1,0,'M','0','0','','system','admin','2026-08-19 18:01:45','',NULL,'系统管理目录','0'),
   (2,'门户管理',0,2,'portal',NULL,NULL,'',1,0,'M','0','0','','job','admin','2026-08-19 18:01:46','admin','2026-08-20 14:04:35','V10.5: 门户管理一级目录（聚合内容/用户/审核/面试/学习）','0'),
@@ -40,10 +39,10 @@ INSERT INTO sys_menu (menu_id,menu_name,parent_id,order_num,`path`,component,que
   (28,'定时任务',10,2,'job','monitor/job/index','','',1,0,'C','0','0','monitor:job:list','job','admin','2026-08-19 18:01:45','',NULL,'定时任务菜单','0'),
   (29,'数据监控',10,3,'druid','monitor/druid/index','','',1,0,'C','0','0','monitor:druid:list','druid','admin','2026-08-19 18:01:45','admin','2026-08-19 18:01:45','数据监控菜单','0'),
   (30,'服务监控',10,4,'server','monitor/server/index','','',1,0,'C','0','0','monitor:server:list','server','admin','2026-08-19 18:01:45','admin','2026-08-19 18:01:45','服务监控菜单','0'),
-  (31,'服务监控',2,3,'server-panel','monitor/server-panel/index',NULL,'',1,0,'C','0','0','monitor:server-panel:list','monitor','admin','2026-08-19 18:01:45','',NULL,'服务器监控与数据监控(Druid)合并查看（Tab）','0'),
+  (31,'服务监控',10,3,'server-panel','monitor/server-panel/index',NULL,'',1,0,'C','0','0','monitor:server-panel:list','monitor','admin','2026-08-19 18:01:45','',NULL,'服务器监控与数据监控(Druid)合并查看（Tab）','0'),
   (32,'缓存监控',10,5,'cache','monitor/cache/index','','',1,0,'C','0','0','monitor:cache:list','redis','admin','2026-08-19 18:01:45','admin','2026-08-19 18:01:45','缓存监控菜单','0'),
   (33,'缓存列表',10,6,'cacheList','monitor/cache/list','','',1,0,'C','0','0','monitor:cache:list','redis-list','admin','2026-08-19 18:01:45','admin','2026-08-19 18:01:45','缓存列表菜单','0'),
-  (42,'缓存管理',2,7,'cache-manage','monitor/cache-manage/index',NULL,'',1,0,'C','0','0','monitor:cache-manage:list','redis','admin','2026-08-19 18:01:45','',NULL,'缓存监控与列表合并管理（Tab）','0'),
+  (42,'缓存管理',10,7,'cache-manage','monitor/cache-manage/index',NULL,'',1,0,'C','0','0','monitor:cache-manage:list','redis','admin','2026-08-19 18:01:45','',NULL,'缓存监控与列表合并管理（Tab）','0'),
   (34,'代码生成',11,2,'gen','tool/gen/index','','',1,0,'C','0','0','tool:gen:list','code','admin','2026-08-19 18:01:45','',NULL,'代码生成菜单','0'),
   (35,'接口文档',11,3,'swagger','tool/swagger/index','','',1,0,'C','0','0','tool:swagger:list','swagger','admin','2026-08-19 18:01:45','admin','2026-08-19 18:01:45','系统接口菜单','0'),
   (36,'渠道管理',12,1,'platform-page','system/platform/index',NULL,'',1,0,'C','0','0','system:platform:list','tree','admin','2026-09-17 17:53:22','',NULL,'全局端定义管理（门户/记账/管理/人格分析），用户/支付/VIP/配置/统计统一引用','0'),
@@ -152,7 +151,7 @@ INSERT INTO sys_menu (menu_id,menu_name,parent_id,order_num,`path`,component,que
   ('部门查询',16,1,'','','','',1,0,'F','0','0','system:dept:query','#','admin','2026-08-19 18:01:45','',NULL,'','0'),
   ('部门新增',16,2,'','','','',1,0,'F','0','0','system:dept:add','#','admin','2026-08-19 18:01:45','',NULL,'','0'),
   ('部门修改',16,3,'','','','',1,0,'F','0','0','system:dept:edit','#','admin','2026-08-19 18:01:45','',NULL,'','0'),
- 
+
   ('部门删除',16,4,'','','','',1,0,'F','0','0','system:dept:remove','#','admin','2026-08-19 18:01:45','',NULL,'','0'),
   ('岗位查询',17,1,'','','','',1,0,'F','0','0','system:post:query','#','admin','2026-08-19 18:01:45','',NULL,'','0'),
   ('岗位新增',17,2,'','','','',1,0,'F','0','0','system:post:add','#','admin','2026-08-19 18:01:45','',NULL,'','0'),
@@ -163,7 +162,7 @@ INSERT INTO sys_menu (menu_id,menu_name,parent_id,order_num,`path`,component,que
   ('字典新增',19,2,'#','','','',1,0,'F','0','0','system:dict:add','#','admin','2026-08-19 18:01:45','',NULL,'','0'),
   ('字典修改',19,3,'#','','','',1,0,'F','0','0','system:dict:edit','#','admin','2026-08-19 18:01:45','',NULL,'','0'),
   ('字典删除',19,4,'#','','','',1,0,'F','0','0','system:dict:remove','#','admin','2026-08-19 18:01:45','',NULL,'','0'),
- 
+
    ('字典导出',19,5,'#','','','',1,0,'F','0','0','system:dict:export','#','admin','2026-08-19 18:01:45','',NULL,'','0'),
    ('参数查询',20,1,'#','','','',1,0,'F','0','0','system:config:query','#','admin','2026-08-19 18:01:45','',NULL,'','0'),
    ('参数新增',20,2,'#','','','',1,0,'F','0','0','system:config:add','#','admin','2026-08-19 18:01:45','',NULL,'','0'),
@@ -174,7 +173,7 @@ INSERT INTO sys_menu (menu_id,menu_name,parent_id,order_num,`path`,component,que
    ('操作删除',22,2,'#','','','',1,0,'F','0','0','monitor:operlog:remove','#','admin','2026-08-19 18:01:45','',NULL,'','0'),
    ('日志导出',22,3,'#','','','',1,0,'F','0','0','monitor:operlog:export','#','admin','2026-08-19 18:01:45','',NULL,'','0'),
    ('登录查询',23,1,'#','','','',1,0,'F','0','0','monitor:logininfor:query','#','admin','2026-08-19 18:01:45','',NULL,'','0'),
- 
+
   ('登录删除',23,2,'#','','','',1,0,'F','0','0','monitor:logininfor:remove','#','admin','2026-08-19 18:01:45','',NULL,'','0'),
   ('日志导出',23,3,'#','','','',1,0,'F','0','0','monitor:logininfor:export','#','admin','2026-08-19 18:01:45','',NULL,'','0'),
   ('账号解锁',23,4,'#','','','',1,0,'F','0','0','monitor:logininfor:unlock','#','admin','2026-08-19 18:01:45','',NULL,'','0'),
@@ -185,7 +184,7 @@ INSERT INTO sys_menu (menu_id,menu_name,parent_id,order_num,`path`,component,que
   ('任务新增',28,2,'#','','','',1,0,'F','0','0','monitor:job:add','#','admin','2026-08-19 18:01:45','',NULL,'','0'),
   ('任务修改',28,3,'#','','','',1,0,'F','0','0','monitor:job:edit','#','admin','2026-08-19 18:01:45','',NULL,'','0'),
   ('任务删除',28,4,'#','','','',1,0,'F','0','0','monitor:job:remove','#','admin','2026-08-19 18:01:45','',NULL,'','0'),
- 
+
   ('状态修改',28,5,'#','','','',1,0,'F','0','0','monitor:job:changeStatus','#','admin','2026-08-19 18:01:45','',NULL,'','0'),
   ('任务导出',28,6,'#','','','',1,0,'F','0','0','monitor:job:export','#','admin','2026-08-19 18:01:45','',NULL,'','0'),
   ('生成查询',34,1,'#','','','',1,0,'F','0','0','tool:gen:query','#','admin','2026-08-19 18:01:45','admin','2026-08-19 18:01:46','','0'),
@@ -204,7 +203,7 @@ INSERT INTO sys_menu (menu_id,menu_name,parent_id,order_num,`path`,component,que
   ('知识库新增',80,2,'',NULL,NULL,'',1,0,'F','0','0','cms:ai:knowledge-base:add','#','admin','2026-08-19 18:01:40','',NULL,'','0'),
   ('知识库修改',80,3,'',NULL,NULL,'',1,0,'F','0','0','cms:ai:knowledge-base:edit','#','admin','2026-08-19 18:01:40','',NULL,'','0'),
   ('知识库删除',80,4,'',NULL,NULL,'',1,0,'F','0','0','cms:ai:knowledge-base:remove','#','admin','2026-08-19 18:01:40','',NULL,'','0'),
- 
+
   ('文档上传',80,5,'',NULL,NULL,'',1,0,'F','0','0','cms:ai:knowledge-base:upload','#','admin','2026-08-19 18:01:40','',NULL,'','0'),
   ('文库查询',81,1,'',NULL,NULL,'',1,0,'F','0','0','cms:ai:knowledge-library:query','#','admin','2026-08-19 18:01:40','',NULL,'','0'),
   ('文库新增',81,2,'',NULL,NULL,'',1,0,'F','0','0','cms:ai:knowledge-library:add','#','admin','2026-08-19 18:01:40','',NULL,'','0'),
@@ -213,7 +212,7 @@ INSERT INTO sys_menu (menu_id,menu_name,parent_id,order_num,`path`,component,que
   ('模型查询',82,1,'',NULL,NULL,'',1,0,'F','0','0','cms:ai:model-config:query','#','admin','2026-08-19 18:01:40','',NULL,'','0'),
   ('模型新增',82,2,'',NULL,NULL,'',1,0,'F','0','0','cms:ai:model-config:add','#','admin','2026-08-19 18:01:40','',NULL,'','0'),
   ('模型修改',82,3,'',NULL,NULL,'',1,0,'F','0','0','cms:ai:model-config:edit','#','admin','2026-08-19 18:01:40','',NULL,'','0'),
- 
+
   ('模型删除',82,4,'',NULL,NULL,'',1,0,'F','0','0','cms:ai:model-config:remove','#','admin','2026-08-19 18:01:40','',NULL,'','0'),
   ('连接测试',82,5,'',NULL,NULL,'',1,0,'F','0','0','cms:ai:model-config:test','#','admin','2026-08-19 18:01:40','',NULL,'','0'),
   ('工具查询',83,1,'',NULL,NULL,'',1,0,'F','0','0','cms:ai:tool:query','#','admin','2026-08-19 18:01:40','',NULL,'','0'),
@@ -222,7 +221,7 @@ INSERT INTO sys_menu (menu_id,menu_name,parent_id,order_num,`path`,component,que
   ('工具删除',83,4,'',NULL,NULL,'',1,0,'F','0','0','cms:ai:tool:remove','#','admin','2026-08-19 18:01:40','',NULL,'','0'),
   ('工作流查询',72,1,'',NULL,NULL,'',1,0,'F','0','0','cms:ai:workflow:query','#','admin','2026-08-19 18:01:40','',NULL,'','0'),
   ('工作流新增',72,2,'',NULL,NULL,'',1,0,'F','0','0','cms:ai:workflow:add','#','admin','2026-08-19 18:01:40','',NULL,'','0'),
- 
+
   ('工作流修改',72,3,'',NULL,NULL,'',1,0,'F','0','0','cms:ai:workflow:edit','#','admin','2026-08-19 18:01:40','',NULL,'','0'),
   ('工作流删除',72,4,'',NULL,NULL,'',1,0,'F','0','0','cms:ai:workflow:remove','#','admin','2026-08-19 18:01:40','',NULL,'','0'),
   ('工作流执行',72,5,'',NULL,NULL,'',1,0,'F','0','0','cms:ai:workflow:execute','#','admin','2026-08-19 18:01:40','',NULL,'','0'),
@@ -231,7 +230,7 @@ INSERT INTO sys_menu (menu_id,menu_name,parent_id,order_num,`path`,component,que
   ('词典新增',73,2,'',NULL,NULL,'',1,0,'F','0','0','cms:ai:domain-dictionary:add','#','admin','2026-08-19 18:01:40','',NULL,'','0'),
   ('词典修改',73,3,'',NULL,NULL,'',1,0,'F','0','0','cms:ai:domain-dictionary:edit','#','admin','2026-08-19 18:01:40','',NULL,'','0'),
   ('词典删除',73,4,'',NULL,NULL,'',1,0,'F','0','0','cms:ai:domain-dictionary:remove','#','admin','2026-08-19 18:01:40','',NULL,'','0'),
- 
+
  ('数据源查询',84,1,'',NULL,NULL,'',1,0,'F','0','0','cms:ai:datasource:query','#','admin','2026-08-19 18:01:40','',NULL,'','0'),
  ('数据源新增',84,2,'',NULL,NULL,'',1,0,'F','0','0','cms:ai:datasource:add','#','admin','2026-08-19 18:01:40','',NULL,'','0'),
  ('数据源修改',84,3,'',NULL,NULL,'',1,0,'F','0','0','cms:ai:datasource:edit','#','admin','2026-08-19 18:01:40','',NULL,'','0'),
@@ -240,14 +239,14 @@ INSERT INTO sys_menu (menu_id,menu_name,parent_id,order_num,`path`,component,que
  ('元数据同步',84,6,'',NULL,NULL,'',1,0,'F','0','0','cms:ai:datasource:sync','#','admin','2026-08-19 18:01:40','',NULL,'','0'),
  ('统计查询',90,1,'',NULL,NULL,'',1,0,'F','0','0','cms:ai:token-usage:query','#','admin','2026-08-19 18:01:40','',NULL,'','0'),
  ('统计导出',90,2,'',NULL,NULL,'',1,0,'F','0','0','cms:ai:token-usage:export','#','admin','2026-08-19 18:01:40','',NULL,'','0'),
- 
+
   ('查询查询',74,1,'',NULL,NULL,'',1,0,'F','0','0','cms:ai:data-analysis:query','#','admin','2026-08-19 18:01:40','',NULL,'','0'),
   ('SQL生成',74,2,'',NULL,NULL,'',1,0,'F','0','0','cms:ai:data-analysis:sql','#','admin','2026-08-19 18:01:40','',NULL,'','0'),
   ('报告生成',74,3,'',NULL,NULL,'',1,0,'F','0','0','cms:ai:data-analysis:report','#','admin','2026-08-19 18:01:40','',NULL,'','0'),
   ('图表生成',75,4,'',NULL,NULL,'',1,0,'F','0','0','cms:ai:diagram:generate','#','admin','2026-08-19 18:01:40','',NULL,'','0'),
   ('智能对话使用',75,10,'',NULL,NULL,'',1,0,'F','0','0','cms:ai:chat:list','#','admin','2026-08-19 18:01:40','',NULL,'AI对话/中断/重新生成接口权限','0'),
   ('话题查询',44,1,'#','',NULL,'',1,0,'F','0','0','cms:topic:query','#','admin','2026-08-19 18:01:41','',NULL,NULL,'0'),
- 
+
   ('敏感词查询',21,1,'#','',NULL,'',1,0,'F','0','0','system:sensitiveWord:query','#','admin','2026-08-19 18:01:41','',NULL,NULL,'0'),
   ('敏感词新增',21,2,'#','',NULL,'',1,0,'F','0','0','system:sensitiveWord:add','#','admin','2026-08-19 18:01:41','',NULL,NULL,'0'),
   ('敏感词修改',21,3,'#','',NULL,'',1,0,'F','0','0','system:sensitiveWord:edit','#','admin','2026-08-19 18:01:41','',NULL,NULL,'0'),
@@ -256,7 +255,7 @@ INSERT INTO sys_menu (menu_id,menu_name,parent_id,order_num,`path`,component,que
   ('用户新增',43,2,'',NULL,NULL,'',1,0,'F','0','0','cms:user:add','#','admin','2026-08-19 18:01:45','',NULL,'','0'),
   ('用户修改',43,3,'',NULL,NULL,'',1,0,'F','0','0','cms:user:edit','#','admin','2026-08-19 18:01:45','',NULL,'','0'),
   ('用户删除',43,4,'',NULL,NULL,'',1,0,'F','0','0','cms:user:remove','#','admin','2026-08-19 18:01:45','',NULL,'','0'),
- 
+
   ('用户状态',43,5,'',NULL,NULL,'',1,0,'F','0','0','cms:user:status','#','admin','2026-08-19 18:01:45','',NULL,'','0'),
   ('重置密码',43,6,'',NULL,NULL,'',1,0,'F','0','0','cms:user:resetPwd','#','admin','2026-08-19 18:01:45','',NULL,'','0'),
   ('绑定系统用户',43,7,'',NULL,NULL,'',1,0,'F','0','0','cms:user:bind','#','admin','2026-08-19 18:01:45','',NULL,'身份桥接：绑定/解绑后台系统用户','0'),
@@ -266,7 +265,7 @@ INSERT INTO sys_menu (menu_id,menu_name,parent_id,order_num,`path`,component,que
   ('文章删除',45,4,'',NULL,NULL,'',1,0,'F','0','0','cms:article:remove','#','admin','2026-08-19 18:01:45','',NULL,'','0'),
   ('文章审核',45,5,'',NULL,NULL,'',1,0,'F','0','0','cms:article:audit','#','admin','2026-08-19 18:01:45','',NULL,'','0'),
   ('文章上架',45,6,'',NULL,NULL,'',1,0,'F','0','0','cms:article:publish','#','admin','2026-08-19 18:01:45','',NULL,'','0'),
- 
+
   ('文章推荐',45,7,'',NULL,NULL,'',1,0,'F','0','0','cms:article:featured','#','admin','2026-08-19 18:01:45','',NULL,'','0'),
   ('分类查询',46,1,'',NULL,NULL,'',1,0,'F','0','0','cms:category:query','#','admin','2026-08-19 18:01:45','',NULL,'','0'),
   ('分类新增',46,2,'',NULL,NULL,'',1,0,'F','0','0','cms:category:add','#','admin','2026-08-19 18:01:45','',NULL,'','0'),
@@ -275,7 +274,7 @@ INSERT INTO sys_menu (menu_id,menu_name,parent_id,order_num,`path`,component,que
   ('标签查询',47,1,'',NULL,NULL,'',1,0,'F','0','0','cms:tag:query','#','admin','2026-08-19 18:01:45','',NULL,'','0'),
   ('标签新增',47,2,'',NULL,NULL,'',1,0,'F','0','0','cms:tag:add','#','admin','2026-08-19 18:01:45','',NULL,'','0'),
   ('标签修改',47,3,'',NULL,NULL,'',1,0,'F','0','0','cms:tag:edit','#','admin','2026-08-19 18:01:45','',NULL,'','0'),
- 
+
   ('标签删除',47,4,'',NULL,NULL,'',1,0,'F','0','0','cms:tag:remove','#','admin','2026-08-19 18:01:45','',NULL,'','0'),
   ('评论查询',48,1,'',NULL,NULL,'',1,0,'F','0','0','cms:comment:query','#','admin','2026-08-19 18:01:45','',NULL,'','0'),
   ('评论审核',48,2,'',NULL,NULL,'',1,0,'F','0','0','cms:comment:audit','#','admin','2026-08-19 18:01:45','',NULL,'','0'),
@@ -284,7 +283,7 @@ INSERT INTO sys_menu (menu_id,menu_name,parent_id,order_num,`path`,component,que
   ('友情链接新增',51,2,'',NULL,NULL,'',1,0,'F','0','0','cms:friend-link:add','#','admin','2026-08-19 18:01:45','',NULL,'','0'),
   ('友情链接修改',51,3,'',NULL,NULL,'',1,0,'F','0','0','cms:friend-link:edit','#','admin','2026-08-19 18:01:45','',NULL,'','0'),
   ('友情链接删除',51,4,'',NULL,NULL,'',1,0,'F','0','0','cms:friend-link:remove','#','admin','2026-08-19 18:01:45','',NULL,'','0'),
- 
+
   ('分类查询',49,1,'',NULL,NULL,'',1,0,'F','0','0','cms:help-category:query','#','admin','2026-08-19 18:01:45','',NULL,'','0'),
   ('分类新增',49,2,'',NULL,NULL,'',1,0,'F','0','0','cms:help-category:add','#','admin','2026-08-19 18:01:45','',NULL,'','0'),
   ('分类修改',49,3,'',NULL,NULL,'',1,0,'F','0','0','cms:help-category:edit','#','admin','2026-08-19 18:01:45','',NULL,'','0'),
@@ -293,7 +292,7 @@ INSERT INTO sys_menu (menu_id,menu_name,parent_id,order_num,`path`,component,que
   ('文章新增',50,2,'',NULL,NULL,'',1,0,'F','0','0','cms:help-article:add','#','admin','2026-08-19 18:01:45','',NULL,'','0'),
   ('文章修改',50,3,'',NULL,NULL,'',1,0,'F','0','0','cms:help-article:edit','#','admin','2026-08-19 18:01:45','',NULL,'','0'),
   ('文章删除',50,4,'',NULL,NULL,'',1,0,'F','0','0','cms:help-article:remove','#','admin','2026-08-19 18:01:45','',NULL,'','0'),
- 
+
   ('举报查询',52,1,'',NULL,NULL,'',1,0,'F','0','0','cms:report:query','#','admin','2026-08-19 18:01:45','',NULL,'','0'),
   ('处理举报',52,2,'',NULL,NULL,'',1,0,'F','0','0','cms:report:handle','#','admin','2026-08-19 18:01:45','',NULL,'','0'),
   ('删除举报',52,3,'',NULL,NULL,'',1,0,'F','0','0','cms:report:remove','#','admin','2026-08-19 18:01:45','',NULL,'','0'),
@@ -301,7 +300,7 @@ INSERT INTO sys_menu (menu_id,menu_name,parent_id,order_num,`path`,component,que
   ('处理反馈',53,2,'',NULL,NULL,'',1,0,'F','0','0','cms:feedback:handle','#','admin','2026-08-19 18:01:45','',NULL,'','0'),
   ('删除反馈',53,3,'',NULL,NULL,'',1,0,'F','0','0','cms:feedback:remove','#','admin','2026-08-19 18:01:45','',NULL,'','0'),
   ('专栏查询',54,1,'',NULL,NULL,'',1,0,'F','0','0','portal:column:query','#','admin','2026-08-19 18:01:45','',NULL,'','0'),
- 
+
   ('专栏新增',54,2,'',NULL,NULL,'',1,0,'F','0','0','portal:column:add','#','admin','2026-08-19 18:01:45','',NULL,'','0'),
   ('专栏修改',54,3,'',NULL,NULL,'',1,0,'F','0','0','portal:column:edit','#','admin','2026-08-19 18:01:45','',NULL,'','0'),
   ('专栏删除',54,4,'',NULL,NULL,'',1,0,'F','0','0','portal:column:remove','#','admin','2026-08-19 18:01:45','',NULL,'','0'),
@@ -311,7 +310,7 @@ INSERT INTO sys_menu (menu_id,menu_name,parent_id,order_num,`path`,component,que
 
   ('私信查询',25,1,'',NULL,NULL,'',1,0,'F','0','0','system:message:query','#','admin','2026-08-19 18:01:45','',NULL,'','0'),
   ('私信发送',25,2,'',NULL,NULL,'',1,0,'F','0','0','system:message:send','#','admin','2026-08-19 18:01:45','',NULL,'','0'),
- 
+
   ('通知查询',26,3,'',NULL,NULL,'',1,0,'F','0','0','system:notification:list','#','admin','2026-08-19 18:01:45','',NULL,'','0'),
   ('通知查询',26,1,'',NULL,NULL,'',1,0,'F','0','0','system:notification:query','#','admin','2026-08-19 18:01:45','',NULL,'','0'),
   ('通知新增',26,2,'',NULL,NULL,'',1,0,'F','0','0','system:notification:add','#','admin','2026-08-19 18:01:45','',NULL,'','0'),
@@ -320,7 +319,7 @@ INSERT INTO sys_menu (menu_id,menu_name,parent_id,order_num,`path`,component,que
   ('发送广播通知',26,5,'',NULL,NULL,'',1,0,'F','0','0','system:notification:sendAll','#','admin','2026-08-19 18:01:45','',NULL,'','0'),
 
    ('题库查询',60,1,'#','',NULL,'',1,0,'F','0','0','cms:interview:query','#','admin','2026-08-19 18:01:46','',NULL,NULL,'0'),
- 
+
   ('题库新增',60,2,'#','',NULL,'',1,0,'F','0','0','cms:interview:add','#','admin','2026-08-19 18:01:46','',NULL,NULL,'0'),
   ('题库修改',60,3,'#','',NULL,'',1,0,'F','0','0','cms:interview:edit','#','admin','2026-08-19 18:01:46','',NULL,'含：审核/置顶/精选采纳等运营操作','0'),
   ('题库删除',60,4,'#','',NULL,'',1,0,'F','0','0','cms:interview:remove','#','admin','2026-08-19 18:01:46','',NULL,NULL,'0'),
@@ -329,14 +328,14 @@ INSERT INTO sys_menu (menu_id,menu_name,parent_id,order_num,`path`,component,que
   ('面经删除',61,3,'#','',NULL,'',1,0,'F','0','0','cms:interview:remove','#','admin','2026-08-19 18:01:46','',NULL,NULL,'0'),
   ('笔记查询',62,1,'#','',NULL,'',1,0,'F','0','0','cms:interview:query','#','admin','2026-08-19 18:01:46','',NULL,NULL,'0'),
   ('笔记修改',62,2,'#','',NULL,'',1,0,'F','0','0','cms:interview:edit','#','admin','2026-08-19 18:01:46','',NULL,'含：采纳/取消精选','0'),
- 
+
   ('书籍查询',66,1,'#','',NULL,'',1,0,'F','0','0','portal:book:query','#','admin','2026-08-19 18:01:46','',NULL,NULL,'0'),
   ('书籍新增',66,2,'#','',NULL,'',1,0,'F','0','0','portal:book:add','#','admin','2026-08-19 18:01:46','',NULL,NULL,'0'),
   ('书籍修改',66,3,'#','',NULL,'',1,0,'F','0','0','portal:book:edit','#','admin','2026-08-19 18:01:46','',NULL,NULL,'0'),
   ('书籍删除',66,4,'#','',NULL,'',1,0,'F','0','0','portal:book:remove','#','admin','2026-08-19 18:01:46','',NULL,NULL,'0'),
   ('章节查询',67,1,'#','',NULL,'',1,0,'F','0','0','portal:bookChapter:query','#','admin','2026-08-19 18:01:46','',NULL,NULL,'0'),
   ('章节新增',67,2,'#','',NULL,'',1,0,'F','0','0','portal:bookChapter:add','#','admin','2026-08-19 18:01:46','',NULL,NULL,'0'),
- 
+
   ('章节修改',67,3,'#','',NULL,'',1,0,'F','0','0','portal:bookChapter:edit','#','admin','2026-08-19 18:01:46','',NULL,NULL,'0'),
   ('章节删除',67,4,'#','',NULL,'',1,0,'F','0','0','portal:bookChapter:remove','#','admin','2026-08-19 18:01:46','',NULL,NULL,'0'),
   ('章节发布',67,5,'#','',NULL,'',1,0,'F','0','0','portal:bookChapter:publish','#','admin','2026-08-19 18:01:46','',NULL,'章节发布/撤回','0'),
@@ -347,7 +346,7 @@ INSERT INTO sys_menu (menu_id,menu_name,parent_id,order_num,`path`,component,que
   ('推荐位列表',68,5,'#','',NULL,'',1,0,'F','0','0','portal:bookRecommend:list','#','admin','2026-08-19 18:01:46','',NULL,'Tab 内推荐位面板列表权限','0'),
   ('推荐位查询',68,6,'#','',NULL,'',1,0,'F','0','0','portal:bookRecommend:query','#','admin','2026-08-19 18:01:46','',NULL,NULL,'0'),
   ('推荐位新增',68,7,'#','',NULL,'',1,0,'F','0','0','portal:bookRecommend:add','#','admin','2026-08-19 18:01:46','',NULL,NULL,'0'),
- 
+
   ('推荐位修改',68,8,'#','',NULL,'',1,0,'F','0','0','portal:bookRecommend:edit','#','admin','2026-08-19 18:01:46','',NULL,'含：上下架/排序','0'),
   ('推荐位删除',68,9,'#','',NULL,'',1,0,'F','0','0','portal:bookRecommend:remove','#','admin','2026-08-19 18:01:46','',NULL,NULL,'0'),
   ('金句查询',69,1,'#','',NULL,'',1,0,'F','0','0','portal:bookQuote:query','#','admin','2026-08-19 18:01:46','',NULL,NULL,'0'),
@@ -420,3 +419,7 @@ INSERT INTO sys_menu (menu_id,menu_name,parent_id,order_num,`path`,component,que
 
   ('用户查询',100,1,'',NULL,NULL,'',1,0,'F','0','0','cms:ledgerUsers:query','#','admin','2026-09-14 13:08:02','',NULL,'','0'),
   ('配置修改',101,1,'',NULL,NULL,'',1,0,'F','0','0','cms:ledgerAppFeature:edit','#','admin','2026-09-14 13:08:02','',NULL,'','0');
+-- 超管角色(role_id=1)全量菜单授权：动态 INSERT...SELECT，与菜单ID无关，永不悬空
+-- 普通角色(role_id=2)授权清空，生产部署后请在管理后台【角色管理】中按需配置
+INSERT INTO sys_role_menu (role_id, menu_id, create_by, create_time, remark)
+SELECT 1, menu_id, 'admin', NOW(), '超管默认全量授权' FROM sys_menu;

@@ -2699,31 +2699,6 @@ CREATE TABLE `portal_tag` (
 ) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='门户标签表';
 
 
--- `moyun-db`.portal_task definition
-
-CREATE TABLE `portal_task` (
-                               `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键',
-                               `code` varchar(64) NOT NULL COMMENT '任务编码（唯一，用于埋点触发，如 daily_checkin）',
-                               `name` varchar(128) NOT NULL COMMENT '任务名称',
-                               `description` varchar(500) DEFAULT NULL COMMENT '任务描述',
-                               `task_type` varchar(32) NOT NULL DEFAULT 'daily' COMMENT '任务类型 daily/once/achievement',
-                               `reward_points` int NOT NULL DEFAULT '0' COMMENT '完成奖励积分',
-                               `target_count` int NOT NULL DEFAULT '1' COMMENT '目标完成次数',
-                               `icon` varchar(500) DEFAULT NULL COMMENT '任务图标URL',
-                               `status` varchar(16) NOT NULL DEFAULT 'active' COMMENT '状态 active/inactive',
-                               `create_by` varchar(64) DEFAULT '' COMMENT '创建者',
-                               `create_time` datetime DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
-                               `update_by` varchar(64) DEFAULT '' COMMENT '更新者',
-                               `update_time` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
-                               `remark` varchar(500) DEFAULT NULL COMMENT '备注',
-                               `del_flag` char(1) NOT NULL DEFAULT '0' COMMENT '删除标记（0=存在 2=删除）',
-                               PRIMARY KEY (`id`),
-                               UNIQUE KEY `uk_code` (`code`),
-                               KEY `idx_type_status` (`task_type`,`status`),
-                               KEY `idx_del_flag` (`del_flag`)
-) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='任务定义表';
-
-
 -- `moyun-db`.portal_tip_order definition
 
 CREATE TABLE `portal_tip_order` (
@@ -3053,28 +3028,6 @@ CREATE TABLE `portal_user_stats` (
                                      PRIMARY KEY (`id`),
                                      UNIQUE KEY `uk_user` (`user_id`)
 ) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='门户用户统计聚合表';
-
-
--- `moyun-db`.portal_user_task definition
-
-CREATE TABLE `portal_user_task` (
-                                    `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键',
-                                    `user_id` bigint NOT NULL COMMENT '用户ID',
-                                    `task_id` bigint NOT NULL COMMENT '任务ID',
-                                    `progress` int NOT NULL DEFAULT '0' COMMENT '当前进度',
-                                    `completed` tinyint NOT NULL DEFAULT '0' COMMENT '是否已完成 0/1',
-                                    `claimed` tinyint NOT NULL DEFAULT '0' COMMENT '是否已领取奖励 0/1',
-                                    `completed_time` datetime DEFAULT NULL COMMENT '完成时间',
-                                    `create_by` varchar(64) DEFAULT '' COMMENT '创建者',
-                                    `create_time` datetime DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
-                                    `update_by` varchar(64) DEFAULT '' COMMENT '更新者',
-                                    `update_time` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
-                                    `remark` varchar(500) DEFAULT NULL COMMENT '备注',
-                                    PRIMARY KEY (`id`),
-                                    UNIQUE KEY `uk_user_task` (`user_id`,`task_id`),
-                                    KEY `idx_user` (`user_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='用户任务进度表';
-
 
 -- `moyun-db`.portal_voice_interview definition
 

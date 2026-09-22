@@ -7,6 +7,7 @@ import com.moyun.vip.domain.entity.VipApiRegistry;
 import com.moyun.vip.mapper.VipApiRegistryMapper;
 import com.moyun.vip.service.IVipService;
 import jakarta.servlet.http.HttpServletRequest;
+import lombok.extern.slf4j.Slf4j;
 import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.annotation.Around;
 import org.aspectj.lang.annotation.Aspect;
@@ -36,9 +37,9 @@ import java.util.List;
  */
 @Aspect
 @Component
+@Slf4j
 public class VipOnlyAspect {
 
-    private static final Logger log = LoggerFactory.getLogger(VipOnlyAspect.class);
 
     private static final AntPathMatcher PATH_MATCHER = new AntPathMatcher();
 

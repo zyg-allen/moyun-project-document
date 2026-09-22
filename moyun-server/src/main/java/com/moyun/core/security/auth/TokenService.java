@@ -12,6 +12,7 @@ import com.moyun.util.uuid.IdUtils;
 import eu.bitwalker.useragentutils.UserAgent;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.MalformedJwtException;
 import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.security.Keys;
 import jakarta.servlet.http.HttpServletRequest;
@@ -39,8 +40,8 @@ public class TokenService {
     @Value("${token.header}")
     private String header;
 
-    // 令牌秘钥
-    @Value("${token.secret:}")
+    // 令牌秘钥（管理端独立密钥，缺省回退到 token.secret 保兼容）
+    @Value("${token.admin.secret:${token.secret:}}")
     private String secret;
 
     // 当前激活 profile（与 TokenConfigValidator 策略对齐）
@@ -130,6 +131,8 @@ public class TokenService {
         Map<String, Object> claims = new HashMap<>();
         claims.put(Constants.LOGIN_USER_KEY, token);
         claims.put(Constants.JWT_USERNAME, loginUser.getUsername());
+        // audience 声明：标识管理端令牌，校验时验证，防止其他端 Token 在管理端认证链被使用
+        claims.put(Claims.AUDIENCE, Constants.JWT_AUDIENCE_ADMIN);
         return createToken(claims);
     }
 
@@ -214,11 +217,16 @@ public class TokenService {
      */
     private Claims parseToken(String token) {
         SecretKey key = Keys.hmacShaKeyFor(getEffectiveSecret().getBytes(StandardCharsets.UTF_8));
-        return Jwts.parser()
+        Claims claims = Jwts.parser()
                 .verifyWith(key)
                 .build()
                 .parseSignedClaims(token)
                 .getPayload();
+        // audience 校验：管理端认证链只接受 admin 令牌（配合密钥分离双重防护，防门户 Token 提权）
+        if (!Constants.JWT_AUDIENCE_ADMIN.equals(claims.getAudience())) {
+            throw new MalformedJwtException("Token audience 不匹配，非管理端令牌");
+        }
+        return claims;
     }
 
     /**
@@ -240,12 +248,12 @@ public class TokenService {
      */
     private String getToken(HttpServletRequest request) {
         String token = request.getHeader(header);
-        log.debug("从请求头获取Token，Header名称: {}，原始值: {}", header, token);
+        log.debug("从请求头获取Token，Header名称: {}，原始值: {}", header, StringUtils.mask(token));
         if (StringUtils.isNotEmpty(token) && token.startsWith(Constants.TOKEN_PREFIX)) {
             token = token.replace(Constants.TOKEN_PREFIX, "");
-            log.debug("移除Bearer前缀后的Token: {}", token);
+            log.debug("移除Bearer前缀后的Token: {}", StringUtils.mask(token));
         } else if (StringUtils.isNotEmpty(token)) {
-            log.warn("Token不以Bearer开头，可能格式不正确: {}", token);
+            log.warn("Token不以Bearer开头，可能格式不正确: {}", StringUtils.mask(token));
         }
         return token;
     }

@@ -212,7 +212,7 @@ public class AgentApiController {
             @PathVariable String token,
             @RequestBody ApiChatRequest request) {
         
-        log.info("收到应用访问请求 - Token: {}", token);
+        log.info("收到应用访问请求 - Token: {}", com.moyun.util.string.StringUtils.mask(token));
         
         Agent agent = agentService.getByPublishToken(token);
         if (agent == null) {

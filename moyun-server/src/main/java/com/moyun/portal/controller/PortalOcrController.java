@@ -20,8 +20,8 @@ import org.springframework.web.multipart.MultipartFile;
  * <p>当前仅提供身份证 OCR 识别，用于创作者认证页「自动回填」。
  * 接口要求登录态，且按 {@code side} 单面识别，避免被滥用为通用 OCR 网关。
  *
- * <p>识别逻辑由 {@link IOcrService} 提供，当前为 STUB 实现，待接入真实 OCR API。
- * 详见 {@code OcrServiceImpl} 的 TODO 接入清单。
+ * <p>识别逻辑由 {@link IOcrService} 提供，结构骨架已就位（含未配置降级路径），
+ * 真实厂商 API 调用点见 {@code OcrServiceImpl} 内 {@code todo：配置第三方：} 标记。
  *
  * @author moyun
  */

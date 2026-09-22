@@ -2,6 +2,7 @@ package com.moyun.portal.service.impl;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.Map;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import lombok.extern.slf4j.Slf4j;
@@ -198,7 +199,7 @@ public class PortalTipServiceImpl implements IPortalTipService {
      * 金额单位转换：前端元 → 内部分，整型链路。
      */
     @Override
-    public java.util.Map<String, Object> createWechatTipOrder(Long userId, PortalTipOrder order) {
+    public Map<String, Object> createWechatTipOrder(Long userId, PortalTipOrder order) {
         if (userId == null) {
             throw new BusinessException("USER_NOT_LOGIN", "请先登录");
         }

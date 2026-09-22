@@ -72,6 +72,12 @@ public class Base64ImageUtils {
             // 根据type获取后缀
             String suffix = getImageSuffix(type);
 
+            // 文件头魔数校验：防止以 data:image/* 伪装上传脚本/非图片内容
+            if (!FileUploadUtils.hasValidImageMagicNumber(imageBytes, suffix)) {
+                log.warn("Base64图片魔数校验失败，已拒绝上传：type={}", type);
+                return base64Image;
+            }
+
             // 上传到MinIO
             if (minioUtils.isEnabled()) {
                 return minioUtils.uploadBytes(imageBytes, "image/" + type, suffix);

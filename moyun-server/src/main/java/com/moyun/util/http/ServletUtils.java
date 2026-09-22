@@ -3,6 +3,7 @@ package com.moyun.util.http;
 import com.moyun.common.constant.Constants;
 import com.moyun.core.base.text.Convert;
 import com.moyun.util.string.StringUtils;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.context.request.RequestAttributes;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
@@ -19,6 +20,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
+@Slf4j
 public class ServletUtils {
     public static String getParameter(String name) {
         return getRequest().getParameter(name);
@@ -81,7 +83,7 @@ public class ServletUtils {
             response.setCharacterEncoding("utf-8");
             response.getWriter().print(string);
         } catch (IOException e) {
-            e.printStackTrace();
+            log.error("响应写出失败", e);
         }
     }
 

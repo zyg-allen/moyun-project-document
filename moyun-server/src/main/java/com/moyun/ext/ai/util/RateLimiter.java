@@ -4,9 +4,12 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import lombok.extern.slf4j.Slf4j;
+
 /**
  * 简单的限流器
  */
+@Slf4j
 public class RateLimiter {
     
     /**
@@ -70,7 +73,7 @@ public class RateLimiter {
         
         // 检查是否超过限制
         if (currentCount > limit) {
-            System.out.println("[限流] 用户 " + userId + " 超过限制: " + currentCount + "/" + limit);
+            log.warn("[限流] 用户 {} 超过限制: {}/{}", userId, currentCount, limit);
             return false;
         }
         

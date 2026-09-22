@@ -11,6 +11,7 @@ import com.moyun.core.config.ServerConfig;
 import com.moyun.ext.file.domain.entity.SysFile;
 import com.moyun.ext.file.mapper.SysFileMapper;
 import com.moyun.ext.file.service.ISysFileService;
+import com.moyun.util.file.FileUploadUtils;
 import com.moyun.util.file.MinioUtils;
 import com.moyun.util.security.SecurityUtils;
 import com.moyun.portal.util.PortalSecurityUtils;
@@ -212,6 +213,13 @@ public class SysFileServiceImpl implements ISysFileService {
 
             String fileType = getFileType(fileExt);
             byte[] fileBytes = file.getBytes();
+
+            // 图片类文件增加文件头魔数校验：防止改后缀伪装成图片上传脚本/可执行文件（webshell）
+            if (FileUploadUtils.IMAGE_MAGIC_EXTENSION.contains(fileExt)
+                    && !FileUploadUtils.hasValidImageMagicNumber(fileBytes, fileExt)) {
+                throw new ServiceException("文件内容与图片格式不符，禁止上传");
+            }
+
             String fileMd5 = DigestUtil.md5Hex(fileBytes);
 
             sysFile.setFileName(fileName);

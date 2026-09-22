@@ -42,6 +42,7 @@ public class UserAccountServiceImpl implements IUserAccountService {
         account.setBalance(BigDecimal.ZERO);
         account.setTotalIncome(BigDecimal.ZERO);
         account.setTotalWithdraw(BigDecimal.ZERO);
+        account.setFrozenAmount(BigDecimal.ZERO);
         account.setVersion(0);
         account.setCreateTime(LocalDateTime.now());
         account.setUpdateTime(LocalDateTime.now());
@@ -84,6 +85,49 @@ public class UserAccountServiceImpl implements IUserAccountService {
             return false;
         }
         log.info("[user-account] 扣减成功 userId={} amount={}元", userId, amount);
+        return true;
+    }
+
+    @Override
+    public boolean freeze(Long userId, BigDecimal amount) {
+        if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new IllegalArgumentException("冻结金额必须大于 0");
+        }
+        getOrCreate(userId);
+        int rows = userAccountMapper.freezeBalance(userId, amount);
+        if (rows == 0) {
+            log.warn("[user-account] 冻结失败（可用余额不足或账户不存在）userId={} amount={}元", userId, amount);
+            return false;
+        }
+        log.info("[user-account] 冻结成功 userId={} amount={}元", userId, amount);
+        return true;
+    }
+
+    @Override
+    public boolean unfreeze(Long userId, BigDecimal amount) {
+        if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new IllegalArgumentException("解冻金额必须大于 0");
+        }
+        int rows = userAccountMapper.unfreezeBalance(userId, amount);
+        if (rows == 0) {
+            log.warn("[user-account] 解冻失败（冻结金额不足或账户不存在）userId={} amount={}元", userId, amount);
+            return false;
+        }
+        log.info("[user-account] 解冻成功 userId={} amount={}元", userId, amount);
+        return true;
+    }
+
+    @Override
+    public boolean debitFrozen(Long userId, BigDecimal amount) {
+        if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new IllegalArgumentException("扣减冻结金额必须大于 0");
+        }
+        int rows = userAccountMapper.debitFrozenBalance(userId, amount);
+        if (rows == 0) {
+            log.warn("[user-account] 扣减冻结失败（冻结/余额不足或账户不存在）userId={} amount={}元", userId, amount);
+            return false;
+        }
+        log.info("[user-account] 扣减冻结成功 userId={} amount={}元", userId, amount);
         return true;
     }
 }

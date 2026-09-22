@@ -74,6 +74,14 @@ token:
   # 密钥必须至少 512 位 (64 字节) 用于 HS512 算法
   # 生产环境必须通过环境变量 TOKEN_SECRET 配置强随机密钥
   secret: ${TOKEN_SECRET:}
+  # 管理端与门户端独立签名密钥（密钥分离，防门户 Token 伪造管理端请求提权）
+  # 未配置专用密钥时回退到 token.secret 属性以保兼容（含 dev/local 的开发默认密钥；
+  # 启动时 TokenConfigValidator 会 log.warn 提示未分离）
+  # 生产环境建议分别配置 TOKEN_ADMIN_SECRET / TOKEN_PORTAL_SECRET 两把不同的强随机密钥
+  admin:
+    secret: ${TOKEN_ADMIN_SECRET:${token.secret:}}
+  portal:
+    secret: ${TOKEN_PORTAL_SECRET:${token.secret:}}
 
 # 验证码配置
 captcha:

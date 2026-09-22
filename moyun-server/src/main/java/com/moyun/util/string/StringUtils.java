@@ -56,6 +56,23 @@ public class StringUtils extends org.apache.commons.lang3.StringUtils {
         return !isNull(object);
     }
 
+    /**
+     * 敏感信息脱敏：保留前4位与后4位，中间以 **** 代替；长度不足时全量打码。
+     * <p>用于日志输出 Token / 密钥 / 卡号等敏感字段，防止日志泄露凭据。</p>
+     *
+     * @param value 原始字符串
+     * @return 脱敏后的字符串；入参为空时原样返回
+     */
+    public static String mask(String value) {
+        if (isEmpty(value)) {
+            return value;
+        }
+        if (value.length() <= 8) {
+            return "****";
+        }
+        return value.substring(0, 4) + "****" + value.substring(value.length() - 4);
+    }
+
     public static boolean isArray(Object object) {
         return isNotNull(object) && object.getClass().isArray();
     }

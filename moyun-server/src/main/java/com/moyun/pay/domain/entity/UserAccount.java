@@ -33,6 +33,9 @@ public class UserAccount {
     /** 累计提现（元） */
     private BigDecimal totalWithdraw;
 
+    /** 冻结金额（元，提现审核中占用；可用余额 = balance - frozen_amount） */
+    private BigDecimal frozenAmount;
+
     /** 乐观锁版本号 */
     @Version
     private Integer version;
@@ -53,6 +56,8 @@ public class UserAccount {
     public void setTotalIncome(BigDecimal totalIncome) { this.totalIncome = totalIncome; }
     public BigDecimal getTotalWithdraw() { return totalWithdraw; }
     public void setTotalWithdraw(BigDecimal totalWithdraw) { this.totalWithdraw = totalWithdraw; }
+    public BigDecimal getFrozenAmount() { return frozenAmount; }
+    public void setFrozenAmount(BigDecimal frozenAmount) { this.frozenAmount = frozenAmount; }
     public Integer getVersion() { return version; }
     public void setVersion(Integer version) { this.version = version; }
     public LocalDateTime getCreateTime() { return createTime; }

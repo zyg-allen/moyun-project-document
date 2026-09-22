@@ -15,11 +15,12 @@ import java.util.List;
 public interface IBankCardService {
 
     /**
-     * 绑定（AES-GCM 加密落库 + 实名预校验 + 卡数上限 + 短信验证码闭环）
+     * 绑定（AES-GCM 加密落库 + 四要素实名核验 + 同卡防重 + 卡数上限 + 短信验证码闭环）
      *
+     * @param certNo 持卡人身份证号（四要素核验用，仅核验过程内存使用，不落库不打日志）
      * @param smsCode 短信验证码（moyun.pay.security.bank-card-sms-verify=true 时必填）
      */
-    UserBankCard bind(Long userId, String holderName, String cardNo, String phone,
+    UserBankCard bind(Long userId, String holderName, String certNo, String cardNo, String phone,
                       String bankCode, String bankName, String smsCode);
 
     /** 本人卡列表（脱敏） */

@@ -33,4 +33,27 @@ public interface UserAccountMapper extends BaseMapper<UserAccount> {
      */
 
     int debitBalance(@Param("userId") Long userId, @Param("amount") BigDecimal amount);
+
+    /**
+     * 原子冻结（提现申请）：frozen_amount += amount，带可用余额条件（balance - frozen_amount >= amount），
+     * 天然防并发重复申请超提
+     *
+     * @return 影响行数（0=可用余额不足或账户不存在）
+     */
+    int freezeBalance(@Param("userId") Long userId, @Param("amount") BigDecimal amount);
+
+    /**
+     * 原子解冻（提现驳回/撤回）：frozen_amount -= amount，带 frozen_amount >= amount 条件
+     *
+     * @return 影响行数（0=冻结金额不足或账户不存在）
+     */
+    int unfreezeBalance(@Param("userId") Long userId, @Param("amount") BigDecimal amount);
+
+    /**
+     * 原子扣减冻结（提现审核通过打款）：balance -= amount 且 frozen_amount -= amount 且
+     * total_withdraw += amount 三联动，条件 frozen_amount >= amount AND balance >= amount
+     *
+     * @return 影响行数（0=冻结/余额不足或账户不存在）
+     */
+    int debitFrozenBalance(@Param("userId") Long userId, @Param("amount") BigDecimal amount);
 }

@@ -6,6 +6,9 @@ import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import lombok.extern.slf4j.Slf4j;
+
+@Slf4j
 public class BeanUtils extends org.springframework.beans.BeanUtils
 {
     private static final int BEAN_METHOD_PROP_INDEX = 3;
@@ -22,7 +25,7 @@ public class BeanUtils extends org.springframework.beans.BeanUtils
         }
         catch (Exception e)
         {
-            e.printStackTrace();
+            log.error("Bean属性复制异常", e);
         }
     }
 

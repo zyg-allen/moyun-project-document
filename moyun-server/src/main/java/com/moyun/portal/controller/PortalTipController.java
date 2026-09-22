@@ -11,6 +11,7 @@ import com.moyun.portal.util.PortalSecurityUtils;
 import com.moyun.util.bean.PageUtils;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
@@ -26,6 +27,7 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 @Tag(name = "打赏", description = "对文章/专栏积分打赏，复用为付费阅读购买记录")
 @RestController
 @RequestMapping("/portal/tip")
+@Slf4j
 public class PortalTipController extends BaseController {
 
     @Autowired
@@ -60,7 +62,7 @@ public class PortalTipController extends BaseController {
             PortalTipOrder created = portalTipService.toggleTipOrList(order);
             return AjaxResult.success(created);
         } catch (RuntimeException e) {
-            // 积分余额不足、给自己打赏等业务校验失败，返回友好提示
+            log.error("积分余额不足、给自己打赏等业务校验失败，返回友好提示");
             return AjaxResult.error(e.getMessage());
         }
     }

@@ -15,11 +15,17 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Paths;
 import java.util.Objects;
+import java.util.Set;
 
 public class FileUploadUtils {
     public static final long DEFAULT_MAX_SIZE = 50 * 1024 * 1024L;
 
     public static final int DEFAULT_FILE_NAME_LENGTH = 100;
+
+    /**
+     * 需要执行文件头魔数校验的图片扩展名（小写）
+     */
+    public static final Set<String> IMAGE_MAGIC_EXTENSION = Set.of("jpg", "jpeg", "png", "gif", "webp", "bmp");
 
     private static String defaultBaseDir = RuoYiConfig.getProfile();
 
@@ -121,6 +127,49 @@ public class FileUploadUtils {
             }
         }
         return false;
+    }
+
+    /**
+     * 图片文件头魔数校验：防止改后缀伪装成图片上传脚本/可执行文件
+     * <p>
+     * JPEG: FF D8 FF；PNG: 89 50 4E 47；GIF: 47 49 46 38（GIF8）；
+     * WebP: "RIFF" 前缀 + 第 8~11 字节 "WEBP"；BMP: 42 4D（BM）
+     * </p>
+     *
+     * @param bytes     文件内容字节
+     * @param extension 文件扩展名（小写）
+     * @return 魔数与扩展名匹配返回 true；字节过短、扩展名非法或魔数不匹配返回 false
+     */
+    public static final boolean hasValidImageMagicNumber(byte[] bytes, String extension) {
+        if (bytes == null || bytes.length < 12 || StringUtils.isEmpty(extension)) {
+            return false;
+        }
+        String ext = extension.toLowerCase();
+        switch (ext) {
+            case "jpg", "jpeg" -> {
+                return (bytes[0] & 0xFF) == 0xFF && (bytes[1] & 0xFF) == 0xD8 && (bytes[2] & 0xFF) == 0xFF;
+            }
+            case "png" -> {
+                return (bytes[0] & 0xFF) == 0x89 && (bytes[1] & 0xFF) == 0x50
+                        && (bytes[2] & 0xFF) == 0x4E && (bytes[3] & 0xFF) == 0x47;
+            }
+            case "gif" -> {
+                return (bytes[0] & 0xFF) == 0x47 && (bytes[1] & 0xFF) == 0x49
+                        && (bytes[2] & 0xFF) == 0x46 && (bytes[3] & 0xFF) == 0x38;
+            }
+            case "webp" -> {
+                return (bytes[0] & 0xFF) == 0x52 && (bytes[1] & 0xFF) == 0x49
+                        && (bytes[2] & 0xFF) == 0x46 && (bytes[3] & 0xFF) == 0x46
+                        && (bytes[8] & 0xFF) == 0x57 && (bytes[9] & 0xFF) == 0x45
+                        && (bytes[10] & 0xFF) == 0x42 && (bytes[11] & 0xFF) == 0x50;
+            }
+            case "bmp" -> {
+                return (bytes[0] & 0xFF) == 0x42 && (bytes[1] & 0xFF) == 0x4D;
+            }
+            default -> {
+                return false;
+            }
+        }
     }
 
     public static final String getExtension(MultipartFile file) {

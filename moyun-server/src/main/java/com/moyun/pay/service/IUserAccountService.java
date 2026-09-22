@@ -21,4 +21,13 @@ public interface IUserAccountService {
 
     /** 扣减（提现，原子，防超扣）：成功返回 true */
     boolean debit(Long userId, BigDecimal amount);
+
+    /** 冻结（提现申请，原子，可用余额 = balance - frozen_amount 条件防超提）：成功返回 true */
+    boolean freeze(Long userId, BigDecimal amount);
+
+    /** 解冻（提现驳回/撤回，原子）：成功返回 true */
+    boolean unfreeze(Long userId, BigDecimal amount);
+
+    /** 扣减冻结（提现审核通过打款，原子：balance/frozen/totalWithdraw 三联动）：成功返回 true */
+    boolean debitFrozen(Long userId, BigDecimal amount);
 }

@@ -39,7 +39,7 @@ public class PortalBankCardController {
     public AjaxResult bind(@RequestBody Map<String, String> body) {
         Long userId = PortalSecurityUtils.getUserId();
         UserBankCard card = bankCardService.bind(userId,
-                body.get("holderName"), body.get("cardNo"), body.get("phone"),
+                body.get("holderName"), body.get("certNo"), body.get("cardNo"), body.get("phone"),
                 body.get("bankCode"), body.get("bankName"), body.get("smsCode"));
         return AjaxResult.success(stripEncrypted(card));
     }

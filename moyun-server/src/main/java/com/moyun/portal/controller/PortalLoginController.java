@@ -12,6 +12,7 @@ import java.time.LocalDateTime;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -40,6 +41,7 @@ import com.moyun.util.string.StringUtils;
  */
 @Anonymous
 @Tag(name = "门户登录", description = "门户用户登录注册相关接口")
+@Slf4j
 @RestController
 @RequestMapping("/portal")
 public class PortalLoginController {
@@ -180,7 +182,7 @@ public class PortalLoginController {
                 return (PortalLoginUser) authentication.getPrincipal();
             }
         } catch (Exception e) {
-            e.printStackTrace();
+            log.error("获取当前登录用户异常", e);
         }
         return null;
     }

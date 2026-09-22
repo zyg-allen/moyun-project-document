@@ -14,7 +14,8 @@ import java.time.LocalDateTime;
  * <p>资金模型：真钱集中于平台公账商户号，虚拟余额为记账数字；提现是唯一动真钱的时机
  * （审核通过时记账扣减 + 商户号出金到用户银行卡）。
  *
- * <p>状态机：auditing(审核中) → paid(已打款) / rejected(已驳回)
+ * <p>状态机：auditing(申请/审核中) → paying(审核通过·打款中) → paid(已打款)；
+ *            auditing → rejected(已驳回，冻结金额解冻回余额可用)
  *
  * <p>金额单位：元（人民币，DECIMAL(18,2)，统一）。
  *
@@ -24,6 +25,8 @@ import java.time.LocalDateTime;
 public class WithdrawOrder {
 
     public static final String STATUS_AUDITING = "auditing";
+    /** 状态：打款中（审核通过，记账扣减已完成，等待代付通道出金/回执） */
+    public static final String STATUS_PAYING = "paying";
     public static final String STATUS_PAID = "paid";
     public static final String STATUS_REJECTED = "rejected";
 
@@ -47,7 +50,7 @@ public class WithdrawOrder {
     /** 归属端代码（sys_platform.platform_code）：portal / ledger */
     private String platformCode;
 
-    /** 状态：auditing / paid / rejected */
+    /** 状态：auditing / paying / paid / rejected */
     private String status;
 
     /** 审核时间 */

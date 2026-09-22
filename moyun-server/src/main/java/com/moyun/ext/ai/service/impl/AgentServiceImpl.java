@@ -159,7 +159,7 @@ public class AgentServiceImpl extends ServiceImpl<AgentMapper, Agent> implements
         Agent agent = this.getOne(wrapper);
         
         if (agent == null) {
-            log.debug("🔍 未找到对应的智能体: publishToken={}", publishToken);
+            log.debug("🔍 未找到对应的智能体: publishToken={}", com.moyun.util.string.StringUtils.mask(publishToken));
         }
         
         return agent;

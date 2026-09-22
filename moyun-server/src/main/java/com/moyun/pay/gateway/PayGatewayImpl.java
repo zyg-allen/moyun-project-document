@@ -194,7 +194,8 @@ public class PayGatewayImpl implements IPayGateway {
         PayChannel channel = routeChannel(channelCode);
         boolean verified = channel.verifyNotify(headers, body);
         if (!verified) {
-            log.warn("[pay-gateway] 回调验签失败 channel={} body={}", channelCode, abbreviate(body));
+            // 脱敏：验签失败不打印原始回调报文（可能含签名/付款人 openid 等敏感信息），仅记录渠道与报文长度
+            log.warn("[pay-gateway] 回调验签失败 channel={} bodyLength={}", channelCode, body == null ? 0 : body.length());
             throw new IllegalStateException("回调验签失败");
         }
         com.moyun.pay.channel.PayNotifyMessage message = channel.parseNotify(body);
@@ -321,12 +322,5 @@ public class PayGatewayImpl implements IPayGateway {
             sb.append(RANDOM.nextInt(10));
         }
         return sb.toString();
-    }
-
-    private String abbreviate(String text) {
-        if (text == null) {
-            return "";
-        }
-        return text.length() <= 200 ? text : text.substring(0, 200) + "...";
     }
 }

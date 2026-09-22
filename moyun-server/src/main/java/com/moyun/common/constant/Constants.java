@@ -141,6 +141,16 @@ public class Constants {
     public static final String JWT_AUTHORITIES = "authorities";
 
     /**
+     * JWT audience 声明：管理端令牌（配合 token.admin.secret 独立密钥双重隔离）
+     */
+    public static final String JWT_AUDIENCE_ADMIN = "admin";
+
+    /**
+     * JWT audience 声明：门户端令牌（配合 token.portal.secret 独立密钥双重隔离）
+     */
+    public static final String JWT_AUDIENCE_PORTAL = "portal";
+
+    /**
      * 资源映射路径 前缀
      */
     public static final String RESOURCE_PREFIX = "/profile";

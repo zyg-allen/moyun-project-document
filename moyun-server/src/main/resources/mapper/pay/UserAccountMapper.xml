@@ -10,4 +10,16 @@
         UPDATE pay_user_account SET balance = balance - #{amount}, total_withdraw = total_withdraw + #{amount}, version = version + 1, update_time = NOW() WHERE user_id = #{userId} AND balance >= #{amount}
     </update>
 
+    <update id="freezeBalance">
+        UPDATE pay_user_account SET frozen_amount = frozen_amount + #{amount}, version = version + 1, update_time = NOW() WHERE user_id = #{userId} AND balance - frozen_amount >= #{amount}
+    </update>
+
+    <update id="unfreezeBalance">
+        UPDATE pay_user_account SET frozen_amount = frozen_amount - #{amount}, version = version + 1, update_time = NOW() WHERE user_id = #{userId} AND frozen_amount >= #{amount}
+    </update>
+
+    <update id="debitFrozenBalance">
+        UPDATE pay_user_account SET balance = balance - #{amount}, frozen_amount = frozen_amount - #{amount}, total_withdraw = total_withdraw + #{amount}, version = version + 1, update_time = NOW() WHERE user_id = #{userId} AND frozen_amount >= #{amount} AND balance >= #{amount}
+    </update>
+
 </mapper>

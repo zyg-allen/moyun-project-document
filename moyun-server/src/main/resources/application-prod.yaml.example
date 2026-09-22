@@ -113,12 +113,19 @@ logging:
 # - TOKEN_SECRET：JWT 签名密钥，必须至少 32 字符，建议使用强随机串
 #   生成方式示例：openssl rand -base64 64
 #   未配置或长度不足 32 字符时应用将 fail-fast 拒绝启动
+# - TOKEN_ADMIN_SECRET / TOKEN_PORTAL_SECRET：管理端与门户端独立签名密钥（密钥分离，
+#   防门户 Token 伪造管理端请求提权）；未配置时回退到 TOKEN_SECRET 仅保兼容，
+#   启动时 TokenConfigValidator 会 log.warn 提示未分离，生产环境必须分别配置且两把密钥不可相同
 # - TOKEN_EXPIRE_TIME：Token 有效期（分钟），生产建议 120
 # =============================================
 token:
   header: Authorization
   secret: ${TOKEN_SECRET}
   expireTime: ${TOKEN_EXPIRE_TIME:120}
+  admin:
+    secret: ${TOKEN_ADMIN_SECRET:${token.secret:}}
+  portal:
+    secret: ${TOKEN_PORTAL_SECRET:${token.secret:}}
 
 # =============================================
 # 安全配置

@@ -1,6 +1,5 @@
 package com.moyun.portal.enums;
 
-import lombok.Data;
 import lombok.Getter;
 
 /**

@@ -68,20 +68,21 @@ moyun:
 
 # Token 配置
 # secret 通过环境变量 ${TOKEN_SECRET:} 注入，各环境不同密钥
-# expireTime 建议本地 30 分钟，生产可在环境文件中覆盖
+# Token 配置基线
+# 三方密钥统一引用 TOKEN_SECRET 环境变量，避免 ${token.secret:} 嵌套占位符的解析顺序陷阱
+# （dev/local 在 application-dev.yaml / application-local.yaml 中提供开发默认值；
+#  prod 必须通过 TOKEN_SECRET 环境变量注入强随机密钥，否则 TokenConfigValidator 会启动失败）
 token:
   header: Authorization
   # 密钥必须至少 512 位 (64 字节) 用于 HS512 算法
   # 生产环境必须通过环境变量 TOKEN_SECRET 配置强随机密钥
   secret: ${TOKEN_SECRET:}
   # 管理端与门户端独立签名密钥（密钥分离，防门户 Token 伪造管理端请求提权）
-  # 未配置专用密钥时回退到 token.secret 属性以保兼容（含 dev/local 的开发默认密钥；
-  # 启动时 TokenConfigValidator 会 log.warn 提示未分离）
-  # 生产环境建议分别配置 TOKEN_ADMIN_SECRET / TOKEN_PORTAL_SECRET 两把不同的强随机密钥
+  # 未配置专用密钥时回退 TOKEN_SECRET 保兼容，启动时 TokenConfigValidator 会 log.warn 提示未分离
   admin:
-    secret: ${TOKEN_ADMIN_SECRET:${token.secret:}}
+    secret: ${TOKEN_ADMIN_SECRET:${TOKEN_SECRET:}}
   portal:
-    secret: ${TOKEN_PORTAL_SECRET:${token.secret:}}
+    secret: ${TOKEN_PORTAL_SECRET:${TOKEN_SECRET:}}
 
 # 验证码配置
 captcha:

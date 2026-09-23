@@ -1,17 +1,10 @@
 spring:
-  # =============================================
-  # 邮件服务配置（163 邮箱 SMTP）
-  # 注册邮箱验证码 / 找回密码邮件 均依赖此配置
-  # 授权码获取：登录 mail.163.com → 设置 → POP3/SMTP/IMAP → 开启 SMTP 服务 → 设置授权码
-  # 授权码不是登录密码，是 16 位独立字符串
-  # =============================================
+  # 邮件服务（163 SMTP）—— 注册验证码 / 找回密码；授权码非登录密码，登录 mail.163.com → 设置 → POP3/SMTP/IMAP 生成
   mail:
     host: smtp.163.com
     port: 465
     username: ${MAIL_USERNAME:19987671567@163.com}
-    # 授权码（非登录密码），16 位独立字符串，登录 mail.163.com → 设置 → POP3/SMTP/IMAP → 开启 SMTP 生成
-    # dev 默认值便于零配置启动；生产环境务必通过 MAIL_PASSWORD 环境变量覆盖
-    password: ${MAIL_PASSWORD:YTgU8Dk2jT7BEL87}
+    password: ${MAIL_PASSWORD:YTgU8Dk2jT7BEL87}  # dev 默认值，生产务必通过环境变量覆盖
     default-encoding: UTF-8
     protocol: smtps
     properties:
@@ -25,30 +18,23 @@ spring:
           socketFactory:
             class: javax.net.ssl.SSLSocketFactory
             port: 465
-        # 在连接失败时打印详细错误，便于排查
         debug: false
 
-  # =============================================
-  # MySQL 数据源配置
-  # 凭据通过环境变量注入，未设置时回退到本地默认值（仅用于开发环境）
-  # =============================================
+  # MySQL 数据源（凭据通过环境变量注入，未设置时回退本地默认值）
   datasource:
     type: com.alibaba.druid.pool.DruidDataSource
     driver-class-name: com.mysql.cj.jdbc.Driver
-    # rewriteBatchedStatements=true：开启 MyBatis-Plus saveBatch/updateBatchById 批量重写为单条 multi-value SQL
-    # cachePrepStmts / prepStmtCacheSize / useServerPrepStmts：开启 PreparedStatement 服务端缓存，提升高频小查询性能
+    # rewriteBatchedStatements 开启批量重写；cachePrepStmts 开启 PreparedStatement 服务端缓存
     url: ${MYSQL_URL:jdbc:mysql://localhost:3306/moyun-db?useUnicode=true&characterEncoding=utf-8&useSSL=false&serverTimezone=Asia/Shanghai&rewriteBatchedStatements=true&cachePrepStmts=true&prepStmtCacheSize=250&prepStmtCacheSqlLimit=2048&useServerPrepStmts=true&allowPublicKeyRetrieval=true}
     username: ${MYSQL_USERNAME:root}
     password: ${MYSQL_PASSWORD:123456}
     druid:
-      # 连接池基础配置
       initial-size: 5
       min-idle: 10
       max-active: 20
       max-wait: 60000
       connect-timeout: 30000
       socket-timeout: 60000
-      # 连接检测
       time-between-eviction-runs-millis: 60000
       min-evictable-idle-time-millis: 300000
       max-evictable-idle-time-millis: 900000
@@ -57,7 +43,6 @@ spring:
       test-on-borrow: false
       test-on-return: false
       pool-prepared-statements: true
-      # 监控统计
       filters: stat,wall,slf4j
       filter:
         stat:
@@ -67,7 +52,6 @@ spring:
         wall:
           config:
             multi-statement-allow: true
-      # Druid Web 监控页
       web-stat-filter:
         enabled: true
         url-pattern: /*
@@ -76,24 +60,19 @@ spring:
         enabled: true
         url-pattern: /druid/*
         reset-enable: false
-        # 监控页凭据同样通过环境变量注入，默认值仅用于开发环境
         login-username: ${DRUID_USERNAME:admin}
         login-password: ${DRUID_PASSWORD:admin}
         allow: ""
         deny: ""
-      # Spring 监控
       aop-patterns: com.moyun.system.service.*
 
-  # =============================================
-  # Redis 配置
-  # 密码通过环境变量注入；本地无密码时留空
-  # =============================================
+  # Redis（密码通过环境变量注入；本地无密码时留空）
   data:
     redis:
       host: ${REDIS_HOST:localhost}
       port: ${REDIS_PORT:6379}
       database: ${REDIS_DATABASE:0}
-      password: ${REDIS_PASSWORD:}         # 本地无密码，留空；生产环境设为真实密码
+      password: ${REDIS_PASSWORD:}
       timeout: 3000
       lettuce:
         pool:
@@ -102,133 +81,89 @@ spring:
           max-idle: 8
           min-idle: 0
 
-    # MongoDB 配置（可选，辅助中间件）
+    # MongoDB（可选，辅助中间件）
     mongodb:
       uri: ${MONGODB_URI:mongodb://localhost:27017/moyun}
       auto-index-creation: true
 
-# =============================================
-# Actuator 健康检查配置（本地环境覆盖）
-# =============================================
-# dev 已配置默认 MAIL_PASSWORD 授权码，启用 MailHealthIndicator 验证 SMTP 连通性。
-# 若临时移除授权码导致 535 认证失败 WARN，可将此处改为 false 临时关闭健康检查。
+# Actuator 健康检查（dev 已配置 MAIL_PASSWORD 授权码，启用 MailHealthIndicator 验证 SMTP 连通性）
+# 若临时移除授权码导致 535 认证失败 WARN，可将 mail.enabled 改为 false 临时关闭
 management:
   health:
     mail:
       enabled: true
 
-# =============================================
-# 日志配置（本地环境覆盖）
-# =============================================
+# 日志配置（SQL 日志仅本地开启）
 logging:
   level:
-    # SQL 日志（仅本地开启）
     org.hibernate.SQL: debug
 
-# =============================================
-# Token 配置（本地环境覆盖）
-# =============================================
+# Token 配置（本地 30 分钟，生产建议 120）
+# 三方密钥统一引用 TOKEN_SECRET 环境变量，避免 ${token.secret:} 嵌套占位符的解析顺序陷阱
+# （IDEA/PowerShell 残留 TOKEN_SECRET 时，嵌套引用 token.secret 属性可能拿到旧值，导致登录签发与校验密钥不一致）
 token:
-  expireTime: 30              # 本地 30 分钟，生产建议 120
-  # 开发环境专用密钥默认值（至少64字符/512位，HS512算法要求），生产环境必须通过 TOKEN_SECRET 环境变量覆盖
-  # 如需自定义：设置环境变量 TOKEN_SECRET 即可覆盖此默认值
+  expireTime: 30
   secret: ${TOKEN_SECRET:moyun-dev-only-secret-key-do-not-use-in-prod-env-at-least-64-chars-2026}
-  # 管理端/门户端独立签名密钥（密钥分离，防门户 Token 伪造管理端请求提权）：
-  # 未单独配置时回退共用 token.secret 保兼容，启动时 TokenConfigValidator 会 log.warn 提示未分离；
-  # 可通过 TOKEN_ADMIN_SECRET / TOKEN_PORTAL_SECRET 环境变量分别注入不同密钥（联调密钥分离场景）
+  # 管理端 / 门户端独立签名密钥（密钥分离，防门户 Token 伪造管理端请求提权）
+  # 未单独配置时回退 TOKEN_SECRET 保兼容，启动时 TokenConfigValidator 会 log.warn 提示未分离
   admin:
-    secret: ${TOKEN_ADMIN_SECRET:${token.secret:}}
+    secret: ${TOKEN_ADMIN_SECRET:${TOKEN_SECRET:moyun-dev-only-secret-key-do-not-use-in-prod-env-at-least-64-chars-2026}}
   portal:
-    secret: ${TOKEN_PORTAL_SECRET:${token.secret:}}
+    secret: ${TOKEN_PORTAL_SECRET:${TOKEN_SECRET:moyun-dev-only-secret-key-do-not-use-in-prod-env-at-least-64-chars-2026}}
 
-# =============================================
-# 旭林框架配置（本地文件路径覆盖）
-# =============================================
 moyun:
-  profile: ${user.home}/moyun/profile  # 本地文件存储路径（绝对路径）
-  # AI 能力配置（v11.98 说明）：
-  # - 运行时开关已迁移 sys_config（管理台「参数设置」热配置）：
-  #     ai.global.enabled（全局，缺省 true） / ai.resume.advice.enabled（简历 AI 建议，缺省 true）
-  # - enabled=true 仅承担 bean 装配职责（AiModuleLlmClient/NoopLlmClient 二选一），
-  #   基础配置 application.yaml 已固定 true，各环境无需重复配置
-  # - 模型/密钥在后台「AI 模块 → 模型配置」中管理（默认聊天模型），此处无需配置 api-key
+  profile: ${user.home}/moyun/profile  # 本地文件存储路径
+  # AI 能力配置：
+  # - 运行时开关在 sys_config（后台「参数设置」热配置）：ai.global.enabled / ai.resume.advice.enabled
+  # - enabled=true 仅承担 bean 装配职责；模型 / 密钥在后台「AI 模块 → 模型配置」中管理
   ai:
     enabled: true
-    # =============================================
-    # 语音识别（ASR）配置 —— V10.1 语音面试官
-    # 优先级：后台「AI 模块 → 模型配置」model_type='asr' 的默认启用配置（api_key 加密存储）
-    # → 以下 yaml 作为兜底（后台未配置 ASR 模型或字段为空时生效）
-    # 模型 qwen3-asr-flash（Qwen-ASR OpenAI 兼容协议，Base64 音频输入）
-    # =============================================
+    # 语音识别（ASR）兜底配置（V10.1 语音面试官）：后台未配置 ASR 模型时生效，模型 qwen3-asr-flash
     api-key: ${MOYUN_AI_API_KEY:sk-ws-H.PMYRPDE.gLUY.MEYCIQC4-pMKFM1Vf6a2CsKIyzlI5jChxMkThEF3MLQ7sXQMFgIhAKJ1u5-xncxrzX1nR3rFMihRMNZkc0A0UOPoKt31kiHf}
     asr-base-url: ${MOYUN_AI_ASR_BASE_URL:https://ws-vmchn4kxmyw0dzgf.cn-beijing.maas.aliyuncs.com/compatible-mode/v1}
     asr-model: ${MOYUN_AI_ASR_MODEL:qwen3-asr-flash}
-    # =============================================
-    # 实时流式识别（fun-asr-realtime，WebSocket 双工）—— V10.1 语音面试官
-    # 走公共百炼 WS 网关（业务空间 MAAS 域名不提供该服务），Key 复用上方 asr 配置
-    # =============================================
+    # 实时流式识别（fun-asr-realtime，WebSocket 双工）走公共百炼 WS 网关，Key 复用上方 asr 配置
     asr-realtime-url: ${MOYUN_AI_ASR_REALTIME_URL:wss://dashscope.aliyuncs.com/api-ws/v1/inference/}
     asr-realtime-model: ${MOYUN_AI_ASR_REALTIME_MODEL:fun-asr-realtime}
-  # 认证信息安全配置（v10.8 实名合规）：
-  # - 证件号 AES-GCM 加密口令，生产环境务必通过环境变量 MOYUN_SECURITY_CERTNOENCRYPTKEY 注入并妥善保管
-  # - 口令变更会导致已加密证件号无法解密（脱敏展示值不受影响）
+  # 证件号 AES-GCM 加密口令（v10.8 实名合规）；口令变更会导致已加密证件号无法解密（脱敏展示值不受影响）
   security:
     cert-no-encrypt-key: moyun-dev-cert-key-2026
-  # 慢 SQL 治理配置
+  # 慢 SQL 治理（DataQueryServiceImpl 阈值更严格以提前发现问题，配合 Druid filter.stat 5000ms 形成双重防护）
   slow-sql:
-    # 慢 SQL 告警阈值（毫秒）：
-    # - 用于 AI 模块 DataQueryServiceImpl 的 Text-to-SQL 执行耗时监控
-    # - 配合 Druid filter.stat.slow-sql-millis（5000ms）形成双重防护，DataQueryServiceImpl 阈值更严格以提前发现问题
-    # - 触发后输出到 SLOW_SQL 专用 logger，归档至 slow-sql.log
     threshold-millis: 3000
   # 支付网关配置（V11.0 公共支付通道）：
-  # - enabled=false 时网关拒绝下单；mock-enabled=true 走模拟器（验签/回调/分账链路全真演练）
-  # - 商户参数保留配置位，生产接入 wechatpay-java SDK 后替换（见 WechatPayChannel TODO）
-  # - platform-fee-rate 平台抽成兜底费率，运行时可用 sys_config(pay.platform.fee-rate) 覆盖（后台可调）
+  # - enabled=false 拒绝下单；mock-enabled=true 走模拟器（验签/回调/分账链路全真演练）
+  # - platform-fee-rate 为兜底费率，运行时可用 sys_config(pay.platform.fee-rate) 覆盖
   pay:
     enabled: true
-    # 订单有效期（分钟），过期未支付自动关单
-    order-expire-minutes: 30
-    # 平台抽成兜底费率（0.10 = 10%），sys_config 运行时配置优先
-    platform-fee-rate: 0.10
+    order-expire-minutes: 30  # 订单有效期（分钟），过期未支付自动关单
+    platform-fee-rate: 0.10  # 平台抽成兜底费率（0.10 = 10%）
     security:
       # 银行卡卡号/手机号 AES-GCM 加密口令，生产务必用环境变量 MOYUN_PAY_SECURITY_BANKCARDENCRYPTKEY 注入
       bank-card-encrypt-key: moyun-dev-pay-bank-card-key-2026
-      # 每用户最多绑定银行卡数
-      bank-card-max-count: 5
-      # 绑定银行卡强制短信验证码（V11.1 企业级默认开启）
-      bank-card-sms-verify: true
+      bank-card-max-count: 5  # 每用户最多绑定银行卡数
+      bank-card-sms-verify: true  # 绑定银行卡强制短信验证码（V11.1 企业级默认开启）
     wechat:
-      # mock 模拟器开关：true=模拟支付（前端"模拟支付"按钮触发），false=真实 API（当前 TODO）
-      mock-enabled: true
-      # ===== 微信支付商户参数（真实接入时替换，TODO 保留配置位） =====
+      mock-enabled: true  # true=模拟支付，false=真实 API（当前 TODO）
+      # 微信支付商户参数（真实接入时替换，TODO 保留配置位）
       app-id: todo-wx-appid
       mch-id: todo-mch-id
-      # 商户 API 证书序列号
-      merchant-serial: todo-merchant-serial
-      # 商户 API 私钥文件路径（apiclient_key.pem）
-      private-key-path: todo/private/key/path
-      # APIv3 密钥
+      merchant-serial: todo-merchant-serial  # 商户 API 证书序列号
+      private-key-path: todo/private/key/path  # 商户 API 私钥文件路径（apiclient_key.pem）
       api-v3-key: todo-apiv3-key
-      # 支付回调地址（公网可达，免登录 + 验签）
-      notify-url: https://todo-domain/api/pay/callback/wechat
-  # 短信验证码配置（V11.1，真实 API 阿里云；当前模拟模式）：
-  # - mock-enabled=true：验证码写入服务日志（联调可见），频控/存储/校验/防枚举全流程与真实通道一致
+      notify-url: https://todo-domain/api/pay/callback/wechat  # 支付回调地址（公网可达，免登录 + 验签）
+  # 短信验证码配置（V11.1）：
+  # - mock-enabled=true 验证码写入服务日志，频控/存储/校验/防枚举全流程与真实通道一致
   # - 生产接入：环境变量注入 MOYUN_SMS_ALIYUN_ACCESSKEYID / ACCESSKEYSECRET，补全 AliyunSmsSender TODO
-  # - scene 白名单：bankcard=银行卡绑定；member 预留后期会员支付开通
   sms:
     enabled: true
     mock-enabled: true
-    # 验证码有效期（分钟）
-    code-expire-minutes: 5
-    # 同手机号发送间隔（秒，防轰炸）
-    send-interval-seconds: 60
-    # 同手机号每日上限
-    daily-limit: 10
-    # 连续校验错误 N 次作废验证码（防枚举）
-    max-verify-attempts: 5
+    code-expire-minutes: 5  # 验证码有效期（分钟）
+    send-interval-seconds: 60  # 同手机号发送间隔（秒，防轰炸）
+    daily-limit: 10  # 同手机号每日上限
+    max-verify-attempts: 5  # 连续校验错误 N 次作废验证码（防枚举）
     aliyun:
-      # ===== 阿里云短信真实 API 配置位（TODO 保留，mock 模式不使用） =====
+      # 阿里云短信真实 API 配置位（TODO 保留，mock 模式不使用）
       access-key-id: todo-aliyun-access-key-id
       access-key-secret: todo-aliyun-access-key-secret
       sign-name: 墨韵智库
@@ -236,46 +171,32 @@ moyun:
       endpoint: dysmsapi.aliyuncs.com
   # OCR 识别配置（身份证识别自动回填）：
   # - enabled=false 或 AccessKey 为 todo 占位值时走降级路径（返回未配置，前端回退手动填写）
-  # - 生产接入：环境变量注入 MOYUN_OCR_ALIYUN_ACCESSKEYID / ACCESSKEYSECRET，
-  #   并放开 OcrServiceImpl 中 todo：配置第三方： 标记处的 SDK 骨架
+  # - 生产接入：环境变量注入 MOYUN_OCR_ALIYUN_ACCESSKEYID / ACCESSKEYSECRET，放开 OcrServiceImpl 中 TODO 标记
   ocr:
     enabled: false
-    # 服务提供方：aliyun / tencent / baidu / paddle（当前骨架按 aliyun 预留）
-    provider: aliyun
+    provider: aliyun  # aliyun / tencent / baidu / paddle（当前骨架按 aliyun 预留）
     aliyun:
-      # ===== 阿里云 OCR 真实 API 配置位（todo：配置第三方：OCR 服务（如阿里云OCR）配置） =====
       access-key-id: todo-ocr-access-key-id
       access-key-secret: todo-ocr-access-key-secret
       endpoint: ocr-api.cn-hangzhou.aliyuncs.com
   # 实名认证通道配置（银行卡四要素核验：姓名+身份证+银行卡+手机号）：
-  # - enabled=false 或 AccessKey 为 todo 占位值时，核验明确返回"通道未开通"，
-  #   绑定卡落 PENDING 转人工核实（不伪装核验通过）
-  # - 生产接入：环境变量注入 MOYUN_REALNAME_ALIYUN_ACCESSKEYID / ACCESSKEYSECRET，
-  #   并放开 FourElementsRealNameVerifier 中 todo：配置第三方： 标记处的 SDK 骨架
+  # - enabled=false 或 AccessKey 为 todo 占位值时，核验明确返回"通道未开通"，绑定卡落 PENDING 转人工核实（不伪装核验通过）
+  # - 生产接入：环境变量注入 MOYUN_REALNAME_ALIYUN_ACCESSKEYID / ACCESSKEYSECRET，放开 FourElementsRealNameVerifier 中 TODO 标记
   realname:
     enabled: false
-    # 通道提供方：aliyun / tencent
-    provider: aliyun
-    # 同一用户四要素核验每日上限（防重复调用产生通道费用）
-    daily-verify-limit: 5
+    provider: aliyun  # aliyun / tencent
+    daily-verify-limit: 5  # 同一用户四要素核验每日上限（防重复调用产生通道费用）
     aliyun:
-      # ===== 阿里云实名认证真实 API 配置位（todo：配置第三方：实名认证通道（阿里云/腾讯云实名认证API）配置） =====
       access-key-id: todo-realname-access-key-id
       access-key-secret: todo-realname-access-key-secret
       endpoint: cloudauth.aliyuncs.com
   # OJ 判题配置（v6.3 OJ 判题系统 / v8.0 沙箱 + 异步判题）
   judge:
-    # 判题引擎类型：process=ProcessBuilder 直接执行（开发/测试环境），docker=Docker 沙箱（生产环境）
-    engine-type: process
-    # 单用例运行超时上限（毫秒）
-    timeout-ms: 2000
-    # 内存上限（MB），Docker 沙箱生效
-    memory-limit-mb: 256
-    # 是否启用异步判题（Redis 队列 + Worker），false=同步判题（开发环境）
-    # 注意：启用异步需确保 Redis 已配置
-    async-enabled: false
-    # 异步队列与 Worker（async-enabled=false 时不会启用，保持空配置即可）
-    queue:
+    engine-type: process  # process=ProcessBuilder（开发/测试环境），docker=Docker 沙箱（生产环境）
+    timeout-ms: 2000  # 单用例运行超时上限（毫秒）
+    memory-limit-mb: 256  # 内存上限（MB），Docker 沙箱生效
+    async-enabled: false  # 是否启用异步判题（Redis 队列 + Worker），启用需确保 Redis 已配置
+    queue:  # async-enabled=false 时不会启用，保持空配置即可
       name: moyun:judge:queue
       result-key-prefix: moyun:judge:result
       result-ttl-seconds: 600
@@ -284,8 +205,7 @@ moyun:
       pop-timeout-seconds: 5
       max-retry: 1
       shutdown-await-ms: 5000
-    # Docker 沙箱（engine-type=docker 时生效，开发环境通常不启用）
-    docker:
+    docker:  # engine-type=docker 时生效
       binary: docker
       images:
         javascript: node:20-alpine
@@ -307,9 +227,7 @@ moyun:
       drop-all-caps: true
       container-timeout-seconds: 30
 
-# =============================================
 # MyBatis-Plus 配置
-# =============================================
 mybatis-plus:
   mapper-locations: classpath*:/mapper/**/*.xml
   type-aliases-package: com.moyun.core.base.entity,com.moyun.system.domain.entity,com.moyun.portal.domain.entity,com.moyun.ext.cms.domain.entity,com.moyun.ext.job.domain.entity,com.moyun.ext.ai.entity
@@ -319,36 +237,26 @@ mybatis-plus:
   global-config:
     db-config:
       id-type: auto
-      # 逻辑删除：与 sys_user / sys_dept / sys_role / portal_user 已有的 del_flag 字段对齐
-      # 字段类型 char(1)，"0"=存在 "2"=删除（RuoYi 框架惯例）
+      # 逻辑删除：与 sys_user / sys_dept / sys_role / portal_user 的 del_flag 字段对齐（char(1)，"0"=存在 "2"=删除）
       logic-delete-field: delFlag
       logic-delete-value: "2"
       logic-not-delete-value: "0"
 
-# =============================================
-# MinIO 文件存储配置
-# 凭据通过环境变量注入，默认值仅用于开发环境
-# =============================================
+# MinIO 文件存储配置（凭据通过环境变量注入，默认值仅用于开发环境）
 minio:
-  enabled: true              # false=本地文件系统，true=MinIO 对象存储
+  enabled: true  # false=本地文件系统，true=MinIO 对象存储
   endpoint: ${MINIO_ENDPOINT:http://127.0.0.1:9001}
   access-key: ${MINIO_ACCESS_KEY:admin123}
   secret-key: ${MINIO_SECRET_KEY:admin123}
   bucket-name: ${MINIO_BUCKET_NAME:moyun}
-  # v1.1.2 修复：access-url 应是 MinIO 服务根地址，不含 bucket 名。
-  # 旧默认值 http://127.0.0.1:9001/moyun 已包含 bucket 名 moyun，
-  # 而 MinioUtils.getFileUrl() 会再拼一次 bucketName，导致 URL 出现两个 moyun
+  # access-url 是 MinIO 服务根地址，不含 bucket 名（MinioUtils.getFileUrl() 会再拼 bucketName）
   access-url: ${MINIO_ACCESS_URL:http://127.0.0.1:9001}
-  # 降级配置（运行期可调，无需重启；可通过 /system/file/storage/switch 接口切换）
-  auto-fallback: true        # 自动降级：MinIO 上传/连接异常时自动切到本地存储（默认 true）
-  fallback-to-local: false   # 手动强制降级到本地存储（true=强制走本地，忽略 MinIO 配置）
+  auto-fallback: true  # 自动降级：MinIO 上传/连接异常时自动切到本地存储
+  fallback-to-local: false  # 手动强制降级到本地存储（true=强制走本地，忽略 MinIO 配置）
 
-# =============================================
 # AI 模块配置（LangChain4j + JVector + LibreOffice）
-# =============================================
 langchain4j:
-  # 全局开关（关闭时使用 Mock 实现避免启动报错）
-  enabled: ${AI_ENABLED:true}
+  enabled: ${AI_ENABLED:true}  # 全局开关（关闭时使用 Mock 实现避免启动报错）
   open-ai:
     enabled: ${OPENAI_ENABLED:false}
     api-key: ${OPENAI_API_KEY:}
@@ -367,21 +275,14 @@ langchain4j:
     rerank-model: ${DASHSCOPE_RERANK_MODEL:gte-rerank}
     temperature: 0.7
 
-# =============================================
-# 向量存储配置（知识库 / RAG 检索底座）
-# =============================================
-# 向量存储统一使用 JVector 嵌入式向量搜索引擎（纯 Java HNSW 图索引 + cosine 相似度 + BM25 全文检索）
-# 无 JNI 原生库、无外部服务，Windows / Linux / macOS 均可直接运行
-# Redis 仅承担缓存 / 分布式锁 / 处理进度等职责，不参与向量存储
-# data-path: JVector 数据目录（向量快照落盘文件 moyun_ai_vectors.bin 所在目录）
+# 向量存储配置（JVector 嵌入式向量搜索引擎，纯 Java HNSW 图索引 + cosine 相似度 + BM25 全文检索）
+# 无 JNI 原生库、无外部服务，Windows / Linux / macOS 均可直接运行；Redis 仅承担缓存 / 分布式锁 / 处理进度
 jvector:
-  data-path: ${JVECTOR_DATA_PATH:./data/jvector}
+  data-path: ${JVECTOR_DATA_PATH:./data/jvector}  # 向量快照落盘文件 moyun_ai_vectors.bin 所在目录
 
-# LibreOffice 文档转 PDF 配置（本地转换）
+# LibreOffice 文档转 PDF（本地转换，dev 默认关闭）
+# local.enabled 必须与主开关同步，否则 JodConverterLocalAutoConfiguration 仍会触发 localOfficeManager 创建
 jodconverter:
-  # 开发环境默认关闭 LibreOffice 文档转 PDF（本地通常未安装 LibreOffice）
-  # 如需启用，设环境变量 LIBREOFFICE_ENABLED=true 并配置 LIBREOFFICE_HOME 指向本机安装路径
-  # 注意：local.enabled 必须与主开关同步，否则 JodConverterLocalAutoConfiguration 仍会触发 localOfficeManager 创建
   enabled: ${LIBREOFFICE_ENABLED:false}
   local:
     enabled: ${LIBREOFFICE_ENABLED:false}
@@ -396,7 +297,6 @@ jodconverter:
 moyun-ai:
   # RAG 全局默认配置（与 RagConfig.java 字段对齐，避免依赖 Java 默认值）
   rag:
-    # 基础检索参数
     default-min-score: 0.7
     default-max-results: 5
     chunk-size: 512
@@ -425,7 +325,6 @@ moyun-ai:
     image-dir: ${MOYUN_IMG_DIR:${moyun.profile}/ai/images}
 
   # 知识库默认参数（P2-2 阶段 3：与 KnowledgeDefaults.java 字段对齐）
-  # 统一 KnowledgeConfigServiceImpl / KnowledgeBaseServiceImpl / KnowledgeLibraryServiceImpl 三处硬编码默认值
   # 层级合并优先级：本配置（兜底基线）← 库级默认 ← 文档级覆盖
   knowledge-defaults:
     # 分片配置
@@ -445,7 +344,7 @@ moyun-ai:
     preprocess-remove-extra-newlines: true
     # 索引配置
     index-mode: high_quality           # high_quality(高质量) / economy(经济)
-    # 检索配置（注：检索侧实际读 agent 表 + rag 配置，本字段保留以兼容前端表单）
+    # 检索配置（检索侧实际读 agent 表 + rag 配置，本字段保留以兼容前端表单）
     retrieval-mode: hybrid             # vector(向量) / keyword(关键词) / hybrid(混合)
     retrieval-top-k: 10
     rerank-enabled: false

@@ -10,7 +10,6 @@ import javax.crypto.SecretKey;
 import eu.bitwalker.useragentutils.UserAgent;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
-import io.jsonwebtoken.MalformedJwtException;
 import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.security.Keys;
 import lombok.extern.slf4j.Slf4j;
@@ -41,8 +40,8 @@ public class PortalTokenService {
     @Value("${token.header}")
     private String header;
 
-    // 令牌秘钥（门户端独立密钥，缺省回退到 token.secret 保兼容）
-    @Value("${token.portal.secret:${token.secret:}}")
+    // 令牌秘钥
+    @Value("${token.secret:}")
     private String secret;
 
     // 令牌有效期（默认720分钟 - 12小时，门户可以设置稍长一些）
@@ -150,8 +149,6 @@ public class PortalTokenService {
         claims.put(Constants.LOGIN_USER_KEY, token);
         claims.put(Constants.JWT_USERNAME, loginUser.getUsername());
         claims.put("user_type", "portal"); // 标识为门户用户
-        // audience 声明：标识门户端令牌，校验时验证，防止管理端 Token 在门户端认证链被使用
-        claims.put(Claims.AUDIENCE, Constants.JWT_AUDIENCE_PORTAL);
         return createToken(claims);
     }
 
@@ -234,16 +231,11 @@ public class PortalTokenService {
      */
     private Claims parseToken(String token) {
         SecretKey key = Keys.hmacShaKeyFor(getEffectiveSecret().getBytes(StandardCharsets.UTF_8));
-        Claims claims = Jwts.parser()
+        return Jwts.parser()
                 .verifyWith(key)
                 .build()
                 .parseSignedClaims(token)
                 .getPayload();
-        // audience 校验：门户端认证链只接受 portal 令牌（配合密钥分离双重防护）
-        if (!Constants.JWT_AUDIENCE_PORTAL.equals(claims.getAudience())) {
-            throw new MalformedJwtException("Token audience 不匹配，非门户端令牌");
-        }
-        return claims;
     }
 
     /**

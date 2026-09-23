@@ -1,5 +1,6 @@
 package com.moyun.ext.ai2.support;
 
+import com.moyun.ext.aiapp.support.TokenCostGuard;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;

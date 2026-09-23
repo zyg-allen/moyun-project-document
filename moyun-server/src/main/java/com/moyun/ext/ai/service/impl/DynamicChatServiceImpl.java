@@ -359,7 +359,7 @@ public class DynamicChatServiceImpl implements DynamicChatService {
             }
 
             // 如果有工作流上下文（auto模式），将其添加到用户消息中
-            if (workflowContext != null && !workflowContext.isEmpty()) {
+            if (workflowContext != null && !workflowContext.trim().isEmpty()) {
                 processedUserMessage = "【工作流预处理结果】\n" + workflowContext + "\n\n【用户原始问题】\n" + processedUserMessage;
                 log.info("✅ 已将工作流结果作为上下文添加到用户消息");
             }

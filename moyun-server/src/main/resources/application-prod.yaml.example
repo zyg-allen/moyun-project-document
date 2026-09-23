@@ -122,10 +122,11 @@ token:
   header: Authorization
   secret: ${TOKEN_SECRET}
   expireTime: ${TOKEN_EXPIRE_TIME:120}
+  # 三方密钥统一引用 TOKEN_SECRET，避免 ${token.secret:} 嵌套占位符的解析顺序陷阱
   admin:
-    secret: ${TOKEN_ADMIN_SECRET:${token.secret:}}
+    secret: ${TOKEN_ADMIN_SECRET:${TOKEN_SECRET}}
   portal:
-    secret: ${TOKEN_PORTAL_SECRET:${token.secret:}}
+    secret: ${TOKEN_PORTAL_SECRET:${TOKEN_SECRET}}
 
 # =============================================
 # 安全配置

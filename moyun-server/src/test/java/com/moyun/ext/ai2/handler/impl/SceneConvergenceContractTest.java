@@ -1,5 +1,9 @@
 package com.moyun.ext.ai2.handler.impl;
 
+import com.moyun.ext.aiapp.handler.impl.QuestionGenerateHandler;
+import com.moyun.ext.aiapp.handler.impl.ResumeOptimizeHandler;
+import com.moyun.ext.aiapp.handler.impl.ResumeParseHandler;
+import com.moyun.ext.aiapp.handler.impl.VoiceInterviewHandler;
 import com.moyun.ext.aiapp.model.AiExecuteRequest;
 import org.junit.jupiter.api.Test;
 

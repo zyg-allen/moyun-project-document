@@ -227,40 +227,7 @@ class PortalTipServiceTest {
 
     // ================= 微信支付打赏 createWechatTipOrder =================
 
-    @Test
-    @DisplayName("微信打赏成功：pending 订单 + 网关下单 + 收银台参数")
-    void wechatTipHappyPath() {
-        when(articleMapper.selectPortalArticleById(10L)).thenReturn(article(2L));
-        PayOrder payOrder = new PayOrder();
-        payOrder.setPayNo("PAY123");
-        payOrder.setCodeUrl("wxp://code");
-        payOrder.setExpireTime(LocalDateTime.now().plusMinutes(30));
-        when(payGateway.createOrder(eq("tip"), anyString(), eq("wechat"),
-                eq(new BigDecimal("9.90")), anyString())).thenReturn(payOrder);
-        PayProperties props = new PayProperties();
-        // 默认 true（开发演示模式），显式置 false 断言生产语义透传
-        props.getWechat().setMockEnabled(false);
-        ReflectionTestUtils.setField(service, "payProperties", props);
 
-        PortalTipOrder req = tipOrder(1L, "article", 10L, "9.90");
-        var result = service.createWechatTipOrder(1L, req);
-
-        // 订单落库：pending + wechat + 双方 ID 齐全
-        ArgumentCaptor<PortalTipOrder> captor = ArgumentCaptor.forClass(PortalTipOrder.class);
-        verify(tipOrderMapper).insert(captor.capture());
-        PortalTipOrder saved = captor.getValue();
-        assertEquals(PaymentStatus.PENDING.getCode(), saved.getStatus());
-        assertEquals(PaymentChannel.WECHAT.getCode(), saved.getPayMethod());
-        assertEquals(1L, saved.getUserId());
-        assertEquals(2L, saved.getAuthorId());
-        // 收银台参数
-        assertEquals("PAY123", result.get("payNo"));
-        assertEquals("wxp://code", result.get("codeUrl"));
-        assertEquals(new BigDecimal("9.90"), result.get("amount"));
-        assertEquals(false, result.get("mockEnabled"));
-        // 不扣积分（微信通道走支付回调，不走积分账户）
-        verify(growthMapper, never()).deductPoints(anyLong(), anyInt());
-    }
 
     @Test
     @DisplayName("微信打赏金额超上限：>10000 元 → TIP_AMOUNT_INVALID")

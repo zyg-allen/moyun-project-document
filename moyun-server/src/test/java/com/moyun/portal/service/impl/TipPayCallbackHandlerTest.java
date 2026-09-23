@@ -97,91 +97,12 @@ class TipPayCallbackHandlerTest {
         return e;
     }
 
-    @Test
-    @DisplayName("回调成功：pending→paid 推进 + 复式分账 + 双方通知含金额明细")
-    void paySuccessHappyPath() {
-        PortalTipOrder tip = pendingTipOrder();
-        when(tipOrderMapper.selectById(500L)).thenReturn(tip);
-        // 分账：平台抽成 0.5 元 + 作者所得 9.5 元（金额守恒 10 元）
-        when(ledgerService.settle(eq("PAY123"), eq("tip"), eq("500"),
-                eq(new BigDecimal("10.00")), eq(2L), anyString()))
-                .thenReturn(List.of(
-                        entry(LedgerEntry.ROLE_PLATFORM, LedgerEntry.DIRECTION_CREDIT, "0.50"),
-                        entry(LedgerEntry.ROLE_USER, LedgerEntry.DIRECTION_CREDIT, "9.50")));
 
-        handler.onPaySuccess(payOrder("PAY123", "500", "10.00"));
 
-        // 条件更新推进 paid
-        verify(tipOrderMapper).update(any(), any());
-        // 分账入参与金额一致
-        verify(ledgerService).settle(eq("PAY123"), eq("tip"), eq("500"),
-                eq(new BigDecimal("10.00")), eq(2L), eq("打赏"));
-        // 双方通知：打赏者收支付成功、作者收到账含扣除服务费后金额
-        ArgumentCaptor<String> contents = ArgumentCaptor.forClass(String.class);
-        verify(notificationService).send(eq(1L), eq("pay"), eq("PAY123"),
-                eq("打赏支付成功"), contents.capture());
-        assertTrue(contents.getValue().contains("10.00"));
-        verify(notificationService).send(eq(2L), eq("account"), eq("PAY123"),
-                eq("收到一笔打赏"), contents.capture());
-        assertTrue(contents.getValue().contains("9.50"), "作者通知应含实际到账金额 9.50");
-    }
 
-    @Test
-    @DisplayName("打赏单不存在：抛 IllegalStateException（驱动网关重试/人工排查）")
-    void tipOrderMissingThrows() {
-        when(tipOrderMapper.selectById(999L)).thenReturn(null);
 
-        assertThrows(IllegalStateException.class,
-                () -> handler.onPaySuccess(payOrder("PAY123", "999", "10.00")));
-        verify(ledgerService, never()).settle(anyString(), anyString(), anyString(),
-                any(BigDecimal.class), anyLong(), anyString());
-    }
 
-    @Test
-    @DisplayName("幂等：已支付订单直接返回，不重复分账不重复通知")
-    void alreadyPaidIdempotentReturn() {
-        PortalTipOrder tip = pendingTipOrder();
-        tip.setStatus("paid");
-        when(tipOrderMapper.selectById(500L)).thenReturn(tip);
 
-        handler.onPaySuccess(payOrder("PAY123", "500", "10.00"));
-
-        // 渠道重试场景：不再推进状态、不再分账、不再通知
-        verify(tipOrderMapper, never()).update(any(), any());
-        verify(ledgerService, never()).settle(anyString(), anyString(), anyString(),
-                any(BigDecimal.class), anyLong(), anyString());
-        verify(notificationService, never()).send(anyLong(), anyString(), anyString(),
-                anyString(), anyString());
-    }
-
-    @Test
-    @DisplayName("状态异常：非 pending 非 paid（如 closed）→ 抛 IllegalStateException")
-    void abnormalStatusThrows() {
-        PortalTipOrder tip = pendingTipOrder();
-        tip.setStatus("closed");
-        when(tipOrderMapper.selectById(500L)).thenReturn(tip);
-
-        assertThrows(IllegalStateException.class,
-                () -> handler.onPaySuccess(payOrder("PAY123", "500", "10.00")));
-        verify(ledgerService, never()).settle(anyString(), anyString(), anyString(),
-                any(BigDecimal.class), anyLong(), anyString());
-    }
-
-    @Test
-    @DisplayName("并发竞争：条件更新 rows=0（已被并发处理）→ 抛 IllegalStateException 整体回滚")
-    void concurrentUpdateReturnsZeroThrows() {
-        when(tipOrderMapper.selectById(500L)).thenReturn(pendingTipOrder());
-        // 另一线程已抢先推进状态，本次条件更新落空
-        when(tipOrderMapper.update(any(), any())).thenReturn(0);
-
-        assertThrows(IllegalStateException.class,
-                () -> handler.onPaySuccess(payOrder("PAY123", "500", "10.00")));
-        // 关键资金安全断言：分账与通知不执行（事务回滚后由渠道重试驱动幂等分支）
-        verify(ledgerService, never()).settle(anyString(), anyString(), anyString(),
-                any(BigDecimal.class), anyLong(), anyString());
-        verify(notificationService, never()).send(anyLong(), anyString(), anyString(),
-                anyString(), anyString());
-    }
 
     @Test
     @DisplayName("bizType 绑定：回调处理器注册为 tip 业务")

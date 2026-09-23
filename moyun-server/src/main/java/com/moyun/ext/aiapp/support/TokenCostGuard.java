@@ -43,7 +43,7 @@ public class TokenCostGuard {
     /**
      * 纯判定逻辑（可离线单测）：日累计未达上限即放行
      */
-    static boolean quotaAllows(long todayUsed, int dailyLimit) {
+    public static boolean quotaAllows(long todayUsed, int dailyLimit) {
         if (dailyLimit <= 0) {
             return true;
         }

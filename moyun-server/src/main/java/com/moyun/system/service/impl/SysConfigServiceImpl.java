@@ -5,14 +5,21 @@ import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.moyun.core.config.redis.RedisCache;
 import com.moyun.system.domain.entity.SysConfig;
+import com.moyun.system.domain.entity.SysConfigLog;
+import com.moyun.system.mapper.SysConfigLogMapper;
 import com.moyun.system.mapper.SysConfigMapper;
 import com.moyun.system.service.ISysConfigService;
+import com.moyun.util.ip.IpUtils;
+import com.moyun.util.security.SecurityUtils;
 import com.moyun.util.string.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -37,6 +44,9 @@ public class SysConfigServiceImpl extends ServiceImpl<SysConfigMapper, SysConfig
 
     @Autowired
     private RedisCache redisCache;
+
+    @Autowired
+    private SysConfigLogMapper configLogMapper;
 
     /**
      * 查询参数配置信息
@@ -134,25 +144,65 @@ public class SysConfigServiceImpl extends ServiceImpl<SysConfigMapper, SysConfig
     }
 
     /**
-     * 修改参数配置
+     * 修改参数配置（同事务记录变更审计日志 sys_config_log）
      *
      * @param config 参数配置信息
      * @return 结果
      */
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public int updateConfig(SysConfig config) {
+        // 变更前快照（审计前后值用）
+        SysConfig before = config.getConfigId() == null ? null : baseMapper.selectById(config.getConfigId());
         int rows = baseMapper.updateById(config);
-        if (rows > 0 && config.getConfigKey() != null) {
+        if (rows > 0) {
             // 修复：原实现只更新 DB 不清缓存，selectConfigByKey 仍返回旧值。
             // 此处针对单 key 删除（比 clearConfigCache 全清更精细，不影响其他配置缓存），
             // 下次读取时回源 DB 并回填新值。若 update 只改了部分字段未带 configKey，
             // 由调用方（Controller）保证触发 refreshCache。
             SysConfig fresh = baseMapper.selectById(config.getConfigId());
-            if (fresh != null && StringUtils.isNotEmpty(fresh.getConfigKey())) {
+            if (config.getConfigKey() != null && fresh != null && StringUtils.isNotEmpty(fresh.getConfigKey())) {
                 redisCache.setCacheObject(CONFIG_CACHE_KEY_PREFIX + fresh.getConfigKey(), fresh.getConfigValue(), CONFIG_CACHE_TTL_MINUTES, TimeUnit.MINUTES);
             }
+            // 变更审计：与更新同一事务，留痕失败整笔回滚
+            insertChangeLog(before, fresh);
         }
         return rows;
+    }
+
+    /**
+     * 变更审计留痕：键值实际变化时写入 sys_config_log（操作人/时间/前后值）
+     */
+    private void insertChangeLog(SysConfig before, SysConfig after) {
+        if (after == null) {
+            return;
+        }
+        String oldValue = before == null ? null : before.getConfigValue();
+        if (Objects.equals(oldValue, after.getConfigValue())) {
+            return;
+        }
+        SysConfigLog configLog = new SysConfigLog();
+        configLog.setConfigId(after.getConfigId());
+        configLog.setConfigKey(after.getConfigKey());
+        configLog.setOldValue(oldValue);
+        configLog.setNewValue(after.getConfigValue());
+        configLog.setOperateType("UPDATE");
+        configLog.setOperName(resolveOperName(after));
+        configLog.setOperIp(IpUtils.getIpAddr());
+        configLog.setCreateTime(LocalDateTime.now());
+        configLogMapper.insert(configLog);
+    }
+
+    /**
+     * 解析操作人：优先当前登录管理员，无登录上下文（内部调用）回退 updateBy
+     */
+    private String resolveOperName(SysConfig after) {
+        try {
+            return SecurityUtils.getUsername();
+        } catch (Exception ignored) {
+            // 无登录上下文
+        }
+        return StringUtils.isNotEmpty(after.getUpdateBy()) ? after.getUpdateBy() : "system";
     }
 
     /**

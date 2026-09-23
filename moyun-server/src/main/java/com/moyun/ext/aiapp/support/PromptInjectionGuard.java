@@ -1,6 +1,13 @@
 package com.moyun.ext.aiapp.support;
 
+import java.nio.ByteBuffer;
+import java.nio.charset.CharacterCodingException;
+import java.nio.charset.CodingErrorAction;
+import java.nio.charset.StandardCharsets;
+import java.text.Normalizer;
+import java.util.Base64;
 import java.util.List;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
@@ -77,6 +84,9 @@ public final class PromptInjectionGuard {
             Pattern.compile("开发者模式|越狱模式| jailbreak")
     );
 
+    /** 疑似 Base64 片段（≥16 位，标准 / URL-safe 字符集，可带 0-2 位 padding） */
+    private static final Pattern BASE64_CANDIDATE = Pattern.compile("[A-Za-z0-9+/_-]{16,}={0,2}");
+
     private PromptInjectionGuard() {
     }
 
@@ -104,12 +114,29 @@ public final class PromptInjectionGuard {
     /**
      * 注入模式扫描：DANGEROUS（拒绝）> SUSPECT（隔离）> NONE
      *
+     * <p>规则扫描前先做输入解码规范化（NFKC 归一 + 全角转半角），
+     * 再对疑似 Base64 片段解码复检（解码失败用规范化原文），
+     * 防御全角字符 / Unicode 兼容变体 / Base64 编码等绕过手段。
+     *
      * @return 命中等级与模式描述（供日志留痕），未命中返回 level=NONE
      */
     public static ScanResult scan(String text) {
         if (text == null || text.isBlank()) {
             return ScanResult.NONE_RESULT;
         }
+        String normalized = normalizeInput(text);
+        ScanResult result = scanRules(normalized);
+        if (result != ScanResult.NONE_RESULT) {
+            return result;
+        }
+        // 疑似 Base64 片段解码复检：解码失败（非法 Base64 / 非 UTF-8 可读文本）即用原文结果
+        return scanBase64Segments(normalized);
+    }
+
+    /**
+     * 规则扫描：DANGEROUS（拒绝）> SUSPECT（隔离）> NONE（分类逻辑不变）
+     */
+    private static ScanResult scanRules(String text) {
         for (Pattern p : DANGEROUS_OVERRIDE) {
             if (p.matcher(text).find()) {
                 return new ScanResult(RiskLevel.DANGEROUS, "instruction_override");
@@ -126,6 +153,75 @@ public final class PromptInjectionGuard {
             }
         }
         return ScanResult.NONE_RESULT;
+    }
+
+    /**
+     * 输入解码规范化：Unicode NFKC 归一化（兼容分解，如数学字母符号/连字/全角）
+     * + 全角转半角（FF01-FF5E → ASCII，全角空格 U+3000 → 半角空格），
+     * 对抗 ｉｇｎｏｒｅ / 𝕚𝕘𝕟𝕠𝕣𝕖 等视觉同形绕过。仅用于检测，不改动原文。
+     */
+    static String normalizeInput(String text) {
+        if (text == null || text.isEmpty()) {
+            return text;
+        }
+        String nfkc = Normalizer.normalize(text, Normalizer.Form.NFKC);
+        StringBuilder sb = new StringBuilder(nfkc.length());
+        for (int i = 0; i < nfkc.length(); i++) {
+            char c = nfkc.charAt(i);
+            if (c == '\u3000') {
+                sb.append(' ');
+            } else if (c >= '\uFF01' && c <= '\uFF5E') {
+                sb.append((char) (c - 0xFEE0));
+            } else {
+                sb.append(c);
+            }
+        }
+        return sb.toString();
+    }
+
+    /**
+     * 疑似 Base64 片段逐个解码复检（解码结果同样先规范化再扫规则）
+     */
+    private static ScanResult scanBase64Segments(String text) {
+        Matcher matcher = BASE64_CANDIDATE.matcher(text);
+        while (matcher.find()) {
+            String decoded = tryDecodeBase64(matcher.group());
+            if (decoded == null) {
+                continue;
+            }
+            ScanResult result = scanRules(normalizeInput(decoded));
+            if (result != ScanResult.NONE_RESULT) {
+                return result;
+            }
+        }
+        return ScanResult.NONE_RESULT;
+    }
+
+    /**
+     * 尝试 Base64 解码（标准 → URL-safe，自动补 padding），
+     * 解码结果须为合法 UTF-8 可读文本，否则视为二进制噪声返回 null
+     */
+    private static String tryDecodeBase64(String candidate) {
+        String padded = candidate.length() % 4 == 0 ? candidate
+                : candidate + "=".repeat(4 - candidate.length() % 4);
+        byte[] bytes;
+        try {
+            bytes = Base64.getDecoder().decode(padded);
+        } catch (IllegalArgumentException e) {
+            try {
+                bytes = Base64.getUrlDecoder().decode(padded);
+            } catch (IllegalArgumentException e2) {
+                return null;
+            }
+        }
+        try {
+            return StandardCharsets.UTF_8.newDecoder()
+                    .onMalformedInput(CodingErrorAction.REPORT)
+                    .onUnmappableCharacter(CodingErrorAction.REPORT)
+                    .decode(ByteBuffer.wrap(bytes)).toString();
+        } catch (CharacterCodingException e) {
+            return null;
+        }
     }
 
     /**

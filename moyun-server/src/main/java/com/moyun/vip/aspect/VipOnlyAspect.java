@@ -20,6 +20,7 @@ import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
 
 import java.util.List;
+import java.util.regex.Pattern;
 
 /**
  * {@link VipOnly} 运行时切面
@@ -30,8 +31,10 @@ import java.util.List;
  * 3. 未登录 → 401
  * 4. 权益校验：consume=true 扣减次数，false 仅校验；不足 → 402（引导开通）
  *
- * <p>注册表路径匹配：先精确（含 {id} pattern 直存的接口无法用 URI 命中），
- * 再 Ant 通配兜底，保证带路径参数接口的后台禁用同样生效。
+ * <p>注册表路径匹配：注册表统一存 pattern 化路径（{id} 形式，由 VipApiScanner 保证）。
+ * 先精确命中（静态路径 pattern 与实际 URI 一致），未命中再把 pattern 中的
+ * URI 模板变量（{id} / 存量 {id:[0-9]+}）折算为 Ant 通配 * 后用 AntPathMatcher 兜底，
+ * 保证带路径参数接口（如 /portal/interview/voice/{id}/start）的后台禁用正确命中。
  *
  * @author moyun
  */
@@ -42,6 +45,9 @@ public class VipOnlyAspect {
 
 
     private static final AntPathMatcher PATH_MATCHER = new AntPathMatcher();
+
+    /** 注册表 pattern 中的 URI 模板变量（{id} / 存量 {id:[0-9]+}）→ Ant 通配单段 * */
+    private static final Pattern PATH_VAR_PATTERN = Pattern.compile("\\{[^/]+?\\}");
 
     @Autowired
     private IVipService vipService;
@@ -99,13 +105,13 @@ public class VipOnlyAspect {
             if (exact != null) {
                 return exact.getEnabled() != null && exact.getEnabled() == 0;
             }
-            // Ant 通配兜底（带 {id} 等 path variable 的接口）
+            // Ant 通配兜底（带 {id} 等 path variable 的接口：pattern 变量折算为 * 后匹配）
             List<VipApiRegistry> candidates = registryMapper.selectList(
                     new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<VipApiRegistry>()
                             .eq(VipApiRegistry::getHttpMethod, method)
                             .eq(VipApiRegistry::getPlatformCode, platformCode));
             for (VipApiRegistry r : candidates) {
-                if (PATH_MATCHER.match(r.getApiPath(), uri)) {
+                if (PATH_MATCHER.match(toAntPattern(r.getApiPath()), uri)) {
                     return r.getEnabled() != null && r.getEnabled() == 0;
                 }
             }
@@ -113,5 +119,10 @@ public class VipOnlyAspect {
             log.warn("[vip] 注册表查询失败，按未禁用处理", e);
         }
         return false;
+    }
+
+    /** 注册表 pattern（含 {id} 等 URI 模板变量）→ Ant 通配 pattern（{var} → 单段 *） */
+    private static String toAntPattern(String apiPath) {
+        return PATH_VAR_PATTERN.matcher(apiPath).replaceAll("*");
     }
 }

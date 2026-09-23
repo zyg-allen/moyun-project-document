@@ -130,7 +130,7 @@ public class WithdrawOrderServiceImpl extends ServiceImpl<WithdrawOrderMapper, W
                 .eq(WithdrawOrder::getStatus, WithdrawOrder.STATUS_AUDITING)
                 .set(WithdrawOrder::getStatus, WithdrawOrder.STATUS_PAYING)
                 .set(WithdrawOrder::getAuditTime, LocalDateTime.now()));
-        if (advanced) {
+        if (!advanced) {
             throw new BusinessException("WITHDRAW_STATUS_INVALID", "提现单已处理（当前状态：" + order.getStatus() + "）");
         }
 
@@ -195,7 +195,7 @@ public class WithdrawOrderServiceImpl extends ServiceImpl<WithdrawOrderMapper, W
                 .eq(WithdrawOrder::getStatus, WithdrawOrder.STATUS_PAYING)
                 .set(WithdrawOrder::getStatus, WithdrawOrder.STATUS_PAID)
                 .set(WithdrawOrder::getPaidTime, LocalDateTime.now()));
-        if (rows) {
+        if (!rows) {
             throw new BusinessException("WITHDRAW_STATUS_INVALID", "提现单打款状态推进失败：" + order.getWithdrawNo());
         }
         log.info("[withdraw] 打款完成，单号{} 用户{} 出金{}元 卡={} 收款人={}",
@@ -215,7 +215,7 @@ public class WithdrawOrderServiceImpl extends ServiceImpl<WithdrawOrderMapper, W
                 .set(WithdrawOrder::getStatus, WithdrawOrder.STATUS_REJECTED)
                 .set(WithdrawOrder::getAuditTime, LocalDateTime.now())
                 .set(WithdrawOrder::getRejectReason, rejectReason));
-        if (rows) {
+        if (!rows) {
             throw new BusinessException("WITHDRAW_STATUS_INVALID", "提现单已处理（当前状态：" + order.getStatus() + "）");
         }
         // 2. 解冻（frozen -= amount，金额回可用余额；失败即数据异常，回滚保持 auditing）

@@ -3802,6 +3802,28 @@ CREATE TABLE `sys_user_role` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='用户和角色关联表';
 
 
+-- =====================================================================
+-- system 模块补充（P2 sys_config 变更审计 · 2026-09-23）：
+-- 参数配置变更留痕：sys_config 更新时同事务记录前后值/操作人/IP，
+-- 逻辑关联 sys_config.config_id，不建物理外键。
+-- =====================================================================
+
+CREATE TABLE `sys_config_log` (
+                                  `id` bigint NOT NULL AUTO_INCREMENT COMMENT '日志主键',
+                                  `config_id` bigint NOT NULL COMMENT '参数主键（逻辑关联 sys_config.config_id，无物理外键）',
+                                  `config_key` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT '' COMMENT '参数键名（冗余快照，便于审计检索）',
+                                  `old_value` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '变更前键值',
+                                  `new_value` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '变更后键值',
+                                  `operate_type` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT 'UPDATE' COMMENT '操作类型（UPDATE）',
+                                  `oper_name` varchar(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT '' COMMENT '操作人员',
+                                  `oper_ip` varchar(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT '' COMMENT '操作IP',
+                                  `create_time` datetime DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+                                  PRIMARY KEY (`id`),
+                                  KEY `idx_config_id` (`config_id`),
+                                  KEY `idx_config_key` (`config_key`)
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='参数配置变更日志表（sys_config 审计留痕）';
+
+
 -- `moyun-db`.vip_api_registry definition
 
 CREATE TABLE `vip_api_registry` (

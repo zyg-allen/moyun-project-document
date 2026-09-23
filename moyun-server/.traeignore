@@ -1,0 +1,61 @@
+# ==================== 构建产物 ====================
+target/
+build/
+out/
+*.class
+*.jar
+*.war
+*.ear
+
+# ==================== IDE ====================
+.idea/
+*.iml
+*.ipr
+*.iws
+.vscode/
+.settings/
+.project
+.classpath
+
+# ==================== 日志 ====================
+logs/
+*.log
+*.log.gz
+
+# ==================== Maven ====================
+.mvn/
+mvnw
+mvnw.cmd
+
+# ==================== 测试 ====================
+# 保留 src/test 供 AI 参考，但排除测试报告
+target/surefire-reports/
+target/failsafe-reports/
+
+# ==================== 大文件/二进制 ====================
+*.pdf
+*.doc
+*.docx
+*.xls
+*.xlsx
+*.zip
+*.tar
+*.tar.gz
+*.rar
+*.7z
+
+# ==================== SQL 脚本（可选排除）====================
+# 如果 SQL 文件很多且不需要 AI 频繁读，取消下面注释
+# src/main/resources/sql/
+# *.sql
+
+# ==================== Druid / Knife4j 静态资源 ====================
+src/main/resources/static/
+src/main/resources/templates/
+
+# ==================== 其他 ====================
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~

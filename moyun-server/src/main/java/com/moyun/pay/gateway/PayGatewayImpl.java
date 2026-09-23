@@ -210,15 +210,37 @@ public class PayGatewayImpl implements IPayGateway {
             return;
         }
         if (!PayOrder.STATUS_CREATED.equals(order.getStatus())) {
+            // 已关单后仍收到成功回调（关单与用户支付并发，渠道侧已真实收款）：
+            // 资金未入账不可自动补账（业务单可能已取消），记录 error 供人工对账（查单核实后退款/补入账），
+            // 并按渠道协议应答成功，避免渠道无限重试
+            if (PayOrder.STATUS_CLOSED.equals(order.getStatus())) {
+                log.error("[pay-gateway] 已关单收到成功回调（关单/支付并发，资金未入账，需人工对账）payNo={} channelOrderNo={}",
+                        order.getPayNo(), message.getChannelOrderNo());
+                return;
+            }
             log.info("[pay-gateway] 重复回调幂等返回 payNo={} status={}", order.getPayNo(), order.getStatus());
             return;
         }
-        Boolean ok = transactionTemplate.execute(status -> {
-            markPaid(order.getPayNo(), message.getChannelOrderNo(), LocalDateTime.now());
-            dispatchBusiness(order.getPayNo());
-            return Boolean.TRUE;
-        });
-        log.info("[pay-gateway] 回调处理完成 payNo={} result={}", order.getPayNo(), ok);
+        try {
+            Boolean ok = transactionTemplate.execute(status -> {
+                markPaid(order.getPayNo(), message.getChannelOrderNo(), LocalDateTime.now());
+                dispatchBusiness(order.getPayNo());
+                return Boolean.TRUE;
+            });
+            log.info("[pay-gateway] 回调处理完成 payNo={} result={}", order.getPayNo(), ok);
+        } catch (IllegalStateException e) {
+            // 极端并发兜底：同一支付单的重复回调同时通过 CREATED 前置检查，后到者 markPaid 条件更新 0 行；
+            // 重读库内状态若已被并发请求推进为 PAID/SETTLED，说明本次为重复回调，幂等吸收并成功应答
+            // （避免误报 FAIL 触发渠道无谓重试）；否则（真实处理失败，事务已回滚保持 CREATED）原样抛出，
+            // 由渠道重试驱动重新处理
+            PayOrder latest = getByPayNo(order.getPayNo());
+            if (latest != null && (PayOrder.STATUS_PAID.equals(latest.getStatus())
+                    || PayOrder.STATUS_SETTLED.equals(latest.getStatus()))) {
+                log.info("[pay-gateway] 并发重复回调幂等吸收 payNo={} status={}", order.getPayNo(), latest.getStatus());
+                return;
+            }
+            throw e;
+        }
     }
 
     /**
@@ -248,9 +270,22 @@ public class PayGatewayImpl implements IPayGateway {
         }
         PayCallbackHandler handler = routeHandler(order.getBizType());
         if (handler == null) {
+            // 配置缺失属永久性错误（渠道重试无法自愈）：带完整支付上下文记录后抛出回滚，人工介入补分账
+            log.error("[pay-gateway] 业务类型未注册回调处理器（渠道已收款但无法分账，需人工跟进）payNo={} bizType={} bizNo={} amount={}元",
+                    order.getPayNo(), order.getBizType(), order.getBizNo(), order.getAmount());
             throw new IllegalStateException("业务类型未注册回调：" + order.getBizType());
         }
-        handler.onPaySuccess(order);
+        try {
+            handler.onPaySuccess(order);
+        } catch (Exception e) {
+            // 业务分发异常兜底：带完整支付上下文（payNo/bizType/bizNo/金额/handler）落 error 日志，
+            // 便于对账与补偿（handler 自身日志缺少支付单维度时以此为准）；
+            // 原样抛出保证事务整体回滚（支付单保持 CREATED，由渠道重试/人工补偿重新驱动分发）
+            log.error("[pay-gateway] 业务回调分发失败（事务回滚，等待渠道重试）payNo={} bizType={} bizNo={} amount={}元 handler={} err={}",
+                    order.getPayNo(), order.getBizType(), order.getBizNo(), order.getAmount(),
+                    handler.getClass().getName(), e.getMessage(), e);
+            throw e;
+        }
         // 业务处理成功 → SETTLED（条件更新，保证分账只被推进一次）
         int rows = payOrderMapper.update(null, new LambdaUpdateWrapper<PayOrder>()
                 .eq(PayOrder::getPayNo, payNo)

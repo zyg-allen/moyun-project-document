@@ -1,0 +1,61 @@
+# ==================== 依赖 ====================
+node_modules/
+.pnpm-store/
+.yarn/
+
+# ==================== 构建产物 ====================
+dist/
+dist-ssr/
+build/
+.output/
+.vite/
+.vitepress/
+
+# ==================== 缓存 ====================
+.cache/
+.temp/
+.tmp/
+*.local
+
+# ==================== 测试覆盖率 ====================
+coverage/
+.nyc_output/
+
+# ==================== IDE ====================
+.idea/
+.vscode/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+
+# ==================== 日志 ====================
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# ==================== 静态资源（大图不索引）====================
+public/
+src/assets/images/
+src/assets/fonts/
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.webp
+*.svg
+*.ico
+
+# ==================== 锁文件（可选保留）====================
+# 保留 pnpm-lock.yaml 供 AI 参考依赖版本
+# package-lock.json
+# yarn.lock
+
+# ==================== 其他 ====================
+.DS_Store
+Thumbs.db
+*.swp
+*.swo

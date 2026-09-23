@@ -103,6 +103,13 @@ token:
   # 开发环境专用密钥默认值（至少64字符/512位，HS512算法要求），生产环境必须通过 TOKEN_SECRET 环境变量覆盖
   # 如需自定义：设置环境变量 TOKEN_SECRET 即可覆盖此默认值
   secret: ${TOKEN_SECRET:moyun-dev-only-secret-key-do-not-use-in-prod-env-at-least-64-chars-2026}
+  # 管理端/门户端独立签名密钥（密钥分离，防门户 Token 伪造管理端请求提权）：
+  # 未单独配置时回退共用 token.secret 保兼容，启动时 TokenConfigValidator 会 log.warn 提示未分离；
+  # 可通过 TOKEN_ADMIN_SECRET / TOKEN_PORTAL_SECRET 环境变量分别注入不同密钥（联调密钥分离场景）
+  admin:
+    secret: ${TOKEN_ADMIN_SECRET:${token.secret:}}
+  portal:
+    secret: ${TOKEN_PORTAL_SECRET:${token.secret:}}
 
 # =============================================
 # 旭林框架配置（本地文件路径覆盖）

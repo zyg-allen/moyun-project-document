@@ -14,6 +14,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import com.moyun.ext.ai.enums.AiSceneEnum;
+import com.moyun.ext.ai.enums.AiSceneTasks;
 
 /**
  * 评分引擎（v11.x 权重化重构）
@@ -73,7 +74,7 @@ public class ScoringEngine {
         try {
             // LinkedHashMap 可变 Map（Map.of 不可变会被网关输入清洗路径击穿，已根治但业务侧保持一致）
             Map<String, Object> input = new java.util.LinkedHashMap<>();
-            input.put("task", "self_intro");
+            input.put("task", AiSceneTasks.INTERVIEW_SELF_INTRO);
             input.put("context", position == null ? "" : position);
             input.put("transcript", transcript);
             JsonNode node = aiSceneJsonClient.executeForJson(SCENE_VOICE_INTERVIEW, input, userId);

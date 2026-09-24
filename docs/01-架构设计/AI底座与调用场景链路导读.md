@@ -89,7 +89,7 @@
 
 | # | 步骤 | 类与方法 | 说明 |
 |---|---|---|---|
-| 1 | 场景配置 | `AiSceneRegistry.getConfig(sceneCode, task)` | **直查 ai_scene_config 表**（enabled=1 按 priority DESC 取第一条），无内存缓存 → 管理端改提示词/绑定/限流**下次调用立即生效**。**task 拆行路由（2A.4）**：主码 + `input.task` → 先查全码 `scene:task`，未命中回退主码；命中全码行后落库口径统一为全码（ai_execute_log 按 task 维度统计成本） |
+| 1 | 场景配置 | `AiSceneRegistry.getConfig(sceneCode, task)` | **直查 ai_scene_config 表**（enabled=1 按 priority DESC 取第一条），无内存缓存 → 管理端改提示词/绑定/限流**下次调用立即生效**。**task 拆行路由（2A.4）**：主码 + `input.task` → 先查全码 `scene:task`，未命中回退主码；命中全码行后落库口径统一为全码（ai_execute_log 按 task 维度统计成本）。**已拆行 task（2B.1）**：resume_optimize×5 + voice_interview×3 共 8 个全码配置行，提示词从 Handler 逐字迁入 `user_prompt_template`（`{{data:标签|key}}` 数据通道占位符 → `PromptInjectionGuard.wrapData` 隔离，空值自动丢弃）；task 短码统一引用 `AiSceneTasks` 常量 |
 | 2 | Handler 路由 | `AiSceneRegistry.getHandler(sceneCode)` | 全码 → 主码 → SPI Handler（逃生舱）→ **未命中回落 `DefaultSceneExecutor` 配置驱动执行**（2A.3：模板渲染 → LLM → output_parser 解析 → 兜底，复用 AbstractAiSceneHandler 骨架） |
 | 3 | 输出模式校验 | config.outputMode=="stream" 则拒绝 | 提示走 `/api/ai/execute/stream` |
 | 4 | Agent 人设注入 | `injectAgentPersona` → `AgentMapper.selectById` | 读 ai_agent.system_prompt，渲染 `{{占位符}}` 放入 `input.agentPersona`；位于缓存键计算之前 → 人设变更自动失效缓存 |
@@ -235,23 +235,27 @@ AiExecuteResponse<?> resp = aiGatewayService.execute(request);
 `PortalVoiceInterviewController.answer`（`POST /portal/interview/voice/{id}/answer`，text/event-stream）→ `VoiceInterviewServiceImpl.submitAnswer` → `AiGatewayService.executeConversationStream`（网关会话流式通道）。
 网关承担公共职责：治理前置（voice_interview 场景行限流/Token 熔断/注入防护）+ ContextManager 滑窗记忆注入（超窗异步预生成摘要）+ per-agent 模型路由（`AgentModelRouter`，agent.modelConfigId → 流式模型，不支持流式时自动挑选）+ 完成回调 Token 累计与执行日志。业务侧只做业务编排：回答落库、下一题预创建、SSE 事件（`delta`/`end`/`error`）与载荷组装——前端零改动。灰度开关 `ai.gateway.interview.enabled` 与同步模拟流式兜底已删除（2026-09-24 阶段一收口）。
 
-**② 预热/逐题分析/自我介绍评分（task 子任务，走网关）**
+**② 预热/逐题分析/自我介绍评分（task 拆行，走网关）**
 - warmup：`tryWarmup` → `AiSceneJsonClient` 一次产出开场白+首题，失败降级 agentClient.chat 同步调用；
 - answer_analysis：`analyzeAnswerByLlm` → LLM 分与规则分（`AnswerScoringEngine`）按权重融合（默认 LLM 70%/规则 30%）；
 - self_intro：`ScoringEngine.evaluateSelfIntro` → 4 维评分（逻辑结构/自我认知/岗位匹配/表达流畅）。
+> 三个 task 已拆行至全码配置行（`voice_interview:warmup/answer_analysis/self_intro`，2B.1），agent_id=48 保持模型连续性；prompt 迁入 user_prompt_template，Handler 删除后由 `DefaultSceneExecutor` 配置驱动执行（2B.5）。
 
 ### 7.2 resume_parse（简历解析）——表驱动异步任务
 
 `PortalUserResumeController.parseAttachment`（multipart，快速路径只存源文件）→ `AiTaskService.submitTask(userId,"resume_parse",...)` → `AiTaskAsyncExecutor`（@Async("aiTaskExecutor")）→ `ResumeParseTaskHandler` → `ResumeParseService.executeParse.parseByLlm` → `AiSceneJsonClient` → 反序列化 `ResumeParseVO` 落库。前端轮询 `GET /portal/interview/resume/user` 任务状态。失败 `parseByRule` 正则兜底。
 
-### 7.3 resume_optimize（简历优化族，4 个 task 子任务）
+### 7.3 resume_optimize（简历优化族，5 个 task 子任务）
 
 | task | 入口 | 链路 |
 |---|---|---|
 | advice | `POST /{id}/ai-advice` | `ResumeAiAdviceService.generateAdvice` → 网关；失败规则化建议 |
 | job_match | `POST /match/{resumeId}/{jobTargetId}`（同步/异步） | `ResumeJobMatchService.analyze` → 报告落 portal_resume_job_match；失败关键词命中兜底 |
 | field_assist | `POST /ai-assist` | `ResumeDeepOptimizeService.fieldAssist`（字段级 3 版本建议） |
-| draft_empty / deep | `POST /ai-draft/{resumeId}`、`POST /deep/...` | `ResumeDeepOptimizeGenerator` → 网关 |
+| draft_empty | `POST /ai-draft/{resumeId}` | `ResumeDeepOptimizeService.aiDraftEmptyFields` → 网关 |
+| deep_optimize | `POST /deep/...` | `ResumeDeepOptimizeGenerator` → 网关 |
+
+> 5 个 task 已拆行至全码配置行（`resume_optimize:advice/job_match/field_assist/draft_empty/deep_optimize`，2B.1），不绑 agent 走默认模型（与迁移前一致）；此前无主场景配置行时网关返回 SCENE_NOT_FOUND、业务静默走规则兜底，拆行后 AI 路径正式启用。
 
 ### 7.4 question_generate（JD 关键词提取，task=jd_keywords）
 
@@ -327,7 +331,7 @@ RAG 多路召回+引用溯源，仅 Handler + 测试，经开放入口调用（�
 
 **设计要点（读代码时带着这些视角）**
 1. **双客户端分层**：业务标准入口 `AiSceneJsonClient`（失败返回 null 走规则兜底）；需完整元数据直调 `AiGatewayService`。
-2. **task 子任务契约**：一个场景 Handler 内用 `input.task` 路由子任务（resume_optimize 4 个、voice_interview 3 个、question_generate 1 个），提示词逐字收编在 Handler 内，业务侧不拼 Prompt。
+2. **task 拆行契约（2B.1）**：业务调用传主码 + `input.task`（短码统一引用 `AiSceneTasks` 常量），网关先查全码 `scene:task` 配置行、未命中回退主码；8 个 task 已拆行（resume_optimize×5、voice_interview×3），提示词逐字迁入全码行 `user_prompt_template`，外部不可信数据用 `{{data:标签|key}}` 数据通道占位符（wrapData 隔离、空值丢弃）；question_generate:jd_keywords 仍为 Handler 内部分支（2B.3 随场景迁移）。
 3. **input vs userInput 通道**：结构化业务数据走 `input`（数据隔离），用户自由文本走 `userInput`（意图分类+注入拦截）——**铁律：外部不可信数据禁止走顶层 userInput**（意图分类器置信度 <0.6 会误打断返回 clarification）。
 4. **配置即场景**：ai_scene_config 直查库不缓存，管理端改配置即时生效；模型配置走 Redis 缓存+主动失效；提供商注册表全量内存缓存+CRUD 失效重建。
 5. **扩展点**：新增场景三步——AiSceneEnum 加枚举 + 实现 AiSceneHandler 注册为 Bean + ai_scene_config 插配置行，网关编排零改动；新增 OpenAI 兼容提供商仅 ai_provider 插一行。

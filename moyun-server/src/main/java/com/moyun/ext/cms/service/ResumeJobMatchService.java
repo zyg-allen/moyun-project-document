@@ -28,6 +28,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import com.moyun.ext.ai.enums.AiSceneEnum;
+import com.moyun.ext.ai.enums.AiSceneTasks;
 
 /**
  * 岗位匹配分析服务（简历优化重构）
@@ -126,7 +127,7 @@ public class ResumeJobMatchService {
                 + "\n\n【候选人简历】\n" + resumeContent;
 
         Map<String, Object> input = new HashMap<>();
-        input.put("task", "job_match");
+        input.put("task", AiSceneTasks.RESUME_JOB_MATCH);
         input.put("context", context);
         JsonNode node = aiSceneJsonClient.executeForJson(SCENE_RESUME_OPTIMIZE, input, userId);
         if (node == null) {

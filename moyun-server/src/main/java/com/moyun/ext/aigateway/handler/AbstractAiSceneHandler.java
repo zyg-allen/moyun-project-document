@@ -9,6 +9,7 @@ import com.moyun.ext.ai.service.ModelConfigService;
 import com.moyun.ext.aigateway.model.AiExecuteRequest;
 import com.moyun.ext.aigateway.model.AiMetadata;
 import com.moyun.ext.aigateway.model.ChatOutcome;
+import com.moyun.ext.aigateway.support.PromptInjectionGuard;
 import dev.langchain4j.data.message.SystemMessage;
 import dev.langchain4j.data.message.UserMessage;
 import dev.langchain4j.model.chat.ChatLanguageModel;
@@ -233,14 +234,36 @@ public abstract class AbstractAiSceneHandler implements AiSceneHandler {
                 });
     }
 
+    /** 数据通道占位符：{{data:标签|input键}} → 值经 PromptInjectionGuard.wrapData 分隔符隔离（2B.1） */
+    private static final java.util.regex.Pattern DATA_PLACEHOLDER =
+            java.util.regex.Pattern.compile("\\{\\{data:([^|}]+)\\|([^}|]+)\\}\\}");
+
     /**
-     * 渲染提示词模板：将 {{key}} 替换为 input 中对应值；input 无该 key 时保留原样（便于发现配置错误）
+     * 渲染提示词模板：
+     * <ul>
+     *   <li>{@code {{key}}：普通占位符，替换为 input 中对应值（缺 key 保留原样，便于发现配置错误）</li>
+     *   <li>{@code {{data:标签|key}}}：<b>数据通道占位符</b>（网关整改 2B.1），值经
+     *       {@link PromptInjectionGuard#wrapData} 分隔符隔离——外部不可信数据（转写/简历/JD）
+     *       嵌入提示词的统一防注入约定，prompt 配置化后替代原 Handler 内的显式 wrapData 调用；
+     *       值缺失/空白时占位符整体丢弃（等价原 Handler 的条件拼接，不产生空数据块）</li>
+     * </ul>
      */
     protected String renderTemplate(String template, AiExecuteRequest request) {
         if (template == null || request == null || request.getInput() == null) {
             return template;
         }
         String result = template;
+        if (result.contains("{{data:")) {
+            result = DATA_PLACEHOLDER.matcher(result).replaceAll(match -> {
+                String key = match.group(2).trim();
+                Object value = request.getInput().get(key);
+                if (value == null || String.valueOf(value).isBlank()) {
+                    return "";
+                }
+                return java.util.regex.Matcher.quoteReplacement(PromptInjectionGuard.wrapData(
+                        match.group(1).trim(), String.valueOf(value)));
+            });
+        }
         for (Map.Entry<String, Object> entry : request.getInput().entrySet()) {
             String placeholder = "{{" + entry.getKey() + "}}";
             if (result.contains(placeholder)) {

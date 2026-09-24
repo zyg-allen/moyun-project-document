@@ -96,6 +96,75 @@ INSERT INTO ai_scene_config (scene_code,scene_name,description,scene_category,ag
 ','{"window": "统计窗口文案，如：本月（自 2026-09-01 起，含数据 3 个月；另附近6个月趋势数据）", "ledgerContext": "业务侧组装的财务上下文 JSON（画像/核心指标护栏/收入来源/支出结构Top5/负债明细含清偿测算/逐月收支趋势/分类环比/预算执行）"}','sync','{"risks": [{"level": "string，仅允许取值 high/medium/low", "title": "string，风险短标题", "detail": "string，风险详细说明", "evidence": "string，支撑该风险的具体数据依据"}], "summary": "string，完整的财务分析综述，讲清周期内的收支故事与核心特征", "healthScore": "int 0-100，基于传入指标计算的财务健康分", "suggestions": [{"icon": "string，前端可直接使用的图标标识，如 wallet / save / debt / invest", "title": "string，建议短标题", "detail": "string，建议的具体执行动作说明", "expectedImpact": "string，该建议落地后可实现的量化收益效果"}]}','',2048,0.7,30,3,'aaa',100,60,NULL,0,NULL,'',0,3600,'v1',100,0,0,1,0,'2026-09-09 18:11:29',NULL,0),
 	 ('knowledge_qa','知识问答','知识库检索问答：多路召回（向量+BM25+RRF+Rerank）+ Agent 人设 + 引用溯源','chat',NULL,NULL,NULL,NULL,NULL,NULL,'knowledgeQaHandler','execute',NULL,NULL,NULL,'sync',NULL,'json',2048,0.7,30,3,NULL,100,60,500000,1,NULL,NULL,0,3600,'v1',100,0,0,1,1,'2026-09-11 15:47:43','2026-09-11 15:47:43',0),
 	 ('default_chat','智能体对话','智能体动态对话（/cms/ai/chat/*）：治理配置载体（限流/执行日志），Agent 由请求动态指定，人设走 ai_agent.system_prompt','chat',NULL,NULL,NULL,NULL,NULL,NULL,'dynamicChatBridge','execute',NULL,NULL,NULL,'stream',NULL,'text',2048,0.7,30,3,NULL,60,3600,NULL,0,NULL,NULL,0,3600,'v1',100,0,1,1,0,'2026-09-16 17:01:51',NULL,0);
+-- task 拆行（AI统一网关整改 2B.1）：scene_code 存全码 scene:task，业务调用传主码+input.task；
+-- 任务指令与数据全部进 user_prompt_template（systemPromptTemplate 已废弃，人设由 Agent 表承载）；
+-- {{data:标签|key}} 为数据通道占位符，值经 PromptInjectionGuard 分隔符隔离，空值自动丢弃；
+-- voice_interview task 行绑定 agent_id=48 保持模型连续性；resume_optimize 走默认模型（与迁移前一致）
+INSERT INTO ai_scene_config (scene_code,scene_name,description,scene_category,agent_id,model_config_id,knowledge_library_ids,tool_ids,workflow_id,config_json,handler_bean_name,handler_method,system_prompt_template,user_prompt_template,prompt_placeholders,output_mode,output_schema,output_parser,max_tokens,temperature,timeout_seconds,retry_count,rate_limit_key,rate_limit_count,rate_limit_time,daily_token_limit,enable_output_filter,fallback_model_id,fallback_response,enable_cache,cache_ttl,version,weight,priority,is_default,enabled,open_api,create_time,update_time,deleted) VALUES
+	 ('resume_optimize:advice','简历优化-改进建议','task 拆行：评分明细→改进建议（原 ResumeOptimizeHandler.advice 提示词逐字收编）','generation',NULL,NULL,NULL,NULL,NULL,NULL,'defaultSceneExecutor','execute',NULL,'你是一名资深 HR 与简历顾问，擅长基于评分明细给出可执行的改进建议。请返回 JSON 格式，字段：summary(整体总结), advices(数组，每项含 dimension/priority(high/medium/low)/content/type(fill/refine/match)/optimized), missingSkills(字符串数组)。content 为该维度的改进思路说明；optimized 为优化后的完整可用文本（可直接替换简历对应模块内容），必须基于用户简历现有信息改写而非凭空编造，量化数据无依据时可使用占位符如 [X%] 供用户填写；dimension 取值限定：基本信息/求职意向/教育经历/工作经历/项目经历/技能列表/自我介绍/岗位匹配度。建议要具体、可执行，优先关注得分率低于60%的维度与岗位匹配度缺失技能。只输出 JSON 本体，禁止使用 markdown 代码块（```）包裹，禁止在 JSON 前后添加任何说明文字。
+
+{{data:业务数据|context}}','{"context": "业务 Service 组装的评分明细/目标岗位上下文（数据通道隔离）"}','sync',NULL,'json',2048,0.7,30,3,NULL,100,60,NULL,0,NULL,NULL,0,3600,'v1',100,0,1,1,0,'2026-09-24 12:00:00',NULL,0),
+	 ('resume_optimize:job_match','简历优化-岗位匹配','task 拆行：JD×简历→匹配报告（原 ResumeOptimizeHandler.job_match 提示词逐字收编）','generation',NULL,NULL,NULL,NULL,NULL,NULL,'defaultSceneExecutor','execute',NULL,'你是一名资深技术招聘官，负责评估候选人与岗位的匹配度。请基于目标岗位JD和候选人简历，返回 JSON：matchScore(0-100综合匹配度), grade(excellent/good/medium/poor), matchedKeywords(数组,简历已覆盖的JD核心要求关键词), missingKeywords(数组,简历缺失的JD核心要求关键词), dimensions(对象,含四个维度，每维 score 0-100 与 suggestions 数组: keywordMatch关键词匹配/experienceMatch经验匹配/skillMatch技能匹配/structureMatch结构完整度), summary(2-3句总体评价与改进方向)。评估要客观，基于简历真实内容，缺失项如实指出；关键词控制在20个以内。只输出 JSON 本体，禁止使用 markdown 代码块（```）包裹，禁止在 JSON 前后添加任何说明文字。
+
+{{data:业务数据|context}}','{"context": "业务 Service 组装的岗位JD+候选人简历上下文（数据通道隔离）"}','sync',NULL,'json',2048,0.7,30,3,NULL,100,60,NULL,0,NULL,NULL,0,3600,'v1',100,0,1,1,0,'2026-09-24 12:00:00',NULL,0),
+	 ('resume_optimize:field_assist','简历优化-字段辅助','task 拆行：字段级 3 版本优化（原 ResumeOptimizeHandler.field_assist 提示词逐字收编）','generation',NULL,NULL,NULL,NULL,NULL,NULL,'defaultSceneExecutor','execute',NULL,'你是一名资深简历优化专家，对简历中的指定字段给出3个不同风格的优化版本。优化原则：STAR法则（情境-任务-行动-结果）、量化数据（无依据数据用[X%][X万]占位符供用户填写）、突出与目标岗位相关的能力、专业商务表达避免口语化、每版50-150字。三个版本风格差异化：版本1侧重成果量化（推荐），版本2侧重技术深度，版本3侧重业务价值。保持与原文语义一致，禁止编造经历。返回 JSON：{"suggestions":[{"text":"优化后完整文本","reason":"一句话优化理由"}]}，恰好3条。只输出 JSON 本体，禁止 markdown 代码块包裹，禁止前后说明文字。
+
+{{data:业务数据|context}}','{"context": "业务 Service 组装的字段原文+字段类型+目标岗位上下文（数据通道隔离）"}','sync',NULL,'json',2048,0.7,30,3,NULL,100,60,NULL,0,NULL,NULL,0,3600,'v1',100,0,1,1,0,'2026-09-24 12:00:00',NULL,0),
+	 ('resume_optimize:draft_empty','简历优化-空字段草稿','task 拆行：空字段初始草稿（原 ResumeOptimizeHandler.draft_empty 提示词逐字收编）','generation',NULL,NULL,NULL,NULL,NULL,NULL,'defaultSceneExecutor','execute',NULL,'你是一名简历撰写专家。根据用户已有信息，为空缺的字段生成初始草稿。生成原则：STAR 法则（情境-任务-行动-结果）、量化数据（无依据数据用 [X%][X万] 占位符供用户填写）、突出与目标岗位相关的能力、专业商务表达避免口语化。工作经历 2-3 条，每条描述 50-150 字；项目经历 2-3 条，每条描述 50-150 字；自我介绍 100-200 字，突出技能和经验。保持语义合理，禁止编造具体公司名（用 [公司名] 占位符）。返回 JSON：{works:[{company,position,startDate,endDate,description}],projects:[{name,role,startDate,endDate,description}],selfIntro:""}。仅生成空缺字段，已有字段不输出。只输出 JSON 本体，禁止 markdown 代码块包裹，禁止前后说明文字。
+
+{{data:业务数据|context}}','{"context": "业务 Service 组装的用户已有信息+目标岗位上下文（数据通道隔离）"}','sync',NULL,'json',2048,0.7,30,3,NULL,100,60,NULL,0,NULL,NULL,0,3600,'v1',100,0,1,1,0,'2026-09-24 12:00:00',NULL,0),
+	 ('resume_optimize:deep_optimize','简历优化-深度优化','task 拆行：整份简历逐项深度优化（原 ResumeOptimizeHandler.deep_optimize 提示词逐字收编）','generation',NULL,NULL,NULL,NULL,NULL,NULL,'defaultSceneExecutor','execute',NULL,'你是一名资深简历优化专家，基于目标岗位JD对简历进行逐项深度优化。返回 JSON：summary(总体优化说明，50字内), items(优化建议数组，3-6项)。每项含：section(必为以下枚举之一：objective/education/work/project/skills/selfIntro；严禁使用复数如works/projects，严禁使用experience/introduction 等同义词，必须完全匹配枚举值), index(列表条目索引，从0开始；skills 填 0), field(position/description/name), optimized(优化后完整文本，可直接替换，50-200字), reason(优化理由，一句话，30字内)。不要输出 original 字段（原文由系统回填）。优化原则：STAR法则+量化数据+[X%]占位符（无依据数据用占位符供用户填写）；skills 的 optimized 用"精通：A、B\\n熟练：C"格式；保持语义一致禁止编造经历。只输出 JSON 本体，禁止 markdown 代码块包裹，输出务必完整，禁止中途截断。
+
+{{data:业务数据|context}}','{"context": "业务 Service 组装的目标岗位JD+简历核心内容上下文（数据通道隔离）"}','sync',NULL,'json',2048,0.7,30,3,NULL,100,60,NULL,0,NULL,NULL,0,3600,'v1',100,0,1,1,0,'2026-09-24 12:00:00',NULL,0),
+	 ('voice_interview:warmup','AI 语音面试-预热','task 拆行：候选人画像+考察计划+开场白+首题（原 VoiceInterviewHandler.warmup 提示词逐字收编）','chat',48,NULL,NULL,NULL,NULL,NULL,'defaultSceneExecutor','execute',NULL,'你正在主持一场模拟面试，请先完成面试预热理解，只输出如下 JSON（不要任何其他文字）：
+{
+  "understanding": {
+    "candidateProfile": "50字内的候选人画像（背景/技术栈/经验层次）",
+    "strengths": ["结合简历与岗位判断的1-2个优势"],
+    "concerns": ["需要重点验证的1-2个疑点"]
+  },
+  "interviewPlan": {
+    "focusAreas": [{"area": "考察方向", "reason": "为何考察", "depth": "basic或intermediate或deep"}]
+  },
+  "opening": "1-2句面试官开场白（欢迎+放松提示，口语化）",
+  "firstQuestion": "第一个问题：固定为请候选人做自我介绍，并提示结合与应聘岗位相关的经历"
+}
+考察方向3-5个，优先来自岗位要求JD与知识库参考片段，其次来自简历项目；depth 结合难度设定。
+
+{{data:面试背景|context}}
+{{data:候选人简历摘要|resumeDigest}}
+{{data:岗位要求JD|jd}}
+{{data:知识库参考片段（出题参考）|kbSnippets}}','{"context": "岗位/难度/计划问题数（业务组装的面试背景，数据通道隔离）", "resumeDigest": "候选人简历摘要（可选，空值自动丢弃）", "jd": "岗位要求JD（可选，空值自动丢弃）", "kbSnippets": "知识库参考片段（可选，空值自动丢弃）"}','sync',NULL,'json',2048,0.7,30,3,NULL,100,60,NULL,0,NULL,NULL,0,3600,'v1',100,0,1,1,0,'2026-09-24 12:00:00',NULL,0),
+	 ('voice_interview:answer_analysis','AI 语音面试-回答分析','task 拆行：候选人回答深度分析（原 VoiceInterviewHandler.answer_analysis 提示词逐字收编）','chat',48,NULL,NULL,NULL,NULL,NULL,'defaultSceneExecutor','execute',NULL,'{{context}}
+候选人的语音转写回答见用户消息（可能口语化、有转写噪音）。
+请以严格的技术面试官标准分析该回答，只输出如下 JSON（不要任何其他文字）：
+{
+  "score": 0-100的整数,
+  "dimensions": {"relevance": 0-100, "professionalism": 0-100, "fluency": 0-100, "interactivity": 0-100, "confidence": 0-100, "logic": 0-100},
+维度定义：relevance=回答与问题的相关性；professionalism=技术深度与专业度；fluency=表达流畅度；interactivity=互动性（举例/对比/坦诚沟通）；confidence=自信笃定程度；logic=逻辑条理与结构。
+  "feedback": "两到三句中文点评，先肯定再指出问题",
+  "flaws": ["回答中暴露的具体漏洞或模糊点，每条一句话，最多3条，没有则空数组"],
+  "level": "junior或mid或senior，对候选人当前真实水平的判断",
+  "followupWorth": true或false，该回答是否存在值得追问的漏洞,
+  "followupQuestion": "若followupWorth为true，给出一句针对漏洞的追问；必须引用候选人回答中的具体表述",
+  "guidance": "若回答明显跑偏，给出一句引导性提示，否则为空字符串"
+}
+打分参考：完全跑题<30；浅层正确但无细节50-65；有正确框架和部分细节65-80；深入准确有取舍权衡80+。
+
+{{data:候选人语音转写回答|transcript}}','{"context": "面试官人设+题目+考察要点（业务组装）", "transcript": "候选人语音转写回答（外部不可信数据，数据通道隔离）"}','sync',NULL,'json',2048,0.7,30,3,NULL,100,60,NULL,0,NULL,NULL,0,3600,'v1',100,0,1,1,0,'2026-09-24 12:00:00',NULL,0),
+	 ('voice_interview:self_intro','AI 语音面试-自我介绍评分','task 拆行：自我介绍 4 维评分（原 VoiceInterviewHandler.self_intro 提示词逐字收编）','chat',48,NULL,NULL,NULL,NULL,NULL,'defaultSceneExecutor','execute',NULL,'你是一位资深技术面试官，请对候选人的自我介绍进行严格评估。目标岗位：{{context}}。只输出如下 JSON（不要任何其他文字）：
+{
+  "scores": {"structure": 0-100, "awareness": 0-100, "matching": 0-100, "fluency": 0-100},
+  "comment": "两到三句中文总评，先肯定亮点再指出不足",
+  "strengths": ["1-2条亮点，每条一句话"],
+  "weaknesses": ["1-2条不足，每条一句话"],
+  "followupWorth": true或false（自我介绍中是否有值得追问的模糊点）,
+  "followupQuestion": "followupWorth 为 true 时给出一句针对性追问，必须引用候选人原话"
+}
+维度定义：structure=逻辑结构（条理/详略/结构词）；awareness=自我认知（优劣势/职业规划清晰度）；matching=岗位匹配（技术栈/项目经历与目标岗位相关度）；fluency=表达流畅（口语自然度/信息密度）。
+打分参考：结构混乱<40；基本连贯50-65；条理清晰有详略70-85；结构完整且亮点突出85+。
+
+{{data:候选人自我介绍|transcript}}','{"context": "目标岗位（可空）", "transcript": "候选人自我介绍转写（外部不可信数据，数据通道隔离）"}','sync',NULL,'json',2048,0.7,30,3,NULL,100,60,NULL,0,NULL,NULL,0,3600,'v1',100,0,1,1,0,'2026-09-24 12:00:00',NULL,0);
 INSERT INTO ledger_app_feature_config (feature_key,feature_name,icon,icon_color,group_type,sort_num,visible,status,badge,create_by,create_time,update_by,update_time,remark) VALUES
 	 ('category','分类管理','☰','#7fbf94','main',1,1,'done',NULL,'','2026-09-14 13:08:02','','2026-09-14 13:08:02','用户自定义收支分类'),
 	 ('setting','记账设置','⚙️','#7fbf94','main',2,1,'done',NULL,'','2026-09-14 13:08:02','','2026-09-14 13:08:02',''),

@@ -20,6 +20,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import com.moyun.ext.ai.enums.AiSceneEnum;
+import com.moyun.ext.ai.enums.AiSceneTasks;
 
 /**
  * 简历 AI 改进建议服务（阶段2/3）
@@ -102,7 +103,7 @@ public class ResumeAiAdviceService {
         }
 
         Map<String, Object> input = new HashMap<>();
-        input.put("task", "advice");
+        input.put("task", AiSceneTasks.RESUME_ADVICE);
         input.put("context", context.toString());
         JsonNode node = aiSceneJsonClient.executeForJson(SCENE_RESUME_OPTIMIZE, input, vo.getUserId());
         if (node == null) {

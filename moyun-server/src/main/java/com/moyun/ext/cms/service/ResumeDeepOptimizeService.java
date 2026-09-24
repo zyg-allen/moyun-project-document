@@ -26,6 +26,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import com.moyun.ext.ai.enums.AiSceneEnum;
+import com.moyun.ext.ai.enums.AiSceneTasks;
 
 /**
  * 简历深度优化服务（简历优化重构 / 抽出 Generator 解决循环依赖）
@@ -123,7 +124,7 @@ public class ResumeDeepOptimizeService {
 
         try {
             Map<String, Object> input = new HashMap<>();
-            input.put("task", "field_assist");
+            input.put("task", AiSceneTasks.RESUME_FIELD_ASSIST);
             input.put("context", context.toString());
             JsonNode node = aiSceneJsonClient.executeForJson(SCENE_RESUME_OPTIMIZE, input, userId);
             if (node == null) {
@@ -270,7 +271,7 @@ public class ResumeDeepOptimizeService {
 
         try {
             Map<String, Object> input = new HashMap<>();
-            input.put("task", "draft_empty");
+            input.put("task", AiSceneTasks.RESUME_DRAFT_EMPTY);
             input.put("context", context.toString());
             JsonNode node = aiSceneJsonClient.executeForJson(SCENE_RESUME_OPTIMIZE, input, userId);
             if (node == null) {

@@ -19,6 +19,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import com.moyun.ext.ai.enums.AiSceneEnum;
+import com.moyun.ext.ai.enums.AiSceneTasks;
 
 /**
  * 简历深度优化的「生成能力」（从 ResumeDeepOptimizeService 抽离，解决循环依赖）
@@ -91,7 +92,7 @@ public class ResumeDeepOptimizeGenerator {
 
         try {
             Map<String, Object> input = new HashMap<>();
-            input.put("task", "deep_optimize");
+            input.put("task", AiSceneTasks.RESUME_DEEP_OPTIMIZE);
             input.put("context", context);
             JsonNode node = aiSceneJsonClient.executeForJson(SCENE_RESUME_OPTIMIZE, input, resume.getUserId());
             if (node == null) {

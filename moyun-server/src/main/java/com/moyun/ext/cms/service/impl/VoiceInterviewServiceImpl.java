@@ -35,6 +35,7 @@ import com.moyun.util.string.StringUtils;
 import com.moyun.ext.cms.service.interview.AnswerScoringEngine;
 import com.moyun.ext.cms.service.interview.InterviewChatMemoryService;
 import com.moyun.ext.ai.service.AgentService;
+import com.moyun.ext.ai.enums.AiSceneTasks;
 import com.moyun.ext.ai.service.chat.RagRetrievalService;
 import dev.langchain4j.data.message.AiMessage;
 import dev.langchain4j.data.message.ChatMessage;
@@ -191,7 +192,7 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
                     + (StringUtils.isNotEmpty(questionAnalysis) ? "该题考察要点：" + questionAnalysis + "\n" : "");
             // LinkedHashMap 可变 Map（Map.of 不可变曾被网关 sanitizeInputChannel setValue 击穿）
             Map<String, Object> input = new LinkedHashMap<>();
-            input.put("task", "answer_analysis");
+            input.put("task", AiSceneTasks.INTERVIEW_ANSWER_ANALYSIS);
             input.put("context", context);
             input.put("transcript", transcript);
             JsonNode node = aiSceneJsonClient.executeForJson(SCENE_VOICE_INTERVIEW, input, interview.getUserId());
@@ -598,7 +599,7 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
                     + "\n难度：" + difficulty
                     + "\n计划问题数：" + questionCount;
             Map<String, Object> input = new LinkedHashMap<>();
-            input.put("task", "warmup");
+            input.put("task", AiSceneTasks.INTERVIEW_WARMUP);
             input.put("context", context);
             if (StringUtils.isNotEmpty(agent.getSystemPrompt())) {
                 input.put("agentPersona", agent.getSystemPrompt());

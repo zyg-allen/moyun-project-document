@@ -2,10 +2,9 @@ package com.moyun.ext.aigateway.registry;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.moyun.ext.ai.entity.AiSceneConfig;
-import com.moyun.ext.ai.exception.BusinessException;
-import com.moyun.ext.ai.exception.ErrorCode;
 import com.moyun.ext.ai.mapper.AiSceneConfigMapper;
 import com.moyun.ext.aigateway.handler.AiSceneHandler;
+import com.moyun.ext.aigateway.service.DefaultSceneExecutor;
 import lombok.extern.slf4j.Slf4j;
 import jakarta.annotation.PostConstruct;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -46,6 +45,10 @@ public class AiSceneRegistry {
     @Autowired
     private AiSceneConfigMapper configMapper;
 
+    /** 配置驱动默认执行器（无 SPI Handler 的场景回落，AI统一网关整改 2A.3） */
+    @Autowired
+    private DefaultSceneExecutor defaultSceneExecutor;
+
     /**
      * 初始化：注册所有 Handler Bean + 启动时一致性检查（配置行与 Handler 的匹配告警）
      */
@@ -54,6 +57,10 @@ public class AiSceneRegistry {
         handlerMap.clear();
         for (AiSceneHandler handler : handlers) {
             String sceneCode = handler.getSceneCode();
+            // DefaultSceneExecutor 不进路由表：它按"未命中回落"承载无 SPI Handler 的场景
+            if (DefaultSceneExecutor.SCENE_CODE.equals(sceneCode)) {
+                continue;
+            }
             if (handlerMap.put(sceneCode, handler) != null) {
                 log.warn("[aigateway] 场景代码重复注册: {}，后者覆盖前者", sceneCode);
             }
@@ -63,16 +70,22 @@ public class AiSceneRegistry {
     }
 
     /**
-     * 按场景代码获取 Handler
+     * 按场景代码获取 Handler（AI统一网关整改 2A.4 支持全码回退）：
+     * 全码（scene:task）→ 主码 → SPI Handler 优先（逃生舱扩展点），
+     * 均未命中回落 {@link DefaultSceneExecutor} 配置驱动执行
+     * （场景差异由 ai_scene_config 声明，不再要求每场景一个 Handler）。
      *
-     * @throws BusinessException 场景未注册（SCENE_NOT_FOUND）
+     * <p>未配置场景不会走到本方法（getConfig 前置拦截 SCENE_NOT_FOUND）。</p>
      */
     public AiSceneHandler getHandler(String sceneCode) {
         AiSceneHandler handler = handlerMap.get(sceneCode);
         if (handler == null) {
-            throw new BusinessException(ErrorCode.NOT_FOUND, "未知AI场景: " + sceneCode);
+            String mainCode = mainSceneCode(sceneCode);
+            if (mainCode != null && !mainCode.equals(sceneCode)) {
+                handler = handlerMap.get(mainCode);
+            }
         }
-        return handler;
+        return handler != null ? handler : defaultSceneExecutor;
     }
 
     /**
@@ -93,6 +106,33 @@ public class AiSceneRegistry {
     }
 
     /**
+     * task 拆行配置解析（AI统一网关整改 2A.4）：先按全码 {@code scene:task} 查，
+     * 未命中回退主场景码。业务调用方式不变（主码 + input.task）。
+     *
+     * @param sceneCode 主场景码（或全码——已含冒号时直接按原文查）
+     * @param task      子任务码（input.task，可空）
+     * @return 命中的配置行（全码行或主码行）；均未命中返回 null
+     */
+    public AiSceneConfig getConfig(String sceneCode, String task) {
+        if (sceneCode != null && task != null && !task.isBlank() && !sceneCode.contains(":")) {
+            AiSceneConfig full = getConfig(sceneCode + ":" + task.trim());
+            if (full != null) {
+                return full;
+            }
+        }
+        return getConfig(sceneCode);
+    }
+
+    /** 场景码的冒号主码拆分（非拆行码原样返回） */
+    public static String mainSceneCode(String sceneCode) {
+        if (sceneCode == null) {
+            return null;
+        }
+        int idx = sceneCode.indexOf(':');
+        return idx > 0 ? sceneCode.substring(0, idx) : sceneCode;
+    }
+
+    /**
      * 刷新（Handler 重新注册；配置无缓存，无需重载。供管理端/调试调用）
      */
     public synchronized void refresh() {
@@ -101,23 +141,26 @@ public class AiSceneRegistry {
     }
 
     /**
-     * 启动一致性检查：配置行存在但 Handler 未注册的，告警
+     * 启动一致性检查：有配置行的场景必然可执行（SPI Handler 或 DefaultSceneExecutor 回落），
+     * 仅统计汇总；SPI Handler 注册但无配置行的场景无法对外服务，告警提示。
      */
     private void consistencyCheck() {
-        List<String> sceneCodes = configMapper.selectList(new LambdaQueryWrapper<AiSceneConfig>()
+        List<String> configuredScenes = configMapper.selectList(new LambdaQueryWrapper<AiSceneConfig>()
                         .eq(AiSceneConfig::getEnabled, true))
                 .stream().map(AiSceneConfig::getSceneCode).distinct().toList();
-        for (String sceneCode : sceneCodes) {
-            if (!handlerMap.containsKey(sceneCode)) {
-                log.warn("[aigateway] 场景 {} 有配置但未注册 Handler（handler_bean_name 不匹配或未实现）", sceneCode);
+        for (String sceneCode : handlerMap.keySet()) {
+            if (!configuredScenes.contains(sceneCode)) {
+                log.warn("[aigateway] 场景 {} 已注册 Handler 但无启用配置行（无法对外服务）", sceneCode);
             }
         }
-        log.info("[aigateway] 场景配置一致性检查完成: {} 个启用场景（Handler总数: {}）",
-                sceneCodes.size(), handlerMap.size());
+        long executorBacked = configuredScenes.stream().filter(s -> !handlerMap.containsKey(s)).count();
+        log.info("[aigateway] 场景配置一致性检查完成: {} 个启用场景（SPI Handler: {}，配置驱动回落: {}）",
+                configuredScenes.size(), handlerMap.size(), executorBacked);
     }
 
     /**
-     * 已注册场景总览（scene → {handler, config, outputMode}），管理/调试用
+     * 已注册场景总览（scene → {handler, config, outputMode}），管理/调试用。
+     * 覆盖 SPI Handler 场景 + 配置驱动场景（有配置行但无 Handler，回落 DefaultSceneExecutor）。
      */
     public List<Map<String, Object>> listScenes() {
         Map<String, AiSceneConfig> configByScene = new LinkedHashMap<>();
@@ -125,7 +168,13 @@ public class AiSceneRegistry {
                         .eq(AiSceneConfig::getEnabled, true)
                         .orderByDesc(AiSceneConfig::getPriority))
                 .forEach(c -> configByScene.putIfAbsent(c.getSceneCode(), c));
-        return handlerMap.entrySet().stream()
+
+        // 路由视图：SPI Handler 场景 + 配置驱动场景（配置行存在但无 Handler）
+        Map<String, AiSceneHandler> routed = new LinkedHashMap<>(handlerMap);
+        configByScene.keySet().forEach(scene ->
+                routed.putIfAbsent(scene, defaultSceneExecutor));
+
+        return routed.entrySet().stream()
                 .map(e -> {
                     Map<String, Object> m = new LinkedHashMap<>();
                     m.put("sceneCode", e.getKey());

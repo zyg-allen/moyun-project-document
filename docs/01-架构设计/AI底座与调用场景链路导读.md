@@ -16,7 +16,7 @@
 ├─────────────────────────────────────────────────────────────────┤
 │ AI 统一接入层（网关，代号 ai2）                                    │
 │  com.moyun.ext.aigateway                                             │
-│  入口 Controller → AiGatewayService 五层编排 → 11 个场景 Handler  │
+│  入口 Controller → AiGatewayService 五层编排 → 场景 Handler / DefaultSceneExecutor │
 │  横切：注入防护 / 语义缓存 / 限流 / Token熔断 / 输出脱敏 / 降级     │
 ├─────────────────────────────────────────────────────────────────┤
 │ AI 底座基础设施层                                                 │
@@ -89,8 +89,8 @@
 
 | # | 步骤 | 类与方法 | 说明 |
 |---|---|---|---|
-| 1 | 场景配置 | `AiSceneRegistry.getConfig(sceneCode)` | **直查 ai_scene_config 表**（enabled=1 按 priority DESC 取第一条），无内存缓存 → 管理端改提示词/绑定/限流**下次调用立即生效** |
-| 2 | Handler 路由 | `AiSceneRegistry.getHandler(sceneCode)` | 启动时 @PostConstruct 扫描所有 `AiSceneHandler` Bean，构建 sceneCode→Handler 路由表 |
+| 1 | 场景配置 | `AiSceneRegistry.getConfig(sceneCode, task)` | **直查 ai_scene_config 表**（enabled=1 按 priority DESC 取第一条），无内存缓存 → 管理端改提示词/绑定/限流**下次调用立即生效**。**task 拆行路由（2A.4）**：主码 + `input.task` → 先查全码 `scene:task`，未命中回退主码；命中全码行后落库口径统一为全码（ai_execute_log 按 task 维度统计成本） |
+| 2 | Handler 路由 | `AiSceneRegistry.getHandler(sceneCode)` | 全码 → 主码 → SPI Handler（逃生舱）→ **未命中回落 `DefaultSceneExecutor` 配置驱动执行**（2A.3：模板渲染 → LLM → output_parser 解析 → 兜底，复用 AbstractAiSceneHandler 骨架） |
 | 3 | 输出模式校验 | config.outputMode=="stream" 则拒绝 | 提示走 `/api/ai/execute/stream` |
 | 4 | Agent 人设注入 | `injectAgentPersona` → `AgentMapper.selectById` | 读 ai_agent.system_prompt，渲染 `{{占位符}}` 放入 `input.agentPersona`；位于缓存键计算之前 → 人设变更自动失效缓存 |
 | 5 | **输入防护** | `sanitizeInputChannel` + `PromptInjectionGuard.scan` | 详见 §6.1 |
@@ -133,12 +133,15 @@ AiSceneResolver.resolveChatModel(sceneCode)
 
 ```java
 protected String chat(String sceneCode, String systemPrompt, String userPrompt)      // 最简调用
-protected String chatJson(...)        // 结构化输出；解析失败追加输出约束重试一次
-protected ChatOutcome chatDetailed(...)  // 带 token/模型名元数据
-protected void chatStream(...)        // SSE 适配
+protected String chatJson(...)            // 结构化输出；解析失败追加输出约束重试一次
+protected ChatOutcome chatJsonOutcome(...) // 同 chatJson 重试逻辑 + 保留模型/token（DefaultSceneExecutor 填 metadata 用）
+protected ChatOutcome chatDetailed(...)   // 带 token/模型名元数据
+protected void chatStream(...)            // SSE 适配
 protected Map<String,Object> parseOutput(String raw, AiSceneConfig config) // 消费 output_parser: json/markdown/text
-protected String mergePersona(...)    // agentPersona + 任务边界声明
+protected String mergePersona(...)        // agentPersona + 任务边界声明
 ```
+
+**DefaultSceneExecutor 配置驱动执行（网关整改 2A.3）**：场景无 SPI Handler 时由注册中心回落到 `aigateway/service/DefaultSceneExecutor`——系统提示词 = `mergePersona`（Agent 人设 + 任务边界）+ `output_schema` 输出格式约束；用户提示词 = `user_prompt_template` 模板渲染（无模板回落 `userInput`）；LLM 走 `chatJsonOutcome`（含解析失败重试）；输出按 `output_parser` 解析为 `GenericSceneData`（structured/content）。**场景差异全部由 ai_scene_config 声明，新增场景 = 枚举 + 配置行 + Service 组装**；`AiSceneHandler` SPI 接口保留作逃生舱（output_schema 表达力不足时实现 Handler 覆盖）。执行元数据视图 `AiSceneMetadata`（区别于响应元数据 `AiMetadata`）：配置行 → 执行器薄投影，含 outputMode/openApi/fallbackModelId/fallbackResponse。
 
 ### 4.2 模型工厂：ModelConfigServiceImpl（LangChain4j 配置驱动）
 

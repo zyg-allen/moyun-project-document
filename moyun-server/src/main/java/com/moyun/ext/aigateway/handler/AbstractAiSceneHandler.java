@@ -68,15 +68,24 @@ public abstract class AbstractAiSceneHandler implements AiSceneHandler {
      * 不再直接判 AI_PARSE_ERROR）。首次结果可解析时行为与 {@link #chat} 完全一致。</p>
      */
     protected String chatJson(String sceneCode, String systemPrompt, String userPrompt) {
-        String text = chatDetailed(sceneCode, systemPrompt, userPrompt).getText();
+        return chatJsonOutcome(sceneCode, systemPrompt, userPrompt).getText();
+    }
+
+    /**
+     * 结构化场景对话（同 {@link #chatJson} 的重试逻辑）+ 保留实际调用结果
+     * （模型/token 消耗，供 DefaultSceneExecutor 等需要填充响应 metadata 的调用方使用）。
+     */
+    protected ChatOutcome chatJsonOutcome(String sceneCode, String systemPrompt, String userPrompt) {
+        ChatOutcome outcome = chatDetailed(sceneCode, systemPrompt, userPrompt);
+        String text = outcome.getText();
         if (hasJsonBody(text)) {
-            return text;
+            return outcome;
         }
         log.warn("[aigateway:{}] 结构化输出解析失败，降级 Prompt 约束重试", sceneCode);
         String retrySuffix = "\n\n【输出要求】你只能输出一个合法的 JSON（对象或数组本体），"
                 + "禁止任何解释性文字、寒暄或 Markdown 代码围栏，字段与结构必须严格遵守上文要求的格式。";
         ChatOutcome retry = chatDetailed(sceneCode, systemPrompt, userPrompt + retrySuffix);
-        return retry.getText() != null && !retry.getText().isBlank() ? retry.getText() : text;
+        return retry.getText() != null && !retry.getText().isBlank() ? retry : outcome;
     }
 
     /** 首次结果是否含可提取的 JSON 主体（对象 {...} 或数组 [...]） */

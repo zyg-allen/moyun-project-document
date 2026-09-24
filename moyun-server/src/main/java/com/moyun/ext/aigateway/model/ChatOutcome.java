@@ -1,6 +1,7 @@
 package com.moyun.ext.aigateway.model;
 
 import lombok.Data;
+import lombok.Getter;
 
 /**
  * LLM 调用结构化结果（可观测性闭环）
@@ -15,6 +16,7 @@ import lombok.Data;
 public class ChatOutcome {
 
     /** 回复文本（null/空 = 调用失败） */
+    @Getter
     private String text;
 
     /** 实际使用的模型名（绑定模型调用成功时为模型名；默认模型回落时为 "default"；未知为 null） */
@@ -31,10 +33,6 @@ public class ChatOutcome {
 
     /** 输出 Token（成本核算：模型未返回为 null） */
     private Integer outputTokens;
-
-    public String getText() {
-        return text;
-    }
 
     public boolean isSuccess() {
         return text != null && !text.isBlank();

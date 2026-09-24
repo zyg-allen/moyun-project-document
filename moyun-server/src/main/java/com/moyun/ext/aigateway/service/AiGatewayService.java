@@ -89,12 +89,17 @@ public class AiGatewayService {
         AiSceneConfig config = null;
         AiSceneHandler handler = null;
         try {
-            // 1. 场景配置（未配置/未启用的场景不对外服务）
-            config = registry.getConfig(sceneCode);
+            // 1. 场景配置（未配置/未启用的场景不对外服务）。
+            //    task 拆行路由（2A.4）：主码 + input.task → 先查全码 scene:task，未命中回退主码；
+            //    命中全码行后 sceneCode 统一为全码（ai_execute_log 按 task 维度统计成本）
+            String task = request.getInput() != null
+                    && request.getInput().get("task") instanceof String t ? t : null;
+            config = registry.getConfig(sceneCode, task);
             if (config == null) {
                 return failure(request, AiErrorCodes.SCENE_NOT_FOUND,
                         "场景未注册或未启用: " + sceneCode, 0, "scene_not_found");
             }
+            sceneCode = config.getSceneCode();
             handler = registry.getHandler(sceneCode);
 
             // 1.2 输出模式路由校验（output_mode 配置接线——此前配置可编辑零消费）。
@@ -258,9 +263,14 @@ public class AiGatewayService {
         log.info("[aigateway:网关] 流式请求: scene={}, requestId={}", scene, request.getRequestId());
 
         try {
-            AiSceneConfig config = registry.getConfig(scene);
+            // task 拆行路由（2A.4）：主码 + input.task → 全码优先，命中后统一全码口径
+            String task = request.getInput() != null
+                    && request.getInput().get("task") instanceof String t ? t : null;
+            AiSceneConfig config = registry.getConfig(scene, task);
             if (config == null) {
                 sendErrorAndComplete(emitter, "场景未注册或未启用: " + scene);
+            } else {
+                scene = config.getSceneCode();
             }
             AiSceneHandler handler = registry.getHandler(scene);
             injectAgentPersona(request, config);

@@ -8,6 +8,7 @@ import com.fasterxml.jackson.annotation.JsonFormat;
 import com.moyun.core.base.BaseEntity;
 import lombok.Data;
 
+import java.io.Serial;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
@@ -19,6 +20,7 @@ import java.time.LocalDateTime;
 @Data
 @TableName("portal_writing_prompt")
 public class PortalWritingPrompt extends BaseEntity {
+    @Serial
     private static final long serialVersionUID = 1L;
 
     @TableId(type = IdType.AUTO)

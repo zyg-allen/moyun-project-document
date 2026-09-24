@@ -23,8 +23,8 @@ import com.moyun.ext.ai.enums.AiSceneTasks;
  * + 规则校验兜底（字数/结构词），权重来自面试配置 scoring_weights.selfIntro，
  * 默认 30/25/25/20。总分 = Σ(维度分 × 权重)。</p>
  *
- * <p>LLM 评分收口 AI 网关（voice_interview 场景 task=self_intro 子任务，
- * 提示词收编至 VoiceInterviewHandler，本类只做解析与权重融合）。</p>
+ * <p>LLM 评分收口 AI 网关（voice_interview:self_intro 全码配置行，2B.5 配置驱动，
+ * 本类只做解析与权重融合）。</p>
  *
  * <p>每题评分融合（LLM 70% + 规则 30%）随 C1 接入 submitAnswer 链路时启用。</p>
  *

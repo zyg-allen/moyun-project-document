@@ -15,8 +15,12 @@ import java.util.stream.Collectors;
  * 场景元数据（核心能力/输入/输出）是规格描述，低频变更，随代码走版本管理；
  * 场景与 Agent/模型/知识库/工具/工作流的绑定关系仍在 ai_scene_config 表（支持多版本灰度）。
  *
- * <p>新增场景三步：1）本枚举加一项；2）业务代码调用 agentClient.resolveScene(枚举)；
- * 3）后台场景配置页为该场景创建绑定（未绑定时业务走自身默认逻辑）。
+ * <p><strong>新增场景三步（2B.6 收敛后口径，不再写 Handler）</strong>：
+ * 1）本枚举加一个主场景值（task 子任务用 {@link AiSceneTasks} 字符串常量，不膨胀枚举）；
+ * 2）ai_scene_config 插配置行（主场景行 + 按需 scene:task 全码行，提示词走
+ * user_prompt_template，外部不可信数据用 {{data:标签|key}} 数据通道）；
+ * 3）业务 Service 组装 input 调 {@code AiSceneJsonClient}（或网关会话流式通道）。
+ * 仅 output_schema 表达力不足的复杂场景才实现 AiSceneHandler（SPI 逃生舱保留）。
  *
  * @author moyun
  */

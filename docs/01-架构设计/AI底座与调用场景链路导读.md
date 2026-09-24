@@ -349,6 +349,6 @@ AiExecuteResponse<?> resp = aiGatewayService.execute(request);
 
 1. **入口**：`AiGatewayController` → `AiGatewayService.execute`（§3 的 14 步对照走读）
 2. **横切**：`PromptInjectionGuard` → `SemanticCache` → `SceneRateLimiter` → `TokenCostGuard` → `AiOutputFilter` → `FallbackStrategy`
-3. **场景**：`DefaultSceneExecutor`（2B.2 起简单场景、2B.4 起财务分析、2B.5 起语音面试 task 统一走此配置驱动执行器；SPI 场景 Handler 已归零，仅剩 `dynamicChatBridge` 动态对话桥）→ `AbstractAiSceneHandler` 基类
+3. **场景**：`DefaultSceneExecutor`（2B.2 起简单场景、2B.4 起财务分析、2B.5 起语音面试 task 统一走此配置驱动执行器，为唯一执行器；SPI 场景 Handler 已归零，`AiSceneHandler` 接口保留作逃生舱；default_chat 行的 `dynamicChatBridge` 为配置占位值，动态对话实际走 `DynamicChatService`）→ `AbstractAiSceneHandler` 基类
 4. **底座**：`AiSceneResolverImpl`（模型解析责任链）→ `ModelConfigServiceImpl`（模型工厂）→ `LLMServiceImpl`（LangChain4j 对接）
 5. **业务消费**：`AiSceneJsonClient` → `ResumeAiAdviceService`（简单）→ `VoiceInterviewServiceImpl`（复杂，主干走网关会话流式通道）→ `LedgerAiAnalysisServiceImpl`（异步任务范例）

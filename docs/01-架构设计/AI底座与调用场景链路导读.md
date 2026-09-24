@@ -268,8 +268,8 @@ AiExecuteResponse<?> resp = aiGatewayService.execute(request);
 
 `PortalLedgerAiController`（`/portal/ledger/ai`，供 moyun-ledger-app）→ `LedgerAiAnalysisServiceImpl`：
 - 同步查询：数据指纹命中 `ledger_ai_analysis_report` 快照直接返回，未命中返回 `exists:false` 由前端引导显式触发（**杜绝进页面隐式烧 token**）；
-- 异步重算：Redis 任务态（30 分钟 TTL）+ 线程池 → `FinanceAnalysisHandler` **全权负责查数组装+指标计算+模板渲染+LLM 综述**（Handler 内部降级规则综述）→ 报告覆盖式落表（uk: user_id+period+analysis_range）。
-> 这是"Service 薄化/配置即场景"的典型范例。
+- 异步重算：Redis 任务态（30 分钟 TTL）+ 线程池 → **Service 全权负责查数（流水/负债/资产/预算/画像/分类）+ 指标计算（数值护栏，LLM 只解读不计算）+ ledgerContext 组装** → 经 `AiSceneJsonClient` 走网关（DefaultSceneExecutor 配置驱动：`{{window}}` 普通占位符 + `{{data:财务数据|ledgerContext}}` 数据通道 → LLM → JSON 解析）→ 报告覆盖式落表（uk: user_id+period+analysis_range）。
+> 2B.4 查数下沉：原 `FinanceAnalysisHandler` 删除（同时修正 aigateway→ledger/portal 反向依赖），LLM 失败本地降级模板综述（指标照常返回，前端 KPI 不受影响）；人设走 ai_agent(47)，配置行 system_prompt_template 置空（systemPromptTemplate 已废弃）。
 
 ### 7.6 sensitive_word（内容安全复核，管理端）
 
@@ -334,7 +334,7 @@ AiExecuteResponse<?> resp = aiGatewayService.execute(request);
 
 **设计要点（读代码时带着这些视角）**
 1. **双客户端分层**：业务标准入口 `AiSceneJsonClient`（失败返回 null 走规则兜底）；需完整元数据直调 `AiGatewayService`。
-2. **task 拆行契约（2B.1/2B.3）**：业务调用传主码 + `input.task`（短码统一引用 `AiSceneTasks` 常量），网关先查全码 `scene:task` 配置行、未命中回退主码；9 个 task 已拆行（resume_optimize×5、voice_interview×3、question_generate:jd_keywords），提示词逐字迁入全码行 `user_prompt_template`，外部不可信数据用 `{{data:标签|key}}` 数据通道占位符（wrapData 隔离、空值丢弃）。2B.2/2B.3 简单场景整场景配置驱动：daily_topic/sensitive_word 原行就地收编，writing_prompt/content_tags/resume_parse/resume_optimize 主场景/question_generate（主场景+jd_keywords）/article_meta 新增配置行（此前无行的场景 AI 路径不可用），DailyTopic/WritingPrompt/ContentTags/ResumeParse/ResumeOptimize/QuestionGenerate/ArticleMeta/SensitiveWord/KnowledgeQa 九个 Handler 及 TopicSceneData/ResumeSceneData/QuestionSceneData/SensitiveWordSceneData/KnowledgeQaSceneData 已删除（knowledge_qa 无业务调用方整场景移除），业务统一读 `GenericSceneData.structured`；FallbackStrategy 的 sensitive_word 内置兜底数据化至配置行 fallback_response。
+2. **task 拆行契约（2B.1/2B.3）**：业务调用传主码 + `input.task`（短码统一引用 `AiSceneTasks` 常量），网关先查全码 `scene:task` 配置行、未命中回退主码；9 个 task 已拆行（resume_optimize×5、voice_interview×3、question_generate:jd_keywords），提示词逐字迁入全码行 `user_prompt_template`，外部不可信数据用 `{{data:标签|key}}` 数据通道占位符（wrapData 隔离、空值丢弃）。2B.2/2B.3 简单场景整场景配置驱动：daily_topic/sensitive_word 原行就地收编，writing_prompt/content_tags/resume_parse/resume_optimize 主场景/question_generate（主场景+jd_keywords）/article_meta 新增配置行（此前无行的场景 AI 路径不可用），DailyTopic/WritingPrompt/ContentTags/ResumeParse/ResumeOptimize/QuestionGenerate/ArticleMeta/SensitiveWord/KnowledgeQa 九个 Handler 及 TopicSceneData/ResumeSceneData/QuestionSceneData/SensitiveWordSceneData/KnowledgeQaSceneData 已删除（knowledge_qa 无业务调用方整场景移除），业务统一读 `GenericSceneData.structured`；FallbackStrategy 的 sensitive_word 内置兜底数据化至配置行 fallback_response。2B.4 查数下沉：FinanceAnalysisHandler 删除（查数+指标计算回 `LedgerAiAnalysisServiceImpl`，修正 aigateway→ledger/portal 反向依赖），ledgerContext 含用户自由文本（画像/自定义分类名）走 `{{data:财务数据|ledgerContext}}` 数据通道。
 3. **input vs userInput 通道**：结构化业务数据走 `input`（数据隔离），用户自由文本走 `userInput`（意图分类+注入拦截）——**铁律：外部不可信数据禁止走顶层 userInput**（意图分类器置信度 <0.6 会误打断返回 clarification）。
 4. **配置即场景**：ai_scene_config 直查库不缓存，管理端改配置即时生效；模型配置走 Redis 缓存+主动失效；提供商注册表全量内存缓存+CRUD 失效重建。
 5. **扩展点**：新增场景三步——AiSceneEnum 加枚举 + ai_scene_config 插配置行 + 业务 Service 组装 input 调网关（网关编排零改动，默认走 DefaultSceneExecutor）；仅 output_schema 表达力不足的复杂场景才实现 AiSceneHandler（SPI 逃生舱）；新增 OpenAI 兼容提供商仅 ai_provider 插一行。
@@ -349,6 +349,6 @@ AiExecuteResponse<?> resp = aiGatewayService.execute(request);
 
 1. **入口**：`AiGatewayController` → `AiGatewayService.execute`（§3 的 14 步对照走读）
 2. **横切**：`PromptInjectionGuard` → `SemanticCache` → `SceneRateLimiter` → `TokenCostGuard` → `AiOutputFilter` → `FallbackStrategy`
-3. **场景**：`DefaultSceneExecutor`（2B.2 起简单场景统一走此配置驱动执行器）→ 复杂 Handler（`FinanceAnalysisHandler`）→ `AbstractAiSceneHandler` 基类
+3. **场景**：`DefaultSceneExecutor`（2B.2 起简单场景、2B.4 起财务分析统一走此配置驱动执行器）→ 复杂 Handler（`VoiceInterviewHandler`，2B.5 待删）→ `AbstractAiSceneHandler` 基类
 4. **底座**：`AiSceneResolverImpl`（模型解析责任链）→ `ModelConfigServiceImpl`（模型工厂）→ `LLMServiceImpl`（LangChain4j 对接）
 5. **业务消费**：`AiSceneJsonClient` → `ResumeAiAdviceService`（简单）→ `VoiceInterviewServiceImpl`（复杂，主干走网关会话流式通道）→ `LedgerAiAnalysisServiceImpl`（异步任务范例）

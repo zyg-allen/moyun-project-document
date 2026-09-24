@@ -93,22 +93,11 @@ INSERT INTO ai_scene_config (scene_code,scene_name,description,scene_category,ag
 日期：{{date}}
 {{data:领域|domain}}
 {{data:已生成过的标题（避免重复）|excludeTitles}}','{"date": "生成日期（yyyy-MM-dd）", "domain": "领域（可选，空值自动丢弃）", "excludeTitles": "已生成过的标题（可选，空值自动丢弃）"}','sync',NULL,'json',2048,0.7,30,3,NULL,100,60,NULL,0,NULL,NULL,0,3600,'v1',100,0,1,1,0,'2026-09-09 11:15:47',NULL,0),
-	 ('finance_analysis','AI 财务分析','','analysis',47,NULL,NULL,NULL,NULL,'{}','financeAnalysisHandler','execute','你是一名拥有12年实战经验的资深个人家庭财务分析师，精通收支诊断、资产负债梳理、投资理财风险评估全流程，严格遵循国内现行个人财税规则与2026年最新惠民财税政策。
-
-核心工作规则：
-1.  所有结论100%基于传入的结构化记账数据，禁止自行计算、修改任何数值，所有引用的金额、百分比、月份必须和给定数据完全一致
-2.  综述部分要讲完整的财务故事：清晰说明用户统计周期内的收入来源结构、主要支出去向、核心变化趋势，最后点出当前最值得关注的1个核心财务特征
-3.  风险项按高/中/低严重度排序，每一条必须附带明确数据依据evidence，格式示例："近3月餐饮累计支出¥6500，环比上月上涨65%"
-4.  建议项必须是可直接落地的具体动作，不能出现"合理规划""量入为出"这类空泛表述，每一条都要标注量化的预期效果expectedImpact，格式示例："每月可固定减少非必要娱乐支出¥800，年度累计多结余¥9600"
-5.  绝对拒绝任何违规偷税、造假、高风险投机类建议，不确定的政策内容统一标注「以当地税务机关最新规定为准」
-6.  只输出符合要求的JSON内容，禁止输出JSON以外的任何说明、解释性文字
-
-数据不足时基于已有信息客观分析，绝不臆造不存在的收支、资产数据。风险和建议各输出2-5条，按重要性从高到低排序。
-','当前统计分析窗口：{{window}}
+	 ('finance_analysis','AI 财务分析','2B.4 查数下沉：LedgerAiAnalysisServiceImpl 组装 window/ledgerContext，DefaultSceneExecutor 配置驱动执行；人设走 ai_agent(47)','analysis',47,NULL,NULL,NULL,NULL,'{}','defaultSceneExecutor','execute',NULL,'当前统计分析窗口：{{window}}
 
 以下是系统规则引擎已经计算完成的精确财务数据，包含全量指标、逐月趋势、分类环比、预算执行、债务明细等所有信息，请你直接引用这些数值完成分析，不要自行修改计算：
-{{ledgerContext}}
-','{"window": "统计窗口文案，如：本月（自 2026-09-01 起，含数据 3 个月；另附近6个月趋势数据）", "ledgerContext": "业务侧组装的财务上下文 JSON（画像/核心指标护栏/收入来源/支出结构Top5/负债明细含清偿测算/逐月收支趋势/分类环比/预算执行）"}','sync','{"risks": [{"level": "string，仅允许取值 high/medium/low", "title": "string，风险短标题", "detail": "string，风险详细说明", "evidence": "string，支撑该风险的具体数据依据"}], "summary": "string，完整的财务分析综述，讲清周期内的收支故事与核心特征", "healthScore": "int 0-100，基于传入指标计算的财务健康分", "suggestions": [{"icon": "string，前端可直接使用的图标标识，如 wallet / save / debt / invest", "title": "string，建议短标题", "detail": "string，建议的具体执行动作说明", "expectedImpact": "string，该建议落地后可实现的量化收益效果"}]}','',2048,0.7,30,3,'aaa',100,60,NULL,0,NULL,'',0,3600,'v1',100,0,0,1,0,'2026-09-09 18:11:29',NULL,0),
+{{data:财务数据|ledgerContext}}
+','{"window": "统计窗口文案，如：本月（自 2026-09-01 起，含数据 3 个月；另附近6个月趋势数据）", "ledgerContext": "业务 Service 组装的财务上下文 JSON（画像/核心指标护栏/收入来源/支出结构Top5/负债明细含清偿测算/逐月收支趋势/分类环比/预算执行；数据通道隔离）"}','sync','{"risks": [{"level": "string，仅允许取值 high/medium/low", "title": "string，风险短标题", "detail": "string，风险详细说明", "evidence": "string，支撑该风险的具体数据依据"}], "summary": "string，完整的财务分析综述，讲清周期内的收支故事与核心特征", "healthScore": "int 0-100，基于传入指标计算的财务健康分", "suggestions": [{"icon": "string，前端可直接使用的图标标识，如 wallet / save / debt / invest", "title": "string，建议短标题", "detail": "string，建议的具体执行动作说明", "expectedImpact": "string，该建议落地后可实现的量化收益效果"}]}','',2048,0.7,30,3,'aaa',100,60,NULL,0,NULL,'',0,3600,'v1',100,0,0,1,0,'2026-09-09 18:11:29',NULL,0),
 	 ('default_chat','智能体对话','智能体动态对话（/cms/ai/chat/*）：治理配置载体（限流/执行日志），Agent 由请求动态指定，人设走 ai_agent.system_prompt','chat',NULL,NULL,NULL,NULL,NULL,NULL,'dynamicChatBridge','execute',NULL,NULL,NULL,'stream',NULL,'text',2048,0.7,30,3,NULL,60,3600,NULL,0,NULL,NULL,0,3600,'v1',100,0,1,1,0,'2026-09-16 17:01:51',NULL,0);
 -- task 拆行（AI统一网关整改 2B.1）：scene_code 存全码 scene:task，业务调用传主码+input.task；
 -- 任务指令与数据全部进 user_prompt_template（systemPromptTemplate 已废弃，人设由 Agent 表承载）；

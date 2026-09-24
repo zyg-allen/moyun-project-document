@@ -1,17 +1,19 @@
-package com.moyun.ledger.handler;
+package com.moyun.ledger.service.impl;
 
-import com.moyun.ext.aigateway.handler.impl.FinanceAnalysisHandler;
-import com.moyun.ext.aigateway.model.AiExecuteRequest;
-import com.moyun.ext.aigateway.model.AiExecuteResponse;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.moyun.ext.aigateway.support.AiSceneJsonClient;
 import com.moyun.ledger.domain.entity.LedgerAssetAccount;
 import com.moyun.ledger.domain.entity.LedgerCategory;
 import com.moyun.ledger.domain.entity.LedgerLiabilityAccount;
 import com.moyun.ledger.domain.entity.LedgerTransaction;
+import com.moyun.ledger.mapper.LedgerAiAnalysisReportMapper;
 import com.moyun.ledger.mapper.LedgerAssetAccountMapper;
 import com.moyun.ledger.mapper.LedgerBudgetMapper;
 import com.moyun.ledger.mapper.LedgerCategoryMapper;
 import com.moyun.ledger.mapper.LedgerLiabilityAccountMapper;
 import com.moyun.ledger.mapper.LedgerTransactionMapper;
+import com.moyun.ext.ai.mapper.AiSceneConfigMapper;
 import com.moyun.portal.service.IPortalUserService;
 import com.moyun.system.service.ISysDictTypeService;
 import org.junit.jupiter.api.BeforeEach;
@@ -26,46 +28,52 @@ import org.mockito.quality.Strictness;
 import java.lang.reflect.Method;
 import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
- * 财务分析 Handler 指标护栏单测（v11.60 P0-4：数值护栏——LLM 只解读不计算）
+ * 财务分析指标护栏单测（2B.4 查数下沉：原 FinanceAnalysisHandlerTest 随 Handler 删除迁移至 Service）
  *
- * <p>Mock 全部 Mapper（离线可测）；基类 sceneResolver/llmService 保持 null →
- * chatDetailed 返回失败 outcome → LLM 自然降级模板综述——同时验证
+ * <p>Mock 全部 Mapper 与 AiSceneJsonClient（离线可测）：
+ * LLM 失败（executeForJson 返回 null）→ 降级模板综述——同时验证
  * 「LLM 失败时指标照常返回、前端 KPI 不受影响」的降级契约。</p>
  *
  * <p>护栏验证点：应急基金月数（流动资产/月均支出）、健康分四段公式、
- * 资产负债率/还款压力/储蓄率、debtFact 清偿测算（payoffMonths）、input 契约。</p>
+ * 资产负债率/还款压力/储蓄率、debtFact 清偿测算（payoffMonths）、
+ * 网关 input 契约（window/ledgerContext）、LLM 成功路径透传。</p>
  *
  * @author laomao
- * @since 2026-09-11
+ * @since 2026-09-24
  */
 @ExtendWith(MockitoExtension.class)
 @MockitoSettings(strictness = Strictness.LENIENT)
-class FinanceAnalysisHandlerTest {
+class LedgerAiAnalysisServiceImplTest {
+
+    private static final ObjectMapper MAPPER = new ObjectMapper();
 
     @Mock private LedgerTransactionMapper transactionMapper;
     @Mock private LedgerCategoryMapper categoryMapper;
     @Mock private LedgerAssetAccountMapper assetAccountMapper;
     @Mock private LedgerLiabilityAccountMapper liabilityAccountMapper;
     @Mock private LedgerBudgetMapper budgetMapper;
+    @Mock private LedgerAiAnalysisReportMapper reportMapper;
+    @Mock private AiSceneConfigMapper sceneConfigMapper;
     @Mock private IPortalUserService portalUserService;
     @Mock private ISysDictTypeService dictTypeService;
+    @Mock private AiSceneJsonClient aiSceneJsonClient;
 
     @InjectMocks
-    private FinanceAnalysisHandler handler;
+    private LedgerAiAnalysisServiceImpl service;
 
     private static final Long USER_ID = 100L;
     private static final LocalDate TODAY = LocalDate.now();
@@ -105,17 +113,19 @@ class FinanceAnalysisHandlerTest {
 
         when(budgetMapper.selectList(any())).thenReturn(List.of());
         when(portalUserService.selectPortalUserById(USER_ID)).thenReturn(null);
+        // LLM 默认失败（降级契约）；指纹聚合查询返回 null（aggSignature 容错 "0@null"）
+        when(aiSceneJsonClient.executeForJson(anyString(), any(), eq(USER_ID))).thenReturn(null);
     }
 
     // ==================== 指标护栏 ====================
 
     @Test
     @SuppressWarnings("unchecked")
-    void execute_indicatorGuardrails() {
-        AiExecuteResponse<Map<String, Object>> resp = execute("month");
-        Map<String, Object> indicators = (Map<String, Object>) resp.getData().get("indicators");
+    void analyze_indicatorGuardrails() {
+        Map<String, Object> result = service.analyze(USER_ID, true, "month");
+        Map<String, Object> indicators = (Map<String, Object>) result.get("indicators");
 
-        // 总资产 10万（现金+储蓄+基金；股票 includeInTotal=0 剔除）
+        // 总资产 10万（现金+储蓄+基金）
         assertEquals(0, new BigDecimal("100000").compareTo((BigDecimal) indicators.get("totalAsset")));
         // 流动资产 5万（cash+savings；fund 非流动）
         assertEquals(0, new BigDecimal("50000").compareTo((BigDecimal) indicators.get("liquidAsset")));
@@ -136,32 +146,30 @@ class FinanceAnalysisHandlerTest {
     }
 
     @Test
-    @SuppressWarnings("unchecked")
-    void execute_healthScore_fourFactorFormula() {
+    void analyze_healthScore_fourFactorFormula() {
         // healthScore = 储蓄率40%→10 + 无赤字→25 + 负债率0.5(不<0.5)→12 + 还款压力0.2(<0.3)→25 = 72
-        AiExecuteResponse<Map<String, Object>> resp = execute("month");
-        assertEquals(72, resp.getData().get("healthScore"),
-                "健康分四段公式：10+25+12+25=72");
+        Map<String, Object> result = service.analyze(USER_ID, true, "month");
+        assertEquals(72, result.get("healthScore"), "健康分四段公式：10+25+12+25=72");
     }
 
     @Test
     void computeHealthScore_segmentBoundaries() throws Exception {
-        Method m = FinanceAnalysisHandler.class.getDeclaredMethod("computeHealthScore",
+        Method m = LedgerAiAnalysisServiceImpl.class.getDeclaredMethod("computeHealthScore",
                 double.class, double.class, double.class, int.class);
         m.setAccessible(true);
         // 全优：储蓄率100%→25 + 无赤字→25 + 负债率<0.5→25 + 压力<0.3→25 = 100
-        assertEquals(100, m.invoke(handler, 0.2, 0.1, 1.0, 0));
+        assertEquals(100, m.invoke(service, 0.2, 0.1, 1.0, 0));
         // 全差：0 + 赤字≥2→0 + 负债率≥0.8→0 + 压力≥0.5→0 = 0
-        assertEquals(0, m.invoke(handler, 0.9, 0.6, 0.0, 3));
+        assertEquals(0, m.invoke(service, 0.9, 0.6, 0.0, 3));
         // 边界：负债率恰 0.5 → 12 分段（非 25，严格小于）；还款压力恰 0.5 → 0 分段（0.5<0.5 为 false）
-        assertEquals(37, m.invoke(handler, 0.5, 0.5, 0.0, 0));
+        assertEquals(37, m.invoke(service, 0.5, 0.5, 0.0, 0));
         // 储蓄率 20% → 5 分；负债率 0.3/压力 0.2 均满分段：5+25+25+25 = 80
-        assertEquals(80, m.invoke(handler, 0.3, 0.2, 0.2, 0));
+        assertEquals(80, m.invoke(service, 0.3, 0.2, 0.2, 0));
     }
 
     @Test
     @SuppressWarnings("unchecked")
-    void execute_deficitMonths_counted() {
+    void analyze_deficitMonths_counted() {
         // 构造近3月：前两月支出>收入（赤字），本月盈余
         LedgerTransaction m1i = tx("income", "5000", 1L, TODAY.minusMonths(2).withDayOfMonth(10));
         LedgerTransaction m1e = tx("expense", "8000", 2L, TODAY.minusMonths(2).withDayOfMonth(11));
@@ -172,13 +180,13 @@ class FinanceAnalysisHandlerTest {
         when(transactionMapper.selectList(any()))
                 .thenReturn(List.of(m1i, m1e, m2i, m2e, m0i, m0e));
 
-        AiExecuteResponse<Map<String, Object>> resp = execute("3m");
-        Map<String, Object> indicators = (Map<String, Object>) resp.getData().get("indicators");
+        Map<String, Object> result = service.analyze(USER_ID, true, "3m");
+        Map<String, Object> indicators = (Map<String, Object>) result.get("indicators");
         assertEquals(2, indicators.get("deficitMonths"), "近3月应有 2 个月入不敷出");
         assertEquals(3, indicators.get("sampleMonths"));
         // healthScore：储蓄率(20000-23000)/20000<0→0分 + 赤字2→0分 + 负债率0.5→12分
         // + 还款压力 2000/6666.67=0.30（恰不满足<0.3，落0.3-0.5分段）→12分 = 24
-        assertEquals(24, resp.getData().get("healthScore"));
+        assertEquals(24, result.get("healthScore"));
     }
 
     // ==================== 清偿测算（debtFact） ====================
@@ -186,7 +194,7 @@ class FinanceAnalysisHandlerTest {
     @Test
     @SuppressWarnings("unchecked")
     void debtFact_payoffMonths_ceilingDivision() throws Exception {
-        Method m = FinanceAnalysisHandler.class.getDeclaredMethod("debtFact",
+        Method m = LedgerAiAnalysisServiceImpl.class.getDeclaredMethod("debtFact",
                 LedgerLiabilityAccount.class);
         m.setAccessible(true);
 
@@ -195,98 +203,116 @@ class FinanceAnalysisHandlerTest {
         d1.setName("房贷");
         d1.setBalance(new BigDecimal("50000"));
         d1.setMonthlyPayment(new BigDecimal("2000"));
-        Map<String, Object> f1 = (Map<String, Object>) m.invoke(handler, d1);
+        Map<String, Object> f1 = (Map<String, Object>) m.invoke(service, d1);
         assertEquals(25, f1.get("payoffMonths"));
 
         // 除不尽向上取整：50001/2000 → 26
         d1.setBalance(new BigDecimal("50001"));
-        assertEquals(26, ((Map<String, Object>) m.invoke(handler, d1)).get("payoffMonths"));
+        assertEquals(26, ((Map<String, Object>) m.invoke(service, d1)).get("payoffMonths"));
 
         // 无月供 → 无 payoffMonths 键（不做清偿测算）
         d1.setMonthlyPayment(null);
-        assertFalse(((Map<String, Object>) m.invoke(handler, d1)).containsKey("payoffMonths"));
+        assertFalse(((Map<String, Object>) m.invoke(service, d1)).containsKey("payoffMonths"));
 
         // 余额清零 → 无 payoffMonths 键
         d1.setMonthlyPayment(new BigDecimal("2000"));
         d1.setBalance(BigDecimal.ZERO);
-        assertFalse(((Map<String, Object>) m.invoke(handler, d1)).containsKey("payoffMonths"));
+        assertFalse(((Map<String, Object>) m.invoke(service, d1)).containsKey("payoffMonths"));
 
         // 期数进度透传
         d1.setBalance(new BigDecimal("50000"));
         d1.setTotalTerms(360);
         d1.setPaidTerms(120);
-        assertEquals("120/360期", ((Map<String, Object>) m.invoke(handler, d1)).get("progress"));
+        assertEquals("120/360期", ((Map<String, Object>) m.invoke(service, d1)).get("progress"));
     }
 
     // ==================== LLM 降级契约 ====================
 
     @Test
     @SuppressWarnings("unchecked")
-    void execute_llmFailure_degradesToTemplateSummary() {
-        // sceneResolver/llmService 为 null → chatDetailed 失败 → aiEnabled=false + 模板综述
-        AiExecuteResponse<Map<String, Object>> resp = execute("month");
-        Map<String, Object> data = resp.getData();
+    void analyze_llmFailure_degradesToTemplateSummary() {
+        // aiSceneJsonClient 返回 null → aiEnabled=false + 模板综述（指标照常返回）
+        Map<String, Object> result = service.analyze(USER_ID, true, "month");
 
-        assertEquals(false, data.get("aiEnabled"), "LLM 不可用应降级");
-        String summary = (String) data.get("summary");
+        assertEquals(false, result.get("aiEnabled"), "LLM 不可用应降级");
+        String summary = (String) result.get("aiSummary");
         assertTrue(summary.startsWith("（模板分析）"), "应回落模板综述: " + summary);
         assertTrue(summary.contains("月均收入 ¥10000.00"), "综述应含精确指标（数值护栏）");
         // 指标照常返回——前端 KPI 不受 LLM 失败影响
-        assertNotNull(data.get("indicators"));
-        assertNotNull(data.get("healthScore"));
-        assertTrue(((List<?>) data.get("risks")).isEmpty());
-        assertTrue(((List<?>) data.get("suggestions")).isEmpty());
+        assertNotNull(result.get("indicators"));
+        assertNotNull(result.get("healthScore"));
+        assertTrue(((List<?>) result.get("debtRisks")).isEmpty());
+        assertTrue(((List<?>) result.get("suggestions")).isEmpty());
         // 收入结构（前端契约）
-        List<Map<String, Object>> incomeSources = (List<Map<String, Object>>) data.get("incomeSources");
+        List<Map<String, Object>> incomeSources = (List<Map<String, Object>>) result.get("incomeSources");
         assertEquals(1, incomeSources.size());
         assertEquals("工资", incomeSources.get(0).get("name"));
         assertEquals(100.0, incomeSources.get(0).get("ratio"), "单一收入源占比 100%");
     }
 
-    // ==================== input 契约 ====================
+    // ==================== 网关 input 契约 + LLM 成功路径 ====================
 
     @Test
-    void execute_missingUserId_throws() {
-        AiExecuteRequest request = new AiExecuteRequest();
-        request.setInput(new HashMap<>());
-        assertThrows(IllegalArgumentException.class,
-                () -> handler.execute(request, null));
+    @SuppressWarnings("unchecked")
+    void analyze_gatewayInput_contract() throws Exception {
+        service.analyze(USER_ID, true, "month");
+
+        org.mockito.ArgumentCaptor<Map<String, Object>> captor =
+                org.mockito.ArgumentCaptor.forClass(Map.class);
+        verify(aiSceneJsonClient).executeForJson(eq("finance_analysis"), captor.capture(), eq(USER_ID));
+        Map<String, Object> input = captor.getValue();
+        assertTrue(String.valueOf(input.get("window")).startsWith("本月（自 "), "window 应为窗口文案");
+        String ledgerContext = String.valueOf(input.get("ledgerContext"));
+        assertTrue(ledgerContext.contains("\"indicators\""), "ledgerContext 应含指标护栏");
+        assertTrue(ledgerContext.contains("\"profile\""), "ledgerContext 应含画像");
     }
 
     @Test
     @SuppressWarnings("unchecked")
-    void execute_invalidRange_fallsBackToMonth() {
-        AiExecuteResponse<Map<String, Object>> resp = execute("bogus_range");
-        Map<String, Object> indicators = (Map<String, Object>) resp.getData().get("indicators");
+    void analyze_llmSuccess_summaryAndRisksPassthrough() throws Exception {
+        JsonNode report = MAPPER.readTree("""
+                {"summary": "本月收支健康，餐饮支出占比较高。",
+                 "healthScore": 88,
+                 "risks": [{"level": "medium", "title": "餐饮偏高", "detail": "占比60%", "evidence": "餐饮 ¥6000"}],
+                 "suggestions": [{"icon": "save", "title": "控制餐饮", "detail": "自己做饭", "expectedImpact": "每月节省 ¥2000"}]}""");
+        when(aiSceneJsonClient.executeForJson(anyString(), any(), eq(USER_ID))).thenReturn(report);
+
+        Map<String, Object> result = service.analyze(USER_ID, true, "month");
+        assertEquals(true, result.get("aiEnabled"));
+        assertEquals("本月收支健康，餐饮支出占比较高。", result.get("aiSummary"));
+        // LLM 的 healthScore 不采纳——规则引擎计算值为准（数值护栏）
+        assertEquals(72, result.get("healthScore"));
+        List<Map<String, Object>> risks = (List<Map<String, Object>>) result.get("debtRisks");
+        assertEquals(1, risks.size());
+        assertEquals("餐饮偏高", risks.get(0).get("title"));
+        assertEquals("餐饮 ¥6000", risks.get(0).get("evidence"));
+        List<Map<String, Object>> suggestions = (List<Map<String, Object>>) result.get("suggestions");
+        assertEquals(1, suggestions.size());
+        assertEquals("每月节省 ¥2000", suggestions.get(0).get("expectedImpact"));
+    }
+
+    // ==================== range 归一化 ====================
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void analyze_invalidRange_fallsBackToMonth() {
+        Map<String, Object> result = service.analyze(USER_ID, true, "bogus_range");
+        Map<String, Object> indicators = (Map<String, Object>) result.get("indicators");
         assertEquals("month", indicators.get("range"), "非法 range 应回落 month");
         assertEquals("本月", indicators.get("rangeLabel"));
     }
 
     @Test
     @SuppressWarnings("unchecked")
-    void execute_range3m_windowStartsThreeMonthsAgo() {
-        AiExecuteResponse<Map<String, Object>> resp = execute("3m");
-        Map<String, Object> indicators = (Map<String, Object>) resp.getData().get("indicators");
+    void analyze_range3m_windowStartsThreeMonthsAgo() {
+        Map<String, Object> result = service.analyze(USER_ID, true, "3m");
+        Map<String, Object> indicators = (Map<String, Object>) result.get("indicators");
         LocalDate expectedStart = TODAY.minusMonths(2).withDayOfMonth(1);
         assertEquals(expectedStart.toString(), indicators.get("rangeStart"), "3m 窗口应含当月起共3个自然月");
         assertEquals("近3个月", indicators.get("rangeLabel"));
     }
 
     // ==================== 辅助 ====================
-
-    @SuppressWarnings("unchecked")
-    private AiExecuteResponse<Map<String, Object>> execute(String range) {
-        AiExecuteRequest request = new AiExecuteRequest();
-        Map<String, Object> input = new HashMap<>();
-        input.put("userId", USER_ID);
-        if (range != null) {
-            input.put("range", range);
-        }
-        request.setInput(input);
-        AiExecuteResponse<?> resp = handler.execute(request, null);
-        assertEquals(Integer.valueOf(0), resp.getCode(), "执行应成功: " + resp.getMsg());
-        return (AiExecuteResponse<Map<String, Object>>) resp;
-    }
 
     private LedgerTransaction tx(String type, String amount, Long categoryId, LocalDate date) {
         LedgerTransaction t = new LedgerTransaction();

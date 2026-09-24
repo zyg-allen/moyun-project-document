@@ -3,6 +3,7 @@ package com.moyun.ext.ai.filter;
 import com.moyun.ext.ai.dto.ImageFilterContext;
 import com.moyun.ext.ai.dto.ImagePosition;
 import com.moyun.ext.ai.stats.ImageFilterStats;
+import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
@@ -34,9 +35,8 @@ public class ImageFilter {
      */
     private Map<String, Integer> imageHashCount = new HashMap<>();
     
-    /**
-     * 统计对象
-     */
+    /** 统计对象 */
+    @Setter
     private ImageFilterStats stats;
     
     /**
@@ -45,16 +45,7 @@ public class ImageFilter {
     public void reset() {
         imageHashCount.clear();
     }
-    
-    /**
-     * 设置统计对象
-     * 
-     * @param stats 统计对象
-     */
-    public void setStats(ImageFilterStats stats) {
-        this.stats = stats;
-    }
-    
+
     /**
      * 判断图片是否应该处理（进入AI分析）
      * 

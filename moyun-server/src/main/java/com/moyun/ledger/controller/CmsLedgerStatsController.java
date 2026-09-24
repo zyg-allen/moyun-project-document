@@ -137,7 +137,7 @@ public class CmsLedgerStatsController extends BaseController {
         Map<String, Object> aiStats = new LinkedHashMap<>();
         List<Map<String, Object>> aiTotal = aiExecuteLogMapper.selectMaps(new QueryWrapper<AiExecuteLog>()
                 .select("count(*) as calls", "sum(token_used) as tokens", "sum(cost_yuan) as cost"));
-        Map<String, Object> aiRow = aiTotal.isEmpty() ? Map.of() : aiTotal.get(0);
+        Map<String, Object> aiRow = aiTotal.isEmpty() ? Map.of() : aiTotal.getFirst();
         aiStats.put("callCount", toLong(aiRow.get("calls")));
         aiStats.put("tokenTotal", toLong(aiRow.get("tokens")));
         aiStats.put("costYuan", aiRow.get("cost"));

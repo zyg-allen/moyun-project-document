@@ -1,8 +1,11 @@
 package com.moyun.ext.ai.enums;
 
+import lombok.Getter;
+
 /**
  * 知识库处理状态枚举
  */
+@Getter
 public enum ProcessingStatus {
 
     /**
@@ -36,14 +39,6 @@ public enum ProcessingStatus {
     ProcessingStatus(String code, String desc) {
         this.code = code;
         this.desc = desc;
-    }
-
-    public String getCode() {
-        return code;
-    }
-
-    public String getDesc() {
-        return desc;
     }
 
     public static ProcessingStatus fromCode(String code) {

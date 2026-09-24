@@ -1,5 +1,7 @@
 package com.moyun.ext.ai.enums;
 
+import lombok.Getter;
+
 /**
  * 模型类型枚举
  *
@@ -21,6 +23,7 @@ package com.moyun.ext.ai.enums;
  *
  * @author moyun
  */
+@Getter
 public enum ModelType {
 
     CHAT("chat", "对话模型"),
@@ -36,14 +39,6 @@ public enum ModelType {
     ModelType(String code, String desc) {
         this.code = code;
         this.desc = desc;
-    }
-
-    public String getCode() {
-        return code;
-    }
-
-    public String getDesc() {
-        return desc;
     }
 
     public static ModelType fromCode(String code) {

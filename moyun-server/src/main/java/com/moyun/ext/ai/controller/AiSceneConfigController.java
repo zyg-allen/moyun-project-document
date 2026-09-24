@@ -8,6 +8,8 @@ import com.moyun.ext.ai.entity.AiSceneConfig;
 import com.moyun.ext.ai.enums.AiSceneEnum;
 import com.moyun.ext.ai.service.AiSceneConfigService;
 import com.moyun.ext.ai.service.AiSceneResolver;
+import com.moyun.ext.ai.service.impl.AiSceneConfigVersionService;
+import com.moyun.util.security.SecurityUtils;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.extern.slf4j.Slf4j;
@@ -38,6 +40,9 @@ public class AiSceneConfigController {
 
     @Autowired
     private AiSceneResolver sceneResolver;
+
+    @Autowired
+    private AiSceneConfigVersionService versionService;
 
     @Operation(summary = "场景配置列表")
     @GetMapping("/list")
@@ -105,7 +110,8 @@ public class AiSceneConfigController {
                 config.setPriority(0);
             }
             config.setCreateTime(LocalDateTime.now());
-            sceneConfigService.save(config);
+            // 版本化：config_version=1 并落首版快照（首次编辑即可回滚）
+            versionService.createWithSnapshot(config, currentOperator());
             log.info("新增场景配置成功 - ID: {}, sceneCode: {}, version: {}",
                     config.getId(), config.getSceneCode(), config.getVersion());
             return AjaxResult.success("创建成功", config);
@@ -131,7 +137,8 @@ public class AiSceneConfigController {
             if (jsonError != null) {
                 return AjaxResult.error(jsonError);
             }
-            sceneConfigService.updateById(config);
+            // 版本化：快照旧版本 → config_version+1 → 更新（同一事务，回滚安全网）
+            versionService.updateWithSnapshot(config, currentOperator());
             log.info("更新场景配置成功 - ID: {}", config.getId());
             return AjaxResult.success("更新成功");
         } catch (Exception e) {
@@ -151,6 +158,40 @@ public class AiSceneConfigController {
         } catch (Exception e) {
             log.error("删除场景配置失败 - ID: {}", id, e);
             return AjaxResult.error("删除失败: " + e.getMessage());
+        }
+    }
+
+    @Operation(summary = "配置版本历史（保存自动快照，新版本在前）")
+    @GetMapping("/{id}/history")
+    @PreAuthorize("@ss.hasPermi('cms:ai:scene:query')")
+    public AjaxResult history(@PathVariable("id") Long id) {
+        return AjaxResult.success(versionService.listHistory(id));
+    }
+
+    /**
+     * 一键回滚到指定 config_version：快照写回当前行（config_version 继续递增并快照，
+     * 回滚可再回滚）。会话一致性：进行中会话按首轮锁定版本读快照，回滚仅影响新会话。
+     */
+    @Operation(summary = "回滚配置到指定版本")
+    @PostMapping("/{id}/rollback/{version:[0-9]+}")
+    @PreAuthorize("@ss.hasPermi('cms:ai:scene:update')")
+    public AjaxResult rollback(@PathVariable("id") Long id, @PathVariable("version") Integer version) {
+        try {
+            AiSceneConfig config = versionService.rollback(id, version, currentOperator());
+            return AjaxResult.success("已回滚到配置版本 v" + version
+                    + "（当前配置版本 v" + config.getConfigVersion() + "，进行中会话不受影响）", config);
+        } catch (Exception e) {
+            log.error("回滚场景配置失败 - ID: {}, version: {}", id, version, e);
+            return AjaxResult.error("回滚失败: " + e.getMessage());
+        }
+    }
+
+    /** 当前操作人（未登录上下文回落 system，快照留痕用） */
+    private String currentOperator() {
+        try {
+            return SecurityUtils.getUsername();
+        } catch (Exception e) {
+            return "system";
         }
     }
 

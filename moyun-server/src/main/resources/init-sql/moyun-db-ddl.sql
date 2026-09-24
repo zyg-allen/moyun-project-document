@@ -4366,3 +4366,28 @@ CREATE TABLE `qrtz_simprop_triggers` (
                                          PRIMARY KEY (`sched_name`,`trigger_name`,`trigger_group`),
                                          CONSTRAINT `qrtz_simprop_triggers_ibfk_1` FOREIGN KEY (`sched_name`, `trigger_name`, `trigger_group`) REFERENCES `qrtz_triggers` (`sched_name`, `trigger_name`, `trigger_group`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='同步机制的行锁表';
+
+
+-- =====================================================================
+-- AI 模块补充（AI统一网关整改 2A.1 配置版本化 · 2026-09-24）：
+-- ai_scene_config 增加单调递增 config_version（与灰度 version 字段区分，
+-- 作为 prompt 迁移期的回滚安全网）；新增 ai_scene_config_history 快照表——
+-- 管理端保存自动快照、支持一键回滚历史版本。会话一致性：会话首轮将
+-- config_version 锁定至 Redis，回滚仅影响新会话，进行中会话按锁定版本
+-- 从快照表读取。逻辑关联不建物理外键。
+-- =====================================================================
+ALTER TABLE `ai_scene_config`
+    ADD COLUMN `config_version` int NOT NULL DEFAULT 1 COMMENT '配置版本号（保存自动+1，回滚安全网，区别于灰度version）' AFTER `version`;
+
+CREATE TABLE `ai_scene_config_history` (
+                                           `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键',
+                                           `config_id` bigint NOT NULL COMMENT '源配置主键（逻辑关联 ai_scene_config.id，无物理外键）',
+                                           `scene_code` varchar(50) NOT NULL COMMENT '场景代码（冗余快照，支持 scene:task 全码）',
+                                           `config_version` int NOT NULL COMMENT '快照版本号（快照时源行的 config_version）',
+                                           `snapshot` json NOT NULL COMMENT '配置行完整快照(JSON)',
+                                           `operator` varchar(64) DEFAULT '' COMMENT '操作人（保存/回滚触发者）',
+                                           `create_time` datetime DEFAULT CURRENT_TIMESTAMP COMMENT '快照时间',
+                                           PRIMARY KEY (`id`),
+                                           KEY `idx_config_id` (`config_id`),
+                                           KEY `idx_scene_version` (`scene_code`,`config_version`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='AI场景配置版本快照表（保存自动快照，一键回滚）';

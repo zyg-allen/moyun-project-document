@@ -171,6 +171,8 @@ protected String mergePersona(...)    // agentPersona + 任务边界声明
 
 配套：`ai_provider`（提供商注册表：api_style/default_base_url/supports_streaming/requires_api_key）、`ai_execute_log`（执行日志：requestId/sceneCode/modelUsed/tokenUsed/costYuan/status/elapsedMs）。
 
+**配置版本化（网关整改 2A.1，2026-09-24）**：`ai_scene_config` 增加 `config_version`（保存自动 +1，区别于灰度字符串 version）；新增 `ai_scene_config_history` 快照表——管理端保存自动快照（`AiSceneConfigVersionService`，同事务），支持一键回滚任意历史版本（回滚本身生成新版本，可再回滚）。**会话一致性**：网关会话通道首轮将 config_version 锁定至 Redis（`chat:memory:session:{sessionId}`，30 天），此后每轮校验，版本已变则按锁定版本读快照——配置回滚仅影响新会话，进行中会话不跨版本混跑。管理端版本入口：场景配置页"版本"按钮（复用 cms:ai:scene:query/update 权限，sys_menu 无变更）。
+
 ### 5.2 运行时开关：AiGlobalSwitch（sys_config 热配置）
 
 位置：`ext/ai/service/AiGlobalSwitch.java`。经 RuoYi 的 `ISysConfigService.selectConfigByKey` 读取（**Redis 缓存 + 管理台更新自动失效，即改即生效**）。

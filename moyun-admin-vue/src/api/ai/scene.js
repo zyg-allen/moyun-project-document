@@ -76,3 +76,22 @@ export function testScene(id) {
 export function sceneRegistry() {
   return request({ url: '/cms/ai/scene/registry', method: 'get' });
 }
+
+// ==================== 配置版本化（网关整改 2A.1） ====================
+
+/**
+ * 配置版本历史（保存自动快照，新版本在前）
+ * @param {Number} id 场景配置 ID
+ */
+export function listSceneHistory(id) {
+  return request({ url: `/cms/ai/scene/${id}/history`, method: 'get' });
+}
+
+/**
+ * 一键回滚到指定 config_version（进行中会话按锁定版本继续，仅影响新会话）
+ * @param {Number} id 场景配置 ID
+ * @param {Number} version 目标 config_version
+ */
+export function rollbackScene(id, version) {
+  return request({ url: `/cms/ai/scene/${id}/rollback/${version}`, method: 'post' });
+}

@@ -49,6 +49,18 @@ public final class RedisKeys {
         return CHAT_MEMORY_SUMMARY_PREFIX + sessionId;
     }
 
+    /**
+     * 会话配置版本锁前缀（会话首轮锁定 ai_scene_config.config_version，回滚仅影响新会话）
+     * <p>完整Key: chat:memory:session:{sessionId}</p>
+     * <p>类型: String（config_version 数字字符串）</p>
+     * <p>过期: 30天（与聊天记忆一致）</p>
+     */
+    public static final String CHAT_MEMORY_SESSION_PREFIX = "chat:memory:session:";
+
+    public static String chatMemorySession(Object sessionId) {
+        return CHAT_MEMORY_SESSION_PREFIX + sessionId;
+    }
+
     // ==================== 知识库处理 ====================
 
     /**

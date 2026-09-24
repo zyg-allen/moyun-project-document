@@ -1,9 +1,11 @@
 package com.moyun.ext.aiapp.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.moyun.ext.ai.constant.RedisKeys;
 import com.moyun.ext.ai.entity.Agent;
 import com.moyun.ext.ai.entity.AiSceneConfig;
 import com.moyun.ext.ai.mapper.AgentMapper;
+import com.moyun.ext.ai.service.impl.AiSceneConfigVersionService;
 import com.moyun.ext.aiapp.constant.AiErrorCodes;
 import com.moyun.ext.aiapp.handler.AiSceneHandler;
 import com.moyun.ext.aiapp.model.AiExecuteRequest;
@@ -27,6 +29,7 @@ import dev.langchain4j.model.chat.response.ChatResponse;
 import dev.langchain4j.model.chat.response.StreamingChatResponseHandler;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
@@ -34,6 +37,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 import java.util.UUID;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
@@ -68,6 +72,10 @@ public class AiGatewayService {
     private final ContextManager contextManager;
     /** per-agent 模型路由（agent 绑定链，含流式自动路由） */
     private final AgentModelRouter agentModelRouter;
+    /** 场景配置版本服务（会话版本锁：进行中会话按锁定版本读快照） */
+    private final AiSceneConfigVersionService sceneConfigVersionService;
+    /** Redis（会话配置版本锁 chat:memory:session:{sessionId}） */
+    private final RedisTemplate<String, String> redisTemplate;
 
     /**
      * 同步执行（统一入口核心编排）
@@ -332,8 +340,9 @@ public class AiGatewayService {
         AtomicBoolean done = new AtomicBoolean(false);
 
         try {
-            // 1. 场景治理配置（限流/熔断参数来源）
-            AiSceneConfig config = registry.getConfig(scene);
+            // 1. 场景治理配置（限流/熔断参数来源；会话模式按首轮锁定版本读快照——
+            //    配置回滚只影响新会话，进行中会话不跨版本混跑）
+            AiSceneConfig config = resolveSessionConfig(scene, sessionId);
             if (config == null) {
                 onError.accept(new IllegalStateException("场景未注册或未启用: " + scene));
                 return;
@@ -474,6 +483,46 @@ public class AiGatewayService {
     }
 
     // ==================== 输入清洗与记忆 ====================
+
+    /**
+     * 会话配置版本锁：会话首轮将当前 config_version 写入 Redis
+     * （chat:memory:session:{sessionId}，30 天与记忆同过期），此后每轮校验——
+     * 版本未变直用当前配置；版本已变（管理端保存/回滚）则按锁定版本读
+     * ai_scene_config_history 快照。非会话模式（无 sessionId）始终读当前配置。
+     */
+    private AiSceneConfig resolveSessionConfig(String scene, String sessionId) {
+        AiSceneConfig current = registry.getConfig(scene);
+        if (current == null || sessionId == null || sessionId.isBlank()) {
+            return current;
+        }
+        String lockKey = RedisKeys.chatMemorySession(sessionId);
+        try {
+            String locked = redisTemplate.opsForValue().get(lockKey);
+            if (locked == null) {
+                redisTemplate.opsForValue().set(lockKey,
+                        String.valueOf(current.getConfigVersion() != null ? current.getConfigVersion() : 1),
+                        RedisKeys.CHAT_MEMORY_EXPIRE_DAYS, TimeUnit.DAYS);
+                return current;
+            }
+            int lockedVersion = Integer.parseInt(locked);
+            int currentVersion = current.getConfigVersion() != null ? current.getConfigVersion() : 1;
+            if (lockedVersion == currentVersion) {
+                return current;
+            }
+            AiSceneConfig snapshot = sceneConfigVersionService.loadSnapshot(scene, lockedVersion);
+            if (snapshot != null) {
+                log.info("[ai2:网关] 会话按锁定版本读快照: scene={}, sessionId={}, locked=v{}, current=v{}",
+                        scene, sessionId, lockedVersion, currentVersion);
+                return snapshot;
+            }
+            // 快照缺失（历史数据无快照）：回落当前配置，不阻断会话
+            log.warn("[ai2:网关] 会话锁定版本无快照，回落当前配置: scene={}, locked=v{}", scene, lockedVersion);
+            return current;
+        } catch (Exception e) {
+            log.warn("[ai2:网关] 会话版本锁读取失败（回落当前配置）: sessionId={}: {}", sessionId, e.getMessage());
+            return current;
+        }
+    }
 
     /**
      * 输入通道清洗：顶层 userInput 走 sanitizeAndCap（含长度截断）；

@@ -62,9 +62,10 @@
           <span v-else>-</span>
         </template>
       </el-table-column>
-      <el-table-column label="版本" width="90" align="center">
+      <el-table-column label="版本" width="130" align="center">
         <template #default="{ row }">
           <el-tag size="small">{{ row.version || '-' }}</el-tag>
+          <el-tag v-if="row.configVersion != null" size="small" type="info" style="margin-left: 4px;">cfg v{{ row.configVersion }}</el-tag>
         </template>
       </el-table-column>
       <el-table-column label="灰度权重" width="90" align="center">
@@ -82,9 +83,10 @@
         </template>
       </el-table-column>
       <el-table-column label="更新时间" prop="updateTime" width="170" align="center" />
-      <el-table-column label="操作" width="200" fixed="right" align="right">
+      <el-table-column label="操作" width="240" fixed="right" align="right">
         <template #default="{ row }">
           <el-button link type="primary" v-hasPermi="['cms:ai:scene:update']" @click="handleEdit(row)">编辑</el-button>
+          <el-button link type="warning" v-hasPermi="['cms:ai:scene:query']" @click="handleHistory(row)">版本</el-button>
           <el-button link type="success" @click="handleTest(row)">测试</el-button>
           <el-button link type="danger" v-hasPermi="['cms:ai:scene:remove']" @click="handleDelete(row)">删除</el-button>
         </template>
@@ -333,13 +335,43 @@
       </el-descriptions>
       <pre class="test-result-json">{{ testResultJson }}</pre>
     </el-dialog>
+
+    <!-- 版本历史弹窗（网关整改 2A.1：保存自动快照，一键回滚） -->
+    <el-dialog v-model="historyVisible" :title="'配置版本历史 - ' + (historyScene.sceneCode || '')" width="720px">
+      <el-table :data="historyList" size="small" v-loading="historyLoading">
+        <el-table-column label="配置版本" width="90" align="center">
+          <template #default="{ row }">
+            <el-tag size="small" :type="row.configVersion === historyScene.configVersion ? 'success' : 'info'">v{{ row.configVersion }}</el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column label="操作人" prop="operator" width="120" show-overflow-tooltip />
+        <el-table-column label="快照时间" prop="createTime" width="170" align="center" />
+        <el-table-column label="快照摘要" min-width="220" show-overflow-tooltip>
+          <template #default="{ row }">
+            <span style="font-family: monospace; font-size: 12px;">{{ historyBrief(row.snapshot) }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="操作" width="90" align="right">
+          <template #default="{ row }">
+            <el-button
+              v-if="row.configVersion !== historyScene.configVersion"
+              link type="warning" size="small"
+              v-hasPermi="['cms:ai:scene:update']"
+              @click="handleRollback(row)"
+            >回滚</el-button>
+            <span v-else style="color: #909399; font-size: 12px;">当前</span>
+          </template>
+        </el-table-column>
+      </el-table>
+      <div class="form-tip" style="margin-top: 8px;">回滚仅影响新会话；进行中会话按首轮锁定的配置版本继续（网关会话通道按锁定版本读快照）。回滚本身也会生成新版本，可再次回滚。</div>
+    </el-dialog>
   </div>
 </template>
 
 <script setup>
 import { ref, reactive, computed, onMounted } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
-import { listScene, getScene, addScene, updateScene, delScene, testScene, sceneRegistry } from '@/api/ai/scene';
+import { listScene, getScene, addScene, updateScene, delScene, testScene, sceneRegistry, listSceneHistory, rollbackScene } from '@/api/ai/scene';
 import { listAgent } from '@/api/ai/agent';
 import { listModelConfig } from '@/api/ai/model';
 import { listWorkflow } from '@/api/ai/workflow';
@@ -623,6 +655,52 @@ async function handleTest(row) {
     testResult.value = res.data || {};
     testVisible.value = true;
   } catch (e) { /* ignore */ }
+}
+
+// ===== 配置版本历史 / 一键回滚（网关整改 2A.1） =====
+const historyVisible = ref(false);
+const historyLoading = ref(false);
+const historyList = ref([]);
+const historyScene = ref({});
+
+async function handleHistory(row) {
+  historyScene.value = row;
+  historyVisible.value = true;
+  historyLoading.value = true;
+  try {
+    const res = await listSceneHistory(row.id);
+    historyList.value = res.data || [];
+  } catch (e) {
+    historyList.value = [];
+  } finally {
+    historyLoading.value = false;
+  }
+}
+
+/** 快照摘要：提示词模板前 80 字符，便于辨认版本内容 */
+function historyBrief(snapshot) {
+  try {
+    const snap = JSON.parse(snapshot);
+    const prompt = snap.userPromptTemplate || snap.systemPromptTemplate || '';
+    const brief = prompt.replace(/\s+/g, ' ').slice(0, 80);
+    return brief || '(无提示词模板)';
+  } catch (e) {
+    return '(快照解析失败)';
+  }
+}
+
+async function handleRollback(row) {
+  try {
+    await ElMessageBox.confirm(
+      '确认回滚到配置版本 v' + row.configVersion + '？回滚仅影响新会话，进行中会话不受影响。',
+      '提示',
+      { type: 'warning' }
+    );
+    await rollbackScene(historyScene.value.id, row.configVersion);
+    ElMessage.success('已回滚到 v' + row.configVersion);
+    historyVisible.value = false;
+    getList();
+  } catch (e) { /* cancel */ }
 }
 
 async function handleDelete(row) {

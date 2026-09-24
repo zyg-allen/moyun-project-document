@@ -135,6 +135,9 @@ public class AiSceneConfig extends AiBaseEntity {
     /** 版本号（同场景多版本灰度） */
     private String version;
 
+    /** 配置版本号（保存自动+1，回滚安全网；区别于灰度 version 字符串） */
+    private Integer configVersion;
+
     /** 灰度权重（同场景多版本按权重轮盘赌） */
     private Integer weight;
 

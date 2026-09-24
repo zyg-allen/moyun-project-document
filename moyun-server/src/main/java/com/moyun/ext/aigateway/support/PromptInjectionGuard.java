@@ -1,5 +1,7 @@
 package com.moyun.ext.aigateway.support;
 
+import lombok.Getter;
+
 import java.nio.ByteBuffer;
 import java.nio.charset.CharacterCodingException;
 import java.nio.charset.CodingErrorAction;
@@ -37,6 +39,7 @@ public final class PromptInjectionGuard {
     public enum RiskLevel { NONE, SUSPECT, DANGEROUS }
 
     /** 扫描结果 */
+    @Getter
     public static final class ScanResult {
         private final RiskLevel level;
         private final String pattern;
@@ -46,8 +49,6 @@ public final class PromptInjectionGuard {
             this.pattern = pattern;
         }
 
-        public RiskLevel getLevel() { return level; }
-        public String getPattern() { return pattern; }
         public boolean isDangerous() { return level == RiskLevel.DANGEROUS; }
         public boolean isSuspect() { return level == RiskLevel.SUSPECT; }
 

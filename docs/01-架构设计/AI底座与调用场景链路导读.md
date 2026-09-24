@@ -15,7 +15,7 @@
 │      │ 全部经 AiSceneJsonClient / AiGatewayService 收口           │
 ├─────────────────────────────────────────────────────────────────┤
 │ AI 统一接入层（网关，代号 ai2）                                    │
-│  com.moyun.ext.aiapp                                             │
+│  com.moyun.ext.aigateway                                             │
 │  入口 Controller → AiGatewayService 五层编排 → 11 个场景 Handler  │
 │  横切：注入防护 / 语义缓存 / 限流 / Token熔断 / 输出脱敏 / 降级     │
 ├─────────────────────────────────────────────────────────────────┤
@@ -28,7 +28,7 @@
 ```
 
 **阅读心法**：
-- 看业务怎么用 AI → 从 `ext.aiapp` 的 Handler 和 `AiSceneJsonClient` 入手；
+- 看业务怎么用 AI → 从 `ext.aigateway` 的 Handler 和 `AiSceneJsonClient` 入手；
 - 看 AI 怎么调模型 → 从 `ext.ai` 的 `ModelConfigServiceImpl` / `LLMServiceImpl` 入手；
 - 业务代码**永远不直接 import LangChain4j**（唯一例外：面试主干对话，见 §9）。
 
@@ -53,9 +53,9 @@
 | `util` | 工具 | `ApiKeyCryptoUtils`（apiKey AES 加解密，ENC: 前缀）、`SqlSecurityValidator`（NL2SQL 注入防护）、`DataMaskingUtils`、`RateLimiter` |
 | `model` | 模型抽象 | `RerankModel`（重排序接口）、`DashScopeRerankModel`（DashScope 私有协议，RestTemplate 实现） |
 
-### 2.2 `com.moyun.ext.aiapp`（AI 统一接入层 / 网关，代号 ai2）
+### 2.2 `com.moyun.ext.aigateway`（AI 统一接入层 / 网关，代号 ai2）
 
-路径：`moyun-server/src/main/java/com/moyun/ext/aiapp/`
+路径：`moyun-server/src/main/java/com/moyun/ext/aigateway/`
 
 | 子包 | 职责 | 关键类 |
 |---|---|---|
@@ -69,7 +69,7 @@
 | `constant` | 错误码 | `AiErrorCodes`（0 成功；1000+ 通用；2000+ AI 相关；3000+ 业务） |
 | `entity` / `mapper` | 日志落库 | `AiExecuteLog`（ai_execute_log 表） |
 
-> 历史注记：测试目录包名为 `ext.ai2`，日志前缀 `[ai2:...]` 均为早期命名遗留，主代码包名是 `aiapp`。
+> 历史注记：测试目录包名为 `ext.ai2`，日志前缀 `[aigateway:...]` 均为早期命名遗留，主代码包名是 `aiapp`。
 
 ### 2.3 业务消费包（调用网关，非底座）
 

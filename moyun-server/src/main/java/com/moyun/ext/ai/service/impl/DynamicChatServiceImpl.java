@@ -664,7 +664,7 @@ public class DynamicChatServiceImpl implements DynamicChatService {
                     }
 
                     // 输出缓冲区中剩余的内容（过滤工具调用标记）
-                    if (streamBuffer.length() > 0) {
+                    if (!streamBuffer.isEmpty()) {
                         String remaining = streamBuffer.toString();
                         // 过滤掉工具调用标记
                         remaining = java.util.regex.Pattern

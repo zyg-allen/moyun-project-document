@@ -169,7 +169,8 @@ public class ToolCallingService {
 
         try {
             Map<String, Object> callData = objectMapper.readValue(toolCallJson,
-                    new TypeReference<Map<String, Object>>() {});
+                    new TypeReference<>() {
+                    });
 
             String toolName = (String) callData.get("tool");
             @SuppressWarnings("unchecked")

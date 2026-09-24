@@ -4,11 +4,11 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.moyun.common.exception.system.ServiceException;
 import com.moyun.ext.ai.enums.AiSceneEnum;
-import com.moyun.ext.aiapp.constant.AiErrorCodes;
-import com.moyun.ext.aiapp.model.AiExecuteRequest;
-import com.moyun.ext.aiapp.model.AiExecuteResponse;
-import com.moyun.ext.aiapp.model.data.GenericSceneData;
-import com.moyun.ext.aiapp.service.AiGatewayService;
+import com.moyun.ext.aigateway.constant.AiErrorCodes;
+import com.moyun.ext.aigateway.model.AiExecuteRequest;
+import com.moyun.ext.aigateway.model.AiExecuteResponse;
+import com.moyun.ext.aigateway.model.data.GenericSceneData;
+import com.moyun.ext.aigateway.service.AiGatewayService;
 import com.moyun.ext.cms.service.ICmsWritingPromptService;
 import com.moyun.portal.domain.entity.PortalWritingPrompt;
 import com.moyun.portal.mapper.PortalWritingPromptMapper;
@@ -31,7 +31,7 @@ import java.util.regex.Pattern;
  *
  * <p><b>TODO v12.2 统一入口整改</b>：本类直调 {@link LLMService#generate} 绕过统一网关。
  * 待迁移：新增 aiapp/handler/impl/WritingPromptHandler（scene_code=writing_prompt），
- * 本类改为调 {@link com.moyun.ext.aiapp.support.AiSceneJsonClient#executeForJson}，
+ * 本类改为调 {@link com.moyun.ext.aigateway.support.AiSceneJsonClient#executeForJson}，
  * 只传 {date, specialDate} 上下文。详见《AI 统一入口整改方案》。
  *
  * <p>新增 AI 生成能力——

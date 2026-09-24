@@ -5,10 +5,10 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.moyun.core.base.entity.SysDictData;
 import com.moyun.ext.ai.entity.AiSceneConfig;
 import com.moyun.ext.ai.mapper.AiSceneConfigMapper;
-import com.moyun.ext.aiapp.constant.AiErrorCodes;
-import com.moyun.ext.aiapp.model.AiExecuteRequest;
-import com.moyun.ext.aiapp.model.AiExecuteResponse;
-import com.moyun.ext.aiapp.service.AiGatewayService;
+import com.moyun.ext.aigateway.constant.AiErrorCodes;
+import com.moyun.ext.aigateway.model.AiExecuteRequest;
+import com.moyun.ext.aigateway.model.AiExecuteResponse;
+import com.moyun.ext.aigateway.service.AiGatewayService;
 import com.moyun.ledger.domain.entity.LedgerAiAnalysisReport;
 import com.moyun.ledger.domain.entity.LedgerAssetAccount;
 import com.moyun.ledger.domain.entity.LedgerBudget;
@@ -42,7 +42,7 @@ import com.moyun.ext.ai.enums.AiSceneEnum;
  *
  * <p>架构（Service 薄化 / 配置即场景）：本 Service 只承担业务编排——
  * 快照缓存（指纹失效）/ 网关调用 / 报告落表 / 画像管理。数据组装（查库/指标/趋势上下文）
- * 与 LLM 变换全部下沉 {@link com.moyun.ext.aiapp.handler.impl.FinanceAnalysisHandler}（场景差异化编码区），
+ * 与 LLM 变换全部下沉 {@link com.moyun.ext.aigateway.handler.impl.FinanceAnalysisHandler}（场景差异化编码区），
  * 提示词模板/人设/输出结构由 ai_scene_config 配置驱动，管理页修改即时生效。</p>
  *
  * <p>流程：指纹命中快照→直接返回；否则网关 execute(finance_analysis, {userId, range})
@@ -93,9 +93,9 @@ public class LedgerAiAnalysisServiceImpl implements ILedgerAiAnalysisService {
     @Autowired
     private LedgerBudgetMapper budgetMapper;
 
-    /** AI 统一网关（com.moyun.ext.aiapp）：限流/缓存/日志/降级统一编排 */
+    /** AI 统一网关（com.moyun.ext.aigateway）：限流/缓存/日志/降级统一编排 */
     @Autowired(required = false)
-    private com.moyun.ext.aiapp.service.AiGatewayService aiGatewayService;
+    private com.moyun.ext.aigateway.service.AiGatewayService aiGatewayService;
 
     // ==================== 异步任务 ====================
 

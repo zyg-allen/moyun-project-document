@@ -21,11 +21,11 @@ import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.moyun.ext.aiapp.constant.AiErrorCodes;
-import com.moyun.ext.aiapp.model.AiExecuteRequest;
-import com.moyun.ext.aiapp.model.AiExecuteResponse;
-import com.moyun.ext.aiapp.model.data.TopicSceneData;
-import com.moyun.ext.aiapp.service.AiGatewayService;
+import com.moyun.ext.aigateway.constant.AiErrorCodes;
+import com.moyun.ext.aigateway.model.AiExecuteRequest;
+import com.moyun.ext.aigateway.model.AiExecuteResponse;
+import com.moyun.ext.aigateway.model.data.TopicSceneData;
+import com.moyun.ext.aigateway.service.AiGatewayService;
 import com.moyun.ext.cms.service.IFeedService;
 import com.moyun.common.exception.system.ServiceException;
 import com.moyun.system.domain.dto.AuditTaskSubmitDTO;

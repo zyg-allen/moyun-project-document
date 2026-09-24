@@ -2,7 +2,7 @@ package com.moyun.ext.cms.service.interview;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.moyun.ext.aiapp.support.AiSceneJsonClient;
+import com.moyun.ext.aigateway.support.AiSceneJsonClient;
 import com.moyun.util.string.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

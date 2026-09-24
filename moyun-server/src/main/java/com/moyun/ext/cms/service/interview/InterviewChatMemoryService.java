@@ -1,6 +1,6 @@
 package com.moyun.ext.cms.service.interview;
 
-import com.moyun.ext.aiapp.support.ChatMemoryProvider;
+import com.moyun.ext.aigateway.support.ChatMemoryProvider;
 import dev.langchain4j.data.message.AiMessage;
 import dev.langchain4j.data.message.ChatMessage;
 import dev.langchain4j.data.message.SystemMessage;

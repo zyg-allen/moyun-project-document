@@ -170,7 +170,7 @@ moyun-project-document/
 │   │   ├── portal/             # 门户前台（Controller/Service/Mapper/Judge）
 │   │   ├── ext/cms/            # 后台内容管理（文章/面试/简历/支付/记账…）
 │   │   ├── ext/ai/             # AI 模块（知识库/工作流/Agent/场景解析/全局开关）
-│   │   ├── ext/ai2/            # AI 统一网关（场景配置/限流/熔断/执行日志/Handler）
+│   │   ├── ext/aigateway/            # AI 统一网关（场景配置/限流/熔断/执行日志/Handler）
 │   │   ├── system/             # 系统基础
 │   │   └── core/               # 核心配置（Security/Filter/Base）
 │   └── src/main/resources/

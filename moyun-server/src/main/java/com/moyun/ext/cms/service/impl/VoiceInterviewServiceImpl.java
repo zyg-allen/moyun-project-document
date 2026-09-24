@@ -41,7 +41,7 @@ import dev.langchain4j.data.message.ChatMessage;
 import dev.langchain4j.data.message.SystemMessage;
 import dev.langchain4j.data.message.UserMessage;
 import dev.langchain4j.rag.content.Content;
-import com.moyun.ext.aiapp.support.PromptInjectionGuard;
+import com.moyun.ext.aigateway.support.PromptInjectionGuard;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -282,14 +282,14 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
     @Autowired private PortalUserResumeMapper userResumeMapper;
     @Autowired private ObjectMapper objectMapper;
     /** 面试场景统一走 AiSceneJsonClient（AI 统一网关入口） */
-    @Autowired private com.moyun.ext.aiapp.support.AiSceneJsonClient aiSceneJsonClient;
+    @Autowired private com.moyun.ext.aigateway.support.AiSceneJsonClient aiSceneJsonClient;
     /** AI 全局运行时开关（sys_config ai.global.enabled，替代 yaml 静态配置） */
     @Autowired private com.moyun.ext.ai.service.AiGlobalSwitch aiGlobalSwitch;
     @Autowired private InterviewAgentClient agentClient;
     /** V3：滑窗记忆服务（面试对话上下文复用统一 AI 会话机制） */
     @Autowired private InterviewChatMemoryService memoryService;
     /** V4：面试主干 LLM 调用收口统一网关（会话流式通道：治理+记忆+模型路由） */
-    @Autowired private com.moyun.ext.aiapp.service.AiGatewayService aiGatewayService;
+    @Autowired private com.moyun.ext.aigateway.service.AiGatewayService aiGatewayService;
     @Autowired private ScoringEngine scoringEngine;
     @Autowired private com.moyun.ext.cms.service.IWrongQuestionService wrongQuestionService;
     @Autowired private com.moyun.ext.ai.service.WorkflowService aiWorkflowService;
@@ -721,8 +721,8 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
 
             // 网关会话流式命令：治理场景=voice_interview，记忆=面试滑窗，
             // 本轮输入=候选人回答（跳过注入标记），瞬态指令=话术风格约束（不入滑窗）
-            com.moyun.ext.aiapp.model.ConversationStreamCommand cmd =
-                    new com.moyun.ext.aiapp.model.ConversationStreamCommand();
+            com.moyun.ext.aigateway.model.ConversationStreamCommand cmd =
+                    new com.moyun.ext.aigateway.model.ConversationStreamCommand();
             cmd.setSceneCode(SCENE_VOICE_INTERVIEW);
             cmd.setSessionId(memoryService.memoryId(interview.getId()));
             cmd.setUserId(interview.getUserId());

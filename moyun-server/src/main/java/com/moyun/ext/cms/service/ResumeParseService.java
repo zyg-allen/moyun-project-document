@@ -5,7 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.moyun.common.config.RuoYiConfig;
 import com.moyun.common.constant.Constants;
 import com.moyun.common.exception.system.ServiceException;
-import com.moyun.ext.aiapp.support.AiSceneJsonClient;
+import com.moyun.ext.aigateway.support.AiSceneJsonClient;
 import com.moyun.ext.ai.service.AiGlobalSwitch;
 import com.moyun.ext.cms.domain.vo.ResumeParseVO;
 import com.moyun.ext.cms.domain.vo.UserResumeVO;

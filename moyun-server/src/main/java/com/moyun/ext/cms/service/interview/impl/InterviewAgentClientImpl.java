@@ -6,7 +6,7 @@ import com.moyun.ext.ai.service.AgentService;
 import com.moyun.ext.ai.service.AiGlobalSwitch;
 import com.moyun.ext.ai.service.AiSceneResolver;
 import com.moyun.ext.ai.service.ModelConfigService;
-import com.moyun.ext.aiapp.support.AgentModelRouter;
+import com.moyun.ext.aigateway.support.AgentModelRouter;
 import com.moyun.ext.cms.service.interview.InterviewAgentClient;
 import com.moyun.system.service.ISysConfigService;
 import dev.langchain4j.data.message.ChatMessage;

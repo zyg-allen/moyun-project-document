@@ -21,21 +21,21 @@ import org.springframework.web.bind.annotation.RestController;
 import com.moyun.core.base.AjaxResult;
 import com.moyun.core.base.BaseController;
 import com.moyun.ext.ai.enums.AiSceneEnum;
-import com.moyun.ext.aiapp.constant.AiErrorCodes;
-import com.moyun.ext.aiapp.model.AiExecuteRequest;
-import com.moyun.ext.aiapp.model.AiExecuteResponse;
-import com.moyun.ext.aiapp.model.data.GenericSceneData;
-import com.moyun.ext.aiapp.service.AiGatewayService;
+import com.moyun.ext.aigateway.constant.AiErrorCodes;
+import com.moyun.ext.aigateway.model.AiExecuteRequest;
+import com.moyun.ext.aigateway.model.AiExecuteResponse;
+import com.moyun.ext.aigateway.model.data.GenericSceneData;
+import com.moyun.ext.aigateway.service.AiGatewayService;
 import com.moyun.util.string.StringUtils;
 
 /**
  * 门户 AI 内容分析统一 Controller（需登录，消耗 AI Token 的能力不放公开接口）
  *
  * <p><b>TODO v12.2 统一入口整改</b>：本类自维护 SCENES 场景分发表 + 直调 LLMService，
- * 与 {@code com.moyun.ext.aiapp} 统一网关（AiSceneHandler + AiGatewayService）机制重复。
+ * 与 {@code com.moyun.ext.aigateway} 统一网关（AiSceneHandler + AiGatewayService）机制重复。
  * 待迁移：article-meta / tags 两场景下沉为 aiapp/handler/impl 下 ArticleMetaHandler /
  * ContentTagsHandler（scene_code=article_meta/content_tags），本类薄化为仅调
- * {@link com.moyun.ext.aiapp.support.AiSceneJsonClient#executeForJson}，toPlainText/clip
+ * {@link com.moyun.ext.aigateway.support.AiSceneJsonClient#executeForJson}，toPlainText/clip
  * 等工具迁入 Handler。详见《AI 统一入口整改方案》。
  *
  * <p>设计：一个端点 {@code POST /portal/ai/analyze} + 场景注册表（scene）。

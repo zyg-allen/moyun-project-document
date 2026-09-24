@@ -116,6 +116,15 @@ public class AiSceneConfig extends AiBaseEntity {
     /** 场景日 Token 上限（成本熔断：当日累计消耗超限后拒绝调用；null=不限） */
     private Integer dailyTokenLimit;
 
+    /** 输入 token 上限（提示词渲染后估算超限按 truncateStrategy 截断；null=不限）（阶段三 3.2） */
+    private Integer maxInputTokens;
+
+    /** 输出 token 上限（下发模型 max_tokens，模型侧截断；null=不限/沿用 Agent 设置）（阶段三 3.2） */
+    private Integer maxOutputTokens;
+
+    /** 输入截断策略: head(保头部)/tail(保尾部)/head_tail(保两端去中间)（阶段三 3.2） */
+    private String truncateStrategy;
+
     /** 是否启用输出内容过滤（启用后网关响应 data 文本经 DFA 词树脱敏；0=关闭） */
     private Boolean enableOutputFilter;
 

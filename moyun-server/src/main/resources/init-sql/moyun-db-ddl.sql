@@ -4391,3 +4391,21 @@ CREATE TABLE `ai_scene_config_history` (
                                            KEY `idx_config_id` (`config_id`),
                                            KEY `idx_scene_version` (`scene_code`,`config_version`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='AI场景配置版本快照表（保存自动快照，一键回滚）';
+
+-- =====================================================================
+-- AI 模块补充（AI统一网关整改 阶段三 成本控制 · 2026-09-24）：
+-- ai_scene_config 增加成本控制列：max_input_tokens（输入超限按
+-- truncate_strategy 截断，网关侧统一实施）+ max_output_tokens（下发模型
+-- max_tokens，模型侧截断）+ truncate_strategy；暂不加 context_strategy
+-- （会话滑窗已由阶段一 ContextManager 内置）。ai_execute_log 增加
+-- input/output token 拆分列——阶段三基线与成本看板依赖 input/output
+-- 区分口径（原 token_used 为合计，无法拆分）。
+-- =====================================================================
+ALTER TABLE `ai_scene_config`
+    ADD COLUMN `max_input_tokens` int DEFAULT NULL COMMENT '输入token上限（提示词渲染后估算超限按truncate_strategy截断；null=不限）' AFTER `daily_token_limit`,
+    ADD COLUMN `max_output_tokens` int DEFAULT NULL COMMENT '输出token上限（下发模型max_tokens模型侧截断；null=不限/沿用Agent设置）' AFTER `max_input_tokens`,
+    ADD COLUMN `truncate_strategy` varchar(20) DEFAULT 'head_tail' COMMENT '输入截断策略: head(保头部)/tail(保尾部)/head_tail(保两端去中间)' AFTER `max_output_tokens`;
+
+ALTER TABLE `ai_execute_log`
+    ADD COLUMN `input_tokens` int DEFAULT NULL COMMENT '输入Token（模型回传细分；未回传为NULL）' AFTER `token_used`,
+    ADD COLUMN `output_tokens` int DEFAULT NULL COMMENT '输出Token（模型回传细分；未回传为NULL）' AFTER `input_tokens`;

@@ -10,6 +10,7 @@ import com.moyun.ext.aigateway.model.AiExecuteResponse;
 import com.moyun.ext.aigateway.model.AiSceneMetadata;
 import com.moyun.ext.aigateway.model.ChatOutcome;
 import com.moyun.ext.aigateway.model.data.GenericSceneData;
+import com.moyun.ext.aigateway.support.TokenBudgeter;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
@@ -80,6 +81,11 @@ public class DefaultSceneExecutor extends AbstractAiSceneHandler {
 
         // 2. 用户提示词：配置模板渲染（{{variable}} ← input）；无模板回落 userInput 契约文本
         String userPrompt = resolveUserPrompt(request, meta);
+
+        // 2.5 输入截断（阶段三 3.3）：任务型场景输入超限按 truncate_strategy 截断，
+        //     配置驱动（max_input_tokens），防护外部不可信长文本（简历/JD/转写）
+        userPrompt = TokenBudgeter.truncate(userPrompt,
+                config.getMaxInputTokens(), config.getTruncateStrategy());
 
         // 3. LLM 调用（结构化输出 + 解析失败降级重试；文本类场景走纯对话）
         ChatOutcome outcome = meta.isTextParser()

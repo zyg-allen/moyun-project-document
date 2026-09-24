@@ -55,6 +55,14 @@ public class AiExecuteLog {
     @TableField("token_used")
     private Integer tokenUsed;
 
+    /** 输入Token（模型回传细分；未回传为NULL）（阶段三 3.2） */
+    @TableField("input_tokens")
+    private Integer inputTokens;
+
+    /** 输出Token（模型回传细分；未回传为NULL）（阶段三 3.2） */
+    @TableField("output_tokens")
+    private Integer outputTokens;
+
     /** 本次调用成本（元，metadata 细分 token × 模型单价，6位小数；模型未回传 token 时为 null） */
     @TableField("cost_yuan")
     private java.math.BigDecimal costYuan;

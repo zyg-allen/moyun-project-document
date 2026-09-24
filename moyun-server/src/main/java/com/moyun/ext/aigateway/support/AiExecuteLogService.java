@@ -65,6 +65,8 @@ public class AiExecuteLogService {
                 logEntry.setModelUsed(metadata.getModelUsed());
                 logEntry.setAgentUsed(metadata.getAgentUsed());
                 logEntry.setTokenUsed(metadata.getTokenUsed());
+                logEntry.setInputTokens(metadata.getInputTokens());
+                logEntry.setOutputTokens(metadata.getOutputTokens());
                 logEntry.setCostYuan(calculateCostYuan(metadata));
             }
             logEntry.setInputSummary(abbreviate(inputSummary, 500));

@@ -231,6 +231,14 @@ INSERT INTO ai_scene_config (scene_code,scene_name,description,scene_category,ag
 
 文章标题：{{title}}
 {{data:文章正文|content}}','{"title": "文章标题（可空）", "content": "正文纯文本（调用方截断 3000 字，数据通道隔离）"}','sync',NULL,'json',2048,0.7,30,3,NULL,100,60,NULL,0,NULL,NULL,0,3600,'v1',100,0,1,1,0,'2026-09-24 12:00:00',NULL,0);
+-- 成本控制种子（AI统一网关整改 阶段三 3.3/3.4）：任务型场景（resume_parse / finance_analysis /
+-- resume_optimize*）输入截断 + 输出上限；面试场景仅输出上限（context 固定 full，追问质量红线，
+-- 不设输入上限）；其余场景暂不限（列默认 NULL，后续按 3.1 基线数据再定）。
+-- 数值口径：3.1 基线显示开发库无真实 token 数据，本批为初始防护值，真实流量后按基线校准。
+UPDATE ai_scene_config SET max_input_tokens=8000, max_output_tokens=4000, truncate_strategy='head_tail' WHERE scene_code='resume_parse' AND deleted=0;
+UPDATE ai_scene_config SET max_input_tokens=6000, max_output_tokens=4000, truncate_strategy='head_tail' WHERE scene_code='finance_analysis' AND deleted=0;
+UPDATE ai_scene_config SET max_input_tokens=8000, max_output_tokens=3000, truncate_strategy='head_tail' WHERE scene_code LIKE 'resume_optimize%' AND deleted=0;
+UPDATE ai_scene_config SET max_output_tokens=2000 WHERE scene_code LIKE 'voice_interview%' AND deleted=0;
 INSERT INTO ledger_app_feature_config (feature_key,feature_name,icon,icon_color,group_type,sort_num,visible,status,badge,create_by,create_time,update_by,update_time,remark) VALUES
 	 ('category','分类管理','☰','#7fbf94','main',1,1,'done',NULL,'','2026-09-14 13:08:02','','2026-09-14 13:08:02','用户自定义收支分类'),
 	 ('setting','记账设置','⚙️','#7fbf94','main',2,1,'done',NULL,'','2026-09-14 13:08:02','','2026-09-14 13:08:02',''),

@@ -23,7 +23,7 @@ public interface CmsIncomeOrderMapper {
      * 统一订单分页（动态条件：platform / status / 时间范围）
      */
 
-    List<Map<String, Object>> selectIncomeOrders(@Param("platform") String platform,
+    List<Map<String, Object>> selectIncomeOrders(@Param("platformCode") String platformCode,
                                                   @Param("channelCode") String channelCode,
                                                   @Param("status") String status,
                                                   @Param("startTime") java.time.LocalDateTime startTime,
@@ -35,7 +35,7 @@ public interface CmsIncomeOrderMapper {
      * 统一订单总数（同条件）
      */
 
-    long countIncomeOrders(@Param("platform") String platform,
+    long countIncomeOrders(@Param("platformCode") String platformCode,
                            @Param("channelCode") String channelCode,
                            @Param("status") String status,
                            @Param("startTime") java.time.LocalDateTime startTime,

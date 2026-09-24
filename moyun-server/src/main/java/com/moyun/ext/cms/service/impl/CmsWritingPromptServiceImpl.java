@@ -23,18 +23,12 @@ import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.Arrays;
 import java.util.List;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 /**
  * CMS 每日写作 prompt 管理 Service 实现
  *
- * <p><b>TODO v12.2 统一入口整改</b>：本类直调 {@link LLMService#generate} 绕过统一网关。
- * 待迁移：新增 aiapp/handler/impl/WritingPromptHandler（scene_code=writing_prompt），
- * 本类改为调 {@link com.moyun.ext.aigateway.support.AiSceneJsonClient#executeForJson}，
- * 只传 {date, specialDate} 上下文。详见《AI 统一入口整改方案》。
- *
- * <p>新增 AI 生成能力——
+ * <p>新增 AI 生成能力——任务指令在 ai_scene_config.writing_prompt 配置行（2B.2 配置驱动，
+ * DefaultSceneExecutor 执行），本类只组装日期/星期/特殊日期业务上下文：
  * <ul>
  *   <li>结合当日特殊日期（节日/节气，见 {@link SpecialDateProvider}）构造提示词，调用默认聊天模型生成；</li>
  *   <li>AI 不可用/失败/输出解析失败时，回退内置主题池（按日期序号轮换，保证每天稳定有产出）；</li>
@@ -50,11 +44,6 @@ public class CmsWritingPromptServiceImpl implements ICmsWritingPromptService {
 
     private static final DateTimeFormatter DATE_FMT = DateTimeFormatter.ofPattern("yyyy年M月d日");
     private static final List<String> WEEK_CN = Arrays.asList("一", "二", "三", "四", "五", "六", "日");
-
-    /** AI 输出解析：title / category / description 三行结构 */
-    private static final Pattern TITLE_PATTERN = Pattern.compile("标题[:：]\\s*(.+)");
-    private static final Pattern CATEGORY_PATTERN = Pattern.compile("分类[:：]\\s*(.+)");
-    private static final Pattern DESC_PATTERN = Pattern.compile("描述[:：]\\s*([\\s\\S]+)");
 
     /** AI 失败回退主题池（与前台分类一致），按"年内第几天 % 池大小"轮换 */
     private static final String[][] FALLBACK_POOL = {
@@ -217,12 +206,20 @@ public class CmsWritingPromptServiceImpl implements ICmsWritingPromptService {
 
     /**
      * 调用 AI 生成标题/描述/分类并填充到 prompt（解析失败抛异常触发回退）。
+     * 任务指令在 ai_scene_config.writing_prompt 配置行（2B.2 配置驱动），
+     * 本方法只组装业务上下文（日期/星期/特殊日期或季节素材）。
      */
     private void applyAiContent(PortalWritingPrompt prompt, LocalDate date, List<String> specialDates) {
-        // 走统一网关 WritingPromptHandler
+        String context = "今天是" + date.format(DATE_FMT)
+                + "，星期" + WEEK_CN.get(date.getDayOfWeek().getValue() - 1) + "。\n";
+        if (!specialDates.isEmpty()) {
+            context += "今天恰逢：" + String.join("、", specialDates)
+                    + "。请将主题与这个特殊日子自然关联。";
+        } else {
+            context += "今天不是特别的节日，请以当前的【节气/季节/自然物候】为核心素材来设计主题。";
+        }
         java.util.Map<String, Object> input = new java.util.HashMap<>();
-        input.put("date", date.toString());
-        input.put("specialDates", String.join(",", specialDates));
+        input.put("context", context);
         AiExecuteRequest request = new AiExecuteRequest();
         request.setSceneCode(AiSceneEnum.WRITING_PROMPT.getCode());
         request.setInput(input);
@@ -242,48 +239,6 @@ public class CmsWritingPromptServiceImpl implements ICmsWritingPromptService {
         prompt.setTitle(truncate(title, 128));
         prompt.setDescription(description.trim());
         prompt.setCategory(normalizeCategory(category));
-    }
-
-    /**
-     * 构造 AI 提示词：日期 + 星期 + 特殊日期上下文 + 输出格式约束。
-     * 优化点：
-     * 1. 明确主题必须“具体可写”，避免空泛；
-     * 2. 分类严格限定，确保后台管理一致；
-     * 3. 描述部分提供写作切入点和示例角度，激发用户灵感；
-     * 4. 特殊日期要求“自然关联”，而非生硬命题；
-     * 5. 无特殊日期时，以“节气/季节/自然物候”作为核心素材，提供具体可写的季节主题。
-     */
-    private String buildAiPrompt(LocalDate date, List<String> specialDates) {
-        StringBuilder sb = new StringBuilder();
-        sb.append("你是社区写作平台的编辑，负责为每天设计一个“今日写作主题”，激励创作者写出真实、有感染力的文章。\n");
-        sb.append("今天是").append(date.format(DATE_FMT))
-                .append("，星期").append(WEEK_CN.get(date.getDayOfWeek().getValue() - 1)).append("。\n");
-
-        // ========== 核心改动：特殊日期判断，无则走季节主题 ==========
-        if (!specialDates.isEmpty()) {
-            sb.append("今天恰逢：").append(String.join("、", specialDates))
-                    .append("。请将主题与这个特殊日子自然关联（避免生硬点题），可结合该日的氛围、情感或常见活动来设计。");
-        } else {
-            // ✅ 精确描述：明确告诉 AI 去取“这个季节”的素材，而非泛泛而谈
-            sb.append("今天不是特别的节日，请以当前的【节气/季节/自然物候】为核心素材库来设计主题。\n");
-            sb.append("例如：这个季节有什么典型的花、果、天气现象（雨/雪/风/霜）、农事活动、自然景观？\n");
-            sb.append("有哪些因季节而产生的生活场景（如换季整理、时令饮食、户外活动）？\n");
-            sb.append("将这些自然元素融入主题，让内容有“季节感”，而非凭空抒情。\n");
-            // 补充一个具体示例，让 AI 理解“结合季节”是什么样子
-            sb.append("示例：");
-            sb.append("· 若秋季：枫叶、银杏、桂花、秋雨、丰收\n");
-            sb.append("· 若冬季：雪、炉火、腊梅、年末总结\n");
-            sb.append("· 若春季：樱花、春雨、清明、新芽\n");
-            sb.append("· 若夏季：蝉鸣、荷花、暴雨、西瓜\n");
-        }
-        sb.append("\n要求：\n");
-        sb.append("1. 主题必须具体、可写，能激发真实表达，避免“人生”“梦想”等大词，最好聚焦一个场景、一段回忆或一种情绪。\n");
-        sb.append("2. 标题在 30 字以内，简洁有力，吸引点击。\n");
-        sb.append("3. 描述在 100 字以内，必须包含“写作切入点”，例如“可以写一次雨中的等待”、“试着描述你通勤路上看到的一个人”等具体引导。\n");
-        sb.append("4. 分类严格限定为以下之一：生活/职场/情感/虚构/哲思，不要输出其他分类。\n");
-        sb.append("严格按如下三行格式输出，不要任何多余内容（包括解释、前缀、序号）：\n");
-        sb.append("标题：xxx\n分类：xx\n描述：xxx");
-        return sb.toString();
     }
 
     /** AI 失败时的内置主题池回退（按年内天数轮换，保证稳定可用） */
@@ -309,11 +264,6 @@ public class CmsWritingPromptServiceImpl implements ICmsWritingPromptService {
             }
         }
         return "生活";
-    }
-
-    private String extract(Pattern pattern, String text) {
-        Matcher m = pattern.matcher(text);
-        return m.find() ? m.group(1).trim() : null;
     }
 
     private String truncate(String s, int max) {

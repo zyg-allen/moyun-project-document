@@ -210,7 +210,7 @@ class AiOutputFilterTest {
         assertNotNull(resp.getData());
     }
 
-    /** 类型化场景数据样例（模拟 TopicSceneData 等业务消费方 instanceof 目标） */
+    /** 类型化场景数据样例（模拟业务消费方 instanceof 目标） */
     static class SampleReport {
         private String summary;
         private Integer score;

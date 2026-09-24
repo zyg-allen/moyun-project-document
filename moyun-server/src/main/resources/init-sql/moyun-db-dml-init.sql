@@ -77,7 +77,15 @@ INSERT INTO ai_provider (code,name,api_style,default_base_url,supports_streaming
 INSERT INTO ai_scene_config (scene_code,scene_name,description,scene_category,agent_id,model_config_id,knowledge_library_ids,tool_ids,workflow_id,config_json,handler_bean_name,handler_method,system_prompt_template,user_prompt_template,prompt_placeholders,output_mode,output_schema,output_parser,max_tokens,temperature,timeout_seconds,retry_count,rate_limit_key,rate_limit_count,rate_limit_time,daily_token_limit,enable_output_filter,fallback_model_id,fallback_response,enable_cache,cache_ttl,version,weight,priority,is_default,enabled,open_api,create_time,update_time,deleted) VALUES
 	 ('voice_interview','AI 语音面试','AI 语音模拟面试场景：智能出题 + 6阶段流程 + 权重评分 + 报告增强','chat',48,NULL,NULL,NULL,NULL,NULL,'voiceInterviewHandler','execute','','',NULL,'sync',NULL,'',2048,0.7,30,3,'',100,60,NULL,0,NULL,'',0,3600,'v1',100,0,1,1,0,'2026-09-07 15:07:33',NULL,0),
 	 ('sensitive_word','敏感词检测','文本敏感词识别与风险分级','classification',NULL,NULL,NULL,NULL,NULL,NULL,'sensitiveWordHandler','execute',NULL,NULL,NULL,'sync',NULL,'json',2048,0.7,30,3,NULL,100,60,NULL,0,NULL,NULL,0,3600,'v1',100,0,1,1,0,'2026-09-09 11:15:46',NULL,0),
-	 ('daily_topic','今日主题','每日主题生成','generation',NULL,NULL,NULL,NULL,NULL,NULL,'dailyTopicHandler','execute',NULL,NULL,NULL,'sync',NULL,'json',2048,0.7,30,3,NULL,100,60,NULL,0,NULL,NULL,0,3600,'v1',100,0,1,1,0,'2026-09-09 11:15:47',NULL,0),
+	 ('daily_topic','今日主题','每日主题生成（2B.2 配置驱动，原 DailyTopicHandler 提示词逐字收编）','generation',NULL,NULL,NULL,NULL,NULL,NULL,'defaultSceneExecutor','execute',NULL,'你是内容运营专家。为指定日期生成一个当日主题，只输出 JSON：
+{"title": "主题标题（15字内，有吸引力）",
+ "description": "主题描述（50字内）",
+ "category": "分类（技术/职场/生活/热点）"}
+标题避免与历史主题重复。禁止输出 JSON 以外内容。
+
+日期：{{date}}
+{{data:领域|domain}}
+{{data:已生成过的标题（避免重复）|excludeTitles}}','{"date": "生成日期（yyyy-MM-dd）", "domain": "领域（可选，空值自动丢弃）", "excludeTitles": "已生成过的标题（可选，空值自动丢弃）"}','sync',NULL,'json',2048,0.7,30,3,NULL,100,60,NULL,0,NULL,NULL,0,3600,'v1',100,0,1,1,0,'2026-09-09 11:15:47',NULL,0),
 	 ('finance_analysis','AI 财务分析','','analysis',47,NULL,NULL,NULL,NULL,'{}','financeAnalysisHandler','execute','你是一名拥有12年实战经验的资深个人家庭财务分析师，精通收支诊断、资产负债梳理、投资理财风险评估全流程，严格遵循国内现行个人财税规则与2026年最新惠民财税政策。
 
 核心工作规则：
@@ -165,6 +173,25 @@ INSERT INTO ai_scene_config (scene_code,scene_name,description,scene_category,ag
 打分参考：结构混乱<40；基本连贯50-65；条理清晰有详略70-85；结构完整且亮点突出85+。
 
 {{data:候选人自我介绍|transcript}}','{"context": "目标岗位（可空）", "transcript": "候选人自我介绍转写（外部不可信数据，数据通道隔离）"}','sync',NULL,'json',2048,0.7,30,3,NULL,100,60,NULL,0,NULL,NULL,0,3600,'v1',100,0,1,1,0,'2026-09-24 12:00:00',NULL,0);
+-- 简单场景配置驱动迁移（AI统一网关整改 2B.2）：daily_topic 原行就地收编（上方）；
+-- writing_prompt/content_tags 此前无配置行（AI 路径实际不可用，业务静默走兜底），
+-- 本批新增后正式启用；输出契约统一为 JSON（业务读 GenericSceneData.structured），
+-- 业务上下文组装（星期/特殊日期/内容截断）下沉各自 Service/Controller
+INSERT INTO ai_scene_config (scene_code,scene_name,description,scene_category,agent_id,model_config_id,knowledge_library_ids,tool_ids,workflow_id,config_json,handler_bean_name,handler_method,system_prompt_template,user_prompt_template,prompt_placeholders,output_mode,output_schema,output_parser,max_tokens,temperature,timeout_seconds,retry_count,rate_limit_key,rate_limit_count,rate_limit_time,daily_token_limit,enable_output_filter,fallback_model_id,fallback_response,enable_cache,cache_ttl,version,weight,priority,is_default,enabled,open_api,create_time,update_time,deleted) VALUES
+	 ('writing_prompt','今日写作主题','每日写作主题生成（2B.2 配置驱动，原 WritingPromptHandler 提示词逐字收编，输出契约改 JSON）','generation',NULL,NULL,NULL,NULL,NULL,NULL,'defaultSceneExecutor','execute',NULL,'你是社区写作平台的编辑，负责为每天设计一个"今日写作主题"，激励创作者写出真实、有感染力的文章。
+要求：
+1. 主题必须具体、可写，能激发真实表达，避免"人生","梦想"等大词。
+2. 标题在 30 字以内，简洁有力，吸引点击。
+3. 描述在 100 字以内，必须包含写作切入点。
+4. 分类严格限定为以下之一：生活/职场/情感/虚构/哲思。
+只输出 JSON（不要任何其他文字）：{"title": "标题", "category": "分类", "description": "描述"}
+
+{{data:写作主题任务数据|context}}','{"context": "业务组装的日期/星期/特殊日期上下文（数据通道隔离）"}','sync',NULL,'json',2048,0.7,30,3,NULL,100,60,NULL,0,NULL,NULL,0,3600,'v1',100,0,1,1,0,'2026-09-24 12:00:00',NULL,0),
+	 ('content_tags','内容标签提取','标题+正文提取 3~8 个主题标签（2B.2 配置驱动，原 ContentTagsHandler 提示词逐字收编，输出契约改 JSON）','classification',NULL,NULL,NULL,NULL,NULL,NULL,'defaultSceneExecutor','execute',NULL,'你是内容平台的编辑。请根据下面的内容提取 3~8 个最贴切的主题标签。
+只输出 JSON（不要任何其他文字）：{"tags": ["标签1", "标签2", "标签3"]}
+
+{{data:标题|title}}
+{{data:内容|content}}','{"title": "内容标题（可选，空值自动丢弃）", "content": "正文纯文本（调用方截断 3000 字，数据通道隔离）"}','sync',NULL,'json',2048,0.7,30,3,NULL,100,60,NULL,0,NULL,NULL,0,3600,'v1',100,0,1,1,0,'2026-09-24 12:00:00',NULL,0);
 INSERT INTO ledger_app_feature_config (feature_key,feature_name,icon,icon_color,group_type,sort_num,visible,status,badge,create_by,create_time,update_by,update_time,remark) VALUES
 	 ('category','分类管理','☰','#7fbf94','main',1,1,'done',NULL,'','2026-09-14 13:08:02','','2026-09-14 13:08:02','用户自定义收支分类'),
 	 ('setting','记账设置','⚙️','#7fbf94','main',2,1,'done',NULL,'','2026-09-14 13:08:02','','2026-09-14 13:08:02',''),

@@ -24,7 +24,7 @@ import org.springframework.transaction.annotation.Transactional;
 import com.moyun.ext.aigateway.constant.AiErrorCodes;
 import com.moyun.ext.aigateway.model.AiExecuteRequest;
 import com.moyun.ext.aigateway.model.AiExecuteResponse;
-import com.moyun.ext.aigateway.model.data.TopicSceneData;
+import com.moyun.ext.aigateway.model.data.GenericSceneData;
 import com.moyun.ext.aigateway.service.AiGatewayService;
 import com.moyun.ext.cms.service.IFeedService;
 import com.moyun.common.exception.system.ServiceException;
@@ -541,14 +541,17 @@ public class PortalTopicServiceImpl extends ServiceImpl<PortalTopicMapper, Porta
 
         AiExecuteResponse<?> resp = aiGatewayService.execute(request);
         if (resp.getCode() == null || resp.getCode() != AiErrorCodes.SUCCESS
-                || !(resp.getData() instanceof TopicSceneData data)) {
+                || !(resp.getData() instanceof GenericSceneData generic)
+                || generic.getStructured() == null) {
             log.warn("[话题AI生成] 网关执行失败: msg={}, requestId={}", resp.getMsg(), resp.getRequestId());
             throw new ServiceException("AI 话题生成失败：" + (resp.getMsg() != null ? resp.getMsg() : "请稍后重试"));
         }
+        // 2B.2 配置驱动执行：结果为 GenericSceneData.structured（title/description/category）
+        Map<String, Object> structured = generic.getStructured();
         Map<String, Object> draft = new HashMap<>();
-        draft.put("title", data.getTitle());
-        draft.put("description", data.getDescription());
-        draft.put("category", data.getCategory());
+        draft.put("title", structured.get("title"));
+        draft.put("description", structured.get("description"));
+        draft.put("category", structured.get("category"));
         draft.put("requestId", resp.getRequestId());
         return draft;
     }

@@ -31,18 +31,14 @@ import com.moyun.util.string.StringUtils;
 /**
  * 门户 AI 内容分析统一 Controller（需登录，消耗 AI Token 的能力不放公开接口）
  *
- * <p><b>TODO v12.2 统一入口整改</b>：本类自维护 SCENES 场景分发表 + 直调 LLMService，
- * 与 {@code com.moyun.ext.aigateway} 统一网关（AiSceneHandler + AiGatewayService）机制重复。
- * 待迁移：article-meta / tags 两场景下沉为 aiapp/handler/impl 下 ArticleMetaHandler /
- * ContentTagsHandler（scene_code=article_meta/content_tags），本类薄化为仅调
- * {@link com.moyun.ext.aigateway.support.AiSceneJsonClient#executeForJson}，toPlainText/clip
- * 等工具迁入 Handler。详见《AI 统一入口整改方案》。
+ * <p><b>TODO v12.2 统一入口整改</b>：tags 场景已随 2B.2 配置驱动收编（ai_scene_config
+ * 的 content_tags 行 + DefaultSceneExecutor 执行，本类只做标题/正文组装与本地兜底）；
+ * article-meta 场景待 2B.3 同样配置化，届时删除本类遗留的 SCENES 分发表死代码。
  *
- * <p>设计：一个端点 {@code POST /portal/ai/analyze} + 场景注册表（scene）。
- * 各业务方按 scene 取用分析能力，新增场景只需在 {@link #SCENES} 注册一条
- * （提示词模板 + 输出解析 + 本地兜底），无需新增接口。
+ * <p>设计：一个端点 {@code POST /portal/ai/analyze}，按 scene 映射网关场景码，
+ * 标题/正文统一转纯文本后走 {@link AiGatewayService}，AI 未配置/失败时本地兜底。
  *
- * <p>已注册场景：
+ * <p>已支持场景：
  * <ul>
  *   <li>article-meta：文章元信息（摘要 / SEO 标题 / SEO 描述 / 关键词），发布页使用</li>
  *   <li>tags：内容标签提取（3~8 个），可用于文章标签、收藏打标等</li>
@@ -211,7 +207,8 @@ public class PortalAiController extends BaseController {
             try {
                 Map<String, Object> input = new HashMap<>();
                 input.put("title", title);
-                input.put("content", plainText);
+                // content_tags 配置驱动后内容截断下沉到调用方（原 Handler 内 clip 3000）
+                input.put("content", clip(plainText, MAX_CONTENT_CHARS));
                 AiExecuteRequest request = new AiExecuteRequest();
                 request.setSceneCode(sceneCode);
                 request.setInput(input);

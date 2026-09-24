@@ -72,8 +72,7 @@ public class AiSceneConfig extends AiBaseEntity {
      *
      * @deprecated 人设统一由 Agent 表 system_prompt 承载（mergePersona /
      *             ChatContextBuilderService），场景表只保留治理配置。字段存量保留仅作迁移期
-     *             数据溯源，代码已不消费（KnowledgeQaHandler 直读 agent；后台任务用
-     *             Handler 内置 DEFAULT_SYSTEM / mergePersona 注入 agentPersona）。
+     *             数据溯源，代码已不消费（任务指令与数据全部进 user_prompt_template）。
      */
     @Deprecated
     private String systemPromptTemplate;

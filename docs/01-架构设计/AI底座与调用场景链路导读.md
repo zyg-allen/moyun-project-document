@@ -217,7 +217,7 @@ protected String mergePersona(...)        // agentPersona + 任务边界声明
 
 ---
 
-## 7. 11 个调用场景全景（链路出入口速查）
+## 7. 10 个调用场景全景（链路出入口速查）
 
 场景编码唯一权威来源：`ext/ai/enums/AiSceneEnum.java`。业务侧两个标准入口：
 
@@ -244,6 +244,7 @@ AiExecuteResponse<?> resp = aiGatewayService.execute(request);
 ### 7.2 resume_parse（简历解析）——表驱动异步任务
 
 `PortalUserResumeController.parseAttachment`（multipart，快速路径只存源文件）→ `AiTaskService.submitTask(userId,"resume_parse",...)` → `AiTaskAsyncExecutor`（@Async("aiTaskExecutor")）→ `ResumeParseTaskHandler` → `ResumeParseService.executeParse.parseByLlm` → `AiSceneJsonClient` → 反序列化 `ResumeParseVO` 落库。前端轮询 `GET /portal/interview/resume/user` 任务状态。失败 `parseByRule` 正则兜底。
+> 2B.3 配置驱动收编：原 `ResumeParseHandler` 删除，新增配置行（handler=defaultSceneExecutor），简历原文经 `{{data:简历原文|text}}` 数据通道隔离，全字段 Schema 提示词逐字迁入 user_prompt_template；业务读 `GenericSceneData.structured`（AiSceneJsonClient 解包透明）。
 
 ### 7.3 resume_optimize（简历优化族，5 个 task 子任务）
 
@@ -255,11 +256,13 @@ AiExecuteResponse<?> resp = aiGatewayService.execute(request);
 | draft_empty | `POST /ai-draft/{resumeId}` | `ResumeDeepOptimizeService.aiDraftEmptyFields` → 网关 |
 | deep_optimize | `POST /deep/...` | `ResumeDeepOptimizeGenerator` → 网关 |
 
-> 5 个 task 已拆行至全码配置行（`resume_optimize:advice/job_match/field_assist/draft_empty/deep_optimize`，2B.1），不绑 agent 走默认模型（与迁移前一致）；此前无主场景配置行时网关返回 SCENE_NOT_FOUND、业务静默走规则兜底，拆行后 AI 路径正式启用。
+> 5 个 task 已拆行至全码配置行（`resume_optimize:advice/job_match/field_assist/draft_empty/deep_optimize`，2B.1），不绑 agent 走默认模型（与迁移前一致）；此前无主场景配置行时网关返回 SCENE_NOT_FOUND、业务静默走规则兜底，拆行后 AI 路径正式启用。2B.3 删除 `ResumeOptimizeHandler`（task 分流逻辑由 Registry 全码路由替代），并补主场景配置行承载通用模式（管理台场景调试/开放入口：resumeText/targetPosition → 评分/建议/关键词/优化片段）。
 
-### 7.4 question_generate（JD 关键词提取，task=jd_keywords）
+### 7.4 question_generate（智能出题：JD 关键词提取 task + 通用出题）
 
-`PortalJobTemplateServiceImpl.extractByLlm` → 网关；失败回退规则分词（技术词表+中文短语切分）。
+- **task=jd_keywords**：`PortalJobTemplateServiceImpl.extractByLlm` → `AiSceneJsonClient`（`keywords` 字段导航）→ 清洗去重限 15 词；失败回退规则分词（技术词表+中文短语切分）。
+- **通用模式**（管理台场景调试/开放入口）：position/skills/count/difficulty → 面试题单 JSON。
+> 2B.3 配置驱动收编：原 `QuestionGenerateHandler` 删除，主场景 + `question_generate:jd_keywords` 两行配置（jd_keywords 输出契约由 JSON 数组本体改为 `{"keywords":[...]}` 对象包装，消费方同步改读 keywords 字段）。
 
 ### 7.5 finance_analysis（记账 AI 分析，open_api=0 业务内部专用）
 
@@ -271,6 +274,7 @@ AiExecuteResponse<?> resp = aiGatewayService.execute(request);
 ### 7.6 sensitive_word（内容安全复核，管理端）
 
 `AiSafetyController.detect`（`POST /cms/ai/safety/detect`，@PreAuthorize）→ 网关（text 走数据通道 wrapData 隔离）→ 返回检测结果 + requestId/elapsedMs/modelUsed（可对接执行日志页追溯）。
+> 2B.3 配置驱动收编：原 `SensitiveWordHandler` 删除，配置行就地更新（handler=defaultSceneExecutor）；Controller 适配 `GenericSceneData.structured`（字段 hasSensitive/words/riskLevel/suggestion 与前端契约同名，moyun-admin-vue 零改动）；降级兜底数据化至配置行 fallback_response（`FallbackStrategy` 内置分支删除）。
 
 ### 7.7 daily_topic（今日主题，管理端）
 
@@ -285,13 +289,9 @@ AiExecuteResponse<?> resp = aiGatewayService.execute(request);
 ### 7.9 article_meta / content_tags（文章元信息+打标，App 端）
 
 `PortalAiController.analyze`（`POST /portal/ai/analyze`）→ HTML/Markdown 转纯文本 + 3000 字符截断 → 网关 → `GenericSceneData.structured`；失败 localFallback（摘要=正文前 160 字/空标签）。前端：`moyun-portal/src/api/ai.ts`（`aiAnalyze`）。
-> content_tags 已 2B.2 配置驱动收编（原 `ContentTagsHandler` 删除，新增配置行后 AI 路径正式启用，输出契约改 JSON `{"tags":[...]}`，内容截断下沉 Controller）；article_meta 无配置行仍走 localFallback，待 2B.3 同样收编（届时删除 SCENES 死代码）。
+> 两场景均已配置驱动收编：content_tags 2B.2（输出契约改 JSON `{"tags":[...]}`，内容截断下沉 Controller）；article_meta 2B.3（原 `ArticleMetaHandler` 删除，新增配置行后 AI 路径正式启用——此前无行时 AI 失败静默走 localFallback，输出契约由四行文本改为 JSON `{summary/seoTitle/seoDescription/seoKeywords}`，`PortalAiController` 的 SCENES 分发表死代码随之删除）。
 
-### 7.10 knowledge_qa（知识问答，预留场景）
-
-RAG 多路召回+引用溯源，仅 Handler + 测试，经开放入口调用（受 open_api 控制），暂无业务内部调用点。
-
-### 7.11 统一开放 API（open_api=1 的场景）
+### 7.10 统一开放 API（open_api=1 的场景）
 
 `POST /api/ai/execute`（同步 JSON）/ `POST /api/ai/execute/stream`（SSE：chunk/done/error）。**open_api=0 的场景只能由业务 Service 直调 AiGatewayService**，防越权。
 
@@ -334,7 +334,7 @@ RAG 多路召回+引用溯源，仅 Handler + 测试，经开放入口调用（�
 
 **设计要点（读代码时带着这些视角）**
 1. **双客户端分层**：业务标准入口 `AiSceneJsonClient`（失败返回 null 走规则兜底）；需完整元数据直调 `AiGatewayService`。
-2. **task 拆行契约（2B.1）**：业务调用传主码 + `input.task`（短码统一引用 `AiSceneTasks` 常量），网关先查全码 `scene:task` 配置行、未命中回退主码；8 个 task 已拆行（resume_optimize×5、voice_interview×3），提示词逐字迁入全码行 `user_prompt_template`，外部不可信数据用 `{{data:标签|key}}` 数据通道占位符（wrapData 隔离、空值丢弃）；question_generate:jd_keywords 仍为 Handler 内部分支（2B.3 随场景迁移）。2B.2 起简单场景整场景配置驱动：daily_topic 原行就地收编、writing_prompt/content_tags 新增配置行（此前无行 AI 路径不可用），DailyTopic/WritingPrompt/ContentTags 三个 Handler 及 TopicSceneData 已删除，业务统一读 `GenericSceneData.structured`。
+2. **task 拆行契约（2B.1/2B.3）**：业务调用传主码 + `input.task`（短码统一引用 `AiSceneTasks` 常量），网关先查全码 `scene:task` 配置行、未命中回退主码；9 个 task 已拆行（resume_optimize×5、voice_interview×3、question_generate:jd_keywords），提示词逐字迁入全码行 `user_prompt_template`，外部不可信数据用 `{{data:标签|key}}` 数据通道占位符（wrapData 隔离、空值丢弃）。2B.2/2B.3 简单场景整场景配置驱动：daily_topic/sensitive_word 原行就地收编，writing_prompt/content_tags/resume_parse/resume_optimize 主场景/question_generate（主场景+jd_keywords）/article_meta 新增配置行（此前无行的场景 AI 路径不可用），DailyTopic/WritingPrompt/ContentTags/ResumeParse/ResumeOptimize/QuestionGenerate/ArticleMeta/SensitiveWord/KnowledgeQa 九个 Handler 及 TopicSceneData/ResumeSceneData/QuestionSceneData/SensitiveWordSceneData/KnowledgeQaSceneData 已删除（knowledge_qa 无业务调用方整场景移除），业务统一读 `GenericSceneData.structured`；FallbackStrategy 的 sensitive_word 内置兜底数据化至配置行 fallback_response。
 3. **input vs userInput 通道**：结构化业务数据走 `input`（数据隔离），用户自由文本走 `userInput`（意图分类+注入拦截）——**铁律：外部不可信数据禁止走顶层 userInput**（意图分类器置信度 <0.6 会误打断返回 clarification）。
 4. **配置即场景**：ai_scene_config 直查库不缓存，管理端改配置即时生效；模型配置走 Redis 缓存+主动失效；提供商注册表全量内存缓存+CRUD 失效重建。
 5. **扩展点**：新增场景三步——AiSceneEnum 加枚举 + ai_scene_config 插配置行 + 业务 Service 组装 input 调网关（网关编排零改动，默认走 DefaultSceneExecutor）；仅 output_schema 表达力不足的复杂场景才实现 AiSceneHandler（SPI 逃生舱）；新增 OpenAI 兼容提供商仅 ai_provider 插一行。

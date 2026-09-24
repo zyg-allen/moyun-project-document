@@ -87,8 +87,8 @@ public class ResumeDeepOptimizeService {
     /**
      * AI 实时辅助编辑（设计文档 P0 需求#2）：字段级多版本优化建议
      *
-     * <p>业务收口：经统一网关执行 resume_optimize 场景（task=field_assist），
-     * 提示词收编至 ResumeOptimizeHandler，本方法组装字段/岗位/原文上下文。</p>
+     * <p>业务收口：经统一网关执行 resume_optimize 场景（task=field_assist 配置行），
+     * 提示词已迁入 ai_scene_config（2B.1 拆行），本方法组装字段/岗位/原文上下文。</p>
      *
      * @param field        字段类型：work_description/project_description/self_intro/skills
      * @param originalText 用户当前输入的原文
@@ -222,7 +222,7 @@ public class ResumeDeepOptimizeService {
         if (projectsEmpty) needFields.add("项目经历");
         if (selfIntroEmpty) needFields.add("自我介绍");
 
-        // 上下文组装（提示词已收编至 ResumeOptimizeHandler task=draft_empty）
+        // 上下文组装（提示词已迁入 ai_scene_config task=draft_empty 配置行）
         StringBuilder context = new StringBuilder();
         context.append("【已有信息】\n");
         context.append("- 姓名：").append(safeDraft(resume.getName())).append('\n');

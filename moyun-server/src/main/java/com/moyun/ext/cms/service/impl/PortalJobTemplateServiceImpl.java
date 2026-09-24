@@ -3,13 +3,11 @@ package com.moyun.ext.cms.service.impl;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.moyun.common.exception.system.ServiceException;
+import com.moyun.ext.ai.enums.AiSceneEnum;
 import com.moyun.ext.ai.service.AiGlobalSwitch;
-import com.moyun.ext.aigateway.constant.AiErrorCodes;
-import com.moyun.ext.aigateway.model.AiExecuteRequest;
-import com.moyun.ext.aigateway.model.AiExecuteResponse;
-import com.moyun.ext.aigateway.model.data.QuestionSceneData;
-import com.moyun.ext.aigateway.service.AiGatewayService;
+import com.moyun.ext.aigateway.support.AiSceneJsonClient;
 import com.moyun.ext.cms.service.IPortalJobTemplateService;
 import com.moyun.portal.domain.entity.PortalInterviewQuestion;
 import com.moyun.portal.domain.entity.PortalJobTemplate;
@@ -23,7 +21,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
@@ -73,9 +70,9 @@ public class PortalJobTemplateServiceImpl extends ServiceImpl<PortalJobTemplateM
             "熟悉", "了解", "负责", "参与", "具备", "相关", "经验", "能力", "要求", "岗位职责",
             "任职", "加分", "良好", "较强", "and", "the", "for", "with", "you", "your");
 
-        /** JD 关键词提取统一走 AI 网关（task=jd_keywords 子任务） */
+        /** JD 关键词提取统一走 AI 网关（task=jd_keywords 子任务，2B.3 配置驱动） */
     @Autowired
-    private AiGatewayService aiGatewayService;
+    private AiSceneJsonClient aiSceneJsonClient;
 
     @Autowired
     private AiGlobalSwitch aiGlobalSwitch;
@@ -136,28 +133,23 @@ public class PortalJobTemplateServiceImpl extends ServiceImpl<PortalJobTemplateM
     // ==================== 关键词提取（C4） ====================
 
     /**
-     * 业务收口：经统一网关执行 question_generate 场景（task=jd_keywords）。
-     * 提示词已收编至 QuestionGenerateHandler（逐字一致），本方法仅做结果清洗
-     * （去空白/去重/限制上限）；失败返回空列表由上层回退规则分词。
+     * 业务收口：经统一网关执行 question_generate 场景（task=jd_keywords 配置行，
+     * 2B.3 起由 DefaultSceneExecutor 配置驱动执行，提示词收编至 ai_scene_config）。
+     * 本方法仅做结果清洗（去空白/去重/限制上限）；失败返回空列表由上层回退规则分词。
      */
     private List<String> extractByLlm(String jdText) {
-        AiExecuteRequest request = new AiExecuteRequest();
-        request.setSceneCode(SCENE_QUESTION_GENERATE);
-        Map<String, Object> input = new HashMap<>();
-        input.put("task", "jd_keywords");
-        input.put("context", jdText);
-        request.setInput(input);
-
-        AiExecuteResponse<?> resp = aiGatewayService.execute(request);
-        if (resp.getCode() == null || resp.getCode() != AiErrorCodes.SUCCESS
-                || !(resp.getData() instanceof QuestionSceneData data)
-                || data.getKeywords() == null || data.getKeywords().isEmpty()) {
-            log.warn("[JobTemplate] 网关关键词提取未得结果: code={}, msg={}", resp.getCode(), resp.getMsg());
+        JsonNode node = aiSceneJsonClient.executeForJson(SCENE_QUESTION_GENERATE,
+                Map.of("task", "jd_keywords", "context", jdText), null);
+        JsonNode keywordsNode = node == null ? null : node.path("keywords");
+        if (!keywordsNode.isArray() || keywordsNode.isEmpty()) {
+            log.warn("[JobTemplate] 网关关键词提取未得结果");
             return List.of();
         }
+        List<String> keywords = new ArrayList<>();
+        keywordsNode.forEach(k -> keywords.add(k.asText()));
         // 清洗：去空白、去重、限制上限
         Set<String> cleaned = new LinkedHashSet<>();
-        for (String kw : data.getKeywords()) {
+        for (String kw : keywords) {
             if (kw != null) {
                 String t = kw.trim();
                 if (!t.isEmpty() && t.length() <= 20) {

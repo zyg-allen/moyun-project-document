@@ -64,8 +64,8 @@ public class ResumeDeepOptimizeGenerator {
     /**
      * 生成深度优化建议（逐项前后对比）
      *
-     * <p>业务收口：经统一网关执行 resume_optimize 场景（task=deep_optimize），
-     * 提示词收编至 ResumeOptimizeHandler，本方法仅组装 JD+简历上下文与结果映射。</p>
+     * <p>业务收口：经统一网关执行 resume_optimize 场景（task=deep_optimize 配置行），
+     * 提示词已迁入 ai_scene_config（2B.1 拆行），本方法仅组装 JD+简历上下文与结果映射。</p>
      *
      * @param resume      简历详情
      * @param jobTargetId 岗位目标ID

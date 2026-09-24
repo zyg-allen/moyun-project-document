@@ -58,11 +58,6 @@ public enum AiSceneEnum {
             "日期 + 用户偏好",
             "主题文案 + 配图建议"),
 
-    KNOWLEDGE_QA("knowledge_qa", "知识问答",
-            "RAG 多路召回 + 引用溯源",
-            "用户问题 + 知识库 ID",
-            "回答文本 + 引用来源列表"),
-
     ARTICLE_META("article_meta", "文章元信息",
             "摘要 / SEO 标题 / SEO 描述 / 关键词",
             "文章标题 + 正文纯文本",

@@ -79,8 +79,8 @@ public class ResumeAiAdviceService {
     }
 
     /**
-     * 通过 AI 网关生成建议（收口：task=advice 子任务，提示词收编至
-     * ResumeOptimizeHandler，本方法仅组装业务上下文与结果映射）
+     * 通过 AI 网关生成建议（收口：task=advice 子任务，提示词已迁入
+     * ai_scene_config 拆行配置，本方法仅组装业务上下文与结果映射）
      * <p>
      * 构造评分明细上下文，经网关调用 LLM；解析返回的 JSON 为 ResumeAiAdviceVO；
      * 失败返回 null 由上层回退规则化。

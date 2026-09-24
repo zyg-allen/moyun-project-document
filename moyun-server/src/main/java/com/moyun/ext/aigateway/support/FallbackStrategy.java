@@ -4,7 +4,6 @@ import com.moyun.ext.ai.enums.AiSceneEnum;
 import com.moyun.ext.aigateway.constant.AiErrorCodes;
 import com.moyun.ext.aigateway.model.AiExecuteResponse;
 import com.moyun.ext.aigateway.model.data.InterviewSceneData;
-import com.moyun.ext.aigateway.model.data.SensitiveWordSceneData;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
@@ -40,19 +39,14 @@ public class FallbackStrategy {
             return resp;
         }
 
-        // 2. 内置兜底（保证调用方拿到的结构可解析）
+        // 2. 内置兜底（保证调用方拿到的结构可解析）；
+        //    sensitive_word 等简单场景已数据化至配置行 fallback_response（2B.3），
+        //    未配置时走下方通用兜底
         AiSceneEnum sceneEnum = AiSceneEnum.of(scene);
         if (sceneEnum == AiSceneEnum.VOICE_INTERVIEW || "interview".equals(scene)) {
             InterviewSceneData data = new InterviewSceneData();
             data.setNextAction("end");
             data.setEvaluation("AI服务暂时不可用，本次评估已跳过，请稍后重试");
-            return AiExecuteResponse.success(data);
-        }
-        if (sceneEnum == AiSceneEnum.SENSITIVE_WORD) {
-            SensitiveWordSceneData data = new SensitiveWordSceneData();
-            data.setHasSensitive(false);
-            data.setRiskLevel("low");
-            data.setSuggestion("AI服务暂时不可用，已跳过检测");
             return AiExecuteResponse.success(data);
         }
         // 3. 通用兜底：返回空内容 GenericSceneData，业务侧走既有规则兜底

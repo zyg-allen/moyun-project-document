@@ -1,12 +1,8 @@
 package com.moyun.portal.controller;
 
-import java.util.Arrays;
 import java.util.HashMap;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -31,12 +27,11 @@ import com.moyun.util.string.StringUtils;
 /**
  * 门户 AI 内容分析统一 Controller（需登录，消耗 AI Token 的能力不放公开接口）
  *
- * <p><b>TODO v12.2 统一入口整改</b>：tags 场景已随 2B.2 配置驱动收编（ai_scene_config
- * 的 content_tags 行 + DefaultSceneExecutor 执行，本类只做标题/正文组装与本地兜底）；
- * article-meta 场景待 2B.3 同样配置化，届时删除本类遗留的 SCENES 分发表死代码。
+ * <p>article-meta / tags 两场景均已配置驱动收编（ai_scene_config 配置行 +
+ * DefaultSceneExecutor 执行，2B.2/2B.3），本类只做标题/正文组装与本地兜底。</p>
  *
  * <p>设计：一个端点 {@code POST /portal/ai/analyze}，按 scene 映射网关场景码，
- * 标题/正文统一转纯文本后走 {@link AiGatewayService}，AI 未配置/失败时本地兜底。
+ * 标题/正文统一转纯文本后走 {@link AiGatewayService}，AI 未配置/失败时本地兜底。</p>
  *
  * <p>已支持场景：
  * <ul>
@@ -60,11 +55,11 @@ public class PortalAiController extends BaseController {
     @Autowired(required = false)
     private AiGatewayService aiGatewayService;
 
-    // ==================== 请求/响应结构 ====================
+    // ==================== 请求结构 ====================
 
     /** 统一请求体：场景 + 标题 + 正文（markdown 或 HTML 均可，后端统一转纯文本） */
     public static class AnalyzeQuery {
-        /** 分析场景，见 SCENES 注册表 */
+        /** 分析场景：article-meta=文章元信息，tags=标签提取 */
         private String scene;
         private String title;
         private String content;
@@ -75,114 +70,6 @@ public class PortalAiController extends BaseController {
         public void setTitle(String title) { this.title = title; }
         public String getContent() { return content; }
         public void setContent(String content) { this.content = content; }
-    }
-
-    /**
-     * 场景处理器：构造提示词 + 解析 AI 输出 + 本地兜底。
-     * 新增场景 = 实现一个 SceneHandler 并注册到 SCENES。
-     */
-    private interface SceneHandler {
-        /** 构造 LLM 提示词（plainText 已是纯文本） */
-        String buildPrompt(String title, String plainText);
-
-        /** 从 AI 原始输出解析结构化结果；返回 null 表示解析失败（将走兜底） */
-        Map<String, Object> parse(String answer, String title, String plainText);
-
-        /** AI 不可用/失败时的本地兜底结果 */
-        Map<String, Object> fallback(String title, String plainText);
-    }
-
-    // ==================== 场景注册表 ====================
-
-    private static final Map<String, SceneHandler> SCENES = new LinkedHashMap<>();
-
-    static {
-        // 场景：文章元信息（摘要 / SEO 标题 / SEO 描述 / 关键词）
-        SCENES.put("article-meta", new SceneHandler() {
-            private final Pattern summary = Pattern.compile("摘要[:：]\\s*(.+)");
-            private final Pattern seoTitle = Pattern.compile("SEO标题[:：]\\s*(.+)");
-            private final Pattern seoDesc = Pattern.compile("SEO描述[:：]\\s*(.+)");
-            private final Pattern keywords = Pattern.compile("关键词[:：]\\s*(.+)");
-
-            @Override
-            public String buildPrompt(String title, String plainText) {
-                return "你是内容平台的 SEO 编辑。请根据下面的文章标题和正文，输出文章的摘要与 SEO 信息。\n"
-                        + "严格按以下四行格式输出，不要输出其他任何内容（每行标签后跟内容）：\n"
-                        + "摘要：100字以内，概括文章核心内容\n"
-                        + "SEO标题：60字以内，包含核心关键词，比原标题更利于搜索\n"
-                        + "SEO描述：150字以内，吸引点击的搜索结果描述\n"
-                        + "关键词：3~6个，用英文逗号分隔，不要带序号\n\n"
-                        + "文章标题：" + (StringUtils.isEmpty(title) ? "（无标题）" : title) + "\n"
-                        + "文章正文：\n" + clip(plainText, MAX_CONTENT_CHARS);
-            }
-
-            @Override
-            public Map<String, Object> parse(String answer, String title, String plainText) {
-                String s = group(summary, answer);
-                if (StringUtils.isEmpty(s)) {
-                    return null;
-                }
-                String st = group(seoTitle, answer);
-                String sd = group(seoDesc, answer);
-                String kw = group(keywords, answer);
-                Map<String, Object> r = new HashMap<>();
-                r.put("summary", clip(s, 200));
-                r.put("seoTitle", clip(StringUtils.isEmpty(st) ? title : st, 100));
-                r.put("seoDescription", clip(StringUtils.isEmpty(sd) ? s : sd, 160));
-                r.put("seoKeywords", kw == null ? "" : clip(kw, 100));
-                return r;
-            }
-
-            @Override
-            public Map<String, Object> fallback(String title, String plainText) {
-                String head = clip(plainText.replaceAll("\\s+", " ").trim(), 160);
-                Map<String, Object> r = new HashMap<>();
-                r.put("summary", head);
-                r.put("seoTitle", clip(title, 100));
-                r.put("seoDescription", clip(StringUtils.isEmpty(head) ? title : head, 160));
-                r.put("seoKeywords", "");
-                return r;
-            }
-        });
-
-        // 场景：内容标签提取
-        SCENES.put("tags", new SceneHandler() {
-            @Override
-            public String buildPrompt(String title, String plainText) {
-                return "你是内容平台的编辑。请根据下面的内容提取 3~8 个最贴切的主题标签。\n"
-                        + "严格只输出一行，标签之间用英文逗号分隔，不要带序号和其他文字。示例：职场,成长,方法论\n\n"
-                        + "标题：" + (StringUtils.isEmpty(title) ? "（无标题）" : title) + "\n"
-                        + "内容：\n" + clip(plainText, MAX_CONTENT_CHARS);
-            }
-
-            @Override
-            public Map<String, Object> parse(String answer, String title, String plainText) {
-                if (StringUtils.isEmpty(answer)) {
-                    return null;
-                }
-                // 取第一行，去掉可能的引号与多余符号
-                String line = answer.trim().split("\n")[0].replaceAll("[\"'“”]", "");
-                String[] parts = line.split("[,，]");
-                List<String> tags = Arrays.stream(parts)
-                        .map(String::trim)
-                        .filter(t -> !t.isEmpty() && t.length() <= 20)
-                        .limit(8)
-                        .toList();
-                if (tags.isEmpty()) {
-                    return null;
-                }
-                Map<String, Object> r = new HashMap<>();
-                r.put("tags", tags);
-                return r;
-            }
-
-            @Override
-            public Map<String, Object> fallback(String title, String plainText) {
-                Map<String, Object> r = new HashMap<>();
-                r.put("tags", List.of());
-                return r;
-            }
-        });
     }
 
     // ==================== 统一入口 ====================
@@ -207,7 +94,7 @@ public class PortalAiController extends BaseController {
             try {
                 Map<String, Object> input = new HashMap<>();
                 input.put("title", title);
-                // content_tags 配置驱动后内容截断下沉到调用方（原 Handler 内 clip 3000）
+                // 正文截断下沉到调用方（配置行模板不含截断逻辑）
                 input.put("content", clip(plainText, MAX_CONTENT_CHARS));
                 AiExecuteRequest request = new AiExecuteRequest();
                 request.setSceneCode(sceneCode);
@@ -279,14 +166,6 @@ public class PortalAiController extends BaseController {
                 .replaceAll("[#>*`~|_-]{1,}", " ")         // markdown 记号
                 .replaceAll("\\s+", " ")
                 .trim();
-    }
-
-    private static String group(Pattern pattern, String text) {
-        if (StringUtils.isEmpty(text)) {
-            return null;
-        }
-        Matcher m = pattern.matcher(text);
-        return m.find() ? m.group(1).trim() : null;
     }
 
     private static String clip(String s, int max) {

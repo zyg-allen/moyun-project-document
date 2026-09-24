@@ -7,6 +7,7 @@ import com.moyun.core.base.BaseController;
 import com.moyun.ext.aigateway.constant.AiErrorCodes;
 import com.moyun.ext.aigateway.model.AiExecuteRequest;
 import com.moyun.ext.aigateway.model.AiExecuteResponse;
+import com.moyun.ext.aigateway.model.data.GenericSceneData;
 import com.moyun.ext.aigateway.service.AiGatewayService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -73,9 +74,15 @@ public class AiSafetyController extends BaseController {
         if (resp.getCode() == null || resp.getCode() != AiErrorCodes.SUCCESS) {
             return error(resp.getMsg() != null ? resp.getMsg() : "检测失败，请稍后重试");
         }
+        // 2B.3 配置驱动迁移：检测结果是 GenericSceneData.structured（hasSensitive/words/
+        // riskLevel/suggestion，与前端契约字段同名）；降级时为配置行 fallback_response 解析出的 Map
+        Object detected = resp.getData();
+        if (detected instanceof GenericSceneData generic && generic.getStructured() != null) {
+            detected = generic.getStructured();
+        }
         // 返回检测结果 + 可观测元数据（requestId/耗时/模型，便于在执行日志页追溯）
         Map<String, Object> result = new HashMap<>();
-        result.put("data", resp.getData());
+        result.put("data", detected);
         result.put("requestId", resp.getRequestId());
         result.put("elapsedMs", resp.getElapsedMs());
         if (resp.getMetadata() != null) {

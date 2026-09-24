@@ -3,7 +3,6 @@ package com.moyun.ext.aigateway.support;
 import com.moyun.ext.aigateway.constant.AiErrorCodes;
 import com.moyun.ext.aigateway.model.AiExecuteResponse;
 import com.moyun.ext.aigateway.model.data.InterviewSceneData;
-import com.moyun.ext.aigateway.model.data.SensitiveWordSceneData;
 import com.moyun.ext.aigateway.support.FallbackStrategy;
 import com.moyun.ext.aigateway.support.SceneRateLimiter;
 import com.moyun.ext.aigateway.support.SemanticCache;
@@ -65,13 +64,16 @@ class Ai2InfraSupportTest {
     }
 
     @Test
-    void fallback_sensitiveWord_safeDefault() {
+    void fallback_sensitiveWord_unconfigured_genericDefault() {
         FallbackStrategy strategy = new FallbackStrategy();
+        // 2B.3：sensitive_word 内置兜底已数据化至配置行 fallback_response，
+        // 未配置时走通用兜底（AiSafetyController 对 Map/GenericSceneData 均可解析）
         AiExecuteResponse<?> resp = strategy.executeFallback("sensitive_word", null,
                 new IllegalStateException("连接池耗尽"));
-        SensitiveWordSceneData data = (SensitiveWordSceneData) resp.getData();
-        assertFalse(data.getHasSensitive(), "内容安全场景降级默认放行（不阻断业务）");
-        assertEquals("low", data.getRiskLevel());
+        assertEquals(AiErrorCodes.SUCCESS, resp.getCode());
+        com.moyun.ext.aigateway.model.data.GenericSceneData data =
+                (com.moyun.ext.aigateway.model.data.GenericSceneData) resp.getData();
+        assertEquals("fallback", data.getSource());
     }
 
     @Test
@@ -109,8 +111,9 @@ class Ai2InfraSupportTest {
         FallbackStrategy strategy = new FallbackStrategy();
         AiExecuteResponse<?> resp = strategy.executeFallback("sensitive_word", "   ",
                 new RuntimeException("x"));
-        SensitiveWordSceneData data = (SensitiveWordSceneData) resp.getData();
-        assertFalse(data.getHasSensitive(), "空白配置应走内置兜底");
+        com.moyun.ext.aigateway.model.data.GenericSceneData data =
+                (com.moyun.ext.aigateway.model.data.GenericSceneData) resp.getData();
+        assertEquals("fallback", data.getSource(), "空白配置应走内置通用兜底");
     }
 
     // ==================== SceneRateLimiter（Redis 固定窗口） ====================

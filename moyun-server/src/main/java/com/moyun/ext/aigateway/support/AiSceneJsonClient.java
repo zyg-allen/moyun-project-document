@@ -6,7 +6,6 @@ import com.moyun.ext.aigateway.constant.AiErrorCodes;
 import com.moyun.ext.aigateway.model.AiExecuteRequest;
 import com.moyun.ext.aigateway.model.AiExecuteResponse;
 import com.moyun.ext.aigateway.model.data.InterviewSceneData;
-import com.moyun.ext.aigateway.model.data.ResumeSceneData;
 import com.moyun.ext.aigateway.service.AiGatewayService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -37,8 +36,9 @@ import java.util.Map;
  * （Handler 侧经 PromptInjectionGuard.wrapData 数据隔离）。userId 用于限流身份与日志归属，
  * 可空（匿名桶）。</p>
  *
- * <p>解包泛化——ResumeSceneData（简历族）与 InterviewSceneData
- * （语音面试子任务）均以 structured Map 透传。</p>
+ * <p><strong>解包泛化（2B.3 后口径）</strong>：配置驱动场景（DefaultSceneExecutor）统一返回
+ * GenericSceneData.structured；InterviewSceneData（语音面试子任务，2B.5 前仍在）同样以
+ * structured Map 透传。</p>
  *
  * @author laomao
  * @since 2026-09-11
@@ -87,9 +87,6 @@ public class AiSceneJsonClient {
 
     /** 解包场景 Data 的 structured 载体（按场景 Data 类型分派，未承载结构化结果返回 null） */
     private Map<String, Object> unwrapStructured(Object data) {
-        if (data instanceof ResumeSceneData resume && resume.getStructured() != null) {
-            return resume.getStructured();
-        }
         if (data instanceof InterviewSceneData interview && interview.getStructured() != null) {
             return interview.getStructured();
         }

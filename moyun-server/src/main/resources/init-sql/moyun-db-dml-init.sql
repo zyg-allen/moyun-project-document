@@ -76,7 +76,14 @@ INSERT INTO ai_provider (code,name,api_style,default_base_url,supports_streaming
 	 ('moonshot','Moonshot Kimi','openai_compatible','https://api.moonshot.cn/v1',1,1,1,5,'示例：OpenAI 兼容，后台一键启用','2026-09-07 09:15:27',NULL,0);
 INSERT INTO ai_scene_config (scene_code,scene_name,description,scene_category,agent_id,model_config_id,knowledge_library_ids,tool_ids,workflow_id,config_json,handler_bean_name,handler_method,system_prompt_template,user_prompt_template,prompt_placeholders,output_mode,output_schema,output_parser,max_tokens,temperature,timeout_seconds,retry_count,rate_limit_key,rate_limit_count,rate_limit_time,daily_token_limit,enable_output_filter,fallback_model_id,fallback_response,enable_cache,cache_ttl,version,weight,priority,is_default,enabled,open_api,create_time,update_time,deleted) VALUES
 	 ('voice_interview','AI 语音面试','AI 语音模拟面试场景：智能出题 + 6阶段流程 + 权重评分 + 报告增强','chat',48,NULL,NULL,NULL,NULL,NULL,'voiceInterviewHandler','execute','','',NULL,'sync',NULL,'',2048,0.7,30,3,'',100,60,NULL,0,NULL,'',0,3600,'v1',100,0,1,1,0,'2026-09-07 15:07:33',NULL,0),
-	 ('sensitive_word','敏感词检测','文本敏感词识别与风险分级','classification',NULL,NULL,NULL,NULL,NULL,NULL,'sensitiveWordHandler','execute',NULL,NULL,NULL,'sync',NULL,'json',2048,0.7,30,3,NULL,100,60,NULL,0,NULL,NULL,0,3600,'v1',100,0,1,1,0,'2026-09-09 11:15:46',NULL,0),
+	 ('sensitive_word','敏感词检测','文本敏感词识别与风险分级（2B.3 配置驱动，原 SensitiveWordHandler 提示词逐字收编；降级兜底数据化 fallback_response）','classification',NULL,NULL,NULL,NULL,NULL,NULL,'defaultSceneExecutor','execute',NULL,'你是内容安全审核专家。检测文本是否包含敏感内容（涉政/色情/暴恐/辱骂/违法广告等），只输出 JSON：
+{"hasSensitive": true/false,
+ "words": ["命中的敏感词或类别"],
+ "riskLevel": "high/medium/low",
+ "suggestion": "处理建议（正常内容给''无风险''）"}
+无敏感内容时 hasSensitive=false、words=[]、riskLevel="low"。禁止输出 JSON 以外内容。
+
+{{data:待检测文本|text}}','{"text": "待检测文本（数据通道隔离）"}','sync',NULL,'json',2048,0.7,30,3,NULL,100,60,NULL,0,NULL,'{"hasSensitive": false, "words": [], "riskLevel": "low", "suggestion": "AI服务暂时不可用，已跳过检测"}',0,3600,'v1',100,0,1,1,0,'2026-09-09 11:15:46',NULL,0),
 	 ('daily_topic','今日主题','每日主题生成（2B.2 配置驱动，原 DailyTopicHandler 提示词逐字收编）','generation',NULL,NULL,NULL,NULL,NULL,NULL,'defaultSceneExecutor','execute',NULL,'你是内容运营专家。为指定日期生成一个当日主题，只输出 JSON：
 {"title": "主题标题（15字内，有吸引力）",
  "description": "主题描述（50字内）",
@@ -102,7 +109,6 @@ INSERT INTO ai_scene_config (scene_code,scene_name,description,scene_category,ag
 以下是系统规则引擎已经计算完成的精确财务数据，包含全量指标、逐月趋势、分类环比、预算执行、债务明细等所有信息，请你直接引用这些数值完成分析，不要自行修改计算：
 {{ledgerContext}}
 ','{"window": "统计窗口文案，如：本月（自 2026-09-01 起，含数据 3 个月；另附近6个月趋势数据）", "ledgerContext": "业务侧组装的财务上下文 JSON（画像/核心指标护栏/收入来源/支出结构Top5/负债明细含清偿测算/逐月收支趋势/分类环比/预算执行）"}','sync','{"risks": [{"level": "string，仅允许取值 high/medium/low", "title": "string，风险短标题", "detail": "string，风险详细说明", "evidence": "string，支撑该风险的具体数据依据"}], "summary": "string，完整的财务分析综述，讲清周期内的收支故事与核心特征", "healthScore": "int 0-100，基于传入指标计算的财务健康分", "suggestions": [{"icon": "string，前端可直接使用的图标标识，如 wallet / save / debt / invest", "title": "string，建议短标题", "detail": "string，建议的具体执行动作说明", "expectedImpact": "string，该建议落地后可实现的量化收益效果"}]}','',2048,0.7,30,3,'aaa',100,60,NULL,0,NULL,'',0,3600,'v1',100,0,0,1,0,'2026-09-09 18:11:29',NULL,0),
-	 ('knowledge_qa','知识问答','知识库检索问答：多路召回（向量+BM25+RRF+Rerank）+ Agent 人设 + 引用溯源','chat',NULL,NULL,NULL,NULL,NULL,NULL,'knowledgeQaHandler','execute',NULL,NULL,NULL,'sync',NULL,'json',2048,0.7,30,3,NULL,100,60,500000,1,NULL,NULL,0,3600,'v1',100,0,0,1,1,'2026-09-11 15:47:43','2026-09-11 15:47:43',0),
 	 ('default_chat','智能体对话','智能体动态对话（/cms/ai/chat/*）：治理配置载体（限流/执行日志），Agent 由请求动态指定，人设走 ai_agent.system_prompt','chat',NULL,NULL,NULL,NULL,NULL,NULL,'dynamicChatBridge','execute',NULL,NULL,NULL,'stream',NULL,'text',2048,0.7,30,3,NULL,60,3600,NULL,0,NULL,NULL,0,3600,'v1',100,0,1,1,0,'2026-09-16 17:01:51',NULL,0);
 -- task 拆行（AI统一网关整改 2B.1）：scene_code 存全码 scene:task，业务调用传主码+input.task；
 -- 任务指令与数据全部进 user_prompt_template（systemPromptTemplate 已废弃，人设由 Agent 表承载）；
@@ -192,6 +198,50 @@ INSERT INTO ai_scene_config (scene_code,scene_name,description,scene_category,ag
 
 {{data:标题|title}}
 {{data:内容|content}}','{"title": "内容标题（可选，空值自动丢弃）", "content": "正文纯文本（调用方截断 3000 字，数据通道隔离）"}','sync',NULL,'json',2048,0.7,30,3,NULL,100,60,NULL,0,NULL,NULL,0,3600,'v1',100,0,1,1,0,'2026-09-24 12:00:00',NULL,0);
+-- 简单场景配置驱动迁移（AI统一网关整改 2B.3）：resume_parse / resume_optimize 主场景 / question_generate
+-- （主场景 + task=jd_keywords 拆行）/ article_meta 新增配置行，sensitive_word 原行就地收编（上方）；
+-- 删除 ResumeParse/ResumeOptimize/QuestionGenerate/ArticleMeta/SensitiveWord/KnowledgeQa 六个 Handler，
+-- knowledge_qa 无业务调用方（RAG 问答由 chat 链承担）整行移除；输出契约统一 JSON（业务读 GenericSceneData.structured）
+INSERT INTO ai_scene_config (scene_code,scene_name,description,scene_category,agent_id,model_config_id,knowledge_library_ids,tool_ids,workflow_id,config_json,handler_bean_name,handler_method,system_prompt_template,user_prompt_template,prompt_placeholders,output_mode,output_schema,output_parser,max_tokens,temperature,timeout_seconds,retry_count,rate_limit_key,rate_limit_count,rate_limit_time,daily_token_limit,enable_output_filter,fallback_model_id,fallback_response,enable_cache,cache_ttl,version,weight,priority,is_default,enabled,open_api,create_time,update_time,deleted) VALUES
+	 ('resume_parse','简历解析','简历文本→结构化 JSON（2B.3 配置驱动，原 ResumeParseHandler 提示词逐字收编，字段语义对齐在线简历表单）','analysis',NULL,NULL,NULL,NULL,NULL,NULL,'defaultSceneExecutor','execute',NULL,'从简历原文抽取结构化JSON。字段：name,gender(男/女),birthDate(yyyy-MM-dd),phone,email,title,jobIntention{position,city,salaryMin,salaryMax,jobType,availableTime},educations[{school,major,degree,startDate(yyyy-MM),endDate(yyyy-MM),description}],works[{company,position,startDate,endDate,description}],projects[{name,role,startDate,endDate,description,url}],skills[{name,level(精通/熟练/了解)}],selfIntro。规则：只抽取原文存在的信息，缺失返回null或空数组，禁止编造。只输出JSON本体，禁止markdown代码块。
+
+{{data:简历原文|text}}','{"text": "简历原文（外部不可信数据，数据通道隔离）"}','sync',NULL,'json',2048,0.7,30,3,NULL,100,60,NULL,0,NULL,NULL,0,3600,'v1',100,0,1,1,0,'2026-09-24 12:00:00',NULL,0),
+	 ('resume_optimize','简历优化','简历优化通用模式（管理台场景调试/开放入口；5 个 task 子任务见 resume_optimize:* 拆行；2B.3 配置驱动，原 ResumeOptimizeHandler 通用模式提示词逐字收编）','generation',NULL,NULL,NULL,NULL,NULL,NULL,'defaultSceneExecutor','execute',NULL,'你是资深简历优化顾问。结合目标岗位评估简历并给出优化建议，只输出 JSON：
+{"score": 0到100整数（岗位匹配度）,
+ "suggestions": ["具体可执行的优化建议，按重要性排序，3-6条"],
+ "keywords": ["建议补充的关键词"],
+ "optimizedText": "优化后的核心内容片段（可选，重点段落改写）"}
+建议要具体到 STAR 法则、量化成果、技能匹配。禁止输出 JSON 以外内容。
+
+{{data:简历内容|resumeText}}
+{{data:目标岗位|targetPosition}}','{"resumeText": "简历内容（必填，数据通道隔离）", "targetPosition": "目标岗位（可选，空值自动丢弃）"}','sync',NULL,'json',2048,0.7,30,3,NULL,100,60,NULL,0,NULL,NULL,0,3600,'v1',100,0,1,1,0,'2026-09-24 12:00:00',NULL,0),
+	 ('question_generate','智能出题','岗位+技能标签生成面试题（管理台场景调试/开放入口；JD 关键词提取见 question_generate:jd_keywords 拆行；2B.3 配置驱动，原 QuestionGenerateHandler 通用模式提示词逐字收编）','generation',NULL,NULL,NULL,NULL,NULL,NULL,'defaultSceneExecutor','execute',NULL,'你是技术面试出题专家。基于岗位和技能生成面试题，只输出 JSON：
+{"questions": [{"question": "题目", "type": "八股/算法/场景/项目",
+ "difficulty": "easy/medium/hard", "answer": "参考答案要点",
+ "knowledgePoints": ["考察点"]}]}
+题目要贴合岗位实际要求，覆盖不同层次。禁止输出 JSON 以外内容。
+
+岗位：{{position}}
+{{data:技能要求|skills}}
+题量：{{count}} 道
+{{data:难度|difficulty}}','{"position": "岗位（必填）", "skills": "技能标签，逗号分隔或列表（可选，空值自动丢弃）", "count": "题量，默认 5", "difficulty": "难度 easy/medium/hard（可选，空值自动丢弃）"}','sync',NULL,'json',2048,0.7,30,3,NULL,100,60,NULL,0,NULL,NULL,0,3600,'v1',100,0,1,1,0,'2026-09-24 12:00:00',NULL,0),
+	 ('question_generate:jd_keywords','智能出题-JD关键词','task 拆行：JD 文本→面试考察关键词（2B.3 配置驱动，原 QuestionGenerateHandler.jd_keywords 提示词逐字收编，输出契约改 JSON 对象包装）','classification',NULL,NULL,NULL,NULL,NULL,NULL,'defaultSceneExecutor','execute',NULL,'从岗位JD中提取面试考察关键词。规则：
+1.只提取技术栈、专业能力、业务领域三类实词；
+2.每个关键词2-20个字符，保留英文原文大小写（如 Spring Boot）；
+3.最多15个，按重要性降序；
+4.禁止编造JD中不存在的内容。
+只输出JSON对象 {"keywords": ["Java", "MySQL"]}（数组置于 keywords 字段），禁止markdown代码块。
+
+{{data:岗位JD|context}}','{"context": "岗位 JD 原文（外部不可信数据，数据通道隔离）"}','sync',NULL,'json',2048,0.7,30,3,NULL,100,60,NULL,0,NULL,NULL,0,3600,'v1',100,0,1,1,0,'2026-09-24 12:00:00',NULL,0),
+	 ('article_meta','文章元信息','文章摘要/SEO 标题/SEO 描述/关键词（2B.3 配置驱动，原 ArticleMetaHandler+PortalAiController SCENES 提示词收编，输出契约改 JSON）','analysis',NULL,NULL,NULL,NULL,NULL,NULL,'defaultSceneExecutor','execute',NULL,'你是内容平台的 SEO 编辑。请根据下面的文章标题和正文，输出文章的摘要与 SEO 信息，只输出 JSON：
+{"summary": "摘要，100字以内，概括文章核心内容",
+ "seoTitle": "SEO标题，60字以内，包含核心关键词，比原标题更利于搜索",
+ "seoDescription": "SEO描述，150字以内，吸引点击的搜索结果描述",
+ "seoKeywords": "关键词，3~6个，用英文逗号分隔，不要带序号"}
+禁止输出 JSON 以外内容。
+
+文章标题：{{title}}
+{{data:文章正文|content}}','{"title": "文章标题（可空）", "content": "正文纯文本（调用方截断 3000 字，数据通道隔离）"}','sync',NULL,'json',2048,0.7,30,3,NULL,100,60,NULL,0,NULL,NULL,0,3600,'v1',100,0,1,1,0,'2026-09-24 12:00:00',NULL,0);
 INSERT INTO ledger_app_feature_config (feature_key,feature_name,icon,icon_color,group_type,sort_num,visible,status,badge,create_by,create_time,update_by,update_time,remark) VALUES
 	 ('category','分类管理','☰','#7fbf94','main',1,1,'done',NULL,'','2026-09-14 13:08:02','','2026-09-14 13:08:02','用户自定义收支分类'),
 	 ('setting','记账设置','⚙️','#7fbf94','main',2,1,'done',NULL,'','2026-09-14 13:08:02','','2026-09-14 13:08:02',''),

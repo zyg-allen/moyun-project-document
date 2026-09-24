@@ -112,8 +112,8 @@ public class ResumeJobMatchService {
     // ==================== LLM 分析 ====================
 
     /**
-     * 业务收口：经统一网关执行 resume_optimize 场景（task=job_match）。
-     * 提示词已收编至 ResumeOptimizeHandler（逐字一致），本方法仅组装上下文与结果映射。
+     * 业务收口：经统一网关执行 resume_optimize 场景（task=job_match 配置行）。
+     * 提示词已迁入 ai_scene_config（2B.1 拆行），本方法仅组装上下文与结果映射。
      */
     private PortalResumeJobMatch analyzeByLlm(Long userId, UserResumeVO resume, PortalResumeJobTarget target) throws Exception {
         // 阶段3：AI 分析优先使用 full_text 全文纯文本，上下文更完整；

@@ -37,6 +37,18 @@ public final class RedisKeys {
         return CHAT_MEMORY_PREFIX + conversationId;
     }
 
+    /**
+     * 会话摘要前缀（网关 ContextManager 滑窗外早期消息的异步摘要）
+     * <p>完整Key: chat:memory:summary:{sessionId}</p>
+     * <p>类型: String</p>
+     * <p>过期: 30天（与聊天记忆一致）</p>
+     */
+    public static final String CHAT_MEMORY_SUMMARY_PREFIX = "chat:memory:summary:";
+
+    public static String chatMemorySummary(Object sessionId) {
+        return CHAT_MEMORY_SUMMARY_PREFIX + sessionId;
+    }
+
     // ==================== 知识库处理 ====================
 
     /**

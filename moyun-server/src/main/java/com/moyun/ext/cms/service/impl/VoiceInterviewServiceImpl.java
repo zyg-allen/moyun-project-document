@@ -40,7 +40,6 @@ import dev.langchain4j.data.message.AiMessage;
 import dev.langchain4j.data.message.ChatMessage;
 import dev.langchain4j.data.message.SystemMessage;
 import dev.langchain4j.data.message.UserMessage;
-import dev.langchain4j.memory.chat.MessageWindowChatMemory;
 import dev.langchain4j.rag.content.Content;
 import com.moyun.ext.aiapp.support.PromptInjectionGuard;
 import org.slf4j.Logger;
@@ -59,7 +58,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.regex.Pattern;
 
 /**
@@ -290,6 +288,8 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
     @Autowired private InterviewAgentClient agentClient;
     /** V3：滑窗记忆服务（面试对话上下文复用统一 AI 会话机制） */
     @Autowired private InterviewChatMemoryService memoryService;
+    /** V4：面试主干 LLM 调用收口统一网关（会话流式通道：治理+记忆+模型路由） */
+    @Autowired private com.moyun.ext.aiapp.service.AiGatewayService aiGatewayService;
     @Autowired private ScoringEngine scoringEngine;
     @Autowired private com.moyun.ext.cms.service.IWrongQuestionService wrongQuestionService;
     @Autowired private com.moyun.ext.ai.service.WorkflowService aiWorkflowService;
@@ -705,11 +705,9 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
     }
 
     /**
-     * V3 面试官流式轮次：
-     * 候选人回答（或跳过标记）入滑窗 → LLM 基于完整上下文流式输出面试官话术（delta 打字机）→
-     * 话术入滑窗 + 落库 → 预创建下一题 QA 并随 end 下发 nextQaId/nextQuestion。
-     * 时长制：问满题数不再收尾，结束仅由用户主动（按钮/口头）或倒计时归零触发。
-     * 无实时评分/无规则决策，深度分析全部留到结束批量报告。
+     * V4 面试官流式轮次（LLM 调用收口统一网关会话流式通道）：
+     * 业务侧只做业务编排——治理前置/滑窗记忆/模型路由/token 累计由网关承担，
+     * SSE 事件协议（delta/end/error）与载荷在本层组装，前端零改动。
      */
     private void runAgentTurn(SseEmitter emitter, PortalVoiceInterview interview,
                               PortalVoiceInterviewQA qa, String transcript, boolean skip) {
@@ -720,16 +718,20 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
                 emitter.complete();
                 return;
             }
-            // 回答入滑窗（面试官话术即基于完整上下文，彻底消除重复提问；跳过注入标记）
-            MessageWindowChatMemory memory = memoryService.getMemory(interview.getId(), agent.getMaxHistoryTurns());
-            memory.add(new UserMessage(skip ? "（候选人表示跳过本题）" : transcript));
 
-            List<ChatMessage> messages = new ArrayList<>(memory.messages());
-            // 每轮唯一动态指令：话术风格约束 + 轮次进度（提示收尾时机）
-            messages.add(new UserMessage(buildTurnDirective(interview, skip)));
+            // 网关会话流式命令：治理场景=voice_interview，记忆=面试滑窗，
+            // 本轮输入=候选人回答（跳过注入标记），瞬态指令=话术风格约束（不入滑窗）
+            com.moyun.ext.aiapp.model.ConversationStreamCommand cmd =
+                    new com.moyun.ext.aiapp.model.ConversationStreamCommand();
+            cmd.setSceneCode(SCENE_VOICE_INTERVIEW);
+            cmd.setSessionId(memoryService.memoryId(interview.getId()));
+            cmd.setUserId(interview.getUserId());
+            cmd.setUserInput(skip ? "（候选人表示跳过本题）" : transcript);
+            cmd.setAgentId(agent.getId());
+            cmd.setMaxMessages(memoryService.toMaxMessages(agent.getMaxHistoryTurns()));
+            cmd.setDirectives(List.of(buildTurnDirective(interview, skip)));
 
-            AtomicBoolean finished = new AtomicBoolean(false);
-            agentClient.chatStream(agent, messages,
+            aiGatewayService.executeConversationStream(cmd,
                     // onToken：面试官话术增量实时下发（前端打字机 + 分句 TTS）
                     token -> {
                         if (token == null || token.isEmpty()) {
@@ -739,16 +741,10 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
                         delta.put("t", token);
                         sendEvent(emitter, "delta", toJson(delta));
                     },
-                    // onComplete：话术入滑窗 + 落库 → 创建下一题 → end（nextQaId/finished）
+                    // onComplete：话术已由网关入滑窗 → 落库 → 创建下一题 → end（nextQaId/finished）
                     full -> {
-                        if (!finished.compareAndSet(false, true)) {
-                            return;
-                        }
                         String speak = full == null ? "" : full.trim();
                         try {
-                            if (!speak.isEmpty()) {
-                                memory.add(new AiMessage(speak));
-                            }
                             qa.setSpeakText(speak);
                             qaMapper.updateById(qa);
 
@@ -781,11 +777,8 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
                             emitter.complete();
                         }
                     },
-                    // onError：直接提示（不再维护规则降级链路）
+                    // onError：直接提示（治理拒绝/模型失败，网关已完成失败日志）
                     err -> {
-                        if (!finished.compareAndSet(false, true)) {
-                            return;
-                        }
                         log.error("[VoiceInterview] 面试官流式失败 interviewId={} qaId={}", interview.getId(), qa.getId(), err);
                         sendEvent(emitter, "error", "面试官响应失败，请稍后重试");
                         emitter.complete();
@@ -950,7 +943,7 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
         if (agent != null && agentClient.isEnabled()) {
             try {
                 List<ChatMessage> messages = new ArrayList<>(
-                        memoryService.getMemory(interview.getId(), agent.getMaxHistoryTurns()).messages());
+                        memoryService.readWindow(interview.getId(), agent.getMaxHistoryTurns()));
                 messages.add(new UserMessage("候选人请求思考提示。请以面试官身份给一句简短的思考引导"
                         + "（提示回答方向或组织思路，不直接给出答案），40字以内，只输出这句话。"));
                 text = agentClient.chat(agent, messages);
@@ -2015,8 +2008,7 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
             if (agent == null) {
                 return;
             }
-            MessageWindowChatMemory memory = memoryService.getMemory(interview.getId(), agent.getMaxHistoryTurns());
-            if (!memory.messages().isEmpty()) {
+            if (!memoryService.readWindow(interview.getId(), agent.getMaxHistoryTurns()).isEmpty()) {
                 return;
             }
             // system + 上下文 user（与 start 同源：contextSnapshot）

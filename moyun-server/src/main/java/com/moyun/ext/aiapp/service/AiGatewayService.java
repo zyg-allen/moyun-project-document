@@ -8,23 +8,33 @@ import com.moyun.ext.aiapp.constant.AiErrorCodes;
 import com.moyun.ext.aiapp.handler.AiSceneHandler;
 import com.moyun.ext.aiapp.model.AiExecuteRequest;
 import com.moyun.ext.aiapp.model.AiExecuteResponse;
+import com.moyun.ext.aiapp.model.AiMetadata;
+import com.moyun.ext.aiapp.model.ConversationStreamCommand;
 import com.moyun.ext.aiapp.registry.AiSceneRegistry;
+import com.moyun.ext.aiapp.support.AgentModelRouter;
 import com.moyun.ext.aiapp.support.AiExecuteLogService;
 import com.moyun.ext.aiapp.support.AiOutputFilter;
+import com.moyun.ext.aiapp.support.ContextManager;
 import com.moyun.ext.aiapp.support.FallbackStrategy;
 import com.moyun.ext.aiapp.support.IntentClassifier;
 import com.moyun.ext.aiapp.support.PromptInjectionGuard;
 import com.moyun.ext.aiapp.support.SceneRateLimiter;
 import com.moyun.ext.aiapp.support.SemanticCache;
 import com.moyun.ext.aiapp.support.TokenCostGuard;
+import dev.langchain4j.data.message.ChatMessage;
+import dev.langchain4j.model.chat.StreamingChatLanguageModel;
+import dev.langchain4j.model.chat.response.ChatResponse;
+import dev.langchain4j.model.chat.response.StreamingChatResponseHandler;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
+import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * AI统一网关编排服务
@@ -54,6 +64,10 @@ public class AiGatewayService {
     private final AiOutputFilter outputFilter;
     /** Agent 人设注入（ai_scene_config.agent_id → ai_agent.system_prompt） */
     private final AgentMapper agentMapper;
+    /** 会话上下文管理（滑窗 + 摘要 + 瞬态指令装配） */
+    private final ContextManager contextManager;
+    /** per-agent 模型路由（agent 绑定链，含流式自动路由） */
+    private final AgentModelRouter agentModelRouter;
 
     /**
      * 同步执行（统一入口核心编排）
@@ -109,8 +123,9 @@ public class AiGatewayService {
 
             // 2. 意图判断（消费顶层 userInput 字段——用户自由文本触发分类路由；
             //    结构化参数场景（如 finance_analysis 传 userId/range）不传 userInput，自然跳过。
+            //    会话模式（sessionId 非空）跳过——会话已绑定场景，分类是多余且有误打断风险。
             //    当前主要预留对象：chat 收口进网关后，对话消息即 userInput，此分支成为场景路由器）
-            if (userInput != null && !userInput.isBlank()) {
+            if (userInput != null && !userInput.isBlank() && request.getSessionId() == null) {
                 IntentClassifier.IntentResult intent = intentClassifier.classify(userInput, sceneCode);
                 if (intent.getConfidence() < 0.6) {
                     AiExecuteResponse<Object> resp = AiExecuteResponse.clarification(
@@ -292,6 +307,173 @@ public class AiGatewayService {
     }
 
     // ==================== 内部实现 ====================
+
+    /**
+     * 会话流式执行（回调式）：治理前置（限流/Token熔断/注入防护/执行日志）
+     * + ContextManager 记忆注入（滑窗+摘要+瞬态指令，消息列表直传模型）
+     * + per-agent 模型路由 + SSE 完成回调 Token 累计。
+     *
+     * <p>与 {@link #executeStream} 的区别：本通道供业务 Service 直接调用（如语音面试主干），
+     * SSE 事件协议（事件名/载荷）由调用方在回调中自定义，业务编排留在业务侧；
+     * 网关负责公共治理与 LLM 调用收口。无意图分类（会话已绑定场景）。</p>
+     *
+     * @param onToken    增量文本回调（回调内异常由网关吞掉记日志，不影响后续回调）
+     * @param onComplete 完成回调（参数为全文；记忆写回与治理记账已由网关完成）
+     * @param onError    失败回调（治理拒绝/模型失败；网关已完成失败日志记录）
+     */
+    public void executeConversationStream(ConversationStreamCommand cmd,
+                                          java.util.function.Consumer<String> onToken,
+                                          java.util.function.Consumer<String> onComplete,
+                                          java.util.function.Consumer<Throwable> onError) {
+        String requestId = UUID.randomUUID().toString().replace("-", "");
+        long startTime = System.currentTimeMillis();
+        String scene = cmd.getSceneCode();
+        String sessionId = cmd.getSessionId();
+        AtomicBoolean done = new AtomicBoolean(false);
+
+        try {
+            // 1. 场景治理配置（限流/熔断参数来源）
+            AiSceneConfig config = registry.getConfig(scene);
+            if (config == null) {
+                onError.accept(new IllegalStateException("场景未注册或未启用: " + scene));
+                return;
+            }
+
+            // 2. 注入防护：本轮用户输入清洗+扫描（会话场景由数据隔离兜底，同主网关口径）
+            String userInput = PromptInjectionGuard.sanitizeAndCap(cmd.getUserInput());
+            if (userInput != null && !userInput.isBlank()) {
+                PromptInjectionGuard.ScanResult guard = PromptInjectionGuard.scan(userInput);
+                if (guard.isDangerous()) {
+                    log.warn("[ai2:网关] 会话流式注入拦截: scene={}, requestId={}, pattern={}",
+                            scene, requestId, guard.getPattern());
+                    executeLogService.record(requestId, cmd.getUserId(), scene,
+                            "conversationStream", "agent", null, sessionId, null,
+                            "fail", "prompt_injection_blocked", 0);
+                    onError.accept(new IllegalStateException("输入包含不允许的指令内容"));
+                    return;
+                }
+            }
+
+            // 3. 限流（场景 × 用户）
+            String identity = cmd.getUserId() != null ? String.valueOf(cmd.getUserId()) : "anonymous";
+            int limit = config.getRateLimitCount() != null ? config.getRateLimitCount() : 100;
+            int window = config.getRateLimitTime() != null ? config.getRateLimitTime() : 60;
+            if (!rateLimiter.tryAcquire(scene, identity, limit, window).allowed()) {
+                executeLogService.record(requestId, cmd.getUserId(), scene,
+                        "conversationStream", "agent", null, sessionId, null,
+                        "fail", "rate_limited", 0);
+                onError.accept(new IllegalStateException("请求过于频繁，请稍后再试"));
+                return;
+            }
+
+            // 4. 成本熔断（场景日 Token 配额）
+            TokenCostGuard.QuotaResult quota = tokenCostGuard.checkQuota(scene, config.getDailyTokenLimit());
+            if (!quota.allowed()) {
+                log.warn("[ai2:网关] 会话流式Token配额熔断: scene={}, requestId={}, used={}/{}",
+                        scene, requestId, quota.todayUsed(), quota.limit());
+                executeLogService.record(requestId, cmd.getUserId(), scene,
+                        "conversationStream", "agent", null, sessionId, null,
+                        "fail", "token_limit_exceeded", 0);
+                onError.accept(new IllegalStateException("当前场景今日AI额度已用完，请明天再试"));
+                return;
+            }
+
+            // 5. per-agent 模型路由（agent 绑定链 + 流式自动路由）
+            Agent agent = cmd.getAgentId() != null ? agentMapper.selectById(cmd.getAgentId()) : null;
+            if (agent == null || Boolean.FALSE.equals(agent.getEnabled())) {
+                onError.accept(new IllegalStateException("智能体不存在或未启用"));
+                return;
+            }
+            StreamingChatLanguageModel model = agentModelRouter.createStreamingModel(agent);
+            if (model == null) {
+                onError.accept(new IllegalStateException("无可用流式模型，请联系管理员配置"));
+                return;
+            }
+
+            // 6. 上下文装配：当前输入入滑窗 → 滑窗 + 摘要 + 瞬态指令（消息列表直传模型）
+            List<ChatMessage> messages = contextManager.buildTurnMessages(
+                    sessionId, cmd.getMaxMessages(), userInput, cmd.getDirectives());
+
+            // 7. 流式调用（完成回调补 Token 累计 + 记忆写回 + 执行日志）
+            final StringBuilder buffer = new StringBuilder();
+            model.chat(messages, new StreamingChatResponseHandler() {
+                @Override
+                public void onPartialResponse(String partialResponse) {
+                    if (partialResponse == null || partialResponse.isEmpty()) {
+                        return;
+                    }
+                    buffer.append(partialResponse);
+                    try {
+                        onToken.accept(partialResponse);
+                    } catch (Exception e) {
+                        log.error("[ai2:网关] 会话流式 onToken 回调异常: requestId={}", requestId, e);
+                    }
+                }
+
+                @Override
+                public void onCompleteResponse(ChatResponse response) {
+                    if (!done.compareAndSet(false, true)) {
+                        return;
+                    }
+                    AiMetadata metadata = new AiMetadata();
+                    Integer tokenUsed = null;
+                    try {
+                        if (response != null && response.tokenUsage() != null
+                                && response.tokenUsage().totalTokenCount() != null) {
+                            tokenUsed = response.tokenUsage().totalTokenCount();
+                            metadata.setTokenUsed(tokenUsed);
+                        }
+                        if (response != null && response.metadata() != null
+                                && response.metadata().modelName() != null) {
+                            metadata.setModelUsed(response.metadata().modelName());
+                        }
+                    } catch (Exception ignored) {
+                    }
+                    // Token 累计（流式消费补缺：完成回调汇总 tokenUsage）
+                    if (tokenUsed != null) {
+                        try {
+                            tokenCostGuard.consume(scene, tokenUsed);
+                        } catch (Exception e) {
+                            log.warn("[ai2:网关] Token累计失败（不影响业务）: {}", e.getMessage());
+                        }
+                    }
+                    // AI 回复入滑窗（超窗时异步预生成摘要，不阻塞）
+                    contextManager.recordAiReply(sessionId, cmd.getMaxMessages(), buffer.toString());
+                    executeLogService.record(requestId, cmd.getUserId(), scene,
+                            "conversationStream", "agent", metadata, sessionId,
+                            buffer.toString(), "success", null,
+                            System.currentTimeMillis() - startTime);
+                    try {
+                        onComplete.accept(buffer.toString());
+                    } catch (Exception e) {
+                        log.error("[ai2:网关] 会话流式 onComplete 回调异常: requestId={}", requestId, e);
+                    }
+                }
+
+                @Override
+                public void onError(Throwable error) {
+                    if (!done.compareAndSet(false, true)) {
+                        return;
+                    }
+                    executeLogService.record(requestId, cmd.getUserId(), scene,
+                            "conversationStream", "agent", null, sessionId,
+                            buffer.toString(), "fail", error.getMessage(),
+                            System.currentTimeMillis() - startTime);
+                    onError.accept(error);
+                }
+            });
+        } catch (Exception e) {
+            log.error("[ai2:网关] 会话流式失败: scene={}, requestId={}", scene, requestId, e);
+            if (done.compareAndSet(false, true)) {
+                executeLogService.record(requestId, cmd.getUserId(), scene,
+                        "conversationStream", "agent", null, sessionId, null,
+                        "fail", e.getMessage(), System.currentTimeMillis() - startTime);
+                onError.accept(e);
+            }
+        }
+    }
+
+    // ==================== 输入清洗与记忆 ====================
 
     /**
      * 输入通道清洗：顶层 userInput 走 sanitizeAndCap（含长度截断）；

@@ -5,16 +5,17 @@ import com.moyun.ext.ai.entity.Agent;
 import dev.langchain4j.data.message.ChatMessage;
 
 import java.util.List;
-import java.util.function.Consumer;
 
 /**
  * 面试官智能体客户端
  *
  * <p>落实 agent 绑定的模型路由：不走只支持默认模型的 {@code LLMService}，
- * 直连 {@code ModelConfigService.createChatModel(agent.modelConfigId, temperature, maxTokens)}。</p>
+ * 同步调用委托网关侧 {@code AgentModelRouter}（模型路由公共能力收口）。</p>
  *
- * <p>所有方法异常安全：失败返回 null / 回调 onError，由调用方降级规则链路，
- * 保证面试链路在 AI 不可用时依然完整可用。</p>
+ * <p>流式主干已收口统一网关会话流式通道（AiGatewayService.executeConversationStream），
+ * 本客户端仅保留 agent 解析与同步调用（开场白/提示等短链路）。</p>
+ *
+ * <p>所有方法异常安全：失败返回 null，由调用方降级，保证面试链路在 AI 不可用时依然完整可用。</p>
  *
  * @author moyun
  */
@@ -51,16 +52,6 @@ public interface InterviewAgentClient {
      * @return 完整回复文本；失败/未启用返回 null
      */
     String chat(Agent agent, List<ChatMessage> messages);
-
-    /**
-     * 流式调用 agent 绑定的模型
-     *
-     * @param onToken     增量文本回调（回调内抛异常会被吞掉并记日志，不影响后续回调）
-     * @param onComplete  完成回调（参数为全文）
-     * @param onError     失败回调
-     */
-    void chatStream(Agent agent, List<ChatMessage> messages,
-                    Consumer<String> onToken, Consumer<String> onComplete, Consumer<Throwable> onError);
 
     /**
      * 查询 agent 名称（前端顶栏展示；agent 不存在/未启用返回 null）

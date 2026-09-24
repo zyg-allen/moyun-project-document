@@ -81,7 +81,12 @@ public class AiExecuteRequest {
     private Long userId;
 
     /**
-     * 会话ID（可选）
+     * 会话ID（可选）：非空表示会话模式——跳过意图分类，由 ContextManager 注入滑窗历史消息
      */
     private String sessionId;
+
+    /**
+     * 会话模式（可选）：conversation=多轮会话（配合 sessionId，走网关会话流式通道）
+     */
+    private String sessionMode;
 }

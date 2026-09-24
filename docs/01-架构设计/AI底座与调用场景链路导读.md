@@ -226,12 +226,12 @@ AiExecuteResponse<?> resp = aiGatewayService.execute(request);
 
 ### 7.1 voice_interview（AI 语音面试）——3 条子链路
 
-**① 面试主干对话（SSE，唯一不经网关的 LLM 调用）**
-`PortalVoiceInterviewController.answer`（`POST /portal/interview/voice/{id}/answer`，text/event-stream）→ `VoiceInterviewServiceImpl.submitAnswer` → `InterviewAgentClientImpl.chatStream`。
-方式：langchain4j per-agent 直连（agent.modelConfigId → createStreamingChatModel）。灰度开关 `ai.gateway.interview.enabled` 开启后做治理前置（复用场景行的限流/熔断参数+执行日志）。**收口计划：待网关支持 per-agent 流式后统一（v12.2 原则）**。
+**① 面试主干对话（SSE，已收口网关会话流式通道）**
+`PortalVoiceInterviewController.answer`（`POST /portal/interview/voice/{id}/answer`，text/event-stream）→ `VoiceInterviewServiceImpl.submitAnswer` → `AiGatewayService.executeConversationStream`（网关会话流式通道）。
+网关承担公共职责：治理前置（voice_interview 场景行限流/Token 熔断/注入防护）+ ContextManager 滑窗记忆注入（超窗异步预生成摘要）+ per-agent 模型路由（`AgentModelRouter`，agent.modelConfigId → 流式模型，不支持流式时自动挑选）+ 完成回调 Token 累计与执行日志。业务侧只做业务编排：回答落库、下一题预创建、SSE 事件（`delta`/`end`/`error`）与载荷组装——前端零改动。灰度开关 `ai.gateway.interview.enabled` 与同步模拟流式兜底已删除（2026-09-24 阶段一收口）。
 
 **② 预热/逐题分析/自我介绍评分（task 子任务，走网关）**
-- warmup：`tryWarmup` → `AiSceneJsonClient` 一次产出开场白+首题，失败降级 agentClient.chat 直连；
+- warmup：`tryWarmup` → `AiSceneJsonClient` 一次产出开场白+首题，失败降级 agentClient.chat 同步调用；
 - answer_analysis：`analyzeAnswerByLlm` → LLM 分与规则分（`AnswerScoringEngine`）按权重融合（默认 LLM 70%/规则 30%）；
 - self_intro：`ScoringEngine.evaluateSelfIntro` → 4 维评分（逻辑结构/自我认知/岗位匹配/表达流畅）。
 
@@ -328,8 +328,8 @@ RAG 多路召回+引用溯源，仅 Handler + 测试，经开放入口调用（�
 5. **扩展点**：新增场景三步——AiSceneEnum 加枚举 + 实现 AiSceneHandler 注册为 Bean + ai_scene_config 插配置行，网关编排零改动；新增 OpenAI 兼容提供商仅 ai_provider 插一行。
 
 **已知局限（代码注释已明示）**
-- 面试主干对话是唯一保留的 langchain4j 直连（网关尚不支持 per-agent 流式），靠灰度开关治理前置；
-- SSE 流式路径的 Token 消费累计与 AiOutputFilter 输出脱敏均未覆盖（仅同步路径）。
+- ~~面试主干对话是唯一保留的 langchain4j 直连~~（2026-09-24 阶段一已收口：主干走 `AiGatewayService.executeConversationStream` 会话流式通道，灰度开关/治理前置/同步模拟流式兜底已删除）；
+- SSE Handler 流式路径（`AbstractAiSceneHandler.chatStream`）的 Token 消费累计与 AiOutputFilter 输出脱敏未覆盖（仅同步路径；网关会话流式通道已补 Token 累计）。
 
 ---
 
@@ -339,4 +339,4 @@ RAG 多路召回+引用溯源，仅 Handler + 测试，经开放入口调用（�
 2. **横切**：`PromptInjectionGuard` → `SemanticCache` → `SceneRateLimiter` → `TokenCostGuard` → `AiOutputFilter` → `FallbackStrategy`
 3. **场景**：挑一个简单 Handler（`DailyTopicHandler`）→ 一个复杂 Handler（`FinanceAnalysisHandler`）→ `AbstractAiSceneHandler` 基类
 4. **底座**：`AiSceneResolverImpl`（模型解析责任链）→ `ModelConfigServiceImpl`（模型工厂）→ `LLMServiceImpl`（LangChain4j 对接）
-5. **业务消费**：`AiSceneJsonClient` → `ResumeAiAdviceService`（简单）→ `VoiceInterviewServiceImpl`（复杂，含直连特例）→ `LedgerAiAnalysisServiceImpl`（异步任务范例）
+5. **业务消费**：`AiSceneJsonClient` → `ResumeAiAdviceService`（简单）→ `VoiceInterviewServiceImpl`（复杂，主干走网关会话流式通道）→ `LedgerAiAnalysisServiceImpl`（异步任务范例）

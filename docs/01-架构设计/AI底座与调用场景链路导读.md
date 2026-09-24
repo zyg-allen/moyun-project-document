@@ -102,7 +102,7 @@
 | 11 | **执行** | `handler.execute(request, config)` | 进入具体场景 Handler，见 §7 |
 | 12 | **输出过滤** | `AiOutputFilter.applyFilter` | 场景开启 enable_output_filter 时 DFA 词树递归脱敏；位于缓存回写/日志之前 |
 | 13 | 收尾 | `TokenCostGuard.consume` + `SemanticCache.put` + `AiExecuteLogService.record`（@Async） | 按实际 token 累计配额；仅成功响应回写缓存；日志异步落 ai_execute_log |
-| 14 | **降级兜底** | `FallbackStrategy.executeFallback` | 任何异常：场景 fallback_response 优先 → 内置场景兜底 → 通用 GenericSceneData（source="fallback"） |
+| 14 | **降级兜底** | `FallbackStrategy.executeFallback` | 任何异常：场景 fallback_response 优先 → 通用 GenericSceneData（source="fallback"，业务侧走既有规则兜底；场景内置兜底已全部数据化/下沉，2B.3/2B.5） |
 
 入口层还有两道闸门（`AiGatewayController` 私有方法）：
 - `injectContext`：从 `SecurityUtils.getUserId()` 注入用户 ID；
@@ -239,7 +239,7 @@ AiExecuteResponse<?> resp = aiGatewayService.execute(request);
 - warmup：`tryWarmup` → `AiSceneJsonClient` 一次产出开场白+首题，失败降级 agentClient.chat 同步调用；
 - answer_analysis：`analyzeAnswerByLlm` → LLM 分与规则分（`AnswerScoringEngine`）按权重融合（默认 LLM 70%/规则 30%）；
 - self_intro：`ScoringEngine.evaluateSelfIntro` → 4 维评分（逻辑结构/自我认知/岗位匹配/表达流畅）。
-> 三个 task 已拆行至全码配置行（`voice_interview:warmup/answer_analysis/self_intro`，2B.1），agent_id=48 保持模型连续性；prompt 迁入 user_prompt_template，Handler 删除后由 `DefaultSceneExecutor` 配置驱动执行（2B.5）。
+> 三个 task 已拆行至全码配置行（`voice_interview:warmup/answer_analysis/self_intro`，2B.1），agent_id=48 保持模型连续性；prompt 迁入 user_prompt_template，`VoiceInterviewHandler` 已删除（2B.5），task 调用由 `DefaultSceneExecutor` 配置驱动执行；candidate_ask/knowledge_desc/speak_text 无业务调用方随 Handler 一并移除。
 
 ### 7.2 resume_parse（简历解析）——表驱动异步任务
 
@@ -334,7 +334,7 @@ AiExecuteResponse<?> resp = aiGatewayService.execute(request);
 
 **设计要点（读代码时带着这些视角）**
 1. **双客户端分层**：业务标准入口 `AiSceneJsonClient`（失败返回 null 走规则兜底）；需完整元数据直调 `AiGatewayService`。
-2. **task 拆行契约（2B.1/2B.3）**：业务调用传主码 + `input.task`（短码统一引用 `AiSceneTasks` 常量），网关先查全码 `scene:task` 配置行、未命中回退主码；9 个 task 已拆行（resume_optimize×5、voice_interview×3、question_generate:jd_keywords），提示词逐字迁入全码行 `user_prompt_template`，外部不可信数据用 `{{data:标签|key}}` 数据通道占位符（wrapData 隔离、空值丢弃）。2B.2/2B.3 简单场景整场景配置驱动：daily_topic/sensitive_word 原行就地收编，writing_prompt/content_tags/resume_parse/resume_optimize 主场景/question_generate（主场景+jd_keywords）/article_meta 新增配置行（此前无行的场景 AI 路径不可用），DailyTopic/WritingPrompt/ContentTags/ResumeParse/ResumeOptimize/QuestionGenerate/ArticleMeta/SensitiveWord/KnowledgeQa 九个 Handler 及 TopicSceneData/ResumeSceneData/QuestionSceneData/SensitiveWordSceneData/KnowledgeQaSceneData 已删除（knowledge_qa 无业务调用方整场景移除），业务统一读 `GenericSceneData.structured`；FallbackStrategy 的 sensitive_word 内置兜底数据化至配置行 fallback_response。2B.4 查数下沉：FinanceAnalysisHandler 删除（查数+指标计算回 `LedgerAiAnalysisServiceImpl`，修正 aigateway→ledger/portal 反向依赖），ledgerContext 含用户自由文本（画像/自定义分类名）走 `{{data:财务数据|ledgerContext}}` 数据通道。
+2. **task 拆行契约（2B.1/2B.3）**：业务调用传主码 + `input.task`（短码统一引用 `AiSceneTasks` 常量），网关先查全码 `scene:task` 配置行、未命中回退主码；9 个 task 已拆行（resume_optimize×5、voice_interview×3、question_generate:jd_keywords），提示词逐字迁入全码行 `user_prompt_template`，外部不可信数据用 `{{data:标签|key}}` 数据通道占位符（wrapData 隔离、空值丢弃）。2B.2/2B.3 简单场景整场景配置驱动：daily_topic/sensitive_word 原行就地收编，writing_prompt/content_tags/resume_parse/resume_optimize 主场景/question_generate（主场景+jd_keywords）/article_meta 新增配置行（此前无行的场景 AI 路径不可用），DailyTopic/WritingPrompt/ContentTags/ResumeParse/ResumeOptimize/QuestionGenerate/ArticleMeta/SensitiveWord/KnowledgeQa 九个 Handler 及 TopicSceneData/ResumeSceneData/QuestionSceneData/SensitiveWordSceneData/KnowledgeQaSceneData 已删除（knowledge_qa 无业务调用方整场景移除），业务统一读 `GenericSceneData.structured`；FallbackStrategy 的 sensitive_word 内置兜底数据化至配置行 fallback_response。2B.4 查数下沉：FinanceAnalysisHandler 删除（查数+指标计算回 `LedgerAiAnalysisServiceImpl`，修正 aigateway→ledger/portal 反向依赖），ledgerContext 含用户自由文本（画像/自定义分类名）走 `{{data:财务数据|ledgerContext}}` 数据通道。2B.5：VoiceInterviewHandler 删除（3 个活 task 走全码配置行，主干已在阶段一收口网关会话流式通道；candidate_ask/knowledge_desc/speak_text 无调用方随删），InterviewSceneData 及 AiSceneJsonClient 对应解包分支删除（unwrapStructured 仅 GenericSceneData），FallbackStrategy 删除 voice_interview/interview 内置兜底（未配置时走通用 GenericSceneData，消费方经 JsonClient 得 null 走业务规则兜底），ScoringEngine 空岗位默认传"综合"（避免模板渲染成"目标岗位：。"）。
 3. **input vs userInput 通道**：结构化业务数据走 `input`（数据隔离），用户自由文本走 `userInput`（意图分类+注入拦截）——**铁律：外部不可信数据禁止走顶层 userInput**（意图分类器置信度 <0.6 会误打断返回 clarification）。
 4. **配置即场景**：ai_scene_config 直查库不缓存，管理端改配置即时生效；模型配置走 Redis 缓存+主动失效；提供商注册表全量内存缓存+CRUD 失效重建。
 5. **扩展点**：新增场景三步——AiSceneEnum 加枚举 + ai_scene_config 插配置行 + 业务 Service 组装 input 调网关（网关编排零改动，默认走 DefaultSceneExecutor）；仅 output_schema 表达力不足的复杂场景才实现 AiSceneHandler（SPI 逃生舱）；新增 OpenAI 兼容提供商仅 ai_provider 插一行。
@@ -349,6 +349,6 @@ AiExecuteResponse<?> resp = aiGatewayService.execute(request);
 
 1. **入口**：`AiGatewayController` → `AiGatewayService.execute`（§3 的 14 步对照走读）
 2. **横切**：`PromptInjectionGuard` → `SemanticCache` → `SceneRateLimiter` → `TokenCostGuard` → `AiOutputFilter` → `FallbackStrategy`
-3. **场景**：`DefaultSceneExecutor`（2B.2 起简单场景、2B.4 起财务分析统一走此配置驱动执行器）→ 复杂 Handler（`VoiceInterviewHandler`，2B.5 待删）→ `AbstractAiSceneHandler` 基类
+3. **场景**：`DefaultSceneExecutor`（2B.2 起简单场景、2B.4 起财务分析、2B.5 起语音面试 task 统一走此配置驱动执行器；SPI 场景 Handler 已归零，仅剩 `dynamicChatBridge` 动态对话桥）→ `AbstractAiSceneHandler` 基类
 4. **底座**：`AiSceneResolverImpl`（模型解析责任链）→ `ModelConfigServiceImpl`（模型工厂）→ `LLMServiceImpl`（LangChain4j 对接）
 5. **业务消费**：`AiSceneJsonClient` → `ResumeAiAdviceService`（简单）→ `VoiceInterviewServiceImpl`（复杂，主干走网关会话流式通道）→ `LedgerAiAnalysisServiceImpl`（异步任务范例）

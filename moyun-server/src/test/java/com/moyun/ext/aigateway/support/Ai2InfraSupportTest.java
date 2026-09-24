@@ -2,7 +2,6 @@ package com.moyun.ext.aigateway.support;
 
 import com.moyun.ext.aigateway.constant.AiErrorCodes;
 import com.moyun.ext.aigateway.model.AiExecuteResponse;
-import com.moyun.ext.aigateway.model.data.InterviewSceneData;
 import com.moyun.ext.aigateway.support.FallbackStrategy;
 import com.moyun.ext.aigateway.support.SceneRateLimiter;
 import com.moyun.ext.aigateway.support.SemanticCache;
@@ -53,14 +52,17 @@ class Ai2InfraSupportTest {
     // ==================== FallbackStrategy（内置兜底分场景） ====================
 
     @Test
-    void fallback_voiceInterview_builtin() {
+    void fallback_voiceInterview_unconfigured_genericDefault() {
         FallbackStrategy strategy = new FallbackStrategy();
+        // 2B.5：voice_interview 内置兜底已删除（InterviewSceneData 随 Handler 移除），
+        // 未配置时走通用兜底（消费方经 JsonClient 得 null，走业务规则兜底）
         AiExecuteResponse<?> resp = strategy.executeFallback("voice_interview", null,
                 new RuntimeException("模型超时"));
-        assertEquals(AiErrorCodes.SUCCESS, resp.getCode(), "降级响应应对调用方可解析（SUCCESS）");
-        InterviewSceneData data = (InterviewSceneData) resp.getData();
-        assertEquals("end", data.getNextAction(), "面试场景降级应结束面试而非卡死");
-        assertTrue(data.getEvaluation().contains("不可用"));
+        assertEquals(AiErrorCodes.SUCCESS, resp.getCode());
+        com.moyun.ext.aigateway.model.data.GenericSceneData data =
+                (com.moyun.ext.aigateway.model.data.GenericSceneData) resp.getData();
+        assertEquals("fallback", data.getSource());
+        assertNull(data.getContent());
     }
 
     @Test

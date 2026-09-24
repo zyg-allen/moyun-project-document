@@ -1,9 +1,7 @@
 package com.moyun.ext.aigateway.support;
 
-import com.moyun.ext.ai.enums.AiSceneEnum;
 import com.moyun.ext.aigateway.constant.AiErrorCodes;
 import com.moyun.ext.aigateway.model.AiExecuteResponse;
-import com.moyun.ext.aigateway.model.data.InterviewSceneData;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
@@ -39,17 +37,9 @@ public class FallbackStrategy {
             return resp;
         }
 
-        // 2. 内置兜底（保证调用方拿到的结构可解析）；
-        //    sensitive_word 等简单场景已数据化至配置行 fallback_response（2B.3），
-        //    未配置时走下方通用兜底
-        AiSceneEnum sceneEnum = AiSceneEnum.of(scene);
-        if (sceneEnum == AiSceneEnum.VOICE_INTERVIEW || "interview".equals(scene)) {
-            InterviewSceneData data = new InterviewSceneData();
-            data.setNextAction("end");
-            data.setEvaluation("AI服务暂时不可用，本次评估已跳过，请稍后重试");
-            return AiExecuteResponse.success(data);
-        }
-        // 3. 通用兜底：返回空内容 GenericSceneData，业务侧走既有规则兜底
+        // 2. 通用兜底：返回空内容 GenericSceneData，业务侧走既有规则兜底；
+        //    sensitive_word/voice_interview 等场景内置兜底已数据化至配置行
+        //    fallback_response 或下沉业务规则兜底（2B.3/2B.5），未配置时统一走本分支
         com.moyun.ext.aigateway.model.data.GenericSceneData fallbackData =
                 new com.moyun.ext.aigateway.model.data.GenericSceneData();
         fallbackData.setContent(null);

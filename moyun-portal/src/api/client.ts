@@ -96,6 +96,33 @@ export function getPendingAiCount(): number {
   return pendingAiRequests.size;
 }
 
+// ==================== v11.x：列表数据 SWR 缓存（TTL 缓存 + 并发去重 + 写后失效） ====================
+
+/** 列表缓存条目：独立响应副本 + 写入时间戳 */
+interface ListCacheEntry {
+  response: ApiResponse<PaginationResponse<any>>;
+  savedAt: number;
+}
+
+const listCache = new Map<string, ListCacheEntry>();
+/** 进行中的分页请求：同 key 并发共享同一 Promise，避免重复请求 */
+const pendingListRequests = new Map<string, Promise<ApiResponse<PaginationResponse<any>>>>();
+
+/** 缓存有效期：短 TTL（10s）覆盖"详情→列表→详情"快速往返实现切回秒显，同时限制陈旧窗口 */
+const LIST_CACHE_TTL = 10 * 1000;
+
+/** 深拷贝响应副本：隔离缓存与各页面引用，页面本地 mutate 不污染缓存 */
+const cloneListResponse = (res: ApiResponse<PaginationResponse<any>>): ApiResponse<PaginationResponse<any>> =>
+  JSON.parse(JSON.stringify(res));
+
+/**
+ * 清空列表缓存（全量失效）。
+ * 任何写操作（POST/PUT/DELETE/上传）成功后调用，避免"发布后回列表看不到新数据"。
+ */
+export function invalidateListCache(): void {
+  listCache.clear();
+}
+
 // 请求拦截器
 const request = async <T>(
     url: string,
@@ -150,6 +177,11 @@ const request = async <T>(
       throw new Error(data.msg || '请求失败');
     }
 
+    // v11.x：写操作成功后失效列表缓存，避免"写后回列表看不到新数据"
+    if ((options.method || 'GET').toUpperCase() !== 'GET') {
+      invalidateListCache();
+    }
+
     return {
       code: data.code,
       message: data.msg,
@@ -190,22 +222,12 @@ export const httpGet = <T>(
   });
 };
 
-// 获取分页数据的专用方法
-export const httpGetList = <T>(
+/** 实际发起分页请求并归一化响应（httpGetList 的请求主体，缓存命中时不执行） */
+const fetchListPage = <T>(
     url: string,
+    query: string,
     params?: Record<string, any>
 ): Promise<ApiResponse<PaginationResponse<T>>> => {
-  let query = '';
-  if (params) {
-    const searchParams = new URLSearchParams();
-    Object.entries(params).forEach(([key, value]) => {
-      if (value !== undefined && value !== null) {
-        searchParams.append(key, String(value));
-      }
-    });
-    query = `?${searchParams.toString()}`;
-  }
-
   // 这里直接处理分页响应
   return new Promise(async (resolve, reject) => {
     try {
@@ -267,6 +289,49 @@ export const httpGetList = <T>(
       reject(error);
     }
   });
+};
+
+// 获取分页数据的专用方法（v11.x：TTL 缓存 + 并发去重，列表切回秒显）
+export const httpGetList = <T>(
+    url: string,
+    params?: Record<string, any>
+): Promise<ApiResponse<PaginationResponse<T>>> => {
+  let query = '';
+  if (params) {
+    const searchParams = new URLSearchParams();
+    Object.entries(params).forEach(([key, value]) => {
+      if (value !== undefined && value !== null) {
+        searchParams.append(key, String(value));
+      }
+    });
+    query = `?${searchParams.toString()}`;
+  }
+
+  const cacheKey = `${url}${query}`;
+
+  // 1. 新鲜缓存命中：直接返回独立副本（详情→列表快速往返秒显）
+  const cached = listCache.get(cacheKey);
+  if (cached && Date.now() - cached.savedAt < LIST_CACHE_TTL) {
+    return Promise.resolve(cloneListResponse(cached.response) as ApiResponse<PaginationResponse<T>>);
+  }
+
+  // 2. 并发去重：同 key 请求进行中，共享同一 Promise
+  const pending = pendingListRequests.get(cacheKey);
+  if (pending) {
+    return pending as Promise<ApiResponse<PaginationResponse<T>>>;
+  }
+
+  // 3. 发起请求：成功写入缓存副本，结束后移除去重登记
+  const req = fetchListPage<T>(url, query, params)
+    .then((res) => {
+      listCache.set(cacheKey, { response: cloneListResponse(res as ApiResponse<PaginationResponse<any>>), savedAt: Date.now() });
+      return res;
+    })
+    .finally(() => {
+      pendingListRequests.delete(cacheKey);
+    });
+  pendingListRequests.set(cacheKey, req as Promise<ApiResponse<PaginationResponse<any>>>);
+  return req;
 };
 
 export const httpPost = <T>(
@@ -335,6 +400,9 @@ export const httpUpload = <T>(
       await handleUnauthorized(data.msg);
       throw new Error(data.msg || '请先登录');
     }
+
+    // v11.x：上传成功后失效列表缓存
+    invalidateListCache();
 
     return {
       code: data.code,

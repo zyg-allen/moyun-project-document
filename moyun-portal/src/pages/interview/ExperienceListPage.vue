@@ -14,6 +14,7 @@ import { getSafeAvatar } from '@/utils/avatar';
 import { getExperienceList } from '@/api/interview';
 import { useToast } from '@/composables/useToast';
 import { useAuth } from '@/composables/useAuth';
+import { useUrlState } from '@/composables/useUrlState';
 import type { InterviewExperienceVO } from '@/types/api';
 
 const route = useRoute();
@@ -31,6 +32,12 @@ const pageSize = 12;
 const keyword = ref('');
 const searchInput = ref('');
 
+// URL 状态双向绑定：keyword / page 进 URL，刷新、分享链接、浏览器回退不丢失搜索与页码
+useUrlState([
+  { key: 'keyword', state: keyword },
+  { key: 'page', state: page, number: true, omitValues: [1] },
+]);
+
 useHead(computed(() => generateSeo({
   title: '面试经验',
   description: '精选真实面试经验分享，涵盖大厂面经、求职心得、面试技巧，助你备战面试直通 Offer',
@@ -45,23 +52,20 @@ const breadcrumbs = computed(() => [
 ]);
 
 onMounted(() => {
-  // 从路由 query 中恢复搜索关键词
-  const q = route.query.keyword as string;
-  if (q) {
-    keyword.value = q;
-    searchInput.value = q;
-  }
+  // 回填搜索框（keyword 已由 useUrlState 从 URL 恢复）
+  searchInput.value = keyword.value;
   loadExperiences();
 });
 
-watch(page, () => {
+// 搜索词或页码变化统一触发加载（同一周期内多状态变更仅触发一次）
+watch([keyword, page], () => {
   loadExperiences();
 });
 
 function doSearch() {
   keyword.value = searchInput.value.trim();
   page.value = 1;
-  loadExperiences();
+  // 状态无变化时 watch 不触发，同词重搜不产生重复请求
 }
 
 async function loadExperiences() {

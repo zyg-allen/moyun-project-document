@@ -98,3 +98,11 @@ export function unbindSysUser(id) {
     method: 'put'
   })
 }
+
+// 恢复注销账号（del_flag '2' -> '0'，管理员专用恢复通道）
+export function restoreUser(id) {
+  return request({
+    url: '/cms/user/restore/' + id,
+    method: 'put'
+  })
+}

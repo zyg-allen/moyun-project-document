@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>财务分析</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, "PingFang SC", sans-serif;
+    background: #f5f7fa; color: #1a1a2e;
+    line-height: 1.6; padding: 14px; max-width: 800px; margin: 0 auto;
+  }
+  .card {
+    background: #fff; border-radius: 10px;
+    padding: 14px; margin-bottom: 12px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+  }
+  .card h2 {
+    font-size: 14px; margin-bottom: 10px;
+    display: flex; justify-content: space-between;
+  }
+  .card h2 .sub { font-size: 11px; color: #888; font-weight: 400; }
+
+  /* 核心指标 */
+  .kpi-grid { display: grid; grid-template-columns: repeat(2,1fr); gap: 8px; }
+  .kpi { background: #fff; border-radius: 10px; padding: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+  .kpi .label { font-size: 11px; color: #888; }
+  .kpi .value { font-size: 18px; font-weight: 700; margin-top: 2px; }
+  .kpi .value.green { color: #10b981; }
+  .kpi .value.red { color: #ef4444; }
+  .kpi .value.blue { color: #3b82f6; }
+
+  /* 评分 */
+  .score-box { display: flex; align-items: center; gap: 14px; }
+  .score-num { font-size: 34px; font-weight: 700; color: #10b981; min-width: 60px; text-align: center; }
+  .score-info .grade { font-size: 13px; font-weight: 600; }
+  .score-info .desc { font-size: 12px; color: #666; }
+
+  /* 表 */
+  table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  th, td { padding: 6px 4px; text-align: left; border-bottom: 1px solid #eee; }
+  th { color: #888; font-weight: 500; font-size: 11px; }
+  td.num { text-align: right; }
+  tr.total td { font-weight: 700; border-top: 2px solid #eee; border-bottom: none; }
+
+  /* 比率 */
+  .ratio-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 8px; }
+  .ratio { text-align: center; padding: 8px; background: #f9fafb; border-radius: 8px; }
+  .ratio .name { font-size: 10px; color: #888; }
+  .ratio .val { font-size: 15px; font-weight: 700; margin: 2px 0; }
+  .ratio .hint { font-size: 10px; }
+  .ratio .hint.good { color: #10b981; }
+  .ratio .hint.warn { color: #f59e0b; }
+  .ratio .hint.bad { color: #ef4444; }
+
+  /* AI */
+  .ai-box { background: #f0f7ff; border-radius: 8px; padding: 12px; font-size: 12px; }
+  .ai-box h3 { font-size: 12px; margin: 8px 0 4px; }
+  .ai-box h3:first-child { margin-top: 0; }
+  .ai-box ul { padding-left: 16px; color: #555; }
+  .ai-box li { margin-bottom: 2px; }
+  .fallback {
+    margin-top: 8px; padding: 6px 8px;
+    background: #fff8e6; border-left: 3px solid #f59e0b;
+    font-size: 11px; color: #666; border-radius: 4px;
+  }
+</style>
+</head>
+<body>
+
+  <!-- 核心指标 -->
+  <div class="kpi-grid" style="margin-bottom:12px;">
+    <div class="kpi"><div class="label">净资产</div><div class="value blue">¥380,000</div></div>
+    <div class="kpi"><div class="label">本月结余</div><div class="value">¥13,000</div></div>
+    <div class="kpi"><div class="label">本月收入</div><div class="value green">¥35,000</div></div>
+    <div class="kpi"><div class="label">本月支出</div><div class="value red">¥22,000</div></div>
+  </div>
+
+  <!-- 健康评分（规则引擎兜底） -->
+  <div class="card">
+    <h2>财务健康评分 <span class="sub">规则引擎</span></h2>
+    <div class="score-box">
+      <div class="score-num">80</div>
+      <div class="score-info">
+        <div class="grade">B · 良好</div>
+        <div class="desc">资产负债结构合理，结余能力较强。流动性略显不足。</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 资产负债 + 收支 -->
+  <div class="card">
+    <h2>资产负债表 <span class="sub">2026-09-30</span></h2>
+    <table>
+      <tr><th>项目</th><th class="num">金额</th></tr>
+      <tr><td>流动资产</td><td class="num">80,000</td></tr>
+      <tr><td>投资资产</td><td class="num">150,000</td></tr>
+      <tr><td>自用资产</td><td class="num">270,000</td></tr>
+      <tr class="total"><td>总资产</td><td class="num">500,000</td></tr>
+      <tr><td>短期负债</td><td class="num">20,000</td></tr>
+      <tr><td>长期负债</td><td class="num">100,000</td></tr>
+      <tr class="total"><td>总负债</td><td class="num">120,000</td></tr>
+      <tr class="total"><td>净资产</td><td class="num" style="color:#3b82f6">380,000</td></tr>
+    </table>
+  </div>
+
+  <div class="card">
+    <h2>收支报表 <span class="sub">2026-09</span></h2>
+    <table>
+      <tr><th>项目</th><th class="num">金额</th></tr>
+      <tr><td>主动收入</td><td class="num">30,000</td></tr>
+      <tr><td>被动收入</td><td class="num">5,000</td></tr>
+      <tr class="total"><td>总收入</td><td class="num">35,000</td></tr>
+      <tr><td>必要支出</td><td class="num">15,000</td></tr>
+      <tr><td>弹性支出</td><td class="num">7,000</td></tr>
+      <tr class="total"><td>总支出</td><td class="num">22,000</td></tr>
+      <tr class="total"><td>本月结余</td><td class="num" style="color:#10b981">13,000</td></tr>
+    </table>
+  </div>
+
+  <!-- 关键比率 -->
+  <div class="card">
+    <h2>关键财务比率</h2>
+    <div class="ratio-grid">
+      <div class="ratio"><div class="name">资产负债率</div><div class="val">24%</div><div class="hint good">健康</div></div>
+      <div class="ratio"><div class="name">紧急预备金</div><div class="val">3.6月</div><div class="hint warn">偏低</div></div>
+      <div class="ratio"><div class="name">结余率</div><div class="val">37%</div><div class="hint good">优秀</div></div>
+      <div class="ratio"><div class="name">负债收入比</div><div class="val">14%</div><div class="hint good">健康</div></div>
+      <div class="ratio"><div class="name">被动收入占比</div><div class="val">14%</div><div class="hint good">良好</div></div>
+      <div class="ratio"><div class="name">投资资产占比</div><div class="val">30%</div><div class="hint good">合理</div></div>
+    </div>
+  </div>
+
+  <!-- AI 深度分析 -->
+  <div class="card">
+    <h2>AI 深度分析 <span class="sub">结合画像</span></h2>
+    <div class="ai-box">
+      <h3>整体评价</h3>
+      <p>结合您的年龄（31 岁）、行业（IT）、无大额负债的情况，整体财务健康度良好。主要短板是流动性储备不足，被动收入占比偏低。</p>
+
+      <h3>✅ 优势</h3>
+      <ul>
+        <li>资产负债结构稳健，偿债压力小</li>
+        <li>结余率 37%，储蓄能力强</li>
+        <li>投资资产占比 30%，配置意识好</li>
+      </ul>
+
+      <h3>⚠️ 风险点</h3>
+      <ul>
+        <li>紧急预备金仅 3.6 个月，低于 6 个月安全线</li>
+        <li>被动收入占比 14%，收入结构单一</li>
+        <li>弹性支出占比 31.8%，可优化</li>
+      </ul>
+
+      <h3>💡 建议</h3>
+      <ul>
+        <li>将每月结余 20%-30% 定投指数基金</li>
+        <li>优先补足应急基金至 6 个月（约 13 万）</li>
+        <li>如计划创业，先储备 12 个月生活开支</li>
+      </ul>
+
+      <div class="fallback">
+        <strong>提示：</strong>AI 分析基于本月报表 + 用户画像生成。如数据有误，请先校准账目。
+      </div>
+    </div>
+  </div>
+
+</body>
+</html>

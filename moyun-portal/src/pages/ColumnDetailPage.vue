@@ -10,6 +10,7 @@ import {
   Gift,
 } from 'lucide-vue-next';
 import Breadcrumb from '@/components/Breadcrumb.vue';
+import BackButton from '@/components/BackButton.vue';
 import SiteFooter from '@/components/SiteFooter.vue';
 import LazyImage from '@/components/LazyImage.vue';
 import TipModal from '@/components/TipModal.vue';
@@ -354,6 +355,7 @@ function formatNumber(n?: number) {
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between gap-4">
         <Breadcrumb :items="breadcrumbs" />
         <div class="flex items-center gap-2">
+          <BackButton fallback="/columns" />
         </div>
       </div>
     </div>

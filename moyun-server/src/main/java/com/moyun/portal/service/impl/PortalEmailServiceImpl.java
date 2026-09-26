@@ -1,6 +1,5 @@
 package com.moyun.portal.service.impl;
 
-import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.moyun.core.base.AjaxResult;
 import com.moyun.core.config.redis.RedisCache;
 import com.moyun.portal.domain.entity.PortalUser;
@@ -56,6 +55,9 @@ public class PortalEmailServiceImpl implements PortalEmailService {
     @Resource
     private PortalUserMapper portalUserMapper;
 
+    @Autowired
+    private com.moyun.portal.service.IPortalUserService portalUserService;
+
     @Override
     public AjaxResult sendCode(String email, String type) {
         // 1. 基础校验
@@ -66,14 +68,20 @@ public class PortalEmailServiceImpl implements PortalEmailService {
             return AjaxResult.error("不支持的验证码类型");
         }
 
-        // 2. 场景性校验：注册时邮箱不能已存在；找回密码时邮箱必须已存在
-        boolean exists = isEmailExists(email);
+        // 2. 场景性校验：注册时邮箱不能已存在（含注销，唯一索引同源）；
+        //    找回密码时邮箱必须已存在——注销账号也允许找回（通过重置密码自助恢复，无需找管理员）
+        //    注意：isEmailExists 走 @TableLogic 会漏掉注销账号，必须用 Any 查询
+        PortalUser existUser = portalUserMapper.selectPortalUserByEmailAny(email);
+        boolean exists = existUser != null;
         if ("register".equals(type) && exists) {
             return AjaxResult.error("该邮箱已注册，请直接登录或找回密码");
         }
         if ("reset_password".equals(type) && !exists) {
             return AjaxResult.error("该邮箱未注册，请检查或先注册");
         }
+        // 注销账号仅在找回密码场景放行（注册场景上面已拦截），发码成功时提示完成验证将自动恢复
+        boolean cancelled = "reset_password".equals(type)
+                && existUser != null && "2".equals(existUser.getDelFlag());
 
         // 3. 同邮箱 60s 限流
         String lockKey = LOCK_KEY_PREFIX + email;
@@ -110,7 +118,9 @@ public class PortalEmailServiceImpl implements PortalEmailService {
                 CODE_EXPIRE_MINUTES, TimeUnit.MINUTES);
         redisCache.setCacheObject(lockKey, "1", LOCK_SECONDS, TimeUnit.SECONDS);
 
-        return AjaxResult.success("验证码已发送至邮箱，5 分钟内有效");
+        return cancelled
+                ? AjaxResult.success("验证码已发送，该账号已注销，完成验证后将自动恢复")
+                : AjaxResult.success("验证码已发送至邮箱，5 分钟内有效");
     }
 
     @Override
@@ -153,25 +163,44 @@ public class PortalEmailServiceImpl implements PortalEmailService {
             return AjaxResult.error("验证码错误或已过期，请重新获取");
         }
 
-        // 3. 查用户并重置密码
-        PortalUser user = portalUserMapper.selectOne(
-                new LambdaQueryWrapper<PortalUser>().eq(PortalUser::getEmail, email).last("LIMIT 1"));
+        // 3. 查用户并重置密码（Any 查询含注销账号：注销用户通过本流程重置密码并自动恢复）
+        //    selectOne 走 @TableLogic 会漏掉 del_flag='2' 的注销账号，导致"该邮箱未注册"误报
+        PortalUser user = portalUserMapper.selectPortalUserByEmailAny(email);
         if (user == null) {
             return AjaxResult.error("该邮箱未注册");
         }
+        boolean cancelled = "2".equals(user.getDelFlag());
+        // 注销账号：恢复前做唯一键防御校验（注销期间用户名/手机号/邮箱若被占用则不恢复，
+        // 提示联系客服；正常情况注册侧复活逻辑保证键不会被占，此处仅为兜底）
+        if (cancelled) {
+            PortalUser check = new PortalUser();
+            check.setId(user.getId());
+            check.setUsername(user.getUsername());
+            check.setPhone(user.getPhone());
+            check.setEmail(user.getEmail());
+            String conflict = portalUserService.checkUniqueBusinessKeys(check);
+            if (conflict != null) {
+                return AjaxResult.error("密码未重置，账号恢复受阻：" + conflict + "，请联系客服处理");
+            }
+        }
+        // 一条 update 同时完成：重置密码 +（注销账号）恢复 del_flag='0'/status='0'
+        // updateById 受 @TableLogic 影响对注销账号失效，必须用自定义 updatePortalUser
+        PortalUser update = new PortalUser();
+        update.setId(user.getId());
+        update.setPassword(SecurityUtils.encryptPassword(newPassword));
+        if (cancelled) {
+            update.setDelFlag("0");
+            update.setStatus("0");
+        }
+        int rows = portalUserMapper.updatePortalUser(update);
+        if (rows <= 0) {
+            return AjaxResult.error("密码重置失败");
+        }
+        log.info("🔐 用户通过邮箱找回密码重置成功: email={}, username={}, 恢复注销账号={}", email, user.getUsername(), cancelled);
 
-        user.setPassword(SecurityUtils.encryptPassword(newPassword));
-        portalUserMapper.updateById(user);
-        log.info("🔐 用户通过邮箱找回密码重置成功: email={}, username={}", email, user.getUsername());
-
-        return AjaxResult.success("密码重置成功，请使用新密码登录");
-    }
-
-    /** 检查邮箱是否已被注册 */
-    private boolean isEmailExists(String email) {
-        Long count = portalUserMapper.selectCount(
-                new LambdaQueryWrapper<PortalUser>().eq(PortalUser::getEmail, email));
-        return count != null && count > 0;
+        return cancelled
+                ? AjaxResult.success("密码重置成功，账号已恢复，请使用新密码登录")
+                : AjaxResult.success("密码重置成功，请使用新密码登录");
     }
 
     /** 构建邮件正文 */

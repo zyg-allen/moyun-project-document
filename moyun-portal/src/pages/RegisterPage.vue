@@ -2,7 +2,7 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { RouterLink as Link, useRouter } from 'vue-router';
 import {
-  Eye, EyeOff, Lock, User, ArrowRight, AlertCircle, Mail, ShieldCheck, RefreshCw
+  Eye, EyeOff, Lock, User, ArrowRight, AlertCircle, Mail, ShieldCheck, RefreshCw, X
 } from 'lucide-vue-next';
 import loginBackground from '@/assets/images/login-background.jpg';
 import { useUserStore } from '@/stores/user';
@@ -53,35 +53,8 @@ onUnmounted(() => {
   if (countdownTimer) clearInterval(countdownTimer);
 });
 
-// 发送邮箱验证码
-async function handleSendEmailCode() {
-  errors.value.email = '';
-  // 前端先校验邮箱格式，避免无效请求
-  const email = form.value.email.trim();
-  if (!email) {
-    errors.value.email = '请先填写邮箱';
-    return;
-  }
-  if (!/^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/.test(email)) {
-    errors.value.email = '邮箱格式不正确';
-    return;
-  }
-
-  isSendingCode.value = true;
-  try {
-    const { success, message } = await userStore.sendEmailCodeWithApi(email, 'register');
-    if (success) {
-      toast.success(message || '验证码已发送，请查收邮件');
-      startCountdown(60);
-    } else {
-      toast.error(message || '验证码发送失败');
-    }
-  } finally {
-    isSendingCode.value = false;
-  }
-}
-
 // 图形验证码（受后端 sys.account.captchaEnabled 开关控制；接口固定返回 captchaEnabled=true）
+// 表单内独立图形码：注册最终提交时校验（后端 register 接口同步校验，一次性作废）
 const captchaEnabled = ref(false);
 const captchaImg = ref('');
 const captchaUuid = ref('');
@@ -110,6 +83,97 @@ async function refreshCaptcha() {
 onMounted(() => {
   refreshCaptcha();
 });
+
+// 发送验证码前的图形码弹窗（独立 uuid，一次性使用；失败留在弹窗内刷新重试）
+const captchaModal = ref({
+  visible: false,
+  img: '',
+  uuid: '',
+  code: '',
+  loading: false,
+  error: ''
+});
+
+async function loadModalCaptcha() {
+  captchaModal.value.loading = true;
+  try {
+    const data = await getCaptchaImage();
+    captchaModal.value.img = data.img;
+    captchaModal.value.uuid = data.uuid;
+    captchaModal.value.code = '';
+  } catch (error) {
+    console.warn('获取弹窗验证码失败:', error);
+    captchaModal.value.img = '';
+    captchaModal.value.uuid = '';
+  } finally {
+    captchaModal.value.loading = false;
+  }
+}
+
+function openCaptchaModal() {
+  captchaModal.value.visible = true;
+  captchaModal.value.error = '';
+  captchaModal.value.code = '';
+  loadModalCaptcha();
+}
+
+function closeCaptchaModal() {
+  captchaModal.value.visible = false;
+}
+
+// 发送邮箱验证码：点击「获取验证码」→ 弹出图形码弹窗 → 填写确认后才真正发送
+async function handleSendEmailCode() {
+  errors.value.email = '';
+  // 前端先校验邮箱格式，避免无效请求
+  const email = form.value.email.trim();
+  if (!email) {
+    errors.value.email = '请先填写邮箱';
+    return;
+  }
+  if (!/^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/.test(email)) {
+    errors.value.email = '邮箱格式不正确';
+    return;
+  }
+  // 图形验证码开关开启时，先弹窗完成人机校验
+  if (captchaEnabled.value) {
+    openCaptchaModal();
+    return;
+  }
+  await doSendEmailCode();
+}
+
+async function doSendEmailCode(captcha?: { code: string; uuid: string }) {
+  isSendingCode.value = true;
+  try {
+    const { success, message } = await userStore.sendEmailCodeWithApi(
+      form.value.email.trim(),
+      'register',
+      captcha
+    );
+    if (success) {
+      toast.success(message || '验证码已发送，请查收邮件');
+      startCountdown(60);
+      captchaModal.value.visible = false;
+    } else {
+      // 发送失败：留在弹窗内刷新图形码重新输入（"否则重来，重新修改图形验证码"）
+      captchaModal.value.error = message || '验证码发送失败，请重新输入图形验证码';
+      loadModalCaptcha();
+    }
+  } finally {
+    isSendingCode.value = false;
+  }
+}
+
+// 弹窗内确认发送
+async function confirmModalSend() {
+  const code = captchaModal.value.code.trim();
+  if (!code) {
+    captchaModal.value.error = '请输入图形验证码';
+    return;
+  }
+  captchaModal.value.error = '';
+  await doSendEmailCode({ code, uuid: captchaModal.value.uuid });
+}
 
 // 密码强度实时计算（供 UI 提示，最终校验仍由 zod 完成）
 type StrengthLevel = { level: 0 | 1 | 2 | 3; label: string; color: string };
@@ -153,29 +217,30 @@ async function handleRegister() {
     return;
   }
 
-  // 验证码前端校验：仅在开关开启时强制
-  if (captchaEnabled.value && !captchaCode.value.trim()) {
-    errors.value.code = '请输入验证码';
-    return;
-  }
-
   // 邮箱验证码前端校验
   if (!form.value.emailCode.trim()) {
     errors.value.emailCode = '请输入邮箱验证码';
     return;
   }
 
+  // 表单内独立图形验证码前端校验（后端 register 接口同步校验，防脚本批量注册）
+  if (captchaEnabled.value && !captchaCode.value.trim()) {
+    errors.value.code = '请输入图形验证码';
+    return;
+  }
+
   isLoading.value = true;
 
   try {
+    // 注册提交携带表单图形码（一次性作废）；发送验证码环节的人机校验已在弹窗完成
     const { success, message } = await userStore.registerWithApi({
       username: form.value.username,
       email: form.value.email,
       password: form.value.password,
       confirmPassword: form.value.confirmPassword,
+      emailCode: form.value.emailCode.trim(),
       code: captchaEnabled.value ? captchaCode.value.trim() : undefined,
-      uuid: captchaEnabled.value ? captchaUuid.value : undefined,
-      emailCode: form.value.emailCode.trim()
+      uuid: captchaEnabled.value ? captchaUuid.value : undefined
     });
     if (success) {
       toast.success('注册成功，请使用新账户登录');
@@ -433,9 +498,9 @@ const copyrightYear = computed(() => new Date().getFullYear());
                 </p>
               </div>
 
-              <!-- Captcha -->
+              <!-- Captcha：注册最终提交前的人机校验（独立于发送验证码弹窗；随 sys.account.captchaEnabled 开关展示） -->
               <div v-if="captchaEnabled" class="group">
-                <label for="register-captcha" class="block text-xs font-medium text-slate-600 mb-2 ml-1 tracking-wider">验证码</label>
+                <label for="register-captcha" class="block text-xs font-medium text-slate-600 mb-2 ml-1 tracking-wider">图形验证码</label>
                 <div class="flex gap-3">
                   <div class="relative flex-1">
                     <ShieldCheck class="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 group-focus-within:text-amber-500 transition-colors" />
@@ -443,7 +508,7 @@ const copyrightYear = computed(() => new Date().getFullYear());
                       id="register-captcha"
                       v-model="captchaCode"
                       type="text"
-                      placeholder="请输入图中结果"
+                      placeholder="输入图形验证码完成注册"
                       autocomplete="off"
                       maxlength="10"
                       @input="clearError('code')"
@@ -538,6 +603,71 @@ const copyrightYear = computed(() => new Date().getFullYear());
       <!-- 版权提示 -->
       <div class="mt-8 text-center text-xs text-white/50">
         Copyright © {{ copyrightYear }} 旭林知行 · 京ICP备xxxxxxxx号-2
+      </div>
+    </div>
+
+    <!-- 发送验证码前的图形码人机校验弹窗（验证码一次性作废；失败留在弹窗内刷新重试） -->
+    <div
+      v-if="captchaModal.visible"
+      class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+      @click.self="closeCaptchaModal"
+    >
+      <div class="w-full max-w-sm bg-white rounded-3xl shadow-2xl p-6 relative">
+        <button
+          type="button"
+          class="absolute top-4 right-4 text-slate-400 hover:text-slate-600 transition-colors"
+          aria-label="关闭弹窗"
+          @click="closeCaptchaModal"
+        >
+          <X class="w-5 h-5" />
+        </button>
+        <h3 class="text-lg font-bold text-slate-800 text-center">安全校验</h3>
+        <p class="text-xs text-slate-500 text-center mt-1 mb-5">为防止恶意刷验证码，请先完成图形验证</p>
+
+        <div v-if="captchaModal.error" class="mb-4 p-3 bg-red-50 border border-red-200 rounded-xl text-red-600 text-xs flex items-start gap-2">
+          <AlertCircle class="w-4 h-4 flex-shrink-0 mt-0.5" />
+          <span>{{ captchaModal.error }}</span>
+        </div>
+
+        <div class="flex gap-3">
+          <input
+            v-model="captchaModal.code"
+            type="text"
+            placeholder="输入图形验证码"
+            autocomplete="off"
+            maxlength="10"
+            class="flex-1 px-4 py-3 bg-slate-50 border-2 border-slate-200 rounded-2xl focus:outline-none focus:border-amber-400 transition-all placeholder:text-slate-400 text-slate-800"
+            @keyup.enter="confirmModalSend"
+          />
+          <button
+            type="button"
+            class="relative h-[50px] w-[110px] flex-shrink-0 overflow-hidden rounded-2xl border-2 border-slate-200 bg-slate-50 hover:border-amber-400 transition-all disabled:opacity-50 flex items-center justify-center"
+            aria-label="点击刷新验证码"
+            :disabled="captchaModal.loading"
+            @click="loadModalCaptcha"
+          >
+            <img v-if="captchaModal.img" :src="captchaModal.img" alt="验证码" class="w-full h-full object-cover" />
+            <RefreshCw v-else class="w-5 h-5 text-slate-400" :class="{ 'animate-spin': captchaModal.loading }" />
+          </button>
+        </div>
+
+        <div class="flex gap-3 mt-5">
+          <button
+            type="button"
+            class="flex-1 py-3 rounded-2xl border-2 border-slate-200 text-slate-500 text-sm font-medium hover:bg-slate-50 transition-all"
+            @click="closeCaptchaModal"
+          >
+            取消
+          </button>
+          <button
+            type="button"
+            class="flex-1 py-3 rounded-2xl bg-gradient-to-r from-amber-500 to-orange-500 text-white text-sm font-semibold hover:from-amber-600 hover:to-orange-600 transition-all disabled:opacity-50"
+            :disabled="isSendingCode"
+            @click="confirmModalSend"
+          >
+            {{ isSendingCode ? '发送中…' : '发送验证码' }}
+          </button>
+        </div>
       </div>
     </div>
   </div>

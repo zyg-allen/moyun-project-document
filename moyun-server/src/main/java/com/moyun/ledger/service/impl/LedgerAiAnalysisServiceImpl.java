@@ -863,8 +863,54 @@ public class LedgerAiAnalysisServiceImpl implements ILedgerAiAnalysisService {
             }
             user.setIdentityTag(tag);
         }
+        // ==== v2 整改：AI 财务分析画像扩展字段（个人信息维护） ====
+        if (body.containsKey("birthday")) {
+            String birthday = body.get("birthday");
+            if (birthday != null && !birthday.isEmpty()
+                    && !birthday.matches("\\d{4}-\\d{2}-\\d{2}")) {
+                throw new IllegalArgumentException("生日格式应为 yyyy-MM-dd");
+            }
+            user.setBirthday(birthday == null || birthday.isEmpty() ? null : birthday);
+        }
+        if (body.containsKey("industry")) {
+            String industry = body.get("industry");
+            if (industry != null && industry.length() > 100) {
+                throw new IllegalArgumentException("行业长度不能超过100个字符");
+            }
+            user.setIndustry(industry);
+        }
+        if (body.containsKey("maritalStatus")) {
+            String marital = body.get("maritalStatus");
+            boolean valid = marital == null || marital.isEmpty()
+                    || List.of("single", "married", "other").contains(marital);
+            if (!valid) {
+                throw new IllegalArgumentException("非法婚姻状况");
+            }
+            user.setMaritalStatus(marital == null || marital.isEmpty() ? null : marital);
+        }
+        if (body.containsKey("hasMortgage")) {
+            user.setHasMortgage(parseFlag(body.get("hasMortgage"), "是否有房贷"));
+        }
+        if (body.containsKey("hasSideIncome")) {
+            user.setHasSideIncome(parseFlag(body.get("hasSideIncome"), "是否有副业收入"));
+        }
+        if (body.containsKey("incomeTypes")) {
+            String types = body.get("incomeTypes");
+            if (types != null && types.length() > 200) {
+                throw new IllegalArgumentException("收入类型长度不能超过200个字符");
+            }
+            user.setIncomeTypes(types);
+        }
         portalUserMapper.updateById(user);
         return getProfile(userId);
+    }
+
+    /** "1"/"true"=1，"0"/"false"/空=null（未填写），其余非法 */
+    private Integer parseFlag(String value, String label) {
+        if (value == null || value.isEmpty() || "null".equalsIgnoreCase(value)) return null;
+        if ("1".equals(value) || "true".equalsIgnoreCase(value)) return 1;
+        if ("0".equals(value) || "false".equalsIgnoreCase(value)) return 0;
+        throw new IllegalArgumentException("非法" + label);
     }
 
     // ==================== 数据指纹（快照失效判断） ====================
@@ -949,6 +995,18 @@ public class LedgerAiAnalysisServiceImpl implements ILedgerAiAnalysisService {
             if (sb.length() > 0) sb.append(" @ ");
             sb.append(user.getCompany());
         }
+        // v2 整改：画像扩展字段纳入指纹（画像变化自动失效当月快照重算）
+        if (user.getIndustry() != null && !user.getIndustry().isEmpty()) {
+            sb.append(" / ").append(user.getIndustry());
+        }
+        if (user.getMaritalStatus() != null && !user.getMaritalStatus().isEmpty()) {
+            sb.append(" / ").append(user.getMaritalStatus());
+        }
+        if (user.getHasMortgage() != null) sb.append(" / 房贷").append(user.getHasMortgage());
+        if (user.getHasSideIncome() != null) sb.append(" / 副业").append(user.getHasSideIncome());
+        if (user.getIncomeTypes() != null && !user.getIncomeTypes().isEmpty()) {
+            sb.append(" / ").append(user.getIncomeTypes());
+        }
         return sb.length() > 0 ? sb.toString() : "未填写";
     }
 
@@ -959,8 +1017,28 @@ public class LedgerAiAnalysisServiceImpl implements ILedgerAiAnalysisService {
             p.put("company", user.getCompany());
             p.put("identityTag", user.getIdentityTag());
             p.put("identityTagLabel", identityTagLabel(user.getIdentityTag()));
+            // v2 整改：AI 财务分析画像扩展字段（个人信息维护）
+            p.put("birthday", user.getBirthday());
+            p.put("industry", user.getIndustry());
+            p.put("maritalStatus", user.getMaritalStatus());
+            p.put("maritalStatusLabel", maritalStatusLabel(user.getMaritalStatus()));
+            p.put("hasMortgage", user.getHasMortgage());
+            p.put("hasSideIncome", user.getHasSideIncome());
+            p.put("incomeTypes", user.getIncomeTypes() == null || user.getIncomeTypes().isEmpty()
+                    ? java.util.Collections.emptyList()
+                    : java.util.Arrays.asList(user.getIncomeTypes().split(",")));
         }
         return p;
+    }
+
+    private String maritalStatusLabel(String code) {
+        if (code == null || code.isEmpty()) return null;
+        switch (code) {
+            case "single": return "单身";
+            case "married": return "已婚";
+            case "other": return "其他";
+            default: return code;
+        }
     }
 
     private String identityTagLabel(String tag) {

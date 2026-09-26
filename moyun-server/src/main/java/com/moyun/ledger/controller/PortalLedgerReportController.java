@@ -37,6 +37,18 @@ public class PortalLedgerReportController {
         return AjaxResult.success(reportService.overview(userId, year));
     }
 
+    /**
+     * 财务分析报告（v2 整改）：核心指标 + 资产负债表 + 收支报表 + 6 比率 + 规则引擎评分。
+     * 确定性计算不依赖 AI；AI 结合画像做解读增强。
+     *
+     * @param period 期间 yyyy-MM（缺省=当月）
+     */
+    @GetMapping("/financial")
+    public AjaxResult financial(@RequestParam(required = false) String period) {
+        Long userId = PortalSecurityUtils.getUserId();
+        return AjaxResult.success(reportService.financialReport(userId, period));
+    }
+
     /** 流水 CSV 导出（UTF-8 BOM，Excel 兼容） */
     @GetMapping("/export")
     public ResponseEntity<byte[]> export(@RequestParam(required = false) String startDate,

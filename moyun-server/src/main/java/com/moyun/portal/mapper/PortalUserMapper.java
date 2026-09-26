@@ -52,6 +52,14 @@ public interface PortalUserMapper extends BaseMapper<PortalUser> {
     public PortalUser selectPortalUserById(Long id);
 
     /**
+     * 通过用户ID查询用户（不过滤 del_flag，供后台管理查看已注销账号）
+     *
+     * @param id 用户ID
+     * @return 用户对象信息
+     */
+    public PortalUser selectCmsUserById(Long id);
+
+    /**
      * 新增用户信息
      *
      * @param portalUser 用户信息
@@ -124,6 +132,31 @@ public interface PortalUserMapper extends BaseMapper<PortalUser> {
      * @return 前台用户ID列表
      */
     List<Long> selectBoundPortalUserIds();
+
+    /**
+     * 按用户名查询（不过滤 del_flag，注册查重用）
+     * <p>uk_username 唯一索引对注销账号同样生效，注册查重必须覆盖 del_flag='2' 的记录</p>
+     *
+     * @param username 用户名
+     * @return 用户信息（含已注销）；不存在返回 null
+     */
+    PortalUser selectPortalUserByUsernameAny(@Param("username") String username);
+
+    /**
+     * 按手机号查询（不过滤 del_flag，注册查重/复活判断用）
+     *
+     * @param phone 手机号
+     * @return 用户信息（含已注销）；不存在返回 null
+     */
+    PortalUser selectPortalUserByPhoneAny(@Param("phone") String phone);
+
+    /**
+     * 按邮箱查询（不过滤 del_flag，注册查重/复活判断用）
+     *
+     * @param email 邮箱
+     * @return 用户信息（含已注销）；不存在返回 null
+     */
+    PortalUser selectPortalUserByEmailAny(@Param("email") String email);
 
     /**
      * 查询「名家录」展示用户（用于首页 /authors 列表）

@@ -203,6 +203,12 @@ public class PortalUserController extends BaseController {
             user.setPrivacyProfile(Boolean.TRUE.equals(params.get("privacyProfile")));
         }
 
+        // 业务唯一性校验（username/phone/email 变更时，含注销账号，与唯一索引同源，排除自身）
+        String conflict = portalUserService.checkUniqueBusinessKeys(user);
+        if (conflict != null) {
+            return error(conflict);
+        }
+
         int result = portalUserService.updatePortalUser(user);
         if (result > 0) {
             // 返回更新后的用户数据

@@ -1,20 +1,34 @@
 <script setup lang="ts">
-import { ref, computed, onUnmounted } from 'vue';
+import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { RouterLink as Link, useRouter } from 'vue-router';
 import {
-  Mail, Lock, ArrowRight, AlertCircle, ShieldCheck, Eye, EyeOff, ArrowLeft, KeyRound
+  Mail, Lock, ArrowRight, AlertCircle, ShieldCheck, Eye, EyeOff, ArrowLeft, KeyRound, RefreshCw, X, Smartphone
 } from 'lucide-vue-next';
 import loginBackground from '@/assets/images/login-background.jpg';
 import { useUserStore } from '@/stores/user';
 import { useToast } from '@/composables/useToast';
+import { getCaptchaImage } from '@/api/user';
 
 const router = useRouter();
 const userStore = useUserStore();
 const toast = useToast();
 
-// 找回密码表单：邮箱 → 验证码 → 新密码
+// 找回方式：邮箱（邮箱注册用户）/ 手机号（手机号注册用户）
+const method = ref<'email' | 'phone'>('email');
+
+function switchMethod(m: 'email' | 'phone') {
+  if (method.value === m) return;
+  method.value = m;
+  // 切换时清空校验错误与服务端提示，验证码/密码字段保留
+  errors.value = {};
+  serverError.value = '';
+  serverSuccess.value = '';
+}
+
+// 找回密码表单：邮箱/手机号 → 验证码 → 新密码
 const form = ref({
   email: '',
+  phone: '',
   code: '',
   newPassword: '',
   confirmPassword: ''
@@ -48,35 +62,127 @@ onUnmounted(() => {
   if (countdownTimer) clearInterval(countdownTimer);
 });
 
+// 图形验证码（发送邮箱验证码前弹窗人机校验，受 sys.account.captchaEnabled 开关控制）
+const captchaEnabled = ref(false);
+
+async function probeCaptchaEnabled() {
+  try {
+    const data = await getCaptchaImage();
+    captchaEnabled.value = data.captchaEnabled;
+  } catch (error) {
+    // 验证码探测失败时降级：不弹窗
+    console.warn('获取验证码开关失败:', error);
+    captchaEnabled.value = false;
+  }
+}
+
+onMounted(() => {
+  probeCaptchaEnabled();
+});
+
 function clearError(field: string) {
   if (errors.value[field]) delete errors.value[field];
 }
 
-// 发送找回密码验证码
+// 发送验证码前的图形码弹窗（独立 uuid，一次性使用；失败留在弹窗内刷新重试）
+const captchaModal = ref({
+  visible: false,
+  img: '',
+  uuid: '',
+  code: '',
+  loading: false,
+  error: ''
+});
+
+async function loadModalCaptcha() {
+  captchaModal.value.loading = true;
+  try {
+    const data = await getCaptchaImage();
+    captchaModal.value.img = data.img;
+    captchaModal.value.uuid = data.uuid;
+    captchaModal.value.code = '';
+  } catch (error) {
+    console.warn('获取弹窗验证码失败:', error);
+    captchaModal.value.img = '';
+    captchaModal.value.uuid = '';
+  } finally {
+    captchaModal.value.loading = false;
+  }
+}
+
+function openCaptchaModal() {
+  captchaModal.value.visible = true;
+  captchaModal.value.error = '';
+  captchaModal.value.code = '';
+  loadModalCaptcha();
+}
+
+function closeCaptchaModal() {
+  captchaModal.value.visible = false;
+}
+
+// 发送找回密码验证码：点击「获取验证码」→ 弹出图形码弹窗 → 填写确认后才真正发送
 async function handleSendCode() {
   errors.value.email = '';
-  const email = form.value.email.trim();
-  if (!email) {
-    errors.value.email = '请先填写注册邮箱';
+  errors.value.phone = '';
+  if (method.value === 'email') {
+    const email = form.value.email.trim();
+    if (!email) {
+      errors.value.email = '请先填写注册邮箱';
+      return;
+    }
+    if (!/^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/.test(email)) {
+      errors.value.email = '邮箱格式不正确';
+      return;
+    }
+  } else {
+    const phone = form.value.phone.trim();
+    if (!phone) {
+      errors.value.phone = '请先填写注册手机号';
+      return;
+    }
+    if (!/^1[3-9]\d{9}$/.test(phone)) {
+      errors.value.phone = '手机号格式不正确';
+      return;
+    }
+  }
+  // 图形验证码开关开启时，先弹窗完成人机校验
+  if (captchaEnabled.value) {
+    openCaptchaModal();
     return;
   }
-  if (!/^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/.test(email)) {
-    errors.value.email = '邮箱格式不正确';
-    return;
-  }
+  await doSendCode();
+}
 
+async function doSendCode(captcha?: { code: string; uuid: string }) {
   isSendingCode.value = true;
   try {
-    const { success, message } = await userStore.sendEmailCodeWithApi(email, 'reset_password');
+    const { success, message } = method.value === 'email'
+      ? await userStore.sendEmailCodeWithApi(form.value.email.trim(), 'reset_password', captcha)
+      : await userStore.sendSmsCodeWithApi(form.value.phone.trim(), 'reset_password', captcha);
     if (success) {
-      toast.success(message || '验证码已发送至邮箱');
+      toast.success(message || (method.value === 'email' ? '验证码已发送至邮箱' : '验证码已发送至手机'));
       startCountdown(60);
+      captchaModal.value.visible = false;
     } else {
-      toast.error(message || '验证码发送失败');
+      // 发送失败：留在弹窗内刷新图形码重新输入
+      captchaModal.value.error = message || '验证码发送失败，请重新输入图形验证码';
+      loadModalCaptcha();
     }
   } finally {
     isSendingCode.value = false;
   }
+}
+
+// 弹窗内确认发送
+async function confirmModalSend() {
+  const code = captchaModal.value.code.trim();
+  if (!code) {
+    captchaModal.value.error = '请输入图形验证码';
+    return;
+  }
+  captchaModal.value.error = '';
+  await doSendCode({ code, uuid: captchaModal.value.uuid });
 }
 
 // 密码强度实时计算
@@ -106,21 +212,37 @@ async function handleReset() {
   serverError.value = '';
 
   const email = form.value.email.trim();
+  const phone = form.value.phone.trim();
   const code = form.value.code.trim();
   const newPassword = form.value.newPassword;
   const confirmPassword = form.value.confirmPassword;
 
-  if (!email) {
-    errors.value.email = '请填写注册邮箱';
-    return;
-  }
-  if (!/^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/.test(email)) {
-    errors.value.email = '邮箱格式不正确';
-    return;
-  }
-  if (!code) {
-    errors.value.code = '请输入邮箱验证码';
-    return;
+  if (method.value === 'email') {
+    if (!email) {
+      errors.value.email = '请填写注册邮箱';
+      return;
+    }
+    if (!/^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/.test(email)) {
+      errors.value.email = '邮箱格式不正确';
+      return;
+    }
+    if (!code) {
+      errors.value.code = '请输入邮箱验证码';
+      return;
+    }
+  } else {
+    if (!phone) {
+      errors.value.phone = '请填写注册手机号';
+      return;
+    }
+    if (!/^1[3-9]\d{9}$/.test(phone)) {
+      errors.value.phone = '手机号格式不正确';
+      return;
+    }
+    if (!code) {
+      errors.value.code = '请输入短信验证码';
+      return;
+    }
   }
   if (newPassword.length < 6 || newPassword.length > 20) {
     errors.value.newPassword = '密码长度必须为 6-20 位';
@@ -137,7 +259,9 @@ async function handleReset() {
 
   isLoading.value = true;
   try {
-    const { success, message } = await userStore.resetPasswordWithApi(email, code, newPassword);
+    const { success, message } = method.value === 'email'
+      ? await userStore.resetPasswordWithApi(email, code, newPassword)
+      : await userStore.resetPasswordBySmsWithApi(phone, code, newPassword, confirmPassword);
     if (success) {
       serverSuccess.value = message || '密码重置成功';
       toast.success('密码重置成功，请使用新密码登录');
@@ -187,9 +311,33 @@ const copyrightYear = computed(() => new Date().getFullYear());
           <div class="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-amber-500/50 to-transparent"></div>
 
           <div class="p-8">
-            <div class="text-center mb-8">
+            <div class="text-center mb-6">
               <h1 class="text-3xl font-bold text-slate-800 mb-2">找回密码</h1>
-              <p class="text-slate-500 text-sm">输入注册邮箱，通过邮箱验证码重置密码。</p>
+              <p class="text-slate-500 text-sm">通过注册邮箱或注册手机号的验证码重置密码。</p>
+            </div>
+
+            <!-- 找回方式切换（邮箱 / 手机号，同页切换不跳转） -->
+            <div class="flex p-1 mb-6 bg-slate-100 rounded-2xl">
+              <button
+                type="button"
+                class="flex-1 py-2.5 rounded-xl text-sm font-medium transition-all duration-300"
+                :class="method === 'email'
+                  ? 'bg-white text-amber-600 shadow-md'
+                  : 'text-slate-500 hover:text-slate-700'"
+                @click="switchMethod('email')"
+              >
+                邮箱找回
+              </button>
+              <button
+                type="button"
+                class="flex-1 py-2.5 rounded-xl text-sm font-medium transition-all duration-300"
+                :class="method === 'phone'
+                  ? 'bg-white text-amber-600 shadow-md'
+                  : 'text-slate-500 hover:text-slate-700'"
+                @click="switchMethod('phone')"
+              >
+                手机号找回
+              </button>
             </div>
 
             <!-- 成功提示 -->
@@ -205,8 +353,8 @@ const copyrightYear = computed(() => new Date().getFullYear());
             </div>
 
             <form @submit.prevent="handleReset" class="space-y-5">
-              <!-- Email -->
-              <div class="group">
+              <!-- Email（邮箱找回） -->
+              <div v-if="method === 'email'" class="group">
                 <label for="forgot-email" class="block text-xs font-medium text-slate-600 mb-2 ml-1 tracking-wider">注册邮箱</label>
                 <div class="flex gap-3">
                   <div class="relative flex-1">
@@ -244,9 +392,49 @@ const copyrightYear = computed(() => new Date().getFullYear());
                 </p>
               </div>
 
+              <!-- Phone（手机号找回） -->
+              <div v-if="method === 'phone'" class="group">
+                <label for="forgot-phone" class="block text-xs font-medium text-slate-600 mb-2 ml-1 tracking-wider">注册手机号</label>
+                <div class="flex gap-3">
+                  <div class="relative flex-1">
+                    <Smartphone class="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 group-focus-within:text-amber-500 transition-colors" />
+                    <input
+                      id="forgot-phone"
+                      v-model="form.phone"
+                      type="tel"
+                      placeholder="请输入注册时的手机号"
+                      autocomplete="tel"
+                      maxlength="11"
+                      @input="clearError('phone')"
+                      class="w-full pl-12 pr-4 py-4 bg-slate-50 border-2 rounded-2xl focus:outline-none focus:ring-0 transition-all duration-300 placeholder:text-slate-400 text-slate-800"
+                      :class="{
+                        'border-red-300 focus:border-red-400 bg-red-50': errors.phone,
+                        'border-slate-200 focus:border-amber-400 focus:shadow-lg focus:shadow-amber-500/10': !errors.phone
+                      }"
+                      :disabled="isLoading"
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    @click="handleSendCode"
+                    :disabled="isSendingCode || countdown > 0 || isLoading"
+                    class="flex-shrink-0 px-5 py-4 rounded-2xl border-2 text-sm font-medium transition-all duration-300 disabled:cursor-not-allowed"
+                    :class="countdown > 0
+                      ? 'border-slate-200 text-slate-400 bg-slate-50'
+                      : 'border-amber-400 text-amber-600 bg-amber-50 hover:bg-amber-100'"
+                  >
+                    {{ countdown > 0 ? `${countdown}s 后重发` : (isSendingCode ? '发送中…' : '获取验证码') }}
+                  </button>
+                </div>
+                <p v-if="errors.phone" class="mt-2 text-xs text-red-500 flex items-center gap-1 ml-1">
+                  <AlertCircle class="w-3.5 h-3.5" />
+                  {{ errors.phone }}
+                </p>
+              </div>
+
               <!-- Email Code -->
               <div class="group">
-                <label for="forgot-code" class="block text-xs font-medium text-slate-600 mb-2 ml-1 tracking-wider">邮箱验证码</label>
+                <label for="forgot-code" class="block text-xs font-medium text-slate-600 mb-2 ml-1 tracking-wider">{{ method === 'email' ? '邮箱验证码' : '短信验证码' }}</label>
                 <div class="relative">
                   <ShieldCheck class="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 group-focus-within:text-amber-500 transition-colors" />
                   <input
@@ -254,7 +442,7 @@ const copyrightYear = computed(() => new Date().getFullYear());
                     v-model="form.code"
                     type="text"
                     inputmode="numeric"
-                    placeholder="请输入邮箱收到的 6 位验证码"
+                    :placeholder="method === 'email' ? '请输入邮箱收到的 6 位验证码' : '请输入短信收到的 6 位验证码'"
                     autocomplete="one-time-code"
                     maxlength="6"
                     @input="clearError('code')"
@@ -377,6 +565,71 @@ const copyrightYear = computed(() => new Date().getFullYear());
       <p class="text-center text-xs text-white/60 mt-8">
         © {{ copyrightYear }} 旭林知行 · 保留所有权利
       </p>
+    </div>
+
+    <!-- 发送验证码前的图形码人机校验弹窗（验证码一次性作废；失败留在弹窗内刷新重试） -->
+    <div
+      v-if="captchaModal.visible"
+      class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+      @click.self="closeCaptchaModal"
+    >
+      <div class="w-full max-w-sm bg-white rounded-3xl shadow-2xl p-6 relative">
+        <button
+          type="button"
+          class="absolute top-4 right-4 text-slate-400 hover:text-slate-600 transition-colors"
+          aria-label="关闭弹窗"
+          @click="closeCaptchaModal"
+        >
+          <X class="w-5 h-5" />
+        </button>
+        <h3 class="text-lg font-bold text-slate-800 text-center">安全校验</h3>
+        <p class="text-xs text-slate-500 text-center mt-1 mb-5">为防止恶意刷验证码，请先完成图形验证</p>
+
+        <div v-if="captchaModal.error" class="mb-4 p-3 bg-red-50 border border-red-200 rounded-xl text-red-600 text-xs flex items-start gap-2">
+          <AlertCircle class="w-4 h-4 flex-shrink-0 mt-0.5" />
+          <span>{{ captchaModal.error }}</span>
+        </div>
+
+        <div class="flex gap-3">
+          <input
+            v-model="captchaModal.code"
+            type="text"
+            placeholder="输入图形验证码"
+            autocomplete="off"
+            maxlength="10"
+            class="flex-1 px-4 py-3 bg-slate-50 border-2 border-slate-200 rounded-2xl focus:outline-none focus:border-amber-400 transition-all placeholder:text-slate-400 text-slate-800"
+            @keyup.enter="confirmModalSend"
+          />
+          <button
+            type="button"
+            class="relative h-[50px] w-[110px] flex-shrink-0 overflow-hidden rounded-2xl border-2 border-slate-200 bg-slate-50 hover:border-amber-400 transition-all disabled:opacity-50 flex items-center justify-center"
+            aria-label="点击刷新验证码"
+            :disabled="captchaModal.loading"
+            @click="loadModalCaptcha"
+          >
+            <img v-if="captchaModal.img" :src="captchaModal.img" alt="验证码" class="w-full h-full object-cover" />
+            <RefreshCw v-else class="w-5 h-5 text-slate-400" :class="{ 'animate-spin': captchaModal.loading }" />
+          </button>
+        </div>
+
+        <div class="flex gap-3 mt-5">
+          <button
+            type="button"
+            class="flex-1 py-3 rounded-2xl border-2 border-slate-200 text-slate-500 text-sm font-medium hover:bg-slate-50 transition-all"
+            @click="closeCaptchaModal"
+          >
+            取消
+          </button>
+          <button
+            type="button"
+            class="flex-1 py-3 rounded-2xl bg-gradient-to-r from-amber-500 to-orange-600 text-white text-sm font-semibold hover:from-amber-600 hover:to-orange-700 transition-all disabled:opacity-50"
+            :disabled="isSendingCode"
+            @click="confirmModalSend"
+          >
+            {{ isSendingCode ? '发送中…' : '发送验证码' }}
+          </button>
+        </div>
+      </div>
     </div>
   </div>
 </template>

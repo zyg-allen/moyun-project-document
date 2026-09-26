@@ -39,7 +39,7 @@ public class CmsPortalUserQuery extends PageDomain implements Serializable {
     private String phone;
 
     /**
-     * 帐号状态（0正常 1停用）
+     * 帐号状态筛选（0正常 1停用 2注销；不传默认查所有，含注销账号）
      */
     private String status;
 

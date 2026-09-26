@@ -110,6 +110,13 @@ export const saveBudget = (data) => post('/portal/ledger/budgets', data);
 export const getReportOverview = (year) => get('/portal/ledger/reports/overview', { year });
 
 /**
+ * 财务分析报告（v2 整改）：核心指标/资产负债表/收支报表/6 比率/规则引擎评分/画像
+ * @param {string} period 期间 yyyy-MM（缺省=当月）
+ */
+export const getFinancialReport = (period) =>
+  get('/portal/ledger/reports/financial', period ? { period } : {});
+
+/**
  * 流水 CSV 导出（H5：fetch blob 下载；小程序：uni.downloadFile）
  * @returns {Promise<void>}
  */
@@ -356,10 +363,17 @@ export const listMyFeedback = (params) => get('/portal/feedback/my-list', params
 export const sendEmailCode = (data) => post('/portal/email/code', data);
 
 /**
- * 发送短信验证码（注册场景，匿名可发）
- * { phone, scene: 'register' }  mock 模式验证码写 dev 日志
+ * 发送短信验证码（注册/重置密码场景，匿名可发）
+ * { phone, scene: 'register' | 'reset_password', code?, uuid? }
+ * 图形码开关开启时须携带图形验证码（弹窗人机校验）；注销账号放行发码（重置即自动恢复）
  */
 export const sendSmsCode = (data) => post('/portal/sms/code/send', data);
+
+/**
+ * 短信验证码重置密码（忘记密码；注销账号重置成功后自动恢复 del_flag 2→0）
+ * { phone, code, newPassword, confirmPassword }
+ */
+export const resetPassword = (data) => post('/portal/sms/reset-password', data);
 
 /**
  * 注册（成功即自动登录返回 token）

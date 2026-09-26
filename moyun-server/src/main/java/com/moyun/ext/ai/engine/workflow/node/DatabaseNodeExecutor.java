@@ -9,7 +9,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
 
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -59,7 +58,7 @@ public class DatabaseNodeExecutor extends BaseNodeExecutor {
         try {
             // 获取配置
             String operation = (String) config.getOrDefault("operation", "query");
-            String sql = (String) config.get("sql");
+            String sql = (String) config.get("increment-sql");
             String outputVariable = (String) config.getOrDefault("outputVariable", "db_result");
 
             if (sql == null || sql.trim().isEmpty()) {

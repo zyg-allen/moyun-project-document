@@ -128,6 +128,21 @@ public class CmsPortalUserController extends BaseController {
     }
 
     /**
+     * 恢复注销账号（del_flag '2' -> '0'）
+     *
+     * <p>编辑表单对 delFlag 是保护字段（置空不覆写），后台此前没有恢复入口，
+     * 导致注销账号只能靠重新注册复活。此接口为管理员专用恢复通道：
+     * 恢复前做唯一键校验（注销期间其用户名/手机号/邮箱不得被其他在用账号占用）。
+     */
+    @Operation(summary = "恢复注销账号", description = "将已注销的门户用户恢复正常（del_flag 2->0）")
+    @PreAuthorize("@ss.hasPermi('cms:user:edit')")
+    @Log(title = "门户用户管理-恢复注销账号", businessType = BusinessType.UPDATE)
+    @PutMapping("/restore/{id}")
+    public AjaxResult restore(@Parameter(description = "门户用户ID") @PathVariable("id") Long id) {
+        return toAjax(cmsPortalUserService.restoreUser(id));
+    }
+
+    /**
      * 绑定系统用户（身份桥接入口）
      *
      * <p>把 sys_user.user_id 写入 portal_user.user_id。关系：sys_user 1:N portal_user，

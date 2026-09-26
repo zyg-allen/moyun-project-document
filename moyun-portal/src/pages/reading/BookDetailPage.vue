@@ -5,6 +5,7 @@ import { useHead } from '@vueuse/head';
 import { BookOpen, Star, Users, Calendar, FileText, Tag, Quote, Heart, List, ChevronRight, User } from 'lucide-vue-next';
 import LazyImage from '@/components/LazyImage.vue';
 import Breadcrumb from '@/components/Breadcrumb.vue';
+import BackButton from '@/components/BackButton.vue';
 import SiteFooter from '@/components/SiteFooter.vue';
 import BookshelfButton from '@/components/reading/BookshelfButton.vue';
 import { generateSeo } from '@/utils/seo';
@@ -277,6 +278,7 @@ watch(
     <div class="border-b sticky top-0 z-30 backdrop-blur-sm py-3" style="background-color: var(--theme-surface); border-color: var(--theme-border);">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between gap-4">
         <Breadcrumb :items="breadcrumbs" />
+        <BackButton fallback="/reading" />
       </div>
     </div>
 

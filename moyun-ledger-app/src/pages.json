@@ -23,6 +23,8 @@
     { "path": "pages/mine/feedback/index", "style": { "navigationBarTitleText": "意见反馈" } },
     { "path": "pages/mine/register/index", "style": { "navigationBarTitleText": "注册账号" } },
     { "path": "pages/mine/login/index", "style": { "navigationBarTitleText": "账号登录" } },
+    { "path": "pages/mine/forgot-password/index", "style": { "navigationBarTitleText": "找回密码" } },
+    { "path": "pages/mine/profile/index", "style": { "navigationBarTitleText": "个人信息维护" } },
     { "path": "pages/webview/index", "style": { "navigationBarTitleText": "外部链接" } }
   ],
   "globalStyle": {

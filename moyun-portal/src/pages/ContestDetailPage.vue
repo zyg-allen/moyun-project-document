@@ -7,6 +7,7 @@ import {
   Trophy, Calendar, Gift, Heart, FileText, Loader2, Send,
 } from 'lucide-vue-next';
 import Breadcrumb from '@/components/Breadcrumb.vue';
+import BackButton from '@/components/BackButton.vue';
 import SiteFooter from '@/components/SiteFooter.vue';
 import LazyImage from '@/components/LazyImage.vue';
 import { generateSeo } from '@/utils/seo';
@@ -173,6 +174,7 @@ const canSubmit = computed(() => {
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between gap-4">
         <Breadcrumb :items="breadcrumbs" />
         <div class="flex items-center gap-2">
+          <BackButton fallback="/contests" />
         </div>
       </div>
     </div>

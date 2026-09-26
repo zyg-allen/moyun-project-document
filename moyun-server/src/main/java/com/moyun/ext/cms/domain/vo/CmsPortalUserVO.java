@@ -53,6 +53,9 @@ public class CmsPortalUserVO extends BaseEntity {
     /** 职位 */
     private String position;
 
+    /** 身份标签 */
+    private String identityTag;
+
     /** 微信号 */
     private String wechat;
 
@@ -86,12 +89,42 @@ public class CmsPortalUserVO extends BaseEntity {
     /** 角色：user/admin */
     private String role;
 
+    /** 注册来源端：portal / ledger */
+    private String platformCode;
+
     /** 是否认证创作者：0 否/1 是 */
     private Integer isCertifiedCreator;
 
     /** VIP过期时间 */
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime vipExpireAt;
+
+    /** 是否接收点赞通知 */
+    private Boolean notifyLike;
+
+    /** 是否接收评论通知 */
+    private Boolean notifyComment;
+
+    /** 是否接收关注通知 */
+    private Boolean notifyFollow;
+
+    /** 是否接收系统通知 */
+    private Boolean notifySystem;
+
+    /** 是否允许被关注 */
+    private Boolean privacyFollow;
+
+    /** 是否公开收藏夹 */
+    private Boolean privacyBookmark;
+
+    /** 是否公开邮箱 */
+    private Boolean privacyEmail;
+
+    /** 是否公开手机号 */
+    private Boolean privacyPhone;
+
+    /** 是否公开主页 */
+    private Boolean privacyProfile;
 
     /** 是否已验证手机号 */
     private Boolean isPhoneVerified;
@@ -104,6 +137,9 @@ public class CmsPortalUserVO extends BaseEntity {
 
     /** 帐号状态（0正常 1停用） */
     private String status;
+
+    /** 删除标志（0代表存在 2代表注销） */
+    private String delFlag;
 
     /** 最后登录IP */
     private String loginIp;

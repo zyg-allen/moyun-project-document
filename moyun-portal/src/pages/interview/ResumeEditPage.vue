@@ -697,7 +697,8 @@ async function pollParseTask(taskId: number | string, resumeId?: string | number
     // 优先用任务结果里的附件简历 ID，兜底用上传响应返回的 resumeId
     const rid = result?.attachmentResumeId ?? resumeId;
     if (rid) {
-      router.replace(`/interview/resume/edit?resumeId=${rid}`);
+      // 收口为 /edit/:id 规范寻址：显式加载目标简历，消除对"附件简历恰为最新一条"反显逻辑的隐式依赖
+      router.replace(`/interview/resume/edit/${rid}`);
     } else {
       clearParseTaskQuery();
     }

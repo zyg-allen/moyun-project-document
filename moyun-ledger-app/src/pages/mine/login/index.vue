@@ -24,8 +24,13 @@
       </view>
       <view class="btn-primary" @tap="doLogin">登 录</view>
       <view class="login-tip">与墨韵门户共用账号体系</view>
-      <view class="register-link" @tap="goRegister">没有账号？立即注册 ›</view>
+      <view class="login-links">
+        <text class="register-link" @tap="goRegister">没有账号？立即注册 ›</text>
+        <text class="forgot-link" @tap="goForgotPassword">忘记密码？</text>
+      </view>
     </view>
+    <!-- 脚部 -->
+    <view class="footer">墨韵记账 · 账号安全</view>
   </view>
 </template>
 
@@ -104,6 +109,9 @@ export default {
     },
     goRegister() {
       uni.navigateTo({ url: '/pages/mine/register/index' });
+    },
+    goForgotPassword() {
+      uni.navigateTo({ url: '/pages/mine/forgot-password/index' });
     }
   }
 };
@@ -140,5 +148,12 @@ export default {
 .btn-primary:active { opacity: .85; }
 
 .login-tip { text-align: center; font-size: 24rpx; color: #999; margin-top: 20rpx; }
-.register-link { text-align: center; font-size: 26rpx; color: #4f7cff; margin-top: 16rpx; }
+.login-links { display: flex; justify-content: space-between; padding: 16rpx 0 4rpx; }
+.register-link { font-size: 26rpx; color: #4f7cff; }
+.forgot-link { font-size: 26rpx; color: #999; }
+
+.footer {
+  padding: 40rpx 0 calc(24rpx + env(safe-area-inset-bottom));
+  text-align: center; font-size: 22rpx; color: #c3c8cf;
+}
 </style>

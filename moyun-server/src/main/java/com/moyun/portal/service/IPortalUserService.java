@@ -64,6 +64,17 @@ public interface IPortalUserService {
     public boolean checkPortalEmailUnique(PortalUser portalUser);
 
     /**
+     * 统一业务唯一性校验（username/phone/email，含已注销账号）
+     * <p>与 uk_username/uk_phone/uk_email 唯一索引完全同源：唯一索引对 del_flag='2'
+     * 的注销记录同样生效，故校验必须不过滤 del_flag，否则会出现"校验通过但落库
+     * DuplicateKey 500"的窗口。排除自身记录（编辑场景）。</p>
+     *
+     * @param portalUser 待校验的用户信息（id 非空时排除自身）
+     * @return 冲突描述文案；无冲突返回 null
+     */
+    public String checkUniqueBusinessKeys(PortalUser portalUser);
+
+    /**
      * 新增用户信息
      *
      * @param portalUser 用户信息
@@ -78,6 +89,18 @@ public interface IPortalUserService {
      * @return 结果
      */
     public boolean registerPortalUser(PortalUser portalUser);
+
+    /**
+     * 复活已注销账号（del_flag='2' → '0'）
+     * <p>同一手机号/邮箱重新注册时不新增记录，沿用原账号 id，保留历史数据关联
+     * （文章、成长值、徽章等均挂在原 id 上）。仅更新注册凭据（用户名/密码/手机号/邮箱），
+     * 画像等资料字段保持原值。</p>
+     *
+     * @param id         原账号 id
+     * @param portalUser 本次注册提交的信息（password 已 BCrypt 加密）
+     * @return 复活成功返回 true
+     */
+    public boolean revivePortalUser(Long id, PortalUser portalUser);
 
     /**
      * 修改用户信息

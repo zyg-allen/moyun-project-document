@@ -78,10 +78,19 @@ public interface ICmsPortalUserService
     /**
      * 批量删除门户用户
      *
-     * @param ids 需要删除的用户ID
+     * @param ids 用户ID数组
      * @return 结果
      */
     int deleteUserByIds(Long[] ids);
+
+    /**
+     * 恢复注销账号（del_flag '2' -> '0'）
+     * <p>管理员专用恢复通道；恢复前校验用户名/手机号/邮箱未被其他在用账号占用。
+     *
+     * @param id 门户用户ID
+     * @return 结果（1=成功；-1=账号不存在或未注销；-2=唯一键冲突，不能恢复）
+     */
+    int restoreUser(Long id);
 
     /**
      * 重置用户密码

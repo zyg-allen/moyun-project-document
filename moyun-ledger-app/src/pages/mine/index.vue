@@ -1,6 +1,6 @@
 <template>
   <view class="page" :style="themeVars">
-    <!-- 用户卡 -->
+    <!-- ==================== 头部：用户卡 ==================== -->
     <view class="user-card">
       <view class="avatar">{{ userStore.isLoggedIn ? '墨' : '?' }}</view>
       <view class="flex-1">
@@ -8,12 +8,13 @@
         <view class="user-sub">最近备份：{{ lastBackup }} · 本地</view>
       </view>
       <view class="user-right">
-        <view class="sign-btn" @tap="doSign">{{ signed ? '已签到' : '签到' }}</view>
+        <!-- v11.76：原"签到"为纯本地装饰（无后端接口、无积分数据），删除；改为个人信息维护入口（AI 财务分析基础数据） -->
+        <view v-if="userStore.isLoggedIn" class="sign-btn" @tap="go('/pages/mine/profile/index')">编辑资料</view>
         <view class="setting-btn" @tap="go('/pages/mine/settings/index')">⚙</view>
       </view>
     </view>
 
-    <!-- 登录表单（未登录时显示） -->
+    <!-- ==================== 内容：登录表单（未登录）/ 功能宫格（已登录） ==================== -->
     <view class="card" v-if="!userStore.isLoggedIn">
       <view class="field">
         <text class="field-label">账号</text>
@@ -33,7 +34,10 @@
       </view>
       <view class="btn-primary" @tap="doLogin">登录</view>
       <view class="login-tip">与墨韵门户共用账号体系</view>
-      <view class="register-link" @tap="goRegister">没有账号？立即注册 ›</view>
+      <view class="login-links">
+        <text class="register-link" @tap="goRegister">没有账号？立即注册 ›</text>
+        <text class="forgot-link" @tap="goForgotPassword">忘记密码？</text>
+      </view>
     </view>
 
     <!-- 功能宫格（已登录） -->
@@ -55,16 +59,35 @@
         </view>
       </view>
 
+      <!-- 用户信息维护：账号资料 + 财务分析报告入口（已登录态数据维护区） -->
+      <view class="section-title">账号信息维护</view>
+      <view class="card list-card">
+        <view class="menu-item with-icon" @tap="go('/pages/mine/profile/index')">
+          <text class="mi-icon">👤</text>
+          <text class="flex-1">个人信息维护</text>
+          <text class="mi-sub" :class="{ ok: profileDone }">{{ profileDone ? '已完善' : '待完善' }}</text>
+          <text class="mi-arrow">›</text>
+        </view>
+        <view class="menu-item with-icon" @tap="goAnalysis">
+          <text class="mi-icon">📊</text>
+          <text class="flex-1">财务分析报告</text>
+          <text class="mi-arrow">›</text>
+        </view>
+      </view>
+
       <!-- 退出 -->
       <view class="card" style="margin-top: 24rpx;">
         <view class="menu-item logout" @tap="doLogout">退出登录</view>
       </view>
     </block>
+
+    <!-- ==================== 脚部：版本信息 ==================== -->
+    <view class="footer">墨韵记账 v11.76 · 与墨韵门户共用账号体系</view>
   </view>
 </template>
 
 <script>
-import { login, getCaptchaImage, getAppFeatures } from '@/api/ledger';
+import { login, getCaptchaImage, getAppFeatures, getAiProfile } from '@/api/ledger';
 import { useUserStore } from '@/stores/user';
 import { useThemeStore } from '@/stores/theme';
 import { storage } from '@/utils/storage';
@@ -74,8 +97,9 @@ export default {
     return {
       loginForm: { username: '', password: '' },
       captcha: { enabled: true, uuid: '', img: '', code: '' },
-      signed: false,
       lastBackup: '从未',
+      /** 画像完善状态（账号信息维护展示；v11.76 新增） */
+      profileDone: false,
       // 主功能宫格（v11.73 内置兜底=仅已上线功能；运行时由后台配置覆盖）
       mainMenus: [
         { key: 'category', icon: '☰', label: '分类管理', color: '#7fbf94' },
@@ -104,10 +128,18 @@ export default {
     if (!useUserStore().isLoggedIn && this.captcha.enabled && !this.captcha.img) {
       this.loadCaptcha();
     }
-    // 签到状态 & 备份时间
-    const today = new Date().toDateString();
-    this.signed = storage.get('signed_date') === today;
+    // 备份时间 + 画像完善状态（v11.76：签到已删除——纯本地装饰无业务数据）
     this.lastBackup = storage.get('last_backup') || '从未';
+    if (useUserStore().isLoggedIn) {
+      getAiProfile().then((pf) => {
+        // 与个人信息维护页口径一致：身份/生日/行业/职位/婚姻/房贷/副业/收入类型 8 项过半即视为已完善
+        const filled = [pf.identityTag, pf.birthday, pf.industry, pf.position,
+          pf.maritalStatus, pf.hasMortgage, pf.hasSideIncome,
+          Array.isArray(pf.incomeTypes) ? pf.incomeTypes.length : 0]
+          .filter((v) => v || v === 0).length;
+        this.profileDone = filled >= 4;
+      }).catch(() => {});
+    }
     // v11.73：功能宫格由后台可视化配置（仅展示 visible=1；失败回退内置默认）
     this.loadFeatureConfig();
   },
@@ -140,6 +172,9 @@ export default {
     goRegister() {
       uni.navigateTo({ url: '/pages/mine/register/index' });
     },
+    goForgotPassword() {
+      uni.navigateTo({ url: '/pages/mine/forgot-password/index' });
+    },
     async doLogin() {
       if (!this.loginForm.username || !this.loginForm.password) {
         uni.showToast({ title: '请输入账号密码', icon: 'none' }); return;
@@ -159,16 +194,6 @@ export default {
     },
     doLogout() {
       uni.showModal({ title: '提示', content: '确定退出登录？', success: (r) => { if (r.confirm) this.userStore.logout(); } });
-    },
-    doSign() {
-      const today = new Date().toDateString();
-      if (storage.get('signed_date') === today) {
-        uni.showToast({ title: '今日已签到', icon: 'none' });
-        return;
-      }
-      storage.set('signed_date', today);
-      this.signed = true;
-      uni.showToast({ title: '签到成功', icon: 'success' });
     },
     onMenuTap(m) {
       const routes = {
@@ -205,7 +230,8 @@ export default {
         uni.showToast({ title: m.label + ' · 开发中', icon: 'none' });
       }
     },
-    go(url) { uni.navigateTo({ url }); }
+    go(url) { uni.navigateTo({ url }); },
+    goAnalysis() { uni.switchTab({ url: '/pages/analysis/index' }); }
   }
 };
 </script>
@@ -277,7 +303,25 @@ export default {
   display: flex; justify-content: center; align-items: center;
   padding: 32rpx 0; font-size: 28rpx; color: #e74c3c;
 }
-.register-link {
-  text-align: center; font-size: 26rpx; color: var(--primary-strong); padding: 12rpx 0 4rpx;
+/* 账号信息维护列表项 */
+.menu-item.with-icon {
+  justify-content: flex-start; color: #333; gap: 20rpx;
+  border-bottom: 1rpx solid #f5f5f7; padding: 30rpx 0;
+}
+.menu-item.with-icon:last-of-type { border-bottom: none; }
+.mi-icon { font-size: 36rpx; }
+.mi-sub { font-size: 22rpx; color: #e6a23c; }
+.mi-sub.ok { color: #52c41a; }
+.mi-arrow { font-size: 30rpx; color: #c3c8cf; }
+.list-card { padding: 4rpx 32rpx; }
+
+.login-links { display: flex; justify-content: space-between; padding: 12rpx 0 4rpx; }
+.register-link { font-size: 26rpx; color: var(--primary-strong); }
+.forgot-link { font-size: 26rpx; color: #999; }
+
+/* 脚部 */
+.footer {
+  padding: 40rpx 0 calc(32rpx + env(safe-area-inset-bottom));
+  text-align: center; font-size: 22rpx; color: #c3c8cf;
 }
 </style>

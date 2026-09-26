@@ -9,6 +9,7 @@ import {
   ChevronDown, Reply, X, Clock, XCircle,
 } from 'lucide-vue-next';
 import Breadcrumb from '@/components/Breadcrumb.vue';
+import BackButton from '@/components/BackButton.vue';
 import SiteFooter from '@/components/SiteFooter.vue';
 import LazyImage from '@/components/LazyImage.vue';
 import MarkdownEditor from '@/components/MarkdownEditor.vue';
@@ -539,6 +540,7 @@ async function handleDeleteComment(
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between gap-4">
         <Breadcrumb :items="breadcrumbs" />
         <div class="flex items-center gap-2">
+          <BackButton fallback="/topics" />
           <button
             v-if="isOwner"
             @click="gotoEdit"

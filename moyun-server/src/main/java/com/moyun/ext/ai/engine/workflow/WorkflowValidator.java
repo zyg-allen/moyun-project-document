@@ -301,7 +301,7 @@ public class WorkflowValidator {
                 break;
 
             case "database":
-                if (config == null || config.get("sql") == null || ((String) config.get("sql")).trim().isEmpty()) {
+                if (config == null || config.get("increment-sql") == null || ((String) config.get("increment-sql")).trim().isEmpty()) {
                     errors.add(new ValidationError(node.getId(), node.getName(),
                         "数据库节点未配置SQL语句", "DATABASE_NO_SQL"));
                 }

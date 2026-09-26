@@ -147,6 +147,10 @@ export interface SendEmailCodeParams {
   email: string;
   /** 场景：register 注册校验邮箱 / reset_password 找回密码 */
   type: 'register' | 'reset_password';
+  /** 图形验证码（sys.account.captchaEnabled 开启时必填，人机校验防刷邮件） */
+  code?: string;
+  /** 图形验证码唯一标识 */
+  uuid?: string;
 }
 
 // 找回密码（邮箱验证码重置）

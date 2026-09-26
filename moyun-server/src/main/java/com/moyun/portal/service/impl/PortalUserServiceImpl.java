@@ -111,6 +111,41 @@ public class PortalUserServiceImpl extends ServiceImpl<PortalUserMapper, PortalU
     }
 
     /**
+     * 统一业务唯一性校验（username/phone/email，含已注销账号）
+     * <p>与 uk_username/uk_phone/uk_email 唯一索引同源：不过滤 del_flag（唯一索引
+     * 对注销记录同样生效），排除自身 id（编辑场景）。</p>
+     */
+    @Override
+    public String checkUniqueBusinessKeys(PortalUser portalUser) {
+        if (portalUser == null) {
+            return null;
+        }
+        Long selfId = portalUser.getId();
+        // 用户名（唯一索引必列，注销账号也占用）
+        if (StringUtils.isNotEmpty(portalUser.getUsername())) {
+            PortalUser exist = portalUserMapper.selectPortalUserByUsernameAny(portalUser.getUsername());
+            if (exist != null && (selfId == null || !exist.getId().equals(selfId))) {
+                return "用户名「" + portalUser.getUsername() + "」已被占用（含已注销账号），请更换";
+            }
+        }
+        // 手机号
+        if (StringUtils.isNotEmpty(portalUser.getPhone())) {
+            PortalUser exist = portalUserMapper.selectPortalUserByPhoneAny(portalUser.getPhone());
+            if (exist != null && (selfId == null || !exist.getId().equals(selfId))) {
+                return "该手机号「" + portalUser.getPhone() + "」已被其他账号使用，请更换";
+            }
+        }
+        // 邮箱
+        if (StringUtils.isNotEmpty(portalUser.getEmail())) {
+            PortalUser exist = portalUserMapper.selectPortalUserByEmailAny(portalUser.getEmail());
+            if (exist != null && (selfId == null || !exist.getId().equals(selfId))) {
+                return "该邮箱「" + portalUser.getEmail() + "」已被其他账号使用，请更换";
+            }
+        }
+        return null;
+    }
+
+    /**
      * 新增用户信息
      *
      * @param portalUser 用户信息
@@ -134,6 +169,29 @@ public class PortalUserServiceImpl extends ServiceImpl<PortalUserMapper, PortalU
         // 防御性加密：Controller 已加密，此处兜底防止其他调用方未加密
         ensurePasswordEncoded(portalUser);
         return portalUserMapper.insertPortalUser(portalUser) > 0;
+    }
+
+    /**
+     * 复活已注销账号：沿用原 id，仅更新注册凭据（用户名/密码/手机号/邮箱），
+     * 恢复 del_flag='0' + status='0'；画像资料保持原值（保留历史数据关联）
+     */
+    @Override
+    public boolean revivePortalUser(Long id, PortalUser portalUser) {
+        ensurePasswordEncoded(portalUser);
+        PortalUser update = new PortalUser();
+        update.setId(id);
+        update.setUsername(portalUser.getUsername());
+        update.setPassword(portalUser.getPassword());
+        update.setPhone(portalUser.getPhone());
+        update.setEmail(portalUser.getEmail());
+        // 手机号注册场景：短信验证码已验证通过，标记手机号已认证
+        if (StringUtils.isNotEmpty(portalUser.getPhone())) {
+            update.setIsPhoneVerified(true);
+        }
+        update.setStatus("0");
+        update.setDelFlag("0");
+        update.setUpdateBy(portalUser.getUsername());
+        return portalUserMapper.updatePortalUser(update) > 0;
     }
 
     /**

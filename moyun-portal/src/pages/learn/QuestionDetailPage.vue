@@ -9,6 +9,7 @@ import {
   CheckCircle, AlertCircle, PlayCircle, ListFilter,
 } from 'lucide-vue-next';
 import Breadcrumb from '@/components/Breadcrumb.vue';
+import BackButton from '@/components/BackButton.vue';
 import SiteFooter from '@/components/SiteFooter.vue';
 import MarkdownRenderer from '@/components/MarkdownRenderer.vue';
 import { generateSeo } from '@/utils/seo.ts';
@@ -297,38 +298,41 @@ const breadcrumbs = computed(() => [
     <div class="border-b sticky top-0 z-30 backdrop-blur-sm py-3" style="background-color: var(--theme-surface); border-color: var(--theme-border);">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between gap-4">
         <Breadcrumb :items="breadcrumbs" />
-        <!-- 顶部紧凑切题（长文阅读时随时可切换） -->
-        <div v-if="neighbor" class="hidden sm:flex items-center gap-2 flex-shrink-0">
-          <button
-            @click="gotoNeighbor(neighbor?.prevId, 'prev')"
-            :disabled="!neighbor?.prevId"
-            :title="neighbor?.prevTitle ? `上一题：${neighbor.prevTitle}` : '已是第一题'"
-            class="inline-flex items-center gap-1 text-xs px-2.5 py-1.5 rounded border transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-            style="border-color: var(--theme-border); color: var(--theme-text-secondary);"
-          >
-            <ChevronLeft class="w-3 h-3" />
-            <span>上一题</span>
-          </button>
-          <span
-            v-if="neighbor?.currentIndex"
-            class="text-xs font-mono px-2 py-0.5 rounded"
-            style="background-color: var(--theme-bg); color: var(--theme-text-secondary);"
-            title="当前题目在筛选结果中的位置"
-          >
-            {{ neighbor.currentIndex }}/{{ neighbor.total }}
-          </span>
-          <button
-            @click="gotoNeighbor(neighbor?.nextId, 'next')"
-            :disabled="!neighbor?.nextId"
-            :title="neighbor?.nextTitle ? `下一题：${neighbor.nextTitle}` : '已是最后一题'"
-            class="inline-flex items-center gap-1 text-xs px-2.5 py-1.5 rounded border transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-            :style="neighbor?.nextId
-              ? { borderColor: 'var(--theme-primary)', color: 'var(--theme-primary)' }
-              : { borderColor: 'var(--theme-border)', color: 'var(--theme-text-secondary)' }"
-          >
-            <span>下一题</span>
-            <ChevronRight class="w-3 h-3" />
-          </button>
+        <div class="flex items-center gap-2 flex-shrink-0">
+          <BackButton fallback="/learn/questions" />
+          <!-- 顶部紧凑切题（长文阅读时随时可切换） -->
+          <div v-if="neighbor" class="hidden sm:flex items-center gap-2">
+            <button
+              @click="gotoNeighbor(neighbor?.prevId, 'prev')"
+              :disabled="!neighbor?.prevId"
+              :title="neighbor?.prevTitle ? `上一题：${neighbor.prevTitle}` : '已是第一题'"
+              class="inline-flex items-center gap-1 text-xs px-2.5 py-1.5 rounded border transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              style="border-color: var(--theme-border); color: var(--theme-text-secondary);"
+            >
+              <ChevronLeft class="w-3 h-3" />
+              <span>上一题</span>
+            </button>
+            <span
+              v-if="neighbor?.currentIndex"
+              class="text-xs font-mono px-2 py-0.5 rounded"
+              style="background-color: var(--theme-bg); color: var(--theme-text-secondary);"
+              title="当前题目在筛选结果中的位置"
+            >
+              {{ neighbor.currentIndex }}/{{ neighbor.total }}
+            </span>
+            <button
+              @click="gotoNeighbor(neighbor?.nextId, 'next')"
+              :disabled="!neighbor?.nextId"
+              :title="neighbor?.nextTitle ? `下一题：${neighbor.nextTitle}` : '已是最后一题'"
+              class="inline-flex items-center gap-1 text-xs px-2.5 py-1.5 rounded border transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              :style="neighbor?.nextId
+                ? { borderColor: 'var(--theme-primary)', color: 'var(--theme-primary)' }
+                : { borderColor: 'var(--theme-border)', color: 'var(--theme-text-secondary)' }"
+            >
+              <span>下一题</span>
+              <ChevronRight class="w-3 h-3" />
+            </button>
+          </div>
         </div>
       </div>
     </div>

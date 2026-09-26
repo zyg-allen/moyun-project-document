@@ -4,6 +4,7 @@ import {RouterLink as Link, useRoute, useRouter} from 'vue-router';
 import {useHead} from '@vueuse/head';
 import {Bookmark, Clock, Gift, Heart, Lock, MessageSquare, Reply, Send, Share2, UserPlus, UserCheck, FileText, ThumbsUp, Users} from 'lucide-vue-next';
 import Breadcrumb from '@/components/Breadcrumb.vue';
+import BackButton from '@/components/BackButton.vue';
 import SiteFooter from '@/components/SiteFooter.vue';
 import MarkdownRenderer from '@/components/MarkdownRenderer.vue';
 import BackToTop from '@/components/BackToTop.vue';
@@ -816,6 +817,7 @@ const head = useHead(
       <div class="content-container">
         <div class="flex items-center justify-between gap-4">
           <Breadcrumb :items="breadcrumbs"/>
+          <BackButton fallback="/" />
         </div>
       </div>
     </div>

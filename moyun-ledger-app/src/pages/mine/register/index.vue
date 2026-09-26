@@ -59,6 +59,13 @@
         </view>
       </view>
 
+      <!-- 图形验证码：注册最终提交前的人机校验（后端 register 同步校验，一次性作废） -->
+      <view class="row" v-if="captchaEnabled">
+        <text class="label">图形验证码</text>
+        <input class="input code-input" v-model="formCaptchaCode" placeholder="输入图形验证码完成注册" maxlength="10" />
+        <image class="captcha-img" :src="formCaptcha.img" mode="aspectFit" @tap="loadCaptcha" />
+      </view>
+
       <view class="btn-primary" @tap="doRegister">注 册</view>
       <view class="tip">注册成功将自动登录，与墨韵门户共用账号体系</view>
       <view class="link" @tap="goLogin">已有账号？返回登录</view>
@@ -100,6 +107,9 @@ export default {
       smsCountdown: 0,
       emailCountdown: 0,
       submitting: false,
+      // 注册提交用的表单图形码（独立于发送验证码弹窗，后端 register 同步校验）
+      formCaptcha: { img: '', uuid: '' },
+      formCaptchaCode: '',
       // 发送短信前的人机校验弹窗（独立 uuid，一次性）
       captchaDialog: { visible: false, img: '', uuid: '', code: '' }
     };
@@ -115,12 +125,14 @@ export default {
   },
   methods: {
     async loadCaptcha() {
-      // v11.42：仅探测开关（captchaEnabled 控制发送验证码前是否弹窗人机校验）；
-      // 图形码校验已由弹窗完成，注册提交不再携带 code/uuid
+      // 探测开关 + 加载表单图形码（captchaEnabled 同时控制发送弹窗与表单图形码）
       try {
         const cap = await getCaptchaImage();
         this.captchaEnabled = !!cap.captchaEnabled;
-      } catch (e) { this.captchaEnabled = false; }
+        this.formCaptcha.img = cap.img ? 'data:image/jpeg;base64,' + cap.img : '';
+        this.formCaptcha.uuid = cap.uuid || '';
+        this.formCaptchaCode = '';
+      } catch (e) { this.captchaEnabled = false; this.formCaptcha.img = ''; this.formCaptcha.uuid = ''; }
     },
     startCountdown(type) {
       const key = type + 'Countdown';
@@ -218,13 +230,22 @@ export default {
       if (this.submitting) return;
       const err = this.validate();
       if (err) { uni.showToast({ title: err, icon: 'none' }); return; }
+      // 表单独立图形码：注册提交前人机校验（后端 register 同步校验，一次性作废）
+      if (this.captchaEnabled && !this.formCaptchaCode.trim()) {
+        uni.showToast({ title: '请输入图形验证码', icon: 'none' });
+        return;
+      }
       this.submitting = true;
       try {
-        // v11.42：人机校验已由发送验证码弹窗完成（一次性作废），提交不再携带图形码
         const payload = {
           username: this.form.username.trim(),
           password: this.form.password
         };
+        // 图形码随注册提交（开关开启时；后端校验一次性消费）
+        if (this.captchaEnabled) {
+          payload.code = this.formCaptchaCode.trim();
+          payload.uuid = this.formCaptcha.uuid;
+        }
         if (this.mode === 'phone') {
           payload.phone = this.form.phone.trim();
           payload.smsCode = this.form.smsCode.trim();
@@ -240,7 +261,10 @@ export default {
         useUserStore().setUserInfo(data.user || { username: payload.username });
         uni.showToast({ title: '注册成功', icon: 'success' });
         setTimeout(() => uni.navigateBack(), 800);
-      } catch (e) { /* 拦截器已提示 */ }
+      } catch (e) {
+        // 图形码一次性作废：失败后刷新供下次提交使用
+        this.loadCaptcha();
+      }
       this.submitting = false;
     },
     // 跳独立登录页，携带用户名回填（登录仅支持 username，手机号/邮箱不能作为登录账号）
@@ -283,6 +307,7 @@ export default {
   border: 1rpx solid var(--primary-strong); border-radius: 28rpx; padding: 10rpx 24rpx;
 }
 .code-btn.disabled { color: #bbb; border-color: #e5e6e8; }
+.captcha-img { flex-shrink: 0; width: 180rpx; height: 72rpx; border-radius: 8rpx; }
 
 .btn-primary {
   margin-top: 36rpx; height: 88rpx; line-height: 88rpx; text-align: center;

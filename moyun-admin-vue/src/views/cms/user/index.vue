@@ -30,9 +30,10 @@
         />
       </el-form-item>
       <el-form-item label="状态" prop="status">
-        <el-select v-model="queryParams.status" placeholder="用户状态" clearable style="width: 200px">
+        <el-select v-model="queryParams.status" placeholder="用户状态（默认全部）" clearable style="width: 200px">
           <el-option label="正常" value="0" />
           <el-option label="停用" value="1" />
+          <el-option label="已注销" value="2" />
         </el-select>
       </el-form-item>
       <el-form-item>
@@ -81,6 +82,7 @@
       <el-table-column label="用户编号" align="center" prop="id" width="80" />
       <el-table-column label="用户名" align="center" prop="username" width="120" />
       <el-table-column label="用户昵称" align="center" prop="nickname" :show-overflow-tooltip="true" />
+      <el-table-column label="身份标签" align="center" prop="identityTag" width="100" :show-overflow-tooltip="true" />
       <el-table-column label="头像" align="center" prop="avatar" width="100">
         <template #default="scope">
           <el-image
@@ -115,7 +117,9 @@
       </el-table-column>
       <el-table-column label="状态" align="center" prop="status" width="80">
         <template #default="scope">
+          <el-tag v-if="scope.row.delFlag === '2'" type="danger" size="small">已注销</el-tag>
           <el-switch
+              v-else
               v-model="scope.row.status"
               active-value="0"
               inactive-value="1"
@@ -128,40 +132,47 @@
           <span>{{ parseTime(scope.row.createTime) }}</span>
         </template>
       </el-table-column>
-      <el-table-column label="操作" align="right" class-name="small-padding fixed-width" width="300">
+      <el-table-column label="最后登录" align="center" prop="loginDate" width="160">
+        <template #default="scope">
+          <span>{{ scope.row.loginDate ? parseTime(scope.row.loginDate) : '-' }}</span>
+        </template>
+      </el-table-column>
+      <el-table-column label="操作" align="center" class-name="small-padding fixed-width" width="280" fixed="right">
         <template #default="scope">
           <el-button
               link
               type="primary"
-              icon="View"
               @click="handleProfile(scope.row)"
               v-hasPermi="['cms:user:query']"
           >画像</el-button>
           <el-button
               link
               type="primary"
-              icon="Edit"
               @click="handleUpdate(scope.row)"
               v-hasPermi="['cms:user:edit']"
           >修改</el-button>
           <el-button
               link
               type="primary"
-              icon="Link"
               @click="handleBind(scope.row)"
               v-hasPermi="['cms:user:bind']"
           >绑定</el-button>
           <el-button
               link
               type="primary"
-              icon="Key"
               @click="handleResetPwd(scope.row)"
               v-hasPermi="['cms:user:resetPwd']"
           >重置密码</el-button>
           <el-button
+              v-if="scope.row.delFlag === '2'"
+              link
+              type="success"
+              @click="handleRestore(scope.row)"
+              v-hasPermi="['cms:user:edit']"
+          >恢复</el-button>
+          <el-button
               link
               type="primary"
-              icon="Delete"
               @click="handleDelete(scope.row)"
               v-hasPermi="['cms:user:remove']"
           >删除</el-button>
@@ -179,33 +190,83 @@
     />
 
     <!-- 添加或修改用户对话框 -->
-    <el-dialog :title="title" v-model="open" width="760px" append-to-body>
+    <el-dialog :title="title" v-model="open" width="800px" append-to-body>
       <el-form ref="userRef" :model="form" :rules="rules" label-width="80px">
-        <el-form-item label="用户名" prop="username" v-if="!form.id">
-          <el-input v-model="form.username" placeholder="请输入用户名" />
-        </el-form-item>
-        <el-form-item label="用户昵称" prop="nickname">
-          <el-input v-model="form.nickname" placeholder="请输入用户昵称" />
-        </el-form-item>
+        <el-divider content-position="left">基础信息</el-divider>
+        <el-row :gutter="0">
+          <el-col :span="12">
+            <el-form-item label="用户名" prop="username" v-if="!form.id">
+              <el-input v-model="form.username" placeholder="请输入用户名" />
+            </el-form-item>
+            <el-form-item label="用户昵称" prop="nickname" v-else>
+              <el-input v-model="form.nickname" placeholder="请输入用户昵称" />
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="手机号" prop="phone">
+              <el-input v-model="form.phone" placeholder="请输入手机号" />
+            </el-form-item>
+          </el-col>
+        </el-row>
+        <el-row :gutter="0">
+          <el-col :span="12">
+            <el-form-item label="邮箱" prop="email">
+              <el-input v-model="form.email" placeholder="请输入邮箱" />
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="职位" prop="position">
+              <el-input v-model="form.position" placeholder="请输入职位" />
+            </el-form-item>
+          </el-col>
+        </el-row>
+        <el-row :gutter="0">
+          <el-col :span="12">
+            <el-form-item label="身份标签" prop="identityTag">
+              <el-input v-model="form.identityTag" placeholder="请输入身份标签" />
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="角色" prop="role">
+              <el-select v-model="form.role" placeholder="请选择角色" style="width: 100%">
+                <el-option label="普通用户" value="user" />
+                <el-option label="管理员" value="admin" />
+              </el-select>
+            </el-form-item>
+          </el-col>
+        </el-row>
+        <el-row :gutter="0">
+          <el-col :span="12">
+            <el-form-item label="认证创作者" prop="isCertifiedCreator">
+              <el-radio-group v-model="form.isCertifiedCreator">
+                <el-radio :label="1">已认证</el-radio>
+                <el-radio :label="0">未认证</el-radio>
+              </el-radio-group>
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="状态" prop="status">
+              <el-radio-group v-model="form.status">
+                <el-radio label="0">正常</el-radio>
+                <el-radio label="1">停用</el-radio>
+              </el-radio-group>
+            </el-form-item>
+          </el-col>
+        </el-row>
         <el-form-item label="头像" prop="avatar">
           <ImageUpload v-model="form.avatar" />
         </el-form-item>
-        <el-form-item label="手机号" prop="phone">
-          <el-input v-model="form.phone" placeholder="请输入手机号" />
-        </el-form-item>
-        <el-form-item label="邮箱" prop="email">
-          <el-input v-model="form.email" placeholder="请输入邮箱" />
-        </el-form-item>
-        <el-form-item label="个人简介" prop="bio">
-          <el-input v-model="form.bio" type="textarea" :rows="3" placeholder="请输入个人简介" />
-        </el-form-item>
-        <el-form-item label="职位" prop="position">
-          <el-input v-model="form.position" placeholder="请输入职位" />
-        </el-form-item>
+        <el-row :gutter="0">
+          <el-col :span="12">
+            <el-form-item label="密码" prop="password" v-if="!form.id">
+              <el-input v-model="form.password" type="password" placeholder="请输入密码" show-password />
+            </el-form-item>
+          </el-col>
+        </el-row>
         <el-divider content-position="left">画像资料</el-divider>
         <el-row :gutter="0">
           <el-col :span="12">
-            <el-form-item label="性别" prop="gender" label-width="80px">
+            <el-form-item label="性别" prop="gender">
               <el-select v-model="form.gender" placeholder="请选择" clearable style="width: 100%">
                 <el-option label="男" value="male" />
                 <el-option label="女" value="female" />
@@ -214,52 +275,159 @@
             </el-form-item>
           </el-col>
           <el-col :span="12">
-            <el-form-item label="生日" prop="birthday" label-width="80px">
+            <el-form-item label="生日" prop="birthday">
               <el-input v-model="form.birthday" placeholder="如 1995-01-01" />
             </el-form-item>
           </el-col>
         </el-row>
-        <el-form-item label="所在地" prop="location">
-          <el-input v-model="form.location" placeholder="请输入所在城市" />
-        </el-form-item>
         <el-row :gutter="0">
           <el-col :span="12">
-            <el-form-item label="公司" prop="company" label-width="80px">
+            <el-form-item label="所在地" prop="location">
+              <el-input v-model="form.location" placeholder="请输入所在城市" />
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="公司" prop="company">
               <el-input v-model="form.company" placeholder="请输入公司" />
             </el-form-item>
           </el-col>
+        </el-row>
+        <el-row :gutter="0">
           <el-col :span="12">
-            <el-form-item label="学校" prop="school" label-width="80px">
-              <el-input v-model="form.school" placeholder="请输入学校" />
+            <el-form-item label="行业" prop="industry">
+              <el-input v-model="form.industry" placeholder="如：IT / 金融 / 教育" />
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="婚姻状况" prop="maritalStatus">
+              <el-select v-model="form.maritalStatus" placeholder="请选择" clearable style="width: 100%">
+                <el-option label="单身" value="single" />
+                <el-option label="已婚" value="married" />
+                <el-option label="其他" value="other" />
+              </el-select>
             </el-form-item>
           </el-col>
         </el-row>
         <el-row :gutter="0">
           <el-col :span="12">
-            <el-form-item label="微信号" prop="wechat" label-width="80px">
-              <el-input v-model="form.wechat" placeholder="请输入微信号" />
+            <el-form-item label="是否有房贷" prop="hasMortgage">
+              <el-radio-group v-model="form.hasMortgage">
+                <el-radio :label="1">有</el-radio>
+                <el-radio :label="0">无</el-radio>
+              </el-radio-group>
             </el-form-item>
           </el-col>
           <el-col :span="12">
-            <el-form-item label="GitHub" prop="github" label-width="80px">
-              <el-input v-model="form.github" placeholder="GitHub 账号" />
+            <el-form-item label="是否有副业" prop="hasSideIncome">
+              <el-radio-group v-model="form.hasSideIncome">
+                <el-radio :label="1">有</el-radio>
+                <el-radio :label="0">无</el-radio>
+              </el-radio-group>
             </el-form-item>
           </el-col>
         </el-row>
-        <el-form-item label="个人网站" prop="website">
-          <el-input v-model="form.website" placeholder="https://" />
+        <el-form-item label="收入类型" prop="incomeTypes">
+          <el-input v-model="form.incomeTypes" placeholder="逗号分隔，如 salary,investment,rent（工资/奖金/投资收益/租金/副业/其他）" />
         </el-form-item>
-        <el-form-item label="密码" prop="password" v-if="!form.id">
-          <el-input v-model="form.password" type="password" placeholder="请输入密码" show-password />
+        <el-row :gutter="0">
+          <el-col :span="12">
+            <el-form-item label="学校" prop="school">
+              <el-input v-model="form.school" placeholder="请输入学校" />
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="微信号" prop="wechat">
+              <el-input v-model="form.wechat" placeholder="请输入微信号" />
+            </el-form-item>
+          </el-col>
+        </el-row>
+        <el-row :gutter="0">
+          <el-col :span="12">
+            <el-form-item label="GitHub" prop="github">
+              <el-input v-model="form.github" placeholder="GitHub 账号" />
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="个人网站" prop="website">
+              <el-input v-model="form.website" placeholder="https://" />
+            </el-form-item>
+          </el-col>
+        </el-row>
+        <el-form-item label="个人简介" prop="bio">
+          <el-input v-model="form.bio" type="textarea" :rows="3" placeholder="请输入个人简介" />
         </el-form-item>
-        <el-form-item label="状态" prop="status">
-          <el-radio-group v-model="form.status">
-            <el-radio label="0">正常</el-radio>
-            <el-radio label="1">停用</el-radio>
-          </el-radio-group>
+        <el-divider content-position="left">偏好设置</el-divider>
+        <el-row :gutter="0">
+          <el-col :span="12">
+            <el-form-item label="语言" prop="language">
+              <el-input v-model="form.language" placeholder="如 zh-CN" />
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="时区" prop="timezone">
+              <el-input v-model="form.timezone" placeholder="如 Asia/Shanghai" />
+            </el-form-item>
+          </el-col>
+        </el-row>
+        <el-form-item label="通知偏好">
+          <el-checkbox v-model="form.notifyLike">点赞通知</el-checkbox>
+          <el-checkbox v-model="form.notifyComment">评论通知</el-checkbox>
+          <el-checkbox v-model="form.notifyFollow">关注通知</el-checkbox>
+          <el-checkbox v-model="form.notifySystem">系统通知</el-checkbox>
         </el-form-item>
+        <el-form-item label="隐私设置">
+          <el-checkbox v-model="form.privacyFollow">允许被关注</el-checkbox>
+          <el-checkbox v-model="form.privacyBookmark">公开收藏夹</el-checkbox>
+          <el-checkbox v-model="form.privacyEmail">公开邮箱</el-checkbox>
+          <el-checkbox v-model="form.privacyPhone">公开手机号</el-checkbox>
+          <el-checkbox v-model="form.privacyProfile">公开主页</el-checkbox>
+        </el-form-item>
+        <el-form-item label="验证安全">
+          <el-checkbox v-model="form.isPhoneVerified" disabled>手机已验证</el-checkbox>
+          <el-checkbox v-model="form.isWechatVerified" disabled>微信已验证</el-checkbox>
+          <el-checkbox v-model="form.twoFactorEnabled" disabled>两步验证</el-checkbox>
+        </el-form-item>
+        <el-row :gutter="0" v-if="form.id">
+          <el-col :span="12">
+            <el-form-item label="VIP到期" prop="vipExpireAt">
+              <el-date-picker
+                  v-model="form.vipExpireAt"
+                  type="datetime"
+                  placeholder="选择VIP到期时间"
+                  value-format="YYYY-MM-DD HH:mm:ss"
+                  style="width: 100%"
+              />
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="来源端" prop="platformCode">
+              <el-input v-model="form.platformCode" disabled />
+            </el-form-item>
+          </el-col>
+        </el-row>
+        <el-divider content-position="left" v-if="form.id">登录信息（只读）</el-divider>
+        <el-row :gutter="0" v-if="form.id">
+          <el-col :span="12">
+            <el-form-item label="登录IP" prop="loginIp">
+              <el-input v-model="form.loginIp" disabled />
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="最后登录" prop="loginDate">
+              <el-input :model-value="form.loginDate ? parseTime(form.loginDate) : ''" disabled />
+            </el-form-item>
+          </el-col>
+        </el-row>
+        <el-row :gutter="0" v-if="form.id">
+          <el-col :span="12">
+            <el-form-item label="注册时间" prop="createTime">
+              <el-input :model-value="form.createTime ? parseTime(form.createTime) : ''" disabled />
+            </el-form-item>
+          </el-col>
+        </el-row>
+        <el-divider content-position="left">备注</el-divider>
         <el-form-item label="备注" prop="remark">
-          <el-input v-model="form.remark" type="textarea" placeholder="请输入备注" />
+          <el-input v-model="form.remark" type="textarea" placeholder="请输入备注（如真实姓名）" />
         </el-form-item>
       </el-form>
       <template #footer>
@@ -281,8 +449,8 @@
               {{ profileData.user.nickname || profileData.user.username }}
               <el-tag v-if="profileData.user.isCertifiedCreator === 1" type="success" size="small">已认证</el-tag>
               <el-tag v-if="isVip(profileData.user.vipExpireAt)" type="warning" size="small">VIP</el-tag>
-              <el-tag :type="profileData.user.status === '0' ? 'success' : 'danger'" size="small">
-                {{ profileData.user.status === '0' ? '正常' : '停用' }}
+              <el-tag :type="profileData.user.delFlag === '2' ? 'danger' : (profileData.user.status === '0' ? 'success' : 'danger')" size="small">
+                {{ profileData.user.delFlag === '2' ? '已注销' : (profileData.user.status === '0' ? '正常' : '停用') }}
               </el-tag>
             </div>
             <div class="profile-sub">@{{ profileData.user.username }} · ID: {{ profileData.user.id }}</div>
@@ -356,12 +524,24 @@
           <div class="section-title">画像资料</div>
           <el-descriptions :column="2" border size="small">
             <el-descriptions-item label="真实姓名">{{ profileData.user.remark || '-' }}</el-descriptions-item>
+            <el-descriptions-item label="身份标签">{{ profileData.user.identityTag || '-' }}</el-descriptions-item>
             <el-descriptions-item label="性别">{{ genderText(profileData.user.gender) }}</el-descriptions-item>
             <el-descriptions-item label="生日">{{ profileData.user.birthday || '-' }}</el-descriptions-item>
             <el-descriptions-item label="所在地">{{ profileData.user.location || '-' }}</el-descriptions-item>
             <el-descriptions-item label="公司">{{ profileData.user.company || '-' }}</el-descriptions-item>
             <el-descriptions-item label="职位">{{ profileData.user.position || '-' }}</el-descriptions-item>
             <el-descriptions-item label="学校">{{ profileData.user.school || '-' }}</el-descriptions-item>
+            <el-descriptions-item label="行业">{{ profileData.user.industry || '-' }}</el-descriptions-item>
+            <el-descriptions-item label="婚姻状况">{{ maritalText(profileData.user.maritalStatus) }}</el-descriptions-item>
+            <el-descriptions-item label="是否有房贷">
+              <el-tag v-if="profileData.user.hasMortgage !== null && profileData.user.hasMortgage !== undefined" :type="profileData.user.hasMortgage === 1 ? 'warning' : 'info'" size="small">{{ profileData.user.hasMortgage === 1 ? '有' : '无' }}</el-tag>
+              <span v-else>-</span>
+            </el-descriptions-item>
+            <el-descriptions-item label="是否有副业">
+              <el-tag v-if="profileData.user.hasSideIncome !== null && profileData.user.hasSideIncome !== undefined" :type="profileData.user.hasSideIncome === 1 ? 'success' : 'info'" size="small">{{ profileData.user.hasSideIncome === 1 ? '有' : '无' }}</el-tag>
+              <span v-else>-</span>
+            </el-descriptions-item>
+            <el-descriptions-item label="收入类型">{{ profileData.user.incomeTypes || '-' }}</el-descriptions-item>
             <el-descriptions-item label="微信号">{{ profileData.user.wechat || '-' }}</el-descriptions-item>
             <el-descriptions-item label="个人网站">
               <el-link v-if="profileData.user.website" :href="profileData.user.website" target="_blank" type="primary">{{ profileData.user.website }}</el-link>
@@ -373,6 +553,8 @@
             </el-descriptions-item>
             <el-descriptions-item label="语言">{{ profileData.user.language || '-' }}</el-descriptions-item>
             <el-descriptions-item label="时区">{{ profileData.user.timezone || '-' }}</el-descriptions-item>
+            <el-descriptions-item label="角色">{{ profileData.user.role === 'admin' ? '管理员' : '普通用户' }}</el-descriptions-item>
+            <el-descriptions-item label="注册来源端">{{ profileData.user.platformCode || '-' }}</el-descriptions-item>
             <el-descriptions-item label="手机验证">
               <el-tag :type="profileData.user.isPhoneVerified ? 'success' : 'info'" size="small">{{ profileData.user.isPhoneVerified ? '已验证' : '未验证' }}</el-tag>
             </el-descriptions-item>
@@ -389,6 +571,40 @@
             <el-descriptions-item label="最后登录IP">{{ profileData.user.loginIp || '-' }}</el-descriptions-item>
             <el-descriptions-item label="最后登录时间">{{ profileData.user.loginDate ? parseTime(profileData.user.loginDate) : '-' }}</el-descriptions-item>
             <el-descriptions-item label="注册时间">{{ profileData.user.createTime ? parseTime(profileData.user.createTime) : '-' }}</el-descriptions-item>
+          </el-descriptions>
+        </div>
+
+        <!-- 通知与隐私 -->
+        <div class="profile-section">
+          <div class="section-title">通知与隐私</div>
+          <el-descriptions :column="2" border size="small">
+            <el-descriptions-item label="点赞通知">
+              <el-tag :type="profileData.user.notifyLike ? 'success' : 'info'" size="small">{{ profileData.user.notifyLike ? '接收' : '关闭' }}</el-tag>
+            </el-descriptions-item>
+            <el-descriptions-item label="评论通知">
+              <el-tag :type="profileData.user.notifyComment ? 'success' : 'info'" size="small">{{ profileData.user.notifyComment ? '接收' : '关闭' }}</el-tag>
+            </el-descriptions-item>
+            <el-descriptions-item label="关注通知">
+              <el-tag :type="profileData.user.notifyFollow ? 'success' : 'info'" size="small">{{ profileData.user.notifyFollow ? '接收' : '关闭' }}</el-tag>
+            </el-descriptions-item>
+            <el-descriptions-item label="系统通知">
+              <el-tag :type="profileData.user.notifySystem ? 'success' : 'info'" size="small">{{ profileData.user.notifySystem ? '接收' : '关闭' }}</el-tag>
+            </el-descriptions-item>
+            <el-descriptions-item label="允许被关注">
+              <el-tag :type="profileData.user.privacyFollow ? 'success' : 'info'" size="small">{{ profileData.user.privacyFollow ? '允许' : '禁止' }}</el-tag>
+            </el-descriptions-item>
+            <el-descriptions-item label="公开收藏夹">
+              <el-tag :type="profileData.user.privacyBookmark ? 'success' : 'info'" size="small">{{ profileData.user.privacyBookmark ? '公开' : '私密' }}</el-tag>
+            </el-descriptions-item>
+            <el-descriptions-item label="公开邮箱">
+              <el-tag :type="profileData.user.privacyEmail ? 'success' : 'info'" size="small">{{ profileData.user.privacyEmail ? '公开' : '保密' }}</el-tag>
+            </el-descriptions-item>
+            <el-descriptions-item label="公开手机号">
+              <el-tag :type="profileData.user.privacyPhone ? 'success' : 'info'" size="small">{{ profileData.user.privacyPhone ? '公开' : '保密' }}</el-tag>
+            </el-descriptions-item>
+            <el-descriptions-item label="公开主页">
+              <el-tag :type="profileData.user.privacyProfile ? 'success' : 'info'" size="small">{{ profileData.user.privacyProfile ? '公开' : '不公开' }}</el-tag>
+            </el-descriptions-item>
           </el-descriptions>
         </div>
       </div>
@@ -442,7 +658,7 @@
 </template>
 
 <script setup name="CmsUser">
-import { listUser, getUser, addUser, updateUser, delUser, changeUserStatus, resetUserPwd, getUserProfile, bindSysUser, unbindSysUser } from "@/api/cms/user";
+import { listUser, getUser, addUser, updateUser, delUser, changeUserStatus, resetUserPwd, getUserProfile, bindSysUser, unbindSysUser, restoreUser } from "@/api/cms/user";
 import { listUser as listSysUser } from "@/api/system/user";
 import ImageUpload from "@/components/ImageUpload/index.vue";
 
@@ -479,14 +695,16 @@ const columns = ref([
   { key: 0, label: `用户编号`, visible: true },
   { key: 1, label: `用户名`, visible: true },
   { key: 2, label: `用户昵称`, visible: true },
-  { key: 3, label: `头像`, visible: true },
-  { key: 4, label: `手机号`, visible: true },
-  { key: 5, label: `邮箱`, visible: true },
-  { key: 6, label: `创作者认证`, visible: true },
-  { key: 7, label: `VIP`, visible: true },
-  { key: 8, label: `关联系统用户`, visible: true },
-  { key: 9, label: `状态`, visible: true },
-  { key: 10, label: `注册时间`, visible: true }
+  { key: 3, label: `身份标签`, visible: true },
+  { key: 4, label: `头像`, visible: true },
+  { key: 5, label: `手机号`, visible: true },
+  { key: 6, label: `邮箱`, visible: true },
+  { key: 7, label: `创作者认证`, visible: true },
+  { key: 8, label: `VIP`, visible: true },
+  { key: 9, label: `关联系统用户`, visible: true },
+  { key: 10, label: `状态`, visible: true },
+  { key: 11, label: `注册时间`, visible: true },
+  { key: 12, label: `最后登录`, visible: true }
 ]);
 
 // 查询参数
@@ -541,14 +759,41 @@ function reset() {
     email: undefined,
     bio: undefined,
     position: undefined,
+    identityTag: undefined,
     gender: undefined,
     birthday: undefined,
     location: undefined,
     company: undefined,
     school: undefined,
+    industry: undefined,
+    maritalStatus: undefined,
+    hasMortgage: 0,
+    hasSideIncome: 0,
+    incomeTypes: undefined,
     wechat: undefined,
     github: undefined,
     website: undefined,
+    language: undefined,
+    timezone: undefined,
+    notifyLike: true,
+    notifyComment: true,
+    notifyFollow: true,
+    notifySystem: true,
+    privacyFollow: true,
+    privacyBookmark: true,
+    privacyEmail: false,
+    privacyPhone: false,
+    privacyProfile: true,
+    role: "user",
+    isCertifiedCreator: 0,
+    vipExpireAt: undefined,
+    isPhoneVerified: false,
+    isWechatVerified: false,
+    twoFactorEnabled: false,
+    platformCode: undefined,
+    loginIp: undefined,
+    loginDate: undefined,
+    createTime: undefined,
     password: undefined,
     status: "0",
     remark: undefined
@@ -635,6 +880,16 @@ function handleStatusChange(row) {
   }).catch(function () {
     row.status = row.status === "0" ? "1" : "0";
   });
+}
+
+// 恢复注销账号（del_flag '2' -> '0'）：编辑表单对 delFlag 是保护字段，注销账号只能走此入口恢复
+function handleRestore(row) {
+  proxy.$modal.confirm('确认恢复已注销账号"' + (row.nickname || row.username) + '"吗？恢复后用户可正常登录，历史数据全部保留。').then(function () {
+    return restoreUser(row.id);
+  }).then(() => {
+    getList();
+    proxy.$modal.msgSuccess("账号恢复成功");
+  }).catch(() => {});
 }
 
 // 重置密码
@@ -760,6 +1015,13 @@ function genderText(gender) {
   if (!gender) return '-';
   const map = { 'male': '男', 'female': '女', 'other': '其他' };
   return map[gender] || gender;
+}
+
+// 婚姻状况文案
+function maritalText(maritalStatus) {
+  if (!maritalStatus) return '-';
+  const map = { 'single': '单身', 'married': '已婚', 'other': '其他' };
+  return map[maritalStatus] || maritalStatus;
 }
 
 // 初始化查询

@@ -23,6 +23,7 @@ import com.moyun.portal.domain.entity.PortalFeedback;
 import com.moyun.portal.domain.entity.PortalReport;
 import com.moyun.portal.domain.entity.PortalTopicPost;
 import com.moyun.portal.domain.entity.PortalUser;
+import com.moyun.portal.domain.query.UserQuery;
 import com.moyun.portal.domain.vo.UserStatsVO;
 import com.moyun.portal.mapper.PortalBookmarkMapper;
 import com.moyun.portal.mapper.PortalBookshelfMapper;
@@ -81,17 +82,28 @@ public class CmsPortalUserServiceImpl implements ICmsPortalUserService
     @Override
     public Page<CmsPortalUserVO> selectUserPage(Page<CmsPortalUserVO> page, CmsPortalUserQuery query)
     {
-        LambdaQueryWrapper<PortalUser> wrapper = buildQueryWrapper(query);
-        long total = portalUserMapper.selectCount(wrapper);
+        // 走自定义 XML 分页（selectPortalUserPage），绕开 @TableLogic 对 del_flag 的自动过滤：
+        // 后台默认展示全部账号（含已注销 del_flag='2'），并顺带修复原先"全量加载后内存分页"的性能问题。
+        UserQuery userQuery = new UserQuery();
+        userQuery.setUsername(query.getUsername());
+        userQuery.setNickname(query.getNickname());
+        userQuery.setEmail(query.getEmail());
+        userQuery.setPhone(query.getPhone());
+        if ("2".equals(query.getStatus())) {
+            // 注销账号：注销时 status 被置为 1、del_flag='2'，按 del_flag 过滤
+            userQuery.setDelFlag("2");
+        } else if (ObjectUtil.isNotEmpty(query.getStatus())) {
+            // 正常(0)/停用(1)：仅从未注销账号中筛选
+            userQuery.setStatus(query.getStatus());
+            userQuery.setDelFlag("0");
+        }
+        // 不传 status 时不加任何过滤，默认显示所有（含注销、停用）
 
-        List<PortalUser> entityList = portalUserMapper.selectList(wrapper);
+        Page<PortalUser> entityPage = portalUserMapper.selectPortalUserPage(
+                new Page<>(page.getCurrent(), page.getSize()), userQuery);
 
-        int start = (int) ((page.getCurrent() - 1) * page.getSize());
-        int end = (int) Math.min(start + page.getSize(), entityList.size());
-        List<PortalUser> pageList = start < entityList.size() ? entityList.subList(start, end) : new java.util.ArrayList<>();
-
-        Page<CmsPortalUserVO> voPage = new Page<>(page.getCurrent(), page.getSize(), total);
-        List<CmsPortalUserVO> voList = BeanUtil.copyToList(pageList, CmsPortalUserVO.class);
+        Page<CmsPortalUserVO> voPage = new Page<>(page.getCurrent(), page.getSize(), entityPage.getTotal());
+        List<CmsPortalUserVO> voList = BeanUtil.copyToList(entityPage.getRecords(), CmsPortalUserVO.class);
         // 批量填充绑定的 sys_user 信息（列表展示"关联系统用户"列）
         fillSysUserInfo(voList);
         voPage.setRecords(voList);
@@ -148,13 +160,15 @@ public class CmsPortalUserServiceImpl implements ICmsPortalUserService
     @Override
     public PortalUser selectUserById(Long id)
     {
-        return portalUserMapper.selectById(id);
+        // 后台可查看已注销（del_flag='2'）账号详情，绕开 @TableLogic
+        return portalUserMapper.selectCmsUserById(id);
     }
 
     @Override
     public CmsPortalUserProfileVO selectUserProfile(Long id)
     {
-        PortalUser user = portalUserMapper.selectById(id);
+        // 后台可查看已注销（del_flag='2'）账号画像，绕开 @TableLogic
+        PortalUser user = portalUserMapper.selectCmsUserById(id);
         if (user == null) {
             return null;
         }
@@ -254,13 +268,37 @@ public class CmsPortalUserServiceImpl implements ICmsPortalUserService
     @Override
     public int insertUser(PortalUser user)
     {
+        // 业务唯一性校验（username/phone/email 含注销账号，与唯一索引同源）：
+        // 拦截在落库前，避免唯一索引冲突触发 DuplicateKey 500
+        String conflict = portalUserService.checkUniqueBusinessKeys(user);
+        if (conflict != null) {
+            throw new ServiceException(conflict);
+        }
         return portalUserMapper.insert(user);
     }
 
     @Override
     public int updateUser(PortalUser user)
     {
-        return portalUserMapper.updateById(user);
+        // 业务唯一性校验（排除自身 id，含注销账号，与唯一索引同源）
+        String conflict = portalUserService.checkUniqueBusinessKeys(user);
+        if (conflict != null) {
+            throw new ServiceException(conflict);
+        }
+        // 保护字段置空，不允许被编辑表单覆写：
+        // 密码走 resetUserPwd 专用入口；注销标志/创建审计/登录信息由系统维护
+        user.setPassword(null);
+        user.setDelFlag(null);
+        user.setCreateBy(null);
+        user.setCreateTime(null);
+        user.setUpdateBy(null);
+        user.setUpdateTime(null);
+        user.setLoginIp(null);
+        user.setLoginDate(null);
+        // updateById 受 @TableLogic 影响会拼 AND del_flag='0'，已注销账号（del_flag='2'）无法命中
+        // （日志表现：UPDATE ... WHERE id=? AND del_flag='0' → Updates: 0）。
+        // 改用自定义 XML updatePortalUser（where id=#{id}），注销账号也可修改。
+        return portalUserMapper.updatePortalUser(user);
     }
 
     @Override
@@ -276,6 +314,36 @@ public class CmsPortalUserServiceImpl implements ICmsPortalUserService
     public int deleteUserByIds(Long[] ids)
     {
         return portalUserMapper.deleteBatchIds(Arrays.asList(ids));
+    }
+
+    @Override
+    public int restoreUser(Long id)
+    {
+        // 绕 @TableLogic 查询（注销账号 del_flag='2' 会被自动过滤，查不到）
+        PortalUser exist = portalUserMapper.selectCmsUserById(id);
+        if (exist == null || !"2".equals(exist.getDelFlag()))
+        {
+            throw new ServiceException("账号不存在或未处于注销状态，无需恢复");
+        }
+        // 恢复前唯一键校验：注销期间其用户名/手机号/邮箱若被其他账号占用（含注销记录），不允许恢复，
+        // 否则 del_flag '2'->'0' 后将直接撞 uk_username/uk_phone/uk_email 唯一索引
+        PortalUser check = new PortalUser();
+        check.setId(id);
+        check.setUsername(exist.getUsername());
+        check.setPhone(exist.getPhone());
+        check.setEmail(exist.getEmail());
+        String conflict = portalUserService.checkUniqueBusinessKeys(check);
+        if (conflict != null)
+        {
+            throw new ServiceException("恢复失败：" + conflict + "，请先处理冲突账号");
+        }
+        // 复活：del_flag '2'->'0'，状态一并恢复正常（updatePortalUser 绕 TableLogic 可命中注销记录）
+        PortalUser restore = new PortalUser();
+        restore.setId(id);
+        restore.setDelFlag("0");
+        restore.setStatus("0");
+        restore.setUpdateTime(java.time.LocalDateTime.now());
+        return portalUserMapper.updatePortalUser(restore);
     }
 
     @Override

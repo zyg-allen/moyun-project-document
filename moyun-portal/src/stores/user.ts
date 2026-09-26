@@ -194,10 +194,15 @@ export const useUserStore = defineStore('user', () => {
   /**
    * 发送邮箱验证码（注册 / 找回密码场景）
    * 返回 success/message，前端根据 message 提示并启动倒计时
+   * @param captcha 图形验证码 { code, uuid }——后端 sys.account.captchaEnabled 开启时强制人机校验（一次性作废）
    */
-  async function sendEmailCodeWithApi(email: string, type: 'register' | 'reset_password'): Promise<{ success: boolean; message?: string }> {
+  async function sendEmailCodeWithApi(
+    email: string,
+    type: 'register' | 'reset_password',
+    captcha?: { code: string; uuid: string }
+  ): Promise<{ success: boolean; message?: string }> {
     try {
-      const response = await userApi.sendEmailCode({ email, type })
+      const response = await userApi.sendEmailCode({ email, type, ...captcha })
       if (response.code === 200) {
         return { success: true, message: response.message }
       }
@@ -222,6 +227,43 @@ export const useUserStore = defineStore('user', () => {
     } catch (error) {
       console.error('重置密码失败:', error)
       // client.ts 在 code !== 200 时会 throw new Error(data.msg)，error.message 即后端 msg
+      return { success: false, message: (error as Error)?.message || '重置失败，请重试' }
+    }
+  }
+
+  /**
+   * 发送短信验证码（注册 / 找回密码场景）
+   * @param captcha 图形验证码 { code, uuid }——开关开启时强制人机校验（一次性作废）
+   */
+  async function sendSmsCodeWithApi(
+    phone: string,
+    scene: 'register' | 'reset_password',
+    captcha?: { code: string; uuid: string }
+  ): Promise<{ success: boolean; message?: string }> {
+    try {
+      const response = await userApi.sendSmsCode({ phone, scene, ...captcha })
+      if (response.code === 200) {
+        return { success: true, message: response.message }
+      }
+      return { success: false, message: response.message }
+    } catch (error) {
+      console.error('发送短信验证码失败:', error)
+      return { success: false, message: (error as Error)?.message || '发送失败，请稍后重试' }
+    }
+  }
+
+  /**
+   * 找回密码（短信验证码重置，手机号注册用户专用）
+   */
+  async function resetPasswordBySmsWithApi(phone: string, code: string, newPassword: string, confirmPassword: string): Promise<{ success: boolean; message?: string }> {
+    try {
+      const response = await userApi.resetPasswordBySms({ phone, code, newPassword, confirmPassword })
+      if (response.code === 200) {
+        return { success: true, message: response.message }
+      }
+      return { success: false, message: response.message }
+    } catch (error) {
+      console.error('重置密码失败:', error)
       return { success: false, message: (error as Error)?.message || '重置失败，请重试' }
     }
   }
@@ -270,6 +312,8 @@ export const useUserStore = defineStore('user', () => {
     logoutWithApi,
     updateUserWithApi,
     sendEmailCodeWithApi,
-    resetPasswordWithApi
+    resetPasswordWithApi,
+    sendSmsCodeWithApi,
+    resetPasswordBySmsWithApi
   }
 })

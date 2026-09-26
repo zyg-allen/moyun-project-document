@@ -54,6 +54,9 @@ public class PortalLoginServiceImpl {
     @Autowired
     private ISysConfigService configService;
 
+    @Autowired
+    private com.moyun.portal.mapper.PortalUserMapper portalUserMapper;
+
     /**
      * 登录验证
      *
@@ -88,6 +91,17 @@ public class PortalLoginServiceImpl {
             } else {
                 log.info("门户登录用户：{} 验证失败: {}", username, e.getMessage());
                 errMsg = e.getMessage();
+            }
+            // 注销账号识别：@TableLogic 使注销账号在认证时查不到，被误报为"用户名或密码错误"；
+            // 用 Any 查询（含注销）识别后给出正确引导——找回密码即可自助恢复
+            try {
+                com.moyun.portal.domain.entity.PortalUser cancelledUser =
+                        portalUserMapper.selectPortalUserByUsernameAny(username);
+                if (cancelledUser != null && "2".equals(cancelledUser.getDelFlag())) {
+                    errMsg = "该账号已注销，可通过找回密码恢复";
+                }
+            } catch (Exception ignore) {
+                // 识别失败不影响原始登录错误返回
             }
             // 记录门户登录失败日志（user_type=portal，供后台首页登录趋势/今日登录统计使用）
             AsyncManager.me().execute(AsyncFactory.recordLogininfor(username, Constants.LOGIN_FAIL, errMsg, "portal"));

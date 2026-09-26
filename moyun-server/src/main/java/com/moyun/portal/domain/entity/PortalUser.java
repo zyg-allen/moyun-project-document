@@ -103,6 +103,24 @@ public class PortalUser extends BaseEntity {
     @Size(min = 0, max = 200, message = "学校长度不能超过200个字符")
     private String school;
 
+    /** 行业（AI 财务分析画像：行业分析） */
+    @Size(min = 0, max = 100, message = "行业长度不能超过100个字符")
+    private String industry;
+
+    /** 婚姻状况（AI 财务分析画像：家庭负担；single/maried/other） */
+    @Size(min = 0, max = 20, message = "婚姻状况长度不能超过20个字符")
+    private String maritalStatus;
+
+    /** 是否有房贷（AI 财务分析画像：负债分析；1=是 0=否） */
+    private Integer hasMortgage;
+
+    /** 是否有副业收入（AI 财务分析画像：收入结构；1=是 0=否） */
+    private Integer hasSideIncome;
+
+    /** 收入类型（AI 财务分析画像：逗号分隔，如 salary,investment,rent） */
+    @Size(min = 0, max = 200, message = "收入类型长度不能超过200个字符")
+    private String incomeTypes;
+
     /** 语言偏好 */
     @Size(min = 0, max = 20, message = "语言长度不能超过20个字符")
     private String language;

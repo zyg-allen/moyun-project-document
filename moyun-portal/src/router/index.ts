@@ -671,12 +671,21 @@ const routes: RouteRecordRaw[] = [
 const router = createRouter({
   history: createWebHistory(),
   routes,
-  scrollBehavior(_to, _from, savedPosition) {
+  scrollBehavior(to, from, savedPosition) {
+    // 1. 锚点优先（如无障碍跳转链接 #main-content）
+    if (to.hash) {
+      return { el: to.hash }
+    }
+    // 2. 浏览器前进/后退：恢复上次滚动位置
     if (savedPosition) {
       return savedPosition
-    } else {
-      return { top: 0 }
     }
+    // 3. 同路径仅 query 变化（列表筛选/翻页 replace）：保持当前滚动位置
+    if (to.path === from.path) {
+      return false
+    }
+    // 4. 新页面回到顶部
+    return { top: 0 }
   }
 })
 

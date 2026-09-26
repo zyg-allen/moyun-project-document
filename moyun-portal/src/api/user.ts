@@ -34,6 +34,16 @@ export const resetPassword = (params: ResetPasswordParams) => {
   return httpPost('/portal/email/reset-password', params);
 };
 
+// 发送短信验证码（注册 / 找回密码场景；scene=register|reset_password|bankcard|member）
+export const sendSmsCode = (params: { phone: string; scene: string; code?: string; uuid?: string }) => {
+  return httpPost('/portal/sms/code/send', params);
+};
+
+// 找回密码（短信验证码重置密码，手机号注册用户专用）
+export const resetPasswordBySms = (params: { phone: string; code: string; newPassword: string; confirmPassword?: string }) => {
+  return httpPost('/portal/sms/reset-password', params);
+};
+
 // 获取图形验证码
 // 注意：/captchaImage 返回的 captchaEnabled/uuid/img 位于响应顶层（非 data 内），
 // 不能复用 httpGet（其仅取 data 字段），故直接用 fetch 解析顶层字段。

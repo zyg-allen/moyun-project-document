@@ -17,6 +17,7 @@ import { getHotTags } from '@/api/tag';
 import { generateSeo, fromSlug } from '@/utils/seo';
 import { transformArticle } from '@/utils/articleTransform';
 import { useAuth } from '@/composables/useAuth';
+import { useUrlState } from '@/composables/useUrlState';
 import type { Article as ApiArticle } from '@/types/api';
 
 const isSpecialPageName = (name: string) => ['读书空间', '面试指南'].includes(name);
@@ -55,6 +56,11 @@ const itemsPerPage = ref(10);
 const loading = ref(false);
 const totalItems = ref(0);
 const error = ref<string | null>(null);
+
+// URL 状态双向绑定：页码进 URL，刷新、分享链接、浏览器回退不丢失页码
+useUrlState([
+  { key: 'page', state: currentPage, number: true, omitValues: [1] },
+]);
 
 // 侧栏：热门标签
 const hotTags = ref<any[]>([]);
@@ -98,7 +104,7 @@ function parseRouteParams(): boolean {
 onMounted(async () => {
   const shouldLoad = parseRouteParams();
   if (!shouldLoad) return;  // 已重定向，跳过加载
-  currentPage.value = 1;
+  // 页码已由 useUrlState 从 URL query 恢复，此处不再重置
   await Promise.all([loadArticles(), loadHotTags(), loadHotArticles()]);
 });
 
@@ -140,12 +146,25 @@ function goToPublish() {
   router.push('/publish');
 }
 
-watch(() => route.fullPath, async () => {
-  const shouldLoad = parseRouteParams();
-  if (!shouldLoad) return;  // 已重定向，跳过加载
-  currentPage.value = 1;
-  await loadArticles();
-}, { deep: true });
+// 维度变化（分类/标签/推荐切换等路由导航）→ 重新解析并回到第 1 页。
+// 仅监听维度而非 fullPath：page query 变化不触发本 watch，避免与页码 URL 同步形成回环。
+watch(
+  () => [route.name, route.params.name, route.query.category, route.query.categoryRecommended],
+  async () => {
+    const shouldLoad = parseRouteParams();
+    if (!shouldLoad) return;  // 已重定向，跳过加载
+    if (currentPage.value !== 1) {
+      currentPage.value = 1;  // 触发下方页码 watch 完成加载
+    } else {
+      await loadArticles();
+    }
+  }
+);
+
+// 页码变化 → 加载列表（URL 同步由 useUrlState 完成）
+watch(currentPage, () => {
+  loadArticles();
+});
 
 const breadcrumbs = computed(() => {
   const items = [];
@@ -247,8 +266,7 @@ const paginatedArticles = computed(() => {
 });
 
 function handlePageChange(page: number) {
-  currentPage.value = page;
-  loadArticles();
+  currentPage.value = page;  // 页码 watch → 加载；URL 同步由 useUrlState 完成
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 

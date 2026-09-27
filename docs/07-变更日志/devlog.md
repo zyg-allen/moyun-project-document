@@ -2,6 +2,263 @@
 
 > 2026-09-17 v11.98 后瘦身：历史条目仅保留「版本 + 修改类目 + 简介」，实施细节沉淀于方案文档与《00-项目现状总结》。v12 起新条目同样只记类目+简介。
 
+## v13.16 (2026-09-27) 第二批⑤：写路径"静默 0 行"收口 + 精选笔记数三处写入冲突（含报告计数订正）
+
+> §6.2 原文"`insertIfNotExists` 返回值 10 个调用点无一检查"。取证后分两层：**返回值不检查本身不丢数据**
+> （`INSERT IGNORE` 幂等），真风险在**紧随其后的增量写命中 0 行**；另外报告漏了一类更硬的缺陷——
+> 同一个统计列被**三处写入**、且拿成长值增量当"篇数"。
+
+**取证（19 个调用点 / 6 文件，逐点判定；报告记 10 处）**
+
+| 判定 | 位置 |
+|---|---|
+| 🔴 增量写裸调用 → 修（7 处关键路径） | `PortalGrowthServiceImpl`（`recordEventWithTarget` 的 `addGrowth`+`updateStats` 13 分支、成就奖励 `addGrowth`、`checkin` 的 `updateById`）、`PortalTipServiceImpl`（作者 `addPoints`）、`PortalFollowServiceImpl`（8 处关注/粉丝增减）、`PortalArticleServiceImpl`（`addArticleWordSum`） |
+| 🔴 行缺失即 NPE → 修 | `PortalGrowthServiceImpl.checkin`：`insertIfNotExists` 后直接 `stats.getLastCheckinDate()` |
+| ✅ 已检查（同文件先例） | `deductGrowth`、`deductPoints`、`CmsGrowthUserController`（`toAjax(返回值)`） |
+| ✅ 读路径兜底，不改 | `getUserGrowth` / `getUserStats`（select 后 null 兜底） |
+| 🟡 显式最佳努力 → 0 行记 `log.error`（可见、不回滚） | `UserProfileSnapshotServiceImpl.refreshWeakTags` |
+
+**顺带发现并修掉：`note_adopted`（精选笔记数）三处写入冲突**
+
+- `updateStats` 的 `case "note_adopted"` 用 **`delta`（成长规则 growthDelta）当"篇数"**写；
+- 控制器 `featureSubmission` 再显式 `+1`（**双重计数**），且 `updateFeatured(true)` 无条件返回 >0 → **重复采纳持续累加**；
+- `unfeatureSubmission` 只 `-1`（与采纳侧不对称）→ 计数单调虚高。
+
+**修法**：`updateStats` 删除该分支；新增 `IPortalGrowthService#updateNoteAdoptedCount(userId, ±1)`
+（`@Transactional(rollbackFor=Exception.class)` + `insertIfNotExists` + 影响行数校验）作为**唯一写入源**；
+`PortalInterviewServiceImpl.adoptSubmission` 补事务并只在**状态真正翻转**时写计数；
+两个控制器端点收敛为调用 `adoptSubmission`（消除与 Service 重复的实现），删除因此失效的两个注入
+→ 模块边 `ext.cms→portal` **280 → 278**（冻结清单同步）。
+
+**口径（写入规范）**：① 增量写必须校验影响行数，0 行即 fail-closed 回滚；② 只对**懒创建的聚合行**
+（stats/growth/badge）强制，内容行计数不扩张；③ 最佳努力路径必须 `log.error` 让 0 行可见；
+④ "篇数/次数"类列固定 ±1，不得复用 `growthDelta`。
+
+**验证**
+
+- 新增 `AggregateIncrementGuardTest`（2 例）：全量 **29 个聚合表增量写调用点 / 违规 0**（正向控制 ≥ 8）+
+  7 组 fixture（裸调用、赋值不校验、`require*` 包裹、内容计数不报、集合 `addAll` 不报、`baseMapper` 泛型解析）；
+- **红证**：把 `PortalGrowthServiceImpl:551` 还原成裸调用 → 守卫精确报该行，还原后绿；
+- 回归：`PortalTipServiceTest` 新增"作者积分入账 0 行 → `POINTS_CREDIT_FAILED`、不落订单"（原有 3 例补 `addPoints` 桩）；
+- 后端 `mvn -o test`：**376 例全绿**（373 → 376）。
+
+**同步**：报告 §6.2 行改判 ✅（附录 Z）+ 总览第 34 项 + §6.3/附录 U 模块边计数 280→278；
+`项目开发规范` §2.7 增"增量写口径"；`00-项目现状总结` 铁律 14；README 版本历史；本条目。
+
+## v13.15 (2026-09-27) 第二批④：事务回滚口径统一（10 处 rollbackFor + 结构守卫 + 两处报告计数订正）
+
+> §6.2 有两行"老账"：`Redis 锁无 owner 校验即 DELETE` 与 `221 个 @Transactional 中 readOnly=0、约 205 处缺 rollbackFor`。
+> 照例先回源码取证——**一行早已修完（报告未回写），一行的计数错了 20 倍**。
+
+**取证（先量后改）**
+
+| 报告原文 | 实测 |
+|---|---|
+| `Redis 锁无 owner 校验即 DELETE`（`KnowledgeProcessProgressServiceImpl.java:55-80`，"全仓仅此 1 处 `setIfAbsent`"） | ❌ **已过期**：该实现现已走统一 `DistributedLockUtil.tryLockWithWatchdog`（token 归属唯一 + Lua 比较-删除），并用 `ThreadLocal<Map<Long, Lock>>` 持有句柄，`releaseLock` 在"非本线程持有"时**拒绝删除**（注释明确写了历史实现会误删他人锁）。全仓已无裸 `setIfAbsent` 锁模式 → 本批不写代码，只在报告改判 ✅ 并加防回归说明 |
+| `约 205 处缺 rollbackFor` | ⚠️ **计数订正**：实测方法级 `@Transactional` **211 个，其中 201 已带 `rollbackFor`，仅 10 处缺**（"205"与实际差 20 倍）。同族订正见附录 O-1 / W-1 |
+
+**改动（10 处补齐，全部是多步写方法）**
+
+| 文件 | 方法 | 为何必须回滚 |
+|---|---|---|
+| `AiSceneConfigVersionService` | `createWithSnapshot` / `updateWithSnapshot` / `rollback` | 配置行 + 版本快照两步写，半截即"配置生效但无快照/版本号错位" |
+| `KnowledgeConfigServiceImpl` | `applyConfiguration` / `createDefaultConfig` / `updateConfig` | 知识库配置多表写（含分段/检索参数） |
+| `ConversationServiceImpl` | `addMessage` / `deleteConversation` | 消息写入 + 会话统计更新 / 会话级联删除 |
+| `ToolServiceImpl` | `bindToolsToAgent` | 先删后插的关联关系，半截即"工具全解绑" |
+| `ModelConfigServiceImpl` | `setDefault` | 先清旧默认再置新默认，半截即"没有默认模型" |
+
+**新增结构守卫 `TransactionRollbackRuleGuardTest`（3 例，四条规则）**
+
+1. 方法级 `@Transactional` **必须显式声明回滚口径**（`rollbackFor`/`rollbackForClassName`，或 `readOnly = true`）；
+2. **禁止 `noRollbackFor`**（等于主动放弃回滚，需白名单说明理由）；
+3. **注解不得标在代理看不见的方法上**：`private`/`protected`/`static`/方法级 `final`（CGLIB/JDK 代理都拦不到 → 静默无事务），
+   与 `AsyncSelfInvocationGuardTest` 属同一"静默失效"家族；
+4. **禁止类级 `@Transactional`**（会把只读方法拖进写事务，与"事务边界只包 DB 写"的收窄口径冲突）。
+
+> 第 3 条踩过一个自己写的坑：判定修饰符时必须**先剥掉注解再找方法自己的 `(`**——
+> 否则 `decl.indexOf('(')` 会命中 `@Transactional(...)` 的括号，把注解**之后**的
+> `private`/`static`/`final` 全部漏掉（fixture 6/6b 就是为这条坑写的回归）。
+
+**验证**
+
+- 守卫全量：**1437 文件 / 211 个方法级 `@Transactional` / 违规 0**（含正向控制"识别数 ≥ 150"，防解析器失效假绿）；
+- **红证**：临时回退 `ToolServiceImpl.bindToolsToAgent` 的 `rollbackFor` → 守卫报
+  `ToolServiceImpl.java:76 bindToolsToAgent() @Transactional 未声明回滚口径 … expected: <true> but was: <false>`，还原后绿；
+- 后端 `mvn -o test`：**373 例全绿**（370 → 373，本批新增 3 例）。
+
+**同步**：报告 §6.2 两行改判/订正（附录 Y）+ 新增附录 Y；`项目开发规范` §2.7 增"回滚口径硬约束"（含
+`TransactionTemplate` 默认只回滚 `RuntimeException`/`Error` 的口径）；`00-项目现状总结` 铁律 12 扩展；README 版本历史；本条目。
+
+## v13.14 (2026-09-27) 第二批③：事务内远程 IO 收口（事务只包 DB 写 + 双层守卫）
+
+> 报告 §6.2 那条"事务内做远程 IO（MinIO / LLM）"只点了两个文件两处行号。
+> 本批先做**全项目取证**（剥离注释 + 同文件调用图二阶扫描），实测出**4 处真实命中 / 9 个方法**，
+> 报告行号已是旧版（代码漂移）——**只有 2 处能对上，另外 7 个方法报告没提**。
+
+**取证（先量化再动手）**
+
+| 手段 | 结果 |
+|---|---|
+| 一阶：`@Transactional` 方法体内直接出现远程/磁盘 IO 标记 | `SysFileServiceImpl.uploadBytes/deleteFileById/deleteFileByUrl`（MinIO 上传/删除、本地磁盘写删） |
+| 二阶：`@Transactional` 方法调用**同文件内含 IO 的方法**（私有 helper / 自调用） | `SysFileServiceImpl.uploadFile/uploadFileForPortal`（IO 在私有重载里）、`deleteFileByIds`（自调用 `deleteFileById`） |
+| 已在前序批次修掉 | `KnowledgeBaseServiceImpl.uploadFileOnly`（MinIO）、`VoiceInterviewServiceImpl.start`（RAG+warmup LLM+开场白 LLM）、`VoiceInterviewServiceImpl.requestHint`（LLM） |
+| 复核后**判定不修** | `PortalJobTemplateServiceImpl`（LLM 在**非事务**私有方法 `extractByLlm` 内）、`PortalTopicServiceImpl:542`（所在方法无 `@Transactional`）、`GenTableServiceImpl`（`FileUtils` 在**无事务**的 `generatorCode`，且只写文件不改库）、`VoiceInterviewServiceImpl.finish/regenerateReport`（事务内只有 DB 写 + `afterCommit` 触发异步分析） |
+
+**改动（3 个 impl / 9 个方法，一律"远程 IO 出事务、DB 写进事务"）**
+
+| 文件 | 改动 |
+|---|---|
+| `KnowledgeBaseServiceImpl#uploadFileOnly` | 去掉方法级 `@Transactional`；MinIO 上传 + 内容哈希前置到事务外，末尾 `save()` + `createDefaultConfig()` 用 `transactionTemplate.executeWithoutResult` 框住（两步仍同一事务） |
+| `VoiceInterviewServiceImpl#start` | 去掉方法级 `@Transactional`；RAG 检索 / warmup LLM / 开场白 LLM 全部前置，事务块内只剩 `closeStaleInterviews` + `interviewMapper.insert` + `memoryService.initFirstTurn` + `qaMapper.insert` + `recordEvent`；`final String openingText` 供 lambda 捕获 |
+| `VoiceInterviewServiceImpl#requestHint` | 去掉方法级 `@Transactional`；额度占用改**单条原子 SQL**（`COALESCE(hint_used,0) < 3` + `setSql("hint_used = ... + 1")`，0 行即"已用完"）替代"读→判→写"，LLM 调用在事务外，删掉 `updateById` 整行写回 |
+| `SysFileServiceImpl`（6 个入口） | 上传：`uploadFile`/`uploadFileForPortal`/`uploadBytes` 去掉 `@Transactional`，MinIO/本地磁盘写前置，仅 `insert` 在事务内；删除：`deleteFileById`/`deleteFileByIds`/`deleteFileByUrl` 去掉 `@Transactional`，存储删除在事务外、仅 `deleteById` 在事务内。**异常语义与旧实现逐条对齐**（存储抛错 → DB 不变；存储成功 + DB 失败 → 与旧回滚后状态一致），`deleteFileByUrl` 用 `final Long fileId` 供 lambda 捕获 |
+
+**口径（写进守卫类注释，避免以后当成遗漏）**
+
+- 纳入：对象存储（MinIO/OSS）、HTTP 客户端、LLM/RAG/向量、邮件短信、**本地磁盘写删**；
+- 排除：DB 自身（那正是事务要保护的）、**Redis/缓存**（毫秒级；且 `start()` 里的滑窗初始化**有意保留在事务内**——Redis 失败就该回滚"建会话"，否则会留下"有会话无记忆"的降级态）、纯 CPU；
+- 已知边界：**跨类调用链**静态守卫不解析（需跨文件符号解析），由运行时探针兜底。
+
+**验证（红→绿 + 双向 + 灵敏度自检，不是"跑通就算"）**
+
+- 新增 **`TransactionRemoteIoGuardTest`**（静态结构守卫，3 例）：扫描 `src/main/java` **1437 文件 / 5823 方法 / 211 个 `@Transactional` / 违规 0**，含**正向控制**断言（防"解析器失效 → 零违规假绿"）、11 个扫描器 fixture（注释内注解名、字符串字面量、控制流块、多行签名+`throws`、类级注解、Redis 排除、直接/间接命中、白名单分区）；
+- **红证**：向 `src/main/java` 投放临时探针类（`@Transactional` + MinIO 直连 + 私有 helper 间接）→ 守卫报 **2 处违规**（`TxRedProofProbe.java:19` 直接、`:25` 间接），删除后恢复绿；
+- 新增 **`TransactionRemoteIoRuntimeProbeTest`**（运行时探针，6 例）：用**真实** `DataSourceTransactionManager`（假 DataSource，不连库）构造真实 `TransactionTemplate`，在打桩点观测 `TransactionSynchronizationManager.isActualTransactionActive()`——三处修复各断言两次（远程 IO 处 = `false`、DB 写处 = `true`）；另**为报告点名但复核为非缺陷的两处补运行态结论**（见下）；并含**灵敏度自检**（事务块内必须观测到 `true`，否则探针等于空转）与**证伪实验**（同一段代码包进真实事务后探针必须翻转，否则断言没有鉴别力）；
+- **运行时红证（生产代码级）**：把 `SysFileServiceImpl.uploadFile` 的 MinIO 调用临时改回事务内（`transactionTemplate.execute(status -> minioUtils.uploadFile(file))`，等价于修复前形态）→ 探针失败 `MinIO 上传必须发生在事务外 ==> expected: <false> but was: <true>`（`TransactionRemoteIoRuntimeProbeTest.java:173`），还原后绿。这条证明探针不是"永远 false"的摆设；
+- **报告 §6.2 原表点名之外的 2 处（`PortalJobTemplateServiceImpl`、`PortalTopicServiceImpl`）判定为"非缺陷"并给出可证伪证据**：两处 LLM 调用本来就在**无 `@Transactional`** 的方法里，且全仓唯一调用方分别是 `CmsJobTemplateController#extractKeywords`、`CmsTopicController#aiGenerateTopicDraft`（均无事务），同类 `@Transactional` 方法（`bindQuestions`/`auditTopic` 等）不调用它们；新增 2 条探针断言"LLM 调用时刻无活跃事务"并各带证伪实验。**故本批真实命中是 4 处 / 9 个方法，不是 5 处**；
+- 后端 `mvn -o test`：**370 例全绿**（361 → 370，本批新增 9 例：静态守卫 3 + 运行时探针 6）。
+
+**同步**：报告 §6.2"事务内做远程 IO"行改 ✅（附录 X）+ 总览新增第 32 项；`项目开发规范` §2.7 增"事务边界硬约束"（含 Redis 口径、检测方式与探针须带灵敏度/证伪自检）；`00-项目现状总结` 开发铁律新增第 12 条；本条目。
+
+## v13.13 (2026-09-27) 第二批②（收尾）：话题模块软删列统一 is_deleted → del_flag
+
+> 第二批第二项的**最后一块**：v13.12 判定出的唯一真实偏差（话题 2 表），本批全链路迁移完毕，
+> 并从守卫的"债务白名单"里**删掉登记**——债务清单闭环。
+
+**改动（SQL + 实体 + Mapper + 服务 + VO + 前端，一处不留）**
+
+| 层 | 改动 |
+|---|---|
+| DDL | `portal_topic_post` / `portal_topic_comment`：`is_deleted tinyint NOT NULL DEFAULT '0'` → `del_flag char(1) … DEFAULT '0'`（与全库标准写法一致：显式 collation + 同注释），列位置沿用原序 |
+| 增量脚本 | 新增 `increment-sql/20260927-04-话题模块软删列统一.sql`：**幂等**（`information_schema` 前置判断 + 预处理语句，重复执行自动跳过）ADD → 数据映射（`is_deleted=1 → '2'`，否则 `'0'`）→ DROP；含复核 SQL |
+| 实体 | `PortalTopicPost` / `PortalTopicComment`：删除 `isDeleted` 字段 + 实体级 `@TableLogic` 覆盖 + `delFlag` 的 `@TableField(exist=false)` 覆盖 → **回归 `BaseEntity.delFlag`**（全局 `logic-delete-field=delFlag` 负责过滤/置删），两个实体各净减 ~10 行 workaround |
+| Mapper XML | 10 条手写语句：`is_deleted = 0/1` → `del_flag = '0'/'2'`（`PortalTopicCommentMapper` 8 条 + `PortalTopicPostMapper` 2 条） |
+| 服务/任务 | 6 个文件 21 处：`PortalTopicPost/CommentServiceImpl`（wrapper `eq`/`set`、`getIsDeleted()==1` 判定 → `"2".equals(getDelFlag())`）、`CmsPortalUserServiceImpl`、`ReportTakedownServiceImpl`、`SensitiveScanTask` |
+| VO | `TopicPostVO.isDeleted(Integer)` → **`delFlag(String)`**（API 字段随语义改名） |
+| 前端 | 管理端 `cms/topic/post.vue`、`comment.vue`：`row.isDeleted` → `row.delFlag === '2'`；门户 `types/api.ts` 两处类型同步 |
+| 注释 | `AiBaseEntity` 的"Phase 3 待后续窗口"改为**已完成**并说明 AI 自身仍沿用 `deleted`（有意保留）；`IReportTakedownService` / `ReportTakedownServiceImpl` / `SensitiveScanTask` 的 `is_deleted=1` 表述改为 `del_flag='2'` |
+
+**验证**
+
+- **dev 库执行复核**：两表 `del_flag char(1)` 默认 `'0'`、collation `utf8mb4_0900_ai_ci`、列位置不变；
+  全库 `is_deleted` 列计数 **0**；**幂等复核**：脚本连跑两次均 exit 0（无报错、无副作用）
+- **结构守卫**：从 `DdlConventionGuardTest` 白名单**移除话题 2 表登记**后守卫仍全绿 ——
+  证明 DDL 已真正合规（不是"登记了就放过"）
+- **后端**：`mvn -o test` **361** 例全绿（无新增用例，属既有回归）
+- **前端**：管理端 `build:prod`、门户 `build`（含 `vue-tsc`）均通过，产物中已无 `isDeleted`
+
+**同步**：报告 §6.5 逻辑删除行改判为 ✅、总览第 31 项更新、新增**附录 W**；`项目开发规范` §2.4 例外仅剩 AI 模块；
+`00-项目现状总结` 开发铁律第 11 条同步；README 增量脚本清单补 `20260927-04`。
+
+## v13.12 (2026-09-27) 第二批②：数据库规范统一（金额精度 + collation 归一 + DDL 约定守卫）
+
+> 第二批（报告 §六中危组）第二项。照例先量后改：把"三套逻辑删除 / 四套 collation / 金额 precision 混用"
+> 逐项量化，结论是**只有一项是真缺陷**、一项是**有意设计**、一项是**已登记债务**。
+
+**取证与判定订正（先量化，再决定动不动）**
+
+| §6.5 原文口径 | 实测 | 判定 |
+|---|---|---|
+| 金额 precision 混用（`DECIMAL(10,2)`/`(18,2)`/`(12,6)`） | 名字像金额的 decimal 列共 44 个：**12 个仍是 (10,2)**；其余 (18,2)；**5 个 AI 计费列是 6 位小数** | ✅ 12 列**宽化**；(12,6)/(10,6) 5 列**有意保留**（按 token 单价计价） |
+| 逻辑删除三套（`del_flag`/`deleted`/`is_deleted`） | `del_flag` 159 表；`deleted` **11 张 AI 表**；`is_deleted` **2 张话题表**（原文的"20/2 处"是裸出现次数，非表数） | AI 的 `deleted` 是 **`AiBaseEntity` 写明的有意设计**（AI 表无 `create_by/remark/del_flag` 列 + `@TableLogic` 显式声明）→ **冻结**；话题 2 表是**自己标注的 Phase 3 债务** → 下一批迁移 |
+| collation 四种并存 | 表级：0900_ai_ci 152 / general_ci 29 / unicode_ci **5** / bin 1；列级 general_ci 124 + unicode_ci 17 | ✅ 把 general_ci/unicode_ci（34 表）统一到 0900_ai_ci；`ledger_ai_analysis_report` 的 **bin 是有意设计**（`data_fingerprint`/JSON 需精确匹配，建表语句即写明）→ 保留 |
+
+**修复（DDL + 增量脚本，不改业务代码）**
+
+1. `init-sql/moyun-db-ddl.sql`：12 个金额列 `decimal(10,2)` → `decimal(18,2)`；34 张表的表级/列级
+   `general_ci`/`unicode_ci` → `utf8mb4_0900_ai_ci`。
+   **改动面已证明唯一**：把 diff 两侧把 5 个 token 归一后比对，**剩余差异为 0 行**。
+2. 新增 `increment-sql/20260927-03-数据库规范统一（金额精度+collation）.sql`（12 × MODIFY + 34 × CONVERT
+   + 复核 SQL），**已在 dev 库执行并复核**：
+   - 表 collation：`0900_ai_ci 187 / bin 1`（原 152/29/5/1）
+   - 列 collation：`0900_ai_ci 1193 / bin 9`（无 general_ci/unicode_ci 残留）
+   - 金额列：12 列全部 `decimal(18,2)`；全库 `decimal(10,2)` 计数 **0**
+3. `README` 增量脚本清单补该脚本。
+
+**新增结构守卫 `DdlConventionGuardTest`（5 例）**
+
+- **金额列**：名字像金额的 decimal 列必须 (18,2)，白名单 = 5 个 AI 计费列（含理由）；
+- **软删列**：每表最多一个且必须 `del_flag`，白名单 = 11 张 AI 表（理由）+ 2 张话题表（债务理由）；
+- **collation**：只允许 `utf8mb4_0900_ai_ci`，白名单 = `ledger_ai_analysis_report`（bin，理由）；
+- **清单卫生**：三个白名单每条必须有理由、且**不得过期**（登记对象必须仍存在且仍处于该偏差）；
+- **解析器自检**：列类型/精度解析、软删列识别、列级 collation 采集。
+
+**红→绿验证**：注入三处扰动（`price` 退回 (10,2)、`sys_dept.del_flag` 改名 `is_deleted`、
+该表 collation 换 `general_ci`）→ 守卫**三条规则同时失败**并精确点名；还原后 5/5 通过（文件已按备份恢复并复核）。
+
+**测试**：新增 5 例，全量 **356 → 361** 例全绿（DDL/DB 变更后回归无破坏）。
+
+**同步**：报告 §6.5 相关行改判 + 总览第 31 项 + 新增**附录 V**；`项目开发规范` §2.3.1 补"金额列精度硬约束"
+（含 AI 计费例外）、§2.4 补"软删列与 collation 硬约束"；`00-项目现状总结` 开发铁律第 11 条；README 脚本清单。
+
+## v13.11 (2026-09-27) 第二批①：模块边界/循环依赖（core 反向依赖归零 + 依赖方向守卫）
+
+> P1 队列收口后的**第二批**（报告 §六中危组）。本批先量后改：用脚本统计全仓**跨模块 import 边**，
+> 得到可执行的事实清单，再挑"方向明确错误"的边清掉，其余登记为**冻结债务**并由守卫看住。
+
+**取证：全仓跨模块依赖边（v13.11 实测，节选）**
+
+| 边 | 计数 | 判定 |
+|---|---|---|
+| `ext.cms -> portal` / `portal -> ext.cms` | 278 / 78 | ⚠️ 双向咬合（架构级改造，冻结） |
+| `portal -> core` / `system -> core` | 238 / 126 | ✅ 正常方向（上层依赖基础设施） |
+| `core -> system` | 13 | ⚠️ RuoYi 认证/审计层遗留（冻结 + 理由） |
+| **`core -> portal`** | **3** | ❌ **反向依赖**（本批清零） |
+| **`core -> ext.file`** | **2** | ❌ **反向依赖**（本批清零） |
+| **`util -> portal`** | **1** | ❌ **反向依赖**（本批清零） |
+| `system -> portal` | 24 | ⚠️ 管理端直连门户数据层（防腐层待建，冻结） |
+| `ledger -> pay` / `vip -> pay` / `ledger -> vip` | 12 / 4 / 4 | ⚠️ 业务域咬合（冻结） |
+| `common -> core` | 2 → **1** | 清掉重复类后仅剩「注解→序列化器」1 处（结构上不可消除） |
+
+**修复（4 处，全部为"方向明确错误"）**
+
+1. **`core → portal` 归零**：新增 `core.security.principal` 依赖倒置三件套
+   （`PrincipalInfo` / `PrincipalProvider` / `PrincipalResolver`），后台 `LoginUser` 与门户
+   `PortalLoginUser` 各自实现 `PrincipalProvider`；`LogAspect`、`RateLimiterAspect`
+   改用 `PrincipalResolver`（不再 import 门户主体类与 `PortalSecurityUtils`）。
+   —— 语义保持：门户请求的操作日志仍写 `oper_name=账号名`、`dept_name=门户用户:昵称`
+   （昵称为空时不再写 "门户用户:null"）。
+2. **`core → ext.file` 归零**：`core/web/common/CommonController`（映射 `/common`）移到
+   `ext/file/controller/CommonController`（URL 不变）。
+3. **控制器归位**：`core/sms/PortalSmsController`（映射 `/portal/sms`）移到 `portal/controller/`。
+4. **`util → portal` 归零 + 死代码清理**：`util/file/ImportExportHelper` 依赖门户实体且仅 CMS 使用
+   → 迁到 `ext/cms/util/`（3 处调用点 FQN 同步）；删除 `common/config/SensitiveJsonSerializer`
+   （与 `core` 版逐字节重复且**零引用**的副本，注解指向 core 版）。
+
+**新增结构守卫 `ModuleDependencyGuardTest`（5 例）**
+
+- **硬零规则**：`core`/`util` 不得依赖 `portal`/`ext.*`/`ledger`/`pay`/`vip`；
+- **冻结清单**：已登记债务按**精确计数 + 理由**锁定（`core→system` 13、`common→core` 1、
+  `system→portal` 24、`portal⇄ext.cms` 78/278、`ledger→pay` 12、`vip→pay` 4、`ledger→vip` 4）——
+  **计数增加即失败**（新增跨模块依赖），**减少也失败**（要求同步下调，防止清单腐烂）；
+- **清单自检**：冻结边不得是硬零规则已禁止的边、每条必须写明理由；
+- **扫描器自检**：只统计 `import`（编译期契约），方法体内的 FQN 不计入；`ext.cms` 按子模块归类；同模块不计。
+
+**红→绿验证**：注入一个 `core` 包下的临时类（同时 import `portal` 实体与 `system` 实体）后，
+守卫**两条规则同时失败**并给出精确信息——
+`core -> portal（1 处 import）`、`core -> system：期望 13，实际 14（…理由…）`；删除后 5/5 通过。
+
+**实测踩到的坑（已写入规范）**：**移动/删除类后不清理 `target/classes` 会导致启动失败**——
+残留的旧 `CommonController.class` 与新类 bean 同名，抛
+`ConflictingBeanDefinitionException: bean name 'commonController' ... conflicts`（30 个测试上下文全挂）。
+`mvn clean test` 或删除旧 `.class` 即恢复。
+
+**测试**：新增 5 例，全量 **351 → 356** 例全绿。
+
+**同步**：报告 §6.3 表 + 总览第 30 项 + 新增**附录 U**；`项目开发规范` 新增 **§1.3.1 模块依赖方向**
+（含依赖方向图、硬约束、守卫说明、编译产物清理告诫）并修正 §1.3 包结构树中的过期条目；
+`00-项目现状总结` 开发铁律新增第 10 条。无 SQL/DDL、无前端变更。
+
 ## v13.10 (2026-09-27) P1 第八项（收尾）：收银台二维码两端通用渲染（服务端出图方案被依赖卡住的实证）
 
 > P1 队列第 8 项最后一处代码可改项（报告附录 B4 的"支付二维码"行）。

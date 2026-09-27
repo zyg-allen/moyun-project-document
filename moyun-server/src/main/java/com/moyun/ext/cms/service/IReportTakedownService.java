@@ -10,8 +10,8 @@ package com.moyun.ext.cms.service;
  *   <li>article：文章 → status='rejected'（沿用审核驳回状态，触发审核字段记录）</li>
  *   <li>comment：通用评论 → 物理软删（del_flag，沿用 BaseMapper 逻辑删除）</li>
  *   <li>topic：话题 → status='archived'（归档下架，保留数据可申诉恢复）</li>
- *   <li>topic_post：话题观点 → is_deleted=1（软删）</li>
- *   <li>topic_comment：话题评论 → is_deleted=1（软删）</li>
+ *   <li>topic_post：话题观点 → del_flag='2'（软删）</li>
+ *   <li>topic_comment：话题评论 → del_flag='2'（软删）</li>
  *   <li>column：专栏 → status='archived'（归档下架）</li>
  * </ul>
  *

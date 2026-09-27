@@ -127,7 +127,12 @@ public class PortalTipServiceImpl implements IPortalTipService {
         }
 
         // 6. 给被打赏者加积分（创作鼓励，积分可在商城兑换）
-        growthMapper.addPoints(authorId, points);
+        // v13.16：入账必须校验影响行数——打赏者积分已在第 5 步原子扣减，若作者积分入账 0 行
+        //（统计/成长行缺失，INSERT IGNORE 静默失败）就是"扣了没入账"，故 fail-closed 回滚整笔打赏
+        int credited = growthMapper.addPoints(authorId, points);
+        if (credited == 0) {
+            throw new BusinessException("POINTS_CREDIT_FAILED", "积分入账失败，请稍后重试");
+        }
 
         // 7. 写订单：积分打赏直接置 PAID，pay_method=points 区分
         order.setStatus(PaymentStatus.PAID.getCode());

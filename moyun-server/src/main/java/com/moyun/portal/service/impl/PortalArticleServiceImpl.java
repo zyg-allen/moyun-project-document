@@ -282,7 +282,12 @@ public class PortalArticleServiceImpl extends ServiceImpl<PortalArticleMapper, P
             }
             if (wordCount > 0) {
                 userStatsMapper.insertIfNotExists(portalArticle.getAuthorId());
-                userStatsMapper.addArticleWordSum(portalArticle.getAuthorId(), wordCount);
+                // v13.16：创作字数增量写校验影响行数（0 行 = 统计行缺失 → 回滚，不让字数统计静默丢失）
+                int wordRows = userStatsMapper.addArticleWordSum(portalArticle.getAuthorId(), wordCount);
+                if (wordRows == 0) {
+                    throw new ServiceException("创作字数统计失败：用户统计行缺失（userId="
+                            + portalArticle.getAuthorId() + "）");
+                }
             }
             // 记录发布文章成长事件
             portalGrowthService.recordEvent("article", "publish_article",

@@ -195,7 +195,7 @@ public class PortalTopicCommentServiceImpl extends ServiceImpl<PortalTopicCommen
             targetAuthorId = topic.getCreatorId();
         } else {
             PortalTopicPost post = portalTopicPostMapper.selectById(comment.getTargetId());
-            if (post == null || (post.getIsDeleted() != null && post.getIsDeleted() == 1)) {
+            if (post == null || ("2".equals(post.getDelFlag()))) {
                 throw new ServiceException("观点不存在");
             }
             targetAuthorId = post.getUserId();
@@ -233,7 +233,7 @@ public class PortalTopicCommentServiceImpl extends ServiceImpl<PortalTopicCommen
         comment.setAuthorId(userId);
         comment.setLikeCount(0);
         comment.setReplyCount(0);
-        comment.setIsDeleted(0);
+        comment.setDelFlag("0");
         comment.setCreatedTime(LocalDateTime.now());
         baseMapper.insert(comment);
 
@@ -283,7 +283,7 @@ public class PortalTopicCommentServiceImpl extends ServiceImpl<PortalTopicCommen
             throw new ServiceException("请先登录");
         }
         PortalTopicComment comment = baseMapper.selectById(commentId);
-        if (comment == null || (comment.getIsDeleted() != null && comment.getIsDeleted() == 1)) {
+        if (comment == null || ("2".equals(comment.getDelFlag()))) {
             throw new ServiceException("评论不存在");
         }
         boolean isAdmin = PortalSecurityUtils.isAdmin();
@@ -334,7 +334,7 @@ public class PortalTopicCommentServiceImpl extends ServiceImpl<PortalTopicCommen
             throw new ServiceException("请先登录");
         }
         PortalTopicComment comment = baseMapper.selectById(commentId);
-        if (comment == null || (comment.getIsDeleted() != null && comment.getIsDeleted() == 1)) {
+        if (comment == null || ("2".equals(comment.getDelFlag()))) {
             throw new ServiceException("评论不存在");
         }
 
@@ -440,7 +440,7 @@ public class PortalTopicCommentServiceImpl extends ServiceImpl<PortalTopicCommen
         if (comment == null) {
             throw new ServiceException("评论不存在");
         }
-        if (comment.getIsDeleted() != null && comment.getIsDeleted() == 1) {
+        if ("2".equals(comment.getDelFlag())) {
             return;
         }
         baseMapper.softDelete(commentId);

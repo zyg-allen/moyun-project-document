@@ -33,7 +33,10 @@ import java.time.LocalDateTime;
  * <p><b>Phase 1</b>：建立 AiBaseEntity 架构基线，7 个匹配实体已迁移继承。
  * Phase 2（待后续窗口）：迁移 KnowledgeLibrary（createdAt/updatedAt → createTime/updateTime）
  * 与 KnowledgeBase（uploadTime/processTime → createTime/updateTime），需配合 SQL 列重命名。
- * Phase 3（待后续窗口）：Portal 话题模块 isDeleted → delFlag 迁移，需配合 SQL + Mapper + Service 全链路改造。
+ * Phase 3（**已于 v13.13 完成**）：Portal 话题模块 isDeleted → delFlag 迁移已落地
+ * （`portal_topic_post` / `portal_topic_comment` 软删列统一为 `del_flag`，实体回归 `BaseEntity.delFlag`）。
+ * <p>AI 模块自身仍沿用本类的 {@code deleted}(0/1)——AI 表无 {@code create_by/remark/del_flag} 列，
+ * 属**有意保留的模块内约定**，已在 {@code DdlConventionGuardTest} 白名单登记。
  *
  * @author moyun
  */

@@ -3,8 +3,8 @@ package com.moyun.core.aspectj;
 import com.moyun.common.annotation.RateLimiter;
 import com.moyun.common.enums.LimitType;
 import com.moyun.common.exception.system.ServiceException;
-import com.moyun.core.base.model.LoginUser;
-import com.moyun.portal.domain.model.PortalLoginUser;
+import com.moyun.core.security.principal.PrincipalInfo;
+import com.moyun.core.security.principal.PrincipalResolver;
 import com.moyun.util.ip.IpUtils;
 import com.moyun.util.string.StringUtils;
 import lombok.extern.slf4j.Slf4j;
@@ -15,8 +15,6 @@ import org.aspectj.lang.reflect.MethodSignature;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.script.RedisScript;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 
 import java.lang.reflect.Method;
@@ -87,22 +85,12 @@ public class RateLimiterAspect {
 
     /**
      * 解析当前登录用户ID（后台 LoginUser / 门户 PortalLoginUser），未登录返回 null
+     *
+     * <p>v13.11：改用 {@link PrincipalResolver}（core 侧主体抽象）——原实现直接
+     * {@code instanceof LoginUser / PortalLoginUser}，导致 {@code core → portal} 反向依赖。</p>
      */
     private Long resolveUserId() {
-        try {
-            Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-            if (authentication != null) {
-                Object principal = authentication.getPrincipal();
-                if (principal instanceof LoginUser loginUser) {
-                    return loginUser.getUserId();
-                }
-                if (principal instanceof PortalLoginUser portalLoginUser) {
-                    return portalLoginUser.getId();
-                }
-            }
-        } catch (Exception e) {
-            log.debug("限流键获取用户信息失败，退回共享计数", e);
-        }
-        return null;
+        PrincipalInfo principal = PrincipalResolver.resolve();
+        return principal == null ? null : principal.userId();
     }
 }

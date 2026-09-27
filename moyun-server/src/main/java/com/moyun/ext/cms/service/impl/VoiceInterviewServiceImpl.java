@@ -46,6 +46,7 @@ import com.moyun.ext.aigateway.support.PromptInjectionGuard;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -309,6 +310,15 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
     @Autowired private com.moyun.system.service.ISysConfigService sysConfigService;
 
     /**
+     * 事务模板：把事务边界**收窄到只剩 DB/Redis 写**（v13.14「事务内远程 IO」整改）。
+     *
+     * <p>{@code start()} 原为整方法 {@code @Transactional}，其中包含 RAG 检索与 LLM 预热/开场白生成；
+     * 现按"远程 IO 全前置、事务只包写库"重构（详见方法注释）。{@code requestHint()} 则改为
+     * "原子占额度（一条条件 UPDATE）+ 事务外调 LLM"，不再需要事务。</p>
+     */
+    @Autowired private TransactionTemplate transactionTemplate;
+
+    /**
      * SSE 长任务执行器（core 模块统一管理，见 {@code AsyncTaskConfig#sseStreamExecutor}）。
      *
      * <p>v13.5 前此处是实例字段 {@code Executors.newScheduledThreadPool(2)}：
@@ -326,8 +336,19 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
     // ========================================================================
     // 开始面试
     // ========================================================================
+    /**
+     * 开始面试（V3/V4）
+     *
+     * <p><b>事务边界（v13.14 收窄）</b>：本方法**不再**整体 {@code @Transactional} ——
+     * 方法体内含两类远程 IO：RAG 检索（{@code retrieveKbSnippets}，向量化+检索）与
+     * **LLM 调用**（{@code tryWarmup} 画像/开场白/首题预热，失败还会降级 {@code generateOpening} 再调一次），
+     * 以及 Redis 滑窗初始化。原先这些都在同一个 DB 事务里，等于**一次面试开场的 LLM 往返期间
+     * 一直占着 DB 连接与事务**（慢模型下并发开面会打满连接池）。</p>
+     *
+     * <p>现在：远程 IO 全部前置到事务外，事务只包「收口遗留会话 + 插面试 + 插首题 + 记事件」；
+     * 语义保持——LLM 失败仍在写库前抛出（不留脏数据），DB 写失败仍整体回滚。</p>
+     */
     @Override
-    @Transactional(rollbackFor = Exception.class)
     public VoiceInterviewVO start(Long userId, VoiceStartConfig config) {
 
         if (config == null) {
@@ -364,7 +385,7 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
         String kbSnippets = retrieveKbSnippets(agent, position, resumeDigest);
 
         // 断点续接收口：开始新面试前，遗留的进行中会话自动结束（abandon）并触发异步批量分析（数据不丢）
-        closeStaleInterviews(userId);
+        // v13.14：DB 写，随事务块一起下沉（见方法末尾 transactionTemplate）
 
         // V4 预热：一次调用产出"AI 理解"（画像+考察方向计划）+ 开场白 + 首题（失败降级旧 generateOpening 链路）
         JsonNode warmupPlan = tryWarmup(agent, position, difficulty, questionCount,
@@ -413,7 +434,7 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
         interview.setAnalysisStatus(0);
         interview.setAnalysisProgress(0);
         interview.setCreateTime(LocalDateTime.now());
-        interviewMapper.insert(interview);
+        // v13.14：insert 下沉到事务块（远程 IO 全部前置完成后再写库，见方法末尾）
 
         // 滑窗初始化：system（agent 人设+本场约束）+ 上下文 user（简历摘要+JD，wrapData 包裹）
         String systemPrompt = buildInterviewerSystemPrompt(interview, agent);
@@ -427,30 +448,37 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
         String contextUserMsg = PromptInjectionGuard.wrapData("候选人资料", ctx.toString());
 
         // 同步生成开场白+首题（V4：warmup 产物优先；失败降级 generateOpening 一次调用）
+        // —— 仍在事务外（这是本方法里最后一次 LLM 调用）
         if (opening == null || opening.isEmpty()) {
             opening = generateOpening(interview, agent, systemPrompt, contextUserMsg);
         }
-        memoryService.initFirstTurn(interview.getId(), agent.getMaxHistoryTurns(),
-                systemPrompt, contextUserMsg, opening);
+        final String openingText = opening;
 
-        // 首题落库（question=开场白+首题全文，报告回放展示）
+        // 首题对象先构建（除 interviewId 需落库后回填），保证事务块内只做 DB/Redis 写
         PortalVoiceInterviewQA firstQa = new PortalVoiceInterviewQA();
-        firstQa.setInterviewId(interview.getId());
         firstQa.setQuestionSource("agent");
         firstQa.setQuestionIdx(0);
-        firstQa.setQuestion(opening);
+        firstQa.setQuestion(openingText);
         firstQa.setHintUsed(0);
         firstQa.setTranscriptionEdited(0);
         firstQa.setCreateTime(LocalDateTime.now());
-        firstQa.setSpeakText(opening);
-        qaMapper.insert(firstQa);
+        firstQa.setSpeakText(openingText);
 
-        recordEvent(interview.getId(), "start", Map.of(
-                "agentId", agent.getId(),
-                "position", position,
-                "difficulty", difficulty,
-                "questionCount", questionCount,
-                "durationMinutes", durationMinutes));
+        // ===== 事务边界：只包 DB/Redis 写（收口遗留 + 插面试 + 滑窗初始化 + 插首题 + 记事件）=====
+        transactionTemplate.executeWithoutResult(status -> {
+            closeStaleInterviews(userId);
+            interviewMapper.insert(interview);
+            memoryService.initFirstTurn(interview.getId(), agent.getMaxHistoryTurns(),
+                    systemPrompt, contextUserMsg, openingText);
+            firstQa.setInterviewId(interview.getId());
+            qaMapper.insert(firstQa);
+            recordEvent(interview.getId(), "start", Map.of(
+                    "agentId", agent.getId(),
+                    "position", position,
+                    "difficulty", difficulty,
+                    "questionCount", questionCount,
+                    "durationMinutes", durationMinutes));
+        });
 
         return assembleVO(interview, firstQa);
 
@@ -943,8 +971,18 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
     // ========================================================================
     // 请求提示（V3：面试官 agent 基于滑窗上下文生成一句引导）
     // ========================================================================
+    /**
+     * 请求思考提示
+     *
+     * <p><b>事务边界（v13.14 收窄）</b>：原实现整体 {@code @Transactional}，且把
+     * {@code agentClient.chat(...)}（LLM，秒级网络往返）放在事务内 —— 提示期间一直占着 DB 连接。</p>
+     *
+     * <p>现改为「**先原子占额度，再调 LLM**」：额度由一条原子条件更新占用
+     * （{@code hint_used = COALESCE(hint_used,0)+1 WHERE COALESCE(hint_used,0) < 3}），
+     * 并发下也不会超过 3 次（比原实现"读-判断-更新"更强）；拿到额度后再在**事务外**调用 LLM。
+     * LLM 失败仍返回兜底文案、额度照常消耗 —— 与原语义一致。</p>
+     */
     @Override
-    @Transactional(rollbackFor = Exception.class)
     public VoiceInterviewVO requestHint(Long interviewId, Long userId, Long qaId) {
         PortalVoiceInterview interview = mustOwnInterview(interviewId, userId);
         PortalVoiceInterviewQA qa = qaMapper.selectById(qaId);
@@ -952,12 +990,19 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
             throw new ServiceException("问答记录不存在");
         }
 
-        int nextUsed = (qa.getHintUsed() == null ? 0 : qa.getHintUsed()) + 1;
-        if (nextUsed > 3) {
+        // 1. 原子占额度：并发安全（仅当已用 < 3 才 +1），返回 0 行即"已用完"
+        int reserved = qaMapper.update(null, new com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper<PortalVoiceInterviewQA>()
+                .eq(PortalVoiceInterviewQA::getId, qaId)
+                .apply("COALESCE(hint_used, 0) < 3")
+                .setSql("hint_used = COALESCE(hint_used, 0) + 1"));
+        if (reserved == 0) {
             throw new ServiceException("提示次数已用完");
         }
+        qa = qaMapper.selectById(qaId);
+        int nextUsed = (qa != null && qa.getHintUsed() != null) ? qa.getHintUsed() : 1;
 
-        // agent 滑窗提示：基于完整对话上下文给一句思考引导（不泄露答案）
+        // 2. agent 滑窗提示：基于完整对话上下文给一句思考引导（不泄露答案）
+        //    —— 事务外执行（这是本方法唯一的远程 IO）
         String text = null;
         Agent agent = interview.getAgentId() == null ? null : agentClient.resolveAgent(interview.getAgentId());
         if (agent != null && agentClient.isEnabled()) {
@@ -977,8 +1022,7 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
         HintVO hint = HintVO.of(nextUsed, "思考提示");
         hint.setKeywords(new ArrayList<>());
         hint.setSpeakText(text.trim());
-        qa.setHintUsed(nextUsed);
-        qaMapper.updateById(qa);
+        // v13.14：额度已由上面的原子 SQL 占用，这里不再 updateById（避免把整行写回）
 
         VoiceInterviewVO vo = assembleVO(interview, qa);
         vo.setCurrentQa(toQaVO(qa));

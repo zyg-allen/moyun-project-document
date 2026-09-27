@@ -10,6 +10,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
+import com.moyun.common.exception.system.ServiceException;
 import com.moyun.portal.domain.entity.PortalAchievement;
 import com.moyun.portal.domain.entity.PortalGrowthLog;
 import com.moyun.portal.domain.entity.PortalGrowthRule;
@@ -148,10 +149,14 @@ public class PortalGrowthServiceImpl implements IPortalGrowthService {
         growthLog.setCreateTime(LocalDateTime.now());
         logMapper.insert(growthLog);
 
-        // 6. 原子增加成长值
-        growthMapper.addGrowth(userId, delta);
+        // 6. 原子增加成长值（v13.16：增量写必须校验影响行数——0 行 = 聚合行缺失，
+        //    说明上面的 INSERT IGNORE 静默失败（非重复键原因）。此处抛错回滚，避免"流水写了、成长值没加"）
+        int growthRows = growthMapper.addGrowth(userId, delta);
+        if (growthRows == 0) {
+            throw new ServiceException("成长值更新失败：用户成长记录缺失（userId=" + userId + "）");
+        }
 
-        // 7. 更新统计聚合表
+        // 7. 更新统计聚合表（内部同样校验影响行数）
         updateStats(module, action, userId, delta);
 
         // 8. 更新等级
@@ -161,6 +166,18 @@ public class PortalGrowthServiceImpl implements IPortalGrowthService {
         checkAndGrantAchievements(userId);
 
         return delta;
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void updateNoteAdoptedCount(Long userId, int delta) {
+        if (userId == null || delta == 0) {
+            return;
+        }
+        // v13.16：精选笔记数唯一写入源（±1），并校验影响行数——0 行=统计行缺失，失败即回滚
+        statsMapper.insertIfNotExists(userId);
+        int rows = statsMapper.addNoteAdopted(userId, delta);
+        requireAggregateUpdated(rows, "note_adopted", userId);
     }
 
     @Override
@@ -433,6 +450,11 @@ public class PortalGrowthServiceImpl implements IPortalGrowthService {
 
         statsMapper.insertIfNotExists(userId);
         PortalUserStats stats = statsMapper.selectByUserId(userId);
+        // v13.16：INSERT IGNORE 静默失败时这里会拿到 null（原实现随后 stats.getLastCheckinDate() 直接 NPE），
+        // 改为显式失败并给出可排查的信息；调用方事务 rollbackFor=Exception 会整体回滚
+        if (stats == null) {
+            throw new ServiceException("签到失败：用户统计记录缺失（userId=" + userId + "）");
+        }
         LocalDate today = LocalDate.now();
 
         if (stats.getLastCheckinDate() != null && stats.getLastCheckinDate().equals(today)) {
@@ -456,7 +478,11 @@ public class PortalGrowthServiceImpl implements IPortalGrowthService {
         update.setId(stats.getId());
         update.setCheckinStreak(newStreak);
         update.setLastCheckinDate(today);
-        statsMapper.updateById(update);
+        // v13.16：签到状态写回必须校验影响行数（0 行 = 统计行在并发下消失 → 连续签到天数会静默丢失）
+        int checkinRows = statsMapper.updateById(update);
+        if (checkinRows == 0) {
+            throw new ServiceException("签到失败：统计记录更新未生效（userId=" + userId + "）");
+        }
 
         // 记录成长事件
         int growth = recordEvent("all", "daily_checkin", userId, null, null);
@@ -488,7 +514,11 @@ public class PortalGrowthServiceImpl implements IPortalGrowthService {
             // 奖励成长值
             if (achievement.getGrowthReward() != null && achievement.getGrowthReward() > 0) {
                 growthMapper.insertIfNotExists(userId);
-                growthMapper.addGrowth(userId, achievement.getGrowthReward());
+                // v13.16：奖励成长值同样校验影响行数（0 行 = 聚合行缺失 → 回滚，不静默丢奖励）
+                int rewardRows = growthMapper.addGrowth(userId, achievement.getGrowthReward());
+                if (rewardRows == 0) {
+                    throw new ServiceException("成就奖励成长值失败：用户成长记录缺失（userId=" + userId + "）");
+                }
 
                 // 记录奖励流水
                 PortalGrowthLog rewardLog = new PortalGrowthLog();
@@ -518,59 +548,71 @@ public class PortalGrowthServiceImpl implements IPortalGrowthService {
         switch (action) {
             // 文章模块
             case "publish_article":
-                statsMapper.addArticleCount(userId, 1);
+                requireAggregateUpdated(statsMapper.addArticleCount(userId, 1), action, userId);
                 break;
             case "receive_like":
-                statsMapper.addArticleLikeSum(userId, delta);
+                requireAggregateUpdated(statsMapper.addArticleLikeSum(userId, delta), action, userId);
                 break;
             case "receive_bookmark":
-                statsMapper.addArticleBookmarkSum(userId, delta);
+                requireAggregateUpdated(statsMapper.addArticleBookmarkSum(userId, delta), action, userId);
                 break;
             case "article_featured":
                 // 精选不增加计数，只加成长值
                 break;
             case "receive_comment":
-                statsMapper.addCommentCount(userId, delta);
+                requireAggregateUpdated(statsMapper.addCommentCount(userId, delta), action, userId);
                 break;
             case "receive_follow":
-                statsMapper.addFollowerCount(userId, delta);
+                requireAggregateUpdated(statsMapper.addFollowerCount(userId, delta), action, userId);
                 break;
             // 读书空间
             case "finish_book":
-                statsMapper.addBookFinished(userId, delta);
+                requireAggregateUpdated(statsMapper.addBookFinished(userId, delta), action, userId);
                 break;
             case "write_quote":
-                statsMapper.addQuoteCount(userId, delta);
+                requireAggregateUpdated(statsMapper.addQuoteCount(userId, delta), action, userId);
                 break;
             case "create_booklist":
-                statsMapper.addBooklistCount(userId, delta);
+                requireAggregateUpdated(statsMapper.addBooklistCount(userId, delta), action, userId);
                 break;
             case "quote_liked":
             case "booklist_liked":
-                statsMapper.addTotalLikeReceived(userId, delta);
+                requireAggregateUpdated(statsMapper.addTotalLikeReceived(userId, delta), action, userId);
                 break;
             case "booklist_bookmarked":
                 // 书单被收藏，归入总被赞/被收藏统计（复用 totalLikeReceived 聚合）
-                statsMapper.addTotalLikeReceived(userId, delta);
+                requireAggregateUpdated(statsMapper.addTotalLikeReceived(userId, delta), action, userId);
                 break;
             // 面试空间
             case "solve_question":
-                statsMapper.addQuestionSolved(userId, delta);
+                requireAggregateUpdated(statsMapper.addQuestionSolved(userId, delta), action, userId);
                 break;
             case "write_note":
-                statsMapper.addNoteCount(userId, delta);
+                requireAggregateUpdated(statsMapper.addNoteCount(userId, delta), action, userId);
                 break;
-            case "note_adopted":
-                statsMapper.addNoteAdopted(userId, delta);
-                break;
+            // v13.16：note_adopted 是"篇数"而非成长值，已移出本方法（否则会拿 rule.growthDelta 当篇数写），
+            // 唯一写入源改为 updateNoteAdoptedCount(userId, ±1)
             case "publish_experience":
-                statsMapper.addExperienceCount(userId, delta);
+                requireAggregateUpdated(statsMapper.addExperienceCount(userId, delta), action, userId);
                 break;
             case "experience_liked":
-                statsMapper.addTotalLikeReceived(userId, delta);
+                requireAggregateUpdated(statsMapper.addTotalLikeReceived(userId, delta), action, userId);
                 break;
             default:
                 break;
+        }
+    }
+    /**
+     * 聚合列增量写校验（v13.16）
+     *
+     * <p>{@code addXxx} 系列是"UPDATE ... SET col = col + ? WHERE user_id = ?"，返回 0 说明
+     * {@code WHERE} 没命中——即 {@code INSERT IGNORE} 静默失败导致统计行缺失。
+     * 此时若不报错，计数就永久少一笔（且无任何日志）。这里 fail-closed 抛错，
+     * 由调用方事务（{@code rollbackFor = Exception.class}）整体回滚。</p>
+     */
+    private void requireAggregateUpdated(int rows, String action, Long userId) {
+        if (rows == 0) {
+            throw new ServiceException("用户统计聚合更新失败：统计行缺失（userId=" + userId + ", action=" + action + "）");
         }
     }
 

@@ -74,7 +74,7 @@ public class PortalTopicPostServiceImpl extends ServiceImpl<PortalTopicPostMappe
 
         LambdaQueryWrapper<PortalTopicPost> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(PortalTopicPost::getTopicId, topicId);
-        wrapper.eq(PortalTopicPost::getIsDeleted, 0);
+        wrapper.eq(PortalTopicPost::getDelFlag, "0");
         // 仅查一级观点（parent_post_id 为 NULL），楼中楼通过评论接口单独加载
         wrapper.isNull(PortalTopicPost::getParentPostId);
         wrapper.orderByAsc(PortalTopicPost::getFloor);
@@ -127,7 +127,7 @@ public class PortalTopicPostServiceImpl extends ServiceImpl<PortalTopicPostMappe
         post.setFloor(nextFloor);
         post.setLikeCount(0);
         post.setCommentCount(0);
-        post.setIsDeleted(0);
+        post.setDelFlag("0");
         post.setCreatedTime(LocalDateTime.now());
         // images 字段：前端可能传 List<String>，但实体上是 String（JSON）。这里由 Controller 已序列化好。
         baseMapper.insert(post);
@@ -152,7 +152,7 @@ public class PortalTopicPostServiceImpl extends ServiceImpl<PortalTopicPostMappe
             throw new ServiceException("请先登录");
         }
         PortalTopicPost post = baseMapper.selectById(postId);
-        if (post == null || (post.getIsDeleted() != null && post.getIsDeleted() == 1)) {
+        if (post == null || ("2".equals(post.getDelFlag()))) {
             throw new ServiceException("观点不存在");
         }
         // 权限：作者 / 话题发起人 / admin
@@ -182,7 +182,7 @@ public class PortalTopicPostServiceImpl extends ServiceImpl<PortalTopicPostMappe
             throw new ServiceException("请先登录");
         }
         PortalTopicPost post = baseMapper.selectById(postId);
-        if (post == null || (post.getIsDeleted() != null && post.getIsDeleted() == 1)) {
+        if (post == null || ("2".equals(post.getDelFlag()))) {
             throw new ServiceException("观点不存在");
         }
 
@@ -241,7 +241,7 @@ public class PortalTopicPostServiceImpl extends ServiceImpl<PortalTopicPostMappe
 
         LambdaQueryWrapper<PortalTopicPost> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(PortalTopicPost::getUserId, userId);
-        wrapper.eq(PortalTopicPost::getIsDeleted, 0);
+        wrapper.eq(PortalTopicPost::getDelFlag, "0");
         wrapper.orderByDesc(PortalTopicPost::getCreatedTime);
 
         Page<PortalTopicPost> resultPage = baseMapper.selectPage(page, wrapper);
@@ -272,7 +272,7 @@ public class PortalTopicPostServiceImpl extends ServiceImpl<PortalTopicPostMappe
         if (post == null) {
             throw new ServiceException("观点不存在");
         }
-        if (post.getIsDeleted() != null && post.getIsDeleted() == 1) {
+        if ("2".equals(post.getDelFlag())) {
             return;
         }
         baseMapper.softDelete(postId);

@@ -86,7 +86,7 @@ public class KnowledgeConfigServiceImpl implements KnowledgeConfigService {
     }
 
     @Override
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public KnowledgeConfig applyConfiguration(KnowledgeConfigRequest request) {
         log.info("应用知识库配置，knowledgeId={}", request.getKnowledgeId());
 
@@ -158,7 +158,7 @@ public class KnowledgeConfigServiceImpl implements KnowledgeConfigService {
     }
 
     @Override
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public KnowledgeConfig createDefaultConfig(Long knowledgeId) {
         log.info("创建默认配置，knowledgeId={}", knowledgeId);
 
@@ -190,7 +190,7 @@ public class KnowledgeConfigServiceImpl implements KnowledgeConfigService {
     }
 
     @Override
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public KnowledgeConfig updateConfig(KnowledgeConfigRequest request) {
         return applyConfiguration(request);
     }

@@ -56,7 +56,7 @@ public class ConversationServiceImpl extends ServiceImpl<ConversationMapper, Con
     }
 
     @Override
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public void addMessage(Long conversationId, String role, String content, String referenceSources) {
         // 保存消息
         ConversationMessage message = new ConversationMessage();
@@ -100,7 +100,7 @@ public class ConversationServiceImpl extends ServiceImpl<ConversationMapper, Con
     }
 
     @Override
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public void deleteConversation(Long conversationId) {
         // 删除消息（外键级联删除）
         QueryWrapper<ConversationMessage> wrapper = new QueryWrapper<>();

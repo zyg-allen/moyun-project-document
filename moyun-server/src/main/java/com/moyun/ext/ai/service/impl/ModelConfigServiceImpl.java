@@ -592,7 +592,7 @@ public class ModelConfigServiceImpl extends ServiceImpl<ModelConfigMapper, Model
     }
 
     @Override
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public boolean setDefault(Long configId) {
         ModelConfig config = this.getById(configId);
         if (config == null) {

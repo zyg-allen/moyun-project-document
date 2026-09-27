@@ -13,6 +13,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.moyun.common.exception.system.ServiceException;
 import com.moyun.portal.domain.entity.PortalFollow;
 import com.moyun.portal.domain.query.FollowQuery;
 import com.moyun.portal.domain.vo.FollowUserVO;
@@ -162,8 +163,8 @@ public class PortalFollowServiceImpl extends ServiceImpl<PortalFollowMapper, Por
             baseMapper.insert(follow);
 
             // 原子更新统计：关注者关注数+1，被关注者粉丝数+1
-            userStatsMapper.addFollowingCount(followerId, 1);
-            userStatsMapper.addFollowerCount(followingId, 1);
+            requireStatsUpdated(userStatsMapper.addFollowingCount(followerId, 1), "addFollowingCount");
+            requireStatsUpdated(userStatsMapper.addFollowerCount(followingId, 1), "addFollowerCount");
 
             // 为被关注者记录成长事件
             portalGrowthService.recordEventWithTarget("user", "receive_follow",
@@ -176,8 +177,8 @@ public class PortalFollowServiceImpl extends ServiceImpl<PortalFollowMapper, Por
             baseMapper.deleteById(existing.getId());
 
             // 原子更新统计：关注者关注数-1，被关注者粉丝数-1
-            userStatsMapper.addFollowingCount(followerId, -1);
-            userStatsMapper.addFollowerCount(followingId, -1);
+            requireStatsUpdated(userStatsMapper.addFollowingCount(followerId, -1), "addFollowingCount");
+            requireStatsUpdated(userStatsMapper.addFollowerCount(followingId, -1), "addFollowerCount");
 
             result.put("followed", false);
             result.put("message", "已取消关注");
@@ -251,8 +252,8 @@ public class PortalFollowServiceImpl extends ServiceImpl<PortalFollowMapper, Por
         baseMapper.insert(follow);
 
         // 原子更新统计：关注者关注数+1，被关注者粉丝数+1
-        userStatsMapper.addFollowingCount(followerId, 1);
-        userStatsMapper.addFollowerCount(followingId, 1);
+        requireStatsUpdated(userStatsMapper.addFollowingCount(followerId, 1), "addFollowingCount");
+        requireStatsUpdated(userStatsMapper.addFollowerCount(followingId, 1), "addFollowerCount");
 
         // 为被关注者记录成长事件
         portalGrowthService.recordEventWithTarget("user", "receive_follow",
@@ -301,8 +302,8 @@ public class PortalFollowServiceImpl extends ServiceImpl<PortalFollowMapper, Por
         userStatsMapper.insertIfNotExists(followingId);
 
         // 原子更新统计：关注者关注数-1，被关注者粉丝数-1
-        userStatsMapper.addFollowingCount(followerId, -1);
-        userStatsMapper.addFollowerCount(followingId, -1);
+        requireStatsUpdated(userStatsMapper.addFollowingCount(followerId, -1), "addFollowingCount");
+        requireStatsUpdated(userStatsMapper.addFollowerCount(followingId, -1), "addFollowerCount");
 
         result.put("followed", false);
         result.put("message", "已取消关注");
@@ -353,6 +354,19 @@ public class PortalFollowServiceImpl extends ServiceImpl<PortalFollowMapper, Por
     /**
      * 获取指定用户的粉丝数（内部复用）
      */
+    /**
+     * 统计计数增量写校验（v13.16）
+     *
+     * <p>{@code addFollowingCount}/{@code addFollowerCount} 是
+     * "UPDATE portal_user_stats SET col = col + ? WHERE user_id = ?"，返回 0 说明统计行缺失
+     * （{@code INSERT IGNORE} 静默失败），计数会永久偏差且无日志。这里 fail-closed 抛错，
+     * 由方法级 {@code @Transactional(rollbackFor = Exception.class)} 回滚关注/取关记录本身。</p>
+     */
+    private void requireStatsUpdated(int rows, String scene) {
+        if (rows == 0) {
+            throw new ServiceException("用户统计更新失败（" + scene + "）：统计行缺失，请稍后重试");
+        }
+    }
     private Integer getFollowerCount(Long userId) {
         com.moyun.portal.domain.entity.PortalUserStats stats = userStatsMapper.selectByUserId(userId);
         return stats != null && stats.getFollowerCount() != null ? stats.getFollowerCount() : 0;

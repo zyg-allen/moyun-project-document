@@ -116,6 +116,18 @@ public interface IPortalGrowthService {
     void checkAndGrantAchievements(Long userId);
 
     /**
+     * 精选笔记数增减（{@code portal_user_stats.note_adopted}，v13.16 新增）
+     *
+     * <p>该列语义是"篇数"，固定 ±1，**与成长规则的 growthDelta 无关**。
+     * 历史实现由 {@code updateStats} 按成长值增量写入、控制器里再显式 +1，
+     * 导致重复采纳持续累加、取消精选只 −1（单调虚高）。现统一由本方法作为唯一写入源。</p>
+     *
+     * @param userId 用户ID（为空或 delta=0 时直接返回）
+     * @param delta  +1=采纳为精选；-1=取消精选
+     */
+    void updateNoteAdoptedCount(Long userId, int delta);
+
+    /**
      * 获取用户成长时间线（分页，支持按模块筛选）
      * 统一聚合读书、面试、创作等各模块的行为记录
      *

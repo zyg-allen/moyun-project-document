@@ -12,6 +12,8 @@ import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 
+import com.moyun.core.security.principal.PrincipalInfo;
+import com.moyun.core.security.principal.PrincipalProvider;
 import com.moyun.portal.domain.entity.PortalUser;
 import com.moyun.util.string.StringUtils;
 
@@ -21,7 +23,7 @@ import com.moyun.util.string.StringUtils;
  * @author moyun
  */
 @JsonIgnoreProperties(ignoreUnknown = true)
-public class PortalLoginUser implements UserDetails {
+public class PortalLoginUser implements UserDetails, PrincipalProvider {
     private static final long serialVersionUID = 1L;
 
     /**
@@ -96,6 +98,15 @@ public class PortalLoginUser implements UserDetails {
 
     public Long getId() {
         return id;
+    }
+
+    /**
+     * 模块中立的主体视图（v13.11）：供 core 侧横切组件（操作日志/限流）使用，
+     * 使 core 不必 import 门户模块的主体类型。
+     */
+    @Override
+    public PrincipalInfo toPrincipalInfo() {
+        return new PrincipalInfo(id, getUsername(), getNickname(), true);
     }
 
     public void setId(Long id) {

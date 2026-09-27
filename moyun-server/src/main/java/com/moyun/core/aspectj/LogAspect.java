@@ -10,10 +10,11 @@ import com.moyun.core.base.model.LoginUser;
 import com.moyun.core.base.text.Convert;
 import com.moyun.core.manager.AsyncManager;
 import com.moyun.core.manager.factory.AsyncFactory;
+import com.moyun.core.security.principal.PrincipalInfo;
+import com.moyun.core.security.principal.PrincipalResolver;
 import com.moyun.system.domain.entity.SysOperLog;
 import com.moyun.util.http.ServletUtils;
 import com.moyun.util.ip.IpUtils;
-import com.moyun.portal.util.PortalSecurityUtils;
 import com.moyun.util.security.SecurityUtils;
 import com.moyun.util.string.ExceptionUtil;
 import com.moyun.util.string.StringUtils;
@@ -134,14 +135,15 @@ public class LogAspect {
             
             // 判断是否为前台门户请求
             if (requestUri != null && requestUri.startsWith("/portal/")) {
-                // 使用前台门户的认证工具类
+                // v13.11：改用 core 侧主体抽象（PrincipalResolver）——
+                // 原实现直接 import 门户的 PortalSecurityUtils/PortalLoginUser，构成 core → portal 反向依赖
                 try {
-                    com.moyun.portal.domain.model.PortalLoginUser portalLoginUser = PortalSecurityUtils.getLoginUser();
-                    if (portalLoginUser != null) {
-                        operLog.setOperName(portalLoginUser.getUsername());
-                        // 前台门户没有部门概念，可以设置用户昵称或ID
-                        if (portalLoginUser.getUser() != null) {
-                            operLog.setDeptName("门户用户:" + portalLoginUser.getNickname());
+                    PrincipalInfo portalPrincipal = PrincipalResolver.resolve();
+                    if (portalPrincipal != null && portalPrincipal.portalSide()) {
+                        operLog.setOperName(portalPrincipal.username());
+                        // 前台门户没有部门概念，用昵称占位（昵称为空则不写，避免 "门户用户:null"）
+                        if (StringUtils.isNotEmpty(portalPrincipal.nickname())) {
+                            operLog.setDeptName("门户用户:" + portalPrincipal.nickname());
                         }
                     }
                 } catch (Exception ex) {

@@ -39,6 +39,7 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
@@ -121,6 +122,17 @@ public class KnowledgeBaseServiceImpl extends ServiceImpl<KnowledgeBaseMapper, K
     @Autowired
     @Qualifier("knowledgeProcessExecutor")
     private Executor knowledgeProcessExecutor;
+
+    /**
+     * 事务模板：用于把事务边界**收窄到只剩 DB 写**（v13.14）。
+     *
+     * <p>背景（报告 §6.2「事务内做远程 IO」）：{@code uploadFileOnly} 原先整方法 {@code @Transactional}，
+     * 而方法体中包含 **MinIO 上传**（网络 IO，大文件可达数秒）与内容哈希计算 ——
+     * 等于把 DB 连接/事务开在整个上传期间；并发上传时会快速耗尽连接池。
+     * 现在这些 IO 留在事务外，只有「插记录 + 建默认配置」两步在事务内。</p>
+     */
+    @Autowired
+    private TransactionTemplate transactionTemplate;
 
     // ==================== 配置属性 ====================
 
@@ -1738,9 +1750,12 @@ public class KnowledgeBaseServiceImpl extends ServiceImpl<KnowledgeBaseMapper, K
 
     /**
      * 只上传文件，不进行处理（新流程第一阶段）
+     *
+     * <p><b>事务边界（v13.14 收窄）</b>：本方法**不再**整体 {@code @Transactional} ——
+     * MinIO 上传与哈希计算属远程 IO，必须在事务外；只有末尾两步 DB 写包在
+     * {@link #transactionTemplate} 内（语义等价：DB 写失败仍整体回滚）。</p>
      */
     @Override
-    @Transactional
     public KnowledgeBase uploadFileOnly(MultipartFile file) throws Exception {
         log.info("========== 开始上传文件（不处理）==========");
         log.info("文件名: {}, 大小: {} bytes", file.getOriginalFilename(), file.getSize());
@@ -1781,13 +1796,14 @@ public class KnowledgeBaseServiceImpl extends ServiceImpl<KnowledgeBaseMapper, K
         knowledge.setConfigCompleted(false);
         knowledge.setStatus(0); // 兼容旧字段
 
-        // 3. 保存到数据库
-        save(knowledge);
-        log.info("✅ 知识库记录已创建，ID={}, 状态=pending", knowledge.getId());
-
-        // 4. 创建默认配置（可选，或等用户配置）
-        knowledgeConfigService.createDefaultConfig(knowledge.getId());
-        log.info("✅ 默认配置已创建");
+        // 3. DB 写（事务边界收窄到只包这两步；MinIO 上传与哈希已在事务外完成）
+        transactionTemplate.executeWithoutResult(status -> {
+            save(knowledge);
+            log.info("✅ 知识库记录已创建，ID={}, 状态=pending", knowledge.getId());
+            // 4. 创建默认配置（可选，或等用户配置）
+            knowledgeConfigService.createDefaultConfig(knowledge.getId());
+            log.info("✅ 默认配置已创建");
+        });
 
         log.info("========== 文件上传完成（等待配置）==========");
         return knowledge;

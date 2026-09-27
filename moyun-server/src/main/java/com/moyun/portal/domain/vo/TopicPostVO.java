@@ -74,5 +74,5 @@ public class TopicPostVO implements Serializable {
     private Boolean isOwner;
 
     @Schema(description = "是否已软删：0 否/1 是")
-    private Integer isDeleted;
+    private String delFlag;
 }

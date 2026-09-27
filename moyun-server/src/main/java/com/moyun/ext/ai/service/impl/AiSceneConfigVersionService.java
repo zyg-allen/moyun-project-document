@@ -43,7 +43,7 @@ public class AiSceneConfigVersionService {
     /**
      * 新增配置并落首版快照（config_version=1）
      */
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public void createWithSnapshot(AiSceneConfig config, String operator) {
         config.setConfigVersion(1);
         configMapper.insert(config);
@@ -53,7 +53,7 @@ public class AiSceneConfigVersionService {
     /**
      * 更新配置：快照旧版本 → config_version+1 → 更新（同一事务，原子生效）
      */
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public void updateWithSnapshot(AiSceneConfig incoming, String operator) {
         AiSceneConfig before = configMapper.selectById(incoming.getId());
         if (before == null) {
@@ -79,7 +79,7 @@ public class AiSceneConfigVersionService {
      *
      * @return 回滚后的当前配置
      */
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public AiSceneConfig rollback(Long configId, Integer targetVersion, String operator) {
         AiSceneConfig current = configMapper.selectById(configId);
         if (current == null) {

@@ -1109,6 +1109,7 @@ public class PortalInterviewServiceImpl implements IPortalInterviewService {
      * 采纳时为提交者记录 note_adopted 成长事件
      */
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public Map<String, Object> adoptSubmission(Long submissionId, boolean isFeatured) {
         PortalInterviewSubmission submission = submissionMapper.selectById(submissionId);
         if (submission == null) throw new ServiceException("提交记录不存在");
@@ -1126,10 +1127,15 @@ public class PortalInterviewServiceImpl implements IPortalInterviewService {
         result.put("affected", rows);
         result.put("isFeatured", isFeatured);
 
-        // 仅在"未采纳 → 采纳"时记录成长事件，避免重复
-        if (rows > 0 && isFeatured && !wasFeatured && submission.getUserId() != null) {
-            portalGrowthService.recordEvent("interview", "note_adopted",
-                    submission.getUserId(), "submission", submissionId);
+        // v13.16：状态真正翻转时才动统计与成长事件（幂等：重复采纳同一篇不再累加计数）
+        //   - 精选笔记数固定 ±1（唯一写入源 updateNoteAdoptedCount，内部校验影响行数）
+        //   - 成长事件只在"未采纳 → 采纳"时记录，避免重复加成长值
+        if (rows > 0 && isFeatured != wasFeatured && submission.getUserId() != null) {
+            portalGrowthService.updateNoteAdoptedCount(submission.getUserId(), isFeatured ? 1 : -1);
+            if (isFeatured) {
+                portalGrowthService.recordEvent("interview", "note_adopted",
+                        submission.getUserId(), "submission", submissionId);
+            }
         }
 
         result.put("message", isFeatured ? "已采纳为精选笔记" : "已取消精选");

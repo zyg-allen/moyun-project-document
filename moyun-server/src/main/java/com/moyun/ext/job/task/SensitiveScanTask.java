@@ -121,7 +121,7 @@ public class SensitiveScanTask {
     }
 
     /**
-     * 扫描已发布观点（is_deleted=0），命中敏感词则软删并通知作者。
+     * 扫描已发布观点（del_flag='0'），命中敏感词则软删并通知作者。
      * <p>观点无审核流，命中即软删，与发布时拦截策略一致。</p>
      */
     public void scanTopicPosts() {
@@ -131,7 +131,7 @@ public class SensitiveScanTask {
         Long lastId = 0L;
         while (true) {
             LambdaQueryWrapper<PortalTopicPost> qw = new LambdaQueryWrapper<>();
-            qw.eq(PortalTopicPost::getIsDeleted, 0)
+            qw.eq(PortalTopicPost::getDelFlag, "0")
                     .gt(PortalTopicPost::getId, lastId)
                     .orderByAsc(PortalTopicPost::getId)
                     .last("LIMIT " + BATCH_SIZE);
@@ -147,11 +147,11 @@ public class SensitiveScanTask {
                             "topic_post", post.getId(), post.getUserId(), post.getContent(), "block");
                     if (hits != null && !hits.isEmpty()) {
                         hitCount++;
-                        // 软删（乐观锁：仅 is_deleted=0 可软删，避免并发重复处理）
+                        // 软删（乐观锁：仅 del_flag='0' 可软删，避免并发重复处理）
                         LambdaUpdateWrapper<PortalTopicPost> uw = new LambdaUpdateWrapper<>();
                         uw.eq(PortalTopicPost::getId, post.getId())
-                                .eq(PortalTopicPost::getIsDeleted, 0)
-                                .set(PortalTopicPost::getIsDeleted, 1)
+                                .eq(PortalTopicPost::getDelFlag, "0")
+                                .set(PortalTopicPost::getDelFlag, "2")
                                 .set(PortalTopicPost::getUpdatedTime, LocalDateTime.now());
                         int rows = topicPostMapper.update(null, uw);
                         if (rows > 0) {

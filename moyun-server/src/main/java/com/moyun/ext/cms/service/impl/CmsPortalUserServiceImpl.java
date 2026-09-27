@@ -212,7 +212,7 @@ public class CmsPortalUserServiceImpl implements ICmsPortalUserService
         stats.setTopicPosts(safeCount(() -> portalTopicPostMapper.selectCount(
                 new LambdaQueryWrapper<PortalTopicPost>()
                         .eq(PortalTopicPost::getUserId, id)
-                        .eq(PortalTopicPost::getIsDeleted, 0))));
+                        .eq(PortalTopicPost::getDelFlag, "0"))));
         stats.setBookmarksArticle(safeCount(() -> portalBookmarkMapper.selectCount(
                 new LambdaQueryWrapper<PortalBookmark>()
                         .eq(PortalBookmark::getUserId, id))));

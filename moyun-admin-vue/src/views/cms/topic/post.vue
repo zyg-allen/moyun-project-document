@@ -62,8 +62,8 @@
       </el-table-column>
       <el-table-column label="是否删除" width="100">
         <template #default="{ row }">
-          <el-tag :type="row.isDeleted ? 'danger' : 'success'">
-            {{ row.isDeleted ? '已删除' : '正常' }}
+          <el-tag :type="row.delFlag === '2' ? 'danger' : 'success'">
+            {{ row.delFlag === '2' ? '已删除' : '正常' }}
           </el-tag>
         </template>
       </el-table-column>

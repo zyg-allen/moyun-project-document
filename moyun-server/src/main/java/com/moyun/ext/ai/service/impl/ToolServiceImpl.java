@@ -72,7 +72,7 @@ public class ToolServiceImpl implements ToolService {
     }
 
     @Override
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public void bindToolsToAgent(Long agentId, List<Long> toolIds) {
         // 先删除原有关联
         agentToolRelationMapper.delete(

@@ -85,7 +85,12 @@ public class UserProfileSnapshotServiceImpl implements IUserProfileSnapshotServi
             String json = toJson(weakTags);
             // 确保统计行存在
             userStatsMapper.insertIfNotExists(userId);
-            userStatsMapper.updateWeakTags(userId, json);
+            // v13.16：本方法按设计是"最佳努力"（失败只告警不回滚主流程），但 0 行同样必须**可见**，
+            // 否则薄弱点画像会静默不落库（历史实现只捕获异常，静默 0 行无任何痕迹）
+            int updated = userStatsMapper.updateWeakTags(userId, json);
+            if (updated == 0) {
+                log.error("[WeakTags] 用户统计行缺失，薄弱点未落库：userId={}", userId);
+            }
         } catch (Exception e) {
             log.warn("[WeakTags] 刷新用户 {} 薄弱点失败：{}", userId, e.getMessage());
         }

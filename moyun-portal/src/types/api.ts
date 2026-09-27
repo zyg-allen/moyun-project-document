@@ -2196,7 +2196,8 @@ export interface TopicPost {
   floor: number;
   likeCount: number;
   commentCount: number;
-  isDeleted: number;
+  /** 软删标记（v13.13 起统一为 del_flag：'0'=存在 / '2'=删除） */
+  delFlag: string;
   createdTime: string;
   isLiked?: boolean;
   isOwner?: boolean;
@@ -2217,7 +2218,8 @@ export interface TopicComment {
   replyToUser?: { id: number; nickname: string };
   likeCount: number;
   replyCount: number;
-  isDeleted: number;
+  /** 软删标记（v13.13 起统一为 del_flag：'0'=存在 / '2'=删除） */
+  delFlag: string;
   createdTime: string;
   isLiked?: boolean;
   replies?: TopicComment[];

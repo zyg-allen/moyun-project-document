@@ -30,8 +30,6 @@ import com.moyun.portal.domain.entity.PortalInterviewCompany;
 import com.moyun.portal.domain.entity.PortalInterviewQuestion;
 import com.moyun.portal.domain.entity.PortalInterviewSubmission;
 import com.moyun.portal.mapper.PortalInterviewSubmissionMapper;
-import com.moyun.portal.mapper.PortalUserStatsMapper;
-import com.moyun.portal.service.IPortalGrowthService;
 import com.moyun.portal.service.IPortalImportTemplateConfigService;
 import com.moyun.portal.service.IPortalTagService;
 import com.moyun.util.bean.PageUtils;
@@ -57,12 +55,6 @@ public class CmsInterviewController extends BaseController {
 
     @Autowired
     private PortalInterviewSubmissionMapper portalInterviewSubmissionMapper;
-
-    @Autowired
-    private IPortalGrowthService portalGrowthService;
-
-    @Autowired
-    private PortalUserStatsMapper portalUserStatsMapper;
 
     @Autowired
     private IPortalTagService portalTagService;
@@ -157,7 +149,7 @@ public class CmsInterviewController extends BaseController {
         List<com.moyun.portal.domain.entity.PortalImportTemplateConfig> configs =
                 importTemplateConfigService.selectEnabledByBusinessKey("interview_question");
         if (configs != null && !configs.isEmpty()) {
-            com.moyun.util.file.ImportExportHelper.writeDynamicTemplate(
+            com.moyun.ext.cms.util.ImportExportHelper.writeDynamicTemplate(
                     response, "面试题目导入模板", "题目模板", configs);
         } else {
             ExcelUtil<PortalInterviewQuestion> util = new ExcelUtil<>(PortalInterviewQuestion.class);
@@ -219,7 +211,7 @@ public class CmsInterviewController extends BaseController {
             }
         }
         // 动态模板：用 ImportExportHelper 解析（保留字段名映射，便于失败回导）
-        List<Map<String, String>> rows = com.moyun.util.file.ImportExportHelper.readRows(file.getInputStream(), configs);
+        List<Map<String, String>> rows = com.moyun.ext.cms.util.ImportExportHelper.readRows(file.getInputStream(), configs);
         ImportResult result = portalInterviewService.importQuestions(rows, getUsername());
         return success(result);
     }
@@ -244,7 +236,7 @@ public class CmsInterviewController extends BaseController {
             response.getWriter().write("{\"msg\":\"未配置导入模板字段，无法导出失败行\"}");
             return;
         }
-        com.moyun.util.file.ImportExportHelper.writeFailRows(
+        com.moyun.ext.cms.util.ImportExportHelper.writeFailRows(
                 response, "面试题目失败行", "失败行", configs,
                 body.getFailRows() == null ? java.util.Collections.emptyList() : body.getFailRows()
         );
@@ -376,18 +368,10 @@ public class CmsInterviewController extends BaseController {
     @PutMapping("/submission/featured")
     public AjaxResult featureSubmission(@RequestBody Map<String, Object> body) {
         Long id = Long.valueOf(String.valueOf(body.get("id")));
-        int rows = portalInterviewSubmissionMapper.updateFeatured(id, true);
-        if (rows > 0) {
-            PortalInterviewSubmission submission = portalInterviewSubmissionMapper.selectById(id);
-            if (submission != null && submission.getUserId() != null) {
-                Long userId = submission.getUserId();
-                // 触发 note_adopted 成长事件
-                portalGrowthService.recordEvent("interview", "note_adopted", userId, "submission", id);
-                // 更新用户统计：笔记被精选数 +1
-                portalUserStatsMapper.addNoteAdopted(userId, 1);
-            }
-        }
-        return toAjax(rows);
+        // v13.16：收敛到 Service 的 adoptSubmission —— 精选状态 + 精选笔记数 + 成长事件在同一事务内，
+        // 且只在状态真正翻转时计数（历史实现：控制器直接改 mapper + 再 +1，与 updateStats 双重计数、重复采纳持续累加）
+        Map<String, Object> result = portalInterviewService.adoptSubmission(id, true);
+        return toAjax(((Number) result.get("affected")).intValue());
     }
 
     @Operation(summary = "取消精选笔记", description = "取消笔记的精选状态")
@@ -396,16 +380,8 @@ public class CmsInterviewController extends BaseController {
     @PutMapping("/submission/unfeatured")
     public AjaxResult unfeatureSubmission(@RequestBody Map<String, Object> body) {
         Long id = Long.valueOf(String.valueOf(body.get("id")));
-        int rows = portalInterviewSubmissionMapper.updateFeatured(id, false);
-        if (rows > 0) {
-            PortalInterviewSubmission submission = portalInterviewSubmissionMapper.selectById(id);
-            if (submission != null && submission.getUserId() != null) {
-                Long userId = submission.getUserId();
-                // 取消精选不扣成长值，只减统计
-                portalUserStatsMapper.addNoteAdopted(userId, -1);
-            }
-        }
-        return toAjax(rows);
+        Map<String, Object> result = portalInterviewService.adoptSubmission(id, false);
+        return toAjax(((Number) result.get("affected")).intValue());
     }
 
 }

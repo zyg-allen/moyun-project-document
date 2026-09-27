@@ -3,7 +3,6 @@ package com.moyun.portal.domain.entity;
 import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
-import com.baomidou.mybatisplus.annotation.TableLogic;
 import com.baomidou.mybatisplus.annotation.TableName;
 import com.fasterxml.jackson.annotation.JsonFormat;
 import com.moyun.core.base.BaseEntity;
@@ -54,17 +53,6 @@ public class PortalTopicComment extends BaseEntity {
     /** 回复数（仅一级评论维护） */
     private Integer replyCount;
 
-    /**
-     * 软删：0 否/1 是
-     * <p>
-     * 本表使用 is_deleted（tinyint 0/1）而非全局 del_flag（char "0"/"2"）管理逻辑删除，
-     * 因此在字段上显式声明 @TableLogic 覆盖全局 logic-delete-field=delFlag 配置，
-     * 让 BaseMapper 通用方法（selectById/selectList/deleteById 等）自动追加 is_deleted = 0 过滤。
-     * Mapper 中已有的手写 SQL 不受影响（仍显式带 is_deleted = 0）。
-     */
-    @TableLogic(value = "0", delval = "1")
-    private Integer isDeleted;
-
     /** 创建时间 */
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime createdTime;
@@ -84,7 +72,6 @@ public class PortalTopicComment extends BaseEntity {
     private LocalDateTime updateTime;
     @TableField(exist = false)
     private String remark;
-    // 覆盖 BaseEntity 的 delFlag：本表用 is_deleted 字段管理删除，不走 MyBatis-Plus 全局逻辑删除
-    @TableField(exist = false)
-    private String delFlag;
+    // delFlag 不再覆盖：v13.13 起本表软删列已统一为 del_flag(char '0'/'2')，
+    // 直接继承 BaseEntity 的 delFlag + 全局 logic-delete-field 配置（由 MyBatis-Plus 自动过滤/置删）
 }

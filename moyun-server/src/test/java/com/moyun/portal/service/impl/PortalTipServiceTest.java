@@ -79,6 +79,8 @@ class PortalTipServiceTest {
         ReflectionTestUtils.setField(service, "payGateway", payGateway);
         // 积分打赏默认成功扣分（WHERE points >= delta 命中）
         when(growthMapper.deductPoints(anyLong(), anyInt())).thenReturn(1);
+        // v13.16：作者积分入账默认成功（新增影响行数校验，0 行即回滚整笔打赏）
+        when(growthMapper.addPoints(anyLong(), anyInt())).thenReturn(1);
     }
 
     private PortalArticle article(Long authorId) {
@@ -199,6 +201,22 @@ class PortalTipServiceTest {
         assertEquals("POINTS_INSUFFICIENT", ex.getCode());
         // 关键资金安全断言：扣分失败后不得给作者加分、不得落订单
         verify(growthMapper, never()).addPoints(anyLong(), anyInt());
+        verify(tipOrderMapper, never()).insert(any(PortalTipOrder.class));
+    }
+
+    @Test
+    @DisplayName("作者积分入账 0 行（聚合行缺失）：抛 POINTS_CREDIT_FAILED，整笔打赏回滚，不落订单")
+    void authorCreditZeroRowsFailsClosed() {
+        when(articleMapper.selectPortalArticleById(10L)).thenReturn(article(2L));
+        // 打赏者扣分成功，但作者 addPoints 命中 0 行（INSERT IGNORE 静默失败导致成长行缺失）
+        when(growthMapper.addPoints(2L, 50)).thenReturn(0);
+
+        BusinessException ex = assertThrows(BusinessException.class,
+                () -> service.toggleTipOrList(tipOrder(1L, "article", 10L, "50")));
+        assertEquals("POINTS_CREDIT_FAILED", ex.getCode());
+        // v13.16 不变量：入账失败必须 fail-closed —— 不能出现"扣了没入账"，
+        // 且订单不落库（方法级事务会整体回滚打赏者的扣分）
+        verify(growthMapper).deductPoints(1L, 50);
         verify(tipOrderMapper, never()).insert(any(PortalTipOrder.class));
     }
 

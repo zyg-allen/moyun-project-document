@@ -156,7 +156,7 @@ public class ReportTakedownServiceImpl implements IReportTakedownService {
     }
 
     /**
-     * 话题观点下架：is_deleted=1（软删）
+     * 话题观点下架：del_flag='2'（软删）
      */
     private boolean takedownTopicPost(Long postId, String handler) {
         PortalTopicPost existing = topicPostMapper.selectById(postId);
@@ -166,7 +166,7 @@ public class ReportTakedownServiceImpl implements IReportTakedownService {
         }
         LambdaUpdateWrapper<PortalTopicPost> uw = new LambdaUpdateWrapper<>();
         uw.eq(PortalTopicPost::getId, postId)
-                .set(PortalTopicPost::getIsDeleted, 1)
+                .set(PortalTopicPost::getDelFlag, "2")
                 .set(PortalTopicPost::getUpdatedTime, LocalDateTime.now());
         int rows = topicPostMapper.update(null, uw);
         log.info("举报联动下架-话题观点：postId={}, rows={}, handler={}", postId, rows, handler);
@@ -174,7 +174,7 @@ public class ReportTakedownServiceImpl implements IReportTakedownService {
     }
 
     /**
-     * 话题评论下架：is_deleted=1（软删）
+     * 话题评论下架：del_flag='2'（软删）
      */
     private boolean takedownTopicComment(Long commentId, String handler) {
         PortalTopicComment existing = topicCommentMapper.selectById(commentId);
@@ -184,7 +184,7 @@ public class ReportTakedownServiceImpl implements IReportTakedownService {
         }
         LambdaUpdateWrapper<PortalTopicComment> uw = new LambdaUpdateWrapper<>();
         uw.eq(PortalTopicComment::getId, commentId)
-                .set(PortalTopicComment::getIsDeleted, 1)
+                .set(PortalTopicComment::getDelFlag, "2")
                 .set(PortalTopicComment::getUpdatedTime, LocalDateTime.now());
         int rows = topicCommentMapper.update(null, uw);
         log.info("举报联动下架-话题评论：commentId={}, rows={}, handler={}", commentId, rows, handler);

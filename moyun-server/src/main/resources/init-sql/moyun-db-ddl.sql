@@ -261,21 +261,21 @@ drop table if exists `ai_reference_feedback`;
 CREATE TABLE `ai_reference_feedback` (
                                          `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键ID',
                                          `knowledge_base_id` bigint DEFAULT NULL COMMENT '知识库ID',
-                                         `file_name` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '文件名',
+                                         `file_name` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '文件名',
                                          `page_number` int DEFAULT NULL COMMENT '页码',
                                          `segment_index` int DEFAULT NULL COMMENT '分片索引',
-                                         `user_query` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci COMMENT '用户查询',
+                                         `user_query` text CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci COMMENT '用户查询',
                                          `rerank_score` double DEFAULT NULL COMMENT '重排分数',
                                          `vector_score` double DEFAULT NULL COMMENT '向量相似度',
-                                         `feedback_type` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '反馈类型：accurate(准确), inaccurate(不准确)',
+                                         `feedback_type` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '反馈类型：accurate(准确), inaccurate(不准确)',
                                          `agent_id` bigint DEFAULT NULL COMMENT '智能体ID',
-                                         `memory_id` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '会话ID',
+                                         `memory_id` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '会话ID',
                                          `create_time` datetime DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
                                          PRIMARY KEY (`id`) USING BTREE,
                                          KEY `idx_knowledge_base_id` (`knowledge_base_id`) USING BTREE,
                                          KEY `idx_feedback_type` (`feedback_type`) USING BTREE,
                                          KEY `idx_create_time` (`create_time`) USING BTREE
-) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci ROW_FORMAT=DYNAMIC COMMENT='参考来源反馈表';
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci ROW_FORMAT=DYNAMIC COMMENT='参考来源反馈表';
 
 
 -- `moyun-db`.ai_scene_config definition
@@ -406,11 +406,11 @@ CREATE TABLE `ai_tool_call_log` (
 drop table if exists `ai_workflow`;
 CREATE TABLE `ai_workflow` (
                                `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键ID',
-                               `name` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '工作流名称',
-                               `description` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '工作流描述',
-                               `graph_data` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci COMMENT '工作流图定义(JSON)',
-                               `variables` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci COMMENT '全局变量定义(JSON)',
-                               `status` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT 'draft' COMMENT '状态: draft-草稿, published-已发布, disabled-已禁用',
+                               `name` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '工作流名称',
+                               `description` varchar(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '工作流描述',
+                               `graph_data` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci COMMENT '工作流图定义(JSON)',
+                               `variables` text CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci COMMENT '全局变量定义(JSON)',
+                               `status` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT 'draft' COMMENT '状态: draft-草稿, published-已发布, disabled-已禁用',
                                `version` int DEFAULT '1' COMMENT '版本号',
                                `enabled` tinyint(1) DEFAULT '0' COMMENT '是否启用',
                                `create_time` datetime DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
@@ -420,7 +420,7 @@ CREATE TABLE `ai_workflow` (
                                KEY `idx_status` (`status`) USING BTREE,
                                KEY `idx_enabled` (`enabled`) USING BTREE,
                                KEY `idx_deleted` (`deleted`)
-) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci ROW_FORMAT=DYNAMIC COMMENT='工作流定义表';
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci ROW_FORMAT=DYNAMIC COMMENT='工作流定义表';
 
 
 -- `moyun-db`.gen_table definition
@@ -533,12 +533,12 @@ drop table if exists `ledger_asset_account`;
 CREATE TABLE `ledger_asset_account` (
                                         `id` bigint NOT NULL AUTO_INCREMENT COMMENT '资产账户ID',
                                         `user_id` bigint NOT NULL COMMENT '门户用户ID（portal_user.id）',
-                                        `name` varchar(100) COLLATE utf8mb4_general_ci NOT NULL COMMENT '账户名称，如"招商银行储蓄卡"',
-                                        `type` varchar(20) COLLATE utf8mb4_general_ci NOT NULL COMMENT '类型：cash/savings/ewallet/stored_value/investment/fixed_asset/receivable/other',
+                                        `name` varchar(100) COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '账户名称，如"招商银行储蓄卡"',
+                                        `type` varchar(20) COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '类型：cash/savings/ewallet/stored_value/investment/fixed_asset/receivable/other',
                                         `balance` decimal(18,2) NOT NULL DEFAULT '0.00' COMMENT '当前余额（元）',
                                         `valuation` decimal(18,2) DEFAULT NULL COMMENT '估值（元；投资/固定资产用，可≠balance）',
                                         `include_in_total` tinyint NOT NULL DEFAULT '1' COMMENT '是否计入总资产：1=是 0=否',
-                                        `icon` varchar(50) COLLATE utf8mb4_general_ci DEFAULT NULL COMMENT '图标',
+                                        `icon` varchar(50) COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '图标',
                                         `hide_balance` tinyint NOT NULL DEFAULT '0' COMMENT '是否隐藏余额（隐私模式）：1=是 0=否',
                                         `sort_order` int NOT NULL DEFAULT '0' COMMENT '排序',
                                         `status` tinyint NOT NULL DEFAULT '1' COMMENT '状态：1=启用 0=停用归档（删除即归档，流水永久保留）',
@@ -547,7 +547,7 @@ CREATE TABLE `ledger_asset_account` (
                                         `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
                                         PRIMARY KEY (`id`),
                                         KEY `idx_user` (`user_id`,`status`)
-) ENGINE=InnoDB  AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='记账-资产账户';
+) ENGINE=InnoDB  AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='记账-资产账户';
 
 
 -- `moyun-db`.ledger_budget definition
@@ -563,7 +563,7 @@ CREATE TABLE `ledger_budget` (
                                  `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
                                  PRIMARY KEY (`id`),
                                  KEY `idx_user_period` (`user_id`,`year`,`month`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='记账-预算';
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='记账-预算';
 
 
 -- `moyun-db`.ledger_category definition
@@ -571,12 +571,12 @@ drop table if exists `ledger_category`;
 CREATE TABLE `ledger_category` (
                                    `id` bigint NOT NULL AUTO_INCREMENT COMMENT '分类ID',
                                    `user_id` bigint NOT NULL DEFAULT '0' COMMENT '0=系统预设，>0=用户自定义（portal_user.id）',
-                                   `name` varchar(50) COLLATE utf8mb4_general_ci NOT NULL COMMENT '分类名称',
-                                   `type` varchar(10) COLLATE utf8mb4_general_ci NOT NULL COMMENT '类型：income/expense',
-                                   `group_name` varchar(50) COLLATE utf8mb4_general_ci DEFAULT NULL COMMENT '语义分组（前端展示分组用）',
+                                   `name` varchar(50) COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '分类名称',
+                                   `type` varchar(10) COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '类型：income/expense',
+                                   `group_name` varchar(50) COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '语义分组（前端展示分组用）',
                                    `parent_id` bigint DEFAULT NULL COMMENT '父分类ID（支持二级分类）',
-                                   `icon` varchar(50) COLLATE utf8mb4_general_ci DEFAULT NULL COMMENT '图标',
-                                   `color` varchar(20) COLLATE utf8mb4_general_ci DEFAULT NULL COMMENT '颜色',
+                                   `icon` varchar(50) COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '图标',
+                                   `color` varchar(20) COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '颜色',
                                    `sort_order` int NOT NULL DEFAULT '0' COMMENT '排序',
                                    `is_system` tinyint NOT NULL DEFAULT '0' COMMENT '系统预设：1=是（仅后台可维护） 0=自定义',
                                    `status` tinyint NOT NULL DEFAULT '1' COMMENT '状态：1=启用 0=停用',
@@ -584,7 +584,7 @@ CREATE TABLE `ledger_category` (
                                    `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
                                    PRIMARY KEY (`id`),
                                    KEY `idx_user_type` (`user_id`,`type`,`status`)
-) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='记账-分类（系统预设+用户自定义）';
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='记账-分类（系统预设+用户自定义）';
 
 
 -- `moyun-db`.ledger_liability_account definition
@@ -592,8 +592,8 @@ drop table if exists `ledger_liability_account`;
 CREATE TABLE `ledger_liability_account` (
                                             `id` bigint NOT NULL AUTO_INCREMENT COMMENT '负债账户ID',
                                             `user_id` bigint NOT NULL COMMENT '门户用户ID（portal_user.id）',
-                                            `name` varchar(100) COLLATE utf8mb4_general_ci NOT NULL COMMENT '负债名称，如"招行信用卡"',
-                                            `type` varchar(20) COLLATE utf8mb4_general_ci NOT NULL COMMENT '类型：credit_card/consumer_loan/bank_loan/personal_loan/other',
+                                            `name` varchar(100) COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '负债名称，如"招行信用卡"',
+                                            `type` varchar(20) COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '类型：credit_card/consumer_loan/bank_loan/personal_loan/other',
                                             `balance` decimal(18,2) NOT NULL DEFAULT '0.00' COMMENT '当前欠款（元）',
                                             `principal` decimal(18,2) DEFAULT NULL COMMENT '初始本金（元）',
                                             `annual_rate` decimal(10,4) DEFAULT NULL COMMENT '年利率（%）',
@@ -603,7 +603,7 @@ CREATE TABLE `ledger_liability_account` (
                                             `repayment_day` tinyint DEFAULT NULL COMMENT '还款日（每月几号，1-28）',
                                             `due_date` date DEFAULT NULL COMMENT '到期日',
                                             `include_in_total` tinyint NOT NULL DEFAULT '1' COMMENT '是否计入总负债：1=是 0=否',
-                                            `icon` varchar(50) COLLATE utf8mb4_general_ci DEFAULT NULL COMMENT '图标',
+                                            `icon` varchar(50) COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '图标',
                                             `sort_order` int NOT NULL DEFAULT '0' COMMENT '排序',
                                             `status` tinyint NOT NULL DEFAULT '1' COMMENT '状态：1=启用 0=停用归档（手动删除）',
                                             `settle_flag` tinyint NOT NULL DEFAULT '0' COMMENT '已结清：1=是 0=否（还款至0自动置位；归档展示、不计入当前总负债）',
@@ -612,7 +612,7 @@ CREATE TABLE `ledger_liability_account` (
                                             `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
                                             PRIMARY KEY (`id`),
                                             KEY `idx_user` (`user_id`,`status`)
-) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='记账-负债账户';
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='记账-负债账户';
 
 
 -- `moyun-db`.ledger_memo definition
@@ -620,13 +620,13 @@ drop table if exists `ledger_memo`;
 CREATE TABLE `ledger_memo` (
                                `id` bigint NOT NULL AUTO_INCREMENT COMMENT '备忘录ID',
                                `user_id` bigint NOT NULL COMMENT '门户用户ID（portal_user.id）',
-                               `title` varchar(100) COLLATE utf8mb4_general_ci NOT NULL COMMENT '事项标题',
-                               `content` varchar(500) COLLATE utf8mb4_general_ci NOT NULL COMMENT '待办内容',
+                               `title` varchar(100) COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '事项标题',
+                               `content` varchar(500) COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '待办内容',
                                `done` tinyint NOT NULL DEFAULT '0' COMMENT '完成状态：1=已完成 0=未完成',
                                `event_time` datetime DEFAULT NULL COMMENT '事项时间（提醒基准时间）',
                                `remind_enabled` tinyint NOT NULL DEFAULT '0' COMMENT '是否提醒：1=是 0=否',
-                               `remind_rule` varchar(20) COLLATE utf8mb4_general_ci DEFAULT NULL COMMENT '提醒方式：on_time=准时 advance_30m=提前30分钟 advance_1h=提前1小时 advance_2h=提前2小时 advance_1d=提前1天 advance_1d_9am=提前一天上午9点',
-                               `importance` varchar(10) COLLATE utf8mb4_general_ci NOT NULL DEFAULT 'normal' COMMENT '重要程度：low=不重要 normal=一般 high=重要 urgent=紧急',
+                               `remind_rule` varchar(20) COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '提醒方式：on_time=准时 advance_30m=提前30分钟 advance_1h=提前1小时 advance_2h=提前2小时 advance_1d=提前1天 advance_1d_9am=提前一天上午9点',
+                               `importance` varchar(10) COLLATE utf8mb4_0900_ai_ci NOT NULL DEFAULT 'normal' COMMENT '重要程度：low=不重要 normal=一般 high=重要 urgent=紧急',
                                `reminded` tinyint NOT NULL DEFAULT '0' COMMENT '提醒是否已发送：1=已发 0=未发（防重复）',
                                `todo_date` date DEFAULT NULL COMMENT '创建日期',
                                `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
@@ -634,7 +634,7 @@ CREATE TABLE `ledger_memo` (
                                PRIMARY KEY (`id`),
                                KEY `idx_user_done` (`user_id`,`done`),
                                KEY `idx_user_remind` (`remind_enabled`,`done`,`reminded`)
-) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='记账-备忘录（待办事项）';
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='记账-备忘录（待办事项）';
 
 
 -- `moyun-db`.ledger_net_worth_snapshot definition
@@ -649,7 +649,7 @@ CREATE TABLE `ledger_net_worth_snapshot` (
                                              `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
                                              PRIMARY KEY (`id`),
                                              UNIQUE KEY `uk_user_date` (`user_id`,`snap_date`)
-) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='记账-净资产每日快照';
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='记账-净资产每日快照';
 
 
 -- `moyun-db`.ledger_saving_plan definition
@@ -657,8 +657,8 @@ drop table if exists `ledger_saving_plan`;
 CREATE TABLE `ledger_saving_plan` (
                                       `id` bigint NOT NULL AUTO_INCREMENT COMMENT '计划ID',
                                       `user_id` bigint NOT NULL COMMENT '门户用户ID（portal_user.id）',
-                                      `name` varchar(100) COLLATE utf8mb4_general_ci NOT NULL COMMENT '计划名称，如"买房基金"',
-                                      `method` varchar(20) COLLATE utf8mb4_general_ci NOT NULL COMMENT '存钱方式：52week/fixed/monthly/custom',
+                                      `name` varchar(100) COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '计划名称，如"买房基金"',
+                                      `method` varchar(20) COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '存钱方式：52week/fixed/monthly/custom',
                                       `target_amount` decimal(18,2) NOT NULL COMMENT '目标金额（元）',
                                       `current_amount` decimal(18,2) NOT NULL DEFAULT '0.00' COMMENT '当前已存金额（元）',
                                       `period_amount` decimal(18,2) DEFAULT NULL COMMENT '每期金额（元；fixed/monthly 用）',
@@ -666,13 +666,13 @@ CREATE TABLE `ledger_saving_plan` (
                                       `increase_step` decimal(18,2) DEFAULT NULL COMMENT '每期递增金额（元；custom 自定义递增规则用）',
                                       `start_date` date NOT NULL COMMENT '开始日期',
                                       `end_date` date DEFAULT NULL COMMENT '结束日期（可选）',
-                                      `remark` varchar(200) COLLATE utf8mb4_general_ci DEFAULT NULL COMMENT '备注',
+                                      `remark` varchar(200) COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '备注',
                                       `status` tinyint NOT NULL DEFAULT '1' COMMENT '状态：1=进行中 2=成功 3=失败 0=已删除',
                                       `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
                                       `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
                                       PRIMARY KEY (`id`),
                                       KEY `idx_user_status` (`user_id`,`status`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='记账-存钱计划';
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='记账-存钱计划';
 
 
 -- `moyun-db`.ledger_saving_record definition
@@ -685,15 +685,15 @@ CREATE TABLE `ledger_saving_record` (
                                         `target_amount` decimal(18,2) NOT NULL COMMENT '本期应存金额（元）',
                                         `amount` decimal(18,2) DEFAULT NULL COMMENT '实际存入金额（元；成功时记录）',
                                         `status` tinyint NOT NULL DEFAULT '0' COMMENT '状态：0=待存 1=成功 2=失败',
-                                        `fail_reason` varchar(200) COLLATE utf8mb4_general_ci DEFAULT NULL COMMENT '失败原因（如余额不足）',
-                                        `remark` varchar(200) COLLATE utf8mb4_general_ci DEFAULT NULL COMMENT '备注',
+                                        `fail_reason` varchar(200) COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '失败原因（如余额不足）',
+                                        `remark` varchar(200) COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '备注',
                                         `record_date` date DEFAULT NULL COMMENT '存入/失败日期',
                                         `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
                                         `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
                                         PRIMARY KEY (`id`),
                                         KEY `idx_plan` (`plan_id`,`period_index`),
                                         KEY `idx_user` (`user_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='记账-存钱流水';
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='记账-存钱流水';
 
 
 -- `moyun-db`.ledger_schedule_log definition
@@ -705,14 +705,14 @@ CREATE TABLE `ledger_schedule_log` (
                                        `exec_date` date NOT NULL COMMENT '执行日期',
                                        `amount` decimal(18,2) NOT NULL COMMENT '金额（元）',
                                        `status` tinyint NOT NULL COMMENT '状态：1=成功 2=失败',
-                                       `fail_reason` varchar(200) COLLATE utf8mb4_general_ci DEFAULT NULL COMMENT '失败原因（如余额不足）',
+                                       `fail_reason` varchar(200) COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '失败原因（如余额不足）',
                                        `transaction_id` bigint DEFAULT NULL COMMENT '生成的流水ID（ledger_transaction.id）',
                                        `retry_count` int NOT NULL DEFAULT '0' COMMENT '重试次数',
                                        `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
                                        PRIMARY KEY (`id`),
                                        UNIQUE KEY `uk_task_date` (`task_id`,`exec_date`),
                                        KEY `idx_user` (`user_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='记账-定时记账执行日志';
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='记账-定时记账执行日志';
 
 
 -- `moyun-db`.ledger_schedule_task definition
@@ -720,17 +720,17 @@ drop table if exists `ledger_schedule_task`;
 CREATE TABLE `ledger_schedule_task` (
                                         `id` bigint NOT NULL AUTO_INCREMENT COMMENT '任务ID',
                                         `user_id` bigint NOT NULL COMMENT '门户用户ID（portal_user.id）',
-                                        `name` varchar(100) COLLATE utf8mb4_general_ci NOT NULL COMMENT '任务名称',
-                                        `type` varchar(20) COLLATE utf8mb4_general_ci NOT NULL COMMENT '记账类型：income/expense',
+                                        `name` varchar(100) COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '任务名称',
+                                        `type` varchar(20) COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '记账类型：income/expense',
                                         `amount` decimal(18,2) NOT NULL COMMENT '金额（元）',
                                         `category_id` bigint DEFAULT NULL COMMENT '分类ID（ledger_category）',
                                         `account_id` bigint DEFAULT NULL COMMENT '关联资产账户ID（支出扣款/收入入账）',
-                                        `description` varchar(200) COLLATE utf8mb4_general_ci DEFAULT NULL COMMENT '备注',
-                                        `cycle` varchar(20) COLLATE utf8mb4_general_ci NOT NULL COMMENT '执行周期：daily/weekly/monthly/interval',
+                                        `description` varchar(200) COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '备注',
+                                        `cycle` varchar(20) COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '执行周期：daily/weekly/monthly/interval',
                                         `day_of_week` tinyint DEFAULT NULL COMMENT '每周几（1-7，weekly 用）',
                                         `day_of_month` tinyint DEFAULT NULL COMMENT '每月几号（1-28，monthly 用）',
                                         `interval_days` int DEFAULT NULL COMMENT '间隔天数（interval 用）',
-                                        `exec_time` varchar(5) COLLATE utf8mb4_general_ci NOT NULL DEFAULT '08:00' COMMENT '执行时间 HH:mm',
+                                        `exec_time` varchar(5) COLLATE utf8mb4_0900_ai_ci NOT NULL DEFAULT '08:00' COMMENT '执行时间 HH:mm',
                                         `start_date` date NOT NULL COMMENT '开始日期',
                                         `end_date` date DEFAULT NULL COMMENT '结束日期（可选，到期自动停用）',
                                         `next_exec_date` date DEFAULT NULL COMMENT '下次执行日期',
@@ -741,7 +741,7 @@ CREATE TABLE `ledger_schedule_task` (
                                         PRIMARY KEY (`id`),
                                         KEY `idx_user_status` (`user_id`,`status`),
                                         KEY `idx_next_exec` (`enabled`,`status`,`next_exec_date`)
-) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='记账-定时记账任务';
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='记账-定时记账任务';
 
 
 -- `moyun-db`.ledger_tip_order definition
@@ -750,18 +750,18 @@ CREATE TABLE `ledger_tip_order` (
                                     `id` bigint NOT NULL AUTO_INCREMENT COMMENT '打赏单ID',
                                     `user_id` bigint NOT NULL COMMENT '门户用户ID（portal_user.id）',
                                     `amount` decimal(18,2) NOT NULL COMMENT '打赏金额（元）',
-                                    `target` varchar(20) COLLATE utf8mb4_general_ci NOT NULL DEFAULT 'developer' COMMENT '打赏对象：developer=开发者 platform=平台',
-                                    `reason` varchar(200) COLLATE utf8mb4_general_ci DEFAULT NULL COMMENT '打赏理由（可选）',
-                                    `pay_channel` varchar(16) COLLATE utf8mb4_general_ci NOT NULL DEFAULT 'wechat' COMMENT '支付渠道：wechat/alipay（v11.79 与 portal_tip_order 统一命名）',
-                                    `pay_no` varchar(40) COLLATE utf8mb4_general_ci DEFAULT NULL COMMENT '关联公共通道单据号（pay_order.pay_no；演示模式为空）',
-                                    `client_uuid` varchar(64) COLLATE utf8mb4_general_ci DEFAULT NULL COMMENT '客户端幂等号（防重复提交，v11.80 对齐记一笔机制）',
-                                    `status` varchar(16) COLLATE utf8mb4_general_ci NOT NULL DEFAULT 'pending' COMMENT '状态：pending=待支付 paid=已支付（网关回调推进） refunded=已退款 closed=已关闭（v11.80 接公共通道）',
+                                    `target` varchar(20) COLLATE utf8mb4_0900_ai_ci NOT NULL DEFAULT 'developer' COMMENT '打赏对象：developer=开发者 platform=平台',
+                                    `reason` varchar(200) COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '打赏理由（可选）',
+                                    `pay_channel` varchar(16) COLLATE utf8mb4_0900_ai_ci NOT NULL DEFAULT 'wechat' COMMENT '支付渠道：wechat/alipay（v11.79 与 portal_tip_order 统一命名）',
+                                    `pay_no` varchar(40) COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '关联公共通道单据号（pay_order.pay_no；演示模式为空）',
+                                    `client_uuid` varchar(64) COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '客户端幂等号（防重复提交，v11.80 对齐记一笔机制）',
+                                    `status` varchar(16) COLLATE utf8mb4_0900_ai_ci NOT NULL DEFAULT 'pending' COMMENT '状态：pending=待支付 paid=已支付（网关回调推进） refunded=已退款 closed=已关闭（v11.80 接公共通道）',
                                     `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '打赏时间',
                                     `paid_time` datetime DEFAULT NULL COMMENT '支付完成时间（网关回调置 paid 时写入，v11.80）',
                                     PRIMARY KEY (`id`),
                                     UNIQUE KEY `uk_user_client` (`user_id`,`client_uuid`),
                                     KEY `idx_user` (`user_id`,`create_time`)
-) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='记账-打赏记录';
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='记账-打赏记录';
 
 
 -- `moyun-db`.ledger_transaction definition
@@ -769,7 +769,7 @@ drop table if exists `ledger_transaction`;
 CREATE TABLE `ledger_transaction` (
                                       `id` bigint NOT NULL AUTO_INCREMENT COMMENT '流水ID',
                                       `user_id` bigint NOT NULL COMMENT '门户用户ID（portal_user.id）',
-                                      `type` varchar(20) COLLATE utf8mb4_general_ci NOT NULL COMMENT '类型：income/expense/transfer/repayment/borrow/adjust',
+                                      `type` varchar(20) COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '类型：income/expense/transfer/repayment/borrow/adjust',
                                       `amount` decimal(18,2) NOT NULL COMMENT '金额（元；adjust可为负表示调减，其余恒为正，方向由type决定）',
                                       `category_id` bigint DEFAULT NULL COMMENT '分类ID（ledger_category）',
                                       `account_id` bigint DEFAULT NULL COMMENT '关联资产账户（支出/收入/转出方/还款扣款方/校准账户）',
@@ -778,15 +778,15 @@ CREATE TABLE `ledger_transaction` (
                                       `balance_after` decimal(18,2) DEFAULT NULL COMMENT '主账户交易后余额快照（元）',
                                       `target_balance_after` decimal(18,2) DEFAULT NULL COMMENT '转账目标账户交易后余额快照（元）',
                                       `liability_balance_after` decimal(18,2) DEFAULT NULL COMMENT '关联负债交易后欠款快照（元）',
-                                      `description` varchar(200) COLLATE utf8mb4_general_ci DEFAULT NULL COMMENT '备注',
+                                      `description` varchar(200) COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '备注',
                                       `transaction_date` date NOT NULL COMMENT '交易日期（默认当天）',
                                       `transaction_time` time DEFAULT NULL COMMENT '交易时间',
-                                      `merchant` varchar(100) COLLATE utf8mb4_general_ci DEFAULT NULL COMMENT '商户名称',
-                                      `voucher_url` varchar(500) COLLATE utf8mb4_general_ci DEFAULT NULL COMMENT '凭证截图URL（门户文件服务地址）',
+                                      `merchant` varchar(100) COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '商户名称',
+                                      `voucher_url` varchar(500) COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '凭证截图URL（门户文件服务地址）',
                                       `is_budget` tinyint NOT NULL DEFAULT '1' COMMENT '是否计入预算：1=是 0=否（adjust 默认0）',
                                       `status` tinyint NOT NULL DEFAULT '1' COMMENT '状态：1=正常 0=已删除（冲正后归档）',
-                                      `client_uuid` varchar(64) COLLATE utf8mb4_general_ci DEFAULT NULL COMMENT '客户端幂等键（Phase 4 离线同步防重复提交）',
-                                      `create_by` varchar(64) COLLATE utf8mb4_general_ci DEFAULT NULL COMMENT '创建人（门户用户名/admin 代改标识）',
+                                      `client_uuid` varchar(64) COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '客户端幂等键（Phase 4 离线同步防重复提交）',
+                                      `create_by` varchar(64) COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '创建人（门户用户名/admin 代改标识）',
                                       `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
                                       `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
                                       PRIMARY KEY (`id`),
@@ -795,30 +795,30 @@ CREATE TABLE `ledger_transaction` (
                                       KEY `idx_user_date` (`user_id`,`transaction_date`),
                                       KEY `idx_account` (`account_id`),
                                       KEY `idx_liability` (`liability_id`)
-) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='记账-流水';
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='记账-流水';
 
 
 -- `moyun-db`.pay_ledger_entry definition
 drop table if exists `pay_ledger_entry`;
 CREATE TABLE `pay_ledger_entry` (
                                     `id` bigint NOT NULL AUTO_INCREMENT COMMENT '流水ID',
-                                    `pay_no` varchar(40) COLLATE utf8mb4_general_ci NOT NULL COMMENT '关联支付单号',
-                                    `biz_type` varchar(32) COLLATE utf8mb4_general_ci NOT NULL COMMENT '业务类型：tip / withdraw',
-                                    `biz_no` varchar(64) COLLATE utf8mb4_general_ci NOT NULL COMMENT '业务单号',
-                                    `account_role` varchar(16) COLLATE utf8mb4_general_ci NOT NULL COMMENT '账户角色：USER=用户 / PLATFORM=平台',
+                                    `pay_no` varchar(40) COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '关联支付单号',
+                                    `biz_type` varchar(32) COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '业务类型：tip / withdraw',
+                                    `biz_no` varchar(64) COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '业务单号',
+                                    `account_role` varchar(16) COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '账户角色：USER=用户 / PLATFORM=平台',
                                     `user_id` bigint DEFAULT NULL COMMENT '用户ID（PLATFORM 分录为 NULL）',
-                                    `platform_code` varchar(50) COLLATE utf8mb4_general_ci DEFAULT NULL COMMENT '归属端代码',
-                                    `direction` varchar(8) COLLATE utf8mb4_general_ci NOT NULL COMMENT '方向：credit=收入 / debit=支出',
+                                    `platform_code` varchar(50) COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '归属端代码',
+                                    `direction` varchar(8) COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '方向：credit=收入 / debit=支出',
                                     `amount` decimal(18,2) NOT NULL COMMENT '金额（元）',
                                     `balance_after` decimal(18,2) DEFAULT NULL COMMENT '交易后余额（元；PLATFORM 分录不追踪余额，为 NULL）',
-                                    `summary` varchar(255) COLLATE utf8mb4_general_ci NOT NULL COMMENT '业务摘要，如"打赏收入-作者所得" / "平台服务费"',
+                                    `summary` varchar(255) COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '业务摘要，如"打赏收入-作者所得" / "平台服务费"',
                                     `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
                                     PRIMARY KEY (`id`),
                                     KEY `idx_pay_no` (`pay_no`),
                                     KEY `idx_user` (`user_id`,`create_time`),
                                     KEY `idx_role` (`account_role`,`direction`),
                                     KEY `idx_pay_ledger_platform` (`platform_code`)
-) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='分账流水（复式记账）';
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='分账流水（复式记账）';
 
 
 -- `moyun-db`.pay_notification definition
@@ -826,57 +826,57 @@ drop table if exists `pay_notification`;
 CREATE TABLE `pay_notification` (
                                     `id` bigint NOT NULL AUTO_INCREMENT COMMENT '通知ID',
                                     `user_id` bigint NOT NULL COMMENT '接收用户',
-                                    `notify_type` varchar(16) COLLATE utf8mb4_general_ci NOT NULL COMMENT '通知类型：pay=支付结果 / withdraw=提现 / account=账户',
-                                    `ref_no` varchar(64) COLLATE utf8mb4_general_ci DEFAULT NULL COMMENT '关联单号（支付单/提现单）',
-                                    `title` varchar(128) COLLATE utf8mb4_general_ci NOT NULL COMMENT '通知标题',
-                                    `content` varchar(512) COLLATE utf8mb4_general_ci NOT NULL COMMENT '通知内容',
+                                    `notify_type` varchar(16) COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '通知类型：pay=支付结果 / withdraw=提现 / account=账户',
+                                    `ref_no` varchar(64) COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '关联单号（支付单/提现单）',
+                                    `title` varchar(128) COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '通知标题',
+                                    `content` varchar(512) COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '通知内容',
                                     `read_flag` tinyint NOT NULL DEFAULT '0' COMMENT '已读：0=未读 1=已读',
                                     `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
-                                    `platform_code` varchar(50) COLLATE utf8mb4_general_ci DEFAULT NULL COMMENT '归属端代码',
+                                    `platform_code` varchar(50) COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '归属端代码',
                                     PRIMARY KEY (`id`),
                                     KEY `idx_user_read` (`user_id`,`read_flag`,`create_time`),
                                     KEY `idx_pay_notification_platform` (`platform_code`)
-) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='支付站内通知';
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='支付站内通知';
 
 
 -- `moyun-db`.pay_notify_log definition
 drop table if exists `pay_notify_log`;
 CREATE TABLE `pay_notify_log` (
                                   `id` bigint NOT NULL AUTO_INCREMENT COMMENT '日志ID',
-                                  `channel` varchar(32) COLLATE utf8mb4_general_ci NOT NULL COMMENT '渠道：wechat',
-                                  `pay_no` varchar(40) COLLATE utf8mb4_general_ci DEFAULT NULL COMMENT '关联支付单（解析成功后回填）',
-                                  `raw_body` varchar(2048) COLLATE utf8mb4_general_ci DEFAULT NULL COMMENT '回调报文（截断留存）',
+                                  `channel` varchar(32) COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '渠道：wechat',
+                                  `pay_no` varchar(40) COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '关联支付单（解析成功后回填）',
+                                  `raw_body` varchar(2048) COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '回调报文（截断留存）',
                                   `verify_ok` tinyint NOT NULL DEFAULT '0' COMMENT '验签结果：1=通过 0=失败',
                                   `handled` tinyint NOT NULL DEFAULT '0' COMMENT '业务处理：1=成功 0=失败',
-                                  `error_msg` varchar(512) COLLATE utf8mb4_general_ci DEFAULT NULL COMMENT '失败原因',
+                                  `error_msg` varchar(512) COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '失败原因',
                                   `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
-                                  `platform_code` varchar(50) COLLATE utf8mb4_general_ci DEFAULT NULL COMMENT '归属端代码',
+                                  `platform_code` varchar(50) COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '归属端代码',
                                   PRIMARY KEY (`id`),
                                   KEY `idx_pay_no` (`pay_no`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='渠道回调日志';
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='渠道回调日志';
 
 
 -- `moyun-db`.pay_order definition
 drop table if exists `pay_order`;
 CREATE TABLE `pay_order` (
                              `id` bigint NOT NULL AUTO_INCREMENT COMMENT 'id',
-                             `pay_no` varchar(40) COLLATE utf8mb4_general_ci NOT NULL COMMENT '支付单号（全局唯一，如 PAY20260902xxxx）',
-                             `biz_type` varchar(32) COLLATE utf8mb4_general_ci NOT NULL COMMENT '业务类型：tip=打赏 / member=会员 / course=课程（后续扩展）',
-                             `biz_no` varchar(64) COLLATE utf8mb4_general_ci NOT NULL COMMENT '业务单号（如打赏单ID）',
+                             `pay_no` varchar(40) COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '支付单号（全局唯一，如 PAY20260902xxxx）',
+                             `biz_type` varchar(32) COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '业务类型：tip=打赏 / member=会员 / course=课程（后续扩展）',
+                             `biz_no` varchar(64) COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '业务单号（如打赏单ID）',
                              `user_id` bigint DEFAULT NULL COMMENT '下单用户（portal_user.id，v11.79 对账维度）',
-                             `platform_code` varchar(50) COLLATE utf8mb4_general_ci DEFAULT NULL COMMENT '归属端代码（sys_platform.platform_code）',
-                             `channel` varchar(32) COLLATE utf8mb4_general_ci NOT NULL COMMENT '支付渠道：wechat / alipay（预留）',
+                             `platform_code` varchar(50) COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '归属端代码（sys_platform.platform_code）',
+                             `channel` varchar(32) COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '支付渠道：wechat / alipay（预留）',
                              `amount` decimal(18,2) NOT NULL COMMENT '支付金额（元）',
-                             `subject` varchar(128) COLLATE utf8mb4_general_ci NOT NULL COMMENT '商品描述',
-                             `status` varchar(16) COLLATE utf8mb4_general_ci NOT NULL DEFAULT 'CREATED' COMMENT '状态机：CREATED→PAID→SETTLED / CREATED→CLOSED',
-                             `code_url` varchar(512) COLLATE utf8mb4_general_ci DEFAULT NULL COMMENT '微信 native 支付二维码链接（code_url）',
-                             `channel_order_no` varchar(64) COLLATE utf8mb4_general_ci DEFAULT NULL COMMENT '三方交易单号（微信 transaction_id）',
-                             `trade_state` varchar(32) COLLATE utf8mb4_general_ci DEFAULT NULL COMMENT '三方交易状态（微信 trade_state：SUCCESS/NOTPAY/CLOSED等）',
+                             `subject` varchar(128) COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '商品描述',
+                             `status` varchar(16) COLLATE utf8mb4_0900_ai_ci NOT NULL DEFAULT 'CREATED' COMMENT '状态机：CREATED→PAID→SETTLED / CREATED→CLOSED',
+                             `code_url` varchar(512) COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '微信 native 支付二维码链接（code_url）',
+                             `channel_order_no` varchar(64) COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '三方交易单号（微信 transaction_id）',
+                             `trade_state` varchar(32) COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '三方交易状态（微信 trade_state：SUCCESS/NOTPAY/CLOSED等）',
                              `expire_time` datetime DEFAULT NULL COMMENT '订单过期时间（超时未支付自动关单依据）',
                              `pay_success_time` datetime DEFAULT NULL COMMENT '支付成功时间',
                              `settle_time` datetime DEFAULT NULL COMMENT '分账完成时间',
                              `closed_time` datetime DEFAULT NULL COMMENT '关单时间',
-                             `close_reason` varchar(64) COLLATE utf8mb4_general_ci DEFAULT NULL COMMENT '关单原因：TIMEOUT / ADMIN_MANUAL_CLOSE',
+                             `close_reason` varchar(64) COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '关单原因：TIMEOUT / ADMIN_MANUAL_CLOSE',
                              `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
                              `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
                              PRIMARY KEY (`id`),
@@ -886,7 +886,7 @@ CREATE TABLE `pay_order` (
                              KEY `idx_channel_order` (`channel_order_no`),
                              KEY `idx_pay_order_user` (`user_id`),
                              KEY `idx_pay_order_platform` (`platform_code`)
-) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='支付订单（公共支付通道）';
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='支付订单（公共支付通道）';
 
 
 -- `moyun-db`.pay_user_account definition
@@ -900,7 +900,7 @@ CREATE TABLE `pay_user_account` (
                                     `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
                                     `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
                                     PRIMARY KEY (`user_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='用户资金账户（钱包）';
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='用户资金账户（钱包）';
 
 
 -- `moyun-db`.pay_user_bank_card definition
@@ -908,42 +908,42 @@ drop table if exists `pay_user_bank_card`;
 CREATE TABLE `pay_user_bank_card` (
                                       `id` bigint NOT NULL AUTO_INCREMENT COMMENT '银行卡ID',
                                       `user_id` bigint NOT NULL COMMENT '所属用户',
-                                      `holder_name` varchar(64) COLLATE utf8mb4_general_ci NOT NULL COMMENT '持卡人姓名',
-                                      `card_no_encrypted` varchar(512) COLLATE utf8mb4_general_ci NOT NULL COMMENT '卡号密文（AES-GCM）',
-                                      `card_no_masked` varchar(32) COLLATE utf8mb4_general_ci NOT NULL COMMENT '卡号脱敏（6217 **** **** 1234）',
-                                      `phone_encrypted` varchar(512) COLLATE utf8mb4_general_ci DEFAULT NULL COMMENT '预留手机号密文（AES-GCM）',
-                                      `bank_code` varchar(32) COLLATE utf8mb4_general_ci DEFAULT NULL COMMENT '银行编码（如 ICBC）',
-                                      `bank_name` varchar(64) COLLATE utf8mb4_general_ci NOT NULL COMMENT '银行名称（如 中国工商银行）',
+                                      `holder_name` varchar(64) COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '持卡人姓名',
+                                      `card_no_encrypted` varchar(512) COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '卡号密文（AES-GCM）',
+                                      `card_no_masked` varchar(32) COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '卡号脱敏（6217 **** **** 1234）',
+                                      `phone_encrypted` varchar(512) COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '预留手机号密文（AES-GCM）',
+                                      `bank_code` varchar(32) COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '银行编码（如 ICBC）',
+                                      `bank_name` varchar(64) COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '银行名称（如 中国工商银行）',
                                       `is_default` tinyint NOT NULL DEFAULT '0' COMMENT '是否默认卡：1=是 0=否',
-                                      `verify_status` varchar(16) COLLATE utf8mb4_general_ci NOT NULL DEFAULT 'VERIFIED' COMMENT '验证状态：VERIFIED=已验证 / PENDING=待验证',
+                                      `verify_status` varchar(16) COLLATE utf8mb4_0900_ai_ci NOT NULL DEFAULT 'VERIFIED' COMMENT '验证状态：VERIFIED=已验证 / PENDING=待验证',
                                       `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
                                       `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '修改时间',
                                       PRIMARY KEY (`id`),
                                       UNIQUE KEY `uk_user_card` (`user_id`,`card_no_masked`),
                                       KEY `idx_user` (`user_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='用户银行卡（密文落库）';
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='用户银行卡（密文落库）';
 
 
 -- `moyun-db`.pay_withdraw_order definition
 drop table if exists `pay_withdraw_order`;
 CREATE TABLE `pay_withdraw_order` (
                                       `id` bigint NOT NULL AUTO_INCREMENT COMMENT '提现单ID',
-                                      `withdraw_no` varchar(40) COLLATE utf8mb4_general_ci NOT NULL COMMENT '提现单号',
+                                      `withdraw_no` varchar(40) COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '提现单号',
                                       `user_id` bigint NOT NULL COMMENT '用户ID',
                                       `bank_card_id` bigint NOT NULL COMMENT '收款银行卡ID',
                                       `amount` decimal(18,2) NOT NULL COMMENT '提现金额（元）',
                                       `fee` decimal(18,2) NOT NULL DEFAULT '0.00' COMMENT '手续费（元）',
-                                      `status` varchar(16) COLLATE utf8mb4_general_ci NOT NULL DEFAULT 'auditing' COMMENT '状态：auditing=审核中 paid=已打款 rejected=已驳回（v11.79 统一小写）',
+                                      `status` varchar(16) COLLATE utf8mb4_0900_ai_ci NOT NULL DEFAULT 'auditing' COMMENT '状态：auditing=审核中 paid=已打款 rejected=已驳回（v11.79 统一小写）',
                                       `audit_time` datetime DEFAULT NULL COMMENT '审核时间',
-                                      `reject_reason` varchar(255) COLLATE utf8mb4_general_ci DEFAULT NULL COMMENT '驳回原因',
+                                      `reject_reason` varchar(255) COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '驳回原因',
                                       `paid_time` datetime DEFAULT NULL COMMENT '打款完成时间（真实出金到账）',
                                       `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
-                                      `platform_code` varchar(50) COLLATE utf8mb4_general_ci DEFAULT NULL COMMENT '归属端代码',
+                                      `platform_code` varchar(50) COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '归属端代码',
                                       PRIMARY KEY (`id`),
                                       UNIQUE KEY `uk_withdraw_no` (`withdraw_no`),
                                       KEY `idx_user` (`user_id`,`create_time`),
                                       KEY `idx_pay_withdraw_platform` (`platform_code`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='提现订单（预留）';
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='提现订单（预留）';
 
 
 -- =====================================================================
@@ -1009,19 +1009,19 @@ drop table if exists `portal_ai_task`;
 CREATE TABLE `portal_ai_task` (
                                   `id` bigint NOT NULL AUTO_INCREMENT COMMENT '任务ID',
                                   `user_id` bigint NOT NULL COMMENT '所属用户',
-                                  `task_type` varchar(50) COLLATE utf8mb4_general_ci NOT NULL COMMENT '任务类型：resume_parse（简历解析）/ job_match（岗位匹配）/ ai_draft（空字段草稿）/ deep_optimize（深度优化）',
-                                  `biz_ref` varchar(500) COLLATE utf8mb4_general_ci DEFAULT NULL COMMENT '业务参数JSON，如 {"resumeId":1,"jobTargetId":2}',
-                                  `status` varchar(20) COLLATE utf8mb4_general_ci NOT NULL DEFAULT 'pending' COMMENT '状态：pending（排队）/ running（执行中）/ success（成功）/ failed（失败）',
-                                  `progress_msg` varchar(500) COLLATE utf8mb4_general_ci DEFAULT NULL COMMENT '进度提示文案（轮询时返回给前端展示）',
-                                  `result` mediumtext COLLATE utf8mb4_general_ci COMMENT '任务结果JSON（success 时有值）',
-                                  `error` varchar(1000) COLLATE utf8mb4_general_ci DEFAULT NULL COMMENT '失败原因（failed 时有值）',
+                                  `task_type` varchar(50) COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '任务类型：resume_parse（简历解析）/ job_match（岗位匹配）/ ai_draft（空字段草稿）/ deep_optimize（深度优化）',
+                                  `biz_ref` varchar(500) COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '业务参数JSON，如 {"resumeId":1,"jobTargetId":2}',
+                                  `status` varchar(20) COLLATE utf8mb4_0900_ai_ci NOT NULL DEFAULT 'pending' COMMENT '状态：pending（排队）/ running（执行中）/ success（成功）/ failed（失败）',
+                                  `progress_msg` varchar(500) COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '进度提示文案（轮询时返回给前端展示）',
+                                  `result` mediumtext COLLATE utf8mb4_0900_ai_ci COMMENT '任务结果JSON（success 时有值）',
+                                  `error` varchar(1000) COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '失败原因（failed 时有值）',
                                   `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
                                   `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
                                   `finish_time` datetime DEFAULT NULL COMMENT '完成时间（成功或失败）',
                                   PRIMARY KEY (`id`),
                                   KEY `idx_user_type` (`user_id`,`task_type`),
                                   KEY `idx_status` (`status`)
-) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='通用AI异步任务表';
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='通用AI异步任务表';
 
 
 -- `moyun-db`.portal_article definition
@@ -1063,7 +1063,7 @@ CREATE TABLE `portal_article` (
                                   `is_paid` tinyint NOT NULL DEFAULT '0' COMMENT '是否付费阅读 0=免费 1=付费',
                                   `paid_content` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci COMMENT '付费内容（购买后可见）',
                                   `preview_length` int NOT NULL DEFAULT '0' COMMENT '试读字数（未购买可预览的字数）',
-                                  `price` decimal(10,2) NOT NULL DEFAULT '0.00' COMMENT '付费价格，0=免费',
+                                  `price` decimal(18,2) NOT NULL DEFAULT '0.00' COMMENT '付费价格，0=免费',
                                   `del_flag` char(1) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL DEFAULT '0' COMMENT '删除标记（0=存在 2=删除）',
                                   PRIMARY KEY (`id`),
                                   UNIQUE KEY `uk_slug` (`slug`),
@@ -1154,7 +1154,7 @@ CREATE TABLE `portal_book` (
                                `is_finished` tinyint(1) DEFAULT '1' COMMENT '是否完结：1=完结，0=连载中（冗余字段，便于查询）',
                                `access_level` varchar(20) DEFAULT 'free' COMMENT '访问级别:free,vip,preview',
                                `preview_ratio` int DEFAULT '30' COMMENT '免费试读比例（0-100）',
-                               `price` decimal(10,2) DEFAULT '0.00' COMMENT '书籍单价（元）',
+                               `price` decimal(18,2) DEFAULT '0.00' COMMENT '书籍单价（元）',
                                `is_featured` tinyint(1) DEFAULT '0' COMMENT '是否精选',
                                `is_recommended` tinyint(1) DEFAULT '0' COMMENT '是否推荐',
                                `summary` text COMMENT '简介（纯文本）',
@@ -1194,7 +1194,7 @@ CREATE TABLE `portal_book_chapter` (
                                        `chapter_no` int NOT NULL DEFAULT '0' COMMENT '章节序号（用于排序，从1开始）',
                                        `volume_id` bigint DEFAULT NULL COMMENT '所属分卷ID（可选，支持分卷管理）',
                                        `is_free` tinyint(1) DEFAULT '1' COMMENT '是否免费：1=免费，0=VIP章节',
-                                       `price` decimal(10,2) DEFAULT '0.00' COMMENT '章节单价（元，VIP章节购买）',
+                                       `price` decimal(18,2) DEFAULT '0.00' COMMENT '章节单价（元，VIP章节购买）',
                                        `is_published` tinyint(1) DEFAULT '0' COMMENT '是否已发布：0=草稿，1=已发布',
                                        `publish_time` datetime DEFAULT NULL COMMENT '发布时间（支持定时发布）',
                                        `view_count` bigint DEFAULT '0' COMMENT '章节浏览量',
@@ -1479,7 +1479,7 @@ CREATE TABLE `portal_column` (
                                  `subscribe_count` int NOT NULL DEFAULT '0' COMMENT '订阅数',
                                  `view_count` int NOT NULL DEFAULT '0' COMMENT '浏览数',
                                  `is_finished` tinyint NOT NULL DEFAULT '0' COMMENT '是否完结',
-                                 `price` decimal(10,2) NOT NULL DEFAULT '0.00' COMMENT '专栏会员价，0=免费',
+                                 `price` decimal(18,2) NOT NULL DEFAULT '0.00' COMMENT '专栏会员价，0=免费',
                                  `created_time` datetime DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
                                  `updated_time` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
                                  `del_flag` char(1) NOT NULL DEFAULT '0' COMMENT '删除标记（0=存在 2=删除）',
@@ -1645,12 +1645,12 @@ CREATE TABLE `portal_creator_settlement` (
                                              `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键',
                                              `creator_id` bigint NOT NULL COMMENT '创作者用户ID',
                                              `period` varchar(16) NOT NULL COMMENT '结算周期，格式 yyyy-MM，如 2026-07',
-                                             `tip_income` decimal(10,2) NOT NULL DEFAULT '0.00' COMMENT '打赏收入（当月已支付打赏总额）',
-                                             `paid_read_income` decimal(10,2) NOT NULL DEFAULT '0.00' COMMENT '付费阅读收入（当月已支付购买总额）',
-                                             `column_income` decimal(10,2) NOT NULL DEFAULT '0.00' COMMENT '专栏订阅收入（当月已支付订阅总额）',
-                                             `total_income` decimal(10,2) NOT NULL DEFAULT '0.00' COMMENT '总收入（三项之和）',
-                                             `platform_fee` decimal(10,2) NOT NULL DEFAULT '0.00' COMMENT '平台抽成（total_income * platform_fee_rate）',
-                                             `creator_income` decimal(10,2) NOT NULL DEFAULT '0.00' COMMENT '创作者实得（total_income - platform_fee）',
+                                             `tip_income` decimal(18,2) NOT NULL DEFAULT '0.00' COMMENT '打赏收入（当月已支付打赏总额）',
+                                             `paid_read_income` decimal(18,2) NOT NULL DEFAULT '0.00' COMMENT '付费阅读收入（当月已支付购买总额）',
+                                             `column_income` decimal(18,2) NOT NULL DEFAULT '0.00' COMMENT '专栏订阅收入（当月已支付订阅总额）',
+                                             `total_income` decimal(18,2) NOT NULL DEFAULT '0.00' COMMENT '总收入（三项之和）',
+                                             `platform_fee` decimal(18,2) NOT NULL DEFAULT '0.00' COMMENT '平台抽成（total_income * platform_fee_rate）',
+                                             `creator_income` decimal(18,2) NOT NULL DEFAULT '0.00' COMMENT '创作者实得（total_income - platform_fee）',
                                              `status` varchar(16) NOT NULL DEFAULT 'pending' COMMENT '状态 pending/confirmed/paid',
                                              `paid_time` datetime DEFAULT NULL COMMENT '打款时间',
                                              `create_time` datetime DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
@@ -2715,20 +2715,20 @@ CREATE TABLE `portal_tip_order` (
                                     `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键',
                                     `user_id` bigint NOT NULL COMMENT '打赏者用户ID',
                                     `author_id` bigint NOT NULL COMMENT '被打赏者用户ID',
-                                    `target_type` varchar(32) COLLATE utf8mb4_general_ci NOT NULL COMMENT '打赏对象类型 article/column/article_paid',
+                                    `target_type` varchar(32) COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '打赏对象类型 article/column/article_paid',
                                     `target_id` bigint NOT NULL COMMENT '打赏对象ID',
-                                    `amount` decimal(10,2) NOT NULL COMMENT '打赏金额',
-                                    `message` varchar(200) COLLATE utf8mb4_general_ci DEFAULT NULL COMMENT '打赏留言',
-                                    `status` varchar(16) COLLATE utf8mb4_general_ci NOT NULL DEFAULT 'pending' COMMENT '状态 pending/paid/refunded',
-                                    `pay_method` varchar(32) COLLATE utf8mb4_general_ci DEFAULT NULL COMMENT '支付方式',
-                                    `trade_no` varchar(64) COLLATE utf8mb4_general_ci DEFAULT NULL COMMENT '第三方交易号（支付宝/微信返回的交易号）',
-                                    `pay_channel` varchar(20) COLLATE utf8mb4_general_ci DEFAULT 'points' COMMENT '支付渠道：points-积分/alipay-支付宝/wechat-微信支付',
-                                    `notify_id` varchar(64) COLLATE utf8mb4_general_ci DEFAULT NULL COMMENT '支付回调ID（用于回调验签与幂等去重）',
+                                    `amount` decimal(18,2) NOT NULL COMMENT '打赏金额',
+                                    `message` varchar(200) COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '打赏留言',
+                                    `status` varchar(16) COLLATE utf8mb4_0900_ai_ci NOT NULL DEFAULT 'pending' COMMENT '状态 pending/paid/refunded',
+                                    `pay_method` varchar(32) COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '支付方式',
+                                    `trade_no` varchar(64) COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '第三方交易号（支付宝/微信返回的交易号）',
+                                    `pay_channel` varchar(20) COLLATE utf8mb4_0900_ai_ci DEFAULT 'points' COMMENT '支付渠道：points-积分/alipay-支付宝/wechat-微信支付',
+                                    `notify_id` varchar(64) COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '支付回调ID（用于回调验签与幂等去重）',
                                     `notify_time` datetime DEFAULT NULL COMMENT '支付回调时间',
-                                    `refund_no` varchar(64) COLLATE utf8mb4_general_ci DEFAULT NULL COMMENT '退款单号',
-                                    `refund_amount` decimal(10,2) DEFAULT NULL COMMENT '退款金额',
+                                    `refund_no` varchar(64) COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '退款单号',
+                                    `refund_amount` decimal(18,2) DEFAULT NULL COMMENT '退款金额',
                                     `refund_time` datetime DEFAULT NULL COMMENT '退款时间',
-                                    `refund_reason` varchar(255) COLLATE utf8mb4_general_ci DEFAULT NULL COMMENT '退款原因',
+                                    `refund_reason` varchar(255) COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '退款原因',
                                     `paid_time` datetime DEFAULT NULL COMMENT '支付时间',
                                     `created_time` datetime DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
                                     PRIMARY KEY (`id`),
@@ -2737,7 +2737,7 @@ CREATE TABLE `portal_tip_order` (
                                     KEY `idx_user` (`user_id`),
                                     KEY `idx_trade_no` (`trade_no`),
                                     KEY `idx_pay_channel_status` (`pay_channel`,`status`)
-) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='打赏订单（复用为付费阅读购买记录，target_type=article_paid）';
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='打赏订单（复用为付费阅读购买记录，target_type=article_paid）';
 
 
 -- `moyun-db`.portal_topic definition
@@ -2787,7 +2787,7 @@ CREATE TABLE `portal_topic_comment` (
                                         `reply_to_content` varchar(200) DEFAULT '' COMMENT '被回复内容摘要',
                                         `like_count` int NOT NULL DEFAULT '0',
                                         `reply_count` int NOT NULL DEFAULT '0' COMMENT '回复数（仅一级评论维护）',
-                                        `is_deleted` tinyint NOT NULL DEFAULT '0' COMMENT '软删',
+                                        `del_flag` char(1) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL DEFAULT '0' COMMENT '删除标记（0=存在 2=删除）',
                                         `created_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
                                         `updated_time` datetime DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
                                         PRIMARY KEY (`id`),
@@ -2836,7 +2836,7 @@ CREATE TABLE `portal_topic_post` (
                                      `floor` int NOT NULL DEFAULT '0' COMMENT '楼层号',
                                      `like_count` int NOT NULL DEFAULT '0',
                                      `comment_count` int NOT NULL DEFAULT '0',
-                                     `is_deleted` tinyint NOT NULL DEFAULT '0' COMMENT '软删：0 否/1 是',
+                                     `del_flag` char(1) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL DEFAULT '0' COMMENT '删除标记（0=存在 2=删除）',
                                      `created_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
                                      `updated_time` datetime DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
                                      PRIMARY KEY (`id`),
@@ -3102,12 +3102,12 @@ CREATE TABLE `portal_voice_interview` (
 CREATE TABLE `portal_voice_interview_event` (
                                                 `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键',
                                                 `interview_id` bigint NOT NULL COMMENT '面试会话ID（portal_voice_interview.id）',
-                                                `event_type` varchar(50) COLLATE utf8mb4_general_ci NOT NULL COMMENT '事件类型：start/answer/next/finish/close/error',
+                                                `event_type` varchar(50) COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '事件类型：start/answer/next/finish/close/error',
                                                 `event_data` json DEFAULT NULL COMMENT '事件数据（题目索引/动作/原因等）',
                                                 `create_time` datetime DEFAULT NULL COMMENT '事件时间',
                                                 PRIMARY KEY (`id`),
                                                 KEY `idx_interview` (`interview_id`)
-) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='AI语音面试会话事件日志（v11.88）';
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='AI语音面试会话事件日志（v11.88）';
 
 
 -- `moyun-db`.portal_voice_interview_qa definition
@@ -3644,18 +3644,18 @@ CREATE TABLE `sys_oper_log` (
 
 CREATE TABLE `sys_platform` (
                                 `id` bigint NOT NULL AUTO_INCREMENT COMMENT '端ID',
-                                `platform_code` varchar(50) COLLATE utf8mb4_general_ci NOT NULL COMMENT '端代码',
-                                `platform_name` varchar(50) COLLATE utf8mb4_general_ci DEFAULT NULL COMMENT '端名称',
-                                `platform_type` varchar(20) COLLATE utf8mb4_general_ci DEFAULT NULL COMMENT '端类型：c端/b端',
-                                `description` varchar(200) COLLATE utf8mb4_general_ci DEFAULT NULL COMMENT '描述',
-                                `domain` varchar(100) COLLATE utf8mb4_general_ci DEFAULT NULL COMMENT '绑定域名',
-                                `icon` varchar(100) COLLATE utf8mb4_general_ci DEFAULT NULL COMMENT '图标',
+                                `platform_code` varchar(50) COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '端代码',
+                                `platform_name` varchar(50) COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '端名称',
+                                `platform_type` varchar(20) COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '端类型：c端/b端',
+                                `description` varchar(200) COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '描述',
+                                `domain` varchar(100) COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '绑定域名',
+                                `icon` varchar(100) COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '图标',
                                 `sort_order` int DEFAULT '0' COMMENT '排序',
                                 `status` tinyint DEFAULT '1' COMMENT '状态（1启用 0停用）',
                                 `create_time` datetime DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
                                 PRIMARY KEY (`id`),
                                 UNIQUE KEY `uk_platform_code` (`platform_code`)
-) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='端定义（全局公共，用户/支付/VIP/配置/菜单/统计统一引用）';
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='端定义（全局公共，用户/支付/VIP/配置/菜单/统计统一引用）';
 
 
 -- `moyun-db`.sys_post definition
@@ -3844,15 +3844,15 @@ CREATE TABLE `sys_config_log` (
 
 CREATE TABLE `vip_api_registry` (
                                     `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键',
-                                    `api_path` varchar(200) COLLATE utf8mb4_general_ci NOT NULL COMMENT '接口路径',
-                                    `http_method` varchar(10) COLLATE utf8mb4_general_ci DEFAULT NULL COMMENT 'HTTP方法',
-                                    `controller_class` varchar(200) COLLATE utf8mb4_general_ci DEFAULT NULL COMMENT 'Controller类全名',
-                                    `method_name` varchar(100) COLLATE utf8mb4_general_ci DEFAULT NULL COMMENT '方法名',
-                                    `platform_code` varchar(50) COLLATE utf8mb4_general_ci DEFAULT NULL COMMENT '端代码',
-                                    `benefit_code` varchar(50) COLLATE utf8mb4_general_ci DEFAULT NULL COMMENT '权益代码',
+                                    `api_path` varchar(200) COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '接口路径',
+                                    `http_method` varchar(10) COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT 'HTTP方法',
+                                    `controller_class` varchar(200) COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT 'Controller类全名',
+                                    `method_name` varchar(100) COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '方法名',
+                                    `platform_code` varchar(50) COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '端代码',
+                                    `benefit_code` varchar(50) COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '权益代码',
                                     `consume` tinyint DEFAULT '1' COMMENT '是否消耗次数（1消耗 0仅校验）',
-                                    `message` varchar(200) COLLATE utf8mb4_general_ci DEFAULT NULL COMMENT '校验失败提示',
-                                    `api_desc` varchar(200) COLLATE utf8mb4_general_ci DEFAULT NULL COMMENT '接口描述（运营填写）',
+                                    `message` varchar(200) COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '校验失败提示',
+                                    `api_desc` varchar(200) COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '接口描述（运营填写）',
                                     `enabled` tinyint DEFAULT '1' COMMENT '是否启用校验（0=后台禁用该接口校验）',
                                     `scan_time` datetime DEFAULT NULL COMMENT '最近扫描时间',
                                     `create_time` datetime DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
@@ -3861,22 +3861,22 @@ CREATE TABLE `vip_api_registry` (
                                     UNIQUE KEY `uk_api` (`api_path`,`http_method`),
                                     KEY `idx_platform` (`platform_code`),
                                     KEY `idx_benefit` (`benefit_code`)
-) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='VIP接口注册表（@VipOnly 启动扫描生成）';
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='VIP接口注册表（@VipOnly 启动扫描生成）';
 
 
 -- `moyun-db`.vip_benefit definition
 
 CREATE TABLE `vip_benefit` (
                                `id` bigint NOT NULL AUTO_INCREMENT COMMENT '权益ID',
-                               `platform_code` varchar(50) COLLATE utf8mb4_general_ci NOT NULL COMMENT '端代码',
-                               `benefit_code` varchar(50) COLLATE utf8mb4_general_ci NOT NULL COMMENT '权益代码（统一 {action} 命名，端级隔离）',
-                               `benefit_name` varchar(100) COLLATE utf8mb4_general_ci DEFAULT NULL COMMENT '权益名称',
-                               `description` varchar(200) COLLATE utf8mb4_general_ci DEFAULT NULL COMMENT '描述',
+                               `platform_code` varchar(50) COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '端代码',
+                               `benefit_code` varchar(50) COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '权益代码（统一 {action} 命名，端级隔离）',
+                               `benefit_name` varchar(100) COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '权益名称',
+                               `description` varchar(200) COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '描述',
                                `sort_order` int DEFAULT '0' COMMENT '排序',
                                `create_time` datetime DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
                                PRIMARY KEY (`id`),
                                UNIQUE KEY `uk_platform_benefit` (`platform_code`,`benefit_code`)
-) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='VIP权益定义（类比 sys_menu）';
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='VIP权益定义（类比 sys_menu）';
 
 
 -- `moyun-db`.vip_benefit_usage definition
@@ -3884,8 +3884,8 @@ CREATE TABLE `vip_benefit` (
 CREATE TABLE `vip_benefit_usage` (
                                      `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键',
                                      `user_id` bigint NOT NULL COMMENT '用户ID',
-                                     `platform_code` varchar(50) COLLATE utf8mb4_general_ci NOT NULL COMMENT '端代码',
-                                     `benefit_code` varchar(50) COLLATE utf8mb4_general_ci NOT NULL COMMENT '权益代码',
+                                     `platform_code` varchar(50) COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '端代码',
+                                     `benefit_code` varchar(50) COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '权益代码',
                                      `usage_count` int DEFAULT '1' COMMENT '当日累计使用次数',
                                      `usage_date` date DEFAULT NULL COMMENT '使用日期',
                                      `create_time` datetime DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
@@ -3893,42 +3893,42 @@ CREATE TABLE `vip_benefit_usage` (
                                      PRIMARY KEY (`id`),
                                      UNIQUE KEY `uk_user_benefit_date` (`user_id`,`platform_code`,`benefit_code`,`usage_date`),
                                      KEY `idx_user_date` (`user_id`,`usage_date`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='权益使用记录（consume=true 的次数统计）';
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='权益使用记录（consume=true 的次数统计）';
 
 
 -- `moyun-db`.vip_tier definition
 
 CREATE TABLE `vip_tier` (
                             `id` bigint NOT NULL AUTO_INCREMENT COMMENT '等级ID',
-                            `platform_code` varchar(50) COLLATE utf8mb4_general_ci NOT NULL COMMENT '端代码（sys_platform.platform_code）',
-                            `tier_code` varchar(50) COLLATE utf8mb4_general_ci NOT NULL COMMENT '等级代码',
-                            `tier_name` varchar(50) COLLATE utf8mb4_general_ci DEFAULT NULL COMMENT '等级名称',
+                            `platform_code` varchar(50) COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '端代码（sys_platform.platform_code）',
+                            `tier_code` varchar(50) COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '等级代码',
+                            `tier_name` varchar(50) COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '等级名称',
                             `duration_days` int DEFAULT NULL COMMENT '有效天数（-1=永久，0=免费tier）',
                             `price` decimal(18,2) DEFAULT NULL COMMENT '价格（元）',
                             `original_price` decimal(18,2) DEFAULT NULL COMMENT '划线原价（元，可空）',
                             `popular` tinyint DEFAULT '0' COMMENT '是否推荐（1=售卖页推荐展示）',
-                            `description` varchar(255) COLLATE utf8mb4_general_ci DEFAULT NULL COMMENT '等级说明',
+                            `description` varchar(255) COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '等级说明',
                             `sort_order` int DEFAULT '0' COMMENT '排序',
                             `status` tinyint DEFAULT '1' COMMENT '状态（1上架 0下架）',
                             `create_time` datetime DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
                             PRIMARY KEY (`id`),
                             UNIQUE KEY `uk_platform_tier` (`platform_code`,`tier_code`)
-) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='VIP等级（一端一套，类比 sys_role）';
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='VIP等级（一端一套，类比 sys_role）';
 
 
 -- `moyun-db`.vip_tier_benefit definition
 
 CREATE TABLE `vip_tier_benefit` (
                                     `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键',
-                                    `platform_code` varchar(50) COLLATE utf8mb4_general_ci NOT NULL COMMENT '端代码',
-                                    `tier_code` varchar(50) COLLATE utf8mb4_general_ci NOT NULL COMMENT '等级代码',
-                                    `benefit_code` varchar(50) COLLATE utf8mb4_general_ci NOT NULL COMMENT '权益代码',
-                                    `benefit_value` varchar(100) COLLATE utf8mb4_general_ci NOT NULL COMMENT '额度（unlimited 或数字）',
-                                    `period` varchar(20) COLLATE utf8mb4_general_ci DEFAULT 'month' COMMENT '统计周期（day/month/year/unlimited）',
+                                    `platform_code` varchar(50) COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '端代码',
+                                    `tier_code` varchar(50) COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '等级代码',
+                                    `benefit_code` varchar(50) COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '权益代码',
+                                    `benefit_value` varchar(100) COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '额度（unlimited 或数字）',
+                                    `period` varchar(20) COLLATE utf8mb4_0900_ai_ci DEFAULT 'month' COMMENT '统计周期（day/month/year/unlimited）',
                                     `create_time` datetime DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
                                     PRIMARY KEY (`id`),
                                     UNIQUE KEY `uk_tier_benefit` (`platform_code`,`tier_code`,`benefit_code`)
-) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='等级权益关联（类比 sys_role_menu）';
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='等级权益关联（类比 sys_role_menu）';
 
 
 -- `moyun-db`.vip_user_card definition
@@ -3936,8 +3936,8 @@ CREATE TABLE `vip_tier_benefit` (
 CREATE TABLE `vip_user_card` (
                                  `id` bigint NOT NULL AUTO_INCREMENT COMMENT '会员卡ID',
                                  `user_id` bigint NOT NULL COMMENT '用户ID',
-                                 `platform_code` varchar(50) COLLATE utf8mb4_general_ci NOT NULL COMMENT '端代码',
-                                 `tier_code` varchar(50) COLLATE utf8mb4_general_ci NOT NULL COMMENT '当前等级代码',
+                                 `platform_code` varchar(50) COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '端代码',
+                                 `tier_code` varchar(50) COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '当前等级代码',
                                  `order_id` bigint DEFAULT NULL COMMENT '最近一次支付订单（pay_order.id）',
                                  `start_time` datetime DEFAULT NULL COMMENT '生效时间',
                                  `expire_time` datetime DEFAULT NULL COMMENT '过期时间（永久为 NULL）',
@@ -3947,7 +3947,7 @@ CREATE TABLE `vip_user_card` (
                                  PRIMARY KEY (`id`),
                                  UNIQUE KEY `uk_user_platform` (`user_id`,`platform_code`),
                                  KEY `idx_expire` (`expire_time`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='用户会员卡（类比 sys_user_role，一端一卡续费顺延）';
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='用户会员卡（类比 sys_user_role，一端一卡续费顺延）';
 
 
 -- `moyun-db`.ai_agent definition
@@ -4039,7 +4039,7 @@ CREATE TABLE `ai_agent_workflow_relation` (
                                               UNIQUE KEY `uk_agent_workflow` (`agent_id`,`workflow_id`) USING BTREE,
                                               KEY `idx_agent_id` (`agent_id`) USING BTREE,
                                               KEY `idx_workflow_id` (`workflow_id`) USING BTREE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci ROW_FORMAT=DYNAMIC COMMENT='智能体-工作流关联表';
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci ROW_FORMAT=DYNAMIC COMMENT='智能体-工作流关联表';
 
 
 -- `moyun-db`.ai_chat_history definition
@@ -4242,12 +4242,12 @@ CREATE TABLE `ai_token_usage_log` (
 CREATE TABLE `ai_workflow_execution` (
                                          `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键ID',
                                          `workflow_id` bigint NOT NULL COMMENT '工作流ID',
-                                         `status` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT 'running' COMMENT '执行状态: running-执行中, completed-已完成, failed-失败, cancelled-已取消',
-                                         `input_data` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci COMMENT '输入参数(JSON)',
-                                         `output_data` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci COMMENT '输出结果(JSON)',
-                                         `execution_log` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci COMMENT '执行日志(JSON数组)',
-                                         `error_message` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci COMMENT '错误信息',
-                                         `current_node_id` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '当前执行到的节点ID',
+                                         `status` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT 'running' COMMENT '执行状态: running-执行中, completed-已完成, failed-失败, cancelled-已取消',
+                                         `input_data` text CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci COMMENT '输入参数(JSON)',
+                                         `output_data` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci COMMENT '输出结果(JSON)',
+                                         `execution_log` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci COMMENT '执行日志(JSON数组)',
+                                         `error_message` text CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci COMMENT '错误信息',
+                                         `current_node_id` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '当前执行到的节点ID',
                                          `duration_ms` bigint DEFAULT NULL COMMENT '执行耗时(毫秒)',
                                          `start_time` datetime DEFAULT NULL COMMENT '开始时间',
                                          `end_time` datetime DEFAULT NULL COMMENT '结束时间',
@@ -4256,7 +4256,7 @@ CREATE TABLE `ai_workflow_execution` (
                                          KEY `idx_workflow_id` (`workflow_id`) USING BTREE,
                                          KEY `idx_status` (`status`) USING BTREE,
                                          KEY `idx_create_time` (`create_time`) USING BTREE
-) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci ROW_FORMAT=DYNAMIC COMMENT='工作流执行记录表';
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci ROW_FORMAT=DYNAMIC COMMENT='工作流执行记录表';
 
 
 -- `moyun-db`.ai_workflow_version definition
@@ -4265,13 +4265,13 @@ CREATE TABLE `ai_workflow_version` (
                                        `id` bigint NOT NULL AUTO_INCREMENT COMMENT '主键ID',
                                        `workflow_id` bigint NOT NULL COMMENT '工作流ID',
                                        `version` int NOT NULL COMMENT '版本号',
-                                       `description` varchar(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT '版本描述',
-                                       `graph_data` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci COMMENT '工作流图数据快照(JSON)',
+                                       `description` varchar(200) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '版本描述',
+                                       `graph_data` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci COMMENT '工作流图数据快照(JSON)',
                                        `create_time` datetime DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
                                        PRIMARY KEY (`id`) USING BTREE,
                                        KEY `idx_workflow_id` (`workflow_id`) USING BTREE,
                                        KEY `idx_version` (`version`) USING BTREE
-) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci ROW_FORMAT=DYNAMIC COMMENT='工作流版本表';
+) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci ROW_FORMAT=DYNAMIC COMMENT='工作流版本表';
 
 
 -- `moyun-db`.qrtz_triggers definition

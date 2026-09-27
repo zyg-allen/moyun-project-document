@@ -14,6 +14,7 @@ import dev.langchain4j.data.message.SystemMessage;
 import dev.langchain4j.data.message.UserMessage;
 import dev.langchain4j.model.chat.ChatLanguageModel;
 import dev.langchain4j.model.chat.response.ChatResponse;
+import com.moyun.util.json.LlmJsonExtractor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
@@ -91,26 +92,9 @@ public abstract class AbstractAiSceneHandler implements AiSceneHandler {
 
     /** 首次结果是否含可提取的 JSON 主体（对象 {...} 或数组 [...]） */
     private boolean hasJsonBody(String text) {
-        if (text == null || text.isBlank()) {
-            return false;
-        }
-        try {
-            MAPPER.readTree(extractJson(text));
-            return true;
-        } catch (Exception objectTry) {
-            // 数组本体输出（如 ["Java","MySQL"]）：按首个 [ 到最后一个 ] 截取再验
-            int start = text.indexOf('[');
-            int end = text.lastIndexOf(']');
-            if (start >= 0 && end > start) {
-                try {
-                    MAPPER.readTree(text.substring(start, end + 1));
-                    return true;
-                } catch (Exception arrayTry) {
-                    return false;
-                }
-            }
-            return false;
-        }
+        // v13.19：统一走 LlmJsonExtractor（对象/数组、围栏、括号配平一处实现），
+        // 原先这里还内联了一份"首个 [ 到最后一个 ]"的数组兜底逻辑
+        return LlmJsonExtractor.extractNode(MAPPER, text) != null;
     }
 
     /**
@@ -282,7 +266,7 @@ public abstract class AbstractAiSceneHandler implements AiSceneHandler {
             return null;
         }
         try {
-            return MAPPER.readValue(extractJson(raw), new TypeReference<>() {
+            return MAPPER.readValue(LlmJsonExtractor.extract(raw), new TypeReference<>() {
             });
         } catch (Exception e) {
             log.warn("[aigateway] JSON(Map)解析失败: {}", e.getMessage());
@@ -320,43 +304,6 @@ public abstract class AbstractAiSceneHandler implements AiSceneHandler {
                 yield parseJsonMap(raw);
             }
         };
-    }
-
-    /**
-     * 从模型输出中提取 JSON 主体：优先 ```json 围栏，其次首个 { 到最后一个 } / [ 到最后一个 ]
-     */
-    private String extractJson(String raw) {
-        String text = raw.trim();
-        // 剥离 markdown 围栏
-        if (text.contains("```")) {
-            int start = text.indexOf("```");
-            int contentStart = text.indexOf('\n', start);
-            int end = text.lastIndexOf("```");
-            if (contentStart > 0 && end > contentStart) {
-                text = text.substring(contentStart + 1, end).trim();
-            }
-        }
-        // 提取首个 {..} 或 [..]
-        int objStart = text.indexOf('{');
-        int arrStart = text.indexOf('[');
-        int begin;
-        char open, close;
-        if (objStart >= 0 && (arrStart < 0 || objStart < arrStart)) {
-            begin = objStart;
-            open = '{';
-            close = '}';
-        } else if (arrStart >= 0) {
-            begin = arrStart;
-            open = '[';
-            close = ']';
-        } else {
-            return text;
-        }
-        int end = text.lastIndexOf(close);
-        if (end > begin) {
-            return text.substring(begin, end + 1);
-        }
-        return text;
     }
 
     /**
@@ -414,16 +361,7 @@ public abstract class AbstractAiSceneHandler implements AiSceneHandler {
         if (raw == null || raw.isBlank()) {
             return "";
         }
-        String text = raw.trim();
-        if (text.startsWith("```")) {
-            int firstLineEnd = text.indexOf('\n');
-            int lastFence = text.lastIndexOf("```");
-            if (firstLineEnd > 0 && lastFence > firstLineEnd) {
-                text = text.substring(firstLineEnd + 1, lastFence).trim();
-            } else if (firstLineEnd > 0) {
-                text = text.substring(firstLineEnd + 1).trim();
-            }
-        }
+        String text = LlmJsonExtractor.stripCodeFence(raw);
         if (text.startsWith("{") || text.startsWith("[")) {
             return "";
         }

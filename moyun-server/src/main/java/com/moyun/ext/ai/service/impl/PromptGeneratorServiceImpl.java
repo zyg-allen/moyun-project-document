@@ -5,6 +5,7 @@ import com.moyun.ext.ai.exception.BusinessException;
 import com.moyun.ext.ai.exception.ErrorCode;
 import com.moyun.ext.ai.service.LLMService;
 import com.moyun.ext.ai.service.PromptGeneratorService;
+import com.moyun.util.json.LlmJsonExtractor;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -68,11 +69,7 @@ public class PromptGeneratorServiceImpl implements PromptGeneratorService {
         if (response == null || response.isBlank()) {
             throw new BusinessException(ErrorCode.SYSTEM_ERROR, "LLM 返回空内容");
         }
-        String cleaned = response.trim();
-        // 去除 markdown 代码块包裹
-        if (cleaned.startsWith("```")) {
-            cleaned = cleaned.replaceAll("^```[a-zA-Z]*\\n?", "").replaceAll("\\n?```$", "");
-        }
+        String cleaned = LlmJsonExtractor.stripCodeFence(response);
         // 去除首尾引号
         if ((cleaned.startsWith("\"") && cleaned.endsWith("\""))
                 || (cleaned.startsWith("「") && cleaned.endsWith("」"))) {

@@ -2,6 +2,84 @@
 
 > 2026-09-17 v11.98 后瘦身：历史条目仅保留「版本 + 修改类目 + 简介」，实施细节沉淀于方案文档与《00-项目现状总结》。v12 起新条目同样只记类目+简介。
 
+## v13.20 (2026-09-27) 第二批⑨：LLM JSON 提取收敛为唯一实现（守卫比报告多抓 1 处，且守住了提示词模板）
+
+> §6.1 那行原文："`LlmJsonExtractor` 死代码，同类逻辑 5 份实现"。取证后：**死代码属实**，
+> 但"5 份"是误并——报告列的 `WechatPayChannel:263` 其实是 javadoc 里的 fail-closed 说明，
+> 跟 JSON 提取无关；真实是 **4 处抠取 + 2 处剥围栏**。
+
+**取证与收敛（4 处抠取 + 2 处剥围栏 → 1 个 util 的 3 个方法）**
+
+| 原实现 | 问题 | 处置 |
+|---|---|---|
+| `ext/cms/service/LlmJsonExtractor` | **零调用方死代码**；且只处理"围栏在首行"、不支持数组 | **删除** |
+| `AbstractAiSceneHandler.extractJson` | 另内联一份"首个 `[` 到最后一个 `]`"数组分支；用 `lastIndexOf` 切尾（内容含 `}` 会切错） | 删私有方法，`hasJsonBody` 直接用 `extractNode`（顺带删掉第 5 个内联分支） |
+| `VoiceInterviewServiceImpl.extractJsonObject` | 无围栏处理（注释却写"剥 Markdown 围栏"） | 委托 `extractNode` |
+| `WorkflowGeneratorServiceImpl.extractJson` | 什么都匹配不上时返回 null；三段式围栏判断 | 委托 `extract`（空→null，保持调用方语义） |
+| `AbstractAiSceneHandler.cleanLlmText` | 内联剥围栏（仅"以围栏开头"） | 委托 `stripCodeFence` |
+| `PromptGeneratorServiceImpl.cleanResponse` | 正则剥围栏 | 委托 `stripCodeFence` |
+| **`ext/ai/util/SqlUtils.cleanSql`**（**守卫新抓**） | 两行 `replaceAll("```sql\\s*","")` 手写剥围栏（语言标注不止 sql） | 委托 `stripCodeFence` |
+
+**唯一实现** `com.moyun.util.json.LlmJsonExtractor`：`extract`（围栏任意位置 + 对象/数组谁先取谁 +
+**括号配平扫描**（跳过字符串字面量与转义，`{"a":"}"}` 不会被切错）+ 括号未配平时"首个左括号→末右括号"兜底，
+完全不闭合返回空串）、`extractNode`（解析失败返回 null，不抛异常）、`stripCodeFence`（只去围栏，不做 JSON 抠取）。
+
+**新增守卫 `LlmJsonExtractionGuardTest`**：禁止业务代码再手写 `lastIndexOf('}')` 抠取或 ``` 围栏处理。
+写这条守卫踩了**两个坑**（都固化成 fixture）：
+1. 复用 `TransactionRemoteIoGuardTest.stripCommentsAndStrings` 会**把字符串字面量内容抹掉**，
+   而"围栏"恰好写在字符串里 → 规则永远匹配不到（**守卫空转**）。改为只剥注释、保留字符串，
+   且 fixture 改为**走与主扫描完全相同的管线**（第一版 fixture 直接测正则，才掩盖了空转）；
+2. 提示词模板里写 `sb.append("请输出 ```json\n")` 是**合法用法**（告诉模型用围栏包裹），
+   与"解析时剥围栏"是两件事 → 规则收窄为"围栏 + 同一行有处理调用（indexOf/startsWith/replaceAll/…）"。
+
+**验证**：守卫全量 **1436 文件 / 唯一实现存在 / 违规 0**；**红证** = 往 `PromptGeneratorServiceImpl`
+塞回一行手写围栏处理 → 守卫精确报出（同时抓出 `SqlUtils` 这个真实残留），删除后归零；
+`LlmJsonExtractorTest` 6 例（围栏任意位置/数组/混排/配平/截断/非法输入/散文场景），
+后端 `mvn -o test` 见"同步"行内实测计数。
+
+**同步**：报告 §6.1 行改判 ✅（含"5 份"订正）+ 总览第 38 项 + 新增附录 AD；
+`项目开发规范` §2.5 增"LLM 输出解析只有一个入口"；`00-项目现状总结` 铁律 17；README 版本历史；本条目。
+
+## v13.19 (2026-09-27) 第二批⑧：AI 网关场景配置改「请求级记忆化」（§6.2 最后一行）
+
+> §6.2 剩的最后一行："每请求 2-3 次同表 DB 查询"。取证后是 **2~4 次**（下面有实测路径）。
+> 关键在**怎么修不破坏语义**：`AiSceneRegistry` 类注释原本写着"配置不再内存缓存——每次直查，
+> 管理端改配置**下次调用立即生效**"。所以不能随手加 TTL 缓存（会把"立即生效"变成"最多 TTL 后生效"）。
+
+**取证：一次通用入口请求查几次 `ai_scene_config`**
+
+| 顺序 | 位置 | 查询 |
+|---|---|---|
+| ① | `AiGatewayController.rejectIfNotOpen(sceneCode)` | 主码 1 次 |
+| ② | `AiGatewayService.execute` → `registry.getConfig(sceneCode, task)` | 全码 1 次；未命中再回退主码 **又 1 次**（这次与 ① 完全重复） |
+| ③ | 意图澄清路径 `registry.getConfig(intent.getSuggestedScene())` | 再 1 次 |
+| — | 流式路径（`:278`）与场景参数裁剪（`:531`） | 同样各查 1 次 |
+
+→ 纯同步无 task 时 **2 次**，带 task 且全码未配置时 **3 次**，走意图澄清可到 **4 次**。
+
+**修法：请求级记忆化（零 TTL、零跨请求残留）**
+
+- `getConfig(sceneCode)` 改为：先看**当前请求**的 `RequestAttributes`（键 `aigateway.sceneConfig.{sceneCode}`）→
+  命中即返回；未命中才查库，并把结果写入请求属性；
+- **负结果同样记忆化**（用哨兵对象表示"查过且不存在"，因为 `setAttribute(null)` 等于删除属性）；
+- 缓存随请求销毁，"管理端改配置**下次调用立即生效**"的语义**完全保留**（比 TTL 缓存更强）；
+- 非 HTTP 上下文（启动一致性检查、异步线程、单测直调）自动退化为直查，行为与改动前一致；
+- 顺带在类注释写明**调用约定**：调用方只读返回对象（已核全仓调用方均为 `config.getXxx()`，无 `config.set`）。
+
+**效果**：真实链路（控制器查主码 → 网关解析 `scene:task`）从 **3 次降到 2 次**（主码回退改为缓存命中）；
+后续任何重复读取 0 次新增查询。全码查询本身是另一行数据，2 次是下界。
+
+**验证**
+
+- 新增 `AiSceneRegistryRequestCacheTest`（6 例）：同场景同请求只查 1 次且返回同一实例；**真实链路全程 2 次**；
+  回退语义不变；**跨请求即时生效**（同一 sceneCode 两个请求分别读到"旧配置/新配置"，专门锁死"无 TTL 残留"）；
+  负结果记忆化；无请求上下文时退化为直查且不抛异常；
+- **红证**：临时让 `getConfig` 绕过记忆化 → 3 例失败（`Wanted 1 time but was 2 times` / 全码回退断言），还原后全绿；
+- 后端 `mvn -o test`：见"同步"行内实测计数。
+
+**同步**：报告 §6.2 最后一行改判 ✅ + 总览第 37 项 + 新增附录 AC；`项目开发规范` §2.6 增"配置读取：请求级记忆化"；
+`00-项目现状总结` 铁律 16；README 版本历史；本条目。
+
 ## v13.18 (2026-09-27) 第二批⑦：fail-open 默认值 + 增量脚本可重跑（守卫比报告多挖出 3 个脚本）
 
 > §6.4 那行原文只点了一个脚本（`20260925-01`）："`DROP KEY` 无守卫、`SET phone=NULL` 破坏性"。

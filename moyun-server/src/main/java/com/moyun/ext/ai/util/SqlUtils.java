@@ -1,5 +1,6 @@
 package com.moyun.ext.ai.util;
 
+import com.moyun.util.json.LlmJsonExtractor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import java.util.regex.Matcher;
@@ -22,9 +23,9 @@ public class SqlUtils {
             return "";
         }
         
-        // 移除markdown代码块标记
-        sql = sql.replaceAll("```sql\\s*", "");
-        sql = sql.replaceAll("```\\s*", "");
+        // 移除 markdown 代码块标记（v13.19：统一走 LlmJsonExtractor.stripCodeFence，
+        // 不再自写 ``` 正则——围栏可出现在任意位置，且语言标注不止 sql）
+        sql = LlmJsonExtractor.stripCodeFence(sql);
         
         // 移除注释
         sql = sql.replaceAll("--.*", "");

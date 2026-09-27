@@ -31,6 +31,7 @@ import com.moyun.portal.mapper.PortalUserResumeMapper;
 import com.moyun.portal.mapper.PortalVoiceInterviewMapper;
 import com.moyun.portal.mapper.PortalVoiceInterviewQAMapper;
 import com.moyun.util.bean.PageUtils;
+import com.moyun.util.json.LlmJsonExtractor;
 import com.moyun.util.string.StringUtils;
 import com.moyun.ext.cms.service.interview.AnswerScoringEngine;
 import com.moyun.ext.cms.service.interview.InterviewChatMemoryService;
@@ -1802,25 +1803,9 @@ public class VoiceInterviewServiceImpl implements IVoiceInterviewService {
         return titles;
     }
 
-    /** 容错提取 JSON 对象主体（剥 Markdown 围栏/前后杂文本；对齐 ai2 Handler 解析口径） */
+    /** 容错提取 JSON 对象主体（v13.19：统一走 LlmJsonExtractor —— 剥围栏/前后杂文本/括号配平一处实现） */
     private JsonNode extractJsonObject(String raw) {
-        if (StringUtils.isEmpty(raw)) {
-            return null;
-        }
-        String text = raw.trim();
-        int start = text.indexOf('{');
-        int end = text.lastIndexOf('}');
-        if (start >= 0 && end > start) {
-            try {
-                return objectMapper.readTree(text.substring(start, end + 1));
-            } catch (Exception ignored) {
-            }
-        }
-        try {
-            return objectMapper.readTree(text);
-        } catch (Exception e) {
-            return null;
-        }
+        return LlmJsonExtractor.extractNode(objectMapper, raw);
     }
 
     /** 文本截断（超长加省略号） */

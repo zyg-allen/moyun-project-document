@@ -1,6 +1,7 @@
 package com.moyun.ext.ai.service.impl;
 
 import com.fasterxml.jackson.core.type.TypeReference;
+import com.moyun.util.json.LlmJsonExtractor;
 import com.moyun.ext.ai.util.JsonUtils;
 import com.moyun.ext.ai.entity.Agent;
 import com.moyun.ext.ai.entity.KnowledgeBase;
@@ -831,43 +832,13 @@ public class WorkflowGeneratorServiceImpl implements WorkflowGeneratorService {
     }
     
     /**
-     * 从响应中提取JSON
+     * 从响应中提取JSON（v13.19：统一走 LlmJsonExtractor —— 围栏/对象/数组/括号配平一处实现）
+     *
+     * @return JSON 文本；响应中不存在 JSON 主体时返回 null（保持原有调用方语义）
      */
     private String extractJson(String response) {
-        // 尝试提取 ```json ... ``` 代码块
-        int jsonStart = response.indexOf("```json");
-        if (jsonStart >= 0) {
-            int contentStart = response.indexOf("\n", jsonStart) + 1;
-            int jsonEnd = response.indexOf("```", contentStart);
-            if (jsonEnd > contentStart) {
-                return response.substring(contentStart, jsonEnd).trim();
-            }
-        }
-        
-        // 尝试提取 ``` ... ```
-        jsonStart = response.indexOf("```");
-        if (jsonStart >= 0) {
-            int contentStart = response.indexOf("\n", jsonStart) + 1;
-            int jsonEnd = response.indexOf("```", contentStart);
-            if (jsonEnd > contentStart) {
-                return response.substring(contentStart, jsonEnd).trim();
-            }
-        }
-        
-        // 尝试直接解析（响应可能就是纯JSON）
-        String trimmed = response.trim();
-        if (trimmed.startsWith("{") && trimmed.endsWith("}")) {
-            return trimmed;
-        }
-        
-        // 尝试找第一个 { 和最后一个 }
-        int firstBrace = response.indexOf("{");
-        int lastBrace = response.lastIndexOf("}");
-        if (firstBrace >= 0 && lastBrace > firstBrace) {
-            return response.substring(firstBrace, lastBrace + 1);
-        }
-        
-        return null;
+        String body = LlmJsonExtractor.extract(response);
+        return body.isEmpty() ? null : body;
     }
     
     /**

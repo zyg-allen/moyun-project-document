@@ -9,6 +9,8 @@ import lombok.extern.slf4j.Slf4j;
 import jakarta.annotation.PostConstruct;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
+import org.springframework.web.context.request.RequestAttributes;
+import org.springframework.web.context.request.RequestContextHolder;
 
 import java.util.Comparator;
 import java.util.LinkedHashMap;
@@ -24,10 +26,16 @@ import java.util.concurrent.ConcurrentHashMap;
  *
  * <p>合并到 ai_scene_config 表（原 ai2_scene_registry 已废弃），绑定关系与执行配置统一管理。</p>
  *
- * <p>配置不再内存缓存——getConfig 每次直查数据库（LLM 调用为秒级，一次索引查询开销可忽略），
- * 管理端改提示词模板/输出结构/绑定关系后<strong>下次调用立即生效</strong>，无需重启或手动刷新。</p>
+ * <p><b>配置读取口径（v13.19）</b>：{@code getConfig} 采用<b>请求级记忆化</b>——同一次 HTTP 请求内
+ * 同一 sceneCode 只查一次库（结果含"未配置"也会被记住）。这样既消除了"一次请求查 2~4 次同表"的浪费
+ * （通用入口：{@code rejectIfNotOpen} 查主码 → 网关再查全码 + 主码），又<b>不改变"管理端改配置下次调用立即生效"</b>
+ * 的语义（缓存随请求结束自动失效，无 TTL、无跨请求残留）。非 HTTP 上下文
+ * （启动一致性检查、异步线程、单测直调）自动退化为直查。</p>
  *
  * <p>Handler 必须有对应配置行才会对外服务（配置行控制 enabled / 限流 / 缓存 / 降级等策略）。</p>
+ *
+ * <p><b>调用约定</b>：调用方只读返回的配置对象（现有调用方均为 {@code config.getXxx()}）；
+ * 若将来需要在请求内改写配置，请先自行复制，避免污染同一请求内的其他读取方。</p>
  *
  * @author laomao
  * @since 2026-09-09
@@ -38,6 +46,12 @@ public class AiSceneRegistry {
 
     /** Handler 路由表：sceneCode → Handler（Bean 静态注册，启动后不变） */
     private final Map<String, AiSceneHandler> handlerMap = new ConcurrentHashMap<>();
+
+    /** 请求级缓存哨兵：代表"本次请求已查过、且库里没有该场景"，用于负结果记忆化 */
+    private static final AiSceneConfig ABSENT = new AiSceneConfig();
+
+    /** 请求级缓存键前缀（存于 RequestAttributes，随请求销毁） */
+    private static final String REQUEST_CACHE_PREFIX = "aigateway.sceneConfig.";
 
     @Autowired
     private List<AiSceneHandler> handlers;
@@ -89,20 +103,48 @@ public class AiSceneRegistry {
     }
 
     /**
-     * 按场景代码获取启用配置（直查数据库，管理端变更即时生效）
+     * 按场景代码获取启用配置（v13.19：请求级记忆化，见类注释）
      *
-     * <p>同场景多版本时按 priority DESC 取第一条（与原内存缓存口径一致）。</p>
+     * <p>同场景多版本时按 priority DESC 取第一条（与原内存缓存口径一致）。
+     * 同一次请求内重复调用（含 {@link #getConfig(String, String)} 的"全码未命中回退主码"路径）
+     * 只查一次库；未配置的负结果同样被记住。</p>
      *
      * @return 配置；无配置或未启用返回 null
      */
     public AiSceneConfig getConfig(String sceneCode) {
+        RequestAttributes attributes = currentRequestAttributesOrNull();
+        String cacheKey = REQUEST_CACHE_PREFIX + sceneCode;
+        if (attributes != null) {
+            Object cached = attributes.getAttribute(cacheKey, RequestAttributes.SCOPE_REQUEST);
+            if (cached != null) {
+                return cached == ABSENT ? null : (AiSceneConfig) cached;
+            }
+        }
+
         List<AiSceneConfig> configs = configMapper.selectList(
                 new LambdaQueryWrapper<AiSceneConfig>()
                         .eq(AiSceneConfig::getSceneCode, sceneCode)
                         .eq(AiSceneConfig::getEnabled, true)
                         .orderByDesc(AiSceneConfig::getPriority)
                         .last("LIMIT 1"));
-        return configs.isEmpty() ? null : configs.get(0);
+        AiSceneConfig result = configs.isEmpty() ? null : configs.get(0);
+
+        if (attributes != null) {
+            attributes.setAttribute(cacheKey, result == null ? ABSENT : result, RequestAttributes.SCOPE_REQUEST);
+            log.debug("[aigateway] 场景配置本次请求首次加载并记忆: scene={}, hit={}", sceneCode, result != null);
+        }
+        return result;
+    }
+
+    /**
+     * 当前请求的属性容器；非 HTTP 上下文返回 {@code null}（此时退化为每次直查，行为与 v13.19 前一致）
+     */
+    private static RequestAttributes currentRequestAttributesOrNull() {
+        try {
+            return RequestContextHolder.getRequestAttributes();
+        } catch (IllegalStateException e) {
+            return null;
+        }
     }
 
     /**

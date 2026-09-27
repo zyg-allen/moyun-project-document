@@ -223,6 +223,21 @@ class DdlConventionGuardTest {
     }
 
     @Test
+    @DisplayName("状态默认值 must fail-closed：核验/审核类状态列不得默认放行；update_time 必须自动更新")
+    void failOpenDefaultsAndTimestampAutoUpdate() throws IOException {
+        Map<String, List<ColumnLine>> tables = parseColumnLines(readDdl());
+        int columns = tables.values().stream().mapToInt(List::size).sum();
+        List<String> violations = findFailOpenDefaults(tables);
+
+        System.out.println("[DdlConventionGuard] fail-open 默认值检查：表=" + tables.size()
+                + "，列=" + columns + "，违规=" + violations.size());
+        assertTrue(tables.size() > 100 && columns > 1000,
+                "解析器未覆盖到 DDL（表=" + tables.size() + "，列=" + columns + "）——检查会假绿");
+        assertTrue(violations.isEmpty(),
+                "状态默认值/时间戳语义缺陷（v13.18，报告 §6.4）：\n  " + String.join("\n  ", violations));
+    }
+
+    @Test
     @DisplayName("解析器自检：列类型/精度、软删列识别、collation 提取")
     void parserWorksOnFixtures() {
         String fixture = """
@@ -258,7 +273,109 @@ class DdlConventionGuardTest {
         assertFalse(collations.containsKey("demo_soft"), "无 collation 的表不应出现在结果里");
     }
 
+    @Test
+    @DisplayName("解析器自检（v13.18 新增）：fail-open 默认值与 update_time 自动更新判定")
+    void failOpenDefaultParserWorksOnFixtures() {
+        String fixture = """
+                CREATE TABLE `demo_card` (
+                  `id` bigint NOT NULL,
+                  `verify_status` varchar(16) NOT NULL DEFAULT 'VERIFIED' COMMENT '核验状态',
+                  `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '修改时间',
+                  PRIMARY KEY (`id`)
+                ) ENGINE=InnoDB;
+
+                CREATE TABLE `demo_ok` (
+                  `id` bigint NOT NULL,
+                  `verify_status` varchar(16) NOT NULL DEFAULT 'PENDING' COMMENT '核验状态',
+                  `audit_status` varchar(16) NOT NULL DEFAULT 'auditing' COMMENT '审核状态（非放行值：不受规则命中）',
+                  `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '修改时间',
+                  `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+                  `del_flag` char(1) NOT NULL DEFAULT '0',
+                  PRIMARY KEY (`id`),
+                  UNIQUE KEY `uk_demo` (`id`),
+                  KEY `idx_demo` (`del_flag`)
+                ) ENGINE=InnoDB;
+                """;
+
+        Map<String, List<ColumnLine>> tables = parseColumnLines(fixture);
+        assertEquals(2, tables.size());
+        assertEquals(6, tables.get("demo_ok").size(), "demo_ok 应有 6 个列定义");
+        assertTrue(tables.get("demo_ok").stream().noneMatch(c ->
+                        c.name().matches("(?i)primary|unique|key|idx_demo|uk_demo")),
+                "约束行（PRIMARY/UNIQUE/KEY）不得被当成列定义");
+
+        List<String> violations = findFailOpenDefaults(tables);
+        assertEquals(2, violations.size(), "期望命中 2 处：demo_card 的 fail-open 默认值 + update_time 缺 ON UPDATE");
+        assertTrue(violations.get(0).contains("demo_card") || violations.get(1).contains("demo_card"));
+        assertTrue(violations.stream().anyMatch(v -> v.contains("verify_status") && v.contains("VERIFIED")),
+                "fail-open 默认值必须命中");
+        assertTrue(violations.stream().anyMatch(v -> v.contains("update_time") && v.contains("ON UPDATE")),
+                "缺 ON UPDATE 必须命中");
+        assertTrue(violations.stream().noneMatch(v -> v.contains("demo_ok")),
+                "合规写法（PENDING / 非放行 audit 值 / 带 ON UPDATE）不得误报");
+    }
+
     // ==================== 解析实现 ====================
+
+    /** 核验/审核类状态列：默认值不得是"放行"语义（fail-open 默认值 = 直插 SQL 可绕过核验） */
+    private static final Pattern VERIFY_LIKE_COLUMN =
+            Pattern.compile(".*(verify_status|audit_status|review_status|cert_status).*", Pattern.CASE_INSENSITIVE);
+
+    /** 默认值中的"放行"取值 */
+    private static final Set<String> FAIL_OPEN_DEFAULTS =
+            Set.of("VERIFIED", "APPROVED", "PASSED", "SUCCESS", "TRUE", "1");
+
+    /** 建表块内"列名 → 原始列定义行"（跳过 KEY/PRIMARY/UNIQUE/INDEX 等约束行） */
+    private static final Pattern COLUMN_LINE =
+            Pattern.compile("(?im)^\\s*`(\\w+)`\\s+([^\\r\\n]*)$");
+
+    /**
+     * 找出两类"默认值/语义缺陷"（v13.18）
+     * <ol>
+     *   <li>核验/审核类状态列默认值是放行值（如 {@code verify_status DEFAULT 'VERIFIED'}）——
+     *       任何绕过业务核验的直插 SQL 都会拿到"已验证/已通过"；</li>
+     *   <li>{@code update_time datetime NOT NULL DEFAULT CURRENT_TIMESTAMP} 却缺
+     *       {@code ON UPDATE CURRENT_TIMESTAMP}——看着像自动维护，实际更新不刷新。</li>
+     * </ol>
+     */
+    static List<String> findFailOpenDefaults(Map<String, List<ColumnLine>> tables) {
+        List<String> violations = new ArrayList<>();
+        for (Map.Entry<String, List<ColumnLine>> entry : tables.entrySet()) {
+            for (ColumnLine column : entry.getValue()) {
+                String upper = column.definition().toUpperCase();
+                Matcher defaultValue = Pattern.compile("DEFAULT\\s+'?([A-Za-z0-9_]+)'?").matcher(column.definition());
+                String value = defaultValue.find() ? defaultValue.group(1).toUpperCase() : null;
+                if (VERIFY_LIKE_COLUMN.matcher(column.name()).matches()
+                        && value != null && FAIL_OPEN_DEFAULTS.contains(value)) {
+                    violations.add(entry.getKey() + "." + column.name()
+                            + " 默认值 '" + value + "' 是放行语义（fail-open）→ 必须默认 'PENDING'/未通过");
+                }
+                if ("update_time".equalsIgnoreCase(column.name())
+                        && upper.contains("NOT NULL") && upper.contains("CURRENT_TIMESTAMP")
+                        && !upper.contains("ON UPDATE")) {
+                    violations.add(entry.getKey() + ".update_time 有 DEFAULT CURRENT_TIMESTAMP 却缺 "
+                            + "ON UPDATE CURRENT_TIMESTAMP（更新时不刷新，语义误导）");
+                }
+            }
+        }
+        return violations;
+    }
+
+    /** 建表块 → 每个表的原始列定义行 */
+    static Map<String, List<ColumnLine>> parseColumnLines(String ddl) {
+        Map<String, List<ColumnLine>> tables = new LinkedHashMap<>();
+        Matcher tableMatcher = CREATE_TABLE.matcher(ddl);
+        while (tableMatcher.find()) {
+            String table = tableMatcher.group(1);
+            List<ColumnLine> columns = new ArrayList<>();
+            Matcher columnMatcher = COLUMN_LINE.matcher(tableMatcher.group(2));
+            while (columnMatcher.find()) {
+                columns.add(new ColumnLine(table, columnMatcher.group(1), columnMatcher.group(2)));
+            }
+            tables.put(table, columns);
+        }
+        return tables;
+    }
 
     /** 建表块 → 列定义 */
     static Map<String, List<ColumnDef>> parseTables(String ddl) {
@@ -313,5 +430,9 @@ class DdlConventionGuardTest {
 
     /** 列定义（类型 + 精度） */
     record ColumnDef(String name, String type, int precision, int scale) {
+    }
+
+    /** 列定义原始行（表名 + 列名 + 该行完整定义） */
+    record ColumnLine(String table, String name, String definition) {
     }
 }

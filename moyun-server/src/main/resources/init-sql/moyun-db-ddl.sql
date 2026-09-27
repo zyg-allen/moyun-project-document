@@ -915,9 +915,9 @@ CREATE TABLE `pay_user_bank_card` (
                                       `bank_code` varchar(32) COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '银行编码（如 ICBC）',
                                       `bank_name` varchar(64) COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '银行名称（如 中国工商银行）',
                                       `is_default` tinyint NOT NULL DEFAULT '0' COMMENT '是否默认卡：1=是 0=否',
-                                      `verify_status` varchar(16) COLLATE utf8mb4_0900_ai_ci NOT NULL DEFAULT 'VERIFIED' COMMENT '验证状态：VERIFIED=已验证 / PENDING=待验证',
+                                      `verify_status` varchar(16) COLLATE utf8mb4_0900_ai_ci NOT NULL DEFAULT 'PENDING' COMMENT '验证状态：PENDING=待验证 / VERIFIED=已验证 / REJECTED=已驳回（v13.18 默认值改 fail-closed：直插 SQL 不得绕过四要素核验）',
                                       `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
-                                      `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '修改时间',
+                                      `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '修改时间',
                                       PRIMARY KEY (`id`),
                                       UNIQUE KEY `uk_user_card` (`user_id`,`card_no_masked`),
                                       KEY `idx_user` (`user_id`)

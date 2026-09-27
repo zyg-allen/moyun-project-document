@@ -61,10 +61,26 @@ DROP TEMPORARY TABLE IF EXISTS tmp_vip_card_keep;
 -- SELECT user_id, platform_code, COUNT(*) FROM vip_user_card GROUP BY user_id, platform_code HAVING COUNT(*) > 1;
 
 -- 6. 索引升级：idx_user_platform -> uk_user_platform（唯一索引）
+--    v13.18 修订：原实现是裸 ALTER（DROP KEY + ADD UNIQUE KEY），库已迁移时重跑报
+--    ERROR 1091 (Can't DROP 'idx_user_platform') 并中断脚本。现按
+--    "idx 是否存在 / uk 是否已建" 四种组合走 information_schema 前置判断，可任意次重跑。
 --    注意：若线上索引名不一致，请先 SHOW INDEX FROM vip_user_card 确认后再调整
-ALTER TABLE vip_user_card
-  DROP KEY idx_user_platform,
-  ADD UNIQUE KEY uk_user_platform (user_id, platform_code);
+SET @has_idx := (SELECT COUNT(*) FROM information_schema.STATISTICS
+                 WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'vip_user_card' AND INDEX_NAME = 'idx_user_platform');
+SET @has_uk := (SELECT COUNT(*) FROM information_schema.STATISTICS
+                WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'vip_user_card' AND INDEX_NAME = 'uk_user_platform');
+SET @sql := IF(@has_uk > 0,
+    IF(@has_idx > 0, 'ALTER TABLE `vip_user_card` DROP KEY `idx_user_platform`', 'DO 0'),
+    IF(@has_idx > 0,
+       'ALTER TABLE `vip_user_card` DROP KEY `idx_user_platform`, ADD UNIQUE KEY `uk_user_platform` (`user_id`, `platform_code`)',
+       'ALTER TABLE `vip_user_card` ADD UNIQUE KEY `uk_user_platform` (`user_id`, `platform_code`)'));
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 
--- 7. 复核索引已生效
--- SHOW INDEX FROM vip_user_card;
+-- 7. 复核：期望 uk_user_platform 唯一（NON_UNIQUE=0），且无 idx_user_platform；重复组数 0
+SELECT INDEX_NAME, NON_UNIQUE, COLUMN_NAME
+FROM information_schema.STATISTICS
+WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'vip_user_card'
+  AND INDEX_NAME IN ('uk_user_platform', 'idx_user_platform') ORDER BY INDEX_NAME;
+
+SELECT user_id, platform_code, COUNT(*) AS dup
+FROM vip_user_card GROUP BY user_id, platform_code HAVING COUNT(*) > 1;

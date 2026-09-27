@@ -2,6 +2,58 @@
 
 > 2026-09-17 v11.98 后瘦身：历史条目仅保留「版本 + 修改类目 + 简介」，实施细节沉淀于方案文档与《00-项目现状总结》。v12 起新条目同样只记类目+简介。
 
+## v13.18 (2026-09-27) 第二批⑦：fail-open 默认值 + 增量脚本可重跑（守卫比报告多挖出 3 个脚本）
+
+> §6.4 那行原文只点了一个脚本（`20260925-01`）："`DROP KEY` 无守卫、`SET phone=NULL` 破坏性"。
+> 写成守卫后**多挖出 3 个同样不可重跑的脚本**——正是"把结论固化成检查"的价值。
+
+**改动**
+
+| 项 | 修复前（dev 库实证） | 修复后 |
+|---|---|---|
+| `pay_user_bank_card.verify_status` | `NOT NULL DEFAULT 'VERIFIED'`（**fail-open**：绕过 `BankCardServiceImpl` 四要素核验的直插 SQL 直接拿到"已验证"，而提现闸门只认 `VERIFIED`） | DDL 默认值改 `'PENDING'`；新增幂等增量脚本 `20260927-05`（只改列定义，**不动存量数据**） |
+| `pay_user_bank_card.update_time` | `NOT NULL DEFAULT CURRENT_TIMESTAMP` 缺 `ON UPDATE`（看着像自动维护，实际更新不刷新；全仓仅此 1 处） | 补 `ON UPDATE CURRENT_TIMESTAMP`（同脚本） |
+| `20260925-01`（报告点名） | 裸 `DROP KEY idx_email, ADD UNIQUE uk_email`：dev 库已迁移（`uk_*` 已建、`idx_*` 已删）→ 重跑必报 **1091**；两处 `SET phone/email = NULL` 无备份、复核只在注释 | 索引变更按"idx 是否存在 / uk 是否已建"四组合走 `information_schema` 守卫；**先建备份表**再做清洗；末尾给出可执行复核 SQL |
+| `20260925-02`（守卫新挖出） | 单条多列 `ADD COLUMN` ×5 → 重跑报 **1060** 中断 | 拆为 5 个逐列守卫（也容忍"上次中途失败"的部分迁移状态） |
+| `20260927-02`（守卫新挖出） | 裸 `ADD COLUMN token_estimated` → 重跑报 **1060**；原注释还写着"报错属预期" | 加守卫；并把"报错属预期"改为明确的幂等说明 |
+| `20260927-01`（守卫新挖出） | 裸 `DROP KEY idx_user_platform + ADD UNIQUE uk_user_platform` → 重跑报 **1091**（它有备份表但没有索引守卫） | 加四组合守卫 + 可执行复核 SQL |
+
+**口径（写入规范 §2.8）**：会报错的结构变更（`DROP KEY/INDEX`/`ADD COLUMN`/`ADD KEY/UNIQUE`/`DROP COLUMN`/`CHANGE COLUMN`）
+必须 `information_schema` 前置判断；`MODIFY COLUMN` 天然幂等**不在此列**但也不得当作挡箭牌；
+破坏性清洗必须先建备份表 + 末尾给**可执行**复核 SQL；落地验证 = **在已迁移库上连跑两次全 exit 0**。
+
+**验证**
+
+- 新增 `IncrementSqlIdempotencyGuardTest`（2 例）：扫描全部 **7 个脚本**（5 个含结构变更 / 1 个含破坏性清洗）→ 违规 0；
+  **红证** = 首次运行即报出 4 个未加守卫的真实脚本（含报告未提及的 3 个），逐个修复后归零；6 组 fixture
+  （含"注释里提到 `SET x = NULL` 不得误报"——第一版没剥离 SQL 注释时正是被自己的注释绊倒）；
+- `DdlConventionGuardTest` 增第 7 例：**核验/审核类状态列默认值不得是放行语义**（`VERIFIED/APPROVED/PASSED/...`）
+  + `update_time` 有 `DEFAULT CURRENT_TIMESTAMP` 必须带 `ON UPDATE`；全量 **187 表 / 2537 列 / 违规 0**，含 fixture；
+- **dev 库实证**：`moyun-db` 上把 `increment-sql/` **全部 7 个脚本各连跑两次 = 14/14 exit 0**（修复前其中 4 个会中断）；
+  复核 `verify_status` 默认已 `PENDING`、`update_time` EXTRA 已含 `on update`、`uk_email/uk_phone/uk_user_platform` 唯一且重复组 0。
+
+**同步**：报告 §6.4 两行改判 ✅ + 总览第 36 项 + 新增附录 AB；`项目开发规范` §2.8 增"增量脚本必须可重跑"硬约束；
+`00-项目现状总结` 铁律 4/11 扩展；README 版本历史与增量脚本清单；本条目。
+
+## v13.17 (2026-09-27) 第二批⑥：收银台越权（IDOR）+ CORS 白名单收口（含 §6.6 过期行订正）
+
+> §6.4 两行"中危安全"回源码复核后，**一行比报告写的更重，一行比报告写的更危险**；
+> §6.6 那行则已在前批修完（报告未回写）。
+
+**取证与修复**
+
+| 报告行 | 实测 | 处置 |
+|---|---|---|
+| mock 支付端点不校验订单归属（`PortalPayController:70-80`） | ✅ 属实，且**同一控制器的 `/status/{payNo}` 也漏归属**——只判"已登录"，`payNo` 可枚举 → 他人订单**金额/支付链接/过期时间**泄露（IDOR）。`/mock` 更重：可把**他人订单**刷成已支付，触发真实后续链路（发卡/记账/打赏到账） | 新增 `ownOrderOrNull(payNo, userId)` **唯一归属校验**，`/status` 与 `/mock` 共用；查不到与不属于自己返回同一个 `403`（不泄露存在性）；`/mock` 的归属校验**早于** `mockPaySuccess`。新增 7 例单测（含"他人订单不泄露金额/链接""`/mock` 绝不调用 `mockPaySuccess`""未登录不触碰查询""后台登录态不构成门户身份"） |
+| CORS 默认放行内网段 + `allowCredentials(true)`（`ResourcesConfig:100-113`） | ✅ 属实，且**比报告更危险**：`addAllowedOriginPattern("http://192.168.*")` 中的 `*` 是通配符 → 会匹配 **`http://192.168.evil.com`**（可注册域名）；内网放行还无"仅开发"约束，生产漏配即生效 | 抽出可单测的 `buildCorsConfiguration(envOrigins, prodProfile)`：环境变量改**精确** `addAllowedOrigin`（不再用 pattern）；非生产默认只放行**回环**（含端口通配，host 段固定不可伪造）；**生产未配置即 fail-closed 不放行任何源**；局域网设备改为按 Origin **精确放行一次**且要求 host 是私网 IP 字面量（`10/8`、`172.16/12`、`192.168/16`、回环），域名一律拒绝，并需显式 `CORS_ALLOW_LAN_DEV_ORIGINS=true` 且非生产。新增 4 例单测（含 `192.168.evil.com`、`portal.moyun.com.evil.com` 必须拒绝，`localhost:5173` 必须放行） |
+| §6.6 打赏幂等查询缺 `userId` → 跨用户订单泄露（`LedgerTipServiceImpl.createTipOrder:62-78`） | ❌ **已过期**：现实现已带 `.eq(LedgerTipOrder::getUserId, userId)`，源码注释还记录了当时的漏洞说明 | **零代码改动**，仅改判报告 ✅ |
+
+**验证**：`mvn -o test` **387 例全绿**（376 → 387，本批 +11）；新增两个测试类均含"修复前会失败"的断言
+（`192.168.evil.com` 放行、`/mock` 刷他人订单）。
+
+**同步**：报告 §6.4 两行改判 ✅ + §6.6 行改判 ✅ + 总览新增第 35 项 + 新增附录 AA；
+`项目开发规范` 新增 §3.3.4「越权（IDOR）与跨域白名单」；`00-项目现状总结` 铁律 15；README 版本历史；本条目。
+
 ## v13.16 (2026-09-27) 第二批⑤：写路径"静默 0 行"收口 + 精选笔记数三处写入冲突（含报告计数订正）
 
 > §6.2 原文"`insertIfNotExists` 返回值 10 个调用点无一检查"。取证后分两层：**返回值不检查本身不丢数据**

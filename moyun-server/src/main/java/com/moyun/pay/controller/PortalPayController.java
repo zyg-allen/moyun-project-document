@@ -50,10 +50,16 @@ public class PortalPayController {
      */
     @GetMapping("/status/{payNo}")
     public AjaxResult status(@PathVariable String payNo) {
-        if (PortalSecurityUtils.getUserId() == null) {
+        Long userId = PortalSecurityUtils.getUserId();
+        if (userId == null) {
             return AjaxResult.error(401, "登录已过期，请重新登录");
         }
-        PayOrder order = payGateway.queryStatus(payNo);
+        // v13.17：越权防护——payNo 可被枚举/猜测，原实现仅校验"已登录"，
+        // 任意登录用户都能读到**他人订单**的金额/支付链接/过期时间（IDOR）
+        PayOrder order = ownOrderOrNull(payNo, userId);
+        if (order == null) {
+            return AjaxResult.error(403, "订单不存在或无权操作");
+        }
         Map<String, Object> data = new HashMap<>();
         data.put("payNo", order.getPayNo());
         data.put("status", order.getStatus());
@@ -69,14 +75,34 @@ public class PortalPayController {
      */
     @PostMapping("/mock/{payNo}")
     public AjaxResult mockPay(@PathVariable String payNo) {
-        if (PortalSecurityUtils.getUserId() == null) {
+        Long userId = PortalSecurityUtils.getUserId();
+        if (userId == null) {
             return AjaxResult.error(401, "登录已过期，请重新登录");
+        }
+        // v13.17：越权防护（必须早于 mockPaySuccess）——原实现只校验"已登录 + mock 已开启"，
+        // 任意登录用户可把**他人订单**置为支付成功，进而触发真实后续链路（发卡/记账/打赏到账）
+        if (ownOrderOrNull(payNo, userId) == null) {
+            return AjaxResult.error(403, "订单不存在或无权操作");
         }
         if (!payProperties.getWechat().isMockEnabled()) {
             return AjaxResult.error("mock 支付未开启");
         }
         Map<String, Object> result = payGateway.mockPaySuccess(payNo);
         return AjaxResult.success(result);
+    }
+
+    /**
+     * 取"当前用户名下"的订单（v13.17 越权防护收口）
+     *
+     * <p>订单归属校验只此一处：{@code /status} 与 {@code /mock} 都走它，避免各端点各写一份、
+     * 新增端点时漏掉归属判断。查不到订单与订单不属于自己返回同一个 {@code null}（不泄露订单是否存在）。</p>
+     */
+    private PayOrder ownOrderOrNull(String payNo, Long userId) {
+        PayOrder order = payGateway.queryStatus(payNo);
+        if (order == null || order.getUserId() == null || !order.getUserId().equals(userId)) {
+            return null;
+        }
+        return order;
     }
 
     /**

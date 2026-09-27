@@ -70,53 +70,165 @@ public class ResourcesConfig implements WebMvcConfigurer
 
     /**
      * 跨域配置
-     * 通过环境变量 CORS_ALLOWED_ORIGINS 配置允许的源（逗号分隔），默认仅允许本地开发地址
-     * 注意：Origin 头中默认端口（80/443）通常被省略，需同时放行带端口通配符和无端口两种模式
+     *
+     * <p>通过环境变量 {@code CORS_ALLOWED_ORIGINS}（逗号分隔）配置允许的源；未配置时只在**非生产**使用本地开发白名单。</p>
+     *
+     * <p><b>v13.17 收口（§6.4）</b>：原实现存在两个问题——</p>
+     * <ol>
+     *   <li>未配置环境变量时**无条件**放行 {@code http://192.168.*}、{@code http://10.*} 等内网 pattern，
+     *       而 Spring 的 origin pattern 里 {@code *} 是通配符，{@code http://192.168.*} 会匹配
+     *       {@code http://192.168.evil.com}（可注册域名）→ 配合 {@code allowCredentials(true)}
+     *       等于把带凭据的跨域请求开放给攻击者域名；</li>
+     *   <li>内网放行没有"仅开发环境"约束，生产漏配即生效。</li>
+     * </ol>
+     * <p>现在：内网 Origin 改为**按真实私网地址逐条精确放行**（解析 Origin 的 host，必须是 IPv4 私有段
+     * 172.16/12、192.168/16、10/8 的字面量，或本机回环），且必须显式开启
+     * {@code CORS_ALLOW_LAN_DEV_ORIGINS=true} **且**非生产 profile；生产未配置环境变量时**不放行任何跨域源**（fail-closed）。</p>
      */
     @Bean
     public CorsFilter corsFilter()
     {
+        String envOrigins = System.getenv("CORS_ALLOWED_ORIGINS");
+        boolean lanDevAllowed = isLanDevOriginsAllowed();
+        boolean prod = isProdProfile();
+        CorsConfiguration config = buildCorsConfiguration(envOrigins, prod);
+
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource()
+        {
+            @Override
+            public CorsConfiguration getCorsConfiguration(jakarta.servlet.http.HttpServletRequest request)
+            {
+                CorsConfiguration base = super.getCorsConfiguration(request);
+                if (base == null || !lanDevAllowed)
+                {
+                    return base;
+                }
+                // 开发期手机/局域网设备经 vite dev server 访问：按"真实私网 IP 字面量"精确放行当前 Origin，
+                // 不使用 * 通配 pattern（避免 http://192.168.evil.com 这类可注册域名被匹配）
+                String origin = request.getHeader(org.springframework.http.HttpHeaders.ORIGIN);
+                if (origin != null && isPrivateNetworkOrigin(origin))
+                {
+                    CorsConfiguration copy = new CorsConfiguration(base);
+                    copy.addAllowedOrigin(origin);
+                    log.debug("CORS 放行局域网开发 Origin：{}", origin);
+                    return copy;
+                }
+                return base;
+            }
+        };
+        source.registerCorsConfiguration("/**", config);
+        return new CorsFilter(source);
+    }
+
+    /**
+     * 构建基础跨域配置（可单测：不依赖环境变量与 profile）
+     *
+     * @param envOrigins     {@code CORS_ALLOWED_ORIGINS} 的原始值（逗号分隔，可空）
+     * @param prodProfile    是否生产 profile
+     */
+    static CorsConfiguration buildCorsConfiguration(String envOrigins, boolean prodProfile)
+    {
         CorsConfiguration config = new CorsConfiguration();
-        // 从环境变量读取允许的源，默认仅本地开发
-        String allowedOrigins = System.getenv("CORS_ALLOWED_ORIGINS");
-        if (allowedOrigins != null && !allowedOrigins.trim().isEmpty()) {
-            for (String origin : allowedOrigins.split(",")) {
+        if (envOrigins != null && !envOrigins.trim().isEmpty())
+        {
+            for (String origin : envOrigins.split(","))
+            {
                 String trimmed = origin.trim();
-                if (!trimmed.isEmpty()) {
-                    config.addAllowedOriginPattern(trimmed);
+                if (!trimmed.isEmpty())
+                {
+                    config.addAllowedOrigin(trimmed);
                 }
             }
-            log.info("CORS allowed origins 已从环境变量加载：{}", config.getAllowedOriginPatterns());
-        } else {
-            // 本地开发默认白名单：同时覆盖带端口与无端口两种 Origin 头形式
-            config.addAllowedOriginPattern("http://localhost:*");
-            config.addAllowedOriginPattern("http://localhost");
-            config.addAllowedOriginPattern("http://127.0.0.1:*");
-            config.addAllowedOriginPattern("http://127.0.0.1");
-            config.addAllowedOriginPattern("https://localhost:*");
-            config.addAllowedOriginPattern("https://localhost");
-            // 手机等局域网设备经 vite dev server（https + host）访问时，Origin 为局域网地址，
-            // 代理不重写 Origin 头，需放行内网网段（仅开发默认值；生产务必配置 CORS_ALLOWED_ORIGINS）
-            config.addAllowedOriginPattern("http://192.168.*:*");
-            config.addAllowedOriginPattern("http://192.168.*");
-            config.addAllowedOriginPattern("https://192.168.*:*");
-            config.addAllowedOriginPattern("https://192.168.*");
-            config.addAllowedOriginPattern("http://10.*:*");
-            config.addAllowedOriginPattern("https://10.*:*");
-            log.info("CORS 未配置 CORS_ALLOWED_ORIGINS，使用本地开发白名单：{}", config.getAllowedOriginPatterns());
+            log.info("CORS allowed origins 已从环境变量加载：{}", config.getAllowedOrigins());
         }
-        // 设置访问源请求头
+        else if (!prodProfile)
+        {
+            // 本地开发默认白名单：只放行**本机回环**（含端口通配——回环 pattern 的 host 段是固定的，
+            // http://localhost:* 不会匹配 http://localhost.evil.com，故不存在内网 pattern 那类伪造问题）。
+            // 局域网设备走 getCorsConfiguration 的私网精确放行（需显式开关）。
+            config.addAllowedOriginPattern("http://localhost:*");
+            config.addAllowedOrigin("http://localhost");
+            config.addAllowedOriginPattern("http://127.0.0.1:*");
+            config.addAllowedOrigin("http://127.0.0.1");
+            config.addAllowedOriginPattern("https://localhost:*");
+            config.addAllowedOrigin("https://localhost");
+            log.info("CORS 未配置 CORS_ALLOWED_ORIGINS，使用本机开发白名单：{}", config.getAllowedOriginPatterns());
+        }
+        else
+        {
+            // 生产 fail-closed：不放行任何跨域源（同源部署不受影响）
+            log.error("CORS 未配置 CORS_ALLOWED_ORIGINS 且当前为生产 profile：已 fail-closed，不放行任何跨域源");
+        }
+        // 设置访问源请求头 / 方法
         config.addAllowedHeader("*");
-        // 设置访问源请求方法
         config.addAllowedMethod("*");
-        // 允许携带 Cookie
+        // 允许携带 Cookie（正是因此，源白名单必须严格）
         config.setAllowCredentials(true);
         // 有效期 1800秒
         config.setMaxAge(1800L);
-        // 添加映射路径，拦截一切请求
-        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
-        source.registerCorsConfiguration("/**", config);
-        // 返回新的 CorsFilter
-        return new CorsFilter(source);
+        return config;
+    }
+
+    /** 内网放行开关：显式环境变量开启，且非生产 profile */
+    private static boolean isLanDevOriginsAllowed()
+    {
+        boolean enabled = "true".equalsIgnoreCase(String.valueOf(System.getenv("CORS_ALLOW_LAN_DEV_ORIGINS")).trim());
+        return enabled && !isProdProfile();
+    }
+
+    private static boolean isProdProfile()
+    {
+        String profiles = System.getenv("SPRING_PROFILES_ACTIVE");
+        if (profiles == null || profiles.isBlank())
+        {
+            profiles = System.getProperty("spring.profiles.active", "");
+        }
+        for (String p : String.valueOf(profiles).split(","))
+        {
+            String trimmed = p.trim().toLowerCase();
+            if ("prod".equals(trimmed) || "production".equals(trimmed))
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** Origin 的 host 是否为**私网 IP 字面量**或回环（拒绝任何域名，杜绝 {@code 192.168.evil.com} 这类伪造） */
+    static boolean isPrivateNetworkOrigin(String origin)
+    {
+        try
+        {
+            java.net.URI uri = java.net.URI.create(origin);
+            String host = uri.getHost();
+            if (host == null)
+            {
+                return false;
+            }
+            if ("localhost".equalsIgnoreCase(host) || "127.0.0.1".equals(host) || "::1".equals(host))
+            {
+                return true;
+            }
+            // 必须是 IPv4 字面量（含域名一律拒绝）
+            java.util.regex.Matcher m = java.util.regex.Pattern
+                    .compile("^(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})$").matcher(host);
+            if (!m.matches())
+            {
+                return false;
+            }
+            int a = Integer.parseInt(m.group(1));
+            int b = Integer.parseInt(m.group(2));
+            if (a > 255 || b > 255 || Integer.parseInt(m.group(3)) > 255 || Integer.parseInt(m.group(4)) > 255)
+            {
+                return false;
+            }
+            return a == 10                                  // 10.0.0.0/8
+                    || (a == 172 && b >= 16 && b <= 31)     // 172.16.0.0/12
+                    || (a == 192 && b == 168);              // 192.168.0.0/16
+        }
+        catch (Exception e)
+        {
+            return false;
+        }
     }
 }

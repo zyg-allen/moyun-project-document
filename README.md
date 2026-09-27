@@ -1,8 +1,8 @@
 # 旭林知行 — AI 驱动的求职面试与学习成长平台
 
-**项目版本**：v13.16（第二批中危项整改：模块边界 / 数据库口径 / 事务边界 / 回滚口径 / 写路径静默失效 五项闭环，均带结构守卫）  
+**项目版本**：v13.18（第二批中危项整改：模块边界 / 数据库口径 / 事务边界 / 回滚口径 / 写路径静默失效 / 收银台与跨域安全 / 数据库默认值与脚本幂等 七项闭环，均带守卫或单测）  
 **最后更新**：2026-09-27  
-**项目状态**：✅ v13.16 基线就绪（AI 统一网关配置驱动 + 公共支付/VIP/提现闭环 + 记账 App 三端 + Quartz 集群 + 安全/执行器/模块边界/数据库口径/事务边界/回滚口径/增量写 结构守卫） | ⏳ 后续进入报告 §六剩余中危项与运营数据填充 | 🧭 **变更铁律见 [00-项目现状总结 · 开发铁律](docs/06-规划路线/00-项目现状总结.md)**
+**项目状态**：✅ v13.17 基线就绪（AI 统一网关配置驱动 + 公共支付/VIP/提现闭环 + 记账 App 三端 + Quartz 集群 + 安全/执行器/模块边界/数据库口径/事务边界/回滚口径/增量写 守卫与收银台越权·跨域测试） | ⏳ 后续进入报告 §六剩余中危项与运营数据填充 | 🧭 **变更铁律见 [00-项目现状总结 · 开发铁律](docs/06-规划路线/00-项目现状总结.md)**
 
 ---
 
@@ -168,13 +168,22 @@ mysql -u root -p moyun-db < increment-sql/20260927-01-vip_user_card唯一键与�
 mysql -u root -p moyun-db < increment-sql/20260927-02-ai_execute_log-token估算标记.sql
 mysql -u root -p moyun-db < increment-sql/20260927-03-数据库规范统一（金额精度+collation）.sql
 mysql -u root -p moyun-db < increment-sql/20260927-04-话题模块软删列统一.sql
+mysql -u root -p moyun-db < increment-sql/20260927-05-pay_user_bank_card核验默认值与update_time.sql
 ```
+
+> **执行方式**：脚本内部用 `DATABASE()` 取当前库，请带库名执行（`-D moyun-db` 或先 `USE`）；
+> **全部脚本可重复执行**（v13.18 起由 `IncrementSqlIdempotencyGuardTest` 强制，dev 库已实测 7 脚本 × 2 次全 `exit 0`）。
 
 > `20260927-01` 说明：把 `vip_user_card` 的 `idx_user_platform` 升级为
 > `UNIQUE KEY uk_user_platform(user_id, platform_code)`，落实表注释"一端一卡，续费顺延"。
 > 代码侧配套 `VipUserCardMapper.renewCard`（单条原子续期 SQL）——
 > **该唯一键是发卡逻辑的正确性前提，已有库必须执行本脚本**（否则并发首购会重复插卡）。
-> 脚本会先备份 `vip_user_card_bak_20260927` 并合并每组"最优到期/状态"再删冗余行，重复执行会在 `ALTER` 处报索引已存在（属预期）。
+> 脚本会先备份 `vip_user_card_bak_20260927` 并合并每组"最优到期/状态"再删冗余行；
+> 索引变更带 `information_schema` 前置判断，**重复执行自动跳过**（v13.18 前会在 `ALTER` 处报错中断）。
+
+> `20260927-05` 说明（v13.18）：`pay_user_bank_card.verify_status` 默认值由 `'VERIFIED'` 改 `'PENDING'`
+> （fail-open → fail-closed：直插 SQL 不得绕过四要素核验），并给 `update_time` 补 `ON UPDATE CURRENT_TIMESTAMP`。
+> **只改列定义、不动存量数据**（已存在的 `VERIFIED` 保持原样）。
 
 #### 菜单初始化策略（`moyun-menu-redo.sql`）
 
@@ -337,6 +346,8 @@ moyun-project-document/
 | **v13.14** | **2026-09-27** | **第二批③事务内远程 IO 收口：9 个方法改"事务只包 DB 写"（MinIO/本地磁盘/RAG/LLM）+ 静态守卫与运行时探针双层验证** |
 | **v13.15** | **2026-09-27** | **第二批④事务回滚口径统一：10 处补 `rollbackFor`（受检异常不再提交半截数据）+ 守卫 `TransactionRollbackRuleGuardTest`；订正报告两处过期/错误计数** |
 | **v13.16** | **2026-09-27** | **第二批⑤写路径"静默 0 行"收口：7 处增量写改 fail-closed（打赏扣了没入账、成长值、关注数…）+ 精选笔记数三处写入冲突收敛为唯一写入源 + 守卫 `AggregateIncrementGuardTest`** |
+| **v13.17** | **2026-09-27** | **第二批⑥安全中危：收银台两个端点补归属校验（他人订单金额/支付链接泄露、可被刷成已支付）+ CORS 白名单改精确匹配（原通配 pattern 能匹配 `192.168.evil.com`，生产未配置改 fail-closed）** |
+| **v13.18** | **2026-09-27** | **第二批⑦数据库默认值与脚本语义：`verify_status` 默认 `VERIFIED`→`PENDING`（fail-open 修复）、`update_time` 补 `ON UPDATE`；4 个增量脚本改为可重跑（dev 库 7 脚本 × 2 次全 exit 0）+ 两个守卫** |
 
 ---
 

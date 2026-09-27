@@ -14,13 +14,24 @@
 --
 --   同时：AiMetadata 增加 tokenEstimated（API 响应可见），网关同步/流式两条路径都已接入。
 --
--- 幂等性说明：重复执行会在 ADD COLUMN 处报 "Duplicate column name"，属预期（列已存在即无需迁移）。
+-- 幂等性说明（v13.18 修订）：原实现是裸 ADD COLUMN，重复执行会报 "Duplicate column name"
+--   并**中断脚本**——"报错属预期"不是可接受的口径（运维脚本按序执行、失败即停）。
+--   现改为 information_schema 前置判断 + 预处理语句：列已存在即跳过，脚本可任意次重跑。
 -- 前置条件：无需备份（仅新增列，不修改既有数据；历史行 token_estimated 为 0/NULL，
 --           与新语义一致——历史值都是服务端真实回传的）。
+-- 执行：需选择库（脚本用 DATABASE()）。
 -- ============================================================
 
-ALTER TABLE `ai_execute_log`
-    ADD COLUMN `token_estimated` tinyint(1) DEFAULT 0 COMMENT 'Token是否为本地估算：1=估算（服务端未回传usage，本地分词得出），0/NULL=服务端真实值' AFTER `output_tokens`;
+SET @has_col := (SELECT COUNT(*) FROM information_schema.COLUMNS
+                 WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'ai_execute_log'
+                   AND COLUMN_NAME = 'token_estimated');
 
--- 复核：以下应显示新列
--- SHOW COLUMNS FROM ai_execute_log LIKE 'token_estimated';
+SET @sql := IF(@has_col = 0,
+    'ALTER TABLE `ai_execute_log` ADD COLUMN `token_estimated` tinyint(1) DEFAULT 0 COMMENT ''Token是否为本地估算：1=估算（服务端未回传usage，本地分词得出），0/NULL=服务端真实值'' AFTER `output_tokens`',
+    'DO 0');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+-- 复核：期望 1 行
+SELECT COLUMN_NAME, COLUMN_TYPE, COLUMN_DEFAULT, COLUMN_COMMENT
+FROM information_schema.COLUMNS
+WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'ai_execute_log' AND COLUMN_NAME = 'token_estimated';
